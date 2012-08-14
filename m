@@ -1,580 +1,265 @@
-From: Daniel Wagner <wagi@monom.org>
-Subject: [PATCH v3 6/6] cgroup: Assign subsystem IDs during compile time
-Date: Tue, 14 Aug 2012 15:02:23 +0200
-Message-ID: <1344949343-26090-8-git-send-email-wagi@monom.org>
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: [PATCH v3 2/6] cgroup: net_cls rework update socket logic
+Date: Tue, 14 Aug 2012 15:02:18 +0200
+Message-ID: <1344949343-26090-3-git-send-email-wagi@monom.org>
 References: <1344949343-26090-1-git-send-email-wagi@monom.org>
-Cc: Daniel Wagner <daniel.wagner@bmw-carit.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	Glauber Costa <glommer@parallels.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Kamezawa Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
-	Li Zefan <lizefan@huawei.com>,
-	Neil Horman <nhorman@tuxdriver.com>, Tejun Heo <tj@kernel.org>
-To: netdev@vger.kernel.org, cgroups@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hotel311.server4you.de ([85.25.146.15]:54837 "EHLO
-	hotel311.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755398Ab2HNNCa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 09:02:30 -0400
-In-Reply-To: <1344949343-26090-1-git-send-email-wagi@monom.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	Li Zefan <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1344949343-26090-1-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Wagner <daniel.wagner@bmw-carit.de>
+From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
 
-We are able to safe some space when we assign the subsystem
-IDs at compile time. Instead of allocating per cgroup
-cgroup->subsys[CGROUP_SUBSYS_COUNT] where CGROUP_SUBSYS_COUNT is
-always 64, we allocate 12 + 1 at max (at this point there are 12
-subsystem). The additinal one is the price we have to pay to
-distinguish between builtin and module subsystems.
+Update net_cls do do the same as net_prio does:
 
-We should only access task_cls_classid() and task_netprioidx()
-if the subsystem is ready to be used using jump labels for this.
+commit 406a3c638ce8b17d9704052c07955490f732c2b8
+Author: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Date:   Fri Jul 20 10:39:25 2012 +0000
 
-Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Gao feng <gaofeng@cn.fujitsu.com>
-Cc: Glauber Costa <glommer@parallels.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>
-Cc: Kamezawa Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Cc: Li Zefan <lizefan@huawei.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: Tejun Heo <tj@kernel.org>
-Cc: netdev@vger.kernel.org
-Cc: cgroups@vger.kernel.org
+    net: netprio_cgroup: rework update socket logic
+
+    Instead of updating the sk_cgrp_prioidx struct field on every send
+    this only updates the field when a task is moved via cgroup
+    infrastructure.
+
+    This allows sockets that may be used by a kernel worker thread
+    to be managed. For example in the iscsi case today a user can
+    put iscsid in a netprio cgroup and control traffic will be sent
+    with the correct sk_cgrp_prioidx value set but as soon as data
+    is sent the kernel worker thread isssues a send and sk_cgrp_prioidx
+    is updated with the kernel worker threads value which is the
+    default case.
+
+    It seems more correct to only update the field when the user
+    explicitly sets it via control group infrastructure. This allows
+    the users to manage sockets that may be used with other threads.
+
+John already send an updated version for the attach function which
+does not rely on the ugly scanf code, which I am using for this patch
+here.
+
+Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Cc: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Cc: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Cc: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Cc: Li Zefan <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 ---
- include/linux/cgroup.h        | 20 +++++++++++++-------
- include/linux/cgroup_subsys.h | 24 ++++++++++++------------
- include/net/cls_cgroup.h      | 41 ++++++++++++-----------------------------
- include/net/netprio_cgroup.h  | 43 ++++++++++++-------------------------------
- kernel/cgroup.c               | 31 +++++++++----------------------
- net/core/netprio_cgroup.c     | 17 ++++++-----------
- net/core/sock.c               | 14 ++++++--------
- net/sched/cls_cgroup.c        | 18 +++++-------------
- 8 files changed, 75 insertions(+), 133 deletions(-)
+ include/net/cls_cgroup.h  | 10 ++--------
+ net/core/netprio_cgroup.c |  2 +-
+ net/core/sock.c           | 11 ++++++-----
+ net/sched/cls_cgroup.c    | 38 ++++++++++++++++++++++++++++++++++++++
+ net/socket.c              |  8 --------
+ 5 files changed, 47 insertions(+), 22 deletions(-)
 
-diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
-index c90eaa8..995739f 100644
---- a/include/linux/cgroup.h
-+++ b/include/linux/cgroup.h
-@@ -46,16 +46,20 @@ extern const struct file_operations proc_cgroup_operations;
- /* Define the enumeration of all builtin cgroup subsystems */
- #define SUBSYS(_x) _x ## _subsys_id,
- enum cgroup_subsys_id {
-+
-+#define IS_SUBSYS_ENABLED(option) IS_BUILTIN(option)
-+#include <linux/cgroup_subsys.h>
-+#undef IS_SUBSYS_ENABLED
-+
-+	CGROUP_BUILTIN_SUBSYS_COUNT,
-+
-+#define IS_SUBSYS_ENABLED(option) IS_MODULE(option)
- #include <linux/cgroup_subsys.h>
--	CGROUP_BUILTIN_SUBSYS_COUNT
-+#undef IS_SUBSYS_ENABLED
-+
-+	CGROUP_SUBSYS_COUNT
- };
- #undef SUBSYS
--/*
-- * This define indicates the maximum number of subsystems that can be loaded
-- * at once. We limit to this many since cgroupfs_root has subsys_bits to keep
-- * track of all of them.
-- */
--#define CGROUP_SUBSYS_COUNT (BITS_PER_BYTE*sizeof(unsigned long))
- 
- /* Per-subsystem/per-cgroup state maintained by the system. */
- struct cgroup_subsys_state {
-@@ -521,7 +525,9 @@ struct cgroup_subsys {
- };
- 
- #define SUBSYS(_x) extern struct cgroup_subsys _x ## _subsys;
-+#define IS_SUBSYS_ENABLED(option) IS_ENABLED(option)
- #include <linux/cgroup_subsys.h>
-+#undef IS_SUBSYS_ENABLED
- #undef SUBSYS
- 
- static inline struct cgroup_subsys_state *cgroup_subsys_state(
-diff --git a/include/linux/cgroup_subsys.h b/include/linux/cgroup_subsys.h
-index dfae957..f204a7a 100644
---- a/include/linux/cgroup_subsys.h
-+++ b/include/linux/cgroup_subsys.h
-@@ -7,73 +7,73 @@
- 
- /* */
- 
--#ifdef CONFIG_CPUSETS
-+#if IS_SUBSYS_ENABLED(CONFIG_CPUSETS)
- SUBSYS(cpuset)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_CGROUP_DEBUG
-+#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_DEBUG)
- SUBSYS(debug)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_CGROUP_SCHED
-+#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_SCHED)
- SUBSYS(cpu_cgroup)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_CGROUP_CPUACCT
-+#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_CPUACCT)
- SUBSYS(cpuacct)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_MEMCG
-+#if IS_SUBSYS_ENABLED(CONFIG_MEMCG)
- SUBSYS(mem_cgroup)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_CGROUP_DEVICE
-+#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_DEVICE)
- SUBSYS(devices)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_CGROUP_FREEZER
-+#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_FREEZER)
- SUBSYS(freezer)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_NET_CLS_CGROUP
-+#if IS_SUBSYS_ENABLED(CONFIG_NET_CLS_CGROUP)
- SUBSYS(net_cls)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_BLK_CGROUP
-+#if IS_SUBSYS_ENABLED(CONFIG_BLK_CGROUP)
- SUBSYS(blkio)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_CGROUP_PERF
-+#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_PERF)
- SUBSYS(perf)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_NETPRIO_CGROUP
-+#if IS_SUBSYS_ENABLED(CONFIG_NETPRIO_CGROUP)
- SUBSYS(net_prio)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_CGROUP_HUGETLB
-+#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_HUGETLB)
- SUBSYS(hugetlb)
- #endif
- 
 diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
-index 865ea49..7834fd7 100644
+index 5f49b69..fc05f43 100644
 --- a/include/net/cls_cgroup.h
 +++ b/include/net/cls_cgroup.h
-@@ -16,6 +16,7 @@
- #include <linux/cgroup.h>
- #include <linux/hardirq.h>
- #include <linux/rcupdate.h>
-+#include <linux/jump_label.h>
- 
- #if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
- 
-@@ -25,27 +26,18 @@ struct cgroup_cls_state
+@@ -24,16 +24,13 @@ struct cgroup_cls_state
  	u32 classid;
  };
  
--extern void sock_update_classid(struct sock *sk, struct task_struct *task);
--
--#else
--
--static inline void sock_update_classid(struct sock *sk, struct task_struct *task)
--{
--}
--
--static inline u32 task_cls_classid(struct task_struct *p)
--{
--	return 0;
--}
--
--#endif
-+extern struct static_key cgroup_cls_enabled;
-+#define clscg_enabled static_key_false(&cgroup_cls_enabled)
- 
--#if IS_BUILTIN(CONFIG_NET_CLS_CGROUP)
+-extern void sock_update_classid(struct sock *sk);
 +extern void sock_update_classid(struct sock *sk, struct task_struct *task);
  
+ #ifdef CONFIG_NET_CLS_CGROUP
  static inline u32 task_cls_classid(struct task_struct *p)
  {
  	int classid;
  
-+	if (!clscg_enabled)
-+		return 0;
-+
+-	if (in_interrupt())
+-		return 0;
+-
  	rcu_read_lock();
  	classid = container_of(task_subsys_state(p, net_cls_subsys_id),
  			       struct cgroup_cls_state, css)->classid;
-@@ -54,24 +46,15 @@ static inline u32 task_cls_classid(struct task_struct *p)
- 	return classid;
- }
+@@ -49,9 +46,6 @@ static inline u32 task_cls_classid(struct task_struct *p)
+ 	int id;
+ 	u32 classid = 0;
  
--#elif IS_MODULE(CONFIG_NET_CLS_CGROUP)
-+#else
- 
--extern int net_cls_subsys_id;
-+static inline void sock_update_classid(struct sock *sk, struct task_struct *task)
-+{
-+}
- 
- static inline u32 task_cls_classid(struct task_struct *p)
- {
--	int id;
--	u32 classid = 0;
+-	if (in_interrupt())
+-		return 0;
 -
--	rcu_read_lock();
--	id = rcu_dereference_index_check(net_cls_subsys_id,
--					 rcu_read_lock_held());
--	if (id >= 0)
--		classid = container_of(task_subsys_state(p, id),
--				       struct cgroup_cls_state, css)->classid;
--	rcu_read_unlock();
--
--	return classid;
-+	return 0;
- }
- 
- #endif
-diff --git a/include/net/netprio_cgroup.h b/include/net/netprio_cgroup.h
-index c43461e..4ebdae6 100644
---- a/include/net/netprio_cgroup.h
-+++ b/include/net/netprio_cgroup.h
-@@ -16,6 +16,7 @@
- #include <linux/cgroup.h>
- #include <linux/hardirq.h>
- #include <linux/rcupdate.h>
-+#include <linux/jump_label.h>
- 
- #if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
- 
-@@ -30,28 +31,19 @@ struct cgroup_netprio_state {
- 	u32 prioidx;
- };
- 
--extern void sock_update_netprioidx(struct sock *sk, struct task_struct *task);
--
--#else
--
--static inline void sock_update_netprioidx(struct sock *sk, struct task_struct *task)
--{
--}
--
--static inline u32 task_netprioidx(struct task_struct *p)
--{
--	return 0;
--}
--
--#endif
-+extern struct static_key cgroup_netprio_enabled;
-+#define netpriocg_enabled static_key_false(&cgroup_netprio_enabled)
- 
--#if IS_BUILTIN(CONFIG_NETPRIO_CGROUP)
-+extern void sock_update_netprioidx(struct sock *sk, struct task_struct *task);
- 
- static inline u32 task_netprioidx(struct task_struct *p)
- {
- 	struct cgroup_netprio_state *state;
- 	u32 idx;
- 
-+	if (!netpriocg_enabled)
-+		return 0;
-+
  	rcu_read_lock();
- 	state = container_of(task_subsys_state(p, net_prio_subsys_id),
- 			     struct cgroup_netprio_state, css);
-@@ -60,26 +52,15 @@ static inline u32 task_netprioidx(struct task_struct *p)
- 	return idx;
+ 	id = rcu_dereference_index_check(net_cls_subsys_id,
+ 					 rcu_read_lock_held());
+@@ -64,7 +58,7 @@ static inline u32 task_cls_classid(struct task_struct *p)
+ }
+ #endif
+ #else
+-static inline void sock_update_classid(struct sock *sk)
++static inline void sock_update_classid(struct sock *sk, struct task_struct *task)
+ {
  }
  
--#elif IS_MODULE(CONFIG_NETPRIO_CGROUP)
-+#else
- 
--extern int net_prio_subsys_id;
-+static inline void sock_update_netprioidx(struct sock *sk, struct task_struct *task)
-+{
-+}
- 
- static inline u32 task_netprioidx(struct task_struct *p)
- {
--	struct cgroup_netprio_state *state;
--	int subsys_id;
--	u32 idx = 0;
--
--	rcu_read_lock();
--	subsys_id = rcu_dereference_index_check(net_prio_subsys_id,
--						rcu_read_lock_held());
--	if (subsys_id >= 0) {
--		state = container_of(task_subsys_state(p, subsys_id),
--				     struct cgroup_netprio_state, css);
--		idx = state->prioidx;
--	}
--	rcu_read_unlock();
--	return idx;
-+	return 0;
- }
- 
- #endif /* CONFIG_NETPRIO_CGROUP */
-diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-index 7981850..aa629ce 100644
---- a/kernel/cgroup.c
-+++ b/kernel/cgroup.c
-@@ -93,9 +93,12 @@ static DEFINE_MUTEX(cgroup_root_mutex);
-  * cgroup_mutex.
-  */
- #define SUBSYS(_x) &_x ## _subsys,
-+#define IS_SUBSYS_ENABLED(option) IS_BUILTIN(option)
- static struct cgroup_subsys *subsys[CGROUP_SUBSYS_COUNT] = {
- #include <linux/cgroup_subsys.h>
- };
-+#undef IS_SUBSYS_ENABLED
-+#undef SUBSYS
- 
- #define MAX_CGROUP_ROOT_NAMELEN 64
- 
-@@ -1307,7 +1310,7 @@ static int parse_cgroupfs_options(char *data, struct cgroup_sb_opts *opts)
- 		 * raced with a module_delete call, and to the user this is
- 		 * essentially a "subsystem doesn't exist" case.
- 		 */
--		for (i--; i >= CGROUP_BUILTIN_SUBSYS_COUNT; i--) {
-+		for (i--; i > CGROUP_BUILTIN_SUBSYS_COUNT; i--) {
- 			/* drop refcounts only on the ones we took */
- 			unsigned long bit = 1UL << i;
- 
-@@ -1324,7 +1327,7 @@ static int parse_cgroupfs_options(char *data, struct cgroup_sb_opts *opts)
- static void drop_parsed_module_refcounts(unsigned long subsys_bits)
- {
- 	int i;
--	for (i = CGROUP_BUILTIN_SUBSYS_COUNT; i < CGROUP_SUBSYS_COUNT; i++) {
-+	for (i = CGROUP_BUILTIN_SUBSYS_COUNT + 1; i < CGROUP_SUBSYS_COUNT; i++) {
- 		unsigned long bit = 1UL << i;
- 
- 		if (!(bit & subsys_bits))
-@@ -4322,7 +4325,7 @@ int __init_or_module cgroup_load_subsys(struct cgroup_subsys *ss)
- 	 */
- 	if (ss->module == NULL) {
- 		/* a few sanity checks */
--		BUG_ON(ss->subsys_id >= CGROUP_BUILTIN_SUBSYS_COUNT);
-+		BUG_ON(ss->subsys_id > CGROUP_BUILTIN_SUBSYS_COUNT);
- 		BUG_ON(subsys[ss->subsys_id] != ss);
- 		return 0;
- 	}
-@@ -4330,24 +4333,8 @@ int __init_or_module cgroup_load_subsys(struct cgroup_subsys *ss)
- 	/* init base cftset */
- 	cgroup_init_cftsets(ss);
- 
--	/*
--	 * need to register a subsys id before anything else - for example,
--	 * init_cgroup_css needs it.
--	 */
- 	mutex_lock(&cgroup_mutex);
--	/* find the first empty slot in the array */
--	for (i = CGROUP_BUILTIN_SUBSYS_COUNT; i < CGROUP_SUBSYS_COUNT; i++) {
--		if (subsys[i] == NULL)
--			break;
--	}
--	if (i == CGROUP_SUBSYS_COUNT) {
--		/* maximum number of subsystems already registered! */
--		mutex_unlock(&cgroup_mutex);
--		return -EBUSY;
--	}
--	/* assign ourselves the subsys_id */
--	ss->subsys_id = i;
--	subsys[i] = ss;
-+	subsys[ss->subsys_id] = ss;
- 
- 	/*
- 	 * no ss->create seems to need anything important in the ss struct, so
-@@ -4356,7 +4343,7 @@ int __init_or_module cgroup_load_subsys(struct cgroup_subsys *ss)
- 	css = ss->create(dummytop);
- 	if (IS_ERR(css)) {
- 		/* failure case - need to deassign the subsys[] slot. */
--		subsys[i] = NULL;
-+		subsys[ss->subsys_id] = NULL;
- 		mutex_unlock(&cgroup_mutex);
- 		return PTR_ERR(css);
- 	}
-@@ -4372,7 +4359,7 @@ int __init_or_module cgroup_load_subsys(struct cgroup_subsys *ss)
- 		if (ret) {
- 			dummytop->subsys[ss->subsys_id] = NULL;
- 			ss->destroy(dummytop);
--			subsys[i] = NULL;
-+			subsys[ss->subsys_id] = NULL;
- 			mutex_unlock(&cgroup_mutex);
- 			return ret;
- 		}
 diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index 238ece6..c3f93a1 100644
+index ed0c043..98478aa 100644
 --- a/net/core/netprio_cgroup.c
 +++ b/net/core/netprio_cgroup.c
-@@ -155,6 +155,9 @@ static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
- 		goto out;
- 	}
+@@ -274,7 +274,7 @@ out_free_devname:
+ 	return ret;
+ }
  
-+	if (!netpriocg_enabled && !cgrp->parent)
-+                static_key_slow_inc(&cgroup_netprio_enabled);
-+
- 	ret = update_netdev_tables();
- 	if (ret < 0) {
- 		put_prioidx(cs->prioidx);
-@@ -173,6 +176,9 @@ static void cgrp_destroy(struct cgroup *cgrp)
- 	struct net_device *dev;
- 	struct netprio_map *map;
- 
-+        if (netpriocg_enabled && !cgrp->parent)
-+                static_key_slow_dec(&cgroup_netprio_enabled);
-+
- 	cs = cgrp_netprio_state(cgrp);
- 	rtnl_lock();
- 	for_each_netdev(&init_net, dev) {
-@@ -342,9 +348,7 @@ struct cgroup_subsys net_prio_subsys = {
- 	.create		= cgrp_create,
- 	.destroy	= cgrp_destroy,
- 	.attach		= net_prio_attach,
--#if IS_BUILTIN(CONFIG_NETPRIO_CGROUP)
- 	.subsys_id	= net_prio_subsys_id,
--#endif
- 	.base_cftypes	= ss_files,
- 	.module		= THIS_MODULE
- };
-@@ -382,10 +386,6 @@ static int __init init_cgroup_netprio(void)
- 	ret = cgroup_load_subsys(&net_prio_subsys);
- 	if (ret)
- 		goto out;
--#if IS_MODULE(CONFIG_NETPRIO_CGROUP)
--	smp_wmb();
--	net_prio_subsys_id = net_prio_subsys.subsys_id;
--#endif
- 
- 	register_netdevice_notifier(&netprio_device_notifier);
- 
-@@ -402,11 +402,6 @@ static void __exit exit_cgroup_netprio(void)
- 
- 	cgroup_unload_subsys(&net_prio_subsys);
- 
--#if IS_MODULE(CONFIG_NETPRIO_CGROUP)
--	net_prio_subsys_id = -1;
--	synchronize_rcu();
--#endif
--
- 	rtnl_lock();
- 	for_each_netdev(&init_net, dev) {
- 		old = rtnl_dereference(dev->priomap);
+-void net_prio_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
++static void net_prio_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
+ {
+ 	struct task_struct *p;
+ 	char *tmp = kzalloc(sizeof(char) * PATH_MAX, GFP_KERNEL);
 diff --git a/net/core/sock.c b/net/core/sock.c
-index bdd06af..301243b 100644
+index 8f67ced..e08df6b 100644
 --- a/net/core/sock.c
 +++ b/net/core/sock.c
-@@ -326,15 +326,13 @@ int __sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+@@ -1223,13 +1223,14 @@ static void sk_prot_free(struct proto *prot, struct sock *sk)
  }
- EXPORT_SYMBOL(__sk_backlog_rcv);
  
--#if defined(CONFIG_CGROUPS)
--#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
--int net_cls_subsys_id = -1;
--EXPORT_SYMBOL_GPL(net_cls_subsys_id);
--#endif
--#if IS_MODULE(CONFIG_NETPRIO_CGROUP)
--int net_prio_subsys_id = -1;
--EXPORT_SYMBOL_GPL(net_prio_subsys_id);
-+#if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
-+struct static_key cgroup_cls_enabled = STATIC_KEY_INIT_FALSE;
-+EXPORT_SYMBOL_GPL(cgroup_cls_enabled);
- #endif
-+#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
-+struct static_key cgroup_netprio_enabled = STATIC_KEY_INIT_FALSE;
-+EXPORT_SYMBOL_GPL(cgroup_netprio_enabled);
- #endif
+ #ifdef CONFIG_CGROUPS
+-void sock_update_classid(struct sock *sk)
++void sock_update_classid(struct sock *sk, struct task_struct *task)
+ {
+ 	u32 classid;
  
- static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
+-	rcu_read_lock();  /* doing current task, which cannot vanish. */
+-	classid = task_cls_classid(current);
+-	rcu_read_unlock();
++	if (in_interrupt())
++		return;
++
++	classid = task_cls_classid(task);
+ 	if (classid && classid != sk->sk_classid)
+ 		sk->sk_classid = classid;
+ }
+@@ -1269,7 +1270,7 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
+ 		sock_net_set(sk, get_net(net));
+ 		atomic_set(&sk->sk_wmem_alloc, 1);
+ 
+-		sock_update_classid(sk);
++		sock_update_classid(sk, current);
+ 		sock_update_netprioidx(sk, current);
+ 	}
+ 
 diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index 9ffe9b5..80f71cd 100644
+index 7743ea8..3535771 100644
 --- a/net/sched/cls_cgroup.c
 +++ b/net/sched/cls_cgroup.c
-@@ -45,12 +45,17 @@ static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
- 
- 	if (cgrp->parent)
- 		cs->classid = cgrp_cls_state(cgrp->parent)->classid;
-+	else if (!clscg_enabled)
-+                static_key_slow_inc(&cgroup_cls_enabled);
- 
- 	return &cs->css;
- }
- 
- static void cgrp_destroy(struct cgroup *cgrp)
- {
-+	if (!cgrp->parent && clscg_enabled)
-+                static_key_slow_dec(&cgroup_cls_enabled);
-+
+@@ -17,6 +17,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/cgroup.h>
+ #include <linux/rcupdate.h>
++#include <linux/fdtable.h>
+ #include <net/rtnetlink.h>
+ #include <net/pkt_cls.h>
+ #include <net/sock.h>
+@@ -53,6 +54,42 @@ static void cgrp_destroy(struct cgroup *cgrp)
  	kfree(cgrp_cls_state(cgrp));
  }
  
-@@ -115,9 +120,7 @@ struct cgroup_subsys net_cls_subsys = {
++static void cgrp_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
++{
++	struct task_struct *p;
++
++	cgroup_taskset_for_each(p, cgrp, tset) {
++		unsigned int fd;
++		struct fdtable *fdt;
++		struct files_struct *files;
++
++		task_lock(p);
++		files = p->files;
++		if (!files) {
++			task_unlock(p);
++			continue;
++		}
++
++		spin_lock(&files->file_lock);
++		fdt = files_fdtable(files);
++		for (fd = 0; fd < fdt->max_fds; fd++) {
++			struct file *file;
++			struct socket *sock;
++			int err;
++
++			file = fcheck_files(files, fd);
++			if (!file)
++				continue;
++
++			sock = sock_from_file(file, &err);
++			if (sock)
++				sock_update_netprioidx(sock->sk, p);
++		}
++		spin_unlock(&files->file_lock);
++		task_unlock(p);
++	}
++}
++
+ static u64 read_classid(struct cgroup *cgrp, struct cftype *cft)
+ {
+ 	return cgrp_cls_state(cgrp)->classid;
+@@ -77,6 +114,7 @@ struct cgroup_subsys net_cls_subsys = {
+ 	.name		= "net_cls",
  	.create		= cgrp_create,
  	.destroy	= cgrp_destroy,
- 	.attach		= cgrp_attach,
--#if IS_BUILTIN(CONFIG_NET_CLS_CGROUP)
++	.attach		= cgrp_attach,
+ #ifdef CONFIG_NET_CLS_CGROUP
  	.subsys_id	= net_cls_subsys_id,
--#endif
- 	.base_cftypes	= ss_files,
- 	.module		= THIS_MODULE,
- };
-@@ -321,12 +324,6 @@ static int __init init_cgroup_cls(void)
- 	if (ret)
- 		goto out;
- 
--#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
--	/* We can't use rcu_assign_pointer because this is an int. */
--	smp_wmb();
--	net_cls_subsys_id = net_cls_subsys.subsys_id;
--#endif
--
- 	ret = register_tcf_proto_ops(&cls_cgroup_ops);
- 	if (ret)
- 		cgroup_unload_subsys(&net_cls_subsys);
-@@ -339,11 +336,6 @@ static void __exit exit_cgroup_cls(void)
+ #endif
+diff --git a/net/socket.c b/net/socket.c
+index dfe5b66..f06c8c4 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -553,8 +553,6 @@ static inline int __sock_sendmsg_nosec(struct kiocb *iocb, struct socket *sock,
  {
- 	unregister_tcf_proto_ops(&cls_cgroup_ops);
+ 	struct sock_iocb *si = kiocb_to_siocb(iocb);
  
--#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
--	net_cls_subsys_id = -1;
--	synchronize_rcu();
--#endif
+-	sock_update_classid(sock->sk);
 -
- 	cgroup_unload_subsys(&net_cls_subsys);
+ 	si->sock = sock;
+ 	si->scm = NULL;
+ 	si->msg = msg;
+@@ -717,8 +715,6 @@ static inline int __sock_recvmsg_nosec(struct kiocb *iocb, struct socket *sock,
+ {
+ 	struct sock_iocb *si = kiocb_to_siocb(iocb);
+ 
+-	sock_update_classid(sock->sk);
+-
+ 	si->sock = sock;
+ 	si->scm = NULL;
+ 	si->msg = msg;
+@@ -829,8 +825,6 @@ static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
+ 	if (unlikely(!sock->ops->splice_read))
+ 		return -EINVAL;
+ 
+-	sock_update_classid(sock->sk);
+-
+ 	return sock->ops->splice_read(sock, ppos, pipe, len, flags);
  }
+ 
+@@ -3353,8 +3347,6 @@ EXPORT_SYMBOL(kernel_setsockopt);
+ int kernel_sendpage(struct socket *sock, struct page *page, int offset,
+ 		    size_t size, int flags)
+ {
+-	sock_update_classid(sock->sk);
+-
+ 	if (sock->ops->sendpage)
+ 		return sock->ops->sendpage(sock, page, offset, size, flags);
  
 -- 
 1.7.12.rc1.16.g05a20c8
