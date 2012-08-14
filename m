@@ -1,39 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netdev/phy: skip disabled mdio-mux nodes
-Date: Tue, 14 Aug 2012 14:16:07 -0700 (PDT)
-Message-ID: <20120814.141607.65849990804791086.davem@davemloft.net>
-References: <CAOZdJXUB7jLZ_p3TmOs+p=jQM4Xs0a=HUdFia5N46M--LYyXJg@mail.gmail.com>
-	<20120814.140736.812697309119422215.davem@davemloft.net>
-	<502ABF2A.9070605@freescale.com>
+Subject: Re: [PATCH v2] net-tcp: TCP/IP stack bypass for loopback
+ connections
+Date: Tue, 14 Aug 2012 14:22:28 -0700 (PDT)
+Message-ID: <20120814.142228.85041202742435369.davem@davemloft.net>
+References: <1344559958-29162-1-git-send-email-brutus@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: david.daney@cavium.com, netdev@vger.kernel.org
-To: timur@freescale.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: edumazet@google.com, netdev@vger.kernel.org
+To: brutus@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38039 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38123 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754432Ab2HNVQI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 17:16:08 -0400
-In-Reply-To: <502ABF2A.9070605@freescale.com>
+	with ESMTP id S1757453Ab2HNVW3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 17:22:29 -0400
+In-Reply-To: <1344559958-29162-1-git-send-email-brutus@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Timur Tabi <timur@freescale.com>
-Date: Tue, 14 Aug 2012 16:12:10 -0500
-
-> David Miller wrote:
-> 
->>> Any chance this patch can get into 3.6?  I don't know if it qualifies
->>> as a fix or not, but getting it into 3.6 would make it easier for me
->>> to apply other patches to the powerpc tree.
->>>
->> 
->> I want you to implement it the way David Daney said to do so.
-> 
-> So you're saying that you don't want this fixed for 3.6?  Because David
-> Daney's suggestion would require me to introduce a new device tree
-> function, and that won't be accepted until 3.7 at the earliest.
-
-If it is infrastrucure needed to fix a bug, it would be accepted.  Stop
-talking nonsense.
+DQpCcnVjZSwgY291bGQgeW91IGludGVncmF0ZSAoYW5kIHVubGlrZSB5b3VyIHN1Ym1pc3Npb24s
+IGFjdHVhbGx5IGJ1aWxkDQphbmQgcnVuIHRlc3QpIFdlaXBpbmcncyBidWcgZml4ZXM/DQoNCkFj
+dHVhbGx5LCBJJ20gYWN0dWFsbHkgYSBsaXR0bGUgYml0IGFsYXJtZWQgYXQgV2VpcGluZydzIGZp
+eGVzLA0KYmVjYXVzZSBpdCBtYWtlcyBpdCBsb29rIGFzIGlmIHlvdSBkaWRuJ3QgdGVzdCB0aGlu
+Z3MgYXQgYWxsIHVuZGVyDQpuZXQtbmV4dCwgYXMgaXQgYXBwZWFycyB0aGF0IHdpdGhvdXQgaGlz
+IGZpeGVzIGFueSBsb29wYmFjayBUQ1ANCmNvbm5lY3Rpb24gd291bGQgT09QUyB0aGUga2VybmVs
+Lg0KDQpJbiBmYWN0LCBpdCB3b3VsZG4ndCBldmVuIGJ1aWxkIHdpdGhvdXQgdGhlIHN5c2N0bF90
+Y3BfZnJpZW5kcyB0eXBvLg0KSW5kZWVkOg0KDQpuZXQvaXB2NC90Y3AuYzogSW4gZnVuY3Rpb24g
+oXRjcF9yZWN2bXNnojoNCm5ldC9pcHY0L3RjcC5jOjE5MzU6MzU6IGVycm9yOiChZnJpZW5kc6Ig
+dW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluIHRoaXMgZnVuY3Rpb24pDQpuZXQvaXB2NC90Y3AuYzox
+OTM1OjM1OiBub3RlOiBlYWNoIHVuZGVjbGFyZWQgaWRlbnRpZmllciBpcyByZXBvcnRlZCBvbmx5
+IG9uY2UgZm9yIGVhY2ggZnVuY3Rpb24gaXQgYXBwZWFycyBpbg0KDQpJIGhvcGUgSSBkb24ndCBu
+ZWVkIHRvIHRlbGwgeW91IGhvdyB1bmFjY2VwdGFibGUgdGhpcyBpcy4NCg0KVGhhdCBhbHNvIG1l
+YW5zIHRoYXQgYWxsIG9mIHlvdXIgbWVhc3VyZW1lbnRzIGluIHRoZSBjb21taXQgbWVzc2FnZQ0K
+d2VyZW4ndCBldmVuIG1hZGUgaW4gdGhlIGNvbnRleHQgd2hlcmUgdGhpcyBwYXRjaCB3aWxsIGJl
+IGFwcGxpZWQuDQoNCkFsc28gdW5hY2NlcHRhYmxlLg0KDQpBbGwgb2YgdGhpcyBtYWtlcyBmb3Ig
+YW4gZXh0cmVtZWx5IHBvb3IgcXVhbGl0eSBzdWJtaXNzaW9uLCBwbGVhc2UNCmNvcnJlY3QgdGhl
+c2UgaXNzdWVzLg0K
