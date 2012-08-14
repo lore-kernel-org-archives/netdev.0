@@ -1,52 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net-tcp: TCP/IP stack bypass for loopback
- connections
-Date: Tue, 14 Aug 2012 14:50:36 -0700 (PDT)
-Message-ID: <20120814.145036.33234171219088031.davem@davemloft.net>
-References: <1344559958-29162-1-git-send-email-brutus@google.com>
-	<20120814.142228.85041202742435369.davem@davemloft.net>
-	<CAEkNxbETGxFAHoNDK5qEmGo+PfLxmhCniLnOTkWxpK8Ycj_r0A@mail.gmail.com>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH 2/2] powerpc/85xx: add Fman MDIO muxing support to the
+ P4080DS
+Date: Tue, 14 Aug 2012 16:53:23 -0500
+Message-ID: <502AC8D3.4010602@freescale.com>
+References: <1344637896-14267-1-git-send-email-timur@freescale.com> <1344637896-14267-2-git-send-email-timur@freescale.com> <5F0028FE-C555-47DE-B69A-888E7322A6E1@kernel.crashing.org> <502AC7C3.9030902@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: edumazet@google.com, netdev@vger.kernel.org
-To: brutus@google.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Kumar Gala <galak@kernel.crashing.org>,
+	Andy Fleming <afleming@freescale.com>, <ddaney.cavm@gmail.com>,
+	<linuxppc-dev@ozlabs.org>, <netdev@vger.kernel.org>
+To: Timur Tabi <timur@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38521 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751369Ab2HNVuh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 17:50:37 -0400
-In-Reply-To: <CAEkNxbETGxFAHoNDK5qEmGo+PfLxmhCniLnOTkWxpK8Ycj_r0A@mail.gmail.com>
+Received: from co1ehsobe005.messaging.microsoft.com ([216.32.180.188]:19433
+	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751369Ab2HNVx3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 17:53:29 -0400
+In-Reply-To: <502AC7C3.9030902@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQnJ1Y2UgQ3VydGlzIDxicnV0dXNAZ29vZ2xlLmNvbT4NCkRhdGU6IFR1ZSwgMTQgQXVn
-IDIwMTIgMTQ6NDU6MDkgLTA3MDANCg0KPiBPbiBUdWUsIEF1ZyAxNCwgMjAxMiBhdCAyOjIyIFBN
-LCBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOg0KPj4NCj4+IEJydWNl
-LCBjb3VsZCB5b3UgaW50ZWdyYXRlIChhbmQgdW5saWtlIHlvdXIgc3VibWlzc2lvbiwgYWN0dWFs
-bHkgYnVpbGQNCj4+IGFuZCBydW4gdGVzdCkgV2VpcGluZydzIGJ1ZyBmaXhlcz8NCj4+DQo+PiBB
-Y3R1YWxseSwgSSdtIGFjdHVhbGx5IGEgbGl0dGxlIGJpdCBhbGFybWVkIGF0IFdlaXBpbmcncyBm
-aXhlcywNCj4+IGJlY2F1c2UgaXQgbWFrZXMgaXQgbG9vayBhcyBpZiB5b3UgZGlkbid0IHRlc3Qg
-dGhpbmdzIGF0IGFsbCB1bmRlcg0KPj4gbmV0LW5leHQsIGFzIGl0IGFwcGVhcnMgdGhhdCB3aXRo
-b3V0IGhpcyBmaXhlcyBhbnkgbG9vcGJhY2sgVENQDQo+PiBjb25uZWN0aW9uIHdvdWxkIE9PUFMg
-dGhlIGtlcm5lbC4NCj4+DQo+ID8/PyByZWJhc2UsIGJ1aWxkLCBib290IGEgZGV2IG1hY2hpbmUs
-IHJ1biBzZXZlcmFsIGhvdXJzIG9mIHRlc3RpbmcsDQo+IHRha2UgbnVtYmVycyBmcm9tIHRlc3Qg
-YW5kIHVwZGF0ZWQgY29tbWl0IG1lc3NhZ2UgKGNvbW1pdCBtZXNzYWdlIHRlc3QNCj4gcmVzdWx0
-cyBjaGFuZ2VkIGZyb20gcGF0Y2ggdG8gcGF0Y2ggc3VibWl0IGJlY2F1c2Ugb2YgdGhpcykgc28g
-Pz8/DQoNCkkgZGlkIGl0IGZvciBldmVyeSByb3VuZCBvZiB0aGUgcGF0Y2ggc2VyaWVzIHJlbW92
-aW5nIHRoZSBlbnRpcmUNCnJvdXRpbmcgY2FjaGUsIHNvIHRoZXNlIGtpbmRzIG9mIGV4Y3VzZXMg
-YXJlIGdvaW5nIHRvIGZhbGwgb24gZGVhZg0KZWFycy4NCg0KSXQncyBwYXJ0IG9mIGRvaW5nIHJl
-c3BvbnNpYmxlIGRldmVsb3BtZW50LCBhbmQgaXQncyBlc3BlY2lhbGx5DQpjcml0aWNhbCB3aGVu
-IHlvdSBhcmUgdG91Y2hpbmcgY29yZSBwYXJ0cyBvZiB0aGUga2VybmVsIGV2ZXJ5b25lDQp1c2Vz
-Lg0KDQo+IA0KPj4gSW4gZmFjdCwgaXQgd291bGRuJ3QgZXZlbiBidWlsZCB3aXRob3V0IHRoZSBz
-eXNjdGxfdGNwX2ZyaWVuZHMgdHlwby4NCj4+IEluZGVlZDoNCj4+DQo+PiBuZXQvaXB2NC90Y3Au
-YzogSW4gZnVuY3Rpb24goXRjcF9yZWN2bXNnojoNCj4+IG5ldC9pcHY0L3RjcC5jOjE5MzU6MzU6
-IGVycm9yOiChZnJpZW5kc6IgdW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluIHRoaXMgZnVuY3Rpb24p
-DQo+PiBuZXQvaXB2NC90Y3AuYzoxOTM1OjM1OiBub3RlOiBlYWNoIHVuZGVjbGFyZWQgaWRlbnRp
-ZmllciBpcyByZXBvcnRlZCBvbmx5IG9uY2UgZm9yIGVhY2ggZnVuY3Rpb24gaXQgYXBwZWFycyBp
-bg0KPj4NCj4gRGlkbid0IGJ1aWxkIHdpdGggQ09ORklHX05FVF9ETUEgYW5kIHdhc24ndCBjYXVn
-aHQgYXMgcGFydCBvZg0KPiByZWJhc2UvbG9jYWwgdmFyIG5hbWUgY2hhbmdlLg0KDQonYWxsbW9k
-Y29uZmlnJyBidWlsZHMgdGFrZSBsZXNzIHRoYW4gMTAgbWludXRlcyBvbiBjdXJyZW50IGhhcmR3
-YXJlLA0KYW5kIHNob3VsZCBiZSBwYXJ0IG9mIHlvdXIgcGF0Y2ggdmFsaWRhdGlvbi4NCg0KRXNw
-ZWNpYWxseSBiZWNhdXNlIHRoaXMgaXMgdGhlIGZpcnN0IHRoaW5nIEknbSBwZXJzb25hbGx5IGdv
-aW5nIHRvDQpkbyB3aXRoIHlvdXIgcGF0Y2guDQo=
+On 08/14/2012 04:48 PM, Timur Tabi wrote:
+> Kumar Gala wrote:
+>>>> +	{
+>>>> +		/*
+>>>> +		 * Warning: this entry might need to be located before those
+>>>> +		 * for the Fman Ethernet nodes.
+>>>> +		 */
+>>>> +		.compatible	= "mdio-mux",
+>>>> +	},
+>>>> 	{}
+>>>> };
+>> Under what condition would that be the case?
+> 
+> We had this discussion already.
+
+I think that was internally, and not on this specific comment wording.
+I don't think that code comment adequately explains things.
+
+> otherwise, the mdio-mux code would not prepare the mdio mus in time, and
+> there would be initialization failures.  Now maybe this goes away with
+> -EPROBE_DEFER, or maybe it doesn't.  But until we push the DPAA drivers
+> upstream, we won't know.
+
+Do you know if it's theoretically supposed to be fixed and just can't
+test it, or are you unsure of whether it's even supposed to work?
+
+I don't think we should be relying on the order of this list to
+determine probe order.  For one thing, it won't work if the drivers
+register after you create the platform devices (e.g. they're modules).
+
+-Scott
