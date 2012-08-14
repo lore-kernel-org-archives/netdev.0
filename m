@@ -1,58 +1,89 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 3/5] net/mlx4_en: Call netif_carrier_off() after
- register_netdev()
-Date: Tue, 14 Aug 2012 15:56:35 +0100
-Message-ID: <1344956195.824.206.camel@deadeye.wl.decadent.org.uk>
-References: <1344940135-17079-1-git-send-email-shchepetkov@ispras.ru>
-	 <1344940135-17079-4-git-send-email-shchepetkov@ispras.ru>
-	 <CF9D1877D81D214CB0CA0669EFAE020C066A09@CMEXMB1.ad.emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <shchepetkov@ispras.ru>, <yevgenyp@mellanox.co.il>,
-	<davem@davemloft.net>, <amirv@mellanox.com>,
-	<ogerlitz@mellanox.com>, <alexg@mellanox.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<ldv-project@ispras.ru>
-To: <Sathya.Perla@Emulex.Com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CF9D1877D81D214CB0CA0669EFAE020C066A09@CMEXMB1.ad.emulex.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Subject: [patch net-next v2 00/15] net: introduce upper device lists and remove dev->master
+Date: Tue, 14 Aug 2012 17:05:33 +0200
+Message-ID: <1344956748-2099-1-git-send-email-jiri@resnulli.us>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	jitendra.kalsaria-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, sony.chacko-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
+	linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, ursula.braun-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
+	blaschka-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
+	shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org,
+	therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
+	gregory.v.rose-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-08-14 at 12:36 +0000, Sathya.Perla@Emulex.Com wrote:
-> >-----Original Message-----
-> >From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-> >Behalf Of Ilya Shchepetkov
-> >
-> >For carrier detection to work properly when binding the driver with a
-> >cable unplugged, netif_carrier_off() should be called after
-> >register_netdev(), not before.
-> >
-> >Calling netif_carrier_off() before register_netdev() was causing the
-> >network interface to miss a linkwatch pending event leading to an
-> >inconsistent state if the link is not up when interface is initialized.
-> 
-> ndo_open() may be called as soon register_netdev() completes...
-> When netif_carrier_off() is called *after* register_netdev(), isn't there
-> a possibility of a ndo_open()->netif_carrier_on() call racing this call, causing
-> incorrect results?
+Hi all.
 
-Yes, you should use something like:
+Recent discussion around
+"[net-next] bonding: don't allow the master to become its slave"
+forced me to think about upper<->lower device connections.
 
-	rtnl_lock();
-	rc = register_netdevice(dev);
-	if (rc)
-		goto out_unlock;
-	netif_carrier_off(dev);
-	rtnl_unlock();
+This patchset adds a possibility to record upper device linkage.
+All upper<->lower devices are converted to use this mechanism right after.
+That leads to dev->master removal because this info becomes redundant since
+"unique links" have the same value.
 
-(Why do we even have register_netdev() when it's such an invitation to
-races?)
+After all changes, there is no longer possible to do:
+"bond->someotherdevice->samebond"
 
-Ben.
+Also I think that drivers like cxgb3, qlcnic, qeth would benefit by this
+in future by being able to get more appropriate info about l3 addresses.
+
+v1->v2:
+- s/unique/master/ better naming + stays closer to the history
+- fixed vlan err goto
+- original patch 15 (WARN_ON change) is squashed into the first patch
+- fixed netdev_unique_upper_dev_get_rcu() case of upper==NULL
+
+Jiri Pirko (15):
+  net: introduce upper device lists
+  macvlan: add link to upper device
+  vlan: add link to upper device
+  rtnetlink: remove usage of dev->master
+  team: remove usage of netdev_set_master()
+  bridge: remove usage of netdev_set_master()
+  netpoll: remove usage of dev->master
+  cxgb3: remove usage of dev->master
+  qlcnic: guard __vlan_find_dev_deep() by rcu_read_lock
+  qeth: ensure that __vlan_find_dev_deep() is called with rcu_read_lock
+  vlan: remove usage of dev->master in __vlan_find_dev_deep()
+  nes: remove usage of dev->master
+  bonding: remove usage of dev->master
+  net: remove no longer used netdev_set_bond_master() and
+    netdev_set_master()
+  net: kill dev->master
+
+ drivers/infiniband/hw/nes/nes.c                    |    8 +-
+ drivers/infiniband/hw/nes/nes_cm.c                 |    2 +-
+ drivers/net/bonding/bond_3ad.c                     |   30 +--
+ drivers/net/bonding/bond_alb.c                     |    6 +-
+ drivers/net/bonding/bond_main.c                    |   94 ++++----
+ drivers/net/bonding/bonding.h                      |   14 +-
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c |   11 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    2 +
+ drivers/net/macvlan.c                              |    9 +-
+ drivers/net/team/team.c                            |   13 +-
+ drivers/s390/net/qeth_l3_main.c                    |   21 +-
+ include/linux/netdevice.h                          |   22 +-
+ net/8021q/vlan.c                                   |   10 +-
+ net/8021q/vlan_core.c                              |   18 +-
+ net/bridge/br_if.c                                 |    6 +-
+ net/core/dev.c                                     |  239 +++++++++++++++++---
+ net/core/netpoll.c                                 |    8 +-
+ net/core/rtnetlink.c                               |   45 ++--
+ 18 files changed, 391 insertions(+), 167 deletions(-)
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
