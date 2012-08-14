@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 3/3] llc: Fix races between llc2 handler use and
- (un)registration
-Date: Tue, 14 Aug 2012 16:52:29 -0700 (PDT)
-Message-ID: <20120814.165229.1188235930691444293.davem@davemloft.net>
+Subject: Re: [PATCH net 2/3] llc2: Call llc_station_exit() on llc2_init()
+ failure path
+Date: Tue, 14 Aug 2012 16:52:23 -0700 (PDT)
+Message-ID: <20120814.165223.953955272458502981.davem@davemloft.net>
 References: <1344862120.824.139.camel@deadeye.wl.decadent.org.uk>
-	<1344862255.824.142.camel@deadeye.wl.decadent.org.uk>
+	<1344862243.824.141.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: acme@ghostprotocols.net, netdev@vger.kernel.org
 To: ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39808 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39803 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754801Ab2HNXwb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 19:52:31 -0400
-In-Reply-To: <1344862255.824.142.camel@deadeye.wl.decadent.org.uk>
+	with ESMTP id S1754542Ab2HNXwY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 19:52:24 -0400
+In-Reply-To: <1344862243.824.141.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ben Hutchings <ben@decadent.org.uk>
-Date: Mon, 13 Aug 2012 13:50:55 +0100
+Date: Mon, 13 Aug 2012 13:50:43 +0100
 
-> When registering the handlers, any state they rely on must be
-> completely initialised first.  When unregistering, we must wait until
-> they are definitely no longer running.  llc_rcv() must also avoid
-> reading the handler pointers again after checking for NULL.
+> Otherwise the station packet handler will remain registered even though
+> the module is unloaded.
 > 
 > Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
-Applied.
+This will cause section mismatch errors, you'll need to remove
+the __exit tag from llc_station_exit() if you want to start
+invoking it from llc2_init() which is __init.
+
+I took care of this when applying this patch to 'net'.
