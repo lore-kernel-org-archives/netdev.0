@@ -1,53 +1,58 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net PATCH v2 2/2] net: netprio: fd passed in SCM_RIGHTS datagram
- not set correctly
-Date: Tue, 14 Aug 2012 07:35:52 -0700
-Message-ID: <502A6248.6090709@intel.com>
-References: <20120814024320.6983.92222.stgit@jf-dev1-dcblab> <20120814024326.6983.97403.stgit@jf-dev1-dcblab> <20120814125523.GA18731@hmsreliant.think-freely.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/5] net/mlx4_en: Call netif_carrier_off() after
+ register_netdev()
+Date: Tue, 14 Aug 2012 15:56:35 +0100
+Message-ID: <1344956195.824.206.camel@deadeye.wl.decadent.org.uk>
+References: <1344940135-17079-1-git-send-email-shchepetkov@ispras.ru>
+	 <1344940135-17079-4-git-send-email-shchepetkov@ispras.ru>
+	 <CF9D1877D81D214CB0CA0669EFAE020C066A09@CMEXMB1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: viro@ZenIV.linux.org.uk, netdev@vger.kernel.org,
-	davem@davemloft.net, linux-kernel@vger.kernel.org, joe@perches.com
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: <shchepetkov@ispras.ru>, <yevgenyp@mellanox.co.il>,
+	<davem@davemloft.net>, <amirv@mellanox.com>,
+	<ogerlitz@mellanox.com>, <alexg@mellanox.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<ldv-project@ispras.ru>
+To: <Sathya.Perla@Emulex.Com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120814125523.GA18731@hmsreliant.think-freely.org>
+In-Reply-To: <CF9D1877D81D214CB0CA0669EFAE020C066A09@CMEXMB1.ad.emulex.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/14/2012 5:55 AM, Neil Horman wrote:
-> On Mon, Aug 13, 2012 at 07:43:27PM -0700, John Fastabend wrote:
->> A socket fd passed in a SCM_RIGHTS datagram was not getting
->> updated with the new tasks cgrp prioidx. This leaves IO on
->> the socket tagged with the old tasks priority.
->>
->> To fix this add a check in the scm recvmsg path to update the
->> sock cgrp prioidx with the new tasks value.
->>
->> Thanks to Al Viro for catching this.
->>
->> CC: Neil Horman <nhorman@tuxdriver.com>
->> Reported-by: Al Viro <viro@ZenIV.linux.org.uk>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
->>
+On Tue, 2012-08-14 at 12:36 +0000, Sathya.Perla@Emulex.Com wrote:
+> >-----Original Message-----
+> >From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
+> >Behalf Of Ilya Shchepetkov
+> >
+> >For carrier detection to work properly when binding the driver with a
+> >cable unplugged, netif_carrier_off() should be called after
+> >register_netdev(), not before.
+> >
+> >Calling netif_carrier_off() before register_netdev() was causing the
+> >network interface to miss a linkwatch pending event leading to an
+> >inconsistent state if the link is not up when interface is initialized.
+> 
+> ndo_open() may be called as soon register_netdev() completes...
+> When netif_carrier_off() is called *after* register_netdev(), isn't there
+> a possibility of a ndo_open()->netif_carrier_on() call racing this call, causing
+> incorrect results?
 
-[...]
+Yes, you should use something like:
 
->> @@ -281,6 +283,9 @@ void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm)
->>   		}
->>   		/* Bump the usage count and install the file. */
->>   		get_file(fp[i]);
->> +		sock = sock_from_file(fp[i], &err);
->> +		if (sock)
->> +			sock->sk->sk_cgrp_prioidx = prioidx;
-> nit: You can replace the prioidx variable above and this set with a call to
-> sock_update_netprioidx
->
-> Neil
->
+	rtnl_lock();
+	rc = register_netdevice(dev);
+	if (rc)
+		goto out_unlock;
+	netif_carrier_off(dev);
+	rtnl_unlock();
 
-OK but then I should also make sock_update_netprioidx inline and drop
-the in_interrupt() call. I'll send a v3 with this change and also a
-third patch to fix a race between write_priomap and cgrp_create (also
-spotted by Al Viro).
+(Why do we even have register_netdev() when it's such an invitation to
+races?)
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
