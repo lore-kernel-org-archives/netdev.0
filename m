@@ -1,79 +1,92 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH v2] net-tcp: TCP/IP stack bypass for loopback
- connections
-Date: Tue, 14 Aug 2012 02:31:55 -0400
-Message-ID: <20120814023155.ffe9c01d.billfink@mindspring.com>
-References: <1344559958-29162-1-git-send-email-brutus@google.com>
+From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Subject: Re: [patch net-next 03/16] vlan: add link to upper device
+Date: Tue, 14 Aug 2012 09:24:27 +0200
+Message-ID: <20120814072427.GA1767@minipsycho.orion>
+References: <1344871635-1052-1-git-send-email-jiri@resnulli.us>
+ <1344871635-1052-4-git-send-email-jiri@resnulli.us>
+ <20120813160421.77a74e4e@obelix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: "Bruce \"Brutus\" Curtis" <brutus@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-masked.atl.sa.earthlink.net ([209.86.89.68]:38987 "EHLO
-	elasmtp-masked.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751734Ab2HNGpD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 02:45:03 -0400
-In-Reply-To: <1344559958-29162-1-git-send-email-brutus@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+	divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, jitendra.kalsaria-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
+	sony.chacko-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	ursula.braun-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, blaschka-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
+	bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org, therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
+	gregory.v.rose-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+To: Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20120813160421.77a74e4e-8Luz0qD3JK/tRgLqZ5aouw@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu,  9 Aug 2012, Bruce "Brutus" Curtis wrote:
+Mon, Aug 13, 2012 at 09:04:21PM CEST, fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org wrote:
+>On Mon, 13 Aug 2012 17:27:02 +0200
+>Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org> wrote:
+>
+>> Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+>> ---
+>>  net/8021q/vlan.c |   10 +++++++++-
+>>  1 file changed, 9 insertions(+), 1 deletion(-)
+>> 
+>> diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+>> index 9096bcb..739665e 100644
+>> --- a/net/8021q/vlan.c
+>> +++ b/net/8021q/vlan.c
+>> @@ -105,6 +105,8 @@ void unregister_vlan_dev(struct net_device *dev, struct list_head *head)
+>>  	 */
+>>  	unregister_netdevice_queue(dev, head);
+>>  
+>> +	netdev_upper_dev_unlink(real_dev, dev);
+>> +
+>>  	if (grp->nr_vlan_devs == 0)
+>>  		vlan_gvrp_uninit_applicant(real_dev);
+>>  
+>> @@ -162,9 +164,13 @@ int register_vlan_dev(struct net_device *dev)
+>>  	if (err < 0)
+>>  		goto out_uninit_applicant;
+>>  
+>> +	err = netdev_upper_dev_link(real_dev, dev);
+>> +	if (err)
+>> +		goto out_uninit_applicant;
+>> +
+>>  	err = register_netdevice(dev);
+>>  	if (err < 0)
+>> -		goto out_uninit_applicant;
+>> +		goto out_upper_dev_unlink;
+>                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>see below:
+>
+>>  
+>>  	/* Account for reference in struct vlan_dev_priv */
+>>  	dev_hold(real_dev);
+>> @@ -180,6 +186,8 @@ int register_vlan_dev(struct net_device *dev)
+>>  
+>>  	return 0;
+>>  
+>> +upper_dev_unlink:
+>^^^^^^^^^^^^^^^^^^^
+>should be out_upper_dev_unlink:
 
-> From: "Bruce \"Brutus\" Curtis" <brutus@google.com>
-> 
-> TCP/IP loopback socket pair stack bypass, based on an idea by, and
-> rough upstream patch from, David Miller <davem@davemloft.net> called
-> "friends", the data structure modifcations and connection scheme are
-> reused with extensive data-path changes.
-> 
-> A new sysctl, net.ipv4.tcp_friends, is added:
->   0: disable friends and use the stock data path.
->   1: enable friends and bypass the stack data path, the default.
+fixed.
 
-The following is from a user perspective, since I am not
-intimately familiar with the internals of the TCP stack.
+Thanks!
 
-I think tcp_friends is a poor name from a user POV.
-Something like tcp_bypass would be much better.
-
-I also believe it should be disabled by default, as that is
-the current behavior, and those who would gain an advantage
-from using it can easily enable it.
-
-Changing the behavior would violate the principle of least
-surprise.  Loopback TCP testing of an application or system
-is often a useful first step in evaluating its behavior and
-performance.  If the TCP stack is bypassed, it will give a
-very false impression when such tests are performed.
-
-Does it preserve all TCP semantics for applications, including
-things like urgent data, ancillary data, and TCP socket options
-and ioctls.  If it doesn't, it shouldn't be the default, and it
-should be documented what features do and don't work when
-tcp_bypass is enabled.  If all TCP semantics are unchanged,
-that would also be good to know and document.
-
-And there's the already mentioned issue of breaking tcpdump
-and related tools.
-
-While this could be a very useful feature in some environments,
-it seems to me it would be safest to have it disabled by default.
-
-					-Bill
-
-
-
-> Note, when friends is enabled any loopback interpose, e.g. tcpdump,
-> will only see the TCP/IP packets during connection establishment and
-> finish, all data bypasses the stack and instead is delivered to the
-> destination socket directly.
-> 
-> Testing done on a 4 socket 2.2GHz "Quad-Core AMD Opteron(tm) Processor
-> 8354 CPU" based system, netperf results for a single connection show
-> increased TCP_STREAM throughput, increased TCP_RR and TCP_CRR transaction
-> rate for most message sizes vs baseline and comparable to AF_UNIX.
-> 
-> Significant increase (up to 4.88x) in aggregate throughput for multiple
-> netperf runs (STREAM 32KB I/O x N) is seen.
+>
+>fbl
+>
+>> +	netdev_upper_dev_unlink(real_dev, dev);
+>>  out_uninit_applicant:
+>>  	if (grp->nr_vlan_devs == 0)
+>>  		vlan_gvrp_uninit_applicant(real_dev);
+>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
