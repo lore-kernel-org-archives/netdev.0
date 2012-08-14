@@ -1,52 +1,52 @@
-From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Subject: Re: [PATCH v3 6/6] cgroup: Assign subsystem IDs during compile time
-Date: Tue, 14 Aug 2012 23:01:28 +0200
-Message-ID: <502ABCA8.1000008@monom.org>
-References: <1344949343-26090-1-git-send-email-wagi@monom.org> <1344949343-26090-8-git-send-email-wagi@monom.org> <20120814172749.GL25632@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netdev/phy: skip disabled mdio-mux nodes
+Date: Tue, 14 Aug 2012 14:07:36 -0700 (PDT)
+Message-ID: <20120814.140736.812697309119422215.davem@davemloft.net>
+References: <1344358266-5450-1-git-send-email-timur@freescale.com>
+	<CAOZdJXUB7jLZ_p3TmOs+p=jQM4Xs0a=HUdFia5N46M--LYyXJg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120814172749.GL25632-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: david.daney@cavium.com, netdev@vger.kernel.org
+To: B04825@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37903 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757537Ab2HNVHh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 17:07:37 -0400
+In-Reply-To: <CAOZdJXUB7jLZ_p3TmOs+p=jQM4Xs0a=HUdFia5N46M--LYyXJg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Tejun,
+From: Tabi Timur-B04825 <B04825@freescale.com>
+Date: Tue, 14 Aug 2012 19:19:58 +0000
 
-On 08/14/2012 07:27 PM, Tejun Heo wrote:
-> On Tue, Aug 14, 2012 at 03:02:23PM +0200, Daniel Wagner wrote:
->> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+> On Tue, Aug 7, 2012 at 11:51 AM, Timur Tabi <timur@freescale.com> wrote:
+>> The mdio-mux driver scans all child mdio nodes, without regard to whether
+>> the node is actually used.  Some device trees include all possible
+>> mdio-mux nodes and rely on the boot loader to disable those that are not
+>> present, based on some run-time configuration.  Those nodes need to be
+>> skipped.
 >>
->> We are able to safe some space when we assign the subsystem
->> IDs at compile time. Instead of allocating per cgroup
->> cgroup->subsys[CGROUP_SUBSYS_COUNT] where CGROUP_SUBSYS_COUNT is
->> always 64, we allocate 12 + 1 at max (at this point there are 12
->> subsystem). The additinal one is the price we have to pay to
->> distinguish between builtin and module subsystems.
->>
->> We should only access task_cls_classid() and task_netprioidx()
->> if the subsystem is ready to be used using jump labels for this.
->
-> I think I want to like this patch but it's kinda confusing to review.
-> Is there any reasonable way that you can split the core changes from
-> net_cls ones?
+>> Signed-off-by: Timur Tabi <timur@freescale.com>
+>> ---
+> 
+> Any chance this patch can get into 3.6?  I don't know if it qualifies
+> as a fix or not, but getting it into 3.6 would make it easier for me
+> to apply other patches to the powerpc tree.
+> 
 
-My bad, sorry about that. Sure, I'll split the patches into smaller 
-pieces and remove net_cls updating part as Neil has requested. You will 
-get someting to review on Thursday, since tomorrow I am out of office.
+I want you to implement it the way David Daney said to do so.
 
-thanks,
-daniel
+And you never need to ask me questions like this, I clearly mark the
+state of your patch:
+
+http://patchwork.ozlabs.org/patch/175750/
+
+So that you can just monitor it instead of wasting my time asking what
+is happening to your patch.
+
+Time of mine you consume forcing me to reply to you in situations like
+this, which you could handle on your own, is time that I can't spend
+reviewing patches from oher people that really are ready to go into
+the tree.
