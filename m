@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: remove netdev_bonding_change()
-Date: Tue, 14 Aug 2012 14:29:03 -0700 (PDT)
-Message-ID: <20120814.142903.2258124984555555061.davem@davemloft.net>
-References: <1344586497-2702-1-git-send-email-amwang@redhat.com>
-	<1344586497-2702-2-git-send-email-amwang@redhat.com>
+Subject: Re: [PATCH RESEND net-next v3] GRE over IPv6
+Date: Tue, 14 Aug 2012 14:29:08 -0700 (PDT)
+Message-ID: <20120814.142908.1316632731728828192.davem@davemloft.net>
+References: <5380798.tqMsGTAipf@dima>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: amwang@redhat.com
+To: xeb@mail.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38265 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38269 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752843Ab2HNV3E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 17:29:04 -0400
-In-Reply-To: <1344586497-2702-2-git-send-email-amwang@redhat.com>
+	with ESMTP id S1752843Ab2HNV3J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 17:29:09 -0400
+In-Reply-To: <5380798.tqMsGTAipf@dima>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Fri, 10 Aug 2012 16:14:57 +0800
+From: Kozlov Dmitry <xeb@mail.ru>
+Date: Fri, 10 Aug 2012 14:51:50 +0400
 
-> I don't see any benifits to use netdev_bonding_change() than
-> using call_netdevice_notifiers() directly.
+> GRE over IPv6 implementation.
 > 
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-
+> Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
+> ---
+> Changes: fixed 'new blank line at EOF' issue.
+> 
 Applied to net-next
