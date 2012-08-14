@@ -1,68 +1,75 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [patch net-next 01/16] net: introduce upper device lists
-Date: Tue, 14 Aug 2012 10:14:00 -0300
-Message-ID: <20120814101400.0ef7aaa9@obelix.rh>
-References: <1344871635-1052-1-git-send-email-jiri@resnulli.us>
-	<1344871635-1052-2-git-send-email-jiri@resnulli.us>
-	<20120813145217.38748c4f@obelix.rh>
-	<20120814122433.GB1661@minipsycho.brq.redhat.com>
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: Re: [PATCH v3 0/6]  cgroup cls & netprio 'cleanups'
+Date: Tue, 14 Aug 2012 15:25:50 +0200
+Message-ID: <502A51DE.7040809@monom.org>
+References: <1344949343-26090-1-git-send-email-wagi@monom.org> <20120814131035.GC18731@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	faisal.latif@intel.com, roland@kernel.org, sean.hefty@intel.com,
-	hal.rosenstock@gmail.com, fubar@us.ibm.com, andy@greyhouse.net,
-	divy@chelsio.com, jitendra.kalsaria@qlogic.com,
-	sony.chacko@qlogic.com, linux-driver@qlogic.com, kaber@trash.net,
-	ursula.braun@de.ibm.com, blaschka@linux.vnet.ibm.com,
-	linux390@de.ibm.com, shemminger@vyatta.com,
-	bhutchings@solarflare.com, therbert@google.com,
-	xiyou.wangcong@gmail.com, joe@perches.com,
-	gregory.v.rose@intel.com, john.r.fastabend@intel.com,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-s390@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63347 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755398Ab2HNNOh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Aug 2012 09:14:37 -0400
-In-Reply-To: <20120814122433.GB1661@minipsycho.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Tim Chen <tim.c.chen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120814131035.GC18731-B26myB8xz7F8NnZeBjwnZQMhkBWG/bsMQH7oEaQurus@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 14 Aug 2012 14:24:33 +0200
-Jiri Pirko <jiri@resnulli.us> wrote:
+Hi Neil,
 
-> Mon, Aug 13, 2012 at 07:52:17PM CEST, fbl@redhat.com wrote:
-> >On Mon, 13 Aug 2012 17:27:00 +0200
-> >Jiri Pirko <jiri@resnulli.us> wrote:
-> >> +	/*
-> >> +	 * To prevent loops, check if dev is not upper device to upper_dev.
-> >> +	 */
-> >> +	if (__netdev_has_upper_dev(upper_dev, dev, true))
-> >> +		return -EBUSY;
-> >> +
-> >> +	if (__netdev_find_upper(dev, upper_dev))
-> >> +		return -EEXIST;
-> >
-> >__netdev_has_upper_dev() can go all the way up finding the device and
-> >the __netdev_find_upper() just check the first level.
-> 
-> 
-> I do not think this ordering is somewhat inportant.
+On 14.08.2012 15:10, Neil Horman wrote:
+> On Tue, Aug 14, 2012 at 03:02:16PM +0200, Daniel Wagner wrote:
+>> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+>>
+>> Hi,
+>>
+>> Sorry for the delay on updating this series. The usual
+>> excuse apply here.
+>>
+>> I saw that John is busy improving net_prio so I took the
+>> liberty to port his changes to net_cls (#1-3). Patch #3 will
+>> collide with John's unapplied patches. I am happy
+>> to rebase this series if needed.
+>>
+>> Patch #4 and #5 improve the readability with using
+>> IS_MODULE/BUILTIN macros. This patches prepare the last
+>> patch.
+>>
+>> Patch #6 removes support for assigning subsystem IDs during
+>> runtime. As it turns out this is not really needed. By doing
+>> so we are able to free some unused memory.
+>>
+>> The patches are against net-next.
+>>
+>> cheers,
+>> daniel
+>>
+> These aren't so much 'cleanups' as feature enhancements and fixes for the first
+> pass of those enhancements (at least in the case of the net_prio cgroup).
 
-it's not the order, see below:
+Sorry about that. I wanted to keep the series title, so that someone 
+looking up older versions find it.
 
-> >I think it would be better to use:
-> >__netdev_find_upper_dev(,,deep=true/false)
-> >__netdev_has_upper(,)
+> I've nothing against them, but since we're still going through some churn on the
+> net_prio variant, it may be best to wait until thats settled before moving them
+> over to net_cls.
 
-It's their names.  Currently, the function ..._find_... look at
-one level only, while the function ..._has_... does one or more
-levels.  I think it's better to swap 'has' and 'find' in their names:
+Sure, I can update this series when the net_prio controller changes have 
+settled down.
 
-__netdev_find_upper_dev(,,deep=true/false) <-- find in all levels
-__netdev_has_upper(,)  <-- check only the one level.
+I just wonder if it wouldn't make sense to merge them together. 
+Obviously, that will break the user space which is not a good thing but 
+having a controller per socket option is not good either.
 
-fbl
+cheers,
+daniel
