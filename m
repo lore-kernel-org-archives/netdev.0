@@ -1,28 +1,82 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [net PATCH v1 2/2] net: netprio: fd passed in SCM_RIGHTS
- datagram not set correctly
-Date: Tue, 14 Aug 2012 03:31:28 +0100
-Message-ID: <20120814023128.GG23464@ZenIV.linux.org.uk>
-References: <20120814013939.3144.13167.stgit@jf-dev1-dcblab>
- <20120814013944.3144.53854.stgit@jf-dev1-dcblab>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [net PATCH v2 1/2] net: netprio: fix files lock and remove useless
+	d_path bits
+Date: Mon, 13 Aug 2012 19:43:21 -0700
+Message-ID: <20120814024320.6983.92222.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org, davem@davemloft.net,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	linux-kernel@vger.kernel.org, joe@perches.com
-To: John Fastabend <john.r.fastabend@intel.com>
+To: viro@ZenIV.linux.org.uk, nhorman@tuxdriver.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120814013944.3144.53854.stgit@jf-dev1-dcblab>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 13, 2012 at 06:39:45PM -0700, John Fastabend wrote:
->  		/* Bump the usage count and install the file. */
->  		get_file(fp[i]);
->  		fd_install(new_fd, fp[i]);
-> +		sock = sock_from_file(fp[i], &err);
-> +		if (sock)
-> +			sock->sk->sk_cgrp_prioidx = prioidx;
+Add lock to prevent a race with a file closing and also remove
+useless and ugly sscanf code. The extra code was never needed
+and the case it supposedly protected against is in fact handled
+correctly by sock_from_file as pointed out by Al Viro.
 
-Better to do that before fd_install() exposes the sucker; it's not
-a serious issue, but it's more obviously correct that way.
+CC: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: Al Viro <viro@ZenIV.linux.org.uk>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+
+ net/core/netprio_cgroup.c |   22 ++++------------------
+ 1 files changed, 4 insertions(+), 18 deletions(-)
+
+diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+index ed0c043..f65dba3 100644
+--- a/net/core/netprio_cgroup.c
++++ b/net/core/netprio_cgroup.c
+@@ -277,12 +277,6 @@ out_free_devname:
+ void net_prio_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
+ {
+ 	struct task_struct *p;
+-	char *tmp = kzalloc(sizeof(char) * PATH_MAX, GFP_KERNEL);
+-
+-	if (!tmp) {
+-		pr_warn("Unable to attach cgrp due to alloc failure!\n");
+-		return;
+-	}
+ 
+ 	cgroup_taskset_for_each(p, cgrp, tset) {
+ 		unsigned int fd;
+@@ -296,32 +290,24 @@ void net_prio_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
+ 			continue;
+ 		}
+ 
+-		rcu_read_lock();
++		spin_lock(&files->file_lock);
+ 		fdt = files_fdtable(files);
+ 		for (fd = 0; fd < fdt->max_fds; fd++) {
+-			char *path;
+ 			struct file *file;
+ 			struct socket *sock;
+-			unsigned long s;
+-			int rv, err = 0;
++			int err;
+ 
+ 			file = fcheck_files(files, fd);
+ 			if (!file)
+ 				continue;
+ 
+-			path = d_path(&file->f_path, tmp, PAGE_SIZE);
+-			rv = sscanf(path, "socket:[%lu]", &s);
+-			if (rv <= 0)
+-				continue;
+-
+ 			sock = sock_from_file(file, &err);
+-			if (!err)
++			if (sock)
+ 				sock_update_netprioidx(sock->sk, p);
+ 		}
+-		rcu_read_unlock();
++		spin_unlock(&files->file_lock);
+ 		task_unlock(p);
+ 	}
+-	kfree(tmp);
+ }
+ 
+ static struct cftype ss_files[] = {
