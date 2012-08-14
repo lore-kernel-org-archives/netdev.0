@@ -1,13 +1,10 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 3/5] drivers/net/ethernet/freescale/fs_enet: fix error return code
-Date: Tue, 14 Aug 2012 14:58:33 +0200
-Message-ID: <1344949115-13266-4-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 4/5] drivers/net/ethernet/mellanox/mlx4/mcg.c: fix error return code
+Date: Tue, 14 Aug 2012 14:58:34 +0200
+Message-ID: <1344949115-13266-5-git-send-email-Julia.Lawall@lip6.fr>
 References: <1344949115-13266-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	Vitaly Bordug <vbordug@ru.mvista.com>,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Pantelis Antoniou <pantelis.antoniou@gmail.com>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1344949115-13266-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -46,51 +43,22 @@ ret = 0
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- drivers/net/ethernet/freescale/fs_enet/mii-bitbang.c |    4 +++-
- drivers/net/ethernet/freescale/fs_enet/mii-fec.c     |    8 ++++++--
- 2 files changed, 9 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/mcg.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/freescale/fs_enet/mii-bitbang.c b/drivers/net/ethernet/freescale/fs_enet/mii-bitbang.c
-index 0f2d1a7..1514533 100644
---- a/drivers/net/ethernet/freescale/fs_enet/mii-bitbang.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/mii-bitbang.c
-@@ -174,8 +174,10 @@ static int __devinit fs_enet_mdio_probe(struct platform_device *ofdev)
- 
- 	new_bus->phy_mask = ~0;
- 	new_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
--	if (!new_bus->irq)
-+	if (!new_bus->irq) {
-+		ret = -ENOMEM;
- 		goto out_unmap_regs;
-+	}
- 
- 	new_bus->parent = &ofdev->dev;
- 	dev_set_drvdata(&ofdev->dev, new_bus);
-diff --git a/drivers/net/ethernet/freescale/fs_enet/mii-fec.c b/drivers/net/ethernet/freescale/fs_enet/mii-fec.c
-index 55bb867..cdf702a 100644
---- a/drivers/net/ethernet/freescale/fs_enet/mii-fec.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/mii-fec.c
-@@ -137,8 +137,10 @@ static int __devinit fs_enet_mdio_probe(struct platform_device *ofdev)
- 	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%x", res.start);
- 
- 	fec->fecp = ioremap(res.start, resource_size(&res));
--	if (!fec->fecp)
-+	if (!fec->fecp) {
-+		ret = -ENOMEM;
- 		goto out_fec;
-+	}
- 
- 	if (get_bus_freq) {
- 		clock = get_bus_freq(ofdev->dev.of_node);
-@@ -172,8 +174,10 @@ static int __devinit fs_enet_mdio_probe(struct platform_device *ofdev)
- 
- 	new_bus->phy_mask = ~0;
- 	new_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
--	if (!new_bus->irq)
-+	if (!new_bus->irq) {
-+		ret = -ENOMEM;
- 		goto out_unmap_regs;
-+	}
- 
- 	new_bus->parent = &ofdev->dev;
- 	dev_set_drvdata(&ofdev->dev, new_bus);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+index 4ec3835..a018ea2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+@@ -432,8 +432,10 @@ static int add_promisc_qp(struct mlx4_dev *dev, u8 port,
+ 			if ((be32_to_cpu(mgm->qp[i]) & MGM_QPN_MASK) == qpn) {
+ 				/* Entry already exists, add to duplicates */
+ 				dqp = kmalloc(sizeof *dqp, GFP_KERNEL);
+-				if (!dqp)
++				if (!dqp) {
++					err = -ENOMEM;
+ 					goto out_mailbox;
++				}
+ 				dqp->qpn = qpn;
+ 				list_add_tail(&dqp->list, &entry->duplicates);
+ 				found = true;
