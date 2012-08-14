@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net-tcp: TCP/IP stack bypass for loopback
- connections
-Date: Tue, 14 Aug 2012 14:22:28 -0700 (PDT)
-Message-ID: <20120814.142228.85041202742435369.davem@davemloft.net>
-References: <1344559958-29162-1-git-send-email-brutus@google.com>
+Subject: Re: [PATCH 1/2] net: move and rename netif_notify_peers()
+Date: Tue, 14 Aug 2012 14:28:57 -0700 (PDT)
+Message-ID: <20120814.142857.1470514951488168790.davem@davemloft.net>
+References: <1344586497-2702-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: edumazet@google.com, netdev@vger.kernel.org
-To: brutus@google.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ian.Campbell@citrix.com
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38123 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38261 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757453Ab2HNVW3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 17:22:29 -0400
-In-Reply-To: <1344559958-29162-1-git-send-email-brutus@google.com>
+	with ESMTP id S1752545Ab2HNV26 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 17:28:58 -0400
+In-Reply-To: <1344586497-2702-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpCcnVjZSwgY291bGQgeW91IGludGVncmF0ZSAoYW5kIHVubGlrZSB5b3VyIHN1Ym1pc3Npb24s
-IGFjdHVhbGx5IGJ1aWxkDQphbmQgcnVuIHRlc3QpIFdlaXBpbmcncyBidWcgZml4ZXM/DQoNCkFj
-dHVhbGx5LCBJJ20gYWN0dWFsbHkgYSBsaXR0bGUgYml0IGFsYXJtZWQgYXQgV2VpcGluZydzIGZp
-eGVzLA0KYmVjYXVzZSBpdCBtYWtlcyBpdCBsb29rIGFzIGlmIHlvdSBkaWRuJ3QgdGVzdCB0aGlu
-Z3MgYXQgYWxsIHVuZGVyDQpuZXQtbmV4dCwgYXMgaXQgYXBwZWFycyB0aGF0IHdpdGhvdXQgaGlz
-IGZpeGVzIGFueSBsb29wYmFjayBUQ1ANCmNvbm5lY3Rpb24gd291bGQgT09QUyB0aGUga2VybmVs
-Lg0KDQpJbiBmYWN0LCBpdCB3b3VsZG4ndCBldmVuIGJ1aWxkIHdpdGhvdXQgdGhlIHN5c2N0bF90
-Y3BfZnJpZW5kcyB0eXBvLg0KSW5kZWVkOg0KDQpuZXQvaXB2NC90Y3AuYzogSW4gZnVuY3Rpb24g
-oXRjcF9yZWN2bXNnojoNCm5ldC9pcHY0L3RjcC5jOjE5MzU6MzU6IGVycm9yOiChZnJpZW5kc6Ig
-dW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluIHRoaXMgZnVuY3Rpb24pDQpuZXQvaXB2NC90Y3AuYzox
-OTM1OjM1OiBub3RlOiBlYWNoIHVuZGVjbGFyZWQgaWRlbnRpZmllciBpcyByZXBvcnRlZCBvbmx5
-IG9uY2UgZm9yIGVhY2ggZnVuY3Rpb24gaXQgYXBwZWFycyBpbg0KDQpJIGhvcGUgSSBkb24ndCBu
-ZWVkIHRvIHRlbGwgeW91IGhvdyB1bmFjY2VwdGFibGUgdGhpcyBpcy4NCg0KVGhhdCBhbHNvIG1l
-YW5zIHRoYXQgYWxsIG9mIHlvdXIgbWVhc3VyZW1lbnRzIGluIHRoZSBjb21taXQgbWVzc2FnZQ0K
-d2VyZW4ndCBldmVuIG1hZGUgaW4gdGhlIGNvbnRleHQgd2hlcmUgdGhpcyBwYXRjaCB3aWxsIGJl
-IGFwcGxpZWQuDQoNCkFsc28gdW5hY2NlcHRhYmxlLg0KDQpBbGwgb2YgdGhpcyBtYWtlcyBmb3Ig
-YW4gZXh0cmVtZWx5IHBvb3IgcXVhbGl0eSBzdWJtaXNzaW9uLCBwbGVhc2UNCmNvcnJlY3QgdGhl
-c2UgaXNzdWVzLg0K
+From: Cong Wang <amwang@redhat.com>
+Date: Fri, 10 Aug 2012 16:14:56 +0800
+
+> I believe net/core/dev.c is a better place for netif_notify_peers(),
+> because other net event notify functions also stay in this file.
+> 
+> And rename it to netdev_notify_peers().
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Ian Campbell <Ian.Campbell@citrix.com>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+
+Applied to net-next
