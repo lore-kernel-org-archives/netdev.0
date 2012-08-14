@@ -1,141 +1,115 @@
 From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: [RFC net-next 4/4] gianfar: Use separate NAPIs for Tx and Rx
+Subject: Re: [RFC net-next 0/4] gianfar: Use separate NAPI for Tx confirmation
  processing
-Date: Tue, 14 Aug 2012 19:08:18 +0300
-Message-ID: <502A77F2.3070002@freescale.com>
-References: <1344428810-29923-1-git-send-email-claudiu.manoil@freescale.com> <1344428810-29923-2-git-send-email-claudiu.manoil@freescale.com> <1344428810-29923-3-git-send-email-claudiu.manoil@freescale.com> <1344428810-29923-4-git-send-email-claudiu.manoil@freescale.com> <1344428810-29923-5-git-send-email-claudiu.manoil@freescale.com> <20120814005114.GA29337@windriver.com>
+Date: Tue, 14 Aug 2012 19:08:14 +0300
+Message-ID: <502A77EE.8040300@freescale.com>
+References: <1344428810-29923-1-git-send-email-claudiu.manoil@freescale.com> <20120808162423.GC11043@windriver.com> <1344444267.28967.225.camel@edumazet-glaptop> <CAOy7UX2AW2w8TE0=7HGqRDJnX3Te5XZmW8UfC8F6HZg1RdWCYw@mail.gmail.com> <5023D21E.1000008@freescale.com> <502929ED.2050703@freescale.com> <20120814011526.GB29337@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	Pankaj Chauhan <pankaj.chauhan@freescale.com>,
-	Eric Dumazet <edumazet@google.com>
+Cc: Tomas Hruby <thruby@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	<netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
 To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from [216.32.181.185] ([216.32.181.185]:30678 "EHLO
 	ch1outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751943Ab2HNQJa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 12:09:30 -0400
-In-Reply-To: <20120814005114.GA29337@windriver.com>
+	by vger.kernel.org with ESMTP id S1751976Ab2HNQJb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 12:09:31 -0400
+In-Reply-To: <20120814011526.GB29337@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/14/2012 03:51 AM, Paul Gortmaker wrote:
-> [[RFC net-next 4/4] gianfar: Use separate NAPIs for Tx and Rx processing] On 08/08/2012 (Wed 15:26) Claudiu Manoil wrote:
->
->> Add a separate napi poll routine for Tx cleanup, to be triggerred by Tx
->> confirmation interrupts only. Existing poll function is modified to handle
->> only the Rx path processing. This allows parallel processing of Rx and Tx
->> confirmation paths on a smp machine (2 cores).
->> The split also results in simpler/cleaner napi poll function implementations,
->> where each processing path has its own budget, thus improving the fairness b/w
->> the processing paths at the same time.
+On 08/14/2012 04:15 AM, Paul Gortmaker wrote:
+> This is a lot lower variation than what you reported earlier (20 
+> versus 200, I think). It was the variation that raised a red flag for 
+> me... 
+Hi Paul,
+The earlier variation, which is much bigger (indeed ~200), was observed 
+on a p1020 (slow, 2 cores, MQ_MG_MODE).
+I did not collect however as detailed measurement results for that 
+board, as I did for p1010 (previous email).
+The most important performance improvement I've noticed however was on 
+the p1020 platform.
+
+>> By changing the coalescing settings from default* (rx coalescing off,
+>> tx-usecs: 10, tx-frames: 16) to:
+>> "ethtool -C eth1 rx-frames 22 tx-frames 22 rx-usecs 32 tx-usecs 32"
+>> we get a throughput of ~710 Mbps.
 >>
->> Signed-off-by: Pankaj Chauhan <pankaj.chauhan@freescale.com>
->> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
->> ---
->>   drivers/net/ethernet/freescale/gianfar.c |  154 +++++++++++++++++++++++-------
->>   drivers/net/ethernet/freescale/gianfar.h |   16 +++-
->>   2 files changed, 130 insertions(+), 40 deletions(-)
+>> For *Image 2)*, using the default tcp_limit_output_bytes value
+>> (131072) - I've noticed
+>> that "tweaking" tcp_limit_output_bytes does not improve the
+>> throughput -, we get the
+>> following performance numbers:
+>> * default coalescing settings: ~650 Mbps
+>> * rx-frames tx-frames 22 rx-usecs 32 tx-usecs 32: ~860-880 Mbps
 >>
->> diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
->> index 919acb3..2774961 100644
->> --- a/drivers/net/ethernet/freescale/gianfar.c
->> +++ b/drivers/net/ethernet/freescale/gianfar.c
->> @@ -128,12 +128,14 @@ static void free_skb_resources(struct gfar_private *priv);
->>   static void gfar_set_multi(struct net_device *dev);
->>   static void gfar_set_hash_for_addr(struct net_device *dev, u8 *addr);
->>   static void gfar_configure_serdes(struct net_device *dev);
->> -static int gfar_poll(struct napi_struct *napi, int budget);
->> +static int gfar_poll_rx(struct napi_struct *napi, int budget);
->> +static int gfar_poll_tx(struct napi_struct *napi, int budget);
->>   #ifdef CONFIG_NET_POLL_CONTROLLER
->>   static void gfar_netpoll(struct net_device *dev);
->>   #endif
->>   int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit);
->> -static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue);
->> +static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue,
->> +			      int tx_work_limit);
-> I'm looking at this in a bit more detail now (was on vacation last wk).
-> With the above, you push a work limit down into the clean_tx_ring.
-> I'm wondering if the above is implicitly involved in the performance
-> difference you see, since...
+>> For *Image 3)*, by disabling BQL (CONFIG_BQL = n), there's *no*
+>> relevant performance
+>> improvement compared to Image 1).
+>> (note:
+>> For all the measurements, rx and tx BD ring sizes have been set to
+>> 64, for best performance.)
+>>
+>> So, I really tend to believe that the performance degradation comes
+>> primarily from the driver,
+>> and the napi poll processing turns out to be an important source for
+>> that. The proposed patches
+> This would make sense, if the CPU was slammed at 100% load in dealing
+> with the tx processing, and the change made the driver considerably more
+> efficient.  But is that really the case?  Is the p1010 really going flat
+> out just to handle the Tx processing?  Have you done any sort of
+> profiling to confirm/deny where the CPU is spending its time?
+The current gfar_poll implementation processes first the tx confirmation 
+path exhaustively, without a budget/ work limit,
+and only then proceeds with the rx processing within the allotted 
+budget. An this happens for both Rx and Tx confirmation
+interrupts. I find this unfair and out of balance. Maybe by letting rx 
+processing to be triggered by rx interrupts only, and
+the tx conf path processing to be triggered by tx confirmation 
+interrupts only, and, on top of that, by imposing a work limit
+on the tx confirmation path too, we get a more responsive driver that 
+performs better. Indeed some profiling data to
+confirm this would be great, but I don't have it.
+
+There's another issues that seems to be solved by this patchset, and 
+I've noticed it only on p1020rdb (this time).
+And that is excessive Rx busy interrupts occurrence. Solving this issue 
+may be another factor for the performance
+improvement on p1020. But maybe this is another discussion.
+
 >
->>   static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
->>   			      int amount_pull, struct napi_struct *napi);
->>   void gfar_halt(struct net_device *dev);
->> @@ -543,16 +545,20 @@ static void disable_napi(struct gfar_private *priv)
->>   {
->>   	int i;
->>   
->> -	for (i = 0; i < priv->num_grps; i++)
->> -		napi_disable(&priv->gfargrp[i].napi);
->> +	for (i = 0; i < priv->num_grps; i++) {
->> +		napi_disable(&priv->gfargrp[i].napi_rx);
->> +		napi_disable(&priv->gfargrp[i].napi_tx);
->> +	}
->>   }
->>   
->>   static void enable_napi(struct gfar_private *priv)
->>   {
->>   	int i;
->>   
->> -	for (i = 0; i < priv->num_grps; i++)
->> -		napi_enable(&priv->gfargrp[i].napi);
->> +	for (i = 0; i < priv->num_grps; i++) {
->> +		napi_enable(&priv->gfargrp[i].napi_rx);
->> +		napi_enable(&priv->gfargrp[i].napi_tx);
->> +	}
->>   }
->>   
->>   static int gfar_parse_group(struct device_node *np,
->> @@ -1028,9 +1034,12 @@ static int gfar_probe(struct platform_device *ofdev)
->>   	dev->ethtool_ops = &gfar_ethtool_ops;
->>   
->>   	/* Register for napi ...We are registering NAPI for each grp */
->> -	for (i = 0; i < priv->num_grps; i++)
->> -		netif_napi_add(dev, &priv->gfargrp[i].napi, gfar_poll,
->> -			       GFAR_DEV_WEIGHT);
->> +	for (i = 0; i < priv->num_grps; i++) {
->> +		netif_napi_add(dev, &priv->gfargrp[i].napi_rx, gfar_poll_rx,
->> +			       GFAR_DEV_RX_WEIGHT);
->> +		netif_napi_add(dev, &priv->gfargrp[i].napi_tx, gfar_poll_tx,
->> +			       GFAR_DEV_TX_WEIGHT);
->> +	}
->>   
->>   	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_CSUM) {
->>   		dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_SG |
->> @@ -2465,7 +2474,8 @@ static void gfar_align_skb(struct sk_buff *skb)
->>   }
->>   
->>   /* Interrupt Handler for Transmit complete */
->> -static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
->> +static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue,
->> +			      int tx_work_limit)
->>   {
->>   	struct net_device *dev = tx_queue->dev;
->>   	struct netdev_queue *txq;
->> @@ -2490,7 +2500,7 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
->>   	bdp = tx_queue->dirty_tx;
->>   	skb_dirtytx = tx_queue->skb_dirtytx;
->>   
->> -	while ((skb = tx_queue->tx_skbuff[skb_dirtytx])) {
->> +	while ((skb = tx_queue->tx_skbuff[skb_dirtytx]) && tx_work_limit--) {
-> ...code like this provides a new exit point that did not exist before,
-> for the case of a massive transmit blast.  Do you have any data on how
-> often the work limit is hit?  The old Don Becker ether drivers which
-> originally introduced the idea of work limits (on IRQs) used to printk a
-> message when they hit it, since ideally it shouldn't be happening all
-> the time.
+>> show substantial improvement, especially for SMP systems where Tx
+>> and Rx processing may be
+>> done in parallel.
+>> What do you think?
+>> Is it ok to proceed by re-spinning the patches? Do you recommend
+>> additional measurements?
+> Unfortunately Eric is out this week, so we will be without his input for
+> a while.  However, we are only at 3.6-rc1 -- meaning net-next will be
+> open for quite some time, hence no need to rush to try and jam stuff in.
 >
-> In any case, it might be worth while to split this change out into a
-> separate commit; something like:
+> Also, I have two targets I'm interested in testing your patches on.  The
+> 1st is a 500MHz mpc8349 board -- which should replicate what you see on
+> your p1010 (slow, single core).  The other is an 8641D, which is
+> interesting since it will give us the SMP tx/rx as separate threads, but
+> without the MQ_MG_MODE support (is that a correct assumption?)
 >
->     gianfar: push transmit cleanup work limit down to clean_tx_ring
+> I don't have any fundamental problem with your patches (although 4/4
+> might be better as two patches) -- the above targets/tests are only
+> of interest, since I'm not convinced we yet understand _why_ your
+> changes give a performance boost, and there might be something
+> interesting hiding in there.
 >
-> The advantage being (1) we can test this change in isolation, and
-> (2) it makes your remaining rx/tx separate thread patch smaller and
-> easier to review.
-Sounds interesting, I think I'll give it a try.
-Thanks,
+> So, while Eric is out, let me see if I can collect some more data on
+> those two targets sometime this week.
+Great, I don't mean to rush.  The more data we get on this the better.
+It would be great if you could do some measurements on your platforms too.
+8641D is indeed a dual core with etsec 1.x (so without the MQ_MG_MODE),
+but I did run some tests on a p2020, which has the same features. However
+I'm eager to see your results.
+Thanks for helping.
+
+Regards,
 Claudiu
