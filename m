@@ -1,8 +1,7 @@
 From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 09/16] SUNRPC/cache: use new hashtable
-	implementation
-Date: Tue, 14 Aug 2012 18:24:43 +0200
-Message-ID: <1344961490-4068-10-git-send-email-levinsasha928@gmail.com>
+Subject: [PATCH 13/16] lockd: use new hashtable implementation
+Date: Tue, 14 Aug 2012 18:24:47 +0200
+Message-ID: <1344961490-4068-14-git-send-email-levinsasha928@gmail.com>
 References: <1344961490-4068-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -35,92 +34,132 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Switch cache to use the new hashtable implementation. This reduces the amount of
-generic unrelated code in the cache implementation.
+Switch lockd to use the new hashtable implementation. This reduces the amount of
+generic unrelated code in lockd.
 
 Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/sunrpc/cache.c |   20 +++++++++-----------
- 1 files changed, 9 insertions(+), 11 deletions(-)
+ fs/lockd/svcsubs.c |   58 +++++++++++++++++++++++++--------------------------
+ 1 files changed, 28 insertions(+), 30 deletions(-)
 
-diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
-index 2afd2a8..2d1f333 100644
---- a/net/sunrpc/cache.c
-+++ b/net/sunrpc/cache.c
-@@ -28,6 +28,7 @@
- #include <linux/workqueue.h>
- #include <linux/mutex.h>
- #include <linux/pagemap.h>
+diff --git a/fs/lockd/svcsubs.c b/fs/lockd/svcsubs.c
+index 0deb5f6..26c90c8 100644
+--- a/fs/lockd/svcsubs.c
++++ b/fs/lockd/svcsubs.c
+@@ -20,6 +20,7 @@
+ #include <linux/lockd/share.h>
+ #include <linux/module.h>
+ #include <linux/mount.h>
 +#include <linux/hashtable.h>
- #include <asm/ioctls.h>
- #include <linux/sunrpc/types.h>
- #include <linux/sunrpc/cache.h>
-@@ -524,19 +525,18 @@ EXPORT_SYMBOL_GPL(cache_purge);
-  * it to be revisited when cache info is available
+ 
+ #define NLMDBG_FACILITY		NLMDBG_SVCSUBS
+ 
+@@ -28,8 +29,7 @@
+  * Global file hash table
   */
+ #define FILE_HASH_BITS		7
+-#define FILE_NRHASH		(1<<FILE_HASH_BITS)
+-static struct hlist_head	nlm_files[FILE_NRHASH];
++static DEFINE_HASHTABLE(nlm_files, FILE_HASH_BITS);
+ static DEFINE_MUTEX(nlm_file_mutex);
  
--#define	DFR_HASHSIZE	(PAGE_SIZE/sizeof(struct list_head))
--#define	DFR_HASH(item)	((((long)item)>>4 ^ (((long)item)>>13)) % DFR_HASHSIZE)
-+#define	DFR_HASH_BITS	9
+ #ifdef NFSD_DEBUG
+@@ -68,7 +68,7 @@ static inline unsigned int file_hash(struct nfs_fh *f)
+ 	int i;
+ 	for (i=0; i<NFS2_FHSIZE;i++)
+ 		tmp += f->data[i];
+-	return tmp & (FILE_NRHASH - 1);
++	return tmp;
+ }
  
- #define	DFR_MAX	300	/* ??? */
- 
- static DEFINE_SPINLOCK(cache_defer_lock);
- static LIST_HEAD(cache_defer_list);
--static struct hlist_head cache_defer_hash[DFR_HASHSIZE];
-+static DEFINE_HASHTABLE(cache_defer_hash, DFR_HASH_BITS)
- static int cache_defer_cnt;
- 
- static void __unhash_deferred_req(struct cache_deferred_req *dreq)
+ /*
+@@ -86,17 +86,17 @@ nlm_lookup_file(struct svc_rqst *rqstp, struct nlm_file **result,
  {
--	hlist_del_init(&dreq->hash);
-+	hash_del(&dreq->hash);
- 	if (!list_empty(&dreq->recent)) {
- 		list_del_init(&dreq->recent);
- 		cache_defer_cnt--;
-@@ -545,10 +545,7 @@ static void __unhash_deferred_req(struct cache_deferred_req *dreq)
+ 	struct hlist_node *pos;
+ 	struct nlm_file	*file;
+-	unsigned int	hash;
++	unsigned int	key;
+ 	__be32		nfserr;
  
- static void __hash_deferred_req(struct cache_deferred_req *dreq, struct cache_head *item)
+ 	nlm_debug_print_fh("nlm_lookup_file", f);
+ 
+-	hash = file_hash(f);
++	key = file_hash(f);
+ 
+ 	/* Lock file table */
+ 	mutex_lock(&nlm_file_mutex);
+ 
+-	hlist_for_each_entry(file, pos, &nlm_files[hash], f_list)
++	hash_for_each_possible(nlm_files, file, pos, f_list, file_hash(f))
+ 		if (!nfs_compare_fh(&file->f_handle, f))
+ 			goto found;
+ 
+@@ -123,7 +123,7 @@ nlm_lookup_file(struct svc_rqst *rqstp, struct nlm_file **result,
+ 		goto out_free;
+ 	}
+ 
+-	hlist_add_head(&file->f_list, &nlm_files[hash]);
++	hash_add(nlm_files, &file->f_list, key);
+ 
+ found:
+ 	dprintk("lockd: found file %p (count %d)\n", file, file->f_count);
+@@ -147,8 +147,8 @@ static inline void
+ nlm_delete_file(struct nlm_file *file)
  {
--	int hash = DFR_HASH(item);
+ 	nlm_debug_print_file("closing file", file);
+-	if (!hlist_unhashed(&file->f_list)) {
+-		hlist_del(&file->f_list);
++	if (hash_hashed(&file->f_list)) {
++		hash_del(&file->f_list);
+ 		nlmsvc_ops->fclose(file->f_file);
+ 		kfree(file);
+ 	} else {
+@@ -253,27 +253,25 @@ nlm_traverse_files(void *data, nlm_host_match_fn_t match,
+ 	int i, ret = 0;
+ 
+ 	mutex_lock(&nlm_file_mutex);
+-	for (i = 0; i < FILE_NRHASH; i++) {
+-		hlist_for_each_entry_safe(file, pos, next, &nlm_files[i], f_list) {
+-			if (is_failover_file && !is_failover_file(data, file))
+-				continue;
+-			file->f_count++;
+-			mutex_unlock(&nlm_file_mutex);
 -
--	INIT_LIST_HEAD(&dreq->recent);
--	hlist_add_head(&dreq->hash, &cache_defer_hash[hash]);
-+	hash_add(cache_defer_hash, &dreq->hash, (unsigned long)item);
- }
- 
- static void setup_deferral(struct cache_deferred_req *dreq,
-@@ -600,7 +597,7 @@ static void cache_wait_req(struct cache_req *req, struct cache_head *item)
- 		 * to clean up
- 		 */
- 		spin_lock(&cache_defer_lock);
--		if (!hlist_unhashed(&sleeper.handle.hash)) {
-+		if (hash_hashed(&sleeper.handle.hash)) {
- 			__unhash_deferred_req(&sleeper.handle);
- 			spin_unlock(&cache_defer_lock);
- 		} else {
-@@ -671,12 +668,11 @@ static void cache_revisit_request(struct cache_head *item)
- 	struct cache_deferred_req *dreq;
- 	struct list_head pending;
- 	struct hlist_node *lp, *tmp;
--	int hash = DFR_HASH(item);
- 
- 	INIT_LIST_HEAD(&pending);
- 	spin_lock(&cache_defer_lock);
- 
--	hlist_for_each_entry_safe(dreq, lp, tmp, &cache_defer_hash[hash], hash)
-+	hash_for_each_possible_safe(cache_defer_hash, dreq, lp, tmp, hash, (unsigned long)item)
- 		if (dreq->item == item) {
- 			__unhash_deferred_req(dreq);
- 			list_add(&dreq->recent, &pending);
-@@ -1636,6 +1632,8 @@ static int create_cache_proc_entries(struct cache_detail *cd, struct net *net)
- void __init cache_initialize(void)
- {
- 	INIT_DELAYED_WORK_DEFERRABLE(&cache_cleaner, do_cache_clean);
+-			/* Traverse locks, blocks and shares of this file
+-			 * and update file->f_locks count */
+-			if (nlm_inspect_file(data, file, match))
+-				ret = 1;
+-
+-			mutex_lock(&nlm_file_mutex);
+-			file->f_count--;
+-			/* No more references to this file. Let go of it. */
+-			if (list_empty(&file->f_blocks) && !file->f_locks
+-			 && !file->f_shares && !file->f_count) {
+-				hlist_del(&file->f_list);
+-				nlmsvc_ops->fclose(file->f_file);
+-				kfree(file);
+-			}
++	hash_for_each_safe(nlm_files, i, pos, next, file, f_list) {
++		if (is_failover_file && !is_failover_file(data, file))
++			continue;
++		file->f_count++;
++		mutex_unlock(&nlm_file_mutex);
 +
-+	hash_init(cache_defer_hash);
- }
- 
- int cache_register_net(struct cache_detail *cd, struct net *net)
++		/* Traverse locks, blocks and shares of this file
++		 * and update file->f_locks count */
++		if (nlm_inspect_file(data, file, match))
++			ret = 1;
++
++		mutex_lock(&nlm_file_mutex);
++		file->f_count--;
++		/* No more references to this file. Let go of it. */
++		if (list_empty(&file->f_blocks) && !file->f_locks
++		 && !file->f_shares && !file->f_count) {
++			hash_del(&file->f_list);
++			nlmsvc_ops->fclose(file->f_file);
++			kfree(file);
+ 		}
+ 	}
+ 	mutex_unlock(&nlm_file_mutex);
 -- 
 1.7.8.6
