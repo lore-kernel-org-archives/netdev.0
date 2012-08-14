@@ -1,36 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net-tcp: TCP/IP stack bypass for loopback
- connections
-Date: Tue, 14 Aug 2012 00:37:32 -0700 (PDT)
-Message-ID: <20120814.003732.714549073635415560.davem@davemloft.net>
-References: <1344559958-29162-1-git-send-email-brutus@google.com>
-	<20120814023155.ffe9c01d.billfink@mindspring.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
+Date: Tue, 14 Aug 2012 10:41:27 +0300
+Message-ID: <502A0127.2080107@mellanox.com>
+References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com> <1343840975-3252-10-git-send-email-ogerlitz@mellanox.com> <87boitz044.fsf@xmission.com> <20120805185031.GA18640@redhat.com> <CAJZOPZKtdvxTGvrxj+T896mEexb=yN9s1cCuqUmhhzCOvUPEnA@mail.gmail.com> <20120812102240.GG1421@redhat.com> <5027AC88.2020509@mellanox.com> <20120812135544.GB6003@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: brutus@google.com, edumazet@google.com, netdev@vger.kernel.org
-To: billfink@mindspring.com
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>, <davem@davemloft.net>,
+	<roland@kernel.org>, <netdev@vger.kernel.org>, <ali@mellanox.com>,
+	<sean.hefty@intel.com>, Erez Shitrit <erezsh@mellanox.co.il>,
+	Doug Ledford <dledford@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56149 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754905Ab2HNHhe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 03:37:34 -0400
-In-Reply-To: <20120814023155.ffe9c01d.billfink@mindspring.com>
+Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:46850 "HELO
+	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754803Ab2HNHlr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 03:41:47 -0400
+In-Reply-To: <20120812135544.GB6003@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bill Fink <billfink@mindspring.com>
-Date: Tue, 14 Aug 2012 02:31:55 -0400
+On 12/08/2012 13:22, Michael S. Tsirkin wrote:
+>>>>>>> - IGMP/MAC snooping in a driver is just too hairy.
+>>>>
+>>>>> mmm, any rough idea/direction how to do that otherwise?
+>>> Sure, even two ways, ideally you'd do both:)
+>>> A. fix macvtap
+>>> 1. Use netdev_for_each_mc_addr etc to get multicast addresses
+>>> 2. teach macvtap to fill that in (it currently floods multicasts
+>>>     for guest to guest communication so we ned to fix it anyway)
+>>>
+>>> B. fix bridge
+>>>     teach bridge to work for VMs without using promisc mode
+>>
 
-> I also believe it should be disabled by default, as that is
-> the current behavior, and those who would gain an advantage
-> from using it can easily enable it.
+OK, I think I'm with you now... you suggest to avoid our direction of 
+implementing promiscuous multicast mode which is applied by today's 
+bridge, macvtap and friends by fixing these elements to support non 
+promisc multicast mode, yep, sure, sounds as win/win, which will 
+eliminate the need to do IGMP snooping in the driver.
 
-It benefits basically everyone, it makes things orders of
-magnitude faster.
-
-> While this could be a very useful feature in some environments,
-> it seems to me it would be safest to have it disabled by default.
-
-I violently disagree, and there is no way I'm having this
-thing off by default.
+Or.
