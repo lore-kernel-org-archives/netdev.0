@@ -1,116 +1,51 @@
-From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [RFC PATCH 0/2] net: connect to UNIX sockets from specified root
-Date: Tue, 14 Aug 2012 12:46:37 +0400
-Message-ID: <502A106D.6010306@parallels.com>
-References: <20120810125701.7115.71612.stgit@localhost.localdomain> <50254FA6.3060806@zytor.com> <20120810192628.79a34d28@pyramind.ukuu.org.uk> <20120810191149.GA17985@fieldses.org> <20120810202818.06236f46@pyramind.ukuu.org.uk> <50259494.8060304@zytor.com> <5025FA5A.4090403@parallels.com> <50263ECC.4060501@parallels.com> <20120813164730.GB2497@fieldses.org> <50293BE9.3010408@parallels.com> <20120813182431.GA4234@fieldses.org>
+From: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [patch net-next 01/16] net: introduce upper device lists
+Date: Tue, 14 Aug 2012 17:02:33 +0800
+Message-ID: <502A1429.9060005@gmail.com>
+References: <1344871635-1052-1-git-send-email-jiri@resnulli.us> <1344871635-1052-2-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	"Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org" <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-	"tim.c.chen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <tim.c.chen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120813182431.GA4234-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+	divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, jitendra.kalsaria-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
+	sony.chacko-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	ursula.braun-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, blaschka-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
+	bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org, therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
+	gregory.v.rose-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1344871635-1052-2-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-13.08.2012 22:24, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Mon, Aug 13, 2012 at 09:39:53PM +0400, Stanislav Kinsbursky wrote:
->> 13.08.2012 20:47, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>> On Sat, Aug 11, 2012 at 03:15:24PM +0400, Stanislav Kinsbursky wrot=
-e:
->>>> 11.08.2012 10:23, Pavel Emelyanov =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>>>> On 08/11/2012 03:09 AM, H. Peter Anvin wrote:
->>>>>> On 08/10/2012 12:28 PM, Alan Cox wrote:
->>>>>>> Explicitly for Linux yes - this is not generally true of the
->>>>>>> AF_UNIX socket domain and even the permissions aspect isn't
->>>>>>> guaranteed to be supported on some BSD environments !
->>>>>> Yes, but let's worry about what the Linux behavior should be.
->>>>>>
->>>>>>> The name is however just a proxy for the socket itself. You
->>>>>>> don't even get a device node in the usual sense or the same ino=
-de
->>>>>>> in the file system space.
->>>>>> No, but it is looked up the same way any other inode is (the
->>>>>> difference between FIFOs and sockets is that sockets have separa=
-te
->>>>>> connections, which is also why open() on sockets would be nice.)
->>>>>>
->>>>>> However, there is a fundamental difference between AF_UNIX socke=
-ts
->>>>>> and open(), and that is how the pathname is delivered.  It thus
->>>>>> would make more sense to provide the openat()-like information i=
-n
->>>>>> struct sockaddr_un, but that may be very hard to do in a sensibl=
-e
->>>>>> way.  In that sense it perhaps would be cleaner to be able to do
->>>>>> an open[at]() on the socket node with O_PATH (perhaps there shou=
-ld
->>>>>> be an O_SOCKET option, even?) and pass the resulting file
->>>>>> descriptor to bind() or connect().
->>>>> I vote for this (openat + O_WHATEVER on a unix socket) as well. I=
-t
->>>>> will help us in checkpoint-restore, making handling of
->>>>> overmounted/unlinked sockets much cleaner.
->>>> I have to notice, that it's not enough and doesn't solve the issue=
-=2E
->>>> There should be some way how to connect/bind already existent unix
->>>> socket (from kernel, at least), because socket can be created in u=
-ser
->>>> space. And this way (sock operation or whatever) have to provide a=
-n
->>>> ability to lookup UNIX socket starting from specified root to supp=
-ort
->>>> containers.
->>> I don't understand--the rpcbind sockets are created by the kernel. =
- What
->>>  am I missing?
->>
->> Kernel preform connect to rpcbind socket (i.e. user-space binds it),
->> doesn't it?
+On 08/13/2012 11:27 PM, Jiri Pirko wrote:
+> This lists are supposed to serve for storing pointers to all upper devices.
+> Eventually it will replace dev->master pointer which is used for
+> bonding, bridge, team but it cannot be used for vlan, macvlan where
+> there might be multiple "masters" present.
 >
-> I'm confused, possibly because there are three "sockets" here: the
-> client-side socket that's connected, the server-side socket that's bo=
-und,
-> and the common object that exists in the filesystem namespace.
->
-> Userland creates the server-side socket and binds to it.  All of that=
- is
-> done in the context of the rpcbind process, so is created in rpcbind'=
-s
-> namespace. That should be OK, right?
->
-> The client side socket is created and connected in xs_local_setup_soc=
-ket().
->
-> Making sure they both end up with the same thing is a matter of makin=
-g sure
-> they lookup the same path in the same namespace.  The difficult part =
-of that
-> is the in-kernel client-side socket connect, where we don't have the =
-right
-> process context any more.
->
+> New upper device list resolves this limitation. Also, the information
+> stored in lists is used for preventing looping setups like
+> "bond->somethingelse->samebond"
 
-Looks like I'm missing something important.
-Where are these UNIX in-kernel created and listening sockets (in code, =
-I mean)?
+Hi, Jiri,
 
---=20
-Best regards,
-Stanislav Kinsbursky
+I have some difficulty to understand this patch description, so take 
+bridged bonding as an example, IIUC, both the bridge dev and bonding dev 
+will be in the upper dev list of eth0 and eth1? And br0 will be in the 
+upper dev list of bond0 too?
+
+I think it would be nice to describe the hierarchy after your patches.
+
+Thanks!
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
