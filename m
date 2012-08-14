@@ -1,52 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] Call netif_carrier_off() after register_netdev()
-Date: Tue, 14 Aug 2012 14:00:19 -0700 (PDT)
-Message-ID: <20120814.140019.1016184364798213214.davem@davemloft.net>
-References: <1344940135-17079-1-git-send-email-shchepetkov@ispras.ru>
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: Re: [PATCH v3 6/6] cgroup: Assign subsystem IDs during compile time
+Date: Tue, 14 Aug 2012 23:01:28 +0200
+Message-ID: <502ABCA8.1000008@monom.org>
+References: <1344949343-26090-1-git-send-email-wagi@monom.org> <1344949343-26090-8-git-send-email-wagi@monom.org> <20120814172749.GL25632@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ldv-project@ispras.ru
-To: shchepetkov@ispras.ru
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1344940135-17079-1-git-send-email-shchepetkov@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120814172749.GL25632-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Ilya Shchepetkov <shchepetkov@ispras.ru>
-Date: Tue, 14 Aug 2012 14:28:50 +0400
+Hi Tejun,
 
-> Hi,
-> 
-> There are several patches on the subject:
-> 	
-> 	31bde1ceaa873bcaecd49e829bfabceacc4c512d
-> 	c55ad8e56b983f03589b38b4504b5d1f41161ff8
-> 	e826eafa65c6f1f7c8db5a237556cebac57ebcc5
-> 	0d672e9f8ac320c6d1ea9103db6df7f99ea20361
-> 	6a3c869a6021f4abcd69aa5fbb15c63f69eb36fe
-> 
-> In 2008, David Miller wrote in his commit:
-> (b47300168e770b60ab96c8924854c3b0eb4260eb)
-> 
->>net: Do not fire linkwatch events until the device is registered.
-> 
->>Several device drivers try to do things like netif_carrier_off()
->>before register_netdev() is invoked.  This is bogus, but too many
->>drivers do this to fix them all up in one go.
-> 
-> But I don't understand what will happen in this case?
+On 08/14/2012 07:27 PM, Tejun Heo wrote:
+> On Tue, Aug 14, 2012 at 03:02:23PM +0200, Daniel Wagner wrote:
+>> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+>>
+>> We are able to safe some space when we assign the subsystem
+>> IDs at compile time. Instead of allocating per cgroup
+>> cgroup->subsys[CGROUP_SUBSYS_COUNT] where CGROUP_SUBSYS_COUNT is
+>> always 64, we allocate 12 + 1 at max (at this point there are 12
+>> subsystem). The additinal one is the price we have to pay to
+>> distinguish between builtin and module subsystems.
+>>
+>> We should only access task_cls_classid() and task_netprioidx()
+>> if the subsystem is ready to be used using jump labels for this.
+>
+> I think I want to like this patch but it's kinda confusing to review.
+> Is there any reasonable way that you can split the core changes from
+> net_cls ones?
 
-Sigh... I would strongly suggest that when you don't understand
-something you leave it alone until you do.
+My bad, sorry about that. Sure, I'll split the patches into smaller 
+pieces and remove net_cls updating part as Neil has requested. You will 
+get someting to review on Thursday, since tomorrow I am out of office.
 
-You can't do the netif_carrier_off() after the device register because
-at the precise moment the device is registered it can be openned in
-parallel on another cpu and thus cause the entire carrier state
-to be changed.
-
-Therefore if you do the netif_carrier_off() afterwards, it might
-be overwriting state changes made in another context.
-
-Please just leave this code alone.
+thanks,
+daniel
