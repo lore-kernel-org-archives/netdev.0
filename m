@@ -1,48 +1,41 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v3 6/6] cgroup: Assign subsystem IDs during compile time
-Date: Tue, 14 Aug 2012 10:27:49 -0700
-Message-ID: <20120814172749.GL25632@google.com>
-References: <1344949343-26090-1-git-send-email-wagi@monom.org>
- <1344949343-26090-8-git-send-email-wagi@monom.org>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH 00/16] generic hashtable implementation
+Date: Tue, 14 Aug 2012 14:16:14 -0400
+Message-ID: <20120814181614.GA15099@fieldses.org>
+References: <1344961490-4068-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	paul.gortmaker@windriver.com, davem@davemloft.net,
+	rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
+	aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org,
+	josh@joshtriplett.org, eric.dumazet@gmail.com,
+	mathieu.desnoyers@efficios.com, axboe@kernel.dk, agk@redhat.com,
+	dm-devel@redhat.com, neilb@suse.de, ccaulfie@redhat.com,
+	teigland@redhat.com, Trond.Myklebust@netapp.com, fweisbec@gmail.com,
+	jesse@nicira.com, venkat.x.venkatsubra@oracle.com, ejt@redhat.com,
+	snitzer@redhat.com, edumazet@google.com, linux-nfs@vger.kernel.org,
+	dev@openvswitch.org, rds-devel@oss.oracle.com, lw@cn.fujitsu.com
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <1344949343-26090-8-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1344961490-4068-1-git-send-email-levinsasha928@gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 14, 2012 at 03:02:23PM +0200, Daniel Wagner wrote:
-> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-> 
-> We are able to safe some space when we assign the subsystem
-> IDs at compile time. Instead of allocating per cgroup
-> cgroup->subsys[CGROUP_SUBSYS_COUNT] where CGROUP_SUBSYS_COUNT is
-> always 64, we allocate 12 + 1 at max (at this point there are 12
-> subsystem). The additinal one is the price we have to pay to
-> distinguish between builtin and module subsystems.
-> 
-> We should only access task_cls_classid() and task_netprioidx()
-> if the subsystem is ready to be used using jump labels for this.
+On Tue, Aug 14, 2012 at 06:24:34PM +0200, Sasha Levin wrote:
+>   SUNRPC/cache: use new hashtable implementation
+..
+>   lockd: use new hashtable implementation
 
-I think I want to like this patch but it's kinda confusing to review.
-Is there any reasonable way that you can split the core changes from
-net_cls ones?
+FWIW, these look fine (and I ran them through some nfs tests and didn't
+see any problems).
 
-Thanks.
+--b.
 
--- 
-tejun
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
