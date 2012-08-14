@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix incorrect comment in netif_tx_stop_queue()
-Date: Tue, 14 Aug 2012 14:46:23 -0700 (PDT)
-Message-ID: <20120814.144623.1855051650444819552.davem@davemloft.net>
-References: <1344869014-7110-1-git-send-email-shchepetkov@ispras.ru>
+Subject: Re: [PATCH net 0/3] qmi_wwan: simplify device matching and add a
+ few new devices
+Date: Tue, 14 Aug 2012 14:46:53 -0700 (PDT)
+Message-ID: <20120814.144653.606253082821782776.davem@davemloft.net>
+References: <1344798992-10176-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ldv-project@ispras.ru
-To: shchepetkov@ispras.ru
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1344869014-7110-1-git-send-email-shchepetkov@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: bjorn@mork.no
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38471 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751044Ab2HNVqy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 17:46:54 -0400
+In-Reply-To: <1344798992-10176-1-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Sun, 12 Aug 2012 21:16:29 +0200
 
-From: Ilya Shchepetkov <shchepetkov@ispras.ru>
-Date: Mon, 13 Aug 2012 18:43:34 +0400
+> The home cooked whitelisting code can be removed now that=20
+> the USB core supports interface number matching.
+>=20
+> The second patch adds a few new devices.
+>=20
+> The third patch improves device list readability by using
+> existing macros where possible.
+>=20
+> I hope this can go in 3.6-rc2/3. The series is based on
+> the current net/master (commit 2359a476)
 
-> netif_stop_queue() can be called before register_netdev() because now
-> TX queues are allocated inside alloc_netdev_mqs().
-> 
-> (since ed9af2e839c06c18f721da2c768fbb444c4a10e5 commit)
-> 
-> Found by Linux Driver Verification project (linuxtesting.org).
-> 
-> Signed-off-by: Ilya Shchepetkov <shchepetkov@ispras.ru>
-
-You're not changing a "comment", you're changing a kernel log message.
-
-Have you actually triggered this condition?
-
-I doubt it, and I'm not applying this patch.
+Ok I changed my mind and applied this to 'net'.
