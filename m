@@ -1,8 +1,7 @@
 From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 08/16] block,
-	elevator: use new hashtable implementation
-Date: Tue, 14 Aug 2012 18:24:42 +0200
-Message-ID: <1344961490-4068-9-git-send-email-levinsasha928@gmail.com>
+Subject: [PATCH 10/16] dlm: use new hashtable implementation
+Date: Tue, 14 Aug 2012 18:24:44 +0200
+Message-ID: <1344961490-4068-11-git-send-email-levinsasha928@gmail.com>
 References: <1344961490-4068-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -35,141 +34,141 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Switch elevator to use the new hashtable implementation. This reduces the amount of
-generic unrelated code in the elevator.
-
-This also removes the dymanic allocation of the hash table. The size of the table is
-constant so there's no point in paying the price of an extra dereference when accessing
-it.
+Switch dlm to use the new hashtable implementation. This reduces the amount of
+generic unrelated code in the dlm.
 
 Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- block/blk.h              |    2 +-
- block/elevator.c         |   23 ++++-------------------
- include/linux/elevator.h |    5 ++++-
- 3 files changed, 9 insertions(+), 21 deletions(-)
+ fs/dlm/lowcomms.c |   47 +++++++++++++----------------------------------
+ 1 files changed, 13 insertions(+), 34 deletions(-)
 
-diff --git a/block/blk.h b/block/blk.h
-index 2a0ea32..5650d48 100644
---- a/block/blk.h
-+++ b/block/blk.h
-@@ -61,7 +61,7 @@ static inline void blk_clear_rq_complete(struct request *rq)
- /*
-  * Internal elevator interface
-  */
--#define ELV_ON_HASH(rq)		(!hlist_unhashed(&(rq)->hash))
-+#define ELV_ON_HASH(rq) hash_hashed(&(rq)->hash)
- 
- void blk_insert_flush(struct request *rq);
- void blk_abort_flushes(struct request_queue *q);
-diff --git a/block/elevator.c b/block/elevator.c
-index 6a55d41..f462a83 100644
---- a/block/elevator.c
-+++ b/block/elevator.c
-@@ -46,11 +46,6 @@ static LIST_HEAD(elv_list);
- /*
-  * Merge hash stuff.
-  */
--static const int elv_hash_shift = 6;
--#define ELV_HASH_BLOCK(sec)	((sec) >> 3)
--#define ELV_HASH_FN(sec)	\
--		(hash_long(ELV_HASH_BLOCK((sec)), elv_hash_shift))
--#define ELV_HASH_ENTRIES	(1 << elv_hash_shift)
- #define rq_hash_key(rq)		(blk_rq_pos(rq) + blk_rq_sectors(rq))
- 
- /*
-@@ -142,7 +137,6 @@ static struct elevator_queue *elevator_alloc(struct request_queue *q,
- 				  struct elevator_type *e)
- {
- 	struct elevator_queue *eq;
--	int i;
- 
- 	eq = kmalloc_node(sizeof(*eq), GFP_KERNEL | __GFP_ZERO, q->node);
- 	if (unlikely(!eq))
-@@ -151,14 +145,7 @@ static struct elevator_queue *elevator_alloc(struct request_queue *q,
- 	eq->type = e;
- 	kobject_init(&eq->kobj, &elv_ktype);
- 	mutex_init(&eq->sysfs_lock);
--
--	eq->hash = kmalloc_node(sizeof(struct hlist_head) * ELV_HASH_ENTRIES,
--					GFP_KERNEL, q->node);
--	if (!eq->hash)
--		goto err;
--
--	for (i = 0; i < ELV_HASH_ENTRIES; i++)
--		INIT_HLIST_HEAD(&eq->hash[i]);
-+	hash_init(eq->hash);
- 
- 	return eq;
- err:
-@@ -173,7 +160,6 @@ static void elevator_release(struct kobject *kobj)
- 
- 	e = container_of(kobj, struct elevator_queue, kobj);
- 	elevator_put(e->type);
--	kfree(e->hash);
- 	kfree(e);
- }
- 
-@@ -240,7 +226,7 @@ EXPORT_SYMBOL(elevator_exit);
- 
- static inline void __elv_rqhash_del(struct request *rq)
- {
--	hlist_del_init(&rq->hash);
-+	hash_del(&rq->hash);
- }
- 
- static void elv_rqhash_del(struct request_queue *q, struct request *rq)
-@@ -254,7 +240,7 @@ static void elv_rqhash_add(struct request_queue *q, struct request *rq)
- 	struct elevator_queue *e = q->elevator;
- 
- 	BUG_ON(ELV_ON_HASH(rq));
--	hlist_add_head(&rq->hash, &e->hash[ELV_HASH_FN(rq_hash_key(rq))]);
-+	hash_add(e->hash, &rq->hash, rq_hash_key(rq));
- }
- 
- static void elv_rqhash_reposition(struct request_queue *q, struct request *rq)
-@@ -266,11 +252,10 @@ static void elv_rqhash_reposition(struct request_queue *q, struct request *rq)
- static struct request *elv_rqhash_find(struct request_queue *q, sector_t offset)
- {
- 	struct elevator_queue *e = q->elevator;
--	struct hlist_head *hash_list = &e->hash[ELV_HASH_FN(offset)];
- 	struct hlist_node *entry, *next;
- 	struct request *rq;
- 
--	hlist_for_each_entry_safe(rq, entry, next, hash_list, hash) {
-+	hash_for_each_possible_safe(e->hash, rq, entry, next, hash, offset) {
- 		BUG_ON(!ELV_ON_HASH(rq));
- 
- 		if (unlikely(!rq_mergeable(rq))) {
-diff --git a/include/linux/elevator.h b/include/linux/elevator.h
-index c03af76..20b539c 100644
---- a/include/linux/elevator.h
-+++ b/include/linux/elevator.h
-@@ -2,6 +2,7 @@
- #define _LINUX_ELEVATOR_H
- 
- #include <linux/percpu.h>
+diff --git a/fs/dlm/lowcomms.c b/fs/dlm/lowcomms.c
+index 522a69f..e36dad2 100644
+--- a/fs/dlm/lowcomms.c
++++ b/fs/dlm/lowcomms.c
+@@ -55,6 +55,7 @@
+ #include <net/sctp/sctp.h>
+ #include <net/sctp/user.h>
+ #include <net/ipv6.h>
 +#include <linux/hashtable.h>
  
- #ifdef CONFIG_BLOCK
+ #include "dlm_internal.h"
+ #include "lowcomms.h"
+@@ -62,7 +63,7 @@
+ #include "config.h"
  
-@@ -96,6 +97,8 @@ struct elevator_type
- 	struct list_head list;
- };
+ #define NEEDED_RMEM (4*1024*1024)
+-#define CONN_HASH_SIZE 32
++#define CONN_HASH_BITS 5
  
-+#define ELV_HASH_BITS 6
-+
- /*
-  * each queue has an elevator_queue associated with it
-  */
-@@ -105,7 +108,7 @@ struct elevator_queue
- 	void *elevator_data;
- 	struct kobject kobj;
- 	struct mutex sysfs_lock;
--	struct hlist_head *hash;
-+	DEFINE_HASHTABLE(hash, ELV_HASH_BITS);
- 	unsigned int registered:1;
- };
+ /* Number of messages to send before rescheduling */
+ #define MAX_SEND_MSG_COUNT 25
+@@ -158,34 +159,21 @@ static int dlm_allow_conn;
+ static struct workqueue_struct *recv_workqueue;
+ static struct workqueue_struct *send_workqueue;
  
+-static struct hlist_head connection_hash[CONN_HASH_SIZE];
++static struct hlist_head connection_hash[CONN_HASH_BITS];
+ static DEFINE_MUTEX(connections_lock);
+ static struct kmem_cache *con_cache;
+ 
+ static void process_recv_sockets(struct work_struct *work);
+ static void process_send_sockets(struct work_struct *work);
+ 
+-
+-/* This is deliberately very simple because most clusters have simple
+-   sequential nodeids, so we should be able to go straight to a connection
+-   struct in the array */
+-static inline int nodeid_hash(int nodeid)
+-{
+-	return nodeid & (CONN_HASH_SIZE-1);
+-}
+-
+ static struct connection *__find_con(int nodeid)
+ {
+-	int r;
+ 	struct hlist_node *h;
+ 	struct connection *con;
+ 
+-	r = nodeid_hash(nodeid);
+-
+-	hlist_for_each_entry(con, h, &connection_hash[r], list) {
++	hash_for_each_possible(connection_hash, con, h, list, nodeid)
+ 		if (con->nodeid == nodeid)
+ 			return con;
+-	}
+ 	return NULL;
+ }
+ 
+@@ -196,7 +184,6 @@ static struct connection *__find_con(int nodeid)
+ static struct connection *__nodeid2con(int nodeid, gfp_t alloc)
+ {
+ 	struct connection *con = NULL;
+-	int r;
+ 
+ 	con = __find_con(nodeid);
+ 	if (con || !alloc)
+@@ -206,8 +193,7 @@ static struct connection *__nodeid2con(int nodeid, gfp_t alloc)
+ 	if (!con)
+ 		return NULL;
+ 
+-	r = nodeid_hash(nodeid);
+-	hlist_add_head(&con->list, &connection_hash[r]);
++	hash_add(connection_hash, &con->list, nodeid);
+ 
+ 	con->nodeid = nodeid;
+ 	mutex_init(&con->sock_mutex);
+@@ -235,11 +221,8 @@ static void foreach_conn(void (*conn_func)(struct connection *c))
+ 	struct hlist_node *h, *n;
+ 	struct connection *con;
+ 
+-	for (i = 0; i < CONN_HASH_SIZE; i++) {
+-		hlist_for_each_entry_safe(con, h, n, &connection_hash[i], list){
+-			conn_func(con);
+-		}
+-	}
++	hash_for_each_safe(connection_hash, i, h, n, con, list)
++		conn_func(con);
+ }
+ 
+ static struct connection *nodeid2con(int nodeid, gfp_t allocation)
+@@ -262,12 +245,10 @@ static struct connection *assoc2con(int assoc_id)
+ 
+ 	mutex_lock(&connections_lock);
+ 
+-	for (i = 0 ; i < CONN_HASH_SIZE; i++) {
+-		hlist_for_each_entry(con, h, &connection_hash[i], list) {
+-			if (con->sctp_assoc == assoc_id) {
+-				mutex_unlock(&connections_lock);
+-				return con;
+-			}
++	hash_for_each(connection_hash, i, h, con, list) {
++		if (con->sctp_assoc == assoc_id) {
++			mutex_unlock(&connections_lock);
++			return con;
+ 		}
+ 	}
+ 	mutex_unlock(&connections_lock);
+@@ -1644,7 +1625,7 @@ static void free_conn(struct connection *con)
+ 	close_connection(con, true);
+ 	if (con->othercon)
+ 		kmem_cache_free(con_cache, con->othercon);
+-	hlist_del(&con->list);
++	hash_del(&con->list);
+ 	kmem_cache_free(con_cache, con);
+ }
+ 
+@@ -1673,10 +1654,8 @@ int dlm_lowcomms_start(void)
+ {
+ 	int error = -EINVAL;
+ 	struct connection *con;
+-	int i;
+ 
+-	for (i = 0; i < CONN_HASH_SIZE; i++)
+-		INIT_HLIST_HEAD(&connection_hash[i]);
++	hash_init(connection_hash);
+ 
+ 	init_local();
+ 	if (!dlm_local_count) {
 -- 
 1.7.8.6
