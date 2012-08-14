@@ -1,52 +1,28 @@
-From: Timur Tabi <timur@freescale.com>
-Subject: Re: [PATCH] netdev/phy: skip disabled mdio-mux nodes
-Date: Tue, 14 Aug 2012 16:12:10 -0500
-Message-ID: <502ABF2A.9070605@freescale.com>
-References: <1344358266-5450-1-git-send-email-timur@freescale.com> <CAOZdJXUB7jLZ_p3TmOs+p=jQM4Xs0a=HUdFia5N46M--LYyXJg@mail.gmail.com> <20120814.140736.812697309119422215.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/7] sctp: network namespace support Part 2:
+ per net tunables
+Date: Tue, 14 Aug 2012 14:14:15 -0700 (PDT)
+Message-ID: <20120814.141415.556937052577510995.davem@davemloft.net>
+References: <87zk67q31q.fsf_-_@xmission.com>
+	<87ipcud3ld.fsf_-_@xmission.com>
+	<20120808.232058.1128673474849407813.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <david.daney@cavium.com>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe004.messaging.microsoft.com ([216.32.180.187]:33552
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754432Ab2HNVMQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 17:12:16 -0400
-In-Reply-To: <20120814.140736.812697309119422215.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-David Miller wrote:
-
->> Any chance this patch can get into 3.6?  I don't know if it qualifies
->> as a fix or not, but getting it into 3.6 would make it easier for me
->> to apply other patches to the powerpc tree.
->>
-> 
-> I want you to implement it the way David Daney said to do so.
-
-So you're saying that you don't want this fixed for 3.6?  Because David
-Daney's suggestion would require me to introduce a new device tree
-function, and that won't be accepted until 3.7 at the earliest.
-
-> And you never need to ask me questions like this, I clearly mark the
-> state of your patch:
-> 
-> http://patchwork.ozlabs.org/patch/175750/
-> 
-> So that you can just monitor it instead of wasting my time asking what
-> is happening to your patch.
-
-Sorry.
-
-> Time of mine you consume forcing me to reply to you in situations like
-> this, which you could handle on your own, is time that I can't spend
-> reviewing patches from oher people that really are ready to go into
-> the tree.
-> 
+Cc: vyasevich@gmail.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jan.ariyasu@hp.com, jan.ariyasu@gmail.com, nhorman@tuxdriver.com,
+	tgraf@infradead.org, xi.wang@gmail.com
+To: ebiederm@xmission.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120808.232058.1128673474849407813.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
--- 
-Timur Tabi
-Linux kernel developer at Freescale
+Come on Vlad, please review this stuff some time this century.  If you
+want inclusion to be dependent upon your review, then the onus is on
+you to review it in a timely manner.  And you are not doing so here.
+
+I'm not letting Eric's patches rot in patchwork for more than a week,
+this is completely unacceptable.
