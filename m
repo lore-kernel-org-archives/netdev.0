@@ -1,114 +1,116 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Tue, 14 Aug 2012 11:44:26 +0300
-Message-ID: <502A0FEA.5050806@mellanox.com>
-References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com> <1343840975-3252-10-git-send-email-ogerlitz@mellanox.com> <87boitz044.fsf@xmission.com> <20120805185031.GA18640@redhat.com> <CAJZOPZKtdvxTGvrxj+T896mEexb=yN9s1cCuqUmhhzCOvUPEnA@mail.gmail.com> <20120812102240.GG1421@redhat.com> <5027AC88.2020509@mellanox.com> <20120812135544.GB6003@redhat.com> <5027BA17.6010503@mellanox.com> <20120812205457.GA14081@redhat.com>
+From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: Re: [RFC PATCH 0/2] net: connect to UNIX sockets from specified root
+Date: Tue, 14 Aug 2012 12:46:37 +0400
+Message-ID: <502A106D.6010306@parallels.com>
+References: <20120810125701.7115.71612.stgit@localhost.localdomain> <50254FA6.3060806@zytor.com> <20120810192628.79a34d28@pyramind.ukuu.org.uk> <20120810191149.GA17985@fieldses.org> <20120810202818.06236f46@pyramind.ukuu.org.uk> <50259494.8060304@zytor.com> <5025FA5A.4090403@parallels.com> <50263ECC.4060501@parallels.com> <20120813164730.GB2497@fieldses.org> <50293BE9.3010408@parallels.com> <20120813182431.GA4234@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>, <davem@davemloft.net>,
-	<roland@kernel.org>, <netdev@vger.kernel.org>, <ali@mellanox.com>,
-	<sean.hefty@intel.com>, Erez Shitrit <erezsh@mellanox.co.il>,
-	Doug Ledford <dledford@redhat.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:43995 "HELO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754897Ab2HNIqH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 04:46:07 -0400
-In-Reply-To: <20120812205457.GA14081@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	"Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org" <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+	"tim.c.chen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <tim.c.chen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120813182431.GA4234-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 12/08/2012 23:54, Michael S. Tsirkin wrote:
-> On Sun, Aug 12, 2012 at 05:13:43PM +0300, Or Gerlitz wrote:
->> On 12/08/2012 16:55, Michael S. Tsirkin wrote:
->>> I didn't realize you do ARP snooping. Why? I know you mangle
->>> outgoing ARP packets,
+13.08.2012 22:24, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Mon, Aug 13, 2012 at 09:39:53PM +0400, Stanislav Kinsbursky wrote:
+>> 13.08.2012 20:47, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>>> On Sat, Aug 11, 2012 at 03:15:24PM +0400, Stanislav Kinsbursky wrot=
+e:
+>>>> 11.08.2012 10:23, Pavel Emelyanov =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>>>>> On 08/11/2012 03:09 AM, H. Peter Anvin wrote:
+>>>>>> On 08/10/2012 12:28 PM, Alan Cox wrote:
+>>>>>>> Explicitly for Linux yes - this is not generally true of the
+>>>>>>> AF_UNIX socket domain and even the permissions aspect isn't
+>>>>>>> guaranteed to be supported on some BSD environments !
+>>>>>> Yes, but let's worry about what the Linux behavior should be.
+>>>>>>
+>>>>>>> The name is however just a proxy for the socket itself. You
+>>>>>>> don't even get a device node in the usual sense or the same ino=
+de
+>>>>>>> in the file system space.
+>>>>>> No, but it is looked up the same way any other inode is (the
+>>>>>> difference between FIFOs and sockets is that sockets have separa=
+te
+>>>>>> connections, which is also why open() on sockets would be nice.)
+>>>>>>
+>>>>>> However, there is a fundamental difference between AF_UNIX socke=
+ts
+>>>>>> and open(), and that is how the pathname is delivered.  It thus
+>>>>>> would make more sense to provide the openat()-like information i=
+n
+>>>>>> struct sockaddr_un, but that may be very hard to do in a sensibl=
+e
+>>>>>> way.  In that sense it perhaps would be cleaner to be able to do
+>>>>>> an open[at]() on the socket node with O_PATH (perhaps there shou=
+ld
+>>>>>> be an O_SOCKET option, even?) and pass the resulting file
+>>>>>> descriptor to bind() or connect().
+>>>>> I vote for this (openat + O_WHATEVER on a unix socket) as well. I=
+t
+>>>>> will help us in checkpoint-restore, making handling of
+>>>>> overmounted/unlinked sockets much cleaner.
+>>>> I have to notice, that it's not enough and doesn't solve the issue=
+=2E
+>>>> There should be some way how to connect/bind already existent unix
+>>>> socket (from kernel, at least), because socket can be created in u=
+ser
+>>>> space. And this way (sock operation or whatever) have to provide a=
+n
+>>>> ability to lookup UNIX socket starting from specified root to supp=
+ort
+>>>> containers.
+>>> I don't understand--the rpcbind sockets are created by the kernel. =
+ What
+>>>  am I missing?
 >>
->> Maybe I wasn't accurate/clear, we do mangle outgoing/incoming ARP
->> packets, from/to Ethernet ARPs to/from IPoIB ARPs.
->>
->>
->>> this will go away if you maintain a mapping in SM accessible to all guests.
->>
->> guests don't interact with IB, I assume you referred to dom0 code, eIPoIB or
->> another driver in the host. But what mapping exactly?
+>> Kernel preform connect to rpcbind socket (i.e. user-space binds it),
+>> doesn't it?
 >
-> Well we are getting into protocol design here.
+> I'm confused, possibly because there are three "sockets" here: the
+> client-side socket that's connected, the server-side socket that's bo=
+und,
+> and the common object that exists in the filesystem namespace.
+>
+> Userland creates the server-side socket and binds to it.  All of that=
+ is
+> done in the context of the rpcbind process, so is created in rpcbind'=
+s
+> namespace. That should be OK, right?
+>
+> The client side socket is created and connected in xs_local_setup_soc=
+ket().
+>
+> Making sure they both end up with the same thing is a matter of makin=
+g sure
+> they lookup the same path in the same namespace.  The difficult part =
+of that
+> is the in-kernel client-side socket connect, where we don't have the =
+right
+> process context any more.
+>
 
-wait... reading your responses again, I realized that we 1st and most 
-have to (try and) agree on the
-problem statement before going/jumping to solutions.
+Looks like I'm missing something important.
+Where are these UNIX in-kernel created and listening sockets (in code, =
+I mean)?
 
-AFAIU your email/s you maybe think that we mandate the admin to set a 
-specific MAC to the VM which is derived from the LID/QPN of the IPoIB 
-VIF serving it, well this is wrong, we don't,  OTOH, indeed, the VM 
-source mac isn't sent on the wire, since the Ethernet header is dropped, 
-and on the receiving side is constructed from the LID/QPN
-the IB packet arrived from, see next.
-
-This reconstruction of what we call the REMAC (remote ethernet mac) is 
-based in the current submission on
-the LID/QPN, and as I said earlier on this thread, we are revisiting 
-this approach -- where your idea below sounds
-good: the eipoib driver can register with the SA an IB "service record" 
-entry mapping from LID/QPN to the VM mac, when ever a VM is to be served 
-by this eipoib instance, and remove the entry when the VM shouldn't be 
-served any more. This will allow to preserve 1:1 the Ethernet MAC header 
-sent by VMs on the receiving side.
-
-
-
-> So here's a sketch showing how you could build a protocol that does work.  But note it is not *exactly* IPoIB.
-
-HOWEVER, this doesn't touch the IPoIB wire protocol, and hence on the 
-wire it IS exactly IPoIB. We only make use of your lovely suggestion to 
-apply this SA assistance, so the change doesn't involve 
-hardware/firmware nor the wire protocol.
-
-Or.
-
-
-> It is I think close enough that you can use existing NIC hardware/firmware, which is why it differs slightly from what Eric described, and is more complex.  But it still shares the same property of no hacks, no packet snooping in driver, etc.
->
->
-> And if you want to go that route, you really should talk to some IB
-> protocol people to figure out what works, write a spec and try to
-> standardize. lkml/netdev is not the right place.
->
-> But since you asked, if I had to, I would probably try to
-> do it like this:
->
-> - Each device registers with the SA specifying the
->    mac address (+ vlan?), SA stores the translation from that
->    to IPoIB address.
-> - alternatively, SA admin configures the translation statically
-> - you get a packet with 6 byte mac address,
->    query the SA for a mapping to IPoIB address, strip
->    ethernet frame and send
-> - multicast GID addresses can be similar, filled either when registering
->    for multicast or by SA admin
->
-> I think it's possible that you could also convert a mac address to
-> EUI-64 and prepend a prefix to get a legal GID. But maybe I'm missing
-> something.  This could be handy for multicast.
->
->
-> In both cases:
-> - SA could return GID that you then resolve to
->    LID using another query, or it could return LID so you save a roundtrip
-> - results can be cached locally
-> - SA can send updates when translation changes to flush this cache
->
->
-> Now above means protocols such as ARP and DHCP use 48 bit addresses so
-> you can not mix this new protocol with IPoIB.  Maybe IPoIB could simply
-> ignore irrelevant packets, but it's best not to try, get a
-> different all-broadcast group and CM ID instead to avoid confusion.
->
-> One other interesting thing you can do is forward multicast
-> registration data from the router, translate to mgid
-> by the SA and do appropriate IB mcast registrations.
->
->
+--=20
+Best regards,
+Stanislav Kinsbursky
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
