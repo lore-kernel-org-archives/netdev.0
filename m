@@ -1,35 +1,58 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL nf-next] IPVS
-Date: Tue, 14 Aug 2012 11:06:38 +0200
-Message-ID: <20120814090638.GA17450@1984>
-References: <1344562895-22790-1-git-send-email-horms@verge.net.au>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: [Xen-devel] [PATCH] netvm: check for page == NULL when
+ propogating the skb->pfmemalloc flag
+Date: Tue, 14 Aug 2012 11:05:22 +0100
+Message-ID: <20120814100522.GL4177@suse.de>
+References: <20120807085554.GF29814@suse.de>
+ <20120808.155046.820543563969484712.davem@davemloft.net>
+ <20120813154144.GA24868@phenom.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: David Miller <davem@davemloft.net>,
+	Ian Campbell <Ian.Campbell@eu.citrix.com>,
+	xen-devel@lists.xensource.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org, konrad@darnok.org,
+	akpm@linux-foundation.org
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <1344562895-22790-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+In-Reply-To: <20120813154144.GA24868@phenom.dumpdata.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 10, 2012 at 10:41:29AM +0900, Simon Horman wrote:
-> Hi Pablo,
+On Mon, Aug 13, 2012 at 11:41:44AM -0400, Konrad Rzeszutek Wilk wrote:
+> On Wed, Aug 08, 2012 at 03:50:46PM -0700, David Miller wrote:
+> > From: Mel Gorman <mgorman@suse.de>
+> > Date: Tue, 7 Aug 2012 09:55:55 +0100
+> > 
+> > > Commit [c48a11c7: netvm: propagate page->pfmemalloc to skb] is responsible
+> > > for the following bug triggered by a xen network driver
+> >  ...
+> > > The problem is that the xenfront driver is passing a NULL page to
+> > > __skb_fill_page_desc() which was unexpected. This patch checks that
+> > > there is a page before dereferencing.
+> > > 
+> > > Reported-and-Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> > > Signed-off-by: Mel Gorman <mgorman@suse.de>
+> > 
+> > That call to __skb_fill_page_desc() in xen-netfront.c looks completely bogus.
+> > It's the only driver passing NULL here.
 > 
-> please consider the following enhancements to IPVS for inclusion in 3.7.
+> It looks to be passing a valid page pointer (at least by looking
+> at the code) so I am not sure how it got turned in a NULL.
 > 
-> ----------------------------------------------------------------
-> The following changes since commit 173f8654746c138a08f51a8a0db7747763a896a2:
-> 
->   Merge tag 'ext4_for_linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tytso/ext4 (2012-07-27 20:52:25 -0700)
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git master
 
-Pulled, thanks Simon.
+Are we looking at different code bases? I see this and I was assuming it
+was the source of the bug.
+
+	__skb_fill_page_desc(skb, 0, NULL, 0, 0);
+
+-- 
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
