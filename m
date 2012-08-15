@@ -1,67 +1,92 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [REVIEW][PATCH 0/21] User namespace changes to the networking
-	stack.
-Date: Tue, 14 Aug 2012 23:37:42 -0700
-Message-ID: <87boicfyo9.fsf@xmission.com>
-References: <87ehnav9n5.fsf@xmission.com>
-	<20120814.171203.1784557890475348401.davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 00/15] net: introduce upper device lists and
+ remove dev->master
+Date: Wed, 15 Aug 2012 09:30:45 +0200
+Message-ID: <20120815073045.GA1726@minipsycho.orion>
+References: <1344956748-2099-1-git-send-email-jiri@resnulli.us>
+ <20120814201950.GA17781@quad.redhat.com>
+ <1344976373.2690.41.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <20120814.171203.1784557890475348401.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David
-	Miller's message of "Tue, 14 Aug 2012 17:12:03 -0700 (PDT)")
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Gospodarek <gospo@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
+	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
+	fubar@us.ibm.com, andy@greyhouse.net, divy@chelsio.com,
+	jitendra.kalsaria@qlogic.com, sony.chacko@qlogic.com,
+	linux-driver@qlogic.com, kaber@trash.net, ursula.braun@de.ibm.com,
+	blaschka@linux.vnet.ibm.com, linux390@de.ibm.com,
+	shemminger@vyatta.com, therbert@google.com,
+	xiyou.wangcong@gmail.com, joe@perches.com,
+	gregory.v.rose@intel.com, john.r.fastabend@intel.com,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-s390@vger.kernel.org, bridge@lists.linux-foundation.org,
+	fbl@redhat.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1344976373.2690.41.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
-
-> From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-> Date: Mon, 13 Aug 2012 13:07:10 -0700
->
+Tue, Aug 14, 2012 at 10:32:53PM CEST, bhutchings@solarflare.com wrote:
+>On Tue, 2012-08-14 at 16:19 -0400, Andy Gospodarek wrote:
+>> On Tue, Aug 14, 2012 at 05:05:33PM +0200, Jiri Pirko wrote:
+>> > Hi all.
+>> > 
+>> > Recent discussion around
+>> > "[net-next] bonding: don't allow the master to become its slave"
+>> > forced me to think about upper<->lower device connections.
+>> > 
+>> > This patchset adds a possibility to record upper device linkage.
+>> > All upper<->lower devices are converted to use this mechanism right after.
+>> > That leads to dev->master removal because this info becomes redundant since
+>> > "unique links" have the same value.
+>> > 
+>> > After all changes, there is no longer possible to do:
+>> > "bond->someotherdevice->samebond"
+>> > 
+>> > Also I think that drivers like cxgb3, qlcnic, qeth would benefit by this
+>> > in future by being able to get more appropriate info about l3 addresses.
+>> > 
+>> > v1->v2:
+>> > - s/unique/master/ better naming + stays closer to the history
+>> > - fixed vlan err goto
+>> > - original patch 15 (WARN_ON change) is squashed into the first patch
+>> > - fixed netdev_unique_upper_dev_get_rcu() case of upper==NULL
+>> I just started to review v1 when v2 came out, but luckily the changes
+>> were not too significant that I need to start all over.
 >> 
->> This is a modest set of changes against the current networking stack to
->> enable basic user namespace support.  Allowing the code to compile with
->> user namespaces enabled and removing the assumption that there is only
->> the initial user namespace.
->> 
->> Work to relax the privilege checks in the networking stack from
->> "capable(CAP_NET_ADMIN)" or "capable(CAP_NET_RAW)" to
->> "ns_capable(net->user_ns, CAP_NET_ADMIN)" or 
->> "ns_capable(net->user_ns, CAP_NET_RAW)" allowing root in a user
->> namespace to control a network namespace will come later.
->> 
->> David there are just enough interdependencies between the user namespace
->> bits that I intend to merge them all through my user namespace tree.
->> After the review is complete I will add these patches to my for-next
->> branch of my user-namespace.git tree where I do not intend to rebase.
->> If it make sense to pull these into net-next to avoid or reduce
->> conflicts that should not be a problem.
+>> The first note is that I didn't like the use of the term 'upper' -- it
+>> seems like 'stacked' might be a better alternative as these are stacked
+>> devices.
 >
-> Looks fine to me, you can add:
+>When linking any two devices in a stack, one will be upper and the other
+>lower.  The lower device might itself be stacked on top of a further
+>device, so 'stacked' is not a useful distinguishing adjective in
+>variable names.  It might be a useful term in the commit messages and
+>kernel-doc, though.
 >
-> Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+>> One thing to note is that I don't see any clear changelog that states
+>> the current goals for this.  You have stated in several places that it
+>> will no longer be possible to create bonds of bonds, but there are
+>> probably a few more things it might be wise to intentionally outlaw.
+>>
+>> What about teams of teams?  Or teams of bonds?  Or bonds of teams?
+>> Bonds of vlans?
+>[...]
 >
-> to all of this stuff.  Let me know when something is stable in your
-> tree, and I can therefore pull from it into net-next.
+>It doesn't disallow bonds of bonds (unless I'm missing something).  It
+>disallows loops that involve any or all of those types of stacked
+>devices.
 
-All of these patches + 2 others trivial userns bug fixes are now
-in my for-next branch at:
+Exactly. It's every "upper driver" responsibility to check which device
+it allows to be added as lower.
 
-git.kernel.org:/pub/scm/linux/kernel/git/ebiederm/user-namespace.git for-next
-
-I won't be rebasing that branch so feel free to merge it into net-next
-if you are so inclined.  It will be a day or two before I get my next
-chunk of patches posted, reviewed and ready to join my for-next branch.
-
-Eric
+>
+>Ben.
+>
+>-- 
+>Ben Hutchings, Staff Engineer, Solarflare
+>Not speaking for my employer; that's the marketing department's job.
+>They asked us to note that Solarflare product names are trademarked.
+>
