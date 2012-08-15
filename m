@@ -1,200 +1,39 @@
-From: Stefan Assmann <sassmann@kpanic.de>
-Subject: [PATCH net-next] igb: Change how we check for pre-existing and assigned VFs
-Date: Wed, 15 Aug 2012 07:51:26 +0200
-Message-ID: <1345009886-29153-1-git-send-email-sassmann@kpanic.de>
-Cc: e1000-devel@lists.sourceforge.net, carolyn.wyborny@intel.com,
-	gregory.v.rose@intel.com, sassmann@kpanic.de
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45208 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751304Ab2HOFwq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2012 01:52:46 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/7] sctp: network namespace support Part 2:
+ per net tunables
+Date: Tue, 14 Aug 2012 23:10:44 -0700 (PDT)
+Message-ID: <20120814.231044.1298412631777662795.davem@davemloft.net>
+References: <87mx27rig7.fsf@xmission.com>
+	<87zk67q31q.fsf_-_@xmission.com>
+	<87ipcud3ld.fsf_-_@xmission.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vyasevich@gmail.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jan.ariyasu@hp.com, jan.ariyasu@gmail.com, nhorman@tuxdriver.com,
+	tgraf@infradead.org, xi.wang@gmail.com
+To: ebiederm@xmission.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87ipcud3ld.fsf_-_@xmission.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Adapt the pre-existing and assigned VFs code to the ixgbe way introduced
-in commit 9297127b9cdd8d30c829ef5fd28b7cc0323a7bcd.
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 07 Aug 2012 10:17:02 -0700
 
-Instead of searching the enabled VFs we use pci_num_vf to determine enabled VFs.
-By comparing to which PF an assigned VF is owned it's possible to decide
-whether to leave it enabled or not.
+> 
+> Since I am motivated to get things done, and since there has been much
+> grumbling about my patches not implementing tunables, I have added
+> tunable support on top of my last patchset.
+> 
+> I have performed basic testing on the these patches and nothing
+> appears amis.
+> 
+> The sm statemachine is a major tease as it has all of these association
+> and endpoint pointers in the common set of function parameters that turn
+> out to be NULL at the most inconvinient times.  So I added to the common
+> parameter list a struct net pointer, that is never NULL. 
 
-Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
----
- drivers/net/ethernet/intel/igb/igb.h      |    1 -
- drivers/net/ethernet/intel/igb/igb_main.c |  104 ++++++-----------------------
- 2 files changed, 22 insertions(+), 83 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 9e572dd..d15576a 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -99,7 +99,6 @@ struct vf_data_storage {
- 	u16 pf_vlan; /* When set, guest VLAN config not allowed. */
- 	u16 pf_qos;
- 	u16 tx_rate;
--	struct pci_dev *vfdev;
- };
- 
- #define IGB_VF_FLAG_CTS            0x00000001 /* VF is clear to send data */
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index b7c2d50..9e312da 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -172,8 +172,7 @@ static void igb_check_vf_rate_limit(struct igb_adapter *);
- 
- #ifdef CONFIG_PCI_IOV
- static int igb_vf_configure(struct igb_adapter *adapter, int vf);
--static int igb_find_enabled_vfs(struct igb_adapter *adapter);
--static int igb_check_vf_assignment(struct igb_adapter *adapter);
-+static bool igb_vfs_are_assigned(struct igb_adapter *adapter);
- #endif
- 
- #ifdef CONFIG_PM
-@@ -2295,11 +2294,11 @@ static void __devexit igb_remove(struct pci_dev *pdev)
- 	/* reclaim resources allocated to VFs */
- 	if (adapter->vf_data) {
- 		/* disable iov and allow time for transactions to clear */
--		if (!igb_check_vf_assignment(adapter)) {
-+		if (igb_vfs_are_assigned(adapter)) {
-+			dev_info(&pdev->dev, "Unloading driver while VFs are assigned - VFs will not be deallocated\n");
-+		} else {
- 			pci_disable_sriov(pdev);
- 			msleep(500);
--		} else {
--			dev_info(&pdev->dev, "VF(s) assigned to guests!\n");
- 		}
- 
- 		kfree(adapter->vf_data);
-@@ -2339,7 +2338,7 @@ static void __devinit igb_probe_vfs(struct igb_adapter * adapter)
- #ifdef CONFIG_PCI_IOV
- 	struct pci_dev *pdev = adapter->pdev;
- 	struct e1000_hw *hw = &adapter->hw;
--	int old_vfs = igb_find_enabled_vfs(adapter);
-+	int old_vfs = pci_num_vf(adapter->pdev);
- 	int i;
- 
- 	/* Virtualization features not supported on i210 family. */
-@@ -5003,102 +5002,43 @@ static int igb_notify_dca(struct notifier_block *nb, unsigned long event,
- static int igb_vf_configure(struct igb_adapter *adapter, int vf)
- {
- 	unsigned char mac_addr[ETH_ALEN];
--	struct pci_dev *pdev = adapter->pdev;
--	struct e1000_hw *hw = &adapter->hw;
--	struct pci_dev *pvfdev;
--	unsigned int device_id;
--	u16 thisvf_devfn;
- 
- 	eth_random_addr(mac_addr);
- 	igb_set_vf_mac(adapter, vf, mac_addr);
- 
--	switch (adapter->hw.mac.type) {
--	case e1000_82576:
--		device_id = IGB_82576_VF_DEV_ID;
--		/* VF Stride for 82576 is 2 */
--		thisvf_devfn = (pdev->devfn + 0x80 + (vf << 1)) |
--			(pdev->devfn & 1);
--		break;
--	case e1000_i350:
--		device_id = IGB_I350_VF_DEV_ID;
--		/* VF Stride for I350 is 4 */
--		thisvf_devfn = (pdev->devfn + 0x80 + (vf << 2)) |
--				(pdev->devfn & 3);
--		break;
--	default:
--		device_id = 0;
--		thisvf_devfn = 0;
--		break;
--	}
--
--	pvfdev = pci_get_device(hw->vendor_id, device_id, NULL);
--	while (pvfdev) {
--		if (pvfdev->devfn == thisvf_devfn)
--			break;
--		pvfdev = pci_get_device(hw->vendor_id,
--					device_id, pvfdev);
--	}
--
--	if (pvfdev)
--		adapter->vf_data[vf].vfdev = pvfdev;
--	else
--		dev_err(&pdev->dev,
--			"Couldn't find pci dev ptr for VF %4.4x\n",
--			thisvf_devfn);
--	return pvfdev != NULL;
-+	return 0;
- }
- 
--static int igb_find_enabled_vfs(struct igb_adapter *adapter)
-+static bool igb_vfs_are_assigned(struct igb_adapter *adapter)
- {
--	struct e1000_hw *hw = &adapter->hw;
- 	struct pci_dev *pdev = adapter->pdev;
--	struct pci_dev *pvfdev;
--	u16 vf_devfn = 0;
--	u16 vf_stride;
--	unsigned int device_id;
--	int vfs_found = 0;
-+	struct pci_dev *vfdev;
-+	int dev_id;
- 
- 	switch (adapter->hw.mac.type) {
- 	case e1000_82576:
--		device_id = IGB_82576_VF_DEV_ID;
--		/* VF Stride for 82576 is 2 */
--		vf_stride = 2;
-+		dev_id = IGB_82576_VF_DEV_ID;
- 		break;
- 	case e1000_i350:
--		device_id = IGB_I350_VF_DEV_ID;
--		/* VF Stride for I350 is 4 */
--		vf_stride = 4;
-+		dev_id = IGB_I350_VF_DEV_ID;
- 		break;
- 	default:
--		device_id = 0;
--		vf_stride = 0;
--		break;
--	}
--
--	vf_devfn = pdev->devfn + 0x80;
--	pvfdev = pci_get_device(hw->vendor_id, device_id, NULL);
--	while (pvfdev) {
--		if (pvfdev->devfn == vf_devfn &&
--		    (pvfdev->bus->number >= pdev->bus->number))
--			vfs_found++;
--		vf_devfn += vf_stride;
--		pvfdev = pci_get_device(hw->vendor_id,
--					device_id, pvfdev);
-+		return false;
- 	}
- 
--	return vfs_found;
--}
--
--static int igb_check_vf_assignment(struct igb_adapter *adapter)
--{
--	int i;
--	for (i = 0; i < adapter->vfs_allocated_count; i++) {
--		if (adapter->vf_data[i].vfdev) {
--			if (adapter->vf_data[i].vfdev->dev_flags &
--			    PCI_DEV_FLAGS_ASSIGNED)
-+	/* loop through all the VFs to see if we own any that are assigned */
-+	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, NULL);
-+	while (vfdev) {
-+		/* if we don't own it we don't care */
-+		if (vfdev->is_virtfn && vfdev->physfn == pdev) {
-+			/* if it is assigned we cannot release it */
-+			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
- 				return true;
- 		}
-+
-+		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, vfdev);
- 	}
-+
- 	return false;
- }
- 
--- 
-1.7.4.4
+Now that I have the ACKs from Vlad, I'm applying all of your work,
+thanks Eric.
