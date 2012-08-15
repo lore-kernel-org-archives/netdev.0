@@ -1,28 +1,104 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH] act_mirred: do not drop packets when fails to mirror it
-Date: Wed, 15 Aug 2012 08:35:41 -0400
-Message-ID: <1345034141.20443.12.camel@mojatatu>
-References: <20120815093756.22238.80872.stgit@amd-6168-8-1.englab.nay.redhat.com>
-Reply-To: jhs@mojatatu.com
+From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 02/16] user_ns: use new hashtable
+	implementation
+Date: Wed, 15 Aug 2012 15:40:04 +0200
+Message-ID: <502BA6B4.9020106@gmail.com>
+References: <1344961490-4068-1-git-send-email-levinsasha928@gmail.com>
+	<1344961490-4068-3-git-send-email-levinsasha928@gmail.com>
+	<87txw5hw0s.fsf@xmission.com> <502AF184.4010907@gmail.com>
+	<87393phshy.fsf@xmission.com> <502AFCD5.6070104@gmail.com>
+	<87obmchmpu.fsf@xmission.com> <20120815033155.GA32653@Krystal>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120815093756.22238.80872.stgit@amd-6168-8-1.englab.nay.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
+	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20120815033155.GA32653@Krystal>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On 08/15/2012 05:31 AM, Mathieu Desnoyers wrote:
+> * Eric W. Biederman (ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org) wrote:
+>> Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+>>
+>>> On 08/15/2012 03:08 AM, Eric W. Biederman wrote:
+>>>>> I can offer the following: I'll write a small module that will hash 1...10000
+>>>>>> into a hashtable which uses 7 bits (just like user_ns) and post the distribution
+>>>>>> we'll get.
+>>>> That won't hurt.  I think 1-100 then 1000-1100 may actually be more
+>>>> representative.  Not that I would mind seeing the larger range.
+>>>> Especially since I am in the process of encouraging the use of more
+>>>> uids.
+>>>>
+>>>
+>>> Alrighty, the results are in (numbers are objects in bucket):
+>>>
+>>> For the 0...10000 range:
+>>>
+>>> Average: 78.125
+>>> Std dev: 1.4197704151
+>>> Min: 75
+>>> Max: 80
+>>>
+>>>
+>>> For the 1...100 range:
+>>>
+>>> Average: 0.78125
+>>> Std dev: 0.5164613088
+>>> Min: 0
+>>> Max: 2
+>>>
+>>>
+>>> For the 1000...1100 range:
+>>>
+>>> Average: 0.7890625
+>>> Std dev: 0.4964812206
+>>> Min: 0
+>>> Max: 2
+>>>
+>>>
+>>> Looks like hash_32 is pretty good with small numbers.
+>>
+>> Yes hash_32 seems reasonable for the uid hash.   With those long hash
+>> chains I wouldn't like to be on a machine with 10,000 processes with
+>> each with a different uid, and a processes calling setuid in the fast
+>> path.
+>>
+>> The uid hash that we are playing with is one that I sort of wish that
+>> the hash table could grow in size, so that we could scale up better.
+> 
+> Hi Eric,
+> 
+> If you want to try out something that has more features than a basic
+> hash table, already exists and is available for you to play with, you
+> might want to have a look at the RCU lock-free resizable hash table.
+> It's initially done in userspace, but shares the same RCU semantic as
+> the kernel, and has chunk-based kernel-friendly index backends (thanks
+> to Lai Jiangshan), very useful to integrate with the kernel page
+> allocator.
 
-On Wed, 2012-08-15 at 17:37 +0800, Jason Wang wrote:
-> We drop packet unconditionally when we fail to mirror it. This is not intended
-> in some cases.
-
-Hi Jason,
-Did you actually notice the behavior you described or were you going by
-the XXX comment I had in the code?
-
-cheers,
-jamal
+I'm guessing that once this static hashtable is stable, a
+DEFINE_DYNAMIC_HASHTABLE() will get introduced which will evolve into something
+similar to what Mathieu has pointed out in the urcu.
