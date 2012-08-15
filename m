@@ -1,79 +1,67 @@
-From: Phil Edworthy <phil.edworthy@renesas.com>
-Subject: [PATCH] net: sh_eth: Add eth support for R8A7779 device
-Date: Wed, 15 Aug 2012 07:33:29 +0100
-Message-ID: <1345012409-12915-1-git-send-email-phil.edworthy@renesas.com>
-Cc: linux-sh@vger.kernel.org,
-	Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>,
-	Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
-	Phil Edworthy <phil.edworthy@renesas.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor3.renesas.com ([210.160.252.173]:63318 "EHLO
-	relmlor3.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751251Ab2HOGeQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 02:34:16 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [REVIEW][PATCH 0/21] User namespace changes to the networking
+	stack.
+Date: Tue, 14 Aug 2012 23:37:42 -0700
+Message-ID: <87boicfyo9.fsf@xmission.com>
+References: <87ehnav9n5.fsf@xmission.com>
+	<20120814.171203.1784557890475348401.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20120814.171203.1784557890475348401.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David
+	Miller's message of "Tue, 14 Aug 2012 17:12:03 -0700 (PDT)")
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
 
-Signed-off-by: Phil Edworthy <phil.edworthy@renesas.com>
----
- drivers/net/ethernet/renesas/Kconfig  |    4 ++--
- drivers/net/ethernet/renesas/sh_eth.c |   11 ++++++++---
- 2 files changed, 10 insertions(+), 5 deletions(-)
+> From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+> Date: Mon, 13 Aug 2012 13:07:10 -0700
+>
+>> 
+>> This is a modest set of changes against the current networking stack to
+>> enable basic user namespace support.  Allowing the code to compile with
+>> user namespaces enabled and removing the assumption that there is only
+>> the initial user namespace.
+>> 
+>> Work to relax the privilege checks in the networking stack from
+>> "capable(CAP_NET_ADMIN)" or "capable(CAP_NET_RAW)" to
+>> "ns_capable(net->user_ns, CAP_NET_ADMIN)" or 
+>> "ns_capable(net->user_ns, CAP_NET_RAW)" allowing root in a user
+>> namespace to control a network namespace will come later.
+>> 
+>> David there are just enough interdependencies between the user namespace
+>> bits that I intend to merge them all through my user namespace tree.
+>> After the review is complete I will add these patches to my for-next
+>> branch of my user-namespace.git tree where I do not intend to rebase.
+>> If it make sense to pull these into net-next to avoid or reduce
+>> conflicts that should not be a problem.
+>
+> Looks fine to me, you can add:
+>
+> Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+>
+> to all of this stuff.  Let me know when something is stable in your
+> tree, and I can therefore pull from it into net-next.
 
-diff --git a/drivers/net/ethernet/renesas/Kconfig b/drivers/net/ethernet/renesas/Kconfig
-index 46df3a0..24c2305 100644
---- a/drivers/net/ethernet/renesas/Kconfig
-+++ b/drivers/net/ethernet/renesas/Kconfig
-@@ -8,7 +8,7 @@ config SH_ETH
- 		(CPU_SUBTYPE_SH7710 || CPU_SUBTYPE_SH7712 || \
- 		 CPU_SUBTYPE_SH7763 || CPU_SUBTYPE_SH7619 || \
- 		 CPU_SUBTYPE_SH7724 || CPU_SUBTYPE_SH7734 || \
--		 CPU_SUBTYPE_SH7757 || ARCH_R8A7740)
-+		 CPU_SUBTYPE_SH7757 || ARCH_R8A7740 || ARCH_R8A7779)
- 	select CRC32
- 	select NET_CORE
- 	select MII
-@@ -18,4 +18,4 @@ config SH_ETH
- 	  Renesas SuperH Ethernet device driver.
- 	  This driver supporting CPUs are:
- 		- SH7619, SH7710, SH7712, SH7724, SH7734, SH7763, SH7757,
--		  and R8A7740.
-+		  R8A7740 and R8A7779.
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index af0b867..bad8f2e 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -78,7 +78,7 @@ static void sh_eth_select_mii(struct net_device *ndev)
- #endif
- 
- /* There is CPU dependent code */
--#if defined(CONFIG_CPU_SUBTYPE_SH7724)
-+#if defined(CONFIG_CPU_SUBTYPE_SH7724) || defined(CONFIG_ARCH_R8A7779)
- #define SH_ETH_RESET_DEFAULT	1
- static void sh_eth_set_duplex(struct net_device *ndev)
- {
-@@ -93,13 +93,18 @@ static void sh_eth_set_duplex(struct net_device *ndev)
- static void sh_eth_set_rate(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-+	unsigned int bits = ECMR_RTM;
-+
-+#if defined(CONFIG_ARCH_R8A7779)
-+	bits |= ECMR_ELB;
-+#endif
- 
- 	switch (mdp->speed) {
- 	case 10: /* 10BASE */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_RTM, ECMR);
-+		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~bits, ECMR);
- 		break;
- 	case 100:/* 100BASE */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_RTM, ECMR);
-+		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | bits, ECMR);
- 		break;
- 	default:
- 		break;
--- 
-1.7.5.4
+All of these patches + 2 others trivial userns bug fixes are now
+in my for-next branch at:
+
+git.kernel.org:/pub/scm/linux/kernel/git/ebiederm/user-namespace.git for-next
+
+I won't be rebasing that branch so feel free to merge it into net-next
+if you are so inclined.  It will be a day or two before I get my next
+chunk of patches posted, reviewed and ready to join my for-next branch.
+
+Eric
