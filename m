@@ -1,92 +1,243 @@
-From: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 02/16] user_ns: use new hashtable
-	implementation
-Date: Thu, 16 Aug 2012 10:28:22 -0400
-Message-ID: <20120816142821.GC29703@Krystal>
-References: <502AFCD5.6070104@gmail.com> <87obmchmpu.fsf@xmission.com>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B6FB5@saturn3.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
-	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6FB5-CgBM+Bx2aUAnGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+From: Christophe Leroy <christophe.leroy@c-s.fr>
+Subject: [PATCH] lxt PHY: Support for the buggy LXT973 rev A2
+Date: Wed, 15 Aug 2012 21:12:52 +0200
+Message-ID: <201208151912.q7FJCqiY008947@localhost.localdomain>
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Laight (David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org) wrote:
-> > Yes hash_32 seems reasonable for the uid hash.   With those long hash
-> > chains I wouldn't like to be on a machine with 10,000 processes with
-> > each with a different uid, and a processes calling setuid in the fast
-> > path.
-> > 
-> > The uid hash that we are playing with is one that I sort of wish that
-> > the hash table could grow in size, so that we could scale up better.
-> 
-> Since uids are likely to be allocated in dense blocks, maybe an
-> unhashed multi-level lookup scheme might be appropriate.
-> 
-> Index an array with the low 8 (say) bits of the uid.
-> Each item can be either:  
->   1) NULL => free entry.
->   2) a pointer to a uid structure (check uid value).
->   3) a pointer to an array to index with the next 8 bits.
-> (2) and (3) can be differentiated by the low address bit.
+Hello,
 
-I'm currently experimenting with "Judy arrays", which would likely be a
-good fit for this kind of use-case.
+This patch adds proper handling of the buggy revision A2 of LXT973 phy, adding precautions linked to ERRATA Item 4:
 
-It's basically a 256-ary trie, with fixed depth that depends on the key
-size, that uses various encoding (compaction) schemes to compress
-internal nodes depending on their density. The original implementation
-made by HP has been criticised as somewhat too complex (20k lines of
-code), but I'm currently working (in my spare time) on a more elegant
-solution, that supports RCU lookups and distributed locking, and uses
-much simpler node compaction schemes, and focus on having good cache
-locality (and minimal number of cache line hits) for lookups.
+Item 4: MDIO Interface and Repeated Polling
+Problem: Repeated polling of odd-numbered registers via the MDIO interface randomly returns the
+	contents of the previous even register.
+Implication: Managed applications may not obtain the correct register contents when a particular
+	register is monitored for device status.
+Workaround: None.
+Status: This erratum has been previously fixed (in rev A3)
 
-I'll be presenting my ongoing work at Plumbers, if you are interested.
 
-Best regards,
+Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
 
-Mathieu
-
-> I think that is updateable with cmpxchg.
-> 
-> Clearly this is a bad algorithm if uids are all multiples of 2^24
-> but that is true or any hash function.
-> 
-> 	David
-> 
-> 
-> 
-
--- 
-Mathieu Desnoyers
-Operating System Efficiency R&D Consultant
-EfficiOS Inc.
-http://www.efficios.com
+diff -u linux-3.5-vanilla/drivers/net/phy/lxt.c linux-3.5/drivers/net/phy/lxt.c
+--- linux-3.5-vanilla/drivers/net/phy/lxt.c	2012-07-21 22:58:29.000000000 +0200
++++ linux-3.5/drivers/net/phy/lxt.c	2012-04-21 17:08:21.000000000 +0200
+@@ -7,6 +7,10 @@
+  *
+  * Copyright (c) 2004 Freescale Semiconductor, Inc.
+  *
++ * Copyright (c) 2010 CSSI
++ *
++ * Added support for buggy LXT973 rev A2
++ *
+  * This program is free software; you can redistribute  it and/or modify it
+  * under  the terms of  the GNU General  Public License as published by the
+  * Free Software Foundation;  either version 2 of the  License, or (at your
+@@ -56,6 +60,10 @@
+ /* register definitions for the 973 */
+ #define MII_LXT973_PCR 16 /* Port Configuration Register */
+ #define PCR_FIBER_SELECT 1
++#define MII_LXT973_SFR		27  /* Special Function Register */
++
++#define PHYDEV_PRIV_FIBER	1
++#define PHYDEV_PRIV_REVA2	2
+ 
+ MODULE_DESCRIPTION("Intel LXT PHY driver");
+ MODULE_AUTHOR("Andy Fleming");
+@@ -99,6 +107,9 @@
+ 	return err;
+ }
+ 
++/* register definitions for the 973 */
++#define MII_LXT973_PCR 16 /* Port Configuration Register */
++#define PCR_FIBER_SELECT 1
+ 
+ static int lxt971_ack_interrupt(struct phy_device *phydev)
+ {
+@@ -122,9 +133,141 @@
+ 	return err;
+ }
+ 
++/**
++ * ERRATA on LXT973
++ *
++ * Item 4: MDIO Interface and Repeated Polling
++ * Problem: Repeated polling of odd-numbered registers via the MDIO interface randomly returns the
++ * 	contents of the previous even register.
++ * Implication: Managed applications may not obtain the correct register contents when a particular
++ * 	register is monitored for device status.
++ * Workaround: None.
++ * Status: This erratum has been previously fixed (in rev A3)
++ *
++ */
++
++static int lxt973a2_update_link(struct phy_device *phydev)
++{
++	int status;
++	int control;
++	int retry = 8; /* we try 8 times */
++
++	/* Do a fake read */
++	status = phy_read(phydev, MII_BMSR);
++
++	if (status < 0)
++		return status;
++
++	control = phy_read(phydev, MII_BMCR);
++	if (control < 0)
++		return control;
++	
++	do {
++		/* Read link and autonegotiation status */
++		status = phy_read(phydev, MII_BMSR);
++	} while (status>=0 && retry-- && status == control);
++
++	if (status < 0)
++		return status;
++
++	if ((status & BMSR_LSTATUS) == 0)
++		phydev->link = 0;
++	else
++		phydev->link = 1;
++
++	return 0;
++}
++
++int lxt973a2_read_status(struct phy_device *phydev)
++{
++	int adv;
++	int err;
++	int lpa;
++	int lpagb = 0;
++
++	/* Update the link, but return if there
++	 * was an error */
++	err = lxt973a2_update_link(phydev);
++	if (err)
++		return err;
++
++	if (AUTONEG_ENABLE == phydev->autoneg) {
++		int retry = 1;
++		
++		adv = phy_read(phydev, MII_ADVERTISE);
++
++		if (adv < 0)
++			return adv;
++		
++		do {
++			lpa = phy_read(phydev, MII_LPA);
++
++			if (lpa < 0)
++				return lpa;
++
++			/* If both registers are equal, it is suspect but not impossible, hence a new try */	
++		} while (lpa == adv && retry--);
++
++		lpa &= adv;
++
++		phydev->speed = SPEED_10;
++		phydev->duplex = DUPLEX_HALF;
++		phydev->pause = phydev->asym_pause = 0;
++
++		if (lpagb & (LPA_1000FULL | LPA_1000HALF)) {
++			phydev->speed = SPEED_1000;
++
++			if (lpagb & LPA_1000FULL)
++				phydev->duplex = DUPLEX_FULL;
++		} else if (lpa & (LPA_100FULL | LPA_100HALF)) {
++			phydev->speed = SPEED_100;
++			
++			if (lpa & LPA_100FULL)
++				phydev->duplex = DUPLEX_FULL;
++		} else
++			if (lpa & LPA_10FULL)
++				phydev->duplex = DUPLEX_FULL;
++
++		if (phydev->duplex == DUPLEX_FULL){
++			phydev->pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
++			phydev->asym_pause = lpa & LPA_PAUSE_ASYM ? 1 : 0;
++		}
++	} else {
++		int bmcr = phy_read(phydev, MII_BMCR);
++		if (bmcr < 0)
++			return bmcr;
++
++		if (bmcr & BMCR_FULLDPLX)
++			phydev->duplex = DUPLEX_FULL;
++		else
++			phydev->duplex = DUPLEX_HALF;
++
++		if (bmcr & BMCR_SPEED1000)
++			phydev->speed = SPEED_1000;
++		else if (bmcr & BMCR_SPEED100)
++			phydev->speed = SPEED_100;
++		else
++			phydev->speed = SPEED_10;
++
++		phydev->pause = phydev->asym_pause = 0;
++	}
++
++	return 0;
++}
++
++static int lxt973_read_status(struct phy_device *phydev)
++{
++	return (int)phydev->priv&PHYDEV_PRIV_REVA2 ? lxt973a2_read_status(phydev) : genphy_read_status(phydev);
++}
++
+ static int lxt973_probe(struct phy_device *phydev)
+ {
+ 	int val = phy_read(phydev, MII_LXT973_PCR);
++	int priv = 0;
++	
++	phydev->priv = NULL;
++	
++	if (val<0) return val;
+ 
+ 	if (val & PCR_FIBER_SELECT) {
+ 		/*
+@@ -136,17 +279,24 @@
+ 		val &= ~BMCR_ANENABLE;
+ 		phy_write(phydev, MII_BMCR, val);
+ 		/* Remember that the port is in fiber mode. */
+-		phydev->priv = lxt973_probe;
+-	} else {
+-		phydev->priv = NULL;
++		priv |= PHYDEV_PRIV_FIBER;
+ 	}
++	val = phy_read(phydev, MII_PHYSID2);
++	
++	if (val<0) return val;
++	
++	if ((val & 0xf) == 0) { /* rev A2 */
++		dev_info(&phydev->dev, " LXT973 revision A2 has bugs\n");
++		priv |= PHYDEV_PRIV_REVA2;
++	}
++	phydev->priv = (void*)priv;
+ 	return 0;
+ }
+ 
+ static int lxt973_config_aneg(struct phy_device *phydev)
+ {
+ 	/* Do nothing if port is in fiber mode. */
+-	return phydev->priv ? 0 : genphy_config_aneg(phydev);
++	return (int)phydev->priv&PHYDEV_PRIV_FIBER ? 0 : genphy_config_aneg(phydev);
+ }
+ 
+ static struct phy_driver lxt970_driver = {
+@@ -184,7 +334,10 @@
+ 	.flags		= 0,
+ 	.probe		= lxt973_probe,
+ 	.config_aneg	= lxt973_config_aneg,
+-	.read_status	= genphy_read_status,
++	.read_status	= lxt973_read_status,
++	.suspend	= genphy_suspend,
++	.resume		= genphy_resume,
++	.isolate	= genphy_isolate,
+ 	.driver 	= { .owner = THIS_MODULE,},
+ };
+ 
