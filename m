@@ -1,70 +1,61 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC PATCH 0/5] net: socket bind to file descriptor introduced
-Date: Wed, 15 Aug 2012 12:49:28 -0700
-Message-ID: <87a9xwc4vr.fsf@xmission.com>
-References: <20120815161141.7598.16682.stgit@localhost.localdomain>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+ <nicolas.2p.debian@gmail.com>
+Subject: Re: [patch net-next 01/16] net: introduce upper device
+	lists
+Date: Wed, 15 Aug 2012 22:33:56 +0200
+Message-ID: <502C07B4.6050104@gmail.com>
+References: <1344871635-1052-1-git-send-email-jiri@resnulli.us>
+	<1344871635-1052-2-git-send-email-jiri@resnulli.us>
+	<1344877451.2733.26.camel@bwh-desktop.uk.solarflarecom.com>
+	<20120813173110.GA1808@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: tglx@linutronix.de, mingo@redhat.com, davem@davemloft.net,
-	hpa@zytor.com, thierry.reding@avionic-design.de,
-	bfields@redhat.com, eric.dumazet@gmail.com, xemul@parallels.com,
-	neilb@suse.de, netdev@vger.kernel.org, x86@kernel.org,
-	linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
-	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
-	akpm@linux-foundation.org, tim.c.chen@linux.intel.com,
-	devel@openvz.org
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120815161141.7598.16682.stgit@localhost.localdomain>
-	(Stanislav Kinsbursky's message of "Wed, 15 Aug 2012 20:21:56 +0400")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: bridge@lists.linux-foundation.org, ursula.braun@de.ibm.com,
+	john.r.fastabend@intel.com, edumazet@google.com,
+	shemminger@vyatta.com, sean.hefty@intel.com, therbert@google.com,
+	roland@kernel.org, linux-s390@vger.kernel.org,
+	linux-rdma@vger.kernel.org, fubar@us.ibm.com, fbl@redhat.com,
+	hal.rosenstock@gmail.com, faisal.latif@intel.com,
+	blaschka@linux.vnet.ibm.com, sony.chacko@qlogic.com,
+	linux-driver@qlogic.com, Ben Hutchings <bhutchings@solarflare.com>,
+	xiyou.wangcong@gmail.com, jitendra.kalsaria@qlogic.com,
+	divy@chelsio.com, gregory.v.rose@intel.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kaber@trash.net, joe@perches.com, linux390@de.ibm.com, davem@davemloft.net
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120813173110.GA1808@minipsycho.orion>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Stanislav Kinsbursky <skinsbursky@parallels.com> writes:
+Le 13/08/2012 19:31, Jiri Pirko a =E9crit :
+> Mon, Aug 13, 2012 at 07:04:11PM CEST, bhutchings@solarflare.com wrote:
 
-> This patch set introduces new socket operation and new system call:
-> sys_fbind(), which allows to bind socket to opened file.
-> File to bind to can be created by sys_mknod(S_IFSOCK) and opened by
-> open(O_PATH).
+>>> +struct netdev_upper {
+>>> +	struct net_device *dev;
+>>> +	bool unique;
+>>
+>> This needs a better name.  It doesn't really have anything to do with
+>> uniqueness and doesn't ensure exclusivity.  I think that it would be
+>> fine to keep the 'master' term.
 >
-> This system call is especially required for UNIX sockets, which has name
-> lenght limitation.
+> Hmm. I admit that "unique" I do not like too much as well. But "master"
+> I like even less.
 >
-> The following series implements...
+> This flag should ensure exclusivity. Only one upper device with this
+> flag can be present at a time.
 
-Thinking about this a little more I have serious reservations about this
-approach.
+Well, can't we simply call it "upper_device"?
 
-Today you are not allowed to bind to an address unless mknod for that
-file succeeds.  Your patch totally changes those semantics.
+And as we only have a single field, this is exclusive by design.
 
-Name length limitation does not seeme to justify this at all.
-
-It is possible today to trivially change into a directory and
-bind or connect to what would be a long absolute path.
-
-There is also the trick of getting a shorter directory name using
-/proc/self/fd if you are threaded and can't change the directory.
-
-The obvious choices at this point are
-- Teach bind and connect and af_unix sockets to take longer AF_UNIX
-  socket path names.
-
-- introduce sockaddr_fd that can be applied to AF_UNIX sockets,
-  and teach unix_bind and unix_connect how to deal with a second type of sockaddr.
-  struct sockaddr_fd { short fd_family; short pad; int fd; };
-
-- introduce sockaddr_unix_at that takes a directory file descriptor
-  as well as a unix path, and teach unix_bind and unix_connect to deal with a
-  second sockaddr type.
-  struct sockaddr_unix_at { short family; short pad; int dfd; char path[102]; }
-  AF_UNIX_AT
-
-I don't know what the implications of for breaking connect up into 3
-system calls and changing the semantics are and I would really rather
-not have to think about it.
-
-But it certainly does not look to me like you introduce new systems
-calls to do what you want.
-
-Eric
+	Nicolas.
