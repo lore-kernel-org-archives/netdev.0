@@ -1,33 +1,40 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH 00/13] SCTP: Enable netns
-Date: Tue, 14 Aug 2012 23:23:51 -0400
-Message-ID: <502B1647.3070802@gmail.com>
-References: <1344115837-6150-1-git-send-email-jan.ariyasu@hp.com>
+From: "Ren, Cloud" <cjren@qca.qualcomm.com>
+Subject: RE: [PATCH] net: add new QCA alx ethernet driver
+Date: Wed, 15 Aug 2012 03:29:26 +0000
+Message-ID: <6349D7A510622448B1BA0967850A84380136A1EF@NASANEXD02D.na.qualcomm.com>
+References: <1344507270-2907-1-git-send-email-cjren@qca.qualcomm.com>
+ <20120811135044.529a7081@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jan Ariyasu <jan.ariyasu@hp.com>
-To: Jan Ariyasu <jan.ariyasu@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1344115837-6150-1-git-send-email-jan.ariyasu@hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	qca-linux-team <qca-linux-team@qualcomm.com>,
+	nic-devel <nic-devel@qualcomm.com>,
+	"Huang, Xiong" <xiong@qca.qualcomm.com>,
+	"Hao-Ran Liu(Joseph Liu)" <hao-ran.liu@canonical.com>,
+	Joe Perches <joe@perches.com>,
+	"Rodriguez, Luis" <rodrigue@qca.qualcomm.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:31419 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751850Ab2HOD32 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 23:29:28 -0400
+In-Reply-To: <20120811135044.529a7081@nehalam.linuxnetplumber.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/04/2012 05:30 PM, Jan Ariyasu wrote:
-> The following set of patches enable network-namespaces for the SCTP protocol.
+>> +	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
+>> ...
+>> +	strcpy(netdev->name, "eth%d");
+>> +	retval = register_netdev(netdev);
 >
-> The multitude of global parameters are stored in a net_generic
-> structure, and the bulk of the patches enable the protocol to access
-> the parameters on a per-namespace basis.  The first five patches
-> enable netns handling of the protocol, procfs and sysfs.
->
-> Signed-off-by: Jan Ariyasu <jan.ariyasu@hp.com>
-> ---
->
+>The strcpy is unnecessary, alloc_etherdev already sets that.
 
-NACK.  Sorry Jan, but Eric's patches are much cleaner and do everything 
-that's needed.
+The strcpy is useful. netdev->name is set as pci_name in front. So the strcpy restores it.
 
--vlad
+Thanks
+cloud
