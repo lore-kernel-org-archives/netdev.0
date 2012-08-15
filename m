@@ -1,41 +1,50 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] sctp: add function parameter names to fix compile error
-Date: Wed, 15 Aug 2012 13:00:27 +0200
-Message-ID: <1345028427-22092-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, "Eric W. Biederman" <ebiederm@xmission.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:60885 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751317Ab2HOLAd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 07:00:33 -0400
-Received: by weyx8 with SMTP id x8so909357wey.19
-        for <netdev@vger.kernel.org>; Wed, 15 Aug 2012 04:00:32 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH 0/5] Call netif_carrier_off() after register_netdev()
+Date: Wed, 15 Aug 2012 13:40:52 +0200
+Message-ID: <87boicz8l7.fsf@nemi.mork.no>
+References: <1344940135-17079-1-git-send-email-shchepetkov@ispras.ru>
+	<20120814.140019.1016184364798213214.davem@davemloft.net>
+	<1344984477.2690.85.camel@bwh-desktop.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, <shchepetkov@ispras.ru>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<ldv-project@ispras.ru>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1344984477.2690.85.camel@bwh-desktop.uk.solarflarecom.com> (Ben
+	Hutchings's message of "Tue, 14 Aug 2012 23:47:57 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 13d782f6 introduced this problem.
+Ben Hutchings <bhutchings@solarflare.com> writes:
 
-Cc: Eric W. Biederman <ebiederm@xmission.com>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- include/net/sctp/sctp.h |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> But if you do it beforehand then it doesn't have the intended effect.
+> (Supposed to be fixed by 22604c866889c4b2e12b73cbf1683bda1b72a313, wh=
+ich
+> had to be reverted: c276e098d3ee33059b4a1c747354226cec58487c.)
+>
+> So you have to do it after, but without dropping the RTNL lock in
+> between.
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index aaa8292..9c6414f 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -367,8 +367,8 @@ void sctp_dbg_objcnt_exit(struct net *);
- #define SCTP_DBG_OBJCNT_INC(name)
- #define SCTP_DBG_OBJCNT_DEC(name)
- 
--static inline void sctp_dbg_objcnt_init(struct net *) { return; }
--static inline void sctp_dbg_objcnt_exit(struct net *) { return; }
-+static inline void sctp_dbg_objcnt_init(struct net *net) { return; }
-+static inline void sctp_dbg_objcnt_exit(struct net *net) { return; }
- 
- #endif /* CONFIG_SCTP_DBG_OBJCOUNT */
- 
--- 
-1.7.10.4
+So you may want to add something like
+
+int register_netdev_carrier_off(struct net_device *dev)
+{
+	int err;
+
+	rtnl_lock();
+	err =3D register_netdevice(dev);
+        if (!err)
+                set_bit(__LINK_STATE_NOCARRIER, &dev->state)
+	rtnl_unlock();
+	return err;
+}
+
+
+for these drivers?
+
+
+
+Bj=C3=B8rn
