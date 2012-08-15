@@ -1,60 +1,72 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 01/16] hashtable: introduce a small and naive hashtable
-Date: Tue, 14 Aug 2012 17:28:34 -0700
-Message-ID: <20120815002834.GI25632@google.com>
+From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 02/16] user_ns: use new hashtable
+	implementation
+Date: Wed, 15 Aug 2012 02:47:00 +0200
+Message-ID: <502AF184.4010907@gmail.com>
 References: <1344961490-4068-1-git-send-email-levinsasha928@gmail.com>
- <1344961490-4068-2-git-send-email-levinsasha928@gmail.com>
- <20120815092523.00a909ef@notabene.brown>
- <502AEC51.2010305@gmail.com>
+	<1344961490-4068-3-git-send-email-levinsasha928@gmail.com>
+	<87txw5hw0s.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: NeilBrown <neilb@suse.de>, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, paul.gortmaker@windriver.com,
-	davem@davemloft.net, rostedt@goodmis.org, mingo@elte.hu,
-	ebiederm@xmission.com, aarcange@redhat.com, ericvh@gmail.com,
-	netdev@vger.kernel.org, josh@joshtriplett.org,
-	eric.dumazet@gmail.com, mathieu.desnoyers@efficios.com,
-	axboe@kernel.dk, agk@redhat.com, dm-devel@redhat.com,
-	ccaulfie@redhat.com, teigland@redhat.com,
-	Trond.Myklebust@netapp.com, bfields@fieldses.org,
-	fweisbec@gmail.com, jesse@nicira.com,
-	venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
-	edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
-	rds-devel@oss.oracle.com, lw@cn.fujitsu.com
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <502AEC51.2010305@gmail.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
+	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org,
+	axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <87txw5hw0s.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
-
-(Sasha, would it be possible to change your MUA so that it breaks long
- lines.  It's pretty difficult to reply to.)
-
-On Wed, Aug 15, 2012 at 02:24:49AM +0200, Sasha Levin wrote:
-> The hashtable uses hlist. hlist provides us with an entire family of
-> init functions which I'm supposed to use to initialize hlist heads.
+On 08/15/2012 01:52 AM, Eric W. Biederman wrote:
+> Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 > 
-> So while a memset(0) will work perfectly here, I consider that
-> cheating - it results in an uglier code that assumes to know about
-> hlist internals, and will probably break as soon as someone tries to
-> do something to hlist.
+>> Switch user_ns to use the new hashtable implementation. This reduces the amount of
+>> generic unrelated code in user_ns.
+> 
+> Two concerns here.
+> 1) When adding a new entry you recompute the hash where previously that
+>    was not done.  I believe that will slow down adding of new entries.
 
-I think we should stick with INIT_HLIST_HEAD().  It's not a hot path
-and we might add, say, debug fields or initialization magics added
-later.  If this really matters, the right thing to do would be adding
-something like INIT_HLIST_HEAD_ARRAY().
+I figured that the price for the extra hashing isn't significant since hash_32
+is just a multiplication and a shift.
 
-Thanks.
+I'll modify the code to calculate the key just once.
 
--- 
-tejun
+> 2) Using hash_32 for uids is an interesting choice.  hash_32 discards
+>    the low bits.  Last I checked for uids the low bits were the bits
+>    that were most likely to be different and had the most entropy.
+> 
+>    I'm not certain how multiplying by the GOLDEN_RATION_PRIME_32 will
+>    affect things but I would be surprised if it shifted all of the
+>    randomness from the low bits to the high bits.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+"Is hash_* good enough for our purpose?" - I was actually surprised that no one
+raised that question during the RFC and assumed it was because everybody agreed
+that it's indeed good enough.
+
+I can offer the following: I'll write a small module that will hash 1...10000
+into a hashtable which uses 7 bits (just like user_ns) and post the distribution
+we'll get.
+
+If the results of the above will be satisfactory we can avoid the discussion
+about which hash function we should really be using. If not, I guess now is a
+good time for that :)
