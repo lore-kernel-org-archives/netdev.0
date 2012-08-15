@@ -1,9 +1,8 @@
 From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next 6/9] sctp: Move the percpu sockets counter out
- of sctp_proc_init
-Date: Tue, 14 Aug 2012 23:19:45 -0400
-Message-ID: <502B1551.1080706@gmail.com>
-References: <1344115837-6150-1-git-send-email-jan.ariyasu@hp.com> <87mx27rig7.fsf@xmission.com> <87zk67q31q.fsf_-_@xmission.com> <87393zq2rb.fsf_-_@xmission.com>
+Subject: Re: [PATCH net-next 8/9] sctp: Enable sctp in all network namespaces
+Date: Tue, 14 Aug 2012 23:20:11 -0400
+Message-ID: <502B156B.90807@gmail.com>
+References: <1344115837-6150-1-git-send-email-jan.ariyasu@hp.com> <87mx27rig7.fsf@xmission.com> <87zk67q31q.fsf_-_@xmission.com> <87r4rjoo3h.fsf_-_@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -15,84 +14,103 @@ Cc: David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
 	Thomas Graf <tgraf@infradead.org>, Xi Wang <xi.wang@gmail.com>
 To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87393zq2rb.fsf_-_@xmission.com>
+In-Reply-To: <87r4rjoo3h.fsf_-_@xmission.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/06/2012 02:44 PM, Eric W. Biederman wrote:
+On 08/06/2012 02:46 PM, Eric W. Biederman wrote:
 >
-> The percpu sctp socket counter has nothing at all to do with the sctp
-> proc files, and having it in the wrong initialization is confusing,
-> and makes network namespace support a pain.
+> - Fix the sctp_af operations to work in all namespaces
+> - Enable sctp socket creation in all network namespaces.
 >
 > Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
 Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
 > ---
->   net/sctp/protocol.c |   13 +++++++------
->   1 files changed, 7 insertions(+), 6 deletions(-)
+>   net/sctp/ipv6.c     |   12 ++++++------
+>   net/sctp/protocol.c |    8 +++++---
+>   2 files changed, 11 insertions(+), 9 deletions(-)
 >
+> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+> index bbf1534..a18cda6 100644
+> --- a/net/sctp/ipv6.c
+> +++ b/net/sctp/ipv6.c
+> @@ -582,7 +582,7 @@ static int sctp_v6_available(union sctp_addr *addr, struct sctp_sock *sp)
+>   	if (!(type & IPV6_ADDR_UNICAST))
+>   		return 0;
+>
+> -	return ipv6_chk_addr(&init_net, in6, NULL, 0);
+> +	return ipv6_chk_addr(sock_net(&sp->inet.sk), in6, NULL, 0);
+>   }
+>
+>   /* This function checks if the address is a valid address to be used for
+> @@ -859,14 +859,14 @@ static int sctp_inet6_bind_verify(struct sctp_sock *opt, union sctp_addr *addr)
+>   		struct net_device *dev;
+>
+>   		if (type & IPV6_ADDR_LINKLOCAL) {
+> +			struct net *net;
+>   			if (!addr->v6.sin6_scope_id)
+>   				return 0;
+> +			net = sock_net(&opt->inet.sk);
+>   			rcu_read_lock();
+> -			dev = dev_get_by_index_rcu(&init_net,
+> -						   addr->v6.sin6_scope_id);
+> +			dev = dev_get_by_index_rcu(net, addr->v6.sin6_scope_id);
+>   			if (!dev ||
+> -			    !ipv6_chk_addr(&init_net, &addr->v6.sin6_addr,
+> -					   dev, 0)) {
+> +			    !ipv6_chk_addr(net, &addr->v6.sin6_addr, dev, 0)) {
+>   				rcu_read_unlock();
+>   				return 0;
+>   			}
+> @@ -899,7 +899,7 @@ static int sctp_inet6_send_verify(struct sctp_sock *opt, union sctp_addr *addr)
+>   			if (!addr->v6.sin6_scope_id)
+>   				return 0;
+>   			rcu_read_lock();
+> -			dev = dev_get_by_index_rcu(&init_net,
+> +			dev = dev_get_by_index_rcu(sock_net(&opt->inet.sk),
+>   						   addr->v6.sin6_scope_id);
+>   			rcu_read_unlock();
+>   			if (!dev)
 > diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-> index 6193d20..976d765 100644
+> index 72b3aa7..ab35691 100644
 > --- a/net/sctp/protocol.c
 > +++ b/net/sctp/protocol.c
-> @@ -93,8 +93,6 @@ int sysctl_sctp_wmem[3];
->   /* Set up the proc fs entry for the SCTP protocol. */
->   static __init int sctp_proc_init(void)
+> @@ -367,7 +367,8 @@ static int sctp_v4_addr_valid(union sctp_addr *addr,
+>   /* Should this be available for binding?   */
+>   static int sctp_v4_available(union sctp_addr *addr, struct sctp_sock *sp)
 >   {
-> -	if (percpu_counter_init(&sctp_sockets_allocated, 0))
-> -		goto out_nomem;
->   #ifdef CONFIG_PROC_FS
->   	if (!proc_net_sctp) {
->   		proc_net_sctp = proc_mkdir("sctp", init_net.proc_net);
-> @@ -125,12 +123,9 @@ out_snmp_proc_init:
->   		remove_proc_entry("sctp", init_net.proc_net);
->   	}
->   out_free_percpu:
-> -	percpu_counter_destroy(&sctp_sockets_allocated);
->   #else
->   	return 0;
->   #endif /* CONFIG_PROC_FS */
-> -
-> -out_nomem:
->   	return -ENOMEM;
->   }
+> -	int ret = inet_addr_type(&init_net, addr->v4.sin_addr.s_addr);
+> +	struct net *net = sock_net(&sp->inet.sk);
+> +	int ret = inet_addr_type(net, addr->v4.sin_addr.s_addr);
 >
-> @@ -151,7 +146,6 @@ static void sctp_proc_exit(void)
->   		remove_proc_entry("sctp", init_net.proc_net);
->   	}
->   #endif
-> -	percpu_counter_destroy(&sctp_sockets_allocated);
->   }
 >
->   /* Private helper to extract ipv4 address and stash them in
-> @@ -1261,6 +1255,10 @@ SCTP_STATIC __init int sctp_init(void)
->   	if (status)
->   		goto err_init_mibs;
+>   	if (addr->v4.sin_addr.s_addr != htonl(INADDR_ANY) &&
+> @@ -454,7 +455,7 @@ static void sctp_v4_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
+>   	SCTP_DEBUG_PRINTK("%s: DST:%pI4, SRC:%pI4 - ",
+>   			  __func__, &fl4->daddr, &fl4->saddr);
 >
-> +	status = percpu_counter_init(&sctp_sockets_allocated, 0);
-> +	if (status)
-> +		goto err_percpu_counter_init;
-> +
->   	/* Initialize proc fs directory.  */
->   	status = sctp_proc_init();
->   	if (status)
-> @@ -1481,6 +1479,8 @@ err_ahash_alloc:
->   	sctp_dbg_objcnt_exit();
->   	sctp_proc_exit();
->   err_init_proc:
-> +	percpu_counter_destroy(&sctp_sockets_allocated);
-> +err_percpu_counter_init:
->   	cleanup_sctp_mibs();
->   err_init_mibs:
->   	kmem_cache_destroy(sctp_chunk_cachep);
-> @@ -1521,6 +1521,7 @@ SCTP_STATIC __exit void sctp_exit(void)
->   			     sizeof(struct sctp_bind_hashbucket)));
+> -	rt = ip_route_output_key(&init_net, fl4);
+> +	rt = ip_route_output_key(sock_net(sk), fl4);
+>   	if (!IS_ERR(rt))
+>   		dst = &rt->dst;
 >
->   	sctp_dbg_objcnt_exit();
-> +	percpu_counter_destroy(&sctp_sockets_allocated);
->   	sctp_proc_exit();
->   	cleanup_sctp_mibs();
+> @@ -500,7 +501,7 @@ static void sctp_v4_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
+>   		    (AF_INET == laddr->a.sa.sa_family)) {
+>   			fl4->saddr = laddr->a.v4.sin_addr.s_addr;
+>   			fl4->fl4_sport = laddr->a.v4.sin_port;
+> -			rt = ip_route_output_key(&init_net, fl4);
+> +			rt = ip_route_output_key(sock_net(sk), fl4);
+>   			if (!IS_ERR(rt)) {
+>   				dst = &rt->dst;
+>   				goto out_unlock;
+> @@ -1033,6 +1034,7 @@ static const struct net_protocol sctp_protocol = {
+>   	.handler     = sctp_rcv,
+>   	.err_handler = sctp_v4_err,
+>   	.no_policy   = 1,
+> +	.netns_ok    = 1,
+>   };
 >
+>   /* IPv4 address related functions.  */
 >
