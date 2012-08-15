@@ -1,56 +1,46 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] net: add new QCA alx ethernet driver
-Date: Wed, 15 Aug 2012 08:02:26 -0700
-Message-ID: <20120815080226.388ea856@nehalam.linuxnetplumber.net>
-References: <1344507270-2907-1-git-send-email-cjren@qca.qualcomm.com>
-	<20120811135044.529a7081@nehalam.linuxnetplumber.net>
-	<6349D7A510622448B1BA0967850A84380136A1EF@NASANEXD02D.na.qualcomm.com>
-	<20120814.223258.1180104882398843954.davem@davemloft.net>
-	<6349D7A510622448B1BA0967850A84380136A218@NASANEXD02D.na.qualcomm.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH] act_mirred: do not drop packets when fails to mirror it
+Date: Wed, 15 Aug 2012 11:10:19 -0400
+Message-ID: <1345043419.3013.8.camel@mojatatu>
+References: <20120815093756.22238.80872.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	 <1345034141.20443.12.camel@mojatatu>  <502BA72B.6070205@redhat.com>
+Reply-To: jhs@mojatatu.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>,
-	"Huang, Xiong" <xiong@qca.qualcomm.com>,
-	"hao-ran.liu@canonical.com" <hao-ran.liu@canonical.com>,
-	"joe@perches.com" <joe@perches.com>,
-	"Rodriguez, Luis" <rodrigue@qca.qualcomm.com>
-To: "Ren, Cloud" <cjren@qca.qualcomm.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6349D7A510622448B1BA0967850A84380136A218@NASANEXD02D.na.qualcomm.com>
+In-Reply-To: <502BA72B.6070205@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Aug 2012 05:39:11 +0000
-"Ren, Cloud" <cjren@qca.qualcomm.com> wrote:
+On Wed, 2012-08-15 at 21:42 +0800, Jason Wang wrote:
 
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Wednesday, August 15, 2012 1:33 PM
 > 
-> >From: "Ren, Cloud" <cjren@qca.qualcomm.com>
-> >Date: Wed, 15 Aug 2012 03:29:26 +0000
-> >
-> >>>> +	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
-> >>>> ...
-> >>>> +	strcpy(netdev->name, "eth%d");
-> >>>> +	retval = register_netdev(netdev);
-> >>>
-> >>>The strcpy is unnecessary, alloc_etherdev already sets that.
-> >>
-> >> The strcpy is useful. netdev->name is set as pci_name in front. So the strcpy
-> >restores it.
-> >
-> >Are you doing this just to influence the initial driver log messages?
+> I met it actually through the following steps:
 > 
->  Yes.
+> - start a kvm guest with tap and make it to be an interface of the bridge
+> - mirror the ingress traffic of the bridge to the tap
+> - terminate the qemu process, the tap device is then removed
+> - all packet goes to bridge would be dropped, so the network of guests 
+> in the same bridge would be broken
 > 
-> >
-> >Don't do that, it's gross.
-> 
-> Ok, I will remove it.
 
-Before the driver is registered, use dev_info() type of logging.
+Makes sense.
+Can you please leave the err check braces i.e
+        if (err) {
+                m->tcf_qstats.overlimits++;
+                if (m->tcfm_eaction != TCA_EGRESS_MIRROR)
+                        retval = TC_ACT_SHOT;
+                else 
+                    retval = m->tcf_action;   
+        } else {
+                retval = m->tcf_action;
+        }
+
+Or at least dont use TC_ACT_STOLEN.
+
+cheers,
+jamal
