@@ -1,92 +1,34 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [PATCH 02/16] user_ns: use new hashtable
-	implementation
-Date: Tue, 14 Aug 2012 20:13:01 -0700
-Message-ID: <87obmchmpu.fsf@xmission.com>
-References: <1344961490-4068-1-git-send-email-levinsasha928@gmail.com>
-	<1344961490-4068-3-git-send-email-levinsasha928@gmail.com>
-	<87txw5hw0s.fsf@xmission.com> <502AF184.4010907@gmail.com>
-	<87393phshy.fsf@xmission.com> <502AFCD5.6070104@gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next 0/7] sctp: network namespace support Part 2:
+ per net tunables
+Date: Tue, 14 Aug 2012 23:16:56 -0400
+Message-ID: <502B14A8.9060806@gmail.com>
+References: <87zk67q31q.fsf_-_@xmission.com> <87ipcud3ld.fsf_-_@xmission.com> <20120808.232058.1128673474849407813.davem@davemloft.net> <20120814.141415.556937052577510995.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
-	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org,
-	axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <502AFCD5.6070104-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (Sasha Levin's message of "Wed, 15
-	Aug 2012 03:35:17 +0200")
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: ebiederm@xmission.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jan.ariyasu@hp.com, jan.ariyasu@gmail.com, nhorman@tuxdriver.com,
+	tgraf@infradead.org, xi.wang@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120814.141415.556937052577510995.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+On 08/14/2012 05:14 PM, David Miller wrote:
+>
+> Come on Vlad, please review this stuff some time this century.  If you
+> want inclusion to be dependent upon your review, then the onus is on
+> you to review it in a timely manner.  And you are not doing so here.
+>
+> I'm not letting Eric's patches rot in patchwork for more than a week,
+> this is completely unacceptable.
+>
 
-> On 08/15/2012 03:08 AM, Eric W. Biederman wrote:
->>> I can offer the following: I'll write a small module that will hash 1...10000
->>> > into a hashtable which uses 7 bits (just like user_ns) and post the distribution
->>> > we'll get.
->> That won't hurt.  I think 1-100 then 1000-1100 may actually be more
->> representative.  Not that I would mind seeing the larger range.
->> Especially since I am in the process of encouraging the use of more
->> uids.
->> 
->
-> Alrighty, the results are in (numbers are objects in bucket):
->
-> For the 0...10000 range:
->
-> Average: 78.125
-> Std dev: 1.4197704151
-> Min: 75
-> Max: 80
->
->
-> For the 1...100 range:
->
-> Average: 0.78125
-> Std dev: 0.5164613088
-> Min: 0
-> Max: 2
->
->
-> For the 1000...1100 range:
->
-> Average: 0.7890625
-> Std dev: 0.4964812206
-> Min: 0
-> Max: 2
->
->
-> Looks like hash_32 is pretty good with small numbers.
 
-Yes hash_32 seems reasonable for the uid hash.   With those long hash
-chains I wouldn't like to be on a machine with 10,000 processes with
-each with a different uid, and a processes calling setuid in the fast
-path.
+I swear I sent an ACK 2 days ago, but I now see it sitting in my draft 
+folder.  My bad.  I'll go now and dust off the ACK...
 
-The uid hash that we are playing with is one that I sort of wish that
-the hash table could grow in size, so that we could scale up better.
-
-Aw well.  Most of the time we only have a very small number of uids
-in play, so it doesn't matter at this point.
-
-Eric
+-vlad
