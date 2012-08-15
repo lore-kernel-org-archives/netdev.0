@@ -1,43 +1,50 @@
 From: Mathias Krause <minipli@googlemail.com>
-Subject: [PATCH 13/14] ipvs: fix info leak in getsockopt(IP_VS_SO_GET_TIMEOUT)
-Date: Wed, 15 Aug 2012 23:31:56 +0200
-Message-ID: <1345066317-22512-14-git-send-email-minipli@googlemail.com>
+Subject: [PATCH 11/14] dccp: check ccid before dereferencing
+Date: Wed, 15 Aug 2012 23:31:54 +0200
+Message-ID: <1345066317-22512-12-git-send-email-minipli@googlemail.com>
 References: <1345066317-22512-1-git-send-email-minipli@googlemail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Mathias Krause <minipli@googlemail.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>, stable@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1345066317-22512-1-git-send-email-minipli@googlemail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If at least one of CONFIG_IP_VS_PROTO_TCP or CONFIG_IP_VS_PROTO_UDP is
-not set, __ip_vs_get_timeouts() does not fully initialize the structure
-that gets copied to userland and that for leaks up to 12 bytes of kernel
-stack. Add an explicit memset(0) before passing the structure to
-__ip_vs_get_timeouts() to avoid the info leak.
+ccid_hc_rx_getsockopt() and ccid_hc_tx_getsockopt() might be called with
+a NULL ccid pointer leading to a NULL pointer dereference. This could
+lead to a privilege escalation if the attacker is able to map page 0 and
+prepare it with a fake ccid_ops pointer.
 
 Signed-off-by: Mathias Krause <minipli@googlemail.com>
-Cc: Wensong Zhang <wensong@linux-vs.org>
-Cc: Simon Horman <horms@verge.net.au>
-Cc: Julian Anastasov <ja@ssi.bg>
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Cc: stable@vger.kernel.org
 ---
- net/netfilter/ipvs/ip_vs_ctl.c |    1 +
- 1 file changed, 1 insertion(+)
+ net/dccp/ccid.h |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 84444dd..72bf32a 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -2759,6 +2759,7 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
- 	{
- 		struct ip_vs_timeout_user t;
- 
-+		memset(&t, 0, sizeof(t));
- 		__ip_vs_get_timeouts(net, &t);
- 		if (copy_to_user(user, &t, sizeof(t)) != 0)
- 			ret = -EFAULT;
+diff --git a/net/dccp/ccid.h b/net/dccp/ccid.h
+index 75c3582..fb85d37 100644
+--- a/net/dccp/ccid.h
++++ b/net/dccp/ccid.h
+@@ -246,7 +246,7 @@ static inline int ccid_hc_rx_getsockopt(struct ccid *ccid, struct sock *sk,
+ 					u32 __user *optval, int __user *optlen)
+ {
+ 	int rc = -ENOPROTOOPT;
+-	if (ccid->ccid_ops->ccid_hc_rx_getsockopt != NULL)
++	if (ccid != NULL && ccid->ccid_ops->ccid_hc_rx_getsockopt != NULL)
+ 		rc = ccid->ccid_ops->ccid_hc_rx_getsockopt(sk, optname, len,
+ 						 optval, optlen);
+ 	return rc;
+@@ -257,7 +257,7 @@ static inline int ccid_hc_tx_getsockopt(struct ccid *ccid, struct sock *sk,
+ 					u32 __user *optval, int __user *optlen)
+ {
+ 	int rc = -ENOPROTOOPT;
+-	if (ccid->ccid_ops->ccid_hc_tx_getsockopt != NULL)
++	if (ccid != NULL && ccid->ccid_ops->ccid_hc_tx_getsockopt != NULL)
+ 		rc = ccid->ccid_ops->ccid_hc_tx_getsockopt(sk, optname, len,
+ 						 optval, optlen);
+ 	return rc;
 -- 
 1.7.10.4
