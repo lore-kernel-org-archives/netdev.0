@@ -1,36 +1,29 @@
-From: Mathias Krause <minipli@googlemail.com>
-Subject: [PATCH 02/14] atm: fix info leak via getsockname()
-Date: Wed, 15 Aug 2012 23:31:45 +0200
-Message-ID: <1345066317-22512-3-git-send-email-minipli@googlemail.com>
-References: <1345066317-22512-1-git-send-email-minipli@googlemail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mathias Krause <minipli@googlemail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1345066317-22512-1-git-send-email-minipli@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Grant Grundler <grundler@google.com>
+Subject: smsc75xx maintainer?
+Date: Wed, 15 Aug 2012 14:48:35 -0700
+Message-ID: <CANEJEGuh++1-7HajcK65a=NPyKY_5JWkjGQFOKddv4JrVn0gFA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:37589 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751049Ab2HOVsg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 17:48:36 -0400
+Received: by obbuo13 with SMTP id uo13so2669732obb.19
+        for <netdev@vger.kernel.org>; Wed, 15 Aug 2012 14:48:35 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ATM code fails to initialize the two padding bytes of struct
-sockaddr_atmpvc inserted for alignment. Add an explicit memset(0)
-before filling the structure to avoid the info leak.
+scripts/get_maintainer.pl can't identify an owner for
+drivers/net/usb/smsc75xx.c (USB GigE dongle).
 
-Signed-off-by: Mathias Krause <minipli@googlemail.com>
----
- net/atm/pvc.c |    1 +
- 1 file changed, 1 insertion(+)
+Anyone (at SMSC?) interested in fixing suspend/resume for smsc75xx driver?
 
-diff --git a/net/atm/pvc.c b/net/atm/pvc.c
-index 3a73491..ae03240 100644
---- a/net/atm/pvc.c
-+++ b/net/atm/pvc.c
-@@ -95,6 +95,7 @@ static int pvc_getname(struct socket *sock, struct sockaddr *sockaddr,
- 		return -ENOTCONN;
- 	*sockaddr_len = sizeof(struct sockaddr_atmpvc);
- 	addr = (struct sockaddr_atmpvc *)sockaddr;
-+	memset(addr, 0, sizeof(*addr));
- 	addr->sap_family = AF_ATMPVC;
- 	addr->sap_addr.itf = vcc->dev->number;
- 	addr->sap_addr.vpi = vcc->vpi;
--- 
-1.7.10.4
+I don't have time to chase this but it would be nice if this part
+worked. Only suspend/resume appears broken.
+
+Some details in http://crosbug.com/31871.
+
+thanks,
+grant
