@@ -1,128 +1,77 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-Subject: Re: [PATCH 02/16] user_ns: use new hashtable implementation
-Date: Tue, 14 Aug 2012 23:31:55 -0400
-Message-ID: <20120815033155.GA32653@Krystal>
-References: <1344961490-4068-1-git-send-email-levinsasha928@gmail.com> <1344961490-4068-3-git-send-email-levinsasha928@gmail.com> <87txw5hw0s.fsf@xmission.com> <502AF184.4010907@gmail.com> <87393phshy.fsf@xmission.com> <502AFCD5.6070104@gmail.com> <87obmchmpu.fsf@xmission.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net 2/3] llc2: Call llc_station_exit() on llc2_init()
+ failure path
+Date: Wed, 15 Aug 2012 05:06:33 +0100
+Message-ID: <1345003593.824.212.camel@deadeye.wl.decadent.org.uk>
+References: <1344862120.824.139.camel@deadeye.wl.decadent.org.uk>
+	 <1344862243.824.141.camel@deadeye.wl.decadent.org.uk>
+	 <20120814.165223.953955272458502981.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sasha Levin <levinsasha928@gmail.com>, torvalds@linux-foundation.org,
-	tj@kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	paul.gortmaker@windriver.com, davem@davemloft.net,
-	rostedt@goodmis.org, mingo@elte.hu, aarcange@redhat.com,
-	ericvh@gmail.com, netdev@vger.kernel.org, josh@joshtriplett.org,
-	eric.dumazet@gmail.com, axboe@kernel.dk, agk@redhat.com,
-	dm-devel@redhat.com, neilb@suse.de, ccaulfie@redhat.com,
-	teigland@redhat.com, Trond.Myklebust@netapp.com,
-	bfields@fieldses.org, fweisbec@gmail.com, jesse@nicira.com,
-	venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
-	edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
-	rds-devel@oss.oracle.com, lw@cn.fujitsu.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <87obmchmpu.fsf@xmission.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-UxLcgIHDzPIU8bgFPirW"
+Cc: acme@ghostprotocols.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:55491 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751058Ab2HOEGq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 00:06:46 -0400
+In-Reply-To: <20120814.165223.953955272458502981.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Eric W. Biederman (ebiederm@xmission.com) wrote:
-> Sasha Levin <levinsasha928@gmail.com> writes:
-> 
-> > On 08/15/2012 03:08 AM, Eric W. Biederman wrote:
-> >>> I can offer the following: I'll write a small module that will hash 1...10000
-> >>> > into a hashtable which uses 7 bits (just like user_ns) and post the distribution
-> >>> > we'll get.
-> >> That won't hurt.  I think 1-100 then 1000-1100 may actually be more
-> >> representative.  Not that I would mind seeing the larger range.
-> >> Especially since I am in the process of encouraging the use of more
-> >> uids.
-> >> 
-> >
-> > Alrighty, the results are in (numbers are objects in bucket):
-> >
-> > For the 0...10000 range:
-> >
-> > Average: 78.125
-> > Std dev: 1.4197704151
-> > Min: 75
-> > Max: 80
-> >
-> >
-> > For the 1...100 range:
-> >
-> > Average: 0.78125
-> > Std dev: 0.5164613088
-> > Min: 0
-> > Max: 2
-> >
-> >
-> > For the 1000...1100 range:
-> >
-> > Average: 0.7890625
-> > Std dev: 0.4964812206
-> > Min: 0
-> > Max: 2
-> >
-> >
-> > Looks like hash_32 is pretty good with small numbers.
-> 
-> Yes hash_32 seems reasonable for the uid hash.   With those long hash
-> chains I wouldn't like to be on a machine with 10,000 processes with
-> each with a different uid, and a processes calling setuid in the fast
-> path.
-> 
-> The uid hash that we are playing with is one that I sort of wish that
-> the hash table could grow in size, so that we could scale up better.
 
-Hi Eric,
+--=-UxLcgIHDzPIU8bgFPirW
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-If you want to try out something that has more features than a basic
-hash table, already exists and is available for you to play with, you
-might want to have a look at the RCU lock-free resizable hash table.
-It's initially done in userspace, but shares the same RCU semantic as
-the kernel, and has chunk-based kernel-friendly index backends (thanks
-to Lai Jiangshan), very useful to integrate with the kernel page
-allocator.
+On Tue, 2012-08-14 at 16:52 -0700, David Miller wrote:
+> From: Ben Hutchings <ben@decadent.org.uk>
+> Date: Mon, 13 Aug 2012 13:50:43 +0100
+>=20
+> > Otherwise the station packet handler will remain registered even though
+> > the module is unloaded.
+> >=20
+> > Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+>=20
+> This will cause section mismatch errors, you'll need to remove
+> the __exit tag from llc_station_exit() if you want to start
+> invoking it from llc2_init() which is __init.
+>=20
+> I took care of this when applying this patch to 'net'.
 
-It has the following properties that might make this container a good
-fit for uid hashing:
+Thanks, David.
 
-- Real-time friendly lookups: Lookups are RCU and wait-free.
-- Fast and real-time friendly updates: Use cmpxchg for update, and RCU
-  to deal with ABA.
-- Resize (expand/shrink) for each power of two size, performed
-  concurrently with ongoing updates and lookups.
-- Has add_unique (uniquify), add_replace, and also duplicate semantics.
-- Provide uniqueness guarantees for RCU traversals of the hash table
-  with respect to add_unique and add_replace.
+llc_station.c turns out to be mostly dead code, and I have some more
+radical changes to remove that which I'll send after you next merge net
+into net-next.
 
-So if you are looking for a fast, RT-friendly, resizable hash table to
-play with, you might want to have a look at the userspace RCU
-implementation, which now features this hash table:
+Ben.
 
-https://lttng.org/urcu
+--=20
+Ben Hutchings
+I say we take off; nuke the site from orbit.  It's the only way to be sure.
 
-See urcu/rculfhash.h for the API.
+--=-UxLcgIHDzPIU8bgFPirW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-Best regards,
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-Mathieu
+iQIVAwUAUCsgSee/yOyVhhEJAQrrVg/+MsGbwG4wx42KqG43T9F48GxxNUJgUwmp
+skujK5kcyUyzglqN7+SG3AOPPBtJ1ExqE8Da5OlewWmz35L0+EgDMVfccDSMGe1G
+/W1Rh4ax4jw/dLUOmiV10W4cRXADKL+QyYHx7VilXsGPHy1DMVaHaNI66zRQFtDu
+Q+DdHi4uBhfLsy+ySceGU3DwkMZKuLQKBsKLuf2b5Mm7pH2MPY9Cd45i7WmBOizl
+3TnfxOAVeLg++HVjYXnL6xX2ZHV4W+6O4xoPuDQtkgwWZIuNXCSbxWIFVO2GEfic
+Y27sxOm1LyNR6uXWmHZfo9fnRJK3LytKxoYVK+iLoOZ3lW5+uGi1H6iwx0Hogugc
+kgX4ec6IBcI2YnppsMs+zcAa1y6Y0UzvLb+MioTXiUrv4ydW3NGdUPrC1WX6/95h
+nWugWLHqvhQUr+UalXF4SSYskxtkydBPAe7Su8Mvo2acg9pds+Rwij4XPAqknt+k
+VL5ONqSQ1VazviBspq8hh6QqUfcM0SFOD7mk2KNuWmG7yJPUyEGS5IGgqC78eDCq
+CYLUwUr81mJwmJJVLeYTnbPlXIY1Ufh3UihXi2uFY9T2a3b1zEqh7NcDAmEWnQkw
+XlAKSF1o4zcpNuL05czz+dXxOI5zBwQ6lbFdGYazZlvAkeVYR9yJGAxVfuWO5tcr
+yuFBSzAbcM8=
+=rKVf
+-----END PGP SIGNATURE-----
 
-> 
-> Aw well.  Most of the time we only have a very small number of uids
-> in play, so it doesn't matter at this point.
-> 
-> Eric
-> 
-
--- 
-Mathieu Desnoyers
-Operating System Efficiency R&D Consultant
-EfficiOS Inc.
-http://www.efficios.com
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+--=-UxLcgIHDzPIU8bgFPirW--
