@@ -1,50 +1,39 @@
 From: Mathias Krause <minipli@googlemail.com>
-Subject: [PATCH 11/14] dccp: check ccid before dereferencing
-Date: Wed, 15 Aug 2012 23:31:54 +0200
-Message-ID: <1345066317-22512-12-git-send-email-minipli@googlemail.com>
+Subject: [PATCH 09/14] l2tp: fix info leak via getsockname()
+Date: Wed, 15 Aug 2012 23:31:52 +0200
+Message-ID: <1345066317-22512-10-git-send-email-minipli@googlemail.com>
 References: <1345066317-22512-1-git-send-email-minipli@googlemail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Mathias Krause <minipli@googlemail.com>,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>, stable@vger.kernel.org
+	James Chapman <jchapman@katalix.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1345066317-22512-1-git-send-email-minipli@googlemail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ccid_hc_rx_getsockopt() and ccid_hc_tx_getsockopt() might be called with
-a NULL ccid pointer leading to a NULL pointer dereference. This could
-lead to a privilege escalation if the attacker is able to map page 0 and
-prepare it with a fake ccid_ops pointer.
+The L2TP code for IPv6 fails to initialize the l2tp_unused member of
+struct sockaddr_l2tpip6 and that for leaks two bytes kernel stack via
+the getsockname() syscall. Initialize l2tp_unused with 0 to avoid the
+info leak.
 
 Signed-off-by: Mathias Krause <minipli@googlemail.com>
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Cc: stable@vger.kernel.org
+Cc: James Chapman <jchapman@katalix.com>
 ---
- net/dccp/ccid.h |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/l2tp/l2tp_ip6.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/dccp/ccid.h b/net/dccp/ccid.h
-index 75c3582..fb85d37 100644
---- a/net/dccp/ccid.h
-+++ b/net/dccp/ccid.h
-@@ -246,7 +246,7 @@ static inline int ccid_hc_rx_getsockopt(struct ccid *ccid, struct sock *sk,
- 					u32 __user *optval, int __user *optlen)
- {
- 	int rc = -ENOPROTOOPT;
--	if (ccid->ccid_ops->ccid_hc_rx_getsockopt != NULL)
-+	if (ccid != NULL && ccid->ccid_ops->ccid_hc_rx_getsockopt != NULL)
- 		rc = ccid->ccid_ops->ccid_hc_rx_getsockopt(sk, optname, len,
- 						 optval, optlen);
- 	return rc;
-@@ -257,7 +257,7 @@ static inline int ccid_hc_tx_getsockopt(struct ccid *ccid, struct sock *sk,
- 					u32 __user *optval, int __user *optlen)
- {
- 	int rc = -ENOPROTOOPT;
--	if (ccid->ccid_ops->ccid_hc_tx_getsockopt != NULL)
-+	if (ccid != NULL && ccid->ccid_ops->ccid_hc_tx_getsockopt != NULL)
- 		rc = ccid->ccid_ops->ccid_hc_tx_getsockopt(sk, optname, len,
- 						 optval, optlen);
- 	return rc;
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index 35e1e4b..9275471 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
+@@ -410,6 +410,7 @@ static int l2tp_ip6_getname(struct socket *sock, struct sockaddr *uaddr,
+ 	lsa->l2tp_family = AF_INET6;
+ 	lsa->l2tp_flowinfo = 0;
+ 	lsa->l2tp_scope_id = 0;
++	lsa->l2tp_unused = 0;
+ 	if (peer) {
+ 		if (!lsk->peer_conn_id)
+ 			return -ENOTCONN;
 -- 
 1.7.10.4
