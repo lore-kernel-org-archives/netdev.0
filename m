@@ -1,94 +1,101 @@
-From: Sage Weil <sage@inktank.com>
-Subject: Re: regression with poll(2)?
-Date: Wed, 15 Aug 2012 14:03:59 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.1208151402220.18862@cobra.newdream.net>
-References: <alpine.DEB.2.00.1208151226250.15721@cobra.newdream.net> <43EC24BD-D7FF-4611-9D88-DF9C496A620A@ornl.gov>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [net PATCH v3 1/3] net: netprio: fix files lock and remove
+ useless d_path bits
+Date: Wed, 15 Aug 2012 21:03:18 +0100
+Message-ID: <20120815200318.GM23464@ZenIV.linux.org.uk>
+References: <20120814223424.3551.21608.stgit@jf-dev1-dcblab>
+ <20120815105206.GA23811@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ceph-devel@vger.kernel.org" <ceph-devel@vger.kernel.org>
-To: "Atchley, Scott" <atchleyes@ornl.gov>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <43EC24BD-D7FF-4611-9D88-DF9C496A620A@ornl.gov>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, joe@perches.com
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:60350 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932109Ab2HOUDb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 16:03:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20120815105206.GA23811@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 15 Aug 2012, Atchley, Scott wrote:
-> On Aug 15, 2012, at 3:46 PM, Sage Weil wrote:
+On Wed, Aug 15, 2012 at 06:52:06AM -0400, Neil Horman wrote:
+> On Tue, Aug 14, 2012 at 03:34:24PM -0700, John Fastabend wrote:
+> > Add lock to prevent a race with a file closing and also remove
+> > useless and ugly sscanf code. The extra code was never needed
+> > and the case it supposedly protected against is in fact handled
+> > correctly by sock_from_file as pointed out by Al Viro.
+> > 
+> > CC: Neil Horman <nhorman@tuxdriver.com>
+> > Reported-by: Al Viro <viro@ZenIV.linux.org.uk>
+> > Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> > ---
+> > 
+> >  net/core/netprio_cgroup.c |   22 ++++------------------
+> >  1 files changed, 4 insertions(+), 18 deletions(-)
+> > 
+> > diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+> > index ed0c043..f65dba3 100644
+> > --- a/net/core/netprio_cgroup.c
+> > +++ b/net/core/netprio_cgroup.c
+> > @@ -277,12 +277,6 @@ out_free_devname:
+> >  void net_prio_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
+> >  {
+> >  	struct task_struct *p;
+> > -	char *tmp = kzalloc(sizeof(char) * PATH_MAX, GFP_KERNEL);
+> > -
+> > -	if (!tmp) {
+> > -		pr_warn("Unable to attach cgrp due to alloc failure!\n");
+> > -		return;
+> > -	}
+> >  
+> >  	cgroup_taskset_for_each(p, cgrp, tset) {
+> >  		unsigned int fd;
+> > @@ -296,32 +290,24 @@ void net_prio_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
+> >  			continue;
+> >  		}
+> >  
+> > -		rcu_read_lock();
+> > +		spin_lock(&files->file_lock);
+> >  		fdt = files_fdtable(files);
+> >  		for (fd = 0; fd < fdt->max_fds; fd++) {
+> > -			char *path;
+> >  			struct file *file;
+> >  			struct socket *sock;
+> > -			unsigned long s;
+> > -			int rv, err = 0;
+> > +			int err;
+> >  
+> >  			file = fcheck_files(files, fd);
+> >  			if (!file)
+> >  				continue;
+> >  
+> > -			path = d_path(&file->f_path, tmp, PAGE_SIZE);
+> > -			rv = sscanf(path, "socket:[%lu]", &s);
+> > -			if (rv <= 0)
+> > -				continue;
+> > -
+> >  			sock = sock_from_file(file, &err);
+> > -			if (!err)
+> > +			if (sock)
+> >  				sock_update_netprioidx(sock->sk, p);
+> >  		}
+> > -		rcu_read_unlock();
+> > +		spin_unlock(&files->file_lock);
+> >  		task_unlock(p);
+> >  	}
+> > -	kfree(tmp);
+> >  }
+> >  
+> >  static struct cftype ss_files[] = {
+> > 
+> > 
+> Acked-by: Neil Horman <nhorman@tuxdriver.com>
 > 
-> > I'm experiencing a stall with Ceph daemons communicating over TCP that 
-> > occurs reliably with 3.6-rc1 (and linus/master) but not 3.5.  The basic 
-> > situation is:
-> > 
-> > - the socket is two processes communicating over TCP on the same host, e.g. 
-> > 
-> > tcp        0 2164849 10.214.132.38:6801      10.214.132.38:51729     ESTABLISHED
-> > 
-> > - one end writes a bunch of data in
-> > - the other end consumes data, but at some point stalls.
-> > - reads are nonblocking, e.g.
-> > 
-> >  int got = ::recv( sd, buf, len, MSG_DONTWAIT );
-> > 
-> > and between those calls we wait with
-> > 
-> >  struct pollfd pfd;
-> >  short evmask;
-> >  pfd.fd = sd;
-> >  pfd.events = POLLIN;
-> > #if defined(__linux__)
-> >  pfd.events |= POLLRDHUP;
-> > #endif
-> > 
-> >  if (poll(&pfd, 1, msgr->timeout) <= 0)
-> >    return -1;
-> > 
-> > - in my case the timeout is ~15 minutes.  at that point it errors out, 
-> > and the daemons reconnect and continue for a while until hitting this 
-> > again.
-> > 
-> > - at the time of the stall, the reading process is blocked on that 
-> > poll(2) call.  There are a bunch of threads stuck on poll(2), some of them 
-> > stuck and some not, but they all have stacks like
-> > 
-> > [<ffffffff8118f6f9>] poll_schedule_timeout+0x49/0x70
-> > [<ffffffff81190baf>] do_sys_poll+0x35f/0x4c0
-> > [<ffffffff81190deb>] sys_poll+0x6b/0x100
-> > [<ffffffff8163d369>] system_call_fastpath+0x16/0x1b
-> > 
-> > - you'll note that the netstat output shows data queued:
-> > 
-> > tcp        0 1163264 10.214.132.36:6807      10.214.132.36:41738     ESTABLISHED
-> > tcp        0 1622016 10.214.132.36:41738     10.214.132.36:6807      ESTABLISHED
-> > 
-> > etc.
-> > 
-> > Is this a known regression?  Or might I be misusing the API?  What 
-> > information would help track it down?
-> > 
-> > Thanks!
-> > sage
-> 
-> 
-> Sage,
-> 
-> Do you see the same behavior when using two hosts (i.e. not loopback)? If different, how much data is in the pipe in the localhost case?
+> It looks good to me.  Al, could you please lend your review here too?
 
-I have only seen it in the loopback case, and have independently diagnosed 
-it a half dozen or so times now.
-
-:/
-sage
-
-
-> 
-> Scott
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe ceph-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+Tolerable...  I still don't like the idea of iterating through the
+descriptor tables, but at least that variant is safe wrt locking and
+lifetime rules.
