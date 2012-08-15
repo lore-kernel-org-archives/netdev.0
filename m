@@ -1,49 +1,66 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] act_mirred: do not drop packets when fails to mirror
- it
-Date: Wed, 15 Aug 2012 21:42:03 +0800
-Message-ID: <502BA72B.6070205@redhat.com>
-References: <20120815093756.22238.80872.stgit@amd-6168-8-1.englab.nay.redhat.com> <1345034141.20443.12.camel@mojatatu>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net] net: qmi_wwan: new devices: UML290 and K5006-Z
+Date: Wed, 15 Aug 2012 15:42:57 +0200
+Message-ID: <1345038177-29189-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net
-To: jhs@mojatatu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1345034141.20443.12.camel@mojatatu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	=?UTF-8?q?Thomas=20Sch=C3=A4fer?= <tschaefer-zqRNUXuvxA0b1SvskN2V4Q@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 08/15/2012 08:35 PM, Jamal Hadi Salim wrote:
-> On Wed, 2012-08-15 at 17:37 +0800, Jason Wang wrote:
->> We drop packet unconditionally when we fail to mirror it. This is not intended
->> in some cases.
-> Hi Jason,
-> Did you actually notice the behavior you described or were you going by
-> the XXX comment I had in the code?
->
-> cheers,
-> jamal
-Hi Jamal:
+Newer firmware versions for the Pantech UML290 use a different
+subclass ID.  The Windows driver match on both IDs, so we do
+that as well.
 
-I met it actually through the following steps:
+The ZTE (Vodafone) K5006-Z is a new device.
 
-- start a kvm guest with tap and make it to be an interface of the bridge
-- mirror the ingress traffic of the bridge to the tap
-- terminate the qemu process, the tap device is then removed
-- all packet goes to bridge would be dropped, so the network of guests 
-in the same bridge would be broken
+Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Cc: Thomas Sch=C3=A4fer <tschaefer-zqRNUXuvxA0b1SvskN2V4Q@public.gmane.org>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+I'll prepare a backport for stable-3.4 and -3.5 once this
+is in mainline, unless someone beats me to it.  Feel free
+to do so :-)
 
-It's hard for the management to forcast the termination of the porcess 
-and clean the mirroring before. The realistic way is to remove the 
-mirroring after the termination of the process. So, if we drop the 
-packets when the mirred device (tap) is removed, in the gap between the 
-qemu termitnaion and disabling mirroring, the bridge ( and other VMs 
-using the it) would not recevie any packet.
 
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ drivers/net/usb/qmi_wwan.c |    5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index aaa061b..328397c 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -373,6 +373,10 @@ static const struct usb_device_id products[] =3D {
+ 		USB_DEVICE_AND_INTERFACE_INFO(0x106c, 0x3718, USB_CLASS_VENDOR_SPEC,=
+ 0xf0, 0xff),
+ 		.driver_info        =3D (unsigned long)&qmi_wwan_shared,
+ 	},
++	{	/* Pantech UML290 - newer firmware */
++		USB_DEVICE_AND_INTERFACE_INFO(0x106c, 0x3718, USB_CLASS_VENDOR_SPEC,=
+ 0xf1, 0xff),
++		.driver_info        =3D (unsigned long)&qmi_wwan_shared,
++	},
+=20
+ 	/* 3. Combined interface devices matching on interface number */
+ 	{QMI_FIXED_INTF(0x19d2, 0x0055, 1)},	/* ZTE (Vodafone) K3520-Z */
+@@ -382,6 +386,7 @@ static const struct usb_device_id products[] =3D {
+ 	{QMI_FIXED_INTF(0x19d2, 0x0326, 4)},	/* ZTE MF821D */
+ 	{QMI_FIXED_INTF(0x19d2, 0x1008, 4)},	/* ZTE (Vodafone) K3570-Z */
+ 	{QMI_FIXED_INTF(0x19d2, 0x1010, 4)},	/* ZTE (Vodafone) K3571-Z */
++	{QMI_FIXED_INTF(0x19d2, 0x1018, 3)},	/* ZTE (Vodafone) K5006-Z */
+ 	{QMI_FIXED_INTF(0x19d2, 0x1402, 2)},	/* ZTE MF60 */
+ 	{QMI_FIXED_INTF(0x19d2, 0x2002, 4)},	/* ZTE (Vodafone) K3765-Z */
+ 	{QMI_FIXED_INTF(0x0f3d, 0x68a2, 8)},    /* Sierra Wireless MC7700 */
+--=20
+1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
