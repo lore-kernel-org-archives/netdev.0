@@ -1,59 +1,36 @@
 From: Mathias Krause <minipli@googlemail.com>
-Subject: [PATCH 00/14] net: info leaks and other bugs
-Date: Wed, 15 Aug 2012 23:31:43 +0200
-Message-ID: <1345066317-22512-1-git-send-email-minipli@googlemail.com>
+Subject: [PATCH 01/14] atm: fix info leak in getsockopt(SO_ATMPVC)
+Date: Wed, 15 Aug 2012 23:31:44 +0200
+Message-ID: <1345066317-22512-2-git-send-email-minipli@googlemail.com>
+References: <1345066317-22512-1-git-send-email-minipli@googlemail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Mathias Krause <minipli@googlemail.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1345066317-22512-1-git-send-email-minipli@googlemail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+The ATM code fails to initialize the two padding bytes of struct
+sockaddr_atmpvc inserted for alignment. Add an explicit memset(0)
+before filling the structure to avoid the info leak.
 
-this series fixes quite a bunch of info leaks under net/. There is also
-one NULL pointer deref fix ("dccp: check ccid before..") that could be
-abused for privilege escalation.
+Signed-off-by: Mathias Krause <minipli@googlemail.com>
+---
+ net/atm/common.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-The info leak fixes might be material for stable, too. But I leave the
-decision up to you.
-
-On request, test code for all (but one) of the issues can be provided.
-
-
-Regards,
-Mathias
-
-
-Mathias Krause (14):
-  atm: fix info leak in getsockopt(SO_ATMPVC)
-  atm: fix info leak via getsockname()
-  Bluetooth: HCI - Fix info leak in getsockopt(HCI_FILTER)
-  Bluetooth: HCI - Fix info leak via getsockname()
-  Bluetooth: RFCOMM - Fix info leak in getsockopt(BT_SECURITY)
-  Bluetooth: RFCOMM - Fix info leak in ioctl(RFCOMMGETDEVLIST)
-  Bluetooth: RFCOMM - Fix info leak via getsockname()
-  Bluetooth: L2CAP - Fix info leak via getsockname()
-  l2tp: fix info leak via getsockname()
-  llc: fix info leak via getsockname()
-  dccp: check ccid before dereferencing
-  dccp: fix info leak via getsockopt(DCCP_SOCKOPT_CCID_TX_INFO)
-  ipvs: fix info leak in getsockopt(IP_VS_SO_GET_TIMEOUT)
-  net: fix info leak in compat dev_ifconf()
-
- net/atm/common.c               |    1 +
- net/atm/pvc.c                  |    1 +
- net/bluetooth/hci_sock.c       |    2 ++
- net/bluetooth/l2cap_sock.c     |    1 +
- net/bluetooth/rfcomm/sock.c    |    2 ++
- net/bluetooth/rfcomm/tty.c     |    2 +-
- net/dccp/ccid.h                |    4 ++--
- net/dccp/ccids/ccid3.c         |    1 +
- net/l2tp/l2tp_ip6.c            |    1 +
- net/llc/af_llc.c               |    3 +--
- net/netfilter/ipvs/ip_vs_ctl.c |    1 +
- net/socket.c                   |    1 +
- 12 files changed, 15 insertions(+), 5 deletions(-)
-
+diff --git a/net/atm/common.c b/net/atm/common.c
+index b4b44db..0c0ad93 100644
+--- a/net/atm/common.c
++++ b/net/atm/common.c
+@@ -812,6 +812,7 @@ int vcc_getsockopt(struct socket *sock, int level, int optname,
+ 
+ 		if (!vcc->dev || !test_bit(ATM_VF_ADDR, &vcc->flags))
+ 			return -ENOTCONN;
++		memset(&pvc, 0, sizeof(pvc));
+ 		pvc.sap_family = AF_ATMPVC;
+ 		pvc.sap_addr.itf = vcc->dev->number;
+ 		pvc.sap_addr.vpi = vcc->vpi;
 -- 
 1.7.10.4
