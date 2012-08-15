@@ -1,9 +1,9 @@
 From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next 3/9] sctp: Make the association hashtable handle
- multiple network namespaces
-Date: Tue, 14 Aug 2012 23:18:57 -0400
-Message-ID: <502B1521.1010409@gmail.com>
-References: <1344115837-6150-1-git-send-email-jan.ariyasu@hp.com> <87mx27rig7.fsf@xmission.com> <87zk67q31q.fsf_-_@xmission.com> <87ipcvq2wm.fsf_-_@xmission.com>
+Subject: Re: [PATCH net-next 4/9] sctp: Make the address lists per network
+ namespace
+Date: Tue, 14 Aug 2012 23:19:14 -0400
+Message-ID: <502B1532.1030602@gmail.com>
+References: <1344115837-6150-1-git-send-email-jan.ariyasu@hp.com> <87mx27rig7.fsf@xmission.com> <87zk67q31q.fsf_-_@xmission.com> <87d333q2v7.fsf_-_@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -15,408 +15,655 @@ Cc: David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
 	Thomas Graf <tgraf@infradead.org>, Xi Wang <xi.wang@gmail.com>
 To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87ipcvq2wm.fsf_-_@xmission.com>
+In-Reply-To: <87d333q2v7.fsf_-_@xmission.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/06/2012 02:41 PM, Eric W. Biederman wrote:
+On 08/06/2012 02:42 PM, Eric W. Biederman wrote:
 >
-> - Use struct net in the hash calculation
-> - Use sock_net(association.base.sk) in the association lookups.
-> - On receive calculate the network namespace from skb->dev.
-> - Pass struct net from receive down to the functions that actually
->    do the association lookup.
+> - Move the address lists into struct net
+> - Add per network namespace initialization and cleanup
+> - Pass around struct net so it is everywhere I need it.
+> - Rename all of the global variable references into references
+>    to the variables moved into struct net
 >
 > Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
 Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
 > ---
->   include/net/sctp/sctp.h    |    6 ++--
->   include/net/sctp/structs.h |    3 +-
->   net/sctp/associola.c       |    4 ++-
->   net/sctp/endpointola.c     |    6 +++-
->   net/sctp/input.c           |   64 +++++++++++++++++++++++++++----------------
->   net/sctp/ipv6.c            |    3 +-
->   6 files changed, 54 insertions(+), 32 deletions(-)
+>   include/net/net_namespace.h |    4 +
+>   include/net/netns/sctp.h    |   21 +++++++
+>   include/net/sctp/sctp.h     |    4 +-
+>   include/net/sctp/structs.h  |   22 +-------
+>   net/sctp/associola.c        |    3 +-
+>   net/sctp/bind_addr.c        |   14 ++--
+>   net/sctp/ipv6.c             |   17 +++---
+>   net/sctp/protocol.c         |  141 +++++++++++++++++++++++++------------------
+>   net/sctp/socket.c           |    7 +-
+>   9 files changed, 131 insertions(+), 102 deletions(-)
+>   create mode 100644 include/net/netns/sctp.h
 >
+> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+> index ae1cd6c..8ab5250 100644
+> --- a/include/net/net_namespace.h
+> +++ b/include/net/net_namespace.h
+> @@ -15,6 +15,7 @@
+>   #include <net/netns/packet.h>
+>   #include <net/netns/ipv4.h>
+>   #include <net/netns/ipv6.h>
+> +#include <net/netns/sctp.h>
+>   #include <net/netns/dccp.h>
+>   #include <net/netns/x_tables.h>
+>   #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+> @@ -80,6 +81,9 @@ struct net {
+>   #if IS_ENABLED(CONFIG_IPV6)
+>   	struct netns_ipv6	ipv6;
+>   #endif
+> +#if defined(CONFIG_IP_SCTP) || defined(CONFIG_IP_SCTP_MODULE)
+> +	struct netns_sctp	sctp;
+> +#endif
+>   #if defined(CONFIG_IP_DCCP) || defined(CONFIG_IP_DCCP_MODULE)
+>   	struct netns_dccp	dccp;
+>   #endif
+> diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
+> new file mode 100644
+> index 0000000..cbd684e
+> --- /dev/null
+> +++ b/include/net/netns/sctp.h
+> @@ -0,0 +1,21 @@
+> +#ifndef __NETNS_SCTP_H__
+> +#define __NETNS_SCTP_H__
+> +
+> +struct netns_sctp {
+> +	/* This is the global local address list.
+> +	 * We actively maintain this complete list of addresses on
+> +	 * the system by catching address add/delete events.
+> +	 *
+> +	 * It is a list of sctp_sockaddr_entry.
+> +	 */
+> +	struct list_head local_addr_list;
+> +	struct list_head addr_waitq;
+> +	struct timer_list addr_wq_timer;
+> +	struct list_head auto_asconf_splist;
+> +	spinlock_t addr_wq_lock;
+> +
+> +	/* Lock that protects the local_addr_list writers */
+> +	spinlock_t local_addr_lock;
+> +};
+> +
+> +#endif /* __NETNS_SCTP_H__ */
 > diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-> index 87b119f..640915a 100644
+> index 640915a..00c9205 100644
 > --- a/include/net/sctp/sctp.h
 > +++ b/include/net/sctp/sctp.h
-> @@ -156,7 +156,7 @@ void sctp_hash_established(struct sctp_association *);
->   void sctp_unhash_established(struct sctp_association *);
->   void sctp_hash_endpoint(struct sctp_endpoint *);
->   void sctp_unhash_endpoint(struct sctp_endpoint *);
-> -struct sock *sctp_err_lookup(int family, struct sk_buff *,
-> +struct sock *sctp_err_lookup(struct net *net, int family, struct sk_buff *,
->   			     struct sctphdr *, struct sctp_association **,
->   			     struct sctp_transport **);
->   void sctp_err_finish(struct sock *, struct sctp_association *);
-> @@ -644,9 +644,9 @@ static inline int sctp_ep_hashfn(struct net *net, __u16 lport)
->   }
+> @@ -115,12 +115,12 @@
+>    * sctp/protocol.c
+>    */
+>   extern struct sock *sctp_get_ctl_sock(void);
+> -extern int sctp_copy_local_addr_list(struct sctp_bind_addr *,
+> +extern int sctp_copy_local_addr_list(struct net *, struct sctp_bind_addr *,
+>   				     sctp_scope_t, gfp_t gfp,
+>   				     int flags);
+>   extern struct sctp_pf *sctp_get_pf_specific(sa_family_t family);
+>   extern int sctp_register_pf(struct sctp_pf *, sa_family_t);
+> -extern void sctp_addr_wq_mgmt(struct sctp_sockaddr_entry *, int);
+> +extern void sctp_addr_wq_mgmt(struct net *, struct sctp_sockaddr_entry *, int);
 >
->   /* This is the hash function for the association hash table. */
-> -static inline int sctp_assoc_hashfn(__u16 lport, __u16 rport)
-> +static inline int sctp_assoc_hashfn(struct net *net, __u16 lport, __u16 rport)
->   {
-> -	int h = (lport << 16) + rport;
-> +	int h = (lport << 16) + rport + net_hash_mix(net);
->   	h ^= h>>8;
->   	return h & (sctp_assoc_hashsize - 1);
->   }
+>   /*
+>    * sctp/socket.c
 > diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 9f9de55..c0563d1 100644
+> index c0563d1..6bdfcab 100644
 > --- a/include/net/sctp/structs.h
 > +++ b/include/net/sctp/structs.h
-> @@ -1427,7 +1427,7 @@ int sctp_endpoint_is_peeled_off(struct sctp_endpoint *,
->   				const union sctp_addr *);
->   struct sctp_endpoint *sctp_endpoint_is_match(struct sctp_endpoint *,
->   					struct net *, const union sctp_addr *);
-> -int sctp_has_association(const union sctp_addr *laddr,
-> +int sctp_has_association(struct net *net, const union sctp_addr *laddr,
->   			 const union sctp_addr *paddr);
+> @@ -205,21 +205,7 @@ extern struct sctp_globals {
+>   	int port_hashsize;
+>   	struct sctp_bind_hashbucket *port_hashtable;
 >
->   int sctp_verify_init(const struct sctp_association *asoc, sctp_cid_t,
-> @@ -2014,6 +2014,7 @@ void sctp_assoc_control_transport(struct sctp_association *,
->   				  sctp_transport_cmd_t, sctp_sn_error_t);
->   struct sctp_transport *sctp_assoc_lookup_tsn(struct sctp_association *, __u32);
->   struct sctp_transport *sctp_assoc_is_match(struct sctp_association *,
-> +					   struct net *,
->   					   const union sctp_addr *,
->   					   const union sctp_addr *);
->   void sctp_assoc_migrate(struct sctp_association *, struct sock *);
+> -	/* This is the global local address list.
+> -	 * We actively maintain this complete list of addresses on
+> -	 * the system by catching address add/delete events.
+> -	 *
+> -	 * It is a list of sctp_sockaddr_entry.
+> -	 */
+> -	struct list_head local_addr_list;
+>   	int default_auto_asconf;
+> -	struct list_head addr_waitq;
+> -	struct timer_list addr_wq_timer;
+> -	struct list_head auto_asconf_splist;
+> -	spinlock_t addr_wq_lock;
+> -
+> -	/* Lock that protects the local_addr_list writers */
+> -	spinlock_t addr_list_lock;
+>   	
+>   	/* Flag to indicate if addip is enabled. */
+>   	int addip_enable;
+> @@ -278,12 +264,6 @@ extern struct sctp_globals {
+>   #define sctp_assoc_hashtable		(sctp_globals.assoc_hashtable)
+>   #define sctp_port_hashsize		(sctp_globals.port_hashsize)
+>   #define sctp_port_hashtable		(sctp_globals.port_hashtable)
+> -#define sctp_local_addr_list		(sctp_globals.local_addr_list)
+> -#define sctp_local_addr_lock		(sctp_globals.addr_list_lock)
+> -#define sctp_auto_asconf_splist		(sctp_globals.auto_asconf_splist)
+> -#define sctp_addr_waitq			(sctp_globals.addr_waitq)
+> -#define sctp_addr_wq_timer		(sctp_globals.addr_wq_timer)
+> -#define sctp_addr_wq_lock		(sctp_globals.addr_wq_lock)
+>   #define sctp_default_auto_asconf	(sctp_globals.default_auto_asconf)
+>   #define sctp_scope_policy		(sctp_globals.ipv4_scope_policy)
+>   #define sctp_addip_enable		(sctp_globals.addip_enable)
+> @@ -1241,7 +1221,7 @@ struct sctp_bind_addr {
+>
+>   void sctp_bind_addr_init(struct sctp_bind_addr *, __u16 port);
+>   void sctp_bind_addr_free(struct sctp_bind_addr *);
+> -int sctp_bind_addr_copy(struct sctp_bind_addr *dest,
+> +int sctp_bind_addr_copy(struct net *net, struct sctp_bind_addr *dest,
+>   			const struct sctp_bind_addr *src,
+>   			sctp_scope_t scope, gfp_t gfp,
+>   			int flags);
 > diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index ebaef3e..a3601f3 100644
+> index a3601f3..ed4930b 100644
 > --- a/net/sctp/associola.c
 > +++ b/net/sctp/associola.c
-> @@ -1089,13 +1089,15 @@ out:
+> @@ -1544,7 +1544,8 @@ int sctp_assoc_set_bind_addr_from_ep(struct sctp_association *asoc,
+>   	if (asoc->peer.ipv6_address)
+>   		flags |= SCTP_ADDR6_PEERSUPP;
 >
->   /* Is this the association we are looking for? */
->   struct sctp_transport *sctp_assoc_is_match(struct sctp_association *asoc,
-> +					   struct net *net,
->   					   const union sctp_addr *laddr,
->   					   const union sctp_addr *paddr)
->   {
->   	struct sctp_transport *transport;
->
->   	if ((htons(asoc->base.bind_addr.port) == laddr->v4.sin_port) &&
-> -	    (htons(asoc->peer.port) == paddr->v4.sin_port)) {
-> +	    (htons(asoc->peer.port) == paddr->v4.sin_port) &&
-> +	    net_eq(sock_net(asoc->base.sk), net)) {
->   		transport = sctp_assoc_lookup_paddr(asoc, paddr);
->   		if (!transport)
->   			goto out;
-> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-> index 50c87b4..6b76393 100644
-> --- a/net/sctp/endpointola.c
-> +++ b/net/sctp/endpointola.c
-> @@ -345,7 +345,8 @@ static struct sctp_association *__sctp_endpoint_lookup_assoc(
->
->   	rport = ntohs(paddr->v4.sin_port);
->
-> -	hash = sctp_assoc_hashfn(ep->base.bind_addr.port, rport);
-> +	hash = sctp_assoc_hashfn(sock_net(ep->base.sk), ep->base.bind_addr.port,
-> +				 rport);
->   	head = &sctp_assoc_hashtable[hash];
->   	read_lock(&head->lock);
->   	sctp_for_each_hentry(epb, node, &head->chain) {
-> @@ -388,13 +389,14 @@ int sctp_endpoint_is_peeled_off(struct sctp_endpoint *ep,
->   {
->   	struct sctp_sockaddr_entry *addr;
->   	struct sctp_bind_addr *bp;
-> +	struct net *net = sock_net(ep->base.sk);
->
->   	bp = &ep->base.bind_addr;
->   	/* This function is called with the socket lock held,
->   	 * so the address_list can not change.
->   	 */
->   	list_for_each_entry(addr, &bp->address_list, list) {
-> -		if (sctp_has_association(&addr->a, paddr))
-> +		if (sctp_has_association(net, &addr->a, paddr))
->   			return 1;
->   	}
->
-> diff --git a/net/sctp/input.c b/net/sctp/input.c
-> index c0ca893..a7e9a85 100644
-> --- a/net/sctp/input.c
-> +++ b/net/sctp/input.c
-> @@ -66,13 +66,15 @@
+> -	return sctp_bind_addr_copy(&asoc->base.bind_addr,
+> +	return sctp_bind_addr_copy(sock_net(asoc->base.sk),
+> +				   &asoc->base.bind_addr,
+>   				   &asoc->ep->base.bind_addr,
+>   				   scope, gfp, flags);
+>   }
+> diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
+> index 4ece451..a85ce4b 100644
+> --- a/net/sctp/bind_addr.c
+> +++ b/net/sctp/bind_addr.c
+> @@ -52,8 +52,8 @@
+>   #include <net/sctp/sm.h>
 >
 >   /* Forward declarations for internal helpers. */
->   static int sctp_rcv_ootb(struct sk_buff *);
-> -static struct sctp_association *__sctp_rcv_lookup(struct sk_buff *skb,
-> +static struct sctp_association *__sctp_rcv_lookup(struct net *net,
-> +				      struct sk_buff *skb,
->   				      const union sctp_addr *laddr,
->   				      const union sctp_addr *paddr,
->   				      struct sctp_transport **transportp);
->   static struct sctp_endpoint *__sctp_rcv_lookup_endpoint(struct net *net,
->   						const union sctp_addr *laddr);
->   static struct sctp_association *__sctp_lookup_association(
-> +					struct net *net,
->   					const union sctp_addr *local,
->   					const union sctp_addr *peer,
->   					struct sctp_transport **pt);
-> @@ -180,7 +182,7 @@ int sctp_rcv(struct sk_buff *skb)
->   	    !af->addr_valid(&dest, NULL, skb))
->   		goto discard_it;
+> -static int sctp_copy_one_addr(struct sctp_bind_addr *, union sctp_addr *,
+> -			      sctp_scope_t scope, gfp_t gfp,
+> +static int sctp_copy_one_addr(struct net *, struct sctp_bind_addr *,
+> +			      union sctp_addr *, sctp_scope_t scope, gfp_t gfp,
+>   			      int flags);
+>   static void sctp_bind_addr_clean(struct sctp_bind_addr *);
 >
-> -	asoc = __sctp_rcv_lookup(skb, &src, &dest, &transport);
-> +	asoc = __sctp_rcv_lookup(net, skb, &src, &dest, &transport);
->
->   	if (!asoc)
->   		ep = __sctp_rcv_lookup_endpoint(net, &dest);
-> @@ -476,7 +478,7 @@ void sctp_icmp_proto_unreachable(struct sock *sk,
->   }
->
->   /* Common lookup code for icmp/icmpv6 error handler. */
-> -struct sock *sctp_err_lookup(int family, struct sk_buff *skb,
-> +struct sock *sctp_err_lookup(struct net *net, int family, struct sk_buff *skb,
->   			     struct sctphdr *sctphdr,
->   			     struct sctp_association **app,
->   			     struct sctp_transport **tpp)
-> @@ -505,7 +507,7 @@ struct sock *sctp_err_lookup(int family, struct sk_buff *skb,
->   	/* Look for an association that matches the incoming ICMP error
->   	 * packet.
->   	 */
-> -	asoc = __sctp_lookup_association(&saddr, &daddr, &transport);
-> +	asoc = __sctp_lookup_association(net, &saddr, &daddr, &transport);
->   	if (!asoc)
->   		return NULL;
->
-> @@ -588,6 +590,7 @@ void sctp_v4_err(struct sk_buff *skb, __u32 info)
->   	struct inet_sock *inet;
->   	sk_buff_data_t saveip, savesctp;
->   	int err;
-> +	struct net *net = dev_net(skb->dev);
->
->   	if (skb->len < ihlen + 8) {
->   		ICMP_INC_STATS_BH(&init_net, ICMP_MIB_INERRORS);
-> @@ -599,7 +602,7 @@ void sctp_v4_err(struct sk_buff *skb, __u32 info)
->   	savesctp = skb->transport_header;
->   	skb_reset_network_header(skb);
->   	skb_set_transport_header(skb, ihlen);
-> -	sk = sctp_err_lookup(AF_INET, skb, sctp_hdr(skb), &asoc, &transport);
-> +	sk = sctp_err_lookup(net, AF_INET, skb, sctp_hdr(skb), &asoc, &transport);
->   	/* Put back, the original values. */
->   	skb->network_header = saveip;
->   	skb->transport_header = savesctp;
-> @@ -803,13 +806,15 @@ hit:
->   /* Insert association into the hash table.  */
->   static void __sctp_hash_established(struct sctp_association *asoc)
->   {
-> +	struct net *net = sock_net(asoc->base.sk);
->   	struct sctp_ep_common *epb;
->   	struct sctp_hashbucket *head;
->
->   	epb = &asoc->base;
->
->   	/* Calculate which chain this entry will belong to. */
-> -	epb->hashent = sctp_assoc_hashfn(epb->bind_addr.port, asoc->peer.port);
-> +	epb->hashent = sctp_assoc_hashfn(net, epb->bind_addr.port,
-> +					 asoc->peer.port);
->
->   	head = &sctp_assoc_hashtable[epb->hashent];
->
-> @@ -832,12 +837,13 @@ void sctp_hash_established(struct sctp_association *asoc)
->   /* Remove association from the hash table.  */
->   static void __sctp_unhash_established(struct sctp_association *asoc)
->   {
-> +	struct net *net = sock_net(asoc->base.sk);
->   	struct sctp_hashbucket *head;
->   	struct sctp_ep_common *epb;
->
->   	epb = &asoc->base;
->
-> -	epb->hashent = sctp_assoc_hashfn(epb->bind_addr.port,
-> +	epb->hashent = sctp_assoc_hashfn(net, epb->bind_addr.port,
->   					 asoc->peer.port);
->
->   	head = &sctp_assoc_hashtable[epb->hashent];
-> @@ -860,6 +866,7 @@ void sctp_unhash_established(struct sctp_association *asoc)
->
->   /* Look up an association. */
->   static struct sctp_association *__sctp_lookup_association(
-> +					struct net *net,
->   					const union sctp_addr *local,
->   					const union sctp_addr *peer,
->   					struct sctp_transport **pt)
-> @@ -874,12 +881,13 @@ static struct sctp_association *__sctp_lookup_association(
->   	/* Optimize here for direct hit, only listening connections can
->   	 * have wildcards anyways.
->   	 */
-> -	hash = sctp_assoc_hashfn(ntohs(local->v4.sin_port), ntohs(peer->v4.sin_port));
-> +	hash = sctp_assoc_hashfn(net, ntohs(local->v4.sin_port),
-> +				 ntohs(peer->v4.sin_port));
->   	head = &sctp_assoc_hashtable[hash];
->   	read_lock(&head->lock);
->   	sctp_for_each_hentry(epb, node, &head->chain) {
->   		asoc = sctp_assoc(epb);
-> -		transport = sctp_assoc_is_match(asoc, local, peer);
-> +		transport = sctp_assoc_is_match(asoc, net, local, peer);
->   		if (transport)
->   			goto hit;
->   	}
-> @@ -897,27 +905,29 @@ hit:
->
->   /* Look up an association. BH-safe. */
->   SCTP_STATIC
-> -struct sctp_association *sctp_lookup_association(const union sctp_addr *laddr,
-> +struct sctp_association *sctp_lookup_association(struct net *net,
-> +						 const union sctp_addr *laddr,
->   						 const union sctp_addr *paddr,
->   					    struct sctp_transport **transportp)
->   {
->   	struct sctp_association *asoc;
->
->   	sctp_local_bh_disable();
-> -	asoc = __sctp_lookup_association(laddr, paddr, transportp);
-> +	asoc = __sctp_lookup_association(net, laddr, paddr, transportp);
->   	sctp_local_bh_enable();
->
->   	return asoc;
->   }
->
->   /* Is there an association matching the given local and peer addresses? */
-> -int sctp_has_association(const union sctp_addr *laddr,
-> +int sctp_has_association(struct net *net,
-> +			 const union sctp_addr *laddr,
->   			 const union sctp_addr *paddr)
->   {
->   	struct sctp_association *asoc;
->   	struct sctp_transport *transport;
->
-> -	if ((asoc = sctp_lookup_association(laddr, paddr, &transport))) {
-> +	if ((asoc = sctp_lookup_association(net, laddr, paddr, &transport))) {
->   		sctp_association_put(asoc);
->   		return 1;
->   	}
-> @@ -943,7 +953,8 @@ int sctp_has_association(const union sctp_addr *laddr,
->    * in certain circumstances.
->    *
+> @@ -62,7 +62,7 @@ static void sctp_bind_addr_clean(struct sctp_bind_addr *);
+>   /* Copy 'src' to 'dest' taking 'scope' into account.  Omit addresses
+>    * in 'src' which have a broader scope than 'scope'.
 >    */
-> -static struct sctp_association *__sctp_rcv_init_lookup(struct sk_buff *skb,
-> +static struct sctp_association *__sctp_rcv_init_lookup(struct net *net,
-> +	struct sk_buff *skb,
->   	const union sctp_addr *laddr, struct sctp_transport **transportp)
->   {
->   	struct sctp_association *asoc;
-> @@ -983,7 +994,7 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct sk_buff *skb,
+> -int sctp_bind_addr_copy(struct sctp_bind_addr *dest,
+> +int sctp_bind_addr_copy(struct net *net, struct sctp_bind_addr *dest,
+>   			const struct sctp_bind_addr *src,
+>   			sctp_scope_t scope, gfp_t gfp,
+>   			int flags)
+> @@ -75,7 +75,7 @@ int sctp_bind_addr_copy(struct sctp_bind_addr *dest,
 >
->   		af->from_addr_param(paddr, params.addr, sh->source, 0);
->
-> -		asoc = __sctp_lookup_association(laddr, paddr, &transport);
-> +		asoc = __sctp_lookup_association(net, laddr, paddr, &transport);
->   		if (asoc)
->   			return asoc;
->   	}
-> @@ -1006,6 +1017,7 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct sk_buff *skb,
->    * subsequent ASCONF Chunks. If found, proceed to rule D4.
->    */
->   static struct sctp_association *__sctp_rcv_asconf_lookup(
-> +					struct net *net,
->   					sctp_chunkhdr_t *ch,
->   					const union sctp_addr *laddr,
->   					__be16 peer_port,
-> @@ -1025,7 +1037,7 @@ static struct sctp_association *__sctp_rcv_asconf_lookup(
->
->   	af->from_addr_param(&paddr, param, peer_port, 0);
->
-> -	return __sctp_lookup_association(laddr, &paddr, transportp);
-> +	return __sctp_lookup_association(net, laddr, &paddr, transportp);
->   }
->
->
-> @@ -1038,7 +1050,8 @@ static struct sctp_association *__sctp_rcv_asconf_lookup(
->   * This means that any chunks that can help us identify the association need
->   * to be looked at to find this association.
->   */
-> -static struct sctp_association *__sctp_rcv_walk_lookup(struct sk_buff *skb,
-> +static struct sctp_association *__sctp_rcv_walk_lookup(struct net *net,
-> +				      struct sk_buff *skb,
->   				      const union sctp_addr *laddr,
->   				      struct sctp_transport **transportp)
->   {
-> @@ -1080,7 +1093,8 @@ static struct sctp_association *__sctp_rcv_walk_lookup(struct sk_buff *skb,
->
->   		    case SCTP_CID_ASCONF:
->   			    if (have_auth || sctp_addip_noauth)
-> -				    asoc = __sctp_rcv_asconf_lookup(ch, laddr,
-> +				    asoc = __sctp_rcv_asconf_lookup(
-> +							net, ch, laddr,
->   							sctp_hdr(skb)->source,
->   							transportp);
->   		    default:
-> @@ -1103,7 +1117,8 @@ static struct sctp_association *__sctp_rcv_walk_lookup(struct sk_buff *skb,
->    * include looking inside of INIT/INIT-ACK chunks or after the AUTH
->    * chunks.
->    */
-> -static struct sctp_association *__sctp_rcv_lookup_harder(struct sk_buff *skb,
-> +static struct sctp_association *__sctp_rcv_lookup_harder(struct net *net,
-> +				      struct sk_buff *skb,
->   				      const union sctp_addr *laddr,
->   				      struct sctp_transport **transportp)
->   {
-> @@ -1123,11 +1138,11 @@ static struct sctp_association *__sctp_rcv_lookup_harder(struct sk_buff *skb,
->   	switch (ch->type) {
->   	case SCTP_CID_INIT:
->   	case SCTP_CID_INIT_ACK:
-> -		return __sctp_rcv_init_lookup(skb, laddr, transportp);
-> +		return __sctp_rcv_init_lookup(net, skb, laddr, transportp);
->   		break;
->
->   	default:
-> -		return __sctp_rcv_walk_lookup(skb, laddr, transportp);
-> +		return __sctp_rcv_walk_lookup(net, skb, laddr, transportp);
->   		break;
->   	}
->
-> @@ -1136,21 +1151,22 @@ static struct sctp_association *__sctp_rcv_lookup_harder(struct sk_buff *skb,
->   }
->
->   /* Lookup an association for an inbound skb. */
-> -static struct sctp_association *__sctp_rcv_lookup(struct sk_buff *skb,
-> +static struct sctp_association *__sctp_rcv_lookup(struct net *net,
-> +				      struct sk_buff *skb,
->   				      const union sctp_addr *paddr,
->   				      const union sctp_addr *laddr,
->   				      struct sctp_transport **transportp)
->   {
->   	struct sctp_association *asoc;
->
-> -	asoc = __sctp_lookup_association(laddr, paddr, transportp);
-> +	asoc = __sctp_lookup_association(net, laddr, paddr, transportp);
->
->   	/* Further lookup for INIT/INIT-ACK packets.
->   	 * SCTP Implementors Guide, 2.18 Handling of address
->   	 * parameters within the INIT or INIT-ACK.
+>   	/* Extract the addresses which are relevant for this scope.  */
+>   	list_for_each_entry(addr, &src->address_list, list) {
+> -		error = sctp_copy_one_addr(dest, &addr->a, scope,
+> +		error = sctp_copy_one_addr(net, dest, &addr->a, scope,
+>   					   gfp, flags);
+>   		if (error < 0)
+>   			goto out;
+> @@ -87,7 +87,7 @@ int sctp_bind_addr_copy(struct sctp_bind_addr *dest,
 >   	 */
->   	if (!asoc)
-> -		asoc = __sctp_rcv_lookup_harder(skb, laddr, transportp);
-> +		asoc = __sctp_rcv_lookup_harder(net, skb, laddr, transportp);
->
->   	return asoc;
+>   	if (list_empty(&dest->address_list) && (SCTP_SCOPE_GLOBAL == scope)) {
+>   		list_for_each_entry(addr, &src->address_list, list) {
+> -			error = sctp_copy_one_addr(dest, &addr->a,
+> +			error = sctp_copy_one_addr(net, dest, &addr->a,
+>   						   SCTP_SCOPE_LINK, gfp,
+>   						   flags);
+>   			if (error < 0)
+> @@ -448,7 +448,7 @@ union sctp_addr *sctp_find_unmatch_addr(struct sctp_bind_addr	*bp,
 >   }
+>
+>   /* Copy out addresses from the global local address list. */
+> -static int sctp_copy_one_addr(struct sctp_bind_addr *dest,
+> +static int sctp_copy_one_addr(struct net *net, struct sctp_bind_addr *dest,
+>   			      union sctp_addr *addr,
+>   			      sctp_scope_t scope, gfp_t gfp,
+>   			      int flags)
+> @@ -456,7 +456,7 @@ static int sctp_copy_one_addr(struct sctp_bind_addr *dest,
+>   	int error = 0;
+>
+>   	if (sctp_is_any(NULL, addr)) {
+> -		error = sctp_copy_local_addr_list(dest, scope, gfp, flags);
+> +		error = sctp_copy_local_addr_list(net, dest, scope, gfp, flags);
+>   	} else if (sctp_in_scope(addr, scope)) {
+>   		/* Now that the address is in scope, check to see if
+>   		 * the address type is supported by local sock as
 > diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-> index ed7139e..2165a7e 100644
+> index 2165a7e..bbf1534 100644
 > --- a/net/sctp/ipv6.c
 > +++ b/net/sctp/ipv6.c
-> @@ -154,6 +154,7 @@ SCTP_STATIC void sctp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
->   	struct ipv6_pinfo *np;
->   	sk_buff_data_t saveip, savesctp;
->   	int err;
-> +	struct net *net = dev_net(skb->dev);
+> @@ -99,6 +99,7 @@ static int sctp_inet6addr_event(struct notifier_block *this, unsigned long ev,
+>   	struct inet6_ifaddr *ifa = (struct inet6_ifaddr *)ptr;
+>   	struct sctp_sockaddr_entry *addr = NULL;
+>   	struct sctp_sockaddr_entry *temp;
+> +	struct net *net = dev_net(ifa->idev->dev);
+>   	int found = 0;
 >
->   	idev = in6_dev_get(skb->dev);
+>   	switch (ev) {
+> @@ -110,27 +111,27 @@ static int sctp_inet6addr_event(struct notifier_block *this, unsigned long ev,
+>   			addr->a.v6.sin6_addr = ifa->addr;
+>   			addr->a.v6.sin6_scope_id = ifa->idev->dev->ifindex;
+>   			addr->valid = 1;
+> -			spin_lock_bh(&sctp_local_addr_lock);
+> -			list_add_tail_rcu(&addr->list, &sctp_local_addr_list);
+> -			sctp_addr_wq_mgmt(addr, SCTP_ADDR_NEW);
+> -			spin_unlock_bh(&sctp_local_addr_lock);
+> +			spin_lock_bh(&net->sctp.local_addr_lock);
+> +			list_add_tail_rcu(&addr->list, &net->sctp.local_addr_list);
+> +			sctp_addr_wq_mgmt(net, addr, SCTP_ADDR_NEW);
+> +			spin_unlock_bh(&net->sctp.local_addr_lock);
+>   		}
+>   		break;
+>   	case NETDEV_DOWN:
+> -		spin_lock_bh(&sctp_local_addr_lock);
+> +		spin_lock_bh(&net->sctp.local_addr_lock);
+>   		list_for_each_entry_safe(addr, temp,
+> -					&sctp_local_addr_list, list) {
+> +					&net->sctp.local_addr_list, list) {
+>   			if (addr->a.sa.sa_family == AF_INET6 &&
+>   					ipv6_addr_equal(&addr->a.v6.sin6_addr,
+>   						&ifa->addr)) {
+> -				sctp_addr_wq_mgmt(addr, SCTP_ADDR_DEL);
+> +				sctp_addr_wq_mgmt(net, addr, SCTP_ADDR_DEL);
+>   				found = 1;
+>   				addr->valid = 0;
+>   				list_del_rcu(&addr->list);
+>   				break;
+>   			}
+>   		}
+> -		spin_unlock_bh(&sctp_local_addr_lock);
+> +		spin_unlock_bh(&net->sctp.local_addr_lock);
+>   		if (found)
+>   			kfree_rcu(addr, rcu);
+>   		break;
+> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+> index 1f89c4e..291e682 100644
+> --- a/net/sctp/protocol.c
+> +++ b/net/sctp/protocol.c
+> @@ -201,29 +201,29 @@ static void sctp_v4_copy_addrlist(struct list_head *addrlist,
+>   /* Extract our IP addresses from the system and stash them in the
+>    * protocol structure.
+>    */
+> -static void sctp_get_local_addr_list(void)
+> +static void sctp_get_local_addr_list(struct net *net)
+>   {
+>   	struct net_device *dev;
+>   	struct list_head *pos;
+>   	struct sctp_af *af;
 >
-> @@ -162,7 +163,7 @@ SCTP_STATIC void sctp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
->   	savesctp = skb->transport_header;
->   	skb_reset_network_header(skb);
->   	skb_set_transport_header(skb, offset);
-> -	sk = sctp_err_lookup(AF_INET6, skb, sctp_hdr(skb), &asoc, &transport);
-> +	sk = sctp_err_lookup(net, AF_INET6, skb, sctp_hdr(skb), &asoc, &transport);
->   	/* Put back, the original pointers. */
->   	skb->network_header   = saveip;
->   	skb->transport_header = savesctp;
+>   	rcu_read_lock();
+> -	for_each_netdev_rcu(&init_net, dev) {
+> +	for_each_netdev_rcu(net, dev) {
+>   		__list_for_each(pos, &sctp_address_families) {
+>   			af = list_entry(pos, struct sctp_af, list);
+> -			af->copy_addrlist(&sctp_local_addr_list, dev);
+> +			af->copy_addrlist(&net->sctp.local_addr_list, dev);
+>   		}
+>   	}
+>   	rcu_read_unlock();
+>   }
+>
+>   /* Free the existing local addresses.  */
+> -static void sctp_free_local_addr_list(void)
+> +static void sctp_free_local_addr_list(struct net *net)
+>   {
+>   	struct sctp_sockaddr_entry *addr;
+>   	struct list_head *pos, *temp;
+>
+> -	list_for_each_safe(pos, temp, &sctp_local_addr_list) {
+> +	list_for_each_safe(pos, temp, &net->sctp.local_addr_list) {
+>   		addr = list_entry(pos, struct sctp_sockaddr_entry, list);
+>   		list_del(pos);
+>   		kfree(addr);
+> @@ -231,14 +231,14 @@ static void sctp_free_local_addr_list(void)
+>   }
+>
+>   /* Copy the local addresses which are valid for 'scope' into 'bp'.  */
+> -int sctp_copy_local_addr_list(struct sctp_bind_addr *bp, sctp_scope_t scope,
+> -			      gfp_t gfp, int copy_flags)
+> +int sctp_copy_local_addr_list(struct net *net, struct sctp_bind_addr *bp,
+> +			      sctp_scope_t scope, gfp_t gfp, int copy_flags)
+>   {
+>   	struct sctp_sockaddr_entry *addr;
+>   	int error = 0;
+>
+>   	rcu_read_lock();
+> -	list_for_each_entry_rcu(addr, &sctp_local_addr_list, list) {
+> +	list_for_each_entry_rcu(addr, &net->sctp.local_addr_list, list) {
+>   		if (!addr->valid)
+>   			continue;
+>   		if (sctp_in_scope(&addr->a, scope)) {
+> @@ -627,14 +627,15 @@ static void sctp_v4_ecn_capable(struct sock *sk)
+>
+>   void sctp_addr_wq_timeout_handler(unsigned long arg)
+>   {
+> +	struct net *net = (struct net *)arg;
+>   	struct sctp_sockaddr_entry *addrw, *temp;
+>   	struct sctp_sock *sp;
+>
+> -	spin_lock_bh(&sctp_addr_wq_lock);
+> +	spin_lock_bh(&net->sctp.addr_wq_lock);
+>
+> -	list_for_each_entry_safe(addrw, temp, &sctp_addr_waitq, list) {
+> +	list_for_each_entry_safe(addrw, temp, &net->sctp.addr_waitq, list) {
+>   		SCTP_DEBUG_PRINTK_IPADDR("sctp_addrwq_timo_handler: the first ent in wq %p is ",
+> -		    " for cmd %d at entry %p\n", &sctp_addr_waitq, &addrw->a, addrw->state,
+> +		    " for cmd %d at entry %p\n", &net->sctp.addr_waitq, &addrw->a, addrw->state,
+>   		    addrw);
+>
+>   #if IS_ENABLED(CONFIG_IPV6)
+> @@ -648,7 +649,7 @@ void sctp_addr_wq_timeout_handler(unsigned long arg)
+>   				goto free_next;
+>
+>   			in6 = (struct in6_addr *)&addrw->a.v6.sin6_addr;
+> -			if (ipv6_chk_addr(&init_net, in6, NULL, 0) == 0 &&
+> +			if (ipv6_chk_addr(net, in6, NULL, 0) == 0 &&
+>   			    addrw->state == SCTP_ADDR_NEW) {
+>   				unsigned long timeo_val;
+>
+> @@ -656,12 +657,12 @@ void sctp_addr_wq_timeout_handler(unsigned long arg)
+>   				    SCTP_ADDRESS_TICK_DELAY);
+>   				timeo_val = jiffies;
+>   				timeo_val += msecs_to_jiffies(SCTP_ADDRESS_TICK_DELAY);
+> -				mod_timer(&sctp_addr_wq_timer, timeo_val);
+> +				mod_timer(&net->sctp.addr_wq_timer, timeo_val);
+>   				break;
+>   			}
+>   		}
+>   #endif
+> -		list_for_each_entry(sp, &sctp_auto_asconf_splist, auto_asconf_list) {
+> +		list_for_each_entry(sp, &net->sctp.auto_asconf_splist, auto_asconf_list) {
+>   			struct sock *sk;
+>
+>   			sk = sctp_opt2sk(sp);
+> @@ -679,31 +680,32 @@ free_next:
+>   		list_del(&addrw->list);
+>   		kfree(addrw);
+>   	}
+> -	spin_unlock_bh(&sctp_addr_wq_lock);
+> +	spin_unlock_bh(&net->sctp.addr_wq_lock);
+>   }
+>
+> -static void sctp_free_addr_wq(void)
+> +static void sctp_free_addr_wq(struct net *net)
+>   {
+>   	struct sctp_sockaddr_entry *addrw;
+>   	struct sctp_sockaddr_entry *temp;
+>
+> -	spin_lock_bh(&sctp_addr_wq_lock);
+> -	del_timer(&sctp_addr_wq_timer);
+> -	list_for_each_entry_safe(addrw, temp, &sctp_addr_waitq, list) {
+> +	spin_lock_bh(&net->sctp.addr_wq_lock);
+> +	del_timer(&net->sctp.addr_wq_timer);
+> +	list_for_each_entry_safe(addrw, temp, &net->sctp.addr_waitq, list) {
+>   		list_del(&addrw->list);
+>   		kfree(addrw);
+>   	}
+> -	spin_unlock_bh(&sctp_addr_wq_lock);
+> +	spin_unlock_bh(&net->sctp.addr_wq_lock);
+>   }
+>
+>   /* lookup the entry for the same address in the addr_waitq
+>    * sctp_addr_wq MUST be locked
+>    */
+> -static struct sctp_sockaddr_entry *sctp_addr_wq_lookup(struct sctp_sockaddr_entry *addr)
+> +static struct sctp_sockaddr_entry *sctp_addr_wq_lookup(struct net *net,
+> +					struct sctp_sockaddr_entry *addr)
+>   {
+>   	struct sctp_sockaddr_entry *addrw;
+>
+> -	list_for_each_entry(addrw, &sctp_addr_waitq, list) {
+> +	list_for_each_entry(addrw, &net->sctp.addr_waitq, list) {
+>   		if (addrw->a.sa.sa_family != addr->a.sa.sa_family)
+>   			continue;
+>   		if (addrw->a.sa.sa_family == AF_INET) {
+> @@ -719,7 +721,7 @@ static struct sctp_sockaddr_entry *sctp_addr_wq_lookup(struct sctp_sockaddr_entr
+>   	return NULL;
+>   }
+>
+> -void sctp_addr_wq_mgmt(struct sctp_sockaddr_entry *addr, int cmd)
+> +void sctp_addr_wq_mgmt(struct net *net, struct sctp_sockaddr_entry *addr, int cmd)
+>   {
+>   	struct sctp_sockaddr_entry *addrw;
+>   	unsigned long timeo_val;
+> @@ -730,9 +732,9 @@ void sctp_addr_wq_mgmt(struct sctp_sockaddr_entry *addr, int cmd)
+>   	 * new address after a couple of addition and deletion of that address
+>   	 */
+>
+> -	spin_lock_bh(&sctp_addr_wq_lock);
+> +	spin_lock_bh(&net->sctp.addr_wq_lock);
+>   	/* Offsets existing events in addr_wq */
+> -	addrw = sctp_addr_wq_lookup(addr);
+> +	addrw = sctp_addr_wq_lookup(net, addr);
+>   	if (addrw) {
+>   		if (addrw->state != cmd) {
+>   			SCTP_DEBUG_PRINTK_IPADDR("sctp_addr_wq_mgmt offsets existing entry for %d ",
+> @@ -741,27 +743,27 @@ void sctp_addr_wq_mgmt(struct sctp_sockaddr_entry *addr, int cmd)
+>   			list_del(&addrw->list);
+>   			kfree(addrw);
+>   		}
+> -		spin_unlock_bh(&sctp_addr_wq_lock);
+> +		spin_unlock_bh(&net->sctp.addr_wq_lock);
+>   		return;
+>   	}
+>
+>   	/* OK, we have to add the new address to the wait queue */
+>   	addrw = kmemdup(addr, sizeof(struct sctp_sockaddr_entry), GFP_ATOMIC);
+>   	if (addrw == NULL) {
+> -		spin_unlock_bh(&sctp_addr_wq_lock);
+> +		spin_unlock_bh(&net->sctp.addr_wq_lock);
+>   		return;
+>   	}
+>   	addrw->state = cmd;
+> -	list_add_tail(&addrw->list, &sctp_addr_waitq);
+> +	list_add_tail(&addrw->list, &net->sctp.addr_waitq);
+>   	SCTP_DEBUG_PRINTK_IPADDR("sctp_addr_wq_mgmt add new entry for cmd:%d ",
+> -	    " in wq %p\n", addrw->state, &addrw->a, &sctp_addr_waitq);
+> +	    " in wq %p\n", addrw->state, &addrw->a, &net->sctp.addr_waitq);
+>
+> -	if (!timer_pending(&sctp_addr_wq_timer)) {
+> +	if (!timer_pending(&net->sctp.addr_wq_timer)) {
+>   		timeo_val = jiffies;
+>   		timeo_val += msecs_to_jiffies(SCTP_ADDRESS_TICK_DELAY);
+> -		mod_timer(&sctp_addr_wq_timer, timeo_val);
+> +		mod_timer(&net->sctp.addr_wq_timer, timeo_val);
+>   	}
+> -	spin_unlock_bh(&sctp_addr_wq_lock);
+> +	spin_unlock_bh(&net->sctp.addr_wq_lock);
+>   }
+>
+>   /* Event handler for inet address addition/deletion events.
+> @@ -776,11 +778,9 @@ static int sctp_inetaddr_event(struct notifier_block *this, unsigned long ev,
+>   	struct in_ifaddr *ifa = (struct in_ifaddr *)ptr;
+>   	struct sctp_sockaddr_entry *addr = NULL;
+>   	struct sctp_sockaddr_entry *temp;
+> +	struct net *net = dev_net(ifa->ifa_dev->dev);
+>   	int found = 0;
+>
+> -	if (!net_eq(dev_net(ifa->ifa_dev->dev), &init_net))
+> -		return NOTIFY_DONE;
+> -
+>   	switch (ev) {
+>   	case NETDEV_UP:
+>   		addr = kmalloc(sizeof(struct sctp_sockaddr_entry), GFP_ATOMIC);
+> @@ -789,27 +789,27 @@ static int sctp_inetaddr_event(struct notifier_block *this, unsigned long ev,
+>   			addr->a.v4.sin_port = 0;
+>   			addr->a.v4.sin_addr.s_addr = ifa->ifa_local;
+>   			addr->valid = 1;
+> -			spin_lock_bh(&sctp_local_addr_lock);
+> -			list_add_tail_rcu(&addr->list, &sctp_local_addr_list);
+> -			sctp_addr_wq_mgmt(addr, SCTP_ADDR_NEW);
+> -			spin_unlock_bh(&sctp_local_addr_lock);
+> +			spin_lock_bh(&net->sctp.local_addr_lock);
+> +			list_add_tail_rcu(&addr->list, &net->sctp.local_addr_list);
+> +			sctp_addr_wq_mgmt(net, addr, SCTP_ADDR_NEW);
+> +			spin_unlock_bh(&net->sctp.local_addr_lock);
+>   		}
+>   		break;
+>   	case NETDEV_DOWN:
+> -		spin_lock_bh(&sctp_local_addr_lock);
+> +		spin_lock_bh(&net->sctp.local_addr_lock);
+>   		list_for_each_entry_safe(addr, temp,
+> -					&sctp_local_addr_list, list) {
+> +					&net->sctp.local_addr_list, list) {
+>   			if (addr->a.sa.sa_family == AF_INET &&
+>   					addr->a.v4.sin_addr.s_addr ==
+>   					ifa->ifa_local) {
+> -				sctp_addr_wq_mgmt(addr, SCTP_ADDR_DEL);
+> +				sctp_addr_wq_mgmt(net, addr, SCTP_ADDR_DEL);
+>   				found = 1;
+>   				addr->valid = 0;
+>   				list_del_rcu(&addr->list);
+>   				break;
+>   			}
+>   		}
+> -		spin_unlock_bh(&sctp_local_addr_lock);
+> +		spin_unlock_bh(&net->sctp.local_addr_lock);
+>   		if (found)
+>   			kfree_rcu(addr, rcu);
+>   		break;
+> @@ -1194,6 +1194,36 @@ static void sctp_v4_del_protocol(void)
+>   	unregister_inetaddr_notifier(&sctp_inetaddr_notifier);
+>   }
+>
+> +static int sctp_net_init(struct net *net)
+> +{
+> +	/* Initialize the local address list. */
+> +	INIT_LIST_HEAD(&net->sctp.local_addr_list);
+> +	spin_lock_init(&net->sctp.local_addr_lock);
+> +	sctp_get_local_addr_list(net);
+> +
+> +	/* Initialize the address event list */
+> +	INIT_LIST_HEAD(&net->sctp.addr_waitq);
+> +	INIT_LIST_HEAD(&net->sctp.auto_asconf_splist);
+> +	spin_lock_init(&net->sctp.addr_wq_lock);
+> +	net->sctp.addr_wq_timer.expires = 0;
+> +	setup_timer(&net->sctp.addr_wq_timer, sctp_addr_wq_timeout_handler,
+> +		    (unsigned long)net);
+> +
+> +	return 0;
+> +}
+> +
+> +static void sctp_net_exit(struct net *net)
+> +{
+> +	/* Free the local address list */
+> +	sctp_free_addr_wq(net);
+> +	sctp_free_local_addr_list(net);
+> +}
+> +
+> +static struct pernet_operations sctp_net_ops = {
+> +	.init = sctp_net_init,
+> +	.exit = sctp_net_exit,
+> +};
+> +
+>   /* Initialize the universe into something sensible.  */
+>   SCTP_STATIC __init int sctp_init(void)
+>   {
+> @@ -1399,18 +1429,6 @@ SCTP_STATIC __init int sctp_init(void)
+>   	sctp_v4_pf_init();
+>   	sctp_v6_pf_init();
+>
+> -	/* Initialize the local address list. */
+> -	INIT_LIST_HEAD(&sctp_local_addr_list);
+> -	spin_lock_init(&sctp_local_addr_lock);
+> -	sctp_get_local_addr_list();
+> -
+> -	/* Initialize the address event list */
+> -	INIT_LIST_HEAD(&sctp_addr_waitq);
+> -	INIT_LIST_HEAD(&sctp_auto_asconf_splist);
+> -	spin_lock_init(&sctp_addr_wq_lock);
+> -	sctp_addr_wq_timer.expires = 0;
+> -	setup_timer(&sctp_addr_wq_timer, sctp_addr_wq_timeout_handler, 0);
+> -
+>   	status = sctp_v4_protosw_init();
+>
+>   	if (status)
+> @@ -1426,6 +1444,10 @@ SCTP_STATIC __init int sctp_init(void)
+>   		goto err_ctl_sock_init;
+>   	}
+>
+> +	status = register_pernet_subsys(&sctp_net_ops);
+> +	if (status)
+> +		goto err_register_pernet_subsys;
+> +
+>   	status = sctp_v4_add_protocol();
+>   	if (status)
+>   		goto err_add_protocol;
+> @@ -1441,13 +1463,14 @@ out:
+>   err_v6_add_protocol:
+>   	sctp_v4_del_protocol();
+>   err_add_protocol:
+> +	unregister_pernet_subsys(&sctp_net_ops);
+> +err_register_pernet_subsys:
+>   	inet_ctl_sock_destroy(sctp_ctl_sock);
+>   err_ctl_sock_init:
+>   	sctp_v6_protosw_exit();
+>   err_v6_protosw_init:
+>   	sctp_v4_protosw_exit();
+>   err_protosw_init:
+> -	sctp_free_local_addr_list();
+>   	sctp_v4_pf_exit();
+>   	sctp_v6_pf_exit();
+>   	sctp_sysctl_unregister();
+> @@ -1482,18 +1505,16 @@ SCTP_STATIC __exit void sctp_exit(void)
+>   	/* Unregister with inet6/inet layers. */
+>   	sctp_v6_del_protocol();
+>   	sctp_v4_del_protocol();
+> -	sctp_free_addr_wq();
+>
+>   	/* Free the control endpoint.  */
+>   	inet_ctl_sock_destroy(sctp_ctl_sock);
+>
+> +	unregister_pernet_subsys(&sctp_net_ops);
+> +
+>   	/* Free protosw registrations */
+>   	sctp_v6_protosw_exit();
+>   	sctp_v4_protosw_exit();
+>
+> -	/* Free the local address list.  */
+> -	sctp_free_local_addr_list();
+> -
+>   	/* Unregister with socket layer. */
+>   	sctp_v6_pf_exit();
+>   	sctp_v4_pf_exit();
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 4316b0f..5b6dd0e 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -3471,7 +3471,7 @@ static int sctp_setsockopt_auto_asconf(struct sock *sk, char __user *optval,
+>   		sp->do_auto_asconf = 0;
+>   	} else if (val && !sp->do_auto_asconf) {
+>   		list_add_tail(&sp->auto_asconf_list,
+> -		    &sctp_auto_asconf_splist);
+> +		    &sock_net(sk)->sctp.auto_asconf_splist);
+>   		sp->do_auto_asconf = 1;
+>   	}
+>   	return 0;
+> @@ -3964,7 +3964,7 @@ SCTP_STATIC int sctp_init_sock(struct sock *sk)
+>   	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
+>   	if (sctp_default_auto_asconf) {
+>   		list_add_tail(&sp->auto_asconf_list,
+> -		    &sctp_auto_asconf_splist);
+> +		    &sock_net(sk)->sctp.auto_asconf_splist);
+>   		sp->do_auto_asconf = 1;
+>   	} else
+>   		sp->do_auto_asconf = 0;
+> @@ -4653,9 +4653,10 @@ static int sctp_copy_laddrs(struct sock *sk, __u16 port, void *to,
+>   	union sctp_addr temp;
+>   	int cnt = 0;
+>   	int addrlen;
+> +	struct net *net = sock_net(sk);
+>
+>   	rcu_read_lock();
+> -	list_for_each_entry_rcu(addr, &sctp_local_addr_list, list) {
+> +	list_for_each_entry_rcu(addr, &net->sctp.local_addr_list, list) {
+>   		if (!addr->valid)
+>   			continue;
+>
 >
