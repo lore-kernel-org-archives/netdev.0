@@ -1,82 +1,131 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [PATCH 02/16] user_ns: use new hashtable implementation
-Date: Tue, 14 Aug 2012 18:08:09 -0700
-Message-ID: <87393phshy.fsf@xmission.com>
-References: <1344961490-4068-1-git-send-email-levinsasha928@gmail.com>
-	<1344961490-4068-3-git-send-email-levinsasha928@gmail.com>
-	<87txw5hw0s.fsf@xmission.com> <502AF184.4010907@gmail.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [RFC net-next 3/4] gianfar: Separate out the Rx and Tx
+ coalescing functions
+Date: Tue, 14 Aug 2012 21:29:29 -0400
+Message-ID: <20120815012928.GA10056@windriver.com>
+References: <1344428810-29923-1-git-send-email-claudiu.manoil@freescale.com>
+ <1344428810-29923-2-git-send-email-claudiu.manoil@freescale.com>
+ <1344428810-29923-3-git-send-email-claudiu.manoil@freescale.com>
+ <1344428810-29923-4-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org,
-	aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org, agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
-	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
-	venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org
-To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <502AF184.4010907-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (Sasha Levin's message of "Wed, 15
-	Aug 2012 02:47:00 +0200")
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
+To: Claudiu Manoil <claudiu.manoil@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:36398 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751801Ab2HOB3f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 21:29:35 -0400
+Content-Disposition: inline
+In-Reply-To: <1344428810-29923-4-git-send-email-claudiu.manoil@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+[[RFC net-next 3/4] gianfar: Separate out the Rx and Tx coalescing functions] On 08/08/2012 (Wed 15:26) Claudiu Manoil wrote:
 
-> On 08/15/2012 01:52 AM, Eric W. Biederman wrote:
->> Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
->> 
->>> Switch user_ns to use the new hashtable implementation. This reduces the amount of
->>> generic unrelated code in user_ns.
->> 
->> Two concerns here.
->> 1) When adding a new entry you recompute the hash where previously that
->>    was not done.  I believe that will slow down adding of new entries.
->
-> I figured that the price for the extra hashing isn't significant since hash_32
-> is just a multiplication and a shift.
->
-> I'll modify the code to calculate the key just once.
+> Split the coalescing programming support by Rx and Tx h/w queues, in order to
+> introduce a separate NAPI for the Tx confirmation path (next patch). This way,
+> the Rx processing path will handle the coalescing settings for the Rx queues
+> only, resp. the Tx confirmation processing path will handle the Tx queues.
+> 
+> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+> ---
+>  drivers/net/ethernet/freescale/gianfar.c |   36 +++++++++++++++++++++++------
+>  1 files changed, 28 insertions(+), 8 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+> index ddd350a..919acb3 100644
+> --- a/drivers/net/ethernet/freescale/gianfar.c
+> +++ b/drivers/net/ethernet/freescale/gianfar.c
+> @@ -1794,8 +1794,8 @@ void gfar_start(struct net_device *dev)
+>  	dev->trans_start = jiffies; /* prevent tx timeout */
+>  }
+>  
+> -void gfar_configure_coalescing(struct gfar_private *priv,
+> -			       unsigned long tx_mask, unsigned long rx_mask)
+> +static inline void gfar_configure_tx_coalescing(struct gfar_private *priv,
+> +						unsigned long mask)
 
-Honestly I don't know either way, but it seemed a shame to give up a
-common and trivial optimization.
+Hi Claudiu,
 
->> 2) Using hash_32 for uids is an interesting choice.  hash_32 discards
->>    the low bits.  Last I checked for uids the low bits were the bits
->>    that were most likely to be different and had the most entropy.
->> 
->>    I'm not certain how multiplying by the GOLDEN_RATION_PRIME_32 will
->>    affect things but I would be surprised if it shifted all of the
->>    randomness from the low bits to the high bits.
->
-> "Is hash_* good enough for our purpose?" - I was actually surprised that no one
-> raised that question during the RFC and assumed it was because everybody agreed
-> that it's indeed good enough.
->
-> I can offer the following: I'll write a small module that will hash 1...10000
-> into a hashtable which uses 7 bits (just like user_ns) and post the distribution
-> we'll get.
+I had it in mind to mention this earlier, but forgot.  Align line two
+(and three, and four...) of args with the 1st arg in line one, and
+you'll save yourself needing a resend for basic formatting issues.
 
-That won't hurt.  I think 1-100 then 1000-1100 may actually be more
-representative.  Not that I would mind seeing the larger range.
-Especially since I am in the process of encouraging the use of more
-uids.
+In other words, you need:
 
-> If the results of the above will be satisfactory we can avoid the discussion
-> about which hash function we should really be using. If not, I guess now is a
-> good time for that :)
+void foo(int some_really_long_line, struct blah *more_long_line,
+         int b, ... )
 
-Yes.  A small emperical test sounds good.
+i.e. allowing for mail mangling, make sure you have the the two int
+directly over each other, in the example above.
 
-Eric
-
+Thanks,
+Paul.
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+>  {
+>  	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+>  	u32 __iomem *baddr;
+> @@ -1803,14 +1803,31 @@ void gfar_configure_coalescing(struct gfar_private *priv,
+>  	if (priv->mode == MQ_MG_MODE) {
+>  		int i;
+>  		baddr = &regs->txic0;
+> -		for_each_set_bit(i, &tx_mask, priv->num_tx_queues) {
+> +		for_each_set_bit(i, &mask, priv->num_tx_queues) {
+>  			gfar_write(baddr + i, 0);
+>  			if (likely(priv->tx_queue[i]->txcoalescing))
+>  				gfar_write(baddr + i, priv->tx_queue[i]->txic);
+>  		}
+> +	} else {
+> +		/* Backward compatible case ---- even if we enable
+> +		 * multiple queues, there's only single reg to program
+> +		 */
+> +		gfar_write(&regs->txic, 0);
+> +		if (likely(priv->tx_queue[0]->txcoalescing))
+> +			gfar_write(&regs->txic, priv->tx_queue[0]->txic);
+> +	}
+> +}
+> +
+> +static inline void gfar_configure_rx_coalescing(struct gfar_private *priv,
+> +						unsigned long mask)
+> +{
+> +	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+> +	u32 __iomem *baddr;
+>  
+> +	if (priv->mode == MQ_MG_MODE) {
+> +		int i;
+>  		baddr = &regs->rxic0;
+> -		for_each_set_bit(i, &rx_mask, priv->num_rx_queues) {
+> +		for_each_set_bit(i, &mask, priv->num_rx_queues) {
+>  			gfar_write(baddr + i, 0);
+>  			if (likely(priv->rx_queue[i]->rxcoalescing))
+>  				gfar_write(baddr + i, priv->rx_queue[i]->rxic);
+> @@ -1819,16 +1836,19 @@ void gfar_configure_coalescing(struct gfar_private *priv,
+>  		/* Backward compatible case ---- even if we enable
+>  		 * multiple queues, there's only single reg to program
+>  		 */
+> -		gfar_write(&regs->txic, 0);
+> -		if (likely(priv->tx_queue[0]->txcoalescing))
+> -			gfar_write(&regs->txic, priv->tx_queue[0]->txic);
+> -
+>  		gfar_write(&regs->rxic, 0);
+>  		if (likely(priv->rx_queue[0]->rxcoalescing))
+>  			gfar_write(&regs->rxic, priv->rx_queue[0]->rxic);
+>  	}
+>  }
+>  
+> +void gfar_configure_coalescing(struct gfar_private *priv,
+> +			       unsigned long tx_mask, unsigned long rx_mask)
+> +{
+> +	gfar_configure_tx_coalescing(priv, tx_mask);
+> +	gfar_configure_rx_coalescing(priv, rx_mask);
+> +}
+> +
+>  static int register_grp_irqs(struct gfar_priv_grp *grp)
+>  {
+>  	struct gfar_private *priv = grp->priv;
+> -- 
+> 1.6.6
+> 
+> 
