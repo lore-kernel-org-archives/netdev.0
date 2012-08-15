@@ -1,63 +1,59 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC PATCH 0/5] net: socket bind to file descriptor introduced
-Date: Wed, 15 Aug 2012 14:25:42 -0700
-Message-ID: <87k3wzalux.fsf@xmission.com>
-References: <20120815161141.7598.16682.stgit@localhost.localdomain>
-	<87a9xwc4vr.fsf@xmission.com> <502C0D7C.2040707@zytor.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Stanislav Kinsbursky <skinsbursky@parallels.com>,
-	tglx@linutronix.de, mingo@redhat.com, davem@davemloft.net,
-	thierry.reding@avionic-design.de, bfields@redhat.com,
-	eric.dumazet@gmail.com, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, x86@kernel.org,
-	linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
-	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
-	akpm@linux-foundation.org, tim.c.chen@linux.intel.com,
-	devel@openvz.org
-To: "H. Peter Anvin" <hpa@zytor.com>
+From: Mathias Krause <minipli@googlemail.com>
+Subject: [PATCH 00/14] net: info leaks and other bugs
+Date: Wed, 15 Aug 2012 23:31:43 +0200
+Message-ID: <1345066317-22512-1-git-send-email-minipli@googlemail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mathias Krause <minipli@googlemail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <502C0D7C.2040707@zytor.com> (H. Peter Anvin's message of "Wed,
-	15 Aug 2012 13:58:36 -0700")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"H. Peter Anvin" <hpa@zytor.com> writes:
+Hi David,
 
-> On 08/15/2012 12:49 PM, Eric W. Biederman wrote:
->> 
->> There is also the trick of getting a shorter directory name using
->> /proc/self/fd if you are threaded and can't change the directory.
->> 
->> The obvious choices at this point are
->> - Teach bind and connect and af_unix sockets to take longer AF_UNIX
->>   socket path names.
->> 
->> - introduce sockaddr_fd that can be applied to AF_UNIX sockets,
->>   and teach unix_bind and unix_connect how to deal with a second type of sockaddr.
->>   struct sockaddr_fd { short fd_family; short pad; int fd; };
->> 
->> - introduce sockaddr_unix_at that takes a directory file descriptor
->>   as well as a unix path, and teach unix_bind and unix_connect to deal with a
->>   second sockaddr type.
->>   struct sockaddr_unix_at { short family; short pad; int dfd; char path[102]; }
->>   AF_UNIX_AT
->> 
->> I don't know what the implications of for breaking connect up into 3
->> system calls and changing the semantics are and I would really rather
->> not have to think about it.
->> 
->> But it certainly does not look to me like you introduce new systems
->> calls to do what you want.
->> 
->
-> How would you distinguish the new sockaddr types from the traditional
-> one?  New AF_?
+this series fixes quite a bunch of info leaks under net/. There is also
+one NULL pointer deref fix ("dccp: check ccid before..") that could be
+abused for privilege escalation.
 
-Yeah.  AF_FD or AF_UNIX_AT is what I was thinking.  The way the code
-falls out that should be compartively simple to implement.
+The info leak fixes might be material for stable, too. But I leave the
+decision up to you.
 
-recvmsg etc would give you sockaddr_un sockets when they come from the
-kernel.
+On request, test code for all (but one) of the issues can be provided.
 
-Eric
+
+Regards,
+Mathias
+
+
+Mathias Krause (14):
+  atm: fix info leak in getsockopt(SO_ATMPVC)
+  atm: fix info leak via getsockname()
+  Bluetooth: HCI - Fix info leak in getsockopt(HCI_FILTER)
+  Bluetooth: HCI - Fix info leak via getsockname()
+  Bluetooth: RFCOMM - Fix info leak in getsockopt(BT_SECURITY)
+  Bluetooth: RFCOMM - Fix info leak in ioctl(RFCOMMGETDEVLIST)
+  Bluetooth: RFCOMM - Fix info leak via getsockname()
+  Bluetooth: L2CAP - Fix info leak via getsockname()
+  l2tp: fix info leak via getsockname()
+  llc: fix info leak via getsockname()
+  dccp: check ccid before dereferencing
+  dccp: fix info leak via getsockopt(DCCP_SOCKOPT_CCID_TX_INFO)
+  ipvs: fix info leak in getsockopt(IP_VS_SO_GET_TIMEOUT)
+  net: fix info leak in compat dev_ifconf()
+
+ net/atm/common.c               |    1 +
+ net/atm/pvc.c                  |    1 +
+ net/bluetooth/hci_sock.c       |    2 ++
+ net/bluetooth/l2cap_sock.c     |    1 +
+ net/bluetooth/rfcomm/sock.c    |    2 ++
+ net/bluetooth/rfcomm/tty.c     |    2 +-
+ net/dccp/ccid.h                |    4 ++--
+ net/dccp/ccids/ccid3.c         |    1 +
+ net/l2tp/l2tp_ip6.c            |    1 +
+ net/llc/af_llc.c               |    3 +--
+ net/netfilter/ipvs/ip_vs_ctl.c |    1 +
+ net/socket.c                   |    1 +
+ 12 files changed, 15 insertions(+), 5 deletions(-)
+
+-- 
+1.7.10.4
