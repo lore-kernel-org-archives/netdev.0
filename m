@@ -1,47 +1,44 @@
 From: Mathias Krause <minipli@googlemail.com>
-Subject: [PATCH 06/14] Bluetooth: RFCOMM - Fix info leak in ioctl(RFCOMMGETDEVLIST)
-Date: Wed, 15 Aug 2012 23:31:49 +0200
-Message-ID: <1345066317-22512-7-git-send-email-minipli@googlemail.com>
+Subject: [PATCH 12/14] dccp: fix info leak via getsockopt(DCCP_SOCKOPT_CCID_TX_INFO)
+Date: Wed, 15 Aug 2012 23:31:55 +0200
+Message-ID: <1345066317-22512-13-git-send-email-minipli@googlemail.com>
 References: <1345066317-22512-1-git-send-email-minipli@googlemail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Mathias Krause <minipli@googlemail.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Gustavo Padovan <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:34449 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757478Ab2HOVdR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 17:33:17 -0400
 In-Reply-To: <1345066317-22512-1-git-send-email-minipli@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The RFCOMM code fails to initialize the two padding bytes of struct
-rfcomm_dev_list_req inserted for alignment before copying it to
-userland. Additionally there are two padding bytes in each instance of
-struct rfcomm_dev_info. The ioctl() that for disclosures two bytes plus
-dev_num times two bytes uninitialized kernel heap memory.
-
-Allocate the memory using kzalloc() to fix this issue.
+The CCID3 code fails to initialize the trailing padding bytes of struct
+tfrc_tx_info added for alignment on 64 bit architectures. It that for
+potentially leaks four bytes kernel stack via the getsockopt() syscall.
+Add an explicit memset(0) before filling the structure to avoid the
+info leak.
 
 Signed-off-by: Mathias Krause <minipli@googlemail.com>
-Cc: Marcel Holtmann <marcel@holtmann.org>
-Cc: Gustavo Padovan <gustavo@padovan.org>
-Cc: Johan Hedberg <johan.hedberg@gmail.com>
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/bluetooth/rfcomm/tty.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/dccp/ccids/ccid3.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/bluetooth/rfcomm/tty.c b/net/bluetooth/rfcomm/tty.c
-index cb96077..56f1823 100644
---- a/net/bluetooth/rfcomm/tty.c
-+++ b/net/bluetooth/rfcomm/tty.c
-@@ -456,7 +456,7 @@ static int rfcomm_get_dev_list(void __user *arg)
- 
- 	size = sizeof(*dl) + dev_num * sizeof(*di);
- 
--	dl = kmalloc(size, GFP_KERNEL);
-+	dl = kzalloc(size, GFP_KERNEL);
- 	if (!dl)
- 		return -ENOMEM;
- 
+diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
+index d65e987..119c043 100644
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -535,6 +535,7 @@ static int ccid3_hc_tx_getsockopt(struct sock *sk, const int optname, int len,
+ 	case DCCP_SOCKOPT_CCID_TX_INFO:
+ 		if (len < sizeof(tfrc))
+ 			return -EINVAL;
++		memset(&tfrc, 0, sizeof(tfrc));
+ 		tfrc.tfrctx_x	   = hc->tx_x;
+ 		tfrc.tfrctx_x_recv = hc->tx_x_recv;
+ 		tfrc.tfrctx_x_calc = hc->tx_x_calc;
 -- 
 1.7.10.4
