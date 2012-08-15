@@ -1,44 +1,43 @@
 From: Mathias Krause <minipli@googlemail.com>
-Subject: [PATCH 12/14] dccp: fix info leak via getsockopt(DCCP_SOCKOPT_CCID_TX_INFO)
-Date: Wed, 15 Aug 2012 23:31:55 +0200
-Message-ID: <1345066317-22512-13-git-send-email-minipli@googlemail.com>
+Subject: [PATCH 13/14] ipvs: fix info leak in getsockopt(IP_VS_SO_GET_TIMEOUT)
+Date: Wed, 15 Aug 2012 23:31:56 +0200
+Message-ID: <1345066317-22512-14-git-send-email-minipli@googlemail.com>
 References: <1345066317-22512-1-git-send-email-minipli@googlemail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Mathias Krause <minipli@googlemail.com>,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+	Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:34449 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757478Ab2HOVdR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 17:33:17 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1345066317-22512-1-git-send-email-minipli@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The CCID3 code fails to initialize the trailing padding bytes of struct
-tfrc_tx_info added for alignment on 64 bit architectures. It that for
-potentially leaks four bytes kernel stack via the getsockopt() syscall.
-Add an explicit memset(0) before filling the structure to avoid the
-info leak.
+If at least one of CONFIG_IP_VS_PROTO_TCP or CONFIG_IP_VS_PROTO_UDP is
+not set, __ip_vs_get_timeouts() does not fully initialize the structure
+that gets copied to userland and that for leaks up to 12 bytes of kernel
+stack. Add an explicit memset(0) before passing the structure to
+__ip_vs_get_timeouts() to avoid the info leak.
 
 Signed-off-by: Mathias Krause <minipli@googlemail.com>
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Cc: Wensong Zhang <wensong@linux-vs.org>
+Cc: Simon Horman <horms@verge.net.au>
+Cc: Julian Anastasov <ja@ssi.bg>
 ---
- net/dccp/ccids/ccid3.c |    1 +
+ net/netfilter/ipvs/ip_vs_ctl.c |    1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
-index d65e987..119c043 100644
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -535,6 +535,7 @@ static int ccid3_hc_tx_getsockopt(struct sock *sk, const int optname, int len,
- 	case DCCP_SOCKOPT_CCID_TX_INFO:
- 		if (len < sizeof(tfrc))
- 			return -EINVAL;
-+		memset(&tfrc, 0, sizeof(tfrc));
- 		tfrc.tfrctx_x	   = hc->tx_x;
- 		tfrc.tfrctx_x_recv = hc->tx_x_recv;
- 		tfrc.tfrctx_x_calc = hc->tx_x_calc;
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 84444dd..72bf32a 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -2759,6 +2759,7 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+ 	{
+ 		struct ip_vs_timeout_user t;
+ 
++		memset(&t, 0, sizeof(t));
+ 		__ip_vs_get_timeouts(net, &t);
+ 		if (copy_to_user(user, &t, sizeof(t)) != 0)
+ 			ret = -EFAULT;
 -- 
 1.7.10.4
