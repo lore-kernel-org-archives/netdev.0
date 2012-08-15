@@ -1,40 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] packet: Sock-diag extension for packet
- sockets (beginning)
-Date: Tue, 14 Aug 2012 16:56:59 -0700 (PDT)
-Message-ID: <20120814.165659.447574800340205124.davem@davemloft.net>
-References: <5029219C.20305@parallels.com>
+Subject: Re: [PATCH 4/5] drivers/net/ethernet/ti/davinci_cpdma.c: Remove
+ potential NULL dereference
+Date: Tue, 14 Aug 2012 17:00:10 -0700 (PDT)
+Message-ID: <20120814.170010.1136116037664193225.davem@davemloft.net>
+References: <1344959388-19719-1-git-send-email-Julia.Lawall@lip6.fr>
+	<1344959388-19719-5-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xemul@parallels.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39849 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754161Ab2HNX5A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 19:57:00 -0400
-In-Reply-To: <5029219C.20305@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Julia.Lawall@lip6.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1344959388-19719-5-git-send-email-Julia.Lawall@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@parallels.com>
-Date: Mon, 13 Aug 2012 19:47:40 +0400
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Tue, 14 Aug 2012 17:49:47 +0200
 
-> There's a set of stuff residing on a AF_PACKET socket which is currently
-> write-only -- rings, copy_thresh and mclist. But we need to know these
-> while doing the checkpoint-restore.
+> From: Julia Lawall <Julia.Lawall@lip6.fr>
 > 
-> As a solution for the similar problem with unix sockets, the sock-diag
-> engine was developed, so here's the basic implementation of the packet
-> sockets extension. It doesn't report rings, fanout and stats, but it can
-> be easily added later.
+> If the NULL test is necessary, the initialization involving a dereference of
+> the tested value should be moved after the NULL test.
 > 
-> I'd like to mention, that it's not a strict requirement, that the diag is
-> used for getting info about sockets, it would be perfectly fine just to
-> fix the packet getsockopt callback to return the desired info. So, if the
-> diag for packet sockets is for any reason unacceptable, just let me know.
+> The sematic patch that fixes this problem is as follows:
+> (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-All applied, looks fine.
-
-Please number your patches properly next time, patch #3 was listed as 2/4
+Applied, thanks.
