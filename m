@@ -1,48 +1,58 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [RFC PATCH 0/5] net: socket bind to file descriptor introduced
-Date: Wed, 15 Aug 2012 20:21:56 +0400
-Message-ID: <20120815161141.7598.16682.stgit@localhost.localdomain>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [RFC PATCH 5/5] syscall: sys_fbind() introduced
+Date: Wed, 15 Aug 2012 09:30:37 -0700
+Message-ID: <502BCEAD.7050905@zytor.com>
+References: <20120815161141.7598.16682.stgit@localhost.localdomain> <20120815162225.7598.85131.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: thierry.reding@avionic-design.de, bfields@redhat.com,
+Cc: tglx@linutronix.de, mingo@redhat.com, davem@davemloft.net,
+	thierry.reding@avionic-design.de, bfields@redhat.com,
 	eric.dumazet@gmail.com, xemul@parallels.com, neilb@suse.de,
 	netdev@vger.kernel.org, x86@kernel.org,
 	linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
 	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
 	akpm@linux-foundation.org, tim.c.chen@linux.intel.com,
 	devel@openvz.org, ebiederm@xmission.com
-To: tglx@linutronix.de, mingo@redhat.com, davem@davemloft.net,
-	hpa@zytor.com
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120815162225.7598.85131.stgit@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch set introduces new socket operation and new system call:
-sys_fbind(), which allows to bind socket to opened file.
-File to bind to can be created by sys_mknod(S_IFSOCK) and opened by
-open(O_PATH).
+On 08/15/2012 09:22 AM, Stanislav Kinsbursky wrote:
+> This syscall allows to bind socket to specified file descriptor.
+> Descriptor can be gained by simple open with O_PATH flag.
+> Socket node can be created by sys_mknod().
+>
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+> ---
+>   arch/x86/syscalls/syscall_32.tbl |    1 +
+>   arch/x86/syscalls/syscall_64.tbl |    1 +
+>   include/linux/syscalls.h         |    1 +
+>   kernel/sys_ni.c                  |    3 +++
+>   net/socket.c                     |   25 +++++++++++++++++++++++++
+>   5 files changed, 31 insertions(+), 0 deletions(-)
+>
+> diff --git a/arch/x86/syscalls/syscall_32.tbl b/arch/x86/syscalls/syscall_32.tbl
+> index 7a35a6e..9594b82 100644
+> --- a/arch/x86/syscalls/syscall_32.tbl
+> +++ b/arch/x86/syscalls/syscall_32.tbl
+> @@ -356,3 +356,4 @@
+>   347	i386	process_vm_readv	sys_process_vm_readv		compat_sys_process_vm_readv
+>   348	i386	process_vm_writev	sys_process_vm_writev		compat_sys_process_vm_writev
+>   349	i386	kcmp			sys_kcmp
+> +350	i386	fbind			sys_fbind
 
-This system call is especially required for UNIX sockets, which has name
-lenght limitation.
+i386 uses socketcalls... perhaps it shouldn't (socketcalls are pretty 
+much an abomination), but for socketcall-based architectures this really 
+should be a socketcall.
 
-The following series implements...
+Don't you also need fconnect()?  Or is that simply handled by allowing 
+open() without O_PATH?
 
----
+	-hpa
 
-Stanislav Kinsbursky (5):
-      net: cleanup unix_bind() a little
-      net: split unix_bind()
-      net: new protocol operation fbind() introduced
-      net: fbind() for unix sockets protocol operations introduced
-      syscall: sys_fbind() introduced
-
-
- arch/x86/syscalls/syscall_32.tbl |    1 
- arch/x86/syscalls/syscall_64.tbl |    1 
- include/linux/net.h              |    2 +
- include/linux/syscalls.h         |    1 
- kernel/sys_ni.c                  |    3 +
- net/socket.c                     |   25 +++++++
- net/unix/af_unix.c               |  136 ++++++++++++++++++++++++++++++--------
- 7 files changed, 140 insertions(+), 29 deletions(-)
+-- 
+H. Peter Anvin, Intel Open Source Technology Center
+I work for Intel.  I don't speak on their behalf.
