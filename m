@@ -1,41 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net-tcp: TCP/IP stack bypass for loopback
- connections
-Date: Tue, 14 Aug 2012 22:39:07 -0700 (PDT)
-Message-ID: <20120814.223907.1954070712467723629.davem@davemloft.net>
-References: <20120814023155.ffe9c01d.billfink@mindspring.com>
-	<CAEkNxbFgr1Qws_Fp3igDhir-81R-XWr52inmuXb1MNS9NigU0Q@mail.gmail.com>
-	<20120815012428.c747fa9d.billfink@mindspring.com>
+From: "Ren, Cloud" <cjren@qca.qualcomm.com>
+Subject: RE: [PATCH] net: add new QCA alx ethernet driver
+Date: Wed, 15 Aug 2012 05:39:11 +0000
+Message-ID: <6349D7A510622448B1BA0967850A84380136A218@NASANEXD02D.na.qualcomm.com>
+References: <1344507270-2907-1-git-send-email-cjren@qca.qualcomm.com>
+	<20120811135044.529a7081@nehalam.linuxnetplumber.net>
+	<6349D7A510622448B1BA0967850A84380136A1EF@NASANEXD02D.na.qualcomm.com>
+ <20120814.223258.1180104882398843954.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: brutus@google.com, edumazet@google.com, netdev@vger.kernel.org
-To: billfink@mindspring.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	qca-linux-team <qca-linux-team@qualcomm.com>,
+	nic-devel <nic-devel@qualcomm.com>,
+	"Huang, Xiong" <xiong@qca.qualcomm.com>,
+	"hao-ran.liu@canonical.com" <hao-ran.liu@canonical.com>,
+	"joe@perches.com" <joe@perches.com>,
+	"Rodriguez, Luis" <rodrigue@qca.qualcomm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42769 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751006Ab2HOFjI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 01:39:08 -0400
-In-Reply-To: <20120815012428.c747fa9d.billfink@mindspring.com>
+Received: from wolverine01.qualcomm.com ([199.106.114.254]:18295 "EHLO
+	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751197Ab2HOFjN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 01:39:13 -0400
+In-Reply-To: <20120814.223258.1180104882398843954.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bill Fink <billfink@mindspring.com>
-Date: Wed, 15 Aug 2012 01:24:28 -0400
+From: David Miller [mailto:davem@davemloft.net]
+Sent: Wednesday, August 15, 2012 1:33 PM
 
-> I see no reason to make it obtuse rather than something more
-> descriptive of its function (as opposed to how it's implemented).
+>From: "Ren, Cloud" <cjren@qca.qualcomm.com>
+>Date: Wed, 15 Aug 2012 03:29:26 +0000
+>
+>>>> +	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
+>>>> ...
+>>>> +	strcpy(netdev->name, "eth%d");
+>>>> +	retval = register_netdev(netdev);
+>>>
+>>>The strcpy is unnecessary, alloc_etherdev already sets that.
+>>
+>> The strcpy is useful. netdev->name is set as pci_name in front. So the strcpy
+>restores it.
+>
+>Are you doing this just to influence the initial driver log messages?
 
-I want to live in a world where things are allowed to have some
-character, and some slightly amusing names.  And that's why we'll
-call it TCP friends, thank you very much.
+ Yes.
 
-> I do have some concern that since the loopback path through the
-> TCP stack won't be heavily exercised anymore, it may be more likely
-> for bugs or performance degradations to creep into that code.
+>
+>Don't do that, it's gross.
 
-Are you kidding me?  Most people do not use loopback TCP, they use
-TCP to a real external entity.  TCP friends only kicks in for
-loopback connections.
-
-So, like all of your other concerns, this one is meritless.
+Ok, I will remove it.
