@@ -1,66 +1,54 @@
-From: Sage Weil <sage@inktank.com>
-Subject: regression with poll(2)?
-Date: Wed, 15 Aug 2012 12:46:16 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.1208151226250.15721@cobra.newdream.net>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [RFC PATCH 0/5] net: socket bind to file descriptor introduced
+Date: Wed, 15 Aug 2012 13:58:36 -0700
+Message-ID: <502C0D7C.2040707@zytor.com>
+References: <20120815161141.7598.16682.stgit@localhost.localdomain> <87a9xwc4vr.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, ceph-devel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <ceph-devel-owner@vger.kernel.org>
-Sender: ceph-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Stanislav Kinsbursky <skinsbursky@parallels.com>,
+	tglx@linutronix.de, mingo@redhat.com, davem@davemloft.net,
+	thierry.reding@avionic-design.de, bfields@redhat.com,
+	eric.dumazet@gmail.com, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, x86@kernel.org,
+	linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
+	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
+	akpm@linux-foundation.org, tim.c.chen@linux.intel.com,
+	devel@openvz.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87a9xwc4vr.fsf@xmission.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I'm experiencing a stall with Ceph daemons communicating over TCP that 
-occurs reliably with 3.6-rc1 (and linus/master) but not 3.5.  The basic 
-situation is:
+On 08/15/2012 12:49 PM, Eric W. Biederman wrote:
+> 
+> There is also the trick of getting a shorter directory name using
+> /proc/self/fd if you are threaded and can't change the directory.
+> 
+> The obvious choices at this point are
+> - Teach bind and connect and af_unix sockets to take longer AF_UNIX
+>   socket path names.
+> 
+> - introduce sockaddr_fd that can be applied to AF_UNIX sockets,
+>   and teach unix_bind and unix_connect how to deal with a second type of sockaddr.
+>   struct sockaddr_fd { short fd_family; short pad; int fd; };
+> 
+> - introduce sockaddr_unix_at that takes a directory file descriptor
+>   as well as a unix path, and teach unix_bind and unix_connect to deal with a
+>   second sockaddr type.
+>   struct sockaddr_unix_at { short family; short pad; int dfd; char path[102]; }
+>   AF_UNIX_AT
+> 
+> I don't know what the implications of for breaking connect up into 3
+> system calls and changing the semantics are and I would really rather
+> not have to think about it.
+> 
+> But it certainly does not look to me like you introduce new systems
+> calls to do what you want.
+> 
 
- - the socket is two processes communicating over TCP on the same host, e.g. 
+How would you distinguish the new sockaddr types from the traditional
+one?  New AF_?
 
-tcp        0 2164849 10.214.132.38:6801      10.214.132.38:51729     ESTABLISHED
-
- - one end writes a bunch of data in
- - the other end consumes data, but at some point stalls.
- - reads are nonblocking, e.g.
-
-  int got = ::recv( sd, buf, len, MSG_DONTWAIT );
-
- and between those calls we wait with
-
-  struct pollfd pfd;
-  short evmask;
-  pfd.fd = sd;
-  pfd.events = POLLIN;
-#if defined(__linux__)
-  pfd.events |= POLLRDHUP;
-#endif
-
-  if (poll(&pfd, 1, msgr->timeout) <= 0)
-    return -1;
-
- - in my case the timeout is ~15 minutes.  at that point it errors out, 
-and the daemons reconnect and continue for a while until hitting this 
-again.
-
- - at the time of the stall, the reading process is blocked on that 
-poll(2) call.  There are a bunch of threads stuck on poll(2), some of them 
-stuck and some not, but they all have stacks like
-
-[<ffffffff8118f6f9>] poll_schedule_timeout+0x49/0x70
-[<ffffffff81190baf>] do_sys_poll+0x35f/0x4c0
-[<ffffffff81190deb>] sys_poll+0x6b/0x100
-[<ffffffff8163d369>] system_call_fastpath+0x16/0x1b
-
- - you'll note that the netstat output shows data queued:
-
-tcp        0 1163264 10.214.132.36:6807      10.214.132.36:41738     ESTABLISHED
-tcp        0 1622016 10.214.132.36:41738     10.214.132.36:6807      ESTABLISHED
-
-etc.
-
-Is this a known regression?  Or might I be misusing the API?  What 
-information would help track it down?
-
-Thanks!
-sage
-
-
+	-hpa
