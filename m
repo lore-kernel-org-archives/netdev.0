@@ -1,66 +1,214 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: RFC - document network device carrier management
-Date: Wed, 15 Aug 2012 08:58:27 -0700
-Message-ID: <20120815085827.2b252094@nehalam.linuxnetplumber.net>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: [PATCH net-next] igb: Change how we check for pre-existing and
+ assigned VFs
+Date: Wed, 15 Aug 2012 09:03:21 -0700
+Message-ID: <20120815090321.00002d7f@unknown>
+References: <1345009886-29153-1-git-send-email-sassmann@kpanic.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: <netdev@vger.kernel.org>, <e1000-devel@lists.sourceforge.net>,
+	<carolyn.wyborny@intel.com>
+To: Stefan Assmann <sassmann@kpanic.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60222 "EHLO mail.vyatta.com"
+Received: from mga11.intel.com ([192.55.52.93]:44326 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754681Ab2HOP6i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2012 11:58:38 -0400
+	id S1754681Ab2HOQD0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2012 12:03:26 -0400
+In-Reply-To: <1345009886-29153-1-git-send-email-sassmann@kpanic.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since carrier handling is often done incorrectly by new device drivers
-be explicit about carrier handling API.
+On Wed, 15 Aug 2012 07:51:26 +0200
+Stefan Assmann <sassmann@kpanic.de> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Adapt the pre-existing and assigned VFs code to the ixgbe way
+> introduced in commit 9297127b9cdd8d30c829ef5fd28b7cc0323a7bcd.
+> 
+> Instead of searching the enabled VFs we use pci_num_vf to determine
+> enabled VFs. By comparing to which PF an assigned VF is owned it's
+> possible to decide whether to leave it enabled or not.
+> 
+> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
 
----
-This is a meant as starting point for discussion, it's probably wrong as is.
-Since this isn't code, it could be applied for 3.6 and doesn't need for net-next.
+Acked-by: Greg Rose <gregory.v.rose@intel.com>
 
-
---- a/Documentation/networking/netdevices.txt	2012-06-22 08:27:46.729168196 -0700
-+++ b/Documentation/networking/netdevices.txt	2012-08-15 08:56:31.120429994 -0700
-@@ -45,6 +45,36 @@ drop, truncate, or pass up oversize pack
- packets is preferred.
- 
- 
-+CARRIER
-+=======
-+Most network devices have an operational state that the device
-+monitors. The Linux kernel uses the name "carrier" for this flag which
-+is a historical reference to old modems. Carrier is reported to
-+userspace via the IFF_RUNNING flag from SIOCGIFFLAGS ioctl.
-+Carrier is controlled in the device driver
-+by the functions netif_carrier_on and netif_carrier_off. These
-+functions trigger the necessary netlink and userspace API changes;
-+device drivers must not change netdevice->flags directly.
-+
-+The carrier defaults to ON when the device is created and registered.
-+Simple devices (such as dummy) do not need to do anything.
-+Ethernet style devices should:
-+   * alloc_etherdev in probe routine
-+   * call netif_carrier_off
-+   * register network device
-+   * start auto negotiation with phy in open routine
-+   * call netif_carrier_on when link is up
-+
-+More complex RFC2863 style operational state is also possible
-+but not required (see operstates.txt).
-+
-+The monitoring of link state is the responsibility of the network
-+device driver. It can be done by polling, interrupt, or any other
-+mechanism. netif_carrier_on/netif_carrier_off are atomic and can
-+safely be called by an interrupt routine. Carrier events are
-+managed by the linkwatch work queue and limited to one per second
-+to avoid overwhelming management applications.
-+
- struct net_device synchronization rules
- =======================================
- ndo_open:
+> ---
+>  drivers/net/ethernet/intel/igb/igb.h      |    1 -
+>  drivers/net/ethernet/intel/igb/igb_main.c |  104
+> ++++++----------------------- 2 files changed, 22 insertions(+), 83
+> deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/igb/igb.h
+> b/drivers/net/ethernet/intel/igb/igb.h index 9e572dd..d15576a 100644
+> --- a/drivers/net/ethernet/intel/igb/igb.h
+> +++ b/drivers/net/ethernet/intel/igb/igb.h
+> @@ -99,7 +99,6 @@ struct vf_data_storage {
+>  	u16 pf_vlan; /* When set, guest VLAN config not allowed. */
+>  	u16 pf_qos;
+>  	u16 tx_rate;
+> -	struct pci_dev *vfdev;
+>  };
+>  
+>  #define IGB_VF_FLAG_CTS            0x00000001 /* VF is clear to send
+> data */ diff --git a/drivers/net/ethernet/intel/igb/igb_main.c
+> b/drivers/net/ethernet/intel/igb/igb_main.c index b7c2d50..9e312da
+> 100644 --- a/drivers/net/ethernet/intel/igb/igb_main.c
+> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
+> @@ -172,8 +172,7 @@ static void igb_check_vf_rate_limit(struct
+> igb_adapter *); 
+>  #ifdef CONFIG_PCI_IOV
+>  static int igb_vf_configure(struct igb_adapter *adapter, int vf);
+> -static int igb_find_enabled_vfs(struct igb_adapter *adapter);
+> -static int igb_check_vf_assignment(struct igb_adapter *adapter);
+> +static bool igb_vfs_are_assigned(struct igb_adapter *adapter);
+>  #endif
+>  
+>  #ifdef CONFIG_PM
+> @@ -2295,11 +2294,11 @@ static void __devexit igb_remove(struct
+> pci_dev *pdev) /* reclaim resources allocated to VFs */
+>  	if (adapter->vf_data) {
+>  		/* disable iov and allow time for transactions to
+> clear */
+> -		if (!igb_check_vf_assignment(adapter)) {
+> +		if (igb_vfs_are_assigned(adapter)) {
+> +			dev_info(&pdev->dev, "Unloading driver while
+> VFs are assigned - VFs will not be deallocated\n");
+> +		} else {
+>  			pci_disable_sriov(pdev);
+>  			msleep(500);
+> -		} else {
+> -			dev_info(&pdev->dev, "VF(s) assigned to
+> guests!\n"); }
+>  
+>  		kfree(adapter->vf_data);
+> @@ -2339,7 +2338,7 @@ static void __devinit igb_probe_vfs(struct
+> igb_adapter * adapter) #ifdef CONFIG_PCI_IOV
+>  	struct pci_dev *pdev = adapter->pdev;
+>  	struct e1000_hw *hw = &adapter->hw;
+> -	int old_vfs = igb_find_enabled_vfs(adapter);
+> +	int old_vfs = pci_num_vf(adapter->pdev);
+>  	int i;
+>  
+>  	/* Virtualization features not supported on i210 family. */
+> @@ -5003,102 +5002,43 @@ static int igb_notify_dca(struct
+> notifier_block *nb, unsigned long event, static int
+> igb_vf_configure(struct igb_adapter *adapter, int vf) {
+>  	unsigned char mac_addr[ETH_ALEN];
+> -	struct pci_dev *pdev = adapter->pdev;
+> -	struct e1000_hw *hw = &adapter->hw;
+> -	struct pci_dev *pvfdev;
+> -	unsigned int device_id;
+> -	u16 thisvf_devfn;
+>  
+>  	eth_random_addr(mac_addr);
+>  	igb_set_vf_mac(adapter, vf, mac_addr);
+>  
+> -	switch (adapter->hw.mac.type) {
+> -	case e1000_82576:
+> -		device_id = IGB_82576_VF_DEV_ID;
+> -		/* VF Stride for 82576 is 2 */
+> -		thisvf_devfn = (pdev->devfn + 0x80 + (vf << 1)) |
+> -			(pdev->devfn & 1);
+> -		break;
+> -	case e1000_i350:
+> -		device_id = IGB_I350_VF_DEV_ID;
+> -		/* VF Stride for I350 is 4 */
+> -		thisvf_devfn = (pdev->devfn + 0x80 + (vf << 2)) |
+> -				(pdev->devfn & 3);
+> -		break;
+> -	default:
+> -		device_id = 0;
+> -		thisvf_devfn = 0;
+> -		break;
+> -	}
+> -
+> -	pvfdev = pci_get_device(hw->vendor_id, device_id, NULL);
+> -	while (pvfdev) {
+> -		if (pvfdev->devfn == thisvf_devfn)
+> -			break;
+> -		pvfdev = pci_get_device(hw->vendor_id,
+> -					device_id, pvfdev);
+> -	}
+> -
+> -	if (pvfdev)
+> -		adapter->vf_data[vf].vfdev = pvfdev;
+> -	else
+> -		dev_err(&pdev->dev,
+> -			"Couldn't find pci dev ptr for VF %4.4x\n",
+> -			thisvf_devfn);
+> -	return pvfdev != NULL;
+> +	return 0;
+>  }
+>  
+> -static int igb_find_enabled_vfs(struct igb_adapter *adapter)
+> +static bool igb_vfs_are_assigned(struct igb_adapter *adapter)
+>  {
+> -	struct e1000_hw *hw = &adapter->hw;
+>  	struct pci_dev *pdev = adapter->pdev;
+> -	struct pci_dev *pvfdev;
+> -	u16 vf_devfn = 0;
+> -	u16 vf_stride;
+> -	unsigned int device_id;
+> -	int vfs_found = 0;
+> +	struct pci_dev *vfdev;
+> +	int dev_id;
+>  
+>  	switch (adapter->hw.mac.type) {
+>  	case e1000_82576:
+> -		device_id = IGB_82576_VF_DEV_ID;
+> -		/* VF Stride for 82576 is 2 */
+> -		vf_stride = 2;
+> +		dev_id = IGB_82576_VF_DEV_ID;
+>  		break;
+>  	case e1000_i350:
+> -		device_id = IGB_I350_VF_DEV_ID;
+> -		/* VF Stride for I350 is 4 */
+> -		vf_stride = 4;
+> +		dev_id = IGB_I350_VF_DEV_ID;
+>  		break;
+>  	default:
+> -		device_id = 0;
+> -		vf_stride = 0;
+> -		break;
+> -	}
+> -
+> -	vf_devfn = pdev->devfn + 0x80;
+> -	pvfdev = pci_get_device(hw->vendor_id, device_id, NULL);
+> -	while (pvfdev) {
+> -		if (pvfdev->devfn == vf_devfn &&
+> -		    (pvfdev->bus->number >= pdev->bus->number))
+> -			vfs_found++;
+> -		vf_devfn += vf_stride;
+> -		pvfdev = pci_get_device(hw->vendor_id,
+> -					device_id, pvfdev);
+> +		return false;
+>  	}
+>  
+> -	return vfs_found;
+> -}
+> -
+> -static int igb_check_vf_assignment(struct igb_adapter *adapter)
+> -{
+> -	int i;
+> -	for (i = 0; i < adapter->vfs_allocated_count; i++) {
+> -		if (adapter->vf_data[i].vfdev) {
+> -			if (adapter->vf_data[i].vfdev->dev_flags &
+> -			    PCI_DEV_FLAGS_ASSIGNED)
+> +	/* loop through all the VFs to see if we own any that are
+> assigned */
+> +	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, NULL);
+> +	while (vfdev) {
+> +		/* if we don't own it we don't care */
+> +		if (vfdev->is_virtfn && vfdev->physfn == pdev) {
+> +			/* if it is assigned we cannot release it */
+> +			if (vfdev->dev_flags &
+> PCI_DEV_FLAGS_ASSIGNED) return true;
+>  		}
+> +
+> +		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id,
+> vfdev); }
+> +
+>  	return false;
+>  }
+>  
