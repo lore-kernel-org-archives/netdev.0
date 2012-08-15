@@ -1,46 +1,42 @@
-From: Greg Rose <gregory.v.rose@intel.com>
-Subject: Re: [PATCH net-next] igb: Change how we check for pre-existing and
- assigned VFs
-Date: Wed, 15 Aug 2012 09:03:21 -0700
-Message-ID: <20120815090321.00002d7f@unknown>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH net-next] igb: Change how we check for
+ pre-existing and assigned VFs
+Date: Wed, 15 Aug 2012 09:12:57 -0700
+Message-ID: <502BCA89.1030900@intel.com>
 References: <1345009886-29153-1-git-send-email-sassmann@kpanic.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <e1000-devel@lists.sourceforge.net>,
-	<carolyn.wyborny@intel.com>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
 To: Stefan Assmann <sassmann@kpanic.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:44326 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754681Ab2HOQD0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2012 12:03:26 -0400
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 In-Reply-To: <1345009886-29153-1-git-send-email-sassmann@kpanic.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Aug 2012 07:51:26 +0200
-Stefan Assmann <sassmann@kpanic.de> wrote:
-
-> Adapt the pre-existing and assigned VFs code to the ixgbe way
-> introduced in commit 9297127b9cdd8d30c829ef5fd28b7cc0323a7bcd.
-> 
-> Instead of searching the enabled VFs we use pci_num_vf to determine
-> enabled VFs. By comparing to which PF an assigned VF is owned it's
-> possible to decide whether to leave it enabled or not.
-> 
+On 08/14/2012 10:51 PM, Stefan Assmann wrote:
+> Adapt the pre-existing and assigned VFs code to the ixgbe way introduced
+> in commit 9297127b9cdd8d30c829ef5fd28b7cc0323a7bcd.
+>
+> Instead of searching the enabled VFs we use pci_num_vf to determine enabled VFs.
+> By comparing to which PF an assigned VF is owned it's possible to decide
+> whether to leave it enabled or not.
+>
 > Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
-
-Acked-by: Greg Rose <gregory.v.rose@intel.com>
-
 > ---
 >  drivers/net/ethernet/intel/igb/igb.h      |    1 -
->  drivers/net/ethernet/intel/igb/igb_main.c |  104
-> ++++++----------------------- 2 files changed, 22 insertions(+), 83
-> deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/igb/igb.h
-> b/drivers/net/ethernet/intel/igb/igb.h index 9e572dd..d15576a 100644
+>  drivers/net/ethernet/intel/igb/igb_main.c |  104 ++++++-----------------------
+>  2 files changed, 22 insertions(+), 83 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+> index 9e572dd..d15576a 100644
 > --- a/drivers/net/ethernet/intel/igb/igb.h
 > +++ b/drivers/net/ethernet/intel/igb/igb.h
 > @@ -99,7 +99,6 @@ struct vf_data_storage {
@@ -50,13 +46,13 @@ Acked-by: Greg Rose <gregory.v.rose@intel.com>
 > -	struct pci_dev *vfdev;
 >  };
 >  
->  #define IGB_VF_FLAG_CTS            0x00000001 /* VF is clear to send
-> data */ diff --git a/drivers/net/ethernet/intel/igb/igb_main.c
-> b/drivers/net/ethernet/intel/igb/igb_main.c index b7c2d50..9e312da
-> 100644 --- a/drivers/net/ethernet/intel/igb/igb_main.c
+>  #define IGB_VF_FLAG_CTS            0x00000001 /* VF is clear to send data */
+> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+> index b7c2d50..9e312da 100644
+> --- a/drivers/net/ethernet/intel/igb/igb_main.c
 > +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -172,8 +172,7 @@ static void igb_check_vf_rate_limit(struct
-> igb_adapter *); 
+> @@ -172,8 +172,7 @@ static void igb_check_vf_rate_limit(struct igb_adapter *);
+>  
 >  #ifdef CONFIG_PCI_IOV
 >  static int igb_vf_configure(struct igb_adapter *adapter, int vf);
 > -static int igb_find_enabled_vfs(struct igb_adapter *adapter);
@@ -65,25 +61,23 @@ Acked-by: Greg Rose <gregory.v.rose@intel.com>
 >  #endif
 >  
 >  #ifdef CONFIG_PM
-> @@ -2295,11 +2294,11 @@ static void __devexit igb_remove(struct
-> pci_dev *pdev) /* reclaim resources allocated to VFs */
+> @@ -2295,11 +2294,11 @@ static void __devexit igb_remove(struct pci_dev *pdev)
+>  	/* reclaim resources allocated to VFs */
 >  	if (adapter->vf_data) {
->  		/* disable iov and allow time for transactions to
-> clear */
+>  		/* disable iov and allow time for transactions to clear */
 > -		if (!igb_check_vf_assignment(adapter)) {
 > +		if (igb_vfs_are_assigned(adapter)) {
-> +			dev_info(&pdev->dev, "Unloading driver while
-> VFs are assigned - VFs will not be deallocated\n");
+> +			dev_info(&pdev->dev, "Unloading driver while VFs are assigned - VFs will not be deallocated\n");
 > +		} else {
 >  			pci_disable_sriov(pdev);
 >  			msleep(500);
 > -		} else {
-> -			dev_info(&pdev->dev, "VF(s) assigned to
-> guests!\n"); }
+> -			dev_info(&pdev->dev, "VF(s) assigned to guests!\n");
+>  		}
 >  
 >  		kfree(adapter->vf_data);
-> @@ -2339,7 +2338,7 @@ static void __devinit igb_probe_vfs(struct
-> igb_adapter * adapter) #ifdef CONFIG_PCI_IOV
+> @@ -2339,7 +2338,7 @@ static void __devinit igb_probe_vfs(struct igb_adapter * adapter)
+>  #ifdef CONFIG_PCI_IOV
 >  	struct pci_dev *pdev = adapter->pdev;
 >  	struct e1000_hw *hw = &adapter->hw;
 > -	int old_vfs = igb_find_enabled_vfs(adapter);
@@ -91,9 +85,9 @@ Acked-by: Greg Rose <gregory.v.rose@intel.com>
 >  	int i;
 >  
 >  	/* Virtualization features not supported on i210 family. */
-> @@ -5003,102 +5002,43 @@ static int igb_notify_dca(struct
-> notifier_block *nb, unsigned long event, static int
-> igb_vf_configure(struct igb_adapter *adapter, int vf) {
+> @@ -5003,102 +5002,43 @@ static int igb_notify_dca(struct notifier_block *nb, unsigned long event,
+>  static int igb_vf_configure(struct igb_adapter *adapter, int vf)
+>  {
 >  	unsigned char mac_addr[ETH_ALEN];
 > -	struct pci_dev *pdev = adapter->pdev;
 > -	struct e1000_hw *hw = &adapter->hw;
@@ -195,20 +189,50 @@ Acked-by: Greg Rose <gregory.v.rose@intel.com>
 > -		if (adapter->vf_data[i].vfdev) {
 > -			if (adapter->vf_data[i].vfdev->dev_flags &
 > -			    PCI_DEV_FLAGS_ASSIGNED)
-> +	/* loop through all the VFs to see if we own any that are
-> assigned */
+> +	/* loop through all the VFs to see if we own any that are assigned */
 > +	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, NULL);
 > +	while (vfdev) {
 > +		/* if we don't own it we don't care */
 > +		if (vfdev->is_virtfn && vfdev->physfn == pdev) {
 > +			/* if it is assigned we cannot release it */
-> +			if (vfdev->dev_flags &
-> PCI_DEV_FLAGS_ASSIGNED) return true;
+> +			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
+>  				return true;
 >  		}
 > +
-> +		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id,
-> vfdev); }
+> +		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, vfdev);
+>  	}
 > +
 >  	return false;
 >  }
 >  
+
+As the author of commit 9297127b9cdd8d30c829ef5fd28b7cc0323a7bcd it
+would have been nice to include me on the CC since I am probably one of
+the best people to review this patch.  That being said, the patch itself
+looks good.
+
+A follow-on patch that probably needs to be written would be to create a
+generic version of "vfs_are_assigned" as a part of the SR-IOV API.  That
+way we can avoid duplicating the function in each of the drivers.  All
+that would need to be changed is to pull the vendor ID from the pdev,
+and to pull the VF device ID from the SR-IOV configuration space of the
+physical function.  I'll try to get to that sometime in the next few
+weeks if nobody gets to it before I do.
+
+Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+
+
+
+
+
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
