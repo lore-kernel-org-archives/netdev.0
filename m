@@ -1,29 +1,30 @@
-From: Grant Grundler <grundler@google.com>
-Subject: smsc75xx maintainer?
-Date: Wed, 15 Aug 2012 14:48:35 -0700
-Message-ID: <CANEJEGuh++1-7HajcK65a=NPyKY_5JWkjGQFOKddv4JrVn0gFA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] vmxnet3: Fix race between dev_open() and
+ register_netdev()
+Date: Wed, 15 Aug 2012 15:10:54 -0700 (PDT)
+Message-ID: <20120815.151054.740192419844791866.davem@davemloft.net>
+References: <1344960816-12022-1-git-send-email-steve@purestorage.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sbhatewara@vmware.com, pv-drivers@vmware.com,
+	netdev@vger.kernel.org
+To: steve@purestorage.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:37589 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751049Ab2HOVsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 17:48:36 -0400
-Received: by obbuo13 with SMTP id uo13so2669732obb.19
-        for <netdev@vger.kernel.org>; Wed, 15 Aug 2012 14:48:35 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:52424 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753183Ab2HOWKz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 18:10:55 -0400
+In-Reply-To: <1344960816-12022-1-git-send-email-steve@purestorage.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-scripts/get_maintainer.pl can't identify an owner for
-drivers/net/usb/smsc75xx.c (USB GigE dongle).
+From: Steve Hodgson <steve@purestorage.com>
+Date: Tue, 14 Aug 2012 17:13:36 +0100
 
-Anyone (at SMSC?) interested in fixing suspend/resume for smsc75xx driver?
+> dev_open() can complete before register_netdev() returns.
+> Fix vmxnet3_probe_device() to support this.
+> 
+> Signed-off-by: Steve Hodgson <steve@purestorage.com>
 
-I don't have time to chase this but it would be nice if this part
-worked. Only suspend/resume appears broken.
-
-Some details in http://crosbug.com/31871.
-
-thanks,
-grant
+Applied, thanks Steve.
