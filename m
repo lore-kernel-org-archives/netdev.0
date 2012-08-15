@@ -1,7 +1,7 @@
 From: Mathias Krause <minipli@googlemail.com>
-Subject: [PATCH 01/14] atm: fix info leak in getsockopt(SO_ATMPVC)
-Date: Wed, 15 Aug 2012 23:31:44 +0200
-Message-ID: <1345066317-22512-2-git-send-email-minipli@googlemail.com>
+Subject: [PATCH 14/14] net: fix info leak in compat dev_ifconf()
+Date: Wed, 15 Aug 2012 23:31:57 +0200
+Message-ID: <1345066317-22512-15-git-send-email-minipli@googlemail.com>
 References: <1345066317-22512-1-git-send-email-minipli@googlemail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Mathias Krause <minipli@googlemail.com>
@@ -11,26 +11,28 @@ In-Reply-To: <1345066317-22512-1-git-send-email-minipli@googlemail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ATM code fails to initialize the two padding bytes of struct
-sockaddr_atmpvc inserted for alignment. Add an explicit memset(0)
-before filling the structure to avoid the info leak.
+The implementation of dev_ifconf() for the compat ioctl interface uses
+an intermediate ifc structure allocated in userland for the duration of
+the syscall. Though, it fails to initialize the padding bytes inserted
+for alignment and that for leaks four bytes of kernel stack. Add an
+explicit memset(0) before filling the structure to avoid the info leak.
 
 Signed-off-by: Mathias Krause <minipli@googlemail.com>
 ---
- net/atm/common.c |    1 +
+ net/socket.c |    1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/net/atm/common.c b/net/atm/common.c
-index b4b44db..0c0ad93 100644
---- a/net/atm/common.c
-+++ b/net/atm/common.c
-@@ -812,6 +812,7 @@ int vcc_getsockopt(struct socket *sock, int level, int optname,
+diff --git a/net/socket.c b/net/socket.c
+index dfe5b66..a5471f8 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2657,6 +2657,7 @@ static int dev_ifconf(struct net *net, struct compat_ifconf __user *uifc32)
+ 	if (copy_from_user(&ifc32, uifc32, sizeof(struct compat_ifconf)))
+ 		return -EFAULT;
  
- 		if (!vcc->dev || !test_bit(ATM_VF_ADDR, &vcc->flags))
- 			return -ENOTCONN;
-+		memset(&pvc, 0, sizeof(pvc));
- 		pvc.sap_family = AF_ATMPVC;
- 		pvc.sap_addr.itf = vcc->dev->number;
- 		pvc.sap_addr.vpi = vcc->vpi;
++	memset(&ifc, 0, sizeof(ifc));
+ 	if (ifc32.ifcbuf == 0) {
+ 		ifc32.ifc_len = 0;
+ 		ifc.ifc_len = 0;
 -- 
 1.7.10.4
