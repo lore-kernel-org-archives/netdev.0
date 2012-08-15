@@ -1,54 +1,62 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [RFC PATCH 0/5] net: socket bind to file descriptor introduced
-Date: Wed, 15 Aug 2012 13:58:36 -0700
-Message-ID: <502C0D7C.2040707@zytor.com>
-References: <20120815161141.7598.16682.stgit@localhost.localdomain> <87a9xwc4vr.fsf@xmission.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [Patch net-next] sctp: fix a compile error in sctp.h
+Date: Wed, 15 Aug 2012 12:53:23 -0700
+Message-ID: <874no4c4p8.fsf@xmission.com>
+References: <1345025891-5021-1-git-send-email-amwang@redhat.com>
+	<20120815.034501.1424538455974526416.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Stanislav Kinsbursky <skinsbursky@parallels.com>,
-	tglx@linutronix.de, mingo@redhat.com, davem@davemloft.net,
-	thierry.reding@avionic-design.de, bfields@redhat.com,
-	eric.dumazet@gmail.com, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, x86@kernel.org,
-	linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
-	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
-	akpm@linux-foundation.org, tim.c.chen@linux.intel.com,
-	devel@openvz.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87a9xwc4vr.fsf@xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: amwang@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:58392 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932160Ab2HOTxb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 15:53:31 -0400
+In-Reply-To: <20120815.034501.1424538455974526416.davem@davemloft.net> (David
+	Miller's message of "Wed, 15 Aug 2012 03:45:01 -0700 (PDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/15/2012 12:49 PM, Eric W. Biederman wrote:
-> 
-> There is also the trick of getting a shorter directory name using
-> /proc/self/fd if you are threaded and can't change the directory.
-> 
-> The obvious choices at this point are
-> - Teach bind and connect and af_unix sockets to take longer AF_UNIX
->   socket path names.
-> 
-> - introduce sockaddr_fd that can be applied to AF_UNIX sockets,
->   and teach unix_bind and unix_connect how to deal with a second type of sockaddr.
->   struct sockaddr_fd { short fd_family; short pad; int fd; };
-> 
-> - introduce sockaddr_unix_at that takes a directory file descriptor
->   as well as a unix path, and teach unix_bind and unix_connect to deal with a
->   second sockaddr type.
->   struct sockaddr_unix_at { short family; short pad; int dfd; char path[102]; }
->   AF_UNIX_AT
-> 
-> I don't know what the implications of for breaking connect up into 3
-> system calls and changing the semantics are and I would really rather
-> not have to think about it.
-> 
-> But it certainly does not look to me like you introduce new systems
-> calls to do what you want.
-> 
+David Miller <davem@davemloft.net> writes:
 
-How would you distinguish the new sockaddr types from the traditional
-one?  New AF_?
+> From: Cong Wang <amwang@redhat.com>
+> Date: Wed, 15 Aug 2012 18:18:11 +0800
+>
+>> I got the following compile error:
+>>=20
+>> In file included from include/net/sctp/checksum.h:46:0,
+>>                  from net/ipv4/netfilter/nf_nat_proto_sctp.c:14:
+>> include/net/sctp/sctp.h: In function =E2=80=98sctp_dbg_objcnt_init=E2=
+=80=99:
+>> include/net/sctp/sctp.h:370:88: error: parameter name omitted
+>> include/net/sctp/sctp.h: In function =E2=80=98sctp_dbg_objcnt_exit=E2=
+=80=99:
+>> include/net/sctp/sctp.h:371:88: error: parameter name omitted
+>>=20
+>> which is caused by
+>>=20
+>> 	commit 13d782f6b4fbbaf9d0380a9947deb45a9de46ae7
+>> 	Author: Eric W. Biederman <ebiederm@xmission.com>
+>> 	Date:   Mon Aug 6 08:45:15 2012 +0000
+>>=20
+>> 	    sctp: Make the proc files per network namespace.
+>>=20
+>> This patch could fix it.
+>>=20
+>> Cc: David S. Miller <davem@davemloft.net>
+>> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+>> Signed-off-by: Cong Wang <amwang@redhat.com>
+>
+> Applied thanks.
+>
+> I appended the SCTP debug objcnt procfs netns conversions by hand
+> since Eric didn't handle it in his commit.
+>
+> Eric, please turn all relevant options both on and off when testing
+> the build of your patches.  Thanks.
 
-	-hpa
+Grr. My apologies.  It looks like that one slipped by me this time :(
+
+Eric
