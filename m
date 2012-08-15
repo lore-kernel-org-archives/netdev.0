@@ -1,39 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] sctp: network namespace support Part 2:
- per net tunables
-Date: Tue, 14 Aug 2012 23:10:44 -0700 (PDT)
-Message-ID: <20120814.231044.1298412631777662795.davem@davemloft.net>
-References: <87mx27rig7.fsf@xmission.com>
-	<87zk67q31q.fsf_-_@xmission.com>
-	<87ipcud3ld.fsf_-_@xmission.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jan.ariyasu@hp.com, jan.ariyasu@gmail.com, nhorman@tuxdriver.com,
-	tgraf@infradead.org, xi.wang@gmail.com
-To: ebiederm@xmission.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87ipcud3ld.fsf_-_@xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Edworthy <phil.edworthy@renesas.com>
+Subject: [PATCH] net: sh_eth: Add eth support for R8A7779 device
+Date: Wed, 15 Aug 2012 07:33:29 +0100
+Message-ID: <1345012409-12915-1-git-send-email-phil.edworthy@renesas.com>
+Cc: linux-sh@vger.kernel.org,
+	Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>,
+	Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
+	Phil Edworthy <phil.edworthy@renesas.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relmlor3.renesas.com ([210.160.252.173]:63318 "EHLO
+	relmlor3.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751251Ab2HOGeQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 02:34:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Tue, 07 Aug 2012 10:17:02 -0700
 
-> 
-> Since I am motivated to get things done, and since there has been much
-> grumbling about my patches not implementing tunables, I have added
-> tunable support on top of my last patchset.
-> 
-> I have performed basic testing on the these patches and nothing
-> appears amis.
-> 
-> The sm statemachine is a major tease as it has all of these association
-> and endpoint pointers in the common set of function parameters that turn
-> out to be NULL at the most inconvinient times.  So I added to the common
-> parameter list a struct net pointer, that is never NULL. 
+Signed-off-by: Phil Edworthy <phil.edworthy@renesas.com>
+---
+ drivers/net/ethernet/renesas/Kconfig  |    4 ++--
+ drivers/net/ethernet/renesas/sh_eth.c |   11 ++++++++---
+ 2 files changed, 10 insertions(+), 5 deletions(-)
 
-Now that I have the ACKs from Vlad, I'm applying all of your work,
-thanks Eric.
+diff --git a/drivers/net/ethernet/renesas/Kconfig b/drivers/net/ethernet/renesas/Kconfig
+index 46df3a0..24c2305 100644
+--- a/drivers/net/ethernet/renesas/Kconfig
++++ b/drivers/net/ethernet/renesas/Kconfig
+@@ -8,7 +8,7 @@ config SH_ETH
+ 		(CPU_SUBTYPE_SH7710 || CPU_SUBTYPE_SH7712 || \
+ 		 CPU_SUBTYPE_SH7763 || CPU_SUBTYPE_SH7619 || \
+ 		 CPU_SUBTYPE_SH7724 || CPU_SUBTYPE_SH7734 || \
+-		 CPU_SUBTYPE_SH7757 || ARCH_R8A7740)
++		 CPU_SUBTYPE_SH7757 || ARCH_R8A7740 || ARCH_R8A7779)
+ 	select CRC32
+ 	select NET_CORE
+ 	select MII
+@@ -18,4 +18,4 @@ config SH_ETH
+ 	  Renesas SuperH Ethernet device driver.
+ 	  This driver supporting CPUs are:
+ 		- SH7619, SH7710, SH7712, SH7724, SH7734, SH7763, SH7757,
+-		  and R8A7740.
++		  R8A7740 and R8A7779.
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index af0b867..bad8f2e 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -78,7 +78,7 @@ static void sh_eth_select_mii(struct net_device *ndev)
+ #endif
+ 
+ /* There is CPU dependent code */
+-#if defined(CONFIG_CPU_SUBTYPE_SH7724)
++#if defined(CONFIG_CPU_SUBTYPE_SH7724) || defined(CONFIG_ARCH_R8A7779)
+ #define SH_ETH_RESET_DEFAULT	1
+ static void sh_eth_set_duplex(struct net_device *ndev)
+ {
+@@ -93,13 +93,18 @@ static void sh_eth_set_duplex(struct net_device *ndev)
+ static void sh_eth_set_rate(struct net_device *ndev)
+ {
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
++	unsigned int bits = ECMR_RTM;
++
++#if defined(CONFIG_ARCH_R8A7779)
++	bits |= ECMR_ELB;
++#endif
+ 
+ 	switch (mdp->speed) {
+ 	case 10: /* 10BASE */
+-		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_RTM, ECMR);
++		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~bits, ECMR);
+ 		break;
+ 	case 100:/* 100BASE */
+-		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_RTM, ECMR);
++		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | bits, ECMR);
+ 		break;
+ 	default:
+ 		break;
+-- 
+1.7.5.4
