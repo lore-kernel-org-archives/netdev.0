@@ -1,63 +1,47 @@
-From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Subject: Re: [PATCH 02/16] user_ns: use new hashtable
-	implementation
-Date: Wed, 15 Aug 2012 09:46:57 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6FB5@saturn3.aculab.com>
-References: <1344961490-4068-1-git-send-email-levinsasha928@gmail.com><1344961490-4068-3-git-send-email-levinsasha928@gmail.com><87txw5hw0s.fsf@xmission.com>
-	<502AF184.4010907@gmail.com><87393phshy.fsf@xmission.com>
-	<502AFCD5.6070104@gmail.com> <87obmchmpu.fsf@xmission.com>
+From: Naoto MATSUMOTO <n-matsumoto@sakura.ad.jp>
+Subject: Re[3]: [PATCH V2 09/12] net/eipoib: Add main driver functionality
+Date: Wed, 15 Aug 2012 18:10:33 +0900
+Message-ID: <20120815181029.2134.C42C3789@sakura.ad.jp>
+References: <87obmnfs4p.fsf@xmission.com> <20120807102129.5C95.C42C3789@sakura.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
-	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org,
-	axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	"Sasha Levin" <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <87obmchmpu.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Naoto MATSUMOTO <n-matsumoto@sakura.ad.jp>
+To: ebiederm@xmission.com (Eric W. Biederman),
+	Ali Ayoub <ali@mellanox.com>,
+	David Miller <davem@davemloft.net>, ogerlitz@mellanox.com,
+	roland@kernel.org, netdev@vger.kernel.org, sean.hefty@intel.com,
+	erezsh@mellanox.co.il, dledford@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.sakura.ad.jp ([210.224.172.11]:38188 "EHLO
+	mail.sakura.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752969Ab2HOJLa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 05:11:30 -0400
+In-Reply-To: <20120807102129.5C95.C42C3789@sakura.ad.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Yes hash_32 seems reasonable for the uid hash.   With those long hash
-> chains I wouldn't like to be on a machine with 10,000 processes with
-> each with a different uid, and a processes calling setuid in the fast
-> path.
+
+Hi All.
+
+Our lab's additional infomation(result) for all.
+
+Ethernet over L2TPv3 over IPoIB Pseudo-wire Multiplexing (RFC4719)
+using "ip l2tp" command on linux.   http://twitpic.com/ajn2nx
+
+On Tue, 07 Aug 2012 10:21:33 +0900
+Naoto MATSUMOTO <n-matsumoto@sakura.ad.jp> wrote:
+
+> -----------------------------------------------------------------------
+> Ethernet over EoIB using gretap with "Raid STP" performance result.
+> http://twitpic.com/agd1pp
 > 
-> The uid hash that we are playing with is one that I sort of wish that
-> the hash table could grow in size, so that we could scale up better.
+> How to use EoIB with gretap. 
+> http://twitpic.com/agd4io
 
-Since uids are likely to be allocated in dense blocks, maybe an
-unhashed multi-level lookup scheme might be appropriate.
+regards,
 
-Index an array with the low 8 (say) bits of the uid.
-Each item can be either:  
-  1) NULL => free entry.
-  2) a pointer to a uid structure (check uid value).
-  3) a pointer to an array to index with the next 8 bits.
-(2) and (3) can be differentiated by the low address bit.
-I think that is updateable with cmpxchg.
-
-Clearly this is a bad algorithm if uids are all multiples of 2^24
-but that is true or any hash function.
-
-	David
+-- 
+SAKURA Internet Inc. / Senior Researcher
+Naoto MATSUMOTO <n-matsumoto@sakura.ad.jp>
+SAKURA Research Center <http://research.sakura.ad.jp/>
