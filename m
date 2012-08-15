@@ -1,238 +1,71 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH net-next] igb: Change how we check for
- pre-existing and assigned VFs
-Date: Wed, 15 Aug 2012 09:12:57 -0700
-Message-ID: <502BCA89.1030900@intel.com>
-References: <1345009886-29153-1-git-send-email-sassmann@kpanic.de>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH v2] net-tcp: TCP/IP stack bypass for loopback
+ connections
+Date: Wed, 15 Aug 2012 12:17:11 -0400
+Message-ID: <20120815121711.f5d6353c.billfink@mindspring.com>
+References: <20120814023155.ffe9c01d.billfink@mindspring.com>
+	<CAEkNxbFgr1Qws_Fp3igDhir-81R-XWr52inmuXb1MNS9NigU0Q@mail.gmail.com>
+	<20120815012428.c747fa9d.billfink@mindspring.com>
+	<20120814.223907.1954070712467723629.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Stefan Assmann <sassmann@kpanic.de>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1345009886-29153-1-git-send-email-sassmann@kpanic.de>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: brutus@google.com, edumazet@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from elasmtp-curtail.atl.sa.earthlink.net ([209.86.89.64]:56461 "EHLO
+	elasmtp-curtail.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755276Ab2HOQRQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 12:17:16 -0400
+In-Reply-To: <20120814.223907.1954070712467723629.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/14/2012 10:51 PM, Stefan Assmann wrote:
-> Adapt the pre-existing and assigned VFs code to the ixgbe way introduced
-> in commit 9297127b9cdd8d30c829ef5fd28b7cc0323a7bcd.
->
-> Instead of searching the enabled VFs we use pci_num_vf to determine enabled VFs.
-> By comparing to which PF an assigned VF is owned it's possible to decide
-> whether to leave it enabled or not.
->
-> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
-> ---
->  drivers/net/ethernet/intel/igb/igb.h      |    1 -
->  drivers/net/ethernet/intel/igb/igb_main.c |  104 ++++++-----------------------
->  2 files changed, 22 insertions(+), 83 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-> index 9e572dd..d15576a 100644
-> --- a/drivers/net/ethernet/intel/igb/igb.h
-> +++ b/drivers/net/ethernet/intel/igb/igb.h
-> @@ -99,7 +99,6 @@ struct vf_data_storage {
->  	u16 pf_vlan; /* When set, guest VLAN config not allowed. */
->  	u16 pf_qos;
->  	u16 tx_rate;
-> -	struct pci_dev *vfdev;
->  };
->  
->  #define IGB_VF_FLAG_CTS            0x00000001 /* VF is clear to send data */
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-> index b7c2d50..9e312da 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -172,8 +172,7 @@ static void igb_check_vf_rate_limit(struct igb_adapter *);
->  
->  #ifdef CONFIG_PCI_IOV
->  static int igb_vf_configure(struct igb_adapter *adapter, int vf);
-> -static int igb_find_enabled_vfs(struct igb_adapter *adapter);
-> -static int igb_check_vf_assignment(struct igb_adapter *adapter);
-> +static bool igb_vfs_are_assigned(struct igb_adapter *adapter);
->  #endif
->  
->  #ifdef CONFIG_PM
-> @@ -2295,11 +2294,11 @@ static void __devexit igb_remove(struct pci_dev *pdev)
->  	/* reclaim resources allocated to VFs */
->  	if (adapter->vf_data) {
->  		/* disable iov and allow time for transactions to clear */
-> -		if (!igb_check_vf_assignment(adapter)) {
-> +		if (igb_vfs_are_assigned(adapter)) {
-> +			dev_info(&pdev->dev, "Unloading driver while VFs are assigned - VFs will not be deallocated\n");
-> +		} else {
->  			pci_disable_sriov(pdev);
->  			msleep(500);
-> -		} else {
-> -			dev_info(&pdev->dev, "VF(s) assigned to guests!\n");
->  		}
->  
->  		kfree(adapter->vf_data);
-> @@ -2339,7 +2338,7 @@ static void __devinit igb_probe_vfs(struct igb_adapter * adapter)
->  #ifdef CONFIG_PCI_IOV
->  	struct pci_dev *pdev = adapter->pdev;
->  	struct e1000_hw *hw = &adapter->hw;
-> -	int old_vfs = igb_find_enabled_vfs(adapter);
-> +	int old_vfs = pci_num_vf(adapter->pdev);
->  	int i;
->  
->  	/* Virtualization features not supported on i210 family. */
-> @@ -5003,102 +5002,43 @@ static int igb_notify_dca(struct notifier_block *nb, unsigned long event,
->  static int igb_vf_configure(struct igb_adapter *adapter, int vf)
->  {
->  	unsigned char mac_addr[ETH_ALEN];
-> -	struct pci_dev *pdev = adapter->pdev;
-> -	struct e1000_hw *hw = &adapter->hw;
-> -	struct pci_dev *pvfdev;
-> -	unsigned int device_id;
-> -	u16 thisvf_devfn;
->  
->  	eth_random_addr(mac_addr);
->  	igb_set_vf_mac(adapter, vf, mac_addr);
->  
-> -	switch (adapter->hw.mac.type) {
-> -	case e1000_82576:
-> -		device_id = IGB_82576_VF_DEV_ID;
-> -		/* VF Stride for 82576 is 2 */
-> -		thisvf_devfn = (pdev->devfn + 0x80 + (vf << 1)) |
-> -			(pdev->devfn & 1);
-> -		break;
-> -	case e1000_i350:
-> -		device_id = IGB_I350_VF_DEV_ID;
-> -		/* VF Stride for I350 is 4 */
-> -		thisvf_devfn = (pdev->devfn + 0x80 + (vf << 2)) |
-> -				(pdev->devfn & 3);
-> -		break;
-> -	default:
-> -		device_id = 0;
-> -		thisvf_devfn = 0;
-> -		break;
-> -	}
-> -
-> -	pvfdev = pci_get_device(hw->vendor_id, device_id, NULL);
-> -	while (pvfdev) {
-> -		if (pvfdev->devfn == thisvf_devfn)
-> -			break;
-> -		pvfdev = pci_get_device(hw->vendor_id,
-> -					device_id, pvfdev);
-> -	}
-> -
-> -	if (pvfdev)
-> -		adapter->vf_data[vf].vfdev = pvfdev;
-> -	else
-> -		dev_err(&pdev->dev,
-> -			"Couldn't find pci dev ptr for VF %4.4x\n",
-> -			thisvf_devfn);
-> -	return pvfdev != NULL;
-> +	return 0;
->  }
->  
-> -static int igb_find_enabled_vfs(struct igb_adapter *adapter)
-> +static bool igb_vfs_are_assigned(struct igb_adapter *adapter)
->  {
-> -	struct e1000_hw *hw = &adapter->hw;
->  	struct pci_dev *pdev = adapter->pdev;
-> -	struct pci_dev *pvfdev;
-> -	u16 vf_devfn = 0;
-> -	u16 vf_stride;
-> -	unsigned int device_id;
-> -	int vfs_found = 0;
-> +	struct pci_dev *vfdev;
-> +	int dev_id;
->  
->  	switch (adapter->hw.mac.type) {
->  	case e1000_82576:
-> -		device_id = IGB_82576_VF_DEV_ID;
-> -		/* VF Stride for 82576 is 2 */
-> -		vf_stride = 2;
-> +		dev_id = IGB_82576_VF_DEV_ID;
->  		break;
->  	case e1000_i350:
-> -		device_id = IGB_I350_VF_DEV_ID;
-> -		/* VF Stride for I350 is 4 */
-> -		vf_stride = 4;
-> +		dev_id = IGB_I350_VF_DEV_ID;
->  		break;
->  	default:
-> -		device_id = 0;
-> -		vf_stride = 0;
-> -		break;
-> -	}
-> -
-> -	vf_devfn = pdev->devfn + 0x80;
-> -	pvfdev = pci_get_device(hw->vendor_id, device_id, NULL);
-> -	while (pvfdev) {
-> -		if (pvfdev->devfn == vf_devfn &&
-> -		    (pvfdev->bus->number >= pdev->bus->number))
-> -			vfs_found++;
-> -		vf_devfn += vf_stride;
-> -		pvfdev = pci_get_device(hw->vendor_id,
-> -					device_id, pvfdev);
-> +		return false;
->  	}
->  
-> -	return vfs_found;
-> -}
-> -
-> -static int igb_check_vf_assignment(struct igb_adapter *adapter)
-> -{
-> -	int i;
-> -	for (i = 0; i < adapter->vfs_allocated_count; i++) {
-> -		if (adapter->vf_data[i].vfdev) {
-> -			if (adapter->vf_data[i].vfdev->dev_flags &
-> -			    PCI_DEV_FLAGS_ASSIGNED)
-> +	/* loop through all the VFs to see if we own any that are assigned */
-> +	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, NULL);
-> +	while (vfdev) {
-> +		/* if we don't own it we don't care */
-> +		if (vfdev->is_virtfn && vfdev->physfn == pdev) {
-> +			/* if it is assigned we cannot release it */
-> +			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
->  				return true;
->  		}
-> +
-> +		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, vfdev);
->  	}
-> +
->  	return false;
->  }
->  
+On Tue, 14 Aug 2012, David Miller wrote:
 
-As the author of commit 9297127b9cdd8d30c829ef5fd28b7cc0323a7bcd it
-would have been nice to include me on the CC since I am probably one of
-the best people to review this patch.  That being said, the patch itself
-looks good.
+> From: Bill Fink <billfink@mindspring.com>
+> Date: Wed, 15 Aug 2012 01:24:28 -0400
+> 
+> > I see no reason to make it obtuse rather than something more
+> > descriptive of its function (as opposed to how it's implemented).
+> 
+> I want to live in a world where things are allowed to have some
+> character, and some slightly amusing names.  And that's why we'll
+> call it TCP friends, thank you very much.
 
-A follow-on patch that probably needs to be written would be to create a
-generic version of "vfs_are_assigned" as a part of the SR-IOV API.  That
-way we can avoid duplicating the function in each of the drivers.  All
-that would need to be changed is to pull the vendor ID from the pdev,
-and to pull the VF device ID from the SR-IOV configuration space of the
-physical function.  I'll try to get to that sometime in the next few
-weeks if nobody gets to it before I do.
+That's too bad.  You seem to disdain user input in favor
+of personal amusement.  A very poor argument in my opinion.
 
-Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> > I do have some concern that since the loopback path through the
+> > TCP stack won't be heavily exercised anymore, it may be more likely
+> > for bugs or performance degradations to creep into that code.
+> 
+> Are you kidding me?  Most people do not use loopback TCP, they use
+> TCP to a real external entity.  TCP friends only kicks in for
+> loopback connections.
+> 
+> So, like all of your other concerns, this one is meritless.
 
+You like kicking dead horses I guess.  I already agreed that
+having the option enabled by default was fine after Bruce's
+helpful info in response to my concerns.
 
+And using the real TCP loopback can be very useful in analyzing
+the functionality and performance of systems and applications
+as an initial baseline before testing across real networks.
+It can help identify system bottlenecks and scope out the outer
+boundaries of what's possible to achieve.
 
+Just because most people don't use loopback TCP doesn't mean
+it doesn't have valid and useful purposes for some.  And it's
+interesting that your argument here that "most people do not
+use loopback TCP" is in opposition to your previous argument
+for enabling the option by default that "it benefits basically
+everyone".
 
+But this is further kicking of a dead horse.  I've agreed
+that having the option enabled by default is fine and I
+will continue to disagree about the option name, but that
+is your call of course.
 
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+					-Bill
