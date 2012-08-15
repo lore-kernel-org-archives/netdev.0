@@ -1,47 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v2 01/15] net: introduce upper device
-	lists
-Date: Wed, 15 Aug 2012 15:12:23 -0700 (PDT)
-Message-ID: <20120815.151223.1108632083114612511.davem@davemloft.net>
-References: <1344956748-2099-1-git-send-email-jiri@resnulli.us>
-	<1344956748-2099-2-git-send-email-jiri@resnulli.us>
-	<1344983624.2690.77.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [PATCH v2] XFRM: remove redundant parameter "int dir" in
+ struct xfrm_mgr.acquire
+Date: Wed, 15 Aug 2012 15:14:03 -0700 (PDT)
+Message-ID: <20120815.151403.2191772611303249590.davem@davemloft.net>
+References: <1344996827-20620-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org, ursula.braun@de.ibm.com,
-	john.r.fastabend@intel.com, edumazet@google.com,
-	shemminger@vyatta.com, sean.hefty@intel.com, therbert@google.com,
-	roland@kernel.org, linux-s390@vger.kernel.org,
-	linux-rdma@vger.kernel.org, fubar@us.ibm.com, fbl@redhat.com,
-	hal.rosenstock@gmail.com, jiri@resnulli.us,
-	faisal.latif@intel.com, linux-driver@qlogic.com,
-	blaschka@linux.vnet.ibm.com, sony.chacko@qlogic.com,
-	gregory.v.rose@intel.com, xiyou.wangcong@gmail.com,
-	jitendra.kalsaria@qlogic.com, divy@chelsio.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	joe@perches.com, linux390@de.ibm.com, kaber@trash.net
-To: bhutchings@solarflare.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1344983624.2690.77.camel@bwh-desktop.uk.solarflarecom.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: fan.du@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52463 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753262Ab2HOWOE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 18:14:04 -0400
+In-Reply-To: <1344996827-20620-1-git-send-email-fan.du@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 14 Aug 2012 23:33:44 +0100
+From: Fan Du <fan.du@windriver.com>
+Date: Wed, 15 Aug 2012 10:13:47 +0800
 
-> I think we will also need to limit the depth of the device stack so we
-> don't run out of stack space here.  __netif_receive() implements a kind
-> of tail recursion whenever a packet is passed up, but
-> __netdev_has_upper_dev() can't avoid doing real recursion (without the
-> addition of a flag to net_device so it can mark its progress).
+> Sematically speaking, xfrm_mgr.acquire is called when kernel intends to ask
+> user space IKE daemon to negotiate SAs with peers. IOW the direction will
+> *always* be XFRM_POLICY_OUT, so remove int dir for clarity.
+> 
+> Signed-off-by: Fan Du <fan.du@windriver.com>
+> ---
+> Changelog for V2:
+> 	- Remove "int dir" in build_acquire parameter suggested by Steffen Klassert.
 
-Agreed, we need some kind of limit here.
+Applied, thanks.
+
+Please use lowercase "xfrm: " for subsystem indications in your subject
+lines, I fixed it up this time.
+
+Thanks again.
