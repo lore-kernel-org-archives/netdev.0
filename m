@@ -1,8 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [RFC PATCH 4/5] net: fbind() for unix sockets protocol operations
-	introduced
-Date: Wed, 15 Aug 2012 20:22:20 +0400
-Message-ID: <20120815162220.7598.96229.stgit@localhost.localdomain>
+Subject: [RFC PATCH 5/5] syscall: sys_fbind() introduced
+Date: Wed, 15 Aug 2012 20:22:25 +0400
+Message-ID: <20120815162225.7598.85131.stgit@localhost.localdomain>
 References: <20120815161141.7598.16682.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -21,149 +20,96 @@ In-Reply-To: <20120815161141.7598.16682.stgit@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Path for unix_address is taken from passed file.
-File inode have to be socket.
-Since no sunaddr is present, addr->name is constructed at the place. It
-obviously means, then path name can be truncated is it's longer then
-UNIX_MAX_PATH.
+This syscall allows to bind socket to specified file descriptor.
+Descriptor can be gained by simple open with O_PATH flag.
+Socket node can be created by sys_mknod().
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 ---
- net/unix/af_unix.c |   78 +++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 76 insertions(+), 2 deletions(-)
+ arch/x86/syscalls/syscall_32.tbl |    1 +
+ arch/x86/syscalls/syscall_64.tbl |    1 +
+ include/linux/syscalls.h         |    1 +
+ kernel/sys_ni.c                  |    3 +++
+ net/socket.c                     |   25 +++++++++++++++++++++++++
+ 5 files changed, 31 insertions(+), 0 deletions(-)
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index b26200d..2f34c9d 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -286,12 +286,11 @@ static inline struct sock *unix_find_socket_byname(struct net *net,
- 	return s;
+diff --git a/arch/x86/syscalls/syscall_32.tbl b/arch/x86/syscalls/syscall_32.tbl
+index 7a35a6e..9594b82 100644
+--- a/arch/x86/syscalls/syscall_32.tbl
++++ b/arch/x86/syscalls/syscall_32.tbl
+@@ -356,3 +356,4 @@
+ 347	i386	process_vm_readv	sys_process_vm_readv		compat_sys_process_vm_readv
+ 348	i386	process_vm_writev	sys_process_vm_writev		compat_sys_process_vm_writev
+ 349	i386	kcmp			sys_kcmp
++350	i386	fbind			sys_fbind
+diff --git a/arch/x86/syscalls/syscall_64.tbl b/arch/x86/syscalls/syscall_64.tbl
+index 51171ae..f964df8 100644
+--- a/arch/x86/syscalls/syscall_64.tbl
++++ b/arch/x86/syscalls/syscall_64.tbl
+@@ -319,6 +319,7 @@
+ 310	64	process_vm_readv	sys_process_vm_readv
+ 311	64	process_vm_writev	sys_process_vm_writev
+ 312	64	kcmp			sys_kcmp
++313	common	fbind			sys_fbind
+ 
+ #
+ # x32-specific system call numbers start at 512 to avoid cache impact
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index 19439c7..9e78fa4 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -602,6 +602,7 @@ asmlinkage long sys_setsockopt(int fd, int level, int optname,
+ asmlinkage long sys_getsockopt(int fd, int level, int optname,
+ 				char __user *optval, int __user *optlen);
+ asmlinkage long sys_bind(int, struct sockaddr __user *, int);
++asmlinkage long sys_fbind(int, int);
+ asmlinkage long sys_connect(int, struct sockaddr __user *, int);
+ asmlinkage long sys_accept(int, struct sockaddr __user *, int __user *);
+ asmlinkage long sys_accept4(int, struct sockaddr __user *, int __user *, int);
+diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
+index dbff751..30c393a 100644
+--- a/kernel/sys_ni.c
++++ b/kernel/sys_ni.c
+@@ -206,3 +206,6 @@ cond_syscall(compat_sys_open_by_handle_at);
+ 
+ /* compare kernel pointers */
+ cond_syscall(sys_kcmp);
++
++cond_syscall(sys_fbind);
++
+diff --git a/net/socket.c b/net/socket.c
+index 6e0ccc0..67d9795 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1432,6 +1432,31 @@ out:
+ 	return err;
  }
  
--static struct sock *unix_find_socket_byinode(struct inode *i)
-+static struct sock *__unix_find_socket_byinode(struct inode *i)
- {
- 	struct sock *s;
- 	struct hlist_node *node;
- 
--	spin_lock(&unix_table_lock);
- 	sk_for_each(s, node,
- 		    &unix_socket_table[i->i_ino & (UNIX_HASH_SIZE - 1)]) {
- 		struct dentry *dentry = unix_sk(s)->path.dentry;
-@@ -303,6 +302,15 @@ static struct sock *unix_find_socket_byinode(struct inode *i)
- 	}
- 	s = NULL;
- found:
-+	return s;
-+}
-+
-+static struct sock *unix_find_socket_byinode(struct inode *i)
++SYSCALL_DEFINE2(fbind, int, fd, int, sk_fd)
 +{
-+	struct sock *s;
++	struct socket *sock;
++	int err, fput_sk, fput_fd;
++	struct file *file;
 +
-+	spin_lock(&unix_table_lock);
-+	s = __unix_find_socket_byinode(i);
- 	spin_unlock(&unix_table_lock);
- 	return s;
- }
-@@ -502,6 +510,7 @@ out:
- 
- static int unix_release(struct socket *);
- static int unix_bind(struct socket *, struct sockaddr *, int);
-+static int unix_fbind(struct file *file, struct socket *sock);
- static int unix_stream_connect(struct socket *, struct sockaddr *,
- 			       int addr_len, int flags);
- static int unix_socketpair(struct socket *, struct socket *);
-@@ -542,6 +551,7 @@ static const struct proto_ops unix_stream_ops = {
- 	.owner =	THIS_MODULE,
- 	.release =	unix_release,
- 	.bind =		unix_bind,
-+	.fbind =	unix_fbind,
- 	.connect =	unix_stream_connect,
- 	.socketpair =	unix_socketpair,
- 	.accept =	unix_accept,
-@@ -564,6 +574,7 @@ static const struct proto_ops unix_dgram_ops = {
- 	.owner =	THIS_MODULE,
- 	.release =	unix_release,
- 	.bind =		unix_bind,
-+	.fbind =	unix_fbind,
- 	.connect =	unix_dgram_connect,
- 	.socketpair =	unix_socketpair,
- 	.accept =	sock_no_accept,
-@@ -586,6 +597,7 @@ static const struct proto_ops unix_seqpacket_ops = {
- 	.owner =	THIS_MODULE,
- 	.release =	unix_release,
- 	.bind =		unix_bind,
-+	.fbind =	unix_fbind,
- 	.connect =	unix_stream_connect,
- 	.socketpair =	unix_socketpair,
- 	.accept =	unix_accept,
-@@ -843,6 +855,68 @@ static int __unix_add_sock(struct path *path, struct sock *sk,
- 
- }
- 
-+static int unix_fbind(struct file *f, struct socket *sock)
-+{
-+	struct sock *sk = sock->sk, *tmp;
-+	struct unix_sock *u = unix_sk(sk);
-+	struct unix_address *addr;
-+	struct path *path = &f->f_path;
-+	struct inode *inode = path->dentry->d_inode;
-+	char *buf, *name;
-+	int err;
++	sock = sockfd_lookup_light(sk_fd, &err, &fput_sk);
++	if (!sock)
++		return err;
 +
-+	err = -ENOTSOCK;
-+	if (!S_ISSOCK(inode->i_mode))
-+		goto out;
-+
-+	mutex_lock(&u->readlock);
++	err = -EBADF;
++	file = fget_raw_light(fd, &fput_fd);
++	if (!file)
++		goto out_put_sk;
 +
 +	err = -EINVAL;
-+	if (u->addr)
-+		goto out_up;
++	if (sock->ops->fbind)
++		err = sock->ops->fbind(file, sock);
 +
-+	err = -ENOMEM;
-+	buf = (char*)__get_free_page(GFP_KERNEL);
-+	if (!buf)
-+		goto out_up;
-+
-+	err = -EFAULT;
-+	name = d_path(path, buf, PAGE_SIZE);
-+	if (IS_ERR(name))
-+		goto out_up_page;
-+
-+	addr = kmalloc(sizeof(*addr) + sizeof(struct sockaddr_un), GFP_KERNEL);
-+	if (!addr)
-+		goto out_up_page;
-+
-+	addr->name->sun_family = AF_UNIX;
-+	addr->len = min(strlen(name), (size_t)UNIX_PATH_MAX);
-+	memcpy(addr->name->sun_path, name, addr->len);
-+	atomic_set(&addr->refcnt, 1);
-+
-+	spin_lock(&unix_table_lock);
-+
-+	err = -EADDRINUSE;
-+	tmp = __unix_find_socket_byinode(inode);
-+	if (tmp) {
-+		sock_put(tmp);
-+		unix_release_addr(addr);
-+		goto out_unlock;
-+	}
-+
-+	err = __unix_add_sock(path, sk, addr, 0);
-+	path_get(path);
-+
-+out_unlock:
-+	spin_unlock(&unix_table_lock);
-+out_up_page:
-+	free_page((unsigned long)buf);
-+out_up:
-+	mutex_unlock(&u->readlock);
-+out:
++	fput_light(file, fput_fd);
++out_put_sk:
++	fput_light(sock->file, fput_sk);
 +	return err;
 +}
 +
- static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- {
- 	struct sock *sk = sock->sk;
+ /*
+  *	Bind a name to a socket. Nothing much to do here since it's
+  *	the protocol's responsibility to handle the local address.
