@@ -1,32 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: remove wrong initialization for snd_wl1
-Date: Wed, 15 Aug 2012 15:23:34 -0700 (PDT)
-Message-ID: <20120815.152334.334391000010431604.davem@davemloft.net>
-References: <1344951021-22667-1-git-send-email-rghitulete@ixiacom.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next 2012-08-15
+Date: Wed, 15 Aug 2012 15:52:06 -0700 (PDT)
+Message-ID: <20120815.155206.172710419448408328.davem@davemloft.net>
+References: <20120815185409.GA2137@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org, dbaluta@ixiacom.com
-To: rghitulete@ixiacom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52591 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750923Ab2HOWXg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 18:23:36 -0400
-In-Reply-To: <1344951021-22667-1-git-send-email-rghitulete@ixiacom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120815185409.GA2137-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Razvan Ghitulete <rghitulete@ixiacom.com>
-Date: Tue, 14 Aug 2012 16:30:20 +0300
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Wed, 15 Aug 2012 14:54:10 -0400
 
-> The field tp->snd_wl1 is twice initialized, the second time
-> seems to be wrong as it may overwrite any update in tcp_ack.
+> This is a batch of updates intended for 3.7.  The ath9k, mwifiex,
+> and b43 drivers get the bulk of the commits this time, with a handful
+> of other driver bits thrown-in.  It is mostly just minor fixes and
+> cleanups, etc.
 > 
-> Signed-off-by: Razvan Ghitulete <rghitulete@ixiacom.com>
+> Also included is a Bluetooth pull, with a lot of refactoring.
+> Gustavo says:
+> 
+> 	"These are the changes I queued for 3.7. There are a many
+> 	small fixes/improvements by Andre Guedes. A l2cap channel
+> 	refcounting refactor by Jaganath. Bluetooth sockets now
+> 	appears in /proc/net, by Masatake Yamato and Sachin Kamat
+> 	changes ours drivers to use devm_kzalloc()."
+> 
+> Please let me know if there are problems!
 
-I'll apply this, but it is mere redundancy.
-
-The only thing tcp_ack() can set tp->snd_wl1 to is TCP_SKB_CB(skb)->seq
-which is exactly what it is being set to here as well.
+Pulled, thanks John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
