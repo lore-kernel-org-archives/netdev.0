@@ -1,32 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/5] drivers/net/ethernet/mellanox/mlx4/mcg.c: fix
- error return code
-Date: Tue, 14 Aug 2012 17:01:19 -0700 (PDT)
-Message-ID: <20120814.170119.1578623634371862790.davem@davemloft.net>
-References: <1344949115-13266-1-git-send-email-Julia.Lawall@lip6.fr>
-	<1344949115-13266-5-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: [PATCH net] ipv6: addrconf: Avoid calling netdevice notifiers
+ with RCU read-side lock
+Date: Tue, 14 Aug 2012 17:02:57 -0700 (PDT)
+Message-ID: <20120814.170257.442769610103100016.davem@davemloft.net>
+References: <1344940096-5548-1-git-send-email-amwang@redhat.com>
+	<1344970491.2690.8.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia.Lawall@lip6.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1344949115-13266-5-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com,
+	gregory.v.rose@intel.com, tgraf@suug.ch, edumazet@google.com,
+	amwang@redhat.com
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39928 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754878Ab2HOADE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 20:03:04 -0400
+In-Reply-To: <1344970491.2690.8.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Tue, 14 Aug 2012 14:58:34 +0200
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 14 Aug 2012 19:54:51 +0100
 
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
-> 
-> Convert a 0 error return code to a negative one, as returned elsewhere in the
-> function.
-> 
-> A simplified version of the semantic match that finds this problem is as
-> follows: (http://coccinelle.lip6.fr/)
+> Cong Wang reports that lockdep detected suspicious RCU usage while
+> enabling IPV6 forwarding:
  ...
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> addrconf_forward_change() uses RCU iteration over the netdev list,
+> which is unnecessary since it already holds the RTNL lock.  We also
+> cannot reasonably require netdevice notifier functions not to sleep.
+> 
+> Reported-by: Cong Wang <amwang@redhat.com>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Applied.
+Applied and queued up for -stable, thanks Ben.
