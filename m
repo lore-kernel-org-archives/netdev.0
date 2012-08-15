@@ -1,64 +1,92 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH net] ipv6: addrconf: Avoid calling netdevice notifiers
- with RCU read-side lock
-Date: Wed, 15 Aug 2012 11:10:23 +0800
-Message-ID: <1345000223.29572.2.camel@cr0>
-References: <1344940096-5548-1-git-send-email-amwang@redhat.com>
-	 <1344970491.2690.8.camel@bwh-desktop.uk.solarflarecom.com>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH 02/16] user_ns: use new hashtable
+	implementation
+Date: Tue, 14 Aug 2012 20:13:01 -0700
+Message-ID: <87obmchmpu.fsf@xmission.com>
+References: <1344961490-4068-1-git-send-email-levinsasha928@gmail.com>
+	<1344961490-4068-3-git-send-email-levinsasha928@gmail.com>
+	<87txw5hw0s.fsf@xmission.com> <502AF184.4010907@gmail.com>
+	<87393phshy.fsf@xmission.com> <502AFCD5.6070104@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Thomas Graf <tgraf@suug.ch>, Eric Dumazet <edumazet@google.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10216 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751467Ab2HODKj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Aug 2012 23:10:39 -0400
-In-Reply-To: <1344970491.2690.8.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
+	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org,
+	axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <502AFCD5.6070104-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (Sasha Levin's message of "Wed, 15
+	Aug 2012 03:35:17 +0200")
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-08-14 at 19:54 +0100, Ben Hutchings wrote:
-> Cong Wang reports that lockdep detected suspicious RCU usage while
-> enabling IPV6 forwarding:
-> 
->  [ 1123.310275] ===============================
->  [ 1123.442202] [ INFO: suspicious RCU usage. ]
->  [ 1123.558207] 3.6.0-rc1+ #109 Not tainted
->  [ 1123.665204] -------------------------------
->  [ 1123.768254] include/linux/rcupdate.h:430 Illegal context switch in RCU read-side critical section!
->  [ 1123.992320]
->  [ 1123.992320] other info that might help us debug this:
->  [ 1123.992320]
->  [ 1124.307382]
->  [ 1124.307382] rcu_scheduler_active = 1, debug_locks = 0
->  [ 1124.522220] 2 locks held by sysctl/5710:
->  [ 1124.648364]  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81768498>] rtnl_trylock+0x15/0x17
->  [ 1124.882211]  #1:  (rcu_read_lock){.+.+.+}, at: [<ffffffff81871df8>] rcu_lock_acquire+0x0/0x29
->  [ 1125.085209]
->  [ 1125.085209] stack backtrace:
->  [ 1125.332213] Pid: 5710, comm: sysctl Not tainted 3.6.0-rc1+ #109
->  [ 1125.441291] Call Trace:
->  [ 1125.545281]  [<ffffffff8109d915>] lockdep_rcu_suspicious+0x109/0x112
->  [ 1125.667212]  [<ffffffff8107c240>] rcu_preempt_sleep_check+0x45/0x47
->  [ 1125.781838]  [<ffffffff8107c260>] __might_sleep+0x1e/0x19b
-> [...]
->  [ 1127.445223]  [<ffffffff81757ac5>] call_netdevice_notifiers+0x4a/0x4f
-> [...]
->  [ 1127.772188]  [<ffffffff8175e125>] dev_disable_lro+0x32/0x6b
->  [ 1127.885174]  [<ffffffff81872d26>] dev_forward_change+0x30/0xcb
->  [ 1128.013214]  [<ffffffff818738c4>] addrconf_forward_change+0x85/0xc5
-> [...]
-> 
-> addrconf_forward_change() uses RCU iteration over the netdev list,
-> which is unnecessary since it already holds the RTNL lock.  We also
-> cannot reasonably require netdevice notifier functions not to sleep.
-> 
-> Reported-by: Cong Wang <amwang@redhat.com>
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-Thanks for your patch, Ben!
+> On 08/15/2012 03:08 AM, Eric W. Biederman wrote:
+>>> I can offer the following: I'll write a small module that will hash 1...10000
+>>> > into a hashtable which uses 7 bits (just like user_ns) and post the distribution
+>>> > we'll get.
+>> That won't hurt.  I think 1-100 then 1000-1100 may actually be more
+>> representative.  Not that I would mind seeing the larger range.
+>> Especially since I am in the process of encouraging the use of more
+>> uids.
+>> 
+>
+> Alrighty, the results are in (numbers are objects in bucket):
+>
+> For the 0...10000 range:
+>
+> Average: 78.125
+> Std dev: 1.4197704151
+> Min: 75
+> Max: 80
+>
+>
+> For the 1...100 range:
+>
+> Average: 0.78125
+> Std dev: 0.5164613088
+> Min: 0
+> Max: 2
+>
+>
+> For the 1000...1100 range:
+>
+> Average: 0.7890625
+> Std dev: 0.4964812206
+> Min: 0
+> Max: 2
+>
+>
+> Looks like hash_32 is pretty good with small numbers.
+
+Yes hash_32 seems reasonable for the uid hash.   With those long hash
+chains I wouldn't like to be on a machine with 10,000 processes with
+each with a different uid, and a processes calling setuid in the fast
+path.
+
+The uid hash that we are playing with is one that I sort of wish that
+the hash table could grow in size, so that we could scale up better.
+
+Aw well.  Most of the time we only have a very small number of uids
+in play, so it doesn't matter at this point.
+
+Eric
