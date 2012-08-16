@@ -1,39 +1,59 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next 2012-08-15
-Date: Wed, 15 Aug 2012 15:52:06 -0700 (PDT)
-Message-ID: <20120815.155206.172710419448408328.davem@davemloft.net>
-References: <20120815185409.GA2137@tuxdriver.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [PATCH v2] XFRM: remove redundant parameter "int dir" in struct
+ xfrm_mgr.acquire
+Date: Thu, 16 Aug 2012 09:12:13 +0800
+Message-ID: <502C48ED.7040509@windriver.com>
+References: <1344996827-20620-1-git-send-email-fan.du@windriver.com> <20120815.151403.2191772611303249590.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120815185409.GA2137-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:35846 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755974Ab2HPBLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 21:11:48 -0400
+In-Reply-To: <20120815.151403.2191772611303249590.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Wed, 15 Aug 2012 14:54:10 -0400
 
-> This is a batch of updates intended for 3.7.  The ath9k, mwifiex,
-> and b43 drivers get the bulk of the commits this time, with a handful
-> of other driver bits thrown-in.  It is mostly just minor fixes and
-> cleanups, etc.
-> 
-> Also included is a Bluetooth pull, with a lot of refactoring.
-> Gustavo says:
-> 
-> 	"These are the changes I queued for 3.7. There are a many
-> 	small fixes/improvements by Andre Guedes. A l2cap channel
-> 	refcounting refactor by Jaganath. Bluetooth sockets now
-> 	appears in /proc/net, by Masatake Yamato and Sachin Kamat
-> 	changes ours drivers to use devm_kzalloc()."
-> 
-> Please let me know if there are problems!
 
-Pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 2012=E5=B9=B408=E6=9C=8816=E6=97=A5 06:14, David Miller wrote:
+> From: Fan Du<fan.du@windriver.com>
+> Date: Wed, 15 Aug 2012 10:13:47 +0800
+>
+>> Sematically speaking, xfrm_mgr.acquire is called when kernel intends=
+ to ask
+>> user space IKE daemon to negotiate SAs with peers. IOW the direction=
+ will
+>> *always* be XFRM_POLICY_OUT, so remove int dir for clarity.
+>>
+>> Signed-off-by: Fan Du<fan.du@windriver.com>
+>> ---
+>> Changelog for V2:
+>> 	- Remove "int dir" in build_acquire parameter suggested by Steffen =
+Klassert.
+>
+> Applied, thanks.
+>
+> Please use lowercase "xfrm: " for subsystem indications in your subje=
+ct
+> lines, I fixed it up this time.
+>
+> Thanks again.
+
+Well understood, will do it next time :)
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+
+--=20
+
+Love each day!
+--fan
