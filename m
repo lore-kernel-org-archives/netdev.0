@@ -1,65 +1,104 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [RFC PATCH net-next 0/9] tipc: misc updates for 3.7
-Date: Thu, 16 Aug 2012 18:09:05 -0400
-Message-ID: <1345154954-12526-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 3/9] tipc: remove pointless name sanity check and tipc_alphabet array
+Date: Thu, 16 Aug 2012 18:09:08 -0400
+Message-ID: <1345154954-12526-4-git-send-email-paul.gortmaker@windriver.com>
+References: <1345154954-12526-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, Jon Maloy <jon.maloy@ericsson.com>,
 	Ying Xue <ying.xue@windriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:57476 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:57485 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752150Ab2HPWOt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 18:14:49 -0400
+	with ESMTP id S1753284Ab2HPWOu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 18:14:50 -0400
+In-Reply-To: <1345154954-12526-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series gets some more largely trivial things out of
-the way.  Most interesting are:
+From: Ying Xue <ying.xue@windriver.com>
 
-1) fix lockdep splat from bearer init by pushing the setup
-   off to schedule_work.
+There is no real reason to check whether all letters in the given
+media name and network interface name are within the character set
+defined in tipc_alphabet array. Even if we eliminate the checking,
+the rest of checking conditions in tipc_enable_bearer() can ensure
+we do not enable an invalid or illegal bearer.
 
-2) simplification of configuration by removal of a couple of
-   tuning knobs which used to have low default values.
-
-The remainder are largely innocuous, I think.  I did wonder
-if there was an alternate/better way to handle the splat though.
-
-I've done my own local testing of this series on today's net-next
-commit 2ea214929d601 ("Merge branch 'for-davem' ... wireless-next")
-
-I'll wait a couple of days to allow for any possible feedback and
-change requests, and then send a pull request after that.
-
-Thanks,
-Paul.
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
+ net/tipc/bearer.c | 6 ++----
+ net/tipc/core.c   | 3 ---
+ net/tipc/core.h   | 2 --
+ net/tipc/link.c   | 4 +---
+ 4 files changed, 3 insertions(+), 12 deletions(-)
 
-Ying Xue (9):
-  tipc: optimize the initialization of network device notifier
-  tipc: fix lockdep warning during bearer initialization
-  tipc: remove pointless name sanity check and tipc_alphabet array
-  tipc: manually inline single use media_name_valid routine
-  tipc: change tipc_net_start routine return value type
-  tipc: convert tipc_nametbl_size type from variable to macro
-  tipc: add __read_mostly annotations to several global variables
-  tipc: eliminate configuration for maximum number of name subscriptions
-  tipc: eliminate configuration for maximum number of name publications
-
- include/linux/tipc_config.h |  8 ++++----
- net/tipc/bearer.c           | 21 ++------------------
- net/tipc/config.c           | 48 +++++----------------------------------------
- net/tipc/core.c             | 22 +++++++--------------
- net/tipc/core.h             | 18 ++++++++---------
- net/tipc/eth_media.c        | 29 +++++++++++++++++++++++----
- net/tipc/handler.c          |  2 +-
- net/tipc/link.c             |  4 +---
- net/tipc/name_table.c       | 14 ++++++-------
- net/tipc/net.c              |  3 +--
- net/tipc/net.h              |  2 +-
- net/tipc/subscr.c           |  4 ++--
- 12 files changed, 64 insertions(+), 111 deletions(-)
-
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 09e7124..6b2faa5 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -60,7 +60,7 @@ static int media_name_valid(const char *name)
+ 	len = strlen(name);
+ 	if ((len + 1) > TIPC_MAX_MEDIA_NAME)
+ 		return 0;
+-	return strspn(name, tipc_alphabet) == len;
++	return 1;
+ }
+ 
+ /**
+@@ -206,9 +206,7 @@ static int bearer_name_validate(const char *name,
+ 
+ 	/* validate component parts of bearer name */
+ 	if ((media_len <= 1) || (media_len > TIPC_MAX_MEDIA_NAME) ||
+-	    (if_len <= 1) || (if_len > TIPC_MAX_IF_NAME) ||
+-	    (strspn(media_name, tipc_alphabet) != (media_len - 1)) ||
+-	    (strspn(if_name, tipc_alphabet) != (if_len - 1)))
++	    (if_len <= 1) || (if_len > TIPC_MAX_IF_NAME))
+ 		return 0;
+ 
+ 	/* return bearer name components, if necessary */
+diff --git a/net/tipc/core.c b/net/tipc/core.c
+index 6586eac..c261a5d 100644
+--- a/net/tipc/core.c
++++ b/net/tipc/core.c
+@@ -50,9 +50,6 @@
+ /* global variables used by multiple sub-systems within TIPC */
+ int tipc_random;
+ 
+-const char tipc_alphabet[] =
+-	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.";
+-
+ /* configurable TIPC parameters */
+ u32 tipc_own_addr;
+ int tipc_max_ports;
+diff --git a/net/tipc/core.h b/net/tipc/core.h
+index fd42e10..e4e46cd 100644
+--- a/net/tipc/core.h
++++ b/net/tipc/core.h
+@@ -85,8 +85,6 @@ extern int tipc_remote_management;
+  * Other global variables
+  */
+ extern int tipc_random;
+-extern const char tipc_alphabet[];
+-
+ 
+ /*
+  * Routines available to privileged subsystems
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 1c1e615..a79c755 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -210,9 +210,7 @@ static int link_name_validate(const char *name,
+ 	    (z_local > 255) || (c_local > 4095) || (n_local > 4095) ||
+ 	    (z_peer  > 255) || (c_peer  > 4095) || (n_peer  > 4095) ||
+ 	    (if_local_len <= 1) || (if_local_len > TIPC_MAX_IF_NAME) ||
+-	    (if_peer_len  <= 1) || (if_peer_len  > TIPC_MAX_IF_NAME) ||
+-	    (strspn(if_local, tipc_alphabet) != (if_local_len - 1)) ||
+-	    (strspn(if_peer, tipc_alphabet) != (if_peer_len - 1)))
++	    (if_peer_len  <= 1) || (if_peer_len  > TIPC_MAX_IF_NAME))
+ 		return 0;
+ 
+ 	/* return link name components, if necessary */
 -- 
 1.7.11.1
