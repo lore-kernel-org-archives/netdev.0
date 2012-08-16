@@ -1,9 +1,10 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH v3 1/3] net: netprio: fix files lock and remove
- useless d_path bits
-Date: Thu, 16 Aug 2012 15:11:45 -0700 (PDT)
-Message-ID: <20120816.151145.1545241222143797093.davem@davemloft.net>
+Subject: Re: [net PATCH v3 2/3] net: netprio: fd passed in SCM_RIGHTS
+ datagram not set correctly
+Date: Thu, 16 Aug 2012 15:11:51 -0700 (PDT)
+Message-ID: <20120816.151151.1086500546875406230.davem@davemloft.net>
 References: <20120814223424.3551.21608.stgit@jf-dev1-dcblab>
+	<20120814223430.3551.88909.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,17 +13,21 @@ Cc: viro@ZenIV.linux.org.uk, nhorman@tuxdriver.com,
 	joe@perches.com
 To: john.r.fastabend@intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120814223424.3551.21608.stgit@jf-dev1-dcblab>
+In-Reply-To: <20120814223430.3551.88909.stgit@jf-dev1-dcblab>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: John Fastabend <john.r.fastabend@intel.com>
-Date: Tue, 14 Aug 2012 15:34:24 -0700
+Date: Tue, 14 Aug 2012 15:34:30 -0700
 
-> Add lock to prevent a race with a file closing and also remove
-> useless and ugly sscanf code. The extra code was never needed
-> and the case it supposedly protected against is in fact handled
-> correctly by sock_from_file as pointed out by Al Viro.
+> A socket fd passed in a SCM_RIGHTS datagram was not getting
+> updated with the new tasks cgrp prioidx. This leaves IO on
+> the socket tagged with the old tasks priority.
+> 
+> To fix this add a check in the scm recvmsg path to update the
+> sock cgrp prioidx with the new tasks value.
+> 
+> Thanks to Al Viro for catching this.
 > 
 > CC: Neil Horman <nhorman@tuxdriver.com>
 > Reported-by: Al Viro <viro@ZenIV.linux.org.uk>
