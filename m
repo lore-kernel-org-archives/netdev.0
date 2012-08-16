@@ -1,49 +1,50 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] ipv6: move dereference after check in fl_free()
-Date: Thu, 16 Aug 2012 16:15:02 +0300
-Message-ID: <20120816131502.GB23188@elgon.mountain>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: add new QCA alx ethernet driver
+Date: Thu, 16 Aug 2012 06:16:23 -0700
+Message-ID: <1345122983.26882.9.camel@joe2Laptop>
+References: <1345053189-10326-1-git-send-email-cjren@qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:35561 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932288Ab2HPNP4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 09:15:56 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, qca-linux-team@qualcomm.com,
+	nic-devel@qualcomm.com, Xiong Huang <xiong@qca.qualcomm.com>,
+	"Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
+To: cjren@qca.qualcomm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1345053189-10326-1-git-send-email-cjren@qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is a dereference before checking for NULL bug here.  Generally
-free() functions should accept NULL pointers.  For example, fl_create()
-can pass a NULL pointer to fl_free() on the error path.
+On Thu, 2012-08-16 at 01:53 +0800, cjren@qca.qualcomm.com wrote:
+> From: Cloud Ren <cjren@qca.qualcomm.com>
+> 
+> This driver support two new ethernet chipsets:
+> 1969:1091 - AR8161 Gigabit Ethernet
+> 1969:1090 - AR8162 Fast Ethernet
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-Only needed on linux-next.
+[]
 
-diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
-index c836a6a..90bbefb 100644
---- a/net/ipv6/ip6_flowlabel.c
-+++ b/net/ipv6/ip6_flowlabel.c
-@@ -91,12 +91,9 @@ static struct ip6_flowlabel *fl_lookup(struct net *net, __be32 label)
- 
- static void fl_free(struct ip6_flowlabel *fl)
- {
--	switch (fl->share) {
--	case IPV6_FL_S_PROCESS:
--		put_pid(fl->owner.pid);
--		break;
--	}
- 	if (fl) {
-+		if (fl->share == IPV6_FL_S_PROCESS)
-+			put_pid(fl->owner.pid);
- 		release_net(fl->fl_net);
- 		kfree(fl->opt);
- 	}
+> diff --git a/drivers/net/ethernet/atheros/alx/alx_main.c b/drivers/net/ethernet/atheros/alx/alx_main.c
+[]
+> +/*
+> + * alx_hw_printk
+> + */
+> +void alx_hw_printk(const char *level, const struct alx_hw *hw,
+> +		   const char *fmt, ...)
+> +{
+> +	struct va_format vaf;
+> +	va_list args;
+> +
+> +	va_start(args, fmt);
+> +	vaf.fmt = fmt;
+> +	vaf.va = &args;
+> +
+> +	if (hw && hw->adpt && hw->adpt->netdev)
+> +		__netdev_printk(level, hw->adpt->netdev, &vaf);
+
+Hi Cloud.  Please convert this to
+
+		netdev_printk(level, hw->adpt->netdev, "%pV", &vaf);
+
+I will submit a patch soon to make the __netdev_printk variant static.
