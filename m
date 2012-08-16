@@ -1,34 +1,28 @@
-From: Steve Glendinning <steve@shawell.net>
-Subject: Re: [PATCH 001/001] smsc95xx: Fix hard_header_len
-Date: Fri, 17 Aug 2012 09:35:04 +0100
-Message-ID: <CAKh2mn6fr8WjT-2h_A3zmKv3xs26AamXcpJgtK5wFPQ1BXuheg@mail.gmail.com>
-References: <1345060138-5629-1-git-send-email-jimbob.betts@googlemail.com>
-	<CAKh2mn4pK-8=OVkahSZ8VWpX9Va=qCDQUdOONK1FZ75Fbk0Mdg@mail.gmail.com>
-	<1345139973.2832.3.camel@bwh-desktop.uk.solarflarecom.com>
+From: MICROSOFT COMPANY <joe@mail.com>
+Subject: Selected
+Date: Thu, 16 Aug 2012 13:13:32 +0530
+Message-ID: <201208170743.q7H7O5Eg026196__9543.53121710501$1345192654$gmane$org@vm-emlprdomr-05.its.yale.edu>
+Reply-To: claimunit012@live.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: JamesBetts <jimbob.betts@googlemail.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <joe@mail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:50751 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933694Ab2HQIfF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2012 04:35:05 -0400
-Received: by obbuo13 with SMTP id uo13so4967348obb.19
-        for <netdev@vger.kernel.org>; Fri, 17 Aug 2012 01:35:04 -0700 (PDT)
-In-Reply-To: <1345139973.2832.3.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from vm-emlprdomr-05.its.yale.edu ([130.132.50.146]:44477 "EHLO
+	vm-emlprdomr-05.its.yale.edu" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755561Ab2HQIg5 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Aug 2012 04:36:57 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> hard_header_len is set to ETH_HLEN by alloc_etherdev() (in the
-> ether_setup() callback).  Any extra headroom you want before the
-> Ethernet header should indeed be specified in needed_headroom.
+Your Email Id has won (1,000,000.00 GBP) in the British MICROSOFT COMPANY 
+Promo 2012. send your
+1.Name.2.Address.3.Nationality.4.Age.5.Occupation.6.Phone/Fax.
 
-Thanks Ben, looks like this patch is doing it the right way then.
+To our claims deparment: claimunit012@live.co.uk
+Tel: +44 7010040973
 
-Acked-By: Steve Glendinning <steve.glendinning@shawell.net>
-
-
--- 
-Steve Glendinning
+Sincerely,
+Johnson smith
