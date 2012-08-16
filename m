@@ -1,188 +1,141 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [RFC net-next 0/4] gianfar: Use separate NAPI for Tx
- confirmation processing
-Date: Thu, 16 Aug 2012 11:36:39 -0400
-Message-ID: <20120816153638.GA24993@windriver.com>
-References: <1344428810-29923-1-git-send-email-claudiu.manoil@freescale.com>
- <20120808162423.GC11043@windriver.com>
- <1344444267.28967.225.camel@edumazet-glaptop>
- <CAOy7UX2AW2w8TE0=7HGqRDJnX3Te5XZmW8UfC8F6HZg1RdWCYw@mail.gmail.com>
- <5023D21E.1000008@freescale.com>
- <502929ED.2050703@freescale.com>
- <20120814011526.GB29337@windriver.com>
- <502A77EE.8040300@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Tomas Hruby <thruby@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	<netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
-To: Claudiu Manoil <claudiu.manoil@freescale.com>
+From: Eric Leblond <eric@regit.org>
+Subject: [RFC PATCH v1.0] af_packet: don't emit packet on orig fanout group
+Date: Thu, 16 Aug 2012 17:44:50 +0200
+Message-ID: <1345131890-15991-1-git-send-email-eric@regit.org>
+References: <1344262918.8024.41.camel@tiger.regit.org>
+Cc: netdev@vger.kernel.org, Eric Leblond <eric@regit.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:53796 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932820Ab2HPPgs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 11:36:48 -0400
-Content-Disposition: inline
-In-Reply-To: <502A77EE.8040300@freescale.com>
+Received: from ks28632.kimsufi.com ([91.121.96.152]:37195 "EHLO
+	ks28632.kimsufi.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753334Ab2HPPqS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 11:46:18 -0400
+In-Reply-To: <1344262918.8024.41.camel@tiger.regit.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Re: [RFC net-next 0/4] gianfar: Use separate NAPI for Tx confirmation processing] On 14/08/2012 (Tue 19:08) Claudiu Manoil wrote:
+If a packet is emitted on one socket in one group of fanout sockets,
+it is transmitted again. It is thus read again on one of the sockets
+of the fanout group. This result in a loop for software which
+generate packets when receiving one.
+This retransmission is not the intended behavior: a fanout group
+must behave like a single socket. The packet should not be
+transmitted on a socket if it originates from a socket belonging
+to the same fanout group.
 
-> On 08/14/2012 04:15 AM, Paul Gortmaker wrote:
-> >This is a lot lower variation than what you reported earlier (20
-> >versus 200, I think). It was the variation that raised a red flag
-> >for me...
-> Hi Paul,
-> The earlier variation, which is much bigger (indeed ~200), was
-> observed on a p1020 (slow, 2 cores, MQ_MG_MODE).
-> I did not collect however as detailed measurement results for that
-> board, as I did for p1010 (previous email).
-> The most important performance improvement I've noticed however was
-> on the p1020 platform.
-> 
-> >>By changing the coalescing settings from default* (rx coalescing off,
-> >>tx-usecs: 10, tx-frames: 16) to:
-> >>"ethtool -C eth1 rx-frames 22 tx-frames 22 rx-usecs 32 tx-usecs 32"
-> >>we get a throughput of ~710 Mbps.
-> >>
-> >>For *Image 2)*, using the default tcp_limit_output_bytes value
-> >>(131072) - I've noticed
-> >>that "tweaking" tcp_limit_output_bytes does not improve the
-> >>throughput -, we get the
-> >>following performance numbers:
-> >>* default coalescing settings: ~650 Mbps
-> >>* rx-frames tx-frames 22 rx-usecs 32 tx-usecs 32: ~860-880 Mbps
-> >>
-> >>For *Image 3)*, by disabling BQL (CONFIG_BQL = n), there's *no*
-> >>relevant performance
-> >>improvement compared to Image 1).
-> >>(note:
-> >>For all the measurements, rx and tx BD ring sizes have been set to
-> >>64, for best performance.)
-> >>
-> >>So, I really tend to believe that the performance degradation comes
-> >>primarily from the driver,
-> >>and the napi poll processing turns out to be an important source for
-> >>that. The proposed patches
-> >This would make sense, if the CPU was slammed at 100% load in dealing
-> >with the tx processing, and the change made the driver considerably more
-> >efficient.  But is that really the case?  Is the p1010 really going flat
-> >out just to handle the Tx processing?  Have you done any sort of
-> >profiling to confirm/deny where the CPU is spending its time?
-> The current gfar_poll implementation processes first the tx
-> confirmation path exhaustively, without a budget/ work limit,
-> and only then proceeds with the rx processing within the allotted
-> budget. An this happens for both Rx and Tx confirmation
-> interrupts. I find this unfair and out of balance. Maybe by letting
-> rx processing to be triggered by rx interrupts only, and
-> the tx conf path processing to be triggered by tx confirmation
-> interrupts only, and, on top of that, by imposing a work limit
-> on the tx confirmation path too, we get a more responsive driver
-> that performs better. Indeed some profiling data to
-> confirm this would be great, but I don't have it.
-> 
-> There's another issues that seems to be solved by this patchset, and
-> I've noticed it only on p1020rdb (this time).
-> And that is excessive Rx busy interrupts occurrence. Solving this
-> issue may be another factor for the performance
-> improvement on p1020. But maybe this is another discussion.
-> 
-> >
-> >>show substantial improvement, especially for SMP systems where Tx
-> >>and Rx processing may be
-> >>done in parallel.
-> >>What do you think?
-> >>Is it ok to proceed by re-spinning the patches? Do you recommend
-> >>additional measurements?
-> >Unfortunately Eric is out this week, so we will be without his input for
-> >a while.  However, we are only at 3.6-rc1 -- meaning net-next will be
-> >open for quite some time, hence no need to rush to try and jam stuff in.
-> >
-> >Also, I have two targets I'm interested in testing your patches on.  The
-> >1st is a 500MHz mpc8349 board -- which should replicate what you see on
-> >your p1010 (slow, single core).  The other is an 8641D, which is
-> >interesting since it will give us the SMP tx/rx as separate threads, but
-> >without the MQ_MG_MODE support (is that a correct assumption?)
-> >
-> >I don't have any fundamental problem with your patches (although 4/4
-> >might be better as two patches) -- the above targets/tests are only
-> >of interest, since I'm not convinced we yet understand _why_ your
-> >changes give a performance boost, and there might be something
-> >interesting hiding in there.
-> >
-> >So, while Eric is out, let me see if I can collect some more data on
-> >those two targets sometime this week.
->
-> Great, I don't mean to rush.  The more data we get on this the better.
-> It would be great if you could do some measurements on your platforms too.
-> 8641D is indeed a dual core with etsec 1.x (so without the MQ_MG_MODE),
-> but I did run some tests on a p2020, which has the same features. However
-> I'm eager to see your results.
+This patch fixes the issue by changing the transmission check to
+take fanout group info account.
+---
+ include/linux/if_packet.h |    2 ++
+ include/linux/netdevice.h |    3 +++
+ net/core/dev.c            |   23 +++++++++++++++++++++--
+ net/packet/af_packet.c    |    7 +++++++
+ 4 files changed, 33 insertions(+), 2 deletions(-)
 
-So, I've collected data on 8349 (520MHz single core) and 8641D (1GHz
-dual core) and the results are kind of surprising (to me).  The SMP
-target, which in theory should have benefited from the change, actually
-saw about an 8% reduction in throughput.  And the slower single core saw
-about a 5% increase.
-
-I also retested the 8641D with just your 1st 3 patches (i.e. drop the
-"Use separate NAPIs for Tx and Rx processing" patch) and it recovered
-about 1/2 the lost throughput, but not all.
-
-I've used your patches exactly as posted, and the same netperf cmdline.
-I briefly experimented with disabling BQL on the 8349 but didn't see any
-impact from doing that (consistent with what you'd reported).  I didn't
-see any real large variations either (target and server on same switch),
-but I'm thinking the scatter could be reduced further if I isolated
-the switch entirely to just the target and server.  I'll do that if I
-end up doing any more testing on this, since the averages seem to be
-reproduceable to about +/- 2% at the moment...
-
-Paul.
-
- --------------
-Command: netperf -l 20 -cC -H 192.168.146.65 -t TCP_STREAM -- -m 1500
-next-next baseline: commit 1f07b62f3205f6ed41759df2892eaf433bc051a1
-fsl RFC:  http://patchwork.ozlabs.org/patch/175919/ applied to above.
-Default queue sizes (256), BQL defaults.
-
-8349 (528 MHz, single core):
-   net-next 10 runs
-   avg=123
-   max=124
-   min=121
-   send utilization > 99%
-   
-   fsl RFC 13 runs:
-   avg=129 (+ ~5%)
-   max=131
-   min=127
-   send utilization > 99%
-   
-8641D: (1GHz, dual core) 
-   net-next 10 runs
-   avg=826
-   max=839
-   min=807
-   send utilization ~ 70%
-
-   fsl RFC 12 runs
-   avg=762 (- ~8%)
-   max=783
-   min=698
-   send utilization ~ 70%
-
-   fsl RFC, _only_ 1st 3 of 4 patches, 13 runs
-   avg=794 (- ~4%)
-   max=816
-   min=758
-   send utilization ~ 70%
- --------------
-
-> Thanks for helping.
-> 
-> Regards,
-> Claudiu
-> 
-> 
+diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
+index f379929..388519e 100644
+--- a/include/linux/if_packet.h
++++ b/include/linux/if_packet.h
+@@ -269,4 +269,6 @@ struct packet_mreq {
+ #define PACKET_MR_ALLMULTI	2
+ #define PACKET_MR_UNICAST	3
+ 
++void *pkt_sk_get_fanout(struct sock *sk);
++
+ #endif
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 1d6ab69..7785730 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1508,6 +1508,8 @@ struct napi_gro_cb {
+ 
+ #define NAPI_GRO_CB(skb) ((struct napi_gro_cb *)(skb)->cb)
+ 
++#define NETDEV_TYPE_AF_PACKET_FANOUT	1 << 0
++
+ struct packet_type {
+ 	__be16			type;	/* This is really htons(ether_type). */
+ 	struct net_device	*dev;	/* NULL is wildcarded here	     */
+@@ -1522,6 +1524,7 @@ struct packet_type {
+ 					       struct sk_buff *skb);
+ 	int			(*gro_complete)(struct sk_buff *skb);
+ 	void			*af_packet_priv;
++	unsigned char		flags;
+ 	struct list_head	list;
+ };
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ce1bccb..b9498ac 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -89,6 +89,7 @@
+ #include <linux/errno.h>
+ #include <linux/interrupt.h>
+ #include <linux/if_ether.h>
++#include <linux/if_packet.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/ethtool.h>
+@@ -1651,6 +1652,25 @@ static inline int deliver_skb(struct sk_buff *skb,
+ 	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+ }
+ 
++static inline bool skb_loop_sk(struct packet_type *ptype, struct sk_buff *skb)
++{
++	if (ptype->af_packet_priv == NULL)
++		return false;
++
++#ifdef CONFIG_PACKET
++	if (ptype->flags & NETDEV_TYPE_AF_PACKET_FANOUT) {
++		if (ptype->af_packet_priv == pkt_sk_get_fanout(skb->sk))
++			return true;
++	} else
++		if ((struct sock *)ptype->af_packet_priv == skb->sk)
++			return true;
++#else
++	if ((struct sock *)ptype->af_packet_priv == skb->sk)
++		return true;
++#endif
++	return false;
++}
++
+ /*
+  *	Support routine. Sends outgoing frames to any network
+  *	taps currently in use.
+@@ -1668,8 +1688,7 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+ 		 * they originated from - MvS (miquels@drinkel.ow.org)
+ 		 */
+ 		if ((ptype->dev == dev || !ptype->dev) &&
+-		    (ptype->af_packet_priv == NULL ||
+-		     (struct sock *)ptype->af_packet_priv != skb->sk)) {
++		    (!skb_loop_sk(ptype, skb))) {
+ 			if (pt_prev) {
+ 				deliver_skb(skb2, pt_prev, skb->dev);
+ 				pt_prev = ptype;
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 8a1605a..b57aeca 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -247,6 +247,12 @@ struct packet_skb_cb {
+ static void __fanout_unlink(struct sock *sk, struct packet_sock *po);
+ static void __fanout_link(struct sock *sk, struct packet_sock *po);
+ 
++void *pkt_sk_get_fanout(struct sock *sk)
++{
++	return (void*)((struct packet_sock *)sk)->fanout;
++}
++EXPORT_SYMBOL(pkt_sk_get_fanout);
++
+ /* register_prot_hook must be invoked with the po->bind_lock held,
+  * or from a context in which asynchronous accesses to the packet
+  * socket is not possible (packet_create()).
+@@ -1230,6 +1236,7 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 		match->prot_hook.dev = po->prot_hook.dev;
+ 		match->prot_hook.func = packet_rcv_fanout;
+ 		match->prot_hook.af_packet_priv = match;
++		match->prot_hook.flags |= NETDEV_TYPE_AF_PACKET_FANOUT;
+ 		dev_add_pack(&match->prot_hook);
+ 		list_add(&match->list, &fanout_list);
+ 	}
+-- 
+1.7.10.4
