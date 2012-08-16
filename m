@@ -1,56 +1,60 @@
-From: Jiang Wang <Jiang.Wang@riverbed.com>
-Subject: RE: [PATCH] bnx2: turn off the network statck during initialization
-Date: Thu, 16 Aug 2012 22:34:21 +0000
-Message-ID: <CEE05A0D7856E14880AD5560634EBEA834DB2CA2@SFO1EXC-MBXP06.nbttech.com>
-References: <1345141295-7589-1-git-send-email-Jiang.Wang@riverbed.com>
- <1345143431.6916.36.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <CEE05A0D7856E14880AD5560634EBEA834DB2ABC@SFO1EXC-MBXP06.nbttech.com>
- <1345145318.6916.42.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <CEE05A0D7856E14880AD5560634EBEA834DB2B40@SFO1EXC-MBXP06.nbttech.com>
- <1345151593.6916.62.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <CEE05A0D7856E14880AD5560634EBEA834DB2C2B@SFO1EXC-MBXP06.nbttech.com>
- <1345156059.6916.67.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v0 0/5] cgroup: Assign subsystem IDs during compile time
+Date: Thu, 16 Aug 2012 15:37:52 -0700
+Message-ID: <502D7640.1000703@intel.com>
+References: <1345126336-20755-1-git-send-email-wagi@monom.org> <20120816190542.GA8203@hmsreliant.think-freely.org> <502D5737.1010604@monom.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Chaitanya Lala <Chaitanya.Lala@riverbed.com>,
-	"Francis St. Amant" <Francis.St.Amant@riverbed.com>
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1345156059.6916.67.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <502D5737.1010604-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Got it. Thank you very much.
+On 8/16/2012 1:25 PM, Daniel Wagner wrote:
+> Hi Neil,
+>
+> On 08/16/2012 09:05 PM, Neil Horman wrote:
+>>> Daniel Wagner (5):
+>>>     cgroup: Use empty task_cls_classid() when !CONFIG_NET_CLS(_MODULE)
+>>>     cgroup: Move sock_update_classid() decleration to cls_cgroup.h
+>>>     cgroup: Protect access to task_cls_classid() when built as module
+>>>     cgroup: Protect access to task_netprioidx() when built as module
+>>>     cgroup: Assign subsystem IDs during compile time
+>>
+>> The series seems reasonable.  I presume you've testing building and running both
+>> net_prio and net_cls as modules and monolithically?
+>> Neil
+>
+> Yep, I spend a good bit of time rebuilding and testing all patches in
+> the different configuration. I hope I really got the small semantic
+> differences between net_cls and net_prio regarding the loading and
+> unloading correct. So please have a close look at the jump label
+> patches (#3 and #4).
+>
+> BTW, I have a few mores on top of these patches, e.g. merging the
+> builtin and module version of task_cls_classid()/task_netprioidx()
+> implementation together and getting rid of the many ifdefs in the
+> header. But let's first get this part reviewed.
+>
+> thanks,
+> daniel
+>
 
-Regards,
+Also I have another series for netprio against net-next to clean up
+some of the locking as suggested by Al Viro. I'll wait to submit those
+until after this series has been reviewed/applied.
 
-Jiang
-
--------------------------------------
-Jiang Wang
-Member of Technical Staff
-Riverbed Technology
-Tel: (408) 522-5109
-Email: Jiang.Wang@riverbed.com
-www.riverbed.com
-
-
------Original Message-----
-From: Michael Chan [mailto:mchan@broadcom.com] 
-Sent: Thursday, August 16, 2012 3:28 PM
-To: Jiang Wang
-Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Chaitanya Lala; Francis St. Amant
-Subject: RE: [PATCH] bnx2: turn off the network statck during initialization
-
-On Thu, 2012-08-16 at 21:48 +0000, Jiang Wang wrote:
-> ---- I see. I was confused by the name of bnx2_set_power_state()  and 
-> I think the PHY is actually powered up by bnx2_reset_nic, right?
-
-bnx2_init_phy() in bnx2_init_nic() will bring up the PHY if it is down.
-
-> 
-> 
+In the meantime I'll apply these to my local tree and test these.
