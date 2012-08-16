@@ -1,7 +1,7 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] gre: information leak in ip6_tnl_ioctl()
-Date: Thu, 16 Aug 2012 16:14:04 +0300
-Message-ID: <20120816131404.GA23188@elgon.mountain>
+Subject: [patch] ipv6: move dereference after check in fl_free()
+Date: Thu, 16 Aug 2012 16:15:02 +0300
+Message-ID: <20120816131502.GB23188@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
@@ -10,34 +10,40 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
 	kernel-janitors@vger.kernel.org
-To: xeb@mail.ru
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:35063 "EHLO
+Received: from rcsinet15.oracle.com ([148.87.113.117]:35561 "EHLO
 	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756178Ab2HPNPE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 09:15:04 -0400
+	with ESMTP id S932288Ab2HPNP4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 09:15:56 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a one byte hole between p->hop_limit and p->flowinfo where
-stack memory is leaked to the user.  This was introduced in c12b395a46
-"gre: Support GRE over IPv6".
+There is a dereference before checking for NULL bug here.  Generally
+free() functions should accept NULL pointers.  For example, fl_create()
+can pass a NULL pointer to fl_free() on the error path.
 
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 ---
-This is only needed in linux-next.
+Only needed on linux-next.
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 33d2a0e..cb7e2de 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1312,6 +1312,8 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 			}
- 			ip6_tnl_parm_from_user(&p1, &p);
- 			t = ip6_tnl_locate(net, &p1, 0);
-+		} else {
-+			memset(&p, 0, sizeof(p));
- 		}
- 		if (t == NULL)
- 			t = netdev_priv(dev);
+diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
+index c836a6a..90bbefb 100644
+--- a/net/ipv6/ip6_flowlabel.c
++++ b/net/ipv6/ip6_flowlabel.c
+@@ -91,12 +91,9 @@ static struct ip6_flowlabel *fl_lookup(struct net *net, __be32 label)
+ 
+ static void fl_free(struct ip6_flowlabel *fl)
+ {
+-	switch (fl->share) {
+-	case IPV6_FL_S_PROCESS:
+-		put_pid(fl->owner.pid);
+-		break;
+-	}
+ 	if (fl) {
++		if (fl->share == IPV6_FL_S_PROCESS)
++			put_pid(fl->owner.pid);
+ 		release_net(fl->fl_net);
+ 		kfree(fl->opt);
+ 	}
