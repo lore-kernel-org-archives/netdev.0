@@ -1,112 +1,123 @@
-From: Chris Webb <chris@arachsys.com>
-Subject: Slow inbound traffic on macvtap interfaces
-Date: Thu, 16 Aug 2012 10:20:05 +0100
-Message-ID: <20120816092004.GA1894@arachsys.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: suspicious RCU usage in xfrm_net_init()
+Date: Thu, 16 Aug 2012 17:36:35 +0800
+Message-ID: <502CBF23.4070805@windriver.com>
+References: <20120816073724.GA10660@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: netdev@vger.kernel.org, qemu-devel@nongnu.org
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Priyanka Jain <Priyanka.Jain@freescale.com>,
+	<netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>
+To: Fengguang Wu <fengguang.wu@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:41634 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751822Ab2HPJgH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 05:36:07 -0400
+In-Reply-To: <20120816073724.GA10660@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I'm experiencing a problem with qemu + macvtap which I can reproduce on a
-variety of hardware, with kernels varying from 3.0.4 (the oldest I tried) to
-3.5.1 and with qemu[-kvm] versions 0.14.1, 1.0, and 1.1.
 
-Large data transfers over TCP into a guest from another machine on the
-network are very slow (often less than 100kB/s) whereas transfers outbound
-from the guest, between two guests on the same host, or between the guest
-and its host run at normal speeds (>= 50MB/s).
+Hi, Fengguang
 
-The slow inbound data transfer speeds up substantially when a ping flood is
-aimed either at the host or the guest, or when the qemu process is straced.
-Presumably both of these are ways to wake up something that is otherwise
-sleeping too long?
+Could you please try the below patch, see if spewing still there?
+thanks
 
-For example, I can run
 
-  ip addr add 192.168.1.2/24 dev eth0
-  ip link set eth0 up
-  ip link add link eth0 name tap0 address 02:02:02:02:02:02 type macvtap mode bridge
-  ip link set tap0 up
-  qemu-kvm -hda debian.img -cpu host -m 512 -vnc :0 \
-    -net nic,model=virtio,macaddr=02:02:02:02:02:02 \
-    -net tap,fd=3 3<>/dev/tap$(< /sys/class/net/tap0/ifindex)
+ From a3f86ecc3ee16ff81d49416bbf791780422988b3 Mon Sep 17 00:00:00 2001
+=46rom: Fan Du <fan.du@windriver.com>
+Date: Thu, 16 Aug 2012 17:31:25 +0800
+Subject: [PATCH] Use rcu_dereference_bh to deference pointer protected=20
+by rcu_read_lock_bh
 
-on one physical host which is otherwise completely idle. From a second
-physical host on the same network, I then scp a large (say 50MB) file onto
-the new guest. On a gigabit LAN, speeds consistently drop to less than
-100kB/s as the transfer progresses, within a second of starting.
+Signed-off-by: Fan Du <fan.du@windriver.com>
+---
+  net/xfrm/xfrm_policy.c |    2 +-
+  1 files changed, 1 insertions(+), 1 deletions(-)
 
-The choice of virtio virtual nic in the above isn't significant: the same thing
-happens with e1000 or rtl8139. You can also replace the scp with a straight
-netcat and see the same effect.
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 5ad4d2c..75a9d6a 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2501,7 +2501,7 @@ static void __net_init xfrm_dst_ops_init(struct=20
+net *net)
+  	struct xfrm_policy_afinfo *afinfo;
 
-Doing the transfer in the other direction (i.e. copying a large file from the
-guest to an external host) achieves 50MB/s or faster as expected. Copying
-between two guests on the same host (i.e. taking advantage of the 'mode
-bridge') is also fast.
+  	rcu_read_lock_bh();
+-	afinfo =3D rcu_dereference(xfrm_policy_afinfo[AF_INET]);
++	afinfo =3D rcu_dereference_bh(xfrm_policy_afinfo[AF_INET]);
+  	if (afinfo)
+  		net->xfrm.xfrm4_dst_ops =3D *afinfo->dst_ops;
+  #if IS_ENABLED(CONFIG_IPV6)
+--=20
+1.7.1
 
-If I create a macvlan device attached to eth0 and move the host IP address to
-that, I can communicate between the host itself and the guest because of the
-'mode bridge'. Again, this case is fast in both directions.
 
-Using a bridge and a standard tap interface, transfers in and out are fast
-too:
 
-  ip tuntap add tap0 mode tap
-  brctl addbr br0
-  brctl addif br0 eth0
-  brctl addif br0 tap1
-  ip link set eth0 up
-  ip link set tap0 up
-  ip link set br0 up
-  ip addr add 192.168.1.2/24 dev br0
-  qemu-kvm -hda debian.img -cpu host -m 512 -vnc :0 \
-    -net nic,model=virtio,macaddr=02:02:02:02:02:02 \
-    -net tap,script=no,downscript=no,ifname=tap0
 
-As mentioned in the summary at the beginning of this report, when I strace a
-guest in the original configuration which is receiving data slowly, the data
-rate improves from less than 100kB/s to around 3.1MB/s. Similarly, if I ping
-flood either the guest or the host it is running on from another machine on
-the network, the transfer rate improves to around 1.1MB/s. This seems quite
-suggestive of a problem with delayed wake-up of the guest.
+On 2012=E5=B9=B408=E6=9C=8816=E6=97=A5 15:37, Fengguang Wu wrote:
+> Hi Priyanka,
+>
+> The below warning shows up, probably related to this commit:
+>
+> 418a99ac6ad487dc9c42e6b0e85f941af56330f2 Replace rwlock on xfrm_polic=
+y_afinfo with rcu
+>
+> [    0.921216]
+> [    0.921645] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> [    0.922766] [ INFO: suspicious RCU usage. ]
+> [    0.923887] 3.5.0-01540-g1669891 #64 Not tainted
+> [    0.925123] -------------------------------
+> [    0.932860] /c/kernel-tests/src/tip/net/xfrm/xfrm_policy.c:2504 su=
+spicious rcu_dereference_check() usage!
+> [    0.935361]
+> [    0.935361] other info that might help us debug this:
+> [    0.935361]
+> [    0.937472]
+> [    0.937472] rcu_scheduler_active =3D 1, debug_locks =3D 0
+> [    0.939182] 2 locks held by swapper/1:
+> [    0.940171]  #0:  (net_mutex){+.+.+.}, at: [<ffffffff814e1ad0>] re=
+gister_pernet_subsys+0x21/0x57
+> [    0.942705]  #1:  (rcu_read_lock_bh){......}, at: [<ffffffff822c73=
+29>] xfrm_net_init+0x1e4/0x437
+> [    0.951507]
+> [    0.951507] stack backtrace:
+> [    0.952660] Pid: 1, comm: swapper Not tainted 3.5.0-01540-g1669891=
+ #64
+> [    0.954364] Call Trace:
+> [    0.955074]  [<ffffffff8108b375>] lockdep_rcu_suspicious+0x174/0x1=
+87
+> [    0.956736]  [<ffffffff822c7453>] xfrm_net_init+0x30e/0x437
+> [    0.958205]  [<ffffffff822c7329>] ? xfrm_net_init+0x1e4/0x437
+> [    0.959712]  [<ffffffff814e134a>] ops_init+0x1bb/0x1ff
+> [    0.961067]  [<ffffffff810861f9>] ? trace_hardirqs_on+0x1b/0x24
+> [    0.962644]  [<ffffffff814e17cd>] register_pernet_operations.isra.=
+5+0x9d/0xfe
+> [    0.971376]  [<ffffffff814e1adf>] register_pernet_subsys+0x30/0x57
+> [    0.972992]  [<ffffffff822c7130>] xfrm_init+0x17/0x2c
+> [    0.974316]  [<ffffffff822c2f8c>] ip_rt_init+0x82/0xe7
+> [    0.975668]  [<ffffffff822c31dc>] ip_init+0x10/0x25
+> [    0.976952]  [<ffffffff822c3f77>] inet_init+0x235/0x360
+> [    0.978352]  [<ffffffff822c3d42>] ? devinet_init+0xf2/0xf2
+> [    0.979808]  [<ffffffff82283252>] do_one_initcall+0xb4/0x203
+> [    0.981313]  [<ffffffff8228354a>] kernel_init+0x1a9/0x29a
+> [    0.982732]  [<ffffffff822826d9>] ? loglevel+0x46/0x46
+> [    0.990889]  [<ffffffff816d3d84>] kernel_thread_helper+0x4/0x10
+> [    0.992472]  [<ffffffff816d262c>] ? retint_restore_args+0x13/0x13
+> [    0.994076]  [<ffffffff822833a1>] ? do_one_initcall+0x203/0x203
+> [    0.995636]  [<ffffffff816d3d80>] ? gs_change+0x13/0x13
+> [    0.997197] TCP established hash table entries: 8192 (order: 5, 13=
+1072 bytes)
+> [    1.000074] TCP bind hash table entries: 8192 (order: 7, 655360 by=
+tes)
+>
+> Thanks,
+> Fengguang
 
-Two reasonably up-to-date examples of machines I've reproduced this on are
-my laptop with an r8169 gigabit ethernet card, Debian qemu-kvm 1.0 and
-upstream 3.4.8 kernel whose .config and boot dmesg are at
+--=20
 
-  http://cdw.me.uk/tmp/laptop-config.txt
-  http://cdw.me.uk/tmp/laptop-dmesg.txt
-
-and one of our large servers with an igb gigabit ethernet card, upstream
-qemu-kvm 1.1.1 and upstream 3.5.1 linux:
-
-  http://cdw.me.uk/tmp/server-config.txt
-  http://cdw.me.uk/tmp/server-dmesg.txt
-
-For completeness, I've put the Debian 6 test image I've been using for
-testing at
-
-  http://cdw.me.uk/tmp/test-debian.img.xz
-
-though I've see the same problem from a variety of guest operating systems.
-(In fact, I've not yet found any combination of host kernel, guest OS and
-hardware which doesn't show these symptoms, so it seems to be very easy to
-reproduce.)
-
-Cheers,
-
-Chris.
+Love each day!
+--fan
