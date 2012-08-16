@@ -1,60 +1,50 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch] ipv6: move dereference after check in fl_free()
-Date: Thu, 16 Aug 2012 16:11:36 -0700
-Message-ID: <87sjbm1lg7.fsf@xmission.com>
-References: <20120816131502.GB23188@elgon.mountain>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v0 5/5] cgroup: Assign subsystem IDs during compile time
+Date: Thu, 16 Aug 2012 16:20:10 -0700
+Message-ID: <20120816232010.GJ24861@google.com>
+References: <1345126336-20755-1-git-send-email-wagi@monom.org>
+ <1345126336-20755-6-git-send-email-wagi@monom.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:46682 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752677Ab2HPXLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 19:11:50 -0400
-In-Reply-To: <20120816131502.GB23188@elgon.mountain> (Dan Carpenter's message
-	of "Thu, 16 Aug 2012 16:15:02 +0300")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1345126336-20755-6-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dan Carpenter <dan.carpenter@oracle.com> writes:
+On Thu, Aug 16, 2012 at 04:12:16PM +0200, Daniel Wagner wrote:
+> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+> 
+> We are able to safe some space when we assign the subsystem
+> IDs at compile time. Instead of allocating per cgroup
+> cgroup->subsys[CGROUP_SUBSYS_COUNT] where CGROUP_SUBSYS_COUNT is
+> always 64, we allocate 12 + 1 at max (at this point there are 12
+> subsystem).
 
-> There is a dereference before checking for NULL bug here.  Generally
-> free() functions should accept NULL pointers.  For example, fl_create()
-> can pass a NULL pointer to fl_free() on the error path.
+So, IIUC, this is effectively removing the capability to implement
+modularized controller which isn't known at kernel compile time.  Am I
+right?
+
+I don't think that's a bad idea but if we're doing that, can't we make
+things even simpler?  Do we need to distinguish in-kernel and module
+at all?
+
+Li, what do you think about this?
 
 Thanks.
 
-Applied to user-namespace.git
-
-Eric
-
->
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> Only needed on linux-next.
->
-> diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
-> index c836a6a..90bbefb 100644
-> --- a/net/ipv6/ip6_flowlabel.c
-> +++ b/net/ipv6/ip6_flowlabel.c
-> @@ -91,12 +91,9 @@ static struct ip6_flowlabel *fl_lookup(struct net *net, __be32 label)
->  
->  static void fl_free(struct ip6_flowlabel *fl)
->  {
-> -	switch (fl->share) {
-> -	case IPV6_FL_S_PROCESS:
-> -		put_pid(fl->owner.pid);
-> -		break;
-> -	}
->  	if (fl) {
-> +		if (fl->share == IPV6_FL_S_PROCESS)
-> +			put_pid(fl->owner.pid);
->  		release_net(fl->fl_net);
->  		kfree(fl->opt);
->  	}
+-- 
+tejun
