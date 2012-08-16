@@ -1,45 +1,51 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [patch net-next v2 01/15] net: introduce upper device lists
-Date: Thu, 16 Aug 2012 07:48:59 +0200
-Message-ID: <20120816054859.GA1769@minipsycho.orion>
-References: <1344956748-2099-2-git-send-email-jiri@resnulli.us>
- <1344983624.2690.77.camel@bwh-desktop.uk.solarflarecom.com>
- <20120815074612.GB1726@minipsycho.orion>
- <20120815.151549.1835466517645273818.davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH] act_mirred: do not drop packets when fails to mirror
+ it
+Date: Thu, 16 Aug 2012 14:40:37 +0800
+Message-ID: <502C95E5.9040304@redhat.com>
+References: <20120815093756.22238.80872.stgit@amd-6168-8-1.englab.nay.redhat.com>  <1345034141.20443.12.camel@mojatatu>  <502BA72B.6070205@redhat.com> <1345043419.3013.8.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, jitendra.kalsaria-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
-	sony.chacko-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	ursula.braun-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, blaschka-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
-	gregory.v.rose-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20120815.151549.1835466517645273818.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net
+To: jhs@mojatatu.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1345043419.3013.8.camel@mojatatu>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thu, Aug 16, 2012 at 12:15:49AM CEST, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org wrote:
->From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
->Date: Wed, 15 Aug 2012 09:46:12 +0200
+On 08/15/2012 11:10 PM, Jamal Hadi Salim wrote:
+> On Wed, 2012-08-15 at 21:42 +0800, Jason Wang wrote:
 >
->> You are probably right. I'm not sure how to handle this correctly
->> though. Adding some hard limit number might not be correct.
+>> I met it actually through the following steps:
+>>
+>> - start a kvm guest with tap and make it to be an interface of the bridge
+>> - mirror the ingress traffic of the bridge to the tap
+>> - terminate the qemu process, the tap device is then removed
+>> - all packet goes to bridge would be dropped, so the network of guests
+>> in the same bridge would be broken
+>>
+> Makes sense.
+> Can you please leave the err check braces i.e
+>          if (err) {
+>                  m->tcf_qstats.overlimits++;
+>                  if (m->tcfm_eaction != TCA_EGRESS_MIRROR)
+>                          retval = TC_ACT_SHOT;
+>                  else
+>                      retval = m->tcf_action;
+>          } else {
+>                  retval = m->tcf_action;
+>          }
 >
->I would just use a hard limit of something like 8 for now, and if we
->need to expand this limit we can consider how to do so with real known
->usage in mind rather than pure speculation.
+> Or at least dont use TC_ACT_STOLEN.
+>
+> cheers,
+> jamal
+>
 
-Okay. I will repost the set soon.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Sure, will post v2. Thanks.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
