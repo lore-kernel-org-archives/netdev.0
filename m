@@ -1,43 +1,50 @@
-From: Ian Molton <ian.molton@codethink.co.uk>
-Subject: Re: [PATCH v3 0/7] mv643xx.c: Add basic device tree support.
-Date: Thu, 16 Aug 2012 17:30:22 +0100
-Message-ID: <502D201E.9030304@codethink.co.uk>
-References: <1344350092-24050-1-git-send-email-ian.molton@codethink.co.uk> <201208091143.32972.arnd@arndb.de> <5023D577.8090001@codethink.co.uk> <201208101049.57586.arnd@arndb.de> <5028D040.60604@codethink.co.uk>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH v2 0/7] TCP Fast Open client
+Date: Thu, 16 Aug 2012 09:35:26 -0700
+Message-ID: <502D214E.8070803@hp.com>
+References: <1342645307-17772-1-git-send-email-ycheng@google.com> <AE90C24D6B3A694183C094C60CF0A2F6026B6FB6@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org,
-	thomas.petazzoni@free-electrons.com, andrew@lunn.ch,
-	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	ben.dooks@codethink.co.uk, dale@farnsworth.org,
-	linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: Yuchung Cheng <ycheng@google.com>, davem@davemloft.net,
+	hkchu@google.com, edumazet@google.com, ncardwell@google.com,
+	sivasankar@cs.ucsd.edu, netdev@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([37.128.190.40]:35099 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757599Ab2HPQam (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 12:30:42 -0400
-In-Reply-To: <5028D040.60604@codethink.co.uk>
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:10066 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932996Ab2HPQfa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 12:35:30 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6FB6@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ping :)
+On 08/16/2012 01:50 AM, David Laight wrote:
+> It seems wrong to be using sendmsg() to perform a 'connect' action.
+> Anything that tries to monitor the socket state from a trace, or
+> validate the sequence of library calls will get it all wrong.
+>
+> IMHO this should be a new connect_xxx() function - and probably
+> a new system call entry.
+>
+> This is similar to the complete fubar where sctp abuses setsockopt().
+>
+> For development hacking using sendmsg() probably avoided the need
+> to hack at some code paths, but I'm sure it will cause grief in
+> the long term.
+>
+> Other OS may have much more difficultly in abusing sendmsg().
 
-Can we get some consensus on the right approach here? I'm loathe to code
-this if its going to be rejected.
+I kind of like being able to use sendmsg()/sendto() as it provides a bit 
+of symmetry with UDP.  Just so long as I can keep using 
+sendmsg()/sendto() for subsequent sends on the same connection I think 
+it would be fine.  In fact, being able to use sendto() made adding 
+netperf support for the client side of TCP Fast Open rather trivial as 
+it already knew about using sendto() for UDP :)
 
-I'd prefer the driver to be properly split so we dont have the MDIO
-driver mapping the ethernet drivers address spaces, but if thats not
-going to be merged, I'm not feeling like doing the work for nothing.
+Someone tracing/monitoring will have to know "When tracing an 
+application possibly using TCP Fast Open you have to include 
+<new-to-the-procedure> in the tracing" - and including sendmsg/sendto 
+there is no different than a new call.  At least from my perspective.
 
-If the driver is to use the overlapping-address mapped-by-the-mdio
-scheme, then so be it, but I could do with knowing.
-
-Another point against the latter scheme is that the MDIO driver could
-sensibly be used (the block is identical) on the ArmadaXP, which has 4
-ethernet blocks rather than two, yet grouped in two pairs with a
-discontiguous address range.
-
-I'd like to get this moved along as soon as possible though.
-
--Ian
+rick jones
