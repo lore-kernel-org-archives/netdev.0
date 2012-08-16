@@ -1,59 +1,59 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH v2] XFRM: remove redundant parameter "int dir" in struct
- xfrm_mgr.acquire
-Date: Thu, 16 Aug 2012 09:12:13 +0800
-Message-ID: <502C48ED.7040509@windriver.com>
-References: <1344996827-20620-1-git-send-email-fan.du@windriver.com> <20120815.151403.2191772611303249590.davem@davemloft.net>
+From: "Ren, Cloud" <cjren@qca.qualcomm.com>
+Subject: RE: [PATCH] net: add new QCA alx ethernet driver
+Date: Thu, 16 Aug 2012 02:19:16 +0000
+Message-ID: <6349D7A510622448B1BA0967850A84380136B263@NALASEXD02B.na.qualcomm.com>
+References: <1344507270-2907-1-git-send-email-cjren@qca.qualcomm.com>
+	<20120811135044.529a7081@nehalam.linuxnetplumber.net>
+	<6349D7A510622448B1BA0967850A84380136A1EF@NASANEXD02D.na.qualcomm.com>
+	<20120814.223258.1180104882398843954.davem@davemloft.net>
+	<6349D7A510622448B1BA0967850A84380136A218@NASANEXD02D.na.qualcomm.com>
+ <20120815080226.388ea856@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:35846 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755974Ab2HPBLs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2012 21:11:48 -0400
-In-Reply-To: <20120815.151403.2191772611303249590.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	qca-linux-team <qca-linux-team@qualcomm.com>,
+	nic-devel <nic-devel@qualcomm.com>,
+	"Huang, Xiong" <xiong@qca.qualcomm.com>,
+	"hao-ran.liu@canonical.com" <hao-ran.liu@canonical.com>,
+	"joe@perches.com" <joe@perches.com>,
+	"Rodriguez, Luis" <rodrigue@qca.qualcomm.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120815080226.388ea856@nehalam.linuxnetplumber.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+Sent: Wednesday, August 15, 2012 11:02 PM
 
-
-On 2012=E5=B9=B408=E6=9C=8816=E6=97=A5 06:14, David Miller wrote:
-> From: Fan Du<fan.du@windriver.com>
-> Date: Wed, 15 Aug 2012 10:13:47 +0800
->
->> Sematically speaking, xfrm_mgr.acquire is called when kernel intends=
- to ask
->> user space IKE daemon to negotiate SAs with peers. IOW the direction=
- will
->> *always* be XFRM_POLICY_OUT, so remove int dir for clarity.
+>> >>>> +	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) -
+>1);
+>> >>>> ...
+>> >>>> +	strcpy(netdev->name, "eth%d");
+>> >>>> +	retval = register_netdev(netdev);
+>> >>>
+>> >>>The strcpy is unnecessary, alloc_etherdev already sets that.
+>> >>
+>> >> The strcpy is useful. netdev->name is set as pci_name in front. So the strcpy
+>> >restores it.
+>> >
+>> >Are you doing this just to influence the initial driver log messages?
 >>
->> Signed-off-by: Fan Du<fan.du@windriver.com>
->> ---
->> Changelog for V2:
->> 	- Remove "int dir" in build_acquire parameter suggested by Steffen =
-Klassert.
+>>  Yes.
+>>
+>> >
+>> >Don't do that, it's gross.
+>>
+>> Ok, I will remove it.
 >
-> Applied, thanks.
->
-> Please use lowercase "xfrm: " for subsystem indications in your subje=
-ct
-> lines, I fixed it up this time.
->
-> Thanks again.
+>Before the driver is registered, use dev_info() type of logging.
 
-Well understood, will do it next time :)
+Ok, I will do.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
 
---=20
 
-Love each day!
---fan
+ 
