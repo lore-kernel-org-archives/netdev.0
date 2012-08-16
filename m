@@ -1,121 +1,36 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Slow inbound traffic on macvtap interfaces
-Date: Thu, 16 Aug 2012 14:42:33 +0300
-Message-ID: <20120816114233.GA21343@redhat.com>
-References: <20120816092004.GA1894@arachsys.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net V2] act_mirred: do not drop packets when fails to mirror
+ it
+Date: Thu, 16 Aug 2012 08:11:47 -0400
+Message-ID: <1345119107.5398.0.camel@mojatatu>
+References: <1345099467-40922-1-git-send-email-jasowang@redhat.com>
+Reply-To: jhs@mojatatu.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, qemu-devel@nongnu.org,
-	Jason Wang <jasowang@redhat.com>, Arnd Bergmann <arnd@arndb.de>
-To: Chris Webb <chris@arachsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29436 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751475Ab2HPLlg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Aug 2012 07:41:36 -0400
-Content-Disposition: inline
-In-Reply-To: <20120816092004.GA1894@arachsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1345099467-40922-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 16, 2012 at 10:20:05AM +0100, Chris Webb wrote:
-> I'm experiencing a problem with qemu + macvtap which I can reproduce on a
-> variety of hardware, with kernels varying from 3.0.4 (the oldest I tried) to
-> 3.5.1 and with qemu[-kvm] versions 0.14.1, 1.0, and 1.1.
+On Thu, 2012-08-16 at 14:44 +0800, Jason Wang wrote:
+> We drop packet unconditionally when we fail to mirror it. This is not intended
+> in some cases. Consdier for kvm guest, we may mirror the traffic of the bridge
+> to a tap device used by a VM. When kernel fails to mirror the packet in
+> conditions such as when qemu crashes or stop polling the tap, it's hard for the
+> management software to detect such condition and clean the the mirroring
+> before. This would lead all packets to the bridge to be dropped and break the
+> netowrk of other virtual machines.
 > 
-> Large data transfers over TCP into a guest from another machine on the
-> network are very slow (often less than 100kB/s) whereas transfers outbound
-> from the guest, between two guests on the same host, or between the guest
-> and its host run at normal speeds (>= 50MB/s).
+> To solve the issue, the patch does not drop packets when kernel fails to mirror
+> it, and only drop the redirected packets.
 > 
-> The slow inbound data transfer speeds up substantially when a ping flood is
-> aimed either at the host or the guest, or when the qemu process is straced.
-> Presumably both of these are ways to wake up something that is otherwise
-> sleeping too long?
-> 
-> For example, I can run
-> 
->   ip addr add 192.168.1.2/24 dev eth0
->   ip link set eth0 up
->   ip link add link eth0 name tap0 address 02:02:02:02:02:02 type macvtap mode bridge
->   ip link set tap0 up
->   qemu-kvm -hda debian.img -cpu host -m 512 -vnc :0 \
->     -net nic,model=virtio,macaddr=02:02:02:02:02:02 \
->     -net tap,fd=3 3<>/dev/tap$(< /sys/class/net/tap0/ifindex)
-> 
-> on one physical host which is otherwise completely idle. From a second
-> physical host on the same network, I then scp a large (say 50MB) file onto
-> the new guest. On a gigabit LAN, speeds consistently drop to less than
-> 100kB/s as the transfer progresses, within a second of starting.
-> 
-> The choice of virtio virtual nic in the above isn't significant: the same thing
-> happens with e1000 or rtl8139. You can also replace the scp with a straight
-> netcat and see the same effect.
-> 
-> Doing the transfer in the other direction (i.e. copying a large file from the
-> guest to an external host) achieves 50MB/s or faster as expected. Copying
-> between two guests on the same host (i.e. taking advantage of the 'mode
-> bridge') is also fast.
-> 
-> If I create a macvlan device attached to eth0 and move the host IP address to
-> that, I can communicate between the host itself and the guest because of the
-> 'mode bridge'. Again, this case is fast in both directions.
-> 
-> Using a bridge and a standard tap interface, transfers in and out are fast
-> too:
-> 
->   ip tuntap add tap0 mode tap
->   brctl addbr br0
->   brctl addif br0 eth0
->   brctl addif br0 tap1
->   ip link set eth0 up
->   ip link set tap0 up
->   ip link set br0 up
->   ip addr add 192.168.1.2/24 dev br0
->   qemu-kvm -hda debian.img -cpu host -m 512 -vnc :0 \
->     -net nic,model=virtio,macaddr=02:02:02:02:02:02 \
->     -net tap,script=no,downscript=no,ifname=tap0
-> 
-> As mentioned in the summary at the beginning of this report, when I strace a
-> guest in the original configuration which is receiving data slowly, the data
-> rate improves from less than 100kB/s to around 3.1MB/s. Similarly, if I ping
-> flood either the guest or the host it is running on from another machine on
-> the network, the transfer rate improves to around 1.1MB/s. This seems quite
-> suggestive of a problem with delayed wake-up of the guest.
-> 
-> Two reasonably up-to-date examples of machines I've reproduced this on are
-> my laptop with an r8169 gigabit ethernet card, Debian qemu-kvm 1.0 and
-> upstream 3.4.8 kernel whose .config and boot dmesg are at
-> 
->   http://cdw.me.uk/tmp/laptop-config.txt
->   http://cdw.me.uk/tmp/laptop-dmesg.txt
-> 
-> and one of our large servers with an igb gigabit ethernet card, upstream
-> qemu-kvm 1.1.1 and upstream 3.5.1 linux:
-> 
->   http://cdw.me.uk/tmp/server-config.txt
->   http://cdw.me.uk/tmp/server-dmesg.txt
-> 
-> For completeness, I've put the Debian 6 test image I've been using for
-> testing at
-> 
->   http://cdw.me.uk/tmp/test-debian.img.xz
-> 
-> though I've see the same problem from a variety of guest operating systems.
-> (In fact, I've not yet found any combination of host kernel, guest OS and
-> hardware which doesn't show these symptoms, so it seems to be very easy to
-> reproduce.)
-> 
-> Cheers,
-> 
-> Chris.
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Thanks for the report.
-I'll try to reproduce this early next week.
-Meanwhile a question - do you still observe this behaviour if you enable
-vhost-net?
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Thanks,
-
--- 
-MST
+cheers,
+jamal
