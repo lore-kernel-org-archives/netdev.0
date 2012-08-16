@@ -1,96 +1,102 @@
 From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: [net-next 1/9] ixgbe: Remove code that was initializing Rx page offset
-Date: Thu, 16 Aug 2012 15:48:30 -0700
-Message-ID: <1345157318-23731-2-git-send-email-peter.p.waskiewicz.jr@intel.com>
+Subject: [net-next 6/9] ixgbe: Copybreak sooner to avoid get_page/put_page and offset change overhead
+Date: Thu, 16 Aug 2012 15:48:35 -0700
+Message-ID: <1345157318-23731-7-git-send-email-peter.p.waskiewicz.jr@intel.com>
 References: <1345157318-23731-1-git-send-email-peter.p.waskiewicz.jr@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:12017 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:35330 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755378Ab2HPWst (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Aug 2012 18:48:49 -0400
+	id S1755745Ab2HPWsv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Aug 2012 18:48:51 -0400
 In-Reply-To: <1345157318-23731-1-git-send-email-peter.p.waskiewicz.jr@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change reverts an earlier patch that introduced
-ixgbe_init_rx_page_offset. The idea behind the function was to provide
-some variation in the starting offset for the page in order to reduce
-hot-spots in the cache. However it doesn't appear to provide any
-significant benefit in the testing I have done. It has however been a
-source of several bugs, and it blocks us from being able to use 2K
-fragments on larger page sizes. So the decision I made was to remove it.
+This change makes it so that if only the first 256 bytes of a buffer are
+used we just copy the data out and leave the offset and page count
+unchanged. There are multiple advantages to this. First it allows us to
+reuse the page much more in the case of pages larger than 4K. It also
+allows us to avoid some expensive atomic operations in the form of
+get_page/put_page. In perf I have seen CPU utilization for put_page drop
+from 3.5% to 1.8% as a result of this patch when doing small packet routing,
+and packet rates increased by about 3%.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 27 +--------------------------
- 1 file changed, 1 insertion(+), 26 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 32 ++++++++++++++-------------
+ 1 file changed, 17 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 4326f74..f7351c6 100644
+index d926973..d11fac5 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1167,7 +1167,7 @@ static bool ixgbe_alloc_mapped_page(struct ixgbe_ring *rx_ring,
- 	}
+@@ -1487,9 +1487,7 @@ static void ixgbe_pull_tail(struct ixgbe_ring *rx_ring,
+ 	 * we need the header to contain the greater of either ETH_HLEN or
+ 	 * 60 bytes if the skb->len is less than 60 for skb_pad.
+ 	 */
+-	pull_len = skb_frag_size(frag);
+-	if (pull_len > IXGBE_RX_HDR_SIZE)
+-		pull_len = ixgbe_get_headlen(va, IXGBE_RX_HDR_SIZE);
++	pull_len = ixgbe_get_headlen(va, IXGBE_RX_HDR_SIZE);
  
- 	bi->dma = dma;
--	bi->page_offset ^= ixgbe_rx_bufsz(rx_ring);
-+	bi->page_offset = 0;
- 
- 	return true;
- }
-@@ -4130,27 +4130,6 @@ void ixgbe_reset(struct ixgbe_adapter *adapter)
+ 	/* align pull length to size of long to optimize memcpy performance */
+ 	skb_copy_to_linear_data(skb, va, ALIGN(pull_len, sizeof(long)));
+@@ -1499,17 +1497,6 @@ static void ixgbe_pull_tail(struct ixgbe_ring *rx_ring,
+ 	frag->page_offset += pull_len;
+ 	skb->data_len -= pull_len;
+ 	skb->tail += pull_len;
+-
+-	/*
+-	 * if we sucked the frag empty then we should free it,
+-	 * if there are other frags here something is screwed up in hardware
+-	 */
+-	if (skb_frag_size(frag) == 0) {
+-		BUG_ON(skb_shinfo(skb)->nr_frags != 1);
+-		skb_shinfo(skb)->nr_frags = 0;
+-		__skb_frag_unref(frag);
+-		skb->truesize -= ixgbe_rx_bufsz(rx_ring);
+-	}
  }
  
  /**
-- * ixgbe_init_rx_page_offset - initialize page offset values for Rx buffers
-- * @rx_ring: ring to setup
-- *
-- * On many IA platforms the L1 cache has a critical stride of 4K, this
-- * results in each receive buffer starting in the same cache set.  To help
-- * reduce the pressure on this cache set we can interleave the offsets so
-- * that only every other buffer will be in the same cache set.
-- **/
--static void ixgbe_init_rx_page_offset(struct ixgbe_ring *rx_ring)
--{
--	struct ixgbe_rx_buffer *rx_buffer = rx_ring->rx_buffer_info;
--	u16 i;
--
--	for (i = 0; i < rx_ring->count; i += 2) {
--		rx_buffer[0].page_offset = 0;
--		rx_buffer[1].page_offset = ixgbe_rx_bufsz(rx_ring);
--		rx_buffer = &rx_buffer[2];
--	}
--}
--
--/**
-  * ixgbe_clean_rx_ring - Free Rx Buffers per Queue
-  * @rx_ring: ring to free buffers from
-  **/
-@@ -4195,8 +4174,6 @@ static void ixgbe_clean_rx_ring(struct ixgbe_ring *rx_ring)
- 	size = sizeof(struct ixgbe_rx_buffer) * rx_ring->count;
- 	memset(rx_ring->rx_buffer_info, 0, size);
+@@ -1575,7 +1562,8 @@ static bool ixgbe_cleanup_headers(struct ixgbe_ring *rx_ring,
+ 	}
  
--	ixgbe_init_rx_page_offset(rx_ring);
--
- 	/* Zero out the descriptor ring */
- 	memset(rx_ring->desc, 0, rx_ring->size);
+ 	/* place header in linear portion of buffer */
+-	ixgbe_pull_tail(rx_ring, skb);
++	if (skb_is_nonlinear(skb))
++		ixgbe_pull_tail(rx_ring, skb);
  
-@@ -4646,8 +4623,6 @@ int ixgbe_setup_rx_resources(struct ixgbe_ring *rx_ring)
- 	rx_ring->next_to_clean = 0;
- 	rx_ring->next_to_use = 0;
+ #ifdef IXGBE_FCOE
+ 	/* do not attempt to pad FCoE Frames as this will disrupt DDP */
+@@ -1656,6 +1644,20 @@ static bool ixgbe_add_rx_frag(struct ixgbe_ring *rx_ring,
+ 				   ixgbe_rx_bufsz(rx_ring);
+ #endif
  
--	ixgbe_init_rx_page_offset(rx_ring);
--
- 	return 0;
- err:
- 	vfree(rx_ring->rx_buffer_info);
++	if ((size <= IXGBE_RX_HDR_SIZE) && !skb_is_nonlinear(skb)) {
++		unsigned char *va = page_address(page) + rx_buffer->page_offset;
++
++		memcpy(__skb_put(skb, size), va, ALIGN(size, sizeof(long)));
++
++		/* we can reuse buffer as-is, just make sure it is local */
++		if (likely(page_to_nid(page) == numa_node_id()))
++			return true;
++
++		/* this page cannot be reused so discard it */
++		put_page(page);
++		return false;
++	}
++
+ 	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
+ 			rx_buffer->page_offset, size, truesize);
+ 
 -- 
 1.7.11.2
