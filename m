@@ -1,50 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: add new QCA alx ethernet driver
-Date: Thu, 16 Aug 2012 06:16:23 -0700
-Message-ID: <1345122983.26882.9.camel@joe2Laptop>
-References: <1345053189-10326-1-git-send-email-cjren@qca.qualcomm.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] sctp: fix bogus if statement in sctp_auth_recv_cid()
+Date: Thu, 16 Aug 2012 16:16:19 +0300
+Message-ID: <20120816131618.GA23279@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, qca-linux-team@qualcomm.com,
-	nic-devel@qualcomm.com, Xiong Huang <xiong@qca.qualcomm.com>,
-	"Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
-To: cjren@qca.qualcomm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1345053189-10326-1-git-send-email-cjren@qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from acsinet15.oracle.com ([141.146.126.227]:23551 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932479Ab2HPNQd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 09:16:33 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-08-16 at 01:53 +0800, cjren@qca.qualcomm.com wrote:
-> From: Cloud Ren <cjren@qca.qualcomm.com>
-> 
-> This driver support two new ethernet chipsets:
-> 1969:1091 - AR8161 Gigabit Ethernet
-> 1969:1090 - AR8162 Fast Ethernet
+There is an extra semi-colon here, so we always return 0 instead of
+calling __sctp_auth_cid().
 
-[]
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+Only needed for linux-next.
 
-> diff --git a/drivers/net/ethernet/atheros/alx/alx_main.c b/drivers/net/ethernet/atheros/alx/alx_main.c
-[]
-> +/*
-> + * alx_hw_printk
-> + */
-> +void alx_hw_printk(const char *level, const struct alx_hw *hw,
-> +		   const char *fmt, ...)
-> +{
-> +	struct va_format vaf;
-> +	va_list args;
-> +
-> +	va_start(args, fmt);
-> +	vaf.fmt = fmt;
-> +	vaf.va = &args;
-> +
-> +	if (hw && hw->adpt && hw->adpt->netdev)
-> +		__netdev_printk(level, hw->adpt->netdev, &vaf);
-
-Hi Cloud.  Please convert this to
-
-		netdev_printk(level, hw->adpt->netdev, "%pV", &vaf);
-
-I will submit a patch soon to make the __netdev_printk variant static.
+diff --git a/net/sctp/auth.c b/net/sctp/auth.c
+index aaa6c12..159b9bc 100644
+--- a/net/sctp/auth.c
++++ b/net/sctp/auth.c
+@@ -695,7 +695,7 @@ int sctp_auth_recv_cid(sctp_cid_t chunk, const struct sctp_association *asoc)
+ 		return 0;
+ 
+ 	net = sock_net(asoc->base.sk);
+-	if (!net->sctp.auth_enable);
++	if (!net->sctp.auth_enable)
+ 		return 0;
+ 
+ 	return __sctp_auth_cid(chunk,
