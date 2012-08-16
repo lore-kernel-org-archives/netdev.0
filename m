@@ -1,60 +1,50 @@
-From: Jiang Wang <Jiang.Wang@riverbed.com>
-Subject: RE: [PATCH] bnx2: turn off the network statck during initialization
-Date: Thu, 16 Aug 2012 21:48:01 +0000
-Message-ID: <CEE05A0D7856E14880AD5560634EBEA834DB2C2B@SFO1EXC-MBXP06.nbttech.com>
-References: <1345141295-7589-1-git-send-email-Jiang.Wang@riverbed.com>
- <1345143431.6916.36.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <CEE05A0D7856E14880AD5560634EBEA834DB2ABC@SFO1EXC-MBXP06.nbttech.com>
- <1345145318.6916.42.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <CEE05A0D7856E14880AD5560634EBEA834DB2B40@SFO1EXC-MBXP06.nbttech.com>
- <1345151593.6916.62.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH v1.0] af_packet: don't emit packet on orig fanout
+ group
+Date: Thu, 16 Aug 2012 14:52:00 -0700 (PDT)
+Message-ID: <20120816.145200.694410419765575459.davem@davemloft.net>
+References: <1344262918.8024.41.camel@tiger.regit.org>
+	<1345131890-15991-1-git-send-email-eric@regit.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Chaitanya Lala <Chaitanya.Lala@riverbed.com>,
-	"Francis St. Amant" <Francis.St.Amant@riverbed.com>
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1345151593.6916.62.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric@regit.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35722 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755550Ab2HPVwB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 17:52:01 -0400
+In-Reply-To: <1345131890-15991-1-git-send-email-eric@regit.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Eric Leblond <eric@regit.org>
+Date: Thu, 16 Aug 2012 17:44:50 +0200
 
-On Thu, 2012-08-16 at 20:28 +0000, Jiang Wang wrote:
-> Also, I have another comment related to link state.
+> If a packet is emitted on one socket in one group of fanout sockets,
+> it is transmitted again. It is thus read again on one of the sockets
+> of the fanout group. This result in a loop for software which
+> generate packets when receiving one.
+> This retransmission is not the intended behavior: a fanout group
+> must behave like a single socket. The packet should not be
+> transmitted on a socket if it originates from a socket belonging
+> to the same fanout group.
 > 
-> Right now, the bnx2 driver powers up the device in bnx2_init_board(), 
-> regardless the netif_carrier is on or off.
+> This patch fixes the issue by changing the transmission check to
+> take fanout group info account.
 
-We actually don't power up the device.  bnx2_init_board() just probes the device.  If link is already up, it will stay up.  If it is down, it will stay down.
+This looks mostly fine, thanks for fixing this.
 
----- I see. I was confused by the name of bnx2_set_power_state()  and I think the PHY is actually powered up by bnx2_reset_nic, right?
+I wonder if it wouldn't be better to simply have a callback?  That
+would eliminate all of the ifdefs:
 
-> This may introduce following inconsistent behaviors:
-> 1) suppose the cable is plugged in to the NIC and the other end is 
-> connected to a switch
-> 2) user powers up the box
+	if (ptype->id_match) {
+		if (ptype->id_match(ptype, skb->sk))
+			return true;
+	} else if (ptype->af_packet_priv == skb->sk)
+		return true;
 
-The link may already be up before or when you power up the box because of management firmware (iLO, etc) or WoL.
-
----- OK.
-
-> 3) the Linux does not bring up the interface; i.e, ifconfig ethx shows 
-> it is down
-> 4) ethtool ethx will show no link
-> 5) if the user goes to check the light on the physical NIC, he will 
-> see the green link light is ON. That means the link is up, right?
-> 
-> I think it is better to power down the device until bnx2_open is 
-> called. In this way, ethtool report and the physical link light will 
-> be consistent.
-
-We cannot power it down.  If link is up, it is up for a reason (e.g. it is an iLO port, etc).
-
----- OK. 
-
-
-Thanks.
+It's a shame that we have a user of af_packet_priv outside of
+AF_PACKET, in TIPC.  If we could get rid of that we could simplify
+things even futher.
