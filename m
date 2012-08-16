@@ -1,60 +1,52 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next] sctp: fix compile issue with disabled CONFIG_NET_NS
-Date: Thu, 16 Aug 2012 13:00:05 -0700
-Message-ID: <87393m38vu.fsf@xmission.com>
-References: <20120816112449.GA17354@uweber-WS> <87fw7m64v9.fsf@xmission.com>
-	<1345145802.2832.6.camel@bwh-desktop.uk.solarflarecom.com>
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: Re: [PATCH v0 0/5] cgroup: Assign subsystem IDs during compile time
+Date: Thu, 16 Aug 2012 22:25:27 +0200
+Message-ID: <502D5737.1010604@monom.org>
+References: <1345126336-20755-1-git-send-email-wagi@monom.org> <20120816190542.GA8203@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ulrich Weber <ulrich.weber@sophos.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:36730 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933218Ab2HPUEa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 16:04:30 -0400
-In-Reply-To: <1345145802.2832.6.camel@bwh-desktop.uk.solarflarecom.com> (Ben
-	Hutchings's message of "Thu, 16 Aug 2012 20:36:42 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120816190542.GA8203-B26myB8xz7F8NnZeBjwnZQMhkBWG/bsMQH7oEaQurus@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Ben Hutchings <bhutchings@solarflare.com> writes:
+Hi Neil,
 
-> On Thu, 2012-08-16 at 11:58 -0700, Eric W. Biederman wrote:
->> Ulrich Weber <ulrich.weber@sophos.com> writes:
->> 
->> > struct seq_net_private has no struct net
->> > if CONFIG_NET_NS is not enabled
->> 
->> My mistake.
->> 
->> Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
->> 
->> > Signed-off-by: Ulrich Weber <ulrich.weber@sophos.com>
->> 
->> Ulrich do you get any performance advantage by disabling the network
->> namespace?
->> 
->> I am wondering if there is any benefit to keeping it possible to disable
->> the network namespace?
->> 
->> The original reason for the option was so that distributions and
->> other who wanted to avoid new code could protect their users, and
->> that reasons seems to have long since passed.
-> [...]
->
-> Network namespaces are now used by common applications such as Chrome/
-> Chromium and vsftpd (which flushed out some of the early implementation
-> problems).  They undoubtedly have some overhead that some users would
-> like to avoid, but I wouldn't expect distributions to disable the
-> option.
+On 08/16/2012 09:05 PM, Neil Horman wrote:
+>> Daniel Wagner (5):
+>>    cgroup: Use empty task_cls_classid() when !CONFIG_NET_CLS(_MODULE)
+>>    cgroup: Move sock_update_classid() decleration to cls_cgroup.h
+>>    cgroup: Protect access to task_cls_classid() when built as module
+>>    cgroup: Protect access to task_netprioidx() when built as module
+>>    cgroup: Assign subsystem IDs during compile time
+> 
+> The series seems reasonable.  I presume you've testing building and running both
+> net_prio and net_cls as modules and monolithically?
+> Neil
 
-When the network namespace code was merged we could not mearsure the
-overhead, at least not on gigabit ethernet.  And there is very little
-code change when network namespaces go away.
+Yep, I spend a good bit of time rebuilding and testing all patches in
+the different configuration. I hope I really got the small semantic
+differences between net_cls and net_prio regarding the loading and
+unloading correct. So please have a close look at the jump label
+patches (#3 and #4). 
 
-So I am starting to look for people who care.  Especially for people who
-can measure overhead associated with network namespaces.
+BTW, I have a few mores on top of these patches, e.g. merging the
+builtin and module version of task_cls_classid()/task_netprioidx()
+implementation together and getting rid of the many ifdefs in the
+header. But let's first get this part reviewed.
 
-Eric
+thanks,
+daniel
