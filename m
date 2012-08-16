@@ -1,29 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: AF_PACKET + PACKET_FANOUT: tx packet delivered back in rx
-Date: Thu, 16 Aug 2012 14:53:22 -0700 (PDT)
-Message-ID: <20120816.145322.1154793898136345258.davem@davemloft.net>
-References: <1342081817.394175102@f168.mail.ru>
+Subject: Re: [net V2] act_mirred: do not drop packets when fails to mirror
+ it
+Date: Thu, 16 Aug 2012 14:55:01 -0700 (PDT)
+Message-ID: <20120816.145501.2026059988735122378.davem@davemloft.net>
+References: <1345099467-40922-1-git-send-email-jasowang@redhat.com>
+	<1345119107.5398.0.camel@mojatatu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, miquels@drinkel.ow.org
-To: a1k@mail.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35737 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752150Ab2HPVxX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 17:53:23 -0400
-In-Reply-To: <1342081817.394175102@f168.mail.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jasowang@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jhs@mojatatu.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1345119107.5398.0.camel@mojatatu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Aleksandr Kotov <a1k@mail.ru>
-Date: Thu, 12 Jul 2012 12:30:17 +0400
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Thu, 16 Aug 2012 08:11:47 -0400
 
-> I have a problem using AF_PACKET socket with PACKET_RX_RING, PACKET_TX_RING and PACKET_FANOUT options enabled.
-> I am seeing my TX packets get back to the same socket in RX ring. Socket is created and gets bind with ETH_P_ALL protocol type. The problem is in the fanout_add function 
-> which sets af_packet_priv to "match" variable, but not sk one describing socket and in dev_queue_xmit_nit skb get bounced back to the socket despite the comment left in the function.
+> On Thu, 2012-08-16 at 14:44 +0800, Jason Wang wrote:
+>> We drop packet unconditionally when we fail to mirror it. This is not intended
+>> in some cases. Consdier for kvm guest, we may mirror the traffic of the bridge
+>> to a tap device used by a VM. When kernel fails to mirror the packet in
+>> conditions such as when qemu crashes or stop polling the tap, it's hard for the
+>> management software to detect such condition and clean the the mirroring
+>> before. This would lead all packets to the bridge to be dropped and break the
+>> netowrk of other virtual machines.
+>> 
+>> To solve the issue, the patch does not drop packets when kernel fails to mirror
+>> it, and only drop the redirected packets.
+>> 
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> 
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Eric Leblong is posting fixes for this problem recently:
-
-http://patchwork.ozlabs.org/patch/178044/
+Applied, thanks.
