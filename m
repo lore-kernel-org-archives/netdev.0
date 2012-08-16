@@ -1,9 +1,10 @@
 From: Daniel Wagner <wagi@monom.org>
-Subject: [PATCH v0 2/5] cgroup: Move sock_update_classid() decleration to cls_cgroup.h
-Date: Thu, 16 Aug 2012 16:12:13 +0200
-Message-ID: <1345126336-20755-3-git-send-email-wagi@monom.org>
+Subject: [PATCH v0 3/5] cgroup: Protect access to task_cls_classid() when built as module
+Date: Thu, 16 Aug 2012 16:12:14 +0200
+Message-ID: <1345126336-20755-4-git-send-email-wagi@monom.org>
 References: <1345126336-20755-1-git-send-email-wagi@monom.org>
 Cc: Daniel Wagner <daniel.wagner@bmw-carit.de>,
+	"David S. Miller" <davem@davemloft.net>,
 	Gao feng <gaofeng@cn.fujitsu.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
 	John Fastabend <john.r.fastabend@intel.com>,
@@ -11,9 +12,9 @@ Cc: Daniel Wagner <daniel.wagner@bmw-carit.de>,
 	Neil Horman <nhorman@tuxdriver.com>, Tejun Heo <tj@kernel.org>
 To: netdev@vger.kernel.org, cgroups@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hotel311.server4you.de ([85.25.146.15]:32919 "EHLO
+Received: from hotel311.server4you.de ([85.25.146.15]:32922 "EHLO
 	hotel311.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752862Ab2HPOMU (ORCPT
+	with ESMTP id S1752992Ab2HPOMU (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 10:12:20 -0400
 In-Reply-To: <1345126336-20755-1-git-send-email-wagi@monom.org>
 Sender: netdev-owner@vger.kernel.org
@@ -21,10 +22,14 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Daniel Wagner <daniel.wagner@bmw-carit.de>
 
-The only user of sock_update_classid() is net/socket.c which
-happens to include cls_cgroup.h direclty.
+The module version of task_cls_classid() checks if net_cls_sbusys_id
+is valid to indentify when it is okay to access the controller.
+
+Instead relying on the subusys_id to be set, make it explicit
+with a jump label.
 
 Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
+Cc: "David S. Miller" <davem@davemloft.net>
 Cc: Gao feng <gaofeng@cn.fujitsu.com>
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 Cc: John Fastabend <john.r.fastabend@intel.com>
@@ -34,54 +39,81 @@ Cc: Tejun Heo <tj@kernel.org>
 Cc: netdev@vger.kernel.org
 Cc: cgroups@vger.kernel.org
 ---
- include/net/cls_cgroup.h | 8 ++++++++
- include/net/sock.h       | 8 --------
- 2 files changed, 8 insertions(+), 8 deletions(-)
+ include/net/cls_cgroup.h | 8 +++++++-
+ net/core/sock.c          | 5 +++++
+ net/sched/cls_cgroup.c   | 5 +++++
+ 3 files changed, 17 insertions(+), 1 deletion(-)
 
 diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
-index e2fe2b9..401672c 100644
+index 401672c..5b91220 100644
 --- a/include/net/cls_cgroup.h
 +++ b/include/net/cls_cgroup.h
-@@ -24,6 +24,8 @@ struct cgroup_cls_state
+@@ -16,6 +16,7 @@
+ #include <linux/cgroup.h>
+ #include <linux/hardirq.h>
+ #include <linux/rcupdate.h>
++#include <linux/jump_label.h>
+ 
+ #ifdef CONFIG_CGROUPS
+ struct cgroup_cls_state
+@@ -24,6 +25,11 @@ struct cgroup_cls_state
  	u32 classid;
  };
  
-+extern void sock_update_classid(struct sock *sk);
++#if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
++extern struct static_key cgroup_cls_enabled;
++#define clscg_enabled static_key_false(&cgroup_cls_enabled)
++#endif
 +
+ extern void sock_update_classid(struct sock *sk);
+ 
  #if IS_BUILTIN(CONFIG_NET_CLS_CGROUP)
+@@ -52,7 +58,7 @@ static inline u32 task_cls_classid(struct task_struct *p)
+ 	int id;
+ 	u32 classid = 0;
  
- static inline u32 task_cls_classid(struct task_struct *p)
-@@ -73,6 +75,12 @@ static inline u32 task_cls_classid(struct task_struct *p)
+-	if (in_interrupt())
++	if (!clscg_enabled || in_interrupt())
+ 		return 0;
  
- #endif /* CONFIG_NET_CLS_CGROUP */
+ 	rcu_read_lock();
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 8f67ced..8d3a400 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -327,6 +327,11 @@ int __sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+ EXPORT_SYMBOL(__sk_backlog_rcv);
  
-+#else /* !CONFIG_CGROUPS */
+ #if defined(CONFIG_CGROUPS)
++#if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
++struct static_key cgroup_cls_enabled = STATIC_KEY_INIT_FALSE;
++EXPORT_SYMBOL_GPL(cgroup_cls_enabled);
++#endif
 +
-+static inline void sock_update_classid(struct sock *sk)
-+{
-+}
+ #if !defined(CONFIG_NET_CLS_CGROUP)
+ int net_cls_subsys_id = -1;
+ EXPORT_SYMBOL_GPL(net_cls_subsys_id);
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+index 7743ea8..f40086b 100644
+--- a/net/sched/cls_cgroup.c
++++ b/net/sched/cls_cgroup.c
+@@ -44,12 +44,17 @@ static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
+ 
+ 	if (cgrp->parent)
+ 		cs->classid = cgrp_cls_state(cgrp->parent)->classid;
++	else if (!clscg_enabled)
++                static_key_slow_inc(&cgroup_cls_enabled);
+ 
+ 	return &cs->css;
+ }
+ 
+ static void cgrp_destroy(struct cgroup *cgrp)
+ {
++	if (!cgrp->parent && clscg_enabled)
++                static_key_slow_dec(&cgroup_cls_enabled);
 +
- #endif /* CONFIG_CGROURPS */
+ 	kfree(cgrp_cls_state(cgrp));
+ }
  
- #endif  /* _NET_CLS_CGROUP_H */
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 72132ae..160a680 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1486,14 +1486,6 @@ extern void *sock_kmalloc(struct sock *sk, int size,
- extern void sock_kfree_s(struct sock *sk, void *mem, int size);
- extern void sk_send_sigurg(struct sock *sk);
- 
--#ifdef CONFIG_CGROUPS
--extern void sock_update_classid(struct sock *sk);
--#else
--static inline void sock_update_classid(struct sock *sk)
--{
--}
--#endif
--
- /*
-  * Functions to fill in entries in struct proto_ops when a protocol
-  * does not implement a particular function.
 -- 
 1.7.12.rc1.16.g05a20c8
