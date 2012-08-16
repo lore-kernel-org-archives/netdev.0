@@ -1,76 +1,88 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [RFC PATCH 0/5] net: socket bind to file descriptor introduced
-Date: Thu, 16 Aug 2012 09:54:29 -0400
-Message-ID: <20120816135429.GF28054@fieldses.org>
-References: <20120815161141.7598.16682.stgit@localhost.localdomain>
- <87y5lf7d37.fsf@xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stanislav Kinsbursky <skinsbursky@parallels.com>,
-	tglx@linutronix.de, mingo@redhat.com, davem@davemloft.net,
-	hpa@zytor.com, thierry.reding@avionic-design.de,
-	bfields@redhat.com, eric.dumazet@gmail.com, xemul@parallels.com,
-	neilb@suse.de, netdev@vger.kernel.org, x86@kernel.org,
-	linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
-	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
-	akpm@linux-foundation.org, tim.c.chen@linux.intel.com,
-	devel@openvz.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next] xfrm: use rcu_dereference_bh() when BH is disabled
+Date: Thu, 16 Aug 2012 22:09:59 +0800
+Message-ID: <1345126199-4758-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Priyanka Jain <Priyanka.Jain@freescale.com>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fieldses.org ([174.143.236.118]:38140 "EHLO fieldses.org"
+Received: from mx1.redhat.com ([209.132.183.28]:17180 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932537Ab2HPNyz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Aug 2012 09:54:55 -0400
-Content-Disposition: inline
-In-Reply-To: <87y5lf7d37.fsf@xmission.com>
+	id S1751138Ab2HPOKQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Aug 2012 10:10:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 15, 2012 at 08:03:24PM -0700, Eric W. Biederman wrote:
-> Stanislav Kinsbursky <skinsbursky@parallels.com> writes:
-> 
-> > This patch set introduces new socket operation and new system call:
-> > sys_fbind(), which allows to bind socket to opened file.
-> > File to bind to can be created by sys_mknod(S_IFSOCK) and opened by
-> > open(O_PATH).
-> >
-> > This system call is especially required for UNIX sockets, which has name
-> > lenght limitation.
-> >
-> > The following series implements...
-> 
-> Hmm.  I just realized this patchset is even sillier than I thought.
-> 
-> Stanislav is the problem you are ultimately trying to solve nfs clients
-> in a container connecting to the wrong user space rpciod?
-> 
-> Aka net/sunrpc/xprtsock.c:xs_setup_local only taking an absolute path
-> and then creating a delayed work item to actually open the unix domain
-> socket?
-> 
-> The straight correct and straight forward thing to do appears to be:
-> - Capture the root from current->fs in xs_setup_local.
-> - In xs_local_finish_connect change current->fs.root to the captured
->   version of root before kernel_connect, and restore current->fs.root
->   after kernel_connect.
+This patch fixes the following RCU warning:
 
-Ah, yep, that should do it.
+ ===============================
+ [ INFO: suspicious RCU usage. ]
+ 3.5.0+ #64 Not tainted
+ -------------------------------
+ net/xfrm/xfrm_policy.c:2504 suspicious rcu_dereference_check() usage!
 
---b.
+ other info that might help us debug this:
 
-> 
-> It might not be a bad idea to implement open on unix domain sockets in
-> a filesystem as create(AF_LOCAL)+connect() which would allow you to
-> replace __sock_create + kernel_connect with a simple file_open_root.
-> 
-> But I think the simple scheme of:
-> struct path old_root;
-> old_root = current->fs.root;
-> kernel_connect(...);
-> current->fs.root = old_root;
-> 
-> Is more than sufficient and will remove the need for anything
-> except a purely local change to get nfs clients to connect from
-> containers.
-> 
-> Eric
+
+ rcu_scheduler_active = 1, debug_locks = 0
+ 2 locks held by swapper/1:
+  #0:  (net_mutex){+.+.+.}, at: [<ffffffff814e1ad0>] register_pernet_subsys+0x21/0x57
+  #1:  (rcu_read_lock_bh){......}, at: [<ffffffff822c7329>] xfrm_net_init+0x1e4/0x437
+
+ stack backtrace:
+ Pid: 1, comm: swapper Not tainted 3.5.0-01540-g1669891 #64
+ Call Trace:
+  [<ffffffff8108b375>] lockdep_rcu_suspicious+0x174/0x187
+  [<ffffffff822c7453>] xfrm_net_init+0x30e/0x437
+  [<ffffffff822c7329>] ? xfrm_net_init+0x1e4/0x437
+  [<ffffffff814e134a>] ops_init+0x1bb/0x1ff
+  [<ffffffff810861f9>] ? trace_hardirqs_on+0x1b/0x24
+  [<ffffffff814e17cd>] register_pernet_operations.isra.5+0x9d/0xfe
+  [<ffffffff814e1adf>] register_pernet_subsys+0x30/0x57
+  [<ffffffff822c7130>] xfrm_init+0x17/0x2c
+  [<ffffffff822c2f8c>] ip_rt_init+0x82/0xe7
+  [<ffffffff822c31dc>] ip_init+0x10/0x25
+  [<ffffffff822c3f77>] inet_init+0x235/0x360
+  [<ffffffff822c3d42>] ? devinet_init+0xf2/0xf2
+  [<ffffffff82283252>] do_one_initcall+0xb4/0x203
+  [<ffffffff8228354a>] kernel_init+0x1a9/0x29a
+  [<ffffffff822826d9>] ? loglevel+0x46/0x46
+  [<ffffffff816d3d84>] kernel_thread_helper+0x4/0x10
+  [<ffffffff816d262c>] ? retint_restore_args+0x13/0x13
+  [<ffffffff822833a1>] ? do_one_initcall+0x203/0x203
+  [<ffffffff816d3d80>] ? gs_change+0x13/0x13
+
+
+which is caused by:
+
+commit 418a99ac6ad487dc9c42e6b0e85f941af56330f2
+Author: Priyanka Jain <Priyanka.Jain@freescale.com>
+Date:   Sun Aug 12 21:22:29 2012 +0000
+
+    Replace rwlock on xfrm_policy_afinfo with rcu
+
+
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Priyanka Jain <Priyanka.Jain@freescale.com>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
+---
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 5ad4d2c..6405764 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2501,11 +2501,11 @@ static void __net_init xfrm_dst_ops_init(struct net *net)
+ 	struct xfrm_policy_afinfo *afinfo;
+ 
+ 	rcu_read_lock_bh();
+-	afinfo = rcu_dereference(xfrm_policy_afinfo[AF_INET]);
++	afinfo = rcu_dereference_bh(xfrm_policy_afinfo[AF_INET]);
+ 	if (afinfo)
+ 		net->xfrm.xfrm4_dst_ops = *afinfo->dst_ops;
+ #if IS_ENABLED(CONFIG_IPV6)
+-	afinfo = rcu_dereference(xfrm_policy_afinfo[AF_INET6]);
++	afinfo = rcu_dereference_bh(xfrm_policy_afinfo[AF_INET6]);
+ 	if (afinfo)
+ 		net->xfrm.xfrm6_dst_ops = *afinfo->dst_ops;
+ #endif
