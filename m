@@ -1,119 +1,69 @@
-From: Daniel Wagner <wagi@monom.org>
-Subject: [PATCH v0 3/5] cgroup: Protect access to task_cls_classid() when built as module
-Date: Thu, 16 Aug 2012 16:12:14 +0200
-Message-ID: <1345126336-20755-4-git-send-email-wagi@monom.org>
-References: <1345126336-20755-1-git-send-email-wagi@monom.org>
-Cc: Daniel Wagner <daniel.wagner@bmw-carit.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Li Zefan <lizefan@huawei.com>,
-	Neil Horman <nhorman@tuxdriver.com>, Tejun Heo <tj@kernel.org>
-To: netdev@vger.kernel.org, cgroups@vger.kernel.org
+From: Chris Webb <chris@arachsys.com>
+Subject: Re: Slow inbound traffic on macvtap interfaces
+Date: Thu, 16 Aug 2012 15:27:57 +0100
+Message-ID: <20120816142756.GA9806@arachsys.com>
+References: <20120816092004.GA1894@arachsys.com>
+ <20120816114233.GA21343@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, qemu-devel@nongnu.org,
+	Jason Wang <jasowang@redhat.com>, Arnd Bergmann <arnd@arndb.de>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hotel311.server4you.de ([85.25.146.15]:32922 "EHLO
-	hotel311.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752992Ab2HPOMU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 10:12:20 -0400
-In-Reply-To: <1345126336-20755-1-git-send-email-wagi@monom.org>
+Received: from alpha.arachsys.com ([91.203.57.7]:40978 "EHLO
+	alpha.arachsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751957Ab2HPO2Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 10:28:16 -0400
+Content-Disposition: inline
+In-Reply-To: <20120816114233.GA21343@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Wagner <daniel.wagner@bmw-carit.de>
+"Michael S. Tsirkin" <mst@redhat.com> writes:
 
-The module version of task_cls_classid() checks if net_cls_sbusys_id
-is valid to indentify when it is okay to access the controller.
+> On Thu, Aug 16, 2012 at 10:20:05AM +0100, Chris Webb wrote:
+>
+> > For example, I can run
+> > 
+> >   ip addr add 192.168.1.2/24 dev eth0
+> >   ip link set eth0 up
+> >   ip link add link eth0 name tap0 address 02:02:02:02:02:02 type macvtap mode bridge
+> >   ip link set tap0 up
+> >   qemu-kvm -hda debian.img -cpu host -m 512 -vnc :0 \
+> >     -net nic,model=virtio,macaddr=02:02:02:02:02:02 \
+> >     -net tap,fd=3 3<>/dev/tap$(< /sys/class/net/tap0/ifindex)
+> > 
+> > on one physical host which is otherwise completely idle. From a second
+> > physical host on the same network, I then scp a large (say 50MB) file onto
+> > the new guest. On a gigabit LAN, speeds consistently drop to less than
+> > 100kB/s as the transfer progresses, within a second of starting.
 
-Instead relying on the subusys_id to be set, make it explicit
-with a jump label.
+> Thanks for the report.
+> I'll try to reproduce this early next week.
+> Meanwhile a question - do you still observe this behaviour if you enable
+> vhost-net?
 
-Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Gao feng <gaofeng@cn.fujitsu.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>
-Cc: Li Zefan <lizefan@huawei.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: Tejun Heo <tj@kernel.org>
-Cc: netdev@vger.kernel.org
-Cc: cgroups@vger.kernel.org
----
- include/net/cls_cgroup.h | 8 +++++++-
- net/core/sock.c          | 5 +++++
- net/sched/cls_cgroup.c   | 5 +++++
- 3 files changed, 17 insertions(+), 1 deletion(-)
+I haven't tried running with vhost-net before. Is it sufficient to compile
+the host kernel with CONFIG_VHOST_NET=y and boot the guest with
 
-diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
-index 401672c..5b91220 100644
---- a/include/net/cls_cgroup.h
-+++ b/include/net/cls_cgroup.h
-@@ -16,6 +16,7 @@
- #include <linux/cgroup.h>
- #include <linux/hardirq.h>
- #include <linux/rcupdate.h>
-+#include <linux/jump_label.h>
- 
- #ifdef CONFIG_CGROUPS
- struct cgroup_cls_state
-@@ -24,6 +25,11 @@ struct cgroup_cls_state
- 	u32 classid;
- };
- 
-+#if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
-+extern struct static_key cgroup_cls_enabled;
-+#define clscg_enabled static_key_false(&cgroup_cls_enabled)
-+#endif
-+
- extern void sock_update_classid(struct sock *sk);
- 
- #if IS_BUILTIN(CONFIG_NET_CLS_CGROUP)
-@@ -52,7 +58,7 @@ static inline u32 task_cls_classid(struct task_struct *p)
- 	int id;
- 	u32 classid = 0;
- 
--	if (in_interrupt())
-+	if (!clscg_enabled || in_interrupt())
- 		return 0;
- 
- 	rcu_read_lock();
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 8f67ced..8d3a400 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -327,6 +327,11 @@ int __sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
- EXPORT_SYMBOL(__sk_backlog_rcv);
- 
- #if defined(CONFIG_CGROUPS)
-+#if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
-+struct static_key cgroup_cls_enabled = STATIC_KEY_INIT_FALSE;
-+EXPORT_SYMBOL_GPL(cgroup_cls_enabled);
-+#endif
-+
- #if !defined(CONFIG_NET_CLS_CGROUP)
- int net_cls_subsys_id = -1;
- EXPORT_SYMBOL_GPL(net_cls_subsys_id);
-diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index 7743ea8..f40086b 100644
---- a/net/sched/cls_cgroup.c
-+++ b/net/sched/cls_cgroup.c
-@@ -44,12 +44,17 @@ static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
- 
- 	if (cgrp->parent)
- 		cs->classid = cgrp_cls_state(cgrp->parent)->classid;
-+	else if (!clscg_enabled)
-+                static_key_slow_inc(&cgroup_cls_enabled);
- 
- 	return &cs->css;
- }
- 
- static void cgrp_destroy(struct cgroup *cgrp)
- {
-+	if (!cgrp->parent && clscg_enabled)
-+                static_key_slow_dec(&cgroup_cls_enabled);
-+
- 	kfree(cgrp_cls_state(cgrp));
- }
- 
--- 
-1.7.12.rc1.16.g05a20c8
+  qemu-kvm -hda debian.img -cpu host -m 512 -vnc :0 \
+    -net nic,model=virtio,macaddr=02:02:02:02:02:02 \
+    -net tap,fd=3,vhost=on,vhostfd=4 \
+    3<>/dev/tap$(< /sys/class/net/tap0/ifindex) 4<>/dev/vhost-net
+
+? If so, then I'm afraid this doesn't make any difference: it still stalls
+and drops right down in speed.
+
+The reason I'm hesitant about whether the vhost-net is actually working is
+that with both vhost=off and vhost=on, I see an identical virtio feature set
+within the guest:
+
+  # cat /sys/bus/virtio/devices/virtio0/features 
+  0000011000000001111100000000100000000000000000000000000000000000
+
+However, without the 4<>/dev/vhost-net or with 4<>/dev/null, it seems to
+fail to start altogether with vhost=on,vhostfd=4, so perhaps it's fine?
+
+Cheers,
+
+Chris.
