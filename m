@@ -1,35 +1,24 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] sctp: fix bogus if statement in sctp_auth_recv_cid()
-Date: Thu, 16 Aug 2012 13:37:04 -0700 (PDT)
-Message-ID: <20120816.133704.75563710683878972.davem@davemloft.net>
-References: <20120816131618.GA23279@elgon.mountain>
-	<87txw266hk.fsf@xmission.com>
+From: United Nations Trust Funds <erjohnson2@liberty.edu>
+Subject: $650,500.00 USD.
+Date: Fri, 17 Aug 2012 05:08:10 +0800
+Message-ID: <52a6078c-ba78-4e3a-95cf-30b5c9a76f64__29366.4500037723$1345151332$gmane$org@BY2PRD0510HT002.namprd05.prod.outlook.com>
+Reply-To: <trustfund002@kimo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dan.carpenter@oracle.com, vyasevich@gmail.com, sri@us.ibm.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: ebiederm@xmission.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <erjohnson2@liberty.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35106 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757324Ab2HPUhF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2012 16:37:05 -0400
-In-Reply-To: <87txw266hk.fsf@xmission.com>
+Received: from va3ehsobe010.messaging.microsoft.com ([216.32.180.30]:30139
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754967Ab2HPVI1 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Aug 2012 17:08:27 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Thu, 16 Aug 2012 11:23:35 -0700
-
-> Dan Carpenter <dan.carpenter@oracle.com> writes:
-> 
->> There is an extra semi-colon here, so we always return 0 instead of
->> calling __sctp_auth_cid().
-> 
-> Doh.
-> 
-> Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
-
-Applied.
+Reply with this details to claim.
+Full Name:.....................
+Address:.......................
+Phone Number:..................
+Country:......................
