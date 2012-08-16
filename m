@@ -1,166 +1,104 @@
-From: Arvid Brodin <Arvid.Brodin@xdin.com>
-Subject: Re: [RFC v3 0/1] net/hsr: Add support for IEC 62439-3
- High-availability Seamless Redundancy
-Date: Thu, 16 Aug 2012 19:12:50 +0000
-Message-ID: <502D4632.7030209@xdin.com>
-References: <4FF38A5C.9000802@xdin.com> <1341361824.1993.16.camel@joe2Laptop>
+From: Jiang Wang <Jiang.Wang@riverbed.com>
+Subject: RE: [PATCH] bnx2: turn off the network statck during initialization
+Date: Thu, 16 Aug 2012 19:15:30 +0000
+Message-ID: <CEE05A0D7856E14880AD5560634EBEA834DB2ABC@SFO1EXC-MBXP06.nbttech.com>
+References: <1345141295-7589-1-git-send-email-Jiang.Wang@riverbed.com>
+ <1345143431.6916.36.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Joe Perches <joe@perches.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Javier Boticario <jboticario@gmail.com>,
-	Bruno Ferreira <balferreira@googlemail.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:56048 "EHLO spam1.webland.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756368Ab2HPTMy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Aug 2012 15:12:54 -0400
-In-Reply-To: <1341361824.1993.16.camel@joe2Laptop>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Chaitanya Lala <Chaitanya.Lala@riverbed.com>,
+	"Francis St. Amant" <Francis.St.Amant@riverbed.com>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1345143431.6916.36.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Content-Language: en-US
-Content-ID: <BDCD539110B8CA4E8C548D06EFCEF592@redbull.xdin.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SGVsbG8hIFRoaXMgaXMgdmVyc2lvbiAzIG9mIG15IFJGQyBmb3IgSFNSIHN1cHBvcnQuIFRoZSBj
-b21wbGV0ZSBkaWZmc3RhdCBvZiB0aGlzIHZlcnNpb24NCm9mIHRoZSBrZXJuZWwgcGF0Y2g6DQoN
-CiBEb2N1bWVudGF0aW9uL25ldHdvcmtpbmcvaHNyL2hzcl9nZW5sLmMgfCAgMjIxICsrKysrKysr
-KysrKysrDQogaW5jbHVkZS9saW51eC9pZl9ldGhlci5oICAgICAgICAgICAgICAgIHwgICAgMSAr
-DQogaW5jbHVkZS9saW51eC9pZl9saW5rLmggICAgICAgICAgICAgICAgIHwgICAxMSArDQogbmV0
-L0tjb25maWcgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgMSArDQogbmV0L01ha2Vm
-aWxlICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgMSArDQogbmV0L2hzci9LY29uZmln
-ICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAzMyArKw0KIG5ldC9oc3IvTWFrZWZpbGUgICAg
-ICAgICAgICAgICAgICAgICAgICB8ICAgIDcgKw0KIG5ldC9oc3IvaHNyX2RldmljZS5jICAgICAg
-ICAgICAgICAgICAgICB8ICA1MDYgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKw0KIG5l
-dC9oc3IvaHNyX2RldmljZS5oICAgICAgICAgICAgICAgICAgICB8ICAgMjcgKysNCiBuZXQvaHNy
-L2hzcl9mcmFtZXJlZy5jICAgICAgICAgICAgICAgICAgfCAgMzAzICsrKysrKysrKysrKysrKysr
-Kw0KIG5ldC9oc3IvaHNyX2ZyYW1lcmVnLmggICAgICAgICAgICAgICAgICB8ICAgNTIgKysrKw0K
-IG5ldC9oc3IvaHNyX21haW4uYyAgICAgICAgICAgICAgICAgICAgICB8ICA0MDIgKysrKysrKysr
-KysrKysrKysrKysrKysrDQogbmV0L2hzci9oc3JfbmV0bGluay5jICAgICAgICAgICAgICAgICAg
-IHwgIDI5MyArKysrKysrKysrKysrKysrKysNCiBuZXQvaHNyL2hzcl9uZXRsaW5rLmggICAgICAg
-ICAgICAgICAgICAgfCAgIDY0ICsrKysNCiBuZXQvaHNyL2hzcl9wcml2YXRlLmggICAgICAgICAg
-ICAgICAgICAgfCAgMTYyICsrKysrKysrKysNCiAxNSBmaWxlcyBjaGFuZ2VkLCAyMDg0IGluc2Vy
-dGlvbnMoKyksIDAgZGVsZXRpb25zKC0pDQoNCg0KQ2hhbmdlcyBzaW5jZSB2MjoNCg0KDQpPbiAy
-MDEyLTA3LTA0IDAyOjMwLCBKb2UgUGVyY2hlcyB3cm90ZToNCj4gT24gV2VkLCAyMDEyLTA3LTA0
-IGF0IDAwOjEyICswMDAwLCBBcnZpZCBCcm9kaW4gd3JvdGU6DQo+PiArc3RhdGljIGludCBpc19v
-cGVyc3RhdGVfdXAoc3RydWN0IG5ldF9kZXZpY2UgKmRldikNCj4+ICt7DQo+PiArCXJldHVybiAo
-ZGV2LT5vcGVyc3RhdGUgPT0gSUZfT1BFUl9VUCk7DQo+PiArfQ0KPiANCj4gYm9vbD8NCg0KQ2hl
-Y2suIChDaGFuZ2VkIHRvIGJvb2wgaGVyZSBhbmQgaW4gb3RoZXIgcGxhY2VzIHdoZXJlIGEgYm9v
-bGVhbiB3YXMgcmV0dXJuZWQuKQ0KDQoNCj4+ICtzdGF0aWMgdm9pZCBfX2hzcl9zZXRfb3BlcnN0
-YXRlKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIGludCB0cmFuc2l0aW9uKQ0KPj4gK3sNCj4+ICsJ
-aWYgKGRldi0+b3BlcnN0YXRlICE9IHRyYW5zaXRpb24pIHsNCj4+ICsvKg0KPj4gKwkJc3dpdGNo
-ICh0cmFuc2l0aW9uKSB7DQo+PiArCQljYXNlIElGX09QRVJfVVA6DQo+PiArCQkJcHJpbnRrKEtF
-Uk5fSU5GTyAiJXM6IG5ldyBvcGVyc3RhdGUgaXMgSUZfT1BFUl9VUFxuIiwgZGV2LT5uYW1lKTsN
-Cj4gDQo+IAluZXRkZXZfaW5mbyhkZXYsICJuZXcgb3BlcnN0YXRlIGlzIElGX09QRVJfVVBcbiIp
-Ow0KDQpDaGVjay4gQ2hhbmdlZCBhbGwgcHJpbnRvdXRzIHRvIHVzZSBuZXRkZXZfaW5mbygpIGV0
-YyBpbnN0ZWFkIG9mIHByaW50aygpL3ByX2luZm8oKS4NCg0KDQo+PiArLyoNCj4+ICsJcHJpbnRr
-KEtFUk5fSU5GTyAiU2xhdmUxLzIgb3BlcnN0YXRlOiAlZC8lZFxuIiwNCj4+ICsJCQkJCXNsYXZl
-MS0+b3BlcnN0YXRlLCBzbGF2ZTItPm9wZXJzdGF0ZSk7DQo+PiArKi8NCj4gDQo+IFBsZWFzZSBy
-ZW1vdmUgY29tbWVudGVkIG91dCBjb2RlLg0KDQpDaGVjay4gKFJlbW92ZWQgZGVidWcgY29kZTsg
-c3RpbGwgbmVlZCB0byBrZWVwIHRoZSBGSVhNRXMgc28gSSBkb24ndCBmb3JnZXQNCnRoZW0uKQ0K
-DQoNCj4+ICt2b2lkIGhzcl9zZXRfb3BlcnN0YXRlKHN0cnVjdCBuZXRfZGV2aWNlICpoc3JfZGV2
-LCBzdHJ1Y3QgbmV0X2RldmljZSAqc2xhdmUxLA0KPj4gKwkJCQkJCXN0cnVjdCBuZXRfZGV2aWNl
-ICpzbGF2ZTIpOw0KPiANCj4gcGxlYXNlIGFsaWduIGFyZ3VtZW50cyBpbW1lZGlhdGVseSBhZnRl
-ciB0aGUgb3BlbiBwYXJlbnRoZXNpcy4NCg0KQ2hlY2ssIGZpeGVkLg0KDQoNCj4+ICtpbnQgZnJh
-bWVyZWdfbWVyZ2Vfbm9kZShzdHJ1Y3QgaHNyX3ByaXYgKmhzcl9wcml2LCBlbnVtIGhzcl9kZXZf
-aWR4IGRldl9pZHgsDQo+PiArCQkJCQkJCXN0cnVjdCBza19idWZmICpza2IpDQo+PiArew0KPiBb
-XQ0KPj4gKwlub2RlID0gZmluZF9ub2RlX2J5X0FkZHJBKCZoc3JfcHJpdi0+bm9kZV9kYiwgaHNy
-X3N0YWctPk1hY0FkZHJlc3NBKTsNCj4+ICsJaWYgKCFub2RlKSB7DQo+PiArCQlyY3VfcmVhZF91
-bmxvY2soKTsNCj4+ICsJCWZvdW5kID0gMDsNCj4+ICsJCW5vZGUgPSBrbWFsbG9jKHNpemVvZigq
-bm9kZSksIEdGUF9BVE9NSUMpOw0KPiANCj4gd2h5IEdGUF9BVE9NSUM/DQoNClRoaXMgaXMgaW4g
-dGhlIGZyYW1lIHJlY2VpdmUgcGF0aDsgd2UncmUgbm90IGFsbG93ZWQgdG8gc2xlZXAgaGVyZSAo
-PykuDQoNCg0KT24gMjAxMi0wNy0wNCAwNjoyMCwgU3RlcGhlbiBIZW1taW5nZXIgd3JvdGU6DQo+
-IE9uIFdlZCwgNCBKdWwgMjAxMiAwMDoxMjoxMyArMDAwMCwgQXJ2aWQgQnJvZGluIHdyb3RlOg0K
-Pj4gZGlmZiAtLWdpdCBhL0RvY3VtZW50YXRpb24vbmV0d29ya2luZy9oc3IvaHNyX2dlbmwuYyBi
-L0RvY3VtZW50YXRpb24vbmV0d29ya2luZy9oc3IvaHNyX2dlbmwuYw0KPiAxLiBJIGxpa2UgZG9j
-dW1lbnRhdGlvbiwgSSBsaWtlIGV4YW1wbGVzLCBidXQgZXhhbXBsZXMgaW4gdGhlIERvY3VtZW50
-YXRpb24NCj4gZGlyZWN0b3J5IGdldCBzdGFsZSBhbmQgZW5kIHVwIG5vdCB3b3JraW5nLg0KDQpJ
-IHNlZSB5b3VyIHBvaW50LCBidXQgSSdkIHJlYWxseSBsaWtlIHRvIHN1cHBseSB0aGlzIGV4YW1w
-bGUgY29kZSwgYmVjYXVzZQ0KZnJhbmtseSwgdGhlIGRvY3VtZW50YXRpb24gb24gR2VuZXJpYyBO
-ZXRsaW5rIHdpdGggbGlibmwgaXNuJ3QgdmVyeSBnb29kIGlmIHlvdQ0KYXJlbid0IGFscmVhZHkg
-ImluIHRoZSBrbm93Ii4gSXQgdG9vayBzb21lIHRpbWUgdG8gZmlndXJlIHRoaXMgb3V0Lg0KDQpJ
-IGFkZGVkICJDdXJyZW50IGFzIG9mIDxkYXRlPiIgaW4gdGhlIGhlYWRlciBjb21tZW50IHNvIHRo
-YXQgcGVvcGxlIGF0IGxlYXN0IHNlZQ0Kd2hlbiBpdCBpcyBvdXQgb2YgZGF0ZS4gSXMgdGhpcyBh
-biBPSyBjb21wcm9taXNlPw0KDQoNCj4gMi4gSSBhbSBub3QgYSBmYW4gb2YgdGhlIG5vbi1zdGFu
-ZGFyZCB1bmFsaWduZWQgYWNjZXNzIG9wdGltaXphdGlvbi4NCj4gU3RpbmtzIHRvbyBtdWNoIGxp
-a2UgdGhlIG9sZCBCU0QgSUZGX1RSQUlMRVJTIHRoaW5nIHRoYXQgc3RpbGwgcGVyc2lzdHMNCj4g
-dG8gdGhpcyBkYXkuDQoNClRoaXMgaGFzIG5vdyBiZWVuIHJlbW92ZWQuIEFyY2hpdGVjdHVyZXMg
-d2l0aG91dCBIQVZFX0VGRklDSUVOVF9VTkFMSUdORURfQUNDRVNTDQp3aWxsIGFsd2F5cyBtZW1t
-b3ZlKCkgdGhlIHBheWxvYWQuDQoNCg0KPiAzLiBUaGUgY29kZSBzZWVtcyB0byBnbyB0byBhIGxv
-dCBvZiBsb2NraW5nIGVmZm9ydCB0byBnZXQgYXRvbWljIHN0YXRlDQo+ICAgIHVwZGF0ZSwgaWYg
-aXQgdXNlZCB0aGUgYml0cyBpbiBkZXZfc3RhdGUgKGllIG5ldGlmX2NhcnJpZXIgZXRjKSBpbnN0
-ZWFkIG9mDQo+ICAgIG9wZXJzdGF0ZSBhbmQgaWZfZmxhZ3MgSSB0aGluayBpdCB3b3VsZCBiZSBz
-aW1wbGVyIGFuZCBzYWZlci4gIEkuZQ0KPiANCj4gK3N0YXRpYyBpbnQgaXNfYWRtaW5fdXAoc3Ry
-dWN0IG5ldF9kZXZpY2UgKmRldikNCj4gK3sNCj4gKwlyZXR1cm4gKGRldi0+ZmxhZ3MgJiBJRkZf
-VVApOw0KPiArfQ0KPiAgICAgaXMgcmVkdW5kYW50IHdpdGggbmV0aWZfcnVubmluZygpDQoNCk5v
-dCBzdXJlIHdoYXQgeW91IG1lYW4gYnkgbmVpdGhlciAiYSBsb3Qgb2YgbG9ja2luZyBlZmZvcnQi
-IG5vciAiYXRvbWljIHN0YXRlDQp1cGRhdGUiIGhlcmU/IChQbGVhc2UgZWxhYm9yYXRlLikNCg0K
-bmV0aWZfcnVubmluZygpIGNoZWNrcyBfX0xJTktfU1RBVEVfU1RBUlQuIFRoaXMgaGFzIGdvdCB0
-byBkbyB3aXRoIGNhcnJpZXIgc3RhdGUNCnJhdGhlciB0aGFuIGFkbWluaXN0cmF0aXZlIHN0YXRl
-LCByaWdodD8gU28gaXQncyBub3QgdGhlIHNhbWUgYXMgY2hlY2tpbmcNCklGRl9VUD8gQWN0dWFs
-bHkgSSdtIHByZXR0eSBjb25mdXNlZCBieSBob3cgdGhlIGtlcm5lbCBpbXBsZW1lbnRzIHN0YXRl
-IHRyYWNraW5nDQpvZiBuZXR3b3JrIGRldmljZXMuLi4NCg0KSXQgZG9lc24ndCBzZWVtIHRvIGJl
-IG5vcm1hbCBwcmFjdGljZSB0byBjaGFuZ2Ugb3BlcnN0YXRlIGxpa2UgSSBkbywgc28gSSdtDQpw
-cm9iYWJseSBub3QgZG9pbmcgaXQgcmlnaHQuIExpbmt3YXRjaCBzZXRzIElGX09QRVJfTE9XRVJM
-QVlFUkRPV04gaW4NCmRlZmF1bHRfb3BlcnN0YXRlKCkgKG5ldC9jb3JlL2xpbmtfd2F0Y2guYykg
-aWYgIW5ldGlmX2NhcnJpZXJfb2soZGV2KSBhbmQNCihkZXYtPmlmaW5kZXggIT0gZGV2LT5pZmxp
-bmspLiBDYW4gSSB1c2UgdGhpcyBmb3IgbXkgdmlydHVhbCBoc3IgZGV2aWNlIGRyaXZlcg0Kc29t
-ZWhvdz8gV2hhdCBpcyBkZXYtPmlmbGluaz8NCg0KVGhlIEhTUiBpbnRlcmZhY2Ugc2hvdWxkIGJl
-IElGX09QRVJfTE9XRVJMQVlFUkRPV04gaWYgaXQncyBhZG1pbiBVUCBidXQgYm90aA0Kc2xhdmVz
-IGFyZSBpbm9wZXJhYmxlLg0KDQooVGhlIGxpbmt3YXRjaCByZWZlcmVuY2UgdG8gSUZfT1BFUl9M
-T1dFUkxBWUVSRE9XTiBpcyB0aGUgb25seSBvbmUgdGhhdCBJIGNhbg0KZmluZCBpbiB0aGUga2Vy
-bmVsIGNvZGUuKQ0KDQoNCj4gNC4gRG9uJ3QgdXNlIG1peGVkIGNhc2UgYXMgaW46DQo+ICAgICAg
-KwlIU1JfVmVyID0gMDsNCg0KVGhlIEhTUl9WZXIgKGFuZCBvdGhlcnMgbGlrZSBNYWNBZGRyZXNz
-QSwgSFNSX1RMVl9MZW5ndGggZXRjKSBhcmUgdGhlIG5hbWVzIGFzDQp3cml0dGVuIGluIHRoZSBI
-U1IgSUVDIHN0YW5kYXJkLiBJcyBpdCBzdGlsbCBkZXNpcmFibGUgdGhhdCBJIGNoYW5nZSB0aGVt
-IHRvDQpsb3dlciBjYXNlPw0KDQpJJ3ZlIGNoYW5nZWQgdGhlIGNvZGUgYSBiaXQgc28gdGhlIEhT
-Ul9WZXIgbG9jYWwgdmFyaWFibGUgYW5kIHNvbWUgb3RoZXJzIGFyZQ0Kbm8gbG9uZ2VyIHByZXNl
-bnQsIGJ1dCB0aGUgc3RydWN0IGhzcl90YWcgZmllbGRzIGlzIHN0aWxsIGFzIHdyaXR0ZW4gaW4g
-dGhlDQpJRUMgc3BlYy4gSSBhbHNvIGFkZGVkIGEgY29tbWVudCBhYm91dCB0aGlzLiBPaz8NCg0K
-DQo+IDUuIFRoZSBoZWFkZXIgY3JlYXRlIGNvZGUgaGFzIHRvIGhhbmRsZSBlcnJvciBjYXNlcyB3
-aGVyZToNCj4gICAgICAxLiBza2IgbXVzdCBiZSBjb3BpZWQgdG8gYWRkIGhlYWRlcg0KPiAgICAg
-IDIuIG5vIHNwYWNlIGxlZnQgZm9yIGhlYWRlciBpbiBza2INCg0KVGhlc2UgY2hlY2tzIGRvZXMg
-bm90IHNlZW0gdG8gYmUgZG9uZSBhbnl3aGVyZSBlbHNlIHdoZXJlIGV0aF9oZWFkZXIoKSBpcyB1
-c2VkLA0KYnV0IEkgYWRkZWQNCg0KCWlmIChza2JfaGVhZHJvb20oc2tiKSA8IEhTUl9UQUdMRU4g
-KyBFVEhfSExFTikNCgkJcmV0dXJuIC1FTk9CVUZTOw0KDQpJdCBpcyBub3QgcG9zc2libGUgdG8g
-Y29weSB0aGUgc2tiIHRvIG1ha2Ugcm9vbSBmb3IgdGhlIGhlYWRlciwgc2luY2UgdGhlcmUgaXMN
-Cm5vIHdheSB0byByZXR1cm4gdGhlIG5ldyBwb2ludGVyIGZyb20gaHNyX2hlYWRlcl9jcmVhdGUo
-KS4NCg0KDQo+IDYuIERvbid0IGNvbW1lbnQgb3V0IGNvZGUgYW5kIHRoZW4gc3VibWl0IGl0LiBJ
-IGRvbid0IGxpa2UgcmVhZGluZyBhbmQNCj4gICAgcmV2aWV3aW5nIGxlZnRvdmVyIGRlYnVnIHN0
-dWZmLg0KDQpTb3JyeSBhYm91dCB0aGF0LiBBbGwgZGVidWcgbGVmdG92ZXJzIHNob3VsZCBub3cg
-aGF2ZSBiZWVuIHJlbW92ZWQuDQoNCg0KPiA3LiBBbnkgb3BlcmF0aW9ucyB0eXBlIHN0cnVjdHVy
-ZSBzaG91bGQgYmUgZGVjbGFyZWQgJ2NvbnN0Jy4gVGhpcyBpcyBzYWZlcg0KPiAgICBmcm9tIGEg
-c2VjdXJpdHkgcG9pbnQgb2YgdmlldyBhbmQga2VlcHMgZGlydHkgYW5kIGltbXV0YWJsZSB2YXJp
-YWJsZXMgaW4gc2VwYXJhdGUNCj4gICAgY2FjaGUgYXJlYXMuDQoNCkluIGdlbmVyYWwsIHRoaXMg
-cmVzdWx0cyBpbiAid2FybmluZzogcGFzc2luZyBhcmd1bWVudCA8bj4gb2YgJzxzb21lLWZ1bmM+
-JyBkaXNjYXJkcw0KcXVhbGlmaWVycyBmcm9tIHBvaW50ZXIgdGFyZ2V0IHR5cGUiLCB3aGVyZSA8
-c29tZS1mdW5jPiBpcyBnZW5sX3JlZ2lzdGVyX2ZhbWlseSwNCmdlbmxfcmVnaXN0ZXJfbWNfZ3Jv
-dXAsIGRldl9hZGRfcGFjayBldGMuIEl0IGRvZXMgd29yayAoYW5kIGlzIG5vdyBmaXhlZCkgZm9y
-IHN0cnVjdA0KbmV0X2RldmljZV9vcHMgYW5kIHN0cnVjdCBubGFfcG9saWN5IHRob3VnaC4NCg0K
-DQo+IDguIElmIHBvc3NpYmxlIHVzZSBzdGFuZGFyZCBuZXRkZXYgbWFjcm9zIGZvciBwcmludGlu
-ZyBpbmZvIG1lc3NhZ2VzOg0KPiAgICAgIHNlZSBuZXRkZXZfaW5mbygpIGV0Yy4NCg0KRG9uZS4N
-Cg0KDQo+IDkuIEJlIGNhcmVmdWwgYWJvdXQgdmFyaWFibGUgbmFtZXM6ICJzZXFsb2NrIiBpbXBs
-aWVzIHlvdSBhcmUgdXNpbmcgDQo+ICAgICBzZXFfbG9jaygpIGJ1dCB5b3UgYXJlbid0IGRvaW5n
-IHRoYXQuIEl0IGlzIGp1c3QgYSBzcGlubG9jay4NCg0KQ2hlY2sgKGNoYW5nZWQgdmFyaWFibGUg
-bmFtZSB0byBzZXFucl9sb2NrIC0gaXQncyB0aGUgbG9jayBmb3IgdGhlIHNlcXVlbmNlX25yIHZh
-cmlhYmxlDQppbiB0aGUgc2FtZSBzdHJ1Y3QpLg0KDQoNCj4gMTAuIGFib3ZlKCkgc2VlbXMgbGlr
-ZSBpdCBjb3VsZCBiZSBkb25lIGJ5IHNpZ25lZCBtYXRoIGluIG9uZSBvcGVyYXRpb24NCj4gICAg
-IHdpdGhvdXQgY29uZGl0aW9uYWwgPzogb3BlcmF0aW9uLg0KPiAgICBTZWUgdGltZXJfYmVmb3Jl
-L3RpbWVyX2FmdGVyIGZvciBleGFtcGxlLg0KDQpUaGFua3MuIEkndmUgbm93IGNoYW5nZWQgdGhl
-IGZ1bmN0aW9uIHRvIHNvbWV0aGluZyBtb3JlIGFraW4gdG8gdGhlIHRpbWVfYWZ0ZXIoKQ0KZnVu
-Y3Rpb24uIEhvd2V2ZXIsIHRoZXJlJ3MgYW4gaW5jb25zaXN0ZW5jeSBpbiB0aGF0IGNvZGUgd2hl
-cmUgdGltZV9hZnRlcigwLA0KTUFYX1VUWVBFLzIpID09IHRpbWVfYmVmb3JlKDAsIE1BWF9VVFlQ
-RS8yKS4gSSBkb24ndCBsaWtlIHRoYXQsIHNvIEkga2VwdCBhbg0KaWYgc3RhdGVtZW50IHRoYXQg
-Zml4ZXMgdGhhdC4gSSBob3BlIHRoYXQncyBPSy4NCg0KDQo+IDExLiBBbGwgZ2xvYmFsIHZhcmlh
-YmxlcyBuZWVkIHRvIGhhdmUgb25lIHByZWZpeC4gIFlvdSBhcmUgdXNpbmcgYm90aCBoc3JfDQo+
-ICAgICAgYW5kIGZyYW1yZWdfLiBDYW4geW91IGp1c3QgdXNlIGhzcl8/DQoNCkRvbmUgKHVzaW5n
-IGhzcl8gb25seSBub3cpLg0KDQoNCg0KSSBoYXZlIHJ1biB0aGUgcGF0Y2ggdGhyb3VnaCBjaGVj
-a3BhdGNoIGFuZCB0aGUgcmVtYWluaW5nIGVycm9ycyBhbmQgd2FybmluZ3MgYXJlDQppbnRlbnRp
-b25hbCwgZXhjZXB0IGZvciB0aGUgIkM5OSAvLyBjb21tZW50cyIgd2hpY2ggd2lsbCBiZSBmaXhl
-ZCBpbiBkdWUgdGltZS4gSQ0KYmVsaWV2ZSBmaXhpbmcgdGhlIG90aGVyIHByb2JsZW1zIHdvdWxk
-IHJlZHVjZSB0aGUgcmVhZGFiaWxpdHkgb2YgdGhlIGNvZGUuIEkgYW0NCmhvd2V2ZXIgb3BlbiB0
-byBzdWdnZXN0aW9ucyBhYm91dCB0aGlzLCBvZiBjb3Vyc2UuDQoNCg0KLS0gDQpBcnZpZCBCcm9k
-aW4gfCBDb25zdWx0YW50IChMaW51eCkNClhESU4gQUIgfCBKYW4gU3RlbmJlY2tzIFRvcmcgMTcg
-fCBTRS0xNjQgNDAgS2lzdGEgfCBTd2VkZW4gfCB4ZGluLmNvbQ==
+Hi Michael,
+
+I just checked the code for netif_carrier_off(), and it will return if the dev is not initialized (registered) as follows:
+
+void netif_carrier_off(struct net_device *dev)
+{
+        if (!test_and_set_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
+                if (dev->reg_state == NETREG_UNINITIALIZED)
+                        return;
+                linkwatch_fire_event(dev);
+        }
+}
+
+So linkwatch_fire_event should not fire in this case, right? Thanks for the quick response.
+
+Regards,
+
+Jiang
+
+-------------------------------------
+Jiang Wang
+Member of Technical Staff
+Riverbed Technology
+Tel: (408) 522-5109
+Email: Jiang.Wang@riverbed.com
+www.riverbed.com
+
+
+-----Original Message-----
+From: Michael Chan [mailto:mchan@broadcom.com] 
+Sent: Thursday, August 16, 2012 11:57 AM
+To: Jiang Wang
+Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Chaitanya Lala; Francis St. Amant; Jiang Wang
+Subject: Re: [PATCH] bnx2: turn off the network statck during initialization
+
+On Thu, 2012-08-16 at 11:21 -0700, Jiang Wang wrote: 
+> The initialization state of bnx2 driver is wrong. It does not turn of 
+> the Linux network stack using netif_carrier_off. This may lead to 
+> inconsistent report from ethtool as the link is up but speed is 
+> unknown when the cable is not plugged in.
+> 
+> E.g.
+>         Speed: Unknown! (0)<--------------------------------------
+>         Duplex: Half       <--------------------------------------
+>         MDI: Unknown! (0)
+>         Port: Twisted Pair
+>         PHYAD: 1
+>         Transceiver: internal
+>         Auto-negotiation: on
+>         Supports Wake-on: g
+>         Wake-on: d
+>         Link detected: yes <---------------------------------------
+> 
+> This patches fixed the problem by turning off the network stack during 
+> initialization.
+> 
+> Signed-off-by: Jiang Wang <jwang@riverbed.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2.c |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bnx2.c 
+> b/drivers/net/ethernet/broadcom/bnx2.c
+> index ac7b744..ce4548d 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2.c
+> @@ -8463,6 +8463,10 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  	dev->features |= dev->hw_features;
+>  	dev->priv_flags |= IFF_UNICAST_FLT;
+>  
+> +	/* tell the stack to leave us alone until bnx2_open() is called */
+> +	netif_carrier_off(dev);
+
+We have tried this before and this didn't work.  netif_carrier_off() calls linkwatch_fire_event() to schedule the event.  If
+register_netdev() fails for whatever reason, the netdev will be freed but the link_watch event may still be scheduled.
+
+Calling netif_carrier_off() after register_netdev() returns successfully also may not work as it will race with bnx2_open() which enables IRQ.
+An linkup IRQ can happen at time and we may end up with the wrong carrier state because of the race condition.
+
+> +	netif_stop_queue(dev);
+> +
+>  	if ((rc = register_netdev(dev))) {
+>  		dev_err(&pdev->dev, "Cannot register net device\n");
+>  		goto error;
