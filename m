@@ -1,233 +1,90 @@
-From: pablo@netfilter.org
-Subject: [PATCH 1/2] netlink: kill netlink_set_nonroot
-Date: Fri, 17 Aug 2012 19:22:28 +0200
-Message-ID: <1345224149-5946-2-git-send-email-pablo@netfilter.org>
-References: <1345224149-5946-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH v2 0/7] TCP Fast Open client
+Date: Fri, 17 Aug 2012 11:15:44 -0700
+Message-ID: <CAK6E8=fUE47EiCQUs=0E2z6VVUChuKccVA_tDWZxKkFPg0YFOg@mail.gmail.com>
+References: <1342645307-17772-1-git-send-email-ycheng@google.com> <AE90C24D6B3A694183C094C60CF0A2F6026B6FB6@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, hkchu@google.com, edumazet@google.com,
+	ncardwell@google.com, sivasankar@cs.ucsd.edu,
+	netdev@vger.kernel.org
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60261 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757994Ab2HQRXh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Aug 2012 13:23:37 -0400
-In-Reply-To: <1345224149-5946-1-git-send-email-pablo@netfilter.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:53987 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757336Ab2HQSQG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2012 14:16:06 -0400
+Received: by obbuo13 with SMTP id uo13so5602487obb.19
+        for <netdev@vger.kernel.org>; Fri, 17 Aug 2012 11:16:05 -0700 (PDT)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6FB6@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+On Thu, Aug 16, 2012 at 1:50 AM, David Laight <David.Laight@aculab.com> wrote:
+> This comment is a bit late but ...
+>
+>> ...
+>> This patch series implement the client functionality of TCP Fast Open.
+>> TCP Fast Open (TFO) allows data to be carried in the SYN and SYN-ACK
+>> packets and consumed by the receiving end during the initial
+> connection
+>> handshake, thus providing a saving of up to one full round trip time
+>> (RTT)
+>> compared to standard TCP requiring a three-way handshake (3WHS) to
+>> complete before data can be exchanged.
+>> ...
+>> To use Fast Open, the client application (active SYN sender) must
+>> replace connect() socket call with sendmsg() or sendto() with the new
+>> MSG_FASTOPEN flag. If the server supports Fast Open the data exchange
+>> starts at TCP handshake. Otherwise the connection will automatically
+>> fall back to conventional TCP.
+>
+> It seems wrong to be using sendmsg() to perform a 'connect' action.
+> Anything that tries to monitor the socket state from a trace, or
+> validate the sequence of library calls will get it all wrong.
+>
+> IMHO this should be a new connect_xxx() function - and probably
+> a new system call entry.
+>
+> This is similar to the complete fubar where sctp abuses setsockopt().
+>
+> For development hacking using sendmsg() probably avoided the need
+> to hack at some code paths, but I'm sure it will cause grief in
+> the long term.
+>
+> Other OS may have much more difficultly in abusing sendmsg().
+User/developers' feedback are always welcome so thanks for that.
 
-Replace netlink_set_nonroot by one new field `flags' in
-struct netlink_kernel_cfg that is passed to netlink_kernel_create.
+First of all, sendmsg(MSG_FASTOPEN) does not exclude a new socket
+call like connect_with_data().
 
-This patch also renames NL_NONROOT_* to NL_CFG_F_NONROOT_* since
-now the flags field in nl_table is generic (so we can add more
-flags if needed in the future).
+Unlike many TCP features that don't require API change, TFO does.
+When we started, we have several non-exclusive choices:
+a) connect_xxx() like you proposed
+b) send{to|msg}(MSG_FASTOPEN)
+c) setsockopt(optval=data)
+d) setsockopt(optval=TFO), make connect() a nop, first write() sends SYN+data.
 
-Also adjust all callers in the net-next tree to use these flags
-instead of netlink_set_nonroot.
+We surveyed existing works and also discussed with a few developers
+before landing on (b). For example, R. Stevens implemented the
+pioneer work T/TCP with sendto(MSG_EOF) in BSD in his TCP/IP
+illustrated vol3. There is also a Linux patch too. So we know at
+least (b) is a viable route. Chrome browser developers chose (b) and
+quickly modified the browser accordingly to support TFO.
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/linux/netlink.h    |    9 ++++-----
- lib/kobject_uevent.c       |    2 +-
- net/core/rtnetlink.c       |    2 +-
- net/netlink/af_netlink.c   |   20 +++++++-------------
- net/netlink/genetlink.c    |    3 +--
- security/selinux/netlink.c |    2 +-
- 6 files changed, 15 insertions(+), 23 deletions(-)
+Another benefit of sendmsg is it allows vector writes right away
+and may support MSG_EOF in the future (connect()+write()+close()=SYN+data+FIN).
 
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index f74dd13..2f67621 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -174,12 +174,16 @@ struct netlink_skb_parms {
- extern void netlink_table_grab(void);
- extern void netlink_table_ungrab(void);
- 
-+#define NL_CFG_F_NONROOT_RECV	(1 << 0)
-+#define NL_CFG_F_NONROOT_SEND	(1 << 1)
-+
- /* optional Netlink kernel configuration parameters */
- struct netlink_kernel_cfg {
- 	unsigned int	groups;
- 	void		(*input)(struct sk_buff *skb);
- 	struct mutex	*cb_mutex;
- 	void		(*bind)(int group);
-+	unsigned int	flags;
- };
- 
- extern struct sock *netlink_kernel_create(struct net *net, int unit,
-@@ -258,11 +262,6 @@ extern int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
- 			      const struct nlmsghdr *nlh,
- 			      struct netlink_dump_control *control);
- 
--
--#define NL_NONROOT_RECV 0x1
--#define NL_NONROOT_SEND 0x2
--extern void netlink_set_nonroot(int protocol, unsigned flag);
--
- #endif /* __KERNEL__ */
- 
- #endif	/* __LINUX_NETLINK_H */
-diff --git a/lib/kobject_uevent.c b/lib/kobject_uevent.c
-index 0401d29..c2e9778 100644
---- a/lib/kobject_uevent.c
-+++ b/lib/kobject_uevent.c
-@@ -375,6 +375,7 @@ static int uevent_net_init(struct net *net)
- 	struct uevent_sock *ue_sk;
- 	struct netlink_kernel_cfg cfg = {
- 		.groups	= 1,
-+		.flags	= NL_CFG_F_NONROOT_RECV,
- 	};
- 
- 	ue_sk = kzalloc(sizeof(*ue_sk), GFP_KERNEL);
-@@ -422,7 +423,6 @@ static struct pernet_operations uevent_net_ops = {
- 
- static int __init kobject_uevent_init(void)
- {
--	netlink_set_nonroot(NETLINK_KOBJECT_UEVENT, NL_NONROOT_RECV);
- 	return register_pernet_subsys(&uevent_net_ops);
- }
- 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 34d975b..d83f73b 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2381,6 +2381,7 @@ static int __net_init rtnetlink_net_init(struct net *net)
- 		.groups		= RTNLGRP_MAX,
- 		.input		= rtnetlink_rcv,
- 		.cb_mutex	= &rtnl_mutex,
-+		.flags		= NL_CFG_F_NONROOT_RECV,
- 	};
- 
- 	sk = netlink_kernel_create(net, NETLINK_ROUTE, THIS_MODULE, &cfg);
-@@ -2416,7 +2417,6 @@ void __init rtnetlink_init(void)
- 	if (register_pernet_subsys(&rtnetlink_net_ops))
- 		panic("rtnetlink_init: cannot initialize rtnetlink\n");
- 
--	netlink_set_nonroot(NETLINK_ROUTE, NL_NONROOT_RECV);
- 	register_netdevice_notifier(&rtnetlink_dev_notifier);
- 
- 	rtnl_register(PF_UNSPEC, RTM_GETLINK, rtnl_getlink,
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 5463969..d04f923 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -121,7 +121,7 @@ struct netlink_table {
- 	struct nl_pid_hash	hash;
- 	struct hlist_head	mc_list;
- 	struct listeners __rcu	*listeners;
--	unsigned int		nl_nonroot;
-+	unsigned int		flags;
- 	unsigned int		groups;
- 	struct mutex		*cb_mutex;
- 	struct module		*module;
-@@ -596,7 +596,7 @@ retry:
- 
- static inline int netlink_capable(const struct socket *sock, unsigned int flag)
- {
--	return (nl_table[sock->sk->sk_protocol].nl_nonroot & flag) ||
-+	return (nl_table[sock->sk->sk_protocol].flags & flag) ||
- 	       capable(CAP_NET_ADMIN);
- }
- 
-@@ -659,7 +659,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
- 
- 	/* Only superuser is allowed to listen multicasts */
- 	if (nladdr->nl_groups) {
--		if (!netlink_capable(sock, NL_NONROOT_RECV))
-+		if (!netlink_capable(sock, NL_CFG_F_NONROOT_RECV))
- 			return -EPERM;
- 		err = netlink_realloc_groups(sk);
- 		if (err)
-@@ -721,7 +721,7 @@ static int netlink_connect(struct socket *sock, struct sockaddr *addr,
- 		return -EINVAL;
- 
- 	/* Only superuser is allowed to send multicasts */
--	if (nladdr->nl_groups && !netlink_capable(sock, NL_NONROOT_SEND))
-+	if (nladdr->nl_groups && !netlink_capable(sock, NL_CFG_F_NONROOT_SEND))
- 		return -EPERM;
- 
- 	if (!nlk->pid)
-@@ -1242,7 +1242,7 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
- 		break;
- 	case NETLINK_ADD_MEMBERSHIP:
- 	case NETLINK_DROP_MEMBERSHIP: {
--		if (!netlink_capable(sock, NL_NONROOT_RECV))
-+		if (!netlink_capable(sock, NL_CFG_F_NONROOT_RECV))
- 			return -EPERM;
- 		err = netlink_realloc_groups(sk);
- 		if (err)
-@@ -1373,7 +1373,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 		dst_pid = addr->nl_pid;
- 		dst_group = ffs(addr->nl_groups);
- 		err =  -EPERM;
--		if (dst_group && !netlink_capable(sock, NL_NONROOT_SEND))
-+		if (dst_group && !netlink_capable(sock, NL_CFG_F_NONROOT_SEND))
- 			goto out;
- 	} else {
- 		dst_pid = nlk->dst_pid;
-@@ -1578,6 +1578,7 @@ netlink_kernel_create(struct net *net, int unit,
- 		nl_table[unit].cb_mutex = cb_mutex;
- 		nl_table[unit].module = module;
- 		nl_table[unit].bind = cfg ? cfg->bind : NULL;
-+		nl_table[unit].flags = cfg ? cfg->flags : 0;
- 		nl_table[unit].registered = 1;
- 	} else {
- 		kfree(listeners);
-@@ -1676,13 +1677,6 @@ void netlink_clear_multicast_users(struct sock *ksk, unsigned int group)
- 	netlink_table_ungrab();
- }
- 
--void netlink_set_nonroot(int protocol, unsigned int flags)
--{
--	if ((unsigned int)protocol < MAX_LINKS)
--		nl_table[protocol].nl_nonroot = flags;
--}
--EXPORT_SYMBOL(netlink_set_nonroot);
--
- struct nlmsghdr *
- __nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len, int flags)
- {
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index fda4974..c1b71ae 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -918,6 +918,7 @@ static int __net_init genl_pernet_init(struct net *net)
- 	struct netlink_kernel_cfg cfg = {
- 		.input		= genl_rcv,
- 		.cb_mutex	= &genl_mutex,
-+		.flags		= NL_CFG_F_NONROOT_RECV,
- 	};
- 
- 	/* we'll bump the group number right afterwards */
-@@ -955,8 +956,6 @@ static int __init genl_init(void)
- 	if (err < 0)
- 		goto problem;
- 
--	netlink_set_nonroot(NETLINK_GENERIC, NL_NONROOT_RECV);
--
- 	err = register_pernet_subsys(&genl_pernet_ops);
- 	if (err)
- 		goto problem;
-diff --git a/security/selinux/netlink.c b/security/selinux/netlink.c
-index 8a77725..0d2cd11 100644
---- a/security/selinux/netlink.c
-+++ b/security/selinux/netlink.c
-@@ -113,13 +113,13 @@ static int __init selnl_init(void)
- {
- 	struct netlink_kernel_cfg cfg = {
- 		.groups	= SELNLGRP_MAX,
-+		.flags	= NL_CFG_F_NONROOT_RECV,
- 	};
- 
- 	selnl = netlink_kernel_create(&init_net, NETLINK_SELINUX,
- 				      THIS_MODULE, &cfg);
- 	if (selnl == NULL)
- 		panic("SELinux:  Cannot create netlink socket.");
--	netlink_set_nonroot(NETLINK_SELINUX, NL_NONROOT_RECV);
- 	return 0;
- }
- 
--- 
-1.7.10.4
+Most importantly, we want to minimize the application change in
+the hope of broader usage to collect more feedbacks about TFO.
+If many developers think a new connect() API is better, it's not
+that difficult to add one in the kernel IMO. I am happy to do try that.
+
+Cheers,
+
+Yuchung
+>
+>         David
+>
+>
+>
