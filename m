@@ -1,282 +1,289 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 13/19] netfilter: ip6tables: add MASQUERADE target
-Date: Fri, 17 Aug 2012 15:11:57 +0200
-Message-ID: <20120817131157.GA23832@1984>
+Subject: Re: [PATCH 05/19] netfilter: nf_conntrack_ipv6: improve
+ fragmentation handling
+Date: Fri, 17 Aug 2012 15:36:08 +0200
+Message-ID: <20120817133608.GB23832@1984>
 References: <1344542943-11588-1-git-send-email-kaber@trash.net>
- <1344542943-11588-14-git-send-email-kaber@trash.net>
+ <1344542943-11588-6-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:44896 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752806Ab2HQNgM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Aug 2012 09:36:12 -0400
 Content-Disposition: inline
-In-Reply-To: <1344542943-11588-14-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1344542943-11588-6-git-send-email-kaber@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Patrick,
-
-On Thu, Aug 09, 2012 at 10:08:57PM +0200, kaber@trash.net wrote:
+On Thu, Aug 09, 2012 at 10:08:49PM +0200, kaber@trash.net wrote:
 > From: Patrick McHardy <kaber@trash.net>
+> 
+> The IPv6 conntrack fragmentation currently has a couple of shortcomings.
+> Fragmentes are collected in PREROUTING/OUTPUT, are defragmented, the
+> defragmented packet is then passed to conntrack, the resulting conntrack
+> information is attached to each original fragment and the fragments then
+> continue their way through the stack.
+> 
+> Helper invocation occurs in the POSTROUTING hook, at which point only
+> the original fragments are available. The result of this is that
+> fragmented packets are never passed to helpers.
+> 
+> This patch improves the situation in the following way:
+> 
+> - If a reassembled packet belongs to a connection that has a helper
+>   assigned, the reassembled packet is passed through the stack instead
+>   of the original fragments.
+> 
+> - During defragmentation, the largest received fragment size is stored.
+>   On output, the packet is refragmented if required. If the largest
+>   received fragment size exceeds the outgoing MTU, a "packet too big"
+>   message is generated, thus behaving as if the original fragments
+>   were passed through the stack from an outside point of view.
+> 
+> - The ipv6_helper() hook function can't receive fragments anymore for
+>   connections using a helper, so it is switched to use ipv6_skip_exthdr()
+>   instead of the netfilter specific nf_ct_ipv6_skip_exthdr() and the
+>   reassembled packets are passed to connection tracking helpers.
+> 
+> The result of this is that we can properly track fragmented packets, but
+> still generate ICMPv6 Packet too big messages if we would have before.
+> 
+> This patch is also required as a precondition for IPv6 NAT, where NAT
+> helpers might enlarge packets up to a point that they require
+> fragmentation. In that case we can't generate Packet too big messages
+> since the proper MTU can't be calculated in all cases (f.i. when
+> changing textual representation of a variable amount of addresses),
+> so the packet is transparently fragmented iff the original packet or
+> fragments would have fit the outgoing MTU.
 > 
 > Signed-off-by: Patrick McHardy <kaber@trash.net>
 > ---
->  include/net/addrconf.h               |    2 +-
->  net/ipv4/netfilter/ipt_MASQUERADE.c  |    3 +-
->  net/ipv6/addrconf.c                  |    2 +-
->  net/ipv6/netfilter/Kconfig           |   12 +++
->  net/ipv6/netfilter/Makefile          |    1 +
->  net/ipv6/netfilter/ip6t_MASQUERADE.c |  135 ++++++++++++++++++++++++++++++++++
->  6 files changed, 152 insertions(+), 3 deletions(-)
->  create mode 100644 net/ipv6/netfilter/ip6t_MASQUERADE.c
-
-Please, add this chunk to this patch:
-
-diff --git a/include/net/netfilter/nf_nat.h
-b/include/net/netfilter/nf_nat.h
-index 1752f133..bd8eea7 100644
---- a/include/net/netfilter/nf_nat.h
-+++ b/include/net/netfilter/nf_nat.h
-@@ -43,7 +43,9 @@ struct nf_conn_nat {
-        struct nf_conn *ct;
-        union nf_conntrack_nat_help help;
- #if defined(CONFIG_IP_NF_TARGET_MASQUERADE) || \
--    defined(CONFIG_IP_NF_TARGET_MASQUERADE_MODULE)
-+    defined(CONFIG_IP_NF_TARGET_MASQUERADE_MODULE) || \
-+    defined(CONFIG_IP6_NF_TARGET_MASQUERADE) || \
-+    defined(CONFIG_IP6_NF_TARGET_MASQUERADE_MODULE)
-        int masq_index;
- #endif
- };
-
-Otherwise, compilation breaks with:
-
-* IPv4 NAT is disabled
-* IPv6 NAT enabled.
-
-And yes, that pile of ifdefs is really ugly, I wonder if they are
-worth for saving 4 bytes. I think most vendors usually include
-MASQUERADE support if NAT is enabled.
-
-It seems we have the tradition of keeping several similar compile time
-options in Netfilter to optimize memory in several situations (at the
-cost of polluting the code with ifdefs). Probably we can think of
-getting rid of them.
-
-> diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-> index 089a09d..9e63e76 100644
-> --- a/include/net/addrconf.h
-> +++ b/include/net/addrconf.h
-> @@ -78,7 +78,7 @@ extern struct inet6_ifaddr      *ipv6_get_ifaddr(struct net *net,
->  						 int strict);
+>  include/linux/ipv6.h                           |    1 +
+>  net/ipv6/ip6_output.c                          |    7 +++-
+>  net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   37 ++++++++++++++++++------
+>  net/ipv6/netfilter/nf_conntrack_reasm.c        |   19 ++++++++++--
+>  4 files changed, 50 insertions(+), 14 deletions(-)
+> 
+> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+> index 879db26..0b94e91 100644
+> --- a/include/linux/ipv6.h
+> +++ b/include/linux/ipv6.h
+> @@ -256,6 +256,7 @@ struct inet6_skb_parm {
+>  #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
+>  	__u16			dsthao;
+>  #endif
+> +	__u16			frag_max_size;
 >  
->  extern int			ipv6_dev_get_saddr(struct net *net,
-> -					       struct net_device *dev,
-> +					       const struct net_device *dev,
->  					       const struct in6_addr *daddr,
->  					       unsigned int srcprefs,
->  					       struct in6_addr *saddr);
-> diff --git a/net/ipv4/netfilter/ipt_MASQUERADE.c b/net/ipv4/netfilter/ipt_MASQUERADE.c
-> index 1c3aa28..5d5d4d1 100644
-> --- a/net/ipv4/netfilter/ipt_MASQUERADE.c
-> +++ b/net/ipv4/netfilter/ipt_MASQUERADE.c
-> @@ -99,7 +99,8 @@ device_cmp(struct nf_conn *i, void *ifindex)
+>  #define IP6SKB_XFRM_TRANSFORMED	1
+>  #define IP6SKB_FORWARDED	2
+> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+> index 5b2d63e..a4f6263 100644
+> --- a/net/ipv6/ip6_output.c
+> +++ b/net/ipv6/ip6_output.c
+> @@ -493,7 +493,8 @@ int ip6_forward(struct sk_buff *skb)
+>  	if (mtu < IPV6_MIN_MTU)
+>  		mtu = IPV6_MIN_MTU;
 >  
->  	if (!nat)
->  		return 0;
+> -	if (skb->len > mtu && !skb_is_gso(skb)) {
+> +	if ((!skb->local_df && skb->len > mtu && !skb_is_gso(skb)) ||
+> +	    (IP6CB(skb)->frag_max_size && IP6CB(skb)->frag_max_size > mtu)) {
+>  		/* Again, force OUTPUT device used as source address */
+>  		skb->dev = dst->dev;
+>  		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+> @@ -636,7 +637,9 @@ int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+>  	/* We must not fragment if the socket is set to force MTU discovery
+>  	 * or if the skb it not generated by a local socket.
+>  	 */
+> -	if (unlikely(!skb->local_df && skb->len > mtu)) {
+> +	if (unlikely(!skb->local_df && skb->len > mtu) ||
+> +		     (IP6CB(skb)->frag_max_size &&
+> +		      IP6CB(skb)->frag_max_size > mtu)) {
+>  		if (skb->sk && dst_allfrag(skb_dst(skb)))
+>  			sk_nocaps_add(skb->sk, NETIF_F_GSO_MASK);
+>  
+> diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+> index 4794f96..560d823 100644
+> --- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+> +++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+> @@ -153,10 +153,10 @@ static unsigned int ipv6_helper(unsigned int hooknum,
+>  	const struct nf_conn_help *help;
+>  	const struct nf_conntrack_helper *helper;
+>  	enum ip_conntrack_info ctinfo;
+> -	unsigned int ret, protoff;
+> -	unsigned int extoff = (u8 *)(ipv6_hdr(skb) + 1) - skb->data;
+> -	unsigned char pnum = ipv6_hdr(skb)->nexthdr;
 > -
-> +	if (nf_ct_l3num(i) != NFPROTO_IPV4)
-> +		return 0;
->  	return nat->masq_index == (int)(long)ifindex;
->  }
+> +	unsigned int ret;
+> +	__be16 frag_off;
+> +	int protoff;
+> +	u8 nexthdr;
 >  
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 7918181..6536404 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -1095,7 +1095,7 @@ out:
->  	return ret;
->  }
+>  	/* This is where we call the helper: as the packet goes out. */
+>  	ct = nf_ct_get(skb, &ctinfo);
+> @@ -171,9 +171,10 @@ static unsigned int ipv6_helper(unsigned int hooknum,
+>  	if (!helper)
+>  		return NF_ACCEPT;
 >  
-> -int ipv6_dev_get_saddr(struct net *net, struct net_device *dst_dev,
-> +int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst_dev,
->  		       const struct in6_addr *daddr, unsigned int prefs,
->  		       struct in6_addr *saddr)
+> -	protoff = nf_ct_ipv6_skip_exthdr(skb, extoff, &pnum,
+> -					 skb->len - extoff);
+> -	if (protoff > skb->len || pnum == NEXTHDR_FRAGMENT) {
+> +	nexthdr = ipv6_hdr(skb)->nexthdr;
+> +	protoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr,
+> +				   &frag_off);
+> +	if (protoff < 0 || (frag_off & ntohs(~0x7)) != 0) {
+>  		pr_debug("proto header not found\n");
+>  		return NF_ACCEPT;
+>  	}
+> @@ -199,9 +200,13 @@ static unsigned int ipv6_confirm(unsigned int hooknum,
+>  static unsigned int __ipv6_conntrack_in(struct net *net,
+>  					unsigned int hooknum,
+>  					struct sk_buff *skb,
+> +					const struct net_device *in,
+> +					const struct net_device *out,
+>  					int (*okfn)(struct sk_buff *))
 >  {
-> diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
-> index b27e0ad..54a5032 100644
-> --- a/net/ipv6/netfilter/Kconfig
-> +++ b/net/ipv6/netfilter/Kconfig
-> @@ -144,6 +144,18 @@ config IP6_NF_TARGET_HL
->  	(e.g. when running oldconfig). It selects
->  	CONFIG_NETFILTER_XT_TARGET_HL.
->  
-> +config IP6_NF_TARGET_MASQUERADE
-> +	tristate "MASQUERADE target support"
-> +	depends on NF_NAT_IPV6
-> +	help
-> +	  Masquerading is a special case of NAT: all outgoing connections are
-> +	  changed to seem to come from a particular interface's address, and
-> +	  if the interface goes down, those connections are lost.  This is
-> +	  only useful for dialup accounts with dynamic IP address (ie. your IP
-> +	  address will be different on next dialup).
-> +
-> +	  To compile it as a module, choose M here.  If unsure, say N.
-> +
->  config IP6_NF_FILTER
->  	tristate "Packet filtering"
->  	default m if NETFILTER_ADVANCED=n
-> diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
-> index 7677937..068bad1 100644
-> --- a/net/ipv6/netfilter/Makefile
-> +++ b/net/ipv6/netfilter/Makefile
-> @@ -34,4 +34,5 @@ obj-$(CONFIG_IP6_NF_MATCH_RPFILTER) += ip6t_rpfilter.o
->  obj-$(CONFIG_IP6_NF_MATCH_RT) += ip6t_rt.o
->  
->  # targets
-> +obj-$(CONFIG_IP6_NF_TARGET_MASQUERADE) += ip6t_MASQUERADE.o
->  obj-$(CONFIG_IP6_NF_TARGET_REJECT) += ip6t_REJECT.o
-> diff --git a/net/ipv6/netfilter/ip6t_MASQUERADE.c b/net/ipv6/netfilter/ip6t_MASQUERADE.c
-> new file mode 100644
-> index 0000000..60e9053
-> --- /dev/null
-> +++ b/net/ipv6/netfilter/ip6t_MASQUERADE.c
-> @@ -0,0 +1,135 @@
-> +/*
-> + * Copyright (c) 2011 Patrick McHardy <kaber@trash.net>
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License version 2 as
-> + * published by the Free Software Foundation.
-> + *
-> + * Based on Rusty Russell's IPv6 MASQUERADE target. Development of IPv6
-> + * NAT funded by Astaro.
-> + */
-> +
-> +#include <linux/kernel.h>
-> +#include <linux/module.h>
-> +#include <linux/netdevice.h>
-> +#include <linux/ipv6.h>
-> +#include <linux/netfilter.h>
-> +#include <linux/netfilter_ipv6.h>
-> +#include <linux/netfilter/x_tables.h>
-> +#include <net/netfilter/nf_nat.h>
-> +#include <net/addrconf.h>
-> +#include <net/ipv6.h>
-> +
-> +static unsigned int
-> +masquerade_tg6(struct sk_buff *skb, const struct xt_action_param *par)
-> +{
-> +	const struct nf_nat_range *range = par->targinfo;
-> +	enum ip_conntrack_info ctinfo;
-> +	struct in6_addr src;
+>  	struct sk_buff *reasm = skb->nfct_reasm;
 > +	struct nf_conn *ct;
-> +	struct nf_nat_range newrange;
+> +	enum ip_conntrack_info ctinfo;
+>  
+>  	/* This packet is fragmented and has reassembled packet. */
+>  	if (reasm) {
+> @@ -213,6 +218,20 @@ static unsigned int __ipv6_conntrack_in(struct net *net,
+>  			if (ret != NF_ACCEPT)
+>  				return ret;
+>  		}
 > +
-> +	ct = nf_ct_get(skb, &ctinfo);
-> +	NF_CT_ASSERT(ct && (ctinfo == IP_CT_NEW || ctinfo == IP_CT_RELATED ||
-> +			    ctinfo == IP_CT_RELATED_REPLY));
+> +		/* Conntrack helpers need the entire reassembled packet in the
+> +		 * POST_ROUTING hook.
+> +		 */
+> +		ct = nf_ct_get(reasm, &ctinfo);
+> +		if (ct != NULL && test_bit(IPS_HELPER_BIT, &ct->status)) {
+
+Two things regarding the line above:
+
+- I think this also need to check for !nf_ct_is_untracked(ct)
+
+- IPS_HELPER_BIT is only set if the CT target is used to attach
+  helpers. I know, this behaviour may seem confusing, but I didn't
+  find any better way to avoid that NAT removes the helper
+  explicitly attached via CT.
+
+  So basically now that status bit means: "this helper has been attached
+  via CT".
+
+  Setting it inconditionally in __nf_ct_try_assign_helper would break
+  the magic auto-assign helper code.
+
+  On the other hand, the automatic helper assignment is scheduled to
+  be removed (well, it would still take at least one 1.5/2 years
+  before we do so). At that time, we'll be able to say that all
+  conntrack with IPS_HELPER really has one helper. But now I think that
+  you'll have to use for nfct_help instead to check if that ct has a
+  helper.
+
+> +			nf_conntrack_get_reasm(skb);
+> +			NF_HOOK_THRESH(NFPROTO_IPV6, hooknum, reasm,
+> +				       (struct net_device *)in,
+> +				       (struct net_device *)out,
+> +				       okfn, NF_IP6_PRI_CONNTRACK + 1);
+> +			return NF_DROP_ERR(-ECANCELED);
+> +		}
 > +
-> +	if (ipv6_dev_get_saddr(dev_net(par->out), par->out,
-> +			       &ipv6_hdr(skb)->daddr, 0, &src) < 0)
-> +		return NF_DROP;
+>  		nf_conntrack_get(reasm->nfct);
+>  		skb->nfct = reasm->nfct;
+>  		skb->nfctinfo = reasm->nfctinfo;
+> @@ -228,7 +247,7 @@ static unsigned int ipv6_conntrack_in(unsigned int hooknum,
+>  				      const struct net_device *out,
+>  				      int (*okfn)(struct sk_buff *))
+>  {
+> -	return __ipv6_conntrack_in(dev_net(in), hooknum, skb, okfn);
+> +	return __ipv6_conntrack_in(dev_net(in), hooknum, skb, in, out, okfn);
+>  }
+>  
+>  static unsigned int ipv6_conntrack_local(unsigned int hooknum,
+> @@ -242,7 +261,7 @@ static unsigned int ipv6_conntrack_local(unsigned int hooknum,
+>  		net_notice_ratelimited("ipv6_conntrack_local: packet too short\n");
+>  		return NF_ACCEPT;
+>  	}
+> -	return __ipv6_conntrack_in(dev_net(out), hooknum, skb, okfn);
+> +	return __ipv6_conntrack_in(dev_net(out), hooknum, skb, in, out, okfn);
+>  }
+>  
+>  static struct nf_hook_ops ipv6_conntrack_ops[] __read_mostly = {
+> diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+> index c9c78c2..f94fb3a 100644
+> --- a/net/ipv6/netfilter/nf_conntrack_reasm.c
+> +++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+> @@ -190,6 +190,7 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
+>  			     const struct frag_hdr *fhdr, int nhoff)
+>  {
+>  	struct sk_buff *prev, *next;
+> +	unsigned int payload_len;
+>  	int offset, end;
+>  
+>  	if (fq->q.last_in & INET_FRAG_COMPLETE) {
+> @@ -197,8 +198,10 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
+>  		goto err;
+>  	}
+>  
+> +	payload_len = ntohs(ipv6_hdr(skb)->payload_len);
 > +
-> +	nfct_nat(ct)->masq_index = par->out->ifindex;
+>  	offset = ntohs(fhdr->frag_off) & ~0x7;
+> -	end = offset + (ntohs(ipv6_hdr(skb)->payload_len) -
+> +	end = offset + (payload_len -
+>  			((u8 *)(fhdr + 1) - (u8 *)(ipv6_hdr(skb) + 1)));
+>  
+>  	if ((unsigned int)end > IPV6_MAXPLEN) {
+> @@ -307,6 +310,8 @@ found:
+>  	skb->dev = NULL;
+>  	fq->q.stamp = skb->tstamp;
+>  	fq->q.meat += skb->len;
+> +	if (payload_len > fq->q.max_size)
+> +		fq->q.max_size = payload_len;
+>  	atomic_add(skb->truesize, &nf_init_frags.mem);
+>  
+>  	/* The first fragment.
+> @@ -412,10 +417,12 @@ nf_ct_frag6_reasm(struct nf_ct_frag6_queue *fq, struct net_device *dev)
+>  	}
+>  	atomic_sub(head->truesize, &nf_init_frags.mem);
+>  
+> +	head->local_df = 1;
+>  	head->next = NULL;
+>  	head->dev = dev;
+>  	head->tstamp = fq->q.stamp;
+>  	ipv6_hdr(head)->payload_len = htons(payload_len);
+> +	IP6CB(head)->frag_max_size = sizeof(struct ipv6hdr) + fq->q.max_size;
+>  
+>  	/* Yes, and fold redundant checksum back. 8) */
+>  	if (head->ip_summed == CHECKSUM_COMPLETE)
+> @@ -592,6 +599,7 @@ void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
+>  			int (*okfn)(struct sk_buff *))
+>  {
+>  	struct sk_buff *s, *s2;
+> +	unsigned int ret = 0;
+>  
+>  	for (s = NFCT_FRAG6_CB(skb)->orig; s;) {
+>  		nf_conntrack_put_reasm(s->nfct_reasm);
+> @@ -601,8 +609,13 @@ void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
+>  		s2 = s->next;
+>  		s->next = NULL;
+>  
+> -		NF_HOOK_THRESH(NFPROTO_IPV6, hooknum, s, in, out, okfn,
+> -			       NF_IP6_PRI_CONNTRACK_DEFRAG + 1);
+> +		if (ret != -ECANCELED)
+> +			ret = NF_HOOK_THRESH(NFPROTO_IPV6, hooknum, s,
+> +					     in, out, okfn,
+> +					     NF_IP6_PRI_CONNTRACK_DEFRAG + 1);
+> +		else
+> +			kfree_skb(s);
 > +
-> +	newrange.flags		= range->flags | NF_NAT_RANGE_MAP_IPS;
-> +	newrange.min_addr.in6	= src;
-> +	newrange.max_addr.in6	= src;
-> +	newrange.min_proto	= range->min_proto;
-> +	newrange.max_proto	= range->max_proto;
-> +
-> +	return nf_nat_setup_info(ct, &newrange, NF_NAT_MANIP_SRC);
-> +}
-> +
-> +static int masquerade_tg6_checkentry(const struct xt_tgchk_param *par)
-> +{
-> +	const struct nf_nat_range *range = par->targinfo;
-> +
-> +	if (range->flags & NF_NAT_RANGE_MAP_IPS)
-> +		return -EINVAL;
-> +	return 0;
-> +}
-> +
-> +static int device_cmp(struct nf_conn *ct, void *ifindex)
-> +{
-> +	const struct nf_conn_nat *nat = nfct_nat(ct);
-> +
-> +	if (!nat)
-> +		return 0;
-> +	if (nf_ct_l3num(ct) != NFPROTO_IPV6)
-> +		return 0;
-> +	return nat->masq_index == (int)(long)ifindex;
-> +}
-> +
-> +static int masq_device_event(struct notifier_block *this,
-> +			     unsigned long event, void *ptr)
-> +{
-> +	const struct net_device *dev = ptr;
-> +	struct net *net = dev_net(dev);
-> +
-> +	if (event == NETDEV_DOWN)
-> +		nf_ct_iterate_cleanup(net, device_cmp,
-> +				      (void *)(long)dev->ifindex);
-> +
-> +	return NOTIFY_DONE;
-> +}
-> +
-> +static struct notifier_block masq_dev_notifier = {
-> +	.notifier_call	= masq_device_event,
-> +};
-> +
-> +static int masq_inet_event(struct notifier_block *this,
-> +			   unsigned long event, void *ptr)
-> +{
-> +	struct inet6_ifaddr *ifa = ptr;
-> +
-> +	return masq_device_event(this, event, ifa->idev->dev);
-> +}
-> +
-> +static struct notifier_block masq_inet_notifier = {
-> +	.notifier_call	= masq_inet_event,
-> +};
-> +
-> +static struct xt_target masquerade_tg6_reg __read_mostly = {
-> +	.name		= "MASQUERADE",
-> +	.family		= NFPROTO_IPV6,
-> +	.checkentry	= masquerade_tg6_checkentry,
-> +	.target		= masquerade_tg6,
-> +	.targetsize	= sizeof(struct nf_nat_range),
-> +	.table		= "nat",
-> +	.hooks		= 1 << NF_INET_POST_ROUTING,
-> +	.me		= THIS_MODULE,
-> +};
-> +
-> +static int __init masquerade_tg6_init(void)
-> +{
-> +	int err;
-> +
-> +	err = xt_register_target(&masquerade_tg6_reg);
-> +	if (err == 0) {
-> +		register_netdevice_notifier(&masq_dev_notifier);
-> +		register_inet6addr_notifier(&masq_inet_notifier);
-> +	}
-> +
-> +	return err;
-> +}
-> +static void __exit masquerade_tg6_exit(void)
-> +{
-> +	unregister_inet6addr_notifier(&masq_inet_notifier);
-> +	unregister_netdevice_notifier(&masq_dev_notifier);
-> +	xt_unregister_target(&masquerade_tg6_reg);
-> +}
-> +
-> +module_init(masquerade_tg6_init);
-> +module_exit(masquerade_tg6_exit);
-> +
-> +MODULE_LICENSE("GPL");
-> +MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
-> +MODULE_DESCRIPTION("Xtables: automatic address SNAT");
+>  		s = s2;
+>  	}
+>  	nf_conntrack_put_reasm(skb);
 > -- 
 > 1.7.1
 > 
