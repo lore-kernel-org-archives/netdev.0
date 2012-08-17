@@ -1,90 +1,142 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH v2 0/7] TCP Fast Open client
-Date: Fri, 17 Aug 2012 11:15:44 -0700
-Message-ID: <CAK6E8=fUE47EiCQUs=0E2z6VVUChuKccVA_tDWZxKkFPg0YFOg@mail.gmail.com>
-References: <1342645307-17772-1-git-send-email-ycheng@google.com> <AE90C24D6B3A694183C094C60CF0A2F6026B6FB6@saturn3.aculab.com>
+From: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH v1 3/5] cgroup: Protect access to task_cls_classid() when
+ built as module
+Date: Fri, 17 Aug 2012 14:28:55 -0400
+Message-ID: <20120817182855.GA11607@hmsreliant.think-freely.org>
+References: <1345215494-9181-1-git-send-email-wagi@monom.org>
+ <1345215494-9181-4-git-send-email-wagi@monom.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, hkchu@google.com, edumazet@google.com,
-	ncardwell@google.com, sivasankar@cs.ucsd.edu,
-	netdev@vger.kernel.org
-To: David Laight <David.Laight@aculab.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:53987 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757336Ab2HQSQG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2012 14:16:06 -0400
-Received: by obbuo13 with SMTP id uo13so5602487obb.19
-        for <netdev@vger.kernel.org>; Fri, 17 Aug 2012 11:16:05 -0700 (PDT)
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6FB6@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1345215494-9181-4-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 16, 2012 at 1:50 AM, David Laight <David.Laight@aculab.com> wrote:
-> This comment is a bit late but ...
->
->> ...
->> This patch series implement the client functionality of TCP Fast Open.
->> TCP Fast Open (TFO) allows data to be carried in the SYN and SYN-ACK
->> packets and consumed by the receiving end during the initial
-> connection
->> handshake, thus providing a saving of up to one full round trip time
->> (RTT)
->> compared to standard TCP requiring a three-way handshake (3WHS) to
->> complete before data can be exchanged.
->> ...
->> To use Fast Open, the client application (active SYN sender) must
->> replace connect() socket call with sendmsg() or sendto() with the new
->> MSG_FASTOPEN flag. If the server supports Fast Open the data exchange
->> starts at TCP handshake. Otherwise the connection will automatically
->> fall back to conventional TCP.
->
-> It seems wrong to be using sendmsg() to perform a 'connect' action.
-> Anything that tries to monitor the socket state from a trace, or
-> validate the sequence of library calls will get it all wrong.
->
-> IMHO this should be a new connect_xxx() function - and probably
-> a new system call entry.
->
-> This is similar to the complete fubar where sctp abuses setsockopt().
->
-> For development hacking using sendmsg() probably avoided the need
-> to hack at some code paths, but I'm sure it will cause grief in
-> the long term.
->
-> Other OS may have much more difficultly in abusing sendmsg().
-User/developers' feedback are always welcome so thanks for that.
+On Fri, Aug 17, 2012 at 04:58:12PM +0200, Daniel Wagner wrote:
+> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+> 
+> The module version of task_cls_classid() checks if net_cls_sbusys_id
+> is valid to indentify when it is okay to access the controller.
+> 
+> Instead relying on the subusys_id to be set, make it explicit
+> with a jump label.
+> 
+> Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+> Cc: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+> Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Cc: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> ---
+>  include/net/cls_cgroup.h | 5 ++++-
+>  net/core/sock.c          | 5 +++++
+>  net/sched/cls_cgroup.c   | 9 +++++++++
+>  3 files changed, 18 insertions(+), 1 deletion(-)
+> 
+> diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
+> index 401672c..bbbd957 100644
+> --- a/include/net/cls_cgroup.h
+> +++ b/include/net/cls_cgroup.h
+> @@ -16,6 +16,7 @@
+>  #include <linux/cgroup.h>
+>  #include <linux/hardirq.h>
+>  #include <linux/rcupdate.h>
+> +#include <linux/jump_label.h>
+>  
+>  #ifdef CONFIG_CGROUPS
+>  struct cgroup_cls_state
+> @@ -44,6 +45,8 @@ static inline u32 task_cls_classid(struct task_struct *p)
+>  }
+>  
+>  #elif IS_MODULE(CONFIG_NET_CLS_CGROUP)
+> +extern struct static_key cgroup_cls_enabled;
+> +#define clscg_enabled static_key_false(&cgroup_cls_enabled)
+>  
+>  extern int net_cls_subsys_id;
+>  
+> @@ -52,7 +55,7 @@ static inline u32 task_cls_classid(struct task_struct *p)
+>  	int id;
+>  	u32 classid = 0;
+>  
+> -	if (in_interrupt())
+> +	if (!clscg_enabled || in_interrupt())
+>  		return 0;
+>  
+>  	rcu_read_lock();
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index 8f67ced..8106e77 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -327,6 +327,11 @@ int __sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+>  EXPORT_SYMBOL(__sk_backlog_rcv);
+>  
+>  #if defined(CONFIG_CGROUPS)
+> +#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
+> +struct static_key cgroup_cls_enabled = STATIC_KEY_INIT_FALSE;
+> +EXPORT_SYMBOL_GPL(cgroup_cls_enabled);
+> +#endif
+> +
+>  #if !defined(CONFIG_NET_CLS_CGROUP)
+>  int net_cls_subsys_id = -1;
+>  EXPORT_SYMBOL_GPL(net_cls_subsys_id);
+> diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+> index 7743ea8..0635894 100644
+> --- a/net/sched/cls_cgroup.c
+> +++ b/net/sched/cls_cgroup.c
+> @@ -44,12 +44,21 @@ static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
+>  
+>  	if (cgrp->parent)
+>  		cs->classid = cgrp_cls_state(cgrp->parent)->classid;
+> +#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
+> +	else if (!clscg_enabled)
+> +                static_key_slow_inc(&cgroup_cls_enabled);
+This is racy I think.  The read of the static key is atomic with other reads,
+but the entire conditional is not atomic.  If two cpus were creating cgroups in
+parallel, it would be possible for both to read the static key as being zero
+(the second cpu would read the key before the first cpu could increment it).
+> +#endif
+>  
+>  	return &cs->css;
+>  }
+>  
+>  static void cgrp_destroy(struct cgroup *cgrp)
+>  {
+> +#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
+> +	if (!cgrp->parent && clscg_enabled)
+> +                static_key_slow_dec(&cgroup_cls_enabled);
+Ditto here with the race above.  I think what you want is one of:
 
-First of all, sendmsg(MSG_FASTOPEN) does not exclude a new socket
-call like connect_with_data().
+1) Use static_key_slow_[inc|dec] unconditionally 
 
-Unlike many TCP features that don't require API change, TFO does.
-When we started, we have several non-exclusive choices:
-a) connect_xxx() like you proposed
-b) send{to|msg}(MSG_FASTOPEN)
-c) setsockopt(optval=data)
-d) setsockopt(optval=TFO), make connect() a nop, first write() sends SYN+data.
+2) Keep a separate internal counter to track the number of cgroup instances
+so that you only inc the static key on the first create and dec it on the last
+delete.
 
-We surveyed existing works and also discussed with a few developers
-before landing on (b). For example, R. Stevens implemented the
-pioneer work T/TCP with sendto(MSG_EOF) in BSD in his TCP/IP
-illustrated vol3. There is also a Linux patch too. So we know at
-least (b) is a viable route. Chrome browser developers chose (b) and
-quickly modified the browser accordingly to support TFO.
+I would think (1) would be sufficent.  It looks like static_key_slow_inc uses
+atomic_inc_not_zero to just do an inc anyway in the event that multiple inc
+events are made.
 
-Another benefit of sendmsg is it allows vector writes right away
-and may support MSG_EOF in the future (connect()+write()+close()=SYN+data+FIN).
+Neil
 
-Most importantly, we want to minimize the application change in
-the hope of broader usage to collect more feedbacks about TFO.
-If many developers think a new connect() API is better, it's not
-that difficult to add one in the kernel IMO. I am happy to do try that.
-
-Cheers,
-
-Yuchung
->
->         David
->
->
->
+> +#endif
+> +
+>  	kfree(cgrp_cls_state(cgrp));
+>  }
+>  
+> -- 
+> 1.7.12.rc1.16.g05a20c8
+> 
+> 
