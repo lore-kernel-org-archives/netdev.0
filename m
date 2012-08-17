@@ -1,53 +1,56 @@
 From: pablo@netfilter.org
-Subject: [PATCH 1/5] netfilter: nf_ct_sip: fix helper name
-Date: Fri, 17 Aug 2012 16:09:29 +0200
-Message-ID: <1345212573-3076-2-git-send-email-pablo@netfilter.org>
-References: <1345212573-3076-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 0/5] netfilter fixes for 3.6-rc
+Date: Fri, 17 Aug 2012 16:09:28 +0200
+Message-ID: <1345212573-3076-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1345212573-3076-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:48108 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752117Ab2HQOKk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Aug 2012 10:10:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Commit 3a8fc53a (netfilter: nf_ct_helper: allocate 16 bytes for the helper
-and policy names) introduced a bug in the SIP helper, the helper name is
-sprinted to the sip_names array instead of instead of into the helper
-structure. This breaks the helper match and the /proc/net/nf_conntrack_expect
-output.
+Hi David,
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_conntrack_sip.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+The following five patches contain fixes for 3.6-rc, they are:
 
-diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
-index 758a1ba..2fb6669 100644
---- a/net/netfilter/nf_conntrack_sip.c
-+++ b/net/netfilter/nf_conntrack_sip.c
-@@ -1515,7 +1515,6 @@ static int sip_help_udp(struct sk_buff *skb, unsigned int protoff,
- }
- 
- static struct nf_conntrack_helper sip[MAX_PORTS][4] __read_mostly;
--static char sip_names[MAX_PORTS][4][sizeof("sip-65535")] __read_mostly;
- 
- static const struct nf_conntrack_expect_policy sip_exp_policy[SIP_EXPECT_MAX + 1] = {
- 	[SIP_EXPECT_SIGNALLING] = {
-@@ -1585,9 +1584,9 @@ static int __init nf_conntrack_sip_init(void)
- 			sip[i][j].me = THIS_MODULE;
- 
- 			if (ports[i] == SIP_PORT)
--				sprintf(sip_names[i][j], "sip");
-+				sprintf(sip[i][j].name, "sip");
- 			else
--				sprintf(sip_names[i][j], "sip-%u", i);
-+				sprintf(sip[i][j].name, "sip-%u", i);
- 
- 			pr_debug("port #%u: %u\n", i, ports[i]);
- 
+* Two fixes for message parsing in the SIP conntrack helper, from
+  Patrick McHardy.
+
+* One fix for the SIP helper introduced in the user-space cthelper
+  infrastructure, from Patrick McHardy.
+
+* fix missing appropriate locking while modifying one conntrack entry
+  from the nfqueue integration code, from myself.
+
+* fix possible access to uninitiliazed timer in the nf_conntrack
+  expectation infrastructure, from myself.
+
+You can pull these changes from:
+
+git://1984.lsi.us.es/nf
+
+Thanks!
+
+Pablo Neira Ayuso (2):
+  netfilter: ctnetlink: fix missing locking while changing conntrack from nfqueue
+  netfilter: nf_ct_expect: fix possible access to uninitialized timer
+
+Patrick McHardy (3):
+  netfilter: nf_ct_sip: fix helper name
+  netfilter: nf_ct_sip: fix IPv6 address parsing
+  netfilter: nf_nat_sip: fix via header translation with multiple parameters
+
+ include/linux/netfilter/nf_conntrack_sip.h |    2 +-
+ net/ipv4/netfilter/nf_nat_sip.c            |    9 +--
+ net/netfilter/nf_conntrack_expect.c        |   29 ++-------
+ net/netfilter/nf_conntrack_netlink.c       |    7 ++-
+ net/netfilter/nf_conntrack_sip.c           |   92 ++++++++++++++++++++++------
+ 5 files changed, 90 insertions(+), 49 deletions(-)
+
 -- 
 1.7.10.4
-
