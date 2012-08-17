@@ -1,48 +1,22 @@
-From: pablo@netfilter.org
-Subject: [PATCH 4/5] netfilter: ctnetlink: fix missing locking while changing conntrack from nfqueue
-Date: Fri, 17 Aug 2012 16:09:32 +0200
-Message-ID: <1345212573-3076-5-git-send-email-pablo@netfilter.org>
-References: <1345212573-3076-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1345212573-3076-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alan Cox <alan@linux.intel.com>
+Subject: Linux -next build failure
+Date: Fri, 17 Aug 2012 16:03:42 +0100
+Message-ID: <20120817160342.74d15dd5@bob.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:47140 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932152Ab2HQOqM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Aug 2012 10:46:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+Build with CONFIG_TIGON3=y and CONFIG_HWMON=m
 
-Since 9cb017665 netfilter: add glue code to integrate nfnetlink_queue and
-ctnetlink, we can modify the conntrack entry via nfnl_queue. However, the
-change of the conntrack entry via nfnetlink_queue requires appropriate
-locking to avoid concurrent updates.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_conntrack_netlink.c |    7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index 14f67a2..da4fc37 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -1896,10 +1896,15 @@ static int
- ctnetlink_nfqueue_parse(const struct nlattr *attr, struct nf_conn *ct)
- {
- 	struct nlattr *cda[CTA_MAX+1];
-+	int ret;
- 
- 	nla_parse_nested(cda, CTA_MAX, attr, ct_nla_policy);
- 
--	return ctnetlink_nfqueue_parse_ct((const struct nlattr **)cda, ct);
-+	spin_lock_bh(&nf_conntrack_lock);
-+	ret = ctnetlink_nfqueue_parse_ct((const struct nlattr **)cda, ct);
-+	spin_unlock_bh(&nf_conntrack_lock);
-+
-+	return ret;
- }
- 
- static struct nfq_ct_hook ctnetlink_nfqueue_hook = {
--- 
-1.7.10.4
-
+drivers/built-in.o: In function `tg3_close':
+tg3.c:(.text+0xe223a): undefined reference to `hwmon_device_unregister'
+drivers/built-in.o: In function `tg3_hwmon_open':
+tg3.c:(.text+0xe6109): undefined reference to `hwmon_device_register'
