@@ -1,47 +1,37 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] smsc75xx: add missing entry to MAINTAINERS
-Date: Fri, 17 Aug 2012 09:21:57 -0700
-Message-ID: <1345220517.8407.3.camel@joe2Laptop>
-References: <1345103618-22753-1-git-send-email-steve.glendinning@shawell.net>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [RFC PATCH 0/1] sched: Add a new API to find the prefer idlest
+ cpu
+Date: Fri, 17 Aug 2012 18:48:54 +0200
+Message-ID: <1345222134.29668.63.camel@twins>
+References: <1343026634.13461.15.camel@oc3660625478.ibm.com>
+	 <1345217986.16533.1.camel@oc3660625478.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	trivial@rustcorp.com.au
-To: Steve Glendinning <steve.glendinning@shawell.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, mingo@redhat.com,
+	netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	vivek@us.ibm.com, sri@us.ibm.com
+To: Shirley Ma <mashirle@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:53290 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757164Ab2HQQV7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Aug 2012 12:21:59 -0400
-In-Reply-To: <1345103618-22753-1-git-send-email-steve.glendinning@shawell.net>
+Received: from casper.infradead.org ([85.118.1.10]:51287 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758423Ab2HQQtH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2012 12:49:07 -0400
+In-Reply-To: <1345217986.16533.1.camel@oc3660625478.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-08-16 at 08:53 +0100, Steve Glendinning wrote:
-> Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
-[]
-> diff --git a/MAINTAINERS b/MAINTAINERS
-[]
-> +USB SMSC75XX ETHERNET DRIVER
-> +M:	Steve Glendinning <steve.glendinning@shawell.net>
-> +L:	netdev@vger.kernel.org
-> +S:	Maintained
-> +F:	drivers/net/usb/smsc75xx.*
-> +
->  USB SMSC95XX ETHERNET DRIVER
->  M:	Steve Glendinning <steve.glendinning@shawell.net>
->  L:	netdev@vger.kernel.org
+On Fri, 2012-08-17 at 08:39 -0700, Shirley Ma wrote:
 
-Hi Steve.
+> Hello Ingo, Peter,
+>         Have you had chance to review below patch?
 
-Perhaps you could have a single updated [79]5xx entry with
-F:	drivers/net/usb/smsc[79]5xx.*
+Well no of course not, nobody CC'ed us..
 
-or
+Your patch submission sucks, you split the changelog and the actual
+patch into two different emails.
 
-F:	drivers/net/usb/smsc?5xx.*
+It doesn't mention who would be calling this and how often. Nor does it
+seem to explain where the cpumask arguments come from.
 
-Also, diff makes it seem the drivers aren't significantly
-different.  Might it be better to integrate the 2 drivers
-into a single driver that supports both?
+Please try again.
