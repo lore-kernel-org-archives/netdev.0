@@ -1,66 +1,36 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 2/3] drivers/net/wan/dscc4.c: fix error return code
-Date: Fri, 17 Aug 2012 09:46:57 +0200
-Message-ID: <1345189618-13758-3-git-send-email-Julia.Lawall@lip6.fr>
-References: <1345189618-13758-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1345189618-13758-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: Re: [PATCH v0 3/5] cgroup: Protect access to task_cls_classid() when
+ built as module
+Date: Fri, 17 Aug 2012 09:55:27 +0200
+Message-ID: <502DF8EF.1070202@monom.org>
+References: <1345126336-20755-1-git-send-email-wagi@monom.org> <1345126336-20755-4-git-send-email-wagi@monom.org> <502DF43F.9010209@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <502DF43F.9010209-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+On 17.08.2012 09:35, Li Zefan wrote:
+>> +#if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
+>> +extern struct static_key cgroup_cls_enabled;
+>> +#define clscg_enabled static_key_false(&cgroup_cls_enabled)
+>> +#endif
+>> +
+> 
+> If it's built-in, clscg_enabled is always true (after we call cgroup_subsys_init at
+> boot), so we don't need jump label at all.
 
-Move up the initialization of rc so that failure of pci_alloc_consistent
-returns -ENOMEM as well.
+Okay. I'll update the patches so that only the module built contain the
+jump labels.
 
-A simplified version of the semantic match that finds this problem is as
-follows: (http://coccinelle.lip6.fr/)
-
-// <smpl>
-@@
-identifier ret;
-expression e1,e2;
-@@
-
-if (ret < 0)
- { ... return ret; }
- ... when != ret = e1
-     when forall
-*if(...)
- {
-  ... when != ret = e2
-* return ret;
- }
-// </smpl>
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
- drivers/net/wan/dscc4.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
-index 9eb6479..ef36caf 100644
---- a/drivers/net/wan/dscc4.c
-+++ b/drivers/net/wan/dscc4.c
-@@ -774,14 +774,15 @@ static int __devinit dscc4_init_one(struct pci_dev *pdev,
- 	}
- 	/* Global interrupt queue */
- 	writel((u32)(((IRQ_RING_SIZE >> 5) - 1) << 20), ioaddr + IQLENR1);
-+
-+	rc = -ENOMEM;
-+
- 	priv->iqcfg = (__le32 *) pci_alloc_consistent(pdev,
- 		IRQ_RING_SIZE*sizeof(__le32), &priv->iqcfg_dma);
- 	if (!priv->iqcfg)
- 		goto err_free_irq_5;
- 	writel(priv->iqcfg_dma, ioaddr + IQCFG);
- 
--	rc = -ENOMEM;
--
- 	/*
- 	 * SCC 0-3 private rx/tx irq structures
- 	 * IQRX/TXi needs to be set soon. Learned it the hard way...
+daniel
