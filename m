@@ -1,36 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: suspicious RCU usage in xfrm_net_init()
-Date: Thu, 16 Aug 2012 19:41:29 -0700 (PDT)
-Message-ID: <20120816.194129.1416562963060076374.davem@davemloft.net>
-References: <20120816151949.GA18681@localhost>
-	<502D9938.2010908@windriver.com>
-	<CAP=VYLqHW+NOS-gPgUkUpZh-Vim2jkmMT7NK+7uRbg730d=xHw@mail.gmail.com>
+From: Michael Wang <wangyun@linux.vnet.ibm.com>
+Subject: [PATCH 0/3] raid, kmemleak, netfilter: replace list_for_each_continue_rcu
+ with new interface
+Date: Fri, 17 Aug 2012 12:33:22 +0800
+Message-ID: <502DC992.4040304@linux.vnet.ibm.com>
+References: <502CB91E.4050304@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: fan.du@windriver.com, fengguang.wu@intel.com,
-	Priyanka.Jain@freescale.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: paul.gortmaker@windriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAP=VYLqHW+NOS-gPgUkUpZh-Vim2jkmMT7NK+7uRbg730d=xHw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: neilb@suse.de, catalin.marinas@arm.com, David Miller <davem@davemloft.net>,
+        kaber@trash.net, pablo@netfilter.org,
+        "paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>
+To: LKML <linux-kernel@vger.kernel.org>, linux-raid@vger.kernel.org,
+        linux-mm@kvack.org, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        netfilter@vger.kernel.org, coreteam@netfilter.org,
+        netfilter-devel@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <502CB91E.4050304@linux.vnet.ibm.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Thu, 16 Aug 2012 21:34:25 -0400
+From: Michael Wang <wangyun@linux.vnet.ibm.com>
 
-> Also, a patch should describe the problem it solves (i.e. the symptom
-> the end user sees), and how the problem originated, and why the fix
-> in the patch is the _right_ fix.  The worst description a commit log
-> can have is one that just describes the C change in words, since
-> most people can read C on their own.
+This patch set will replace the list_for_each_continue_rcu with the new
+interface list_for_each_entry_continue_rcu, so we could remove the old
+one later.
 
-I've frankly given up on Fan Du submitting sophisticated patches
-that are easy to review and are properly documented.
+Changed:
+	raid:		in "next_active_rdev"
+	kmemleak:	in "kmemleak_seq_next"
+	netfilter:	in "nf_iterate"	
 
-Just getting simple things like a WORKING EMAIL ADDRESS was beyond a
-struggle.
+Tested:
+	raid:
+		mdadm command with an internal bitmap.
+	kmemleak:
+		enable kmemleak and check the info it captured.
+	netfilter:
+		add rule to iptables and check result by ping.
+		nfqnl_test which is a test utility of libnetfilter_queue.
 
-So when I get a patch that applies, from a properly working email
-address, it's an accomplishment.
+	All testing are using printk to make sure the code we want test
+	was invoked.
+
+Signed-off-by: Michael Wang <wangyun@linux.vnet.ibm.com>
+---
+ drivers/md/bitmap.c  |    9 +++------
+ mm/kmemleak.c        |    6 ++----
+ net/netfilter/core.c |   11 +++++++----
+ 3 files changed, 12 insertions(+), 14 deletions(-)
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
