@@ -1,45 +1,24 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH] NET: xfrm, use correct rcu dereference helper
-Date: Fri, 17 Aug 2012 15:38:36 +0200
-Message-ID: <1345210716-24556-1-git-send-email-jslaby@suse.cz>
-Cc: netdev@vger.kernel.org, jirislaby@gmail.com,
-	linux-kernel@vger.kernel.org, Jiri Slaby <jslaby@suse.cz>,
-	Priyanka Jain <Priyanka.Jain@freescale.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 00/19] netfilter: IPv6 NAT
+Date: Fri, 17 Aug 2012 15:42:38 +0200
+Message-ID: <20120817134238.GC23832@1984>
+References: <1344542943-11588-1-git-send-email-kaber@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1344542943-11588-1-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use rcu_dereference_bh while holding bh rcu lock. Otherwise we get:
-===============================
-[ INFO: suspicious RCU usage. ]
-3.6.0-rc1-next-20120816+ #10 Not tainted
--------------------------------
-net/xfrm/xfrm_policy.c:2504 suspicious rcu_dereference_check() usage!
+On Thu, Aug 09, 2012 at 10:08:44PM +0200, kaber@trash.net wrote:
+[...]
+> - Patches 16-19 add some IPv6-capable ports of existing NAT helpers
 
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: Priyanka Jain <Priyanka.Jain@freescale.com>
----
- net/xfrm/xfrm_policy.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+There was one for IRC also, did it get lost?
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 5ad4d2c..6405764 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2501,11 +2501,11 @@ static void __net_init xfrm_dst_ops_init(struct net *net)
- 	struct xfrm_policy_afinfo *afinfo;
- 
- 	rcu_read_lock_bh();
--	afinfo = rcu_dereference(xfrm_policy_afinfo[AF_INET]);
-+	afinfo = rcu_dereference_bh(xfrm_policy_afinfo[AF_INET]);
- 	if (afinfo)
- 		net->xfrm.xfrm4_dst_ops = *afinfo->dst_ops;
- #if IS_ENABLED(CONFIG_IPV6)
--	afinfo = rcu_dereference(xfrm_policy_afinfo[AF_INET6]);
-+	afinfo = rcu_dereference_bh(xfrm_policy_afinfo[AF_INET6]);
- 	if (afinfo)
- 		net->xfrm.xfrm6_dst_ops = *afinfo->dst_ops;
- #endif
--- 
-1.7.11.5
+I also made TFTP, it was more or less trivial, you can find it here:
+
+http://1984.lsi.us.es/git/nf-next/commit/?h=nf-nat4&id=ac2a06ab790386c8c8333dbf84584fc3f80fcdc5
