@@ -1,66 +1,36 @@
-From: Daniel Wagner <wagi@monom.org>
-Subject: Re: [PATCH v0 5/5] cgroup: Assign subsystem IDs during compile time
-Date: Fri, 17 Aug 2012 10:48:18 +0200
-Message-ID: <502E0552.3080602@monom.org>
-References: <1345126336-20755-1-git-send-email-wagi@monom.org> <1345126336-20755-6-git-send-email-wagi@monom.org> <20120816232010.GJ24861@google.com> <502DF1DF.8040109@huawei.com>
+From: Patrick.chn@umassd.edu
+Subject: Patrick
+Date: Fri, 17 Aug 2012 04:13:22 -0700
+Message-ID: <201208171113.q7HBDm1b021532@mail.ucla.edu>
+Reply-To: chanprivacy07@aol.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
-	cgroups@vger.kernel.org,
-	Daniel Wagner <daniel.wagner@bmw-carit.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	Glauber Costa <glommer@parallels.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Kamezawa Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Li Zefan <lizefan@huawei.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <Patrickchn@umassd.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hotel311.server4you.de ([85.25.146.15]:33580 "EHLO
-	hotel311.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030972Ab2HQIsV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2012 04:48:21 -0400
-In-Reply-To: <502DF1DF.8040109@huawei.com>
+Received: from out-53.smtp.ucla.edu ([169.232.46.176]:38827 "EHLO
+	out-53.smtp.ucla.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757920Ab2HQL0D convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2012 07:26:03 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17.08.2012 09:25, Li Zefan wrote:
-> On 2012/8/17 7:20, Tejun Heo wrote:
->> On Thu, Aug 16, 2012 at 04:12:16PM +0200, Daniel Wagner wrote:
->>> From: Daniel Wagner <daniel.wagner@bmw-carit.de>
->>>
->>> We are able to safe some space when we assign the subsystem
->>> IDs at compile time. Instead of allocating per cgroup
->>> cgroup->subsys[CGROUP_SUBSYS_COUNT] where CGROUP_SUBSYS_COUNT is
->>> always 64, we allocate 12 + 1 at max (at this point there are 12
->>> subsystem).
->>
->> So, IIUC, this is effectively removing the capability to implement
->> modularized controller which isn't known at kernel compile time.  Am I
->> right?
->>
->
-> I think so.
+Patrick
 
-I am preparing an updated version which does not need the extra 1 
-pointer. Some more preprocessor magic involved :)
+My name is Patrick Chan I work with the Hang Seng Bank. There is the sum of 
+$22,500,000.00 in my bank"Hang Seng Bank",Hong kong.
 
->> I don't think that's a bad idea but if we're doing that, can't we make
->> things even simpler?  Do we need to distinguish in-kernel and module
->> at all?
->>
->> Li, what do you think about this?
->>
->
-> I'm definitely all for simplicity, but I'm not sure if we can do better in
-> simplifying the code for modularized cgroup subsystem. (I guess you didn't
-> mean to remove this feature?)
+I wish to make a transfer of the $22,500,000.00 .I do solicit for you 
+assistance in effecting this transaction.I intend to give  you 30% of the total 
+funds as compensation for your assistance.
 
-The new version should also be simpler to review because I don't have to 
-touch the loops everywhere.
+Should you be interested please send me an email on my private email 
+(chanprivacy07@aol.com).
+1. Full names
+2. Private phone number
+3. Current residential address
 
-daniel
+Regards,
+chanprivacy07@aol.com
+Patrick Chan.
