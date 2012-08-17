@@ -1,46 +1,50 @@
-From: Michal =?utf-8?B?S3ViZcSNZWs=?= <mkubecek@suse.cz>
-Subject: Re: [RFC Patch net-next] ipv6: unify conntrack reassembly expire code with standard one
-Date: Fri, 17 Aug 2012 19:05:57 +0200
-Message-ID: <1826853.rak2U42CMU@alaris>
-References: <1345190565-21689-1-git-send-email-amwang@redhat.com>
-Reply-To: Michal =?utf-8?B?S3ViZcSNZWs=?= <mkubecek@suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Shan Wei <shanwei@cn.fujitsu.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org
-To: Cong Wang <amwang@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1345190565-21689-1-git-send-email-amwang@redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: pablo@netfilter.org
+Subject: [PATCH 0/2] netlink patches
+Date: Fri, 17 Aug 2012 19:22:27 +0200
+Message-ID: <1345224149-5946-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:60260 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757730Ab2HQRXg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Aug 2012 13:23:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 17 of August 2012 16:02EN, Cong Wang wrote:
-> Two years ago, Shan Wei tried to fix this:
-> http://patchwork.ozlabs.org/patch/43905/
-> 
-...
->
-> As Herbert suggested, we could actually use the standard IPv6
-> reassembly code which follows RFC2460.
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-I tested the patch and I ran into a problem in this place in 
-ip6_expire_frag_queue():
+Hi,
 
->  	net = container_of(fq->q.net, struct net, ipv6.frags);
+The following two patches contain one update to replace
+netlink_set_nonroot and one RFC to resolve possible Netlink
+spoofing from the kernel itself by disabling one of the Netlink
+features (please, read [PATCH 2/2] for details).
 
-For frag queues coming from IPv6 conntrack, fq->q.net points to 
-nf_init_frags which is not embedded into struct net so that the 
-following device lookup leads to reading from an invalid address.
-The same problem has been discussed on the page linked above.
+The first patch removes the netlink_set_nonroot to use the recently
+added struct netlink_kernel_cfg passed to netlink_kernel_create.
 
-I didn't test with current net-next source but as far as I can tell, 
-this hasn't changed. Did I miss something?
+The second tries to address netlink spoofing for non-root processes
+from the kernel while disabling the ability of two processes to
+communicate. Yes, this may be controversial I guess.
 
-                                                     Michal Kubecek
+Specifically for the second patch, please, let me know if I'm
+missing anything that makes me reach bogus conclusions in the RFC
+patch.
 
+Thanks!
+
+Pablo Neira Ayuso (2):
+  netlink: kill netlink_set_nonroot
+  [RFC] netlink: fix possible spoofing from non-root processes
+
+ include/linux/netlink.h    |    9 ++++-----
+ lib/kobject_uevent.c       |    2 +-
+ net/core/rtnetlink.c       |    2 +-
+ net/netlink/af_netlink.c   |   21 ++++++++-------------
+ net/netlink/genetlink.c    |    3 +--
+ security/selinux/netlink.c |    2 +-
+ 6 files changed, 16 insertions(+), 23 deletions(-)
+
+-- 
+1.7.10.4
