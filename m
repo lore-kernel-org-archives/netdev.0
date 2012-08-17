@@ -1,142 +1,82 @@
-From: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH v1 3/5] cgroup: Protect access to task_cls_classid() when
- built as module
-Date: Fri, 17 Aug 2012 14:28:55 -0400
-Message-ID: <20120817182855.GA11607@hmsreliant.think-freely.org>
-References: <1345215494-9181-1-git-send-email-wagi@monom.org>
- <1345215494-9181-4-git-send-email-wagi@monom.org>
+From: Debabrata Banerjee <dbavatar@gmail.com>
+Subject: Re: [PATCH 1/2] ipv6: do not hold route table lock when send ndisc probe
+Date: Fri, 17 Aug 2012 14:54:26 -0400
+Message-ID: <CAATkVEzKuTeUbU75B6EoSfFvGVsz_eK47XNWmsP5KcCvjTDEDA@mail.gmail.com>
+References: <1345187499-16929-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1345215494-9181-4-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org,
+	"Banerjee, Debabrata" <dbanerje@akamai.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:61838 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932540Ab2HQSy0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2012 14:54:26 -0400
+Received: by obbuo13 with SMTP id uo13so5647957obb.19
+        for <netdev@vger.kernel.org>; Fri, 17 Aug 2012 11:54:26 -0700 (PDT)
+In-Reply-To: <1345187499-16929-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 17, 2012 at 04:58:12PM +0200, Daniel Wagner wrote:
-> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-> 
-> The module version of task_cls_classid() checks if net_cls_sbusys_id
-> is valid to indentify when it is okay to access the controller.
-> 
-> Instead relying on the subusys_id to be set, make it explicit
-> with a jump label.
-> 
-> Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-> Cc: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-> Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> Cc: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Well it get rids of the deadlock for sure, but I am not sure it
+doesn't break something else, one would have to know all of this code
+much better to tell. You'll notice read_unlock_bh(&table->tb6_lock)
+for the first lock in ip6_pol_route() has more in the critical section
+after the rt6_select() call, especially that rather scary BACKTRACK()
+macro.
+
+-Debabrata
+
+On Fri, Aug 17, 2012 at 3:11 AM, Cong Wang <amwang@redhat.com> wrote:
+> In rt6_probe(), we call ndisc_send_ns() with root->rwlock,
+> but this is not necessary, so we can drop it before calling
+> ndisc_send_ns().
+>
+> This could probably fix the deadlock reported by Debabrata:
+> https://lkml.org/lkml/2012/8/16/432
+>
+> Reported-by: "Banerjee, Debabrata" <dbanerje@akamai.com>
+> Cc: "Banerjee, Debabrata" <dbanerje@akamai.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 > ---
->  include/net/cls_cgroup.h | 5 ++++-
->  net/core/sock.c          | 5 +++++
->  net/sched/cls_cgroup.c   | 9 +++++++++
->  3 files changed, 18 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
-> index 401672c..bbbd957 100644
-> --- a/include/net/cls_cgroup.h
-> +++ b/include/net/cls_cgroup.h
-> @@ -16,6 +16,7 @@
->  #include <linux/cgroup.h>
->  #include <linux/hardirq.h>
->  #include <linux/rcupdate.h>
-> +#include <linux/jump_label.h>
->  
->  #ifdef CONFIG_CGROUPS
->  struct cgroup_cls_state
-> @@ -44,6 +45,8 @@ static inline u32 task_cls_classid(struct task_struct *p)
->  }
->  
->  #elif IS_MODULE(CONFIG_NET_CLS_CGROUP)
-> +extern struct static_key cgroup_cls_enabled;
-> +#define clscg_enabled static_key_false(&cgroup_cls_enabled)
->  
->  extern int net_cls_subsys_id;
->  
-> @@ -52,7 +55,7 @@ static inline u32 task_cls_classid(struct task_struct *p)
->  	int id;
->  	u32 classid = 0;
->  
-> -	if (in_interrupt())
-> +	if (!clscg_enabled || in_interrupt())
->  		return 0;
->  
->  	rcu_read_lock();
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 8f67ced..8106e77 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -327,6 +327,11 @@ int __sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
->  EXPORT_SYMBOL(__sk_backlog_rcv);
->  
->  #if defined(CONFIG_CGROUPS)
-> +#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
-> +struct static_key cgroup_cls_enabled = STATIC_KEY_INIT_FALSE;
-> +EXPORT_SYMBOL_GPL(cgroup_cls_enabled);
-> +#endif
+>  net/ipv6/route.c |    7 ++++++-
+>  1 files changed, 6 insertions(+), 1 deletions(-)
+>
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 0ddf2d1..7a36df2 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -460,13 +460,18 @@ static void rt6_probe(struct rt6_info *rt)
+>             time_after(jiffies, neigh->updated + rt->rt6i_idev->cnf.rtr_probe_interval)) {
+>                 struct in6_addr mcaddr;
+>                 struct in6_addr *target;
+> +               struct net_device *dev = rt->dst.dev;
+> +               struct fib6_table *table = rt->rt6i_table;
+>
+>                 neigh->updated = jiffies;
+>                 read_unlock_bh(&neigh->lock);
+> +               read_unlock_bh(&table->tb6_lock);
+>
+>                 target = (struct in6_addr *)&neigh->primary_key;
+>                 addrconf_addr_solict_mult(target, &mcaddr);
+> -               ndisc_send_ns(rt->dst.dev, NULL, target, &mcaddr, NULL);
+> +               ndisc_send_ns(dev, NULL, target, &mcaddr, NULL);
 > +
->  #if !defined(CONFIG_NET_CLS_CGROUP)
->  int net_cls_subsys_id = -1;
->  EXPORT_SYMBOL_GPL(net_cls_subsys_id);
-> diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-> index 7743ea8..0635894 100644
-> --- a/net/sched/cls_cgroup.c
-> +++ b/net/sched/cls_cgroup.c
-> @@ -44,12 +44,21 @@ static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
->  
->  	if (cgrp->parent)
->  		cs->classid = cgrp_cls_state(cgrp->parent)->classid;
-> +#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
-> +	else if (!clscg_enabled)
-> +                static_key_slow_inc(&cgroup_cls_enabled);
-This is racy I think.  The read of the static key is atomic with other reads,
-but the entire conditional is not atomic.  If two cpus were creating cgroups in
-parallel, it would be possible for both to read the static key as being zero
-(the second cpu would read the key before the first cpu could increment it).
-> +#endif
->  
->  	return &cs->css;
->  }
->  
->  static void cgrp_destroy(struct cgroup *cgrp)
->  {
-> +#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
-> +	if (!cgrp->parent && clscg_enabled)
-> +                static_key_slow_dec(&cgroup_cls_enabled);
-Ditto here with the race above.  I think what you want is one of:
-
-1) Use static_key_slow_[inc|dec] unconditionally 
-
-2) Keep a separate internal counter to track the number of cgroup instances
-so that you only inc the static key on the first create and dec it on the last
-delete.
-
-I would think (1) would be sufficent.  It looks like static_key_slow_inc uses
-atomic_inc_not_zero to just do an inc anyway in the event that multiple inc
-events are made.
-
-Neil
-
-> +#endif
-> +
->  	kfree(cgrp_cls_state(cgrp));
->  }
->  
-> -- 
-> 1.7.12.rc1.16.g05a20c8
-> 
-> 
+> +               read_lock_bh(&table->tb6_lock);
+>         } else {
+>                 read_unlock_bh(&neigh->lock);
+>         }
+> --
+> 1.7.7.6
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
