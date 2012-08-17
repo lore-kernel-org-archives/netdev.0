@@ -1,82 +1,111 @@
-From: Debabrata Banerjee <dbavatar@gmail.com>
-Subject: Re: [PATCH 1/2] ipv6: do not hold route table lock when send ndisc probe
-Date: Fri, 17 Aug 2012 14:54:26 -0400
-Message-ID: <CAATkVEzKuTeUbU75B6EoSfFvGVsz_eK47XNWmsP5KcCvjTDEDA@mail.gmail.com>
-References: <1345187499-16929-1-git-send-email-amwang@redhat.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: [RFC PATCH 1/1] fair.c: Add/Export find_idlest_perfer_cpu API
+Date: Fri, 17 Aug 2012 12:46:10 -0700
+Message-ID: <1345232770.16533.234.camel@oc3660625478.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org,
-	"Banerjee, Debabrata" <dbanerje@akamai.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Cong Wang <amwang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:61838 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932540Ab2HQSy0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2012 14:54:26 -0400
-Received: by obbuo13 with SMTP id uo13so5647957obb.19
-        for <netdev@vger.kernel.org>; Fri, 17 Aug 2012 11:54:26 -0700 (PDT)
-In-Reply-To: <1345187499-16929-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: mingo@redhat.com, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, sri@us.ibm.com, vivek@us.ibm.com
+To: linux-kernel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>, mingo@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Well it get rids of the deadlock for sure, but I am not sure it
-doesn't break something else, one would have to know all of this code
-much better to tell. You'll notice read_unlock_bh(&table->tb6_lock)
-for the first lock in ip6_pol_route() has more in the critical section
-after the rt6_select() call, especially that rather scary BACKTRACK()
-macro.
+Add/Export a new API for per-cpu thread model networking device driver
+to choose a preferred idlest cpu within allowed cpumask.
 
--Debabrata
+The receiving CPUs of a networking device are not under cgroup controls.
+Normally the receiving work will be scheduled on the cpu on which the
+interrupts are received. When such a networking device uses per-cpu
+thread model, the cpu which is chose to process the packets might not be
+part of cgroup cpusets without using such an API here. 
 
-On Fri, Aug 17, 2012 at 3:11 AM, Cong Wang <amwang@redhat.com> wrote:
-> In rt6_probe(), we call ndisc_send_ns() with root->rwlock,
-> but this is not necessary, so we can drop it before calling
-> ndisc_send_ns().
->
-> This could probably fix the deadlock reported by Debabrata:
-> https://lkml.org/lkml/2012/8/16/432
->
-> Reported-by: "Banerjee, Debabrata" <dbanerje@akamai.com>
-> Cc: "Banerjee, Debabrata" <dbanerje@akamai.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> ---
->  net/ipv6/route.c |    7 ++++++-
->  1 files changed, 6 insertions(+), 1 deletions(-)
->
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 0ddf2d1..7a36df2 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -460,13 +460,18 @@ static void rt6_probe(struct rt6_info *rt)
->             time_after(jiffies, neigh->updated + rt->rt6i_idev->cnf.rtr_probe_interval)) {
->                 struct in6_addr mcaddr;
->                 struct in6_addr *target;
-> +               struct net_device *dev = rt->dst.dev;
-> +               struct fib6_table *table = rt->rt6i_table;
->
->                 neigh->updated = jiffies;
->                 read_unlock_bh(&neigh->lock);
-> +               read_unlock_bh(&table->tb6_lock);
->
->                 target = (struct in6_addr *)&neigh->primary_key;
->                 addrconf_addr_solict_mult(target, &mcaddr);
-> -               ndisc_send_ns(rt->dst.dev, NULL, target, &mcaddr, NULL);
-> +               ndisc_send_ns(dev, NULL, target, &mcaddr, NULL);
-> +
-> +               read_lock_bh(&table->tb6_lock);
->         } else {
->                 read_unlock_bh(&neigh->lock);
->         }
-> --
-> 1.7.7.6
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On NUMA system, by using the preferred cpumask from the same NUMA node
+would help to reduce expensive cross memory access to/from the other
+NUMA node.
+
+KVM per-cpu vhost will be the first one to use this API. Any other
+device driver which uses per-cpu thread model and has cgroup cpuset
+control will use this API later.
+
+Signed-off-by: Shirley Ma <xma@us.ibm.com>
+---
+ include/linux/sched.h |    2 ++
+ kernel/sched/fair.c   |   41 +++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 43 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 64d9df5..46cc4a7 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -2806,4 +2806,6 @@ static inline unsigned long rlimit_max(unsigned int limit)
+ 
+ #endif /* __KERNEL__ */
+ 
++extern int find_idlest_prefer_cpu(struct cpumask *prefer,
++				 struct cpumask *allowed, int prev_cpu);
+ #endif
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index c099cc6..d3da151 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -26,6 +26,7 @@
+ #include <linux/slab.h>
+ #include <linux/profile.h>
+ #include <linux/interrupt.h>
++#include <linux/export.h>
+ 
+ #include <trace/events/sched.h>
+ 
+@@ -2809,6 +2810,46 @@ unlock:
+ 
+ 	return new_cpu;
+ }
++
++/*
++ * This API is used to find the most idle cpu from both preferred and
++ * allowed cpuset.
++ *
++ * allowed: The allowed cpumask is the caller's task allowed cpuset, which could * be from cgroup cpuset control.
++ * prefer: The perfer cpumask is caller's perferred cpuset choice, which could
++ * be a cpuset of a NUMA node for better performance.
++ *
++ * It helps per-cpu thread model to choose the preferred cpu in the allowed
++ * cpuset to be scheduled when the work doesn't want to be scheduled on the
++ * same cpu on which the work is received for better performance. For example
++ * the network work doesn't want to be on the same cpu on which the
++ * interrupt is received.
++ *
++ * If these two cpusets have intersects, the cpu is chose from the intersects;
++ * if there is no intersects, then the cpu is chose from the allowed cpuset.
++ *
++ * prev_cpu helps to better local cache when prev_cpu is not busy.
++ */
++int find_idlest_prefer_cpu(struct cpumask *prefer, struct cpumask *allowed,
++			  int prev_cpu)
++{
++	unsigned long load, min_load = ULONG_MAX;
++	int check, i, idlest = -1;
++
++	check = cpumask_intersects(prefer, allowed);
++	/* Traverse only the allowed CPUs */
++	if (check == 0)
++		prefer = allowed;
++	for_each_cpu_and(i, prefer, allowed) {
++		load = weighted_cpuload(i);
++		if (load < min_load || (load == min_load && i == prev_cpu)) {
++			min_load = load;
++			idlest = i;
++		}
++	}
++	return idlest;
++}
++EXPORT_SYMBOL(find_idlest_prefer_cpu);
+ #endif /* CONFIG_SMP */
+ 
+ static unsigned long
+
+thanks
+Shirley
