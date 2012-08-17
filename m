@@ -1,432 +1,60 @@
-From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Subject: [PATCH v1 5/5] cgroup: Assign subsystem IDs during compile time
-Date: Fri, 17 Aug 2012 16:58:14 +0200
-Message-ID: <1345215494-9181-6-git-send-email-wagi@monom.org>
-References: <1345215494-9181-1-git-send-email-wagi@monom.org>
-Cc: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1345215494-9181-1-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [RFC PATCH 0/1] sched: Add a new API to find the prefer idlest
+ cpu
+Date: Fri, 17 Aug 2012 08:39:46 -0700
+Message-ID: <1345217986.16533.1.camel@oc3660625478.ibm.com>
+References: <1343026634.13461.15.camel@oc3660625478.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	vivek@us.ibm.com, sri@us.ibm.com, sri@us.ibm.com
+To: linux-kernel@vger.kernel.org, mingo@redhat.com,
+	peterz@infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:37656 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758269Ab2HQPj6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Aug 2012 11:39:58 -0400
+Received: from /spool/local
+	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <mashirle@us.ibm.com>;
+	Fri, 17 Aug 2012 11:39:57 -0400
+In-Reply-To: <1343026634.13461.15.camel@oc3660625478.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+Hello Ingo, Peter,
 
-We are able to safe some space when we assign the subsystem
-IDs at compile time. Instead of allocating per cgroup
-cgroup->subsys[CGROUP_SUBSYS_COUNT] where CGROUP_SUBSYS_COUNT is
-always 64, we allocate at max 12 (at this point there are 12
-subsystem).
+	Have you had chance to review below patch?
 
-The enum is created by passing in cgroup_subsys.h twice and
-redefine the IS_SUBSYS_ENABLED. In the first pass, we just select
-the builtin subsystem and in the second pass only the module
-subsystems.
+Thanks
+Shirley
 
-task_cls_classid() and task_netprioidx() (when built as
-module) are protected by a jump label and therefore we can
-simply replace the subsystem index lookup with the enum.
-
-Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Cc: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Cc: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Cc: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Cc: Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Cc: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
----
- include/linux/cgroup.h        | 27 ++++++++++++++++++---------
- include/linux/cgroup_subsys.h | 24 ++++++++++++------------
- include/net/cls_cgroup.h      | 12 +++---------
- include/net/netprio_cgroup.h  | 17 ++++-------------
- kernel/cgroup.c               | 25 ++++++-------------------
- net/core/netprio_cgroup.c     | 11 -----------
- net/core/sock.c               |  9 ---------
- net/sched/cls_cgroup.c        | 13 -------------
- 8 files changed, 43 insertions(+), 95 deletions(-)
-
-diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
-index c90eaa8..1b9c8d9 100644
---- a/include/linux/cgroup.h
-+++ b/include/linux/cgroup.h
-@@ -44,18 +44,25 @@ extern void cgroup_unload_subsys(struct cgroup_subsys *ss);
- extern const struct file_operations proc_cgroup_operations;
- 
- /* Define the enumeration of all builtin cgroup subsystems */
--#define SUBSYS(_x) _x ## _subsys_id,
-+#define INCREASE_COUNTER() __COUNTER__
- enum cgroup_subsys_id {
-+
-+#define SUBSYS(_x) _x ## _subsys_id = INCREASE_COUNTER(),
-+#define IS_SUBSYS_ENABLED(option) IS_BUILTIN(option)
- #include <linux/cgroup_subsys.h>
--	CGROUP_BUILTIN_SUBSYS_COUNT
--};
- #undef SUBSYS
--/*
-- * This define indicates the maximum number of subsystems that can be loaded
-- * at once. We limit to this many since cgroupfs_root has subsys_bits to keep
-- * track of all of them.
-- */
--#define CGROUP_SUBSYS_COUNT (BITS_PER_BYTE*sizeof(unsigned long))
-+#undef IS_SUBSYS_ENABLED
-+
-+#define SUBSYS(_x) _x ## _subsys_id,
-+#define IS_SUBSYS_ENABLED(option) IS_MODULE(option)
-+#include <linux/cgroup_subsys.h>
-+#undef SUBSYS
-+#undef IS_SUBSYS_ENABLED
-+
-+	CGROUP_SUBSYS_COUNT,
-+	CGROUP_BUILTIN_SUBSYS_COUNT = INCREASE_COUNTER()
-+};
-+#undef INCREASE_COUNTER
- 
- /* Per-subsystem/per-cgroup state maintained by the system. */
- struct cgroup_subsys_state {
-@@ -521,7 +528,9 @@ struct cgroup_subsys {
- };
- 
- #define SUBSYS(_x) extern struct cgroup_subsys _x ## _subsys;
-+#define IS_SUBSYS_ENABLED(option) IS_ENABLED(option)
- #include <linux/cgroup_subsys.h>
-+#undef IS_SUBSYS_ENABLED
- #undef SUBSYS
- 
- static inline struct cgroup_subsys_state *cgroup_subsys_state(
-diff --git a/include/linux/cgroup_subsys.h b/include/linux/cgroup_subsys.h
-index dfae957..f204a7a 100644
---- a/include/linux/cgroup_subsys.h
-+++ b/include/linux/cgroup_subsys.h
-@@ -7,73 +7,73 @@
- 
- /* */
- 
--#ifdef CONFIG_CPUSETS
-+#if IS_SUBSYS_ENABLED(CONFIG_CPUSETS)
- SUBSYS(cpuset)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_CGROUP_DEBUG
-+#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_DEBUG)
- SUBSYS(debug)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_CGROUP_SCHED
-+#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_SCHED)
- SUBSYS(cpu_cgroup)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_CGROUP_CPUACCT
-+#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_CPUACCT)
- SUBSYS(cpuacct)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_MEMCG
-+#if IS_SUBSYS_ENABLED(CONFIG_MEMCG)
- SUBSYS(mem_cgroup)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_CGROUP_DEVICE
-+#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_DEVICE)
- SUBSYS(devices)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_CGROUP_FREEZER
-+#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_FREEZER)
- SUBSYS(freezer)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_NET_CLS_CGROUP
-+#if IS_SUBSYS_ENABLED(CONFIG_NET_CLS_CGROUP)
- SUBSYS(net_cls)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_BLK_CGROUP
-+#if IS_SUBSYS_ENABLED(CONFIG_BLK_CGROUP)
- SUBSYS(blkio)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_CGROUP_PERF
-+#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_PERF)
- SUBSYS(perf)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_NETPRIO_CGROUP
-+#if IS_SUBSYS_ENABLED(CONFIG_NETPRIO_CGROUP)
- SUBSYS(net_prio)
- #endif
- 
- /* */
- 
--#ifdef CONFIG_CGROUP_HUGETLB
-+#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_HUGETLB)
- SUBSYS(hugetlb)
- #endif
- 
-diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
-index bbbd957..037bfb1 100644
---- a/include/net/cls_cgroup.h
-+++ b/include/net/cls_cgroup.h
-@@ -48,22 +48,16 @@ static inline u32 task_cls_classid(struct task_struct *p)
- extern struct static_key cgroup_cls_enabled;
- #define clscg_enabled static_key_false(&cgroup_cls_enabled)
- 
--extern int net_cls_subsys_id;
--
- static inline u32 task_cls_classid(struct task_struct *p)
- {
--	int id;
--	u32 classid = 0;
-+	u32 classid;
- 
- 	if (!clscg_enabled || in_interrupt())
- 		return 0;
- 
- 	rcu_read_lock();
--	id = rcu_dereference_index_check(net_cls_subsys_id,
--					 rcu_read_lock_held());
--	if (id >= 0)
--		classid = container_of(task_subsys_state(p, id),
--				       struct cgroup_cls_state, css)->classid;
-+	classid = container_of(task_subsys_state(p, net_cls_subsys_id),
-+			       struct cgroup_cls_state, css)->classid;
- 	rcu_read_unlock();
- 
- 	return classid;
-diff --git a/include/net/netprio_cgroup.h b/include/net/netprio_cgroup.h
-index 9ff58e4..66241c6 100644
---- a/include/net/netprio_cgroup.h
-+++ b/include/net/netprio_cgroup.h
-@@ -31,10 +31,6 @@ struct cgroup_netprio_state {
- 	u32 prioidx;
- };
- 
--#ifndef CONFIG_NETPRIO_CGROUP
--extern int net_prio_subsys_id;
--#endif
--
- extern void sock_update_netprioidx(struct sock *sk, struct task_struct *task);
- 
- #if IS_BUILTIN(CONFIG_NETPRIO_CGROUP)
-@@ -60,20 +56,15 @@ extern struct static_key cgroup_netprio_enabled;
- static inline u32 task_netprioidx(struct task_struct *p)
- {
- 	struct cgroup_netprio_state *state;
--	int subsys_id;
--	u32 idx = 0;
-+	u32 idx;
- 
- 	if (!netpriocg_enabled)
- 		return 0;
- 
- 	rcu_read_lock();
--	subsys_id = rcu_dereference_index_check(net_prio_subsys_id,
--						rcu_read_lock_held());
--	if (subsys_id >= 0) {
--		state = container_of(task_subsys_state(p, subsys_id),
--				     struct cgroup_netprio_state, css);
--		idx = state->prioidx;
--	}
-+	state = container_of(task_subsys_state(p, net_prio_subsys_id),
-+			     struct cgroup_netprio_state, css);
-+	idx = state->prioidx;
- 	rcu_read_unlock();
- 	return idx;
- }
-diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-index 7981850..b00ae8a 100644
---- a/kernel/cgroup.c
-+++ b/kernel/cgroup.c
-@@ -93,9 +93,12 @@ static DEFINE_MUTEX(cgroup_root_mutex);
-  * cgroup_mutex.
-  */
- #define SUBSYS(_x) &_x ## _subsys,
-+#define IS_SUBSYS_ENABLED(option) IS_BUILTIN(option)
- static struct cgroup_subsys *subsys[CGROUP_SUBSYS_COUNT] = {
- #include <linux/cgroup_subsys.h>
- };
-+#undef IS_SUBSYS_ENABLED
-+#undef SUBSYS
- 
- #define MAX_CGROUP_ROOT_NAMELEN 64
- 
-@@ -4330,24 +4333,8 @@ int __init_or_module cgroup_load_subsys(struct cgroup_subsys *ss)
- 	/* init base cftset */
- 	cgroup_init_cftsets(ss);
- 
--	/*
--	 * need to register a subsys id before anything else - for example,
--	 * init_cgroup_css needs it.
--	 */
- 	mutex_lock(&cgroup_mutex);
--	/* find the first empty slot in the array */
--	for (i = CGROUP_BUILTIN_SUBSYS_COUNT; i < CGROUP_SUBSYS_COUNT; i++) {
--		if (subsys[i] == NULL)
--			break;
--	}
--	if (i == CGROUP_SUBSYS_COUNT) {
--		/* maximum number of subsystems already registered! */
--		mutex_unlock(&cgroup_mutex);
--		return -EBUSY;
--	}
--	/* assign ourselves the subsys_id */
--	ss->subsys_id = i;
--	subsys[i] = ss;
-+	subsys[ss->subsys_id] = ss;
- 
- 	/*
- 	 * no ss->create seems to need anything important in the ss struct, so
-@@ -4356,7 +4343,7 @@ int __init_or_module cgroup_load_subsys(struct cgroup_subsys *ss)
- 	css = ss->create(dummytop);
- 	if (IS_ERR(css)) {
- 		/* failure case - need to deassign the subsys[] slot. */
--		subsys[i] = NULL;
-+		subsys[ss->subsys_id] = NULL;
- 		mutex_unlock(&cgroup_mutex);
- 		return PTR_ERR(css);
- 	}
-@@ -4372,7 +4359,7 @@ int __init_or_module cgroup_load_subsys(struct cgroup_subsys *ss)
- 		if (ret) {
- 			dummytop->subsys[ss->subsys_id] = NULL;
- 			ss->destroy(dummytop);
--			subsys[i] = NULL;
-+			subsys[ss->subsys_id] = NULL;
- 			mutex_unlock(&cgroup_mutex);
- 			return ret;
- 		}
-diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index 94e1270..3a1d5cc 100644
---- a/net/core/netprio_cgroup.c
-+++ b/net/core/netprio_cgroup.c
-@@ -352,9 +352,7 @@ struct cgroup_subsys net_prio_subsys = {
- 	.create		= cgrp_create,
- 	.destroy	= cgrp_destroy,
- 	.attach		= net_prio_attach,
--#ifdef CONFIG_NETPRIO_CGROUP
- 	.subsys_id	= net_prio_subsys_id,
--#endif
- 	.base_cftypes	= ss_files,
- 	.module		= THIS_MODULE
- };
-@@ -392,10 +390,6 @@ static int __init init_cgroup_netprio(void)
- 	ret = cgroup_load_subsys(&net_prio_subsys);
- 	if (ret)
- 		goto out;
--#ifndef CONFIG_NETPRIO_CGROUP
--	smp_wmb();
--	net_prio_subsys_id = net_prio_subsys.subsys_id;
--#endif
- 
- 	register_netdevice_notifier(&netprio_device_notifier);
- 
-@@ -412,11 +406,6 @@ static void __exit exit_cgroup_netprio(void)
- 
- 	cgroup_unload_subsys(&net_prio_subsys);
- 
--#ifndef CONFIG_NETPRIO_CGROUP
--	net_prio_subsys_id = -1;
--	synchronize_rcu();
--#endif
--
- 	rtnl_lock();
- 	for_each_netdev(&init_net, dev) {
- 		old = rtnl_dereference(dev->priomap);
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 1f119d2..aa762d9 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -335,15 +335,6 @@ EXPORT_SYMBOL_GPL(cgroup_cls_enabled);
- struct static_key cgroup_netprio_enabled = STATIC_KEY_INIT_FALSE;
- EXPORT_SYMBOL_GPL(cgroup_netprio_enabled);
- #endif
--
--#if !defined(CONFIG_NET_CLS_CGROUP)
--int net_cls_subsys_id = -1;
--EXPORT_SYMBOL_GPL(net_cls_subsys_id);
--#endif
--#if !defined(CONFIG_NETPRIO_CGROUP)
--int net_prio_subsys_id = -1;
--EXPORT_SYMBOL_GPL(net_prio_subsys_id);
--#endif
- #endif
- 
- static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
-diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index 0635894..5dd6fe6 100644
---- a/net/sched/cls_cgroup.c
-+++ b/net/sched/cls_cgroup.c
-@@ -86,9 +86,7 @@ struct cgroup_subsys net_cls_subsys = {
- 	.name		= "net_cls",
- 	.create		= cgrp_create,
- 	.destroy	= cgrp_destroy,
--#ifdef CONFIG_NET_CLS_CGROUP
- 	.subsys_id	= net_cls_subsys_id,
--#endif
- 	.base_cftypes	= ss_files,
- 	.module		= THIS_MODULE,
- };
-@@ -292,12 +290,6 @@ static int __init init_cgroup_cls(void)
- 	if (ret)
- 		goto out;
- 
--#ifndef CONFIG_NET_CLS_CGROUP
--	/* We can't use rcu_assign_pointer because this is an int. */
--	smp_wmb();
--	net_cls_subsys_id = net_cls_subsys.subsys_id;
--#endif
--
- 	ret = register_tcf_proto_ops(&cls_cgroup_ops);
- 	if (ret)
- 		cgroup_unload_subsys(&net_cls_subsys);
-@@ -310,11 +302,6 @@ static void __exit exit_cgroup_cls(void)
- {
- 	unregister_tcf_proto_ops(&cls_cgroup_ops);
- 
--#ifndef CONFIG_NET_CLS_CGROUP
--	net_cls_subsys_id = -1;
--	synchronize_rcu();
--#endif
--
- 	cgroup_unload_subsys(&net_cls_subsys);
- }
- 
--- 
-1.7.12.rc1.16.g05a20c8
+On Sun, 2012-07-22 at 23:57 -0700, Shirley Ma wrote:
+> Introduce a new API to choose per-cpu thread from cgroup control cpuset
+> (allowed) and preferred cpuset (local numa-node).
+> 
+> The receiving cpus of a networking device are not under cgroup controls.
+> When such a networking device uses per-cpu thread model, the cpu which
+> is chose to process the packets might not be part of cgroup cpusets
+> without this API. On numa system, the preferred cpusets would help to
+> reduce expensive cross memory access to/from the other node.
+> 
+> Signed-off-by: Shirley Ma <xma@us.ibm.com>
+> ---
+> 
+>  include/linux/sched.h |    2 ++
+>  kernel/sched/fair.c   |   30 ++++++++++++++++++++++++++++++
+>  2 files changed, 32 insertions(+), 0 deletions(-)
+> 
+> Thanks
+> Shirley
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
