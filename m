@@ -1,34 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET: xfrm, use correct rcu dereference helper
-Date: Sat, 18 Aug 2012 14:08:06 -0700 (PDT)
-Message-ID: <20120818.140806.1408326124840020051.davem@davemloft.net>
-References: <1345210716-24556-1-git-send-email-jslaby@suse.cz>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jirislaby@gmail.com,
-	linux-kernel@vger.kernel.org, Priyanka.Jain@freescale.com
-To: jslaby@suse.cz
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35267 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751581Ab2HRVIJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Aug 2012 17:08:09 -0400
-In-Reply-To: <1345210716-24556-1-git-send-email-jslaby@suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+Subject: [PATCH 1/5] drivers/net/wireless/ipw2x00/ipw2100.c: introduce missing initialization
+Date: Sat, 18 Aug 2012 23:25:55 +0200
+Message-ID: <1345325159-7365-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Stanislav Yakovlev <stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Slaby <jslaby@suse.cz>
-Date: Fri, 17 Aug 2012 15:38:36 +0200
+From: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
 
-> Use rcu_dereference_bh while holding bh rcu lock. Otherwise we get:
-> ===============================
-> [ INFO: suspicious RCU usage. ]
-> 3.6.0-rc1-next-20120816+ #10 Not tainted
-> -------------------------------
-> net/xfrm/xfrm_policy.c:2504 suspicious rcu_dereference_check() usage!
-> 
-> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-> Cc: Priyanka Jain <Priyanka.Jain@freescale.com>
+The result of one call to a function is tested, and then at the second call
+to the same function, the previous result, and not the current result, is
+tested again.
 
-Should already be fixed in net-next for at least a whole day now.
+The semantic match that finds this problem is as follows:
+(http://coccinelle.lip6.fr/)
+
+// <smpl>
+@@
+expression ret;
+identifier f;
+statement S1,S2;
+@@
+
+*ret = f(...);
+if (\(ret != 0\|ret < 0\|ret == NULL\)) S1
+... when any
+*f(...);
+if (\(ret != 0\|ret < 0\|ret == NULL\)) S2
+// </smpl>
+
+Signed-off-by: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+
+---
+ drivers/net/wireless/ipw2x00/ipw2100.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
+index 8a34202..2f3f6f2 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2100.c
++++ b/drivers/net/wireless/ipw2x00/ipw2100.c
+@@ -2042,7 +2042,8 @@ static void isr_indicate_associated(struct ipw2100_priv *priv, u32 status)
+ 		return;
+ 	}
+ 	len = ETH_ALEN;
+-	ipw2100_get_ordinal(priv, IPW_ORD_STAT_ASSN_AP_BSSID, &bssid, &len);
++	ret = ipw2100_get_ordinal(priv, IPW_ORD_STAT_ASSN_AP_BSSID, &bssid,
++				  &len);
+ 	if (ret) {
+ 		IPW_DEBUG_INFO("failed querying ordinals at line %d\n",
+ 			       __LINE__);
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
