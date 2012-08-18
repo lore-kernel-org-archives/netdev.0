@@ -1,81 +1,119 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: BUG: unable to handle kernel paging request at 00010016
-Date: Sat, 18 Aug 2012 11:00:25 -0400
-Message-ID: <20120818150025.GA29454@redhat.com>
-References: <502ECC74.9030605@oak.selfip.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH]: net: ipv6: fix oops in inet_putpeer()
+Date: Sat, 18 Aug 2012 17:32:31 +0200 (MEST)
+Message-ID: <Pine.GSO.4.63.1208181729020.7404@stinky-local.trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: MULTIPART/MIXED; BOUNDARY="-559023410-1804928587-1345303951=:7404"
 Cc: netdev@vger.kernel.org
-To: Dave Haywood <tla@oak.selfip.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2814 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752917Ab2HRPAo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Aug 2012 11:00:44 -0400
-Content-Disposition: inline
-In-Reply-To: <502ECC74.9030605@oak.selfip.net>
+Received: from stinky.trash.net ([213.144.137.162]:55431 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752170Ab2HRPce (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Aug 2012 11:32:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[ trimmed, and cc'd to netdev.  oops-tracing.txt asks for an excessive amount
-  of info, we should probably rewrite that, as it's rare that 160KB bug reports
-  are necessary ]
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
- > BUG: unable to handle kernel paging request at 00010016
- > IP: [<c15acfc9>] inet6_sk_rx_dst_set+0x29/0x40
- > *pde = 00000000
- > Oops: 0000 [#1] SMP
- > Pid: 2168, comm: mprime Not tainted 3.6.0-rc2 #297 Compaq Deskpro/06C4h
- > EIP: 0060:[<c15acfc9>] EFLAGS: 00010202 CPU: 0
- > EIP is at inet6_sk_rx_dst_set+0x29/0x40
- > EAX: ce738508 EBX: ce73a760 ECX: cf377000 EDX: 00010002
- > ESI: ca06c900 EDI: ce738000 EBP: cf80bc7c ESP: cf80bc7c
- >  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
- > CR0: 80050033 CR2: 00010016 CR3: 0a036000 CR4: 000007d0
- > DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
- > DR6: ffff0ff0 DR7: 00000400
- > Process mprime (pid: 2168, ti=cf80a000 task=ce4f7390 task.ti=ca052000)
- > Stack:
- >  cf80bc9c c15449cb ffffffff ce436780 00000000 ce738508 ca06c900 ce738000
- >  cf80bcc0 c154337e c167545e cf80bcec c124b318 ce436780 ce738508 ce738000
- >  ce436780 cf80bd48 c15aff9d 00000000 00000001 cf80bcec c1236880 ce691ec0
- > Call Trace:
- >  [<c15449cb>] tcp_create_openreq_child+0x3b/0x4a0
- >  [<c154337e>] tcp_v4_syn_recv_sock+0x2e/0x2a0
- >  [<c167545e>] ? _raw_spin_unlock_bh+0xe/0x10
- >  [<c124b318>] ? selinux_netlbl_sock_rcv_skb+0x18/0x190
- >  [<c15aff9d>] tcp_v6_syn_recv_sock+0x3ed/0x6d0
- >  [<c1236880>] ? selinux_parse_skb+0x50/0xb0
- >  [<c15450b3>] tcp_check_req+0x283/0x450
- >  [<c1541191>] tcp_v4_hnd_req+0x51/0x140
- >  [<c1542e69>] tcp_v4_do_rcv+0x129/0x1b0
- >  [<c14f5b45>] ? sk_filter+0x25/0xb0
- >  [<c154407e>] tcp_v4_rcv+0x5fe/0x730
- >  [<c15209b0>] ? ip_rcv_finish+0x2f0/0x2f0
- >  [<c1520a3c>] ip_local_deliver_finish+0x8c/0x260
- >  [<c15206c0>] ? inet_del_protocol+0x30/0x30
- >  [<c1520d9f>] ip_local_deliver+0x7f/0x90
- >  [<c15209b0>] ? ip_rcv_finish+0x2f0/0x2f0
- >  [<c15207b1>] ip_rcv_finish+0xf1/0x2f0
- >  [<c15206c0>] ? inet_del_protocol+0x30/0x30
- >  [<c1521002>] ip_rcv+0x252/0x320
- >  [<c15206c0>] ? inet_del_protocol+0x30/0x30
- >  [<c14e19bb>] __netif_receive_skb+0x46b/0x670
- >  [<c14e4b72>] netif_receive_skb+0x22/0x80
- >  [<c13eb6e2>] rtl8139_rx+0xd2/0x370
- >  [<c13eb9c2>] rtl8139_poll+0x42/0xb0
- >  [<c14e56dd>] net_rx_action+0xed/0x1c0
- >  [<c12c6110>] ? fbcon_add_cursor_timer+0xd0/0xd0
- >  [<c10427a7>] __do_softirq+0xa7/0x200
- >  [<c1042700>] ? local_bh_enable_ip+0x80/0x80
- >  <IRQ>
- >  [<c1042b0e>] ? irq_exit+0x6e/0x90
- >  [<c1004176>] ? do_IRQ+0x46/0xb0
- >  [<c1042af7>] ? irq_exit+0x57/0x90
- >  [<c10224a6>] ? smp_apic_timer_interrupt+0x56/0x90
- >  [<c1676289>] ? common_interrupt+0x29/0x30
- > Code: 90 90 55 8b 4a 48 89 e5 83 e1 fe 3e ff 41 40 89 88 8c 00 00 00 8b 52 74 89 90 cc 01 00 00 8b 51 58 85 d2 74 0c 8b 80 a0 01 00 00 <8b> 52 14 89 50 68 5d c3 eb 0d 90 90 90 90 90 90 90 90 90 90 90
- > EIP: [<c15acfc9>] inet6_sk_rx_dst_set+0x29/0x40 SS:ESP 0068:cf80bc7c
- > CR2: 0000000000010016
- > ---[ end trace 1fcc7fe92846c9d3 ]---
- > Kernel panic - not syncing: Fatal exception in interrupt
+---559023410-1804928587-1345303951=:7404
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+
+The attached patch fixes an oops in inet_putpeer(). Please see the 
+changelog entry for details.
+
+An alternative fix would be to check whether rt6_peer_ptr() returns
+NULL before invoking inet_putpeer(), but properly initializing the
+peer looks cleaner to me.
+
+---559023410-1804928587-1345303951=:7404
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name=xfrm.diff
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.GSO.4.63.1208181732310.7404@stinky-local.trash.net>
+Content-Description: 
+Content-Disposition: attachment; filename=xfrm.diff
+
+Y29tbWl0IDliZjBhNjE5NTM4ZTY2Njc2NzZjZGNmZDkxMDE4ZGE5Mzk3YzZm
+Y2UNCkF1dGhvcjogUGF0cmljayBNY0hhcmR5IDxrYWJlckB0cmFzaC5uZXQ+
+DQpEYXRlOiAgIFNhdCBBdWcgMTggMTc6MTc6MzAgMjAxMiArMDIwMA0KDQog
+ICAgbmV0OiBpcHY2OiBmaXggb29wcyBpbiBpbmV0X3B1dHBlZXIoKQ0KICAg
+IA0KICAgIENvbW1pdCA5N2JhYjczZiAoaW5ldDogSGlkZSByb3V0ZSBwZWVy
+IGFjY2Vzc2VzIGJlaGluZCBoZWxwZXJzLikgaW50cm9kdWNlZA0KICAgIGEg
+YnVnIGluIHhmcm02X3BvbGljeV9kZXN0cm95KCkuIFRoZSB4ZnJtX2RzdCdz
+IF9ydDZpX3BlZXIgbWVtYmVyIGlzIG5vdA0KICAgIGluaXRpYWxpemVkLCBj
+YXVzaW5nIGEgZmFsc2UgcG9zaXRpdmUgcmVzdWx0IGZyb20gaW5ldHBlZXJf
+cHRyX2lzX3BlZXIoKSwNCiAgICB3aGljaCBpbiB0dXJuIGNhdXNlcyBhIE5V
+TEwgcG9pbnRlciBkZXJlZmVyZW5jZSBpbiBpbmV0X3B1dHBlZXIoKS4NCiAg
+ICANCiAgICBQaWQ6IDMxNCwgY29tbToga3dvcmtlci8wOjEgTm90IHRhaW50
+ZWQgMy42LjAtcmMxKyAjMTcgVG8gQmUgRmlsbGVkIEJ5IE8uRS5NLiBUbyBC
+ZSBGaWxsZWQgQnkgTy5FLk0uL1A0UzgwMEQtWA0KICAgIEVJUDogMDA2MDpb
+PGMwM2FiZjkzPl0gRUZMQUdTOiAwMDAxMDI0NiBDUFU6IDANCiAgICBFSVAg
+aXMgYXQgaW5ldF9wdXRwZWVyKzB4ZS8weDE2DQogICAgRUFYOiAwMDAwMDAw
+MCBFQlg6IGYzNDgxNzAwIEVDWDogMDAwMDAwMDAgRURYOiAwMDBkZDY0MQ0K
+ICAgIEVTSTogZjM0ODE3MDAgRURJOiBjMDVlOTQ5YyBFQlA6IGY1NTFkZWY0
+IEVTUDogZjU1MWRlZjQNCiAgICAgRFM6IDAwN2IgRVM6IDAwN2IgRlM6IDAw
+MDAgR1M6IDAwZTAgU1M6IDAwNjgNCiAgICBDUjA6IDgwMDUwMDNiIENSMjog
+MDAwMDAwNzAgQ1IzOiAzMjQzZDAwMCBDUjQ6IDAwMDAwNzUwDQogICAgRFIw
+OiAwMDAwMDAwMCBEUjE6IDAwMDAwMDAwIERSMjogMDAwMDAwMDAgRFIzOiAw
+MDAwMDAwMA0KICAgIERSNjogZmZmZjBmZjAgRFI3OiAwMDAwMDQwMA0KICAg
+ICBmNTUxZGYwNCBjMDQyM2RlMSAwMDAwMDAwMCBmMzQ4MTcwMCBmNTUxZGYx
+OCBjMDM4ZDVmNyBmMjU0YjlmOCBmNTUxZGYyOA0KICAgICBmMzRmODVkOCBm
+NTUxZGYyMCBjMDNlZjQ4ZCBmNTUxZGYzYyBjMDM5Njg3MCBmMzA2OTdlOCBm
+MjRlMTczOCBjMDVlOThmNA0KICAgICBmNTUwOTU0MCBjMDVjZDJiNCBmNTUx
+ZGY3YyBjMDE0MmQyYiBjMDQzZmViNSBmNTUwOTU0MCAwMDAwMDAwMCBjMDVj
+ZDJlOA0KICAgICBbPGMwNDIzZGUxPl0geGZybTZfZHN0X2Rlc3Ryb3krMHg0
+Mi8weGRiDQogICAgIFs8YzAzOGQ1Zjc+XSBkc3RfZGVzdHJveSsweDFkLzB4
+YTQNCiAgICAgWzxjMDNlZjQ4ZD5dIHhmcm1fYnVuZGxlX2Zsb19kZWxldGUr
+MHgyYi8weDM2DQogICAgIFs8YzAzOTY4NzA+XSBmbG93X2NhY2hlX2djX3Rh
+c2srMHg4NS8weDlmDQogICAgIFs8YzAxNDJkMmI+XSBwcm9jZXNzX29uZV93
+b3JrKzB4MTIyLzB4NDQxDQogICAgIFs8YzA0M2ZlYjU+XSA/IGFwaWNfdGlt
+ZXJfaW50ZXJydXB0KzB4MzEvMHgzOA0KICAgICBbPGMwMzk2N2ViPl0gPyBm
+bG93X2NhY2hlX25ld19oYXNocm5kKzB4MmIvMHgyYg0KICAgICBbPGMwMTQz
+ZTJkPl0gd29ya2VyX3RocmVhZCsweDExMy8weDNjYw0KICAgIA0KICAgIEZp
+eCBieSBhZGRpbmcgYSBpbml0X2RzdCgpIGNhbGxiYWNrIHRvIHN0cnVjdCB4
+ZnJtX3BvbGljeV9hZmluZm8gdG8NCiAgICBwcm9wZXJseSBpbml0aWFsaXpl
+IHRoZSBkc3QncyBwZWVyIHBvaW50ZXIuDQogICAgDQogICAgU2lnbmVkLW9m
+Zi1ieTogUGF0cmljayBNY0hhcmR5IDxrYWJlckB0cmFzaC5uZXQ+DQoNCmRp
+ZmYgLS1naXQgYS9pbmNsdWRlL25ldC94ZnJtLmggYi9pbmNsdWRlL25ldC94
+ZnJtLmgNCmluZGV4IDYyYjYxOWUuLjk3NmE4MWEgMTAwNjQ0DQotLS0gYS9p
+bmNsdWRlL25ldC94ZnJtLmgNCisrKyBiL2luY2x1ZGUvbmV0L3hmcm0uaA0K
+QEAgLTI5Miw2ICsyOTIsOCBAQCBzdHJ1Y3QgeGZybV9wb2xpY3lfYWZpbmZv
+IHsNCiAJCQkJCQkgIHN0cnVjdCBmbG93aSAqZmwsDQogCQkJCQkJICBpbnQg
+cmV2ZXJzZSk7DQogCWludAkJCSgqZ2V0X3RvcykoY29uc3Qgc3RydWN0IGZs
+b3dpICpmbCk7DQorCXZvaWQJCQkoKmluaXRfZHN0KShzdHJ1Y3QgbmV0ICpu
+ZXQsDQorCQkJCQkgICAgc3RydWN0IHhmcm1fZHN0ICpkc3QpOw0KIAlpbnQJ
+CQkoKmluaXRfcGF0aCkoc3RydWN0IHhmcm1fZHN0ICpwYXRoLA0KIAkJCQkJ
+ICAgICBzdHJ1Y3QgZHN0X2VudHJ5ICpkc3QsDQogCQkJCQkgICAgIGludCBu
+ZmhlYWRlcl9sZW4pOw0KZGlmZiAtLWdpdCBhL25ldC9pcHY2L3hmcm02X3Bv
+bGljeS5jIGIvbmV0L2lwdjYveGZybTZfcG9saWN5LmMNCmluZGV4IGVmMzk4
+MTIuLmY4YzRjMDggMTAwNjQ0DQotLS0gYS9uZXQvaXB2Ni94ZnJtNl9wb2xp
+Y3kuYw0KKysrIGIvbmV0L2lwdjYveGZybTZfcG9saWN5LmMNCkBAIC03Myw2
+ICs3MywxMyBAQCBzdGF0aWMgaW50IHhmcm02X2dldF90b3MoY29uc3Qgc3Ry
+dWN0IGZsb3dpICpmbCkNCiAJcmV0dXJuIDA7DQogfQ0KIA0KK3N0YXRpYyB2
+b2lkIHhmcm02X2luaXRfZHN0KHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0IHhm
+cm1fZHN0ICp4ZHN0KQ0KK3sNCisJc3RydWN0IHJ0Nl9pbmZvICpydCA9IChz
+dHJ1Y3QgcnQ2X2luZm8gKil4ZHN0Ow0KKw0KKwlydDZfaW5pdF9wZWVyKHJ0
+LCBuZXQtPmlwdjYucGVlcnMpOw0KK30NCisNCiBzdGF0aWMgaW50IHhmcm02
+X2luaXRfcGF0aChzdHJ1Y3QgeGZybV9kc3QgKnBhdGgsIHN0cnVjdCBkc3Rf
+ZW50cnkgKmRzdCwNCiAJCQkgICBpbnQgbmZoZWFkZXJfbGVuKQ0KIHsNCkBA
+IC0yODYsNiArMjkzLDcgQEAgc3RhdGljIHN0cnVjdCB4ZnJtX3BvbGljeV9h
+ZmluZm8geGZybTZfcG9saWN5X2FmaW5mbyA9IHsNCiAJLmdldF9zYWRkciA9
+IAkJeGZybTZfZ2V0X3NhZGRyLA0KIAkuZGVjb2RlX3Nlc3Npb24gPQlfZGVj
+b2RlX3Nlc3Npb242LA0KIAkuZ2V0X3RvcyA9CQl4ZnJtNl9nZXRfdG9zLA0K
+KwkuaW5pdF9kc3QgPQkJeGZybTZfaW5pdF9kc3QsDQogCS5pbml0X3BhdGgg
+PQkJeGZybTZfaW5pdF9wYXRoLA0KIAkuZmlsbF9kc3QgPQkJeGZybTZfZmls
+bF9kc3QsDQogCS5ibGFja2hvbGVfcm91dGUgPQlpcDZfYmxhY2tob2xlX3Jv
+dXRlLA0KZGlmZiAtLWdpdCBhL25ldC94ZnJtL3hmcm1fcG9saWN5LmMgYi9u
+ZXQveGZybS94ZnJtX3BvbGljeS5jDQppbmRleCBjNWE1MTY1Li41YTJhYTE3
+IDEwMDY0NA0KLS0tIGEvbmV0L3hmcm0veGZybV9wb2xpY3kuYw0KKysrIGIv
+bmV0L3hmcm0veGZybV9wb2xpY3kuYw0KQEAgLTEzNTcsNiArMTM1Nyw4IEBA
+IHN0YXRpYyBpbmxpbmUgc3RydWN0IHhmcm1fZHN0ICp4ZnJtX2FsbG9jX2Rz
+dChzdHJ1Y3QgbmV0ICpuZXQsIGludCBmYW1pbHkpDQogDQogCQltZW1zZXQo
+ZHN0ICsgMSwgMCwgc2l6ZW9mKCp4ZHN0KSAtIHNpemVvZigqZHN0KSk7DQog
+CQl4ZHN0LT5mbG8ub3BzID0gJnhmcm1fYnVuZGxlX2ZjX29wczsNCisJCWlm
+IChhZmluZm8tPmluaXRfZHN0KQ0KKwkJCWFmaW5mby0+aW5pdF9kc3QobmV0
+LCB4ZHN0KTsNCiAJfSBlbHNlDQogCQl4ZHN0ID0gRVJSX1BUUigtRU5PQlVG
+Uyk7DQogDQo=
+
+---559023410-1804928587-1345303951=:7404--
