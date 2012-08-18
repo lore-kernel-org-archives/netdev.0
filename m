@@ -1,94 +1,65 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 05/19] netfilter: nf_conntrack_ipv6: improve fragmentation
- handling
-Date: Sat, 18 Aug 2012 14:26:29 +0200 (MEST)
-Message-ID: <Pine.GSO.4.63.1208181423050.17600@stinky-local.trash.net>
+Subject: Re: [PATCH 13/19] netfilter: ip6tables: add MASQUERADE target
+Date: Sat, 18 Aug 2012 14:31:01 +0200 (MEST)
+Message-ID: <Pine.GSO.4.63.1208181428110.17600@stinky-local.trash.net>
 References: <1344542943-11588-1-git-send-email-kaber@trash.net>
- <1344542943-11588-6-git-send-email-kaber@trash.net> <1345190795.3069.228.camel@localhost>
+ <1344542943-11588-14-git-send-email-kaber@trash.net> <20120817131157.GA23832@1984>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <jbrouer@redhat.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54203 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:54225 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751675Ab2HRM0h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Aug 2012 08:26:37 -0400
-In-Reply-To: <1345190795.3069.228.camel@localhost>
+	with ESMTP id S1750739Ab2HRMbD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Aug 2012 08:31:03 -0400
+In-Reply-To: <20120817131157.GA23832@1984>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 17 Aug 2012, Jesper Dangaard Brouer wrote:
+On Fri, 17 Aug 2012, Pablo Neira Ayuso wrote:
 
-> On Thu, 2012-08-09 at 22:08 +0200, kaber@trash.net wrote:
+> Hi Patrick,
+>
+> On Thu, Aug 09, 2012 at 10:08:57PM +0200, kaber@trash.net wrote:
 >> From: Patrick McHardy <kaber@trash.net>
 >>
->> The IPv6 conntrack fragmentation currently has a couple of shortcomings.
->> Fragmentes are collected in PREROUTING/OUTPUT, are defragmented, the
->> defragmented packet is then passed to conntrack, the resulting conntrack
->> information is attached to each original fragment and the fragments then
->> continue their way through the stack.
->>
->> Helper invocation occurs in the POSTROUTING hook, at which point only
->> the original fragments are available. The result of this is that
->> fragmented packets are never passed to helpers.
->>
->> This patch improves the situation in the following way:
->>
->> - If a reassembled packet belongs to a connection that has a helper
->>   assigned, the reassembled packet is passed through the stack instead
->>   of the original fragments.
+> Please, add this chunk to this patch:
 >
-> I'm working on IPv6 fragment handling for IPVS, and are taking advantage
-> of the "replay" by nf_ct_frag6_output() at hook prio -399
-> (NF_IP6_PRI_CONNTRACK_DEFRAG + 1).
-> By making a hook at NF_INET_PRE_ROUTING at prio -99 (NF_IP6_PRI_NAT_DST
-> + 1).
+> diff --git a/include/net/netfilter/nf_nat.h
+> b/include/net/netfilter/nf_nat.h
+> index 1752f133..bd8eea7 100644
+> --- a/include/net/netfilter/nf_nat.h
+> +++ b/include/net/netfilter/nf_nat.h
+> @@ -43,7 +43,9 @@ struct nf_conn_nat {
+>        struct nf_conn *ct;
+>        union nf_conntrack_nat_help help;
+> #if defined(CONFIG_IP_NF_TARGET_MASQUERADE) || \
+> -    defined(CONFIG_IP_NF_TARGET_MASQUERADE_MODULE)
+> +    defined(CONFIG_IP_NF_TARGET_MASQUERADE_MODULE) || \
+> +    defined(CONFIG_IP6_NF_TARGET_MASQUERADE) || \
+> +    defined(CONFIG_IP6_NF_TARGET_MASQUERADE_MODULE)
+>        int masq_index;
+> #endif
+> };
 >
-> I can see that the code path can be changed (with this patch), if a
-> helper is assigned.  Then the "replay" starts at prio -199
-> (NF_IP6_PRI_CONNTRACK + 1), I guess I'm safe as I run at -99.
+> Otherwise, compilation breaks with:
 >
-> I have tested that your patchset works, with my ipvs patches, but would
-> like the trigger the changed code path, to make sure.
->
-> Could you provide an iptables command/rule, that trigger this code path?
+> * IPv4 NAT is disabled
+> * IPv6 NAT enabled.
 
-The easiest way is a large ping with the NAT patches also applied,
-in that case we also pass the first packet of a connection through
-the stack reassembled.
+Fixed, thanks.
 
->> @@ -199,9 +200,13 @@ static unsigned int ipv6_confirm(unsigned int hooknum,
->>  static unsigned int __ipv6_conntrack_in(struct net *net,
->>  					unsigned int hooknum,
->>  					struct sk_buff *skb,
->> +					const struct net_device *in,
->> +					const struct net_device *out,
->>  					int (*okfn)(struct sk_buff *))
->>  {
->>  	struct sk_buff *reasm = skb->nfct_reasm;
->> +	struct nf_conn *ct;
->> +	enum ip_conntrack_info ctinfo;
->>
->>  	/* This packet is fragmented and has reassembled packet. */
->>  	if (reasm) {
->> @@ -213,6 +218,20 @@ static unsigned int __ipv6_conntrack_in(struct net *net,
->>  			if (ret != NF_ACCEPT)
->>  				return ret;
->>  		}
->> +
->> +		/* Conntrack helpers need the entire reassembled packet in the
->> +		 * POST_ROUTING hook.
->> +		 */
->> +		ct = nf_ct_get(reasm, &ctinfo);
->> +		if (ct != NULL && test_bit(IPS_HELPER_BIT, &ct->status)) {
->> +			nf_conntrack_get_reasm(skb);
->> +			NF_HOOK_THRESH(NFPROTO_IPV6, hooknum, reasm,
->> +				       (struct net_device *)in,
->> +				       (struct net_device *)out,
->> +				       okfn, NF_IP6_PRI_CONNTRACK + 1);
 >
-> Hook prio change to NF_IP6_PRI_CONNTRACK + 1
+> And yes, that pile of ifdefs is really ugly, I wonder if they are
+> worth for saving 4 bytes. I think most vendors usually include
+> MASQUERADE support if NAT is enabled.
+>
+> It seems we have the tradition of keeping several similar compile time
+> options in Netfilter to optimize memory in several situations (at the
+> cost of polluting the code with ifdefs). Probably we can think of
+> getting rid of them.
 
-I didn't get this part, you want to change to PRE_CONNTRACK + 1? What
-about raw and SELinux?
+Well, vendors maybe, but what about embedded systems? I have some which
+are *really* short on memory. They limit conntrack to very few entries
+though, so it doesn't make that much of a difference.
