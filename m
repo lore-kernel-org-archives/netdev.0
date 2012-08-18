@@ -1,17 +1,17 @@
-From: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
-Subject: [PATCH 1/5] drivers/net/wireless/ipw2x00/ipw2100.c: introduce missing initialization
-Date: Sat, 18 Aug 2012 23:25:55 +0200
-Message-ID: <1345325159-7365-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stanislav Yakovlev <stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 4/5] drivers/net/wireless/ath/ath6kl/main.c: introduce missing initialization
+Date: Sat, 18 Aug 2012 23:25:58 +0200
+Message-ID: <1345325159-7365-4-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
 The result of one call to a function is tested, and then at the second call
 to the same function, the previous result, and not the current result, is
@@ -34,28 +34,23 @@ if (\(ret != 0\|ret < 0\|ret == NULL\)) S1
 if (\(ret != 0\|ret < 0\|ret == NULL\)) S2
 // </smpl>
 
-Signed-off-by: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- drivers/net/wireless/ipw2x00/ipw2100.c |    3 ++-
+ drivers/net/wireless/ath/ath6kl/main.c |    3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
-index 8a34202..2f3f6f2 100644
---- a/drivers/net/wireless/ipw2x00/ipw2100.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2100.c
-@@ -2042,7 +2042,8 @@ static void isr_indicate_associated(struct ipw2100_priv *priv, u32 status)
- 		return;
- 	}
- 	len = ETH_ALEN;
--	ipw2100_get_ordinal(priv, IPW_ORD_STAT_ASSN_AP_BSSID, &bssid, &len);
-+	ret = ipw2100_get_ordinal(priv, IPW_ORD_STAT_ASSN_AP_BSSID, &bssid,
-+				  &len);
- 	if (ret) {
- 		IPW_DEBUG_INFO("failed querying ordinals at line %d\n",
- 			       __LINE__);
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/wireless/ath/ath6kl/main.c b/drivers/net/wireless/ath/ath6kl/main.c
+index c189e28..c312c61 100644
+--- a/drivers/net/wireless/ath/ath6kl/main.c
++++ b/drivers/net/wireless/ath/ath6kl/main.c
+@@ -322,7 +322,8 @@ int ath6kl_read_fwlogs(struct ath6kl *ar)
+ 
+ 		address = TARG_VTOP(ar->target_type,
+ 				    le32_to_cpu(debug_buf.next));
+-		ath6kl_diag_read(ar, address, &debug_buf, sizeof(debug_buf));
++		ret = ath6kl_diag_read(ar, address, &debug_buf,
++				       sizeof(debug_buf));
+ 		if (ret)
+ 			goto out;
+ 
