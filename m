@@ -1,119 +1,45 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH]: net: ipv6: fix oops in inet_putpeer()
-Date: Sat, 18 Aug 2012 17:32:31 +0200 (MEST)
-Message-ID: <Pine.GSO.4.63.1208181729020.7404@stinky-local.trash.net>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-559023410-1804928587-1345303951=:7404"
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch] netconsole: remove a redundant netconsole_target_put()
+Date: Sun, 19 Aug 2012 01:02:20 +0800
+Message-ID: <1345309340-15499-1-git-send-email-amwang@redhat.com>
+Cc: David Miller <davem@davemloft.net>, stable@vger.kernel.org,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55431 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752170Ab2HRPce (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Aug 2012 11:32:34 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:19736 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751817Ab2HRRCc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Aug 2012 13:02:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+This netconsole_target_put() is obviously redundant, and it
+causes a kernel segfault when removing a bridge device which has
+netconsole running on it.
 
----559023410-1804928587-1345303951=:7404
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+This is caused by:
 
-The attached patch fixes an oops in inet_putpeer(). Please see the 
-changelog entry for details.
+	commit 8d8fc29d02a33e4bd5f4fa47823c1fd386346093
+	Author: Amerigo Wang <amwang@redhat.com>
+	Date:   Thu May 19 21:39:10 2011 +0000
 
-An alternative fix would be to check whether rt6_peer_ptr() returns
-NULL before invoking inet_putpeer(), but properly initializing the
-peer looks cleaner to me.
+	    netpoll: disable netpoll when enslave a device
 
----559023410-1804928587-1345303951=:7404
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name=xfrm.diff
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.GSO.4.63.1208181732310.7404@stinky-local.trash.net>
-Content-Description: 
-Content-Disposition: attachment; filename=xfrm.diff
+Cc: David Miller <davem@davemloft.net>
+ (for all 3.x stable releases)
+Cc: stable@vger.kernel.org
+Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Y29tbWl0IDliZjBhNjE5NTM4ZTY2Njc2NzZjZGNmZDkxMDE4ZGE5Mzk3YzZm
-Y2UNCkF1dGhvcjogUGF0cmljayBNY0hhcmR5IDxrYWJlckB0cmFzaC5uZXQ+
-DQpEYXRlOiAgIFNhdCBBdWcgMTggMTc6MTc6MzAgMjAxMiArMDIwMA0KDQog
-ICAgbmV0OiBpcHY2OiBmaXggb29wcyBpbiBpbmV0X3B1dHBlZXIoKQ0KICAg
-IA0KICAgIENvbW1pdCA5N2JhYjczZiAoaW5ldDogSGlkZSByb3V0ZSBwZWVy
-IGFjY2Vzc2VzIGJlaGluZCBoZWxwZXJzLikgaW50cm9kdWNlZA0KICAgIGEg
-YnVnIGluIHhmcm02X3BvbGljeV9kZXN0cm95KCkuIFRoZSB4ZnJtX2RzdCdz
-IF9ydDZpX3BlZXIgbWVtYmVyIGlzIG5vdA0KICAgIGluaXRpYWxpemVkLCBj
-YXVzaW5nIGEgZmFsc2UgcG9zaXRpdmUgcmVzdWx0IGZyb20gaW5ldHBlZXJf
-cHRyX2lzX3BlZXIoKSwNCiAgICB3aGljaCBpbiB0dXJuIGNhdXNlcyBhIE5V
-TEwgcG9pbnRlciBkZXJlZmVyZW5jZSBpbiBpbmV0X3B1dHBlZXIoKS4NCiAg
-ICANCiAgICBQaWQ6IDMxNCwgY29tbToga3dvcmtlci8wOjEgTm90IHRhaW50
-ZWQgMy42LjAtcmMxKyAjMTcgVG8gQmUgRmlsbGVkIEJ5IE8uRS5NLiBUbyBC
-ZSBGaWxsZWQgQnkgTy5FLk0uL1A0UzgwMEQtWA0KICAgIEVJUDogMDA2MDpb
-PGMwM2FiZjkzPl0gRUZMQUdTOiAwMDAxMDI0NiBDUFU6IDANCiAgICBFSVAg
-aXMgYXQgaW5ldF9wdXRwZWVyKzB4ZS8weDE2DQogICAgRUFYOiAwMDAwMDAw
-MCBFQlg6IGYzNDgxNzAwIEVDWDogMDAwMDAwMDAgRURYOiAwMDBkZDY0MQ0K
-ICAgIEVTSTogZjM0ODE3MDAgRURJOiBjMDVlOTQ5YyBFQlA6IGY1NTFkZWY0
-IEVTUDogZjU1MWRlZjQNCiAgICAgRFM6IDAwN2IgRVM6IDAwN2IgRlM6IDAw
-MDAgR1M6IDAwZTAgU1M6IDAwNjgNCiAgICBDUjA6IDgwMDUwMDNiIENSMjog
-MDAwMDAwNzAgQ1IzOiAzMjQzZDAwMCBDUjQ6IDAwMDAwNzUwDQogICAgRFIw
-OiAwMDAwMDAwMCBEUjE6IDAwMDAwMDAwIERSMjogMDAwMDAwMDAgRFIzOiAw
-MDAwMDAwMA0KICAgIERSNjogZmZmZjBmZjAgRFI3OiAwMDAwMDQwMA0KICAg
-ICBmNTUxZGYwNCBjMDQyM2RlMSAwMDAwMDAwMCBmMzQ4MTcwMCBmNTUxZGYx
-OCBjMDM4ZDVmNyBmMjU0YjlmOCBmNTUxZGYyOA0KICAgICBmMzRmODVkOCBm
-NTUxZGYyMCBjMDNlZjQ4ZCBmNTUxZGYzYyBjMDM5Njg3MCBmMzA2OTdlOCBm
-MjRlMTczOCBjMDVlOThmNA0KICAgICBmNTUwOTU0MCBjMDVjZDJiNCBmNTUx
-ZGY3YyBjMDE0MmQyYiBjMDQzZmViNSBmNTUwOTU0MCAwMDAwMDAwMCBjMDVj
-ZDJlOA0KICAgICBbPGMwNDIzZGUxPl0geGZybTZfZHN0X2Rlc3Ryb3krMHg0
-Mi8weGRiDQogICAgIFs8YzAzOGQ1Zjc+XSBkc3RfZGVzdHJveSsweDFkLzB4
-YTQNCiAgICAgWzxjMDNlZjQ4ZD5dIHhmcm1fYnVuZGxlX2Zsb19kZWxldGUr
-MHgyYi8weDM2DQogICAgIFs8YzAzOTY4NzA+XSBmbG93X2NhY2hlX2djX3Rh
-c2srMHg4NS8weDlmDQogICAgIFs8YzAxNDJkMmI+XSBwcm9jZXNzX29uZV93
-b3JrKzB4MTIyLzB4NDQxDQogICAgIFs8YzA0M2ZlYjU+XSA/IGFwaWNfdGlt
-ZXJfaW50ZXJydXB0KzB4MzEvMHgzOA0KICAgICBbPGMwMzk2N2ViPl0gPyBm
-bG93X2NhY2hlX25ld19oYXNocm5kKzB4MmIvMHgyYg0KICAgICBbPGMwMTQz
-ZTJkPl0gd29ya2VyX3RocmVhZCsweDExMy8weDNjYw0KICAgIA0KICAgIEZp
-eCBieSBhZGRpbmcgYSBpbml0X2RzdCgpIGNhbGxiYWNrIHRvIHN0cnVjdCB4
-ZnJtX3BvbGljeV9hZmluZm8gdG8NCiAgICBwcm9wZXJseSBpbml0aWFsaXpl
-IHRoZSBkc3QncyBwZWVyIHBvaW50ZXIuDQogICAgDQogICAgU2lnbmVkLW9m
-Zi1ieTogUGF0cmljayBNY0hhcmR5IDxrYWJlckB0cmFzaC5uZXQ+DQoNCmRp
-ZmYgLS1naXQgYS9pbmNsdWRlL25ldC94ZnJtLmggYi9pbmNsdWRlL25ldC94
-ZnJtLmgNCmluZGV4IDYyYjYxOWUuLjk3NmE4MWEgMTAwNjQ0DQotLS0gYS9p
-bmNsdWRlL25ldC94ZnJtLmgNCisrKyBiL2luY2x1ZGUvbmV0L3hmcm0uaA0K
-QEAgLTI5Miw2ICsyOTIsOCBAQCBzdHJ1Y3QgeGZybV9wb2xpY3lfYWZpbmZv
-IHsNCiAJCQkJCQkgIHN0cnVjdCBmbG93aSAqZmwsDQogCQkJCQkJICBpbnQg
-cmV2ZXJzZSk7DQogCWludAkJCSgqZ2V0X3RvcykoY29uc3Qgc3RydWN0IGZs
-b3dpICpmbCk7DQorCXZvaWQJCQkoKmluaXRfZHN0KShzdHJ1Y3QgbmV0ICpu
-ZXQsDQorCQkJCQkgICAgc3RydWN0IHhmcm1fZHN0ICpkc3QpOw0KIAlpbnQJ
-CQkoKmluaXRfcGF0aCkoc3RydWN0IHhmcm1fZHN0ICpwYXRoLA0KIAkJCQkJ
-ICAgICBzdHJ1Y3QgZHN0X2VudHJ5ICpkc3QsDQogCQkJCQkgICAgIGludCBu
-ZmhlYWRlcl9sZW4pOw0KZGlmZiAtLWdpdCBhL25ldC9pcHY2L3hmcm02X3Bv
-bGljeS5jIGIvbmV0L2lwdjYveGZybTZfcG9saWN5LmMNCmluZGV4IGVmMzk4
-MTIuLmY4YzRjMDggMTAwNjQ0DQotLS0gYS9uZXQvaXB2Ni94ZnJtNl9wb2xp
-Y3kuYw0KKysrIGIvbmV0L2lwdjYveGZybTZfcG9saWN5LmMNCkBAIC03Myw2
-ICs3MywxMyBAQCBzdGF0aWMgaW50IHhmcm02X2dldF90b3MoY29uc3Qgc3Ry
-dWN0IGZsb3dpICpmbCkNCiAJcmV0dXJuIDA7DQogfQ0KIA0KK3N0YXRpYyB2
-b2lkIHhmcm02X2luaXRfZHN0KHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0IHhm
-cm1fZHN0ICp4ZHN0KQ0KK3sNCisJc3RydWN0IHJ0Nl9pbmZvICpydCA9IChz
-dHJ1Y3QgcnQ2X2luZm8gKil4ZHN0Ow0KKw0KKwlydDZfaW5pdF9wZWVyKHJ0
-LCBuZXQtPmlwdjYucGVlcnMpOw0KK30NCisNCiBzdGF0aWMgaW50IHhmcm02
-X2luaXRfcGF0aChzdHJ1Y3QgeGZybV9kc3QgKnBhdGgsIHN0cnVjdCBkc3Rf
-ZW50cnkgKmRzdCwNCiAJCQkgICBpbnQgbmZoZWFkZXJfbGVuKQ0KIHsNCkBA
-IC0yODYsNiArMjkzLDcgQEAgc3RhdGljIHN0cnVjdCB4ZnJtX3BvbGljeV9h
-ZmluZm8geGZybTZfcG9saWN5X2FmaW5mbyA9IHsNCiAJLmdldF9zYWRkciA9
-IAkJeGZybTZfZ2V0X3NhZGRyLA0KIAkuZGVjb2RlX3Nlc3Npb24gPQlfZGVj
-b2RlX3Nlc3Npb242LA0KIAkuZ2V0X3RvcyA9CQl4ZnJtNl9nZXRfdG9zLA0K
-KwkuaW5pdF9kc3QgPQkJeGZybTZfaW5pdF9kc3QsDQogCS5pbml0X3BhdGgg
-PQkJeGZybTZfaW5pdF9wYXRoLA0KIAkuZmlsbF9kc3QgPQkJeGZybTZfZmls
-bF9kc3QsDQogCS5ibGFja2hvbGVfcm91dGUgPQlpcDZfYmxhY2tob2xlX3Jv
-dXRlLA0KZGlmZiAtLWdpdCBhL25ldC94ZnJtL3hmcm1fcG9saWN5LmMgYi9u
-ZXQveGZybS94ZnJtX3BvbGljeS5jDQppbmRleCBjNWE1MTY1Li41YTJhYTE3
-IDEwMDY0NA0KLS0tIGEvbmV0L3hmcm0veGZybV9wb2xpY3kuYw0KKysrIGIv
-bmV0L3hmcm0veGZybV9wb2xpY3kuYw0KQEAgLTEzNTcsNiArMTM1Nyw4IEBA
-IHN0YXRpYyBpbmxpbmUgc3RydWN0IHhmcm1fZHN0ICp4ZnJtX2FsbG9jX2Rz
-dChzdHJ1Y3QgbmV0ICpuZXQsIGludCBmYW1pbHkpDQogDQogCQltZW1zZXQo
-ZHN0ICsgMSwgMCwgc2l6ZW9mKCp4ZHN0KSAtIHNpemVvZigqZHN0KSk7DQog
-CQl4ZHN0LT5mbG8ub3BzID0gJnhmcm1fYnVuZGxlX2ZjX29wczsNCisJCWlm
-IChhZmluZm8tPmluaXRfZHN0KQ0KKwkJCWFmaW5mby0+aW5pdF9kc3QobmV0
-LCB4ZHN0KTsNCiAJfSBlbHNlDQogCQl4ZHN0ID0gRVJSX1BUUigtRU5PQlVG
-Uyk7DQogDQo=
-
----559023410-1804928587-1345303951=:7404--
+---
+diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+index f0ad56c..b332112 100644
+--- a/drivers/net/netconsole.c
++++ b/drivers/net/netconsole.c
+@@ -643,7 +643,6 @@ static int netconsole_netdev_event(struct notifier_block *this,
+ 					__netpoll_cleanup(&nt->np);
+ 					dev_put(nt->np.dev);
+ 					nt->np.dev = NULL;
+-					netconsole_target_put(nt);
+ 				}
+ 				nt->enabled = 0;
+ 				stopped = true;
