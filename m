@@ -1,56 +1,35 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 4/5] drivers/net/wireless/ath/ath6kl/main.c: introduce missing initialization
-Date: Sat, 18 Aug 2012 23:25:58 +0200
-Message-ID: <1345325159-7365-4-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "National Geographic International" <lr1@yale.edu>
+Subject: 500,000.00GBP Winner
+Date: Sat, 18 Aug 2012 20:38:13 +0800
+Message-ID: <201208181239.q7IC5BqK028983__30469.3718477667$1345326312$gmane$org@vm-emlprdomr-02.its.yale.edu>
+Reply-To: ngi.co.uk1@aol.co.uk
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <lr1@yale.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vm-emlprdomr-02.its.yale.edu ([130.132.50.143]:57431 "EHLO
+	vm-emlprdomr-02.its.yale.edu" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752353Ab2HRVpA convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Aug 2012 17:45:00 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+You have been award the sum of 500,000.00GBP National Geographic International Uk
 
-The result of one call to a function is tested, and then at the second call
-to the same function, the previous result, and not the current result, is
-tested again.
+Claims Requirements.
 
-The semantic match that finds this problem is as follows:
-(http://coccinelle.lip6.fr/)
+Fill the below:
+1. Full Name:
+2. Address:
+3. Nationality:Sex:
+4. Age: Date of Birth:
+5. Occupation:
+6. Cell Phone:Fax:
+7. State of Origin:Country:
 
-// <smpl>
-@@
-expression ret;
-identifier f;
-statement S1,S2;
-@@
-
-*ret = f(...);
-if (\(ret != 0\|ret < 0\|ret == NULL\)) S1
-... when any
-*f(...);
-if (\(ret != 0\|ret < 0\|ret == NULL\)) S2
-// </smpl>
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
- drivers/net/wireless/ath/ath6kl/main.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/ath/ath6kl/main.c b/drivers/net/wireless/ath/ath6kl/main.c
-index c189e28..c312c61 100644
---- a/drivers/net/wireless/ath/ath6kl/main.c
-+++ b/drivers/net/wireless/ath/ath6kl/main.c
-@@ -322,7 +322,8 @@ int ath6kl_read_fwlogs(struct ath6kl *ar)
- 
- 		address = TARG_VTOP(ar->target_type,
- 				    le32_to_cpu(debug_buf.next));
--		ath6kl_diag_read(ar, address, &debug_buf, sizeof(debug_buf));
-+		ret = ath6kl_diag_read(ar, address, &debug_buf,
-+				       sizeof(debug_buf));
- 		if (ret)
- 			goto out;
- 
+Congratulations!! once again.
+Sincerely,
+Mrs.Caroline Cole
