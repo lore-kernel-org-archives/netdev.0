@@ -1,8 +1,8 @@
 From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2 08/16] block,
-	elevator: use new hashtable implementation
-Date: Sun, 19 Aug 2012 02:52:22 +0200
-Message-ID: <1345337550-24304-10-git-send-email-levinsasha928@gmail.com>
+Subject: [PATCH v2 05/16] mm/huge_memory: use new hashtable
+	implementation
+Date: Sun, 19 Aug 2012 02:52:19 +0200
+Message-ID: <1345337550-24304-7-git-send-email-levinsasha928@gmail.com>
 References: <1345337550-24304-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -35,8 +35,8 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Switch elevator to use the new hashtable implementation. This reduces the amount of
-generic unrelated code in the elevator.
+Switch hugemem to use the new hashtable implementation. This reduces the amount of
+generic unrelated code in the hugemem.
 
 This also removes the dymanic allocation of the hash table. The size of the table is
 constant so there's no point in paying the price of an extra dereference when accessing
@@ -44,132 +44,139 @@ it.
 
 Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- block/blk.h              |    2 +-
- block/elevator.c         |   23 ++++-------------------
- include/linux/elevator.h |    5 ++++-
- 3 files changed, 9 insertions(+), 21 deletions(-)
+ mm/huge_memory.c |   57 ++++++++++++++---------------------------------------
+ 1 files changed, 15 insertions(+), 42 deletions(-)
 
-diff --git a/block/blk.h b/block/blk.h
-index 2a0ea32..5650d48 100644
---- a/block/blk.h
-+++ b/block/blk.h
-@@ -61,7 +61,7 @@ static inline void blk_clear_rq_complete(struct request *rq)
- /*
-  * Internal elevator interface
-  */
--#define ELV_ON_HASH(rq)		(!hlist_unhashed(&(rq)->hash))
-+#define ELV_ON_HASH(rq) hash_hashed(&(rq)->hash)
- 
- void blk_insert_flush(struct request *rq);
- void blk_abort_flushes(struct request_queue *q);
-diff --git a/block/elevator.c b/block/elevator.c
-index 6a55d41..f462a83 100644
---- a/block/elevator.c
-+++ b/block/elevator.c
-@@ -46,11 +46,6 @@ static LIST_HEAD(elv_list);
- /*
-  * Merge hash stuff.
-  */
--static const int elv_hash_shift = 6;
--#define ELV_HASH_BLOCK(sec)	((sec) >> 3)
--#define ELV_HASH_FN(sec)	\
--		(hash_long(ELV_HASH_BLOCK((sec)), elv_hash_shift))
--#define ELV_HASH_ENTRIES	(1 << elv_hash_shift)
- #define rq_hash_key(rq)		(blk_rq_pos(rq) + blk_rq_sectors(rq))
- 
- /*
-@@ -142,7 +137,6 @@ static struct elevator_queue *elevator_alloc(struct request_queue *q,
- 				  struct elevator_type *e)
- {
- 	struct elevator_queue *eq;
--	int i;
- 
- 	eq = kmalloc_node(sizeof(*eq), GFP_KERNEL | __GFP_ZERO, q->node);
- 	if (unlikely(!eq))
-@@ -151,14 +145,7 @@ static struct elevator_queue *elevator_alloc(struct request_queue *q,
- 	eq->type = e;
- 	kobject_init(&eq->kobj, &elv_ktype);
- 	mutex_init(&eq->sysfs_lock);
--
--	eq->hash = kmalloc_node(sizeof(struct hlist_head) * ELV_HASH_ENTRIES,
--					GFP_KERNEL, q->node);
--	if (!eq->hash)
--		goto err;
--
--	for (i = 0; i < ELV_HASH_ENTRIES; i++)
--		INIT_HLIST_HEAD(&eq->hash[i]);
-+	hash_init(eq->hash);
- 
- 	return eq;
- err:
-@@ -173,7 +160,6 @@ static void elevator_release(struct kobject *kobj)
- 
- 	e = container_of(kobj, struct elevator_queue, kobj);
- 	elevator_put(e->type);
--	kfree(e->hash);
- 	kfree(e);
- }
- 
-@@ -240,7 +226,7 @@ EXPORT_SYMBOL(elevator_exit);
- 
- static inline void __elv_rqhash_del(struct request *rq)
- {
--	hlist_del_init(&rq->hash);
-+	hash_del(&rq->hash);
- }
- 
- static void elv_rqhash_del(struct request_queue *q, struct request *rq)
-@@ -254,7 +240,7 @@ static void elv_rqhash_add(struct request_queue *q, struct request *rq)
- 	struct elevator_queue *e = q->elevator;
- 
- 	BUG_ON(ELV_ON_HASH(rq));
--	hlist_add_head(&rq->hash, &e->hash[ELV_HASH_FN(rq_hash_key(rq))]);
-+	hash_add(e->hash, &rq->hash, rq_hash_key(rq));
- }
- 
- static void elv_rqhash_reposition(struct request_queue *q, struct request *rq)
-@@ -266,11 +252,10 @@ static void elv_rqhash_reposition(struct request_queue *q, struct request *rq)
- static struct request *elv_rqhash_find(struct request_queue *q, sector_t offset)
- {
- 	struct elevator_queue *e = q->elevator;
--	struct hlist_head *hash_list = &e->hash[ELV_HASH_FN(offset)];
- 	struct hlist_node *entry, *next;
- 	struct request *rq;
- 
--	hlist_for_each_entry_safe(rq, entry, next, hash_list, hash) {
-+	hash_for_each_possible_safe(e->hash, rq, entry, next, hash, offset) {
- 		BUG_ON(!ELV_ON_HASH(rq));
- 
- 		if (unlikely(!rq_mergeable(rq))) {
-diff --git a/include/linux/elevator.h b/include/linux/elevator.h
-index c03af76..20b539c 100644
---- a/include/linux/elevator.h
-+++ b/include/linux/elevator.h
-@@ -2,6 +2,7 @@
- #define _LINUX_ELEVATOR_H
- 
- #include <linux/percpu.h>
+diff --git a/mm/huge_memory.c b/mm/huge_memory.c
+index 8b3c55a..cebe345 100644
+--- a/mm/huge_memory.c
++++ b/mm/huge_memory.c
+@@ -17,6 +17,7 @@
+ #include <linux/khugepaged.h>
+ #include <linux/freezer.h>
+ #include <linux/mman.h>
 +#include <linux/hashtable.h>
+ #include <asm/tlb.h>
+ #include <asm/pgalloc.h>
+ #include "internal.h"
+@@ -57,12 +58,12 @@ static DECLARE_WAIT_QUEUE_HEAD(khugepaged_wait);
+ static unsigned int khugepaged_max_ptes_none __read_mostly = HPAGE_PMD_NR-1;
  
- #ifdef CONFIG_BLOCK
+ static int khugepaged(void *none);
+-static int mm_slots_hash_init(void);
+ static int khugepaged_slab_init(void);
+ static void khugepaged_slab_free(void);
  
-@@ -96,6 +97,8 @@ struct elevator_type
- 	struct list_head list;
- };
- 
-+#define ELV_HASH_BITS 6
+-#define MM_SLOTS_HASH_HEADS 1024
+-static struct hlist_head *mm_slots_hash __read_mostly;
++#define MM_SLOTS_HASH_BITS 10
++static DEFINE_HASHTABLE(mm_slots_hash, MM_SLOTS_HASH_BITS);
 +
- /*
-  * each queue has an elevator_queue associated with it
-  */
-@@ -105,7 +108,7 @@ struct elevator_queue
- 	void *elevator_data;
- 	struct kobject kobj;
- 	struct mutex sysfs_lock;
--	struct hlist_head *hash;
-+	DEFINE_HASHTABLE(hash, ELV_HASH_BITS);
- 	unsigned int registered:1;
- };
+ static struct kmem_cache *mm_slot_cache __read_mostly;
  
+ /**
+@@ -140,7 +141,7 @@ static int start_khugepaged(void)
+ 	int err = 0;
+ 	if (khugepaged_enabled()) {
+ 		int wakeup;
+-		if (unlikely(!mm_slot_cache || !mm_slots_hash)) {
++		if (unlikely(!mm_slot_cache)) {
+ 			err = -ENOMEM;
+ 			goto out;
+ 		}
+@@ -554,12 +555,6 @@ static int __init hugepage_init(void)
+ 	if (err)
+ 		goto out;
+ 
+-	err = mm_slots_hash_init();
+-	if (err) {
+-		khugepaged_slab_free();
+-		goto out;
+-	}
+-
+ 	/*
+ 	 * By default disable transparent hugepages on smaller systems,
+ 	 * where the extra memory used could hurt more than TLB overhead
+@@ -1540,6 +1535,8 @@ static int __init khugepaged_slab_init(void)
+ 	if (!mm_slot_cache)
+ 		return -ENOMEM;
+ 
++	hash_init(mm_slots_hash);
++
+ 	return 0;
+ }
+ 
+@@ -1561,47 +1558,23 @@ static inline void free_mm_slot(struct mm_slot *mm_slot)
+ 	kmem_cache_free(mm_slot_cache, mm_slot);
+ }
+ 
+-static int __init mm_slots_hash_init(void)
+-{
+-	mm_slots_hash = kzalloc(MM_SLOTS_HASH_HEADS * sizeof(struct hlist_head),
+-				GFP_KERNEL);
+-	if (!mm_slots_hash)
+-		return -ENOMEM;
+-	return 0;
+-}
+-
+-#if 0
+-static void __init mm_slots_hash_free(void)
+-{
+-	kfree(mm_slots_hash);
+-	mm_slots_hash = NULL;
+-}
+-#endif
+-
+ static struct mm_slot *get_mm_slot(struct mm_struct *mm)
+ {
+-	struct mm_slot *mm_slot;
+-	struct hlist_head *bucket;
++	struct mm_slot *slot;
+ 	struct hlist_node *node;
+ 
+-	bucket = &mm_slots_hash[((unsigned long)mm / sizeof(struct mm_struct))
+-				% MM_SLOTS_HASH_HEADS];
+-	hlist_for_each_entry(mm_slot, node, bucket, hash) {
+-		if (mm == mm_slot->mm)
+-			return mm_slot;
+-	}
++	hash_for_each_possible(mm_slots_hash, slot, node, hash, (unsigned long) mm)
++		if (slot->mm == mm)
++			return slot;
++
+ 	return NULL;
+ }
+ 
+ static void insert_to_mm_slots_hash(struct mm_struct *mm,
+ 				    struct mm_slot *mm_slot)
+ {
+-	struct hlist_head *bucket;
+-
+-	bucket = &mm_slots_hash[((unsigned long)mm / sizeof(struct mm_struct))
+-				% MM_SLOTS_HASH_HEADS];
+ 	mm_slot->mm = mm;
+-	hlist_add_head(&mm_slot->hash, bucket);
++	hash_add(mm_slots_hash, &mm_slot->hash, (long)mm);
+ }
+ 
+ static inline int khugepaged_test_exit(struct mm_struct *mm)
+@@ -1670,7 +1643,7 @@ void __khugepaged_exit(struct mm_struct *mm)
+ 	spin_lock(&khugepaged_mm_lock);
+ 	mm_slot = get_mm_slot(mm);
+ 	if (mm_slot && khugepaged_scan.mm_slot != mm_slot) {
+-		hlist_del(&mm_slot->hash);
++		hash_del(&mm_slot->hash);
+ 		list_del(&mm_slot->mm_node);
+ 		free = 1;
+ 	}
+@@ -2080,7 +2053,7 @@ static void collect_mm_slot(struct mm_slot *mm_slot)
+ 
+ 	if (khugepaged_test_exit(mm)) {
+ 		/* free mm_slot */
+-		hlist_del(&mm_slot->hash);
++		hash_del(&mm_slot->hash);
+ 		list_del(&mm_slot->mm_node);
+ 
+ 		/*
 -- 
 1.7.8.6
