@@ -1,55 +1,44 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] serial: add a new helper function
-Date: Sun, 19 Aug 2012 16:46:58 +0100
-Message-ID: <20120819164658.1737bb74@pyramind.ukuu.org.uk>
-References: <1345400832-23572-1-git-send-email-shijie8@gmail.com>
-	<20120819064429.GA3252@kroah.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: IPv4 BUG: held lock freed!
+Date: Sun, 19 Aug 2012 17:55:08 +0200
+Message-ID: <1345391708.5158.225.camel@edumazet-glaptop>
+References: <20120818021918.GA6499@localhost>
+	 <1345380682.5158.201.camel@edumazet-glaptop>
+	 <CAF1ivSaU_ur9BkKG3eAsNw7d+ND5xgYbPKutemVqNec3X9m4SA@mail.gmail.com>
+	 <1345387532.5158.222.camel@edumazet-glaptop>
+	 <CAF1ivSZK8Y2XpjUXVpNg=m=bs7bGCYqF0ZQU2u_YpEUrmOrR-g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Huang Shijie <shijie8@gmail.com>, alan@linux.intel.com,
-	jirislaby@gmail.com, linux-kernel@vger.kernel.org,
-	linux-serial@vger.kernel.org, netdev@vger.kernel.org
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120819064429.GA3252@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Fengguang Wu <fengguang.wu@intel.com>,
+	David Miller <davem@davemloft.net>,
+	networking <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Lin Ming <mlin@ss.pku.edu.cn>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:47768 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752825Ab2HSPzO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2012 11:55:14 -0400
+In-Reply-To: <CAF1ivSZK8Y2XpjUXVpNg=m=bs7bGCYqF0ZQU2u_YpEUrmOrR-g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 18 Aug 2012 23:44:29 -0700
-Greg KH <gregkh@linuxfoundation.org> wrote:
-
-> On Sun, Aug 19, 2012 at 02:27:12PM -0400, Huang Shijie wrote:
-> > --- a/include/linux/tty.h
-> > +++ b/include/linux/tty.h
-> > @@ -43,6 +43,7 @@
-> >  #include <linux/tty_driver.h>
-> >  #include <linux/tty_ldisc.h>
-> >  #include <linux/mutex.h>
-> > +#include <linux/serial.h>
-> >  
-> >  
-> >  
-> > @@ -513,6 +514,12 @@ static inline struct tty_port *tty_port_get(struct tty_port *port)
-> >  	return port;
-> >  }
-> >  
-> > +/* If the cts flow control is enabled, return true. */
-> > +static inline bool tty_port_cts_enabled(struct tty_port *port)
-> > +{
-> > +	return port->flags & ASYNC_CTS_FLOW;
-> > +}
-> > +
+On Sun, 2012-08-19 at 23:05 +0800, Lin Ming wrote:
+> On Sun, Aug 19, 2012 at 10:45 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Sun, 2012-08-19 at 22:15 +0800, Lin Ming wrote:
+> >
+> >> Will it still has problem if code goes here without sock_hold(sk)?
+> >
+> > Not sure of what you mean.
 > 
-> The fact that you have to add serial.h to this file kind of implies that
-> this function shouldn't be here, right?
+> See my comments in the function.
+> Is that a potential problem?
 > 
-> How about serial.h instead?  Not all tty drivers are serial drivers :)
 
-tty_port is tty generic so possibly if there is a generic helper the
-flags and helper should likewise be this way.
+No problem.
 
-As it stands at the moment ASYNC_CTS_FLOW is a convention a few drivers
-use. So calling it tty_port_xxx is going to misleading.
+It always been like that. Thats the whole point having a refcount at the
+first place.
 
-Alan
+The last sock_put(sk) should free the socket.
