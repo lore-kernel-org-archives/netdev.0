@@ -1,82 +1,55 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 05/19] netfilter: nf_conntrack_ipv6: improve fragmentation
- handling
-Date: Sun, 19 Aug 2012 21:44:35 +0200 (MEST)
-Message-ID: <Pine.GSO.4.63.1208192141570.3016@stinky-local.trash.net>
-References: <1344542943-11588-1-git-send-email-kaber@trash.net>  
- <1344542943-11588-6-git-send-email-kaber@trash.net>  <1345190795.3069.228.camel@localhost>
-  <Pine.GSO.4.63.1208181423050.17600@stinky-local.trash.net>
- <1345405069.3069.241.camel@localhost>
+From: Andrew Worsley <amworsley@gmail.com>
+Subject: Re: network packet corruption in v3.6.0-rc1 (and also in v3.5)
+Date: Mon, 20 Aug 2012 06:20:52 +1000
+Message-ID: <CA+Y=x3nFziC+=RhEz7aQofSy15gX=nKqFfQ2DEF0FwXTGmv7zQ@mail.gmail.com>
+References: <CA+Y=x3=jSrEaYdnaAF75p0utQq02MhoSh4SkshRVSc7JjjVPOw@mail.gmail.com>
+	<1345374134.5158.103.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1345405069.3069.241.camel@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:62212 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753864Ab2HSUUy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2012 16:20:54 -0400
+Received: by eaac11 with SMTP id c11so1809397eaa.19
+        for <netdev@vger.kernel.org>; Sun, 19 Aug 2012 13:20:52 -0700 (PDT)
+In-Reply-To: <1345374134.5158.103.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 19 Aug 2012, Jesper Dangaard Brouer wrote:
-
-> On Sat, 2012-08-18 at 14:26 +0200, Patrick McHardy wrote:
->>>
->>> Could you provide an iptables command/rule, that trigger this code path?
->>
->> The easiest way is a large ping with the NAT patches also applied,
->> in that case we also pass the first packet of a connection through
->> the stack reassembled.
+> OK, this seems to be related to r8712u, still in staging tree.
 >
-> So, a fragmented IPv6 ICMPv6 packet, I assume?
-
-Correct.
-
-> Don't I need to load some of the helper modules, or just the
-> nf_conntrack_ipv6 module, or perhaps only nf_defrag_ipv6 ?
-
-Not with the entire patchset, just IPv6 conntrack is enough. Aith IPv6 NAT
-the first packet of a connection must always be defragemented, independant
-of an assigned helper.
-
->>>> @@ -199,9 +200,13 @@ static unsigned int ipv6_confirm(unsigned int hooknum,
->>>>  static unsigned int __ipv6_conntrack_in(struct net *net,
->>>>  					unsigned int hooknum,
->>>>  					struct sk_buff *skb,
->>>> +					const struct net_device *in,
->>>> +					const struct net_device *out,
->>>>  					int (*okfn)(struct sk_buff *))
->>>>  {
->>>>  	struct sk_buff *reasm = skb->nfct_reasm;
->>>> +	struct nf_conn *ct;
->>>> +	enum ip_conntrack_info ctinfo;
->>>>
->>>>  	/* This packet is fragmented and has reassembled packet. */
->>>>  	if (reasm) {
->>>> @@ -213,6 +218,20 @@ static unsigned int __ipv6_conntrack_in(struct net *net,
->>>>  			if (ret != NF_ACCEPT)
->>>>  				return ret;
->>>>  		}
->>>> +
->>>> +		/* Conntrack helpers need the entire reassembled packet in the
->>>> +		 * POST_ROUTING hook.
->>>> +		 */
->>>> +		ct = nf_ct_get(reasm, &ctinfo);
->>>> +		if (ct != NULL && test_bit(IPS_HELPER_BIT, &ct->status)) {
->>>> +			nf_conntrack_get_reasm(skb);
->>>> +			NF_HOOK_THRESH(NFPROTO_IPV6, hooknum, reasm,
->>>> +				       (struct net_device *)in,
->>>> +				       (struct net_device *)out,
->>>> +				       okfn, NF_IP6_PRI_CONNTRACK + 1);
->>>
->>> Hook prio change to NF_IP6_PRI_CONNTRACK + 1
->>
->> I didn't get this part, you want to change to PRE_CONNTRACK + 1? What
->> about raw and SELinux?
+> At first glance, its using a buggy skb_clone(), or kind of a 'reuse skb'
+> trick I have no time to investigate.
 >
-> No - I don't want any changes.
+> I suspect that some memory area are overwritten by this driver, and this
+> was not noticed with older kernels. With new kernels, its triggering a
+> WARN_ON() in tcp stack.
 >
-> I was just pointing out *where* the changes occur in your patch. This is
-> just a "service" to other email readers, so they can spot the changes
-> faster, I were referring to.
+> Any chance you can try to reproduce the bug with another adapter ?
 
-Could you send me your patch so I get a better picture of what you're 
-doing exactly?
+Unfortunately I don't have another USB dongle. I could try to get the built in
+
+Broadcom Corporation BCM4331 802.11a/b/g/n (rev 02)
+Subsystem: Apple Inc. Device 00ef
+
+but I need to dig out the proprietary firmware - which will take some
+time as I am not familiar with the procedure.
+
+The weird thing about this USB dongle is that I brought it because it
+was claimed to be supported under Linux
+
+idVendor           0x0b05 ASUSTek Computer, Inc.
+idProduct          0x1786 USB-N10 802.11n Network Adapter [Realtek RTL8188SU]
+
+RealTek driver web site -  -
+http://www.realtek.com.tw/downloads/downloadsView.aspx?Langid=1&PNid=48&PFid=48&Level=5&Conn=4&DownTypeID=3&GetDown=false&Downloads=true#RTL8188SU
+
+which claims support "Linux Kernel 2.6.18~2.6.38 and Kernel 3.0.2"
+but requires I try compiling the driver from source
+
+Andrew
