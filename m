@@ -1,11 +1,11 @@
 From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: [PATCH v2 01/16] hashtable: introduce a small and
 	naive hashtable
-Date: Sun, 19 Aug 2012 18:08:01 +0200
-Message-ID: <50310F61.9030805@gmail.com>
+Date: Sun, 19 Aug 2012 18:17:44 +0200
+Message-ID: <503111A8.5030703@gmail.com>
 References: <1345337550-24304-1-git-send-email-levinsasha928@gmail.com>
 	<1345337550-24304-2-git-send-email-levinsasha928@gmail.com>
-	<20120819131637.GA8272@Krystal>
+	<20120819131637.GA8272@Krystal> <20120819141641.GA9082@Krystal>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -24,7 +24,7 @@ Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gm
 	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 To: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20120819131637.GA8272@Krystal>
+In-Reply-To: <20120819141641.GA9082@Krystal>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
 	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -36,70 +36,58 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 08/19/2012 03:16 PM, Mathieu Desnoyers wrote:
-> * Sasha Levin (levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
->> This hashtable implementation is using hlist buckets to provide a simple
->> hashtable to prevent it from getting reimplemented all over the kernel.
->>
->> Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> ---
->>  include/linux/hashtable.h |  284 +++++++++++++++++++++++++++++++++++++++++++++
+On 08/19/2012 04:16 PM, Mathieu Desnoyers wrote:
+> * Mathieu Desnoyers (mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org) wrote:
+>> * Sasha Levin (levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
 > [...]
+>>> +/**
+>>> + * hash_for_each_possible - iterate over all possible objects for a given key
+>>> + * @name: hashtable to iterate
+>>> + * @obj: the type * to use as a loop cursor for each bucket
+>>> + * @bits: bit count of hashing function of the hashtable
+>>> + * @node: the &struct list_head to use as a loop cursor for each bucket
+>>> + * @member: the name of the hlist_node within the struct
+>>> + * @key: the key of the objects to iterate over
+>>> + */
+>>> +#define hash_for_each_possible_size(name, obj, bits, node, member, key)		\
+>>> +	hlist_for_each_entry(obj, node,	&name[hash_min(key, bits)], member)
+>>
+>> Second point: "for_each_possible" does not express the iteration scope.
+>> Citing WordNet: "possible adj 1: capable of happening or existing;" --
+>> which has nothing to do with iteration on duplicate keys within a hash
+>> table.
+>>
+>> I would recommend to rename "possible" to "duplicate", e.g.:
+>>
+>>   hash_for_each_duplicate()
+>>
+>> which clearly says what is the scope of this iteration: duplicate keys.
 > 
-> Hi Sasha,
+> OK, about this part: I now see that you iterate over all objects within
+> the same hash chain. I guess the description "iterate over all possible
+> objects for a given key" is misleading: it's not all objects with a
+> given key, but rather all objects hashing to the same bucket.
 > 
-> There are still a few API naming nits that I'd like to discuss:
+> I understand that you don't want to build knowledge of the key
+> comparison function in the iterator (which makes sense for a simple hash
+> table).
 > 
->> +
->> +/**
->> + * hash_for_each_size - iterate over a hashtable
->> + * @name: hashtable to iterate
->> + * @bits: bit count of hashing function of the hashtable
->> + * @bkt: integer to use as bucket loop cursor
->> + * @node: the &struct list_head to use as a loop cursor for each bucket
->> + * @obj: the type * to use as a loop cursor for each bucket
->> + * @member: the name of the hlist_node within the struct
->> + */
->> +#define hash_for_each_size(name, bits, bkt, node, obj, member)			\
+> By the way, the comment "@obj: the type * to use as a loop cursor for
+> each bucket" is also misleading: it's a loop cursor for each entry,
+> since you iterate on all nodes within single bucket. Same for "@node:
+> the &struct list_head to use as a loop cursor for each bucket".
 > 
-> What is the meaning of "for each size" ?
-> 
-> By looking at the implementation, I see that it takes an extra "bits"
-> argument to specify the key width.
-> 
-> But in the other patches of this patchset, I cannot find a single user
-> of the "*_size" API. If you do not typically expect users to specify
-> this parameter by hand (thanks to use of HASH_BITS(name) in for_each
-> functions that do not take the bits parameter), I would recommend to
-> only expose hash_for_each() and similar defines, but n I'd ot the *_size
-> variants.
-> 
-> So I recommend merging hash_for_each_size into hash_for_each (and
-> doing similarly for other *_size variants). On the plus side, it will
-> cut down the number of for_each macros from 12 down to 6, whiy och is more
-> reasonable.
+> So with these documentation changes applied, hash_for_each_possible
+> starts to make more sense, because it refers to entries that can
+> _possibly_ be a match (or not). Other options would be
+> hash_chain_for_each() or hash_bucket_for_each().
 
-This is actually how the hashtable API was looking in the first place - without
-the _size functions.
+I'd rather avoid starting to use chain/bucket since they're not used anywhere
+else (I've tried keeping internal hashing/bucketing opaque to the user).
 
-The story here is that when I've introduced the original API which used macro
-magic to work out the size, one of the first comments was that there are several
-dynamically allocated hashtables around the kernels, and all this macro magic
-wouldn't work.
+Otherwise makes sense, I'll improve the documentation as suggested. Thanks!
 
-I've grepped around the code and indeed saw several places which k*alloc/vmalloc
-their hashtable, so I agreed with that and happily went ahead to extend the API
-to have _size functions.
-
-When I started converting more kernel code to use this new API, I also converted
-two modules which kmalloced the hashtable, but instead of using the _size API I
-ended up removing the allocation completely because it was unnecessary and
-wasteful. And this is why you don't see _size being used anywhere in any of the
-patches.
-
-Looking at the kernel code again, I see several places where removal of dynamic
-allocation won't work (see 'new_tl_hash' in drivers/block/drbd/drbd_nl.c for
-example).
-
-So I'd rather leave it in at least until we finish converting, as I see several
-places which will definitely need it.
+> Thanks,
+> 
+> Mathieu
+> 
