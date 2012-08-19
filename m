@@ -1,66 +1,240 @@
-From: Artem Savkov <artem.savkov@gmail.com>
-Subject: Re: [PATCH] net: tcp: ipv6_mapped needs sk_rx_dst_set method
-Date: Sun, 19 Aug 2012 12:11:38 +0400
-Message-ID: <20120819081137.GA4110@thinkpad.lan>
-References: <20120809160349.d2880b5a.akpm@linux-foundation.org>
- <1344556733.31104.819.camel@edumazet-glaptop>
- <1344557460.31104.863.camel@edumazet-glaptop>
- <20120809.210600.638327100706973152.davem@davemloft.net>
- <20120818130642.GA10680@thinkpad.lan>
- <CADVnQyn-aDMDdb_nfFyZPtmnKkuFtjwfSNWudnhMdYZz7Ddh7g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	akpm@linux-foundation.org, netdev@vger.kernel.org
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:61706 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751004Ab2HSILp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2012 04:11:45 -0400
-Received: by lbbgj3 with SMTP id gj3so2845974lbb.19
-        for <netdev@vger.kernel.org>; Sun, 19 Aug 2012 01:11:42 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CADVnQyn-aDMDdb_nfFyZPtmnKkuFtjwfSNWudnhMdYZz7Ddh7g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Huang Shijie <shijie8@gmail.com>
+Subject: [PATCH v2] serial: add a new helper function
+Date: Sun, 19 Aug 2012 17:33:47 -0400
+Message-ID: <1345412027-11389-1-git-send-email-shijie8@gmail.com>
+Cc: alan@linux.intel.com, jirislaby@gmail.com,
+	linux-kernel@vger.kernel.org, linux-serial@vger.kernel.org,
+	netdev@vger.kernel.org, Huang Shijie <shijie8@gmail.com>
+To: gregkh@linuxfoundation.org
+Return-path: <linux-serial-owner@vger.kernel.org>
+Sender: linux-serial-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 19, 2012 at 12:06:33AM -0400, Neal Cardwell wrote:
-> On Sat, Aug 18, 2012 at 9:06 AM, Artem Savkov <artem.savkov@gmail.com> wrote:
-> > [ 1699.195040] EIP is at inet6_sk_rx_dst_set+0x40/0xa0
-> ...
-> > [ 1699.198736]  [<c15662a1>] tcp_create_openreq_child+0x41/0x4e0
-> > [ 1699.198884]  [<c1563b54>] tcp_v4_syn_recv_sock+0x34/0x330
-> > [ 1699.199032]  [<c15d162e>] tcp_v6_syn_recv_sock+0x3fe/0x660
-> ...
-> > [ 1699.242913] EIP: [<c15d11d0>] inet6_sk_rx_dst_set+0x40/0xa0 SS:ESP 0068:f540dce0
-> > [ 1699.245945] CR2: 0000000000000016
-> > [ 1699.280708] ---[ end trace 3fb05aeec95e7238 ]---
-> > [ 1699.280806] Kernel panic - not syncing: Fatal exception in interrupt
-> > [ 1699.284674] panic occurred, switching back to text console
-> Thanks for the detailed report!
-> 
-> I don't think that particular fix is kosher, since this basically
-> changes the address family ops of the parent listening socket ('sk'
-> here).The parent listening socket needs to keep its IPv6 af_ops so its
-> IPv6 children can get the right af_ops.
-Indeed, my approach breaks ipv6 after first mapped connection.
+In most of the time, the driver needs to check if the cts flow control
+is enabled. But now, the driver checks the ASYNC_CTS_FLOW flag manually,
+which is not a grace way. So add a new wraper function to make the code
+tidy and clean.
 
-> We should probably either: (a) make sure the af_ops of the child
-> socket are set correctly earlier, or (b) not use dynamic dispatch
-> through the af_ops within tcp_create_openreq_child(), and just do the
-> sk_rx_dst_set a tiny bit later. I've sent out a patch for approach (b)
-> here, since it's simpler:
-> 
->   http://patchwork.ozlabs.org/patch/178525/
-> 
-> I've verified that IPv4, IPv6, and IPv4-mapped-IPv6 connections work
-> for me with this patch. But if you could test it as well, that would
-> be great.
+Signed-off-by: Huang Shijie <shijie8@gmail.com>
+---
+v1 --> v2:
+	move the new help function to serial.h 
 
-I've tested it and can confirm that all three connection types work.
-Thank you for the patch and explanation.
+---
+ drivers/char/pcmcia/synclink_cs.c   |    2 +-
+ drivers/tty/amiserial.c             |    2 +-
+ drivers/tty/cyclades.c              |    2 +-
+ drivers/tty/isicom.c                |    2 +-
+ drivers/tty/mxser.c                 |    2 +-
+ drivers/tty/serial/mxs-auart.c      |    2 +-
+ drivers/tty/serial/serial_core.c    |    4 ++--
+ drivers/tty/synclink.c              |    2 +-
+ drivers/tty/synclink_gt.c           |    2 +-
+ drivers/tty/synclinkmp.c            |    2 +-
+ include/linux/serial.h              |    7 +++++++
+ net/irda/ircomm/ircomm_tty.c        |    4 ++--
+ net/irda/ircomm/ircomm_tty_attach.c |    2 +-
+ 13 files changed, 21 insertions(+), 14 deletions(-)
 
+diff --git a/drivers/char/pcmcia/synclink_cs.c b/drivers/char/pcmcia/synclink_cs.c
+index 5db08c7..3f57d5de 100644
+--- a/drivers/char/pcmcia/synclink_cs.c
++++ b/drivers/char/pcmcia/synclink_cs.c
+@@ -1050,7 +1050,7 @@ static void cts_change(MGSLPC_INFO *info, struct tty_struct *tty)
+ 	wake_up_interruptible(&info->status_event_wait_q);
+ 	wake_up_interruptible(&info->event_wait_q);
+ 
+-	if (info->port.flags & ASYNC_CTS_FLOW) {
++	if (tty_port_cts_enabled(&info->port)) {
+ 		if (tty->hw_stopped) {
+ 			if (info->serial_signals & SerialSignal_CTS) {
+ 				if (debug_level >= DEBUG_LEVEL_ISR)
+diff --git a/drivers/tty/amiserial.c b/drivers/tty/amiserial.c
+index 2b7535d..42d0a25 100644
+--- a/drivers/tty/amiserial.c
++++ b/drivers/tty/amiserial.c
+@@ -420,7 +420,7 @@ static void check_modem_status(struct serial_state *info)
+ 				tty_hangup(port->tty);
+ 		}
+ 	}
+-	if (port->flags & ASYNC_CTS_FLOW) {
++	if (tty_port_cts_enabled(port)) {
+ 		if (port->tty->hw_stopped) {
+ 			if (!(status & SER_CTS)) {
+ #if (defined(SERIAL_DEBUG_INTR) || defined(SERIAL_DEBUG_FLOW))
+diff --git a/drivers/tty/cyclades.c b/drivers/tty/cyclades.c
+index e3954da..0a6a0bc 100644
+--- a/drivers/tty/cyclades.c
++++ b/drivers/tty/cyclades.c
+@@ -727,7 +727,7 @@ static void cyy_chip_modem(struct cyclades_card *cinfo, int chip,
+ 		else
+ 			tty_hangup(tty);
+ 	}
+-	if ((mdm_change & CyCTS) && (info->port.flags & ASYNC_CTS_FLOW)) {
++	if ((mdm_change & CyCTS) && tty_port_cts_enabled(&info->port)) {
+ 		if (tty->hw_stopped) {
+ 			if (mdm_status & CyCTS) {
+ 				/* cy_start isn't used
+diff --git a/drivers/tty/isicom.c b/drivers/tty/isicom.c
+index 99cf22e..d7492e1 100644
+--- a/drivers/tty/isicom.c
++++ b/drivers/tty/isicom.c
+@@ -600,7 +600,7 @@ static irqreturn_t isicom_interrupt(int irq, void *dev_id)
+ 					port->status &= ~ISI_DCD;
+ 			}
+ 
+-			if (port->port.flags & ASYNC_CTS_FLOW) {
++			if (tty_port_cts_enabled(&port->port)) {
+ 				if (tty->hw_stopped) {
+ 					if (header & ISI_CTS) {
+ 						port->port.tty->hw_stopped = 0;
+diff --git a/drivers/tty/mxser.c b/drivers/tty/mxser.c
+index bb2da4c..cfda47d 100644
+--- a/drivers/tty/mxser.c
++++ b/drivers/tty/mxser.c
+@@ -830,7 +830,7 @@ static void mxser_check_modem_status(struct tty_struct *tty,
+ 			wake_up_interruptible(&port->port.open_wait);
+ 	}
+ 
+-	if (port->port.flags & ASYNC_CTS_FLOW) {
++	if (tty_port_cts_enabled(&port->port)) {
+ 		if (tty->hw_stopped) {
+ 			if (status & UART_MSR_CTS) {
+ 				tty->hw_stopped = 0;
+diff --git a/drivers/tty/serial/mxs-auart.c b/drivers/tty/serial/mxs-auart.c
+index 3a667ee..dafeef2 100644
+--- a/drivers/tty/serial/mxs-auart.c
++++ b/drivers/tty/serial/mxs-auart.c
+@@ -262,7 +262,7 @@ static void mxs_auart_set_mctrl(struct uart_port *u, unsigned mctrl)
+ 
+ 	ctrl &= ~AUART_CTRL2_RTSEN;
+ 	if (mctrl & TIOCM_RTS) {
+-		if (u->state->port.flags & ASYNC_CTS_FLOW)
++		if (tty_port_cts_enabled(&u->state->port))
+ 			ctrl |= AUART_CTRL2_RTSEN;
+ 	}
+ 
+diff --git a/drivers/tty/serial/serial_core.c b/drivers/tty/serial/serial_core.c
+index 5b308c8..1920e5c 100644
+--- a/drivers/tty/serial/serial_core.c
++++ b/drivers/tty/serial/serial_core.c
+@@ -176,7 +176,7 @@ static int uart_port_startup(struct tty_struct *tty, struct uart_state *state,
+ 				uart_set_mctrl(uport, TIOCM_RTS | TIOCM_DTR);
+ 		}
+ 
+-		if (port->flags & ASYNC_CTS_FLOW) {
++		if (tty_port_cts_enabled(port)) {
+ 			spin_lock_irq(&uport->lock);
+ 			if (!(uport->ops->get_mctrl(uport) & TIOCM_CTS))
+ 				tty->hw_stopped = 1;
+@@ -2493,7 +2493,7 @@ void uart_handle_cts_change(struct uart_port *uport, unsigned int status)
+ 
+ 	uport->icount.cts++;
+ 
+-	if (port->flags & ASYNC_CTS_FLOW) {
++	if (tty_port_cts_enabled(port)) {
+ 		if (tty->hw_stopped) {
+ 			if (status) {
+ 				tty->hw_stopped = 0;
+diff --git a/drivers/tty/synclink.c b/drivers/tty/synclink.c
+index 666aa14..70e3a52 100644
+--- a/drivers/tty/synclink.c
++++ b/drivers/tty/synclink.c
+@@ -1359,7 +1359,7 @@ static void mgsl_isr_io_pin( struct mgsl_struct *info )
+ 			}
+ 		}
+ 	
+-		if ( (info->port.flags & ASYNC_CTS_FLOW) && 
++		if (tty_port_cts_enabled(&info->port) &&
+ 		     (status & MISCSTATUS_CTS_LATCHED) ) {
+ 			if (info->port.tty->hw_stopped) {
+ 				if (status & MISCSTATUS_CTS) {
+diff --git a/drivers/tty/synclink_gt.c b/drivers/tty/synclink_gt.c
+index 45f6136..b38e954 100644
+--- a/drivers/tty/synclink_gt.c
++++ b/drivers/tty/synclink_gt.c
+@@ -2053,7 +2053,7 @@ static void cts_change(struct slgt_info *info, unsigned short status)
+ 	wake_up_interruptible(&info->event_wait_q);
+ 	info->pending_bh |= BH_STATUS;
+ 
+-	if (info->port.flags & ASYNC_CTS_FLOW) {
++	if (tty_port_cts_enabled(&info->port)) {
+ 		if (info->port.tty) {
+ 			if (info->port.tty->hw_stopped) {
+ 				if (info->signals & SerialSignal_CTS) {
+diff --git a/drivers/tty/synclinkmp.c b/drivers/tty/synclinkmp.c
+index 53429c8..f17d9f3 100644
+--- a/drivers/tty/synclinkmp.c
++++ b/drivers/tty/synclinkmp.c
+@@ -2500,7 +2500,7 @@ static void isr_io_pin( SLMP_INFO *info, u16 status )
+ 			}
+ 		}
+ 
+-		if ( (info->port.flags & ASYNC_CTS_FLOW) &&
++		if (tty_port_cts_enabled(&info->port) &&
+ 		     (status & MISCSTATUS_CTS_LATCHED) ) {
+ 			if ( info->port.tty ) {
+ 				if (info->port.tty->hw_stopped) {
+diff --git a/include/linux/serial.h b/include/linux/serial.h
+index 90e9f98..154dc94 100644
+--- a/include/linux/serial.h
++++ b/include/linux/serial.h
+@@ -11,6 +11,7 @@
+ #define _LINUX_SERIAL_H
+ 
+ #include <linux/types.h>
++#include <linux/tty.h>
+ 
+ #ifdef __KERNEL__
+ #include <asm/page.h>
+@@ -218,6 +219,12 @@ struct serial_rs485 {
+ 					   are a royal PITA .. */
+ };
+ 
++/* If the cts flow control is enabled, return true. */
++static inline bool tty_port_cts_enabled(struct tty_port *port)
++{
++	return port->flags & ASYNC_CTS_FLOW;
++}
++
+ #ifdef __KERNEL__
+ #include <linux/compiler.h>
+ 
+diff --git a/net/irda/ircomm/ircomm_tty.c b/net/irda/ircomm/ircomm_tty.c
+index 9668990..95a3a7a 100644
+--- a/net/irda/ircomm/ircomm_tty.c
++++ b/net/irda/ircomm/ircomm_tty.c
+@@ -1070,7 +1070,7 @@ void ircomm_tty_check_modem_status(struct ircomm_tty_cb *self)
+ 			goto put;
+ 		}
+ 	}
+-	if (tty && self->port.flags & ASYNC_CTS_FLOW) {
++	if (tty && tty_port_cts_enabled(&self->port)) {
+ 		if (tty->hw_stopped) {
+ 			if (status & IRCOMM_CTS) {
+ 				IRDA_DEBUG(2,
+@@ -1313,7 +1313,7 @@ static void ircomm_tty_line_info(struct ircomm_tty_cb *self, struct seq_file *m)
+ 
+ 	seq_puts(m, "Flags:");
+ 	sep = ' ';
+-	if (self->port.flags & ASYNC_CTS_FLOW) {
++	if (tty_port_cts_enabled(&self->port)) {
+ 		seq_printf(m, "%cASYNC_CTS_FLOW", sep);
+ 		sep = '|';
+ 	}
+diff --git a/net/irda/ircomm/ircomm_tty_attach.c b/net/irda/ircomm/ircomm_tty_attach.c
+index 3ab70e7..edab393 100644
+--- a/net/irda/ircomm/ircomm_tty_attach.c
++++ b/net/irda/ircomm/ircomm_tty_attach.c
+@@ -578,7 +578,7 @@ void ircomm_tty_link_established(struct ircomm_tty_cb *self)
+ 	 * will have to wait for the peer device (DCE) to raise the CTS
+ 	 * line.
+ 	 */
+-	if ((self->port.flags & ASYNC_CTS_FLOW) &&
++	if (tty_port_cts_enabled(&self->port) &&
+ 			((self->settings.dce & IRCOMM_CTS) == 0)) {
+ 		IRDA_DEBUG(0, "%s(), waiting for CTS ...\n", __func__ );
+ 		goto put;
 -- 
-Kind regards,
-Artem
+1.7.4.4
+
