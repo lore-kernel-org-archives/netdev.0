@@ -1,126 +1,116 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-Subject: Re: [PATCH v2 01/16] hashtable: introduce a small and naive
-	hashtable
-Date: Sun, 19 Aug 2012 09:16:37 -0400
-Message-ID: <20120819131637.GA8272@Krystal>
-References: <1345337550-24304-1-git-send-email-levinsasha928@gmail.com> <1345337550-24304-2-git-send-email-levinsasha928@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	paul.gortmaker@windriver.com, davem@davemloft.net,
-	rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
-	aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org,
-	josh@joshtriplett.org, eric.dumazet@gmail.com, axboe@kernel.dk,
-	agk@redhat.com, dm-devel@redhat.com, neilb@suse.de,
-	ccaulfie@redhat.com, teigland@redhat.com,
-	Trond.Myklebust@netapp.com, bfields@fieldses.org,
-	fweisbec@gmail.com, jesse@nicira.com,
-	venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
-	edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
-	rds-devel@oss.oracle.com, lw@cn.fujitsu.com
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1345337550-24304-2-git-send-email-levinsasha928@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net v2] net: tcp: move sk_rx_dst_set call after tcp_create_openreq_child()
+Date: Sun, 19 Aug 2012 09:30:38 -0400
+Message-ID: <1345383038-8330-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f202.google.com ([209.85.214.202]:40318 "EHLO
+	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750868Ab2HSNam (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2012 09:30:42 -0400
+Received: by obbwc20 with SMTP id wc20so3482253obb.1
+        for <netdev@vger.kernel.org>; Sun, 19 Aug 2012 06:30:41 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Sasha Levin (levinsasha928@gmail.com) wrote:
-> This hashtable implementation is using hlist buckets to provide a simple
-> hashtable to prevent it from getting reimplemented all over the kernel.
-> 
-> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
-> ---
->  include/linux/hashtable.h |  284 +++++++++++++++++++++++++++++++++++++++++++++
-[...]
+This commit removes the sk_rx_dst_set calls from
+tcp_create_openreq_child(), because at that point the icsk_af_ops
+field of ipv6_mapped TCP sockets has not been set to its proper final
+value.
 
-Hi Sasha,
+Instead, to make sure we get the right sk_rx_dst_set variant
+appropriate for the address family of the new connection, we have
+tcp_v{4,6}_syn_recv_sock() directly call the appropriate function
+shortly after the call to tcp_create_openreq_child() returns.
 
-There are still a few API naming nits that I'd like to discuss:
+This also moves inet6_sk_rx_dst_set() to avoid a forward declaration
+with the new approach.
 
-> +
-> +/**
-> + * hash_for_each_size - iterate over a hashtable
-> + * @name: hashtable to iterate
-> + * @bits: bit count of hashing function of the hashtable
-> + * @bkt: integer to use as bucket loop cursor
-> + * @node: the &struct list_head to use as a loop cursor for each bucket
-> + * @obj: the type * to use as a loop cursor for each bucket
-> + * @member: the name of the hlist_node within the struct
-> + */
-> +#define hash_for_each_size(name, bits, bkt, node, obj, member)			\
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Reported-by: Artem Savkov <artem.savkov@gmail.com>
+Cc: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_ipv4.c      |    1 +
+ net/ipv4/tcp_minisocks.c |    2 --
+ net/ipv6/tcp_ipv6.c      |   25 +++++++++++++------------
+ 3 files changed, 14 insertions(+), 14 deletions(-)
 
-What is the meaning of "for each size" ?
-
-By looking at the implementation, I see that it takes an extra "bits"
-argument to specify the key width.
-
-But in the other patches of this patchset, I cannot find a single user
-of the "*_size" API. If you do not typically expect users to specify
-this parameter by hand (thanks to use of HASH_BITS(name) in for_each
-functions that do not take the bits parameter), I would recommend to
-only expose hash_for_each() and similar defines, but not the *_size
-variants.
-
-So I recommend merging hash_for_each_size into hash_for_each (and
-doing similarly for other *_size variants). On the plus side, it will
-cut down the number of for_each macros from 12 down to 6, which is more
-reasonable.
-
-
-> +	for (bkt = 0; bkt < HASH_SIZE(bits); bkt++)				\
-> +		hlist_for_each_entry(obj, node, &name[bkt], member)
-> +
-> +/**
-> + * hash_for_each - iterate over a hashtable
-> + * @name: hashtable to iterate
-> + * @bkt: integer to use as bucket loop cursor
-> + * @node: the &struct list_head to use as a loop cursor for each bucket
-> + * @obj: the type * to use as a loop cursor for each bucket
-> + * @member: the name of the hlist_node within the struct
-> + */
-> +#define hash_for_each(name, bkt, node, obj, member)				\
-> +	hash_for_each_size(name, HASH_BITS(name), bkt, node, obj, member)
-> +
-
-[...]
-
-> +/**
-> + * hash_for_each_possible - iterate over all possible objects for a given key
-> + * @name: hashtable to iterate
-> + * @obj: the type * to use as a loop cursor for each bucket
-> + * @bits: bit count of hashing function of the hashtable
-> + * @node: the &struct list_head to use as a loop cursor for each bucket
-> + * @member: the name of the hlist_node within the struct
-> + * @key: the key of the objects to iterate over
-> + */
-> +#define hash_for_each_possible_size(name, obj, bits, node, member, key)		\
-> +	hlist_for_each_entry(obj, node,	&name[hash_min(key, bits)], member)
-
-Second point: "for_each_possible" does not express the iteration scope.
-Citing WordNet: "possible adj 1: capable of happening or existing;" --
-which has nothing to do with iteration on duplicate keys within a hash
-table.
-
-I would recommend to rename "possible" to "duplicate", e.g.:
-
-  hash_for_each_duplicate()
-
-which clearly says what is the scope of this iteration: duplicate keys.
-
-Thanks,
-
-Mathieu
-
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 7678237..5bf2040 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1462,6 +1462,7 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 		goto exit_nonewsk;
+ 
+ 	newsk->sk_gso_type = SKB_GSO_TCPV4;
++	inet_sk_rx_dst_set(newsk, skb);
+ 
+ 	newtp		      = tcp_sk(newsk);
+ 	newinet		      = inet_sk(newsk);
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index d9c9dce..6ff7f10 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -387,8 +387,6 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
+ 		struct tcp_sock *oldtp = tcp_sk(sk);
+ 		struct tcp_cookie_values *oldcvp = oldtp->cookie_values;
+ 
+-		newicsk->icsk_af_ops->sk_rx_dst_set(newsk, skb);
+-
+ 		/* TCP Cookie Transactions require space for the cookie pair,
+ 		 * as it differs for each connection.  There is no need to
+ 		 * copy any s_data_payload stored at the original socket.
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index bb9ce2b..a3e60cc 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -94,6 +94,18 @@ static struct tcp_md5sig_key *tcp_v6_md5_do_lookup(struct sock *sk,
+ }
+ #endif
+ 
++static void inet6_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb)
++{
++	struct dst_entry *dst = skb_dst(skb);
++	const struct rt6_info *rt = (const struct rt6_info *)dst;
++
++	dst_hold(dst);
++	sk->sk_rx_dst = dst;
++	inet_sk(sk)->rx_dst_ifindex = skb->skb_iif;
++	if (rt->rt6i_node)
++		inet6_sk(sk)->rx_dst_cookie = rt->rt6i_node->fn_sernum;
++}
++
+ static void tcp_v6_hash(struct sock *sk)
+ {
+ 	if (sk->sk_state != TCP_CLOSE) {
+@@ -1270,6 +1282,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 
+ 	newsk->sk_gso_type = SKB_GSO_TCPV6;
+ 	__ip6_dst_store(newsk, dst, NULL, NULL);
++	inet6_sk_rx_dst_set(newsk, skb);
+ 
+ 	newtcp6sk = (struct tcp6_sock *)newsk;
+ 	inet_sk(newsk)->pinet6 = &newtcp6sk->inet6;
+@@ -1729,18 +1742,6 @@ static struct timewait_sock_ops tcp6_timewait_sock_ops = {
+ 	.twsk_destructor= tcp_twsk_destructor,
+ };
+ 
+-static void inet6_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb)
+-{
+-	struct dst_entry *dst = skb_dst(skb);
+-	const struct rt6_info *rt = (const struct rt6_info *)dst;
+-
+-	dst_hold(dst);
+-	sk->sk_rx_dst = dst;
+-	inet_sk(sk)->rx_dst_ifindex = skb->skb_iif;
+-	if (rt->rt6i_node)
+-		inet6_sk(sk)->rx_dst_cookie = rt->rt6i_node->fn_sernum;
+-}
+-
+ static const struct inet_connection_sock_af_ops ipv6_specific = {
+ 	.queue_xmit	   = inet6_csk_xmit,
+ 	.send_check	   = tcp_v6_send_check,
 -- 
-Mathieu Desnoyers
-Operating System Efficiency R&D Consultant
-EfficiOS Inc.
-http://www.efficios.com
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1.7.7.3
