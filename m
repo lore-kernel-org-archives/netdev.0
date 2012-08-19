@@ -1,66 +1,42 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH 1/5] drivers/net/wireless/ipw2x00/ipw2100.c: introduce
- missing initialization
-Date: Sun, 19 Aug 2012 11:49:58 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1208191149400.2031@localhost6.localdomain6>
-References: <1345325159-7365-1-git-send-email-Julia.Lawall@lip6.fr> <CA++WF2MmTe6WP6MQRV-v1VwkpcUrw4hU6yh79NdG-K4snzQkbg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] xfrm:Use rcu_dereference_bh to deference pointer
+ protected by rcu_read_lock_bh
+Date: Sun, 19 Aug 2012 11:58:46 +0200
+Message-ID: <1345370326.5158.23.camel@edumazet-glaptop>
+References: <1345184349-5849-1-git-send-email-fan.du@windriver.com>
+	 <20120816.232414.545877018277576779.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Julia Lawall <Julia.Lawall@lip6.fr>,
-	kernel-janitors@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stanislav Yakovlev <stas.yakovlev@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA++WF2MmTe6WP6MQRV-v1VwkpcUrw4hU6yh79NdG-K4snzQkbg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: fan.du@windriver.com, fengguang.wu@intel.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:53503 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751549Ab2HSJ6x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2012 05:58:53 -0400
+Received: by wgbdr13 with SMTP id dr13so4556614wgb.1
+        for <netdev@vger.kernel.org>; Sun, 19 Aug 2012 02:58:52 -0700 (PDT)
+In-Reply-To: <20120816.232414.545877018277576779.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+On Thu, 2012-08-16 at 23:24 -0700, David Miller wrote:
+> I already applied your patch, as I told you here:
+> 
+> http://marc.info/?l=linux-netdev&m=134517122805719&w=2
+> 
+> This means you are submitting a patch which doesn't not even apply
+> to the net-next tree.
+> 
+> Instead of continuing to dig yourself deeper and deeper, take a
+> break, take a deep breath, and work slowly and carefully.
+> --
 
-The result of one call to a function is tested, and then at the second call
-to the same function, the previous result, and not the current result, is
-tested again.
+BTW, we (incorrectly ?) mix RCU and RCU_BH in this file, and since we
+use synchronize_rcu() anyway, we should/could use rcu_read_lock()
+everywhere we can, as this is less expensive (currently inlined at least
+on x86) than rcu_read_lock_bh()
 
-Also changed &bssid to bssid, at the suggestion of Stanislav Yakovlev.
-
-The semantic match that finds the first problem is as follows:
-(http://coccinelle.lip6.fr/)
-
-// <smpl>
-@@
-expression ret;
-identifier f;
-statement S1,S2;
-@@
-
-*ret = f(...);
-if (\(ret != 0\|ret < 0\|ret == NULL\)) S1
-... when any
-*f(...);
-if (\(ret != 0\|ret < 0\|ret == NULL\)) S2
-// </smpl>
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
-v2: changed &bssid to bssid
-
-  drivers/net/wireless/ipw2x00/ipw2100.c |    3 ++-
-  1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
-index 8a34202..534e655 100644
---- a/drivers/net/wireless/ipw2x00/ipw2100.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2100.c
-@@ -2042,7 +2042,8 @@ static void isr_indicate_associated(struct ipw2100_priv *priv, u32 status)
-  		return;
-  	}
-  	len = ETH_ALEN;
--	ipw2100_get_ordinal(priv, IPW_ORD_STAT_ASSN_AP_BSSID, &bssid, &len);
-+	ret = ipw2100_get_ordinal(priv, IPW_ORD_STAT_ASSN_AP_BSSID, bssid,
-+				  &len);
-  	if (ret) {
-  		IPW_DEBUG_INFO("failed querying ordinals at line %d\n",
-  			       __LINE__);
+I'll send a cleanup patch on a separate thread
