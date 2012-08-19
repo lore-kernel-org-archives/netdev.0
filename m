@@ -1,42 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] xfrm:Use rcu_dereference_bh to deference pointer
- protected by rcu_read_lock_bh
-Date: Sun, 19 Aug 2012 11:58:46 +0200
-Message-ID: <1345370326.5158.23.camel@edumazet-glaptop>
-References: <1345184349-5849-1-git-send-email-fan.du@windriver.com>
-	 <20120816.232414.545877018277576779.davem@davemloft.net>
+From: Stanislav Yakovlev <stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/5] drivers/net/wireless/ipw2x00/ipw2100.c: introduce
+ missing initialization
+Date: Sun, 19 Aug 2012 14:07:46 +0400
+Message-ID: <CA++WF2Np75wKXV-2C-FR2vhzcPvMu+z5MixcPy4ajOdHM0K88Q@mail.gmail.com>
+References: <1345325159-7365-1-git-send-email-Julia.Lawall@lip6.fr>
+	<CA++WF2MmTe6WP6MQRV-v1VwkpcUrw4hU6yh79NdG-K4snzQkbg@mail.gmail.com>
+	<alpine.DEB.2.02.1208191149400.2031@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: fan.du@windriver.com, fengguang.wu@intel.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:53503 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751549Ab2HSJ6x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2012 05:58:53 -0400
-Received: by wgbdr13 with SMTP id dr13so4556614wgb.1
-        for <netdev@vger.kernel.org>; Sun, 19 Aug 2012 02:58:52 -0700 (PDT)
-In-Reply-To: <20120816.232414.545877018277576779.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.DEB.2.02.1208191149400.2031-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-08-16 at 23:24 -0700, David Miller wrote:
-> I already applied your patch, as I told you here:
-> 
-> http://marc.info/?l=linux-netdev&m=134517122805719&w=2
-> 
-> This means you are submitting a patch which doesn't not even apply
-> to the net-next tree.
-> 
-> Instead of continuing to dig yourself deeper and deeper, take a
-> break, take a deep breath, and work slowly and carefully.
-> --
+On 19 August 2012 13:49, Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org> wrote:
+> From: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+>
+> The result of one call to a function is tested, and then at the second call
+> to the same function, the previous result, and not the current result, is
+> tested again.
+>
+> Also changed &bssid to bssid, at the suggestion of Stanislav Yakovlev.
+>
+> The semantic match that finds the first problem is as follows:
+>
+> (http://coccinelle.lip6.fr/)
+>
+> // <smpl>
+> @@
+> expression ret;
+> identifier f;
+> statement S1,S2;
+> @@
+>
+> *ret = f(...);
+> if (\(ret != 0\|ret < 0\|ret == NULL\)) S1
+> ... when any
+> *f(...);
+> if (\(ret != 0\|ret < 0\|ret == NULL\)) S2
+> // </smpl>
+>
+> Signed-off-by: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+>
+> ---
+> v2: changed &bssid to bssid
+>
 
-BTW, we (incorrectly ?) mix RCU and RCU_BH in this file, and since we
-use synchronize_rcu() anyway, we should/could use rcu_read_lock()
-everywhere we can, as this is less expensive (currently inlined at least
-on x86) than rcu_read_lock_bh()
+Thank you, Julia.
 
-I'll send a cleanup patch on a separate thread
+Stanislav.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
