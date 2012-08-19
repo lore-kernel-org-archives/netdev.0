@@ -1,8 +1,8 @@
 From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2 06/16] tracepoint: use new hashtable
-	implementation
-Date: Sun, 19 Aug 2012 02:52:20 +0200
-Message-ID: <1345337550-24304-8-git-send-email-levinsasha928@gmail.com>
+Subject: [PATCH v2 08/16] block,
+	elevator: use new hashtable implementation
+Date: Sun, 19 Aug 2012 02:52:22 +0200
+Message-ID: <1345337550-24304-10-git-send-email-levinsasha928@gmail.com>
 References: <1345337550-24304-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -35,104 +35,141 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Switch tracepoints to use the new hashtable implementation. This reduces the amount of
-generic unrelated code in the tracepoints.
+Switch elevator to use the new hashtable implementation. This reduces the amount of
+generic unrelated code in the elevator.
+
+This also removes the dymanic allocation of the hash table. The size of the table is
+constant so there's no point in paying the price of an extra dereference when accessing
+it.
 
 Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- kernel/tracepoint.c |   27 +++++++++++----------------
- 1 files changed, 11 insertions(+), 16 deletions(-)
+ block/blk.h              |    2 +-
+ block/elevator.c         |   23 ++++-------------------
+ include/linux/elevator.h |    5 ++++-
+ 3 files changed, 9 insertions(+), 21 deletions(-)
 
-diff --git a/kernel/tracepoint.c b/kernel/tracepoint.c
-index d96ba22..854df92 100644
---- a/kernel/tracepoint.c
-+++ b/kernel/tracepoint.c
-@@ -26,6 +26,7 @@
- #include <linux/slab.h>
- #include <linux/sched.h>
- #include <linux/static_key.h>
-+#include <linux/hashtable.h>
- 
- extern struct tracepoint * const __start___tracepoints_ptrs[];
- extern struct tracepoint * const __stop___tracepoints_ptrs[];
-@@ -49,8 +50,7 @@ static LIST_HEAD(tracepoint_module_list);
-  * Protected by tracepoints_mutex.
+diff --git a/block/blk.h b/block/blk.h
+index 2a0ea32..5650d48 100644
+--- a/block/blk.h
++++ b/block/blk.h
+@@ -61,7 +61,7 @@ static inline void blk_clear_rq_complete(struct request *rq)
+ /*
+  * Internal elevator interface
   */
- #define TRACEPOINT_HASH_BITS 6
--#define TRACEPOINT_TABLE_SIZE (1 << TRACEPOINT_HASH_BITS)
--static struct hlist_head tracepoint_table[TRACEPOINT_TABLE_SIZE];
-+static DEFINE_HASHTABLE(tracepoint_table, TRACEPOINT_HASH_BITS);
+-#define ELV_ON_HASH(rq)		(!hlist_unhashed(&(rq)->hash))
++#define ELV_ON_HASH(rq) hash_hashed(&(rq)->hash)
+ 
+ void blk_insert_flush(struct request *rq);
+ void blk_abort_flushes(struct request_queue *q);
+diff --git a/block/elevator.c b/block/elevator.c
+index 6a55d41..f462a83 100644
+--- a/block/elevator.c
++++ b/block/elevator.c
+@@ -46,11 +46,6 @@ static LIST_HEAD(elv_list);
+ /*
+  * Merge hash stuff.
+  */
+-static const int elv_hash_shift = 6;
+-#define ELV_HASH_BLOCK(sec)	((sec) >> 3)
+-#define ELV_HASH_FN(sec)	\
+-		(hash_long(ELV_HASH_BLOCK((sec)), elv_hash_shift))
+-#define ELV_HASH_ENTRIES	(1 << elv_hash_shift)
+ #define rq_hash_key(rq)		(blk_rq_pos(rq) + blk_rq_sectors(rq))
  
  /*
-  * Note about RCU :
-@@ -191,16 +191,15 @@ tracepoint_entry_remove_probe(struct tracepoint_entry *entry,
-  */
- static struct tracepoint_entry *get_tracepoint(const char *name)
+@@ -142,7 +137,6 @@ static struct elevator_queue *elevator_alloc(struct request_queue *q,
+ 				  struct elevator_type *e)
  {
--	struct hlist_head *head;
- 	struct hlist_node *node;
- 	struct tracepoint_entry *e;
- 	u32 hash = jhash(name, strlen(name), 0);
+ 	struct elevator_queue *eq;
+-	int i;
  
--	head = &tracepoint_table[hash & (TRACEPOINT_TABLE_SIZE - 1)];
--	hlist_for_each_entry(e, node, head, hlist) {
-+	hash_for_each_possible(tracepoint_table, e, node, hlist, hash) {
- 		if (!strcmp(name, e->name))
- 			return e;
- 	}
-+
- 	return NULL;
- }
+ 	eq = kmalloc_node(sizeof(*eq), GFP_KERNEL | __GFP_ZERO, q->node);
+ 	if (unlikely(!eq))
+@@ -151,14 +145,7 @@ static struct elevator_queue *elevator_alloc(struct request_queue *q,
+ 	eq->type = e;
+ 	kobject_init(&eq->kobj, &elv_ktype);
+ 	mutex_init(&eq->sysfs_lock);
+-
+-	eq->hash = kmalloc_node(sizeof(struct hlist_head) * ELV_HASH_ENTRIES,
+-					GFP_KERNEL, q->node);
+-	if (!eq->hash)
+-		goto err;
+-
+-	for (i = 0; i < ELV_HASH_ENTRIES; i++)
+-		INIT_HLIST_HEAD(&eq->hash[i]);
++	hash_init(eq->hash);
  
-@@ -210,19 +209,13 @@ static struct tracepoint_entry *get_tracepoint(const char *name)
-  */
- static struct tracepoint_entry *add_tracepoint(const char *name)
- {
--	struct hlist_head *head;
--	struct hlist_node *node;
- 	struct tracepoint_entry *e;
- 	size_t name_len = strlen(name) + 1;
- 	u32 hash = jhash(name, name_len-1, 0);
+ 	return eq;
+ err:
+@@ -173,7 +160,6 @@ static void elevator_release(struct kobject *kobj)
  
--	head = &tracepoint_table[hash & (TRACEPOINT_TABLE_SIZE - 1)];
--	hlist_for_each_entry(e, node, head, hlist) {
--		if (!strcmp(name, e->name)) {
--			printk(KERN_NOTICE
--				"tracepoint %s busy\n", name);
--			return ERR_PTR(-EEXIST);	/* Already there */
--		}
-+	if (get_tracepoint(name)) {
-+		printk(KERN_NOTICE "tracepoint %s busy\n", name);
-+		return ERR_PTR(-EEXIST);	/* Already there */
- 	}
- 	/*
- 	 * Using kmalloc here to allocate a variable length element. Could
-@@ -234,7 +227,7 @@ static struct tracepoint_entry *add_tracepoint(const char *name)
- 	memcpy(&e->name[0], name, name_len);
- 	e->funcs = NULL;
- 	e->refcount = 0;
--	hlist_add_head(&e->hlist, head);
-+	hash_add(tracepoint_table, &e->hlist, hash);
- 	return e;
- }
- 
-@@ -244,7 +237,7 @@ static struct tracepoint_entry *add_tracepoint(const char *name)
-  */
- static inline void remove_tracepoint(struct tracepoint_entry *e)
- {
--	hlist_del(&e->hlist);
-+	hash_del(&e->hlist);
+ 	e = container_of(kobj, struct elevator_queue, kobj);
+ 	elevator_put(e->type);
+-	kfree(e->hash);
  	kfree(e);
  }
  
-@@ -722,6 +715,8 @@ struct notifier_block tracepoint_module_nb = {
+@@ -240,7 +226,7 @@ EXPORT_SYMBOL(elevator_exit);
  
- static int init_tracepoints(void)
+ static inline void __elv_rqhash_del(struct request *rq)
  {
-+	hash_init(tracepoint_table);
-+
- 	return register_module_notifier(&tracepoint_module_nb);
+-	hlist_del_init(&rq->hash);
++	hash_del(&rq->hash);
  }
- __initcall(init_tracepoints);
+ 
+ static void elv_rqhash_del(struct request_queue *q, struct request *rq)
+@@ -254,7 +240,7 @@ static void elv_rqhash_add(struct request_queue *q, struct request *rq)
+ 	struct elevator_queue *e = q->elevator;
+ 
+ 	BUG_ON(ELV_ON_HASH(rq));
+-	hlist_add_head(&rq->hash, &e->hash[ELV_HASH_FN(rq_hash_key(rq))]);
++	hash_add(e->hash, &rq->hash, rq_hash_key(rq));
+ }
+ 
+ static void elv_rqhash_reposition(struct request_queue *q, struct request *rq)
+@@ -266,11 +252,10 @@ static void elv_rqhash_reposition(struct request_queue *q, struct request *rq)
+ static struct request *elv_rqhash_find(struct request_queue *q, sector_t offset)
+ {
+ 	struct elevator_queue *e = q->elevator;
+-	struct hlist_head *hash_list = &e->hash[ELV_HASH_FN(offset)];
+ 	struct hlist_node *entry, *next;
+ 	struct request *rq;
+ 
+-	hlist_for_each_entry_safe(rq, entry, next, hash_list, hash) {
++	hash_for_each_possible_safe(e->hash, rq, entry, next, hash, offset) {
+ 		BUG_ON(!ELV_ON_HASH(rq));
+ 
+ 		if (unlikely(!rq_mergeable(rq))) {
+diff --git a/include/linux/elevator.h b/include/linux/elevator.h
+index c03af76..20b539c 100644
+--- a/include/linux/elevator.h
++++ b/include/linux/elevator.h
+@@ -2,6 +2,7 @@
+ #define _LINUX_ELEVATOR_H
+ 
+ #include <linux/percpu.h>
++#include <linux/hashtable.h>
+ 
+ #ifdef CONFIG_BLOCK
+ 
+@@ -96,6 +97,8 @@ struct elevator_type
+ 	struct list_head list;
+ };
+ 
++#define ELV_HASH_BITS 6
++
+ /*
+  * each queue has an elevator_queue associated with it
+  */
+@@ -105,7 +108,7 @@ struct elevator_queue
+ 	void *elevator_data;
+ 	struct kobject kobj;
+ 	struct mutex sysfs_lock;
+-	struct hlist_head *hash;
++	DEFINE_HASHTABLE(hash, ELV_HASH_BITS);
+ 	unsigned int registered:1;
+ };
+ 
 -- 
 1.7.8.6
