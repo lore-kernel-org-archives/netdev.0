@@ -1,117 +1,61 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 2/2] [RFC] netlink: fix possible spoofing from non-root
- processes
-Date: Sun, 19 Aug 2012 23:23:27 +0200
-Message-ID: <20120819212327.GA14853@1984>
-References: <1345224149-5946-1-git-send-email-pablo@netfilter.org>
- <1345224149-5946-3-git-send-email-pablo@netfilter.org>
+From: Tabi Timur-B04825 <B04825@freescale.com>
+Subject: Re: [PATCH] net/fsl: introduce Freescale 10G MDIO driver
+Date: Sun, 19 Aug 2012 21:26:49 +0000
+Message-ID: <50315A18.2040105@freescale.com>
+References: <1345233792-14985-1-git-send-email-timur@freescale.com>
+ <20120819205724.GA27555@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="sdtB3X0nJg68CQEu"
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Tabi Timur-B04825 <B04825@freescale.com>,
+	Fleming Andy-AFLEMING <afleming@freescale.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58679 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751127Ab2HSVXc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Aug 2012 17:23:32 -0400
-Content-Disposition: inline
-In-Reply-To: <1345224149-5946-3-git-send-email-pablo@netfilter.org>
+Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:7980
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750937Ab2HSV0y convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Aug 2012 17:26:54 -0400
+In-Reply-To: <20120819205724.GA27555@electric-eye.fr.zoreil.com>
+Content-Language: en-US
+Content-ID: <A8EB91CCC7876A4AA9F6FC0B56360E96@mgd.freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Francois Romieu wrote:
+>> >+	/* Wait till the bus is free */
+>> >+	status = spin_event_timeout(
+>> >+		!((in_be32(&regs->mdio_stat)) & MDIO_STAT_BSY), TIMEOUT, 0);
+>> >+	if (!status) {
+>> >+		dev_dbg(&bus->dev, "%s: timeout waiting for stat\n", __func__);
+>> >+		return -ETIMEDOUT;
+>> >+	}
+> This code - comment included - is repeated several times. You may
+> consider factoring it out in some xgmac_mdio_free_bus_wait function.
 
---sdtB3X0nJg68CQEu
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+But it's just one line and a test.  The function would look like this:
 
-On Fri, Aug 17, 2012 at 07:22:29PM +0200, pablo@netfilter.org wrote:
-[...]
-> [ I don't know any FOSS program making use of Netlink to communicate
->   to processes, please, let me know if I'm missing anyone important ]
+bool xgmac_mdio_free_bus_wait(struct tgec_mdio_controller __iomem *regs)
+{
+	uint32_t status;
 
-Patrick pinged me for little reminder on NETLINK_USERSOCK. We still
-have to allow netlink-to-netlink userspace communication for it.
+	status = spin_event_timeout(
+		!((in_be32(&regs->mdio_stat)) & MDIO_STAT_BSY), TIMEOUT, 0);
 
-So, please find a new version of this patch that allows non-root
-processes for that Netlink bus. For others, my patch restricts to root
-processes the ability of sending messages with dst_pid != 0.
+	return status != 0;
+}
 
---sdtB3X0nJg68CQEu
-Content-Type: text/x-diff; charset=us-ascii
-Content-Disposition: attachment; filename="0001-RFC-netlink-fix-possible-spoofing-from-non-root-proc.patch"
+and then
 
->From 78ed359b9802569caebbf2d3507d08d6c7204a84 Mon Sep 17 00:00:00 2001
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Thu, 16 Aug 2012 17:58:18 +0200
-Subject: [PATCH] [RFC] netlink: fix possible spoofing from non-root processes
+	if (!xgmac_mdio_free_bus_wait(regs)) {
+		dev_dbg(&bus->dev, "%s: timeout waiting for stat\n", __func__);
+		return -ETIMEDOUT;
+	}
 
-Non-root user-space processes can send netlink messages to other
-processes that are well-known for being subscribed to Netlink
-asynchronous notifications. This allows ilegitimate non-root
-process to send forged messages to them.
+I don't see any real savings here.
 
-This is usually fixed by checking for Netlink portID in the
-message receival path of the user-space process. In general,
-portID == 0 means that the origin of the messages comes from the
-kernel. Thus, discarding any message not coming from the kernel.
-This is true for rtnetlink.
-
-However, ctnetlink sets the portID in event messages that has
-been triggered by some user-space process, eg. conntrack utility.
-So other processes subscribed to ctnetlink events, eg. conntrackd,
-know that the event was triggered by some user-space action.
-
-This patch adds capability validation in case that dst_pid is set
-in netlink_sendmsg(). This approach is aggressive since any existing
-application using any of the Netlink busses to deliver messages
-between two user-space processes will break.
-
-[ Patrick McHardy has pinged me to let me know about NETLINK_USERSOCK.
-  Thus, this patch sets NL_CFG_F_NONROOT_SEND to allow non-root
-  netlink-to-netlink userspace communication for that Netlink bus. ]
-
-However, if we want to ensure full backward compatibility, a new
-version of this patch including NL_CFG_F_NONROOT_SEND flags need
-to be set in all kernel subsystems. However, I don't think it
-makes sense to use NETLINK_ROUTE to communicate two processes
-that are sending no matter what information that is not related
-to link/neighbouring/routing?
-
-Still, if someone wants to make use of Netlink for this, eg.
-I remember people willing to implement D-BUS over Netlink,
-then they can reserve some Netlink bus explicitly for this and
-set NL_CFG_F_NONROOT_SEND to it.
-
-Reported-by: Florian Weimer <fweimer@redhat.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netlink/af_netlink.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index d04f923..b3e0e2c 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1373,7 +1373,8 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 		dst_pid = addr->nl_pid;
- 		dst_group = ffs(addr->nl_groups);
- 		err =  -EPERM;
--		if (dst_group && !netlink_capable(sock, NL_CFG_F_NONROOT_SEND))
-+		if ((dst_group || dst_pid) &&
-+		    !netlink_capable(sock, NL_CFG_F_NONROOT_SEND))
- 			goto out;
- 	} else {
- 		dst_pid = nlk->dst_pid;
-@@ -2141,6 +2142,7 @@ static void __init netlink_add_usersock_entry(void)
- 	rcu_assign_pointer(nl_table[NETLINK_USERSOCK].listeners, listeners);
- 	nl_table[NETLINK_USERSOCK].module = THIS_MODULE;
- 	nl_table[NETLINK_USERSOCK].registered = 1;
-+	nl_table[NETLINK_USERSOCK].flags = NL_CFG_F_NONROOT_SEND;
- 
- 	netlink_table_ungrab();
- }
 -- 
-1.7.10.4
-
-
---sdtB3X0nJg68CQEu--
+Timur Tabi
+Linux kernel developer at Freescale
