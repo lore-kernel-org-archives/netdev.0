@@ -1,93 +1,68 @@
-From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2 01/16] hashtable: introduce a small and
-	naive hashtable
-Date: Sun, 19 Aug 2012 18:17:44 +0200
-Message-ID: <503111A8.5030703@gmail.com>
-References: <1345337550-24304-1-git-send-email-levinsasha928@gmail.com>
-	<1345337550-24304-2-git-send-email-levinsasha928@gmail.com>
-	<20120819131637.GA8272@Krystal> <20120819141641.GA9082@Krystal>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: IPv4 BUG: held lock freed!
+Date: Sun, 19 Aug 2012 19:51:41 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1208191647340.1893@ja.ssi.bg>
+References: <20120818021918.GA6499@localhost> <1345380682.5158.201.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
-	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20120819141641.GA9082@Krystal>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Fengguang Wu <fengguang.wu@intel.com>,
+	David Miller <davem@davemloft.net>,
+	networking <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:51698 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752331Ab2HSQuQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Aug 2012 12:50:16 -0400
+In-Reply-To: <1345380682.5158.201.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/19/2012 04:16 PM, Mathieu Desnoyers wrote:
-> * Mathieu Desnoyers (mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org) wrote:
->> * Sasha Levin (levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
-> [...]
->>> +/**
->>> + * hash_for_each_possible - iterate over all possible objects for a given key
->>> + * @name: hashtable to iterate
->>> + * @obj: the type * to use as a loop cursor for each bucket
->>> + * @bits: bit count of hashing function of the hashtable
->>> + * @node: the &struct list_head to use as a loop cursor for each bucket
->>> + * @member: the name of the hlist_node within the struct
->>> + * @key: the key of the objects to iterate over
->>> + */
->>> +#define hash_for_each_possible_size(name, obj, bits, node, member, key)		\
->>> +	hlist_for_each_entry(obj, node,	&name[hash_min(key, bits)], member)
->>
->> Second point: "for_each_possible" does not express the iteration scope.
->> Citing WordNet: "possible adj 1: capable of happening or existing;" --
->> which has nothing to do with iteration on duplicate keys within a hash
->> table.
->>
->> I would recommend to rename "possible" to "duplicate", e.g.:
->>
->>   hash_for_each_duplicate()
->>
->> which clearly says what is the scope of this iteration: duplicate keys.
-> 
-> OK, about this part: I now see that you iterate over all objects within
-> the same hash chain. I guess the description "iterate over all possible
-> objects for a given key" is misleading: it's not all objects with a
-> given key, but rather all objects hashing to the same bucket.
-> 
-> I understand that you don't want to build knowledge of the key
-> comparison function in the iterator (which makes sense for a simple hash
-> table).
-> 
-> By the way, the comment "@obj: the type * to use as a loop cursor for
-> each bucket" is also misleading: it's a loop cursor for each entry,
-> since you iterate on all nodes within single bucket. Same for "@node:
-> the &struct list_head to use as a loop cursor for each bucket".
-> 
-> So with these documentation changes applied, hash_for_each_possible
-> starts to make more sense, because it refers to entries that can
-> _possibly_ be a match (or not). Other options would be
-> hash_chain_for_each() or hash_bucket_for_each().
 
-I'd rather avoid starting to use chain/bucket since they're not used anywhere
-else (I've tried keeping internal hashing/bucketing opaque to the user).
+	Hello,
 
-Otherwise makes sense, I'll improve the documentation as suggested. Thanks!
+On Sun, 19 Aug 2012, Eric Dumazet wrote:
 
-> Thanks,
+> Hmm, this looks like sk_reset_timer() is called on a socket, and timer
+> triggers _before_ the sock_hold()
 > 
-> Mathieu
+> So the timer handler decrements sk_refcnt to 0 and calls sk_free()
 > 
+> Its probably a bug introduced (or uncovered) by commit 6f458dfb40 (tcp:
+> improve latencies of timer triggered events)
+> 
+> I always found sk_reset_timer() a bit racy...
+> 
+> void sk_reset_timer(struct sock *sk, struct timer_list* timer,
+>                     unsigned long expires)
+> {
+> 	if (!mod_timer(timer, expires))
+> 		sock_hold(sk); // MIGHT BE TOO LATE
+> }
+> 
+> Following should be safer...
+
+	Above code is fine as long as caller holds reference.
+
+	Your change for tcp_release_cb looks correct.
+
+	Also, may be tcp_v4_mtu_reduced is missing a check
+for TCP_CLOSE state? tcp_v6_mtu_reduced already has such
+check.
+
+> void sk_reset_timer(struct sock *sk, struct timer_list* timer,
+>                     unsigned long expires)
+> {
+
+	This should not be needed:
+
+> 	sock_hold(sk);
+> 	if (mod_timer(timer, expires))
+> 		sock_put(sk);
+> }
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
