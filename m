@@ -1,32 +1,50 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: tcp: ipv6_mapped needs sk_rx_dst_set method
-Date: Sun, 19 Aug 2012 12:48:41 +0200
-Message-ID: <1345373321.5158.76.camel@edumazet-glaptop>
-References: <20120809160349.d2880b5a.akpm@linux-foundation.org>
-	 <1344556733.31104.819.camel@edumazet-glaptop>
-	 <1344557460.31104.863.camel@edumazet-glaptop>
-	 <20120809.210600.638327100706973152.davem@davemloft.net>
-	 <20120818130642.GA10680@thinkpad.lan>
+Subject: Re: network packet corruption in v3.6.0-rc1 (and also in v3.5)
+Date: Sun, 19 Aug 2012 13:02:14 +0200
+Message-ID: <1345374134.5158.103.camel@edumazet-glaptop>
+References: <CA+Y=x3=jSrEaYdnaAF75p0utQq02MhoSh4SkshRVSc7JjjVPOw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org
-To: Artem Savkov <artem.savkov@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>, netdev@vger.kernel.org
+To: Andrew Worsley <amworsley@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:51658 "EHLO
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:59553 "EHLO
 	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752032Ab2HSKsp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2012 06:48:45 -0400
-Received: by wgbdr13 with SMTP id dr13so4576261wgb.1
-        for <netdev@vger.kernel.org>; Sun, 19 Aug 2012 03:48:44 -0700 (PDT)
-In-Reply-To: <20120818130642.GA10680@thinkpad.lan>
+	with ESMTP id S1752092Ab2HSLCT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2012 07:02:19 -0400
+Received: by wgbdr13 with SMTP id dr13so4581328wgb.1
+        for <netdev@vger.kernel.org>; Sun, 19 Aug 2012 04:02:18 -0700 (PDT)
+In-Reply-To: <CA+Y=x3=jSrEaYdnaAF75p0utQq02MhoSh4SkshRVSc7JjjVPOw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-08-18 at 17:06 +0400, Artem Savkov wrote:
+On Sat, 2012-08-18 at 16:40 +1000, Andrew Worsley wrote:
+> Some times I get a burst of errors and dropped tcp connections with
+> this warning. I had a similar issue with v3.5 (in fact v3.5 was
+> unusable for https connections which would give bad MAC code messages
+> at the application level)..
+> 
+> The issue seems better under v3.6-rc1 where as it was very bad under
+> v3.5. Let me know if there is something I can do to avoid this
+> problem. I am using the USB r8712u wireless NIC if that is relevant as
+> I haven't been able to get the native wireless working under the MAC
+> book yet (requires proprietary firmware extraction which I am not
+> familiar with)
+> 
+> Much obliged if there is anything I can do to avoid it as it is rather
+> annoying. Doesn't happen at all with my  Debian wheezy 3.2.0-2-amd64
+> kernel.
 
-> It doesn't seem to fix the problem with mapped ipv6 completely.
-> I'm still hitting a NULL pointer dereference with mapped ipv6:
+OK, this seems to be related to r8712u, still in staging tree.
 
-Thanks Artem for the report, I see Neal took care of the problem.
+At first glance, its using a buggy skb_clone(), or kind of a 'reuse skb'
+trick I have no time to investigate.
+
+I suspect that some memory area are overwritten by this driver, and this
+was not noticed with older kernels. With new kernels, its triggering a
+WARN_ON() in tcp stack.
+
+Any chance you can try to reproduce the bug with another adapter ?
