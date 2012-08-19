@@ -1,113 +1,115 @@
-From: Sage Weil <sage@inktank.com>
-Subject: Re: regression with poll(2)
-Date: Sun, 19 Aug 2012 11:49:31 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.1208191051150.15570@cobra.newdream.net>
-References: <alpine.DEB.2.00.1208151226250.15721@cobra.newdream.net>
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Subject: Re: [PATCH 05/19] netfilter: nf_conntrack_ipv6: improve
+ fragmentation handling
+Date: Sun, 19 Aug 2012 21:37:49 +0200
+Message-ID: <1345405069.3069.241.camel@localhost>
+References: <1344542943-11588-1-git-send-email-kaber@trash.net>
+	  <1344542943-11588-6-git-send-email-kaber@trash.net>
+	 <1345190795.3069.228.camel@localhost>
+	 <Pine.GSO.4.63.1208181423050.17600@stinky-local.trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, ceph-devel@vger.kernel.org,
-	neilb@suse.de, a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu,
-	emunson@mgebm.net, eric.dumazet@gmail.com, sebastian@breakpoint.cc,
-	cl@linux.com, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org
-To: mgorman@suse.de, davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1208151226250.15721@cobra.newdream.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.GSO.4.63.1208181423050.17600@stinky-local.trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I've bisected and identified this commit:
+On Sat, 2012-08-18 at 14:26 +0200, Patrick McHardy wrote:
+> On Fri, 17 Aug 2012, Jesper Dangaard Brouer wrote:
+> 
+> > On Thu, 2012-08-09 at 22:08 +0200, kaber@trash.net wrote:
+> >> From: Patrick McHardy <kaber@trash.net>
+> >>
+> >> The IPv6 conntrack fragmentation currently has a couple of shortcomings.
+> >> Fragmentes are collected in PREROUTING/OUTPUT, are defragmented, the
+> >> defragmented packet is then passed to conntrack, the resulting conntrack
+> >> information is attached to each original fragment and the fragments then
+> >> continue their way through the stack.
+> >>
+> >> Helper invocation occurs in the POSTROUTING hook, at which point only
+> >> the original fragments are available. The result of this is that
+> >> fragmented packets are never passed to helpers.
+> >>
+> >> This patch improves the situation in the following way:
+> >>
+> >> - If a reassembled packet belongs to a connection that has a helper
+> >>   assigned, the reassembled packet is passed through the stack instead
+> >>   of the original fragments.
+> >
+> > I'm working on IPv6 fragment handling for IPVS, and are taking advantage
+> > of the "replay" by nf_ct_frag6_output() at hook prio -399
+> > (NF_IP6_PRI_CONNTRACK_DEFRAG + 1).
+> > By making a hook at NF_INET_PRE_ROUTING at prio -99 (NF_IP6_PRI_NAT_DST
+> > + 1).
+> >
+> > I can see that the code path can be changed (with this patch), if a
+> > helper is assigned.  Then the "replay" starts at prio -199
+> > (NF_IP6_PRI_CONNTRACK + 1), I guess I'm safe as I run at -99.
+> >
+> > I have tested that your patchset works, with my ipvs patches, but would
+> > like the trigger the changed code path, to make sure.
+> >
+> > Could you provide an iptables command/rule, that trigger this code path?
+> 
+> The easiest way is a large ping with the NAT patches also applied,
+> in that case we also pass the first packet of a connection through
+> the stack reassembled.
 
-    netvm: propagate page->pfmemalloc to skb
-    
-    The skb->pfmemalloc flag gets set to true iff during the slab allocation
-    of data in __alloc_skb that the the PFMEMALLOC reserves were used.  If the
-    packet is fragmented, it is possible that pages will be allocated from the
-    PFMEMALLOC reserve without propagating this information to the skb.  This
-    patch propagates page->pfmemalloc from pages allocated for fragments to
-    the skb.
-    
-    Signed-off-by: Mel Gorman <mgorman@suse.de>
-    Acked-by: David S. Miller <davem@davemloft.net>
-    Cc: Neil Brown <neilb@suse.de>
-    Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-    Cc: Mike Christie <michaelc@cs.wisc.edu>
-    Cc: Eric B Munson <emunson@mgebm.net>
-    Cc: Eric Dumazet <eric.dumazet@gmail.com>
-    Cc: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-    Cc: Mel Gorman <mgorman@suse.de>
-    Cc: Christoph Lameter <cl@linux.com>
-    Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-    Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+So, a fragmented IPv6 ICMPv6 packet, I assume?
 
-I've retested several times and confirmed that this change leads to the 
-breakage, and also confirmed that reverting it on top of -rc1 also fixes 
-the problem.
-
-I've also added some additional instrumentation to my code and confirmed 
-that the process is blocking on poll(2) while netstat is reporting 
-data available on the socket.
-
-What can I do to help track this down?
-
-Thanks!
-sage
+Don't I need to load some of the helper modules, or just the
+nf_conntrack_ipv6 module, or perhaps only nf_defrag_ipv6 ?
 
 
-On Wed, 15 Aug 2012, Sage Weil wrote:
+> >> @@ -199,9 +200,13 @@ static unsigned int ipv6_confirm(unsigned int hooknum,
+> >>  static unsigned int __ipv6_conntrack_in(struct net *net,
+> >>  					unsigned int hooknum,
+> >>  					struct sk_buff *skb,
+> >> +					const struct net_device *in,
+> >> +					const struct net_device *out,
+> >>  					int (*okfn)(struct sk_buff *))
+> >>  {
+> >>  	struct sk_buff *reasm = skb->nfct_reasm;
+> >> +	struct nf_conn *ct;
+> >> +	enum ip_conntrack_info ctinfo;
+> >>
+> >>  	/* This packet is fragmented and has reassembled packet. */
+> >>  	if (reasm) {
+> >> @@ -213,6 +218,20 @@ static unsigned int __ipv6_conntrack_in(struct net *net,
+> >>  			if (ret != NF_ACCEPT)
+> >>  				return ret;
+> >>  		}
+> >> +
+> >> +		/* Conntrack helpers need the entire reassembled packet in the
+> >> +		 * POST_ROUTING hook.
+> >> +		 */
+> >> +		ct = nf_ct_get(reasm, &ctinfo);
+> >> +		if (ct != NULL && test_bit(IPS_HELPER_BIT, &ct->status)) {
+> >> +			nf_conntrack_get_reasm(skb);
+> >> +			NF_HOOK_THRESH(NFPROTO_IPV6, hooknum, reasm,
+> >> +				       (struct net_device *)in,
+> >> +				       (struct net_device *)out,
+> >> +				       okfn, NF_IP6_PRI_CONNTRACK + 1);
+> >
+> > Hook prio change to NF_IP6_PRI_CONNTRACK + 1
+> 
+> I didn't get this part, you want to change to PRE_CONNTRACK + 1? What
+> about raw and SELinux?
 
-> I'm experiencing a stall with Ceph daemons communicating over TCP that 
-> occurs reliably with 3.6-rc1 (and linus/master) but not 3.5.  The basic 
-> situation is:
-> 
->  - the socket is two processes communicating over TCP on the same host, e.g. 
-> 
-> tcp        0 2164849 10.214.132.38:6801      10.214.132.38:51729     ESTABLISHED
-> 
->  - one end writes a bunch of data in
->  - the other end consumes data, but at some point stalls.
->  - reads are nonblocking, e.g.
-> 
->   int got = ::recv( sd, buf, len, MSG_DONTWAIT );
-> 
->  and between those calls we wait with
-> 
->   struct pollfd pfd;
->   short evmask;
->   pfd.fd = sd;
->   pfd.events = POLLIN;
-> #if defined(__linux__)
->   pfd.events |= POLLRDHUP;
-> #endif
-> 
->   if (poll(&pfd, 1, msgr->timeout) <= 0)
->     return -1;
-> 
->  - in my case the timeout is ~15 minutes.  at that point it errors out, 
-> and the daemons reconnect and continue for a while until hitting this 
-> again.
-> 
->  - at the time of the stall, the reading process is blocked on that 
-> poll(2) call.  There are a bunch of threads stuck on poll(2), some of them 
-> stuck and some not, but they all have stacks like
-> 
-> [<ffffffff8118f6f9>] poll_schedule_timeout+0x49/0x70
-> [<ffffffff81190baf>] do_sys_poll+0x35f/0x4c0
-> [<ffffffff81190deb>] sys_poll+0x6b/0x100
-> [<ffffffff8163d369>] system_call_fastpath+0x16/0x1b
-> 
->  - you'll note that the netstat output shows data queued:
-> 
-> tcp        0 1163264 10.214.132.36:6807      10.214.132.36:41738     ESTABLISHED
-> tcp        0 1622016 10.214.132.36:41738     10.214.132.36:6807      ESTABLISHED
-> 
-> etc.
-> 
-> Is this a known regression?  Or might I be misusing the API?  What 
-> information would help track it down?
-> 
-> Thanks!
-> sage
-> 
-> 
-> 
+No - I don't want any changes.
+
+I was just pointing out *where* the changes occur in your patch. This is
+just a "service" to other email readers, so they can spot the changes
+faster, I were referring to.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+
