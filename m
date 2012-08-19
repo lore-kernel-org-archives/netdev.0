@@ -1,51 +1,113 @@
-From: Shaun Ruffell <sruffell@digium.com>
-Subject: Re: BUG: unable to handle kernel paging request at 00010016
-Date: Sun, 19 Aug 2012 12:19:50 -0500
-Message-ID: <20120819171950.GB14461@digium.com>
-References: <502ECC74.9030605@oak.selfip.net>
- <20120819042543.GA14461@digium.com>
- <20120819082117.GA4634@thinkpad.lan>
+From: Sage Weil <sage@inktank.com>
+Subject: Re: regression with poll(2)
+Date: Sun, 19 Aug 2012 11:49:31 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.1208191051150.15570@cobra.newdream.net>
+References: <alpine.DEB.2.00.1208151226250.15721@cobra.newdream.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dave Haywood <tla@oak.selfip.net>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Artem Savkov <artem.savkov@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, ceph-devel@vger.kernel.org,
+	neilb@suse.de, a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu,
+	emunson@mgebm.net, eric.dumazet@gmail.com, sebastian@breakpoint.cc,
+	cl@linux.com, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org
+To: mgorman@suse.de, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120819082117.GA4634@thinkpad.lan>
+In-Reply-To: <alpine.DEB.2.00.1208151226250.15721@cobra.newdream.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[ Fixing netdev cc to use proper dadress... ]
+I've bisected and identified this commit:
 
-On Sun, Aug 19, 2012 at 12:21:17PM +0400, Artem Savkov wrote:
-> On Sat, Aug 18, 2012 at 11:25:43PM -0500, Shaun Ruffell wrote:
-> > Adding linux-net to the CC list.
-> > 
-> > On Fri, Aug 17, 2012 at 11:57:56PM +0100, Dave Haywood wrote:
-> > > [1.] One line summary of the problem:
-> > > BUG: unable to handle kernel paging request at 00010016
-> > > 
-> > > 	System boots then crashes a 5-10 or so seconds after getting to the login prompt
-> > > 	Booting without the network cable attached prevents the crash (no evidence beyond 10 minutes after boot)
-> > > 
-> > >   Diagnostics:
-> > > 	Captured the boot and managed a login + dmesg before the crash
-> > > 	Some of the log looks corrupted. Probably my crappy usb dongle serial flow control but left it in anyway
-> > 
-> > [snip]
-> > 
-> > Just a note that I see this as well. It happens reliably for me after trying to
-> > login to the machine via ssh.
-> > 
-> > Here is the back trace I collected on the serial port.
->
-> There is a patch posted on netdev that fixes this for me:
-> http://patchwork.ozlabs.org/patch/178525/
+    netvm: propagate page->pfmemalloc to skb
+    
+    The skb->pfmemalloc flag gets set to true iff during the slab allocation
+    of data in __alloc_skb that the the PFMEMALLOC reserves were used.  If the
+    packet is fragmented, it is possible that pages will be allocated from the
+    PFMEMALLOC reserve without propagating this information to the skb.  This
+    patch propagates page->pfmemalloc from pages allocated for fragments to
+    the skb.
+    
+    Signed-off-by: Mel Gorman <mgorman@suse.de>
+    Acked-by: David S. Miller <davem@davemloft.net>
+    Cc: Neil Brown <neilb@suse.de>
+    Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+    Cc: Mike Christie <michaelc@cs.wisc.edu>
+    Cc: Eric B Munson <emunson@mgebm.net>
+    Cc: Eric Dumazet <eric.dumazet@gmail.com>
+    Cc: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+    Cc: Mel Gorman <mgorman@suse.de>
+    Cc: Christoph Lameter <cl@linux.com>
+    Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+    Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
 
-Thanks, I just applied that patch and confirmed that it does indeed
-resolve the crash for me as well.
+I've retested several times and confirmed that this change leads to the 
+breakage, and also confirmed that reverting it on top of -rc1 also fixes 
+the problem.
 
-Cheers,
-Shaun
+I've also added some additional instrumentation to my code and confirmed 
+that the process is blocking on poll(2) while netstat is reporting 
+data available on the socket.
+
+What can I do to help track this down?
+
+Thanks!
+sage
+
+
+On Wed, 15 Aug 2012, Sage Weil wrote:
+
+> I'm experiencing a stall with Ceph daemons communicating over TCP that 
+> occurs reliably with 3.6-rc1 (and linus/master) but not 3.5.  The basic 
+> situation is:
+> 
+>  - the socket is two processes communicating over TCP on the same host, e.g. 
+> 
+> tcp        0 2164849 10.214.132.38:6801      10.214.132.38:51729     ESTABLISHED
+> 
+>  - one end writes a bunch of data in
+>  - the other end consumes data, but at some point stalls.
+>  - reads are nonblocking, e.g.
+> 
+>   int got = ::recv( sd, buf, len, MSG_DONTWAIT );
+> 
+>  and between those calls we wait with
+> 
+>   struct pollfd pfd;
+>   short evmask;
+>   pfd.fd = sd;
+>   pfd.events = POLLIN;
+> #if defined(__linux__)
+>   pfd.events |= POLLRDHUP;
+> #endif
+> 
+>   if (poll(&pfd, 1, msgr->timeout) <= 0)
+>     return -1;
+> 
+>  - in my case the timeout is ~15 minutes.  at that point it errors out, 
+> and the daemons reconnect and continue for a while until hitting this 
+> again.
+> 
+>  - at the time of the stall, the reading process is blocked on that 
+> poll(2) call.  There are a bunch of threads stuck on poll(2), some of them 
+> stuck and some not, but they all have stacks like
+> 
+> [<ffffffff8118f6f9>] poll_schedule_timeout+0x49/0x70
+> [<ffffffff81190baf>] do_sys_poll+0x35f/0x4c0
+> [<ffffffff81190deb>] sys_poll+0x6b/0x100
+> [<ffffffff8163d369>] system_call_fastpath+0x16/0x1b
+> 
+>  - you'll note that the netstat output shows data queued:
+> 
+> tcp        0 1163264 10.214.132.36:6807      10.214.132.36:41738     ESTABLISHED
+> tcp        0 1622016 10.214.132.36:41738     10.214.132.36:6807      ESTABLISHED
+> 
+> etc.
+> 
+> Is this a known regression?  Or might I be misusing the API?  What 
+> information would help track it down?
+> 
+> Thanks!
+> sage
+> 
+> 
+> 
