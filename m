@@ -1,7 +1,7 @@
 From: Sasha Levin <levinsasha928@gmail.com>
-Subject: [PATCH 02/16] user_ns: use new hashtable implementation
-Date: Sun, 19 Aug 2012 02:52:15 +0200
-Message-ID: <1345337550-24304-3-git-send-email-levinsasha928@gmail.com>
+Subject: [PATCH v2 02/16] userns: use new hashtable implementation
+Date: Sun, 19 Aug 2012 02:52:16 +0200
+Message-ID: <1345337550-24304-4-git-send-email-levinsasha928@gmail.com>
 References: <1345337550-24304-1-git-send-email-levinsasha928@gmail.com>
 Cc: tj@kernel.org,
 	akpm@linux-foundation.org,
@@ -43,8 +43,8 @@ In-Reply-To: <1345337550-24304-1-git-send-email-levinsasha928@gmail.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Switch user_ns to use the new hashtable implementation. This reduces the amount of
-generic unrelated code in user_ns.
+Switch to using the new hashtable implementation to store user structs.
+This reduces the amount of generic unrelated code in kernel/user.c.
 
 Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
 ---
