@@ -1,55 +1,55 @@
-From: Andrew Worsley <amworsley@gmail.com>
-Subject: Re: network packet corruption in v3.6.0-rc1 (and also in v3.5)
-Date: Mon, 20 Aug 2012 06:20:52 +1000
-Message-ID: <CA+Y=x3nFziC+=RhEz7aQofSy15gX=nKqFfQ2DEF0FwXTGmv7zQ@mail.gmail.com>
-References: <CA+Y=x3=jSrEaYdnaAF75p0utQq02MhoSh4SkshRVSc7JjjVPOw@mail.gmail.com>
-	<1345374134.5158.103.camel@edumazet-glaptop>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] net/fsl: introduce Freescale 10G MDIO driver
+Date: Sun, 19 Aug 2012 22:57:24 +0200
+Message-ID: <20120819205724.GA27555@electric-eye.fr.zoreil.com>
+References: <1345233792-14985-1-git-send-email-timur@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Fleming <afleming@freescale.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Timur Tabi <timur@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:62212 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753864Ab2HSUUy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2012 16:20:54 -0400
-Received: by eaac11 with SMTP id c11so1809397eaa.19
-        for <netdev@vger.kernel.org>; Sun, 19 Aug 2012 13:20:52 -0700 (PDT)
-In-Reply-To: <1345374134.5158.103.camel@edumazet-glaptop>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:38964 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750970Ab2HSVNA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2012 17:13:00 -0400
+Content-Disposition: inline
+In-Reply-To: <1345233792-14985-1-git-send-email-timur@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> OK, this seems to be related to r8712u, still in staging tree.
->
-> At first glance, its using a buggy skb_clone(), or kind of a 'reuse skb'
-> trick I have no time to investigate.
->
-> I suspect that some memory area are overwritten by this driver, and this
-> was not noticed with older kernels. With new kernels, its triggering a
-> WARN_ON() in tcp stack.
->
-> Any chance you can try to reproduce the bug with another adapter ?
+Timur Tabi <timur@freescale.com> :
+> Similar to fsl_pq_mdio.c, this driver is for the 10G MDIO controller on
+> Freescale Frame Manager Ethernet controllers.
+> 
+> Signed-off-by: Timur Tabi <timur@freescale.com>
+> ---
+[...]
+> diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
+> new file mode 100644
+> index 0000000..1894476
+> --- /dev/null
+> +++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
+[...]
+> +static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 value)
+> +{
+> +	struct tgec_mdio_controller __iomem *regs = bus->priv;
+> +	uint16_t dev_addr = regnum >> 16;
+> +	uint32_t status;
+> +
+> +	/* Setup the MII Mgmt clock speed */
+> +	out_be32(&regs->mdio_stat, MDIO_STAT_CLKDIV(100));
+> +
+> +	/* Wait till the bus is free */
+> +	status = spin_event_timeout(
+> +		!((in_be32(&regs->mdio_stat)) & MDIO_STAT_BSY), TIMEOUT, 0);
+> +	if (!status) {
+> +		dev_dbg(&bus->dev, "%s: timeout waiting for stat\n", __func__);
+> +		return -ETIMEDOUT;
+> +	}
 
-Unfortunately I don't have another USB dongle. I could try to get the built in
+This code - comment included - is repeated several times. You may
+consider factoring it out in some xgmac_mdio_free_bus_wait function.
 
-Broadcom Corporation BCM4331 802.11a/b/g/n (rev 02)
-Subsystem: Apple Inc. Device 00ef
-
-but I need to dig out the proprietary firmware - which will take some
-time as I am not familiar with the procedure.
-
-The weird thing about this USB dongle is that I brought it because it
-was claimed to be supported under Linux
-
-idVendor           0x0b05 ASUSTek Computer, Inc.
-idProduct          0x1786 USB-N10 802.11n Network Adapter [Realtek RTL8188SU]
-
-RealTek driver web site -  -
-http://www.realtek.com.tw/downloads/downloadsView.aspx?Langid=1&PNid=48&PFid=48&Level=5&Conn=4&DownTypeID=3&GetDown=false&Downloads=true#RTL8188SU
-
-which claims support "Linux Kernel 2.6.18~2.6.38 and Kernel 3.0.2"
-but requires I try compiling the driver from source
-
-Andrew
+-- 
+Ueimor
