@@ -1,59 +1,68 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv6: gre: fix ip6gre_err()
-Date: Sun, 19 Aug 2012 15:47:30 +0200
-Message-ID: <1345384050.5158.208.camel@edumazet-glaptop>
+Subject: Re: [RFC] Interface for TCP Metrics
+Date: Sun, 19 Aug 2012 15:50:24 +0200
+Message-ID: <1345384224.5158.210.camel@edumazet-glaptop>
+References: <alpine.LFD.2.00.1208191402560.1893@ja.ssi.bg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Dmitry Kozlov <xeb@mail.ru>
+Cc: netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:40561 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751687Ab2HSNrh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2012 09:47:37 -0400
-Received: by wgbdr13 with SMTP id dr13so4646863wgb.1
-        for <netdev@vger.kernel.org>; Sun, 19 Aug 2012 06:47:36 -0700 (PDT)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:60846 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751687Ab2HSNu2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2012 09:50:28 -0400
+Received: by wibhr14 with SMTP id hr14so3005828wib.1
+        for <netdev@vger.kernel.org>; Sun, 19 Aug 2012 06:50:27 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.00.1208191402560.1893@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Sun, 2012-08-19 at 14:42 +0300, Julian Anastasov wrote:
+> 	Hello,
+> 
+> 	Once DaveM mentioned that TCP Metrics need their
+> own interface. I'm planning to implement such interface
+> but lets first decide how it should look. After little
+> research, here is my plan:
+> 
+> - will use genl with TCP_METRICS_GENL_NAME "tcp_metrics",
+> TCP_METRICS_GENL_VERSION 0x01
+> 
+> - provide dumpit method and one cmd to read metrics by exact addr,
+> will use TCP_METRICS_CMD_{GET,...} and TCP_METRICS_ATTR_xxx in
+> new file include/linux/tcp_metrics.h
+> 
+> - Is command to delete cached entry needed? Delete will need
+> new rcu_head. Useful to flush the cache or to delete entries
+> with filter.
+> 
+> - without support for delete cmd, may be we can add command to
+> reset entry with default values from dst?
+> 
+> - Where to put the new netlink code?
+> tcp_metrics_netlink.c
+> tcp_metrics_nl.c
+> or just in current tcp_metrics.c ?
+> 
+> - will provide support for ip tool:
+> 
+> ip tcpm[etrics] <cmd> ...
+> ip -6 tcpm[etrics] get <addr> => TCP_METRICS_CMD_GET for 1 entry
+> ip tcpm[etrics] list => dumpit
+> 
+> - any wishes how to look the output? How to select specific
+> values/metrics in output? For example, list only specified
+> named values: ip tcpm list [-o] rtt
+> 
+> - command to modify specific metric for addr, by name? Only
+> for tcpm_vals? If not locked?
+> 
+> 	Do we need modify/delete/reset support or just read
+> support is enough? Comments?
+> 
+> Regards
 
-ip6gre_err() miscomputes grehlen (sizeof(ipv6h) is 4 or 8,
-not 40 as expected), and should take into account 'offset' parameter.
-
-Also uses pskb_may_pull() to cope with some fragged skbs
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Dmitry Kozlov <xeb@mail.ru>
----
- net/ipv6/ip6_gre.c |    8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index a84ad5d..424d11a 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -415,8 +415,8 @@ static void ip6gre_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 		u8 type, u8 code, int offset, __be32 info)
- {
- 	const struct ipv6hdr *ipv6h = (const struct ipv6hdr *)skb->data;
--	__be16 *p = (__be16 *)(ipv6h + 1);
--	int grehlen = sizeof(ipv6h) + 4;
-+	__be16 *p = (__be16 *)(skb->data + offset);
-+	int grehlen = offset + 4;
- 	struct ip6_tnl *t;
- 	__be16 flags;
- 
-@@ -432,8 +432,10 @@ static void ip6gre_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	}
- 
- 	/* If only 8 bytes returned, keyed message will be dropped here */
--	if (skb_headlen(skb) < grehlen)
-+	if (!pskb_may_pull(skb, grehlen))
- 		return;
-+	ipv6h = (const struct ipv6hdr *)skb->data;
-+	p = (__be16 *)(skb->data + offset);
- 
- 	rcu_read_lock();
- 
+One way to delete one or all entries would be good, for being able to
+reproduce some tests from a known state.
