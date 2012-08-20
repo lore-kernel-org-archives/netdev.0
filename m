@@ -1,152 +1,77 @@
-From: Sage Weil <sage@inktank.com>
-Subject: Re: regression with poll(2)
-Date: Mon, 20 Aug 2012 09:54:59 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.1208200930510.26904@cobra.newdream.net>
-References: <alpine.DEB.2.00.1208151226250.15721@cobra.newdream.net> <alpine.DEB.2.00.1208191051150.15570@cobra.newdream.net> <20120820090443.GA3275@suse.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.5.1 fib_rules_lookup oops
+Date: Mon, 20 Aug 2012 18:59:39 +0200
+Message-ID: <1345481979.5158.333.camel@edumazet-glaptop>
+References: <20120820164428.GA27910@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ceph-devel@vger.kernel.org,
-	neilb@suse.de, a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu,
-	emunson@mgebm.net, eric.dumazet@gmail.com, sebastian@breakpoint.cc,
-	cl@linux.com, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120820090443.GA3275@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Fedora Kernel Team <kernel-team@fedoraproject.org>
+To: Dave Jones <davej@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:47877 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752243Ab2HTQ7o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 12:59:44 -0400
+Received: by bkwj10 with SMTP id j10so1929077bkw.19
+        for <netdev@vger.kernel.org>; Mon, 20 Aug 2012 09:59:43 -0700 (PDT)
+In-Reply-To: <20120820164428.GA27910@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 Aug 2012, Mel Gorman wrote:
-> On Sun, Aug 19, 2012 at 11:49:31AM -0700, Sage Weil wrote:
-> > I've bisected and identified this commit:
-> > 
-> >     netvm: propagate page->pfmemalloc to skb
-> >     
-> >     The skb->pfmemalloc flag gets set to true iff during the slab allocation
-> >     of data in __alloc_skb that the the PFMEMALLOC reserves were used.  If the
-> >     packet is fragmented, it is possible that pages will be allocated from the
-> >     PFMEMALLOC reserve without propagating this information to the skb.  This
-> >     patch propagates page->pfmemalloc from pages allocated for fragments to
-> >     the skb.
-> >     
-> >     Signed-off-by: Mel Gorman <mgorman@suse.de>
-> >     Acked-by: David S. Miller <davem@davemloft.net>
-> >     Cc: Neil Brown <neilb@suse.de>
-> >     Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> >     Cc: Mike Christie <michaelc@cs.wisc.edu>
-> >     Cc: Eric B Munson <emunson@mgebm.net>
-> >     Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> >     Cc: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-> >     Cc: Mel Gorman <mgorman@suse.de>
-> >     Cc: Christoph Lameter <cl@linux.com>
-> >     Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> >     Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-> > 
+On Mon, 2012-08-20 at 12:44 -0400, Dave Jones wrote:
+> Just had a user report this, which I don't think I've seen reported here yet.
+> Something new, or just something missing from -stable ?
 > 
-> Ok, thanks.
+> 	Dave
 > 
-> > I've retested several times and confirmed that this change leads to the 
-> > breakage, and also confirmed that reverting it on top of -rc1 also fixes 
-> > the problem.
-> > 
-> > I've also added some additional instrumentation to my code and confirmed 
-> > that the process is blocking on poll(2) while netstat is reporting 
-> > data available on the socket.
-> > 
-> > What can I do to help track this down?
-> > 
 > 
-> Can the following patch be tested please? It is reported to fix an fio
-> regression that may be similar to what you are experiencing but has not
-> been picked up yet.
+> BUG: unable to handle kernel paging request at 5f726571
+> IP: [<c0884808>] fib_rules_lookup+0x38/0x130
+> *pdpt = 000000002b8ef001 *pde = 0000000000000000 
+> Oops: 0000 [#1] SMP 
+> Modules linked in: fuse ebtable_nat ebtables ipt_MASQUERADE iptable_nat nf_nat xt_CHECKSUM iptable_mangle bridge stp llc ip6t_REJECT nf_conntrack_ipv4 nf_conntrack_ipv6 nf_defrag_ipv4 nf_defrag_ipv6 xt_state ip6table_filter be2iscsi nf_conntrack iscsi_boot_sysfs ip6_tables bnx2i cnic uio cxgb4i it87 hwmon_vid cxgb4 cxgb3i cxgb3 mdio libcxgbi ib_iser rdma_cm ib_addr iw_cm ib_cm ib_sa ib_mad ib_core iscsi_tcp libiscsi_tcp libiscsi scsi_transport_iscsi tpm_bios snd_hda_codec_realtek snd_hda_intel snd_hda_codec snd_hwdep snd_pcm snd_page_alloc vhost_net ppdev tun macvtap macvlan snd_timer parport_pc kvm_amd k8temp snd kvm forcedeth soundcore nv_tco parport i2c_nforce2 nfsd nfs_acl auth_rpcgss lockd uinput binfmt_misc sunrpc btrfs libcrc32c zlib_deflate firewire_ohci firewire_core ata_generic
+  pata_acpi crc_itu_t sata_nv pata_amd nouveau mxm_wmi wmi video i2c_algo_bit drm_kms_helper ttm drm i2c_core [last unloaded: scsi_wait_scan]
+> 
+> Pid: 1943, comm: transmission-gt Not tainted 3.5.1-1.fc17.i686.PAE #1    /M55S-S3
+> EIP: 0060:[<c0884808>] EFLAGS: 00010a97 CPU: 0
+> EIP is at fib_rules_lookup+0x38/0x130
+> EAX: 5f726565 EBX: 5f726565 ECX: 00000000 EDX: c0b45a15
+> ESI: eb2f1d38 EDI: c0b45a59 EBP: eb2f1c44 ESP: eb2f1c24
+>  DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
+> CR0: 80050033 CR2: 5f726571 CR3: 33f3a000 CR4: 000007f0
+> DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
+> DR6: ffff0ff0 DR7: 00000400
+> Process transmission-gt (pid: 1943, ti=eb2f0000 task=f48bf110 task.ti=eb2f0000)
+> Stack:
+>  eb2f1c3c c0b45a59 00000000 c0b45a15 5f726565 eb2f1c90 eb2f1d38 c0be60c0
+>  eb2f1c64 c08dacc9 eb2f1c50 00000000 eb2f1c90 00000000 00000001 00000000
+>  eb2f1cb0 c089a2bc f75bc8c8 00000001 eb2f1c84 c066dd4f b4298b0e 00000001
+> Call Trace:
+>  [<c08dacc9>] fib_lookup+0x39/0x50
+>  [<c089a2bc>] __ip_route_output_key+0x5cc/0x8b0
+>  [<c066dd4f>] ? cpumask_next_and+0x1f/0x40
+>  [<c089a5bf>] ip_route_output_flow+0x1f/0x70
+>  [<c08c49bd>] udp_sendmsg+0x73d/0x8d0
+>  [<c08a0010>] ? ip_copy_metadata+0x140/0x140
+>  [<c08cd126>] inet_sendmsg+0x66/0xa0
+>  [<c0622d1f>] ? selinux_socket_sendmsg+0x1f/0x30
+>  [<c085c230>] sock_sendmsg+0xc0/0xf0
+>  [<c0410e71>] ? __switch_to+0xc1/0x270
+>  [<c047fce2>] ? idle_balance+0x102/0x150
+>  [<c0679dd1>] ? _copy_from_user+0x41/0x60
+>  [<c085c5a3>] ? move_addr_to_kernel+0x43/0x90
+>  [<c085cf0d>] sys_sendto+0xfd/0x140
+>  [<c046aa70>] ? update_rmtp+0x90/0x90
+>  [<c046b956>] ? hrtimer_start_range_ns+0x26/0x30
+>  [<c0589afb>] ? sys_epoll_wait+0x6b/0x370
+>  [<c085d921>] sys_socketcall+0x1d1/0x2d0
+>  [<c09672df>] sysenter_do_call+0x12/0x28
+> Code: 00 89 45 ec 89 d6 89 c2 8b 40 44 89 d7 83 c7 44 89 4d e8 89 45 f0 8b 5d f0 39 fb 0f 84 a3 00 00 00 89 7d e4 8d b4 26 00 00 00 00 <8b> 53 0c 85 d2 74 31 31 c0 3b 56 04 74 2a f6 43 20 02 74 08 85 
+> EIP: [<c0884808>] fib_rules_lookup+0x38/0x130 SS:ESP 0068:eb2f1c24
+> --
 
-This patch appears to resolve things for me as well, at least after a 
-couple of passes.  I'll let you know if I see any further problems come up 
-with more testing.
+It looks like a buffer overflow or memory reuse
 
-Thanks!
-sage
-
-
-> 
-> ---8<---
-> From: Alex Shi <alex.shi@intel.com>
-> Subject: [PATCH] mm: correct page->pfmemalloc to fix deactivate_slab regression
-> 
-> commit cfd19c5a9ec (mm: only set page->pfmemalloc when
-> ALLOC_NO_WATERMARKS was used) try to narrow down page->pfmemalloc
-> setting, but it missed some places the pfmemalloc should be set.
-> 
-> So, in __slab_alloc, the unalignment pfmemalloc and ALLOC_NO_WATERMARKS
-> cause incorrect deactivate_slab() on our core2 server:
-> 
->     64.73%           fio  [kernel.kallsyms]     [k] _raw_spin_lock
->                      |
->                      --- _raw_spin_lock
->                         |
->                         |---0.34%-- deactivate_slab
->                         |          __slab_alloc
->                         |          kmem_cache_alloc
->                         |          |
-> 
-> That causes our fio sync write performance has 40% regression.
-> 
-> This patch move the checking in get_page_from_freelist, that resolved
-> this issue.
-> 
-> Signed-off-by: Alex Shi <alex.shi@intel.com>
-> ---
->  mm/page_alloc.c |   21 +++++++++++----------
->  1 files changed, 11 insertions(+), 10 deletions(-)
-> 
-> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> index 009ac28..07f1924 100644
-> --- a/mm/page_alloc.c
-> +++ b/mm/page_alloc.c
-> @@ -1928,6 +1928,17 @@ this_zone_full:
->  		zlc_active = 0;
->  		goto zonelist_scan;
->  	}
-> +
-> +	if (page)
-> +		/*
-> +		 * page->pfmemalloc is set when ALLOC_NO_WATERMARKS was
-> +		 * necessary to allocate the page. The expectation is
-> +		 * that the caller is taking steps that will free more
-> +		 * memory. The caller should avoid the page being used
-> +		 * for !PFMEMALLOC purposes.
-> +		 */
-> +		page->pfmemalloc = !!(alloc_flags & ALLOC_NO_WATERMARKS);
-> +
->  	return page;
->  }
->  
-> @@ -2389,14 +2400,6 @@ rebalance:
->  				zonelist, high_zoneidx, nodemask,
->  				preferred_zone, migratetype);
->  		if (page) {
-> -			/*
-> -			 * page->pfmemalloc is set when ALLOC_NO_WATERMARKS was
-> -			 * necessary to allocate the page. The expectation is
-> -			 * that the caller is taking steps that will free more
-> -			 * memory. The caller should avoid the page being used
-> -			 * for !PFMEMALLOC purposes.
-> -			 */
-> -			page->pfmemalloc = true;
->  			goto got_pg;
->  		}
->  	}
-> @@ -2569,8 +2572,6 @@ retry_cpuset:
->  		page = __alloc_pages_slowpath(gfp_mask, order,
->  				zonelist, high_zoneidx, nodemask,
->  				preferred_zone, migratetype);
-> -	else
-> -		page->pfmemalloc = false;
->  
->  	trace_mm_page_alloc(page, order, gfp_mask, migratetype);
->  
-> -- 
-> 1.7.5.4
-> 
-> 
+5f726565 is not a valid pointer, but ASCII "eer_"
