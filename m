@@ -1,58 +1,37 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: [PATCH 11/11] netlink: add documentation for memory mapped I/O
-Date: Mon, 20 Aug 2012 12:32:36 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1208201224430.8114@frira.zrqbmnf.qr>
-References: <1345443532-3707-1-git-send-email-kaber@trash.net> <1345443532-3707-12-git-send-email-kaber@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 05/18] netfilter: nf_nat: add protoff argument to packet
+ mangling functions
+Date: Mon, 20 Aug 2012 12:37:01 +0200 (MEST)
+Message-ID: <Pine.GSO.4.63.1208201236440.24912@stinky-local.trash.net>
+References: <1345434006-16549-1-git-send-email-kaber@trash.net>
+ <1345434006-16549-6-git-send-email-kaber@trash.net>
+ <alpine.LNX.2.01.1208201000580.6101@frira.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Florian.Westphal@Sophos.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@inai.de>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1345443532-3707-12-git-send-email-kaber@trash.net>
+In-Reply-To: <alpine.LNX.2.01.1208201000580.6101@frira.zrqbmnf.qr>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 20 Aug 2012, Jan Engelhardt wrote:
 
-On Monday 2012-08-20 08:18, Patrick McHardy wrote:
->+
->+RX and TX rings
->+----------------
->+
->+Each ring contains a number of continous memory blocks, containing frames of
->+fixed size dependant on the parameters used for ring setup.
+>
+> On Monday 2012-08-20 05:39, Patrick McHardy wrote:
+>> index 0bb5a69..4b59a15 100644
+>> --- a/include/linux/netfilter/nf_conntrack_amanda.h
+>> +++ b/include/linux/netfilter/nf_conntrack_amanda.h
+>> @@ -4,6 +4,7 @@
+>>
+>> extern unsigned int (*nf_nat_amanda_hook)(struct sk_buff *skb,
+>> 					  enum ip_conntrack_info ctinfo,
+>> +					  unsigned int protoff,
+>> 					  unsigned int matchoff,
+>> 					  unsigned int matchlen,
+>> 					  struct nf_conntrack_expect *exp);
+>
+> What about using a structure to collect all the accumulating parameters,
+> like we do for xtables match functions?
 
-dependent
-
->+The blocks are only visible to the kernel, from the point of view of user-space
->+the ring just contains the frames in a continous memory zone.
-
-...to the kernel; from the user-space point of view, the ring...
-
-continuous (multiple occurrences)
-
->+Ring frames
->+------------
->+
->+Each frames contain a frame header, consisting of a synchronization word and some
-
-Each frame contains a frame header,
-
->+The possible values in the status word are:
->+
->+- NL_MMAP_STATUS_UNUSED:
->+	RX ring:	frame belongs to the kernel and contains no message
-
-The frame (mult)
-
->+			for user-space. Approriate action is to invoke poll()
->+			to wait for new messages.
-
-The appropriate (mult)
-
->+			if (hdr->nm_status == NL_MMAP_STATUS_VALID)
->+				/* Regular memory mapped frame */
->+				nlh = (void *hdr) + NL_MMAP_HDRLEN;
-
-(void *)hdr + NL_MMAP_HDRLEN
-
+Yes, we could do that for the common parameters.
