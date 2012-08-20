@@ -1,37 +1,32 @@
-From: Sylvain Munaut <s.munaut@whatever-company.com>
-Subject: Fwd: TCP fragmentation broken in 3.6-rc ?
-Date: Mon, 20 Aug 2012 16:56:21 +0200
-Message-ID: <CAF6-1L5bnhHfXide-=+4WmskR6xGLg4q+RWHebH+GiX7P-RX+Q@mail.gmail.com>
-References: <CAF6-1L6xy1rRd321ZMzrLG6xHMdO0+sdjbtznUOsMzfYyU1SEg@mail.gmail.com>
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Subject: smsc75xx & smsc95xx, setting skb->truesize correctly?
+Date: Mon, 20 Aug 2012 17:57:06 +0300
+Message-ID: <20120820175706.12394vktsvm3yvqc@www.81.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+ charset=ISO-8859-1;
+ DelSp="Yes";
+ format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: Steve Glendinning <steve.glendinning@shawell.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:58575 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754308Ab2HTO4W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 10:56:22 -0400
-Received: by vbbff1 with SMTP id ff1so5386543vbb.19
-        for <netdev@vger.kernel.org>; Mon, 20 Aug 2012 07:56:21 -0700 (PDT)
-In-Reply-To: <CAF6-1L6xy1rRd321ZMzrLG6xHMdO0+sdjbtznUOsMzfYyU1SEg@mail.gmail.com>
+Received: from sd-mail-sa-02.sanoma.fi ([158.127.18.162]:48640 "EHLO
+	sd-mail-sa-02.sanoma.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754308Ab2HTO5J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 10:57:09 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hello,
 
-It seems somehow something was broken in 3.6-rc.
-I'm not sure exactly what though. The symptoms are:
+Is setting skb->truesize in smsc75xx and smsc95xx correct?
+In smsc75xx/smsc95xx_rx_fixup(), input skb containing multiple packets  
+is cloned and truesize for each clone is set to packet-size +  
+sizeof(struct sk_buff), but input skb has minimum allocation size of  
+9000 bytes (MAX_SINGLE_PACKET_SIZE) and maximum of 18944 bytes  
+(DEFAULT_HS_BURST_CAP_SIZE) (+ NET_IP_ALIGN). Doesn't this cause  
+truesize to be underestimated?
 
- - TCP connection get "stuck" with data in send queue when doing
-"large" transfers ( like typing 'ps ax' on a ssh connection )
- - Only happens on path where the PMTU is lower than the MTU of the interface
- - Is not present right after boot, it only appears 10-20min after
-boot or so. (and that's inside the _same_ TCP connection, it works
-fine at first and then in the same ssh session, it'll get stuck)
- - Definitely seems related to fragments somehow since I see a router
-sending ICMP message saying fragmentation is needed.
- - Exact same setup works fine with kernel 3.5.1
-
-Cheers,
-
-    Sylvain
+-Jussi
