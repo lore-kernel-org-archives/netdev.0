@@ -1,31 +1,58 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH iproute2 2/2] em_canid: Ematch used to classify CAN
- frames according to their identifiers
-Date: Mon, 20 Aug 2012 13:13:34 -0700
-Message-ID: <20120820131334.70d39b62@nehalam.linuxnetplumber.net>
-References: <1343745981-14248-1-git-send-email-lisovy@gmail.com>
-	<1343745981-14248-2-git-send-email-lisovy@gmail.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [RFC Patch net-next] ipv6: unify conntrack reassembly expire
+ code with standard one
+Date: Mon, 20 Aug 2012 22:21:09 +0200
+Message-ID: <20120820202109.GB28790@unicorn.suse.cz>
+References: <1345190565-21689-1-git-send-email-amwang@redhat.com>
+ <1826853.rak2U42CMU@alaris>
+ <1345453599.22373.9.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	pisa@cmp.felk.cvut.cz, sojkam1@fel.cvut.cz
-To: Rostislav Lisovy <lisovy@gmail.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1343745981-14248-2-git-send-email-lisovy@gmail.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Shan Wei <shanwei@cn.fujitsu.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1345453599.22373.9.camel@cr0>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 31 Jul 2012 16:46:21 +0200
-Rostislav Lisovy <lisovy@gmail.com> wrote:
+On Mon, Aug 20, 2012 at 05:06:39PM +0800, Cong Wang wrote:
+> doesn't work. I think we probably can save the struct net pointer in
+> struct netns_frags during inet_frags_init_net(), so that container_of()
+> can be eliminated. 
 
-> This ematch enables effective filtering of CAN frames (AF_CAN) based
-> on CAN identifiers with masking of compared bits. Implementation
-> utilizes bitmap based classification for standard frame format (SFF)
-> which is optimized for minimal overhead.
-> 
-> Signed-off-by: Rostislav Lisovy <lisovy@gmail.com>
+This would work but one would have to check carefully that the pointer
+is always set to an usable value. Or we could just add a flag indicating
+whether the structure is embedded (and if it is not, use init_net).
+Another approach was suggested in the patchworks discussion: add a
+special namespace for IPv6 conntrack fragment handling.
 
-Since this doesn't have any conflicts (unlike other CAN filtering),
-I applied it for 3.6 version.
+> Thanks for testing! I tried to test it too, but seems I can't trigger a
+> defragment. Any hints?
+
+I used netfilter on a computer between source and destination of the 
+packets (generated with "ping6 -s 3000"):
+
+ip6tables -A FORWARD -o ... -m frag --fragid 0:0xFFFFFFFF --fraglast -j DROP
+
+The --fragid condition is needed to work around a bug in iptables (if 
+frag module is loaded and there is no --fragid, only packets with zero
+fragment id match - patch for this is already in git). On the target,
+packet is defragmented automatically, by default by the "normal" code,
+with nf_conntrack_ipv6 module by the conntrack code.
+
+Setting
+
+  echo 5 >/proc/sys/net/ipv6/ip6frag_time
+  echo 5 >/proc/sys/net/netfilter/nf_conntrack_frag6_timeout
+
+on target also helps.
+
+                                                        Michal Kubecek
 
