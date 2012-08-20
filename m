@@ -1,283 +1,109 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 06/11] netlink: add mmap'ed netlink helper functions
-Date: Mon, 20 Aug 2012 08:18:47 +0200
-Message-ID: <1345443532-3707-7-git-send-email-kaber@trash.net>
+Subject: [PATCH 09/11] nfnetlink: add support for memory mapped netlink
+Date: Mon, 20 Aug 2012 08:18:50 +0200
+Message-ID: <1345443532-3707-10-git-send-email-kaber@trash.net>
 References: <1345443532-3707-1-git-send-email-kaber@trash.net>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
 To: Florian.Westphal@Sophos.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36025 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:36031 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752425Ab2HTGS6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 02:18:58 -0400
+	with ESMTP id S1752839Ab2HTGS7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 02:18:59 -0400
 In-Reply-To: <1345443532-3707-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add helper functions for looking up mmap'ed frame headers, reading and writing
-their status, allocating skbs with mmap'ed data areas and a poll function.
-
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/netlink.h  |    8 ++
- net/netlink/af_netlink.c |  185 +++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 191 insertions(+), 2 deletions(-)
+ include/linux/netfilter/nfnetlink.h  |    2 ++
+ net/netfilter/nfnetlink.c            |    7 +++++++
+ net/netfilter/nfnetlink_log.c        |    9 +++++----
+ net/netfilter/nfnetlink_queue_core.c |    2 +-
+ 4 files changed, 15 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index 3600461..98754e8 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -193,10 +193,18 @@ static inline struct nlmsghdr *nlmsg_hdr(const struct sk_buff *skb)
- 	return (struct nlmsghdr *)skb->data;
+diff --git a/include/linux/netfilter/nfnetlink.h b/include/linux/netfilter/nfnetlink.h
+index 18341cd..447d1a7 100644
+--- a/include/linux/netfilter/nfnetlink.h
++++ b/include/linux/netfilter/nfnetlink.h
+@@ -81,6 +81,8 @@ extern int nfnetlink_subsys_register(const struct nfnetlink_subsystem *n);
+ extern int nfnetlink_subsys_unregister(const struct nfnetlink_subsystem *n);
+ 
+ extern int nfnetlink_has_listeners(struct net *net, unsigned int group);
++extern struct sk_buff *nfnetlink_alloc_skb(struct net *net, unsigned int size,
++					   u32 dst_pid, gfp_t gfp_mask);
+ extern int nfnetlink_send(struct sk_buff *skb, struct net *net, u32 pid, unsigned int group,
+ 			  int echo, gfp_t flags);
+ extern int nfnetlink_set_err(struct net *net, u32 pid, u32 group, int error);
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+index a265033..d0aa9fc 100644
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -111,6 +111,13 @@ int nfnetlink_has_listeners(struct net *net, unsigned int group)
  }
+ EXPORT_SYMBOL_GPL(nfnetlink_has_listeners);
  
-+enum netlink_skb_flags {
-+	NETLINK_SKB_MMAPED	= 0x1,		/* Packet data is mmapped */
-+	NETLINK_SKB_TX		= 0x2,		/* Packet was sent by userspace */
-+	NETLINK_SKB_DELIVERED	= 0x4,		/* Packet was delivered */
-+};
-+
- struct netlink_skb_parms {
- 	struct ucred		creds;		/* Skb credentials	*/
- 	__u32			pid;
- 	__u32			dst_group;
-+	__u32			flags;
-+	struct sock		*sk;		/* socket owning mmaped ring */
- };
- 
- #define NETLINK_CB(skb)		(*(struct netlink_skb_parms*)&((skb)->cb))
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index e20a918..3810911 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -56,6 +56,7 @@
- #include <linux/audit.h>
- #include <linux/mutex.h>
- #include <linux/vmalloc.h>
-+#include <asm/cacheflush.h>
- 
- #include <net/net_namespace.h>
- #include <net/sock.h>
-@@ -159,6 +160,7 @@ static struct netlink_table *nl_table;
- static DECLARE_WAIT_QUEUE_HEAD(nl_table_wait);
- 
- static int netlink_dump(struct sock *sk);
-+static void netlink_skb_destructor(struct sk_buff *skb);
- 
- static DEFINE_RWLOCK(nl_table_lock);
- static atomic_t nl_table_users = ATOMIC_INIT(0);
-@@ -176,6 +178,11 @@ static inline struct hlist_head *nl_pid_hashfn(struct nl_pid_hash *hash, u32 pid
- }
- 
- #ifdef CONFIG_NETLINK_MMAP
-+static bool netlink_skb_is_mmaped(const struct sk_buff *skb)
++struct sk_buff *nfnetlink_alloc_skb(struct net *net, unsigned int size,
++				    u32 dst_pid, gfp_t gfp_mask)
 +{
-+	return NETLINK_CB(skb).flags & NETLINK_SKB_MMAPED;
++	return netlink_alloc_skb(net->nfnl, size, dst_pid, gfp_mask);
 +}
++EXPORT_SYMBOL_GPL(nfnetlink_alloc_skb);
 +
- static __pure struct page *pgvec_to_page(const void *addr)
+ int nfnetlink_send(struct sk_buff *skb, struct net *net, u32 pid,
+ 		   unsigned int group, int echo, gfp_t flags)
  {
- 	if (is_vmalloc_addr(addr))
-@@ -399,8 +406,154 @@ out:
- 	mutex_unlock(&nlk->pg_vec_lock);
- 	return 0;
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index 169ab59..6232ca8 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -296,7 +296,7 @@ nfulnl_set_flags(struct nfulnl_instance *inst, u_int16_t flags)
  }
-+
-+static void netlink_frame_flush_dcache(const struct nl_mmap_hdr *hdr)
-+{
-+#if ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE == 1
-+	struct page *p_start, *p_end;
-+
-+	/* First page is flushed through netlink_{get,set}_status */
-+	p_start = pgvec_to_page(hdr + PAGE_SIZE);
-+	p_end   = pgvec_to_page((void *)hdr + NL_MMAP_MSG_HDRLEN + hdr->nm_len - 1);
-+	while (p_start <= p_end) {
-+		flush_dcache_page(p_start);
-+		p_start++;
-+	}
-+#endif
-+}
-+
-+static enum nl_mmap_status netlink_get_status(const struct nl_mmap_hdr *hdr)
-+{
-+	smp_rmb();
-+	flush_dcache_page(pgvec_to_page(hdr));
-+	return hdr->nm_status;
-+}
-+
-+static void netlink_set_status(struct nl_mmap_hdr *hdr,
-+			       enum nl_mmap_status status)
-+{
-+	hdr->nm_status = status;
-+	flush_dcache_page(pgvec_to_page(hdr));
-+	smp_wmb();
-+}
-+
-+static struct nl_mmap_hdr *
-+__netlink_lookup_frame(const struct netlink_ring *ring, unsigned int pos)
-+{
-+	unsigned int pg_vec_pos, frame_off;
-+
-+	pg_vec_pos = pos / ring->frames_per_block;
-+	frame_off  = pos % ring->frames_per_block;
-+
-+	return ring->pg_vec[pg_vec_pos] + (frame_off * ring->frame_size);
-+}
-+
-+static struct nl_mmap_hdr *
-+netlink_lookup_frame(const struct netlink_ring *ring, unsigned int pos,
-+		     enum nl_mmap_status status)
-+{
-+	struct nl_mmap_hdr *hdr;
-+
-+	hdr = __netlink_lookup_frame(ring, pos);
-+	if (netlink_get_status(hdr) != status)
-+		return NULL;
-+
-+	return hdr;
-+}
-+
-+static struct nl_mmap_hdr *
-+netlink_current_frame(const struct netlink_ring *ring,
-+		      enum nl_mmap_status status)
-+{
-+	return netlink_lookup_frame(ring, ring->head, status);
-+}
-+
-+static struct nl_mmap_hdr *
-+netlink_previous_frame(const struct netlink_ring *ring,
-+		       enum nl_mmap_status status)
-+{
-+	unsigned int prev;
-+
-+	prev = ring->head ? ring->head - 1 : ring->frame_max;
-+	return netlink_lookup_frame(ring, prev, status);
-+}
-+
-+static void netlink_increment_head(struct netlink_ring *ring)
-+{
-+	ring->head = ring->head != ring->frame_max ? ring->head + 1 : 0;
-+}
-+
-+static void netlink_forward_ring(struct netlink_ring *ring)
-+{
-+	unsigned int head = ring->head, pos = head;
-+	const struct nl_mmap_hdr *hdr;
-+
-+	do {
-+		hdr = __netlink_lookup_frame(ring, pos);
-+		if (hdr->nm_status == NL_MMAP_STATUS_UNUSED)
-+			break;
-+		if (hdr->nm_status != NL_MMAP_STATUS_SKIP)
-+			break;
-+		netlink_increment_head(ring);
-+	} while (ring->head != head);
-+}
-+
-+static unsigned int netlink_poll(struct file *file, struct socket *sock,
-+				 poll_table *wait)
-+{
-+	struct sock *sk = sock->sk;
-+	struct netlink_sock *nlk = nlk_sk(sk);
-+	unsigned int mask;
-+
-+	mask = datagram_poll(file, sock, wait);
-+
-+	spin_lock_bh(&sk->sk_receive_queue.lock);
-+	if (nlk->rx_ring.pg_vec) {
-+		netlink_forward_ring(&nlk->rx_ring);
-+		if (!netlink_previous_frame(&nlk->rx_ring, NL_MMAP_STATUS_UNUSED))
-+			mask |= POLLIN | POLLRDNORM;
-+	}
-+	spin_unlock_bh(&sk->sk_receive_queue.lock);
-+
-+	spin_lock_bh(&sk->sk_write_queue.lock);
-+	if (nlk->tx_ring.pg_vec) {
-+		if (netlink_current_frame(&nlk->tx_ring, NL_MMAP_STATUS_UNUSED))
-+			mask |= POLLOUT | POLLWRNORM;
-+	}
-+	spin_unlock_bh(&sk->sk_write_queue.lock);
-+
-+	return mask;
-+}
-+
-+static struct nl_mmap_hdr *netlink_mmap_hdr(struct sk_buff *skb)
-+{
-+	return (struct nl_mmap_hdr *)(skb->head - NL_MMAP_HDRLEN);
-+}
-+
-+static void netlink_ring_setup_skb(struct sk_buff *skb, struct sock *sk,
-+				   struct netlink_ring *ring,
-+				   struct nl_mmap_hdr *hdr)
-+{
-+	unsigned int size;
-+	void *data;
-+
-+	size = ring->frame_size - NL_MMAP_HDRLEN;
-+	data = (void *)hdr + NL_MMAP_HDRLEN;
-+
-+	skb->head	= data;
-+	skb->data	= data;
-+	skb_reset_tail_pointer(skb);
-+	skb->end	= skb->tail + size;
-+	skb->len	= 0;
-+
-+	skb->destructor	= netlink_skb_destructor;
-+	NETLINK_CB(skb).flags |= NETLINK_SKB_MMAPED;
-+	NETLINK_CB(skb).sk = sk;
-+}
- #else /* CONFIG_NETLINK_MMAP */
-+#define netlink_skb_is_mmaped(skb)	false
- #define netlink_mmap			sock_no_mmap
-+#define netlink_poll			datagram_poll
- #endif /* CONFIG_NETLINK_MMAP */
  
- static void netlink_destroy_callback(struct netlink_callback *cb)
-@@ -417,7 +570,35 @@ static void netlink_consume_callback(struct netlink_callback *cb)
- 
- static void netlink_skb_destructor(struct sk_buff *skb)
+ static struct sk_buff *
+-nfulnl_alloc_skb(unsigned int inst_size, unsigned int pkt_size)
++nfulnl_alloc_skb(u32 peer_pid, unsigned int inst_size, unsigned int pkt_size)
  {
--	sock_rfree(skb);
-+#ifdef CONFIG_NETLINK_MMAP
-+	struct nl_mmap_hdr *hdr;
-+	struct netlink_ring *ring;
-+	struct sock *sk;
-+
-+	/* If a packet from the kernel to userspace was freed because of an
-+	 * error without being delivered to userspace, the kernel must reset
-+	 * the status. In the direction userspace to kernel, the status is
-+	 * always reset here after the packet was processed and freed.
-+	 */
-+	if (netlink_skb_is_mmaped(skb)) {
-+		hdr = netlink_mmap_hdr(skb);
-+		sk = NETLINK_CB(skb).sk;
-+
-+		if (!(NETLINK_CB(skb).flags & NETLINK_SKB_DELIVERED)) {
-+			hdr->nm_len = 0;
-+			netlink_set_status(hdr, NL_MMAP_STATUS_VALID);
-+		}
-+		ring = &nlk_sk(sk)->rx_ring;
-+
-+		WARN_ON(atomic_read(&ring->pending) == 0);
-+		atomic_dec(&ring->pending);
-+		sock_put(sk);
-+
-+		skb->data = NULL;
-+	}
-+#endif
-+	if (skb->sk != NULL)
-+		sock_rfree(skb);
- }
+ 	struct sk_buff *skb;
+ 	unsigned int n;
+@@ -305,13 +305,14 @@ nfulnl_alloc_skb(unsigned int inst_size, unsigned int pkt_size)
+ 	 * message.  WARNING: has to be <= 128k due to slab restrictions */
  
- static void netlink_skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
-@@ -2400,7 +2581,7 @@ static const struct proto_ops netlink_ops = {
- 	.socketpair =	sock_no_socketpair,
- 	.accept =	sock_no_accept,
- 	.getname =	netlink_getname,
--	.poll =		datagram_poll,
-+	.poll =		netlink_poll,
- 	.ioctl =	sock_no_ioctl,
- 	.listen =	sock_no_listen,
- 	.shutdown =	sock_no_shutdown,
+ 	n = max(inst_size, pkt_size);
+-	skb = alloc_skb(n, GFP_ATOMIC);
++	skb = nfnetlink_alloc_skb(&init_net, n, peer_pid, GFP_ATOMIC);
+ 	if (!skb) {
+ 		if (n > pkt_size) {
+ 			/* try to allocate only as much as we need for current
+ 			 * packet */
+ 
+-			skb = alloc_skb(pkt_size, GFP_ATOMIC);
++			skb = nfnetlink_alloc_skb(&init_net, pkt_size, peer_pid,
++						  GFP_ATOMIC);
+ 			if (!skb)
+ 				pr_err("nfnetlink_log: can't even alloc %u bytes\n",
+ 				       pkt_size);
+@@ -658,7 +659,7 @@ nfulnl_log_packet(u_int8_t pf,
+ 	}
+ 
+ 	if (!inst->skb) {
+-		inst->skb = nfulnl_alloc_skb(inst->nlbufsiz, size);
++		inst->skb = nfulnl_alloc_skb(inst->peer_pid, inst->nlbufsiz, size);
+ 		if (!inst->skb)
+ 			goto alloc_failure;
+ 	}
+diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
+index c0496a5..6983b2e 100644
+--- a/net/netfilter/nfnetlink_queue_core.c
++++ b/net/netfilter/nfnetlink_queue_core.c
+@@ -272,7 +272,7 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
+ 	if (queue->flags & NFQA_CFG_F_CONNTRACK)
+ 		ct = nfqnl_ct_get(entskb, &size, &ctinfo);
+ 
+-	skb = alloc_skb(size, GFP_ATOMIC);
++	skb = nfnetlink_alloc_skb(&init_net, size, queue->peer_pid, GFP_ATOMIC);
+ 	if (!skb)
+ 		return NULL;
+ 
 -- 
 1.7.7.6
