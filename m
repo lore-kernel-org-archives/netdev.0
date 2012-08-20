@@ -1,65 +1,143 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [RFC Patch net-next] ipv6: unify conntrack reassembly expire
- code with standard one
-Date: Mon, 20 Aug 2012 17:06:39 +0800
-Message-ID: <1345453599.22373.9.camel@cr0>
-References: <1345190565-21689-1-git-send-email-amwang@redhat.com>
-	 <1826853.rak2U42CMU@alaris>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: regression with poll(2)
+Date: Mon, 20 Aug 2012 10:04:44 +0100
+Message-ID: <20120820090443.GA3275@suse.de>
+References: <alpine.DEB.2.00.1208151226250.15721@cobra.newdream.net>
+ <alpine.DEB.2.00.1208191051150.15570@cobra.newdream.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Shan Wei <shanwei@cn.fujitsu.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org
-To: Michal =?UTF-8?Q?Kube=C4=8Dek?= <mkubecek@suse.cz>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1826853.rak2U42CMU@alaris>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ceph-devel@vger.kernel.org,
+	neilb@suse.de, a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu,
+	emunson@mgebm.net, eric.dumazet@gmail.com, sebastian@breakpoint.cc,
+	cl@linux.com, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org
+To: Sage Weil <sage@inktank.com>
+Return-path: <ceph-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.00.1208191051150.15570@cobra.newdream.net>
+Sender: ceph-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Michal!
+On Sun, Aug 19, 2012 at 11:49:31AM -0700, Sage Weil wrote:
+> I've bisected and identified this commit:
+> 
+>     netvm: propagate page->pfmemalloc to skb
+>     
+>     The skb->pfmemalloc flag gets set to true iff during the slab allocation
+>     of data in __alloc_skb that the the PFMEMALLOC reserves were used.  If the
+>     packet is fragmented, it is possible that pages will be allocated from the
+>     PFMEMALLOC reserve without propagating this information to the skb.  This
+>     patch propagates page->pfmemalloc from pages allocated for fragments to
+>     the skb.
+>     
+>     Signed-off-by: Mel Gorman <mgorman@suse.de>
+>     Acked-by: David S. Miller <davem@davemloft.net>
+>     Cc: Neil Brown <neilb@suse.de>
+>     Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+>     Cc: Mike Christie <michaelc@cs.wisc.edu>
+>     Cc: Eric B Munson <emunson@mgebm.net>
+>     Cc: Eric Dumazet <eric.dumazet@gmail.com>
+>     Cc: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+>     Cc: Mel Gorman <mgorman@suse.de>
+>     Cc: Christoph Lameter <cl@linux.com>
+>     Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+>     Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+> 
 
-On Fri, 2012-08-17 at 19:05 +0200, Michal Kube=C4=8Dek wrote:
-> On Friday 17 of August 2012 16:02EN, Cong Wang wrote:
-> > Two years ago, Shan Wei tried to fix this:
-> > http://patchwork.ozlabs.org/patch/43905/
-> >=20
-> ...
-> >
-> > As Herbert suggested, we could actually use the standard IPv6
-> > reassembly code which follows RFC2460.
->=20
-> I tested the patch and I ran into a problem in this place in=20
-> ip6_expire_frag_queue():
->=20
-> >  	net =3D container_of(fq->q.net, struct net, ipv6.frags);
->=20
-> For frag queues coming from IPv6 conntrack, fq->q.net points to=20
-> nf_init_frags which is not embedded into struct net so that the=20
-> following device lookup leads to reading from an invalid address.
-> The same problem has been discussed on the page linked above.
->=20
-> I didn't test with current net-next source but as far as I can tell,=20
-> this hasn't changed. Did I miss something?
->=20
+Ok, thanks.
 
-No, you don't miss anything. I missed that piece of code, you are right
-that nf_init_frags is not actually embedded, so that container_of()
-doesn't work. I think we probably can save the struct net pointer in
-struct netns_frags during inet_frags_init_net(), so that container_of()
-can be eliminated.=20
+> I've retested several times and confirmed that this change leads to the 
+> breakage, and also confirmed that reverting it on top of -rc1 also fixes 
+> the problem.
+> 
+> I've also added some additional instrumentation to my code and confirmed 
+> that the process is blocking on poll(2) while netstat is reporting 
+> data available on the socket.
+> 
+> What can I do to help track this down?
+> 
 
-Thanks for testing! I tried to test it too, but seems I can't trigger a
-defragment. Any hints?
+Can the following patch be tested please? It is reported to fix an fio
+regression that may be similar to what you are experiencing but has not
+been picked up yet.
 
-Thanks!
+---8<---
+From: Alex Shi <alex.shi@intel.com>
+Subject: [PATCH] mm: correct page->pfmemalloc to fix deactivate_slab regression
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+commit cfd19c5a9ec (mm: only set page->pfmemalloc when
+ALLOC_NO_WATERMARKS was used) try to narrow down page->pfmemalloc
+setting, but it missed some places the pfmemalloc should be set.
+
+So, in __slab_alloc, the unalignment pfmemalloc and ALLOC_NO_WATERMARKS
+cause incorrect deactivate_slab() on our core2 server:
+
+    64.73%           fio  [kernel.kallsyms]     [k] _raw_spin_lock
+                     |
+                     --- _raw_spin_lock
+                        |
+                        |---0.34%-- deactivate_slab
+                        |          __slab_alloc
+                        |          kmem_cache_alloc
+                        |          |
+
+That causes our fio sync write performance has 40% regression.
+
+This patch move the checking in get_page_from_freelist, that resolved
+this issue.
+
+Signed-off-by: Alex Shi <alex.shi@intel.com>
+---
+ mm/page_alloc.c |   21 +++++++++++----------
+ 1 files changed, 11 insertions(+), 10 deletions(-)
+
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 009ac28..07f1924 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -1928,6 +1928,17 @@ this_zone_full:
+ 		zlc_active = 0;
+ 		goto zonelist_scan;
+ 	}
++
++	if (page)
++		/*
++		 * page->pfmemalloc is set when ALLOC_NO_WATERMARKS was
++		 * necessary to allocate the page. The expectation is
++		 * that the caller is taking steps that will free more
++		 * memory. The caller should avoid the page being used
++		 * for !PFMEMALLOC purposes.
++		 */
++		page->pfmemalloc = !!(alloc_flags & ALLOC_NO_WATERMARKS);
++
+ 	return page;
+ }
+ 
+@@ -2389,14 +2400,6 @@ rebalance:
+ 				zonelist, high_zoneidx, nodemask,
+ 				preferred_zone, migratetype);
+ 		if (page) {
+-			/*
+-			 * page->pfmemalloc is set when ALLOC_NO_WATERMARKS was
+-			 * necessary to allocate the page. The expectation is
+-			 * that the caller is taking steps that will free more
+-			 * memory. The caller should avoid the page being used
+-			 * for !PFMEMALLOC purposes.
+-			 */
+-			page->pfmemalloc = true;
+ 			goto got_pg;
+ 		}
+ 	}
+@@ -2569,8 +2572,6 @@ retry_cpuset:
+ 		page = __alloc_pages_slowpath(gfp_mask, order,
+ 				zonelist, high_zoneidx, nodemask,
+ 				preferred_zone, migratetype);
+-	else
+-		page->pfmemalloc = false;
+ 
+ 	trace_mm_page_alloc(page, order, gfp_mask, migratetype);
+ 
+-- 
+1.7.5.4
+
