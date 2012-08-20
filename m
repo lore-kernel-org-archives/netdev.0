@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 08/18] net: core: add function for incremental IPv6 pseudo header checksum updates
-Date: Mon, 20 Aug 2012 05:39:56 +0200
-Message-ID: <1345434006-16549-9-git-send-email-kaber@trash.net>
+Subject: [PATCH 03/18] netfilter: nf_conntrack_ipv6: fix tracking of ICMPv6 error messages containing fragments
+Date: Mon, 20 Aug 2012 05:39:51 +0200
+Message-ID: <1345434006-16549-4-git-send-email-kaber@trash.net>
 References: <1345434006-16549-1-git-send-email-kaber@trash.net>
 Cc: netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,60 +10,115 @@ In-Reply-To: <1345434006-16549-1-git-send-email-kaber@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add inet_proto_csum_replace16 for incrementally updating IPv6 pseudo header
-checksums for IPv6 NAT.
+ICMPv6 error messages are tracked by extracting the conntrack tuple of
+the inner packet and looking up the corresponding conntrack entry. Tuple
+extraction uses the ->get_l4proto() callback, which in case of fragments
+returns NEXTHDR_FRAGMENT instead of the upper protocol, even for the
+first fragment when the entire next header is present, resulting in a
+failure to find the correct connection tracking entry.
+
+This patch changes ipv6_get_l4proto() to use ipv6_skip_exthdr() instead
+of nf_ct_ipv6_skip_exthdr() in order to skip fragment headers when the
+fragment offset is zero.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/net/checksum.h |    3 +++
- net/core/utils.c       |   20 ++++++++++++++++++++
- 2 files changed, 23 insertions(+), 0 deletions(-)
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   63 ++---------------------
+ 1 files changed, 6 insertions(+), 57 deletions(-)
 
-diff --git a/include/net/checksum.h b/include/net/checksum.h
-index ba55d8b..600d1d7 100644
---- a/include/net/checksum.h
-+++ b/include/net/checksum.h
-@@ -109,6 +109,9 @@ static inline void csum_replace2(__sum16 *sum, __be16 from, __be16 to)
- struct sk_buff;
- extern void inet_proto_csum_replace4(__sum16 *sum, struct sk_buff *skb,
- 				     __be32 from, __be32 to, int pseudohdr);
-+extern void inet_proto_csum_replace16(__sum16 *sum, struct sk_buff *skb,
-+				      const __be32 *from, const __be32 *to,
-+				      int pseudohdr);
- 
- static inline void inet_proto_csum_replace2(__sum16 *sum, struct sk_buff *skb,
- 					    __be16 from, __be16 to,
-diff --git a/net/core/utils.c b/net/core/utils.c
-index 39895a6..f5613d5 100644
---- a/net/core/utils.c
-+++ b/net/core/utils.c
-@@ -294,6 +294,26 @@ void inet_proto_csum_replace4(__sum16 *sum, struct sk_buff *skb,
+diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+index 521ddca..dcf6010 100644
+--- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+@@ -64,82 +64,31 @@ static int ipv6_print_tuple(struct seq_file *s,
+ 			  tuple->src.u3.ip6, tuple->dst.u3.ip6);
  }
- EXPORT_SYMBOL(inet_proto_csum_replace4);
  
-+void inet_proto_csum_replace16(__sum16 *sum, struct sk_buff *skb,
-+			       const __be32 *from, const __be32 *to,
-+			       int pseudohdr)
-+{
-+	__be32 diff[] = {
-+		~from[0], ~from[1], ~from[2], ~from[3],
-+		to[0], to[1], to[2], to[3],
-+	};
-+	if (skb->ip_summed != CHECKSUM_PARTIAL) {
-+		*sum = csum_fold(csum_partial(diff, sizeof(diff),
-+				 ~csum_unfold(*sum)));
-+		if (skb->ip_summed == CHECKSUM_COMPLETE && pseudohdr)
-+			skb->csum = ~csum_partial(diff, sizeof(diff),
-+						  ~skb->csum);
-+	} else if (pseudohdr)
-+		*sum = ~csum_fold(csum_partial(diff, sizeof(diff),
-+				  csum_unfold(*sum)));
-+}
-+EXPORT_SYMBOL(inet_proto_csum_replace16);
-+
- int mac_pton(const char *s, u8 *mac)
+-/*
+- * Based on ipv6_skip_exthdr() in net/ipv6/exthdr.c
+- *
+- * This function parses (probably truncated) exthdr set "hdr"
+- * of length "len". "nexthdrp" initially points to some place,
+- * where type of the first header can be found.
+- *
+- * It skips all well-known exthdrs, and returns pointer to the start
+- * of unparsable area i.e. the first header with unknown type.
+- * if success, *nexthdr is updated by type/protocol of this header.
+- *
+- * NOTES: - it may return pointer pointing beyond end of packet,
+- *          if the last recognized header is truncated in the middle.
+- *        - if packet is truncated, so that all parsed headers are skipped,
+- *          it returns -1.
+- *        - if packet is fragmented, return pointer of the fragment header.
+- *        - ESP is unparsable for now and considered like
+- *          normal payload protocol.
+- *        - Note also special handling of AUTH header. Thanks to IPsec wizards.
+- */
+-
+-static int nf_ct_ipv6_skip_exthdr(const struct sk_buff *skb, int start,
+-				  u8 *nexthdrp, int len)
+-{
+-	u8 nexthdr = *nexthdrp;
+-
+-	while (ipv6_ext_hdr(nexthdr)) {
+-		struct ipv6_opt_hdr hdr;
+-		int hdrlen;
+-
+-		if (len < (int)sizeof(struct ipv6_opt_hdr))
+-			return -1;
+-		if (nexthdr == NEXTHDR_NONE)
+-			break;
+-		if (nexthdr == NEXTHDR_FRAGMENT)
+-			break;
+-		if (skb_copy_bits(skb, start, &hdr, sizeof(hdr)))
+-			BUG();
+-		if (nexthdr == NEXTHDR_AUTH)
+-			hdrlen = (hdr.hdrlen+2)<<2;
+-		else
+-			hdrlen = ipv6_optlen(&hdr);
+-
+-		nexthdr = hdr.nexthdr;
+-		len -= hdrlen;
+-		start += hdrlen;
+-	}
+-
+-	*nexthdrp = nexthdr;
+-	return start;
+-}
+-
+ static int ipv6_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
+ 			    unsigned int *dataoff, u_int8_t *protonum)
  {
- 	int i;
+ 	unsigned int extoff = nhoff + sizeof(struct ipv6hdr);
+-	unsigned char pnum;
++	__be16 frag_off;
+ 	int protoff;
++	u8 nexthdr;
+ 
+ 	if (skb_copy_bits(skb, nhoff + offsetof(struct ipv6hdr, nexthdr),
+-			  &pnum, sizeof(pnum)) != 0) {
++			  &nexthdr, sizeof(nexthdr)) != 0) {
+ 		pr_debug("ip6_conntrack_core: can't get nexthdr\n");
+ 		return -NF_ACCEPT;
+ 	}
+-	protoff = nf_ct_ipv6_skip_exthdr(skb, extoff, &pnum, skb->len - extoff);
++	protoff = ipv6_skip_exthdr(skb, extoff, &nexthdr, &frag_off);
+ 	/*
+ 	 * (protoff == skb->len) mean that the packet doesn't have no data
+ 	 * except of IPv6 & ext headers. but it's tracked anyway. - YK
+ 	 */
+-	if ((protoff < 0) || (protoff > skb->len)) {
++	if (protoff < 0 || (frag_off & htons(~0x7)) != 0) {
+ 		pr_debug("ip6_conntrack_core: can't find proto in pkt\n");
+ 		return -NF_ACCEPT;
+ 	}
+ 
+ 	*dataoff = protoff;
+-	*protonum = pnum;
++	*protonum = nexthdr;
+ 	return NF_ACCEPT;
+ }
+ 
 -- 
 1.7.1
 
