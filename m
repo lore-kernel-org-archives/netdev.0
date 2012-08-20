@@ -1,144 +1,85 @@
-From: Li Zefan <lizefan@huawei.com>
-Subject: Re: [PATCH v1 3/5] cgroup: Protect access to task_cls_classid() when
- built as module
-Date: Mon, 20 Aug 2012 08:59:37 +0800
-Message-ID: <50318BF9.2080803@huawei.com>
-References: <1345215494-9181-1-git-send-email-wagi@monom.org> <1345215494-9181-4-git-send-email-wagi@monom.org> <20120817182855.GA11607@hmsreliant.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Daniel Wagner <wagi@monom.org>, <netdev@vger.kernel.org>,
-	<cgroups@vger.kernel.org>,
-	Daniel Wagner <daniel.wagner@bmw-carit.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Tejun Heo <tj@kernel.org>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:46703 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751217Ab2HTBAy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2012 21:00:54 -0400
-In-Reply-To: <20120817182855.GA11607@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jean Sacren <sakiwit@gmail.com>
+Subject: [PATCH net-next] ipv4/netfilter: remove unnecessary goto statement for error recovery
+Date: Sun, 19 Aug 2012 19:11:32 -0600
+Message-ID: <1345425092-11905-1-git-send-email-sakiwit@gmail.com>
+To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2012/8/18 2:28, Neil Horman =E5=86=99=E9=81=93:
-> On Fri, Aug 17, 2012 at 04:58:12PM +0200, Daniel Wagner wrote:
->> From: Daniel Wagner <daniel.wagner@bmw-carit.de>
->>
->> The module version of task_cls_classid() checks if net_cls_sbusys_id
->> is valid to indentify when it is okay to access the controller.
->>
->> Instead relying on the subusys_id to be set, make it explicit
->> with a jump label.
->>
->> Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
->> Cc: "David S. Miller" <davem@davemloft.net>
->> Cc: Gao feng <gaofeng@cn.fujitsu.com>
->> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
->> Cc: John Fastabend <john.r.fastabend@intel.com>
->> Cc: Li Zefan <lizefan@huawei.com>
->> Cc: Neil Horman <nhorman@tuxdriver.com>
->> Cc: Tejun Heo <tj@kernel.org>
->> Cc: netdev@vger.kernel.org
->> Cc: cgroups@vger.kernel.org
->> ---
->>  include/net/cls_cgroup.h | 5 ++++-
->>  net/core/sock.c          | 5 +++++
->>  net/sched/cls_cgroup.c   | 9 +++++++++
->>  3 files changed, 18 insertions(+), 1 deletion(-)
->>
->> diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
->> index 401672c..bbbd957 100644
->> --- a/include/net/cls_cgroup.h
->> +++ b/include/net/cls_cgroup.h
->> @@ -16,6 +16,7 @@
->>  #include <linux/cgroup.h>
->>  #include <linux/hardirq.h>
->>  #include <linux/rcupdate.h>
->> +#include <linux/jump_label.h>
->> =20
->>  #ifdef CONFIG_CGROUPS
->>  struct cgroup_cls_state
->> @@ -44,6 +45,8 @@ static inline u32 task_cls_classid(struct task_str=
-uct *p)
->>  }
->> =20
->>  #elif IS_MODULE(CONFIG_NET_CLS_CGROUP)
->> +extern struct static_key cgroup_cls_enabled;
->> +#define clscg_enabled static_key_false(&cgroup_cls_enabled)
->> =20
->>  extern int net_cls_subsys_id;
->> =20
->> @@ -52,7 +55,7 @@ static inline u32 task_cls_classid(struct task_str=
-uct *p)
->>  	int id;
->>  	u32 classid =3D 0;
->> =20
->> -	if (in_interrupt())
->> +	if (!clscg_enabled || in_interrupt())
->>  		return 0;
->> =20
->>  	rcu_read_lock();
->> diff --git a/net/core/sock.c b/net/core/sock.c
->> index 8f67ced..8106e77 100644
->> --- a/net/core/sock.c
->> +++ b/net/core/sock.c
->> @@ -327,6 +327,11 @@ int __sk_backlog_rcv(struct sock *sk, struct sk=
-_buff *skb)
->>  EXPORT_SYMBOL(__sk_backlog_rcv);
->> =20
->>  #if defined(CONFIG_CGROUPS)
->> +#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
->> +struct static_key cgroup_cls_enabled =3D STATIC_KEY_INIT_FALSE;
->> +EXPORT_SYMBOL_GPL(cgroup_cls_enabled);
->> +#endif
->> +
->>  #if !defined(CONFIG_NET_CLS_CGROUP)
->>  int net_cls_subsys_id =3D -1;
->>  EXPORT_SYMBOL_GPL(net_cls_subsys_id);
->> diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
->> index 7743ea8..0635894 100644
->> --- a/net/sched/cls_cgroup.c
->> +++ b/net/sched/cls_cgroup.c
->> @@ -44,12 +44,21 @@ static struct cgroup_subsys_state *cgrp_create(s=
-truct cgroup *cgrp)
->> =20
->>  	if (cgrp->parent)
->>  		cs->classid =3D cgrp_cls_state(cgrp->parent)->classid;
->> +#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
->> +	else if (!clscg_enabled)
->> +                static_key_slow_inc(&cgroup_cls_enabled);
-> This is racy I think.  The read of the static key is atomic with othe=
-r reads,
-> but the entire conditional is not atomic.  If two cpus were creating =
-cgroups in
-> parallel, it would be possible for both to read the static key as bei=
-ng zero
-> (the second cpu would read the key before the first cpu could increme=
-nt it).
+Usually it's a good practice to use goto statement for error recovery
+when initializing the module. This approach could be an overkill if:
 
-static_key_slow_inc() is called only when we're creating the root cgrou=
-p, and that's
-module loading.
+ 1) there is only one fail case;
+ 2) success and failure use the same return statement.
 
-so it's safe.
+For a cleaner approach, remove the unnecessary goto statement and
+directly implement error recovery.
 
->> +#endif
->> =20
->>  	return &cs->css;
->>  }
->> =20
->>  static void cgrp_destroy(struct cgroup *cgrp)
->>  {
->> +#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
->> +	if (!cgrp->parent && clscg_enabled)
->> +                static_key_slow_dec(&cgroup_cls_enabled);
-> Ditto here with the race above.  I think what you want is one of:
+Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+---
+ net/ipv4/netfilter/iptable_filter.c |    6 +-----
+ net/ipv4/netfilter/iptable_mangle.c |    6 +-----
+ net/ipv4/netfilter/iptable_raw.c    |    6 +-----
+ 3 files changed, 3 insertions(+), 15 deletions(-)
 
-and this is called only when we're destroying the root cgroup, and that=
-'s
-module unload.
+diff --git a/net/ipv4/netfilter/iptable_filter.c b/net/ipv4/netfilter/iptable_filter.c
+index 851acec8..9255fd4 100644
+--- a/net/ipv4/netfilter/iptable_filter.c
++++ b/net/ipv4/netfilter/iptable_filter.c
+@@ -96,14 +96,10 @@ static int __init iptable_filter_init(void)
+ 	filter_ops = xt_hook_link(&packet_filter, iptable_filter_hook);
+ 	if (IS_ERR(filter_ops)) {
+ 		ret = PTR_ERR(filter_ops);
+-		goto cleanup_table;
++		unregister_pernet_subsys(&iptable_filter_net_ops);
+ 	}
+ 
+ 	return ret;
+-
+- cleanup_table:
+-	unregister_pernet_subsys(&iptable_filter_net_ops);
+-	return ret;
+ }
+ 
+ static void __exit iptable_filter_fini(void)
+diff --git a/net/ipv4/netfilter/iptable_mangle.c b/net/ipv4/netfilter/iptable_mangle.c
+index aef5d1f..25549c5 100644
+--- a/net/ipv4/netfilter/iptable_mangle.c
++++ b/net/ipv4/netfilter/iptable_mangle.c
+@@ -131,14 +131,10 @@ static int __init iptable_mangle_init(void)
+ 	mangle_ops = xt_hook_link(&packet_mangler, iptable_mangle_hook);
+ 	if (IS_ERR(mangle_ops)) {
+ 		ret = PTR_ERR(mangle_ops);
+-		goto cleanup_table;
++		unregister_pernet_subsys(&iptable_mangle_net_ops);
+ 	}
+ 
+ 	return ret;
+-
+- cleanup_table:
+-	unregister_pernet_subsys(&iptable_mangle_net_ops);
+-	return ret;
+ }
+ 
+ static void __exit iptable_mangle_fini(void)
+diff --git a/net/ipv4/netfilter/iptable_raw.c b/net/ipv4/netfilter/iptable_raw.c
+index 07fb710..6acf7ca 100644
+--- a/net/ipv4/netfilter/iptable_raw.c
++++ b/net/ipv4/netfilter/iptable_raw.c
+@@ -75,14 +75,10 @@ static int __init iptable_raw_init(void)
+ 	rawtable_ops = xt_hook_link(&packet_raw, iptable_raw_hook);
+ 	if (IS_ERR(rawtable_ops)) {
+ 		ret = PTR_ERR(rawtable_ops);
+-		goto cleanup_table;
++		unregister_pernet_subsys(&iptable_raw_net_ops);
+ 	}
+ 
+ 	return ret;
+-
+- cleanup_table:
+-	unregister_pernet_subsys(&iptable_raw_net_ops);
+-	return ret;
+ }
+ 
+ static void __exit iptable_raw_fini(void)
