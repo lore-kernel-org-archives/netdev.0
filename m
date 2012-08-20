@@ -1,48 +1,60 @@
-From: Daniel Borkmann <danborkmann@iogearbox.net>
-Subject: [PATCH net-next] af_packet: use define instead of constant
-Date: Mon, 20 Aug 2012 15:34:03 +0200
-Message-ID: <1345469643.22726.2.camel@thinkbox>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [RFC PATCH net-next 0/9] tipc: misc updates for 3.7
+Date: Mon, 20 Aug 2012 09:46:16 -0400
+Message-ID: <50323FA8.2030503@windriver.com>
+References: <1345154954-12526-1-git-send-email-paul.gortmaker@windriver.com> <20120820.022743.465143033806832968.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: <netdev@vger.kernel.org>, <jon.maloy@ericsson.com>,
+	<ying.xue@windriver.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:53070 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755617Ab2HTNeP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 09:34:15 -0400
+Received: from mail.windriver.com ([147.11.1.11]:53483 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751966Ab2HTNqW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 09:46:22 -0400
+In-Reply-To: <20120820.022743.465143033806832968.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of using a hard-coded value for the status variable, it would make
-the code more readable to use its destined define from linux/if_packet.h.
+On 12-08-20 05:27 AM, David Miller wrote:
+> From: Paul Gortmaker <paul.gortmaker@windriver.com>
+> Date: Thu, 16 Aug 2012 18:09:05 -0400
+> 
+>> This series gets some more largely trivial things out of
+>> the way.  Most interesting are:
+>>
+>> 1) fix lockdep splat from bearer init by pushing the setup
+>>    off to schedule_work.
+>>
+>> 2) simplification of configuration by removal of a couple of
+>>    tuning knobs which used to have low default values.
+>>
+>> The remainder are largely innocuous, I think.  I did wonder
+>> if there was an alternate/better way to handle the splat though.
+>>
+>> I've done my own local testing of this series on today's net-next
+>> commit 2ea214929d601 ("Merge branch 'for-davem' ... wireless-next")
+>>
+>> I'll wait a couple of days to allow for any possible feedback and
+>> change requests, and then send a pull request after that.
+> 
+> All applied, thanks Paul.
+> 
+> It's less useful for you to build the GIT tree "later", at least for
+> me.
+> 
+> If the patches are good and there is no feedback asking for changes,
+> I want to be able to just pull them into my tree immediately as I
+> did here.
 
-Signed-off-by: daniel.borkmann@tik.ee.ethz.ch
----
- net/packet/af_packet.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+OK, I will go back to what I was doing before, i.e. putting them
+on kernel.org and putting the git:// location in the 0/N summary
+all in one step.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 226b2cd..3ee372a 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -855,7 +855,8 @@ static void prb_fill_vlan_info(struct tpacket_kbdq_core *pkc,
- 		ppd->hv1.tp_vlan_tci = vlan_tx_tag_get(pkc->skb);
- 		ppd->tp_status = TP_STATUS_VLAN_VALID;
- 	} else {
--		ppd->hv1.tp_vlan_tci = ppd->tp_status = 0;
-+		ppd->hv1.tp_vlan_tci = 0;
-+		ppd->tp_status = TP_STATUS_AVAILABLE;
- 	}
- }
- 
-@@ -1943,7 +1944,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 	int tp_len, size_max;
- 	unsigned char *addr;
- 	int len_sum = 0;
--	int status = 0;
-+	int status = TP_STATUS_AVAILABLE;
- 	int hlen, tlen;
- 
- 	mutex_lock(&po->pg_vec_lock);
+Paul.
+
+> 
+> Thanks.
+> 
