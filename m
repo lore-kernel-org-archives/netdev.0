@@ -1,61 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 02/11] net: add function to allocate skbuff head without
- data area
-Date: Mon, 20 Aug 2012 08:41:40 +0200 (MEST)
-Message-ID: <Pine.GSO.4.63.1208200841010.6655@stinky-local.trash.net>
-References: <1345443532-3707-1-git-send-email-kaber@trash.net>
- <1345443532-3707-3-git-send-email-kaber@trash.net> <1345444774.5158.241.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] xfrm: fix RCU bugs
+Date: Mon, 20 Aug 2012 09:14:28 +0200
+Message-ID: <1345446868.5158.246.camel@edumazet-glaptop>
+References: <1345372308.5158.54.camel@edumazet-glaptop>
+	 <5031BFB1.200@windriver.com> <1345440800.5158.239.camel@edumazet-glaptop>
+	 <5031DA57.1000904@windriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Florian.Westphal@Sophos.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, fengguang.wu@intel.com,
+	Priyanka Jain <Priyanka.Jain@freescale.com>
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36177 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751333Ab2HTGlm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 02:41:42 -0400
-In-Reply-To: <1345444774.5158.241.camel@edumazet-glaptop>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:40281 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755292Ab2HTHOd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 03:14:33 -0400
+Received: by weyx8 with SMTP id x8so3709427wey.19
+        for <netdev@vger.kernel.org>; Mon, 20 Aug 2012 00:14:31 -0700 (PDT)
+In-Reply-To: <5031DA57.1000904@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 Aug 2012, Eric Dumazet wrote:
+On Mon, 2012-08-20 at 14:33 +0800, Fan Du wrote:
 
-> On Mon, 2012-08-20 at 08:18 +0200, Patrick McHardy wrote:
->> Add a function to allocate a skbuff head without any data. This will be
->> used by memory mapped netlink to attached data from the mmaped area to
->> the skb.
->>
->> Additionally change skb_release_all() to check whether the skb has a
->> data area to allow the skb destructor to clear the data pointer in
->> case only a head has been allocated.
->
->      * ...
->
->>
->> +struct sk_buff *__alloc_skb_head(gfp_t gfp_mask, int node)
->> +{
->> +	struct sk_buff *skb;
->> +
->> +	/* Get the HEAD */
->> +	skb = kmem_cache_alloc_node(skbuff_head_cache,
->> +				    gfp_mask & ~__GFP_DMA, node);
->> +	if (!skb)
->> +		goto out;
->> +	prefetchw(skb);
->> +
->
-> This prefetch is probably not worth it, since you write on skb on the
-> following memset(). Cpu wont have enough 'time' to take benefit from
-> this hint.
+> And one out of topic question:
+> The usage of xfrm_state_afinfo_lock/xfrm_km_lock is extremely
+> similar with xfrm_policy_afinfo_lock, except the former is not so
+> frequently read than that of the later.
+> 
+> Is it justified to convert RW xfrm_state_afinfo_lock/xfrm_km_lock into
+> RCU?
+> 
 
-Right, I remember we talked about that before and I already removed it.
-Must have forgotten to actually commit that change, thanks!
-
->
->> +	/*
->> +	 * Only clear those fields we need to clear, not those that we will
->> +	 * actually initialise below. Hence, don't put any more fields after
->> +	 * the tail pointer in struct sk_buff!
->> +	 */
->> +	memset(skb, 0, offsetof(struct sk_buff, tail));
+I would say it is justified, and easy enough.
