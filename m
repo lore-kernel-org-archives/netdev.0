@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 13/18] netfilter: nf_nat: support IPv6 in FTP NAT helper
-Date: Mon, 20 Aug 2012 05:40:01 +0200
-Message-ID: <1345434006-16549-14-git-send-email-kaber@trash.net>
+Subject: [PATCH 18/18] netfilter: ip6tables: add stateless IPv6-to-IPv6 Network Prefix Translation target
+Date: Mon, 20 Aug 2012 05:40:06 +0200
+Message-ID: <1345434006-16549-19-git-send-email-kaber@trash.net>
 References: <1345434006-16549-1-git-send-email-kaber@trash.net>
 Cc: netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,169 +12,251 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/ipv4/netfilter/Kconfig            |    5 -----
- net/ipv4/netfilter/Makefile           |    1 -
- net/netfilter/Kconfig                 |    5 +++++
- net/netfilter/Makefile                |    3 +++
- net/netfilter/nf_conntrack_ftp.c      |    3 +--
- net/{ipv4 => }/netfilter/nf_nat_ftp.c |   30 ++++++++++++++++++------------
- 6 files changed, 27 insertions(+), 20 deletions(-)
- rename net/{ipv4 => }/netfilter/nf_nat_ftp.c (82%)
+ include/linux/netfilter_ipv6/Kbuild     |    1 +
+ include/linux/netfilter_ipv6/ip6t_NPT.h |   16 +++
+ net/ipv6/netfilter/Kconfig              |    9 ++
+ net/ipv6/netfilter/Makefile             |    1 +
+ net/ipv6/netfilter/ip6t_NPT.c           |  165 +++++++++++++++++++++++++++++++
+ 5 files changed, 192 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/netfilter_ipv6/ip6t_NPT.h
+ create mode 100644 net/ipv6/netfilter/ip6t_NPT.c
 
-diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
-index 33372a1..80272e7 100644
---- a/net/ipv4/netfilter/Kconfig
-+++ b/net/ipv4/netfilter/Kconfig
-@@ -220,11 +220,6 @@ config NF_NAT_PROTO_GRE
- 	tristate
- 	depends on NF_NAT_IPV4 && NF_CT_PROTO_GRE
- 
--config NF_NAT_FTP
--	tristate
--	depends on NF_CONNTRACK && NF_NAT_IPV4
--	default NF_NAT_IPV4 && NF_CONNTRACK_FTP
--
- config NF_NAT_IRC
- 	tristate
- 	depends on NF_CONNTRACK && NF_NAT_IPV4
-diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
-index 0ea3acc..4d8a4ad 100644
---- a/net/ipv4/netfilter/Makefile
-+++ b/net/ipv4/netfilter/Makefile
-@@ -21,7 +21,6 @@ obj-$(CONFIG_NF_DEFRAG_IPV4) += nf_defrag_ipv4.o
- 
- # NAT helpers (nf_conntrack)
- obj-$(CONFIG_NF_NAT_AMANDA) += nf_nat_amanda.o
--obj-$(CONFIG_NF_NAT_FTP) += nf_nat_ftp.o
- obj-$(CONFIG_NF_NAT_H323) += nf_nat_h323.o
- obj-$(CONFIG_NF_NAT_IRC) += nf_nat_irc.o
- obj-$(CONFIG_NF_NAT_PPTP) += nf_nat_pptp.o
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 91addda..3104494 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -380,6 +380,11 @@ config NF_NAT_PROTO_SCTP
- 	depends on NF_NAT && NF_CT_PROTO_SCTP
- 	select LIBCRC32C
- 
-+config NF_NAT_FTP
-+	tristate
-+	depends on NF_CONNTRACK && NF_NAT
-+	default NF_NAT && NF_CONNTRACK_FTP
+diff --git a/include/linux/netfilter_ipv6/Kbuild b/include/linux/netfilter_ipv6/Kbuild
+index bd095bc..b88c005 100644
+--- a/include/linux/netfilter_ipv6/Kbuild
++++ b/include/linux/netfilter_ipv6/Kbuild
+@@ -1,6 +1,7 @@
+ header-y += ip6_tables.h
+ header-y += ip6t_HL.h
+ header-y += ip6t_LOG.h
++header-y += ip6t_NPT.h
+ header-y += ip6t_REJECT.h
+ header-y += ip6t_ah.h
+ header-y += ip6t_frag.h
+diff --git a/include/linux/netfilter_ipv6/ip6t_NPT.h b/include/linux/netfilter_ipv6/ip6t_NPT.h
+new file mode 100644
+index 0000000..f763355
+--- /dev/null
++++ b/include/linux/netfilter_ipv6/ip6t_NPT.h
+@@ -0,0 +1,16 @@
++#ifndef __NETFILTER_IP6T_NPT
++#define __NETFILTER_IP6T_NPT
 +
- endif # NF_CONNTRACK
- 
- # transparent proxy support
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 09c9451..16592b1 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -54,6 +54,9 @@ obj-$(CONFIG_NF_NAT_PROTO_DCCP) += nf_nat_proto_dccp.o
- obj-$(CONFIG_NF_NAT_PROTO_UDPLITE) += nf_nat_proto_udplite.o
- obj-$(CONFIG_NF_NAT_PROTO_SCTP) += nf_nat_proto_sctp.o
- 
-+# NAT helpers
-+obj-$(CONFIG_NF_NAT_FTP) += nf_nat_ftp.o
++#include <linux/types.h>
++#include <linux/netfilter.h>
 +
- # transparent proxy support
- obj-$(CONFIG_NETFILTER_TPROXY) += nf_tproxy_core.o
++struct ip6t_npt_tginfo {
++	union nf_inet_addr	src_pfx;
++	union nf_inet_addr	dst_pfx;
++	__u8			src_pfx_len;
++	__u8			dst_pfx_len;
++	/* Used internally by the kernel */
++	__sum16			adjustment;
++};
++
++#endif /* __NETFILTER_IP6T_NPT */
+diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
+index 7bdf73b..3b73254 100644
+--- a/net/ipv6/netfilter/Kconfig
++++ b/net/ipv6/netfilter/Kconfig
+@@ -177,6 +177,15 @@ config IP6_NF_TARGET_REDIRECT
  
-diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
-index c0f4a5b..f8cc26a 100644
---- a/net/netfilter/nf_conntrack_ftp.c
-+++ b/net/netfilter/nf_conntrack_ftp.c
-@@ -488,8 +488,7 @@ static int help(struct sk_buff *skb,
- 	/* Now, NAT might want to mangle the packet, and register the
- 	 * (possibly changed) expectation itself. */
- 	nf_nat_ftp = rcu_dereference(nf_nat_ftp_hook);
--	if (nf_nat_ftp && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
--	    ct->status & IPS_NAT_MASK)
-+	if (nf_nat_ftp && ct->status & IPS_NAT_MASK)
- 		ret = nf_nat_ftp(skb, ctinfo, search[dir][i].ftptype,
- 				 protoff, matchoff, matchlen, exp);
- 	else {
-diff --git a/net/ipv4/netfilter/nf_nat_ftp.c b/net/netfilter/nf_nat_ftp.c
-similarity index 82%
-rename from net/ipv4/netfilter/nf_nat_ftp.c
-rename to net/netfilter/nf_nat_ftp.c
-index dd5e387..e839b97 100644
---- a/net/ipv4/netfilter/nf_nat_ftp.c
-+++ b/net/netfilter/nf_nat_ftp.c
-@@ -10,7 +10,7 @@
+ 	  To compile it as a module, choose M here.  If unsure, say N.
  
- #include <linux/module.h>
- #include <linux/moduleparam.h>
--#include <linux/ip.h>
-+#include <linux/inet.h>
- #include <linux/tcp.h>
- #include <linux/netfilter_ipv4.h>
- #include <net/netfilter/nf_nat.h>
-@@ -26,22 +26,27 @@ MODULE_ALIAS("ip_nat_ftp");
- 
- /* FIXME: Time out? --RR */
- 
--static int nf_nat_ftp_fmt_cmd(enum nf_ct_ftp_type type,
-+static int nf_nat_ftp_fmt_cmd(struct nf_conn *ct, enum nf_ct_ftp_type type,
- 			      char *buffer, size_t buflen,
--			      __be32 addr, u16 port)
-+			      union nf_inet_addr *addr, u16 port)
- {
- 	switch (type) {
- 	case NF_CT_FTP_PORT:
- 	case NF_CT_FTP_PASV:
- 		return snprintf(buffer, buflen, "%u,%u,%u,%u,%u,%u",
--				((unsigned char *)&addr)[0],
--				((unsigned char *)&addr)[1],
--				((unsigned char *)&addr)[2],
--				((unsigned char *)&addr)[3],
-+				((unsigned char *)&addr->ip)[0],
-+				((unsigned char *)&addr->ip)[1],
-+				((unsigned char *)&addr->ip)[2],
-+				((unsigned char *)&addr->ip)[3],
- 				port >> 8,
- 				port & 0xFF);
- 	case NF_CT_FTP_EPRT:
--		return snprintf(buffer, buflen, "|1|%pI4|%u|", &addr, port);
-+		if (nf_ct_l3num(ct) == NFPROTO_IPV4)
-+			return snprintf(buffer, buflen, "|1|%pI4|%u|",
-+					&addr->ip, port);
++config IP6_NF_TARGET_NPT
++	tristate "NPT (Network Prefix translation) target support"
++	depends on NETFILTER_ADVANCED
++	help
++	  This option adds the `SNPT' and `DNPT' target, which perform
++	  stateless IPv6-to-IPv6 Network Prefix Translation per RFC 6296.
++
++	  To compile it as a module, choose M here.  If unsure, say N.
++
+ config IP6_NF_FILTER
+ 	tristate "Packet filtering"
+ 	default m if NETFILTER_ADVANCED=n
+diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
+index 0864ce6..5752132 100644
+--- a/net/ipv6/netfilter/Makefile
++++ b/net/ipv6/netfilter/Makefile
+@@ -36,5 +36,6 @@ obj-$(CONFIG_IP6_NF_MATCH_RT) += ip6t_rt.o
+ # targets
+ obj-$(CONFIG_IP6_NF_TARGET_MASQUERADE) += ip6t_MASQUERADE.o
+ obj-$(CONFIG_IP6_NF_TARGET_NETMAP) += ip6t_NETMAP.o
++obj-$(CONFIG_IP6_NF_TARGET_NPT) += ip6t_NPT.o
+ obj-$(CONFIG_IP6_NF_TARGET_REDIRECT) += ip6t_REDIRECT.o
+ obj-$(CONFIG_IP6_NF_TARGET_REJECT) += ip6t_REJECT.o
+diff --git a/net/ipv6/netfilter/ip6t_NPT.c b/net/ipv6/netfilter/ip6t_NPT.c
+new file mode 100644
+index 0000000..e948691
+--- /dev/null
++++ b/net/ipv6/netfilter/ip6t_NPT.c
+@@ -0,0 +1,165 @@
++/*
++ * Copyright (c) 2011, 2012 Patrick McHardy <kaber@trash.net>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/ipv6.h>
++#include <linux/netfilter.h>
++#include <linux/netfilter_ipv6.h>
++#include <linux/netfilter_ipv6/ip6t_NPT.h>
++#include <linux/netfilter/x_tables.h>
++
++static __sum16 csum16_complement(__sum16 a)
++{
++	return (__force __sum16)(0xffff - (__force u16)a);
++}
++
++static __sum16 csum16_add(__sum16 a, __sum16 b)
++{
++	u16 sum;
++
++	sum = (__force u16)a + (__force u16)b;
++	sum += (__force u16)a < (__force u16)b;
++	return (__force __sum16)sum;
++}
++
++static __sum16 csum16_sub(__sum16 a, __sum16 b)
++{
++	return csum16_add(a, csum16_complement(b));
++}
++
++static int ip6t_npt_checkentry(const struct xt_tgchk_param *par)
++{
++	struct ip6t_npt_tginfo *npt = par->targinfo;
++	__sum16 src_sum = 0, dst_sum = 0;
++	unsigned int i;
++
++	if (npt->src_pfx_len > 64 || npt->dst_pfx_len > 64)
++		return -EINVAL;
++
++	for (i = 0; i < ARRAY_SIZE(npt->src_pfx.in6.s6_addr16); i++) {
++		src_sum = csum16_add(src_sum,
++				(__force __sum16)npt->src_pfx.in6.s6_addr16[i]);
++		dst_sum = csum16_add(dst_sum,
++				(__force __sum16)npt->dst_pfx.in6.s6_addr16[i]);
++	}
++
++	npt->adjustment = csum16_sub(src_sum, dst_sum);
++	return 0;
++}
++
++static bool ip6t_npt_map_pfx(const struct ip6t_npt_tginfo *npt,
++			     struct in6_addr *addr)
++{
++	unsigned int pfx_len;
++	unsigned int i, idx;
++	__be32 mask;
++	__sum16 sum;
++
++	pfx_len = max(npt->src_pfx_len, npt->dst_pfx_len);
++	for (i = 0; i < pfx_len; i += 32) {
++		if (pfx_len - i >= 32)
++			mask = 0;
 +		else
-+			return snprintf(buffer, buflen, "|2|%pI6|%u|",
-+					&addr->ip6, port);
- 	case NF_CT_FTP_EPSV:
- 		return snprintf(buffer, buflen, "|||%u|", port);
- 	}
-@@ -59,17 +64,17 @@ static unsigned int nf_nat_ftp(struct sk_buff *skb,
- 			       unsigned int matchlen,
- 			       struct nf_conntrack_expect *exp)
- {
--	__be32 newip;
-+	union nf_inet_addr newaddr;
- 	u_int16_t port;
- 	int dir = CTINFO2DIR(ctinfo);
- 	struct nf_conn *ct = exp->master;
--	char buffer[sizeof("|1|255.255.255.255|65535|")];
-+	char buffer[sizeof("|1||65535|") + INET6_ADDRSTRLEN];
- 	unsigned int buflen;
- 
- 	pr_debug("FTP_NAT: type %i, off %u len %u\n", type, matchoff, matchlen);
- 
- 	/* Connection will come from wherever this packet goes, hence !dir */
--	newip = ct->tuplehash[!dir].tuple.dst.u3.ip;
-+	newaddr = ct->tuplehash[!dir].tuple.dst.u3;
- 	exp->saved_proto.tcp.port = exp->tuple.dst.u.tcp.port;
- 	exp->dir = !dir;
- 
-@@ -94,7 +99,8 @@ static unsigned int nf_nat_ftp(struct sk_buff *skb,
- 	if (port == 0)
- 		return NF_DROP;
- 
--	buflen = nf_nat_ftp_fmt_cmd(type, buffer, sizeof(buffer), newip, port);
-+	buflen = nf_nat_ftp_fmt_cmd(ct, type, buffer, sizeof(buffer),
-+				    &newaddr, port);
- 	if (!buflen)
- 		goto out;
- 
++			mask = htonl(~((1 << (pfx_len - i)) - 1));
++
++		idx = i / 32;
++		addr->s6_addr32[idx] &= mask;
++		addr->s6_addr32[idx] |= npt->dst_pfx.in6.s6_addr32[idx];
++	}
++
++	if (pfx_len <= 48)
++		idx = 3;
++	else {
++		for (idx = 4; idx < ARRAY_SIZE(addr->s6_addr16); idx++) {
++			if ((__force __sum16)addr->s6_addr16[idx] !=
++			    CSUM_MANGLED_0)
++				break;
++		}
++		if (idx == ARRAY_SIZE(addr->s6_addr16))
++			return false;
++	}
++
++	sum = csum16_add((__force __sum16)addr->s6_addr16[idx],
++			 npt->adjustment);
++	if (sum == CSUM_MANGLED_0)
++		sum = 0;
++	*(__force __sum16 *)&addr->s6_addr16[idx] = sum;
++
++	return true;
++}
++
++static unsigned int
++ip6t_snpt_tg(struct sk_buff *skb, const struct xt_action_param *par)
++{
++	const struct ip6t_npt_tginfo *npt = par->targinfo;
++
++	if (!ip6t_npt_map_pfx(npt, &ipv6_hdr(skb)->saddr)) {
++		icmpv6_send(skb, ICMPV6_PARAMPROB, ICMPV6_HDR_FIELD,
++			    offsetof(struct ipv6hdr, saddr));
++		return NF_DROP;
++	}
++	return XT_CONTINUE;
++}
++
++static unsigned int
++ip6t_dnpt_tg(struct sk_buff *skb, const struct xt_action_param *par)
++{
++	const struct ip6t_npt_tginfo *npt = par->targinfo;
++
++	if (!ip6t_npt_map_pfx(npt, &ipv6_hdr(skb)->daddr)) {
++		icmpv6_send(skb, ICMPV6_PARAMPROB, ICMPV6_HDR_FIELD,
++			    offsetof(struct ipv6hdr, daddr));
++		return NF_DROP;
++	}
++	return XT_CONTINUE;
++}
++
++static struct xt_target ip6t_npt_target_reg[] __read_mostly = {
++	{
++		.name		= "SNPT",
++		.target		= ip6t_snpt_tg,
++		.targetsize	= sizeof(struct ip6t_npt_tginfo),
++		.checkentry	= ip6t_npt_checkentry,
++		.family		= NFPROTO_IPV6,
++		.hooks		= (1 << NF_INET_LOCAL_IN) |
++				  (1 << NF_INET_POST_ROUTING),
++		.me		= THIS_MODULE,
++	},
++	{
++		.name		= "DNPT",
++		.target		= ip6t_dnpt_tg,
++		.targetsize	= sizeof(struct ip6t_npt_tginfo),
++		.checkentry	= ip6t_npt_checkentry,
++		.family		= NFPROTO_IPV6,
++		.hooks		= (1 << NF_INET_PRE_ROUTING) |
++				  (1 << NF_INET_LOCAL_OUT),
++		.me		= THIS_MODULE,
++	},
++};
++
++static int __init ip6t_npt_init(void)
++{
++	return xt_register_targets(ip6t_npt_target_reg,
++				   ARRAY_SIZE(ip6t_npt_target_reg));
++}
++
++static void __exit ip6t_npt_exit(void)
++{
++	xt_unregister_targets(ip6t_npt_target_reg,
++			      ARRAY_SIZE(ip6t_npt_target_reg));
++}
++
++module_init(ip6t_npt_init);
++module_exit(ip6t_npt_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("IPv6-to-IPv6 Network Prefix Translation (RFC 6296)");
++MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
++MODULE_ALIAS("ip6t_SNPT");
++MODULE_ALIAS("ip6t_DNPT");
 -- 
 1.7.1
 
