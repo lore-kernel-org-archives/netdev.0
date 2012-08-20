@@ -1,33 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] [v2] netdev/phy: skip disabled mdio-mux nodes
-Date: Mon, 20 Aug 2012 02:16:32 -0700 (PDT)
-Message-ID: <20120820.021632.1556748894277512336.davem@davemloft.net>
-References: <1344986424-14360-1-git-send-email-timur@freescale.com>
-	<1344986424-14360-2-git-send-email-timur@freescale.com>
+Subject: Re: [PATCH] net: sh_eth: Add eth support for R8A7779 device
+Date: Mon, 20 Aug 2012 02:17:05 -0700 (PDT)
+Message-ID: <20120820.021705.1632095368417765033.davem@davemloft.net>
+References: <1345012409-12915-1-git-send-email-phil.edworthy@renesas.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: grant.likely@secretlab.ca, david.daney@cavium.com,
-	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
-To: timur@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52190 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755907Ab2HTJQe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 05:16:34 -0400
-In-Reply-To: <1344986424-14360-2-git-send-email-timur@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	kuninori.morimoto.gx@renesas.com, yoshihiro.shimoda.uh@renesas.com
+To: phil.edworthy@renesas.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1345012409-12915-1-git-send-email-phil.edworthy@renesas.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Timur Tabi <timur@freescale.com>
-Date: Tue, 14 Aug 2012 18:20:24 -0500
+From: Phil Edworthy <phil.edworthy@renesas.com>
+Date: Wed, 15 Aug 2012 07:33:29 +0100
 
-> The mdio-mux driver scans all child mdio nodes, without regard to whether
-> the node is actually used.  Some device trees include all possible
-> mdio-mux nodes and rely on the boot loader to disable those that are not
-> present, based on some run-time configuration.  Those nodes need to be
-> skipped.
-> 
-> Signed-off-by: Timur Tabi <timur@freescale.com>
+> Signed-off-by: Phil Edworthy <phil.edworthy@renesas.com>
 
-Applied.
+Applied, thanks.
