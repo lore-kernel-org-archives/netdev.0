@@ -1,58 +1,35 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [RFC Patch net-next] ipv6: unify conntrack reassembly expire
- code with standard one
-Date: Mon, 20 Aug 2012 22:21:09 +0200
-Message-ID: <20120820202109.GB28790@unicorn.suse.cz>
-References: <1345190565-21689-1-git-send-email-amwang@redhat.com>
- <1826853.rak2U42CMU@alaris>
- <1345453599.22373.9.camel@cr0>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: 3.5.1 fib_rules_lookup oops
+Date: Mon, 20 Aug 2012 13:35:34 -0700
+Message-ID: <m2zk5p7149.fsf@firstfloor.org>
+References: <20120820164428.GA27910@redhat.com>
+	<1345481979.5158.333.camel@edumazet-glaptop>
+	<20120820172240.GA378@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Shan Wei <shanwei@cn.fujitsu.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org
-To: Cong Wang <amwang@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1345453599.22373.9.camel@cr0>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Fedora Kernel Team <kernel-team@fedoraproject.org>
+To: Dave Jones <davej@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:44991 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751920Ab2HTUfg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Aug 2012 16:35:36 -0400
+In-Reply-To: <20120820172240.GA378@redhat.com> (Dave Jones's message of "Mon,
+	20 Aug 2012 13:22:40 -0400")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 20, 2012 at 05:06:39PM +0800, Cong Wang wrote:
-> doesn't work. I think we probably can save the struct net pointer in
-> struct netns_frags during inet_frags_init_net(), so that container_of()
-> can be eliminated. 
+Dave Jones <davej@redhat.com> writes:
+>
+> Same user reported a slew of other problems, so he may have bad hardware.
+> I've asked him to run a memtest to rule that out.
 
-This would work but one would have to check carefully that the pointer
-is always set to an usable value. Or we could just add a flag indicating
-whether the structure is embedded (and if it is not, use init_net).
-Another approach was suggested in the patchworks discussion: add a
-special namespace for IPv6 conntrack fragment handling.
+Bad DIMM is unlikely to cause random ASCII in memory. That's more like a
+bad DMA or a buffer overflow in some driver. I would look for a unique
+driver that user is using.
 
-> Thanks for testing! I tried to test it too, but seems I can't trigger a
-> defragment. Any hints?
+-Andi
 
-I used netfilter on a computer between source and destination of the 
-packets (generated with "ping6 -s 3000"):
-
-ip6tables -A FORWARD -o ... -m frag --fragid 0:0xFFFFFFFF --fraglast -j DROP
-
-The --fragid condition is needed to work around a bug in iptables (if 
-frag module is loaded and there is no --fragid, only packets with zero
-fragment id match - patch for this is already in git). On the target,
-packet is defragmented automatically, by default by the "normal" code,
-with nf_conntrack_ipv6 module by the conntrack code.
-
-Setting
-
-  echo 5 >/proc/sys/net/ipv6/ip6frag_time
-  echo 5 >/proc/sys/net/netfilter/nf_conntrack_frag6_timeout
-
-on target also helps.
-
-                                                        Michal Kubecek
-
+-- 
+ak@linux.intel.com -- Speaking for myself only
