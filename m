@@ -1,68 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2] iproute2: configure: Add search path for 64bit
- library.
-Date: Mon, 20 Aug 2012 16:30:36 +0100
-Message-ID: <1345476636.2659.18.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120813093323.1506aa83@nehalam.linuxnetplumber.net>
-	 <1345426907-4236-1-git-send-email-lw@cn.fujitsu.com>
+From: Sylvain Munaut <s.munaut@whatever-company.com>
+Subject: Re: Fwd: TCP fragmentation broken in 3.6-rc ?
+Date: Mon, 20 Aug 2012 17:52:34 +0200
+Message-ID: <CAF6-1L7R_N1JkubzLwbv9eVX0F+QTtB5SXaRnXU1vBnb_avSMg@mail.gmail.com>
+References: <CAF6-1L6xy1rRd321ZMzrLG6xHMdO0+sdjbtznUOsMzfYyU1SEg@mail.gmail.com>
+	<CAF6-1L5bnhHfXide-=+4WmskR6xGLg4q+RWHebH+GiX7P-RX+Q@mail.gmail.com>
+	<1345475670.5158.322.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <shemminger@vyatta.com>, <netdev@vger.kernel.org>
-To: Li Wei <lw@cn.fujitsu.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:41172 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757031Ab2HTPaj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 11:30:39 -0400
-In-Reply-To: <1345426907-4236-1-git-send-email-lw@cn.fujitsu.com>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:40832 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753221Ab2HTPwf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 11:52:35 -0400
+Received: by vbbff1 with SMTP id ff1so5450739vbb.19
+        for <netdev@vger.kernel.org>; Mon, 20 Aug 2012 08:52:34 -0700 (PDT)
+In-Reply-To: <1345475670.5158.322.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-08-20 at 09:41 +0800, Li Wei wrote:
-> Use pkg-config to tell us the library path and fallback to search
-> old paths if xtables.pc not exists.
-> 
-> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
+Hi,
 
-Tested-by: Ben Hutchings <bhutchings@solarflare.com>
+> Could you make sure its not a pfmemalloc problem, by applying following
+> patch :
+>
+> https://lkml.org/lkml/2012/8/20/182
 
-Works for me on Fedora 16.
+I just tried it, but unfortunately it doesn't fix the problem :(
 
-You should probably change the subject line, as this doesn't change the
-search path but mostly replaces it.
+It may have improved a bit (seems like it takes 20/25 min to break now
+... but it might just be random luck)
 
-Ben.
 
-> ---
-> 
-> Changes from v1:
-> - use pkg-config as Ben and Stephen suggested.
-> 
->  configure |    8 +++++++-
->  1 file changed, 7 insertions(+), 1 deletion(-)
-> 
-> diff --git a/configure b/configure
-> index a1916de..db7cd6a 100755
-> --- a/configure
-> +++ b/configure
-> @@ -148,7 +148,13 @@ check_ipt()
->  
->  check_ipt_lib_dir()
->  {
-> -	IPT_LIB_DIR=""
-> +	IPT_LIB_DIR=$(pkg-config --variable=xtlibdir xtables)
-> +	if [ -n "$IPT_LIB_DIR" ]; then
-> +		echo $IPT_LIB_DIR
-> +		echo "IPT_LIB_DIR:=$IPT_LIB_DIR" >> Config
-> +		return
-> +	fi
-> +
->  	for dir in /lib /usr/lib /usr/local/lib
->  	do
->  		for file in $dir/{xtables,iptables}/lib*t_*so ; do
+Cheers,
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+    Sylvain
