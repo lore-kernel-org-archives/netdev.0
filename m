@@ -1,46 +1,65 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: [PATCH 09/18] netfilter: ipv6: add IPv6 NAT support
-Date: Mon, 20 Aug 2012 11:03:35 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1208201100340.6101@frira.zrqbmnf.qr>
-References: <1345434006-16549-1-git-send-email-kaber@trash.net> <1345434006-16549-10-git-send-email-kaber@trash.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [RFC Patch net-next] ipv6: unify conntrack reassembly expire
+ code with standard one
+Date: Mon, 20 Aug 2012 17:06:39 +0800
+Message-ID: <1345453599.22373.9.camel@cr0>
+References: <1345190565-21689-1-git-send-email-amwang@redhat.com>
+	 <1826853.rak2U42CMU@alaris>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Shan Wei <shanwei@cn.fujitsu.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org
+To: Michal =?UTF-8?Q?Kube=C4=8Dek?= <mkubecek@suse.cz>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1345434006-16549-10-git-send-email-kaber@trash.net>
+In-Reply-To: <1826853.rak2U42CMU@alaris>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi, Michal!
 
-On Monday 2012-08-20 05:39, Patrick McHardy wrote:
->+static struct nf_hook_ops nf_nat_ipv6_ops[] __read_mostly = {
->+	/* Before packet filtering, change destination */
->+	{
->+		.hook		= nf_nat_ipv6_in,
->+		.owner		= THIS_MODULE,
->+		.pf		= NFPROTO_IPV6,
->+		.hooknum	= NF_INET_PRE_ROUTING,
->+		.priority	= NF_IP_PRI_NAT_DST,
+On Fri, 2012-08-17 at 19:05 +0200, Michal Kube=C4=8Dek wrote:
+> On Friday 17 of August 2012 16:02EN, Cong Wang wrote:
+> > Two years ago, Shan Wei tried to fix this:
+> > http://patchwork.ozlabs.org/patch/43905/
+> >=20
+> ...
+> >
+> > As Herbert suggested, we could actually use the standard IPv6
+> > reassembly code which follows RFC2460.
+>=20
+> I tested the patch and I ran into a problem in this place in=20
+> ip6_expire_frag_queue():
+>=20
+> >  	net =3D container_of(fq->q.net, struct net, ipv6.frags);
+>=20
+> For frag queues coming from IPv6 conntrack, fq->q.net points to=20
+> nf_init_frags which is not embedded into struct net so that the=20
+> following device lookup leads to reading from an invalid address.
+> The same problem has been discussed on the page linked above.
+>=20
+> I didn't test with current net-next source but as far as I can tell,=20
+> this hasn't changed. Did I miss something?
+>=20
 
-NF_IP6_PRI_NAT_DST
+No, you don't miss anything. I missed that piece of code, you are right
+that nf_init_frags is not actually embedded, so that container_of()
+doesn't work. I think we probably can save the struct net pointer in
+struct netns_frags during inet_frags_init_net(), so that container_of()
+can be eliminated.=20
 
->+		.hook		= nf_nat_ipv6_out,
->+		.owner		= THIS_MODULE,
->+		.pf		= NFPROTO_IPV6,
->+		.hooknum	= NF_INET_POST_ROUTING,
->+		.priority	= NF_IP_PRI_NAT_SRC,
+Thanks for testing! I tried to test it too, but seems I can't trigger a
+defragment. Any hints?
 
-IP6 too... (2 more occurrences)
+Thanks!
 
->+static void nf_nat_ipv6_csum_recalc(struct sk_buff *skb,
->+				    u8 proto, void *data, __sum16 *check,
->+				    int datalen, int oldlen)
->+{
->+	const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
->+	struct rt6_info *rt = (struct rt6_info *)skb_dst(skb);
->+
->+	if (skb->ip_summed != CHECKSUM_PARTIAL) {
-
-Maybe invert to == CHECKSUM_PARTIAL like in p06/18.
-
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
