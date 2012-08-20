@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1.1] af_packet: don't emit packet on orig fanout group
-Date: Mon, 20 Aug 2012 02:37:43 -0700 (PDT)
-Message-ID: <20120820.023743.1739374734021977895.davem@davemloft.net>
-References: <20120816.145253.939105041613744695.davem@davemloft.net>
-	<1345190578-28722-1-git-send-email-eric@regit.org>
+Subject: Re: [patch net-next] team: add support for non-ethernet devices
+Date: Mon, 20 Aug 2012 02:42:12 -0700 (PDT)
+Message-ID: <20120820.024212.561887543494934442.davem@davemloft.net>
+References: <1345212048-1378-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: eric@regit.org
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52506 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52589 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755906Ab2HTJho (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 05:37:44 -0400
-In-Reply-To: <1345190578-28722-1-git-send-email-eric@regit.org>
+	with ESMTP id S1752753Ab2HTJmN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 05:42:13 -0400
+In-Reply-To: <1345212048-1378-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Leblond <eric@regit.org>
-Date: Fri, 17 Aug 2012 10:02:58 +0200
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri, 17 Aug 2012 16:00:48 +0200
 
-> If a packet is emitted on one socket in one group of fanout sockets,
-> it is transmitted again. It is thus read again on one of the sockets
-> of the fanout group. This result in a loop for software which
-> generate packets when receiving one.
-> This retransmission is not the intended behavior: a fanout group
-> must behave like a single socket. The packet should not be
-> transmitted on a socket if it originates from a socket belonging
-> to the same fanout group.
+> This is resolved by two things:
+> 1) allow dev_addr of different length than ETH_ALEN
+> 2) during port add, check for dev->type and change it if necessary
 > 
-> This patch fixes the issue by changing the transmission check to
-> take fanout group info account.
-> 
-> Reported-by: Aleksandr Kotov <a1k@mail.ru>
-> Signed-off-by: Eric Leblond <eric@regit.org>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Applied, thanks a lot Eric.
+Looks good, applied, thanks Jiri.
