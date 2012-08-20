@@ -1,49 +1,46 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] tc-tbf.8: Add parameter range to man page.
-Date: Mon, 20 Aug 2012 10:58:03 -0700
-Message-ID: <20120820105803.2ce45a2a@nehalam.linuxnetplumber.net>
-References: <1344306632-15288-1-git-send-email-lw@cn.fujitsu.com>
-	<20120813083015.27b66cd7@nehalam.linuxnetplumber.net>
-	<5031DADC.6060509@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Li Wei <lw@cn.fujitsu.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] cls_cgroup: Allow classifier cgroups to have their classid reset to 0
+Date: Mon, 20 Aug 2012 13:59:10 -0400
+Message-ID: <1345485550-15556-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51370 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751198Ab2HTR6T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Aug 2012 13:58:19 -0400
-In-Reply-To: <5031DADC.6060509@cn.fujitsu.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:54227 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750828Ab2HTR7U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 13:59:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The network classifier cgroup initalizes each cgroups instance classid value to
+0.  However, the sock_update_classid function only updates classid's in sockets
+if the tasks cgroup classid is not zero, and if it differs from the current
+classid.  The later check is to prevent cache line dirtying, but the former is
+detrimental, as it prevents resetting a classid for a cgroup to 0.  While this
+is not a common action, it has administrative usefulness (if the admin wants to
+disable classification of a certain group temporarily for instance).
 
-> 
-> Not very clear with "the generic documentation about qdisc parameters
-> which already exists on 'tc-qdisc' man page", is there a separate man page
-> that describe qdisc parameters?
-> 
-> I'm reading the iproute2 and kernel code which related to TC and record the
-> value range for each parameter, I think that would be helpful for somebody
-> else.
-> 
+Easy fix, just remove the zero check.  Tested successfully by myself
 
-Rather than putting range on each parameter on every sub-page of tc man
-page. Why not put something in tc.8 under UNITS.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: "David S. Miller" <davem@davemloft.net>
+---
+ net/core/sock.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-The following implies everything is floating-point which it isn't:
-
-UNITS
-       All parameters accept a floating point number, possibly followed  by  a
-       unit.
-
-I would like this section broken down to cover all the generic types
-  PARAMETERS
-     RATES
-     TIMES
-     SIZES
-     VALUES
-
-Also needs to explain IEC units here.
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 8f67ced..116786c 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1230,7 +1230,7 @@ void sock_update_classid(struct sock *sk)
+ 	rcu_read_lock();  /* doing current task, which cannot vanish. */
+ 	classid = task_cls_classid(current);
+ 	rcu_read_unlock();
+-	if (classid && classid != sk->sk_classid)
++	if (classid != sk->sk_classid)
+ 		sk->sk_classid = classid;
+ }
+ EXPORT_SYMBOL(sock_update_classid);
+-- 
+1.7.7.6
