@@ -1,52 +1,112 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] net: tcp: move sk_rx_dst_set call after
- tcp_create_openreq_child()
-Date: Mon, 20 Aug 2012 03:04:10 -0700 (PDT)
-Message-ID: <20120820.030410.1083547560121610947.davem@davemloft.net>
-References: <1345383038-8330-1-git-send-email-ncardwell@google.com>
-	<1345383675.5158.202.camel@edumazet-glaptop>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [RFC PATCH 0/5] net: socket bind to file descriptor introduced
+Date: Mon, 20 Aug 2012 14:18:13 +0400
+Message-ID: <50320EE5.10307@parallels.com>
+References: <20120815161141.7598.16682.stgit@localhost.localdomain> <87y5lf7d37.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ncardwell@google.com, netdev@vger.kernel.org, edumazet@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52842 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232Ab2HTKEL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 06:04:11 -0400
-In-Reply-To: <1345383675.5158.202.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "tglx@linutronix.de" <tglx@linutronix.de>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"hpa@zytor.com" <hpa@zytor.com>,
+	"thierry.reding@avionic-design.de" <thierry.reding@avionic-design.de>,
+	"bfields@redhat.com" <bfields@redhat.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"x86@kernel.org" <x86@kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
+	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
+	"gorcunov@openvz.org" <gorcunov@openvz.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"tim.c.chen@linux.intel.com" <tim.c.chen@linux.intel.com>,
+	"devel@openvz.org" <devel@openvz.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87y5lf7d37.fsf@xmission.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 19 Aug 2012 15:41:15 +0200
+16.08.2012 07:03, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> Stanislav Kinsbursky <skinsbursky@parallels.com> writes:
+>
+>> This patch set introduces new socket operation and new system call:
+>> sys_fbind(), which allows to bind socket to opened file.
+>> File to bind to can be created by sys_mknod(S_IFSOCK) and opened by
+>> open(O_PATH).
+>>
+>> This system call is especially required for UNIX sockets, which has =
+name
+>> lenght limitation.
+>>
+>> The following series implements...
+>
+> Hmm.  I just realized this patchset is even sillier than I thought.
+>
+> Stanislav is the problem you are ultimately trying to solve nfs clien=
+ts
+> in a container connecting to the wrong user space rpciod?
+>
 
-> On Sun, 2012-08-19 at 09:30 -0400, Neal Cardwell wrote:
->> This commit removes the sk_rx_dst_set calls from
->> tcp_create_openreq_child(), because at that point the icsk_af_ops
->> field of ipv6_mapped TCP sockets has not been set to its proper final
->> value.
->> 
->> Instead, to make sure we get the right sk_rx_dst_set variant
->> appropriate for the address family of the new connection, we have
->> tcp_v{4,6}_syn_recv_sock() directly call the appropriate function
->> shortly after the call to tcp_create_openreq_child() returns.
->> 
->> This also moves inet6_sk_rx_dst_set() to avoid a forward declaration
->> with the new approach.
->> 
->> Signed-off-by: Neal Cardwell <ncardwell@google.com>
->> Reported-by: Artem Savkov <artem.savkov@gmail.com>
->> Cc: Eric Dumazet <edumazet@google.com>
->> ---
->>  net/ipv4/tcp_ipv4.c      |    1 +
->>  net/ipv4/tcp_minisocks.c |    2 --
->>  net/ipv6/tcp_ipv6.c      |   25 +++++++++++++------------
->>  3 files changed, 14 insertions(+), 14 deletions(-)
-> 
-> Thanks Neal !
-> 
-> Acked-by: Eric Dumazet <edumazet@google.com>
+Hi, Eric.
+The problem you mentioned was the reason why I started to think about t=
+his.
+But currently I believe, that limitations in unix sockets connect or bi=
+nd should=20
+be removed, because it will be useful it least for CRIU project.
 
-Applied, thanks everyone.
+> Aka net/sunrpc/xprtsock.c:xs_setup_local only taking an absolute path
+> and then creating a delayed work item to actually open the unix domai=
+n
+> socket?
+>
+> The straight correct and straight forward thing to do appears to be:
+> - Capture the root from current->fs in xs_setup_local.
+> - In xs_local_finish_connect change current->fs.root to the captured
+>    version of root before kernel_connect, and restore current->fs.roo=
+t
+>    after kernel_connect.
+>
+> It might not be a bad idea to implement open on unix domain sockets i=
+n
+> a filesystem as create(AF_LOCAL)+connect() which would allow you to
+> replace __sock_create + kernel_connect with a simple file_open_root.
+>
+
+I like the idea of introducing new family (AF_LOCAL_AT for example) and=
+ new=20
+sockaddr for connecting or binding from specified root. The only thing =
+I'm=20
+worrying is passing file descriptor to unix bind or connect routine. Be=
+cause=20
+this approach doesn't provide easy way to use such family and sockaddr =
+in kernel=20
+(like in NFS example).
+
+> But I think the simple scheme of:
+> struct path old_root;
+> old_root =3D current->fs.root;
+> kernel_connect(...);
+> current->fs.root =3D old_root;
+>
+> Is more than sufficient and will remove the need for anything
+> except a purely local change to get nfs clients to connect from
+> containers.
+>
+
+That was my first idea. And probably it would be worth to change all fs=
+_struct=20
+to support sockets with relative path.
+What do you think about it?
+
+> Eric
+>
+
+
+--=20
+Best regards,
+Stanislav Kinsbursky
