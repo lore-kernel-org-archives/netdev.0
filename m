@@ -1,105 +1,46 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 01/18] ipv4: fix path MTU discovery with connection tracking
-Date: Mon, 20 Aug 2012 05:39:49 +0200
-Message-ID: <1345434006-16549-2-git-send-email-kaber@trash.net>
-References: <1345434006-16549-1-git-send-email-kaber@trash.net>
+Subject: [PATCH 00/18] netfilter: IPv6 NAT
+Date: Mon, 20 Aug 2012 05:39:48 +0200
+Message-ID: <1345434006-16549-1-git-send-email-kaber@trash.net>
 Cc: netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35084 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753282Ab2HTDkL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2012 23:40:11 -0400
-In-Reply-To: <1345434006-16549-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-IPv4 conntrack defragments incoming packet at the PRE_ROUTING hook and
-(in case of forwarded packets) refragments them at POST_ROUTING
-independant of the IP_DF flag. Refragmentation uses the dst_mtu() of
-the local route without caring about the original fragment sizes,
-thereby breaking PMTUD.
+Following is the latest IPv6 NAT patchset, based on -rc2.
 
-This patch fixes this by keeping track of the largest received fragment
-with IP_DF set and generates an ICMP fragmentation required error during
-refragmentation if that size exceeds the MTU.
+Changes since the last posting include:
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
- include/net/inet_frag.h |    2 ++
- include/net/ip.h        |    2 ++
- net/ipv4/ip_fragment.c  |    8 +++++++-
- net/ipv4/ip_output.c    |    4 +++-
- 4 files changed, 14 insertions(+), 2 deletions(-)
+- removal of fixes already merged into nf-2.6, not included upstream
+  yet though, IPv6 SIP will not work
 
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 2431cf8..5098ee7 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -29,6 +29,8 @@ struct inet_frag_queue {
- #define INET_FRAG_COMPLETE	4
- #define INET_FRAG_FIRST_IN	2
- #define INET_FRAG_LAST_IN	1
-+
-+	u16			max_size;
- };
- 
- #define INETFRAGS_HASHSZ		64
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 5a5d84d..0707fb9 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -42,6 +42,8 @@ struct inet_skb_parm {
- #define IPSKB_XFRM_TRANSFORMED	4
- #define IPSKB_FRAG_COMPLETE	8
- #define IPSKB_REROUTED		16
-+
-+	u16			frag_max_size;
- };
- 
- static inline unsigned int ip_hdrlen(const struct sk_buff *skb)
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 8d07c97..fa6a12c 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -523,6 +523,10 @@ found:
- 	if (offset == 0)
- 		qp->q.last_in |= INET_FRAG_FIRST_IN;
- 
-+	if (ip_hdr(skb)->frag_off & htons(IP_DF) &&
-+	    skb->len + ihl > qp->q.max_size)
-+		qp->q.max_size = skb->len + ihl;
-+
- 	if (qp->q.last_in == (INET_FRAG_FIRST_IN | INET_FRAG_LAST_IN) &&
- 	    qp->q.meat == qp->q.len)
- 		return ip_frag_reasm(qp, prev, dev);
-@@ -646,9 +650,11 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
- 	head->next = NULL;
- 	head->dev = dev;
- 	head->tstamp = qp->q.stamp;
-+	IPCB(head)->frag_max_size = qp->q.max_size;
- 
- 	iph = ip_hdr(head);
--	iph->frag_off = 0;
-+	/* max_size != 0 implies at least one fragment had IP_DF set */
-+	iph->frag_off = qp->q.max_size ? htons(IP_DF) : 0;
- 	iph->tot_len = htons(len);
- 	iph->tos |= ecn;
- 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMOKS);
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 147ccc3..95a9d72 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -467,7 +467,9 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- 
- 	iph = ip_hdr(skb);
- 
--	if (unlikely((iph->frag_off & htons(IP_DF)) && !skb->local_df)) {
-+	if (unlikely(((iph->frag_off & htons(IP_DF)) && !skb->local_df) ||
-+		     (IPCB(skb)->frag_max_size &&
-+		      IPCB(skb)->frag_max_size > dst_mtu(&rt->dst)))) {
- 		IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
- 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
- 			  htonl(ip_skb_dst_mtu(skb)));
--- 
-1.7.1
+- missing module alias for ip6t_DNAT/ip6t_SNAT added to xt_nat
+
+- compilation fix for ip6t_MASQUERADE without ipt_MASQUERADE enabled
+
+- proper handling of untracked packets in IPv6 fragmentation improvements
+
+- byteorder fixes in IPv6 fragment handling
+
+- conversion to use a mutex for NAT L3/L4 protocol registration
+
+- missing memory barrier before publishing L4 protocol array
+
+- proper cleanup of NATed connections after NAT L3/L4 protocol unregistration
+
+- proper locking (RTNL) for walking network namespaces in NAT cleanup
+
+- only free NAT L4 protocol array at shutdown instead of during L3 protocol
+  unregistation, otherwise non built-in protocols are missing after L3
+  protocol reload
+
+- endianess annotation fixes
+
+- missing netlink policy for IPv6 NAT attributes
+
+I'll also push these patches to github, but it is currently acting up,
+once it works again they'll be available at
+
+git://github.com/kaber/nf-nat-ipv6.git master
+
