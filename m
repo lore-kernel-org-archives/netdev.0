@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] netfilter fixes for 3.6-rc
-Date: Mon, 20 Aug 2012 02:45:04 -0700 (PDT)
-Message-ID: <20120820.024504.634595271117672814.davem@davemloft.net>
-References: <1345212573-3076-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH] caif: Do not dereference NULL in chnl_recv_cb()
+Date: Mon, 20 Aug 2012 02:48:08 -0700 (PDT)
+Message-ID: <20120820.024808.184015666899890382.davem@davemloft.net>
+References: <alpine.LNX.2.00.1208172230570.15699@swampdragon.chaosbits.net>
+	<81C3A93C17462B4BBD7E272753C1057923B924D522@EXDCVYMBSTM005.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1345212573-3076-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jj@chaosbits.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, daniel.martensson@stericsson.com
+To: sjur.brandeland@stericsson.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <81C3A93C17462B4BBD7E272753C1057923B924D522@EXDCVYMBSTM005.EQ1STM.local>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: pablo@netfilter.org
-Date: Fri, 17 Aug 2012 16:09:28 +0200
+=46rom: Sjur BRENDELAND <sjur.brandeland@stericsson.com>
+Date: Mon, 20 Aug 2012 08:33:35 +0200
 
-> The following five patches contain fixes for 3.6-rc, they are:
-> 
-> * Two fixes for message parsing in the SIP conntrack helper, from
->   Patrick McHardy.
-> 
-> * One fix for the SIP helper introduced in the user-space cthelper
->   infrastructure, from Patrick McHardy.
-> 
-> * fix missing appropriate locking while modifying one conntrack entry
->   from the nfqueue integration code, from myself.
-> 
-> * fix possible access to uninitiliazed timer in the nf_conntrack
->   expectation infrastructure, from myself.
-> 
-> You can pull these changes from:
-> 
-> git://1984.lsi.us.es/nf
+>> In net/caif/chnl_net.c::chnl_recv_cb() we call skb_header_pointer()
+>> which may return NULL, but we do not check for a NULL pointer before
+>> dereferencing it.
+>> This patch adds such a NULL check and properly free's allocated memo=
+ry
+>> and return an error (-EINVAL) on failure - much better than crashing=
+=2E.
+>>=20
+>> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+>=20
+> Thank you for fixing this, the patch looks good to me.
+> Acked-by: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
 
-Pulled, thanks Pablo.
+Applied, thanks.
