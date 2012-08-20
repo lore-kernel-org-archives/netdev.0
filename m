@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 03/18] netfilter: nf_conntrack_ipv6: fix tracking of ICMPv6 error messages containing fragments
-Date: Mon, 20 Aug 2012 05:39:51 +0200
-Message-ID: <1345434006-16549-4-git-send-email-kaber@trash.net>
+Subject: [PATCH 13/18] netfilter: nf_nat: support IPv6 in FTP NAT helper
+Date: Mon, 20 Aug 2012 05:40:01 +0200
+Message-ID: <1345434006-16549-14-git-send-email-kaber@trash.net>
 References: <1345434006-16549-1-git-send-email-kaber@trash.net>
 Cc: netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,114 +10,170 @@ In-Reply-To: <1345434006-16549-1-git-send-email-kaber@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ICMPv6 error messages are tracked by extracting the conntrack tuple of
-the inner packet and looking up the corresponding conntrack entry. Tuple
-extraction uses the ->get_l4proto() callback, which in case of fragments
-returns NEXTHDR_FRAGMENT instead of the upper protocol, even for the
-first fragment when the entire next header is present, resulting in a
-failure to find the correct connection tracking entry.
-
-This patch changes ipv6_get_l4proto() to use ipv6_skip_exthdr() instead
-of nf_ct_ipv6_skip_exthdr() in order to skip fragment headers when the
-fragment offset is zero.
-
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   63 ++---------------------
- 1 files changed, 6 insertions(+), 57 deletions(-)
+ net/ipv4/netfilter/Kconfig            |    5 -----
+ net/ipv4/netfilter/Makefile           |    1 -
+ net/netfilter/Kconfig                 |    5 +++++
+ net/netfilter/Makefile                |    3 +++
+ net/netfilter/nf_conntrack_ftp.c      |    3 +--
+ net/{ipv4 => }/netfilter/nf_nat_ftp.c |   30 ++++++++++++++++++------------
+ 6 files changed, 27 insertions(+), 20 deletions(-)
+ rename net/{ipv4 => }/netfilter/nf_nat_ftp.c (82%)
 
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 521ddca..dcf6010 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -64,82 +64,31 @@ static int ipv6_print_tuple(struct seq_file *s,
- 			  tuple->src.u3.ip6, tuple->dst.u3.ip6);
- }
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+index 33372a1..80272e7 100644
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -220,11 +220,6 @@ config NF_NAT_PROTO_GRE
+ 	tristate
+ 	depends on NF_NAT_IPV4 && NF_CT_PROTO_GRE
  
--/*
-- * Based on ipv6_skip_exthdr() in net/ipv6/exthdr.c
-- *
-- * This function parses (probably truncated) exthdr set "hdr"
-- * of length "len". "nexthdrp" initially points to some place,
-- * where type of the first header can be found.
-- *
-- * It skips all well-known exthdrs, and returns pointer to the start
-- * of unparsable area i.e. the first header with unknown type.
-- * if success, *nexthdr is updated by type/protocol of this header.
-- *
-- * NOTES: - it may return pointer pointing beyond end of packet,
-- *          if the last recognized header is truncated in the middle.
-- *        - if packet is truncated, so that all parsed headers are skipped,
-- *          it returns -1.
-- *        - if packet is fragmented, return pointer of the fragment header.
-- *        - ESP is unparsable for now and considered like
-- *          normal payload protocol.
-- *        - Note also special handling of AUTH header. Thanks to IPsec wizards.
-- */
+-config NF_NAT_FTP
+-	tristate
+-	depends on NF_CONNTRACK && NF_NAT_IPV4
+-	default NF_NAT_IPV4 && NF_CONNTRACK_FTP
 -
--static int nf_ct_ipv6_skip_exthdr(const struct sk_buff *skb, int start,
--				  u8 *nexthdrp, int len)
--{
--	u8 nexthdr = *nexthdrp;
--
--	while (ipv6_ext_hdr(nexthdr)) {
--		struct ipv6_opt_hdr hdr;
--		int hdrlen;
--
--		if (len < (int)sizeof(struct ipv6_opt_hdr))
--			return -1;
--		if (nexthdr == NEXTHDR_NONE)
--			break;
--		if (nexthdr == NEXTHDR_FRAGMENT)
--			break;
--		if (skb_copy_bits(skb, start, &hdr, sizeof(hdr)))
--			BUG();
--		if (nexthdr == NEXTHDR_AUTH)
--			hdrlen = (hdr.hdrlen+2)<<2;
--		else
--			hdrlen = ipv6_optlen(&hdr);
--
--		nexthdr = hdr.nexthdr;
--		len -= hdrlen;
--		start += hdrlen;
--	}
--
--	*nexthdrp = nexthdr;
--	return start;
--}
--
- static int ipv6_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
- 			    unsigned int *dataoff, u_int8_t *protonum)
+ config NF_NAT_IRC
+ 	tristate
+ 	depends on NF_CONNTRACK && NF_NAT_IPV4
+diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
+index 0ea3acc..4d8a4ad 100644
+--- a/net/ipv4/netfilter/Makefile
++++ b/net/ipv4/netfilter/Makefile
+@@ -21,7 +21,6 @@ obj-$(CONFIG_NF_DEFRAG_IPV4) += nf_defrag_ipv4.o
+ 
+ # NAT helpers (nf_conntrack)
+ obj-$(CONFIG_NF_NAT_AMANDA) += nf_nat_amanda.o
+-obj-$(CONFIG_NF_NAT_FTP) += nf_nat_ftp.o
+ obj-$(CONFIG_NF_NAT_H323) += nf_nat_h323.o
+ obj-$(CONFIG_NF_NAT_IRC) += nf_nat_irc.o
+ obj-$(CONFIG_NF_NAT_PPTP) += nf_nat_pptp.o
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 91addda..3104494 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -380,6 +380,11 @@ config NF_NAT_PROTO_SCTP
+ 	depends on NF_NAT && NF_CT_PROTO_SCTP
+ 	select LIBCRC32C
+ 
++config NF_NAT_FTP
++	tristate
++	depends on NF_CONNTRACK && NF_NAT
++	default NF_NAT && NF_CONNTRACK_FTP
++
+ endif # NF_CONNTRACK
+ 
+ # transparent proxy support
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 09c9451..16592b1 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -54,6 +54,9 @@ obj-$(CONFIG_NF_NAT_PROTO_DCCP) += nf_nat_proto_dccp.o
+ obj-$(CONFIG_NF_NAT_PROTO_UDPLITE) += nf_nat_proto_udplite.o
+ obj-$(CONFIG_NF_NAT_PROTO_SCTP) += nf_nat_proto_sctp.o
+ 
++# NAT helpers
++obj-$(CONFIG_NF_NAT_FTP) += nf_nat_ftp.o
++
+ # transparent proxy support
+ obj-$(CONFIG_NETFILTER_TPROXY) += nf_tproxy_core.o
+ 
+diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
+index c0f4a5b..f8cc26a 100644
+--- a/net/netfilter/nf_conntrack_ftp.c
++++ b/net/netfilter/nf_conntrack_ftp.c
+@@ -488,8 +488,7 @@ static int help(struct sk_buff *skb,
+ 	/* Now, NAT might want to mangle the packet, and register the
+ 	 * (possibly changed) expectation itself. */
+ 	nf_nat_ftp = rcu_dereference(nf_nat_ftp_hook);
+-	if (nf_nat_ftp && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
+-	    ct->status & IPS_NAT_MASK)
++	if (nf_nat_ftp && ct->status & IPS_NAT_MASK)
+ 		ret = nf_nat_ftp(skb, ctinfo, search[dir][i].ftptype,
+ 				 protoff, matchoff, matchlen, exp);
+ 	else {
+diff --git a/net/ipv4/netfilter/nf_nat_ftp.c b/net/netfilter/nf_nat_ftp.c
+similarity index 82%
+rename from net/ipv4/netfilter/nf_nat_ftp.c
+rename to net/netfilter/nf_nat_ftp.c
+index dd5e387..e839b97 100644
+--- a/net/ipv4/netfilter/nf_nat_ftp.c
++++ b/net/netfilter/nf_nat_ftp.c
+@@ -10,7 +10,7 @@
+ 
+ #include <linux/module.h>
+ #include <linux/moduleparam.h>
+-#include <linux/ip.h>
++#include <linux/inet.h>
+ #include <linux/tcp.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <net/netfilter/nf_nat.h>
+@@ -26,22 +26,27 @@ MODULE_ALIAS("ip_nat_ftp");
+ 
+ /* FIXME: Time out? --RR */
+ 
+-static int nf_nat_ftp_fmt_cmd(enum nf_ct_ftp_type type,
++static int nf_nat_ftp_fmt_cmd(struct nf_conn *ct, enum nf_ct_ftp_type type,
+ 			      char *buffer, size_t buflen,
+-			      __be32 addr, u16 port)
++			      union nf_inet_addr *addr, u16 port)
  {
- 	unsigned int extoff = nhoff + sizeof(struct ipv6hdr);
--	unsigned char pnum;
-+	__be16 frag_off;
- 	int protoff;
-+	u8 nexthdr;
- 
- 	if (skb_copy_bits(skb, nhoff + offsetof(struct ipv6hdr, nexthdr),
--			  &pnum, sizeof(pnum)) != 0) {
-+			  &nexthdr, sizeof(nexthdr)) != 0) {
- 		pr_debug("ip6_conntrack_core: can't get nexthdr\n");
- 		return -NF_ACCEPT;
+ 	switch (type) {
+ 	case NF_CT_FTP_PORT:
+ 	case NF_CT_FTP_PASV:
+ 		return snprintf(buffer, buflen, "%u,%u,%u,%u,%u,%u",
+-				((unsigned char *)&addr)[0],
+-				((unsigned char *)&addr)[1],
+-				((unsigned char *)&addr)[2],
+-				((unsigned char *)&addr)[3],
++				((unsigned char *)&addr->ip)[0],
++				((unsigned char *)&addr->ip)[1],
++				((unsigned char *)&addr->ip)[2],
++				((unsigned char *)&addr->ip)[3],
+ 				port >> 8,
+ 				port & 0xFF);
+ 	case NF_CT_FTP_EPRT:
+-		return snprintf(buffer, buflen, "|1|%pI4|%u|", &addr, port);
++		if (nf_ct_l3num(ct) == NFPROTO_IPV4)
++			return snprintf(buffer, buflen, "|1|%pI4|%u|",
++					&addr->ip, port);
++		else
++			return snprintf(buffer, buflen, "|2|%pI6|%u|",
++					&addr->ip6, port);
+ 	case NF_CT_FTP_EPSV:
+ 		return snprintf(buffer, buflen, "|||%u|", port);
  	}
--	protoff = nf_ct_ipv6_skip_exthdr(skb, extoff, &pnum, skb->len - extoff);
-+	protoff = ipv6_skip_exthdr(skb, extoff, &nexthdr, &frag_off);
- 	/*
- 	 * (protoff == skb->len) mean that the packet doesn't have no data
- 	 * except of IPv6 & ext headers. but it's tracked anyway. - YK
- 	 */
--	if ((protoff < 0) || (protoff > skb->len)) {
-+	if (protoff < 0 || (frag_off & htons(~0x7)) != 0) {
- 		pr_debug("ip6_conntrack_core: can't find proto in pkt\n");
- 		return -NF_ACCEPT;
- 	}
+@@ -59,17 +64,17 @@ static unsigned int nf_nat_ftp(struct sk_buff *skb,
+ 			       unsigned int matchlen,
+ 			       struct nf_conntrack_expect *exp)
+ {
+-	__be32 newip;
++	union nf_inet_addr newaddr;
+ 	u_int16_t port;
+ 	int dir = CTINFO2DIR(ctinfo);
+ 	struct nf_conn *ct = exp->master;
+-	char buffer[sizeof("|1|255.255.255.255|65535|")];
++	char buffer[sizeof("|1||65535|") + INET6_ADDRSTRLEN];
+ 	unsigned int buflen;
  
- 	*dataoff = protoff;
--	*protonum = pnum;
-+	*protonum = nexthdr;
- 	return NF_ACCEPT;
- }
+ 	pr_debug("FTP_NAT: type %i, off %u len %u\n", type, matchoff, matchlen);
+ 
+ 	/* Connection will come from wherever this packet goes, hence !dir */
+-	newip = ct->tuplehash[!dir].tuple.dst.u3.ip;
++	newaddr = ct->tuplehash[!dir].tuple.dst.u3;
+ 	exp->saved_proto.tcp.port = exp->tuple.dst.u.tcp.port;
+ 	exp->dir = !dir;
+ 
+@@ -94,7 +99,8 @@ static unsigned int nf_nat_ftp(struct sk_buff *skb,
+ 	if (port == 0)
+ 		return NF_DROP;
+ 
+-	buflen = nf_nat_ftp_fmt_cmd(type, buffer, sizeof(buffer), newip, port);
++	buflen = nf_nat_ftp_fmt_cmd(ct, type, buffer, sizeof(buffer),
++				    &newaddr, port);
+ 	if (!buflen)
+ 		goto out;
  
 -- 
 1.7.1
