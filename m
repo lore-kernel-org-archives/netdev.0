@@ -1,67 +1,118 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [PATCH 4/5] drivers/net/wireless/ath/ath6kl/main.c: introduce
- missing initialization
-Date: Mon, 20 Aug 2012 10:24:51 +0300
-Message-ID: <5031E643.1070105@qca.qualcomm.com>
-References: <1345325159-7365-4-git-send-email-Julia.Lawall@lip6.fr>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH] rds: Don't disable BH on BH context
+Date: Mon, 20 Aug 2012 15:44:08 +0800
+Message-ID: <1345448648-30449-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <kernel-janitors@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Julia Lawall <Julia.Lawall@lip6.fr>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <venkat.x.venkatsubra@oracle.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:46052 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755292Ab2HTHY6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 03:24:58 -0400
-In-Reply-To: <1345325159-7365-4-git-send-email-Julia.Lawall@lip6.fr>
+Received: from mail.windriver.com ([147.11.1.11]:61836 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755552Ab2HTHkK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 03:40:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/19/2012 12:25 AM, Julia Lawall wrote:
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
-> 
-> The result of one call to a function is tested, and then at the second call
-> to the same function, the previous result, and not the current result, is
-> tested again.
-> 
-> The semantic match that finds this problem is as follows:
-> (http://coccinelle.lip6.fr/)
-> 
-> // <smpl>
-> @@
-> expression ret;
-> identifier f;
-> statement S1,S2;
-> @@
-> 
-> *ret = f(...);
-> if (\(ret != 0\|ret < 0\|ret == NULL\)) S1
-> ... when any
-> *f(...);
-> if (\(ret != 0\|ret < 0\|ret == NULL\)) S2
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+Since we have already in BH context when *_write_space(),
+*_data_ready() as well as *_state_change() are called, it's
+unnecessary to disable BH.
 
-Thanks, but this was already fixed in ath6kl.git by this commit:
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+---
+ net/rds/tcp_connect.c | 4 ++--
+ net/rds/tcp_listen.c  | 4 ++--
+ net/rds/tcp_recv.c    | 4 ++--
+ net/rds/tcp_send.c    | 4 ++--
+ 4 files changed, 8 insertions(+), 8 deletions(-)
 
-commit 3206209f231062170f060fdbae38faacff86ddbf
-Author: Pandiyarajan Pitchaimuthu <c_ppitch@qca.qualcomm.com>
-Date:   Wed Jul 11 12:51:43 2012 +0530
-
-    ath6kl: Make use of return value from ath6kl_diag_read()
-
-    In ath6kl_read_fwlogs(), return value from ath6kl_diag_read()is not
-    used to bail out in case of any errors in reading fw log. No real issue
-    is observed because of this, reported by source code analyzer.
-
-    kvalo: fix a long line warning
-
-    Signed-off-by: Pandiyarajan Pitchaimuthu <c_ppitch@qca.qualcomm.com>
-    Signed-off-by: Kalle Valo <kvalo@qca.qualcomm.com>
-
-Kalle
+diff --git a/net/rds/tcp_connect.c b/net/rds/tcp_connect.c
+index af95c8e..a65ee78 100644
+--- a/net/rds/tcp_connect.c
++++ b/net/rds/tcp_connect.c
+@@ -43,7 +43,7 @@ void rds_tcp_state_change(struct sock *sk)
+ 	struct rds_connection *conn;
+ 	struct rds_tcp_connection *tc;
+ 
+-	read_lock_bh(&sk->sk_callback_lock);
++	read_lock(&sk->sk_callback_lock);
+ 	conn = sk->sk_user_data;
+ 	if (!conn) {
+ 		state_change = sk->sk_state_change;
+@@ -68,7 +68,7 @@ void rds_tcp_state_change(struct sock *sk)
+ 			break;
+ 	}
+ out:
+-	read_unlock_bh(&sk->sk_callback_lock);
++	read_unlock(&sk->sk_callback_lock);
+ 	state_change(sk);
+ }
+ 
+diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
+index 7298137..7787537 100644
+--- a/net/rds/tcp_listen.c
++++ b/net/rds/tcp_listen.c
+@@ -114,7 +114,7 @@ void rds_tcp_listen_data_ready(struct sock *sk, int bytes)
+ 
+ 	rdsdebug("listen data ready sk %p\n", sk);
+ 
+-	read_lock_bh(&sk->sk_callback_lock);
++	read_lock(&sk->sk_callback_lock);
+ 	ready = sk->sk_user_data;
+ 	if (!ready) { /* check for teardown race */
+ 		ready = sk->sk_data_ready;
+@@ -131,7 +131,7 @@ void rds_tcp_listen_data_ready(struct sock *sk, int bytes)
+ 		queue_work(rds_wq, &rds_tcp_listen_work);
+ 
+ out:
+-	read_unlock_bh(&sk->sk_callback_lock);
++	read_unlock(&sk->sk_callback_lock);
+ 	ready(sk, bytes);
+ }
+ 
+diff --git a/net/rds/tcp_recv.c b/net/rds/tcp_recv.c
+index 6243258..4fac4f2 100644
+--- a/net/rds/tcp_recv.c
++++ b/net/rds/tcp_recv.c
+@@ -322,7 +322,7 @@ void rds_tcp_data_ready(struct sock *sk, int bytes)
+ 
+ 	rdsdebug("data ready sk %p bytes %d\n", sk, bytes);
+ 
+-	read_lock_bh(&sk->sk_callback_lock);
++	read_lock(&sk->sk_callback_lock);
+ 	conn = sk->sk_user_data;
+ 	if (!conn) { /* check for teardown race */
+ 		ready = sk->sk_data_ready;
+@@ -336,7 +336,7 @@ void rds_tcp_data_ready(struct sock *sk, int bytes)
+ 	if (rds_tcp_read_sock(conn, GFP_ATOMIC) == -ENOMEM)
+ 		queue_delayed_work(rds_wq, &conn->c_recv_w, 0);
+ out:
+-	read_unlock_bh(&sk->sk_callback_lock);
++	read_unlock(&sk->sk_callback_lock);
+ 	ready(sk, bytes);
+ }
+ 
+diff --git a/net/rds/tcp_send.c b/net/rds/tcp_send.c
+index 1b4fd68..81cf5a4 100644
+--- a/net/rds/tcp_send.c
++++ b/net/rds/tcp_send.c
+@@ -174,7 +174,7 @@ void rds_tcp_write_space(struct sock *sk)
+ 	struct rds_connection *conn;
+ 	struct rds_tcp_connection *tc;
+ 
+-	read_lock_bh(&sk->sk_callback_lock);
++	read_lock(&sk->sk_callback_lock);
+ 	conn = sk->sk_user_data;
+ 	if (!conn) {
+ 		write_space = sk->sk_write_space;
+@@ -194,7 +194,7 @@ void rds_tcp_write_space(struct sock *sk)
+ 		queue_delayed_work(rds_wq, &conn->c_send_w, 0);
+ 
+ out:
+-	read_unlock_bh(&sk->sk_callback_lock);
++	read_unlock(&sk->sk_callback_lock);
+ 
+ 	/*
+ 	 * write_space is only called when data leaves tcp's send queue if
+-- 
+1.7.11
