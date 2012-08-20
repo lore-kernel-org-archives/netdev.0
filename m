@@ -1,49 +1,50 @@
-From: Allen and Violet Large <kalom.sugh@meduniwien.ac.at>
-Subject: Dear Sir/Madam
-Date: Sun, 19 Aug 2012 18:33:19 -0700
-Message-ID: <6cb2993f26cf4a73830b455007769cf4__8552.82232300869$1345426878$gmane$org@mail.meduniwien.ac.at>
-Reply-To: <allen.violetlarge101@yahoo.com.hk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: [PATCH v2] iproute2: configure: Add search path for 64bit library.
+Date: Mon, 20 Aug 2012 09:41:47 +0800
+Message-ID: <1345426907-4236-1-git-send-email-lw@cn.fujitsu.com>
+References: <20120813093323.1506aa83@nehalam.linuxnetplumber.net>
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	Li Wei <lw@cn.fujitsu.com>
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from maud.srv.meduniwien.ac.at ([149.148.224.13]:60625 "EHLO
-	smtpa.meduniwien.ac.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752022Ab2HTBlH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2012 21:41:07 -0400
+Received: from cn.fujitsu.com ([222.73.24.84]:43685 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752022Ab2HTBmz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Aug 2012 21:42:55 -0400
+In-Reply-To: <20120813093323.1506aa83@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Use pkg-config to tell us the library path and fallback to search
+old paths if xtables.pc not exists.
 
+Signed-off-by: Li Wei <lw@cn.fujitsu.com>
+---
 
+Changes from v1:
+- use pkg-config as Ben and Stephen suggested.
+
+ configure |    8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/configure b/configure
+index a1916de..db7cd6a 100755
+--- a/configure
++++ b/configure
+@@ -148,7 +148,13 @@ check_ipt()
+ 
+ check_ipt_lib_dir()
+ {
+-	IPT_LIB_DIR=""
++	IPT_LIB_DIR=$(pkg-config --variable=xtlibdir xtables)
++	if [ -n "$IPT_LIB_DIR" ]; then
++		echo $IPT_LIB_DIR
++		echo "IPT_LIB_DIR:=$IPT_LIB_DIR" >> Config
++		return
++	fi
++
+ 	for dir in /lib /usr/lib /usr/local/lib
+ 	do
+ 		for file in $dir/{xtables,iptables}/lib*t_*so ; do
 -- 
-Dear Sir/Madam,
-
-This is my fifth times of writting you this email since last year till
-date but no response from you.Hope you get this one, as this is a 
-personal
-email directed to you. My wife and I won a Jackpot Lotteryof $11.3 
-million
-in July and have voluntarily decided to donate the sum of $500,000.00 
-USD
-to you as part of our own charity project to improve the lot of 10 
-lucky
-individuals all over the world. If you have received this email then 
-you
-are one of the lucky recipients and all you have to do is get back with 
-us
-so that we can send your details to the payout bank.Please note that 
-you
-have to contact my private email for more
-informations(allen.violetlarge101@yahoo.com.hk)
-
-You can verify this by visiting the web pages below.
-
-http://gimundo.com/news/article/lottery-winners-allen-and-violet-large-give-11-million-fortune-to-charity/
-
-
-Goodluck,
-Allen and Violet Large
-Email:allen.violetlarge101@yahoo.com.hk
+1.7.10.1
