@@ -1,36 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]: net: ipv6: fix oops in inet_putpeer()
-Date: Mon, 20 Aug 2012 02:58:22 -0700 (PDT)
-Message-ID: <20120820.025822.875182755255293091.davem@davemloft.net>
-References: <Pine.GSO.4.63.1208181729020.7404@stinky-local.trash.net>
+Subject: Re: [Patch] netconsole: remove a redundant netconsole_target_put()
+Date: Mon, 20 Aug 2012 03:00:32 -0700 (PDT)
+Message-ID: <20120820.030032.626018195082995969.davem@davemloft.net>
+References: <1345309340-15499-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52804 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52822 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751390Ab2HTJ6X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 05:58:23 -0400
-In-Reply-To: <Pine.GSO.4.63.1208181729020.7404@stinky-local.trash.net>
+	with ESMTP id S1751448Ab2HTKAd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 06:00:33 -0400
+In-Reply-To: <1345309340-15499-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Sat, 18 Aug 2012 17:32:31 +0200 (MEST)
+From: Cong Wang <amwang@redhat.com>
+Date: Sun, 19 Aug 2012 01:02:20 +0800
 
-> The attached patch fixes an oops in inet_putpeer(). Please see the
-> changelog entry for details.
+> This netconsole_target_put() is obviously redundant, and it
+> causes a kernel segfault when removing a bridge device which has
+> netconsole running on it.
 > 
-> An alternative fix would be to check whether rt6_peer_ptr() returns
-> NULL before invoking inet_putpeer(), but properly initializing the
-> peer looks cleaner to me.
+> This is caused by:
+> 
+> 	commit 8d8fc29d02a33e4bd5f4fa47823c1fd386346093
+> 	Author: Amerigo Wang <amwang@redhat.com>
+> 	Date:   Thu May 19 21:39:10 2011 +0000
+> 
+> 	    netpoll: disable netpoll when enslave a device
+> 
+> Cc: David Miller <davem@davemloft.net>
+>  (for all 3.x stable releases)
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-This is fine for now, applied, thanks Patrick.
-
-There was a built-in assumption that xfrm_fill_dst() would run to
-completion before we'd try to release these things, because there in
-xfrm6_policy.c's xfrm6_fill_dst, we'd do the rt6_transfer_peer().
-
-But that's obviously not the case if errors happen meanwhile.
+Applied, thanks.
