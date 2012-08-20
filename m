@@ -1,46 +1,52 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] cls_cgroup: Allow classifier cgroups to have their classid reset to 0
-Date: Mon, 20 Aug 2012 13:59:10 -0400
-Message-ID: <1345485550-15556-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:54227 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750828Ab2HTR7U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 13:59:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vasiliy Kulikov <segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH 07/21] userns: Use kgids for sysctl_ping_group_range
+Date: Mon, 20 Aug 2012 22:09:23 +0400
+Message-ID: <20120820180923.GA13669@cachalot>
+References: <87ehnav9n5.fsf@xmission.com>
+	<1344889115-21610-1-git-send-email-ebiederm@xmission.com>
+	<1344889115-21610-7-git-send-email-ebiederm@xmission.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1344889115-21610-7-git-send-email-ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The network classifier cgroup initalizes each cgroups instance classid value to
-0.  However, the sock_update_classid function only updates classid's in sockets
-if the tasks cgroup classid is not zero, and if it differs from the current
-classid.  The later check is to prevent cache line dirtying, but the former is
-detrimental, as it prevents resetting a classid for a cgroup to 0.  While this
-is not a common action, it has administrative usefulness (if the admin wants to
-disable classification of a certain group temporarily for instance).
+On Mon, Aug 13, 2012 at 13:18 -0700, Eric W. Biederman wrote:
+> From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+> 
+> - Store sysctl_ping_group_range as a paire of kgid_t values
+>   instead of a pair of gid_t values.
+> - Move the kgid conversion work from ping_init_sock into ipv4_ping_group_range
+> - For invalid cases reset to the default disabled state.
+> 
+> With the kgid_t conversion made part of the original value sanitation
+> from userspace understand how the code will react becomes clearer
+> and it becomes possible to set the sysctl ping group range from
+> something other than the initial user namespace.
+> 
+> Cc: Vasiliy Kulikov <segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
+> Signed-off-by: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 
-Easy fix, just remove the zero check.  Tested successfully by myself
+Looks good.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
----
- net/core/sock.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Acked-by: Vasiliy Kulikov <segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 8f67ced..116786c 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1230,7 +1230,7 @@ void sock_update_classid(struct sock *sk)
- 	rcu_read_lock();  /* doing current task, which cannot vanish. */
- 	classid = task_cls_classid(current);
- 	rcu_read_unlock();
--	if (classid && classid != sk->sk_classid)
-+	if (classid != sk->sk_classid)
- 		sk->sk_classid = classid;
- }
- EXPORT_SYMBOL(sock_update_classid);
+Thanks,
+
 -- 
-1.7.7.6
+Vasiliy Kulikov
+http://www.openwall.com - bringing security into open computing environments
