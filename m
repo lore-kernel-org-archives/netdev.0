@@ -1,111 +1,66 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] ethtool: don't overwrite useful bits in advertising
- bitfield
-Date: Mon, 20 Aug 2012 16:22:58 +0100
-Message-ID: <1345476178.2659.15.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1344953745-13208-1-git-send-email-johangu@axis.com>
+Subject: Re: [PATCH v2] iproute2: configure: Add search path for 64bit
+ library.
+Date: Mon, 20 Aug 2012 16:30:36 +0100
+Message-ID: <1345476636.2659.18.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20120813093323.1506aa83@nehalam.linuxnetplumber.net>
+	 <1345426907-4236-1-git-send-email-lw@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <starvik@axis.com>
-To: Johan Gunnarsson <johan.gunnarsson@axis.com>
+Cc: <shemminger@vyatta.com>, <netdev@vger.kernel.org>
+To: Li Wei <lw@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:62946 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:41172 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757005Ab2HTPXD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 11:23:03 -0400
-In-Reply-To: <1344953745-13208-1-git-send-email-johangu@axis.com>
+	by vger.kernel.org with ESMTP id S1757031Ab2HTPaj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 11:30:39 -0400
+In-Reply-To: <1345426907-4236-1-git-send-email-lw@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-08-14 at 16:15 +0200, Johan Gunnarsson wrote:
-> There are bits in this bitfield that we want to leave untouched (PAUSE
-> and ASYM_PAUSE bits) when changing other bits (speed and duplex bits.)
-> Previously, these were always overwritten to zero when running commands
-> like "ethtool -s eth0 speed 10 duplex full autoneg off".
-
-This is right in principle, but the implementation isn't quite right.
-
-> Signed-off-by: Johan Gunnarsson <johangu@axis.com>
-> ---
->  ethtool.c |   45 +++++++++++++++++++++++++++++++--------------
->  1 file changed, 31 insertions(+), 14 deletions(-)
+On Mon, 2012-08-20 at 09:41 +0800, Li Wei wrote:
+> Use pkg-config to tell us the library path and fallback to search
+> old paths if xtables.pc not exists.
 > 
-> diff --git a/ethtool.c b/ethtool.c
-> index e573357..efa12c7 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -46,6 +46,18 @@
->  #define MAX_ADDR_LEN	32
->  #endif
->  
-> +#define ALL_ADVERTISED_MODES \
-> +	(ADVERTISED_10baseT_Half | \
-> +	 ADVERTISED_10baseT_Full | \
-> +	 ADVERTISED_100baseT_Half | \
-> +	 ADVERTISED_100baseT_Full | \
-> +	 ADVERTISED_1000baseT_Half | \
-> +	 ADVERTISED_1000baseT_Full | \
-> +	 ADVERTISED_2500baseX_Full | \
-> +	 ADVERTISED_10000baseT_Full | \
-> +	 ADVERTISED_20000baseMLD2_Full | \
-> +	 ADVERTISED_20000baseKR2_Full)
+> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
 
-This is missing the new 40G modes (not a regression, I realise).
+Tested-by: Ben Hutchings <bhutchings@solarflare.com>
 
-[...]
-> @@ -2405,19 +2421,20 @@ static int do_sset(struct cmd_context *ctx)
->  			}
->  			if (autoneg_wanted == AUTONEG_ENABLE &&
->  			    advertising_wanted == 0) {
-> -				ecmd.advertising = ecmd.supported &
-> -					(ADVERTISED_10baseT_Half |
-> -					 ADVERTISED_10baseT_Full |
-> -					 ADVERTISED_100baseT_Half |
-> -					 ADVERTISED_100baseT_Full |
-> -					 ADVERTISED_1000baseT_Half |
-> -					 ADVERTISED_1000baseT_Full |
-> -					 ADVERTISED_2500baseX_Full |
-> -					 ADVERTISED_10000baseT_Full |
-> -					 ADVERTISED_20000baseMLD2_Full |
-> -					 ADVERTISED_20000baseKR2_Full);
-> +				/* Auto negotation enabled, but with
-> +				 * unspecified speed and duplex: enable all
-> +				 * supported speeds and duplexes.
-> +				 */
-> +				ecmd.advertising = (ecmd.advertising &
-> +					~ALL_ADVERTISED_MODES) |
-> +					(ALL_ADVERTISED_MODES & ecmd.supported);
+Works for me on Fedora 16.
 
-Perhaps we should also warn if there's a 'supported' flag we don't
-recognise, because we don't know whether it's a link mode and we might
-be failing to enable/disable it as requested.
-
->  			} else if (advertising_wanted > 0) {
-> -				ecmd.advertising = advertising_wanted;
-> +				/* Enable all requested modes */
-> +				ecmd.advertising = (ecmd.advertising &
-> +					~ALL_ADVERTISED_MODES) |
-> +					(advertising_wanted & ecmd.supported);
-
-I don't think the '& ecmd.supported' here is right.  If an autoneg
-device supports some new link mode L that is not in
-ALL_ADVERTISED_MODES, but not link mode M which the user requested, then
-this can silently fail because the resulting advertising mask will
-include L but not M.
-
-We should either use advertising_wanted unmasked and let the driver
-validate it, or report an error if it's not present in the supported
-mask.  I think we should be consistent with the following case, i.e. let
-the driver validate it.
+You should probably change the subject line, as this doesn't change the
+search path but mostly replaces it.
 
 Ben.
 
-> +			} else if (full_advertising_wanted > 0) {
-> +				ecmd.advertising = full_advertising_wanted;
->  			}
+> ---
+> 
+> Changes from v1:
+> - use pkg-config as Ben and Stephen suggested.
+> 
+>  configure |    8 +++++++-
+>  1 file changed, 7 insertions(+), 1 deletion(-)
+> 
+> diff --git a/configure b/configure
+> index a1916de..db7cd6a 100755
+> --- a/configure
+> +++ b/configure
+> @@ -148,7 +148,13 @@ check_ipt()
 >  
->  			/* Try to perform the update. */
+>  check_ipt_lib_dir()
+>  {
+> -	IPT_LIB_DIR=""
+> +	IPT_LIB_DIR=$(pkg-config --variable=xtlibdir xtables)
+> +	if [ -n "$IPT_LIB_DIR" ]; then
+> +		echo $IPT_LIB_DIR
+> +		echo "IPT_LIB_DIR:=$IPT_LIB_DIR" >> Config
+> +		return
+> +	fi
+> +
+>  	for dir in /lib /usr/lib /usr/local/lib
+>  	do
+>  		for file in $dir/{xtables,iptables}/lib*t_*so ; do
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
