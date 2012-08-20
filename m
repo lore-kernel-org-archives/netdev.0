@@ -1,38 +1,41 @@
-From: Sylvain Munaut <s.munaut@whatever-company.com>
-Subject: Re: Fwd: TCP fragmentation broken in 3.6-rc ?
-Date: Mon, 20 Aug 2012 17:52:34 +0200
-Message-ID: <CAF6-1L7R_N1JkubzLwbv9eVX0F+QTtB5SXaRnXU1vBnb_avSMg@mail.gmail.com>
-References: <CAF6-1L6xy1rRd321ZMzrLG6xHMdO0+sdjbtznUOsMzfYyU1SEg@mail.gmail.com>
-	<CAF6-1L5bnhHfXide-=+4WmskR6xGLg4q+RWHebH+GiX7P-RX+Q@mail.gmail.com>
-	<1345475670.5158.322.camel@edumazet-glaptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] iproute2: fix typo in help message.
+Date: Mon, 20 Aug 2012 09:00:23 -0700
+Message-ID: <20120820090023.5d0bcd7a@nehalam.linuxnetplumber.net>
+References: <1345444127-27932-1-git-send-email-lw@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Li Wei <lw@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:40832 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753221Ab2HTPwf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 11:52:35 -0400
-Received: by vbbff1 with SMTP id ff1so5450739vbb.19
-        for <netdev@vger.kernel.org>; Mon, 20 Aug 2012 08:52:34 -0700 (PDT)
-In-Reply-To: <1345475670.5158.322.camel@edumazet-glaptop>
+Received: from mail.vyatta.com ([76.74.103.46]:56316 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752860Ab2HTQAn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Aug 2012 12:00:43 -0400
+In-Reply-To: <1345444127-27932-1-git-send-email-lw@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Mon, 20 Aug 2012 14:28:47 +0800
+Li Wei <lw@cn.fujitsu.com> wrote:
 
-> Could you make sure its not a pfmemalloc problem, by applying following
-> patch :
->
-> https://lkml.org/lkml/2012/8/20/182
+> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
+> ---
+>  bridge/fdb.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/bridge/fdb.c b/bridge/fdb.c
+> index 2bbdaa6..c6aa08e 100644
+> --- a/bridge/fdb.c
+> +++ b/bridge/fdb.c
+> @@ -239,6 +239,6 @@ int do_fdb(int argc, char **argv)
+>  	} else
+>  		return fdb_show(0, NULL);
+>  
+> -	fprintf(stderr, "Command \"%s\" is unknown, try \"ip neigh help\".\n", *argv);
+> +	fprintf(stderr, "Command \"%s\" is unknown, try \"bridge fdb help\".\n", *argv);
+>  	exit(-1);
+>  }
 
-I just tried it, but unfortunately it doesn't fix the problem :(
-
-It may have improved a bit (seems like it takes 20/25 min to break now
-... but it might just be random luck)
-
-
-Cheers,
-
-    Sylvain
+Applied
