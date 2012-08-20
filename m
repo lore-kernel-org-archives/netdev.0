@@ -1,44 +1,57 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: 3.5.1 fib_rules_lookup oops
-Date: Mon, 20 Aug 2012 13:22:40 -0400
-Message-ID: <20120820172240.GA378@redhat.com>
-References: <20120820164428.GA27910@redhat.com>
- <1345481979.5158.333.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] ipv4: fix ip header ident selection in __ip_make_skb()
+Date: Mon, 20 Aug 2012 19:26:45 +0200
+Message-ID: <1345483605.5158.345.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Fedora Kernel Team <kernel-team@fedoraproject.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Christian Casteyde <casteyde.christian@free.fr>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63071 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754044Ab2HTRWp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Aug 2012 13:22:45 -0400
-Content-Disposition: inline
-In-Reply-To: <1345481979.5158.333.camel@edumazet-glaptop>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:59606 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752845Ab2HTR0v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 13:26:51 -0400
+Received: by bkwj10 with SMTP id j10so1937607bkw.19
+        for <netdev@vger.kernel.org>; Mon, 20 Aug 2012 10:26:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 20, 2012 at 06:59:39PM +0200, Eric Dumazet wrote:
- > On Mon, 2012-08-20 at 12:44 -0400, Dave Jones wrote:
- > > Just had a user report this, which I don't think I've seen reported here yet.
- > > Something new, or just something missing from -stable ?
- > > 
- > > 	Dave
- > > 
- > > 
- > > BUG: unable to handle kernel paging request at 5f726571
- > > IP: [<c0884808>] fib_rules_lookup+0x38/0x130
- > > *pdpt = 000000002b8ef001 *pde = 0000000000000000 
- > > Oops: 0000 [#1] SMP 
- > 
- > It looks like a buffer overflow or memory reuse
- > 
- > 5f726565 is not a valid pointer, but ASCII "eer_"
+From: Eric Dumazet <edumazet@google.com>
 
-Yeah.
+Christian Casteyde reported a kmemcheck 32-bit read from uninitialized
+memory in __ip_select_ident().
 
-Same user reported a slew of other problems, so he may have bad hardware.
-I've asked him to run a memtest to rule that out.
+It turns out that __ip_make_skb() called ip_select_ident() before
+properly initializing iph->daddr.
 
-	Dave
+This is a bug uncovered by commit 1d861aa4b3fb (inet: Minimize use of
+cached route inetpeer.)
+
+Addresses https://bugzilla.kernel.org/show_bug.cgi?id=46131
+
+Reported-by: Christian Casteyde <casteyde.christian@free.fr>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+---
+ net/ipv4/ip_output.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 147ccc3..c196d74 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1338,10 +1338,10 @@ struct sk_buff *__ip_make_skb(struct sock *sk,
+ 	iph->ihl = 5;
+ 	iph->tos = inet->tos;
+ 	iph->frag_off = df;
+-	ip_select_ident(iph, &rt->dst, sk);
+ 	iph->ttl = ttl;
+ 	iph->protocol = sk->sk_protocol;
+ 	ip_copy_addrs(iph, fl4);
++	ip_select_ident(iph, &rt->dst, sk);
+ 
+ 	if (opt) {
+ 		iph->ihl += opt->optlen>>2;
