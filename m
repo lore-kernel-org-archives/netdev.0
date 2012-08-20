@@ -1,56 +1,61 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [RFC PATCH 1/1] fair.c: Add/Export find_idlest_perfer_cpu API
-Date: Mon, 20 Aug 2012 15:17:21 -0700
-Message-ID: <1345501041.6378.10.camel@oc3660625478.ibm.com>
-References: <1345232770.16533.234.camel@oc3660625478.ibm.com>
-	 <1345464035.23018.38.camel@twins>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: regression with poll(2)
+Date: Mon, 20 Aug 2012 16:20:46 -0700
+Message-ID: <20120820162046.f827f758.akpm@linux-foundation.org>
+References: <alpine.DEB.2.00.1208151226250.15721@cobra.newdream.net>
+	<alpine.DEB.2.00.1208191051150.15570@cobra.newdream.net>
+	<20120820090443.GA3275@suse.de>
+	<1345455059.5158.302.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, mingo@redhat.com,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	sri@us.ibm.com, vivek@us.ibm.com
-To: Peter Zijlstra <peterz@infradead.org>
+Cc: Mel Gorman <mgorman@suse.de>, Sage Weil <sage@inktank.com>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ceph-devel@vger.kernel.org,
+	neilb@suse.de, a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu,
+	emunson@mgebm.net, sebastian@breakpoint.cc, cl@linux.com,
+	torvalds@linux-foundation.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1345464035.23018.38.camel@twins>
+In-Reply-To: <1345455059.5158.302.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-08-20 at 14:00 +0200, Peter Zijlstra wrote:
-> On Fri, 2012-08-17 at 12:46 -0700, Shirley Ma wrote:
-> > Add/Export a new API for per-cpu thread model networking device
-> driver
-> > to choose a preferred idlest cpu within allowed cpumask.
-> > 
-> > The receiving CPUs of a networking device are not under cgroup
-> controls.
-> > Normally the receiving work will be scheduled on the cpu on which
-> the
-> > interrupts are received. When such a networking device uses per-cpu
-> > thread model, the cpu which is chose to process the packets might
-> not be
-> > part of cgroup cpusets without using such an API here. 
-> > 
-> > On NUMA system, by using the preferred cpumask from the same NUMA
-> node
-> > would help to reduce expensive cross memory access to/from the other
-> > NUMA node.
-> > 
-> > KVM per-cpu vhost will be the first one to use this API. Any other
-> > device driver which uses per-cpu thread model and has cgroup cpuset
-> > control will use this API later.
+On Mon, 20 Aug 2012 11:30:59 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> On Mon, 2012-08-20 at 10:04 +0100, Mel Gorman wrote:
 > 
-> How often will this be called and how do you obtain the cpumasks
-> provided to the function? 
+> > Can the following patch be tested please? It is reported to fix an fio
+> > regression that may be similar to what you are experiencing but has not
+> > been picked up yet.
+> > 
+> > -
+> 
+> This seems to help here.
+> 
+> Boot your machine with "mem=768M" or a bit less depending on your setup,
+> and try a netperf.
+> 
+> -> before patch :
+> 
+> # netperf
+> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+> localhost.localdomain () port 0 AF_INET
+> Recv   Send    Send                          
+> Socket Socket  Message  Elapsed              
+> Size   Size    Size     Time     Throughput  
+> bytes  bytes   bytes    secs.    10^6bits/sec  
+> 
+>  87380  16384  16384    14.00       6.05   
+> 
+> -> after patch :
+> 
+> Recv   Send    Send                          
+> Socket Socket  Message  Elapsed              
+> Size   Size    Size     Time     Throughput  
+> bytes  bytes   bytes    secs.    10^6bits/sec  
+> 
+>  87380  16384  16384    10.00    18509.73   
 
-It depends. It might be called pretty often if the user keeps changing
-cgroups control cpuset. It might be less called if the cgroups control
-cpuset is stable, and the host scheduler always schedules the work on
-the same NUMA node.
-
-The preferred cpumasks are obtained from local numa node. The allowed
-cpumasks are obtained from caller's task allowed cpumasks (cgroups
-control cpuset).
-
-Thanks
-Shirley
+"seem to help"?  Was previous performance fully restored?
