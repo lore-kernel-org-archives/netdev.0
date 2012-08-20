@@ -1,103 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] xfrm: fix RCU bugs
-Date: Mon, 20 Aug 2012 07:33:20 +0200
-Message-ID: <1345440800.5158.239.camel@edumazet-glaptop>
-References: <1345372308.5158.54.camel@edumazet-glaptop>
-	 <5031BFB1.200@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, fengguang.wu@intel.com,
-	Priyanka Jain <Priyanka.Jain@freescale.com>
-To: Fan Du <fan.du@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:59614 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753738Ab2HTFdZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2012 01:33:25 -0400
-Received: by wgbdr13 with SMTP id dr13so5018791wgb.1
-        for <netdev@vger.kernel.org>; Sun, 19 Aug 2012 22:33:24 -0700 (PDT)
-In-Reply-To: <5031BFB1.200@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH 01/11] netlink: add symbolic value for congested state
+Date: Mon, 20 Aug 2012 08:18:42 +0200
+Message-ID: <1345443532-3707-2-git-send-email-kaber@trash.net>
+References: <1345443532-3707-1-git-send-email-kaber@trash.net>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Florian.Westphal@Sophos.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1345443532-3707-1-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-08-20 at 12:40 +0800, Fan Du wrote:
-> Hi Eric
->=20
-> Please correct me if I'm wrong about below comments.
->=20
-> On 2012=E5=B9=B408=E6=9C=8819=E6=97=A5 18:31, Eric Dumazet wrote:
-> > From: Eric Dumazet<edumazet@google.com>
-> >
-> > This patch reverts commit 56892261ed1a (xfrm: Use rcu_dereference_b=
-h to
-> > deference pointer protected by rcu_read_lock_bh), and fixes bugs
-> > introduced in commit 418a99ac6ad ( Replace rwlock on xfrm_policy_af=
-info
-> > with rcu )
-> >
-> > 1) We properly use RCU variant in this file, not a mix of RCU/RCU_B=
-H
-> >
-> > 2) We must defer some writes after the synchronize_rcu() call or a =
-reader
-> >   can crash dereferencing NULL pointer.
->=20
-> Not exactly.
->=20
-> net/ipv4/xfrm4_policy.c
-> static void __exit xfrm4_policy_fini(void)
->    -> xfrm_policy_unregister_afinfo
->=20
-> IMHO, ip stack can never be compiled as module, so is xfrm4_policy_fi=
-ni
-> freed up after system bootup? which means xfrm4_policy_fini can never=
- be
-> called.
->=20
-> so an dereferencing NULL pointer by a reader could not happen.
->=20
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ net/netlink/af_netlink.c |   18 +++++++++++-------
+ 1 files changed, 11 insertions(+), 7 deletions(-)
 
-Last famous words.
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 5463969..1bdfa52 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -89,6 +89,10 @@ struct listeners {
+ 	unsigned long		masks[0];
+ };
+ 
++/* state bits */
++#define NETLINK_CONGESTED	0x0
++
++/* flags */
+ #define NETLINK_KERNEL_SOCKET	0x1
+ #define NETLINK_RECV_PKTINFO	0x2
+ #define NETLINK_BROADCAST_SEND_ERROR	0x4
+@@ -762,7 +766,7 @@ static void netlink_overrun(struct sock *sk)
+ 	struct netlink_sock *nlk = nlk_sk(sk);
+ 
+ 	if (!(nlk->flags & NETLINK_RECV_NO_ENOBUFS)) {
+-		if (!test_and_set_bit(0, &nlk_sk(sk)->state)) {
++		if (!test_and_set_bit(NETLINK_CONGESTED, &nlk_sk(sk)->state)) {
+ 			sk->sk_err = ENOBUFS;
+ 			sk->sk_error_report(sk);
+ 		}
+@@ -823,7 +827,7 @@ int netlink_attachskb(struct sock *sk, struct sk_buff *skb,
+ 	nlk = nlk_sk(sk);
+ 
+ 	if (atomic_read(&sk->sk_rmem_alloc) > sk->sk_rcvbuf ||
+-	    test_bit(0, &nlk->state)) {
++	    test_bit(NETLINK_CONGESTED, &nlk->state)) {
+ 		DECLARE_WAITQUEUE(wait, current);
+ 		if (!*timeo) {
+ 			if (!ssk || netlink_is_kernel(ssk))
+@@ -837,7 +841,7 @@ int netlink_attachskb(struct sock *sk, struct sk_buff *skb,
+ 		add_wait_queue(&nlk->wait, &wait);
+ 
+ 		if ((atomic_read(&sk->sk_rmem_alloc) > sk->sk_rcvbuf ||
+-		     test_bit(0, &nlk->state)) &&
++		     test_bit(NETLINK_CONGESTED, &nlk->state)) &&
+ 		    !sock_flag(sk, SOCK_DEAD))
+ 			*timeo = schedule_timeout(*timeo);
+ 
+@@ -907,8 +911,8 @@ static void netlink_rcv_wake(struct sock *sk)
+ 	struct netlink_sock *nlk = nlk_sk(sk);
+ 
+ 	if (skb_queue_empty(&sk->sk_receive_queue))
+-		clear_bit(0, &nlk->state);
+-	if (!test_bit(0, &nlk->state))
++		clear_bit(NETLINK_CONGESTED, &nlk->state);
++	if (!test_bit(NETLINK_CONGESTED, &nlk->state))
+ 		wake_up_interruptible(&nlk->wait);
+ }
+ 
+@@ -990,7 +994,7 @@ static int netlink_broadcast_deliver(struct sock *sk, struct sk_buff *skb)
+ 	struct netlink_sock *nlk = nlk_sk(sk);
+ 
+ 	if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf &&
+-	    !test_bit(0, &nlk->state)) {
++	    !test_bit(NETLINK_CONGESTED, &nlk->state)) {
+ 		skb_set_owner_r(skb, sk);
+ 		__netlink_sendskb(sk, skb);
+ 		return atomic_read(&sk->sk_rmem_alloc) > (sk->sk_rcvbuf >> 1);
+@@ -1270,7 +1274,7 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
+ 	case NETLINK_NO_ENOBUFS:
+ 		if (val) {
+ 			nlk->flags |= NETLINK_RECV_NO_ENOBUFS;
+-			clear_bit(0, &nlk->state);
++			clear_bit(NETLINK_CONGESTED, &nlk->state);
+ 			wake_up_interruptible(&nlk->wait);
+ 		} else {
+ 			nlk->flags &= ~NETLINK_RECV_NO_ENOBUFS;
+-- 
+1.7.7.6
 
-Anyway xfrm_policy_unregister_afinfo() is also called from
-xfrm6_policy_fini(), and IPv6 is a module. The day we can rmmod it,
-we uncover this bug.
-
-RCU is complex (most people dont get it right, thats the truth),
-and we should make it rock solid, or I can guarantee you
-many patch attempts from future readers of this code.
-
-You wont tell them :
-
-"OK but dont worry we never call this function for real, why do you car=
-e
-at all"
-
-> >
-> > 3) Now we use the xfrm_policy_afinfo_lock spinlock only from proces=
-s
-> > context, we no longer need to block BH in xfrm_policy_register_afin=
-fo()
-> > and xfrm_policy_unregister_afinfo()
-> >
-> I don't think it's related to what kinds of locks we are using.
-> we call xfrm_policy_register_afinfo in process context, but actually
-> what xfrm_policy_afinfo_lock protected can be used in soft irq contex=
-t.
-> that's why xx_bh is used in:
-
-You did an RCU conversion and obviously have little idea of what
-happened there.
-
-This _bh stuff was needed because _before_ RCU, an rwlock was used.
-
-And since read_lock() was used from BH handler, _all_ write_lock() had
-to use the write_lock_bh() variant to avoid a possible deadlock.
-
-But after RCU, this no longer is needed, as an rcu_read_lock() cannot
-block a writer anymore in the lock/unlock section.
-
-In fact, xfrm_policy_afinfo_lock could be replaced by a mutex. So _bh()
-is absolutely not needed anymore.
