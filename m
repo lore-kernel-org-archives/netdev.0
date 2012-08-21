@@ -1,71 +1,51 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [RFC PATCH 1/1] fair.c: Add/Export find_idlest_perfer_cpu API
-Date: Tue, 21 Aug 2012 09:07:00 +0200
-Message-ID: <1345532820.23018.81.camel@twins>
-References: <1345232770.16533.234.camel@oc3660625478.ibm.com>
-	 <1345464035.23018.38.camel@twins>
-	 <1345501041.6378.10.camel@oc3660625478.ibm.com>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: regression with poll(2)
+Date: Tue, 21 Aug 2012 08:05:15 +0100
+Message-ID: <20120821070515.GA1657@suse.de>
+References: <alpine.DEB.2.00.1208151226250.15721@cobra.newdream.net>
+ <alpine.DEB.2.00.1208191051150.15570@cobra.newdream.net>
+ <20120820090443.GA3275@suse.de>
+ <alpine.DEB.2.00.1208200930510.26904@cobra.newdream.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel@vger.kernel.org, mingo@redhat.com,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	sri@us.ibm.com, vivek@us.ibm.com
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:37880 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753318Ab2HUHHM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 03:07:12 -0400
-In-Reply-To: <1345501041.6378.10.camel@oc3660625478.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ceph-devel@vger.kernel.org,
+	neilb@suse.de, a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu,
+	emunson@mgebm.net, eric.dumazet@gmail.com, sebastian@breakpoint.cc,
+	cl@linux.com, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org
+To: Sage Weil <sage@inktank.com>
+Return-path: <ceph-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.00.1208200930510.26904@cobra.newdream.net>
+Sender: ceph-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-08-20 at 15:17 -0700, Shirley Ma wrote:
-> On Mon, 2012-08-20 at 14:00 +0200, Peter Zijlstra wrote:
-> > On Fri, 2012-08-17 at 12:46 -0700, Shirley Ma wrote:
-> > > Add/Export a new API for per-cpu thread model networking device
-> > driver
-> > > to choose a preferred idlest cpu within allowed cpumask.
-> > > 
-> > > The receiving CPUs of a networking device are not under cgroup
-> > controls.
-> > > Normally the receiving work will be scheduled on the cpu on which
-> > the
-> > > interrupts are received. When such a networking device uses per-cpu
-> > > thread model, the cpu which is chose to process the packets might
-> > not be
-> > > part of cgroup cpusets without using such an API here. 
-> > > 
-> > > On NUMA system, by using the preferred cpumask from the same NUMA
-> > node
-> > > would help to reduce expensive cross memory access to/from the other
-> > > NUMA node.
-> > > 
-> > > KVM per-cpu vhost will be the first one to use this API. Any other
-> > > device driver which uses per-cpu thread model and has cgroup cpuset
-> > > control will use this API later.
+On Mon, Aug 20, 2012 at 09:54:59AM -0700, Sage Weil wrote:
+> > <SNIP>
 > > 
-> > How often will this be called and how do you obtain the cpumasks
-> > provided to the function? 
+> > > I've retested several times and confirmed that this change leads to the 
+> > > breakage, and also confirmed that reverting it on top of -rc1 also fixes 
+> > > the problem.
+> > > 
+> > > I've also added some additional instrumentation to my code and confirmed 
+> > > that the process is blocking on poll(2) while netstat is reporting 
+> > > data available on the socket.
+> > > 
+> > > What can I do to help track this down?
+> > > 
+> > 
+> > Can the following patch be tested please? It is reported to fix an fio
+> > regression that may be similar to what you are experiencing but has not
+> > been picked up yet.
 > 
-> It depends. It might be called pretty often if the user keeps changing
-> cgroups control cpuset. It might be less called if the cgroups control
-> cpuset is stable, and the host scheduler always schedules the work on
-> the same NUMA node.
+> This patch appears to resolve things for me as well, at least after a 
+> couple of passes.  I'll let you know if I see any further problems come up 
+> with more testing.
+> 
 
-This just doesn't make any sense, you're scanning for the least loaded
-cpu, this is unrelated to a change in cpuset. So tying the scan
-frequency to changes in configuration is just broken.
+Thanks very much Sage.
 
-> The preferred cpumasks are obtained from local numa node.
-
-So why pass it as argument at all? Also, who says the current node is
-the right one? It might just be running there temporarily.
-
->  The allowed
-> cpumasks are obtained from caller's task allowed cpumasks (cgroups
-> control cpuset).
-
-task->cpus_allowed != cpusets.. Also, since you're using
-task->cpus_allowed, pass a task_struct *, not a cpumask.
+-- 
+Mel Gorman
+SUSE Labs
