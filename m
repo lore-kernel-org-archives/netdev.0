@@ -1,61 +1,81 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: regression with poll(2)
-Date: Mon, 20 Aug 2012 16:20:46 -0700
-Message-ID: <20120820162046.f827f758.akpm@linux-foundation.org>
-References: <alpine.DEB.2.00.1208151226250.15721@cobra.newdream.net>
-	<alpine.DEB.2.00.1208191051150.15570@cobra.newdream.net>
-	<20120820090443.GA3275@suse.de>
-	<1345455059.5158.302.camel@edumazet-glaptop>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 3/3] netfilter: replace list_for_each_continue_rcu with
+ new interface
+Date: Mon, 20 Aug 2012 17:02:55 -0700
+Message-ID: <20120821000254.GP2435@linux.vnet.ibm.com>
+References: <502CB939.3050008@linux.vnet.ibm.com>
+ <502DC9A3.2070703@linux.vnet.ibm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Mel Gorman <mgorman@suse.de>, Sage Weil <sage@inktank.com>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ceph-devel@vger.kernel.org,
-	neilb@suse.de, a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu,
-	emunson@mgebm.net, sebastian@breakpoint.cc, cl@linux.com,
-	torvalds@linux-foundation.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1345455059.5158.302.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	netfilter-devel@vger.kernel.org,
+	David Miller <davem@davemloft.net>, kaber@trash.net,
+	pablo@netfilter.org
+To: Michael Wang <wangyun@linux.vnet.ibm.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <502DC9A3.2070703@linux.vnet.ibm.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Aug 2012 11:30:59 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Fri, Aug 17, 2012 at 12:33:39PM +0800, Michael Wang wrote:
+> From: Michael Wang <wangyun@linux.vnet.ibm.com>
+> 
+> This patch replaces list_for_each_continue_rcu() with
+> list_for_each_entry_continue_rcu() to allow removing
+> list_for_each_continue_rcu().
+> 
+> Signed-off-by: Michael Wang <wangyun@linux.vnet.ibm.com>
 
-> On Mon, 2012-08-20 at 10:04 +0100, Mel Gorman wrote:
-> 
-> > Can the following patch be tested please? It is reported to fix an fio
-> > regression that may be similar to what you are experiencing but has not
-> > been picked up yet.
-> > 
-> > -
-> 
-> This seems to help here.
-> 
-> Boot your machine with "mem=768M" or a bit less depending on your setup,
-> and try a netperf.
-> 
-> -> before patch :
-> 
-> # netperf
-> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> localhost.localdomain () port 0 AF_INET
-> Recv   Send    Send                          
-> Socket Socket  Message  Elapsed              
-> Size   Size    Size     Time     Throughput  
-> bytes  bytes   bytes    secs.    10^6bits/sec  
-> 
->  87380  16384  16384    14.00       6.05   
-> 
-> -> after patch :
-> 
-> Recv   Send    Send                          
-> Socket Socket  Message  Elapsed              
-> Size   Size    Size     Time     Throughput  
-> bytes  bytes   bytes    secs.    10^6bits/sec  
-> 
->  87380  16384  16384    10.00    18509.73   
+Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 
-"seem to help"?  Was previous performance fully restored?
+> ---
+>  net/netfilter/core.c |   11 +++++++----
+>  1 files changed, 7 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+> index e19f365..50225bd 100644
+> --- a/net/netfilter/core.c
+> +++ b/net/netfilter/core.c
+> @@ -131,14 +131,14 @@ unsigned int nf_iterate(struct list_head *head,
+>  			int hook_thresh)
+>  {
+>  	unsigned int verdict;
+> +	struct nf_hook_ops *elem = list_entry_rcu(*i,
+> +						struct nf_hook_ops, list);
+> 
+>  	/*
+>  	 * The caller must not block between calls to this
+>  	 * function because of risk of continuing from deleted element.
+>  	 */
+> -	list_for_each_continue_rcu(*i, head) {
+> -		struct nf_hook_ops *elem = (struct nf_hook_ops *)*i;
+> -
+> +	list_for_each_entry_continue_rcu(elem, head, list) {
+>  		if (hook_thresh > elem->priority)
+>  			continue;
+> 
+> @@ -155,11 +155,14 @@ repeat:
+>  				continue;
+>  			}
+>  #endif
+> -			if (verdict != NF_REPEAT)
+> +			if (verdict != NF_REPEAT) {
+> +				*i = &elem->list;
+>  				return verdict;
+> +			}
+>  			goto repeat;
+>  		}
+>  	}
+> +	*i = &elem->list;
+>  	return NF_ACCEPT;
+>  }
+> 
+> -- 
+> 1.7.4.1
+> 
+> 
+
