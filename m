@@ -1,35 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: IP fragmentation broken in 3.6-rc ?
-Date: Tue, 21 Aug 2012 15:22:16 +0200
-Message-ID: <1345555336.5158.493.camel@edumazet-glaptop>
-References: <CAF6-1L6DTXPGi4kbcPqbOXrrafMmZ6K1QdcAa=PxJBzZWkvojg@mail.gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [RFC Patch net-next] ipv6: unify conntrack reassembly expire
+ code with standard one
+Date: Tue, 21 Aug 2012 21:38:58 +0800
+Message-ID: <1345556338.3044.1.camel@cr0>
+References: <1345190565-21689-1-git-send-email-amwang@redhat.com>
+	 <1826853.rak2U42CMU@alaris> <1345453599.22373.9.camel@cr0>
+	 <20120820202109.GB28790@unicorn.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sylvain Munaut <s.munaut@whatever-company.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:43236 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755226Ab2HUNWV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 09:22:21 -0400
-Received: by bkwj10 with SMTP id j10so2184100bkw.19
-        for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 06:22:20 -0700 (PDT)
-In-Reply-To: <CAF6-1L6DTXPGi4kbcPqbOXrrafMmZ6K1QdcAa=PxJBzZWkvojg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Shan Wei <shanwei@cn.fujitsu.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120820202109.GB28790@unicorn.suse.cz>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-08-21 at 15:05 +0200, Sylvain Munaut wrote:
-> Hi,
+On Mon, 2012-08-20 at 22:21 +0200, Michal Kubecek wrote:
+> On Mon, Aug 20, 2012 at 05:06:39PM +0800, Cong Wang wrote:
+> > doesn't work. I think we probably can save the struct net pointer in
+> > struct netns_frags during inet_frags_init_net(), so that container_of()
+> > can be eliminated. 
 > 
-> I'm starting to wonder if it's not related to
-> 46517008e1168dc926cf2c47d529efc07eca85c0 "ipv4: Kill
-> ip_rt_frag_needed()."
-> 
-> Cheers,
-> 
->     Sylvain
+> This would work but one would have to check carefully that the pointer
+> is always set to an usable value. Or we could just add a flag indicating
+> whether the structure is embedded (and if it is not, use init_net).
+> Another approach was suggested in the patchworks discussion: add a
+> special namespace for IPv6 conntrack fragment handling.
 
-Hmm, most probably problem came with commit
-ceb3320610d6f15ff20dd4c042b36473d77de76f
-(ipv4: Kill routes during PMTU/redirect updates.)
+I think your former solution is easier, I will try it.
+
+> 
+> > Thanks for testing! I tried to test it too, but seems I can't trigger a
+> > defragment. Any hints?
+> 
+> I used netfilter on a computer between source and destination of the 
+> packets (generated with "ping6 -s 3000"):
+> 
+> ip6tables -A FORWARD -o ... -m frag --fragid 0:0xFFFFFFFF --fraglast -j DROP
+> 
+> The --fragid condition is needed to work around a bug in iptables (if 
+> frag module is loaded and there is no --fragid, only packets with zero
+> fragment id match - patch for this is already in git). On the target,
+> packet is defragmented automatically, by default by the "normal" code,
+> with nf_conntrack_ipv6 module by the conntrack code.
+> 
+> Setting
+> 
+>   echo 5 >/proc/sys/net/ipv6/ip6frag_time
+>   echo 5 >/proc/sys/net/netfilter/nf_conntrack_frag6_timeout
+> 
+> on target also helps.
+> 
+
+Great! This helps!
+
+Thanks!
+
