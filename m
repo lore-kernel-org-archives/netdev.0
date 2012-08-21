@@ -1,33 +1,49 @@
-From: Jeremy Brookman <jeremy.brookman@gmail.com>
-Subject: Re: [PATCH v6] bonding support for IPv6 transmit hashing
-Date: Tue, 21 Aug 2012 19:11:54 +0100
-Message-ID: <CAPc2XZDHBPKEM+WsWTL+9N_sfgVhOZAoiY3LU=v-QTCb9eQObQ@mail.gmail.com>
-References: <4FF27CA0.7030708@8192.net>
-	<20120702.221425.418792617776598841.davem@davemloft.net>
-	<4FF2853D.9070707@8192.net>
-	<20120702.224351.1587084404665143719.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: linux@8192.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:46056 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751886Ab2HUSLy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 14:11:54 -0400
-Received: by obbuo13 with SMTP id uo13so116923obb.19
-        for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 11:11:54 -0700 (PDT)
-In-Reply-To: <20120702.224351.1587084404665143719.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: [PATCH 0/8] netdev/MIPS: Improvements to octeon_mgmt Ethernet driver.
+Date: Tue, 21 Aug 2012 11:45:04 -0700
+Message-ID: <1345574712-21444-1-git-send-email-ddaney.cavm@gmail.com>
+Cc: linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
+To: linux-mips@linux-mips.org, ralf@linux-mips.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> You should use a mix of tabs, as necessary, to get things to line up
-> how I told you they need to line up.
+From: David Daney <david.daney@cavium.com>
 
-Unless I'm missing something, this change doesn't seem to have made it
-through to the kernel tip, but we could really use this bugfix. Is it
-in a repository I didn't notice, or not yet through the review?  If
-it's not through the review, is any help needed to get it there?
+Recent additions to the OCTEON SoC family have included enhancements
+to the MIX (octeon_mgmt) Ethernet hardware.  These include:
 
-Regards,
+o 1Gig support (up from 100M).
 
-Jeremy Brookman
+o Hardware timestamping for PTP.
+
+Here we add support for these two features as well as some ethtool
+improvements and cleanup of the MAC address handling.
+
+Patch 1/8 is a prerequisite for the rest, and lives in the MIPS
+architecture part of the tree.  Since octeon_mgmt devices are only
+found in OCTEON SoCs we could merge the whole set via Ralf's tree, or
+get Ralf to affix his Acked-by and have it go via the netdev tree.
+
+
+Chad Reese (1):
+  netdev: octeon_mgmt: Add hardware timestamp support.
+
+David Daney (7):
+  MIPS: Octeon: Add octeon_io_clk_delay() function.
+  netdev: octeon_mgmt: Add support for 1Gig ports.
+  netdev: octeon_mgmt: Improve ethtool_ops.
+  netdev: octeon_mgmt: Set the parent device.
+  netdev: octeon_mgmt: Cleanup and modernize MAC address handling.
+  netdev: octeon_mgmt: Remove some useless 'inline'
+  netdev: octeon_mgmt: Make multi-line comment style consistent.
+
+ arch/mips/cavium-octeon/csrc-octeon.c     |  93 +++--
+ arch/mips/cavium-octeon/setup.c           |   3 +-
+ arch/mips/include/asm/octeon/octeon.h     |   1 +
+ drivers/net/ethernet/octeon/octeon_mgmt.c | 554 ++++++++++++++++++++++++------
+ 4 files changed, 512 insertions(+), 139 deletions(-)
+
+-- 
+1.7.11.4
