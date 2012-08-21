@@ -1,7 +1,7 @@
 From: David Daney <ddaney.cavm@gmail.com>
-Subject: [PATCH 7/8] netdev: octeon_mgmt: Remove some useless 'inline'
-Date: Tue, 21 Aug 2012 11:45:11 -0700
-Message-ID: <1345574712-21444-8-git-send-email-ddaney.cavm@gmail.com>
+Subject: [PATCH 5/8] netdev: octeon_mgmt: Set the parent device.
+Date: Tue, 21 Aug 2012 11:45:09 -0700
+Message-ID: <1345574712-21444-6-git-send-email-ddaney.cavm@gmail.com>
 References: <1345574712-21444-1-git-send-email-ddaney.cavm@gmail.com>
 Cc: linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
 To: linux-mips@linux-mips.org, ralf@linux-mips.org,
@@ -13,41 +13,25 @@ List-Id: netdev.vger.kernel.org
 
 From: David Daney <david.daney@cavium.com>
 
+This establishes useful links in sysfs.
+
 Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- drivers/net/ethernet/octeon/octeon_mgmt.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/octeon/octeon_mgmt.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
-index 9b526da..ccb1f81 100644
+index cf06cf2..3bae01f 100644
 --- a/drivers/net/ethernet/octeon/octeon_mgmt.c
 +++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
-@@ -173,22 +173,22 @@ static void octeon_mgmt_set_tx_irq(struct octeon_mgmt *p, int enable)
- 	spin_unlock_irqrestore(&p->lock, flags);
- }
+@@ -1446,6 +1446,8 @@ static int __devinit octeon_mgmt_probe(struct platform_device *pdev)
+ 	if (netdev == NULL)
+ 		return -ENOMEM;
  
--static inline void octeon_mgmt_enable_rx_irq(struct octeon_mgmt *p)
-+static void octeon_mgmt_enable_rx_irq(struct octeon_mgmt *p)
- {
- 	octeon_mgmt_set_rx_irq(p, 1);
- }
- 
--static inline void octeon_mgmt_disable_rx_irq(struct octeon_mgmt *p)
-+static void octeon_mgmt_disable_rx_irq(struct octeon_mgmt *p)
- {
- 	octeon_mgmt_set_rx_irq(p, 0);
- }
- 
--static inline void octeon_mgmt_enable_tx_irq(struct octeon_mgmt *p)
-+static void octeon_mgmt_enable_tx_irq(struct octeon_mgmt *p)
- {
- 	octeon_mgmt_set_tx_irq(p, 1);
- }
- 
--static inline void octeon_mgmt_disable_tx_irq(struct octeon_mgmt *p)
-+static void octeon_mgmt_disable_tx_irq(struct octeon_mgmt *p)
- {
- 	octeon_mgmt_set_tx_irq(p, 0);
- }
++	SET_NETDEV_DEV(netdev, &pdev->dev);
++
+ 	dev_set_drvdata(&pdev->dev, netdev);
+ 	p = netdev_priv(netdev);
+ 	netif_napi_add(netdev, &p->napi, octeon_mgmt_napi_poll,
 -- 
 1.7.11.4
