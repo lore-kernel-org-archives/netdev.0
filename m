@@ -1,67 +1,107 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH] tun: don't zeroize sock->file on detach
-Date: Tue, 21 Aug 2012 20:04:41 +0400
-Message-ID: <5033B199.6080305@parallels.com>
-References: <20120809124436.5156.26944.stgit@localhost.localdomain> <20120809.161639.1789560369123168415.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] af_netlink: force credentials passing [CVE-2012-3520]
+Date: Tue, 21 Aug 2012 18:21:17 +0200
+Message-ID: <1345566077.5158.530.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "dhowells@redhat.com" <dhowells@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"rick.jones2@hp.com" <rick.jones2@hp.com>,
-	"ycheng@google.com" <ycheng@google.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	<mikulas@artax.karlin.mff.cuni.cz>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Petr Matousek <pmatouse@redhat.com>,
+	Florian Weimer <fweimer@redhat.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:52428 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757864Ab2HUQEt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 12:04:49 -0400
-In-Reply-To: <20120809.161639.1789560369123168415.davem@davemloft.net>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:60104 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754217Ab2HUQVX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 12:21:23 -0400
+Received: by bkwj10 with SMTP id j10so2253226bkw.19
+        for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 09:21:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-10.08.2012 03:16, David Miller =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-> Date: Thu, 09 Aug 2012 16:50:40 +0400
->
->> This is a fix for bug, introduced in 3.4 kernel by commit
->> 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d, which, among other things,=
- replaced
->> simple sock_put() by sk_release_kernel(). Below is sequence, which l=
-eads to
->> oops for non-persistent devices:
->>
->> tun_chr_close()
->> tun_detach()				<=3D=3D tun->socket.file =3D NULL
->> tun_free_netdev()
->> sk_release_sock()
->> sock_release(sock->file =3D=3D NULL)
->> iput(SOCK_INODE(sock))			<=3D=3D dereference on NULL pointer
->>
->> This patch just removes zeroing of socket's file from __tun_detach()=
-=2E
->> sock_release() will do this.
->>
->> Cc: stable@vger.kernel.org
->> Reported-by: Ruan Zhijie <ruanzhijie@hotmail.com>
->> Tested-by: Ruan Zhijie <ruanzhijie@hotmail.com>
->> Acked-by: Al Viro <viro@ZenIV.linux.org.uk>
->> Acked-by: Eric Dumazet <edumazet@google.com>
->> Acked-by: Yuchung Cheng <ycheng@google.com>
->> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
->
-> Applied, thanks.
->
+From: Eric Dumazet <edumazet@google.com>
 
-Hi, David.
-I found out, that this commit: b09e786bd1dd66418b69348cb110f3a64764626a
-was previous attempt to fix the problem.
-I believe this commit have to be dropped.
+Pablo Neira Ayuso discovered that avahi and 
+potentially NetworkManager accept spoofed Netlink messages because of a 
+kernel bug.  The kernel passes all-zero SCM_CREDENTIALS ancillary data 
+to the receiver if the sender did not provide such data, instead of not 
+including any such data at all or including the correct data from the 
+peer (as it is the case with AF_UNIX).
 
+This bug was introduced in commit 16e572626961
+(af_unix: dont send SCM_CREDENTIALS by default)
 
---=20
-Best regards,
-Stanislav Kinsbursky
+This patch forces passing credentials for netlink, as
+before the regression.
+
+Another fix would be to not add SCM_CREDENTIALS in
+netlink messages if not provided by the sender, but it
+might break some programs.
+
+With help from Florian Weimer & Petr Matousek
+
+This issue is designated as CVE-2012-3520
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Petr Matousek <pmatouse@redhat.com>
+Cc: Florian Weimer <fweimer@redhat.com>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ include/net/scm.h        |    4 +++-
+ net/netlink/af_netlink.c |    2 +-
+ net/unix/af_unix.c       |    4 ++--
+ 3 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/include/net/scm.h b/include/net/scm.h
+index 079d788..7dc0854 100644
+--- a/include/net/scm.h
++++ b/include/net/scm.h
+@@ -70,9 +70,11 @@ static __inline__ void scm_destroy(struct scm_cookie *scm)
+ }
+ 
+ static __inline__ int scm_send(struct socket *sock, struct msghdr *msg,
+-			       struct scm_cookie *scm)
++			       struct scm_cookie *scm, bool forcecreds)
+ {
+ 	memset(scm, 0, sizeof(*scm));
++	if (forcecreds)
++		scm_set_cred(scm, task_tgid(current), current_cred());
+ 	unix_get_peersec_dgram(sock, scm);
+ 	if (msg->msg_controllen <= 0)
+ 		return 0;
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 5463969..1445d73 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1362,7 +1362,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	if (NULL == siocb->scm)
+ 		siocb->scm = &scm;
+ 
+-	err = scm_send(sock, msg, siocb->scm);
++	err = scm_send(sock, msg, siocb->scm, true);
+ 	if (err < 0)
+ 		return err;
+ 
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index e4768c1..c5ee4ff 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1450,7 +1450,7 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	if (NULL == siocb->scm)
+ 		siocb->scm = &tmp_scm;
+ 	wait_for_unix_gc();
+-	err = scm_send(sock, msg, siocb->scm);
++	err = scm_send(sock, msg, siocb->scm, false);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -1619,7 +1619,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	if (NULL == siocb->scm)
+ 		siocb->scm = &tmp_scm;
+ 	wait_for_unix_gc();
+-	err = scm_send(sock, msg, siocb->scm);
++	err = scm_send(sock, msg, siocb->scm, false);
+ 	if (err < 0)
+ 		return err;
+ 
