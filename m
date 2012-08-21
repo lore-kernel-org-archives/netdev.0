@@ -1,27 +1,39 @@
-From: Xose Vazquez Perez <xose.vazquez@gmail.com>
-Subject: Re: iputils git tree
-Date: Tue, 21 Aug 2012 12:42:47 +0200
-Message-ID: <50336627.2030708@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: coping with memory limitations and packet flooding in
+ codel and fq_codel
+Date: Tue, 21 Aug 2012 12:50:18 +0200
+Message-ID: <1345546218.5158.449.camel@edumazet-glaptop>
+References: <CAA93jw7=K8Vvp6N5qYZ8gaODaFyZtAEjGyQe2BDh9-RBsvVHcQ@mail.gmail.com>
+	<1345538298.5158.401.camel@edumazet-glaptop>
+	<46C4C66E-A4EE-4051-9686-7AD02EE925B4@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:43966 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756512Ab2HUKmv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 06:42:51 -0400
-Received: by eeil10 with SMTP id l10so2118773eei.19
-        for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 03:42:50 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, codel@lists.bufferbloat.net
+To: Andrew McGregor <andrewmcgr@gmail.com>
+Return-path: <codel-bounces@lists.bufferbloat.net>
+In-Reply-To: <46C4C66E-A4EE-4051-9686-7AD02EE925B4@gmail.com>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
+List-Post: <mailto:codel@lists.bufferbloat.net>
+List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
+Sender: codel-bounces@lists.bufferbloat.net
+Errors-To: codel-bounces@lists.bufferbloat.net
+List-Id: netdev.vger.kernel.org
 
-Jan Engelhardt wrote:
+On Tue, 2012-08-21 at 22:27 +1200, Andrew McGregor wrote:
+> On 21/08/2012, at 8:38 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+> > ath9k driver is known to deliver very fat skbs (skb->truesize is too
+> > big)
+> 
+> What would it take to fix this?
+> 
+> Andrew
 
-> And half of iputils has been superseded or thelike.
->
-> * arping -> th's arping http://freecode.com/projects/arping
-> * ifenslave -> bonding's sysfs files
-> * tftpd -> tftpd-hpa
+Someone could use the following : 
 
-* traceroute6 -> http://traceroute.sf.net/
+https://gerrit.chromium.org/gerrit/#/c/18412/
