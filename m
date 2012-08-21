@@ -1,130 +1,71 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 5/6] e1000e: implement MDI/MDI-X control
-Date: Tue, 21 Aug 2012 01:37:54 -0700
-Message-ID: <1345538275-1690-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1345538275-1690-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	bruce.w.allan@intel.com, n.poppelier@xs4all.nl, bastien@durel.org,
-	jsveiga@it.eng.br, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:54114 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754037Ab2HUIiA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Aug 2012 04:38:00 -0400
-In-Reply-To: <1345538275-1690-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: coping with memory limitations and packet flooding in
+ codel and fq_codel
+Date: Tue, 21 Aug 2012 10:38:18 +0200
+Message-ID: <1345538298.5158.401.camel@edumazet-glaptop>
+References: <CAA93jw7=K8Vvp6N5qYZ8gaODaFyZtAEjGyQe2BDh9-RBsvVHcQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, codel@lists.bufferbloat.net
+To: Dave Taht <dave.taht@gmail.com>
+Return-path: <codel-bounces@lists.bufferbloat.net>
+In-Reply-To: <CAA93jw7=K8Vvp6N5qYZ8gaODaFyZtAEjGyQe2BDh9-RBsvVHcQ@mail.gmail.com>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
+List-Post: <mailto:codel@lists.bufferbloat.net>
+List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
+Sender: codel-bounces@lists.bufferbloat.net
+Errors-To: codel-bounces@lists.bufferbloat.net
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+On Mon, 2012-08-20 at 14:05 -0700, Dave Taht wrote:
+> We've had a raft of deployment questions regarding fq_codel, memory
+> use, and the impact of unresponsive flows
+> over on the cerowrt development list.
+> 
+> sort of summary of the thread here, with some codel related ideas
+> 
+> https://lists.bufferbloat.net/pipermail/cerowrt-devel/2012-August/000423.html
+> 
+> some early data on wifi interactions here
+> 
+> https://lists.bufferbloat.net/pipermail/cerowrt-devel/2012-August/000407.html
+> 
 
-Some users report issues with link failing when connected to certain
-switches.  This gives the user the ability to control the MDI state
-from the driver, allowing users to work around some improperly
-behaving switches.
+CC netdev
 
-Forcing in this driver is for now only allowed when auto-neg is
-enabled.
+codel / fq_codel have a packet limit per qdisc, like any other linux
+qdisc.
 
-This is in regards to the related ethtool app patch and
-bugzilla.kernel.org bug 11998
+DEFAULT_CODEL_LIMIT = 1000 packets
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: bruce.w.allan@intel.com
-CC: n.poppelier@xs4all.nl
-CC: bastien@durel.org
-CC: jsveiga@it.eng.br
-Tested-by: Aaron Brown aaron.f.brown@intel.com
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/ethtool.c | 41 +++++++++++++++++++++++++++--
- 1 file changed, 39 insertions(+), 2 deletions(-)
+fq_codel : 10240 packets
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index 0349e24..2e76f06 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -199,6 +199,11 @@ static int e1000_get_settings(struct net_device *netdev,
- 	else
- 		ecmd->eth_tp_mdix = ETH_TP_MDI_INVALID;
- 
-+	if (hw->phy.mdix == AUTO_ALL_MODES)
-+		ecmd->eth_tp_mdix_ctrl = ETH_TP_MDI_AUTO;
-+	else
-+		ecmd->eth_tp_mdix_ctrl = hw->phy.mdix;
-+
- 	return 0;
- }
- 
-@@ -241,6 +246,10 @@ static int e1000_set_spd_dplx(struct e1000_adapter *adapter, u32 spd, u8 dplx)
- 	default:
- 		goto err_inval;
- 	}
-+
-+	/* clear MDI, MDI(-X) override is only allowed when autoneg enabled */
-+	adapter->hw.phy.mdix = AUTO_ALL_MODES;
-+
- 	return 0;
- 
- err_inval:
-@@ -264,6 +273,22 @@ static int e1000_set_settings(struct net_device *netdev,
- 		return -EINVAL;
- 	}
- 
-+	/*
-+	 * MDI setting is only allowed when autoneg enabled because
-+	 * some hardware doesn't allow MDI setting when speed or
-+	 * duplex is forced.
-+	 */
-+	if (ecmd->eth_tp_mdix_ctrl) {
-+		if (hw->phy.media_type != e1000_media_type_copper)
-+			return -EOPNOTSUPP;
-+
-+		if ((ecmd->eth_tp_mdix_ctrl != ETH_TP_MDI_AUTO) &&
-+		    (ecmd->autoneg != AUTONEG_ENABLE)) {
-+			e_err("forcing MDI/MDI-X state is not supported when link speed and/or duplex are forced\n");
-+			return -EINVAL;
-+		}
-+	}
-+
- 	while (test_and_set_bit(__E1000_RESETTING, &adapter->state))
- 		usleep_range(1000, 2000);
- 
-@@ -282,20 +307,32 @@ static int e1000_set_settings(struct net_device *netdev,
- 			hw->fc.requested_mode = e1000_fc_default;
- 	} else {
- 		u32 speed = ethtool_cmd_speed(ecmd);
-+		/* calling this overrides forced MDI setting */
- 		if (e1000_set_spd_dplx(adapter, speed, ecmd->duplex)) {
- 			clear_bit(__E1000_RESETTING, &adapter->state);
- 			return -EINVAL;
- 		}
- 	}
- 
-+	/* MDI-X => 2; MDI => 1; Auto => 3 */
-+	if (ecmd->eth_tp_mdix_ctrl) {
-+		/*
-+		 * fix up the value for auto (3 => 0) as zero is mapped
-+		 * internally to auto
-+		 */
-+		if (ecmd->eth_tp_mdix_ctrl == ETH_TP_MDI_AUTO)
-+			hw->phy.mdix = AUTO_ALL_MODES;
-+		else
-+			hw->phy.mdix = ecmd->eth_tp_mdix_ctrl;
-+	}
-+
- 	/* reset the link */
- 
- 	if (netif_running(adapter->netdev)) {
- 		e1000e_down(adapter);
- 		e1000e_up(adapter);
--	} else {
-+	} else
- 		e1000e_reset(adapter);
--	}
- 
- 	clear_bit(__E1000_RESETTING, &adapter->state);
- 	return 0;
--- 
-1.7.11.4
+For memory constrained boxes, it would be wise to add a 'truesize' limit
+
+Not a bytes limit based on skb->len sum, because a skb->len = 60 bytes
+packet might consume far more memory (more than 2 Kbytes)
+
+ath9k driver is known to deliver very fat skbs (skb->truesize is too
+big)
+
+One 'other way' to limit bloat would be to reallocate skbs when one
+qdisc begins to use more than 25 % of its truesize limit
+
+enqueue(q, skb)
+{
+	if (q->truesize_sum > q->truesize_limit / 4)
+		skb = skb_reduce_truesize(skb, GFP_ATOMIC);
+	...
+}
+
+This is what some drivers already do in their rx handler (this is called
+copybreak), but this would do the copy (and extra cpu cost) only in
+stress situations.
+
+Note : we also have a very big struct skb_shared_info (320 bytes), we
+probably could shrink it for packets without fragments.
