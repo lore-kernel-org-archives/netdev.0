@@ -1,250 +1,110 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH v6] bonding support for IPv6 transmit hashing
-Date: Tue, 21 Aug 2012 12:19:55 -0700
-Message-ID: <11100.1345576795@death.nxdomain>
-References: <4FF27CA0.7030708@8192.net> <20120702.221425.418792617776598841.davem@davemloft.net> <4FF2853D.9070707@8192.net> <20120702.224351.1587084404665143719.davem@davemloft.net> <CAPc2XZDHBPKEM+WsWTL+9N_sfgVhOZAoiY3LU=v-QTCb9eQObQ@mail.gmail.com>
-Cc: linux@8192.net, netdev@vger.kernel.org
-To: Jeremy Brookman <jeremy.brookman@gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: IP fragmentation broken in 3.6-rc ?
+Date: Tue, 21 Aug 2012 23:00:55 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1208212102540.2149@ja.ssi.bg>
+References: <CAF6-1L6DTXPGi4kbcPqbOXrrafMmZ6K1QdcAa=PxJBzZWkvojg@mail.gmail.com>  <1345555336.5158.493.camel@edumazet-glaptop>  <1345560131.5158.500.camel@edumazet-glaptop>  <alpine.LFD.2.00.1208211815550.2149@ja.ssi.bg>  <1345567633.5158.534.camel@edumazet-glaptop>
+  <alpine.LFD.2.00.1208211954380.2149@ja.ssi.bg> <1345569824.5158.540.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sylvain Munaut <s.munaut@whatever-company.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:51730 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751943Ab2HUTVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 15:21:32 -0400
-Received: from /spool/local
-	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Tue, 21 Aug 2012 13:21:31 -0600
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id D185919D803C
-	for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 13:21:03 -0600 (MDT)
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q7LJK0c5084030
-	for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 13:20:10 -0600
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q7LJLHQ1029967
-	for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 13:21:18 -0600
-In-reply-to: <CAPc2XZDHBPKEM+WsWTL+9N_sfgVhOZAoiY3LU=v-QTCb9eQObQ@mail.gmail.com>
+Received: from ja.ssi.bg ([178.16.129.10]:57629 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751361Ab2HUT7F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Aug 2012 15:59:05 -0400
+In-Reply-To: <1345569824.5158.540.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeremy Brookman <jeremy.brookman@gmail.com> wrote:
 
->> You should use a mix of tabs, as necessary, to get things to line up
->> how I told you they need to line up.
->
->Unless I'm missing something, this change doesn't seem to have made it
->through to the kernel tip, but we could really use this bugfix. Is it
->in a repository I didn't notice, or not yet through the review?  If
->it's not through the review, is any help needed to get it there?
+	Hello,
 
-	The submitter (John Eaglesham) never posted an updated version
-that addressed the various comments, nor did his original patch
-submission include a Signed-off-by.
+On Tue, 21 Aug 2012, Eric Dumazet wrote:
 
-	I went ahead and updated the patch to address the comments; I've
-only compile tested this.  Are you (Jeremy or John) able to test this to
-confirm that it will hash ipv6 traffic as expected (I can test it, but
-it won't be today)?
+> In fact we re-enter ip_rt_update_pmtu() if we receive a second ICMP,
+> and rt->rt_pmtu is already set, but dst is expired.
+> 
+> Thats why Sylvain said it was not happening in the 10 minutes following
+> boot.
+> 
+> So calling again dst_set_expires(&rt->dst, ip_rt_mtu_expires) does
+> nothing : rt_pmtu is ignored because dst.expires is too old.
 
-	John, can you post a Signed-off-by for your patch (really, this
-updated version of your patch)?
+	Oh, well. I thought dst_set_expires was used
+before for IPv4, it was not. I didn't expected function
+that was old to cause problem. So, you are right that
+MTU is not updated second time. But we must check if
+such change will harm IPv6, dst_set_expires was/is
+used there.
 
-	If John signs off and somebody tests this, I'll post a formal
-submssion with the full commit message.
+> Maybe we should just do :
+> 
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index e4ba974..d0181e2 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -952,7 +952,7 @@ static void ip_rt_update_pmtu(struct dst_entry *dst, struct sock *sk,
+>  	ip_rt_build_flow_key(&fl4, sk, skb);
+>  	mtu = __ip_rt_update_pmtu(rt, &fl4, mtu);
+>  
+> -	if (!rt->rt_pmtu) {
+> +	if (!rt->rt_pmtu || time_after_eq(jiffies, rt->dst.expires)) {
 
-	-J
+	At first look it should not be needed to cause route
+relookup here. tcp_v4_mtu_reduced is prepared to use the new
+dst_mtu for mss after calling inet_csk_update_pmtu. It seems the
+new code expects that every socket that performs PMTU Discovery
+will get ICMP error, so tcp_v4_mtu_reduced should be called
+for every socket with every new ICMP. If there are 100 sockets
+we will get 100 ICMPs. If we set DST_OBSOLETE_KILL as you
+propose, all sockets will notice the need to relookup
+route and will learn the new PMTU from fnhe exception with less
+chances for other ICMP events. At first look, this variant looks
+better to me in case if we want single PMTU to be propagated
+to all sockets immediately. Can it cause other problems?
+Now the rt life with PMTU will be limited to 600 secs.
 
-diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-index 6b1c711..834c919 100644
---- a/Documentation/networking/bonding.txt
-+++ b/Documentation/networking/bonding.txt
-@@ -752,12 +752,23 @@ xmit_hash_policy
- 		protocol information to generate the hash.
- 
- 		Uses XOR of hardware MAC addresses and IP addresses to
--		generate the hash.  The formula is
-+		generate the hash.  The IPv4 formula is
- 
- 		(((source IP XOR dest IP) AND 0xffff) XOR
- 			( source MAC XOR destination MAC ))
- 				modulo slave count
- 
-+		The IPv6 formula is
-+
-+		hash =
-+			(source ip quad 2 XOR dest IP quad 2) XOR
-+			(source ip quad 3 XOR dest IP quad 3) XOR
-+			(source ip quad 4 XOR dest IP quad 4)
-+
-+		(((hash >> 24) XOR (hash >> 16) XOR (hash >> 8) XOR hash)
-+			XOR (source MAC XOR destination MAC))
-+				modulo slave count
-+
- 		This algorithm will place all traffic to a particular
- 		network peer on the same slave.  For non-IP traffic,
- 		the formula is the same as for the layer2 transmit
-@@ -778,19 +789,30 @@ xmit_hash_policy
- 		slaves, although a single connection will not span
- 		multiple slaves.
- 
--		The formula for unfragmented TCP and UDP packets is
-+		The formula for unfragmented IPv4 TCP and UDP packets is
- 
- 		((source port XOR dest port) XOR
- 			 ((source IP XOR dest IP) AND 0xffff)
- 				modulo slave count
- 
--		For fragmented TCP or UDP packets and all other IP
--		protocol traffic, the source and destination port
-+		The formula for unfragmented IPv6 TCP and UDP packets is
-+
-+		hash =
-+			(source ip quad 2 XOR dest IP quad 2) XOR
-+			(source ip quad 3 XOR dest IP quad 3) XOR
-+			(source ip quad 4 XOR dest IP quad 4)
-+
-+		((source port XOR dest port) XOR
-+			(hash >> 24) XOR (hash >> 16) XOR (hash >> 8) XOR hash)
-+				modulo slave count
-+
-+		For fragmented TCP or UDP packets and all other IPv4 and
-+		IPv6 protocol traffic, the source and destination port
- 		information is omitted.  For non-IP traffic, the
- 		formula is the same as for the layer2 transmit hash
- 		policy.
- 
--		This policy is intended to mimic the behavior of
-+		The IPv4 policy is intended to mimic the behavior of
- 		certain switches, notably Cisco switches with PFC2 as
- 		well as some Foundry and IBM products.
- 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index d95fbc3..4dfe7e3 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3354,56 +3354,99 @@ static struct notifier_block bond_netdev_notifier = {
- /*---------------------------- Hashing Policies -----------------------------*/
- 
- /*
-+ * Hash for the output device based upon layer 2 data
-+ */
-+static int bond_xmit_hash_policy_l2(struct sk_buff *skb, int count)
-+{
-+	struct ethhdr *data = (struct ethhdr *)skb->data;
-+
-+	if (skb_headlen(skb) >= offsetof(struct ethhdr, h_proto))
-+		return (data->h_dest[5] ^ data->h_source[5]) % count;
-+
-+	return 0;
-+}
-+
-+/*
-  * Hash for the output device based upon layer 2 and layer 3 data. If
-- * the packet is not IP mimic bond_xmit_hash_policy_l2()
-+ * the packet is not IP, fall back on bond_xmit_hash_policy_l2()
-  */
- static int bond_xmit_hash_policy_l23(struct sk_buff *skb, int count)
- {
- 	struct ethhdr *data = (struct ethhdr *)skb->data;
--	struct iphdr *iph = ip_hdr(skb);
--
--	if (skb->protocol == htons(ETH_P_IP)) {
-+	struct iphdr *iph;
-+	struct ipv6hdr *ipv6h;
-+	u32 v6hash;
-+	__be32 *s, *d;
-+
-+	if (skb->protocol == htons(ETH_P_IP) &&
-+		skb_network_header_len(skb) >= sizeof(struct iphdr)) {
-+		iph = ip_hdr(skb);
- 		return ((ntohl(iph->saddr ^ iph->daddr) & 0xffff) ^
- 			(data->h_dest[5] ^ data->h_source[5])) % count;
-+	} else if (skb->protocol == htons(ETH_P_IPV6) &&
-+		skb_network_header_len(skb) >= sizeof(struct ipv6hdr)) {
-+		ipv6h = ipv6_hdr(skb);
-+		s = &ipv6h->saddr.s6_addr32[0];
-+		d = &ipv6h->daddr.s6_addr32[0];
-+		v6hash = (s[1] ^ d[1]) ^ (s[2] ^ d[2]) ^ (s[3] ^ d[3]);
-+		v6hash ^= (v6hash >> 24) ^ (v6hash >> 16) ^ (v6hash >> 8);
-+		return (v6hash ^ data->h_dest[5] ^ data->h_source[5]) % count;
- 	}
- 
--	return (data->h_dest[5] ^ data->h_source[5]) % count;
-+	return bond_xmit_hash_policy_l2(skb, count);
- }
- 
- /*
-  * Hash for the output device based upon layer 3 and layer 4 data. If
-  * the packet is a frag or not TCP or UDP, just use layer 3 data.  If it is
-- * altogether not IP, mimic bond_xmit_hash_policy_l2()
-+ * altogether not IP, fall back on bond_xmit_hash_policy_l2()
-  */
- static int bond_xmit_hash_policy_l34(struct sk_buff *skb, int count)
- {
--	struct ethhdr *data = (struct ethhdr *)skb->data;
--	struct iphdr *iph = ip_hdr(skb);
--	__be16 *layer4hdr = (__be16 *)((u32 *)iph + iph->ihl);
--	int layer4_xor = 0;
-+	u32 layer4_xor = 0;
-+	struct iphdr *iph;
-+	struct ipv6hdr *ipv6h;
-+	__be32 *s, *d;
-+	__be16 *layer4hdr;
- 
- 	if (skb->protocol == htons(ETH_P_IP)) {
-+		iph = ip_hdr(skb);
- 		if (!ip_is_fragment(iph) &&
- 		    (iph->protocol == IPPROTO_TCP ||
- 		     iph->protocol == IPPROTO_UDP)) {
-+			if (iph->ihl * sizeof(u32) + sizeof(__be16) * 2 >
-+			    skb_headlen(skb) - skb_network_offset(skb))
-+				goto short_header;
-+			layer4hdr = (__be16 *)((u32 *)iph + iph->ihl);
- 			layer4_xor = ntohs((*layer4hdr ^ *(layer4hdr + 1)));
-+		} else if (skb_network_header_len(skb) < sizeof(struct iphdr)) {
-+			goto short_header;
- 		}
- 		return (layer4_xor ^
- 			((ntohl(iph->saddr ^ iph->daddr)) & 0xffff)) % count;
--
-+	} else if (skb->protocol == htons(ETH_P_IPV6)) {
-+		ipv6h = ipv6_hdr(skb);
-+		if (ipv6h->nexthdr == IPPROTO_TCP ||
-+		    ipv6h->nexthdr == IPPROTO_UDP) {
-+			layer4hdr = (__be16 *)(ipv6h + 1);
-+			if (sizeof(struct ipv6hdr) + sizeof(__be16) * 2 >
-+				skb_headlen(skb) - skb_network_offset(skb))
-+				goto short_header;
-+			layer4_xor = (*layer4hdr ^ *(layer4hdr + 1));
-+		} else if (skb_network_header_len(skb) <
-+			   sizeof(struct ipv6hdr)) {
-+			goto short_header;
-+		}
-+		s = &ipv6h->saddr.s6_addr32[0];
-+		d = &ipv6h->daddr.s6_addr32[0];
-+		layer4_xor ^= (s[1] ^ d[1]) ^ (s[2] ^ d[2]) ^ (s[3] ^ d[3]);
-+		layer4_xor ^= (layer4_xor >> 24) ^ (layer4_xor >> 16) ^
-+			       (layer4_xor >> 8);
-+		return layer4_xor % count;
- 	}
- 
--	return (data->h_dest[5] ^ data->h_source[5]) % count;
--}
--
--/*
-- * Hash for the output device based upon layer 2 data
-- */
--static int bond_xmit_hash_policy_l2(struct sk_buff *skb, int count)
--{
--	struct ethhdr *data = (struct ethhdr *)skb->data;
--
--	return (data->h_dest[5] ^ data->h_source[5]) % count;
-+short_header:
-+	return bond_xmit_hash_policy_l2(skb, count);
- }
- 
- /*-------------------------- Device entry points ----------------------------*/
+	OTOH, tcp_current_mss() is called often, it will
+notice the new dst_mtu, so may be there is no need for
+route relookup by setting DST_OBSOLETE_KILL?
 
+	Not sure if we still have to support this second
+option, to change dst_set_expires to check for timeout=0:
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+	if (dst->expires == 0 || time_after(expires, dst->expires) ||
+	    !timeout)
+
+	In IPv4, ip_rt_update_pmtu was the only place that
+can extend dst->expires, for the rt_bind_exception case
+I assume expires is still 0 before the checks. Not sure if
+IPv6 needs to use time_after, may be it prefers the
+time_before variant? IPv6 updates MTU in rt6_update_expires
+and we call dst_set_expires where the timer will not be
+extended. But may be the intention is that MTU only
+can reduce the expiration, not to extend it after timer
+was set when route was added.
+
+	So, another option is to create new function
+dst_update_expires and to use it just for IPv4, it will
+use time_after because IPv4 uses the timer just for
+PMTU while IPv6 uses it in ip6_route_add() to limit
+route lifetime due to lft values.
+
+	dst_update_expires will be like dst_set_expires
+but with this difference (time_after):
+
+	if (dst->expires == 0 || time_after(expires, dst->expires) ||
+	    !timeout)
+
+	while dst_set_expires will be as before, used by IPv6.
+
+>  		dst->obsolete = DST_OBSOLETE_KILL;
+>  	} else {
+>  		rt->rt_pmtu = mtu;
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
