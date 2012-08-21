@@ -1,75 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: IP fragmentation broken in 3.6-rc ?
-Date: Tue, 21 Aug 2012 19:23:44 +0200
-Message-ID: <1345569824.5158.540.camel@edumazet-glaptop>
-References: <CAF6-1L6DTXPGi4kbcPqbOXrrafMmZ6K1QdcAa=PxJBzZWkvojg@mail.gmail.com>
-	 <1345555336.5158.493.camel@edumazet-glaptop>
-	 <1345560131.5158.500.camel@edumazet-glaptop>
-	 <alpine.LFD.2.00.1208211815550.2149@ja.ssi.bg>
-	 <1345567633.5158.534.camel@edumazet-glaptop>
-	 <alpine.LFD.2.00.1208211954380.2149@ja.ssi.bg>
+From: Arvid Brodin <Arvid.Brodin@xdin.com>
+Subject: Re: Do I need to skb_put() Ethernet frames to a minimum of 60 bytes?
+Date: Tue, 21 Aug 2012 17:34:40 +0000
+Message-ID: <5033C6B0.4060508@xdin.com>
+References: <502A9EC4.4040208@xdin.com>
+ <1344976557.2690.43.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sylvain Munaut <s.munaut@whatever-company.com>,
-	netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:55189 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758022Ab2HURXt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 13:23:49 -0400
-Received: by eaac11 with SMTP id c11so18737eaa.19
-        for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 10:23:48 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.00.1208211954380.2149@ja.ssi.bg>
+Received: from spam1.webland.se ([91.207.112.90]:56398 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758045Ab2HURes (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Aug 2012 13:34:48 -0400
+In-Reply-To: <1344976557.2690.43.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
+Content-ID: <6FF128292BB75C45974C4EC33038430C@redbull.xdin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-08-21 at 20:18 +0300, Julian Anastasov wrote:
-> 	Hello,
-> 
-> On Tue, 21 Aug 2012, Eric Dumazet wrote:
-
-> > My first patch was :
-> > 
-> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > index e4ba974..9858714 100644
-> > --- a/net/ipv4/route.c
-> > +++ b/net/ipv4/route.c
-> > @@ -956,6 +956,7 @@ static void ip_rt_update_pmtu(struct dst_entry *dst, struct sock *sk,
-> >  		dst->obsolete = DST_OBSOLETE_KILL;
-> >  	} else {
-> >  		rt->rt_pmtu = mtu;
-> > +		rt->dst.expires = 0;
-> >  		dst_set_expires(&rt->dst, ip_rt_mtu_expires);
-> 
-> 	This is better, does not break ipv4_link_failure.
-> There is a little race some ipv4_mtu() user to see
-> rt_pmtu != 0 and dst.expires = 0 and to fail in time_after_eq
-> test. May be that is why dst.expires is never set to 0.
-> But I still don't understand what both changes fix.
-
-In fact we re-enter ip_rt_update_pmtu() if we receive a second ICMP,
-and rt->rt_pmtu is already set, but dst is expired.
-
-Thats why Sylvain said it was not happening in the 10 minutes following
-boot.
-
-So calling again dst_set_expires(&rt->dst, ip_rt_mtu_expires) does
-nothing : rt_pmtu is ignored because dst.expires is too old.
-
-Maybe we should just do :
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index e4ba974..d0181e2 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -952,7 +952,7 @@ static void ip_rt_update_pmtu(struct dst_entry *dst, struct sock *sk,
- 	ip_rt_build_flow_key(&fl4, sk, skb);
- 	mtu = __ip_rt_update_pmtu(rt, &fl4, mtu);
- 
--	if (!rt->rt_pmtu) {
-+	if (!rt->rt_pmtu || time_after_eq(jiffies, rt->dst.expires)) {
- 		dst->obsolete = DST_OBSOLETE_KILL;
- 	} else {
- 		rt->rt_pmtu = mtu;
+T24gMjAxMi0wOC0xNCAyMjozNSwgQmVuIEh1dGNoaW5ncyB3cm90ZToNCj4gT24gVHVlLCAyMDEy
+LTA4LTE0IGF0IDE4OjUzICswMDAwLCBBcnZpZCBCcm9kaW4gd3JvdGU6DQo+PiBIaSwNCj4+DQo+
+PiBJZiBJIGNyZWF0ZSBhbiBza19idWZmIHdpdGggYSBwYXlsb2FkIG9mIGxlc3MgdGhhbiAyOCBi
+eXRlcyAoZXRoaGVhZGVyICsgZGF0YSksDQo+PiBhbmQgc2VuZCBpdCB1c2luZyB0aGUgY2FkZW5j
+ZS9tYWNiIChFdGhlcm5ldCkgZHJpdmVyLCBJIGdldA0KPj4NCj4+IGV0aDA6IFRYIHVuZGVycnVu
+LCByZXNldHRpbmcgYnVmZmVycw0KPj4NCj4+IE5vdyBJIGtub3cgdGhlIG1pbmltdW0gRXRoZXJu
+ZXQgZnJhbWUgc2l6ZSBpcyA2NCBieXRlcyAoaW5jbHVkaW5nIHRoZSA0LWJ5dGUNCj4+IEZDUyks
+IGJ1dCB3aG9zZSByZXNwb25zaWJpbGl0eSBpcyBpdCB0byBwYWQgdGhlIGZyYW1lIHRvIHRoaXMg
+c2l6ZSBpZiBuZWNlc3Nhcnk/DQo+PiBNaW5lIG9yIHRoZSBkcml2ZXIncyAtIGkuZS4gc2hvdWxk
+IEkganVzdCBza2JfcHV0KCkgdG8gdGhlIG1pbmltdW0gc2l6ZSBvcg0KPj4gc2hvdWxkIEkgcmVw
+b3J0IHRoZSB1bmRlcnJ1biBhcyBhIGRyaXZlciBidWc/DQo+IA0KPiBJZiB0aGUgaGFyZHdhcmUg
+ZG9lc24ndCBwYWQgZnJhbWVzIGF1dG9tYXRpY2FsbHkgdGhlbiBpdCdzIHRoZSBkcml2ZXIncw0K
+PiByZXBvbnNpYmlsaXR5IHRvIGRvIHNvLg0KPiANCg0KTmljb2xhcywgY2FuIHlvdSB0YWtlIGEg
+bG9vayBhdCB0aGlzPyBBdCB0aGUgbW9tZW50IEknbSB1c2luZyB0aGUgZm9sbG93aW5nIGNoYW5n
+ZQ0KaW4gbWFjYi5jIHRvIGF2b2lkIFRYIHVuZGVycnVucyBvbiBzaG9ydCBwYWNrYWdlczoNCg0K
+LS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvY2FkZW5jZS9tYWNiLmMJMjAxMi0wNS0wNCAxOTox
+NDo0MS45Mjc3MTk2NjcgKzAyMDANCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2NhZGVuY2Uv
+bWFjYi5jCTIwMTItMDgtMjEgMTk6MjI6NDAuMDYzNzM5MDQ5ICswMjAwDQpAQCAtNjE4LDYgKzYx
+OCw3IEBAIHN0YXRpYyB2b2lkIG1hY2JfcG9sbF9jb250cm9sbGVyKHN0cnVjdA0KIH0NCiAjZW5k
+aWYNCg0KKyNkZWZpbmUgTUlOX0VUSEZSQU1FX0xFTgk2MA0KIHN0YXRpYyBpbnQgbWFjYl9zdGFy
+dF94bWl0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpDQogew0K
+IAlzdHJ1Y3QgbWFjYiAqYnAgPSBuZXRkZXZfcHJpdihkZXYpOw0KQEAgLTYzNSw2ICs2MzYsMTIg
+QEAgc3RhdGljIGludCBtYWNiX3N0YXJ0X3htaXQoc3RydWN0IHNrX2J1Zg0KIAlwcmludGsoIlxu
+Iik7DQogI2VuZGlmDQoNCisJaWYgKHNrYi0+bGVuIDwgTUlOX0VUSEZSQU1FX0xFTikgew0KKwkJ
+LyogUGFkIHNrYiB0byBtaW5pdW0gRXRoZXJuZXQgZnJhbWUgc2l6ZSAqLw0KKwkJaWYgKHNrYl90
+YWlscm9vbShza2IpID49IE1JTl9FVEhGUkFNRV9MRU4gLSBza2ItPmxlbikNCisJCQltZW1zZXQo
+c2tiX3B1dChza2IsIE1JTl9FVEhGUkFNRV9MRU4gLSBza2ItPmxlbiksIDAsDQorCQkJCQkJTUlO
+X0VUSEZSQU1FX0xFTiAtIHNrYi0+bGVuKTsNCisJfQ0KIAlsZW4gPSBza2ItPmxlbjsNCiAJc3Bp
+bl9sb2NrX2lycXNhdmUoJmJwLT5sb2NrLCBmbGFncyk7DQoNCg0KLi4uIGJ1dCBhcyB5b3UgY2Fu
+IHNlZSB0aGlzIGlzIGxpbWl0ZWQgdG8gbGluZWFyIHNrYnMgd2hpY2ggaGFzIGJlZW4gYWxsb2Nh
+dGVkIHdpdGgNCmVub3VnaCB0YWlscm9vbS4gUGVyaGFwcyB0aGVyZSBhcmUgYmV0dGVyIHdheXMg
+dG8gZml4IHRoZSBwcm9ibGVtPyAoTWF5YmUgdGhlIGhhcmR3YXJlDQppcyBhY3R1YWxseSBkb2lu
+ZyB0aGUgcGFkZGluZyBhbHJlYWR5IGFuZCB0aGUgcHJvYmxlbSBoYXMgdG8gZG8gd2l0aCB0aGUg
+d2F5IHRoZSBETUENCnRyYW5zZmVyIGlzIHNldCB1cD8pDQoNCg0KLS0gDQpBcnZpZCBCcm9kaW4g
+fCBDb25zdWx0YW50IChMaW51eCkNClhESU4gQUIgfCBKYW4gU3RlbmJlY2tzIFRvcmcgMTcgfCBT
+RS0xNjQgNDAgS2lzdGEgfCBTd2VkZW4gfCB4ZGluLmNvbQ==
