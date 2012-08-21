@@ -1,78 +1,106 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: smsc75xx & smsc95xx, setting skb->truesize correctly?
-Date: Tue, 21 Aug 2012 11:46:38 +0200
-Message-ID: <1345542398.5158.446.camel@edumazet-glaptop>
-References: <20120820175706.12394vktsvm3yvqc@www.81.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+From: Andrew McGregor <andrewmcgr@gmail.com>
+Subject: Re: coping with memory limitations and packet flooding in
+	codel and fq_codel
+Date: Tue, 21 Aug 2012 22:27:13 +1200
+Message-ID: <46C4C66E-A4EE-4051-9686-7AD02EE925B4@gmail.com>
+References: <CAA93jw7=K8Vvp6N5qYZ8gaODaFyZtAEjGyQe2BDh9-RBsvVHcQ@mail.gmail.com>
+	<1345538298.5158.401.camel@edumazet-glaptop>
+Mime-Version: 1.0 (Mac OS X Mail 6.0 \(1485\))
+Content-Type: multipart/mixed; boundary="===============5505677863306140262=="
+Cc: netdev <netdev@vger.kernel.org>, codel@lists.bufferbloat.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <codel-bounces@lists.bufferbloat.net>
+In-Reply-To: <1345538298.5158.401.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
+List-Post: <mailto:codel@lists.bufferbloat.net>
+List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
+Sender: codel-bounces@lists.bufferbloat.net
+Errors-To: codel-bounces@lists.bufferbloat.net
+List-Id: netdev.vger.kernel.org
+
+
+--===============5505677863306140262==
+Content-Type: multipart/signed; boundary="Apple-Mail=_491BEAD6-60DF-42D1-BE79-784BB87FB055"; protocol="application/pkcs7-signature"; micalg=sha1
+
+
+--Apple-Mail=_491BEAD6-60DF-42D1-BE79-784BB87FB055
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Steve Glendinning <steve.glendinning@shawell.net>
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:49236 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755841Ab2HUJqq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 05:46:46 -0400
-Received: by bkwj10 with SMTP id j10so2119297bkw.19
-        for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 02:46:45 -0700 (PDT)
-In-Reply-To: <20120820175706.12394vktsvm3yvqc@www.81.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset=us-ascii
 
-On Mon, 2012-08-20 at 17:57 +0300, Jussi Kivilinna wrote:
-> Hello,
-> 
-> Is setting skb->truesize in smsc75xx and smsc95xx correct?
-> In smsc75xx/smsc95xx_rx_fixup(), input skb containing multiple packets  
-> is cloned and truesize for each clone is set to packet-size +  
-> sizeof(struct sk_buff), but input skb has minimum allocation size of  
-> 9000 bytes (MAX_SINGLE_PACKET_SIZE) and maximum of 18944 bytes  
-> (DEFAULT_HS_BURST_CAP_SIZE) (+ NET_IP_ALIGN). Doesn't this cause  
-> truesize to be underestimated?
 
-This has been discussed in a "TCP transmit performance regression"
-thread some weeks ago.
+On 21/08/2012, at 8:38 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-More generally, skb_clone() is not a good idea in rx path.
+> ath9k driver is known to deliver very fat skbs (skb->truesize is too
+> big)
 
-I dont have the hardware so cannot send a formal patch.
+What would it take to fix this?
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index b1112e7..3d9566f 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -1080,30 +1080,17 @@ static int smsc95xx_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 				return 0;
- 			}
- 
--			/* last frame in this batch */
--			if (skb->len == size) {
--				if (dev->net->features & NETIF_F_RXCSUM)
--					smsc95xx_rx_csum_offload(skb);
--				skb_trim(skb, skb->len - 4); /* remove fcs */
--				skb->truesize = size + sizeof(struct sk_buff);
--
--				return 1;
--			}
--
--			ax_skb = skb_clone(skb, GFP_ATOMIC);
-+			ax_skb = netdev_alloc_skb_ip_align(dev->net, size);
- 			if (unlikely(!ax_skb)) {
- 				netdev_warn(dev->net, "Error allocating skb\n");
- 				return 0;
- 			}
- 
--			ax_skb->len = size;
--			ax_skb->data = packet;
--			skb_set_tail_pointer(ax_skb, size);
-+			memcpy(skb_put(ax_skb, size), packet, size);
- 
- 			if (dev->net->features & NETIF_F_RXCSUM)
- 				smsc95xx_rx_csum_offload(ax_skb);
--			skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
--			ax_skb->truesize = size + sizeof(struct sk_buff);
-+			__skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
- 
- 			usbnet_skb_return(dev, ax_skb);
- 		}
+Andrew
+--Apple-Mail=_491BEAD6-60DF-42D1-BE79-784BB87FB055
+Content-Disposition: attachment;
+	filename=smime.p7s
+Content-Type: application/pkcs7-signature;
+	name=smime.p7s
+Content-Transfer-Encoding: base64
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIFLjCCBSow
+ggQSoAMCAQICEQDMQ2ZKvgsUYA5oQg5SjWfVMA0GCSqGSIb3DQEBBQUAMIGTMQswCQYDVQQGEwJH
+QjEbMBkGA1UECBMSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRowGAYDVQQK
+ExFDT01PRE8gQ0EgTGltaXRlZDE5MDcGA1UEAxMwQ09NT0RPIENsaWVudCBBdXRoZW50aWNhdGlv
+biBhbmQgU2VjdXJlIEVtYWlsIENBMB4XDTExMTAwMTAwMDAwMFoXDTEyMDkzMDIzNTk1OVowJTEj
+MCEGCSqGSIb3DQEJARYUYW5kcmV3bWNnckBnbWFpbC5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IB
+DwAwggEKAoIBAQC+buTRxzSXTQmMyUqaokLJit3xU5WVudxHijhKbGRSTgJ867L/v8+rNhSoFwCV
+MdKIu/M7apWgGkkA+MT/LjDFj63jLT+4nTTLIojXZdoezbpp/rQ2ViSbi54AjhZBQ5X+yH2xcXmG
+KpDhZjeZC1bvKNvBtdOHCAcrx1Ys1BNj+AhwridEX/KD0cq5xSsJhjDggF6XSUOsaiqBHR6fiQMi
+7gH8EuFBh83oklb/pdreg1fQ7gKJk/Me/atIbE1gtbIR88oaCtXoHfZxgkFwagwMtBHdkxN+wcZy
+9xx78el9Lxrjx2nMq50hRlj/bqg/m4rSox7//DKfx7bfKNZAiSMDAgMBAAGjggHkMIIB4DAfBgNV
+HSMEGDAWgBR6E04AdFvGeGNkJ8Ev4qBbvHnFezAdBgNVHQ4EFgQUXOXqNkq6sNbrD8B41dPko8Gs
+JucwDgYDVR0PAQH/BAQDAgWgMAwGA1UdEwEB/wQCMAAwIAYDVR0lBBkwFwYIKwYBBQUHAwQGCysG
+AQQBsjEBAwUCMBEGCWCGSAGG+EIBAQQEAwIFIDBGBgNVHSAEPzA9MDsGDCsGAQQBsjEBAgEBATAr
+MCkGCCsGAQUFBwIBFh1odHRwczovL3NlY3VyZS5jb21vZG8ubmV0L0NQUzBXBgNVHR8EUDBOMEyg
+SqBIhkZodHRwOi8vY3JsLmNvbW9kb2NhLmNvbS9DT01PRE9DbGllbnRBdXRoZW50aWNhdGlvbmFu
+ZFNlY3VyZUVtYWlsQ0EuY3JsMIGIBggrBgEFBQcBAQR8MHowUgYIKwYBBQUHMAKGRmh0dHA6Ly9j
+cnQuY29tb2RvY2EuY29tL0NPTU9ET0NsaWVudEF1dGhlbnRpY2F0aW9uYW5kU2VjdXJlRW1haWxD
+QS5jcnQwJAYIKwYBBQUHMAGGGGh0dHA6Ly9vY3NwLmNvbW9kb2NhLmNvbTAfBgNVHREEGDAWgRRh
+bmRyZXdtY2dyQGdtYWlsLmNvbTANBgkqhkiG9w0BAQUFAAOCAQEAgmf81vnsAnbcmIAyyqvEKxAK
+jRHerfreN10DK1ISkUJ//U4uffQV8sAGDtyIErzVFsW6NYRmFCMSE20M1ffbFpWUmXCtm/YTlkf1
+5STVjTMNshDzMDhpjx99Z2J5RBJPZpXjwmpQnfKwB7zft9TcUSIb9FvZm33EKdF/XlS12U4Q9fsj
+2shZf88RituX2+fCWfHoTWiFEhFUkLRtWf1YpgHpEXr82nqROxs/aWNlqtLnwTTu2ULr/WpUaRDs
+kom8gFZkMgw5kRfLpSXRrCFSORsZzkH2ooRxaJY7wMwZaCUS1am9DuwVy7gehoc3ZsjsDkMObZeu
+kx7Cg7GxIkgo+zGCA64wggOqAgEBMIGpMIGTMQswCQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRl
+ciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRowGAYDVQQKExFDT01PRE8gQ0EgTGltaXRl
+ZDE5MDcGA1UEAxMwQ09NT0RPIENsaWVudCBBdXRoZW50aWNhdGlvbiBhbmQgU2VjdXJlIEVtYWls
+IENBAhEAzENmSr4LFGAOaEIOUo1n1TAJBgUrDgMCGgUAoIIB2TAYBgkqhkiG9w0BCQMxCwYJKoZI
+hvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0xMjA4MjExMDI3MTRaMCMGCSqGSIb3DQEJBDEWBBS91oWM
+6Wbi87xg2l4j46OROKiZYTCBugYJKwYBBAGCNxAEMYGsMIGpMIGTMQswCQYDVQQGEwJHQjEbMBkG
+A1UECBMSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRowGAYDVQQKExFDT01P
+RE8gQ0EgTGltaXRlZDE5MDcGA1UEAxMwQ09NT0RPIENsaWVudCBBdXRoZW50aWNhdGlvbiBhbmQg
+U2VjdXJlIEVtYWlsIENBAhEAzENmSr4LFGAOaEIOUo1n1TCBvAYLKoZIhvcNAQkQAgsxgayggakw
+gZMxCzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1Nh
+bGZvcmQxGjAYBgNVBAoTEUNPTU9ETyBDQSBMaW1pdGVkMTkwNwYDVQQDEzBDT01PRE8gQ2xpZW50
+IEF1dGhlbnRpY2F0aW9uIGFuZCBTZWN1cmUgRW1haWwgQ0ECEQDMQ2ZKvgsUYA5oQg5SjWfVMA0G
+CSqGSIb3DQEBAQUABIIBALCokzZJAZjxSvFScudffmOVA8v/5RXCgDWAMTBNgeaY93qz1nmWYF8n
+Nq1f4K/45psM6KFDFVIhJ3zETidIOBJJP7jo2X+NqWBmm7UP0PdtiHTfSR43b+tXyeVXFW6ggZ2S
+ZxML6aavS6E6yUrohG6CyMl9Wk//QTrR1bXcd7nNURFARgpr01GyHCB174R0T/puLOasHvu4Vfhu
+Mc0e3vGOIEiYe49tH2gBQ4Pwfyp/uFaUwyqg+aMazSPGbAJzYIkhrET18NGlg/4U1CXQUCOA3BYP
+ZMV1o3JHwHn+pTrRbYydLS4wGt9XHq/cUc5MO3qN+pey5VT5cHXSxgVwnNcAAAAAAAA=
+
+--Apple-Mail=_491BEAD6-60DF-42D1-BE79-784BB87FB055--
+
+--===============5505677863306140262==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Codel mailing list
+Codel@lists.bufferbloat.net
+https://lists.bufferbloat.net/listinfo/codel
+
+--===============5505677863306140262==--
