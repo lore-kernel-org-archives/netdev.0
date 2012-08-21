@@ -1,7 +1,7 @@
 From: David Daney <ddaney.cavm@gmail.com>
-Subject: [PATCH 6/8] netdev: octeon_mgmt: Cleanup and modernize MAC address handling.
-Date: Tue, 21 Aug 2012 11:45:10 -0700
-Message-ID: <1345574712-21444-7-git-send-email-ddaney.cavm@gmail.com>
+Subject: [PATCH 7/8] netdev: octeon_mgmt: Remove some useless 'inline'
+Date: Tue, 21 Aug 2012 11:45:11 -0700
+Message-ID: <1345574712-21444-8-git-send-email-ddaney.cavm@gmail.com>
 References: <1345574712-21444-1-git-send-email-ddaney.cavm@gmail.com>
 Cc: linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
 To: linux-mips@linux-mips.org, ralf@linux-mips.org,
@@ -13,48 +13,41 @@ List-Id: netdev.vger.kernel.org
 
 From: David Daney <david.daney@cavium.com>
 
-Use eth_mac_addr(), and generate a random address if none is otherwise
-assigned.
-
 Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- drivers/net/ethernet/octeon/octeon_mgmt.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/octeon/octeon_mgmt.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
-index 3bae01f..9b526da 100644
+index 9b526da..ccb1f81 100644
 --- a/drivers/net/ethernet/octeon/octeon_mgmt.c
 +++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
-@@ -648,12 +648,10 @@ static void octeon_mgmt_set_rx_filtering(struct net_device *netdev)
+@@ -173,22 +173,22 @@ static void octeon_mgmt_set_tx_irq(struct octeon_mgmt *p, int enable)
+ 	spin_unlock_irqrestore(&p->lock, flags);
+ }
  
- static int octeon_mgmt_set_mac_address(struct net_device *netdev, void *addr)
+-static inline void octeon_mgmt_enable_rx_irq(struct octeon_mgmt *p)
++static void octeon_mgmt_enable_rx_irq(struct octeon_mgmt *p)
  {
--	struct sockaddr *sa = addr;
-+	int r = eth_mac_addr(netdev, addr);
+ 	octeon_mgmt_set_rx_irq(p, 1);
+ }
  
--	if (!is_valid_ether_addr(sa->sa_data))
--		return -EADDRNOTAVAIL;
--
--	memcpy(netdev->dev_addr, sa->sa_data, ETH_ALEN);
-+	if (r)
-+		return r;
+-static inline void octeon_mgmt_disable_rx_irq(struct octeon_mgmt *p)
++static void octeon_mgmt_disable_rx_irq(struct octeon_mgmt *p)
+ {
+ 	octeon_mgmt_set_rx_irq(p, 0);
+ }
  
- 	octeon_mgmt_set_rx_filtering(netdev);
+-static inline void octeon_mgmt_enable_tx_irq(struct octeon_mgmt *p)
++static void octeon_mgmt_enable_tx_irq(struct octeon_mgmt *p)
+ {
+ 	octeon_mgmt_set_tx_irq(p, 1);
+ }
  
-@@ -1545,8 +1543,12 @@ static int __devinit octeon_mgmt_probe(struct platform_device *pdev)
- 
- 	mac = of_get_mac_address(pdev->dev.of_node);
- 
--	if (mac)
--		memcpy(netdev->dev_addr, mac, 6);
-+	if (mac && is_valid_ether_addr(mac)) {
-+		memcpy(netdev->dev_addr, mac, ETH_ALEN);
-+		netdev->addr_assign_type &= ~NET_ADDR_RANDOM;
-+	} else {
-+		eth_hw_addr_random(netdev);
-+	}
- 
- 	p->phy_np = of_parse_phandle(pdev->dev.of_node, "phy-handle", 0);
- 
+-static inline void octeon_mgmt_disable_tx_irq(struct octeon_mgmt *p)
++static void octeon_mgmt_disable_tx_irq(struct octeon_mgmt *p)
+ {
+ 	octeon_mgmt_set_tx_irq(p, 0);
+ }
 -- 
 1.7.11.4
