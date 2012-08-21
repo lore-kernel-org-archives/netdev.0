@@ -1,71 +1,104 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: coping with memory limitations and packet flooding in
- codel and fq_codel
-Date: Tue, 21 Aug 2012 10:38:18 +0200
-Message-ID: <1345538298.5158.401.camel@edumazet-glaptop>
-References: <CAA93jw7=K8Vvp6N5qYZ8gaODaFyZtAEjGyQe2BDh9-RBsvVHcQ@mail.gmail.com>
+From: Johan Gunnarsson <johan.gunnarsson@axis.com>
+Subject: RE: [PATCH] ethtool: don't overwrite useful bits in advertising
+ bitfield
+Date: Tue, 21 Aug 2012 10:41:53 +0200
+Message-ID: <A612847CFE53224C91B23E3A5B48BAC7534E8D76AD@xmail3.se.axis.com>
+References: <1344953745-13208-1-git-send-email-johangu@axis.com>
+ <1345476178.2659.15.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, codel@lists.bufferbloat.net
-To: Dave Taht <dave.taht@gmail.com>
-Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <CAA93jw7=K8Vvp6N5qYZ8gaODaFyZtAEjGyQe2BDh9-RBsvVHcQ@mail.gmail.com>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
-List-Post: <mailto:codel@lists.bufferbloat.net>
-List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
-Sender: codel-bounces@lists.bufferbloat.net
-Errors-To: codel-bounces@lists.bufferbloat.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Mikael Starvik <starvik@axis.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ra.se.axis.com ([195.60.68.13]:35985 "EHLO ra.se.axis.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753018Ab2HUIjf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Aug 2012 04:39:35 -0400
+In-Reply-To: <1345476178.2659.15.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-08-20 at 14:05 -0700, Dave Taht wrote:
-> We've had a raft of deployment questions regarding fq_codel, memory
-> use, and the impact of unresponsive flows
-> over on the cerowrt development list.
-> 
-> sort of summary of the thread here, with some codel related ideas
-> 
-> https://lists.bufferbloat.net/pipermail/cerowrt-devel/2012-August/000423.html
-> 
-> some early data on wifi interactions here
-> 
-> https://lists.bufferbloat.net/pipermail/cerowrt-devel/2012-August/000407.html
-> 
-
-CC netdev
-
-codel / fq_codel have a packet limit per qdisc, like any other linux
-qdisc.
-
-DEFAULT_CODEL_LIMIT = 1000 packets
-
-fq_codel : 10240 packets
-
-For memory constrained boxes, it would be wise to add a 'truesize' limit
-
-Not a bytes limit based on skb->len sum, because a skb->len = 60 bytes
-packet might consume far more memory (more than 2 Kbytes)
-
-ath9k driver is known to deliver very fat skbs (skb->truesize is too
-big)
-
-One 'other way' to limit bloat would be to reallocate skbs when one
-qdisc begins to use more than 25 % of its truesize limit
-
-enqueue(q, skb)
-{
-	if (q->truesize_sum > q->truesize_limit / 4)
-		skb = skb_reduce_truesize(skb, GFP_ATOMIC);
-	...
-}
-
-This is what some drivers already do in their rx handler (this is called
-copybreak), but this would do the copy (and extra cpu cost) only in
-stress situations.
-
-Note : we also have a very big struct skb_shared_info (320 bytes), we
-probably could shrink it for packets without fragments.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
+ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3duZXJAdmdlci5rZXJuZWwub3JnXSBP
+biBCZWhhbGYgT2YgQmVuIEh1dGNoaW5ncw0KPiBTZW50OiBkZW4gMjAgYXVndXN0aSAyMDEyIDE3
+OjIzDQo+IFRvOiBKb2hhbiBHdW5uYXJzc29uDQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
+OyBNaWthZWwgU3RhcnZpaw0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSBldGh0b29sOiBkb24ndCBv
+dmVyd3JpdGUgdXNlZnVsIGJpdHMgaW4NCj4gYWR2ZXJ0aXNpbmcgYml0ZmllbGQNCj4gDQo+IE9u
+IFR1ZSwgMjAxMi0wOC0xNCBhdCAxNjoxNSArMDIwMCwgSm9oYW4gR3VubmFyc3NvbiB3cm90ZToN
+Cj4gPiBUaGVyZSBhcmUgYml0cyBpbiB0aGlzIGJpdGZpZWxkIHRoYXQgd2Ugd2FudCB0byBsZWF2
+ZSB1bnRvdWNoZWQNCj4gKFBBVVNFDQo+ID4gYW5kIEFTWU1fUEFVU0UgYml0cykgd2hlbiBjaGFu
+Z2luZyBvdGhlciBiaXRzIChzcGVlZCBhbmQgZHVwbGV4DQo+IGJpdHMuKQ0KPiA+IFByZXZpb3Vz
+bHksIHRoZXNlIHdlcmUgYWx3YXlzIG92ZXJ3cml0dGVuIHRvIHplcm8gd2hlbiBydW5uaW5nDQo+
+IGNvbW1hbmRzDQo+ID4gbGlrZSAiZXRodG9vbCAtcyBldGgwIHNwZWVkIDEwIGR1cGxleCBmdWxs
+IGF1dG9uZWcgb2ZmIi4NCj4gDQo+IFRoaXMgaXMgcmlnaHQgaW4gcHJpbmNpcGxlLCBidXQgdGhl
+IGltcGxlbWVudGF0aW9uIGlzbid0IHF1aXRlIHJpZ2h0Lg0KPiANCj4gPiBTaWduZWQtb2ZmLWJ5
+OiBKb2hhbiBHdW5uYXJzc29uIDxqb2hhbmd1QGF4aXMuY29tPg0KPiA+IC0tLQ0KPiA+ICBldGh0
+b29sLmMgfCAgIDQ1ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0t
+LQ0KPiA+ICAxIGZpbGUgY2hhbmdlZCwgMzEgaW5zZXJ0aW9ucygrKSwgMTQgZGVsZXRpb25zKC0p
+DQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvZXRodG9vbC5jIGIvZXRodG9vbC5jDQo+ID4gaW5kZXgg
+ZTU3MzM1Ny4uZWZhMTJjNyAxMDA2NDQNCj4gPiAtLS0gYS9ldGh0b29sLmMNCj4gPiArKysgYi9l
+dGh0b29sLmMNCj4gPiBAQCAtNDYsNiArNDYsMTggQEANCj4gPiAgI2RlZmluZSBNQVhfQUREUl9M
+RU4JMzINCj4gPiAgI2VuZGlmDQo+ID4NCj4gPiArI2RlZmluZSBBTExfQURWRVJUSVNFRF9NT0RF
+UyBcDQo+ID4gKwkoQURWRVJUSVNFRF8xMGJhc2VUX0hhbGYgfCBcDQo+ID4gKwkgQURWRVJUSVNF
+RF8xMGJhc2VUX0Z1bGwgfCBcDQo+ID4gKwkgQURWRVJUSVNFRF8xMDBiYXNlVF9IYWxmIHwgXA0K
+PiA+ICsJIEFEVkVSVElTRURfMTAwYmFzZVRfRnVsbCB8IFwNCj4gPiArCSBBRFZFUlRJU0VEXzEw
+MDBiYXNlVF9IYWxmIHwgXA0KPiA+ICsJIEFEVkVSVElTRURfMTAwMGJhc2VUX0Z1bGwgfCBcDQo+
+ID4gKwkgQURWRVJUSVNFRF8yNTAwYmFzZVhfRnVsbCB8IFwNCj4gPiArCSBBRFZFUlRJU0VEXzEw
+MDAwYmFzZVRfRnVsbCB8IFwNCj4gPiArCSBBRFZFUlRJU0VEXzIwMDAwYmFzZU1MRDJfRnVsbCB8
+IFwNCj4gPiArCSBBRFZFUlRJU0VEXzIwMDAwYmFzZUtSMl9GdWxsKQ0KPiANCj4gVGhpcyBpcyBt
+aXNzaW5nIHRoZSBuZXcgNDBHIG1vZGVzIChub3QgYSByZWdyZXNzaW9uLCBJIHJlYWxpc2UpLg0K
+DQpJJ2xsIGFkZCB0aGUgNDBHIG1vZGVzLiBUaGVyZSBpcyBhbHNvIGEgYnVuY2ggb2YgMTBHIG1v
+ZGVzIG1pc3NpbmcuIFNoYWxsIEkgYWRkIHRoZXNlIHRvbz8NCg0KPiANCj4gWy4uLl0NCj4gPiBA
+QCAtMjQwNSwxOSArMjQyMSwyMCBAQCBzdGF0aWMgaW50IGRvX3NzZXQoc3RydWN0IGNtZF9jb250
+ZXh0ICpjdHgpDQo+ID4gIAkJCX0NCj4gPiAgCQkJaWYgKGF1dG9uZWdfd2FudGVkID09IEFVVE9O
+RUdfRU5BQkxFICYmDQo+ID4gIAkJCSAgICBhZHZlcnRpc2luZ193YW50ZWQgPT0gMCkgew0KPiA+
+IC0JCQkJZWNtZC5hZHZlcnRpc2luZyA9IGVjbWQuc3VwcG9ydGVkICYNCj4gPiAtCQkJCQkoQURW
+RVJUSVNFRF8xMGJhc2VUX0hhbGYgfA0KPiA+IC0JCQkJCSBBRFZFUlRJU0VEXzEwYmFzZVRfRnVs
+bCB8DQo+ID4gLQkJCQkJIEFEVkVSVElTRURfMTAwYmFzZVRfSGFsZiB8DQo+ID4gLQkJCQkJIEFE
+VkVSVElTRURfMTAwYmFzZVRfRnVsbCB8DQo+ID4gLQkJCQkJIEFEVkVSVElTRURfMTAwMGJhc2VU
+X0hhbGYgfA0KPiA+IC0JCQkJCSBBRFZFUlRJU0VEXzEwMDBiYXNlVF9GdWxsIHwNCj4gPiAtCQkJ
+CQkgQURWRVJUSVNFRF8yNTAwYmFzZVhfRnVsbCB8DQo+ID4gLQkJCQkJIEFEVkVSVElTRURfMTAw
+MDBiYXNlVF9GdWxsIHwNCj4gPiAtCQkJCQkgQURWRVJUSVNFRF8yMDAwMGJhc2VNTEQyX0Z1bGwg
+fA0KPiA+IC0JCQkJCSBBRFZFUlRJU0VEXzIwMDAwYmFzZUtSMl9GdWxsKTsNCj4gPiArCQkJCS8q
+IEF1dG8gbmVnb3RhdGlvbiBlbmFibGVkLCBidXQgd2l0aA0KPiA+ICsJCQkJICogdW5zcGVjaWZp
+ZWQgc3BlZWQgYW5kIGR1cGxleDogZW5hYmxlIGFsbA0KPiA+ICsJCQkJICogc3VwcG9ydGVkIHNw
+ZWVkcyBhbmQgZHVwbGV4ZXMuDQo+ID4gKwkJCQkgKi8NCj4gPiArCQkJCWVjbWQuYWR2ZXJ0aXNp
+bmcgPSAoZWNtZC5hZHZlcnRpc2luZyAmDQo+ID4gKwkJCQkJfkFMTF9BRFZFUlRJU0VEX01PREVT
+KSB8DQo+ID4gKwkJCQkJKEFMTF9BRFZFUlRJU0VEX01PREVTICYgZWNtZC5zdXBwb3J0ZWQpOw0K
+PiANCj4gUGVyaGFwcyB3ZSBzaG91bGQgYWxzbyB3YXJuIGlmIHRoZXJlJ3MgYSAnc3VwcG9ydGVk
+JyBmbGFnIHdlIGRvbid0DQo+IHJlY29nbmlzZSwgYmVjYXVzZSB3ZSBkb24ndCBrbm93IHdoZXRo
+ZXIgaXQncyBhIGxpbmsgbW9kZSBhbmQgd2UgbWlnaHQNCj4gYmUgZmFpbGluZyB0byBlbmFibGUv
+ZGlzYWJsZSBpdCBhcyByZXF1ZXN0ZWQuDQoNCllvdSBtZWFuIGlmIGVjbWQuc3VwcG9ydGVkIGhh
+cyBiaXRzIGVuYWJsZWQgdGhhdCBBTExfQURWRVJUSVNFRF9NT0RFUyBoYXNuJ3Q/IEkgZG9uJ3Qg
+dGhpbmsgdGhhdCdzIGEgZ29vZCBpZGVhLCBiZWNhdXNlIHRoYXQgaGFwcGVucyB2ZXJ5IG9mdGVu
+IChmb3IgZXhhbXBsZSBQQVVTRSBiaXRzIGluIG15IGNhc2UuKQ0KDQo+IA0KPiA+ICAJCQl9IGVs
+c2UgaWYgKGFkdmVydGlzaW5nX3dhbnRlZCA+IDApIHsNCj4gPiAtCQkJCWVjbWQuYWR2ZXJ0aXNp
+bmcgPSBhZHZlcnRpc2luZ193YW50ZWQ7DQo+ID4gKwkJCQkvKiBFbmFibGUgYWxsIHJlcXVlc3Rl
+ZCBtb2RlcyAqLw0KPiA+ICsJCQkJZWNtZC5hZHZlcnRpc2luZyA9IChlY21kLmFkdmVydGlzaW5n
+ICYNCj4gPiArCQkJCQl+QUxMX0FEVkVSVElTRURfTU9ERVMpIHwNCj4gPiArCQkJCQkoYWR2ZXJ0
+aXNpbmdfd2FudGVkICYgZWNtZC5zdXBwb3J0ZWQpOw0KPiANCj4gSSBkb24ndCB0aGluayB0aGUg
+JyYgZWNtZC5zdXBwb3J0ZWQnIGhlcmUgaXMgcmlnaHQuICBJZiBhbiBhdXRvbmVnDQo+IGRldmlj
+ZSBzdXBwb3J0cyBzb21lIG5ldyBsaW5rIG1vZGUgTCB0aGF0IGlzIG5vdCBpbg0KPiBBTExfQURW
+RVJUSVNFRF9NT0RFUywgYnV0IG5vdCBsaW5rIG1vZGUgTSB3aGljaCB0aGUgdXNlciByZXF1ZXN0
+ZWQsDQo+IHRoZW4NCj4gdGhpcyBjYW4gc2lsZW50bHkgZmFpbCBiZWNhdXNlIHRoZSByZXN1bHRp
+bmcgYWR2ZXJ0aXNpbmcgbWFzayB3aWxsDQo+IGluY2x1ZGUgTCBidXQgbm90IE0uDQo+IA0KPiBX
+ZSBzaG91bGQgZWl0aGVyIHVzZSBhZHZlcnRpc2luZ193YW50ZWQgdW5tYXNrZWQgYW5kIGxldCB0
+aGUgZHJpdmVyDQo+IHZhbGlkYXRlIGl0LCBvciByZXBvcnQgYW4gZXJyb3IgaWYgaXQncyBub3Qg
+cHJlc2VudCBpbiB0aGUgc3VwcG9ydGVkDQo+IG1hc2suICBJIHRoaW5rIHdlIHNob3VsZCBiZSBj
+b25zaXN0ZW50IHdpdGggdGhlIGZvbGxvd2luZyBjYXNlLCBpLmUuDQo+IGxldA0KPiB0aGUgZHJp
+dmVyIHZhbGlkYXRlIGl0Lg0KDQpIb3cgYWJvdXQgcmVtb3ZlICImIGVjbWQuc3VwcG9ydGVkIiwg
+YnV0IGFsc28gd2FybiBpZiB0cnlpbmcgdG8gYWRkIGFuIHVuc3VwcG9ydGVkIG1vZGU/IFNpbWls
+YXIgdG8gdGhlIHByZXZpb3VzIGNhc2UuDQoNCj4gDQo+IEJlbi4NCj4gDQo+ID4gKwkJCX0gZWxz
+ZSBpZiAoZnVsbF9hZHZlcnRpc2luZ193YW50ZWQgPiAwKSB7DQo+ID4gKwkJCQllY21kLmFkdmVy
+dGlzaW5nID0gZnVsbF9hZHZlcnRpc2luZ193YW50ZWQ7DQo+ID4gIAkJCX0NCj4gPg0KPiA+ICAJ
+CQkvKiBUcnkgdG8gcGVyZm9ybSB0aGUgdXBkYXRlLiAqLw0KPiANCj4gLS0NCj4gQmVuIEh1dGNo
+aW5ncywgU3RhZmYgRW5naW5lZXIsIFNvbGFyZmxhcmUNCj4gTm90IHNwZWFraW5nIGZvciBteSBl
+bXBsb3llcjsgdGhhdCdzIHRoZSBtYXJrZXRpbmcgZGVwYXJ0bWVudCdzIGpvYi4NCj4gVGhleSBh
+c2tlZCB1cyB0byBub3RlIHRoYXQgU29sYXJmbGFyZSBwcm9kdWN0IG5hbWVzIGFyZSB0cmFkZW1h
+cmtlZC4NCj4gDQo+IC0tDQo+IFRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRo
+ZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluDQo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0
+byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0
+dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
