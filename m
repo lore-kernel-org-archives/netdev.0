@@ -1,227 +1,123 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH 2/3] ipvs: Fix faulty IPv6 extension header handling in
- IPVS
-Date: Tue, 21 Aug 2012 17:14:49 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1208211558410.2149@ja.ssi.bg>
-References: <20120820130732.1509.13080.stgit@dragon> <20120820130840.1509.75794.stgit@dragon>
+From: Sami Farin <hvtaifwkbgefbaei@gmail.com>
+Subject: (ipt_log_packet, sb_add) 3.6.0-rc2 kernel panic - not syncing; Fatal
+ exception in interrupt
+Date: Tue, 21 Aug 2012 16:49:21 +0300
+Message-ID: <20120821134921.behn76vzvhczf3gc@m.safari.iki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Hans Schillstrom <hans@schillstrom.com>,
-	lvs-devel@vger.kernel.org, Simon Horman <horms@verge.net.au>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	netfilter-devel@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20120820130840.1509.75794.stgit@dragon>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Sami Farin <hvtaifwkbgefbaei@gmail.com>, netdev@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.kponet.fi ([213.145.209.38]:36841 "EHLO smtp.kponet.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751813Ab2HUOVD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Aug 2012 10:21:03 -0400
+Received: from safari.iki.fi (unknown [77.223.43.54])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by smtp.kponet.fi (Postfix) with ESMTP id 44937DACAC
+	for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 16:49:22 +0300 (EEST)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+this with 3.6.0-rc2-g6dab7ede+ , x86_64 SMP, e1000e
+gcc version 4.7.1 20120813 (Red Hat 4.7.1-7) (GCC) 
+motherboard Asus P8Z68-V pro gen3
 
-	Hello,
+https://docs.google.com/open?id=0B_EMXtsx7o56UnJqNUNmMjNaSkE
+(screencapture, 2.2 MB)
 
-On Mon, 20 Aug 2012, Jesper Dangaard Brouer wrote:
+RIP [<ffffffff8109078c>] __lock_acquire.isra.25+0x15f/0xb20
 
-> Based on patch from: Hans Schillstrom
-> 
-> IPv6 headers must be processed in order of appearance,
-> neither can it be assumed that Upper layer headers is first.
-> If anything else than L4 is the first header IPVS will throw it.
-> 
-> IPVS will write SNAT & DNAT modifications at a fixed pos which
-> will corrupt the message. Proper header position must be found
-> before writing modifying packet.
-> 
-> This patch contains a lot of API changes.  This is done, to avoid
-> the costly scan of finding the IPv6 headers, via ipv6_find_hdr().
-> Finding the IPv6 headers is done as early as possible, and passed
-> on as a pointer "struct ip_vs_iphdr *" to the affected functions.
-> 
-> Notice, I have choosen, not to change the API of function
-> pointer "(*schedule)" (in struct ip_vs_scheduler) as it can be
-> used by external schedulers, via {un,}register_ip_vs_scheduler.
-> Only 4 out of 10 schedulers use info from ip_vs_iphdr*, and when
-> they do, they are only interested in iph->{s,d}addr.
-> 
-> This patch depends on commit 84018f55a:
->  "netfilter: ip6_tables: add flags parameter to ipv6_find_hdr()"
-> 
-> This also adds a dependency to ip6_tables.
-> 
-> Hans left some questions in ip_vs_pe_sip.c, which I'm uncertain about.
-> 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
+Call Trace:
+sb_add
+lock_acquire
+dump_ipv4_packet
+_raw_read_lock_bh
+dump_ipv4_packet
+dump_ipv4_packet
+sb_add
+ipt_log_packet
+log_tg
+ipt_do_table
+iptable_filter_hook
+nf_iterate
+ip_rcv_finish
+nf_hook_slow
+...
 
-	Patch 1 looks ok, following are some small comments
-for patch 2 and 3.
+from vmlinux:
+   0xffffffff8109075a <+301>:   cmpl   $0x0,0x1691a9f(%rip)        # 0xffffffff82722200 <debug_locks_silent>
+   0xffffffff81090761 <+308>:   jne    0xffffffff8109073f <__lock_acquire+274>
+   0xffffffff81090763 <+310>:   mov    $0xbd5,%esi
+   0xffffffff81090768 <+315>:   mov    $0xffffffff81a4e0c9,%rdi
+   0xffffffff8109076f <+322>:   callq  0xffffffff8104761f <warn_slowpath_null>
+   0xffffffff81090774 <+327>:   xor    %eax,%eax
+   0xffffffff81090776 <+329>:   jmpq   0xffffffff8109093a <__lock_acquire+781>
+   0xffffffff8109077b <+334>:   mov    %r12d,%eax
+   0xffffffff8109077e <+337>:   mov    0x8(%r14,%rax,8),%rbx
+   0xffffffff81090783 <+342>:   test   %rbx,%rbx
+   0xffffffff81090786 <+345>:   je     0xffffffff81090682 <__lock_acquire+85>
+!! 0xffffffff8109078c <+351>:   lock incl 0x198(%rbx)
+   0xffffffff81090793 <+358>:   mov    0x660(%r13),%r15d
+   0xffffffff8109079a <+365>:   mov    0xedfa0f(%rip),%r10d        # 0xffffffff81f701b0 <oops_in_progress>
+   0xffffffff810907a1 <+372>:   test   %r10d,%r10d
+   0xffffffff810907a4 <+375>:   jne    0xffffffff810907b0 <__lock_acquire+387>
+   0xffffffff810907a6 <+377>:   cmp    $0x2f,%r15d
+   0xffffffff810907aa <+381>:   ja     0xffffffff810909fb <__lock_acquire+974>
+   0xffffffff810907b0 <+387>:   sub    $0xffffffff81fb66e0,%rbx
+   0xffffffff810907b7 <+394>:   sar    $0x4,%rbx
+   0xffffffff810907bb <+398>:   movabs $0xef7bdef7bdef7bdf,%rax
+   0xffffffff810907c5 <+408>:   imul   %rax,%rbx
+   0xffffffff810907c9 <+412>:   mov    %ebx,%r11d
+   0xffffffff810907cc <+415>:   lea    0x1(%rbx),%eax
+   0xffffffff810907cf <+418>:   test   %r15d,%r15d
+   0xffffffff810907d2 <+421>:   je     0xffffffff81090902 <__lock_acquire+725>
+   0xffffffff810907d8 <+427>:   mov    %r15d,%edi
 
-> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-> +#include <linux/netfilter_ipv6/ip6_tables.h>
-> +#endif
+kernel 3.5.0-rc6-g4523e145+ worked ok for over a month..
 
-	There is already #if IS_ENABLED(CONFIG_IPV6) that
-can replace #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+# ethtool eth0
+Settings for eth0:
+        Supported ports: [ TP ]
+        Supported link modes:   10baseT/Half 10baseT/Full 
+                                100baseT/Half 100baseT/Full 
+                                1000baseT/Full 
+        Supported pause frame use: No
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full 
+                                100baseT/Half 100baseT/Full 
+                                1000baseT/Full 
+        Advertised pause frame use: No
+        Advertised auto-negotiation: Yes
+        Speed: 100Mb/s
+        Duplex: Full
+        Port: Twisted Pair
+        PHYAD: 2
+        Transceiver: internal
+        Auto-negotiation: on
+        MDI-X: on
+        Supports Wake-on: pumbg
+        Wake-on: g
+        Current message level: 0x00000007 (7)
+                               drv probe link
+        Link detected: yes
 
-	It seems we need IS_ENABLED for many places:
-CONFIG_NF_CONNTRACK, CONFIG_NF_DEFRAG_IPV6
+# ethtool -k eth0
+Offload parameters for eth0:
+rx-checksumming: off
+tx-checksumming: off
+scatter-gather: off
+tcp-segmentation-offload: off
+udp-fragmentation-offload: off
+generic-segmentation-offload: off
+generic-receive-offload: off
+large-receive-offload: off
+rx-vlan-offload: on
+tx-vlan-offload: on
+ntuple-filters: off
+receive-hashing: on
 
-> @@ -958,34 +943,26 @@ static int ip_vs_out_icmp_v6(struct sk_buff *skb, int *related,
->  	}
->  
->  	/* Now find the contained IP header */
-> -	offset += sizeof(_icmph);
-> -	cih = skb_header_pointer(skb, offset, sizeof(_ciph), &_ciph);
-> -	if (cih == NULL)
-> -		return NF_ACCEPT; /* The packet looks wrong, ignore */
-> +	ipvsh->len += sizeof(_icmph);
-> +	ip6 = skb_header_pointer(skb, ipvsh->len, sizeof(_ip6), &_ip6);
-
-	ip6 is not checked here for NULL or we rely on
-ipv6_find_hdr checks?
-
-> @@ -1506,39 +1464,43 @@ ip_vs_in_icmp_v6(struct sk_buff *skb, int *related, unsigned int hooknum)
->  	}
->  
->  	/* Now find the contained IP header */
-> -	offset += sizeof(_icmph);
-> -	cih = skb_header_pointer(skb, offset, sizeof(_ciph), &_ciph);
-> -	if (cih == NULL)
-> -		return NF_ACCEPT; /* The packet looks wrong, ignore */
-> +	ciph.len = iph->len + sizeof(_icmph);
-> +	ciph.flags = 0;
-> +	ciph.fragoffs = 0;
-> +	ciph.protocol = ipv6_find_hdr(skb, &ciph.len, -1, &ciph.fragoffs,
-> +				      &ciph.flags);
-> +	ciph.saddr = iph->saddr;	/* con_in_get() handles reverse order */
-> +	ciph.daddr = iph->daddr;
-
-	The ciph initialization looks dangerous if one day
-we add new field into the header.
-
-	Can we use ciph = (struct ip_vs_iphdr) { .XXX = val, ... },
-in such case we have to call ipv6_find_hdr out of (after)
-this initialization? Of course, we will write twice to
-small fields such as protocol, len, fragoffs, flags
-
-	Also ipv6_find_hdr looks a bit noisy for missing header,
-can it be a problem for the inner IPv6 header in ICMP messages?
-
-	In patch 3 ip_vs_in_icmp_v6 initializes ciph in the
-same way. It will be difficult to audit the code later
-considering the large number of places where iph is used.
-
->  	net = skb_net(skb);
-> -	pd = ip_vs_proto_data_get(net, cih->nexthdr);
-> +	pd = ip_vs_proto_data_get(net, ciph.protocol);
->  	if (!pd)
->  		return NF_ACCEPT;
->  	pp = pd->pp;
->  
-> -	/* Is the embedded protocol header present? */
-> -	/* TODO: we don't support fragmentation at the moment anyways */
-> -	if (unlikely(cih->nexthdr == IPPROTO_FRAGMENT && pp->dont_defrag))
-> +	/* Is the embedded protocol header present?
-> +	 * If it's the second or later fragment we don't know what it is
-> +	 * i.e. just let it through.
-> +	 */
-> +	if (ciph.fragoffs)
->  		return NF_ACCEPT;
->  
-> +	offset = ciph.len;
->  	IP_VS_DBG_PKT(11, AF_INET6, pp, skb, offset,
->  		      "Checking incoming ICMPv6 for");
->  
-> -	offset += sizeof(struct ipv6hdr);
-> -
-> -	ip_vs_fill_iphdr(AF_INET6, cih, &ciph);
->  	/* The embedded headers contain source and dest in reverse order */
-> -	cp = pp->conn_in_get(AF_INET6, skb, &ciph, offset, 1);
-> +	cp = pp->conn_in_get(AF_INET6, skb, &ciph, 1);
->  	if (!cp)
->  		return NF_ACCEPT;
->  
->  	/* do the statistics and put it back */
->  	ip_vs_in_stats(cp, skb);
-> -	if (IPPROTO_TCP == cih->nexthdr || IPPROTO_UDP == cih->nexthdr ||
-> -	    IPPROTO_SCTP == cih->nexthdr)
-> -		offset += 2 * sizeof(__u16);
-> -	verdict = ip_vs_icmp_xmit_v6(skb, cp, pp, offset, hooknum);
-> +	if (IPPROTO_TCP == ciph.protocol || IPPROTO_UDP == ciph.protocol ||
-> +	    IPPROTO_SCTP == ciph.protocol)
-> +		offset = ciph.len + (2 * sizeof(__u16));
-
-	Still in the same func, above code is correct but
-patch 3 changes it back to wrong state (offs_ciph = ciph.len).
-
-> +
-> +	verdict = ip_vs_icmp_xmit_v6(skb, cp, pp, offset, hooknum, &ciph);
->  
->  	__ip_vs_conn_put(cp);
-
-> diff --git a/net/netfilter/ipvs/ip_vs_pe_sip.c b/net/netfilter/ipvs/ip_vs_pe_sip.c
-> index 1aa5cac..bb28b4f 100644
-> --- a/net/netfilter/ipvs/ip_vs_pe_sip.c
-> +++ b/net/netfilter/ipvs/ip_vs_pe_sip.c
-> @@ -68,26 +68,37 @@ static int get_callid(const char *dptr, unsigned int dataoff,
->  static int
->  ip_vs_sip_fill_param(struct ip_vs_conn_param *p, struct sk_buff *skb)
->  {
-> +	struct sk_buff *reasm = skb_nfct_reasm(skb);
->  	struct ip_vs_iphdr iph;
->  	unsigned int dataoff, datalen, matchoff, matchlen;
->  	const char *dptr;
->  	int retc;
->  
-> -	ip_vs_fill_iphdr(p->af, skb_network_header(skb), &iph);
-> +	ip_vs_fill_iph_skb(p->af, skb, &iph);
-
-	May be skb_linearize is bad for IPv6? IIRC,
-ip_vs_pe_sip.c needs access just to read the Call-ID.
-For IPv4 it was simple to use skb_linearize, may be
-the logic should be improved to read the values even
-from non-linear data. May be there is already some
-example code for this. For IPv6 I'm not sure what
-kind are the problems here, may be it depends if
-we try to call skb_linearize for reasm packet?
-
-> -
-> -	if ((retc=skb_linearize(skb)) < 0)
-> +	/*
-> +	 * todo: Check if this will mess-up the reasm skb !!! /HS
-> +	 */
-> +	retc = skb_linearize(reasm);
-> +	if (retc < 0)
->  		return retc;
-> -	dptr = skb->data + dataoff;
-> -	datalen = skb->len - dataoff;
-> +	dptr = reasm->data + dataoff;
-> +	datalen = reasm->len - dataoff;
->  
->  	if (get_callid(dptr, dataoff, datalen, &matchoff, &matchlen))
->  		return -EINVAL;
-
-	There are recents changes for IPv6 from Patrick McHardy:
-
-http://marc.info/?l=netfilter-devel&m=134543406303402&w=2
-http://marc.info/?l=netfilter-devel&m=134543407803412&w=2
-
-	In this context, may be soon we will modify ip_vs_ftp to
-support IPv6. It is possible to work with present FTP helper
-in netfilter. Does it mean that we will see only reassembled
-packets when conntrack is running? No original fragments.
-Are we prepared to work in both ways (originals+reasm and
-just reasm) ?
-
-- For patch 3 in Kconfig do we need 'select NF_DEFRAG_IPV6' ?
-
-	Basicly, I'm concerned what will happen when we
-start to mangle the protocol payloads (FTP). For now
-we are safe by touching only addresses and ports. May be
-we have to synchronize these changes with the work from
-Patrick.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+-- 
+Do what you love because life is too short for anything else.
