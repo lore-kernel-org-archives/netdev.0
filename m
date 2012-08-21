@@ -1,72 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: regression with poll(2)
-Date: Tue, 21 Aug 2012 07:16:11 +0200
-Message-ID: <1345526171.5158.364.camel@edumazet-glaptop>
-References: <alpine.DEB.2.00.1208151226250.15721@cobra.newdream.net>
-	 <alpine.DEB.2.00.1208191051150.15570@cobra.newdream.net>
-	 <20120820090443.GA3275@suse.de>
-	 <1345455059.5158.302.camel@edumazet-glaptop>
-	 <20120820162046.f827f758.akpm@linux-foundation.org>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [PATCH] iproute2: Add missing tc-ematch.8 for man page installation
+Date: Tue, 21 Aug 2012 07:16:29 +0200
+Message-ID: <503319AD.2090701@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Mel Gorman <mgorman@suse.de>, Sage Weil <sage@inktank.com>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ceph-devel@vger.kernel.org,
-	neilb@suse.de, a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu,
-	emunson@mgebm.net, sebastian@breakpoint.cc, cl@linux.com,
-	torvalds@linux-foundation.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <ceph-devel-owner@vger.kernel.org>
-In-Reply-To: <20120820162046.f827f758.akpm@linux-foundation.org>
-Sender: ceph-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Mon, 2012-08-20 at 16:20 -0700, Andrew Morton wrote:
-> On Mon, 20 Aug 2012 11:30:59 +0200
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> 
-> > On Mon, 2012-08-20 at 10:04 +0100, Mel Gorman wrote:
-> > 
-> > > Can the following patch be tested please? It is reported to fix an fio
-> > > regression that may be similar to what you are experiencing but has not
-> > > been picked up yet.
-> > > 
-> > > -
-> > 
-> > This seems to help here.
-> > 
-> > Boot your machine with "mem=768M" or a bit less depending on your setup,
-> > and try a netperf.
-> > 
-> > -> before patch :
-> > 
-> > # netperf
-> > MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> > localhost.localdomain () port 0 AF_INET
-> > Recv   Send    Send                          
-> > Socket Socket  Message  Elapsed              
-> > Size   Size    Size     Time     Throughput  
-> > bytes  bytes   bytes    secs.    10^6bits/sec  
-> > 
-> >  87380  16384  16384    14.00       6.05   
-> > 
-> > -> after patch :
-> > 
-> > Recv   Send    Send                          
-> > Socket Socket  Message  Elapsed              
-> > Size   Size    Size     Time     Throughput  
-> > bytes  bytes   bytes    secs.    10^6bits/sec  
-> > 
-> >  87380  16384  16384    10.00    18509.73   
-> 
-> "seem to help"?  Was previous performance fully restored?
-
-I did some tests this morning on my HP Z600, and got same numbers than
-3.5.0
-
-Of course, its a bit difficult to say, because there is no
-CONFIG_PFMEMALLOC to test real impact.
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:31282 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752554Ab2HUFQa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 01:16:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
+---
+
+diff --git a/man/man8/Makefile b/man/man8/Makefile
+index c344094..2556564 100644
+--- a/man/man8/Makefile
++++ b/man/man8/Makefile
+@@ -1,7 +1,7 @@
+ TARGETS = ip-address.8 ip-link.8 ip-route.8
+ 
+ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 ss.8 \
+-	tc-bfifo.8 tc-cbq-details.8 tc-cbq.8 tc-drr.8 tc-htb.8 \
++	tc-bfifo.8 tc-cbq-details.8 tc-cbq.8 tc-drr.8 tc-ematch.8 tc-htb.8 \
+ 	tc-pfifo.8 tc-pfifo_fast.8 tc-prio.8 tc-red.8 tc-sfq.8 \
+ 	tc-tbf.8 tc.8 tc-codel.8 tc-fq_codel.8 tc-sfb.8 tc-netem.8 tc-choke.8 \
+ 	bridge.8 rtstat.8 ctstat.8 nstat.8 routef.8 \
