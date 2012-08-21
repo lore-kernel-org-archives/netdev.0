@@ -1,259 +1,250 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: [PATCH 3/8] netdev: octeon_mgmt: Add hardware timestamp support.
-Date: Tue, 21 Aug 2012 11:45:07 -0700
-Message-ID: <1345574712-21444-4-git-send-email-ddaney.cavm@gmail.com>
-References: <1345574712-21444-1-git-send-email-ddaney.cavm@gmail.com>
-Cc: linux-kernel@vger.kernel.org,
-	Chad Reese <kreese@caviumnetworks.com>,
-	David Daney <david.daney@cavium.com>
-To: linux-mips@linux-mips.org, ralf@linux-mips.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1345574712-21444-1-git-send-email-ddaney.cavm@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH v6] bonding support for IPv6 transmit hashing
+Date: Tue, 21 Aug 2012 12:19:55 -0700
+Message-ID: <11100.1345576795@death.nxdomain>
+References: <4FF27CA0.7030708@8192.net> <20120702.221425.418792617776598841.davem@davemloft.net> <4FF2853D.9070707@8192.net> <20120702.224351.1587084404665143719.davem@davemloft.net> <CAPc2XZDHBPKEM+WsWTL+9N_sfgVhOZAoiY3LU=v-QTCb9eQObQ@mail.gmail.com>
+Cc: linux@8192.net, netdev@vger.kernel.org
+To: Jeremy Brookman <jeremy.brookman@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:51730 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751943Ab2HUTVc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 15:21:32 -0400
+Received: from /spool/local
+	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Tue, 21 Aug 2012 13:21:31 -0600
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id D185919D803C
+	for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 13:21:03 -0600 (MDT)
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q7LJK0c5084030
+	for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 13:20:10 -0600
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q7LJLHQ1029967
+	for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 13:21:18 -0600
+In-reply-to: <CAPc2XZDHBPKEM+WsWTL+9N_sfgVhOZAoiY3LU=v-QTCb9eQObQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chad Reese <kreese@caviumnetworks.com>
+Jeremy Brookman <jeremy.brookman@gmail.com> wrote:
 
-Octeon cn6XXX models have timestamp support on the mgmt ports, so hook
-it up.
+>> You should use a mix of tabs, as necessary, to get things to line up
+>> how I told you they need to line up.
+>
+>Unless I'm missing something, this change doesn't seem to have made it
+>through to the kernel tip, but we could really use this bugfix. Is it
+>in a repository I didn't notice, or not yet through the review?  If
+>it's not through the review, is any help needed to get it there?
 
-Signed-off-by: Chad Reese <kreese@caviumnetworks.com>
-Signed-off-by: David Daney <david.daney@cavium.com>
----
- drivers/net/ethernet/octeon/octeon_mgmt.c | 157 +++++++++++++++++++++++++++++-
- 1 file changed, 152 insertions(+), 5 deletions(-)
+	The submitter (John Eaglesham) never posted an updated version
+that addressed the various comments, nor did his original patch
+submission include a Signed-off-by.
 
-diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
-index c4df1ab..687a6a0 100644
---- a/drivers/net/ethernet/octeon/octeon_mgmt.c
-+++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
-@@ -10,6 +10,7 @@
- #include <linux/dma-mapping.h>
- #include <linux/etherdevice.h>
- #include <linux/capability.h>
-+#include <linux/net_tstamp.h>
- #include <linux/interrupt.h>
- #include <linux/netdevice.h>
- #include <linux/spinlock.h>
-@@ -114,6 +115,7 @@ struct octeon_mgmt {
- 	u64 agl_prt_ctl;
- 	int port;
- 	int irq;
-+	bool has_rx_tstamp;
- 	u64 *tx_ring;
- 	dma_addr_t tx_ring_handle;
- 	unsigned int tx_next;
-@@ -238,6 +240,28 @@ static void octeon_mgmt_rx_fill_ring(struct net_device *netdev)
- 	}
- }
+	I went ahead and updated the patch to address the comments; I've
+only compile tested this.  Are you (Jeremy or John) able to test this to
+confirm that it will hash ipv6 traffic as expected (I can test it, but
+it won't be today)?
+
+	John, can you post a Signed-off-by for your patch (really, this
+updated version of your patch)?
+
+	If John signs off and somebody tests this, I'll post a formal
+submssion with the full commit message.
+
+	-J
+
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 6b1c711..834c919 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -752,12 +752,23 @@ xmit_hash_policy
+ 		protocol information to generate the hash.
  
-+static ktime_t ptp_to_ktime(u64 ptptime)
+ 		Uses XOR of hardware MAC addresses and IP addresses to
+-		generate the hash.  The formula is
++		generate the hash.  The IPv4 formula is
+ 
+ 		(((source IP XOR dest IP) AND 0xffff) XOR
+ 			( source MAC XOR destination MAC ))
+ 				modulo slave count
+ 
++		The IPv6 formula is
++
++		hash =
++			(source ip quad 2 XOR dest IP quad 2) XOR
++			(source ip quad 3 XOR dest IP quad 3) XOR
++			(source ip quad 4 XOR dest IP quad 4)
++
++		(((hash >> 24) XOR (hash >> 16) XOR (hash >> 8) XOR hash)
++			XOR (source MAC XOR destination MAC))
++				modulo slave count
++
+ 		This algorithm will place all traffic to a particular
+ 		network peer on the same slave.  For non-IP traffic,
+ 		the formula is the same as for the layer2 transmit
+@@ -778,19 +789,30 @@ xmit_hash_policy
+ 		slaves, although a single connection will not span
+ 		multiple slaves.
+ 
+-		The formula for unfragmented TCP and UDP packets is
++		The formula for unfragmented IPv4 TCP and UDP packets is
+ 
+ 		((source port XOR dest port) XOR
+ 			 ((source IP XOR dest IP) AND 0xffff)
+ 				modulo slave count
+ 
+-		For fragmented TCP or UDP packets and all other IP
+-		protocol traffic, the source and destination port
++		The formula for unfragmented IPv6 TCP and UDP packets is
++
++		hash =
++			(source ip quad 2 XOR dest IP quad 2) XOR
++			(source ip quad 3 XOR dest IP quad 3) XOR
++			(source ip quad 4 XOR dest IP quad 4)
++
++		((source port XOR dest port) XOR
++			(hash >> 24) XOR (hash >> 16) XOR (hash >> 8) XOR hash)
++				modulo slave count
++
++		For fragmented TCP or UDP packets and all other IPv4 and
++		IPv6 protocol traffic, the source and destination port
+ 		information is omitted.  For non-IP traffic, the
+ 		formula is the same as for the layer2 transmit hash
+ 		policy.
+ 
+-		This policy is intended to mimic the behavior of
++		The IPv4 policy is intended to mimic the behavior of
+ 		certain switches, notably Cisco switches with PFC2 as
+ 		well as some Foundry and IBM products.
+ 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index d95fbc3..4dfe7e3 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3354,56 +3354,99 @@ static struct notifier_block bond_netdev_notifier = {
+ /*---------------------------- Hashing Policies -----------------------------*/
+ 
+ /*
++ * Hash for the output device based upon layer 2 data
++ */
++static int bond_xmit_hash_policy_l2(struct sk_buff *skb, int count)
 +{
-+	ktime_t ktimebase;
-+	u64 ptpbase;
-+	unsigned long flags;
++	struct ethhdr *data = (struct ethhdr *)skb->data;
 +
-+	local_irq_save(flags);
-+	/* Fill the icache with the code */
-+	ktime_get_real();
-+	/* Flush all pending operations */
-+	mb();
-+	/* Read the time and PTP clock as close together as
-+	 * possible. It is important that this sequence take the same
-+	 * amount of time to reduce jitter
-+	 */
-+	ktimebase = ktime_get_real();
-+	ptpbase = cvmx_read_csr(CVMX_MIO_PTP_CLOCK_HI);
-+	local_irq_restore(flags);
-+
-+	return ktime_sub_ns(ktimebase, ptpbase - ptptime);
-+}
-+
- static void octeon_mgmt_clean_tx_buffers(struct octeon_mgmt *p)
- {
- 	union cvmx_mixx_orcnt mix_orcnt;
-@@ -277,6 +301,20 @@ static void octeon_mgmt_clean_tx_buffers(struct octeon_mgmt *p)
- 
- 		dma_unmap_single(p->dev, re.s.addr, re.s.len,
- 				 DMA_TO_DEVICE);
-+
-+		/* Read the hardware TX timestamp if one was recorded */
-+		if (unlikely(re.s.tstamp)) {
-+			struct skb_shared_hwtstamps ts;
-+			/* Read the timestamp */
-+			u64 ns = cvmx_read_csr(CVMX_MIXX_TSTAMP(p->port));
-+			/* Remove the timestamp from the FIFO */
-+			cvmx_write_csr(CVMX_MIXX_TSCTL(p->port), 0);
-+			/* Tell the kernel about the timestamp */
-+			ts.syststamp = ptp_to_ktime(ns);
-+			ts.hwtstamp = ns_to_ktime(ns);
-+			skb_tstamp_tx(skb, &ts);
-+		}
-+
- 		dev_kfree_skb_any(skb);
- 		cleaned++;
- 
-@@ -377,6 +415,16 @@ static int octeon_mgmt_receive_one(struct octeon_mgmt *p)
- 		/* A good packet, send it up. */
- 		skb_put(skb, re.s.len);
- good:
-+		/* Process the RX timestamp if it was recorded */
-+		if (p->has_rx_tstamp) {
-+			/* The first 8 bytes are the timestamp */
-+			u64 ns = *(u64 *)skb->data;
-+			struct skb_shared_hwtstamps *ts;
-+			ts = skb_hwtstamps(skb);
-+			ts->hwtstamp = ns_to_ktime(ns);
-+			ts->syststamp = ptp_to_ktime(ns);
-+			__skb_pull(skb, 8);
-+		}
- 		skb->protocol = eth_type_trans(skb, netdev);
- 		netdev->stats.rx_packets++;
- 		netdev->stats.rx_bytes += skb->len;
-@@ -661,18 +709,114 @@ static irqreturn_t octeon_mgmt_interrupt(int cpl, void *dev_id)
- 	return IRQ_HANDLED;
- }
- 
--static int octeon_mgmt_ioctl(struct net_device *netdev,
--			     struct ifreq *rq, int cmd)
-+static int octeon_mgmt_ioctl_hwtstamp(struct net_device *netdev,
-+				      struct ifreq *rq, int cmd)
- {
- 	struct octeon_mgmt *p = netdev_priv(netdev);
-+	struct hwtstamp_config config;
-+	union cvmx_mio_ptp_clock_cfg ptp;
-+	union cvmx_agl_gmx_rxx_frm_ctl rxx_frm_ctl;
-+	bool have_hw_timestamps = false;
-+
-+	if (copy_from_user(&config, rq->ifr_data, sizeof(config)))
-+		return -EFAULT;
- 
--	if (!netif_running(netdev))
-+	if (config.flags) /* reserved for future extensions */
- 		return -EINVAL;
- 
--	if (!p->phydev)
-+	/* Check the status of hardware for tiemstamps */
-+	if (OCTEON_IS_MODEL(OCTEON_CN6XXX)) {
-+		/* Get the current state of the PTP clock */
-+		ptp.u64 = cvmx_read_csr(CVMX_MIO_PTP_CLOCK_CFG);
-+		if (!ptp.s.ext_clk_en) {
-+			/* The clock has not been configured to use an
-+			 * external source.  Program it to use the main clock
-+			 * reference.
-+			 */
-+			u64 clock_comp = (NSEC_PER_SEC << 32) /	octeon_get_io_clock_rate();
-+			if (!ptp.s.ptp_en)
-+				cvmx_write_csr(CVMX_MIO_PTP_CLOCK_COMP, clock_comp);
-+			pr_info("PTP Clock: Using sclk reference at %lld Hz\n",
-+				(NSEC_PER_SEC << 32) / clock_comp);
-+		} else {
-+			/* The clock is already programmed to use a GPIO */
-+			u64 clock_comp = cvmx_read_csr(CVMX_MIO_PTP_CLOCK_COMP);
-+			pr_info("PTP Clock: Using GPIO %d at %lld Hz\n",
-+				ptp.s.ext_clk_in,
-+				(NSEC_PER_SEC << 32) / clock_comp);
-+		}
-+
-+		/* Enable the clock if it wasn't done already */
-+		if (!ptp.s.ptp_en) {
-+			ptp.s.ptp_en = 1;
-+			cvmx_write_csr(CVMX_MIO_PTP_CLOCK_CFG, ptp.u64);
-+		}
-+		have_hw_timestamps = true;
-+	}
-+
-+	if (!have_hw_timestamps)
- 		return -EINVAL;
- 
--	return phy_mii_ioctl(p->phydev, rq, cmd);
-+	switch (config.tx_type) {
-+	case HWTSTAMP_TX_OFF:
-+	case HWTSTAMP_TX_ON:
-+		break;
-+	default:
-+		return -ERANGE;
-+	}
-+
-+	switch (config.rx_filter) {
-+	case HWTSTAMP_FILTER_NONE:
-+		p->has_rx_tstamp = false;
-+		rxx_frm_ctl.u64 = cvmx_read_csr(p->agl + AGL_GMX_RX_FRM_CTL);
-+		rxx_frm_ctl.s.ptp_mode = 0;
-+		cvmx_write_csr(p->agl + AGL_GMX_RX_FRM_CTL, rxx_frm_ctl.u64);
-+		break;
-+	case HWTSTAMP_FILTER_ALL:
-+	case HWTSTAMP_FILTER_SOME:
-+	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
-+	case HWTSTAMP_FILTER_PTP_V2_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
-+		p->has_rx_tstamp = have_hw_timestamps;
-+		config.rx_filter = HWTSTAMP_FILTER_ALL;
-+		if (p->has_rx_tstamp) {
-+			rxx_frm_ctl.u64 = cvmx_read_csr(p->agl + AGL_GMX_RX_FRM_CTL);
-+			rxx_frm_ctl.s.ptp_mode = 1;
-+			cvmx_write_csr(p->agl + AGL_GMX_RX_FRM_CTL, rxx_frm_ctl.u64);
-+		}
-+		break;
-+	default:
-+		return -ERANGE;
-+	}
-+
-+	if (copy_to_user(rq->ifr_data, &config, sizeof(config)))
-+		return -EFAULT;
++	if (skb_headlen(skb) >= offsetof(struct ethhdr, h_proto))
++		return (data->h_dest[5] ^ data->h_source[5]) % count;
 +
 +	return 0;
 +}
 +
-+static int octeon_mgmt_ioctl(struct net_device *netdev,
-+			     struct ifreq *rq, int cmd)
-+{
-+	struct octeon_mgmt *p = netdev_priv(netdev);
++/*
+  * Hash for the output device based upon layer 2 and layer 3 data. If
+- * the packet is not IP mimic bond_xmit_hash_policy_l2()
++ * the packet is not IP, fall back on bond_xmit_hash_policy_l2()
+  */
+ static int bond_xmit_hash_policy_l23(struct sk_buff *skb, int count)
+ {
+ 	struct ethhdr *data = (struct ethhdr *)skb->data;
+-	struct iphdr *iph = ip_hdr(skb);
+-
+-	if (skb->protocol == htons(ETH_P_IP)) {
++	struct iphdr *iph;
++	struct ipv6hdr *ipv6h;
++	u32 v6hash;
++	__be32 *s, *d;
 +
-+	switch (cmd) {
-+	case SIOCSHWTSTAMP:
-+		return octeon_mgmt_ioctl_hwtstamp(netdev, rq, cmd);
-+	default:
-+		if (p->phydev)
-+			return phy_mii_ioctl(p->phydev, rq, cmd);
-+		return -EINVAL;
-+	}
++	if (skb->protocol == htons(ETH_P_IP) &&
++		skb_network_header_len(skb) >= sizeof(struct iphdr)) {
++		iph = ip_hdr(skb);
+ 		return ((ntohl(iph->saddr ^ iph->daddr) & 0xffff) ^
+ 			(data->h_dest[5] ^ data->h_source[5])) % count;
++	} else if (skb->protocol == htons(ETH_P_IPV6) &&
++		skb_network_header_len(skb) >= sizeof(struct ipv6hdr)) {
++		ipv6h = ipv6_hdr(skb);
++		s = &ipv6h->saddr.s6_addr32[0];
++		d = &ipv6h->daddr.s6_addr32[0];
++		v6hash = (s[1] ^ d[1]) ^ (s[2] ^ d[2]) ^ (s[3] ^ d[3]);
++		v6hash ^= (v6hash >> 24) ^ (v6hash >> 16) ^ (v6hash >> 8);
++		return (v6hash ^ data->h_dest[5] ^ data->h_source[5]) % count;
+ 	}
+ 
+-	return (data->h_dest[5] ^ data->h_source[5]) % count;
++	return bond_xmit_hash_policy_l2(skb, count);
  }
  
- static void octeon_mgmt_disable_link(struct octeon_mgmt *p)
-@@ -1052,6 +1196,7 @@ static int octeon_mgmt_open(struct net_device *netdev)
- 	/* Enable packet I/O. */
+ /*
+  * Hash for the output device based upon layer 3 and layer 4 data. If
+  * the packet is a frag or not TCP or UDP, just use layer 3 data.  If it is
+- * altogether not IP, mimic bond_xmit_hash_policy_l2()
++ * altogether not IP, fall back on bond_xmit_hash_policy_l2()
+  */
+ static int bond_xmit_hash_policy_l34(struct sk_buff *skb, int count)
+ {
+-	struct ethhdr *data = (struct ethhdr *)skb->data;
+-	struct iphdr *iph = ip_hdr(skb);
+-	__be16 *layer4hdr = (__be16 *)((u32 *)iph + iph->ihl);
+-	int layer4_xor = 0;
++	u32 layer4_xor = 0;
++	struct iphdr *iph;
++	struct ipv6hdr *ipv6h;
++	__be32 *s, *d;
++	__be16 *layer4hdr;
  
- 	rxx_frm_ctl.u64 = 0;
-+	rxx_frm_ctl.s.ptp_mode = p->has_rx_tstamp ? 1 : 0;
- 	rxx_frm_ctl.s.pre_align = 1;
- 	/*
- 	 * When set, disables the length check for non-min sized pkts
-@@ -1155,6 +1300,7 @@ static int octeon_mgmt_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	int rv = NETDEV_TX_BUSY;
+ 	if (skb->protocol == htons(ETH_P_IP)) {
++		iph = ip_hdr(skb);
+ 		if (!ip_is_fragment(iph) &&
+ 		    (iph->protocol == IPPROTO_TCP ||
+ 		     iph->protocol == IPPROTO_UDP)) {
++			if (iph->ihl * sizeof(u32) + sizeof(__be16) * 2 >
++			    skb_headlen(skb) - skb_network_offset(skb))
++				goto short_header;
++			layer4hdr = (__be16 *)((u32 *)iph + iph->ihl);
+ 			layer4_xor = ntohs((*layer4hdr ^ *(layer4hdr + 1)));
++		} else if (skb_network_header_len(skb) < sizeof(struct iphdr)) {
++			goto short_header;
+ 		}
+ 		return (layer4_xor ^
+ 			((ntohl(iph->saddr ^ iph->daddr)) & 0xffff)) % count;
+-
++	} else if (skb->protocol == htons(ETH_P_IPV6)) {
++		ipv6h = ipv6_hdr(skb);
++		if (ipv6h->nexthdr == IPPROTO_TCP ||
++		    ipv6h->nexthdr == IPPROTO_UDP) {
++			layer4hdr = (__be16 *)(ipv6h + 1);
++			if (sizeof(struct ipv6hdr) + sizeof(__be16) * 2 >
++				skb_headlen(skb) - skb_network_offset(skb))
++				goto short_header;
++			layer4_xor = (*layer4hdr ^ *(layer4hdr + 1));
++		} else if (skb_network_header_len(skb) <
++			   sizeof(struct ipv6hdr)) {
++			goto short_header;
++		}
++		s = &ipv6h->saddr.s6_addr32[0];
++		d = &ipv6h->daddr.s6_addr32[0];
++		layer4_xor ^= (s[1] ^ d[1]) ^ (s[2] ^ d[2]) ^ (s[3] ^ d[3]);
++		layer4_xor ^= (layer4_xor >> 24) ^ (layer4_xor >> 16) ^
++			       (layer4_xor >> 8);
++		return layer4_xor % count;
+ 	}
  
- 	re.d64 = 0;
-+	re.s.tstamp = ((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) != 0);
- 	re.s.len = skb->len;
- 	re.s.addr = dma_map_single(p->dev, skb->data,
- 				   skb->len,
-@@ -1293,6 +1439,7 @@ static int __devinit octeon_mgmt_probe(struct platform_device *pdev)
+-	return (data->h_dest[5] ^ data->h_source[5]) % count;
+-}
+-
+-/*
+- * Hash for the output device based upon layer 2 data
+- */
+-static int bond_xmit_hash_policy_l2(struct sk_buff *skb, int count)
+-{
+-	struct ethhdr *data = (struct ethhdr *)skb->data;
+-
+-	return (data->h_dest[5] ^ data->h_source[5]) % count;
++short_header:
++	return bond_xmit_hash_policy_l2(skb, count);
+ }
  
- 	p->netdev = netdev;
- 	p->dev = &pdev->dev;
-+	p->has_rx_tstamp = false;
- 
- 	data = of_get_property(pdev->dev.of_node, "cell-index", &len);
- 	if (data && len == sizeof(*data)) {
--- 
-1.7.11.4
+ /*-------------------------- Device entry points ----------------------------*/
+
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
