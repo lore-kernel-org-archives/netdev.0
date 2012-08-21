@@ -1,62 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Do I need to skb_put() Ethernet frames to a minimum of 60
- bytes?
-Date: Tue, 21 Aug 2012 19:42:47 +0200
-Message-ID: <1345570967.5158.541.camel@edumazet-glaptop>
-References: <502A9EC4.4040208@xdin.com>
-	 <1344976557.2690.43.camel@bwh-desktop.uk.solarflarecom.com>
-	 <5033C6B0.4060508@xdin.com>
+From: Sylvain Munaut <s.munaut@whatever-company.com>
+Subject: Re: IP fragmentation broken in 3.6-rc ?
+Date: Tue, 21 Aug 2012 19:44:27 +0200
+Message-ID: <CAF6-1L61YcoqJAnoq=BrbFvdrk3=mE4jwP9RBByE80p1zbLFiA@mail.gmail.com>
+References: <CAF6-1L6DTXPGi4kbcPqbOXrrafMmZ6K1QdcAa=PxJBzZWkvojg@mail.gmail.com>
+	<1345555336.5158.493.camel@edumazet-glaptop>
+	<1345560131.5158.500.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Arvid Brodin <Arvid.Brodin@xdin.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:38327 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932139Ab2HURmw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 13:42:52 -0400
-Received: by eeil10 with SMTP id l10so24166eei.19
-        for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 10:42:51 -0700 (PDT)
-In-Reply-To: <5033C6B0.4060508@xdin.com>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:50169 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932139Ab2HURo2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 13:44:28 -0400
+Received: by vbbff1 with SMTP id ff1so78947vbb.19
+        for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 10:44:27 -0700 (PDT)
+In-Reply-To: <1345560131.5158.500.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-08-21 at 17:34 +0000, Arvid Brodin wrote:
+Hi,
 
-> Nicolas, can you take a look at this? At the moment I'm using the following change
-> in macb.c to avoid TX underruns on short packages:
-> 
-> --- a/drivers/net/ethernet/cadence/macb.c	2012-05-04 19:14:41.927719667 +0200
-> +++ b/drivers/net/ethernet/cadence/macb.c	2012-08-21 19:22:40.063739049 +0200
-> @@ -618,6 +618,7 @@ static void macb_poll_controller(struct
+> Following patch should help :
+>
+> diff --git a/include/net/dst.h b/include/net/dst.h
+> index 621e351..a04aa37 100644
+> --- a/include/net/dst.h
+> +++ b/include/net/dst.h
+> @@ -435,7 +435,7 @@ static inline void dst_set_expires(struct dst_entry *dst, int timeout)
+>         if (expires == 0)
+>                 expires = 1;
+>
+> -       if (dst->expires == 0 || time_before(expires, dst->expires))
+> +       if (dst->expires == 0 || time_after(expires, dst->expires))
+>                 dst->expires = expires;
 >  }
->  #endif
-> 
-> +#define MIN_ETHFRAME_LEN	60
->  static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  {
->  	struct macb *bp = netdev_priv(dev);
-> @@ -635,6 +636,12 @@ static int macb_start_xmit(struct sk_buf
->  	printk("\n");
->  #endif
-> 
-> +	if (skb->len < MIN_ETHFRAME_LEN) {
-> +		/* Pad skb to minium Ethernet frame size */
-> +		if (skb_tailroom(skb) >= MIN_ETHFRAME_LEN - skb->len)
-> +			memset(skb_put(skb, MIN_ETHFRAME_LEN - skb->len), 0,
-> +						MIN_ETHFRAME_LEN - skb->len);
-> +	}
->  	len = skb->len;
->  	spin_lock_irqsave(&bp->lock, flags);
-> 
-> 
-> ... but as you can see this is limited to linear skbs which has been allocated with
-> enough tailroom. Perhaps there are better ways to fix the problem? (Maybe the hardware
-> is actually doing the padding already and the problem has to do with the way the DMA
-> transfer is set up?)
-> 
 
-other net drivers use skb_padto() for this ...
+Yes, this fixes it for me too . ( 2h without issues on 2 different machines )
+
+But that line has been in the kernel for _years_ ... so I'm not sure
+what's going on there ...
+
+
+Cheers,
+
+    Sylvain
