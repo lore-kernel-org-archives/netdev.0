@@ -1,83 +1,37 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 0/3] ipvs: IPv6 fragment handling for IPVS
-Date: Tue, 21 Aug 2012 14:24:15 +0900
-Message-ID: <20120821052415.GD14933@verge.net.au>
-References: <20120820130732.1509.13080.stgit@dragon>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] ipv4: ipmr_expire_timer causes crash when removing
+ net namespace
+Date: Tue, 21 Aug 2012 07:29:51 +0200
+Message-ID: <1345526991.5158.373.camel@edumazet-glaptop>
+References: <CA+HUmGgAx-APi4DRr=M2nUMfiO8yjcxovvqkTuX7=ZpUDbo5Tg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Hans Schillstrom <hans@schillstrom.com>,
-	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	netfilter-devel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120820130732.1509.13080.stgit@dragon>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: Francesco Ruggeri <fruggeri@aristanetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:41565 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751079Ab2HUF34 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 01:29:56 -0400
+Received: by wibhr14 with SMTP id hr14so4303778wib.1
+        for <netdev@vger.kernel.org>; Mon, 20 Aug 2012 22:29:55 -0700 (PDT)
+In-Reply-To: <CA+HUmGgAx-APi4DRr=M2nUMfiO8yjcxovvqkTuX7=ZpUDbo5Tg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 20, 2012 at 03:08:30PM +0200, Jesper Dangaard Brouer wrote:
-> The following patchset implement IPv6 fragment handling for IPVS.
-> 
-> This work is based upon patches from Hans Schillstrom.  I have taken
-> over the patchset, in close agreement with Hans, because he don't have
-> (gotten allocated) time to complete his work.
-> 
-> I have cleaned up the patchset, changed the API a bit, fixed a refcnt
-> bug, and rebased on top of Julians recent changes. (All with Hans'es
-> knowledge)
-> 
->  Patch01: is just unrelated trivial fixes.
-> 
->  Patch02: Fix faulty IPv6 extension header handling in IPVS
-> 
->  Patch03: Complete IPv6 fragment handling for IPVS
-> 
-> This patchset is based upon:
->  Homes ipvs-next tree:
->   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git
-> 
->  On top of commit 3654e61137db891f5312e6dd813b961484b5fdf3:
->   ipvs: add pmtu_disc option to disable IP DF for TUN packets
+On Mon, 2012-08-20 at 17:15 -0700, Francesco Ruggeri wrote:
+> I
+> +static void ipmr_free_table(struct mr_table *mrt)
+> +{
+> +	del_timer(&mrt->ipmr_expire_timer);
+> +	mroute_clean_tables(mrt);
+> +	kfree(mrt);
+> +}
 
-I have no objection to these changes, but I would be more comfortable
-applying them after a review from Hans, Julian or Pablo.
+Seems racy to me.
 
-> 
-> ---
-> 
-> Jesper Dangaard Brouer (3):
->       ipvs: Complete IPv6 fragment handling for IPVS
->       ipvs: Fix faulty IPv6 extension header handling in IPVS
->       ipvs: Trivial changes, use compressed IPv6 address in output
-> 
-> 
->  include/net/ip_vs.h                     |  191 +++++++++++----
->  net/netfilter/ipvs/Kconfig              |    7 -
->  net/netfilter/ipvs/ip_vs_conn.c         |   15 -
->  net/netfilter/ipvs/ip_vs_core.c         |  384 +++++++++++++++++--------------
->  net/netfilter/ipvs/ip_vs_dh.c           |    2 
->  net/netfilter/ipvs/ip_vs_lblc.c         |    2 
->  net/netfilter/ipvs/ip_vs_lblcr.c        |    2 
->  net/netfilter/ipvs/ip_vs_pe_sip.c       |   27 ++
->  net/netfilter/ipvs/ip_vs_proto.c        |    6 
->  net/netfilter/ipvs/ip_vs_proto_ah_esp.c |    9 -
->  net/netfilter/ipvs/ip_vs_proto_sctp.c   |   42 +--
->  net/netfilter/ipvs/ip_vs_proto_tcp.c    |   40 +--
->  net/netfilter/ipvs/ip_vs_proto_udp.c    |   41 +--
->  net/netfilter/ipvs/ip_vs_sched.c        |    2 
->  net/netfilter/ipvs/ip_vs_sh.c           |    2 
->  net/netfilter/ipvs/ip_vs_xmit.c         |   75 +++---
->  net/netfilter/xt_ipvs.c                 |    4 
->  17 files changed, 489 insertions(+), 362 deletions(-)
-> 
-> 
-> --
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Sr. Network Kernel Developer at Red Hat
->   Author of http://www.iptv-analyzer.org
->   LinkedIn: http://www.linkedin.com/in/brouer
-> 
+del_timer() doesnt make sure timer is completely disabled.
+
+Probably need spin_lock_bh(&mfc_unres_lock) /
+spin_unlock_bh(&mfc_unres_lock), and maybe del_timer_sync()
