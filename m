@@ -1,86 +1,104 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [PATCH] ethtool: don't overwrite useful bits in advertising
- bitfield
-Date: Tue, 21 Aug 2012 18:03:02 +0100
-Message-ID: <1345568582.2659.53.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1344953745-13208-1-git-send-email-johangu@axis.com>
-	 <1345476178.2659.15.camel@bwh-desktop.uk.solarflarecom.com>
-	 <A612847CFE53224C91B23E3A5B48BAC7534E8D76AD@xmail3.se.axis.com>
-	 <1345561910.2659.45.camel@bwh-desktop.uk.solarflarecom.com>
-	 <A612847CFE53224C91B23E3A5B48BAC7534E8D7809@xmail3.se.axis.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: IP fragmentation broken in 3.6-rc ?
+Date: Tue, 21 Aug 2012 20:18:25 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1208211954380.2149@ja.ssi.bg>
+References: <CAF6-1L6DTXPGi4kbcPqbOXrrafMmZ6K1QdcAa=PxJBzZWkvojg@mail.gmail.com>  <1345555336.5158.493.camel@edumazet-glaptop>  <1345560131.5158.500.camel@edumazet-glaptop>  <alpine.LFD.2.00.1208211815550.2149@ja.ssi.bg>
+ <1345567633.5158.534.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Mikael Starvik <starvik@axis.com>
-To: Johan Gunnarsson <johan.gunnarsson@axis.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sylvain Munaut <s.munaut@whatever-company.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:41742 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1758022Ab2HURDF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 13:03:05 -0400
-In-Reply-To: <A612847CFE53224C91B23E3A5B48BAC7534E8D7809@xmail3.se.axis.com>
+Received: from ja.ssi.bg ([178.16.129.10]:57596 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758022Ab2HURQe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Aug 2012 13:16:34 -0400
+In-Reply-To: <1345567633.5158.534.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-08-21 at 18:45 +0200, Johan Gunnarsson wrote:
-[...]
-> > > > > @@ -2405,19 +2421,20 @@ static int do_sset(struct cmd_context
-> > *ctx)
-> > > > >  			}
-> > > > >  			if (autoneg_wanted == AUTONEG_ENABLE &&
-> > > > >  			    advertising_wanted == 0) {
-> > > > > -				ecmd.advertising = ecmd.supported &
-> > > > > -					(ADVERTISED_10baseT_Half |
-> > > > > -					 ADVERTISED_10baseT_Full |
-> > > > > -					 ADVERTISED_100baseT_Half |
-> > > > > -					 ADVERTISED_100baseT_Full |
-> > > > > -					 ADVERTISED_1000baseT_Half |
-> > > > > -					 ADVERTISED_1000baseT_Full |
-> > > > > -					 ADVERTISED_2500baseX_Full |
-> > > > > -					 ADVERTISED_10000baseT_Full |
-> > > > > -					 ADVERTISED_20000baseMLD2_Full |
-> > > > > -					 ADVERTISED_20000baseKR2_Full);
-> > > > > +				/* Auto negotation enabled, but with
-> > > > > +				 * unspecified speed and duplex: enable
-> > all
-> > > > > +				 * supported speeds and duplexes.
-> > > > > +				 */
-> > > > > +				ecmd.advertising = (ecmd.advertising &
-> > > > > +					~ALL_ADVERTISED_MODES) |
-> > > > > +					(ALL_ADVERTISED_MODES &
-> > ecmd.supported);
-> > > >
-> > > > Perhaps we should also warn if there's a 'supported' flag we don't
-> > > > recognise, because we don't know whether it's a link mode and we
-> > might
-> > > > be failing to enable/disable it as requested.
-> > >
-> > > You mean if ecmd.supported has bits enabled that ALL_ADVERTISED_MODES
-> > > hasn't? I don't think that's a good idea, because that happens very
-> > > often (for example PAUSE bits in my case.)
+
+	Hello,
+
+On Tue, 21 Aug 2012, Eric Dumazet wrote:
+
+> On Tue, 2012-08-21 at 19:34 +0300, Julian Anastasov wrote:
+> > 	Hello,
 > > 
-> > No, I mean if it has bits enabled that are not defined at all
-> > (currently
-> > any of bits 27-31).
+> > On Tue, 21 Aug 2012, Eric Dumazet wrote:
+> > 
+> > > Following patch should help :
+> > > 
+> > > diff --git a/include/net/dst.h b/include/net/dst.h
+> > > index 621e351..a04aa37 100644
+> > > --- a/include/net/dst.h
+> > > +++ b/include/net/dst.h
+> > > @@ -435,7 +435,7 @@ static inline void dst_set_expires(struct dst_entry *dst, int timeout)
+> > >  	if (expires == 0)
+> > >  		expires = 1;
+> > >  
+> > 
+> > 	In theory, restart of PMTUD should not lead to
+> > fatal problems, we will get new MTUs. But with such
+> > change should be better, not much, because all MTU
+> > events will come at same time, later timer will expire
+> > and we will get again events from routers. The gain
+> > will be an increased period (with milliseconds to seconds)
+> > between PMTUD restarts. Compared to the 600-second timer,
+> > this should be gain below 1% in reduced traffic for PMTUD.
+> > Before now we started timer from first router, now we
+> > will start/update timer period after event from last router.
+> > 
 > 
-> Not totally sure I follow. Care to show me?
-[...]
+> Sorry I dont really understand what you mean
 
-<linux/ethtool.h> or ethtool-copy.h currently defines the meanings of
-bits 0-26 in the supported field.  You define ALL_ADVERTISED_MODES to
-include all of those that are link modes.  But some time in the future,
-the remaining bits will be assigned to new capabilities.
+	This timer is used only for PMTU, right?
+RFC 1191 6.3. Purging stale PMTU information.
 
-If today's ethtool is used with a newer driver that sets bit 27 in its
-supported field, ethtool can't tell whether that represents a new link
-mode that should be included in ALL_ADVERTISED_MODES, or some other kind
-of capability.  So it may not be able to set the driver's advertising
-mask correctly.
+> > 	But ipv4_link_failure and ip6_link_failure want to stop
+> > this timer by setting it to NOW (0). May be we have to add
+> > also a !timeout check here or to leave the code as before?
+> > 
+> > > -	if (dst->expires == 0 || time_before(expires, dst->expires))
+> > > +	if (dst->expires == 0 || time_after(expires, dst->expires))
+> > >  		dst->expires = expires;
+> > >  }
+> > 
+> > 	The original problem should be somewhere else, I think.
+> 
+> This patch fixed the problem for me.
 
-Ben.
+	OK, then I'll wait for the patch description
+to understand what this change actually does. For me,
+it just updates the timer on every MTU event, while
+before the change, PMTU timer was started only once and
+during the 600-second period it was not updated and also
+there was the ability to invalidate the PMTU on link failure
+by setting timer to jiffies, i.e. to stop this period
+and to start new one with default MTU and possibly
+new discovery procedure.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> My first patch was :
+> 
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index e4ba974..9858714 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -956,6 +956,7 @@ static void ip_rt_update_pmtu(struct dst_entry *dst, struct sock *sk,
+>  		dst->obsolete = DST_OBSOLETE_KILL;
+>  	} else {
+>  		rt->rt_pmtu = mtu;
+> +		rt->dst.expires = 0;
+>  		dst_set_expires(&rt->dst, ip_rt_mtu_expires);
+
+	This is better, does not break ipv4_link_failure.
+There is a little race some ipv4_mtu() user to see
+rt_pmtu != 0 and dst.expires = 0 and to fail in time_after_eq
+test. May be that is why dst.expires is never set to 0.
+But I still don't understand what both changes fix.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
