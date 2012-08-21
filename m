@@ -1,66 +1,98 @@
-From: Huang Shijie <shijie8@gmail.com>
-Subject: Re: [PATCH] serial: add a new helper function
-Date: Tue, 21 Aug 2012 10:52:04 +0800
-Message-ID: <CAMiH66GaSg4RHNyLg_9X49c1FbjKr2_ag=oiCSfv2HRSTd4Qiw@mail.gmail.com>
-References: <1345400832-23572-1-git-send-email-shijie8@gmail.com>
-	<20120819064429.GA3252@kroah.com>
-	<20120819164658.1737bb74@pyramind.ukuu.org.uk>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH 1/2] ipv6: do not hold route table lock when send ndisc
+ probe
+Date: Tue, 21 Aug 2012 11:44:03 +0800
+Message-ID: <1345520643.12468.6.camel@cr0>
+References: <1345187499-16929-1-git-send-email-amwang@redhat.com>
+	 <CAATkVEzKuTeUbU75B6EoSfFvGVsz_eK47XNWmsP5KcCvjTDEDA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Greg KH <gregkh@linuxfoundation.org>, alan@linux.intel.com,
-	jirislaby@gmail.com, linux-kernel@vger.kernel.org,
-	linux-serial@vger.kernel.org, netdev@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120819164658.1737bb74@pyramind.ukuu.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Sun, Aug 19, 2012 at 11:46 PM, Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
-> On Sat, 18 Aug 2012 23:44:29 -0700
-> Greg KH <gregkh@linuxfoundation.org> wrote:
->
->> On Sun, Aug 19, 2012 at 02:27:12PM -0400, Huang Shijie wrote:
->> > --- a/include/linux/tty.h
->> > +++ b/include/linux/tty.h
->> > @@ -43,6 +43,7 @@
->> >  #include <linux/tty_driver.h>
->> >  #include <linux/tty_ldisc.h>
->> >  #include <linux/mutex.h>
->> > +#include <linux/serial.h>
->> >
->> >
->> >
->> > @@ -513,6 +514,12 @@ static inline struct tty_port *tty_port_get(struct tty_port *port)
->> >     return port;
->> >  }
->> >
->> > +/* If the cts flow control is enabled, return true. */
->> > +static inline bool tty_port_cts_enabled(struct tty_port *port)
->> > +{
->> > +   return port->flags & ASYNC_CTS_FLOW;
->> > +}
->> > +
->>
->> The fact that you have to add serial.h to this file kind of implies that
->> this function shouldn't be here, right?
->>
->> How about serial.h instead?  Not all tty drivers are serial drivers :)
->
-> tty_port is tty generic so possibly if there is a generic helper the
-> flags and helper should likewise be this way.
->
-> As it stands at the moment ASYNC_CTS_FLOW is a convention a few drivers
-> use. So calling it tty_port_xxx is going to misleading.
-
-this patch makes the header files in a mess.
-Please just ignore this patch if it is not good enough.
-
-thanks
-Huang Shijie
-
->
+Content-Type: multipart/mixed; boundary="=-hAInxMpNrFB1TmTwA511"
+Cc: netdev@vger.kernel.org,
+	"Banerjee, Debabrata" <dbanerje@akamai.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Debabrata Banerjee <dbavatar@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47905 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750807Ab2HUDoQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Aug 2012 23:44:16 -0400
+In-Reply-To: <CAATkVEzKuTeUbU75B6EoSfFvGVsz_eK47XNWmsP5KcCvjTDEDA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+--=-hAInxMpNrFB1TmTwA511
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 
-> Alan
+Hi, Debabrata,
+
+Could you help to test the attached patch below?
+
+Thanks!
+
+
+--=-hAInxMpNrFB1TmTwA511
+Content-Disposition: attachment; filename="ipv6-deadlock.diff"
+Content-Type: text/x-patch; name="ipv6-deadlock.diff"; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index eb3f1e4..cd141a5 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -440,9 +440,26 @@ out:
+ }
+ 
+ #ifdef CONFIG_IPV6_ROUTER_PREF
++struct ndisc_work {
++	struct work_struct work;
++	struct in6_addr mcaddr;
++	struct in6_addr target;
++	struct net_device *dev;
++};
++
++static void queue_ndisc(struct work_struct *work)
++{
++	struct ndisc_work *nw =
++		container_of(work, struct ndisc_work, work);
++	ndisc_send_ns(nw->dev, NULL, &nw->target, &nw->mcaddr, NULL);
++	kfree(nw);
++}
++
+ static void rt6_probe(struct rt6_info *rt)
+ {
+ 	struct neighbour *neigh;
++	struct ndisc_work *nw;
++
+ 	/*
+ 	 * Okay, this does not seem to be appropriate
+ 	 * for now, however, we need to check if it
+@@ -457,15 +474,18 @@ static void rt6_probe(struct rt6_info *rt)
+ 	read_lock_bh(&neigh->lock);
+ 	if (!(neigh->nud_state & NUD_VALID) &&
+ 	    time_after(jiffies, neigh->updated + rt->rt6i_idev->cnf.rtr_probe_interval)) {
+-		struct in6_addr mcaddr;
+-		struct in6_addr *target;
+ 
+ 		neigh->updated = jiffies;
+ 		read_unlock_bh(&neigh->lock);
+ 
+-		target = (struct in6_addr *)&neigh->primary_key;
+-		addrconf_addr_solict_mult(target, &mcaddr);
+-		ndisc_send_ns(rt->dst.dev, NULL, target, &mcaddr, NULL);
++		nw = kmalloc(sizeof(*nw), GFP_ATOMIC);
++		if (nw) {
++			memcpy(&nw->target, &neigh->primary_key, sizeof(struct in6_addr));
++			addrconf_addr_solict_mult(&nw->target, &nw->mcaddr);
++			nw->dev = rt->dst.dev;
++			INIT_WORK(&nw->work, queue_ndisc);
++			schedule_work(&nw->work);
++		}
+ 	} else {
+ 		read_unlock_bh(&neigh->lock);
+ 	}
+
+--=-hAInxMpNrFB1TmTwA511--
