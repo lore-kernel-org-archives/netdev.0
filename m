@@ -1,80 +1,87 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/6] ethtool.h: MDI setting support
-Date: Tue, 21 Aug 2012 01:37:50 -0700
-Message-ID: <1345538275-1690-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/6] e1000e: implement 82577/579 MDI setting support
+Date: Tue, 21 Aug 2012 01:37:51 -0700
+Message-ID: <1345538275-1690-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1345538275-1690-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Ben Hutchings <bhutchings@solarflare.com>,
+Cc: Bruce W Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:54114 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:16838 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754221Ab2HUIh6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754389Ab2HUIh6 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 21 Aug 2012 04:37:58 -0400
 In-Reply-To: <1345538275-1690-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Bruce W Allan <bruce.w.allan@intel.com>
 
-This change modifies the core ethtool struct to allow a driver to
-support setting of MDI/MDI-X state for twisted pair wiring.  This
-change uses a previously reserved u8 and should not change any
-binary compatibility of ethtool.
+In order for e1000e to support MDI setting support via
+ethtool this code is needed to allow setting the MDI state
+via software.
 
-Also as per Ben Hutchings' suggestion, the capabilities are
-stored in a separate byte so the driver can report if it supports
-changing settings.
+This is in regards to the related ethtool patch and
+fixes bugzilla.kernel.org bug 11998
 
-see thread: http://kerneltrap.org/mailarchive/linux-netdev/2010/11/17/6289820/thread
-
-see ethtool patches titled:
-ethtool: allow setting MDI-X state
-
+Signed-off-by: Bruce W Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: Ben Hutchings <bhutchings@solarflare.com>
 Tested-by: Aaron Brown aaron.f.brown@intel.com
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- include/linux/ethtool.h | 17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/e1000e/phy.c | 31 +++++++++++++++++++++++++++++--
+ 1 file changed, 29 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 21eff41..fcb4f8e 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -45,8 +45,10 @@ struct ethtool_cmd {
- 				 * bits) in Mbps. Please use
- 				 * ethtool_cmd_speed()/_set() to
- 				 * access it */
--	__u8	eth_tp_mdix;
--	__u8	reserved2;
-+	__u8	eth_tp_mdix;	/* twisted pair MDI-X status */
-+	__u8    eth_tp_mdix_ctrl; /* twisted pair MDI-X control, when set,
-+				   * link should be renegotiated if necessary
-+				   */
- 	__u32	lp_advertising;	/* Features the link partner advertises */
- 	__u32	reserved[2];
- };
-@@ -1229,10 +1231,13 @@ struct ethtool_ops {
- #define AUTONEG_DISABLE		0x00
- #define AUTONEG_ENABLE		0x01
+diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
+index b860d4f..fc62a3f 100644
+--- a/drivers/net/ethernet/intel/e1000e/phy.c
++++ b/drivers/net/ethernet/intel/e1000e/phy.c
+@@ -84,8 +84,9 @@ static const u16 e1000_igp_2_cable_length_table[] = {
+ #define I82577_PHY_STATUS2_SPEED_1000MBPS 0x0200
  
--/* Mode MDI or MDI-X */
--#define ETH_TP_MDI_INVALID	0x00
--#define ETH_TP_MDI		0x01
--#define ETH_TP_MDI_X		0x02
-+/* MDI or MDI-X status/control - if MDI/MDI_X/AUTO is set then
-+ * the driver is required to renegotiate link
-+ */
-+#define ETH_TP_MDI_INVALID	0x00 /* status: unknown; control: unsupported */
-+#define ETH_TP_MDI		0x01 /* status: MDI;     control: force MDI */
-+#define ETH_TP_MDI_X		0x02 /* status: MDI-X;   control: force MDI-X */
-+#define ETH_TP_MDI_AUTO		0x03 /*                  control: auto-select */
+ /* I82577 PHY Control 2 */
+-#define I82577_PHY_CTRL2_AUTO_MDIX        0x0400
+-#define I82577_PHY_CTRL2_FORCE_MDI_MDIX   0x0200
++#define I82577_PHY_CTRL2_MANUAL_MDIX      0x0200
++#define I82577_PHY_CTRL2_AUTO_MDI_MDIX    0x0400
++#define I82577_PHY_CTRL2_MDIX_CFG_MASK    0x0600
  
- /* Wake-On-Lan options. */
- #define WAKE_PHY		(1 << 0)
+ /* I82577 PHY Diagnostics Status */
+ #define I82577_DSTATUS_CABLE_LENGTH       0x03FC
+@@ -702,6 +703,32 @@ s32 e1000_copper_link_setup_82577(struct e1000_hw *hw)
+ 	if (ret_val)
+ 		return ret_val;
+ 
++	/* Set MDI/MDIX mode */
++	ret_val = e1e_rphy(hw, I82577_PHY_CTRL_2, &phy_data);
++	if (ret_val)
++		return ret_val;
++	phy_data &= ~I82577_PHY_CTRL2_MDIX_CFG_MASK;
++	/*
++	 * Options:
++	 *   0 - Auto (default)
++	 *   1 - MDI mode
++	 *   2 - MDI-X mode
++	 */
++	switch (hw->phy.mdix) {
++	case 1:
++		break;
++	case 2:
++		phy_data |= I82577_PHY_CTRL2_MANUAL_MDIX;
++		break;
++	case 0:
++	default:
++		phy_data |= I82577_PHY_CTRL2_AUTO_MDI_MDIX;
++		break;
++	}
++	ret_val = e1e_wphy(hw, I82577_PHY_CTRL_2, phy_data);
++	if (ret_val)
++		return ret_val;
++
+ 	return e1000_set_master_slave_mode(hw);
+ }
+ 
 -- 
 1.7.11.4
