@@ -1,49 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_netlink: force credentials passing [CVE-2012-3520]
-Date: Tue, 21 Aug 2012 14:53:38 -0700 (PDT)
-Message-ID: <20120821.145338.589021419115918361.davem@davemloft.net>
-References: <1345566077.5158.530.camel@edumazet-glaptop>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH 05/19] netfilter: nf_conntrack_ipv6: improve
+ fragmentation handling
+Date: Wed, 22 Aug 2012 00:21:37 +0200
+Message-ID: <1345587697.3069.297.camel@localhost>
+References: <1344542943-11588-1-git-send-email-kaber@trash.net>
+	   <1344542943-11588-6-git-send-email-kaber@trash.net>
+	  <1345190795.3069.228.camel@localhost>
+	 <Pine.GSO.4.63.1208181423050.17600@stinky-local.trash.net>
+	 <1345405069.3069.241.camel@localhost>
+	 <Pine.GSO.4.63.1208192141570.3016@stinky-local.trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pmatouse@redhat.com, fweimer@redhat.com,
-	pablo@netfilter.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45263 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758482Ab2HUVxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 17:53:39 -0400
-In-Reply-To: <1345566077.5158.530.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.GSO.4.63.1208192141570.3016@stinky-local.trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 21 Aug 2012 18:21:17 +0200
+On Sun, 2012-08-19 at 21:44 +0200, Patrick McHardy wrote:
+> On Sun, 19 Aug 2012, Jesper Dangaard Brouer wrote:
+> > On Sat, 2012-08-18 at 14:26 +0200, Patrick McHardy wrote:
+[...]
 
-> From: Eric Dumazet <edumazet@google.com>
+> > Don't I need to load some of the helper modules, or just the
+> > nf_conntrack_ipv6 module, or perhaps only nf_defrag_ipv6 ?
 > 
-> Pablo Neira Ayuso discovered that avahi and 
-> potentially NetworkManager accept spoofed Netlink messages because of a 
-> kernel bug.  The kernel passes all-zero SCM_CREDENTIALS ancillary data 
-> to the receiver if the sender did not provide such data, instead of not 
-> including any such data at all or including the correct data from the 
-> peer (as it is the case with AF_UNIX).
-> 
-> This bug was introduced in commit 16e572626961
-> (af_unix: dont send SCM_CREDENTIALS by default)
-> 
-> This patch forces passing credentials for netlink, as
-> before the regression.
-> 
-> Another fix would be to not add SCM_CREDENTIALS in
-> netlink messages if not provided by the sender, but it
-> might break some programs.
-> 
-> With help from Florian Weimer & Petr Matousek
-> 
-> This issue is designated as CVE-2012-3520
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Not with the entire patchset, just IPv6 conntrack is enough. Aith IPv6 NAT
+> the first packet of a connection must always be defragemented, independant
+> of an assigned helper.
 
-Applied and queued up for -stable, thanks Eric.
+When loading "nf_conntrack_ipv6" I run into issues.
+
+When sending a fragmented UDP packet.  With these patches, the IPVS
+stack will no longer see the fragmented packets, but instead see one
+large SKB.  This will trigger a MTU path check in e.g.
+ip_vs_dr_xmit_v6() and an ICMPv6 too big packet is send back.
+
+  IPVS: ip_vs_dr_xmit_v6(): frag needed
+
+Perhaps we could change/fix the MTU check in IPVS?
+(This would also solve issues I've seen with TSO/GSO frames, hitting
+this code path).
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+
