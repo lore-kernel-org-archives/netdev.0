@@ -1,42 +1,78 @@
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [PATCH v1 3/5] cgroup: Protect access to task_cls_classid() when
- built as module
-Date: Tue, 21 Aug 2012 13:12:33 +0400
-Message-ID: <50335101.5030109@parallels.com>
-References: <1345215494-9181-1-git-send-email-wagi@monom.org> <1345215494-9181-4-git-send-email-wagi@monom.org> <20120817182855.GA11607@hmsreliant.think-freely.org> <20120820112938.GA22415@candlejack.bmw-carit.intra> <20120820170342.GC1734@hmsreliant.think-freely.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: smsc75xx & smsc95xx, setting skb->truesize correctly?
+Date: Tue, 21 Aug 2012 11:46:38 +0200
+Message-ID: <1345542398.5158.446.camel@edumazet-glaptop>
+References: <20120820175706.12394vktsvm3yvqc@www.81.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120820170342.GC1734-B26myB8xz7F8NnZeBjwnZQMhkBWG/bsMQH7oEaQurus@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Steve Glendinning <steve.glendinning@shawell.net>
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:49236 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755841Ab2HUJqq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 05:46:46 -0400
+Received: by bkwj10 with SMTP id j10so2119297bkw.19
+        for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 02:46:45 -0700 (PDT)
+In-Reply-To: <20120820175706.12394vktsvm3yvqc@www.81.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/20/2012 09:03 PM, Neil Horman wrote:
->>> 2) Keep a separate internal counter to track the number of cgroup instances
->>> > > so that you only inc the static key on the first create and dec it on the last
->>> > > delete.
->> > 
->> > If I got you right, than this would not be different then direclty using
->> > static_key_slow_[inc|dec].
->> > 
-> As long as a cgroup subsystems ->destroy method is only called when the
-> subsystem is being removed, then I think thats correct.  I'm not 100% sure thats
-> the case though.
+On Mon, 2012-08-20 at 17:57 +0300, Jussi Kivilinna wrote:
+> Hello,
 > 
-THAT is correct, but not the call itself. ->destroy() is called with the
-cgroup_lock held, and there is a lockdep dependency created by cpuset
-that prevents the cpu_hotplug lock, taken by static branch updates, to
-be taken inside cgroup_lock.
+> Is setting skb->truesize in smsc75xx and smsc95xx correct?
+> In smsc75xx/smsc95xx_rx_fixup(), input skb containing multiple packets  
+> is cloned and truesize for each clone is set to packet-size +  
+> sizeof(struct sk_buff), but input skb has minimum allocation size of  
+> 9000 bytes (MAX_SINGLE_PACKET_SIZE) and maximum of 18944 bytes  
+> (DEFAULT_HS_BURST_CAP_SIZE) (+ NET_IP_ALIGN). Doesn't this cause  
+> truesize to be underestimated?
 
-So unless cpuset is fixed - which is a major work, we can't do
-static_branch updates while holding the cgroup_lock.
+This has been discussed in a "TCP transmit performance regression"
+thread some weeks ago.
+
+More generally, skb_clone() is not a good idea in rx path.
+
+I dont have the hardware so cannot send a formal patch.
+
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index b1112e7..3d9566f 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -1080,30 +1080,17 @@ static int smsc95xx_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ 				return 0;
+ 			}
+ 
+-			/* last frame in this batch */
+-			if (skb->len == size) {
+-				if (dev->net->features & NETIF_F_RXCSUM)
+-					smsc95xx_rx_csum_offload(skb);
+-				skb_trim(skb, skb->len - 4); /* remove fcs */
+-				skb->truesize = size + sizeof(struct sk_buff);
+-
+-				return 1;
+-			}
+-
+-			ax_skb = skb_clone(skb, GFP_ATOMIC);
++			ax_skb = netdev_alloc_skb_ip_align(dev->net, size);
+ 			if (unlikely(!ax_skb)) {
+ 				netdev_warn(dev->net, "Error allocating skb\n");
+ 				return 0;
+ 			}
+ 
+-			ax_skb->len = size;
+-			ax_skb->data = packet;
+-			skb_set_tail_pointer(ax_skb, size);
++			memcpy(skb_put(ax_skb, size), packet, size);
+ 
+ 			if (dev->net->features & NETIF_F_RXCSUM)
+ 				smsc95xx_rx_csum_offload(ax_skb);
+-			skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
+-			ax_skb->truesize = size + sizeof(struct sk_buff);
++			__skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
+ 
+ 			usbnet_skb_return(dev, ax_skb);
+ 		}
