@@ -1,189 +1,207 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: Re: [iproute2][PATCH] utils: invarg: msg precedes the faulty arg
-Date: Tue, 21 Aug 2012 08:54:45 +0800
-Message-ID: <5032DC55.5010804@cn.fujitsu.com>
-References: <1345119956-16863-1-git-send-email-danken@redhat.com>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: Re: [PATCH] tcp: fix possible socket refcount problem
+Date: Tue, 21 Aug 2012 10:07:50 +0800
+Message-ID: <20120821020750.GA12612@localhost>
+References: <20120818021918.GA6499@localhost>
+ <1345380682.5158.201.camel@edumazet-glaptop>
+ <1345458166.5158.316.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
-To: Dan Kenigsberg <danken@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	networking <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:56011 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754143Ab2HUAzo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Aug 2012 20:55:44 -0400
-In-Reply-To: <1345119956-16863-1-git-send-email-danken@redhat.com>
+Received: from mga11.intel.com ([192.55.52.93]:34883 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754206Ab2HUCHx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Aug 2012 22:07:53 -0400
+Content-Disposition: inline
+In-Reply-To: <1345458166.5158.316.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/16/2012 08:25 PM, Dan Kenigsberg wrote:
-> fix all call which reversed the arg order.
+I'm sure it fixed the problem: up to now, there are 264 boots (each
+taking 1.5 hours) without a single failure. Thanks for the quick fix!
 
-To send a patch for iproute2, you'd better to or cc the
-maintainer(Stephen Hemminger <shemminger@vyatta.com>).
-
-Thanks
-
+On Mon, Aug 20, 2012 at 12:22:46PM +0200, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Dan Kenigsberg <danken@redhat.com>
+> Commit 6f458dfb40 (tcp: improve latencies of timer triggered events)
+> added bug leading to following trace :
+> 
+> [ 2866.131281] IPv4: Attempt to release TCP socket in state 1 ffff880019ec0000
+> [ 2866.131726] 
+> [ 2866.132188] =========================
+> [ 2866.132281] [ BUG: held lock freed! ]
+> [ 2866.132281] 3.6.0-rc1+ #622 Not tainted
+> [ 2866.132281] -------------------------
+> [ 2866.132281] kworker/0:1/652 is freeing memory ffff880019ec0000-ffff880019ec0a1f, with a lock still held there!
+> [ 2866.132281]  (sk_lock-AF_INET-RPC){+.+...}, at: [<ffffffff81903619>] tcp_sendmsg+0x29/0xcc6
+> [ 2866.132281] 4 locks held by kworker/0:1/652:
+> [ 2866.132281]  #0:  (rpciod){.+.+.+}, at: [<ffffffff81083567>] process_one_work+0x1de/0x47f
+> [ 2866.132281]  #1:  ((&task->u.tk_work)){+.+.+.}, at: [<ffffffff81083567>] process_one_work+0x1de/0x47f
+> [ 2866.132281]  #2:  (sk_lock-AF_INET-RPC){+.+...}, at: [<ffffffff81903619>] tcp_sendmsg+0x29/0xcc6
+> [ 2866.132281]  #3:  (&icsk->icsk_retransmit_timer){+.-...}, at: [<ffffffff81078017>] run_timer_softirq+0x1ad/0x35f
+> [ 2866.132281] 
+> [ 2866.132281] stack backtrace:
+> [ 2866.132281] Pid: 652, comm: kworker/0:1 Not tainted 3.6.0-rc1+ #622
+> [ 2866.132281] Call Trace:
+> [ 2866.132281]  <IRQ>  [<ffffffff810bc527>] debug_check_no_locks_freed+0x112/0x159
+> [ 2866.132281]  [<ffffffff818a0839>] ? __sk_free+0xfd/0x114
+> [ 2866.132281]  [<ffffffff811549fa>] kmem_cache_free+0x6b/0x13a
+> [ 2866.132281]  [<ffffffff818a0839>] __sk_free+0xfd/0x114
+> [ 2866.132281]  [<ffffffff818a08c0>] sk_free+0x1c/0x1e
+> [ 2866.132281]  [<ffffffff81911e1c>] tcp_write_timer+0x51/0x56
+> [ 2866.132281]  [<ffffffff81078082>] run_timer_softirq+0x218/0x35f
+> [ 2866.132281]  [<ffffffff81078017>] ? run_timer_softirq+0x1ad/0x35f
+> [ 2866.132281]  [<ffffffff810f5831>] ? rb_commit+0x58/0x85
+> [ 2866.132281]  [<ffffffff81911dcb>] ? tcp_write_timer_handler+0x148/0x148
+> [ 2866.132281]  [<ffffffff81070bd6>] __do_softirq+0xcb/0x1f9
+> [ 2866.132281]  [<ffffffff81a0a00c>] ? _raw_spin_unlock+0x29/0x2e
+> [ 2866.132281]  [<ffffffff81a1227c>] call_softirq+0x1c/0x30
+> [ 2866.132281]  [<ffffffff81039f38>] do_softirq+0x4a/0xa6
+> [ 2866.132281]  [<ffffffff81070f2b>] irq_exit+0x51/0xad
+> [ 2866.132281]  [<ffffffff81a129cd>] do_IRQ+0x9d/0xb4
+> [ 2866.132281]  [<ffffffff81a0a3ef>] common_interrupt+0x6f/0x6f
+> [ 2866.132281]  <EOI>  [<ffffffff8109d006>] ? sched_clock_cpu+0x58/0xd1
+> [ 2866.132281]  [<ffffffff81a0a172>] ? _raw_spin_unlock_irqrestore+0x4c/0x56
+> [ 2866.132281]  [<ffffffff81078692>] mod_timer+0x178/0x1a9
+> [ 2866.132281]  [<ffffffff818a00aa>] sk_reset_timer+0x19/0x26
+> [ 2866.132281]  [<ffffffff8190b2cc>] tcp_rearm_rto+0x99/0xa4
+> [ 2866.132281]  [<ffffffff8190dfba>] tcp_event_new_data_sent+0x6e/0x70
+> [ 2866.132281]  [<ffffffff8190f7ea>] tcp_write_xmit+0x7de/0x8e4
+> [ 2866.132281]  [<ffffffff818a565d>] ? __alloc_skb+0xa0/0x1a1
+> [ 2866.132281]  [<ffffffff8190f952>] __tcp_push_pending_frames+0x2e/0x8a
+> [ 2866.132281]  [<ffffffff81904122>] tcp_sendmsg+0xb32/0xcc6
+> [ 2866.132281]  [<ffffffff819229c2>] inet_sendmsg+0xaa/0xd5
+> [ 2866.132281]  [<ffffffff81922918>] ? inet_autobind+0x5f/0x5f
+> [ 2866.132281]  [<ffffffff810ee7f1>] ? trace_clock_local+0x9/0xb
+> [ 2866.132281]  [<ffffffff8189adab>] sock_sendmsg+0xa3/0xc4
+> [ 2866.132281]  [<ffffffff810f5de6>] ? rb_reserve_next_event+0x26f/0x2d5
+> [ 2866.132281]  [<ffffffff8103e6a9>] ? native_sched_clock+0x29/0x6f
+> [ 2866.132281]  [<ffffffff8103e6f8>] ? sched_clock+0x9/0xd
+> [ 2866.132281]  [<ffffffff810ee7f1>] ? trace_clock_local+0x9/0xb
+> [ 2866.132281]  [<ffffffff8189ae03>] kernel_sendmsg+0x37/0x43
+> [ 2866.132281]  [<ffffffff8199ce49>] xs_send_kvec+0x77/0x80
+> [ 2866.132281]  [<ffffffff8199cec1>] xs_sendpages+0x6f/0x1a0
+> [ 2866.132281]  [<ffffffff8107826d>] ? try_to_del_timer_sync+0x55/0x61
+> [ 2866.132281]  [<ffffffff8199d0d2>] xs_tcp_send_request+0x55/0xf1
+> [ 2866.132281]  [<ffffffff8199bb90>] xprt_transmit+0x89/0x1db
+> [ 2866.132281]  [<ffffffff81999bcd>] ? call_connect+0x3c/0x3c
+> [ 2866.132281]  [<ffffffff81999d92>] call_transmit+0x1c5/0x20e
+> [ 2866.132281]  [<ffffffff819a0d55>] __rpc_execute+0x6f/0x225
+> [ 2866.132281]  [<ffffffff81999bcd>] ? call_connect+0x3c/0x3c
+> [ 2866.132281]  [<ffffffff819a0f33>] rpc_async_schedule+0x28/0x34
+> [ 2866.132281]  [<ffffffff810835d6>] process_one_work+0x24d/0x47f
+> [ 2866.132281]  [<ffffffff81083567>] ? process_one_work+0x1de/0x47f
+> [ 2866.132281]  [<ffffffff819a0f0b>] ? __rpc_execute+0x225/0x225
+> [ 2866.132281]  [<ffffffff81083a6d>] worker_thread+0x236/0x317
+> [ 2866.132281]  [<ffffffff81083837>] ? process_scheduled_works+0x2f/0x2f
+> [ 2866.132281]  [<ffffffff8108b7b8>] kthread+0x9a/0xa2
+> [ 2866.132281]  [<ffffffff81a12184>] kernel_thread_helper+0x4/0x10
+> [ 2866.132281]  [<ffffffff81a0a4b0>] ? retint_restore_args+0x13/0x13
+> [ 2866.132281]  [<ffffffff8108b71e>] ? __init_kthread_worker+0x5a/0x5a
+> [ 2866.132281]  [<ffffffff81a12180>] ? gs_change+0x13/0x13
+> [ 2866.308506] IPv4: Attempt to release TCP socket in state 1 ffff880019ec0000
+> [ 2866.309689] =============================================================================
+> [ 2866.310254] BUG TCP (Not tainted): Object already free
+> [ 2866.310254] -----------------------------------------------------------------------------
+> [ 2866.310254] 
+> 
+> The bug comes from the fact that timer set in sk_reset_timer() can run
+> before we actually do the sock_hold(). socket refcount reaches zero and
+> we free the socket too soon.
+> 
+> timer handler is not allowed to reduce socket refcnt if socket is owned
+> by the user, or we need to change sk_reset_timer() implementation.
+> 
+> We should take a reference on the socket in case TCP_DELACK_TIMER_DEFERRED
+> or TCP_DELACK_TIMER_DEFERRED bit are set in tsq_flags
+> 
+> Also fix a typo in tcp_delack_timer(), where TCP_WRITE_TIMER_DEFERRED
+> was used instead of TCP_DELACK_TIMER_DEFERRED.
+> 
+> For consistency, use same socket refcount change for TCP_MTU_REDUCED_DEFERRED,
+> even if not fired from a timer.
+> 
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Tested-by: Fengguang Wu <fengguang.wu@intel.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 > ---
->  ip/ip.c        |    2 +-
->  ip/ipaddress.c |    2 +-
->  tc/tc_class.c  |   10 +++++-----
->  tc/tc_filter.c |   12 ++++++------
->  tc/tc_qdisc.c  |    4 ++--
->  5 files changed, 15 insertions(+), 15 deletions(-)
+>  net/ipv4/tcp_ipv4.c   |    8 +++++---
+>  net/ipv4/tcp_output.c |   14 +++++++++-----
+>  net/ipv4/tcp_timer.c  |    6 ++++--
+>  3 files changed, 18 insertions(+), 10 deletions(-)
+> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> index 7678237..6278a11 100644
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -417,10 +417,12 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
+>  
+>  		if (code == ICMP_FRAG_NEEDED) { /* PMTU discovery (RFC1191) */
+>  			tp->mtu_info = info;
+> -			if (!sock_owned_by_user(sk))
+> +			if (!sock_owned_by_user(sk)) {
+>  				tcp_v4_mtu_reduced(sk);
+> -			else
+> -				set_bit(TCP_MTU_REDUCED_DEFERRED, &tp->tsq_flags);
+> +			} else {
+> +				if (!test_and_set_bit(TCP_MTU_REDUCED_DEFERRED, &tp->tsq_flags))
+> +					sock_hold(sk);
+> +			}
+>  			goto out;
+>  		}
+>  
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 20dfd89..d046326 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -910,14 +910,18 @@ void tcp_release_cb(struct sock *sk)
+>  	if (flags & (1UL << TCP_TSQ_DEFERRED))
+>  		tcp_tsq_handler(sk);
+>  
+> -	if (flags & (1UL << TCP_WRITE_TIMER_DEFERRED))
+> +	if (flags & (1UL << TCP_WRITE_TIMER_DEFERRED)) {
+>  		tcp_write_timer_handler(sk);
+> -
+> -	if (flags & (1UL << TCP_DELACK_TIMER_DEFERRED))
+> +		__sock_put(sk);
+> +	}
+> +	if (flags & (1UL << TCP_DELACK_TIMER_DEFERRED)) {
+>  		tcp_delack_timer_handler(sk);
+> -
+> -	if (flags & (1UL << TCP_MTU_REDUCED_DEFERRED))
+> +		__sock_put(sk);
+> +	}
+> +	if (flags & (1UL << TCP_MTU_REDUCED_DEFERRED)) {
+>  		sk->sk_prot->mtu_reduced(sk);
+> +		__sock_put(sk);
+> +	}
+>  }
+>  EXPORT_SYMBOL(tcp_release_cb);
+>  
+> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+> index 6df36ad..b774a03 100644
+> --- a/net/ipv4/tcp_timer.c
+> +++ b/net/ipv4/tcp_timer.c
+> @@ -252,7 +252,8 @@ static void tcp_delack_timer(unsigned long data)
+>  		inet_csk(sk)->icsk_ack.blocked = 1;
+>  		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_DELAYEDACKLOCKED);
+>  		/* deleguate our work to tcp_release_cb() */
+> -		set_bit(TCP_WRITE_TIMER_DEFERRED, &tcp_sk(sk)->tsq_flags);
+> +		if (!test_and_set_bit(TCP_DELACK_TIMER_DEFERRED, &tcp_sk(sk)->tsq_flags))
+> +			sock_hold(sk);
+>  	}
+>  	bh_unlock_sock(sk);
+>  	sock_put(sk);
+> @@ -481,7 +482,8 @@ static void tcp_write_timer(unsigned long data)
+>  		tcp_write_timer_handler(sk);
+>  	} else {
+>  		/* deleguate our work to tcp_release_cb() */
+> -		set_bit(TCP_WRITE_TIMER_DEFERRED, &tcp_sk(sk)->tsq_flags);
+> +		if (!test_and_set_bit(TCP_WRITE_TIMER_DEFERRED, &tcp_sk(sk)->tsq_flags))
+> +			sock_hold(sk);
+>  	}
+>  	bh_unlock_sock(sk);
+>  	sock_put(sk);
 > 
-> diff --git a/ip/ip.c b/ip/ip.c
-> index 20dc3b5..4e8ac5c 100644
-> --- a/ip/ip.c
-> +++ b/ip/ip.c
-> @@ -188,7 +188,7 @@ int main(int argc, char **argv)
->  			else if (strcmp(argv[1], "help") == 0)
->  				usage();
->  			else
-> -				invarg(argv[1], "invalid protocol family");
-> +				invarg("invalid protocol family", argv[1]);
->  		} else if (strcmp(opt, "-4") == 0) {
->  			preferred_family = AF_INET;
->  		} else if (strcmp(opt, "-6") == 0) {
-> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-> index 69a63b3..cbff143 100644
-> --- a/ip/ipaddress.c
-> +++ b/ip/ipaddress.c
-> @@ -1147,7 +1147,7 @@ static int ipaddr_modify(int cmd, int flags, int argc, char **argv)
->  			unsigned scope = 0;
->  			NEXT_ARG();
->  			if (rtnl_rtscope_a2n(&scope, *argv))
-> -				invarg(*argv, "invalid scope value.");
-> +				invarg("invalid scope value.", *argv);
->  			req.ifa.ifa_scope = scope;
->  			scoped = 1;
->  		} else if (strcmp(*argv, "dev") == 0) {
-> diff --git a/tc/tc_class.c b/tc/tc_class.c
-> index de18fd1..95bf615 100644
-> --- a/tc/tc_class.c
-> +++ b/tc/tc_class.c
-> @@ -74,7 +74,7 @@ int tc_class_modify(int cmd, unsigned flags, int argc, char **argv)
->  			if (req.t.tcm_handle)
->  				duparg("classid", *argv);
->  			if (get_tc_classid(&handle, *argv))
-> -				invarg(*argv, "invalid class ID");
-> +				invarg("invalid class ID", *argv);
->  			req.t.tcm_handle = handle;
->  		} else if (strcmp(*argv, "handle") == 0) {
->  			fprintf(stderr, "Error: try \"classid\" instead of \"handle\"\n");
-> @@ -91,7 +91,7 @@ int tc_class_modify(int cmd, unsigned flags, int argc, char **argv)
->  			if (req.t.tcm_parent)
->  				duparg("parent", *argv);
->  			if (get_tc_classid(&handle, *argv))
-> -				invarg(*argv, "invalid parent ID");
-> +				invarg("invalid parent ID", *argv);
->  			req.t.tcm_parent = handle;
->  		} else if (matches(*argv, "estimator") == 0) {
->  			if (parse_estimator(&argc, &argv, &est))
-> @@ -252,13 +252,13 @@ int tc_class_list(int argc, char **argv)
->  			if (filter_qdisc)
->  				duparg("qdisc", *argv);
->  			if (get_qdisc_handle(&filter_qdisc, *argv))
-> -				invarg(*argv, "invalid qdisc ID");
-> +				invarg("invalid qdisc ID", *argv);
->  		} else if (strcmp(*argv, "classid") == 0) {
->  			NEXT_ARG();
->  			if (filter_classid)
->  				duparg("classid", *argv);
->  			if (get_tc_classid(&filter_classid, *argv))
-> -				invarg(*argv, "invalid class ID");
-> +				invarg("invalid class ID", *argv);
->  		} else if (strcmp(*argv, "root") == 0) {
->  			if (t.tcm_parent) {
->  				fprintf(stderr, "Error: \"root\" is duplicate parent ID\n");
-> @@ -271,7 +271,7 @@ int tc_class_list(int argc, char **argv)
->  				duparg("parent", *argv);
->  			NEXT_ARG();
->  			if (get_tc_classid(&handle, *argv))
-> -				invarg(*argv, "invalid parent ID");
-> +				invarg("invalid parent ID", *argv);
->  			t.tcm_parent = handle;
->  		} else if (matches(*argv, "help") == 0) {
->  			usage();
-> diff --git a/tc/tc_filter.c b/tc/tc_filter.c
-> index 04c3b82..c9e09d8 100644
-> --- a/tc/tc_filter.c
-> +++ b/tc/tc_filter.c
-> @@ -93,7 +93,7 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
->  			if (req.t.tcm_parent)
->  				duparg("parent", *argv);
->  			if (get_tc_classid(&handle, *argv))
-> -				invarg(*argv, "Invalid parent ID");
-> +				invarg("Invalid parent ID", *argv);
->  			req.t.tcm_parent = handle;
->  		} else if (strcmp(*argv, "handle") == 0) {
->  			NEXT_ARG();
-> @@ -106,14 +106,14 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
->  			if (prio)
->  				duparg("priority", *argv);
->  			if (get_u32(&prio, *argv, 0) || prio > 0xFFFF)
-> -				invarg(*argv, "invalid priority value");
-> +				invarg("invalid priority value", *argv);
->  		} else if (matches(*argv, "protocol") == 0) {
->  			__u16 id;
->  			NEXT_ARG();
->  			if (protocol_set)
->  				duparg("protocol", *argv);
->  			if (ll_proto_a2n(&id, *argv))
-> -				invarg(*argv, "invalid protocol");
-> +				invarg("invalid protocol", *argv);
->  			protocol = id;
->  			protocol_set = 1;
->  		} else if (matches(*argv, "estimator") == 0) {
-> @@ -290,7 +290,7 @@ int tc_filter_list(int argc, char **argv)
->  			if (t.tcm_parent)
->  				duparg("parent", *argv);
->  			if (get_tc_classid(&handle, *argv))
-> -				invarg(*argv, "invalid parent ID");
-> +				invarg("invalid parent ID", *argv);
->  			filter_parent = t.tcm_parent = handle;
->  		} else if (strcmp(*argv, "handle") == 0) {
->  			NEXT_ARG();
-> @@ -303,7 +303,7 @@ int tc_filter_list(int argc, char **argv)
->  			if (prio)
->  				duparg("priority", *argv);
->  			if (get_u32(&prio, *argv, 0))
-> -				invarg(*argv, "invalid preference");
-> +				invarg("invalid preference", *argv);
->  			filter_prio = prio;
->  		} else if (matches(*argv, "protocol") == 0) {
->  			__u16 res;
-> @@ -311,7 +311,7 @@ int tc_filter_list(int argc, char **argv)
->  			if (protocol)
->  				duparg("protocol", *argv);
->  			if (ll_proto_a2n(&res, *argv))
-> -				invarg(*argv, "invalid protocol");
-> +				invarg("invalid protocol", *argv);
->  			protocol = res;
->  			filter_protocol = protocol;
->  		} else if (matches(*argv, "help") == 0) {
-> diff --git a/tc/tc_qdisc.c b/tc/tc_qdisc.c
-> index 3f932a7..c8d7335 100644
-> --- a/tc/tc_qdisc.c
-> +++ b/tc/tc_qdisc.c
-> @@ -83,7 +83,7 @@ int tc_qdisc_modify(int cmd, unsigned flags, int argc, char **argv)
->  				duparg("handle", *argv);
->  			NEXT_ARG();
->  			if (get_qdisc_handle(&handle, *argv))
-> -				invarg(*argv, "invalid qdisc ID");
-> +				invarg("invalid qdisc ID", *argv);
->  			req.t.tcm_handle = handle;
->  		} else if (strcmp(*argv, "root") == 0) {
->  			if (req.t.tcm_parent) {
-> @@ -111,7 +111,7 @@ int tc_qdisc_modify(int cmd, unsigned flags, int argc, char **argv)
->  			if (req.t.tcm_parent)
->  				duparg("parent", *argv);
->  			if (get_tc_classid(&handle, *argv))
-> -				invarg(*argv, "invalid parent ID");
-> +				invarg("invalid parent ID", *argv);
->  			req.t.tcm_parent = handle;
->  		} else if (matches(*argv, "estimator") == 0) {
->  			if (parse_estimator(&argc, &argv, &est))
