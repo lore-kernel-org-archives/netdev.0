@@ -1,113 +1,119 @@
-From: Sylvain Munaut <s.munaut@whatever-company.com>
-Subject: netconsole leads to stalled CPU task
-Date: Tue, 21 Aug 2012 17:13:43 +0200
-Message-ID: <CAF6-1L79tec_0L7xuEDznjGQdwZQV34CgdNuGo=TJ4dPGTHZag@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: regression with poll(2)
+Date: Tue, 21 Aug 2012 08:58:05 -0700
+Message-ID: <20120821085805.41a102f1.akpm@linux-foundation.org>
+References: <alpine.DEB.2.00.1208151226250.15721@cobra.newdream.net>
+	<alpine.DEB.2.00.1208191051150.15570@cobra.newdream.net>
+	<20120820090443.GA3275@suse.de>
+	<CA+55aFw6S85jR+5zP9W6YykdsTMSVw9T5ibW93Gtx2rjw-b2EA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:53375 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754549Ab2HUPNo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 11:13:44 -0400
-Received: by mail-vb0-f46.google.com with SMTP id ff1so6604445vbb.19
-        for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 08:13:43 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Mel Gorman <mgorman@suse.de>, Sage Weil <sage@inktank.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ceph-devel@vger.kernel.org,
+	Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>, michaelc@cs.wisc.edu,
+	emunson@mgebm.net, Eric Dumazet <eric.dumazet@gmail.com>,
+	Christoph Lameter <cl@linux.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFw6S85jR+5zP9W6YykdsTMSVw9T5ibW93Gtx2rjw-b2EA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Mon, 20 Aug 2012 10:02:05 -0700 Linus Torvalds <torvalds@linux-foundation.org> wrote:
 
+> On Mon, Aug 20, 2012 at 2:04 AM, Mel Gorman <mgorman@suse.de> wrote:
+> >
+> > Can the following patch be tested please? It is reported to fix an fio
+> > regression that may be similar to what you are experiencing but has not
+> > been picked up yet.
+> 
+> Andrew, is this in your queue, or should I take this directly, or
+> what? It seems to fix the problem for Eric and Sage, at least.
 
-I'm trying to use the netconsole to feed kernel message to the outside
-but this lead to a stall ...
-
-This only happens in a fairly specific configuration where you have a
-bridge over vlan over bonding.
-I tested with only (bridge over vlan) and (vlan over bonding) and
-those work fine.
-
-
-bash# modprobe netconsole
-netconsole=8888@10.208.1.30/mgmt,8000@10.208.1.3/00:16:3e:1a:37:37
-[... never returns ... ]
-
-dmesg:
-
-[  130.672942] netpoll: netconsole: local port 8888
-[  130.673206] netpoll: netconsole: local IP 10.208.1.30
-[  130.673460] netpoll: netconsole: interface 'mgmt'
-[  130.673735] netpoll: netconsole: remote port 8000
-[  130.673984] netpoll: netconsole: remote IP 10.208.1.3
-[  130.674231] netpoll: netconsole: remote ethernet address 00:16:3e:1a:37:37
-[  132.975290] console [netcon0] enabled
-[  132.975541] netconsole: network logging started
-[  190.677624] INFO: rcu_preempt detected stalls on CPUs/tasks: { 15}
-(detected by 2, t=60002 jiffies)
-[  190.678218] INFO: Stall ended before state dump start
-[  370.682595] INFO: rcu_preempt detected stalls on CPUs/tasks: { 15}
-(detected by 2, t=240007 jiffies)
-[  370.683197] INFO: Stall ended before state dump start
-[  451.664596] INFO: rcu_bh detected stalls on CPUs/tasks: { 15}
-(detected by 16, t=60004 jiffies)
-[  451.665190] INFO: Stall ended before state dump start
-[  550.687619] INFO: rcu_preempt detected stalls on CPUs/tasks: { 15}
-(detected by 16, t=420012 jiffies)
-[  550.688211] INFO: Stall ended before state dump start
-[  631.669621] INFO: rcu_bh detected stalls on CPUs/tasks: { 15}
-(detected by 2, t=240009 jiffies)
-[  631.670220] INFO: Stall ended before state dump start
+Yes, I have a copy queued:
 
 
-ifconfig:
+From: Alex Shi <alex.shi@intel.com>
+Subject: mm: correct page->pfmemalloc to fix deactivate_slab regression
 
-bond0     Link encap:Ethernet  HWaddr 18:03:73:ed:67:ad
-          inet6 addr: fe80::1a03:73ff:feed:67ad/64 Scope:Link
-          UP BROADCAST RUNNING MASTER MULTICAST  MTU:1500  Metric:1
-          RX packets:735 errors:0 dropped:1 overruns:0 frame:0
-          TX packets:127 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0
-          RX bytes:99136 (96.8 KiB)  TX bytes:40635 (39.6 KiB)
+cfd19c5a9ec ("mm: only set page->pfmemalloc when ALLOC_NO_WATERMARKS was
+used") tried to narrow down page->pfmemalloc setting, but it missed some
+places the pfmemalloc should be set.
 
-bond0.1   Link encap:Ethernet  HWaddr 18:03:73:ed:67:ad
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:283 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:108 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0
-          RX bytes:41948 (40.9 KiB)  TX bytes:37915 (37.0 KiB)
+So, in __slab_alloc, the unalignment pfmemalloc and ALLOC_NO_WATERMARKS
+cause incorrect deactivate_slab() on our core2 server:
 
-eth0      Link encap:Ethernet  HWaddr 18:03:73:ed:67:ad
-          UP BROADCAST RUNNING SLAVE MULTICAST  MTU:1500  Metric:1
-          RX packets:450 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:10 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:52085 (50.8 KiB)  TX bytes:1053 (1.0 KiB)
+    64.73%           fio  [kernel.kallsyms]     [k] _raw_spin_lock
+                     |
+                     --- _raw_spin_lock
+                        |
+                        |---0.34%-- deactivate_slab
+                        |          __slab_alloc
+                        |          kmem_cache_alloc
+                        |          |
 
-eth2      Link encap:Ethernet  HWaddr 18:03:73:ed:67:ad
-          UP BROADCAST RUNNING SLAVE MULTICAST  MTU:1500  Metric:1
-          RX packets:285 errors:0 dropped:1 overruns:0 frame:0
-          TX packets:117 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:47051 (45.9 KiB)  TX bytes:39582 (38.6 KiB)
+That causes our fio sync write performance to have a 40% regression.
 
-lo        Link encap:Local Loopback
-          inet addr:127.0.0.1  Mask:255.0.0.0
-          inet6 addr: ::1/128 Scope:Host
-          UP LOOPBACK RUNNING  MTU:16436  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0
-          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+Move the checking in get_page_from_freelist() which resolves this issue.
 
-mgmt      Link encap:Ethernet  HWaddr 18:03:73:ed:67:ad
-          inet addr:10.208.1.30  Bcast:10.208.1.255  Mask:255.255.255.0
-          inet6 addr: fe80::1a03:73ff:feed:67ad/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:280 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:108 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0
-          RX bytes:41713 (40.7 KiB)  TX bytes:37915 (37.0 KiB)
+Signed-off-by: Alex Shi <alex.shi@intel.com>
+Acked-by: Mel Gorman <mgorman@suse.de>
+Cc: David Miller <davem@davemloft.net
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Tested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Tested-by: Sage Weil <sage@inktank.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
+ mm/page_alloc.c |   21 +++++++++++----------
+ 1 file changed, 11 insertions(+), 10 deletions(-)
 
-Cheers,
-
-    Sylvain
+diff -puN mm/page_alloc.c~mm-correct-page-pfmemalloc-to-fix-deactivate_slab-regression mm/page_alloc.c
+--- a/mm/page_alloc.c~mm-correct-page-pfmemalloc-to-fix-deactivate_slab-regression
++++ a/mm/page_alloc.c
+@@ -1928,6 +1928,17 @@ this_zone_full:
+ 		zlc_active = 0;
+ 		goto zonelist_scan;
+ 	}
++
++	if (page)
++		/*
++		 * page->pfmemalloc is set when ALLOC_NO_WATERMARKS was
++		 * necessary to allocate the page. The expectation is
++		 * that the caller is taking steps that will free more
++		 * memory. The caller should avoid the page being used
++		 * for !PFMEMALLOC purposes.
++		 */
++		page->pfmemalloc = !!(alloc_flags & ALLOC_NO_WATERMARKS);
++
+ 	return page;
+ }
+ 
+@@ -2389,14 +2400,6 @@ rebalance:
+ 				zonelist, high_zoneidx, nodemask,
+ 				preferred_zone, migratetype);
+ 		if (page) {
+-			/*
+-			 * page->pfmemalloc is set when ALLOC_NO_WATERMARKS was
+-			 * necessary to allocate the page. The expectation is
+-			 * that the caller is taking steps that will free more
+-			 * memory. The caller should avoid the page being used
+-			 * for !PFMEMALLOC purposes.
+-			 */
+-			page->pfmemalloc = true;
+ 			goto got_pg;
+ 		}
+ 	}
+@@ -2569,8 +2572,6 @@ retry_cpuset:
+ 		page = __alloc_pages_slowpath(gfp_mask, order,
+ 				zonelist, high_zoneidx, nodemask,
+ 				preferred_zone, migratetype);
+-	else
+-		page->pfmemalloc = false;
+ 
+ 	trace_mm_page_alloc(page, order, gfp_mask, migratetype);
+ 
+_
