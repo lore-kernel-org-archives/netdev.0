@@ -1,65 +1,63 @@
 From: pablo@netfilter.org
-Subject: [PATCH 09/10] netfilter: replace list_for_each_continue_rcu with new interface
-Date: Thu, 23 Aug 2012 01:38:45 +0200
-Message-ID: <1345678726-3109-10-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 08/10] netfilter: nf_conntrack: remove unnecessary RTNL locking
+Date: Thu, 23 Aug 2012 01:38:44 +0200
+Message-ID: <1345678726-3109-9-git-send-email-pablo@netfilter.org>
 References: <1345678726-3109-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from slan-550-85.anhosting.com ([209.236.71.68]:60192 "EHLO
+	slan-550-85.anhosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758076Ab2HWASs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 20:18:48 -0400
 In-Reply-To: <1345678726-3109-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michael Wang <wangyun@linux.vnet.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
 
-This patch replaces list_for_each_continue_rcu() with
-list_for_each_entry_continue_rcu() to allow removing
-list_for_each_continue_rcu().
+Locking the rtnl was added to nf_conntrack_l{3,4}_proto_unregister()
+for walking the network namespace list. This is not done anymore since
+we have proper namespace support in the protocols now, so we don't
+need to take the RTNL anymore.
 
-Signed-off-by: Michael Wang <wangyun@linux.vnet.ibm.com>
-Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/core.c |   10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ net/netfilter/nf_conntrack_proto.c |    5 -----
+ 1 file changed, 5 deletions(-)
 
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index 0bc6b60..8f4b0b2 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -131,14 +131,13 @@ unsigned int nf_iterate(struct list_head *head,
- 			int hook_thresh)
- {
- 	unsigned int verdict;
-+	struct nf_hook_ops *elem = list_entry_rcu(*i, struct nf_hook_ops, list);
+diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+index 0dc6385..51e928d 100644
+--- a/net/netfilter/nf_conntrack_proto.c
++++ b/net/netfilter/nf_conntrack_proto.c
+@@ -21,7 +21,6 @@
+ #include <linux/notifier.h>
+ #include <linux/kernel.h>
+ #include <linux/netdevice.h>
+-#include <linux/rtnetlink.h>
  
- 	/*
- 	 * The caller must not block between calls to this
- 	 * function because of risk of continuing from deleted element.
- 	 */
--	list_for_each_continue_rcu(*i, head) {
--		struct nf_hook_ops *elem = (struct nf_hook_ops *)*i;
--
-+	list_for_each_entry_continue_rcu(elem, head, list) {
- 		if (hook_thresh > elem->priority)
- 			continue;
+ #include <net/netfilter/nf_conntrack.h>
+ #include <net/netfilter/nf_conntrack_l3proto.h>
+@@ -294,9 +293,7 @@ void nf_conntrack_l3proto_unregister(struct net *net,
+ 	nf_ct_l3proto_unregister_sysctl(net, proto);
  
-@@ -155,11 +154,14 @@ repeat:
- 				continue;
- 			}
- #endif
--			if (verdict != NF_REPEAT)
-+			if (verdict != NF_REPEAT) {
-+				*i = &elem->list;
- 				return verdict;
-+			}
- 			goto repeat;
- 		}
- 	}
-+	*i = &elem->list;
- 	return NF_ACCEPT;
+ 	/* Remove all contrack entries for this protocol */
+-	rtnl_lock();
+ 	nf_ct_iterate_cleanup(net, kill_l3proto, proto);
+-	rtnl_unlock();
  }
+ EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_unregister);
+ 
+@@ -502,9 +499,7 @@ void nf_conntrack_l4proto_unregister(struct net *net,
+ 	nf_ct_l4proto_unregister_sysctl(net, pn, l4proto);
+ 
+ 	/* Remove all contrack entries for this protocol */
+-	rtnl_lock();
+ 	nf_ct_iterate_cleanup(net, kill_l4proto, l4proto);
+-	rtnl_unlock();
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_unregister);
  
 -- 
 1.7.10.4
-
