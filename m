@@ -1,60 +1,132 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 0/3] x86_64, sfc: 128-bit memory-mapped I/O
-Date: Wed, 22 Aug 2012 03:10:23 +0100
-Message-ID: <1345601423.2659.100.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1345598275.2659.71.camel@bwh-desktop.uk.solarflarecom.com>
-	  <50343810.2000809@zytor.com>
-	 <1345599783.2659.82.camel@bwh-desktop.uk.solarflarecom.com>
-	 <50343D16.4040901@zytor.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>, <netdev@vger.kernel.org>,
-	<linux-net-drivers@solarflare.com>, <x86@kernel.org>
-To: "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:57082 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754587Ab2HVCK1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 22:10:27 -0400
-In-Reply-To: <50343D16.4040901@zytor.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: [PATCH v3 00/17] generic hashtable implementation
+Date: Wed, 22 Aug 2012 04:26:55 +0200
+Message-ID: <1345602432-27673-1-git-send-email-levinsasha928@gmail.com>
+Cc: tj@kernel.org,
+	akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org,
+	paul.gortmaker@windriver.com,
+	davem@davemloft.net,
+	rostedt@goodmis.org,
+	mingo@elte.hu,
+	ebiederm@xmission.com,
+	aarcange@redhat.com,
+	ericvh@gmail.com,
+	netdev@vger.kernel.org,
+	josh@joshtriplett.org,
+	eric.dumazet@gmail.com,
+	mathieu.desnoyers@efficios.com,
+	axboe@kernel.dk,
+	agk@redhat.com,
+	dm-devel@redhat.com,
+	neilb@suse.de,
+	ccaulfie@redhat.com,
+	teigland@redhat.com,
+	Trond.Myklebust@netapp.com,
+	bfields@fieldses.org,
+	fweisbec@gmail.com,
+	jesse@nicira.com,
+	venkat.x.venkatsubra@oracle.com,
+	ejt@redhat.com,
+	snitzer@redhat.com,
+	edumazet@google.com,
+	linux-nfs@vger.kernel.org,
+	dev@openvswitch.org,
+	rds-devel@oss.oracle.com,
+	lw@cn.fujitsu.com,
+	Sasha Levin <levinsasha928@gmail.com>
+To: torvalds@linux-foundation.org
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-08-21 at 18:59 -0700, H. Peter Anvin wrote:
-> On 08/21/2012 06:43 PM, Ben Hutchings wrote:
-> > On Tue, 2012-08-21 at 18:38 -0700, H. Peter Anvin wrote:
-> >> On 08/21/2012 06:17 PM, Ben Hutchings wrote:
-> >>> Current Solarflare network controllers have 128-bit memory-mapped
-> >>> registers which are normally accessed through a series of I/O
-> >>> operations.  However, it is also possible to access them with a single
-> >>> MOVAPS instruction on x86_64, and this is measurably faster as it
-> >>> requires only one PCIe transaction.
-> >>
-> >> Also, have you considered doing this with write combining instead?
-> > 
-> > We tried it, and it goes horribly wrong.  On some systems, the writes
-> > are not combined, but they are reordered in a way the hardware doesn't
-> > support.  See the comment at the top of drivers/net/ethernet/sfc/io.h.
-> > 
-> 
-> Yes, you have to make sure you properly enforce the necessary ordering
-> requirements manually (I think you can do that with sfence).
+There are quite a few places in the kernel which implement a hashtable
+in a very similar way. Instead of having implementations of a hashtable
+all over the kernel, we can re-use the code.
 
-We did put an sfence after the writes to each register.  But some
-systems only want to combine writes that cover an entire cache line, and
-the writes covering a 128-bit register get broken back up into multiple
-writes at the PCIe level.  And on some systems these are sent in
-decreasing address order, which breaks the rules for writing to
-TX_DESC_UPD.
+Since it looks like all the major issues we're addressed in the RFC phase
+and no major issues were raised with this patch set, I'd be happy to see
+this getting merged so that work could continue on different aspects of
+the hashtable. Some interesting directions include:
 
-To avoid this we'd have to put an sfence in between the writes to a
-register, leaving us back where we started.
+ - Introducing a dynamic RCU hashtable such as the one Mathieu Desnoyers
+ wrote about out in the userspace RCU.
 
-Ben.
+ - Replacing the rest of the the kernel structures which use the same basec
+ hashtable construct to use this new interface.
+
+ - Same as above, but for non-obvious places (for example, I'm looking into
+ using the hashtable to store KVM vcpus instead of the linked list being used
+ there now - this should help performance with a large amount of vcpus).
+
+
+Changes since v2:
+ - Documentation improvements from Mathieu Desnoyers.
+ - Converted the SUNRPC audit code to use hashtables as well. Since that code
+ requires a dynamic hashtable this shows off the _size() API usage.
+
+Changes since v1:
+
+ - Added missing hash_init in rds and lockd.
+ - Addressed the userns comments by Eric Biederman.
+ - Ran a small test to confirm hash_32 does a good job for low key
+ values (1-10000), which showed it did - this resulted in no changes to the
+ code.
+
+Sasha Levin (17):
+  hashtable: introduce a small and naive hashtable
+  userns: use new hashtable implementation
+  mm,ksm: use new hashtable implementation
+  workqueue: use new hashtable implementation
+  mm/huge_memory: use new hashtable implementation
+  tracepoint: use new hashtable implementation
+  net,9p: use new hashtable implementation
+  block,elevator: use new hashtable implementation
+  SUNRPC/cache: use new hashtable implementation
+  dlm: use new hashtable implementation
+  net,l2tp: use new hashtable implementation
+  dm: use new hashtable implementation
+  lockd: use new hashtable implementation
+  net,rds: use new hashtable implementation
+  openvswitch: use new hashtable implementation
+  tracing output: use new hashtable implementation
+  SUNRPC: use new hashtable implementation in auth
+
+ block/blk.h                                        |    2 +-
+ block/elevator.c                                   |   23 +--
+ drivers/md/dm-snap.c                               |   24 +--
+ drivers/md/persistent-data/dm-block-manager.c      |    1 -
+ .../persistent-data/dm-persistent-data-internal.h  |   19 --
+ .../md/persistent-data/dm-transaction-manager.c    |   30 +--
+ fs/dlm/lowcomms.c                                  |   47 +---
+ fs/lockd/svcsubs.c                                 |   66 +++--
+ include/linux/elevator.h                           |    5 +-
+ include/linux/hashtable.h                          |  291 ++++++++++++++++++++
+ kernel/trace/trace_output.c                        |   20 +-
+ kernel/tracepoint.c                                |   27 +-
+ kernel/user.c                                      |   33 +--
+ kernel/workqueue.c                                 |   86 +-----
+ mm/huge_memory.c                                   |   57 +---
+ mm/ksm.c                                           |   33 +--
+ net/9p/error.c                                     |   21 +-
+ net/l2tp/l2tp_core.c                               |  134 ++++------
+ net/l2tp/l2tp_core.h                               |    8 +-
+ net/l2tp/l2tp_debugfs.c                            |   19 +-
+ net/openvswitch/vport.c                            |   30 +--
+ net/rds/bind.c                                     |   28 ++-
+ net/rds/connection.c                               |  102 +++----
+ net/sunrpc/auth.c                                  |   45 ++--
+ net/sunrpc/cache.c                                 |   20 +-
+ 25 files changed, 617 insertions(+), 554 deletions(-)
+ delete mode 100644 drivers/md/persistent-data/dm-persistent-data-internal.h
+ create mode 100644 include/linux/hashtable.h
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.8.6
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
