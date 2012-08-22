@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 02/10] ipvs: generalize app registration in netns
-Date: Thu, 23 Aug 2012 01:38:38 +0200
-Message-ID: <1345678726-3109-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 06/10] netfilter: PTR_RET can be used
+Date: Thu, 23 Aug 2012 01:38:42 +0200
+Message-ID: <1345678726-3109-7-git-send-email-pablo@netfilter.org>
 References: <1345678726-3109-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,187 +10,188 @@ In-Reply-To: <1345678726-3109-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Wu Fengguang <fengguang.wu@intel.com>
 
-	Get rid of the ftp_app pointer and allow applications
-to be registered without adding fields in the netns_ipvs structure.
+This quiets the coccinelle warnings:
 
-v2: fix coding style as suggested by Pablo Neira Ayuso <pablo@netfilter.org>
+net/bridge/netfilter/ebtable_filter.c:107:1-3: WARNING: PTR_RET can be used
+net/bridge/netfilter/ebtable_nat.c:107:1-3: WARNING: PTR_RET can be used
+net/ipv6/netfilter/ip6table_filter.c:65:1-3: WARNING: PTR_RET can be used
+net/ipv6/netfilter/ip6table_mangle.c:100:1-3: WARNING: PTR_RET can be used
+net/ipv6/netfilter/ip6table_raw.c:44:1-3: WARNING: PTR_RET can be used
+net/ipv6/netfilter/ip6table_security.c:62:1-3: WARNING: PTR_RET can be used
+net/ipv4/netfilter/iptable_filter.c:72:1-3: WARNING: PTR_RET can be used
+net/ipv4/netfilter/iptable_mangle.c:107:1-3: WARNING: PTR_RET can be used
+net/ipv4/netfilter/iptable_raw.c:51:1-3: WARNING: PTR_RET can be used
+net/ipv4/netfilter/iptable_security.c:70:1-3: WARNING: PTR_RET can be used
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/ip_vs.h            |    5 ++--
- net/netfilter/ipvs/ip_vs_app.c |   58 +++++++++++++++++++++++++++++-----------
- net/netfilter/ipvs/ip_vs_ftp.c |   21 ++++-----------
- 3 files changed, 49 insertions(+), 35 deletions(-)
+ net/bridge/netfilter/ebtable_filter.c  |    4 +---
+ net/bridge/netfilter/ebtable_nat.c     |    4 +---
+ net/ipv4/netfilter/iptable_filter.c    |    4 +---
+ net/ipv4/netfilter/iptable_mangle.c    |    4 +---
+ net/ipv4/netfilter/iptable_raw.c       |    4 +---
+ net/ipv4/netfilter/iptable_security.c  |    5 +----
+ net/ipv6/netfilter/ip6table_filter.c   |    4 +---
+ net/ipv6/netfilter/ip6table_mangle.c   |    4 +---
+ net/ipv6/netfilter/ip6table_raw.c      |    4 +---
+ net/ipv6/netfilter/ip6table_security.c |    5 +----
+ 10 files changed, 10 insertions(+), 32 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 95374d1..4b8f18f 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -808,8 +808,6 @@ struct netns_ipvs {
- 	struct list_head	rs_table[IP_VS_RTAB_SIZE];
- 	/* ip_vs_app */
- 	struct list_head	app_list;
--	/* ip_vs_ftp */
--	struct ip_vs_app	*ftp_app;
- 	/* ip_vs_proto */
- 	#define IP_VS_PROTO_TAB_SIZE	32	/* must be power of 2 */
- 	struct ip_vs_proto_data *proto_data_table[IP_VS_PROTO_TAB_SIZE];
-@@ -1179,7 +1177,8 @@ extern void ip_vs_service_net_cleanup(struct net *net);
-  *      (from ip_vs_app.c)
-  */
- #define IP_VS_APP_MAX_PORTS  8
--extern int register_ip_vs_app(struct net *net, struct ip_vs_app *app);
-+extern struct ip_vs_app *register_ip_vs_app(struct net *net,
-+					    struct ip_vs_app *app);
- extern void unregister_ip_vs_app(struct net *net, struct ip_vs_app *app);
- extern int ip_vs_bind_app(struct ip_vs_conn *cp, struct ip_vs_protocol *pp);
- extern void ip_vs_unbind_app(struct ip_vs_conn *cp);
-diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
-index 64f9e8f..9713e6e 100644
---- a/net/netfilter/ipvs/ip_vs_app.c
-+++ b/net/netfilter/ipvs/ip_vs_app.c
-@@ -180,22 +180,38 @@ register_ip_vs_app_inc(struct net *net, struct ip_vs_app *app, __u16 proto,
- }
- 
- 
--/*
-- *	ip_vs_app registration routine
-- */
--int register_ip_vs_app(struct net *net, struct ip_vs_app *app)
-+/* Register application for netns */
-+struct ip_vs_app *register_ip_vs_app(struct net *net, struct ip_vs_app *app)
+diff --git a/net/bridge/netfilter/ebtable_filter.c b/net/bridge/netfilter/ebtable_filter.c
+index 42e6bd0..3c2e9dc 100644
+--- a/net/bridge/netfilter/ebtable_filter.c
++++ b/net/bridge/netfilter/ebtable_filter.c
+@@ -100,9 +100,7 @@ static struct nf_hook_ops ebt_ops_filter[] __read_mostly = {
+ static int __net_init frame_filter_net_init(struct net *net)
  {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
--	/* increase the module use count */
--	ip_vs_use_count_inc();
-+	struct ip_vs_app *a;
-+	int err = 0;
-+
-+	if (!ipvs)
-+		return ERR_PTR(-ENOENT);
- 
- 	mutex_lock(&__ip_vs_app_mutex);
- 
--	list_add(&app->a_list, &ipvs->app_list);
-+	list_for_each_entry(a, &ipvs->app_list, a_list) {
-+		if (!strcmp(app->name, a->name)) {
-+			err = -EEXIST;
-+			goto out_unlock;
-+		}
-+	}
-+	a = kmemdup(app, sizeof(*app), GFP_KERNEL);
-+	if (!a) {
-+		err = -ENOMEM;
-+		goto out_unlock;
-+	}
-+	INIT_LIST_HEAD(&a->incs_list);
-+	list_add(&a->a_list, &ipvs->app_list);
-+	/* increase the module use count */
-+	ip_vs_use_count_inc();
- 
-+out_unlock:
- 	mutex_unlock(&__ip_vs_app_mutex);
- 
+ 	net->xt.frame_filter = ebt_register_table(net, &frame_filter);
+-	if (IS_ERR(net->xt.frame_filter))
+-		return PTR_ERR(net->xt.frame_filter);
 -	return 0;
-+	return err ? ERR_PTR(err) : a;
++	return PTR_RET(net->xt.frame_filter);
  }
  
- 
-@@ -205,20 +221,29 @@ int register_ip_vs_app(struct net *net, struct ip_vs_app *app)
-  */
- void unregister_ip_vs_app(struct net *net, struct ip_vs_app *app)
+ static void __net_exit frame_filter_net_exit(struct net *net)
+diff --git a/net/bridge/netfilter/ebtable_nat.c b/net/bridge/netfilter/ebtable_nat.c
+index 6dc2f87..10871bc 100644
+--- a/net/bridge/netfilter/ebtable_nat.c
++++ b/net/bridge/netfilter/ebtable_nat.c
+@@ -100,9 +100,7 @@ static struct nf_hook_ops ebt_ops_nat[] __read_mostly = {
+ static int __net_init frame_nat_net_init(struct net *net)
  {
--	struct ip_vs_app *inc, *nxt;
-+	struct netns_ipvs *ipvs = net_ipvs(net);
-+	struct ip_vs_app *a, *anxt, *inc, *nxt;
-+
-+	if (!ipvs)
-+		return;
- 
- 	mutex_lock(&__ip_vs_app_mutex);
- 
--	list_for_each_entry_safe(inc, nxt, &app->incs_list, a_list) {
--		ip_vs_app_inc_release(net, inc);
--	}
-+	list_for_each_entry_safe(a, anxt, &ipvs->app_list, a_list) {
-+		if (app && strcmp(app->name, a->name))
-+			continue;
-+		list_for_each_entry_safe(inc, nxt, &a->incs_list, a_list) {
-+			ip_vs_app_inc_release(net, inc);
-+		}
- 
--	list_del(&app->a_list);
-+		list_del(&a->a_list);
-+		kfree(a);
- 
--	mutex_unlock(&__ip_vs_app_mutex);
-+		/* decrease the module use count */
-+		ip_vs_use_count_dec();
-+	}
- 
--	/* decrease the module use count */
--	ip_vs_use_count_dec();
-+	mutex_unlock(&__ip_vs_app_mutex);
+ 	net->xt.frame_nat = ebt_register_table(net, &frame_nat);
+-	if (IS_ERR(net->xt.frame_nat))
+-		return PTR_ERR(net->xt.frame_nat);
+-	return 0;
++	return PTR_RET(net->xt.frame_nat);
  }
  
- 
-@@ -586,5 +611,6 @@ int __net_init ip_vs_app_net_init(struct net *net)
- 
- void __net_exit ip_vs_app_net_cleanup(struct net *net)
- {
-+	unregister_ip_vs_app(net, NULL /* all */);
- 	proc_net_remove(net, "ip_vs_app");
+ static void __net_exit frame_nat_net_exit(struct net *net)
+diff --git a/net/ipv4/netfilter/iptable_filter.c b/net/ipv4/netfilter/iptable_filter.c
+index 851acec8..d20cc37 100644
+--- a/net/ipv4/netfilter/iptable_filter.c
++++ b/net/ipv4/netfilter/iptable_filter.c
+@@ -69,9 +69,7 @@ static int __net_init iptable_filter_net_init(struct net *net)
+ 	net->ipv4.iptable_filter =
+ 		ipt_register_table(net, &packet_filter, repl);
+ 	kfree(repl);
+-	if (IS_ERR(net->ipv4.iptable_filter))
+-		return PTR_ERR(net->ipv4.iptable_filter);
+-	return 0;
++	return PTR_RET(net->ipv4.iptable_filter);
  }
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index b20b29c..ad70b7e 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -441,16 +441,10 @@ static int __net_init __ip_vs_ftp_init(struct net *net)
  
- 	if (!ipvs)
- 		return -ENOENT;
--	app = kmemdup(&ip_vs_ftp, sizeof(struct ip_vs_app), GFP_KERNEL);
--	if (!app)
--		return -ENOMEM;
--	INIT_LIST_HEAD(&app->a_list);
--	INIT_LIST_HEAD(&app->incs_list);
--	ipvs->ftp_app = app;
- 
--	ret = register_ip_vs_app(net, app);
--	if (ret)
--		goto err_exit;
-+	app = register_ip_vs_app(net, &ip_vs_ftp);
-+	if (IS_ERR(app))
-+		return PTR_ERR(app);
- 
- 	for (i = 0; i < ports_count; i++) {
- 		if (!ports[i])
-@@ -464,9 +458,7 @@ static int __net_init __ip_vs_ftp_init(struct net *net)
- 	return 0;
- 
- err_unreg:
--	unregister_ip_vs_app(net, app);
--err_exit:
--	kfree(ipvs->ftp_app);
-+	unregister_ip_vs_app(net, &ip_vs_ftp);
- 	return ret;
+ static void __net_exit iptable_filter_net_exit(struct net *net)
+diff --git a/net/ipv4/netfilter/iptable_mangle.c b/net/ipv4/netfilter/iptable_mangle.c
+index aef5d1f..f38b942 100644
+--- a/net/ipv4/netfilter/iptable_mangle.c
++++ b/net/ipv4/netfilter/iptable_mangle.c
+@@ -104,9 +104,7 @@ static int __net_init iptable_mangle_net_init(struct net *net)
+ 	net->ipv4.iptable_mangle =
+ 		ipt_register_table(net, &packet_mangler, repl);
+ 	kfree(repl);
+-	if (IS_ERR(net->ipv4.iptable_mangle))
+-		return PTR_ERR(net->ipv4.iptable_mangle);
+-	return 0;
++	return PTR_RET(net->ipv4.iptable_mangle);
  }
- /*
-@@ -474,10 +466,7 @@ err_exit:
-  */
- static void __ip_vs_ftp_exit(struct net *net)
- {
--	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
+ static void __net_exit iptable_mangle_net_exit(struct net *net)
+diff --git a/net/ipv4/netfilter/iptable_raw.c b/net/ipv4/netfilter/iptable_raw.c
+index 07fb710..b21e219 100644
+--- a/net/ipv4/netfilter/iptable_raw.c
++++ b/net/ipv4/netfilter/iptable_raw.c
+@@ -48,9 +48,7 @@ static int __net_init iptable_raw_net_init(struct net *net)
+ 	net->ipv4.iptable_raw =
+ 		ipt_register_table(net, &packet_raw, repl);
+ 	kfree(repl);
+-	if (IS_ERR(net->ipv4.iptable_raw))
+-		return PTR_ERR(net->ipv4.iptable_raw);
+-	return 0;
++	return PTR_RET(net->ipv4.iptable_raw);
+ }
+ 
+ static void __net_exit iptable_raw_net_exit(struct net *net)
+diff --git a/net/ipv4/netfilter/iptable_security.c b/net/ipv4/netfilter/iptable_security.c
+index be45bdc..b283d8e 100644
+--- a/net/ipv4/netfilter/iptable_security.c
++++ b/net/ipv4/netfilter/iptable_security.c
+@@ -66,10 +66,7 @@ static int __net_init iptable_security_net_init(struct net *net)
+ 	net->ipv4.iptable_security =
+ 		ipt_register_table(net, &security_table, repl);
+ 	kfree(repl);
+-	if (IS_ERR(net->ipv4.iptable_security))
+-		return PTR_ERR(net->ipv4.iptable_security);
 -
--	unregister_ip_vs_app(net, ipvs->ftp_app);
--	kfree(ipvs->ftp_app);
-+	unregister_ip_vs_app(net, &ip_vs_ftp);
+-	return 0;
++	return PTR_RET(net->ipv4.iptable_security);
  }
  
- static struct pernet_operations ip_vs_ftp_ops = {
+ static void __net_exit iptable_security_net_exit(struct net *net)
+diff --git a/net/ipv6/netfilter/ip6table_filter.c b/net/ipv6/netfilter/ip6table_filter.c
+index 325e59a..beb5777 100644
+--- a/net/ipv6/netfilter/ip6table_filter.c
++++ b/net/ipv6/netfilter/ip6table_filter.c
+@@ -61,9 +61,7 @@ static int __net_init ip6table_filter_net_init(struct net *net)
+ 	net->ipv6.ip6table_filter =
+ 		ip6t_register_table(net, &packet_filter, repl);
+ 	kfree(repl);
+-	if (IS_ERR(net->ipv6.ip6table_filter))
+-		return PTR_ERR(net->ipv6.ip6table_filter);
+-	return 0;
++	return PTR_RET(net->ipv6.ip6table_filter);
+ }
+ 
+ static void __net_exit ip6table_filter_net_exit(struct net *net)
+diff --git a/net/ipv6/netfilter/ip6table_mangle.c b/net/ipv6/netfilter/ip6table_mangle.c
+index 4d78240..7431121 100644
+--- a/net/ipv6/netfilter/ip6table_mangle.c
++++ b/net/ipv6/netfilter/ip6table_mangle.c
+@@ -97,9 +97,7 @@ static int __net_init ip6table_mangle_net_init(struct net *net)
+ 	net->ipv6.ip6table_mangle =
+ 		ip6t_register_table(net, &packet_mangler, repl);
+ 	kfree(repl);
+-	if (IS_ERR(net->ipv6.ip6table_mangle))
+-		return PTR_ERR(net->ipv6.ip6table_mangle);
+-	return 0;
++	return PTR_RET(net->ipv6.ip6table_mangle);
+ }
+ 
+ static void __net_exit ip6table_mangle_net_exit(struct net *net)
+diff --git a/net/ipv6/netfilter/ip6table_raw.c b/net/ipv6/netfilter/ip6table_raw.c
+index 5b9926a..60d1bdd 100644
+--- a/net/ipv6/netfilter/ip6table_raw.c
++++ b/net/ipv6/netfilter/ip6table_raw.c
+@@ -40,9 +40,7 @@ static int __net_init ip6table_raw_net_init(struct net *net)
+ 	net->ipv6.ip6table_raw =
+ 		ip6t_register_table(net, &packet_raw, repl);
+ 	kfree(repl);
+-	if (IS_ERR(net->ipv6.ip6table_raw))
+-		return PTR_ERR(net->ipv6.ip6table_raw);
+-	return 0;
++	return PTR_RET(net->ipv6.ip6table_raw);
+ }
+ 
+ static void __net_exit ip6table_raw_net_exit(struct net *net)
+diff --git a/net/ipv6/netfilter/ip6table_security.c b/net/ipv6/netfilter/ip6table_security.c
+index 91aa2b4..db15535 100644
+--- a/net/ipv6/netfilter/ip6table_security.c
++++ b/net/ipv6/netfilter/ip6table_security.c
+@@ -58,10 +58,7 @@ static int __net_init ip6table_security_net_init(struct net *net)
+ 	net->ipv6.ip6table_security =
+ 		ip6t_register_table(net, &security_table, repl);
+ 	kfree(repl);
+-	if (IS_ERR(net->ipv6.ip6table_security))
+-		return PTR_ERR(net->ipv6.ip6table_security);
+-
+-	return 0;
++	return PTR_RET(net->ipv6.ip6table_security);
+ }
+ 
+ static void __net_exit ip6table_security_net_exit(struct net *net)
 -- 
 1.7.10.4
 
