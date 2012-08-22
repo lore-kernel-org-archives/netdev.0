@@ -1,37 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] x86_64: Define 128-bit memory-mapped I/O operations
-Date: Tue, 21 Aug 2012 22:00:10 -0700 (PDT)
-Message-ID: <20120821.220010.1158630981089834558.davem@davemloft.net>
-References: <CA+55aFy=ohFoZ1yZGdj1DCcNXU9gsndgH9Qod4q8+s=sbGKUzQ@mail.gmail.com>
-	<5034591E.3040908@zytor.com>
-	<CA+55aFz39tCSO7sf7+czNEBcEx7q4=KbnAcKEoS-KBwr6D3Psg@mail.gmail.com>
+From: "Hans Schillstrom" <hans@schillstrom.com>
+Subject: Re[2]:  [PATCH 05/19] netfilter: nf_conntrack_ipv6: improve
+	fragmentation handling
+Date: Wed, 22 Aug 2012 07:01:24 +0200 (CEST)
+Message-ID: <mdaatbj.b2f3561b17fe4f00a6e947611a0959a1@obelix.schillstrom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hpa@zytor.com, bhutchings@solarflare.com, tglx@linutronix.de,
-	mingo@redhat.com, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com, x86@kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48742 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754046Ab2HVFAN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 01:00:13 -0400
-In-Reply-To: <CA+55aFz39tCSO7sf7+czNEBcEx7q4=KbnAcKEoS-KBwr6D3Psg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Patrick McHardy" <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	"Julian Anastasov" <ja@ssi.bg>,
+	"Hans Schillstrom" <hans.schillstrom@ericsson.com>
+To: "Jesper Dangaard Brouer" <brouer@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Tue, 21 Aug 2012 21:35:22 -0700
+Hi
+>
+>On Sun, 2012-08-19 at 21:44 +0200, Patrick McHardy wrote:
+>> On Sun, 19 Aug 2012, Jesper Dangaard Brouer wrote:
+>> > On Sat, 2012-08-18 at 14:26 +0200, Patrick McHardy wrote:
+>[...]
+>
+>> > Don't I need to load some of the helper modules, or just the
+>> > nf_conntrack_ipv6 module, or perhaps only nf_defrag_ipv6 ?
+>>=20
+>> Not with the entire patchset, just IPv6 conntrack is enough. Aith IP=
+v6 NAT
+>> the first packet of a connection must always be defragemented, indep=
+endant
+>> of an assigned helper.
+>
+>When loading "nf_conntrack_ipv6" I run into issues.
+>
+>When sending a fragmented UDP packet.  With these patches, the IPVS
+>stack will no longer see the fragmented packets, but instead see one
+>large SKB.  This will trigger a MTU path check in e.g.
+>ip_vs_dr_xmit_v6() and an ICMPv6 too big packet is send back.
+>
+>  IPVS: ip_vs_dr_xmit_v6(): frag needed
+>
+>Perhaps we could change/fix the MTU check in IPVS?
+>(This would also solve issues I've seen with TSO/GSO frames, hitting
+>this code path).
+>
+I ran into this as well,=20
+try this for the mtu check.
 
-> My biggest reason to question this all is that I don't think it's
-> worth it. Why would we ever care to do all this in the first place?
-> There's no really sane use for it.
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0if ((!skb->local_df && skb->l=
+en > mtu && !skb_is_gso(skb)) ||
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 =C2=A0 =C2=A0(IP6CB(skb)->fr=
+ag_max_size && IP6CB(skb)->frag_max_size > mtu)) {
 
-All the x86 crypto code hits this case all the time, easiest example
-is doing a dm-crypt on a block device when an IPSEC packet arrives.
+/Hans
 
-The crypto code has all of this special code and layering that is
-there purely so it can fall back to the slow non-optimized version
-of the crypto operation when it hits this can't-nest-fpu-saving
-situation.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
