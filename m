@@ -1,65 +1,67 @@
-From: Ryan Mallon <rmallon@gmail.com>
-Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and naive hashtable
-Date: Thu, 23 Aug 2012 09:54:15 +1000
-Message-ID: <50357127.1000608@gmail.com>
-References: <1345602432-27673-1-git-send-email-levinsasha928@gmail.com> <1345602432-27673-2-git-send-email-levinsasha928@gmail.com> <20120822180138.GA19212@google.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Problem removing netns
+Date: Wed, 22 Aug 2012 16:59:58 -0700
+Message-ID: <87393epjep.fsf@xmission.com>
+References: <CAJO99T=qtzw_4LZOg9eXmPrjKELDzxCHKBEabwd50N9unS7kbw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Sasha Levin <levinsasha928@gmail.com>, torvalds@linux-foundation.org,
- akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
- linux-mm@kvack.org, paul.gortmaker@windriver.com, davem@davemloft.net,
- rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
- aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org,
- josh@joshtriplett.org, eric.dumazet@gmail.com,
- mathieu.desnoyers@efficios.com, axboe@kernel.dk, agk@redhat.com,
- dm-devel@redhat.com, neilb@suse.de, ccaulfie@redhat.com,
- teigland@redhat.com, Trond.Myklebust@netapp.com, bfields@fieldses.org,
- fweisbec@gmail.com, jesse@nicira.com, venkat.x.venkatsubra@oracle.com,
- ejt@redhat.com, snitzer@redhat.com, edumazet@google.com,
- linux-nfs@vger.kernel.org, dev@openvswitch.org,
- rds-devel@oss.oracle.com, lw@cn.fujitsu.com
-To: Tejun Heo <tj@kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20120822180138.GA19212@google.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?utf-8?Q?Bj=C3=B8rnar?= Ness <bjornar.ness@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out03.mta.xmission.com ([166.70.13.233]:51364 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757211Ab2HWAAI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 20:00:08 -0400
+In-Reply-To: <CAJO99T=qtzw_4LZOg9eXmPrjKELDzxCHKBEabwd50N9unS7kbw@mail.gmail.com>
+	(=?utf-8?Q?=22Bj=C3=B8rnar?= Ness"'s message of "Wed, 22 Aug 2012 13:59:25
+ +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 23/08/12 04:01, Tejun Heo wrote:
-> Hello, Sasha.
-> 
-> On Wed, Aug 22, 2012 at 04:26:56AM +0200, Sasha Levin wrote:
->> +#define DEFINE_HASHTABLE(name, bits)					\
->> +	struct hlist_head name[HASH_SIZE(bits)];
-> 
-> Shouldn't this be something like the following?
-> 
-> #define DEFINE_HASHTABLE(name, bits)					\
-> 	struct hlist_head name[HASH_SIZE(bits)] =			\
-> 		{ [0 ... HASH_SIZE(bits) - 1] = HLIST_HEAD_INIT };
-> 
-> Also, given that the declaration isn't non-trivial, you'll probably
-> want a matching DECLARE_HASHTABLE() macro too.
-> 
->> +/* Use hash_32 when possible to allow for fast 32bit hashing in 64bit kernels. */
->> +#define hash_min(val, bits) ((sizeof(val)==4) ? hash_32((val), (bits)) : hash_long((val), (bits)))
-> 
-> Why is the branching condition sizeof(val) == 4 instead of <= 4?
-> Also, no biggie but why isn't this macro in caps?
+Bj=C3=B8rnar Ness <bjornar.ness@gmail.com> writes:
 
-It should probably use gcc's statement expression extensions to prevent
-side-effect issues with the arguments:
+> I am experimenting with netns (Linux precision 3.2.0-0.bpo.2-amd64 #1
+> SMP Sun Jun 3 21:40:57 UTC 2012 x86_64 GNU/Linux)
+> and have problems removing unused namespace, this is what I do:
+>
+> ip netns add netns_one
+> ip netns add netns_two
+> ip link add name if_one type veth peer name if_one_peer
+> ip link add name if_two type veth peer name if_two_peer
+> ip link set dev if_one_peer netns netns_one
+> ip link set dev if_two_peer netns netns_two
+>
+> ip netns exec netns_one bash
+>
+> # in other terminal:
+>
+> ip netns delete netns_two
+>
+> # =3D> Cannot remove /var/run/netns/netns_two: Device or resource bus=
+y
+>
+> Is this expected  behaviour? If so, what is the correct process to
+> actually remove a namespace?
 
-  #define hash_min ({		\
-	sizeof(val) <= 4 ?	\
-	hash_32(val, bits) :	\
-	hash_long(val, bits));	\
-  })
+This is unintended but "correct" behavior.
 
-~Ryan
+The linux VFS won't let you remove an a file or directory that has
+something mounted on it.=20
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Cloning the mount namespace creates a copy of all of the mounts.
+
+With the result that your long running processe created with
+ip netns exec (or anything else that clones the mount namespace)
+will continue to hold a references to mounted that keesp the network
+namespace alive.
+
+In my usage patterns I haven't tripped over this.
+
+Probably the simplest fix would be to take advantage of mount propogate
+so that when we unmount the network namespace in one mount namespace it
+get unmounted in all of them.  I don't expect I will be able to look at
+implementing anything like that for a while, although it shouldn't take
+much work to implement that.
+
+Eric
