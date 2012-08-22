@@ -1,51 +1,50 @@
-From: Daniel Baluta <dbaluta@ixiacom.com>
-Subject: Re: [PATCH] libceph: Fix sparse warning
-Date: Wed, 22 Aug 2012 12:46:04 +0300
-Message-ID: <CAEnQRZBcX7vmaa2rc3-CcCSpayKZca2p11_3eSQaEsj_FAQLNg@mail.gmail.com>
-References: <1344950857-32139-1-git-send-email-icurt@ixiacom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
+Date: Wed, 22 Aug 2012 11:59:57 +0200
+Message-ID: <1345629597.5158.924.camel@edumazet-glaptop>
+References: <503419D3.1080700@linlab.net>
+	 <1345622798.5158.717.camel@edumazet-glaptop> <50349CC5.3050601@linlab.net>
+	 <1345625910.5158.793.camel@edumazet-glaptop> <5034A678.3040207@linlab.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, ceph-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Iulius Curt <icurt@ixiacom.com>
-To: sage@inktank.com
-Return-path: <ceph-devel-owner@vger.kernel.org>
-In-Reply-To: <1344950857-32139-1-git-send-email-icurt@ixiacom.com>
-Sender: ceph-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jerry Chu <hkchu@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Nandita Dukkipati <nanditad@google.com>
+To: Alex Bergmann <alex@linlab.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5034A678.3040207@linlab.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 14, 2012 at 4:27 PM, Iulius Curt <iulius.curt@gmail.com> wrote:
-> From: Iulius Curt <iulius.curt@gmail.com>
->
-> Make ceph_monc_do_poolop() static to remove the following sparse warning:
->  * net/ceph/mon_client.c:616:5: warning: symbol 'ceph_monc_do_poolop' was not
->    declared. Should it be static?
->
-> Signed-off-by: Iulius Curt <icurt@ixiacom.com>
-> ---
->  net/ceph/mon_client.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/ceph/mon_client.c b/net/ceph/mon_client.c
-> index 105d533..3875c60 100644
-> --- a/net/ceph/mon_client.c
-> +++ b/net/ceph/mon_client.c
-> @@ -613,7 +613,7 @@ bad:
->  /*
->   * Do a synchronous pool op.
->   */
-> -int ceph_monc_do_poolop(struct ceph_mon_client *monc, u32 op,
-> +static int ceph_monc_do_poolop(struct ceph_mon_client *monc, u32 op,
->                         u32 pool, u64 snapid,
->                         char *buf, int len)
->  {
-> --
-> 1.7.9.5
->
-> --
+On Wed, 2012-08-22 at 11:29 +0200, Alex Bergmann wrote:
 
-Hi Sage,
+> Actual 6 SYN frames are sent. The initial one and 5 retries.
+> 
 
-Can you have a look on this? :)
+first one had a t0 + 0 delay. How can it count ???
 
-thanks,
-Daniel.
+> The kernel is waiting another 32 seconds for a SYN+ACK and then gives 
+> the ETIMEDOUT back to userspace.
+> 
+> Do you mean that we have to send another SYN packet after the 3 minutes?
+> 
+
+First SYN is not a retransmit
+
+R2 = time_of_last_SYN - time_of_initial_SYN (t0) = 31
+
+If you read RFC it states :
+
+"In particular, R2 for a SYN segment MUST
+ be set large enough to provide retransmission of the segment
+ for at least 3 minutes."
+
+
+That means that the last _retransmit_ MUST happen after 180 seconds.
+
+And not :
+
+Send all the restransmits at t0 + 1, then wait 180 seconds before giving
+connect() a timeout indication.
