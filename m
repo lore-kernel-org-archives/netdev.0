@@ -1,50 +1,53 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 2/3] x86_64: Define 128-bit memory-mapped I/O operations
-Date: Tue, 21 Aug 2012 20:24:18 -0700
-Message-ID: <503450E2.2040504@zytor.com>
-References: <1345598601.2659.76.camel@bwh-desktop.uk.solarflarecom.com> <503437D4.8090706@zytor.com> <1345601051.2659.93.camel@bwh-desktop.uk.solarflarecom.com> <20120821.193446.1534561579811962053.davem@davemloft.net>
+Date: Tue, 21 Aug 2012 20:29:45 -0700 (PDT)
+Message-ID: <20120821.202945.2278895156403194101.davem@davemloft.net>
+References: <1345601051.2659.93.camel@bwh-desktop.uk.solarflarecom.com>
+	<20120821.193446.1534561579811962053.davem@davemloft.net>
+	<503450E2.2040504@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: bhutchings@solarflare.com, tglx@linutronix.de, mingo@redhat.com,
 	netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	x86@kernel.org, Linus Torvalds <torvalds@linux-foundation.org>
-To: David Miller <davem@davemloft.net>
+	x86@kernel.org, torvalds@linux-foundation.org
+To: hpa@zytor.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:37750 "EHLO mail.zytor.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753586Ab2HVDYk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Aug 2012 23:24:40 -0400
-In-Reply-To: <20120821.193446.1534561579811962053.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48019 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751557Ab2HVD3r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2012 23:29:47 -0400
+In-Reply-To: <503450E2.2040504@zytor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/21/2012 07:34 PM, David Miller wrote:
-> 
-> I really hope we eventually get rid of this rediculous restriction the
-> x86 code has.
-> 
-> It really needs a proper stack of FPU state saves like sparc64 has.
-> 
-> Half of the code and complexity in arch/x86/crypto/ would just
-> disappear, because most of it has to do with handling this obtuse
-> FPU usage restriction which shouldn't even be an issue in the first
-> place.
-> 
-> I continually see more and more code that has to check this
-> irq_fpu_usable() thing, and have ugly fallback code, and therefore is
-> a sign that this really needs to be fixed properly.
-> 
+From: "H. Peter Anvin" <hpa@zytor.com>
+Date: Tue, 21 Aug 2012 20:24:18 -0700
 
-[Cc: Linus, since he has had very strong opinions on this in the past.]
+> I'm all ears... tell me how sparc64 deals with this, maybe we can
+> implement something similar.  At the same time, do keep in mind that on
+> x86 this is not just a matter of the FPU state, but the entire "extended
+> state" which can be very large.
 
-I'm all ears... tell me how sparc64 deals with this, maybe we can
-implement something similar.  At the same time, do keep in mind that on
-x86 this is not just a matter of the FPU state, but the entire "extended
-state" which can be very large.
+Sparc's state is pretty huge too.  256 bytes worth of FPU registers,
+plus a set of 64-bit control registers.
 
-Given the cost of state save/enable, however, nothing is going to change
-the need for kernel_fpu_begin/end, nor the fact that those things will
-want to bracket large regions.
+What we do is we have a FPU stack that grows up from the end of the
+thread_info struct, towards the bottom of the kernel stack.
 
-	-hpa
+Slot 0 is always the user FPU state.
+
+Slot 1 and further are kernel FPU state save areas.
+
+We hold a counter which keep track of how far deeply saved we are
+in the stack.
+
+Not for the purpose of space saving, but for overhead reduction we
+sometimes can get away with only saving away half of the FPU
+registers.  The chip provides a pair of dirty bits, one for the lower
+half of the FPU register file and one for the upper half.  We only
+save the bits that are actually dirty.
+
+Furthermore, when we have FPU using code in the kernel that only uses
+the lower half of the registers, we only save away that part of the
+state around the routine.
