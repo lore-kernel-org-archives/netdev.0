@@ -1,79 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: NULL deref in bnx2 / crashes ? ( was: netconsole leads to
- stalled CPU task )
-Date: Wed, 22 Aug 2012 15:05:57 +0200
-Message-ID: <1345640757.5158.1321.camel@edumazet-glaptop>
-References: <CAF6-1L4wh0P-Wi-keN98wb-2V_avZYVE3ycf3tEe9SBpgK1dDQ@mail.gmail.com>
-	 <1345634026.5158.1084.camel@edumazet-glaptop>
-	 <CAF6-1L6zr5WJxo6FVk+2ya=EEs++u3x9iSrDxX-weBofLJuA1g@mail.gmail.com>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH v3 13/17] lockd: use new hashtable implementation
+Date: Wed, 22 Aug 2012 09:12:25 -0400
+Message-ID: <20120822131225.GD20158@fieldses.org>
+References: <1345602432-27673-1-git-send-email-levinsasha928@gmail.com>
+ <1345602432-27673-14-git-send-email-levinsasha928@gmail.com>
+ <20120822114752.GC20158@fieldses.org>
+ <5034CD02.2010103@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sylvain Munaut <s.munaut@whatever-company.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:63657 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932427Ab2HVNGC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 09:06:02 -0400
-Received: by bkwj10 with SMTP id j10so308212bkw.19
-        for <netdev@vger.kernel.org>; Wed, 22 Aug 2012 06:06:01 -0700 (PDT)
-In-Reply-To: <CAF6-1L6zr5WJxo6FVk+2ya=EEs++u3x9iSrDxX-weBofLJuA1g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	paul.gortmaker@windriver.com, davem@davemloft.net,
+	rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
+	aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org,
+	josh@joshtriplett.org, eric.dumazet@gmail.com,
+	mathieu.desnoyers@efficios.com, axboe@kernel.dk, agk@redhat.com,
+	dm-devel@redhat.com, neilb@suse.de, ccaulfie@redhat.com,
+	teigland@redhat.com, Trond.Myklebust@netapp.com, fweisbec@gmail.com,
+	jesse@nicira.com, venkat.x.venkatsubra@oracle.com, ejt@redhat.com,
+	snitzer@redhat.com, edumazet@google.com, linux-nfs@vger.kernel.org,
+	dev@openvswitch.org, rds-devel@oss.oracle.com, lw@cn.fujitsu.com
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <5034CD02.2010103@gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-08-22 at 14:17 +0200, Sylvain Munaut wrote:
-> Hi,
+On Wed, Aug 22, 2012 at 02:13:54PM +0200, Sasha Levin wrote:
+> On 08/22/2012 01:47 PM, J. Bruce Fields wrote:
+> > On Wed, Aug 22, 2012 at 04:27:08AM +0200, Sasha Levin wrote:
+> >> +static int __init nlm_init(void)
+> >> +{
+> >> +	hash_init(nlm_files);
+> >> +	return 0;
+> >> +}
+> >> +
+> >> +module_init(nlm_init);
+> > 
+> > That's giving me:
+> > 
+> > fs/lockd/svcsubs.o: In function `nlm_init':
+> > /home/bfields/linux-2.6/fs/lockd/svcsubs.c:454: multiple definition of `init_module'
+> > fs/lockd/svc.o:/home/bfields/linux-2.6/fs/lockd/svc.c:606: first defined here
+> > make[2]: *** [fs/lockd/lockd.o] Error 1
+> > make[1]: *** [fs/lockd] Error 2
+> > make[1]: *** Waiting for unfinished jobs....
 > 
-> > Could be the infamous slave_dev_queue_mapping striking again.
-> >
-> > Could you please try :
-> >
-> > diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-> > index 346b1eb..df731a0 100644
-> > --- a/net/core/netpoll.c
-> > +++ b/net/core/netpoll.c
-> > @@ -335,8 +335,11 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
-> >         /* don't get messages out of order, and no recursion */
-> >         if (skb_queue_len(&npinfo->txq) == 0 && !netpoll_owner_active(dev)) {
-> >                 struct netdev_queue *txq;
-> > +               int queue_index = skb_get_queue_mapping(skb);
-> >
-> > -               txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
-> > +               if (queue_index >= dev->real_num_tx_queues)
-> > +                       queue_index = 0;
-> > +               txq = netdev_get_tx_queue(dev, queue_index);
-> >
-> >                 /* try until next clock tick */
-> >                 for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
+> I tested this entire patch set both with linux-next and Linus' latest master,
+> and it worked fine in both places.
 > 
-> 
-> Well, it doesn't solve the problem :(
-> 
-> It does have an effect though. Now even on the machine with the
-> broadcom card, it just freeze the machine ...
-> On the machine with intel card, it actually does get a couple of
-> netconsole packet out and then freeze as well.
-> 
+> Is it possible that lockd has a -next tree which isn't pulled into linux-next?
+> (there's nothing listed in MAINTAINERS that I could see).
 
-my patch was incomplete, sorry :
+No, there's the same problem with Linus's latest.
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 346b1eb..ddc453b 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -335,8 +335,13 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
- 	/* don't get messages out of order, and no recursion */
- 	if (skb_queue_len(&npinfo->txq) == 0 && !netpoll_owner_active(dev)) {
- 		struct netdev_queue *txq;
-+		int queue_index = skb_get_queue_mapping(skb);
- 
--		txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
-+		if (queue_index >= dev->real_num_tx_queues) {
-+			queue_index = 0;
-+			skb_set_queue_mapping(skb, 0);
-+		}
-+		txq = netdev_get_tx_queue(dev, queue_index);
- 
- 		/* try until next clock tick */
- 		for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
+I'm applying just patches 1 and 13--but doesn't look like your earlier
+patches touch lockd.
+
+Are you actually building lockd?  (CONFIG_LOCKD).
+
+--b.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
