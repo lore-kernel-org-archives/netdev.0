@@ -1,60 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: smsc75xx & smsc95xx, setting skb->truesize correctly?
-Date: Wed, 22 Aug 2012 08:34:46 +0200
-Message-ID: <1345617286.5158.576.camel@edumazet-glaptop>
-References: <20120820175706.12394vktsvm3yvqc@www.81.fi>
-	 <1345542398.5158.446.camel@edumazet-glaptop>
-	 <20120822083549.57260n3jdqfgxtj4@www.81.fi>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 0/3] ipvs: IPv6 fragment handling for IPVS
+Date: Wed, 22 Aug 2012 15:42:04 +0900
+Message-ID: <20120822064204.GE20726@verge.net.au>
+References: <20120820130732.1509.13080.stgit@dragon>
+ <20120821052415.GD14933@verge.net.au>
+ <1345535487.3069.281.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Steve Glendinning <steve.glendinning@shawell.net>
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:51256 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751665Ab2HVGex (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 02:34:53 -0400
-Received: by bkwj10 with SMTP id j10so164272bkw.19
-        for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 23:34:52 -0700 (PDT)
-In-Reply-To: <20120822083549.57260n3jdqfgxtj4@www.81.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	LVS devel <lvs-devel@vger.kernel.org>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	netfilter-devel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1345535487.3069.281.camel@localhost>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-08-22 at 08:35 +0300, Jussi Kivilinna wrote:
-> Quoting Eric Dumazet <eric.dumazet@gmail.com>:
+On Tue, Aug 21, 2012 at 09:51:27AM +0200, Jesper Dangaard Brouer wrote:
+> On Tue, 2012-08-21 at 14:24 +0900, Simon Horman wrote:
+> > I have no objection to these changes, but I would be more comfortable
+> > applying them after a review from Hans, Julian or Pablo.
+> > 
+> I would appreciate a review, especially from Julian.
 > 
-> > On Mon, 2012-08-20 at 17:57 +0300, Jussi Kivilinna wrote:
-> >> Hello,
-> >>
-> >> Is setting skb->truesize in smsc75xx and smsc95xx correct?
-> >> In smsc75xx/smsc95xx_rx_fixup(), input skb containing multiple packets
-> >> is cloned and truesize for each clone is set to packet-size +
-> >> sizeof(struct sk_buff), but input skb has minimum allocation size of
-> >> 9000 bytes (MAX_SINGLE_PACKET_SIZE) and maximum of 18944 bytes
-> >> (DEFAULT_HS_BURST_CAP_SIZE) (+ NET_IP_ALIGN). Doesn't this cause
-> >> truesize to be underestimated?
-> >
-> > This has been discussed in a "TCP transmit performance regression"
-> > thread some weeks ago.
-> >
-> > More generally, skb_clone() is not a good idea in rx path.
-> 
-> So all skb_clone use in drivers/net/usb/ should be removed/replaced  
-> with following?
+> I'm going to do some more extensive testing on the patchset, in this
+> week.  So, no hurry on applying these, we have time for a good review
+> process.
 
-Doing a copy might be expensive on some low end hardware, so I can
-understand why this skb_clone() idea was deployed years ago.
-
-Gigabit r8169 has to perform the copy because of security issue, and so
-far nobody complained of performance impact.
-
-Best thing would be to not use large buffers from the beginning,
-and switch to a frag idea.
-
-(A large frame would needs 2 or 3 medium buffers, as done in ath9k)
-
-Check https://gerrit.chromium.org/gerrit/#/c/18412/ 
-and commit 0d95521ea74735826cb2e28bebf6a07392c75bfa (ath9k: use split rx
-buffers to get rid of order-1 skb allocations)
+Thanks Jesper, and Julian and Hans who also responded.
+Let me know when you feel the series is ready to merge.
+I am also in no hurry.
