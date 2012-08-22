@@ -1,25 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/11] netlink: memory mapped I/O
-Date: Wed, 22 Aug 2012 02:29:28 -0700 (PDT)
-Message-ID: <20120822.022928.1709843473935977957.davem@davemloft.net>
-References: <1345443532-3707-1-git-send-email-kaber@trash.net>
+From: Alex Bergmann <alex@linlab.net>
+Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
+Date: Wed, 22 Aug 2012 11:29:28 +0200
+Message-ID: <5034A678.3040207@linlab.net>
+References: <503419D3.1080700@linlab.net>  <1345622798.5158.717.camel@edumazet-glaptop>  <50349CC5.3050601@linlab.net> <1345625910.5158.793.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Florian.Westphal@Sophos.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1345443532-3707-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jerry Chu <hkchu@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Nandita Dukkipati <nanditad@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1345625910.5158.793.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 20 Aug 2012 08:18:41 +0200
+On 08/22/2012 10:58 AM, Eric Dumazet wrote:
+> On Wed, 2012-08-22 at 10:48 +0200, Alex Bergmann wrote:
+>> On 08/22/2012 10:06 AM, Eric Dumazet wrote:
+>>>> Prior to 9ad7c049 the timeout was defined with 189secs. Now we have only
+>>>> a timeout of 63secs.
+>>>>
+>>>>           ((2 << 5) - 1) * 3 secs = 189 secs
+>>>>           ((2 << 5) - 1) * 1 secs = 63 secs
+>>>
+>>> Strange maths ... here I have :
+>>>
+>>> (1+2+4+8+16) * 3 = 93 secs
+>>> vs
+>>> (1+2+4+8+16) * 1 = 31 secs
+>>>
+>>> So even before said commit, we were not rfc1122 compliant.
+>>>
+>>> Using 7 retries would give 127 seconds, still not rfc compliant.
+>>
+>> You're missing the timeout after the 5th SYN packet was sent. This
+>> would result in another 32 seconds (96 seconds).
+>>
+>> The timeout is calculated here:
+>>
+>> net/ipv4/tcp_timer.c(146:150)
+>>
+>> 	if (boundary <= linear_backoff_thresh)
+>> 		timeout = ((2 << boundary) - 1) * rto_base;
+>> 	else
+>> 		timeout = ((2 << linear_backoff_thresh) - 1) * rto_base +
+>> 			(boundary - linear_backoff_thresh) * TCP_RTO_MAX;
+>
+> Thats the code yes but you miss the fact that last occurence of the
+> timer doesnt send a frame on the _network_
+>
+> R2 is derived from the last frame sent.
+>
+> Fact that the connect() is a bit long to return to user space is not
+> relevant. We could block the task for 2 hours and still be non RFC
+> compliant.
+>
+> Actual 5 frames are sent, so the effective global timeout is the one I
+> quoted.
+>
+> 1 + 2 + 4 + 8 + 16   and its 31
+>
+> Just do a tcpdump and you can see it.
 
-> The following patches contain an implementation of memory mapped I/O for
-> netlink, rebased onto the current net-next tree. The implementation is
-> modelled after AF_PACKET memory mapped I/O with a few differences:
+Actual 6 SYN frames are sent. The initial one and 5 retries.
 
-Thanks for taking this work so far.  Let me know when you have a version
-with all the feedback integrated.
+The kernel is waiting another 32 seconds for a SYN+ACK and then gives 
+the ETIMEDOUT back to userspace.
+
+Do you mean that we have to send another SYN packet after the 3 minutes?
