@@ -1,30 +1,31 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 3/3] netfilter: replace list_for_each_continue_rcu with
- new interface
-Date: Thu, 23 Aug 2012 00:32:28 +0200
-Message-ID: <20120822223228.GA11141@1984>
-References: <502CB939.3050008@linux.vnet.ibm.com>
- <502DC9A3.2070703@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next] ipv4/netfilter: remove unnecessary goto
+ statement for error recovery
+Date: Thu, 23 Aug 2012 00:33:12 +0200
+Message-ID: <20120822223312.GB11141@1984>
+References: <1345425092-11905-1-git-send-email-sakiwit@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org,
-	David Miller <davem@davemloft.net>, kaber@trash.net,
-	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>
-To: Michael Wang <wangyun@linux.vnet.ibm.com>
-Return-path: <netfilter-owner@vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Jean Sacren <sakiwit@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:58203 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030193Ab2HVWdQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Aug 2012 18:33:16 -0400
 Content-Disposition: inline
-In-Reply-To: <502DC9A3.2070703@linux.vnet.ibm.com>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1345425092-11905-1-git-send-email-sakiwit@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 17, 2012 at 12:33:39PM +0800, Michael Wang wrote:
-> From: Michael Wang <wangyun@linux.vnet.ibm.com>
+On Sun, Aug 19, 2012 at 07:11:32PM -0600, Jean Sacren wrote:
+> Usually it's a good practice to use goto statement for error recovery
+> when initializing the module. This approach could be an overkill if:
 > 
-> This patch replaces list_for_each_continue_rcu() with
-> list_for_each_entry_continue_rcu() to allow removing
-> list_for_each_continue_rcu().
+>  1) there is only one fail case;
+>  2) success and failure use the same return statement.
+> 
+> For a cleaner approach, remove the unnecessary goto statement and
+> directly implement error recovery.
 
-Applied, thanks.
+Applied, thanks Jean.
