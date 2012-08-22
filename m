@@ -1,90 +1,64 @@
-From: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
-Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
-Date: Wed, 22 Aug 2012 09:44:10 -0700
-Message-ID: <CAFbMe2NVbjGyEF9VRj9p_ejx3mGKTPT2urnguLtfRZEMShsO4g@mail.gmail.com>
-References: <503419D3.1080700@linlab.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2/3] x86_64: Define 128-bit memory-mapped I/O operations
+Date: Wed, 22 Aug 2012 17:44:04 +0100
+Message-ID: <1345653844.2709.51.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1345598601.2659.76.camel@bwh-desktop.uk.solarflarecom.com>
+	   <503437D4.8090706@zytor.com>
+	   <1345601051.2659.93.camel@bwh-desktop.uk.solarflarecom.com>
+	   <20120821.193446.1534561579811962053.davem@davemloft.net>
+	   <503450E2.2040504@zytor.com>
+	   <CA+55aFy=ohFoZ1yZGdj1DCcNXU9gsndgH9Qod4q8+s=sbGKUzQ@mail.gmail.com>
+	   <1345642009.15245.0.camel@deadeye.wl.decadent.org.uk>
+	   <CA+55aFzxhxjOeFSUUJ6XQGUmnaZf7QPSz611zmj2VziEDUB_sA@mail.gmail.com>
+	   <1345645499.15245.8.camel@deadeye.wl.decadent.org.uk>
+	   <20120822143054.GD9803@kvack.org>
+	  <1345647537.2709.0.camel@bwh-desktop.uk.solarflarecom.com>
+	  <5034F725.2090802@zytor.com>
+	  <AE90C24D6B3A694183C094C60CF0A2F6026B6FC1@saturn3.aculab.com>
+	 <1345650689.2709.32.camel@bwh-desktop.uk.solarflarecom.com>
+	 <50350098.6030100@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alex Bergmann <alex@linlab.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, <tglx@linutronix.de>,
+	<mingo@redhat.com>, <netdev@vger.kernel.org>,
+	<linux-net-drivers@solarflare.com>, <x86@kernel.org>
+To: "H. Peter Anvin" <hpa@zytor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:59611 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753475Ab2HVQoM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 12:44:12 -0400
-In-Reply-To: <503419D3.1080700@linlab.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:62952 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753475Ab2HVQoI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 12:44:08 -0400
+In-Reply-To: <50350098.6030100@zytor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 21, 2012 at 4:29 PM, Alex Bergmann <alex@linlab.net> wrote:
-> Hi David,
->
-> I'm not 100% sure, but it looks like I found an RFC mismatch with the
-> current default values of the TCP implementation.
->
-> Alex
->
-> From 8b854a525eb45f64ad29dfab16f9d9f681e84495 Mon Sep 17 00:00:00 2001
-> From: Alexander Bergmann <alex@linlab.net>
-> Date: Wed, 22 Aug 2012 00:29:08 +0200
-> Subject: [PATCH 1/1] tcp: Wrong timeout for SYN segments
->
-> Commit 9ad7c049 changed the initRTO from 3secs to 1sec in accordance to
-> RFC6298 (former RFC2988bis). This introduced a gap with RFC1122 that
-> defines a minimum retransmission window for SYN segments of at least
-> 180secs.
->
-> Prior to 9ad7c049 the timeout was defined with 189secs. Now we have only
-> a timeout of 63secs.
->
->         ((2 << 5) - 1) * 3 secs = 189 secs
->         ((2 << 5) - 1) * 1 secs = 63 secs
->
-> To fulfill the MUST constraint in RFC1122 section 4.2.3.5 about R2 for
-> SYN segments, the values of TCP_SYN_RETRIES and TCP_SYNACK_RETRIES must
-> be changed to 7 reties.
->
->         ((2 << 7) - 1) * 1 secs = 255 secs
->
-> This would result in an ETIMEDOUT of 4 minutes 15 seconds.
+On Wed, 2012-08-22 at 08:54 -0700, H. Peter Anvin wrote:
+> On 08/22/2012 08:51 AM, Ben Hutchings wrote:
+> >>
+> >> FWIW can you even guarantee to do an atomic 64bit PCIe transfer
+> >> on many systems (without resorting to a dma unit).
+> >
+> > On any architecture that implements readq and writeq these had better be
+> > atomic.
+> >
+> 
+> Sorry, you fail.  There are definitely systems in the field where 
+> readq() and writeq() are implemented, because the CPU supports them, 
+> where the fabric does not guarantee they are intact.
 
-This issue occurred to me right after I submitted the patch for RFC6298.
-I did not commit any more change because RFC compliance aside, 180secs
-just seem like eternity in the Internet age.
+Well, when the issue of 64-bit MMIO was discussed earlier this year, you
+said nothing about this.  I thought the conclusion was that any
+definitions provided by <asm/io.h> *must* be atomic and drivers can use
+<asm-generic/io-64-nonatomic-hi-lo.h> or
+<asm-generic/io-64-nonatomic-lo-hi.h> as a fallback.
 
-(See my past post on this at
-http://marc.info/?l=linux-netdev&m=130759078118866&w=2)
+Ben.
 
-Jerry
-
->
-> Signed-off-by: Alexander Bergmann <alex@linlab.net>
-> ---
->  include/net/tcp.h |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 1f000ff..7eaae19 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -98,10 +98,10 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
->                                  * 15 is ~13-30min depending on RTO.
->                                  */
->
-> -#define TCP_SYN_RETRIES         5      /* number of times to retry active opening a
-> +#define TCP_SYN_RETRIES         7      /* number of times to retry active opening a
->                                  * connection: ~180sec is RFC minimum   */
->
-> -#define TCP_SYNACK_RETRIES 5   /* number of times to retry passive opening a
-> +#define TCP_SYNACK_RETRIES 7   /* number of times to retry passive opening a
->                                  * connection: ~180sec is RFC minimum   */
->
->  #define TCP_TIMEWAIT_LEN (60*HZ) /* how long to wait to destroy TIME-WAIT
-> --
-> 1.7.8.6
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
