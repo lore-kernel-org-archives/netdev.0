@@ -1,60 +1,44 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 2/3] x86_64: Define 128-bit memory-mapped I/O operations
-Date: Wed, 22 Aug 2012 15:42:08 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6FBF@saturn3.aculab.com>
-References: <1345598601.2659.76.camel@bwh-desktop.uk.solarflarecom.com> <503437D4.8090706@zytor.com> <1345601051.2659.93.camel@bwh-desktop.uk.solarflarecom.com> <20120821.193446.1534561579811962053.davem@davemloft.net> <503450E2.2040504@zytor.com> <CA+55aFy=ohFoZ1yZGdj1DCcNXU9gsndgH9Qod4q8+s=sbGKUzQ@mail.gmail.com> <1345642009.15245.0.camel@deadeye.wl.decadent.org.uk> <CA+55aFzxhxjOeFSUUJ6XQGUmnaZf7QPSz611zmj2VziEDUB_sA@mail.gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH 2/3] x86_64: Define 128-bit memory-mapped I/O operations
+Date: Wed, 22 Aug 2012 07:50:52 -0700
+Message-ID: <CA+55aFxoWLad9vtfAzQ7qXWcspL92D5s5+MFJ-HfyH3LVqfpaA@mail.gmail.com>
+References: <1345598601.2659.76.camel@bwh-desktop.uk.solarflarecom.com>
+ <503437D4.8090706@zytor.com> <1345601051.2659.93.camel@bwh-desktop.uk.solarflarecom.com>
+ <20120821.193446.1534561579811962053.davem@davemloft.net> <503450E2.2040504@zytor.com>
+ <CA+55aFy=ohFoZ1yZGdj1DCcNXU9gsndgH9Qod4q8+s=sbGKUzQ@mail.gmail.com>
+ <1345642009.15245.0.camel@deadeye.wl.decadent.org.uk> <CA+55aFzxhxjOeFSUUJ6XQGUmnaZf7QPSz611zmj2VziEDUB_sA@mail.gmail.com>
+ <1345645499.15245.8.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: "H. Peter Anvin" <hpa@zytor.com>,
-	"David Miller" <davem@davemloft.net>, <tglx@linutronix.de>,
-	<mingo@redhat.com>, <netdev@vger.kernel.org>,
-	<linux-net-drivers@solarflare.com>, <x86@kernel.org>
-To: "Linus Torvalds" <torvalds@linux-foundation.org>,
-	"Ben Hutchings" <bhutchings@solarflare.com>
+	David Miller <davem@davemloft.net>, tglx@linutronix.de,
+	mingo@redhat.com, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com, x86@kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:44750 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1756756Ab2HVOoM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 10:44:12 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 21823-02 for <netdev@vger.kernel.org>;
- Wed, 22 Aug 2012 15:44:09 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <CA+55aFzxhxjOeFSUUJ6XQGUmnaZf7QPSz611zmj2VziEDUB_sA@mail.gmail.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:53382 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752833Ab2HVOvO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 10:51:14 -0400
+Received: by wicr5 with SMTP id r5so5798598wic.1
+        for <netdev@vger.kernel.org>; Wed, 22 Aug 2012 07:51:13 -0700 (PDT)
+In-Reply-To: <1345645499.15245.8.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Any patch that exports some "atomic 128-bit MMIO writes" for general
-> use sounds totally and utterly broken. You can't do it. It's
-> *fundamentally* an operation that many CPU's cannot even do. 64-bit
-> buses (or even 32-bit ones) will make the 128-bit write be split up
-> *anyway*, regardless of any 128-bit register issues.
-> 
-> And nobody else sane cares about this, so it shouldn't even be a
-> x86-64 specific thing...
+On Wed, Aug 22, 2012 at 7:24 AM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+>
+> Sorry, I'll paste it below.
 
-There are several other processors that can generate long
-PCIe transfers, sometimes by using a DMA engine associated
-with the PCIe interface (eg freescale 83xx ppc).
+The thing you pasted isn't actually the thing in the subject line.
+It's just you *using* it.
 
-Given the slow speed of PCIe transactions (think ISA bus
-speeds - at least with some targets), it is important to
-be able to request multi-word transfers in a generic way
-on systems that can support it.
+I wanted to see what that "writeo()" looks like for x86-64.
 
-This support is a property of the PCIe interface block,
-not that of the driver that wishes to use the function.
+But I got google to find it for me by looking for "__raw_writeo", so I
+can see the patch now. It looks like it might work. Does it really
+help performance despite always doing those TS games in CR0 for each
+access?
 
-I don't know if XMM register transfers generate 16byte
-TLP on any x86 cpus - they might on some.
-
-Perhaps claiming the function is atomic is the real
-problem - otherwise a single TLP could be used on
-systems (and in contexts) where it is possible, but
-a slower mulit-TLP transfer done (possibly without
-guaranteeing the transfer order) done where it is not.
-
-	David
+                 Linus
