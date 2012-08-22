@@ -1,91 +1,79 @@
-From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3 13/17] lockd: use new hashtable
-	implementation
-Date: Wed, 22 Aug 2012 19:32:52 +0200
-Message-ID: <503517C4.5030500@gmail.com>
-References: <1345602432-27673-1-git-send-email-levinsasha928@gmail.com>
-	<1345602432-27673-14-git-send-email-levinsasha928@gmail.com>
-	<20120822114752.GC20158@fieldses.org>
-	<5034CD02.2010103@gmail.com> <20120822132243.GA2844@Krystal>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: bonding: time limits too tight in bond_ab_arp_inspect
+Date: Wed, 22 Aug 2012 19:45:34 +0200
+Message-ID: <20120822174534.GA20260@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
-	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20120822132243.GA2844@Krystal>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Petr Tesarik <ptesarik@suse.cz>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:49375 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752676Ab2HVRpd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Aug 2012 13:45:33 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/22/2012 03:22 PM, Mathieu Desnoyers wrote:
-> * Sasha Levin (levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
->> On 08/22/2012 01:47 PM, J. Bruce Fields wrote:
->>> On Wed, Aug 22, 2012 at 04:27:08AM +0200, Sasha Levin wrote:
->>>> +static int __init nlm_init(void)
->>>> +{
->>>> +	hash_init(nlm_files);
->>>> +	return 0;
->>>> +}
->>>> +
->>>> +module_init(nlm_init);
->>>
->>> That's giving me:
->>>
->>> fs/lockd/svcsubs.o: In function `nlm_init':
->>> /home/bfields/linux-2.6/fs/lockd/svcsubs.c:454: multiple definition of `init_module'
->>> fs/lockd/svc.o:/home/bfields/linux-2.6/fs/lockd/svc.c:606: first defined here
->>> make[2]: *** [fs/lockd/lockd.o] Error 1
->>> make[1]: *** [fs/lockd] Error 2
->>> make[1]: *** Waiting for unfinished jobs....
->>
->> I tested this entire patch set both with linux-next and Linus' latest master,
->> and it worked fine in both places.
->>
->> Is it possible that lockd has a -next tree which isn't pulled into linux-next?
->> (there's nothing listed in MAINTAINERS that I could see).
-> 
-> fs/lockd/Makefile:
-> 
-> obj-$(CONFIG_LOCKD) += lockd.o
-> 
-> lockd-objs-y := clntlock.o clntproc.o clntxdr.o host.o svc.o svclock.o \
->                 svcshare.o svcproc.o svcsubs.o mon.o xdr.o grace.o
-> 
-> your patch adds a module_init to svcsubs.c.
-> However, there is already one in svc.c, pulled into the same module.
-> 
-> in your test build, is CONFIG_LOCKD defined as "m" or "y" ? You should
-> always test both.
-> 
-> One solution here is to create a "local" init function in svcsubs.c and
-> expose it to svc.c, so the latter can call it from its module init
-> function.
+Hi,
 
-Ah yes, it was on =y and I didn't notice :/
+a customer reported that a bonding slave did not come back up
+after setting their link down and then up again. ARP monitoring +
+arp_validate were used.
 
-I'll fix that.
+Petr has tracked the problem down to the time comaprisons in
+bond_ab_arp_inspect().
 
-> Thanks,
-> 
-> Mathieu
-> 
+                if (slave->link != BOND_LINK_UP) {
+                        if (time_in_range(jiffies,
+                                slave_last_rx(bond, slave) - delta_in_ticks,
+                                slave_last_rx(bond, slave) + delta_in_ticks)) {
+
+                                slave->new_link = BOND_LINK_UP;
+                                commit++;
+                        }
+
+                        continue;
+                }
+
+This code is run from bond_activebackup_arp_mon() about
+delta_in_ticks jiffies after the previous ARP probe has been
+sent. If the delayed work gets executed exactly in delta_in_ticks
+jiffies, there is a chance the slave will be brought up.  If the
+delayed work runs one jiffy later, the slave will stay down.
+
+With arp_validate this is more noticeable, since traffic other than the
+bonding-generated ARP probes does not update the slave_last_rx timestamp.
+
+A simple patch will fix this case.
+
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3001,7 +3001,7 @@ static int bond_ab_arp_inspect(struct bo
+ 		if (slave->link != BOND_LINK_UP) {
+ 			if (time_in_range(jiffies,
+ 				slave_last_rx(bond, slave) - delta_in_ticks,
+-				slave_last_rx(bond, slave) + delta_in_ticks)) {
++				slave_last_rx(bond, slave) + 2 * delta_in_ticks)) {
+ 
+ 				slave->new_link = BOND_LINK_UP;
+ 				commit++;
+
+
+The remaining time comparisons inside bond_ab_arp_inspect() have larger
+tolerances (3*delta_in_ticks or 2*delta_in_ticks), but it still seems strange
+that the precision of delayed work scheduling should steal a full
+arp_interval from the time limits.
+
+What is the intention of e.g. the "3*delta since last receive" limit? 
+Was this really meant to be "as little as 2*delta + 1 jiffy"?
+
+Should they perhaps all be increased by, say, delta_in_ticks/2, to make this
+less dependent on the current scheduling latencies?
+
+Thoughts?
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
