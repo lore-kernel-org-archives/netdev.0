@@ -1,31 +1,31 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 00/18] netfilter: IPv6 NAT
-Date: Wed, 22 Aug 2012 23:23:53 +0200 (MEST)
-Message-ID: <Pine.GSO.4.63.1208222322060.25423@stinky-local.trash.net>
-References: <1345434006-16549-1-git-send-email-kaber@trash.net>
- <20120822.022801.740821969974372752.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 22 Aug 2012 14:24:26 -0700 (PDT)
+Message-ID: <20120822.142426.2090964258143751840.davem@davemloft.net>
+References: <1345538275-1690-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120822.022801.740821969974372752.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58259 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752765Ab2HVVY1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 17:24:27 -0400
+In-Reply-To: <1345538275-1690-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 22 Aug 2012, David Miller wrote:
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 21 Aug 2012 01:37:49 -0700
 
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Mon, 20 Aug 2012 05:39:48 +0200
->
->> Following is the latest IPv6 NAT patchset, based on -rc2.
->
-> Feel free to push patch #1 via the nf tree when give the
-> final version of this to Pablo, and you can add my ACK to
-> it as well if you like:
->
-> Acked-by: David S. Miller <davem@davemloft.net>
+> This series contains updates to ethtool.h, e1000, e1000e, and igb to
+> implement MDI/MDIx control.
+> 
+> The following are changes since commit 1d76efe1577b4323609b1bcbfafa8b731eda071a:
+>   team: add support for non-ethernet devices
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Thanks, will do. The NAT patches depend on a couple of fixes in Pablo's
-latest submission, if you could merge net.git into net-next.git, I can
-push them to Pablo without creating conflicts. Thanks!
+Pulled, thanks Jeff.
