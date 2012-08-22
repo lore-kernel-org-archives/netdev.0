@@ -1,233 +1,73 @@
-From: Huang Shijie <shijie8@gmail.com>
-Subject: [PATCH v3] serial: add a new helper function
-Date: Wed, 22 Aug 2012 22:13:36 -0400
-Message-ID: <1345688016-27506-1-git-send-email-shijie8@gmail.com>
-Cc: alan@linux.intel.com, linux-kernel@vger.kernel.org,
-	linux-serial@vger.kernel.org, netdev@vger.kernel.org,
-	b32955@freescale.com, Huang Shijie <shijie8@gmail.com>
-To: gregkh@linuxfoundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH 2/3] x86_64: Define 128-bit memory-mapped I/O operations
+Date: Wed, 22 Aug 2012 07:20:31 -0700
+Message-ID: <CA+55aFzxhxjOeFSUUJ6XQGUmnaZf7QPSz611zmj2VziEDUB_sA@mail.gmail.com>
+References: <1345598601.2659.76.camel@bwh-desktop.uk.solarflarecom.com>
+ <503437D4.8090706@zytor.com> <1345601051.2659.93.camel@bwh-desktop.uk.solarflarecom.com>
+ <20120821.193446.1534561579811962053.davem@davemloft.net> <503450E2.2040504@zytor.com>
+ <CA+55aFy=ohFoZ1yZGdj1DCcNXU9gsndgH9Qod4q8+s=sbGKUzQ@mail.gmail.com> <1345642009.15245.0.camel@deadeye.wl.decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "H. Peter Anvin" <hpa@zytor.com>,
+	David Miller <davem@davemloft.net>, tglx@linutronix.de,
+	mingo@redhat.com, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com, x86@kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:40331 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753085Ab2HVOUx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 10:20:53 -0400
+Received: by wgbdr13 with SMTP id dr13so906406wgb.1
+        for <netdev@vger.kernel.org>; Wed, 22 Aug 2012 07:20:52 -0700 (PDT)
+In-Reply-To: <1345642009.15245.0.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In most of the time, the driver needs to check if the cts flow control
-is enabled. But now, the driver checks the ASYNC_CTS_FLOW flag manually,
-which is not a grace way. So add a new wraper function to make the code
-tidy and clean.
+On Wed, Aug 22, 2012 at 6:26 AM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+>
+> It's <1345598804.2659.78.camel@bwh-desktop.uk.solarflarecom.com>.
 
-Signed-off-by: Huang Shijie <shijie8@gmail.com>
----
-v2 --> v3:
-	this patch is based on Alan's "tty: move the async flags from the seria.."
+That doesn't help me in the least. I don't *have* that email. It was
+never sent to me. I don't know what list it went on, and googling the
+ID doesn't get me anything. So sending me the mail ID is kind of
+pointless.
 
-v1 --> v2:
-	move the function tty.h to serial.h
----
- drivers/char/pcmcia/synclink_cs.c   |    2 +-
- drivers/tty/amiserial.c             |    2 +-
- drivers/tty/cyclades.c              |    2 +-
- drivers/tty/isicom.c                |    2 +-
- drivers/tty/mxser.c                 |    2 +-
- drivers/tty/serial/mxs-auart.c      |    2 +-
- drivers/tty/serial/serial_core.c    |    4 ++--
- drivers/tty/synclink.c              |    2 +-
- drivers/tty/synclink_gt.c           |    2 +-
- drivers/tty/synclinkmp.c            |    2 +-
- include/linux/tty.h                 |    6 ++++++
- net/irda/ircomm/ircomm_tty.c        |    4 ++--
- net/irda/ircomm/ircomm_tty_attach.c |    2 +-
- 13 files changed, 20 insertions(+), 14 deletions(-)
+So I still don't see the actual patch. But everything I heard about it
+indirectly makes me go "That's just crazy".
 
-diff --git a/drivers/char/pcmcia/synclink_cs.c b/drivers/char/pcmcia/synclink_cs.c
-index 5db08c7..3f57d5de 100644
---- a/drivers/char/pcmcia/synclink_cs.c
-+++ b/drivers/char/pcmcia/synclink_cs.c
-@@ -1050,7 +1050,7 @@ static void cts_change(MGSLPC_INFO *info, struct tty_struct *tty)
- 	wake_up_interruptible(&info->status_event_wait_q);
- 	wake_up_interruptible(&info->event_wait_q);
- 
--	if (info->port.flags & ASYNC_CTS_FLOW) {
-+	if (tty_port_cts_enabled(&info->port)) {
- 		if (tty->hw_stopped) {
- 			if (info->serial_signals & SerialSignal_CTS) {
- 				if (debug_level >= DEBUG_LEVEL_ISR)
-diff --git a/drivers/tty/amiserial.c b/drivers/tty/amiserial.c
-index 2b7535d..42d0a25 100644
---- a/drivers/tty/amiserial.c
-+++ b/drivers/tty/amiserial.c
-@@ -420,7 +420,7 @@ static void check_modem_status(struct serial_state *info)
- 				tty_hangup(port->tty);
- 		}
- 	}
--	if (port->flags & ASYNC_CTS_FLOW) {
-+	if (tty_port_cts_enabled(port)) {
- 		if (port->tty->hw_stopped) {
- 			if (!(status & SER_CTS)) {
- #if (defined(SERIAL_DEBUG_INTR) || defined(SERIAL_DEBUG_FLOW))
-diff --git a/drivers/tty/cyclades.c b/drivers/tty/cyclades.c
-index e3954da..0a6a0bc 100644
---- a/drivers/tty/cyclades.c
-+++ b/drivers/tty/cyclades.c
-@@ -727,7 +727,7 @@ static void cyy_chip_modem(struct cyclades_card *cinfo, int chip,
- 		else
- 			tty_hangup(tty);
- 	}
--	if ((mdm_change & CyCTS) && (info->port.flags & ASYNC_CTS_FLOW)) {
-+	if ((mdm_change & CyCTS) && tty_port_cts_enabled(&info->port)) {
- 		if (tty->hw_stopped) {
- 			if (mdm_status & CyCTS) {
- 				/* cy_start isn't used
-diff --git a/drivers/tty/isicom.c b/drivers/tty/isicom.c
-index 99cf22e..d7492e1 100644
---- a/drivers/tty/isicom.c
-+++ b/drivers/tty/isicom.c
-@@ -600,7 +600,7 @@ static irqreturn_t isicom_interrupt(int irq, void *dev_id)
- 					port->status &= ~ISI_DCD;
- 			}
- 
--			if (port->port.flags & ASYNC_CTS_FLOW) {
-+			if (tty_port_cts_enabled(&port->port)) {
- 				if (tty->hw_stopped) {
- 					if (header & ISI_CTS) {
- 						port->port.tty->hw_stopped = 0;
-diff --git a/drivers/tty/mxser.c b/drivers/tty/mxser.c
-index bb2da4c..cfda47d 100644
---- a/drivers/tty/mxser.c
-+++ b/drivers/tty/mxser.c
-@@ -830,7 +830,7 @@ static void mxser_check_modem_status(struct tty_struct *tty,
- 			wake_up_interruptible(&port->port.open_wait);
- 	}
- 
--	if (port->port.flags & ASYNC_CTS_FLOW) {
-+	if (tty_port_cts_enabled(&port->port)) {
- 		if (tty->hw_stopped) {
- 			if (status & UART_MSR_CTS) {
- 				tty->hw_stopped = 0;
-diff --git a/drivers/tty/serial/mxs-auart.c b/drivers/tty/serial/mxs-auart.c
-index 3a667ee..dafeef2 100644
---- a/drivers/tty/serial/mxs-auart.c
-+++ b/drivers/tty/serial/mxs-auart.c
-@@ -262,7 +262,7 @@ static void mxs_auart_set_mctrl(struct uart_port *u, unsigned mctrl)
- 
- 	ctrl &= ~AUART_CTRL2_RTSEN;
- 	if (mctrl & TIOCM_RTS) {
--		if (u->state->port.flags & ASYNC_CTS_FLOW)
-+		if (tty_port_cts_enabled(&u->state->port))
- 			ctrl |= AUART_CTRL2_RTSEN;
- 	}
- 
-diff --git a/drivers/tty/serial/serial_core.c b/drivers/tty/serial/serial_core.c
-index 5b308c8..1920e5c 100644
---- a/drivers/tty/serial/serial_core.c
-+++ b/drivers/tty/serial/serial_core.c
-@@ -176,7 +176,7 @@ static int uart_port_startup(struct tty_struct *tty, struct uart_state *state,
- 				uart_set_mctrl(uport, TIOCM_RTS | TIOCM_DTR);
- 		}
- 
--		if (port->flags & ASYNC_CTS_FLOW) {
-+		if (tty_port_cts_enabled(port)) {
- 			spin_lock_irq(&uport->lock);
- 			if (!(uport->ops->get_mctrl(uport) & TIOCM_CTS))
- 				tty->hw_stopped = 1;
-@@ -2493,7 +2493,7 @@ void uart_handle_cts_change(struct uart_port *uport, unsigned int status)
- 
- 	uport->icount.cts++;
- 
--	if (port->flags & ASYNC_CTS_FLOW) {
-+	if (tty_port_cts_enabled(port)) {
- 		if (tty->hw_stopped) {
- 			if (status) {
- 				tty->hw_stopped = 0;
-diff --git a/drivers/tty/synclink.c b/drivers/tty/synclink.c
-index 666aa14..70e3a52 100644
---- a/drivers/tty/synclink.c
-+++ b/drivers/tty/synclink.c
-@@ -1359,7 +1359,7 @@ static void mgsl_isr_io_pin( struct mgsl_struct *info )
- 			}
- 		}
- 	
--		if ( (info->port.flags & ASYNC_CTS_FLOW) && 
-+		if (tty_port_cts_enabled(&info->port) &&
- 		     (status & MISCSTATUS_CTS_LATCHED) ) {
- 			if (info->port.tty->hw_stopped) {
- 				if (status & MISCSTATUS_CTS) {
-diff --git a/drivers/tty/synclink_gt.c b/drivers/tty/synclink_gt.c
-index 45f6136..b38e954 100644
---- a/drivers/tty/synclink_gt.c
-+++ b/drivers/tty/synclink_gt.c
-@@ -2053,7 +2053,7 @@ static void cts_change(struct slgt_info *info, unsigned short status)
- 	wake_up_interruptible(&info->event_wait_q);
- 	info->pending_bh |= BH_STATUS;
- 
--	if (info->port.flags & ASYNC_CTS_FLOW) {
-+	if (tty_port_cts_enabled(&info->port)) {
- 		if (info->port.tty) {
- 			if (info->port.tty->hw_stopped) {
- 				if (info->signals & SerialSignal_CTS) {
-diff --git a/drivers/tty/synclinkmp.c b/drivers/tty/synclinkmp.c
-index 53429c8..f17d9f3 100644
---- a/drivers/tty/synclinkmp.c
-+++ b/drivers/tty/synclinkmp.c
-@@ -2500,7 +2500,7 @@ static void isr_io_pin( SLMP_INFO *info, u16 status )
- 			}
- 		}
- 
--		if ( (info->port.flags & ASYNC_CTS_FLOW) &&
-+		if (tty_port_cts_enabled(&info->port) &&
- 		     (status & MISCSTATUS_CTS_LATCHED) ) {
- 			if ( info->port.tty ) {
- 				if (info->port.tty->hw_stopped) {
-diff --git a/include/linux/tty.h b/include/linux/tty.h
-index dbebd1e..9892121 100644
---- a/include/linux/tty.h
-+++ b/include/linux/tty.h
-@@ -514,6 +514,12 @@ static inline struct tty_port *tty_port_get(struct tty_port *port)
- 	return port;
- }
- 
-+/* If the cts flow control is enabled, return true. */
-+static inline bool tty_port_cts_enabled(struct tty_port *port)
-+{
-+	return port->flags & ASYNC_CTS_FLOW;
-+}
-+
- extern struct tty_struct *tty_port_tty_get(struct tty_port *port);
- extern void tty_port_tty_set(struct tty_port *port, struct tty_struct *tty);
- extern int tty_port_carrier_raised(struct tty_port *port);
-diff --git a/net/irda/ircomm/ircomm_tty.c b/net/irda/ircomm/ircomm_tty.c
-index 9668990..95a3a7a 100644
---- a/net/irda/ircomm/ircomm_tty.c
-+++ b/net/irda/ircomm/ircomm_tty.c
-@@ -1070,7 +1070,7 @@ void ircomm_tty_check_modem_status(struct ircomm_tty_cb *self)
- 			goto put;
- 		}
- 	}
--	if (tty && self->port.flags & ASYNC_CTS_FLOW) {
-+	if (tty && tty_port_cts_enabled(&self->port)) {
- 		if (tty->hw_stopped) {
- 			if (status & IRCOMM_CTS) {
- 				IRDA_DEBUG(2,
-@@ -1313,7 +1313,7 @@ static void ircomm_tty_line_info(struct ircomm_tty_cb *self, struct seq_file *m)
- 
- 	seq_puts(m, "Flags:");
- 	sep = ' ';
--	if (self->port.flags & ASYNC_CTS_FLOW) {
-+	if (tty_port_cts_enabled(&self->port)) {
- 		seq_printf(m, "%cASYNC_CTS_FLOW", sep);
- 		sep = '|';
- 	}
-diff --git a/net/irda/ircomm/ircomm_tty_attach.c b/net/irda/ircomm/ircomm_tty_attach.c
-index 3ab70e7..edab393 100644
---- a/net/irda/ircomm/ircomm_tty_attach.c
-+++ b/net/irda/ircomm/ircomm_tty_attach.c
-@@ -578,7 +578,7 @@ void ircomm_tty_link_established(struct ircomm_tty_cb *self)
- 	 * will have to wait for the peer device (DCE) to raise the CTS
- 	 * line.
- 	 */
--	if ((self->port.flags & ASYNC_CTS_FLOW) &&
-+	if (tty_port_cts_enabled(&self->port) &&
- 			((self->settings.dce & IRCOMM_CTS) == 0)) {
- 		IRDA_DEBUG(0, "%s(), waiting for CTS ...\n", __func__ );
- 		goto put;
--- 
-1.7.4.4
+> When updating a TX DMA ring pointer in sfc, we can push the first new
+> descriptor at the same time, so that for a linear packet only one DMA
+> read is then required before the packet goes out on the wire.  Currently
+> this requires 2-4 MMIO writes (each a separate PCIe transactions),
+> depending on the host word size.  There is a measurable reduction in
+> latency if we can reduce it to 1 PCIe transaction.  (But as previously
+> discussed, write-combining isn't suitable for this.)
+
+Quite frankly, this isn't even *remotely* changing my mind about our
+FPU model. I'm like "ok, some random driver is trying to be clever,
+and it's almost certainly getting things entirely wrong and doing
+things that only work on certain machines".
+
+If you really think it's a big deal, do it in *your* driver, and make
+it do the whole irq_fpu_usable() check together with
+kernel_fpu_begin/end(). And make it very much x86-specific and with a
+fallback to non-atomic accesses.
+
+Any patch that exports some "atomic 128-bit MMIO writes" for general
+use sounds totally and utterly broken. You can't do it. It's
+*fundamentally* an operation that many CPU's cannot even do. 64-bit
+buses (or even 32-bit ones) will make the 128-bit write be split up
+*anyway*, regardless of any 128-bit register issues.
+
+And nobody else sane cares about this, so it shouldn't even be a
+x86-64 specific thing. It should be a driver hack, since that's what
+it is. We don't want to support crazy stuff like this in general, that
+is not just architecture-, but microarchitecture-specific.
+
+I think you'd be crazy to even want to do this in the first place, but
+if you do, keep it internal to your driver, and don't expose the crazy
+to anybody else.
+
+                 Linus
