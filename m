@@ -1,58 +1,46 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re[2]:  [PATCH 05/19] netfilter: nf_conntrack_ipv6: improve
- fragmentation handling
-Date: Wed, 22 Aug 2012 10:16:59 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1208221014000.1698@ja.ssi.bg>
-References: <mdaatbj.b2f3561b17fe4f00a6e947611a0959a1@obelix.schillstrom.com> <alpine.LFD.2.00.1208220954260.1698@ja.ssi.bg>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811672-1446726840-1345619819=:1698"
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: Hans Schillstrom <hans@schillstrom.com>
+From: Lutz Jaenicke <ljaenicke@innominate.com>
+Subject: [PATCH] iproute2: rtnl_wilddump_request: fix alignment for embedded platforms
+Date: Wed, 22 Aug 2012 09:38:53 +0200
+Message-ID: <1345621133-23583-1-git-send-email-ljaenicke@innominate.com>
+Cc: Lutz Jaenicke <ljaenicke@innominate.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:52401 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751460Ab2HVHP0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Aug 2012 03:15:26 -0400
-In-Reply-To: <alpine.LFD.2.00.1208220954260.1698@ja.ssi.bg>
+Received: from home.innominate.com ([77.245.32.75]:40099 "EHLO
+	home.innominate.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756970Ab2HVHjT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 03:39:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Platforms have different alignment requirements which need to be
+fulfilled by the compiler. If the structure elements are already
+4 byte (NLMGS_ALIGNTO) aligned by the compiler adding an explicit
+padding element (align_rta) is not allowed.
+Use __attribute__ ((aligned (NLMSG_ALIGNTO))) in order to achieve
+the required alignment.
+Experienced on ARM (xscale) with symptom
+  netlink: 12 bytes leftover after parsing attributes
 
----1463811672-1446726840-1345619819=:1698
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
+Signed-off-by: Lutz Jaenicke <ljaenicke@innominate.com>
+---
+ lib/libnetlink.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-
-	Hello,
-
-On Wed, 22 Aug 2012, Julian Anastasov wrote:
-
-> On Wed, 22 Aug 2012, Hans Schillstrom wrote:
-> 
-> > >Perhaps we could change/fix the MTU check in IPVS?
-> > >(This would also solve issues I've seen with TSO/GSO frames, hitting
-> > >this code path).
-> > >
-> > I ran into this as well, 
-> > try this for the mtu check.
-> > 
-> >        if ((!skb->local_df && skb->len > mtu && !skb_is_gso(skb)) ||
-> >            (IP6CB(skb)->frag_max_size && IP6CB(skb)->frag_max_size > mtu)) {
-> 
-> 	Better without local_df check, it is our job to
-> set it.
-
-	Ops, sorry. It seems now nf_ct_frag6_reasm (Patch 02/18)
-will set head->local_df = 1, so we should check local_df
-as Hans said.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
----1463811672-1446726840-1345619819=:1698--
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index 8e8c8b9..05701ef 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -94,10 +94,9 @@ int rtnl_wilddump_request(struct rtnl_handle *rth, int family, int type)
+ 	struct {
+ 		struct nlmsghdr nlh;
+ 		struct rtgenmsg g;
+-		__u16 align_rta;	/* attribute has to be 32bit aligned */
+ 		struct rtattr ext_req;
+ 		__u32 ext_filter_mask;
+-	} req;
++	} req __attribute__ ((aligned (NLMSG_ALIGNTO)));
+ 
+ 	memset(&req, 0, sizeof(req));
+ 	req.nlh.nlmsg_len = sizeof(req);
+-- 
+1.7.2.5
