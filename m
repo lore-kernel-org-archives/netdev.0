@@ -1,129 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
-Date: Wed, 22 Aug 2012 10:06:38 +0200
-Message-ID: <1345622798.5158.717.camel@edumazet-glaptop>
-References: <503419D3.1080700@linlab.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jerry Chu <hkchu@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Nandita Dukkipati <nanditad@google.com>
-To: Alex Bergmann <alex@linlab.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <503419D3.1080700@linlab.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH] net: dev: fix the incorrect hold of net namespace's lo device
+Date: Wed, 22 Aug 2012 16:31:02 +0800
+Message-ID: <1345624262-6554-1-git-send-email-gaofeng@cn.fujitsu.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, Gao feng <gaofeng@cn.fujitsu.com>
+To: ebiederm@xmission.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:6790 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750769Ab2HVIaw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Aug 2012 04:30:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-08-22 at 01:29 +0200, Alex Bergmann wrote:
-> Hi David,
-> 
-> I'm not 100% sure, but it looks like I found an RFC mismatch with the 
-> current default values of the TCP implementation.
-> 
-> Alex
-> 
-> From 8b854a525eb45f64ad29dfab16f9d9f681e84495 Mon Sep 17 00:00:00 2001
-> From: Alexander Bergmann <alex@linlab.net>
-> Date: Wed, 22 Aug 2012 00:29:08 +0200
-> Subject: [PATCH 1/1] tcp: Wrong timeout for SYN segments
-> 
-> Commit 9ad7c049 changed the initRTO from 3secs to 1sec in accordance to
-> RFC6298 (former RFC2988bis). This introduced a gap with RFC1122 that
-> defines a minimum retransmission window for SYN segments of at least
-> 180secs.
-> 
-> Prior to 9ad7c049 the timeout was defined with 189secs. Now we have only
-> a timeout of 63secs.
-> 
->         ((2 << 5) - 1) * 3 secs = 189 secs
->         ((2 << 5) - 1) * 1 secs = 63 secs
+in dst_dev_event,we get the still referenced dst entries
+from dst_garbage list,and call dst_ifdown to change these
+dst entries' device to the net namesapce's lo device.
 
-Strange maths ... here I have :
+when we moving a net device(A) to another net namespace,
+because free_fib_info_rcu is called after a grace period,
+we may call dst_dev_event before free_fib_info_rcu putting
+dst_entry into the dst_garbage list.
 
-(1+2+4+8+16) * 3 = 93 secs
-vs
-(1+2+4+8+16) * 1 = 31 secs
+so in dst_dev_event, we can't see these dst entries through
+dst_garbage list, and without changing their device to the
+old net namespace's lo device. after a grace period, these
+dst entries which dst->dev is device A will in the dst_garbage
+list, and the device A will belong to the new net namespcae.
 
-So even before said commit, we were not rfc1122 compliant.
+then we exit from this new net namespace, the dst_dev_event
+is called again,it will get these dst entries from dst_garbage
+list,and call dst_ifdown to hold the new net namespace's lo
+device incorrectly and put the device A.
 
-Using 7 retries would give 127 seconds, still not rfc compliant.
+so it will tigger the emg message in netdev_wait_allrefs like
+below.
+unregister_netdevice: waiting for lo to become free. Usage count = 1
 
-> 
-> To fulfill the MUST constraint in RFC1122 section 4.2.3.5 about R2 for
-> SYN segments, the values of TCP_SYN_RETRIES and TCP_SYNACK_RETRIES must
-> be changed to 7 reties.
-> 
->         ((2 << 7) - 1) * 1 secs = 255 secs
-> 
-> This would result in an ETIMEDOUT of 4 minutes 15 seconds.
-> 
-> Signed-off-by: Alexander Bergmann <alex@linlab.net>
-> ---
->  include/net/tcp.h |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 1f000ff..7eaae19 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -98,10 +98,10 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
->                                  * 15 is ~13-30min depending on RTO.
->                                  */
->  
-> -#define TCP_SYN_RETRIES         5      /* number of times to retry active opening a
-> +#define TCP_SYN_RETRIES         7      /* number of times to retry active opening a
->                                  * connection: ~180sec is RFC minimum   */
->  
-> -#define TCP_SYNACK_RETRIES 5   /* number of times to retry passive opening a
-> +#define TCP_SYNACK_RETRIES 7   /* number of times to retry passive opening a
->                                  * connection: ~180sec is RFC minimum   */
->  
->  #define TCP_TIMEWAIT_LEN (60*HZ) /* how long to wait to destroy TIME-WAIT
+fix this problem by adding rcu_barrier() in dst_dev_event
+when event is NETDEV_UNREGISTER.
+with this,dst_ifdown will be called after the dst_garbage list
+beeing updated.
 
-Nice catch !
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ net/core/dst.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-I kind of disagree with the SYNACK part.
-
-RFC 1122 says in 4.2.3.5 :
-
-  However, the values of R1 and R2 may be different for SYN
-  and data segments.  In particular, R2 for a SYN segment MUST
-  be set large enough to provide retransmission of the segment
-  for at least 3 minutes.  The application can close the
-  connection (i.e., give up on the open attempt) sooner, of
-  course.
-
-I am not sure SYNACK segments were considered as a 'SYN segment' in this
-section. (as the application cannot 'close' the connection on the passive
-side, only kernel is aware of a SYN_RECV socket)
-
-Increasing TCP_SYNACK_RETRIES from 5 to 7 or 8 amplifies the
-SYN/synflood problem.
-
-A valid client should retransmit its SYN packet for 180 seconds, I dont
-believe we should make sure the SYNACK will be sent for 180 seconds as
-well.
-
-If we _really_ want to have a 3 minutes R2 for SYNACK, I suggest
-changing things to that we dont send more than 5 SYNACKS, maybe using
-RTO=6 after one retransmit
-
-current situation :
-1 sec
-2 sec
-4 sec
-8 sec
-16 sec
-----
-total of 31 seconds
-
-
-1 sec
-12 sec  // switch to RTO = 6
-24 sec
-48 sec
-96 sec
------
-total of 181 seconds
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 56d6361..38c2199 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -375,6 +375,7 @@ static int dst_dev_event(struct notifier_block *this, unsigned long event,
+ 
+ 	switch (event) {
+ 	case NETDEV_UNREGISTER:
++		rcu_barrier();
+ 	case NETDEV_DOWN:
+ 		mutex_lock(&dst_gc_mutex);
+ 		for (dst = dst_busy_list; dst; dst = dst->next) {
+-- 
+1.7.7.6
