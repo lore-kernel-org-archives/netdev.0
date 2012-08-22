@@ -1,65 +1,120 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
-Date: Wed, 22 Aug 2012 10:58:30 +0200
-Message-ID: <1345625910.5158.793.camel@edumazet-glaptop>
-References: <503419D3.1080700@linlab.net>
-	 <1345622798.5158.717.camel@edumazet-glaptop>  <50349CC5.3050601@linlab.net>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH] tun: don't zeroize sock->file on detach
+Date: Wed, 22 Aug 2012 13:14:42 +0400
+Message-ID: <5034A302.4090406@parallels.com>
+References: <20120809124436.5156.26944.stgit@localhost.localdomain> <20120809.161639.1789560369123168415.davem@davemloft.net> <5033B199.6080305@parallels.com> <CADVnQy=HGxFiczXGxb4iMumKUAXt77UzTWFqFwGzpLoQjvUR7Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jerry Chu <hkchu@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Nandita Dukkipati <nanditad@google.com>
-To: Alex Bergmann <alex@linlab.net>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"dhowells@redhat.com" <dhowells@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"rick.jones2@hp.com" <rick.jones2@hp.com>,
+	"ycheng@google.com" <ycheng@google.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mikulas@artax.karlin.mff.cuni.cz" <mikulas@artax.karlin.mff.cuni.cz>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50349CC5.3050601@linlab.net>
+In-Reply-To: <CADVnQy=HGxFiczXGxb4iMumKUAXt77UzTWFqFwGzpLoQjvUR7Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-08-22 at 10:48 +0200, Alex Bergmann wrote:
-> On 08/22/2012 10:06 AM, Eric Dumazet wrote:
-> >> Prior to 9ad7c049 the timeout was defined with 189secs. Now we have only
-> >> a timeout of 63secs.
-> >>
-> >>          ((2 << 5) - 1) * 3 secs = 189 secs
-> >>          ((2 << 5) - 1) * 1 secs = 63 secs
-> > 
-> > Strange maths ... here I have :
-> > 
-> > (1+2+4+8+16) * 3 = 93 secs
-> > vs
-> > (1+2+4+8+16) * 1 = 31 secs
-> > 
-> > So even before said commit, we were not rfc1122 compliant.
-> > 
-> > Using 7 retries would give 127 seconds, still not rfc compliant.
-> 
-> You're missing the timeout after the 5th SYN packet was sent. This 
-> would result in another 32 seconds (96 seconds).
-> 
-> The timeout is calculated here:
-> 
-> net/ipv4/tcp_timer.c(146:150)
-> 
-> 	if (boundary <= linear_backoff_thresh)
-> 		timeout = ((2 << boundary) - 1) * rto_base;
-> 	else
-> 		timeout = ((2 << linear_backoff_thresh) - 1) * rto_base +
-> 			(boundary - linear_backoff_thresh) * TCP_RTO_MAX;
+21.08.2012 21:18, Neal Cardwell =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Tue, Aug 21, 2012 at 12:04 PM, Stanislav Kinsbursky
+> <skinsbursky@parallels.com> wrote:
+>> 10.08.2012 03:16, David Miller =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>>
+>>> From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+>>> Date: Thu, 09 Aug 2012 16:50:40 +0400
+>>>
+>>>> This is a fix for bug, introduced in 3.4 kernel by commit
+>>>> 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d, which, among other thing=
+s,
+>>>> replaced
+>>>> simple sock_put() by sk_release_kernel(). Below is sequence, which=
+ leads
+>>>> to
+>>>> oops for non-persistent devices:
+>>>>
+>>>> tun_chr_close()
+>>>> tun_detach()                            <=3D=3D tun->socket.file =3D=
+ NULL
+>>>> tun_free_netdev()
+>>>> sk_release_sock()
+>>>> sock_release(sock->file =3D=3D NULL)
+>>>> iput(SOCK_INODE(sock))                  <=3D=3D dereference on NUL=
+L pointer
+>>>>
+>>>> This patch just removes zeroing of socket's file from __tun_detach=
+().
+>>>> sock_release() will do this.
+>>>>
+>>>> Cc: stable@vger.kernel.org
+>>>> Reported-by: Ruan Zhijie <ruanzhijie@hotmail.com>
+>>>> Tested-by: Ruan Zhijie <ruanzhijie@hotmail.com>
+>>>> Acked-by: Al Viro <viro@ZenIV.linux.org.uk>
+>>>> Acked-by: Eric Dumazet <edumazet@google.com>
+>>>> Acked-by: Yuchung Cheng <ycheng@google.com>
+>>>> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+>>>
+>>>
+>>> Applied, thanks.
+>>>
+>>
+>> Hi, David.
+>> I found out, that this commit: b09e786bd1dd66418b69348cb110f3a647646=
+26a
+>> was previous attempt to fix the problem.
+>> I believe this commit have to be dropped.
+>
+> Have you tried testing with that commit reverted? AFAICT from reading
+> the code, if you revert b09e786bd1dd66418b69348cb110f3a64764626a then
+> the sockets_in_use count becomes incorrect, because sock_release()
+> will be calling this_cpu_sub() for each tun socket teardown when ther=
+e
+> was no corresponding this_cpu_add() for the tun socket (because the
+> tun socket is not allocated with sock_alloc()).
+>
+> Can you sketch in more detail why that commit should be dropped?
+>
 
-Thats the code yes but you miss the fact that last occurence of the
-timer doesnt send a frame on the _network_
+Yep, I've noticed, that first commit patch fixes two problems simultane=
+ously.
+Here are they:
+1) Dereference of invalid SOCK_INODE()
+2) sockets_in_use incorrect value.
 
-R2 is derived from the last frame sent.
+But I believe, that introducing new SOCK_EXTERNALLY_ALLOCATED socket fl=
+ag and=20
+use it in generic code just to handle tun issues is overkill.
+My patch solves first problem mush simpler, than mentioned commit.
 
-Fact that the connect() is a bit long to return to user space is not
-relevant. We could block the task for 2 hours and still be non RFC
-compliant.
+About second problem...
+What about this:
 
-Actual 5 frames are sent, so the effective global timeout is the one I
-quoted.
+diff --git a/net/socket.c b/net/socket.c
+index dfe5b66..dab462b 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -526,8 +526,8 @@ void sock_release(struct socket *sock)
+         if (test_bit(SOCK_EXTERNALLY_ALLOCATED, &sock->flags))
+                 return;
 
-1 + 2 + 4 + 8 + 16   and its 31 
+-       this_cpu_sub(sockets_in_use, 1);
+         if (!sock->file) {
++               this_cpu_sub(sockets_in_use, 1);
+                 iput(SOCK_INODE(sock));
+                 return;
+         }
 
-Just do a tcpdump and you can see it.
+?
+
+
+> neal
+>
+
+
+--=20
+Best regards,
+Stanislav Kinsbursky
