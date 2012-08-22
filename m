@@ -1,80 +1,62 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
 Subject: Re: [PATCH 2/3] x86_64: Define 128-bit memory-mapped I/O operations
-Date: Wed, 22 Aug 2012 16:41:15 +0100
-Message-ID: <1345650075.2709.22.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1345598601.2659.76.camel@bwh-desktop.uk.solarflarecom.com>
-	 <503437D4.8090706@zytor.com>
-	 <1345601051.2659.93.camel@bwh-desktop.uk.solarflarecom.com>
-	 <20120821.193446.1534561579811962053.davem@davemloft.net>
-	 <503450E2.2040504@zytor.com>
-	 <CA+55aFy=ohFoZ1yZGdj1DCcNXU9gsndgH9Qod4q8+s=sbGKUzQ@mail.gmail.com>
-	 <1345642009.15245.0.camel@deadeye.wl.decadent.org.uk>
-	 <CA+55aFzxhxjOeFSUUJ6XQGUmnaZf7QPSz611zmj2VziEDUB_sA@mail.gmail.com>
-	 <1345645499.15245.8.camel@deadeye.wl.decadent.org.uk>
-	 <CA+55aFxoWLad9vtfAzQ7qXWcspL92D5s5+MFJ-HfyH3LVqfpaA@mail.gmail.com>
+Date: Wed, 22 Aug 2012 08:49:41 -0700
+Message-ID: <5034FF95.9070108@zytor.com>
+References: <1345598601.2659.76.camel@bwh-desktop.uk.solarflarecom.com>  <503437D4.8090706@zytor.com>  <1345601051.2659.93.camel@bwh-desktop.uk.solarflarecom.com>  <20120821.193446.1534561579811962053.davem@davemloft.net>  <503450E2.2040504@zytor.com>  <CA+55aFy=ohFoZ1yZGdj1DCcNXU9gsndgH9Qod4q8+s=sbGKUzQ@mail.gmail.com>  <1345642009.15245.0.camel@deadeye.wl.decadent.org.uk>  <CA+55aFzxhxjOeFSUUJ6XQGUmnaZf7QPSz611zmj2VziEDUB_sA@mail.gmail.com>  <1345645499.15245.8.camel@deadeye.wl.decadent.org.uk>  <20120822143054.GD9803@kvack.org> <1345647537.2709.0.camel@bwh-desktop.uk.solarflarecom.com> <5034F725.2090802@zytor.com> <AE90C24D6B3A694183C094C60CF0A2F6026B6FC1@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "H. Peter Anvin" <hpa@zytor.com>,
-	David Miller <davem@davemloft.net>, <tglx@linutronix.de>,
-	<mingo@redhat.com>, <netdev@vger.kernel.org>,
-	<linux-net-drivers@solarflare.com>, <x86@kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, tglx@linutronix.de,
+	mingo@redhat.com, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com, x86@kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:27004 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757612Ab2HVPlT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 11:41:19 -0400
-In-Reply-To: <CA+55aFxoWLad9vtfAzQ7qXWcspL92D5s5+MFJ-HfyH3LVqfpaA@mail.gmail.com>
+Received: from terminus.zytor.com ([198.137.202.10]:43496 "EHLO mail.zytor.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752766Ab2HVPuA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Aug 2012 11:50:00 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6FC1@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-08-22 at 07:50 -0700, Linus Torvalds wrote:
-> On Wed, Aug 22, 2012 at 7:24 AM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
-> >
-> > Sorry, I'll paste it below.
-> 
-> The thing you pasted isn't actually the thing in the subject line.
-> It's just you *using* it.
-> 
-> I wanted to see what that "writeo()" looks like for x86-64.
-> 
-> But I got google to find it for me by looking for "__raw_writeo", so I
-> can see the patch now. It looks like it might work. Does it really
-> help performance despite always doing those TS games in CR0 for each
-> access?
+On 08/22/2012 08:27 AM, David Laight wrote:
+>> Your architecture sounds similar to one I once worked on (Orion
+>> Microsystems CNIC/OPA-2).  That architecture had a descriptor ring in
+>> device memory, and a single trigger bit would move the head pointer.
+>>
+>> We used write combining to write out a set of descriptors, and then
+>> used
+>> a non-write-combining write to do the final write which bumps the head
+>> pointer.  The UC write flushes the write combiners ahead of it, so it
+>> ends up with two transactions (one for the WC data and one for the UC
+>> trigger) but it could frequently push quite a few descriptors in that
+>> operation.
+>
+> The code actually looks more like a normal ethernet ring interface
+> with an 'owner' bit in each entry.
+> So it is important to write the owner bit last.
+>
+> It might be possibly to set multiple ring entries in two TLPs
+> by first writing all of them (maybe with write combining)
+> but without changing the ownership of the first entry.
+> Then doing a second transfer to update the owner bit it
+> the first entry.
+> The order of the writes in the first transfer would then not
+> matter.
+>
+> FWIW can you even guarantee to do an atomic 64bit PCIe transfer
+> on many systems (without resorting to a dma unit).
+>
 
-I haven't run the experiment myself, but my colleagues observed a net
-reduction of 100s of nanoseconds of latency.  That may not sound like
-much, but for a small packet traversing an uncongested twinax link it's
-around 5-10% of the total latency from the descriptor pointer write to
-DMA completion on the peer.
+On many systems, perhaps, but I suspect that 32 bits is the maximum you 
+can truly guarantee.
 
-Later, you wrote:
-> Btw, are we even certain that a 128-bit PCIe write is going to remain
-> atomic across a bus (ie over various PCIe bridges etc)?
+	-hpa
 
-I don't think PCIe bridges are allowed to split up TLPs (this is why the
-PCI core has to be so careful about programming Max Payload Size).  What
-happens between the processor core and the host bridge is another
-matter, though.
-
-> Do you you
-> care? Is it just a "one transaction is cheaper than two", and it
-> doesn't really have any ordering constraints? If the thing gets split
-> into two 64-bit transactions (in whatever order) by a bridge on the
-> way, would that be ok?
-
-We care if the two transactions are not in ascending address order;
-that's why we had to abandon write combining.
-
-> We've seen buses split accesses before (ie 64-bit writes on 32-bit
-> PCI).
-
-Ben.
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+H. Peter Anvin, Intel Open Source Technology Center
+I work for Intel.  I don't speak on their behalf.
