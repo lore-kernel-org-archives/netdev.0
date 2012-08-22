@@ -1,72 +1,51 @@
-From: Alex Bergmann <alex@linlab.net>
-Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
-Date: Wed, 22 Aug 2012 11:29:28 +0200
-Message-ID: <5034A678.3040207@linlab.net>
-References: <503419D3.1080700@linlab.net>  <1345622798.5158.717.camel@edumazet-glaptop>  <50349CC5.3050601@linlab.net> <1345625910.5158.793.camel@edumazet-glaptop>
+From: Daniel Baluta <dbaluta@ixiacom.com>
+Subject: Re: [PATCH] libceph: Fix sparse warning
+Date: Wed, 22 Aug 2012 12:46:04 +0300
+Message-ID: <CAEnQRZBcX7vmaa2rc3-CcCSpayKZca2p11_3eSQaEsj_FAQLNg@mail.gmail.com>
+References: <1344950857-32139-1-git-send-email-icurt@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jerry Chu <hkchu@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Nandita Dukkipati <nanditad@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1345625910.5158.793.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, ceph-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Iulius Curt <icurt@ixiacom.com>
+To: sage@inktank.com
+Return-path: <ceph-devel-owner@vger.kernel.org>
+In-Reply-To: <1344950857-32139-1-git-send-email-icurt@ixiacom.com>
+Sender: ceph-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/22/2012 10:58 AM, Eric Dumazet wrote:
-> On Wed, 2012-08-22 at 10:48 +0200, Alex Bergmann wrote:
->> On 08/22/2012 10:06 AM, Eric Dumazet wrote:
->>>> Prior to 9ad7c049 the timeout was defined with 189secs. Now we have only
->>>> a timeout of 63secs.
->>>>
->>>>           ((2 << 5) - 1) * 3 secs = 189 secs
->>>>           ((2 << 5) - 1) * 1 secs = 63 secs
->>>
->>> Strange maths ... here I have :
->>>
->>> (1+2+4+8+16) * 3 = 93 secs
->>> vs
->>> (1+2+4+8+16) * 1 = 31 secs
->>>
->>> So even before said commit, we were not rfc1122 compliant.
->>>
->>> Using 7 retries would give 127 seconds, still not rfc compliant.
->>
->> You're missing the timeout after the 5th SYN packet was sent. This
->> would result in another 32 seconds (96 seconds).
->>
->> The timeout is calculated here:
->>
->> net/ipv4/tcp_timer.c(146:150)
->>
->> 	if (boundary <= linear_backoff_thresh)
->> 		timeout = ((2 << boundary) - 1) * rto_base;
->> 	else
->> 		timeout = ((2 << linear_backoff_thresh) - 1) * rto_base +
->> 			(boundary - linear_backoff_thresh) * TCP_RTO_MAX;
+On Tue, Aug 14, 2012 at 4:27 PM, Iulius Curt <iulius.curt@gmail.com> wrote:
+> From: Iulius Curt <iulius.curt@gmail.com>
 >
-> Thats the code yes but you miss the fact that last occurence of the
-> timer doesnt send a frame on the _network_
+> Make ceph_monc_do_poolop() static to remove the following sparse warning:
+>  * net/ceph/mon_client.c:616:5: warning: symbol 'ceph_monc_do_poolop' was not
+>    declared. Should it be static?
 >
-> R2 is derived from the last frame sent.
+> Signed-off-by: Iulius Curt <icurt@ixiacom.com>
+> ---
+>  net/ceph/mon_client.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 >
-> Fact that the connect() is a bit long to return to user space is not
-> relevant. We could block the task for 2 hours and still be non RFC
-> compliant.
+> diff --git a/net/ceph/mon_client.c b/net/ceph/mon_client.c
+> index 105d533..3875c60 100644
+> --- a/net/ceph/mon_client.c
+> +++ b/net/ceph/mon_client.c
+> @@ -613,7 +613,7 @@ bad:
+>  /*
+>   * Do a synchronous pool op.
+>   */
+> -int ceph_monc_do_poolop(struct ceph_mon_client *monc, u32 op,
+> +static int ceph_monc_do_poolop(struct ceph_mon_client *monc, u32 op,
+>                         u32 pool, u64 snapid,
+>                         char *buf, int len)
+>  {
+> --
+> 1.7.9.5
 >
-> Actual 5 frames are sent, so the effective global timeout is the one I
-> quoted.
->
-> 1 + 2 + 4 + 8 + 16   and its 31
->
-> Just do a tcpdump and you can see it.
+> --
 
-Actual 6 SYN frames are sent. The initial one and 5 retries.
+Hi Sage,
 
-The kernel is waiting another 32 seconds for a SYN+ACK and then gives 
-the ETIMEDOUT back to userspace.
+Can you have a look on this? :)
 
-Do you mean that we have to send another SYN packet after the 3 minutes?
+thanks,
+Daniel.
