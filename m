@@ -1,72 +1,55 @@
-From: Jeremy Brookman <jeremy.brookman@gmail.com>
-Subject: Re: [PATCH v6] bonding support for IPv6 transmit hashing
-Date: Wed, 22 Aug 2012 13:06:45 +0100
-Message-ID: <CAPc2XZAWnTHaMiXjD-ucg4eLh89Yim439_QjqePxrFSinZhKrw@mail.gmail.com>
-References: <4FF27CA0.7030708@8192.net>
-	<20120702.221425.418792617776598841.davem@davemloft.net>
-	<4FF2853D.9070707@8192.net>
-	<20120702.224351.1587084404665143719.davem@davemloft.net>
-	<CAPc2XZDHBPKEM+WsWTL+9N_sfgVhOZAoiY3LU=v-QTCb9eQObQ@mail.gmail.com>
-	<11100.1345576795@death.nxdomain>
-	<503409DC.5010001@8192.net>
+From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3 13/17] lockd: use new hashtable implementation
+Date: Wed, 22 Aug 2012 14:13:54 +0200
+Message-ID: <5034CD02.2010103@gmail.com>
+References: <1345602432-27673-1-git-send-email-levinsasha928@gmail.com> <1345602432-27673-14-git-send-email-levinsasha928@gmail.com> <20120822114752.GC20158@fieldses.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
-To: John Eaglesham <linux@8192.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:64107 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754070Ab2HVMGq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 08:06:46 -0400
-Received: by obbuo13 with SMTP id uo13so1306931obb.19
-        for <netdev@vger.kernel.org>; Wed, 22 Aug 2012 05:06:45 -0700 (PDT)
-In-Reply-To: <503409DC.5010001@8192.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org,
+	axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org, agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	neilb-l3A5Bk7waGM@public.gmane.org, ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
+	venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org
+To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120822114752.GC20158-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->>         If John signs off and somebody tests this, I'll post a formal
->> submssion with the full commit message.
->
-> Since my last submission I ended up making some changes on my end to
-> streamline the logic. I can fold together my patch with yours and test them
-> later tonight. If everything looks good I'll post the changes back to the
-> list.
+On 08/22/2012 01:47 PM, J. Bruce Fields wrote:
+> On Wed, Aug 22, 2012 at 04:27:08AM +0200, Sasha Levin wrote:
+>> +static int __init nlm_init(void)
+>> +{
+>> +	hash_init(nlm_files);
+>> +	return 0;
+>> +}
+>> +
+>> +module_init(nlm_init);
+> 
+> That's giving me:
+> 
+> fs/lockd/svcsubs.o: In function `nlm_init':
+> /home/bfields/linux-2.6/fs/lockd/svcsubs.c:454: multiple definition of `init_module'
+> fs/lockd/svc.o:/home/bfields/linux-2.6/fs/lockd/svc.c:606: first defined here
+> make[2]: *** [fs/lockd/lockd.o] Error 1
+> make[1]: *** [fs/lockd] Error 2
+> make[1]: *** Waiting for unfinished jobs....
 
-Great - thanks for that Jay/John; will look forward to the latest
-patch later. I'm actually looking at the 2.6.32 branch so have tested
-a backport of Jay's patch (which only took a couple of very minor
-modifications); a quick test on an 8-port bond with layer3+4 hashing
-looked fine.  (Will hold off until the final patch before doing more
-testing.)
+I tested this entire patch set both with linux-next and Linus' latest master,
+and it worked fine in both places.
 
-Regards,
-
-Jeremy
-
-On Tue, Aug 21, 2012 at 11:21 PM, John Eaglesham <linux@8192.net> wrote:
-> On 8/21/2012 12:19 PM, Jay Vosburgh wrote:
->>
->> Jeremy Brookman <jeremy.brookman@gmail.com> wrote:
->>
->>>> You should use a mix of tabs, as necessary, to get things to line up
->>>> how I told you they need to line up.
->>>
->>>
->>> Unless I'm missing something, this change doesn't seem to have made it
->>> through to the kernel tip, but we could really use this bugfix. Is it
->>> in a repository I didn't notice, or not yet through the review?  If
->>> it's not through the review, is any help needed to get it there?
->>
->>
->>         The submitter (John Eaglesham) never posted an updated version
->> that addressed the various comments, nor did his original patch
->> submission include a Signed-off-by.
->>
->>         I went ahead and updated the patch to address the comments; I've
->> only compile tested this.  Are you (Jeremy or John) able to test this to
->> confirm that it will hash ipv6 traffic as expected (I can test it, but
->> it won't be today)?
->>
->>         John, can you post a Signed-off-by for your patch (really, this
->> updated version of your patch)?
->>
+Is it possible that lockd has a -next tree which isn't pulled into linux-next?
+(there's nothing listed in MAINTAINERS that I could see).
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
