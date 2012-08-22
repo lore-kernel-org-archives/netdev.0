@@ -1,52 +1,41 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH v3 13/17] lockd: use new hashtable implementation
-Date: Wed, 22 Aug 2012 07:47:53 -0400
-Message-ID: <20120822114752.GC20158@fieldses.org>
-References: <1345602432-27673-1-git-send-email-levinsasha928@gmail.com>
- <1345602432-27673-14-git-send-email-levinsasha928@gmail.com>
+From: =?ISO-8859-1?Q?Bj=F8rnar_Ness?= <bjornar.ness@gmail.com>
+Subject: Problem removing netns
+Date: Wed, 22 Aug 2012 13:59:25 +0200
+Message-ID: <CAJO99T=qtzw_4LZOg9eXmPrjKELDzxCHKBEabwd50N9unS7kbw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	paul.gortmaker@windriver.com, davem@davemloft.net,
-	rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
-	aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org,
-	josh@joshtriplett.org, eric.dumazet@gmail.com,
-	mathieu.desnoyers@efficios.com, axboe@kernel.dk, agk@redhat.com,
-	dm-devel@redhat.com, neilb@suse.de, ccaulfie@redhat.com,
-	teigland@redhat.com, Trond.Myklebust@netapp.com, fweisbec@gmail.com,
-	jesse@nicira.com, venkat.x.venkatsubra@oracle.com, ejt@redhat.com,
-	snitzer@redhat.com, edumazet@google.com, linux-nfs@vger.kernel.org,
-	dev@openvswitch.org, rds-devel@oss.oracle.com, lw@cn.fujitsu.com
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1345602432-27673-14-git-send-email-levinsasha928@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:51641 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753432Ab2HVL70 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 07:59:26 -0400
+Received: by wgbdr13 with SMTP id dr13so784214wgb.1
+        for <netdev@vger.kernel.org>; Wed, 22 Aug 2012 04:59:25 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 22, 2012 at 04:27:08AM +0200, Sasha Levin wrote:
-> +static int __init nlm_init(void)
-> +{
-> +	hash_init(nlm_files);
-> +	return 0;
-> +}
-> +
-> +module_init(nlm_init);
+I am experimenting with netns (Linux precision 3.2.0-0.bpo.2-amd64 #1
+SMP Sun Jun 3 21:40:57 UTC 2012 x86_64 GNU/Linux)
+and have problems removing unused namespace, this is what I do:
 
-That's giving me:
+ip netns add netns_one
+ip netns add netns_two
+ip link add name if_one type veth peer name if_one_peer
+ip link add name if_two type veth peer name if_two_peer
+ip link set dev if_one_peer netns netns_one
+ip link set dev if_two_peer netns netns_two
 
-fs/lockd/svcsubs.o: In function `nlm_init':
-/home/bfields/linux-2.6/fs/lockd/svcsubs.c:454: multiple definition of `init_module'
-fs/lockd/svc.o:/home/bfields/linux-2.6/fs/lockd/svc.c:606: first defined here
-make[2]: *** [fs/lockd/lockd.o] Error 1
-make[1]: *** [fs/lockd] Error 2
-make[1]: *** Waiting for unfinished jobs....
+ip netns exec netns_one bash
 
---b.
+# in other terminal:
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+ip netns delete netns_two
+
+# => Cannot remove /var/run/netns/netns_two: Device or resource busy
+
+Is this expected  behaviour? If so, what is the correct process to
+actually remove a namespace?
+
+-- 
+Bj(/)rnar
