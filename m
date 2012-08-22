@@ -1,341 +1,196 @@
-From: Timur Tabi <timur@freescale.com>
-Subject: [PATCH] netdev/phy: add MDIO bus multiplexer driven by a memory-mapped FPGA
-Date: Wed, 22 Aug 2012 16:45:54 -0500
-Message-ID: <1345671954-6398-1-git-send-email-timur@freescale.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 06/18] netfilter: add protocol independant NAT core
+Date: Thu, 23 Aug 2012 00:13:57 +0200 (MEST)
+Message-ID: <Pine.GSO.4.63.1208230008220.5113@stinky-local.trash.net>
+References: <1345434006-16549-1-git-send-email-kaber@trash.net>
+ <1345434006-16549-7-git-send-email-kaber@trash.net>
+ <alpine.LNX.2.01.1208201011480.6101@frira.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: Andy Fleming <afleming@freescale.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<david.daney@cavium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe005.messaging.microsoft.com ([216.32.180.31]:19117
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932343Ab2HVVqB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 17:46:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@inai.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.01.1208201011480.6101@frira.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-An FPGA controls which sub-bus is connected to the master MDIO bus.  The
-FPGA must be memory-mapped and contain only 8-bit registers (which keeps
-things simple).
+On Mon, 20 Aug 2012, Jan Engelhardt wrote:
 
-Tested on a Freescale P5020DS board which uses the "PIXIS" FPGA attached
-to the localbus.
+> On Monday 2012-08-20 05:39, Patrick McHardy wrote:
+>>
+>> enum ctattr_nat {
+>> 	CTA_NAT_UNSPEC,
+>> -	CTA_NAT_MINIP,
+>> -	CTA_NAT_MAXIP,
+>> +	CTA_NAT_V4_MINIP,
+>> +#define CTA_NAT_MINIP CTA_NAT_V4_MINIP
+>> +	CTA_NAT_V4_MAXIP,
+>> +#define CTA_NAT_MAXIP CTA_NAT_V4_MAXIP
+>> 	CTA_NAT_PROTO,
+>> 	__CTA_NAT_MAX
+>> };
+>
+> One could also
+>
+> enum ctattr_nat {
+>   ...
+>   __CTA_NAT_MAX,
+>
+>  CTA_NAT_MINIP = CTA_NAT_V4_MINIP,
+>  CTA_NAT_MAXIP = CTA_NAT_V4_MAXIP,
+> };
+>
+> to provide the old names.
 
-Signed-off-by: Timur Tabi <timur@freescale.com>
----
- .../devicetree/bindings/net/mdio-mux-fpga.txt      |   74 ++++++++
- drivers/net/phy/Kconfig                            |   13 ++
- drivers/net/phy/Makefile                           |    1 +
- drivers/net/phy/mdio-mux-fpga.c                    |  186 ++++++++++++++++++++
- 4 files changed, 274 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/mdio-mux-fpga.txt
- create mode 100644 drivers/net/phy/mdio-mux-fpga.c
+Sure. Doesn't really matter since defines are not used consistently
+(in which case you could use them for #ifdefs).
 
-diff --git a/Documentation/devicetree/bindings/net/mdio-mux-fpga.txt b/Documentation/devicetree/bindings/net/mdio-mux-fpga.txt
-new file mode 100644
-index 0000000..ef567c6
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/mdio-mux-fpga.txt
-@@ -0,0 +1,74 @@
-+Properties for an MDIO bus multiplexer/switch controlled by an FPGA register.
-+
-+This is a special case of a MDIO bus multiplexer.  An FPGA register is used
-+to control which child bus is connected.
-+
-+Required properties in addition to the generic multiplexer properties:
-+
-+- compatible : string, must contain "mdio-mux-fpga"
-+
-+- mdio-mux-device : phandle, points to the FPGA (or similar) node.  This
-+	must be a memory-mapped device with 8-bit registers.
-+
-+- mdio-mux-register : integer, contains the offset of the register that
-+	controls the bus multiplexer.
-+
-+- mdio-mux-mask : integer, contains an 8-bit mask that specifies which
-+	bits in the register control the actual bus multiplexer.  The
-+	'reg' property of each child mdio-mux node must be constrained by
-+	this mask.
-+
-+Example:
-+
-+The FPGA node defines a memory-mapped FPGA with a register space of 0x30 bytes.
-+For the "EMI2" MDIO bus, register 9 (BRDCFG1) controls the mux on that bus.
-+A bitmask of 0x6 means that bits 1 and 2 (bit 0 is lsb) are the bits on
-+BRDCFG1 that control the actual mux.
-+
-+	/* The FPGA node */
-+	fpga: board-control@3,0 {
-+		compatible = "fsl,p5020ds-fpga", "fsl,fpga-ngpixis";
-+		reg = <3 0 0x30>;
-+	};
-+
-+	/* The parent MDIO bus. */
-+	xmdio0: mdio@f1000 {
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+		compatible = "fsl,fman-xmdio";
-+		reg = <0xf1000 0x1000>;
-+		interrupts = <100 1 0 0>;
-+	};
-+
-+	mdio-mux-emi2 {
-+		compatible = "mdio-mux-fpga", "mdio-mux";
-+		mdio-parent-bus = <&xmdio0>;
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+		mdio-mux-device = <&fpga>;
-+		mdio-mux-register = <9>; // BRDCFG1
-+		mdio-mux-mask = <0x6>; // EMI2
-+
-+		emi2_slot1: mdio@0 {	// Slot 1 XAUI (FM2)
-+			reg = <0>;
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+
-+			phy_xgmii_slot1: ethernet-phy@0 {
-+				compatible = "ethernet-phy-ieee802.3-c45";
-+				reg = <4>;
-+			};
-+		};
-+
-+		emi2_slot2: mdio@2 {	// Slot 2 XAUI (FM1)
-+			reg = <2>;
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+
-+			phy_xgmii_slot2: ethernet-phy@4 {
-+				compatible = "ethernet-phy-ieee802.3-c45";
-+				reg = <0>;
-+			};
-+		};
-+	};
-+
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 3090dc6..c3fc957 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -159,6 +159,19 @@ config MDIO_BUS_MUX_GPIO
- 	  several child MDIO busses to a parent bus.  Child bus
- 	  selection is under the control of GPIO lines.
- 
-+config MDIO_BUS_MUX_FPGA
-+	tristate "Support for FPGA-controlled MDIO bus multiplexers"
-+	depends on OF_MDIO
-+	select MDIO_BUS_MUX
-+	help
-+	  This module provides a driver for MDIO bus multiplexers that
-+	  are controlled via a simple memory-mapped FPGA device.  The
-+	  multiplexer connects one of several child MDIO busses to a parent
-+	  bus.  Child bus selection is under the control of one of the
-+	  FPGA's registers.
-+
-+	  Currently, only 8-bit registers are supported.
-+
- endif # PHYLIB
- 
- config MICREL_KS8995MA
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 6d2dc6c..3bf4d7a 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -28,3 +28,4 @@ obj-$(CONFIG_MICREL_KS8995MA)	+= spi_ks8995.o
- obj-$(CONFIG_AMD_PHY)		+= amd.o
- obj-$(CONFIG_MDIO_BUS_MUX)	+= mdio-mux.o
- obj-$(CONFIG_MDIO_BUS_MUX_GPIO)	+= mdio-mux-gpio.o
-+obj-$(CONFIG_MDIO_BUS_MUX_FPGA) += mdio-mux-fpga.o
-diff --git a/drivers/net/phy/mdio-mux-fpga.c b/drivers/net/phy/mdio-mux-fpga.c
-new file mode 100644
-index 0000000..7b4e69c
---- /dev/null
-+++ b/drivers/net/phy/mdio-mux-fpga.c
-@@ -0,0 +1,186 @@
-+/*
-+ * FPGA MDIO MUX driver
-+ *
-+ * This driver supports
-+ * Author: Timur Tabi <timur@freescale.com>
-+ *
-+ * Copyright 2012 Freescale Semiconductor, Inc.
-+ *
-+ * This file is licensed under the terms of the GNU General Public License
-+ * version 2.  This program is licensed "as is" without any warranty of any
-+ * kind, whether express or implied.
-+ */
-+
-+#include <linux/platform_device.h>
-+#include <linux/device.h>
-+#include <linux/of_mdio.h>
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/phy.h>
-+#include <linux/mdio-mux.h>
-+
-+struct mdio_mux_fpga_state {
-+	void *mux_handle;
-+	phys_addr_t phys;
-+	unsigned int offset;
-+	uint8_t mask;
-+};
-+
-+/*
-+ * MDIO multiplexing switch function
-+ *
-+ * This function is called by the mdio-mux layer when it thinks the mdio bus
-+ * multiplexer needs to switch.
-+ *
-+ * 'current_child' is the current value of the mux register (masked via
-+ * s->mask).
-+ *
-+ * 'desired_child' is the value of the 'reg' property of the target child MDIO
-+ * node.
-+ *
-+ * The first time this function is called, current_child == -1.
-+ *
-+ * If current_child == desired_child, then the mux is already set to the
-+ * correct bus.
-+ */
-+static int mdio_mux_fpga_switch_fn(int current_child, int desired_child,
-+				      void *data)
-+{
-+	struct mdio_mux_fpga_state *s = data;
-+
-+	if (current_child ^ desired_child) {
-+		void *p = ioremap(s->phys + s->offset, 1);
-+		uint8_t x;
-+
-+		if (!p)
-+			return -ENOMEM;
-+
-+		x = ioread8(p);
-+		iowrite8((x & ~s->mask) | desired_child, p);
-+
-+		iounmap(p);
-+	}
-+
-+	return 0;
-+}
-+
-+static int __devinit mdio_mux_fpga_probe(struct platform_device *pdev)
-+{
-+	struct device_node *np2, *np = pdev->dev.of_node;
-+	struct mdio_mux_fpga_state *s;
-+	struct resource res;
-+	const __be32 *iprop;
-+	int len, ret;
-+
-+	dev_dbg(&pdev->dev, "probing node %s\n", np->full_name);
-+
-+	s = devm_kzalloc(&pdev->dev, sizeof(*s), GFP_KERNEL);
-+	if (!s)
-+		return -ENOMEM;
-+
-+	iprop = of_get_property(np, "mdio-mux-device", &len);
-+	if (!iprop || len != sizeof(phandle)) {
-+		dev_err(&pdev->dev, "missing mdio-mux-device property\n");
-+		return -ENODEV;
-+	}
-+	np2 = of_find_node_by_phandle(be32_to_cpup(iprop));
-+	if (!np2) {
-+		dev_err(&pdev->dev, "mdio-mux-device points to invalid node\n");
-+		return -ENODEV;
-+	}
-+
-+	ret = of_address_to_resource(np2, 0, &res);
-+	if (ret) {
-+		dev_err(&pdev->dev, "cannot obtain memory map for node %s\n",
-+			np2->full_name);
-+		return ret;
-+	}
-+	s->phys = res.start;
-+
-+	iprop = of_get_property(np, "mdio-mux-register", &len);
-+	if (!iprop || len != sizeof(uint32_t)) {
-+		dev_err(&pdev->dev, "missing mdio-mux-register property\n");
-+		return -EINVAL;
-+	}
-+	s->offset = be32_to_cpup(iprop);
-+	if (s->offset >= resource_size(&res)) {
-+		dev_err(&pdev->dev, "mdio-mux-register value %u is too large\n",
-+			s->offset);
-+		return -EINVAL;
-+	}
-+
-+	iprop = of_get_property(np, "mdio-mux-mask", &len);
-+	if (!iprop || len != sizeof(uint32_t)) {
-+		dev_err(&pdev->dev, "missing mdio-mux-mask property\n");
-+		return -ENODEV;
-+	}
-+	if (be32_to_cpup(iprop) > 255) {
-+		dev_err(&pdev->dev, "only 8-bit registers are supported\n");
-+		return -EINVAL;
-+	}
-+	s->mask = be32_to_cpup(iprop);
-+
-+	/*
-+	 * Verify that the 'reg' property of each child MDIO bus does not
-+	 * set any bits outside of the 'mask'.
-+	 */
-+	for_each_available_child_of_node(np, np2) {
-+		iprop = of_get_property(np2, "reg", &len);
-+		if (!iprop || len != sizeof(uint32_t)) {
-+			dev_err(&pdev->dev, "mdio-mux child node %s is "
-+				"missing a 'reg' property\n", np2->full_name);
-+			return -ENODEV;
-+		}
-+		if (be32_to_cpup(iprop) & ~s->mask) {
-+			dev_err(&pdev->dev, "mdio-mux child node %s has "
-+				"a 'reg' value with unmasked bits\n",
-+				np2->full_name);
-+			return -ENODEV;
-+		}
-+	}
-+
-+	ret = mdio_mux_init(&pdev->dev, mdio_mux_fpga_switch_fn,
-+			    &s->mux_handle, s);
-+	if (ret) {
-+		dev_err(&pdev->dev, "failed to register mdio-mux bus %s\n",
-+			np->full_name);
-+		return ret;
-+	}
-+
-+	pdev->dev.platform_data = s;
-+
-+	return 0;
-+}
-+
-+static int __devexit mdio_mux_fpga_remove(struct platform_device *pdev)
-+{
-+	struct mdio_mux_fpga_state *s = dev_get_platdata(&pdev->dev);
-+
-+	mdio_mux_uninit(s->mux_handle);
-+
-+	return 0;
-+}
-+
-+static struct of_device_id mdio_mux_fpga_match[] = {
-+	{
-+		.compatible = "mdio-mux-fpga",
-+	},
-+	{},
-+};
-+MODULE_DEVICE_TABLE(of, mdio_mux_fpga_match);
-+
-+static struct platform_driver mdio_mux_fpga_driver = {
-+	.driver = {
-+		.name		= "mdio-mux-fpga",
-+		.owner		= THIS_MODULE,
-+		.of_match_table = mdio_mux_fpga_match,
-+	},
-+	.probe		= mdio_mux_fpga_probe,
-+	.remove		= __devexit_p(mdio_mux_fpga_remove),
-+};
-+
-+module_platform_driver(mdio_mux_fpga_driver);
-+
-+MODULE_AUTHOR("Timur Tabi <timur@freescale.com>");
-+MODULE_DESCRIPTION("FPGA MDIO MUX driver");
-+MODULE_LICENSE("GPL v2");
--- 
-1.7.3.4
+>> diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+>> index fcc543c..33372a1 100644
+>> --- a/net/ipv4/netfilter/Kconfig
+>> +++ b/net/ipv4/netfilter/Kconfig
+> [...]
+>>
+>> -config NF_NAT_NEEDED
+>> -	bool
+>> -	depends on NF_NAT
+>> -	default y
+>> -
+>
+> Could add "if NF_NAT_IPV4".."endif" block as appropriate around here,
+> to save on all the extra "depend on NF_NAT_IPV4" clauses.
+
+Agreed.
+>> +static int nf_nat_ipv4_in_range(const struct nf_conntrack_tuple *t,
+>> +				const struct nf_nat_range *range)
+>> +{
+>> +	return ntohl(t->src.u3.ip) >= ntohl(range->min_addr.ip) &&
+>> +	       ntohl(t->src.u3.ip) <= ntohl(range->max_addr.ip);
+>> +}
+>
+> static bool ..
+
+Changed.
+
+>> +static bool nf_nat_ipv4_manip_pkt(struct sk_buff *skb,
+>> +				  unsigned int iphdroff,
+>> +				  const struct nf_nat_l4proto *l4proto,
+>> +				  const struct nf_conntrack_tuple *target,
+>> +				  enum nf_nat_manip_type maniptype)
+>> +{
+>> +	struct iphdr *iph;
+>> +	unsigned int hdroff;
+>> +
+>> +	if (!skb_make_writable(skb, iphdroff + sizeof(*iph)))
+>> +		return false;
+>> +
+>> +	iph = (void *)skb->data + iphdroff;
+>
+> Is iph = ip_hdr(skb), hdroff = iphdroff+skb_iphdrlen(iph) not usable here?
+
+No, we're also translating the inner packets in ICMP error messages.
+
+>> +	hdroff = iphdroff + iph->ihl * 4;
+>> +
+>> +	if (!l4proto->manip_pkt(skb, &nf_nat_l3proto_ipv4, iphdroff, hdroff,
+>> +				target, maniptype))
+>> +		return false;
+>> +	iph = (void *)skb->data + iphdroff;
+>
+> Is trying to avoid some GNU extensions a worthwhile goal? If so,
+> iph = (struct iphdr *)(skb->data + iphdroff) should be used, like in:
+
+I don't get your point.
+
+>> +static void nf_nat_ipv4_csum_update(struct sk_buff *skb,
+>> +				    unsigned int iphdroff, __sum16 *check,
+>> +				    const struct nf_conntrack_tuple *t,
+>> +				    enum nf_nat_manip_type maniptype)
+>> +{
+>> +	struct iphdr *iph = (struct iphdr *)(skb->data + iphdroff);
+>> [...]
+>> +}
+>
+>
+>
+>> +static void nf_nat_ipv4_csum_recalc(struct sk_buff *skb,
+>> +				    u8 proto, void *data, __sum16 *check,
+>> +				    int datalen, int oldlen)
+>> +{
+>> +	const struct iphdr *iph = ip_hdr(skb);
+>> +	struct rtable *rt = skb_rtable(skb);
+>> +
+>> +	if (skb->ip_summed != CHECKSUM_PARTIAL) {
+>> +		if (!(rt->rt_flags & RTCF_LOCAL) &&
+>> +		    (!skb->dev || skb->dev->features & NETIF_F_V4_CSUM)) {
+>> +			skb->ip_summed = CHECKSUM_PARTIAL;
+>> +			skb->csum_start = skb_headroom(skb) +
+>> +					  skb_network_offset(skb) +
+>> +					  ip_hdrlen(skb);
+>> +			skb->csum_offset = (void *)check - data;
+>> +			*check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+>> +						    datalen, proto, 0);
+>> +		} else {
+>> +			*check = 0;
+>> +			*check = csum_tcpudp_magic(iph->saddr, iph->daddr,
+>> +						   datalen, proto,
+>> +						   csum_partial(data, datalen,
+>> +								0));
+>> +			if (proto == IPPROTO_UDP && !*check)
+>> +				*check = CSUM_MANGLED_0;
+>> +		}
+>> +	} else
+>> +		inet_proto_csum_replace2(check, skb,
+>> +					 htons(oldlen), htons(datalen), 1);
+>> +}
+>
+> Here is a style factory trick: invert the condition such that the
+> simple case is first, and the big one becomes an else if
+> with a reduced indent:
+
+This is existing code, I don't want to bloat the diff by unnecessarily
+rearranging it.
+
+>> +static void __exit nf_nat_l3proto_ipv4_exit(void)
+>> +{
+>> +	nf_nat_l3proto_unregister(&nf_nat_l3proto_ipv4);
+>> +	nf_nat_l4proto_unregister(NFPROTO_IPV4, &nf_nat_l4proto_icmp);
+>> +}
+>> +
+>> +MODULE_LICENSE("GPL");
+>> +MODULE_ALIAS("nf-nat-" __stringify(AF_INET));
+>
+> Technically, this would have to be NFPROTO_IPV4, though GNU C has yet
+> to gain an extension to stringify enum constants..
+
+I'm aware of that.
+
+>> +	/* 1) If this srcip/proto/src-proto-part is currently mapped,
+>> +	 * and that same mapping gives a unique tuple within the given
+>> +	 * range, use that.
+>> +	 *
+>> +	 * This is only required for source (ie. NAT/masq) mappings.
+>> +	 * So far, we don't do local source mappings, so multiple
+>> +	 * manips not an issue.
+>           manips are not an issue.
+>
+>
+>> -		/* nf_conntrack_alter_reply might re-allocate extension area */
+>> +		/* nf_conntrack_alter_reply might re-allocate exntension aera */
+>
+> extension was correct :)
+
+Fixed, thanks.
+
+>> +		.target		= xt_snat_target_v1,
+>> +		.targetsize	= sizeof(struct nf_nat_range),
+>> +		.table		= "nat",
+>> +		.hooks		= (1 << NF_INET_POST_ROUTING) |
+>> +				  (1 << NF_INET_LOCAL_OUT),
+>> +		.me		= THIS_MODULE,
+>
+> .family = NFPROTO_UNSPEC,
+>
+> Just for completeness.
+
+This is obvious.
