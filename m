@@ -1,139 +1,109 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/3] x86_64: Define 128-bit memory-mapped I/O operations
-Date: Wed, 22 Aug 2012 15:24:59 +0100
-Message-ID: <1345645499.15245.8.camel@deadeye.wl.decadent.org.uk>
-References: <1345598601.2659.76.camel@bwh-desktop.uk.solarflarecom.com>
-	 <503437D4.8090706@zytor.com>
-	 <1345601051.2659.93.camel@bwh-desktop.uk.solarflarecom.com>
-	 <20120821.193446.1534561579811962053.davem@davemloft.net>
-	 <503450E2.2040504@zytor.com>
-	 <CA+55aFy=ohFoZ1yZGdj1DCcNXU9gsndgH9Qod4q8+s=sbGKUzQ@mail.gmail.com>
-	 <1345642009.15245.0.camel@deadeye.wl.decadent.org.uk>
-	 <CA+55aFzxhxjOeFSUUJ6XQGUmnaZf7QPSz611zmj2VziEDUB_sA@mail.gmail.com>
+From: Sylvain Munaut <s.munaut@whatever-company.com>
+Subject: Re: NULL deref in bnx2 / crashes ? ( was: netconsole leads to stalled
+ CPU task )
+Date: Wed, 22 Aug 2012 16:29:53 +0200
+Message-ID: <CAF6-1L7nRoG10P=+QRb=LfL4O8K877zUD6L6d5EoCq-QNt1FWA@mail.gmail.com>
+References: <CAF6-1L4wh0P-Wi-keN98wb-2V_avZYVE3ycf3tEe9SBpgK1dDQ@mail.gmail.com>
+	<1345634026.5158.1084.camel@edumazet-glaptop>
+	<CAF6-1L6zr5WJxo6FVk+2ya=EEs++u3x9iSrDxX-weBofLJuA1g@mail.gmail.com>
+	<1345640757.5158.1321.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "H. Peter Anvin" <hpa@zytor.com>,
-	David Miller <davem@davemloft.net>, <tglx@linutronix.de>,
-	<mingo@redhat.com>, <netdev@vger.kernel.org>,
-	<linux-net-drivers@solarflare.com>, <x86@kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:27721 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753085Ab2HVOZF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 10:25:05 -0400
-In-Reply-To: <CA+55aFzxhxjOeFSUUJ6XQGUmnaZf7QPSz611zmj2VziEDUB_sA@mail.gmail.com>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:48011 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753085Ab2HVO3y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 10:29:54 -0400
+Received: by vbbff1 with SMTP id ff1so1089717vbb.19
+        for <netdev@vger.kernel.org>; Wed, 22 Aug 2012 07:29:54 -0700 (PDT)
+In-Reply-To: <1345640757.5158.1321.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-08-22 at 07:20 -0700, Linus Torvalds wrote:
-> On Wed, Aug 22, 2012 at 6:26 AM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
-> >
-> > It's <1345598804.2659.78.camel@bwh-desktop.uk.solarflarecom.com>.
-> 
-> That doesn't help me in the least. I don't *have* that email. It was
-> never sent to me. I don't know what list it went on, and googling the
-> ID doesn't get me anything. So sending me the mail ID is kind of
-> pointless.
-> 
-> So I still don't see the actual patch. But everything I heard about it
-> indirectly makes me go "That's just crazy".
+Hi,
 
-Sorry, I'll paste it below.
+> my patch was incomplete, sorry :
+>
+> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> index 346b1eb..ddc453b 100644
+> --- a/net/core/netpoll.c
+> +++ b/net/core/netpoll.c
+> @@ -335,8 +335,13 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
+>         /* don't get messages out of order, and no recursion */
+>         if (skb_queue_len(&npinfo->txq) == 0 && !netpoll_owner_active(dev)) {
+>                 struct netdev_queue *txq;
+> +               int queue_index = skb_get_queue_mapping(skb);
+>
+> -               txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
+> +               if (queue_index >= dev->real_num_tx_queues) {
+> +                       queue_index = 0;
+> +                       skb_set_queue_mapping(skb, 0);
+> +               }
+> +               txq = netdev_get_tx_queue(dev, queue_index);
+>
+>                 /* try until next clock tick */
+>                 for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
 
-> > When updating a TX DMA ring pointer in sfc, we can push the first new
-> > descriptor at the same time, so that for a linear packet only one DMA
-> > read is then required before the packet goes out on the wire.  Currently
-> > this requires 2-4 MMIO writes (each a separate PCIe transactions),
-> > depending on the host word size.  There is a measurable reduction in
-> > latency if we can reduce it to 1 PCIe transaction.  (But as previously
-> > discussed, write-combining isn't suitable for this.)
-> 
-> Quite frankly, this isn't even *remotely* changing my mind about our
-> FPU model. I'm like "ok, some random driver is trying to be clever,
-> and it's almost certainly getting things entirely wrong and doing
-> things that only work on certain machines".
-> 
-> If you really think it's a big deal, do it in *your* driver, and make
-> it do the whole irq_fpu_usable() check together with
-> kernel_fpu_begin/end(). And make it very much x86-specific and with a
-> fallback to non-atomic accesses.
-[...]
+Ok, I tried this.
 
-Which is what I first submitted, but David wanted it to be generic.
+The machine with the intel card still hard freeze (no output / no nothing ...)
+The machine with the bnx2 don't crash anymore and no NULL deref, but
+the modprobe still hangs and I get this every 180 sec or so :
 
-Ben.
+[  775.956926] INFO: rcu_preempt self-detected stall on CPU { 14}
+(t=600009 jiffies)
+[  775.956927] Pid: 3154, comm: modprobe Not tainted
+3.6.0-rc2-00092-g9040592-dirty #8
+[  775.956928] Call Trace:
+[  775.956931]  <IRQ>  [<ffffffff81094a58>] ? rcu_pending+0xee/0x490
+[  775.956933]  [<ffffffff810571da>] ?
+irqtime_account_process_tick.isra.73+0x134/0x23a
+[  775.956934]  [<ffffffff81095406>] ? rcu_check_callbacks+0x79/0x85
+[  775.956936]  [<ffffffff81041609>] ? update_process_times+0x30/0x62
+[  775.956938]  [<ffffffff8106f204>] ? tick_sched_timer+0x75/0x9e
+[  775.956939]  [<ffffffff8106f18f>] ? tick_nohz_handler+0xd0/0xd0
+[  775.956941]  [<ffffffff810501cf>] ? __run_hrtimer.isra.26+0x75/0xcd
+[  775.956943]  [<ffffffff81050873>] ? hrtimer_interrupt+0xe2/0x1f0
+[  775.956948]  [<ffffffffa000941d>] ? bnx2_poll_work+0x2d3/0xa52 [bnx2]
+[  775.956950]  [<ffffffff8100fa5c>] ? sched_clock+0x5/0x8
+[  775.956952]  [<ffffffff81023d93>] ? smp_apic_timer_interrupt+0x6d/0x7f
+[  775.956954]  [<ffffffff8133244a>] ? apic_timer_interrupt+0x6a/0x70
+[  775.956956]  [<ffffffff8126d407>] ? __napi_complete+0x1c/0x23
+[  775.956958]  [<ffffffff81074249>] ? do_raw_spin_lock+0x18/0x1b
+[  775.956960]  [<ffffffff8126e596>] ? net_rx_action+0x7f/0x185
+[  775.956962]  [<ffffffff8100f80e>] ? __cycles_2_ns+0x9/0x45
+[  775.956964]  [<ffffffff8103caae>] ? __do_softirq+0x9c/0x14b
+[  775.956966]  [<ffffffff81332b3c>] ? call_softirq+0x1c/0x30
+[  775.956968]  <EOI>  [<ffffffff8100aea6>] ? do_softirq+0x3c/0x7a
+[  775.956970]  [<ffffffff8103c9db>] ? _local_bh_enable_ip.isra.7+0x76/0xa3
+[  775.956972]  [<ffffffff812804b7>] ? netpoll_poll_dev+0xfe/0x4bc
+[  775.956974]  [<ffffffff81280b02>] ? netpoll_send_skb_on_dev+0x28d/0x33b
+[  775.956978]  [<ffffffffa0ff2c4c>] ? bond_dev_queue_xmit+0x62/0x7f [bonding]
+[  775.956982]  [<ffffffffa0ff7588>] ? bond_3ad_xmit_xor+0xe7/0x10c [bonding]
+[  775.956984]  [<ffffffffa0ff2ffd>] ? bond_start_xmit+0x394/0x3ff [bonding]
+[  775.956987]  [<ffffffff81280ac1>] ? netpoll_send_skb_on_dev+0x24c/0x33b
+[  775.956990]  [<ffffffffa0079fd5>] ?
+vlan_dev_hard_start_xmit+0xab/0xf6 [8021q]
+[  775.956992]  [<ffffffff81280ac1>] ? netpoll_send_skb_on_dev+0x24c/0x33b
+[  775.956996]  [<ffffffffa01998e8>] ? __br_deliver+0x93/0xbe [bridge]
+[  775.956998]  [<ffffffffa019837d>] ? br_dev_xmit+0x14a/0x16b [bridge]
+[  775.957001]  [<ffffffff81280ac1>] ? netpoll_send_skb_on_dev+0x24c/0x33b
+[  775.957003]  [<ffffffff81280372>] ? find_skb.isra.24+0x31/0x78
+[  775.957005]  [<ffffffff81280bdc>] ? netpoll_send_skb+0x2c/0x39
+[  775.957007]  [<ffffffffa00c422a>] ? write_msg+0x98/0xf3 [netconsole]
+[  775.957009]  [<ffffffff81037db2>] ?
+call_console_drivers.constprop.17+0x6e/0x7d
+[  775.957011]  [<ffffffff81038248>] ? console_unlock+0x2ab/0x351
+[  775.957012]  [<ffffffff81039112>] ? register_console+0x273/0x303
+[  775.957014]  [<ffffffffa0103182>] ? init_netconsole+0x182/0x210 [netconsole]
+[  775.957016]  [<ffffffffa0103000>] ? 0xffffffffa0102fff
+[  775.957018]  [<ffffffff81002085>] ? do_one_initcall+0x75/0x12c
+[  775.957019]  [<ffffffff81077b35>] ? sys_init_module+0x80/0x1c5
+[  775.957020]  [<ffffffff813319b9>] ? system_call_fastpath+0x16/0x1b
 
----
-Subject: sfc: Use __raw_writeo() to perform TX descriptor push where possible
 
-Use the new __raw_writeo() function for TX descriptor push where
-available.  This means we now use only a single PCIe transaction
-on x86_64 (vs 2 before), reducing TX latency slightly.
+Cheers,
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/bitfield.h |    3 +++
- drivers/net/ethernet/sfc/io.h       |   18 ++++++++++++++++--
- 2 files changed, 19 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/bitfield.h b/drivers/net/ethernet/sfc/bitfield.h
-index b26a954..5feeba2 100644
---- a/drivers/net/ethernet/sfc/bitfield.h
-+++ b/drivers/net/ethernet/sfc/bitfield.h
-@@ -83,6 +83,9 @@ typedef union efx_qword {
- 
- /* An octword (eight-word, i.e. 16 byte) datatype - little-endian in HW */
- typedef union efx_oword {
-+#ifdef HAVE_INT128
-+       __le128 u128;
-+#endif
-        __le64 u64[2];
-        efx_qword_t qword[2];
-        __le32 u32[4];
-diff --git a/drivers/net/ethernet/sfc/io.h b/drivers/net/ethernet/sfc/io.h
-index 751d1ec..fbcdc6d 100644
---- a/drivers/net/ethernet/sfc/io.h
-+++ b/drivers/net/ethernet/sfc/io.h
-@@ -57,10 +57,22 @@
-  *   current state.
-  */
- 
--#if BITS_PER_LONG == 64
-+#if defined(writeo)
-+#define EFX_USE_OWORD_IO 1
-+#endif
-+
-+#if defined(readq) && defined(writeq)
- #define EFX_USE_QWORD_IO 1
- #endif
- 
-+#ifdef EFX_USE_OWORD_IO
-+static inline void _efx_writeo(struct efx_nic *efx, __le128 value,
-+                              unsigned int reg)
-+{
-+       __raw_writeo((__force u128)value, efx->membase + reg);
-+}
-+#endif
-+
- #ifdef EFX_USE_QWORD_IO
- static inline void _efx_writeq(struct efx_nic *efx, __le64 value,
-                                  unsigned int reg)
-@@ -235,7 +247,9 @@ static inline void _efx_writeo_page(struct efx_nic *efx, efx_oword_t *value,
-                   "writing register %x with " EFX_OWORD_FMT "\n", reg,
-                   EFX_OWORD_VAL(*value));
- 
--#ifdef EFX_USE_QWORD_IO
-+#if defined(EFX_USE_OWORD_IO)
-+       _efx_writeo(efx, value->u128, reg);
-+#elif defined(EFX_USE_QWORD_IO)
-        _efx_writeq(efx, value->u64[0], reg + 0);
-        _efx_writeq(efx, value->u64[1], reg + 8);
- #else
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+    Sylvain
