@@ -1,60 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] x86_64: Define 128-bit memory-mapped I/O operations
-Date: Wed, 22 Aug 2012 14:14:33 -0700 (PDT)
-Message-ID: <20120822.141433.730254311852927123.davem@davemloft.net>
-References: <CA+55aFy=ohFoZ1yZGdj1DCcNXU9gsndgH9Qod4q8+s=sbGKUzQ@mail.gmail.com>
-	<5034591E.3040908@zytor.com>
-	<20120821.211427.1832042852041589162.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, bhutchings@solarflare.com,
-	tglx@linutronix.de, mingo@redhat.com, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com, x86@kernel.org
-To: hpa@zytor.com
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: bonding: why zero out bond_dev->dev_addr when last slave removed?
+Date: Wed, 22 Aug 2012 14:20:10 -0700
+Message-ID: <26676.1345670410@death.nxdomain>
+References: <5035458C.9000804@genband.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	netdev <netdev@vger.kernel.org>
+To: Chris Friesen <chris.friesen@genband.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58184 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753493Ab2HVVOg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 17:14:36 -0400
-In-Reply-To: <20120821.211427.1832042852041589162.davem@davemloft.net>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:59624 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752177Ab2HVVUn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 17:20:43 -0400
+Received: from /spool/local
+	by e35.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Wed, 22 Aug 2012 15:20:42 -0600
+Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
+	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 337CE1FF003C
+	for <netdev@vger.kernel.org>; Wed, 22 Aug 2012 15:20:40 -0600 (MDT)
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q7MLKEA8182430
+	for <netdev@vger.kernel.org>; Wed, 22 Aug 2012 15:20:14 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q7MLKCPw027254
+	for <netdev@vger.kernel.org>; Wed, 22 Aug 2012 15:20:13 -0600
+In-reply-to: <5035458C.9000804@genband.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 21 Aug 2012 21:14:27 -0700 (PDT)
+Chris Friesen <chris.friesen@genband.com> wrote:
+[...]
+>I was wondering about the rationale for zeroing out bond_dev->dev_addr
+>when the last slave is removed from the bond.
+>
+>Assuming bond0 is currently using the mac address of eth0 then doing
+>
+>ifenslave -d bond0 eth0
+>ifenslave -d bond0 eth1
+>ifenslave bond0 eth1
+>ifenslave bond0 eth0
+>
+>ends up changing the MAC address of the bond link. Given that the bond
+>itself stays up during this time, why don't we let the bond device keep
+>it's previous MAC address (at least if fail_over_mac is zero)?
+>
+>Is this to account for the case where we move the bond to totally
+>different devices such that the old MAC no longer belongs to one of the
+>slaves but instead belongs to a NIC outside the bond?
 
-> From: "H. Peter Anvin" <hpa@zytor.com>
-> Date: Tue, 21 Aug 2012 20:59:26 -0700
-> 
->> kernel_fpu_end() would still have to re-enable preemption (and
->> preemption would have to check the work flag), but that should be cheap.
->> 
->> We could allow the FPU in the kernel to have preemption, if we allocated
->> space for two xstates per thread instead of one.  That is, however, a
->> fair hunk of memory.
-> 
-> Once you have done the first FPU save for the sake of the kernel, you
-> can minimize what you save for any deeper nesting because the kernel
-> only cares about a very limited part of that FPU state not the whole
-> 1K thing.
-> 
-> Those bits you can save by hand with a bunch of explicit stores of the
-> XMM registers, or something like that.
+	More or less.  When the last slave is removed from the bond,
+several properties of the bond are reset to an initial state, one of
+which is that the bond's MAC is reset to all zeroes.
 
-BTW, just to clarify, I'm not saying that we should save the FPU on
-every trap where we find the FPU enabled or anything stupid like that.
+	If fail_over_mac is set to "active," then the bond must use the
+MAC of one of its slaves, as the implication is that the slaves cannot
+or should not change their MAC addresses.  In this case, I believe the
+bond's MAC will be set to the first active slave's MAC, so holding over
+the bond's MAC makes no practical difference.
 
-Definitely keep the kern_fpu_begin()/kern_fpu_end() type markers
-around FPU usage, but allow some kind of nesting facility.
+	For fail_over_mac=follow, if the bond kept its MAC, then it
+would be possible for both slaves to end up with the same MAC (because
+the follow logic will set the first slave to the bond's MAC when it is
+made active, and the second slave will keep its MAC after enslavement,
+and those could be the same MAC if the second slave is the one the bond
+originally got its MAC from).
 
-Here's one idea.  Anyone using the existing kern_fpu_*() markers get
-the existing behavior.  Only one level of kernel FPU usage is allowed.
+	-J
 
-But a new interface allows specification of a state-save mask.  And it
-is only users of this interface for which we allow nesting past the
-first FPU user.
-
-If this is the first kernel FPU user, we always do the full fxsave or
-whatever to push out the full state.  For any level of kernel FPU
-nesting we save only what is in the save-mask, by hand.
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
