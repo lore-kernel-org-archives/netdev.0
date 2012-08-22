@@ -1,42 +1,41 @@
-From: "Banerjee, Debabrata" <dbanerje@akamai.com>
-Subject: Re: [PATCH 1/2] ipv6: do not hold route table lock when send ndisc
- probe
-Date: Wed, 22 Aug 2012 12:04:37 -0400
-Message-ID: <CC5A7885.7DED%dbanerje@akamai.com>
-References: <1345520643.12468.6.camel@cr0>
+From: Roland Dreier <roland@kernel.org>
+Subject: Best way to set kernel thread affinity for handling a socket?
+Date: Wed, 22 Aug 2012 09:10:37 -0700
+Message-ID: <CAG4TOxNMRR_-bYJV1a_je2HKrpmVuGubH9ks4GdG8Shwa92K0w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Cong Wang <amwang@redhat.com>,
-	Debabrata Banerjee <dbavatar@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay01.akamai.com ([72.246.2.12]:55760 "EHLO
-	prod-mail-xrelay01.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757844Ab2HVQKF convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Aug 2012 12:10:05 -0400
-In-Reply-To: <1345520643.12468.6.camel@cr0>
-Content-Language: en-US
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:52761 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755035Ab2HVQK6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 12:10:58 -0400
+Received: by qaas11 with SMTP id s11so4610310qaa.19
+        for <netdev@vger.kernel.org>; Wed, 22 Aug 2012 09:10:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for the patch. We're discussing how to reach to this code properly
-in the lab now. Although we will probably have to modify so it's compliant
-with the RFC, by checking if a ndisc_send_ns() has already been queued
-within rt->rt6i_idev->cnf.rtr_probe_interval, otherwise it could flood the
-network with neighbor discoveries.
+Hi everyone,
 
--Debabrata
+Let's say I have kernel code that's sitting in a loop doing
+kernel_accept() on a TCP socket.  As each connection comes in, it
+forks off a kernel thread to deal with that socket.
 
-On 8/20/12 11:44 PM, "Cong Wang" <amwang@redhat.com> wrote:
+If I have a modern NIC with RSS and multiple queues, each TCP flow is
+going to be steered to one queue, which is probably bound to one CPU.
+So when I fork off that kernel thread, I'd like to bind it to the CPU
+where its NIC queues are going to be processed.  My question is, how
+do I find out which CPU that is?  Is there anything in the new socket
+structure I get back from kernel_accept() that I can look at to know
+which CPU the packets came in on?
 
->Hi, Debabrata,
->
->Could you help to test the attached patch below?
->
->Thanks!
->
+I'm thinking about this in the context of the kernel's iSCSI target
+code (drivers/target/iscsi), which creates threads to handle each
+iSCSI connection and sets their CPU affinity pretty much randomly
+(well, based on some "thread id", cf iscsit_thread_get_cpumask()).
+And with a modern NIC, this leads to packets being received on one CPU
+but the data being consumed on another CPU, all the time, which is
+obviously far from optimal.
+
+Thanks!
+  Roland
