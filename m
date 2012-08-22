@@ -1,46 +1,129 @@
-From: Lutz Jaenicke <ljaenicke@innominate.com>
-Subject: [PATCH] iproute2: rtnl_wilddump_request: fix alignment for embedded platforms
-Date: Wed, 22 Aug 2012 09:38:53 +0200
-Message-ID: <1345621133-23583-1-git-send-email-ljaenicke@innominate.com>
-Cc: Lutz Jaenicke <ljaenicke@innominate.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from home.innominate.com ([77.245.32.75]:40099 "EHLO
-	home.innominate.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756970Ab2HVHjT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 03:39:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
+Date: Wed, 22 Aug 2012 10:06:38 +0200
+Message-ID: <1345622798.5158.717.camel@edumazet-glaptop>
+References: <503419D3.1080700@linlab.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jerry Chu <hkchu@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Nandita Dukkipati <nanditad@google.com>
+To: Alex Bergmann <alex@linlab.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <503419D3.1080700@linlab.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Platforms have different alignment requirements which need to be
-fulfilled by the compiler. If the structure elements are already
-4 byte (NLMGS_ALIGNTO) aligned by the compiler adding an explicit
-padding element (align_rta) is not allowed.
-Use __attribute__ ((aligned (NLMSG_ALIGNTO))) in order to achieve
-the required alignment.
-Experienced on ARM (xscale) with symptom
-  netlink: 12 bytes leftover after parsing attributes
+On Wed, 2012-08-22 at 01:29 +0200, Alex Bergmann wrote:
+> Hi David,
+> 
+> I'm not 100% sure, but it looks like I found an RFC mismatch with the 
+> current default values of the TCP implementation.
+> 
+> Alex
+> 
+> From 8b854a525eb45f64ad29dfab16f9d9f681e84495 Mon Sep 17 00:00:00 2001
+> From: Alexander Bergmann <alex@linlab.net>
+> Date: Wed, 22 Aug 2012 00:29:08 +0200
+> Subject: [PATCH 1/1] tcp: Wrong timeout for SYN segments
+> 
+> Commit 9ad7c049 changed the initRTO from 3secs to 1sec in accordance to
+> RFC6298 (former RFC2988bis). This introduced a gap with RFC1122 that
+> defines a minimum retransmission window for SYN segments of at least
+> 180secs.
+> 
+> Prior to 9ad7c049 the timeout was defined with 189secs. Now we have only
+> a timeout of 63secs.
+> 
+>         ((2 << 5) - 1) * 3 secs = 189 secs
+>         ((2 << 5) - 1) * 1 secs = 63 secs
 
-Signed-off-by: Lutz Jaenicke <ljaenicke@innominate.com>
----
- lib/libnetlink.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+Strange maths ... here I have :
 
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index 8e8c8b9..05701ef 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -94,10 +94,9 @@ int rtnl_wilddump_request(struct rtnl_handle *rth, int family, int type)
- 	struct {
- 		struct nlmsghdr nlh;
- 		struct rtgenmsg g;
--		__u16 align_rta;	/* attribute has to be 32bit aligned */
- 		struct rtattr ext_req;
- 		__u32 ext_filter_mask;
--	} req;
-+	} req __attribute__ ((aligned (NLMSG_ALIGNTO)));
- 
- 	memset(&req, 0, sizeof(req));
- 	req.nlh.nlmsg_len = sizeof(req);
--- 
-1.7.2.5
+(1+2+4+8+16) * 3 = 93 secs
+vs
+(1+2+4+8+16) * 1 = 31 secs
+
+So even before said commit, we were not rfc1122 compliant.
+
+Using 7 retries would give 127 seconds, still not rfc compliant.
+
+> 
+> To fulfill the MUST constraint in RFC1122 section 4.2.3.5 about R2 for
+> SYN segments, the values of TCP_SYN_RETRIES and TCP_SYNACK_RETRIES must
+> be changed to 7 reties.
+> 
+>         ((2 << 7) - 1) * 1 secs = 255 secs
+> 
+> This would result in an ETIMEDOUT of 4 minutes 15 seconds.
+> 
+> Signed-off-by: Alexander Bergmann <alex@linlab.net>
+> ---
+>  include/net/tcp.h |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 1f000ff..7eaae19 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -98,10 +98,10 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
+>                                  * 15 is ~13-30min depending on RTO.
+>                                  */
+>  
+> -#define TCP_SYN_RETRIES         5      /* number of times to retry active opening a
+> +#define TCP_SYN_RETRIES         7      /* number of times to retry active opening a
+>                                  * connection: ~180sec is RFC minimum   */
+>  
+> -#define TCP_SYNACK_RETRIES 5   /* number of times to retry passive opening a
+> +#define TCP_SYNACK_RETRIES 7   /* number of times to retry passive opening a
+>                                  * connection: ~180sec is RFC minimum   */
+>  
+>  #define TCP_TIMEWAIT_LEN (60*HZ) /* how long to wait to destroy TIME-WAIT
+
+Nice catch !
+
+I kind of disagree with the SYNACK part.
+
+RFC 1122 says in 4.2.3.5 :
+
+  However, the values of R1 and R2 may be different for SYN
+  and data segments.  In particular, R2 for a SYN segment MUST
+  be set large enough to provide retransmission of the segment
+  for at least 3 minutes.  The application can close the
+  connection (i.e., give up on the open attempt) sooner, of
+  course.
+
+I am not sure SYNACK segments were considered as a 'SYN segment' in this
+section. (as the application cannot 'close' the connection on the passive
+side, only kernel is aware of a SYN_RECV socket)
+
+Increasing TCP_SYNACK_RETRIES from 5 to 7 or 8 amplifies the
+SYN/synflood problem.
+
+A valid client should retransmit its SYN packet for 180 seconds, I dont
+believe we should make sure the SYNACK will be sent for 180 seconds as
+well.
+
+If we _really_ want to have a 3 minutes R2 for SYNACK, I suggest
+changing things to that we dont send more than 5 SYNACKS, maybe using
+RTO=6 after one retransmit
+
+current situation :
+1 sec
+2 sec
+4 sec
+8 sec
+16 sec
+----
+total of 31 seconds
+
+
+1 sec
+12 sec  // switch to RTO = 6
+24 sec
+48 sec
+96 sec
+-----
+total of 181 seconds
