@@ -1,174 +1,141 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: [PATCH v3 02/17] userns: use new hashtable implementation
-Date: Wed, 22 Aug 2012 04:26:57 +0200
-Message-ID: <1345602432-27673-3-git-send-email-levinsasha928@gmail.com>
+From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v3 03/17] mm, ksm: use new hashtable implementation
+Date: Wed, 22 Aug 2012 04:26:58 +0200
+Message-ID: <1345602432-27673-4-git-send-email-levinsasha928@gmail.com>
 References: <1345602432-27673-1-git-send-email-levinsasha928@gmail.com>
-Cc: tj@kernel.org,
-	akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org,
-	paul.gortmaker@windriver.com,
-	davem@davemloft.net,
-	rostedt@goodmis.org,
-	mingo@elte.hu,
-	ebiederm@xmission.com,
-	aarcange@redhat.com,
-	ericvh@gmail.com,
-	netdev@vger.kernel.org,
-	josh@joshtriplett.org,
-	eric.dumazet@gmail.com,
-	mathieu.desnoyers@efficios.com,
-	axboe@kernel.dk,
-	agk@redhat.com,
-	dm-devel@redhat.com,
-	neilb@suse.de,
-	ccaulfie@redhat.com,
-	teigland@redhat.com,
-	Trond.Myklebust@netapp.com,
-	bfields@fieldses.org,
-	fweisbec@gmail.com,
-	jesse@nicira.com,
-	venkat.x.venkatsubra@oracle.com,
-	ejt@redhat.com,
-	snitzer@redhat.com,
-	edumazet@google.com,
-	linux-nfs@vger.kernel.org,
-	dev@openvswitch.org,
-	rds-devel@oss.oracle.com,
-	lw@cn.fujitsu.com,
-	Sasha Levin <levinsasha928@gmail.com>
-To: torvalds@linux-foundation.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1345602432-27673-1-git-send-email-levinsasha928@gmail.com>
-Sender: owner-linux-mm@kvack.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
+	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org,
+	Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1345602432-27673-1-git-send-email-levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Switch to using the new hashtable implementation to store user structs.
-This reduces the amount of generic unrelated code in kernel/user.c.
+Switch ksm to use the new hashtable implementation. This reduces the amount of
+generic unrelated code in the ksm module.
 
-Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- kernel/user.c |   33 +++++++++++++--------------------
- 1 files changed, 13 insertions(+), 20 deletions(-)
+ mm/ksm.c |   33 +++++++++++++++------------------
+ 1 files changed, 15 insertions(+), 18 deletions(-)
 
-diff --git a/kernel/user.c b/kernel/user.c
-index b815fef..d10c484 100644
---- a/kernel/user.c
-+++ b/kernel/user.c
-@@ -16,6 +16,7 @@
- #include <linux/interrupt.h>
- #include <linux/export.h>
- #include <linux/user_namespace.h>
+diff --git a/mm/ksm.c b/mm/ksm.c
+index 9638620..dd4d6af 100644
+--- a/mm/ksm.c
++++ b/mm/ksm.c
+@@ -33,7 +33,7 @@
+ #include <linux/mmu_notifier.h>
+ #include <linux/swap.h>
+ #include <linux/ksm.h>
+-#include <linux/hash.h>
 +#include <linux/hashtable.h>
+ #include <linux/freezer.h>
+ #include <linux/oom.h>
  
- /*
-  * userns count is 1 for root user, 1 for init_uts_ns,
-@@ -52,13 +53,9 @@ EXPORT_SYMBOL_GPL(init_user_ns);
-  */
+@@ -156,9 +156,8 @@ struct rmap_item {
+ static struct rb_root root_stable_tree = RB_ROOT;
+ static struct rb_root root_unstable_tree = RB_ROOT;
  
- #define UIDHASH_BITS	(CONFIG_BASE_SMALL ? 3 : 7)
--#define UIDHASH_SZ	(1 << UIDHASH_BITS)
--#define UIDHASH_MASK		(UIDHASH_SZ - 1)
--#define __uidhashfn(uid)	(((uid >> UIDHASH_BITS) + uid) & UIDHASH_MASK)
--#define uidhashentry(uid)	(uidhash_table + __uidhashfn((__kuid_val(uid))))
+-#define MM_SLOTS_HASH_SHIFT 10
+-#define MM_SLOTS_HASH_HEADS (1 << MM_SLOTS_HASH_SHIFT)
+-static struct hlist_head mm_slots_hash[MM_SLOTS_HASH_HEADS];
++#define MM_SLOTS_HASH_BITS 10
++static DEFINE_HASHTABLE(mm_slots_hash, MM_SLOTS_HASH_BITS);
  
- static struct kmem_cache *uid_cachep;
--struct hlist_head uidhash_table[UIDHASH_SZ];
-+static DEFINE_HASHTABLE(uidhash_table, UIDHASH_BITS)
+ static struct mm_slot ksm_mm_head = {
+ 	.mm_list = LIST_HEAD_INIT(ksm_mm_head.mm_list),
+@@ -275,26 +274,21 @@ static inline void free_mm_slot(struct mm_slot *mm_slot)
  
- /*
-  * The uidhash_lock is mostly taken from process context, but it is
-@@ -84,22 +81,22 @@ struct user_struct root_user = {
- /*
-  * These routines must be called with the uidhash spinlock held!
-  */
--static void uid_hash_insert(struct user_struct *up, struct hlist_head *hashent)
-+static void uid_hash_insert(struct user_struct *up)
+ static struct mm_slot *get_mm_slot(struct mm_struct *mm)
  {
--	hlist_add_head(&up->uidhash_node, hashent);
-+	hash_add(uidhash_table, &up->uidhash_node, __kuid_val(up->uid));
+-	struct mm_slot *mm_slot;
+-	struct hlist_head *bucket;
+ 	struct hlist_node *node;
++	struct mm_slot *slot;
++
++	hash_for_each_possible(mm_slots_hash, slot, node, link, (unsigned long)mm) 
++		if (slot->mm == mm)
++			return slot;
+ 
+-	bucket = &mm_slots_hash[hash_ptr(mm, MM_SLOTS_HASH_SHIFT)];
+-	hlist_for_each_entry(mm_slot, node, bucket, link) {
+-		if (mm == mm_slot->mm)
+-			return mm_slot;
+-	}
+ 	return NULL;
  }
  
- static void uid_hash_remove(struct user_struct *up)
+ static void insert_to_mm_slots_hash(struct mm_struct *mm,
+ 				    struct mm_slot *mm_slot)
  {
--	hlist_del_init(&up->uidhash_node);
-+	hash_del(&up->uidhash_node);
- }
- 
--static struct user_struct *uid_hash_find(kuid_t uid, struct hlist_head *hashent)
-+static struct user_struct *uid_hash_find(kuid_t uid)
- {
- 	struct user_struct *user;
- 	struct hlist_node *h;
- 
--	hlist_for_each_entry(user, h, hashent, uidhash_node) {
-+	hash_for_each_possible(uidhash_table, user, h, uidhash_node, __kuid_val(uid)) {
- 		if (uid_eq(user->uid, uid)) {
- 			atomic_inc(&user->__count);
- 			return user;
-@@ -135,7 +132,7 @@ struct user_struct *find_user(kuid_t uid)
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&uidhash_lock, flags);
--	ret = uid_hash_find(uid, uidhashentry(uid));
-+	ret = uid_hash_find(uid);
- 	spin_unlock_irqrestore(&uidhash_lock, flags);
- 	return ret;
- }
-@@ -156,11 +153,10 @@ void free_uid(struct user_struct *up)
- 
- struct user_struct *alloc_uid(kuid_t uid)
- {
--	struct hlist_head *hashent = uidhashentry(uid);
- 	struct user_struct *up, *new;
- 
- 	spin_lock_irq(&uidhash_lock);
--	up = uid_hash_find(uid, hashent);
-+	up = uid_hash_find(uid);
- 	spin_unlock_irq(&uidhash_lock);
- 
- 	if (!up) {
-@@ -176,13 +172,13 @@ struct user_struct *alloc_uid(kuid_t uid)
- 		 * on adding the same user already..
- 		 */
- 		spin_lock_irq(&uidhash_lock);
--		up = uid_hash_find(uid, hashent);
-+		up = uid_hash_find(uid);
- 		if (up) {
- 			key_put(new->uid_keyring);
- 			key_put(new->session_keyring);
- 			kmem_cache_free(uid_cachep, new);
- 		} else {
--			uid_hash_insert(new, hashent);
-+			uid_hash_insert(new);
- 			up = new;
- 		}
- 		spin_unlock_irq(&uidhash_lock);
-@@ -196,17 +192,14 @@ out_unlock:
- 
- static int __init uid_cache_init(void)
- {
--	int n;
+-	struct hlist_head *bucket;
 -
- 	uid_cachep = kmem_cache_create("uid_cache", sizeof(struct user_struct),
- 			0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+-	bucket = &mm_slots_hash[hash_ptr(mm, MM_SLOTS_HASH_SHIFT)];
+ 	mm_slot->mm = mm;
+-	hlist_add_head(&mm_slot->link, bucket);
++	hash_add(mm_slots_hash, &mm_slot->link, (unsigned long)mm);
+ }
  
--	for(n = 0; n < UIDHASH_SZ; ++n)
--		INIT_HLIST_HEAD(uidhash_table + n);
-+	hash_init(uidhash_table);
+ static inline int in_stable_tree(struct rmap_item *rmap_item)
+@@ -647,7 +641,7 @@ static int unmerge_and_remove_all_rmap_items(void)
+ 		ksm_scan.mm_slot = list_entry(mm_slot->mm_list.next,
+ 						struct mm_slot, mm_list);
+ 		if (ksm_test_exit(mm)) {
+-			hlist_del(&mm_slot->link);
++			hash_del(&mm_slot->link);
+ 			list_del(&mm_slot->mm_list);
+ 			spin_unlock(&ksm_mmlist_lock);
  
- 	/* Insert the root user immediately (init already runs as root) */
- 	spin_lock_irq(&uidhash_lock);
--	uid_hash_insert(&root_user, uidhashentry(GLOBAL_ROOT_UID));
-+	uid_hash_insert(&root_user);
- 	spin_unlock_irq(&uidhash_lock);
+@@ -1385,7 +1379,7 @@ next_mm:
+ 		 * or when all VM_MERGEABLE areas have been unmapped (and
+ 		 * mmap_sem then protects against race with MADV_MERGEABLE).
+ 		 */
+-		hlist_del(&slot->link);
++		hash_del(&slot->link);
+ 		list_del(&slot->mm_list);
+ 		spin_unlock(&ksm_mmlist_lock);
  
+@@ -1552,7 +1546,7 @@ void __ksm_exit(struct mm_struct *mm)
+ 	mm_slot = get_mm_slot(mm);
+ 	if (mm_slot && ksm_scan.mm_slot != mm_slot) {
+ 		if (!mm_slot->rmap_list) {
+-			hlist_del(&mm_slot->link);
++			hash_del(&mm_slot->link);
+ 			list_del(&mm_slot->mm_list);
+ 			easy_to_free = 1;
+ 		} else {
+@@ -2028,6 +2022,9 @@ static int __init ksm_init(void)
+ 	 */
+ 	hotplug_memory_notifier(ksm_memory_callback, 100);
+ #endif
++
++	hash_init(mm_slots_hash);
++
  	return 0;
+ 
+ out_free:
 -- 
 1.7.8.6
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
