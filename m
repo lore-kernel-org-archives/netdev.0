@@ -1,42 +1,42 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH 2/3] x86_64: Define 128-bit memory-mapped I/O operations
-Date: Wed, 22 Aug 2012 08:54:00 -0700
-Message-ID: <50350098.6030100@zytor.com>
-References: <1345598601.2659.76.camel@bwh-desktop.uk.solarflarecom.com>   <503437D4.8090706@zytor.com>   <1345601051.2659.93.camel@bwh-desktop.uk.solarflarecom.com>   <20120821.193446.1534561579811962053.davem@davemloft.net>   <503450E2.2040504@zytor.com>   <CA+55aFy=ohFoZ1yZGdj1DCcNXU9gsndgH9Qod4q8+s=sbGKUzQ@mail.gmail.com>   <1345642009.15245.0.camel@deadeye.wl.decadent.org.uk>   <CA+55aFzxhxjOeFSUUJ6XQGUmnaZf7QPSz611zmj2VziEDUB_sA@mail.gmail.com>   <1345645499.15245.8.camel@deadeye.wl.decadent.org.uk>   <20120822143054.GD9803@kvack.org>  <1345647537.2709.0.camel@bwh-desktop.uk.solarflarecom.com>  <5034F725.2090802@zytor.com>  <AE90C24D6B3A694183C094C60CF0A2F6026B6FC1@saturn3.aculab.com> <1345650689.2709.32.camel@bwh-desktop.uk.solarflarecom.com>
+From: "Banerjee, Debabrata" <dbanerje@akamai.com>
+Subject: Re: [PATCH 1/2] ipv6: do not hold route table lock when send ndisc
+ probe
+Date: Wed, 22 Aug 2012 12:04:37 -0400
+Message-ID: <CC5A7885.7DED%dbanerje@akamai.com>
+References: <1345520643.12468.6.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	Benjamin LaHaise <bcrl@kvack.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, tglx@linutronix.de,
-	mingo@redhat.com, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com, x86@kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Cong Wang <amwang@redhat.com>,
+	Debabrata Banerjee <dbavatar@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:43568 "EHLO mail.zytor.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753851Ab2HVPyS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Aug 2012 11:54:18 -0400
-In-Reply-To: <1345650689.2709.32.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from prod-mail-xrelay01.akamai.com ([72.246.2.12]:55760 "EHLO
+	prod-mail-xrelay01.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757844Ab2HVQKF convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Aug 2012 12:10:05 -0400
+In-Reply-To: <1345520643.12468.6.camel@cr0>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/22/2012 08:51 AM, Ben Hutchings wrote:
->>
->> FWIW can you even guarantee to do an atomic 64bit PCIe transfer
->> on many systems (without resorting to a dma unit).
+Thanks for the patch. We're discussing how to reach to this code properly
+in the lab now. Although we will probably have to modify so it's compliant
+with the RFC, by checking if a ndisc_send_ns() has already been queued
+within rt->rt6i_idev->cnf.rtr_probe_interval, otherwise it could flood the
+network with neighbor discoveries.
+
+-Debabrata
+
+On 8/20/12 11:44 PM, "Cong Wang" <amwang@redhat.com> wrote:
+
+>Hi, Debabrata,
 >
-> On any architecture that implements readq and writeq these had better be
-> atomic.
+>Could you help to test the attached patch below?
 >
-
-Sorry, you fail.  There are definitely systems in the field where 
-readq() and writeq() are implemented, because the CPU supports them, 
-where the fabric does not guarantee they are intact.
-
-	-hpa
-
--- 
-H. Peter Anvin, Intel Open Source Technology Center
-I work for Intel.  I don't speak on their behalf.
+>Thanks!
+>
