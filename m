@@ -1,53 +1,65 @@
-From: Francesco Ruggeri <fruggeri@aristanetworks.com>
-Subject: Re: [PATCH 1/1] ipv4: ipmr_expire_timer causes crash when removing
- net namespace
-Date: Wed, 22 Aug 2012 15:56:16 -0700
-Message-ID: <CA+HUmGicUy3hLvTwtBe5jj98GC=irAsEJtAfsVQAtppdRp7ijg@mail.gmail.com>
-References: <CA+HUmGgAx-APi4DRr=M2nUMfiO8yjcxovvqkTuX7=ZpUDbo5Tg@mail.gmail.com>
-	<1345526991.5158.373.camel@edumazet-glaptop>
+From: Ryan Mallon <rmallon@gmail.com>
+Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and naive hashtable
+Date: Thu, 23 Aug 2012 09:54:15 +1000
+Message-ID: <50357127.1000608@gmail.com>
+References: <1345602432-27673-1-git-send-email-levinsasha928@gmail.com> <1345602432-27673-2-git-send-email-levinsasha928@gmail.com> <20120822180138.GA19212@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:63223 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755856Ab2HVW4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 18:56:17 -0400
-Received: by obbuo13 with SMTP id uo13so318366obb.19
-        for <netdev@vger.kernel.org>; Wed, 22 Aug 2012 15:56:17 -0700 (PDT)
-In-Reply-To: <1345526991.5158.373.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Sasha Levin <levinsasha928@gmail.com>, torvalds@linux-foundation.org,
+ akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+ linux-mm@kvack.org, paul.gortmaker@windriver.com, davem@davemloft.net,
+ rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
+ aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org,
+ josh@joshtriplett.org, eric.dumazet@gmail.com,
+ mathieu.desnoyers@efficios.com, axboe@kernel.dk, agk@redhat.com,
+ dm-devel@redhat.com, neilb@suse.de, ccaulfie@redhat.com,
+ teigland@redhat.com, Trond.Myklebust@netapp.com, bfields@fieldses.org,
+ fweisbec@gmail.com, jesse@nicira.com, venkat.x.venkatsubra@oracle.com,
+ ejt@redhat.com, snitzer@redhat.com, edumazet@google.com,
+ linux-nfs@vger.kernel.org, dev@openvswitch.org,
+ rds-devel@oss.oracle.com, lw@cn.fujitsu.com
+To: Tejun Heo <tj@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20120822180138.GA19212@google.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 20, 2012 at 10:29 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2012-08-20 at 17:15 -0700, Francesco Ruggeri wrote:
->> I
->> +static void ipmr_free_table(struct mr_table *mrt)
->> +{
->> +     del_timer(&mrt->ipmr_expire_timer);
->> +     mroute_clean_tables(mrt);
->> +     kfree(mrt);
->> +}
->
-> Seems racy to me.
->
-> del_timer() doesnt make sure timer is completely disabled.
->
-> Probably need spin_lock_bh(&mfc_unres_lock) /
-> spin_unlock_bh(&mfc_unres_lock), and maybe del_timer_sync()
->
+On 23/08/12 04:01, Tejun Heo wrote:
+> Hello, Sasha.
+> 
+> On Wed, Aug 22, 2012 at 04:26:56AM +0200, Sasha Levin wrote:
+>> +#define DEFINE_HASHTABLE(name, bits)					\
+>> +	struct hlist_head name[HASH_SIZE(bits)];
+> 
+> Shouldn't this be something like the following?
+> 
+> #define DEFINE_HASHTABLE(name, bits)					\
+> 	struct hlist_head name[HASH_SIZE(bits)] =			\
+> 		{ [0 ... HASH_SIZE(bits) - 1] = HLIST_HEAD_INIT };
+> 
+> Also, given that the declaration isn't non-trivial, you'll probably
+> want a matching DECLARE_HASHTABLE() macro too.
+> 
+>> +/* Use hash_32 when possible to allow for fast 32bit hashing in 64bit kernels. */
+>> +#define hash_min(val, bits) ((sizeof(val)==4) ? hash_32((val), (bits)) : hash_long((val), (bits)))
+> 
+> Why is the branching condition sizeof(val) == 4 instead of <= 4?
+> Also, no biggie but why isn't this macro in caps?
 
-I see your point, del_timer_sync should be used to take care of any
-pending timers.
-I am not sure about the need for further locking though. This function
-simply replaces a direct call to kfree(mrt), so I assume by this point
-today's code already makes sure no one is going to access this
-structure (including to start the timer), or we have a bigger problem
-than just the timer.
-Maybe someone familiar with ipmr can comment.
+It should probably use gcc's statement expression extensions to prevent
+side-effect issues with the arguments:
 
-Francesco
+  #define hash_min ({		\
+	sizeof(val) <= 4 ?	\
+	hash_32(val, bits) :	\
+	hash_long(val, bits));	\
+  })
 
->
->
+~Ryan
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
