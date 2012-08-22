@@ -1,73 +1,80 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: NULL deref in bnx2 / crashes ? ( was: netconsole leads to
- stalled CPU task )
-Date: Wed, 22 Aug 2012 15:40:56 +0000 (UTC)
-Message-ID: <k12ui5$b6j$1@ger.gmane.org>
-References: <CAF6-1L4wh0P-Wi-keN98wb-2V_avZYVE3ycf3tEe9SBpgK1dDQ@mail.gmail.com>
- <1345634026.5158.1084.camel@edumazet-glaptop>
- <CAF6-1L6zr5WJxo6FVk+2ya=EEs++u3x9iSrDxX-weBofLJuA1g@mail.gmail.com>
- <1345640757.5158.1321.camel@edumazet-glaptop>
- <CAF6-1L7nRoG10P=+QRb=LfL4O8K877zUD6L6d5EoCq-QNt1FWA@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2/3] x86_64: Define 128-bit memory-mapped I/O operations
+Date: Wed, 22 Aug 2012 16:41:15 +0100
+Message-ID: <1345650075.2709.22.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1345598601.2659.76.camel@bwh-desktop.uk.solarflarecom.com>
+	 <503437D4.8090706@zytor.com>
+	 <1345601051.2659.93.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20120821.193446.1534561579811962053.davem@davemloft.net>
+	 <503450E2.2040504@zytor.com>
+	 <CA+55aFy=ohFoZ1yZGdj1DCcNXU9gsndgH9Qod4q8+s=sbGKUzQ@mail.gmail.com>
+	 <1345642009.15245.0.camel@deadeye.wl.decadent.org.uk>
+	 <CA+55aFzxhxjOeFSUUJ6XQGUmnaZf7QPSz611zmj2VziEDUB_sA@mail.gmail.com>
+	 <1345645499.15245.8.camel@deadeye.wl.decadent.org.uk>
+	 <CA+55aFxoWLad9vtfAzQ7qXWcspL92D5s5+MFJ-HfyH3LVqfpaA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: "H. Peter Anvin" <hpa@zytor.com>,
+	David Miller <davem@davemloft.net>, <tglx@linutronix.de>,
+	<mingo@redhat.com>, <netdev@vger.kernel.org>,
+	<linux-net-drivers@solarflare.com>, <x86@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:56254 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752962Ab2HVPlP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Aug 2012 11:41:15 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1T4D3Q-0004HQ-8u
-	for netdev@vger.kernel.org; Wed, 22 Aug 2012 17:41:12 +0200
-Received: from 112.132.201.16 ([112.132.201.16])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 22 Aug 2012 17:41:12 +0200
-Received: from xiyou.wangcong by 112.132.201.16 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 22 Aug 2012 17:41:12 +0200
+Received: from webmail.solarflare.com ([12.187.104.25]:27004 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757612Ab2HVPlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 11:41:19 -0400
+In-Reply-To: <CA+55aFxoWLad9vtfAzQ7qXWcspL92D5s5+MFJ-HfyH3LVqfpaA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 22 Aug 2012 at 14:29 GMT, Sylvain Munaut <s.munaut@whatever-company.com> wrote:
-> Hi,
->
->> my patch was incomplete, sorry :
->>
->> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
->> index 346b1eb..ddc453b 100644
->> --- a/net/core/netpoll.c
->> +++ b/net/core/netpoll.c
->> @@ -335,8 +335,13 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
->>         /* don't get messages out of order, and no recursion */
->>         if (skb_queue_len(&npinfo->txq) == 0 && !netpoll_owner_active(dev)) {
->>                 struct netdev_queue *txq;
->> +               int queue_index = skb_get_queue_mapping(skb);
->>
->> -               txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
->> +               if (queue_index >= dev->real_num_tx_queues) {
->> +                       queue_index = 0;
->> +                       skb_set_queue_mapping(skb, 0);
->> +               }
->> +               txq = netdev_get_tx_queue(dev, queue_index);
->>
->>                 /* try until next clock tick */
->>                 for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
->
-> Ok, I tried this.
->
-> The machine with the intel card still hard freeze (no output / no nothing ...)
-> The machine with the bnx2 don't crash anymore and no NULL deref, but
-> the modprobe still hangs and I get this every 180 sec or so :
->
+On Wed, 2012-08-22 at 07:50 -0700, Linus Torvalds wrote:
+> On Wed, Aug 22, 2012 at 7:24 AM, Ben Hutchings
+> <bhutchings@solarflare.com> wrote:
+> >
+> > Sorry, I'll paste it below.
+> 
+> The thing you pasted isn't actually the thing in the subject line.
+> It's just you *using* it.
+> 
+> I wanted to see what that "writeo()" looks like for x86-64.
+> 
+> But I got google to find it for me by looking for "__raw_writeo", so I
+> can see the patch now. It looks like it might work. Does it really
+> help performance despite always doing those TS games in CR0 for each
+> access?
 
+I haven't run the experiment myself, but my colleagues observed a net
+reduction of 100s of nanoseconds of latency.  That may not sound like
+much, but for a small packet traversing an uncongested twinax link it's
+around 5-10% of the total latency from the descriptor pointer write to
+DMA completion on the peer.
 
-Thanks for reporting this!
+Later, you wrote:
+> Btw, are we even certain that a 128-bit PCIe write is going to remain
+> atomic across a bus (ie over various PCIe bridges etc)?
 
-I will try to see if I can reproduce it on KVM guest tomorrow.
-Need to go to sleep now.
+I don't think PCIe bridges are allowed to split up TLPs (this is why the
+PCI core has to be so careful about programming Max Payload Size).  What
+happens between the processor core and the host bridge is another
+matter, though.
 
-To be honest, I never try to setup netconsole on such a complex NIC,
-bridge on vlan tagged bonding.
+> Do you you
+> care? Is it just a "one transaction is cheaper than two", and it
+> doesn't really have any ordering constraints? If the thing gets split
+> into two 64-bit transactions (in whatever order) by a bridge on the
+> way, would that be ok?
+
+We care if the two transactions are not in ascending address order;
+that's why we had to abandon write combining.
+
+> We've seen buses split accesses before (ie 64-bit writes on 32-bit
+> PCI).
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
