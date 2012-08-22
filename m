@@ -1,31 +1,37 @@
-From: Kevin Wilson <wkevils@gmail.com>
-Subject: copy_skb_header() and sk_buff flags (question)
-Date: Wed, 22 Aug 2012 07:55:32 +0300
-Message-ID: <CAGXs5wVp2bLnwFiuYEg6ZOv0t3DX4PCCgY-EURbs5bySgEqtdw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/3] x86_64: Define 128-bit memory-mapped I/O operations
+Date: Tue, 21 Aug 2012 22:00:10 -0700 (PDT)
+Message-ID: <20120821.220010.1158630981089834558.davem@davemloft.net>
+References: <CA+55aFy=ohFoZ1yZGdj1DCcNXU9gsndgH9Qod4q8+s=sbGKUzQ@mail.gmail.com>
+	<5034591E.3040908@zytor.com>
+	<CA+55aFz39tCSO7sf7+czNEBcEx7q4=KbnAcKEoS-KBwr6D3Psg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hpa@zytor.com, bhutchings@solarflare.com, tglx@linutronix.de,
+	mingo@redhat.com, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com, x86@kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:55712 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750825Ab2HVEzd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 00:55:33 -0400
-Received: by wgbfm10 with SMTP id fm10so5380650wgb.1
-        for <netdev@vger.kernel.org>; Tue, 21 Aug 2012 21:55:32 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:48742 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754046Ab2HVFAN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 01:00:13 -0400
+In-Reply-To: <CA+55aFz39tCSO7sf7+czNEBcEx7q4=KbnAcKEoS-KBwr6D3Psg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Tue, 21 Aug 2012 21:35:22 -0700
 
-I have a question if I may, as I cannot understand this point:
+> My biggest reason to question this all is that I don't think it's
+> worth it. Why would we ever care to do all this in the first place?
+> There's no really sane use for it.
 
-I try to understand why in __copy_skb_header() we copy various flags
-(like ip_summed,
-local_df, pkt_type, priority, ipvs_property, and more. But there are
-flags which we do
-not copy, like nohdr, or fclone, or peeked.
+All the x86 crypto code hits this case all the time, easiest example
+is doing a dm-crypt on a block device when an IPSEC packet arrives.
 
- Aren't these flags part of the sk_buff header?
-
-regards,
-Kevin
+The crypto code has all of this special code and layering that is
+there purely so it can fall back to the slow non-optimized version
+of the crypto operation when it hits this can't-nest-fpu-saving
+situation.
