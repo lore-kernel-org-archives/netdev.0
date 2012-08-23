@@ -1,64 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] Interface for TCP Metrics
-Date: Wed, 22 Aug 2012 22:47:59 -0700 (PDT)
-Message-ID: <20120822.224759.1531662436208583166.davem@davemloft.net>
-References: <alpine.LFD.2.00.1208191402560.1893@ja.ssi.bg>
+Subject: Re: [PATCH net-next] ipv6: gre: fix ip6gre_err()
+Date: Wed, 22 Aug 2012 22:48:54 -0700 (PDT)
+Message-ID: <20120822.224854.934794176873925217.davem@davemloft.net>
+References: <1345384050.5158.208.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ja@ssi.bg
+Cc: xeb@mail.ru, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33360 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33365 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754106Ab2HWFsA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 01:48:00 -0400
-In-Reply-To: <alpine.LFD.2.00.1208191402560.1893@ja.ssi.bg>
+	with ESMTP id S1754106Ab2HWFs5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 01:48:57 -0400
+In-Reply-To: <1345384050.5158.208.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Sun, 19 Aug 2012 14:42:15 +0300 (EEST)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 19 Aug 2012 15:47:30 +0200
 
-> - will use genl with TCP_METRICS_GENL_NAME "tcp_metrics",
-> TCP_METRICS_GENL_VERSION 0x01
-
-Sounds good.
-
-> - provide dumpit method and one cmd to read metrics by exact addr,
-> will use TCP_METRICS_CMD_{GET,...} and TCP_METRICS_ATTR_xxx in
-> new file include/linux/tcp_metrics.h
-
-Ok.
-
-Eric thinks we can filter in userspace, but since it's so easy to
-lookup entries in the kernel and the demux for that is already there,
-I have no objections to have a bonafide netlink operation for
-getting a single entry.
-
-> - Is command to delete cached entry needed? Delete will need
-> new rcu_head. Useful to flush the cache or to delete entries
-> with filter.
-
-Having a way to flush the entire table is useful.  Specific entries,
-is less useful.
-
-> - without support for delete cmd, may be we can add command to
-> reset entry with default values from dst?
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> - Where to put the new netlink code?
-> tcp_metrics_netlink.c
-> tcp_metrics_nl.c
-> or just in current tcp_metrics.c ?
-
-Put it in tcp_metrics.c, that way we don't need to export any
-internals.
-
-> - command to modify specific metric for addr, by name? Only
-> for tcpm_vals? If not locked?
+> ip6gre_err() miscomputes grehlen (sizeof(ipv6h) is 4 or 8,
+> not 40 as expected), and should take into account 'offset' parameter.
 > 
-> 	Do we need modify/delete/reset support or just read
-> support is enough? Comments?
+> Also uses pskb_may_pull() to cope with some fragged skbs
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Dmitry Kozlov <xeb@mail.ru>
 
-I would say that you can support fancy things as long as new
-locking constraints are not added.
+Applied, thanks Eric.
