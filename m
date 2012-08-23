@@ -1,45 +1,48 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: wireless router performance differ with 2.4Ghz vs 5.0Ghz frequency
-Date: Thu, 23 Aug 2012 09:23:16 -0600
-Message-ID: <50364AE4.9050401@genband.com>
-References: <CAF1ivSZ63Zr9STz3NnLV=ynRftMokG=ZGghd+cQu=HRUsiH+EA@mail.gmail.com> <CAGRGNgWddAH3UyYq5T7iT+FuX8ajdGpP6rfjjCUkZZpiCoTmpQ@mail.gmail.com>
+From: "Banerjee, Debabrata" <dbanerje@akamai.com>
+Subject: Re: IPv6 deadlock with CONFIG_IPV6_ROUTER_PREF
+Date: Thu, 23 Aug 2012 11:51:41 -0400
+Message-ID: <19507780-1BF1-48B1-A2FE-6B44B6110D76@akamai.com>
+References: <CC52AD11.7CC2%dbanerje@akamai.com>
+ <CAF1ivSZN8PyPhAkyaFL-GsTbnr4uwP=zzzjZbgqOKts_wgngYA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Lin Ming <mlin@ss.pku.edu.cn>, linux-wireless@vger.kernel.org,
-	networking <netdev@vger.kernel.org>
-To: Julian Calaby <julian.calaby@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Hunt, Joshua" <johunt@akamai.com>,
+	"dbavatar@gmail.com" <dbavatar@gmail.com>,
+	"Lubashev, Igor" <ilubashe@akamai.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Lin Ming <mlin@ss.pku.edu.cn>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og102.obsmtp.com ([64.18.2.157]:54205 "EHLO
-	exprod7og102.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756223Ab2HWPXy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 11:23:54 -0400
-In-Reply-To: <CAGRGNgWddAH3UyYq5T7iT+FuX8ajdGpP6rfjjCUkZZpiCoTmpQ@mail.gmail.com>
+Received: from prod-mail-xrelay02.akamai.com ([72.246.2.14]:37017 "EHLO
+	prod-mail-xrelay02.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934087Ab2HWPvo convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Aug 2012 11:51:44 -0400
+In-Reply-To: <CAF1ivSZN8PyPhAkyaFL-GsTbnr4uwP=zzzjZbgqOKts_wgngYA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/23/2012 04:34 AM, Julian Calaby wrote:
-> Hi,
->
-> On Thu, Aug 23, 2012 at 2:50 PM, Lin Ming<mlin@ss.pku.edu.cn>  wrote:
->> Hi list,
->>
->> I have a wireless router with 2 wireless cards: 2.4Ghz and 5.0Ghz frequency.
->>
->> The performance for 2.4Ghz is much worse than 5.0Ghz.
->>
->> Does the frequency affect performance so much?
-> There are a lot of factors:
-> - Amounts of other networks on the same channel
-> - Noise
-> - Signal strength
-> etc.
->
-> It's quite possible that there are less networks on 5GHz channels
-> where you are so there's less noise, stronger signal, and therefore
-> better performance. Most routers are still only 2.4GHz.
+On Aug 23, 2012, at 11:11 AM, "Lin Ming" <mlin@ss.pku.edu.cn> wrote:
 
-In addition to this you may wish to check your channel width.  You may 
-be using 40MHz channels on 5GHz and 20MHz channels on 2.4GHz.
+> On Fri, Aug 17, 2012 at 1:58 AM, Banerjee, Debabrata
+> <dbanerje@akamai.com> wrote:
+>> This code tries to send a neighbor discovery ICMPv6 packet for router
+>> reachability while read_lock(tb6_lock) is held. The send may want to cause
+>> a fib6_clean_all() garbage collection, which will try to take
+>> write_lock(tb6_lock), resulting in deadlock. Garbage collection becomes
+>> more likely under high load of cloned routes, so this is exploitable as a
+>> DDOS attack, given enough attack hosts in relation max_size of the route
+>> table (default of 4k). I checked from 3.6-rc1 back to 2.6.32, it is
+>> present everywhere.
+> 
+> How about moving the garbage collection to a kernel thread?
+> Then the write_lock(tb6_lock) in this kernel thread won't cause such
+> kind of dead lock with other threads.
+> 
+> Lin Ming
 
-Chris
+It already runs in a thread, this is a forced gc because we are over the gc threshold, and this thread deadlocks with itself. I thing Cong Wang is on the right track with his patch. The implementation of this RFC must be fixed.
+
+-Debabrata
