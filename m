@@ -1,19 +1,19 @@
 From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH net-next] w5100: using eth_hw_addr_random() for random MAC and
+Subject: [PATCH net-next] w5300: using eth_hw_addr_random() for random MAC and
  set device flag
-Date: Thu, 23 Aug 2012 15:28:19 +0800
-Message-ID: <CAPgLHd_akGWHksgn_zR5T6CxO54tPSojzAfkPr+kJKe9i8B9KQ@mail.gmail.com>
+Date: Thu, 23 Aug 2012 15:28:40 +0800
+Message-ID: <CAPgLHd-v=M6QrhT3YnTqUXWqyUa3TgVtNN3Cao1sPXd7stAEww@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:42502 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755894Ab2HWH2U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 03:28:20 -0400
-Received: by qaas11 with SMTP id s11so299743qaa.19
-        for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 00:28:19 -0700 (PDT)
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:64982 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756692Ab2HWH2l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 03:28:41 -0400
+Received: by qcro28 with SMTP id o28so283687qcr.19
+        for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 00:28:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -28,14 +28,14 @@ spatch with a semantic match is used to found this problem.
 
 Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 ---
- drivers/net/ethernet/wiznet/w5100.c | 3 +--
+ drivers/net/ethernet/wiznet/w5300.c | 3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
-index a5826a3..2c08bf6 100644
---- a/drivers/net/ethernet/wiznet/w5100.c
-+++ b/drivers/net/ethernet/wiznet/w5100.c
-@@ -637,8 +637,7 @@ static int __devinit w5100_hw_probe(struct platform_device *pdev)
+diff --git a/drivers/net/ethernet/wiznet/w5300.c b/drivers/net/ethernet/wiznet/w5300.c
+index bdd8891..88943d9 100644
+--- a/drivers/net/ethernet/wiznet/w5300.c
++++ b/drivers/net/ethernet/wiznet/w5300.c
+@@ -557,8 +557,7 @@ static int __devinit w5300_hw_probe(struct platform_device *pdev)
  	if (data && is_valid_ether_addr(data->mac_addr)) {
  		memcpy(ndev->dev_addr, data->mac_addr, ETH_ALEN);
  	} else {
