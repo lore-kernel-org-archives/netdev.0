@@ -1,39 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
-Date: Thu, 23 Aug 2012 14:15:23 +0200
-Message-ID: <1345724123.5904.756.camel@edumazet-glaptop>
-References: <503419D3.1080700@linlab.net>
-	 <CAFbMe2M7ekc94bQk7vTS1LhScPd49VZ-zKOCUXhqwxXtL-nkuA@mail.gmail.com>
-	 <50361AEA.6010807@linlab.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alex Bergmann <alex@linlab.net>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next V3 0/2] Add rtnl_link_ops support to IPoIB
+Date: Thu, 23 Aug 2012 15:15:17 +0300
+Message-ID: <1345724119-32110-1-git-send-email-ogerlitz@mellanox.com>
+Cc: roland@kernel.org, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:64768 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933837Ab2HWMP2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 08:15:28 -0400
-In-Reply-To: <50361AEA.6010807@linlab.net>
+Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:37984 "HELO
+	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932106Ab2HWMPa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 08:15:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-08-23 at 13:58 +0200, Alex Bergmann wrote:
-> On 08/22/2012 06:41 PM, H.K. Jerry Chu wrote:
+This is about adding rtnl_link_ops to IPoIB, primarly addressing feedback 
+from Dave on a similar patch that was part of the eIPoIB submission.
 
-> > This issue occurred to me right after I submitted the patch for RFC6298.
-> > I did not commit any more change because RFC compliance aside, 180secs
-> > just seem like eternity in the Internet age.
-> >
-> > (See my past post on this at
-> > http://marc.info/?l=linux-netdev&m=130759078118866&w=2)
-> 
-> Okay, I missed that post during my search about the current situation.
+Also added the releated iproute2 patch, for the sake of the review and 
+testing, e.g example usages: 
 
-I would suggest to increase TCP_SYN_RETRIES from 5 to 6.
+$ ip link add link ib0 name ib0.1 type ipoib 
+$ ip link add link ib0 name ib0.8001 type ipoib pkey 0x8001
 
-180 secs is eternity, but 31 secs is too small.
+and the obvious
 
-Can you repost a v2, only changing TCP_SYN_RETRIES ?
+$ link delete dev ib0.8001
+$ link delete dev ib0.1
+
+Changes from V2:
+ - removed the notion of user defined index per child, since we can do well w.o it 
+ - for that end, make (an internal to ipoib) distrinction between legacy childs created 
+   through the old sysfs way to childs created using rtnl link ops
+
+Changes from V1: 
+ - applied feedback from Dave Miller to avoid using sysfs
+ - added rtnl_link_ops support in ipoib and use them to add/delete childs
+
+Or Gerlitz (1):
+  IB/ipoib: Add rtnl_link_ops support
+
+ Documentation/infiniband/ipoib.txt           |    3 +
+ drivers/infiniband/ulp/ipoib/Makefile        |    3 +-
+ drivers/infiniband/ulp/ipoib/ipoib.h         |   13 +++
+ drivers/infiniband/ulp/ipoib/ipoib_main.c    |   25 ++++-
+ drivers/infiniband/ulp/ipoib/ipoib_netlink.c |  122 ++++++++++++++++++++++++++
+ drivers/infiniband/ulp/ipoib/ipoib_vlan.c    |  102 ++++++++++++----------
+ 6 files changed, 217 insertions(+), 51 deletions(-)
+ create mode 100644 drivers/infiniband/ulp/ipoib/ipoib_netlink.c
