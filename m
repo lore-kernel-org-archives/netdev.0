@@ -1,78 +1,67 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/3] vlan: add helper which can be called to se it device is used by vlan
-Date: Thu, 23 Aug 2012 15:26:52 +0200
-Message-ID: <1345728413-10298-3-git-send-email-jiri@resnulli.us>
+Subject: Re: [patch net-next 1/3] teamd: don't print warn message on -ESRCH
+ during event send
+Date: Thu, 23 Aug 2012 15:31:53 +0200
+Message-ID: <20120823133153.GB16103@minipsycho.orion>
 References: <1345728413-10298-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, brouer@redhat.com, ogerlitz@mellanox.com,
-	Patrick McHardy <kaber@trash.net>
+ <1345728413-10298-2-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, brouer@redhat.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:48515 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933002Ab2HWN1T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 09:27:19 -0400
-Received: by mail-we0-f174.google.com with SMTP id x8so400008wey.19
-        for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 06:27:19 -0700 (PDT)
-In-Reply-To: <1345728413-10298-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:48287 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933985Ab2HWNb6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 09:31:58 -0400
+Received: by wgbfm10 with SMTP id fm10so715704wgb.1
+        for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 06:31:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1345728413-10298-2-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-also, remove unused vlan_info definition from header
+Oups. Subject should start with "team:" without "d" :(
 
-CC: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- include/linux/if_vlan.h | 9 +++++++--
- net/8021q/vlan_core.c   | 6 ++++++
- 2 files changed, 13 insertions(+), 2 deletions(-)
+David, should I repost?
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index a810987..e6ff12d 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -74,8 +74,6 @@ static inline struct vlan_ethhdr *vlan_eth_hdr(const struct sk_buff *skb)
- /* found in socket.c */
- extern void vlan_ioctl_set(int (*hook)(struct net *, void __user *));
- 
--struct vlan_info;
--
- static inline int is_vlan_dev(struct net_device *dev)
- {
-         return dev->priv_flags & IFF_802_1Q_VLAN;
-@@ -101,6 +99,8 @@ extern int vlan_vids_add_by_dev(struct net_device *dev,
- 				const struct net_device *by_dev);
- extern void vlan_vids_del_by_dev(struct net_device *dev,
- 				 const struct net_device *by_dev);
-+
-+extern bool vlan_uses_dev(const struct net_device *dev);
- #else
- static inline struct net_device *
- __vlan_find_dev_deep(struct net_device *real_dev, u16 vlan_id)
-@@ -151,6 +151,11 @@ static inline void vlan_vids_del_by_dev(struct net_device *dev,
- 					const struct net_device *by_dev)
- {
- }
-+
-+static inline bool vlan_uses_dev(const struct net_device *dev)
-+{
-+	return false;
-+}
- #endif
- 
- /**
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index d4babc6..517b940 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -372,3 +372,9 @@ void vlan_vids_del_by_dev(struct net_device *dev,
- 		vlan_vid_del(dev, vid_info->vid);
- }
- EXPORT_SYMBOL(vlan_vids_del_by_dev);
-+
-+bool vlan_uses_dev(const struct net_device *dev)
-+{
-+	return rtnl_dereference(dev->vlan_info) ? true : false;
-+}
-+EXPORT_SYMBOL(vlan_uses_dev);
--- 
-1.7.11.4
+Thu, Aug 23, 2012 at 03:26:51PM CEST, jiri@resnulli.us wrote:
+>When no one is listening on NL socket, -ESRCH is returned and warning
+>message is printed. This message is confusing people and in fact has no
+>meaning. So do not print it in this case.
+>
+>Reported-by: Or Gerlitz <ogerlitz@mellanox.com>
+>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>---
+> drivers/net/team/team.c | 8 ++++----
+> 1 file changed, 4 insertions(+), 4 deletions(-)
+>
+>diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+>index 17ce11b..4010bcd 100644
+>--- a/drivers/net/team/team.c
+>+++ b/drivers/net/team/team.c
+>@@ -2487,7 +2487,7 @@ static void __team_options_change_check(struct team *team)
+> 			list_add_tail(&opt_inst->tmp_list, &sel_opt_inst_list);
+> 	}
+> 	err = team_nl_send_event_options_get(team, &sel_opt_inst_list);
+>-	if (err)
+>+	if (err && err != -ESRCH)
+> 		netdev_warn(team->dev, "Failed to send options change via netlink (err %d)\n",
+> 			    err);
+> }
+>@@ -2518,9 +2518,9 @@ static void __team_port_change_check(struct team_port *port, bool linkup)
+> 
+> send_event:
+> 	err = team_nl_send_event_port_list_get(port->team);
+>-	if (err)
+>-		netdev_warn(port->team->dev, "Failed to send port change of device %s via netlink\n",
+>-			    port->dev->name);
+>+	if (err && err != -ESRCH)
+>+		netdev_warn(port->team->dev, "Failed to send port change of device %s via netlink (err %d)\n",
+>+			    port->dev->name, err);
+> 
+> }
+> 
+>-- 
+>1.7.11.4
+>
