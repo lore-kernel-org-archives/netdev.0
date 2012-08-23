@@ -1,17 +1,17 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 15/18] batman-adv: Reduce accumulated length of simple statements
-Date: Thu, 23 Aug 2012 15:10:24 +0200
-Message-ID: <1345727427-20805-16-git-send-email-ordex@autistici.org>
+Subject: [PATCH 14/18] batman-adv: Don't break statements after assignment operator
+Date: Thu, 23 Aug 2012 15:10:23 +0200
+Message-ID: <1345727427-20805-15-git-send-email-ordex@autistici.org>
 References: <1345727427-20805-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from contumacia.investici.org ([178.255.144.35]:28945 "EHLO
+Received: from contumacia.investici.org ([178.255.144.35]:28932 "EHLO
 	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933717Ab2HWNLE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 09:11:04 -0400
+	with ESMTP id S933710Ab2HWNLD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 09:11:03 -0400
 In-Reply-To: <1345727427-20805-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,315 +21,271 @@ From: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bat_iv_ogm.c            |   41 ++++++++++++++++++++------------
- net/batman-adv/bridge_loop_avoidance.c |    3 +--
- net/batman-adv/gateway_client.c        |   21 +++++++++-------
- net/batman-adv/routing.c               |    3 +--
- net/batman-adv/translation-table.c     |   10 ++++----
- net/batman-adv/unicast.c               |    5 ++--
- net/batman-adv/vis.c                   |   10 ++++----
- 7 files changed, 55 insertions(+), 38 deletions(-)
+ net/batman-adv/bat_iv_ogm.c            |   39 +++++++++++++++++---------------
+ net/batman-adv/bridge_loop_avoidance.c |    7 +++---
+ net/batman-adv/send.c                  |    8 +++----
+ net/batman-adv/soft-interface.c        |    5 ++--
+ net/batman-adv/unicast.c               |   11 +++++----
+ net/batman-adv/vis.c                   |    4 ++--
+ 6 files changed, 39 insertions(+), 35 deletions(-)
 
 diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 616d52d..df79300 100644
+index daaccc1..616d52d 100644
 --- a/net/batman-adv/bat_iv_ogm.c
 +++ b/net/batman-adv/bat_iv_ogm.c
-@@ -166,13 +166,15 @@ static void batadv_iv_ogm_send_to_if(struct batadv_forw_packet *forw_packet,
- 	int16_t buff_pos;
+@@ -588,6 +588,8 @@ static void batadv_iv_ogm_schedule(struct batadv_hard_iface *hard_iface)
  	struct batadv_ogm_packet *batadv_ogm_packet;
- 	struct sk_buff *skb;
-+	uint8_t *packet_pos;
+ 	struct batadv_hard_iface *primary_if;
+ 	int vis_server, tt_num_changes = 0;
++	uint32_t seqno;
++	uint8_t bandwidth;
  
- 	if (hard_iface->if_status != BATADV_IF_ACTIVE)
- 		return;
+ 	vis_server = atomic_read(&bat_priv->vis_mode);
+ 	primary_if = batadv_primary_if_get_selected(bat_priv);
+@@ -601,8 +603,8 @@ static void batadv_iv_ogm_schedule(struct batadv_hard_iface *hard_iface)
+ 	batadv_ogm_packet = (struct batadv_ogm_packet *)hard_iface->packet_buff;
  
- 	packet_num = 0;
- 	buff_pos = 0;
--	batadv_ogm_packet = (struct batadv_ogm_packet *)forw_packet->skb->data;
-+	packet_pos = forw_packet->skb->data;
-+	batadv_ogm_packet = (struct batadv_ogm_packet *)packet_pos;
+ 	/* change sequence number to network order */
+-	batadv_ogm_packet->seqno =
+-			htonl((uint32_t)atomic_read(&hard_iface->seqno));
++	seqno = (uint32_t)atomic_read(&hard_iface->seqno);
++	batadv_ogm_packet->seqno = htonl(seqno);
+ 	atomic_inc(&hard_iface->seqno);
  
- 	/* adjust all flags and log packets */
- 	while (batadv_iv_ogm_aggr_packet(buff_pos, forw_packet->packet_len,
-@@ -187,9 +189,11 @@ static void batadv_iv_ogm_send_to_if(struct batadv_forw_packet *forw_packet,
- 		else
- 			batadv_ogm_packet->flags &= ~BATADV_DIRECTLINK;
+ 	batadv_ogm_packet->ttvn = atomic_read(&bat_priv->tt.vn);
+@@ -615,12 +617,13 @@ static void batadv_iv_ogm_schedule(struct batadv_hard_iface *hard_iface)
+ 	else
+ 		batadv_ogm_packet->flags &= ~BATADV_VIS_SERVER;
  
--		fwd_str = (packet_num > 0 ? "Forwarding" : (forw_packet->own ?
--							    "Sending own" :
--							    "Forwarding"));
-+		if (packet_num > 0 || !forw_packet->own)
-+			fwd_str = "Forwarding";
-+		else
-+			fwd_str = "Sending own";
-+
- 		batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
- 			   "%s %spacket (originator %pM, seqno %u, TQ %d, TTL %d, IDF %s, ttvn %d) on interface %s [%pM]\n",
- 			   fwd_str, (packet_num > 0 ? "aggregated " : ""),
-@@ -204,8 +208,8 @@ static void batadv_iv_ogm_send_to_if(struct batadv_forw_packet *forw_packet,
- 		buff_pos += BATADV_OGM_HLEN;
- 		buff_pos += batadv_tt_len(batadv_ogm_packet->tt_num_changes);
- 		packet_num++;
--		batadv_ogm_packet = (struct batadv_ogm_packet *)
--					(forw_packet->skb->data + buff_pos);
-+		packet_pos = forw_packet->skb->data + buff_pos;
-+		batadv_ogm_packet = (struct batadv_ogm_packet *)packet_pos;
+-	if ((hard_iface == primary_if) &&
+-	    (atomic_read(&bat_priv->gw_mode) == BATADV_GW_MODE_SERVER))
+-		batadv_ogm_packet->gw_flags =
+-				(uint8_t)atomic_read(&bat_priv->gw_bandwidth);
+-	else
++	if (hard_iface == primary_if &&
++	    atomic_read(&bat_priv->gw_mode) == BATADV_GW_MODE_SERVER) {
++		bandwidth = (uint8_t)atomic_read(&bat_priv->gw_bandwidth);
++		batadv_ogm_packet->gw_flags = bandwidth;
++	} else {
+ 		batadv_ogm_packet->gw_flags = BATADV_NO_FLAGS;
++	}
+ 
+ 	batadv_slide_own_bcast_window(hard_iface);
+ 	batadv_iv_ogm_queue_add(bat_priv, hard_iface->packet_buff,
+@@ -644,8 +647,9 @@ batadv_iv_ogm_orig_update(struct batadv_priv *bat_priv,
+ 	struct batadv_neigh_node *router = NULL;
+ 	struct batadv_orig_node *orig_node_tmp;
+ 	struct hlist_node *node;
+-	uint8_t bcast_own_sum_orig, bcast_own_sum_neigh;
++	uint8_t sum_orig, sum_neigh;
+ 	uint8_t *neigh_addr;
++	uint8_t tq_avg;
+ 
+ 	batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
+ 		   "update_originator(): Searching and updating originator entry of received packet\n");
+@@ -669,8 +673,8 @@ batadv_iv_ogm_orig_update(struct batadv_priv *bat_priv,
+ 		spin_lock_bh(&tmp_neigh_node->lq_update_lock);
+ 		batadv_ring_buffer_set(tmp_neigh_node->tq_recv,
+ 				       &tmp_neigh_node->tq_index, 0);
+-		tmp_neigh_node->tq_avg =
+-			batadv_ring_buffer_avg(tmp_neigh_node->tq_recv);
++		tq_avg = batadv_ring_buffer_avg(tmp_neigh_node->tq_recv);
++		tmp_neigh_node->tq_avg = tq_avg;
+ 		spin_unlock_bh(&tmp_neigh_node->lq_update_lock);
  	}
  
- 	/* create clone because function is called more than once */
-@@ -227,9 +231,10 @@ static void batadv_iv_ogm_emit(struct batadv_forw_packet *forw_packet)
- 	struct batadv_hard_iface *primary_if = NULL;
- 	struct batadv_ogm_packet *batadv_ogm_packet;
- 	unsigned char directlink;
-+	uint8_t *packet_pos;
+@@ -729,17 +733,15 @@ batadv_iv_ogm_orig_update(struct batadv_priv *bat_priv,
+ 	if (router && (neigh_node->tq_avg == router->tq_avg)) {
+ 		orig_node_tmp = router->orig_node;
+ 		spin_lock_bh(&orig_node_tmp->ogm_cnt_lock);
+-		bcast_own_sum_orig =
+-			orig_node_tmp->bcast_own_sum[if_incoming->if_num];
++		sum_orig = orig_node_tmp->bcast_own_sum[if_incoming->if_num];
+ 		spin_unlock_bh(&orig_node_tmp->ogm_cnt_lock);
  
--	batadv_ogm_packet = (struct batadv_ogm_packet *)
--						(forw_packet->skb->data);
-+	packet_pos = forw_packet->skb->data;
-+	batadv_ogm_packet = (struct batadv_ogm_packet *)packet_pos;
- 	directlink = (batadv_ogm_packet->flags & BATADV_DIRECTLINK ? 1 : 0);
+ 		orig_node_tmp = neigh_node->orig_node;
+ 		spin_lock_bh(&orig_node_tmp->ogm_cnt_lock);
+-		bcast_own_sum_neigh =
+-			orig_node_tmp->bcast_own_sum[if_incoming->if_num];
++		sum_neigh = orig_node_tmp->bcast_own_sum[if_incoming->if_num];
+ 		spin_unlock_bh(&orig_node_tmp->ogm_cnt_lock);
  
- 	if (!forw_packet->if_incoming) {
-@@ -839,8 +844,10 @@ static int batadv_iv_ogm_calc_tq(struct batadv_orig_node *orig_node,
- 	spin_unlock_bh(&orig_node->ogm_cnt_lock);
+-		if (bcast_own_sum_orig >= bcast_own_sum_neigh)
++		if (sum_orig >= sum_neigh)
+ 			goto update_tt;
+ 	}
  
- 	/* pay attention to not get a value bigger than 100 % */
--	total_count = (orig_eq_count > neigh_rq_count ?
--		       neigh_rq_count : orig_eq_count);
-+	if (orig_eq_count > neigh_rq_count)
-+		total_count = neigh_rq_count;
-+	else
-+		total_count = orig_eq_count;
+@@ -912,6 +914,7 @@ batadv_iv_ogm_update_seqnos(const struct ethhdr *ethhdr,
+ 	int set_mark, ret = -1;
+ 	uint32_t seqno = ntohl(batadv_ogm_packet->seqno);
+ 	uint8_t *neigh_addr;
++	uint8_t packet_count;
  
- 	/* if we have too few packets (too less data) we set tq_own to zero
- 	 * if we receive too few packets it is not considered bidirectional
-@@ -1168,9 +1175,12 @@ static void batadv_iv_ogm_process(const struct ethhdr *ethhdr,
- 	/* if sender is a direct neighbor the sender mac equals
- 	 * originator mac
- 	 */
--	orig_neigh_node = (is_single_hop_neigh ?
--			   orig_node :
--			   batadv_get_orig_node(bat_priv, ethhdr->h_source));
-+	if (is_single_hop_neigh)
-+		orig_neigh_node = orig_node;
-+	else
-+		orig_neigh_node = batadv_get_orig_node(bat_priv,
-+						       ethhdr->h_source);
-+
- 	if (!orig_neigh_node)
- 		goto out;
+ 	orig_node = batadv_get_orig_node(bat_priv, batadv_ogm_packet->orig);
+ 	if (!orig_node)
+@@ -946,9 +949,9 @@ batadv_iv_ogm_update_seqnos(const struct ethhdr *ethhdr,
+ 						     tmp_neigh_node->real_bits,
+ 						     seq_diff, set_mark);
  
-@@ -1256,6 +1266,7 @@ static int batadv_iv_ogm_receive(struct sk_buff *skb,
- 	int buff_pos = 0, packet_len;
- 	unsigned char *tt_buff, *packet_buff;
- 	bool ret;
-+	uint8_t *packet_pos;
- 
- 	ret = batadv_check_management_packet(skb, if_incoming, BATADV_OGM_HLEN);
- 	if (!ret)
-@@ -1286,8 +1297,8 @@ static int batadv_iv_ogm_receive(struct sk_buff *skb,
- 		buff_pos += BATADV_OGM_HLEN;
- 		buff_pos += batadv_tt_len(batadv_ogm_packet->tt_num_changes);
- 
--		batadv_ogm_packet = (struct batadv_ogm_packet *)
--						(packet_buff + buff_pos);
-+		packet_pos = packet_buff + buff_pos;
-+		batadv_ogm_packet = (struct batadv_ogm_packet *)packet_pos;
- 	} while (batadv_iv_ogm_aggr_packet(buff_pos, packet_len,
- 					   batadv_ogm_packet->tt_num_changes));
+-		tmp_neigh_node->real_packet_count =
+-			bitmap_weight(tmp_neigh_node->real_bits,
+-				      BATADV_TQ_LOCAL_WINDOW_SIZE);
++		packet_count = bitmap_weight(tmp_neigh_node->real_bits,
++					     BATADV_TQ_LOCAL_WINDOW_SIZE);
++		tmp_neigh_node->real_packet_count = packet_count;
+ 	}
+ 	rcu_read_unlock();
  
 diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
-index 7a93b2a..0a9084a 100644
+index ad18017..7a93b2a 100644
 --- a/net/batman-adv/bridge_loop_avoidance.c
 +++ b/net/batman-adv/bridge_loop_avoidance.c
-@@ -1345,8 +1345,7 @@ int batadv_bla_is_backbone_gw(struct sk_buff *skb,
- 		if (!pskb_may_pull(skb, hdr_size + sizeof(struct vlan_ethhdr)))
- 			return 0;
+@@ -579,8 +579,7 @@ static void batadv_bla_add_claim(struct batadv_priv *bat_priv,
+ 			   "bla_add_claim(): changing ownership for %pM, vid %d\n",
+ 			   mac, vid);
  
--		vhdr = (struct vlan_ethhdr *)(((uint8_t *)skb->data) +
--					      hdr_size);
-+		vhdr = (struct vlan_ethhdr *)(skb->data + hdr_size);
- 		vid = ntohs(vhdr->h_vlan_TCI) & VLAN_VID_MASK;
+-		claim->backbone_gw->crc ^=
+-			crc16(0, claim->addr, ETH_ALEN);
++		claim->backbone_gw->crc ^= crc16(0, claim->addr, ETH_ALEN);
+ 		batadv_backbone_gw_free_ref(claim->backbone_gw);
+ 
  	}
- 
-diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
-index eef7cc7..15d67ab 100644
---- a/net/batman-adv/gateway_client.c
-+++ b/net/batman-adv/gateway_client.c
-@@ -117,10 +117,15 @@ batadv_gw_get_best_gw_node(struct batadv_priv *bat_priv)
+@@ -1102,8 +1101,7 @@ static void batadv_bla_start_timer(struct batadv_priv *bat_priv)
+  */
+ static void batadv_bla_periodic_work(struct work_struct *work)
+ {
+-	struct delayed_work *delayed_work =
+-		container_of(work, struct delayed_work, work);
++	struct delayed_work *delayed_work;
+ 	struct batadv_priv *bat_priv;
+ 	struct batadv_priv_bla *priv_bla;
  	struct hlist_node *node;
- 	struct batadv_gw_node *gw_node, *curr_gw = NULL;
- 	uint32_t max_gw_factor = 0, tmp_gw_factor = 0;
-+	uint32_t gw_divisor;
- 	uint8_t max_tq = 0;
- 	int down, up;
-+	uint8_t tq_avg;
- 	struct batadv_orig_node *orig_node;
+@@ -1113,6 +1111,7 @@ static void batadv_bla_periodic_work(struct work_struct *work)
+ 	struct batadv_hard_iface *primary_if;
+ 	int i;
  
-+	gw_divisor = BATADV_TQ_LOCAL_WINDOW_SIZE * BATADV_TQ_LOCAL_WINDOW_SIZE;
-+	gw_divisor *= 64;
-+
- 	rcu_read_lock();
- 	hlist_for_each_entry_rcu(gw_node, node, &bat_priv->gw.list, list) {
- 		if (gw_node->deleted)
-@@ -134,19 +139,19 @@ batadv_gw_get_best_gw_node(struct batadv_priv *bat_priv)
- 		if (!atomic_inc_not_zero(&gw_node->refcount))
- 			goto next;
++	delayed_work = container_of(work, struct delayed_work, work);
+ 	priv_bla = container_of(delayed_work, struct batadv_priv_bla, work);
+ 	bat_priv = container_of(priv_bla, struct batadv_priv, bla);
+ 	primary_if = batadv_primary_if_get_selected(bat_priv);
+diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
+index 3b4b2da..570a8bc 100644
+--- a/net/batman-adv/send.c
++++ b/net/batman-adv/send.c
+@@ -190,13 +190,13 @@ out:
+ static void batadv_send_outstanding_bcast_packet(struct work_struct *work)
+ {
+ 	struct batadv_hard_iface *hard_iface;
+-	struct delayed_work *delayed_work =
+-		container_of(work, struct delayed_work, work);
++	struct delayed_work *delayed_work;
+ 	struct batadv_forw_packet *forw_packet;
+ 	struct sk_buff *skb1;
+ 	struct net_device *soft_iface;
+ 	struct batadv_priv *bat_priv;
  
-+		tq_avg = router->tq_avg;
-+
- 		switch (atomic_read(&bat_priv->gw_sel_class)) {
- 		case 1: /* fast connection */
- 			batadv_gw_bandwidth_to_kbit(orig_node->gw_flags,
- 						    &down, &up);
++	delayed_work = container_of(work, struct delayed_work, work);
+ 	forw_packet = container_of(delayed_work, struct batadv_forw_packet,
+ 				   delayed_work);
+ 	soft_iface = forw_packet->if_incoming->soft_iface;
+@@ -239,11 +239,11 @@ out:
  
--			tmp_gw_factor = (router->tq_avg * router->tq_avg *
--					 down * 100 * 100) /
--					 (BATADV_TQ_LOCAL_WINDOW_SIZE *
--					  BATADV_TQ_LOCAL_WINDOW_SIZE * 64);
-+			tmp_gw_factor = tq_avg * tq_avg * down * 100 * 100;
-+			tmp_gw_factor /= gw_divisor;
+ void batadv_send_outstanding_bat_ogm_packet(struct work_struct *work)
+ {
+-	struct delayed_work *delayed_work =
+-		container_of(work, struct delayed_work, work);
++	struct delayed_work *delayed_work;
+ 	struct batadv_forw_packet *forw_packet;
+ 	struct batadv_priv *bat_priv;
  
- 			if ((tmp_gw_factor > max_gw_factor) ||
- 			    ((tmp_gw_factor == max_gw_factor) &&
--			     (router->tq_avg > max_tq))) {
-+			     (tq_avg > max_tq))) {
- 				if (curr_gw)
- 					batadv_gw_node_free_ref(curr_gw);
- 				curr_gw = gw_node;
-@@ -161,7 +166,7 @@ batadv_gw_get_best_gw_node(struct batadv_priv *bat_priv)
- 			  *     soon as a better gateway appears which has
- 			  *     $routing_class more tq points)
- 			  */
--			if (router->tq_avg > max_tq) {
-+			if (tq_avg > max_tq) {
- 				if (curr_gw)
- 					batadv_gw_node_free_ref(curr_gw);
- 				curr_gw = gw_node;
-@@ -170,8 +175,8 @@ batadv_gw_get_best_gw_node(struct batadv_priv *bat_priv)
- 			break;
- 		}
++	delayed_work = container_of(work, struct delayed_work, work);
+ 	forw_packet = container_of(delayed_work, struct batadv_forw_packet,
+ 				   delayed_work);
+ 	bat_priv = netdev_priv(forw_packet->if_incoming->soft_iface);
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index 6d44625..03b0763 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -149,6 +149,7 @@ static int batadv_interface_tx(struct sk_buff *skb,
+ 	int data_len = skb->len, ret;
+ 	short vid __maybe_unused = -1;
+ 	bool do_bcast = false;
++	uint32_t seqno;
  
--		if (router->tq_avg > max_tq)
--			max_tq = router->tq_avg;
-+		if (tq_avg > max_tq)
-+			max_tq = tq_avg;
+ 	if (atomic_read(&bat_priv->mesh_state) != BATADV_MESH_ACTIVE)
+ 		goto dropped;
+@@ -230,8 +231,8 @@ static int batadv_interface_tx(struct sk_buff *skb,
+ 		       primary_if->net_dev->dev_addr, ETH_ALEN);
  
- 		if (tmp_gw_factor > max_gw_factor)
- 			max_gw_factor = tmp_gw_factor;
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 4961278..9f933c9 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -981,8 +981,7 @@ static int batadv_check_unicast_ttvn(struct batadv_priv *bat_priv,
- 		} else {
- 			memcpy(unicast_packet->dest, orig_node->orig,
- 			       ETH_ALEN);
--			curr_ttvn = (uint8_t)
--				atomic_read(&orig_node->last_ttvn);
-+			curr_ttvn = (uint8_t)atomic_read(&orig_node->last_ttvn);
- 			batadv_orig_node_free_ref(orig_node);
- 		}
+ 		/* set broadcast sequence number */
+-		bcast_packet->seqno =
+-			htonl(atomic_inc_return(&bat_priv->bcast_seqno));
++		seqno = atomic_inc_return(&bat_priv->bcast_seqno);
++		bcast_packet->seqno = htonl(seqno);
  
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index b01049a..cb429d1 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -1559,6 +1559,7 @@ batadv_send_other_tt_response(struct batadv_priv *bat_priv,
- 	uint16_t tt_len, tt_tot;
- 	struct sk_buff *skb = NULL;
- 	struct batadv_tt_query_packet *tt_response;
-+	uint8_t *packet_pos;
- 	size_t len;
- 
- 	batadv_dbg(BATADV_DBG_TT, bat_priv,
-@@ -1612,8 +1613,8 @@ batadv_send_other_tt_response(struct batadv_priv *bat_priv,
- 			goto unlock;
- 
- 		skb_reserve(skb, ETH_HLEN);
--		tt_response = (struct batadv_tt_query_packet *)skb_put(skb,
--								       len);
-+		packet_pos = skb_put(skb, len);
-+		tt_response = (struct batadv_tt_query_packet *)packet_pos;
- 		tt_response->ttvn = req_ttvn;
- 		tt_response->tt_data = htons(tt_tot);
- 
-@@ -1692,6 +1693,7 @@ batadv_send_my_tt_response(struct batadv_priv *bat_priv,
- 	uint16_t tt_len, tt_tot;
- 	struct sk_buff *skb = NULL;
- 	struct batadv_tt_query_packet *tt_response;
-+	uint8_t *packet_pos;
- 	size_t len;
- 
- 	batadv_dbg(BATADV_DBG_TT, bat_priv,
-@@ -1738,8 +1740,8 @@ batadv_send_my_tt_response(struct batadv_priv *bat_priv,
- 			goto unlock;
- 
- 		skb_reserve(skb, ETH_HLEN);
--		tt_response = (struct batadv_tt_query_packet *)skb_put(skb,
--								       len);
-+		packet_pos = skb_put(skb, len);
-+		tt_response = (struct batadv_tt_query_packet *)packet_pos;
- 		tt_response->ttvn = req_ttvn;
- 		tt_response->tt_data = htons(tt_tot);
+ 		batadv_add_bcast_packet_to_list(bat_priv, skb, 1);
  
 diff --git a/net/batman-adv/unicast.c b/net/batman-adv/unicast.c
-index d7904bd..f397232 100644
+index 0016464..d7904bd 100644
 --- a/net/batman-adv/unicast.c
 +++ b/net/batman-adv/unicast.c
-@@ -39,6 +39,7 @@ batadv_frag_merge_packet(struct list_head *head,
- 	struct batadv_unicast_packet *unicast_packet;
- 	int hdr_len = sizeof(*unicast_packet);
- 	int uni_diff = sizeof(*up) - hdr_len;
-+	uint8_t *packet_pos;
+@@ -121,6 +121,7 @@ batadv_frag_search_packet(struct list_head *head,
+ {
+ 	struct batadv_frag_packet_list_entry *tfp;
+ 	struct batadv_unicast_frag_packet *tmp_up = NULL;
++	int is_head_tmp, is_head;
+ 	uint16_t search_seqno;
  
- 	up = (struct batadv_unicast_frag_packet *)skb->data;
- 	/* set skb to the first part and tmp_skb to the second part */
-@@ -65,8 +66,8 @@ batadv_frag_merge_packet(struct list_head *head,
- 	kfree_skb(tmp_skb);
+ 	if (up->flags & BATADV_UNI_FRAG_HEAD)
+@@ -128,6 +129,8 @@ batadv_frag_search_packet(struct list_head *head,
+ 	else
+ 		search_seqno = ntohs(up->seqno)-1;
  
- 	memmove(skb->data + uni_diff, skb->data, hdr_len);
--	unicast_packet = (struct batadv_unicast_packet *)skb_pull(skb,
--								  uni_diff);
-+	packet_pos = skb_pull(skb, uni_diff);
-+	unicast_packet = (struct batadv_unicast_packet *)packet_pos;
- 	unicast_packet->header.packet_type = BATADV_UNICAST;
++	is_head = !!(up->flags & BATADV_UNI_FRAG_HEAD);
++
+ 	list_for_each_entry(tfp, head, list) {
  
- 	return skb;
+ 		if (!tfp->skb)
+@@ -139,9 +142,8 @@ batadv_frag_search_packet(struct list_head *head,
+ 		tmp_up = (struct batadv_unicast_frag_packet *)tfp->skb->data;
+ 
+ 		if (tfp->seqno == search_seqno) {
+-
+-			if ((tmp_up->flags & BATADV_UNI_FRAG_HEAD) !=
+-			    (up->flags & BATADV_UNI_FRAG_HEAD))
++			is_head_tmp = !!(tmp_up->flags & BATADV_UNI_FRAG_HEAD);
++			if (is_head_tmp != is_head)
+ 				return tfp;
+ 			else
+ 				goto mov_tail;
+@@ -334,8 +336,7 @@ find_router:
+ 	/* copy the destination for faster routing */
+ 	memcpy(unicast_packet->dest, orig_node->orig, ETH_ALEN);
+ 	/* set the destination tt version number */
+-	unicast_packet->ttvn =
+-		(uint8_t)atomic_read(&orig_node->last_ttvn);
++	unicast_packet->ttvn = (uint8_t)atomic_read(&orig_node->last_ttvn);
+ 
+ 	/* inform the destination node that we are still missing a correct route
+ 	 * for this client. The destination will receive this packet and will
 diff --git a/net/batman-adv/vis.c b/net/batman-adv/vis.c
-index 55cc51b..5abd145 100644
+index 4608c1b2..55cc51b 100644
 --- a/net/batman-adv/vis.c
 +++ b/net/batman-adv/vis.c
-@@ -578,6 +578,7 @@ static int batadv_generate_vis_packet(struct batadv_priv *bat_priv)
- 	struct batadv_vis_packet *packet;
- 	struct batadv_vis_info_entry *entry;
- 	struct batadv_tt_common_entry *tt_common_entry;
-+	uint8_t *packet_pos;
- 	int best_tq = -1;
- 	uint32_t i;
+@@ -814,12 +814,12 @@ out:
+ /* called from timer; send (and maybe generate) vis packet. */
+ static void batadv_send_vis_packets(struct work_struct *work)
+ {
+-	struct delayed_work *delayed_work =
+-		container_of(work, struct delayed_work, work);
++	struct delayed_work *delayed_work;
+ 	struct batadv_priv *bat_priv;
+ 	struct batadv_priv_vis *priv_vis;
+ 	struct batadv_vis_info *info;
  
-@@ -618,8 +619,8 @@ static int batadv_generate_vis_packet(struct batadv_priv *bat_priv)
- 				goto next;
- 
- 			/* fill one entry into buffer. */
--			entry = (struct batadv_vis_info_entry *)
--				      skb_put(info->skb_packet, sizeof(*entry));
-+			packet_pos = skb_put(info->skb_packet, sizeof(*entry));
-+			entry = (struct batadv_vis_info_entry *)packet_pos;
- 			memcpy(entry->src,
- 			       router->if_incoming->net_dev->dev_addr,
- 			       ETH_ALEN);
-@@ -644,9 +645,8 @@ next:
- 		rcu_read_lock();
- 		hlist_for_each_entry_rcu(tt_common_entry, node, head,
- 					 hash_entry) {
--			entry = (struct batadv_vis_info_entry *)
--					skb_put(info->skb_packet,
--						sizeof(*entry));
-+			packet_pos = skb_put(info->skb_packet, sizeof(*entry));
-+			entry = (struct batadv_vis_info_entry *)packet_pos;
- 			memset(entry->src, 0, ETH_ALEN);
- 			memcpy(entry->dest, tt_common_entry->addr, ETH_ALEN);
- 			entry->quality = 0; /* 0 means TT */
++	delayed_work = container_of(work, struct delayed_work, work);
+ 	priv_vis = container_of(delayed_work, struct batadv_priv_vis, work);
+ 	bat_priv = container_of(priv_vis, struct batadv_priv, vis);
+ 	spin_lock_bh(&bat_priv->vis.hash_lock);
 -- 
 1.7.9.4
