@@ -1,61 +1,47 @@
-From: "Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
-Subject: Re: [PATCH v2] net: add new QCA alx ethernet driver
-Date: Thu, 23 Aug 2012 15:28:55 +0500
-Message-ID: <CAB=NE6V1yC-0pXPBXrObepJ7CkBPeynHZ3YJYf0ZGpqrCUPBUA@mail.gmail.com>
-References: <157393863283F442885425D2C45428562A4F5169@nasanexd02f.na.qualcomm.com>
- <20120822.234019.1546353507351890178.davem@davemloft.net> <157393863283F442885425D2C45428562A4F519A@nasanexd02f.na.qualcomm.com>
- <20120823.001342.959509094678320374.davem@davemloft.net>
+From: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: wireless router performance differ with 2.4Ghz vs 5.0Ghz frequency
+Date: Thu, 23 Aug 2012 20:34:44 +1000
+Message-ID: <CAGRGNgWddAH3UyYq5T7iT+FuX8ajdGpP6rfjjCUkZZpiCoTmpQ@mail.gmail.com>
+References: <CAF1ivSZ63Zr9STz3NnLV=ynRftMokG=ZGghd+cQu=HRUsiH+EA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: xiong@qca.qualcomm.com, cjren@qca.qualcomm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	qca-linux-team@qualcomm.com, nic-devel@qualcomm.com,
-	Adrian Chadd <adrian@freebsd.org>,
-	Vinod Nagarajan <Vinod.Nagarajan@qca.qualcomm.com>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	Lisong Guo <livesogood@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:42081 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753972Ab2HWK3Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 06:29:16 -0400
-In-Reply-To: <20120823.001342.959509094678320374.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, networking <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Lin Ming <mlin-H0MqCF3V8pkCalJqGWEchg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAF1ivSZ63Zr9STz3NnLV=ynRftMokG=ZGghd+cQu=HRUsiH+EA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 23, 2012 at 11:13 AM, David Miller <davem@davemloft.net> wrote:
-> From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-> Date: Thu, 23 Aug 2012 06:56:51 +0000
+Hi,
+
+On Thu, Aug 23, 2012 at 2:50 PM, Lin Ming <mlin-H0MqCF3V8pkCalJqGWEchg@public.gmane.org> wrote:
+> Hi list,
 >
->> I'm afraid someone also rejects my request to add such operation to
->> ethtool
+> I have a wireless router with 2 wireless cards: 2.4Ghz and 5.0Ghz frequency.
 >
-> If you don't design it properly, we certainly will ask you to make
-> changes.
+> The performance for 2.4Ghz is much worse than 5.0Ghz.
 >
-> But it stands a chance of actually being accepted, whereas your
-> debugfs thing absolutely does not.
+> Does the frequency affect performance so much?
 
-Xiong, you can dump that poo and put it into crap/ in compat-drivers
-until you find a resolution to properly address that properly.
+There are a lot of factors:
+- Amounts of other networks on the same channel
+- Noise
+- Signal strength
+etc.
 
-FWIW... if we give a rats ass on trying to put an end typical internal
-proprietary development trees to port drivers to different OSes [0]
-here's a cheesy attempt to try address this with a target for Linux
-and FreeBSD as a first objective:
+It's quite possible that there are less networks on 5GHz channels
+where you are so there's less noise, stronger signal, and therefore
+better performance. Most routers are still only 2.4GHz.
 
-https://github.com/mcgrof/alx
+Thanks,
 
-The goal would be to push companies to do their bringup development
-*openly* and even if they do have support for other OSes, for that poo
-to also be public. The alx driver is a dead simple so my if at all
-possible to show a *different* community-lead way to port drivers and
-for this poo to be public my hope is that the alx driver can be the
-test case for us to try it on.
+-- 
+Julian Calaby
 
-Xiong, and whoever cares please think about it. I welcome feedback from others.
-
-[0] http://www.youtube.com/watch?v=9P-r3H0bY8c
-
-  Luis
+Email: julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Profile: http://www.google.com/profiles/julian.calaby/
+.Plan: http://sites.google.com/site/juliancalaby/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
