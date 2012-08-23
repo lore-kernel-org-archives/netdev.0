@@ -1,56 +1,38 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC PATCH bridge 0/5] Add basic VLAN support to bridges
-Date: Thu, 23 Aug 2012 14:12:22 -0700
-Message-ID: <20120823141222.62ef213a@nehalam.linuxnetplumber.net>
-References: <1345750195-31598-1-git-send-email-vyasevic@redhat.com>
-	<50369A99.2070405@gmail.com>
+From: Stanislav Yakovlev <stas.yakovlev@gmail.com>
+Subject: Re: [PATCH] ipw2200: use is_zero_ether_addr() and is_broadcast_ether_addr()
+Date: Fri, 24 Aug 2012 01:13:07 +0400
+Message-ID: <CA++WF2Nv_qb_jAnxhiR+WMjD4nwa3hAwMOSNqNtxc1LDX9ouXQ@mail.gmail.com>
+References: <CAPgLHd_K=bbQ=zpKY8kW3HCGeuE3GwCCQOAg+gJoFdCv9SnVrg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
-To: Nicolas de =?ISO-8859-1?B?UGVzbG/8YW4=?=
-	<nicolas.2p.debian@gmail.com>
+Cc: linville@tuxdriver.com, yongjun_wei@trendmicro.com.cn,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36016 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934412Ab2HWVMm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 17:12:42 -0400
-In-Reply-To: <50369A99.2070405@gmail.com>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:36486 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934412Ab2HWVNI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 17:13:08 -0400
+In-Reply-To: <CAPgLHd_K=bbQ=zpKY8kW3HCGeuE3GwCCQOAg+gJoFdCv9SnVrg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 23 Aug 2012 23:03:21 +0200
-Nicolas de Peslo=FCan <nicolas.2p.debian@gmail.com> wrote:
+Hi,
 
-> Le 23/08/2012 21:29, Vlad Yasevich a =E9crit :
-> > This series of patches provides an ability to add VLAN IDs to the b=
-ridge
-> > ports.  This is similar to what can be found in most switches.  The=
- bridge
-> > port may have any number of VLANs added to it including vlan 0 for =
-untagged
-> > traffic.  When vlans are added to the port, only traffic tagged wit=
-h particular
-> > vlan will forwarded over this port.  Additionally, vlan ids are add=
-ed to FDB
-> > entries and become part of the lookup.  This way we correctly ident=
-ify the FDB
-> > entry.
-> >
-> > There are still pieces missing.  I don't yet support adding a stati=
-c fdb entry
-> > with a particular vlan.  There is no netlink support for carrying a=
- vlan id.
-> >
-> > I'd like to hear thoughts of whether this is usufull and something =
-we should
-> > persue.
-> >
->=20
-> Do you think this might allow for per VLAN spanning tree (having port=
-s in forwarding state or=20
-> blocking state depending on the VLAN) in the future?
->=20
-> 	Nicolas.
+On 23 August 2012 10:54, Wei Yongjun <weiyj.lk@gmail.com> wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+>
+> Using is_zero_ether_addr() and is_broadcast_ether_addr() instead of
+> directly use memcmp() to determine if the ethernet address is all zeros.
+>
+> spatch with a semantic match is used to found this problem.
+> (http://coccinelle.lip6.fr/)
+>
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> ---
+>  drivers/net/wireless/ipw2x00/ipw2200.c | 11 ++---------
+>  1 file changed, 2 insertions(+), 9 deletions(-)
 
-Completely different problem
+Looks fine, thanks.
+
+Stanislav.
