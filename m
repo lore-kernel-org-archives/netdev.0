@@ -1,47 +1,42 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [RFC PATCH bridge 4/5] bridge: Add private ioctls to configure
- vlans on bridge ports
-Date: Thu, 23 Aug 2012 15:41:00 -0400
-Message-ID: <5036874C.6020804@redhat.com>
-References: <1345750195-31598-1-git-send-email-vyasevic@redhat.com> <1345750195-31598-5-git-send-email-vyasevic@redhat.com> <20120823123809.1a4adfbe@nehalam.linuxnetplumber.net>
-Reply-To: vyasevic@redhat.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC PATCH bridge 0/5] Add basic VLAN support to bridges
+Date: Thu, 23 Aug 2012 12:41:41 -0700
+Message-ID: <20120823124141.402b7b34@nehalam.linuxnetplumber.net>
+References: <1345750195-31598-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16353 "EHLO mx1.redhat.com"
+Received: from mail.vyatta.com ([76.74.103.46]:41074 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030725Ab2HWTlC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Aug 2012 15:41:02 -0400
-In-Reply-To: <20120823123809.1a4adfbe@nehalam.linuxnetplumber.net>
+	id S1759159Ab2HWTl7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Aug 2012 15:41:59 -0400
+In-Reply-To: <1345750195-31598-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/23/2012 03:38 PM, Stephen Hemminger wrote:
-> On Thu, 23 Aug 2012 15:29:54 -0400
-> Vlad Yasevich <vyasevic@redhat.com> wrote:
->
->> Add a private ioctl to add and remove vlan configuration on bridge port.
->>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->> ---
->>   include/linux/if_bridge.h |    2 +
->>   net/bridge/br_if.c        |   69 +++++++++++++++++++++++++++++++++++++++++++++
->>   net/bridge/br_ioctl.c     |   31 ++++++++++++++++++++
->>   net/bridge/br_private.h   |    2 +
->>   4 files changed, 104 insertions(+), 0 deletions(-)
->
->
-> Don't go down this dead end.
->
-> The ioctl interface to bridge is deprecated because private ioctl's
-> can not be handled when running 32 bit user space on 64 bit kernel.
->
+On Thu, 23 Aug 2012 15:29:50 -0400
+Vlad Yasevich <vyasevic@redhat.com> wrote:
 
+> This series of patches provides an ability to add VLAN IDs to the bridge
+> ports.  This is similar to what can be found in most switches.  The bridge
+> port may have any number of VLANs added to it including vlan 0 for untagged
+> traffic.  When vlans are added to the port, only traffic tagged with particular
+> vlan will forwarded over this port.  Additionally, vlan ids are added to FDB
+> entries and become part of the lookup.  This way we correctly identify the FDB
+> entry.
+> 
+> There are still pieces missing.  I don't yet support adding a static fdb entry
+> with a particular vlan.  There is no netlink support for carrying a vlan id.
+> 
+> I'd like to hear thoughts of whether this is usufull and something we should
+> persue.
+> 
+> The default behavior ofthe bridge is unchanged if no vlans have been
+> configured.
 
-Went down this road because is was easier to do.  The plan is to do this 
-over netlink
-
--vlad
+Initial reaction is that this is a useful. You can already do the same thing
+with ebtables, and ebtables allows more flexibility. But ebtables does slow
+things down, and is harder to configure.
