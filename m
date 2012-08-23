@@ -1,57 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [PATCH v2] net: add new QCA alx ethernet driver
-Date: Thu, 23 Aug 2012 22:09:02 +0100
-Message-ID: <1345756142.2579.16.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1345480949-14800-1-git-send-email-cjren@qca.qualcomm.com>
-	 <20120822.225700.714020017287504609.davem@davemloft.net>
-	 <157393863283F442885425D2C45428562A4F5169@nasanexd02f.na.qualcomm.com>
+From: Stanislav Yakovlev <stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] ipw2100: use is_zero_ether_addr() and is_broadcast_ether_addr()
+Date: Fri, 24 Aug 2012 01:12:09 +0400
+Message-ID: <CA++WF2O2SJ+_gATBXrDaoGZ2DA18gK=qM8Y4E9No84J3RCW5XA@mail.gmail.com>
+References: <CAPgLHd_zKkfbms8pMPiTKtGxWXw9=b0+AftqFxWZCPLb3EBaig@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"Ren, Cloud" <cjren@qca.qualcomm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>,
-	"Rodriguez, Luis" <rodrigue@qca.qualcomm.com>
-To: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <157393863283F442885425D2C45428562A4F5169@nasanexd02f.na.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAPgLHd_zKkfbms8pMPiTKtGxWXw9=b0+AftqFxWZCPLb3EBaig-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-08-23 at 06:35 +0000, Huang, Xiong wrote:
-> > This is why we require that portable, sane, interfaces are added to ethtool for
-> > driver diagnostics.  That way users can perform a task in the same way
-> > regardless of what hardware and driver are underneath.
-> 
-> I quite agree you on using ethtool to implement it. we did consider it. 
-> But ethtool has some limitation, for example, the NIC has built-in OTP (TWSI interface)
-> And Flash (External SPI interface),  their properties are quite different with EEPROM which
-> Ethtool supports.
-> To support such memory (OTP/Flash), we need additional input parameters.
+Hi,
 
-You have two reasonable options for this:
-1. The ETHTOOL_FLASHDEV command takes a partition ID and filename to
-write.  The driver is supposed to load the file through the firmware
-loader and then rewrite the partition completely (erasing if necessary).
-Example: be2net.
-2. For a more flexible interface, implement an MTD driver as part of
-your net driver.  Example: sfc.
+On 23 August 2012 10:53, Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+>
+> Using is_zero_ether_addr() and is_broadcast_ether_addr() instead of
+> directly use memcmp() to determine if the ethernet address is all zeros.
+>
+> spatch with a semantic match is used to found this problem.
+> (http://coccinelle.lip6.fr/)
+>
+> Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+> ---
+>  drivers/net/wireless/ipw2x00/ipw2100.c | 11 ++---------
+>  1 file changed, 2 insertions(+), 9 deletions(-)
 
-> Same situation exists in diagnostic utility. Ethtool only provide two options : offline & online
-> That's too gross to locate which part/module of the chip is malfunction. we also need 
-> more options to detect it.
+Looks fine, thanks.
 
-That's absolute nonsense, you can run as many sub-tests as you want and
-provide separate results for each of them.
-
-Ben.
-
-> that's why we finally selected a custom debugfs interface. 
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Stanislav.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
