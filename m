@@ -1,38 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH 1/1] tcp: Wrong timeout for SYN segments
-Date: Thu, 23 Aug 2012 14:51:23 +0200
-Message-ID: <1345726283.5904.842.camel@edumazet-glaptop>
-References: <503419D3.1080700@linlab.net>
-	 <CAFbMe2M7ekc94bQk7vTS1LhScPd49VZ-zKOCUXhqwxXtL-nkuA@mail.gmail.com>
-	 <50361AEA.6010807@linlab.net> <1345724123.5904.756.camel@edumazet-glaptop>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B6FC3@saturn3.aculab.com>
+From: Rami Rosen <rosenr@marvell.com>
+Subject: [PATCH net-next] packet: fix broken build.
+Date: Thu, 23 Aug 2012 15:55:41 +0300
+Message-ID: <309002C0DA137042828828FC53D7A934012B21B8CCCE@IL-MB01.marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alex Bergmann <alex@linlab.net>,
-	"H.K. Jerry Chu" <hkjerry.chu@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6FC3@saturn3.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+	boundary="_002_309002C0DA137042828828FC53D7A934012B21B8CCCEILMB01marve_"
+Cc: "xemul@parallels.com" <xemul@parallels.com>,
+	"edumazet@google.com" <edumazet@google.com>
+To: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from galiil.marvell.com ([199.203.130.254]:6907 "EHLO
+	galiil.marvell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932993Ab2HWNBG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 09:01:06 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-08-23 at 13:35 +0100, David Laight wrote:
-> > I would suggest to increase TCP_SYN_RETRIES from 5 to 6.
-> > 
-> > 180 secs is eternity, but 31 secs is too small.
-> 
-> Wasn't the intention of the long delay to allow a system
-> acting as a router to reboot?
-> I suspect that is why it (and some other TCP timers)
-> are in minutes.
+--_002_309002C0DA137042828828FC53D7A934012B21B8CCCEILMB01marve_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-One could argue that if an application really wants to connect to a
-peer, it should probably handle failures and retries.
+This patch fixes a broken build due to a missing header:=20
+...
+  CC      net/ipv4/proc.o
+In file included from include/net/net_namespace.h:15,
+                 from net/ipv4/proc.c:35:
+include/net/netns/packet.h:11: error: field 'sklist_lock' has incomplete ty=
+pe
+...
 
-But for unaware (basic ?) applications, the 3 -> 1 change reduced by a 3
-factor the timeout. So a transient network failure has now more
-chance to impact them.
+The lock of netns_packet has been replaced by a recent patch to be a mutex =
+instead of a spinlock,=20
+but we need to replace the header file to be linux/mutex.h instead of linux=
+/spinlock.h as well.
 
-Not all applications run inside a browser or under human control...
+See commit 0fa7fa98dbcc2789409ed24e885485e645803d7f:
+packet: Protect packet sk list with mutex (v2) patch,=20
+
+Signed-off-by: Rami Rosen <rosenr@marvell.com>=
+
+--_002_309002C0DA137042828828FC53D7A934012B21B8CCCEILMB01marve_
+Content-Type: text/plain; name="patch.txt"
+Content-Description: patch.txt
+Content-Disposition: attachment; filename="patch.txt"; size=348;
+	creation-date="Thu, 23 Aug 2012 12:45:24 GMT";
+	modification-date="Thu, 23 Aug 2012 12:45:24 GMT"
+Content-Transfer-Encoding: base64
+
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L25ldG5zL3BhY2tldC5oIGIvaW5jbHVkZS9uZXQvbmV0
+bnMvcGFja2V0LmgKaW5kZXggNDc4MGIwOC4uMTdlYzJiOSAxMDA2NDQKLS0tIGEvaW5jbHVkZS9u
+ZXQvbmV0bnMvcGFja2V0LmgKKysrIGIvaW5jbHVkZS9uZXQvbmV0bnMvcGFja2V0LmgKQEAgLTUs
+NyArNSw3IEBACiAjZGVmaW5lIF9fTkVUTlNfUEFDS0VUX0hfXwogCiAjaW5jbHVkZSA8bGludXgv
+cmN1bGlzdC5oPgotI2luY2x1ZGUgPGxpbnV4L3NwaW5sb2NrLmg+CisjaW5jbHVkZSA8bGludXgv
+bXV0ZXguaD4KIAogc3RydWN0IG5ldG5zX3BhY2tldCB7CiAJc3RydWN0IG11dGV4CQlza2xpc3Rf
+bG9jazsK
+
+--_002_309002C0DA137042828828FC53D7A934012B21B8CCCEILMB01marve_--
