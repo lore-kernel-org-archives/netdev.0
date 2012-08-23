@@ -1,53 +1,124 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/13] e1000e: use correct type for read of 32-bit register
-Date: Thu, 23 Aug 2012 02:56:41 -0700
-Message-ID: <1345715813-20757-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/13] igb: Correct PTP support query from ethtool.
+Date: Thu, 23 Aug 2012 02:56:52 -0700
+Message-ID: <1345715813-20757-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:59883 "EHLO mga09.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:17084 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758191Ab2HWJ45 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Aug 2012 05:56:57 -0400
+	id S933738Ab2HWJ5D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Aug 2012 05:57:03 -0400
 In-Reply-To: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Matthew Vick <matthew.vick@intel.com>
 
-The POEMB register is 32 bits, not 16.
+Update ethtool_get_ts_info to not report any supported functionality on
+82575 and add support for V2 Sync and V2 Delay packets. In the case
+where CONFIG_IGB_PTP is not defined, we should be reporting default
+values.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Matthew Vick <matthew.vick@intel.com>
+Acked-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/82571.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 59 +++++++++++++++++-----------
+ 1 file changed, 37 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-index 080c890..c985864 100644
---- a/drivers/net/ethernet/intel/e1000e/82571.c
-+++ b/drivers/net/ethernet/intel/e1000e/82571.c
-@@ -653,7 +653,7 @@ static void e1000_put_hw_semaphore_82574(struct e1000_hw *hw)
-  **/
- static s32 e1000_set_d0_lplu_state_82574(struct e1000_hw *hw, bool active)
- {
--	u16 data = er32(POEMB);
-+	u32 data = er32(POEMB);
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index d1a120e..e18fd20 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -2280,37 +2280,54 @@ static void igb_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+ 	}
+ }
  
- 	if (active)
- 		data |= E1000_PHY_CTRL_D0A_LPLU;
-@@ -677,7 +677,7 @@ static s32 e1000_set_d0_lplu_state_82574(struct e1000_hw *hw, bool active)
-  **/
- static s32 e1000_set_d3_lplu_state_82574(struct e1000_hw *hw, bool active)
+-#ifdef CONFIG_IGB_PTP
+ static int igb_get_ts_info(struct net_device *dev,
+ 				   struct ethtool_ts_info *info)
  {
--	u16 data = er32(POEMB);
-+	u32 data = er32(POEMB);
+ 	struct igb_adapter *adapter = netdev_priv(dev);
  
- 	if (!active) {
- 		data &= ~E1000_PHY_CTRL_NOND0A_LPLU;
+-	info->so_timestamping =
+-		SOF_TIMESTAMPING_TX_HARDWARE |
+-		SOF_TIMESTAMPING_RX_HARDWARE |
+-		SOF_TIMESTAMPING_RAW_HARDWARE;
++	switch (adapter->hw.mac.type) {
++#ifdef CONFIG_IGB_PTP
++	case e1000_82576:
++	case e1000_82580:
++	case e1000_i350:
++	case e1000_i210:
++	case e1000_i211:
++		info->so_timestamping =
++			SOF_TIMESTAMPING_TX_HARDWARE |
++			SOF_TIMESTAMPING_RX_HARDWARE |
++			SOF_TIMESTAMPING_RAW_HARDWARE;
+ 
+-	if (adapter->ptp_clock)
+-		info->phc_index = ptp_clock_index(adapter->ptp_clock);
+-	else
+-		info->phc_index = -1;
++		if (adapter->ptp_clock)
++			info->phc_index = ptp_clock_index(adapter->ptp_clock);
++		else
++			info->phc_index = -1;
+ 
+-	info->tx_types =
+-		(1 << HWTSTAMP_TX_OFF) |
+-		(1 << HWTSTAMP_TX_ON);
++		info->tx_types =
++			(1 << HWTSTAMP_TX_OFF) |
++			(1 << HWTSTAMP_TX_ON);
+ 
+-	info->rx_filters =
+-		(1 << HWTSTAMP_FILTER_NONE) |
+-		(1 << HWTSTAMP_FILTER_ALL) |
+-		(1 << HWTSTAMP_FILTER_SOME) |
+-		(1 << HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
+-		(1 << HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
+-		(1 << HWTSTAMP_FILTER_PTP_V2_EVENT);
++		info->rx_filters = 1 << HWTSTAMP_FILTER_NONE;
++
++		/* 82576 does not support timestamping all packets. */
++		if (adapter->hw.mac.type >= e1000_82580)
++			info->rx_filters |= 1 << HWTSTAMP_FILTER_ALL;
++		else
++			info->rx_filters |=
++				(1 << HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
++				(1 << HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
++				(1 << HWTSTAMP_FILTER_PTP_V2_SYNC) |
++				(1 << HWTSTAMP_FILTER_PTP_V2_DELAY_REQ) |
++				(1 << HWTSTAMP_FILTER_PTP_V2_EVENT);
++
++		break;
++#endif /* CONFIG_IGB_PTP */
++	default:
++		return ethtool_op_get_ts_info(dev, info);
++		break;
++	}
+ 
+ 	return 0;
+ }
+-#endif /* CONFIG_IGB_PTP */
+ 
+ static int igb_ethtool_begin(struct net_device *netdev)
+ {
+@@ -2351,9 +2368,7 @@ static const struct ethtool_ops igb_ethtool_ops = {
+ 	.get_ethtool_stats      = igb_get_ethtool_stats,
+ 	.get_coalesce           = igb_get_coalesce,
+ 	.set_coalesce           = igb_set_coalesce,
+-#ifdef CONFIG_IGB_PTP
+ 	.get_ts_info            = igb_get_ts_info,
+-#endif /* CONFIG_IGB_PTP */
+ 	.begin			= igb_ethtool_begin,
+ 	.complete		= igb_ethtool_complete,
+ };
 -- 
 1.7.11.4
