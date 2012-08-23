@@ -1,41 +1,42 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: [PATCH v2] net: add new QCA alx ethernet driver
-Date: Thu, 23 Aug 2012 06:56:51 +0000
-Message-ID: <157393863283F442885425D2C45428562A4F519A@nasanexd02f.na.qualcomm.com>
-References: <1345480949-14800-1-git-send-email-cjren@qca.qualcomm.com>
-	<20120822.225700.714020017287504609.davem@davemloft.net>
-	<157393863283F442885425D2C45428562A4F5169@nasanexd02f.na.qualcomm.com>
- <20120822.234019.1546353507351890178.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v3] net: remove delay at device dismantle
+Date: Thu, 23 Aug 2012 09:00:26 +0200
+Message-ID: <1345705226.5904.107.camel@edumazet-glaptop>
+References: <1345691986.5904.40.camel@edumazet-glaptop>
+	 <87txvum80h.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Ren, Cloud" <cjren@qca.qualcomm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>,
-	"Rodriguez, Luis" <rodrigue@qca.qualcomm.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120822.234019.1546353507351890178.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, gaofeng@cn.fujitsu.com,
+	netdev@vger.kernel.org, maheshb@google.com, therbert@google.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:38073 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751261Ab2HWHAb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 03:00:31 -0400
+Received: by bkwj10 with SMTP id j10so98635bkw.19
+        for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 00:00:30 -0700 (PDT)
+In-Reply-To: <87txvum80h.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2012-08-22 at 23:34 -0700, Eric W. Biederman wrote:
+
+> raw_notifier_call_chain isn't safe without holding some sort of lock.
+> So removing the ASSERT_RTNL assert here is papering over a bug elsewhere
+> in this patch.
 > 
-> Then add a new ethtool operation to support your use case, that's exactly
-> what I was telling you to do.
+> Without holding a lock for traversing the notifier chain there will
+> be races with network module load and unload that could corrupt
+> this list while we are traversing it.
+> load/unlod.
 > 
-> Did it really not occur to you that you perhaps you should extend existing
-> generic facilities to suit your needs instead of creating private facilities that no
-> other driver can use?
+> You already have one of your NETDEV_UNREGISTER_FINAL calls under the
+> rtnl_lock so it doesn't look like a burden to put the other call under
+> the rtnl_lock as well.
 
-I'm afraid someone also rejects my request to add such operation to ethtool 
-By your same reason.
-before adding this interface, we had searched the kernel, marvell driver also 
-Uses it, we had thought could be ok.
+Hmm right, I have been fooled by the rcu_dereference_raw() calls in
+notifier_call_chain()
 
-Of course, we will respect your opinion if it's not appropriated.
-
-Thanks
-Xiong
+I'll send an update, thanks !
