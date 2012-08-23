@@ -1,771 +1,116 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH RFC 2/2] iproute2: add support for tcp_metrics
-Date: Thu, 23 Aug 2012 18:01:45 +0300
-Message-ID: <1345734105-28328-3-git-send-email-ja@ssi.bg>
-References: <1345734105-28328-1-git-send-email-ja@ssi.bg>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:50892 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755195Ab2HWO74 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Aug 2012 10:59:56 -0400
-Received: from ja.ssi.bg (localhost.localdomain [127.0.0.1])
-	by ja.ssi.bg (8.14.4/8.14.4) with ESMTP id q7NF21Zt028369
-	for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 18:02:01 +0300
-Received: (from root@localhost)
-	by ja.ssi.bg (8.14.4/8.14.4/Submit) id q7NF21nA028366
-	for netdev@vger.kernel.org; Thu, 23 Aug 2012 18:02:01 +0300
-In-Reply-To: <1345734105-28328-1-git-send-email-ja@ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lin Ming <mlin@ss.pku.edu.cn>
+Subject: Re: IPv6 deadlock with CONFIG_IPV6_ROUTER_PREF
+Date: Thu, 23 Aug 2012 23:10:37 +0800
+Message-ID: <CAF1ivSZN8PyPhAkyaFL-GsTbnr4uwP=zzzjZbgqOKts_wgngYA@mail.gmail.com>
+References: <CC52AD11.7CC2%dbanerje@akamai.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Hunt, Joshua" <johunt@akamai.com>,
+	"dbavatar@gmail.com" <dbavatar@gmail.com>,
+	"Lubashev, Igor" <ilubashe@akamai.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Banerjee, Debabrata" <dbanerje@akamai.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CC52AD11.7CC2%dbanerje@akamai.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-	ip tcp_metrics/tcpmetrics
+On Fri, Aug 17, 2012 at 1:58 AM, Banerjee, Debabrata
+<dbanerje@akamai.com> wrote:
+> This code tries to send a neighbor discovery ICMPv6 packet for router
+> reachability while read_lock(tb6_lock) is held. The send may want to cause
+> a fib6_clean_all() garbage collection, which will try to take
+> write_lock(tb6_lock), resulting in deadlock. Garbage collection becomes
+> more likely under high load of cloned routes, so this is exploitable as a
+> DDOS attack, given enough attack hosts in relation max_size of the route
+> table (default of 4k). I checked from 3.6-rc1 back to 2.6.32, it is
+> present everywhere.
 
-diff -urpN iproute2-3.5.1/include/linux/tcp_metrics.h iproute2-3.5.1-tcp_metrics/include/linux/tcp_metrics.h
---- iproute2-3.5.1/include/linux/tcp_metrics.h	1970-01-01 02:00:00.000000000 +0200
-+++ iproute2-3.5.1-tcp_metrics/include/linux/tcp_metrics.h	2012-08-23 09:50:54.385569009 +0300
-@@ -0,0 +1,54 @@
-+/* tcp_metrics.h - TCP Metrics Interface */
-+
-+#ifndef _LINUX_TCP_METRICS_H
-+#define _LINUX_TCP_METRICS_H
-+
-+#include <linux/types.h>
-+
-+/* NETLINK_GENERIC related info
-+ */
-+#define TCP_METRICS_GENL_NAME		"tcp_metrics"
-+#define TCP_METRICS_GENL_VERSION	0x1
-+
-+enum tcp_metric_index {
-+	TCP_METRIC_RTT,
-+	TCP_METRIC_RTTVAR,
-+	TCP_METRIC_SSTHRESH,
-+	TCP_METRIC_CWND,
-+	TCP_METRIC_REORDERING,
-+
-+	/* Always last.  */
-+	__TCP_METRIC_MAX,
-+};
-+
-+#define TCP_METRIC_MAX	(__TCP_METRIC_MAX - 1)
-+
-+enum {
-+	TCP_METRICS_ATTR_UNSPEC,
-+	TCP_METRICS_ATTR_ADDR_IPV4,		/* u32 */
-+	TCP_METRICS_ATTR_ADDR_IPV6,		/* binary */
-+	TCP_METRICS_ATTR_AGE,			/* msecs */
-+	TCP_METRICS_ATTR_TW_TSVAL,		/* u32, raw, rcv tsval */
-+	TCP_METRICS_ATTR_TW_TS_STAMP,		/* s32, sec age */
-+	TCP_METRICS_ATTR_VALS,			/* nested +1, u32 */
-+	TCP_METRICS_ATTR_FOPEN_MSS,		/* u16 */
-+	TCP_METRICS_ATTR_FOPEN_SYN_DROPS,	/* u16, count of drops */
-+	TCP_METRICS_ATTR_FOPEN_SYN_DROP_TS,	/* msecs age */
-+	TCP_METRICS_ATTR_FOPEN_COOKIE,		/* binary */
-+
-+	__TCP_METRICS_ATTR_MAX,
-+};
-+
-+#define TCP_METRICS_ATTR_MAX	(__TCP_METRICS_ATTR_MAX - 1)
-+
-+enum {
-+	TCP_METRICS_CMD_UNSPEC,
-+	TCP_METRICS_CMD_GET,
-+	TCP_METRICS_CMD_DEL,
-+
-+	__TCP_METRICS_CMD_MAX,
-+};
-+
-+#define TCP_METRICS_CMD_MAX	(__TCP_METRICS_CMD_MAX - 1)
-+
-+#endif /* _LINUX_TCP_METRICS_H */
-diff -urpN iproute2-3.5.1/ip/Makefile iproute2-3.5.1-tcp_metrics/ip/Makefile
---- iproute2-3.5.1/ip/Makefile	2012-08-13 18:13:58.000000000 +0300
-+++ iproute2-3.5.1-tcp_metrics/ip/Makefile	2012-08-23 10:24:01.561660891 +0300
-@@ -3,7 +3,7 @@ IPOBJ=ip.o ipaddress.o ipaddrlabel.o ipr
-     ipmaddr.o ipmonitor.o ipmroute.o ipprefix.o iptuntap.o \
-     ipxfrm.o xfrm_state.o xfrm_policy.o xfrm_monitor.o \
-     iplink_vlan.o link_veth.o link_gre.o iplink_can.o \
--    iplink_macvlan.o iplink_macvtap.o ipl2tp.o
-+    iplink_macvlan.o iplink_macvtap.o ipl2tp.o tcp_metrics.o
- 
- RTMONOBJ=rtmon.o
- 
-diff -urpN iproute2-3.5.1/ip/ip.c iproute2-3.5.1-tcp_metrics/ip/ip.c
---- iproute2-3.5.1/ip/ip.c	2012-08-13 18:13:58.000000000 +0300
-+++ iproute2-3.5.1-tcp_metrics/ip/ip.c	2012-08-23 10:21:20.917653464 +0300
-@@ -45,7 +45,7 @@ static void usage(void)
- "       ip [ -force ] -batch filename\n"
- "where  OBJECT := { link | addr | addrlabel | route | rule | neigh | ntable |\n"
- "                   tunnel | tuntap | maddr | mroute | mrule | monitor | xfrm |\n"
--"                   netns | l2tp }\n"
-+"                   netns | l2tp | tcp_metrics }\n"
- "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n"
- "                    -f[amily] { inet | inet6 | ipx | dnet | link } |\n"
- "                    -l[oops] { maximum-addr-flush-attempts } |\n"
-@@ -78,6 +78,8 @@ static const struct cmd {
- 	{ "tunl",	do_iptunnel },
- 	{ "tuntap",	do_iptuntap },
- 	{ "tap",	do_iptuntap },
-+	{ "tcpmetrics",	do_tcp_metrics },
-+	{ "tcp_metrics",do_tcp_metrics },
- 	{ "monitor",	do_ipmonitor },
- 	{ "xfrm",	do_xfrm },
- 	{ "mroute",	do_multiroute },
-diff -urpN iproute2-3.5.1/ip/ip_common.h iproute2-3.5.1-tcp_metrics/ip/ip_common.h
---- iproute2-3.5.1/ip/ip_common.h	2012-08-13 18:13:58.000000000 +0300
-+++ iproute2-3.5.1-tcp_metrics/ip/ip_common.h	2012-08-23 10:19:11.005647457 +0300
-@@ -42,6 +42,7 @@ extern int do_multirule(int argc, char *
- extern int do_netns(int argc, char **argv);
- extern int do_xfrm(int argc, char **argv);
- extern int do_ipl2tp(int argc, char **argv);
-+extern int do_tcp_metrics(int argc, char **argv);
- 
- static inline int rtm_get_table(struct rtmsg *r, struct rtattr **tb)
- {
-diff -urpN iproute2-3.5.1/ip/tcp_metrics.c iproute2-3.5.1-tcp_metrics/ip/tcp_metrics.c
---- iproute2-3.5.1/ip/tcp_metrics.c	1970-01-01 02:00:00.000000000 +0200
-+++ iproute2-3.5.1-tcp_metrics/ip/tcp_metrics.c	2012-08-23 16:57:51.422753475 +0300
-@@ -0,0 +1,498 @@
-+/*
-+ * tcp_metrics.c	"ip tcp_metrics/tcpmetrics"
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		version 2 as published by the Free Software Foundation;
-+ *
-+ * Authors:	Julian Anastasov <ja@ssi.bg>, August 2012
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <unistd.h>
-+#include <errno.h>
-+#include <sys/types.h>
-+#include <sys/socket.h>
-+#include <arpa/inet.h>
-+#include <sys/ioctl.h>
-+#include <linux/if.h>
-+
-+#include <linux/genetlink.h>
-+#include <linux/tcp_metrics.h>
-+
-+#include "utils.h"
-+#include "ip_common.h"
-+
-+static void usage(void)
-+{
-+	fprintf(stderr, "Usage: ip tcp_metrics/tcpmetrics { COMMAND | help }\n");
-+	fprintf(stderr, "ip tcp_metrics { show | flush } SELECTOR\n");
-+	fprintf(stderr, "ip tcp_metrics delete [ address ] ADDRESS\n");
-+	fprintf(stderr, "SELECTOR := [ [ address ] PREFIX ]\n");
-+	exit(-1);
-+}
-+
-+/* netlink socket */
-+static struct rtnl_handle grth = { .fd = -1 };
-+static int genl_family = -1;
-+
-+
-+#define GENL_DEFINE_REQUEST(req, hdrsize, bufsiz)			\
-+struct {								\
-+	struct nlmsghdr		n;					\
-+	struct genlmsghdr	g;					\
-+	char			buf[NLMSG_ALIGN(hdrsize) + bufsiz];	\
-+} req
-+
-+#define GENL_INIT_REQUEST(req, family, hdrsize, ver, cmd_, flags)	\
-+	do {								\
-+		memset(&req, 0, sizeof(req));				\
-+		req.n.nlmsg_type = family;				\
-+		req.n.nlmsg_flags = flags;				\
-+		req.n.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN + hdrsize);	\
-+		req.g.cmd = cmd_;					\
-+		req.g.version = ver;					\
-+	} while (0)
-+
-+#define INIT_GENL_ACTION(req, cmd, ack)					\
-+	GENL_INIT_REQUEST(req, genl_family, 0,				\
-+			  TCP_METRICS_GENL_VERSION, cmd,		\
-+			  NLM_F_REQUEST | ((ack) ? NLM_F_ACK : 0))
-+
-+#define INIT_GENL_DUMP(req)						\
-+	GENL_INIT_REQUEST(req, genl_family, 0,				\
-+			  TCP_METRICS_GENL_VERSION,			\
-+			  TCP_METRICS_CMD_GET,				\
-+			  NLM_F_DUMP | NLM_F_REQUEST)
-+
-+#define CMD_LIST	0x0001	/* list, lst, show		*/
-+#define CMD_DEL		0x0002	/* delete, remove		*/
-+#define CMD_FLUSH	0x0004	/* flush			*/
-+
-+static struct {
-+	char	*name;
-+	int	code;
-+} cmds[] = {
-+	{	"list",		CMD_LIST	},
-+	{	"lst",		CMD_LIST	},
-+	{	"show",		CMD_LIST	},
-+	{	"delete",	CMD_DEL		},
-+	{	"remove",	CMD_DEL		},
-+	{	"flush",	CMD_FLUSH	},
-+};
-+
-+static char *metric_name[TCP_METRIC_MAX + 1] = {
-+	[TCP_METRIC_RTT]		= "rtt",
-+	[TCP_METRIC_RTTVAR]		= "rttvar",
-+	[TCP_METRIC_SSTHRESH]		= "ssthresh",
-+	[TCP_METRIC_CWND]		= "cwnd",
-+	[TCP_METRIC_REORDERING]		= "reordering",
-+};
-+
-+static struct
-+{
-+	int flushed;
-+	char *flushb;
-+	int flushp;
-+	int flushe;
-+	int cmd;
-+	inet_prefix addr;
-+} f;
-+
-+static int flush_update(void)
-+{
-+	if (rtnl_send_check(&grth, f.flushb, f.flushp) < 0) {
-+		perror("Failed to send flush request\n");
-+		return -1;
-+	}
-+	f.flushp = 0;
-+	return 0;
-+}
-+
-+static int process_msg(const struct sockaddr_nl *who, struct nlmsghdr *n,
-+		       void *arg)
-+{
-+	FILE *fp = (FILE *) arg;
-+	struct genlmsghdr *ghdr;
-+	struct rtattr *attrs[TCP_METRICS_ATTR_MAX + 1], *a;
-+	int len = n->nlmsg_len;
-+	char abuf[256];
-+	inet_prefix addr;
-+	int family, i;
-+
-+	if (n->nlmsg_type != genl_family)
-+		return -1;
-+
-+	len -= NLMSG_LENGTH(GENL_HDRLEN);
-+	if (len < 0)
-+		return -1;
-+
-+	ghdr = NLMSG_DATA(n);
-+	if (ghdr->cmd != TCP_METRICS_CMD_GET)
-+		return 0;
-+
-+	parse_rtattr(attrs, TCP_METRICS_ATTR_MAX, (void *) ghdr + GENL_HDRLEN,
-+		     len);
-+
-+	a = attrs[TCP_METRICS_ATTR_ADDR_IPV4];
-+	if (a) {
-+		if (f.addr.family && f.addr.family != AF_INET)
-+			return 0;
-+		memcpy(&addr.data, RTA_DATA(a), 4);
-+		family = AF_INET;
-+	} else {
-+		a = attrs[TCP_METRICS_ATTR_ADDR_IPV6];
-+		if (a) {
-+			if (f.addr.family && f.addr.family != AF_INET6)
-+				return 0;
-+			memcpy(&addr.data, RTA_DATA(a), 16);
-+			family = AF_INET6;
-+		} else
-+			return 0;
-+	}
-+
-+	if (f.addr.family && f.addr.bitlen >= 0 &&
-+	    inet_addr_match(&addr, &f.addr, f.addr.bitlen))
-+		return 0;
-+
-+	if (f.flushb) {
-+		struct nlmsghdr *fn;
-+		GENL_DEFINE_REQUEST(req2, 0, 128);
-+
-+		INIT_GENL_ACTION(req2, TCP_METRICS_CMD_DEL, 0);
-+
-+		if (NLMSG_ALIGN(f.flushp) + req2.n.nlmsg_len > f.flushe) {
-+			if (flush_update())
-+				return -1;
-+		}
-+		fn = (struct nlmsghdr *) (f.flushb + NLMSG_ALIGN(f.flushp));
-+		memcpy(fn, &req2.n, req2.n.nlmsg_len);
-+		fn->nlmsg_seq = ++grth.seq;
-+		f.flushp = (((char *) fn) + req2.n.nlmsg_len) - f.flushb;
-+		f.flushed++;
-+		if (show_stats < 2)
-+			return 0;
-+	}
-+
-+	if (f.cmd & (CMD_DEL | CMD_FLUSH))
-+		fprintf(fp, "Deleted ");
-+
-+	fprintf(fp, "%s",
-+		format_host(family, RTA_PAYLOAD(a), &addr.data,
-+			    abuf, sizeof(abuf)));
-+
-+	a = attrs[TCP_METRICS_ATTR_AGE];
-+	if (a) {
-+		__u64 val = rta_getattr_u64(a);
-+
-+		fprintf(fp, " age %llu.%03llusec",
-+			val / 1000, val % 1000);
-+	}
-+
-+	a = attrs[TCP_METRICS_ATTR_TW_TS_STAMP];
-+	if (a) {
-+		__s32 val = (__s32) rta_getattr_u32(a);
-+		__u32 tsval;
-+
-+		a = attrs[TCP_METRICS_ATTR_TW_TSVAL];
-+		tsval = a ? rta_getattr_u32(a) : 0;
-+		fprintf(fp, " tw_ts %u/%dsec ago", tsval, val);
-+	}
-+
-+	a = attrs[TCP_METRICS_ATTR_VALS];
-+	if (a) {
-+		struct rtattr *m[TCP_METRIC_MAX + 1 + 1];
-+
-+		parse_rtattr_nested(m, TCP_METRIC_MAX + 1, a);
-+
-+		for (i = 0; i < TCP_METRIC_MAX + 1; i++) {
-+			__u32 val;
-+
-+			a = m[i + 1];
-+			if (!a)
-+				continue;
-+			if (metric_name[i])
-+				fprintf(fp, " %s ", metric_name[i]);
-+			else
-+				fprintf(fp, " metric_%d ", i);
-+			val = rta_getattr_u32(a);
-+			switch (i) {
-+			case TCP_METRIC_RTT:
-+			case TCP_METRIC_RTTVAR:
-+				fprintf(fp, "%ums", val);
-+				break;
-+			case TCP_METRIC_SSTHRESH:
-+			case TCP_METRIC_CWND:
-+			case TCP_METRIC_REORDERING:
-+			default:
-+				fprintf(fp, "%u", val);
-+				break;
-+			}
-+		}
-+	}
-+
-+	a = attrs[TCP_METRICS_ATTR_FOPEN_MSS];
-+	if (a)
-+		fprintf(fp, " fo_mss %u", rta_getattr_u16(a));
-+
-+	a = attrs[TCP_METRICS_ATTR_FOPEN_SYN_DROPS];
-+	if (a) {
-+		__u16 syn_loss = rta_getattr_u16(a);
-+		__u64 ts;
-+
-+		a = attrs[TCP_METRICS_ATTR_FOPEN_SYN_DROP_TS];
-+		ts = a ? rta_getattr_u64(a) : 0;
-+
-+		fprintf(fp, " fo_syn_drops %u/%llu.%03llusec ago",
-+			syn_loss, ts / 1000, ts % 1000);
-+	}
-+
-+	a = attrs[TCP_METRICS_ATTR_FOPEN_COOKIE];
-+	if (a) {
-+		char cookie[32 + 1];
-+		unsigned char *ptr = RTA_DATA(a);
-+		int i, max = RTA_PAYLOAD(a);
-+
-+		if (max > 16)
-+			max = 16;
-+		cookie[0] = 0;
-+		for (i = 0; i < max; i++)
-+			sprintf(cookie + i + i, "%02x", ptr[i]);
-+		fprintf(fp, " fo_cookie %s", cookie);
-+	}
-+
-+	fprintf(fp, "\n");
-+
-+	fflush(fp);
-+	return 0;
-+}
-+
-+static int genl_parse_getfamily(struct nlmsghdr *nlh)
-+{
-+	struct rtattr *tb[CTRL_ATTR_MAX + 1];
-+	struct genlmsghdr *ghdr = NLMSG_DATA(nlh);
-+	int len = nlh->nlmsg_len;
-+	struct rtattr *attrs;
-+
-+	if (nlh->nlmsg_type != GENL_ID_CTRL) {
-+		fprintf(stderr, "Not a controller message, nlmsg_len=%d "
-+			"nlmsg_type=0x%x\n", nlh->nlmsg_len, nlh->nlmsg_type);
-+		return -1;
-+	}
-+
-+	if (ghdr->cmd != CTRL_CMD_NEWFAMILY) {
-+		fprintf(stderr, "Unknown controller command %d\n", ghdr->cmd);
-+		return -1;
-+	}
-+
-+	len -= NLMSG_LENGTH(GENL_HDRLEN);
-+
-+	if (len < 0) {
-+		fprintf(stderr, "wrong controller message len %d\n", len);
-+		return -1;
-+	}
-+
-+	attrs = (struct rtattr *) ((char *) ghdr + GENL_HDRLEN);
-+	parse_rtattr(tb, CTRL_ATTR_MAX, attrs, len);
-+
-+	if (tb[CTRL_ATTR_FAMILY_ID] == NULL) {
-+		fprintf(stderr, "Missing family id TLV\n");
-+		return -1;
-+	}
-+
-+	return rta_getattr_u16(tb[CTRL_ATTR_FAMILY_ID]);
-+}
-+
-+static int genl_ctrl_resolve_family(const char *family)
-+{
-+	GENL_DEFINE_REQUEST(req, 0, 1024);
-+
-+	GENL_INIT_REQUEST(req, GENL_ID_CTRL, 0, 0, CTRL_CMD_GETFAMILY,
-+			  NLM_F_REQUEST);
-+
-+	addattr_l(&req.n, 1024, CTRL_ATTR_FAMILY_NAME,
-+		  family, strlen(family) + 1);
-+
-+	if (rtnl_talk(&grth, &req.n, 0, 0, &req.n) < 0) {
-+		fprintf(stderr, "Error talking to the kernel\n");
-+		return -2;
-+	}
-+
-+	return genl_parse_getfamily(&req.n);
-+}
-+
-+static int tcpm_do_cmd(int cmd, int argc, char **argv)
-+{
-+	GENL_DEFINE_REQUEST(req, 0, 1024);
-+	int atype = -1;
-+	int code, ack;
-+
-+	memset(&f, 0, sizeof(f));
-+	f.addr.bitlen = -1;
-+	f.addr.family = preferred_family;
-+
-+	switch (preferred_family) {
-+	case AF_UNSPEC:
-+	case AF_INET:
-+	case AF_INET6:
-+		break;
-+	default:
-+		fprintf(stderr, "Unsupported family:%d\n", preferred_family);
-+		return -1;
-+	}
-+
-+	for (; argc > 0; argc--, argv++) {
-+		char *who = "address";
-+
-+		if (strcmp(*argv, "addr") == 0 ||
-+		    strcmp(*argv, "address") == 0) {
-+			who = *argv;
-+			NEXT_ARG();
-+		}
-+		if (matches(*argv, "help") == 0)
-+			usage();
-+		if (f.addr.bitlen >= 0)
-+			duparg2(who, *argv);
-+
-+		get_prefix(&f.addr, *argv, preferred_family);
-+		if (f.addr.bytelen && f.addr.bytelen * 8 == f.addr.bitlen) {
-+			if (f.addr.family == AF_INET)
-+				atype = TCP_METRICS_ATTR_ADDR_IPV4;
-+			else if (f.addr.family == AF_INET6)
-+				atype = TCP_METRICS_ATTR_ADDR_IPV6;
-+		}
-+		if ((CMD_DEL & cmd) && atype < 0) {
-+			fprintf(stderr, "Error: a specific IP address is expected rather than \"%s\"\n",
-+				*argv);
-+			return -1;
-+		}
-+
-+		argc--; argv++;
-+	}
-+
-+	if (cmd == CMD_DEL && atype < 0)
-+		missarg("address");
-+
-+	/* flush for exact address ? Single del */
-+	if (cmd == CMD_FLUSH && atype >= 0)
-+		cmd = CMD_DEL;
-+	/* flush for all addresses ? Single del without address */
-+	if (cmd == CMD_FLUSH && f.addr.bitlen < 0 &&
-+	    preferred_family == AF_UNSPEC) {
-+		cmd = CMD_DEL;
-+		code = TCP_METRICS_CMD_DEL;
-+		ack = 1;
-+	} else if (cmd == CMD_DEL) {
-+		code = TCP_METRICS_CMD_DEL;
-+		ack = 1;
-+	} else {	/* CMD_FLUSH, CMD_LIST */
-+		code = TCP_METRICS_CMD_GET;
-+		ack = 0;
-+	}
-+
-+	if (genl_family < 0) {
-+		if (rtnl_open_byproto(&grth, 0, NETLINK_GENERIC) < 0) {
-+			fprintf(stderr, "Cannot open generic netlink socket\n");
-+			exit(1);
-+		}
-+		genl_family = genl_ctrl_resolve_family(TCP_METRICS_GENL_NAME);
-+		if (genl_family < 0)
-+			exit(1);
-+	}
-+
-+	if (!(cmd & CMD_FLUSH) && (atype >= 0 || (cmd & CMD_DEL))) {
-+		INIT_GENL_ACTION(req, code, ack);
-+		if (atype >= 0)
-+			addattr_l(&req.n, sizeof(req), atype, &f.addr.data,
-+				  f.addr.bytelen);
-+	} else {
-+		INIT_GENL_DUMP(req);
-+	}
-+
-+	f.cmd = cmd;
-+	if (cmd & CMD_FLUSH) {
-+		int round = 0;
-+		char flushb[4096-512];
-+
-+		f.flushb = flushb;
-+		f.flushp = 0;
-+		f.flushe = sizeof(flushb);
-+
-+		for (;;) {
-+			req.n.nlmsg_seq = grth.dump = ++grth.seq;
-+			if (rtnl_send(&grth, &req, req.n.nlmsg_len) < 0) {
-+				perror("Failed to send flush request");
-+				exit(1);
-+			}
-+			f.flushed = 0;
-+			if (rtnl_dump_filter(&grth, process_msg, stdout) < 0) {
-+				fprintf(stderr, "Flush terminated\n");
-+				exit(1);
-+			}
-+			if (f.flushed == 0) {
-+				if (round == 0) {
-+					fprintf(stderr, "Nothing to flush.\n");
-+				} else if (show_stats)
-+					printf("*** Flush is complete after %d round%s ***\n",
-+					       round, round > 1 ? "s" : "");
-+				fflush(stdout);
-+				return 0;
-+			}
-+			round++;
-+			if (flush_update() < 0)
-+				exit(1);
-+			if (show_stats) {
-+				printf("\n*** Round %d, deleting %d entries ***\n",
-+				       round, f.flushed);
-+				fflush(stdout);
-+			}
-+		}
-+		return 0;
-+	}
-+
-+	req.n.nlmsg_seq = ++grth.seq;
-+	if (ack) {
-+		if (rtnl_talk(&grth, &req.n, 0, 0, NULL) < 0)
-+			return -2;
-+	} else if (atype >= 0) {
-+		if (rtnl_talk(&grth, &req.n, 0, 0, &req.n) < 0)
-+			return -2;
-+		if (process_msg(NULL, &req.n, stdout) < 0) {
-+			fprintf(stderr, "Dump terminated\n");
-+			exit(1);
-+		}
-+	} else {
-+		grth.dump = grth.seq;
-+		if (rtnl_send(&grth, &req, req.n.nlmsg_len) < 0) {
-+			perror("Failed to send dump request");
-+			exit(1);
-+		}
-+
-+		if (rtnl_dump_filter(&grth, process_msg, stdout) < 0) {
-+			fprintf(stderr, "Dump terminated\n");
-+			exit(1);
-+		}
-+	}
-+	return 0;
-+}
-+
-+int do_tcp_metrics(int argc, char **argv)
-+{
-+	int i;
-+
-+	if (argc < 1)
-+		return tcpm_do_cmd(CMD_LIST, 0, NULL);
-+	for (i = 0; i < ARRAY_SIZE(cmds); i++) {
-+		if (matches(argv[0], cmds[i].name) == 0)
-+			return tcpm_do_cmd(cmds[i].code, argc-1, argv+1);
-+	}
-+	if (matches(argv[0], "help") == 0)
-+		usage();
-+
-+	fprintf(stderr, "Command \"%s\" is unknown, "
-+			"try \"ip tcp_metrics help\".\n", *argv);
-+	exit(-1);
-+}
-+
-diff -urpN iproute2-3.5.1/man/man8/Makefile iproute2-3.5.1-tcp_metrics/man/man8/Makefile
---- iproute2-3.5.1/man/man8/Makefile	2012-08-13 18:13:58.000000000 +0300
-+++ iproute2-3.5.1-tcp_metrics/man/man8/Makefile	2012-08-23 14:45:12.506385476 +0300
-@@ -7,7 +7,8 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnsta
- 	bridge.8 rtstat.8 ctstat.8 nstat.8 routef.8 \
- 	ip-tunnel.8 ip-rule.8 ip-ntable.8 \
- 	ip-monitor.8 tc-stab.8 tc-hfsc.8 ip-xfrm.8 ip-netns.8 \
--	ip-neighbour.8 ip-mroute.8 ip-maddress.8 ip-addrlabel.8 
-+	ip-neighbour.8 ip-mroute.8 ip-maddress.8 ip-addrlabel.8 \
-+	ip-tcp_metrics.8
- 
- 
- all: $(TARGETS)
-diff -urpN iproute2-3.5.1/man/man8/ip-tcp_metrics.8 iproute2-3.5.1-tcp_metrics/man/man8/ip-tcp_metrics.8
---- iproute2-3.5.1/man/man8/ip-tcp_metrics.8	1970-01-01 02:00:00.000000000 +0200
-+++ iproute2-3.5.1-tcp_metrics/man/man8/ip-tcp_metrics.8	2012-08-23 14:48:09.262393650 +0300
-@@ -0,0 +1,96 @@
-+.TH "IP\-TCP_METRICS" 8 "23 Aug 2012" "iproute2" "Linux"
-+.SH "NAME"
-+ip-tcp_metrics \- management for TCP Metrics
-+.SH "SYNOPSIS"
-+.sp
-+.ad l
-+.in +8
-+.ti -8
-+.B ip
-+.RI "[ " OPTIONS " ]"
-+.B tcp_metrics
-+.RI "{ " COMMAND " | "
-+.BR help " }"
-+.sp
-+
-+.ti -8
-+.BR "ip tcp_metrics" " { " show " | " flush " }
-+.IR SELECTOR
-+
-+.ti -8
-+.BR "ip tcp_metrics delete " [ " address " ]
-+.IR ADDRESS
-+
-+.ti -8
-+.IR SELECTOR " := " 
-+.RB "[ [ " address " ] "
-+.IR PREFIX " ]"
-+
-+.SH "DESCRIPTION"
-+.B ip tcp_metrics
-+is used to manipulate entries in the kernel that keep TCP information
-+for IPv4 or IPv6 destinations. The entries are created when
-+TCP sockets want to share information for destinations and are
-+stored in cache keyed by the destination address. For performance
-+reasons the cache can not grow above configured limit and the
-+older entries are replaced with fresh information, sometimes
-+reclaimed and used for new destinations. The kernel never removes
-+entries, so they can be flushed only with this tool.
-+
-+.SS ip tcp_metrics show - show cached entries
-+
-+.TP
-+.BI address " PREFIX " (default)
-+IPv4/IPv6 prefix or address. If no prefix is provided all entries are shown.
-+
-+.SS ip tcp_metrics delete - delete single entry
-+
-+.TP
-+.BI address " ADDRESS " (default)
-+IPv4/IPv6 address. The address is a required argument.
-+
-+.SS ip tcp_metrics flush - flush entries
-+This command flushes the entries selected by some criteria.
-+
-+.PP
-+This command has the same arguments as
-+.B show.
-+
-+.SH "EXAMPLES"
-+.PP
-+ip tcp_metrics show address 192.168.0.0/24
-+.RS 4
-+Shows the entries for destinations from subnet
-+.RE
-+.PP
-+ip tcp_metrics show 192.168.0.0/24
-+.RS 4
-+The same but address keyword is optional
-+.RE
-+.PP
-+ip tcp_metrics delete 192.168.0.1
-+.RS 4
-+Removes the entry for 192.168.0.1 from cache.
-+.RE
-+.PP
-+ip tcp_metrics flush 192.168.0.0/24
-+.RS 4
-+Removes entries for destinations from subnet
-+.RE
-+.PP
-+ip tcp_metrics flush all
-+.RS 4
-+Removes all entries from cache
-+.RE
-+.PP
-+ip -6 tcp_metrics flush all
-+.RS 4
-+Removes all IPv6 entries from cache keeping the IPv4 entries.
-+.RE
-+
-+.SH SEE ALSO
-+.br
-+.BR ip (8)
-+
-+.SH AUTHOR
-+Original Manpage by Julian Anastasov <ja@ssi.bg>
-diff -urpN iproute2-3.5.1/man/man8/ip.8 iproute2-3.5.1-tcp_metrics/man/man8/ip.8
---- iproute2-3.5.1/man/man8/ip.8	2012-08-13 18:13:58.000000000 +0300
-+++ iproute2-3.5.1-tcp_metrics/man/man8/ip.8	2012-08-23 10:28:12.541672495 +0300
-@@ -15,7 +15,7 @@ ip \- show / manipulate routing, devices
- .IR OBJECT " := { "
- .BR link " | " addr " | " addrlabel " | " route " | " rule " | " neigh " | "\
-  ntable " | " tunnel " | " tuntap " | " maddr " | "  mroute " | " mrule " | "\
-- monitor " | " xfrm " | " netns " | "  l2tp " }"
-+ monitor " | " xfrm " | " netns " | "  l2tp " | "  tcp_metrics " }"
- .sp
- 
- .ti -8
-@@ -156,6 +156,10 @@ host addresses.
- - rule in routing policy database.
- 
- .TP
-+.B tcp_metrics/tcpmetrics
-+- manage TCP Metrics
-+
-+.TP
- .B tunnel
- - tunnel over IP.
- 
-@@ -215,6 +219,7 @@ was written by Alexey N. Kuznetsov and a
- .BR ip-ntable (8),
- .BR ip-route (8),
- .BR ip-rule (8),
-+.BR ip-tcp_metrics (8),
- .BR ip-tunnel (8),
- .BR ip-xfrm (8)
- .br
+How about moving the garbage collection to a kernel thread?
+Then the write_lock(tb6_lock) in this kernel thread won't cause such
+kind of dead lock with other threads.
+
+Lin Ming
+
+>
+> Stack trace below.
+>
+> Thanks,
+> Debabrata
+>
+> [46476.055009] Pid: 7963, comm: xxxx Not tainted 2.6.38-amd64
+> [46476.055009] RIP: 0010:[<ffffffff812878c9>]  [<ffffffff812878c9>]
+> __write_lock_failed+0x9/0x20
+> [46476.055009] RSP: 0018:ffff8801a099f8f0  EFLAGS: 00200287
+> [46476.055009] RAX: ffff8801a099ffd8 RBX: 0000000000000000 RCX:
+> 0000000000000000
+> [46476.055009] RDX: 0000000000000000 RSI: ffffffffa0196e60 RDI:
+> ffff88020bc95454
+> [46476.055009] RBP: ffff8801a099f908 R08: ffff8801a099fb78 R09:
+> 0000000000000003
+> [46476.055009] R10: ffff8801a099fa38 R11: ffff88020ebf1c00 R12:
+> ffffffff8100370e
+> [46476.055009] R13: 0000000000000000 R14: 0000000000000000 R15:
+> 0000000000000000
+> [46476.055009] FS:  00007fa1f4a596d0(0000) GS:ffff8800e7c00000(0063)
+> knlGS:00000000f6a5fba0
+> [46476.055009] CS:  0010 DS: 002b ES: 002b CR0: 000000008005003b
+> [46476.055009] CR2: 00000000f7791000 CR3: 00000001a0bcc000 CR4:
+> 00000000000006f0
+> [46476.055009] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
+> 0000000000000000
+> [46476.055009] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
+> 0000000000000400
+> [46476.055009] Process xxxx (pid: 7963, threadinfo ffff8801a099e000, task
+> ffff8801a099c880)
+> [46476.055009] Stack:
+> [46476.055009]  ffffffff81482c17 ffff8801a099f928 ffff88020bc95454
+> ffff8801a099f948
+> [46476.055009]  ffffffffa01972f9 ffffffffa0196e60 0000000000000200
+> ffffffff81960a80
+> [46476.055009]  0000000000000d80 000000000000ea60 00000001004cbccc
+> ffff8801a099f968
+> [46476.055009] Call Trace:
+> [46476.055009]  [<ffffffff81482c17>] ? _raw_write_lock_bh+0x27/0x30
+> (deadlock on write_lock tb6_lock)
+> [46476.055009]  [<ffffffffa01972f9>] fib6_clean_all+0x49/0x90 [ipv6]
+> [46476.055009]  [<ffffffffa0196e60>] ? fib6_age+0x0/0x80 [ipv6]
+> [46476.055009]  [<ffffffffa019744f>] fib6_run_gc+0x4f/0xe0 [ipv6]
+> [46476.055009]  [<ffffffffa0193547>] ip6_dst_gc+0x97/0x120 [ipv6]
+> [46476.055009]  [<ffffffff813d5515>] dst_alloc+0xa5/0xc0
+> [46476.055009]  [<ffffffffa0196c91>] icmp6_dst_alloc+0x51/0x170 [ipv6]
+> [46476.055009]  [<ffffffffa019ac3f>] ndisc_send_skb+0x6f/0x2c0 [ipv6]
+> [46476.055009]  [<ffffffff81481b2d>] ?
+> schedule_hrtimeout_range_clock+0xcd/0x110
+> [46476.055009]  [<ffffffffa019aef1>] __ndisc_send+0x61/0x80 [ipv6]
+> [46476.055009]  [<ffffffffa019afbc>] ndisc_send_ns+0x6c/0xa0 [ipv6]
+> [46476.055009]  [<ffffffffa0195459>] rt6_probe+0xc9/0xd0 [ipv6]
+> [46476.055009]  [<ffffffff81120e50>] ? __pollwait+0x0/0x100
+> [46476.055009]  [<ffffffffa0195575>] find_match+0x115/0x180 [ipv6]
+> [46476.055009]  [<ffffffffa01956b3>] ip6_pol_route+0xd3/0x2d0 [ipv6]
+> (read_lock tb6_lock)
+> [46476.055009]  [<ffffffffa01958c6>] ip6_pol_route_output+0x16/0x20 [ipv6]
+> [46476.055009]  [<ffffffffa0196dfe>] fib6_rule_lookup+0x1e/0x20 [ipv6]
+> [46476.055009]  [<ffffffffa01948c1>] ip6_route_output+0x61/0xa0 [ipv6]
+> [46476.055009]  [<ffffffffa0188232>] ip6_dst_lookup_tail+0xe2/0xf0 [ipv6]
+> [46476.055009]  [<ffffffffa0188255>] ip6_dst_lookup+0x15/0x20 [ipv6]
+> [46476.055009]  [<ffffffffa01aca8c>] tcp_v6_connect+0x26c/0x6e0 [ipv6]
+> [46476.055009]  [<ffffffff81235a36>] ? security_sk_alloc+0x16/0x20
+> [46476.055009]  [<ffffffff8142be49>] inet_stream_connect+0x2a9/0x300
+> [46476.055009]  [<ffffffff81482be4>] ? _raw_spin_unlock_bh+0x14/0x20
+> [46476.055009]  [<ffffffff813be329>] ? release_sock+0xd9/0x110
+> [46476.055009]  [<ffffffff813bc00f>] sys_connect+0xaf/0xd0
+> [46476.055009]  [<ffffffff813e4077>] ? compat_sys_setsockopt+0x87/0x220
+> [46476.055009]  [<ffffffff81150e28>] ? compat_sys_fcntl64+0x1d8/0x380
+> [46476.055009]  [<ffffffff813e4c93>] compat_sys_socketcall+0x93/0x1f0
+> [46476.055009]  [<ffffffff810354ec>] cstar_dispatch+0x7/0x32
+> [46476.055009] Code: 00 00 48 8b 5b 20 48 83 eb 07 48 39 d9 73 06 48 89 01
+> 31 c0 c3 b8 f2 ff ff ff c3 90 90 90 90 90 90 90 f0 81 07 00 00 00 01 f3 90
+> <81> 3f 00 00 00 01 75 f6 f0 81 2f 00 00 00 01 0f 85 e2 ff ff ff
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
