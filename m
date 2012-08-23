@@ -1,120 +1,165 @@
-From: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
-Subject: Re: First pass at MSG_FASTOPEN support in top-of-trunk netperf
-Date: Thu, 23 Aug 2012 07:15:15 -0700
-Message-ID: <CAFbMe2MY11VoXbGPDcLzHiHBzskoQk6eL1S9VWV5Vd1u0aRjNw@mail.gmail.com>
-References: <5020739A.3060809@hp.com>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [PATCH] netvm: check for page == NULL when propogating the
+ skb->pfmemalloc flag
+Date: Thu, 23 Aug 2012 10:17:40 -0400
+Message-ID: <20120823141740.GA30305@phenom.dumpdata.com>
+References: <20120807085554.GF29814@suse.de>
+ <20120808.155046.820543563969484712.davem@davemloft.net>
+ <1345631207.6821.140.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:35429 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752610Ab2HWOPR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 10:15:17 -0400
-Received: by lbbgj3 with SMTP id gj3so467537lbb.19
-        for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 07:15:15 -0700 (PDT)
-In-Reply-To: <5020739A.3060809@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, "mgorman@suse.de" <mgorman@suse.de>,
+        "linux-mm@kvack.org" <linux-mm@kvack.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+        "konrad@darnok.org" <konrad@darnok.org>,
+        "akpm@linux-foundation.org" <akpm@linux-foundation.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1345631207.6821.140.camel@zakaz.uk.xensource.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Hi Rick,
+On Wed, Aug 22, 2012 at 11:26:47AM +0100, Ian Campbell wrote:
+> On Wed, 2012-08-08 at 23:50 +0100, David Miller wrote:
+> > Just use something like a call to __pskb_pull_tail(skb, len) and all
+> > that other crap around that area can simply be deleted.
+> 
+> I think you mean something like this, which works for me, although I've
+> only lightly tested it.
+> 
 
-On Mon, Aug 6, 2012 at 6:47 PM, Rick Jones <rick.jones2@hp.com> wrote:
-> Folks -
->
-> I have just checked-in to the top-of-trunk netperf
-> (http://www.netperf.org/svn/netperf2/trunk) some changes which enable use of
-> sendto(MSG_FASTOPEN) in a TCP_CRR test.  While I was checking the system
-> calls I noticed that netperf was calling enable_enobufs() for every migrated
-> test, not just a UDP_STREAM test (the one where it is needed), so I fixed
-> that at the same time.  Baseline is taken with the fix in place.
->
-> MSG_FASTOPEN is used when one adds a test-specific -F option to the netperf
-> command line:
->
-> netperf -t TCP_CRR -H <destination> -- -F
->
-> Just testing the client side from a VM on my workstation (running a net-next
-> pulled just before 16:30 Pacific time) to my workstation itself I notice the
-> following:
->
-> Without MSG_FASTOPEN:
-> raj@tardy-ubuntu-1204:~/netperf2_trunk$ src/netperf -H tardy.usa.hp.com -t
-> TCP_CRR -i 3,30
-> MIGRATED TCP Connect/Request/Response TEST from 0.0.0.0 (0.0.0.0) port 0
-> AF_INET to tardy.usa.hp.com () port 0 AF_INET : +/-2.500% @ 99% conf.  :
-> demo
-> Local /Remote
-> Socket Size   Request  Resp.   Elapsed  Trans.
-> Send   Recv   Size     Size    Time     Rate
-> bytes  Bytes  bytes    bytes   secs.    per sec
->
-> 16384  87380  1        1       10.00    2092.33
-> 16384  87380
->
-> With MSG_FASTOPEN
-> raj@tardy-ubuntu-1204:~/netperf2_trunk$ src/netperf -H tardy.usa.hp.com -t
-> TCP_CRR -i 3,30 -- -F
-> MIGRATED TCP Connect/Request/Response TEST from 0.0.0.0 (0.0.0.0) port 0
-> AF_INET to tardy.usa.hp.com () port 0 AF_INET : +/-2.500% @ 99% conf.  :
-> demo
-> !!! WARNING
-> !!! Desired confidence was not achieved within the specified iterations.
-> !!! This implies that there was variability in the test environment that
-> !!! must be investigated before going further.
-> !!! Confidence intervals: Throughput      : 6.565%
-> !!!                       Local CPU util  : 0.000%
-> !!!                       Remote CPU util : 0.000%
->
-> Local /Remote
-> Socket Size   Request  Resp.   Elapsed  Trans.
-> Send   Recv   Size     Size    Time     Rate
-> bytes  Bytes  bytes    bytes   secs.    per sec
->
-> 16384  87380  1        1       10.00    2590.18
-> 16384  87380
->
-> There was a ~25% increase in TCP_CRR performance, even without the server
-> actually accepting the magic TCP option.  Is that actually expected?
+I've tested it heavily and works great.
 
-I have a locally enhanced netperf for TCP_CRR over Fast Open and I've
- noticed the numbers can change drastically between runs. I have not got
-the time to investigate why. (Does it have to do with scheduler and CPU
-locality?) How consistent is your perf number?
+Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+and I took a look at it too and:
 
-I plan to submit the server side code soon and will work with you to add
-the server side support to TCP_CRR (it requires a new TCP_FASTOPEN
-socket option to enable Fast Open on a listener.)
-
-Thanks,
-
-Jerry
-
-> Admittedly, it eliminates a connect() call, but the sequence before was:
->
-> socket()
-> getsockopt(SO_SNDBUF)
-> getsockopt(SO_RCVBUF)
-> setsockopt(SO_REUSEADDR)
-> bind()
-> connect()
-> sendto(4, "n", 1, 0, NULL, 0)           = 1
-> recvfrom(4, "n", 1, 0, NULL, NULL)      = 1
-> recvfrom(4, "", 1, 0, NULL, NULL)       = 0
-> close(4)
->
-> and with MSG_FASTOPEN only the connect() goes away.  Unless connect() is
-> really heavy compared to what sendto(MSG_FASTOPEN) does or something else
-> has changed wrt behaviour.
->
-> Anyway, feel free to kick the tires on the netperf changes and let me know
-> of any problems you encounter.
->
-> happy benchmarking,
->
-> rick jones
+Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Ian.
+> 
+> 8<----------------------------------------
+> 
+> >From 9e47e3e87a33b45974448649a97859a479183041 Mon Sep 17 00:00:00 2001
+> From: Ian Campbell <ian.campbell@citrix.com>
+> Date: Wed, 22 Aug 2012 10:15:29 +0100
+> Subject: [PATCH] xen-netfront: use __pskb_pull_tail to ensure linear area is big enough on RX
+> 
+> I'm slightly concerned by the "only in exceptional circumstances"
+> comment on __pskb_pull_tail but the structure of an skb just created
+> by netfront shouldn't hit any of the especially slow cases.
+> 
+> This approach still does slightly more work than the old way, since if
+> we pull up the entire first frag we now have to shuffle everything
+> down where before we just received into the right place in the first
+> place.
+> 
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+> Cc: Mel Gorman <mgorman@suse.de>
+> Cc: xen-devel@lists.xensource.com
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> ---
+>  drivers/net/xen-netfront.c |   39 ++++++++++-----------------------------
+>  1 files changed, 10 insertions(+), 29 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index 3089990..650f79a 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -57,8 +57,7 @@
+>  static const struct ethtool_ops xennet_ethtool_ops;
+>  
+>  struct netfront_cb {
+> -	struct page *page;
+> -	unsigned offset;
+> +	int pull_to;
+>  };
+>  
+>  #define NETFRONT_SKB_CB(skb)	((struct netfront_cb *)((skb)->cb))
+> @@ -867,15 +866,9 @@ static int handle_incoming_queue(struct net_device *dev,
+>  	struct sk_buff *skb;
+>  
+>  	while ((skb = __skb_dequeue(rxq)) != NULL) {
+> -		struct page *page = NETFRONT_SKB_CB(skb)->page;
+> -		void *vaddr = page_address(page);
+> -		unsigned offset = NETFRONT_SKB_CB(skb)->offset;
+> -
+> -		memcpy(skb->data, vaddr + offset,
+> -		       skb_headlen(skb));
+> +		int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
+>  
+> -		if (page != skb_frag_page(&skb_shinfo(skb)->frags[0]))
+> -			__free_page(page);
+> +		__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
+>  
+>  		/* Ethernet work: Delayed to here as it peeks the header. */
+>  		skb->protocol = eth_type_trans(skb, dev);
+> @@ -913,7 +906,6 @@ static int xennet_poll(struct napi_struct *napi, int budget)
+>  	struct sk_buff_head errq;
+>  	struct sk_buff_head tmpq;
+>  	unsigned long flags;
+> -	unsigned int len;
+>  	int err;
+>  
+>  	spin_lock(&np->rx_lock);
+> @@ -955,24 +947,13 @@ err:
+>  			}
+>  		}
+>  
+> -		NETFRONT_SKB_CB(skb)->page =
+> -			skb_frag_page(&skb_shinfo(skb)->frags[0]);
+> -		NETFRONT_SKB_CB(skb)->offset = rx->offset;
+> -
+> -		len = rx->status;
+> -		if (len > RX_COPY_THRESHOLD)
+> -			len = RX_COPY_THRESHOLD;
+> -		skb_put(skb, len);
+> +		NETFRONT_SKB_CB(skb)->pull_to = rx->status;
+> +		if (NETFRONT_SKB_CB(skb)->pull_to > RX_COPY_THRESHOLD)
+> +			NETFRONT_SKB_CB(skb)->pull_to = RX_COPY_THRESHOLD;
+>  
+> -		if (rx->status > len) {
+> -			skb_shinfo(skb)->frags[0].page_offset =
+> -				rx->offset + len;
+> -			skb_frag_size_set(&skb_shinfo(skb)->frags[0], rx->status - len);
+> -			skb->data_len = rx->status - len;
+> -		} else {
+> -			__skb_fill_page_desc(skb, 0, NULL, 0, 0);
+> -			skb_shinfo(skb)->nr_frags = 0;
+> -		}
+> +		skb_shinfo(skb)->frags[0].page_offset = rx->offset;
+> +		skb_frag_size_set(&skb_shinfo(skb)->frags[0], rx->status);
+> +		skb->data_len = rx->status;
+>  
+>  		i = xennet_fill_frags(np, skb, &tmpq);
+>  
+> @@ -999,7 +980,7 @@ err:
+>  		 * receive throughout using the standard receive
+>  		 * buffer size was cut by 25%(!!!).
+>  		 */
+> -		skb->truesize += skb->data_len - (RX_COPY_THRESHOLD - len);
+> +		skb->truesize += skb->data_len - RX_COPY_THRESHOLD;
+>  		skb->len += skb->data_len;
+>  
+>  		if (rx->flags & XEN_NETRXF_csum_blank)
+> -- 
+> 1.7.2.5
+> 
+> 
+> 
 > --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> To unsubscribe, send a message with 'unsubscribe linux-mm' in
+> the body to majordomo@kvack.org.  For more info on Linux MM,
+> see: http://www.linux-mm.org/ .
+> Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> 
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
