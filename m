@@ -1,47 +1,213 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH net-next] w5300: using eth_hw_addr_random() for random MAC and
- set device flag
-Date: Thu, 23 Aug 2012 15:28:40 +0800
-Message-ID: <CAPgLHd-v=M6QrhT3YnTqUXWqyUa3TgVtNN3Cao1sPXd7stAEww@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH (net.git)] stmmac: add header inclusion protection
+Date: Thu, 23 Aug 2012 09:28:18 +0200
+Message-ID: <1345706898-13007-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Rayagond Kokatanur <rayagond@vayavyalabs.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:64982 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756692Ab2HWH2l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 03:28:41 -0400
-Received: by qcro28 with SMTP id o28so283687qcr.19
-        for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 00:28:40 -0700 (PDT)
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:50084 "EHLO
+	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756692Ab2HWH2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 03:28:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+From: Rayagond Kokatanur <rayagond@vayavyalabs.com>
 
-Using eth_hw_addr_random() to generate a random Ethernet address
-(MAC) to be used by a net device and set addr_assign_type.
-Not need to duplicating its implementation.
+This patch adds "#ifndef __<header>_H" for protecting header from double
+inclusion.
 
-spatch with a semantic match is used to found this problem.
-(http://coccinelle.lip6.fr/)
-
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Signed-off-by: Rayagond Kokatanur <rayagond@vayavyalabs.com>
+Hacked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/wiznet/w5300.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h       |    5 +++++
+ drivers/net/ethernet/stmicro/stmmac/descs.h        |    6 ++++++
+ drivers/net/ethernet/stmicro/stmmac/descs_com.h    |    5 +++++
+ drivers/net/ethernet/stmicro/stmmac/dwmac100.h     |    5 +++++
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    3 +++
+ drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |    5 +++++
+ drivers/net/ethernet/stmicro/stmmac/mmc.h          |    5 +++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    5 +++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h |    4 ++++
+ 9 files changed, 43 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/wiznet/w5300.c b/drivers/net/ethernet/wiznet/w5300.c
-index bdd8891..88943d9 100644
---- a/drivers/net/ethernet/wiznet/w5300.c
-+++ b/drivers/net/ethernet/wiznet/w5300.c
-@@ -557,8 +557,7 @@ static int __devinit w5300_hw_probe(struct platform_device *pdev)
- 	if (data && is_valid_ether_addr(data->mac_addr)) {
- 		memcpy(ndev->dev_addr, data->mac_addr, ETH_ALEN);
- 	} else {
--		eth_random_addr(ndev->dev_addr);
--		ndev->addr_assign_type |= NET_ADDR_RANDOM;
-+		eth_hw_addr_random(ndev);
- 	}
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index e2d0832..719be39 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -22,6 +22,9 @@
+   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+ *******************************************************************************/
  
- 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++#ifndef __COMMON_H__
++#define __COMMON_H__
++
+ #include <linux/etherdevice.h>
+ #include <linux/netdevice.h>
+ #include <linux/phy.h>
+@@ -366,3 +369,5 @@ extern void stmmac_set_mac(void __iomem *ioaddr, bool enable);
+ 
+ extern void dwmac_dma_flush_tx_fifo(void __iomem *ioaddr);
+ extern const struct stmmac_ring_mode_ops ring_mode_ops;
++
++#endif /* __COMMON_H__ */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/descs.h b/drivers/net/ethernet/stmicro/stmmac/descs.h
+index 9820ec8..223adf9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/descs.h
++++ b/drivers/net/ethernet/stmicro/stmmac/descs.h
+@@ -20,6 +20,10 @@
+ 
+   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+ *******************************************************************************/
++
++#ifndef __DESCS_H__
++#define __DESCS_H__
++
+ struct dma_desc {
+ 	/* Receive descriptor */
+ 	union {
+@@ -166,3 +170,5 @@ enum tdes_csum_insertion {
+ 					 * is not calculated */
+ 	cic_full = 3,		/* IP header and pseudoheader */
+ };
++
++#endif /* __DESCS_H__ */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/descs_com.h b/drivers/net/ethernet/stmicro/stmmac/descs_com.h
+index dd8d6e1..7ee9499 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/descs_com.h
++++ b/drivers/net/ethernet/stmicro/stmmac/descs_com.h
+@@ -27,6 +27,9 @@
+   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+ *******************************************************************************/
+ 
++#ifndef __DESC_COM_H__
++#define __DESC_COM_H__
++
+ #if defined(CONFIG_STMMAC_RING)
+ static inline void ehn_desc_rx_set_on_ring_chain(struct dma_desc *p, int end)
+ {
+@@ -124,3 +127,5 @@ static inline void norm_set_tx_desc_len(struct dma_desc *p, int len)
+ 	p->des01.tx.buffer1_size = len;
+ }
+ #endif
++
++#endif /* __DESC_COM_H__ */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100.h b/drivers/net/ethernet/stmicro/stmmac/dwmac100.h
+index 7c6d857..2ec6aea 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac100.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100.h
+@@ -22,6 +22,9 @@
+   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+ *******************************************************************************/
+ 
++#ifndef __DWMAC100_H__
++#define __DWMAC100_H__
++
+ #include <linux/phy.h>
+ #include "common.h"
+ 
+@@ -119,3 +122,5 @@ enum ttc_control {
+ #define DMA_MISSED_FRAME_M_CNTR	0x0000ffff	/* Missed Frame Couinter */
+ 
+ extern const struct stmmac_dma_ops dwmac100_dma_ops;
++
++#endif /* __DWMAC100_H__ */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+index b4c44a5..0e4cace 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+@@ -19,6 +19,8 @@
+ 
+   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+ *******************************************************************************/
++#ifndef __DWMAC1000_H__
++#define __DWMAC1000_H__
+ 
+ #include <linux/phy.h>
+ #include "common.h"
+@@ -232,3 +234,4 @@ enum rtc_control {
+ #define	DWMAC_CORE_3_40	0x34
+ 
+ extern const struct stmmac_dma_ops dwmac1000_dma_ops;
++#endif /* __DWMAC1000_H__ */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
+index e678ce3..e49c9a0 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
+@@ -22,6 +22,9 @@
+   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+ *******************************************************************************/
+ 
++#ifndef __DWMAC_DMA_H__
++#define __DWMAC_DMA_H__
++
+ /* DMA CRS Control and Status Register Mapping */
+ #define DMA_BUS_MODE		0x00001000	/* Bus Mode */
+ #define DMA_XMT_POLL_DEMAND	0x00001004	/* Transmit Poll Demand */
+@@ -109,3 +112,5 @@ extern void dwmac_dma_start_rx(void __iomem *ioaddr);
+ extern void dwmac_dma_stop_rx(void __iomem *ioaddr);
+ extern int dwmac_dma_interrupt(void __iomem *ioaddr,
+ 				struct stmmac_extra_stats *x);
++
++#endif /* __DWMAC_DMA_H__ */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/mmc.h b/drivers/net/ethernet/stmicro/stmmac/mmc.h
+index a383520..67995ef 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/mmc.h
++++ b/drivers/net/ethernet/stmicro/stmmac/mmc.h
+@@ -22,6 +22,9 @@
+   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+ *******************************************************************************/
+ 
++#ifndef __MMC_H__
++#define __MMC_H__
++
+ /* MMC control register */
+ /* When set, all counter are reset */
+ #define MMC_CNTRL_COUNTER_RESET		0x1
+@@ -129,3 +132,5 @@ struct stmmac_counters {
+ extern void dwmac_mmc_ctrl(void __iomem *ioaddr, unsigned int mode);
+ extern void dwmac_mmc_intr_all_mask(void __iomem *ioaddr);
+ extern void dwmac_mmc_read(void __iomem *ioaddr, struct stmmac_counters *mmc);
++
++#endif /* __MMC_H__ */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index f2d3665..e872e1d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -20,6 +20,9 @@
+   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+ *******************************************************************************/
+ 
++#ifndef __STMMAC_H__
++#define __STMMAC_H__
++
+ #define STMMAC_RESOURCE_NAME   "stmmaceth"
+ #define DRV_MODULE_VERSION	"March_2012"
+ 
+@@ -166,3 +169,5 @@ static inline void stmmac_unregister_pci(void)
+ {
+ }
+ #endif /* CONFIG_STMMAC_PCI */
++
++#endif /* __STMMAC_H__ */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h
+index 6863590..aea9b14 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h
+@@ -21,6 +21,8 @@
+ 
+   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+ *******************************************************************************/
++#ifndef __STMMAC_TIMER_H__
++#define __STMMAC_TIMER_H__
+ 
+ struct stmmac_timer {
+ 	void (*timer_start) (unsigned int new_freq);
+@@ -40,3 +42,5 @@ void stmmac_schedule(struct net_device *dev);
+ extern int tmu2_register_user(void *fnt, void *data);
+ extern void tmu2_unregister_user(void);
+ #endif
++
++#endif /* __STMMAC_TIMER_H__ */
+-- 
+1.7.4.4
