@@ -1,63 +1,45 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Re[2]:  [PATCH 05/19] netfilter: nf_conntrack_ipv6: improve
- fragmentation handling
-Date: Thu, 23 Aug 2012 16:49:20 +0200
-Message-ID: <1345733360.3069.380.camel@localhost>
-References: <mdaatbj.b2f3561b17fe4f00a6e947611a0959a1@obelix.schillstrom.com>
-	 <alpine.LFD.2.00.1208220954260.1698@ja.ssi.bg>
-	 <alpine.LFD.2.00.1208221014000.1698@ja.ssi.bg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Hans Schillstrom <hans@schillstrom.com>,
-	Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.1208221014000.1698@ja.ssi.bg>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH RFC 0/2] Interface for TCP Metrics
+Date: Thu, 23 Aug 2012 18:01:43 +0300
+Message-ID: <1345734105-28328-1-git-send-email-ja@ssi.bg>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:50889 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755307Ab2HWO74 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Aug 2012 10:59:56 -0400
+Received: from ja.ssi.bg (localhost.localdomain [127.0.0.1])
+	by ja.ssi.bg (8.14.4/8.14.4) with ESMTP id q7NF20Nv028357
+	for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 18:02:00 +0300
+Received: (from root@localhost)
+	by ja.ssi.bg (8.14.4/8.14.4/Submit) id q7NF20qg028354
+	for netdev@vger.kernel.org; Thu, 23 Aug 2012 18:02:00 +0300
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-08-22 at 10:16 +0300, Julian Anastasov wrote:
-> 	Hello,
-> 
-> On Wed, 22 Aug 2012, Julian Anastasov wrote:
-> 
-> > On Wed, 22 Aug 2012, Hans Schillstrom wrote:
-> > 
-> > > >Perhaps we could change/fix the MTU check in IPVS?
-> > > >(This would also solve issues I've seen with TSO/GSO frames, hitting
-> > > >this code path).
-> > > >
-> > > I ran into this as well, 
-> > > try this for the mtu check.
-> > > 
-> > >        if ((!skb->local_df && skb->len > mtu && !skb_is_gso(skb)) ||
-> > >            (IP6CB(skb)->frag_max_size && IP6CB(skb)->frag_max_size > mtu)) {
-> > 
-> > 	Better without local_df check, it is our job to
-> > set it.
+	This patchset contains 2 patches, one for kernel
+and one for iproute2. We add DUMP/GET/DEL support for
+genl "tcp_metrics" and minimal support for filtering
+by address prefix and family in user space.
 
-Will the IPVS usage of local_df, conflict with Patrick's usage?
+	I tested show/del/flush, filtering by family, prefix,
+output for metrics such as rtt, rttvar, cwnd, ssthresh (after
+modifying route). I didn't tested output for fast open.
 
+	May be some corrections in output can be desired.
 
+	The kernel patch has some parts to check:
 
-> 	Ops, sorry. It seems now nf_ct_frag6_reasm (Patch 02/18)
-> will set head->local_df = 1, so we should check local_df
-> as Hans said.
+- in tcp_metrics_nl_cmd_del I'm trying to flush all addresses
+with single request, eg. when no family, address or other
+selectors are provided. I use some arbitrary counter sync_count
+to force memory to be freed in parts by using synchronize_rcu,
+note that we are under genl_mutex, so may be this is bad idea
+to delay other genl users? My idea was to avoid many commands
+on "flush all", may be we should trigger flush by using some
+other mechanism that is pernet? And I don't know how to test
+it properly without large cache.
 
-With Hans'es version of the MTU check, IPVS seems to work again (with
-Patricks patches applied).
-
-(Also spotted the GSO problem I had with IPv6 + DR, and send an upstream
-fix...)
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
-
+- This function now uses rcu_dereference_protected, someone
+should check if these lockdep checks are correct. I enabled
+lockdep in config and don't see any warnings.
