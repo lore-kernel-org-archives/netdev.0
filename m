@@ -1,48 +1,64 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] xfrm: fix RCU bugs
-Date: Wed, 22 Aug 2012 22:40:17 -0700 (PDT)
-Message-ID: <20120822.224017.847590732390009999.davem@davemloft.net>
-References: <1345372308.5158.54.camel@edumazet-glaptop>
+Subject: Re: [RFC] Interface for TCP Metrics
+Date: Wed, 22 Aug 2012 22:47:59 -0700 (PDT)
+Message-ID: <20120822.224759.1531662436208583166.davem@davemloft.net>
+References: <alpine.LFD.2.00.1208191402560.1893@ja.ssi.bg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fan.du@windriver.com,
-	fengguang.wu@intel.com, Priyanka.Jain@freescale.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33283 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33360 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753798Ab2HWFkU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 01:40:20 -0400
-In-Reply-To: <1345372308.5158.54.camel@edumazet-glaptop>
+	with ESMTP id S1754106Ab2HWFsA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 01:48:00 -0400
+In-Reply-To: <alpine.LFD.2.00.1208191402560.1893@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 19 Aug 2012 12:31:48 +0200
+From: Julian Anastasov <ja@ssi.bg>
+Date: Sun, 19 Aug 2012 14:42:15 +0300 (EEST)
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> This patch reverts commit 56892261ed1a (xfrm: Use rcu_dereference_bh to
-> deference pointer protected by rcu_read_lock_bh), and fixes bugs
-> introduced in commit 418a99ac6ad ( Replace rwlock on xfrm_policy_afinfo
-> with rcu )
-> 
-> 1) We properly use RCU variant in this file, not a mix of RCU/RCU_BH
-> 
-> 2) We must defer some writes after the synchronize_rcu() call or a reader
->  can crash dereferencing NULL pointer.
-> 
-> 3) Now we use the xfrm_policy_afinfo_lock spinlock only from process
-> context, we no longer need to block BH in xfrm_policy_register_afinfo()
-> and xfrm_policy_unregister_afinfo()
-> 
-> 4) Can use RCU_INIT_POINTER() instead of rcu_assign_pointer() in
-> xfrm_policy_unregister_afinfo()
-> 
-> 5) Remove a forward inline declaration (xfrm_policy_put_afinfo()),
->   and also move xfrm_policy_get_afinfo() declaration.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> - will use genl with TCP_METRICS_GENL_NAME "tcp_metrics",
+> TCP_METRICS_GENL_VERSION 0x01
 
-Applied, thanks Eric.
+Sounds good.
+
+> - provide dumpit method and one cmd to read metrics by exact addr,
+> will use TCP_METRICS_CMD_{GET,...} and TCP_METRICS_ATTR_xxx in
+> new file include/linux/tcp_metrics.h
+
+Ok.
+
+Eric thinks we can filter in userspace, but since it's so easy to
+lookup entries in the kernel and the demux for that is already there,
+I have no objections to have a bonafide netlink operation for
+getting a single entry.
+
+> - Is command to delete cached entry needed? Delete will need
+> new rcu_head. Useful to flush the cache or to delete entries
+> with filter.
+
+Having a way to flush the entire table is useful.  Specific entries,
+is less useful.
+
+> - without support for delete cmd, may be we can add command to
+> reset entry with default values from dst?
+> 
+> - Where to put the new netlink code?
+> tcp_metrics_netlink.c
+> tcp_metrics_nl.c
+> or just in current tcp_metrics.c ?
+
+Put it in tcp_metrics.c, that way we don't need to export any
+internals.
+
+> - command to modify specific metric for addr, by name? Only
+> for tcpm_vals? If not locked?
+> 
+> 	Do we need modify/delete/reset support or just read
+> support is enough? Comments?
+
+I would say that you can support fancy things as long as new
+locking constraints are not added.
