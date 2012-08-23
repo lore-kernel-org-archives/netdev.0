@@ -1,47 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] [RFC] netlink: fix possible spoofing from non-root
- processes
-Date: Wed, 22 Aug 2012 21:53:16 -0700 (PDT)
-Message-ID: <20120822.215316.2237073843517796376.davem@davemloft.net>
-References: <1345224149-5946-3-git-send-email-pablo@netfilter.org>
-	<20120819212327.GA14853@1984>
-	<20120820190915.GA3727@1984>
+Subject: Re: [PATCH net-next] xfrm: fix RCU bugs
+Date: Wed, 22 Aug 2012 22:40:17 -0700 (PDT)
+Message-ID: <20120822.224017.847590732390009999.davem@davemloft.net>
+References: <1345372308.5158.54.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: pablo@netfilter.org
+Cc: netdev@vger.kernel.org, fan.du@windriver.com,
+	fengguang.wu@intel.com, Priyanka.Jain@freescale.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33030 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33283 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750750Ab2HWExR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 00:53:17 -0400
-In-Reply-To: <20120820190915.GA3727@1984>
+	with ESMTP id S1753798Ab2HWFkU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 01:40:20 -0400
+In-Reply-To: <1345372308.5158.54.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon, 20 Aug 2012 21:09:15 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 19 Aug 2012 12:31:48 +0200
 
-> On Sun, Aug 19, 2012 at 11:23:27PM +0200, Pablo Neira Ayuso wrote:
->> On Fri, Aug 17, 2012 at 07:22:29PM +0200, pablo@netfilter.org wrote:
->> [...]
->> > [ I don't know any FOSS program making use of Netlink to communicate
->> >   to processes, please, let me know if I'm missing anyone important ]
->> 
->> Patrick pinged me for little reminder on NETLINK_USERSOCK. We still
->> have to allow netlink-to-netlink userspace communication for it.
->> 
->> So, please find a new version of this patch that allows non-root
->> processes for that Netlink bus. For others, my patch restricts to root
->> processes the ability of sending messages with dst_pid != 0.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Sorry, I just noticed that you cannot apply this to your net tree
-> since it depends on patch 1/2 which is not a fix.
+> This patch reverts commit 56892261ed1a (xfrm: Use rcu_dereference_bh to
+> deference pointer protected by rcu_read_lock_bh), and fixes bugs
+> introduced in commit 418a99ac6ad ( Replace rwlock on xfrm_policy_afinfo
+> with rcu )
 > 
-> I'll get back to you with one path that you can apply to your net
-> tree.
+> 1) We properly use RCU variant in this file, not a mix of RCU/RCU_BH
 > 
-> I'll resend 1/2 later to net-next once this has been sorted out.
+> 2) We must defer some writes after the synchronize_rcu() call or a reader
+>  can crash dereferencing NULL pointer.
+> 
+> 3) Now we use the xfrm_policy_afinfo_lock spinlock only from process
+> context, we no longer need to block BH in xfrm_policy_register_afinfo()
+> and xfrm_policy_unregister_afinfo()
+> 
+> 4) Can use RCU_INIT_POINTER() instead of rcu_assign_pointer() in
+> xfrm_policy_unregister_afinfo()
+> 
+> 5) Remove a forward inline declaration (xfrm_policy_put_afinfo()),
+>   and also move xfrm_policy_get_afinfo() declaration.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Ok, waiting for new versions of these patches, thanks.
+Applied, thanks Eric.
