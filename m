@@ -1,64 +1,56 @@
-From: "Vick, Matthew" <matthew.vick@intel.com>
-Subject: RE: [net-next 12/13] igb: Correct PTP support query from ethtool.
-Date: Thu, 23 Aug 2012 16:38:50 +0000
-Message-ID: <06DFBC1E25D8024DB214DC7F41A3CD34488DD103@ORSMSX101.amr.corp.intel.com>
-References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1345715813-20757-13-git-send-email-jeffrey.t.kirsher@intel.com>
- <20120823112426.GD2238@netboy.at.omicron.at>
+From: Stephen Clark <sclark46@earthlink.net>
+Subject: Re: [PATCH v2] net-tcp: TCP/IP stack bypass for loopback connections
+Date: Thu, 23 Aug 2012 12:41:48 -0400
+Message-ID: <50365D4C.4000609@earthlink.net>
+References: <1344559958-29162-1-git-send-email-brutus@google.com>	<20120814023155.ffe9c01d.billfink@mindspring.com> <20120814.003732.714549073635415560.davem@davemloft.net>
+Reply-To: sclark46@earthlink.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Richard Cochran <richardcochran@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: billfink@mindspring.com, brutus@google.com, edumazet@google.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27255 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753418Ab2HWQjd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 12:39:33 -0400
-In-Reply-To: <20120823112426.GD2238@netboy.at.omicron.at>
-Content-Language: en-US
+Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:39360 "EHLO
+	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754773Ab2HWRCg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 13:02:36 -0400
+In-Reply-To: <20120814.003732.714549073635415560.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Richard Cochran
-> Sent: Thursday, August 23, 2012 4:24 AM
-> To: Kirsher, Jeffrey T
-> Cc: davem@davemloft.net; Vick, Matthew; netdev@vger.kernel.org;
-> gospo@redhat.com; sassmann@redhat.com
-> Subject: Re: [net-next 12/13] igb: Correct PTP support query from
-> ethtool.
-> 
-> On Thu, Aug 23, 2012 at 02:56:52AM -0700, Jeff Kirsher wrote:
-> > From: Matthew Vick <matthew.vick@intel.com>
-> >
-> > Update ethtool_get_ts_info to not report any supported functionality
-> > on
-> > 82575 and add support for V2 Sync and V2 Delay packets. In the case
-> > where CONFIG_IGB_PTP is not defined, we should be reporting default
-> > values.
-> 
-> > diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-> > b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-> 
-> ...
-> 
-> > +#endif /* CONFIG_IGB_PTP */
-> > +	default:
-> > +		return ethtool_op_get_ts_info(dev, info);
-> 
-> This is wrong. Using this function advertises that you support SW TX
-> time stamps, which you do not.
-> 
-> Thanks,
-> Richard
+On 08/14/2012 03:37 AM, David Miller wrote:
+> From: Bill Fink<billfink@mindspring.com>
+> Date: Tue, 14 Aug 2012 02:31:55 -0400
+>
+>    
+>> I also believe it should be disabled by default, as that is
+>> the current behavior, and those who would gain an advantage
+>> from using it can easily enable it.
+>>      
+> It benefits basically everyone, it makes things orders of
+> magnitude faster.
+>    
+Hmm... Looking at the stats provided I didn't see any orders of 
+magnitude faster.
+>    
+>> While this could be a very useful feature in some environments,
+>> it seems to me it would be safest to have it disabled by default.
+>>      
+> I violently disagree, and there is no way I'm having this
+> thing off by default.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>    
 
-Thanks--good catch! I thought we supported SW timestamps already. Since we don't, I'll spin a v2 of this patch.
 
-Cheers,
-Matthew
+-- 
+
+"They that give up essential liberty to obtain temporary safety,
+deserve neither liberty nor safety."  (Ben Franklin)
+
+"The course of history shows that as a government grows, liberty
+decreases."  (Thomas Jefferson)
