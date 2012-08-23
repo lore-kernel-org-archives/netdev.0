@@ -1,55 +1,61 @@
 From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] ipw2200: use is_zero_ether_addr() and is_broadcast_ether_addr()
-Date: Thu, 23 Aug 2012 14:54:05 +0800
-Message-ID: <CAPgLHd_K=bbQ=zpKY8kW3HCGeuE3GwCCQOAg+gJoFdCv9SnVrg@mail.gmail.com>
+Subject: [PATCH] mwifiex: use is_zero_ether_addr() instead of memcmp()
+Date: Thu, 23 Aug 2012 14:54:29 +0800
+Message-ID: <CAPgLHd9iXQf3_W5b4kO1Mv68udqnmfFO8n+R-0ZqzCrhg1Z_WQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Cc: yongjun_wei@trendmicro.com.cn, linux-wireless@vger.kernel.org,
 	netdev@vger.kernel.org
-To: stas.yakovlev@gmail.com, linville@tuxdriver.com
+To: bzhao@marvell.com, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-qa0-f46.google.com ([209.85.216.46]:43534 "EHLO
 	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757454Ab2HWGyG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 02:54:06 -0400
+	with ESMTP id S1757927Ab2HWGya (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 02:54:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Using is_zero_ether_addr() and is_broadcast_ether_addr() instead of
-directly use memcmp() to determine if the ethernet address is all zeros.
+Using is_zero_ether_addr() instead of directly use
+memcmp() to determine if the ethernet address is all
+zeros.
 
 spatch with a semantic match is used to found this problem.
 (http://coccinelle.lip6.fr/)
 
 Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 ---
- drivers/net/wireless/ipw2x00/ipw2200.c | 11 ++---------
- 1 file changed, 2 insertions(+), 9 deletions(-)
+ drivers/net/wireless/mwifiex/sta_cmdresp.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
-index 0df4591..935120f 100644
---- a/drivers/net/wireless/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2200.c
-@@ -9037,18 +9037,11 @@ static int ipw_wx_set_wap(struct net_device *dev,
- {
- 	struct ipw_priv *priv = libipw_priv(dev);
+diff --git a/drivers/net/wireless/mwifiex/sta_cmdresp.c b/drivers/net/wireless/mwifiex/sta_cmdresp.c
+index 0b09004..a2a33dc 100644
+--- a/drivers/net/wireless/mwifiex/sta_cmdresp.c
++++ b/drivers/net/wireless/mwifiex/sta_cmdresp.c
+@@ -17,6 +17,8 @@
+  * this warranty disclaimer.
+  */
  
--	static const unsigned char any[] = {
--		0xff, 0xff, 0xff, 0xff, 0xff, 0xff
--	};
--	static const unsigned char off[] = {
--		0x00, 0x00, 0x00, 0x00, 0x00, 0x00
--	};
--
- 	if (wrqu->ap_addr.sa_family != ARPHRD_ETHER)
- 		return -EINVAL;
- 	mutex_lock(&priv->mutex);
--	if (!memcmp(any, wrqu->ap_addr.sa_data, ETH_ALEN) ||
--	    !memcmp(off, wrqu->ap_addr.sa_data, ETH_ALEN)) {
-+	if (is_broadcast_ether_addr(wrqu->ap_addr.sa_data) ||
-+	    is_zero_ether_addr(wrqu->ap_addr.sa_data)) {
- 		/* we disable mandatory BSSID association */
- 		IPW_DEBUG_WX("Setting AP BSSID to ANY\n");
- 		priv->config &= ~CFG_STATIC_BSSID;
++#include <linux/etherdevice.h>
++
+ #include "decl.h"
+ #include "ioctl.h"
+ #include "util.h"
+@@ -736,7 +738,6 @@ static int mwifiex_ret_ibss_coalescing_status(struct mwifiex_private *priv,
+ {
+ 	struct host_cmd_ds_802_11_ibss_status *ibss_coal_resp =
+ 					&(resp->params.ibss_coalescing);
+-	u8 zero_mac[ETH_ALEN] = { 0, 0, 0, 0, 0, 0 };
+ 
+ 	if (le16_to_cpu(ibss_coal_resp->action) == HostCmd_ACT_GEN_SET)
+ 		return 0;
+@@ -745,7 +746,7 @@ static int mwifiex_ret_ibss_coalescing_status(struct mwifiex_private *priv,
+ 		"info: new BSSID %pM\n", ibss_coal_resp->bssid);
+ 
+ 	/* If rsp has NULL BSSID, Just return..... No Action */
+-	if (!memcmp(ibss_coal_resp->bssid, zero_mac, ETH_ALEN)) {
++	if (is_zero_ether_addr(ibss_coal_resp->bssid)) {
+ 		dev_warn(priv->adapter->dev, "new BSSID is NULL\n");
+ 		return 0;
+ 	}
