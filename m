@@ -1,97 +1,54 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Thu, 23 Aug 2012 09:45:17 +0300
-Message-ID: <5035D17D.8090703@mellanox.com>
-References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com> <1343840975-3252-10-git-send-email-ogerlitz@mellanox.com> <87boitz044.fsf@xmission.com> <20120805185031.GA18640@redhat.com> <CAJZOPZKtdvxTGvrxj+T896mEexb=yN9s1cCuqUmhhzCOvUPEnA@mail.gmail.com> <20120812102240.GG1421@redhat.com> <5027AC88.2020509@mellanox.com> <20120812135544.GB6003@redhat.com> <5027BA17.6010503@mellanox.com> <20120812205457.GA14081@redhat.com> <20120820185625.GA5234@redhat.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] wimax/i2400m: use is_zero_ether_addr() instead of memcmp()
+Date: Thu, 23 Aug 2012 14:49:33 +0800
+Message-ID: <CAPgLHd9_MkQcGbQEqf=6Kjm06juybu29qSBdd7T=_EenFDyuEQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>, <davem@davemloft.net>,
-	<roland@kernel.org>, <netdev@vger.kernel.org>,
-	Ali Ayoub <ali@mellanox.com>, <sean.hefty@intel.com>,
-	Erez Shitrit <erezsh@mellanox.co.il>,
-	Doug Ledford <dledford@redhat.com>,
-	Shlomo Pongratz <shlomop@mellanox.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, linux-wimax@intel.com,
+	wimax@linuxwimax.org, netdev@vger.kernel.org
+To: inaky.perez-gonzalez@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:50222 "HELO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751877Ab2HWGpu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 02:45:50 -0400
-In-Reply-To: <20120820185625.GA5234@redhat.com>
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:32860 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755486Ab2HWGte (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 02:49:34 -0400
+Received: by qaas11 with SMTP id s11so398072qaa.19
+        for <netdev@vger.kernel.org>; Wed, 22 Aug 2012 23:49:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20/08/2012 21:57, Michael S. Tsirkin wrote:
-> On Sun, Aug 12, 2012 at 11:54:57PM +0300, Michael S. Tsirkin wrote:
->
->> If you want this, then you really want a limited form of IPoIB bridging.
->
-> And to clarify that statement, here is how I would make such IPoIB "bridging" work:
->
-> Guest side:
->
-> - Implement virtio-ipoib. This would be a device like virtio-net,
->    but instead of ethernet packets, it would pass packets
->    that consist of:
-> 	IPoIB destination address
-> 	IP packet
->
-> - this is passed to/from host without modifications, possibly with addition
->    of header such as virtio net header
->
-> - flags such as broadcast can also be added to header
->
-> - like virtio net get capabilities from host and expose
->    as netdev capabilities
->
-> Host side:
-> - create macvtap -passthrough like device that can sit on top of an
->    ipoib interface
-> - expose this device QPN and GID to guest as hardware address
-> - as we get packet forward it on UD QPN or CM as appropriate
->    depending on size,checksum and admin preference
-> - expose capabilities such as TSO
-> - can expose capability such as max MTU to guest too
->
-> Above means hardware address changes with migration.
-> So we need to notify guest when this happens.
->
-> This can be addressed from host by notifying all neighbours.
->
-> Alternatively guest can notify all neighbours.
->
-> Notification can be done by broadcast.
-> This second option seems preferable.
->
-> this ipoib-vtap can support two modes
-> 	- bridge like mode:
-> 	  guest to guest and guest to host packets
-> 	  can be detected by macvtap and passed
-> 	  to/from guest directly like macvlan bridge mode
->
-> 	- vepa like mode
-> 	  guest to guest and guest to host packets
-> 	  are sent out and looped back by IB switch
-> 	  like macvlan vepa mode
->
-> As compared to the custom protocol I sent, it has -
-> Advantages: interoperates cleanly with ipoib
-> Disadvantages: no support for legacy (ethernet-only) guest
->
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Hi Michael,
+Using is_zero_ether_addr() instead of directly use
+memcmp() to determine if the ethernet address is all
+zeros.
 
-As you mentioned, the approach doesn't address legacy guests, who either 
-don't have the virtio
-driver, or don't have a virtio driver patched to support virtio-ipoib  
---  which doesn't go inline
-with a strong requirement I got.
+spatch with a semantic match is used to found this problem.
+(http://coccinelle.lip6.fr/)
 
-Other than this giant obstacle, I liked the suggestion and it seems 
-valid and viable -- BTW IB HW has
-loopback capability, so the VM/VM packets wouldn't actually go to the IB 
-switch, but remain within the
-HCA.
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/wimax/i2400m/driver.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-Or.
+diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
+index 0254261..9c34d2f 100644
+--- a/drivers/net/wimax/i2400m/driver.c
++++ b/drivers/net/wimax/i2400m/driver.c
+@@ -222,7 +222,6 @@ int i2400m_check_mac_addr(struct i2400m *i2400m)
+ 	struct sk_buff *skb;
+ 	const struct i2400m_tlv_detailed_device_info *ddi;
+ 	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
+-	const unsigned char zeromac[ETH_ALEN] = { 0 };
+ 
+ 	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
+ 	skb = i2400m_get_device_info(i2400m);
+@@ -244,7 +243,7 @@ int i2400m_check_mac_addr(struct i2400m *i2400m)
+ 		 "to that of boot mode's\n");
+ 	dev_warn(dev, "device reports     %pM\n", ddi->mac_address);
+ 	dev_warn(dev, "boot mode reported %pM\n", net_dev->perm_addr);
+-	if (!memcmp(zeromac, ddi->mac_address, sizeof(zeromac)))
++	if (is_zero_ether_addr(ddi->mac_address))
+ 		dev_err(dev, "device reports an invalid MAC address, "
+ 			"not updating\n");
+ 	else {
