@@ -1,82 +1,62 @@
-From: pablo@netfilter.org
-Subject: [PATCH] netlink: fix possible spoofing from non-root processes
-Date: Thu, 23 Aug 2012 14:09:11 +0200
-Message-ID: <1345723751-2924-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41321 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932822Ab2HWMKz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Aug 2012 08:10:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Iulius Curt <iulius.curt@gmail.com>
+Subject: [PATCH v2] libceph: Fix sparse warning
+Date: Thu, 23 Aug 2012 15:14:29 +0300
+Message-ID: <1345724069-12405-1-git-send-email-icurt@ixiacom.com>
+Cc: davem@davemloft.net, ceph-devel@vger.kernel.org,
+	netdev@vger.kernel.org, dbaluta@ixiacom.com,
+	Iulius Curt <iulius.curt@gmail.com>,
+	Iulius Curt <icurt@ixiacom.com>
+To: sage@inktank.com
+Return-path: <ceph-devel-owner@vger.kernel.org>
+Sender: ceph-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Iulius Curt <iulius.curt@gmail.com>
 
-Non-root user-space processes can send Netlink messages to other
-processes that are well-known for being subscribed to Netlink
-asynchronous notifications. This allows ilegitimate non-root
-process to send forged messages to Netlink subscribers.
+Make ceph_monc_do_poolop() static to remove the following sparse warning:
+ * net/ceph/mon_client.c:616:5: warning: symbol 'ceph_monc_do_poolop' was not
+   declared. Should it be static?
+Also drops the 'ceph_monc_' prefix, now being a private function.
 
-The userspace process usually verifies the legitimate origin in
-two ways:
-
-a) Socket credentials. If UID != 0, then the message comes from
-   some ilegitimate process and the message needs to be dropped.
-
-b) Netlink portID. In general, portID == 0 means that the origin
-   of the messages comes from the kernel. Thus, discarding any
-   message not coming from the kernel.
-
-However, ctnetlink sets the portID in event messages that has
-been triggered by some user-space process, eg. conntrack utility.
-So other processes subscribed to ctnetlink events, eg. conntrackd,
-know that the event was triggered by some user-space action.
-
-Neither of the two ways to discard ilegitimate messages coming
-from non-root processes can help for ctnetlink.
-
-This patch adds capability validation in case that dst_pid is set
-in netlink_sendmsg(). This approach is aggressive since existing
-applications using any Netlink bus to deliver messages between
-two user-space processes will break. Note that the exception is
-NETLINK_USERSOCK, since it is reserved for netlink-to-netlink
-userspace communication.
-
-Still, if anyone wants that his Netlink bus allows netlink-to-netlink
-userspace, then they can set NL_NONROOT_SEND. However, by default,
-I don't think it makes sense to allow to use NETLINK_ROUTE to
-communicate two processes that are sending no matter what information
-that is not related to link/neighbouring/routing. They should be using
-NETLINK_USERSOCK instead for that.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Iulius Curt <icurt@ixiacom.com>
 ---
- net/netlink/af_netlink.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+v1 ---> v2
+ * drop the 'ceph_monc_' prefix
+---
+ net/ceph/mon_client.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 5463969..998dd18 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1373,7 +1373,8 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 		dst_pid = addr->nl_pid;
- 		dst_group = ffs(addr->nl_groups);
- 		err =  -EPERM;
--		if (dst_group && !netlink_capable(sock, NL_NONROOT_SEND))
-+		if ((dst_group || dst_pid) &&
-+		    !netlink_capable(sock, NL_NONROOT_SEND))
- 			goto out;
- 	} else {
- 		dst_pid = nlk->dst_pid;
-@@ -2147,6 +2148,7 @@ static void __init netlink_add_usersock_entry(void)
- 	rcu_assign_pointer(nl_table[NETLINK_USERSOCK].listeners, listeners);
- 	nl_table[NETLINK_USERSOCK].module = THIS_MODULE;
- 	nl_table[NETLINK_USERSOCK].registered = 1;
-+	nl_table[NETLINK_USERSOCK].nl_nonroot = NL_NONROOT_SEND;
- 
- 	netlink_table_ungrab();
+diff --git a/net/ceph/mon_client.c b/net/ceph/mon_client.c
+index 105d533..84ce495 100644
+--- a/net/ceph/mon_client.c
++++ b/net/ceph/mon_client.c
+@@ -613,7 +613,7 @@ bad:
+ /*
+  * Do a synchronous pool op.
+  */
+-int ceph_monc_do_poolop(struct ceph_mon_client *monc, u32 op,
++static int do_poolop(struct ceph_mon_client *monc, u32 op,
+ 			u32 pool, u64 snapid,
+ 			char *buf, int len)
+ {
+@@ -663,7 +663,7 @@ out:
+ int ceph_monc_create_snapid(struct ceph_mon_client *monc,
+ 			    u32 pool, u64 *snapid)
+ {
+-	return ceph_monc_do_poolop(monc,  POOL_OP_CREATE_UNMANAGED_SNAP,
++	return do_poolop(monc,  POOL_OP_CREATE_UNMANAGED_SNAP,
+ 				   pool, 0, (char *)snapid, sizeof(*snapid));
+
  }
--- 
-1.7.10.4
+@@ -672,7 +672,7 @@ EXPORT_SYMBOL(ceph_monc_create_snapid);
+ int ceph_monc_delete_snapid(struct ceph_mon_client *monc,
+ 			    u32 pool, u64 snapid)
+ {
+-	return ceph_monc_do_poolop(monc,  POOL_OP_CREATE_UNMANAGED_SNAP,
++	return do_poolop(monc,  POOL_OP_CREATE_UNMANAGED_SNAP,
+ 				   pool, snapid, 0, 0);
+
+ }
+--
+1.7.9.5
+
