@@ -1,50 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net-tcp: TCP/IP stack bypass for loopback
- connections
-Date: Thu, 23 Aug 2012 13:40:15 +0200
-Message-ID: <1345722015.5904.675.camel@edumazet-glaptop>
-References: <1344559958-29162-1-git-send-email-brutus@google.com>
-	 <50360C81.6000009@draigBrady.com>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: [PATCH] af_packet: match_fanout_group() can be static
+Date: Thu, 23 Aug 2012 19:51:21 +0800
+Message-ID: <20120823115121.GA17472@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Bruce \"Brutus\" Curtis" <brutus@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?P=E1draig?= Brady <P@draigBrady.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: networking <netdev@vger.kernel.org>, Eric Leblond <eric@regit.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:65092 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756041Ab2HWLkV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 07:40:21 -0400
-Received: by bkwj10 with SMTP id j10so191658bkw.19
-        for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 04:40:19 -0700 (PDT)
-In-Reply-To: <50360C81.6000009@draigBrady.com>
+Received: from mga11.intel.com ([192.55.52.93]:63733 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752089Ab2HWLv3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Aug 2012 07:51:29 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-08-23 at 11:57 +0100, P=C3=A1draig Brady wrote:
+cc: Eric Leblond <eric@regit.org>
+Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+---
+ net/packet/af_packet.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> Just to quantify the loopback testing compat issue.
-> I often do stuff like the following to test latency.
-> Will that be impacted?
->=20
->   tc qdisc add dev lo root handle 1:0 netem delay 20msec
->=20
-
-Yes this will. At least for tcp traffic this wont "work".
-
-TCP friends bypass layers, by directly queuing skbs to sockets.
-
--> no iptables,=20
-   no qdisc (by default there is no qdisc on lo),
-   no loopback stats (ifconfig lo).
-   some SNMP stats missing as well (netstat -s)
-
-> As for the stated tcpdump change,
-> I don't suppose it would be possible to dynamically
-> disable this (for new connections at least)
-> while lo is being dumped?
-
-This could be done, but it might be better to let the admin globally
-enable/disable TCP friends...
+--- linux-next.orig/net/packet/af_packet.c	2012-08-23 19:48:43.209188551 +0800
++++ linux-next/net/packet/af_packet.c	2012-08-23 19:48:53.413188794 +0800
+@@ -1273,7 +1273,7 @@ static void __fanout_unlink(struct sock
+ 	spin_unlock(&f->lock);
+ }
+ 
+-bool match_fanout_group(struct packet_type *ptype, struct sock * sk)
++static bool match_fanout_group(struct packet_type *ptype, struct sock * sk)
+ {
+ 	if (ptype->af_packet_priv == (void*)((struct packet_sock *)sk)->fanout)
+ 		return true;
