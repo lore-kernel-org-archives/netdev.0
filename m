@@ -1,64 +1,42 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH RFC 0/2] Interface for TCP Metrics
-Date: Thu, 23 Aug 2012 19:26:33 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1208231908380.28424@ja.ssi.bg>
-References: <1345734105-28328-1-git-send-email-ja@ssi.bg> <20120823082235.27c057f6@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: reinstate rtnl in
+ call_netdevice_notifiers()
+Date: Thu, 23 Aug 2012 09:24:52 -0700 (PDT)
+Message-ID: <20120823.092452.436642005687255049.davem@davemloft.net>
+References: <1345708259.5904.178.camel@edumazet-glaptop>
+	<87harum39o.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, gaofeng@cn.fujitsu.com,
+	netdev@vger.kernel.org, therbert@google.com, maheshb@google.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:51048 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752781Ab2HWQY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Aug 2012 12:24:28 -0400
-In-Reply-To: <20120823082235.27c057f6@nehalam.linuxnetplumber.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41017 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751767Ab2HWQYy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 12:24:54 -0400
+In-Reply-To: <87harum39o.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Thu, 23 Aug 2012 01:16:51 -0700
 
-	Hello,
-
-On Thu, 23 Aug 2012, Stephen Hemminger wrote:
-
-> Some of netlink API comments:
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
 > 
-> 1. My preference is to not make it so granular.
->    I.e make things like RTT a structure with value and variance
->    rather than lots of independent objects.
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> Eric Biederman pointed out that not holding RTNL while calling
+>> call_netdevice_notifiers() was racy.
+>>
+>> This patch is a direct transcription his feedback
+>> against commit 0115e8e30d6fc (net: remove delay at device dismantle)
+>>
+>> Thanks Eric !
+> 
+> Looks good to me.
+> 
+> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-	Even the ip route used nested objects for metrics.
-I preferred not to add fixed structure for them if that is
-what you mean. I implemented it in the same way, just like
-rtnetlink_put_metrics().
-
-> 2. Make sure netlink API is symmetric. Get should report all
->    values and Set should accept the same values (but ignore
->    if value can not be modified).
-
-	Will take care if one day we support SET request.
-
-> 3. Try and make ip command output invertable, as in what you
->    print is close to what ip command arguments are.
-
-	Any example for what you mean?
-
-> 4. What about monitoring changes?
-
-	I preferred to avoid them because if the routes
-are small number and can be monitored, these entries are
-modified very often and to me it looked overkill to generate
-notification for every update just to notice that nobody
-listens for it.
-
-	BTW, I noticed that the GENL part in iproute is
-not separated in common place. Should we create common
-place for functions like genl_ctrl_resolve_family and
-genl_parse_getfamily ?
-
-	Thanks for the comments!
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Applied, thanks.
