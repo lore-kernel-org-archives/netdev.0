@@ -1,62 +1,39 @@
-From: Iulius Curt <iulius.curt@gmail.com>
-Subject: [PATCH v2] libceph: Fix sparse warning
-Date: Thu, 23 Aug 2012 15:14:29 +0300
-Message-ID: <1345724069-12405-1-git-send-email-icurt@ixiacom.com>
-Cc: davem@davemloft.net, ceph-devel@vger.kernel.org,
-	netdev@vger.kernel.org, dbaluta@ixiacom.com,
-	Iulius Curt <iulius.curt@gmail.com>,
-	Iulius Curt <icurt@ixiacom.com>
-To: sage@inktank.com
-Return-path: <ceph-devel-owner@vger.kernel.org>
-Sender: ceph-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
+Date: Thu, 23 Aug 2012 14:15:23 +0200
+Message-ID: <1345724123.5904.756.camel@edumazet-glaptop>
+References: <503419D3.1080700@linlab.net>
+	 <CAFbMe2M7ekc94bQk7vTS1LhScPd49VZ-zKOCUXhqwxXtL-nkuA@mail.gmail.com>
+	 <50361AEA.6010807@linlab.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alex Bergmann <alex@linlab.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:64768 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933837Ab2HWMP2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 08:15:28 -0400
+In-Reply-To: <50361AEA.6010807@linlab.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Iulius Curt <iulius.curt@gmail.com>
+On Thu, 2012-08-23 at 13:58 +0200, Alex Bergmann wrote:
+> On 08/22/2012 06:41 PM, H.K. Jerry Chu wrote:
 
-Make ceph_monc_do_poolop() static to remove the following sparse warning:
- * net/ceph/mon_client.c:616:5: warning: symbol 'ceph_monc_do_poolop' was not
-   declared. Should it be static?
-Also drops the 'ceph_monc_' prefix, now being a private function.
+> > This issue occurred to me right after I submitted the patch for RFC6298.
+> > I did not commit any more change because RFC compliance aside, 180secs
+> > just seem like eternity in the Internet age.
+> >
+> > (See my past post on this at
+> > http://marc.info/?l=linux-netdev&m=130759078118866&w=2)
+> 
+> Okay, I missed that post during my search about the current situation.
 
-Signed-off-by: Iulius Curt <icurt@ixiacom.com>
----
-v1 ---> v2
- * drop the 'ceph_monc_' prefix
----
- net/ceph/mon_client.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+I would suggest to increase TCP_SYN_RETRIES from 5 to 6.
 
-diff --git a/net/ceph/mon_client.c b/net/ceph/mon_client.c
-index 105d533..84ce495 100644
---- a/net/ceph/mon_client.c
-+++ b/net/ceph/mon_client.c
-@@ -613,7 +613,7 @@ bad:
- /*
-  * Do a synchronous pool op.
-  */
--int ceph_monc_do_poolop(struct ceph_mon_client *monc, u32 op,
-+static int do_poolop(struct ceph_mon_client *monc, u32 op,
- 			u32 pool, u64 snapid,
- 			char *buf, int len)
- {
-@@ -663,7 +663,7 @@ out:
- int ceph_monc_create_snapid(struct ceph_mon_client *monc,
- 			    u32 pool, u64 *snapid)
- {
--	return ceph_monc_do_poolop(monc,  POOL_OP_CREATE_UNMANAGED_SNAP,
-+	return do_poolop(monc,  POOL_OP_CREATE_UNMANAGED_SNAP,
- 				   pool, 0, (char *)snapid, sizeof(*snapid));
+180 secs is eternity, but 31 secs is too small.
 
- }
-@@ -672,7 +672,7 @@ EXPORT_SYMBOL(ceph_monc_create_snapid);
- int ceph_monc_delete_snapid(struct ceph_mon_client *monc,
- 			    u32 pool, u64 snapid)
- {
--	return ceph_monc_do_poolop(monc,  POOL_OP_CREATE_UNMANAGED_SNAP,
-+	return do_poolop(monc,  POOL_OP_CREATE_UNMANAGED_SNAP,
- 				   pool, snapid, 0, 0);
-
- }
---
-1.7.9.5
-
+Can you repost a v2, only changing TCP_SYN_RETRIES ?
