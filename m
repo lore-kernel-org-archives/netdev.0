@@ -1,92 +1,50 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 2/3] vlan: add helper which can be called to se
- it device is used by vlan
-Date: Thu, 23 Aug 2012 15:42:07 +0200
-Message-ID: <20120823134207.GC16103@minipsycho.orion>
-References: <1345728413-10298-1-git-send-email-jiri@resnulli.us>
- <1345728413-10298-3-git-send-email-jiri@resnulli.us>
- <50363112.4060407@mellanox.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next 04/13] e1000e: cleanup checkpatch PREFER_PR_LEVEL
+ warning
+Date: Thu, 23 Aug 2012 07:01:44 -0700
+Message-ID: <1345730504.16471.3.camel@joe2Laptop>
+References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1345715813-20757-5-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, brouer@redhat.com,
-	Patrick McHardy <kaber@trash.net>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Bruce Allan <bruce.w.allan@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:58618 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758827Ab2HWNmT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 09:42:19 -0400
-Received: by bkwj10 with SMTP id j10so243482bkw.19
-        for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 06:42:18 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <50363112.4060407@mellanox.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:57635 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1030212Ab2HWOBq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Aug 2012 10:01:46 -0400
+In-Reply-To: <1345715813-20757-5-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Aug 23, 2012 at 03:33:06PM CEST, ogerlitz@mellanox.com wrote:
->On 23/08/2012 16:26, Jiri Pirko wrote:
->>also, remove unused vlan_info definition from header
->
->just a typo in the subject line, you probably wanted to say "see" and
->not "se"?
+On Thu, 2012-08-23 at 02:56 -0700, Jeff Kirsher wrote:
+> From: Bruce Allan <bruce.w.allan@intel.com>
+> 
+> checkpatch warning: Prefer pr_info(... to printk(KERN_INFO, ...
+[]
+> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+[]
+> @@ -4330,9 +4330,8 @@ static void e1000_print_link_info(struct e1000_adapter *adapter)
+>  	u32 ctrl = er32(CTRL);
+>  
+>  	/* Link status message must follow this format for user tools */
+> -	printk(KERN_INFO "e1000e: %s NIC Link is Up %d Mbps %s Duplex, Flow Control: %s\n",
+> -		adapter->netdev->name,
+> -		adapter->link_speed,
+> +	pr_info("e1000e: %s NIC Link is Up %d Mbps %s Duplex, Flow Control: %s\n",
+> +		adapter->netdev->name, adapter->link_speed,
+>  		adapter->link_duplex == FULL_DUPLEX ? "Full" : "Half",
+>  		(ctrl & E1000_CTRL_TFCE) && (ctrl & E1000_CTRL_RFCE) ? "Rx/Tx" :
+>  		(ctrl & E1000_CTRL_RFCE) ? "Rx" :
 
-Yes. I need some coffe :(
+I think these conversions are not a good idea.
 
->
->Or.
->
->>
->>CC: Patrick McHardy <kaber@trash.net>
->>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>---
->>  include/linux/if_vlan.h | 9 +++++++--
->>  net/8021q/vlan_core.c   | 6 ++++++
->>  2 files changed, 13 insertions(+), 2 deletions(-)
->>
->>diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
->>index a810987..e6ff12d 100644
->>--- a/include/linux/if_vlan.h
->>+++ b/include/linux/if_vlan.h
->>@@ -74,8 +74,6 @@ static inline struct vlan_ethhdr *vlan_eth_hdr(const struct sk_buff *skb)
->>  /* found in socket.c */
->>  extern void vlan_ioctl_set(int (*hook)(struct net *, void __user *));
->>-struct vlan_info;
->>-
->>  static inline int is_vlan_dev(struct net_device *dev)
->>  {
->>          return dev->priv_flags & IFF_802_1Q_VLAN;
->>@@ -101,6 +99,8 @@ extern int vlan_vids_add_by_dev(struct net_device *dev,
->>  				const struct net_device *by_dev);
->>  extern void vlan_vids_del_by_dev(struct net_device *dev,
->>  				 const struct net_device *by_dev);
->>+
->>+extern bool vlan_uses_dev(const struct net_device *dev);
->>  #else
->>  static inline struct net_device *
->>  __vlan_find_dev_deep(struct net_device *real_dev, u16 vlan_id)
->>@@ -151,6 +151,11 @@ static inline void vlan_vids_del_by_dev(struct net_device *dev,
->>  					const struct net_device *by_dev)
->>  {
->>  }
->>+
->>+static inline bool vlan_uses_dev(const struct net_device *dev)
->>+{
->>+	return false;
->>+}
->>  #endif
->>  /**
->>diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
->>index d4babc6..517b940 100644
->>--- a/net/8021q/vlan_core.c
->>+++ b/net/8021q/vlan_core.c
->>@@ -372,3 +372,9 @@ void vlan_vids_del_by_dev(struct net_device *dev,
->>  		vlan_vid_del(dev, vid_info->vid);
->>  }
->>  EXPORT_SYMBOL(vlan_vids_del_by_dev);
->>+
->>+bool vlan_uses_dev(const struct net_device *dev)
->>+{
->>+	return rtnl_dereference(dev->vlan_info) ? true : false;
->>+}
->>+EXPORT_SYMBOL(vlan_uses_dev);
->
+When you have a specific message format that must be
+followed, use printk.
+
+pr_<level> may at some point in the near future use
+#define pr_fmt(fmt) KBUiLD_MODNAME ": " fmt
+as a global default equivalent.
