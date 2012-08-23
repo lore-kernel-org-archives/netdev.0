@@ -1,53 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: properly update pmtu
-Date: Wed, 22 Aug 2012 19:15:07 -0700 (PDT)
-Message-ID: <20120822.191507.1479918004800745365.davem@davemloft.net>
-References: <1345618109.5158.599.camel@edumazet-glaptop>
+Subject: Re: [PATCH 0/8] netdev/MIPS: Improvements to octeon_mgmt Ethernet
+ driver.
+Date: Wed, 22 Aug 2012 19:16:54 -0700 (PDT)
+Message-ID: <20120822.191654.1727215659090597701.davem@davemloft.net>
+References: <1345574712-21444-1-git-send-email-ddaney.cavm@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ja@ssi.bg, s.munaut@whatever-company.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60118 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753969Ab2HWCPK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 22:15:10 -0400
-In-Reply-To: <1345618109.5158.599.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	david.daney@cavium.com
+To: ddaney.cavm@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1345574712-21444-1-git-send-email-ddaney.cavm@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 22 Aug 2012 08:48:29 +0200
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Tue, 21 Aug 2012 11:45:04 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> From: David Daney <david.daney@cavium.com>
 > 
-> Sylvain Munault reported following info :
+> Recent additions to the OCTEON SoC family have included enhancements
+> to the MIX (octeon_mgmt) Ethernet hardware.  These include:
 > 
->  - TCP connection get "stuck" with data in send queue when doing
->    "large" transfers ( like typing 'ps ax' on a ssh connection )
->  - Only happens on path where the PMTU is lower than the MTU of
->    the interface
->  - Is not present right after boot, it only appears 10-20min after
->    boot or so. (and that's inside the _same_ TCP connection, it works
->    fine at first and then in the same ssh session, it'll get stuck)
->  - Definitely seems related to fragments somehow since I see a router
->    sending ICMP message saying fragmentation is needed.
->  - Exact same setup works fine with kernel 3.5.1
+> o 1Gig support (up from 100M).
 > 
-> Problem happens when the 10 minutes (ip_rt_mtu_expires) expiration
-> period is over.
+> o Hardware timestamping for PTP.
 > 
-> ip_rt_update_pmtu() calls dst_set_expires() to rearm a new expiration,
-> but dst_set_expires() does nothing because dst.expires is already set.
+> Here we add support for these two features as well as some ethtool
+> improvements and cleanup of the MAC address handling.
 > 
-> It seems we want to set the expires field to a new value, regardless
-> of prior one.
-> 
-> With help from Julian Anastasov.
-> 
-> Reported-by: Sylvain Munaut <s.munaut@whatever-company.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> CC: Julian Anastasov <ja@ssi.bg>
+> Patch 1/8 is a prerequisite for the rest, and lives in the MIPS
+> architecture part of the tree.  Since octeon_mgmt devices are only
+> found in OCTEON SoCs we could merge the whole set via Ralf's tree, or
+> get Ralf to affix his Acked-by and have it go via the netdev tree.
 
-Applied, thanks.
+You can send this all via the MIPS tree, and feel free to add my:
+
+Acked-by: David S. Miller <davem@davemloft.net>
