@@ -1,29 +1,39 @@
-From: Jeff Kirsher <tarbal@gmail.com>
-Subject: Re: [PATCH] e1000: add byte queue limits
-Date: Thu, 23 Aug 2012 17:00:41 -0700
-Message-ID: <5036C429.6010406@gmail.com>
-References: <1345714098-2644-1-git-send-email-solca@galileo.edu>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Tai Bei <info@gmx.co.uk>
+Subject: Proposal.
+Date: Thu, 23 Aug 2012 23:55:22 +0100
+Message-ID: <077134233b42efbd44ed2f63961b7a2b__12120.3120136217$1345767083$gmane$org@fce.uncu.edu.ar>
+Reply-To: <tai02@9.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Otto Estuardo Solares Cabrera <solca@galileo.edu>
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:60984 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751006Ab2HXAAp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Aug 2012 20:00:45 -0400
-In-Reply-To: <1345714098-2644-1-git-send-email-solca@galileo.edu>
+Received: from fce.uncu.edu.ar ([190.220.130.146]:39429 "EHLO
+	mail.fce.uncu.edu.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751006Ab2HXAKW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 20:10:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/23/2012 02:28 AM, Otto Estuardo Solares Cabrera wrote:
-> Signed-off-by: Otto Estuardo Solares Cabrera<solca@galileo.edu>
-> ---
->   Copied from e1000e.
->   Cc me please.
->
->   drivers/net/ethernet/intel/e1000/e1000_main.c |   10 ++++++++++
->   1 file changed, 10 insertions(+)
-Added to my queue of patches, thanks!
+Good-day To You,
+
+
+It is understandable that you might be a little bit apprehensive 
+because you do not know me but I have a lucrative business proposal of 
+mutual interest to share with you. I got your reference in my search for 
+someone who suits my proposed business relationship. I am Mr. Tai Bei, 
+officer with the International bank of Taipei (Bank SinoPac). I will 
+need you to assist me in executing a business project from Taiwan to 
+your country. It involves the transfer of money, Everything concerning 
+this transaction shall be legally done without hitch.
+
+
+Once the funds have been successfully transferred into your account, we 
+shall share in the ratio to be agreed by both of us. I shall furnish you 
+with more information about this operation immediately I receive a 
+positive response from you.
+
+
+Kind Regards,
+Tai Bei
