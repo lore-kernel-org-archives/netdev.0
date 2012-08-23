@@ -1,40 +1,51 @@
-From: "Zimbra." <mesterhazy.anita@atif.hu>
-Subject: Newsletter.
-Date: Thu, 23 Aug 2012 23:21:28 +0200 (CEST)
-Message-ID: <1199778512.131011.1345756888635.JavaMail.root__43026.597883045$1345757433$gmane$org@rs2.atif.hu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next 13/13] igb: Store the MAC address in the name in the
+ PTP struct.
+Date: Thu, 23 Aug 2012 22:35:37 +0100
+Message-ID: <1345757737.2579.22.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1345715813-20757-14-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20120823104554.GA2238@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, <davem@davemloft.net>,
+	Matthew Vick <matthew.vick@intel.com>,
+	<netdev@vger.kernel.org>, <gospo@redhat.com>,
+	<sassmann@redhat.com>, Stuart Hodgson <smhodgson@solarflare.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rs2.atif.hu ([193.225.132.4]:48291 "EHLO rs2.atif.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932073Ab2HWVaQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 17:30:16 -0400
+Received: from webmail.solarflare.com ([12.187.104.25]:11368 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756871Ab2HWVfm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 17:35:42 -0400
+In-Reply-To: <20120823104554.GA2238@netboy.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2012-08-23 at 12:45 +0200, Richard Cochran wrote:
+> On Thu, Aug 23, 2012 at 02:56:53AM -0700, Jeff Kirsher wrote:
+> > From: Matthew Vick <matthew.vick@intel.com>
+> > 
+> > Change the name of the adapter in the PTP struct to enable easier
+> > correlation between interface and PTP device.
+> 
+> You want to put the MAC address into the clock name? This is wrong.
+> 
+> Besides, there is no need for this. The ethool method already makes
+> the correlation crystal clear.
 
+The name field is described as 'A short name to identify the clock'.  It
+is not stated whether this is meant to be the name of the clock *device*
+or the clock *driver*.  If it's the name of the device then some unique
+ID such as the permanent MAC address is required.
 
+The ixgbe driver uses MAC addresses and so did the last submitted
+version of PHC support for the sfc driver.
 
+Ben.
 
-This mail is from Zimbra Administrator we wish to bring to your notice =
-the Condition of your email account.
-
-We have just noticed that you have exceeded your email Database limit o=
-f 500 MB quota and your email IP is causing conflict because it is been=
- accessed in different server location. You need to Upgrade and expand =
-your email quota limit before you can continue to use your email.
-
-Update your email quota limit to 2.6 GB, use the below web link:
-
-
-https://docs.google.com/spreadsheet/viewform?formkey=3DdFRGbU1iYU0tdm1q=
-eWlCSDhLZjZVOFE6MQ
-
-
-=46ailure to do this will result to email deactivation within 24hours
-
-Thank you for your understanding.
-
-Copyright 2012 =C2=A9 Inc. Zimbra Help Desk.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
