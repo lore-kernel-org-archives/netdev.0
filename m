@@ -1,116 +1,82 @@
-From: Alex Bergmann <alex@linlab.net>
-Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
-Date: Thu, 23 Aug 2012 13:58:34 +0200
-Message-ID: <50361AEA.6010807@linlab.net>
-References: <503419D3.1080700@linlab.net> <CAFbMe2M7ekc94bQk7vTS1LhScPd49VZ-zKOCUXhqwxXtL-nkuA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFbMe2M7ekc94bQk7vTS1LhScPd49VZ-zKOCUXhqwxXtL-nkuA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: pablo@netfilter.org
+Subject: [PATCH] netlink: fix possible spoofing from non-root processes
+Date: Thu, 23 Aug 2012 14:09:11 +0200
+Message-ID: <1345723751-2924-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:41321 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932822Ab2HWMKz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Aug 2012 08:10:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/22/2012 06:41 PM, H.K. Jerry Chu wrote:
-> On Tue, Aug 21, 2012 at 4:29 PM, Alex Bergmann <alex@linlab.net
-> <mailto:alex@linlab.net>> wrote:
->
->     Hi David,
->
->     I'm not 100% sure, but it looks like I found an RFC mismatch with the
->     current default values of the TCP implementation.
->
->     Alex
->
->      From 8b854a525eb45f64ad29dfab16f9d9f681e84495 Mon Sep 17 00:00:00 2001
->     From: Alexander Bergmann <alex@linlab.net <mailto:alex@linlab.net>>
->     Date: Wed, 22 Aug 2012 00:29:08 +0200
->     Subject: [PATCH 1/1] tcp: Wrong timeout for SYN segments
->
->     Commit 9ad7c049 changed the initRTO from 3secs to 1sec in accordance to
->     RFC6298 (former RFC2988bis). This introduced a gap with RFC1122 that
->     defines a minimum retransmission window for SYN segments of at least
->     180secs.
->
->     Prior to 9ad7c049 the timeout was defined with 189secs. Now we have only
->     a timeout of 63secs.
->
->              ((2 << 5) - 1) * 3 secs = 189 secs
->              ((2 << 5) - 1) * 1 secs = 63 secs
->
->     To fulfill the MUST constraint in RFC1122 section 4.2.3.5 about R2 for
->     SYN segments, the values of TCP_SYN_RETRIES and TCP_SYNACK_RETRIES must
->     be changed to 7 reties.
->
->              ((2 << 7) - 1) * 1 secs = 255 secs
->
->     This would result in an ETIMEDOUT of 4 minutes 15 seconds.
->
->
-> This issue occurred to me right after I submitted the patch for RFC6298.
-> I did not commit any more change because RFC compliance aside, 180secs
-> just seem like eternity in the Internet age.
->
-> (See my past post on this at
-> http://marc.info/?l=linux-netdev&m=130759078118866&w=2)
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Okay, I missed that post during my search about the current situation.
+Non-root user-space processes can send Netlink messages to other
+processes that are well-known for being subscribed to Netlink
+asynchronous notifications. This allows ilegitimate non-root
+process to send forged messages to Netlink subscribers.
 
-Thanks,
-Alex
+The userspace process usually verifies the legitimate origin in
+two ways:
 
+a) Socket credentials. If UID != 0, then the message comes from
+   some ilegitimate process and the message needs to be dropped.
 
-> Jerry
->
->
->     Signed-off-by: Alexander Bergmann <alex@linlab.net
->     <mailto:alex@linlab.net>>
->     ---
->       include/net/tcp.h |    4 ++--
->       1 files changed, 2 insertions(+), 2 deletions(-)
->
->     diff --git a/include/net/tcp.h b/include/net/tcp.h
->     index 1f000ff..7eaae19 100644
->     --- a/include/net/tcp.h
->     +++ b/include/net/tcp.h
->     @@ -98,10 +98,10 @@ extern void tcp_time_wait(struct sock *sk, int
->     state, int timeo);
->                                       * 15 is ~13-30min depending on RTO.
->                                       */
->
->     -#define TCP_SYN_RETRIES         5      /* number of times to retry
->     active opening a
->     +#define TCP_SYN_RETRIES         7      /* number of times to retry
->     active opening a
->                                       * connection: ~180sec is RFC
->     minimum   */
->
->     -#define TCP_SYNACK_RETRIES 5   /* number of times to retry passive
->     opening a
->     +#define TCP_SYNACK_RETRIES 7   /* number of times to retry passive
->     opening a
->                                       * connection: ~180sec is RFC
->     minimum   */
->
->       #define TCP_TIMEWAIT_LEN (60*HZ) /* how long to wait to destroy
->     TIME-WAIT
->     --
->     1.7.8.6
->
->     --
->     To unsubscribe from this list: send the line "unsubscribe netdev" in
->     the body of a message to majordomo@vger.kernel.org
->     <mailto:majordomo@vger.kernel.org>
->     More majordomo info at http://vger.kernel.org/majordomo-info.html
->
->
+b) Netlink portID. In general, portID == 0 means that the origin
+   of the messages comes from the kernel. Thus, discarding any
+   message not coming from the kernel.
 
+However, ctnetlink sets the portID in event messages that has
+been triggered by some user-space process, eg. conntrack utility.
+So other processes subscribed to ctnetlink events, eg. conntrackd,
+know that the event was triggered by some user-space action.
 
+Neither of the two ways to discard ilegitimate messages coming
+from non-root processes can help for ctnetlink.
+
+This patch adds capability validation in case that dst_pid is set
+in netlink_sendmsg(). This approach is aggressive since existing
+applications using any Netlink bus to deliver messages between
+two user-space processes will break. Note that the exception is
+NETLINK_USERSOCK, since it is reserved for netlink-to-netlink
+userspace communication.
+
+Still, if anyone wants that his Netlink bus allows netlink-to-netlink
+userspace, then they can set NL_NONROOT_SEND. However, by default,
+I don't think it makes sense to allow to use NETLINK_ROUTE to
+communicate two processes that are sending no matter what information
+that is not related to link/neighbouring/routing. They should be using
+NETLINK_USERSOCK instead for that.
+
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netlink/af_netlink.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 5463969..998dd18 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1373,7 +1373,8 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		dst_pid = addr->nl_pid;
+ 		dst_group = ffs(addr->nl_groups);
+ 		err =  -EPERM;
+-		if (dst_group && !netlink_capable(sock, NL_NONROOT_SEND))
++		if ((dst_group || dst_pid) &&
++		    !netlink_capable(sock, NL_NONROOT_SEND))
+ 			goto out;
+ 	} else {
+ 		dst_pid = nlk->dst_pid;
+@@ -2147,6 +2148,7 @@ static void __init netlink_add_usersock_entry(void)
+ 	rcu_assign_pointer(nl_table[NETLINK_USERSOCK].listeners, listeners);
+ 	nl_table[NETLINK_USERSOCK].module = THIS_MODULE;
+ 	nl_table[NETLINK_USERSOCK].registered = 1;
++	nl_table[NETLINK_USERSOCK].nl_nonroot = NL_NONROOT_SEND;
+ 
+ 	netlink_table_ungrab();
+ }
 -- 
-|. _ | _ |_   _  _ _|_
-||| ||(_||_).| |(/_ |
-email/sip/xmpp: alex@linlab.net
-phone/enum: +49 2871 2355378
+1.7.10.4
