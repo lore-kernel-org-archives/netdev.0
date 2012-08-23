@@ -1,36 +1,47 @@
-From: "Love, Robert W" <robert.w.love@intel.com>
-Subject: Re: [PATCH 6/8] csiostor: Chelsio FCoE offload driver submission
- (headers part 1).
-Date: Thu, 23 Aug 2012 18:15:00 +0000
-Message-ID: <50367309.3080306@intel.com>
-References: <1345760873-12101-1-git-send-email-naresh@chelsio.com>
- <1345760873-12101-7-git-send-email-naresh@chelsio.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next v3] net: remove delay at device dismantle
+Date: Thu, 23 Aug 2012 19:21:18 +0100
+Message-ID: <1345746078.2579.10.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1345691986.5904.40.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "JBottomley@parallels.com" <JBottomley@parallels.com>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"dm@chelsio.com" <dm@chelsio.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"chethan@chelsio.com" <chethan@chelsio.com>
-To: Naresh Kumar Inna <naresh@chelsio.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1345760873-12101-7-git-send-email-naresh@chelsio.com>
-Content-Language: en-US
-Content-ID: <AEC440C4E5872845814729F14CF3E8BE@intel.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <gaofeng@cn.fujitsu.com>,
+	<netdev@vger.kernel.org>, <maheshb@google.com>,
+	<therbert@google.com>, <ebiederm@xmission.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:61685 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1759177Ab2HWSVW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 14:21:22 -0400
+In-Reply-To: <1345691986.5904.40.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8/23/2012 3:27 PM, Naresh Kumar Inna wrote:
-> This patch contains the first set of the header files for csiostor driver.
->
-> Signed-off-by: Naresh Kumar Inna <naresh@chelsio.com>
-> ---
->   drivers/scsi/csiostor/csio_defs.h       |  143 ++++++
->   drivers/scsi/csiostor/csio_fcoe_proto.h |  843 +++++++++++++++++++++++++++++++
+On Thu, 2012-08-23 at 05:19 +0200, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> I noticed extra one second delay in device dismantle, tracked down to
+> a call to dst_dev_event() while some call_rcu() are still in RCU queues.
+> 
+> These call_rcu() were posted by rt_free(struct rtable *rt) calls.
+> 
+> We then wait a little (but one second) in netdev_wait_allrefs() before
+> kicking again NETDEV_UNREGISTER.
+> 
+> As the call_rcu() are now completed, dst_dev_event() can do the needed
+> device swap on busy dst.
+> 
+> To solve this problem, add a new NETDEV_UNREGISTER_FINAL, called
+> after a rcu_barrier(), but outside of RTNL lock.
+[...]
 
-I think most of these protocol definitions can be found in 
-include/scsi/fc/ and possibly incluse/scsi/scsi_transport_fc.h. I think 
-any protocol stuff missing should be added to the common header files.
+So what happens when this races with register_netdevice_notifier()?
 
-Thanks, //Rob
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
