@@ -1,47 +1,44 @@
-From: Wei Huang <daviseago@gmail.com>
-Subject: Re: Which one is chosen on multiple default gateway set?
-Date: Thu, 23 Aug 2012 15:30:21 +0800
-Message-ID: <CAJPS4yZ-dO7Jau6R1V=jBh9xHWjfA-PaiURGzjtGo8TwmDcjSA@mail.gmail.com>
-References: <CAJPS4yY7sqqsOfhiouqjmfuW3Kof-ZzHEBs9E1+QoYYce01U4Q@mail.gmail.com>
-	<20120822.233808.1184757734447108096.davem@davemloft.net>
+From: Petr Tesarik <ptesarik@suse.cz>
+Subject: Re: bonding: time limits too tight in bond_ab_arp_inspect
+Date: Thu, 23 Aug 2012 09:34:18 +0200
+Message-ID: <201208230934.18652.ptesarik@suse.cz>
+References: <20120822174534.GA20260@midget.suse.cz> <50351CC5.3030109@genband.com> <24655.1345660922@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Chris Friesen <chris.friesen@genband.com>,
+	Jiri Bohac <jbohac@suse.cz>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:64734 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755894Ab2HWHaV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 03:30:21 -0400
-In-Reply-To: <20120822.233808.1184757734447108096.davem@davemloft.net>
+Received: from cantor2.suse.de ([195.135.220.15]:46638 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933178Ab2HWHe3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Aug 2012 03:34:29 -0400
+In-Reply-To: <24655.1345660922@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 23, 2012 at 2:38 PM, David Miller <davem@davemloft.net> wrote:
-> The problem is that when a nexthop becomes unresponsive we need
-> to wait for an event to timeout the routing cache entry.
->
-> In 3.6.0-rc1 and later, this inconsistent behavior will happen less
-> often, because the routing cache has been removed so we will do the
-> full default route resolution on every route lookup.  The only problem
-> at that point is socket cached routes, those will still need to wait
-> for a timeout before the next default gateway will be tried.
+Dne St 22. srpna 2012 20:42:02 Jay Vosburgh napsal(a):
+> Chris Friesen <chris.friesen@genband.com> wrote:
+> >On 08/22/2012 11:45 AM, Jiri Bohac wrote:
+> >> This code is run from bond_activebackup_arp_mon() about
+> >> delta_in_ticks jiffies after the previous ARP probe has been
+> >> sent. If the delayed work gets executed exactly in delta_in_ticks
+> >> jiffies, there is a chance the slave will be brought up.  If the
+> >> delayed work runs one jiffy later, the slave will stay down.
+> 
+> 	Presumably the ARP reply is coming back in less than one jiffy,
+> then, so the slave_last_rx() value is the same jiffy as when the
+> _inspect was previously called?
 
-Thanks a lot, David!
+Yes, that's what happens. Keep in mind that the backup slave validates the 
+original ARP query, so on a fast network, you get it more or less immediately 
+(for my case, I can see a delay of ~70us).
 
-I'm using 2.6.16. Could you tell me where the code is, that detects
-nexthop unresponsive, sends an event, and timeout the cache? Or are
-there procs or sysctl to adjust the timer values?
+Anyway, why do we have to wait until the next ARP send? Couldn't we simply 
+kick the work queue when we receive a valid packet on a down interface?
 
-Another thing I found is that the route looking-up seems to update the
-routing cache entry. Is that true? In my example in the first mail,
-after a while, the default gateway should have been switched to the
-second one. If I ping 8.8.8.8 then, the second active gateway should
-be used. But instead, if I look for the route first with "ip r get
-8.8.8.8", the first inactive gateway will be the result, and it will
-be used if I ping now.
-Will the route looking-up even influence the behavior? Will there be a
-work around way for this?
-
-Thanks,
-Wei
+Petr Tesarik
+SUSE Linux
