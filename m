@@ -1,77 +1,173 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [patch net-next] team: add support for non-ethernet devices
-Date: Thu, 23 Aug 2012 10:37:40 +0300
-Message-ID: <CAJZOPZLzL5KMF=HjJ=HZYNUerBXV2Es0cDq9rdP=ZYvsEJv7gA@mail.gmail.com>
-References: <1345212048-1378-1-git-send-email-jiri@resnulli.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: reinstate rtnl in call_netdevice_notifiers()
+Date: Thu, 23 Aug 2012 09:50:59 +0200
+Message-ID: <1345708259.5904.178.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: gaofeng@cn.fujitsu.com, netdev@vger.kernel.org,
+	therbert@google.com, maheshb@google.com, ebiederm@xmission.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:63525 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964794Ab2HWHhl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 03:37:41 -0400
-Received: by ialo24 with SMTP id o24so866009ial.19
-        for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 00:37:40 -0700 (PDT)
-In-Reply-To: <1345212048-1378-1-git-send-email-jiri@resnulli.us>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:33806 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758112Ab2HWHvE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 03:51:04 -0400
+Received: by bkwj10 with SMTP id j10so111785bkw.19
+        for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 00:51:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 17, 2012 at 5:00 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> This is resolved by two things:
-> 1) allow dev_addr of different length than ETH_ALEN
-> 2) during port add, check for dev->type and change it if necessary
-> +static void team_setup_by_port(struct net_device *dev,
-> +                              struct net_device *port_dev)
-> +{
-> +       dev->header_ops = port_dev->header_ops;
-> +       dev->type = port_dev->type;
-> +       dev->hard_header_len = port_dev->hard_header_len;
-> +       dev->addr_len = port_dev->addr_len;
-> +       dev->mtu = port_dev->mtu;
-> +       memcpy(dev->broadcast, port_dev->broadcast, port_dev->addr_len);
-> +       memcpy(dev->dev_addr, port_dev->dev_addr, port_dev->addr_len);
-> +       dev->addr_assign_type &= ~NET_ADDR_RANDOM;
-> +}
+From: Eric Dumazet <edumazet@google.com>
 
-Hi Jiri,
+Eric Biederman pointed out that not holding RTNL while calling
+call_netdevice_notifiers() was racy.
 
-I'm not sure if here, or in the area where this is called, but, aren't
-we missing re-computation of the team device features
-that follows what the port supports?
+This patch is a direct transcription his feedback
+against commit 0115e8e30d6fc (net: remove delay at device dismantle)
 
-I've been playing a bit with the patch and IPoIB, using iproute2/ip I
-was able to create team device and set/unset it as the master of IPoIB
-devices.  I had little configuration problem with building libteam
-(will comm off list to fix that) which means that teaming was fully
-using its defaults. I had set IP address for the team device and
-issued a ping, I don't see that team attempts to xmit the ARPs through
-the ib0 port though, the team drop counter keeps increasing. Could
-that be me falling into a non-supported area, since I didn't
-explicitly set mode used by teaming?
+Thanks Eric !
 
-Also, re the features issue, I was able to trigger a concrete problem,
-with IPoIB vlans are implemented with child devices that use IB
-partitions, and hence IPoIB advertized being vlan challenged.  I was
-able to create a 8021q vlan device over a teaming device that has
-IPoIB port, which shouldn't be the case.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Mahesh Bandewar <maheshb@google.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Gao feng <gaofeng@cn.fujitsu.com>
+---
+Note: After this patch, it seems less risky to push these fixes for 3.6,
+since notifiers have the guarantee that RTNL is held.
 
-Here are some logs, basically, there's some failure print here which I
-wasn't sure to follow
+ net/core/dev.c          |    9 +++++++--
+ net/core/fib_rules.c    |    3 +--
+ net/ipv4/devinet.c      |    6 +-----
+ net/ipv4/fib_frontend.c |    7 ++-----
+ net/ipv6/addrconf.c     |    6 +-----
+ 5 files changed, 12 insertions(+), 19 deletions(-)
 
-IPv6: ADDRCONF(NETDEV_UP): ib0: link is not ready
-IPv6: ADDRCONF(NETDEV_CHANGE): ib0: link becomes ready
-(unregistered net_device): Failed to send options change via netlink (err -3)
-team0: Device ib0 is up. Set it down before adding it as a team port
-8021q: adding VLAN 0 to HW filter on device team0
-
-the sequence I used is
-
-$ ip link add name team0 type team
-$ ip link set master team0
-$ ifconfig team0 192.168.20.18/24 up
-$ vconfig add team0 51
-
-Or.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0640d2a..bc857fe 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1466,8 +1466,7 @@ EXPORT_SYMBOL(unregister_netdevice_notifier);
+ 
+ int call_netdevice_notifiers(unsigned long val, struct net_device *dev)
+ {
+-	if (val != NETDEV_UNREGISTER_FINAL)
+-		ASSERT_RTNL();
++	ASSERT_RTNL();
+ 	return raw_notifier_call_chain(&netdev_chain, val, dev);
+ }
+ EXPORT_SYMBOL(call_netdevice_notifiers);
+@@ -5782,7 +5781,11 @@ static void netdev_wait_allrefs(struct net_device *dev)
+ 
+ 			/* Rebroadcast unregister notification */
+ 			call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
++
++			__rtnl_unlock();
+ 			rcu_barrier();
++			rtnl_lock();
++
+ 			call_netdevice_notifiers(NETDEV_UNREGISTER_FINAL, dev);
+ 			if (test_bit(__LINK_STATE_LINKWATCH_PENDING,
+ 				     &dev->state)) {
+@@ -5855,7 +5858,9 @@ void netdev_run_todo(void)
+ 			= list_first_entry(&list, struct net_device, todo_list);
+ 		list_del(&dev->todo_list);
+ 
++		rtnl_lock();
+ 		call_netdevice_notifiers(NETDEV_UNREGISTER_FINAL, dev);
++		__rtnl_unlock();
+ 
+ 		if (unlikely(dev->reg_state != NETREG_UNREGISTERING)) {
+ 			pr_err("network todo '%s' but state %d\n",
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 5850937..ab7db83 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -711,16 +711,15 @@ static int fib_rules_event(struct notifier_block *this, unsigned long event,
+ 	struct net *net = dev_net(dev);
+ 	struct fib_rules_ops *ops;
+ 
++	ASSERT_RTNL();
+ 
+ 	switch (event) {
+ 	case NETDEV_REGISTER:
+-		ASSERT_RTNL();
+ 		list_for_each_entry(ops, &net->rules_ops, list)
+ 			attach_rules(&ops->rules_list, dev);
+ 		break;
+ 
+ 	case NETDEV_UNREGISTER:
+-		ASSERT_RTNL();
+ 		list_for_each_entry(ops, &net->rules_ops, list)
+ 			detach_rules(&ops->rules_list, dev);
+ 		break;
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 6a5e6e4..adf273f 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1147,12 +1147,8 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
+ 			 void *ptr)
+ {
+ 	struct net_device *dev = ptr;
+-	struct in_device *in_dev;
+-
+-	if (event == NETDEV_UNREGISTER_FINAL)
+-		goto out;
++	struct in_device *in_dev = __in_dev_get_rtnl(dev);
+ 
+-	in_dev = __in_dev_get_rtnl(dev);
+ 	ASSERT_RTNL();
+ 
+ 	if (!in_dev) {
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index fd7d9ae..acdee32 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -1050,9 +1050,6 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
+ 		return NOTIFY_DONE;
+ 	}
+ 
+-	if (event == NETDEV_UNREGISTER_FINAL)
+-		return NOTIFY_DONE;
+-
+ 	in_dev = __in_dev_get_rtnl(dev);
+ 
+ 	switch (event) {
+@@ -1064,14 +1061,14 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
+ 		fib_sync_up(dev);
+ #endif
+ 		atomic_inc(&net->ipv4.dev_addr_genid);
+-		rt_cache_flush(dev_net(dev), -1);
++		rt_cache_flush(net, -1);
+ 		break;
+ 	case NETDEV_DOWN:
+ 		fib_disable_ip(dev, 0, 0);
+ 		break;
+ 	case NETDEV_CHANGEMTU:
+ 	case NETDEV_CHANGE:
+-		rt_cache_flush(dev_net(dev), 0);
++		rt_cache_flush(net, 0);
+ 		break;
+ 	}
+ 	return NOTIFY_DONE;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index e581009..6bc85f7 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2566,14 +2566,10 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 			   void *data)
+ {
+ 	struct net_device *dev = (struct net_device *) data;
+-	struct inet6_dev *idev;
++	struct inet6_dev *idev = __in6_dev_get(dev);
+ 	int run_pending = 0;
+ 	int err;
+ 
+-	if (event == NETDEV_UNREGISTER_FINAL)
+-		return NOTIFY_DONE;
+-
+-	idev = __in6_dev_get(dev);
+ 	switch (event) {
+ 	case NETDEV_REGISTER:
+ 		if (!idev && dev->mtu >= IPV6_MIN_MTU) {
