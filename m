@@ -1,67 +1,61 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Problem removing netns
-Date: Wed, 22 Aug 2012 16:59:58 -0700
-Message-ID: <87393epjep.fsf@xmission.com>
-References: <CAJO99T=qtzw_4LZOg9eXmPrjKELDzxCHKBEabwd50N9unS7kbw@mail.gmail.com>
+From: Tabi Timur-B04825 <B04825@freescale.com>
+Subject: Re: [PATCH] netdev/phy: add MDIO bus multiplexer driven by a
+ memory-mapped FPGA
+Date: Thu, 23 Aug 2012 00:06:32 +0000
+Message-ID: <6AE080B68D46FC4BA2D2769E68D765B7059B75BB@039-SN2MPN1-022.039d.mgd.msft.net>
+References: <1345671954-6398-1-git-send-email-timur@freescale.com>
+ <50355C05.6000407@gmail.com> <50355F6D.4070002@freescale.com>
+ <503562B0.3010005@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?utf-8?Q?Bj=C3=B8rnar?= Ness <bjornar.ness@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Tabi Timur-B04825 <B04825@freescale.com>,
+	David Daney <ddaney.cavm@gmail.com>,
+	"devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>,
+	Fleming Andy-AFLEMING <afleming@freescale.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"david.daney@cavium.com" <david.daney@cavium.com>
+To: David Daney <ddaney@caviumnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:51364 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757211Ab2HWAAI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 20:00:08 -0400
-In-Reply-To: <CAJO99T=qtzw_4LZOg9eXmPrjKELDzxCHKBEabwd50N9unS7kbw@mail.gmail.com>
-	(=?utf-8?Q?=22Bj=C3=B8rnar?= Ness"'s message of "Wed, 22 Aug 2012 13:59:25
- +0200")
+Received: from am1ehsobe004.messaging.microsoft.com ([213.199.154.207]:25611
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756749Ab2HWAGi convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Aug 2012 20:06:38 -0400
+In-Reply-To: <503562B0.3010005@caviumnetworks.com>
+Content-Language: en-US
+Content-ID: <4CEFD8E728E0C84FB2C7068516BE9A78@mgd.freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bj=C3=B8rnar Ness <bjornar.ness@gmail.com> writes:
-
-> I am experimenting with netns (Linux precision 3.2.0-0.bpo.2-amd64 #1
-> SMP Sun Jun 3 21:40:57 UTC 2012 x86_64 GNU/Linux)
-> and have problems removing unused namespace, this is what I do:
+David Daney wrote:
+>>
+>> The problem is that we don't normally consider the FPGA node to be a bus,
+>> so its child nodes won't get probed.  That's why I have this:
+>>
 >
-> ip netns add netns_one
-> ip netns add netns_two
-> ip link add name if_one type veth peer name if_one_peer
-> ip link add name if_two type veth peer name if_two_peer
-> ip link set dev if_one_peer netns netns_one
-> ip link set dev if_two_peer netns netns_two
+> That would seem to be a mistake/error.
+
+Maybe I'm not explaining myself well.  A node that has children will not 
+automatically probe the children unless something in arch code registers 
+the parent as a bus.  If you look in corenet_ds.c, you'll see what we do 
+with array of_device_ids[].  We list all of the nodes that are buses.  The 
+mdio-mux root-level nodes that I have today won't work unless I add 
+.compatible = "mdio-mux" to of_device_ids[].
+
 >
-> ip netns exec netns_one bash
->
-> # in other terminal:
->
-> ip netns delete netns_two
->
-> # =3D> Cannot remove /var/run/netns/netns_two: Device or resource bus=
-y
->
-> Is this expected  behaviour? If so, what is the correct process to
-> actually remove a namespace?
+> You should be able to arrive at any directly addressable register by
+> walking down the tree to the children and applying any "ranges" properties
+> at each node.  The OF infrastructure will take care of resolving all the
+> addresses and you get rid of much of the code you added to duplicate its
+> function.
 
-This is unintended but "correct" behavior.
+That only works for buses that are already registered.  I think if I add 
+"simple-bus" to the compatible of the FPGA node, it will work.  I'll try 
+that tomorrow.
 
-The linux VFS won't let you remove an a file or directory that has
-something mounted on it.=20
-
-Cloning the mount namespace creates a copy of all of the mounts.
-
-With the result that your long running processe created with
-ip netns exec (or anything else that clones the mount namespace)
-will continue to hold a references to mounted that keesp the network
-namespace alive.
-
-In my usage patterns I haven't tripped over this.
-
-Probably the simplest fix would be to take advantage of mount propogate
-so that when we unmount the network namespace in one mount namespace it
-get unmounted in all of them.  I don't expect I will be able to look at
-implementing anything like that for a while, although it shouldn't take
-much work to implement that.
-
-Eric
+-- 
+Timur Tabi
+Linux kernel developer at Freescale
