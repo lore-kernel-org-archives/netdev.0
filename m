@@ -1,187 +1,275 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [RFC PATCH bridge 4/5] bridge: Add private ioctls to configure vlans on bridge ports
-Date: Thu, 23 Aug 2012 15:29:54 -0400
-Message-ID: <1345750195-31598-5-git-send-email-vyasevic@redhat.com>
+Subject: [RFC PATCH bridge 3/5] bridge: Add vlan id to multicast groups
+Date: Thu, 23 Aug 2012 15:29:53 -0400
+Message-ID: <1345750195-31598-4-git-send-email-vyasevic@redhat.com>
 References: <1345750195-31598-1-git-send-email-vyasevic@redhat.com>
 Cc: Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19019 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52107 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932444Ab2HWTaB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Aug 2012 15:30:01 -0400
+	id S1759192Ab2HWTaA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Aug 2012 15:30:00 -0400
 Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q7NJU0tu003330
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q7NJU0v8019263
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 15:30:01 -0400
+	for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 15:30:00 -0400
 In-Reply-To: <1345750195-31598-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a private ioctl to add and remove vlan configuration on bridge port.
+Add vlan_id to multicasts groups so that we know which vlan each group belongs
+to and can correctly forward to appropriate vlan.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- include/linux/if_bridge.h |    2 +
- net/bridge/br_if.c        |   69 +++++++++++++++++++++++++++++++++++++++++++++
- net/bridge/br_ioctl.c     |   31 ++++++++++++++++++++
- net/bridge/br_private.h   |    2 +
- 4 files changed, 104 insertions(+), 0 deletions(-)
+ net/bridge/br_multicast.c |   64 +++++++++++++++++++++++++++++++--------------
+ net/bridge/br_private.h   |    1 +
+ 2 files changed, 45 insertions(+), 20 deletions(-)
 
-diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
-index 288ff10..ab750dd 100644
---- a/include/linux/if_bridge.h
-+++ b/include/linux/if_bridge.h
-@@ -42,6 +42,8 @@
- #define BRCTL_SET_PORT_PRIORITY 16
- #define BRCTL_SET_PATH_COST 17
- #define BRCTL_GET_FDB_ENTRIES 18
-+#define BRCTL_ADD_VLAN 19
-+#define BRCTL_DEL_VLAN 20
- 
- #define BR_STATE_DISABLED 0
- #define BR_STATE_LISTENING 1
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index e1144e1..90c1038 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -23,6 +23,7 @@
- #include <linux/if_ether.h>
- #include <linux/slab.h>
- #include <net/sock.h>
-+#include <linux/if_vlan.h>
- 
- #include "br_private.h"
- 
-@@ -441,6 +442,74 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 2417434..2976a2b 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -51,6 +51,8 @@ static inline int br_ip_equal(const struct br_ip *a, const struct br_ip *b)
+ {
+ 	if (a->proto != b->proto)
+ 		return 0;
++	if (a->vid != b->vid)
++		return 0;
+ 	switch (a->proto) {
+ 	case htons(ETH_P_IP):
+ 		return a->u.ip4 == b->u.ip4;
+@@ -62,16 +64,19 @@ static inline int br_ip_equal(const struct br_ip *a, const struct br_ip *b)
  	return 0;
  }
  
-+/* Called with RTNL */
-+int br_set_port_vlan(struct net_bridge_port *p, unsigned long vlan)
-+{
-+	unsigned long table_size = (VLAN_N_VID/sizeof(unsigned long)) + 1;
-+	unsigned long *vid_map = NULL;
-+	__u16 vid = (__u16) vlan + 1;
-+
-+	/* We are under lock so we can check this without rcu.
-+	 * The vlan map is indexed by vid+1.  This way we can store
-+	 * vid 0 (untagged) into the map as well.
-+	 */
-+	if (!p->vlan_map) {
-+		vid_map = kzalloc(table_size, GFP_KERNEL);
-+		if (!vid_map)
-+			return -ENOMEM;
-+
-+		set_bit(vid, vid_map);
-+		rcu_assign_pointer(p->vlan_map, vid_map);
-+
-+	} else {
-+		/* Map is already allocated */
-+		set_bit(vid, p->vlan_map);
-+	}
-+
-+	return 0;
-+}
-+
-+
-+/* Called with RTNL */
-+int br_del_port_vlan(struct net_bridge_port *p, unsigned long vlan)
-+{
-+	unsigned long first_bit;
-+	unsigned long next_bit;
-+	__u16 vid = (__u16) vlan+1;
-+	unsigned long tbl_len = VLAN_N_VID+1;
-+
-+	if (!p->vlan_map)
-+		return -EINVAL;
-+
-+	if (!test_bit(vlan, p->vlan_map))
-+		return -EINVAL;
-+
-+	/* Check to see if any other vlans are in this table.  If this
-+	 * is the last vlan, delete the whole table.  If this is not the
-+	 * last vlan, just clear the bit.
-+	 */
-+	first_bit = find_first_bit(p->vlan_map, tbl_len);
-+	next_bit = find_next_bit(p->vlan_map, tbl_len, (tbl_len - vid));
-+
-+	if ((__u16)first_bit != vid || (__u16)next_bit < tbl_len) {
-+		/* There are other vlans still configured.  We can simply
-+		 * clear our bit and be safe.
-+		 */
-+		clear_bit(vid, p->vlan_map);
-+	} else {
-+		/* This is the last vlan we are removing.  Replace the
-+		 * map with a NULL pointer and free the old map
-+		 */
-+		unsigned long *map = rcu_dereference(p->vlan_map);
-+
-+		rcu_assign_pointer(p->vlan_map, NULL);
-+		synchronize_net();
-+		kfree(map);
-+	}
-+
-+	return 0;
-+}
-+
- void __net_exit br_net_exit(struct net *net)
+-static inline int __br_ip4_hash(struct net_bridge_mdb_htable *mdb, __be32 ip)
++static inline int __br_ip4_hash(struct net_bridge_mdb_htable *mdb, __be32 ip,
++				__u16 vid)
  {
- 	struct net_device *dev;
-diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
-index 7222fe1..3a5b1f9 100644
---- a/net/bridge/br_ioctl.c
-+++ b/net/bridge/br_ioctl.c
-@@ -289,6 +289,37 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	case BRCTL_GET_FDB_ENTRIES:
- 		return get_fdb_entries(br, (void __user *)args[1],
- 				       args[2], args[3]);
-+	case BRCTL_ADD_VLAN:
-+	{
-+		struct net_bridge_port *p;
-+
-+		if (!capable(CAP_NET_ADMIN))
-+			return -EPERM;
-+
-+		rcu_read_lock();
-+		if ((p = br_get_port(br, args[1])) == NULL) {
-+			rcu_read_unlock();
-+			return -EINVAL;
-+		}
-+		rcu_read_unlock();
-+		return br_set_port_vlan(p, args[2]);
-+	}
-+
-+	case BRCTL_DEL_VLAN:
-+	{
-+		struct net_bridge_port *p;
-+
-+		if (!capable(CAP_NET_ADMIN))
-+			return -EPERM;
-+
-+		rcu_read_lock();
-+		if ((p = br_get_port(br, args[1])) == NULL) {
-+			rcu_read_unlock();
-+			return -EINVAL;
-+		}
-+		rcu_read_unlock();
-+		br_set_port_vlan(p, args[2]);
-+	}
+-	return jhash_1word(mdb->secret, (__force u32)ip) & (mdb->max - 1);
++	return jhash_2words((__force u32)ip, vid, mdb->secret) & (mdb->max - 1);
+ }
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ static inline int __br_ip6_hash(struct net_bridge_mdb_htable *mdb,
+-				const struct in6_addr *ip)
++				const struct in6_addr *ip,
++				__u16 vid)
+ {
+-	return jhash2((__force u32 *)ip->s6_addr32, 4, mdb->secret) & (mdb->max - 1);
++	u32 addr = *(__force u32 *)ip->s6_addr32;
++	return jhash_2words(addr, vid, mdb->secret) & (mdb->max - 1);
+ }
+ #endif
+ 
+@@ -80,10 +85,10 @@ static inline int br_ip_hash(struct net_bridge_mdb_htable *mdb,
+ {
+ 	switch (ip->proto) {
+ 	case htons(ETH_P_IP):
+-		return __br_ip4_hash(mdb, ip->u.ip4);
++		return __br_ip4_hash(mdb, ip->u.ip4, ip->vid);
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	case htons(ETH_P_IPV6):
+-		return __br_ip6_hash(mdb, &ip->u.ip6);
++		return __br_ip6_hash(mdb, &ip->u.ip6, ip->vid);
+ #endif
+ 	}
+ 	return 0;
+@@ -113,24 +118,27 @@ static struct net_bridge_mdb_entry *br_mdb_ip_get(
+ }
+ 
+ static struct net_bridge_mdb_entry *br_mdb_ip4_get(
+-	struct net_bridge_mdb_htable *mdb, __be32 dst)
++	struct net_bridge_mdb_htable *mdb, __be32 dst, __u16 vlan_tci)
+ {
+ 	struct br_ip br_dst;
+ 
+ 	br_dst.u.ip4 = dst;
+ 	br_dst.proto = htons(ETH_P_IP);
++	br_dst.vid = (vlan_tci & VLAN_VID_MASK);
+ 
+ 	return br_mdb_ip_get(mdb, &br_dst);
+ }
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ static struct net_bridge_mdb_entry *br_mdb_ip6_get(
+-	struct net_bridge_mdb_htable *mdb, const struct in6_addr *dst)
++	struct net_bridge_mdb_htable *mdb, const struct in6_addr *dst,
++	__u16 vlan_tci)
+ {
+ 	struct br_ip br_dst;
+ 
+ 	br_dst.u.ip6 = *dst;
+ 	br_dst.proto = htons(ETH_P_IPV6);
++	br_dst.vid = vlan_tci & VLAN_VID_MASK;
+ 
+ 	return br_mdb_ip_get(mdb, &br_dst);
+ }
+@@ -692,7 +700,8 @@ err:
+ 
+ static int br_ip4_multicast_add_group(struct net_bridge *br,
+ 				      struct net_bridge_port *port,
+-				      __be32 group)
++				      __be32 group,
++				      __u16 vlan_tci)
+ {
+ 	struct br_ip br_group;
+ 
+@@ -701,6 +710,7 @@ static int br_ip4_multicast_add_group(struct net_bridge *br,
+ 
+ 	br_group.u.ip4 = group;
+ 	br_group.proto = htons(ETH_P_IP);
++	br_group.vid = vlan_tci & VLAN_VID_MASK;
+ 
+ 	return br_multicast_add_group(br, port, &br_group);
+ }
+@@ -708,7 +718,8 @@ static int br_ip4_multicast_add_group(struct net_bridge *br,
+ #if IS_ENABLED(CONFIG_IPV6)
+ static int br_ip6_multicast_add_group(struct net_bridge *br,
+ 				      struct net_bridge_port *port,
+-				      const struct in6_addr *group)
++				      const struct in6_addr *group,
++				      __u16 vlan_tci)
+ {
+ 	struct br_ip br_group;
+ 
+@@ -717,6 +728,7 @@ static int br_ip6_multicast_add_group(struct net_bridge *br,
+ 
+ 	br_group.u.ip6 = *group;
+ 	br_group.proto = htons(ETH_P_IPV6);
++	br_group.vid = vlan_tci & VLAN_VID_MASK;
+ 
+ 	return br_multicast_add_group(br, port, &br_group);
+ }
+@@ -928,7 +940,8 @@ static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
+ 			continue;
+ 		}
+ 
+-		err = br_ip4_multicast_add_group(br, port, group);
++		err = br_ip4_multicast_add_group(br, port, group,
++						skb->vlan_tci);
+ 		if (err)
+ 			break;
+ 	}
+@@ -988,7 +1001,8 @@ static int br_ip6_multicast_mld2_report(struct net_bridge *br,
+ 			continue;
+ 		}
+ 
+-		err = br_ip6_multicast_add_group(br, port, &grec->grec_mca);
++		err = br_ip6_multicast_add_group(br, port, &grec->grec_mca,
++						skb->vlan_tci);
+ 		if (!err)
+ 			break;
+ 	}
+@@ -1106,7 +1120,8 @@ static int br_ip4_multicast_query(struct net_bridge *br,
+ 	if (!group)
+ 		goto out;
+ 
+-	mp = br_mdb_ip4_get(mlock_dereference(br->mdb, br), group);
++	mp = br_mdb_ip4_get(mlock_dereference(br->mdb, br), group,
++				skb->vlan_tci);
+ 	if (!mp)
+ 		goto out;
+ 
+@@ -1178,7 +1193,8 @@ static int br_ip6_multicast_query(struct net_bridge *br,
+ 	if (!group)
+ 		goto out;
+ 
+-	mp = br_mdb_ip6_get(mlock_dereference(br->mdb, br), group);
++	mp = br_mdb_ip6_get(mlock_dereference(br->mdb, br), group,
++			skb->vlan_tci);
+ 	if (!mp)
+ 		goto out;
+ 
+@@ -1262,7 +1278,8 @@ out:
+ 
+ static void br_ip4_multicast_leave_group(struct net_bridge *br,
+ 					 struct net_bridge_port *port,
+-					 __be32 group)
++					 __be32 group,
++					 __u16 vlan_tci)
+ {
+ 	struct br_ip br_group;
+ 
+@@ -1271,6 +1288,7 @@ static void br_ip4_multicast_leave_group(struct net_bridge *br,
+ 
+ 	br_group.u.ip4 = group;
+ 	br_group.proto = htons(ETH_P_IP);
++	br_group.vid = (vlan_tci & VLAN_VID_MASK);
+ 
+ 	br_multicast_leave_group(br, port, &br_group);
+ }
+@@ -1278,7 +1296,8 @@ static void br_ip4_multicast_leave_group(struct net_bridge *br,
+ #if IS_ENABLED(CONFIG_IPV6)
+ static void br_ip6_multicast_leave_group(struct net_bridge *br,
+ 					 struct net_bridge_port *port,
+-					 const struct in6_addr *group)
++					 const struct in6_addr *group,
++					 __u16 vlan_tci)
+ {
+ 	struct br_ip br_group;
+ 
+@@ -1287,6 +1306,7 @@ static void br_ip6_multicast_leave_group(struct net_bridge *br,
+ 
+ 	br_group.u.ip6 = *group;
+ 	br_group.proto = htons(ETH_P_IPV6);
++	br_group.vid = (vlan_tci & VLAN_VID_MASK);
+ 
+ 	br_multicast_leave_group(br, port, &br_group);
+ }
+@@ -1369,7 +1389,8 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 	case IGMP_HOST_MEMBERSHIP_REPORT:
+ 	case IGMPV2_HOST_MEMBERSHIP_REPORT:
+ 		BR_INPUT_SKB_CB(skb)->mrouters_only = 1;
+-		err = br_ip4_multicast_add_group(br, port, ih->group);
++		err = br_ip4_multicast_add_group(br, port, ih->group,
++						skb2->vlan_tci);
+ 		break;
+ 	case IGMPV3_HOST_MEMBERSHIP_REPORT:
+ 		err = br_ip4_multicast_igmp3_report(br, port, skb2);
+@@ -1378,7 +1399,8 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 		err = br_ip4_multicast_query(br, port, skb2);
+ 		break;
+ 	case IGMP_HOST_LEAVE_MESSAGE:
+-		br_ip4_multicast_leave_group(br, port, ih->group);
++		br_ip4_multicast_leave_group(br, port, ih->group,
++						skb2->vlan_tci);
+ 		break;
  	}
  
- 	return -EOPNOTSUPP;
+@@ -1498,7 +1520,8 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+ 		}
+ 		mld = (struct mld_msg *)skb_transport_header(skb2);
+ 		BR_INPUT_SKB_CB(skb)->mrouters_only = 1;
+-		err = br_ip6_multicast_add_group(br, port, &mld->mld_mca);
++		err = br_ip6_multicast_add_group(br, port, &mld->mld_mca,
++						 skb2->vlan_tci);
+ 		break;
+ 	    }
+ 	case ICMPV6_MLD2_REPORT:
+@@ -1515,7 +1538,8 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+ 			goto out;
+ 		}
+ 		mld = (struct mld_msg *)skb_transport_header(skb2);
+-		br_ip6_multicast_leave_group(br, port, &mld->mld_mca);
++		br_ip6_multicast_leave_group(br, port, &mld->mld_mca,
++						skb2->vlan_tci);
+ 	    }
+ 	}
+ 
 diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index b6c56ab..5639c1c 100644
+index 921b927..b6c56ab 100644
 --- a/net/bridge/br_private.h
 +++ b/net/bridge/br_private.h
-@@ -402,6 +402,8 @@ extern int br_del_if(struct net_bridge *br,
- extern int br_min_mtu(const struct net_bridge *br);
- extern netdev_features_t br_features_recompute(struct net_bridge *br,
- 	netdev_features_t features);
-+extern int br_set_port_vlan(struct net_bridge_port *p, unsigned long vid);
-+extern int br_del_port_vlan(struct net_bridge_port *p, unsigned long vid);
+@@ -61,6 +61,7 @@ struct br_ip
+ #endif
+ 	} u;
+ 	__be16		proto;
++	__u16		vid;
+ };
  
- /* br_input.c */
- extern int br_handle_frame_finish(struct sk_buff *skb);
+ struct net_bridge_fdb_entry
 -- 
 1.7.7.6
