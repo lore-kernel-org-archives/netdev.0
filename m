@@ -1,55 +1,29 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH RFC 1/2] tcp: add generic netlink support for tcp_metrics
-Date: Thu, 23 Aug 2012 18:01:44 +0300
-Message-ID: <1345734105-28328-2-git-send-email-ja@ssi.bg>
+Subject: [PATCH RFC 2/2] iproute2: add support for tcp_metrics
+Date: Thu, 23 Aug 2012 18:01:45 +0300
+Message-ID: <1345734105-28328-3-git-send-email-ja@ssi.bg>
 References: <1345734105-28328-1-git-send-email-ja@ssi.bg>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:50890 "EHLO ja.ssi.bg"
+Received: from ja.ssi.bg ([178.16.129.10]:50892 "EHLO ja.ssi.bg"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755295Ab2HWO74 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755195Ab2HWO74 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 23 Aug 2012 10:59:56 -0400
 Received: from ja.ssi.bg (localhost.localdomain [127.0.0.1])
-	by ja.ssi.bg (8.14.4/8.14.4) with ESMTP id q7NF21Qm028363
+	by ja.ssi.bg (8.14.4/8.14.4) with ESMTP id q7NF21Zt028369
 	for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 18:02:01 +0300
 Received: (from root@localhost)
-	by ja.ssi.bg (8.14.4/8.14.4/Submit) id q7NF217f028360
+	by ja.ssi.bg (8.14.4/8.14.4/Submit) id q7NF21nA028366
 	for netdev@vger.kernel.org; Thu, 23 Aug 2012 18:02:01 +0300
 In-Reply-To: <1345734105-28328-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Add support for genl "tcp_metrics". No locking
-is changed, only that now we can unlink and delete
-entries after grace period. We implement get/del for
-single entry and dump to support show/flush filtering
-in user space.
+	ip tcp_metrics/tcpmetrics
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
- include/linux/Kbuild        |    1 +
- include/linux/tcp_metrics.h |   54 +++++++
- net/ipv4/tcp_metrics.c      |  353 +++++++++++++++++++++++++++++++++++++++++--
- 3 files changed, 395 insertions(+), 13 deletions(-)
- create mode 100644 include/linux/tcp_metrics.h
-
-diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-index 1f2c1c7..90da0af 100644
---- a/include/linux/Kbuild
-+++ b/include/linux/Kbuild
-@@ -363,6 +363,7 @@ header-y += sysctl.h
- header-y += sysinfo.h
- header-y += taskstats.h
- header-y += tcp.h
-+header-y += tcp_metrics.h
- header-y += telephony.h
- header-y += termios.h
- header-y += time.h
-diff --git a/include/linux/tcp_metrics.h b/include/linux/tcp_metrics.h
-new file mode 100644
-index 0000000..cb5157b
---- /dev/null
-+++ b/include/linux/tcp_metrics.h
+diff -urpN iproute2-3.5.1/include/linux/tcp_metrics.h iproute2-3.5.1-tcp_metrics/include/linux/tcp_metrics.h
+--- iproute2-3.5.1/include/linux/tcp_metrics.h	1970-01-01 02:00:00.000000000 +0200
++++ iproute2-3.5.1-tcp_metrics/include/linux/tcp_metrics.h	2012-08-23 09:50:54.385569009 +0300
 @@ -0,0 +1,54 @@
 +/* tcp_metrics.h - TCP Metrics Interface */
 +
@@ -105,399 +79,693 @@ index 0000000..cb5157b
 +#define TCP_METRICS_CMD_MAX	(__TCP_METRICS_CMD_MAX - 1)
 +
 +#endif /* _LINUX_TCP_METRICS_H */
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 0abe67b..6abe64a 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -8,6 +8,7 @@
- #include <linux/init.h>
- #include <linux/tcp.h>
- #include <linux/hash.h>
+diff -urpN iproute2-3.5.1/ip/Makefile iproute2-3.5.1-tcp_metrics/ip/Makefile
+--- iproute2-3.5.1/ip/Makefile	2012-08-13 18:13:58.000000000 +0300
++++ iproute2-3.5.1-tcp_metrics/ip/Makefile	2012-08-23 10:24:01.561660891 +0300
+@@ -3,7 +3,7 @@ IPOBJ=ip.o ipaddress.o ipaddrlabel.o ipr
+     ipmaddr.o ipmonitor.o ipmroute.o ipprefix.o iptuntap.o \
+     ipxfrm.o xfrm_state.o xfrm_policy.o xfrm_monitor.o \
+     iplink_vlan.o link_veth.o link_gre.o iplink_can.o \
+-    iplink_macvlan.o iplink_macvtap.o ipl2tp.o
++    iplink_macvlan.o iplink_macvtap.o ipl2tp.o tcp_metrics.o
+ 
+ RTMONOBJ=rtmon.o
+ 
+diff -urpN iproute2-3.5.1/ip/ip.c iproute2-3.5.1-tcp_metrics/ip/ip.c
+--- iproute2-3.5.1/ip/ip.c	2012-08-13 18:13:58.000000000 +0300
++++ iproute2-3.5.1-tcp_metrics/ip/ip.c	2012-08-23 10:21:20.917653464 +0300
+@@ -45,7 +45,7 @@ static void usage(void)
+ "       ip [ -force ] -batch filename\n"
+ "where  OBJECT := { link | addr | addrlabel | route | rule | neigh | ntable |\n"
+ "                   tunnel | tuntap | maddr | mroute | mrule | monitor | xfrm |\n"
+-"                   netns | l2tp }\n"
++"                   netns | l2tp | tcp_metrics }\n"
+ "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n"
+ "                    -f[amily] { inet | inet6 | ipx | dnet | link } |\n"
+ "                    -l[oops] { maximum-addr-flush-attempts } |\n"
+@@ -78,6 +78,8 @@ static const struct cmd {
+ 	{ "tunl",	do_iptunnel },
+ 	{ "tuntap",	do_iptuntap },
+ 	{ "tap",	do_iptuntap },
++	{ "tcpmetrics",	do_tcp_metrics },
++	{ "tcp_metrics",do_tcp_metrics },
+ 	{ "monitor",	do_ipmonitor },
+ 	{ "xfrm",	do_xfrm },
+ 	{ "mroute",	do_multiroute },
+diff -urpN iproute2-3.5.1/ip/ip_common.h iproute2-3.5.1-tcp_metrics/ip/ip_common.h
+--- iproute2-3.5.1/ip/ip_common.h	2012-08-13 18:13:58.000000000 +0300
++++ iproute2-3.5.1-tcp_metrics/ip/ip_common.h	2012-08-23 10:19:11.005647457 +0300
+@@ -42,6 +42,7 @@ extern int do_multirule(int argc, char *
+ extern int do_netns(int argc, char **argv);
+ extern int do_xfrm(int argc, char **argv);
+ extern int do_ipl2tp(int argc, char **argv);
++extern int do_tcp_metrics(int argc, char **argv);
+ 
+ static inline int rtm_get_table(struct rtmsg *r, struct rtattr **tb)
+ {
+diff -urpN iproute2-3.5.1/ip/tcp_metrics.c iproute2-3.5.1-tcp_metrics/ip/tcp_metrics.c
+--- iproute2-3.5.1/ip/tcp_metrics.c	1970-01-01 02:00:00.000000000 +0200
++++ iproute2-3.5.1-tcp_metrics/ip/tcp_metrics.c	2012-08-23 16:57:51.422753475 +0300
+@@ -0,0 +1,498 @@
++/*
++ * tcp_metrics.c	"ip tcp_metrics/tcpmetrics"
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		version 2 as published by the Free Software Foundation;
++ *
++ * Authors:	Julian Anastasov <ja@ssi.bg>, August 2012
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++#include <errno.h>
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <arpa/inet.h>
++#include <sys/ioctl.h>
++#include <linux/if.h>
++
++#include <linux/genetlink.h>
 +#include <linux/tcp_metrics.h>
- 
- #include <net/inet_connection_sock.h>
- #include <net/net_namespace.h>
-@@ -17,20 +18,10 @@
- #include <net/ipv6.h>
- #include <net/dst.h>
- #include <net/tcp.h>
-+#include <net/genetlink.h>
- 
- int sysctl_tcp_nometrics_save __read_mostly;
- 
--enum tcp_metric_index {
--	TCP_METRIC_RTT,
--	TCP_METRIC_RTTVAR,
--	TCP_METRIC_SSTHRESH,
--	TCP_METRIC_CWND,
--	TCP_METRIC_REORDERING,
--
--	/* Always last.  */
--	TCP_METRIC_MAX,
--};
--
- struct tcp_fastopen_metrics {
- 	u16	mss;
- 	u16	syn_loss:10;		/* Recurring Fast Open SYN losses */
-@@ -45,8 +36,10 @@ struct tcp_metrics_block {
- 	u32				tcpm_ts;
- 	u32				tcpm_ts_stamp;
- 	u32				tcpm_lock;
--	u32				tcpm_vals[TCP_METRIC_MAX];
-+	u32				tcpm_vals[TCP_METRIC_MAX + 1];
- 	struct tcp_fastopen_metrics	tcpm_fastopen;
 +
-+	struct rcu_head			rcu_head;
- };
- 
- static bool tcp_metric_locked(struct tcp_metrics_block *tm,
-@@ -690,6 +683,324 @@ void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
- 	rcu_read_unlock();
- }
- 
-+static struct genl_family tcp_metrics_nl_family = {
-+	.id		= GENL_ID_GENERATE,
-+	.hdrsize	= 0,
-+	.name		= TCP_METRICS_GENL_NAME,
-+	.version	= TCP_METRICS_GENL_VERSION,
-+	.maxattr	= TCP_METRICS_ATTR_MAX,
-+	.netnsok	= true,
-+};
++#include "utils.h"
++#include "ip_common.h"
 +
-+static struct nla_policy tcp_metrics_nl_policy[TCP_METRICS_ATTR_MAX + 1] = {
-+	[TCP_METRICS_ATTR_ADDR_IPV4]	= { .type = NLA_U32, },
-+	[TCP_METRICS_ATTR_ADDR_IPV6]	= { .type = NLA_BINARY,
-+					    .len = sizeof(struct in6_addr), },
-+	/* Following attributes are not received for GET/DEL,
-+	 * we keep them for reference
-+	 */
-+#if 0
-+	[TCP_METRICS_ATTR_AGE]		= { .type = NLA_MSECS, },
-+	[TCP_METRICS_ATTR_TW_TSVAL]	= { .type = NLA_U32, },
-+	[TCP_METRICS_ATTR_TW_TS_STAMP]	= { .type = NLA_S32, },
-+	[TCP_METRICS_ATTR_VALS]		= { .type = NLA_NESTED, },
-+	[TCP_METRICS_ATTR_FOPEN_MSS]	= { .type = NLA_U16, },
-+	[TCP_METRICS_ATTR_FOPEN_SYN_DROPS]	= { .type = NLA_U16, },
-+	[TCP_METRICS_ATTR_FOPEN_SYN_DROP_TS]	= { .type = NLA_MSECS, },
-+	[TCP_METRICS_ATTR_FOPEN_COOKIE]	= { .type = NLA_BINARY,
-+					    .len = TCP_FASTOPEN_COOKIE_MAX, },
-+#endif
-+};
-+
-+/* Add attributes, caller cancels its header on failure */
-+static int tcp_metrics_fill_info(struct sk_buff *msg,
-+				 struct tcp_metrics_block *tm)
++static void usage(void)
 +{
-+	struct nlattr *nest;
-+	int i;
++	fprintf(stderr, "Usage: ip tcp_metrics/tcpmetrics { COMMAND | help }\n");
++	fprintf(stderr, "ip tcp_metrics { show | flush } SELECTOR\n");
++	fprintf(stderr, "ip tcp_metrics delete [ address ] ADDRESS\n");
++	fprintf(stderr, "SELECTOR := [ [ address ] PREFIX ]\n");
++	exit(-1);
++}
 +
-+	switch (tm->tcpm_addr.family) {
++/* netlink socket */
++static struct rtnl_handle grth = { .fd = -1 };
++static int genl_family = -1;
++
++
++#define GENL_DEFINE_REQUEST(req, hdrsize, bufsiz)			\
++struct {								\
++	struct nlmsghdr		n;					\
++	struct genlmsghdr	g;					\
++	char			buf[NLMSG_ALIGN(hdrsize) + bufsiz];	\
++} req
++
++#define GENL_INIT_REQUEST(req, family, hdrsize, ver, cmd_, flags)	\
++	do {								\
++		memset(&req, 0, sizeof(req));				\
++		req.n.nlmsg_type = family;				\
++		req.n.nlmsg_flags = flags;				\
++		req.n.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN + hdrsize);	\
++		req.g.cmd = cmd_;					\
++		req.g.version = ver;					\
++	} while (0)
++
++#define INIT_GENL_ACTION(req, cmd, ack)					\
++	GENL_INIT_REQUEST(req, genl_family, 0,				\
++			  TCP_METRICS_GENL_VERSION, cmd,		\
++			  NLM_F_REQUEST | ((ack) ? NLM_F_ACK : 0))
++
++#define INIT_GENL_DUMP(req)						\
++	GENL_INIT_REQUEST(req, genl_family, 0,				\
++			  TCP_METRICS_GENL_VERSION,			\
++			  TCP_METRICS_CMD_GET,				\
++			  NLM_F_DUMP | NLM_F_REQUEST)
++
++#define CMD_LIST	0x0001	/* list, lst, show		*/
++#define CMD_DEL		0x0002	/* delete, remove		*/
++#define CMD_FLUSH	0x0004	/* flush			*/
++
++static struct {
++	char	*name;
++	int	code;
++} cmds[] = {
++	{	"list",		CMD_LIST	},
++	{	"lst",		CMD_LIST	},
++	{	"show",		CMD_LIST	},
++	{	"delete",	CMD_DEL		},
++	{	"remove",	CMD_DEL		},
++	{	"flush",	CMD_FLUSH	},
++};
++
++static char *metric_name[TCP_METRIC_MAX + 1] = {
++	[TCP_METRIC_RTT]		= "rtt",
++	[TCP_METRIC_RTTVAR]		= "rttvar",
++	[TCP_METRIC_SSTHRESH]		= "ssthresh",
++	[TCP_METRIC_CWND]		= "cwnd",
++	[TCP_METRIC_REORDERING]		= "reordering",
++};
++
++static struct
++{
++	int flushed;
++	char *flushb;
++	int flushp;
++	int flushe;
++	int cmd;
++	inet_prefix addr;
++} f;
++
++static int flush_update(void)
++{
++	if (rtnl_send_check(&grth, f.flushb, f.flushp) < 0) {
++		perror("Failed to send flush request\n");
++		return -1;
++	}
++	f.flushp = 0;
++	return 0;
++}
++
++static int process_msg(const struct sockaddr_nl *who, struct nlmsghdr *n,
++		       void *arg)
++{
++	FILE *fp = (FILE *) arg;
++	struct genlmsghdr *ghdr;
++	struct rtattr *attrs[TCP_METRICS_ATTR_MAX + 1], *a;
++	int len = n->nlmsg_len;
++	char abuf[256];
++	inet_prefix addr;
++	int family, i;
++
++	if (n->nlmsg_type != genl_family)
++		return -1;
++
++	len -= NLMSG_LENGTH(GENL_HDRLEN);
++	if (len < 0)
++		return -1;
++
++	ghdr = NLMSG_DATA(n);
++	if (ghdr->cmd != TCP_METRICS_CMD_GET)
++		return 0;
++
++	parse_rtattr(attrs, TCP_METRICS_ATTR_MAX, (void *) ghdr + GENL_HDRLEN,
++		     len);
++
++	a = attrs[TCP_METRICS_ATTR_ADDR_IPV4];
++	if (a) {
++		if (f.addr.family && f.addr.family != AF_INET)
++			return 0;
++		memcpy(&addr.data, RTA_DATA(a), 4);
++		family = AF_INET;
++	} else {
++		a = attrs[TCP_METRICS_ATTR_ADDR_IPV6];
++		if (a) {
++			if (f.addr.family && f.addr.family != AF_INET6)
++				return 0;
++			memcpy(&addr.data, RTA_DATA(a), 16);
++			family = AF_INET6;
++		} else
++			return 0;
++	}
++
++	if (f.addr.family && f.addr.bitlen >= 0 &&
++	    inet_addr_match(&addr, &f.addr, f.addr.bitlen))
++		return 0;
++
++	if (f.flushb) {
++		struct nlmsghdr *fn;
++		GENL_DEFINE_REQUEST(req2, 0, 128);
++
++		INIT_GENL_ACTION(req2, TCP_METRICS_CMD_DEL, 0);
++
++		if (NLMSG_ALIGN(f.flushp) + req2.n.nlmsg_len > f.flushe) {
++			if (flush_update())
++				return -1;
++		}
++		fn = (struct nlmsghdr *) (f.flushb + NLMSG_ALIGN(f.flushp));
++		memcpy(fn, &req2.n, req2.n.nlmsg_len);
++		fn->nlmsg_seq = ++grth.seq;
++		f.flushp = (((char *) fn) + req2.n.nlmsg_len) - f.flushb;
++		f.flushed++;
++		if (show_stats < 2)
++			return 0;
++	}
++
++	if (f.cmd & (CMD_DEL | CMD_FLUSH))
++		fprintf(fp, "Deleted ");
++
++	fprintf(fp, "%s",
++		format_host(family, RTA_PAYLOAD(a), &addr.data,
++			    abuf, sizeof(abuf)));
++
++	a = attrs[TCP_METRICS_ATTR_AGE];
++	if (a) {
++		__u64 val = rta_getattr_u64(a);
++
++		fprintf(fp, " age %llu.%03llusec",
++			val / 1000, val % 1000);
++	}
++
++	a = attrs[TCP_METRICS_ATTR_TW_TS_STAMP];
++	if (a) {
++		__s32 val = (__s32) rta_getattr_u32(a);
++		__u32 tsval;
++
++		a = attrs[TCP_METRICS_ATTR_TW_TSVAL];
++		tsval = a ? rta_getattr_u32(a) : 0;
++		fprintf(fp, " tw_ts %u/%dsec ago", tsval, val);
++	}
++
++	a = attrs[TCP_METRICS_ATTR_VALS];
++	if (a) {
++		struct rtattr *m[TCP_METRIC_MAX + 1 + 1];
++
++		parse_rtattr_nested(m, TCP_METRIC_MAX + 1, a);
++
++		for (i = 0; i < TCP_METRIC_MAX + 1; i++) {
++			__u32 val;
++
++			a = m[i + 1];
++			if (!a)
++				continue;
++			if (metric_name[i])
++				fprintf(fp, " %s ", metric_name[i]);
++			else
++				fprintf(fp, " metric_%d ", i);
++			val = rta_getattr_u32(a);
++			switch (i) {
++			case TCP_METRIC_RTT:
++			case TCP_METRIC_RTTVAR:
++				fprintf(fp, "%ums", val);
++				break;
++			case TCP_METRIC_SSTHRESH:
++			case TCP_METRIC_CWND:
++			case TCP_METRIC_REORDERING:
++			default:
++				fprintf(fp, "%u", val);
++				break;
++			}
++		}
++	}
++
++	a = attrs[TCP_METRICS_ATTR_FOPEN_MSS];
++	if (a)
++		fprintf(fp, " fo_mss %u", rta_getattr_u16(a));
++
++	a = attrs[TCP_METRICS_ATTR_FOPEN_SYN_DROPS];
++	if (a) {
++		__u16 syn_loss = rta_getattr_u16(a);
++		__u64 ts;
++
++		a = attrs[TCP_METRICS_ATTR_FOPEN_SYN_DROP_TS];
++		ts = a ? rta_getattr_u64(a) : 0;
++
++		fprintf(fp, " fo_syn_drops %u/%llu.%03llusec ago",
++			syn_loss, ts / 1000, ts % 1000);
++	}
++
++	a = attrs[TCP_METRICS_ATTR_FOPEN_COOKIE];
++	if (a) {
++		char cookie[32 + 1];
++		unsigned char *ptr = RTA_DATA(a);
++		int i, max = RTA_PAYLOAD(a);
++
++		if (max > 16)
++			max = 16;
++		cookie[0] = 0;
++		for (i = 0; i < max; i++)
++			sprintf(cookie + i + i, "%02x", ptr[i]);
++		fprintf(fp, " fo_cookie %s", cookie);
++	}
++
++	fprintf(fp, "\n");
++
++	fflush(fp);
++	return 0;
++}
++
++static int genl_parse_getfamily(struct nlmsghdr *nlh)
++{
++	struct rtattr *tb[CTRL_ATTR_MAX + 1];
++	struct genlmsghdr *ghdr = NLMSG_DATA(nlh);
++	int len = nlh->nlmsg_len;
++	struct rtattr *attrs;
++
++	if (nlh->nlmsg_type != GENL_ID_CTRL) {
++		fprintf(stderr, "Not a controller message, nlmsg_len=%d "
++			"nlmsg_type=0x%x\n", nlh->nlmsg_len, nlh->nlmsg_type);
++		return -1;
++	}
++
++	if (ghdr->cmd != CTRL_CMD_NEWFAMILY) {
++		fprintf(stderr, "Unknown controller command %d\n", ghdr->cmd);
++		return -1;
++	}
++
++	len -= NLMSG_LENGTH(GENL_HDRLEN);
++
++	if (len < 0) {
++		fprintf(stderr, "wrong controller message len %d\n", len);
++		return -1;
++	}
++
++	attrs = (struct rtattr *) ((char *) ghdr + GENL_HDRLEN);
++	parse_rtattr(tb, CTRL_ATTR_MAX, attrs, len);
++
++	if (tb[CTRL_ATTR_FAMILY_ID] == NULL) {
++		fprintf(stderr, "Missing family id TLV\n");
++		return -1;
++	}
++
++	return rta_getattr_u16(tb[CTRL_ATTR_FAMILY_ID]);
++}
++
++static int genl_ctrl_resolve_family(const char *family)
++{
++	GENL_DEFINE_REQUEST(req, 0, 1024);
++
++	GENL_INIT_REQUEST(req, GENL_ID_CTRL, 0, 0, CTRL_CMD_GETFAMILY,
++			  NLM_F_REQUEST);
++
++	addattr_l(&req.n, 1024, CTRL_ATTR_FAMILY_NAME,
++		  family, strlen(family) + 1);
++
++	if (rtnl_talk(&grth, &req.n, 0, 0, &req.n) < 0) {
++		fprintf(stderr, "Error talking to the kernel\n");
++		return -2;
++	}
++
++	return genl_parse_getfamily(&req.n);
++}
++
++static int tcpm_do_cmd(int cmd, int argc, char **argv)
++{
++	GENL_DEFINE_REQUEST(req, 0, 1024);
++	int atype = -1;
++	int code, ack;
++
++	memset(&f, 0, sizeof(f));
++	f.addr.bitlen = -1;
++	f.addr.family = preferred_family;
++
++	switch (preferred_family) {
++	case AF_UNSPEC:
 +	case AF_INET:
-+		if (nla_put_be32(msg, TCP_METRICS_ATTR_ADDR_IPV4,
-+				tm->tcpm_addr.addr.a4) < 0)
-+			goto nla_put_failure;
-+		break;
 +	case AF_INET6:
-+		if (nla_put(msg, TCP_METRICS_ATTR_ADDR_IPV6, 16,
-+			    tm->tcpm_addr.addr.a6) < 0)
-+			goto nla_put_failure;
 +		break;
 +	default:
-+		return -EAFNOSUPPORT;
++		fprintf(stderr, "Unsupported family:%d\n", preferred_family);
++		return -1;
 +	}
 +
-+	if (nla_put_msecs(msg, TCP_METRICS_ATTR_AGE,
-+			  jiffies - tm->tcpm_stamp) < 0)
-+		goto nla_put_failure;
-+	if (tm->tcpm_ts_stamp) {
-+		if (nla_put_s32(msg, TCP_METRICS_ATTR_TW_TS_STAMP,
-+				(s32) (get_seconds() - tm->tcpm_ts_stamp)) < 0)
-+			goto nla_put_failure;
-+		if (nla_put_u32(msg, TCP_METRICS_ATTR_TW_TSVAL,
-+				tm->tcpm_ts) < 0)
-+			goto nla_put_failure;
-+	}
++	for (; argc > 0; argc--, argv++) {
++		char *who = "address";
 +
-+	{
-+		int n = 0;
-+
-+		nest = nla_nest_start(msg, TCP_METRICS_ATTR_VALS);
-+		if (!nest)
-+			goto nla_put_failure;
-+		for (i = 0; i < TCP_METRIC_MAX + 1; i++) {
-+			if (!tm->tcpm_vals[i])
-+				continue;
-+			if (nla_put_u32(msg, i + 1, tm->tcpm_vals[i]) < 0)
-+				goto nla_put_failure;
-+			n++;
++		if (strcmp(*argv, "addr") == 0 ||
++		    strcmp(*argv, "address") == 0) {
++			who = *argv;
++			NEXT_ARG();
 +		}
-+		if (n)
-+			nla_nest_end(msg, nest);
-+		else
-+			nla_nest_cancel(msg, nest);
++		if (matches(*argv, "help") == 0)
++			usage();
++		if (f.addr.bitlen >= 0)
++			duparg2(who, *argv);
++
++		get_prefix(&f.addr, *argv, preferred_family);
++		if (f.addr.bytelen && f.addr.bytelen * 8 == f.addr.bitlen) {
++			if (f.addr.family == AF_INET)
++				atype = TCP_METRICS_ATTR_ADDR_IPV4;
++			else if (f.addr.family == AF_INET6)
++				atype = TCP_METRICS_ATTR_ADDR_IPV6;
++		}
++		if ((CMD_DEL & cmd) && atype < 0) {
++			fprintf(stderr, "Error: a specific IP address is expected rather than \"%s\"\n",
++				*argv);
++			return -1;
++		}
++
++		argc--; argv++;
 +	}
 +
-+	{
-+		struct tcp_fastopen_metrics tfom_copy[1], *tfom;
-+		unsigned int seq;
++	if (cmd == CMD_DEL && atype < 0)
++		missarg("address");
 +
-+		do {
-+			seq = read_seqbegin(&fastopen_seqlock);
-+			tfom_copy[0] = tm->tcpm_fastopen;
-+		} while (read_seqretry(&fastopen_seqlock, seq));
-+
-+		tfom = tfom_copy;
-+		if (tfom->mss &&
-+		    nla_put_u16(msg, TCP_METRICS_ATTR_FOPEN_MSS,
-+				tfom->mss) < 0)
-+			goto nla_put_failure;
-+		if (tfom->syn_loss &&
-+		    (nla_put_u16(msg, TCP_METRICS_ATTR_FOPEN_SYN_DROPS,
-+				tfom->syn_loss) < 0 ||
-+		     nla_put_msecs(msg, TCP_METRICS_ATTR_FOPEN_SYN_DROP_TS,
-+				jiffies - tfom->last_syn_loss) < 0))
-+			goto nla_put_failure;
-+		if (tfom->cookie.len > 0 &&
-+		    nla_put(msg, TCP_METRICS_ATTR_FOPEN_COOKIE,
-+			    tfom->cookie.len, tfom->cookie.val) < 0)
-+			goto nla_put_failure;
++	/* flush for exact address ? Single del */
++	if (cmd == CMD_FLUSH && atype >= 0)
++		cmd = CMD_DEL;
++	/* flush for all addresses ? Single del without address */
++	if (cmd == CMD_FLUSH && f.addr.bitlen < 0 &&
++	    preferred_family == AF_UNSPEC) {
++		cmd = CMD_DEL;
++		code = TCP_METRICS_CMD_DEL;
++		ack = 1;
++	} else if (cmd == CMD_DEL) {
++		code = TCP_METRICS_CMD_DEL;
++		ack = 1;
++	} else {	/* CMD_FLUSH, CMD_LIST */
++		code = TCP_METRICS_CMD_GET;
++		ack = 0;
 +	}
 +
-+	return 0;
++	if (genl_family < 0) {
++		if (rtnl_open_byproto(&grth, 0, NETLINK_GENERIC) < 0) {
++			fprintf(stderr, "Cannot open generic netlink socket\n");
++			exit(1);
++		}
++		genl_family = genl_ctrl_resolve_family(TCP_METRICS_GENL_NAME);
++		if (genl_family < 0)
++			exit(1);
++	}
 +
-+nla_put_failure:
-+	return -EMSGSIZE;
-+}
++	if (!(cmd & CMD_FLUSH) && (atype >= 0 || (cmd & CMD_DEL))) {
++		INIT_GENL_ACTION(req, code, ack);
++		if (atype >= 0)
++			addattr_l(&req.n, sizeof(req), atype, &f.addr.data,
++				  f.addr.bytelen);
++	} else {
++		INIT_GENL_DUMP(req);
++	}
 +
-+static int tcp_metrics_dump_info(struct sk_buff *skb,
-+				 struct netlink_callback *cb,
-+				 struct tcp_metrics_block *tm)
-+{
-+	void *hdr;
++	f.cmd = cmd;
++	if (cmd & CMD_FLUSH) {
++		int round = 0;
++		char flushb[4096-512];
 +
-+	hdr = genlmsg_put(skb, NETLINK_CB(cb->skb).pid, cb->nlh->nlmsg_seq,
-+			  &tcp_metrics_nl_family, NLM_F_MULTI,
-+			  TCP_METRICS_CMD_GET);
-+	if (!hdr)
-+		return -EMSGSIZE;
++		f.flushb = flushb;
++		f.flushp = 0;
++		f.flushe = sizeof(flushb);
 +
-+	if (tcp_metrics_fill_info(skb, tm) < 0)
-+		goto nla_put_failure;
-+
-+	return genlmsg_end(skb, hdr);
-+
-+nla_put_failure:
-+	genlmsg_cancel(skb, hdr);
-+	return -EMSGSIZE;
-+}
-+
-+static int tcp_metrics_nl_dump(struct sk_buff *skb,
-+			       struct netlink_callback *cb)
-+{
-+	struct net *net = sock_net(skb->sk);
-+	unsigned int max_rows = 1U << net->ipv4.tcp_metrics_hash_log;
-+	unsigned int row, s_row = cb->args[0];
-+	int s_col = cb->args[1], col = s_col;
-+
-+	for (row = s_row; row < max_rows; row++, s_col = 0) {
-+		struct tcp_metrics_block *tm;
-+		struct tcpm_hash_bucket *hb = net->ipv4.tcp_metrics_hash + row;
-+
-+		rcu_read_lock();
-+		for (col = 0, tm = rcu_dereference(hb->chain); tm;
-+		     tm = rcu_dereference(tm->tcpm_next), col++) {
-+			if (col < s_col)
-+				continue;
-+			if (tcp_metrics_dump_info(skb, cb, tm) < 0) {
-+				rcu_read_unlock();
-+				goto done;
++		for (;;) {
++			req.n.nlmsg_seq = grth.dump = ++grth.seq;
++			if (rtnl_send(&grth, &req, req.n.nlmsg_len) < 0) {
++				perror("Failed to send flush request");
++				exit(1);
 +			}
-+		}
-+		rcu_read_unlock();
-+	}
-+
-+done:
-+	cb->args[0] = row;
-+	cb->args[1] = col;
-+	return skb->len;
-+}
-+
-+static int parse_nl_addr(struct genl_info *info, struct inetpeer_addr *addr,
-+			 unsigned int *hash, int optional)
-+{
-+	struct nlattr *a;
-+
-+	a = info->attrs[TCP_METRICS_ATTR_ADDR_IPV4];
-+	if (a) {
-+		addr->family = AF_INET;
-+		addr->addr.a4 = nla_get_be32(a);
-+		*hash = (__force unsigned int) addr->addr.a4;
-+		return 0;
-+	}
-+	a = info->attrs[TCP_METRICS_ATTR_ADDR_IPV6];
-+	if (a) {
-+		if (nla_len(a) != sizeof(sizeof(struct in6_addr)))
-+			return -EINVAL;
-+		addr->family = AF_INET6;
-+		memcpy(addr->addr.a6, nla_data(a), sizeof(addr->addr.a6));
-+		*hash = ipv6_addr_hash((struct in6_addr *) addr->addr.a6);
-+		return 0;
-+	}
-+	return optional ? 1 : -EAFNOSUPPORT;
-+}
-+
-+static int tcp_metrics_nl_cmd_get(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct tcp_metrics_block *tm;
-+	struct inetpeer_addr addr;
-+	unsigned int hash;
-+	struct sk_buff *msg;
-+	struct net *net = genl_info_net(info);
-+	void *reply;
-+	int ret;
-+
-+	ret = parse_nl_addr(info, &addr, &hash, 0);
-+	if (ret < 0)
-+		return ret;
-+
-+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!msg)
-+		return -ENOMEM;
-+
-+	reply = genlmsg_put_reply(msg, info, &tcp_metrics_nl_family, 0,
-+				  info->genlhdr->cmd);
-+	if (!reply)
-+		goto nla_put_failure;
-+
-+	hash = hash_32(hash, net->ipv4.tcp_metrics_hash_log);
-+	ret = -ESRCH;
-+	rcu_read_lock();
-+	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
-+	     tm = rcu_dereference(tm->tcpm_next)) {
-+		if (addr_same(&tm->tcpm_addr, &addr)) {
-+			ret = tcp_metrics_fill_info(msg, tm);
-+			break;
-+		}
-+	}
-+	rcu_read_unlock();
-+	if (ret < 0)
-+		goto out_free;
-+
-+	genlmsg_end(msg, reply);
-+	return genlmsg_reply(msg, info);
-+
-+nla_put_failure:
-+	ret = -EMSGSIZE;
-+
-+out_free:
-+	nlmsg_free(msg);
-+	return ret;
-+}
-+
-+#define deref_locked_genl(p)	\
-+	rcu_dereference_protected(p, lockdep_genl_is_held() && \
-+				     lockdep_is_held(&tcp_metrics_lock))
-+
-+#define deref_genl(p)	rcu_dereference_protected(p, lockdep_genl_is_held())
-+
-+static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct tcpm_hash_bucket *hb;
-+	struct tcp_metrics_block *tm;
-+	struct tcp_metrics_block __rcu **pp;
-+	struct inetpeer_addr addr;
-+	unsigned int hash;
-+	struct net *net = genl_info_net(info);
-+	int ret;
-+
-+	ret = parse_nl_addr(info, &addr, &hash, 1);
-+	if (ret < 0)
-+		return ret;
-+	/* Flush all ? */
-+	if (ret > 0) {
-+		unsigned int max_rows = 1U << net->ipv4.tcp_metrics_hash_log;
-+		unsigned int sync_count = 0;
-+		unsigned int row;
-+
-+		hb = net->ipv4.tcp_metrics_hash;
-+		for (row = 0; row < max_rows; row++, hb++) {
-+			spin_lock_bh(&tcp_metrics_lock);
-+			tm = deref_locked_genl(hb->chain);
-+			if (tm)
-+				rcu_assign_pointer(hb->chain, NULL);
-+			spin_unlock_bh(&tcp_metrics_lock);
-+			while (tm) {
-+				struct tcp_metrics_block *next;
-+
-+				next = deref_genl(tm->tcpm_next);
-+				kfree_rcu(tm, rcu_head);
-+				if (!((++sync_count) & 2047))
-+					synchronize_rcu();
-+				tm = next;
++			f.flushed = 0;
++			if (rtnl_dump_filter(&grth, process_msg, stdout) < 0) {
++				fprintf(stderr, "Flush terminated\n");
++				exit(1);
++			}
++			if (f.flushed == 0) {
++				if (round == 0) {
++					fprintf(stderr, "Nothing to flush.\n");
++				} else if (show_stats)
++					printf("*** Flush is complete after %d round%s ***\n",
++					       round, round > 1 ? "s" : "");
++				fflush(stdout);
++				return 0;
++			}
++			round++;
++			if (flush_update() < 0)
++				exit(1);
++			if (show_stats) {
++				printf("\n*** Round %d, deleting %d entries ***\n",
++				       round, f.flushed);
++				fflush(stdout);
 +			}
 +		}
 +		return 0;
 +	}
 +
-+	hash = hash_32(hash, net->ipv4.tcp_metrics_hash_log);
-+	hb = net->ipv4.tcp_metrics_hash + hash;
-+	pp = &hb->chain;
-+	spin_lock_bh(&tcp_metrics_lock);
-+	for (tm = deref_locked_genl(*pp); tm;
-+	     pp = &tm->tcpm_next, tm = deref_locked_genl(*pp)) {
-+		if (addr_same(&tm->tcpm_addr, &addr)) {
-+			rcu_assign_pointer(*pp, tm->tcpm_next);
-+			break;
++	req.n.nlmsg_seq = ++grth.seq;
++	if (ack) {
++		if (rtnl_talk(&grth, &req.n, 0, 0, NULL) < 0)
++			return -2;
++	} else if (atype >= 0) {
++		if (rtnl_talk(&grth, &req.n, 0, 0, &req.n) < 0)
++			return -2;
++		if (process_msg(NULL, &req.n, stdout) < 0) {
++			fprintf(stderr, "Dump terminated\n");
++			exit(1);
++		}
++	} else {
++		grth.dump = grth.seq;
++		if (rtnl_send(&grth, &req, req.n.nlmsg_len) < 0) {
++			perror("Failed to send dump request");
++			exit(1);
++		}
++
++		if (rtnl_dump_filter(&grth, process_msg, stdout) < 0) {
++			fprintf(stderr, "Dump terminated\n");
++			exit(1);
 +		}
 +	}
-+	spin_unlock_bh(&tcp_metrics_lock);
-+	if (!tm)
-+		return -ESRCH;
-+	kfree_rcu(tm, rcu_head);
 +	return 0;
 +}
 +
-+static struct genl_ops tcp_metrics_nl_ops[] = {
-+	{
-+		.cmd = TCP_METRICS_CMD_GET,
-+		.doit = tcp_metrics_nl_cmd_get,
-+		.dumpit = tcp_metrics_nl_dump,
-+		.policy = tcp_metrics_nl_policy,
-+		.flags = GENL_ADMIN_PERM,
-+	},
-+	{
-+		.cmd = TCP_METRICS_CMD_DEL,
-+		.doit = tcp_metrics_nl_cmd_del,
-+		.policy = tcp_metrics_nl_policy,
-+		.flags = GENL_ADMIN_PERM,
-+	},
-+};
++int do_tcp_metrics(int argc, char **argv)
++{
++	int i;
 +
- static unsigned int tcpmhash_entries;
- static int __init set_tcpmhash_entries(char *str)
- {
-@@ -753,5 +1064,21 @@ static __net_initdata struct pernet_operations tcp_net_metrics_ops = {
++	if (argc < 1)
++		return tcpm_do_cmd(CMD_LIST, 0, NULL);
++	for (i = 0; i < ARRAY_SIZE(cmds); i++) {
++		if (matches(argv[0], cmds[i].name) == 0)
++			return tcpm_do_cmd(cmds[i].code, argc-1, argv+1);
++	}
++	if (matches(argv[0], "help") == 0)
++		usage();
++
++	fprintf(stderr, "Command \"%s\" is unknown, "
++			"try \"ip tcp_metrics help\".\n", *argv);
++	exit(-1);
++}
++
+diff -urpN iproute2-3.5.1/man/man8/Makefile iproute2-3.5.1-tcp_metrics/man/man8/Makefile
+--- iproute2-3.5.1/man/man8/Makefile	2012-08-13 18:13:58.000000000 +0300
++++ iproute2-3.5.1-tcp_metrics/man/man8/Makefile	2012-08-23 14:45:12.506385476 +0300
+@@ -7,7 +7,8 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnsta
+ 	bridge.8 rtstat.8 ctstat.8 nstat.8 routef.8 \
+ 	ip-tunnel.8 ip-rule.8 ip-ntable.8 \
+ 	ip-monitor.8 tc-stab.8 tc-hfsc.8 ip-xfrm.8 ip-netns.8 \
+-	ip-neighbour.8 ip-mroute.8 ip-maddress.8 ip-addrlabel.8 
++	ip-neighbour.8 ip-mroute.8 ip-maddress.8 ip-addrlabel.8 \
++	ip-tcp_metrics.8
  
- void __init tcp_metrics_init(void)
- {
--	register_pernet_subsys(&tcp_net_metrics_ops);
-+	int ret;
+ 
+ all: $(TARGETS)
+diff -urpN iproute2-3.5.1/man/man8/ip-tcp_metrics.8 iproute2-3.5.1-tcp_metrics/man/man8/ip-tcp_metrics.8
+--- iproute2-3.5.1/man/man8/ip-tcp_metrics.8	1970-01-01 02:00:00.000000000 +0200
++++ iproute2-3.5.1-tcp_metrics/man/man8/ip-tcp_metrics.8	2012-08-23 14:48:09.262393650 +0300
+@@ -0,0 +1,96 @@
++.TH "IP\-TCP_METRICS" 8 "23 Aug 2012" "iproute2" "Linux"
++.SH "NAME"
++ip-tcp_metrics \- management for TCP Metrics
++.SH "SYNOPSIS"
++.sp
++.ad l
++.in +8
++.ti -8
++.B ip
++.RI "[ " OPTIONS " ]"
++.B tcp_metrics
++.RI "{ " COMMAND " | "
++.BR help " }"
++.sp
 +
-+	ret = register_pernet_subsys(&tcp_net_metrics_ops);
-+	if (ret < 0)
-+		goto cleanup;
-+	ret = genl_register_family_with_ops(&tcp_metrics_nl_family,
-+					    tcp_metrics_nl_ops,
-+					    ARRAY_SIZE(tcp_metrics_nl_ops));
-+	if (ret < 0)
-+		goto cleanup_subsys;
-+	return;
++.ti -8
++.BR "ip tcp_metrics" " { " show " | " flush " }
++.IR SELECTOR
 +
-+cleanup_subsys:
-+	unregister_pernet_subsys(&tcp_net_metrics_ops);
++.ti -8
++.BR "ip tcp_metrics delete " [ " address " ]
++.IR ADDRESS
 +
-+cleanup:
-+	return;
- }
--- 
-1.7.3.4
++.ti -8
++.IR SELECTOR " := " 
++.RB "[ [ " address " ] "
++.IR PREFIX " ]"
++
++.SH "DESCRIPTION"
++.B ip tcp_metrics
++is used to manipulate entries in the kernel that keep TCP information
++for IPv4 or IPv6 destinations. The entries are created when
++TCP sockets want to share information for destinations and are
++stored in cache keyed by the destination address. For performance
++reasons the cache can not grow above configured limit and the
++older entries are replaced with fresh information, sometimes
++reclaimed and used for new destinations. The kernel never removes
++entries, so they can be flushed only with this tool.
++
++.SS ip tcp_metrics show - show cached entries
++
++.TP
++.BI address " PREFIX " (default)
++IPv4/IPv6 prefix or address. If no prefix is provided all entries are shown.
++
++.SS ip tcp_metrics delete - delete single entry
++
++.TP
++.BI address " ADDRESS " (default)
++IPv4/IPv6 address. The address is a required argument.
++
++.SS ip tcp_metrics flush - flush entries
++This command flushes the entries selected by some criteria.
++
++.PP
++This command has the same arguments as
++.B show.
++
++.SH "EXAMPLES"
++.PP
++ip tcp_metrics show address 192.168.0.0/24
++.RS 4
++Shows the entries for destinations from subnet
++.RE
++.PP
++ip tcp_metrics show 192.168.0.0/24
++.RS 4
++The same but address keyword is optional
++.RE
++.PP
++ip tcp_metrics delete 192.168.0.1
++.RS 4
++Removes the entry for 192.168.0.1 from cache.
++.RE
++.PP
++ip tcp_metrics flush 192.168.0.0/24
++.RS 4
++Removes entries for destinations from subnet
++.RE
++.PP
++ip tcp_metrics flush all
++.RS 4
++Removes all entries from cache
++.RE
++.PP
++ip -6 tcp_metrics flush all
++.RS 4
++Removes all IPv6 entries from cache keeping the IPv4 entries.
++.RE
++
++.SH SEE ALSO
++.br
++.BR ip (8)
++
++.SH AUTHOR
++Original Manpage by Julian Anastasov <ja@ssi.bg>
+diff -urpN iproute2-3.5.1/man/man8/ip.8 iproute2-3.5.1-tcp_metrics/man/man8/ip.8
+--- iproute2-3.5.1/man/man8/ip.8	2012-08-13 18:13:58.000000000 +0300
++++ iproute2-3.5.1-tcp_metrics/man/man8/ip.8	2012-08-23 10:28:12.541672495 +0300
+@@ -15,7 +15,7 @@ ip \- show / manipulate routing, devices
+ .IR OBJECT " := { "
+ .BR link " | " addr " | " addrlabel " | " route " | " rule " | " neigh " | "\
+  ntable " | " tunnel " | " tuntap " | " maddr " | "  mroute " | " mrule " | "\
+- monitor " | " xfrm " | " netns " | "  l2tp " }"
++ monitor " | " xfrm " | " netns " | "  l2tp " | "  tcp_metrics " }"
+ .sp
+ 
+ .ti -8
+@@ -156,6 +156,10 @@ host addresses.
+ - rule in routing policy database.
+ 
+ .TP
++.B tcp_metrics/tcpmetrics
++- manage TCP Metrics
++
++.TP
+ .B tunnel
+ - tunnel over IP.
+ 
+@@ -215,6 +219,7 @@ was written by Alexey N. Kuznetsov and a
+ .BR ip-ntable (8),
+ .BR ip-route (8),
+ .BR ip-rule (8),
++.BR ip-tcp_metrics (8),
+ .BR ip-tunnel (8),
+ .BR ip-xfrm (8)
+ .br
