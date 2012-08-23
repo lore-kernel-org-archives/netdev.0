@@ -1,27 +1,22 @@
-From: Johnson Helen <sewester@telkomsa.net>
-Subject: (unknown)
-Date: Thu, 23 Aug 2012 03:19:20 +0200 (SAST)
-Message-ID: <1798776282.1443905.1345684760205.JavaMail.root@zimbra8-vm1.telkomsa.net>
-Reply-To: Johnson Helen <qateronlinedonation@9.cn>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/10] netfilter updates for net-next (batch 1)
+Date: Wed, 22 Aug 2012 19:10:48 -0700 (PDT)
+Message-ID: <20120822.191048.1293763935325268669.davem@davemloft.net>
+References: <1345678726-3109-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from draco.telkomsa.net ([196.25.211.120]:43302 "EHLO
-	draco.telkomsa.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751452Ab2HWB3h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2012 21:29:37 -0400
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1345678726-3109-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Your email address has won the QATAR Foundation Funds In Conjunction with (UNICEF)for International Development to receive a grant sponsorship  of $ 2,500,000 USD For details of this free E-Lotto and  directives on processing your funds with your claims identification # - G20-9012-747; EU-162-0234, Contact The regional verification and claims office:
+From: pablo@netfilter.org
+Date: Thu, 23 Aug 2012 01:38:36 +0200
 
-Qatar Claims Official: Mohammad Fathy (Mr.)
-Email: qataronlinedonation@qatar.io
-Direct Lines:  +447035941132
+> This is the first batch of Netfilter and IPVS updates for your
+> net-next tree. Mostly cleanups for the Netfilter side. They are:
 
-Courtesy,
-QATAR FOUNDATION: FUNDS FOR INTERNATIONAL DEVELOPMENT
-www.qf.org.qa
+Pulled, thanks a lot Pablo.
