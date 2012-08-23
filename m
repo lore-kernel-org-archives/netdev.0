@@ -1,61 +1,53 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] orinoco: use is_zero_ether_addr() instead of memcmp()
-Date: Thu, 23 Aug 2012 14:55:02 +0800
-Message-ID: <CAPgLHd8vJYvcUnDUwD-WuZTcxbfA8f+gjhQihuvLqTzS==sR9g@mail.gmail.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: TIPC handling of ethernet mac address change
+Date: Thu, 23 Aug 2012 14:56:23 +0800
+Message-ID: <5035D417.3010402@windriver.com>
+References: <5034FC88.8030403@genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Allan Stephens <allan.stephens@windriver.com>,
+	Jon Maloy <jon.maloy@ericsson.com>,
+	netdev <netdev@vger.kernel.org>
+To: Chris Friesen <chris.friesen@genband.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:35918 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753235Ab2HWGzD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 02:55:03 -0400
+Received: from mail1.windriver.com ([147.11.146.13]:47481 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751261Ab2HWG4f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 02:56:35 -0400
+In-Reply-To: <5034FC88.8030403@genband.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Hi Chris,
 
-Using is_zero_ether_addr() instead of directly use
-memcmp() to determine if the ethernet address is all
-zeros.
+You are right.
 
-spatch with a semantic match is used to found this problem.
-(http://coccinelle.lip6.fr/)
+Currently TIPC does not handle the change of mac address.
+So I will submit a related patch to fix the issue to net-next tree.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/wireless/orinoco/wext.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+Thanks for your report.
 
-diff --git a/drivers/net/wireless/orinoco/wext.c b/drivers/net/wireless/orinoco/wext.c
-index 33747e1..3b5508f 100644
---- a/drivers/net/wireless/orinoco/wext.c
-+++ b/drivers/net/wireless/orinoco/wext.c
-@@ -7,6 +7,7 @@
- #include <linux/if_arp.h>
- #include <linux/wireless.h>
- #include <linux/ieee80211.h>
-+#include <linux/etherdevice.h>
- #include <net/iw_handler.h>
- #include <net/cfg80211.h>
- #include <net/cfg80211-wext.h>
-@@ -159,15 +160,13 @@ static int orinoco_ioctl_setwap(struct net_device *dev,
- 	struct orinoco_private *priv = ndev_priv(dev);
- 	int err = -EINPROGRESS;		/* Call commit handler */
- 	unsigned long flags;
--	static const u8 off_addr[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
--	static const u8 any_addr[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
- 
- 	if (orinoco_lock(priv, &flags) != 0)
- 		return -EBUSY;
- 
- 	/* Enable automatic roaming - no sanity checks are needed */
--	if (memcmp(&ap_addr->sa_data, off_addr, ETH_ALEN) == 0 ||
--	    memcmp(&ap_addr->sa_data, any_addr, ETH_ALEN) == 0) {
-+	if (is_zero_ether_addr(ap_addr->sa_data) ||
-+	    is_broadcast_ether_addr(ap_addr->sa_data)) {
- 		priv->bssid_fixed = 0;
- 		memset(priv->desired_bssid, 0, ETH_ALEN);
- 
+Regards,
+Ying
+
+
+Chris Friesen wrote:
+> Hi,
+>
+> I'm pretty new to tipc so pardon me if I use the wrong terminology. :)
+>
+> I'm using TIPC 1.7.7 and bonding.  I'm seeing some strange behaviour 
+> when the bond MAC address changes--the tipc LINK_CONFIG messages still 
+> contain the old MAC address embedded in them.  This causes the other 
+> end to send back to us on the wrong MAC and the packets get dropped.
+>
+> I see recv_notification() has a case for NETDEV_CHANGEADDR so it looks 
+> like MAC address change was intended to be handled, but I'm not 
+> entirely clear on where the MAC address is supposed to be changed.
+>
+> Any assistance on debugging/patching this would be appreciated.
+>
+> Chris
+>
+>
