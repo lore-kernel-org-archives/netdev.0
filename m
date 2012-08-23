@@ -1,59 +1,61 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/13] e1000e: cleanup - remove unnecessary variable
-Date: Thu, 23 Aug 2012 02:56:45 -0700
-Message-ID: <1345715813-20757-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: "Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
+Subject: Re: [PATCH v2] net: add new QCA alx ethernet driver
+Date: Thu, 23 Aug 2012 15:28:55 +0500
+Message-ID: <CAB=NE6V1yC-0pXPBXrObepJ7CkBPeynHZ3YJYf0ZGpqrCUPBUA@mail.gmail.com>
+References: <157393863283F442885425D2C45428562A4F5169@nasanexd02f.na.qualcomm.com>
+ <20120822.234019.1546353507351890178.davem@davemloft.net> <157393863283F442885425D2C45428562A4F519A@nasanexd02f.na.qualcomm.com>
+ <20120823.001342.959509094678320374.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: xiong@qca.qualcomm.com, cjren@qca.qualcomm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	qca-linux-team@qualcomm.com, nic-devel@qualcomm.com,
+	Adrian Chadd <adrian@freebsd.org>,
+	Vinod Nagarajan <Vinod.Nagarajan@qca.qualcomm.com>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	Lisong Guo <livesogood@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:59883 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758304Ab2HWJ46 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Aug 2012 05:56:58 -0400
-In-Reply-To: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:42081 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753972Ab2HWK3Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 06:29:16 -0400
+In-Reply-To: <20120823.001342.959509094678320374.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+On Thu, Aug 23, 2012 at 11:13 AM, David Miller <davem@davemloft.net> wrote:
+> From: "Huang, Xiong" <xiong@qca.qualcomm.com>
+> Date: Thu, 23 Aug 2012 06:56:51 +0000
+>
+>> I'm afraid someone also rejects my request to add such operation to
+>> ethtool
+>
+> If you don't design it properly, we certainly will ask you to make
+> changes.
+>
+> But it stands a chance of actually being accepted, whereas your
+> debugfs thing absolutely does not.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/netdev.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+Xiong, you can dump that poo and put it into crap/ in compat-drivers
+until you find a resolution to properly address that properly.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index bc611b4..fb42152 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -4660,7 +4660,7 @@ static int e1000_tso(struct e1000_ring *tx_ring, struct sk_buff *skb)
- 	struct e1000_buffer *buffer_info;
- 	unsigned int i;
- 	u32 cmd_length = 0;
--	u16 ipcse = 0, tucse, mss;
-+	u16 ipcse = 0, mss;
- 	u8 ipcss, ipcso, tucss, tucso, hdr_len;
- 
- 	if (!skb_is_gso(skb))
-@@ -4694,7 +4694,6 @@ static int e1000_tso(struct e1000_ring *tx_ring, struct sk_buff *skb)
- 	ipcso = (void *)&(ip_hdr(skb)->check) - (void *)skb->data;
- 	tucss = skb_transport_offset(skb);
- 	tucso = (void *)&(tcp_hdr(skb)->check) - (void *)skb->data;
--	tucse = 0;
- 
- 	cmd_length |= (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE |
- 	               E1000_TXD_CMD_TCP | (skb->len - (hdr_len)));
-@@ -4708,7 +4707,7 @@ static int e1000_tso(struct e1000_ring *tx_ring, struct sk_buff *skb)
- 	context_desc->lower_setup.ip_fields.ipcse  = cpu_to_le16(ipcse);
- 	context_desc->upper_setup.tcp_fields.tucss = tucss;
- 	context_desc->upper_setup.tcp_fields.tucso = tucso;
--	context_desc->upper_setup.tcp_fields.tucse = cpu_to_le16(tucse);
-+	context_desc->upper_setup.tcp_fields.tucse = 0;
- 	context_desc->tcp_seg_setup.fields.mss     = cpu_to_le16(mss);
- 	context_desc->tcp_seg_setup.fields.hdr_len = hdr_len;
- 	context_desc->cmd_and_length = cpu_to_le32(cmd_length);
--- 
-1.7.11.4
+FWIW... if we give a rats ass on trying to put an end typical internal
+proprietary development trees to port drivers to different OSes [0]
+here's a cheesy attempt to try address this with a target for Linux
+and FreeBSD as a first objective:
+
+https://github.com/mcgrof/alx
+
+The goal would be to push companies to do their bringup development
+*openly* and even if they do have support for other OSes, for that poo
+to also be public. The alx driver is a dead simple so my if at all
+possible to show a *different* community-lead way to port drivers and
+for this poo to be public my hope is that the alx driver can be the
+test case for us to try it on.
+
+Xiong, and whoever cares please think about it. I welcome feedback from others.
+
+[0] http://www.youtube.com/watch?v=9P-r3H0bY8c
+
+  Luis
