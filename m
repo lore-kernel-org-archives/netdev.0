@@ -1,47 +1,34 @@
-From: John Crispin <john@phrozen.org>
-Subject: Re: [PATCH 0/8] netdev/MIPS: Improvements to octeon_mgmt Ethernet
- driver.
-Date: Thu, 23 Aug 2012 08:35:44 +0200
-Message-ID: <5035CF40.9040108@phrozen.org>
-References: <1345574712-21444-1-git-send-email-ddaney.cavm@gmail.com> <20120822.191654.1727215659090597701.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Which one is chosen on multiple default gateway set?
+Date: Wed, 22 Aug 2012 23:38:08 -0700 (PDT)
+Message-ID: <20120822.233808.1184757734447108096.davem@davemloft.net>
+References: <CAJPS4yY7sqqsOfhiouqjmfuW3Kof-ZzHEBs9E1+QoYYce01U4Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	david.daney@cavium.com
-To: ddaney.cavm@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120822.191654.1727215659090597701.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org
+To: daviseago@gmail.com
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <CAJPS4yY7sqqsOfhiouqjmfuW3Kof-ZzHEBs9E1+QoYYce01U4Q@mail.gmail.com>
+Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 23/08/12 04:16, David Miller wrote:
-> From: David Daney <ddaney.cavm@gmail.com>
-> Date: Tue, 21 Aug 2012 11:45:04 -0700
-> 
->> From: David Daney <david.daney@cavium.com>
->>
->> Recent additions to the OCTEON SoC family have included enhancements
->> to the MIX (octeon_mgmt) Ethernet hardware.  These include:
->>
->> o 1Gig support (up from 100M).
->>
->> o Hardware timestamping for PTP.
->>
->> Here we add support for these two features as well as some ethtool
->> improvements and cleanup of the MAC address handling.
->>
->> Patch 1/8 is a prerequisite for the rest, and lives in the MIPS
->> architecture part of the tree.  Since octeon_mgmt devices are only
->> found in OCTEON SoCs we could merge the whole set via Ralf's tree, or
->> get Ralf to affix his Acked-by and have it go via the netdev tree.
-> 
-> You can send this all via the MIPS tree, and feel free to add my:
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+From: Wei Huang <daviseago@gmail.com>
+Date: Thu, 23 Aug 2012 14:31:26 +0800
 
+> If multiple default gateways are set, which one will be chosen? And if
+> the chosen one is down, will others take over?
 
-Thanks, queued for 3.7
+Yes.
 
-	John
+> It works sometime, but not most of the time. (example below) The
+> behavior is inconsistent.
+
+The problem is that when a nexthop becomes unresponsive we need
+to wait for an event to timeout the routing cache entry.
+
+In 3.6.0-rc1 and later, this inconsistent behavior will happen less
+often, because the routing cache has been removed so we will do the
+full default route resolution on every route lookup.  The only problem
+at that point is socket cached routes, those will still need to wait
+for a timeout before the next default gateway will be tried.
