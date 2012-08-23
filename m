@@ -1,45 +1,120 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/13] e1000e: cleanup - remove inapplicable comment
-Date: Thu, 23 Aug 2012 02:56:43 -0700
-Message-ID: <1345715813-20757-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/13] igb: Add loopback test support for i210.
+Date: Thu, 23 Aug 2012 02:56:48 -0700
+Message-ID: <1345715813-20757-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:59883 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:48088 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758295Ab2HWJ45 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Aug 2012 05:56:57 -0400
+	id S1758295Ab2HWJ5A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Aug 2012 05:57:00 -0400
 In-Reply-To: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-Early Receive has been disabled in the driver so this comment is no longer
-applicable.
+Early release of i210 devices had the loopback test of the ethtool
+self-test disabled. This patch enables the loopback test for i210 devices.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 51 +++++++++-------------------
+ 1 file changed, 16 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 46c3b1f..e4d8041 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -3446,7 +3446,7 @@ void e1000e_reset(struct e1000_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index be02168..c4def55 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -1511,33 +1511,22 @@ static int igb_integrated_phy_loopback(struct igb_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 ctrl_reg = 0;
+-	u16 phy_reg = 0;
  
- 			/*
- 			 * if short on Rx space, Rx wins and must trump Tx
--			 * adjustment or use Early Receive if available
-+			 * adjustment
- 			 */
- 			if (pba < min_rx_space)
- 				pba = min_rx_space;
+ 	hw->mac.autoneg = false;
+ 
+-	switch (hw->phy.type) {
+-	case e1000_phy_m88:
+-		/* Auto-MDI/MDIX Off */
+-		igb_write_phy_reg(hw, M88E1000_PHY_SPEC_CTRL, 0x0808);
+-		/* reset to update Auto-MDI/MDIX */
+-		igb_write_phy_reg(hw, PHY_CONTROL, 0x9140);
+-		/* autoneg off */
+-		igb_write_phy_reg(hw, PHY_CONTROL, 0x8140);
+-		break;
+-	case e1000_phy_82580:
+-		/* enable MII loopback */
+-		igb_write_phy_reg(hw, I82580_PHY_LBK_CTRL, 0x8041);
+-		break;
+-	case e1000_phy_i210:
+-		/* set loopback speed in PHY */
+-		igb_read_phy_reg(hw, (GS40G_PAGE_SELECT & GS40G_PAGE_2),
+-					&phy_reg);
+-		phy_reg |= GS40G_MAC_SPEED_1G;
+-		igb_write_phy_reg(hw, (GS40G_PAGE_SELECT & GS40G_PAGE_2),
+-					phy_reg);
+-		ctrl_reg = rd32(E1000_CTRL_EXT);
+-	default:
+-		break;
++	if (hw->phy.type == e1000_phy_m88) {
++		if (hw->phy.id != I210_I_PHY_ID) {
++			/* Auto-MDI/MDIX Off */
++			igb_write_phy_reg(hw, M88E1000_PHY_SPEC_CTRL, 0x0808);
++			/* reset to update Auto-MDI/MDIX */
++			igb_write_phy_reg(hw, PHY_CONTROL, 0x9140);
++			/* autoneg off */
++			igb_write_phy_reg(hw, PHY_CONTROL, 0x8140);
++		} else {
++			/* force 1000, set loopback  */
++			igb_write_phy_reg(hw, I347AT4_PAGE_SELECT, 0);
++			igb_write_phy_reg(hw, PHY_CONTROL, 0x4140);
++		}
+ 	}
+ 
+ 	/* add small delay to avoid loopback test failure */
+@@ -1555,7 +1544,7 @@ static int igb_integrated_phy_loopback(struct igb_adapter *adapter)
+ 		     E1000_CTRL_FD |	 /* Force Duplex to FULL */
+ 		     E1000_CTRL_SLU);	 /* Set link up enable bit */
+ 
+-	if ((hw->phy.type == e1000_phy_m88) || (hw->phy.type == e1000_phy_i210))
++	if (hw->phy.type == e1000_phy_m88)
+ 		ctrl_reg |= E1000_CTRL_ILOS; /* Invert Loss of Signal */
+ 
+ 	wr32(E1000_CTRL, ctrl_reg);
+@@ -1563,11 +1552,10 @@ static int igb_integrated_phy_loopback(struct igb_adapter *adapter)
+ 	/* Disable the receiver on the PHY so when a cable is plugged in, the
+ 	 * PHY does not begin to autoneg when a cable is reconnected to the NIC.
+ 	 */
+-	if ((hw->phy.type == e1000_phy_m88) || (hw->phy.type == e1000_phy_i210))
++	if (hw->phy.type == e1000_phy_m88)
+ 		igb_phy_disable_receiver(adapter);
+ 
+-	udelay(500);
+-
++	mdelay(500);
+ 	return 0;
+ }
+ 
+@@ -1827,13 +1815,6 @@ static int igb_loopback_test(struct igb_adapter *adapter, u64 *data)
+ 		*data = 0;
+ 		goto out;
+ 	}
+-	if ((adapter->hw.mac.type == e1000_i210)
+-		|| (adapter->hw.mac.type == e1000_i211)) {
+-		dev_err(&adapter->pdev->dev,
+-			"Loopback test not supported on this part at this time.\n");
+-		*data = 0;
+-		goto out;
+-	}
+ 	*data = igb_setup_desc_rings(adapter);
+ 	if (*data)
+ 		goto out;
 -- 
 1.7.11.4
