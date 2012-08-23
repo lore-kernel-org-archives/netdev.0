@@ -1,216 +1,84 @@
-From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Subject: Re: [PATCH 6/8] csiostor: Chelsio FCoE offload driver submission
- (headers part 1).
-Date: Thu, 23 Aug 2012 12:58:49 -0700
-Message-ID: <1345751929.10190.83.camel@haakon2.linux-iscsi.org>
-References: <1345760873-12101-1-git-send-email-naresh@chelsio.com>
-	 <1345760873-12101-7-git-send-email-naresh@chelsio.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and naive
+ hashtable
+Date: Thu, 23 Aug 2012 13:04:56 -0700
+Message-ID: <20120823200456.GD14962@google.com>
+References: <1345602432-27673-1-git-send-email-levinsasha928@gmail.com>
+ <1345602432-27673-2-git-send-email-levinsasha928@gmail.com>
+ <20120822180138.GA19212@google.com>
+ <50357840.5020201@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: JBottomley@parallels.com, linux-scsi@vger.kernel.org,
-	dm@chelsio.com, netdev@vger.kernel.org, chethan@chelsio.com
-To: Naresh Kumar Inna <naresh@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linux-iscsi.org ([67.23.28.174]:42467 "EHLO
-	linux-iscsi.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751269Ab2HWT64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 15:58:56 -0400
-In-Reply-To: <1345760873-12101-7-git-send-email-naresh@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	paul.gortmaker@windriver.com, davem@davemloft.net,
+	rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
+	aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org,
+	josh@joshtriplett.org, eric.dumazet@gmail.com,
+	mathieu.desnoyers@efficios.com, axboe@kernel.dk, agk@redhat.com,
+	dm-devel@redhat.com, neilb@suse.de, ccaulfie@redhat.com,
+	teigland@redhat.com, Trond.Myklebust@netapp.com,
+	bfields@fieldses.org, fweisbec@gmail.com, jesse@nicira.com,
+	venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
+	edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
+	rds-devel@oss.oracle.com, lw@cn.fujitsu.com
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <50357840.5020201@gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-08-24 at 03:57 +0530, Naresh Kumar Inna wrote:
-> This patch contains the first set of the header files for csiostor driver.
+Hello, Sasha.
+
+On Thu, Aug 23, 2012 at 02:24:32AM +0200, Sasha Levin wrote:
+> > I think the almost trivial nature of hlist hashtables makes this a bit
+> > tricky and I'm not very sure but having this combinatory explosion is
+> > a bit dazzling when the same functionality can be achieved by simply
+> > combining operations which are already defined and named considering
+> > hashtable.  I'm not feeling too strong about this tho.  What do others
+> > think?
 > 
-> Signed-off-by: Naresh Kumar Inna <naresh@chelsio.com>
-> ---
->  drivers/scsi/csiostor/csio_defs.h       |  143 ++++++
->  drivers/scsi/csiostor/csio_fcoe_proto.h |  843 +++++++++++++++++++++++++++++++
->  drivers/scsi/csiostor/csio_hw.h         |  668 ++++++++++++++++++++++++
->  drivers/scsi/csiostor/csio_init.h       |  158 ++++++
->  4 files changed, 1812 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/scsi/csiostor/csio_defs.h
->  create mode 100644 drivers/scsi/csiostor/csio_fcoe_proto.h
->  create mode 100644 drivers/scsi/csiostor/csio_hw.h
->  create mode 100644 drivers/scsi/csiostor/csio_init.h
+> I'm thinking that this hashtable API will have 2 purposes: First, it would
+> prevent the excessive duplication of hashtable implementations all around the code.
 > 
+> Second, it will allow more easily interchangeable hashtable implementations to
+> find their way into the kernel. There are several maintainers who would be happy
+> to see dynamically sized RCU hashtable, and I'm guessing that several more
+> variants could be added based on needs in specific modules.
+> 
+> The second reason is why several things you've mentioned look the way they are:
+> 
+>  - No DEFINE_HASHTABLE(): I wanted to force the use of hash_init() since
+> initialization for other hashtables may be more complicated than the static
+> initialization for this implementation, which means that any place that used
+> DEFINE_HASHTABLE() and didn't do hash_init() will be buggy.
 
-Hi Naresh,
+I think this is problematic.  It looks exactly like other existing
+DEFINE macros yet what its semantics is different.  I don't think
+that's a good idea.
 
-Just commenting on csio_defs.h bits here...  As Robert mentioned, you'll
-need to convert the driver to use (or add to) upstream protocol
-definitions and drop the csio_fcoe_proto.h bits..
+> I'm actually tempted in hiding hlist completely from hashtable users, probably
+> by simply defining a hash_head/hash_node on top of the hlist_ counterparts.
 
-> diff --git a/drivers/scsi/csiostor/csio_defs.h b/drivers/scsi/csiostor/csio_defs.h
-> new file mode 100644
-> index 0000000..4f1c713
-> --- /dev/null
-> +++ b/drivers/scsi/csiostor/csio_defs.h
-> @@ -0,0 +1,143 @@
-> +/*
-> + * This file is part of the Chelsio FCoE driver for Linux.
-> + *
-> + * Copyright (c) 2008-2012 Chelsio Communications, Inc. All rights reserved.
-> + *
-> + * This software is available to you under a choice of one of two
-> + * licenses.  You may choose to be licensed under the terms of the GNU
-> + * General Public License (GPL) Version 2, available from the file
-> + * COPYING in the main directory of this source tree, or the
-> + * OpenIB.org BSD license below:
-> + *
-> + *     Redistribution and use in source and binary forms, with or
-> + *     without modification, are permitted provided that the following
-> + *     conditions are met:
-> + *
-> + *      - Redistributions of source code must retain the above
-> + *        copyright notice, this list of conditions and the following
-> + *        disclaimer.
-> + *
-> + *      - Redistributions in binary form must reproduce the above
-> + *        copyright notice, this list of conditions and the following
-> + *        disclaimer in the documentation and/or other materials
-> + *        provided with the distribution.
-> + *
-> + * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-> + * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-> + * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-> + * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-> + * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-> + * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-> + * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-> + * SOFTWARE.
-> + */
-> +
-> +#ifndef __CSIO_DEFS_H__
-> +#define __CSIO_DEFS_H__
-> +
-> +#include <linux/kernel.h>
-> +#include <linux/timer.h>
-> +#include <linux/list.h>
-> +#include <linux/bug.h>
-> +#include <linux/pci.h>
-> +#include <linux/jiffies.h>
-> +
-> +/* Function returns */
-> +enum csio_retval {
-> +	CSIO_SUCCESS = 0,
-> +	CSIO_INVAL = 1,
-> +	CSIO_BUSY = 2,
-> +	CSIO_NOSUPP = 3,
-> +	CSIO_TIMEOUT = 4,
-> +	CSIO_NOMEM = 5,
-> +	CSIO_NOPERM = 6,
-> +	CSIO_RETRY = 7,
-> +	CSIO_EPROTO = 8,
-> +	CSIO_EIO = 9,
-> +	CSIO_CANCELLED = 10,
-> +};
-> +
+I think that it would be best to keep this one simple & obvious, which
+already has enough in-kernel users to justify its existence.  There
+are significant benefits in being trivially understandable and
+expectable.  If we want more advanced ones - say resizing, hybrid or
+what not, let's make that a separate one.  No need to complicate the
+common straight-forward case for that.
 
-Please don't assign macros for errno's, and give them positive values.
+So, I think it would be best to keep this one as straight-forward and
+trivial as possible.  Helper macros to help its users are fine but
+let's please not go for full encapsulation.
 
-> +#define csio_retval_t enum csio_retval
+Thanks.
 
-Please get rid of this csio_retval_t nonsense.
+-- 
+tejun
 
-> +
-> +enum {
-> +	CSIO_FALSE = 0,
-> +	CSIO_TRUE = 1,
-> +};
-> +
-
-Same here, please use normal Boolean macros
-
-> +#define CSIO_ROUNDUP(__v, __r)		(((__v) + (__r) - 1) / (__r))
-> +#define CSIO_INVALID_IDX		0xFFFFFFFF
-> +#define csio_inc_stats(elem, val)	((elem)->stats.val++)
-> +#define csio_dec_stats(elem, val)	((elem)->stats.val--)
-
-No reason for either of this stats inc+dec macros.  Please drop them.
-
-> +#define csio_valid_wwn(__n)		((*__n >> 4) == 0x5 ? CSIO_TRUE : \
-> +						CSIO_FALSE)
-> +#define CSIO_WORD_TO_BYTE		4
-> +
-> +static inline int
-> +csio_list_deleted(struct list_head *list)
-> +{
-> +	return ((list->next == list) && (list->prev == list));
-> +}
-> +
-> +#define csio_list_next(elem)	(((struct list_head *)(elem))->next)
-> +#define csio_list_prev(elem)	(((struct list_head *)(elem))->prev)
-> +
-> +#define csio_deq_from_head(head, elem)					  \
-> +do {									  \
-> +	if (!list_empty(head)) {					  \
-> +		*((struct list_head **)(elem)) = csio_list_next((head));  \
-> +		csio_list_next((head)) =				  \
-> +				csio_list_next(csio_list_next((head)));   \
-> +		csio_list_prev(csio_list_next((head))) = (head);	  \
-> +		INIT_LIST_HEAD(*((struct list_head **)(elem)));	          \
-> +	} else								  \
-> +		*((struct list_head **)(elem)) = (struct list_head *)NULL;\
-> +} while (0)
-> +
-
-This code is confusing as hell..  Why can't you just use normal list.h
-macros for this..?  
-
-> +#define csio_deq_from_tail(head, elem)					  \
-> +do {									  \
-> +	if (!list_empty(head)) {					  \
-> +		*((struct list_head **)(elem)) = csio_list_prev((head));  \
-> +		csio_list_prev((head)) =				  \
-> +				csio_list_prev(csio_list_prev((head)));	  \
-> +		csio_list_next(csio_list_prev((head))) = (head);	  \
-> +		INIT_LIST_HEAD(*((struct list_head **)(elem)));		  \
-> +	} else								  \
-> +		*((struct list_head **)(elem)) = (struct list_head *)NULL;\
-> +} while (0)
-> +
-
-Same here..  Please don't use macros like this.
-
-> +/* State machine */
-> +typedef void (*csio_sm_state_t)(void *, uint32_t);
-> +
-> +struct csio_sm {
-> +	struct list_head	sm_list;
-> +	csio_sm_state_t		sm_state;
-> +};
-> +
-> +#define csio_init_state(__smp, __state)					\
-> +	(((struct csio_sm *)(__smp))->sm_state = (csio_sm_state_t)(__state))
-> +
-> +#define	csio_set_state(__smp, __state)					\
-> +	(((struct csio_sm *)(__smp))->sm_state = (csio_sm_state_t)(__state))
-> +
-> +
-> +#define csio_post_event(__smp, __evt)					\
-> +	(((struct csio_sm *)(__smp))->sm_state((__smp), (uint32_t)(__evt)))
-> +
-> +#define	csio_get_state(__smp)	(((struct csio_sm *)(__smp))->sm_state)
-> +
-> +#define	csio_match_state(__smp, __state)				\
-> +	(csio_get_state((__smp)) == (csio_sm_state_t)(__state))
-> +
-
-Why does any of the sm_state stuff need to be in macros..?  Please
-inline all of this code.
-
-> +#define	CSIO_ASSERT(cond)						\
-> +do {									\
-> +	if (unlikely(!((cond))))					\
-> +		BUG();                                                  \
-> +} while (0)
-> +
-> +#ifdef __CSIO_DEBUG__
-> +#define CSIO_DB_ASSERT(__c)		CSIO_ASSERT((__c))
-> +#else
-> +#define CSIO_DB_ASSERT(__c)
-> +#endif
-> +
-> +#endif /* ifndef __CSIO_DEFS_H__ */
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
