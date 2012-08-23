@@ -1,34 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Which one is chosen on multiple default gateway set?
-Date: Wed, 22 Aug 2012 23:38:08 -0700 (PDT)
-Message-ID: <20120822.233808.1184757734447108096.davem@davemloft.net>
-References: <CAJPS4yY7sqqsOfhiouqjmfuW3Kof-ZzHEBs9E1+QoYYce01U4Q@mail.gmail.com>
+Subject: Re: [PATCH v2] net: add new QCA alx ethernet driver
+Date: Wed, 22 Aug 2012 23:40:19 -0700 (PDT)
+Message-ID: <20120822.234019.1546353507351890178.davem@davemloft.net>
+References: <1345480949-14800-1-git-send-email-cjren@qca.qualcomm.com>
+	<20120822.225700.714020017287504609.davem@davemloft.net>
+	<157393863283F442885425D2C45428562A4F5169@nasanexd02f.na.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org
-To: daviseago@gmail.com
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <CAJPS4yY7sqqsOfhiouqjmfuW3Kof-ZzHEBs9E1+QoYYce01U4Q@mail.gmail.com>
-Sender: netfilter-owner@vger.kernel.org
+Cc: cjren@qca.qualcomm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, qca-linux-team@qualcomm.com,
+	nic-devel@qualcomm.com, rodrigue@qca.qualcomm.com
+To: xiong@qca.qualcomm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <157393863283F442885425D2C45428562A4F5169@nasanexd02f.na.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Wei Huang <daviseago@gmail.com>
-Date: Thu, 23 Aug 2012 14:31:26 +0800
+From: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Date: Thu, 23 Aug 2012 06:35:40 +0000
 
-> If multiple default gateways are set, which one will be chosen? And if
-> the chosen one is down, will others take over?
+>> This is why we require that portable, sane, interfaces are added to ethtool for
+>> driver diagnostics.  That way users can perform a task in the same way
+>> regardless of what hardware and driver are underneath.
+> 
+> I quite agree you on using ethtool to implement it. we did consider it. 
+> But ethtool has some limitation, for example, the NIC has built-in OTP (TWSI interface)
+> And Flash (External SPI interface),  their properties are quite different with EEPROM which
+> Ethtool supports.
+> To support such memory (OTP/Flash), we need additional input parameters.
 
-Yes.
+Then add a new ethtool operation to support your use case, that's
+exactly what I was telling you to do.
 
-> It works sometime, but not most of the time. (example below) The
-> behavior is inconsistent.
-
-The problem is that when a nexthop becomes unresponsive we need
-to wait for an event to timeout the routing cache entry.
-
-In 3.6.0-rc1 and later, this inconsistent behavior will happen less
-often, because the routing cache has been removed so we will do the
-full default route resolution on every route lookup.  The only problem
-at that point is socket cached routes, those will still need to wait
-for a timeout before the next default gateway will be tried.
+Did it really not occur to you that you perhaps you should extend
+existing generic facilities to suit your needs instead of creating
+private facilities that no other driver can use?
