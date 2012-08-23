@@ -1,18 +1,20 @@
 From: "Zimbra." <mesterhazy.anita@atif.hu>
 Subject: Newsletter.
-Date: Thu, 23 Aug 2012 23:21:13 +0200 (CEST)
-Message-ID: <1406419849.131007.1345756873178.JavaMail.root@rs2.atif.hu>
+Date: Thu, 23 Aug 2012 23:21:28 +0200 (CEST)
+Message-ID: <1199778512.131011.1345756888635.JavaMail.root__43026.597883045$1345757433$gmane$org@rs2.atif.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rs2.atif.hu ([193.225.132.4]:48379 "EHLO rs2.atif.hu"
+Received: from rs2.atif.hu ([193.225.132.4]:48291 "EHLO rs2.atif.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932083Ab2HWVaR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 17:30:17 -0400
+	id S932073Ab2HWVaQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 17:30:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+
 
 
 
