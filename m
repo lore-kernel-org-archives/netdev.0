@@ -1,33 +1,82 @@
-From: Timur Tabi <timur@freescale.com>
-Subject: Re: [linuxppc-release] [PATCH] net/fsl_pq_mdio: add support for the
- Fman 1G MDIO controller
-Date: Fri, 24 Aug 2012 15:29:57 -0500
-Message-ID: <5037E445.9040102@freescale.com>
-References: <1345757047-14657-1-git-send-email-timur@freescale.com> <5037E301.2080805@freescale.com> <20120824.162541.256137760046203132.davem@davemloft.net>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and
+ naive hashtable
+Date: Fri, 24 Aug 2012 13:33:32 -0700
+Message-ID: <20120824203332.GF21325@google.com>
+References: <1345602432-27673-1-git-send-email-levinsasha928@gmail.com>
+	<1345602432-27673-2-git-send-email-levinsasha928@gmail.com>
+	<20120822180138.GA19212@google.com> <50357840.5020201@gmail.com>
+	<20120823200456.GD14962@google.com> <5037DA47.9010306@gmail.com>
+	<20120824195941.GC21325@google.com> <5037E00B.6090606@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <afleming@freescale.com>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe010.messaging.microsoft.com ([216.32.180.30]:23641
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933341Ab2HXUaD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 16:30:03 -0400
-In-Reply-To: <20120824.162541.256137760046203132.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
+	mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <5037E00B.6090606-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
->> > 
->> > This patch isn't quite right.  I'll post a new version soon.
+Hello, Sasha.
 
-> I already applied it to net-next, didn't you see?
+On Fri, Aug 24, 2012 at 10:11:55PM +0200, Sasha Levin wrote:
+> > If this implementation is about the common trivial case, why not just
+> > have the usual DECLARE/DEFINE_HASHTABLE() combination?
+> 
+> When we add the dynamic non-resizable support, how would DEFINE_HASHTABLE() look?
 
-You applied this patch:
+Hmmm?  DECLARE/DEFINE are usually for static ones.
 
-http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git;a=commit;h=9f35a7342cff0be72e3c038ea972e07662ca1ce8
+> > I don't know.  If we stick to the static (or even !resize dymaic)
+> > straight-forward hash - and we need something like that - I don't see
+> > what the full encapsulation buys us other than a lot of trivial
+> > wrappers.
+> 
+> Which macros do you consider as trivial within the current API?
+> 
+> Basically this entire thing could be reduced to DEFINE/DECLARE_HASHTABLE and
+> get_bucket(), but it would make the life of anyone who wants a slightly
+> different hashtable a hell.
+
+Wouldn't the following be enough to get most of the benefits?
+
+* DECLARE/DEFINE
+* hash_head()
+* hash_for_each_head()
+* hash_add*()
+* hash_for_each_possible*()
+
+> I think that right now the only real trivial wrapper is hash_hashed(), and I
+> think it's a price worth paying to have a single hashtable API instead of
+> fragmenting it when more implementations come along.
+
+I'm not objecting strongly against full encapsulation but having this
+many thin wrappers makes me scratch my head.
+
+Thanks.
 
 -- 
-Timur Tabi
-Linux kernel developer at Freescale
+tejun
