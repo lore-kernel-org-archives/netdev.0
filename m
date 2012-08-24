@@ -1,77 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
-Date: Fri, 24 Aug 2012 13:42:31 -0400 (EDT)
-Message-ID: <20120824.134231.41073001349178209.davem@davemloft.net>
-References: <1345724123.5904.756.camel@edumazet-glaptop>
-	<50362407.9070805@linlab.net>
-	<1345726185.5904.835.camel@edumazet-glaptop>
+Subject: Re: [patch net-next 0/3] team: couple of fixes
+Date: Fri, 24 Aug 2012 13:47:05 -0400 (EDT)
+Message-ID: <20120824.134705.178022240623528140.davem@davemloft.net>
+References: <1345728413-10298-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alex@linlab.net, hkjerry.chu@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, brouer@redhat.com, ogerlitz@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54698 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54739 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757287Ab2HXRmd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 13:42:33 -0400
-In-Reply-To: <1345726185.5904.835.camel@edumazet-glaptop>
+	with ESMTP id S1758637Ab2HXRrI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 13:47:08 -0400
+In-Reply-To: <1345728413-10298-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 23 Aug 2012 14:49:45 +0200
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu, 23 Aug 2012 15:26:50 +0200
 
-> On Thu, 2012-08-23 at 14:37 +0200, Alex Bergmann wrote:
+> + vlan helper
 > 
->> 
->> From be551f82499112e4775b6d579d58967510b6d492 Mon Sep 17 00:00:00 2001
->> From: Alexander Bergmann <alex@linlab.net>
->> Date: Thu, 23 Aug 2012 14:33:35 +0200
->> Subject: [PATCH 1/1] tcp: Increase timeout for SYN segments
->> 
->> Commit 9ad7c049 changed the initRTO from 3secs to 1sec in accordance to
->> RFC6298 (former RFC2988bis). This reduced the time till the last SYN
->> retransmission packet gets sent from 93secs to 31secs.
->> 
->> RFC1122 is stating that the retransmission should be done for at least 3
->> minutes, but this seems to be quite high.[1]
->> 
->> This patch increases the value of TCP_SYN_RETRIES to the value of 6,
->> providing a retransmission window of 63secs.
->> 
->> [1] RFC 1122 - 4.2.3.5 TCP Connection Failures
->> 
->> Signed-off-by: Alexander Bergmann <alex@linlab.net>
->> ---
->>  include/net/tcp.h |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
->> 
->> diff --git a/include/net/tcp.h b/include/net/tcp.h
->> index 1f000ff..f309e93 100644
->> --- a/include/net/tcp.h
->> +++ b/include/net/tcp.h
->> @@ -98,7 +98,7 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
->>                                  * 15 is ~13-30min depending on RTO.
->>                                  */
->>  
->> -#define TCP_SYN_RETRIES         5      /* number of times to retry active opening a
->> +#define TCP_SYN_RETRIES         6      /* number of times to retry active opening a
->>                                  * connection: ~180sec is RFC minimum   */
->>  
->>  #define TCP_SYNACK_RETRIES 5   /* number of times to retry passive opening a
-> 
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> 
-> A change of the comment might be good, to help future readers.
+> Jiri Pirko (3):
+>   teamd: don't print warn message on -ESRCH during event send
+>   vlan: add helper which can be called to se it device is used by vlan
+>   team: do not allow to add VLAN challenged port when vlan is used
 
-Alex, this patch doesn't apply, it was completely corrupted by your email
-client.
-
-Make a fresh submission, with this fixed.  But before you do, email the
-patch to yourself and make sure you can actually apply the patch you
-receive in your inbox.  Because that's exactly what I'm going to have
-to do.
-
-Thanks.
+Applied with typos corrected :-)
