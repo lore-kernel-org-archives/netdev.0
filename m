@@ -1,28 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next 2012-08-24
-Date: Fri, 24 Aug 2012 15:18:53 -0400 (EDT)
-Message-ID: <20120824.151853.1675489010381296583.davem@davemloft.net>
-References: <20120824173138.GD27147@tuxdriver.com>
+Subject: Re: pull-request: can 2012-08-24
+Date: Fri, 24 Aug 2012 15:21:48 -0400 (EDT)
+Message-ID: <20120824.152148.1272042065601340498.davem@davemloft.net>
+References: <1345800643-29456-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55710 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755114Ab2HXTSz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 15:18:55 -0400
-In-Reply-To: <20120824173138.GD27147@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1345800643-29456-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 24 Aug 2012 13:31:38 -0400
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Fri, 24 Aug 2012 11:30:41 +0200
 
-> This is a batch of updates intended for 3.7.  The bulk of it is
-> mac80211 changes, including some mesh work from Thomas Pederson and
-> some multi-channel work from Johannes.  A variety of driver updates
-> and other bits are scattered in there as well.
+> here are two fixes for the v3.6 release cycle. Alexey Khoroshilov submitted a
+> fix for a memory leak in the softing driver (in softing_load_fw()) in case a
+> krealloc() fails. Sven Schmitt fixed the misuse of the IRQF_SHARED flag in the
+> irq resouce of the sja1000 platform driver, now the correct flag is used. There
+> are no mainline users of this feature which need to be converted.
 
-Pulled, thanks!
+Pulled, thanks Marc.
