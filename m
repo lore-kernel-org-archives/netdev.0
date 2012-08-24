@@ -1,519 +1,958 @@
 From: Sony Chacko <sony.chacko@qlogic.com>
-Subject: [PATCH net-next 09/15] qlcnic: 83xx adpater flash interface routines
-Date: Thu, 23 Aug 2012 21:07:13 -0400
-Message-ID: <1345770439-30517-10-git-send-email-sony.chacko@qlogic.com>
+Subject: [PATCH net-next 08/15] qlcnic: register dump utility
+Date: Thu, 23 Aug 2012 21:07:12 -0400
+Message-ID: <1345770439-30517-9-git-send-email-sony.chacko@qlogic.com>
 References: <1345770439-30517-1-git-send-email-sony.chacko@qlogic.com>
 Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
 	Sony Chacko <sony.chacko@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:8916 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:40807 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1755436Ab2HXBYL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Aug 2012 21:24:11 -0400
+	id S1755317Ab2HXBYJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Aug 2012 21:24:09 -0400
 In-Reply-To: <1345770439-30517-1-git-send-email-sony.chacko@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sony Chacko <sony.chacko@qlogic.com>
 
-Flash interface routines for 83xx adapter
+Modify 82xx driver to support new adapter - Qlogic 83XX CNA
+Common register dump utility for 82xx and 83xx adapters
 
-Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Signed-off-by: Manish chopra <manish.chopra@qlogic.com>
 Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |   31 ++
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |  344 ++++++++++++++++++--
- 2 files changed, 345 insertions(+), 30 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/Makefile        |    2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    2 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    9 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   |  860 ++++++++++++++++++++
+ 4 files changed, 872 insertions(+), 1 deletions(-)
+ create mode 100644 drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/Makefile b/drivers/net/ethernet/qlogic/qlcnic/Makefile
+index 2968c57..f87d98f 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/Makefile
++++ b/drivers/net/ethernet/qlogic/qlcnic/Makefile
+@@ -6,4 +6,4 @@ obj-$(CONFIG_QLCNIC) := qlcnic.o
+ 
+ qlcnic-y := qlcnic_hw.o qlcnic_main.o qlcnic_init.o \
+ 	qlcnic_ethtool.o qlcnic_ctx.o qlcnic_io.o \
+-	qlcnic_sysfs.o qlcnic_83xx_hw.o
++	qlcnic_sysfs.o qlcnic_83xx_hw.o qlcnic_minidump.o
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 9e46670..f95477e 100644
+index 3886e17..9e46670 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -315,6 +315,36 @@ struct qlcnic_flt_entry {
- 	u32 end_addr;
+@@ -1465,6 +1465,7 @@ struct qlcnic_cmd_args {
+ 	struct _cdrp_cmd rsp;
  };
  
-+struct qlcnic_flash_desc_table {
-+	u32	flash_valid;
-+	u16	flash_ver;
-+	u16	flash_len;
-+	u16	flash_cksum;
-+	u16	flash_unused;
-+	u8	flash_model[16];
-+	u16	flash_manuf;
-+	u16	flash_id;
-+	u8	flash_flag;
-+	u8	erase_cmd;
-+	u8	alt_erase_cmd;
-+	u8	write_enable_cmd;
-+	u8	write_enable_bits;
-+	u8	write_statusreg_cmd;
-+	u8	unprotected_sec_cmd;
-+	u8	read_manuf_cmd;
-+	u32	block_size;
-+	u32	alt_block_size;
-+	u32	flash_size;
-+	u32	write_enable_data;
-+	u8	readid_addr_len;
-+	u8	write_disable_bits;
-+	u8	read_dev_id_len;
-+	u8	chip_erase_cmd;
-+	u16	read_timeo;
-+	u8	protected_sec_cmd;
-+	u8	resvd[65];
-+};
++int qlcnic_fw_cmd_get_minidump_temp(struct qlcnic_adapter *adapter);
+ int qlcnic_fw_cmd_set_port(struct qlcnic_adapter *adapter, u32 config);
+ 
+ u32 qlcnic_hw_read_wx_2M(struct qlcnic_adapter *adapter, ulong off, int *);
+@@ -1518,6 +1519,7 @@ int qlcnic_wol_supported(struct qlcnic_adapter *);
+ int qlcnic_config_led(struct qlcnic_adapter *, u32, u32);
+ void qlcnic_prune_lb_filters(struct qlcnic_adapter *);
+ void qlcnic_delete_lb_filters(struct qlcnic_adapter *);
++int qlcnic_dump_fw(struct qlcnic_adapter *);
+ void qlcnic_get_ocm_win(struct qlcnic_hardware_context *);
+ void qlcnic_get_func_no(struct qlcnic_adapter *);
+ int qlcnic_api_lock(struct qlcnic_adapter *);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index fa7f3e5..9304e71 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -839,6 +839,9 @@ qlcnic_check_options(struct qlcnic_adapter *adapter)
+ 				adapter->fw_version > prev_fw_version) {
+ 			if (fw_dump->tmpl_hdr)
+ 				vfree(fw_dump->tmpl_hdr);
++			if (!qlcnic_fw_cmd_get_minidump_temp(adapter))
++				dev_info(&pdev->dev,
++					"Supports FW dump capability\n");
+ 		}
+ 	}
+ 
+@@ -2540,6 +2543,12 @@ skip_ack_check:
+ 		}
+ 
+ 		ahw->hw_ops->api_unlock(adapter);
++		rtnl_lock();
++		if (adapter->flags & QLCNIC_FW_RESET_OWNER) {
++			qlcnic_dump_fw(adapter);
++			adapter->flags |= QLCNIC_FW_HANG;
++		}
++		rtnl_unlock();
+ 
+ 		adapter->flags &= ~QLCNIC_FW_RESET_OWNER;
+ 		if (!adapter->nic_ops->start_firmware(adapter)) {
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
+new file mode 100644
+index 0000000..c1d5a6a
+--- /dev/null
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
+@@ -0,0 +1,860 @@
 +
- /* Magic number to let user know flash is programmed */
- #define	QLCNIC_BDINFO_MAGIC 0x12345678
- 
-@@ -505,6 +535,7 @@ struct qlcnic_hardware_context {
- 	struct qlcnic_hardware_ops *hw_ops;
- 	struct qlcnic_nic_intr_coalesce coal;
- 	struct qlcnic_fw_dump fw_dump;
-+	struct qlcnic_flash_desc_table flash_fdt;
- 	struct qlcnic_83xx_reset reset;
- 	struct qlcnic_83xx_idc idc;
- 	struct qlcnic_83xx_fw_info fw_info;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 4edbdd2..c430723 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -4,9 +4,6 @@
- #include <linux/ethtool.h>
- #include <linux/interrupt.h>
- 
--/* Array of FW control command structs with command type and required
-- * number of input and output arguments respectively.
--*/
- static const struct qlcnic_mailbox_metadata qlcnic_83xx_mbx_tbl[] = {
- 	{ QLCNIC_CMD_CONFIGURE_IP_ADDR, 6, 1 },
- 	{ QLCNIC_CMD_CONFIG_INTRPT, 18, 34 },
-@@ -209,7 +206,6 @@ qlcnic_83xx_get_fw_version(struct qlcnic_adapter *adapter)
- 	return adapter->fw_version;
- }
- 
--/* Caller needs to use locking before accessing this function */
- static int
- __qlcnic_set_win_base(struct qlcnic_adapter *adapter, u32 addr)
- {
-@@ -1229,9 +1225,6 @@ qlcnic_83xx_fill_stats(struct qlcnic_adapter *adapter,
- 	return data;
- }
- 
--/*
-- * Get statistics of MAC and that of Context/Function/Vport
-- */
- void
- qlcnic_83xx_get_stats(struct qlcnic_adapter *adapter,
- 		struct ethtool_stats *stats, u64 *data)
-@@ -1539,7 +1532,6 @@ qlcnic_83xx_mbx_op(struct qlcnic_adapter *adapter, struct qlcnic_cmd_args *cmd)
- 		dev_info(&adapter->pdev->dev,
- 			"Mailbox not available, 0x%x, collect FW dump\n",
- 			mbx_val);
--		/* Take FW dump */
- 		spin_unlock_irqrestore(&ahw->mbx_lock, flags);
- 
- 		return cmd->rsp.arg[0];
-@@ -1606,9 +1598,6 @@ poll:
- 	return rsp;
- }
- 
--/* Allocate mailbox incoming and outgoing registers. It should be used with a
-- * follow up call to qlcnic_free_mbx_args
-- */
- int qlcnic_83xx_alloc_mbx_args(struct qlcnic_cmd_args *mbx,
- 		struct qlcnic_adapter *adapter, u32 type)
- {
-@@ -1685,36 +1674,24 @@ void qlcnic_83xx_process_aen(struct qlcnic_adapter *adapter)
- 	for (i = 0; i < QLC_83XX_MBX_AEN_CNT; i++)
- 		event[i] = le32_to_cpu(readl(QLCNIC_MBX_FW(ahw, i)));
- 	switch (QLCNIC_MBX_RSP(event[0])) {
--
--	/* This case is only active when we arrive here
--	 * as a result of issuing a mailbox command to
--	 * the firmware.
--	 */
- 	case QLCNIC_MBX_LINK_EVENT:
--		/* Link Event */
- 		qlcnic_83xx_handle_link_aen(adapter, event);
- 		break;
- 	case QLCNIC_MBX_COMP_EVENT:
--		/* IDC Completion Notification */
- 		qlcnic_83xx_handle_idc_comp_aen(adapter, event);
- 		break;
- 	case QLCNIC_MBX_REQUEST_EVENT:
--		/* IDC Request Notification */
- 		for (i = 0; i < QLC_83XX_MBX_AEN_CNT; i++)
- 			adapter->ahw->mbox_aen[i] = QLCNIC_MBX_RSP(event[i]);
--		/* IDC ack wiil be done by worker thread, just set the flag */
- 		set_bit(QLC_83XX_MBX_AEN_ACK, &adapter->ahw->idc.status);
- 		break;
- 	case QLCNIC_MBX_TIME_EXTEND_EVENT:
--		/* IDC Time Extend Notification */
- 		break;
- 	case QLCNIC_MBX_SFP_INSERT_EVENT:
--		/* IDC SFP+ Transceiver Insertion Notification */
- 		dev_info(&adapter->pdev->dev, "SFP+ Insert AEN:0x%x.\n",
- 				QLCNIC_MBX_RSP(event[0]));
- 		break;
- 	case QLCNIC_MBX_SFP_REMOVE_EVENT:
--		/* IDC SFP+ Transceiver Removal Notification */
- 		dev_info(&adapter->pdev->dev, "SFP Removed AEN:0x%x.\n",
- 				QLCNIC_MBX_RSP(event[0]));
- 		break;
-@@ -2257,7 +2234,6 @@ void qlcnic_83xx_configure_mac(struct qlcnic_adapter *adapter, u8 *mac,
- 	cmd->req.arg[1] = cpu_to_le32(type);
- }
- 
--/* Get MAC address of a NIC partition */
- int qlcnic_83xx_get_mac_address(struct qlcnic_adapter *adapter, u8 *mac)
- {
- 	int err, i;
-@@ -2363,7 +2339,6 @@ int qlcnic_enable_eswitch(struct qlcnic_adapter *adapter, u8 port, u8 enable)
- 
- }
- 
--/* Configure a NIC partition */
- int qlcnic_83xx_set_nic_info(struct qlcnic_adapter *adapter,
- 					struct qlcnic_info *nic)
- {
-@@ -2460,7 +2435,6 @@ out:
- 	return err;
- }
- 
--/* Get PCI Info of a partition */
- int qlcnic_83xx_get_pci_info(struct qlcnic_adapter *adapter,
- 				struct qlcnic_pci_info *pci_info)
- {
-@@ -2515,10 +2489,6 @@ int qlcnic_83xx_get_pci_info(struct qlcnic_adapter *adapter,
- 	return err;
- }
- 
--/* Configure interrupts command registers interrupt vectors with the FW
-- * @op_type: 1 for creation and 0 for deletion
-- * @type: Interrupt type, INTx or MSI-X
-- * */
- int qlcnic_83xx_config_intrpt(struct qlcnic_adapter *adapter, bool op_type)
- 
- {
-@@ -2690,3 +2660,317 @@ qlcnic_83xx_lockless_flash_read_u32(struct qlcnic_adapter *adapter,
- 
- 	return 0;
- }
++#include "qlcnic.h"
++#include "qlcnic_hdr.h"
++#include "qlcnic_83xx_hw.h"
++#include "qlcnic_hw.h"
 +
-+static int
-+qlcnic_83xx_poll_flash_status_reg(struct qlcnic_adapter *adapter)
++#include <net/ip.h>
++
++#define QLC_83XX_MINIDUMP_FLASH			0x520000
++#define QLC_83XX_OCM_INDEX			3
++#define QLC_83XX_PCI_INDEX			0
++
++static u32
++qlcnic_dump_crb(struct qlcnic_adapter *adapter, struct qlcnic_dump_entry *entry,
++		u32 *buffer)
 +{
-+	u32 status;
-+	int err, retries = QLC_83XX_FLASH_READ_RETRY_COUNT;
++	int i;
++	u32 addr, data;
++	struct __crb *crb = &entry->region.crb;
 +
-+	do {
-+		status = qlcnic_83xx_rd_reg_indirect(adapter,
-+						QLC_83XX_FLASH_STATUS, &err);
-+		if ((status & QLC_83XX_FLASH_STATUS_READY) ==
-+						QLC_83XX_FLASH_STATUS_READY)
-+			break;
++	addr = crb->addr;
 +
-+		msleep(QLC_83XX_FLASH_STATUS_REG_POLL_DELAY);
-+	} while (--retries);
++	for (i = 0; i < crb->no_ops; i++) {
++		data = qlcnic_ind_rd(adapter, addr);
++		*buffer++ = cpu_to_le32(addr);
++		*buffer++ = cpu_to_le32(data);
++		addr += crb->stride;
++	}
++	return crb->no_ops * 2 * sizeof(u32);
++}
 +
-+	if (!retries)
-+		return -EIO;
++static u32
++qlcnic_dump_ctrl(struct qlcnic_adapter *adapter,
++	struct qlcnic_dump_entry *entry, u32 *buffer)
++{
++	int i, k, timeout = 0;
++	u32 addr, data;
++	u8 opcode, no_ops;
++	struct __ctrl *ctr = &entry->region.ctrl;
++	struct qlcnic_dump_template_hdr *t_hdr = adapter->ahw->fw_dump.tmpl_hdr;
 +
++	addr = ctr->addr;
++	no_ops = ctr->no_ops;
++
++	for (i = 0; i < no_ops; i++) {
++		k = 0;
++		opcode = 0;
++		for (k = 0; k < 8; k++) {
++			if (!(ctr->opcode & (1 << k)))
++				continue;
++			switch (1 << k) {
++			case QLCNIC_DUMP_WCRB:
++				qlcnic_ind_wr(adapter, addr, ctr->val1);
++				break;
++			case QLCNIC_DUMP_RWCRB:
++				data = qlcnic_ind_rd(adapter, addr);
++				qlcnic_ind_wr(adapter, addr, data);
++				break;
++			case QLCNIC_DUMP_ANDCRB:
++				data = qlcnic_ind_rd(adapter, addr);
++				qlcnic_ind_wr(adapter, addr,
++						(data & ctr->val2));
++				break;
++			case QLCNIC_DUMP_ORCRB:
++				data = qlcnic_ind_rd(adapter, addr);
++				qlcnic_ind_wr(adapter, addr,
++						(data | ctr->val3));
++				break;
++			case QLCNIC_DUMP_POLLCRB:
++				while (timeout <= ctr->timeout) {
++					data = qlcnic_ind_rd(adapter, addr);
++					if ((data & ctr->val2) == ctr->val1)
++						break;
++					usleep_range(1000, 2000);
++					timeout++;
++				}
++				if (timeout > ctr->timeout) {
++					dev_info(&adapter->pdev->dev,
++					"Timed out, aborting poll CRB\n");
++					return 0;
++				}
++				break;
++			case QLCNIC_DUMP_RD_SAVE:
++				if (ctr->index_a)
++					addr = t_hdr->saved_state[ctr->index_a];
++				data = qlcnic_ind_rd(adapter, addr);
++				t_hdr->saved_state[ctr->index_v] = data;
++				break;
++			case QLCNIC_DUMP_WRT_SAVED:
++				if (ctr->index_v)
++					data = t_hdr->saved_state[ctr->index_v];
++				else
++					data = ctr->val1;
++				if (ctr->index_a)
++					addr = t_hdr->saved_state[ctr->index_a];
++				qlcnic_ind_wr(adapter, addr, data);
++				break;
++			case QLCNIC_DUMP_MOD_SAVE_ST:
++				data = t_hdr->saved_state[ctr->index_v];
++				data <<= ctr->shl_val;
++				data >>= ctr->shr_val;
++				if (ctr->val2)
++					data &= ctr->val2;
++				data |= ctr->val3;
++				data += ctr->val1;
++				t_hdr->saved_state[ctr->index_v] = data;
++				break;
++			default:
++				dev_info(&adapter->pdev->dev,
++					"Unknown opcode\n");
++				break;
++			}
++		}
++		addr += ctr->stride;
++	}
 +	return 0;
 +}
 +
-+static int
-+qlcnic_83xx_enable_flash_write_op(struct qlcnic_adapter *adapter)
++static u32
++qlcnic_dump_mux(struct qlcnic_adapter *adapter, struct qlcnic_dump_entry *entry,
++	u32 *buffer)
 +{
-+	int ret;
++	int loop;
++	u32 val, data = 0;
++	struct __mux *mux = &entry->region.mux;
 +
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_ADDR,
-+			(QLC_83XX_FLASH_FDT_WRITE_DEF_SIG |
-+			adapter->ahw->flash_fdt.write_statusreg_cmd));
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_WRDATA,
-+			adapter->ahw->flash_fdt.write_enable_bits);
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_CONTROL,
-+			QLC_83XX_FLASH_SECOND_ERASE_MS_VAL);
-+
-+	ret = qlcnic_83xx_poll_flash_status_reg(adapter);
-+	if (ret)
-+		return -EIO;
-+
-+	return 0;
++	val = mux->val;
++	for (loop = 0; loop < mux->no_ops; loop++) {
++		qlcnic_ind_wr(adapter, mux->addr, val);
++		data = qlcnic_ind_rd(adapter, mux->read_addr);
++		*buffer++ = cpu_to_le32(val);
++		*buffer++ = cpu_to_le32(data);
++		val += mux->val_stride;
++	}
++	return 2 * mux->no_ops * sizeof(u32);
 +}
 +
-+static int
-+qlcnic_83xx_disable_flash_write_op(struct qlcnic_adapter *adapter)
++static u32
++qlcnic_dump_que(struct qlcnic_adapter *adapter, struct qlcnic_dump_entry *entry,
++	u32 *buffer)
 +{
-+	int ret;
++	int i, loop;
++	u32 cnt, addr, data, que_id = 0;
++	struct __queue *que = &entry->region.que;
 +
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_ADDR,
-+			(QLC_83XX_FLASH_FDT_WRITE_DEF_SIG |
-+			adapter->ahw->flash_fdt.write_statusreg_cmd));
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_WRDATA,
-+			adapter->ahw->flash_fdt.write_enable_bits);
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_CONTROL,
-+			QLC_83XX_FLASH_SECOND_ERASE_MS_VAL);
++	addr = que->read_addr;
++	cnt = que->read_addr_cnt;
 +
-+	ret = qlcnic_83xx_poll_flash_status_reg(adapter);
-+	if (ret)
-+		return -EIO;
-+
-+	return 0;
++	for (loop = 0; loop < que->no_ops; loop++) {
++		qlcnic_ind_wr(adapter, que->sel_addr, que_id);
++		addr = que->read_addr;
++		for (i = 0; i < cnt; i++) {
++			data = qlcnic_ind_rd(adapter, addr);
++			*buffer++ = cpu_to_le32(data);
++			addr += que->read_addr_stride;
++		}
++		que_id += que->stride;
++	}
++	return que->no_ops * cnt * sizeof(u32);
 +}
 +
-+int
-+qlcnic_83xx_read_flash_mfg_id(struct qlcnic_adapter *adapter)
++static u32
++qlcnic_dump_ocm(struct qlcnic_adapter *adapter, struct qlcnic_dump_entry *entry,
++	u32 *buffer)
 +{
-+	int ret, mfg_id;
++	int i;
++	u32 data;
++	void __iomem *addr;
++	struct __ocm *ocm = &entry->region.ocm;
 +
-+	if (qlcnic_83xx_lock_flash(adapter))
-+		return -EIO;
++	addr = adapter->ahw->pci_base0 + ocm->read_addr;
++	for (i = 0; i < ocm->no_ops; i++) {
++		data = readl(addr);
++		*buffer++ = cpu_to_le32(data);
++		addr += ocm->read_addr_stride;
++	}
++	return ocm->no_ops * sizeof(u32);
++}
 +
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_ADDR,
-+			QLC_83XX_FLASH_FDT_READ_MFG_ID_VAL);
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_CONTROL,
-+			QLC_83XX_FLASH_READ_CONTROL_VAL);
++static u32
++qlcnic_read_rom(struct qlcnic_adapter *adapter, struct qlcnic_dump_entry *entry,
++	u32 *buffer)
++{
++	int i, count = 0;
++	u32 fl_addr, size, val, lck_val, addr;
++	struct __mem *rom = &entry->region.mem;
 +
-+	ret = qlcnic_83xx_poll_flash_status_reg(adapter);
-+	if (ret) {
-+		qlcnic_83xx_unlock_flash(adapter);
-+		return -EIO;
++	fl_addr = rom->addr;
++	size = rom->size/4;
++lock_try:
++	lck_val = QLCRD(adapter, QLCNIC_FLASH_LOCK);
++	if (!lck_val && count < MAX_CTL_CHECK) {
++		usleep_range(10000, 11000);
++		count++;
++		goto lock_try;
++	}
++	QLCWR(adapter, QLCNIC_FLASH_LOCK_OWNER, adapter->ahw->pci_func);
++	for (i = 0; i < size; i++) {
++		addr = fl_addr & 0xFFFF0000;
++		qlcnic_ind_wr(adapter, FLASH_ROM_WINDOW, addr);
++		addr = LSW(fl_addr) + FLASH_ROM_DATA;
++		val = qlcnic_ind_rd(adapter, addr);
++		fl_addr += 4;
++		*buffer++ = cpu_to_le32(val);
++	}
++	QLCRD(adapter, QLCNIC_FLASH_UNLOCK);
++	return rom->size;
++}
++
++static u32
++qlcnic_dump_l1_cache(struct qlcnic_adapter *adapter,
++	struct qlcnic_dump_entry *entry, u32 *buffer)
++{
++	int i;
++	u32 cnt, val, data, addr;
++	struct __cache *l1 = &entry->region.cache;
++
++	val = l1->init_tag_val;
++
++	for (i = 0; i < l1->no_ops; i++) {
++		qlcnic_ind_wr(adapter, l1->addr, val);
++		qlcnic_ind_wr(adapter, l1->ctrl_addr, LSW(l1->ctrl_val));
++		addr = l1->read_addr;
++		cnt = l1->read_addr_num;
++		while (cnt) {
++			data = qlcnic_ind_rd(adapter, addr);
++			*buffer++ = cpu_to_le32(data);
++			addr += l1->read_addr_stride;
++			cnt--;
++		}
++		val += l1->stride;
++	}
++	return l1->no_ops * l1->read_addr_num * sizeof(u32);
++}
++
++static u32
++qlcnic_dump_l2_cache(struct qlcnic_adapter *adapter,
++	struct qlcnic_dump_entry *entry, u32 *buffer)
++{
++	int i;
++	u32 cnt, val, data, addr;
++	u8 poll_mask, poll_to, time_out = 0;
++	struct __cache *l2 = &entry->region.cache;
++
++	val = l2->init_tag_val;
++	poll_mask = LSB(MSW(l2->ctrl_val));
++	poll_to = MSB(MSW(l2->ctrl_val));
++
++	for (i = 0; i < l2->no_ops; i++) {
++		qlcnic_ind_wr(adapter, l2->addr, val);
++		if (LSW(l2->ctrl_val))
++			qlcnic_ind_wr(adapter, l2->ctrl_addr,
++						LSW(l2->ctrl_val));
++		if (!poll_mask)
++			goto skip_poll;
++		do {
++			data = qlcnic_ind_rd(adapter, l2->ctrl_addr);
++			if (!(data & poll_mask))
++				break;
++			usleep_range(1000, 2000);
++			time_out++;
++		} while (time_out <= poll_to);
++
++		if (time_out > poll_to) {
++			dev_err(&adapter->pdev->dev,
++				"Timeout exceeded in %s, aborting dump\n",
++				__func__);
++			return 0;
++		}
++skip_poll:
++		addr = l2->read_addr;
++		cnt = l2->read_addr_num;
++		while (cnt) {
++			data = qlcnic_ind_rd(adapter, addr);
++			*buffer++ = cpu_to_le32(data);
++			addr += l2->read_addr_stride;
++			cnt--;
++		}
++		val += l2->stride;
++	}
++	return l2->no_ops * l2->read_addr_num * sizeof(u32);
++}
++
++static u32
++qlcnic_read_memory(struct qlcnic_adapter *adapter,
++	struct qlcnic_dump_entry *entry, u32 *buffer)
++{
++	u32 addr, data, test, ret = 0;
++	int i, reg_read;
++	struct __mem *mem = &entry->region.mem;
++
++	reg_read = mem->size;
++	addr = mem->addr;
++	/* check for data size of multiple of 16 and 16 byte alignment */
++	if ((addr & 0xf) || (reg_read%16)) {
++		dev_info(&adapter->pdev->dev,
++			"Unaligned memory addr:0x%x size:0x%x\n",
++			addr, reg_read);
++		return 0;
 +	}
 +
-+	mfg_id = qlcnic_83xx_rd_reg_indirect(adapter,
-+				QLC_83XX_FLASH_RDDATA, &ret);
++	mutex_lock(&adapter->ahw->mem_lock);
 +
-+	adapter->flash_mfg_id = (mfg_id & 0xFF);
-+	qlcnic_83xx_unlock_flash(adapter);
++	while (reg_read != 0) {
++		qlcnic_ind_wr(adapter, QLCNIC_MS_ADDR_LO, addr);
++		qlcnic_ind_wr(adapter, QLCNIC_MS_ADDR_HI, 0);
++		qlcnic_ind_wr(adapter, QLCNIC_MS_CTRL, QLC_TA_START_ENABLE);
 +
++		for (i = 0; i < MAX_CTL_CHECK; i++) {
++			test = qlcnic_ind_rd(adapter, QLCNIC_MS_CTRL);
++			if (!(test & TA_CTL_BUSY))
++				break;
++		}
++		if (i == MAX_CTL_CHECK) {
++			printk_ratelimited(KERN_WARNING
++				"failed to read through agent\n");
++			ret = 0;
++			goto out;
++		}
++		for (i = 0; i < 4; i++) {
++			data = qlcnic_ind_rd(adapter, QLCNIC_MS_READ_DATA[i]);
++			*buffer++ = cpu_to_le32(data);
++		}
++		addr += 16;
++		reg_read -= 16;
++		ret += 16;
++	}
++out:
++	mutex_unlock(&adapter->ahw->mem_lock);
++	return mem->size;
++}
++
++static u32
++qlcnic_dump_nop(struct qlcnic_adapter *adapter,
++	struct qlcnic_dump_entry *entry, u32 *buffer)
++{
++	entry->hdr.flags |= QLCNIC_DUMP_SKIP;
 +	return 0;
 +}
 +
-+int
-+qlcnic_83xx_read_flash_descriptor_table(struct qlcnic_adapter *adapter)
++static int
++qlcnic_valid_dump_entry(struct device *dev, struct qlcnic_dump_entry *entry,
++	u32 size)
 +{
-+	int count, fdt_size, ret = 0;
-+
-+	fdt_size = sizeof(struct qlcnic_flash_desc_table);
-+	count = fdt_size/sizeof(u32);
-+
-+	if (qlcnic_83xx_lock_flash(adapter))
-+		return -EIO;
-+
-+	memset(&adapter->ahw->flash_fdt, 0, fdt_size);
-+	ret = qlcnic_83xx_lockless_flash_read_u32(adapter,
-+				QLCNIC_FDT_LOCATION,
-+				(u8 *)&adapter->ahw->flash_fdt,
-+				count);
-+
-+	qlcnic_83xx_unlock_flash(adapter);
++	int ret = 1;
++	if (size != entry->hdr.cap_size) {
++		dev_info(dev,
++		"Invalid entry, Type:%d\tMask:%d\tSize:%dCap_size:%d\n",
++		entry->hdr.type, entry->hdr.mask, size, entry->hdr.cap_size);
++		ret = 0;
++	}
 +	return ret;
 +}
 +
-+int
-+qlcnic_83xx_erase_flash_sector(struct qlcnic_adapter *adapter,
-+					u32 sector_start_addr)
++static u32
++qlcnic_read_pollrdmwr(struct qlcnic_adapter *adapter,
++	struct qlcnic_dump_entry *entry, u32 *buffer)
 +{
-+	u32 reversed_addr;
-+	int ret = -EIO;
++	struct __pollrdmwr *poll = &entry->region.pollrdmwr;
++	u32 data, wait_count, poll_wait, temp;
 +
-+	if (qlcnic_83xx_lock_flash(adapter) != 0)
-+		return -EIO;
++	poll_wait = poll->poll_wait;
 +
-+	if (adapter->ahw->flash_fdt.flash_manuf == adapter->flash_mfg_id) {
-+		ret = qlcnic_83xx_enable_flash_write_op(adapter);
-+		if (ret) {
-+			qlcnic_83xx_unlock_flash(adapter);
-+			dev_err(&adapter->pdev->dev,
-+				"%s failed at %d\n",
-+				__func__, __LINE__);
-+			return ret;
-+		}
++	qlcnic_ind_wr(adapter, poll->addr1, poll->val1);
++	wait_count = 0;
++
++	while (wait_count < poll_wait) {
++		data = qlcnic_ind_rd(adapter, poll->addr1);
++		if ((data & poll->poll_mask) != 0)
++			break;
++		wait_count++;
 +	}
 +
-+	ret = qlcnic_83xx_poll_flash_status_reg(adapter);
-+	if (ret) {
-+		qlcnic_83xx_unlock_flash(adapter);
++	if (wait_count == poll_wait) {
 +		dev_err(&adapter->pdev->dev,
-+			 " %s: failed at %d\n", __func__, __LINE__);
-+		return -EIO;
++			"Timeout exceeded in %s, aborting dump\n",
++			__func__);
++		return 0;
 +	}
 +
-+	reversed_addr = (((sector_start_addr & 0xFF) << 16) |
-+			((sector_start_addr & 0xFF0000) >> 16));
++	data = qlcnic_ind_rd(adapter, poll->addr2) & poll->mod_mask;
++	qlcnic_ind_wr(adapter, poll->addr2, data);
++	qlcnic_ind_wr(adapter, poll->addr1, poll->val2);
++	wait_count = 0;
 +
-+	qlcnic_83xx_wrt_reg_indirect(adapter,
-+				QLC_83XX_FLASH_WRDATA, reversed_addr);
-+
-+	if (adapter->ahw->flash_fdt.flash_manuf == adapter->flash_mfg_id)
-+		qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_ADDR,
-+			(QLC_83XX_FLASH_FDT_ERASE_DEF_SIG |
-+			adapter->ahw->flash_fdt.erase_cmd));
-+	else
-+		qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_ADDR,
-+				QLC_83XX_FLASH_OEM_ERASE_SIG);
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_CONTROL,
-+				QLC_83XX_FLASH_LAST_ERASE_MS_VAL);
-+
-+	ret = qlcnic_83xx_poll_flash_status_reg(adapter);
-+	if (ret) {
-+		qlcnic_83xx_unlock_flash(adapter);
-+		dev_err(&adapter->pdev->dev,
-+			 " %s: failed at %d\n", __func__, __LINE__);
-+		return -EIO;
++	while (wait_count < poll_wait) {
++		temp = qlcnic_ind_rd(adapter, poll->addr1);
++		if ((temp & poll->poll_mask) != 0)
++			break;
++		wait_count++;
 +	}
 +
-+	if (adapter->ahw->flash_fdt.flash_manuf == adapter->flash_mfg_id) {
-+		ret = qlcnic_83xx_disable_flash_write_op(adapter);
-+		if (ret) {
-+			qlcnic_83xx_unlock_flash(adapter);
-+			dev_err(&adapter->pdev->dev,
-+				 " %s: failed at %d\n", __func__, __LINE__);
-+			return ret;
++	*buffer++ = cpu_to_le32(poll->addr2);
++	*buffer++ = cpu_to_le32(data);
++
++	return 2 * sizeof(u32);
++
++}
++
++static u32
++qlcnic_read_pollrd(struct qlcnic_adapter *adapter,
++	struct qlcnic_dump_entry *entry, u32 *buffer)
++{
++	struct __pollrd *pollrd = &entry->region.pollrd;
++	u32 data, wait_count, poll_wait, sel_val;
++	int i;
++
++	poll_wait = pollrd->poll_wait;
++	sel_val = pollrd->sel_val;
++
++	for (i = 0; i < pollrd->no_ops; i++)  {
++		qlcnic_ind_wr(adapter, pollrd->sel_addr, sel_val);
++		wait_count = 0;
++		while (wait_count < poll_wait) {
++			data = qlcnic_ind_rd(adapter, pollrd->sel_addr);
++			if ((data & pollrd->poll_mask) != 0)
++				break;
++			wait_count++;
 +		}
++
++		if (wait_count == poll_wait) {
++			dev_err(&adapter->pdev->dev,
++				"Timeout exceeded in %s, aborting dump\n",
++				__func__);
++			return 0;
++		}
++
++		data = qlcnic_ind_rd(adapter, pollrd->read_addr);
++		*buffer++ = cpu_to_le32(sel_val);
++		*buffer++ = cpu_to_le32(data);
++		sel_val += pollrd->sel_val_stride;
++	}
++	return pollrd->no_ops * (2 * sizeof(u32));
++}
++
++static u32
++qlcnic_read_mux2(struct qlcnic_adapter *adapter,
++	struct qlcnic_dump_entry *entry, u32 *buffer)
++{
++	struct __mux2 *mux2 = &entry->region.mux2;
++	u32 data;
++	u32 t_sel_val, sel_val1, sel_val2;
++	int i;
++
++	sel_val1 = mux2->sel_val1;
++	sel_val2 = mux2->sel_val2;
++
++	for (i = 0; i < mux2->no_ops; i++)  {
++		qlcnic_ind_wr(adapter, mux2->sel_addr1, sel_val1);
++		t_sel_val = sel_val1 & mux2->sel_val_mask;
++		qlcnic_ind_wr(adapter, mux2->sel_addr2, t_sel_val);
++		data = qlcnic_ind_rd(adapter, mux2->read_addr);
++		*buffer++ = cpu_to_le32(t_sel_val);
++		*buffer++ = cpu_to_le32(data);
++		qlcnic_ind_wr(adapter, mux2->sel_addr1, sel_val2);
++		t_sel_val = sel_val2 & mux2->sel_val_mask;
++		qlcnic_ind_wr(adapter, mux2->sel_addr2, t_sel_val);
++		data = qlcnic_ind_rd(adapter, mux2->read_addr);
++		*buffer++ = cpu_to_le32(t_sel_val);
++		*buffer++ = cpu_to_le32(data);
++		sel_val1 += mux2->sel_val_stride;
++		sel_val2 += mux2->sel_val_stride;
 +	}
 +
-+	qlcnic_83xx_unlock_flash(adapter);
++	return mux2->no_ops * (4 * sizeof(u32));
++}
++
++static u32
++qlcnic_83xx_dump_rom(struct qlcnic_adapter *adapter,
++	struct qlcnic_dump_entry *entry, u32 *buffer)
++{
++	u32 fl_addr, size;
++	struct __mem *rom = &entry->region.mem;
++
++	fl_addr = rom->addr;
++	size = rom->size/4;
++
++	if (!qlcnic_83xx_lockless_flash_read_u32(adapter,
++					fl_addr, (u8 *)buffer, size))
++		return rom->size;
 +
 +	return 0;
 +}
 +
-+int
-+qlcnic_83xx_flash_write_u32(struct qlcnic_adapter *adapter, u32 addr,
-+					u32 *p_data)
++static const struct qlcnic_dump_operations qlcnic_fw_dump_ops[] = {
++	{ QLCNIC_DUMP_NOP, qlcnic_dump_nop },
++	{ QLCNIC_DUMP_READ_CRB, qlcnic_dump_crb },
++	{ QLCNIC_DUMP_READ_MUX, qlcnic_dump_mux },
++	{ QLCNIC_DUMP_QUEUE, qlcnic_dump_que },
++	{ QLCNIC_DUMP_BRD_CONFIG, qlcnic_read_rom },
++	{ QLCNIC_DUMP_READ_OCM, qlcnic_dump_ocm },
++	{ QLCNIC_DUMP_PEG_REG, qlcnic_dump_ctrl },
++	{ QLCNIC_DUMP_L1_DTAG, qlcnic_dump_l1_cache },
++	{ QLCNIC_DUMP_L1_ITAG, qlcnic_dump_l1_cache },
++	{ QLCNIC_DUMP_L1_DATA, qlcnic_dump_l1_cache },
++	{ QLCNIC_DUMP_L1_INST, qlcnic_dump_l1_cache },
++	{ QLCNIC_DUMP_L2_DTAG, qlcnic_dump_l2_cache },
++	{ QLCNIC_DUMP_L2_ITAG, qlcnic_dump_l2_cache },
++	{ QLCNIC_DUMP_L2_DATA, qlcnic_dump_l2_cache },
++	{ QLCNIC_DUMP_L2_INST, qlcnic_dump_l2_cache },
++	{ QLCNIC_DUMP_READ_ROM, qlcnic_read_rom },
++	{ QLCNIC_DUMP_READ_MEM, qlcnic_read_memory },
++	{ QLCNIC_DUMP_READ_CTRL, qlcnic_dump_ctrl },
++	{ QLCNIC_DUMP_TLHDR, qlcnic_dump_nop },
++	{ QLCNIC_DUMP_RDEND, qlcnic_dump_nop },
++};
++
++static const struct qlcnic_dump_operations qlcnic_83xx_fw_dump_ops[] = {
++	{ QLCNIC_DUMP_NOP, qlcnic_dump_nop },
++	{ QLCNIC_DUMP_READ_CRB, qlcnic_dump_crb },
++	{ QLCNIC_DUMP_READ_MUX, qlcnic_dump_mux },
++	{ QLCNIC_DUMP_QUEUE, qlcnic_dump_que },
++	{ QLCNIC_DUMP_BRD_CONFIG, qlcnic_83xx_dump_rom },
++	{ QLCNIC_DUMP_READ_OCM, qlcnic_dump_ocm },
++	{ QLCNIC_DUMP_PEG_REG, qlcnic_dump_ctrl },
++	{ QLCNIC_DUMP_L1_DTAG, qlcnic_dump_l1_cache },
++	{ QLCNIC_DUMP_L1_ITAG, qlcnic_dump_l1_cache },
++	{ QLCNIC_DUMP_L1_DATA, qlcnic_dump_l1_cache },
++	{ QLCNIC_DUMP_L1_INST, qlcnic_dump_l1_cache },
++	{ QLCNIC_DUMP_L2_DTAG, qlcnic_dump_l2_cache },
++	{ QLCNIC_DUMP_L2_ITAG, qlcnic_dump_l2_cache },
++	{ QLCNIC_DUMP_L2_DATA, qlcnic_dump_l2_cache },
++	{ QLCNIC_DUMP_L2_INST, qlcnic_dump_l2_cache },
++	{ QLCNIC_DUMP_POLL_RD, qlcnic_read_pollrd },
++	{ QLCNIC_READ_MUX2, qlcnic_read_mux2 },
++	{ QLCNIC_READ_POLLRDMWR, qlcnic_read_pollrdmwr },
++	{ QLCNIC_DUMP_READ_ROM, qlcnic_83xx_dump_rom },
++	{ QLCNIC_DUMP_READ_MEM, qlcnic_read_memory },
++	{ QLCNIC_DUMP_READ_CTRL, qlcnic_dump_ctrl },
++	{ QLCNIC_DUMP_TLHDR, qlcnic_dump_nop },
++	{ QLCNIC_DUMP_RDEND, qlcnic_dump_nop },
++};
++
++static uint32_t qlcnic_temp_checksum(uint32_t *temp_buffer, u32 temp_size)
 +{
-+	int ret = -EIO;
-+
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_ADDR,
-+						0x00800000 | (addr >> 2));
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_WRDATA, *p_data);
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_CONTROL,
-+				QLC_83XX_FLASH_LAST_ERASE_MS_VAL);
-+	ret = qlcnic_83xx_poll_flash_status_reg(adapter);
-+	if (ret) {
-+		dev_err(&adapter->pdev->dev,
-+			 " %s: failed at %d\n", __func__, __LINE__);
-+		return -EIO;
-+	}
-+
-+	return 0;
-+}
-+
-+int
-+qlcnic_83xx_flash_bulk_write(struct qlcnic_adapter *adapter, u32 addr,
-+					u32 *p_data, int u32_word_count)
-+{
-+	u32 temp;
-+	int ret = -EIO, err;
-+
-+	if ((u32_word_count <  QLC_83XX_FLASH_BULK_WRITE_MIN) ||
-+	(u32_word_count >  QLC_83XX_FLASH_BULK_WRITE_MAX)) {
-+		dev_err(&adapter->pdev->dev,
-+			 " %s: Invalid word count\n", __func__);
-+		return -EIO;
-+	}
-+
-+	temp = qlcnic_83xx_rd_reg_indirect(adapter,
-+				QLC_83XX_FLASH_SPI_CONTROL, &err);
-+	qlcnic_83xx_wrt_reg_indirect(adapter,
-+				QLC_83XX_FLASH_SPI_CONTROL,
-+				(temp | QLC_83XX_FLASH_SPI_CONTROL_VAL));
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_ADDR,
-+				QLC_83XX_FLASH_ADDR_TEMP_VAL);
-+
-+	/* First DWORD write */
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_WRDATA, *p_data++);
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_CONTROL,
-+				QLC_83XX_FLASH_FIRST_WRITE_MS_PATTERN);
-+	ret = qlcnic_83xx_poll_flash_status_reg(adapter);
-+	if (ret) {
-+		dev_err(&adapter->pdev->dev,
-+			 " %s: failed at %d\n", __func__, __LINE__);
-+		return -EIO;
-+	}
-+
-+	u32_word_count--;
-+
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_ADDR,
-+			QLC_83XX_FLASH_ADDR_SECOND_TEMP_VAL);
-+
-+	/* Second to N-1 DWORD writes */
-+	while (u32_word_count != 1) {
-+		qlcnic_83xx_wrt_reg_indirect(adapter,
-+					QLC_83XX_FLASH_WRDATA, *p_data++);
-+		qlcnic_83xx_wrt_reg_indirect(adapter,
-+					QLC_83XX_FLASH_CONTROL,
-+					QLC_83XX_FLASH_SECOND_WRITE_MS_PATTERN);
-+		ret = qlcnic_83xx_poll_flash_status_reg(adapter);
-+		if (ret) {
-+			dev_err(&adapter->pdev->dev,
-+				 " %s: failed at %d\n", __func__, __LINE__);
-+			return -EIO;
-+		}
-+		u32_word_count--;
-+	}
-+
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_ADDR,
-+				QLC_83XX_FLASH_ADDR_TEMP_VAL | (addr >> 2));
-+	/* Last DWORD write */
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_WRDATA, *p_data++);
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_CONTROL,
-+				QLC_83XX_FLASH_LAST_WRITE_MS_PATTERN);
-+	ret = qlcnic_83xx_poll_flash_status_reg(adapter);
-+	if (ret) {
-+		dev_err(&adapter->pdev->dev,
-+			 " %s: failed at %d\n", __func__, __LINE__);
-+		return -EIO;
-+	}
-+
-+	ret = qlcnic_83xx_rd_reg_indirect(adapter,
-+				QLC_83XX_FLASH_SPI_STATUS, &err);
-+	if ((ret & QLC_83XX_FLASH_SPI_CONTROL_VAL) ==
-+	QLC_83XX_FLASH_SPI_CONTROL_VAL) {
-+		dev_err(&adapter->pdev->dev,
-+			 " %s: failed at %d\n", __func__, __LINE__);
-+		/* Operation failed, clear error bit */
-+		temp = qlcnic_83xx_rd_reg_indirect(adapter,
-+					QLC_83XX_FLASH_SPI_CONTROL, &err);
-+		qlcnic_83xx_wrt_reg_indirect(adapter,
-+				QLC_83XX_FLASH_SPI_CONTROL,
-+				(temp | QLC_83XX_FLASH_SPI_CONTROL_VAL));
-+	}
-+
-+	return 0;
++	uint64_t sum = 0;
++	int count = temp_size / sizeof(uint32_t);
++	while (count-- > 0)
++		sum += *temp_buffer++;
++	while (sum >> 32)
++		sum = (sum & 0xFFFFFFFF) + (sum >> 32);
++	return ~sum;
 +}
 +
 +static int
-+qlcnic_83xx_read_flash_status_reg(struct qlcnic_adapter *adapter)
++qlcnic_fw_flash_get_minidump_temp(struct qlcnic_adapter *adapter,
++					u8 *buffer, u32 size)
 +{
-+	int ret, err;
++	int ret = 0;
 +
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_ADDR,
-+				QLC_83XX_FLASH_OEM_READ_SIG);
-+	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_CONTROL,
-+				QLC_83XX_FLASH_READ_CONTROL_VAL);
-+	ret = qlcnic_83xx_poll_flash_status_reg(adapter);
-+	if (ret)
++	if (QLCNIC_IS_82XX(adapter))
 +		return -EIO;
 +
-+	ret = qlcnic_83xx_rd_reg_indirect(adapter, QLC_83XX_FLASH_RDDATA, &err);
-+	return ret&0xFF;
++	if (qlcnic_83xx_lock_flash(adapter))
++		return -EIO;
++
++	ret = qlcnic_83xx_lockless_flash_read_u32(adapter,
++			QLC_83XX_MINIDUMP_FLASH, buffer, size/sizeof(u32));
++
++	qlcnic_83xx_unlock_flash(adapter);
++
++	return ret;
 +}
 +
-+int qlcnic_83xx_flash_test(struct qlcnic_adapter *adapter)
++static int
++qlcnic_fw_flash_get_minidump_temp_size(struct qlcnic_adapter *adapter,
++				struct qlcnic_cmd_args *cmd)
 +{
-+	int status;
++	struct qlcnic_dump_template_hdr tmp_hdr;
++	u32 size = sizeof(struct qlcnic_dump_template_hdr) / sizeof(u32);
++	int ret = 0;
 +
-+	status = qlcnic_83xx_read_flash_status_reg(adapter);
-+	if (status == -EIO) {
-+		dev_info(&adapter->pdev->dev, "%s: EEPROM test failed.\n",
-+			__func__);
-+		return 1;
++	if (QLCNIC_IS_82XX(adapter))
++		return -EIO;
++
++	if (qlcnic_83xx_lock_flash(adapter))
++		return -EIO;
++
++	ret = qlcnic_83xx_lockless_flash_read_u32(adapter,
++			QLC_83XX_MINIDUMP_FLASH, (u8 *)&tmp_hdr, size);
++
++	qlcnic_83xx_unlock_flash(adapter);
++
++	cmd->rsp.arg[2] = tmp_hdr.size;
++	cmd->rsp.arg[3] = tmp_hdr.version;
++
++	return ret;
++}
++
++static int
++qlcnic_fw_get_minidump_temp_size(struct qlcnic_adapter *adapter,
++		u32 *version, u32 *temp_size, u8 *use_flash_temp)
++{
++	int err = 0;
++	struct qlcnic_cmd_args cmd;
++	struct qlcnic_hardware_context *ahw;
++
++	ahw = adapter->ahw;
++	if (adapter->ahw->hw_ops->alloc_mbx_args(&cmd, adapter,
++						QLCNIC_CMD_TEMP_SIZE))
++		return -ENOMEM;
++
++	err = ahw->hw_ops->mbx_cmd(adapter, &cmd);
++	if (err != QLCNIC_RCODE_SUCCESS) {
++		if (qlcnic_fw_flash_get_minidump_temp_size(adapter, &cmd)) {
++			qlcnic_free_mbx_args(&cmd);
++			return -EIO;
++		}
++		*use_flash_temp = 1;
 +	}
++
++	*temp_size = cmd.rsp.arg[2];
++	*version = cmd.rsp.arg[3];
++	qlcnic_free_mbx_args(&cmd);
++
++	if (!(*temp_size))
++		return -EIO;
++
 +	return 0;
++}
++
++static
++int __qlcnic_fw_cmd_get_minidump_temp(struct qlcnic_adapter *adapter,
++				u32 *buffer, u32 temp_size)
++{
++	int err = 0, i;
++	void *tmp_addr;
++	u32 *tmp_buf;
++	struct qlcnic_cmd_args cmd;
++	dma_addr_t tmp_addr_t = 0;
++
++	tmp_addr = dma_alloc_coherent(&adapter->pdev->dev, temp_size,
++			&tmp_addr_t, GFP_KERNEL);
++	if (!tmp_addr) {
++		dev_err(&adapter->pdev->dev,
++			"Can't get memory for FW dump template\n");
++		return -ENOMEM;
++	}
++
++	if (adapter->ahw->hw_ops->alloc_mbx_args(&cmd, adapter,
++					QLCNIC_CMD_GET_TEMP_HDR)) {
++		err = -ENOMEM;
++		goto free_mem;
++	}
++
++	cmd.req.arg[1] = LSD(tmp_addr_t);
++	cmd.req.arg[2] = MSD(tmp_addr_t);
++	cmd.req.arg[3] = temp_size;
++	err = adapter->ahw->hw_ops->mbx_cmd(adapter, &cmd);
++
++	tmp_buf = tmp_addr;
++	if (err == QLCNIC_RCODE_SUCCESS) {
++		for (i = 0; i < temp_size/sizeof(u32); i++)
++			*buffer++ = __le32_to_cpu(*tmp_buf++);
++	}
++
++	qlcnic_free_mbx_args(&cmd);
++
++free_mem:
++	dma_free_coherent(&adapter->pdev->dev, temp_size, tmp_addr, tmp_addr_t);
++
++	return err;
++}
++
++int
++qlcnic_fw_cmd_get_minidump_temp(struct qlcnic_adapter *adapter)
++{
++	int err;
++	u32 temp_size = 0;
++	u32 version, csum, *tmp_buf;
++	struct qlcnic_hardware_context *ahw;
++	struct qlcnic_dump_template_hdr *tmpl_hdr;
++	u8 use_flash_temp = 0;
++
++	ahw = adapter->ahw;
++
++	err = qlcnic_fw_get_minidump_temp_size(adapter, &version,
++					&temp_size, &use_flash_temp);
++
++	if (err) {
++		dev_info(&adapter->pdev->dev,
++			"Can't get template size %d\n", err);
++		return -EIO;
++	}
++
++	ahw->fw_dump.tmpl_hdr = vmalloc(temp_size);
++
++	if (!ahw->fw_dump.tmpl_hdr)
++		return -ENOMEM;
++
++	memset(ahw->fw_dump.tmpl_hdr, 0, temp_size);
++	tmp_buf = (u32 *)ahw->fw_dump.tmpl_hdr;
++
++	if (use_flash_temp)
++		goto flash_temp;
++
++	err = __qlcnic_fw_cmd_get_minidump_temp(adapter, tmp_buf, temp_size);
++
++	if (err) {
++flash_temp:
++		err = qlcnic_fw_flash_get_minidump_temp(adapter,
++					(u8 *)tmp_buf, temp_size);
++
++		if (err) {
++			dev_err(&adapter->pdev->dev,
++				"Failed to get minidump template header %d\n",
++									err);
++			vfree(ahw->fw_dump.tmpl_hdr);
++			ahw->fw_dump.tmpl_hdr = NULL;
++			return -EIO;
++		}
++	}
++
++	csum = qlcnic_temp_checksum((uint32_t *) tmp_buf, temp_size);
++
++	if (csum) {
++		dev_err(&adapter->pdev->dev,
++			"Template header checksum validation failed\n");
++		vfree(ahw->fw_dump.tmpl_hdr);
++		ahw->fw_dump.tmpl_hdr = NULL;
++		return -EIO;
++	}
++
++	tmpl_hdr = ahw->fw_dump.tmpl_hdr;
++	tmpl_hdr->drv_cap_mask = QLCNIC_DUMP_MASK_DEF;
++	ahw->fw_dump.enable = 1;
++
++	return 0;
++}
++
++int qlcnic_dump_fw(struct qlcnic_adapter *adapter)
++{
++	u32 *buffer;
++	char mesg[64];
++	char *msg[] = {mesg, NULL};
++	int i, k, ops_cnt, ops_index, dump_size = 0;
++	u32 entry_offset, dump, no_entries, buf_offset = 0;
++	struct qlcnic_dump_entry *entry;
++	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
++	struct qlcnic_dump_template_hdr *tmpl_hdr = fw_dump->tmpl_hdr;
++	static const struct qlcnic_dump_operations *fw_dump_ops;
++
++	if (!fw_dump->enable) {
++		dev_info(&adapter->pdev->dev,
++			"Dump not enabled\n");
++		return -EIO;
++	}
++
++	if (fw_dump->clr) {
++		dev_info(&adapter->pdev->dev,
++			"Previous dump not cleared, not capturing dump\n");
++		return -EIO;
++	}
++
++	QLCDB(adapter, DRV, "Take FW dump\n");
++	/* Calculate the size for dump data area only */
++	for (i = 2, k = 1; (i & QLCNIC_DUMP_MASK_MAX); i <<= 1, k++)
++		if (i & tmpl_hdr->drv_cap_mask)
++			dump_size += tmpl_hdr->cap_sizes[k];
++	if (!dump_size)
++		return -EIO;
++
++	fw_dump->data = vmalloc(dump_size);
++	if (!fw_dump->data) {
++		dev_info(&adapter->pdev->dev,
++			"Unable to allocate (%d KB) for fw dump\n",
++			dump_size/1024);
++		return -ENOMEM;
++	}
++	memset(fw_dump->data, 0, dump_size);
++	buffer = fw_dump->data;
++	fw_dump->size = dump_size;
++	no_entries = tmpl_hdr->num_entries;
++	entry_offset = tmpl_hdr->offset;
++	tmpl_hdr->sys_info[0] = QLCNIC_DRIVER_VERSION;
++	tmpl_hdr->sys_info[1] = adapter->fw_version;
++
++	if (QLCNIC_IS_82XX(adapter)) {
++		ops_cnt = ARRAY_SIZE(qlcnic_fw_dump_ops);
++		fw_dump_ops = qlcnic_fw_dump_ops;
++	} else {
++		ops_cnt = ARRAY_SIZE(qlcnic_83xx_fw_dump_ops);
++		fw_dump_ops = qlcnic_83xx_fw_dump_ops;
++		tmpl_hdr->saved_state[QLC_83XX_OCM_INDEX] =
++			tmpl_hdr->ocm_wnd_reg[adapter->ahw->pci_func];
++		tmpl_hdr->saved_state[QLC_83XX_PCI_INDEX] =
++						adapter->ahw->pci_func;
++	}
++
++	for (i = 0; i < no_entries; i++) {
++		entry = (void *)tmpl_hdr + entry_offset;
++		if (!(entry->hdr.mask & tmpl_hdr->drv_cap_mask)) {
++			entry->hdr.flags |= QLCNIC_DUMP_SKIP;
++			entry_offset += entry->hdr.offset;
++			continue;
++		}
++
++		/* Find the handler for this entry */
++		ops_index = 0;
++		while (ops_index < ops_cnt) {
++			if (entry->hdr.type == fw_dump_ops[ops_index].opcode)
++				break;
++			ops_index++;
++		}
++
++		if (ops_index == ops_cnt) {
++			dev_info(&adapter->pdev->dev,
++				"Invalid entry type %d, exiting dump\n",
++				entry->hdr.type);
++			goto error;
++		}
++
++		/* Collect dump for this entry */
++		dump = fw_dump_ops[ops_index].handler(adapter, entry, buffer);
++		if (!qlcnic_valid_dump_entry(&adapter->pdev->dev, entry, dump))
++			entry->hdr.flags |= QLCNIC_DUMP_SKIP;
++		buf_offset += entry->hdr.cap_size;
++		entry_offset += entry->hdr.offset;
++		buffer = fw_dump->data + buf_offset;
++	}
++	if (dump_size != buf_offset) {
++		dev_info(&adapter->pdev->dev,
++			"Captured(%d) and expected size(%d) do not match\n",
++			buf_offset, dump_size);
++		goto error;
++	} else {
++		fw_dump->clr = 1;
++		snprintf(mesg, sizeof(mesg), "FW_DUMP=%s",
++			adapter->netdev->name);
++		dev_info(&adapter->pdev->dev,
++			"%s: Dump data, %d bytes captured\n",
++				adapter->netdev->name, fw_dump->size);
++		/* Send a udev event to notify availability of FW dump */
++		kobject_uevent_env(&adapter->pdev->dev.kobj, KOBJ_CHANGE, msg);
++		return 0;
++	}
++error:
++	vfree(fw_dump->data);
++	return -EINVAL;
++}
++
++void
++qlcnic_83xx_get_minidump_template(struct qlcnic_adapter *adapter)
++{
++	u32 prev_version, current_version;
++	struct qlcnic_hardware_context *ahw = adapter->ahw;
++	struct qlcnic_fw_dump *fw_dump = &ahw->fw_dump;
++	struct pci_dev *pdev = adapter->pdev;
++
++	prev_version = adapter->fw_version;
++	current_version = qlcnic_83xx_get_fw_version(adapter);
++
++	if (fw_dump->tmpl_hdr == NULL || current_version > prev_version) {
++		if (fw_dump->tmpl_hdr)
++			vfree(fw_dump->tmpl_hdr);
++		if (!qlcnic_fw_cmd_get_minidump_temp(adapter))
++			dev_info(&pdev->dev,
++				"Supports FW dump capability\n");
++	}
 +}
 -- 
 1.7.1
