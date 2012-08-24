@@ -1,7 +1,7 @@
 From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Subject: [PATCH v2 04/10] cgroup: net_prio: Protect access to task_netprioidx() when built as module
-Date: Fri, 24 Aug 2012 16:01:38 +0200
-Message-ID: <1345816904-21745-5-git-send-email-wagi@monom.org>
+Subject: [PATCH v2 07/10] cgroup: net_cls: Simplify ifdef logic
+Date: Fri, 24 Aug 2012 16:01:41 +0200
+Message-ID: <1345816904-21745-8-git-send-email-wagi@monom.org>
 References: <1345816904-21745-1-git-send-email-wagi@monom.org>
 Cc: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
 	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
@@ -18,12 +18,6 @@ List-Id: netdev.vger.kernel.org
 
 From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
 
-The module version of task_netprioidex() checks if net_prio_subsys_id
-is valid to indentify when it is okay to access the controller.
-
-Instead relying on the net_prio_subsys_id to be set, make it explicit
-with a jump label.
-
 Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
 Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Cc: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
@@ -35,84 +29,68 @@ Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 ---
- include/net/netprio_cgroup.h | 8 +++++++-
- net/core/netprio_cgroup.c    | 9 +++++++++
- net/core/sock.c              | 4 ++++
- 3 files changed, 20 insertions(+), 1 deletion(-)
+ include/net/cls_cgroup.h | 12 +++++-------
+ net/core/sock.c          |  2 ++
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/netprio_cgroup.h b/include/net/netprio_cgroup.h
-index 2719dec..9ff58e4 100644
---- a/include/net/netprio_cgroup.h
-+++ b/include/net/netprio_cgroup.h
-@@ -16,7 +16,7 @@
- #include <linux/cgroup.h>
- #include <linux/hardirq.h>
+diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
+index 43fae13..5906a25 100644
+--- a/include/net/cls_cgroup.h
++++ b/include/net/cls_cgroup.h
+@@ -18,7 +18,7 @@
  #include <linux/rcupdate.h>
--
-+#include <linux/jump_label.h>
+ #include <linux/jump_label.h>
  
- struct netprio_map {
- 	struct rcu_head rcu;
-@@ -54,12 +54,18 @@ static inline u32 task_netprioidx(struct task_struct *p)
- 
- #elif IS_MODULE(CONFIG_NETPRIO_CGROUP)
- 
-+extern struct static_key cgroup_netprio_enabled;
-+#define netpriocg_enabled static_key_false(&cgroup_netprio_enabled)
-+
- static inline u32 task_netprioidx(struct task_struct *p)
+-#ifdef CONFIG_CGROUPS
++#if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
+ struct cgroup_cls_state
  {
- 	struct cgroup_netprio_state *state;
- 	int subsys_id;
- 	u32 idx = 0;
+ 	struct cgroup_subsys_state css;
+@@ -64,21 +64,19 @@ static inline u32 task_cls_classid(struct task_struct *p)
+ 	return classid;
+ }
  
-+	if (!netpriocg_enabled)
-+		return 0;
-+
- 	rcu_read_lock();
- 	subsys_id = rcu_dereference_index_check(net_prio_subsys_id,
- 						rcu_read_lock_held());
-diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index c75e3f9..400ab94 100644
---- a/net/core/netprio_cgroup.c
-+++ b/net/core/netprio_cgroup.c
-@@ -371,6 +371,10 @@ static int __init init_cgroup_netprio(void)
- 	net_prio_subsys_id = net_prio_subsys.subsys_id;
- #endif
- 
-+#if IS_MODULE(CONFIG_NETPRIO_CGROUP)
-+	static_key_slow_inc(&cgroup_netprio_enabled);
+-#else
 +#endif
 +
- 	register_netdevice_notifier(&netprio_device_notifier);
++#else /* !CONFIG_NET_CLS_CGROUP */
  
- out:
-@@ -391,6 +395,11 @@ static void __exit exit_cgroup_netprio(void)
- 	synchronize_rcu();
- #endif
+ static inline u32 task_cls_classid(struct task_struct *p)
+ {
+ 	return 0;
+ }
  
-+#if IS_MODULE(CONFIG_NETPRIO_CGROUP)
-+	static_key_slow_dec(&cgroup_netprio_enabled);
-+	rcu_barrier();
-+#endif
-+
- 	rtnl_lock();
- 	for_each_netdev(&init_net, dev) {
- 		old = rtnl_dereference(dev->priomap);
+-#endif /* CONFIG_NET_CLS_CGROUP */
+-
+-#else /* !CONFIG_CGROUPS */
+-
+ static inline void sock_update_classid(struct sock *sk)
+ {
+ }
+ 
+-#endif /* CONFIG_CGROURPS */
++#endif /* CONFIG_NET_CLS_CGROUP */
+ 
+ #endif  /* _NET_CLS_CGROUP_H */
 diff --git a/net/core/sock.c b/net/core/sock.c
-index 8106e77..1f119d2 100644
+index aa762d9..b1fadfd 100644
 --- a/net/core/sock.c
 +++ b/net/core/sock.c
-@@ -331,6 +331,10 @@ EXPORT_SYMBOL(__sk_backlog_rcv);
- struct static_key cgroup_cls_enabled = STATIC_KEY_INIT_FALSE;
- EXPORT_SYMBOL_GPL(cgroup_cls_enabled);
- #endif
-+#if IS_MODULE(CONFIG_NETPRIO_CGROUP)
-+struct static_key cgroup_netprio_enabled = STATIC_KEY_INIT_FALSE;
-+EXPORT_SYMBOL_GPL(cgroup_netprio_enabled);
+@@ -1223,6 +1223,7 @@ static void sk_prot_free(struct proto *prot, struct sock *sk)
+ }
+ 
+ #ifdef CONFIG_CGROUPS
++#if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
+ void sock_update_classid(struct sock *sk)
+ {
+ 	u32 classid;
+@@ -1234,6 +1235,7 @@ void sock_update_classid(struct sock *sk)
+ 		sk->sk_classid = classid;
+ }
+ EXPORT_SYMBOL(sock_update_classid);
 +#endif
  
- #if !defined(CONFIG_NET_CLS_CGROUP)
- int net_cls_subsys_id = -1;
+ void sock_update_netprioidx(struct sock *sk, struct task_struct *task)
+ {
 -- 
 1.7.12.rc1.16.g05a20c8
