@@ -1,44 +1,47 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: netlink scm creds uid and gids are always 0.
-Date: Thu, 23 Aug 2012 23:45:04 -0700
-Message-ID: <871uiwlrf3.fsf@xmission.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [net-next 11/13] igb: Update PTP function names/variables and
+ locations.
+Date: Fri, 24 Aug 2012 08:55:55 +0200
+Message-ID: <20120824065554.GB3261@netboy.at.omicron.at>
+References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1345715813-20757-12-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20120823111622.GC2238@netboy.at.omicron.at>
+ <06DFBC1E25D8024DB214DC7F41A3CD34488DD079@ORSMSX101.amr.corp.intel.com>
+ <20120823175335.GB2192@netboy.at.omicron.at>
+ <02874ECE860811409154E81DA85FBB5807857EEA@ORSMSX105.amr.corp.intel.com>
+ <20120823181117.GD2192@netboy.at.omicron.at>
+ <06DFBC1E25D8024DB214DC7F41A3CD34488DD379@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "Vick, Matthew" <matthew.vick@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:59446 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753243Ab2HXGpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 02:45:15 -0400
+Received: from mail-we0-f174.google.com ([74.125.82.174]:52003 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753243Ab2HXG4H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 02:56:07 -0400
+Received: by weyx8 with SMTP id x8so842870wey.19
+        for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 23:56:05 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <06DFBC1E25D8024DB214DC7F41A3CD34488DD379@ORSMSX101.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Aug 23, 2012 at 06:44:24PM +0000, Vick, Matthew wrote:
+> 
+> Isn't this discussion creeping outside the scope of this patch?
 
-While working on the kuid_t and kgid_t conversion of the audit subsystem
-I noticed that since the performance problem of scm creds and af_unix
-sockets were fixed af_netlink sockets have not filled in the uid or gid
-of the originator of the socket.
+Yes, it is. I am suggesting that the driver could use improvement, but
+not by renaming functions to suit your or someone else's taste.
+Instead, you could work on the time stamping feature.
 
-I think all we need is an appropriate cred_to_ucred call to fix this
-regression, but I am going so many different directions right now I
-can't get myself to focus on this long enough to work up an appripriate
-patch to fix.
+(And if, along the way, you end up renaming the functions that you
+change, then I won't complain ;)
 
-Eric do you think you might take a gander?
-
-The commit where this regression was introduced appears to be.
-
-commit 16e5726269611b71c930054ffe9b858c1cea88eb
-Author: Eric Dumazet <eric.dumazet@gmail.com>
-Date:   Mon Sep 19 05:52:27 2011 +0000
-
-    af_unix: dont send SCM_CREDENTIALS by default
-    
-    Since commit 7361c36c5224 (af_unix: Allow credentials to work across
-    user and pid namespaces) af_unix performance dropped a lot.
-    
-    This is because we now take a reference on pid and cred in each write(),
-    and release them in read(), usually done from another process,
-    eventually from another cpu. This triggers false sharing.
-    
+Thanks,
+Richard
