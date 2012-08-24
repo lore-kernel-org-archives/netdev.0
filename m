@@ -1,25 +1,88 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2012-08-24
-Date: Fri, 24 Aug 2012 15:21:48 -0400 (EDT)
-Message-ID: <20120824.152148.1272042065601340498.davem@davemloft.net>
-References: <1345800643-29456-1-git-send-email-mkl@pengutronix.de>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [net-next 10/13] igb: Tidy up wrapping for CONFIG_IGB_PTP.
+Date: Fri, 24 Aug 2012 19:38:38 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB5807858A31@ORSMSX105.amr.corp.intel.com>
+References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1345715813-20757-11-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20120823110357.GB2238@netboy.at.omicron.at>
+	 <06DFBC1E25D8024DB214DC7F41A3CD34488DD039@ORSMSX101.amr.corp.intel.com>
+	 <20120823172950.GA2192@netboy.at.omicron.at>
+	 <02874ECE860811409154E81DA85FBB5807857EFE@ORSMSX105.amr.corp.intel.com>
+	 <06DFBC1E25D8024DB214DC7F41A3CD34488DD35B@ORSMSX101.amr.corp.intel.com>
+	 <20120824101053.GA6038@netboy.at.omicron.at>
+ <1345827088.2694.11.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1345800643-29456-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Vick, Matthew" <matthew.vick@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:55582 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759729Ab2HXTix (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Aug 2012 15:38:53 -0400
+In-Reply-To: <1345827088.2694.11.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Fri, 24 Aug 2012 11:30:41 +0200
-
-> here are two fixes for the v3.6 release cycle. Alexey Khoroshilov submitted a
-> fix for a memory leak in the softing driver (in softing_load_fw()) in case a
-> krealloc() fails. Sven Schmitt fixed the misuse of the IRQF_SHARED flag in the
-> irq resouce of the sja1000 platform driver, now the correct flag is used. There
-> are no mainline users of this feature which need to be converted.
-
-Pulled, thanks Marc.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
+dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogRnJpZGF5LCBBdWd1c3QgMjQs
+IDIwMTIgOTo1MSBBTQ0KPiBUbzogUmljaGFyZCBDb2NocmFuDQo+IENjOiBWaWNrLCBNYXR0aGV3
+OyBLZWxsZXIsIEphY29iIEU7IEtpcnNoZXIsIEplZmZyZXkgVDsNCj4gZGF2ZW1AZGF2ZW1sb2Z0
+Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgZ29zcG9AcmVkaGF0LmNvbTsNCj4gc2Fzc21h
+bm5AcmVkaGF0LmNvbQ0KPiBTdWJqZWN0OiBSZTogW25ldC1uZXh0IDEwLzEzXSBpZ2I6IFRpZHkg
+dXAgd3JhcHBpbmcgZm9yIENPTkZJR19JR0JfUFRQLg0KPiANCj4gT24gRnJpLCAyMDEyLTA4LTI0
+IGF0IDEyOjEwICswMjAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6DQo+ID4gT24gVGh1LCBBdWcg
+MjMsIDIwMTIgYXQgMDY6NDA6MjVQTSArMDAwMCwgVmljaywgTWF0dGhldyB3cm90ZToNCj4gPiA+
+DQo+ID4gPiBJIHRlbmQgdG8gYWdyZWUgd2l0aCBKYWtlIGhlcmUtLUkgbGlrZSBoYXZpbmcgdGhl
+IGluZm9ybWF0aW9uLiBJJ20NCj4gZmluZSByZW1vdmluZyB0aGVtLCBidXQgSSdkIGxpa2UgdG8g
+ZG8gaXQgZm9yIGFsbCBDT05GSUdfSUdCX1BUUCB3cmFwcGluZw0KPiBpZiB3ZSdyZSBnb2luZyB0
+byBkbyBpdC4gV2hhdCBkbyB5b3UgdGhpbmssIFJpY2hhcmQ/DQo+ID4NCj4gPiBDb21lIHRvIHRo
+aW5rIG9mIGl0LCBJIG5ldmVyIGxpa2VkIHRoZSBDT05GSUdfSUdCX1BUUCB2ZXJ5IG11Y2ggaW4g
+dGhlDQo+ID4gZmlyc3QgcGxhY2UuIFRoZXNlIHdlcmUgYWRkZWQgYWZ0ZXIgdGhlIGZhY3QgYnkg
+SmVmZiBLaXJzaGVyLiBIZSBoYWQNCj4gPiBzYWlkIG9mZiBsaXN0IHRoYXQgdGhlcmUgd2FzIHNv
+bWUgaXNzdWUgd2l0aCBDT05GSUdfUFRQXzE1ODhfQ0xPQ0sgYW5kDQo+ID4gaWdiIGFzIGEgbW9k
+dWxlLCBvciBzb21ldGhpbmcgbGlrZSB0aGF0LiBBdCB0aGF0IHRpbWUgSSBzYWlkLCBqdXN0IGdv
+DQo+ID4gYWhlYWQgYW5kIGZpeCBpdCB1cC4NCj4gDQo+IElmIHRoZXJlIGlzIHNvbWUgZmVhdHVy
+ZSBvZiBhIGRyaXZlciB0aGF0IGRlcGVuZHMgb24gYW4gb3B0aW9uYWwNCj4gbW9kdWxhcmlzYWJs
+ZSBzdWJzeXN0ZW0sIGFuZCB5b3Ugd2FudCB0aGUgZHJpdmVyIHRvIGJlIGJ1aWx0IHdpdGhvdXQg
+dGhhdA0KPiBmZWF0dXJlIHdoZW4gdGhlIHN1YnN5c3RlbSBpcyBtaXNzaW5nLCB0aGVuIHRoZSBm
+ZWF0dXJlIGhhcyB0byBiZSBkaXNhYmxlZA0KPiB3aGVuIHRoZSBkcml2ZXIgaXMgYnVpbHQtaW4g
+YW5kIHRoZSBzdWJzeXN0ZW0gaXMgYSBtb2R1bGUuICBTbyBpbiBnZW5lcmFsDQo+IHlvdSBuZWVk
+Og0KPiANCj4gY29uZmlnIERSSVZFUl9GRUFUVVJFDQo+IAlib29sICJUaGlzIGlzIGEgcmVhbGx5
+IG5lYXQgZmVhdHVyZSBmb3IgdGhlIGRyaXZlciINCj4gCWRlcGVuZHMgb24gRFJJVkVSICYmIFNV
+QlNZU1RFTSAmJiAhKERSSVZFUj15ICYmIFNVQllTVEVNPW0pDQo+IA0KPiA+IEkgdGhpbmsgaXQg
+d291bGQgYmUgYmV0dGVyIGlmIHRoZSAidGltZSBzdGFtcCBhbGwgUnggcGFja2V0cyIgb2YgdGhl
+DQo+ID4gODI1ODAgd2VyZSBhbHdheXMgYXZhaWxhYmxlLCBhbmQgdGhhdCB0aGUgUEhDIGZlYXR1
+cmUgYWx3YXlzIGJlDQo+ID4gY29tcGlsZWQgd2hlbiBDT05GSUdfUFRQXzE1ODhfQ0xPQ0sgaXMg
+c2VsZWN0ZWQuDQo+ID4NCj4gPiBNYXliZSB5b3UgY291bGQgYXNrIEplZmYgd2hhdCB0aGUgaXNz
+dWUgd2FzLCBhbmQgdGhlbiBzZWUgaWYgdGhlcmUgaXMNCj4gPiBhIHdheSB0byByZW1vdmUgQ09O
+RklHX0lHQl9QVFAgYWx0b2dldGhlci4NCj4gDQo+IEV2ZW4gaWYgdGhleSBhcmUgdG8gYmUgZW5h
+YmxlZCBhdXRvbWF0aWNhbGx5LCBDT05GSUdfSUdCX1BUUCBhbmQgc2ltaWxhcg0KPiBjb25maWcg
+c3ltYm9scyBhcmUgaW1wb3J0YW50IGFzIHNob3J0aGFuZC4gIFNvIEkgdGhpbmsgd2hhdCB5b3Ug
+d2FudCBpczoNCj4gDQo+IGNvbmZpZyBJR0JfUFRQDQo+IAlkZWZfYm9vbCB5DQo+IAlkZXBlbmRz
+IG9uIElHQiAmJiBQVFBfMTU4OF9DTE9DSyAmJiAhKElHQj15ICYmIFBUUF8xNTg4X0NMT0NLPW0p
+DQo+IA0KPiAoQnV0IGN1cnJlbnRseSBpdCdzIGFjdHVhbGx5ICpzZWxlY3RpbmcqIFBUUF8xNTg4
+X0NMT0NLLiAgV2Ugc2hvdWxkDQo+IHByb2JhYmx5IGhhdmUgZHJpdmVycyBjb25zaXN0ZW50bHkg
+c2VsZWN0IG9yIGRlcGVuZCBvbiBpdCwgbm90IGENCj4gbWl4dHVyZS4pDQo+IA0KPiBCZW4uDQo+
+IA0KPiAtLQ0KPiBCZW4gSHV0Y2hpbmdzLCBTdGFmZiBFbmdpbmVlciwgU29sYXJmbGFyZSBOb3Qg
+c3BlYWtpbmcgZm9yIG15IGVtcGxveWVyOw0KPiB0aGF0J3MgdGhlIG1hcmtldGluZyBkZXBhcnRt
+ZW50J3Mgam9iLg0KPiBUaGV5IGFza2VkIHVzIHRvIG5vdGUgdGhhdCBTb2xhcmZsYXJlIHByb2R1
+Y3QgbmFtZXMgYXJlIHRyYWRlbWFya2VkLg0KDQoNClRoZSBJR1BfUFRQIGlzIG5lY2Vzc2FyeSBv
+dGhlcndpc2UgeW91IGhhdmUgdG8gZG8gc29tZXRoaW5nIGxpa2UgI2lmIGRlZmluZWQoQ09ORklH
+X1BUUF8xNTg4X0NMT0NLKSwgb3IgI2lmZGVmIENPTkZJR19QVFBfMTU4OF9DTE9DSyBcICNpZmRl
+ZiBDT05GSUdfUFRQXzE1ODhfQ0xPQ0tfTU9EVUxFDQoNClRoZSBtYWluIHJlYXNvbiB0aGF0IEkg
+d291bGRuJ3Qgd2FudCB0byB1bi13cmFwIHRoZSB0aW1lc3RhbXBpbmcgaXMgYmVjYXVzZSB0aGUg
+aHd0c3RhbXAgaW9jdGwgaXMgc29tZXdoYXQgcHJvYmxlbWF0aWMgYmVjYXVzZSBpdCBpcyBhbG1v
+c3QgYWxsIHB0cCBvbmx5LiBBbHNvLCBzb21lIG9mIHRoZSBwYXJ0cyBmb3IgaWdiIGRyaXZlciBk
+b24ndCBzdXBwb3J0IHRpbWVzdGFtcCBhbGwsIHRoZXkgb25seSBzdXBwb3J0IHB0cCBvbmx5IHBh
+Y2tldHMsIGFuZCB0aGlzIHdvdWxkIGJlIGEgbG90IG1vcmUgY29uZnVzaW5nIHNpbmNlIEkgd291
+bGQgc2F5IHN0aWxsIG9ubHkgYWxsb3cgdGhhdCBpZiBwdHAgaXMgb24uLiAoc2luY2UgdGhvc2Ug
+dmFsdWVzIGFyZSB1c2VsZXNzIGV4Y2VwdCB3aXRoIHRoZSBQSEMgY2xvY2spDQoNCi0gSmFrZQ0K
