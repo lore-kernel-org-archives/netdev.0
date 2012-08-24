@@ -1,50 +1,79 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net] sfc: Fix reporting of IPv4 full filters through ethtool
-Date: Fri, 24 Aug 2012 20:59:54 +0100
-Message-ID: <1345838394.2694.42.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1345838325.2694.41.camel@bwh-desktop.uk.solarflarecom.com>
+From: Timur Tabi <timur@freescale.com>
+Subject: Re: [PATCH] [v3] netdev/phy: add MDIO bus multiplexer driven by a
+ memory-mapped device
+Date: Fri, 24 Aug 2012 15:00:32 -0500
+Message-ID: <5037DD60.8090206@freescale.com>
+References: <1345835453-8611-1-git-send-email-timur@freescale.com> <5037DB43.60704@wwwdotorg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Cc: Andy Fleming <afleming@freescale.com>,
+	David Miller <davem@davemloft.net>, <ddaney.cavm@gmail.com>,
+	<devicetree-discuss@lists.ozlabs.org>, <netdev@vger.kernel.org>
+To: Stephen Warren <swarren@wwwdotorg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:9626 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932254Ab2HXT75 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 15:59:57 -0400
-In-Reply-To: <1345838325.2694.41.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from db3ehsobe002.messaging.microsoft.com ([213.199.154.140]:33839
+	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932254Ab2HXUAy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 16:00:54 -0400
+In-Reply-To: <5037DB43.60704@wwwdotorg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ETHTOOL_GRXCLSRULE returns filters for a TCP/IPv4 or UDP/IPv4 4-tuple
-with source and destination swapped.
+Stephen Warren wrote:
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/ethtool.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+>> +This is a special case of a MDIO bus multiplexer.  A memory-mapped device,
+>> +like an FPGA, is used to control which child bus is connected.  The mdio-mux
+>> +node must be a child of the memory-mapped device.  The driver currently only
+>> +supports devices with eight-bit registers.
+> 
+> That last sentence seems like a property of the driver, not the binding;
+> I could easily anticipate allowing the size to be 1 or 2 or 4, and a
+> driver adapter to that in the future.
 
-diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
-index 8cba2df..5faedd8 100644
---- a/drivers/net/ethernet/sfc/ethtool.c
-+++ b/drivers/net/ethernet/sfc/ethtool.c
-@@ -863,8 +863,8 @@ static int efx_ethtool_get_class_rule(struct efx_nic *efx,
- 				       &ip_entry->ip4dst, &ip_entry->pdst);
- 	if (rc != 0) {
- 		rc = efx_filter_get_ipv4_full(
--			&spec, &proto, &ip_entry->ip4src, &ip_entry->psrc,
--			&ip_entry->ip4dst, &ip_entry->pdst);
-+			&spec, &proto, &ip_entry->ip4dst, &ip_entry->pdst,
-+			&ip_entry->ip4src, &ip_entry->psrc);
- 		EFX_WARN_ON_PARANOID(rc);
- 		ip_mask->ip4src = ~0;
- 		ip_mask->psrc = ~0;
+True, but I couldn't think of a better place to mention this.  Adding
+support for multi-byte registers also requires handling the endianness of
+those registers.  I have that problem with the mdio-mux-gpio driver.  That
+driver assumes that the GPIO bits are numbered in little-endian order, so
+my device tree on my big-endian CPU (PowerPC) lists the GPIO pins in
+reverse order.
+
+> Otherwise, this binding looks great now.
+
+Do you still want me to scrub any references to the register size
+requirement from the document?
+
+>> +++ b/drivers/net/phy/mdio-mux-mmioreg.c
+> 
+>> +static int mdio_mux_mmioreg_switch_fn(int current_child, int desired_child,
+>> +				      void *data)
+>> +{
+>> +	struct mdio_mux_mmioreg_state *s = data;
+>> +
+>> +	if (current_child ^ desired_child) {
+>> +		void *p = ioremap(s->phys, 1);
+>> +		uint8_t x, y;
+>> +
+>> +		if (!p)
+>> +			return -ENOMEM;
+> 
+> Why not map it during probe?
+
+I thought about that, but I generally don't like mappings that exist for
+all eternity even though they're rarely used.  Once the interface is up,
+we don't expect any bus muxing to occur.
+
+> 
+>> +		x = ioread8(p);
+>> +		y = (x & ~s->mask) | desired_child;
+>> +		if (x != y) {
+> 
+> Isn't that always true, given if (current_child ^ desired_child) above?
+
+If current_child == -1, but the bus is already muxed properly, then
+there's no point in setting it.  Do you want me to remove the test, or add
+a comment?
+
 -- 
-1.7.7.6
-
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Timur Tabi
+Linux kernel developer at Freescale
