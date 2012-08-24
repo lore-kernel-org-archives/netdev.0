@@ -1,88 +1,65 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [net-next 10/13] igb: Tidy up wrapping for CONFIG_IGB_PTP.
-Date: Fri, 24 Aug 2012 19:38:38 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5807858A31@ORSMSX105.amr.corp.intel.com>
-References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1345715813-20757-11-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20120823110357.GB2238@netboy.at.omicron.at>
-	 <06DFBC1E25D8024DB214DC7F41A3CD34488DD039@ORSMSX101.amr.corp.intel.com>
-	 <20120823172950.GA2192@netboy.at.omicron.at>
-	 <02874ECE860811409154E81DA85FBB5807857EFE@ORSMSX105.amr.corp.intel.com>
-	 <06DFBC1E25D8024DB214DC7F41A3CD34488DD35B@ORSMSX101.amr.corp.intel.com>
-	 <20120824101053.GA6038@netboy.at.omicron.at>
- <1345827088.2694.11.camel@bwh-desktop.uk.solarflarecom.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 14/15] netpoll: re-enable irq in poll_napi()
+Date: Fri, 24 Aug 2012 12:43:34 -0700
+Message-ID: <20120824124334.10313575.akpm@linux-foundation.org>
+References: <1344597891-32242-1-git-send-email-amwang@redhat.com>
+	<1344597891-32242-15-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Vick, Matthew" <matthew.vick@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:55582 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759729Ab2HXTix (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Aug 2012 15:38:53 -0400
-In-Reply-To: <1345827088.2694.11.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
+Received: from mail.linuxfoundation.org ([140.211.169.12]:54182 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760037Ab2HXTnf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 15:43:35 -0400
+In-Reply-To: <1344597891-32242-15-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
-dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogRnJpZGF5LCBBdWd1c3QgMjQs
-IDIwMTIgOTo1MSBBTQ0KPiBUbzogUmljaGFyZCBDb2NocmFuDQo+IENjOiBWaWNrLCBNYXR0aGV3
-OyBLZWxsZXIsIEphY29iIEU7IEtpcnNoZXIsIEplZmZyZXkgVDsNCj4gZGF2ZW1AZGF2ZW1sb2Z0
-Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgZ29zcG9AcmVkaGF0LmNvbTsNCj4gc2Fzc21h
-bm5AcmVkaGF0LmNvbQ0KPiBTdWJqZWN0OiBSZTogW25ldC1uZXh0IDEwLzEzXSBpZ2I6IFRpZHkg
-dXAgd3JhcHBpbmcgZm9yIENPTkZJR19JR0JfUFRQLg0KPiANCj4gT24gRnJpLCAyMDEyLTA4LTI0
-IGF0IDEyOjEwICswMjAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6DQo+ID4gT24gVGh1LCBBdWcg
-MjMsIDIwMTIgYXQgMDY6NDA6MjVQTSArMDAwMCwgVmljaywgTWF0dGhldyB3cm90ZToNCj4gPiA+
-DQo+ID4gPiBJIHRlbmQgdG8gYWdyZWUgd2l0aCBKYWtlIGhlcmUtLUkgbGlrZSBoYXZpbmcgdGhl
-IGluZm9ybWF0aW9uLiBJJ20NCj4gZmluZSByZW1vdmluZyB0aGVtLCBidXQgSSdkIGxpa2UgdG8g
-ZG8gaXQgZm9yIGFsbCBDT05GSUdfSUdCX1BUUCB3cmFwcGluZw0KPiBpZiB3ZSdyZSBnb2luZyB0
-byBkbyBpdC4gV2hhdCBkbyB5b3UgdGhpbmssIFJpY2hhcmQ/DQo+ID4NCj4gPiBDb21lIHRvIHRo
-aW5rIG9mIGl0LCBJIG5ldmVyIGxpa2VkIHRoZSBDT05GSUdfSUdCX1BUUCB2ZXJ5IG11Y2ggaW4g
-dGhlDQo+ID4gZmlyc3QgcGxhY2UuIFRoZXNlIHdlcmUgYWRkZWQgYWZ0ZXIgdGhlIGZhY3QgYnkg
-SmVmZiBLaXJzaGVyLiBIZSBoYWQNCj4gPiBzYWlkIG9mZiBsaXN0IHRoYXQgdGhlcmUgd2FzIHNv
-bWUgaXNzdWUgd2l0aCBDT05GSUdfUFRQXzE1ODhfQ0xPQ0sgYW5kDQo+ID4gaWdiIGFzIGEgbW9k
-dWxlLCBvciBzb21ldGhpbmcgbGlrZSB0aGF0LiBBdCB0aGF0IHRpbWUgSSBzYWlkLCBqdXN0IGdv
-DQo+ID4gYWhlYWQgYW5kIGZpeCBpdCB1cC4NCj4gDQo+IElmIHRoZXJlIGlzIHNvbWUgZmVhdHVy
-ZSBvZiBhIGRyaXZlciB0aGF0IGRlcGVuZHMgb24gYW4gb3B0aW9uYWwNCj4gbW9kdWxhcmlzYWJs
-ZSBzdWJzeXN0ZW0sIGFuZCB5b3Ugd2FudCB0aGUgZHJpdmVyIHRvIGJlIGJ1aWx0IHdpdGhvdXQg
-dGhhdA0KPiBmZWF0dXJlIHdoZW4gdGhlIHN1YnN5c3RlbSBpcyBtaXNzaW5nLCB0aGVuIHRoZSBm
-ZWF0dXJlIGhhcyB0byBiZSBkaXNhYmxlZA0KPiB3aGVuIHRoZSBkcml2ZXIgaXMgYnVpbHQtaW4g
-YW5kIHRoZSBzdWJzeXN0ZW0gaXMgYSBtb2R1bGUuICBTbyBpbiBnZW5lcmFsDQo+IHlvdSBuZWVk
-Og0KPiANCj4gY29uZmlnIERSSVZFUl9GRUFUVVJFDQo+IAlib29sICJUaGlzIGlzIGEgcmVhbGx5
-IG5lYXQgZmVhdHVyZSBmb3IgdGhlIGRyaXZlciINCj4gCWRlcGVuZHMgb24gRFJJVkVSICYmIFNV
-QlNZU1RFTSAmJiAhKERSSVZFUj15ICYmIFNVQllTVEVNPW0pDQo+IA0KPiA+IEkgdGhpbmsgaXQg
-d291bGQgYmUgYmV0dGVyIGlmIHRoZSAidGltZSBzdGFtcCBhbGwgUnggcGFja2V0cyIgb2YgdGhl
-DQo+ID4gODI1ODAgd2VyZSBhbHdheXMgYXZhaWxhYmxlLCBhbmQgdGhhdCB0aGUgUEhDIGZlYXR1
-cmUgYWx3YXlzIGJlDQo+ID4gY29tcGlsZWQgd2hlbiBDT05GSUdfUFRQXzE1ODhfQ0xPQ0sgaXMg
-c2VsZWN0ZWQuDQo+ID4NCj4gPiBNYXliZSB5b3UgY291bGQgYXNrIEplZmYgd2hhdCB0aGUgaXNz
-dWUgd2FzLCBhbmQgdGhlbiBzZWUgaWYgdGhlcmUgaXMNCj4gPiBhIHdheSB0byByZW1vdmUgQ09O
-RklHX0lHQl9QVFAgYWx0b2dldGhlci4NCj4gDQo+IEV2ZW4gaWYgdGhleSBhcmUgdG8gYmUgZW5h
-YmxlZCBhdXRvbWF0aWNhbGx5LCBDT05GSUdfSUdCX1BUUCBhbmQgc2ltaWxhcg0KPiBjb25maWcg
-c3ltYm9scyBhcmUgaW1wb3J0YW50IGFzIHNob3J0aGFuZC4gIFNvIEkgdGhpbmsgd2hhdCB5b3Ug
-d2FudCBpczoNCj4gDQo+IGNvbmZpZyBJR0JfUFRQDQo+IAlkZWZfYm9vbCB5DQo+IAlkZXBlbmRz
-IG9uIElHQiAmJiBQVFBfMTU4OF9DTE9DSyAmJiAhKElHQj15ICYmIFBUUF8xNTg4X0NMT0NLPW0p
-DQo+IA0KPiAoQnV0IGN1cnJlbnRseSBpdCdzIGFjdHVhbGx5ICpzZWxlY3RpbmcqIFBUUF8xNTg4
-X0NMT0NLLiAgV2Ugc2hvdWxkDQo+IHByb2JhYmx5IGhhdmUgZHJpdmVycyBjb25zaXN0ZW50bHkg
-c2VsZWN0IG9yIGRlcGVuZCBvbiBpdCwgbm90IGENCj4gbWl4dHVyZS4pDQo+IA0KPiBCZW4uDQo+
-IA0KPiAtLQ0KPiBCZW4gSHV0Y2hpbmdzLCBTdGFmZiBFbmdpbmVlciwgU29sYXJmbGFyZSBOb3Qg
-c3BlYWtpbmcgZm9yIG15IGVtcGxveWVyOw0KPiB0aGF0J3MgdGhlIG1hcmtldGluZyBkZXBhcnRt
-ZW50J3Mgam9iLg0KPiBUaGV5IGFza2VkIHVzIHRvIG5vdGUgdGhhdCBTb2xhcmZsYXJlIHByb2R1
-Y3QgbmFtZXMgYXJlIHRyYWRlbWFya2VkLg0KDQoNClRoZSBJR1BfUFRQIGlzIG5lY2Vzc2FyeSBv
-dGhlcndpc2UgeW91IGhhdmUgdG8gZG8gc29tZXRoaW5nIGxpa2UgI2lmIGRlZmluZWQoQ09ORklH
-X1BUUF8xNTg4X0NMT0NLKSwgb3IgI2lmZGVmIENPTkZJR19QVFBfMTU4OF9DTE9DSyBcICNpZmRl
-ZiBDT05GSUdfUFRQXzE1ODhfQ0xPQ0tfTU9EVUxFDQoNClRoZSBtYWluIHJlYXNvbiB0aGF0IEkg
-d291bGRuJ3Qgd2FudCB0byB1bi13cmFwIHRoZSB0aW1lc3RhbXBpbmcgaXMgYmVjYXVzZSB0aGUg
-aHd0c3RhbXAgaW9jdGwgaXMgc29tZXdoYXQgcHJvYmxlbWF0aWMgYmVjYXVzZSBpdCBpcyBhbG1v
-c3QgYWxsIHB0cCBvbmx5LiBBbHNvLCBzb21lIG9mIHRoZSBwYXJ0cyBmb3IgaWdiIGRyaXZlciBk
-b24ndCBzdXBwb3J0IHRpbWVzdGFtcCBhbGwsIHRoZXkgb25seSBzdXBwb3J0IHB0cCBvbmx5IHBh
-Y2tldHMsIGFuZCB0aGlzIHdvdWxkIGJlIGEgbG90IG1vcmUgY29uZnVzaW5nIHNpbmNlIEkgd291
-bGQgc2F5IHN0aWxsIG9ubHkgYWxsb3cgdGhhdCBpZiBwdHAgaXMgb24uLiAoc2luY2UgdGhvc2Ug
-dmFsdWVzIGFyZSB1c2VsZXNzIGV4Y2VwdCB3aXRoIHRoZSBQSEMgY2xvY2spDQoNCi0gSmFrZQ0K
+On Fri, 10 Aug 2012 19:24:50 +0800
+Cong Wang <amwang@redhat.com> wrote:
+
+> napi->poll() needs IRQ enabled, so we have to re-enable IRQ before
+> calling it.
+> 
+> Cc: David Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+> ---
+>  net/core/netpoll.c |   10 +++++++++-
+>  1 files changed, 9 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> index e4ba3e7..346b1eb 100644
+> --- a/net/core/netpoll.c
+> +++ b/net/core/netpoll.c
+> @@ -168,16 +168,24 @@ static void poll_napi(struct net_device *dev)
+>  	struct napi_struct *napi;
+>  	int budget = 16;
+>  
+> +	WARN_ON_ONCE(!irqs_disabled());
+> +
+>  	list_for_each_entry(napi, &dev->napi_list, dev_list) {
+> +		local_irq_enable();
+>  		if (napi->poll_owner != smp_processor_id() &&
+>  		    spin_trylock(&napi->poll_lock)) {
+> +			rcu_read_lock_bh();
+>  			budget = poll_one_napi(rcu_dereference_bh(dev->npinfo),
+>  					       napi, budget);
+> +			rcu_read_unlock_bh();
+>  			spin_unlock(&napi->poll_lock);
+>  
+> -			if (!budget)
+> +			if (!budget) {
+> +				local_irq_disable();
+>  				break;
+> +			}
+>  		}
+> +		local_irq_disable();
+>  	}
+>  }
+
+This commit (6bdb7fe3104 in mainline) makes my netconsole-using x86_64
+box lock up during boot.  Dunno why, but I do have a cellphone:
+http://ozlabs.org/~akpm/stuff/IMG_20120824_122054.jpg
