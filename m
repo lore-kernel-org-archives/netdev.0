@@ -1,76 +1,36 @@
-From: Timur Tabi <timur@freescale.com>
-Subject: Re: [PATCH] [v2] netdev/phy: add MDIO bus multiplexer driven by a
- memory-mapped device
-Date: Fri, 24 Aug 2012 11:27:19 -0500
-Message-ID: <5037AB67.6030106@freescale.com>
-References: <1345751071-23128-1-git-send-email-timur@freescale.com> <5036B4BD.70208@wwwdotorg.org> <6AE080B68D46FC4BA2D2769E68D765B7059D1DC7@039-SN2MPN1-022.039d.mgd.msft.net> <5036EB06.7060807@wwwdotorg.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] cls_cgroup: Allow classifier cgroups to have their
+ classid reset to 0
+Date: Fri, 24 Aug 2012 12:41:47 -0400 (EDT)
+Message-ID: <20120824.124147.1315942233312740114.davem@davemloft.net>
+References: <1345485550-15556-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Fleming Andy-AFLEMING <afleming@freescale.com>,
-	David Miller <davem@davemloft.net>,
-	"ddaney.cavm@gmail.com" <ddaney.cavm@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>,
-	Scott Wood <scottwood@freescale.com>
-To: Stephen Warren <swarren@wwwdotorg.org>
+Cc: netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:27147 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759856Ab2HXQ13 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 12:27:29 -0400
-In-Reply-To: <5036EB06.7060807@wwwdotorg.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54130 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964937Ab2HXQlv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 12:41:51 -0400
+In-Reply-To: <1345485550-15556-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Warren wrote:
->>> >> Then, that'd have to be <9 1>;
->> > 
->> > Actually, I had #size-cells = <0>.
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Mon, 20 Aug 2012 13:59:10 -0400
 
-> I think that if you have #size-cells=<0>, then you'll see the following
-> error message when attempting to translate the address into the parent's
-> address space:
+> The network classifier cgroup initalizes each cgroups instance classid value to
+> 0.  However, the sock_update_classid function only updates classid's in sockets
+> if the tasks cgroup classid is not zero, and if it differs from the current
+> classid.  The later check is to prevent cache line dirtying, but the former is
+> detrimental, as it prevents resetting a classid for a cgroup to 0.  While this
+> is not a common action, it has administrative usefulness (if the admin wants to
+> disable classification of a certain group temporarily for instance).
 > 
-> prom_parse: Bad cell count for /board-control@3,0/mdio-mux-emi2
+> Easy fix, just remove the zero check.  Tested successfully by myself
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-It doesn't appear to be working.  Here's my tree:
-
-/ {
-	model = "fsl,P5020DS";
-	compatible = "fsl,P5020DS";
-	#address-cells = <2>;
-	#size-cells = <2>;
-	interrupt-parent = <&mpic>;
-
-	lbc: localbus@ffe124000 {
-		reg = <0xf 0xfe124000 0 0x1000>;
-		ranges = <0 0 0xf 0xe8000000 0x08000000
-			  2 0 0xf 0xffa00000 0x00040000
-			  3 0 0xf 0xffdf0000 0x00008000>;
-
-		fpga: board-control@3,0 {
-			#address-cells = <1>;
-			#size-cells = <1>;
-			compatible = "fsl,p5020ds-fpga", "fsl,fpga-ngpixis";
-			reg = <3 0 0x30>;
-
-			mdio-mux-emi1 {
-				compatible = "mdio-mux-mmioreg";
-				mdio-parent-bus = <&mdio0>;
-				#address-cells = <1>;
-				#size-cells = <0>;
-				reg = <9 1>; // BRDCFG1
-				mux-mask = <0x78>; // EMI1
-
-That means that the physical address that I need is fffdf0009.  However,
-when I call of_address_to_resource(), the returned address I get is fe8000009.
-
-So it's not picking up the "3" in the 'reg' property of the
-board-control@3,0 node.  What am I missing?  Do I need a 'ranges' property
-in the board-control@3,0 node?
-
--- 
-Timur Tabi
-Linux kernel developer at Freescale
+Applied to net-next, thanks Neil.
