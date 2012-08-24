@@ -1,67 +1,97 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: pull request: sfc-next 2012-08-24
-Date: Fri, 24 Aug 2012 20:46:14 +0100
-Message-ID: <1345837574.2694.22.camel@bwh-desktop.uk.solarflarecom.com>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and naive hashtable
+Date: Fri, 24 Aug 2012 21:47:19 +0200
+Message-ID: <5037DA47.9010306@gmail.com>
+References: <1345602432-27673-1-git-send-email-levinsasha928@gmail.com> <1345602432-27673-2-git-send-email-levinsasha928@gmail.com> <20120822180138.GA19212@google.com> <50357840.5020201@gmail.com> <20120823200456.GD14962@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56615 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757692Ab2HXTqS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 15:46:18 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+ linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+ paul.gortmaker@windriver.com, davem@davemloft.net, rostedt@goodmis.org,
+ mingo@elte.hu, ebiederm@xmission.com, aarcange@redhat.com,
+ ericvh@gmail.com, netdev@vger.kernel.org, josh@joshtriplett.org,
+ eric.dumazet@gmail.com, mathieu.desnoyers@efficios.com, axboe@kernel.dk,
+ agk@redhat.com, dm-devel@redhat.com, neilb@suse.de, ccaulfie@redhat.com,
+ teigland@redhat.com, Trond.Myklebust@netapp.com, bfields@fieldses.org,
+ fweisbec@gmail.com, jesse@nicira.com, venkat.x.venkatsubra@oracle.com,
+ ejt@redhat.com, snitzer@redhat.com, edumazet@google.com,
+ linux-nfs@vger.kernel.org, dev@openvswitch.org,
+ rds-devel@oss.oracle.com, lw@cn.fujitsu.com
+To: Tejun Heo <tj@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20120823200456.GD14962@google.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-The following changes since commit 8f4cccbbd92f2ad0ddbbc498ef7cee2a1c3defe9:
+On 08/23/2012 10:04 PM, Tejun Heo wrote:
+> Hello, Sasha.
+> 
+> On Thu, Aug 23, 2012 at 02:24:32AM +0200, Sasha Levin wrote:
+>>> I think the almost trivial nature of hlist hashtables makes this a bit
+>>> tricky and I'm not very sure but having this combinatory explosion is
+>>> a bit dazzling when the same functionality can be achieved by simply
+>>> combining operations which are already defined and named considering
+>>> hashtable.  I'm not feeling too strong about this tho.  What do others
+>>> think?
+>>
+>> I'm thinking that this hashtable API will have 2 purposes: First, it would
+>> prevent the excessive duplication of hashtable implementations all around the code.
+>>
+>> Second, it will allow more easily interchangeable hashtable implementations to
+>> find their way into the kernel. There are several maintainers who would be happy
+>> to see dynamically sized RCU hashtable, and I'm guessing that several more
+>> variants could be added based on needs in specific modules.
+>>
+>> The second reason is why several things you've mentioned look the way they are:
+>>
+>>  - No DEFINE_HASHTABLE(): I wanted to force the use of hash_init() since
+>> initialization for other hashtables may be more complicated than the static
+>> initialization for this implementation, which means that any place that used
+>> DEFINE_HASHTABLE() and didn't do hash_init() will be buggy.
+> 
+> I think this is problematic.  It looks exactly like other existing
+> DEFINE macros yet what its semantics is different.  I don't think
+> that's a good idea.
 
-  net: Set device operstate at registration time (2012-08-24 12:46:13 -0400)
+I can switch that to be DECLARE_HASHTABLE() if the issue is semantics.
 
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
+>> I'm actually tempted in hiding hlist completely from hashtable users, probably
+>> by simply defining a hash_head/hash_node on top of the hlist_ counterparts.
+> 
+> I think that it would be best to keep this one simple & obvious, which
+> already has enough in-kernel users to justify its existence.  There
+> are significant benefits in being trivially understandable and
+> expectable.  If we want more advanced ones - say resizing, hybrid or
+> what not, let's make that a separate one.  No need to complicate the
+> common straight-forward case for that.
+> 
+> So, I think it would be best to keep this one as straight-forward and
+> trivial as possible.  Helper macros to help its users are fine but
+> let's please not go for full encapsulation.
 
-(commit 8f8b3d518999fd1c342310910aa1e49112c86d05)
+What if we cut off the dynamic allocated (but not resizable) hashtable out for
+the moment, and focus on the most common statically allocated hashtable case?
 
-1. Change the TX path to stop queues earlier and avoid returning
-NETDEV_TX_BUSY.
-2. Remove some inefficiencies in soft-TSO.
-3. Fix various bugs involving device state transitions and/or reset
-scheduling by error handlers.
-4. Take advantage of my previous change to operstate initialisation.
-5. Miscellaneous cleanup.
+The benefits would be:
 
-Ben.
+ - Getting rid of all the _size() macros, which will make the amount of helpers
+here reasonable.
+ - Dynamically allocated hashtable can be easily added as a separate
+implementation using the same API. We already have some of those in the kernel...
+ - When that's ready, I feel it's a shame to lose full encapsulation just due to
+hash_hashed().
 
-Ben Hutchings (16):
-      sfc: Refactor struct efx_tx_buffer to use a flags field
-      sfc: Stop TX queues before they fill up
-      sfc: Simplify TSO header buffer allocation
-      sfc: Replace tso_state::full_packet_space with ip_base_len
-      sfc: Stash header offsets for TSO in struct tso_state
-      sfc: Change state names to be clearer, and comment them
-      sfc: Hold the RTNL lock for more of the suspend/resume cycle
-      sfc: Keep disabled NICs quiescent during suspend/resume
-      sfc: Hold RTNL lock (only) when calling efx_stop_interrupts()
-      sfc: Never try to stop and start a NIC that is disabled
-      sfc: Improve log messages in case we abort probe due to a pending reset
-      sfc: Fix reset vs probe/remove/PM races involving efx_nic::state
-      sfc: Remove overly paranoid locking assertions from netdev operations
-      sfc: Remove bogus comment about MTU change and RX buffer overrun
-      sfc: Assign efx and efx->type as early as possible in efx_pci_probe()
-      sfc: Fix the initial device operstate
 
- drivers/net/ethernet/sfc/efx.c           |  235 +++++++-----
- drivers/net/ethernet/sfc/ethtool.c       |    4 +-
- drivers/net/ethernet/sfc/falcon_boards.c |    2 +-
- drivers/net/ethernet/sfc/net_driver.h    |   49 ++--
- drivers/net/ethernet/sfc/nic.c           |    6 +-
- drivers/net/ethernet/sfc/tx.c            |  621 ++++++++++++------------------
- 6 files changed, 410 insertions(+), 507 deletions(-)
+Thanks,
+Sasha
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> 
+> Thanks.
+> 
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
