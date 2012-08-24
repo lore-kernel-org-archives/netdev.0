@@ -1,70 +1,45 @@
-From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Subject: Re: [PATCH v2 00/10] cgroup: Assign subsystem IDs during compile
- time
-Date: Fri, 24 Aug 2012 17:01:33 +0200
-Message-ID: <5037974D.20105@monom.org>
-References: <1345816904-21745-1-git-send-email-wagi@monom.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 11/13] igb: Update PTP function names/variables and
+ locations.
+Date: Fri, 24 Aug 2012 11:12:38 -0400 (EDT)
+Message-ID: <20120824.111238.1400056420671100883.davem@davemloft.net>
+References: <1345777345.16471.18.camel@joe2Laptop>
+	<20120824063240.GB2212@netboy.at.omicron.at>
+	<1345800154.16471.20.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1345816904-21745-1-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: richardcochran@gmail.com, matthew.vick@intel.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53292 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753811Ab2HXPMl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 11:12:41 -0400
+In-Reply-To: <1345800154.16471.20.camel@joe2Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 24.08.2012 16:01, Daniel Wagner wrote:
-> CGROUP_BUILTIN_SUBSYS_COUNT is also gone in this version.  This time I
-> trade space for speed. Some extra cycles are spend to identify the
-> modules in the for loops, e.g.
->
-> for (i = 0; i < CGROUP_SUBSYS_COUNT; i++) {
-> 	struct cgroup_subsys_state *ss = cgrp->subsys[i];
->
-> 	/* at bootup time, we don't worry about modular subsystems */
-> 	if (!ss || (ss && ss->module))
-> 		continue;
->
-> 	[...]
-> }
->
-> CGROUP_SUBSYS_COUNT is currently 12 if all controllers are built.  I
-> haven't found any other way to get rid of CGROUP_BUILTIN_SUBSYS_COUNT
-> without real dirty preprocessor tricks.
+From: Joe Perches <joe@perches.com>
+Date: Fri, 24 Aug 2012 02:22:34 -0700
 
-As usual, the good ideas come right after sending patches:
+> On Fri, 2012-08-24 at 08:32 +0200, Richard Cochran wrote:
+>> On Thu, Aug 23, 2012 at 08:02:25PM -0700, Joe Perches wrote:
+>> 
+>> > Improving code clarity and consistency isn't churn.
+>> 
+>> This patch series moves code around for no good reason. That is, by
+>> definition, churn.
+> 
+> For your definition of good.
 
-enum cgroup_subsys_id {
-#define SUBSYS(_x) _x ## _subsys_id,
+I think the people doing all of the actual development and
+maintainence of the code get to decide how to define good.  And in
+this case that's basically the Intel NIC development team, not you.
 
-#define IS_SUBSYS_ENABLED(option) IS_BUILTIN(option)
-#include <linux/cgroup_subsys.h>
-#undef IS_SUBSYS_ENABLED
+Moving functions around is a very valuable and useful cleanup quite
+often.
 
-	CGROUP_BUILTIN_SUBSYS_COUNT,
-	CGROUP_BUILTIN_SUBSYS_LAST = CGROUP_BUILTIN_SUBSYS_COUNT - 1,
-
-#define IS_SUBSYS_ENABLED(option) IS_MODULE(option)
-#include <linux/cgroup_subsys.h>
-#undef IS_SUBSYS_ENABLED
-
-#undef SUBSYS
-
-	CGROUP_SUBSYS_COUNT,
-};
-
-Would that be an acceptable solution?
-
-cheers,
-daniel
+So you can count me in on their definition of "good" as well.
