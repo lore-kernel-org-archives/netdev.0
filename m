@@ -1,251 +1,58 @@
-From: Naresh Kumar Inna <naresh@chelsio.com>
-Subject: Re: [PATCH 6/8] csiostor: Chelsio FCoE offload driver submission
- (headers part 1).
-Date: Sat, 25 Aug 2012 00:06:07 +0530
-Message-ID: <5037C997.4030803@chelsio.com>
-References: <1345760873-12101-1-git-send-email-naresh@chelsio.com>  <1345760873-12101-7-git-send-email-naresh@chelsio.com> <1345751929.10190.83.camel@haakon2.linux-iscsi.org>
+From: Timur Tabi <timur@freescale.com>
+Subject: Re: [PATCH] [v2] netdev/phy: add MDIO bus multiplexer driven by a
+ memory-mapped device
+Date: Fri, 24 Aug 2012 13:36:31 -0500
+Message-ID: <5037C9AF.3060903@freescale.com>
+References: <1345751071-23128-1-git-send-email-timur@freescale.com> <5036B4BD.70208@wwwdotorg.org> <6AE080B68D46FC4BA2D2769E68D765B7059D1DC7@039-SN2MPN1-022.039d.mgd.msft.net> <5036EB06.7060807@wwwdotorg.org> <5037AB67.6030106@freescale.com> <5037C815.4020906@wwwdotorg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "JBottomley@parallels.com" <JBottomley@parallels.com>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	Dimitrios Michailidis <dm@chelsio.com>,
+Cc: Fleming Andy-AFLEMING <afleming@freescale.com>,
+	David Miller <davem@davemloft.net>,
+	"ddaney.cavm@gmail.com" <ddaney.cavm@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Chethan Seshadri <chethan@chelsio.com>
-To: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+	"devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>,
+	Scott Wood <scottwood@freescale.com>
+To: Stephen Warren <swarren@wwwdotorg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:11381 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751775Ab2HXSgg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 14:36:36 -0400
-In-Reply-To: <1345751929.10190.83.camel@haakon2.linux-iscsi.org>
+Received: from am1ehsobe002.messaging.microsoft.com ([213.199.154.205]:37099
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751775Ab2HXSgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 14:36:42 -0400
+In-Reply-To: <5037C815.4020906@wwwdotorg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/24/2012 1:28 AM, Nicholas A. Bellinger wrote:
-> On Fri, 2012-08-24 at 03:57 +0530, Naresh Kumar Inna wrote:
->> This patch contains the first set of the header files for csiostor driver.
->>
->> Signed-off-by: Naresh Kumar Inna <naresh@chelsio.com>
->> ---
->>  drivers/scsi/csiostor/csio_defs.h       |  143 ++++++
->>  drivers/scsi/csiostor/csio_fcoe_proto.h |  843 +++++++++++++++++++++++++++++++
->>  drivers/scsi/csiostor/csio_hw.h         |  668 ++++++++++++++++++++++++
->>  drivers/scsi/csiostor/csio_init.h       |  158 ++++++
->>  4 files changed, 1812 insertions(+), 0 deletions(-)
->>  create mode 100644 drivers/scsi/csiostor/csio_defs.h
->>  create mode 100644 drivers/scsi/csiostor/csio_fcoe_proto.h
->>  create mode 100644 drivers/scsi/csiostor/csio_hw.h
->>  create mode 100644 drivers/scsi/csiostor/csio_init.h
->>
+Stephen Warren wrote:
+> When translating the child node's reg property into the parent's address
+> space, the parent's reg property shouldn't even be used at all; all the
+> mapping is done through the ranges property.
 > 
-> Hi Naresh,
-> 
-> Just commenting on csio_defs.h bits here...  As Robert mentioned, you'll
-> need to convert the driver to use (or add to) upstream protocol
-> definitions and drop the csio_fcoe_proto.h bits..
-> 
+> I thought the code error-checked for a missing ranges property, but I
+> guess not...
 
-Hi Nicholas,
+I don't think 'ranges' is always necessary, because sometimes the child
+nodes have a different address space that's not mapped to the parent.  For
+instance, I2C devices have addresses that are not mapped to the I2C
+controller itself.
 
-I would like take up the discussion of the protocol header file in that
-email thread. Please find the rest of my replies inline.
+Anyway, thanks to Scott for helping me figure this out.  I was missing a
+ranges property:
 
-Thanks for reviewing,
-Naresh.
+	fpga: board-control@3,0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "fsl,p5020ds-fpga", "fsl,fpga-ngpixis";
+		reg = <3 0 0x30>;
+		ranges = <0 3 0 0x30>;
 
->> diff --git a/drivers/scsi/csiostor/csio_defs.h b/drivers/scsi/csiostor/csio_defs.h
->> new file mode 100644
->> index 0000000..4f1c713
->> --- /dev/null
->> +++ b/drivers/scsi/csiostor/csio_defs.h
->> @@ -0,0 +1,143 @@
->> +/*
->> + * This file is part of the Chelsio FCoE driver for Linux.
->> + *
->> + * Copyright (c) 2008-2012 Chelsio Communications, Inc. All rights reserved.
->> + *
->> + * This software is available to you under a choice of one of two
->> + * licenses.  You may choose to be licensed under the terms of the GNU
->> + * General Public License (GPL) Version 2, available from the file
->> + * COPYING in the main directory of this source tree, or the
->> + * OpenIB.org BSD license below:
->> + *
->> + *     Redistribution and use in source and binary forms, with or
->> + *     without modification, are permitted provided that the following
->> + *     conditions are met:
->> + *
->> + *      - Redistributions of source code must retain the above
->> + *        copyright notice, this list of conditions and the following
->> + *        disclaimer.
->> + *
->> + *      - Redistributions in binary form must reproduce the above
->> + *        copyright notice, this list of conditions and the following
->> + *        disclaimer in the documentation and/or other materials
->> + *        provided with the distribution.
->> + *
->> + * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
->> + * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
->> + * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
->> + * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
->> + * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
->> + * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
->> + * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
->> + * SOFTWARE.
->> + */
->> +
->> +#ifndef __CSIO_DEFS_H__
->> +#define __CSIO_DEFS_H__
->> +
->> +#include <linux/kernel.h>
->> +#include <linux/timer.h>
->> +#include <linux/list.h>
->> +#include <linux/bug.h>
->> +#include <linux/pci.h>
->> +#include <linux/jiffies.h>
->> +
->> +/* Function returns */
->> +enum csio_retval {
->> +	CSIO_SUCCESS = 0,
->> +	CSIO_INVAL = 1,
->> +	CSIO_BUSY = 2,
->> +	CSIO_NOSUPP = 3,
->> +	CSIO_TIMEOUT = 4,
->> +	CSIO_NOMEM = 5,
->> +	CSIO_NOPERM = 6,
->> +	CSIO_RETRY = 7,
->> +	CSIO_EPROTO = 8,
->> +	CSIO_EIO = 9,
->> +	CSIO_CANCELLED = 10,
->> +};
->> +
-> 
-> Please don't assign macros for errno's, and give them positive values.
->
+This maps the child address of 0 to the parent address of 3 0.  It seems
+obvious now, but it was driving me crazy.  We've never put child devices
+under our FPGA nodes, so there was no prior use case of a 'ranges'
+property in any of the localbus devices that I could learn from.  Plus,
+this is the first time we're probing directly on a child of a localbus device.
 
-Although some of these return values appear to be mapped to errno
-values, there are others that do not have an errno equivalent (example
-CSIO_CANCELLED). We may have future needs to have more driver/protocol
-specific return values as well. What do you suggest?
-
-
->> +#define csio_retval_t enum csio_retval
-> 
-> Please get rid of this csio_retval_t nonsense.
-
-I can get rid of the typedef and use enum csio_retval instead.
-
-> 
->> +
->> +enum {
->> +	CSIO_FALSE = 0,
->> +	CSIO_TRUE = 1,
->> +};
->> +
-> 
-> Same here, please use normal Boolean macros
-> 
->> +#define CSIO_ROUNDUP(__v, __r)		(((__v) + (__r) - 1) / (__r))
->> +#define CSIO_INVALID_IDX		0xFFFFFFFF
->> +#define csio_inc_stats(elem, val)	((elem)->stats.val++)
->> +#define csio_dec_stats(elem, val)	((elem)->stats.val--)
-> 
-> No reason for either of this stats inc+dec macros.  Please drop them.
-
-I will get rid of them.
-
-> 
->> +#define csio_valid_wwn(__n)		((*__n >> 4) == 0x5 ? CSIO_TRUE : \
->> +						CSIO_FALSE)
->> +#define CSIO_WORD_TO_BYTE		4
->> +
->> +static inline int
->> +csio_list_deleted(struct list_head *list)
->> +{
->> +	return ((list->next == list) && (list->prev == list));
->> +}
->> +
->> +#define csio_list_next(elem)	(((struct list_head *)(elem))->next)
->> +#define csio_list_prev(elem)	(((struct list_head *)(elem))->prev)
->> +
->> +#define csio_deq_from_head(head, elem)					  \
->> +do {									  \
->> +	if (!list_empty(head)) {					  \
->> +		*((struct list_head **)(elem)) = csio_list_next((head));  \
->> +		csio_list_next((head)) =				  \
->> +				csio_list_next(csio_list_next((head)));   \
->> +		csio_list_prev(csio_list_next((head))) = (head);	  \
->> +		INIT_LIST_HEAD(*((struct list_head **)(elem)));	          \
->> +	} else								  \
->> +		*((struct list_head **)(elem)) = (struct list_head *)NULL;\
->> +} while (0)
->> +
-> 
-> This code is confusing as hell..  Why can't you just use normal list.h
-> macros for this..?  
-
-I have not found an equivalent function in list.h that does the above
-and the following macro. Could you please point me to it? I have seen a
-couple of other drivers define their own macros to achieve what this
-macro does, hence I assumed there isnt a list.h macro that does this.
-
->> +#define csio_deq_from_tail(head, elem)					  \
->> +do {									  \
->> +	if (!list_empty(head)) {					  \
->> +		*((struct list_head **)(elem)) = csio_list_prev((head));  \
->> +		csio_list_prev((head)) =				  \
->> +				csio_list_prev(csio_list_prev((head)));	  \
->> +		csio_list_next(csio_list_prev((head))) = (head);	  \
->> +		INIT_LIST_HEAD(*((struct list_head **)(elem)));		  \
->> +	} else								  \
->> +		*((struct list_head **)(elem)) = (struct list_head *)NULL;\
->> +} while (0)
->> +
-> 
-> Same here..  Please don't use macros like this.
-> 
->> +/* State machine */
->> +typedef void (*csio_sm_state_t)(void *, uint32_t);
->> +
->> +struct csio_sm {
->> +	struct list_head	sm_list;
->> +	csio_sm_state_t		sm_state;
->> +};
->> +
->> +#define csio_init_state(__smp, __state)					\
->> +	(((struct csio_sm *)(__smp))->sm_state = (csio_sm_state_t)(__state))
->> +
->> +#define	csio_set_state(__smp, __state)					\
->> +	(((struct csio_sm *)(__smp))->sm_state = (csio_sm_state_t)(__state))
->> +
->> +
->> +#define csio_post_event(__smp, __evt)					\
->> +	(((struct csio_sm *)(__smp))->sm_state((__smp), (uint32_t)(__evt)))
->> +
->> +#define	csio_get_state(__smp)	(((struct csio_sm *)(__smp))->sm_state)
->> +
->> +#define	csio_match_state(__smp, __state)				\
->> +	(csio_get_state((__smp)) == (csio_sm_state_t)(__state))
->> +
-> 
-> Why does any of the sm_state stuff need to be in macros..?  Please
-> inline all of this code.
-
-I will change them to static inline.
-
-> 
->> +#define	CSIO_ASSERT(cond)						\
->> +do {									\
->> +	if (unlikely(!((cond))))					\
->> +		BUG();                                                  \
->> +} while (0)
->> +
->> +#ifdef __CSIO_DEBUG__
->> +#define CSIO_DB_ASSERT(__c)		CSIO_ASSERT((__c))
->> +#else
->> +#define CSIO_DB_ASSERT(__c)
->> +#endif
->> +
->> +#endif /* ifndef __CSIO_DEFS_H__ */
-> 
-> 
+-- 
+Timur Tabi
+Linux kernel developer at Freescale
