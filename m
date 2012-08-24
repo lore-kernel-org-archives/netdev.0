@@ -1,89 +1,94 @@
-From: David Daney <ddaney.cavm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [RFC] How should the device tree represent multiple Ethernet PHYs
- in a single package?
-Date: Thu, 23 Aug 2012 17:21:38 -0700
-Message-ID: <5036C912.7090203@gmail.com>
+From: Tabi Timur-B04825 <B04825@freescale.com>
+Subject: Re: [PATCH] [v2] netdev/phy: add MDIO bus multiplexer driven by a
+ memory-mapped device
+Date: Fri, 24 Aug 2012 00:28:10 +0000
+Message-ID: <6AE080B68D46FC4BA2D2769E68D765B7059D1DC7@039-SN2MPN1-022.039d.mgd.msft.net>
+References: <1345751071-23128-1-git-send-email-timur@freescale.com>
+ <5036B4BD.70208@wwwdotorg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-To: Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
- Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
- Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Fleming Andy-AFLEMING <afleming@freescale.com>,
+	David Miller <davem@davemloft.net>,
+	"ddaney.cavm@gmail.com" <ddaney.cavm@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>
+To: Stephen Warren <swarren@wwwdotorg.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from am1ehsobe001.messaging.microsoft.com ([213.199.154.204]:6766
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752155Ab2HXA2Y convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Aug 2012 20:28:24 -0400
+In-Reply-To: <5036B4BD.70208@wwwdotorg.org>
+Content-Language: en-US
+Content-ID: <FE3D0CC80C53094A9E3CCA0E219E43EA@mgd.freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We are working with a Dual 10G Ethernet PHY Device (Vitesse vcs8488) and 
-would like to represent it in the device tree for several of our boards. 
-  This device has some registers and pins that are common to both of the 
-PHY units on the die.  Other registers are standard IEEE803.3-C45.
+Stephen Warren wrote:
+> On 08/23/2012 01:44 PM, Timur Tabi wrote:
+>> Add support for an MDIO bus multiplexer controlled by a simple memory-mapped
+>> device, like an FPGA.  The device must be memory-mapped and contain only
+>> 8-bit registers (which keeps things simple).
+>
+>> +++ b/Documentation/devicetree/bindings/net/mdio-mux-mmioreg.txt
+>
+>> +	/* The FPGA node */
+>> +	fpga: board-control@3,0 {
+>> +		compatible = "fsl,p5020ds-fpga", "fsl,fpga-ngpixis";
+>> +		reg = <3 0 0x30>;
+>
+> Why not add the following here:
+>
+> 	#address-cells = <1>:
+> 	#size-cells = <1>;
+> 	ranges = <...>;
 
-Here is my first (hand-waving) take at how it should look:
+I forgot to add them in the txt file.  They are in the real device tree.
 
+>
+>> +
+>> +		mdio-mux-emi2 {
+>> +			compatible = "mdio-mux-mmioreg", "mdio-mux";
+>> +			mdio-parent-bus = <&xmdio0>;
+>> +			#address-cells = <1>;
+>> +			#size-cells = <0>;
+>> +			reg = <9>; // BRDCFG1
+>
+> Then, that'd have to be <9 1>;
 
-ethernet-phy-nexus@0 {
-	reg = <0x00>;
-	/* The Vitesse VSC8488 is a dual-PHY where
-	 * some of the configuration is common across
-	 * both of the phy devices such as the reset
-	 * line and the base MDIO address.
-	 */
-	compatible = "vitesse,vsc8488-nexus", "ethernet-phy-nexus";
-	#address-cells = <1>;
-	#size-cells = <0>;
-	ranges;
-	
-	/* Hardware reset signal */
-	reset = <&gpio 17 0>;
+Actually, I had #size-cells = <0>.
 
-	/* Other common initialization (laser power, etc. )*/
+>
+> That way, ...
+>
+>> diff --git a/drivers/net/phy/mdio-mux-mmioreg.c b/drivers/net/phy/mdio-mux-mmioreg.c
+>
+>> +static int __devinit mdio_mux_mmioreg_probe(struct platform_device *pdev)
+>
+>> +	/* The MMIO device is the parent of this device */
+>> +	np2 = of_get_parent(np);
+>> +	if (!np2) {
+>> +		dev_err(&pdev->dev, "could not find parent MMIO device\n");
+>> +		return -ENODEV;
+>> +	}
+>> +
+>> +	ret = of_address_to_resource(np2, 0, &res);
+>> +	if (ret) {
+>> +		dev_err(&pdev->dev, "could not obtain memory map for node %s\n",
+>> +			np2->full_name);
+>> +		return ret;
+>> +	}
+>> +	s->phys = res.start;
+>
+> You could simplify all that into just "of_iomap(np, 0)", and all the
+> address translation etc. happens entirely automatically, in the standard
+> fashion for DT.
 
-	phy30: ethernet-phy@0 {
-		/* Absolute address */
-		reg = <0x0>;
-		compatible = "vitesse,vsc8488", "ethernet-phy-ieee802.3-c45";
-		interrupt-parent = <&gpio>;
-		interrupts = <13 8>;
+Ah!  You're right.  I don't need to look for the parent node.  Duh.
 
-		/* TX Fault GPIO line */
-		tx_fault = <1>;
-		/* GPIO that enables output */
-		txon = <4>;
-		/* INT A GPIO output */
-		inta = <5>;
-	};
-
-	phy31: ethernet-phy@1 {
-		/* Absolute address */
-		reg = <0x1>;
-		compatible = "vitesse,vsc8488", "ethernet-phy-ieee802.3-c45";
-		interrupt-parent = <&gpio>;
-		interrupts = <13 8>;
-
-		/* TX Fault GPIO line */
-		tx_fault = <8>;
-		/* GPIO that enables output */
-		txon = <10>;
-		/* INT A GPIO output */
-		inta = <5>;
-         };
-};
-
-
-We would then modify of_mdio.c so that when it encountered an 
-"ethernet-phy-nexus", it would add all the children of the nexus.
-
-Comments?  Objections?
-
-Thanks, and let me know what you think,
-David Daney
+-- 
+Timur Tabi
+Linux kernel developer at Freescale
