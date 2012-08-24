@@ -1,48 +1,57 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next 11/13] igb: Update PTP function names/variables and
- locations.
-Date: Fri, 24 Aug 2012 02:22:34 -0700
-Message-ID: <1345800154.16471.20.camel@joe2Laptop>
-References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1345715813-20757-12-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20120823111622.GC2238@netboy.at.omicron.at>
-	 <06DFBC1E25D8024DB214DC7F41A3CD34488DD079@ORSMSX101.amr.corp.intel.com>
-	 <20120823175335.GB2192@netboy.at.omicron.at>
-	 <1345777345.16471.18.camel@joe2Laptop>
-	 <20120824063240.GB2212@netboy.at.omicron.at>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Vick, Matthew" <matthew.vick@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:46929 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753119Ab2HXJWg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Aug 2012 05:22:36 -0400
-In-Reply-To: <20120824063240.GB2212@netboy.at.omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH 1/2] can: softing: Fix potential memory leak in softing_load_fw()
+Date: Fri, 24 Aug 2012 11:30:42 +0200
+Message-ID: <1345800643-29456-2-git-send-email-mkl@pengutronix.de>
+References: <1345800643-29456-1-git-send-email-mkl@pengutronix.de>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+To: davem@davemloft.net
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1345800643-29456-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-08-24 at 08:32 +0200, Richard Cochran wrote:
-> On Thu, Aug 23, 2012 at 08:02:25PM -0700, Joe Perches wrote:
-> 
-> > Improving code clarity and consistency isn't churn.
-> 
-> This patch series moves code around for no good reason. That is, by
-> definition, churn.
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
-For your definition of good.
+Do not leak memory by updating pointer with potentially NULL realloc return value.
 
-> > The most valuable form of code is the current one,
-> > not any antecedent version.
-> 
-> You really haven't noticed all the code review and rebasing that goes
-> on around here in order to improve the commit history, have you?
+Found by Linux Driver Verification project (linuxtesting.org).
 
-That'd be incorrect too.
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+ drivers/net/can/softing/softing_fw.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/can/softing/softing_fw.c b/drivers/net/can/softing/softing_fw.c
+index 3105961..b595d34 100644
+--- a/drivers/net/can/softing/softing_fw.c
++++ b/drivers/net/can/softing/softing_fw.c
+@@ -150,7 +150,7 @@ int softing_load_fw(const char *file, struct softing *card,
+ 	const uint8_t *mem, *end, *dat;
+ 	uint16_t type, len;
+ 	uint32_t addr;
+-	uint8_t *buf = NULL;
++	uint8_t *buf = NULL, *new_buf;
+ 	int buflen = 0;
+ 	int8_t type_end = 0;
+ 
+@@ -199,11 +199,12 @@ int softing_load_fw(const char *file, struct softing *card,
+ 		if (len > buflen) {
+ 			/* align buflen */
+ 			buflen = (len + (1024-1)) & ~(1024-1);
+-			buf = krealloc(buf, buflen, GFP_KERNEL);
+-			if (!buf) {
++			new_buf = krealloc(buf, buflen, GFP_KERNEL);
++			if (!new_buf) {
+ 				ret = -ENOMEM;
+ 				goto failed;
+ 			}
++			buf = new_buf;
+ 		}
+ 		/* verify record data */
+ 		memcpy_fromio(buf, &dpram[addr + offset], len);
+-- 
+1.7.10
+
