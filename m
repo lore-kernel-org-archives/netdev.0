@@ -1,82 +1,40 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and
- naive hashtable
-Date: Fri, 24 Aug 2012 13:33:32 -0700
-Message-ID: <20120824203332.GF21325@google.com>
-References: <1345602432-27673-1-git-send-email-levinsasha928@gmail.com>
-	<1345602432-27673-2-git-send-email-levinsasha928@gmail.com>
-	<20120822180138.GA19212@google.com> <50357840.5020201@gmail.com>
-	<20120823200456.GD14962@google.com> <5037DA47.9010306@gmail.com>
-	<20120824195941.GC21325@google.com> <5037E00B.6090606@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: sfc-next 2012-08-24
+Date: Fri, 24 Aug 2012 16:36:18 -0400 (EDT)
+Message-ID: <20120824.163618.381563523721565027.davem@davemloft.net>
+References: <1345837574.2694.22.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
-	mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <5037E00B.6090606-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56451 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754922Ab2HXUgU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 16:36:20 -0400
+In-Reply-To: <1345837574.2694.22.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, Sasha.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 24 Aug 2012 20:46:14 +0100
 
-On Fri, Aug 24, 2012 at 10:11:55PM +0200, Sasha Levin wrote:
-> > If this implementation is about the common trivial case, why not just
-> > have the usual DECLARE/DEFINE_HASHTABLE() combination?
+> The following changes since commit 8f4cccbbd92f2ad0ddbbc498ef7cee2a1c3defe9:
 > 
-> When we add the dynamic non-resizable support, how would DEFINE_HASHTABLE() look?
-
-Hmmm?  DECLARE/DEFINE are usually for static ones.
-
-> > I don't know.  If we stick to the static (or even !resize dymaic)
-> > straight-forward hash - and we need something like that - I don't see
-> > what the full encapsulation buys us other than a lot of trivial
-> > wrappers.
+>   net: Set device operstate at registration time (2012-08-24 12:46:13 -0400)
 > 
-> Which macros do you consider as trivial within the current API?
+> are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
 > 
-> Basically this entire thing could be reduced to DEFINE/DECLARE_HASHTABLE and
-> get_bucket(), but it would make the life of anyone who wants a slightly
-> different hashtable a hell.
+> (commit 8f8b3d518999fd1c342310910aa1e49112c86d05)
+> 
+> 1. Change the TX path to stop queues earlier and avoid returning
+> NETDEV_TX_BUSY.
+> 2. Remove some inefficiencies in soft-TSO.
+> 3. Fix various bugs involving device state transitions and/or reset
+> scheduling by error handlers.
+> 4. Take advantage of my previous change to operstate initialisation.
+> 5. Miscellaneous cleanup.
 
-Wouldn't the following be enough to get most of the benefits?
-
-* DECLARE/DEFINE
-* hash_head()
-* hash_for_each_head()
-* hash_add*()
-* hash_for_each_possible*()
-
-> I think that right now the only real trivial wrapper is hash_hashed(), and I
-> think it's a price worth paying to have a single hashtable API instead of
-> fragmenting it when more implementations come along.
-
-I'm not objecting strongly against full encapsulation but having this
-many thin wrappers makes me scratch my head.
-
-Thanks.
-
--- 
-tejun
+Looks good, pulled, thanks Ben.
