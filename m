@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH (net.git)] stmmac: add header inclusion protection
-Date: Fri, 24 Aug 2012 13:25:20 -0400 (EDT)
-Message-ID: <20120824.132520.988802945468353296.davem@davemloft.net>
-References: <1345706898-13007-1-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [PATCH] wimax/i2400m: use is_zero_ether_addr() instead of
+ memcmp()
+Date: Fri, 24 Aug 2012 13:30:37 -0400 (EDT)
+Message-ID: <20120824.133037.2004197798034785394.davem@davemloft.net>
+References: <CAPgLHd9_MkQcGbQEqf=6Kjm06juybu29qSBdd7T=_EenFDyuEQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rayagond@vayavyalabs.com
-To: peppe.cavallaro@st.com
+Cc: inaky.perez-gonzalez@intel.com, yongjun_wei@trendmicro.com.cn,
+	linux-wimax@intel.com, wimax@linuxwimax.org, netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54531 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54571 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758807Ab2HXRZX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 13:25:23 -0400
-In-Reply-To: <1345706898-13007-1-git-send-email-peppe.cavallaro@st.com>
+	with ESMTP id S1756062Ab2HXRak (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 13:30:40 -0400
+In-Reply-To: <CAPgLHd9_MkQcGbQEqf=6Kjm06juybu29qSBdd7T=_EenFDyuEQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Thu, 23 Aug 2012 09:28:18 +0200
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Thu, 23 Aug 2012 14:49:33 +0800
 
-> From: Rayagond Kokatanur <rayagond@vayavyalabs.com>
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
-> This patch adds "#ifndef __<header>_H" for protecting header from double
-> inclusion.
+> Using is_zero_ether_addr() instead of directly use
+> memcmp() to determine if the ethernet address is all
+> zeros.
 > 
-> Signed-off-by: Rayagond Kokatanur <rayagond@vayavyalabs.com>
-> Hacked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> spatch with a semantic match is used to found this problem.
+> (http://coccinelle.lip6.fr/)
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Applied, thanks.
+Applied.
