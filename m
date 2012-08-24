@@ -1,92 +1,229 @@
-From: Alex Bergmann <alex@linlab.net>
-Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
-Date: Fri, 24 Aug 2012 14:17:28 +0200
-Message-ID: <503770D8.8040906@linlab.net>
-References: <503419D3.1080700@linlab.net>  <CAFbMe2M7ekc94bQk7vTS1LhScPd49VZ-zKOCUXhqwxXtL-nkuA@mail.gmail.com>  <50361AEA.6010807@linlab.net> <1345724123.5904.756.camel@edumazet-glaptop>  <50362407.9070805@linlab.net> <1345726185.5904.835.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+Subject: [PATCH 3.6.0-rc3 2/2] of/mdio-gpio: Simplify the way device tree support is implemented.
+Date: Fri, 24 Aug 2012 12:59:17 +0100
+Message-ID: <1345809557-27727-1-git-send-email-srinivas.kandagatla@st.com>
+Cc: srinivas.kandagatla@st.com, davem@davemloft.net,
+	devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca
+To: netdev@vger.kernel.org, laurentp@cse-semaphore.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linlab.net ([89.244.147.154]:47271 "EHLO mail.linlab.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751646Ab2HXMRk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Aug 2012 08:17:40 -0400
-In-Reply-To: <1345726185.5904.835.camel@edumazet-glaptop>
+Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:39210 "EHLO
+	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759356Ab2HXMwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 08:52:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> 
-> A change of the comment might be good, to help future readers.
-> 
+From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-Okay, I've also changed the comments of SYN and SYNACK retries. 
+This patch cleans up the way device tree support is added in mdio-gpio
+driver. I found lot of code duplication which is not necessary.
+Also strangely a new platform driver was also introduced for device tree
+support. All this forced me to do this cleanup patch.
+After this patch, the driver probe checks the of_node pointer to get the
+data from device tree.
 
-Alex
-
->From 11a292b1cff772f930a02fda02d5b741f8ea5033 Mon Sep 17 00:00:00 2001
-From: Alexander Bergmann <alex@linlab.net>
-Date: Fri, 24 Aug 2012 14:09:49 +0200
-Subject: [PATCH 1/1] tcp: Increase timeout for SYN segments
-
-Commit 9ad7c049 changed the initRTO from 3secs to 1sec in accordance to
-RFC6298 (former RFC2988bis). This reduced the time till the last SYN
-retransmission packet gets sent from 93secs to 31secs.
-
-RFC1122 is stating that the retransmission should be done for at least 3
-minutes, but this seems to be quite high.
-
-  "However, the values of R1 and R2 may be different for SYN
-  and data segments.  In particular, R2 for a SYN segment MUST
-  be set large enough to provide retransmission of the segment
-  for at least 3 minutes.  The application can close the
-  connection (i.e., give up on the open attempt) sooner, of
-  course."
-
-This patch increases the value of TCP_SYN_RETRIES to the value of 6,
-providing a retransmission window of 63secs.
-
-The comments for SYN and SYNACK retries have also been updated to
-describe the current settings.
-
-Signed-off-by: Alexander Bergmann <alex@linlab.net>
+Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 ---
- include/net/tcp.h |   18 ++++++++++++++----
- 1 files changed, 14 insertions(+), 4 deletions(-)
+ drivers/net/phy/mdio-gpio.c |  136 +++++++++++++-----------------------------
+ 1 files changed, 42 insertions(+), 94 deletions(-)
+Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+---
+ drivers/net/phy/mdio-gpio.c |  132 +++++++++++++------------------------------
+ 1 files changed, 40 insertions(+), 92 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 1f000ff..d43d6b3 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -98,11 +98,21 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
-                                 * 15 is ~13-30min depending on RTO.
-                                 */
+diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+index 7189adf..899274f 100644
+--- a/drivers/net/phy/mdio-gpio.c
++++ b/drivers/net/phy/mdio-gpio.c
+@@ -28,17 +28,38 @@
+ #include <linux/gpio.h>
+ #include <linux/mdio-gpio.h>
  
--#define TCP_SYN_RETRIES         5      /* number of times to retry active opening a
--                                * connection: ~180sec is RFC minimum   */
-+#define TCP_SYN_RETRIES         6      /*
-+                                * This is how many retries it does to active
-+                                * opening a connection.
-+                                * RFC1122 says the minimum retry MUST be at
-+                                * least 180secs. Nevertheless this value is
-+                                * corresponding to 63secs of retransmission
-+                                * with the current initial RTO.
-+                                */
+-#ifdef CONFIG_OF_GPIO
+ #include <linux/of_gpio.h>
+ #include <linux/of_mdio.h>
+-#include <linux/of_platform.h>
+-#endif
  
--#define TCP_SYNACK_RETRIES 5   /* number of times to retry passive opening a
--                                * connection: ~180sec is RFC minimum   */
-+#define TCP_SYNACK_RETRIES 5   /* 
-+                                * This is how may retries it does to passive
-+                                * opening a connection. 
-+                                * This is corresponding to 31secs of 
-+                                * retransmission with the current initial RTO.
-+                                */
+ struct mdio_gpio_info {
+ 	struct mdiobb_ctrl ctrl;
+ 	int mdc, mdio;
+ };
  
- #define TCP_TIMEWAIT_LEN (60*HZ) /* how long to wait to destroy TIME-WAIT
-                                  * state, about 60 seconds     */
++static void *mdio_gpio_of_get_data(struct platform_device *pdev)
++{
++	struct device_node *np = pdev->dev.of_node;
++	struct mdio_gpio_platform_data *pdata;
++	int ret;
++
++	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
++	if (!pdata)
++		return NULL;
++
++	ret = of_get_gpio(np, 0);
++	if (ret < 0)
++		return NULL;
++
++	pdata->mdc = ret;
++
++	ret = of_get_gpio(np, 1);
++	if (ret < 0)
++		return NULL;
++	pdata->mdio = ret;
++
++	return pdata;
++}
++
+ static void mdio_dir(struct mdiobb_ctrl *ctrl, int dir)
+ {
+ 	struct mdio_gpio_info *bitbang =
+@@ -162,10 +183,15 @@ static void __devexit mdio_gpio_bus_destroy(struct device *dev)
+ 
+ static int __devinit mdio_gpio_probe(struct platform_device *pdev)
+ {
+-	struct mdio_gpio_platform_data *pdata = pdev->dev.platform_data;
++	struct mdio_gpio_platform_data *pdata;
+ 	struct mii_bus *new_bus;
+ 	int ret;
+ 
++	if (pdev->dev.of_node)
++		pdata = mdio_gpio_of_get_data(pdev);
++	else
++		pdata = pdev->dev.platform_data;
++
+ 	if (!pdata)
+ 		return -ENODEV;
+ 
+@@ -173,7 +199,11 @@ static int __devinit mdio_gpio_probe(struct platform_device *pdev)
+ 	if (!new_bus)
+ 		return -ENODEV;
+ 
+-	ret = mdiobus_register(new_bus);
++	if (pdev->dev.of_node)
++		ret = of_mdiobus_register(new_bus, pdev->dev.of_node);
++	else
++		ret = mdiobus_register(new_bus);
++
+ 	if (ret)
+ 		mdio_gpio_bus_deinit(&pdev->dev);
+ 
+@@ -187,112 +217,30 @@ static int __devexit mdio_gpio_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-#ifdef CONFIG_OF_GPIO
+-
+-static int __devinit mdio_ofgpio_probe(struct platform_device *ofdev)
+-{
+-	struct mdio_gpio_platform_data *pdata;
+-	struct mii_bus *new_bus;
+-	int ret;
+-
+-	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+-	if (!pdata)
+-		return -ENOMEM;
+-
+-	ret = of_get_gpio(ofdev->dev.of_node, 0);
+-	if (ret < 0)
+-		goto out_free;
+-	pdata->mdc = ret;
+-
+-	ret = of_get_gpio(ofdev->dev.of_node, 1);
+-	if (ret < 0)
+-		goto out_free;
+-	pdata->mdio = ret;
+-
+-	new_bus = mdio_gpio_bus_init(&ofdev->dev, pdata, pdata->mdc);
+-	if (!new_bus)
+-		goto out_free;
+-
+-	ret = of_mdiobus_register(new_bus, ofdev->dev.of_node);
+-	if (ret)
+-		mdio_gpio_bus_deinit(&ofdev->dev);
+-
+-	return ret;
+-
+-out_free:
+-	kfree(pdata);
+-	return -ENODEV;
+-}
+-
+-static int __devexit mdio_ofgpio_remove(struct platform_device *ofdev)
+-{
+-	mdio_gpio_bus_destroy(&ofdev->dev);
+-	kfree(ofdev->dev.platform_data);
+-
+-	return 0;
+-}
+-
+-static struct of_device_id mdio_ofgpio_match[] = {
+-	{
+-		.compatible = "virtual,mdio-gpio",
+-	},
+-	{},
+-};
+-MODULE_DEVICE_TABLE(of, mdio_ofgpio_match);
+-
+-static struct platform_driver mdio_ofgpio_driver = {
+-	.driver = {
+-		.name = "mdio-ofgpio",
+-		.owner = THIS_MODULE,
+-		.of_match_table = mdio_ofgpio_match,
+-	},
+-	.probe = mdio_ofgpio_probe,
+-	.remove = __devexit_p(mdio_ofgpio_remove),
++static struct of_device_id mdio_gpio_of_match[] = {
++	{ .compatible = "virtual,mdio-gpio", },
++	{ /* sentinel */ }
+ };
+ 
+-static inline int __init mdio_ofgpio_init(void)
+-{
+-	return platform_driver_register(&mdio_ofgpio_driver);
+-}
+-
+-static inline void mdio_ofgpio_exit(void)
+-{
+-	platform_driver_unregister(&mdio_ofgpio_driver);
+-}
+-#else
+-static inline int __init mdio_ofgpio_init(void) { return 0; }
+-static inline void mdio_ofgpio_exit(void) { }
+-#endif /* CONFIG_OF_GPIO */
+-
+ static struct platform_driver mdio_gpio_driver = {
+ 	.probe = mdio_gpio_probe,
+ 	.remove = __devexit_p(mdio_gpio_remove),
+ 	.driver		= {
+ 		.name	= "mdio-gpio",
+ 		.owner	= THIS_MODULE,
++		.of_match_table = mdio_gpio_of_match,
+ 	},
+ };
+ 
+ static int __init mdio_gpio_init(void)
+ {
+-	int ret;
+-
+-	ret = mdio_ofgpio_init();
+-	if (ret)
+-		return ret;
+-
+-	ret = platform_driver_register(&mdio_gpio_driver);
+-	if (ret)
+-		mdio_ofgpio_exit();
+-
+-	return ret;
++	return platform_driver_register(&mdio_gpio_driver);
+ }
+ module_init(mdio_gpio_init);
+ 
+ static void __exit mdio_gpio_exit(void)
+ {
+ 	platform_driver_unregister(&mdio_gpio_driver);
+-	mdio_ofgpio_exit();
+ }
+ module_exit(mdio_gpio_exit);
+ 
 -- 
-1.7.8.6
+1.7.0.4
