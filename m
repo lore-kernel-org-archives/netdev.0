@@ -1,53 +1,44 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: Re: Q: what protects dev->napi_list?
-Date: Fri, 24 Aug 2012 18:39:13 +0800
-Message-ID: <1345804753.11584.43.camel@cr0>
-References: <1345801604.11584.24.camel@cr0>
-	 <1345803142.29722.20.camel@edumazet-glaptop>
+Subject: Re: [PATCH 1/2] ipv6: do not hold route table lock when send ndisc
+ probe
+Date: Fri, 24 Aug 2012 18:45:40 +0800
+Message-ID: <1345805140.9305.1.camel@cr0>
+References: <1345187499-16929-1-git-send-email-amwang@redhat.com>
+	 <CAATkVEzKuTeUbU75B6EoSfFvGVsz_eK47XNWmsP5KcCvjTDEDA@mail.gmail.com>
+	 <1345520643.12468.6.camel@cr0>
+	 <1345738232.5904.1244.camel@edumazet-glaptop>
+	 <1345799724.11584.15.camel@cr0> <1345801484.29722.2.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Sylvain Munaut <s.munaut@whatever-company.com>,
-	David Miller <davem@davemloft.net>
+Cc: Debabrata Banerjee <dbavatar@gmail.com>, netdev@vger.kernel.org,
+	"Banerjee, Debabrata" <dbanerje@akamai.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1949 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:16675 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752217Ab2HXKjU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Aug 2012 06:39:20 -0400
-In-Reply-To: <1345803142.29722.20.camel@edumazet-glaptop>
+	id S1757799Ab2HXKpz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Aug 2012 06:45:55 -0400
+In-Reply-To: <1345801484.29722.2.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-08-24 at 12:12 +0200, Eric Dumazet wrote:
-> On Fri, 2012-08-24 at 17:46 +0800, Cong Wang wrote:
-> > Hi,
-> > 
-> > Sylvain reported a netpoll CPU stall
-> > http://marc.info/?l=linux-netdev&m=134563282530588&w=2
-> > 
-> > I tried to provide some fix for it:
-> > http://marc.info/?l=linux-netdev&m=134571069921429&w=2
-> > 
-> > When reviewing that code, I noticed a problem, it seems dev->napi_list
-> > is not protected by any lock? What if the device driver calls
-> > netif_napi_del() meanwhile we are iterating &dev->napi_list in
-> > poll_napi()? It seems netif_napi_del()/netif_napi_add() are usually
-> > called with the RTNL lock held during driver init/uninit, but again
-> > poll_napi() doesn't have RTNL lock.
-> > 
+On Fri, 2012-08-24 at 11:44 +0200, Eric Dumazet wrote:
+> On Fri, 2012-08-24 at 17:15 +0800, Cong Wang wrote:
 > 
-> Of course poll_napi() cant try to get RTNL (its a mutex by the way)
+> > 
+> > Right... If we call dev_hold() in the work, it is possible that the work
+> > is still not scheduled to running when we unregister the device. What's
+> > more, we can't flush work here as we are holding a read lock.
 > 
-> There are no problems, since :
+> You need a global list (and a single work, not one per req), so that a
+> notifier can flush it at demand.
 > 
-> netif_napi_add() is called at device open time (before napi_poll() can
-> use it)
 > 
-> netif_napi_del() at device dismantle time (after making sure napi_poll()
-> wont use the device again)
 
-Yeah, but bnx2 driver calls it at other time too, for example
-bnx2_change_ring_size() which in turn could be called by
-bnx2_set_channels().
+Agreed. I will make a new patch.
+
+Thanks!
