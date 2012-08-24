@@ -1,39 +1,51 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: netlink scm creds uid and gids are always 0.
-Date: Fri, 24 Aug 2012 10:45:17 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6FC5@saturn3.aculab.com>
-References: <871uiwlrf3.fsf@xmission.com><1345795065.5904.2287.camel@edumazet-glaptop><87txvsk8h7.fsf@xmission.com> <877gsok68x.fsf@xmission.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [net-next 10/13] igb: Tidy up wrapping for CONFIG_IGB_PTP.
+Date: Fri, 24 Aug 2012 12:10:53 +0200
+Message-ID: <20120824101053.GA6038@netboy.at.omicron.at>
+References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1345715813-20757-11-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20120823110357.GB2238@netboy.at.omicron.at>
+ <06DFBC1E25D8024DB214DC7F41A3CD34488DD039@ORSMSX101.amr.corp.intel.com>
+ <20120823172950.GA2192@netboy.at.omicron.at>
+ <02874ECE860811409154E81DA85FBB5807857EFE@ORSMSX105.amr.corp.intel.com>
+ <06DFBC1E25D8024DB214DC7F41A3CD34488DD35B@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "Vick, Matthew" <matthew.vick@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:55503 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753718Ab2HXJ5v convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 05:57:51 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 01800-01 for <netdev@vger.kernel.org>;
- Fri, 24 Aug 2012 10:57:42 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <877gsok68x.fsf@xmission.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:54177 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751356Ab2HXKLF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 06:11:05 -0400
+Received: by weyx8 with SMTP id x8so924462wey.19
+        for <netdev@vger.kernel.org>; Fri, 24 Aug 2012 03:11:04 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <06DFBC1E25D8024DB214DC7F41A3CD34488DD35B@ORSMSX101.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> There is still a possible issue with netlink sockets and pids when the
-> two processes talking over netlink are in different pid namespaces.
+On Thu, Aug 23, 2012 at 06:40:25PM +0000, Vick, Matthew wrote:
+> 
+> I tend to agree with Jake here--I like having the information. I'm fine removing them, but I'd like to do it for all CONFIG_IGB_PTP wrapping if we're going to do it. What do you think, Richard?
 
-Isn't there a more general problem of the sending process exiting
-and its pid being reused before the receiving program makes use
-of the value?
+Come to think of it, I never liked the CONFIG_IGB_PTP very much in the
+first place. These were added after the fact by Jeff Kirsher. He had
+said off list that there was some issue with CONFIG_PTP_1588_CLOCK and
+igb as a module, or something like that. At that time I said, just go
+ahead and fix it up.
 
-IIRC 2.6.27 tried to alleviate this for some code paths by
-using a reference-counted structure for some kernel calls.
-(A PITA because the function to lose the reference is exported
-GPL_ONLY ...)
+I think it would be better if the "time stamp all Rx packets" of the
+82580 were always available, and that the PHC feature always be
+compiled when CONFIG_PTP_1588_CLOCK is selected.
 
-	David
+Maybe you could ask Jeff what the issue was, and then see if there is
+a way to remove CONFIG_IGB_PTP altogether.
+
+Thanks,
+Richard
