@@ -1,62 +1,68 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Subject: Re: [PATCH 0/8] csiostor: Chelsio FCoE offload driver submission
-Date: Fri, 24 Aug 2012 22:58:55 +0100
-Message-ID: <1345845535.3283.74.camel@dabdike>
-References: <1345760873-12101-1-git-send-email-naresh@chelsio.com>
-	 <CAP=VYLqtcULyoxPv0z89SEFvvFJiBUpG0UhWXzfm8KVMoGmYpg@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next 04/13] e1000e: cleanup checkpatch PREFER_PR_LEVEL
+ warning
+Date: Fri, 24 Aug 2012 15:43:46 -0700
+Message-ID: <1345848226.32359.18.camel@joe2Laptop>
+References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1345715813-20757-5-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1345730504.16471.3.camel@joe2Laptop> <1345831348.32359.8.camel@joe2Laptop>
+	 <1345843164.3613.9.camel@jtkirshe-mobl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Naresh Kumar Inna <naresh@chelsio.com>, linux-scsi@vger.kernel.org,
-	dm@chelsio.com, netdev@vger.kernel.org, chethan@chelsio.com
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <CAP=VYLqtcULyoxPv0z89SEFvvFJiBUpG0UhWXzfm8KVMoGmYpg@mail.gmail.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Allan, Bruce W" <bruce.w.allan@intel.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:41338 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751879Ab2HXWnr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Aug 2012 18:43:47 -0400
+In-Reply-To: <1345843164.3613.9.camel@jtkirshe-mobl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-08-24 at 17:45 -0400, Paul Gortmaker wrote:
-> On Thu, Aug 23, 2012 at 6:27 PM, Naresh Kumar Inna <naresh@chelsio.com> wrote:
-> > This is the initial submission of the Chelsio FCoE offload driver (csiostor)
-> > to the upstream kernel. This driver currently supports FCoE offload
-> > functionality over Chelsio T4-based 10Gb Converged Network Adapters.
-> >
-> > The following patches contain the driver sources for csiostor driver and
-> > updates to firmware/hardware header files shared between csiostor and
-> > cxgb4 (Chelsio T4-based NIC driver). The csiostor driver is dependent on these
-> > header updates. These patches have been generated against scsi 'misc' branch.
-> >
-> > csiostor is a low level SCSI driver that interfaces with PCI, SCSI midlayer and
-> > FC transport subsystems. This driver claims the FCoE PCIe function on the
-> > Chelsio Converged Network Adapter. It relies on firmware events for slow path
-> > operations like discovery, thereby offloading session management. The driver
-> > programs firmware via Work Request interfaces for fast path I/O offload
-> > features.
-> >
-> > Here is the brief description of patches:
-> > [PATCH 1/8]: Hardware interface, Makefile and Kconfig changes.
-> > [PATCH 2/8]: Driver initialization and Work Request services.
-> > [PATCH 3/8]: FC transport interfaces and mailbox services.
-> > [PATCH 4/8]: Local and remote port state tracking functionality.
-> > [PATCH 5/8]: Interrupt handling and fast path I/O functionality.
-> > [PATCH 6/8]: Header files part 1.
-> > [PATCH 7/8]: Header files part 2.
-> 
-> Based on the above two, I'm guessing nothing will build and work
-> on any of steps one through six?  Yet you expose the Kconfig
-> and Makefile linkage into the tree in patch #1?   So your patches
-> as presented are non bisectable.
-> 
-> You need to rethink your breakup in the presentation.  Factoring
-> things just by files alone is not the right approach.  You need to
-> ask yourself whether each commit is a stand-alone entity that does
-> something independently on its own -- since they generally should.
+On Fri, 2012-08-24 at 14:19 -0700, Jeff Kirsher wrote:
+> On Fri, 2012-08-24 at 11:02 -0700, Joe Perches wrote:
+> > On Thu, 2012-08-23 at 07:01 -0700, Joe Perches wrote:
+> > > On Thu, 2012-08-23 at 02:56 -0700, Jeff Kirsher wrote:
+> > > > From: Bruce Allan <bruce.w.allan@intel.com>
+> > > > 
+> > > > checkpatch warning: Prefer pr_info(... to printk(KERN_INFO, ...
+> > > []
+> > > > diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+> > > []
+> > > > @@ -4330,9 +4330,8 @@ static void e1000_print_link_info(struct e1000_adapter *adapter)
+> > > >  	u32 ctrl = er32(CTRL);
+> > > >  
+> > > >  	/* Link status message must follow this format for user tools */
+> > > > -	printk(KERN_INFO "e1000e: %s NIC Link is Up %d Mbps %s Duplex, Flow Control: %s\n",
+> > > > -		adapter->netdev->name,
+> > > > -		adapter->link_speed,
+> > > > +	pr_info("e1000e: %s NIC Link is Up %d Mbps %s Duplex, Flow Control: %s\n",
+> > > > +		adapter->netdev->name, adapter->link_speed,
+> > > >  		adapter->link_duplex == FULL_DUPLEX ? "Full" : "Half",
+> > > >  		(ctrl & E1000_CTRL_TFCE) && (ctrl & E1000_CTRL_RFCE) ? "Rx/Tx" :
+> > > >  		(ctrl & E1000_CTRL_RFCE) ? "Rx" :
+[]
+> > The comment above this change (and the other) reads
+> > 
+> >   	/* Link status message must follow this format for user tools */
+> > 
+> > This file already uses #define pr_fmt(fmt) KBUILD_MODNAME...
+> > With this patch, the output form changes to use 2 prefixes.
+> > 
+> > Is that really desired?  Probably not.
+> > 
+> > If the comments are old and don't apply any more, they
+> > should be removed.
+> > 
+> Bruce really should answer this since this is his patch and there was a
+> reason why he made the change.  My guess was the current output was
+> providing incorrect or mis-leading information.
 
-Actually, this is fine for a new driver ... everything just gets put in
-as a single commit.  There's really no point adding a driver in pieces
-if it's not functional until the last patch, so in this case only, the
-breakup is to help the review.
+My guess is he was just shutting up checkpatch and
+didn't notice the newly doubled prefix.
 
-James
-
-
+happy weekend...
