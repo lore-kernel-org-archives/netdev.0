@@ -1,64 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlink: fix possible spoofing from non-root processes
-Date: Fri, 24 Aug 2012 13:36:46 -0400 (EDT)
-Message-ID: <20120824.133646.1032154931939291652.davem@davemloft.net>
-References: <1345723751-2924-1-git-send-email-pablo@netfilter.org>
+From: Francesco Ruggeri <fruggeri@aristanetworks.com>
+Subject: [PATCH 1/1] net: ipv4: ipmr_expire_timer causes crash when removing
+ net namespace
+Date: Fri, 24 Aug 2012 10:38:35 -0700
+Message-ID: <CA+HUmGhEaTD7QgYyfhDB22K1=Oj3RvDi2Ny217-YFXV03HJzqg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: pablo@netfilter.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54642 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759065Ab2HXRgs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 13:36:48 -0400
-In-Reply-To: <1345723751-2924-1-git-send-email-pablo@netfilter.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:48361 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757287Ab2HXRig (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 13:38:36 -0400
+Received: by obbuo13 with SMTP id uo13so4754373obb.19
+        for <netdev@vger.kernel.org>; Fri, 24 Aug 2012 10:38:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: pablo@netfilter.org
-Date: Thu, 23 Aug 2012 14:09:11 +0200
+When tearing down a net namespace, ipv4 mr_table structures are freed
+without first deactivating their timers. This can result in a crash in
+run_timer_softirq.
+This patch mimics the corresponding behaviour in ipv6.
+Locking and synchronization seem to be adequate.
+We are about to kfree mrt, so existing code should already make sure that
+no other references to mrt are pending or can be created by incoming traffic.
+The functions invoked here do not cause new references to mrt or other
+race conditions to be created.
+Invoking del_timer_sync guarantees that ipmr_expire_timer is inactive.
+Both ipmr_expire_process (whose completion we may have to wait in
+del_timer_sync) and mroute_clean_tables internally use mfc_unres_lock
+or other synchronizations when needed, and they both only modify mrt.
 
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
-> 
-> Non-root user-space processes can send Netlink messages to other
-> processes that are well-known for being subscribed to Netlink
-> asynchronous notifications. This allows ilegitimate non-root
-> process to send forged messages to Netlink subscribers.
-> 
-> The userspace process usually verifies the legitimate origin in
-> two ways:
-> 
-> a) Socket credentials. If UID != 0, then the message comes from
->    some ilegitimate process and the message needs to be dropped.
-> 
-> b) Netlink portID. In general, portID == 0 means that the origin
->    of the messages comes from the kernel. Thus, discarding any
->    message not coming from the kernel.
-> 
-> However, ctnetlink sets the portID in event messages that has
-> been triggered by some user-space process, eg. conntrack utility.
-> So other processes subscribed to ctnetlink events, eg. conntrackd,
-> know that the event was triggered by some user-space action.
-> 
-> Neither of the two ways to discard ilegitimate messages coming
-> from non-root processes can help for ctnetlink.
-> 
-> This patch adds capability validation in case that dst_pid is set
-> in netlink_sendmsg(). This approach is aggressive since existing
-> applications using any Netlink bus to deliver messages between
-> two user-space processes will break. Note that the exception is
-> NETLINK_USERSOCK, since it is reserved for netlink-to-netlink
-> userspace communication.
-> 
-> Still, if anyone wants that his Netlink bus allows netlink-to-netlink
-> userspace, then they can set NL_NONROOT_SEND. However, by default,
-> I don't think it makes sense to allow to use NETLINK_ROUTE to
-> communicate two processes that are sending no matter what information
-> that is not related to link/neighbouring/routing. They should be using
-> NETLINK_USERSOCK instead for that.
-> 
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Tested in Linux 3.4.8.
 
-Applied and queued up for -stable, thanks Pablo.
+Signed-off-by: Francesco Ruggeri <fruggeri@aristanetworks.com>
+
+Index: linux-3.4.x86_64/net/ipv4/ipmr.c
+===================================================================
+--- linux-3.4.x86_64.orig/net/ipv4/ipmr.c
++++ linux-3.4.x86_64/net/ipv4/ipmr.c
+@@ -124,6 +124,8 @@ static DEFINE_SPINLOCK(mfc_unres_lock);
+ static struct kmem_cache *mrt_cachep __read_mostly;
+
+ static struct mr_table *ipmr_new_table(struct net *net, u32 id);
++static void ipmr_free_table(struct mr_table *mrt);
++
+ static int ip_mr_forward(struct net *net, struct mr_table *mrt,
+ 			 struct sk_buff *skb, struct mfc_cache *cache,
+ 			 int local);
+@@ -131,6 +133,7 @@ static int ipmr_cache_report(struct mr_t
+ 			     struct sk_buff *pkt, vifi_t vifi, int assert);
+ static int __ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
+ 			      struct mfc_cache *c, struct rtmsg *rtm);
++static void mroute_clean_tables(struct mr_table *mrt);
+ static void ipmr_expire_process(unsigned long arg);
+
+ #ifdef CONFIG_IP_MROUTE_MULTIPLE_TABLES
+@@ -271,7 +274,7 @@ static void __net_exit ipmr_rules_exit(s
+
+ 	list_for_each_entry_safe(mrt, next, &net->ipv4.mr_tables, list) {
+ 		list_del(&mrt->list);
+-		kfree(mrt);
++		ipmr_free_table(mrt);
+ 	}
+ 	fib_rules_unregister(net->ipv4.mr_rules_ops);
+ }
+@@ -299,7 +302,7 @@ static int __net_init ipmr_rules_init(st
+
+ static void __net_exit ipmr_rules_exit(struct net *net)
+ {
+-	kfree(net->ipv4.mrt);
++	ipmr_free_table(net->ipv4.mrt);
+ }
+ #endif
+
+@@ -336,6 +339,13 @@ static struct mr_table *ipmr_new_table(s
+ 	return mrt;
+ }
+
++static void ipmr_free_table(struct mr_table *mrt)
++{
++	del_timer_sync(&mrt->ipmr_expire_timer);
++	mroute_clean_tables(mrt);
++	kfree(mrt);
++}
++
+ /* Service routines creating virtual interfaces: DVMRP tunnels and PIMREG */
+
+ static void ipmr_del_tunnel(struct net_device *dev, struct vifctl *v)
