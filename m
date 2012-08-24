@@ -1,14 +1,15 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: RE: [PATCH v2] net: add new QCA alx ethernet driver
-Date: Fri, 24 Aug 2012 01:55:59 +0000
-Message-ID: <157393863283F442885425D2C45428562A4F54E3@nasanexd02f.na.qualcomm.com>
+Date: Fri, 24 Aug 2012 03:09:44 +0100
+Message-ID: <1345774184.2579.51.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1345480949-14800-1-git-send-email-cjren@qca.qualcomm.com>
 	 <20120822.225700.714020017287504609.davem@davemloft.net>
 	 <157393863283F442885425D2C45428562A4F5169@nasanexd02f.na.qualcomm.com>
- <1345756142.2579.16.camel@bwh-desktop.uk.solarflarecom.com>
+	 <1345756142.2579.16.camel@bwh-desktop.uk.solarflarecom.com>
+	 <157393863283F442885425D2C45428562A4F54E3@nasanexd02f.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
 	"Ren, Cloud" <cjren@qca.qualcomm.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
@@ -16,22 +17,34 @@ Cc: David Miller <davem@davemloft.net>,
 	qca-linux-team <qca-linux-team@qualcomm.com>,
 	nic-devel <nic-devel@qualcomm.com>,
 	"Rodriguez, Luis" <rodrigue@qca.qualcomm.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:32793 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752542Ab2HXB4D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 21:56:03 -0400
-In-Reply-To: <1345756142.2579.16.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <157393863283F442885425D2C45428562A4F54E3@nasanexd02f.na.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-VGhhbmtzIGZvciBhbGwgeW91ciBmZWVkYmFjay4gSSBoYXZlIGFub3RoZXIgcXVlc3Rpb24gbmVl
-ZCB5b3VyIGhlbHAuDQoNClRoaXMgTklDIGhhcyBzcGVjaWFsIGZ1bmN0aW9uIHRoYXQgY291bGQg
-cmVjZWl2ZS90cmFuc21pdCBzaW1wbGUgcGFja2V0IHdoZW4gaXQncyBpbiBzbGVlcCAoRDMpIHN0
-YXRlLg0KSXQgd2lsbCBoZWxwIHNvbWVvbmUgd2FrZXVwIGhpcy9oZXIgbWFjaGluZSBldmVuIGl0
-J3MgYmVoaW5kIGEgcm91dGVyLg0KVGhpcyBmdW5jdGlvbiBpcyBkaXNhYmxlZCBieSBkZWZhdWx0
-LiBUbyBlbmFibGUgaXQsIHRoZSBOSUMgc2hvdWxkIGJlIGNvbmZpZ3VyZWQgYnkgYXBwLg0KTXkg
-cXVlc3Rpb24gaXMgd2hpY2ggaW50ZXJmYWNlIGNhbiBJIHNlbGVjdCB0byBjb25maWd1cmUod3Jp
-dGUgdG8pIHRoZSBOSUMgcmVnaXN0ZXIgPw0KDQpUaGFua3MNClhpb25nDQoNCg==
+On Fri, 2012-08-24 at 01:55 +0000, Huang, Xiong wrote:
+> Thanks for all your feedback. I have another question need your help.
+> 
+> This NIC has special function that could receive/transmit simple
+> packet when it's in sleep (D3) state.
+> It will help someone wakeup his/her machine even it's behind a router.
+> This function is disabled by default. To enable it, the NIC should be
+> configured by app.
+> My question is which interface can I select to configure(write to) the
+> NIC register ?
+
+There are standard operations to configure Wake-on-LAN (commands
+ETHTOOL_{G,S}WOL, driver methods ethtool_ops::{get,set}_wol) and WOL
+modes including MagicPacket.
+
+If you want to implement a more sophisticated packet matching mode that
+requires more details than struct ethtool_wolinfo, then you may need to
+define new operations.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
