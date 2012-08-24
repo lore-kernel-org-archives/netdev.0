@@ -1,76 +1,92 @@
-From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
-Subject: [PATCH 3.6.0-rc3 1/2] of/mdio: Add dummy functions in of_mdio.h.
-Date: Fri, 24 Aug 2012 12:58:59 +0100
-Message-ID: <1345809539-27684-1-git-send-email-srinivas.kandagatla@st.com>
-Cc: srinivas.kandagatla@st.com, davem@davemloft.net,
-	devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca
-To: netdev@vger.kernel.org, laurentp@cse-semaphore.com
+From: Alex Bergmann <alex@linlab.net>
+Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
+Date: Fri, 24 Aug 2012 14:17:28 +0200
+Message-ID: <503770D8.8040906@linlab.net>
+References: <503419D3.1080700@linlab.net>  <CAFbMe2M7ekc94bQk7vTS1LhScPd49VZ-zKOCUXhqwxXtL-nkuA@mail.gmail.com>  <50361AEA.6010807@linlab.net> <1345724123.5904.756.camel@edumazet-glaptop>  <50362407.9070805@linlab.net> <1345726185.5904.835.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:47185 "EHLO
-	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754564Ab2HXMMY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 08:12:24 -0400
+Received: from mail.linlab.net ([89.244.147.154]:47271 "EHLO mail.linlab.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751646Ab2HXMRk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Aug 2012 08:17:40 -0400
+In-Reply-To: <1345726185.5904.835.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+> 
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> 
+> A change of the comment might be good, to help future readers.
+> 
 
-This patch adds dummy functions in of_mdio.h, so that driver need not
-ifdef there code with CONFIG_OF.
+Okay, I've also changed the comments of SYN and SYNACK retries. 
 
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+Alex
+
+>From 11a292b1cff772f930a02fda02d5b741f8ea5033 Mon Sep 17 00:00:00 2001
+From: Alexander Bergmann <alex@linlab.net>
+Date: Fri, 24 Aug 2012 14:09:49 +0200
+Subject: [PATCH 1/1] tcp: Increase timeout for SYN segments
+
+Commit 9ad7c049 changed the initRTO from 3secs to 1sec in accordance to
+RFC6298 (former RFC2988bis). This reduced the time till the last SYN
+retransmission packet gets sent from 93secs to 31secs.
+
+RFC1122 is stating that the retransmission should be done for at least 3
+minutes, but this seems to be quite high.
+
+  "However, the values of R1 and R2 may be different for SYN
+  and data segments.  In particular, R2 for a SYN segment MUST
+  be set large enough to provide retransmission of the segment
+  for at least 3 minutes.  The application can close the
+  connection (i.e., give up on the open attempt) sooner, of
+  course."
+
+This patch increases the value of TCP_SYN_RETRIES to the value of 6,
+providing a retransmission window of 63secs.
+
+The comments for SYN and SYNACK retries have also been updated to
+describe the current settings.
+
+Signed-off-by: Alexander Bergmann <alex@linlab.net>
 ---
- include/linux/of_mdio.h |   33 +++++++++++++++++++++++++++++++++
- 1 files changed, 33 insertions(+), 0 deletions(-)
+ include/net/tcp.h |   18 ++++++++++++++----
+ 1 files changed, 14 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
-index 912c27a..6ef49b8 100644
---- a/include/linux/of_mdio.h
-+++ b/include/linux/of_mdio.h
-@@ -12,6 +12,7 @@
- #include <linux/phy.h>
- #include <linux/of.h>
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 1f000ff..d43d6b3 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -98,11 +98,21 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
+                                 * 15 is ~13-30min depending on RTO.
+                                 */
  
-+#ifdef CONFIG_OF
- extern int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np);
- extern struct phy_device *of_phy_find_device(struct device_node *phy_np);
- extern struct phy_device *of_phy_connect(struct net_device *dev,
-@@ -24,4 +25,36 @@ extern struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
+-#define TCP_SYN_RETRIES         5      /* number of times to retry active opening a
+-                                * connection: ~180sec is RFC minimum   */
++#define TCP_SYN_RETRIES         6      /*
++                                * This is how many retries it does to active
++                                * opening a connection.
++                                * RFC1122 says the minimum retry MUST be at
++                                * least 180secs. Nevertheless this value is
++                                * corresponding to 63secs of retransmission
++                                * with the current initial RTO.
++                                */
  
- extern struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np);
+-#define TCP_SYNACK_RETRIES 5   /* number of times to retry passive opening a
+-                                * connection: ~180sec is RFC minimum   */
++#define TCP_SYNACK_RETRIES 5   /* 
++                                * This is how may retries it does to passive
++                                * opening a connection. 
++                                * This is corresponding to 31secs of 
++                                * retransmission with the current initial RTO.
++                                */
  
-+#else /* CONFIG_OF */
-+int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
-+{
-+	return -ENOSYS;
-+}
-+
-+struct phy_device *of_phy_find_device(struct device_node *phy_np)
-+{
-+	return NULL;
-+}
-+
-+struct phy_device *of_phy_connect(struct net_device *dev,
-+					 struct device_node *phy_np,
-+					 void (*hndlr)(struct net_device *),
-+					 u32 flags, phy_interface_t iface)
-+{
-+	return NULL;
-+}
-+
-+struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
-+					 void (*hndlr)(struct net_device *),
-+					 phy_interface_t iface)
-+{
-+	return NULL;
-+}
-+
-+struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np)
-+{
-+	return NULL;
-+}
-+#endif /* CONFIG_OF */
-+
- #endif /* __LINUX_OF_MDIO_H */
+ #define TCP_TIMEWAIT_LEN (60*HZ) /* how long to wait to destroy TIME-WAIT
+                                  * state, about 60 seconds     */
 -- 
-1.7.0.4
+1.7.8.6
