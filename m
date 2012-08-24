@@ -1,16 +1,14 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net-next 11/13] igb: Update PTP function names/variables and
- locations.
-Date: Fri, 24 Aug 2012 08:55:55 +0200
-Message-ID: <20120824065554.GB3261@netboy.at.omicron.at>
+Subject: Re: [net-next 10/13] igb: Tidy up wrapping for CONFIG_IGB_PTP.
+Date: Fri, 24 Aug 2012 09:04:13 +0200
+Message-ID: <20120824070413.GC3261@netboy.at.omicron.at>
 References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1345715813-20757-12-git-send-email-jeffrey.t.kirsher@intel.com>
- <20120823111622.GC2238@netboy.at.omicron.at>
- <06DFBC1E25D8024DB214DC7F41A3CD34488DD079@ORSMSX101.amr.corp.intel.com>
- <20120823175335.GB2192@netboy.at.omicron.at>
- <02874ECE860811409154E81DA85FBB5807857EEA@ORSMSX105.amr.corp.intel.com>
- <20120823181117.GD2192@netboy.at.omicron.at>
- <06DFBC1E25D8024DB214DC7F41A3CD34488DD379@ORSMSX101.amr.corp.intel.com>
+ <1345715813-20757-11-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20120823110357.GB2238@netboy.at.omicron.at>
+ <06DFBC1E25D8024DB214DC7F41A3CD34488DD039@ORSMSX101.amr.corp.intel.com>
+ <20120823172950.GA2192@netboy.at.omicron.at>
+ <02874ECE860811409154E81DA85FBB5807857EFE@ORSMSX105.amr.corp.intel.com>
+ <06DFBC1E25D8024DB214DC7F41A3CD34488DD35B@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
@@ -21,27 +19,26 @@ Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
 	"sassmann@redhat.com" <sassmann@redhat.com>
 To: "Vick, Matthew" <matthew.vick@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:52003 "EHLO
+Received: from mail-we0-f174.google.com ([74.125.82.174]:60894 "EHLO
 	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753243Ab2HXG4H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 02:56:07 -0400
-Received: by weyx8 with SMTP id x8so842870wey.19
-        for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 23:56:05 -0700 (PDT)
+	with ESMTP id S1753243Ab2HXHE1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 03:04:27 -0400
+Received: by weyx8 with SMTP id x8so846173wey.19
+        for <netdev@vger.kernel.org>; Fri, 24 Aug 2012 00:04:24 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <06DFBC1E25D8024DB214DC7F41A3CD34488DD379@ORSMSX101.amr.corp.intel.com>
+In-Reply-To: <06DFBC1E25D8024DB214DC7F41A3CD34488DD35B@ORSMSX101.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 23, 2012 at 06:44:24PM +0000, Vick, Matthew wrote:
+On Thu, Aug 23, 2012 at 06:40:25PM +0000, Vick, Matthew wrote:
 > 
-> Isn't this discussion creeping outside the scope of this patch?
+> I tend to agree with Jake here--I like having the information. I'm fine removing them, but I'd like to do it for all CONFIG_IGB_PTP wrapping if we're going to do it. What do you think, Richard?
 
-Yes, it is. I am suggesting that the driver could use improvement, but
-not by renaming functions to suit your or someone else's taste.
-Instead, you could work on the time stamping feature.
+I took a look at the #ifdefs in igb_main.c, and I would say they are
+okay as is, except for the CONFIG_PM ones, which could use a comment
+at the #endifs.
 
-(And if, along the way, you end up renaming the functions that you
-change, then I won't complain ;)
+(a matter of taste, though)
 
 Thanks,
 Richard
