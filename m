@@ -1,61 +1,91 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [RFC PATCH bridge 0/5] Add basic VLAN support to bridges
-Date: Thu, 23 Aug 2012 22:52:02 -0400
-Message-ID: <5036EC52.9090406@redhat.com>
-References: <1345750195-31598-1-git-send-email-vyasevic@redhat.com> <50369A99.2070405@gmail.com>
-Reply-To: vyasevic@redhat.com
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: Re: [PATCH] mwifiex: use is_zero_ether_addr() instead of memcmp()
+Date: Fri, 24 Aug 2012 10:56:45 +0800
+Message-ID: <CAPgLHd--KY+zNjUwOHKgEJuTfJuoA=7vKR3JMBUgUc+BtjC9Ng@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
-To: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linville@tuxdriver.com, yongjun_wei@trendmicro.com.cn,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: bzhao@marvell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2461 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751052Ab2HXCwF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Aug 2012 22:52:05 -0400
-In-Reply-To: <50369A99.2070405@gmail.com>
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:50732 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752129Ab2HXC4q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 22:56:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/23/2012 05:03 PM, Nicolas de Peslo=C3=BCan wrote:
-> Le 23/08/2012 21:29, Vlad Yasevich a =C3=A9crit :
->> This series of patches provides an ability to add VLAN IDs to the br=
-idge
->> ports.  This is similar to what can be found in most switches.  The
->> bridge
->> port may have any number of VLANs added to it including vlan 0 for
->> untagged
->> traffic.  When vlans are added to the port, only traffic tagged with
->> particular
->> vlan will forwarded over this port.  Additionally, vlan ids are adde=
-d
->> to FDB
->> entries and become part of the lookup.  This way we correctly identi=
-fy
->> the FDB
->> entry.
+Hi Zhao,
+
+On 08/24/2012 02:28 AM, Bing Zhao wrote:
+> Hi Wei,
+>
+> Thanks for the patch.
+>
+>> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 >>
->> There are still pieces missing.  I don't yet support adding a static
->> fdb entry
->> with a particular vlan.  There is no netlink support for carrying a
->> vlan id.
+>> Using is_zero_ether_addr() instead of directly use
+>> memcmp() to determine if the ethernet address is all
+>> zeros.
 >>
->> I'd like to hear thoughts of whether this is usufull and something w=
-e
->> should
->> persue.
+>> spatch with a semantic match is used to found this problem.
+>> (http://coccinelle.lip6.fr/)
+> Apparently there are two more occurrences of zero_mac (scan.c:843)
+
+This is part is special:
+
+memcmp(scan_cfg_out->specific_bssid, &zero_mac, sizeof(zero_mac)))
+
+&zero_mac equal zero_mac, but it missing to spatch.
+
+
+>  and bc_mac (sta_cmd.c:596).
+> But I can fix them when I get the chance.
+
+This part will be sent in other patch which using
+is_broadcast_ether_addr()
+
+>
+>> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Acked-by: Bing Zhao <bzhao@marvell.com>
+>
+> Thanks,
+> Bing
+>
+>> ---
+>>  drivers/net/wireless/mwifiex/sta_cmdresp.c | 5 +++--
+>>  1 file changed, 3 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/wireless/mwifiex/sta_cmdresp.c b/drivers/net/wireless/mwifiex/sta_cmdresp.c
+>> index 0b09004..a2a33dc 100644
+>> --- a/drivers/net/wireless/mwifiex/sta_cmdresp.c
+>> +++ b/drivers/net/wireless/mwifiex/sta_cmdresp.c
+>> @@ -17,6 +17,8 @@
+>>   * this warranty disclaimer.
+>>   */
+>>
+>> +#include <linux/etherdevice.h>
+>> +
+>>  #include "decl.h"
+>>  #include "ioctl.h"
+>>  #include "util.h"
+>> @@ -736,7 +738,6 @@ static int mwifiex_ret_ibss_coalescing_status(struct mwifiex_private *priv,
+>>  {
+>>  	struct host_cmd_ds_802_11_ibss_status *ibss_coal_resp =
+>>  					&(resp->params.ibss_coalescing);
+>> -	u8 zero_mac[ETH_ALEN] = { 0, 0, 0, 0, 0, 0 };
+>>
+>>  	if (le16_to_cpu(ibss_coal_resp->action) == HostCmd_ACT_GEN_SET)
+>>  		return 0;
+>> @@ -745,7 +746,7 @@ static int mwifiex_ret_ibss_coalescing_status(struct mwifiex_private *priv,
+>>  		"info: new BSSID %pM\n", ibss_coal_resp->bssid);
+>>
+>>  	/* If rsp has NULL BSSID, Just return..... No Action */
+>> -	if (!memcmp(ibss_coal_resp->bssid, zero_mac, ETH_ALEN)) {
+>> +	if (is_zero_ether_addr(ibss_coal_resp->bssid)) {
+>>  		dev_warn(priv->adapter->dev, "new BSSID is NULL\n");
+>>  		return 0;
+>>  	}
 >>
 >
-> Do you think this might allow for per VLAN spanning tree (having port=
-s
-> in forwarding state or blocking state depending on the VLAN) in the f=
-uture?
 >
->      Nicolas.
-
-sure, why not.
-
--vlad
