@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 05/16] sfc: Stash header offsets for TSO in struct
- tso_state
-Date: Fri, 24 Aug 2012 20:50:38 +0100
-Message-ID: <1345837838.2694.27.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 06/16] sfc: Change state names to be clearer, and
+ comment them
+Date: Fri, 24 Aug 2012 20:50:52 +0100
+Message-ID: <1345837852.2694.28.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1345837574.2694.22.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,103 +10,179 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56716 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:56740 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1758130Ab2HXTum (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 15:50:42 -0400
+	by vger.kernel.org with ESMTP id S1758130Ab2HXTu4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 15:50:56 -0400
 In-Reply-To: <1345837574.2694.22.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+STATE_INIT and STATE_FINI are equivalent and represent incompletely
+initialised states; combine them as STATE_UNINIT.
+
+Rename STATE_RUNNING to STATE_READY, to avoid confusion with
+netif_running() and IFF_RUNNING.
+
+The comments do not quite match current usage, but this will be
+corrected in subsequent fixes.
+
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/tx.c |   28 ++++++++++++----------------
- 1 files changed, 12 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/sfc/efx.c           |   24 +++++++++++-------------
+ drivers/net/ethernet/sfc/ethtool.c       |    2 +-
+ drivers/net/ethernet/sfc/falcon_boards.c |    2 +-
+ drivers/net/ethernet/sfc/net_driver.h    |   10 ++++------
+ 4 files changed, 17 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-index d9dbebc..ebca75e 100644
---- a/drivers/net/ethernet/sfc/tx.c
-+++ b/drivers/net/ethernet/sfc/tx.c
-@@ -613,10 +613,6 @@ void efx_remove_tx_queue(struct efx_tx_queue *tx_queue)
- #endif
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 3b3f084..9f88ad8 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -202,7 +202,7 @@ static void efx_stop_all(struct efx_nic *efx);
  
- #define PTR_DIFF(p1, p2)  ((u8 *)(p1) - (u8 *)(p2))
--#define ETH_HDR_LEN(skb)  (skb_network_header(skb) - (skb)->data)
--#define SKB_TCP_OFF(skb)  PTR_DIFF(tcp_hdr(skb), (skb)->data)
--#define SKB_IPV4_OFF(skb) PTR_DIFF(ip_hdr(skb), (skb)->data)
--#define SKB_IPV6_OFF(skb) PTR_DIFF(ipv6_hdr(skb), (skb)->data)
+ #define EFX_ASSERT_RESET_SERIALISED(efx)		\
+ 	do {						\
+-		if ((efx->state == STATE_RUNNING) ||	\
++		if ((efx->state == STATE_READY) ||	\
+ 		    (efx->state == STATE_DISABLED))	\
+ 			ASSERT_RTNL();			\
+ 	} while (0)
+@@ -1556,7 +1556,7 @@ static void efx_start_all(struct efx_nic *efx)
+ 	 * of these flags are safe to read under just the rtnl lock */
+ 	if (efx->port_enabled)
+ 		return;
+-	if ((efx->state != STATE_RUNNING) && (efx->state != STATE_INIT))
++	if ((efx->state != STATE_READY) && (efx->state != STATE_UNINIT))
+ 		return;
+ 	if (!netif_running(efx->net_dev))
+ 		return;
+@@ -2286,11 +2286,11 @@ static void efx_reset_work(struct work_struct *data)
+ 	if (!pending)
+ 		return;
  
- /**
-  * struct tso_state - TSO state for an SKB
-@@ -630,6 +626,8 @@ void efx_remove_tx_queue(struct efx_tx_queue *tx_queue)
-  * @unmap_addr: DMA address of SKB fragment
-  * @dma_flags: TX buffer flags for DMA mapping - %EFX_TX_BUF_MAP_SINGLE or 0
-  * @protocol: Network protocol (after any VLAN header)
-+ * @ip_off: Offset of IP header
-+ * @tcp_off: Offset of TCP header
-  * @header_len: Number of bytes of header
-  * @ip_base_len: IPv4 tot_len or IPv6 payload_len, before TCP payload
-  *
-@@ -651,6 +649,8 @@ struct tso_state {
- 	unsigned short dma_flags;
+-	/* If we're not RUNNING then don't reset. Leave the reset_pending
++	/* If we're not READY then don't reset. Leave the reset_pending
+ 	 * flags set so that efx_pci_probe_main will be retried */
+-	if (efx->state != STATE_RUNNING) {
++	if (efx->state != STATE_READY) {
+ 		netif_info(efx, drv, efx->net_dev,
+-			   "scheduled reset quenched. NIC not RUNNING\n");
++			   "scheduled reset quenched; NIC not ready\n");
+ 		return;
+ 	}
  
- 	__be16 protocol;
-+	unsigned int ip_off;
-+	unsigned int tcp_off;
- 	unsigned header_len;
- 	unsigned int ip_base_len;
- };
-@@ -825,17 +825,14 @@ static void efx_enqueue_unwind(struct efx_tx_queue *tx_queue)
- /* Parse the SKB header and initialise state. */
- static void tso_start(struct tso_state *st, const struct sk_buff *skb)
+@@ -2402,7 +2402,7 @@ static int efx_init_struct(struct efx_nic *efx, const struct efx_nic_type *type,
+ 	INIT_DELAYED_WORK(&efx->selftest_work, efx_selftest_async_work);
+ 	efx->pci_dev = pci_dev;
+ 	efx->msg_enable = debug;
+-	efx->state = STATE_INIT;
++	efx->state = STATE_UNINIT;
+ 	strlcpy(efx->name, pci_name(pci_dev), sizeof(efx->name));
+ 
+ 	efx->net_dev = net_dev;
+@@ -2490,7 +2490,7 @@ static void efx_pci_remove(struct pci_dev *pci_dev)
+ 
+ 	/* Mark the NIC as fini, then stop the interface */
+ 	rtnl_lock();
+-	efx->state = STATE_FINI;
++	efx->state = STATE_UNINIT;
+ 	dev_close(efx->net_dev);
+ 
+ 	/* Allow any queued efx_resets() to complete */
+@@ -2684,9 +2684,9 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
+ 		goto fail4;
+ 	}
+ 
+-	/* Switch to the running state before we expose the device to the OS,
++	/* Switch to the READY state before we expose the device to the OS,
+ 	 * so that dev_open()|efx_start_all() will actually start the device */
+-	efx->state = STATE_RUNNING;
++	efx->state = STATE_READY;
+ 
+ 	rc = efx_register_netdev(efx);
+ 	if (rc)
+@@ -2727,7 +2727,7 @@ static int efx_pm_freeze(struct device *dev)
  {
--	/* All ethernet/IP/TCP headers combined size is TCP header size
--	 * plus offset of TCP header relative to start of packet.
--	 */
--	st->header_len = ((tcp_hdr(skb)->doff << 2u)
--			  + PTR_DIFF(tcp_hdr(skb), skb->data));
+ 	struct efx_nic *efx = pci_get_drvdata(to_pci_dev(dev));
+ 
+-	efx->state = STATE_FINI;
++	efx->state = STATE_UNINIT;
+ 
+ 	netif_device_detach(efx->net_dev);
+ 
+@@ -2741,8 +2741,6 @@ static int efx_pm_thaw(struct device *dev)
+ {
+ 	struct efx_nic *efx = pci_get_drvdata(to_pci_dev(dev));
+ 
+-	efx->state = STATE_INIT;
 -
-+	st->ip_off = skb_network_header(skb) - skb->data;
-+	st->tcp_off = skb_transport_header(skb) - skb->data;
-+	st->header_len = st->tcp_off + (tcp_hdr(skb)->doff << 2u);
- 	if (st->protocol == htons(ETH_P_IP)) {
--		st->ip_base_len = st->header_len - ETH_HDR_LEN(skb);
-+		st->ip_base_len = st->header_len - st->ip_off;
- 		st->ipv4_id = ntohs(ip_hdr(skb)->id);
- 	} else {
--		st->ip_base_len = tcp_hdr(skb)->doff << 2u;
-+		st->ip_base_len = st->header_len - st->tcp_off;
- 		st->ipv4_id = 0;
+ 	efx_start_interrupts(efx, false);
+ 
+ 	mutex_lock(&efx->mac_lock);
+@@ -2753,7 +2751,7 @@ static int efx_pm_thaw(struct device *dev)
+ 
+ 	netif_device_attach(efx->net_dev);
+ 
+-	efx->state = STATE_RUNNING;
++	efx->state = STATE_READY;
+ 
+ 	efx->type->resume_wol(efx);
+ 
+diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
+index 8cba2df..5d0e2a3 100644
+--- a/drivers/net/ethernet/sfc/ethtool.c
++++ b/drivers/net/ethernet/sfc/ethtool.c
+@@ -531,7 +531,7 @@ static void efx_ethtool_self_test(struct net_device *net_dev,
+ 
+
+ 	ASSERT_RTNL();
+-	if (efx->state != STATE_RUNNING) {
++	if (efx->state != STATE_READY) {
+ 		rc = -EIO;
+ 		goto fail1;
  	}
- 	st->seqnum = ntohl(tcp_hdr(skb)->seq);
-@@ -959,7 +956,7 @@ static int tso_start_new_packet(struct efx_tx_queue *tx_queue,
- 	if (!header)
- 		return -ENOMEM;
- 
--	tsoh_th = (struct tcphdr *)(header + SKB_TCP_OFF(skb));
-+	tsoh_th = (struct tcphdr *)(header + st->tcp_off);
- 
- 	/* Copy and update the headers. */
- 	memcpy(header, skb->data, st->header_len);
-@@ -980,8 +977,7 @@ static int tso_start_new_packet(struct efx_tx_queue *tx_queue,
- 	ip_length = st->ip_base_len + st->packet_space;
- 
- 	if (st->protocol == htons(ETH_P_IP)) {
--		struct iphdr *tsoh_iph =
--			(struct iphdr *)(header + SKB_IPV4_OFF(skb));
-+		struct iphdr *tsoh_iph = (struct iphdr *)(header + st->ip_off);
- 
- 		tsoh_iph->tot_len = htons(ip_length);
- 
-@@ -990,7 +986,7 @@ static int tso_start_new_packet(struct efx_tx_queue *tx_queue,
- 		st->ipv4_id++;
+diff --git a/drivers/net/ethernet/sfc/falcon_boards.c b/drivers/net/ethernet/sfc/falcon_boards.c
+index 8687a6c..ec1e99d 100644
+--- a/drivers/net/ethernet/sfc/falcon_boards.c
++++ b/drivers/net/ethernet/sfc/falcon_boards.c
+@@ -380,7 +380,7 @@ static ssize_t set_phy_flash_cfg(struct device *dev,
+ 		new_mode = PHY_MODE_SPECIAL;
+ 	if (!((old_mode ^ new_mode) & PHY_MODE_SPECIAL)) {
+ 		err = 0;
+-	} else if (efx->state != STATE_RUNNING || netif_running(efx->net_dev)) {
++	} else if (efx->state != STATE_READY || netif_running(efx->net_dev)) {
+ 		err = -EBUSY;
  	} else {
- 		struct ipv6hdr *tsoh_iph =
--			(struct ipv6hdr *)(header + SKB_IPV6_OFF(skb));
-+			(struct ipv6hdr *)(header + st->ip_off);
+ 		/* Reset the PHY, reconfigure the MAC and enable/disable
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index a4fe9a7..7ab1232 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -430,11 +430,9 @@ enum efx_int_mode {
+ #define EFX_INT_MODE_USE_MSI(x) (((x)->interrupt_mode) <= EFX_INT_MODE_MSI)
  
- 		tsoh_iph->payload_len = htons(ip_length);
- 	}
+ enum nic_state {
+-	STATE_INIT = 0,
+-	STATE_RUNNING = 1,
+-	STATE_FINI = 2,
+-	STATE_DISABLED = 3,
+-	STATE_MAX,
++	STATE_UNINIT = 0,	/* device being probed/removed or is frozen */
++	STATE_READY = 1,	/* hardware ready and netdev registered */
++	STATE_DISABLED = 2,	/* device disabled due to hardware errors */
+ };
+ 
+ /*
+@@ -654,7 +652,7 @@ struct vfdi_status;
+  * @irq_rx_adaptive: Adaptive IRQ moderation enabled for RX event queues
+  * @irq_rx_moderation: IRQ moderation time for RX event queues
+  * @msg_enable: Log message enable flags
+- * @state: Device state flag. Serialised by the rtnl_lock.
++ * @state: Device state number (%STATE_*). Serialised by the rtnl_lock.
+  * @reset_pending: Bitmask for pending resets
+  * @tx_queue: TX DMA queues
+  * @rx_queue: RX DMA queues
 -- 
 1.7.7.6
 
