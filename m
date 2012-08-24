@@ -1,48 +1,39 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 2/2] can: sja1000_platform: fix wrong flag IRQF_SHARED for interrupt sharing
-Date: Fri, 24 Aug 2012 11:30:43 +0200
-Message-ID: <1345800643-29456-3-git-send-email-mkl@pengutronix.de>
-References: <1345800643-29456-1-git-send-email-mkl@pengutronix.de>
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	Sven Schmitt <sven.schmitt@volkswagen.de>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-To: davem@davemloft.net
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1345800643-29456-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/2] ipv6: do not hold route table lock when send ndisc
+ probe
+Date: Fri, 24 Aug 2012 11:44:44 +0200
+Message-ID: <1345801484.29722.2.camel@edumazet-glaptop>
+References: <1345187499-16929-1-git-send-email-amwang@redhat.com>
+	 <CAATkVEzKuTeUbU75B6EoSfFvGVsz_eK47XNWmsP5KcCvjTDEDA@mail.gmail.com>
+	 <1345520643.12468.6.camel@cr0>
+	 <1345738232.5904.1244.camel@edumazet-glaptop>
+	 <1345799724.11584.15.camel@cr0>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Debabrata Banerjee <dbavatar@gmail.com>, netdev@vger.kernel.org,
+	"Banerjee, Debabrata" <dbanerje@akamai.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:47691 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754493Ab2HXJoy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 05:44:54 -0400
+Received: by bkwj10 with SMTP id j10so519681bkw.19
+        for <netdev@vger.kernel.org>; Fri, 24 Aug 2012 02:44:53 -0700 (PDT)
+In-Reply-To: <1345799724.11584.15.camel@cr0>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sven Schmitt <sven.schmitt@volkswagen.de>
+On Fri, 2012-08-24 at 17:15 +0800, Cong Wang wrote:
 
-The sja1000 platform driver wrongly assumes that a shared IRQ is indicated
-with the IRQF_SHARED flag in irq resource flags. This patch changes the
-driver to handle the correct flag IORESOURCE_IRQ_SHAREABLE instead.
+> 
+> Right... If we call dev_hold() in the work, it is possible that the work
+> is still not scheduled to running when we unregister the device. What's
+> more, we can't flush work here as we are holding a read lock.
 
-There are no mainline users of the platform driver which wrongly make use
-of IRQF_SHARED.
-
-Signed-off-by: Sven Schmitt <sven.schmitt@volkswagen.de>
-Acked-by: Yegor Yefremov <yegorslists@googlemail.com>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/sja1000/sja1000_platform.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/can/sja1000/sja1000_platform.c b/drivers/net/can/sja1000/sja1000_platform.c
-index 4f50145..662c5f7 100644
---- a/drivers/net/can/sja1000/sja1000_platform.c
-+++ b/drivers/net/can/sja1000/sja1000_platform.c
-@@ -109,7 +109,9 @@ static int sp_probe(struct platform_device *pdev)
- 	priv = netdev_priv(dev);
- 
- 	dev->irq = res_irq->start;
--	priv->irq_flags = res_irq->flags & (IRQF_TRIGGER_MASK | IRQF_SHARED);
-+	priv->irq_flags = res_irq->flags & IRQF_TRIGGER_MASK;
-+	if (res_irq->flags & IORESOURCE_IRQ_SHAREABLE)
-+		priv->irq_flags |= IRQF_SHARED;
- 	priv->reg_base = addr;
- 	/* The CAN clock frequency is half the oscillator clock frequency */
- 	priv->can.clock.freq = pdata->osc_freq / 2;
--- 
-1.7.10
-
+You need a global list (and a single work, not one per req), so that a
+notifier can flush it at demand.
