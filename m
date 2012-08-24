@@ -1,48 +1,78 @@
-From: Johan Gunnarsson <johan.gunnarsson@axis.com>
-Subject: RE: [PATCH] ethtool: don't overwrite useful bits in advertising
- bitfield
-Date: Fri, 24 Aug 2012 11:50:14 +0200
-Message-ID: <A612847CFE53224C91B23E3A5B48BAC7534E8D7DB1@xmail3.se.axis.com>
-References: <1344953745-13208-1-git-send-email-johangu@axis.com>
-	 <1345476178.2659.15.camel@bwh-desktop.uk.solarflarecom.com>
-	 <A612847CFE53224C91B23E3A5B48BAC7534E8D76AD@xmail3.se.axis.com>
-	 <1345561910.2659.45.camel@bwh-desktop.uk.solarflarecom.com>
-	 <A612847CFE53224C91B23E3A5B48BAC7534E8D7809@xmail3.se.axis.com>
- <1345568582.2659.53.camel@bwh-desktop.uk.solarflarecom.com>
+From: Sylvain Munaut <s.munaut@whatever-company.com>
+Subject: Re: NULL deref in bnx2 / crashes ? ( was: netconsole leads to stalled
+ CPU task )
+Date: Fri, 24 Aug 2012 11:50:39 +0200
+Message-ID: <CAF6-1L6NDYhMuW7uJVt7ov1=Sca_G_bMjXNgUb4UnoQE2i9JmA@mail.gmail.com>
+References: <CAF6-1L4wh0P-Wi-keN98wb-2V_avZYVE3ycf3tEe9SBpgK1dDQ@mail.gmail.com>
+	<1345634026.5158.1084.camel@edumazet-glaptop>
+	<CAF6-1L6zr5WJxo6FVk+2ya=EEs++u3x9iSrDxX-weBofLJuA1g@mail.gmail.com>
+	<1345640757.5158.1321.camel@edumazet-glaptop>
+	<CAF6-1L7nRoG10P=+QRb=LfL4O8K877zUD6L6d5EoCq-QNt1FWA@mail.gmail.com>
+	<k14noo$lfj$1@ger.gmane.org>
+	<k14poh$7bs$1@ger.gmane.org>
+	<k14s5v$7bs$2@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Mikael Starvik <starvik@axis.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.se.axis.com ([195.60.68.13]:54856 "EHLO ra.se.axis.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758518Ab2HXJrh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Aug 2012 05:47:37 -0400
-In-Reply-To: <1345568582.2659.53.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:65400 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754098Ab2HXJul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 05:50:41 -0400
+Received: by vbbff1 with SMTP id ff1so1840698vbb.19
+        for <netdev@vger.kernel.org>; Fri, 24 Aug 2012 02:50:40 -0700 (PDT)
+In-Reply-To: <k14s5v$7bs$2@ger.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IGRlbiAyMSBhdWd1c3Rp
-IDIwMTIgMTk6MDMNCj4gVG86IEpvaGFuIEd1bm5hcnNzb24NCj4gQ2M6IG5ldGRldkB2Z2VyLmtl
-cm5lbC5vcmc7IE1pa2FlbCBTdGFydmlrDQo+IFN1YmplY3Q6IFJFOiBbUEFUQ0hdIGV0aHRvb2w6
-IGRvbid0IG92ZXJ3cml0ZSB1c2VmdWwgYml0cyBpbg0KPiBhZHZlcnRpc2luZyBiaXRmaWVsZA0K
-PiANCj4gWy4uLl0NCj4gDQo+IDxsaW51eC9ldGh0b29sLmg+IG9yIGV0aHRvb2wtY29weS5oIGN1
-cnJlbnRseSBkZWZpbmVzIHRoZSBtZWFuaW5ncyBvZg0KPiBiaXRzIDAtMjYgaW4gdGhlIHN1cHBv
-cnRlZCBmaWVsZC4gIFlvdSBkZWZpbmUgQUxMX0FEVkVSVElTRURfTU9ERVMgdG8NCj4gaW5jbHVk
-ZSBhbGwgb2YgdGhvc2UgdGhhdCBhcmUgbGluayBtb2Rlcy4gIEJ1dCBzb21lIHRpbWUgaW4gdGhl
-IGZ1dHVyZSwNCj4gdGhlIHJlbWFpbmluZyBiaXRzIHdpbGwgYmUgYXNzaWduZWQgdG8gbmV3IGNh
-cGFiaWxpdGllcy4NCj4gDQo+IElmIHRvZGF5J3MgZXRodG9vbCBpcyB1c2VkIHdpdGggYSBuZXdl
-ciBkcml2ZXIgdGhhdCBzZXRzIGJpdCAyNyBpbiBpdHMNCj4gc3VwcG9ydGVkIGZpZWxkLCBldGh0
-b29sIGNhbid0IHRlbGwgd2hldGhlciB0aGF0IHJlcHJlc2VudHMgYSBuZXcgbGluaw0KPiBtb2Rl
-IHRoYXQgc2hvdWxkIGJlIGluY2x1ZGVkIGluIEFMTF9BRFZFUlRJU0VEX01PREVTLCBvciBzb21l
-IG90aGVyDQo+IGtpbmQNCj4gb2YgY2FwYWJpbGl0eS4gIFNvIGl0IG1heSBub3QgYmUgYWJsZSB0
-byBzZXQgdGhlIGRyaXZlcidzIGFkdmVydGlzaW5nDQo+IG1hc2sgY29ycmVjdGx5Lg0KDQpJIHNl
-ZS4gVGhhbmtzLiBJJ2xsIHN1Ym1pdCBuZXcgdmVyc2lvbiBvZiB0aGUgcGF0Y2guDQoNCj4gDQo+
-IEJlbi4NCj4gDQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MsIFN0YWZmIEVuZ2luZWVyLCBTb2xhcmZs
-YXJlDQo+IE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7IHRoYXQncyB0aGUgbWFya2V0aW5n
-IGRlcGFydG1lbnQncyBqb2IuDQo+IFRoZXkgYXNrZWQgdXMgdG8gbm90ZSB0aGF0IFNvbGFyZmxh
-cmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQoNCg==
+Hi,
+
+>>
+>> Could you test the following patch?
+>>
+>> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+>> index ddc453b..ed4d1e4 100644
+>> --- a/net/core/netpoll.c
+>> +++ b/net/core/netpoll.c
+>> @@ -166,11 +166,18 @@ static int poll_one_napi(struct netpoll_info *npinfo,
+>>  static void poll_napi(struct net_device *dev)
+>>  {
+>>       struct napi_struct *napi;
+>> +     LIST_HEAD(napi_list);
+>>       int budget = 16;
+>>
+>>       WARN_ON_ONCE(!irqs_disabled());
+>>
+>> -     list_for_each_entry(napi, &dev->napi_list, dev_list) {
+>> +     /* After we enable the IRQ, new entries could be added
+>> +      * to this list, we need to save it before re-enable
+>> +      * IRQ.
+>> +      */
+>> +     list_splice_tail(&dev->napi_list, &napi_list);
+>> +
+>
+> This one should be list_splice_init()...
+>
+>
+>> +     list_for_each_entry(napi, &napi_list, dev_list) {
+>>               local_irq_enable();
+>>               if (napi->poll_owner != smp_processor_id() &&
+>>                   spin_trylock(&napi->poll_lock)) {
+>> @@ -187,6 +194,7 @@ static void poll_napi(struct net_device *dev)
+>>               }
+>>               local_irq_disable();
+>>       }
+>> +     list_splice_tail(&napi_list, &dev->napi_list);
+>>  }
+>>
+>>  static void service_arp_queue(struct netpoll_info *npi)
+
+I've just tested this patch on the intel machine and the behavior didn't change.
+When I do the netconsole modprobe, it sends a couple of line, the
+modprobe hangs and then a couple of second later the whole machine
+hangs, with nothing printed on the screen or anything.
+
+Cheers,
+
+    Sylvain
