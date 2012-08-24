@@ -1,39 +1,24 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: netlink scm creds uid and gids are always 0.
-Date: Fri, 24 Aug 2012 09:57:45 +0200
-Message-ID: <1345795065.5904.2287.camel@edumazet-glaptop>
-References: <871uiwlrf3.fsf@xmission.com>
+From: "hashi" <hashi@pts.cmb.ac.lk>
+Subject: Business
+Date: Fri, 24 Aug 2012 14:31:19 +0700
+Message-ID: <20120824073113.M18749__41037.5406653204$1345795553$gmane$org@pts.cmb.ac.lk>
+Reply-To: jhdj2328@msn.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain;
+	charset=iso-8859-1
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:42240 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750820Ab2HXH5u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 03:57:50 -0400
-Received: by bkwj10 with SMTP id j10so485573bkw.19
-        for <netdev@vger.kernel.org>; Fri, 24 Aug 2012 00:57:48 -0700 (PDT)
-In-Reply-To: <871uiwlrf3.fsf@xmission.com>
+Received: from shastra.cmb.ac.lk ([192.248.16.91]:57717 "EHLO
+	shastra.cmb.ac.lk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753697Ab2HXIF3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 04:05:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-08-23 at 23:45 -0700, Eric W. Biederman wrote:
-> While working on the kuid_t and kgid_t conversion of the audit subsystem
-> I noticed that since the performance problem of scm creds and af_unix
-> sockets were fixed af_netlink sockets have not filled in the uid or gid
-> of the originator of the socket.
-> 
-> I think all we need is an appropriate cred_to_ucred call to fix this
-> regression, but I am going so many different directions right now I
-> can't get myself to focus on this long enough to work up an appripriate
-> patch to fix.
-> 
-> Eric do you think you might take a gander?
+Good Day,
 
-Wasnt it fixed by e0e3cea46d31d23dc40df0a49a7a2c04fe8edfea
+I am Mr. Xiao Gang from Bank of China.I have a secured business proposal worth 
+$45,275,000.00. Get back to me for more details. 
 
-af_netlink: force credentials passing [CVE-2012-3520]
-
-Or is it a different thing ?
+Regards, 
+Mr. XIAO Gang
