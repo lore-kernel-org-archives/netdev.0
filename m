@@ -1,66 +1,42 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and naive
- hashtable
-Date: Fri, 24 Aug 2012 16:07:40 -0700
-Message-ID: <20120824230740.GN21325@google.com>
-References: <20120822180138.GA19212@google.com>
- <50357840.5020201@gmail.com>
- <20120823200456.GD14962@google.com>
- <5037DA47.9010306@gmail.com>
- <20120824195941.GC21325@google.com>
- <5037E00B.6090606@gmail.com>
- <20120824203332.GF21325@google.com>
- <5037E9D9.9000605@gmail.com>
- <20120824212348.GK21325@google.com>
- <5038074D.300@gmail.com>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v2 00/10] cgroup: Assign subsystem IDs during compile
+ time
+Date: Fri, 24 Aug 2012 16:15:28 -0700
+Message-ID: <20120824231528.GO21325@google.com>
+References: <1345816904-21745-1-git-send-email-wagi@monom.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	paul.gortmaker@windriver.com, davem@davemloft.net,
-	rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
-	aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org,
-	josh@joshtriplett.org, eric.dumazet@gmail.com,
-	mathieu.desnoyers@efficios.com, axboe@kernel.dk, agk@redhat.com,
-	dm-devel@redhat.com, neilb@suse.de, ccaulfie@redhat.com,
-	teigland@redhat.com, Trond.Myklebust@netapp.com,
-	bfields@fieldses.org, fweisbec@gmail.com, jesse@nicira.com,
-	venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
-	edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
-	rds-devel@oss.oracle.com, lw@cn.fujitsu.com
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <5038074D.300@gmail.com>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <1345816904-21745-1-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Hello, Daniel.
 
-On Sat, Aug 25, 2012 at 12:59:25AM +0200, Sasha Levin wrote:
-> Thats the thing, the amount of things of things you can do with a given bucket
-> is very limited. You can't add entries to any point besides the head (without
-> walking the entire list).
+On Fri, Aug 24, 2012 at 04:01:34PM +0200, Daniel Wagner wrote:
+> CGROUP_BUILTIN_SUBSYS_COUNT is also gone in this version.  This time I
+> trade space for speed. Some extra cycles are spend to identify the
+> modules in the for loops, e.g.
 
-Kinda my point.  We already have all the hlist*() interface to deal
-with such cases.  Having something which is evidently the trivial
-hlist hashtable and advertises as such in the interface can be
-helpful.  I think we need that more than we need anything fancy.
-
-Heh, this is a debate about which one is less insignificant.  I can
-see your point.  I'd really like to hear what others think on this.
-
-Guys, do we want something which is evidently trivial hlist hashtable
-which can use hlist_*() API directly or do we want something better
-encapsulated?
+There's no point in optimizing either space or speed here.  It's not a
+hot path by any stretch of imagination.  Please focus on making it
+simple.
 
 Thanks.
 
 -- 
 tejun
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
