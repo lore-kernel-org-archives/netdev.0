@@ -1,56 +1,42 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH] [v2] netdev/phy: add MDIO bus multiplexer driven by a
- memory-mapped device
-Date: Fri, 24 Aug 2012 14:18:02 -0500
-Message-ID: <5037D36A.50705@freescale.com>
-References: <5037C815.4020906@wwwdotorg.org> <5037C9AF.3060903@freescale.com> <5037CE45.4010309@wwwdotorg.org> <20120824.150740.9047511945034908.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless 2012-08-24
+Date: Fri, 24 Aug 2012 15:18:43 -0400 (EDT)
+Message-ID: <20120824.151843.2224438277546850875.davem@davemloft.net>
+References: <20120824161330.GC27147@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <swarren@wwwdotorg.org>, <timur@freescale.com>,
-	<afleming@freescale.com>, <ddaney.cavm@gmail.com>,
-	<netdev@vger.kernel.org>, <devicetree-discuss@lists.ozlabs.org>
-To: David Miller <davem@davemloft.net>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe004.messaging.microsoft.com ([216.32.181.184]:6037
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755114Ab2HXTSM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 15:18:12 -0400
-In-Reply-To: <20120824.150740.9047511945034908.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55706 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755114Ab2HXTSr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 15:18:47 -0400
+In-Reply-To: <20120824161330.GC27147@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/24/2012 02:07 PM, David Miller wrote:
-> From: Stephen Warren <swarren@wwwdotorg.org>
-> Date: Fri, 24 Aug 2012 12:56:05 -0600
-> 
->> In the I2C case, the address spaces are disjoint, so there's never any
->> mapping between them, so there's no need for ranges.
->>
->> Any time the child address space is intended to be part of the parent's
->> address space, I believe ranges is supposed to be specified, perhaps
->> even mandatory, even if the translation is 1:1.
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Fri, 24 Aug 2012 12:13:31 -0400
 
-Yes, it's mandatory (even if the kernel lets you get away without it for
-the sake of some broken Apple firmware, IIRC).  If the translation is an
-identity map you can use an empty "ranges;".
+> This batch of fixes is intended for 3.6...
+> 
+> Johannes Berg gives us a pair of iwlwifi fixes.  One corrects some
+> improperly defined ifdefs that lead to crashes and BUG_ONs.  The other
+> prevents attempts to read SRAM for devices that aren't actually started.
+> 
+> Julia Lawall provides an ipw2100 fix to properly set the return code
+> from a function call before testing it! :-)
+> 
+> Thomas Huehn corrects the improper use of a constant related to a power
+> setting in ath5k.
+> 
+> Thomas Pedersen offers a mac80211 fix to properly handle destination
+> addresses of unicast frames passing though a mesh gate.
+> 
+> Vladimir Zapolskiy provides a brcmsmac fix to properly mark the
+> interface state when the device goes down.
 
-> Regardless, you really can't just generically translate ranges
-> in some universal way and expect it to work in all cases.
-> 
-> You need bus specific drivers to deal with various special
-> cases.
-> 
-> See the *_map() methods implemented in:
-> 
-> 	arch/sparc/kernel/of_device_64.c
-> 
-> for example.
-
-We don't expect it to work in all cases.  We expect it to work if the
-bus node is on the whitelist for which we create devices on
-platform_bus, there's a platform driver that binds against it, and that
-driver calls of_iomap() or equivalent because the binding says that reg
-refers to something that is memory mapped.
-
--Scott
+Pulled, thanks a lot John.
