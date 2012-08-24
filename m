@@ -1,101 +1,84 @@
-From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Subject: [PATCH v2 09/10] cgroup: net_prio: Simplify ifdef logic
-Date: Fri, 24 Aug 2012 16:01:43 +0200
-Message-ID: <1345816904-21745-10-git-send-email-wagi@monom.org>
+From: Daniel Wagner <wagi@monom.org>
+Subject: [PATCH v2 01/10] cgroup: net_cls: Use empty task_cls_classid() when !CONFIG_NET_CLS(_MODULE)
+Date: Fri, 24 Aug 2012 16:01:35 +0200
+Message-ID: <1345816904-21745-2-git-send-email-wagi@monom.org>
 References: <1345816904-21745-1-git-send-email-wagi@monom.org>
-Cc: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1345816904-21745-1-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Wagner <daniel.wagner@bmw-carit.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Li Zefan <lizefan@huawei.com>,
+	Neil Horman <nhorman@tuxdriver.com>, Tejun Heo <tj@kernel.org>
+To: netdev@vger.kernel.org, cgroups@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hotel311.server4you.de ([85.25.146.15]:40387 "EHLO
+	hotel311.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932403Ab2HXOBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 10:01:46 -0400
+In-Reply-To: <1345816904-21745-1-git-send-email-wagi@monom.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+From: Daniel Wagner <daniel.wagner@bmw-carit.de>
 
-Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Cc: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Cc: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Gao feng <gaofeng@cn.fujitsu.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>
+Cc: Li Zefan <lizefan@huawei.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: Tejun Heo <tj@kernel.org>
+Cc: netdev@vger.kernel.org
+Cc: cgroups@vger.kernel.org
 ---
- include/net/netprio_cgroup.h | 14 +++++++-------
- net/core/sock.c              |  2 ++
- 2 files changed, 9 insertions(+), 7 deletions(-)
+ include/net/cls_cgroup.h | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/netprio_cgroup.h b/include/net/netprio_cgroup.h
-index 66241c6..ab22019 100644
---- a/include/net/netprio_cgroup.h
-+++ b/include/net/netprio_cgroup.h
-@@ -18,14 +18,14 @@
- #include <linux/rcupdate.h>
- #include <linux/jump_label.h>
- 
-+#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
-+
- struct netprio_map {
- 	struct rcu_head rcu;
- 	u32 priomap_len;
- 	u32 priomap[];
+diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
+index a4dc5b0..e2fe2b9 100644
+--- a/include/net/cls_cgroup.h
++++ b/include/net/cls_cgroup.h
+@@ -24,7 +24,8 @@ struct cgroup_cls_state
+ 	u32 classid;
  };
  
--#ifdef CONFIG_CGROUPS
--
- struct cgroup_netprio_state {
- 	struct cgroup_subsys_state css;
- 	u32 prioidx;
-@@ -69,17 +69,17 @@ static inline u32 task_netprioidx(struct task_struct *p)
- 	return idx;
- }
- 
--#else
-+#endif
+-#ifdef CONFIG_NET_CLS_CGROUP
++#if IS_BUILTIN(CONFIG_NET_CLS_CGROUP)
 +
-+#else  /* !CONFIG_NETPRIO_CGROUP */
+ static inline u32 task_cls_classid(struct task_struct *p)
+ {
+ 	int classid;
+@@ -39,7 +40,9 @@ static inline u32 task_cls_classid(struct task_struct *p)
  
- static inline u32 task_netprioidx(struct task_struct *p)
+ 	return classid;
+ }
+-#else
++
++#elif IS_MODULE(CONFIG_NET_CLS_CGROUP)
++
+ extern int net_cls_subsys_id;
+ 
+ static inline u32 task_cls_classid(struct task_struct *p)
+@@ -60,11 +63,16 @@ static inline u32 task_cls_classid(struct task_struct *p)
+ 
+ 	return classid;
+ }
+-#endif
++
+ #else
++
+ static inline u32 task_cls_classid(struct task_struct *p)
  {
  	return 0;
  }
- 
--#endif /* CONFIG_NETPRIO_CGROUP */
--
--#else
- #define sock_update_netprioidx(sk, task)
 -#endif
 +
-+#endif  /* CONFIG_NETPRIO_CGROUP */
- 
++#endif /* CONFIG_NET_CLS_CGROUP */
++
++#endif /* CONFIG_CGROURPS */
++
  #endif  /* _NET_CLS_CGROUP_H */
-diff --git a/net/core/sock.c b/net/core/sock.c
-index b1fadfd..115cd59 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1237,6 +1237,7 @@ void sock_update_classid(struct sock *sk)
- EXPORT_SYMBOL(sock_update_classid);
- #endif
- 
-+#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
- void sock_update_netprioidx(struct sock *sk, struct task_struct *task)
- {
- 	if (in_interrupt())
-@@ -1246,6 +1247,7 @@ void sock_update_netprioidx(struct sock *sk, struct task_struct *task)
- }
- EXPORT_SYMBOL_GPL(sock_update_netprioidx);
- #endif
-+#endif
- 
- /**
-  *	sk_alloc - All socket objects are allocated here
 -- 
 1.7.12.rc1.16.g05a20c8
