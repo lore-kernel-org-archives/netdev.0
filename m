@@ -1,59 +1,50 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH] [v2] netdev/phy: add MDIO bus multiplexer driven by a
- memory-mapped device
-Date: Fri, 24 Aug 2012 13:43:04 -0500
-Message-ID: <5037CB38.5090404@freescale.com>
-References: <1345751071-23128-1-git-send-email-timur@freescale.com> <5036B4BD.70208@wwwdotorg.org> <6AE080B68D46FC4BA2D2769E68D765B7059D1DC7@039-SN2MPN1-022.039d.mgd.msft.net> <5036EB06.7060807@wwwdotorg.org> <5037AB67.6030106@freescale.com> <5037C815.4020906@wwwdotorg.org> <5037C9AF.3060903@freescale.com>
+From: Naresh Kumar Inna <naresh@chelsio.com>
+Subject: Re: [PATCH 6/8] csiostor: Chelsio FCoE offload driver submission
+ (headers part 1).
+Date: Sat, 25 Aug 2012 00:15:35 +0530
+Message-ID: <5037CBCF.70506@chelsio.com>
+References: <1345760873-12101-1-git-send-email-naresh@chelsio.com> <1345760873-12101-7-git-send-email-naresh@chelsio.com> <50367309.3080306@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Warren <swarren@wwwdotorg.org>,
-	Fleming Andy-AFLEMING <afleming@freescale.com>,
-	David Miller <davem@davemloft.net>,
-	"ddaney.cavm@gmail.com" <ddaney.cavm@gmail.com>,
+Cc: "JBottomley@parallels.com" <JBottomley@parallels.com>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	Dimitrios Michailidis <dm@chelsio.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>
-To: Timur Tabi <timur@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe004.messaging.microsoft.com ([213.199.154.207]:41376
-	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751416Ab2HXSnL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 14:43:11 -0400
-In-Reply-To: <5037C9AF.3060903@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Chethan Seshadri <chethan@chelsio.com>
+To: "Love, Robert W" <robert.w.love@intel.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <50367309.3080306@intel.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/24/2012 01:36 PM, Timur Tabi wrote:
-> Stephen Warren wrote:
->> When translating the child node's reg property into the parent's address
->> space, the parent's reg property shouldn't even be used at all; all the
->> mapping is done through the ranges property.
+On 8/23/2012 11:45 PM, Love, Robert W wrote:
+> On 8/23/2012 3:27 PM, Naresh Kumar Inna wrote:
+>> This patch contains the first set of the header files for csiostor driver.
 >>
->> I thought the code error-checked for a missing ranges property, but I
->> guess not...
+>> Signed-off-by: Naresh Kumar Inna <naresh@chelsio.com>
+>> ---
+>>   drivers/scsi/csiostor/csio_defs.h       |  143 ++++++
+>>   drivers/scsi/csiostor/csio_fcoe_proto.h |  843 +++++++++++++++++++++++++++++++
 > 
-> I don't think 'ranges' is always necessary, because sometimes the child
-> nodes have a different address space that's not mapped to the parent.  For
-> instance, I2C devices have addresses that are not mapped to the I2C
-> controller itself.
+> I think most of these protocol definitions can be found in 
+> include/scsi/fc/ and possibly incluse/scsi/scsi_transport_fc.h. I think 
+> any protocol stuff missing should be added to the common header files.
 > 
-> Anyway, thanks to Scott for helping me figure this out.  I was missing a
-> ranges property:
-> 
-> 	fpga: board-control@3,0 {
-> 		#address-cells = <1>;
-> 		#size-cells = <1>;
-> 		compatible = "fsl,p5020ds-fpga", "fsl,fpga-ngpixis";
-> 		reg = <3 0 0x30>;
-> 		ranges = <0 3 0 0x30>;
-> 
-> This maps the child address of 0 to the parent address of 3 0.  It seems
-> obvious now, but it was driving me crazy.  We've never put child devices
-> under our FPGA nodes, so there was no prior use case of a 'ranges'
-> property in any of the localbus devices that I could learn from.  Plus,
-> this is the first time we're probing directly on a child of a localbus device.
+> Thanks, //Rob--
 
-There's ep8248e.dts, not that I'd have expected you to look there. :-)
+Hi Rob,
 
--Scott
+Thanks for reviewing this patch. I will look into how best I can re-use
+the headers in include/scsi/fc and get back if I have questions.
+
+Regards,
+Naresh.
+
+
+
+> To unsubscribe from this list: send the line "unsubscribe linux-scsi" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
