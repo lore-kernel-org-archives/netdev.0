@@ -1,52 +1,47 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net-next 13/13] igb: Store the MAC address in the name in the
- PTP struct.
-Date: Fri, 24 Aug 2012 08:19:57 +0200
-Message-ID: <20120824061956.GA2212@netboy.at.omicron.at>
+Subject: Re: [net-next 11/13] igb: Update PTP function names/variables and
+ locations.
+Date: Fri, 24 Aug 2012 08:32:41 +0200
+Message-ID: <20120824063240.GB2212@netboy.at.omicron.at>
 References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1345715813-20757-14-git-send-email-jeffrey.t.kirsher@intel.com>
- <20120823104554.GA2238@netboy.at.omicron.at>
- <1345757737.2579.22.camel@bwh-desktop.uk.solarflarecom.com>
+ <1345715813-20757-12-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20120823111622.GC2238@netboy.at.omicron.at>
+ <06DFBC1E25D8024DB214DC7F41A3CD34488DD079@ORSMSX101.amr.corp.intel.com>
+ <20120823175335.GB2192@netboy.at.omicron.at>
+ <1345777345.16471.18.camel@joe2Laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Stuart Hodgson <smhodgson@solarflare.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: "Vick, Matthew" <matthew.vick@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:50772 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755891Ab2HXGUK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 02:20:10 -0400
-Received: by weyx8 with SMTP id x8so829378wey.19
-        for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 23:20:08 -0700 (PDT)
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:36512 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752497Ab2HXGcw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 02:32:52 -0400
+Received: by wicr5 with SMTP id r5so520462wic.1
+        for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 23:32:51 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1345757737.2579.22.camel@bwh-desktop.uk.solarflarecom.com>
+In-Reply-To: <1345777345.16471.18.camel@joe2Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 23, 2012 at 10:35:37PM +0100, Ben Hutchings wrote:
-> 
-> The name field is described as 'A short name to identify the clock'.  It
-> is not stated whether this is meant to be the name of the clock *device*
-> or the clock *driver*.  If it's the name of the device then some unique
-> ID such as the permanent MAC address is required.
+On Thu, Aug 23, 2012 at 08:02:25PM -0700, Joe Perches wrote:
 
-In an ideal world, there is only one clock device per system, so the
-original concept was to use the driver name. The hardware designers
-have ignored or not understood the "one clock per system" model, and
-so, unfortunately, we have to deal with it.
+> Improving code clarity and consistency isn't churn.
 
-A clock device can and should be connected to more than one network
-device (see gianfar, dp83640), and to give it a MAC address is
-misleading.
+This patch series moves code around for no good reason. That is, by
+definition, churn.
 
-The ethtool solution works perfectly to go from interface->clock,
-which is all the information that a user space PTP stack needs.
+> The most valuable form of code is the current one,
+> not any antecedent version.
 
-I think for sysfs and the ioctl it is nicer to have the driver name,
-since it is associated with the clock and its capabilities.
+You really haven't noticed all the code review and rebasing that goes
+on around here in order to improve the commit history, have you?
 
 Thanks,
 Richard
