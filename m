@@ -1,74 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2] net: dev: fix the incorrect hold of net
- namespace's lo device
-Date: Fri, 24 Aug 2012 06:56:22 +0200
-Message-ID: <1345784182.5904.1920.camel@edumazet-glaptop>
-References: <1345772215-30379-1-git-send-email-gaofeng@cn.fujitsu.com>
+From: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v2] mwifiex: use is_broadcast_ether_addr() instead of memcmp()
+Date: Fri, 24 Aug 2012 13:25:30 +0800
+Message-ID: <CAPgLHd81cZS4K-wzcLycRTVF3pGy-S6=YR9UZ++Ot=6OXZp-5Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:49527 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750847Ab2HXE40 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 00:56:26 -0400
-Received: by wgbdr13 with SMTP id dr13so1176963wgb.1
-        for <netdev@vger.kernel.org>; Thu, 23 Aug 2012 21:56:25 -0700 (PDT)
-In-Reply-To: <1345772215-30379-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-08-24 at 09:36 +0800, Gao feng wrote:
-> When moving a net device from one net namespace to another
-> net namespace,dev_change_net_namespace calls NETDEV_DOWN
-> event,so the original net namespace's dst entries which
-> beloned to this net device will be put into dst_garbage
-> list.
-> 
-> then dev_change_net_namespace will set this net device's
-> net to the new net namespace.
-> 
-> If we unregister this net device's driver, this will trigger
-> the NETDEV_UNREGISTER_FINAL event, dst_ifdown will be called,
-> and get this net device's dst entries from dst_garbage list,
-> put these entries' dev to the new net namespace's lo device.
-> 
-> It's not what we want,actually we need these dst entries hold
-> the original net namespace's lo device,this incorrect device
-> holding will trigger emg message like below.
-> unregister_netdevice: waiting for lo to become free. Usage count = 1
-> 
-> so we should call NETDEV_UNREGISTER_FINAL event in
-> dev_change_net_namespace too,in order to make sure dst entries
-> already in the dst_garbage list, we need rcu_barrier before we
-> call NETDEV_UNREGISTER_FINAL event.
-> 
-> With help form Eric Dumazet.
-> 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
->  net/core/dev.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index bc857fe..6956d4c 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -6256,6 +6256,8 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
->  	   the device is just moving and can keep their slaves up.
->  	*/
->  	call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
-> +	rcu_barrier();
-> +	call_netdevice_notifiers(NETDEV_UNREGISTER_FINAL, dev);
->  	rtmsg_ifinfo(RTM_DELLINK, dev, ~0U);
->  
->  	/*
+From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Using is_broadcast_ether_addr() instead of directly use
+memcmp() to determine if the ethernet address is broadcast
+address.
 
-Thanks !
+Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+---
+ drivers/net/wireless/mwifiex/sta_cmd.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/mwifiex/sta_cmd.c b/drivers/net/wireless/mwifiex/sta_cmd.c
+index df3a33c..323b91b 100644
+--- a/drivers/net/wireless/mwifiex/sta_cmd.c
++++ b/drivers/net/wireless/mwifiex/sta_cmd.c
+@@ -551,7 +551,6 @@ mwifiex_cmd_802_11_key_material(struct mwifiex_private *priv,
+ 	struct host_cmd_tlv_mac_addr *tlv_mac;
+ 	u16 key_param_len = 0, cmd_size;
+ 	int ret = 0;
+-	const u8 bc_mac[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+ 
+ 	cmd->command = cpu_to_le16(HostCmd_CMD_802_11_KEY_MATERIAL);
+ 	key_material->action = cpu_to_le16(cmd_action);
+@@ -593,7 +592,7 @@ mwifiex_cmd_802_11_key_material(struct mwifiex_private *priv,
+ 			/* set 0 when re-key */
+ 			key_material->key_param_set.key[1] = 0;
+ 
+-		if (0 != memcmp(enc_key->mac_addr, bc_mac, sizeof(bc_mac))) {
++		if (!is_broadcast_ether_addr(enc_key->mac_addr)) {
+ 			/* WAPI pairwise key: unicast */
+ 			key_material->key_param_set.key_info |=
+ 				cpu_to_le16(KEY_UNICAST);
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
