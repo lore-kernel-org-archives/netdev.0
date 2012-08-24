@@ -1,66 +1,58 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: netlink scm creds uid and gids are always 0.
-Date: Fri, 24 Aug 2012 02:07:42 -0700
-Message-ID: <877gsok68x.fsf@xmission.com>
-References: <871uiwlrf3.fsf@xmission.com>
-	<1345795065.5904.2287.camel@edumazet-glaptop>
-	<87txvsk8h7.fsf@xmission.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH 1/2] ipv6: do not hold route table lock when send ndisc
+ probe
+Date: Fri, 24 Aug 2012 17:15:24 +0800
+Message-ID: <1345799724.11584.15.camel@cr0>
+References: <1345187499-16929-1-git-send-email-amwang@redhat.com>
+	 <CAATkVEzKuTeUbU75B6EoSfFvGVsz_eK47XNWmsP5KcCvjTDEDA@mail.gmail.com>
+	 <1345520643.12468.6.camel@cr0>
+	 <1345738232.5904.1244.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Debabrata Banerjee <dbavatar@gmail.com>, netdev@vger.kernel.org,
+	"Banerjee, Debabrata" <dbanerje@akamai.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:51956 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752636Ab2HXJHx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 05:07:53 -0400
-In-Reply-To: <87txvsk8h7.fsf@xmission.com> (Eric W. Biederman's message of
-	"Fri, 24 Aug 2012 01:19:32 -0700")
+Received: from mx1.redhat.com ([209.132.183.28]:31404 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752282Ab2HXJPm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Aug 2012 05:15:42 -0400
+In-Reply-To: <1345738232.5904.1244.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ebiederm@xmission.com (Eric W. Biederman) writes:
+On Thu, 2012-08-23 at 18:10 +0200, Eric Dumazet wrote:
+> On Tue, 2012-08-21 at 11:44 +0800, Cong Wang wrote:
+> > Hi, Debabrata,
+> > 
+> > Could you help to test the attached patch below?
+> > 
+> > Thanks!
+> > 
+> 
+> Hard to comment on your patch since its not inlined.
+> 
+> +               nw = kmalloc(sizeof(*nw), GFP_ATOMIC);
+> +               if (nw) {
+> +                       memcpy(&nw->target, &neigh->primary_key, sizeof(struct in6_addr));
+> +                       addrconf_addr_solict_mult(&nw->target, &nw->mcaddr);
+> +                       nw->dev = rt->dst.dev;
+> +                       INIT_WORK(&nw->work, queue_ndisc);
+> +                       schedule_work(&nw->work);
+> +               }
+> 
+> You cant do that without taking extra reference on dev,
+> and release it in queue_ndisc()
+> 
+> This also will add interesting side effects at device dismantle.
+> 
 
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
->
->> On Thu, 2012-08-23 at 23:45 -0700, Eric W. Biederman wrote:
->>> While working on the kuid_t and kgid_t conversion of the audit subsystem
->>> I noticed that since the performance problem of scm creds and af_unix
->>> sockets were fixed af_netlink sockets have not filled in the uid or gid
->>> of the originator of the socket.
->>> 
->>> I think all we need is an appropriate cred_to_ucred call to fix this
->>> regression, but I am going so many different directions right now I
->>> can't get myself to focus on this long enough to work up an appripriate
->>> patch to fix.
->>> 
->>> Eric do you think you might take a gander?
->>
->> Wasnt it fixed by e0e3cea46d31d23dc40df0a49a7a2c04fe8edfea
->>
->> af_netlink: force credentials passing [CVE-2012-3520]
->>
->> Or is it a different thing ?
->
-> Same thing.  I didn't see that fix go by.
->
-> One more little thing I can cross off my list.  Hooray!
+Right... If we call dev_hold() in the work, it is possible that the work
+is still not scheduled to running when we unregister the device. What's
+more, we can't flush work here as we are holding a read lock.
 
-Looking a little deeper it looks like I am going to have to
-give scm credentials a little more tender loving care.
-
-There is still a possible issue with netlink sockets and pids when the
-two processes talking over netlink are in different pid namespaces.
-
-And I need to take care in my usernamespace tree for 3.7, to keep from
-reintroucing the ability to spoof root if the two netlink talkers are in
-different user namespaces. 
-
-With a little luck for uids and gids I can just pass around kuid_t and
-kgid_t values and throw out the ref-counting complexity.  Something
-to sleep on and benchmark, and then generate a patch I guess.
-
-I know at least from my last attempt that ref counting in the NETLINK_CB
-was a lost cause.  So I don't know what to do about the pids :(
-
-Eric
+Hmm.
