@@ -1,59 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/15] qlcnic: patches for new adapter - Qlogic
- 83XX CNA
-Date: Fri, 24 Aug 2012 12:56:56 -0400 (EDT)
-Message-ID: <20120824.125656.2080260426772048132.davem@davemloft.net>
-References: <1345770439-30517-1-git-send-email-sony.chacko@qlogic.com>
+Subject: Re: [PATCH 0/8] csiostor: Chelsio FCoE offload driver submission
+Date: Fri, 24 Aug 2012 13:04:06 -0400 (EDT)
+Message-ID: <20120824.130406.1059160453285824849.davem@davemloft.net>
+References: <1345760873-12101-1-git-send-email-naresh@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: sony.chacko@qlogic.com
+Cc: JBottomley@parallels.com, linux-scsi@vger.kernel.org,
+	dm@chelsio.com, netdev@vger.kernel.org, chethan@chelsio.com
+To: naresh@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54283 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54344 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753539Ab2HXQ5A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 12:57:00 -0400
-In-Reply-To: <1345770439-30517-1-git-send-email-sony.chacko@qlogic.com>
+	with ESMTP id S1756631Ab2HXREJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 13:04:09 -0400
+In-Reply-To: <1345760873-12101-1-git-send-email-naresh@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sony Chacko <sony.chacko@qlogic.com>
-Date: Thu, 23 Aug 2012 21:07:04 -0400
+From: Naresh Kumar Inna <naresh@chelsio.com>
+Date: Fri, 24 Aug 2012 03:57:45 +0530
 
-> From: Sony Chacko <sony.chacko@qlogic.com>
+> This is the initial submission of the Chelsio FCoE offload driver (csiostor)
+> to the upstream kernel. This driver currently supports FCoE offload
+> functionality over Chelsio T4-based 10Gb Converged Network Adapters.
 > 
-> Patch series will restructure the existing 82XX adapter driver to create
-> a common driver for Qlogic 82XX and 83XX adapters.
+> The following patches contain the driver sources for csiostor driver and
+> updates to firmware/hardware header files shared between csiostor and
+> cxgb4 (Chelsio T4-based NIC driver). The csiostor driver is dependent on these
+> header updates. These patches have been generated against scsi 'misc' branch.
 > 
-> Please apply it to net-next.
+> csiostor is a low level SCSI driver that interfaces with PCI, SCSI midlayer and
+> FC transport subsystems. This driver claims the FCoE PCIe function on the
+> Chelsio Converged Network Adapter. It relies on firmware events for slow path
+> operations like discovery, thereby offloading session management. The driver
+> programs firmware via Work Request interfaces for fast path I/O offload
+> features.
 
-Sorry, this is terrible.
+You are going to have to get rid of these module parameters.
 
-Firstly, I'm not going to let you create arbitrary new sysfs and
-debugfs crap for facilities that are already supported by the kernel
-via other interfaces.
+That have to do with things that are in no way specific to your device,
+and therefore should be configured using generic kernel facilities.
 
-For example, providing a facility to read and write the PCI BARs
-is completely pointless.  Use the PCI config space access APIs for
-this if you want to do this from userspace.
+Using driver specific module parameters results in a poor user
+experience, because in order to make a configuration change the user
+has to know exactly what kind of device and driver is underneath,
+and then learn what the unique method is to make that configuration
+change.
 
-The patches are also much more verbose than they need to be.  When you
-move an operation to the new hwops, keep the existing function name
-but make it an inline function that invokes the hwop.
-
-That way you won't need hundreds of lines in your patch that look
-like this:
-
-
--	qlcnic_clear_lb_mode(adapter);
-+	ahw->hw_ops->clear_loopback(adapter, mode);
-
-Instead you'd have:
-
-static inline void qlcnic_clear_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
-{
-	struct qlcnic_hardware_context *ahw = &adapter->ahw;
-
-	ahw->hw_ops->clear_loopback(adapter, mode);
-}
+If you use a generic facility, the user only needs to learn one way to
+make a configuration change, regardless of device type and driver.
