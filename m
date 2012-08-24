@@ -1,89 +1,76 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 08/16] sfc: Keep disabled NICs quiescent during
- suspend/resume
-Date: Fri, 24 Aug 2012 20:51:24 +0100
-Message-ID: <1345837884.2694.30.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1345837574.2694.22.camel@bwh-desktop.uk.solarflarecom.com>
+From: Stephen Warren <swarren@wwwdotorg.org>
+Subject: Re: [PATCH] [v3] netdev/phy: add MDIO bus multiplexer driven by a
+ memory-mapped device
+Date: Fri, 24 Aug 2012 13:51:31 -0600
+Message-ID: <5037DB43.60704@wwwdotorg.org>
+References: <1345835453-8611-1-git-send-email-timur@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Cc: Andy Fleming <afleming@freescale.com>,
+	David Miller <davem@davemloft.net>, ddaney.cavm@gmail.com,
+	devicetree-discuss@lists.ozlabs.org, netdev@vger.kernel.org
+To: Timur Tabi <timur@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56760 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1758130Ab2HXTv1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 15:51:27 -0400
-In-Reply-To: <1345837574.2694.22.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from avon.wwwdotorg.org ([70.85.31.133]:53860 "EHLO
+	avon.wwwdotorg.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758130Ab2HXTvf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 15:51:35 -0400
+In-Reply-To: <1345835453-8611-1-git-send-email-timur@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we ignore and clear the disabled state.
+On 08/24/2012 01:10 PM, Timur Tabi wrote:
+> Add support for an MDIO bus multiplexer controlled by a simple memory-mapped
+> device, like an FPGA.  The device must be memory-mapped and contain only
+> 8-bit registers (which keeps things simple).
+> 
+> Tested on a Freescale P5020DS board which uses the "PIXIS" FPGA attached
+> to the localbus.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/efx.c |   28 ++++++++++++++++------------
- 1 files changed, 16 insertions(+), 12 deletions(-)
+> +++ b/Documentation/devicetree/bindings/net/mdio-mux-mmioreg.txt
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index e5f3a17..f02591b 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -2729,12 +2729,14 @@ static int efx_pm_freeze(struct device *dev)
- 
- 	rtnl_lock();
- 
--	efx->state = STATE_UNINIT;
-+	if (efx->state != STATE_DISABLED) {
-+		efx->state = STATE_UNINIT;
- 
--	netif_device_detach(efx->net_dev);
-+		netif_device_detach(efx->net_dev);
- 
--	efx_stop_all(efx);
--	efx_stop_interrupts(efx, false);
-+		efx_stop_all(efx);
-+		efx_stop_interrupts(efx, false);
-+	}
- 
- 	rtnl_unlock();
- 
-@@ -2747,19 +2749,21 @@ static int efx_pm_thaw(struct device *dev)
- 
- 	rtnl_lock();
- 
--	efx_start_interrupts(efx, false);
-+	if (efx->state != STATE_DISABLED) {
-+		efx_start_interrupts(efx, false);
- 
--	mutex_lock(&efx->mac_lock);
--	efx->phy_op->reconfigure(efx);
--	mutex_unlock(&efx->mac_lock);
-+		mutex_lock(&efx->mac_lock);
-+		efx->phy_op->reconfigure(efx);
-+		mutex_unlock(&efx->mac_lock);
- 
--	efx_start_all(efx);
-+		efx_start_all(efx);
- 
--	netif_device_attach(efx->net_dev);
-+		netif_device_attach(efx->net_dev);
- 
--	efx->state = STATE_READY;
-+		efx->state = STATE_READY;
- 
--	efx->type->resume_wol(efx);
-+		efx->type->resume_wol(efx);
-+	}
- 
- 	rtnl_unlock();
- 
--- 
-1.7.7.6
+> +Properties for an MDIO bus multiplexer controlled by a memory-mapped device
+> +
+> +This is a special case of a MDIO bus multiplexer.  A memory-mapped device,
+> +like an FPGA, is used to control which child bus is connected.  The mdio-mux
+> +node must be a child of the memory-mapped device.  The driver currently only
+> +supports devices with eight-bit registers.
 
+That last sentence seems like a property of the driver, not the binding;
+I could easily anticipate allowing the size to be 1 or 2 or 4, and a
+driver adapter to that in the future.
 
+Otherwise, this binding looks great now.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> +++ b/drivers/net/phy/mdio-mux-mmioreg.c
+
+> +static int mdio_mux_mmioreg_switch_fn(int current_child, int desired_child,
+> +				      void *data)
+> +{
+> +	struct mdio_mux_mmioreg_state *s = data;
+> +
+> +	if (current_child ^ desired_child) {
+> +		void *p = ioremap(s->phys, 1);
+> +		uint8_t x, y;
+> +
+> +		if (!p)
+> +			return -ENOMEM;
+
+Why not map it during probe?
+
+> +		x = ioread8(p);
+> +		y = (x & ~s->mask) | desired_child;
+> +		if (x != y) {
+
+Isn't that always true, given if (current_child ^ desired_child) above?
+
+> +			iowrite8((x & ~s->mask) | desired_child, p);
+> +			pr_debug("%s: %02x -> %02x\n", __func__, x, y);
+> +		}
+> +
+> +		iounmap(p);
+> +	}
+> +
+> +	return 0;
+> +}
