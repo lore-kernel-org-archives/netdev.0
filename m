@@ -1,75 +1,61 @@
-From: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
-Subject: Re: [PATCH] [v2] netdev/phy: add MDIO bus multiplexer driven by a
- memory-mapped device
-Date: Thu, 23 Aug 2012 20:46:30 -0600
-Message-ID: <5036EB06.7060807@wwwdotorg.org>
-References: <1345751071-23128-1-git-send-email-timur@freescale.com>
- <5036B4BD.70208@wwwdotorg.org>
- <6AE080B68D46FC4BA2D2769E68D765B7059D1DC7@039-SN2MPN1-022.039d.mgd.msft.net>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [RFC PATCH bridge 0/5] Add basic VLAN support to bridges
+Date: Thu, 23 Aug 2012 22:52:02 -0400
+Message-ID: <5036EC52.9090406@redhat.com>
+References: <1345750195-31598-1-git-send-email-vyasevic@redhat.com> <50369A99.2070405@gmail.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org"
- <devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
- Fleming Andy-AFLEMING <afleming-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Tabi Timur-B04825 <B04825-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <6AE080B68D46FC4BA2D2769E68D765B7059D1DC7-RL0Hj/+nBVC81RJBUSuqCa4g8xLGJsHaLnY5E4hWTkheoWH0uzbU5w@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
+To: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
+	<nicolas.2p.debian@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:2461 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751052Ab2HXCwF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Aug 2012 22:52:05 -0400
+In-Reply-To: <50369A99.2070405@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/23/2012 06:28 PM, Tabi Timur-B04825 wrote:
-> Stephen Warren wrote:
->> On 08/23/2012 01:44 PM, Timur Tabi wrote:
->>> Add support for an MDIO bus multiplexer controlled by a simple memory-mapped
->>> device, like an FPGA.  The device must be memory-mapped and contain only
->>> 8-bit registers (which keeps things simple).
+On 08/23/2012 05:03 PM, Nicolas de Peslo=C3=BCan wrote:
+> Le 23/08/2012 21:29, Vlad Yasevich a =C3=A9crit :
+>> This series of patches provides an ability to add VLAN IDs to the br=
+idge
+>> ports.  This is similar to what can be found in most switches.  The
+>> bridge
+>> port may have any number of VLANs added to it including vlan 0 for
+>> untagged
+>> traffic.  When vlans are added to the port, only traffic tagged with
+>> particular
+>> vlan will forwarded over this port.  Additionally, vlan ids are adde=
+d
+>> to FDB
+>> entries and become part of the lookup.  This way we correctly identi=
+fy
+>> the FDB
+>> entry.
 >>
->>> +++ b/Documentation/devicetree/bindings/net/mdio-mux-mmioreg.txt
+>> There are still pieces missing.  I don't yet support adding a static
+>> fdb entry
+>> with a particular vlan.  There is no netlink support for carrying a
+>> vlan id.
 >>
->>> +	/* The FPGA node */
->>> +	fpga: board-control@3,0 {
->>> +		compatible = "fsl,p5020ds-fpga", "fsl,fpga-ngpixis";
->>> +		reg = <3 0 0x30>;
+>> I'd like to hear thoughts of whether this is usufull and something w=
+e
+>> should
+>> persue.
 >>
->> Why not add the following here:
->>
->> 	#address-cells = <1>:
->> 	#size-cells = <1>;
->> 	ranges = <...>;
-> 
-> I forgot to add them in the txt file.  They are in the real device tree.
-> 
->>
->>> +
->>> +		mdio-mux-emi2 {
->>> +			compatible = "mdio-mux-mmioreg", "mdio-mux";
->>> +			mdio-parent-bus = <&xmdio0>;
->>> +			#address-cells = <1>;
->>> +			#size-cells = <0>;
->>> +			reg = <9>; // BRDCFG1
->>
->> Then, that'd have to be <9 1>;
-> 
-> Actually, I had #size-cells = <0>.
+>
+> Do you think this might allow for per VLAN spanning tree (having port=
+s
+> in forwarding state or blocking state depending on the VLAN) in the f=
+uture?
+>
+>      Nicolas.
 
-I think that if you have #size-cells=<0>, then you'll see the following
-error message when attempting to translate the address into the parent's
-address space:
+sure, why not.
 
-prom_parse: Bad cell count for /board-control@3,0/mdio-mux-emi2
-
-I fixed that error for cases where actual address translation isn't
-required (i.e. coming up with the platform device name), but IIRC it'll
-still trigger if you actually want to translate the address.
+-vlad
