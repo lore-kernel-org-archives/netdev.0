@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] ipv4: Properly purge netdev references on uncached
- routes.
-Date: Fri, 24 Aug 2012 11:45:37 -0400 (EDT)
-Message-ID: <20120824.114537.1737590837215529536.davem@davemloft.net>
-References: <20120731154455.2acf97a8@nehalam.linuxnetplumber.net>
-	<20120731.160408.994710172149748635.davem@davemloft.net>
-	<1345822847.19483.8.camel@edumazet-glaptop>
+Subject: Re: pull request: batman-adv 2012-08-23
+Date: Fri, 24 Aug 2012 11:46:01 -0400 (EDT)
+Message-ID: <20120824.114601.1698041558649925346.davem@davemloft.net>
+References: <1345727427-20805-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: ordex@autistici.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53707 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53714 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759566Ab2HXPpl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 11:45:41 -0400
-In-Reply-To: <1345822847.19483.8.camel@edumazet-glaptop>
+	with ESMTP id S1759645Ab2HXPqD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 11:46:03 -0400
+In-Reply-To: <1345727427-20805-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 24 Aug 2012 17:40:47 +0200
+From: Antonio Quartulli <ordex@autistici.org>
+Date: Thu, 23 Aug 2012 15:10:09 +0200
 
-> We might have an SMP performance regression on multicast traffic,
-> because DST_NOCACHE is set on such routes.
-> 
-> What about the following ?
+> this is our set of changes intended for net-next/linux-3.7.
+> It is mostly composed by style fixes and cleanups. Other than that you have a
+> patch introducing a new table in debugfs (backbone gateways table for the Bridge
+> Loop Avoidance) and a new mechanism for the TranslationTable component. The
+> latter allows mesh nodes to immediately detect new clients joining the network,
+> without waiting for any periodic advertisement.
 
-I'm fine with this and will apply it to 'net', thanks Eric!
+Pulled, thanks Antonio.
