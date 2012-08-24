@@ -1,44 +1,55 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH 1/2] ipv6: do not hold route table lock when send ndisc
- probe
-Date: Fri, 24 Aug 2012 18:45:40 +0800
-Message-ID: <1345805140.9305.1.camel@cr0>
-References: <1345187499-16929-1-git-send-email-amwang@redhat.com>
-	 <CAATkVEzKuTeUbU75B6EoSfFvGVsz_eK47XNWmsP5KcCvjTDEDA@mail.gmail.com>
-	 <1345520643.12468.6.camel@cr0>
-	 <1345738232.5904.1244.camel@edumazet-glaptop>
-	 <1345799724.11584.15.camel@cr0> <1345801484.29722.2.camel@edumazet-glaptop>
+From: Kozlov Dmitry <xeb@mail.ru>
+Subject: [PATCH 1/1] l2tp: avoid to use synchronize_rcu in tunnel free function
+Date: Fri, 24 Aug 2012 15:07:38 +0400
+Message-ID: <1430615.YYms4uRCh4@dima>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Debabrata Banerjee <dbavatar@gmail.com>, netdev@vger.kernel.org,
-	"Banerjee, Debabrata" <dbanerje@akamai.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: kleptog@svana.org, jchapman@katalix.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16675 "EHLO mx1.redhat.com"
+Received: from smtp12.mail.ru ([94.100.176.89]:45799 "EHLO smtp12.mail.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757799Ab2HXKpz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Aug 2012 06:45:55 -0400
-In-Reply-To: <1345801484.29722.2.camel@edumazet-glaptop>
+	id S1759298Ab2HXLHp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Aug 2012 07:07:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-08-24 at 11:44 +0200, Eric Dumazet wrote:
-> On Fri, 2012-08-24 at 17:15 +0800, Cong Wang wrote:
-> 
-> > 
-> > Right... If we call dev_hold() in the work, it is possible that the work
-> > is still not scheduled to running when we unregister the device. What's
-> > more, we can't flush work here as we are holding a read lock.
-> 
-> You need a global list (and a single work, not one per req), so that a
-> notifier can flush it at demand.
-> 
-> 
+Avoid to use synchronize_rcu in l2tp_tunnel_free because context may be
+atomic.
 
-Agreed. I will make a new patch.
+Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
+---
+ net/l2tp/l2tp_core.c |    3 +--
+ net/l2tp/l2tp_core.h |    1 +
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Thanks!
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 393355d..513cab0 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1347,11 +1347,10 @@ static void l2tp_tunnel_free(struct l2tp_tunnel *tunnel)
+ 	/* Remove from tunnel list */
+ 	spin_lock_bh(&pn->l2tp_tunnel_list_lock);
+ 	list_del_rcu(&tunnel->list);
++	kfree_rcu(tunnel, rcu);
+ 	spin_unlock_bh(&pn->l2tp_tunnel_list_lock);
+-	synchronize_rcu();
+ 
+ 	atomic_dec(&l2tp_tunnel_count);
+-	kfree(tunnel);
+ }
+ 
+ /* Create a socket for the tunnel, if one isn't set up by
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index a38ec6c..56d583e 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -163,6 +163,7 @@ struct l2tp_tunnel_cfg {
+ 
+ struct l2tp_tunnel {
+ 	int			magic;		/* Should be L2TP_TUNNEL_MAGIC */
++	struct rcu_head rcu;
+ 	rwlock_t		hlist_lock;	/* protect session_hlist */
+ 	struct hlist_head	session_hlist[L2TP_HASH_SIZE];
+ 						/* hashed list of sessions,
