@@ -1,44 +1,55 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net-next 10/13] igb: Tidy up wrapping for CONFIG_IGB_PTP.
-Date: Fri, 24 Aug 2012 09:04:13 +0200
-Message-ID: <20120824070413.GC3261@netboy.at.omicron.at>
-References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1345715813-20757-11-git-send-email-jeffrey.t.kirsher@intel.com>
- <20120823110357.GB2238@netboy.at.omicron.at>
- <06DFBC1E25D8024DB214DC7F41A3CD34488DD039@ORSMSX101.amr.corp.intel.com>
- <20120823172950.GA2192@netboy.at.omicron.at>
- <02874ECE860811409154E81DA85FBB5807857EFE@ORSMSX105.amr.corp.intel.com>
- <06DFBC1E25D8024DB214DC7F41A3CD34488DD35B@ORSMSX101.amr.corp.intel.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH][net-next] gianfar: fix default tx vlan offload feature flag
+Date: Fri, 24 Aug 2012 10:46:25 +0300
+Message-ID: <1345794385-21908-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Vick, Matthew" <matthew.vick@intel.com>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sebastian Poehn <sebastian.poehn@belden.com>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:60894 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753243Ab2HXHE1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 03:04:27 -0400
-Received: by weyx8 with SMTP id x8so846173wey.19
-        for <netdev@vger.kernel.org>; Fri, 24 Aug 2012 00:04:24 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <06DFBC1E25D8024DB214DC7F41A3CD34488DD35B@ORSMSX101.amr.corp.intel.com>
+Received: from tx2ehsobe005.messaging.microsoft.com ([65.55.88.15]:11553 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751817Ab2HXHqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 03:46:39 -0400
+Received: from mail183-tx2 (localhost [127.0.0.1])	by
+ mail183-tx2-R.bigfish.com (Postfix) with ESMTP id 4FDBF38015C	for
+ <netdev@vger.kernel.org>; Fri, 24 Aug 2012 07:46:36 +0000 (UTC)
+Received: from TX2EHSMHS011.bigfish.com (unknown [10.9.14.248])	by
+ mail183-tx2.bigfish.com (Postfix) with ESMTP id C560BE0153	for
+ <netdev@vger.kernel.org>; Fri, 24 Aug 2012 07:46:34 +0000 (UTC)
+Received: from zro04-ws574.ea.freescale.net ([10.213.130.145])	by
+ tx30smr01.am.freescale.net (8.14.3/8.14.0) with ESMTP id q7O7kWE6015642	for
+ <netdev@vger.kernel.org>; Fri, 24 Aug 2012 00:46:33 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 23, 2012 at 06:40:25PM +0000, Vick, Matthew wrote:
-> 
-> I tend to agree with Jake here--I like having the information. I'm fine removing them, but I'd like to do it for all CONFIG_IGB_PTP wrapping if we're going to do it. What do you think, Richard?
+Commit -
+"b852b72 gianfar: fix bug caused by
+87c288c6e9aa31720b72e2bc2d665e24e1653c3e"
+disables by default (on mac init) the hw vlan tag insertion.
+The "features" flags were not updated to reflect this, and
+"ethtool -K" shows tx-vlan-offload to be "on" by default.
 
-I took a look at the #ifdefs in igb_main.c, and I would say they are
-okay as is, except for the CONFIG_PM ones, which could use a comment
-at the #endifs.
+Cc: Sebastian Poehn <sebastian.poehn@belden.com>
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+---
+ drivers/net/ethernet/freescale/gianfar.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-(a matter of taste, though)
-
-Thanks,
-Richard
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 4605f72..d3233f59 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -1041,7 +1041,7 @@ static int gfar_probe(struct platform_device *ofdev)
+ 
+ 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_VLAN) {
+ 		dev->hw_features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+-		dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
++		dev->features |= NETIF_F_HW_VLAN_RX;
+ 	}
+ 
+ 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_EXTENDED_HASH) {
+-- 
+1.7.6.5
