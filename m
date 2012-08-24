@@ -1,25 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] w5100: using eth_hw_addr_random() for random
+Subject: Re: [PATCH net-next] w5300: using eth_hw_addr_random() for random
  MAC and set device flag
-Date: Fri, 24 Aug 2012 13:30:56 -0400 (EDT)
-Message-ID: <20120824.133056.1293091962019479751.davem@davemloft.net>
-References: <CAPgLHd_akGWHksgn_zR5T6CxO54tPSojzAfkPr+kJKe9i8B9KQ@mail.gmail.com>
+Date: Fri, 24 Aug 2012 13:31:01 -0400 (EDT)
+Message-ID: <20120824.133101.13946222276796091.davem@davemloft.net>
+References: <CAPgLHd-v=M6QrhT3YnTqUXWqyUa3TgVtNN3Cao1sPXd7stAEww@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
 To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54588 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54595 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759234Ab2HXRa6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 13:30:58 -0400
-In-Reply-To: <CAPgLHd_akGWHksgn_zR5T6CxO54tPSojzAfkPr+kJKe9i8B9KQ@mail.gmail.com>
+	with ESMTP id S1759945Ab2HXRbE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 13:31:04 -0400
+In-Reply-To: <CAPgLHd-v=M6QrhT3YnTqUXWqyUa3TgVtNN3Cao1sPXd7stAEww@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Thu, 23 Aug 2012 15:28:19 +0800
+Date: Thu, 23 Aug 2012 15:28:40 +0800
 
 > From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
