@@ -1,7 +1,7 @@
 From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Subject: [PATCH v2 10/10] cgroup: net_prio: Merge builtin and module version of task_netprioidx()
-Date: Fri, 24 Aug 2012 16:01:44 +0200
-Message-ID: <1345816904-21745-11-git-send-email-wagi@monom.org>
+Subject: [PATCH v2 09/10] cgroup: net_prio: Simplify ifdef logic
+Date: Fri, 24 Aug 2012 16:01:43 +0200
+Message-ID: <1345816904-21745-10-git-send-email-wagi@monom.org>
 References: <1345816904-21745-1-git-send-email-wagi@monom.org>
 Cc: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
 	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
@@ -29,49 +29,73 @@ Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 ---
- include/net/netprio_cgroup.h | 17 +++--------------
- 1 file changed, 3 insertions(+), 14 deletions(-)
+ include/net/netprio_cgroup.h | 14 +++++++-------
+ net/core/sock.c              |  2 ++
+ 2 files changed, 9 insertions(+), 7 deletions(-)
 
 diff --git a/include/net/netprio_cgroup.h b/include/net/netprio_cgroup.h
-index ab22019..180ff5e 100644
+index 66241c6..ab22019 100644
 --- a/include/net/netprio_cgroup.h
 +++ b/include/net/netprio_cgroup.h
-@@ -35,24 +35,15 @@ extern void sock_update_netprioidx(struct sock *sk, struct task_struct *task);
+@@ -18,14 +18,14 @@
+ #include <linux/rcupdate.h>
+ #include <linux/jump_label.h>
  
- #if IS_BUILTIN(CONFIG_NETPRIO_CGROUP)
- 
--static inline u32 task_netprioidx(struct task_struct *p)
--{
--	struct cgroup_netprio_state *state;
--	u32 idx;
--
--	rcu_read_lock();
--	state = container_of(task_subsys_state(p, net_prio_subsys_id),
--			     struct cgroup_netprio_state, css);
--	idx = state->prioidx;
--	rcu_read_unlock();
--	return idx;
--}
-+#define netpriocg_enabled 1
- 
- #elif IS_MODULE(CONFIG_NETPRIO_CGROUP)
- 
- extern struct static_key cgroup_netprio_enabled;
- #define netpriocg_enabled static_key_false(&cgroup_netprio_enabled)
- 
-+#endif
++#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
 +
- static inline u32 task_netprioidx(struct task_struct *p)
- {
- 	struct cgroup_netprio_state *state;
-@@ -69,8 +60,6 @@ static inline u32 task_netprioidx(struct task_struct *p)
+ struct netprio_map {
+ 	struct rcu_head rcu;
+ 	u32 priomap_len;
+ 	u32 priomap[];
+ };
+ 
+-#ifdef CONFIG_CGROUPS
+-
+ struct cgroup_netprio_state {
+ 	struct cgroup_subsys_state css;
+ 	u32 prioidx;
+@@ -69,17 +69,17 @@ static inline u32 task_netprioidx(struct task_struct *p)
  	return idx;
  }
  
--#endif
--
- #else  /* !CONFIG_NETPRIO_CGROUP */
+-#else
++#endif
++
++#else  /* !CONFIG_NETPRIO_CGROUP */
  
  static inline u32 task_netprioidx(struct task_struct *p)
+ {
+ 	return 0;
+ }
+ 
+-#endif /* CONFIG_NETPRIO_CGROUP */
+-
+-#else
+ #define sock_update_netprioidx(sk, task)
+-#endif
++
++#endif  /* CONFIG_NETPRIO_CGROUP */
+ 
+ #endif  /* _NET_CLS_CGROUP_H */
+diff --git a/net/core/sock.c b/net/core/sock.c
+index b1fadfd..115cd59 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1237,6 +1237,7 @@ void sock_update_classid(struct sock *sk)
+ EXPORT_SYMBOL(sock_update_classid);
+ #endif
+ 
++#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
+ void sock_update_netprioidx(struct sock *sk, struct task_struct *task)
+ {
+ 	if (in_interrupt())
+@@ -1246,6 +1247,7 @@ void sock_update_netprioidx(struct sock *sk, struct task_struct *task)
+ }
+ EXPORT_SYMBOL_GPL(sock_update_netprioidx);
+ #endif
++#endif
+ 
+ /**
+  *	sk_alloc - All socket objects are allocated here
 -- 
 1.7.12.rc1.16.g05a20c8
