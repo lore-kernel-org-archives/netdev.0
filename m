@@ -1,44 +1,66 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [PATCH v2] net: add new QCA alx ethernet driver
-Date: Fri, 24 Aug 2012 10:34:30 +0500
-Message-ID: <CAB=NE6UOG-i6O48Z+EUMgo=zTvGiGGTd9A0O-MiTJ+FnyMB_2w@mail.gmail.com>
-References: <1345480949-14800-1-git-send-email-cjren@qca.qualcomm.com>
- <20120822.225700.714020017287504609.davem@davemloft.net> <157393863283F442885425D2C45428562A4F5169@nasanexd02f.na.qualcomm.com>
- <1345756142.2579.16.camel@bwh-desktop.uk.solarflarecom.com>
- <157393863283F442885425D2C45428562A4F54E3@nasanexd02f.na.qualcomm.com>
- <1345774184.2579.51.camel@bwh-desktop.uk.solarflarecom.com>
- <157393863283F442885425D2C45428562A4F5546@nasanexd02f.na.qualcomm.com> <CAB=NE6Xg=NUsb-hQyxr+-RyzpkJ-BH6RbbcTX6KF23H+u4yEPQ@mail.gmail.com>
+From: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH v2] mwifiex: use is_zero_ether_addr() instead of memcmp()
+Date: Thu, 23 Aug 2012 23:00:56 -0700
+Message-ID: <477F20668A386D41ADCC57781B1F7043083B0BBBB4@SC-VEXCH1.marvell.com>
+References: <CAPgLHd8+H415tRqvyM1SXQCSC6savCakuFLdjM1ebWvjikd5NQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	"Ren, Cloud" <cjren@qca.qualcomm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>
-To: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:61240 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751218Ab2HXFew (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 01:34:52 -0400
-In-Reply-To: <CAB=NE6Xg=NUsb-hQyxr+-RyzpkJ-BH6RbbcTX6KF23H+u4yEPQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org" <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAPgLHd8+H415tRqvyM1SXQCSC6savCakuFLdjM1ebWvjikd5NQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 24, 2012 at 8:32 AM, Luis R. Rodriguez
-<rodrigue@qca.qualcomm.com> wrote:
-> It would be useful for you to describe the exact functionality,
-> perhaps in a separate thread or maybe even just RFC patches which you
-> have to be simply ready for may just be just that -- RFC patches which
-> we flush down the v2 toilet.
+> From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+> 
+> Using is_zero_ether_addr() instead of directly use
+> memcmp() to determine if the ethernet address is all
+> zeros.
+> 
+> spatch with a semantic match is used to found this problem.
+> (http://coccinelle.lip6.fr/)
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
 
-A simple strategy for you is for you to remove this code (if present)
-for now and then throw into a crap/ patch [0] under compat-drivers but
-with an objective of eventually going through the RFC stages to get
-this properly merged upstream.
+Acked-by: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
 
-[0] https://backports.wiki.kernel.org/index.php/Documentation/compat-drivers/additional-patches
+Thanks,
+Bing
 
-  Luis
+> ---
+>  drivers/net/wireless/mwifiex/sta_cmdresp.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/mwifiex/sta_cmdresp.c b/drivers/net/wireless/mwifiex/sta_cmdresp.c
+> index 0b09004..62223ab 100644
+> --- a/drivers/net/wireless/mwifiex/sta_cmdresp.c
+> +++ b/drivers/net/wireless/mwifiex/sta_cmdresp.c
+> @@ -736,7 +736,6 @@ static int mwifiex_ret_ibss_coalescing_status(struct mwifiex_private *priv,
+>  {
+>  	struct host_cmd_ds_802_11_ibss_status *ibss_coal_resp =
+>  					&(resp->params.ibss_coalescing);
+> -	u8 zero_mac[ETH_ALEN] = { 0, 0, 0, 0, 0, 0 };
+> 
+>  	if (le16_to_cpu(ibss_coal_resp->action) == HostCmd_ACT_GEN_SET)
+>  		return 0;
+> @@ -745,7 +744,7 @@ static int mwifiex_ret_ibss_coalescing_status(struct mwifiex_private *priv,
+>  		"info: new BSSID %pM\n", ibss_coal_resp->bssid);
+> 
+>  	/* If rsp has NULL BSSID, Just return..... No Action */
+> -	if (!memcmp(ibss_coal_resp->bssid, zero_mac, ETH_ALEN)) {
+> +	if (is_zero_ether_addr(ibss_coal_resp->bssid)) {
+>  		dev_warn(priv->adapter->dev, "new BSSID is NULL\n");
+>  		return 0;
+>  	}
+> 
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
