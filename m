@@ -1,39 +1,89 @@
-From: Tai Bei <info@gmx.co.uk>
-Subject: Proposal.
-Date: Thu, 23 Aug 2012 23:55:22 +0100
-Message-ID: <077134233b42efbd44ed2f63961b7a2b__12120.3120136217$1345767083$gmane$org@fce.uncu.edu.ar>
-Reply-To: <tai02@9.cn>
+From: David Daney <ddaney.cavm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [RFC] How should the device tree represent multiple Ethernet PHYs
+ in a single package?
+Date: Thu, 23 Aug 2012 17:21:38 -0700
+Message-ID: <5036C912.7090203@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fce.uncu.edu.ar ([190.220.130.146]:39429 "EHLO
-	mail.fce.uncu.edu.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751006Ab2HXAKW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2012 20:10:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+ Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
+ Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Good-day To You,
+We are working with a Dual 10G Ethernet PHY Device (Vitesse vcs8488) and 
+would like to represent it in the device tree for several of our boards. 
+  This device has some registers and pins that are common to both of the 
+PHY units on the die.  Other registers are standard IEEE803.3-C45.
 
-
-It is understandable that you might be a little bit apprehensive 
-because you do not know me but I have a lucrative business proposal of 
-mutual interest to share with you. I got your reference in my search for 
-someone who suits my proposed business relationship. I am Mr. Tai Bei, 
-officer with the International bank of Taipei (Bank SinoPac). I will 
-need you to assist me in executing a business project from Taiwan to 
-your country. It involves the transfer of money, Everything concerning 
-this transaction shall be legally done without hitch.
-
-
-Once the funds have been successfully transferred into your account, we 
-shall share in the ratio to be agreed by both of us. I shall furnish you 
-with more information about this operation immediately I receive a 
-positive response from you.
+Here is my first (hand-waving) take at how it should look:
 
 
-Kind Regards,
-Tai Bei
+ethernet-phy-nexus@0 {
+	reg = <0x00>;
+	/* The Vitesse VSC8488 is a dual-PHY where
+	 * some of the configuration is common across
+	 * both of the phy devices such as the reset
+	 * line and the base MDIO address.
+	 */
+	compatible = "vitesse,vsc8488-nexus", "ethernet-phy-nexus";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	ranges;
+	
+	/* Hardware reset signal */
+	reset = <&gpio 17 0>;
+
+	/* Other common initialization (laser power, etc. )*/
+
+	phy30: ethernet-phy@0 {
+		/* Absolute address */
+		reg = <0x0>;
+		compatible = "vitesse,vsc8488", "ethernet-phy-ieee802.3-c45";
+		interrupt-parent = <&gpio>;
+		interrupts = <13 8>;
+
+		/* TX Fault GPIO line */
+		tx_fault = <1>;
+		/* GPIO that enables output */
+		txon = <4>;
+		/* INT A GPIO output */
+		inta = <5>;
+	};
+
+	phy31: ethernet-phy@1 {
+		/* Absolute address */
+		reg = <0x1>;
+		compatible = "vitesse,vsc8488", "ethernet-phy-ieee802.3-c45";
+		interrupt-parent = <&gpio>;
+		interrupts = <13 8>;
+
+		/* TX Fault GPIO line */
+		tx_fault = <8>;
+		/* GPIO that enables output */
+		txon = <10>;
+		/* INT A GPIO output */
+		inta = <5>;
+         };
+};
+
+
+We would then modify of_mdio.c so that when it encountered an 
+"ethernet-phy-nexus", it would add all the children of the nexus.
+
+Comments?  Objections?
+
+Thanks, and let me know what you think,
+David Daney
