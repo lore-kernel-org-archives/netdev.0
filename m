@@ -1,35 +1,66 @@
-From: Andre Tomt <andre@tomt.net>
-Subject: Re: [PATCH 00/19] netfilter: IPv6 NAT
-Date: Sat, 25 Aug 2012 03:16:58 +0200
-Message-ID: <5038278A.6080901@tomt.net>
-References: <1344542943-11588-1-git-send-email-kaber@trash.net> <5038233F.7000202@tomt.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [REVIEW][PATCH 0/21] User namespace changes to the networking
+	stack.
+Date: Fri, 24 Aug 2012 21:42:37 -0400 (EDT)
+Message-ID: <20120824.214237.2157641321364380276.davem@davemloft.net>
+References: <87ehnav9n5.fsf@xmission.com>
+	<20120814.171203.1784557890475348401.davem@davemloft.net>
+	<87boicfyo9.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <5038233F.7000202@tomt.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+To: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <87boicfyo9.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 25. aug. 2012 02:58, Andre Tomt wrote:
-> On 09. aug. 2012 22:08, kaber@trash.net wrote:
->> The following patches contain an updated version of IPv6 NAT against
->> Linus' current tree.
->
-> Hmmm. Looking in my crystal ball (hi #ipv6!), I predict that if this
-> lands in mainline - and thus in consumer CPE/routers eventually - many
-> ISP's will have little incentive to actually implement assigning of
-> blocks to their consumer users like they "have to" today.
->
-> We have this wonderful chance of fixing a major problem with todays
-> internet, but now we are going down this very slippery slope.
->
-> I do need this code for a experimental project myself, and acknowledge
-> there may be some valid use cases, but I do not like the global
-> implications one bit.
->
-> At least some big fat warnings please?
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Date: Tue, 14 Aug 2012 23:37:42 -0700
 
-Clarification: This is about the NAT66 port-based 1:n NAT targets.
+> David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
+> 
+>> From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+>> Date: Mon, 13 Aug 2012 13:07:10 -0700
+>>
+>>> 
+>>> This is a modest set of changes against the current networking stack to
+>>> enable basic user namespace support.  Allowing the code to compile with
+>>> user namespaces enabled and removing the assumption that there is only
+>>> the initial user namespace.
+>>> 
+>>> Work to relax the privilege checks in the networking stack from
+>>> "capable(CAP_NET_ADMIN)" or "capable(CAP_NET_RAW)" to
+>>> "ns_capable(net->user_ns, CAP_NET_ADMIN)" or 
+>>> "ns_capable(net->user_ns, CAP_NET_RAW)" allowing root in a user
+>>> namespace to control a network namespace will come later.
+>>> 
+>>> David there are just enough interdependencies between the user namespace
+>>> bits that I intend to merge them all through my user namespace tree.
+>>> After the review is complete I will add these patches to my for-next
+>>> branch of my user-namespace.git tree where I do not intend to rebase.
+>>> If it make sense to pull these into net-next to avoid or reduce
+>>> conflicts that should not be a problem.
+>>
+>> Looks fine to me, you can add:
+>>
+>> Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+>>
+>> to all of this stuff.  Let me know when something is stable in your
+>> tree, and I can therefore pull from it into net-next.
+> 
+> All of these patches + 2 others trivial userns bug fixes are now
+> in my for-next branch at:
+> 
+> git.kernel.org:/pub/scm/linux/kernel/git/ebiederm/user-namespace.git for-next
+
+Ok I finally got around to pushing this into net-next, thanks.
