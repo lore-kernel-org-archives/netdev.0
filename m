@@ -1,127 +1,47 @@
-From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Subject: Re: [PATCH v2 06/10] cgroup: Assign subsystem IDs during compile
- time
-Date: Sat, 25 Aug 2012 19:11:31 +0200
-Message-ID: <50390743.2090203@monom.org>
-References: <1345816904-21745-1-git-send-email-wagi@monom.org> <1345816904-21745-7-git-send-email-wagi@monom.org> <20120824233810.GT21325@google.com>
+From: =?UTF-8?B?Q3Jpc3RpYW4gUm9kcsOtZ3Vleg==?= <crrodriguez@opensuse.org>
+Subject: Re: BUG: soft lockup - CPU#6 stuck for 22s! [httpd2-event:15597]
+Date: Sat, 25 Aug 2012 13:45:51 -0400
+Message-ID: <50390F4F.3000404@opensuse.org>
+References: <5038215E.60403@opensuse.org>  <1345885186.19483.109.camel@edumazet-glaptop>  <1345886085.19483.141.camel@edumazet-glaptop> <1345895225.19483.447.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120824233810.GT21325-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Florian Schmitz <floele@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:50712 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752264Ab2HYRrJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2012 13:47:09 -0400
+Received: by pbbrr13 with SMTP id rr13so5241980pbb.19
+        for <netdev@vger.kernel.org>; Sat, 25 Aug 2012 10:47:08 -0700 (PDT)
+In-Reply-To: <1345895225.19483.447.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 25.08.2012 01:38, Tejun Heo wrote:
-> Hello,
->
-> On Fri, Aug 24, 2012 at 04:01:40PM +0200, Daniel Wagner wrote:
->> We are able to safe some space when we assign the subsystem
->                   ^               ^
-> 		 save    if we assign both builtin and
-> 		         module susbsystem IDs at compile time?
->
->> IDs at compile time. Instead of allocating per cgroup
->> cgroup->subsys[CGROUP_SUBSYS_COUNT] where CGROUP_SUBSYS_COUNT is
->> always 64, we allocate at max 12 (at this point there are 12
->> subsystem).
->
-> Please note (in big fat ugly way) that this disallows support for
-> modular controller which isn't known at kernel compile time.
-
-yep, will do
-
->> task_cls_classid() and task_netprioidx() (when built as
->> module) are protected by a jump label and therefore we can
->> simply replace the subsystem index lookup with the enum.
->
-> Can we put these in a separate patch?  ie. The first patch makes all
-> subsys IDs constant and then patches to simplify users.
-
-Wouldn't this break bisection? I merged this step so that all steps in 
-this series are able to compile and run.
-
->> diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
->> index 3787872..ada517f 100644
->> --- a/include/linux/cgroup.h
->> +++ b/include/linux/cgroup.h
->> @@ -43,18 +43,27 @@ extern void cgroup_unload_subsys(struct cgroup_subsys *ss);
+El 25/08/12 07:47, Eric Dumazet escribi=C3=B3:
+> On Sat, 2012-08-25 at 11:14 +0200, Eric Dumazet wrote:
+>> From: Eric Dumazet <edumazet@google.com>
 >>
->>   extern const struct file_operations proc_cgroup_operations;
+>> On Sat, 2012-08-25 at 10:59 +0200, Eric Dumazet wrote:
+>>> On Fri, 2012-08-24 at 20:50 -0400, Cristian Rodr=C3=ADguez wrote:
+>>>> Hi, the issue I reported with IPV6 few weeks ago seems to be gone,=
+ but
+>>>> now I am getting the following crash..
 >>
->> -/* Define the enumeration of all builtin cgroup subsystems */
->> -#define SUBSYS(_x) _x ## _subsys_id,
->> +/*
->> + * Define the enumeration of all builtin cgroup subsystems.
->> + * For the builtin subsystems the subsys_id needs to be indentical
->> + * with the index in css->subsys. Therefore, all the builtin
->> + * subsys are listed first and then the modules ids.
->> + */
->>   enum cgroup_subsys_id {
->> +#define SUBSYS(_x) _x ## _subsys_id,
->> +
->> +#define IS_SUBSYS_ENABLED(option) IS_BUILTIN(option)
->>   #include <linux/cgroup_subsys.h>
->> -};
->> +#undef IS_SUBSYS_ENABLED
->> +
->> +#define IS_SUBSYS_ENABLED(option) IS_MODULE(option)
->> +#include <linux/cgroup_subsys.h>
->> +#undef IS_SUBSYS_ENABLED
->> +
->
-> Why do we need to segregate in-kernel and modular ones at all?  What's
-> wrong with just defining them in one go?
+>>> Oh, I now see the bug, I'll send a patch asap
+>>
+>> Please try the following fix.
+>>
+>> Thanks !
 
-I have done that but the result was a panic. There seems some code which 
-expects this ordering. Let me dig into this and fix it.
+Eric, thanks for your work, I have deployed the fix in one machine and
+will keep an eye for any other anomaly.
 
->> diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
->> index 24443d2..43fae13 100644
->> --- a/include/net/cls_cgroup.h
->> +++ b/include/net/cls_cgroup.h
->> @@ -49,22 +49,16 @@ static inline u32 task_cls_classid(struct task_struct *p)
->>   extern struct static_key cgroup_cls_enabled;
->>   #define clscg_enabled static_key_false(&cgroup_cls_enabled)
->>
->> -extern int net_cls_subsys_id;
->> -
->>   static inline u32 task_cls_classid(struct task_struct *p)
->>   {
->> -	int id;
->> -	u32 classid = 0;
->> +	u32 classid;
->>
->>   	if (!clscg_enabled || in_interrupt())
->>   		return 0;
->>
->>   	rcu_read_lock();
->> -	id = rcu_dereference_index_check(net_cls_subsys_id,
->> -					 rcu_read_lock_held());
->> -	if (id >= 0)
->> -		classid = container_of(task_subsys_state(p, id),
->> -				       struct cgroup_cls_state, css)->classid;
->> +	classid = container_of(task_subsys_state(p, net_cls_subsys_id),
->> +			       struct cgroup_cls_state, css)->classid;
->>   	rcu_read_unlock();
->>
->>   	return classid;
->
-> Hmm... patch sequence looks odd to me.  If you first make all IDs
-> constant, you can first remove module specific ones and then later add
-> jump labels as separate patches.  Wouldn't that be simpler?
+As it happends around twice a day, it would take a while to determine i=
+f
+this issue has gone away.
 
-As said above, I tried to keep all steps usable so bisection would work. 
-I think your steps would lead to non working versions of the kernel.
+Keep up great work :-)
