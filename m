@@ -1,55 +1,89 @@
 From: David Decotigny <decot@googlers.com>
-Subject: [PATCH net-next v1 0/3] forcedeth: fix device lock-up for dual-port NICs
-Date: Fri, 24 Aug 2012 20:22:50 -0700
-Message-ID: <cover.1345864542.git.decot@googlers.com>
+Subject: [PATCH net-next v1 2/3] forcedeth: fix TX timeout caused by TX pause on down link
+Date: Fri, 24 Aug 2012 20:22:52 -0700
+Message-ID: <e4db06d22eafcafc2f9e1345832ec4283fbecefe.1345864542.git.decot@googlers.com>
+References: <cover.1345864542.git.decot@googlers.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>,
 	Joe Perches <joe@perches.com>,
 	David Decotigny <decot@googlers.com>
 To: Ayaz Abdulla <aabdulla@nvidia.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f74.google.com ([74.125.83.74]:35387 "EHLO
-	mail-ee0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755185Ab2HYDXI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 23:23:08 -0400
-Received: by eekd4 with SMTP id d4so120353eek.1
-        for <netdev@vger.kernel.org>; Fri, 24 Aug 2012 20:23:07 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1345864542.git.decot@googlers.com>
+In-Reply-To: <cover.1345864542.git.decot@googlers.com>
+References: <cover.1345864542.git.decot@googlers.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On a dual port MCP55 10de:0373 (rev a3) NIC with both ports connected,
-we identified a configuration that does freeze the whole NIC: having
-autoneg & TX pause turned on while one port is physically connected
-but interface is down (eg. eth1) eventually causes the whole NIC to
-freeze (eth1 and... eth0). This triggers TX timeouts on the UP
-interface and, more generally, an unreachable network.
+On some dual-port forcedeth devices such as MCP55 10de:0373 (rev a3),
+when autoneg & TX pause are enabled while port is connected but
+interface is down, the NIC will eventually freeze (TX timeouts,
+network unreachable).
 
-In order to avoid the bug, all we have to do is make sure not to
-configure TX pause on the hardware while NIC is down. This is what the
-2nd patch of the series does (details included).
+This patch ensures that TX pause is not configured in hardware when
+interface is down. The TX pause request will be honored when interface
+is later configured.
 
-And, in case the NIC is in a bad state at reboot (should not happen
-anymore thanks to patch above), third patch basically always makes
-sure to fix the NIC when module is loaded.
+Tested:
+ - hardware is MCP55 device id 10de:0373 (rev a3), dual-port
+ - eth0 connected and UP, eth1 connected but DOWN
+ - without this patch, following sequence would brick NIC:
+      ifconfig eth0 down
+      ifconfig eth1 up
+      ifconfig eth1 down
+      ethtool -A eth1 autoneg off rx on tx off
+      ifconfig eth1 up
+      ifconfig eth1 down
+      ethtool -A eth1 autoneg on rx on tx on
+      ifconfig eth1 up
+      ifconfig eth1 down
+      ifup eth0
+      sleep 120  # or longer
+      ethtool eth1
+   Just in case, sequence to un-brick:
+      ifconfig eth0 down
+      ethtool -A eth1 autoneg off rx on tx off
+      ifconfig eth1 up
+      ifconfig eth1 down
+      ifup eth0
+ - with this patch: no TX timeout after "bricking" sequence above
 
-I could only test this with a MCP55 10de:0373 (rev a3) PCI device on a
-x86_64 host.
+Details:
+ - The following register accesses have been identified as the ones
+   causing the NIC to freeze in "bricking" sequence above:
+    - write NVREG_TX_PAUSEFRAME_ENABLE_V1 to eth1's register NvRegTxPauseFrame
+    - write NVREG_MISC1_PAUSE_TX | NVREG_MISC1_FORCE to eth1's register NvRegMisc1
+    - write 0 to eth1's register NvRegTransmitterControl
+   This is what this patch avoids.
 
-Any feedback on these patches welcome! In particular, please let me
-know if this should not apply to other hardware.
 
 
-############################################
-# Patch Set Summary:
+Signed-off-by: David Decotigny <decot@googlers.com>
+---
+ drivers/net/ethernet/nvidia/forcedeth.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-David Decotigny (3):
-  forcedeth: fix buffer overflow
-  forcedeth: fix TX timeout caused by TX pause on down link
-  forcedeth: prevent TX timeouts after reboot
-
- drivers/net/ethernet/nvidia/forcedeth.c |   16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
-
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index 51d19d8..8b82457 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -3409,7 +3409,7 @@ set_speed:
+ 
+ 	pause_flags = 0;
+ 	/* setup pause frame */
+-	if (np->duplex != 0) {
++	if (netif_running(dev) && (np->duplex != 0)) {
+ 		if (np->autoneg && np->pause_flags & NV_PAUSEFRAME_AUTONEG) {
+ 			adv_pause = adv & (ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
+ 			lpa_pause = lpa & (LPA_PAUSE_CAP | LPA_PAUSE_ASYM);
+@@ -5455,6 +5455,7 @@ static int nv_close(struct net_device *dev)
+ 
+ 	netif_stop_queue(dev);
+ 	spin_lock_irq(&np->lock);
++	nv_update_pause(dev, 0); /* otherwise stop_tx bricks NIC */
+ 	nv_stop_rxtx(dev);
+ 	nv_txrx_reset(dev);
+ 
 -- 
 1.7.10.2.5.g20d7bc9
