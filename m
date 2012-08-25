@@ -1,40 +1,44 @@
-From: Xi Wang <xi.wang@gmail.com>
-Subject: Re: [PATCH] af_unix: fix unix_nr_socks check in unix_create1()
-Date: Sat, 25 Aug 2012 12:17:40 -0400
-Message-ID: <65347D45-9062-4F03-AB13-24321FF5B64A@gmail.com>
-References: <1345874753-7214-1-git-send-email-xi.wang@gmail.com> <1345876989.19483.83.camel@edumazet-glaptop>
-Mime-Version: 1.0 (Mac OS X Mail 6.0 \(1486\))
-Content-Type: text/plain; charset=us-ascii
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: Re: [PATCH v2 00/10] cgroup: Assign subsystem IDs during compile
+ time
+Date: Sat, 25 Aug 2012 18:49:17 +0200
+Message-ID: <5039020D.3070508@monom.org>
+References: <1345816904-21745-1-git-send-email-wagi@monom.org> <20120824231528.GO21325@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:38382 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750784Ab2HYQRp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2012 12:17:45 -0400
-Received: by ialo24 with SMTP id o24so5403807ial.19
-        for <netdev@vger.kernel.org>; Sat, 25 Aug 2012 09:17:44 -0700 (PDT)
-In-Reply-To: <1345876989.19483.83.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120824231528.GO21325-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Aug 25, 2012, at 2:43 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Hi Tejun,
 
-> I dont think this patch is right.
-> 
-> atomic_long_inc_return() is expensive, more than atomic_long_inc()
-> 
-> And setting a 2^63 limit for max number of files is plain wrong,
-> as there is no way a kernel can allocate 2^63 files structures.
-> 
-> (same apply on 32bit arches, but for 2^31)
-> 
-> If you feel you must warn a sysadmin of stupid settings, add sane
-> boundaries in kernel/sysctl.c, and send your patch to lkml instead.
+On 25.08.2012 01:15, Tejun Heo wrote:
+> Hello, Daniel.
+>
+> On Fri, Aug 24, 2012 at 04:01:34PM +0200, Daniel Wagner wrote:
+>> CGROUP_BUILTIN_SUBSYS_COUNT is also gone in this version.  This time I
+>> trade space for speed. Some extra cycles are spend to identify the
+>> modules in the for loops, e.g.
+>
+> There's no point in optimizing either space or speed here.  It's not a
+> hot path by any stretch of imagination.  Please focus on making it
+> simple.
 
-Yeah, I agree it's better to limit max_files in sysctl.  I will send
-another patch instead.  Thanks.
+Will do. Thanks a lot for your feedback. I'll update the series accordingly.
 
-- xi
+cheers,
+daniel
