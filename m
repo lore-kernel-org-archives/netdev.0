@@ -1,47 +1,194 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH 14/15] netpoll: re-enable irq in poll_napi()
-Date: Sat, 25 Aug 2012 14:28:40 +0800
-Message-ID: <1345876120.14276.19.camel@cr0>
-References: <1344597891-32242-1-git-send-email-amwang@redhat.com>
-	 <1344597891-32242-15-git-send-email-amwang@redhat.com>
-	 <20120824124334.10313575.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Andrew Morton <akpm@linux-foundation.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net] e1000e: DoS while TSO enabled caused by link partner with small MSS
+Date: Fri, 24 Aug 2012 23:38:11 -0700
+Message-ID: <1345876691-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, bhutchings@solarflare.com,
+	stable@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2900 "EHLO mx1.redhat.com"
+Received: from mga02.intel.com ([134.134.136.20]:41524 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750732Ab2HYG2s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Aug 2012 02:28:48 -0400
-In-Reply-To: <20120824124334.10313575.akpm@linux-foundation.org>
+	id S1750780Ab2HYGia (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Aug 2012 02:38:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-08-24 at 12:43 -0700, Andrew Morton wrote:
-> 
-> This commit (6bdb7fe3104 in mainline) makes my netconsole-using x86_64
-> box lock up during boot.  Dunno why, but I do have a cellphone:
-> http://ozlabs.org/~akpm/stuff/IMG_20120824_122054.jpg
-> 
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Thanks for the report!
+With a low enough MSS on the link partner and TSO enabled locally, the
+networking stack can periodically send a very large (e.g.  64KB) TCP
+message for which the driver will attempt to use more Tx descriptors than
+are available by default in the Tx ring.  This is due to a workaround in
+the code that imposes a limit of only 4 MSS-sized segments per descriptor
+which appears to be a carry-over from the older e1000 driver and may be
+applicable only to some older PCI or PCIx parts which are not supported in
+e1000e.  When the driver gets a message that is too large to fit across the
+configured number of Tx descriptors, it stops the upper stack from queueing
+any more and gets stuck in this state.  After a timeout, the upper stack
+assumes the adapter is hung and calls the driver to reset it.
 
-Sylvain reported a CPU stall problem which is probably caused by this
-commit too.
+Remove the unnecessary limitation of using up to only 4 MSS-sized segments
+per Tx descriptor, and put in a hard failure test to catch when attempting
+to check for message sizes larger than would fit in the whole Tx ring.
+Refactor the remaining logic that limits the size of data per Tx descriptor
+from a seemingly arbitrary 8KB to a limit based on the dynamic size of the
+Tx packet buffer as described in the hardware specification.
 
-This commit is to fix another issue, that is, we call be_process_mcc()
-which calls spin_lock_bh() with IRQ disabled, this leads to a warning
-in:
+Also, fix the logic in the check for space in the Tx ring for the next
+largest possible packet after the current one has been successfully queued
+for transmit, and use the appropriate defines for default ring sizes in
+e1000_probe instead of magic values.
 
-static inline void _local_bh_enable_ip(unsigned long ip)
-{
-        WARN_ON_ONCE(in_irq() || irqs_disabled());
-	...
-}
+This issue goes back to the introduction of e1000e in 2.6.24 when it was
+split off from e1000.
 
-I think I should just fix be_process_mcc(), instead of re-enabling IRO
-for all ->poll callbacks.
+Reported-by: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Cc: Stable <stable@vger.kernel.org> [2.6.24+]
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/e1000.h  |  1 +
+ drivers/net/ethernet/intel/e1000e/netdev.c | 48 ++++++++++++++----------------
+ 2 files changed, 24 insertions(+), 25 deletions(-)
 
-I will send a patch to David soon.
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index cd15332..cb3356c 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -310,6 +310,7 @@ struct e1000_adapter {
+ 	 */
+ 	struct e1000_ring *tx_ring /* One per active queue */
+ 						____cacheline_aligned_in_smp;
++	u32 tx_fifo_limit;
+ 
+ 	struct napi_struct napi;
+ 
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 46c3b1f..d01a099 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -3517,6 +3517,15 @@ void e1000e_reset(struct e1000_adapter *adapter)
+ 	}
+ 
+ 	/*
++	 * Alignment of Tx data is on an arbitrary byte boundary with the
++	 * maximum size per Tx descriptor limited only to the transmit
++	 * allocation of the packet buffer minus 96 bytes with an upper
++	 * limit of 24KB due to receive synchronization limitations.
++	 */
++	adapter->tx_fifo_limit = min_t(u32, ((er32(PBA) >> 16) << 10) - 96,
++				       24 << 10);
++
++	/*
+ 	 * Disable Adaptive Interrupt Moderation if 2 full packets cannot
+ 	 * fit in receive buffer.
+ 	 */
+@@ -4785,12 +4794,9 @@ static bool e1000_tx_csum(struct e1000_ring *tx_ring, struct sk_buff *skb)
+ 	return 1;
+ }
+ 
+-#define E1000_MAX_PER_TXD	8192
+-#define E1000_MAX_TXD_PWR	12
+-
+ static int e1000_tx_map(struct e1000_ring *tx_ring, struct sk_buff *skb,
+ 			unsigned int first, unsigned int max_per_txd,
+-			unsigned int nr_frags, unsigned int mss)
++			unsigned int nr_frags)
+ {
+ 	struct e1000_adapter *adapter = tx_ring->adapter;
+ 	struct pci_dev *pdev = adapter->pdev;
+@@ -5023,20 +5029,19 @@ static int __e1000_maybe_stop_tx(struct e1000_ring *tx_ring, int size)
+ 
+ static int e1000_maybe_stop_tx(struct e1000_ring *tx_ring, int size)
+ {
++	BUG_ON(size > tx_ring->count);
++
+ 	if (e1000_desc_unused(tx_ring) >= size)
+ 		return 0;
+ 	return __e1000_maybe_stop_tx(tx_ring, size);
+ }
+ 
+-#define TXD_USE_COUNT(S, X) (((S) >> (X)) + 1)
+ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 				    struct net_device *netdev)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_ring *tx_ring = adapter->tx_ring;
+ 	unsigned int first;
+-	unsigned int max_per_txd = E1000_MAX_PER_TXD;
+-	unsigned int max_txd_pwr = E1000_MAX_TXD_PWR;
+ 	unsigned int tx_flags = 0;
+ 	unsigned int len = skb_headlen(skb);
+ 	unsigned int nr_frags;
+@@ -5056,18 +5061,8 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 	}
+ 
+ 	mss = skb_shinfo(skb)->gso_size;
+-	/*
+-	 * The controller does a simple calculation to
+-	 * make sure there is enough room in the FIFO before
+-	 * initiating the DMA for each buffer.  The calc is:
+-	 * 4 = ceil(buffer len/mss).  To make sure we don't
+-	 * overrun the FIFO, adjust the max buffer len if mss
+-	 * drops.
+-	 */
+ 	if (mss) {
+ 		u8 hdr_len;
+-		max_per_txd = min(mss << 2, max_per_txd);
+-		max_txd_pwr = fls(max_per_txd) - 1;
+ 
+ 		/*
+ 		 * TSO Workaround for 82571/2/3 Controllers -- if skb->data
+@@ -5097,12 +5092,12 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 		count++;
+ 	count++;
+ 
+-	count += TXD_USE_COUNT(len, max_txd_pwr);
++	count += DIV_ROUND_UP(len, adapter->tx_fifo_limit);
+ 
+ 	nr_frags = skb_shinfo(skb)->nr_frags;
+ 	for (f = 0; f < nr_frags; f++)
+-		count += TXD_USE_COUNT(skb_frag_size(&skb_shinfo(skb)->frags[f]),
+-				       max_txd_pwr);
++		count += DIV_ROUND_UP(skb_frag_size(&skb_shinfo(skb)->frags[f]),
++				      adapter->tx_fifo_limit);
+ 
+ 	if (adapter->hw.mac.tx_pkt_filtering)
+ 		e1000_transfer_dhcp_info(adapter, skb);
+@@ -5144,15 +5139,18 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 		tx_flags |= E1000_TX_FLAGS_NO_FCS;
+ 
+ 	/* if count is 0 then mapping error has occurred */
+-	count = e1000_tx_map(tx_ring, skb, first, max_per_txd, nr_frags, mss);
++	count = e1000_tx_map(tx_ring, skb, first, adapter->tx_fifo_limit,
++			     nr_frags);
+ 	if (count) {
+ 		skb_tx_timestamp(skb);
+ 
+ 		netdev_sent_queue(netdev, skb->len);
+ 		e1000_tx_queue(tx_ring, tx_flags, count);
+ 		/* Make sure there is space in the ring for the next send. */
+-		e1000_maybe_stop_tx(tx_ring, MAX_SKB_FRAGS + 2);
+-
++		e1000_maybe_stop_tx(tx_ring,
++				    (MAX_SKB_FRAGS *
++				     DIV_ROUND_UP(PAGE_SIZE,
++						  adapter->tx_fifo_limit) + 2));
+ 	} else {
+ 		dev_kfree_skb_any(skb);
+ 		tx_ring->buffer_info[first].time_stamp = 0;
+@@ -6327,8 +6325,8 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 	adapter->hw.phy.autoneg_advertised = 0x2f;
+ 
+ 	/* ring size defaults */
+-	adapter->rx_ring->count = 256;
+-	adapter->tx_ring->count = 256;
++	adapter->rx_ring->count = E1000_DEFAULT_RXD;
++	adapter->tx_ring->count = E1000_DEFAULT_TXD;
+ 
+ 	/*
+ 	 * Initial Wake on LAN setting - If APM wake is enabled in
+-- 
+1.7.11.4
