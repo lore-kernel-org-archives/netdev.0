@@ -1,70 +1,78 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] af_unix: fix unix_nr_socks check in unix_create1()
-Date: Sat, 25 Aug 2012 08:43:09 +0200
-Message-ID: <1345876989.19483.83.camel@edumazet-glaptop>
-References: <1345874753-7214-1-git-send-email-xi.wang@gmail.com>
+Subject: Re: Q: what protects dev->napi_list?
+Date: Sat, 25 Aug 2012 08:49:34 +0200
+Message-ID: <1345877374.19483.88.camel@edumazet-glaptop>
+References: <1345801604.11584.24.camel@cr0>
+	 <1345803142.29722.20.camel@edumazet-glaptop>
+	 <1345804753.11584.43.camel@cr0>
+	 <1345807778.29722.98.camel@edumazet-glaptop>
+	 <1345874922.14276.14.camel@cr0>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>
-To: Xi Wang <xi.wang@gmail.com>
+Cc: netdev@vger.kernel.org,
+	Sylvain Munaut <s.munaut@whatever-company.com>,
+	David Miller <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:62324 "EHLO
+Received: from mail-we0-f174.google.com ([74.125.82.174]:38556 "EHLO
 	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751257Ab2HYGnP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2012 02:43:15 -0400
-Received: by weyx8 with SMTP id x8so1401484wey.19
-        for <netdev@vger.kernel.org>; Fri, 24 Aug 2012 23:43:14 -0700 (PDT)
-In-Reply-To: <1345874753-7214-1-git-send-email-xi.wang@gmail.com>
+	with ESMTP id S1753473Ab2HYGtj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2012 02:49:39 -0400
+Received: by weyx8 with SMTP id x8so1403168wey.19
+        for <netdev@vger.kernel.org>; Fri, 24 Aug 2012 23:49:38 -0700 (PDT)
+In-Reply-To: <1345874922.14276.14.camel@cr0>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-08-25 at 02:05 -0400, Xi Wang wrote:
-> This patch complements 518de9b3 ("fs: allow for more than 2^31 files").
+On Sat, 2012-08-25 at 14:08 +0800, Cong Wang wrote:
+> On Fri, 2012-08-24 at 13:29 +0200, Eric Dumazet wrote:
+> > On Fri, 2012-08-24 at 18:39 +0800, Cong Wang wrote:
+> > > 
+> > > Yeah, but bnx2 driver calls it at other time too, for example
+> > > bnx2_change_ring_size() which in turn could be called by
+> > > bnx2_set_channels().
+> > 
+> > Then at this point, device is stopped, or should be.
+> > 
 > 
-> get_max_files() returns files_stat.max_files, which can be set to any
-> value from user space via /proc/sys/fs/file-max.  A large file-max will
-> cause an integer overflow in the following check:
+> But poll_napi() is still iterating the dev->napi_list, could anyone
+> stops it?
 > 
-> 	if (atomic_long_read(&unix_nr_socks) > 2 * get_max_files())
-> 		goto out;
+> IOW, the following race condition may happen:
 > 
-> The kernel will then fail to create a unix domain socket.
+> static void poll_napi(struct net_device *dev)
+> {               
+>         struct napi_struct *napi;
+>         int budget = 16;
+>                 
+>         WARN_ON_ONCE(!irqs_disabled());
+>                 
+>         list_for_each_entry(napi, &dev->napi_list, dev_list) {
+>                 local_irq_enable();
 > 
-> Rewrite the check using "/ 2" on the left-hand side.
+> 				//<-- Another process may call
+> 				//bnx2_change_ring_size() to del
+> 				//napi from dev, on other CPU.
 > 
-> Signed-off-by: Xi Wang <xi.wang@gmail.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> ---
->  net/unix/af_unix.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+>                 local_irq_disable();
+>         }
+> }
 > 
-> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> index c5ee4ff..99a8bc9 100644
-> --- a/net/unix/af_unix.c
-> +++ b/net/unix/af_unix.c
-> @@ -630,9 +630,9 @@ static struct sock *unix_create1(struct net *net, struct socket *sock)
->  {
->  	struct sock *sk = NULL;
->  	struct unix_sock *u;
-> +	unsigned long nr_socks = atomic_long_inc_return(&unix_nr_socks);
->  
-> -	atomic_long_inc(&unix_nr_socks);
-> -	if (atomic_long_read(&unix_nr_socks) > 2 * get_max_files())
-> +	if (nr_socks / 2 > get_max_files())
->  		goto out;
->  
->  	sk = sk_alloc(net, PF_UNIX, GFP_KERNEL, &unix_proto);
+> 
 
-I dont think this patch is right.
+Are you trying to say netpoll is buggy ?
 
-atomic_long_inc_return() is expensive, more than atomic_long_inc()
+Thats the first time I ear that !
 
-And setting a 2^63 limit for max number of files is plain wrong,
-as there is no way a kernel can allocate 2^63 files structures.
+Just kidding.
 
-(same apply on 32bit arches, but for 2^31)
+I repeat again : If bnx2_change_ring_size() is called while netconsole
+is able to enter poll_napi(), then netpoll is buggy and should be fixed.
 
-If you feel you must warn a sysadmin of stupid settings, add sane
-boundaries in kernel/sysctl.c, and send your patch to lkml instead.
+napi_list is manipulated under a mutex protection, and there is no way
+netpoll can use a mutex. Same mutex protection for all other netdevice
+management, so even calling start_xmit() should be forbidden in this
+state.
+
+Therefore, netpoll must be disabled while a device is reconfigured.
