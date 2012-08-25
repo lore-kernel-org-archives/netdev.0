@@ -1,66 +1,67 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [REVIEW][PATCH 0/21] User namespace changes to the networking
-	stack.
-Date: Fri, 24 Aug 2012 21:42:37 -0400 (EDT)
-Message-ID: <20120824.214237.2157641321364380276.davem@davemloft.net>
-References: <87ehnav9n5.fsf@xmission.com>
-	<20120814.171203.1784557890475348401.davem@davemloft.net>
-	<87boicfyo9.fsf@xmission.com>
+From: Lin Ming <mlin@ss.pku.edu.cn>
+Subject: Re: NULL deref in bnx2 / crashes ? ( was: netconsole leads to stalled
+ CPU task )
+Date: Sat, 25 Aug 2012 10:20:43 +0800
+Message-ID: <CAF1ivSa-LO_skzCkSAi0nGykpp9RMRyzVjz8O4dHw6zGjZ9LKQ@mail.gmail.com>
+References: <CAF6-1L4wh0P-Wi-keN98wb-2V_avZYVE3ycf3tEe9SBpgK1dDQ@mail.gmail.com>
+	<1345634026.5158.1084.camel@edumazet-glaptop>
+	<CAF6-1L6zr5WJxo6FVk+2ya=EEs++u3x9iSrDxX-weBofLJuA1g@mail.gmail.com>
+	<1345640757.5158.1321.camel@edumazet-glaptop>
+	<CAF6-1L7nRoG10P=+QRb=LfL4O8K877zUD6L6d5EoCq-QNt1FWA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-To: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <87boicfyo9.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Sylvain Munaut <s.munaut@whatever-company.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [124.207.24.138] ([124.207.24.138]:53012 "EHLO
+	mail.ss.pku.edu.cn" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1750787Ab2HYCVY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2012 22:21:24 -0400
+Received: from mail-iy0-f174.google.com (mail-iy0-f174.google.com [209.85.210.174])
+	(Authenticated sender: mlin@ss.pku.edu.cn)
+	by mail.ss.pku.edu.cn (Postfix) with ESMTPA id 50501DB9AF
+	for <netdev@vger.kernel.org>; Sat, 25 Aug 2012 10:20:46 +0800 (CST)
+Received: by ialo24 with SMTP id o24so4606859ial.19
+        for <netdev@vger.kernel.org>; Fri, 24 Aug 2012 19:20:43 -0700 (PDT)
+In-Reply-To: <CAF6-1L7nRoG10P=+QRb=LfL4O8K877zUD6L6d5EoCq-QNt1FWA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Date: Tue, 14 Aug 2012 23:37:42 -0700
+On Wed, Aug 22, 2012 at 10:29 PM, Sylvain Munaut
+<s.munaut@whatever-company.com> wrote:
+> Hi,
+>
+>> my patch was incomplete, sorry :
+>>
+>> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+>> index 346b1eb..ddc453b 100644
+>> --- a/net/core/netpoll.c
+>> +++ b/net/core/netpoll.c
+>> @@ -335,8 +335,13 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
+>>         /* don't get messages out of order, and no recursion */
+>>         if (skb_queue_len(&npinfo->txq) == 0 && !netpoll_owner_active(dev)) {
+>>                 struct netdev_queue *txq;
+>> +               int queue_index = skb_get_queue_mapping(skb);
+>>
+>> -               txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
+>> +               if (queue_index >= dev->real_num_tx_queues) {
+>> +                       queue_index = 0;
+>> +                       skb_set_queue_mapping(skb, 0);
+>> +               }
+>> +               txq = netdev_get_tx_queue(dev, queue_index);
+>>
+>>                 /* try until next clock tick */
+>>                 for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
+>
+> Ok, I tried this.
+>
+> The machine with the intel card still hard freeze (no output / no nothing ...)
 
-> David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
-> 
->> From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
->> Date: Mon, 13 Aug 2012 13:07:10 -0700
->>
->>> 
->>> This is a modest set of changes against the current networking stack to
->>> enable basic user namespace support.  Allowing the code to compile with
->>> user namespaces enabled and removing the assumption that there is only
->>> the initial user namespace.
->>> 
->>> Work to relax the privilege checks in the networking stack from
->>> "capable(CAP_NET_ADMIN)" or "capable(CAP_NET_RAW)" to
->>> "ns_capable(net->user_ns, CAP_NET_ADMIN)" or 
->>> "ns_capable(net->user_ns, CAP_NET_RAW)" allowing root in a user
->>> namespace to control a network namespace will come later.
->>> 
->>> David there are just enough interdependencies between the user namespace
->>> bits that I intend to merge them all through my user namespace tree.
->>> After the review is complete I will add these patches to my for-next
->>> branch of my user-namespace.git tree where I do not intend to rebase.
->>> If it make sense to pull these into net-next to avoid or reduce
->>> conflicts that should not be a problem.
->>
->> Looks fine to me, you can add:
->>
->> Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->>
->> to all of this stuff.  Let me know when something is stable in your
->> tree, and I can therefore pull from it into net-next.
-> 
-> All of these patches + 2 others trivial userns bug fixes are now
-> in my for-next branch at:
-> 
-> git.kernel.org:/pub/scm/linux/kernel/git/ebiederm/user-namespace.git for-next
+Did you enable hard lockup detector?
 
-Ok I finally got around to pushing this into net-next, thanks.
+CONFIG_LOCKUP_DETECTOR=y
+CONFIG_HARDLOCKUP_DETECTOR=y
+
+> The machine with the bnx2 don't crash anymore and no NULL deref, but
+> the modprobe still hangs and I get this every 180 sec or so :
+>
