@@ -1,61 +1,47 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net-next 10/13] igb: Tidy up wrapping for CONFIG_IGB_PTP.
-Date: Sat, 25 Aug 2012 08:20:13 +0200
-Message-ID: <20120825062013.GB2233@netboy.at.omicron.at>
-References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1345715813-20757-11-git-send-email-jeffrey.t.kirsher@intel.com>
- <20120823110357.GB2238@netboy.at.omicron.at>
- <06DFBC1E25D8024DB214DC7F41A3CD34488DD039@ORSMSX101.amr.corp.intel.com>
- <20120823172950.GA2192@netboy.at.omicron.at>
- <02874ECE860811409154E81DA85FBB5807857EFE@ORSMSX105.amr.corp.intel.com>
- <06DFBC1E25D8024DB214DC7F41A3CD34488DD35B@ORSMSX101.amr.corp.intel.com>
- <20120824101053.GA6038@netboy.at.omicron.at>
- <1345827088.2694.11.camel@bwh-desktop.uk.solarflarecom.com>
- <02874ECE860811409154E81DA85FBB5807858A31@ORSMSX105.amr.corp.intel.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH 14/15] netpoll: re-enable irq in poll_napi()
+Date: Sat, 25 Aug 2012 14:28:40 +0800
+Message-ID: <1345876120.14276.19.camel@cr0>
+References: <1344597891-32242-1-git-send-email-amwang@redhat.com>
+	 <1344597891-32242-15-git-send-email-amwang@redhat.com>
+	 <20120824124334.10313575.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:59644 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750780Ab2HYGU0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2012 02:20:26 -0400
-Received: by wgbdr13 with SMTP id dr13so2054725wgb.1
-        for <netdev@vger.kernel.org>; Fri, 24 Aug 2012 23:20:25 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <02874ECE860811409154E81DA85FBB5807858A31@ORSMSX105.amr.corp.intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:2900 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750732Ab2HYG2s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Aug 2012 02:28:48 -0400
+In-Reply-To: <20120824124334.10313575.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 24, 2012 at 07:38:38PM +0000, Keller, Jacob E wrote:
- 
-> The IGP_PTP is necessary otherwise you have to do something like #if defined(CONFIG_PTP_1588_CLOCK), or #ifdef CONFIG_PTP_1588_CLOCK \ #ifdef CONFIG_PTP_1588_CLOCK_MODULE
+On Fri, 2012-08-24 at 12:43 -0700, Andrew Morton wrote:
+> 
+> This commit (6bdb7fe3104 in mainline) makes my netconsole-using x86_64
+> box lock up during boot.  Dunno why, but I do have a cellphone:
+> http://ozlabs.org/~akpm/stuff/IMG_20120824_122054.jpg
+> 
 
-Yes, but maybe use IGP_PTP as Ben described? 
- 
-> The main reason that I wouldn't want to un-wrap the timestamping is because the hwtstamp ioctl is somewhat problematic because it is almost all ptp only. Also, some of the parts for igb driver don't support timestamp all, they only support ptp only packets, and this would be a lot more confusing since I would say still only allow that if ptp is on.. (since those values are useless except with the PHC clock)
+Thanks for the report!
 
-I keep trying to explain that receive time stamping (HWTSTAMP_FILTER_ALL)
-is useful all by itself. It has nothing to do with PTP, and the 82580
-can do this with very little ** overhead.
+Sylvain reported a CPU stall problem which is probably caused by this
+commit too.
 
-I myself have used this feature when debugging and profiling quasi
-real time Ethernet protocols like EtherCAT and IEC61850-9-2. The other
-drivers that offer this (gianfar and vxge) do so without any CONFIG
-conditionals.
+This commit is to fix another issue, that is, we call be_process_mcc()
+which calls spin_lock_bh() with IRQ disabled, this leads to a warning
+in:
 
-IMHO, the Rx time stamping feature should always be available. It is
-really not much different than the vlan feature.
+static inline void _local_bh_enable_ip(unsigned long ip)
+{
+        WARN_ON_ONCE(in_irq() || irqs_disabled());
+	...
+}
 
-Thanks,
-Richard
+I think I should just fix be_process_mcc(), instead of re-enabling IRO
+for all ->poll callbacks.
 
-** Both igb_rx_hwtstamp and igb_tx_hwtstamp only add a single test
-   when time stamping is not enabled.
+I will send a patch to David soon.
