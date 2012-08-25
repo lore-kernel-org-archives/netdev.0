@@ -1,126 +1,209 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BUG: soft lockup - CPU#6 stuck for 22s! [httpd2-event:15597]
-Date: Sat, 25 Aug 2012 19:52:37 +0200
-Message-ID: <1345917157.19483.1063.camel@edumazet-glaptop>
-References: <5038215E.60403@opensuse.org>
-	 <1345885186.19483.109.camel@edumazet-glaptop>
-	 <1345886085.19483.141.camel@edumazet-glaptop>
-	 <1345895225.19483.447.camel@edumazet-glaptop>
+From: Naresh Kumar Inna <naresh@chelsio.com>
+Subject: Re: [PATCH 6/8] csiostor: Chelsio FCoE offload driver submission
+ (headers part 1).
+Date: Sat, 25 Aug 2012 23:39:08 +0530
+Message-ID: <503914C4.4050600@chelsio.com>
+References: <1345760873-12101-1-git-send-email-naresh@chelsio.com>  <1345760873-12101-7-git-send-email-naresh@chelsio.com>  <1345751929.10190.83.camel@haakon2.linux-iscsi.org>  <5037C997.4030803@chelsio.com> <1345843042.28432.65.camel@haakon2.linux-iscsi.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Cristian =?ISO-8859-1?Q?Rodr=EDguez?= <crrodriguez@opensuse.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:39011 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752699Ab2HYRwn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2012 13:52:43 -0400
-Received: by wgbdr13 with SMTP id dr13so2401677wgb.1
-        for <netdev@vger.kernel.org>; Sat, 25 Aug 2012 10:52:41 -0700 (PDT)
-In-Reply-To: <1345895225.19483.447.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "JBottomley@parallels.com" <JBottomley@parallels.com>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	Dimitrios Michailidis <dm@chelsio.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Chethan Seshadri <chethan@chelsio.com>
+To: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1345843042.28432.65.camel@haakon2.linux-iscsi.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2012-08-25 at 13:47 +0200, Eric Dumazet wrote:
-> On Sat, 2012-08-25 at 11:14 +0200, Eric Dumazet wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> >=20
-> > On Sat, 2012-08-25 at 10:59 +0200, Eric Dumazet wrote:
-> > > On Fri, 2012-08-24 at 20:50 -0400, Cristian Rodr=C3=ADguez wrote:
-> > > > Hi, the issue I reported with IPV6 few weeks ago seems to be go=
-ne, but
-> > > > now I am getting the following crash..
-> >=20
-> > > Oh, I now see the bug, I'll send a patch asap
-> >=20
-> > Please try the following fix.
-> >=20
-> > Thanks !
->=20
-> Well, this v2 seems cleaner :
->=20
-> [PATCH v2] tcp: tcp_slow_start() should not decrease snd_cwnd
->=20
-> Cristian Rodr=C3=ADguez reported various lockups in TCP stack,
-> introduced by commit 9dc274151a548 (tcp: fix ABC in tcp_slow_start())
->=20
-> We could exit tcp_slow_start() with a zeroed snd_cwnd,
-> and next time we enter tcp_slow_start(), we run an infinite loop.
->=20
-> Reported-by: Cristian Rodr=C3=ADguez <crrodriguez@opensuse.org>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  net/ipv4/tcp_cong.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-> index 1432cdb..e656c72 100644
-> --- a/net/ipv4/tcp_cong.c
-> +++ b/net/ipv4/tcp_cong.c
-> @@ -337,7 +337,7 @@ void tcp_slow_start(struct tcp_sock *tp)
->  		tp->snd_cwnd_cnt -=3D tp->snd_cwnd;
->  		delta++;
->  	}
-> -	tp->snd_cwnd =3D min(tp->snd_cwnd + delta, tp->snd_cwnd_clamp);
-> +	tp->snd_cwnd =3D clamp(tp->snd_cwnd + delta, tp->snd_cwnd, tp->snd_=
-cwnd_clamp);
->  }
->  EXPORT_SYMBOL_GPL(tcp_slow_start);
-> =20
->=20
+On 8/25/2012 2:47 AM, Nicholas A. Bellinger wrote:
+> On Sat, 2012-08-25 at 00:06 +0530, Naresh Kumar Inna wrote:
+>> On 8/24/2012 1:28 AM, Nicholas A. Bellinger wrote:
+>>> On Fri, 2012-08-24 at 03:57 +0530, Naresh Kumar Inna wrote:
+>>>> This patch contains the first set of the header files for csiostor driver.
+>>>>
+>>>> Signed-off-by: Naresh Kumar Inna <naresh@chelsio.com>
+>>>> ---
+>>>>  drivers/scsi/csiostor/csio_defs.h       |  143 ++++++
+>>>>  drivers/scsi/csiostor/csio_fcoe_proto.h |  843 +++++++++++++++++++++++++++++++
+>>>>  drivers/scsi/csiostor/csio_hw.h         |  668 ++++++++++++++++++++++++
+>>>>  drivers/scsi/csiostor/csio_init.h       |  158 ++++++
+>>>>  4 files changed, 1812 insertions(+), 0 deletions(-)
+>>>>  create mode 100644 drivers/scsi/csiostor/csio_defs.h
+>>>>  create mode 100644 drivers/scsi/csiostor/csio_fcoe_proto.h
+>>>>  create mode 100644 drivers/scsi/csiostor/csio_hw.h
+>>>>  create mode 100644 drivers/scsi/csiostor/csio_init.h
+>>>>
+>>>
+>>> Hi Naresh,
+>>>
+>>> Just commenting on csio_defs.h bits here...  As Robert mentioned, you'll
+>>> need to convert the driver to use (or add to) upstream protocol
+>>> definitions and drop the csio_fcoe_proto.h bits..
+>>>
+>>
+>> Hi Nicholas,
+>>
+>> I would like take up the discussion of the protocol header file in that
+>> email thread. Please find the rest of my replies inline.
+>>
+>> Thanks for reviewing,
+>> Naresh.
+>>
+>>>> diff --git a/drivers/scsi/csiostor/csio_defs.h b/drivers/scsi/csiostor/csio_defs.h
+>>>> new file mode 100644
+>>>> index 0000000..4f1c713
+>>>> --- /dev/null
+>>>> +++ b/drivers/scsi/csiostor/csio_defs.h
+> 
+> <SNIP>
+> 
+>>>> +#ifndef __CSIO_DEFS_H__
+>>>> +#define __CSIO_DEFS_H__
+>>>> +
+>>>> +#include <linux/kernel.h>
+>>>> +#include <linux/timer.h>
+>>>> +#include <linux/list.h>
+>>>> +#include <linux/bug.h>
+>>>> +#include <linux/pci.h>
+>>>> +#include <linux/jiffies.h>
+>>>> +
+>>>> +/* Function returns */
+>>>> +enum csio_retval {
+>>>> +	CSIO_SUCCESS = 0,
+>>>> +	CSIO_INVAL = 1,
+>>>> +	CSIO_BUSY = 2,
+>>>> +	CSIO_NOSUPP = 3,
+>>>> +	CSIO_TIMEOUT = 4,
+>>>> +	CSIO_NOMEM = 5,
+>>>> +	CSIO_NOPERM = 6,
+>>>> +	CSIO_RETRY = 7,
+>>>> +	CSIO_EPROTO = 8,
+>>>> +	CSIO_EIO = 9,
+>>>> +	CSIO_CANCELLED = 10,
+>>>> +};
+>>>> +
+>>>
+>>> Please don't assign macros for errno's, and give them positive values.
+>>>
+>>
+>> Although some of these return values appear to be mapped to errno
+>> values, there are others that do not have an errno equivalent (example
+>> CSIO_CANCELLED). We may have future needs to have more driver/protocol
+>> specific return values as well. What do you suggest?
+>>
+> 
+> Convert all functions aside from CSIO_CANCELLED to use normal negative
+> return values from include/asm-generic/error[-base].h
+> 
+> For the CSIO_CANCELLED case, propagate this status up to the specific
+> caller using another method..
+> 
+>>>> +#define csio_retval_t enum csio_retval
+>>>
+>>> Please get rid of this csio_retval_t nonsense.
+>>
+>> I can get rid of the typedef and use enum csio_retval instead.
+>>
+> 
+> Using a LLD defined retval where %90 of the items are from errno.h is
+> code duplication.  Please get rid of this.
+> 
 
-Hmm...
+OK I will switch over to the errno values.
 
-We probably have a bug in tcp_metrics.c, because snd_cwnd_clamp should
-not be zero.
+>>>
+>>>> +
+>>>> +enum {
+>>>> +	CSIO_FALSE = 0,
+>>>> +	CSIO_TRUE = 1,
+>>>> +};
+>>>> +
+>>>
+>>> Same here, please use normal Boolean macros
+>>>
+>>>> +#define CSIO_ROUNDUP(__v, __r)		(((__v) + (__r) - 1) / (__r))
+>>>> +#define CSIO_INVALID_IDX		0xFFFFFFFF
+>>>> +#define csio_inc_stats(elem, val)	((elem)->stats.val++)
+>>>> +#define csio_dec_stats(elem, val)	((elem)->stats.val--)
+>>>
+>>> No reason for either of this stats inc+dec macros.  Please drop them.
+>>
+>> I will get rid of them.
+>>
+>>>
+>>>> +#define csio_valid_wwn(__n)		((*__n >> 4) == 0x5 ? CSIO_TRUE : \
+>>>> +						CSIO_FALSE)
+>>>> +#define CSIO_WORD_TO_BYTE		4
+>>>> +
+>>>> +static inline int
+>>>> +csio_list_deleted(struct list_head *list)
+>>>> +{
+>>>> +	return ((list->next == list) && (list->prev == list));
+>>>> +}
+>>>> +
+>>>> +#define csio_list_next(elem)	(((struct list_head *)(elem))->next)
+>>>> +#define csio_list_prev(elem)	(((struct list_head *)(elem))->prev)
+>>>> +
+>>>> +#define csio_deq_from_head(head, elem)					  \
+>>>> +do {									  \
+>>>> +	if (!list_empty(head)) {					  \
+>>>> +		*((struct list_head **)(elem)) = csio_list_next((head));  \
+>>>> +		csio_list_next((head)) =				  \
+>>>> +				csio_list_next(csio_list_next((head)));   \
+>>>> +		csio_list_prev(csio_list_next((head))) = (head);	  \
+>>>> +		INIT_LIST_HEAD(*((struct list_head **)(elem)));	          \
+>>>> +	} else								  \
+>>>> +		*((struct list_head **)(elem)) = (struct list_head *)NULL;\
+>>>> +} while (0)
+>>>> +
+>>>
+>>> This code is confusing as hell..  Why can't you just use normal list.h
+>>> macros for this..?  
+>>
+>> I have not found an equivalent function in list.h that does the above
+>> and the following macro. Could you please point me to it? I have seen a
+>> couple of other drivers define their own macros to achieve what this
+>> macro does, hence I assumed there isnt a list.h macro that does this.
+>>
+> 
+> AFAICT all that csio_deq_from_head code is supposed to do is pull an
+> item off a list, right..?  Why not just:
+> 
+>      while (!list_empty(list)) {
+>             elem = list_first_entry(list, struct elem_type, 
+>                                     elm_list);
+>             list_del_init(&elem->elm_list);
+> 
+>             <do work>
+>             <free *elem memory>
+>      }
+>
 
-With RCU, it seems following code in tcpm_new() is racy :
+I will try to come up with a simpler static inline version of the macro.
+Would that work?
 
-tm->tcpm_addr =3D *addr;
-=2E..
-tcpm_suck_dst(tm, dst);
+>>>> +#define csio_deq_from_tail(head, elem)					  \
+>>>> +do {									  \
+>>>> +	if (!list_empty(head)) {					  \
+>>>> +		*((struct list_head **)(elem)) = csio_list_prev((head));  \
+>>>> +		csio_list_prev((head)) =				  \
+>>>> +				csio_list_prev(csio_list_prev((head)));	  \
+>>>> +		csio_list_next(csio_list_prev((head))) = (head);	  \
+>>>> +		INIT_LIST_HEAD(*((struct list_head **)(elem)));		  \
+>>>> +	} else								  \
+>>>> +		*((struct list_head **)(elem)) = (struct list_head *)NULL;\
+>>>> +} while (0)
+>>>> +
+>>>
+>>> Same here..  Please don't use macros like this.
+>>>
+> 
+> AFIACT csio_deq_from_tail is unused..?
+> 
+> Please remove it..
+> 
 
-Coupled with the code in tcpm_suck_dst(tm, dst)=20
-
-static void tcpm_suck_dst(struct tcp_metrics_block *tm, struct dst_entr=
-y *dst)
-{
-        u32 val;
-
-        tm->tcpm_stamp =3D jiffies;
-
-        val =3D 0;
-        if (dst_metric_locked(dst, RTAX_RTT))
-                val |=3D 1 << TCP_METRIC_RTT;
-        if (dst_metric_locked(dst, RTAX_RTTVAR))
-                val |=3D 1 << TCP_METRIC_RTTVAR;
-        if (dst_metric_locked(dst, RTAX_SSTHRESH))
-                val |=3D 1 << TCP_METRIC_SSTHRESH;
-        if (dst_metric_locked(dst, RTAX_CWND))
-                val |=3D 1 << TCP_METRIC_CWND;
-        if (dst_metric_locked(dst, RTAX_REORDERING))
-                val |=3D 1 << TCP_METRIC_REORDERING;
-        tm->tcpm_lock =3D val;
-
-// HERE we set tcpm_lock before the tcpm_vals[]
-
-        tm->tcpm_vals[TCP_METRIC_RTT] =3D dst_metric_raw(dst, RTAX_RTT)=
-;
-        tm->tcpm_vals[TCP_METRIC_RTTVAR] =3D dst_metric_raw(dst, RTAX_R=
-TTVAR);
-        tm->tcpm_vals[TCP_METRIC_SSTHRESH] =3D dst_metric_raw(dst, RTAX=
-_SSTHRESH);
-        tm->tcpm_vals[TCP_METRIC_CWND] =3D dst_metric_raw(dst, RTAX_CWN=
-D);
-        tm->tcpm_vals[TCP_METRIC_REORDERING] =3D dst_metric_raw(dst, RT=
-AX_REORDERING);
-        tm->tcpm_ts =3D 0;
-        tm->tcpm_ts_stamp =3D 0;
-        tm->tcpm_fastopen.mss =3D 0;
-        tm->tcpm_fastopen.syn_loss =3D 0;
-        tm->tcpm_fastopen.cookie.len =3D 0;
-}
+I will remove it.
