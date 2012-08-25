@@ -1,44 +1,51 @@
-From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Subject: Re: [PATCH v2 00/10] cgroup: Assign subsystem IDs during compile
- time
-Date: Sat, 25 Aug 2012 18:49:17 +0200
-Message-ID: <5039020D.3070508@monom.org>
-References: <1345816904-21745-1-git-send-email-wagi@monom.org> <20120824231528.GO21325@google.com>
+From: Daniel Wagner <wagi@monom.org>
+Subject: Re: [PATCH v2 03/10] cgroup: net_cls: Protect access to task_cls_classid()
+ when built as module
+Date: Sat, 25 Aug 2012 18:56:29 +0200
+Message-ID: <503903BD.6020208@monom.org>
+References: <1345816904-21745-1-git-send-email-wagi@monom.org> <1345816904-21745-4-git-send-email-wagi@monom.org> <20120824232621.GQ21325@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120824231528.GO21325-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, cgroups@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Li Zefan <lizefan@huawei.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hotel311.server4you.de ([85.25.146.15]:41299 "EHLO
+	hotel311.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753294Ab2HYQ4b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2012 12:56:31 -0400
+In-Reply-To: <20120824232621.GQ21325@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Tejun,
-
-On 25.08.2012 01:15, Tejun Heo wrote:
-> Hello, Daniel.
+On 25.08.2012 01:26, Tejun Heo wrote:
+> On Fri, Aug 24, 2012 at 04:01:37PM +0200, Daniel Wagner wrote:
+>> @@ -306,6 +312,11 @@ static void __exit exit_cgroup_cls(void)
+>>   	synchronize_rcu();
+>>   #endif
+>>
+>> +#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
+>> +	static_key_slow_dec(&cgroup_cls_enabled);
+>> +	rcu_barrier();
 >
-> On Fri, Aug 24, 2012 at 04:01:34PM +0200, Daniel Wagner wrote:
->> CGROUP_BUILTIN_SUBSYS_COUNT is also gone in this version.  This time I
->> trade space for speed. Some extra cycles are spend to identify the
->> modules in the for loops, e.g.
->
-> There's no point in optimizing either space or speed here.  It's not a
-> hot path by any stretch of imagination.  Please focus on making it
-> simple.
+> Why is this rcu_barrier() necessary?
 
-Will do. Thanks a lot for your feedback. I'll update the series accordingly.
+I have read the rcubarrier.txt document and I got from that that an 
+rcu_barrier() is needed when unloading a module. But maybe I got it wrong.
 
-cheers,
-daniel
+So the idea after disabling the jump lables all pending readers in
+task_cls_classid() have left. THe same thing is done in the old code 
+with the dynamic id part. With the difference that synchronize_rcu() is 
+used.
+
+> In general, please explain what
+> synchronization is going on when using sync constructs which aren't
+> obvious - e.g. memory barriers, rcu barriers.
+
+Sure, I will keep this in mind.
