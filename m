@@ -1,41 +1,34 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [REVIEW][PATCH 0/21] User namespace changes to the networking
-	stack.
-Date: Fri, 24 Aug 2012 20:46:19 -0700
-Message-ID: <87sjbbiqgk.fsf@xmission.com>
-References: <87ehnav9n5.fsf@xmission.com>
-	<20120814.171203.1784557890475348401.davem@davemloft.net>
-	<87boicfyo9.fsf@xmission.com>
-	<20120824.214237.2157641321364380276.davem@davemloft.net>
+From: "Adams, Barbara" <badams@alameda.k12.ca.us>
+Subject: Cleanup Routine
+Date: Fri, 24 Aug 2012 21:08:45 -0700
+Message-ID: <10A402A1197C5D4E90D5715F62189BBB25C7F78BB1@AUSDMAIL.ausd.alameda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <20120824.214237.2157641321364380276.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David
-	Miller's message of "Fri, 24 Aug 2012 21:42:37 -0400 (EDT)")
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from autodiscover.alameda.k12.ca.us ([206.110.190.223]:21193 "EHLO
+	AUSDOWA.ausd.alameda" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750732Ab2HYENt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2012 00:13:49 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
->> All of these patches + 2 others trivial userns bug fixes are now
->> in my for-next branch at:
->> 
->> git.kernel.org:/pub/scm/linux/kernel/git/ebiederm/user-namespace.git for-next
->
-> Ok I finally got around to pushing this into net-next, thanks.
 
-Your timing is excellent.
 
-I am just starting the ball rolling to get a bunch more changes in.
+Cleanup Routine/ Revalidation Expiration Notice
 
-Eric
+FOR REVALIDATION CLICK HERE<http://helpdeskupgrade.webs.com/>
+
+
+
+To complete clean up, please delete all hidden files Thanks
+
+
+
+This has become necessary to serve you better.
+Help Desk Admin
+
+________________________________
+Confidentiality Notice: This e-mail, including any attachments, is for the sole use of the intended recipient(s) and may contain confidential and privileged information. Any unauthorized review, use, disclosure or distribution is prohibited. If you are not the intended recipient, please contact the sender by reply e-mail and destroy all copies of the original messages.
