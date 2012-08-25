@@ -1,51 +1,33 @@
-From: Daniel Wagner <wagi@monom.org>
-Subject: Re: [PATCH v2 03/10] cgroup: net_cls: Protect access to task_cls_classid()
- when built as module
-Date: Sat, 25 Aug 2012 18:56:29 +0200
-Message-ID: <503903BD.6020208@monom.org>
-References: <1345816904-21745-1-git-send-email-wagi@monom.org> <1345816904-21745-4-git-send-email-wagi@monom.org> <20120824232621.GQ21325@google.com>
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: Re: [PATCH v2 05/10] cgroup: Remove CGROUP_BUILTIN_SUBSYS_COUNT
+Date: Sat, 25 Aug 2012 18:59:25 +0200
+Message-ID: <5039046D.1040402@monom.org>
+References: <1345816904-21745-1-git-send-email-wagi@monom.org> <1345816904-21745-6-git-send-email-wagi@monom.org> <20120824232840.GS21325@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cgroups@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Li Zefan <lizefan@huawei.com>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hotel311.server4you.de ([85.25.146.15]:41299 "EHLO
-	hotel311.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753294Ab2HYQ4b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2012 12:56:31 -0400
-In-Reply-To: <20120824232621.GQ21325@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120824232840.GS21325-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 25.08.2012 01:26, Tejun Heo wrote:
-> On Fri, Aug 24, 2012 at 04:01:37PM +0200, Daniel Wagner wrote:
->> @@ -306,6 +312,11 @@ static void __exit exit_cgroup_cls(void)
->>   	synchronize_rcu();
->>   #endif
+On 25.08.2012 01:28, Tejun Heo wrote:
+> On Fri, Aug 24, 2012 at 04:01:39PM +0200, Daniel Wagner wrote:
+>> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
 >>
->> +#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
->> +	static_key_slow_dec(&cgroup_cls_enabled);
->> +	rcu_barrier();
+>> CGROUP_BUILTIN_SUBSYS_COUNT is used as start or stop point
+>> when looping over the subsys array. Since the subsys array is
+>> 64 entries long this is a good thing to do. Though we'd like
+>> to reduce the array size considerable but we need to get rid
+>> of CGROUP_BUILTIN_SUBSYS_COUNT to ease up the review process.
 >
-> Why is this rcu_barrier() necessary?
+> Wouldn't it be better to explicitly state that a following patch would
+> reduce the SUBSYS_COUNT and stop putting builtin and module ones into
+> different sections?
 
-I have read the rcubarrier.txt document and I got from that that an 
-rcu_barrier() is needed when unloading a module. But maybe I got it wrong.
-
-So the idea after disabling the jump lables all pending readers in
-task_cls_classid() have left. THe same thing is done in the old code 
-with the dynamic id part. With the difference that synchronize_rcu() is 
-used.
-
-> In general, please explain what
-> synchronization is going on when using sync constructs which aren't
-> obvious - e.g. memory barriers, rcu barriers.
-
-Sure, I will keep this in mind.
+Sure, can do that. I just to make sure I understand you correctly,
+What do you mean with different section? Do you refer to the enum sorting?
