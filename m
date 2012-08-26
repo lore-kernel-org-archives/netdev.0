@@ -1,55 +1,46 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [REVIEW][PATCH 11/15] userns: Teach trace to use from_kuid
-Date: Sat, 25 Aug 2012 17:28:02 -0700
-Message-ID: <87mx1icx9p.fsf@xmission.com>
-References: <87lih2h6i4.fsf@xmission.com> <87wr0mecxz.fsf@xmission.com>
-	<1345940316.19381.1.camel@pippen.local.home>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] ixgbe: using is_zero_ether_addr() to simplify the code
+Date: Sun, 26 Aug 2012 08:53:41 +0800
+Message-ID: <CAPgLHd_4FkMaEuBBbjSEFnQzP8=x0EeT=6Z1LNiHE7ycOvNziQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	David Miller <davem@davemloft.net>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <1345940316.19381.1.camel@pippen.local.home> (Steven Rostedt's
-	message of "Sat, 25 Aug 2012 20:18:36 -0400")
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
+	peter.p.waskiewicz.jr@intel.com, alexander.h.duyck@intel.com,
+	john.ronciak@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:52125 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752886Ab2HZAxm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2012 20:53:42 -0400
+Received: by qcro28 with SMTP id o28so1925762qcr.19
+        for <netdev@vger.kernel.org>; Sat, 25 Aug 2012 17:53:41 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Steven Rostedt <rostedt@goodmis.org> writes:
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-> On Sat, 2012-08-25 at 17:04 -0700, Eric W. Biederman wrote:
->> - When tracing capture the kuid.
->> - When displaying the data to user space convert the kuid into the
->>   user namespace of the process that opened the report file.
->> 
->
->> index 5c38c81..c9ace83 100644
->> --- a/kernel/trace/trace.c
->> +++ b/kernel/trace/trace.c
->> @@ -2060,7 +2060,8 @@ print_trace_header(struct seq_file *m, struct trace_iterator *iter)
->>  	seq_puts(m, "#    -----------------\n");
->>  	seq_printf(m, "#    | task: %.16s-%d "
->>  		   "(uid:%d nice:%ld policy:%ld rt_prio:%ld)\n",
->> -		   data->comm, data->pid, data->uid, data->nice,
->> +		   data->comm, data->pid,
->> +		   from_kuid_munged(seq_user_ns(m), data->uid), data->nice,
->
-> This is a global id. That is, it stored whatever process triggered the
-> report, not the one reading it. Thus, two different readers could get a
-> different uid for the same task that triggered the latency?
+Using is_zero_ether_addr() to simplify the code.
 
-Yes the stored value is a kuid_t the global kernel internal form.
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-We report the value as a uid_t in the user namespace of the reader.  So
-if two different processes in different user namespaces read the file
-they can see different values.
-
-Now I don't expect in practice we will allow anyone who isn't
-the global root user to even think of looking at debugfs, but in
-case we do we might as well handle this as best as we can.
-
-Eric
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 90e41db..dc9f28f0 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -1777,8 +1777,7 @@ s32 ixgbe_validate_mac_addr(u8 *mac_addr)
+ 	else if (IXGBE_IS_BROADCAST(mac_addr))
+ 		status = IXGBE_ERR_INVALID_MAC_ADDR;
+ 	/* Reject the zero address */
+-	else if (mac_addr[0] == 0 && mac_addr[1] == 0 && mac_addr[2] == 0 &&
+-	         mac_addr[3] == 0 && mac_addr[4] == 0 && mac_addr[5] == 0)
++	else if (is_zero_ether_addr(mac_addr))
+ 		status = IXGBE_ERR_INVALID_MAC_ADDR;
+ 
+ 	return status;
