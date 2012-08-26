@@ -1,57 +1,61 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [REVIEW][PATCH 15/15] userns: Convert configfs to use kuid and kgid where appropriate
-Date: Sat, 25 Aug 2012 17:07:14 -0700
-Message-ID: <874nnqecst.fsf@xmission.com>
-References: <87lih2h6i4.fsf@xmission.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [REVIEW][PATCH 11/15] userns: Teach trace to use from_kuid
+Date: Sat, 25 Aug 2012 20:18:36 -0400
+Message-ID: <1345940316.19381.1.camel@pippen.local.home>
+References: <87lih2h6i4.fsf@xmission.com>  <87wr0mecxz.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-fsdevel@vger.kernel.org>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org,
 	"Serge E. Hallyn" <serge@hallyn.com>,
-	David Miller <davem@davemloft.net>
-To: <linux-kernel@vger.kernel.org>
+	David Miller <davem@davemloft.net>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Cc: Joel Becker <jlbec@evilplan.org>
-In-Reply-To: <87lih2h6i4.fsf@xmission.com> (Eric W. Biederman's message of
-	"Sat, 25 Aug 2012 16:54:59 -0700")
+In-Reply-To: <87wr0mecxz.fsf@xmission.com>
 Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, 2012-08-25 at 17:04 -0700, Eric W. Biederman wrote:
+> - When tracing capture the kuid.
+> - When displaying the data to user space convert the kuid into the
+>   user namespace of the process that opened the report file.
+> 
 
-Cc: Joel Becker <jlbec@evilplan.org>
-Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
----
- fs/configfs/inode.c |    4 ++--
- init/Kconfig        |    1 -
- 2 files changed, 2 insertions(+), 3 deletions(-)
+> index 5c38c81..c9ace83 100644
+> --- a/kernel/trace/trace.c
+> +++ b/kernel/trace/trace.c
+> @@ -2060,7 +2060,8 @@ print_trace_header(struct seq_file *m, struct trace_iterator *iter)
+>  	seq_puts(m, "#    -----------------\n");
+>  	seq_printf(m, "#    | task: %.16s-%d "
+>  		   "(uid:%d nice:%ld policy:%ld rt_prio:%ld)\n",
+> -		   data->comm, data->pid, data->uid, data->nice,
+> +		   data->comm, data->pid,
+> +		   from_kuid_munged(seq_user_ns(m), data->uid), data->nice,
 
-diff --git a/fs/configfs/inode.c b/fs/configfs/inode.c
-index 0074362..a9d35b0 100644
---- a/fs/configfs/inode.c
-+++ b/fs/configfs/inode.c
-@@ -79,8 +79,8 @@ int configfs_setattr(struct dentry * dentry, struct iattr * iattr)
- 			return -ENOMEM;
- 		/* assign default attributes */
- 		sd_iattr->ia_mode = sd->s_mode;
--		sd_iattr->ia_uid = 0;
--		sd_iattr->ia_gid = 0;
-+		sd_iattr->ia_uid = GLOBAL_ROOT_UID;
-+		sd_iattr->ia_gid = GLOBAL_ROOT_GID;
- 		sd_iattr->ia_atime = sd_iattr->ia_mtime = sd_iattr->ia_ctime = CURRENT_TIME;
- 		sd->s_iattr = sd_iattr;
- 	}
-diff --git a/init/Kconfig b/init/Kconfig
-index e8612fb..296d48b 100644
---- a/init/Kconfig
-+++ b/init/Kconfig
-@@ -948,7 +948,6 @@ config UIDGID_CONVERTED
- 	depends on CEPH_FS = n
- 	depends on CIFS = n
- 	depends on CODA_FS = n
--	depends on CONFIGFS_FS = n
- 	depends on CRAMFS = n
- 	depends on ECRYPT_FS = n
- 	depends on EFS_FS = n
--- 
-1.7.5.4
+This is a global id. That is, it stored whatever process triggered the
+report, not the one reading it. Thus, two different readers could get a
+different uid for the same task that triggered the latency?
+
+-- Steve
+
+>  		   data->policy, data->rt_priority);
+>  	seq_puts(m, "#    -----------------\n");
+>  
+> diff --git a/kernel/trace/trace.h b/kernel/trace/trace.h
+> index 55e1f7f..40a6f30 100644
+> --- a/kernel/trace/trace.h
+> +++ b/kernel/trace/trace.h
+> @@ -147,7 +147,7 @@ struct trace_array_cpu {
+>  	unsigned long		skipped_entries;
+>  	cycle_t			preempt_timestamp;
+>  	pid_t			pid;
+> -	uid_t			uid;
+> +	kuid_t			uid;
+>  	char			comm[TASK_COMM_LEN];
+>  };
+>  
+
 
