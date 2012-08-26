@@ -1,99 +1,51 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] ixgbe: using is_zero_ether_addr() to
-	simplify the code
-Date: Sun, 26 Aug 2012 01:51:13 -0700
-Message-ID: <1345971073.2306.1.camel@jtkirshe-mobl>
-References: <CAPgLHd_4FkMaEuBBbjSEFnQzP8=x0EeT=6Z1LNiHE7ycOvNziQ@mail.gmail.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [net PATCH 1/1] bnx2x: fix 57840_MF pci id
+Date: Sun, 26 Aug 2012 13:35:45 +0300
+Message-ID: <1345977345-3721-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============3878320075366906262=="
-Cc: e1000-devel@lists.sourceforge.net, bruce.w.allan@intel.com,
-	jesse.brandeburg@intel.com, yongjun_wei@trendmicro.com.cn,
-	john.ronciak@intel.com, netdev@vger.kernel.org
-To: Wei Yongjun <weiyj.lk@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <CAPgLHd_4FkMaEuBBbjSEFnQzP8=x0EeT=6Z1LNiHE7ycOvNziQ@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
-
-
---===============3878320075366906262==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-PuUYkdDqGYaoDNVeOf9A"
-
-
---=-PuUYkdDqGYaoDNVeOf9A
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Sun, 2012-08-26 at 08:53 +0800, Wei Yongjun wrote:
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->=20
-> Using is_zero_ether_addr() to simplify the code.
->=20
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)=20
-
-I have added the patch to my queue of patches.  Thanks!
-
---=-PuUYkdDqGYaoDNVeOf9A
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: eilong@broadcom.com, mchan@broadcom.com,
+	"Yuval Mintz" <yuvalmin@broadcom.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:1629 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751692Ab2HZIzz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Aug 2012 04:55:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+Commit c3def943c7117d42caaed3478731ea7c3c87190e have added support for
+new pci ids of the 57840 board, while failing to change the obsolete value
+in 'pci_ids.h'. 
+This patch does so, allowing the probe of such devices.
 
-iQIcBAABCgAGBQJQOeOBAAoJEOVv75VaS+3OiIQP/1JrjySCD5hZCD7kY2ulAUBF
-+OV/Tc6//tUFMCUSHXyw2k3tcIMRG2g9TXIiKRneU2q44XspwJGCqrs/TGBZ4VKx
-BKWuL2N2CN/DP5VrdD43Y7411/eQpLmCuiP1QwQ/bHwH7ZmwQvKmB07HPWIhDSuI
-ULd7OGB2OI7AOHFq9Gde5gEmG3zx2w5UqwWrOPOfCjFA6LCv6x9HXS8hJ/zyE8dy
-Eicikgdd2ekXkrsiTBOjBcA/fTYSLu9IDIc6BQTlkxE7GrIFMBxFD+KY0awSbS1W
-MGu7tI4CoGyhXJDXfw8jGExKM+RjIyyfV+aL8JceDG5Z5fWjNmoIWyXWOTGwjUSo
-N/+SmFj4Ps2n2LjW7GubearSA8x/UJcyuTXYa1UywynhOqBkEcGQ7MSnqSrOJet4
-tL7yny3Y//Bt6Os5naR23nG26mU6jaC9vjaDQFvixRwm/1dSrBVgriN8/cwvzorK
-f9uMfPHu43eajPRkdha6zDFh46TWnDmIwrkHQyauC8LFjCMxfogKAyfeV9111zyA
-rKpKkXlwCFphgFZhfeEHjy1ljc3cZYByiVUScWpZSdNiMW/UqHkJLv2E6xF9pIKd
-C9zdJ6UqA1ffLz44vU7CtN+boe6wnU0P6zgsOu/sK6OG6u1BSnQGV+nKyMi+Dr9r
-h6QNsWPlBAoVETDIvafN
-=PDcO
------END PGP SIGNATURE-----
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+Hi Dave,
 
---=-PuUYkdDqGYaoDNVeOf9A--
+Please consider applying this correction to 'net'.
 
+Thanks,
+Yuval
+---
+ include/linux/pci_ids.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-
---===============3878320075366906262==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
---===============3878320075366906262==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============3878320075366906262==--
+diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+index fc35260..6b4565c 100644
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -2149,7 +2149,7 @@
+ #define PCI_DEVICE_ID_TIGON3_5704S	0x16a8
+ #define PCI_DEVICE_ID_NX2_57800_VF	0x16a9
+ #define PCI_DEVICE_ID_NX2_5706S		0x16aa
+-#define PCI_DEVICE_ID_NX2_57840_MF	0x16ab
++#define PCI_DEVICE_ID_NX2_57840_MF	0x16a4
+ #define PCI_DEVICE_ID_NX2_5708S		0x16ac
+ #define PCI_DEVICE_ID_NX2_57840_VF	0x16ad
+ #define PCI_DEVICE_ID_NX2_57810_MF	0x16ae
+-- 
+1.7.9.rc2
