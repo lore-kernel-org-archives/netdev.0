@@ -1,43 +1,78 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 00/19] netfilter: IPv6 NAT
-Date: Sun, 26 Aug 2012 20:06:59 +0200 (MEST)
-Message-ID: <Pine.GSO.4.63.1208262005400.28940@stinky-local.trash.net>
-References: <1344542943-11588-1-git-send-email-kaber@trash.net>
- <5038233F.7000202@tomt.net> <5038278A.6080901@tomt.net>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [RFC PATCH] net: Add support for virtual machine device queues
+ (VMDQ)
+Date: Sun, 26 Aug 2012 12:09:22 -0700
+Message-ID: <503A7462.1030803@intel.com>
+References: <20120718220544.22619.97136.stgit@i40e.jf1> <CAJZOPZJBhDdQp2-8WG-UsToPHwyawYYVctqjZMT8JN85DK3XYQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Andre Tomt <andre@tomt.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <5038278A.6080901@tomt.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, roland@kernel.org, netdev@vger.kernel.org,
+	ali@mellanox.com, sean.hefty@intel.com, shlomop@mellanox.com
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:15433 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752658Ab2HZTJY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Aug 2012 15:09:24 -0400
+In-Reply-To: <CAJZOPZJBhDdQp2-8WG-UsToPHwyawYYVctqjZMT8JN85DK3XYQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 25 Aug 2012, Andre Tomt wrote:
-
-> On 25. aug. 2012 02:58, Andre Tomt wrote:
->> On 09. aug. 2012 22:08, kaber@trash.net wrote:
->>> The following patches contain an updated version of IPv6 NAT against
->>> Linus' current tree.
->> 
->> Hmmm. Looking in my crystal ball (hi #ipv6!), I predict that if this
->> lands in mainline - and thus in consumer CPE/routers eventually - many
->> ISP's will have little incentive to actually implement assigning of
->> blocks to their consumer users like they "have to" today.
->> 
->> We have this wonderful chance of fixing a major problem with todays
->> internet, but now we are going down this very slippery slope.
->> 
->> I do need this code for a experimental project myself, and acknowledge
->> there may be some valid use cases, but I do not like the global
->> implications one bit.
->> 
->> At least some big fat warnings please?
+On 8/26/2012 6:11 AM, Or Gerlitz wrote:
+> On Thu, Jul 19, 2012 at 1:05 AM, John Fastabend
+> <john.r.fastabend@intel.com> wrote:
+>> This adds support to allow virtual net devices to be created. These
+>> devices can be managed independently of the physical function but
+>> use the same physical link.
+>>
+>> This is analogous to an offloaded macvlan device. The primary
+>> advantage to VMDQ net devices over virtual functions is they can
+>> be added and removed dynamically as needed.
 >
-> Clarification: This is about the NAT66 port-based 1:n NAT targets.
+> Hi John,
+>
+> When VMDQ devices are opened over a virtual function which is
+> assigned to guest, the design should include a way to apply the
+> following ndo_set_vf_yyy  calls to them
+>
+> int (*ndo_set_vf_mac)(struct net_device *dev, int vf, u8* mac);
+> int (*ndo_set_vf_vlan)(struct net_device *dev, int vf, u16 vlan, u8 qos);
+> int (*ndo_set_vf_tx_rate)(struct net_device *dev, int vf, int rate);
+> int (*ndo_set_vf_spoofchk)(struct net_device *dev, int vf, bool setting);
+>
+>
+> Someone here suggested using a sub-index notation, that is m.n
+> represents vmdq device index = n on VF index = m where vf.0 is
+> the non vmdq VF device, makes sense? other thoughts?
+>
+> Or.
+>
 
-We can certainly add a warning to the Kconfig text or (better) the
-iptables manpage. But only a very small percentage of people who
-might end up (unknowingly) using this will ever see them.
+That seems reasonable to me. Adding a 'sub' argument to the set
+routines should do it. Also the 'get' routines would need to be
+extended to report back these virtual net devices.
 
-Feel free to send a patch though.
+int (*ndo_set_vf_mac)(struct net_device *dev, int vf, int sub, u8* mac);
+int (*ndo_set_vf_vlan)(struct net_device *dev,
+		       int vf, int sub,
+		       u16 vlan, u8 qos);
+int (*ndo_set_vf_tx_rate)(struct net_device *dev,
+			  int vf, int sub,
+			  int rate);
+int (*ndo_set_vf_spoofchk)(struct net_device *dev,
+			   int vf, int sub,
+			   bool setting);
+int (*ndo_get_vf_config)(struct net_device *dev,
+			 int vf, int sub,
+			 struct fila_vf_info *ivf)
+
+
+I would need to check if any of the ixgbe/igb supported hardware can
+support virtual device queues on virtual functions like this but I
+presume if your looking at this you have some hardware that can.
+
+I was hoping to get back to this in September, of course if someone
+beats me to it that would be great also.
+
+.John
