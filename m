@@ -1,48 +1,36 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 2/2] drivers/net/ethernet/tundra/tsi108_eth.c: delete double assignment
-Date: Sun, 26 Aug 2012 10:18:35 +0200
-Message-ID: <1345969115-12977-2-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH] netlink: add minlen validation for the new signed types
+Date: Sun, 26 Aug 2012 11:47:57 +0300
+Message-ID: <1345970877-4408-1-git-send-email-ja@ssi.bg>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1-relais-roc.national.inria.fr ([192.134.164.82]:5463 "EHLO
-	mail1-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751166Ab2HZISm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Aug 2012 04:18:42 -0400
+Received: from ja.ssi.bg ([178.16.129.10]:38233 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751648Ab2HZIqF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Aug 2012 04:46:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-
-Delete successive assignments to the same location.
-
-A simplified version of the semantic match that finds this problem is as
-follows: (http://coccinelle.lip6.fr/)
-
-// <smpl>
-@@
-expression i;
-@@
-
-*i = ...;
- i = ...;
-// </smpl>
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
- drivers/net/ethernet/tundra/tsi108_eth.c |    1 -
- 1 file changed, 1 deletion(-)
+ lib/nlattr.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/tundra/tsi108_eth.c b/drivers/net/ethernet/tundra/tsi108_eth.c
-index 277c93e..8fa947a 100644
---- a/drivers/net/ethernet/tundra/tsi108_eth.c
-+++ b/drivers/net/ethernet/tundra/tsi108_eth.c
-@@ -1359,7 +1359,6 @@ static int tsi108_open(struct net_device *dev)
- 		}
+diff --git a/lib/nlattr.c b/lib/nlattr.c
+index 4226dfe..18eca78 100644
+--- a/lib/nlattr.c
++++ b/lib/nlattr.c
+@@ -22,6 +22,10 @@ static const u16 nla_attr_minlen[NLA_TYPE_MAX+1] = {
+ 	[NLA_U64]	= sizeof(u64),
+ 	[NLA_MSECS]	= sizeof(u64),
+ 	[NLA_NESTED]	= NLA_HDRLEN,
++	[NLA_S8]	= sizeof(s8),
++	[NLA_S16]	= sizeof(s16),
++	[NLA_S32]	= sizeof(s32),
++	[NLA_S64]	= sizeof(s64),
+ };
  
- 		data->rxskbs[i] = skb;
--		data->rxskbs[i] = skb;
- 		data->rxring[i].buf0 = virt_to_phys(data->rxskbs[i]->data);
- 		data->rxring[i].misc = TSI108_RX_OWN | TSI108_RX_INT;
- 	}
+ static int validate_nla(const struct nlattr *nla, int maxtype,
+-- 
+1.7.3.4
