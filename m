@@ -1,38 +1,48 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: [PATCH] vhost: remove duplicated include from tcm_vhost.c
-Date: Sun, 26 Aug 2012 08:22:12 +0100
-Message-ID: <CAJSP0QX+vKsZq3+v6ez7URTRUfVJ4gRfCeMqKsHW+cJ=YijWTw@mail.gmail.com>
-References: <CAPgLHd-GRu8Dc3bxLL4ogjsE6gY=OS7n0H-5JFyMi_dy2OXP9g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yongjun_wei@trendmicro.com.cn,
-	virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
-	mst@redhat.com
-To: Wei Yongjun <weiyj.lk@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAPgLHd-GRu8Dc3bxLL4ogjsE6gY=OS7n0H-5JFyMi_dy2OXP9g@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 2/2] drivers/net/ethernet/tundra/tsi108_eth.c: delete double assignment
+Date: Sun, 26 Aug 2012 10:18:35 +0200
+Message-ID: <1345969115-12977-2-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1-relais-roc.national.inria.fr ([192.134.164.82]:5463 "EHLO
+	mail1-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751166Ab2HZISm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Aug 2012 04:18:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 26, 2012 at 2:42 AM, Wei Yongjun <weiyj.lk@gmail.com> wrote:
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->
-> Remove duplicated include.
->
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> ---
->  drivers/vhost/tcm_vhost.c | 1 -
->  1 file changed, 1 deletion(-)
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Reviewed-by: Stefan Hajnoczi <stefanha@linux.vnet.ibm.com>
+Delete successive assignments to the same location.
+
+A simplified version of the semantic match that finds this problem is as
+follows: (http://coccinelle.lip6.fr/)
+
+// <smpl>
+@@
+expression i;
+@@
+
+*i = ...;
+ i = ...;
+// </smpl>
+
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+
+---
+ drivers/net/ethernet/tundra/tsi108_eth.c |    1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/tundra/tsi108_eth.c b/drivers/net/ethernet/tundra/tsi108_eth.c
+index 277c93e..8fa947a 100644
+--- a/drivers/net/ethernet/tundra/tsi108_eth.c
++++ b/drivers/net/ethernet/tundra/tsi108_eth.c
+@@ -1359,7 +1359,6 @@ static int tsi108_open(struct net_device *dev)
+ 		}
+ 
+ 		data->rxskbs[i] = skb;
+-		data->rxskbs[i] = skb;
+ 		data->rxring[i].buf0 = virt_to_phys(data->rxskbs[i]->data);
+ 		data->rxring[i].misc = TSI108_RX_OWN | TSI108_RX_INT;
+ 	}
