@@ -1,49 +1,48 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net-next 10/13] igb: Tidy up wrapping for CONFIG_IGB_PTP.
-Date: Sun, 26 Aug 2012 15:01:29 +0200
-Message-ID: <20120826130129.GA4729@netboy.at.omicron.at>
-References: <20120823110357.GB2238@netboy.at.omicron.at>
- <06DFBC1E25D8024DB214DC7F41A3CD34488DD039@ORSMSX101.amr.corp.intel.com>
- <20120823172950.GA2192@netboy.at.omicron.at>
- <02874ECE860811409154E81DA85FBB5807857EFE@ORSMSX105.amr.corp.intel.com>
- <06DFBC1E25D8024DB214DC7F41A3CD34488DD35B@ORSMSX101.amr.corp.intel.com>
- <20120824101053.GA6038@netboy.at.omicron.at>
- <1345827088.2694.11.camel@bwh-desktop.uk.solarflarecom.com>
- <02874ECE860811409154E81DA85FBB5807858A31@ORSMSX105.amr.corp.intel.com>
- <20120825062013.GB2233@netboy.at.omicron.at>
- <02874ECE860811409154E81DA85FBB58078591DF@ORSMSX105.amr.corp.intel.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [RFC PATCH] net: Add support for virtual machine device queues (VMDQ)
+Date: Sun, 26 Aug 2012 16:11:28 +0300
+Message-ID: <CAJZOPZJBhDdQp2-8WG-UsToPHwyawYYVctqjZMT8JN85DK3XYQ@mail.gmail.com>
+References: <20120718220544.22619.97136.stgit@i40e.jf1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, roland@kernel.org, netdev@vger.kernel.org,
+	ali@mellanox.com, sean.hefty@intel.com, shlomop@mellanox.com
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:59857 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750942Ab2HZNBm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Aug 2012 09:01:42 -0400
-Received: by weyx8 with SMTP id x8so1878222wey.19
-        for <netdev@vger.kernel.org>; Sun, 26 Aug 2012 06:01:41 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <02874ECE860811409154E81DA85FBB58078591DF@ORSMSX105.amr.corp.intel.com>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:63181 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750820Ab2HZNL3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Aug 2012 09:11:29 -0400
+Received: by ialo24 with SMTP id o24so6383759ial.19
+        for <netdev@vger.kernel.org>; Sun, 26 Aug 2012 06:11:29 -0700 (PDT)
+In-Reply-To: <20120718220544.22619.97136.stgit@i40e.jf1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 26, 2012 at 01:33:42AM +0000, Keller, Jacob E wrote:
-> 
-> IMO it should be but only for parts with HWTSTAMP_FILTER_ALL, and only for that mode (other modes should be ignored) because timestamping only PTP packets is a PTP feature, so this change should still disable other modes if they exist.
+On Thu, Jul 19, 2012 at 1:05 AM, John Fastabend
+<john.r.fastabend@intel.com> wrote:
+> This adds support to allow virtual net devices to be created. These
+> devices can be managed independently of the physical function but
+> use the same physical link.
+>
+> This is analogous to an offloaded macvlan device. The primary
+> advantage to VMDQ net devices over virtual functions is they can
+> be added and removed dynamically as needed.
 
-Yes, the other Rx modes are PTP specific, and they don't make sense
-unless the PTP clock is also enabled.
+Hi John,
 
-IIRC, on the Tx side, the 82580 can time stamp any marked packet
-regardless of the packet contents, so this should also be always
-available, along with HWTSTAMP_FILTER_ALL.
+When VMDQ devices are opened over a virtual function which is
+assigned to guest, the design should include a way to apply the
+following ndo_set_vf_yyy  calls to them
 
-Thanks,
-Richard
+int (*ndo_set_vf_mac)(struct net_device *dev, int vf, u8* mac);
+int (*ndo_set_vf_vlan)(struct net_device *dev, int vf, u16 vlan, u8 qos);
+int (*ndo_set_vf_tx_rate)(struct net_device *dev, int vf, int rate);
+int (*ndo_set_vf_spoofchk)(struct net_device *dev, int vf, bool setting);
+
+
+Someone here suggested using a sub-index notation, that is m.n
+represents vmdq device index = n on VF index = m where vf.0 is
+the non vmdq VF device, makes sense? other thoughts?
+
+Or.
