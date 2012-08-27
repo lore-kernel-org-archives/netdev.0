@@ -1,71 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Gianfar ethernet drop package
-Date: Mon, 27 Aug 2012 06:32:39 -0700
-Message-ID: <1346074359.26634.4.camel@edumazet-glaptop>
-References: <5037A86E.2000004@efacec.com>
-	 <1345832223.19483.75.camel@edumazet-glaptop> <503B4CBB.1020405@efacec.com>
-	 <1346065738.2420.135.camel@edumazet-glaptop> <503B6FA7.8070807@efacec.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [PATCH 0/2] net: ipvs and netfilter IPv6 defrag MTU handling
+Date: Mon, 27 Aug 2012 16:40:35 +0200
+Message-ID: <20120827144024.5754.23872.stgit@dragon>
+References: <Pine.GSO.4.63.1208271238170.5279@stinky-local.trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?An=EDbal?= Almeida Pinto <anibal.pinto@efacec.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:38028 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751634Ab2H0Nco (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2012 09:32:44 -0400
-Received: by pbbrr13 with SMTP id rr13so7435831pbb.19
-        for <netdev@vger.kernel.org>; Mon, 27 Aug 2012 06:32:43 -0700 (PDT)
-In-Reply-To: <503B6FA7.8070807@efacec.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hans Schillstrom <hans@schillstrom.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	netfilter-devel@vger.kernel.org
+To: netdev@vger.kernel.org, "Patrick McHardy" <kaber@trash.net>,
+	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
+	Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.GSO.4.63.1208271238170.5279@stinky-local.trash.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-08-27 at 14:01 +0100, An=C3=ADbal Almeida Pinto wrote:
+The following patchset makes IPVS compatible with Patrick McHardys
+IPv6 NAT patchset: http://thread.gmane.org/gmane.linux.network/239615
 
-> Is there any way of put tcpdump or other tool to only log the package=
-s=20
-> dropped ?
+Specifically the part that improves defragmentation.
 
-To log such packets with tcpdump, I am afraid you'll need to patch your
-kernel.
+ Patch01: Cleanup (and fixes a bug) in IPVS MTU IPv6 handling
 
-We dont have a way to tell tcpdump "sniff dropped packets"
+ Patch02: Extend MTU check to account for IPv6 NAT defrag changes
 
-Something like this one
+This patchset is based upon:
+ Homes ipvs-next tree:
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git
 
-(alternatively you can use dropwatch (based on drop_monitor)) and tweak
-it...
+BUT with Patrick McHardy's IPv6 NAT patchset applied first, on top of
+commit: 3654e61137db891f5312e6dd813b961484b5fdf3
+title: "ipvs: add pmtu_disc option to disable IP DF for TUN packets"
+
+Send due to request by Patrick:
+ http://thread.gmane.org/gmane.linux.network/239615/focus=43870
+
+---
+
+Jesper Dangaard Brouer (2):
+      ipvs: Extend MTU check to account for IPv6 NAT defrag changes
+      ipvs: IPv6 MTU checking cleanup and bugfix
 
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3401e2d..1336570 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3263,14 +3263,6 @@ another_round:
- 	if (sk_memalloc_socks() && skb_pfmemalloc(skb))
- 		goto skip_taps;
-=20
--	list_for_each_entry_rcu(ptype, &ptype_all, list) {
--		if (!ptype->dev || ptype->dev =3D=3D skb->dev) {
--			if (pt_prev)
--				ret =3D deliver_skb(skb, pt_prev, orig_dev);
--			pt_prev =3D ptype;
--		}
--	}
--
- skip_taps:
- #ifdef CONFIG_NET_CLS_ACT
- 	skb =3D handle_ing(skb, &pt_prev, &ret, orig_dev);
-@@ -3337,6 +3329,11 @@ ncls:
- 	} else {
- drop:
- 		atomic_long_inc(&skb->dev->rx_dropped);
-+		list_for_each_entry_rcu(ptype, &ptype_all, list) {
-+			if (!ptype->dev || ptype->dev =3D=3D skb->dev) {
-+				ret =3D deliver_skb(skb, ptype, orig_dev);
-+			}
-+		}
- 		kfree_skb(skb);
- 		/* Jamal, now you will not able to escape explaining
- 		 * me how you were going to use this. :-)
+ net/netfilter/ipvs/ip_vs_xmit.c |   32 ++++++++++++++++++++++++++------
+ 1 files changed, 26 insertions(+), 6 deletions(-)
+
+
+--
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
