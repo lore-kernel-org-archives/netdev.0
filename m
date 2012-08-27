@@ -1,60 +1,158 @@
-From: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] openvswitch: using kfree_rcu() to simplify the
-	code
-Date: Mon, 27 Aug 2012 12:20:45 +0800
-Message-ID: <CAPgLHd_71Qh90j9FCkT2cQ35wNMkZeLDwHT2QLP55_3gfzfjTQ@mail.gmail.com>
+From: Arun Murthy <arun.murthy@stericsson.com>
+Subject: [PATCHv3 2/4] modem_shm: Register u8500 client for MAF
+Date: Mon, 27 Aug 2012 11:19:27 +0530
+Message-ID: <1346046569-8050-3-git-send-email-arun.murthy@stericsson.com>
+References: <1346046569-8050-1-git-send-email-arun.murthy@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org
-To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain
+Cc: <arun.murthy@stericsson.com>
+To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-doc@vger.kernel.org>, <gregkh@linuxfoundation.org>,
+	<alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1346046569-8050-1-git-send-email-arun.murthy@stericsson.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+Register with Modem Access Framework(MAF) for u8500 platform. This will provide
+interface to enable and disable modem access and also provide the status.
 
-The callback function of call_rcu() just calls a kfree(), so we
-can use kfree_rcu() instead of call_rcu() + callback function.
-
-spatch with a semantic match is used to found this problem.
-(http://coccinelle.lip6.fr/)
-
-Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+Signed-off-by: Arun Murthy <arun.murthy@stericsson.com>
 ---
- net/openvswitch/flow.c | 10 +---------
- 1 file changed, 1 insertion(+), 9 deletions(-)
+ drivers/modem_shm/Kconfig       |   11 +++++
+ drivers/modem_shm/Makefile      |    1 +
+ drivers/modem_shm/modem_u8500.c |   96 +++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 108 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/modem_shm/modem_u8500.c
 
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index b7f38b1..c7bf2f2 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -427,19 +427,11 @@ void ovs_flow_deferred_free(struct sw_flow *flow)
- 	call_rcu(&flow->rcu, rcu_free_flow_callback);
- }
+diff --git a/drivers/modem_shm/Kconfig b/drivers/modem_shm/Kconfig
+index f4b7e54..f59d3dc 100644
+--- a/drivers/modem_shm/Kconfig
++++ b/drivers/modem_shm/Kconfig
+@@ -7,3 +7,14 @@ config MODEM_SHM
+ 	 and allows transparent access to modem to the client drivers.
  
--/* RCU callback used by ovs_flow_deferred_free_acts. */
--static void rcu_free_acts_callback(struct rcu_head *rcu)
--{
--	struct sw_flow_actions *sf_acts = container_of(rcu,
--			struct sw_flow_actions, rcu);
--	kfree(sf_acts);
--}
--
- /* Schedules 'sf_acts' to be freed after the next RCU grace period.
-  * The caller must hold rcu_read_lock for this to be sensible. */
- void ovs_flow_deferred_free_acts(struct sw_flow_actions *sf_acts)
- {
--	call_rcu(&sf_acts->rcu, rcu_free_acts_callback);
-+	kfree_rcu(sf_acts, rcu);
- }
- 
- static int parse_vlan(struct sk_buff *skb, struct sw_flow_key *key)
+ 	 If unsure, say N.
++
++config MODEM_U8500
++	bool "Modem Access driver for STE U8500 platform"
++	depends on MODEM_SHM
++	default n
++	help
++	 Add support for Modem Access driver on STE U8500 platform which
++	 uses Shared Memroy as IPC mechanism between Modem processor and
++	 Application processor.
++
++	 If unsure, say N.
+diff --git a/drivers/modem_shm/Makefile b/drivers/modem_shm/Makefile
+index b77bcc0..a9aac0f 100644
+--- a/drivers/modem_shm/Makefile
++++ b/drivers/modem_shm/Makefile
+@@ -1 +1,2 @@
+ obj-$(CONFIG_MODEM_SHM)		:= modem_access.o
++obj-$(CONFIG_MODEM_U8500)	+= modem_u8500.o
+diff --git a/drivers/modem_shm/modem_u8500.c b/drivers/modem_shm/modem_u8500.c
+new file mode 100644
+index 0000000..86966fc
+--- /dev/null
++++ b/drivers/modem_shm/modem_u8500.c
+@@ -0,0 +1,96 @@
++/*
++ * Copyright (C) ST-Ericsson SA 2011
++ *
++ * License Terms: GNU General Public License v2
++ * Author: Kumar Sanghvi
++ *	Arun Murthy <arun.murthy@stericsson.com>
++ *
++ * Platform driver implementing access mechanisms to modem
++ * on U8500 which uses Shared Memroy as IPC between Application
++ * Processor and Modem processor.
++ */
++#include <linux/module.h>
++#include <linux/err.h>
++#include <linux/platform_device.h>
++#include <linux/modem_shm/modem.h>
++#include <linux/mfd/dbx500-prcmu.h>
++
++static int u8500_modem_request(struct modem_dev *mdev)
++{
++	return prcmu_ac_wake_req();
++}
++
++static void u8500_modem_release(struct modem_dev *mdev)
++{
++	prcmu_ac_sleep_req();
++}
++
++static int u8500_modem_is_requested(struct modem_dev *mdev)
++{
++	return prcmu_is_ac_wake_requested();
++}
++
++static struct modem_ops u8500_modem_ops = {
++	.request = u8500_modem_request,
++	.release = u8500_modem_release,
++	.is_requested = u8500_modem_is_requested,
++};
++
++static struct modem_desc u8500_modem_desc = {
++	.name   = "u8500-shrm-modem",
++	.id     = 0,
++	.ops    = &u8500_modem_ops,
++	.owner  = THIS_MODULE,
++};
++
++
++static int __devinit u8500_modem_probe(struct platform_device *pdev)
++{
++	struct modem_dev *mdev;
++	int err;
++
++	mdev = modem_register(&u8500_modem_desc, &pdev->dev,
++			NULL);
++	if (IS_ERR(mdev)) {
++		err = PTR_ERR(mdev);
++		pr_err("failed to register %s: err %i\n",
++				u8500_modem_desc.name, err);
++	}
++
++	return 0;
++}
++
++static int __devexit u8500_modem_remove(struct platform_device *pdev)
++{
++
++	return 0;
++}
++
++static struct platform_driver u8500_modem_driver = {
++	.driver = {
++		.name = "u8500-modem",
++		.owner = THIS_MODULE,
++	},
++	.probe = u8500_modem_probe,
++	.remove = __devexit_p(u8500_modem_remove),
++};
++
++static int __init u8500_modem_init(void)
++{
++	int ret;
++
++	ret = platform_driver_register(&u8500_modem_driver);
++	if (ret < 0) {
++		printk(KERN_ERR "u8500_modem: platform driver reg failed\n");
++		return -ENODEV;
++	}
++
++	return 0;
++}
++
++static void __exit u8500_modem_exit(void)
++{
++	platform_driver_unregister(&u8500_modem_driver);
++}
++
++arch_initcall(u8500_modem_init);
+-- 
+1.7.4.3
+
