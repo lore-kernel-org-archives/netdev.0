@@ -1,55 +1,75 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re[3]: [PATCH 2/3] ipvs: Fix faulty IPv6 extension header  handling
- in IPVS
-Date: Mon, 27 Aug 2012 14:02:41 +0200 (MEST)
-Message-ID: <Pine.GSO.4.63.1208271401140.17922@stinky-local.trash.net>
-References: <mdaatbj.7a4274ea6c8f14ea15788c8953acb422@obelix.schillstrom.com>
+From: Iulius Curt <icurt@ixiacom.com>
+Subject: Re: [PATCH v2] libceph: Fix sparse warning
+Date: Mon, 27 Aug 2012 15:20:52 +0300
+Message-ID: <503B6624.5000408@ixiacom.com>
+References: <1345724069-12405-1-git-send-email-icurt@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
-	Simon Horman <horms@verge.net.au>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	netfilter-devel@vger.kernel.org
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <mdaatbj.7a4274ea6c8f14ea15788c8953acb422@obelix.schillstrom.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Iulius Curt <iulius.curt@gmail.com>, <davem@davemloft.net>,
+	<ceph-devel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<dbaluta@ixiacom.com>
+To: <sage@inktank.com>
+Return-path: <ceph-devel-owner@vger.kernel.org>
+In-Reply-To: <1345724069-12405-1-git-send-email-icurt@ixiacom.com>
+Sender: ceph-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 27 Aug 2012, Hans Schillstrom wrote:
-
->>>>
->>>> On Mon, 20 Aug 2012, Jesper Dangaard Brouer wrote:
->>>>
->>>>> Based on patch from: Hans Schillstrom
->>>>>
->>>>> IPv6 headers must be processed in order of appearance,
->>>>> neither can it be assumed that Upper layer headers is first.
->>>>> If anything else than L4 is the first header IPVS will throw it.
->>>>>
->>>>> IPVS will write SNAT & DNAT modifications at a fixed pos which
->>>>> will corrupt the message. Proper header position must be found
->>>>> before writing modifying packet.
->>>>>
->>>>> This patch contains a lot of API changes.  This is done, to avoid
->>>>> the costly scan of finding the IPv6 headers, via ipv6_find_hdr().
->>>>> Finding the IPv6 headers is done as early as possible, and passed
->>>>> on as a pointer "struct ip_vs_iphdr *" to the affected functions.
->>>>
->>>> How about we change netfilter to set up the skb's transport header
->>>> at an early time so we can avoid all (most of) these header scans
->>>> in netfilter?
->>>
->>> I think that would be great, maybe it should be global i.e. not only a netfilter issue.
->>
->> I think in most other cases the headers are supposed to be processed
->> sequentially. One problem though - to be useful for netfilter/IPVS
->> we'd also need to store the transport layer protocol somewhere.
+On 08/23/2012 03:14 PM, Iulius Curt wrote:
+> From: Iulius Curt<iulius.curt@gmail.com>
 >
-> I guess that's the problem, adding it to the skb will not be popular ....
-> Right now I don't have a good solution, maybe a more generic netfilter ptr in the skb ...
+> Make ceph_monc_do_poolop() static to remove the following sparse warning:
+>   * net/ceph/mon_client.c:616:5: warning: symbol 'ceph_monc_do_poolop' was not
+>     declared. Should it be static?
+> Also drops the 'ceph_monc_' prefix, now being a private function.
+>
+> Signed-off-by: Iulius Curt<icurt@ixiacom.com>
+> ---
+> v1 --->  v2
+>   * drop the 'ceph_monc_' prefix
+> ---
+>   net/ceph/mon_client.c |    6 +++---
+>   1 file changed, 3 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/ceph/mon_client.c b/net/ceph/mon_client.c
+> index 105d533..84ce495 100644
+> --- a/net/ceph/mon_client.c
+> +++ b/net/ceph/mon_client.c
+> @@ -613,7 +613,7 @@ bad:
+>   /*
+>    * Do a synchronous pool op.
+>    */
+> -int ceph_monc_do_poolop(struct ceph_mon_client *monc, u32 op,
+> +static int do_poolop(struct ceph_mon_client *monc, u32 op,
+>   			u32 pool, u64 snapid,
+>   			char *buf, int len)
+>   {
+> @@ -663,7 +663,7 @@ out:
+>   int ceph_monc_create_snapid(struct ceph_mon_client *monc,
+>   			    u32 pool, u64 *snapid)
+>   {
+> -	return ceph_monc_do_poolop(monc,  POOL_OP_CREATE_UNMANAGED_SNAP,
+> +	return do_poolop(monc,  POOL_OP_CREATE_UNMANAGED_SNAP,
+>   				   pool, 0, (char *)snapid, sizeof(*snapid));
+>
+>   }
+> @@ -672,7 +672,7 @@ EXPORT_SYMBOL(ceph_monc_create_snapid);
+>   int ceph_monc_delete_snapid(struct ceph_mon_client *monc,
+>   			    u32 pool, u64 snapid)
+>   {
+> -	return ceph_monc_do_poolop(monc,  POOL_OP_CREATE_UNMANAGED_SNAP,
+> +	return do_poolop(monc,  POOL_OP_CREATE_UNMANAGED_SNAP,
+>   				   pool, snapid, 0, 0);
+>
+>   }
+> --
+> 1.7.9.5
+>
+>
+Hi Sage,
 
-I guess inet6_skb_parm will be at least slightly more popular than
-adding it to the skb itself. The netfilter pointers are all used for
-optional things, so we can't really add it to any of those.
+Can you, please, have a look.
+
+Thanks,
+Iulius
+
