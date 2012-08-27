@@ -1,45 +1,51 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [PATCH] iproute2: build failure due to missing '\' in Makefile
-Date: Mon, 27 Aug 2012 10:50:31 -0700
-Message-ID: <20120827175031.8539.56527.stgit@jf-dev1-dcblab>
+Subject: [PATCH] iproute2: bridge: remove replace and change options
+Date: Mon, 27 Aug 2012 10:52:31 -0700
+Message-ID: <20120827175231.8706.69184.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:16804 "EHLO mga01.intel.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750971Ab2H0SGo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Aug 2012 14:06:44 -0400
+Received: from mga11.intel.com ([192.55.52.93]:37643 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750971Ab2H0SIr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Aug 2012 14:08:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After latest commit 'Install all tc and ip sub pages' this error
-occurs on make.
-
-make[2]: Nothing to be done for `all'.
-make[2]: Leaving directory `/home/git/kernel.org/iproute2/man/man3'
-make[2]: Entering directory `/home/git/kernel.org/iproute2/man/man8'
-Makefile:8: *** commands commence before first target.  Stop.
-make[2]: Leaving directory `/home/git/kernel.org/iproute2/man/man8'
+Replace and change are not supported by bridge netlink so remove it
+from bridge tool options.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
 
- man/man8/Makefile |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ bridge/fdb.c |    7 +------
+ 1 files changed, 1 insertions(+), 6 deletions(-)
 
-diff --git a/man/man8/Makefile b/man/man8/Makefile
-index 1410bf7..d021da2 100644
---- a/man/man8/Makefile
-+++ b/man/man8/Makefile
-@@ -4,7 +4,7 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 ss.8 \
- 	tc-bfifo.8 tc-cbq.8 tc-cbq-details.8 tc-choke.8 tc-codel.8 \
- 	tc-drr.8 tc-ematch.8 tc-fq_codel.8 tc-hfsc.8 tc-htb.8 \
- 	tc-netem.8 tc-pfifo.8 tc-pfifo_fast.8 tc-prio.8 tc-red.8 \
--	tc-sfb.8 tc-sfq.8 tc-stab.8 tc-tbf.8
-+	tc-sfb.8 tc-sfq.8 tc-stab.8 tc-tbf.8 \
- 	bridge.8 rtstat.8 ctstat.8 nstat.8 routef.8 \
- 	ip-address.8 ip-addrlabel.8 ip-l2tp.8 ip-link.8 \
- 	ip-maddress.8 ip-monitor.8 ip-mroute.8 ip-neighbour.8 \
+diff --git a/bridge/fdb.c b/bridge/fdb.c
+index cee0fcd..eaefa81 100644
+--- a/bridge/fdb.c
++++ b/bridge/fdb.c
+@@ -26,7 +26,7 @@ int filter_index;
+ 
+ static void usage(void)
+ {
+-	fprintf(stderr, "Usage: bridge fdb { add | del | replace } ADDR dev DEV {self|master}\n");
++	fprintf(stderr, "Usage: bridge fdb { add | del } ADDR dev DEV {self|master}\n");
+ 	fprintf(stderr, "       bridge fdb {show} [ dev DEV ]\n");
+ 	exit(-1);
+ }
+@@ -228,11 +228,6 @@ int do_fdb(int argc, char **argv)
+ 	if (argc > 0) {
+ 		if (matches(*argv, "add") == 0)
+ 			return fdb_modify(RTM_NEWNEIGH, NLM_F_CREATE|NLM_F_EXCL, argc-1, argv+1);
+-		if (matches(*argv, "change") == 0)
+-			return fdb_modify(RTM_NEWNEIGH, NLM_F_REPLACE, argc-1, argv+1);
+-
+-		if (matches(*argv, "replace") == 0)
+-			return fdb_modify(RTM_NEWNEIGH, NLM_F_CREATE|NLM_F_REPLACE, argc-1, argv+1);
+ 		if (matches(*argv, "delete") == 0)
+ 			return fdb_modify(RTM_DELNEIGH, 0, argc-1, argv+1);
+ 		if (matches(*argv, "show") == 0 ||
