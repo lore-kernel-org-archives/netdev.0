@@ -1,65 +1,45 @@
-From: "Vick, Matthew" <matthew.vick@intel.com>
-Subject: RE: [net-next 11/13] igb: Update PTP function names/variables and
- locations.
-Date: Mon, 27 Aug 2012 17:39:45 +0000
-Message-ID: <06DFBC1E25D8024DB214DC7F41A3CD34488DF198@ORSMSX101.amr.corp.intel.com>
-References: <20120823111622.GC2238@netboy.at.omicron.at>
- <06DFBC1E25D8024DB214DC7F41A3CD34488DD079@ORSMSX101.amr.corp.intel.com>
- <20120823175335.GB2192@netboy.at.omicron.at>
- <02874ECE860811409154E81DA85FBB5807857EEA@ORSMSX105.amr.corp.intel.com>
- <20120823181117.GD2192@netboy.at.omicron.at>
- <06DFBC1E25D8024DB214DC7F41A3CD34488DD379@ORSMSX101.amr.corp.intel.com>
- <20120824065554.GB3261@netboy.at.omicron.at>
- <06DFBC1E25D8024DB214DC7F41A3CD34488DDE99@ORSMSX101.amr.corp.intel.com>
- <20120825054846.GA2233@netboy.at.omicron.at>
- <06DFBC1E25D8024DB214DC7F41A3CD34488DEF86@ORSMSX101.amr.corp.intel.com>
- <20120827164428.GA2269@netboy.at.omicron.at>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [PATCH] iproute2: build failure due to missing '\' in Makefile
+Date: Mon, 27 Aug 2012 10:50:31 -0700
+Message-ID: <20120827175031.8539.56527.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:48565 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753767Ab2H0Rjr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2012 13:39:47 -0400
-In-Reply-To: <20120827164428.GA2269@netboy.at.omicron.at>
-Content-Language: en-US
+Received: from mga01.intel.com ([192.55.52.88]:16804 "EHLO mga01.intel.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750971Ab2H0SGo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Aug 2012 14:06:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Richard Cochran [mailto:richardcochran@gmail.com]
-> Sent: Monday, August 27, 2012 9:44 AM
-> To: Vick, Matthew
-> Cc: Keller, Jacob E; Kirsher, Jeffrey T; davem@davemloft.net;
-> netdev@vger.kernel.org; gospo@redhat.com; sassmann@redhat.com
-> Subject: Re: [net-next 11/13] igb: Update PTP function names/variables
-> and locations.
-> 
-> >
-> > Unfortunately, the way I've built the series makes it difficult to
-> put those fixes before the re-factoring. The need for the design change
-> drove the re-factor to give me the foundation. I'll make a note to
-> myself to come up with something to apply to stable.
-> 
-> Hm, I didn't see anything here that looks like bug fix. Did I miss
-> something?  What causes the ifup/ifdown weirdness, anyhow?
-> 
-> (It seems hard to believe that it has something to do with the names or
-> locations of the various functions.)
-> 
-> Thanks,
-> Richard
+After latest commit 'Install all tc and ip sub pages' this error
+occurs on make.
 
-Sorry, I wasn't very clear--I mean the bug fix I have for ifup/ifdown is in the next few patches with the implementation change I'm doing, since the code I have in place to fix it applies only to the new implementation. I'll have to make a separate patch for stable to address it there.
+make[2]: Nothing to be done for `all'.
+make[2]: Leaving directory `/home/git/kernel.org/iproute2/man/man3'
+make[2]: Entering directory `/home/git/kernel.org/iproute2/man/man8'
+Makefile:8: *** commands commence before first target.  Stop.
+make[2]: Leaving directory `/home/git/kernel.org/iproute2/man/man8'
 
-If the ifup/ifdown weirdness happens because we never re-enable timestamping in the hardware following reset and the device goes through a reset during an ifdown/ifup cycle. It's a pretty straightforward fix, so it shouldn't be much effort to spin up something for stable.
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
 
-Matthew
+ man/man8/Makefile |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/man/man8/Makefile b/man/man8/Makefile
+index 1410bf7..d021da2 100644
+--- a/man/man8/Makefile
++++ b/man/man8/Makefile
+@@ -4,7 +4,7 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 ss.8 \
+ 	tc-bfifo.8 tc-cbq.8 tc-cbq-details.8 tc-choke.8 tc-codel.8 \
+ 	tc-drr.8 tc-ematch.8 tc-fq_codel.8 tc-hfsc.8 tc-htb.8 \
+ 	tc-netem.8 tc-pfifo.8 tc-pfifo_fast.8 tc-prio.8 tc-red.8 \
+-	tc-sfb.8 tc-sfq.8 tc-stab.8 tc-tbf.8
++	tc-sfb.8 tc-sfq.8 tc-stab.8 tc-tbf.8 \
+ 	bridge.8 rtstat.8 ctstat.8 nstat.8 routef.8 \
+ 	ip-address.8 ip-addrlabel.8 ip-l2tp.8 ip-link.8 \
+ 	ip-maddress.8 ip-monitor.8 ip-mroute.8 ip-neighbour.8 \
