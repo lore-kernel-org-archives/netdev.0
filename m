@@ -1,56 +1,65 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [RFC PATCH] net: Add support for virtual machine device queues
- (VMDQ)
-Date: Mon, 27 Aug 2012 10:21:28 -0700
-Message-ID: <503BAC98.2070508@intel.com>
-References: <20120718220544.22619.97136.stgit@i40e.jf1> <CAJZOPZJBhDdQp2-8WG-UsToPHwyawYYVctqjZMT8JN85DK3XYQ@mail.gmail.com> <503A7462.1030803@intel.com> <CAJZOPZJyXnHymw4D4VWAajc7Q1EeSaTHRYn7p9sKG2hiHGjr_A@mail.gmail.com>
+From: "Vick, Matthew" <matthew.vick@intel.com>
+Subject: RE: [net-next 11/13] igb: Update PTP function names/variables and
+ locations.
+Date: Mon, 27 Aug 2012 17:39:45 +0000
+Message-ID: <06DFBC1E25D8024DB214DC7F41A3CD34488DF198@ORSMSX101.amr.corp.intel.com>
+References: <20120823111622.GC2238@netboy.at.omicron.at>
+ <06DFBC1E25D8024DB214DC7F41A3CD34488DD079@ORSMSX101.amr.corp.intel.com>
+ <20120823175335.GB2192@netboy.at.omicron.at>
+ <02874ECE860811409154E81DA85FBB5807857EEA@ORSMSX105.amr.corp.intel.com>
+ <20120823181117.GD2192@netboy.at.omicron.at>
+ <06DFBC1E25D8024DB214DC7F41A3CD34488DD379@ORSMSX101.amr.corp.intel.com>
+ <20120824065554.GB3261@netboy.at.omicron.at>
+ <06DFBC1E25D8024DB214DC7F41A3CD34488DDE99@ORSMSX101.amr.corp.intel.com>
+ <20120825054846.GA2233@netboy.at.omicron.at>
+ <06DFBC1E25D8024DB214DC7F41A3CD34488DEF86@ORSMSX101.amr.corp.intel.com>
+ <20120827164428.GA2269@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, roland@kernel.org, netdev@vger.kernel.org,
-	ali@mellanox.com, sean.hefty@intel.com, shlomop@mellanox.com
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:55613 "EHLO mga09.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:48565 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753179Ab2H0RVe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Aug 2012 13:21:34 -0400
-In-Reply-To: <CAJZOPZJyXnHymw4D4VWAajc7Q1EeSaTHRYn7p9sKG2hiHGjr_A@mail.gmail.com>
+	id S1753767Ab2H0Rjr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2012 13:39:47 -0400
+In-Reply-To: <20120827164428.GA2269@netboy.at.omicron.at>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/27/2012 2:47 AM, Or Gerlitz wrote:
-> On Sun, Aug 26, 2012 at 10:09 PM, John Fastabend
-> <john.r.fastabend@intel.com> wrote:
->> That seems reasonable to me. Adding a 'sub' argument to the set
->> routines should do it. Also the 'get' routines would need to be
->> extended to report back these virtual net devices.
->>
->> int (*ndo_set_vf_mac)(struct net_device *dev, int vf, int sub, u8* mac);
->> int (*ndo_set_vf_vlan)(struct net_device *dev,
->>                         int vf, int sub, u16 vlan, u8 qos);
->> int (*ndo_set_vf_tx_rate)(struct net_device *dev,
->>                            int vf, int sub, int rate);
->> int (*ndo_set_vf_spoofchk)(struct net_device *dev,
->>                             int vf, int sub, bool setting);
->> int (*ndo_get_vf_config)(struct net_device *dev,
->>                           int vf, int sub,
->>                           struct fila_vf_info *ivf)
->
->> I would need to check if any of the ixgbe/igb supported hardware can
->> support virtual device queues on virtual functions like this but I
->> presume if your looking at this you have some hardware that can.
->
-> Yes, we look on HW that can.
->
-> Your suggestion makes sense, I will check here if this well addresses
-> the eswitch
-> use case we envision or/what is missing.
->
-> Or.
->
+> -----Original Message-----
+> From: Richard Cochran [mailto:richardcochran@gmail.com]
+> Sent: Monday, August 27, 2012 9:44 AM
+> To: Vick, Matthew
+> Cc: Keller, Jacob E; Kirsher, Jeffrey T; davem@davemloft.net;
+> netdev@vger.kernel.org; gospo@redhat.com; sassmann@redhat.com
+> Subject: Re: [net-next 11/13] igb: Update PTP function names/variables
+> and locations.
+> 
+> >
+> > Unfortunately, the way I've built the series makes it difficult to
+> put those fixes before the re-factoring. The need for the design change
+> drove the re-factor to give me the foundation. I'll make a note to
+> myself to come up with something to apply to stable.
+> 
+> Hm, I didn't see anything here that looks like bug fix. Did I miss
+> something?  What causes the ifup/ifdown weirdness, anyhow?
+> 
+> (It seems hard to believe that it has something to do with the names or
+> locations of the various functions.)
+> 
+> Thanks,
+> Richard
 
-Sounds good let us know. Ben had some comments I need to address as
-well.
+Sorry, I wasn't very clear--I mean the bug fix I have for ifup/ifdown is in the next few patches with the implementation change I'm doing, since the code I have in place to fix it applies only to the new implementation. I'll have to make a separate patch for stable to address it there.
 
-.John
+If the ifup/ifdown weirdness happens because we never re-enable timestamping in the hardware following reset and the device goes through a reset during an ifdown/ifup cycle. It's a pretty straightforward fix, so it shouldn't be much effort to spin up something for stable.
+
+Matthew
