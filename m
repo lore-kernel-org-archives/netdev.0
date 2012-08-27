@@ -1,59 +1,65 @@
-From: =?UTF-8?B?QW7DrWJhbCBBbG1laWRhIFBpbnRv?= <anibal.pinto@efacec.com>
-Subject: Re: Gianfar ethernet drop package
-Date: Mon, 27 Aug 2012 11:32:27 +0100
-Message-ID: <503B4CBB.1020405@efacec.com>
-References: <5037A86E.2000004@efacec.com> <1345832223.19483.75.camel@edumazet-glaptop>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 05/19] netfilter: nf_conntrack_ipv6: improve fragmentation
+ handling
+Date: Mon, 27 Aug 2012 12:41:15 +0200 (MEST)
+Message-ID: <Pine.GSO.4.63.1208271238170.5279@stinky-local.trash.net>
+References: <1344542943-11588-1-git-send-email-kaber@trash.net>    
+ <1344542943-11588-6-git-send-email-kaber@trash.net>    <1345190795.3069.228.camel@localhost>
+  <Pine.GSO.4.63.1208181423050.17600@stinky-local.trash.net>  
+ <1345405069.3069.241.camel@localhost>   <Pine.GSO.4.63.1208192141570.3016@stinky-local.trash.net>
+  <1345587697.3069.297.camel@localhost>  <Pine.GSO.4.63.1208262318550.16771@stinky-local.trash.net>
+ <1346062428.3069.398.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.efacec.com ([62.28.144.243]:27421 "HELO mail2.efacec.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751632Ab2H0Kcj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2012 06:32:39 -0400
-In-Reply-To: <1345832223.19483.75.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1346062428.3069.398.camel@localhost>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Em 24-08-2012 19:17, Eric Dumazet escreveu:
-> On Fri, 2012-08-24 at 17:14 +0100, An=C3=ADbal Almeida Pinto wrote:
->> Hi,
+On Mon, 27 Aug 2012, Jesper Dangaard Brouer wrote:
+
+>>> When loading "nf_conntrack_ipv6" I run into issues.
+>>>
+>>> When sending a fragmented UDP packet.  With these patches, the IPVS
+>>> stack will no longer see the fragmented packets, but instead see one
+>>> large SKB.  This will trigger a MTU path check in e.g.
+>>> ip_vs_dr_xmit_v6() and an ICMPv6 too big packet is send back.
+>>>
+>>>  IPVS: ip_vs_dr_xmit_v6(): frag needed
+>>>
+>>> Perhaps we could change/fix the MTU check in IPVS?
+>>> (This would also solve issues I've seen with TSO/GSO frames, hitting
+>>> this code path).
 >>
->> I have an board with a ppc with a 8379, kernel 3.0.39 and with a Gia=
-nfar
->> Ethernet Controller Version 1.2.
->>
->> When connect the board to office network the number of dropped packe=
-ts
->> reported by ifconfig continues to increase.
->>
->> Following the test made at [1] I use tcpdump and when running it the
->> number of drop packages don't have increased.
->>
->> When executing ethtool eth0 -S it return a rx-dropped-by-kernel !=3D=
- 0.
->> And the rest of drop packages
->>
->> Is possible to get info why the packages are dropped?
+>> I guess this should use the same check as in IPv6 output, check
+>> whether IP6CB(skb)->max_frag_size is != 0 and > MTU and only send
+>> an ICMPv6 error in that case.
 >
-> You receive frames for unknown protocols. So they are dropped.
+> Hans have (already) proposed this solution:
 >
-> When running tcpdump, your tcpdump get them, they are not dropped.
+>  if ((!skb->local_df && skb->len > mtu && !skb_is_gso(skb)) ||
+>      (IP6CB(skb)->frag_max_size && IP6CB(skb)->frag_max_size > mtu)) {
 >
-> So just parse your tcpdump output ?
->
+> And I have tested it works.
+> But I'm not sure about, if we really need the "!skb->local_df" check ?
 
-I generate the log on the board with tcpdump -i eth0 -w log_eth0.txt an=
-d=20
-loaded the result on wireshark (on other pc).
+Not necessarily, alternatively you could use:
 
-On the wireshark everything appears to be fine don't have nothing that=20
-indicate the protocol isn't supported.
+if ((!IP6CB(skb)->frag_max_size &&
+      (skb->len > mtu && !skb_is_gso(skb)) ||
+     IP6CB(skb)->frag_max_size > mtu)
 
-On /etc/protocols is a list with protocols, it there is a place where=20
-exist a place with protocols supported by kernel ?
+We just need to make sure that if frag_max_size is set that skb->len
+is ignored. Either way is fine, but I'd suggest to keep it similar to
+the variant used in IPv6.
 
-Thanks
+> Thus, we should extend you patchset with a patch, that also address the
+> MTU checks in IPVS.
+
+Can you send over a patch for inclusion in the patchset? Besides this, its
+ready for submission.
