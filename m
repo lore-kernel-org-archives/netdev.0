@@ -1,114 +1,111 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCHv3 1/4] modem_shm: Add Modem Access Framework
-Date: Sun, 26 Aug 2012 23:49:20 -0700
-Message-ID: <20120827064920.GA5170@kroah.com>
-References: <1346046569-8050-1-git-send-email-arun.murthy@stericsson.com>
- <1346046569-8050-2-git-send-email-arun.murthy@stericsson.com>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: [RFT] testers for CDC-EEM devices wanted
+Date: Mon, 27 Aug 2012 09:23:03 +0200
+Message-ID: <2118057.L1dQ5hZKaY@linux-lqwf.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, alan@lxorguk.ukuu.org.uk
-To: Arun Murthy <arun.murthy@stericsson.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1346046569-8050-2-git-send-email-arun.murthy@stericsson.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+To: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out003.kontent.com ([81.88.40.217]:44771 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751610Ab2H0HYT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2012 03:24:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 27, 2012 at 11:19:26AM +0530, Arun Murthy wrote:
-> +struct modem {
-> +	struct device *dev;
+Hi,
 
-No, this needs to be:
-	struct device dev;
+I am looking for people who have a cdc-eem device that emits power
+management hints and would be willig to test this patch.
 
-Please fix it up to be like that, otherwise you are not using the driver
-model properly at all.
+	Regards
+		Oliver
 
-> +/**
-> + * modem_register - register a modem
-> + * @modem_desc: - description for modem
-> + * @dev:        - device
-> + * @driver_data:- driver specific data
-> + *
-> + * Register a modem with the modem access framework, so that
-> + * it could be used by client drivers for accessing the
-> + * modem.
-> + */
-> +struct modem_dev *modem_register(struct modem_desc *modem_desc,
-> +		struct device *dev,
-> +		void *driver_data)
-> +{
-> +	static atomic_t modem_no = ATOMIC_INIT(0);
-> +	struct modem_dev *mdev;
-> +	int ret;
-> +
-> +	if (modem_desc == NULL)
-> +		return ERR_PTR(-EINVAL);
-> +
-> +	if (modem_desc->name == NULL || modem_desc->ops == NULL)
-> +		return ERR_PTR(-EINVAL);
-> +
-> +	mdev = kzalloc(sizeof(struct modem_dev), GFP_KERNEL);
-> +	if (mdev == NULL)
-> +		return ERR_PTR(-ENOMEM);
-> +
-> +	mutex_lock(&modem_list_mutex);
-> +
-> +	mutex_init(&mdev->mutex);
-> +	mdev->modem_data = driver_data;
-> +	mdev->owner = modem_desc->owner;
-> +	mdev->desc = modem_desc;
-> +	INIT_LIST_HEAD(&mdev->client_list);
-> +	INIT_LIST_HEAD(&mdev->modem_list);
-> +	BLOCKING_INIT_NOTIFIER_HEAD(&mdev->notifier);
-> +
-> +	/* mdev->dev.class = &modem_class;*/
-> +	mdev->dev.parent = dev;
-> +	dev_set_name(&mdev->dev, "modem.%d", atomic_inc_return(&modem_no) - 1);
+>From 499bcc977f13b899cd49a6474843ed3c9086cc0b Mon Sep 17 00:00:00 2001
+From: Oliver Neukum <oliver@neukum.org>
+Date: Sun, 26 Aug 2012 17:12:06 +0200
+Subject: [PATCH] usbnet: Support devices reporting idleness
 
-Use the idr interface instead please.
+Some device types support a form of power management in which
+the device suggests to the host that the device may be suspended
+now. Support for that is best located in usbnet.
 
-> +	ret = device_register(&mdev->dev);
-> +	if (ret != 0)
-> +		goto clean;
-> +
-> +	dev_set_drvdata(&mdev->dev, mdev);
-> +
-> +	ret = add_modem_attributes(mdev);
-> +	if (ret < 0)
-> +		goto backoff;
-> +
-> +	list_add(&mdev->modem_list, &modem_list);
+Signed-off-by: Oliver Neukum <oneukum@suse.de>
+---
+ drivers/net/usb/cdc_eem.c  |    4 ++++
+ drivers/net/usb/usbnet.c   |   17 +++++++++++++++++
+ include/linux/usb/usbnet.h |    2 ++
+ 3 files changed, 23 insertions(+), 0 deletions(-)
 
-Hint, you don't need such a list if you use the driver model properly...
-
-> +out:
-> +	mutex_unlock(&modem_list_mutex);
-> +	return mdev;
-> +
-> +backoff:
-> +	device_unregister(&mdev->dev);
-> +	mdev = ERR_PTR(ret);
-> +	goto out;
-> +
-> +clean:
-> +	kfree(mdev);
-> +	mdev = ERR_PTR(ret);
-> +	goto out;
-> +}
-> +EXPORT_SYMBOL_GPL(modem_register);
-
-You have no "modem_unregister()" call, which, if you did, and actually
-tested it out, would show you the problem in the code above (hint, you
-really didn't read the documentation I pointed you at previously.)
-
-You are also racing userspace with your device creation, and I can't
-tell the difference between a modem_dev and a modem, why have two
-different things?
-
-This whole thing needs to be totally reworked, start with the above
-comments, and you will see whole sections of this patch just disappear,
-as you properly start to use the driver model.
-
-greg k-h
+diff --git a/drivers/net/usb/cdc_eem.c b/drivers/net/usb/cdc_eem.c
+index 434d5af..c81e278 100644
+--- a/drivers/net/usb/cdc_eem.c
++++ b/drivers/net/usb/cdc_eem.c
+@@ -244,8 +244,12 @@ static int eem_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ 			 *  - suspend: peripheral ready to suspend
+ 			 *  - response: suggest N millisec polling
+ 			 *  - response complete: suggest N sec polling
++			 *
++			 * Suspend is reported and maybe heeded.
+ 			 */
+ 			case 2:		/* Suspend hint */
++				usbnet_device_suggests_idle(dev);
++				continue;
+ 			case 3:		/* Response hint */
+ 			case 4:		/* Response complete hint */
+ 				continue;
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index fd4b26d..38c534a 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1580,10 +1580,27 @@ int usbnet_resume (struct usb_interface *intf)
+ 			tasklet_schedule (&dev->bh);
+ 		}
+ 	}
++
++	if (test_and_clear_bit(EVENT_DEVICE_REPORT_IDLE, &dev->flags))
++		usb_autopm_get_interface_no_resume(intf);
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(usbnet_resume);
+ 
++/*
++ * Either a subdriver implements manage_power, then it is assumed to always
++ * be ready to be suspended or it reports the readiness to be suspended
++ * explicitly
++ */
++void usbnet_device_suggests_idle(struct usbnet *dev)
++{
++	if (!test_and_set_bit(EVENT_DEVICE_REPORT_IDLE, &dev->flags)) {
++		dev->intf->needs_remote_wakeup = 1;
++		usb_autopm_put_interface_async(dev->intf);
++	}		
++}
++EXPORT_SYMBOL(usbnet_device_suggests_idle);
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index f87cf62..ddbbb7d 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -68,6 +68,7 @@ struct usbnet {
+ #		define EVENT_RX_PAUSED	5
+ #		define EVENT_DEV_ASLEEP 6
+ #		define EVENT_DEV_OPEN	7
++#		define EVENT_DEVICE_REPORT_IDLE	8
+ };
+ 
+ static inline struct usb_driver *driver_of(struct usb_interface *intf)
+@@ -160,6 +161,7 @@ extern int usbnet_probe(struct usb_interface *, const struct usb_device_id *);
+ extern int usbnet_suspend(struct usb_interface *, pm_message_t);
+ extern int usbnet_resume(struct usb_interface *);
+ extern void usbnet_disconnect(struct usb_interface *);
++extern void usbnet_device_suggests_idle(struct usbnet *dev);
+ 
+ 
+ /* Drivers that reuse some of the standard USB CDC infrastructure
+-- 
+1.7.7
