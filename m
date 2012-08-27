@@ -1,50 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Gianfar ethernet drop package
-Date: Mon, 27 Aug 2012 04:08:58 -0700
-Message-ID: <1346065738.2420.135.camel@edumazet-glaptop>
-References: <5037A86E.2000004@efacec.com>
-	 <1345832223.19483.75.camel@edumazet-glaptop>  <503B4CBB.1020405@efacec.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re[2]:  [PATCH 2/3] ipvs: Fix faulty IPv6 extension header  handling
+ in IPVS
+Date: Mon, 27 Aug 2012 13:13:44 +0200 (MEST)
+Message-ID: <Pine.GSO.4.63.1208271308282.11224@stinky-local.trash.net>
+References: <mdaatbj.ca5ac4e44d852a03ede087a5ed658cd9@obelix.schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?An=EDbal?= Almeida Pinto <anibal.pinto@efacec.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:46398 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752798Ab2H0LJC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2012 07:09:02 -0400
-Received: by pbbrr13 with SMTP id rr13so7246537pbb.19
-        for <netdev@vger.kernel.org>; Mon, 27 Aug 2012 04:09:02 -0700 (PDT)
-In-Reply-To: <503B4CBB.1020405@efacec.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
+	Simon Horman <horms@verge.net.au>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	netfilter-devel@vger.kernel.org
+To: Hans Schillstrom <hans@schillstrom.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <mdaatbj.ca5ac4e44d852a03ede087a5ed658cd9@obelix.schillstrom.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-08-27 at 11:32 +0100, An=C3=ADbal Almeida Pinto wrote:
+On Mon, 27 Aug 2012, Hans Schillstrom wrote:
 
-> I generate the log on the board with tcpdump -i eth0 -w log_eth0.txt =
-and=20
-> loaded the result on wireshark (on other pc).
->=20
-> On the wireshark everything appears to be fine don't have nothing tha=
-t=20
-> indicate the protocol isn't supported.
->=20
-> On /etc/protocols is a list with protocols, it there is a place where=
-=20
-> exist a place with protocols supported by kernel ?
+>>
+>> On Mon, 20 Aug 2012, Jesper Dangaard Brouer wrote:
+>>
+>>> Based on patch from: Hans Schillstrom
+>>>
+>>> IPv6 headers must be processed in order of appearance,
+>>> neither can it be assumed that Upper layer headers is first.
+>>> If anything else than L4 is the first header IPVS will throw it.
+>>>
+>>> IPVS will write SNAT & DNAT modifications at a fixed pos which
+>>> will corrupt the message. Proper header position must be found
+>>> before writing modifying packet.
+>>>
+>>> This patch contains a lot of API changes.  This is done, to avoid
+>>> the costly scan of finding the IPv6 headers, via ipv6_find_hdr().
+>>> Finding the IPv6 headers is done as early as possible, and passed
+>>> on as a pointer "struct ip_vs_iphdr *" to the affected functions.
+>>
+>> How about we change netfilter to set up the skb's transport header
+>> at an early time so we can avoid all (most of) these header scans
+>> in netfilter?
+>
+> I think that would be great, maybe it should be global i.e. not only a netfilter issue.
 
-So all frames understood by wireshark are also automatically handled by
-your linux machine ? That sounds cool, so we no longer have to add stuf=
-f
-in the kernel ?
-
-Let me explain again :
-
-=46or example, if you dont have IPv6 loaded, IPv6 frames wont be handle=
-d,
-and they appear to be dropped. They really are.
-
-If you run tcpdump/wireshark, these frames are at least delivered once
-to a sniffer, so they are not "dropped", even if no protocol handler
-actually reacts to them.
+I think in most other cases the headers are supposed to be processed 
+sequentially. One problem though - to be useful for netfilter/IPVS
+we'd also need to store the transport layer protocol somewhere.
