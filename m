@@ -1,57 +1,63 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [RFC PATCH] net: Add support for virtual machine device queues (VMDQ)
-Date: Tue, 28 Aug 2012 00:39:46 +0300
-Message-ID: <CAJZOPZJXhCAcZx0gzNWrjU0+VF7q7NkGGFRvrxjDxG8gE73hzQ@mail.gmail.com>
-References: <20120718220544.22619.97136.stgit@i40e.jf1>
-	<CAJZOPZJBhDdQp2-8WG-UsToPHwyawYYVctqjZMT8JN85DK3XYQ@mail.gmail.com>
-	<503A7462.1030803@intel.com>
-	<CAJZOPZJyXnHymw4D4VWAajc7Q1EeSaTHRYn7p9sKG2hiHGjr_A@mail.gmail.com>
-	<503BAC98.2070508@intel.com>
+From: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
+Subject: [PATCH v2] cs89x0 : packet reception not working
+Date: Mon, 27 Aug 2012 23:53:51 +0200
+Message-ID: <1346104431-3784-1-git-send-email-jaccon.bastiaansen@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Ali Ayoub <ali@mellanox.com>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:47689 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753222Ab2H0Vjr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2012 17:39:47 -0400
-Received: by ialo24 with SMTP id o24so9197420ial.19
-        for <netdev@vger.kernel.org>; Mon, 27 Aug 2012 14:39:47 -0700 (PDT)
-In-Reply-To: <503BAC98.2070508@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de, festevam@gmail.com,
+ Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>,
+ linux-arm-kernel@lists.infradead.org
+To: joe@perches.com,
+	davem@davemloft.net
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-John Fastabend <john.r.fastabend@intel.com> wrote:
-> Or Gerlitz wrote:
->> John Fastabend <john.r.fastabend@intel.com> wrote:
+The RxCFG register of the CS89x0 could be configured incorrectly
+(because of misplaced parentheses), resulting in the disabling
+of packet reception.
 
->>> That seems reasonable to me. Adding a 'sub' argument to the set
->>> routines should do it. Also the 'get' routines would need to be
->>> extended to report back these virtual net devices.
->>>
->>> int (*ndo_set_vf_mac)(struct net_device *dev, int vf, int sub, u8* mac);
->>> int (*ndo_set_vf_vlan)(struct net_device *dev,
->>>                         int vf, int sub, u16 vlan, u8 qos);
->>> int (*ndo_set_vf_tx_rate)(struct net_device *dev,
->>>                            int vf, int sub, int rate);
->>> int (*ndo_set_vf_spoofchk)(struct net_device *dev,
->>>                             int vf, int sub, bool setting);
->>> int (*ndo_get_vf_config)(struct net_device *dev,
->>>                           int vf, int sub,
->>>                           struct fila_vf_info *ivf)
+Signed-off-by: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
+---
+ drivers/net/ethernet/cirrus/cs89x0.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
->>> I would need to check if any of the ixgbe/igb supported hardware can
->>> support virtual device queues on virtual functions like this but I
->>> presume if your looking at this you have some hardware that can.
-
->> Yes, we look on HW that can. Your suggestion makes sense,  I will check here
->> if this well addresses the eswitch use case we envision or/what is missing.
-
-> Sounds good let us know. Ben had some comments I need to address as well.
-
-Thinking on this use case a little further, another concern/challenge
-would actually be
-**creating** these VMDQ interfaces in the guest that has the VF mapped into.
-
-Or.
+diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
+index 845b202..1384469 100644
+--- a/drivers/net/ethernet/cirrus/cs89x0.c
++++ b/drivers/net/ethernet/cirrus/cs89x0.c
+@@ -1243,6 +1243,7 @@ static void set_multicast_list(struct net_device *dev)
+ {
+ 	struct net_local *lp = netdev_priv(dev);
+ 	unsigned long flags;
++	u16 cfg;
+ 
+ 	spin_lock_irqsave(&lp->lock, flags);
+ 	if (dev->flags & IFF_PROMISC)
+@@ -1260,11 +1261,10 @@ static void set_multicast_list(struct net_device *dev)
+ 	/* in promiscuous mode, we accept errored packets,
+ 	 * so we have to enable interrupts on them also
+ 	 */
+-	writereg(dev, PP_RxCFG,
+-		 (lp->curr_rx_cfg |
+-		  (lp->rx_mode == RX_ALL_ACCEPT)
+-		  ? (RX_CRC_ERROR_ENBL | RX_RUNT_ENBL | RX_EXTRA_DATA_ENBL)
+-		  : 0));
++	cfg = lp->curr_rx_cfg;
++	if (lp->rx_mode == RX_ALL_ACCEPT)
++		cfg |= RX_CRC_ERROR_ENBL | RX_RUNT_ENBL | RX_EXTRA_DATA_ENBL;
++	writereg(dev, PP_RxCFG, cfg);
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+ }
+ 
+-- 
+1.7.1
