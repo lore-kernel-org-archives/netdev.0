@@ -1,49 +1,32 @@
-From: igorm@etf.rs
-Subject: [PATCH net-next] net: ipv4: optimize tkey_mismatch
-Date: Tue, 28 Aug 2012 10:52:18 +0200
-Message-ID: <1346143938-17167-2-git-send-email-igorm@etf.rs>
-References: <igorm@etf.rs>
- <1346143938-17167-1-git-send-email-igorm@etf.rs>
-Cc: davem@davemloft.net, Igor Maravic <igorm@etf.rs>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.etf.rs ([147.91.14.170]:60412 "EHLO mx2.etf.bg.ac.rs"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751779Ab2H1IxL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Aug 2012 04:53:11 -0400
-In-Reply-To: <1346143938-17167-1-git-send-email-igorm@etf.rs>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Carsten Wolff <carsten@wolffcarsten.de>
+Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
+Date: Tue, 28 Aug 2012 10:44:35 +0200
+Message-ID: <201208281044.40057.carsten@wolffcarsten.de>
+References: <1345724123.5904.756.camel@edumazet-glaptop> <20120824.134231.41073001349178209.davem@davemloft.net> <20120825084819.GD430@linlab.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	hkjerry.chu@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexander Bergmann <alex@linlab.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120825084819.GD430@linlab.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Igor Maravic <igorm@etf.rs>
+Hi,
 
-Optimize tkey_mismatch function by using __fls function.
+On Saturday 25 August 2012, Alexander Bergmann wrote:
+> This patch increases the value of TCP_SYN_RETRIES to the value of 6,
+> providing a retransmission window of 63secs.
+> 
+> The comments for SYN and SYNACK retries have also been updated to
+> describe the current settings.
 
-Signed-off-by: Igor Maravic <igorm@etf.rs>
----
- net/ipv4/fib_trie.c |   10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
+wouldn't it be nice, if the description of the corresponding sysctls in 
+Documentation/networking/ip-sysctl.txt could be updated too?
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index ec45621..b4b126c 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -265,14 +265,8 @@ static inline int tkey_sub_equals(t_key a, int offset, int bits, t_key b)
- 
- static inline int tkey_mismatch(t_key a, int offset, t_key b)
- {
--	t_key diff = a ^ b;
--	int i = offset;
--
--	if (!diff)
--		return 0;
--	while ((diff << i) >> (KEYLENGTH-1) == 0)
--		i++;
--	return i;
-+	t_key diff = (a ^ b) & (~((t_key)0) << offset >> offset);
-+	return diff ? (KEYLENGTH - __fls(diff) - 1) : 0;
- }
- 
- /*
--- 
-1.7.9.5
+Cheers
+Carsten
