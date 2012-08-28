@@ -1,48 +1,41 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: IPv4 header extension for IPv6 translation support
-Date: Tue, 28 Aug 2012 12:32:30 -0700
-Message-ID: <87bohu6cdt.fsf@xmission.com>
-References: <CAK617oRJypmo3025f8PZSv=Rehb3NjqyNp=bQjnRFWwaGjGXzw@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH V2 1/2] ipvs: IPv6 MTU checking cleanup and bugfix
+Date: Tue, 28 Aug 2012 22:08:57 +0200 (MEST)
+Message-ID: <Pine.GSO.4.63.1208282206530.28772@stinky-local.trash.net>
+References: <20120828142051.11475.63775.stgit@dragon> <20120828142122.11475.71918.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: Vlad Maraev <maraevvb@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:39334 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752225Ab2H1Tch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 15:32:37 -0400
-In-Reply-To: <CAK617oRJypmo3025f8PZSv=Rehb3NjqyNp=bQjnRFWwaGjGXzw@mail.gmail.com>
-	(Vlad Maraev's message of "Tue, 28 Aug 2012 11:59:12 +0400")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	Julian Anastasov <ja@ssi.bg>,
+	Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	netfilter-devel@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20120828142122.11475.71918.stgit@dragon>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Vlad Maraev <maraevvb@gmail.com> writes:
+On Tue, 28 Aug 2012, Jesper Dangaard Brouer wrote:
 
-> Hi,
-> I would be happy to get some feedback on my idea that is described below.
-> I need to tell that I'm a newbie in Linux kernel development but it
-> would be interesting for me to estimate complexity and to implement
-> this in practice.
+> Cleaning up the IPv6 MTU checking in the IPVS xmit code, by using
+> a common helper function __mtu_check_toobig_v6().
+>
+> The MTU check for tunnel mode can also use this helper as
+> ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) is qual to
+> skb->len.  And the 'mtu' variable have been adjusted before
+> calling helper.
+>
+> Notice, this also fixes a bug, as the the MTU check in ip_vs_dr_xmit_v6()
+> were missing a check for skb_is_gso().
+>
+> This bug e.g. caused issues for KVM IPVS setups, where different
+> Segmentation Offloading techniques are utilized, between guests,
+> via the virtio driver.  This resulted in very bad performance,
+> due to the ICMPv6 "too big" messages didn't affect the sender.
+>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-You are going over territory that has been rather thoroughly explored
-already.
-
-You might want to make a study of the rfcs from the ietf that document
-why the existing solutions were chosen.
-
-But for a few hints.
-- It is possible to implement prefix translation and avoid the need for
-  huge NAT state tables.  State tables are only needed when you don't
-  have enough addresses or want the benefits of connection tracking.
-
-- Any extention to ipv4 to give it larger addresses is roughly of the
-  same difficulty as implementing ipv6.  In fact it is more difficult
-  because ipv6 is present in most end devices today, it is the network
-  links that are the bottle-neck in rolling out ipv6.
-
-For the best interoperatiblity the best transition strategy remains
-dual-stack.  With native ipv6 connectivity and some flavor of ipv4
-connectivity (native, dual-stack-lite, or 646xlate).
-
-Eric
+Applied to my nf-nat-ipv6 tree.
