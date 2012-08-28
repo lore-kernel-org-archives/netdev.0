@@ -1,57 +1,65 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH] rtlwifi: rtl8192de: remove pointless conditional before
- kfree_skb()
-Date: Tue, 28 Aug 2012 09:44:33 -0500
-Message-ID: <503CD951.2090602@lwfinger.net>
-References: <CAPgLHd86W5X=Tb_fXoz_Ood-w_s282QNePTXG9m_6ESdG-rG2A@mail.gmail.com>
+From: "Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v2 03/10] cgroup: net_cls: Protect access to
+ task_cls_classid() when built as module
+Date: Tue, 28 Aug 2012 07:47:25 -0700
+Message-ID: <20120828144725.GR2961@linux.vnet.ibm.com>
+References: <1345816904-21745-1-git-send-email-wagi@monom.org>
+ <1345816904-21745-4-git-send-email-wagi@monom.org>
+ <20120824232621.GQ21325@google.com>
+ <503903BD.6020208@monom.org>
+Reply-To: paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAPgLHd86W5X=Tb_fXoz_Ood-w_s282QNePTXG9m_6ESdG-rG2A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <503903BD.6020208-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 08/28/2012 08:11 AM, Wei Yongjun wrote:
-> From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
->
-> Remove pointless conditional before kfree_skb().
->
-> Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
-> ---
->   drivers/net/wireless/rtlwifi/rtl8192de/fw.c | 3 +--
->   1 file changed, 1 insertion(+), 2 deletions(-)
+On Sat, Aug 25, 2012 at 06:56:29PM +0200, Daniel Wagner wrote:
+> On 25.08.2012 01:26, Tejun Heo wrote:
+> >On Fri, Aug 24, 2012 at 04:01:37PM +0200, Daniel Wagner wrote:
+> >>@@ -306,6 +312,11 @@ static void __exit exit_cgroup_cls(void)
+> >>  	synchronize_rcu();
+> >>  #endif
+> >>
+> >>+#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
+> >>+	static_key_slow_dec(&cgroup_cls_enabled);
+> >>+	rcu_barrier();
+> >
+> >Why is this rcu_barrier() necessary?
+> 
+> I have read the rcubarrier.txt document and I got from that that an
+> rcu_barrier() is needed when unloading a module. But maybe I got it
+> wrong.
+> 
+> So the idea after disabling the jump lables all pending readers in
+> task_cls_classid() have left. THe same thing is done in the old code
+> with the dynamic id part. With the difference that synchronize_rcu()
+> is used.
 
-Acked-by: Larry Finger <Larry.Finger.net>
+FWIW, the rcu_barrier() is needed only if the module uses call_rcu().
+In that case it is required to ensure that all the resulting callbacks
+execute before the module's .text is freed up.
 
-Thanks,
+							Thanx, Paul
 
-Larry
-
->
-> diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/fw.c b/drivers/net/wireless/rtlwifi/rtl8192de/fw.c
-> index 895ae6c..a3aede0 100644
-> --- a/drivers/net/wireless/rtlwifi/rtl8192de/fw.c
-> +++ b/drivers/net/wireless/rtlwifi/rtl8192de/fw.c
-> @@ -570,8 +570,7 @@ static bool _rtl92d_cmd_send_packet(struct ieee80211_hw *hw,
->
->   	ring = &rtlpci->tx_ring[BEACON_QUEUE];
->   	pskb = __skb_dequeue(&ring->queue);
-> -	if (pskb)
-> -		kfree_skb(pskb);
-> +	kfree_skb(pskb);
->   	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
->   	pdesc = &ring->desc[idx];
->   	/* discard output from call below */
->
->
->
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >In general, please explain what
+> >synchronization is going on when using sync constructs which aren't
+> >obvious - e.g. memory barriers, rcu barriers.
+> 
+> Sure, I will keep this in mind.
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
