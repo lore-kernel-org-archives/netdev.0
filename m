@@ -1,81 +1,48 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH] skbuff: remove pointless conditional before kfree_skb()
-Date: Tue, 28 Aug 2012 16:17:19 -0300
-Message-ID: <20120828161719.6faca38c@obelix.rh>
-References: <CAPgLHd9m2VbFFXt5Q3MMrK6BPXvMrT-ptq+RfgBToXOpxAKOOw@mail.gmail.com>
-	<1346163154.3571.6.camel@edumazet-glaptop>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: IPv4 header extension for IPv6 translation support
+Date: Tue, 28 Aug 2012 12:32:30 -0700
+Message-ID: <87bohu6cdt.fsf@xmission.com>
+References: <CAK617oRJypmo3025f8PZSv=Rehb3NjqyNp=bQjnRFWwaGjGXzw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyj.lk@gmail.com>, davem@davemloft.net,
-	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org
+To: Vlad Maraev <maraevvb@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:64069 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752160Ab2H1TR3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Aug 2012 15:17:29 -0400
-In-Reply-To: <1346163154.3571.6.camel@edumazet-glaptop>
+Received: from out03.mta.xmission.com ([166.70.13.233]:39334 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752225Ab2H1Tch (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 15:32:37 -0400
+In-Reply-To: <CAK617oRJypmo3025f8PZSv=Rehb3NjqyNp=bQjnRFWwaGjGXzw@mail.gmail.com>
+	(Vlad Maraev's message of "Tue, 28 Aug 2012 11:59:12 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 28 Aug 2012 07:12:34 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Vlad Maraev <maraevvb@gmail.com> writes:
 
-> On Tue, 2012-08-28 at 21:10 +0800, Wei Yongjun wrote:
-> > From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> > 
-> > Remove pointless conditional before kfree_skb().
-> > 
-> > Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> > ---
-> >  include/linux/skbuff.h | 3 +--
-> >  1 file changed, 1 insertion(+), 2 deletions(-)
-> > 
-> > diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> > index 7632c87..0b846d9 100644
-> > --- a/include/linux/skbuff.h
-> > +++ b/include/linux/skbuff.h
-> > @@ -2464,8 +2464,7 @@ static inline void nf_conntrack_get_reasm(struct sk_buff *skb)
-> >  }
-> >  static inline void nf_conntrack_put_reasm(struct sk_buff *skb)
-> >  {
-> > -	if (skb)
-> > -		kfree_skb(skb);
-> > +	kfree_skb(skb);
-> >  }
-> >  #endif
-> >  #ifdef CONFIG_BRIDGE_NETFILTER
-> > 
-> 
-> 
-> Its not exactly pointless.
-> 
-> Its a tradeoff between kernel code size, and ability for cpu to predict
-> a branch in kfree_skb()
-> 
-> This test is in hot path, and therefore this patch can potentially have
-> a performance impact.
-> 
-> I really think most kfree_skb() calls are done with a non NULL param,
-> so the branch prediction is good.
-> 
-> But after this patch, things are totally different.
->
+> Hi,
+> I would be happy to get some feedback on my idea that is described below.
+> I need to tell that I'm a newbie in Linux kernel development but it
+> would be interesting for me to estimate complexity and to implement
+> this in practice.
 
-But then the kfree_skb() is somewhat misleading because it does
-check for NULL argument. One would have to remember if it's in
-hot path or not. So, what about a new macro to pair with
-kfree_skb()? That would document the code and would also
-make easier to remember about the performance issue.
+You are going over territory that has been rather thoroughly explored
+already.
 
-For instance:
-/* kfree_skb() version to be used in hot code path
- * as the branch prediction can improve performance
- */
-#define kfree_skb_hot(skb)	\
-	if (skb)		\
-		kfree_skb(skb)	\
+You might want to make a study of the rfcs from the ietf that document
+why the existing solutions were chosen.
 
+But for a few hints.
+- It is possible to implement prefix translation and avoid the need for
+  huge NAT state tables.  State tables are only needed when you don't
+  have enough addresses or want the benefits of connection tracking.
 
-fbl
+- Any extention to ipv4 to give it larger addresses is roughly of the
+  same difficulty as implementing ipv6.  In fact it is more difficult
+  because ipv6 is present in most end devices today, it is the network
+  links that are the bottle-neck in rolling out ipv6.
+
+For the best interoperatiblity the best transition strategy remains
+dual-stack.  With native ipv6 connectivity and some flavor of ipv4
+connectivity (native, dual-stack-lite, or 646xlate).
+
+Eric
