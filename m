@@ -1,57 +1,29 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [PATCH V2 0/2] net: ipvs and netfilter IPv6 defrag MTU handling
-Date: Tue, 28 Aug 2012 16:21:17 +0200
-Message-ID: <20120828142051.11475.63775.stgit@dragon>
-References: <Pine.GSO.4.63.1208281020530.18770@stinky-local.trash.net>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: Re: [PATCH] cxgb3: remove pointless conditional before kfree_skb()
+Date: Tue, 28 Aug 2012 22:19:57 +0800
+Message-ID: <CAPgLHd8RKXR-TSnbJLQ2GR28ORB7HTe4kDk8wkwo_e-r+0ue4w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	netfilter-devel@vger.kernel.org
-To: netdev@vger.kernel.org, "Patrick McHardy" <kaber@trash.net>,
-	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
-	Simon Horman <horms@verge.net.au>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.GSO.4.63.1208281020530.18770@stinky-local.trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: divy@chelsio.com, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org
+To: David.Laight@ACULAB.COM
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:43344 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751759Ab2H1OT6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 10:19:58 -0400
+Received: by qaas11 with SMTP id s11so2685729qaa.19
+        for <netdev@vger.kernel.org>; Tue, 28 Aug 2012 07:19:57 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The following patchset V2 makes IPVS compatible with Patrick McHardys
-IPv6 NAT patchset: http://thread.gmane.org/gmane.linux.network/239615
+On 08/28/2012 09:24 PM, David Laight wrote:
+>> -	if (t->nofail_skb)
+>> -		kfree_skb(t->nofail_skb);
+>> +	kfree_skb(t->nofail_skb);
+> Some of these conditionals might be there for performance
+> reasons - eg if common path and normally NULL.
 
-Specifically the part that improves defragmentation.
-
- Patch01: Cleanup (and fixes a bug) in IPVS MTU IPv6 handling
-  In V2: we also handle tunnel mode, to use the common helper
-
- Patch02: Extend MTU check to account for IPv6 NAT defrag changes
-  In V2: the tunnel mode is no longer a special case.
-
-This patchset is based upon:
- Homes ipvs-next tree:
-  git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git
-
-BUT with Patrick McHardy's IPv6 NAT patchset applied first, on top of
-commit: 3654e61137db891f5312e6dd813b961484b5fdf3
-title: "ipvs: add pmtu_disc option to disable IP DF for TUN packets"
-
----
-
-Jesper Dangaard Brouer (2):
-      ipvs: Extend MTU check to account for IPv6 NAT defrag changes
-      ipvs: IPv6 MTU checking cleanup and bugfix
-
-
- net/netfilter/ipvs/ip_vs_xmit.c |   28 ++++++++++++++++++++++------
- 1 files changed, 22 insertions(+), 6 deletions(-)
-
-
---
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+I have a quick look at those code, cxgb3_offload_deactivate()
+is only used when remove device or device error and then disable
+the device, so maybe it is not a common path.
