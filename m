@@ -1,131 +1,103 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH] skbuff: remove pointless conditional before kfree_skb()
-Date: Tue, 28 Aug 2012 17:39:29 -0300
-Message-ID: <20120828173929.7b371079@obelix.rh>
-References: <CAPgLHd9m2VbFFXt5Q3MMrK6BPXvMrT-ptq+RfgBToXOpxAKOOw@mail.gmail.com>
-	<1346163154.3571.6.camel@edumazet-glaptop>
-	<20120828161719.6faca38c@obelix.rh>
-	<1346184598.3571.16.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyj.lk@gmail.com>, davem@davemloft.net,
-	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53031 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753052Ab2H1Ujf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Aug 2012 16:39:35 -0400
-In-Reply-To: <1346184598.3571.16.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH 02/19] Cleaning up the IPv6 MTU checking in the IPVS xmit code, by using a common helper function __mtu_check_toobig_v6().
+Date: Tue, 28 Aug 2012 23:48:42 +0200
+Message-ID: <1346190539-9963-3-git-send-email-kaber@trash.net>
+References: <1346190539-9963-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1346190539-9963-1-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 28 Aug 2012 13:09:58 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+From: Jesper Dangaard Brouer <brouer@redhat.com>
 
-> On Tue, 2012-08-28 at 16:17 -0300, Flavio Leitner wrote:
-> > On Tue, 28 Aug 2012 07:12:34 -0700
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > 
-> > > On Tue, 2012-08-28 at 21:10 +0800, Wei Yongjun wrote:
-> > > > From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> > > > 
-> > > > Remove pointless conditional before kfree_skb().
-> > > > 
-> > > > Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> > > > ---
-> > > >  include/linux/skbuff.h | 3 +--
-> > > >  1 file changed, 1 insertion(+), 2 deletions(-)
-> > > > 
-> > > > diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> > > > index 7632c87..0b846d9 100644
-> > > > --- a/include/linux/skbuff.h
-> > > > +++ b/include/linux/skbuff.h
-> > > > @@ -2464,8 +2464,7 @@ static inline void nf_conntrack_get_reasm(struct sk_buff *skb)
-> > > >  }
-> > > >  static inline void nf_conntrack_put_reasm(struct sk_buff *skb)
-> > > >  {
-> > > > -	if (skb)
-> > > > -		kfree_skb(skb);
-> > > > +	kfree_skb(skb);
-> > > >  }
-> > > >  #endif
-> > > >  #ifdef CONFIG_BRIDGE_NETFILTER
-> > > > 
-> > > 
-> > > 
-> > > Its not exactly pointless.
-> > > 
-> > > Its a tradeoff between kernel code size, and ability for cpu to predict
-> > > a branch in kfree_skb()
-> > > 
-> > > This test is in hot path, and therefore this patch can potentially have
-> > > a performance impact.
-> > > 
-> > > I really think most kfree_skb() calls are done with a non NULL param,
-> > > so the branch prediction is good.
-> > > 
-> > > But after this patch, things are totally different.
-> > >
-> > 
-> > But then the kfree_skb() is somewhat misleading because it does
-> > check for NULL argument. One would have to remember if it's in
-> > hot path or not. So, what about a new macro to pair with
-> > kfree_skb()? That would document the code and would also
-> > make easier to remember about the performance issue.
-> > 
-> > For instance:
-> > /* kfree_skb() version to be used in hot code path
-> >  * as the branch prediction can improve performance
-> >  */
-> > #define kfree_skb_hot(skb)	\
-> > 	if (skb)		\
-> > 		kfree_skb(skb)	\
-> 
-> Really kfree_skb() is not misleading at all :
-> 
-> if (unlikely(!skb))
-> 	return;
-> 
-> So while its _perfectly_ valid to call kfree_skb(NULL), this code
-> expect callers to not abuse this facility.
+The MTU check for tunnel mode can also use this helper as
+ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) is qual to
+skb->len.  And the 'mtu' variable have been adjusted before
+calling helper.
 
-Well, I don't think that is obvious. Neither the patch's author.
+Notice, this also fixes a bug, as the the MTU check in ip_vs_dr_xmit_v6()
+were missing a check for skb_is_gso().
 
-> And nf_conntrack_put_reasm() is called from skb_release_head_state()
-> 
-> We know in this code that most of the time, skb will be NULL.
+This bug e.g. caused issues for KVM IPVS setups, where different
+Segmentation Offloading techniques are utilized, between guests,
+via the virtio driver.  This resulted in very bad performance,
+due to the ICMPv6 "too big" messages didn't affect the sender.
 
-yeah, but it looks pointless to check the same thing twice.
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ net/netfilter/ipvs/ip_vs_xmit.c |   21 +++++++++++++++------
+ 1 files changed, 15 insertions(+), 6 deletions(-)
 
-> I dont think we need to add another API for this case and see one
-> hundred patches coming _trying_ to use this new API.
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 543a554..67a3978 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -85,6 +85,15 @@ __ip_vs_dst_check(struct ip_vs_dest *dest, u32 rtos)
+ 	return dst;
+ }
+ 
++static inline bool
++__mtu_check_toobig_v6(const struct sk_buff *skb, u32 mtu)
++{
++	if (skb->len > mtu && !skb_is_gso(skb)) {
++		return true; /* Packet size violate MTU size */
++	}
++	return false;
++}
++
+ /* Get route to daddr, update *saddr, optionally bind route to saddr */
+ static struct rtable *do_output_route4(struct net *net, __be32 daddr,
+ 				       u32 rtos, int rt_mode, __be32 *saddr)
+@@ -491,7 +500,7 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu && !skb_is_gso(skb)) {
++	if (__mtu_check_toobig_v6(skb, mtu)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -712,7 +721,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu && !skb_is_gso(skb)) {
++	if (__mtu_check_toobig_v6(skb, mtu)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -946,8 +955,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	if (skb_dst(skb))
+ 		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
+ 
+-	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) &&
+-	    !skb_is_gso(skb)) {
++	/* MTU checking: Notice that 'mtu' have been adjusted before hand */
++	if (__mtu_check_toobig_v6(skb, mtu)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -1113,7 +1122,7 @@ ip_vs_dr_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu) {
++	if (__mtu_check_toobig_v6(skb, mtu)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -1349,7 +1358,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu && !skb_is_gso(skb)) {
++	if (__mtu_check_toobig_v6(skb, mtu)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+-- 
+1.7.1
 
-Ok, and what if kfree_skb() becomes a macro that first checks
-if the skb is NULL and if not, call the _kfree_skb() to
-continue as before?
-
-#define kfree_skb(skb)		\
-        if (skb)		\
-		_kfree_skb(skb)	\
-
-
-void _kfree_skb(struct sk_buff *skb)
-{                       
-        if (likely(atomic_read(&skb->users) == 1))
-                smp_rmb();      
-        else if (likely(!atomic_dec_and_test(&skb->users)))
-                return;
-        trace_kfree_skb(skb, __builtin_return_address(0));
-        __kfree_skb(skb);
-}
-
-Same API which would work for either use-cases. At the cost of
-additional size in the binary.
-
-> Just review patches and shout if something bad happens.
-
-I hope we always have you around to catch these cases :)
-
-fbl
