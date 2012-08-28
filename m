@@ -1,33 +1,63 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] cxgb3: remove pointless conditional before kfree_skb()
-Date: Tue, 28 Aug 2012 14:24:37 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6FC6@saturn3.aculab.com>
-References: <CAPgLHd9b+0DDZ9iYFzNS4NP1w_3GmWaMD+ihqeVeEGXei9cfUg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] skbuff: remove pointless conditional before kfree_skb()
+Date: Tue, 28 Aug 2012 07:12:34 -0700
+Message-ID: <1346163154.3571.6.camel@edumazet-glaptop>
+References: <CAPgLHd9m2VbFFXt5Q3MMrK6BPXvMrT-ptq+RfgBToXOpxAKOOw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <yongjun_wei@trendmicro.com.cn>, <netdev@vger.kernel.org>
-To: "Wei Yongjun" <weiyj.lk@gmail.com>, <divy@chelsio.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33723 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751781Ab2H1NgA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 09:36:00 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 21274-05 for <netdev@vger.kernel.org>;
- Tue, 28 Aug 2012 14:35:57 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <CAPgLHd9b+0DDZ9iYFzNS4NP1w_3GmWaMD+ihqeVeEGXei9cfUg@mail.gmail.com>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:63069 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751637Ab2H1OMh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 10:12:37 -0400
+Received: by dady13 with SMTP id y13so3339107dad.19
+        for <netdev@vger.kernel.org>; Tue, 28 Aug 2012 07:12:37 -0700 (PDT)
+In-Reply-To: <CAPgLHd9m2VbFFXt5Q3MMrK6BPXvMrT-ptq+RfgBToXOpxAKOOw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -	if (t->nofail_skb)
-> -		kfree_skb(t->nofail_skb);
-> +	kfree_skb(t->nofail_skb);
+On Tue, 2012-08-28 at 21:10 +0800, Wei Yongjun wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> Remove pointless conditional before kfree_skb().
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> ---
+>  include/linux/skbuff.h | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 7632c87..0b846d9 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -2464,8 +2464,7 @@ static inline void nf_conntrack_get_reasm(struct sk_buff *skb)
+>  }
+>  static inline void nf_conntrack_put_reasm(struct sk_buff *skb)
+>  {
+> -	if (skb)
+> -		kfree_skb(skb);
+> +	kfree_skb(skb);
+>  }
+>  #endif
+>  #ifdef CONFIG_BRIDGE_NETFILTER
+> 
 
-Some of these conditionals might be there for performance
-reasons - eg if common path and normally NULL.
 
-	David
+Its not exactly pointless.
+
+Its a tradeoff between kernel code size, and ability for cpu to predict
+a branch in kfree_skb()
+
+This test is in hot path, and therefore this patch can potentially have
+a performance impact.
+
+I really think most kfree_skb() calls are done with a non NULL param,
+so the branch prediction is good.
+
+But after this patch, things are totally different.
+
+Therefore, I am against it.
