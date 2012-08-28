@@ -1,75 +1,52 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 2/2] ipvs: Extend MTU check to account for IPv6 NAT
- defrag changes
-Date: Tue, 28 Aug 2012 17:28:54 +0900
-Message-ID: <20120828082854.GA10687@verge.net.au>
-References: <20120827144024.5754.23872.stgit@dragon>
- <20120827144059.5754.55303.stgit@dragon>
- <alpine.LFD.2.00.1208271810070.24809@ja.ssi.bg>
- <Pine.GSO.4.63.1208281020530.18770@stinky-local.trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Anastasov <ja@ssi.bg>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.GSO.4.63.1208281020530.18770@stinky-local.trash.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: igorm@etf.rs
+Subject: [PATCH net-next] net: ipv4: Optimize check_leaf function
+Date: Tue, 28 Aug 2012 10:52:17 +0200
+Message-ID: <1346143938-17167-1-git-send-email-igorm@etf.rs>
+References: <igorm@etf.rs>
+Cc: davem@davemloft.net, Igor Maravic <igorm@etf.rs>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.etf.rs ([147.91.14.170]:60391 "EHLO mx2.etf.bg.ac.rs"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751203Ab2H1IxH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Aug 2012 04:53:07 -0400
+In-Reply-To: <igorm@etf.rs>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 28, 2012 at 10:22:05AM +0200, Patrick McHardy wrote:
-> On Mon, 27 Aug 2012, Julian Anastasov wrote:
-> 
-> >
-> >	Hello,
-> >
-> >On Mon, 27 Aug 2012, Jesper Dangaard Brouer wrote:
-> >
-> >>This patch is necessary, to make IPVS work, after Patrick McHardys
-> >>IPv6 NAT defragmentation changes.
-> >>
-> >>Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> >>---
-> >>
-> >>I would appriciate, if someone (e.g. Julian) double check the tunnel mode code.
-> >
-> >	Sure
-> >
-> >>--Jesper
-> >>
-> >> net/netfilter/ipvs/ip_vs_xmit.c |   16 +++++++++++++---
-> >> 1 files changed, 13 insertions(+), 3 deletions(-)
-> >>
-> >>@@ -956,8 +963,11 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
-> >> 		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
-> >>
-> >> 	/* MTU checking: Special for tunnel mode */
-> >>-	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) &&
-> >>-	    !skb_is_gso(skb)) {
-> >>+	if ((!IP6CB(skb)->frag_max_size &&
-> >>+	     (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) &&
-> >>+	      !skb_is_gso(skb)))
-> >>+	    || IP6CB(skb)->frag_max_size + sizeof(struct ipv6hdr) > mtu) {
-> >>+
-> >
-> >	mtu is already reduced with the new outer header size,
-> >may be we can just call __mtu_check_toobig_v6 with mtu?
-> >
-> >> 		if (!skb->dev) {
-> >> 			struct net *net = dev_net(skb_dst(skb)->dev);
-> >
-> >	All other changes in patch 1 and 2 look ok and
-> >I'll ack them next time.
-> 
-> I'd like to take the final patches through my nat-ipv6 tree in order
-> to avoid temporary regressions. Please let me know when they're ready
-> for applying.
+From: Igor Maravic <igorm@etf.rs>
 
-I'm fine with these changes going through your tree (rather than my IPVS tree)
-once they are ready.
+If the found tos is smaller then our tos,
+don't pass through all the entries in fib_alias
+list to find the match.
+Directly jump to the last entry in the list, and check if the
+tos value is 0.
+
+Signed-off-by: Igor Maravic <igorm@etf.rs>
+---
+ net/ipv4/fib_trie.c |   10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 3c820da..ec45621 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1366,8 +1366,14 @@ static int check_leaf(struct fib_table *tb, struct trie *t, struct leaf *l,
+ 			struct fib_info *fi = fa->fa_info;
+ 			int nhsel, err;
+ 
+-			if (fa->fa_tos && fa->fa_tos != flp->flowi4_tos)
+-				continue;
++			if (fa->fa_tos && fa->fa_tos != flp->flowi4_tos) {
++				if (fa->fa_tos < flp->flowi4_tos) {
++					fa = list_entry_rcu(li->falh.prev, struct fib_alias, fa_list);
++					if (fa->fa_tos)
++						break;
++				} else
++					continue;
++			}
+ 			if (fi->fib_dead)
+ 				continue;
+ 			if (fa->fa_info->fib_scope < flp->flowi4_scope)
+-- 
+1.7.9.5
