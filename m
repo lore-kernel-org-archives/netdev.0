@@ -1,43 +1,41 @@
-From: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] rtlwifi: rtl8192c: remove pointless conditional before kfree_skb()
-Date: Tue, 28 Aug 2012 21:12:00 +0800
-Message-ID: <CAPgLHd_q0T=RD+qgEzFpnhez4Hdu-jDuFf0E+MgwiWLSeaMYaQ@mail.gmail.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] mISDN: remove pointless conditional before kfree_skb()
+Date: Tue, 28 Aug 2012 21:12:27 +0800
+Message-ID: <CAPgLHd8TSXfQtVc3JSBKuXQTOFvyLoUgzsXw=wLkt2rHM9aALg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: isdn@linux-pingi.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:36079 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752137Ab2H1NM2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 09:12:28 -0400
+Received: by mail-qc0-f174.google.com with SMTP id o28so3331648qcr.19
+        for <netdev@vger.kernel.org>; Tue, 28 Aug 2012 06:12:27 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
 Remove pointless conditional before kfree_skb().
 
-Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 ---
- drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c | 3 +--
+ drivers/isdn/mISDN/socket.c | 3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c b/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c
-index 44febfd..b627151 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c
-@@ -577,8 +577,7 @@ static bool _rtl92c_cmd_send_packet(struct ieee80211_hw *hw,
- 	ring = &rtlpci->tx_ring[BEACON_QUEUE];
+diff --git a/drivers/isdn/mISDN/socket.c b/drivers/isdn/mISDN/socket.c
+index abe2d69..f677724 100644
+--- a/drivers/isdn/mISDN/socket.c
++++ b/drivers/isdn/mISDN/socket.c
+@@ -243,8 +243,7 @@ mISDN_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	}
  
- 	pskb = __skb_dequeue(&ring->queue);
--	if (pskb)
--		kfree_skb(pskb);
-+	kfree_skb(pskb);
- 
- 	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
- 
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ done:
+-	if (skb)
+-		kfree_skb(skb);
++	kfree_skb(skb);
+ 	release_sock(sk);
+ 	return err;
+ }
