@@ -1,93 +1,232 @@
-From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Subject: Re: [PATCH v2 03/10] cgroup: net_cls: Protect access to
- task_cls_classid() when built as module
-Date: Tue, 28 Aug 2012 09:41:38 -0700
-Message-ID: <20120828164138.GA28479@helium>
-References: <1345816904-21745-1-git-send-email-wagi@monom.org>
- <1345816904-21745-4-git-send-email-wagi@monom.org>
- <20120824232621.GQ21325@google.com>
- <503903BD.6020208@monom.org>
- <20120828144725.GR2961@linux.vnet.ibm.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] iproute2: tc.8: update UNITS section.
+Date: Tue, 28 Aug 2012 09:54:18 -0700
+Message-ID: <1346172858.15747.25.camel@deadeye.wl.decadent.org.uk>
+References: <1346132337-21325-1-git-send-email-lw@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: "Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20120828144725.GR2961-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <shemminger@vyatta.com>, <netdev@vger.kernel.org>
+To: Li Wei <lw@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:19919 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752219Ab2H1QyU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 12:54:20 -0400
+In-Reply-To: <1346132337-21325-1-git-send-email-lw@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 28, 2012 at 07:47:25AM -0700, Paul E. McKenney wrote:
-> On Sat, Aug 25, 2012 at 06:56:29PM +0200, Daniel Wagner wrote:
-> > On 25.08.2012 01:26, Tejun Heo wrote:
-> > >On Fri, Aug 24, 2012 at 04:01:37PM +0200, Daniel Wagner wrote:
-> > >>@@ -306,6 +312,11 @@ static void __exit exit_cgroup_cls(void)
-> > >>  	synchronize_rcu();
-> > >>  #endif
-> > >>
-> > >>+#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
-> > >>+	static_key_slow_dec(&cgroup_cls_enabled);
-> > >>+	rcu_barrier();
-> > >
-> > >Why is this rcu_barrier() necessary?
-> > 
-> > I have read the rcubarrier.txt document and I got from that that an
-> > rcu_barrier() is needed when unloading a module. But maybe I got it
-> > wrong.
-> > 
-> > So the idea after disabling the jump lables all pending readers in
-> > task_cls_classid() have left. THe same thing is done in the old code
-> > with the dynamic id part. With the difference that synchronize_rcu()
-> > is used.
+On Tue, 2012-08-28 at 13:38 +0800, Li Wei wrote:
+> - rename section UNITS to PARAMETERS.
+> - break section PARAMETERS down to four subsections to cover the
+>   common used parameter types(RATES, TIMES, SIZES, VALUES).
+> - add some explaination for IEC units in RATES.
+> - point out the max value we can set for RATES, TIMES and SIZES.
 > 
-> FWIW, the rcu_barrier() is needed only if the module uses call_rcu().
-> In that case it is required to ensure that all the resulting callbacks
-> execute before the module's .text is freed up.
+> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
+> ---
+>  man/man8/tc.8 |  111 +++++++++++++++++++++++++++++++++++++++++++--------------
+>  1 file changed, 85 insertions(+), 26 deletions(-)
+> 
+> diff --git a/man/man8/tc.8 b/man/man8/tc.8
+> index 98fbfcd..44d644a 100644
+> --- a/man/man8/tc.8
+> +++ b/man/man8/tc.8
+> @@ -257,19 +257,20 @@ qdiscs applies.
+>  FILTERS
+>  Filters have a three part ID, which is only needed when using a hashed
+>  filter hierarchy.
+> -.SH UNITS
+> -All parameters accept a floating point number, possibly followed by a unit.
+> -.P
+> -Bandwidths or rates can be specified in:
+> -.TP
+> -bps
+> -Bytes per second
+> +
+> +.SH PARAMETERS
+> +These following parameters are widely used in TC, for other parameters,
 
-Thanks for the clarification. After reading the documentations again
-and I think this here should do the trick:
+'These' should be 'The'.
+'for other parameters' should begin a new sentence.
 
-static inline u32 task_cls_classid(struct task_struct *p)
-{
-	struct cgroup_cls_state *cs;
-	u32 classid = 0;
+> +see the man page for individual qdiscs.
 
-	if (!clscg_enabled || in_interrupt())
-		return 0;
+'page' should be 'pages'.
 
-	rcu_read_lock();
-	cs = container_of(task_subsys_state(p, net_cls_subsys_id),
-			struct cgroup_cls_state, css);
-	if (cs)
-		classid = cs->classid;
-	rcu_read_unlock();
+> +
+>  .TP
+> -kbps
+> -Kilobytes per second
+> +RATES
+> +Bandwidths or rates.
+> +These parameters accept a floating point number, possibly followed by
+> +a unit(both SI and IEC units supported).
 
-	return classid;
-}
+Missing space before the open-parenthesis.
 
-static void __exit exit_cgroup_cls(void)
-{
-	unregister_tcf_proto_ops(&cls_cgroup_ops);
+> +.RS
+>  .TP
+> -mbps
+> -Megabytes per second
+> +bit or a bare number
+> +Bits per second
+>  .TP
+>  kbit
+>  Kilobits per second
+> @@ -277,27 +278,41 @@ Kilobits per second
+>  mbit
+>  Megabits per second
+>  .TP
+> -bit or a bare number
+> -Bits per second
+> -.P
+> -Amounts of data can be specified in:
+> +gbit
+> +Gegabits per second
 
-#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
-	static_key_slow_dec(&cgroup_cls_enabled);
-	synchronize_rcu();
-#endif
+'Gigabits'
 
-	cgroup_unload_subsys(&net_cls_subsys);
-}
+>  .TP
+> -kb or k
+> -Kilobytes
+> +tbit
+> +Terabits per second
+>  .TP
+> -mb or m
+> -Megabytes
+> +bps
+> +Bytes per second
+>  .TP
+> -mbit
+> -Megabits
+> +kbps
+> +Kilobytes per second
+>  .TP
+> -kbit
+> -Kilobits
+> +mbps
+> +Megabytes per second
+>  .TP
+> -b or a bare number
+> -Bytes.
+> +gbps
+> +Gigabytes per second
+> +.TP
+> +tbps
+> +Terabytes per second
+> +
+> +.P
+> +To specified in IEC units, just replace the SI prefix(k-, m-, g-, t-) with
+> +IEC prefix(ki-, mi-, gi- and ti-) respectively.
 
-So when unloading the module, we first disable the static branch, then
-we wait for all old readers leaving the reader side issuing a
-synchronize_rcu(). New readers might already have passed the static
-branch and now entering the reader side. So we need to test if the
-pointer we retrieve is valid. Basically, this change is using the same
-approach we had before. Instead looking at the id is valid we look at
-the pointer if it is valid.
+'specified' should be 'specify'.
+The word 'just' is not needed.
+
+Missing spaces before the open-parentheses.
+
+> +
+>  .P
+> -Lengths of time can be specified in:
+> +TC store rates as a __u32 integer in bps internally,
+> +so we can specify a max rate of UINT32_MAX bps.
+> +.RE
+> +
+> +.TP
+> +TIMES
+> +Length of time. Can be specified as a float pointing number 
+
+'float pointing' should be 'floating point' :-)
+
+> +followed by an optional unit:
+> +.RS
+>  .TP
+>  s, sec or secs
+>  Whole seconds
+> @@ -308,6 +323,50 @@ Milliseconds
+>  us, usec, usecs or a bare number
+>  Microseconds.
+>  
+> +.P
+> +TC defined it's own time unit(equals to microsecond) and store time values
+
+'it's' means 'it is'; here it should be 'its'.
+'equals' should be 'equal'.
+'store' should be 'stores'.
+
+Missing space before the open parenthesis, again.
+
+> +as __u32 integer, thus we can specify a max time value of UINT32_MAX usecs.
+
+I don't think user documentation should use names like '__u32' and
+'UINT32_MAX'.  Instead it should say '32-bit unsigned integer' and '4294
+seconds'.
+
+> +.RE
+> +
+> +.TP
+> +SIZES
+> +Amounts of data. Can be specified as a float pointing number 
+
+'float pointing' should be 'floating point' again
+
+> +followed by an optional unit:
+> +.RS
+> +.TP
+> +b or a bare number
+> +Bytes.
+> +.TP
+> +kbit
+> +Kilobites
+
+'kilobits'
+
+> +.TP
+> +kb or k
+> +Kilobytes
+> +.TP
+> +mbit
+> +Megabits
+> +.TP
+> +mb or m
+> +Megabytes
+> +.TP
+> +gbit
+> +Gigabites
+
+'gigabits'
+
+> +.TP
+> +gb or g
+> +Gigabytes
+> +
+> +.P
+> +TC store sizes internally as __u32 integer in byte, so we can specify
+> +a max size of UINT32_MAX bytes.
+
+'store' should be 'stores'.
+Same issue with the type and maximum names.
+
+> +.RE
+> +
+> +.TP
+> +VALUES
+> +Other values without a unit.
+> +These parameters read as decimal by default, but you can
+
+'read' should be 'are read' or 'are interpreted'
+
+Ben.
+
+> +indicate TC to read them as octal and hexadecimal by adding a '0'
+> +or '0x' prefix respectively.
+> +
+>  .SH TC COMMANDS
+>  The following commands are available for qdiscs, classes and filter:
+>  .TP
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
