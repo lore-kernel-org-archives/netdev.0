@@ -1,65 +1,64 @@
-From: "Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v2 03/10] cgroup: net_cls: Protect access to
- task_cls_classid() when built as module
-Date: Tue, 28 Aug 2012 07:47:25 -0700
-Message-ID: <20120828144725.GR2961@linux.vnet.ibm.com>
-References: <1345816904-21745-1-git-send-email-wagi@monom.org>
- <1345816904-21745-4-git-send-email-wagi@monom.org>
- <20120824232621.GQ21325@google.com>
- <503903BD.6020208@monom.org>
-Reply-To: paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH V2 2/2] ipvs: Extend MTU check to account for IPv6 NAT
+ defrag changes
+Date: Tue, 28 Aug 2012 07:49:19 -0700
+Message-ID: <1346165359.3571.9.camel@edumazet-glaptop>
+References: <20120828142051.11475.63775.stgit@dragon>
+	 <20120828142248.11475.15917.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <503903BD.6020208-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
+	Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	netfilter-devel@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120828142248.11475.15917.stgit@dragon>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 25, 2012 at 06:56:29PM +0200, Daniel Wagner wrote:
-> On 25.08.2012 01:26, Tejun Heo wrote:
-> >On Fri, Aug 24, 2012 at 04:01:37PM +0200, Daniel Wagner wrote:
-> >>@@ -306,6 +312,11 @@ static void __exit exit_cgroup_cls(void)
-> >>  	synchronize_rcu();
-> >>  #endif
-> >>
-> >>+#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
-> >>+	static_key_slow_dec(&cgroup_cls_enabled);
-> >>+	rcu_barrier();
-> >
-> >Why is this rcu_barrier() necessary?
+On Tue, 2012-08-28 at 16:23 +0200, Jesper Dangaard Brouer wrote:
+> This patch is necessary, to make IPVS work, after Patrick McHardys
+> IPv6 NAT defragmentation changes.
 > 
-> I have read the rcubarrier.txt document and I got from that that an
-> rcu_barrier() is needed when unloading a module. But maybe I got it
-> wrong.
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> ---
+> In V2: the tunnel mode is no longer a special case.
 > 
-> So the idea after disabling the jump lables all pending readers in
-> task_cls_classid() have left. THe same thing is done in the old code
-> with the dynamic id part. With the difference that synchronize_rcu()
-> is used.
+>  net/netfilter/ipvs/ip_vs_xmit.c |    9 ++++++++-
+>  1 files changed, 8 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+> index 67a3978..56f6d5d 100644
+> --- a/net/netfilter/ipvs/ip_vs_xmit.c
+> +++ b/net/netfilter/ipvs/ip_vs_xmit.c
+> @@ -88,7 +88,14 @@ __ip_vs_dst_check(struct ip_vs_dest *dest, u32 rtos)
+>  static inline bool
+>  __mtu_check_toobig_v6(const struct sk_buff *skb, u32 mtu)
+>  {
+> -	if (skb->len > mtu && !skb_is_gso(skb)) {
+> +	if (IP6CB(skb)->frag_max_size) {
+> +		/* frag_max_size tell us that, this packet have been
+> +		 * defragmented by netfilter IPv6 conntrack module.
+> +		 */
+> +		if (IP6CB(skb)->frag_max_size > mtu)
+> +			return true; /* largest fragment violate MTU */
+> +	}
+> +	else if (skb->len > mtu && !skb_is_gso(skb)) {
+>  		return true; /* Packet size violate MTU size */
+>  	}
 
-FWIW, the rcu_barrier() is needed only if the module uses call_rcu().
-In that case it is required to ensure that all the resulting callbacks
-execute before the module's .text is freed up.
+Couldnt you use a single test ?
 
-							Thanx, Paul
+if (IP6CB(skb)->frag_max_size > mtu)
+	return true;
 
-> >In general, please explain what
-> >synchronization is going on when using sync constructs which aren't
-> >obvious - e.g. memory barriers, rcu barriers.
-> 
-> Sure, I will keep this in mind.
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+if (skb->len > mtu && !skb_is_gso(skb))
+	return true;
+
+
+
