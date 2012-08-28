@@ -1,48 +1,171 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: CBQ(but probably u32 filter bug), kernel "freeze", at least from
- 3.2.0
-Date: Tue, 28 Aug 2012 07:50:01 +0300
-Message-ID: <a680a8297b2f099eb713b266792b9b82@visp.net.lb>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: [PATCH] iproute2: tc.8: update UNITS section.
+Date: Tue, 28 Aug 2012 13:38:57 +0800
+Message-ID: <1346132337-21325-1-git-send-email-lw@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org, Li Wei <lw@cn.fujitsu.com>
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:43296 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751465Ab2H1EuE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 00:50:04 -0400
-Received: from webmail.visp.net.lb (localhost [127.0.0.1])
-	by hosting.visp.net.lb (Postfix) with ESMTP id 032F148951D
-	for <netdev@vger.kernel.org>; Tue, 28 Aug 2012 07:50:02 +0300 (EEST)
+Received: from cn.fujitsu.com ([222.73.24.84]:6329 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751009Ab2H1Fkf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Aug 2012 01:40:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+- rename section UNITS to PARAMETERS.
+- break section PARAMETERS down to four subsections to cover the
+  common used parameter types(RATES, TIMES, SIZES, VALUES).
+- add some explaination for IEC units in RATES.
+- point out the max value we can set for RATES, TIMES and SIZES.
 
-Got information from friend, confirmed that it crashed at least two my 
-boxes also :)
-3.0.5-rc1 is working fine, 3.4.1 , 3.2.0 from ubuntu  - crashing
-No watchdog fired, and didn't got yet significant debugging 
-information.
-
-Very easy to reproduce:
-1)run the script
-2)ping 192.168.3.234
-
-script:
-DEV_OUT=eth0
-ICMP="match ip protocol 1 0xff"
-U32="protocol ip u32"
-DST="match ip dst"
-tc qdisc add dev $DEV_OUT root handle 1: cbq avpkt 1000 bandwidth 
-100mbit
-tc class add dev $DEV_OUT parent 1: classid 1:1 cbq rate 512kbit allot 
-1500 prio 5 bounded isolated
-tc filter add dev $DEV_OUT parent 1:              prio 3 $U32 $ICMP 
-$DST 192.168.3.234 flowid 1:
-tc qdisc add dev $DEV_OUT parent 1:1 sfq perturb 10
-
+Signed-off-by: Li Wei <lw@cn.fujitsu.com>
 ---
-Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
+ man/man8/tc.8 |  111 +++++++++++++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 85 insertions(+), 26 deletions(-)
+
+diff --git a/man/man8/tc.8 b/man/man8/tc.8
+index 98fbfcd..44d644a 100644
+--- a/man/man8/tc.8
++++ b/man/man8/tc.8
+@@ -257,19 +257,20 @@ qdiscs applies.
+ FILTERS
+ Filters have a three part ID, which is only needed when using a hashed
+ filter hierarchy.
+-.SH UNITS
+-All parameters accept a floating point number, possibly followed by a unit.
+-.P
+-Bandwidths or rates can be specified in:
+-.TP
+-bps
+-Bytes per second
++
++.SH PARAMETERS
++These following parameters are widely used in TC, for other parameters,
++see the man page for individual qdiscs.
++
+ .TP
+-kbps
+-Kilobytes per second
++RATES
++Bandwidths or rates.
++These parameters accept a floating point number, possibly followed by
++a unit(both SI and IEC units supported).
++.RS
+ .TP
+-mbps
+-Megabytes per second
++bit or a bare number
++Bits per second
+ .TP
+ kbit
+ Kilobits per second
+@@ -277,27 +278,41 @@ Kilobits per second
+ mbit
+ Megabits per second
+ .TP
+-bit or a bare number
+-Bits per second
+-.P
+-Amounts of data can be specified in:
++gbit
++Gegabits per second
+ .TP
+-kb or k
+-Kilobytes
++tbit
++Terabits per second
+ .TP
+-mb or m
+-Megabytes
++bps
++Bytes per second
+ .TP
+-mbit
+-Megabits
++kbps
++Kilobytes per second
+ .TP
+-kbit
+-Kilobits
++mbps
++Megabytes per second
+ .TP
+-b or a bare number
+-Bytes.
++gbps
++Gigabytes per second
++.TP
++tbps
++Terabytes per second
++
++.P
++To specified in IEC units, just replace the SI prefix(k-, m-, g-, t-) with
++IEC prefix(ki-, mi-, gi- and ti-) respectively.
++
+ .P
+-Lengths of time can be specified in:
++TC store rates as a __u32 integer in bps internally,
++so we can specify a max rate of UINT32_MAX bps.
++.RE
++
++.TP
++TIMES
++Length of time. Can be specified as a float pointing number 
++followed by an optional unit:
++.RS
+ .TP
+ s, sec or secs
+ Whole seconds
+@@ -308,6 +323,50 @@ Milliseconds
+ us, usec, usecs or a bare number
+ Microseconds.
+ 
++.P
++TC defined it's own time unit(equals to microsecond) and store time values
++as __u32 integer, thus we can specify a max time value of UINT32_MAX usecs.
++.RE
++
++.TP
++SIZES
++Amounts of data. Can be specified as a float pointing number 
++followed by an optional unit:
++.RS
++.TP
++b or a bare number
++Bytes.
++.TP
++kbit
++Kilobites
++.TP
++kb or k
++Kilobytes
++.TP
++mbit
++Megabits
++.TP
++mb or m
++Megabytes
++.TP
++gbit
++Gigabites
++.TP
++gb or g
++Gigabytes
++
++.P
++TC store sizes internally as __u32 integer in byte, so we can specify
++a max size of UINT32_MAX bytes.
++.RE
++
++.TP
++VALUES
++Other values without a unit.
++These parameters read as decimal by default, but you can
++indicate TC to read them as octal and hexadecimal by adding a '0'
++or '0x' prefix respectively.
++
+ .SH TC COMMANDS
+ The following commands are available for qdiscs, classes and filter:
+ .TP
+-- 
+1.7.10.1
