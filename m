@@ -1,126 +1,82 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and naive
-	hashtable
-Date: Tue, 28 Aug 2012 06:11:48 -0400
-Message-ID: <20120828101148.GA21683@Krystal>
-References: <5037DA47.9010306@gmail.com> <20120824195941.GC21325@google.com> <5037E00B.6090606@gmail.com> <20120824203332.GF21325@google.com> <5037E9D9.9000605@gmail.com> <20120824212348.GK21325@google.com> <5038074D.300@gmail.com> <20120824230740.GN21325@google.com> <20120825042419.GA27240@Krystal> <503C95E4.3010000@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: CBQ(but probably u32 filter bug), kernel "freeze", at least
+ from 3.2.0
+Date: Tue, 28 Aug 2012 03:59:28 -0700
+Message-ID: <1346151568.3001.20.camel@edumazet-glaptop>
+References: <a680a8297b2f099eb713b266792b9b82@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <tj@kernel.org>, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, paul.gortmaker@windriver.com,
-	davem@davemloft.net, rostedt@goodmis.org, mingo@elte.hu,
-	ebiederm@xmission.com, aarcange@redhat.com, ericvh@gmail.com,
-	netdev@vger.kernel.org, josh@joshtriplett.org,
-	eric.dumazet@gmail.com, axboe@kernel.dk, agk@redhat.com,
-	dm-devel@redhat.com, neilb@suse.de, ccaulfie@redhat.com,
-	teigland@redhat.com, Trond.Myklebust@netapp.com,
-	bfields@fieldses.org, fweisbec@gmail.com, jesse@nicira.com,
-	venkat.x.venkatsubra@oracle.com, ejt@redhat.com,
-	snitzer@redhat.com, edumazet@google.com, linux-nfs@vger.kernel.org,
-	dev@openvswitch.org, rds-devel@oss.oracle.com, lw@cn.fujitsu.com
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <503C95E4.3010000@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:35104 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750876Ab2H1K7b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 06:59:31 -0400
+Received: by dady13 with SMTP id y13so3233010dad.19
+        for <netdev@vger.kernel.org>; Tue, 28 Aug 2012 03:59:30 -0700 (PDT)
+In-Reply-To: <a680a8297b2f099eb713b266792b9b82@visp.net.lb>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Sasha Levin (levinsasha928@gmail.com) wrote:
-> On 08/25/2012 06:24 AM, Mathieu Desnoyers wrote:
-> > * Tejun Heo (tj@kernel.org) wrote:
-> >> Hello,
-> >>
-> >> On Sat, Aug 25, 2012 at 12:59:25AM +0200, Sasha Levin wrote:
-> >>> Thats the thing, the amount of things of things you can do with a given bucket
-> >>> is very limited. You can't add entries to any point besides the head (without
-> >>> walking the entire list).
-> >>
-> >> Kinda my point.  We already have all the hlist*() interface to deal
-> >> with such cases.  Having something which is evidently the trivial
-> >> hlist hashtable and advertises as such in the interface can be
-> >> helpful.  I think we need that more than we need anything fancy.
-> >>
-> >> Heh, this is a debate about which one is less insignificant.  I can
-> >> see your point.  I'd really like to hear what others think on this.
-> >>
-> >> Guys, do we want something which is evidently trivial hlist hashtable
-> >> which can use hlist_*() API directly or do we want something better
-> >> encapsulated?
-> > 
-> > My 2 cents, FWIW: I think this specific effort should target a trivially
-> > understandable API and implementation, for use-cases where one would be
-> > tempted to reimplement his own trivial hash table anyway. So here
-> > exposing hlist internals, with which kernel developers are already
-> > familiar, seems like a good approach in my opinion, because hiding stuff
-> > behind new abstraction might make the target users go away.
-> > 
-> > Then, as we see the need, we can eventually merge a more elaborate hash
-> > table with poneys and whatnot, but I would expect that the trivial hash
-> > table implementation would still be useful. There are of course very
-> > compelling reasons to use a more featureful hash table: automatic
-> > resize, RT-aware updates, scalable updates, etc... but I see a purpose
-> > for a trivial implementation. Its primary strong points being:
-> > 
-> > - it's trivially understandable, so anyone how want to be really sure
-> >   they won't end up debugging the hash table instead of their
-> >   work-in-progress code can have a full understanding of it,
-> > - it has few dependencies, which makes it easier to understand and
-> >   easier to use in some contexts (e.g. early boot).
-> > 
-> > So I'm in favor of not overdoing the abstraction for this trivial hash
-> > table, and honestly I would rather prefer that this trivial hash table
-> > stays trivial. A more elaborate hash table should probably come as a
-> > separate API.
-> > 
-> > Thanks,
-> > 
-> > Mathieu
-> > 
+On Tue, 2012-08-28 at 07:50 +0300, Denys Fedoryshchenko wrote:
+> Hi
 > 
-> Alright, let's keep it simple then.
+> Got information from friend, confirmed that it crashed at least two my 
+> boxes also :)
+> 3.0.5-rc1 is working fine, 3.4.1 , 3.2.0 from ubuntu  - crashing
+> No watchdog fired, and didn't got yet significant debugging 
+> information.
 > 
-> I do want to keep the hash_for_each[rcu,safe] family though.
+> Very easy to reproduce:
+> 1)run the script
+> 2)ping 192.168.3.234
+> 
+> script:
+> DEV_OUT=eth0
+> ICMP="match ip protocol 1 0xff"
+> U32="protocol ip u32"
+> DST="match ip dst"
+> tc qdisc add dev $DEV_OUT root handle 1: cbq avpkt 1000 bandwidth 
+> 100mbit
+> tc class add dev $DEV_OUT parent 1: classid 1:1 cbq rate 512kbit allot 
+> 1500 prio 5 bounded isolated
+> tc filter add dev $DEV_OUT parent 1:              prio 3 $U32 $ICMP 
+> $DST 192.168.3.234 flowid 1:
+> tc qdisc add dev $DEV_OUT parent 1:1 sfq perturb 10
 
-Just a thought: if the API offered by the simple hash table focus on
-providing a mechanism to find the hash bucket to which belongs the hash
-chain containing the key looked up, and then expects the user to use the
-hlist API to iterate on the chain (with or without the hlist _rcu
-variant), then it might seem consistent that a helper providing
-iteration over the entire table would actually just provide iteration on
-all buckets, and let the user call the hlist for each iterator for each
-node within the bucket, e.g.:
+Not sure what your friend expected from this buggy configuration.
 
-struct hlist_head *head;
-struct hlist_node *pos;
+It probably never worked at all.
 
-hash_for_each_bucket(ht, head) {
-        hlist_for_each(pos, head) {
-                ...
-        }
-}
+CBQ needs at least one child class and one leaf class.
 
-That way you only have to provide one single macro
-(hash_for_each_bucket), and rely on the already existing:
+This scripts creates a loop inside CBQ, so cpu is probably looping in
+cbq_enqueue() (or more exactly cbq_classify()), as instructed by the
+sysadmin ;)
 
-- hlist_for_each_entry
-- hlist_for_each_safe
-- hlist_for_each_entry_rcu
-- hlist_for_each_safe_rcu
-  .....
+u32 (or sfq) seems ok.
 
-and various flavors that can appear in the future without duplicating
-this API. So you won't even have to create _rcu, _safe, nor _safe_rcu
-versions of the hash_for_each_bucket macro.
+Could you try the following patch ?
 
-Thoughts ?
+Thanks !
 
-Thanks,
-
-Mathieu
-
--- 
-Mathieu Desnoyers
-Operating System Efficiency R&D Consultant
-EfficiOS Inc.
-http://www.efficios.com
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index 6aabd77..564b9fc 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -250,10 +250,11 @@ cbq_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 			else if ((cl = defmap[res.classid & TC_PRIO_MAX]) == NULL)
+ 				cl = defmap[TC_PRIO_BESTEFFORT];
+ 
+-			if (cl == NULL || cl->level >= head->level)
++			if (cl == NULL)
+ 				goto fallback;
+ 		}
+-
++		if (cl->level >= head->level)
++			goto fallback;
+ #ifdef CONFIG_NET_CLS_ACT
+ 		switch (result) {
+ 		case TC_ACT_QUEUED:
