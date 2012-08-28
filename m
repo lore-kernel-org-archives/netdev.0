@@ -1,48 +1,73 @@
-From: Rami Rosen <rosenr@marvell.com>
-Subject: [PATCH 1/1] net: fix documentation of skb_needs_linearize().
-Date: Tue, 28 Aug 2012 12:39:24 +0300
-Message-ID: <1346146764-23516-1-git-send-email-rosenr@marvell.com>
-Cc: netdev@vger.kernel.org, Rami Rosen <rosenr@marvell.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog104.obsmtp.com ([74.125.149.73]:48869 "EHLO
-	na3sys009aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751203Ab2H1JmT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 05:42:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 2/2] ipvs: Extend MTU check to account for IPv6 NAT defrag
+ changes
+Date: Tue, 28 Aug 2012 12:47:40 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1208281235080.1693@ja.ssi.bg>
+References: <20120827144024.5754.23872.stgit@dragon>  <20120827144059.5754.55303.stgit@dragon>  <alpine.LFD.2.00.1208271810070.24809@ja.ssi.bg> <1346144607.3069.415.camel@localhost>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	lvs-devel@vger.kernel.org, Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	netfilter-devel@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1346144607.3069.415.camel@localhost>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-skb_needs_linearize() does not check highmem DMA as it does not call
-illegal_highdma() anymore, so there is no need to mention highmem DMA here.
 
-(Indeed, ~NETIF_F_SG flag, which is checked in skb_needs_linearize(), can
-be set when illegal_highdma() returns true, and we are assured that
-illegal_highdma() is invoked prior to skb_needs_linearize() as
-skb_needs_linearize() is a static method called only once.
-But ~NETIF_F_SG can be set not only there in this same invocation path.
-It can also be set when can_checksum_protocol() returns false).
+	Hello,
 
-see commit 02932ce9e2c136e6fab2571c8e0dd69ae8ec9853,
-Convert skb_need_linearize() to use precomputed features.
-Signed-off-by: Rami Rosen <rosenr@marvell.com>
----
- net/core/dev.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+On Tue, 28 Aug 2012, Jesper Dangaard Brouer wrote:
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3401e2d..a4da9d8 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2184,9 +2184,7 @@ EXPORT_SYMBOL(netif_skb_features);
- /*
-  * Returns true if either:
-  *	1. skb has frag_list and the device doesn't support FRAGLIST, or
-- *	2. skb is fragmented and the device does not support SG, or if
-- *	   at least one of fragments is in highmem and device does not
-- *	   support DMA from it.
-+ *	2. skb is fragmented and the device does not support SG.
-  */
- static inline int skb_needs_linearize(struct sk_buff *skb,
- 				      int features)
--- 
-1.7.7.6
+> On Mon, 2012-08-27 at 18:20 +0300, Julian Anastasov wrote:
+> > 
+> > > @@ -956,8 +963,11 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+> > >  		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
+> > >  
+> > >  	/* MTU checking: Special for tunnel mode */
+> > > -	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) &&
+> 
+> I guess:
+>  ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr)
+> Is the same as:
+>  skb->len
+
+	I think so. You can think of this in different way:
+all transmitters are called from same place, there is no
+difference in the packets we see. When we can use
+__mtu_check_toobig_v6 for other methods relying on skb->len
+being correct, we can do the same for tunnels, only that
+tunnels have lower MTU, that is the only difference.
+
+> > > -	    !skb_is_gso(skb)) {
+> > > +	if ((!IP6CB(skb)->frag_max_size &&
+> > > +	     (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) &&
+> > > +	      !skb_is_gso(skb)))
+> > > +	    || IP6CB(skb)->frag_max_size + sizeof(struct ipv6hdr) > mtu) {
+> 
+> > 
+> > 	mtu is already reduced with the new outer header size,
+> > may be we can just call __mtu_check_toobig_v6 with mtu?
+> 
+> To Julian, is the extra sizeof(struct ipv6hdr) addition to
+> frag_max_size, wrong? (as the mtu is already reduced)
+
+	Yes, sizeof(struct ipv6hdr) is needed only together
+with payload_len because payload_len does not include the
+first header.
+
+> If above statements hold, I think we can simply use
+> __mtu_check_toobig_v6() also for the tunnel case :-)
+
+	Yep
+
+> --Jesper
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
