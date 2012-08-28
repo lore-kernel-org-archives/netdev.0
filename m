@@ -1,171 +1,126 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: [PATCH] iproute2: tc.8: update UNITS section.
-Date: Tue, 28 Aug 2012 13:38:57 +0800
-Message-ID: <1346132337-21325-1-git-send-email-lw@cn.fujitsu.com>
-Cc: netdev@vger.kernel.org, Li Wei <lw@cn.fujitsu.com>
-To: shemminger@vyatta.com
+From: Vlad Maraev <maraevvb@gmail.com>
+Subject: IPv4 header extension for IPv6 translation support
+Date: Tue, 28 Aug 2012 11:59:12 +0400
+Message-ID: <CAK617oRJypmo3025f8PZSv=Rehb3NjqyNp=bQjnRFWwaGjGXzw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: =?UTF-8?B?0JLQu9Cw0LQg0JzQsNGA0LDQtdCy?= <maraevvb@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:6329 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751009Ab2H1Fkf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Aug 2012 01:40:35 -0400
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:52128 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751602Ab2H1H7N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 03:59:13 -0400
+Received: by wibhr14 with SMTP id hr14so4408973wib.1
+        for <netdev@vger.kernel.org>; Tue, 28 Aug 2012 00:59:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- rename section UNITS to PARAMETERS.
-- break section PARAMETERS down to four subsections to cover the
-  common used parameter types(RATES, TIMES, SIZES, VALUES).
-- add some explaination for IEC units in RATES.
-- point out the max value we can set for RATES, TIMES and SIZES.
+Hi,
+I would be happy to get some feedback on my idea that is described below.
+I need to tell that I'm a newbie in Linux kernel development but it
+would be interesting for me to estimate complexity and to implement
+this in practice.
 
-Signed-off-by: Li Wei <lw@cn.fujitsu.com>
----
- man/man8/tc.8 |  111 +++++++++++++++++++++++++++++++++++++++++++--------------
- 1 file changed, 85 insertions(+), 26 deletions(-)
+Best Regards,
+Vlad Maraev
+State University of Telecommunications
+St. Petersburg, Russia
 
-diff --git a/man/man8/tc.8 b/man/man8/tc.8
-index 98fbfcd..44d644a 100644
---- a/man/man8/tc.8
-+++ b/man/man8/tc.8
-@@ -257,19 +257,20 @@ qdiscs applies.
- FILTERS
- Filters have a three part ID, which is only needed when using a hashed
- filter hierarchy.
--.SH UNITS
--All parameters accept a floating point number, possibly followed by a unit.
--.P
--Bandwidths or rates can be specified in:
--.TP
--bps
--Bytes per second
-+
-+.SH PARAMETERS
-+These following parameters are widely used in TC, for other parameters,
-+see the man page for individual qdiscs.
-+
- .TP
--kbps
--Kilobytes per second
-+RATES
-+Bandwidths or rates.
-+These parameters accept a floating point number, possibly followed by
-+a unit(both SI and IEC units supported).
-+.RS
- .TP
--mbps
--Megabytes per second
-+bit or a bare number
-+Bits per second
- .TP
- kbit
- Kilobits per second
-@@ -277,27 +278,41 @@ Kilobits per second
- mbit
- Megabits per second
- .TP
--bit or a bare number
--Bits per second
--.P
--Amounts of data can be specified in:
-+gbit
-+Gegabits per second
- .TP
--kb or k
--Kilobytes
-+tbit
-+Terabits per second
- .TP
--mb or m
--Megabytes
-+bps
-+Bytes per second
- .TP
--mbit
--Megabits
-+kbps
-+Kilobytes per second
- .TP
--kbit
--Kilobits
-+mbps
-+Megabytes per second
- .TP
--b or a bare number
--Bytes.
-+gbps
-+Gigabytes per second
-+.TP
-+tbps
-+Terabytes per second
-+
-+.P
-+To specified in IEC units, just replace the SI prefix(k-, m-, g-, t-) with
-+IEC prefix(ki-, mi-, gi- and ti-) respectively.
-+
- .P
--Lengths of time can be specified in:
-+TC store rates as a __u32 integer in bps internally,
-+so we can specify a max rate of UINT32_MAX bps.
-+.RE
-+
-+.TP
-+TIMES
-+Length of time. Can be specified as a float pointing number 
-+followed by an optional unit:
-+.RS
- .TP
- s, sec or secs
- Whole seconds
-@@ -308,6 +323,50 @@ Milliseconds
- us, usec, usecs or a bare number
- Microseconds.
- 
-+.P
-+TC defined it's own time unit(equals to microsecond) and store time values
-+as __u32 integer, thus we can specify a max time value of UINT32_MAX usecs.
-+.RE
-+
-+.TP
-+SIZES
-+Amounts of data. Can be specified as a float pointing number 
-+followed by an optional unit:
-+.RS
-+.TP
-+b or a bare number
-+Bytes.
-+.TP
-+kbit
-+Kilobites
-+.TP
-+kb or k
-+Kilobytes
-+.TP
-+mbit
-+Megabits
-+.TP
-+mb or m
-+Megabytes
-+.TP
-+gbit
-+Gigabites
-+.TP
-+gb or g
-+Gigabytes
-+
-+.P
-+TC store sizes internally as __u32 integer in byte, so we can specify
-+a max size of UINT32_MAX bytes.
-+.RE
-+
-+.TP
-+VALUES
-+Other values without a unit.
-+These parameters read as decimal by default, but you can
-+indicate TC to read them as octal and hexadecimal by adding a '0'
-+or '0x' prefix respectively.
-+
- .SH TC COMMANDS
- The following commands are available for qdiscs, classes and filter:
- .TP
--- 
-1.7.10.1
+-------------------------------------------------------
+
+Why?
+----------
+During the process of transitioning to IPv6 segments that use
+different versions of IP need to interconnect. On the ISP level it can
+only be done with NATs. I mean only 6-4 or 4-6 connections, not 4-6-4
+or 6-4-6 that can be achieved with tunnel or dual stack in the middle.
+
+NATs have two major disadvantages: scalability and latency. NAT that
+is connecting large network segments needs to maintain a huge
+translation table. Search in such tables requires lots of CPU/memory
+resources.
+
+The protocol
+----------
+IPv4x (IPv4 eXtended) aims to solve this problem. I think the major
+problem with IPv4 is that the IPv4 packet doesn't contain IPv6
+address. If it would contain IPv6 address, the 4-6 interaction can be
+provided by stateless algorithmic protocol translation without any NAT
+tables.
+
+IPv4x header inherits its structure from IPv4 with 3 additional 32-bit
+fields after the Destination Address. This field will be used for
+extending source or destination address to IPv6 format. IHL field is
+also changed.
+
+IPv6 address will be divided in two parts: 32 and 96 bits. First part
+will be included in Source or Destination Address field (depending on
+the frame direction). Remaining 96 bits will be placed after the
+Destination Address.
+
+The assignable Global Unicast Address space is defined
+in as being the address block defined by the prefix 2000::/3. First
+bits of this addresses are 0010 that means the network of A class in
+IPv4 space that could lead to correlation with existing addresses. To
+solve this first character is changed from `2` to `F`. First bits of
+`F` (1111) will form IPv4 address of class E that is reserved and
+could be defined for IPv6 transition. E-class
+
+Example:
+-------------------------
+| 2001:0db8:cafe:3:2::2 |
+-------------------------
+      v
+-------------
+| F001:0db8 | (Destination address)
+-------------
+| cafe:0003 | (96 bits below)
+| 0000:0000 |
+| 0000:0002 |
+-------------
+	  v
+----------------
+| 240.1.13.184 | (Destination address - IPv4 format)
+----------------
+| cafe:0003    | (96 bits below)
+| 0000:0000    |
+| 0000:0002    |
+----------------
+
+Transmission of IPv4x packet
+----------
+IPv4 transmission of IPv4x packet can be processed using IPv4 routing.
+Intermediate nodes don't need to implement IPv4x, hey will work with
+IPv4x packet as a normal IPv4 packet. Border nodes must implement
+IPv4x and provide algorithmic translation of IPv4x frame to IPv6.
+
+
+Example:
+-------------
+| F001:0db8 | (Destination address)
+-------------
+| cafe:0003 | (96 bits below)
+| 0000:0000	|
+| 0000:0002 |
+-------------	
+	 v
+-------------------------
+| 64:ff9b::203.0.113.1  |  source address can be written using some prefix
+-------------------------
+| 2001:0db8:cafe:3:2::2 |  destination IPv6 address
+-------------------------
+
+Problems
+----------
+1. Intermediate nodes can look below the Destination Address for the
+options if ihl>5 and will be confused with IPv4x data.
+2. All the IPv4x packets would be routed to one node. But there can be
+several different organization IPv6 networks connected to this node.
+
+First steps
+----------
+1. IPv4x in linux kernel
+2. ICMP with ping4x
+3. Transmission testing. IPv4x ping request must be routed to node
+with class E interface.
