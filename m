@@ -1,232 +1,62 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] iproute2: tc.8: update UNITS section.
-Date: Tue, 28 Aug 2012 09:54:18 -0700
-Message-ID: <1346172858.15747.25.camel@deadeye.wl.decadent.org.uk>
-References: <1346132337-21325-1-git-send-email-lw@cn.fujitsu.com>
+From: mpe <michele@unipex.it>
+Subject: syn connection not replied with ack
+Date: Tue, 28 Aug 2012 19:03:41 +0200
+Message-ID: <k1itlc$kef$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <shemminger@vyatta.com>, <netdev@vger.kernel.org>
-To: Li Wei <lw@cn.fujitsu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:19919 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752219Ab2H1QyU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 12:54:20 -0400
-In-Reply-To: <1346132337-21325-1-git-send-email-lw@cn.fujitsu.com>
+Received: from plane.gmane.org ([80.91.229.3]:46456 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751634Ab2H1RKI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Aug 2012 13:10:08 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1T6PIi-0003bK-4Q
+	for netdev@vger.kernel.org; Tue, 28 Aug 2012 19:10:04 +0200
+Received: from gw.corp.inasset.net ([82.193.33.243])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 28 Aug 2012 19:10:04 +0200
+Received: from michele by gw.corp.inasset.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 28 Aug 2012 19:10:04 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-08-28 at 13:38 +0800, Li Wei wrote:
-> - rename section UNITS to PARAMETERS.
-> - break section PARAMETERS down to four subsections to cover the
->   common used parameter types(RATES, TIMES, SIZES, VALUES).
-> - add some explaination for IEC units in RATES.
-> - point out the max value we can set for RATES, TIMES and SIZES.
-> 
-> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
-> ---
->  man/man8/tc.8 |  111 +++++++++++++++++++++++++++++++++++++++++++--------------
->  1 file changed, 85 insertions(+), 26 deletions(-)
-> 
-> diff --git a/man/man8/tc.8 b/man/man8/tc.8
-> index 98fbfcd..44d644a 100644
-> --- a/man/man8/tc.8
-> +++ b/man/man8/tc.8
-> @@ -257,19 +257,20 @@ qdiscs applies.
->  FILTERS
->  Filters have a three part ID, which is only needed when using a hashed
->  filter hierarchy.
-> -.SH UNITS
-> -All parameters accept a floating point number, possibly followed by a unit.
-> -.P
-> -Bandwidths or rates can be specified in:
-> -.TP
-> -bps
-> -Bytes per second
-> +
-> +.SH PARAMETERS
-> +These following parameters are widely used in TC, for other parameters,
+Hi all,
+I have very very strange behaviour with a virtual machine (centos 6 
+up-to-date).
+Then I try to connect to it with a linux ssh client, I see the syn, but 
+not the syn-ack replied. On the same target when I connect with windows 
+machine, it reply correctly and the communication starts.
 
-'These' should be 'The'.
-'for other parameters' should begin a new sentence.
+tshark show me with linux:
+386.134073 172.18.0.160 -> 172.18.0.254 TCP 45092 > ssh [SYN] Seq=0 
+Win=4240 Len=0 MSS=1060 TSV=497047 TSER=0 WS=5
+389.134556 172.18.0.160 -> 172.18.0.254 TCP 45092 > ssh [SYN] Seq=0 
+Win=4240 Len=0 MSS=1060 TSV=497798 TSER=0 WS=5
+395.134926 172.18.0.160 -> 172.18.0.254 TCP 45092 > ssh [SYN] Seq=0 
+Win=4240 Len=0 MSS=1060 TSV=499298 TSER=0 WS=5
 
-> +see the man page for individual qdiscs.
+and windows:
+1099.091686 172.18.0.141 -> 172.18.0.254 TCP 32906 > ssh [SYN] Seq=0 
+Win=8192 Len=0 MSS=1260 WS=8
+1099.092934 172.18.0.254 -> 172.18.0.141 TCP ssh > 32906 [SYN, ACK] 
+Seq=0 Ack=1 Win=5840 Len=0 MSS=1380
+1099.092960 172.18.0.141 -> 172.18.0.254 TCP 32906 > ssh [ACK] Seq=1 
+Ack=1 Win=65520 Len=0
+1099.102017 172.18.0.254 -> 172.18.0.141 SSH Server Protocol: 
+SSH-2.0-OpenSSH_4.3
 
-'page' should be 'pages'.
+iptables are disabled, no modules active (lsmod | grep ip show nothing)
+I tried also to remove the vmware vmxnet3 module, reloaded, network 
+restart, but the same.
 
-> +
->  .TP
-> -kbps
-> -Kilobytes per second
-> +RATES
-> +Bandwidths or rates.
-> +These parameters accept a floating point number, possibly followed by
-> +a unit(both SI and IEC units supported).
+But... if I reboot, the communication start for the next 2/3 days and 
+after it stops another time.
 
-Missing space before the open-parenthesis.
+Hope that someone can help me.
 
-> +.RS
->  .TP
-> -mbps
-> -Megabytes per second
-> +bit or a bare number
-> +Bits per second
->  .TP
->  kbit
->  Kilobits per second
-> @@ -277,27 +278,41 @@ Kilobits per second
->  mbit
->  Megabits per second
->  .TP
-> -bit or a bare number
-> -Bits per second
-> -.P
-> -Amounts of data can be specified in:
-> +gbit
-> +Gegabits per second
-
-'Gigabits'
-
->  .TP
-> -kb or k
-> -Kilobytes
-> +tbit
-> +Terabits per second
->  .TP
-> -mb or m
-> -Megabytes
-> +bps
-> +Bytes per second
->  .TP
-> -mbit
-> -Megabits
-> +kbps
-> +Kilobytes per second
->  .TP
-> -kbit
-> -Kilobits
-> +mbps
-> +Megabytes per second
->  .TP
-> -b or a bare number
-> -Bytes.
-> +gbps
-> +Gigabytes per second
-> +.TP
-> +tbps
-> +Terabytes per second
-> +
-> +.P
-> +To specified in IEC units, just replace the SI prefix(k-, m-, g-, t-) with
-> +IEC prefix(ki-, mi-, gi- and ti-) respectively.
-
-'specified' should be 'specify'.
-The word 'just' is not needed.
-
-Missing spaces before the open-parentheses.
-
-> +
->  .P
-> -Lengths of time can be specified in:
-> +TC store rates as a __u32 integer in bps internally,
-> +so we can specify a max rate of UINT32_MAX bps.
-> +.RE
-> +
-> +.TP
-> +TIMES
-> +Length of time. Can be specified as a float pointing number 
-
-'float pointing' should be 'floating point' :-)
-
-> +followed by an optional unit:
-> +.RS
->  .TP
->  s, sec or secs
->  Whole seconds
-> @@ -308,6 +323,50 @@ Milliseconds
->  us, usec, usecs or a bare number
->  Microseconds.
->  
-> +.P
-> +TC defined it's own time unit(equals to microsecond) and store time values
-
-'it's' means 'it is'; here it should be 'its'.
-'equals' should be 'equal'.
-'store' should be 'stores'.
-
-Missing space before the open parenthesis, again.
-
-> +as __u32 integer, thus we can specify a max time value of UINT32_MAX usecs.
-
-I don't think user documentation should use names like '__u32' and
-'UINT32_MAX'.  Instead it should say '32-bit unsigned integer' and '4294
-seconds'.
-
-> +.RE
-> +
-> +.TP
-> +SIZES
-> +Amounts of data. Can be specified as a float pointing number 
-
-'float pointing' should be 'floating point' again
-
-> +followed by an optional unit:
-> +.RS
-> +.TP
-> +b or a bare number
-> +Bytes.
-> +.TP
-> +kbit
-> +Kilobites
-
-'kilobits'
-
-> +.TP
-> +kb or k
-> +Kilobytes
-> +.TP
-> +mbit
-> +Megabits
-> +.TP
-> +mb or m
-> +Megabytes
-> +.TP
-> +gbit
-> +Gigabites
-
-'gigabits'
-
-> +.TP
-> +gb or g
-> +Gigabytes
-> +
-> +.P
-> +TC store sizes internally as __u32 integer in byte, so we can specify
-> +a max size of UINT32_MAX bytes.
-
-'store' should be 'stores'.
-Same issue with the type and maximum names.
-
-> +.RE
-> +
-> +.TP
-> +VALUES
-> +Other values without a unit.
-> +These parameters read as decimal by default, but you can
-
-'read' should be 'are read' or 'are interpreted'
-
-Ben.
-
-> +indicate TC to read them as octal and hexadecimal by adding a '0'
-> +or '0x' prefix respectively.
-> +
->  .SH TC COMMANDS
->  The following commands are available for qdiscs, classes and filter:
->  .TP
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Michele
