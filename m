@@ -1,107 +1,312 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 01/19] ipv4: fix path MTU discovery with connection tracking
-Date: Tue, 28 Aug 2012 23:48:41 +0200
-Message-ID: <1346190539-9963-2-git-send-email-kaber@trash.net>
+Subject: [PATCH 05/19] netfilter: nf_conntrack: restrict NAT helper invocation to IPv4
+Date: Tue, 28 Aug 2012 23:48:45 +0200
+Message-ID: <1346190539-9963-6-git-send-email-kaber@trash.net>
 References: <1346190539-9963-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59143 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753364Ab2H1VtD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 17:49:03 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1346190539-9963-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-IPv4 conntrack defragments incoming packet at the PRE_ROUTING hook and
-(in case of forwarded packets) refragments them at POST_ROUTING
-independent of the IP_DF flag. Refragmentation uses the dst_mtu() of
-the local route without caring about the original fragment sizes,
-thereby breaking PMTUD.
-
-This patch fixes this by keeping track of the largest received fragment
-with IP_DF set and generates an ICMP fragmentation required error during
-refragmentation if that size exceeds the MTU.
+The NAT helpers currently only handle IPv4 packets correctly. Restrict
+invocation of the helpers to IPv4 in preparation of IPv6 NAT.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
-Acked-by: Eric Dumazet <edumazet@google.com>
-Acked-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/inet_frag.h |    2 ++
- include/net/ip.h        |    2 ++
- net/ipv4/ip_fragment.c  |    8 +++++++-
- net/ipv4/ip_output.c    |    4 +++-
- 4 files changed, 14 insertions(+), 2 deletions(-)
+ net/netfilter/nf_conntrack_amanda.c    |    3 +-
+ net/netfilter/nf_conntrack_ftp.c       |    3 +-
+ net/netfilter/nf_conntrack_h323_main.c |   41 ++++++++++++++++++++++---------
+ net/netfilter/nf_conntrack_irc.c       |    3 +-
+ net/netfilter/nf_conntrack_sip.c       |   18 +++++++++----
+ net/netfilter/nf_conntrack_tftp.c      |    3 +-
+ 6 files changed, 49 insertions(+), 22 deletions(-)
 
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 2431cf8..5098ee7 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -29,6 +29,8 @@ struct inet_frag_queue {
- #define INET_FRAG_COMPLETE	4
- #define INET_FRAG_FIRST_IN	2
- #define INET_FRAG_LAST_IN	1
-+
-+	u16			max_size;
- };
+diff --git a/net/netfilter/nf_conntrack_amanda.c b/net/netfilter/nf_conntrack_amanda.c
+index f2de8c5..184c0dc 100644
+--- a/net/netfilter/nf_conntrack_amanda.c
++++ b/net/netfilter/nf_conntrack_amanda.c
+@@ -154,7 +154,8 @@ static int amanda_help(struct sk_buff *skb,
+ 				  IPPROTO_TCP, NULL, &port);
  
- #define INETFRAGS_HASHSZ		64
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 5a5d84d..0707fb9 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -42,6 +42,8 @@ struct inet_skb_parm {
- #define IPSKB_XFRM_TRANSFORMED	4
- #define IPSKB_FRAG_COMPLETE	8
- #define IPSKB_REROUTED		16
-+
-+	u16			frag_max_size;
- };
+ 		nf_nat_amanda = rcu_dereference(nf_nat_amanda_hook);
+-		if (nf_nat_amanda && ct->status & IPS_NAT_MASK)
++		if (nf_nat_amanda && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++		    ct->status & IPS_NAT_MASK)
+ 			ret = nf_nat_amanda(skb, ctinfo, off - dataoff,
+ 					    len, exp);
+ 		else if (nf_ct_expect_related(exp) != 0)
+diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
+index 4bb771d..3e1587e 100644
+--- a/net/netfilter/nf_conntrack_ftp.c
++++ b/net/netfilter/nf_conntrack_ftp.c
+@@ -487,7 +487,8 @@ static int help(struct sk_buff *skb,
+ 	/* Now, NAT might want to mangle the packet, and register the
+ 	 * (possibly changed) expectation itself. */
+ 	nf_nat_ftp = rcu_dereference(nf_nat_ftp_hook);
+-	if (nf_nat_ftp && ct->status & IPS_NAT_MASK)
++	if (nf_nat_ftp && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK)
+ 		ret = nf_nat_ftp(skb, ctinfo, search[dir][i].ftptype,
+ 				 matchoff, matchlen, exp);
+ 	else {
+diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
+index 4283b20..517c5e3 100644
+--- a/net/netfilter/nf_conntrack_h323_main.c
++++ b/net/netfilter/nf_conntrack_h323_main.c
+@@ -295,6 +295,7 @@ static int expect_rtp_rtcp(struct sk_buff *skb, struct nf_conn *ct,
+ 		   &ct->tuplehash[!dir].tuple.dst.u3,
+ 		   sizeof(ct->tuplehash[dir].tuple.src.u3)) &&
+ 		   (nat_rtp_rtcp = rcu_dereference(nat_rtp_rtcp_hook)) &&
++		   nf_ct_l3num(ct) == NFPROTO_IPV4 &&
+ 		   ct->status & IPS_NAT_MASK) {
+ 		/* NAT needed */
+ 		ret = nat_rtp_rtcp(skb, ct, ctinfo, data, dataoff,
+@@ -353,6 +354,7 @@ static int expect_t120(struct sk_buff *skb,
+ 		   &ct->tuplehash[!dir].tuple.dst.u3,
+ 		   sizeof(ct->tuplehash[dir].tuple.src.u3)) &&
+ 	    (nat_t120 = rcu_dereference(nat_t120_hook)) &&
++	    nf_ct_l3num(ct) == NFPROTO_IPV4 &&
+ 	    ct->status & IPS_NAT_MASK) {
+ 		/* NAT needed */
+ 		ret = nat_t120(skb, ct, ctinfo, data, dataoff, taddr,
+@@ -688,6 +690,7 @@ static int expect_h245(struct sk_buff *skb, struct nf_conn *ct,
+ 		   &ct->tuplehash[!dir].tuple.dst.u3,
+ 		   sizeof(ct->tuplehash[dir].tuple.src.u3)) &&
+ 	    (nat_h245 = rcu_dereference(nat_h245_hook)) &&
++	    nf_ct_l3num(ct) == NFPROTO_IPV4 &&
+ 	    ct->status & IPS_NAT_MASK) {
+ 		/* NAT needed */
+ 		ret = nat_h245(skb, ct, ctinfo, data, dataoff, taddr,
+@@ -811,6 +814,7 @@ static int expect_callforwarding(struct sk_buff *skb,
+ 		   &ct->tuplehash[!dir].tuple.dst.u3,
+ 		   sizeof(ct->tuplehash[dir].tuple.src.u3)) &&
+ 	    (nat_callforwarding = rcu_dereference(nat_callforwarding_hook)) &&
++	    nf_ct_l3num(ct) == NFPROTO_IPV4 &&
+ 	    ct->status & IPS_NAT_MASK) {
+ 		/* Need NAT */
+ 		ret = nat_callforwarding(skb, ct, ctinfo, data, dataoff,
+@@ -852,7 +856,8 @@ static int process_setup(struct sk_buff *skb, struct nf_conn *ct,
  
- static inline unsigned int ip_hdrlen(const struct sk_buff *skb)
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 8d07c97..fa6a12c 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -523,6 +523,10 @@ found:
- 	if (offset == 0)
- 		qp->q.last_in |= INET_FRAG_FIRST_IN;
+ 	set_h225_addr = rcu_dereference(set_h225_addr_hook);
+ 	if ((setup->options & eSetup_UUIE_destCallSignalAddress) &&
+-	    (set_h225_addr) && ct->status & IPS_NAT_MASK &&
++	    (set_h225_addr) && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK &&
+ 	    get_h225_addr(ct, *data, &setup->destCallSignalAddress,
+ 			  &addr, &port) &&
+ 	    memcmp(&addr, &ct->tuplehash[!dir].tuple.src.u3, sizeof(addr))) {
+@@ -868,7 +873,8 @@ static int process_setup(struct sk_buff *skb, struct nf_conn *ct,
+ 	}
  
-+	if (ip_hdr(skb)->frag_off & htons(IP_DF) &&
-+	    skb->len + ihl > qp->q.max_size)
-+		qp->q.max_size = skb->len + ihl;
-+
- 	if (qp->q.last_in == (INET_FRAG_FIRST_IN | INET_FRAG_LAST_IN) &&
- 	    qp->q.meat == qp->q.len)
- 		return ip_frag_reasm(qp, prev, dev);
-@@ -646,9 +650,11 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
- 	head->next = NULL;
- 	head->dev = dev;
- 	head->tstamp = qp->q.stamp;
-+	IPCB(head)->frag_max_size = qp->q.max_size;
+ 	if ((setup->options & eSetup_UUIE_sourceCallSignalAddress) &&
+-	    (set_h225_addr) && ct->status & IPS_NAT_MASK &&
++	    (set_h225_addr) && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK &&
+ 	    get_h225_addr(ct, *data, &setup->sourceCallSignalAddress,
+ 			  &addr, &port) &&
+ 	    memcmp(&addr, &ct->tuplehash[!dir].tuple.dst.u3, sizeof(addr))) {
+@@ -1278,7 +1284,8 @@ static int expect_q931(struct sk_buff *skb, struct nf_conn *ct,
+ 	exp->flags = NF_CT_EXPECT_PERMANENT;	/* Accept multiple calls */
  
- 	iph = ip_hdr(head);
--	iph->frag_off = 0;
-+	/* max_size != 0 implies at least one fragment had IP_DF set */
-+	iph->frag_off = qp->q.max_size ? htons(IP_DF) : 0;
- 	iph->tot_len = htons(len);
- 	iph->tos |= ecn;
- 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMOKS);
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index c196d74..a5beab1 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -467,7 +467,9 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 	nat_q931 = rcu_dereference(nat_q931_hook);
+-	if (nat_q931 && ct->status & IPS_NAT_MASK) {	/* Need NAT */
++	if (nat_q931 && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK) {	/* Need NAT */
+ 		ret = nat_q931(skb, ct, ctinfo, data, taddr, i, port, exp);
+ 	} else {		/* Conntrack only */
+ 		if (nf_ct_expect_related(exp) == 0) {
+@@ -1306,7 +1313,8 @@ static int process_grq(struct sk_buff *skb, struct nf_conn *ct,
+ 	pr_debug("nf_ct_ras: GRQ\n");
  
- 	iph = ip_hdr(skb);
+ 	set_ras_addr = rcu_dereference(set_ras_addr_hook);
+-	if (set_ras_addr && ct->status & IPS_NAT_MASK)	/* NATed */
++	if (set_ras_addr && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK)	/* NATed */
+ 		return set_ras_addr(skb, ct, ctinfo, data,
+ 				    &grq->rasAddress, 1);
+ 	return 0;
+@@ -1374,7 +1382,8 @@ static int process_rrq(struct sk_buff *skb, struct nf_conn *ct,
+ 		return -1;
  
--	if (unlikely((iph->frag_off & htons(IP_DF)) && !skb->local_df)) {
-+	if (unlikely(((iph->frag_off & htons(IP_DF)) && !skb->local_df) ||
-+		     (IPCB(skb)->frag_max_size &&
-+		      IPCB(skb)->frag_max_size > dst_mtu(&rt->dst)))) {
- 		IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
- 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
- 			  htonl(ip_skb_dst_mtu(skb)));
+ 	set_ras_addr = rcu_dereference(set_ras_addr_hook);
+-	if (set_ras_addr && ct->status & IPS_NAT_MASK) {
++	if (set_ras_addr && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK) {
+ 		ret = set_ras_addr(skb, ct, ctinfo, data,
+ 				   rrq->rasAddress.item,
+ 				   rrq->rasAddress.count);
+@@ -1405,7 +1414,8 @@ static int process_rcf(struct sk_buff *skb, struct nf_conn *ct,
+ 	pr_debug("nf_ct_ras: RCF\n");
+ 
+ 	set_sig_addr = rcu_dereference(set_sig_addr_hook);
+-	if (set_sig_addr && ct->status & IPS_NAT_MASK) {
++	if (set_sig_addr && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK) {
+ 		ret = set_sig_addr(skb, ct, ctinfo, data,
+ 					rcf->callSignalAddress.item,
+ 					rcf->callSignalAddress.count);
+@@ -1453,7 +1463,8 @@ static int process_urq(struct sk_buff *skb, struct nf_conn *ct,
+ 	pr_debug("nf_ct_ras: URQ\n");
+ 
+ 	set_sig_addr = rcu_dereference(set_sig_addr_hook);
+-	if (set_sig_addr && ct->status & IPS_NAT_MASK) {
++	if (set_sig_addr && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK) {
+ 		ret = set_sig_addr(skb, ct, ctinfo, data,
+ 				   urq->callSignalAddress.item,
+ 				   urq->callSignalAddress.count);
+@@ -1491,6 +1502,7 @@ static int process_arq(struct sk_buff *skb, struct nf_conn *ct,
+ 			  &addr, &port) &&
+ 	    !memcmp(&addr, &ct->tuplehash[dir].tuple.src.u3, sizeof(addr)) &&
+ 	    port == info->sig_port[dir] &&
++	    nf_ct_l3num(ct) == NFPROTO_IPV4 &&
+ 	    set_h225_addr && ct->status & IPS_NAT_MASK) {
+ 		/* Answering ARQ */
+ 		return set_h225_addr(skb, data, 0,
+@@ -1503,7 +1515,8 @@ static int process_arq(struct sk_buff *skb, struct nf_conn *ct,
+ 	    get_h225_addr(ct, *data, &arq->srcCallSignalAddress,
+ 			  &addr, &port) &&
+ 	    !memcmp(&addr, &ct->tuplehash[dir].tuple.src.u3, sizeof(addr)) &&
+-	    set_h225_addr && ct->status & IPS_NAT_MASK) {
++	    set_h225_addr && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK) {
+ 		/* Calling ARQ */
+ 		return set_h225_addr(skb, data, 0,
+ 				     &arq->srcCallSignalAddress,
+@@ -1535,7 +1548,8 @@ static int process_acf(struct sk_buff *skb, struct nf_conn *ct,
+ 	if (!memcmp(&addr, &ct->tuplehash[dir].tuple.dst.u3, sizeof(addr))) {
+ 		/* Answering ACF */
+ 		set_sig_addr = rcu_dereference(set_sig_addr_hook);
+-		if (set_sig_addr && ct->status & IPS_NAT_MASK)
++		if (set_sig_addr && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++		    ct->status & IPS_NAT_MASK)
+ 			return set_sig_addr(skb, ct, ctinfo, data,
+ 					    &acf->destCallSignalAddress, 1);
+ 		return 0;
+@@ -1571,7 +1585,8 @@ static int process_lrq(struct sk_buff *skb, struct nf_conn *ct,
+ 	pr_debug("nf_ct_ras: LRQ\n");
+ 
+ 	set_ras_addr = rcu_dereference(set_ras_addr_hook);
+-	if (set_ras_addr && ct->status & IPS_NAT_MASK)
++	if (set_ras_addr && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK)
+ 		return set_ras_addr(skb, ct, ctinfo, data,
+ 				    &lrq->replyAddress, 1);
+ 	return 0;
+@@ -1628,7 +1643,8 @@ static int process_irr(struct sk_buff *skb, struct nf_conn *ct,
+ 	pr_debug("nf_ct_ras: IRR\n");
+ 
+ 	set_ras_addr = rcu_dereference(set_ras_addr_hook);
+-	if (set_ras_addr && ct->status & IPS_NAT_MASK) {
++	if (set_ras_addr && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK) {
+ 		ret = set_ras_addr(skb, ct, ctinfo, data,
+ 				   &irr->rasAddress, 1);
+ 		if (ret < 0)
+@@ -1636,7 +1652,8 @@ static int process_irr(struct sk_buff *skb, struct nf_conn *ct,
+ 	}
+ 
+ 	set_sig_addr = rcu_dereference(set_sig_addr_hook);
+-	if (set_sig_addr && ct->status & IPS_NAT_MASK) {
++	if (set_sig_addr && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK) {
+ 		ret = set_sig_addr(skb, ct, ctinfo, data,
+ 					irr->callSignalAddress.item,
+ 					irr->callSignalAddress.count);
+diff --git a/net/netfilter/nf_conntrack_irc.c b/net/netfilter/nf_conntrack_irc.c
+index 009c52c..e06dc2f 100644
+--- a/net/netfilter/nf_conntrack_irc.c
++++ b/net/netfilter/nf_conntrack_irc.c
+@@ -204,7 +204,8 @@ static int help(struct sk_buff *skb, unsigned int protoff,
+ 					  IPPROTO_TCP, NULL, &port);
+ 
+ 			nf_nat_irc = rcu_dereference(nf_nat_irc_hook);
+-			if (nf_nat_irc && ct->status & IPS_NAT_MASK)
++			if (nf_nat_irc && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++			    ct->status & IPS_NAT_MASK)
+ 				ret = nf_nat_irc(skb, ctinfo,
+ 						 addr_beg_p - ib_ptr,
+ 						 addr_end_p - addr_beg_p,
+diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+index 5c0a112..d08e0ba 100644
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -981,7 +981,8 @@ static int set_expected_rtp_rtcp(struct sk_buff *skb, unsigned int dataoff,
+ 			  IPPROTO_UDP, NULL, &rtcp_port);
+ 
+ 	nf_nat_sdp_media = rcu_dereference(nf_nat_sdp_media_hook);
+-	if (nf_nat_sdp_media && ct->status & IPS_NAT_MASK && !direct_rtp)
++	if (nf_nat_sdp_media && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK && !direct_rtp)
+ 		ret = nf_nat_sdp_media(skb, dataoff, dptr, datalen,
+ 				       rtp_exp, rtcp_exp,
+ 				       mediaoff, medialen, daddr);
+@@ -1104,7 +1105,8 @@ static int process_sdp(struct sk_buff *skb, unsigned int dataoff,
+ 			return ret;
+ 
+ 		/* Update media connection address if present */
+-		if (maddr_len && nf_nat_sdp_addr && ct->status & IPS_NAT_MASK) {
++		if (maddr_len && nf_nat_sdp_addr &&
++		    nf_ct_l3num(ct) == NFPROTO_IPV4 && ct->status & IPS_NAT_MASK) {
+ 			ret = nf_nat_sdp_addr(skb, dataoff, dptr, datalen,
+ 					      mediaoff, c_hdr, SDP_HDR_MEDIA,
+ 					      &rtp_addr);
+@@ -1116,7 +1118,8 @@ static int process_sdp(struct sk_buff *skb, unsigned int dataoff,
+ 
+ 	/* Update session connection and owner addresses */
+ 	nf_nat_sdp_session = rcu_dereference(nf_nat_sdp_session_hook);
+-	if (nf_nat_sdp_session && ct->status & IPS_NAT_MASK)
++	if (nf_nat_sdp_session && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK)
+ 		ret = nf_nat_sdp_session(skb, dataoff, dptr, datalen, sdpoff,
+ 					 &rtp_addr);
+ 
+@@ -1275,7 +1278,8 @@ static int process_register_request(struct sk_buff *skb, unsigned int dataoff,
+ 	exp->flags = NF_CT_EXPECT_PERMANENT | NF_CT_EXPECT_INACTIVE;
+ 
+ 	nf_nat_sip_expect = rcu_dereference(nf_nat_sip_expect_hook);
+-	if (nf_nat_sip_expect && ct->status & IPS_NAT_MASK)
++	if (nf_nat_sip_expect && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK)
+ 		ret = nf_nat_sip_expect(skb, dataoff, dptr, datalen, exp,
+ 					matchoff, matchlen);
+ 	else {
+@@ -1453,7 +1457,8 @@ static int process_sip_msg(struct sk_buff *skb, struct nf_conn *ct,
+ 	else
+ 		ret = process_sip_response(skb, dataoff, dptr, datalen);
+ 
+-	if (ret == NF_ACCEPT && ct->status & IPS_NAT_MASK) {
++	if (ret == NF_ACCEPT && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK) {
+ 		nf_nat_sip = rcu_dereference(nf_nat_sip_hook);
+ 		if (nf_nat_sip && !nf_nat_sip(skb, dataoff, dptr, datalen))
+ 			ret = NF_DROP;
+@@ -1534,7 +1539,8 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
+ 		datalen  = datalen + diff - msglen;
+ 	}
+ 
+-	if (ret == NF_ACCEPT && ct->status & IPS_NAT_MASK) {
++	if (ret == NF_ACCEPT && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++	    ct->status & IPS_NAT_MASK) {
+ 		nf_nat_sip_seq_adjust = rcu_dereference(nf_nat_sip_seq_adjust_hook);
+ 		if (nf_nat_sip_seq_adjust)
+ 			nf_nat_sip_seq_adjust(skb, tdiff);
+diff --git a/net/netfilter/nf_conntrack_tftp.c b/net/netfilter/nf_conntrack_tftp.c
+index 81fc61c..9363e1c 100644
+--- a/net/netfilter/nf_conntrack_tftp.c
++++ b/net/netfilter/nf_conntrack_tftp.c
+@@ -72,7 +72,8 @@ static int tftp_help(struct sk_buff *skb,
+ 		nf_ct_dump_tuple(&exp->tuple);
+ 
+ 		nf_nat_tftp = rcu_dereference(nf_nat_tftp_hook);
+-		if (nf_nat_tftp && ct->status & IPS_NAT_MASK)
++		if (nf_nat_tftp && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
++		    ct->status & IPS_NAT_MASK)
+ 			ret = nf_nat_tftp(skb, ctinfo, exp);
+ 		else if (nf_ct_expect_related(exp) != 0)
+ 			ret = NF_DROP;
 -- 
 1.7.1
+
