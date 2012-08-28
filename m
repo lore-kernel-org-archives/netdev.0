@@ -1,29 +1,112 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: Re: [PATCH] cxgb3: remove pointless conditional before kfree_skb()
-Date: Tue, 28 Aug 2012 22:19:57 +0800
-Message-ID: <CAPgLHd8RKXR-TSnbJLQ2GR28ORB7HTe4kDk8wkwo_e-r+0ue4w@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [PATCH V2 1/2] ipvs: IPv6 MTU checking cleanup and bugfix
+Date: Tue, 28 Aug 2012 16:22:43 +0200
+Message-ID: <20120828142122.11475.71918.stgit@dragon>
+References: <20120828142051.11475.63775.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: divy@chelsio.com, yongjun_wei@trendmicro.com.cn,
-	netdev@vger.kernel.org
-To: David.Laight@ACULAB.COM
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:43344 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751759Ab2H1OT6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 10:19:58 -0400
-Received: by qaas11 with SMTP id s11so2685729qaa.19
-        for <netdev@vger.kernel.org>; Tue, 28 Aug 2012 07:19:57 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	netfilter-devel@vger.kernel.org
+To: netdev@vger.kernel.org, "Patrick McHardy" <kaber@trash.net>,
+	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
+	Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120828142051.11475.63775.stgit@dragon>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/28/2012 09:24 PM, David Laight wrote:
->> -	if (t->nofail_skb)
->> -		kfree_skb(t->nofail_skb);
->> +	kfree_skb(t->nofail_skb);
-> Some of these conditionals might be there for performance
-> reasons - eg if common path and normally NULL.
+Cleaning up the IPv6 MTU checking in the IPVS xmit code, by using
+a common helper function __mtu_check_toobig_v6().
 
-I have a quick look at those code, cxgb3_offload_deactivate()
-is only used when remove device or device error and then disable
-the device, so maybe it is not a common path.
+The MTU check for tunnel mode can also use this helper as
+ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) is qual to
+skb->len.  And the 'mtu' variable have been adjusted before
+calling helper.
+
+Notice, this also fixes a bug, as the the MTU check in ip_vs_dr_xmit_v6()
+were missing a check for skb_is_gso().
+
+This bug e.g. caused issues for KVM IPVS setups, where different
+Segmentation Offloading techniques are utilized, between guests,
+via the virtio driver.  This resulted in very bad performance,
+due to the ICMPv6 "too big" messages didn't affect the sender.
+
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+In V2: we also make tunnel mode use the common helper
+
+ net/netfilter/ipvs/ip_vs_xmit.c |   21 +++++++++++++++------
+ 1 files changed, 15 insertions(+), 6 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 543a554..67a3978 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -85,6 +85,15 @@ __ip_vs_dst_check(struct ip_vs_dest *dest, u32 rtos)
+ 	return dst;
+ }
+ 
++static inline bool
++__mtu_check_toobig_v6(const struct sk_buff *skb, u32 mtu)
++{
++	if (skb->len > mtu && !skb_is_gso(skb)) {
++		return true; /* Packet size violate MTU size */
++	}
++	return false;
++}
++
+ /* Get route to daddr, update *saddr, optionally bind route to saddr */
+ static struct rtable *do_output_route4(struct net *net, __be32 daddr,
+ 				       u32 rtos, int rt_mode, __be32 *saddr)
+@@ -491,7 +500,7 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu && !skb_is_gso(skb)) {
++	if (__mtu_check_toobig_v6(skb, mtu)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -712,7 +721,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu && !skb_is_gso(skb)) {
++	if (__mtu_check_toobig_v6(skb, mtu)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -946,8 +955,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	if (skb_dst(skb))
+ 		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
+ 
+-	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) &&
+-	    !skb_is_gso(skb)) {
++	/* MTU checking: Notice that 'mtu' have been adjusted before hand */
++	if (__mtu_check_toobig_v6(skb, mtu)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -1113,7 +1122,7 @@ ip_vs_dr_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu) {
++	if (__mtu_check_toobig_v6(skb, mtu)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -1349,7 +1358,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu && !skb_is_gso(skb)) {
++	if (__mtu_check_toobig_v6(skb, mtu)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+
