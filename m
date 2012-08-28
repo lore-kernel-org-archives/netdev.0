@@ -1,75 +1,48 @@
-From: Xyne <xyne@archlinux.ca>
-Subject: jme driver: MAC spoofing issue
-Date: Tue, 28 Aug 2012 00:03:58 +0000
-Message-ID: <20120828000358.1b598294@archlinux.ca>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: CBQ(but probably u32 filter bug), kernel "freeze", at least from
+ 3.2.0
+Date: Tue, 28 Aug 2012 07:50:01 +0300
+Message-ID: <a680a8297b2f099eb713b266792b9b82@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oproxy11-pub.bluehost.com ([173.254.64.10]:60018 "HELO
-	oproxy11-pub.bluehost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1755108Ab2H1AcR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2012 20:32:17 -0400
-Received: from [83.154.192.247] (port=56630 helo=localhost.localdomain)
-	by box539.bluehost.com with esmtpsa (SSLv3:AES128-SHA:128)
-	(Exim 4.76)
-	(envelope-from <xyne@archlinux.ca>)
-	id 1T69Hm-0001P7-7j
-	for netdev@vger.kernel.org; Mon, 27 Aug 2012 18:04:02 -0600
+Received: from hosting.visp.net.lb ([194.146.153.11]:43296 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751465Ab2H1EuE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 00:50:04 -0400
+Received: from webmail.visp.net.lb (localhost [127.0.0.1])
+	by hosting.visp.net.lb (Postfix) with ESMTP id 032F148951D
+	for <netdev@vger.kernel.org>; Tue, 28 Aug 2012 07:50:02 +0300 (EEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi
 
-I was directed to post the following issue to this list. I apologize if this is
-not the right place for it.
+Got information from friend, confirmed that it crashed at least two my 
+boxes also :)
+3.0.5-rc1 is working fine, 3.4.1 , 3.2.0 from ubuntu  - crashing
+No watchdog fired, and didn't got yet significant debugging 
+information.
 
-I have a laptop with an onboard JMicron ethernet controller. Relevant hwinfo
-output along with additional system information are included at the end of the
-message.
+Very easy to reproduce:
+1)run the script
+2)ping 192.168.3.234
 
-I am able to change the MAC address using macchanger, ip and ifconfig but I am
-unable to obtain an IP address via DHCP (using dhcpcd or dhclient) after doing
-so.
+script:
+DEV_OUT=eth0
+ICMP="match ip protocol 1 0xff"
+U32="protocol ip u32"
+DST="match ip dst"
+tc qdisc add dev $DEV_OUT root handle 1: cbq avpkt 1000 bandwidth 
+100mbit
+tc class add dev $DEV_OUT parent 1: classid 1:1 cbq rate 512kbit allot 
+1500 prio 5 bounded isolated
+tc filter add dev $DEV_OUT parent 1:              prio 3 $U32 $ICMP 
+$DST 192.168.3.234 flowid 1:
+tc qdisc add dev $DEV_OUT parent 1:1 sfq perturb 10
 
-Aside from MAC spoofing, everything else works as expected.
-
-I have posted more information in a thread on the Arch Linux forum [1]. I have
-also packaged [2] and tested the upstream Git version of the driver [3], but
-the issue persists.
-
-
-Does anyone have any idea of how to resolve this? I have looked at the source
-code but I do not know anything about network drivers. I hope that the solution
-will be readily apparent to someone who is much more familiar with the code and
-drivers in general.
-
-Any help would be appreciated.
-
-
-Best regards,
-Xyne
-
-
-
-
-
-hwinfo:
-Model: "JMicron JMC250 PCI Express Gigabit Ethernet Controller"
-Driver: "jme"
-Driver Modules: "jme"
-Device File: eth0
-Driver Info #0:
-  Driver Status: jme is active
-  Driver Activation Cmd: "modprobe jme"
-Config Status: cfg=new, avail=yes, need=no, active=unknown
-
-System:
-Arch Linux x86_64, fully updated
-Kernel version: 3.4.9-1-ARCH
-
-
-[1] https://bbs.archlinux.org/viewtopic.php?id=144253
-[2] https://aur.archlinux.org/packages.php?ID=60649
-[3] http://bbs.cooldavid.org/git/?p=jme.git
+---
+Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
