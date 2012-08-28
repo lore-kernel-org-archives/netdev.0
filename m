@@ -1,48 +1,57 @@
-From: Aleksander Morgado <aleksander@lanedo.com>
-Subject: [PATCH] net: qmi_wwan: new device: Foxconn/Novatel E396
-Date: Tue, 28 Aug 2012 14:30:32 +0200
-Message-ID: <1346157032-31742-1-git-send-email-aleksander@lanedo.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] NFC: remove pointless conditional before kfree_skb()
+Date: Tue, 28 Aug 2012 21:02:40 +0800
+Message-ID: <CAPgLHd80nD+uYpMMC+sLjcErRcLbGpAVMw7PktrAoxJB8NwHsg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org,
-	Aleksander Morgado <aleksander@lanedo.com>,
-	Dan Williams <dcbw@redhat.com>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
-	Ben Chan <benchan@google.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
+	sameo@linux.intel.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanedo.com ([85.214.136.179]:35726 "EHLO lanedo.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751002Ab2H1Mia (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Aug 2012 08:38:30 -0400
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:47332 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751550Ab2H1NCl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 09:02:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46oxconn-branded Novatel E396, Gobi3k modem.
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Cc: Dan Williams <dcbw@redhat.com>
-Cc: Bj=C3=B8rn Mork <bjorn@mork.no>
-Cc: Ben Chan <benchan@google.com>
-Signed-off-by: Aleksander Morgado <aleksander@lanedo.com>
+Remove pointless conditional before kfree_skb().
+
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 ---
- drivers/net/usb/qmi_wwan.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/nfc/hci/shdlc.c | 3 +--
+ net/nfc/hci/core.c  | 3 +--
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 328397c..189e52d 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -441,6 +441,7 @@ static const struct usb_device_id products[] =3D {
- 	{QMI_GOBI_DEVICE(0x1199, 0x9015)},	/* Sierra Wireless Gobi 3000 Modem=
- device */
- 	{QMI_GOBI_DEVICE(0x1199, 0x9019)},	/* Sierra Wireless Gobi 3000 Modem=
- device */
- 	{QMI_GOBI_DEVICE(0x1199, 0x901b)},	/* Sierra Wireless MC7770 */
-+	{QMI_GOBI_DEVICE(0x1410, 0xa021)},	/* Foxconn Gobi 3000 Modem device =
-(Novatel E396) */
-=20
- 	{ }					/* END */
- };
---=20
-1.7.11.4
+diff --git a/net/nfc/hci/shdlc.c b/net/nfc/hci/shdlc.c
+index 6f840c1..52e5cbb 100644
+--- a/net/nfc/hci/shdlc.c
++++ b/net/nfc/hci/shdlc.c
+@@ -241,8 +241,7 @@ static void nfc_shdlc_rcv_i_frame(struct nfc_shdlc *shdlc,
+ 	}
+ 
+ exit:
+-	if (skb)
+-		kfree_skb(skb);
++	kfree_skb(skb);
+ }
+ 
+ static void nfc_shdlc_rcv_ack(struct nfc_shdlc *shdlc, int y_nr)
+
+diff --git a/net/nfc/hci/core.c b/net/nfc/hci/core.c
+index 1ac7b3f..35413cc 100644
+--- a/net/nfc/hci/core.c
++++ b/net/nfc/hci/core.c
+@@ -398,8 +398,7 @@ disconnect_all:
+ 	nfc_hci_disconnect_all_gates(hdev);
+ 
+ exit:
+-	if (skb)
+-		kfree_skb(skb);
++	kfree_skb(skb);
+ 
+ 	return r;
+ }
