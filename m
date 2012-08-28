@@ -1,63 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] skbuff: remove pointless conditional before kfree_skb()
-Date: Tue, 28 Aug 2012 07:12:34 -0700
-Message-ID: <1346163154.3571.6.camel@edumazet-glaptop>
-References: <CAPgLHd9m2VbFFXt5Q3MMrK6BPXvMrT-ptq+RfgBToXOpxAKOOw@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [PATCH V2 0/2] net: ipvs and netfilter IPv6 defrag MTU handling
+Date: Tue, 28 Aug 2012 16:21:17 +0200
+Message-ID: <20120828142051.11475.63775.stgit@dragon>
+References: <Pine.GSO.4.63.1208281020530.18770@stinky-local.trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, yongjun_wei@trendmicro.com.cn,
-	netdev@vger.kernel.org
-To: Wei Yongjun <weiyj.lk@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:63069 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751637Ab2H1OMh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Aug 2012 10:12:37 -0400
-Received: by dady13 with SMTP id y13so3339107dad.19
-        for <netdev@vger.kernel.org>; Tue, 28 Aug 2012 07:12:37 -0700 (PDT)
-In-Reply-To: <CAPgLHd9m2VbFFXt5Q3MMrK6BPXvMrT-ptq+RfgBToXOpxAKOOw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	netfilter-devel@vger.kernel.org
+To: netdev@vger.kernel.org, "Patrick McHardy" <kaber@trash.net>,
+	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
+	Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.GSO.4.63.1208281020530.18770@stinky-local.trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-08-28 at 21:10 +0800, Wei Yongjun wrote:
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> 
-> Remove pointless conditional before kfree_skb().
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> ---
->  include/linux/skbuff.h | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 7632c87..0b846d9 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2464,8 +2464,7 @@ static inline void nf_conntrack_get_reasm(struct sk_buff *skb)
->  }
->  static inline void nf_conntrack_put_reasm(struct sk_buff *skb)
->  {
-> -	if (skb)
-> -		kfree_skb(skb);
-> +	kfree_skb(skb);
->  }
->  #endif
->  #ifdef CONFIG_BRIDGE_NETFILTER
-> 
+The following patchset V2 makes IPVS compatible with Patrick McHardys
+IPv6 NAT patchset: http://thread.gmane.org/gmane.linux.network/239615
+
+Specifically the part that improves defragmentation.
+
+ Patch01: Cleanup (and fixes a bug) in IPVS MTU IPv6 handling
+  In V2: we also handle tunnel mode, to use the common helper
+
+ Patch02: Extend MTU check to account for IPv6 NAT defrag changes
+  In V2: the tunnel mode is no longer a special case.
+
+This patchset is based upon:
+ Homes ipvs-next tree:
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git
+
+BUT with Patrick McHardy's IPv6 NAT patchset applied first, on top of
+commit: 3654e61137db891f5312e6dd813b961484b5fdf3
+title: "ipvs: add pmtu_disc option to disable IP DF for TUN packets"
+
+---
+
+Jesper Dangaard Brouer (2):
+      ipvs: Extend MTU check to account for IPv6 NAT defrag changes
+      ipvs: IPv6 MTU checking cleanup and bugfix
 
 
-Its not exactly pointless.
+ net/netfilter/ipvs/ip_vs_xmit.c |   28 ++++++++++++++++++++++------
+ 1 files changed, 22 insertions(+), 6 deletions(-)
 
-Its a tradeoff between kernel code size, and ability for cpu to predict
-a branch in kfree_skb()
 
-This test is in hot path, and therefore this patch can potentially have
-a performance impact.
-
-I really think most kfree_skb() calls are done with a non NULL param,
-so the branch prediction is good.
-
-But after this patch, things are totally different.
-
-Therefore, I am against it.
+--
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
