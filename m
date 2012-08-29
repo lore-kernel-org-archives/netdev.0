@@ -1,108 +1,115 @@
-From: Chris Webb <chris@arachsys.com>
-Subject: Re: Slow inbound traffic on macvtap interfaces
-Date: Wed, 29 Aug 2012 18:52:56 +0100
-Message-ID: <20120829175256.GC3529@arachsys.com>
-References: <20120816092004.GA1894@arachsys.com>
+From: Timur Tabi <timur@freescale.com>
+Subject: [PATCH 4/7] net/fsl_pq_mdio: various small fixes
+Date: Wed, 29 Aug 2012 13:08:00 -0500
+Message-ID: <1346263683-3664-4-git-send-email-timur@freescale.com>
+References: <1346263683-3664-1-git-send-email-timur@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Jason Wang <jasowang@redhat.com>, Arnd Bergmann <arnd@arndb.de>
-To: netdev@vger.kernel.org, qemu-devel@nongnu.org
+Content-Type: text/plain
+To: Andy Fleming <afleming@freescale.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alpha.arachsys.com ([91.203.57.7]:44477 "EHLO
-	alpha.arachsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754154Ab2H2Rw7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2012 13:52:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20120816092004.GA1894@arachsys.com>
+Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:2411
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754277Ab2H2SIM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2012 14:08:12 -0400
+In-Reply-To: <1346263683-3664-1-git-send-email-timur@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris Webb <chris@arachsys.com> writes:
+1) Replace printk with dev_err
 
-> I'm experiencing a problem with qemu + macvtap which I can reproduce on a
-> variety of hardware, with kernels varying from 3.0.4 (the oldest I tried) to
-> 3.5.1 and with qemu[-kvm] versions 0.14.1, 1.0, and 1.1.
-> 
-> Large data transfers over TCP into a guest from another machine on the
-> network are very slow (often less than 100kB/s) whereas transfers outbound
-> from the guest, between two guests on the same host, or between the guest
-> and its host run at normal speeds (>= 50MB/s).
-> 
-> The slow inbound data transfer speeds up substantially when a ping flood is
-> aimed either at the host or the guest, or when the qemu process is straced.
-> Presumably both of these are ways to wake up something that is otherwise
-> sleeping too long?
+2) Fix some whitespace mistakes
 
-I thought I'd try bisecting from when macvtap was introduced (2.6.34 where it
-presumably worked fine), but in preparing to do that, I stumbled upon a way to
-change the behaviour from slow to fast with different kernel .configs. Pinning
-it down specifically, I found that on my laptop, the single change of host
-kernel config
+3) Rename "ofdev" to "pdev", since it's a platform_device now
 
--CONFIG_INTEL_IDLE=y
-+# CONFIG_INTEL_IDLE is not set
+4) Fix an inadvertent compound statement by replacing commas with semicolons
 
-is sufficient to turn transfers into guests from slow to full wire speed.
-The .configs of the 'slow' and 'fast' host kernels are respectively at
+Signed-off-by: Timur Tabi <timur@freescale.com>
+---
+ drivers/net/ethernet/freescale/fsl_pq_mdio.c |   27 ++++++++++++-------------
+ 1 files changed, 13 insertions(+), 14 deletions(-)
 
-  http://cdw.me.uk/tmp/goingslow.config
-  http://cdw.me.uk/tmp/goingfast.config
-
-Our big servers that show the symptoms are Opteron 6128 boxes, and (perhaps
-unsurprisingly) aren't affected by CONFIG_INTEL_IDLE. In fact, turning off the
-whole of the CPU idle infrastructure as below didn't have any effect: transfers
-into the guest remained slow.
-
-@@ -441,10 +441,8 @@ CONFIG_ACPI=y
- # CONFIG_ACPI_BUTTON is not set
- CONFIG_ACPI_FAN=y
- CONFIG_ACPI_DOCK=y
--CONFIG_ACPI_PROCESSOR=y
-+# CONFIG_ACPI_PROCESSOR is not set
- CONFIG_ACPI_IPMI=y
--CONFIG_ACPI_PROCESSOR_AGGREGATOR=y
--CONFIG_ACPI_THERMAL=y
- CONFIG_ACPI_NUMA=y
- # CONFIG_ACPI_CUSTOM_DSDT is not set
- CONFIG_ACPI_BLACKLIST_YEAR=0
-@@ -463,16 +461,12 @@ CONFIG_SFI=y
- # CPU Frequency scaling
- #
- # CONFIG_CPU_FREQ is not set
--CONFIG_CPU_IDLE=y
--CONFIG_CPU_IDLE_GOV_LADDER=y
--CONFIG_CPU_IDLE_GOV_MENU=y
--CONFIG_INTEL_IDLE=y
-+# CONFIG_CPU_IDLE is not set
+diff --git a/drivers/net/ethernet/freescale/fsl_pq_mdio.c b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
+index d5b7590..44f00a4 100644
+--- a/drivers/net/ethernet/freescale/fsl_pq_mdio.c
++++ b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
+@@ -155,8 +155,7 @@ static int fsl_pq_mdio_reset(struct mii_bus *bus)
+ 	mutex_unlock(&bus->mdio_lock);
  
- #
- # Memory power savings
- #
--CONFIG_I7300_IDLE_IOAT_CHANNEL=y
--CONFIG_I7300_IDLE=y
-+# CONFIG_I7300_IDLE is not set
+ 	if (!status) {
+-		printk(KERN_ERR "%s: The MII Bus is stuck!\n",
+-				bus->name);
++		dev_err(&bus->dev, "timeout waiting for MII bus\n");
+ 		return -EBUSY;
+ 	}
  
- #
- # Bus options (PCI etc.)
-
-
-(From earlier in the thread, the full unmodified kernel config for one of these
-boxes is at
-
-  http://cdw.me.uk/tmp/server-config.txt
-
-and I've tested equivalent configs on kernels from 3.0.x to the head of
-Linus' git tree.)
-
-Is the CONFIG_INTEL_IDLE thing suggestive of what the problem might be at all?
-Out of interest, what is the impact of disabling this on Intel machines?
-Presumably in this case we rely on ACPI for processor idle?
-
-Also, is there an equivalent for AMD machines which we could disable on our
-large Opteron boxes, given that even getting rid of the whole CONFIG_CPU_IDLE
-machinery didn't change anything as CONFIG_INTEL_IDLE did on the Intel box?
-
-Best wishes,
-
-Chris.
+@@ -173,7 +172,7 @@ static u32 __iomem *get_gfar_tbipa(struct fsl_pq_mdio __iomem *regs, struct devi
+ 	 * Also, we have to cast back to struct gfar because of
+ 	 * definition weirdness done in gianfar.h.
+ 	 */
+-	if(of_device_is_compatible(np, "fsl,gianfar-mdio") ||
++	if (of_device_is_compatible(np, "fsl,gianfar-mdio") ||
+ 		of_device_is_compatible(np, "fsl,gianfar-tbi") ||
+ 		of_device_is_compatible(np, "gianfar")) {
+ 		enet_regs = (struct gfar __iomem *)regs;
+@@ -227,9 +226,9 @@ static int get_ucc_id_for_range(u64 start, u64 end, u32 *ucc_id)
+ #endif
+ }
+ 
+-static int fsl_pq_mdio_probe(struct platform_device *ofdev)
++static int fsl_pq_mdio_probe(struct platform_device *pdev)
+ {
+-	struct device_node *np = ofdev->dev.of_node;
++	struct device_node *np = pdev->dev.of_node;
+ 	struct device_node *tbi;
+ 	struct fsl_pq_mdio_priv *priv;
+ 	struct fsl_pq_mdio __iomem *regs = NULL;
+@@ -252,9 +251,9 @@ static int fsl_pq_mdio_probe(struct platform_device *ofdev)
+ 	}
+ 
+ 	new_bus->name = "Freescale PowerQUICC MII Bus",
+-	new_bus->read = &fsl_pq_mdio_read,
+-	new_bus->write = &fsl_pq_mdio_write,
+-	new_bus->reset = &fsl_pq_mdio_reset,
++	new_bus->read = &fsl_pq_mdio_read;
++	new_bus->write = &fsl_pq_mdio_write;
++	new_bus->reset = &fsl_pq_mdio_reset;
+ 	new_bus->priv = priv;
+ 
+ 	addrp = of_get_address(np, 0, &size, NULL);
+@@ -295,8 +294,8 @@ static int fsl_pq_mdio_probe(struct platform_device *ofdev)
+ 		goto err_unmap_regs;
+ 	}
+ 
+-	new_bus->parent = &ofdev->dev;
+-	dev_set_drvdata(&ofdev->dev, new_bus);
++	new_bus->parent = &pdev->dev;
++	dev_set_drvdata(&pdev->dev, new_bus);
+ 
+ 	if (of_device_is_compatible(np, "fsl,gianfar-mdio") ||
+ 			of_device_is_compatible(np, "fsl,gianfar-tbi") ||
+@@ -348,8 +347,8 @@ static int fsl_pq_mdio_probe(struct platform_device *ofdev)
+ 
+ 	err = of_mdiobus_register(new_bus, np);
+ 	if (err) {
+-		printk (KERN_ERR "%s: Cannot register as MDIO bus\n",
+-				new_bus->name);
++		dev_err(&pdev->dev, "cannot register %s as MDIO bus\n",
++			new_bus->name);
+ 		goto err_free_irqs;
+ 	}
+ 
+@@ -367,9 +366,9 @@ err_free_priv:
+ }
+ 
+ 
+-static int fsl_pq_mdio_remove(struct platform_device *ofdev)
++static int fsl_pq_mdio_remove(struct platform_device *pdev)
+ {
+-	struct device *device = &ofdev->dev;
++	struct device *device = &pdev->dev;
+ 	struct mii_bus *bus = dev_get_drvdata(device);
+ 	struct fsl_pq_mdio_priv *priv = bus->priv;
+ 
+-- 
+1.7.3.4
