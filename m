@@ -1,82 +1,31 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH 2/3] ipvs: Fix faulty IPv6 extension  header handling in
- IPVS
-Date: Wed, 29 Aug 2012 13:46:10 +0200
-Message-ID: <1346240770.3069.477.camel@localhost>
-References: <nhkcv8u.3c7ad6d61f90aef8e9467df88476311d@obelix.schillstrom.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 02/19] Cleaning up the IPv6 MTU checking in the IPVS xmit
+ code, by using a common helper function __mtu_check_toobig_v6().
+Date: Wed, 29 Aug 2012 14:24:39 +0200 (MEST)
+Message-ID: <Pine.GSO.4.63.1208291424050.26100@stinky-local.trash.net>
+References: <1346190539-9963-1-git-send-email-kaber@trash.net>
+ <1346190539-9963-3-git-send-email-kaber@trash.net>
+ <Pine.LNX.4.64.1208290959010.32281@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Hans Schillstrom <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	Julian Anastasov <ja@ssi.bg>,
-	Simon Horman <horms@verge.net.au>,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <nhkcv8u.3c7ad6d61f90aef8e9467df88476311d@obelix.schillstrom.com>
+In-Reply-To: <Pine.LNX.4.64.1208290959010.32281@ask.diku.dk>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To Patrick,
+On Wed, 29 Aug 2012, Jesper Dangaard Brouer wrote:
 
-On Wed, 2012-08-29 at 11:47 +0200, Hans Schillstrom wrote:
-> >
-> >On Mon, 2012-08-27 at 14:02 +0200, Patrick McHardy wrote:
-> >> On Mon, 27 Aug 2012, Hans Schillstrom wrote:
-> >> 
-> >> >>>>
-> >> >>>> On Mon, 20 Aug 2012, Jesper Dangaard Brouer wrote:
-> >> >>>>
-> >> >>>>> Based on patch from: Hans Schillstrom
-> >> >>>>>
-> >> >>>>> IPv6 headers must be processed in order of appearance,
-> >> >>>>> neither can it be assumed that Upper layer headers is first.
-> >> >>>>> If anything else than L4 is the first header IPVS will throw it.
-> >> >>>>>
-> >> >>>>> IPVS will write SNAT & DNAT modifications at a fixed pos which
-> >> >>>>> will corrupt the message. Proper header position must be found
-> >> >>>>> before writing modifying packet.
-> >> >>>>>
-> >> >>>>> This patch contains a lot of API changes.  This is done, to avoid
-> >> >>>>> the costly scan of finding the IPv6 headers, via ipv6_find_hdr().
-> >> >>>>> Finding the IPv6 headers is done as early as possible, and passed
-> >> >>>>> on as a pointer "struct ip_vs_iphdr *" to the affected functions.
-> >> >>>>
-> >> >>>> How about we change netfilter to set up the skb's transport header
-> >> >>>> at an early time so we can avoid all (most of) these header scans
-> >> >>>> in netfilter?
-> >> >>>
-> >> >>> I think that would be great, maybe it should be global i.e. not only a netfilter issue.
-> >> >>
-> >> >> I think in most other cases the headers are supposed to be processed
-> >> >> sequentially. One problem though - to be useful for netfilter/IPVS
-> >> >> we'd also need to store the transport layer protocol somewhere.
-> >> >
-> >> > I guess that's the problem, adding it to the skb will not be popular ....
-> >> > Right now I don't have a good solution, maybe a more generic netfilter ptr in the skb ...
-> >> 
-> >> I guess inet6_skb_parm will be at least slightly more popular than
-> >> adding it to the skb itself. The netfilter pointers are all used for
-> >> optional things, so we can't really add it to any of those.
-> >
-> >Okay, but how do we go from here?
-> >
-> >Hans, should this hold back the patch ("ipvs: Fix faulty IPv6 extension
-> >header handling in IPVS").  Or should we pursue our patch, and circle
-> >back later once e.g. Patrick have found a generic solution for IPv6
-> >transport header handling?
-> 
-> Should we give it a try to put it in inet6_skb_parm 
-> and minimize what we put there ?
-> I think it could be worth it.
+>
+> Just a little nitpick.
+>
+> The original title/subj was:
+> "ipvs: IPv6 MTU checking cleanup and bugfix"
+>
+> And the curr/used title/subj were part of the commit text.
 
-Okay, but then I do need some help and guidance, especially from
-Patrick, think.
-
-First of all, where in the netfilter code, should we update the new
-fields in inet6_skb_parm?
-
-
-
+Sorry, must have happened while importing the patch, I noticed it
+afterwards, but was already too late.
