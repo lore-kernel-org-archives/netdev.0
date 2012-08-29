@@ -1,21 +1,23 @@
-From: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
-Subject: [PATCH 4/7] net/bluetooth/rfcomm/core.c: fix error return code
-Date: Wed, 29 Aug 2012 18:49:14 +0200
-Message-ID: <1346258957-7649-5-git-send-email-Julia.Lawall@lip6.fr>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 1/7] ipvs: fix error return code
+Date: Wed, 29 Aug 2012 18:49:11 +0200
+Message-ID: <1346258957-7649-2-git-send-email-Julia.Lawall@lip6.fr>
 References: <1346258957-7649-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1346258957-7649-1-git-send-email-Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: kernel-janitors@vger.kernel.org, Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	linux-kernel@vger.kernel.org
+To: Wensong Zhang <wensong@linux-vs.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1346258957-7649-1-git-send-email-Julia.Lawall@lip6.fr>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
 Initialize return variable before exiting on an error path.
 
@@ -40,25 +42,26 @@ ret@p1 = 0
 
 // </smpl>
 
-Signed-off-by: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- net/bluetooth/rfcomm/core.c |    4 +++-
+ net/netfilter/ipvs/ip_vs_ctl.c |    4 +++-
  1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/net/bluetooth/rfcomm/core.c b/net/bluetooth/rfcomm/core.c
-index c75107e..30141c0 100644
---- a/net/bluetooth/rfcomm/core.c
-+++ b/net/bluetooth/rfcomm/core.c
-@@ -2010,8 +2010,10 @@ static int rfcomm_add_listener(bdaddr_t *ba)
- 
- 	/* Add listening session */
- 	s = rfcomm_session_add(sock, BT_LISTEN);
--	if (!s)
-+	if (!s) {
-+		err = -ENOMEM;
- 		goto failed;
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 3c60137..767cc12 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -1171,8 +1171,10 @@ ip_vs_add_service(struct net *net, struct ip_vs_service_user_kern *u,
+ 		goto out_err;
+ 	}
+ 	svc->stats.cpustats = alloc_percpu(struct ip_vs_cpu_stats);
+-	if (!svc->stats.cpustats)
++	if (!svc->stats.cpustats) {
++		ret = -ENOMEM;
+ 		goto out_err;
 +	}
  
- 	rfcomm_session_hold(s);
- 	return 0;
+ 	/* I'm the first user of the service */
+ 	atomic_set(&svc->usecnt, 0);
+
