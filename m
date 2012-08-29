@@ -1,123 +1,204 @@
-From: Malcolm Priestley <tvboxspy@gmail.com>
-Subject: [PATCH] vt6656: [BUG] - Failed connection, incorrect endian. v2
-Date: Wed, 29 Aug 2012 21:54:04 +0100
-Message-ID: <1346273644.2077.3.camel@router7789>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org
+From: Masatake YAMATO <yamato@redhat.com>
+Subject: [PATCH] net: Providing protocol type via system.sockprotoname xattr of /proc/PID/fd entries
+Date: Thu, 30 Aug 2012 05:44:29 +0900
+Message-ID: <1346273069-5390-1-git-send-email-yamato@redhat.com>
+Cc: linux-kernel@vger.kernel.org, Masatake YAMATO <yamato@redhat.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:38777 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752579Ab2H2UyO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2012 16:54:14 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+lsof reports some of socket descriptors as "can't identify protocol" like:
 
-This patch fixes a bug with driver failing to negotiate a connection.
+    [yamato@localhost]/tmp% sudo lsof | grep dbus | grep iden
+    dbus-daem   652          dbus    6u     sock ... 17812 can't identify protocol
+    dbus-daem   652          dbus   34u     sock ... 24689 can't identify protocol
+    dbus-daem   652          dbus   42u     sock ... 24739 can't identify protocol
+    dbus-daem   652          dbus   48u     sock ... 22329 can't identify protocol
+    ...
 
-The bug was traced to commit
-203e4615ee9d9fa8d3506b9d0ef30095e4d5bc90
-staging: vt6656: removed custom definitions of Ethernet packet types
+lsof cannot resolve the protocol used in a socket because procfs
+doesn't provide the map between inode number on sockfs and protocol
+type of the socket.
 
-In that patch, definitions in include/linux/if_ether.h replaced ones
-in tether.h which had both big and little endian definitions.
+For improving the situation this patch adds an extended attribute named
+'system.sockprotoname' in which the protocol name for
+/proc/PID/fd/SOCKET is stored. So lsof can know the protocol for a
+given /proc/PID/fd/SOCKET with getxattr system call.
 
-include/linux/if_ether.h only refers to big endian values, cpu_to_be16
-should be used for the correct endian architectures.
+A few weeks ago I submitted a patch for the same purpose. The patch
+was introduced /proc/net/sockfs which enumerates inodes and protocols
+of all sockets alive on a system. However, it was rejected because (1)
+a global lock was needed, and (2) the layout of struct socket was
+changed with the patch.
 
-checkpatch fixed version.
+This patch doesn't use any global lock; and doesn't change the layout
+of any structs.
 
-Signed-off-by: Malcolm Priestley <tvboxspy@gmail.com>
+In this patch, a protocol name is stored to dentry->d_name of sockfs
+when new socket is associated with a file descriptor. Before this
+patch dentry->d_name was not used; it was just filled with empty
+string. lsof may use an extended attribute named
+'system.sockprotoname' to retrieve the value of dentry->d_name.
+
+It is nice if we can see the protocol name with ls -l
+/proc/PID/fd. However, "socket:[#INODE]", the name format returned
+from sockfs_dname() was already defined. To keep the compatibility
+between kernel and user land, the extended attribute is used to
+prepare the value of dentry->d_name.
+
+Signed-off-by: Masatake YAMATO <yamato@redhat.com>
 ---
- drivers/staging/vt6656/dpc.c  |    2 +-
- drivers/staging/vt6656/rxtx.c |   38 +++++++++++++++++++-------------------
- 2 files changed, 20 insertions(+), 20 deletions(-)
+ net/socket.c | 83 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 78 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/staging/vt6656/dpc.c b/drivers/staging/vt6656/dpc.c
-index e4bdf2a..3aa895e 100644
---- a/drivers/staging/vt6656/dpc.c
-+++ b/drivers/staging/vt6656/dpc.c
-@@ -200,7 +200,7 @@ s_vProcessRxMACHeader (
-     } else if (!compare_ether_addr(pbyRxBuffer, &pDevice->abySNAP_RFC1042[0])) {
-         cbHeaderSize += 6;
-         pwType = (PWORD) (pbyRxBufferAddr + cbHeaderSize);
--	if ((*pwType == cpu_to_le16(ETH_P_IPX)) ||
-+	if ((*pwType == cpu_to_be16(ETH_P_IPX)) ||
- 	    (*pwType == cpu_to_le16(0xF380))) {
- 		cbHeaderSize -= 8;
-             pwType = (PWORD) (pbyRxBufferAddr + cbHeaderSize);
-diff --git a/drivers/staging/vt6656/rxtx.c b/drivers/staging/vt6656/rxtx.c
-index bb46452..b6e04e7 100644
---- a/drivers/staging/vt6656/rxtx.c
-+++ b/drivers/staging/vt6656/rxtx.c
-@@ -1699,7 +1699,7 @@ s_bPacketToWirelessUsb(
-     // 802.1H
-     if (ntohs(psEthHeader->wType) > ETH_DATA_LEN) {
- 	if (pDevice->dwDiagRefCount == 0) {
--		if ((psEthHeader->wType == cpu_to_le16(ETH_P_IPX)) ||
-+		if ((psEthHeader->wType == cpu_to_be16(ETH_P_IPX)) ||
- 		    (psEthHeader->wType == cpu_to_le16(0xF380))) {
- 			memcpy((PBYTE) (pbyPayloadHead),
- 			       abySNAP_Bridgetunnel, 6);
-@@ -2838,10 +2838,10 @@ int nsDMA_tx_packet(PSDevice pDevice, unsigned int uDMAIdx, struct sk_buff *skb)
-     Packet_Type = skb->data[ETH_HLEN+1];
-     Descriptor_type = skb->data[ETH_HLEN+1+1+2];
-     Key_info = (skb->data[ETH_HLEN+1+1+2+1] << 8)|(skb->data[ETH_HLEN+1+1+2+2]);
--    if (pDevice->sTxEthHeader.wType == cpu_to_le16(ETH_P_PAE)) {
--	/* 802.1x OR eapol-key challenge frame transfer */
--	if (((Protocol_Version == 1) || (Protocol_Version == 2)) &&
--		(Packet_Type == 3)) {
-+	if (pDevice->sTxEthHeader.wType == cpu_to_be16(ETH_P_PAE)) {
-+		/* 802.1x OR eapol-key challenge frame transfer */
-+		if (((Protocol_Version == 1) || (Protocol_Version == 2)) &&
-+			(Packet_Type == 3)) {
-                         bTxeapol_key = TRUE;
-                        if(!(Key_info & BIT3) &&  //WPA or RSN group-key challenge
- 			   (Key_info & BIT8) && (Key_info & BIT9)) {    //send 2/2 key
-@@ -2987,19 +2987,19 @@ int nsDMA_tx_packet(PSDevice pDevice, unsigned int uDMAIdx, struct sk_buff *skb)
-         }
-     }
+diff --git a/net/socket.c b/net/socket.c
+index a5471f8..977c0f4 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -88,6 +88,7 @@
+ #include <linux/nsproxy.h>
+ #include <linux/magic.h>
+ #include <linux/slab.h>
++#include <linux/xattr.h>
  
--    if (pDevice->sTxEthHeader.wType == cpu_to_le16(ETH_P_PAE)) {
--        if (pDevice->byBBType != BB_TYPE_11A) {
--            pDevice->wCurrentRate = RATE_1M;
--            pDevice->byACKRate = RATE_1M;
--            pDevice->byTopCCKBasicRate = RATE_1M;
--            pDevice->byTopOFDMBasicRate = RATE_6M;
--        } else {
--            pDevice->wCurrentRate = RATE_6M;
--            pDevice->byACKRate = RATE_6M;
--            pDevice->byTopCCKBasicRate = RATE_1M;
--            pDevice->byTopOFDMBasicRate = RATE_6M;
--        }
--    }
-+	if (pDevice->sTxEthHeader.wType == cpu_to_be16(ETH_P_PAE)) {
-+		if (pDevice->byBBType != BB_TYPE_11A) {
-+			pDevice->wCurrentRate = RATE_1M;
-+			pDevice->byACKRate = RATE_1M;
-+			pDevice->byTopCCKBasicRate = RATE_1M;
-+			pDevice->byTopOFDMBasicRate = RATE_6M;
-+		} else {
-+			pDevice->wCurrentRate = RATE_6M;
-+			pDevice->byACKRate = RATE_6M;
-+			pDevice->byTopCCKBasicRate = RATE_1M;
-+			pDevice->byTopOFDMBasicRate = RATE_6M;
-+		}
+ #include <asm/uaccess.h>
+ #include <asm/unistd.h>
+@@ -346,7 +347,8 @@ static struct file_system_type sock_fs_type = {
+  *	but we take care of internal coherence yet.
+  */
+ 
+-static int sock_alloc_file(struct socket *sock, struct file **f, int flags)
++static int sock_alloc_file(struct socket *sock, struct file **f, int flags,
++			   const char *dname)
+ {
+ 	struct qstr name = { .name = "" };
+ 	struct path path;
+@@ -357,6 +359,13 @@ static int sock_alloc_file(struct socket *sock, struct file **f, int flags)
+ 	if (unlikely(fd < 0))
+ 		return fd;
+ 
++	if (dname) {
++		name.name = dname;
++		name.len = strlen(name.name);
++	} else if (sock->sk) {
++		name.name = sock->sk->sk_prot_creator->name;
++		name.len = strlen(name.name);
 +	}
+ 	path.dentry = d_alloc_pseudo(sock_mnt->mnt_sb, &name);
+ 	if (unlikely(!path.dentry)) {
+ 		put_unused_fd(fd);
+@@ -389,7 +398,7 @@ static int sock_alloc_file(struct socket *sock, struct file **f, int flags)
+ int sock_map_fd(struct socket *sock, int flags)
+ {
+ 	struct file *newfile;
+-	int fd = sock_alloc_file(sock, &newfile, flags);
++	int fd = sock_alloc_file(sock, &newfile, flags, NULL);
  
-     DBG_PRT(MSG_LEVEL_DEBUG,
- 	    KERN_INFO "dma_tx: pDevice->wCurrentRate = %d\n",
-@@ -3015,7 +3015,7 @@ int nsDMA_tx_packet(PSDevice pDevice, unsigned int uDMAIdx, struct sk_buff *skb)
+ 	if (likely(fd >= 0))
+ 		fd_install(fd, newfile);
+@@ -455,6 +464,68 @@ static struct socket *sockfd_lookup_light(int fd, int *err, int *fput_needed)
+ 	return NULL;
+ }
  
-     if (bNeedEncryption == TRUE) {
-         DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO"ntohs Pkt Type=%04x\n", ntohs(pDevice->sTxEthHeader.wType));
--	if ((pDevice->sTxEthHeader.wType) == cpu_to_le16(ETH_P_PAE)) {
-+	if ((pDevice->sTxEthHeader.wType) == cpu_to_be16(ETH_P_PAE)) {
- 		bNeedEncryption = FALSE;
-             DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO"Pkt Type=%04x\n", (pDevice->sTxEthHeader.wType));
-             if ((pMgmt->eCurrMode == WMAC_MODE_ESS_STA) && (pMgmt->eCurrState == WMAC_STATE_ASSOC)) {
++#define XATTR_SOCKPROTONAME_SUFFIX "sockprotoname"
++#define XATTR_NAME_SOCKPROTONAME (XATTR_SYSTEM_PREFIX XATTR_SOCKPROTONAME_SUFFIX)
++#define XATTR_NAME_SOCKPROTONAME_LEN (sizeof(XATTR_NAME_SOCKPROTONAME)-1)
++static ssize_t sockfs_getxattr(struct dentry *dentry,
++			       const char *name, void *value, size_t size)
++{
++	const char *proto_name;
++	size_t proto_size;
++	int error;
++
++	error = -ENODATA;
++	if (!strncmp(name, XATTR_NAME_SOCKPROTONAME, XATTR_NAME_SOCKPROTONAME_LEN)) {
++		proto_name = dentry->d_name.name;
++		proto_size = strlen(proto_name);
++
++		if (value) {
++			error = -ERANGE;
++			if (proto_size + 1 > size)
++				goto out;
++
++			strncpy(value, proto_name, proto_size + 1);
++		}
++		error = proto_size + 1;
++	}
++
++out:
++	return error;
++}
++
++static ssize_t sockfs_listxattr(struct dentry *dentry, char *buffer,
++				size_t size)
++{
++	ssize_t len;
++	ssize_t used = 0;
++
++	len = security_inode_listsecurity(dentry->d_inode, buffer, size);
++	if (len < 0)
++		return len;
++	used += len;
++	if (buffer) {
++		if (size < used)
++			return -ERANGE;
++		buffer += len;
++	}
++
++	len = (XATTR_NAME_SOCKPROTONAME_LEN + 1);
++	used += len;
++	if (buffer) {
++		if (size < used)
++			return -ERANGE;
++		memcpy(buffer, XATTR_NAME_SOCKPROTONAME, len);
++		buffer += len;
++	}
++
++	return used;
++}
++
++static const struct inode_operations sockfs_inode_ops = {
++	.getxattr = sockfs_getxattr,
++	.listxattr = sockfs_listxattr,
++};
++
+ /**
+  *	sock_alloc	-	allocate a socket
+  *
+@@ -479,6 +550,7 @@ static struct socket *sock_alloc(void)
+ 	inode->i_mode = S_IFSOCK | S_IRWXUGO;
+ 	inode->i_uid = current_fsuid();
+ 	inode->i_gid = current_fsgid();
++	inode->i_op = &sockfs_inode_ops;
+ 
+ 	this_cpu_add(sockets_in_use, 1);
+ 	return sock;
+@@ -1394,13 +1466,13 @@ SYSCALL_DEFINE4(socketpair, int, family, int, type, int, protocol,
+ 	if (err < 0)
+ 		goto out_release_both;
+ 
+-	fd1 = sock_alloc_file(sock1, &newfile1, flags);
++	fd1 = sock_alloc_file(sock1, &newfile1, flags, NULL);
+ 	if (unlikely(fd1 < 0)) {
+ 		err = fd1;
+ 		goto out_release_both;
+ 	}
+ 
+-	fd2 = sock_alloc_file(sock2, &newfile2, flags);
++	fd2 = sock_alloc_file(sock2, &newfile2, flags, NULL);
+ 	if (unlikely(fd2 < 0)) {
+ 		err = fd2;
+ 		fput(newfile1);
+@@ -1536,7 +1608,8 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
+ 	 */
+ 	__module_get(newsock->ops->owner);
+ 
+-	newfd = sock_alloc_file(newsock, &newfile, flags);
++	newfd = sock_alloc_file(newsock, &newfile, flags,
++				sock->sk->sk_prot_creator->name);
+ 	if (unlikely(newfd < 0)) {
+ 		err = newfd;
+ 		sock_release(newsock);
 -- 
-1.7.10.4
+1.7.11.4
