@@ -1,21 +1,21 @@
-From: "Dave, Tushar N" <tushar.n.dave@intel.com>
+From: Kelvie Wong <kelvie@ieee.org>
 Subject: Re: Intel 82574L hang when sending short ethernet
- packets at 100BaseT
-Date: Wed, 29 Aug 2012 20:29:26 +0000
-Message-ID: <061C8A8601E8EE4CA8D8FD6990CEA89130DB60AC@ORSMSX102.amr.corp.intel.com>
+	packets at 100BaseT
+Date: Wed, 29 Aug 2012 13:46:10 -0700
+Message-ID: <CAK2bC5oMnxerNYsgoD7WFJ6p84=BqaZLFdt+GdO91tF0gmyg2w@mail.gmail.com>
 References: <87k3whtqci.fsf@kwong-desktop.i-did-not-set--mail-host-address--so-tickle-me>
 	<061C8A8601E8EE4CA8D8FD6990CEA89130DB6077@ORSMSX102.amr.corp.intel.com>
 	<CAK2bC5q5NcWj5vsmPB1GekUpON_R_mTWgkEAYBgBZSJZ30GcDg@mail.gmail.com>
+	<061C8A8601E8EE4CA8D8FD6990CEA89130DB60AC@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Kelvie Wong <kwong@wurldtech.com>
-To: Kelvie Wong <kelvie@ieee.org>
+To: "Dave, Tushar N" <tushar.n.dave@intel.com>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <CAK2bC5q5NcWj5vsmPB1GekUpON_R_mTWgkEAYBgBZSJZ30GcDg@mail.gmail.com>
-Content-Language: en-US
+In-Reply-To: <061C8A8601E8EE4CA8D8FD6990CEA89130DB60AC@ORSMSX102.amr.corp.intel.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -26,30 +26,14 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: kelvie@gmail.com [mailto:kelvie@gmail.com] On Behalf Of Kelvie Wong
->Sent: Wednesday, August 29, 2012 1:17 PM
->To: Dave, Tushar N
->Cc: netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net; Kelvie Wong
->Subject: Re: Intel 82574L hang when sending short ethernet packets at
->100BaseT
->
->On Wed, Aug 29, 2012 at 1:13 PM, Dave, Tushar N <tushar.n.dave@intel.com>
->wrote:
->>>
->>>Anyway, here is the reproduction tool:
->>
->> I see, "Adding enough zero pad bytes to bring frame size up to 17 bytes
->causes the reset to no longer occur" - Is this true?
->>
->> -Tushar
->
->Yes, that is correct. We have been doing that ourselves as a workaround.
+On Wed, Aug 29, 2012 at 1:29 PM, Dave, Tushar N <tushar.n.dave@intel.com> wrote:
+> I'm already aware of this issue on PCI/PCI-X parts and e1000 SF driver does have this WA implemented. The patch for upstream e1000 driver is submitted too which will be accepted soon.
+> I will check with team and see if we need similar WA for PCIe part(s)!
 
-I'm already aware of this issue on PCI/PCI-X parts and e1000 SF driver does have this WA implemented. The patch for upstream e1000 driver is submitted too which will be accepted soon.
-I will check with team and see if we need similar WA for PCIe part(s)!
+Ah, I see. Thanks for the clarification.
+-- 
+Kelvie Wong
 
--Tushar 
 ------------------------------------------------------------------------------
 Live Security Virtual Conference
 Exclusive live event will cover all the ways today's security and 
