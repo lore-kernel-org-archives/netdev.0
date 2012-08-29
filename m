@@ -1,446 +1,76 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] userns: Add basic quota support v4
-Date: Wed, 29 Aug 2012 02:31:26 -0700
-Message-ID: <87r4qqnixd.fsf@xmission.com>
-References: <87lih2h6i4.fsf@xmission.com> <87harqecvk.fsf@xmission.com>
-	<20120827085034.GA8998@quack.suse.cz> <87wr0j7u3j.fsf_-_@xmission.com>
-	<20120828090544.GC5146@quack.suse.cz> <87a9xe7wfn.fsf@xmission.com>
-	<20120828175101.GF5146@quack.suse.cz> <87y5ky6dff.fsf_-_@xmission.com>
-	<20120829021029.GC13691@dastard>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Re[3]: [PATCH 2/3] ipvs: Fix faulty IPv6 extension header
+ handling in IPVS
+Date: Wed, 29 Aug 2012 11:37:14 +0200
+Message-ID: <1346233034.3069.450.camel@localhost>
+References: <mdaatbj.7a4274ea6c8f14ea15788c8953acb422@obelix.schillstrom.com>
+	 <Pine.GSO.4.63.1208271401140.17922@stinky-local.trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Jan Kara <jack@suse.cz>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	David Miller <davem@davemloft.net>,
-	Steven Whitehouse <swhiteho@redhat.com>,
-	Mark Fasheh <mfasheh@suse.com>,
-	Joel Becker <jlbec@evilplan.org>, Ben Myers <bpm@sgi.com>,
-	Alex Elder <elder@kernel.org>,
-	Dmitry Monakhov <dmonakhov@openvz.org>,
-	Abhijith Das <adas@redhat.com>
-To: Dave Chinner <david@fromorbit.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:35846 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750967Ab2H2Jbj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2012 05:31:39 -0400
-In-Reply-To: <20120829021029.GC13691@dastard> (Dave Chinner's message of "Wed,
-	29 Aug 2012 12:10:29 +1000")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hans Schillstrom <hans@schillstrom.com>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
+	Simon Horman <horms@verge.net.au>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.GSO.4.63.1208271401140.17922@stinky-local.trash.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+To Hans and Patrick,
+
+On Mon, 2012-08-27 at 14:02 +0200, Patrick McHardy wrote:
+> On Mon, 27 Aug 2012, Hans Schillstrom wrote:
+> 
+> >>>>
+> >>>> On Mon, 20 Aug 2012, Jesper Dangaard Brouer wrote:
+> >>>>
+> >>>>> Based on patch from: Hans Schillstrom
+> >>>>>
+> >>>>> IPv6 headers must be processed in order of appearance,
+> >>>>> neither can it be assumed that Upper layer headers is first.
+> >>>>> If anything else than L4 is the first header IPVS will throw it.
+> >>>>>
+> >>>>> IPVS will write SNAT & DNAT modifications at a fixed pos which
+> >>>>> will corrupt the message. Proper header position must be found
+> >>>>> before writing modifying packet.
+> >>>>>
+> >>>>> This patch contains a lot of API changes.  This is done, to avoid
+> >>>>> the costly scan of finding the IPv6 headers, via ipv6_find_hdr().
+> >>>>> Finding the IPv6 headers is done as early as possible, and passed
+> >>>>> on as a pointer "struct ip_vs_iphdr *" to the affected functions.
+> >>>>
+> >>>> How about we change netfilter to set up the skb's transport header
+> >>>> at an early time so we can avoid all (most of) these header scans
+> >>>> in netfilter?
+> >>>
+> >>> I think that would be great, maybe it should be global i.e. not only a netfilter issue.
+> >>
+> >> I think in most other cases the headers are supposed to be processed
+> >> sequentially. One problem though - to be useful for netfilter/IPVS
+> >> we'd also need to store the transport layer protocol somewhere.
+> >
+> > I guess that's the problem, adding it to the skb will not be popular ....
+> > Right now I don't have a good solution, maybe a more generic netfilter ptr in the skb ...
+> 
+> I guess inet6_skb_parm will be at least slightly more popular than
+> adding it to the skb itself. The netfilter pointers are all used for
+> optional things, so we can't really add it to any of those.
+
+Okay, but how do we go from here?
+
+Hans, should this hold back the patch ("ipvs: Fix faulty IPv6 extension
+header handling in IPVS").  Or should we pursue our patch, and circle
+back later once e.g. Patrick have found a generic solution for IPv6
+transport header handling?
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
 
 
-Dave thanks for taking the time to take a detailed look at this code.
-
-Dave Chinner <david@fromorbit.com> writes:
-
-> On Tue, Aug 28, 2012 at 12:09:56PM -0700, Eric W. Biederman wrote:
->> 
->> Add the data type struct kqid which holds the kernel internal form of
->> the owning identifier of a quota.  struct kqid is a replacement for
->> the implicit union of uid, gid and project stored in an unsigned int
->> and the quota type field that is was used in the quota data
->> structures.  Making the data type explicit allows the kuid_t and
->> kgid_t type safety to propogate more thoroughly through the code,
->> revealing more places where uid/gid conversions need be made.
->> 
->> Along with the data type struct kqid comes the helper functions
->> qid_eq, qid_lt, from_kqid, from_kqid_munged, qid_valid, make_kqid,
->
-> I think Jan's comment about from_kqid being named id_from_kgid is
-> better, though I also think it would read better as kqid_to_id().
-> ie:
->
-> 	id = kqid_to_id(ns, qid);
-
-kqid and qid are the same thing just in a different encoding.
-Emphasizing the quota identifier instead of the kernel vs user encoding
-change is paying attention to the wrong thing.
-
-Using make_kqid and from_kqid follows the exact same conventions as I have
-established for kuids and kgids.  So if you learn one you have learned
-them all.
-
->> make_kqid_invalid, make_kqid_uid, make_kqid_gid.
->
-> and these named something like uid_to_kqid()
-
-The last two are indeed weird, and definitely not the common case,
-since there is no precedent I can almost see doing something different
-but I don't see a good case for a different name.
-
->> Change struct dquot dq_id to a struct kqid and remove the now
->> unecessary dq_type.
->> 
->> Update the signature of dqget, quota_send_warning, dquot_get_dqblk,
->> and dquot_set_dqblk to use struct kqid.
->> 
->> Make minimal changes to ext3, ext4, gfs2, ocfs2, and xfs to deal with
->> the change in quota structures and signatures.  The ocfs2 changes are
->> larger than most because of the extensive tracing throughout the ocfs2
->> quota code that prints out dq_id.
->
-> How did you test that this all works?
-
-By making it a compile error if you get a conversion wrong and making it
-a rule not to make any logic changes.  That combined with code review
-and running the code a bit to make certain I did not horribly mess up.
-
-> e.g. run xfstests -g quota on
-> each of those filesystems and check for no regressions? And if you
-> wrote any tests, can you convert them to be part of xfstests so that
-> namespace aware quotas get tested regularly?
-
-I have not written any tests, and running the xfstests in a namespace
-should roughly be a matter of "unshare -U xfstest -g quota"  It isn't
-quite that easy because  /proc/self/uid_map and /proc/self/gid_map need
-to be written first.
-
-Right now only ext2 ext3 and ext4 compile with user namespace support
-enabled.  xfs and gfs2 and ocfs2 still only compile with user namespace
-support disabled because my patches to convert them are waiting in the
-wings until I get the core subsystems primarily quota and posix acls
-reviewed.
-
->> v4:
->>   - Rename struct qown struct kqid and associated changes
->>     to the naming of the helper functions.
->>   - Use qid_t to hold the userspace identifier representation
->>     of quota identifiers in all new code.
->> v3:
->>   - Add missing negation on qown_valid
->> v2:
->>   - Renamed qown_t struct qown
->>   - Added the quota type to struct qown.
->>   - Removed enum quota_type (In this patch it was just noise)
->>   - Added qown_lt, make_qown_invalid, make_qown_uid, make_qown_gid
->>   - Taught qown to handle xfs project ids (but only in init_user_ns).
->>     Q_XGETQUOTA calls .get_quotblk with project ids.
->
-> Q_XSETQLIM was modified to handle project quotas as well, I assume?
-
-I didn't break the project quota support for Q_XSETQLIM.
-
-
->> index fed504f..96944c0 100644
->> --- a/fs/xfs/xfs_quotaops.c
->> +++ b/fs/xfs/xfs_quotaops.c
->> @@ -97,28 +97,29 @@ xfs_fs_set_xstate(
->>  STATIC int
->>  xfs_fs_get_dqblk(
->>  	struct super_block	*sb,
->> -	int			type,
->> -	qid_t			id,
->> +	struct kqid		qid,
->>  	struct fs_disk_quota	*fdq)
->>  {
->>  	struct xfs_mount	*mp = XFS_M(sb);
->> +	xfs_dqid_t		xfs_id;
->>  
->>  	if (!XFS_IS_QUOTA_RUNNING(mp))
->>  		return -ENOSYS;
->>  	if (!XFS_IS_QUOTA_ON(mp))
->>  		return -ESRCH;
->>  
->> -	return -xfs_qm_scall_getquota(mp, id, xfs_quota_type(type), fdq);
->> +	xfs_id = from_kqid(&init_user_ns, qid);
->> +	return -xfs_qm_scall_getquota(mp, xfs_id, xfs_quota_type(qid.type), fdq);
->>  }
->
-> Why a temporary variable? Why not just:
->
-> 	return -xfs_qm_scall_getquota(mp, from_kqid(&init_user_ns, qid),
-> 				      xfs_quota_type(qid.type), fdq);
->
-
-Because I am not fond of very long lines and because I did the basic
-conversion of gfs2 first where using a separate variable a larger
-difference.
-
->From a code review perspective I am still more comfortable with
-introducing a temporary variable as the fundamental change is
-easier to see.
-
-> Indeed, why not drive the struct kqid down another level into
-> xfs_qm_scall_getquota() where all they are used for is parameters to
-> the xfs_qm_dqget() function?
-
-I have not driven struct kqid down another level because change
-needs to wait until I add user namespace support to xfs.
-
-I only touch xfs in this case because making the implicit union explicit
-is needed for type safety and sanity, and unfortunately that requires
-the prototype of the quota operations to change.
-
->>  STATIC int
->>  xfs_fs_set_dqblk(
->>  	struct super_block	*sb,
->> -	int			type,
->> -	qid_t			id,
->> +	struct kqid		qid,
->>  	struct fs_disk_quota	*fdq)
->>  {
->>  	struct xfs_mount	*mp = XFS_M(sb);
->> +	xfs_dqid_t		xfs_id;
->>  
->>  	if (sb->s_flags & MS_RDONLY)
->>  		return -EROFS;
->> @@ -127,7 +128,8 @@ xfs_fs_set_dqblk(
->>  	if (!XFS_IS_QUOTA_ON(mp))
->>  		return -ESRCH;
->>  
->> -	return -xfs_qm_scall_setqlim(mp, id, xfs_quota_type(type), fdq);
->> +	xfs_id = from_kqid(&init_user_ns, qid);
->> +	return -xfs_qm_scall_setqlim(mp, xfs_id, xfs_quota_type(qid.type), fdq);
->>  }
->
-> Same is true here....
->
->>  
->>  const struct quotactl_ops xfs_quotactl_operations = {
->> diff --git a/fs/xfs/xfs_trans_dquot.c b/fs/xfs/xfs_trans_dquot.c
->> index bcb6054..46de393 100644
->> --- a/fs/xfs/xfs_trans_dquot.c
->> +++ b/fs/xfs/xfs_trans_dquot.c
->> @@ -575,12 +575,14 @@ xfs_quota_warn(
->>  	struct xfs_dquot	*dqp,
->>  	int			type)
->>  {
->> +	int qtype;
->> +	struct kqid qid;
->>  	/* no warnings for project quotas - we just return ENOSPC later */
->>  	if (dqp->dq_flags & XFS_DQ_PROJ)
->>  		return;
->> -	quota_send_warning((dqp->dq_flags & XFS_DQ_USER) ? USRQUOTA : GRPQUOTA,
->> -			   be32_to_cpu(dqp->q_core.d_id), mp->m_super->s_dev,
->> -			   type);
->> +	qtype = (dqp->dq_flags & XFS_DQ_USER) ? USRQUOTA : GRPQUOTA;
->> +	qid = make_kqid(&init_user_ns, qtype, be32_to_cpu(dqp->q_core.d_id));
->> +	quota_send_warning(qid, mp->m_super->s_dev, type);
->>  }
->>  
->>  /*
->> diff --git a/include/linux/quota.h b/include/linux/quota.h
->> index 524ede8..0e73250 100644
->> --- a/include/linux/quota.h
->> +++ b/include/linux/quota.h
->> @@ -181,10 +181,161 @@ enum {
->>  #include <linux/dqblk_v2.h>
->>  
->>  #include <linux/atomic.h>
->> +#include <linux/uidgid.h>
->>  
->>  typedef __kernel_uid32_t qid_t; /* Type in which we store ids in memory */
->>  typedef long long qsize_t;	/* Type in which we store sizes */
->
-> From fs/xfs/xfs_types.h:
->
-> typedef __uint32_t              prid_t;         /* project ID */
->
-> Perhaps it would be better to have an official kprid_t definition
-> here, i.e:
-
-We can always improve.  For this patch I don't see it making a
-useful difference.
-
-prid_t isn't exported to non xfs code.  The project id is already
-stored in an unsigned int or a qid_t.
-
->> +struct kqid {			/* Type in which we store the quota identifier */
->> +	union {
->> +		kuid_t uid;
->> +		kgid_t gid;
->> +		qid_t prj;
->
-> 		kprid_t prid;
->
-
-Hmm.  The naming here is interesting.  No one calls the project id prj.
-So I have an avoidable inconsistency here.  xfs most commonly uses
-projid and occassionally calls it prid.
-
-So I am inclined to rename this field projid, but I don't know if it is
-worth respinning the patch for something so trivial.
-
->> +	};
->> +	int type; /* USRQUOTA (uid) or GRPQUOTA (gid) or XQM_PRJQUOTA (prj) */
->> +};
->> +
->> +static inline bool qid_eq(struct kqid left, struct kqid right)
->> +{
->> +	if (left.type != right.type)
->> +		return false;
->> +	switch(left.type) {
->> +	case USRQUOTA:
->> +		return uid_eq(left.uid, right.uid);
->> +	case GRPQUOTA:
->> +		return gid_eq(left.gid, right.gid);
->> +	case XQM_PRJQUOTA:
->> +		return left.prj == right.prj;
->> +	default:
->> +		BUG();
->
-> BUG()? Seriously? The most this justifies is a WARN_ON_ONCE() to
-> indicate a potential programming error, not bringing down the entire
-> machine.
-
-Dead serious.  Any other type value is impossible and unsupported.
-
-BUG is not panic.  BUG is an oops. BUG won't bring down the machine
-unless the sysadmin wants it too.
-
-Beyond that I am not interesting in supporting exploitable abuse
-of this type.
-
->> +static inline bool qid_lt(struct kqid left, struct kqid right)
->> +{
->> +	if (left.type < right.type)
->> +		return true;
->> +	if (left.type > right.type)
->> +		return false;
->> +	switch (left.type) {
->> +	case USRQUOTA:
->> +		return uid_lt(left.uid, right.uid);
->> +	case GRPQUOTA:
->> +		return gid_lt(left.gid, right.gid);
->> +	case XQM_PRJQUOTA:
->> +		return left.prj < right.prj;
->> +	default:
->> +		BUG();
->> +	}
->> +}
->
-> What is this function used for? it's not referenced at all by the
-> patch, and there's no documentation/comments explaining why it
-> exists or how it is intended to be used....
-
-This function is introduced early, but it is needed for gfs2 as
-performs a sort of quota identifiers.
-
->> +static inline qid_t from_kqid(struct user_namespace *user_ns, struct kqid qid)
->> +{
->> +	switch (qid.type) {
->> +	case USRQUOTA:
->> +		return from_kuid(user_ns, qid.uid);
->> +	case GRPQUOTA:
->> +		return from_kgid(user_ns, qid.gid);
->> +	case XQM_PRJQUOTA:
->> +		return (user_ns == &init_user_ns) ? qid.prj : -1;
->> +	default:
->> +		BUG();
->> +	}
->> +}
->
-> Oh, this can return an error. That's only checked in a coupl eof
-> places this function is called. it needs tobe checked everywhere,
-> otherwise we now have the possibility of quota usage being accounted
-> to uid/gid/prid 0xffffffff when namespace matches are not found.
-
-No this is not an error condition.  Returning -1 is the mapping that is
-used when there is not a mapping entry.
-
-Depending on the circumstances not having a mapping can be an error,
-but it can also be a don't care condition.
-
-All in kernel values are defined as having a mapping into the initial
-user namespace.
-
-Looking at my tree the only calls of from_kqid not mapping the id
-into the initial user namespace are from_kqid_munged and they report
-to userspace.  from_kqid_munged returns fs_overflowuid or fs_overflowgid
-in case of a mapping failure.
-
-projects ids can only be accessed if capable(CAP_SYS_ADMIN) which
-you can only have in the initial user namespace so for now there will
-alwasy be a mapping for project ids.
-
->> +static inline qid_t from_kqid_munged(struct user_namespace *user_ns,
->> +				   struct kqid qid)
->
-> What does munging do to the return value? how is it different to
-> from_kqid()? Document your API....
-
-This bit certainly certainly could use a bit more explanation.
-
-Mapping of uids and gids from one domain to another is not new in linux.
-It originates with the transition from 16bit identifiers to 32bit
-identifiers.  In most places when there is a 32bit identifier that can
-not be represented we return a fs_overflowid aka (u16)-2 aka nobody.
-
-So in general when we want to pass a value to userspace from_kqid_munged
-is called, and if there is a mapping failure we report the value that
-userspace set fs_overflowuid or fs_overflowgid to.  For project ids it
-which are restricted to the initial user namespace no mapping failures
-can occur.
-
->> +static inline struct kqid make_kqid(struct user_namespace *user_ns,
->> +				    int type, qid_t qid)
->> +{
->> +	struct kqid kqid;
->> +
->> +	kqid.type = type;
->> +	switch (type) {
->> +	case USRQUOTA:
->> +		kqid.uid = make_kuid(user_ns, qid);
->> +		break;
->> +	case GRPQUOTA:
->> +		kqid.gid = make_kgid(user_ns, qid);
->> +		break;
->> +	case XQM_PRJQUOTA:
->> +		if (user_ns == &init_user_ns)
->> +			kqid.prj = qid;
->> +		else
->> +			kqid.prj = -1;
->> +		break;
->
-> 		kqid.prj = (user_ns == &init_user_ns) ? qid : -1;
-
-That is an interesting inconsitency. Given that implemented the others
-on one line.
-
->> +	default:
->> +		BUG();
->> +	}
->> +	return kqid;
->> +}
->> +
->> +static inline struct kqid make_kqid_invalid(int type)
->> +{
->> +	struct kqid kqid;
->> +
->> +	kqid.type = type;
->> +	switch (type) {
->> +	case USRQUOTA:
->> +		kqid.uid = INVALID_UID;
->> +		break;
->> +	case GRPQUOTA:
->> +		kqid.gid = INVALID_GID;
->> +		break;
->> +	case XQM_PRJQUOTA:
->> +		kqid.prj = -1;
->> +		break;
->> +	default:
->> +		BUG();
->> +	}
->> +	return kqid;
->> +}
->> +
->> +static inline struct kqid make_kqid_uid(kuid_t uid)
->> +{
->> +	struct kqid kqid = {
->> +		.type = USRQUOTA,
->> +		.uid  = uid,
->> +	};
->> +	return kqid;
->> +}
->
-> Isn't this sort of construct frowned upon? i.e. returning a
-> structure out of scope? It may be inline code and hence work, but
-> this strikes me as a landmine waiting for someone to tread on....
-
-Not at all because I am returning the structure by value.
-
-Return a structure by reference is the case that doesn't work.
-
-Eric
