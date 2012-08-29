@@ -1,76 +1,70 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Re[3]: [PATCH 2/3] ipvs: Fix faulty IPv6 extension header
- handling in IPVS
-Date: Wed, 29 Aug 2012 11:37:14 +0200
-Message-ID: <1346233034.3069.450.camel@localhost>
-References: <mdaatbj.7a4274ea6c8f14ea15788c8953acb422@obelix.schillstrom.com>
-	 <Pine.GSO.4.63.1208271401140.17922@stinky-local.trash.net>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next V3 0/2] Add rtnl_link_ops support to IPoIB
+Date: Wed, 29 Aug 2012 12:41:00 +0300
+Message-ID: <503DE3AC.30701@mellanox.com>
+References: <1345724119-32110-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Hans Schillstrom <hans@schillstrom.com>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
-	Simon Horman <horms@verge.net.au>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.GSO.4.63.1208271401140.17922@stinky-local.trash.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>, <roland@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:38961 "HELO
+	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750995Ab2H2Joy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2012 05:44:54 -0400
+In-Reply-To: <1345724119-32110-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-To Hans and Patrick,
+On 23/08/2012 15:15, Or Gerlitz wrote:
+> This is about adding rtnl_link_ops to IPoIB, primarly addressing feedback from Dave on a similar patch that was part of the eIPoIB submission.
 
-On Mon, 2012-08-27 at 14:02 +0200, Patrick McHardy wrote:
-> On Mon, 27 Aug 2012, Hans Schillstrom wrote:
-> 
-> >>>>
-> >>>> On Mon, 20 Aug 2012, Jesper Dangaard Brouer wrote:
-> >>>>
-> >>>>> Based on patch from: Hans Schillstrom
-> >>>>>
-> >>>>> IPv6 headers must be processed in order of appearance,
-> >>>>> neither can it be assumed that Upper layer headers is first.
-> >>>>> If anything else than L4 is the first header IPVS will throw it.
-> >>>>>
-> >>>>> IPVS will write SNAT & DNAT modifications at a fixed pos which
-> >>>>> will corrupt the message. Proper header position must be found
-> >>>>> before writing modifying packet.
-> >>>>>
-> >>>>> This patch contains a lot of API changes.  This is done, to avoid
-> >>>>> the costly scan of finding the IPv6 headers, via ipv6_find_hdr().
-> >>>>> Finding the IPv6 headers is done as early as possible, and passed
-> >>>>> on as a pointer "struct ip_vs_iphdr *" to the affected functions.
-> >>>>
-> >>>> How about we change netfilter to set up the skb's transport header
-> >>>> at an early time so we can avoid all (most of) these header scans
-> >>>> in netfilter?
-> >>>
-> >>> I think that would be great, maybe it should be global i.e. not only a netfilter issue.
-> >>
-> >> I think in most other cases the headers are supposed to be processed
-> >> sequentially. One problem though - to be useful for netfilter/IPVS
-> >> we'd also need to store the transport layer protocol somewhere.
-> >
-> > I guess that's the problem, adding it to the skb will not be popular ....
-> > Right now I don't have a good solution, maybe a more generic netfilter ptr in the skb ...
-> 
-> I guess inet6_skb_parm will be at least slightly more popular than
-> adding it to the skb itself. The netfilter pointers are all used for
-> optional things, so we can't really add it to any of those.
+Dave, Roland
 
-Okay, but how do we go from here?
+Any comment on this? The patch was originally submitted through netdev 
+so I kept the fixed version to go through that path as well. If this 
+makes things easier, we can merge that through net-next.
 
-Hans, should this hold back the patch ("ipvs: Fix faulty IPv6 extension
-header handling in IPVS").  Or should we pursue our patch, and circle
-back later once e.g. Patrick have found a generic solution for IPv6
-transport header handling?
+IPoIB has more proprietary sysfs entries, such as for setting the mode 
+(datagram or connected) -- in 2nd thought, non legacy ipoib child 
+interfaces created through rtnl shouldn't preserve these prop. 
+mechanisms and use rtnl for all sorts of configs, as done for 
+macvlan/8021q etc devices, correct? if this is indeed the case, I will 
+fix that and submit V3.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Or.
 
-
+>
+> Also added the releated iproute2 patch, for the sake of the review and
+> testing, e.g example usages:
+>
+> $ ip link add link ib0 name ib0.1 type ipoib
+> $ ip link add link ib0 name ib0.8001 type ipoib pkey 0x8001
+>
+> and the obvious
+>
+> $ link delete dev ib0.8001
+> $ link delete dev ib0.1
+>
+> Changes from V2:
+>   - removed the notion of user defined index per child, since we can do well w.o it
+>   - for that end, make (an internal to ipoib) distrinction between legacy childs created
+>     through the old sysfs way to childs created using rtnl link ops
+>
+> Changes from V1:
+>   - applied feedback from Dave Miller to avoid using sysfs
+>   - added rtnl_link_ops support in ipoib and use them to add/delete childs
+>
+> Or Gerlitz (1):
+>    IB/ipoib: Add rtnl_link_ops support
+>
+>   Documentation/infiniband/ipoib.txt           |    3 +
+>   drivers/infiniband/ulp/ipoib/Makefile        |    3 +-
+>   drivers/infiniband/ulp/ipoib/ipoib.h         |   13 +++
+>   drivers/infiniband/ulp/ipoib/ipoib_main.c    |   25 ++++-
+>   drivers/infiniband/ulp/ipoib/ipoib_netlink.c |  122 ++++++++++++++++++++++++++
+>   drivers/infiniband/ulp/ipoib/ipoib_vlan.c    |  102 ++++++++++++----------
+>   6 files changed, 217 insertions(+), 51 deletions(-)
+>   create mode 100644 drivers/infiniband/ulp/ipoib/ipoib_netlink.c
+>
