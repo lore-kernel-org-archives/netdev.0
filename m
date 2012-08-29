@@ -1,51 +1,73 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 03/19] netfilter: nf_conntrack_ipv6: improve fragmentation
- handling
-Date: Wed, 29 Aug 2012 14:27:00 +0200 (MEST)
-Message-ID: <Pine.GSO.4.63.1208291424550.26100@stinky-local.trash.net>
-References: <1346190539-9963-1-git-send-email-kaber@trash.net>
- <1346190539-9963-4-git-send-email-kaber@trash.net>
- <Pine.LNX.4.64.1208291007520.32281@ask.diku.dk>
+Subject: Re: Re[3]: [PATCH 2/3] ipvs: Fix faulty IPv6 extension header
+ handling in IPVS
+Date: Wed, 29 Aug 2012 14:28:53 +0200 (MEST)
+Message-ID: <Pine.GSO.4.63.1208291427170.26100@stinky-local.trash.net>
+References: <mdaatbj.7a4274ea6c8f14ea15788c8953acb422@obelix.schillstrom.com>
+  <Pine.GSO.4.63.1208271401140.17922@stinky-local.trash.net>
+ <1346233034.3069.450.camel@localhost>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.1208291007520.32281@ask.diku.dk>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: Hans Schillstrom <hans@schillstrom.com>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
+	Simon Horman <horms@verge.net.au>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	netfilter-devel@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1346233034.3069.450.camel@localhost>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Wed, 29 Aug 2012, Jesper Dangaard Brouer wrote:
 
+> To Hans and Patrick,
 >
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> On Mon, 2012-08-27 at 14:02 +0200, Patrick McHardy wrote:
+>> On Mon, 27 Aug 2012, Hans Schillstrom wrote:
+>>
+>>>>>>
+>>>>>> On Mon, 20 Aug 2012, Jesper Dangaard Brouer wrote:
+>>>>>>
+>>>>>>> Based on patch from: Hans Schillstrom
+>>>>>>>
+>>>>>>> IPv6 headers must be processed in order of appearance,
+>>>>>>> neither can it be assumed that Upper layer headers is first.
+>>>>>>> If anything else than L4 is the first header IPVS will throw it.
+>>>>>>>
+>>>>>>> IPVS will write SNAT & DNAT modifications at a fixed pos which
+>>>>>>> will corrupt the message. Proper header position must be found
+>>>>>>> before writing modifying packet.
+>>>>>>>
+>>>>>>> This patch contains a lot of API changes.  This is done, to avoid
+>>>>>>> the costly scan of finding the IPv6 headers, via ipv6_find_hdr().
+>>>>>>> Finding the IPv6 headers is done as early as possible, and passed
+>>>>>>> on as a pointer "struct ip_vs_iphdr *" to the affected functions.
+>>>>>>
+>>>>>> How about we change netfilter to set up the skb's transport header
+>>>>>> at an early time so we can avoid all (most of) these header scans
+>>>>>> in netfilter?
+>>>>>
+>>>>> I think that would be great, maybe it should be global i.e. not only a netfilter issue.
+>>>>
+>>>> I think in most other cases the headers are supposed to be processed
+>>>> sequentially. One problem though - to be useful for netfilter/IPVS
+>>>> we'd also need to store the transport layer protocol somewhere.
+>>>
+>>> I guess that's the problem, adding it to the skb will not be popular ....
+>>> Right now I don't have a good solution, maybe a more generic netfilter ptr in the skb ...
+>>
+>> I guess inet6_skb_parm will be at least slightly more popular than
+>> adding it to the skb itself. The netfilter pointers are all used for
+>> optional things, so we can't really add it to any of those.
 >
-> And some nitpicks below...
+> Okay, but how do we go from here?
 >
->> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
->> index 5b2d63e..a4f6263 100644
->> --- a/net/ipv6/ip6_output.c
->> +++ b/net/ipv6/ip6_output.c
->> @@ -493,7 +493,8 @@ int ip6_forward(struct sk_buff *skb)
->> 	if (mtu < IPV6_MIN_MTU)
->> 		mtu = IPV6_MIN_MTU;
->> 
->> -	if (skb->len > mtu && !skb_is_gso(skb)) {
->> +	if ((!skb->local_df && skb->len > mtu && !skb_is_gso(skb)) ||
->
-> You use (!skb->local_df) to invalidate the use of skb->len, instead of 
-> (!IP6CB(skb)->frag_max_size), (which is okay, because you set local_df 
-> later).  Is there are reason this check is better?
+> Hans, should this hold back the patch ("ipvs: Fix faulty IPv6 extension
+> header handling in IPVS").  Or should we pursue our patch, and circle
+> back later once e.g. Patrick have found a generic solution for IPv6
+> transport header handling?
 
-Just that it's consistent with ip6_output and the regular local_df
-handling. It saves one extra condition in ip6_output.
-
->> +	    (IP6CB(skb)->frag_max_size && IP6CB(skb)->frag_max_size > mtu)) {
->
-> Eric Dumazet would probably nitpick and say, it can be reduced to:
-> (IP6CB(skb)->frag_max_size > mtu)
-> ;-)
-
-True. I'll fix that once Pablo has pulled in the patches.
+I don't think we can do much better than using inet6_skb_parm. I think
+the main question is whether it is really worth it, the iteration 
+shouldn't be that expensive in most cases.
