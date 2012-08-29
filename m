@@ -1,174 +1,87 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Re: [PATCH 03/19] netfilter: nf_conntrack_ipv6: improve fragmentation
- handling
-Date: Wed, 29 Aug 2012 10:21:41 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1208291007520.32281@ask.diku.dk>
-References: <1346190539-9963-1-git-send-email-kaber@trash.net>
- <1346190539-9963-4-git-send-email-kaber@trash.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH V2 2/2] ipvs: Extend MTU check to account for IPv6 NAT
+ defrag changes
+Date: Wed, 29 Aug 2012 01:43:05 -0700
+Message-ID: <1346229785.2522.8.camel@edumazet-glaptop>
+References: <20120828142051.11475.63775.stgit@dragon>
+	 <20120828142248.11475.15917.stgit@dragon>
+	 <1346165359.3571.9.camel@edumazet-glaptop>
+	 <1346223759.3069.429.camel@localhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
+	Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	netfilter-devel@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1346190539-9963-4-git-send-email-kaber@trash.net>
+In-Reply-To: <1346223759.3069.429.camel@localhost>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 2012-08-29 at 09:02 +0200, Jesper Dangaard Brouer wrote:
+> On Tue, 2012-08-28 at 07:49 -0700, Eric Dumazet wrote:
+> > On Tue, 2012-08-28 at 16:23 +0200, Jesper Dangaard Brouer wrote:
+> > > This patch is necessary, to make IPVS work, after Patrick McHardys
+> > > IPv6 NAT defragmentation changes.
+> > > 
+> > > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> > > ---
+> > > In V2: the tunnel mode is no longer a special case.
+> > > 
+> > >  net/netfilter/ipvs/ip_vs_xmit.c |    9 ++++++++-
+> > >  1 files changed, 8 insertions(+), 1 deletions(-)
+> > > 
+> > > diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+> > > index 67a3978..56f6d5d 100644
+> > > --- a/net/netfilter/ipvs/ip_vs_xmit.c
+> > > +++ b/net/netfilter/ipvs/ip_vs_xmit.c
+> > > @@ -88,7 +88,14 @@ __ip_vs_dst_check(struct ip_vs_dest *dest, u32 rtos)
+> > >  static inline bool
+> > >  __mtu_check_toobig_v6(const struct sk_buff *skb, u32 mtu)
+> > >  {
+> > > -	if (skb->len > mtu && !skb_is_gso(skb)) {
+> > > +	if (IP6CB(skb)->frag_max_size) {
+> > > +		/* frag_max_size tell us that, this packet have been
+> > > +		 * defragmented by netfilter IPv6 conntrack module.
+> > > +		 */
+> > > +		if (IP6CB(skb)->frag_max_size > mtu)
+> > > +			return true; /* largest fragment violate MTU */
+> Implicit:         else
+>      			return false
+> 
+> (if it makes it more clear, not sure)
+> > > +	}
+> > > +	else if (skb->len > mtu && !skb_is_gso(skb)) {
+> > >  		return true; /* Packet size violate MTU size */
+> > >  	}
+> > 
+> > Couldnt you use a single test ?
+> > 
+> > if (IP6CB(skb)->frag_max_size > mtu)
+> > 	return true;
+> > 
+> > if (skb->len > mtu && !skb_is_gso(skb))
+> > 	return true;
+> > 
+> 
+> Nope, this will not work.
+> 
+> If (IP6CB(skb)->frag_max_size > 0) then we have a defragmented packet,
+> this means that skb->len cannot be used for MTU checking, because
+> skb->len is now the total length of all the fragments (which your
+> solution will fall-through to)
+> 
 
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+If the packet was not fragmented, its was a single frame.
 
-And some nitpicks below...
+But if this frame length is above mtu, packet is not too big ?
 
-On Tue, 28 Aug 2012, Patrick McHardy wrote:
-
-> The IPv6 conntrack fragmentation currently has a couple of shortcomings.
-> Fragmentes are collected in PREROUTING/OUTPUT, are defragmented, the
-> defragmented packet is then passed to conntrack, the resulting conntrack
-> information is attached to each original fragment and the fragments then
-> continue their way through the stack.
->
-> Helper invocation occurs in the POSTROUTING hook, at which point only
-> the original fragments are available. The result of this is that
-> fragmented packets are never passed to helpers.
->
-> This patch improves the situation in the following way:
->
-> - If a reassembled packet belongs to a connection that has a helper
->  assigned, the reassembled packet is passed through the stack instead
->  of the original fragments.
->
-> - During defragmentation, the largest received fragment size is stored.
->  On output, the packet is refragmented if required. If the largest
->  received fragment size exceeds the outgoing MTU, a "packet too big"
->  message is generated, thus behaving as if the original fragments
->  were passed through the stack from an outside point of view.
->
-> - The ipv6_helper() hook function can't receive fragments anymore for
->  connections using a helper, so it is switched to use ipv6_skip_exthdr()
->  instead of the netfilter specific nf_ct_ipv6_skip_exthdr() and the
->  reassembled packets are passed to connection tracking helpers.
->
-> The result of this is that we can properly track fragmented packets, but
-> still generate ICMPv6 Packet too big messages if we would have before.
->
-> This patch is also required as a precondition for IPv6 NAT, where NAT
-> helpers might enlarge packets up to a point that they require
-> fragmentation. In that case we can't generate Packet too big messages
-> since the proper MTU can't be calculated in all cases (f.i. when
-> changing textual representation of a variable amount of addresses),
-> so the packet is transparently fragmented iff the original packet or
-> fragments would have fit the outgoing MTU.
->
-> IPVS parts by Jesper Dangaard Brouer <brouer@redhat.com>.
->
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
-> ---
-> include/linux/ipv6.h                           |    1 +
-> net/ipv6/ip6_output.c                          |    7 +++-
-> net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   41 ++++++++++++++++++-----
-> net/ipv6/netfilter/nf_conntrack_reasm.c        |   19 +++++++++--
-> net/netfilter/ipvs/ip_vs_xmit.c                |    9 +++++-
-> 5 files changed, 62 insertions(+), 15 deletions(-)
->
-> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-> index 879db26..0b94e91 100644
-> --- a/include/linux/ipv6.h
-> +++ b/include/linux/ipv6.h
-> @@ -256,6 +256,7 @@ struct inet6_skb_parm {
-> #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
-> 	__u16			dsthao;
-> #endif
-> +	__u16			frag_max_size;
->
-> #define IP6SKB_XFRM_TRANSFORMED	1
-> #define IP6SKB_FORWARDED	2
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index 5b2d63e..a4f6263 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -493,7 +493,8 @@ int ip6_forward(struct sk_buff *skb)
-> 	if (mtu < IPV6_MIN_MTU)
-> 		mtu = IPV6_MIN_MTU;
->
-> -	if (skb->len > mtu && !skb_is_gso(skb)) {
-> +	if ((!skb->local_df && skb->len > mtu && !skb_is_gso(skb)) ||
-
-You use (!skb->local_df) to invalidate the use of skb->len, instead of 
-(!IP6CB(skb)->frag_max_size), (which is okay, because you set local_df 
-later).  Is there are reason this check is better?
-
-> +	    (IP6CB(skb)->frag_max_size && IP6CB(skb)->frag_max_size > mtu)) {
-
-Eric Dumazet would probably nitpick and say, it can be reduced to:
-  (IP6CB(skb)->frag_max_size > mtu)
-;-)
+Sorry if its a stupid question.
 
 
-> 		/* Again, force OUTPUT device used as source address */
-> 		skb->dev = dst->dev;
-> 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
-> @@ -636,7 +637,9 @@ int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
-> 	/* We must not fragment if the socket is set to force MTU discovery
-> 	 * or if the skb it not generated by a local socket.
-> 	 */
-> -	if (unlikely(!skb->local_df && skb->len > mtu)) {
-> +	if (unlikely(!skb->local_df && skb->len > mtu) ||
-> +		     (IP6CB(skb)->frag_max_size &&
-> +		      IP6CB(skb)->frag_max_size > mtu)) {
-> 		if (skb->sk && dst_allfrag(skb_dst(skb)))
-> 			sk_nocaps_add(skb->sk, NETIF_F_GSO_MASK);
->
-[cut]
 
-> --- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-> +++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-> @@ -190,6 +190,7 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
-> 			     const struct frag_hdr *fhdr, int nhoff)
-> {
-> 	struct sk_buff *prev, *next;
-> +	unsigned int payload_len;
-> 	int offset, end;
->
-> 	if (fq->q.last_in & INET_FRAG_COMPLETE) {
-> @@ -197,8 +198,10 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
-> 		goto err;
-> 	}
->
-> +	payload_len = ntohs(ipv6_hdr(skb)->payload_len);
-> +
-> 	offset = ntohs(fhdr->frag_off) & ~0x7;
-> -	end = offset + (ntohs(ipv6_hdr(skb)->payload_len) -
-> +	end = offset + (payload_len -
-> 			((u8 *)(fhdr + 1) - (u8 *)(ipv6_hdr(skb) + 1)));
->
-> 	if ((unsigned int)end > IPV6_MAXPLEN) {
-> @@ -307,6 +310,8 @@ found:
-> 	skb->dev = NULL;
-> 	fq->q.stamp = skb->tstamp;
-> 	fq->q.meat += skb->len;
-> +	if (payload_len > fq->q.max_size)
-> +		fq->q.max_size = payload_len;
-> 	atomic_add(skb->truesize, &nf_init_frags.mem);
->
-> 	/* The first fragment.
-> @@ -412,10 +417,12 @@ nf_ct_frag6_reasm(struct nf_ct_frag6_queue *fq, struct net_device *dev)
-> 	}
-> 	atomic_sub(head->truesize, &nf_init_frags.mem);
->
-> +	head->local_df = 1;
-
-/me pointing to where local_df is being set.
-
-
-> 	head->next = NULL;
-> 	head->dev = dev;
-> 	head->tstamp = fq->q.stamp;
-> 	ipv6_hdr(head)->payload_len = htons(payload_len);
-> +	IP6CB(head)->frag_max_size = sizeof(struct ipv6hdr) + fq->q.max_size;
->
-> 	/* Yes, and fold redundant checksum back. 8) */
-> 	if (head->ip_summed == CHECKSUM_COMPLETE)
-
-[cut]
