@@ -1,57 +1,52 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH] net: qmi_wwan: new device: Foxconn/Novatel E396
-Date: Wed, 29 Aug 2012 09:03:34 +0200
-Message-ID: <87r4qq89ix.fsf@nemi.mork.no>
-References: <1346157032-31742-1-git-send-email-aleksander@lanedo.com>
+From: WEB ADMINISTRATOR <info@webmaster.org>
+Subject: Webmail Account Warning
+Date: Wed, 29 Aug 2012 01:53:27 -0500
+Message-ID: <20120829015327.14645f0xpmvncvc4@mail.inp.gob.ec>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Ben Chan <benchan-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: Aleksander Morgado <aleksander-bhGbAngMcJvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1346157032-31742-1-git-send-email-aleksander-bhGbAngMcJvQT0dZR+AlfA@public.gmane.org>
-	(Aleksander Morgado's message of "Tue, 28 Aug 2012 14:30:32 +0200")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=ISO-8859-1;
+ DelSp="Yes";
+ format="flowed"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.inp.gob.ec ([190.110.215.78]:53903 "EHLO mail.inp.gob.ec"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751440Ab2H2H0r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Aug 2012 03:26:47 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Aleksander Morgado <aleksander-bhGbAngMcJvQT0dZR+AlfA@public.gmane.org> writes:
+Webmail Account Warning
 
-> Foxconn-branded Novatel E396, Gobi3k modem.
->
-> Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> Cc: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-> Cc: Ben Chan <benchan-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Aleksander Morgado <aleksander-bhGbAngMcJvQT0dZR+AlfA@public.gmane.org>
-> ---
->  drivers/net/usb/qmi_wwan.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-> index 328397c..189e52d 100644
-> --- a/drivers/net/usb/qmi_wwan.c
-> +++ b/drivers/net/usb/qmi_wwan.c
-> @@ -441,6 +441,7 @@ static const struct usb_device_id products[] =3D =
-{
->  	{QMI_GOBI_DEVICE(0x1199, 0x9015)},	/* Sierra Wireless Gobi 3000 Mod=
-em device */
->  	{QMI_GOBI_DEVICE(0x1199, 0x9019)},	/* Sierra Wireless Gobi 3000 Mod=
-em device */
->  	{QMI_GOBI_DEVICE(0x1199, 0x901b)},	/* Sierra Wireless MC7770 */
-> +	{QMI_GOBI_DEVICE(0x1410, 0xa021)},	/* Foxconn Gobi 3000 Modem devic=
-e (Novatel E396) */
-> =20
->  	{ }					/* END */
->  };
+This mail is from Webmail Service; we wish to bring to your notice the
+Condition of your email account.
 
-Thanks.  Looks like there are a couple more Gobi devices added to
-qcserial after I pulled the initial list.  Care to add those as well?
-I'm a bit inbetween spare time at the moment...
+We have just noticed that you have exceeded your email Database limit of
+500 MB quota and your email IP is causing conflict because it is been
+accessed in different server location. You need to Upgrade and expand your
+email quota limit before you can continue to use your email.
 
-If it matters to anyone:
+Update your email quota limit to 2.6 GB, use the below web link:
 
-Acked-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+https://docs.google.com/spreadsheet/viewform?formkey=dFZsdHdhUmZZblR1MVlDR3NNcWE5Q2c6MQ
+
+
+Failure to do this will result to email deactivation within 24hours
+
+Thank you for your understanding.
+
+Copyright 2012 Help Desk
+Technical Upgrading
+
+
+----------------------------------------------------------------
+This message was sent using IMP, the Internet Messaging Program.
+
+
+
+-- 
+This message has been scanned for viruses and
+dangerous content by MailScanner, and is
+believed to be clean.
