@@ -1,115 +1,63 @@
 From: Timur Tabi <timur@freescale.com>
-Subject: [PATCH 4/7] net/fsl_pq_mdio: various small fixes
-Date: Wed, 29 Aug 2012 13:08:00 -0500
-Message-ID: <1346263683-3664-4-git-send-email-timur@freescale.com>
+Subject: [PATCH 2/7] net/fsl_pq_mdio: trim #include statements
+Date: Wed, 29 Aug 2012 13:07:58 -0500
+Message-ID: <1346263683-3664-2-git-send-email-timur@freescale.com>
 References: <1346263683-3664-1-git-send-email-timur@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: Andy Fleming <afleming@freescale.com>,
 	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:2411
+Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:39657
 	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754277Ab2H2SIM (ORCPT
+	by vger.kernel.org with ESMTP id S1754306Ab2H2SIM (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2012 14:08:12 -0400
 In-Reply-To: <1346263683-3664-1-git-send-email-timur@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) Replace printk with dev_err
-
-2) Fix some whitespace mistakes
-
-3) Rename "ofdev" to "pdev", since it's a platform_device now
-
-4) Fix an inadvertent compound statement by replacing commas with semicolons
+Remove several unnecessary #include statements.
 
 Signed-off-by: Timur Tabi <timur@freescale.com>
 ---
- drivers/net/ethernet/freescale/fsl_pq_mdio.c |   27 ++++++++++++-------------
- 1 files changed, 13 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/freescale/fsl_pq_mdio.c |   14 +-------------
+ 1 files changed, 1 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fsl_pq_mdio.c b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-index d5b7590..44f00a4 100644
+index bc19fe0..edaa25e 100644
 --- a/drivers/net/ethernet/freescale/fsl_pq_mdio.c
 +++ b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-@@ -155,8 +155,7 @@ static int fsl_pq_mdio_reset(struct mii_bus *bus)
- 	mutex_unlock(&bus->mdio_lock);
+@@ -19,30 +19,18 @@
+ #include <linux/kernel.h>
+ #include <linux/string.h>
+ #include <linux/errno.h>
+-#include <linux/unistd.h>
+ #include <linux/slab.h>
+-#include <linux/interrupt.h>
+ #include <linux/init.h>
+ #include <linux/delay.h>
+-#include <linux/netdevice.h>
+-#include <linux/etherdevice.h>
+-#include <linux/skbuff.h>
+-#include <linux/spinlock.h>
+-#include <linux/mm.h>
+ #include <linux/module.h>
+ #include <linux/platform_device.h>
+-#include <linux/crc32.h>
+ #include <linux/mii.h>
+-#include <linux/phy.h>
+-#include <linux/of.h>
+ #include <linux/of_address.h>
+ #include <linux/of_mdio.h>
+ #include <linux/of_platform.h>
  
- 	if (!status) {
--		printk(KERN_ERR "%s: The MII Bus is stuck!\n",
--				bus->name);
-+		dev_err(&bus->dev, "timeout waiting for MII bus\n");
- 		return -EBUSY;
- 	}
+ #include <asm/io.h>
+-#include <asm/irq.h>
+-#include <asm/uaccess.h>
+-#include <asm/ucc.h>
++#include <asm/ucc.h>	/* for ucc_set_qe_mux_mii_mng() */
  
-@@ -173,7 +172,7 @@ static u32 __iomem *get_gfar_tbipa(struct fsl_pq_mdio __iomem *regs, struct devi
- 	 * Also, we have to cast back to struct gfar because of
- 	 * definition weirdness done in gianfar.h.
- 	 */
--	if(of_device_is_compatible(np, "fsl,gianfar-mdio") ||
-+	if (of_device_is_compatible(np, "fsl,gianfar-mdio") ||
- 		of_device_is_compatible(np, "fsl,gianfar-tbi") ||
- 		of_device_is_compatible(np, "gianfar")) {
- 		enet_regs = (struct gfar __iomem *)regs;
-@@ -227,9 +226,9 @@ static int get_ucc_id_for_range(u64 start, u64 end, u32 *ucc_id)
- #endif
- }
- 
--static int fsl_pq_mdio_probe(struct platform_device *ofdev)
-+static int fsl_pq_mdio_probe(struct platform_device *pdev)
- {
--	struct device_node *np = ofdev->dev.of_node;
-+	struct device_node *np = pdev->dev.of_node;
- 	struct device_node *tbi;
- 	struct fsl_pq_mdio_priv *priv;
- 	struct fsl_pq_mdio __iomem *regs = NULL;
-@@ -252,9 +251,9 @@ static int fsl_pq_mdio_probe(struct platform_device *ofdev)
- 	}
- 
- 	new_bus->name = "Freescale PowerQUICC MII Bus",
--	new_bus->read = &fsl_pq_mdio_read,
--	new_bus->write = &fsl_pq_mdio_write,
--	new_bus->reset = &fsl_pq_mdio_reset,
-+	new_bus->read = &fsl_pq_mdio_read;
-+	new_bus->write = &fsl_pq_mdio_write;
-+	new_bus->reset = &fsl_pq_mdio_reset;
- 	new_bus->priv = priv;
- 
- 	addrp = of_get_address(np, 0, &size, NULL);
-@@ -295,8 +294,8 @@ static int fsl_pq_mdio_probe(struct platform_device *ofdev)
- 		goto err_unmap_regs;
- 	}
- 
--	new_bus->parent = &ofdev->dev;
--	dev_set_drvdata(&ofdev->dev, new_bus);
-+	new_bus->parent = &pdev->dev;
-+	dev_set_drvdata(&pdev->dev, new_bus);
- 
- 	if (of_device_is_compatible(np, "fsl,gianfar-mdio") ||
- 			of_device_is_compatible(np, "fsl,gianfar-tbi") ||
-@@ -348,8 +347,8 @@ static int fsl_pq_mdio_probe(struct platform_device *ofdev)
- 
- 	err = of_mdiobus_register(new_bus, np);
- 	if (err) {
--		printk (KERN_ERR "%s: Cannot register as MDIO bus\n",
--				new_bus->name);
-+		dev_err(&pdev->dev, "cannot register %s as MDIO bus\n",
-+			new_bus->name);
- 		goto err_free_irqs;
- 	}
- 
-@@ -367,9 +366,9 @@ err_free_priv:
- }
- 
- 
--static int fsl_pq_mdio_remove(struct platform_device *ofdev)
-+static int fsl_pq_mdio_remove(struct platform_device *pdev)
- {
--	struct device *device = &ofdev->dev;
-+	struct device *device = &pdev->dev;
- 	struct mii_bus *bus = dev_get_drvdata(device);
- 	struct fsl_pq_mdio_priv *priv = bus->priv;
+ #include "gianfar.h"
  
 -- 
 1.7.3.4
