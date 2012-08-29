@@ -1,60 +1,37 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 5/7] net/xfrm/xfrm_state.c: fix error return code
-Date: Wed, 29 Aug 2012 18:49:15 +0200
-Message-ID: <1346258957-7649-6-git-send-email-Julia.Lawall@lip6.fr>
-References: <1346258957-7649-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Luciano Coelho <coelho@ti.com>
+Subject: Re: [PATCH 3.6-rc3] wlcore: Declare MODULE_FIRMWARE usage
+Date: Wed, 29 Aug 2012 20:01:46 +0300
+Message-ID: <1346259706.3935.2.camel@cumari.coelho.fi>
+References: <1346251689-37023-1-git-send-email-tim.gardner@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Eliad Peller <eliad@wizery.com>,
+	Arik Nemtsov <arik@wizery.com>, Eyal Shapira <eyal@wizery.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Tim Gardner <tim.gardner@canonical.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1346258957-7649-1-git-send-email-Julia.Lawall@lip6.fr>
+In-Reply-To: <1346251689-37023-1-git-send-email-tim.gardner@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+On Wed, 2012-08-29 at 08:48 -0600, Tim Gardner wrote:
+> Cc: Luciano Coelho <coelho@ti.com>
+> Cc: "John W. Linville" <linville@tuxdriver.com>
+> Cc: Eliad Peller <eliad@wizery.com>
+> Cc: Arik Nemtsov <arik@wizery.com>
+> Cc: Eyal Shapira <eyal@wizery.com>
+> Cc: linux-wireless@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+> ---
 
-Initialize return variable before exiting on an error path.
+Please add a proper commit message.  And there's no need to put all
+these people in Cc: in the commit log.  CC'ing when sending the patch is
+enough (even though for such small patch, the linux-wireless mailing
+list and myself is enough).
 
-A simplified version of the semantic match that finds this problem is as
-follows: (http://coccinelle.lip6.fr/)
-
-// <smpl>
-(
-if@p1 (\(ret < 0\|ret != 0\))
- { ... return ret; }
-|
-ret@p1 = 0
-)
-... when != ret = e1
-    when != &ret
-*if(...)
-{
-  ... when != ret = e2
-      when forall
- return ret;
-}
-
-// </smpl>
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
- net/xfrm/xfrm_state.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 7856c33..b68e0cc 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1994,8 +1994,10 @@ int __xfrm_init_state(struct xfrm_state *x, bool init_replay)
- 		goto error;
- 
- 	x->outer_mode = xfrm_get_mode(x->props.mode, family);
--	if (x->outer_mode == NULL)
-+	if (x->outer_mode == NULL) {
-+		err = -EPROTONOSUPPORT;
- 		goto error;
-+	}
- 
- 	if (init_replay) {
- 		err = xfrm_init_replay(x);
+--
+Luca.
