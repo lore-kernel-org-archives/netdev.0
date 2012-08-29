@@ -1,101 +1,178 @@
-From: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
-Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
-Date: Tue, 28 Aug 2012 21:34:17 -0700
-Message-ID: <CAFbMe2Pgjbttt+Z3RQ9KL05=GHqZYk5ubNH2G1-EUn_f_RBaEQ@mail.gmail.com>
-References: <1345724123.5904.756.camel@edumazet-glaptop>
-	<50362407.9070805@linlab.net>
-	<1345726185.5904.835.camel@edumazet-glaptop>
-	<20120824.134231.41073001349178209.davem@davemloft.net>
-	<20120825084819.GD430@linlab.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexander Bergmann <alex@linlab.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120825084819.GD430@linlab.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: [PATCH v2] iproute2: tc.8: update UNITS section.
+Date: Wed, 29 Aug 2012 14:41:56 +0800
+Message-ID: <1346222516-14814-1-git-send-email-lw@cn.fujitsu.com>
+References: <1346132337-21325-1-git-send-email-lw@cn.fujitsu.com>
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	Li Wei <lw@cn.fujitsu.com>
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:15170 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751160Ab2H2GnA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Aug 2012 02:43:00 -0400
+In-Reply-To: <1346132337-21325-1-git-send-email-lw@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 25, 2012 at 1:48 AM, Alexander Bergmann <alex@linlab.net> wrote:
-> On Fri, Aug 24, 2012 at 01:42:31PM -0400, David Miller wrote:
->> Alex, this patch doesn't apply, it was completely corrupted by your email
->> client.
->>
->> Make a fresh submission, with this fixed.  But before you do, email the
->> patch to yourself and make sure you can actually apply the patch you
->> receive in your inbox.  Because that's exactly what I'm going to have
->> to do.
->
-> Sorry I messed it up the last time. This time I've double checked as
-> you suggested. I'll keep that in mind.
->
-> From 11a292b1cff772f930a02fda02d5b741f8ea5033 Mon Sep 17 00:00:00 2001
-> From: Alexander Bergmann <alex@linlab.net>
-> Date: Fri, 24 Aug 2012 14:09:49 +0200
-> Subject: [PATCH 1/1] tcp: Increase timeout for SYN segments
->
-> Commit 9ad7c049 changed the initRTO from 3secs to 1sec in accordance to
-> RFC6298 (former RFC2988bis). This reduced the time till the last SYN
-> retransmission packet gets sent from 93secs to 31secs.
->
-> RFC1122 is stating that the retransmission should be done for at least 3
-> minutes, but this seems to be quite high.
->
->   "However, the values of R1 and R2 may be different for SYN
->   and data segments.  In particular, R2 for a SYN segment MUST
->   be set large enough to provide retransmission of the segment
->   for at least 3 minutes.  The application can close the
->   connection (i.e., give up on the open attempt) sooner, of
->   course."
->
-> This patch increases the value of TCP_SYN_RETRIES to the value of 6,
-> providing a retransmission window of 63secs.
->
-> The comments for SYN and SYNACK retries have also been updated to
-> describe the current settings.
->
-> Signed-off-by: Alexander Bergmann <alex@linlab.net>
-> ---
->  include/net/tcp.h |   18 ++++++++++++++----
->  1 files changed, 14 insertions(+), 4 deletions(-)
->
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 1f000ff..d43d6b3 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -98,11 +98,21 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
->                                  * 15 is ~13-30min depending on RTO.
->                                  */
->
-> -#define TCP_SYN_RETRIES         5      /* number of times to retry active opening a
-> -                                * connection: ~180sec is RFC minimum   */
-> +#define TCP_SYN_RETRIES         6      /*
-> +                                * This is how many retries it does to active
-> +                                * opening a connection.
-> +                                * RFC1122 says the minimum retry MUST be at
-> +                                * least 180secs. Nevertheless this value is
-> +                                * corresponding to 63secs of retransmission
-> +                                * with the current initial RTO.
-> +                                */
->
-> -#define TCP_SYNACK_RETRIES 5   /* number of times to retry passive opening a
-> -                                * connection: ~180sec is RFC minimum   */
-> +#define TCP_SYNACK_RETRIES 5   /*
-> +                                * This is how may retries it does to passive
-> +                                * opening a connection.
-> +                                * This is corresponding to 31secs of
-> +                                * retransmission with the current initial RTO.
+- rename section UNITS to PARAMETERS.
+- break section PARAMETERS down to four subsections to cover the
+  common used parameter types(RATES, TIMES, SIZES, VALUES).
+- add some explaination for IEC units in RATES.
+- point out the max value we can set for RATES, TIMES and SIZES.
 
-IMHO 31secs seem a little short. Why not change it to 6 as well because 63
-secs still beats 93secs with 3sec initRTO and 5 retries.
+Signed-off-by: Li Wei <lw@cn.fujitsu.com>
+---
+Changes from v1:
+- fix some syntax and spelling errors. Thanks Ben!
 
-Jerry
+ man/man8/tc.8 |  112 +++++++++++++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 86 insertions(+), 26 deletions(-)
 
-> +                                */
->
->  #define TCP_TIMEWAIT_LEN (60*HZ) /* how long to wait to destroy TIME-WAIT
->                                   * state, about 60 seconds     */
-> --
-> 1.7.8.6
->
+diff --git a/man/man8/tc.8 b/man/man8/tc.8
+index 98fbfcd..f81d46f 100644
+--- a/man/man8/tc.8
++++ b/man/man8/tc.8
+@@ -257,19 +257,20 @@ qdiscs applies.
+ FILTERS
+ Filters have a three part ID, which is only needed when using a hashed
+ filter hierarchy.
+-.SH UNITS
+-All parameters accept a floating point number, possibly followed by a unit.
+-.P
+-Bandwidths or rates can be specified in:
+-.TP
+-bps
+-Bytes per second
++
++.SH PARAMETERS
++The following parameters are widely used in TC. For other parameters,
++see the man pages for individual qdiscs.
++
+ .TP
+-kbps
+-Kilobytes per second
++RATES
++Bandwidths or rates.
++These parameters accept a floating point number, possibly followed by
++a unit (both SI and IEC units supported).
++.RS
+ .TP
+-mbps
+-Megabytes per second
++bit or a bare number
++Bits per second
+ .TP
+ kbit
+ Kilobits per second
+@@ -277,27 +278,41 @@ Kilobits per second
+ mbit
+ Megabits per second
+ .TP
+-bit or a bare number
+-Bits per second
+-.P
+-Amounts of data can be specified in:
++gbit
++Gigabits per second
+ .TP
+-kb or k
+-Kilobytes
++tbit
++Terabits per second
+ .TP
+-mb or m
+-Megabytes
++bps
++Bytes per second
+ .TP
+-mbit
+-Megabits
++kbps
++Kilobytes per second
+ .TP
+-kbit
+-Kilobits
++mbps
++Megabytes per second
+ .TP
+-b or a bare number
+-Bytes.
++gbps
++Gigabytes per second
++.TP
++tbps
++Terabytes per second
++
++.P
++To specify in IEC units, replace the SI prefix (k-, m-, g-, t-) with
++IEC prefix (ki-, mi-, gi- and ti-) respectively.
++
+ .P
+-Lengths of time can be specified in:
++TC store rates as a 32-bit unsigned integer in bps internally,
++so we can specify a max rate of 4294967295 bps.
++.RE
++
++.TP
++TIMES
++Length of time. Can be specified as a floating point number 
++followed by an optional unit:
++.RS
+ .TP
+ s, sec or secs
+ Whole seconds
+@@ -308,6 +323,51 @@ Milliseconds
+ us, usec, usecs or a bare number
+ Microseconds.
+ 
++.P
++TC defined its own time unit (equal to microsecond) and stores
++time values as 32-bit unsigned integer, thus we can specify a max time value
++of 4294967295 usecs.
++.RE
++
++.TP
++SIZES
++Amounts of data. Can be specified as a floating point number 
++followed by an optional unit:
++.RS
++.TP
++b or a bare number
++Bytes.
++.TP
++kbit
++Kilobits
++.TP
++kb or k
++Kilobytes
++.TP
++mbit
++Megabits
++.TP
++mb or m
++Megabytes
++.TP
++gbit
++Gigabits
++.TP
++gb or g
++Gigabytes
++
++.P
++TC stores sizes internally as 32-bit unsigned integer in byte,
++so we can specify a max size of 4294967295 bytes.
++.RE
++
++.TP
++VALUES
++Other values without a unit.
++These parameters are interpreted as decimal by default, but you can
++indicate TC to interpret them as octal and hexadecimal by adding a '0'
++or '0x' prefix respectively.
++
+ .SH TC COMMANDS
+ The following commands are available for qdiscs, classes and filter:
+ .TP
+-- 
+1.7.10.1
