@@ -1,41 +1,59 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net-next V3 1/2] IB/ipoib: Add rtnl_link_ops support
-Date: Wed, 29 Aug 2012 15:59:59 +0300
-Message-ID: <503E124F.2050107@mellanox.com>
-References: <1345724119-32110-1-git-send-email-ogerlitz@mellanox.com> <1345724119-32110-2-git-send-email-ogerlitz@mellanox.com> <Pine.GSO.4.63.1208291450330.1098@stinky-local.trash.net>
+From: Vlad Maraev <maraevvb@gmail.com>
+Subject: Re: IPv4 header extension for IPv6 translation support
+Date: Wed, 29 Aug 2012 17:15:42 +0400
+Message-ID: <CAK617oTvCqu4DwAmDMOQBWxWRba7_C_Gn+qY_ajxMFkDg5P9_w@mail.gmail.com>
+References: <CAK617oRJypmo3025f8PZSv=Rehb3NjqyNp=bQjnRFWwaGjGXzw@mail.gmail.com>
+	<87bohu6cdt.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <roland@kernel.org>,
-	<netdev@vger.kernel.org>, Erez Shitrit <erezsh@mellanox.co.il>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:45544 "HELO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752567Ab2H2NAO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2012 09:00:14 -0400
-In-Reply-To: <Pine.GSO.4.63.1208291450330.1098@stinky-local.trash.net>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:35013 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752337Ab2H2NPo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2012 09:15:44 -0400
+Received: by eekc1 with SMTP id c1so221785eek.19
+        for <netdev@vger.kernel.org>; Wed, 29 Aug 2012 06:15:43 -0700 (PDT)
+In-Reply-To: <87bohu6cdt.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 29/08/2012 15:53, Patrick McHardy wrote:
-> On Thu, 23 Aug 2012, Or Gerlitz wrote:
->
->> new file mode 100644
->> index 0000000..18d6ac9
->> --- /dev/null
->> +++ b/drivers/infiniband/ulp/ipoib/ipoib_netlink.c
->> ...
->> +
->> +enum {
->> +    IFLA_IPOIB_UNSPEC,
->> +    IFLA_IPOIB_CHILD_PKEY,
->> +    __IFLA_IPOIB_MAX
->> +};
->> +
->> +#define IFLA_IPOIB_MAX (__IFLA_IPOIB_MAX - 1)
->
-> This should go into include/linux/if_link.h
->
+Dear Eric,
 
-sure, will fix
+I'm glad to receive the detailed feedback from you.
+But I can't agree with some of your arguments:
+
+> You are going over territory that has been rather thoroughly explored
+> already.
+I know the territory but I don't see that the problems are solved. I
+mean problems caused by NATs: scalability, complexity, connection
+tracking, additional addresses for NAT device.
+
+>   In fact it is more difficult
+>   because ipv6 is present in most end devices today, it is the network
+>   links that are the bottle-neck in rolling out ipv6.
+The fact that the end devices are ready for IPv6 doesn't mean that ISP
+customers will make transitions in a one period of time. That's why
+NATs are needed and they are in use. Detailed motivations are stated
+in RFC6144 ("why translation" section).
+
+> For the best interoperatiblity the best transition strategy remains
+> dual-stack.  With native ipv6 connectivity and some flavor of ipv4
+> connectivity (native, dual-stack-lite, or 646xlate).
+My solution doesn't compete with dual stack and ds-lite that is good
+for creating overlaying network. I offer a strategy that is an
+alternative to existing NAT solutions.
+
+Thanks
+
+Vlad
+
+
+P.S.
+I found that this problem that was stated in my proposal
+> 1. Intermediate nodes can look below the Destination Address for the
+> options if ihl>5 and will be confused with IPv4x data.
+has a solution: we can use IPv4 option field for placing this data.
+Intermediate nodes that know nothing about this option will skip it
+and forward the packet.
