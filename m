@@ -1,14 +1,11 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 7/7] net/netfilter/nf_conntrack_netlink.c: fix error return code
-Date: Wed, 29 Aug 2012 18:49:16 +0200
-Message-ID: <1346258957-7649-7-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 5/7] net/xfrm/xfrm_state.c: fix error return code
+Date: Wed, 29 Aug 2012 18:49:15 +0200
+Message-ID: <1346258957-7649-6-git-send-email-Julia.Lawall@lip6.fr>
 References: <1346258957-7649-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1346258957-7649-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -42,20 +39,22 @@ ret@p1 = 0
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- net/netfilter/nf_conntrack_netlink.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/xfrm/xfrm_state.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index da4fc37..9807f32 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -2790,7 +2790,8 @@ static int __init ctnetlink_init(void)
- 		goto err_unreg_subsys;
- 	}
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 7856c33..b68e0cc 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -1994,8 +1994,10 @@ int __xfrm_init_state(struct xfrm_state *x, bool init_replay)
+ 		goto error;
  
--	if (register_pernet_subsys(&ctnetlink_net_ops)) {
-+	ret = register_pernet_subsys(&ctnetlink_net_ops);
-+	if (ret < 0) {
- 		pr_err("ctnetlink_init: cannot register pernet operations\n");
- 		goto err_unreg_exp_subsys;
- 	}
+ 	x->outer_mode = xfrm_get_mode(x->props.mode, family);
+-	if (x->outer_mode == NULL)
++	if (x->outer_mode == NULL) {
++		err = -EPROTONOSUPPORT;
+ 		goto error;
++	}
+ 
+ 	if (init_replay) {
+ 		err = xfrm_init_replay(x);
