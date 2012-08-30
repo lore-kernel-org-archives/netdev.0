@@ -1,56 +1,71 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: BUG: soft lockup - CPU#6 stuck for 22s! [httpd2-event:15597]
-Date: Wed, 29 Aug 2012 21:37:46 -0400
-Message-ID: <CADVnQy=bdHm2jcuReZaxr-qRMRWLDLnVP-jkzBTE-HPZ9FROmw@mail.gmail.com>
-References: <5038215E.60403@opensuse.org>
-	<1345885186.19483.109.camel@edumazet-glaptop>
-	<1345886085.19483.141.camel@edumazet-glaptop>
-	<1345895225.19483.447.camel@edumazet-glaptop>
-	<CADVnQymYXHcqJEgcgH0OHHFfCe6LAMSBZ0E68NWzDZQNTqB+Sg@mail.gmail.com>
-	<1346040367.2420.22.camel@edumazet-glaptop>
+From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+Subject: [PATCH] 6lowpan: Make a copy of skb's
+	delivered to 6lowpan
+Date: Wed, 29 Aug 2012 22:19:27 -0400
+Message-ID: <1346293168-26498-1-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: =?ISO-8859-1?Q?Cristian_Rodr=EDguez?= <crrodriguez@opensuse.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:44813 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754024Ab2H3Bhq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2012 21:37:46 -0400
-Received: by ialo24 with SMTP id o24so2342667ial.19
-        for <netdev@vger.kernel.org>; Wed, 29 Aug 2012 18:37:46 -0700 (PDT)
-In-Reply-To: <1346040367.2420.22.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+To: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 27, 2012 at 12:06 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Indeed, so the first patch was better...
->
-> Not sure I can investigate this problem this week, as I attend LKS/LPC
-> in San Diego.
->
-> Could be that snd_cwnd is zero as well so we have this infinite loop...
->
->         while (tp->snd_cwnd_cnt >= tp->snd_cwnd) {
->                 tp->snd_cwnd_cnt -= tp->snd_cwnd;
->                 delta++;
->         }
+Since lowpan_process_data() modifies the skb (by calling skb_pull()), we
+need our own copy so that it doesn't affect the data received by other
+protcols (in this case, af_ieee802154).
 
-Yes, it seems that one way or another cwnd is getting to zero and
-turning this into an infinite loop.
+Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+---
+ net/ieee802154/6lowpan.c |    9 ++++++++-
+ 1 files changed, 8 insertions(+), 1 deletions(-)
 
-Two questions for you, Cristian, if you have a second:
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 6a09522..ce33b02 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -1133,6 +1133,8 @@ static int lowpan_validate(struct nlattr *tb[], struct nlattr *data[])
+ static int lowpan_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct sk_buff *local_skb;
++
+ 	if (!netif_running(dev))
+ 		goto drop;
+ 
+@@ -1144,7 +1146,12 @@ static int lowpan_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	case LOWPAN_DISPATCH_IPHC:	/* ipv6 datagram */
+ 	case LOWPAN_DISPATCH_FRAG1:	/* first fragment header */
+ 	case LOWPAN_DISPATCH_FRAGN:	/* next fragments headers */
+-		lowpan_process_data(skb);
++		local_skb = skb_copy(skb, GFP_ATOMIC);
++		if (!local_skb)
++			goto drop;
++		lowpan_process_data(local_skb);
++
++		kfree_skb(skb);
+ 		break;
+ 	default:
+ 		break;
+-- 
+1.7.0.4
 
-1) Are you still seeing this problem in your workload? If so, would
-you have time to try another small patch to add instrumentation to
-track down the cause?
 
-2) Do you happen to run with the tcp_mtu_probing sysctl enabled? I
-have been looking for code paths that could cause the cwnd to go to
-zero, and that's the first possibility that I've been able to see (in
-tcp_mtup_probe_success() it seems like there are corner cases where
-snd_cwnd could become zero).
-
-neal
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
