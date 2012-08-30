@@ -1,414 +1,224 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH bridge 2/5] bridge: Add vlan to unicast fdb entries
-Date: Thu, 30 Aug 2012 18:45:21 +0300
-Message-ID: <20120830154521.GB21739@redhat.com>
+Subject: Re: [RFC PATCH bridge 5/5] bridge: Add sysfs interface to display
+ VLANS
+Date: Thu, 30 Aug 2012 18:47:11 +0300
+Message-ID: <20120830154711.GC21739@redhat.com>
 References: <1345750195-31598-1-git-send-email-vyasevic@redhat.com>
- <1345750195-31598-3-git-send-email-vyasevic@redhat.com>
- <20120830143303.GA21630@redhat.com>
- <503F7D59.4030906@redhat.com>
+ <1345750195-31598-6-git-send-email-vyasevic@redhat.com>
+ <20120830122724.GC20228@redhat.com>
+ <503F731C.1070208@redhat.com>
+ <20120830142609.GE21132@redhat.com>
+ <503F7A72.6070101@redhat.com>
+ <20120830144443.GD21646@redhat.com>
+ <503F7DF7.5020606@redhat.com>
+ <20120830150351.GA21739@redhat.com>
+ <503F81AC.2090201@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8699 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:27994 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752501Ab2H3PoE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Aug 2012 11:44:04 -0400
-Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q7UFi2So022340
+	id S1753321Ab2H3Ppx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Aug 2012 11:45:53 -0400
+Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q7UFjrWc029423
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 11:44:02 -0400
+	for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 11:45:53 -0400
 Content-Disposition: inline
-In-Reply-To: <503F7D59.4030906@redhat.com>
+In-Reply-To: <503F81AC.2090201@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 30, 2012 at 10:48:57AM -0400, Vlad Yasevich wrote:
-> On 08/30/2012 10:33 AM, Michael S. Tsirkin wrote:
-> >On Thu, Aug 23, 2012 at 03:29:52PM -0400, Vlad Yasevich wrote:
-> >>This patch adds vlan to unicast fdb entries that are created for
-> >>learned addresses (not the manually configured ones).  It adds
-> >>vlan id into the hash mix and uses vlan as an addditional parameter
-> >>for an entry match.
+On Thu, Aug 30, 2012 at 11:07:24AM -0400, Vlad Yasevich wrote:
+> On 08/30/2012 11:03 AM, Michael S. Tsirkin wrote:
+> >On Thu, Aug 30, 2012 at 10:51:35AM -0400, Vlad Yasevich wrote:
+> >>On 08/30/2012 10:44 AM, Michael S. Tsirkin wrote:
+> >>>On Thu, Aug 30, 2012 at 10:36:34AM -0400, Vlad Yasevich wrote:
+> >>>>On 08/30/2012 10:26 AM, Michael S. Tsirkin wrote:
+> >>>>>On Thu, Aug 30, 2012 at 10:05:16AM -0400, Vlad Yasevich wrote:
+> >>>>>>On 08/30/2012 08:27 AM, Michael S. Tsirkin wrote:
+> >>>>>>>On Thu, Aug 23, 2012 at 03:29:55PM -0400, Vlad Yasevich wrote:
+> >>>>>>>>Add a binary sysfs file that will dump out vlans currently configured on the
+> >>>>>>>>port.
+> >>>>
+> >>>>I initially though of creating a sysfs object per vlan.  That would
+> >>>>have made it easy to see which vlans are configured without any
+> >>>>tools.
+> >>>>But that could result in a lot of objects being created, so I abandoned it.
+> >>>>
+> >>>>I did think about a text interface, but due to a page of output
+> >>>>limitation, I didn't go that route.  The reason is that if someone
+> >>>>cats the file, they may not see all the vlans configured.  So I
+> >>>>decided on the binary interface, since a binary interface with a
+> >>>>tool to read it could avoid the single page limitation.
+> >>>>
+> >>>>-vlad
+> >>>
+> >>>Maybe it's not needed in sysfs then - expose it to
+> >>>brctl or whatever.
+> >>>
 > >>
-> >>Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> >>brctl uses sysfs for almost everything any more :)
+> >>
+> >>-vlad
 > >
-> >I wonder whether this conflicts with Eric's
-> >05423b241311c9380b7280179295bac7794281b6
-> >which allowed null vid.
-> >
-> >Specifically this calls vlan_tx_tag_get without
-> >checking vlan_tx_tag_present. Why is this OK?
+> >How about a long string of 0 and 1's?
+> >And a separate one for untagged vlans.
 > 
-> We ignore the PRIO bits and just look at vlan deeper in the functions.
-> So if the tci is set, even to NULL/0 vid, we are still OK as we'll use
-> just the VID bits.
-
-I do not fully understand why does kernel allow NULL vid,
-thus my question.
-It seems that your patches treat packets with NULL vid
-same as untagged packets - is this OK?
-
-> Now, the other issue with this patch is that it doesn't work when
-> VLANs aren't supported by the kernel and skb->vlan_tci is never set.
-> I am working to address that.
+> that would work too.  You really don't like the binary interface, huh?
 > 
 > -vlad
 
-I guess if we special-case !vlan_tx_tag_present this will
-also treat untagged packets different from tagged ones?
+Not in sysfs.
+Another possibility: you are adding netlink command
+to add/del a specific vid, add one to test a specific vid.
+This means you will need to scan 4K possibilities if you
+want to list them all, but in real life it's
+probably just debugging tools that need to do this. 
 
 > >
-> >>---
-> >>  include/linux/if_bridge.h |    1 +
-> >>  net/bridge/br_device.c    |    2 +-
-> >>  net/bridge/br_fdb.c       |   71 ++++++++++++++++++++++++++------------------
-> >>  net/bridge/br_input.c     |   14 ++++++---
-> >>  net/bridge/br_private.h   |    7 +++-
-> >>  5 files changed, 58 insertions(+), 37 deletions(-)
-> >>
-> >>diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
-> >>index dd3f201..288ff10 100644
-> >>--- a/include/linux/if_bridge.h
-> >>+++ b/include/linux/if_bridge.h
-> >>@@ -95,6 +95,7 @@ struct __fdb_entry {
-> >>  	__u8 port_hi;
-> >>  	__u8 pad0;
-> >>  	__u16 unused;
-> >>+#define fdb_vid unused
-> >>  };
-> >>
-> >>  #ifdef __KERNEL__
-> >>diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-> >>index 3334845..e321b9d 100644
-> >>--- a/net/bridge/br_device.c
-> >>+++ b/net/bridge/br_device.c
-> >>@@ -66,7 +66,7 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
-> >>  			br_multicast_deliver(mdst, skb);
-> >>  		else
-> >>  			br_flood_deliver(br, skb);
-> >>-	} else if ((dst = __br_fdb_get(br, dest)) != NULL)
-> >>+	} else if ((dst = __br_fdb_get(br, dest, vlan_tx_tag_get(skb))) != NULL)
-> >>  		br_deliver(dst->dst, skb);
-> >>  	else
-> >>  		br_flood_deliver(br, skb);
-> >>diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> >>index d21f323..478ca1d 100644
-> >>--- a/net/bridge/br_fdb.c
-> >>+++ b/net/bridge/br_fdb.c
-> >>@@ -23,6 +23,7 @@
-> >>  #include <linux/slab.h>
-> >>  #include <linux/atomic.h>
-> >>  #include <asm/unaligned.h>
-> >>+#include <linux/if_vlan.h>
-> >>  #include "br_private.h"
-> >>
-> >>  static struct kmem_cache *br_fdb_cache __read_mostly;
-> >>@@ -67,11 +68,12 @@ static inline int has_expired(const struct net_bridge *br,
-> >>  		time_before_eq(fdb->updated + hold_time(br), jiffies);
-> >>  }
-> >>
-> >>-static inline int br_mac_hash(const unsigned char *mac)
-> >>+static inline int br_mac_hash(const unsigned char *mac, __u16 vlan_tci)
-> >>  {
-> >>-	/* use 1 byte of OUI cnd 3 bytes of NIC */
-> >>+	/* use 1 byte of OUI and 3 bytes of NIC */
-> >>  	u32 key = get_unaligned((u32 *)(mac + 2));
-> >>-	return jhash_1word(key, fdb_salt) & (BR_HASH_SIZE - 1);
-> >>+	return jhash_2words(key, (vlan_tci & VLAN_VID_MASK),
-> >>+				fdb_salt) & (BR_HASH_SIZE - 1);
-> >>  }
-> >>
-> >>  static void fdb_rcu_free(struct rcu_head *head)
-> >>@@ -132,7 +134,7 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
-> >>  	struct net_bridge_fdb_entry *f;
-> >>
-> >>  	/* If old entry was unassociated with any port, then delete it. */
-> >>-	f = __br_fdb_get(br, br->dev->dev_addr);
-> >>+	f = __br_fdb_get(br, br->dev->dev_addr, 0);
-> >>  	if (f && f->is_local && !f->dst)
-> >>  		fdb_delete(br, f);
-> >>
-> >>@@ -231,13 +233,16 @@ void br_fdb_delete_by_port(struct net_bridge *br,
-> >>
-> >>  /* No locking or refcounting, assumes caller has rcu_read_lock */
-> >>  struct net_bridge_fdb_entry *__br_fdb_get(struct net_bridge *br,
-> >>-					  const unsigned char *addr)
-> >>+					  const unsigned char *addr,
-> >>+					  __u16 vlan_tci)
-> >>  {
-> >>  	struct hlist_node *h;
-> >>  	struct net_bridge_fdb_entry *fdb;
-> >>
-> >>-	hlist_for_each_entry_rcu(fdb, h, &br->hash[br_mac_hash(addr)], hlist) {
-> >>-		if (ether_addr_equal(fdb->addr.addr, addr)) {
-> >>+	hlist_for_each_entry_rcu(fdb, h,
-> >>+				&br->hash[br_mac_hash(addr, vlan_tci)], hlist) {
-> >>+		if (ether_addr_equal(fdb->addr.addr, addr) &&
-> >>+		    fdb->vlan_id == (vlan_tci & VLAN_VID_MASK) ) {
-> >>  			if (unlikely(has_expired(br, fdb)))
-> >>  				break;
-> >>  			return fdb;
-> >>@@ -261,7 +266,7 @@ int br_fdb_test_addr(struct net_device *dev, unsigned char *addr)
-> >>  	if (!port)
-> >>  		ret = 0;
-> >>  	else {
-> >>-		fdb = __br_fdb_get(port->br, addr);
-> >>+		fdb = __br_fdb_get(port->br, addr, 0);
-> >>  		ret = fdb && fdb->dst && fdb->dst->dev != dev &&
-> >>  			fdb->dst->state == BR_STATE_FORWARDING;
-> >>  	}
-> >>@@ -313,6 +318,7 @@ int br_fdb_fillbuf(struct net_bridge *br, void *buf,
-> >>  			fe->is_local = f->is_local;
-> >>  			if (!f->is_static)
-> >>  				fe->ageing_timer_value = jiffies_to_clock_t(jiffies - f->updated);
-> >>+			fe->fdb_vid = f->vlan_id;
-> >>  			++fe;
-> >>  			++num;
-> >>  		}
-> >>@@ -325,26 +331,30 @@ int br_fdb_fillbuf(struct net_bridge *br, void *buf,
-> >>  }
-> >>
-> >>  static struct net_bridge_fdb_entry *fdb_find(struct hlist_head *head,
-> >>-					     const unsigned char *addr)
-> >>+					     const unsigned char *addr,
-> >>+					     __u16 vlan_tci)
-> >>  {
-> >>  	struct hlist_node *h;
-> >>  	struct net_bridge_fdb_entry *fdb;
-> >>
-> >>  	hlist_for_each_entry(fdb, h, head, hlist) {
-> >>-		if (ether_addr_equal(fdb->addr.addr, addr))
-> >>+		if (ether_addr_equal(fdb->addr.addr, addr) &&
-> >>+		    fdb->vlan_id == (vlan_tci & VLAN_VID_MASK))
-> >>  			return fdb;
-> >>  	}
-> >>  	return NULL;
-> >>  }
-> >>
-> >>  static struct net_bridge_fdb_entry *fdb_find_rcu(struct hlist_head *head,
-> >>-						 const unsigned char *addr)
-> >>+						 const unsigned char *addr,
-> >>+						 __u16 vlan_tci)
-> >>  {
-> >>  	struct hlist_node *h;
-> >>  	struct net_bridge_fdb_entry *fdb;
-> >>
-> >>  	hlist_for_each_entry_rcu(fdb, h, head, hlist) {
-> >>-		if (ether_addr_equal(fdb->addr.addr, addr))
-> >>+		if (ether_addr_equal(fdb->addr.addr, addr) &&
-> >>+		    fdb->vlan_id == (vlan_tci & VLAN_VID_MASK))
-> >>  			return fdb;
-> >>  	}
-> >>  	return NULL;
-> >>@@ -352,7 +362,8 @@ static struct net_bridge_fdb_entry *fdb_find_rcu(struct hlist_head *head,
-> >>
-> >>  static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
-> >>  					       struct net_bridge_port *source,
-> >>-					       const unsigned char *addr)
-> >>+					       const unsigned char *addr,
-> >>+					       __u16 vlan_tci)
-> >>  {
-> >>  	struct net_bridge_fdb_entry *fdb;
-> >>
-> >>@@ -360,6 +371,7 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
-> >>  	if (fdb) {
-> >>  		memcpy(fdb->addr.addr, addr, ETH_ALEN);
-> >>  		fdb->dst = source;
-> >>+		fdb->vlan_id = (vlan_tci & VLAN_VID_MASK);
-> >>  		fdb->is_local = 0;
-> >>  		fdb->is_static = 0;
-> >>  		fdb->updated = fdb->used = jiffies;
-> >>@@ -371,13 +383,13 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
-> >>  static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
-> >>  		  const unsigned char *addr)
-> >>  {
-> >>-	struct hlist_head *head = &br->hash[br_mac_hash(addr)];
-> >>+	struct hlist_head *head = &br->hash[br_mac_hash(addr, 0)];
-> >>  	struct net_bridge_fdb_entry *fdb;
-> >>
-> >>  	if (!is_valid_ether_addr(addr))
-> >>  		return -EINVAL;
-> >>
-> >>-	fdb = fdb_find(head, addr);
-> >>+	fdb = fdb_find(head, addr, 0);
-> >>  	if (fdb) {
-> >>  		/* it is okay to have multiple ports with same
-> >>  		 * address, just use the first one.
-> >>@@ -390,7 +402,7 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
-> >>  		fdb_delete(br, fdb);
-> >>  	}
-> >>
-> >>-	fdb = fdb_create(head, source, addr);
-> >>+	fdb = fdb_create(head, source, addr, 0);
-> >>  	if (!fdb)
-> >>  		return -ENOMEM;
-> >>
-> >>@@ -412,9 +424,9 @@ int br_fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
-> >>  }
-> >>
-> >>  void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
-> >>-		   const unsigned char *addr)
-> >>+		   const unsigned char *addr, __u16 vlan_tci)
-> >>  {
-> >>-	struct hlist_head *head = &br->hash[br_mac_hash(addr)];
-> >>+	struct hlist_head *head = &br->hash[br_mac_hash(addr, vlan_tci)];
-> >>  	struct net_bridge_fdb_entry *fdb;
-> >>
-> >>  	/* some users want to always flood. */
-> >>@@ -426,7 +438,7 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
-> >>  	      source->state == BR_STATE_FORWARDING))
-> >>  		return;
-> >>
-> >>-	fdb = fdb_find_rcu(head, addr);
-> >>+	fdb = fdb_find_rcu(head, addr, vlan_tci);
-> >>  	if (likely(fdb)) {
-> >>  		/* attempt to update an entry for a local interface */
-> >>  		if (unlikely(fdb->is_local)) {
-> >>@@ -441,8 +453,8 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
-> >>  		}
-> >>  	} else {
-> >>  		spin_lock(&br->hash_lock);
-> >>-		if (likely(!fdb_find(head, addr))) {
-> >>-			fdb = fdb_create(head, source, addr);
-> >>+		if (likely(!fdb_find(head, addr, vlan_tci))) {
-> >>+			fdb = fdb_create(head, source, addr, vlan_tci);
-> >>  			if (fdb)
-> >>  				fdb_notify(br, fdb, RTM_NEWNEIGH);
-> >>  		}
-> >>@@ -571,18 +583,18 @@ out:
-> >>
-> >>  /* Update (create or replace) forwarding database entry */
-> >>  static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
-> >>-			 __u16 state, __u16 flags)
-> >>+			 __u16 state, __u16 flags, __u16 vlan_tci)
-> >>  {
-> >>  	struct net_bridge *br = source->br;
-> >>-	struct hlist_head *head = &br->hash[br_mac_hash(addr)];
-> >>+	struct hlist_head *head = &br->hash[br_mac_hash(addr, vlan_tci)];
-> >>  	struct net_bridge_fdb_entry *fdb;
-> >>
-> >>-	fdb = fdb_find(head, addr);
-> >>+	fdb = fdb_find(head, addr, vlan_tci);
-> >>  	if (fdb == NULL) {
-> >>  		if (!(flags & NLM_F_CREATE))
-> >>  			return -ENOENT;
-> >>
-> >>-		fdb = fdb_create(head, source, addr);
-> >>+		fdb = fdb_create(head, source, addr, vlan_tci);
-> >>  		if (!fdb)
-> >>  			return -ENOMEM;
-> >>  		fdb_notify(br, fdb, RTM_NEWNEIGH);
-> >>@@ -628,11 +640,12 @@ int br_fdb_add(struct ndmsg *ndm, struct net_device *dev,
-> >>
-> >>  	if (ndm->ndm_flags & NTF_USE) {
-> >>  		rcu_read_lock();
-> >>-		br_fdb_update(p->br, p, addr);
-> >>+		br_fdb_update(p->br, p, addr, 0);
-> >>  		rcu_read_unlock();
-> >>  	} else {
-> >>  		spin_lock_bh(&p->br->hash_lock);
-> >>-		err = fdb_add_entry(p, addr, ndm->ndm_state, nlh_flags);
-> >>+		err = fdb_add_entry(p, addr, ndm->ndm_state, nlh_flags,
-> >>+				0);
-> >>  		spin_unlock_bh(&p->br->hash_lock);
-> >>  	}
-> >>
-> >>@@ -642,10 +655,10 @@ int br_fdb_add(struct ndmsg *ndm, struct net_device *dev,
-> >>  static int fdb_delete_by_addr(struct net_bridge_port *p, u8 *addr)
-> >>  {
-> >>  	struct net_bridge *br = p->br;
-> >>-	struct hlist_head *head = &br->hash[br_mac_hash(addr)];
-> >>+	struct hlist_head *head = &br->hash[br_mac_hash(addr, 0)];
-> >>  	struct net_bridge_fdb_entry *fdb;
-> >>
-> >>-	fdb = fdb_find(head, addr);
-> >>+	fdb = fdb_find(head, addr, 0);
-> >>  	if (!fdb)
-> >>  		return -ENOENT;
-> >>
-> >>diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-> >>index b7ca3b3..a4579ee 100644
-> >>--- a/net/bridge/br_input.c
-> >>+++ b/net/bridge/br_input.c
-> >>@@ -62,12 +62,15 @@ int br_handle_frame_finish(struct sk_buff *skb)
-> >>  	 * only traffic matching the VLAN filter.
-> >>  	 */
-> >>  	vlan_map = rcu_dereference(p->vlan_map);
-> >>-	if (vlan_map && !test_bit((skb->vlan_tci & VLAN_VID_MASK), vlan_map))
-> >>-		goto drop;
-> >>+	if (vlan_map && vlan_tx_tag_present(skb)) {
-> >>+		unsigned short vid = vlan_tx_tag_get(skb) & VLAN_VID_MASK;
-> >>+		if (!test_bit(vid+1, vlan_map))
-> >>+			goto drop;
-> >>+	}
-> >>
-> >>  	/* insert into forwarding database after filtering to avoid spoofing */
-> >>  	br = p->br;
-> >>-	br_fdb_update(br, p, eth_hdr(skb)->h_source);
-> >>+	br_fdb_update(br, p, eth_hdr(skb)->h_source, vlan_tx_tag_get(skb));
-> >>
-> >>  	if (!is_broadcast_ether_addr(dest) && is_multicast_ether_addr(dest) &&
-> >>  	    br_multicast_rcv(br, p, skb))
-> >>@@ -102,7 +105,8 @@ int br_handle_frame_finish(struct sk_buff *skb)
-> >>  			skb2 = skb;
-> >>
-> >>  		br->dev->stats.multicast++;
-> >>-	} else if ((dst = __br_fdb_get(br, dest)) && dst->is_local) {
-> >>+	} else if ((dst = __br_fdb_get(br, dest, vlan_tx_tag_get(skb))) &&
-> >>+			dst->is_local) {
-> >>  		skb2 = skb;
-> >>  		/* Do not forward the packet since it's local. */
-> >>  		skb = NULL;
-> >>@@ -131,7 +135,7 @@ static int br_handle_local_finish(struct sk_buff *skb)
-> >>  {
-> >>  	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
-> >>
-> >>-	br_fdb_update(p->br, p, eth_hdr(skb)->h_source);
-> >>+	br_fdb_update(p->br, p, eth_hdr(skb)->h_source, vlan_tx_tag_get(skb));
-> >>  	return 0;	 /* process further */
-> >>  }
-> >>
-> >>diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> >>index 8da90e8..921b927 100644
-> >>--- a/net/bridge/br_private.h
-> >>+++ b/net/bridge/br_private.h
-> >>@@ -72,6 +72,7 @@ struct net_bridge_fdb_entry
-> >>  	unsigned long			updated;
-> >>  	unsigned long			used;
-> >>  	mac_addr			addr;
-> >>+	__u16				vlan_id;
-> >>  	unsigned char			is_local;
-> >>  	unsigned char			is_static;
-> >>  };
-> >>@@ -352,7 +353,8 @@ extern void br_fdb_cleanup(unsigned long arg);
-> >>  extern void br_fdb_delete_by_port(struct net_bridge *br,
-> >>  				  const struct net_bridge_port *p, int do_all);
-> >>  extern struct net_bridge_fdb_entry *__br_fdb_get(struct net_bridge *br,
-> >>-						 const unsigned char *addr);
-> >>+						 const unsigned char *addr,
-> >>+						 __u16 vlan_tci);
-> >>  extern int br_fdb_test_addr(struct net_device *dev, unsigned char *addr);
-> >>  extern int br_fdb_fillbuf(struct net_bridge *br, void *buf,
-> >>  			  unsigned long count, unsigned long off);
-> >>@@ -361,7 +363,8 @@ extern int br_fdb_insert(struct net_bridge *br,
-> >>  			 const unsigned char *addr);
-> >>  extern void br_fdb_update(struct net_bridge *br,
-> >>  			  struct net_bridge_port *source,
-> >>-			  const unsigned char *addr);
-> >>+			  const unsigned char *addr,
-> >>+			  __u16 vlan_tci);
-> >>
-> >>  extern int br_fdb_delete(struct ndmsg *ndm,
-> >>  			 struct net_device *dev,
-> >>--
-> >>1.7.7.6
-> >>
-> >>--
-> >>To unsubscribe from this list: send the line "unsubscribe netdev" in
-> >>the body of a message to majordomo@vger.kernel.org
-> >>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >>>>>
+> >>>>>
+> >>>>>>>
+> >>>>>>>>---
+> >>>>>>>>  include/linux/if_bridge.h |    1 +
+> >>>>>>>>  net/bridge/br_if.c        |   34 ++++++++++++++++++++++++++++++++++
+> >>>>>>>>  net/bridge/br_private.h   |    2 ++
+> >>>>>>>>  net/bridge/br_sysfs_if.c  |   28 ++++++++++++++++++++++++++++
+> >>>>>>>>  4 files changed, 65 insertions(+), 0 deletions(-)
+> >>>>>>>>
+> >>>>>>>>diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
+> >>>>>>>>index ab750dd..d0f869b 100644
+> >>>>>>>>--- a/include/linux/if_bridge.h
+> >>>>>>>>+++ b/include/linux/if_bridge.h
+> >>>>>>>>@@ -20,6 +20,7 @@
+> >>>>>>>>  #define SYSFS_BRIDGE_PORT_SUBDIR "brif"
+> >>>>>>>>  #define SYSFS_BRIDGE_PORT_ATTR	"brport"
+> >>>>>>>>  #define SYSFS_BRIDGE_PORT_LINK	"bridge"
+> >>>>>>>>+#define SYSFS_BRIDGE_PORT_VLANS "vlans"
+> >>>>>>>>
+> >>>>>>>>  #define BRCTL_VERSION 1
+> >>>>>>>>
+> >>>>>>>>diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+> >>>>>>>>index 90c1038..3963748 100644
+> >>>>>>>>--- a/net/bridge/br_if.c
+> >>>>>>>>+++ b/net/bridge/br_if.c
+> >>>>>>>>@@ -510,6 +510,40 @@ int br_del_port_vlan(struct net_bridge_port *p, unsigned long vlan)
+> >>>>>>>>  	return 0;
+> >>>>>>>>  }
+> >>>>>>>>
+> >>>>>>>>+size_t br_port_fill_vlans(struct net_bridge_port *p, char* buf,
+> >>>>>>>>+			unsigned long max, unsigned long skip)
+> >>>>>>>>+{
+> >>>>>>>>+	unsigned long *map;
+> >>>>>>>>+	unsigned short *vid = (unsigned short *)buf;
+> >>>>>>>>+	unsigned short i;
+> >>>>>>>>+	int num = 0;
+> >>>>>>>>+
+> >>>>>>>>+	if (skip > (VLAN_N_VID+1))
+> >>>>>>>>+		return -EINVAL;
+> >>>>>>>>+
+> >>>>>>>>+	memset(buf, 0, max * sizeof(unsigned short));
+> >>>>>>>
+> >>>>>>>Isn't max is in bytes? why is this safe?
+> >>>>>>>
+> >>>>>>>>+
+> >>>>>>>>+	rcu_read_lock();
+> >>>>>>>>+	map = rcu_dereference(p->vlan_map);
+> >>>>>>>>+	if (!map)
+> >>>>>>>>+		goto out;
+> >>>>>>>>+
+> >>>>>>>>+	for (i = skip + 1; i < VLAN_N_VID + 1; i++) {
+> >>>>>>>
+> >>>>>>>Isn't skip in bytes too? Why do you compare it to i which is
+> >>>>>>>in dwords?
+> >>>>>>>
+> >>>>>>>>+		if (test_bit(i, map)) {
+> >>>>>>>>+			if (num > max)
+> >>>>>>>>+				goto out;
+> >>>>>>>>+
+> >>>>>>>>+			*vid = i-1;
+> >>>>>>>>+			vid++;
+> >>>>>>>>+			num++;
+> >>>>>>>>+		}
+> >>>>>>>>+	}
+> >>>>>>>>+out:
+> >>>>>>>>+	rcu_read_unlock();
+> >>>>>>>>+
+> >>>>>>>>+	return num*sizeof(unsigned short);
+> >>>>>>>>+}
+> >>>>>>>>+
+> >>>>>>>>  void __net_exit br_net_exit(struct net *net)
+> >>>>>>>>  {
+> >>>>>>>>  	struct net_device *dev;
+> >>>>>>>>diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+> >>>>>>>>index 5639c1c..cf95cd7 100644
+> >>>>>>>>--- a/net/bridge/br_private.h
+> >>>>>>>>+++ b/net/bridge/br_private.h
+> >>>>>>>>@@ -404,6 +404,8 @@ extern netdev_features_t br_features_recompute(struct net_bridge *br,
+> >>>>>>>>  	netdev_features_t features);
+> >>>>>>>>  extern int br_set_port_vlan(struct net_bridge_port *p, unsigned long vid);
+> >>>>>>>>  extern int br_del_port_vlan(struct net_bridge_port *p, unsigned long vid);
+> >>>>>>>>+extern size_t br_port_fill_vlans(struct net_bridge_port *p, char *buf,
+> >>>>>>>>+				unsigned long max, unsigned long skip);
+> >>>>>>>>
+> >>>>>>>>  /* br_input.c */
+> >>>>>>>>  extern int br_handle_frame_finish(struct sk_buff *skb);
+> >>>>>>>>diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+> >>>>>>>>index 13b36bd..a81e2ef 100644
+> >>>>>>>>--- a/net/bridge/br_sysfs_if.c
+> >>>>>>>>+++ b/net/bridge/br_sysfs_if.c
+> >>>>>>>>@@ -234,6 +234,29 @@ const struct sysfs_ops brport_sysfs_ops = {
+> >>>>>>>>  };
+> >>>>>>>>
+> >>>>>>>>  /*
+> >>>>>>>>+ * Export the vlan table for a given port as a binary file.
+> >>>>>>>>+ * The records are unsgined shorts.
+> >>>>>>>>+ *
+> >>>>>>>>+ * Returns the number of bytes read.
+> >>>>>>>>+ */
+> >>>>>>>>+static ssize_t brport_vlans_read(struct file *filp, struct kobject *kobj,
+> >>>>>>>>+				struct bin_attribute *bin_attr,
+> >>>>>>>>+				char *buf, loff_t off, size_t count)
+> >>>>>>>>+{
+> >>>>>>>>+	struct net_bridge_port *p = to_brport(kobj);
+> >>>>>>>>+
+> >>>>>>>>+	return br_port_fill_vlans(p, buf,
+> >>>>>>>>+				count/sizeof(unsigned short),
+> >>>>>>>>+				off/sizeof(unsigned short));
+> >>>>>>>>+}
+> >>>>>>>>+
+> >>>>>>>>+static struct bin_attribute port_vlans = {
+> >>>>>>>>+	.attr = { .name = SYSFS_BRIDGE_PORT_VLANS,
+> >>>>>>>>+		  .mode = S_IRUGO, },
+> >>>>>>>>+	.read = brport_vlans_read,
+> >>>>>>>>+};
+> >>>>>>>>+
+> >>>>>>>>+/*
+> >>>>>>>>   * Add sysfs entries to ethernet device added to a bridge.
+> >>>>>>>>   * Creates a brport subdirectory with bridge attributes.
+> >>>>>>>>   * Puts symlink in bridge's brif subdirectory
+> >>>>>>>>@@ -255,6 +278,11 @@ int br_sysfs_addif(struct net_bridge_port *p)
+> >>>>>>>>  			return err;
+> >>>>>>>>  	}
+> >>>>>>>>
+> >>>>>>>>+	err = sysfs_create_bin_file(&p->kobj, &port_vlans);
+> >>>>>>>>+	if (err) {
+> >>>>>>>>+		return err;
+> >>>>>>>>+	}
+> >>>>>>>>+
+> >>>>>>>>  	strlcpy(p->sysfs_name, p->dev->name, IFNAMSIZ);
+> >>>>>>>>  	return sysfs_create_link(br->ifobj, &p->kobj, p->sysfs_name);
+> >>>>>>>>  }
+> >>>>>>>>--
+> >>>>>>>>1.7.7.6
+> >>>>>>>>
+> >>>>>>>>--
+> >>>>>>>>To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >>>>>>>>the body of a message to majordomo@vger.kernel.org
+> >>>>>>>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > >--
 > >To unsubscribe from this list: send the line "unsubscribe netdev" in
 > >the body of a message to majordomo@vger.kernel.org
