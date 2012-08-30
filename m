@@ -1,39 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 0/3] forcedeth: fix device lock-up for
- dual-port NICs
-Date: Thu, 30 Aug 2012 13:05:26 -0400 (EDT)
-Message-ID: <20120830.130526.863740770089967659.davem@davemloft.net>
-References: <cover.1345864542.git.decot@googlers.com>
+Subject: Re: [PATCH 2/2] drivers/net/ethernet/tundra/tsi108_eth.c: delete
+ double assignment
+Date: Thu, 30 Aug 2012 13:09:10 -0400 (EDT)
+Message-ID: <20120830.130910.1673588383256719426.davem@davemloft.net>
+References: <1345969115-12977-2-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: aabdulla@nvidia.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, edumazet@google.com, joe@perches.com
-To: decot@googlers.com
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Julia.Lawall@lip6.fr
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1345864542.git.decot@googlers.com>
+In-Reply-To: <1345969115-12977-2-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Decotigny <decot@googlers.com>
-Date: Fri, 24 Aug 2012 20:22:50 -0700
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Sun, 26 Aug 2012 10:18:35 +0200
 
-> On a dual port MCP55 10de:0373 (rev a3) NIC with both ports connected,
-> we identified a configuration that does freeze the whole NIC: having
-> autoneg & TX pause turned on while one port is physically connected
-> but interface is down (eg. eth1) eventually causes the whole NIC to
-> freeze (eth1 and... eth0). This triggers TX timeouts on the UP
-> interface and, more generally, an unreachable network.
+> From: Julia Lawall <Julia.Lawall@lip6.fr>
 > 
-> In order to avoid the bug, all we have to do is make sure not to
-> configure TX pause on the hardware while NIC is down. This is what the
-> 2nd patch of the series does (details included).
+> Delete successive assignments to the same location.
 > 
-> And, in case the NIC is in a bad state at reboot (should not happen
-> anymore thanks to patch above), third patch basically always makes
-> sure to fix the NIC when module is loaded.
-> 
-> I could only test this with a MCP55 10de:0373 (rev a3) PCI device on a
-> x86_64 host.
+> A simplified version of the semantic match that finds this problem is as
+> follows: (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-All applied to net-next, thanks.
+Applied to net-next, thanks Julia.
