@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: route.c:645 suspicious rcu_dereference_check()
-Date: Thu, 30 Aug 2012 13:34:33 -0400 (EDT)
-Message-ID: <20120830.133433.566450758375930776.davem@davemloft.net>
-References: <20120828175734.41b17a6c@mj>
-	<1346193187.3571.21.camel@edumazet-glaptop>
+Subject: Re: [net patch 0/2] bnx2x: Correct bnx2x operation with netpoll
+Date: Thu, 30 Aug 2012 13:37:48 -0400 (EDT)
+Message-ID: <20120830.133748.276745804577135815.davem@davemloft.net>
+References: <1346073980-30901-1-git-send-email-meravs@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: proski@gnu.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: meravs@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38157 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38185 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751002Ab2H3Ref (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 13:34:35 -0400
-In-Reply-To: <1346193187.3571.21.camel@edumazet-glaptop>
+	with ESMTP id S1751002Ab2H3Rhu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 13:37:50 -0400
+In-Reply-To: <1346073980-30901-1-git-send-email-meravs@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 28 Aug 2012 15:33:07 -0700
+From: "Merav Sicron" <meravs@broadcom.com>
+Date: Mon, 27 Aug 2012 16:26:18 +0300
 
-> From: Eric Dumazet <edumazet@google.com>
+> Hi Dave,
+> This patch series corrects bnx2x operation with netpoll:
+> The first patch is to move the netif_napi_add to the open call to avoid napi
+> objects that are added but may not be later enabled.
+> The second patch corrects the poll_bnx2x function itself to also work with
+> MSI-X.
 > 
-> [PATCH] ipv4: must use rcu protection while calling fib_lookup
-> 
-> Following lockdep splat was reported by Pavel Roskin :
- ...
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Pavel Roskin <proski@gnu.org>
+> Please consider applying this patch series to net.
 
-Applied, thanks.
-
-It looks like the redirect handlers might have the same problem?
+Applied.
