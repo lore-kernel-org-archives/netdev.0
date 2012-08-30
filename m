@@ -1,54 +1,46 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: [BUG]  TIPC handling of -ERESTARTSYS in connect()
-Date: Thu, 30 Aug 2012 09:20:47 -0600
-Message-ID: <503F84CF.208@genband.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] Move in6_dev_hold under CONFIG_IPV6_PRIVACY
+Date: Thu, 30 Aug 2012 08:25:21 -0700
+Message-ID: <1346340321.2586.24.camel@edumazet-glaptop>
+References: <503F3589.5070804@pace.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>, ying.xue@windriver.com,
-	Allan Stephens <allan.stephens@windriver.com>,
-	Jon Maloy <jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org
+To: David Marchand <david.marchand@pace.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og101.obsmtp.com ([64.18.2.155]:44275 "EHLO
-	exprod7og101.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751737Ab2H3PVd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 11:21:33 -0400
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:61712 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750961Ab2H3PZ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 11:25:26 -0400
+Received: by pbbrr13 with SMTP id rr13so3309064pbb.19
+        for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 08:25:26 -0700 (PDT)
+In-Reply-To: <503F3589.5070804@pace.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2012-08-30 at 11:42 +0200, David Marchand wrote:
+> Hello,
+> 
+> I am currently looking at a problem with in6 interface refcnt on a 
+> really old kernel and I have just noticed something I find suspicious in 
+> all kernels until now.
+> 
+> The comment at net/ipv6/addrconf.c:396 suggests that the call to 
+> in6_dev_hold is only for ipv6_regen_rndid.
+> As a consequence, if CONFIG_IPV6_PRIVACY is not set, then this 
+> in6_dev_hold will leak a refcnt.
+> 
+> Can someone look at this ?
+> I did not test this patch, yet it looks reasonable to me.
 
-Hi,
+Your patch was mangled by your email client, and its always safer to
+test a patch...
 
-I'm seeing some behaviour that looks unintentional in the TIPC connect() call.
-I'm running TIPC 1.7.7.  My userspace code (stripped of error handling) looks
-like this:
+Dont trust the comment, its a bit misleading.
 
-	int sd = socket (AF_TIPC, SOCK_SEQPACKET,0);
-	connect(sd,(struct sockaddr*)&topsrv,sizeof(topsrv));
+Comment intent was to say :
 
-where topsrv is the address of the TIPC topology server.  The thing that's weird
-is that intermittently we get a EISCONN error on the connect call.
-
-Looking at the TIPC connect() code, I think what is happening is that
-wait_event_interruptible_timeout() is being interrupted by a signal and returns
--ERESTARTSYS.  This sets sock->state to SS_DISCONNECTING and exits.  Userspace
-sees the ERESTARTSYS and retries the syscall, then we hit the
-"sock->state != SS_UNCONNECTED" check and exit with -EISCONN.
-
-I think current mainline is susceptible to this as well.
-
-I'm not sure what the proper fix would be--can we detect coming back in that we were
-waiting for a message and just skip down to the wait_event_interruptible_timeout()
-call?
-
-Chris
-
-
--- 
-
-Chris Friesen
-Software Designer
-
-3500 Carling Avenue
-Ottawa, Ontario K2H 8E9
-www.genband.com
+/* One reference from device.  We must do this before
+ * we eventually invoke __ipv6_regen_rndid().
+ */
