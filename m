@@ -1,52 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
-Date: Thu, 30 Aug 2012 06:12:30 -0700
-Message-ID: <1346332350.2586.10.camel@edumazet-glaptop>
-References: <1345724123.5904.756.camel@edumazet-glaptop>
-	 <50362407.9070805@linlab.net> <1345726185.5904.835.camel@edumazet-glaptop>
-	 <20120824.134231.41073001349178209.davem@davemloft.net>
-	 <20120825084819.GD430@linlab.net>
-	 <CAFbMe2Pgjbttt+Z3RQ9KL05=GHqZYk5ubNH2G1-EUn_f_RBaEQ@mail.gmail.com>
-	 <1346230305.2522.15.camel@edumazet-glaptop>
-	 <CAFbMe2PG90X7s6s970+XK3X0Jvzx4p6vhvM+JQCwtULPvs1QLw@mail.gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [RFC PATCH bridge 0/5] Add basic VLAN support to bridges
+Date: Thu, 30 Aug 2012 09:37:17 -0400
+Message-ID: <503F6C8D.9000402@redhat.com>
+References: <1345750195-31598-1-git-send-email-vyasevic@redhat.com> <20120830123724.GE20228@redhat.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Bergmann <alex@linlab.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFbMe2PG90X7s6s970+XK3X0Jvzx4p6vhvM+JQCwtULPvs1QLw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:2985 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752648Ab2H3NhV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Aug 2012 09:37:21 -0400
+Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q7UDbI5W023876
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 09:37:21 -0400
+In-Reply-To: <20120830123724.GE20228@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-08-29 at 10:25 -0700, H.K. Jerry Chu wrote:
+On 08/30/2012 08:37 AM, Michael S. Tsirkin wrote:
+> On Thu, Aug 23, 2012 at 03:29:50PM -0400, Vlad Yasevich wrote:
+>> This series of patches provides an ability to add VLAN IDs to the bridge
+>> ports.  This is similar to what can be found in most switches.  The bridge
+>> port may have any number of VLANs added to it including vlan 0 for untagged
+>> traffic.  When vlans are added to the port, only traffic tagged with particular
+>> vlan will forwarded over this port.  Additionally, vlan ids are added to FDB
+>> entries and become part of the lookup.  This way we correctly identify the FDB
+>> entry.
+>>
+>> There are still pieces missing.  I don't yet support adding a static fdb entry
+>> with a particular vlan.  There is no netlink support for carrying a vlan id.
+>>
+>> I'd like to hear thoughts of whether this is usufull and something we should
+>> persue.
+>>
+>> The default behavior ofthe bridge is unchanged if no vlans have been
+>> configured.
+>
+> Overall the feature looks good, I can think of some uses
+> for it - for example, it could become useful for VMs if
+> we add support to tap essentially stripping tags in Xmit but maybe you
+> could be more explicit about what you have in mind?
+> Do you plan to add tap support as well?
 
-> But it probably matter slightly more for TCP Fast Open (the server
-> side patch has
-> been completed and will be posted soon, after I finish breaking it up
-> into smaller
-> pieces for ease of review purpose), when a full socket will be created with data
-> passed to the app upon a valid SYN+data. Dropping a fully functioning socket
-> won't be the same as dropping a request_sock unknown to the app and letting
-> the other side retransmitting SYN (w/o data this time).
-> 
-> >
-> > Sure, RFC numbers are what they are, but in practice, I doubt someone
-> > will really miss the extra SYNACK sent after ~32 seconds, since it would
-> > matter only for the last SYN attempted.
-> 
-> I'd slightly prefer 1 extra retry plus longer wait time just to make
-> TCP Fast Open
-> a little more robust (even though the app protocol is required to be
-> idempotent).
-> But this is not a showstopper.
+Yes,  this is something I've thought of.  Not sure if it would be at tap
+or bridge itself.  Need to work out where best to do it.
 
-Thats very good points indeed, thanks.
+> Also - what tool support do you plan?
 
-Maybe we can increase SYNACK max retrans only if the FastOpen SYN cookie
-was validated.
+the patchset includes brctl to configure, but that seems to be getting 
+deprecated.  I am working on iproute2 to add capability to configure this.
 
-This way, we increase reliability without amplifying the effect of wild
-SYN packets.
+>
+> I also found some coding style issues and some bugs in
+> the patchset. Sent on list.
+
+Thanks
+-vlad
+
+>
+> Hope this helps.
+>
