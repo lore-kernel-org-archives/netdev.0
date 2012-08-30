@@ -1,36 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3.6.0-rc3 2/2] of/mdio-gpio: Simplify the way device
- tree support is implemented.
-Date: Thu, 30 Aug 2012 12:38:37 -0400 (EDT)
-Message-ID: <20120830.123837.1714554699135488968.davem@davemloft.net>
-References: <1345809557-27727-1-git-send-email-srinivas.kandagatla@st.com>
+Subject: Re: [net] e1000e: DoS while TSO enabled caused by link partner
+ with small MSS
+Date: Thu, 30 Aug 2012 12:40:54 -0400 (EDT)
+Message-ID: <20120830.124054.1909938204959144888.davem@davemloft.net>
+References: <1345876691-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, laurentp@cse-semaphore.com,
-	devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca
-To: srinivas.kandagatla@st.com
+Cc: bruce.w.allan@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
+	sassmann@redhat.com, bhutchings@solarflare.com,
+	stable@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37626 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37655 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753810Ab2H3Qij (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 12:38:39 -0400
-In-Reply-To: <1345809557-27727-1-git-send-email-srinivas.kandagatla@st.com>
+	with ESMTP id S1754472Ab2H3Qk5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 12:40:57 -0400
+In-Reply-To: <1345876691-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
-Date: Fri, 24 Aug 2012 12:59:17 +0100
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 24 Aug 2012 23:38:11 -0700
 
-> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+> From: Bruce Allan <bruce.w.allan@intel.com>
 > 
-> This patch cleans up the way device tree support is added in mdio-gpio
-> driver. I found lot of code duplication which is not necessary.
-> Also strangely a new platform driver was also introduced for device tree
-> support. All this forced me to do this cleanup patch.
-> After this patch, the driver probe checks the of_node pointer to get the
-> data from device tree.
+> With a low enough MSS on the link partner and TSO enabled locally, the
+> networking stack can periodically send a very large (e.g.  64KB) TCP
+> message for which the driver will attempt to use more Tx descriptors than
+> are available by default in the Tx ring.  This is due to a workaround in
+> the code that imposes a limit of only 4 MSS-sized segments per descriptor
+> which appears to be a carry-over from the older e1000 driver and may be
+> applicable only to some older PCI or PCIx parts which are not supported in
+> e1000e.  When the driver gets a message that is too large to fit across the
+> configured number of Tx descriptors, it stops the upper stack from queueing
+> any more and gets stuck in this state.  After a timeout, the upper stack
+> assumes the adapter is hung and calls the driver to reset it.
 > 
-> Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+> Remove the unnecessary limitation of using up to only 4 MSS-sized segments
+> per Tx descriptor, and put in a hard failure test to catch when attempting
+> to check for message sizes larger than would fit in the whole Tx ring.
+> Refactor the remaining logic that limits the size of data per Tx descriptor
+> from a seemingly arbitrary 8KB to a limit based on the dynamic size of the
+> Tx packet buffer as described in the hardware specification.
+> 
+> Also, fix the logic in the check for space in the Tx ring for the next
+> largest possible packet after the current one has been successfully queued
+> for transmit, and use the appropriate defines for default ring sizes in
+> e1000_probe instead of magic values.
+> 
+> This issue goes back to the introduction of e1000e in 2.6.24 when it was
+> split off from e1000.
+> 
+> Reported-by: Ben Hutchings <bhutchings@solarflare.com>
+> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+> Cc: Stable <stable@vger.kernel.org> [2.6.24+]
+> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Applied to net-next.
+Applied, thanks.
