@@ -1,53 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: dev: fix the incorrect hold of net
- namespace's lo device
-Date: Thu, 30 Aug 2012 12:22:13 -0400 (EDT)
-Message-ID: <20120830.122213.445208638524849907.davem@davemloft.net>
-References: <1345772215-30379-1-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] netvm: check for page == NULL when propogating the
+ skb->pfmemalloc flag
+Date: Thu, 30 Aug 2012 12:24:53 -0400 (EDT)
+Message-ID: <20120830.122453.1449291050128191766.davem@davemloft.net>
+References: <20120808.155046.820543563969484712.davem@davemloft.net>
+	<1345631207.6821.140.camel@zakaz.uk.xensource.com>
+	<20120823141740.GA30305@phenom.dumpdata.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	ebiederm@xmission.com
-To: gaofeng@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37406 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752618Ab2H3QWQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 12:22:16 -0400
-In-Reply-To: <1345772215-30379-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ian.Campbell@citrix.com, mgorman@suse.de, linux-mm@kvack.org,
+ linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+ xen-devel@lists.xensource.com, konrad@darnok.org, akpm@linux-foundation.org
+To: konrad.wilk@oracle.com
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20120823141740.GA30305@phenom.dumpdata.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Date: Fri, 24 Aug 2012 09:36:55 +0800
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Date: Thu, 23 Aug 2012 10:17:40 -0400
 
-> When moving a net device from one net namespace to another
-> net namespace,dev_change_net_namespace calls NETDEV_DOWN
-> event,so the original net namespace's dst entries which
-> beloned to this net device will be put into dst_garbage
-> list.
+> On Wed, Aug 22, 2012 at 11:26:47AM +0100, Ian Campbell wrote:
+>> On Wed, 2012-08-08 at 23:50 +0100, David Miller wrote:
+>> > Just use something like a call to __pskb_pull_tail(skb, len) and all
+>> > that other crap around that area can simply be deleted.
+>> 
+>> I think you mean something like this, which works for me, although I've
+>> only lightly tested it.
+>> 
 > 
-> then dev_change_net_namespace will set this net device's
-> net to the new net namespace.
+> I've tested it heavily and works great.
 > 
-> If we unregister this net device's driver, this will trigger
-> the NETDEV_UNREGISTER_FINAL event, dst_ifdown will be called,
-> and get this net device's dst entries from dst_garbage list,
-> put these entries' dev to the new net namespace's lo device.
+> Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> and I took a look at it too and:
 > 
-> It's not what we want,actually we need these dst entries hold
-> the original net namespace's lo device,this incorrect device
-> holding will trigger emg message like below.
-> unregister_netdevice: waiting for lo to become free. Usage count = 1
-> 
-> so we should call NETDEV_UNREGISTER_FINAL event in
-> dev_change_net_namespace too,in order to make sure dst entries
-> already in the dst_garbage list, we need rcu_barrier before we
-> call NETDEV_UNREGISTER_FINAL event.
-> 
-> With help form Eric Dumazet.
-> 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 
-Applied, thanks.
+Applied, thanks everyone.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
