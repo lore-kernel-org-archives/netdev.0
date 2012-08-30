@@ -1,62 +1,95 @@
-From: Lutz Jaenicke <ljaenicke@innominate.com>
-Subject: [PATCH] rtnl_wilddump_request: fix alignment issue for embedded platforms
-Date: Thu, 30 Aug 2012 17:01:34 +0200
-Message-ID: <1346338894-12600-1-git-send-email-ljaenicke@innominate.com>
-References: <1345621133-23583-1-git-send-email-ljaenicke@innominate.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [iproute2][PATCH] tc: mirred target: do not report
+ non-existing devices
+Date: Thu, 30 Aug 2012 08:01:54 -0700
+Message-ID: <1346338914.2586.14.camel@edumazet-glaptop>
+References: <1346338277-8395-1-git-send-email-danken@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
+To: Dan Kenigsberg <danken@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from home.innominate.com ([77.245.32.75]:53481 "EHLO
-	home.innominate.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750852Ab2H3PBh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 11:01:37 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by home.innominate.com (Postfix) with ESMTP id 62EBD232C1
-	for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 17:01:35 +0200 (CEST)
-Received: from home.innominate.com ([127.0.0.1])
-	by localhost (innominate.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id pi8rUZNsZXnX for <netdev@vger.kernel.org>;
-	Thu, 30 Aug 2012 17:01:35 +0200 (CEST)
-Received: from lutz.bln.innominate.local (lutz.bln.innominate.local [10.1.0.160])
-	by home.innominate.com (Postfix) with ESMTP id 31FF023049
-	for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 17:01:35 +0200 (CEST)
-In-Reply-To: <1345621133-23583-1-git-send-email-ljaenicke@innominate.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:63834 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751152Ab2H3PCK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 11:02:10 -0400
+Received: by pbbrr13 with SMTP id rr13so3274227pbb.19
+        for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 08:02:09 -0700 (PDT)
+In-Reply-To: <1346338277-8395-1-git-send-email-danken@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Platforms have different alignment requirements which need to be
-fulfilled by the compiler. If the structure elements are already
-4 byte (NLMGS_ALIGNTO) aligned by the compiler adding an explicit
-padding element (align_rta) is not allowed.
-Use __attribute__ ((aligned (NLMSG_ALIGNTO))) in order to achieve
-the required alignment.
-Experienced on ARM (xscale) with symptom
-  netlink: 12 bytes leftover after parsing attributes
+On Thu, 2012-08-30 at 17:51 +0300, Dan Kenigsberg wrote:
+> Currently, if a mirred target device is removed, `tc filter show`
+> does not reveal the fact. Instead, it replaces the original name of the
+> device with the default output of ll_map:ll_idx_n2a().
+> 
+> This is unfortunate, since one cannot differ between this case and a valid
+> mirroring target device named 'if17'.
+> 
+> It seems that the original code meant to report an error message in this
+> case, but it does not, since ll_index_to_name() never returns 0. I would
+> not like to bail out in case of an error, since the user would still be
+> interested to know what are the other details of the action.
+> 
+> Signed-off-by: Dan Kenigsberg <danken@redhat.com>
+> ---
+>  lib/ll_map.c  |   13 +++++++++++++
+>  tc/m_mirred.c |   10 ++++------
+>  2 files changed, 17 insertions(+), 6 deletions(-)
+> 
+> diff --git a/lib/ll_map.c b/lib/ll_map.c
+> index 1ca781e..8ceef41 100644
+> --- a/lib/ll_map.c
+> +++ b/lib/ll_map.c
+> @@ -108,6 +108,19 @@ const char *ll_idx_n2a(unsigned idx, char *buf)
+>  	return buf;
+>  }
+>  
+> +char *ll_index_exists(unsigned idx)
+> +{
+> +	const struct ll_cache *im;
+> +
+> +	if (idx == 0)
+> +		return 0;
+> +
+> +	for (im = idxhead(idx); im; im = im->idx_next)
+> +		if (im->index == idx)
+> +			return 1;
+> +
+> +	return 0;
+> +}
+>  
 
-Tested on:
-  ARM      (32bit Big Endian)
-  PowerPC  (32bit Big Endian)
-  x86_64   (64bit Little Endian)
-Each with different aligment requirments.
+I am curious to know what compiler accepted this.
 
-Signed-off-by: Lutz Jaenicke <ljaenicke@innominate.com>
----
- lib/libnetlink.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+return type should be a "int", not a "char *"
 
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index 8e8c8b9..09b4277 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -94,8 +94,8 @@ int rtnl_wilddump_request(struct rtnl_handle *rth, int family, int type)
- 	struct {
- 		struct nlmsghdr nlh;
- 		struct rtgenmsg g;
--		__u16 align_rta;	/* attribute has to be 32bit aligned */
--		struct rtattr ext_req;
-+		/* attribute has to be NLMSG aligned */
-+		struct rtattr ext_req __attribute__ ((aligned(NLMSG_ALIGNTO)));
- 		__u32 ext_filter_mask;
- 	} req;
- 
--- 
-1.7.2.5
+>  const char *ll_index_to_name(unsigned idx)
+>  {
+> diff --git a/tc/m_mirred.c b/tc/m_mirred.c
+> index 0d771bc..eba1240 100644
+> --- a/tc/m_mirred.c
+> +++ b/tc/m_mirred.c
+> @@ -268,13 +268,11 @@ print_mirred(struct action_util *au,FILE * f, struct rtattr *arg)
+>  	ll_init_map(&rth);
+>  	*/
+>  
+> +	dev = ll_index_to_name(p->ifindex);
+>  
+> -	if ((dev = ll_index_to_name(p->ifindex)) == 0) {
+> -		fprintf(stderr, "Cannot find device %d\n", p->ifindex);
+> -		return -1;
+> -	}
+> -
+> -	fprintf(f, "mirred (%s to device %s) %s", mirred_n2a(p->eaction), dev,action_n2a(p->action, b1, sizeof (b1)));
+> +	fprintf(f, "mirred (%s to %sdevice %s) %s", mirred_n2a(p->eaction),
+> +                ll_index_exists(p->ifindex) ? "" : "missing-",
+> +                dev, action_n2a(p->action, b1, sizeof (b1)));
+>  
+>  	fprintf(f, "\n ");
+>  	fprintf(f, "\tindex %d ref %d bind %d",p->index,p->refcnt,p->bindcnt);
+
+How this can compile without triggering a warning, as the
+ll_index_exists() is not in an include file ?
