@@ -1,55 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
-Date: Thu, 30 Aug 2012 12:45:43 -0400 (EDT)
-Message-ID: <20120830.124543.1590020152319166487.davem@davemloft.net>
-References: <1346230305.2522.15.camel@edumazet-glaptop>
-	<CAFbMe2PG90X7s6s970+XK3X0Jvzx4p6vhvM+JQCwtULPvs1QLw@mail.gmail.com>
-	<1346332350.2586.10.camel@edumazet-glaptop>
+From: Bin Liu <b-liu@ti.com>
+Subject: [PATCH] net: ethernet: fix kernel OOPS when remove davinci_mdio module
+Date: Thu, 30 Aug 2012 11:37:32 -0500
+Message-ID: <1346344652-28487-1-git-send-email-b-liu@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hkjerry.chu@gmail.com, alex@linlab.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain
+Cc: <b-liu@ti.com>
+To: <mugunthanvnm@ti.com>, <vaibhav.bedia@ti.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1346332350.2586.10.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 30 Aug 2012 06:12:30 -0700
+davinci mdio device is not unregistered from mdiobus when removing
+the module, which causes BUG_ON() when free the device from mdiobus.
 
-> On Wed, 2012-08-29 at 10:25 -0700, H.K. Jerry Chu wrote:
-> 
->> But it probably matter slightly more for TCP Fast Open (the server
->> side patch has
->> been completed and will be posted soon, after I finish breaking it up
->> into smaller
->> pieces for ease of review purpose), when a full socket will be created with data
->> passed to the app upon a valid SYN+data. Dropping a fully functioning socket
->> won't be the same as dropping a request_sock unknown to the app and letting
->> the other side retransmitting SYN (w/o data this time).
->> 
->> >
->> > Sure, RFC numbers are what they are, but in practice, I doubt someone
->> > will really miss the extra SYNACK sent after ~32 seconds, since it would
->> > matter only for the last SYN attempted.
->> 
->> I'd slightly prefer 1 extra retry plus longer wait time just to make
->> TCP Fast Open
->> a little more robust (even though the app protocol is required to be
->> idempotent).
->> But this is not a showstopper.
-> 
-> Thats very good points indeed, thanks.
-> 
-> Maybe we can increase SYNACK max retrans only if the FastOpen SYN cookie
-> was validated.
-> 
-> This way, we increase reliability without amplifying the effect of wild
-> SYN packets.
+Calling mdiobus_unregister() before mdiobus_free() fixes the issue.
 
-Can we come to a final conclusion on this last point and arrive at a final
-patch?
+Signed-off-by: Bin Liu <b-liu@ti.com>
+---
+ drivers/net/ethernet/ti/davinci_mdio.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-Thanks.
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index 0c2fcdd..7de19a5 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -391,8 +391,10 @@ static int __devexit davinci_mdio_remove(struct platform_device *pdev)
+ 	struct device *dev = &pdev->dev;
+ 	struct davinci_mdio_data *data = dev_get_drvdata(dev);
+ 
+-	if (data->bus)
++	if (data->bus) {
++		mdiobus_unregister(data->bus);
+ 		mdiobus_free(data->bus);
++	}
+ 
+ 	if (data->clk)
+ 		clk_put(data->clk);
+-- 
+1.7.0.4
