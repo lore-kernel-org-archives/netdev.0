@@ -1,46 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netvm: check for page == NULL when propogating the
- skb->pfmemalloc flag
-Date: Thu, 30 Aug 2012 12:24:53 -0400 (EDT)
-Message-ID: <20120830.122453.1449291050128191766.davem@davemloft.net>
-References: <20120808.155046.820543563969484712.davem@davemloft.net>
-	<1345631207.6821.140.camel@zakaz.uk.xensource.com>
-	<20120823141740.GA30305@phenom.dumpdata.com>
+Subject: Re: [PATCH 1/1] l2tp: avoid to use synchronize_rcu in tunnel free
+ function
+Date: Thu, 30 Aug 2012 12:31:21 -0400 (EDT)
+Message-ID: <20120830.123121.937893723287427746.davem@davemloft.net>
+References: <1430615.YYms4uRCh4@dima>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ian.Campbell@citrix.com, mgorman@suse.de, linux-mm@kvack.org,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
- xen-devel@lists.xensource.com, konrad@darnok.org, akpm@linux-foundation.org
-To: konrad.wilk@oracle.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20120823141740.GA30305@phenom.dumpdata.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kleptog@svana.org, jchapman@katalix.com
+To: xeb@mail.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37528 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753444Ab2H3QbZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 12:31:25 -0400
+In-Reply-To: <1430615.YYms4uRCh4@dima>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Date: Thu, 23 Aug 2012 10:17:40 -0400
+From: Kozlov Dmitry <xeb@mail.ru>
+Date: Fri, 24 Aug 2012 15:07:38 +0400
 
-> On Wed, Aug 22, 2012 at 11:26:47AM +0100, Ian Campbell wrote:
->> On Wed, 2012-08-08 at 23:50 +0100, David Miller wrote:
->> > Just use something like a call to __pskb_pull_tail(skb, len) and all
->> > that other crap around that area can simply be deleted.
->> 
->> I think you mean something like this, which works for me, although I've
->> only lightly tested it.
->> 
+> Avoid to use synchronize_rcu in l2tp_tunnel_free because context may be
+> atomic.
 > 
-> I've tested it heavily and works great.
-> 
-> Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> and I took a look at it too and:
-> 
-> Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
 
-Applied, thanks everyone.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Applied and queued up for -stable, thanks.
