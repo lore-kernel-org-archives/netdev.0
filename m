@@ -1,241 +1,127 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH bridge 4/5] bridge: Add private ioctls to configure
- vlans on bridge ports
-Date: Thu, 30 Aug 2012 15:17:59 +0300
-Message-ID: <20120830121759.GA20228@redhat.com>
+Subject: Re: [RFC PATCH bridge 1/5] bridge: Add vlan check to forwarding path
+Date: Thu, 30 Aug 2012 15:19:24 +0300
+Message-ID: <20120830121924.GB20228@redhat.com>
 References: <1345750195-31598-1-git-send-email-vyasevic@redhat.com>
- <1345750195-31598-5-git-send-email-vyasevic@redhat.com>
+ <1345750195-31598-2-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26618 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:16740 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750897Ab2H3MQk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Aug 2012 08:16:40 -0400
-Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q7UCGena018162
+	id S1751590Ab2H3MSF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Aug 2012 08:18:05 -0400
+Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q7UCI4An021867
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 08:16:40 -0400
+	for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 08:18:05 -0400
 Content-Disposition: inline
-In-Reply-To: <1345750195-31598-5-git-send-email-vyasevic@redhat.com>
+In-Reply-To: <1345750195-31598-2-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 23, 2012 at 03:29:54PM -0400, Vlad Yasevich wrote:
-> Add a private ioctl to add and remove vlan configuration on bridge port.
+On Thu, Aug 23, 2012 at 03:29:51PM -0400, Vlad Yasevich wrote:
+> When forwarding packets make sure vlan matches any configured vlan for
+> the port.
 > 
 > Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 > ---
->  include/linux/if_bridge.h |    2 +
->  net/bridge/br_if.c        |   69 +++++++++++++++++++++++++++++++++++++++++++++
->  net/bridge/br_ioctl.c     |   31 ++++++++++++++++++++
->  net/bridge/br_private.h   |    2 +
->  4 files changed, 104 insertions(+), 0 deletions(-)
+>  net/bridge/br_forward.c |   17 ++++++++++++++++-
+>  net/bridge/br_input.c   |    8 ++++++++
+>  net/bridge/br_private.h |    2 ++
+>  3 files changed, 26 insertions(+), 1 deletions(-)
 > 
-> diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
-> index 288ff10..ab750dd 100644
-> --- a/include/linux/if_bridge.h
-> +++ b/include/linux/if_bridge.h
-> @@ -42,6 +42,8 @@
->  #define BRCTL_SET_PORT_PRIORITY 16
->  #define BRCTL_SET_PATH_COST 17
->  #define BRCTL_GET_FDB_ENTRIES 18
-> +#define BRCTL_ADD_VLAN 19
-> +#define BRCTL_DEL_VLAN 20
+> diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+> index e9466d4..ab81954 100644
+> --- a/net/bridge/br_forward.c
+> +++ b/net/bridge/br_forward.c
+> @@ -26,11 +26,26 @@ static int deliver_clone(const struct net_bridge_port *prev,
+>  			 void (*__packet_hook)(const struct net_bridge_port *p,
+>  					       struct sk_buff *skb));
 >  
->  #define BR_STATE_DISABLED 0
->  #define BR_STATE_LISTENING 1
+> -/* Don't forward packets to originating port or forwarding diasabled */
+> +/* check to see that the vlan is allowed to be forwarded on this interface */
+> +static inline int vlan_match(const struct net_bridge_port *p,
+> +			     const struct sk_buff *skb)
+> +{
+> +	unsigned long *vlan_map = rcu_dereference(p->vlan_map);
+> +	unsigned short vid = vlan_tx_tag_get(skb) & VLAN_VID_MASK;
+> +
+> +	/* The map keeps the vlans off by 1 so adjust for that */
+> +	return (vlan_map && vlan_tx_tag_present(skb) &&
+> +		test_bit(vid+1, vlan_map));
 
+It looks better if you put spaces around +,* etc:
+vid + 1 This applies to all patches and many places so I am not
+noting it everywhere - could you fnd such instances and fix up?
 
-That's not a lot of documentation especially
-considering tricks such as using vlan 0
-to mean untagged (an internal convention in kernel).
+Also, this off by 1 map logic is all over this patch,
+one hopes we did not forget is somewhere.
+Would be better to have a wrapper.
 
-> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-> index e1144e1..90c1038 100644
-> --- a/net/bridge/br_if.c
-> +++ b/net/bridge/br_if.c
-> @@ -23,6 +23,7 @@
->  #include <linux/if_ether.h>
->  #include <linux/slab.h>
->  #include <net/sock.h>
-> +#include <linux/if_vlan.h>
->  
->  #include "br_private.h"
->  
-> @@ -441,6 +442,74 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
->  	return 0;
+Also do not put return value in () please - it gets us nothing
+at all. Again applies everywhere.
+
+> +}
+> +
+> +/* Don't forward packets to originating port or forwarding diasabled.
+> + */
+>  static inline int should_deliver(const struct net_bridge_port *p,
+>  				 const struct sk_buff *skb)
+>  {
+> +
+
+extra empty line - no needed here.
+
+>  	return (((p->flags & BR_HAIRPIN_MODE) || skb->dev != p->dev) &&
+> +		vlan_match(p, skb) &&
+>  		p->state == BR_STATE_FORWARDING);
 >  }
 >  
-> +/* Called with RTNL */
-> +int br_set_port_vlan(struct net_bridge_port *p, unsigned long vlan)
-> +{
-> +	unsigned long table_size = (VLAN_N_VID/sizeof(unsigned long)) + 1;
-
-Use DECLARE_BITMAP[VLAN_N_VID + 1]?
-
-> +	unsigned long *vid_map = NULL;
-> +	__u16 vid = (__u16) vlan + 1;
-
-Don't put space after cast: (__u16)vlan.
-
-In fact, cast is not needed here at all.
-Applies to other places in this patch that do this.
-
-
-> +
-> +	/* We are under lock so we can check this without rcu.
-> +	 * The vlan map is indexed by vid+1.  This way we can store
-> +	 * vid 0 (untagged) into the map as well.
-> +	 */
-
-Would be better to put this documentation in struct
-definition where vid_map is defined.
-
-> +	if (!p->vlan_map) {
-> +		vid_map = kzalloc(table_size, GFP_KERNEL);
-> +		if (!vid_map)
-> +			return -ENOMEM;
-> +
-> +		set_bit(vid, vid_map);
-
-What prevents vid from being > table_size * BITS_PER_LONG?
-
-> +		rcu_assign_pointer(p->vlan_map, vid_map);
-> +
-> +	} else {
-> +		/* Map is already allocated */
-> +		set_bit(vid, p->vlan_map);
-
-This should call rcu_dereference_protected.
-
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +
-> +/* Called with RTNL */
-> +int br_del_port_vlan(struct net_bridge_port *p, unsigned long vlan)
-> +{
-> +	unsigned long first_bit;
-> +	unsigned long next_bit;
-> +	__u16 vid = (__u16) vlan+1;
-> +	unsigned long tbl_len = VLAN_N_VID+1;
-
-Same as above.
-
-> +
-> +	if (!p->vlan_map)
-> +		return -EINVAL;
-> +
-> +	if (!test_bit(vlan, p->vlan_map))
-> +		return -EINVAL;
-> +
-> +	/* Check to see if any other vlans are in this table.  If this
-> +	 * is the last vlan, delete the whole table.  If this is not the
-> +	 * last vlan, just clear the bit.
-> +	 */
-> +	first_bit = find_first_bit(p->vlan_map, tbl_len);
-> +	next_bit = find_next_bit(p->vlan_map, tbl_len, (tbl_len - vid));
-
-() not needed around arguments.
-
-> +
-> +	if ((__u16)first_bit != vid || (__u16)next_bit < tbl_len) {
-
-What are these type casts doing? How can you get a value > 0xffff?
-
-> +		/* There are other vlans still configured.  We can simply
-> +		 * clear our bit and be safe.
-> +		 */
-> +		clear_bit(vid, p->vlan_map);
-> +	} else {
-> +		/* This is the last vlan we are removing.  Replace the
-> +		 * map with a NULL pointer and free the old map
-> +		 */
-> +		unsigned long *map = rcu_dereference(p->vlan_map);
-> +
-> +		rcu_assign_pointer(p->vlan_map, NULL);
-> +		synchronize_net();
-> +		kfree(map);
-> +	}
-> +
-> +	return 0;
-> +}
-> +
->  void __net_exit br_net_exit(struct net *net)
->  {
->  	struct net_device *dev;
-> diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
-> index 7222fe1..3a5b1f9 100644
-> --- a/net/bridge/br_ioctl.c
-> +++ b/net/bridge/br_ioctl.c
-> @@ -289,6 +289,37 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
->  	case BRCTL_GET_FDB_ENTRIES:
->  		return get_fdb_entries(br, (void __user *)args[1],
->  				       args[2], args[3]);
-> +	case BRCTL_ADD_VLAN:
-> +	{
-> +		struct net_bridge_port *p;
-> +
-> +		if (!capable(CAP_NET_ADMIN))
-> +			return -EPERM;
-> +
-> +		rcu_read_lock();
-> +		if ((p = br_get_port(br, args[1])) == NULL) {
-> +			rcu_read_unlock();
-> +			return -EINVAL;
-> +		}
-> +		rcu_read_unlock();
-> +		return br_set_port_vlan(p, args[2]);
-
-So this sets vlan but does not synchronize RCU.
-This means if this is the 1st vlan we set,
-we return to userspace and afterwards
-interfaces get packets with a wrong vlan.
-
-I am guessing all these ioctls should synchronize_net.
-
-> +	}
-> +
-> +	case BRCTL_DEL_VLAN:
-> +	{
-> +		struct net_bridge_port *p;
-> +
-> +		if (!capable(CAP_NET_ADMIN))
-> +			return -EPERM;
-> +
-> +		rcu_read_lock();
-> +		if ((p = br_get_port(br, args[1])) == NULL) {
-> +			rcu_read_unlock();
-> +			return -EINVAL;
-> +		}
-> +		rcu_read_unlock();
-> +		br_set_port_vlan(p, args[2]);
-
-Same problem as above as synchronize_net is not
-invoked always.
-
-> +	}
->  	}
+> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+> index 76f15fd..b7ca3b3 100644
+> --- a/net/bridge/br_input.c
+> +++ b/net/bridge/br_input.c
+> @@ -53,10 +53,18 @@ int br_handle_frame_finish(struct sk_buff *skb)
+>  	struct net_bridge_fdb_entry *dst;
+>  	struct net_bridge_mdb_entry *mdst;
+>  	struct sk_buff *skb2;
+> +	unsigned long *vlan_map;
 >  
->  	return -EOPNOTSUPP;
+>  	if (!p || p->state == BR_STATE_DISABLED)
+>  		goto drop;
+>  
+> +	/* If VLAN filter is configured on the port, make sure we accept
+> +	 * only traffic matching the VLAN filter.
+> +	 */
+> +	vlan_map = rcu_dereference(p->vlan_map);
+> +	if (vlan_map && !test_bit((skb->vlan_tci & VLAN_VID_MASK), vlan_map))
+
+() not needed here around parameters.
+
+> +		goto drop;
+> +
+>  	/* insert into forwarding database after filtering to avoid spoofing */
+>  	br = p->br;
+>  	br_fdb_update(br, p, eth_hdr(skb)->h_source);
 > diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index b6c56ab..5639c1c 100644
+> index a768b24..8da90e8 100644
 > --- a/net/bridge/br_private.h
 > +++ b/net/bridge/br_private.h
-> @@ -402,6 +402,8 @@ extern int br_del_if(struct net_bridge *br,
->  extern int br_min_mtu(const struct net_bridge *br);
->  extern netdev_features_t br_features_recompute(struct net_bridge *br,
->  	netdev_features_t features);
-> +extern int br_set_port_vlan(struct net_bridge_port *p, unsigned long vid);
-> +extern int br_del_port_vlan(struct net_bridge_port *p, unsigned long vid);
+> @@ -152,6 +152,8 @@ struct net_bridge_port
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>  	struct netpoll			*np;
+>  #endif
+> +	unsigned long __rcu		*vlan_map;
+> +
+
+Empty line not needed.
+
+>  };
 >  
->  /* br_input.c */
->  extern int br_handle_frame_finish(struct sk_buff *skb);
+>  #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
 > -- 
 > 1.7.7.6
 > 
