@@ -1,30 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] drivers/net/ethernet/tundra/tsi108_eth.c: delete
- double assignment
-Date: Thu, 30 Aug 2012 13:09:10 -0400 (EDT)
-Message-ID: <20120830.130910.1673588383256719426.davem@davemloft.net>
-References: <1345969115-12977-2-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: [PATCH] netlink: add minlen validation for the new signed types
+Date: Thu, 30 Aug 2012 13:12:12 -0400 (EDT)
+Message-ID: <20120830.131212.64668313560591308.davem@davemloft.net>
+References: <1345970877-4408-1-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia.Lawall@lip6.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1345969115-12977-2-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37905 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751997Ab2H3RMO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 13:12:14 -0400
+In-Reply-To: <1345970877-4408-1-git-send-email-ja@ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Sun, 26 Aug 2012 10:18:35 +0200
+From: Julian Anastasov <ja@ssi.bg>
+Date: Sun, 26 Aug 2012 11:47:57 +0300
 
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
-> 
-> Delete successive assignments to the same location.
-> 
-> A simplified version of the semantic match that finds this problem is as
-> follows: (http://coccinelle.lip6.fr/)
- ...
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
 
-Applied to net-next, thanks Julia.
+Applied to net-next, thanks Julian.
