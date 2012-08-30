@@ -1,42 +1,31 @@
-From: =?UTF-8?B?Q3Jpc3RpYW4gUm9kcsOtZ3Vleg==?= <crrodriguez@opensuse.org>
-Subject: Re: BUG: soft lockup - CPU#6 stuck for 22s! [httpd2-event:15597]
-Date: Wed, 29 Aug 2012 23:05:10 -0400
-Message-ID: <503ED866.3020609@opensuse.org>
-References: <5038215E.60403@opensuse.org> <1345885186.19483.109.camel@edumazet-glaptop> <1345886085.19483.141.camel@edumazet-glaptop> <1345895225.19483.447.camel@edumazet-glaptop> <CADVnQymYXHcqJEgcgH0OHHFfCe6LAMSBZ0E68NWzDZQNTqB+Sg@mail.gmail.com> <1346040367.2420.22.camel@edumazet-glaptop> <CADVnQy=bdHm2jcuReZaxr-qRMRWLDLnVP-jkzBTE-HPZ9FROmw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:63843 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754024Ab2H3DGe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2012 23:06:34 -0400
-Received: by ialo24 with SMTP id o24so2457325ial.19
-        for <netdev@vger.kernel.org>; Wed, 29 Aug 2012 20:06:33 -0700 (PDT)
-In-Reply-To: <CADVnQy=bdHm2jcuReZaxr-qRMRWLDLnVP-jkzBTE-HPZ9FROmw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alan Ott <alan@signal11.us>
+Subject: [PATCH v6 0/1] Driver for Microchip MRF24J40
+Date: Thu, 30 Aug 2012 00:16:33 -0400
+Message-ID: <1346300194-3286-1-git-send-email-alan@signal11.us>
+References: <1335155673-30848-1-git-send-email-alan@signal11.us>
+Cc: linux-zigbee-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Alan Ott <alan@signal11.us>
+To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	Tony Cheneau <tony.cheneau@amnesiak.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1335155673-30848-1-git-send-email-alan@signal11.us>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-El mi=C3=A9 29 ago 2012 21:37:46 CLT, Neal Cardwell escribi=C3=B3:
+This is a driver for the Microchip MRF24J40 802.15.4 transceiver.
 
-Hi neal, thanks for taking a look at this..
+Versions 1-5 and discussion can be found on the archives of the linux-zigbee
+mailing list:
 
-> 1) Are you still seeing this problem in your workload? If so, would
-> you have time to try another small patch to add instrumentation to
-> track down the cause?
+http://www.mail-archive.com/linux-zigbee-devel@lists.sourceforge.net/msg01014.html
 
-After Eric's patch I no longer see this backtrace or hang, however the=20
-machine does
-hang apparently for another reason that I have been unable to capture
-no clue at all in the logs and the KVM-over-ip video does not respond=20
-after hang, needing a reset,
-that's strange though, as it is usually able to display kernel messages=
-=20
-after a crash.
+Alan Ott (1):
+  ieee802154: MRF24J40 driver
 
-> 2) Do you happen to run with the tcp_mtu_probing sysctl enabled?
-
-   No, sysctl returns : net.ipv4.tcp_mtu_probing =3D 0
+ drivers/ieee802154/Kconfig    |   11 +
+ drivers/ieee802154/Makefile   |    1 +
+ drivers/ieee802154/mrf24j40.c |  767 +++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 779 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/ieee802154/mrf24j40.c
