@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] netpoll: provide an IP ident in UDP frames
-Date: Thu, 30 Aug 2012 12:32:38 -0400 (EDT)
-Message-ID: <20120830.123238.59289912612289680.davem@davemloft.net>
-References: <1345808846.29722.133.camel@edumazet-glaptop>
+Subject: Re: [PATCH 3.6.0-rc3 1/2] of/mdio: Add dummy functions in
+ of_mdio.h.
+Date: Thu, 30 Aug 2012 12:38:29 -0400 (EDT)
+Message-ID: <20120830.123829.822912034653430266.davem@davemloft.net>
+References: <1345809539-27684-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, laurentp@cse-semaphore.com,
+	devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca
+To: srinivas.kandagatla@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37536 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37612 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753444Ab2H3Qcj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 12:32:39 -0400
-In-Reply-To: <1345808846.29722.133.camel@edumazet-glaptop>
+	with ESMTP id S1752544Ab2H3Qic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 12:38:32 -0400
+In-Reply-To: <1345809539-27684-1-git-send-email-srinivas.kandagatla@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 24 Aug 2012 13:47:26 +0200
+From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+Date: Fri, 24 Aug 2012 12:58:59 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 > 
-> Let's fill IP header ident field with a meaningful value,
-> it might help some setups.
+> This patch adds dummy functions in of_mdio.h, so that driver need not
+> ifdef there code with CONFIG_OF.
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-Applied, thanks Eric.
+Applied to net-next.
