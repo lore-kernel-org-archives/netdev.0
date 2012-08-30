@@ -1,63 +1,128 @@
 From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
-Subject: [Stlinux-devel] [PATCH linux-stm 1/4] net:stmmac: Add check if mdiobus is registered in stmmac_mdio_unregister
-Date: Thu, 30 Aug 2012 16:49:58 +0100
-Message-ID: <1346341798-19704-1-git-send-email-srinivas.kandagatla@st.com>
+Subject: [Stlinux-devel] [PATCH linux-stm 2/4] net:stmmac: fix broken stmmac_pltfr_remove.
+Date: Thu, 30 Aug 2012 16:50:19 +0100
+Message-ID: <1346341819-20125-1-git-send-email-srinivas.kandagatla@st.com>
 Cc: peppe.cavallaro@st.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:39996 "EHLO
-	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752544Ab2H3Puu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 11:50:50 -0400
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:55820 "EHLO
+	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751791Ab2H3PvK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 11:51:10 -0400
 Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id A9343EC
-	for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 15:50:48 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 98316C2
+	for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 15:51:08 +0000 (GMT)
 Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 47C314E48
-	for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 15:50:48 +0000 (GMT)
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 662734E4E
+	for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 15:51:08 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-This patch adds a basic check in stmmac_mdio_unregister to see if mdio
-bus registeration for this driver was actually sucessfull or not.
+This patch fixes stmmac_pltfr_remove function, which is broken because,
+it is accessing plat variable via freed memory priv pointer which gets
+freed by free_netdev called from stmmac_dvr_remove.
 
-Use case here is, if BSP considers using mdio-gpio bus along with stmmac
-driver by passing mdio_bus_data as NULL in platform data.
-Call to stmmac_mdio_register with mdio_bus_data as NULL returns 0, which
-is a considered sucessfull call form stmmac. Then again when we unload
-the driver we just call stmmac_mdio_unregister, this is were the actual
-problem is stmmac-mdio code dont really know at this instance of calling
-that stmmac_mdio_register was actually successful.
+In short this patch caches the plat pointer in local variable before
+calling stmmac_dvr_remove to prevent code accessing freed memory.
 
-So Adding a check in stmmac_mdio_unregister is always safe.
+Without this patch any attempt to remove the stmmac device will fail as
+below:
 
-Without this patch stmmac driver calls stmmac_mdio_register from
-stmmac_release which Segfaults as mii bus was never registered at the
-first point.
-
-Originally the this bug was found when unloading an stmmac driver
-instance which uses mdio-gpio for smi access.
+Unregistering eth 0 ...
+Unable to handle kernel paging request at virtual address 6b6b6bab
+pgd = de5dc000
+[6b6b6bab] *pgd=00000000
+Internal error: Oops: 5 [#1] PREEMPT SMP
+Modules linked in: cdev(O+)
+CPU: 0    Tainted: G           O  (3.3.1_stm24_0210-b2000+ #25)
+PC is at stmmac_pltfr_remove+0x2c/0xa0
+LR is at stmmac_pltfr_remove+0x28/0xa0
+pc : [<c01b8908>]    lr : [<c01b8904>]    psr: 60000013
+sp : def6be78  ip : de6c5a00  fp : 00000000
+r10: 00000028  r9 : c082d81d  r8 : 00000001
+r7 : de65a600  r6 : df81b240  r5 : c0413fd8  r4 : 00000000
+r3 : 6b6b6b6b  r2 : def6be6c  r1 : c0355e2b  r0 : 00000020
+Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
+Control: 10c53c7d  Table: 5e5dc04a  DAC: 00000015
+Process insmod (pid: 738, stack limit = 0xdef6a2f0)
+Stack: (0xdef6be78 to 0xdef6c000)
+be60:                                                       c0413fe0
+c0403658
+be80: c0400bb0 c019270c c01926f8 c0191478 00000000 c0414014 c0413fe0
+c01914d8
+bea0: 00000000 c0413fe0 df8045d0 c019109c c0413fe0 c0400bf0 c0413fd8
+c018f04c
+bec0: 00000000 bf000000 c0413fd8 c01929a0 c0413fd8 bf000000 00000000
+c0192bfc
+bee0: bf00009c bf000014 def6a000 c000859c 00000000 00000001 bf00009c
+bf00009c
+bf00: 00000001 bf00009c 00000001 bf0000e4 de65a600 00000001 c082d81d
+c0058cd0
+bf20: bf0000a8 c004fbd8 c0056414 c082d815 c02aea20 bf0001f0 00b0b008
+e0846208
+bf40: c03ec8a0 e0846000 0000db0d e0850604 e08504de e0853a24 00000204
+000002d4
+bf60: 00000000 00000000 0000001c 0000001d 00000009 00000000 00000006
+00000000
+bf80: 00000003 f63d4e2e 0000db0d bef02ed8 00000080 c000d2e8 def6a000
+00000000
+bfa0: 00000000 c000d140 f63d4e2e 0000db0d 00b0b018 0000db0d 00b0b008
+b6f4f298
+bfc0: f63d4e2e 0000db0d bef02ed8 00000080 00000003 00000000 00010000
+00000000
+bfe0: 00b0b008 bef02c64 00008d20 b6ef3784 60000010 00b0b018 5a5a5a5a
+5a5a5a5a
+[<c01b8908>] (stmmac_pltfr_remove+0x2c/0xa0) from [<c019270c>]
+(platform_drv_remove+0x14/0x18)
+[<c019270c>] (platform_drv_remove+0x14/0x18) from [<c0191478>]
+(__device_release_driver+0x64/0xa4)
+[<c0191478>] (__device_release_driver+0x64/0xa4) from [<c01914d8>]
+(device_release_driver+0x20/0x2c)
+[<c01914d8>] (device_release_driver+0x20/0x2c) from [<c019109c>]
+(bus_remove_device+0xcc/0xdc)
+[<c019109c>] (bus_remove_device+0xcc/0xdc) from [<c018f04c>]
+(device_del+0x104/0x160)
+[<c018f04c>] (device_del+0x104/0x160) from [<c01929a0>]
+(platform_device_del+0x18/0x58)
+[<c01929a0>] (platform_device_del+0x18/0x58) from [<c0192bfc>]
+(platform_device_unregister+0xc/0x18)
+[<c0192bfc>] (platform_device_unregister+0xc/0x18) from [<bf000014>]
+(r_init+0x14/0x2c [cdev])
+[<bf000014>] (r_init+0x14/0x2c [cdev]) from [<c000859c>]
+(do_one_initcall+0x90/0x160)
+[<c000859c>] (do_one_initcall+0x90/0x160) from [<c0058cd0>]
+(sys_init_module+0x15c4/0x1794)
+[<c0058cd0>] (sys_init_module+0x15c4/0x1794) from [<c000d140>]
+(ret_fast_syscall+0x0/0x30)
+Code: e1a04000 e59f0070 eb039b65 e59636e4 (e5933040)
 
 Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index ade1082..e1f3d04 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -258,6 +258,9 @@ int stmmac_mdio_unregister(struct net_device *ndev)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index b93245c..b4ffdc7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -186,6 +186,7 @@ static int stmmac_pltfr_remove(struct platform_device *pdev)
  {
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
  	struct stmmac_priv *priv = netdev_priv(ndev);
++	void __iomem *addr = priv->ioaddr;
+ 	struct resource *res;
+ 	int ret = stmmac_dvr_remove(ndev);
  
-+	if (!priv->mii)
-+		return 0;
-+
- 	mdiobus_unregister(priv->mii);
- 	priv->mii->priv = NULL;
- 	mdiobus_free(priv->mii);
+@@ -194,7 +195,7 @@ static int stmmac_pltfr_remove(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, NULL);
+ 
+-	iounmap((void __force __iomem *)priv->ioaddr);
++	iounmap(addr);
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	release_mem_region(res->start, resource_size(res));
+ 
 -- 
 1.7.0.4
