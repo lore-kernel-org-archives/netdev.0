@@ -1,202 +1,156 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH bridge 5/5] bridge: Add sysfs interface to display
- VLANS
-Date: Thu, 30 Aug 2012 17:26:09 +0300
-Message-ID: <20120830142609.GE21132@redhat.com>
-References: <1345750195-31598-1-git-send-email-vyasevic@redhat.com>
- <1345750195-31598-6-git-send-email-vyasevic@redhat.com>
- <20120830122724.GC20228@redhat.com>
- <503F731C.1070208@redhat.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH] ipv6: fix handling of blackhole and prohibit routes
+Date: Thu, 30 Aug 2012 16:29:28 +0200
+Message-ID: <503F78C8.3070807@6wind.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: multipart/mixed;
+ boundary="------------080801060909060302040707"
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33578 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752260Ab2H3OYt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Aug 2012 10:24:49 -0400
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q7UEOnnk007489
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 10:24:49 -0400
-Content-Disposition: inline
-In-Reply-To: <503F731C.1070208@redhat.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:42624 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752298Ab2H3O3c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 10:29:32 -0400
+Received: by eekc1 with SMTP id c1so757803eek.19
+        for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 07:29:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 30, 2012 at 10:05:16AM -0400, Vlad Yasevich wrote:
-> On 08/30/2012 08:27 AM, Michael S. Tsirkin wrote:
-> >On Thu, Aug 23, 2012 at 03:29:55PM -0400, Vlad Yasevich wrote:
-> >>Add a binary sysfs file that will dump out vlans currently configured on the
-> >>port.
-> >>
-> >>Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> >
-> >So what's the format here? I could not tell.
-> >List of vlans? Why binary? Why not make it text in that case?
-> >This would also allow reporting "all" if filtering
-> >is disabled and "untagged" for untagged packets.
-> 
-> I decided to do binary because text may result in more then page
-> worth of data.
+This is a multi-part message in MIME format.
+--------------080801060909060302040707
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Well yes, you need 3 bytes to print a vid and 1 extra for a space.  But
-in binary, 2 bytes per VID and there are 4K valid VIDs so binary needs
-more than 1 page too?
+Hi,
 
-If using binary I would go for bit per valid bit
-this solves it nicely.
-We can have a separate field that shows whether untagged
-packets are filtered.
+enclosed is a patch to fix addition of blackhole and prohibit routes.
 
-> The display tool will know how to display things
-> properly.
-> 
-> -vlad
+Comments are welcome.
 
-I think you know that one of the points of sysfs
-is to allow use without tools.
-Tools are happier using other interfaces such as
-ioctl or netlink.
+Regards,
+Nicolas
+
+--------------080801060909060302040707
+Content-Type: text/x-patch;
+ name="0001-ipv6-fix-handling-of-blackhole-and-prohibit-routes.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename*0="0001-ipv6-fix-handling-of-blackhole-and-prohibit-routes.patc";
+ filename*1="h"
+
+>From 0131261ac3947631b96036ffafb30ee2e95604f2 Mon Sep 17 00:00:00 2001
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Thu, 30 Aug 2012 07:07:30 -0400
+Subject: [PATCH] ipv6: fix handling of blackhole and prohibit routes
+
+When adding a blackhole or a prohibit route, they were handling like classic
+routes. Moreover, it was only possible to add this kind of routes by specifying
+an interface.
+
+Bug already reported here:
+  http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=498498
+
+Before the patch:
+  $ ip route add blackhole 2001::1/128
+  RTNETLINK answers: No such device
+  $ ip route add blackhole 2001::1/128 dev eth0
+  $ ip -6 route | grep 2001
+  2001::1 dev eth0  metric 1024
+
+After:
+  $ ip route add blackhole 2001::1/128
+  $ ip -6 route | grep 2001
+  blackhole 2001::1 dev lo  metric 1024  error -22
+
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/linux/route.h |    2 ++
+ net/ipv6/route.c      |   27 ++++++++++++++++++++++-----
+ 2 files changed, 24 insertions(+), 5 deletions(-)
+
+diff --git a/include/linux/route.h b/include/linux/route.h
+index 6600708..166fb68 100644
+--- a/include/linux/route.h
++++ b/include/linux/route.h
+@@ -58,6 +58,8 @@ struct rtentry {
+ #define RTF_WINDOW	0x0080		/* per route window clamping	*/
+ #define RTF_IRTT	0x0100		/* Initial round trip time	*/
+ #define RTF_REJECT	0x0200		/* Reject route			*/
++#define RTF_BLACKHOLE	0x0400		/* Blackhole route		*/
++#define RTF_PROHIBIT	0x0800		/* Prohibit route		*/
+ 
+ /*
+  *	<linux/ipv6_route.h> uses RTF values >= 64k
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 8e80fd2..69369b0 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -251,7 +251,7 @@ static struct rt6_info ip6_prohibit_entry_template = {
+ 		.input		= ip6_pkt_prohibit,
+ 		.output		= ip6_pkt_prohibit_out,
+ 	},
+-	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
++	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP | RTF_PROHIBIT),
+ 	.rt6i_protocol  = RTPROT_KERNEL,
+ 	.rt6i_metric	= ~(u32) 0,
+ 	.rt6i_ref	= ATOMIC_INIT(1),
+@@ -266,7 +266,7 @@ static struct rt6_info ip6_blk_hole_entry_template = {
+ 		.input		= dst_discard,
+ 		.output		= dst_discard,
+ 	},
+-	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
++	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP | RTF_BLACKHOLE),
+ 	.rt6i_protocol  = RTPROT_KERNEL,
+ 	.rt6i_metric	= ~(u32) 0,
+ 	.rt6i_ref	= ATOMIC_INIT(1),
+@@ -1463,8 +1463,15 @@ int ip6_route_add(struct fib6_config *cfg)
+ 		}
+ 		rt->dst.output = ip6_pkt_discard_out;
+ 		rt->dst.input = ip6_pkt_discard;
+-		rt->dst.error = -ENETUNREACH;
+ 		rt->rt6i_flags = RTF_REJECT|RTF_NONEXTHOP;
++		if (cfg->fc_flags & RTF_BLACKHOLE) {
++			rt->dst.error = -EINVAL;
++			rt->rt6i_flags |= RTF_BLACKHOLE;
++		} else if (cfg->fc_flags & RTF_PROHIBIT) {
++			rt->dst.error = -EACCES;
++			rt->rt6i_flags |= RTF_PROHIBIT;
++		} else
++			rt->dst.error = -ENETUNREACH;
+ 		goto install_route;
+ 	}
+ 
+@@ -2264,6 +2271,10 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 
+ 	if (rtm->rtm_type == RTN_UNREACHABLE)
+ 		cfg->fc_flags |= RTF_REJECT;
++	if (rtm->rtm_type == RTN_BLACKHOLE)
++		cfg->fc_flags |= RTF_REJECT | RTF_BLACKHOLE;
++	if (rtm->rtm_type == RTN_PROHIBIT)
++		cfg->fc_flags |= RTF_REJECT | RTF_PROHIBIT;
+ 
+ 	if (rtm->rtm_type == RTN_LOCAL)
+ 		cfg->fc_flags |= RTF_LOCAL;
+@@ -2391,8 +2402,14 @@ static int rt6_fill_node(struct net *net,
+ 	rtm->rtm_table = table;
+ 	if (nla_put_u32(skb, RTA_TABLE, table))
+ 		goto nla_put_failure;
+-	if (rt->rt6i_flags & RTF_REJECT)
+-		rtm->rtm_type = RTN_UNREACHABLE;
++	if (rt->rt6i_flags & RTF_REJECT) {
++		if (rt->rt6i_flags & RTF_BLACKHOLE)
++			rtm->rtm_type = RTN_BLACKHOLE;
++		else if (rt->rt6i_flags & RTF_PROHIBIT)
++			rtm->rtm_type = RTN_PROHIBIT;
++		else
++			rtm->rtm_type = RTN_UNREACHABLE;
++	}
+ 	else if (rt->rt6i_flags & RTF_LOCAL)
+ 		rtm->rtm_type = RTN_LOCAL;
+ 	else if (rt->dst.dev && (rt->dst.dev->flags & IFF_LOOPBACK))
+-- 
+1.7.10.4
 
 
-
-> >
-> >>---
-> >>  include/linux/if_bridge.h |    1 +
-> >>  net/bridge/br_if.c        |   34 ++++++++++++++++++++++++++++++++++
-> >>  net/bridge/br_private.h   |    2 ++
-> >>  net/bridge/br_sysfs_if.c  |   28 ++++++++++++++++++++++++++++
-> >>  4 files changed, 65 insertions(+), 0 deletions(-)
-> >>
-> >>diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
-> >>index ab750dd..d0f869b 100644
-> >>--- a/include/linux/if_bridge.h
-> >>+++ b/include/linux/if_bridge.h
-> >>@@ -20,6 +20,7 @@
-> >>  #define SYSFS_BRIDGE_PORT_SUBDIR "brif"
-> >>  #define SYSFS_BRIDGE_PORT_ATTR	"brport"
-> >>  #define SYSFS_BRIDGE_PORT_LINK	"bridge"
-> >>+#define SYSFS_BRIDGE_PORT_VLANS "vlans"
-> >>
-> >>  #define BRCTL_VERSION 1
-> >>
-> >>diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-> >>index 90c1038..3963748 100644
-> >>--- a/net/bridge/br_if.c
-> >>+++ b/net/bridge/br_if.c
-> >>@@ -510,6 +510,40 @@ int br_del_port_vlan(struct net_bridge_port *p, unsigned long vlan)
-> >>  	return 0;
-> >>  }
-> >>
-> >>+size_t br_port_fill_vlans(struct net_bridge_port *p, char* buf,
-> >>+			unsigned long max, unsigned long skip)
-> >>+{
-> >>+	unsigned long *map;
-> >>+	unsigned short *vid = (unsigned short *)buf;
-> >>+	unsigned short i;
-> >>+	int num = 0;
-> >>+
-> >>+	if (skip > (VLAN_N_VID+1))
-> >>+		return -EINVAL;
-> >>+
-> >>+	memset(buf, 0, max * sizeof(unsigned short));
-> >
-> >Isn't max is in bytes? why is this safe?
-> >
-> >>+
-> >>+	rcu_read_lock();
-> >>+	map = rcu_dereference(p->vlan_map);
-> >>+	if (!map)
-> >>+		goto out;
-> >>+
-> >>+	for (i = skip + 1; i < VLAN_N_VID + 1; i++) {
-> >
-> >Isn't skip in bytes too? Why do you compare it to i which is
-> >in dwords?
-> >
-> >>+		if (test_bit(i, map)) {
-> >>+			if (num > max)
-> >>+				goto out;
-> >>+
-> >>+			*vid = i-1;
-> >>+			vid++;
-> >>+			num++;
-> >>+		}
-> >>+	}
-> >>+out:
-> >>+	rcu_read_unlock();
-> >>+
-> >>+	return num*sizeof(unsigned short);
-> >>+}
-> >>+
-> >>  void __net_exit br_net_exit(struct net *net)
-> >>  {
-> >>  	struct net_device *dev;
-> >>diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> >>index 5639c1c..cf95cd7 100644
-> >>--- a/net/bridge/br_private.h
-> >>+++ b/net/bridge/br_private.h
-> >>@@ -404,6 +404,8 @@ extern netdev_features_t br_features_recompute(struct net_bridge *br,
-> >>  	netdev_features_t features);
-> >>  extern int br_set_port_vlan(struct net_bridge_port *p, unsigned long vid);
-> >>  extern int br_del_port_vlan(struct net_bridge_port *p, unsigned long vid);
-> >>+extern size_t br_port_fill_vlans(struct net_bridge_port *p, char *buf,
-> >>+				unsigned long max, unsigned long skip);
-> >>
-> >>  /* br_input.c */
-> >>  extern int br_handle_frame_finish(struct sk_buff *skb);
-> >>diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-> >>index 13b36bd..a81e2ef 100644
-> >>--- a/net/bridge/br_sysfs_if.c
-> >>+++ b/net/bridge/br_sysfs_if.c
-> >>@@ -234,6 +234,29 @@ const struct sysfs_ops brport_sysfs_ops = {
-> >>  };
-> >>
-> >>  /*
-> >>+ * Export the vlan table for a given port as a binary file.
-> >>+ * The records are unsgined shorts.
-> >>+ *
-> >>+ * Returns the number of bytes read.
-> >>+ */
-> >>+static ssize_t brport_vlans_read(struct file *filp, struct kobject *kobj,
-> >>+				struct bin_attribute *bin_attr,
-> >>+				char *buf, loff_t off, size_t count)
-> >>+{
-> >>+	struct net_bridge_port *p = to_brport(kobj);
-> >>+
-> >>+	return br_port_fill_vlans(p, buf,
-> >>+				count/sizeof(unsigned short),
-> >>+				off/sizeof(unsigned short));
-> >>+}
-> >>+
-> >>+static struct bin_attribute port_vlans = {
-> >>+	.attr = { .name = SYSFS_BRIDGE_PORT_VLANS,
-> >>+		  .mode = S_IRUGO, },
-> >>+	.read = brport_vlans_read,
-> >>+};
-> >>+
-> >>+/*
-> >>   * Add sysfs entries to ethernet device added to a bridge.
-> >>   * Creates a brport subdirectory with bridge attributes.
-> >>   * Puts symlink in bridge's brif subdirectory
-> >>@@ -255,6 +278,11 @@ int br_sysfs_addif(struct net_bridge_port *p)
-> >>  			return err;
-> >>  	}
-> >>
-> >>+	err = sysfs_create_bin_file(&p->kobj, &port_vlans);
-> >>+	if (err) {
-> >>+		return err;
-> >>+	}
-> >>+
-> >>  	strlcpy(p->sysfs_name, p->dev->name, IFNAMSIZ);
-> >>  	return sysfs_create_link(br->ifobj, &p->kobj, p->sysfs_name);
-> >>  }
-> >>--
-> >>1.7.7.6
-> >>
-> >>--
-> >>To unsubscribe from this list: send the line "unsubscribe netdev" in
-> >>the body of a message to majordomo@vger.kernel.org
-> >>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--------------080801060909060302040707--
