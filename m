@@ -1,55 +1,40 @@
-From: Malcolm Priestley <tvboxspy-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] vt6656: [BUG] - Failed connection, incorrect endian. v2
-Date: Wed, 29 Aug 2012 23:12:37 +0100
-Message-ID: <1346278357.2177.7.camel@router7789>
-References: <1346273644.2077.3.camel@router7789>
-	 <503E8789.6050809@lwfinger.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 02/19] Cleaning up the IPv6 MTU checking in the IPVS
+ xmit code, by using a common helper function __mtu_check_toobig_v6().
+Date: Thu, 30 Aug 2012 03:01:22 +0200
+Message-ID: <20120830010122.GA8878@1984>
+References: <1346190539-9963-1-git-send-email-kaber@trash.net>
+ <1346190539-9963-3-git-send-email-kaber@trash.net>
+ <Pine.LNX.4.64.1208290959010.32281@ask.diku.dk>
+ <Pine.GSO.4.63.1208291424050.26100@stinky-local.trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <503E8789.6050809-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:41386 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753326Ab2H3BB2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Aug 2012 21:01:28 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.GSO.4.63.1208291424050.26100@stinky-local.trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-08-29 at 16:20 -0500, Larry Finger wrote:
-> On 08/29/2012 03:54 PM, Malcolm Priestley wrote:
-> >
-> > This patch fixes a bug with driver failing to negotiate a connection.
-> >
-> > The bug was traced to commit
-> > 203e4615ee9d9fa8d3506b9d0ef30095e4d5bc90
-> > staging: vt6656: removed custom definitions of Ethernet packet types
-> >
-> > In that patch, definitions in include/linux/if_ether.h replaced ones
-> > in tether.h which had both big and little endian definitions.
-> >
-> > include/linux/if_ether.h only refers to big endian values, cpu_to_be16
-> > should be used for the correct endian architectures.
-> >
-> > checkpatch fixed version.
-> >
-> > Signed-off-by: Malcolm Priestley <tvboxspy-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+On Wed, Aug 29, 2012 at 02:24:39PM +0200, Patrick McHardy wrote:
+> On Wed, 29 Aug 2012, Jesper Dangaard Brouer wrote:
 > 
-> Patches for staging drivers should be sent to gregkh-hQyY1W1yCW8ekmWlsbkhG5u6nac5fYnt@public.gmane.org He is 
-> the one that handles them. In addition, the patch subject line usually has the 
-> sequence "staging: vt6656: blabla" the way the faulty patch did.
+> >
+> >Just a little nitpick.
+> >
+> >The original title/subj was:
+> >"ipvs: IPv6 MTU checking cleanup and bugfix"
+> >
+> >And the curr/used title/subj were part of the commit text.
+> 
+> Sorry, must have happened while importing the patch, I noticed it
+> afterwards, but was already too late.
 
-Thanks
-
-I have forwarded the patch.
-
-
-Regards
-
-
-Malcolm
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+No problem, I'll fix this.
