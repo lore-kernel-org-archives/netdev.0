@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] dev_<level> and dynamic_debug cleanups
-Date: Thu, 30 Aug 2012 13:16:59 -0400 (EDT)
-Message-ID: <20120830.131659.1142504331858011461.davem@davemloft.net>
-References: <cover.1345978012.git.joe@perches.com>
+Subject: Re: [PATCH 0/2]: ieee802154 drivers location
+Date: Thu, 30 Aug 2012 13:24:52 -0400 (EDT)
+Message-ID: <20120830.132452.904626051029519065.davem@davemloft.net>
+References: <1345993811-13803-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	gregkh@linuxfoundation.org, jbaron@redhat.com,
-	jim.cromie@gmail.com, kay@vrfy.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1345978012.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dbaryshkov@gmail.com
+To: alex.bluesman.smirnov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38005 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751002Ab2H3RYy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 13:24:54 -0400
+In-Reply-To: <1345993811-13803-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sun, 26 Aug 2012 04:25:25 -0700
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Date: Sun, 26 Aug 2012 19:10:09 +0400
 
-> The recent commit to fix dynamic_debug was a bit unclean.
-> Neaten the style for dynamic_debug.
-> Reduce the stack use of message logging that uses netdev_printk
-> Add utility functions dev_printk_emit and dev_vprintk_emit for /dev/kmsg.
+> Please review these two patches:
+> 
+> 1. I want to keep 'ieee802154' drivers with other networking code in
+>    'drivers/net' folder instead of current location in drivers root.
+>    I don't exactly know this historical reason, but lets keep networking
+>    code together.
+> 2. Minor cosmetic improvement in at86rf230 driver
 
-I think these should go through the generic device tree, feel free to
-add my:
-
-Acked-by: David S. Miller <davem@davemloft.net>
+Both applied to net-next, thanks.
