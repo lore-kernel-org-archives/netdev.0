@@ -1,128 +1,121 @@
 From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
-Subject: [Stlinux-devel] [PATCH linux-stm 2/4] net:stmmac: fix broken stmmac_pltfr_remove.
-Date: Thu, 30 Aug 2012 16:50:19 +0100
-Message-ID: <1346341819-20125-1-git-send-email-srinivas.kandagatla@st.com>
+Subject: [Stlinux-devel] [PATCH linux-stm 3/4] net/stmmac: Remove bus_id from mdio platform data.
+Date: Thu, 30 Aug 2012 16:50:43 +0100
+Message-ID: <1346341843-20169-1-git-send-email-srinivas.kandagatla@st.com>
 Cc: peppe.cavallaro@st.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:55820 "EHLO
-	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751791Ab2H3PvK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 11:51:10 -0400
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:58116 "EHLO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751791Ab2H3Pve (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 11:51:34 -0400
 Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 98316C2
-	for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 15:51:08 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 7D84BF0
+	for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 15:51:32 +0000 (GMT)
 Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 662734E4E
-	for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 15:51:08 +0000 (GMT)
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 5198A4E48
+	for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 15:51:32 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-This patch fixes stmmac_pltfr_remove function, which is broken because,
-it is accessing plat variable via freed memory priv pointer which gets
-freed by free_netdev called from stmmac_dvr_remove.
-
-In short this patch caches the plat pointer in local variable before
-calling stmmac_dvr_remove to prevent code accessing freed memory.
-
-Without this patch any attempt to remove the stmmac device will fail as
-below:
-
-Unregistering eth 0 ...
-Unable to handle kernel paging request at virtual address 6b6b6bab
-pgd = de5dc000
-[6b6b6bab] *pgd=00000000
-Internal error: Oops: 5 [#1] PREEMPT SMP
-Modules linked in: cdev(O+)
-CPU: 0    Tainted: G           O  (3.3.1_stm24_0210-b2000+ #25)
-PC is at stmmac_pltfr_remove+0x2c/0xa0
-LR is at stmmac_pltfr_remove+0x28/0xa0
-pc : [<c01b8908>]    lr : [<c01b8904>]    psr: 60000013
-sp : def6be78  ip : de6c5a00  fp : 00000000
-r10: 00000028  r9 : c082d81d  r8 : 00000001
-r7 : de65a600  r6 : df81b240  r5 : c0413fd8  r4 : 00000000
-r3 : 6b6b6b6b  r2 : def6be6c  r1 : c0355e2b  r0 : 00000020
-Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
-Control: 10c53c7d  Table: 5e5dc04a  DAC: 00000015
-Process insmod (pid: 738, stack limit = 0xdef6a2f0)
-Stack: (0xdef6be78 to 0xdef6c000)
-be60:                                                       c0413fe0
-c0403658
-be80: c0400bb0 c019270c c01926f8 c0191478 00000000 c0414014 c0413fe0
-c01914d8
-bea0: 00000000 c0413fe0 df8045d0 c019109c c0413fe0 c0400bf0 c0413fd8
-c018f04c
-bec0: 00000000 bf000000 c0413fd8 c01929a0 c0413fd8 bf000000 00000000
-c0192bfc
-bee0: bf00009c bf000014 def6a000 c000859c 00000000 00000001 bf00009c
-bf00009c
-bf00: 00000001 bf00009c 00000001 bf0000e4 de65a600 00000001 c082d81d
-c0058cd0
-bf20: bf0000a8 c004fbd8 c0056414 c082d815 c02aea20 bf0001f0 00b0b008
-e0846208
-bf40: c03ec8a0 e0846000 0000db0d e0850604 e08504de e0853a24 00000204
-000002d4
-bf60: 00000000 00000000 0000001c 0000001d 00000009 00000000 00000006
-00000000
-bf80: 00000003 f63d4e2e 0000db0d bef02ed8 00000080 c000d2e8 def6a000
-00000000
-bfa0: 00000000 c000d140 f63d4e2e 0000db0d 00b0b018 0000db0d 00b0b008
-b6f4f298
-bfc0: f63d4e2e 0000db0d bef02ed8 00000080 00000003 00000000 00010000
-00000000
-bfe0: 00b0b008 bef02c64 00008d20 b6ef3784 60000010 00b0b018 5a5a5a5a
-5a5a5a5a
-[<c01b8908>] (stmmac_pltfr_remove+0x2c/0xa0) from [<c019270c>]
-(platform_drv_remove+0x14/0x18)
-[<c019270c>] (platform_drv_remove+0x14/0x18) from [<c0191478>]
-(__device_release_driver+0x64/0xa4)
-[<c0191478>] (__device_release_driver+0x64/0xa4) from [<c01914d8>]
-(device_release_driver+0x20/0x2c)
-[<c01914d8>] (device_release_driver+0x20/0x2c) from [<c019109c>]
-(bus_remove_device+0xcc/0xdc)
-[<c019109c>] (bus_remove_device+0xcc/0xdc) from [<c018f04c>]
-(device_del+0x104/0x160)
-[<c018f04c>] (device_del+0x104/0x160) from [<c01929a0>]
-(platform_device_del+0x18/0x58)
-[<c01929a0>] (platform_device_del+0x18/0x58) from [<c0192bfc>]
-(platform_device_unregister+0xc/0x18)
-[<c0192bfc>] (platform_device_unregister+0xc/0x18) from [<bf000014>]
-(r_init+0x14/0x2c [cdev])
-[<bf000014>] (r_init+0x14/0x2c [cdev]) from [<c000859c>]
-(do_one_initcall+0x90/0x160)
-[<c000859c>] (do_one_initcall+0x90/0x160) from [<c0058cd0>]
-(sys_init_module+0x15c4/0x1794)
-[<c0058cd0>] (sys_init_module+0x15c4/0x1794) from [<c000d140>]
-(ret_fast_syscall+0x0/0x30)
-Code: e1a04000 e59f0070 eb039b65 e59636e4 (e5933040)
+This patch removes bus_id from mdio platform data, The reason to remove
+bus_id is, stmmac mdio bus_id is always same as stmmac bus-id, so there
+is no point in passing this in different variable.
+Also stmmac ethernet driver connects to phy with bus_id passed its
+platform data.
+So, having single bus-id is much simpler.
 
 Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 ---
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ Documentation/networking/stmmac.txt               |    5 -----
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |    8 +++-----
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c  |    1 -
+ include/linux/stmmac.h                            |    1 -
+ 4 files changed, 3 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index b93245c..b4ffdc7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -186,6 +186,7 @@ static int stmmac_pltfr_remove(struct platform_device *pdev)
- {
- 	struct net_device *ndev = platform_get_drvdata(pdev);
- 	struct stmmac_priv *priv = netdev_priv(ndev);
-+	void __iomem *addr = priv->ioaddr;
- 	struct resource *res;
- 	int ret = stmmac_dvr_remove(ndev);
+diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
+index c676b9c..ef9ee71 100644
+--- a/Documentation/networking/stmmac.txt
++++ b/Documentation/networking/stmmac.txt
+@@ -173,7 +173,6 @@ Where:
+ For MDIO bus The we have:
  
-@@ -194,7 +195,7 @@ static int stmmac_pltfr_remove(struct platform_device *pdev)
+  struct stmmac_mdio_bus_data {
+-	int bus_id;
+ 	int (*phy_reset)(void *priv);
+ 	unsigned int phy_mask;
+ 	int *irqs;
+@@ -181,7 +180,6 @@ For MDIO bus The we have:
+  };
  
- 	platform_set_drvdata(pdev, NULL);
+ Where:
+- o bus_id: bus identifier;
+  o phy_reset: hook to reset the phy device attached to the bus.
+  o phy_mask: phy mask passed when register the MDIO bus within the driver.
+  o irqs: list of IRQs, one per PHY.
+@@ -230,9 +228,6 @@ there are two MAC cores: one MAC is for MDIO Bus/PHY emulation
+ with fixed_link support.
  
--	iounmap((void __force __iomem *)priv->ioaddr);
-+	iounmap(addr);
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	release_mem_region(res->start, resource_size(res));
+ static struct stmmac_mdio_bus_data stmmac1_mdio_bus = {
+-	.bus_id = 1,
+-		|
+-		|-> phy device on the bus_id 1
+ 	.phy_reset = phy_reset;
+ 		|
+ 		|-> function to provide the phy_reset on this board
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index e1f3d04..0376a5e 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -177,7 +177,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	new_bus->write = &stmmac_mdio_write;
+ 	new_bus->reset = &stmmac_mdio_reset;
+ 	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%s-%x",
+-		new_bus->name, mdio_bus_data->bus_id);
++		new_bus->name, priv->plat->bus_id);
+ 	new_bus->priv = ndev;
+ 	new_bus->irq = irqlist;
+ 	new_bus->phy_mask = mdio_bus_data->phy_mask;
+@@ -213,12 +213,10 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 			 * and no PHY number was provided to the MAC,
+ 			 * use the one probed here.
+ 			 */
+-			if ((priv->plat->bus_id == mdio_bus_data->bus_id) &&
+-			    (priv->plat->phy_addr == -1))
++			if (priv->plat->phy_addr == -1)
+ 				priv->plat->phy_addr = addr;
  
+-			act = (priv->plat->bus_id == mdio_bus_data->bus_id) &&
+-				(priv->plat->phy_addr == addr);
++			act = (priv->plat->phy_addr == addr);
+ 			switch (phydev->irq) {
+ 			case PHY_POLL:
+ 				irq_str = "POLL";
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index 13afb8e..1f069b0 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -40,7 +40,6 @@ static void stmmac_default_data(void)
+ 	plat_dat.has_gmac = 1;
+ 	plat_dat.force_sf_dma_mode = 1;
+ 
+-	mdio_data.bus_id = 1;
+ 	mdio_data.phy_reset = NULL;
+ 	mdio_data.phy_mask = 0;
+ 	plat_dat.mdio_bus_data = &mdio_data;
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index b69bdb1..a1547ea 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -76,7 +76,6 @@
+ /* Platfrom data for platform device structure's platform_data field */
+ 
+ struct stmmac_mdio_bus_data {
+-	int bus_id;
+ 	int (*phy_reset)(void *priv);
+ 	unsigned int phy_mask;
+ 	int *irqs;
 -- 
 1.7.0.4
