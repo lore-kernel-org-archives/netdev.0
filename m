@@ -1,25 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlink: add minlen validation for the new signed types
-Date: Thu, 30 Aug 2012 13:12:12 -0400 (EDT)
-Message-ID: <20120830.131212.64668313560591308.davem@davemloft.net>
-References: <1345970877-4408-1-git-send-email-ja@ssi.bg>
+Subject: Re: [net PATCH 1/1] bnx2x: fix 57840_MF pci id
+Date: Thu, 30 Aug 2012 13:13:15 -0400 (EDT)
+Message-ID: <20120830.131315.2289996886162431257.davem@davemloft.net>
+References: <1345977345-3721-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ja@ssi.bg
+Cc: netdev@vger.kernel.org, eilong@broadcom.com, mchan@broadcom.com
+To: yuvalmin@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37905 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37909 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751997Ab2H3RMO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 13:12:14 -0400
-In-Reply-To: <1345970877-4408-1-git-send-email-ja@ssi.bg>
+	with ESMTP id S1753840Ab2H3RNT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 13:13:19 -0400
+In-Reply-To: <1345977345-3721-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Sun, 26 Aug 2012 11:47:57 +0300
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Date: Sun, 26 Aug 2012 13:35:45 +0300
 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> Commit c3def943c7117d42caaed3478731ea7c3c87190e have added support for
+> new pci ids of the 57840 board, while failing to change the obsolete value
+> in 'pci_ids.h'. 
+> This patch does so, allowing the probe of such devices.
+> 
+> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-Applied to net-next, thanks Julian.
+Applied, thanks.
