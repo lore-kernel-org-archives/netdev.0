@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [v3] netdev/phy: add MDIO bus multiplexer driven by a
- memory-mapped device
-Date: Thu, 30 Aug 2012 12:55:35 -0400 (EDT)
-Message-ID: <20120830.125535.1084896704465801840.davem@davemloft.net>
-References: <1345835453-8611-1-git-send-email-timur@freescale.com>
+Subject: Re: [PATCH net-next v1 0/3] forcedeth: fix device lock-up for
+ dual-port NICs
+Date: Thu, 30 Aug 2012 13:05:26 -0400 (EDT)
+Message-ID: <20120830.130526.863740770089967659.davem@davemloft.net>
+References: <cover.1345864542.git.decot@googlers.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: afleming@freescale.com, swarren@wwwdotorg.org,
-	ddaney.cavm@gmail.com, devicetree-discuss@lists.ozlabs.org,
-	netdev@vger.kernel.org
-To: timur@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37803 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754389Ab2H3Qzh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 12:55:37 -0400
-In-Reply-To: <1345835453-8611-1-git-send-email-timur@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: aabdulla@nvidia.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, edumazet@google.com, joe@perches.com
+To: decot@googlers.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1345864542.git.decot@googlers.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Timur Tabi <timur@freescale.com>
-Date: Fri, 24 Aug 2012 14:10:53 -0500
+From: David Decotigny <decot@googlers.com>
+Date: Fri, 24 Aug 2012 20:22:50 -0700
 
-> Add support for an MDIO bus multiplexer controlled by a simple memory-mapped
-> device, like an FPGA.  The device must be memory-mapped and contain only
-> 8-bit registers (which keeps things simple).
+> On a dual port MCP55 10de:0373 (rev a3) NIC with both ports connected,
+> we identified a configuration that does freeze the whole NIC: having
+> autoneg & TX pause turned on while one port is physically connected
+> but interface is down (eg. eth1) eventually causes the whole NIC to
+> freeze (eth1 and... eth0). This triggers TX timeouts on the UP
+> interface and, more generally, an unreachable network.
 > 
-> Tested on a Freescale P5020DS board which uses the "PIXIS" FPGA attached
-> to the localbus.
+> In order to avoid the bug, all we have to do is make sure not to
+> configure TX pause on the hardware while NIC is down. This is what the
+> 2nd patch of the series does (details included).
 > 
-> Signed-off-by: Timur Tabi <timur@freescale.com>
+> And, in case the NIC is in a bad state at reboot (should not happen
+> anymore thanks to patch above), third patch basically always makes
+> sure to fix the NIC when module is loaded.
+> 
+> I could only test this with a MCP55 10de:0373 (rev a3) PCI device on a
+> x86_64 host.
 
-Applied to net-next, thanks.
+All applied to net-next, thanks.
