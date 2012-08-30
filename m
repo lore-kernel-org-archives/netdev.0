@@ -1,61 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net] e1000e: DoS while TSO enabled caused by link partner
- with small MSS
-Date: Thu, 30 Aug 2012 12:40:54 -0400 (EDT)
-Message-ID: <20120830.124054.1909938204959144888.davem@davemloft.net>
-References: <1345876691-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
+Date: Thu, 30 Aug 2012 12:45:43 -0400 (EDT)
+Message-ID: <20120830.124543.1590020152319166487.davem@davemloft.net>
+References: <1346230305.2522.15.camel@edumazet-glaptop>
+	<CAFbMe2PG90X7s6s970+XK3X0Jvzx4p6vhvM+JQCwtULPvs1QLw@mail.gmail.com>
+	<1346332350.2586.10.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bruce.w.allan@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com, bhutchings@solarflare.com,
-	stable@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37655 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754472Ab2H3Qk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 12:40:57 -0400
-In-Reply-To: <1345876691-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hkjerry.chu@gmail.com, alex@linlab.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1346332350.2586.10.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 24 Aug 2012 23:38:11 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 30 Aug 2012 06:12:30 -0700
 
-> From: Bruce Allan <bruce.w.allan@intel.com>
+> On Wed, 2012-08-29 at 10:25 -0700, H.K. Jerry Chu wrote:
 > 
-> With a low enough MSS on the link partner and TSO enabled locally, the
-> networking stack can periodically send a very large (e.g.  64KB) TCP
-> message for which the driver will attempt to use more Tx descriptors than
-> are available by default in the Tx ring.  This is due to a workaround in
-> the code that imposes a limit of only 4 MSS-sized segments per descriptor
-> which appears to be a carry-over from the older e1000 driver and may be
-> applicable only to some older PCI or PCIx parts which are not supported in
-> e1000e.  When the driver gets a message that is too large to fit across the
-> configured number of Tx descriptors, it stops the upper stack from queueing
-> any more and gets stuck in this state.  After a timeout, the upper stack
-> assumes the adapter is hung and calls the driver to reset it.
+>> But it probably matter slightly more for TCP Fast Open (the server
+>> side patch has
+>> been completed and will be posted soon, after I finish breaking it up
+>> into smaller
+>> pieces for ease of review purpose), when a full socket will be created with data
+>> passed to the app upon a valid SYN+data. Dropping a fully functioning socket
+>> won't be the same as dropping a request_sock unknown to the app and letting
+>> the other side retransmitting SYN (w/o data this time).
+>> 
+>> >
+>> > Sure, RFC numbers are what they are, but in practice, I doubt someone
+>> > will really miss the extra SYNACK sent after ~32 seconds, since it would
+>> > matter only for the last SYN attempted.
+>> 
+>> I'd slightly prefer 1 extra retry plus longer wait time just to make
+>> TCP Fast Open
+>> a little more robust (even though the app protocol is required to be
+>> idempotent).
+>> But this is not a showstopper.
 > 
-> Remove the unnecessary limitation of using up to only 4 MSS-sized segments
-> per Tx descriptor, and put in a hard failure test to catch when attempting
-> to check for message sizes larger than would fit in the whole Tx ring.
-> Refactor the remaining logic that limits the size of data per Tx descriptor
-> from a seemingly arbitrary 8KB to a limit based on the dynamic size of the
-> Tx packet buffer as described in the hardware specification.
+> Thats very good points indeed, thanks.
 > 
-> Also, fix the logic in the check for space in the Tx ring for the next
-> largest possible packet after the current one has been successfully queued
-> for transmit, and use the appropriate defines for default ring sizes in
-> e1000_probe instead of magic values.
+> Maybe we can increase SYNACK max retrans only if the FastOpen SYN cookie
+> was validated.
 > 
-> This issue goes back to the introduction of e1000e in 2.6.24 when it was
-> split off from e1000.
-> 
-> Reported-by: Ben Hutchings <bhutchings@solarflare.com>
-> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> Cc: Stable <stable@vger.kernel.org> [2.6.24+]
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> This way, we increase reliability without amplifying the effect of wild
+> SYN packets.
 
-Applied, thanks.
+Can we come to a final conclusion on this last point and arrive at a final
+patch?
+
+Thanks.
