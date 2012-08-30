@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH 1/1] bnx2x: fix 57840_MF pci id
-Date: Thu, 30 Aug 2012 13:13:15 -0400 (EDT)
-Message-ID: <20120830.131315.2289996886162431257.davem@davemloft.net>
-References: <1345977345-3721-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: [PATCH 0/5] dev_<level> and dynamic_debug cleanups
+Date: Thu, 30 Aug 2012 13:16:59 -0400 (EDT)
+Message-ID: <20120830.131659.1142504331858011461.davem@davemloft.net>
+References: <cover.1345978012.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com, mchan@broadcom.com
-To: yuvalmin@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37909 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753840Ab2H3RNT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 13:13:19 -0400
-In-Reply-To: <1345977345-3721-1-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	gregkh@linuxfoundation.org, jbaron@redhat.com,
+	jim.cromie@gmail.com, kay@vrfy.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1345978012.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Sun, 26 Aug 2012 13:35:45 +0300
+From: Joe Perches <joe@perches.com>
+Date: Sun, 26 Aug 2012 04:25:25 -0700
 
-> Commit c3def943c7117d42caaed3478731ea7c3c87190e have added support for
-> new pci ids of the 57840 board, while failing to change the obsolete value
-> in 'pci_ids.h'. 
-> This patch does so, allowing the probe of such devices.
-> 
-> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> The recent commit to fix dynamic_debug was a bit unclean.
+> Neaten the style for dynamic_debug.
+> Reduce the stack use of message logging that uses netdev_printk
+> Add utility functions dev_printk_emit and dev_vprintk_emit for /dev/kmsg.
 
-Applied, thanks.
+I think these should go through the generic device tree, feel free to
+add my:
+
+Acked-by: David S. Miller <davem@davemloft.net>
