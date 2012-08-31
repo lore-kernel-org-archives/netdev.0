@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] cs89x0 : packet reception not working
-Date: Fri, 31 Aug 2012 15:49:31 -0400 (EDT)
-Message-ID: <20120831.154931.1463711821590835826.davem@davemloft.net>
-References: <1346104431-3784-1-git-send-email-jaccon.bastiaansen@gmail.com>
+Subject: Re: [PATCH] decnet: fix shutdown parameter checking
+Date: Fri, 31 Aug 2012 15:57:19 -0400 (EDT)
+Message-ID: <20120831.155719.2228399422573401952.davem@davemloft.net>
+References: <1346035027-2347-1-git-send-email-xi.wang@gmail.com>
+	<1346059001.2703.7.camel@menhir>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, s.hauer@pengutronix.de, festevam@gmail.com
-To: jaccon.bastiaansen@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52940 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754786Ab2HaTte (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2012 15:49:34 -0400
-In-Reply-To: <1346104431-3784-1-git-send-email-jaccon.bastiaansen@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: xi.wang@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: swhiteho@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1346059001.2703.7.camel@menhir>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
-Date: Mon, 27 Aug 2012 23:53:51 +0200
+From: Steven Whitehouse <swhiteho@redhat.com>
+Date: Mon, 27 Aug 2012 10:16:41 +0100
 
-> The RxCFG register of the CS89x0 could be configured incorrectly
-> (because of misplaced parentheses), resulting in the disabling
-> of packet reception.
-> 
-> Signed-off-by: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
+> On Sun, 2012-08-26 at 22:37 -0400, Xi Wang wrote:
+>> The allowed value of "how" is SHUT_RD/SHUT_WR/SHUT_RDWR (0/1/2),
+>> rather than SHUTDOWN_MASK (3).
+>> 
+>> Signed-off-by: Xi Wang <xi.wang@gmail.com>
+> Acked-by: Steven Whitehouse <swhiteho@redhat.com>
 
-Applied and queued up for -stable, thanks.
+Applied to net-next.
+
+> Although it could be argued that we should also continue to accept the
+> value 3 just in case there is any userland software out there which
+> sends that value,
+
+True, but this is a rather standard BSD socket interface with a very
+specific small set of legitimate input parameters.  Allowing
+deviation, even for compatability for specific protocols, is largely
+unwise.
