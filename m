@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: remove some deadcode
-Date: Fri, 31 Aug 2012 16:34:09 -0400 (EDT)
-Message-ID: <20120831.163409.1833540012440209040.davem@davemloft.net>
-References: <1346328105-19541-1-git-send-email-sdumitru@ixiacom.com>
+Subject: Re: [PATCH] net: ethernet: fix kernel OOPS when remove
+ davinci_mdio module
+Date: Fri, 31 Aug 2012 16:35:36 -0400 (EDT)
+Message-ID: <20120831.163536.537028996029525033.davem@davemloft.net>
+References: <1346344652-28487-1-git-send-email-b-liu@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: sdumitru@ixiacom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53390 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754859Ab2HaUeN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2012 16:34:13 -0400
-In-Reply-To: <1346328105-19541-1-git-send-email-sdumitru@ixiacom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mugunthanvnm@ti.com, vaibhav.bedia@ti.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: b-liu@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1346344652-28487-1-git-send-email-b-liu@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sorin Dumitru <sdumitru@ixiacom.com>
-Date: Thu, 30 Aug 2012 15:01:45 +0300
+From: Bin Liu <b-liu@ti.com>
+Date: Thu, 30 Aug 2012 11:37:32 -0500
 
-> __ipv6_regen_rndid no longer returns anything other than 0
-> so there's no point in verifying what it returns
+> davinci mdio device is not unregistered from mdiobus when removing
+> the module, which causes BUG_ON() when free the device from mdiobus.
 > 
-> Signed-off-by: Sorin Dumitru <sdumitru@ixiacom.com>
+> Calling mdiobus_unregister() before mdiobus_free() fixes the issue.
+> 
+> Signed-off-by: Bin Liu <b-liu@ti.com>
 
-Applied to net-next, thanks.
+Applied, thanks.
