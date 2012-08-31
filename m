@@ -1,97 +1,61 @@
 From: pablo@netfilter.org
-Subject: [PATCH 6/6] netfilter: nf_conntrack: fix racy timer handling with reliable events
-Date: Fri, 31 Aug 2012 16:03:09 +0200
-Message-ID: <1346421789-3449-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/6] netfilter: nf_nat_sip: fix incorrect handling of EBUSY for RTCP expectation
+Date: Fri, 31 Aug 2012 16:03:08 +0200
+Message-ID: <1346421789-3449-6-git-send-email-pablo@netfilter.org>
 References: <1346421789-3449-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54091 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:54083 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753695Ab2HaOEh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Aug 2012 10:04:37 -0400
+	id S1753695Ab2HaOEe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2012 10:04:34 -0400
 In-Reply-To: <1346421789-3449-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Existing code assumes that del_timer returns true for alive conntrack
-entries. However, this is not true if reliable events are enabled.
-In that case, del_timer may return true for entries that were
-just inserted in the dying list. Note that packets / ctnetlink may
-hold references to conntrack entries that were just inserted to such
-list.
+We're hitting bug while trying to reinsert an already existing
+expectation:
 
-This patch fixes the issue by adding an independent timer for
-event delivery. This increases the size of the ecache extension.
-Still we can revisit this later and use variable size extensions
-to allocate this area on demand.
+kernel BUG at kernel/timer.c:895!
+invalid opcode: 0000 [#1] SMP
+[...]
+Call Trace:
+ <IRQ>
+ [<ffffffffa0069563>] nf_ct_expect_related_report+0x4a0/0x57a [nf_conntrack]
+ [<ffffffff812d423a>] ? in4_pton+0x72/0x131
+ [<ffffffffa00ca69e>] ip_nat_sdp_media+0xeb/0x185 [nf_nat_sip]
+ [<ffffffffa00b5b9b>] set_expected_rtp_rtcp+0x32d/0x39b [nf_conntrack_sip]
+ [<ffffffffa00b5f15>] process_sdp+0x30c/0x3ec [nf_conntrack_sip]
+ [<ffffffff8103f1eb>] ? irq_exit+0x9a/0x9c
+ [<ffffffffa00ca738>] ? ip_nat_sdp_media+0x185/0x185 [nf_nat_sip]
 
-Tested-by: Oliver Smith <olipro@8.c.9.b.0.7.4.0.1.0.0.2.ip6.arpa>
+We have to remove the RTP expectation if the RTCP expectation hits EBUSY
+since we keep trying with other ports until we succeed.
+
+Reported-by: Rafal Fitt <rafalf@aplusc.com.pl>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack_ecache.h |    1 +
- net/netfilter/nf_conntrack_core.c           |   16 +++++++++++-----
- 2 files changed, 12 insertions(+), 5 deletions(-)
+ net/ipv4/netfilter/nf_nat_sip.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_ecache.h b/include/net/netfilter/nf_conntrack_ecache.h
-index e1ce104..4a045cd 100644
---- a/include/net/netfilter/nf_conntrack_ecache.h
-+++ b/include/net/netfilter/nf_conntrack_ecache.h
-@@ -18,6 +18,7 @@ struct nf_conntrack_ecache {
- 	u16 ctmask;		/* bitmask of ct events to be delivered */
- 	u16 expmask;		/* bitmask of expect events to be delivered */
- 	u32 pid;		/* netlink pid of destroyer */
-+	struct timer_list timeout;
- };
- 
- static inline struct nf_conntrack_ecache *
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index cf48755..2ceec64 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -249,12 +249,15 @@ static void death_by_event(unsigned long ul_conntrack)
- {
- 	struct nf_conn *ct = (void *)ul_conntrack;
- 	struct net *net = nf_ct_net(ct);
-+	struct nf_conntrack_ecache *ecache = nf_ct_ecache_find(ct);
-+
-+	BUG_ON(ecache == NULL);
- 
- 	if (nf_conntrack_event(IPCT_DESTROY, ct) < 0) {
- 		/* bad luck, let's retry again */
--		ct->timeout.expires = jiffies +
-+		ecache->timeout.expires = jiffies +
- 			(random32() % net->ct.sysctl_events_retry_timeout);
--		add_timer(&ct->timeout);
-+		add_timer(&ecache->timeout);
- 		return;
- 	}
- 	/* we've got the event delivered, now it's dying */
-@@ -268,6 +271,9 @@ static void death_by_event(unsigned long ul_conntrack)
- void nf_ct_insert_dying_list(struct nf_conn *ct)
- {
- 	struct net *net = nf_ct_net(ct);
-+	struct nf_conntrack_ecache *ecache = nf_ct_ecache_find(ct);
-+
-+	BUG_ON(ecache == NULL);
- 
- 	/* add this conntrack to the dying list */
- 	spin_lock_bh(&nf_conntrack_lock);
-@@ -275,10 +281,10 @@ void nf_ct_insert_dying_list(struct nf_conn *ct)
- 			     &net->ct.dying);
- 	spin_unlock_bh(&nf_conntrack_lock);
- 	/* set a new timer to retry event delivery */
--	setup_timer(&ct->timeout, death_by_event, (unsigned long)ct);
--	ct->timeout.expires = jiffies +
-+	setup_timer(&ecache->timeout, death_by_event, (unsigned long)ct);
-+	ecache->timeout.expires = jiffies +
- 		(random32() % net->ct.sysctl_events_retry_timeout);
--	add_timer(&ct->timeout);
-+	add_timer(&ecache->timeout);
- }
- EXPORT_SYMBOL_GPL(nf_ct_insert_dying_list);
- 
+diff --git a/net/ipv4/netfilter/nf_nat_sip.c b/net/ipv4/netfilter/nf_nat_sip.c
+index 4ad9cf1..9c87cde 100644
+--- a/net/ipv4/netfilter/nf_nat_sip.c
++++ b/net/ipv4/netfilter/nf_nat_sip.c
+@@ -502,7 +502,10 @@ static unsigned int ip_nat_sdp_media(struct sk_buff *skb, unsigned int dataoff,
+ 		ret = nf_ct_expect_related(rtcp_exp);
+ 		if (ret == 0)
+ 			break;
+-		else if (ret != -EBUSY) {
++		else if (ret == -EBUSY) {
++			nf_ct_unexpect_related(rtp_exp);
++			continue;
++		} else if (ret < 0) {
+ 			nf_ct_unexpect_related(rtp_exp);
+ 			port = 0;
+ 			break;
 -- 
 1.7.10.4
