@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] openvswitch: using kfree_rcu() to simplify the code
-Date: Fri, 31 Aug 2012 15:57:39 -0400 (EDT)
-Message-ID: <20120831.155739.23641263564536162.davem@davemloft.net>
-References: <CAPgLHd_71Qh90j9FCkT2cQ35wNMkZeLDwHT2QLP55_3gfzfjTQ@mail.gmail.com>
-	<CAEP_g=_9PYpQQbu-1eH7uF-Dk1+LbOfW1GAS6v6=Vu-8hq42yg@mail.gmail.com>
+Subject: Re: [net-next 0/8][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 31 Aug 2012 16:03:59 -0400 (EDT)
+Message-ID: <20120831.160359.627732042605543491.davem@davemloft.net>
+References: <1346390174-30449-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: weiyj.lk@gmail.com, yongjun_wei@trendmicro.com.cn,
-	dev@openvswitch.org, netdev@vger.kernel.org
-To: jesse@nicira.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53019 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53094 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754932Ab2HaT5l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2012 15:57:41 -0400
-In-Reply-To: <CAEP_g=_9PYpQQbu-1eH7uF-Dk1+LbOfW1GAS6v6=Vu-8hq42yg@mail.gmail.com>
+	with ESMTP id S1754848Ab2HaUEC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2012 16:04:02 -0400
+In-Reply-To: <1346390174-30449-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Tue, 28 Aug 2012 16:00:24 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 30 Aug 2012 22:16:06 -0700
 
-> On Sun, Aug 26, 2012 at 9:20 PM, Wei Yongjun <weiyj.lk@gmail.com> wrote:
->> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->>
->> The callback function of call_rcu() just calls a kfree(), so we
->> can use kfree_rcu() instead of call_rcu() + callback function.
->>
->> spatch with a semantic match is used to found this problem.
->> (http://coccinelle.lip6.fr/)
->>
->> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> This series contains updates to e1000e and ixgbevf.
 > 
-> Thanks Wei.
-> 
-> Acked-by: Jesse Gross <jesse@nicira.com>
+> The following are changes since commit 761743ebc92df72053e736fce953a5d2e90099d5:
+>   net/fsl_pq_mdio: add support for the Fman 1G MDIO controller
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Applied to net-next
+Pulled, thanks Jeff.
