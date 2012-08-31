@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
-Date: Fri, 31 Aug 2012 15:47:01 -0400 (EDT)
-Message-ID: <20120831.154701.958704113365912999.davem@davemloft.net>
-References: <20120831124831.GA23279@linlab.net>
-	<1346419550.2591.12.camel@edumazet-glaptop>
-	<20120831.154234.735439593093335863.davem@davemloft.net>
+Subject: Re: [PATCH v2] cs89x0 : packet reception not working
+Date: Fri, 31 Aug 2012 15:49:31 -0400 (EDT)
+Message-ID: <20120831.154931.1463711821590835826.davem@davemloft.net>
+References: <1346104431-3784-1-git-send-email-jaccon.bastiaansen@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alex@linlab.net, hkjerry.chu@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120831.154234.735439593093335863.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: joe@perches.com, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, s.hauer@pengutronix.de, festevam@gmail.com
+To: jaccon.bastiaansen@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52940 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754786Ab2HaTte (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2012 15:49:34 -0400
+In-Reply-To: <1346104431-3784-1-git-send-email-jaccon.bastiaansen@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 31 Aug 2012 15:42:34 -0400 (EDT)
+From: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
+Date: Mon, 27 Aug 2012 23:53:51 +0200
 
-> Applied with some minor comment formatting and wording adjustments.
+> The RxCFG register of the CS89x0 could be configured incorrectly
+> (because of misplaced parentheses), resulting in the disabling
+> of packet reception.
+> 
+> Signed-off-by: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
 
-BTW, please keep in mind that when you modify the value
-of TCP_SYN_RETRIES, you are having an influence upon DCCP
-as well.
-
-TCP is not the only protocol which uses this value.
+Applied and queued up for -stable, thanks.
