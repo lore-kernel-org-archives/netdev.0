@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 4/6] netfilter: nfnetlink_log: fix error return code in init path
-Date: Fri, 31 Aug 2012 16:03:07 +0200
-Message-ID: <1346421789-3449-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/6] netfilter: ctnetlink: fix error return code in init path
+Date: Fri, 31 Aug 2012 16:03:06 +0200
+Message-ID: <1346421789-3449-4-git-send-email-pablo@netfilter.org>
 References: <1346421789-3449-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -38,25 +38,23 @@ ret@p1 = 0
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_log.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/netfilter/nf_conntrack_netlink.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 592091c1..14e2f39 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -996,8 +996,10 @@ static int __init nfnetlink_log_init(void)
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index da4fc37..9807f32 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -2790,7 +2790,8 @@ static int __init ctnetlink_init(void)
+ 		goto err_unreg_subsys;
+ 	}
  
- #ifdef CONFIG_PROC_FS
- 	if (!proc_create("nfnetlink_log", 0440,
--			 proc_net_netfilter, &nful_file_ops))
-+			 proc_net_netfilter, &nful_file_ops)) {
-+		status = -ENOMEM;
- 		goto cleanup_logger;
-+	}
- #endif
- 	return status;
- 
+-	if (register_pernet_subsys(&ctnetlink_net_ops)) {
++	ret = register_pernet_subsys(&ctnetlink_net_ops);
++	if (ret < 0) {
+ 		pr_err("ctnetlink_init: cannot register pernet operations\n");
+ 		goto err_unreg_exp_subsys;
+ 	}
 -- 
 1.7.10.4
 
