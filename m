@@ -1,48 +1,66 @@
-From: Jim Cromie <jim.cromie@gmail.com>
-Subject: Re: [PATCH 0/5] dev_<level> and dynamic_debug cleanups
-Date: Thu, 30 Aug 2012 21:48:12 -0600
-Message-ID: <CAJfuBxyToA9-=c3H88GGba3GFX64kdbP4OCEC0f4trnBnjpU-w@mail.gmail.com>
-References: <cover.1345978012.git.joe@perches.com> <CAJfuBxyQc-XeNHxw0_XDs0JuCrNArNzcgsmrLya4ncDvSojZxQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jason Baron <jbaron@redhat.com>, Kay Sievers <kay@vrfy.org>,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/8] e1000e: cleanup strict checkpatch MEMORY_BARRIER checks
+Date: Thu, 30 Aug 2012 22:16:08 -0700
+Message-ID: <1346390174-30449-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1346390174-30449-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:61452 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751890Ab2HaDsn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 23:48:43 -0400
-In-Reply-To: <CAJfuBxyQc-XeNHxw0_XDs0JuCrNArNzcgsmrLya4ncDvSojZxQ@mail.gmail.com>
+Received: from mga09.intel.com ([134.134.136.24]:14908 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750992Ab2HaFQj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2012 01:16:39 -0400
+In-Reply-To: <1346390174-30449-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 30, 2012 at 11:43 AM, Jim Cromie <jim.cromie@gmail.com> wrote:
-> On Sun, Aug 26, 2012 at 5:25 AM, Joe Perches <joe@perches.com> wrote:
->> The recent commit to fix dynamic_debug was a bit unclean.
->> Neaten the style for dynamic_debug.
->> Reduce the stack use of message logging that uses netdev_printk
->> Add utility functions dev_printk_emit and dev_vprintk_emit for /dev/kmsg.
->>
->> Joe Perches (5):
->>   dev_dbg/dynamic_debug: Update to use printk_emit, optimize stack
->>   netdev_printk/dynamic_netdev_dbg: Directly call printk_emit
->>   netdev_printk/netif_printk: Remove a superfluous logging colon
->>   dev: Add dev_vprintk_emit and dev_printk_emit
->>   device and dynamic_debug: Use dev_vprintk_emit and dev_printk_emit
->>
->
-> Ive tested this on 2 builds differing only by DYNAMIC_DEBUG
-> It works for me on x86-64
->
-> However, I just booted a non-dyndbg build on x86-32, and got this.
->
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Ok, transient error, went away with a clean build.
+Add comments to memory barriers per strict checkpatch.
 
-tested-by: Jim Cromie <jim.cromie@gmail.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-thanks
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 46c3b1f..fb6c813 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -3746,6 +3746,10 @@ static irqreturn_t e1000_intr_msi_test(int irq, void *data)
+ 	e_dbg("icr is %08X\n", icr);
+ 	if (icr & E1000_ICR_RXSEQ) {
+ 		adapter->flags &= ~FLAG_MSI_TEST_FAILED;
++		/*
++		 * Force memory writes to complete before acknowledging the
++		 * interrupt is handled.
++		 */
+ 		wmb();
+ 	}
+ 
+@@ -3787,6 +3791,10 @@ static int e1000_test_msi_interrupt(struct e1000_adapter *adapter)
+ 		goto msi_test_failed;
+ 	}
+ 
++	/*
++	 * Force memory writes to complete before enabling and firing an
++	 * interrupt.
++	 */
+ 	wmb();
+ 
+ 	e1000_irq_enable(adapter);
+@@ -3798,7 +3806,7 @@ static int e1000_test_msi_interrupt(struct e1000_adapter *adapter)
+ 
+ 	e1000_irq_disable(adapter);
+ 
+-	rmb();
++	rmb();			/* read flags after interrupt has been fired */
+ 
+ 	if (adapter->flags & FLAG_MSI_TEST_FAILED) {
+ 		adapter->int_mode = E1000E_INT_MODE_LEGACY;
+-- 
+1.7.11.4
