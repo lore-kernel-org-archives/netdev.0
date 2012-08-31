@@ -1,37 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] usbnet: fix deadlock in resume
-Date: Fri, 31 Aug 2012 16:12:33 -0400 (EDT)
-Message-ID: <20120831.161233.1367551762954796924.davem@davemloft.net>
-References: <1346049698-10740-1-git-send-email-oliver@neukum.org>
+Subject: Re: [PATCH 2/5] net:atm:fix up ENOIOCTLCMD error handling
+Date: Fri, 31 Aug 2012 16:14:43 -0400 (EDT)
+Message-ID: <20120831.161443.124994431345620659.davem@davemloft.net>
+References: <1346052196-32682-1-git-send-email-gaowanlong@cn.fujitsu.com>
+	<1346052196-32682-3-git-send-email-gaowanlong@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ming.lei@canonical.com, oneukum@suse.de,
-	stable@kernel.org
-To: oliver@neukum.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53166 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754997Ab2HaUMf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2012 16:12:35 -0400
-In-Reply-To: <1346049698-10740-1-git-send-email-oliver@neukum.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: gaowanlong@cn.fujitsu.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1346052196-32682-3-git-send-email-gaowanlong@cn.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: oliver@neukum.org
-Date: Mon, 27 Aug 2012 08:41:38 +0200
+From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Date: Mon, 27 Aug 2012 15:23:13 +0800
 
-> From: Oliver Neukum <oliver@neukum.org>
+> At commit 07d106d0, Linus pointed out that ENOIOCTLCMD should be
+> translated as ENOTTY to user mode.
 > 
-> A usbnet device can share a multifunction device
-> with a storage device. If the storage device is autoresumed
-> the usbnet devices also needs to be autoresumed. Allocating
-> memory with GFP_KERNEL can deadlock in this case.
-> 
-> This should go back into all kernels that have
-> commit 65841fd5132c3941cdf5df09e70df3ed28323212
-> That is 3.5
-> 
-> Signed-off-by: Oliver Neukum <oneukum@suse.de>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
 
-Applied, thanks.
+Applied to net-next, thanks.
