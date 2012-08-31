@@ -1,50 +1,93 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: route.c:645 suspicious rcu_dereference_check()
-Date: Fri, 31 Aug 2012 04:50:14 -0700
-Message-ID: <1346413814.2591.7.camel@edumazet-glaptop>
-References: <20120828175734.41b17a6c@mj>
-	 <1346193187.3571.21.camel@edumazet-glaptop>
-	 <20120830.133433.566450758375930776.davem@davemloft.net>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Possible issue with Mellanox be2net/port handling
+Date: Fri, 31 Aug 2012 09:25:03 -0300
+Message-ID: <5040AD1F.9080702@redhat.com>
+Reply-To: mleitner@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: proski@gnu.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: dledford@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:54943 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752033Ab2HaLuR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2012 07:50:17 -0400
-Received: by dady13 with SMTP id y13so1913455dad.19
-        for <netdev@vger.kernel.org>; Fri, 31 Aug 2012 04:50:16 -0700 (PDT)
-In-Reply-To: <20120830.133433.566450758375930776.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:57552 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752161Ab2HaMZF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2012 08:25:05 -0400
+Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q7VCP4CV028476
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 31 Aug 2012 08:25:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-08-30 at 13:34 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 28 Aug 2012 15:33:07 -0700
-> 
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > [PATCH] ipv4: must use rcu protection while calling fib_lookup
-> > 
-> > Following lockdep splat was reported by Pavel Roskin :
->  ...
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > Reported-by: Pavel Roskin <proski@gnu.org>
-> 
-> Applied, thanks.
-> 
-> It looks like the redirect handlers might have the same problem?
+Hi,
 
-Hi David
+Commit 
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=4c41b3673759d096106e68bce586f103c51d4119 
+inserted changes like:
 
-Correct me if I am wrong, but redirect handlers should all run under
-rcu_read_lock() protection already.
+@@ -361,7 +361,7 @@ static int add_promisc_qp(struct mlx4_dev *dev, u8 port,
+         int err;
+         struct mlx4_priv *priv = mlx4_priv(dev);
 
-rcu_read_lock() is done in ip_local_deliver_finish() or
-ip_rt_send_redirect() for the forward path.
+-       s_steer = &mlx4_priv(dev)->steer[0];
++       s_steer = &mlx4_priv(dev)->steer[port - 1];
 
-And above of them, we also have rcu_read_lock() done in
-__netif_receive_skb()
+         mutex_lock(&priv->mcg_table.mutex);
+
+But I fear we missed one part of the deal. Concept patch:
+
+@@ -365,7 +365,7 @@ static int add_promisc_qp(struct mlx4_dev *dev, u8 port,
+
+         mutex_lock(&priv->mcg_table.mutex);
+
+-       if (get_promisc_qp(dev, 0, steer, qpn)) {
++       if (get_promisc_qp(dev, port - 1, steer, qpn)) {
+                 err = 0;  /* Noting to do, already exists */
+                 goto out_mutex;
+         }
+
+Because:
+
+static int add_promisc_qp(struct mlx4_dev *dev, u8 port,
+               enum mlx4_steer_type steer, u32 qpn)
+{
+...
+A)  s_steer = &mlx4_priv(dev)->steer[port - 1];
+
+     mutex_lock(&priv->mcg_table.mutex);
+
+     if (get_promisc_qp(dev, 0, steer, qpn)) {
+         err = 0;  /* Noting to do, already exists */
+         goto out_mutex;
+     }
+...
+     /* add the new qpn to list of promisc qps */
+C)  list_add_tail(&pqp->list, &s_steer->promisc_qps[steer]);
+...
+}
+
+static struct mlx4_promisc_qp *get_promisc_qp(struct mlx4_dev *dev, u8 
+pf_num,
+                           enum mlx4_steer_type steer,
+                           u32 qpn)
+{
+B)  struct mlx4_steer *s_steer = &mlx4_priv(dev)->steer[pf_num];
+     struct mlx4_promisc_qp *pqp;
+
+     list_for_each_entry(pqp, &s_steer->promisc_qps[steer], list) {
+         if (pqp->qpn == qpn)
+             return pqp;
+     }
+     /* not found */
+     return NULL;
+}
+
+As far as I can understand, we are changing a list for a port and 
+checking for duplicates on the other list. Points marked as A, B and C 
+for highlighting. Am I missing something? What do you think?
+
+FWIW, this call get_promisc_qp(dev, 0, ...) happens in other places too.
+
+Thank you,
+Marcelo.
