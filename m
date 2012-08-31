@@ -1,64 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 1/2] 6lowpan: Make a copy of skb's delivered to
- 6lowpan
-Date: Fri, 31 Aug 2012 00:01:25 -0700
-Message-ID: <1346396485.2586.307.camel@edumazet-glaptop>
-References: <1346294341-26808-1-git-send-email-alan@signal11.us>
-	 <1346294341-26808-2-git-send-email-alan@signal11.us>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 00/18] netfilter: IPv6 NAT
+Date: Fri, 31 Aug 2012 11:29:59 +0200
+Message-ID: <20120831092959.GA7524@1984>
+References: <1345434006-16549-1-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Tony Cheneau <tony.cheneau@amnesiak.org>,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alan Ott <alan@signal11.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1346294341-26808-2-git-send-email-alan@signal11.us>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:47995 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753631Ab2HaJaE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2012 05:30:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1345434006-16549-1-git-send-email-kaber@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-08-29 at 22:39 -0400, Alan Ott wrote:
-> Since lowpan_process_data() modifies the skb (by calling skb_pull()), we
-> need our own copy so that it doesn't affect the data received by other
-> protcols (in this case, af_ieee802154).
+On Mon, Aug 20, 2012 at 05:39:48AM +0200, Patrick McHardy wrote:
+> Following is the latest IPv6 NAT patchset, based on -rc2.
 > 
-> Signed-off-by: Alan Ott <alan@signal11.us>
-> ---
->  net/ieee802154/6lowpan.c |    9 ++++++++-
->  1 files changed, 8 insertions(+), 1 deletions(-)
+> Changes since the last posting include:
 > 
-> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-> index 6a09522..ce33b02 100644
-> --- a/net/ieee802154/6lowpan.c
-> +++ b/net/ieee802154/6lowpan.c
-> @@ -1133,6 +1133,8 @@ static int lowpan_validate(struct nlattr *tb[], struct nlattr *data[])
->  static int lowpan_rcv(struct sk_buff *skb, struct net_device *dev,
->  	struct packet_type *pt, struct net_device *orig_dev)
->  {
-> +	struct sk_buff *local_skb;
-> +
->  	if (!netif_running(dev))
->  		goto drop;
->  
-> @@ -1144,7 +1146,12 @@ static int lowpan_rcv(struct sk_buff *skb, struct net_device *dev,
->  	case LOWPAN_DISPATCH_IPHC:	/* ipv6 datagram */
->  	case LOWPAN_DISPATCH_FRAG1:	/* first fragment header */
->  	case LOWPAN_DISPATCH_FRAGN:	/* next fragments headers */
-> -		lowpan_process_data(skb);
-> +		local_skb = skb_copy(skb, GFP_ATOMIC);
-> +		if (!local_skb)
-> +			goto drop;
-> +		lowpan_process_data(local_skb);
-> +
-> +		kfree_skb(skb);
->  		break;
->  	default:
->  		break;
+> - removal of fixes already merged into nf-2.6, not included upstream
+>   yet though, IPv6 SIP will not work
+> 
+> - missing module alias for ip6t_DNAT/ip6t_SNAT added to xt_nat
+> 
+> - compilation fix for ip6t_MASQUERADE without ipt_MASQUERADE enabled
+> 
+> - proper handling of untracked packets in IPv6 fragmentation improvements
+> 
+> - byteorder fixes in IPv6 fragment handling
+> 
+> - conversion to use a mutex for NAT L3/L4 protocol registration
+> 
+> - missing memory barrier before publishing L4 protocol array
+> 
+> - proper cleanup of NATed connections after NAT L3/L4 protocol unregistration
+> 
+> - proper locking (RTNL) for walking network namespaces in NAT cleanup
+> 
+> - only free NAT L4 protocol array at shutdown instead of during L3 protocol
+>   unregistation, otherwise non built-in protocols are missing after L3
+>   protocol reload
+> 
+> - endianess annotation fixes
+> 
+> - missing netlink policy for IPv6 NAT attributes
+> 
+> I'll also push these patches to github, but it is currently acting up,
+> once it works again they'll be available at
+> 
+> git://github.com/kaber/nf-nat-ipv6.git master
 
-Its not clear to me why skb_copy() is needed here.
+Pulled. Thanks a lot Patrick.
 
->From patch description, I would say skb_clone() would be enough (and
-faster) ?
+And I fixed the log description that Jesper mentioned. You'll have to
+rebase though, sorry.
