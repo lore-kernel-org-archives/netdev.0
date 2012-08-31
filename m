@@ -1,114 +1,50 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH 2/3] ipvs: Fix faulty IPv6 extension  header handling in
- IPVS
-Date: Fri, 31 Aug 2012 12:22:26 +0200
-Message-ID: <1346408546.3069.537.camel@localhost>
-References: <nhkcv8u.3c7ad6d61f90aef8e9467df88476311d@obelix.schillstrom.com>
-	 <1346240770.3069.477.camel@localhost>
-	 <Pine.GSO.4.63.1208291429160.26100@stinky-local.trash.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: route.c:645 suspicious rcu_dereference_check()
+Date: Fri, 31 Aug 2012 04:50:14 -0700
+Message-ID: <1346413814.2591.7.camel@edumazet-glaptop>
+References: <20120828175734.41b17a6c@mj>
+	 <1346193187.3571.21.camel@edumazet-glaptop>
+	 <20120830.133433.566450758375930776.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Hans Schillstrom <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	Julian Anastasov <ja@ssi.bg>,
-	Simon Horman <horms@verge.net.au>,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.GSO.4.63.1208291429160.26100@stinky-local.trash.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: proski@gnu.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:54943 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752033Ab2HaLuR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2012 07:50:17 -0400
+Received: by dady13 with SMTP id y13so1913455dad.19
+        for <netdev@vger.kernel.org>; Fri, 31 Aug 2012 04:50:16 -0700 (PDT)
+In-Reply-To: <20120830.133433.566450758375930776.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-08-29 at 14:34 +0200, Patrick McHardy wrote:
-> On Wed, 29 Aug 2012, Jesper Dangaard Brouer wrote:
-> > On Wed, 2012-08-29 at 11:47 +0200, Hans Schillstrom wrote:
-> >>>
-> >>> On Mon, 2012-08-27 at 14:02 +0200, Patrick McHardy wrote:
-> >>>> On Mon, 27 Aug 2012, Hans Schillstrom wrote:
-> >>>>
-> >>>>>>>> How about we change netfilter to set up the skb's transport header
-> >>>>>>>> at an early time so we can avoid all (most of) these header scans
-> >>>>>>>> in netfilter?
-
-[...cut...]
-
-> >>>> I guess inet6_skb_parm will be at least slightly more popular than
-> >>>> adding it to the skb itself. The netfilter pointers are all used for
-> >>>> optional things, so we can't really add it to any of those.
-> >>>
-
-[...cut...]
-
-> >> Should we give it a try to put it in inet6_skb_parm
-> >> and minimize what we put there ?
-> >> I think it could be worth it.
-> >
-> > Okay, but then I do need some help and guidance, especially from
-> > Patrick, think.
-> >
-> > First of all, where in the netfilter code, should we update the new
-> > fields in inet6_skb_parm?
+On Thu, 2012-08-30 at 13:34 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 28 Aug 2012 15:33:07 -0700
 > 
-> Good question. I think we'd need at least three spots since every one
-> of these subsystems can be used indepedently from each other:
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > [PATCH] ipv4: must use rcu protection while calling fib_lookup
+> > 
+> > Following lockdep splat was reported by Pavel Roskin :
+>  ...
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Reported-by: Pavel Roskin <proski@gnu.org>
 > 
-> - conntrack/IPVS: PRE_ROUTING/LOCAL_OUT at lowest priority
-> - ip6tables: first time packet hits ip6t_do_table()?
+> Applied, thanks.
+> 
+> It looks like the redirect handlers might have the same problem?
 
-I've been looking at the code for ip6t_do_table() and it already calls
-ipv6_find_hdr().  ip6t_do_table() calls ip6_packet_match()
+Hi David
 
-And ip6_packet_match() already calls
-  ipv6_find_hdr(skb, protoff, -1, &_frag_off, NULL);
-but only if((ip6info->flags & IP6T_F_PROTO))
+Correct me if I am wrong, but redirect handlers should all run under
+rcu_read_lock() protection already.
 
-ip6t_do_table() uses the data found by
-ipv6_find_hdr()/ip6_packet_match() and updates 'struct xt_action_param
-acpar' (which is passed on to all netfilter modules/functions as 'par')
+rcu_read_lock() is done in ip_local_deliver_finish() or
+ip_rt_send_redirect() for the forward path.
 
- protohdr = ipv6_find_hdr(skb, protoff, -1, &_frag_off, NULL)
- *fragoff = _frag_off;
-
- par->thoff   = protoff  /* thoff = Transport Header Offset */
- par->fragoff = fragoff  /* frag indicator and fragment offset */
-
-The returned protocol (protohdr) is only used inside
-ip6_packet_match(), thus the info on the protocol is lost.
-
-(Side note) Saving the protocol could be useful for, the following
-modules, as they call ipv6_find_hdr() once again to extract this:
-
- net/netfilter/xt_TPROXY.c: function tproxy_tg6_v1()
- net/netfilter/xt_socket.c: function socket_mt6_v1()
-
-Thus, the netfilter framework already have this information available.
-It just uses the 'struct xt_action_param par' to carry this
-information, to its modules.
-
-Mine and Hans's patch are basically introducing the same thing for IPVS,
-only that this information is carried via 'struct ip_vs_iphdr'.
-
-I don't know, if its worth to store this information in
-inet6_skb_parm/IP6CB ?
-
-I guess, to would make sense to store 'thoff' transport header offset,
-especially for IPv6, given the extension headers.
-
-But how many (code) users are there?
-Is it only Netfilter and IPVS that want to look at the port numbers?
-
-There also seems to a lot of users of "ipv6_skip_exthdr", which could
-benefit?  But I simply don't know the IPv6 code well enough...
-
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
-
+And above of them, we also have rcu_read_lock() done in
+__netif_receive_skb()
