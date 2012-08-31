@@ -1,43 +1,52 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH #2 net-next 1/1] r8169: add D-Link DGE-560T identifiers.
-Date: Fri, 31 Aug 2012 23:06:17 +0200
-Message-ID: <20120831210617.GA11968@electric-eye.fr.zoreil.com>
-References: <20120829194037.GB6389@electric-eye.fr.zoreil.com> <1346308591.17040.20.camel@deadeye.wl.decadent.org.uk> <20120831.162852.1143438231808755797.davem@davemloft.net>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH 0/3] tcp: TCP Fast Open, Server Side
+Date: Fri, 31 Aug 2012 15:27:41 -0700
+Message-ID: <CAPshTCgxo==q1Om1vrfi9auZ4eHv=Vtte6ijk3+tzaBk9_vH6g@mail.gmail.com>
+References: <1346369948-1722-1-git-send-email-hkchu@google.com>
+	<20120831.165300.1630700722681560552.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org, in@joblog.ru
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ycheng@google.com, edumazet@google.com, ncardwell@google.com,
+	sivasankar@cs.ucsd.edu, therbert@google.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:38347 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752509Ab2HaVXA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2012 17:23:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20120831.162852.1143438231808755797.davem@davemloft.net>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:34244 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753714Ab2HaW1n convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2012 18:27:43 -0400
+Received: by lagy9 with SMTP id y9so2594438lag.19
+        for <netdev@vger.kernel.org>; Fri, 31 Aug 2012 15:27:42 -0700 (PDT)
+In-Reply-To: <20120831.165300.1630700722681560552.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This one includes a 8168. Not to be confused with the sky2 driven
-one whose PCI vendor and device ID are the same.
+On Fri, Aug 31, 2012 at 1:53 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: "H.K. Jerry Chu" <hkchu@google.com>
+> Date: Thu, 30 Aug 2012 16:39:05 -0700
+>
+>> This patch series provides the server (passive open) side code
+>> for TCP Fast Open. Together with the earlier client side patches
+>> it completes the TCP Fast Open implementation.
+>
+> Build warnings:
+>
+> net/ipv4/tcp_ipv4.c: In function =91tcp_v4_conn_request=92:
+> net/ipv4/tcp_ipv4.c:1480:25: warning: unused variable =91fastopenq=92=
+ [-Wunused-variable]
+>
+> Please address this and Eric Dumazet's feedback, thanks.
 
-Reported-by: Neyuki Inaya <in@joblog.ru>
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ethernet/realtek/r8169.c | 2 ++
- 1 file changed, 2 insertions(+)
+Thanks for catching this (a manual mistake while trying to keep my thre=
+e TFO
+server patches for three different kernel versions all in sync). I
+also discovered
+and fixed another small merge error - "do_fastopen" in tcp_v4_conn_requ=
+est() no
+longer needs to be init'ed to 0.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index b47d5b3..0c96604 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -287,6 +287,8 @@ static DEFINE_PCI_DEVICE_TABLE(rtl8169_pci_tbl) = {
- 	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8167), 0, 0, RTL_CFG_0 },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8168), 0, 0, RTL_CFG_1 },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8169), 0, 0, RTL_CFG_0 },
-+	{ PCI_VENDOR_ID_DLINK,			0x4300,
-+		PCI_VENDOR_ID_DLINK, 0x4b10,		 0, 0, RTL_CFG_1 },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x4300), 0, 0, RTL_CFG_0 },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x4302), 0, 0, RTL_CFG_0 },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_AT,		0xc107), 0, 0, RTL_CFG_0 },
--- 
-Ueimor
+Will send in v2 in a minute.
+
+Jerry
