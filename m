@@ -1,63 +1,130 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] tcp: Wrong timeout for SYN segments
-Date: Fri, 31 Aug 2012 06:25:50 -0700
-Message-ID: <1346419550.2591.12.camel@edumazet-glaptop>
-References: <1345724123.5904.756.camel@edumazet-glaptop>
-	 <20120824.134231.41073001349178209.davem@davemloft.net>
-	 <20120825084819.GD430@linlab.net>
-	 <201208281044.40057.carsten@wolffcarsten.de>
-	 <1346414260.2591.8.camel@edumazet-glaptop>
-	 <20120831124831.GA23279@linlab.net>
+Subject: [RFC] fq_codel : interval servo on hosts
+Date: Fri, 31 Aug 2012 06:50:31 -0700
+Message-ID: <1346421031.2591.34.camel@edumazet-glaptop>
+References: <1346396137.2586.301.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, hkjerry.chu@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexander Bergmann <alex@linlab.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120831124831.GA23279@linlab.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Tomas Hruby <thruby@google.com>, Nandita Dukkipati <nanditad@google.com>,
+	netdev <netdev@vger.kernel.org>
+To: codel@lists.bufferbloat.net
+Return-path: <codel-bounces@lists.bufferbloat.net>
+In-Reply-To: <1346396137.2586.301.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
+List-Post: <mailto:codel@lists.bufferbloat.net>
+List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
+Sender: codel-bounces@lists.bufferbloat.net
+Errors-To: codel-bounces@lists.bufferbloat.net
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-08-31 at 14:48 +0200, Alexander Bergmann wrote:
+On Thu, 2012-08-30 at 23:55 -0700, Eric Dumazet wrote:
+> On locally generated TCP traffic (host), we can override the 100 ms
+> interval value using the more accurate RTT estimation maintained by TCP
+> stack (tp->srtt)
+> 
+> Datacenter workload benefits using shorter feedback (say if RTT is below
+> 1 ms, we can react 100 times faster to a congestion)
+> 
+> Idea from Yuchung Cheng.
+> 
 
-> Hi Eric!
-> 
-> I've also changed the Documentation file. As usual, comments are welcome!
-> 
-> 
-> Alex
-> 
-> 
-> From 848f34ce27f65401940ae98e0b2d395888d3986d Mon Sep 17 00:00:00 2001
-> From: Alexander Bergmann <alex@linlab.net>
-> Date: Fri, 31 Aug 2012 14:31:00 +0200
-> Subject: [PATCH 1/1] tcp: Increase timeout for SYN segments
-> 
-> Commit 9ad7c049 changed the initRTO from 3secs to 1sec in accordance to
-> RFC6298 (former RFC2988bis). This reduced the time till the last SYN
-> retransmission packet gets sent from 93secs to 31secs.
-> 
-> RFC1122 is stating that the retransmission should be done for at least 3
-> minutes, but this seems to be quite high.
-> 
->   "However, the values of R1 and R2 may be different for SYN
->   and data segments.  In particular, R2 for a SYN segment MUST
->   be set large enough to provide retransmission of the segment
->   for at least 3 minutes.  The application can close the
->   connection (i.e., give up on the open attempt) sooner, of
->   course."
-> 
-> This patch increases the value of TCP_SYN_RETRIES to the value of 6,
-> providing a retransmission window of 63secs.
-> 
-> The comments for SYN and SYNACK retries have also been updated to
-> describe the current settings. The same goes for the documentation file
-> "Documentation/networking/ip-sysctl.txt".
-> 
-> Signed-off-by: Alexander Bergmann <alex@linlab.net>
-> ---
+Linux patch would be the following :
 
-Thanks for your patience and followup, this seems good to me !
+I'll do tests next week, but I am sending a raw patch right now if
+anybody wants to try it.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Presumably we also want to adjust target as well.
+
+To get more precise srtt values in the datacenter, we might avoid the
+'one jiffie slack' on small values in tcp_rtt_estimator(), as we force
+m to be 1 before the scaling by 8 :
+
+if (m == 0)
+	m = 1;
+
+We only need to force the least significant bit of srtt to be set.
+
+
+ net/sched/sch_fq_codel.c |   23 +++++++++++++++++++++--
+ 1 file changed, 21 insertions(+), 2 deletions(-)
+
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index 9fc1c62..7d2fe35 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -25,6 +25,7 @@
+ #include <net/pkt_sched.h>
+ #include <net/flow_keys.h>
+ #include <net/codel.h>
++#include <linux/tcp.h>
+ 
+ /*	Fair Queue CoDel.
+  *
+@@ -59,6 +60,7 @@ struct fq_codel_sched_data {
+ 	u32		perturbation;	/* hash perturbation */
+ 	u32		quantum;	/* psched_mtu(qdisc_dev(sch)); */
+ 	struct codel_params cparams;
++	codel_time_t	default_interval;
+ 	struct codel_stats cstats;
+ 	u32		drop_overlimit;
+ 	u32		new_flow_count;
+@@ -211,6 +213,14 @@ static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	return NET_XMIT_SUCCESS;
+ }
+ 
++/* Given TCP srtt evaluation, return codel interval.
++ * srtt is given in jiffies, scaled by 8.
++ */
++static codel_time_t tcp_srtt_to_codel(unsigned int srtt)
++{
++	return srtt * ((NSEC_PER_SEC >> (CODEL_SHIFT + 3)) / HZ);
++}
++
+ /* This is the specific function called from codel_dequeue()
+  * to dequeue a packet from queue. Note: backlog is handled in
+  * codel, we dont need to reduce it here.
+@@ -220,12 +230,21 @@ static struct sk_buff *dequeue(struct codel_vars *vars, struct Qdisc *sch)
+ 	struct fq_codel_sched_data *q = qdisc_priv(sch);
+ 	struct fq_codel_flow *flow;
+ 	struct sk_buff *skb = NULL;
++	struct sock *sk;
+ 
+ 	flow = container_of(vars, struct fq_codel_flow, cvars);
+ 	if (flow->head) {
+ 		skb = dequeue_head(flow);
+ 		q->backlogs[flow - q->flows] -= qdisc_pkt_len(skb);
+ 		sch->q.qlen--;
++		sk = skb->sk;
++		q->cparams.interval = q->default_interval;
++		if (sk && sk->sk_protocol == IPPROTO_TCP) {
++			u32 srtt = tcp_sk(sk)->srtt;
++
++			if (srtt)
++				q->cparams.interval = tcp_srtt_to_codel(srtt);
++		}
+ 	}
+ 	return skb;
+ }
+@@ -330,7 +349,7 @@ static int fq_codel_change(struct Qdisc *sch, struct nlattr *opt)
+ 	if (tb[TCA_FQ_CODEL_INTERVAL]) {
+ 		u64 interval = nla_get_u32(tb[TCA_FQ_CODEL_INTERVAL]);
+ 
+-		q->cparams.interval = (interval * NSEC_PER_USEC) >> CODEL_SHIFT;
++		q->default_interval = (interval * NSEC_PER_USEC) >> CODEL_SHIFT;
+ 	}
+ 
+ 	if (tb[TCA_FQ_CODEL_LIMIT])
+@@ -441,7 +460,7 @@ static int fq_codel_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	    nla_put_u32(skb, TCA_FQ_CODEL_LIMIT,
+ 			sch->limit) ||
+ 	    nla_put_u32(skb, TCA_FQ_CODEL_INTERVAL,
+-			codel_time_to_us(q->cparams.interval)) ||
++			codel_time_to_us(q->default_interval)) ||
+ 	    nla_put_u32(skb, TCA_FQ_CODEL_ECN,
+ 			q->cparams.ecn) ||
+ 	    nla_put_u32(skb, TCA_FQ_CODEL_QUANTUM,
