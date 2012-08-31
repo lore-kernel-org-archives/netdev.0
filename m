@@ -1,578 +1,172 @@
-From: "H.K. Jerry Chu" <hkchu@google.com>
-Subject: [PATCH 1/3] tcp: TCP Fast Open Server - header & support functions
-Date: Thu, 30 Aug 2012 16:39:06 -0700
-Message-ID: <1346369948-1722-2-git-send-email-hkchu@google.com>
-References: <1346369948-1722-1-git-send-email-hkchu@google.com>
-Cc: sivasankar@cs.ucsd.edu, therbert@google.com,
-	netdev@vger.kernel.org, Jerry Chu <hkchu@google.com>
-To: davem@davemloft.net, ycheng@google.com, edumazet@google.com,
-	ncardwell@google.com
+From: Bob Gilligan <gilligan@aristanetworks.com>
+Subject: [PATCH 1/2] ipv4: Improve the scaling of the ARP cache for multicast
+ destinations.
+Date: Thu, 30 Aug 2012 17:55:04 -0700
+Message-ID: <50400B68.3060302@aristanetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f202.google.com ([74.125.82.202]:52090 "EHLO
-	mail-we0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753241Ab2H3Xjy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 19:39:54 -0400
-Received: by weyr1 with SMTP id r1so123034wey.1
-        for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 16:39:52 -0700 (PDT)
-In-Reply-To: <1346369948-1722-1-git-send-email-hkchu@google.com>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:48889 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753082Ab2HaAzI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2012 20:55:08 -0400
+Received: by dady13 with SMTP id y13so1582561dad.19
+        for <netdev@vger.kernel.org>; Thu, 30 Aug 2012 17:55:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jerry Chu <hkchu@google.com>
 
-This patch adds all the necessary data structure and support
-functions to implement TFO server side. It also documents a number
-of flags for the sysctl_tcp_fastopen knob, and adds a few Linux
-extension MIBs.
+The ARP cache maintains entries for both unicast and multicast IPv4
+next-hop destinations.  The MAC addresses for unicast destinations are
+determined by running the ARP protocol, but those for multicast
+destinations are determined by a simple direct mapping from the
+destination IPv4 multicast address.
 
-In addition, it includes the following:
+Currently, the ARP cache maintains one entry for each IPv4 multicast
+destination for each interface that has members in that group.  On a
+multicast router that is forwarding traffic for many groups via many
+interfaces, the number of ARP cache entries for multicast destinations
+can become large. It could be as many as: (number of interfaces) *
+(number of groups).  Beside using a great deal of memory, these entries
+consume space in the ARP cache that could otherwise be occupied by
+unicast entries, makeing it more likely that the ARP cache will become
+full.
 
-1. a new TCP_FASTOPEN socket option an application must call to
-supply a max backlog allowed in order to enable TFO on its listener.
+The mapping from multicast IPv4 address to MAC address can just as
+easily be done at the time a packet is to be sent.  With this change,
+we maintain one ARP cache entry for each interface that has at least
+one multicast group member.  All routes to IPv4 multicast destinations
+via a particular interface use the same ARP cache entry.  This entry
+does not store the MAC address to use.  Instead, packets for multicast
+destinations go to a new output function that maps the destination
+IPv4 multicast address into the MAC address and forms the MAC header.
 
-2. A number of key data structures:
-"fastopen_rsk" in tcp_sock - for a big socket to access its
-request_sock for retransmission and ack processing purpose. It is
-non-NULL iff 3WHS not completed.
-
-"fastopenq" in request_sock_queue - points to a per Fast Open
-listener data structure "fastopen_queue" to keep track of qlen (# of
-outstanding Fast Open requests) and max_qlen, among other things.
-
-"listener" in tcp_request_sock - to point to the original listener
-for book-keeping purpose, i.e., to maintain qlen against max_qlen
-as part of defense against IP spoofing attack.
-
-3. various data structure and functions, many in tcp_fastopen.c, to
-support server side Fast Open cookie operations, including
-/proc/sys/net/ipv4/tcp_fastopen_key to allow manual rekeying.
-
-Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Tom Herbert <therbert@google.com>
+Signed-off-by: Bob Gilligan <gilligan@aristanetworks.com>
 ---
- Documentation/networking/ip-sysctl.txt |   29 ++++++++---
- include/linux/snmp.h                   |    4 ++
- include/linux/tcp.h                    |   45 ++++++++++++++++-
- include/net/request_sock.h             |   36 ++++++++++++++
- include/net/tcp.h                      |   46 +++++++++++++++---
- net/ipv4/proc.c                        |    4 ++
- net/ipv4/sysctl_net_ipv4.c             |   45 +++++++++++++++++
- net/ipv4/tcp_fastopen.c                |   83 +++++++++++++++++++++++++++++++-
- net/ipv4/tcp_input.c                   |    4 +-
- 9 files changed, 276 insertions(+), 20 deletions(-)
+ net/ipv4/arp.c   |   49 +++++++++++++++++++++++++++++++++++++++++++++----
+ net/ipv4/route.c |   14 ++++++++++++--
+ 2 files changed, 57 insertions(+), 6 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index ca447b3..5385b28 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -465,16 +465,31 @@ tcp_syncookies - BOOLEAN
- tcp_fastopen - INTEGER
- 	Enable TCP Fast Open feature (draft-ietf-tcpm-fastopen) to send data
- 	in the opening SYN packet. To use this feature, the client application
--	must not use connect(). Instead, it should use sendmsg() or sendto()
--	with MSG_FASTOPEN flag which performs a TCP handshake automatically.
--
--	The values (bitmap) are:
--	1: Enables sending data in the opening SYN on the client
--	5: Enables sending data in the opening SYN on the client regardless
--	   of cookie availability.
-+	must use sendmsg() or sendto() with MSG_FASTOPEN flag rather than
-+	connect() to perform a TCP handshake automatically.
-+
-+	The values (bitmap) are
-+	1: Enables sending data in the opening SYN on the client.
-+	2: Enables TCP Fast Open on the server side, i.e., allowing data in
-+	   a SYN packet to be accepted and passed to the application before
-+	   3-way hand shake finishes.
-+	4: Send data in the opening SYN regardless of cookie availability and
-+	   without a cookie option.
-+	0x100: Accept SYN data w/o validating the cookie.
-+	0x200: Accept data-in-SYN w/o any cookie option present.
-+	0x400/0x800: Enable Fast Open on all listeners regardless of the
-+	   TCP_FASTOPEN socket option. The two different flags designate two
-+	   different ways of setting max_qlen without the TCP_FASTOPEN socket
-+	   option.
+Index: b/net/ipv4/arp.c
+===================================================================
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -126,6 +126,7 @@ static int arp_constructor(struct neighb
+ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb);
+ static void arp_error_report(struct neighbour *neigh, struct sk_buff *skb);
+ static void parp_redo(struct sk_buff *skb);
++static int arp_multicast_output(struct neighbour *neigh, struct sk_buff *skb);
  
- 	Default: 0
- 
-+	Note that the client & server side Fast Open flags (1 and 2
-+	respectively) must be also enabled before the rest of flags can take
-+	effect.
-+
-+	See include/net/tcp.h and the code for more details.
-+
- tcp_syn_retries - INTEGER
- 	Number of times initial SYNs for an active TCP connection attempt
- 	will be retransmitted. Should not be higher than 255. Default value
-diff --git a/include/linux/snmp.h b/include/linux/snmp.h
-index ad6e3a6..fdfba23 100644
---- a/include/linux/snmp.h
-+++ b/include/linux/snmp.h
-@@ -241,6 +241,10 @@ enum
- 	LINUX_MIB_TCPCHALLENGEACK,		/* TCPChallengeACK */
- 	LINUX_MIB_TCPSYNCHALLENGE,		/* TCPSYNChallenge */
- 	LINUX_MIB_TCPFASTOPENACTIVE,		/* TCPFastOpenActive */
-+	LINUX_MIB_TCPFASTOPENPASSIVE,		/* TCPFastOpenPassive*/
-+	LINUX_MIB_TCPFASTOPENPASSIVEFAIL,	/* TCPFastOpenPassiveFail */
-+	LINUX_MIB_TCPFASTOPENLISTENOVERFLOW,	/* TCPFastOpenListenOverflow */
-+	LINUX_MIB_TCPFASTOPENCOOKIEREQD,	/* TCPFastOpenCookieReqd */
- 	__LINUX_MIB_MAX
+ static const struct neigh_ops arp_generic_ops = {
+ 	.family =		AF_INET,
+@@ -157,6 +158,13 @@ static const struct neigh_ops arp_broken
+ 	.connected_output =	neigh_compat_output,
  };
  
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index eb125a4..418beda 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -110,6 +110,7 @@ enum {
- #define TCP_REPAIR_QUEUE	20
- #define TCP_QUEUE_SEQ		21
- #define TCP_REPAIR_OPTIONS	22
-+#define TCP_FASTOPEN		23	/* Enable FastOpen on listeners */
- 
- struct tcp_repair_opt {
- 	__u32	opt_code;
-@@ -246,6 +247,7 @@ static inline unsigned int tcp_optlen(const struct sk_buff *skb)
- /* TCP Fast Open */
- #define TCP_FASTOPEN_COOKIE_MIN	4	/* Min Fast Open Cookie size in bytes */
- #define TCP_FASTOPEN_COOKIE_MAX	16	/* Max Fast Open Cookie size in bytes */
-+#define TCP_FASTOPEN_COOKIE_SIZE 8	/* the size employed by this impl. */
- 
- /* TCP Fast Open Cookie as stored in memory */
- struct tcp_fastopen_cookie {
-@@ -312,9 +314,14 @@ struct tcp_request_sock {
- 	/* Only used by TCP MD5 Signature so far. */
- 	const struct tcp_request_sock_ops *af_specific;
- #endif
-+	struct sock			*listener; /* needed for TFO */
- 	u32				rcv_isn;
- 	u32				snt_isn;
- 	u32				snt_synack; /* synack sent time */
-+	u32				rcv_nxt; /* the ack # by SYNACK. For
-+						  * FastOpen it's the seq#
-+						  * after data-in-SYN.
-+						  */
- };
- 
- static inline struct tcp_request_sock *tcp_rsk(const struct request_sock *req)
-@@ -505,14 +512,18 @@ struct tcp_sock {
- 	struct tcp_md5sig_info	__rcu *md5sig_info;
- #endif
- 
--/* TCP fastopen related information */
--	struct tcp_fastopen_request *fastopen_req;
--
- 	/* When the cookie options are generated and exchanged, then this
- 	 * object holds a reference to them (cookie_values->kref).  Also
- 	 * contains related tcp_cookie_transactions fields.
- 	 */
- 	struct tcp_cookie_values  *cookie_values;
++static const struct neigh_ops arp_multicast_ops = {
++	.family =		AF_INET,
++	.error_report =		arp_error_report,
++	.output =		arp_multicast_output,
++	.connected_output =	arp_multicast_output,
++};
 +
-+/* TCP fastopen related information */
-+	struct tcp_fastopen_request *fastopen_req;
-+	/* fastopen_rsk points to request_sock that resulted in this big
-+	 * socket. Used to retransmit SYNACKs etc.
-+	 */
-+	struct request_sock *fastopen_rsk;
- };
- 
- enum tsq_flags {
-@@ -552,6 +563,34 @@ static inline struct tcp_timewait_sock *tcp_twsk(const struct sock *sk)
- 	return (struct tcp_timewait_sock *)sk;
+ struct neigh_table arp_tbl = {
+ 	.family		= AF_INET,
+ 	.key_len	= 4,
+@@ -217,6 +225,38 @@ static u32 arp_hash(const void *pkey,
+ 	return arp_hashfn(*(u32 *)pkey, dev, *hash_rnd);
  }
  
-+static inline bool tcp_passive_fastopen(const struct sock *sk)
-+{
-+	return (sk->sk_state == TCP_SYN_RECV &&
-+		tcp_sk(sk)->fastopen_rsk != NULL);
-+}
 +
-+static inline bool fastopen_cookie_present(struct tcp_fastopen_cookie *foc)
-+{
-+	return (foc)->len != -1;
-+}
-+
-+static inline int fastopen_init_queue(struct sock *sk, int backlog)
-+{
-+	struct request_sock_queue *queue =
-+	    &inet_csk(sk)->icsk_accept_queue;
-+
-+	if (queue->fastopenq == NULL) {
-+		queue->fastopenq = kzalloc(
-+		    sizeof(struct fastopen_queue),
-+		    sk->sk_allocation);
-+		if (queue->fastopenq == NULL)
-+			return -ENOMEM;
-+		spin_lock_init(&queue->fastopenq->lock);
-+	}
-+	queue->fastopenq->max_qlen = backlog;
-+	return 0;
-+}
-+
- #endif	/* __KERNEL__ */
- 
- #endif	/* _LINUX_TCP_H */
-diff --git a/include/net/request_sock.h b/include/net/request_sock.h
-index 4c0766e..c3cdd6c 100644
---- a/include/net/request_sock.h
-+++ b/include/net/request_sock.h
-@@ -106,6 +106,34 @@ struct listen_sock {
- 	struct request_sock	*syn_table[0];
- };
- 
 +/*
-+ * For a TCP Fast Open listener -
-+ *	lock - protects the access to all the reqsk, which is co-owned by
-+ *		the listener and the child socket.
-+ *	qlen - pending TFO requests (still in TCP_SYN_RECV).
-+ *	max_qlen - max TFO reqs allowed before TFO is disabled.
-+ *
-+ *	XXX (TFO) - ideally these fields can be made as part of "listen_sock"
-+ *	structure above. But there is some implementation difficulty due to
-+ *	listen_sock being part of request_sock_queue hence will be freed when
-+ *	a listener is stopped. But TFO related fields may continue to be
-+ *	accessed even after a listener is closed, until its sk_refcnt drops
-+ *	to 0 implying no more outstanding TFO reqs. One solution is to keep
-+ *	listen_opt around until	sk_refcnt drops to 0. But there is some other
-+ *	complexity that needs to be resolved. E.g., a listener can be disabled
-+ *	temporarily through shutdown()->tcp_disconnect(), and re-enabled later.
++ * Output function for IPv4 multicast destinations.  We map the
++ * next-hop address directly into the destination MAC addr here so
++ * that we don't have to store it in the ARP cache entry.  This allows
++ * routes for multiple multicast destinations to share a single ARP
++ * cache entry.
 + */
-+struct fastopen_queue {
-+	struct request_sock	*rskq_rst_head; /* Keep track of past TFO */
-+	struct request_sock	*rskq_rst_tail; /* requests that caused RST.
-+						 * This is part of the defense
-+						 * against spoofing attack.
-+						 */
-+	spinlock_t	lock;
-+	int		qlen;		/* # of pending (TCP_SYN_RECV) reqs */
-+	int		max_qlen;	/* != 0 iff TFO is currently enabled */
-+};
-+
- /** struct request_sock_queue - queue of request_socks
-  *
-  * @rskq_accept_head - FIFO head of established children
-@@ -129,6 +157,12 @@ struct request_sock_queue {
- 	u8			rskq_defer_accept;
- 	/* 3 bytes hole, try to pack */
- 	struct listen_sock	*listen_opt;
-+	struct fastopen_queue	*fastopenq; /* This is non-NULL iff TFO has been
-+					     * enabled on this listener. Check
-+					     * max_qlen != 0 in fastopen_queue
-+					     * to determine if TFO is enabled
-+					     * right at this moment.
-+					     */
- };
- 
- extern int reqsk_queue_alloc(struct request_sock_queue *queue,
-@@ -136,6 +170,8 @@ extern int reqsk_queue_alloc(struct request_sock_queue *queue,
- 
- extern void __reqsk_queue_destroy(struct request_sock_queue *queue);
- extern void reqsk_queue_destroy(struct request_sock_queue *queue);
-+extern void reqsk_fastopen_remove(struct sock *sk,
-+				  struct request_sock *req, bool reset);
- 
- static inline struct request_sock *
- 	reqsk_queue_yank_acceptq(struct request_sock_queue *queue)
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 9a0021d..1a88a97 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -214,8 +214,24 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
- 
- /* Bit Flags for sysctl_tcp_fastopen */
- #define	TFO_CLIENT_ENABLE	1
-+#define	TFO_SERVER_ENABLE	2
- #define	TFO_CLIENT_NO_COOKIE	4	/* Data in SYN w/o cookie option */
- 
-+/* Process SYN data but skip cookie validation */
-+#define	TFO_SERVER_COOKIE_NOT_CHKED	0x100
-+/* Accept SYN data w/o any cookie option */
-+#define	TFO_SERVER_COOKIE_NOT_REQD	0x200
-+
-+/* Force enable TFO on all listeners, i.e., not requiring the
-+ * TCP_FASTOPEN socket option. SOCKOPT1/2 determine how to set max_qlen.
-+ */
-+#define	TFO_SERVER_WO_SOCKOPT1	0x400
-+#define	TFO_SERVER_WO_SOCKOPT2	0x800
-+/* Always create TFO child sockets on a TFO listener even when
-+ * cookie/data not present. (For testing purpose!)
-+ */
-+#define	TFO_SERVER_ALWAYS	0x1000
-+
- extern struct inet_timewait_death_row tcp_death_row;
- 
- /* sysctl variables for tcp */
-@@ -411,12 +427,6 @@ extern void tcp_metrics_init(void);
- extern bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst, bool paws_check);
- extern bool tcp_remember_stamp(struct sock *sk);
- extern bool tcp_tw_remember_stamp(struct inet_timewait_sock *tw);
--extern void tcp_fastopen_cache_get(struct sock *sk, u16 *mss,
--				   struct tcp_fastopen_cookie *cookie,
--				   int *syn_loss, unsigned long *last_syn_loss);
--extern void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
--				   struct tcp_fastopen_cookie *cookie,
--				   bool syn_lost);
- extern void tcp_fetch_timewait_stamp(struct sock *sk, struct dst_entry *dst);
- extern void tcp_disable_fack(struct tcp_sock *tp);
- extern void tcp_close(struct sock *sk, long timeout);
-@@ -527,6 +537,7 @@ extern void tcp_send_delayed_ack(struct sock *sk);
- extern void tcp_cwnd_application_limited(struct sock *sk);
- extern void tcp_resume_early_retransmit(struct sock *sk);
- extern void tcp_rearm_rto(struct sock *sk);
-+extern void tcp_reset(struct sock *sk);
- 
- /* tcp_timer.c */
- extern void tcp_init_xmit_timers(struct sock *);
-@@ -576,6 +587,7 @@ extern int tcp_mtu_to_mss(struct sock *sk, int pmtu);
- extern int tcp_mss_to_mtu(struct sock *sk, int mss);
- extern void tcp_mtup_init(struct sock *sk);
- extern void tcp_valid_rtt_meas(struct sock *sk, u32 seq_rtt);
-+extern void tcp_init_buffer_space(struct sock *sk);
- 
- static inline void tcp_bound_rto(const struct sock *sk)
- {
-@@ -1094,6 +1106,7 @@ static inline void tcp_openreq_init(struct request_sock *req,
- 	req->rcv_wnd = 0;		/* So that tcp_send_synack() knows! */
- 	req->cookie_ts = 0;
- 	tcp_rsk(req)->rcv_isn = TCP_SKB_CB(skb)->seq;
-+	tcp_rsk(req)->rcv_nxt = TCP_SKB_CB(skb)->seq + 1;
- 	req->mss = rx_opt->mss_clamp;
- 	req->ts_recent = rx_opt->saw_tstamp ? rx_opt->rcv_tsval : 0;
- 	ireq->tstamp_ok = rx_opt->tstamp_ok;
-@@ -1298,15 +1311,34 @@ extern int tcp_md5_hash_skb_data(struct tcp_md5sig_pool *, const struct sk_buff
- extern int tcp_md5_hash_key(struct tcp_md5sig_pool *hp,
- 			    const struct tcp_md5sig_key *key);
- 
-+/* From tcp_fastopen.c */
-+extern void tcp_fastopen_cache_get(struct sock *sk, u16 *mss,
-+				   struct tcp_fastopen_cookie *cookie,
-+				   int *syn_loss, unsigned long *last_syn_loss);
-+extern void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
-+				   struct tcp_fastopen_cookie *cookie,
-+				   bool syn_lost);
- struct tcp_fastopen_request {
- 	/* Fast Open cookie. Size 0 means a cookie request */
- 	struct tcp_fastopen_cookie	cookie;
- 	struct msghdr			*data;  /* data in MSG_FASTOPEN */
- 	u16				copied;	/* queued in tcp_connect() */
- };
--
- void tcp_free_fastopen_req(struct tcp_sock *tp);
- 
-+extern struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
-+int tcp_fastopen_reset_cipher(void *key, unsigned int len);
-+void tcp_fastopen_cookie_gen(__be32 addr, struct tcp_fastopen_cookie *foc);
-+
-+#define TCP_FASTOPEN_KEY_LENGTH 16
-+
-+/* Fastopen key context */
-+struct tcp_fastopen_context {
-+	struct crypto_cipher __rcu	*tfm;
-+	__u8				key[TCP_FASTOPEN_KEY_LENGTH];
-+	struct rcu_head			rcu;
-+};
-+
- /* write queue abstraction */
- static inline void tcp_write_queue_purge(struct sock *sk)
- {
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 957acd1..8de53e1 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -263,6 +263,10 @@ static const struct snmp_mib snmp4_net_list[] = {
- 	SNMP_MIB_ITEM("TCPChallengeACK", LINUX_MIB_TCPCHALLENGEACK),
- 	SNMP_MIB_ITEM("TCPSYNChallenge", LINUX_MIB_TCPSYNCHALLENGE),
- 	SNMP_MIB_ITEM("TCPFastOpenActive", LINUX_MIB_TCPFASTOPENACTIVE),
-+	SNMP_MIB_ITEM("TCPFastOpenPassive", LINUX_MIB_TCPFASTOPENPASSIVE),
-+	SNMP_MIB_ITEM("TCPFastOpenPassiveFail", LINUX_MIB_TCPFASTOPENPASSIVEFAIL),
-+	SNMP_MIB_ITEM("TCPFastOpenListenOverflow", LINUX_MIB_TCPFASTOPENLISTENOVERFLOW),
-+	SNMP_MIB_ITEM("TCPFastOpenCookieReqd", LINUX_MIB_TCPFASTOPENCOOKIEREQD),
- 	SNMP_MIB_SENTINEL
- };
- 
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 3e78c79..9205e49 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -232,6 +232,45 @@ static int ipv4_tcp_mem(ctl_table *ctl, int write,
- 	return 0;
- }
- 
-+int proc_tcp_fastopen_key(ctl_table *ctl, int write, void __user *buffer,
-+			  size_t *lenp, loff_t *ppos)
-+{
-+	ctl_table tbl = { .maxlen = (TCP_FASTOPEN_KEY_LENGTH * 2 + 10) };
-+	struct tcp_fastopen_context *ctxt;
-+	int ret;
-+	u32  user_key[4]; /* 16 bytes, matching TCP_FASTOPEN_KEY_LENGTH */
-+
-+	tbl.data = kmalloc(tbl.maxlen, GFP_KERNEL);
-+	if (!tbl.data)
-+		return -ENOMEM;
-+
-+	rcu_read_lock();
-+	ctxt = rcu_dereference(tcp_fastopen_ctx);
-+	if (ctxt)
-+		memcpy(user_key, ctxt->key, TCP_FASTOPEN_KEY_LENGTH);
-+	rcu_read_unlock();
-+
-+	snprintf(tbl.data, tbl.maxlen, "%08x-%08x-%08x-%08x",
-+		user_key[0], user_key[1], user_key[2], user_key[3]);
-+	ret = proc_dostring(&tbl, write, buffer, lenp, ppos);
-+
-+	if (write && ret == 0) {
-+		if (sscanf(tbl.data, "%x-%x-%x-%x", user_key, user_key + 1,
-+			   user_key + 2, user_key + 3) != 4) {
-+			ret = -EINVAL;
-+			goto bad_key;
-+		}
-+		tcp_fastopen_reset_cipher(user_key, TCP_FASTOPEN_KEY_LENGTH);
-+	}
-+
-+bad_key:
-+	pr_debug("proc FO key set 0x%x-%x-%x-%x <- 0x%s: %u\n",
-+	       user_key[0], user_key[1], user_key[2], user_key[3],
-+	       (char *)tbl.data, ret);
-+	kfree(tbl.data);
-+	return ret;
-+}
-+
- static struct ctl_table ipv4_table[] = {
- 	{
- 		.procname	= "tcp_timestamps",
-@@ -386,6 +425,12 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= proc_dointvec,
- 	},
- 	{
-+		.procname	= "tcp_fastopen_key",
-+		.mode		= 0600,
-+		.maxlen		= ((TCP_FASTOPEN_KEY_LENGTH * 2) + 10),
-+		.proc_handler	= proc_tcp_fastopen_key,
-+	},
-+	{
- 		.procname	= "tcp_tw_recycle",
- 		.data		= &tcp_death_row.sysctl_tw_recycle,
- 		.maxlen		= sizeof(int),
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index a7f729c..8f7ef0a 100644
---- a/net/ipv4/tcp_fastopen.c
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -1,10 +1,91 @@
-+#include <linux/err.h>
- #include <linux/init.h>
- #include <linux/kernel.h>
-+#include <linux/list.h>
-+#include <linux/tcp.h>
-+#include <linux/rcupdate.h>
-+#include <linux/rculist.h>
-+#include <net/inetpeer.h>
-+#include <net/tcp.h>
- 
--int sysctl_tcp_fastopen;
-+int sysctl_tcp_fastopen __read_mostly;
-+
-+struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
-+
-+static DEFINE_SPINLOCK(tcp_fastopen_ctx_lock);
-+
-+static void tcp_fastopen_ctx_free(struct rcu_head *head)
-+{
-+	struct tcp_fastopen_context *ctx =
-+	    container_of(head, struct tcp_fastopen_context, rcu);
-+	crypto_free_cipher(ctx->tfm);
-+	kfree(ctx);
-+}
-+
-+int tcp_fastopen_reset_cipher(void *key, unsigned int len)
++static int arp_multicast_output(struct neighbour *neigh, struct sk_buff *skb)
 +{
 +	int err;
-+	struct tcp_fastopen_context *ctx, *octx;
++	struct dst_entry *dst = skb_dst(skb);
++	struct rtable *rt = (struct rtable *)dst;
++	struct net_device *dev = neigh->dev;
++	unsigned char ha[ALIGN(MAX_ADDR_LEN, sizeof(unsigned long))];
 +
-+	ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
-+	if (!ctx)
-+		return -ENOMEM;
-+	ctx->tfm = crypto_alloc_cipher("aes", 0, 0);
++	__skb_pull(skb, skb_network_offset(skb));
 +
-+	if (IS_ERR(ctx->tfm)) {
-+		err = PTR_ERR(ctx->tfm);
-+error:		kfree(ctx);
-+		pr_err("TCP: TFO aes cipher alloc error: %d\n", err);
-+		return err;
++	arp_mc_map(rt->rt_gateway, ha, dev, 1);
++
++	err = dev_hard_header(skb, dev, ntohs(skb->protocol), ha, NULL,
++			      skb->len);
++	if (err >= 0)
++		err = dev_queue_xmit(skb);
++	else {
++		err = -EINVAL;
++		kfree_skb(skb);
 +	}
-+	err = crypto_cipher_setkey(ctx->tfm, key, len);
-+	if (err) {
-+		pr_err("TCP: TFO cipher key error: %d\n", err);
-+		crypto_free_cipher(ctx->tfm);
-+		goto error;
-+	}
-+	memcpy(ctx->key, key, len);
-+
-+	spin_lock(&tcp_fastopen_ctx_lock);
-+
-+	octx = rcu_dereference_protected(tcp_fastopen_ctx,
-+				lockdep_is_held(&tcp_fastopen_ctx_lock));
-+	rcu_assign_pointer(tcp_fastopen_ctx, ctx);
-+	spin_unlock(&tcp_fastopen_ctx_lock);
-+
-+	if (octx)
-+		call_rcu(&octx->rcu, tcp_fastopen_ctx_free);
 +	return err;
 +}
 +
-+/* Computes the fastopen cookie for the peer.
-+ * The peer address is a 128 bits long (pad with zeros for IPv4).
-+ *
-+ * The caller must check foc->len to determine if a valid cookie
-+ * has been generated successfully.
-+*/
-+void tcp_fastopen_cookie_gen(__be32 addr, struct tcp_fastopen_cookie *foc)
-+{
-+	__be32 peer_addr[4] = { addr, 0, 0, 0 };
-+	struct tcp_fastopen_context *ctx;
 +
-+	rcu_read_lock();
-+	ctx = rcu_dereference(tcp_fastopen_ctx);
-+	if (ctx) {
-+		crypto_cipher_encrypt_one(ctx->tfm,
-+					  foc->val,
-+					  (__u8 *)peer_addr);
-+		foc->len = TCP_FASTOPEN_COOKIE_SIZE;
+ static int arp_constructor(struct neighbour *neigh)
+ {
+ 	__be32 addr = *(__be32 *)neigh->primary_key;
+@@ -287,10 +327,9 @@ static int arp_constructor(struct neighb
+ #endif
+ 		}
+ #endif
+-		if (neigh->type == RTN_MULTICAST) {
++		if (neigh->type == RTN_MULTICAST)
+ 			neigh->nud_state = NUD_NOARP;
+-			arp_mc_map(addr, neigh->ha, dev, 1);
+-		} else if (dev->flags & (IFF_NOARP | IFF_LOOPBACK)) {
++		else if (dev->flags & (IFF_NOARP | IFF_LOOPBACK)) {
+ 			neigh->nud_state = NUD_NOARP;
+ 			memcpy(neigh->ha, dev->dev_addr, dev->addr_len);
+ 		} else if (neigh->type == RTN_BROADCAST ||
+@@ -299,7 +338,9 @@ static int arp_constructor(struct neighb
+ 			memcpy(neigh->ha, dev->broadcast, dev->addr_len);
+ 		}
+ 
+-		if (dev->header_ops->cache)
++		if (neigh->type == RTN_MULTICAST)
++			neigh->ops = &arp_multicast_ops;
++		else if (dev->header_ops->cache)
+ 			neigh->ops = &arp_hh_ops;
+ 		else
+ 			neigh->ops = &arp_generic_ops;
+Index: b/net/ipv4/route.c
+===================================================================
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1114,6 +1114,7 @@ static int slow_chain_length(const struc
+ static struct neighbour *ipv4_neigh_lookup(const struct dst_entry *dst, const void *daddr)
+ {
+ 	static const __be32 inaddr_any = 0;
++	static const __be32 inaddr_unspec_group = htonl(INADDR_UNSPEC_GROUP);
+ 	struct net_device *dev = dst->dev;
+ 	const __be32 *pkey = daddr;
+ 	const struct rtable *rt;
+@@ -1123,8 +1124,17 @@ static struct neighbour *ipv4_neigh_look
+ 
+ 	if (dev->flags & (IFF_LOOPBACK | IFF_POINTOPOINT))
+ 		pkey = &inaddr_any;
+-	else if (rt->rt_gateway)
+-		pkey = (const __be32 *) &rt->rt_gateway;
++	else {
++		if (rt->rt_gateway)
++			pkey = (const __be32 *) &rt->rt_gateway;
++		if (pkey && ipv4_is_multicast(*pkey))
++			/*
++			 * Map all multicast destinations to a single
++			 * address so tht they share a single ARP
++			 * cache entry per interface.
++			 */
++			pkey = &inaddr_unspec_group;
 +	}
-+	rcu_read_unlock();
-+}
  
- static int __init tcp_fastopen_init(void)
- {
-+	__u8 key[TCP_FASTOPEN_KEY_LENGTH];
-+
-+	get_random_bytes(key, sizeof(key));
-+	tcp_fastopen_reset_cipher(key, sizeof(key));
- 	return 0;
- }
- 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index bcfccc5..d184f23 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -378,7 +378,7 @@ static void tcp_fixup_rcvbuf(struct sock *sk)
- /* 4. Try to fixup all. It is made immediately after connection enters
-  *    established state.
-  */
--static void tcp_init_buffer_space(struct sock *sk)
-+void tcp_init_buffer_space(struct sock *sk)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	int maxwin;
-@@ -4039,7 +4039,7 @@ static inline bool tcp_sequence(const struct tcp_sock *tp, u32 seq, u32 end_seq)
- }
- 
- /* When we get a reset we do this. */
--static void tcp_reset(struct sock *sk)
-+void tcp_reset(struct sock *sk)
- {
- 	/* We want the right error as BSD sees it (and indeed as we do). */
- 	switch (sk->sk_state) {
--- 
-1.7.7.3
+ 	n = __ipv4_neigh_lookup(dev, *(__force u32 *)pkey);
+ 	if (n)
