@@ -1,30 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/8][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 31 Aug 2012 16:03:59 -0400 (EDT)
-Message-ID: <20120831.160359.627732042605543491.davem@davemloft.net>
-References: <1346390174-30449-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 01/12] qlcnic: Refactoring - template based hardware
+ interface
+Date: Fri, 31 Aug 2012 16:05:17 -0400 (EDT)
+Message-ID: <20120831.160517.226136265278963899.davem@davemloft.net>
+References: <1346394541-3486-1-git-send-email-sony.chacko@qlogic.com>
+	<1346394541-3486-2-git-send-email-sony.chacko@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
+	anirban.chakraborty@qlogic.com
+To: sony.chacko@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53094 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53105 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754848Ab2HaUEC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2012 16:04:02 -0400
-In-Reply-To: <1346390174-30449-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1754848Ab2HaUFU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2012 16:05:20 -0400
+In-Reply-To: <1346394541-3486-2-git-send-email-sony.chacko@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 30 Aug 2012 22:16:06 -0700
+From: Sony Chacko <sony.chacko@qlogic.com>
+Date: Fri, 31 Aug 2012 02:28:50 -0400
 
-> This series contains updates to e1000e and ixgbevf.
-> 
-> The following are changes since commit 761743ebc92df72053e736fce953a5d2e90099d5:
->   net/fsl_pq_mdio: add support for the Fman 1G MDIO controller
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+> +static inline int
+> +qlcnic_config_bridged_mode(struct qlcnic_adapter *adapter, u32 enable)
+> +{
+> +	return adapter->nic_ops->config_bridged_mode(adapter, enable);
+> +
+> +}
+> +
+> +static inline int
+> +qlcnic_config_led(struct qlcnic_adapter *adapter, u32 state, u32 rate)
+> +{
+> +	return adapter->nic_ops->config_led(adapter, state, rate);
+> +
+> +}
+> +
 
-Pulled, thanks Jeff.
+Please get rid of those unnecessary empty lines in the function bodies.
