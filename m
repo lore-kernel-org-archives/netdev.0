@@ -1,52 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: add new QCA alx ethernet driver
-Date: Fri, 31 Aug 2012 16:20:58 -0400 (EDT)
-Message-ID: <20120831.162058.2022883484639611493.davem@davemloft.net>
-References: <1346083963-17610-1-git-send-email-cjren@qca.qualcomm.com>
+Subject: Re: [PATCH] ipv4: Minor logic clean-up in ipv4_mtu
+Date: Fri, 31 Aug 2012 16:23:14 -0400 (EDT)
+Message-ID: <20120831.162314.846637293917606779.davem@davemloft.net>
+References: <20120827162930.2969.96733.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	qca-linux-team@qualcomm.com, nic-devel@qualcomm.com,
-	xiong@qca.qualcomm.com, rodrigue@qca.qualcomm.com
-To: cjren@qca.qualcomm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1346083963-17610-1-git-send-email-cjren@qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
+To: alexander.h.duyck@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53270 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754860Ab2HaUXQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2012 16:23:16 -0400
+In-Reply-To: <20120827162930.2969.96733.stgit@gitlad.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <cjren@qca.qualcomm.com>
-Date: Tue, 28 Aug 2012 00:12:43 +0800
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Mon, 27 Aug 2012 09:30:01 -0700
 
-> +/*
-> + * Definition to enable some features
-> + */
-> +#undef CONFIG_ALX_MSIX
-> +#undef CONFIG_ALX_MSI
-> +#undef CONFIG_ALX_MTQ
-> +#undef CONFIG_ALX_MRQ
-> +#undef CONFIG_ALX_RSS
-> +/* #define CONFIG_ALX_MSIX */
-> +#define CONFIG_ALX_MSI
-> +#define CONFIG_ALX_MTQ
-> +#define CONFIG_ALX_MRQ
-> +#ifdef CONFIG_ALX_MRQ
-> +#define CONFIG_ALX_RSS
-> +#endif
-> +
+> In ipv4_mtu there is some logic where we are testing for a non-zero value
+> and a timer expiration, then setting the value to zero, and then testing if
+> the value is zero we set it to a value based on the dst.  Instead of
+> bothering with the extra steps it is easier to just cleanup the logic so
+> that we set it to the dst based value if it is zero or if the timer has
+> expired.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Get rid of all of these.  You may never use private feature control macros
-in the CONFIG_* namespace, those are for the Kconfig system only.
-
-Local controls of this nature are only appropriate for a driver amidst
-development, and not a final version that should be included in the
-upstream kernel tree.
-
-You must remove all of these CPP macros, and all code that is currently
-protected by the ones which are off.
-
-Just so that your expectations are set appropriately, I anticipate
-that there will be at least 5 more rounds of review for things of this
-nature before we can even remotely consider adding this driver to the
-tree.  This driver is very poorly written and is far away from meeting
-our standards for incusion.
+Applied to net-next, thanks.
