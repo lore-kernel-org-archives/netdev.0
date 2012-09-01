@@ -1,7 +1,8 @@
 From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: [PATCH v3 0/2] 6lowpan fixes
-Date: Sat,  1 Sep 2012 11:57:05 -0400
-Message-ID: <1346515027-5237-1-git-send-email-alan@signal11.us>
+Subject: [PATCH v3 1/2] 6lowpan: Make a copy of skb's
+	delivered to 6lowpan
+Date: Sat,  1 Sep 2012 11:57:06 -0400
+Message-ID: <1346515027-5237-2-git-send-email-alan@signal11.us>
 References: <1346294341-26808-1-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,15 +25,44 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-v3 of this patch changes skb_copy() to skb_clone() in patch #1 at the
-recommendation of Eric Dumazet
+Since lowpan_process_data() modifies the skb (by calling skb_pull()), we
+need our own copy so that it doesn't affect the data received by other
+protcols (in this case, af_ieee802154).
 
-Alan Ott (2):
-  6lowpan: Make a copy of skb's delivered to 6lowpan
-  6lowpan: handle NETDEV_UNREGISTER event
+Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+---
+ net/ieee802154/6lowpan.c |    9 ++++++++-
+ 1 files changed, 8 insertions(+), 1 deletions(-)
 
- net/ieee802154/6lowpan.c |   53 +++++++++++++++++++++++++++++++++++++++-------
- 1 files changed, 45 insertions(+), 8 deletions(-)
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 6a09522..b28ec79 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -1133,6 +1133,8 @@ static int lowpan_validate(struct nlattr *tb[], struct nlattr *data[])
+ static int lowpan_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct sk_buff *local_skb;
++
+ 	if (!netif_running(dev))
+ 		goto drop;
+ 
+@@ -1144,7 +1146,12 @@ static int lowpan_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	case LOWPAN_DISPATCH_IPHC:	/* ipv6 datagram */
+ 	case LOWPAN_DISPATCH_FRAG1:	/* first fragment header */
+ 	case LOWPAN_DISPATCH_FRAGN:	/* next fragments headers */
+-		lowpan_process_data(skb);
++		local_skb = skb_clone(skb, GFP_ATOMIC);
++		if (!local_skb)
++			goto drop;
++		lowpan_process_data(local_skb);
++
++		kfree_skb(skb);
+ 		break;
+ 	default:
+ 		break;
+-- 
+1.7.0.4
 
 
 ------------------------------------------------------------------------------
