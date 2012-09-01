@@ -1,151 +1,80 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [RFC v2] fq_codel : interval servo on hosts
-Date: Fri, 31 Aug 2012 18:37:05 -0700
-Message-ID: <CAK6E8=cwpq0MVK6fcrOa=wTX237xQiVP2xzh0aX-AtuSmzt-sw@mail.gmail.com>
-References: <1346396137.2586.301.camel@edumazet-glaptop>
-	<1346421031.2591.34.camel@edumazet-glaptop>
-	<1346421466.2591.38.camel@edumazet-glaptop>
+From: Hugh Dickins <hughd@google.com>
+Subject: Re: kernel 3.2.27 on arm: WARNING: at mm/page_alloc.c:2109
+ __alloc_pages_nodemask+0x1d4/0x68c()
+Date: Fri, 31 Aug 2012 19:21:04 -0700 (PDT)
+Message-ID: <alpine.LSU.2.00.1208311900330.1936@eggly.anvils>
+References: <20120829002548.GA7063@aldebaran.gro-tsen.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Tomas Hruby <thruby@google.com>, Nandita Dukkipati <nanditad@google.com>,
-	netdev <netdev@vger.kernel.org>, codel@lists.bufferbloat.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <1346421466.2591.38.camel@edumazet-glaptop>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
-List-Post: <mailto:codel@lists.bufferbloat.net>
-List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
-Sender: codel-bounces@lists.bufferbloat.net
-Errors-To: codel-bounces@lists.bufferbloat.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Madore <david+ml@madore.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120829002548.GA7063@aldebaran.gro-tsen.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 31, 2012 at 6:57 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2012-08-31 at 06:50 -0700, Eric Dumazet wrote:
->> On Thu, 2012-08-30 at 23:55 -0700, Eric Dumazet wrote:
->> > On locally generated TCP traffic (host), we can override the 100 ms
->> > interval value using the more accurate RTT estimation maintained by TCP
->> > stack (tp->srtt)
->> >
->> > Datacenter workload benefits using shorter feedback (say if RTT is below
->> > 1 ms, we can react 100 times faster to a congestion)
->> >
->> > Idea from Yuchung Cheng.
->> >
->>
->> Linux patch would be the following :
->>
->> I'll do tests next week, but I am sending a raw patch right now if
->> anybody wants to try it.
->>
->> Presumably we also want to adjust target as well.
->>
->> To get more precise srtt values in the datacenter, we might avoid the
->> 'one jiffie slack' on small values in tcp_rtt_estimator(), as we force
->> m to be 1 before the scaling by 8 :
->>
->> if (m == 0)
->>       m = 1;
->>
->> We only need to force the least significant bit of srtt to be set.
->>
-Just curious: tp->srtt is a very rough estimator, e.g., Delayed-ACks
-can easily add 40 - 200ms fuzziness. Will this affect short flows?
+[ Cc'ing original mail to netdev as the problem may be recognized there ]
 
+On Wed, 29 Aug 2012, David Madore wrote:
+> Dear all,
+> 
+> I hope this is the right place to send this sort of backtrace dump.
+> 
+> I'm getting the following sort of dumps (below) on a 3.2.27 kernel on
+> an arm/kirkwood (actually DreamPlug) machine that's used as a router.
+> 
+> I imagine it being somehow related to the fact that it operates a
+> network bridge (I imagine this because I have another identical
+> machine with exactly the same kernel and a very similar config but not
+> running a bridge, and the warning never pops up).
+> 
+> Is this worth investigating?  (I will, of course, provide the config
+> file and any other relevant data if the answer is "yes".)  Is this
+> potentially serious?  (I'm getting hard lockups on this machine which
+> I suspect are due to hardware and unrelated to this, but if someone
+> tells me it could be the cause, I'd be more than happy to believe it.)
+> 
+> [24711.204492] ------------[ cut here ]------------
+> [24711.209151] WARNING: at mm/page_alloc.c:2109 __alloc_pages_nodemask+0x1d4/0x68c()
+> [24711.216667] Modules linked in: 8021q ath9k_htc mac80211 ath9k_common ath9k_hw ath cfg80211 bnep rfcomm sit tunnel4 sch_ingress cls_fw cls_u32 sch_sfq sch_htb pppoe pppox ppp_generic slhc bridge stp llc ip6t_REJECT ip6table_filter ip6table_mangle xt_NOTRACK ip6table_raw ip6_tables nf_conntrack_ipv6 nf_defrag_ipv6 nf_nat_ftp nf_conntrack_ftp ipt_REJECT xt_conntrack iptable_filter ipt_MASQUERADE iptable_nat nf_nat xt_TCPMSS xt_tcpudp xt_mark iptable_mangle ip_tables x_tables nf_conntrack_ipv4 nf_conntrack nf_defrag_ipv4 orion_wdt ipv6 snd_usb_audio snd_pcm snd_page_alloc snd_hwdep snd_usbmidi_lib snd_seq_midi snd_seq_midi_event snd_rawmidi btmrvl_sdio btmrvl snd_seq snd_timer snd_seq_device snd bluetooth soundcore
+> [24711.280663] [<c000d728>] (unwind_backtrace+0x0/0xf0) from [<c0022f74>] (warn_slowpath_common+0x50/0x68)
+> [24711.290124] [<c0022f74>] (warn_slowpath_common+0x50/0x68) from [<c0022fa8>] (warn_slowpath_null+0x1c/0x24)
+> [24711.299845] [<c0022fa8>] (warn_slowpath_null+0x1c/0x24) from [<c009caec>] (__alloc_pages_nodemask+0x1d4/0x68c)
+> [24711.309914] [<c009caec>] (__alloc_pages_nodemask+0x1d4/0x68c) from [<c009cfb4>] (__get_free_pages+0x10/0x3c)
+> [24711.319805] [<c009cfb4>] (__get_free_pages+0x10/0x3c) from [<c00c9fd0>] (kmalloc_order_trace+0x24/0xdc)
+> [24711.329269] [<c00c9fd0>] (kmalloc_order_trace+0x24/0xdc) from [<c038d638>] (pskb_expand_head+0x68/0x298)
+> [24711.338901] [<c038d638>] (pskb_expand_head+0x68/0x298) from [<bf0dd3ec>] (ip6_forward+0x4d4/0x7bc [ipv6])
+> [24711.348638] [<bf0dd3ec>] (ip6_forward+0x4d4/0x7bc [ipv6]) from [<bf0dfebc>] (ipv6_rcv+0x2bc/0x3dc [ipv6])
+> [24711.358333] [<bf0dfebc>] (ipv6_rcv+0x2bc/0x3dc [ipv6]) from [<c0394870>] (__netif_receive_skb+0x544/0x66c)
+> [24711.368106] [<c0394870>] (__netif_receive_skb+0x544/0x66c) from [<bf1cd054>] (br_nf_pre_routing_finish_ipv6+0x10c/0x160 [bridge])
+> [24711.379899] [<bf1cd054>] (br_nf_pre_routing_finish_ipv6+0x10c/0x160 [bridge]) from [<bf1cdae8>] (br_nf_pre_routing+0x59c/0x67c [bridge])
+> [24711.392271] [<bf1cdae8>] (br_nf_pre_routing+0x59c/0x67c [bridge]) from [<c03bd2a4>] (nf_iterate+0x8c/0xb4)
+> [24711.401988] [<c03bd2a4>] (nf_iterate+0x8c/0xb4) from [<c03bd328>] (nf_hook_slow+0x5c/0x118)
+> [24711.410540] [<c03bd328>] (nf_hook_slow+0x5c/0x118) from [<bf1c7fa4>] (br_handle_frame+0x1b8/0x290 [bridge])
+> [24711.420367] [<bf1c7fa4>] (br_handle_frame+0x1b8/0x290 [bridge]) from [<c03946f8>] (__netif_receive_skb+0x3cc/0x66c)
+> [24711.430872] [<c03946f8>] (__netif_receive_skb+0x3cc/0x66c) from [<c031e254>] (mv643xx_eth_poll+0x540/0x734)
+> [24711.440680] [<c031e254>] (mv643xx_eth_poll+0x540/0x734) from [<c0397390>] (net_rx_action+0x118/0x314)
+> [24711.449970] [<c0397390>] (net_rx_action+0x118/0x314) from [<c0029924>] (__do_softirq+0xac/0x234)
+> [24711.458817] [<c0029924>] (__do_softirq+0xac/0x234) from [<c0029f00>] (irq_exit+0x94/0x9c)
+> [24711.467046] [<c0029f00>] (irq_exit+0x94/0x9c) from [<c00094b0>] (handle_IRQ+0x34/0x84)
+> [24711.475007] [<c00094b0>] (handle_IRQ+0x34/0x84) from [<c04398d4>] (__irq_svc+0x34/0x98)
+> [24711.483068] [<c04398d4>] (__irq_svc+0x34/0x98) from [<c0011d6c>] (kirkwood_enter_idle+0x4c/0x94)
+> [24711.491908] [<c0011d6c>] (kirkwood_enter_idle+0x4c/0x94) from [<c0357a00>] (cpuidle_idle_call+0xc8/0x35c)
+> [24711.501532] [<c0357a00>] (cpuidle_idle_call+0xc8/0x35c) from [<c0009764>] (cpu_idle+0x88/0xdc)
+> [24711.510201] [<c0009764>] (cpu_idle+0x88/0xdc) from [<c05d8720>] (start_kernel+0x2a0/0x2f0)
+> [24711.518512] ---[ end trace e1776fbe32468909 ]---
 
->
-> Hmm, I also need to properly init default_interval after
-> codel_params_init(&q->cparams) :
->
->  net/sched/sch_fq_codel.c |   24 ++++++++++++++++++++++--
->  1 file changed, 22 insertions(+), 2 deletions(-)
->
-> diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-> index 9fc1c62..f04ff6a 100644
-> --- a/net/sched/sch_fq_codel.c
-> +++ b/net/sched/sch_fq_codel.c
-> @@ -25,6 +25,7 @@
->  #include <net/pkt_sched.h>
->  #include <net/flow_keys.h>
->  #include <net/codel.h>
-> +#include <linux/tcp.h>
->
->  /*     Fair Queue CoDel.
->   *
-> @@ -59,6 +60,7 @@ struct fq_codel_sched_data {
->         u32             perturbation;   /* hash perturbation */
->         u32             quantum;        /* psched_mtu(qdisc_dev(sch)); */
->         struct codel_params cparams;
-> +       codel_time_t    default_interval;
->         struct codel_stats cstats;
->         u32             drop_overlimit;
->         u32             new_flow_count;
-> @@ -211,6 +213,14 @@ static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->         return NET_XMIT_SUCCESS;
->  }
->
-> +/* Given TCP srtt evaluation, return codel interval.
-> + * srtt is given in jiffies, scaled by 8.
-> + */
-> +static codel_time_t tcp_srtt_to_codel(unsigned int srtt)
-> +{
-> +       return srtt * ((NSEC_PER_SEC >> (CODEL_SHIFT + 3)) / HZ);
-> +}
-> +
->  /* This is the specific function called from codel_dequeue()
->   * to dequeue a packet from queue. Note: backlog is handled in
->   * codel, we dont need to reduce it here.
-> @@ -220,12 +230,21 @@ static struct sk_buff *dequeue(struct codel_vars *vars, struct Qdisc *sch)
->         struct fq_codel_sched_data *q = qdisc_priv(sch);
->         struct fq_codel_flow *flow;
->         struct sk_buff *skb = NULL;
-> +       struct sock *sk;
->
->         flow = container_of(vars, struct fq_codel_flow, cvars);
->         if (flow->head) {
->                 skb = dequeue_head(flow);
->                 q->backlogs[flow - q->flows] -= qdisc_pkt_len(skb);
->                 sch->q.qlen--;
-> +               sk = skb->sk;
-> +               q->cparams.interval = q->default_interval;
-> +               if (sk && sk->sk_protocol == IPPROTO_TCP) {
-> +                       u32 srtt = tcp_sk(sk)->srtt;
-> +
-> +                       if (srtt)
-> +                               q->cparams.interval = tcp_srtt_to_codel(srtt);
-> +               }
->         }
->         return skb;
->  }
-> @@ -330,7 +349,7 @@ static int fq_codel_change(struct Qdisc *sch, struct nlattr *opt)
->         if (tb[TCA_FQ_CODEL_INTERVAL]) {
->                 u64 interval = nla_get_u32(tb[TCA_FQ_CODEL_INTERVAL]);
->
-> -               q->cparams.interval = (interval * NSEC_PER_USEC) >> CODEL_SHIFT;
-> +               q->default_interval = (interval * NSEC_PER_USEC) >> CODEL_SHIFT;
->         }
->
->         if (tb[TCA_FQ_CODEL_LIMIT])
-> @@ -395,6 +414,7 @@ static int fq_codel_init(struct Qdisc *sch, struct nlattr *opt)
->         INIT_LIST_HEAD(&q->new_flows);
->         INIT_LIST_HEAD(&q->old_flows);
->         codel_params_init(&q->cparams);
-> +       q->default_interval = q->cparams.interval;
->         codel_stats_init(&q->cstats);
->         q->cparams.ecn = true;
->
-> @@ -441,7 +461,7 @@ static int fq_codel_dump(struct Qdisc *sch, struct sk_buff *skb)
->             nla_put_u32(skb, TCA_FQ_CODEL_LIMIT,
->                         sch->limit) ||
->             nla_put_u32(skb, TCA_FQ_CODEL_INTERVAL,
-> -                       codel_time_to_us(q->cparams.interval)) ||
-> +                       codel_time_to_us(q->default_interval)) ||
->             nla_put_u32(skb, TCA_FQ_CODEL_ECN,
->                         q->cparams.ecn) ||
->             nla_put_u32(skb, TCA_FQ_CODEL_QUANTUM,
->
->
+Francois is right that a GFP_ATOMIC allocation from pskb_expand_head()
+is failing, which can easily happen, and cause your "failed to reallocate
+TX buffer" errors; but it's well worth looking up what's actually on
+lines 2108 and 2109 of mm/page_alloc.c in 3.2.27:
+
+	if (order >= MAX_ORDER) {
+		WARN_ON_ONCE(!(gfp_mask & __GFP_NOWARN));
+
+That was probably not a sane allocation request, it has gone out of range:
+maybe the skb header is even corrupted.  If you're lucky, it might be
+something that netdev will recognize as already fixed.
+
+Hugh
