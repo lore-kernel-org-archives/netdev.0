@@ -1,42 +1,50 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC v2] fq_codel : interval servo on hosts
-Date: Sat, 01 Sep 2012 05:51:24 -0700
-Message-ID: <1346503884.7996.65.camel@edumazet-glaptop>
-References: <1346396137.2586.301.camel@edumazet-glaptop>
-	<1346421031.2591.34.camel@edumazet-glaptop>
-	<1346421466.2591.38.camel@edumazet-glaptop>
-	<CAK6E8=cwpq0MVK6fcrOa=wTX237xQiVP2xzh0aX-AtuSmzt-sw@mail.gmail.com>
+Subject: [PATCH] fq_codel: dont reinit flow state
+Date: Sat, 01 Sep 2012 06:19:57 -0700
+Message-ID: <1346505597.7996.76.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Tomas Hruby <thruby@google.com>, Nandita Dukkipati <nanditad@google.com>,
-	netdev <netdev@vger.kernel.org>, codel@lists.bufferbloat.net
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <CAK6E8=cwpq0MVK6fcrOa=wTX237xQiVP2xzh0aX-AtuSmzt-sw@mail.gmail.com>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
-List-Post: <mailto:codel@lists.bufferbloat.net>
-List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
-Sender: codel-bounces@lists.bufferbloat.net
-Errors-To: codel-bounces@lists.bufferbloat.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, Dave Taht <dave.taht@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:40688 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751849Ab2IANT7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2012 09:19:59 -0400
+Received: by dady13 with SMTP id y13so2602514dad.19
+        for <netdev@vger.kernel.org>; Sat, 01 Sep 2012 06:19:59 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-08-31 at 18:37 -0700, Yuchung Cheng wrote:
+When fq_codel builds a new flow, it should not reset codel state.
 
-> Just curious: tp->srtt is a very rough estimator, e.g., Delayed-ACks
-> can easily add 40 - 200ms fuzziness. Will this affect short flows?
+Codel algo needs to get previous values (lastcount, drop_next) to get
+proper behavior.
 
-Good point
+Signed-off-by: Dave Taht <dave.taht@gmail.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/sched/sch_fq_codel.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Delayed acks shouldnt matter, because they happen when flow had been
-idle for a while.
-
-I guess we should clamp the srtt to the default interval
-
-if (srtt)
-	q->cparams.interval = min(tcp_srtt_to_codel(srtt),
-				  q->default_interval);
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index 9fc1c62..4e606fc 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -191,7 +191,6 @@ static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 
+ 	if (list_empty(&flow->flowchain)) {
+ 		list_add_tail(&flow->flowchain, &q->new_flows);
+-		codel_vars_init(&flow->cvars);
+ 		q->new_flow_count++;
+ 		flow->deficit = q->quantum;
+ 		flow->dropped = 0;
+@@ -418,6 +417,7 @@ static int fq_codel_init(struct Qdisc *sch, struct nlattr *opt)
+ 			struct fq_codel_flow *flow = q->flows + i;
+ 
+ 			INIT_LIST_HEAD(&flow->flowchain);
++			codel_vars_init(&flow->cvars);
+ 		}
+ 	}
+ 	if (sch->limit >= 1)
