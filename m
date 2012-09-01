@@ -1,52 +1,39 @@
-From: =?UTF-8?q?Dave=20T=C3=A4ht?= <dave.taht@bufferbloat.net>
-Subject: [PATCH] codel: reduce default maxpacket and reinitialize upon re-entering drop state
-Date: Sat,  1 Sep 2012 11:50:57 -0700
-Message-ID: <1346525457-31481-1-git-send-email-dave.taht@bufferbloat.net>
-Cc: Dave Taht <dave.taht@bufferbloat.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] fddi: 64 bit bug in smt_add_para()
+Date: Sat, 1 Sep 2012 12:57:40 -0700
+Message-ID: <20120901195740.GG20741@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lists.bufferbloat.net ([149.20.54.82]:56847 "EHLO
-	huchra.bufferbloat.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752261Ab2IATBh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2012 15:01:37 -0400
+Received: from acsinet15.oracle.com ([141.146.126.227]:36528 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755615Ab2IAT54 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2012 15:57:56 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dave Taht <dave.taht@bufferbloat.net>
+The intent was to set 4 bytes of data so that's why the sp_len is set
+to 4 on the next line.  The cast to u_long pointer clears 8 bytes
+on 64 bit arches.
 
-The minimum size packet in a queue is 64, not 256.
-
-Also, as ethtool can be used to remove tso/gso/ufo, the last seen
-maxpacket can vary considerably in size (e.g. 64k). So reset it
-on re-entering the drop scheduler to the most recent packet size,
-and let it grow again naturally.
-
-Signed-off-by: Dave Taht <dave.taht@bufferbloat.net>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 ---
- include/net/codel.h |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Code auditing work.  I don't have this hardware.  This bug is old.
 
-diff --git a/include/net/codel.h b/include/net/codel.h
-index 389cf62..0b0ac5e 100644
---- a/include/net/codel.h
-+++ b/include/net/codel.h
-@@ -170,7 +170,7 @@ static void codel_vars_init(struct codel_vars *vars)
- 
- static void codel_stats_init(struct codel_stats *stats)
- {
--	stats->maxpacket = 256;
-+	stats->maxpacket = 64;
- }
- 
- /*
-@@ -333,6 +333,7 @@ static struct sk_buff *codel_dequeue(struct Qdisc *sch,
- 			 */
- 			codel_Newton_step(vars);
- 		} else {
-+			stats->maxpacket = skb ? qdisc_pkt_len(skb) : 64;
- 			vars->count = 1;
- 			vars->rec_inv_sqrt = ~0U >> REC_INV_SQRT_SHIFT;
- 		}
--- 
-1.7.9.5
+diff --git a/drivers/net/fddi/skfp/pmf.c b/drivers/net/fddi/skfp/pmf.c
+index 24d8566..441b4dc 100644
+--- a/drivers/net/fddi/skfp/pmf.c
++++ b/drivers/net/fddi/skfp/pmf.c
+@@ -673,7 +673,7 @@ void smt_add_para(struct s_smc *smc, struct s_pcon *pcon, u_short para,
+ 			sm_pm_get_ls(smc,port_to_mib(smc,port))) ;
+ 		break ;
+ 	case SMT_P_REASON :
+-		* (u_long *) to = 0 ;
++		*(u32 *)to = 0 ;
+ 		sp_len = 4 ;
+ 		goto sp_done ;
+ 	case SMT_P1033 :			/* time stamp */
