@@ -1,73 +1,91 @@
-From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: [PATCH v3 1/2] 6lowpan: Make a copy of skb's
-	delivered to 6lowpan
-Date: Sat,  1 Sep 2012 11:57:06 -0400
-Message-ID: <1346515027-5237-2-git-send-email-alan@signal11.us>
-References: <1346294341-26808-1-git-send-email-alan@signal11.us>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: [PATCH] fq_codel: dont reinit flow state
+Date: Sat, 1 Sep 2012 11:12:29 -0700
+Message-ID: <CAA93jw6mdAaomNfNWt0D4MZYFqXZ3=P+HYe9AEkvwNkAH84GSQ@mail.gmail.com>
+References: <1346505597.7996.76.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1346294341-26808-1-git-send-email-alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:36381 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755572Ab2IASMb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2012 14:12:31 -0400
+Received: by wgbdr13 with SMTP id dr13so3427408wgb.1
+        for <netdev@vger.kernel.org>; Sat, 01 Sep 2012 11:12:30 -0700 (PDT)
+In-Reply-To: <1346505597.7996.76.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since lowpan_process_data() modifies the skb (by calling skb_pull()), we
-need our own copy so that it doesn't affect the data received by other
-protcols (in this case, af_ieee802154).
+partial NAK.
 
-Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
----
- net/ieee802154/6lowpan.c |    9 ++++++++-
- 1 files changed, 8 insertions(+), 1 deletions(-)
+There is no need to reset dropped either, and resetting quantum or not
+is an interesting question.
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 6a09522..b28ec79 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -1133,6 +1133,8 @@ static int lowpan_validate(struct nlattr *tb[], struct nlattr *data[])
- static int lowpan_rcv(struct sk_buff *skb, struct net_device *dev,
- 	struct packet_type *pt, struct net_device *orig_dev)
- {
-+	struct sk_buff *local_skb;
-+
- 	if (!netif_running(dev))
- 		goto drop;
- 
-@@ -1144,7 +1146,12 @@ static int lowpan_rcv(struct sk_buff *skb, struct net_device *dev,
- 	case LOWPAN_DISPATCH_IPHC:	/* ipv6 datagram */
- 	case LOWPAN_DISPATCH_FRAG1:	/* first fragment header */
- 	case LOWPAN_DISPATCH_FRAGN:	/* next fragments headers */
--		lowpan_process_data(skb);
-+		local_skb = skb_clone(skb, GFP_ATOMIC);
-+		if (!local_skb)
-+			goto drop;
-+		lowpan_process_data(local_skb);
-+
-+		kfree_skb(skb);
- 		break;
- 	default:
- 		break;
--- 
-1.7.0.4
+(in both cases they can be initted at init time)
+
+Lastly, stats->maxpacket is presently a shared resource in fq_codel,
+and the initial setting of 256 was an artifact some test ns2 code
+(according to kathie). In the case of ack traffic owning a queue, this
+can be 64 or 66 bytes (or larger on ipv6 acks).
+
+It's totally unclear if this distinction is important in fq_codel at
+present. :/. Obviously in codel which is a pure FIFO, maxpacket will
+hit the max size really fast.
+
+A related problem on maxpacket is if someone turns off tso/gso/ufo, it
+remains set to the largest packet seen forever until the qdisc is
+re-initialized.
+This leads to really puzzling behavior... (I'll submit a patch for
+this shortly but not change fq_codel's
+centralized stats)
+
+I'd be happy (for now) if dropped was preserved,
+and to fiddle with the other ideas a while longer.
+
+On Sat, Sep 1, 2012 at 6:19 AM, Eric Dumazet <eric.dumazet@gmail.com> w=
+rote:
+> When fq_codel builds a new flow, it should not reset codel state.
+>
+> Codel algo needs to get previous values (lastcount, drop_next) to get
+> proper behavior.
+>
+> Signed-off-by: Dave Taht <dave.taht@gmail.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/sched/sch_fq_codel.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+> index 9fc1c62..4e606fc 100644
+> --- a/net/sched/sch_fq_codel.c
+> +++ b/net/sched/sch_fq_codel.c
+> @@ -191,7 +191,6 @@ static int fq_codel_enqueue(struct sk_buff *skb, =
+struct Qdisc *sch)
+>
+>         if (list_empty(&flow->flowchain)) {
+>                 list_add_tail(&flow->flowchain, &q->new_flows);
+> -               codel_vars_init(&flow->cvars);
+>                 q->new_flow_count++;
+>                 flow->deficit =3D q->quantum;
+>                 flow->dropped =3D 0;
+> @@ -418,6 +417,7 @@ static int fq_codel_init(struct Qdisc *sch, struc=
+t nlattr *opt)
+>                         struct fq_codel_flow *flow =3D q->flows + i;
+>
+>                         INIT_LIST_HEAD(&flow->flowchain);
+> +                       codel_vars_init(&flow->cvars);
+>                 }
+>         }
+>         if (sch->limit >=3D 1)
+>
+>
 
 
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+
+--=20
+Dave T=E4ht
+http://www.bufferbloat.net/projects/cerowrt/wiki - "3.3.8-17 is out
+with fq_codel!"
