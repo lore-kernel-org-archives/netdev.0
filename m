@@ -1,41 +1,42 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: kernel 3.2.27 on arm: WARNING: at mm/page_alloc.c:2109 __alloc_pages_nodemask+0x1d4/0x68c()
-Date: Sat, 1 Sep 2012 10:20:18 +0200
-Message-ID: <20120901082018.GA16762@electric-eye.fr.zoreil.com>
-References: <20120829002548.GA7063@aldebaran.gro-tsen.net> <alpine.LSU.2.00.1208311900330.1936@eggly.anvils>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC v2] fq_codel : interval servo on hosts
+Date: Sat, 01 Sep 2012 05:51:24 -0700
+Message-ID: <1346503884.7996.65.camel@edumazet-glaptop>
+References: <1346396137.2586.301.camel@edumazet-glaptop>
+	<1346421031.2591.34.camel@edumazet-glaptop>
+	<1346421466.2591.38.camel@edumazet-glaptop>
+	<CAK6E8=cwpq0MVK6fcrOa=wTX237xQiVP2xzh0aX-AtuSmzt-sw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Madore <david+ml@madore.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Hugh Dickins <hughd@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LSU.2.00.1208311900330.1936@eggly.anvils>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Tomas Hruby <thruby@google.com>, Nandita Dukkipati <nanditad@google.com>,
+	netdev <netdev@vger.kernel.org>, codel@lists.bufferbloat.net
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <codel-bounces@lists.bufferbloat.net>
+In-Reply-To: <CAK6E8=cwpq0MVK6fcrOa=wTX237xQiVP2xzh0aX-AtuSmzt-sw@mail.gmail.com>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
+List-Post: <mailto:codel@lists.bufferbloat.net>
+List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
+Sender: codel-bounces@lists.bufferbloat.net
+Errors-To: codel-bounces@lists.bufferbloat.net
 List-Id: netdev.vger.kernel.org
 
-Hugh Dickins <hughd@google.com> :
-> [ Cc'ing original mail to netdev as the problem may be recognized there ]
-[...]
-> Francois is right that a GFP_ATOMIC allocation from pskb_expand_head()
-> is failing, which can easily happen, and cause your "failed to reallocate
-> TX buffer" errors; but it's well worth looking up what's actually on
-> lines 2108 and 2109 of mm/page_alloc.c in 3.2.27:
-> 
-> 	if (order >= MAX_ORDER) {
-> 		WARN_ON_ONCE(!(gfp_mask & __GFP_NOWARN));
+On Fri, 2012-08-31 at 18:37 -0700, Yuchung Cheng wrote:
 
-You are right. The wifi Tx path error is not related.
+> Just curious: tp->srtt is a very rough estimator, e.g., Delayed-ACks
+> can easily add 40 - 200ms fuzziness. Will this affect short flows?
 
-I overlooked it was using SLUB btw.
+Good point
 
-> That was probably not a sane allocation request, it has gone out of range:
-> maybe the skb header is even corrupted.  If you're lucky, it might be
-> something that netdev will recognize as already fixed.
+Delayed acks shouldnt matter, because they happen when flow had been
+idle for a while.
 
-Afaics nothing related to mv643xx_eth.c, nor pskb_expand_head nor
-ip6_forward, at least nothing trivially close. Eric may provide a
-better answer.
+I guess we should clamp the srtt to the default interval
 
--- 
-Ueimor
+if (srtt)
+	q->cparams.interval = min(tcp_srtt_to_codel(srtt),
+				  q->default_interval);
