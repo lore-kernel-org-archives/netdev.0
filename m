@@ -1,55 +1,41 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH -next v1] wireless: ath9k-htc: only load firmware in need
-Date: Sat, 1 Sep 2012 13:11:32 +0800
-Message-ID: <CACVXFVPX1NB5uJ6yXkNbDWoX4OVdYfRU_=tsWC529-tH+3WfDA@mail.gmail.com>
-References: <1345536267-9449-1-git-send-email-ming.lei@canonical.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: kernel 3.2.27 on arm: WARNING: at mm/page_alloc.c:2109 __alloc_pages_nodemask+0x1d4/0x68c()
+Date: Sat, 1 Sep 2012 10:20:18 +0200
+Message-ID: <20120901082018.GA16762@electric-eye.fr.zoreil.com>
+References: <20120829002548.GA7063@aldebaran.gro-tsen.net> <alpine.LSU.2.00.1208311900330.1936@eggly.anvils>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org,
-	"Luis R. Rodriguez" <mcgrof-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Jouni Malinen <jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Vasanthakumar Thiagarajan <vthiagar-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Senthil Balasubramanian <senthilb-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1345536267-9449-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Madore <david+ml@madore.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Hugh Dickins <hughd@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LSU.2.00.1208311900330.1936@eggly.anvils>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 21, 2012 at 4:04 PM, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
-> It is not necessary to hold the firmware memory during the whole
-> driver lifetime, and obviously it does waste memory. Suppose there
-> are 4 ath9k-htc usb dongles working, kernel has to consume about
-> 4*50KBytes RAM to cache firmware for all dongles. After applying the
-> patch, kernel only caches one single firmware image in RAM for
-> all ath9k-htc devices just during system suspend/resume cycle.
->
-> When system is ready for loading firmware, ath9k-htc can request
-> the loading from usersapce. During system resume, ath9k-htc still
-> can load the firmware which was cached in kernel memory before
-> system suspend.
->
-> Cc: ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org
-> Cc: "Luis R. Rodriguez" <mcgrof-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-> Cc: Jouni Malinen <jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-> Cc: Vasanthakumar Thiagarajan <vthiagar-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-> Cc: Senthil Balasubramanian <senthilb-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-> Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> ---
-> v1:
->         fix double free of firmware in failue path of
->         ath9k_hif_usb_firmware_cb
+Hugh Dickins <hughd@google.com> :
+> [ Cc'ing original mail to netdev as the problem may be recognized there ]
+[...]
+> Francois is right that a GFP_ATOMIC allocation from pskb_expand_head()
+> is failing, which can easily happen, and cause your "failed to reallocate
+> TX buffer" errors; but it's well worth looking up what's actually on
+> lines 2108 and 2109 of mm/page_alloc.c in 3.2.27:
+> 
+> 	if (order >= MAX_ORDER) {
+> 		WARN_ON_ONCE(!(gfp_mask & __GFP_NOWARN));
 
-Gentle ping, :-)
+You are right. The wifi Tx path error is not related.
 
+I overlooked it was using SLUB btw.
 
-Thanks,
---
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> That was probably not a sane allocation request, it has gone out of range:
+> maybe the skb header is even corrupted.  If you're lucky, it might be
+> something that netdev will recognize as already fixed.
+
+Afaics nothing related to mv643xx_eth.c, nor pskb_expand_head nor
+ip6_forward, at least nothing trivially close. Eric may provide a
+better answer.
+
+-- 
+Ueimor
