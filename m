@@ -1,48 +1,59 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] nl80211: [PATCH] nl80211: fix possible memory leak nl80211_connect()
-Date: Sun, 2 Sep 2012 21:41:04 +0800
-Message-ID: <CAPgLHd_ykxWnV82swesivdEkyqP+a+hBgTTT8SXwn9RYWR1HFA@mail.gmail.com>
+From: Sami Farin <hvtaifwkbgefbaei@gmail.com>
+Subject: Re: (ipt_log_packet, sb_add) 3.6.0-rc2 kernel panic - not syncing;
+ Fatal exception in interrupt
+Date: Sun, 2 Sep 2012 16:45:56 +0300
+Message-ID: <20120902134555.clpvegu4oirikwpn@m.safari.iki.fi>
+References: <20120821134921.behn76vzvhczf3gc@m.safari.iki.fi>
+ <20120902122008.jgdhwowbuke6by7h@m.safari.iki.fi>
+ <20120902132834.GB7456@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: johannes@sipsolutions.net, linville@tuxdriver.com,
-	davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Sami Farin <hvtaifwkbgefbaei@gmail.com>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:44994 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751098Ab2IBNlF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Sep 2012 09:41:05 -0400
+Received: from smtp.kponet.fi ([213.145.209.38]:47407 "EHLO smtp.kponet.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752762Ab2IBNp5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Sep 2012 09:45:57 -0400
+Received: from safari.iki.fi (unknown [77.223.43.54])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by smtp.kponet.fi (Postfix) with ESMTP id 6B23CDAE31
+	for <netdev@vger.kernel.org>; Sun,  2 Sep 2012 16:45:56 +0300 (EEST)
+Content-Disposition: inline
+In-Reply-To: <20120902132834.GB7456@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Sun, Sep 02, 2012 at 15:28:34 +0200, Florian Westphal wrote:
+> Sami Farin <hvtaifwkbgefbaei@gmail.com> wrote:
+> > I get this panic every 1-2 days.
+> > Also with 7a611e69b26069a511d9d5251c6a28af6c521121 (commit before 3.6.0-rc4).
+> 
+> Could you please post iptables-save output?
+> My guess is you're using NFLOG in INPUT?
 
-connkeys is malloced in nl80211_parse_connkeys() and should
-be freed in the error handling case, otherwise it will cause
-memory leak.
+I don't have NFLOG but I have some like this
+-j LOG --log-tcp-options --log-ip-options --log-uid --log-macdecode
+I also have CONFIG_IP_ROUTE_CLASSID=y , using also htb + fq_codel.
 
-spatch with a semantic match is used to found this problem.
-(http://coccinelle.lip6.fr/)
+using these ipt* modules
+ipt_ECN                 1849  1 
+ipt_REJECT              2661  12 
+iptable_filter          1650  1 
+iptable_mangle          1631  1 
+iptable_raw             1422  1 
+ip_tables              17482  3 iptable_filter,iptable_mangle,iptable_raw
+x_tables               20149  26 ip6table_filter,arp_tables,ip6table_mangle,xt_length,ip_tables,xt_tcpudp,arptable_filter,xt_limit,xt_owner,xt_state,xt_connlimit,xt_conntrack,xt_NOTRACK,xt_LOG,xt_set,xt_hashlimit,xt_multiport,iptable_filter,xt_CLASSIFY,ip6t_rt,xt_connmark,ipt_REJECT,iptable_mangle,ipt_ECN,ip6_tables,iptable_raw
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- net/wireless/nl80211.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+> If so, I bet its caused by the tcp early demux stuff.
+> Does that crash go away with ip_early_demux sysctl off?
 
-diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-index 97026f3..1e37dbf 100644
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@ -5633,8 +5633,10 @@ static int nl80211_connect(struct sk_buff *skb, struct genl_info *info)
- 		       sizeof(connect.ht_capa_mask));
+I try that, thanks!
  
- 	if (info->attrs[NL80211_ATTR_HT_CAPABILITY]) {
--		if (!info->attrs[NL80211_ATTR_HT_CAPABILITY_MASK])
-+		if (!info->attrs[NL80211_ATTR_HT_CAPABILITY_MASK]) {
-+			kfree(connkeys);
- 			return -EINVAL;
-+		}
- 		memcpy(&connect.ht_capa,
- 		       nla_data(info->attrs[NL80211_ATTR_HT_CAPABILITY]),
- 		       sizeof(connect.ht_capa));
+> My guess is its assigning skb->sk with TIMEWAIT sockets, which
+> would explain the crash.
+
+-- 
+Do what you love because life is too short for anything else.
