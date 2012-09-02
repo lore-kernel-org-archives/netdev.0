@@ -1,74 +1,74 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] NFC: fix possible memory leak
-Date: Sun, 2 Sep 2012 21:21:46 +0800
-Message-ID: <CAPgLHd_sD6NYc=Dj4yJpHY0yLBuDmQx=upQY=XQLi-9kTycK-Q@mail.gmail.com>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [PATCH 1/2] ipv4: Improve the scaling of the ARP cache for multicast
+ destinations.
+Date: Sun, 02 Sep 2012 15:26:03 +0200
+Message-ID: <50435E6B.5040007@gmail.com>
+References: <50400B68.3060302@aristanetworks.com> <20120830.210628.365120808137655227.davem@davemloft.net> <50410EB8.3040603@aristanetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
-	sameo@linux.intel.com, davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Bob Gilligan <gilligan@aristanetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:42252 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752063Ab2IBNVr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Sep 2012 09:21:47 -0400
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:37208 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752063Ab2IBNYq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Sep 2012 09:24:46 -0400
+Received: by eekc1 with SMTP id c1so1683531eek.19
+        for <netdev@vger.kernel.org>; Sun, 02 Sep 2012 06:24:45 -0700 (PDT)
+In-Reply-To: <50410EB8.3040603@aristanetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Le 31/08/2012 21:21, Bob Gilligan a =E9crit :
+> On 8/30/12 6:06 PM, David Miller wrote:
+>> From: Bob Gilligan<gilligan@aristanetworks.com>
+>> Date: Thu, 30 Aug 2012 17:55:04 -0700
+>>
+>>> The mapping from multicast IPv4 address to MAC address can just as
+>>> easily be done at the time a packet is to be sent.  With this chang=
+e,
+>>> we maintain one ARP cache entry for each interface that has at leas=
+t
+>>> one multicast group member.  All routes to IPv4 multicast destinati=
+ons
+>>> via a particular interface use the same ARP cache entry.  This entr=
+y
+>>> does not store the MAC address to use.  Instead, packets for multic=
+ast
+>>> destinations go to a new output function that maps the destination
+>>> IPv4 multicast address into the MAC address and forms the MAC heade=
+r.
+>>
+>> Doing an ARP MC mapping on every packet is much more expensive than
+>> doing a copy of the hard header cache.
+>>
+>> I do not believe the memory consumption issue you use to justify thi=
+s
+>> change is a real issue.
 
-nfc_llcp_build_tlv() malloced the memory and should be free in
-nfc_llcp_build_gb() after used, and the same in the error handling
-case, otherwise it will cause memory leak.
+My two cents:
 
-spatch with a semantic match is used to found this problem.
-(http://coccinelle.lip6.fr/)
+Why do we need a per interface neighbor cache for multicast? Isn't the =
+target MAC expected to be the=20
+same for a give target multicast IP address, whatever the egress interf=
+ace?
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- net/nfc/llcp/llcp.c | 14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+Can't we store the target MAC for multicast address on a neighbor cache=
+ entry with a fake dev value=20
+meaning "multicast"?
 
-diff --git a/net/nfc/llcp/llcp.c b/net/nfc/llcp/llcp.c
-index 82f0f75..8152973 100644
---- a/net/nfc/llcp/llcp.c
-+++ b/net/nfc/llcp/llcp.c
-@@ -426,6 +426,7 @@ static int nfc_llcp_build_gb(struct nfc_llcp_local *local)
- 	u8 *miux_tlv, miux_length;
- 	__be16 miux;
- 	u8 gb_len = 0;
-+	int ret = 0;
- 
- 	version = LLCP_VERSION_11;
- 	version_tlv = nfc_llcp_build_tlv(LLCP_TLV_VERSION, &version,
-@@ -450,8 +451,8 @@ static int nfc_llcp_build_gb(struct nfc_llcp_local *local)
- 	gb_len += ARRAY_SIZE(llcp_magic);
- 
- 	if (gb_len > NFC_MAX_GT_LEN) {
--		kfree(version_tlv);
--		return -EINVAL;
-+		ret = -EINVAL;
-+		goto out;
- 	}
- 
- 	gb_cur = local->gb;
-@@ -471,12 +472,15 @@ static int nfc_llcp_build_gb(struct nfc_llcp_local *local)
- 	memcpy(gb_cur, miux_tlv, miux_length);
- 	gb_cur += miux_length;
- 
-+	local->gb_len = gb_len;
-+
-+out:
- 	kfree(version_tlv);
- 	kfree(lto_tlv);
-+	kfree(wks_tlv);
-+	kfree(miux_tlv);
- 
--	local->gb_len = gb_len;
--
--	return 0;
-+	return ret;
- }
- 
- u8 *nfc_llcp_general_bytes(struct nfc_dev *dev, size_t *general_bytes_len)
+Can't we detect the fact that the IP destination address is multicast a=
+nd search only the neighbor=20
+cache entries that have this fake dev value, instead of the egress inte=
+rface?
+
+This should reduce memory consumption (not N-squared anymore) without s=
+ignificantly increasing the=20
+CPU usage.
+
+Do I miss something?
+
+	Nicolas.
