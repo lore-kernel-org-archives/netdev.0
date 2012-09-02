@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] fddi: 64 bit bug in smt_add_para()
-Date: Sat, 01 Sep 2012 22:46:13 -0400 (EDT)
-Message-ID: <20120901.224613.2151709083178612132.davem@davemloft.net>
-References: <20120901195740.GG20741@mwanda>
+Subject: Re: [PATCH v3 0/2] 6lowpan fixes
+Date: Sat, 01 Sep 2012 22:48:58 -0400 (EDT)
+Message-ID: <20120901.224858.1302164250000326522.davem@davemloft.net>
+References: <1346294341-26808-1-git-send-email-alan@signal11.us>
+	<1346515027-5237-1-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35777 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755828Ab2IBCqR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2012 22:46:17 -0400
-In-Reply-To: <20120901195740.GG20741@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	tony.cheneau@amnesiak.org,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: alan@signal11.us
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1346515027-5237-1-git-send-email-alan@signal11.us>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Sat, 1 Sep 2012 12:57:40 -0700
+From: Alan Ott <alan@signal11.us>
+Date: Sat,  1 Sep 2012 11:57:05 -0400
 
-> The intent was to set 4 bytes of data so that's why the sp_len is set
-> to 4 on the next line.  The cast to u_long pointer clears 8 bytes
-> on 64 bit arches.
+> v3 of this patch changes skb_copy() to skb_clone() in patch #1 at the
+> recommendation of Eric Dumazet
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Alan Ott (2):
+>   6lowpan: Make a copy of skb's delivered to 6lowpan
+>   6lowpan: handle NETDEV_UNREGISTER event
 
-Obvious enough, applied, thanks Dan.
+All applied to net-next, thanks.
