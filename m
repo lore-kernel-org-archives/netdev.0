@@ -1,86 +1,62 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] fq_codel: dont reinit flow state
-Date: Mon, 03 Sep 2012 01:17:40 +0200
-Message-ID: <1346627860.2563.64.camel@edumazet-glaptop>
-References: <1346505597.7996.76.camel@edumazet-glaptop>
-	 <CAA93jw6mdAaomNfNWt0D4MZYFqXZ3=P+HYe9AEkvwNkAH84GSQ@mail.gmail.com>
+Subject: Re: (ipt_log_packet, sb_add) 3.6.0-rc2 kernel panic -
+ not syncing; Fatal exception in interrupt
+Date: Mon, 03 Sep 2012 01:37:58 +0200
+Message-ID: <1346629078.2563.75.camel@edumazet-glaptop>
+References: <20120821134921.behn76vzvhczf3gc@m.safari.iki.fi>
+	<20120902122008.jgdhwowbuke6by7h@m.safari.iki.fi>
+	<20120902132834.GB7456@breakpoint.cc>
+	<1346626385.2563.44.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Dave Taht <dave.taht@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:46894 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755173Ab2IBXRq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Sep 2012 19:17:46 -0400
-Received: by wibhq12 with SMTP id hq12so2848250wib.1
-        for <netdev@vger.kernel.org>; Sun, 02 Sep 2012 16:17:45 -0700 (PDT)
-In-Reply-To: <CAA93jw6mdAaomNfNWt0D4MZYFqXZ3=P+HYe9AEkvwNkAH84GSQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sami Farin <hvtaifwkbgefbaei@gmail.com>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
+To: Florian Westphal <fw@strlen.de>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1346626385.2563.44.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2012-09-01 at 11:12 -0700, Dave Taht wrote:
-> partial NAK.
+On Mon, 2012-09-03 at 00:53 +0200, Eric Dumazet wrote:
 
-
-Kind of weird to NACK a patch you are the author.
-
-It makes both of us plain fools on netdev, dont do that.
-
-
-
-> There is no need to reset dropped either, and resetting quantum or not
-> is an interesting question.
+> First I thought changing demux to not do the lookup of TIMEWAIT slot in
+> __inet_lookup_established(), then it sounds not optimal to redo the full
+> lookup for ESTABLISHED sockets later in TCP stack.
 > 
-
-Yes but totally unrelated to this patch.
-
-It would be good you pollute threads.
-
-Open a new thread, using RFC attribute or something.
-
-> (in both cases they can be initted at init time)
+> So it seems we should fix xt_LOG instead
 > 
-> Lastly, stats->maxpacket is presently a shared resource in fq_codel,
-> and the initial setting of 256 was an artifact some test ns2 code
-> (according to kathie). In the case of ack traffic owning a queue, this
-> can be 64 or 66 bytes (or larger on ipv6 acks).
+> Thanks Florian !
 > 
-
-I really hope you understand how this maxpacket thing is useless ?
-
-In the real life, we dont send only 66 bytes packets.
-
-maxpacket purpose is to relax codel so that it doesnt drop packet if
-the qdisc backlog is small (so about to be empty).
-
-Rename this maxpacket to 'relax_codel_under_that_size' if you want to.
-
-> It's totally unclear if this distinction is important in fq_codel at
-> present. :/. Obviously in codel which is a pure FIFO, maxpacket will
-> hit the max size really fast.
+> [PATCH] xt_LOG: take care of timewait sockets
 > 
-> A related problem on maxpacket is if someone turns off tso/gso/ufo, it
-> remains set to the largest packet seen forever until the qdisc is
-> re-initialized.
-> This leads to really puzzling behavior... (I'll submit a patch for
-> this shortly but not change fq_codel's
-> centralized stats)
+> Sami Farin reported crashes in xt_LOG because it assumes skb->sk is a
+> full blown socket.
 > 
-> I'd be happy (for now) if dropped was preserved,
-> and to fiddle with the other ideas a while longer.
-> 
+> But with TCP early demux, we can have skb->sk pointing to a timewait
+> socket.
 
-There is no dropped field, what are you talking about ?
+Seems other fixes are needed, for example in nfnetlink_log.c
 
-If you are now unsure of the patch, I can repost the same patch but
-as the author.
+I'll send a v2
 
-Its a real obvious one. After an idle period, CODEL needs to compute the
-delay between now and previous 'drop_next'
 
-Codel doesnt call codel_vars_init() but in the qdisc init.
 
-fq_codel being FQ + CODEL, it is an error to call codel_vars_init()
-outside of init path.
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
