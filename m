@@ -1,48 +1,103 @@
 From: pablo@netfilter.org
-Subject: [PATCH 25/25] netfilter: properly annotate ipv4_netfilter_{init,fini}()
-Date: Tue,  4 Sep 2012 01:54:12 +0200
-Message-ID: <1346716452-3080-26-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 24/25] netfilter: pass 'nf_hook_ops' instead of 'list_head' to nf_queue()
+Date: Tue,  4 Sep 2012 01:54:11 +0200
+Message-ID: <1346716452-3080-25-git-send-email-pablo@netfilter.org>
 References: <1346716452-3080-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:37187 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:37184 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932092Ab2ICX4L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Sep 2012 19:56:11 -0400
+	id S1756622Ab2ICX4J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Sep 2012 19:56:09 -0400
 In-Reply-To: <1346716452-3080-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Beulich <JBeulich@suse.com>
+From: Michael Wang <wangyun@linux.vnet.ibm.com>
 
-Despite being just a few bytes of code, they should still have proper
-annotations.
+Since 'list_for_each_continue_rcu' has already been replaced by
+'list_for_each_entry_continue_rcu', pass 'list_head' to nf_queue() as a
+parameter can not benefit us any more.
 
-Signed-off-by: Jan Beulich <jbeulich@suse.com>
+This patch will replace 'list_head' with 'nf_hook_ops' as the parameter of
+nf_queue() and __nf_queue() to save code.
+
+Signed-off-by: Michael Wang <wangyun@linux.vnet.ibm.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/netfilter/core.c         |    4 ++--
+ net/netfilter/nf_internals.h |    2 +-
+ net/netfilter/nf_queue.c     |    8 ++++----
+ 3 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
-index f1643c0..4c0cf63 100644
---- a/net/ipv4/netfilter.c
-+++ b/net/ipv4/netfilter.c
-@@ -188,12 +188,12 @@ static const struct nf_afinfo nf_ip_afinfo = {
- 	.route_key_size		= sizeof(struct ip_rt_info),
- };
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index 0b119d9..68912dad 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -189,8 +189,8 @@ next_hook:
+ 		if (ret == 0)
+ 			ret = -EPERM;
+ 	} else if ((verdict & NF_VERDICT_MASK) == NF_QUEUE) {
+-		int err = nf_queue(skb, &elem->list, pf, hook, indev, outdev,
+-					okfn, verdict >> NF_VERDICT_QBITS);
++		int err = nf_queue(skb, elem, pf, hook, indev, outdev, okfn,
++						verdict >> NF_VERDICT_QBITS);
+ 		if (err < 0) {
+ 			if (err == -ECANCELED)
+ 				goto next_hook;
+diff --git a/net/netfilter/nf_internals.h b/net/netfilter/nf_internals.h
+index 2886231..3deec99 100644
+--- a/net/netfilter/nf_internals.h
++++ b/net/netfilter/nf_internals.h
+@@ -24,7 +24,7 @@ extern unsigned int nf_iterate(struct list_head *head,
  
--static int ipv4_netfilter_init(void)
-+static int __init ipv4_netfilter_init(void)
- {
- 	return nf_register_afinfo(&nf_ip_afinfo);
- }
+ /* nf_queue.c */
+ extern int nf_queue(struct sk_buff *skb,
+-		    struct list_head *elem,
++		    struct nf_hook_ops *elem,
+ 		    u_int8_t pf, unsigned int hook,
+ 		    struct net_device *indev,
+ 		    struct net_device *outdev,
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index 29fe102..8d2cf9e 100644
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -118,7 +118,7 @@ static void nf_queue_entry_release_refs(struct nf_queue_entry *entry)
+  * through nf_reinject().
+  */
+ static int __nf_queue(struct sk_buff *skb,
+-		      struct list_head *elem,
++		      struct nf_hook_ops *elem,
+ 		      u_int8_t pf, unsigned int hook,
+ 		      struct net_device *indev,
+ 		      struct net_device *outdev,
+@@ -155,7 +155,7 @@ static int __nf_queue(struct sk_buff *skb,
  
--static void ipv4_netfilter_fini(void)
-+static void __exit ipv4_netfilter_fini(void)
- {
- 	nf_unregister_afinfo(&nf_ip_afinfo);
- }
+ 	*entry = (struct nf_queue_entry) {
+ 		.skb	= skb,
+-		.elem	= list_entry(elem, struct nf_hook_ops, list),
++		.elem	= elem,
+ 		.pf	= pf,
+ 		.hook	= hook,
+ 		.indev	= indev,
+@@ -225,7 +225,7 @@ static void nf_bridge_adjust_segmented_data(struct sk_buff *skb)
+ #endif
+ 
+ int nf_queue(struct sk_buff *skb,
+-	     struct list_head *elem,
++	     struct nf_hook_ops *elem,
+ 	     u_int8_t pf, unsigned int hook,
+ 	     struct net_device *indev,
+ 	     struct net_device *outdev,
+@@ -323,7 +323,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+ 		local_bh_enable();
+ 		break;
+ 	case NF_QUEUE:
+-		err = __nf_queue(skb, &elem->list, entry->pf, entry->hook,
++		err = __nf_queue(skb, elem, entry->pf, entry->hook,
+ 				 entry->indev, entry->outdev, entry->okfn,
+ 				 verdict >> NF_VERDICT_QBITS);
+ 		if (err < 0) {
 -- 
 1.7.10.4
