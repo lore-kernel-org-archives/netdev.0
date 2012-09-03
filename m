@@ -1,46 +1,51 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH 3/3] tcp: use PRR to reduce cwin in CWR state
-Date: Mon, 3 Sep 2012 00:00:44 -0400
-Message-ID: <CADVnQyma09UtSLusyQ6986uz2yfy-3xZ+mXrHfn1A2HO+3=X_g@mail.gmail.com>
-References: <1346643484-12947-1-git-send-email-ycheng@google.com>
-	<1346643484-12947-3-git-send-email-ycheng@google.com>
+From: Yi Li <lovelylich@gmail.com>
+Subject: Question: routing packets via specific router in LAN?
+Date: Mon, 03 Sep 2012 14:04:48 +0800
+Message-ID: <50444880.8080703@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Matt Mathis <mattmathis@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:56054 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750818Ab2ICEAo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 00:00:44 -0400
-Received: by iahk25 with SMTP id k25so3716928iah.19
-        for <netdev@vger.kernel.org>; Sun, 02 Sep 2012 21:00:44 -0700 (PDT)
-In-Reply-To: <1346643484-12947-3-git-send-email-ycheng@google.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:42036 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755845Ab2ICGEw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 02:04:52 -0400
+Received: by pbbrr13 with SMTP id rr13so7593355pbb.19
+        for <netdev@vger.kernel.org>; Sun, 02 Sep 2012 23:04:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 2, 2012 at 11:38 PM, Yuchung Cheng <ycheng@google.com> wrote:
-> Use proportional rate reduction (PRR) algorithm to reduce cwnd in CWR state,
-> in addition to Recovery state. Retire the current rate-halving in CWR.
-> When losses are detected via ACKs in CWR state, the sender enters Recovery
-> state but the cwnd reduction continues and does not restart.
->
-> Rename and refactor cwnd reduction functions since both CWR and Recovery
-> use the same algorithm:
-> tcp_init_cwnd_reduction() is new and initiates reduction state variables.
-> tcp_cwnd_reduction() is previously tcp_update_cwnd_in_recovery().
-> tcp_ends_cwnd_reduction() is previously  tcp_complete_cwr().
->
-> The rate halving functions and logic such as tcp_cwnd_down(), tcp_min_cwnd(),
-> and the cwnd moderation inside tcp_enter_cwr() are removed. The unused
-> parameter, flag, in tcp_cwnd_reduction() is also removed.
->
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Hi All,
+I have server --- router ---client three machines,
+and they all have only one ip in the same LAN.
+I want to instruct the packets flowing through the router when the
+server and client communicates.
+I have do the following things to setup:
+on the server:
+# ip route add to unicast CLIENT_IP/32 via ROUTER_IP dev eth0
+# echo 0 > /proc/sys/net/ipv4/conf/all/accept_redirects
+# echo 0 > /proc/sys/net/ipv4/conf/eth0/accept_redirects
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+on the client:
+/*modify route table*/
+# ip route add to unicast SERVER_IP/32 via ROUTER_IP dev eth0
+/*disable icmp-redirects accept*/
+# echo 0 > /proc/sys/net/ipv4/conf/all/accept_redirects
+# echo 0 > /proc/sys/net/ipv4/conf/eth0/accept_redirects
 
-neal
+on the router:
+/*enable forwarding*/
+# echo 1 > /proc/sys/net/ipv4/ip_forwarding
+/*disable icmp-redirects*/
+# echo 0 > /proc/sys/net/ipv4/conf/all/send_redirects
+# echo 0 > /proc/sys/net/ipv4/conf/eth0/send_redirects
+
+BTW, I have disabled iptables on all of these three machines.
+
+But I still can't tcpdump any packets on the router which means no
+packets flowing
+through the router. The server and client communicates by pass the router!
+
+So, What I have missed, or we can't setup server-router-client topo in LAN?
+Thanks in advaced.
