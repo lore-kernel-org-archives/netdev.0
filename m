@@ -1,283 +1,274 @@
 From: pablo@netfilter.org
-Subject: [PATCH 02/25] netfilter: nf_conntrack_ipv6: improve fragmentation handling
-Date: Tue,  4 Sep 2012 01:53:49 +0200
-Message-ID: <1346716452-3080-3-git-send-email-pablo@netfilter.org>
-References: <1346716452-3080-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 00/25] Netfilter updates for net-next
+Date: Tue,  4 Sep 2012 01:53:47 +0200
+Message-ID: <1346716452-3080-1-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1346716452-3080-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:37087 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754120Ab2ICXz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Sep 2012 19:55:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-The IPv6 conntrack fragmentation currently has a couple of shortcomings.
-Fragmentes are collected in PREROUTING/OUTPUT, are defragmented, the
-defragmented packet is then passed to conntrack, the resulting conntrack
-information is attached to each original fragment and the fragments then
-continue their way through the stack.
+Hi David,
 
-Helper invocation occurs in the POSTROUTING hook, at which point only
-the original fragments are available. The result of this is that
-fragmented packets are never passed to helpers.
+The following patchset contains updates for your net-next tree, the most
+relevant thing here is the new IPv6 NAT support from Patrick McHardy.
+More specifically, they are:
 
-This patch improves the situation in the following way:
+* Several patches to prepare IPv6 NAT support, including one to improve
+  IPv6 fragmentation handling for Netfilter and IPVS from Patrick McHardy
+  and Jesper Dangaard respectively.
 
-- If a reassembled packet belongs to a connection that has a helper
-  assigned, the reassembled packet is passed through the stack instead
-  of the original fragments.
+* IPv6 NAT support for source/destination NAT, masquerading, redirection
+  and network mapping, again from Patrick.
 
-- During defragmentation, the largest received fragment size is stored.
-  On output, the packet is refragmented if required. If the largest
-  received fragment size exceeds the outgoing MTU, a "packet too big"
-  message is generated, thus behaving as if the original fragments
-  were passed through the stack from an outside point of view.
+* A new target that allows stateless Network Prefix Translation (NPT)
+  for IPv6, also from Patrick.
 
-- The ipv6_helper() hook function can't receive fragments anymore for
-  connections using a helper, so it is switched to use ipv6_skip_exthdr()
-  instead of the netfilter specific nf_ct_ipv6_skip_exthdr() and the
-  reassembled packets are passed to connection tracking helpers.
+* Changes in existing helpers to support IPv6 NAT, mostly and Patrick and
+  a couple from myself.
 
-The result of this is that we can properly track fragmented packets, but
-still generate ICMPv6 Packet too big messages if we would have before.
+* Removal of xt_NOTRACK that has now been superseded by the CT target, from
+  Cong Wang.
 
-This patch is also required as a precondition for IPv6 NAT, where NAT
-helpers might enlarge packets up to a point that they require
-fragmentation. In that case we can't generate Packet too big messages
-since the proper MTU can't be calculated in all cases (f.i. when
-changing textual representation of a variable amount of addresses),
-so the packet is transparently fragmented iff the original packet or
-fragments would have fit the outgoing MTU.
+* Minor cleanups from Jan Beulich, Michael Wang and myself.
 
-IPVS parts by Jesper Dangaard Brouer <brouer@redhat.com>.
+You can pull these changes from:
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
+git://1984.lsi.us.es/nf-next master
+
+P.S: I merged your net-next tree to nf-next to make sure there were no
+conflicts with one recent SIP NAT helper fix pushed to net and Patrick's
+SIP helper conversion to support IPv6 NAT.
+
+Thanks!
+
+Cong Wang (1):
+  netfilter: remove xt_NOTRACK
+
+Jan Beulich (1):
+  netfilter: properly annotate ipv4_netfilter_{init,fini}()
+
+Jesper Dangaard Brouer (1):
+  ipvs: IPv6 MTU checking cleanup and bugfix
+
+Michael Wang (2):
+  netfilter: pass 'nf_hook_ops' instead of 'list_head' to nf_iterate()
+  netfilter: pass 'nf_hook_ops' instead of 'list_head' to nf_queue()
+
+Pablo Neira Ayuso (5):
+  netfilter: nf_nat: support IPv6 in IRC NAT helper
+  netfilter: nf_nat: support IPv6 in TFTP NAT helper
+  netfilter: xt_socket: fix compilation warnings with gcc 4.7
+  netfilter: xt_CT: refactorize xt_ct_tg_check
+  netfilter: nf_conntrack: add nf_ct_timeout_lookup
+
+Patrick McHardy (15):
+  netfilter: nf_conntrack_ipv6: improve fragmentation handling
+  netfilter: nf_conntrack_ipv6: fix tracking of ICMPv6 error messages containing fragments
+  netfilter: nf_conntrack: restrict NAT helper invocation to IPv4
+  netfilter: nf_nat: add protoff argument to packet mangling functions
+  netfilter: add protocol independent NAT core
+  netfilter: ipv6: expand skb head in ip6_route_me_harder after oif change
+  net: core: add function for incremental IPv6 pseudo header checksum updates
+  netfilter: ipv6: add IPv6 NAT support
+  netfilter: ip6tables: add MASQUERADE target
+  netfilter: ip6tables: add REDIRECT target
+  netfilter: ip6tables: add NETMAP target
+  netfilter: nf_nat: support IPv6 in FTP NAT helper
+  netfilter: nf_nat: support IPv6 in amanda NAT helper
+  netfilter: nf_nat: support IPv6 in SIP NAT helper
+  netfilter: ip6tables: add stateless IPv6-to-IPv6 Network Prefix Translation target
+
+ Documentation/feature-removal-schedule.txt     |    8 -
+ arch/m68k/configs/amiga_defconfig              |    1 -
+ arch/m68k/configs/apollo_defconfig             |    1 -
+ arch/m68k/configs/atari_defconfig              |    1 -
+ arch/m68k/configs/bvme6000_defconfig           |    1 -
+ arch/m68k/configs/hp300_defconfig              |    1 -
+ arch/m68k/configs/mac_defconfig                |    1 -
+ arch/m68k/configs/multi_defconfig              |    1 -
+ arch/m68k/configs/mvme147_defconfig            |    1 -
+ arch/m68k/configs/mvme16x_defconfig            |    1 -
+ arch/m68k/configs/q40_defconfig                |    1 -
+ arch/m68k/configs/sun3_defconfig               |    1 -
+ arch/m68k/configs/sun3x_defconfig              |    1 -
+ arch/mips/configs/ar7_defconfig                |    1 -
+ arch/mips/configs/bcm47xx_defconfig            |    1 -
+ arch/mips/configs/ip22_defconfig               |    1 -
+ arch/mips/configs/jazz_defconfig               |    1 -
+ arch/mips/configs/malta_defconfig              |    1 -
+ arch/mips/configs/markeins_defconfig           |    1 -
+ arch/mips/configs/nlm_xlp_defconfig            |    1 -
+ arch/mips/configs/nlm_xlr_defconfig            |    1 -
+ arch/mips/configs/rm200_defconfig              |    1 -
+ arch/powerpc/configs/pmac32_defconfig          |    1 -
+ arch/powerpc/configs/ppc64_defconfig           |    1 -
+ arch/powerpc/configs/ppc64e_defconfig          |    1 -
+ arch/powerpc/configs/ppc6xx_defconfig          |    1 -
+ arch/tile/configs/tilegx_defconfig             |    1 -
+ arch/tile/configs/tilepro_defconfig            |    1 -
  include/linux/ipv6.h                           |    1 +
- net/ipv6/ip6_output.c                          |    7 ++--
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   41 ++++++++++++++++++------
- net/ipv6/netfilter/nf_conntrack_reasm.c        |   19 +++++++++--
- net/netfilter/ipvs/ip_vs_xmit.c                |    9 +++++-
- 5 files changed, 62 insertions(+), 15 deletions(-)
+ include/linux/netfilter.h                      |   14 +-
+ include/linux/netfilter/nf_conntrack_amanda.h  |    1 +
+ include/linux/netfilter/nf_conntrack_ftp.h     |    1 +
+ include/linux/netfilter/nf_conntrack_h323.h    |   15 +-
+ include/linux/netfilter/nf_conntrack_irc.h     |    1 +
+ include/linux/netfilter/nf_conntrack_pptp.h    |    2 +
+ include/linux/netfilter/nf_conntrack_sip.h     |   21 +-
+ include/linux/netfilter/nf_nat.h               |    8 +
+ include/linux/netfilter/nfnetlink_conntrack.h  |    8 +-
+ include/linux/netfilter_ipv4.h                 |    1 -
+ include/linux/netfilter_ipv6/Kbuild            |    1 +
+ include/linux/netfilter_ipv6/ip6t_NPT.h        |   16 +
+ include/net/addrconf.h                         |    2 +-
+ include/net/checksum.h                         |    3 +
+ include/net/netfilter/nf_conntrack_expect.h    |    2 +-
+ include/net/netfilter/nf_conntrack_timeout.h   |   20 +
+ include/net/netfilter/nf_nat.h                 |    6 +-
+ include/net/netfilter/nf_nat_core.h            |    5 +-
+ include/net/netfilter/nf_nat_helper.h          |   11 +-
+ include/net/netfilter/nf_nat_l3proto.h         |   52 ++
+ include/net/netfilter/nf_nat_l4proto.h         |   72 ++
+ include/net/netfilter/nf_nat_protocol.h        |   67 --
+ include/net/netfilter/nf_nat_rule.h            |   15 -
+ include/net/netns/conntrack.h                  |    4 +
+ include/net/netns/ipv4.h                       |    2 -
+ include/net/netns/ipv6.h                       |    1 +
+ net/core/secure_seq.c                          |    1 +
+ net/core/utils.c                               |   20 +
+ net/ipv4/netfilter.c                           |   41 +-
+ net/ipv4/netfilter/Kconfig                     |   69 +-
+ net/ipv4/netfilter/Makefile                    |   16 +-
+ net/ipv4/netfilter/ipt_MASQUERADE.c            |   18 +-
+ net/ipv4/netfilter/ipt_NETMAP.c                |   15 +-
+ net/ipv4/netfilter/ipt_REDIRECT.c              |   15 +-
+ net/ipv4/netfilter/iptable_nat.c               |  320 +++++++++
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    8 +-
+ net/ipv4/netfilter/nf_nat_amanda.c             |   85 ---
+ net/ipv4/netfilter/nf_nat_core.c               |  763 ---------------------
+ net/ipv4/netfilter/nf_nat_ftp.c                |  137 ----
+ net/ipv4/netfilter/nf_nat_h323.c               |   71 +-
+ net/ipv4/netfilter/nf_nat_helper.c             |  458 -------------
+ net/ipv4/netfilter/nf_nat_irc.c                |   99 ---
+ net/ipv4/netfilter/nf_nat_l3proto_ipv4.c       |  281 ++++++++
+ net/ipv4/netfilter/nf_nat_pptp.c               |   21 +-
+ net/ipv4/netfilter/nf_nat_proto_common.c       |  114 ----
+ net/ipv4/netfilter/nf_nat_proto_dccp.c         |  106 ---
+ net/ipv4/netfilter/nf_nat_proto_gre.c          |   30 +-
+ net/ipv4/netfilter/nf_nat_proto_icmp.c         |   24 +-
+ net/ipv4/netfilter/nf_nat_proto_sctp.c         |   96 ---
+ net/ipv4/netfilter/nf_nat_proto_tcp.c          |   91 ---
+ net/ipv4/netfilter/nf_nat_proto_udp.c          |   82 ---
+ net/ipv4/netfilter/nf_nat_proto_udplite.c      |   98 ---
+ net/ipv4/netfilter/nf_nat_proto_unknown.c      |   52 --
+ net/ipv4/netfilter/nf_nat_rule.c               |  214 ------
+ net/ipv4/netfilter/nf_nat_sip.c                |  569 ----------------
+ net/ipv4/netfilter/nf_nat_standalone.c         |  326 ---------
+ net/ipv4/netfilter/nf_nat_tftp.c               |   51 --
+ net/ipv6/addrconf.c                            |    2 +-
+ net/ipv6/ip6_output.c                          |    7 +-
+ net/ipv6/netfilter.c                           |    8 +
+ net/ipv6/netfilter/Kconfig                     |   54 ++
+ net/ipv6/netfilter/Makefile                    |    8 +
+ net/ipv6/netfilter/ip6t_MASQUERADE.c           |  135 ++++
+ net/ipv6/netfilter/ip6t_NETMAP.c               |   94 +++
+ net/ipv6/netfilter/ip6t_NPT.c                  |  165 +++++
+ net/ipv6/netfilter/ip6t_REDIRECT.c             |   98 +++
+ net/ipv6/netfilter/ip6table_nat.c              |  321 +++++++++
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |  137 ++--
+ net/ipv6/netfilter/nf_conntrack_reasm.c        |   19 +-
+ net/ipv6/netfilter/nf_nat_l3proto_ipv6.c       |  287 ++++++++
+ net/ipv6/netfilter/nf_nat_proto_icmpv6.c       |   90 +++
+ net/netfilter/Kconfig                          |   62 +-
+ net/netfilter/Makefile                         |   19 +-
+ net/netfilter/core.c                           |   25 +-
+ net/netfilter/ipvs/ip_vs_ftp.c                 |    1 +
+ net/netfilter/ipvs/ip_vs_xmit.c                |   28 +-
+ net/netfilter/nf_conntrack_amanda.c            |    5 +-
+ net/netfilter/nf_conntrack_core.c              |   13 +-
+ net/netfilter/nf_conntrack_ftp.c               |    3 +-
+ net/netfilter/nf_conntrack_h323_main.c         |  232 ++++---
+ net/netfilter/nf_conntrack_irc.c               |    3 +-
+ net/netfilter/nf_conntrack_netlink.c           |   35 +-
+ net/netfilter/nf_conntrack_pptp.c              |   18 +-
+ net/netfilter/nf_conntrack_proto_tcp.c         |    8 +-
+ net/netfilter/nf_conntrack_sip.c               |  143 ++--
+ net/netfilter/nf_internals.h                   |    4 +-
+ net/netfilter/nf_nat_amanda.c                  |   85 +++
+ net/netfilter/nf_nat_core.c                    |  856 ++++++++++++++++++++++++
+ net/netfilter/nf_nat_ftp.c                     |  143 ++++
+ net/netfilter/nf_nat_helper.c                  |  435 ++++++++++++
+ net/netfilter/nf_nat_irc.c                     |   93 +++
+ net/netfilter/nf_nat_proto_common.c            |  112 ++++
+ net/netfilter/nf_nat_proto_dccp.c              |  116 ++++
+ net/netfilter/nf_nat_proto_sctp.c              |  103 +++
+ net/netfilter/nf_nat_proto_tcp.c               |   85 +++
+ net/netfilter/nf_nat_proto_udp.c               |   76 +++
+ net/netfilter/nf_nat_proto_udplite.c           |  106 +++
+ net/netfilter/nf_nat_proto_unknown.c           |   54 ++
+ net/netfilter/nf_nat_sip.c                     |  609 +++++++++++++++++
+ net/netfilter/nf_nat_tftp.c                    |   50 ++
+ net/netfilter/nf_queue.c                       |   10 +-
+ net/netfilter/xt_CT.c                          |  262 ++++----
+ net/netfilter/xt_NOTRACK.c                     |   53 --
+ net/netfilter/xt_nat.c                         |  170 +++++
+ net/netfilter/xt_socket.c                      |   12 +-
+ 134 files changed, 5959 insertions(+), 4173 deletions(-)
+ create mode 100644 include/linux/netfilter_ipv6/ip6t_NPT.h
+ create mode 100644 include/net/netfilter/nf_nat_l3proto.h
+ create mode 100644 include/net/netfilter/nf_nat_l4proto.h
+ delete mode 100644 include/net/netfilter/nf_nat_protocol.h
+ delete mode 100644 include/net/netfilter/nf_nat_rule.h
+ create mode 100644 net/ipv4/netfilter/iptable_nat.c
+ delete mode 100644 net/ipv4/netfilter/nf_nat_amanda.c
+ delete mode 100644 net/ipv4/netfilter/nf_nat_core.c
+ delete mode 100644 net/ipv4/netfilter/nf_nat_ftp.c
+ delete mode 100644 net/ipv4/netfilter/nf_nat_helper.c
+ delete mode 100644 net/ipv4/netfilter/nf_nat_irc.c
+ create mode 100644 net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
+ delete mode 100644 net/ipv4/netfilter/nf_nat_proto_common.c
+ delete mode 100644 net/ipv4/netfilter/nf_nat_proto_dccp.c
+ delete mode 100644 net/ipv4/netfilter/nf_nat_proto_sctp.c
+ delete mode 100644 net/ipv4/netfilter/nf_nat_proto_tcp.c
+ delete mode 100644 net/ipv4/netfilter/nf_nat_proto_udp.c
+ delete mode 100644 net/ipv4/netfilter/nf_nat_proto_udplite.c
+ delete mode 100644 net/ipv4/netfilter/nf_nat_proto_unknown.c
+ delete mode 100644 net/ipv4/netfilter/nf_nat_rule.c
+ delete mode 100644 net/ipv4/netfilter/nf_nat_sip.c
+ delete mode 100644 net/ipv4/netfilter/nf_nat_standalone.c
+ delete mode 100644 net/ipv4/netfilter/nf_nat_tftp.c
+ create mode 100644 net/ipv6/netfilter/ip6t_MASQUERADE.c
+ create mode 100644 net/ipv6/netfilter/ip6t_NETMAP.c
+ create mode 100644 net/ipv6/netfilter/ip6t_NPT.c
+ create mode 100644 net/ipv6/netfilter/ip6t_REDIRECT.c
+ create mode 100644 net/ipv6/netfilter/ip6table_nat.c
+ create mode 100644 net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+ create mode 100644 net/ipv6/netfilter/nf_nat_proto_icmpv6.c
+ create mode 100644 net/netfilter/nf_nat_amanda.c
+ create mode 100644 net/netfilter/nf_nat_core.c
+ create mode 100644 net/netfilter/nf_nat_ftp.c
+ create mode 100644 net/netfilter/nf_nat_helper.c
+ create mode 100644 net/netfilter/nf_nat_irc.c
+ create mode 100644 net/netfilter/nf_nat_proto_common.c
+ create mode 100644 net/netfilter/nf_nat_proto_dccp.c
+ create mode 100644 net/netfilter/nf_nat_proto_sctp.c
+ create mode 100644 net/netfilter/nf_nat_proto_tcp.c
+ create mode 100644 net/netfilter/nf_nat_proto_udp.c
+ create mode 100644 net/netfilter/nf_nat_proto_udplite.c
+ create mode 100644 net/netfilter/nf_nat_proto_unknown.c
+ create mode 100644 net/netfilter/nf_nat_sip.c
+ create mode 100644 net/netfilter/nf_nat_tftp.c
+ delete mode 100644 net/netfilter/xt_NOTRACK.c
+ create mode 100644 net/netfilter/xt_nat.c
 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 879db26..0b94e91 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -256,6 +256,7 @@ struct inet6_skb_parm {
- #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
- 	__u16			dsthao;
- #endif
-+	__u16			frag_max_size;
- 
- #define IP6SKB_XFRM_TRANSFORMED	1
- #define IP6SKB_FORWARDED	2
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 5b2d63e..a4f6263 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -493,7 +493,8 @@ int ip6_forward(struct sk_buff *skb)
- 	if (mtu < IPV6_MIN_MTU)
- 		mtu = IPV6_MIN_MTU;
- 
--	if (skb->len > mtu && !skb_is_gso(skb)) {
-+	if ((!skb->local_df && skb->len > mtu && !skb_is_gso(skb)) ||
-+	    (IP6CB(skb)->frag_max_size && IP6CB(skb)->frag_max_size > mtu)) {
- 		/* Again, force OUTPUT device used as source address */
- 		skb->dev = dst->dev;
- 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
-@@ -636,7 +637,9 @@ int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- 	/* We must not fragment if the socket is set to force MTU discovery
- 	 * or if the skb it not generated by a local socket.
- 	 */
--	if (unlikely(!skb->local_df && skb->len > mtu)) {
-+	if (unlikely(!skb->local_df && skb->len > mtu) ||
-+		     (IP6CB(skb)->frag_max_size &&
-+		      IP6CB(skb)->frag_max_size > mtu)) {
- 		if (skb->sk && dst_allfrag(skb_dst(skb)))
- 			sk_nocaps_add(skb->sk, NETIF_F_GSO_MASK);
- 
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 4794f96..521ddca 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -153,10 +153,10 @@ static unsigned int ipv6_helper(unsigned int hooknum,
- 	const struct nf_conn_help *help;
- 	const struct nf_conntrack_helper *helper;
- 	enum ip_conntrack_info ctinfo;
--	unsigned int ret, protoff;
--	unsigned int extoff = (u8 *)(ipv6_hdr(skb) + 1) - skb->data;
--	unsigned char pnum = ipv6_hdr(skb)->nexthdr;
--
-+	unsigned int ret;
-+	__be16 frag_off;
-+	int protoff;
-+	u8 nexthdr;
- 
- 	/* This is where we call the helper: as the packet goes out. */
- 	ct = nf_ct_get(skb, &ctinfo);
-@@ -171,9 +171,10 @@ static unsigned int ipv6_helper(unsigned int hooknum,
- 	if (!helper)
- 		return NF_ACCEPT;
- 
--	protoff = nf_ct_ipv6_skip_exthdr(skb, extoff, &pnum,
--					 skb->len - extoff);
--	if (protoff > skb->len || pnum == NEXTHDR_FRAGMENT) {
-+	nexthdr = ipv6_hdr(skb)->nexthdr;
-+	protoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr,
-+				   &frag_off);
-+	if (protoff < 0 || (frag_off & htons(~0x7)) != 0) {
- 		pr_debug("proto header not found\n");
- 		return NF_ACCEPT;
- 	}
-@@ -199,9 +200,14 @@ static unsigned int ipv6_confirm(unsigned int hooknum,
- static unsigned int __ipv6_conntrack_in(struct net *net,
- 					unsigned int hooknum,
- 					struct sk_buff *skb,
-+					const struct net_device *in,
-+					const struct net_device *out,
- 					int (*okfn)(struct sk_buff *))
- {
- 	struct sk_buff *reasm = skb->nfct_reasm;
-+	const struct nf_conn_help *help;
-+	struct nf_conn *ct;
-+	enum ip_conntrack_info ctinfo;
- 
- 	/* This packet is fragmented and has reassembled packet. */
- 	if (reasm) {
-@@ -213,6 +219,23 @@ static unsigned int __ipv6_conntrack_in(struct net *net,
- 			if (ret != NF_ACCEPT)
- 				return ret;
- 		}
-+
-+		/* Conntrack helpers need the entire reassembled packet in the
-+		 * POST_ROUTING hook.
-+		 */
-+		ct = nf_ct_get(reasm, &ctinfo);
-+		if (ct != NULL && !nf_ct_is_untracked(ct)) {
-+			help = nfct_help(ct);
-+			if (help && help->helper) {
-+				nf_conntrack_get_reasm(skb);
-+				NF_HOOK_THRESH(NFPROTO_IPV6, hooknum, reasm,
-+					       (struct net_device *)in,
-+					       (struct net_device *)out,
-+					       okfn, NF_IP6_PRI_CONNTRACK + 1);
-+				return NF_DROP_ERR(-ECANCELED);
-+			}
-+		}
-+
- 		nf_conntrack_get(reasm->nfct);
- 		skb->nfct = reasm->nfct;
- 		skb->nfctinfo = reasm->nfctinfo;
-@@ -228,7 +251,7 @@ static unsigned int ipv6_conntrack_in(unsigned int hooknum,
- 				      const struct net_device *out,
- 				      int (*okfn)(struct sk_buff *))
- {
--	return __ipv6_conntrack_in(dev_net(in), hooknum, skb, okfn);
-+	return __ipv6_conntrack_in(dev_net(in), hooknum, skb, in, out, okfn);
- }
- 
- static unsigned int ipv6_conntrack_local(unsigned int hooknum,
-@@ -242,7 +265,7 @@ static unsigned int ipv6_conntrack_local(unsigned int hooknum,
- 		net_notice_ratelimited("ipv6_conntrack_local: packet too short\n");
- 		return NF_ACCEPT;
- 	}
--	return __ipv6_conntrack_in(dev_net(out), hooknum, skb, okfn);
-+	return __ipv6_conntrack_in(dev_net(out), hooknum, skb, in, out, okfn);
- }
- 
- static struct nf_hook_ops ipv6_conntrack_ops[] __read_mostly = {
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index c9c78c2..f94fb3a 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -190,6 +190,7 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
- 			     const struct frag_hdr *fhdr, int nhoff)
- {
- 	struct sk_buff *prev, *next;
-+	unsigned int payload_len;
- 	int offset, end;
- 
- 	if (fq->q.last_in & INET_FRAG_COMPLETE) {
-@@ -197,8 +198,10 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
- 		goto err;
- 	}
- 
-+	payload_len = ntohs(ipv6_hdr(skb)->payload_len);
-+
- 	offset = ntohs(fhdr->frag_off) & ~0x7;
--	end = offset + (ntohs(ipv6_hdr(skb)->payload_len) -
-+	end = offset + (payload_len -
- 			((u8 *)(fhdr + 1) - (u8 *)(ipv6_hdr(skb) + 1)));
- 
- 	if ((unsigned int)end > IPV6_MAXPLEN) {
-@@ -307,6 +310,8 @@ found:
- 	skb->dev = NULL;
- 	fq->q.stamp = skb->tstamp;
- 	fq->q.meat += skb->len;
-+	if (payload_len > fq->q.max_size)
-+		fq->q.max_size = payload_len;
- 	atomic_add(skb->truesize, &nf_init_frags.mem);
- 
- 	/* The first fragment.
-@@ -412,10 +417,12 @@ nf_ct_frag6_reasm(struct nf_ct_frag6_queue *fq, struct net_device *dev)
- 	}
- 	atomic_sub(head->truesize, &nf_init_frags.mem);
- 
-+	head->local_df = 1;
- 	head->next = NULL;
- 	head->dev = dev;
- 	head->tstamp = fq->q.stamp;
- 	ipv6_hdr(head)->payload_len = htons(payload_len);
-+	IP6CB(head)->frag_max_size = sizeof(struct ipv6hdr) + fq->q.max_size;
- 
- 	/* Yes, and fold redundant checksum back. 8) */
- 	if (head->ip_summed == CHECKSUM_COMPLETE)
-@@ -592,6 +599,7 @@ void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
- 			int (*okfn)(struct sk_buff *))
- {
- 	struct sk_buff *s, *s2;
-+	unsigned int ret = 0;
- 
- 	for (s = NFCT_FRAG6_CB(skb)->orig; s;) {
- 		nf_conntrack_put_reasm(s->nfct_reasm);
-@@ -601,8 +609,13 @@ void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
- 		s2 = s->next;
- 		s->next = NULL;
- 
--		NF_HOOK_THRESH(NFPROTO_IPV6, hooknum, s, in, out, okfn,
--			       NF_IP6_PRI_CONNTRACK_DEFRAG + 1);
-+		if (ret != -ECANCELED)
-+			ret = NF_HOOK_THRESH(NFPROTO_IPV6, hooknum, s,
-+					     in, out, okfn,
-+					     NF_IP6_PRI_CONNTRACK_DEFRAG + 1);
-+		else
-+			kfree_skb(s);
-+
- 		s = s2;
- 	}
- 	nf_conntrack_put_reasm(skb);
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 67a3978..56f6d5d 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -88,7 +88,14 @@ __ip_vs_dst_check(struct ip_vs_dest *dest, u32 rtos)
- static inline bool
- __mtu_check_toobig_v6(const struct sk_buff *skb, u32 mtu)
- {
--	if (skb->len > mtu && !skb_is_gso(skb)) {
-+	if (IP6CB(skb)->frag_max_size) {
-+		/* frag_max_size tell us that, this packet have been
-+		 * defragmented by netfilter IPv6 conntrack module.
-+		 */
-+		if (IP6CB(skb)->frag_max_size > mtu)
-+			return true; /* largest fragment violate MTU */
-+	}
-+	else if (skb->len > mtu && !skb_is_gso(skb)) {
- 		return true; /* Packet size violate MTU size */
- 	}
- 	return false;
 -- 
 1.7.10.4
-
