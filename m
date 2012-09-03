@@ -1,78 +1,80 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net-next 2/2] net: sierra_net: rx_urb_size is constant
-Date: Mon,  3 Sep 2012 11:20:33 +0200
-Message-ID: <1346664033-30284-3-git-send-email-bjorn@mork.no>
-References: <1346664033-30284-1-git-send-email-bjorn@mork.no>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] netfilter: take care of timewait sockets
+Date: Mon, 03 Sep 2012 11:57:18 +0200
+Message-ID: <1346666238.2563.113.camel@edumazet-glaptop>
+References: <20120821134921.behn76vzvhczf3gc@m.safari.iki.fi>
+	 <20120902122008.jgdhwowbuke6by7h@m.safari.iki.fi>
+	 <20120902132834.GB7456@breakpoint.cc>
+	 <1346626385.2563.44.camel@edumazet-glaptop>
+	 <1346629684.2563.78.camel@edumazet-glaptop>
+	 <20120903074718.GA14750@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1346664033-30284-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sami Farin <hvtaifwkbgefbaei@gmail.com>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
+To: Florian Westphal <fw@strlen.de>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:42741 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756210Ab2ICJ5W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 05:57:22 -0400
+Received: by eekc1 with SMTP id c1so1907811eek.19
+        for <netdev@vger.kernel.org>; Mon, 03 Sep 2012 02:57:21 -0700 (PDT)
+In-Reply-To: <20120903074718.GA14750@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The rx_urb_size is set to the same value for every device
-supported by this driver.  No need to keep a per-device
-data structure to do that. Replacing with a macro constant.
+From: Eric Dumazet <edumazet@google.com>
 
-This was the last device specific info, and removing it
-allows us to delete the sierra_net_info_data struct.
+On Mon, 2012-09-03 at 09:47 +0200, Florian Westphal wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > Sami Farin reported crashes in xt_LOG because it assumes skb->sk is a
+> > full blown socket.
+> > 
+> > But with TCP early demux, we can have skb->sk pointing to a timewait
+> > socket.
+> > 
+> > Same fix is needed in netfnetlink_log
+> 
+> Looks good, but IMHO it is very un-intuitive that
+> skb->sk might be a pointer to an object that is not struct sock (or
+> a compatible object).
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Its kind of a compatible object, if all skb->sk users are aware of it.
+
+You are totally right, this is messy, but TCP edemux is a layering
+violation helping a bit performance...
+
+sock_edemux() should also be fixed.
+
+David, tell me if you prefer to change TCP demux to avoid timewait,
+as I have no strong opinion.
+
+[PATCH] net: sock_edemux() should take care of timewait sockets
+
+sock_edemux() can handle either a regular socket or a timewait socket
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/usb/sierra_net.c |   17 ++++-------------
- 1 file changed, 4 insertions(+), 13 deletions(-)
+ net/core/sock.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/usb/sierra_net.c b/drivers/net/usb/sierra_net.=
-c
-index 596ddaa..7ae70e9 100644
---- a/drivers/net/usb/sierra_net.c
-+++ b/drivers/net/usb/sierra_net.c
-@@ -68,9 +68,8 @@ static	atomic_t iface_counter =3D ATOMIC_INIT(0);
-  */
- #define SIERRA_NET_USBCTL_BUF_LEN	1024
-=20
--struct sierra_net_info_data {
--	u16 rx_urb_size;
--};
-+/* Overriding the default usbnet rx_urb_size */
-+#define SIERRA_NET_RX_URB_SIZE		(8 * 1024)
-=20
- /* Private data structure */
- struct sierra_net_data {
-@@ -678,9 +677,6 @@ static int sierra_net_bind(struct usbnet *dev, stru=
-ct usb_interface *intf)
- 	static const u8 shdwn_tmplate[sizeof(priv->shdwn_msg)] =3D {
- 		0x00, 0x00, SIERRA_NET_HIP_SHUTD_ID, 0x00};
-=20
--	struct sierra_net_info_data *data =3D
--			(struct sierra_net_info_data *)dev->driver_info->data;
--
- 	dev_dbg(&dev->udev->dev, "%s", __func__);
-=20
- 	ifacenum =3D intf->cur_altsetting->desc.bInterfaceNumber;
-@@ -725,9 +721,9 @@ static int sierra_net_bind(struct usbnet *dev, stru=
-ct usb_interface *intf)
- 	sierra_net_set_ctx_index(priv, 0);
-=20
- 	/* decrease the rx_urb_size and max_tx_size to 4k on USB 1.1 */
--	dev->rx_urb_size  =3D data->rx_urb_size;
-+	dev->rx_urb_size  =3D SIERRA_NET_RX_URB_SIZE;
- 	if (dev->udev->speed !=3D USB_SPEED_HIGH)
--		dev->rx_urb_size  =3D min_t(size_t, 4096, data->rx_urb_size);
-+		dev->rx_urb_size  =3D min_t(size_t, 4096, SIERRA_NET_RX_URB_SIZE);
-=20
- 	dev->net->hard_header_len +=3D SIERRA_NET_HIP_EXT_HDR_LEN;
- 	dev->hard_mtu =3D dev->net->mtu + dev->net->hard_header_len;
-@@ -918,10 +914,6 @@ static struct sk_buff *sierra_net_tx_fixup(struct =
-usbnet *dev,
- 	return NULL;
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 8f67ced..7f64467 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1523,7 +1523,12 @@ EXPORT_SYMBOL(sock_rfree);
+ 
+ void sock_edemux(struct sk_buff *skb)
+ {
+-	sock_put(skb->sk);
++	struct sock *sk = skb->sk;
++
++	if (sk->sk_state == TCP_TIME_WAIT)
++		inet_twsk_put(inet_twsk(sk));
++	else
++		sock_put(sk);
  }
-=20
--static const struct sierra_net_info_data sierra_net_info_data_direct_i=
-p =3D {
--	.rx_urb_size =3D 8 * 1024,
--};
+ EXPORT_SYMBOL(sock_edemux);
+ 
