@@ -1,88 +1,109 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2 1/2] tcp: add generic netlink support for
- tcp_metrics
-Date: Mon, 3 Sep 2012 11:22:15 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1209031041340.1663@ja.ssi.bg>
-References: <1346564178-1794-1-git-send-email-ja@ssi.bg>  <1346564178-1794-2-git-send-email-ja@ssi.bg> <1346633144.2563.97.camel@edumazet-glaptop>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net] net: usbnet: fix softirq storm on suspend
+Date: Mon,  3 Sep 2012 10:26:18 +0200
+Message-ID: <1346660778-24539-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:43157 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753978Ab2ICITU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Sep 2012 04:19:20 -0400
-In-Reply-To: <1346633144.2563.97.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+Suspending an open usbnet device results in constant
+rescheduling of usbnet_bh.
+
+commit 65841fd5 "usbnet: handle remote wakeup asap"
+refactored the usbnet_bh code to allow sharing the
+urb allocate and submit code with usbnet_resume. In
+this process, a test for, and immediate return on,
+ENOLINK from rx_submit was unintentionally dropped.
+
+The rx queue will not grow if rx_submit fails,
+making usbnet_bh reschedule itself.  This results
+in a softirq storm if the error is persistent.
+rx_submit translates the usb_submit_urb error
+EHOSTUNREACH into ENOLINK, so this is an expected
+and persistent error for a suspended device. The
+old code tested for this condition and avoided
+rescheduling.  Putting this test back.
+
+Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> # v3.5
+Cc: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+Sorry for not noticing this before, but commit 65841fd5
+makes usbnet autosuspend completely unusable.  The device
+is suspended fine, but burning one CPU core at full load
+uses a tiny bit more power making the power saving=20
+negative...
+
+I hope this can go into 3.6 and 3.5-stable ASAP. It is
+a hard to notice regression, but all the same a serious
+one.
 
 
-	Hello,
+Thanks,
+Bj=C3=B8rn
 
-On Mon, 3 Sep 2012, Eric Dumazet wrote:
 
-> On Sun, 2012-09-02 at 08:36 +0300, Julian Anastasov wrote:
-> > +
-> > +static int tcp_metrics_flush_all(struct net *net)
-> > +{
-> > +	unsigned int max_rows = 1U << net->ipv4.tcp_metrics_hash_log;
-> > +	struct tcpm_hash_bucket *hb = net->ipv4.tcp_metrics_hash;
-> > +	struct tcp_metrics_block *tm;
-> > +	unsigned int sync_count = 0;
-> > +	unsigned int row;
-> > +
-> > +	for (row = 0; row < max_rows; row++, hb++) {
-> > +		spin_lock_bh(&tcp_metrics_lock);
-> > +		tm = deref_locked_genl(hb->chain);
-> > +		if (tm)
-> > +			hb->chain = NULL;
-> > +		spin_unlock_bh(&tcp_metrics_lock);
-> > +		while (tm) {
-> > +			struct tcp_metrics_block *next;
-> > +
-> > +			next = deref_genl(tm->tcpm_next);
-> > +			kfree_rcu(tm, rcu_head);
-> > +			if (!((++sync_count) & 2047))
-> > +				synchronize_rcu();
-> > +			tm = next;
-> > +		}
-> > +	}
-> > +	return 0;
-> > +}
-> 
-> It looks like the synchronize_rcu() call is not exactly what you wanted,
-> but then net/ipv4/fib_trie.c has the same mistake.
+ drivers/net/usb/usbnet.c |   16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
 
-	I used fib_trie as reference...
-
-> What we want here is to force pending call_rcu() calls to complete, so
-> that we dont consume too much memory. So it would probably better to
-> call rcu_barrier() instead.
-
-	I see
-
-> If other cpus are idle or outside of rcu read lock sections,
-> synchronize_rcu() should basically do nothing at all.
-> 
-> But I am not sure its worth the trouble ?
-> 
-> Commit c3059477fce2d956a0bb3e04357324780c5d8eeb (ipv4: Use
-> synchronize_rcu() during trie_rebalance()) was needed because FIB TRIE
-> can really use huge amounts of memory, thats hardly the case with
-> tcp_metrics.
-
-	I was worrying for the case
-(TCP_METRICS_RECLAIM_DEPTH + 1) * tcpmhash_entries to be
-large, eg. if some non-default value is configured. May be the
-chance table to be filled immediately is small. I'll remove it.
-
-	BTW, is it appropriate to use kmem_cache for
-metrics and as result call_rcu for freeing?
-
-Regards
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index fd4b26d..fc9f578 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1201,19 +1201,26 @@ deferred:
+ }
+ EXPORT_SYMBOL_GPL(usbnet_start_xmit);
+=20
+-static void rx_alloc_submit(struct usbnet *dev, gfp_t flags)
++static int rx_alloc_submit(struct usbnet *dev, gfp_t flags)
+ {
+ 	struct urb	*urb;
+ 	int		i;
++	int		ret =3D 0;
+=20
+ 	/* don't refill the queue all at once */
+ 	for (i =3D 0; i < 10 && dev->rxq.qlen < RX_QLEN(dev); i++) {
+ 		urb =3D usb_alloc_urb(0, flags);
+ 		if (urb !=3D NULL) {
+-			if (rx_submit(dev, urb, flags) =3D=3D -ENOLINK)
+-				return;
++			ret =3D rx_submit(dev, urb, flags);
++			if (ret)
++				goto err;
++		} else {
++			ret =3D -ENOMEM;
++			goto err;
+ 		}
+ 	}
++err:
++	return ret;
+ }
+=20
+ /*--------------------------------------------------------------------=
+-----*/
+@@ -1257,7 +1264,8 @@ static void usbnet_bh (unsigned long param)
+ 		int	temp =3D dev->rxq.qlen;
+=20
+ 		if (temp < RX_QLEN(dev)) {
+-			rx_alloc_submit(dev, GFP_ATOMIC);
++			if (rx_alloc_submit(dev, GFP_ATOMIC) =3D=3D -ENOLINK)
++				return;
+ 			if (temp !=3D dev->rxq.qlen)
+ 				netif_dbg(dev, link, dev->net,
+ 					  "rxqlen %d --> %d\n",
+--=20
+1.7.10.4
 
 --
-Julian Anastasov <ja@ssi.bg>
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
