@@ -1,164 +1,54 @@
 From: pablo@netfilter.org
-Subject: [PATCH 11/25] netfilter: ip6tables: add REDIRECT target
-Date: Tue,  4 Sep 2012 01:53:58 +0200
-Message-ID: <1346716452-3080-12-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 07/25] netfilter: ipv6: expand skb head in ip6_route_me_harder after oif change
+Date: Tue,  4 Sep 2012 01:53:54 +0200
+Message-ID: <1346716452-3080-8-git-send-email-pablo@netfilter.org>
 References: <1346716452-3080-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:37131 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:37114 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754427Ab2ICXzt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Sep 2012 19:55:49 -0400
+	id S1754282Ab2ICXzn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Sep 2012 19:55:43 -0400
 In-Reply-To: <1346716452-3080-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Patrick McHardy <kaber@trash.net>
 
+Expand the skb headroom if the oif changed due to rerouting similar to
+how IPv4 packets are handled.
+
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/ipv6/netfilter/Kconfig         |   11 ++++
- net/ipv6/netfilter/Makefile        |    1 +
- net/ipv6/netfilter/ip6t_REDIRECT.c |   98 ++++++++++++++++++++++++++++++++++++
- 3 files changed, 110 insertions(+)
- create mode 100644 net/ipv6/netfilter/ip6t_REDIRECT.c
+ net/ipv6/netfilter.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
-index 54a5032..585590f 100644
---- a/net/ipv6/netfilter/Kconfig
-+++ b/net/ipv6/netfilter/Kconfig
-@@ -156,6 +156,17 @@ config IP6_NF_TARGET_MASQUERADE
+diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
+index db31561..429089c 100644
+--- a/net/ipv6/netfilter.c
++++ b/net/ipv6/netfilter.c
+@@ -15,6 +15,7 @@ int ip6_route_me_harder(struct sk_buff *skb)
+ {
+ 	struct net *net = dev_net(skb_dst(skb)->dev);
+ 	const struct ipv6hdr *iph = ipv6_hdr(skb);
++	unsigned int hh_len;
+ 	struct dst_entry *dst;
+ 	struct flowi6 fl6 = {
+ 		.flowi6_oif = skb->sk ? skb->sk->sk_bound_dev_if : 0,
+@@ -47,6 +48,13 @@ int ip6_route_me_harder(struct sk_buff *skb)
+ 	}
+ #endif
  
- 	  To compile it as a module, choose M here.  If unsure, say N.
- 
-+config IP6_NF_TARGET_REDIRECT
-+	tristate "REDIRECT target support"
-+	depends on NF_NAT_IPV6
-+	help
-+	  REDIRECT is a special case of NAT: all incoming connections are
-+	  mapped onto the incoming interface's address, causing the packets to
-+	  come to the local machine instead of passing through.  This is
-+	  useful for transparent proxies.
++	/* Change in oif may mean change in hh_len. */
++	hh_len = skb_dst(skb)->dev->hard_header_len;
++	if (skb_headroom(skb) < hh_len &&
++	    pskb_expand_head(skb, HH_DATA_ALIGN(hh_len - skb_headroom(skb)),
++			     0, GFP_ATOMIC))
++		return -1;
 +
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- config IP6_NF_FILTER
- 	tristate "Packet filtering"
- 	default m if NETFILTER_ADVANCED=n
-diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
-index 068bad1..e30a531 100644
---- a/net/ipv6/netfilter/Makefile
-+++ b/net/ipv6/netfilter/Makefile
-@@ -35,4 +35,5 @@ obj-$(CONFIG_IP6_NF_MATCH_RT) += ip6t_rt.o
- 
- # targets
- obj-$(CONFIG_IP6_NF_TARGET_MASQUERADE) += ip6t_MASQUERADE.o
-+obj-$(CONFIG_IP6_NF_TARGET_REDIRECT) += ip6t_REDIRECT.o
- obj-$(CONFIG_IP6_NF_TARGET_REJECT) += ip6t_REJECT.o
-diff --git a/net/ipv6/netfilter/ip6t_REDIRECT.c b/net/ipv6/netfilter/ip6t_REDIRECT.c
-new file mode 100644
-index 0000000..60497a3
---- /dev/null
-+++ b/net/ipv6/netfilter/ip6t_REDIRECT.c
-@@ -0,0 +1,98 @@
-+/*
-+ * Copyright (c) 2011 Patrick McHardy <kaber@trash.net>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ *
-+ * Based on Rusty Russell's IPv4 REDIRECT target. Development of IPv6
-+ * NAT funded by Astaro.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/netfilter.h>
-+#include <linux/netfilter_ipv6.h>
-+#include <linux/netfilter/x_tables.h>
-+#include <net/addrconf.h>
-+#include <net/netfilter/nf_nat.h>
-+
-+static const struct in6_addr loopback_addr = IN6ADDR_LOOPBACK_INIT;
-+
-+static unsigned int
-+redirect_tg6(struct sk_buff *skb, const struct xt_action_param *par)
-+{
-+	const struct nf_nat_range *range = par->targinfo;
-+	struct nf_nat_range newrange;
-+	struct in6_addr newdst;
-+	enum ip_conntrack_info ctinfo;
-+	struct nf_conn *ct;
-+
-+	ct = nf_ct_get(skb, &ctinfo);
-+	if (par->hooknum == NF_INET_LOCAL_OUT)
-+		newdst = loopback_addr;
-+	else {
-+		struct inet6_dev *idev;
-+		struct inet6_ifaddr *ifa;
-+		bool addr = false;
-+
-+		rcu_read_lock();
-+		idev = __in6_dev_get(skb->dev);
-+		if (idev != NULL) {
-+			list_for_each_entry(ifa, &idev->addr_list, if_list) {
-+				newdst = ifa->addr;
-+				addr = true;
-+				break;
-+			}
-+		}
-+		rcu_read_unlock();
-+
-+		if (!addr)
-+			return NF_DROP;
-+	}
-+
-+	newrange.flags		= range->flags | NF_NAT_RANGE_MAP_IPS;
-+	newrange.min_addr.in6	= newdst;
-+	newrange.max_addr.in6	= newdst;
-+	newrange.min_proto	= range->min_proto;
-+	newrange.max_proto	= range->max_proto;
-+
-+	return nf_nat_setup_info(ct, &newrange, NF_NAT_MANIP_DST);
-+}
-+
-+static int redirect_tg6_checkentry(const struct xt_tgchk_param *par)
-+{
-+	const struct nf_nat_range *range = par->targinfo;
-+
-+	if (range->flags & NF_NAT_RANGE_MAP_IPS)
-+		return -EINVAL;
-+	return 0;
-+}
-+
-+static struct xt_target redirect_tg6_reg __read_mostly = {
-+	.name		= "REDIRECT",
-+	.family		= NFPROTO_IPV6,
-+	.checkentry	= redirect_tg6_checkentry,
-+	.target		= redirect_tg6,
-+	.targetsize	= sizeof(struct nf_nat_range),
-+	.table		= "nat",
-+	.hooks		= (1 << NF_INET_PRE_ROUTING) | (1 << NF_INET_LOCAL_OUT),
-+	.me		= THIS_MODULE,
-+};
-+
-+static int __init redirect_tg6_init(void)
-+{
-+	return xt_register_target(&redirect_tg6_reg);
-+}
-+
-+static void __exit redirect_tg6_exit(void)
-+{
-+	xt_unregister_target(&redirect_tg6_reg);
-+}
-+
-+module_init(redirect_tg6_init);
-+module_exit(redirect_tg6_exit);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
-+MODULE_DESCRIPTION("Xtables: Connection redirection to localhost");
+ 	return 0;
+ }
+ EXPORT_SYMBOL(ip6_route_me_harder);
 -- 
 1.7.10.4
