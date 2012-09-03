@@ -1,284 +1,88 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next.git 3/7] stmmac: add the initial tx coalesce schema
-Date: Mon,  3 Sep 2012 09:46:58 +0200
-Message-ID: <1346658422-1925-4-git-send-email-peppe.cavallaro@st.com>
-References: <1346658422-1925-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v2 1/2] tcp: add generic netlink support for
+ tcp_metrics
+Date: Mon, 3 Sep 2012 11:22:15 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1209031041340.1663@ja.ssi.bg>
+References: <1346564178-1794-1-git-send-email-ja@ssi.bg>  <1346564178-1794-2-git-send-email-ja@ssi.bg> <1346633144.2563.97.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:42281 "EHLO
-	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755492Ab2ICIJX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 04:09:23 -0400
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 3EA0D1D9
-	for <netdev@vger.kernel.org>; Mon,  3 Sep 2012 07:47:18 +0000 (GMT)
-Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id E8D4A2B97
-	for <netdev@vger.kernel.org>; Mon,  3 Sep 2012 07:47:17 +0000 (GMT)
-In-Reply-To: <1346658422-1925-1-git-send-email-peppe.cavallaro@st.com>
+Received: from ja.ssi.bg ([178.16.129.10]:43157 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753978Ab2ICITU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Sep 2012 04:19:20 -0400
+In-Reply-To: <1346633144.2563.97.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a new schema used for mitigating the
-number of transmit interrupts.
-It is based on a sw timer and a threshold value.
-The timer is used to periodically call the stmmac_tx
-function that can be invoked by the ISR but only for
-the descriptors where the interrupt on completion
-field has been set. This is tuned by a threshold.
 
-Next step is to add the ability to tune these coalesce
-values by ethtool.
+	Hello,
 
-Till now I have put a default that showed a real gain
-on all the platforms ARM/SH4 where I performed benchmarks.
+On Mon, 3 Sep 2012, Eric Dumazet wrote:
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/common.h       |    8 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    4 +
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    9 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   86 +++++++++++++-------
- 4 files changed, 72 insertions(+), 35 deletions(-)
+> On Sun, 2012-09-02 at 08:36 +0300, Julian Anastasov wrote:
+> > +
+> > +static int tcp_metrics_flush_all(struct net *net)
+> > +{
+> > +	unsigned int max_rows = 1U << net->ipv4.tcp_metrics_hash_log;
+> > +	struct tcpm_hash_bucket *hb = net->ipv4.tcp_metrics_hash;
+> > +	struct tcp_metrics_block *tm;
+> > +	unsigned int sync_count = 0;
+> > +	unsigned int row;
+> > +
+> > +	for (row = 0; row < max_rows; row++, hb++) {
+> > +		spin_lock_bh(&tcp_metrics_lock);
+> > +		tm = deref_locked_genl(hb->chain);
+> > +		if (tm)
+> > +			hb->chain = NULL;
+> > +		spin_unlock_bh(&tcp_metrics_lock);
+> > +		while (tm) {
+> > +			struct tcp_metrics_block *next;
+> > +
+> > +			next = deref_genl(tm->tcpm_next);
+> > +			kfree_rcu(tm, rcu_head);
+> > +			if (!((++sync_count) & 2047))
+> > +				synchronize_rcu();
+> > +			tm = next;
+> > +		}
+> > +	}
+> > +	return 0;
+> > +}
+> 
+> It looks like the synchronize_rcu() call is not exactly what you wanted,
+> but then net/ipv4/fib_trie.c has the same mistake.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index bd32fe6..1d6bd3e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -95,11 +95,13 @@ struct stmmac_extra_stats {
- 	unsigned long threshold;
- 	unsigned long tx_pkt_n;
- 	unsigned long rx_pkt_n;
--	unsigned long rx_napi_poll;
-+	unsigned long normal_irq_n;
- 	unsigned long rx_normal_irq_n;
-+	unsigned long rx_napi_poll;
- 	unsigned long tx_normal_irq_n;
--	unsigned long sched_timer_n;
--	unsigned long normal_irq_n;
-+	unsigned long txtimer;
-+	unsigned long tx_clean;
-+	unsigned long tx_reset_ic_bit;
- 	unsigned long mmc_tx_irq_n;
- 	unsigned long mmc_rx_irq_n;
- 	unsigned long mmc_rx_csum_offload_irq_n;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 9f35769..0f5ab28 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -88,6 +88,10 @@ struct stmmac_priv {
- 	int eee_enabled;
- 	int eee_active;
- 	int tx_lpi_timer;
-+	struct timer_list txtimer;
-+	u32 tx_count_frames;
-+	u32 tx_coal_frames;
-+	u32 tx_coal_timer;
- };
- 
- extern int phyaddr;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 505fe71..48ad0bc 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -90,12 +90,13 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
- 	STMMAC_STAT(threshold),
- 	STMMAC_STAT(tx_pkt_n),
- 	STMMAC_STAT(rx_pkt_n),
--	STMMAC_STAT(rx_napi_poll),
-+	STMMAC_STAT(normal_irq_n),
- 	STMMAC_STAT(rx_normal_irq_n),
-+	STMMAC_STAT(rx_napi_poll),
- 	STMMAC_STAT(tx_normal_irq_n),
--	STMMAC_STAT(sched_timer_n),
--	STMMAC_STAT(normal_irq_n),
--	STMMAC_STAT(normal_irq_n),
-+	STMMAC_STAT(txtimer),
-+	STMMAC_STAT(tx_clean),
-+	STMMAC_STAT(tx_reset_ic_bit),
- 	STMMAC_STAT(mmc_tx_irq_n),
- 	STMMAC_STAT(mmc_rx_irq_n),
- 	STMMAC_STAT(mmc_rx_csum_offload_irq_n),
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index b247c39..d7f5482 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -77,6 +77,8 @@
- 
- #define STMMAC_ALIGN(x)	L1_CACHE_ALIGN(x)
- #define JUMBO_LEN	9000
-+#define	STMMAC_TX_TM	40000
-+#define STMMAC_TX_MAX_FRAMES	64	/* Max coalesced frame */
- 
- /* Module parameters */
- #define TX_TIMEO 5000 /* default 5 seconds */
-@@ -695,8 +697,11 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
- static void stmmac_tx(struct stmmac_priv *priv)
- {
- 	unsigned int txsize = priv->dma_tx_size;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&priv->tx_lock, flags);
- 
--	spin_lock(&priv->tx_lock);
-+	priv->xstats.tx_clean++;
- 
- 	while (priv->dirty_tx != priv->cur_tx) {
- 		int last;
-@@ -765,7 +770,7 @@ static void stmmac_tx(struct stmmac_priv *priv)
- 		stmmac_enable_eee_mode(priv);
- 		mod_timer(&priv->eee_ctrl_timer, STMMAC_LPI_TIMER(eee_timer));
- 	}
--	spin_unlock(&priv->tx_lock);
-+	spin_unlock_irqrestore(&priv->tx_lock, flags);
- }
- 
- static inline void stmmac_enable_irq(struct stmmac_priv *priv)
-@@ -778,29 +783,16 @@ static inline void stmmac_disable_irq(struct stmmac_priv *priv)
- 	priv->hw->dma->disable_dma_irq(priv->ioaddr);
- }
- 
--static int stmmac_has_work(struct stmmac_priv *priv)
-+static void stmmac_txtimer(unsigned long data)
- {
--	unsigned int has_work = 0;
--	int rxret, tx_work = 0;
-+	struct stmmac_priv *priv = (struct stmmac_priv *)data;
- 
--	rxret = priv->hw->desc->get_rx_owner(priv->dma_rx +
--		(priv->cur_rx % priv->dma_rx_size));
-+	priv->xstats.txtimer++;
- 
- 	if (priv->dirty_tx != priv->cur_tx)
--		tx_work = 1;
--
--	if (likely(!rxret || tx_work))
--		has_work = 1;
-+		stmmac_tx(priv);
- 
--	return has_work;
--}
--
--static inline void _stmmac_schedule(struct stmmac_priv *priv)
--{
--	if (likely(stmmac_has_work(priv))) {
--		stmmac_disable_irq(priv);
--		napi_schedule(&priv->napi);
--	}
-+	return;
- }
- 
- /**
-@@ -824,7 +816,7 @@ static void stmmac_tx_err(struct stmmac_priv *priv)
- 	netif_wake_queue(priv->dev);
- }
- 
--static inline void stmmac_rx_schedule(struct stmmac_priv *priv)
-+static void stmmac_rx_schedule(struct stmmac_priv *priv)
- {
- 	if (likely(napi_schedule_prep(&priv->napi))) {
- 		stmmac_disable_irq(priv);
-@@ -1001,6 +993,36 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
- 				   priv->dma_rx_phy);
- }
- 
-+static int stmmac_check_coal(int size, int max_coal_frames)
-+{
-+	int ret = 0;
-+
-+	if (max_coal_frames >= size)
-+		return ret;
-+
-+	return max_coal_frames;
-+}
-+
-+static int stmmac_init_tx_coalesce(struct stmmac_priv *priv)
-+{
-+	int ret = -EOPNOTSUPP;
-+
-+	priv->tx_coal_frames = stmmac_check_coal(priv->dma_tx_size,
-+						 STMMAC_TX_MAX_FRAMES);
-+	if (priv->tx_coal_frames) {
-+		/* Set Tx coalesce parameters and timers */
-+		priv->tx_coal_timer = jiffies + usecs_to_jiffies(STMMAC_TX_TM);
-+		init_timer(&priv->txtimer);
-+		priv->txtimer.expires = priv->tx_coal_timer;
-+		priv->txtimer.data = (unsigned long)priv;
-+		priv->txtimer.function = stmmac_txtimer;
-+
-+		ret = 0;
-+	}
-+
-+	return ret;
-+}
-+
- /**
-  *  stmmac_open - open entry point of the driver
-  *  @dev : pointer to the device structure.
-@@ -1113,6 +1135,10 @@ static int stmmac_open(struct net_device *dev)
- 	priv->tx_lpi_timer = STMMAC_DEFAULT_TWT_LS_TIMER;
- 	priv->eee_enabled = stmmac_eee_init(priv);
- 
-+	ret = stmmac_init_tx_coalesce(priv);
-+	if (!ret)
-+		add_timer(&priv->txtimer);
-+
- 	napi_enable(&priv->napi);
- 	skb_queue_head_init(&priv->rx_recycle);
- 	netif_start_queue(dev);
-@@ -1202,6 +1228,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	int nfrags = skb_shinfo(skb)->nr_frags;
- 	struct dma_desc *desc, *first;
- 	unsigned int nopaged_len = skb_headlen(skb);
-+	unsigned long flags;
- 
- 	if (unlikely(stmmac_tx_avail(priv) < nfrags + 1)) {
- 		if (!netif_queue_stopped(dev)) {
-@@ -1213,10 +1240,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		return NETDEV_TX_BUSY;
- 	}
- 
--	spin_lock(&priv->tx_lock);
--
--	if (priv->tx_path_in_lpi_mode)
--		stmmac_disable_eee_mode(priv);
-+	spin_lock_irqsave(&priv->tx_lock, flags);
- 
- 	entry = priv->cur_tx % txsize;
- 
-@@ -1272,7 +1296,14 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	/* Interrupt on completition only for the latest segment */
- 	priv->hw->desc->close_tx_desc(desc);
- 
--	wmb();
-+	/* Do not set the IC according to the coalesce patameters */
-+	priv->tx_count_frames++;
-+	if (priv->tx_coal_frames > priv->tx_count_frames) {
-+		priv->hw->desc->clear_tx_ic(desc);
-+		priv->xstats.tx_reset_ic_bit++;
-+		mod_timer(&priv->txtimer, priv->tx_coal_timer);
-+	} else
-+		priv->tx_count_frames = 0;
- 
- 	/* To avoid raise condition */
- 	priv->hw->desc->set_tx_owner(first);
-@@ -1302,7 +1333,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	priv->hw->dma->enable_dma_transmission(priv->ioaddr);
- 
--	spin_unlock(&priv->tx_lock);
-+	spin_unlock_irqrestore(&priv->tx_lock, flags);
- 
- 	return NETDEV_TX_OK;
- }
-@@ -1447,7 +1478,6 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
-  *	      all interfaces.
-  *  Description :
-  *   This function implements the the reception process.
-- *   Also it runs the TX completion thread
-  */
- static int stmmac_poll(struct napi_struct *napi, int budget)
- {
--- 
-1.7.4.4
+	I used fib_trie as reference...
+
+> What we want here is to force pending call_rcu() calls to complete, so
+> that we dont consume too much memory. So it would probably better to
+> call rcu_barrier() instead.
+
+	I see
+
+> If other cpus are idle or outside of rcu read lock sections,
+> synchronize_rcu() should basically do nothing at all.
+> 
+> But I am not sure its worth the trouble ?
+> 
+> Commit c3059477fce2d956a0bb3e04357324780c5d8eeb (ipv4: Use
+> synchronize_rcu() during trie_rebalance()) was needed because FIB TRIE
+> can really use huge amounts of memory, thats hardly the case with
+> tcp_metrics.
+
+	I was worrying for the case
+(TCP_METRICS_RECLAIM_DEPTH + 1) * tcpmhash_entries to be
+large, eg. if some non-default value is configured. May be the
+chance table to be filled immediately is small. I'll remove it.
+
+	BTW, is it appropriate to use kmem_cache for
+metrics and as result call_rcu for freeing?
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
