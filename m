@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fq_codel: dont reinit flow state
-Date: Mon, 03 Sep 2012 14:37:31 -0400 (EDT)
-Message-ID: <20120903.143731.1529957529578802591.davem@davemloft.net>
-References: <1346505597.7996.76.camel@edumazet-glaptop>
+Subject: Re: [PATCH] mISDN: fix possible memory leak in hfcmulti_init()
+Date: Mon, 03 Sep 2012 15:37:53 -0400 (EDT)
+Message-ID: <20120903.153753.1794768537163408659.davem@davemloft.net>
+References: <CAPgLHd_vRu-ACoVhf2LwL_1pYXuvXArindYOpHh6T-syn_CVUg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dave.taht@gmail.com
-To: eric.dumazet@gmail.com
+Cc: isdn@linux-pingi.de, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49579 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49903 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754980Ab2ICShd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 14:37:33 -0400
-In-Reply-To: <1346505597.7996.76.camel@edumazet-glaptop>
+	with ESMTP id S1756327Ab2ICTh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 15:37:59 -0400
+In-Reply-To: <CAPgLHd_vRu-ACoVhf2LwL_1pYXuvXArindYOpHh6T-syn_CVUg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 01 Sep 2012 06:19:57 -0700
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Mon, 3 Sep 2012 15:31:00 +0800
 
-> When fq_codel builds a new flow, it should not reset codel state.
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
-> Codel algo needs to get previous values (lastcount, drop_next) to get
-> proper behavior.
+> hc has been allocated in this function and missing free it before
+> leaving from some error handling cases.
 > 
-> Signed-off-by: Dave Taht <dave.taht@gmail.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> spatch with a semantic match is used to found this problem.
+> (http://coccinelle.lip6.fr/)
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Applied to 'net', thanks.
+Applied, thanks.
