@@ -1,67 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: Don't charge for data in sndbuf again when
- transmitting packet
-Date: Mon, 03 Sep 2012 13:24:44 -0400 (EDT)
-Message-ID: <20120903.132444.1801063740284928920.davem@davemloft.net>
-References: <ed0aceea14e890e55829f42d1594ae9417b8ca25.1346681739.git.tgraf@suug.ch>
-	<378685E0-7225-4C9D-AE0F-7B8767ECB16A@gmail.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Subject: RE: Possible issue with Mellanox mlx4/port handling
+Date: Mon, 3 Sep 2012 17:32:40 +0000
+Message-ID: <953B660C027164448AE903364AC447D28720CF7D@MTLDAG01.mtl.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	vyasevic@redhat.com, nhorman@tuxdriver.com
-To: vyasevich@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "mleitner@redhat.com" <mleitner@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49018 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753273Ab2ICRYq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 13:24:46 -0400
-In-Reply-To: <378685E0-7225-4C9D-AE0F-7B8767ECB16A@gmail.com>
+Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:59903 "HELO
+	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753285Ab2ICRcp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Sep 2012 13:32:45 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevich@gmail.com>
-Date: Mon, 3 Sep 2012 11:02:51 -0400
+> Commit
+> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=4c41b3673759d096106e68bce586f103c51d4119
+> inserted changes like:
+> 
+> @@ -361,7 +361,7 @@ static int add_promisc_qp(struct mlx4_dev *dev, u8
+> port,
+>          int err;
+>          struct mlx4_priv *priv = mlx4_priv(dev);
+> 
+> -       s_steer = &mlx4_priv(dev)->steer[0];
+> +       s_steer = &mlx4_priv(dev)->steer[port - 1];
+> 
+>          mutex_lock(&priv->mcg_table.mutex);
+> 
+> But I fear we missed one part of the deal. Concept patch:
+> 
+> @@ -365,7 +365,7 @@ static int add_promisc_qp(struct mlx4_dev *dev, u8
+> port,
+> 
+>          mutex_lock(&priv->mcg_table.mutex);
+> 
+> -       if (get_promisc_qp(dev, 0, steer, qpn)) {
+> +       if (get_promisc_qp(dev, port - 1, steer, qpn)) {
+>                  err = 0;  /* Noting to do, already exists */
+>                  goto out_mutex;
+>          }
+> 
+...
+> 
+> As far as I can understand, we are changing a list for a port and checking for
+> duplicates on the other list. Points marked as A, B and C for highlighting. Am I
+> missing something? What do you think?
+> 
+> FWIW, this call get_promisc_qp(dev, 0, ...) happens in other places too.
+> 
+> Thank you,
+> Marcelo.
 
-> 
-> 
-> On Sep 3, 2012, at 10:27 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> 
->> SCTP charges wmem_alloc via sctp_set_owner_w() in sctp_sendmsg() and
->> via
->> skb_set_owner_w() in sctp_packet_transmit(). If a sender runs out of
->> sndbuf it will sleep in sctp_wait_for_sndbuf() and expects to be waken
->> up
->> by __sctp_write_space().
->>
->> Buffer space charged via sctp_set_owner_w() is released in
->> sctp_wfree()
->> which calls __sctp_write_space() directly.
->>
->> Buffer space charged via skb_set_owner_w() is released via
->> sock_wfree()
->> which calls sk->sk_write_space() _if_ SOCK_USE_WRITE_QUEUE is not set.
->> sctp_endpoint_init() sets SOCK_USE_WRITE_QUEUE on all sockets.
->>
->> Therefore if sctp_packet_transmit() manages to queue up more than
->> sndbuf
->> bytes, sctp_wait_for_sndbuf() will never be woken up again unless it
->> is
->> interrupted by a signal.
->>
->> This could be fixed by clearing the SOCK_USE_WRITE_QUEUE flag but ...
->>
->> Charging for the data twice does not make sense in the first place, it
->> leads to overcharging sndbuf by a factor 2. Therefore this patch only
->> charges a single byte in wmem_alloc when transmitting an SCTP packet
->> to
->> ensure that the socket stays alive until the packet has been released.
->>
->> This means that control chunks are no longer accounted for in
->> wmem_alloc
->> which I believe is not a problem as skb->truesize will typically lead
->> to overcharging anyway and thus compensates for any control overhead.
-> 
-> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Hi Marcelo,
+Thanks for this, You are absolutely right.
+We actually have a fix for this issue which we are now verifying, and it will be sent to the mailing list in a few days.
 
-Applied and queued up for -stable, thanks everyone.
+Thanks,
+Yevgeny
