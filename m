@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] tcp: move tcp_update_cwnd_in_recovery
-Date: Mon, 03 Sep 2012 14:34:26 -0400 (EDT)
-Message-ID: <20120903.143426.2014939689917601176.davem@davemloft.net>
-References: <1346643484-12947-1-git-send-email-ycheng@google.com>
-	<1346643484-12947-2-git-send-email-ycheng@google.com>
-	<CADVnQy=RH=3bGhfiKpMBCY-6n16FY9iSXBRWDbbT7h+5FbKKWg@mail.gmail.com>
+Subject: Re: [PATCH] fq_codel: dont reinit flow state
+Date: Mon, 03 Sep 2012 14:37:31 -0400 (EDT)
+Message-ID: <20120903.143731.1529957529578802591.davem@davemloft.net>
+References: <1346505597.7996.76.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ycheng@google.com, nanditad@google.com, mattmathis@google.com,
-	edumazet@google.com, netdev@vger.kernel.org
-To: ncardwell@google.com
+Cc: netdev@vger.kernel.org, dave.taht@gmail.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49549 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49579 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756174Ab2ICSe3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 14:34:29 -0400
-In-Reply-To: <CADVnQy=RH=3bGhfiKpMBCY-6n16FY9iSXBRWDbbT7h+5FbKKWg@mail.gmail.com>
+	with ESMTP id S1754980Ab2ICShd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 14:37:33 -0400
+In-Reply-To: <1346505597.7996.76.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neal Cardwell <ncardwell@google.com>
-Date: Sun, 2 Sep 2012 23:57:02 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 01 Sep 2012 06:19:57 -0700
 
-> On Sun, Sep 2, 2012 at 11:38 PM, Yuchung Cheng <ycheng@google.com> wrote:
->> To prepare replacing rate halving with PRR algorithm in CWR state.
->>
->> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> When fq_codel builds a new flow, it should not reset codel state.
 > 
-> Acked-by: Neal Cardwell <ncardwell@google.com>
+> Codel algo needs to get previous values (lastcount, drop_next) to get
+> proper behavior.
+> 
+> Signed-off-by: Dave Taht <dave.taht@gmail.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied to net-next
+Applied to 'net', thanks.
