@@ -1,51 +1,106 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] mISDN: fix possible memory leak in hfcmulti_init()
-Date: Mon, 3 Sep 2012 15:31:00 +0800
-Message-ID: <CAPgLHd_vRu-ACoVhf2LwL_1pYXuvXArindYOpHh6T-syn_CVUg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: isdn@linux-pingi.de
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next.git 0/7] stmmac: remove dead code for STMMAC_TIMER and add new mitigation schema.
+Date: Mon,  3 Sep 2012 09:46:55 +0200
+Message-ID: <1346658422-1925-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:57240 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753423Ab2ICHbB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 03:31:01 -0400
-Received: by qaas11 with SMTP id s11so2049224qaa.19
-        for <netdev@vger.kernel.org>; Mon, 03 Sep 2012 00:31:00 -0700 (PDT)
+Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:35834 "EHLO
+	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753016Ab2ICHrM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 03:47:12 -0400
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 577B21E3
+	for <netdev@vger.kernel.org>; Mon,  3 Sep 2012 07:47:07 +0000 (GMT)
+Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id D241A2B9C
+	for <netdev@vger.kernel.org>; Mon,  3 Sep 2012 07:47:07 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+These patch series remove the STMMAC_TIMER option no longer updated
+and never used and add a new mitigation schema.
+Having removed the Timer opt, this has made the driver slim.
+On top of this work, it has been easier to introduce the new
+mitigation schema based on HW RX-watchdog (available in new cores).
+In fact, 3.50 and newer cores have an HW RX-Watchdog that can be used for 
+mitigating the Rx-interrupts and first results look promising.
 
-hc has been allocated in this function and missing free it before
-leaving from some error handling cases.
+Running n-u-t-t-c-p with the following parameters:
 
-spatch with a semantic match is used to found this problem.
-(http://coccinelle.lip6.fr/)
+ Throughput: 500Mbps
+ UDP Buffer size: 1328bytes
+ TCP Buffer size: 65536bytes
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/isdn/hardware/mISDN/hfcmulti.c | 2 ++
- 1 file changed, 2 insertions(+)
+for example, I got on ST box (arm-based) these improvements:
 
-diff --git a/drivers/isdn/hardware/mISDN/hfcmulti.c b/drivers/isdn/hardware/mISDN/hfcmulti.c
-index 5e402cf..f027942 100644
---- a/drivers/isdn/hardware/mISDN/hfcmulti.c
-+++ b/drivers/isdn/hardware/mISDN/hfcmulti.c
-@@ -5059,6 +5059,7 @@ hfcmulti_init(struct hm_map *m, struct pci_dev *pdev,
- 				printk(KERN_INFO
- 				       "HFC-E1 #%d has overlapping B-channels on fragment #%d\n",
- 				       E1_cnt + 1, pt);
-+				kfree(hc);
- 				return -EINVAL;
- 			}
- 			maskcheck |= hc->bmask[pt];
-@@ -5086,6 +5087,7 @@ hfcmulti_init(struct hm_map *m, struct pci_dev *pdev,
- 	if ((poll >> 1) > sizeof(hc->silence_data)) {
- 		printk(KERN_ERR "HFCMULTI error: silence_data too small, "
- 		       "please fix\n");
-+		kfree(hc);
- 		return -EINVAL;
- 	}
- 	for (i = 0; i < (poll >> 1); i++)
+--------------------------------------------------------------------
+      Original                   |     With New Mitigation patch
+--------------------------------------------------------------------
+ Test        CPU usage  pkt/loss |        CPU usage     pkt/loss
+ Type  Mbps        %         %   |Mbps      %              %
+--------------------------------------------------------------------
+UDP-RX 395.5065 95       20.89   |499.9966  25        0.00%
+UDP-TX 499.5578 100     0.08915  |499.7156  100       0.06029%
+TCP-RX 499.9221 77               |499.8648  41
+TCP-TX 389.5719 99               |499.2802  79
+--------------------------------------------------------------------
+
+ ... no regression on ST boxes (SH based) I always test.
+
+This is a brief explanation of the new mitigation schema although there
+is a patch that updates the driver's documentation.
+
+o On Rx-side I have:
+  New GMACs will use the RX-watchdog timer; old ones will continue to
+  use NAPI to mitigate the RX DMA interrupts.
+  For the RX-watchdog, there is a parameter that is the RI Watchdog 
+  Timer count. It indicates the number of system clock cycles and can be
+  set via sysFS. Next step will be to tune it via ethtool.
+
+o On Tx-side, the mitigation schema is based on a SW timer
+  that calls the tx function (stmmac_tx) to reclaim the resource after
+  transmitting the frames.
+  Also there is another parameter (a threshold) used to program
+  the descriptors avoiding to set the interrupt on completion bit in
+  when the frame is sent (xmit). This means that the stmmac_tx can be
+  called by the ISR too. Also this parameter can be tuned via sysFs and
+  not yet via ethtool.
+
+Note1: there is a patch that updates the driver to August 2012.
+I hope to also release the PTP support and update the driver in the next weeks.
+
+Note2: next step will be to tune coalesce params via ethtool. I'll do that.
+
+peppe
+
+Giuseppe Cavallaro (7):
+  stmmac: remove dead code for TIMER
+  stmmac: manage tx clean out of rx_poll
+  stmmac: add the initial tx coalesce schema
+  stmmac: add Rx watchdog optimization to mitigate the DMA irqs
+  stmmac: add sysFs support
+  stmmac: add mitigation and sysfs info in the doc
+  stmmac: update the driver version to August_2012
+
+ Documentation/networking/stmmac.txt                |   34 ++-
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |   25 --
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |    3 +-
+ drivers/net/ethernet/stmicro/stmmac/common.h       |   30 ++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    3 -
+ .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    |    6 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |    3 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c    |    7 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac-sysfs.c |  157 +++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |   15 +-
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    9 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  282 +++++++++-----------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c |  134 ---------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h |   46 ----
+ 14 files changed, 354 insertions(+), 400 deletions(-)
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/stmmac-sysfs.c
+ delete mode 100644 drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
+ delete mode 100644 drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h
+
+-- 
+1.7.4.4
