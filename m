@@ -1,66 +1,56 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] net/can:  rename peak_usb dump_mem function
-Date: Mon, 03 Sep 2012 11:02:19 +0200
-Message-ID: <5044721B.8030507@pengutronix.de>
-References: <1346577700-8156-1-git-send-email-geert@linux-m68k.org> <504393A7.8040007@xenotime.net>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net-next 1/2] net: sierra_net: make private symbols static
+Date: Mon,  3 Sep 2012 11:20:32 +0200
+Message-ID: <1346664033-30284-2-git-send-email-bjorn@mork.no>
+References: <1346664033-30284-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig53A119B1730FC3E6BD971FDC"
-Cc: netdev@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Stephane Grosjean <s.grosjean@peak-system.com>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	linux-can@vger.kernel.org
-To: Randy Dunlap <rdunlap@xenotime.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <504393A7.8040007@xenotime.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig53A119B1730FC3E6BD971FDC
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:47178 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752367Ab2ICJUm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Sep 2012 05:20:42 -0400
+In-Reply-To: <1346664033-30284-1-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/02/2012 07:13 PM, Randy Dunlap wrote:
-> From: Randy Dunlap <rdunlap@xenotime.net>
->=20
-> Rename generic-sounding function dump_mem() to pcan_dump_mem()
-> so that it does not conflict with the dump_mem() function in
-> arch/sh/include/asm/kdebug.h.
->=20
-> drivers/net/can/usb/peak_usb/pcan_usb_core.c: error: conflicting types =
-for 'dump_mem':  =3D> 56:6
-> drivers/net/can/usb/peak_usb/pcan_usb_core.h: error: conflicting types =
-for 'dump_mem':  =3D> 134:6
->=20
-> Not tested.
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+ drivers/net/usb/sierra_net.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-:) I've converted the users of peak's dump_mem() function, too. Now it
-compiles. Should this go into v3.6, or is v3.7 early enough?
-
-Marc
-
+diff --git a/drivers/net/usb/sierra_net.c b/drivers/net/usb/sierra_net.=
+c
+index 7be49ea..596ddaa 100644
+--- a/drivers/net/usb/sierra_net.c
++++ b/drivers/net/usb/sierra_net.c
+@@ -560,7 +560,7 @@ static void sierra_net_defer_kevent(struct usbnet *=
+dev, int work)
+ /*
+  * Sync Retransmit Timer Handler. On expiry, kick the work queue
+  */
+-void sierra_sync_timer(unsigned long syncdata)
++static void sierra_sync_timer(unsigned long syncdata)
+ {
+ 	struct usbnet *dev =3D (struct usbnet *)syncdata;
+=20
+@@ -866,8 +866,8 @@ static int sierra_net_rx_fixup(struct usbnet *dev, =
+struct sk_buff *skb)
+ }
+=20
+ /* ---------------------------- Transmit data path -------------------=
+---*/
+-struct sk_buff *sierra_net_tx_fixup(struct usbnet *dev, struct sk_buff=
+ *skb,
+-		gfp_t flags)
++static struct sk_buff *sierra_net_tx_fixup(struct usbnet *dev,
++					   struct sk_buff *skb, gfp_t flags)
+ {
+ 	struct sierra_net_data *priv =3D sierra_net_get_private(dev);
+ 	u16 len;
 --=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig53A119B1730FC3E6BD971FDC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://www.enigmail.net/
-
-iEYEARECAAYFAlBEchsACgkQjTAFq1RaXHOxvgCeMgKpXKqbuvwjk5E1ztkdi2L0
-bVgAoIVvPIsepqwIFp3CqGovX8OEWUu7
-=s4ws
------END PGP SIGNATURE-----
-
---------------enig53A119B1730FC3E6BD971FDC--
+1.7.10.4
