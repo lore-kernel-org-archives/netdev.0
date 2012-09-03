@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 01/25] ipvs: IPv6 MTU checking cleanup and bugfix
-Date: Tue,  4 Sep 2012 01:53:48 +0200
-Message-ID: <1346716452-3080-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 03/25] netfilter: nf_conntrack_ipv6: fix tracking of ICMPv6 error messages containing fragments
+Date: Tue,  4 Sep 2012 01:53:50 +0200
+Message-ID: <1346716452-3080-4-git-send-email-pablo@netfilter.org>
 References: <1346716452-3080-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,97 +10,116 @@ In-Reply-To: <1346716452-3080-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Patrick McHardy <kaber@trash.net>
 
-Cleaning up the IPv6 MTU checking in the IPVS xmit code, by using
-a common helper function __mtu_check_toobig_v6().
+ICMPv6 error messages are tracked by extracting the conntrack tuple of
+the inner packet and looking up the corresponding conntrack entry. Tuple
+extraction uses the ->get_l4proto() callback, which in case of fragments
+returns NEXTHDR_FRAGMENT instead of the upper protocol, even for the
+first fragment when the entire next header is present, resulting in a
+failure to find the correct connection tracking entry.
 
-The MTU check for tunnel mode can also use this helper as
-ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) is qual to
-skb->len.  And the 'mtu' variable have been adjusted before
-calling helper.
+This patch changes ipv6_get_l4proto() to use ipv6_skip_exthdr() instead
+of nf_ct_ipv6_skip_exthdr() in order to skip fragment headers when the
+fragment offset is zero.
 
-Notice, this also fixes a bug, as the the MTU check in ip_vs_dr_xmit_v6()
-were missing a check for skb_is_gso().
-
-This bug e.g. caused issues for KVM IPVS setups, where different
-Segmentation Offloading techniques are utilized, between guests,
-via the virtio driver.  This resulted in very bad performance,
-due to the ICMPv6 "too big" messages didn't affect the sender.
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_xmit.c |   21 +++++++++++++++------
- 1 file changed, 15 insertions(+), 6 deletions(-)
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   63 +++---------------------
+ 1 file changed, 6 insertions(+), 57 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 543a554..67a3978 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -85,6 +85,15 @@ __ip_vs_dst_check(struct ip_vs_dest *dest, u32 rtos)
- 	return dst;
+diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+index 521ddca..dcf6010 100644
+--- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+@@ -64,82 +64,31 @@ static int ipv6_print_tuple(struct seq_file *s,
+ 			  tuple->src.u3.ip6, tuple->dst.u3.ip6);
  }
  
-+static inline bool
-+__mtu_check_toobig_v6(const struct sk_buff *skb, u32 mtu)
-+{
-+	if (skb->len > mtu && !skb_is_gso(skb)) {
-+		return true; /* Packet size violate MTU size */
-+	}
-+	return false;
-+}
-+
- /* Get route to daddr, update *saddr, optionally bind route to saddr */
- static struct rtable *do_output_route4(struct net *net, __be32 daddr,
- 				       u32 rtos, int rt_mode, __be32 *saddr)
-@@ -491,7 +500,7 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+-/*
+- * Based on ipv6_skip_exthdr() in net/ipv6/exthdr.c
+- *
+- * This function parses (probably truncated) exthdr set "hdr"
+- * of length "len". "nexthdrp" initially points to some place,
+- * where type of the first header can be found.
+- *
+- * It skips all well-known exthdrs, and returns pointer to the start
+- * of unparsable area i.e. the first header with unknown type.
+- * if success, *nexthdr is updated by type/protocol of this header.
+- *
+- * NOTES: - it may return pointer pointing beyond end of packet,
+- *          if the last recognized header is truncated in the middle.
+- *        - if packet is truncated, so that all parsed headers are skipped,
+- *          it returns -1.
+- *        - if packet is fragmented, return pointer of the fragment header.
+- *        - ESP is unparsable for now and considered like
+- *          normal payload protocol.
+- *        - Note also special handling of AUTH header. Thanks to IPsec wizards.
+- */
+-
+-static int nf_ct_ipv6_skip_exthdr(const struct sk_buff *skb, int start,
+-				  u8 *nexthdrp, int len)
+-{
+-	u8 nexthdr = *nexthdrp;
+-
+-	while (ipv6_ext_hdr(nexthdr)) {
+-		struct ipv6_opt_hdr hdr;
+-		int hdrlen;
+-
+-		if (len < (int)sizeof(struct ipv6_opt_hdr))
+-			return -1;
+-		if (nexthdr == NEXTHDR_NONE)
+-			break;
+-		if (nexthdr == NEXTHDR_FRAGMENT)
+-			break;
+-		if (skb_copy_bits(skb, start, &hdr, sizeof(hdr)))
+-			BUG();
+-		if (nexthdr == NEXTHDR_AUTH)
+-			hdrlen = (hdr.hdrlen+2)<<2;
+-		else
+-			hdrlen = ipv6_optlen(&hdr);
+-
+-		nexthdr = hdr.nexthdr;
+-		len -= hdrlen;
+-		start += hdrlen;
+-	}
+-
+-	*nexthdrp = nexthdr;
+-	return start;
+-}
+-
+ static int ipv6_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
+ 			    unsigned int *dataoff, u_int8_t *protonum)
+ {
+ 	unsigned int extoff = nhoff + sizeof(struct ipv6hdr);
+-	unsigned char pnum;
++	__be16 frag_off;
+ 	int protoff;
++	u8 nexthdr;
  
- 	/* MTU checking */
- 	mtu = dst_mtu(&rt->dst);
--	if (skb->len > mtu && !skb_is_gso(skb)) {
-+	if (__mtu_check_toobig_v6(skb, mtu)) {
- 		if (!skb->dev) {
- 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 	if (skb_copy_bits(skb, nhoff + offsetof(struct ipv6hdr, nexthdr),
+-			  &pnum, sizeof(pnum)) != 0) {
++			  &nexthdr, sizeof(nexthdr)) != 0) {
+ 		pr_debug("ip6_conntrack_core: can't get nexthdr\n");
+ 		return -NF_ACCEPT;
+ 	}
+-	protoff = nf_ct_ipv6_skip_exthdr(skb, extoff, &pnum, skb->len - extoff);
++	protoff = ipv6_skip_exthdr(skb, extoff, &nexthdr, &frag_off);
+ 	/*
+ 	 * (protoff == skb->len) mean that the packet doesn't have no data
+ 	 * except of IPv6 & ext headers. but it's tracked anyway. - YK
+ 	 */
+-	if ((protoff < 0) || (protoff > skb->len)) {
++	if (protoff < 0 || (frag_off & htons(~0x7)) != 0) {
+ 		pr_debug("ip6_conntrack_core: can't find proto in pkt\n");
+ 		return -NF_ACCEPT;
+ 	}
  
-@@ -712,7 +721,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- 
- 	/* MTU checking */
- 	mtu = dst_mtu(&rt->dst);
--	if (skb->len > mtu && !skb_is_gso(skb)) {
-+	if (__mtu_check_toobig_v6(skb, mtu)) {
- 		if (!skb->dev) {
- 			struct net *net = dev_net(skb_dst(skb)->dev);
- 
-@@ -946,8 +955,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	if (skb_dst(skb))
- 		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
- 
--	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) &&
--	    !skb_is_gso(skb)) {
-+	/* MTU checking: Notice that 'mtu' have been adjusted before hand */
-+	if (__mtu_check_toobig_v6(skb, mtu)) {
- 		if (!skb->dev) {
- 			struct net *net = dev_net(skb_dst(skb)->dev);
- 
-@@ -1113,7 +1122,7 @@ ip_vs_dr_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- 
- 	/* MTU checking */
- 	mtu = dst_mtu(&rt->dst);
--	if (skb->len > mtu) {
-+	if (__mtu_check_toobig_v6(skb, mtu)) {
- 		if (!skb->dev) {
- 			struct net *net = dev_net(skb_dst(skb)->dev);
- 
-@@ -1349,7 +1358,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- 
- 	/* MTU checking */
- 	mtu = dst_mtu(&rt->dst);
--	if (skb->len > mtu && !skb_is_gso(skb)) {
-+	if (__mtu_check_toobig_v6(skb, mtu)) {
- 		if (!skb->dev) {
- 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 	*dataoff = protoff;
+-	*protonum = pnum;
++	*protonum = nexthdr;
+ 	return NF_ACCEPT;
+ }
  
 -- 
 1.7.10.4
