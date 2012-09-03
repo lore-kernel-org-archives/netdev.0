@@ -1,82 +1,31 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next.git 5/7] stmmac: add sysFs support
-Date: Mon, 3 Sep 2012 16:09:17 +0100
-Message-ID: <1346684957.2688.15.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1346658422-1925-1-git-send-email-peppe.cavallaro@st.com>
-	  <1346658422-1925-6-git-send-email-peppe.cavallaro@st.com>
-	 <1346676267.7787.82.camel@deadeye.wl.decadent.org.uk>
-	 <5044B245.5050703@st.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/2] netfilter: pass 'nf_hook_ops' instead of
+ 'list_head' to nf_iterate()
+Date: Mon, 3 Sep 2012 17:31:42 +0200
+Message-ID: <20120903153142.GB19926@1984>
+References: <5035C6DD.3000600@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17813 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753364Ab2ICPJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 11:09:24 -0400
-In-Reply-To: <5044B245.5050703@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	coreteam@netfilter.org, netfilter@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	David Miller <davem@davemloft.net>, kaber@trash.net
+To: Michael Wang <wangyun@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5035C6DD.3000600@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-09-03 at 15:36 +0200, Giuseppe CAVALLARO wrote:
-> Hello Ben,
+On Thu, Aug 23, 2012 at 01:59:57PM +0800, Michael Wang wrote:
+> From: Michael Wang <wangyun@linux.vnet.ibm.com>
 > 
-> On 9/3/2012 2:44 PM, Ben Hutchings wrote:
-> > On Mon, 2012-09-03 at 09:47 +0200, Giuseppe CAVALLARO wrote:
-> >> This patch adds the sysFs support.
-> >> Some internal driver parameters can be tuned by using some
-> >> entries exposed via sysFS. There parameter currently are,
-> >> for example, for internal timers used to mitigate the rx/tx
-> >> interrupts or for EEE.
-> > [...]
-> > 
-> > Why are you not exposing these through the standard ethtool operations?
-> > 
-> > Ben.
+> Since 'list_for_each_continue_rcu' has already been replaced by
+> 'list_for_each_entry_continue_rcu', pass 'list_head' to nf_iterate() as a
+> parameter can not benefit us any more.
 > 
-> yes I want to expose them via ethtool and I'll do this as soon as I have
-> clear with ethtool parameters have to be used (
-> http://marc.info/?l=linux-netdev&m=134561966226677&w=2 ).
+> This patch will replace 'list_head' with 'nf_hook_ops' as the parameter of
+> nf_iterate() to save code.
 
-Sorry, I meant to reply to that but didn't get round to it.
-
-> For the reception side, I have the RI Watchdog Timer count field and I
-> do not know what is the appropriate ethtool parameter to use.
-> From the Synopsys databook, the RI Watchdog Timer count indicates the
-> number of system clock cycles. When the it runs out, the receive
-> interrupt bit is set and the timer is stopped.
-> No idea if it can be actually covered, for example, with
-> rx_coalesce_usecs_irq.
-
-As I understand it, interrupt moderation time is supposed to be the
-minimum time between completion IRQs, not a minimum delay from
-completion-with-IRQ-armed to assertion of the IRQ.  The timer should
-start running again immediately after the associated IRQ is asserted.
-But I don't know whether it's universally implemented this way.
-
-The field names including '_irq' are to be used if the hardware can use
-a different moderation time while the IRQ is still masked (i.e. NAPI or
-hard interrupt handler is still running).  I think most hardware doesn't
-support this.
-
-> For the transmission I have a SW timer that periodically calls the tx
-> function (stmmac_tx) and a threshold to also set the "Interrupt on
-> completion" bit in the TDES when a frame is transmitted.
-> I wonder (but not sure) if in this case I could be: tx_coalesce_usec and
-> tx_mac_coalesced_frames.
-> From the kernel documentation IIUC these seem to have other meaning.
-
-The semantics don't seem to match the documentation exactly but I think
-this is probably close enough.
-
-Ben.
-
-> No problem, to extend ethtool to cover these kind of parameters if
-> necessary.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Applied, thanks.
