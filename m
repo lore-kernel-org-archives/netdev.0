@@ -1,58 +1,66 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Question: routing packets via specific router in LAN?
-Date: Mon, 3 Sep 2012 08:28:37 +0000 (UTC)
-Message-ID: <k21pnk$bbf$1@ger.gmane.org>
-References: <50444880.8080703@gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] net/can:  rename peak_usb dump_mem function
+Date: Mon, 03 Sep 2012 11:02:19 +0200
+Message-ID: <5044721B.8030507@pengutronix.de>
+References: <1346577700-8156-1-git-send-email-geert@linux-m68k.org> <504393A7.8040007@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:36178 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755080Ab2ICI2s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Sep 2012 04:28:48 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1T8S1Y-00054N-5b
-	for netdev@vger.kernel.org; Mon, 03 Sep 2012 10:28:48 +0200
-Received: from 112.132.136.158 ([112.132.136.158])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 03 Sep 2012 10:28:48 +0200
-Received: from xiyou.wangcong by 112.132.136.158 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 03 Sep 2012 10:28:48 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig53A119B1730FC3E6BD971FDC"
+Cc: netdev@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Stephane Grosjean <s.grosjean@peak-system.com>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	linux-can@vger.kernel.org
+To: Randy Dunlap <rdunlap@xenotime.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <504393A7.8040007@xenotime.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 03 Sep 2012 at 06:04 GMT, Yi Li <lovelylich@gmail.com> wrote:
-> Hi All,
-> I have server --- router ---client three machines,
-> and they all have only one ip in the same LAN.
-> I want to instruct the packets flowing through the router when the
-> server and client communicates.
-> I have do the following things to setup:
-> on the server:
-> # ip route add to unicast CLIENT_IP/32 via ROUTER_IP dev eth0
-> # echo 0 > /proc/sys/net/ipv4/conf/all/accept_redirects
-> # echo 0 > /proc/sys/net/ipv4/conf/eth0/accept_redirects
->
-> on the client:
-> /*modify route table*/
-> # ip route add to unicast SERVER_IP/32 via ROUTER_IP dev eth0
-> /*disable icmp-redirects accept*/
-> # echo 0 > /proc/sys/net/ipv4/conf/all/accept_redirects
-> # echo 0 > /proc/sys/net/ipv4/conf/eth0/accept_redirects
->
-> on the router:
-> /*enable forwarding*/
-> # echo 1 > /proc/sys/net/ipv4/ip_forwarding
-> /*disable icmp-redirects*/
-> # echo 0 > /proc/sys/net/ipv4/conf/all/send_redirects
-> # echo 0 > /proc/sys/net/ipv4/conf/eth0/send_redirects
->
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig53A119B1730FC3E6BD971FDC
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Try to add some iptables rules like:
+On 09/02/2012 07:13 PM, Randy Dunlap wrote:
+> From: Randy Dunlap <rdunlap@xenotime.net>
+>=20
+> Rename generic-sounding function dump_mem() to pcan_dump_mem()
+> so that it does not conflict with the dump_mem() function in
+> arch/sh/include/asm/kdebug.h.
+>=20
+> drivers/net/can/usb/peak_usb/pcan_usb_core.c: error: conflicting types =
+for 'dump_mem':  =3D> 56:6
+> drivers/net/can/usb/peak_usb/pcan_usb_core.h: error: conflicting types =
+for 'dump_mem':  =3D> 134:6
+>=20
+> Not tested.
 
-iptables -A FORWARD -j ACCEPT -s CLIENT_IP/xx -d  SERVER_IP/xx
+:) I've converted the users of peak's dump_mem() function, too. Now it
+compiles. Should this go into v3.6, or is v3.7 early enough?
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enig53A119B1730FC3E6BD971FDC
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://www.enigmail.net/
+
+iEYEARECAAYFAlBEchsACgkQjTAFq1RaXHOxvgCeMgKpXKqbuvwjk5E1ztkdi2L0
+bVgAoIVvPIsepqwIFp3CqGovX8OEWUu7
+=s4ws
+-----END PGP SIGNATURE-----
+
+--------------enig53A119B1730FC3E6BD971FDC--
