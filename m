@@ -1,44 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next.git 5/7] stmmac: add sysFs support
-Date: Mon, 03 Sep 2012 13:20:30 -0400 (EDT)
-Message-ID: <20120903.132030.45862101479511279.davem@davemloft.net>
-References: <1346658422-1925-1-git-send-email-peppe.cavallaro@st.com>
-	<1346658422-1925-6-git-send-email-peppe.cavallaro@st.com>
-	<1346676267.7787.82.camel@deadeye.wl.decadent.org.uk>
+Subject: Re: [PATCH v2] netfilter: take care of timewait sockets
+Date: Mon, 03 Sep 2012 13:23:03 -0400 (EDT)
+Message-ID: <20120903.132303.1593263170604708814.davem@davemloft.net>
+References: <1346629684.2563.78.camel@edumazet-glaptop>
+	<20120903074718.GA14750@breakpoint.cc>
+	<1346666238.2563.113.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: fw@strlen.de, hvtaifwkbgefbaei@gmail.com, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48993 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49009 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753273Ab2ICRUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 13:20:35 -0400
-In-Reply-To: <1346676267.7787.82.camel@deadeye.wl.decadent.org.uk>
+	with ESMTP id S1753273Ab2ICRXG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 13:23:06 -0400
+In-Reply-To: <1346666238.2563.113.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 3 Sep 2012 13:44:27 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 03 Sep 2012 11:57:18 +0200
 
-> On Mon, 2012-09-03 at 09:47 +0200, Giuseppe CAVALLARO wrote:
->> This patch adds the sysFs support.
->> Some internal driver parameters can be tuned by using some
->> entries exposed via sysFS. There parameter currently are,
->> for example, for internal timers used to mitigate the rx/tx
->> interrupts or for EEE.
-> [...]
+> David, tell me if you prefer to change TCP demux to avoid timewait,
+> as I have no strong opinion.
+
+It would be the stupidest thing ever to do the whole hash lookup
+just to throw the result away just because it's a timewait socket.
+
+> [PATCH] net: sock_edemux() should take care of timewait sockets
 > 
-> Why are you not exposing these through the standard ethtool operations?
+> sock_edemux() can handle either a regular socket or a timewait socket
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Guiseppe, I'm not appyling driver patches that add sysfs crap like
-this.  Either use existing ethtool interfaces or create new ones that
-provide the necessary functionality.
-
-Adding unique configuration mechanisms to a device driver is always a
-bug.
-
-And I'm getting real fed up with driver writers simply not getting the
-message.  Every time someone adds sysfs or ioctl crap, we push back,
-so just don't do it and stop wasting our time.
+Applied, thanks.
