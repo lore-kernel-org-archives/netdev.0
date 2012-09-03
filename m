@@ -1,113 +1,107 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Tue, 4 Sep 2012 00:22:30 +0300
-Message-ID: <20120903212230.GA6795@redhat.com>
-References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com>
- <1343840975-3252-10-git-send-email-ogerlitz@mellanox.com>
- <87boitz044.fsf@xmission.com>
- <20120805185031.GA18640@redhat.com>
- <CAJZOPZ+ZHBg=vswgmWWz2D0GyWhD-ghkuY9_7CQB47uDmyzhsA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net,
-	roland@kernel.org, netdev@vger.kernel.org, sean.hefty@intel.com,
-	Erez Shitrit <erezsh@mellanox.co.il>,
-	Ali Ayoub <ali@mellanox.com>,
-	Doug Ledford <dledford@redhat.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27562 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753578Ab2ICVVb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Sep 2012 17:21:31 -0400
-Content-Disposition: inline
-In-Reply-To: <CAJZOPZ+ZHBg=vswgmWWz2D0GyWhD-ghkuY9_7CQB47uDmyzhsA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: pablo@netfilter.org
+Subject: [PATCH 01/25] ipvs: IPv6 MTU checking cleanup and bugfix
+Date: Tue,  4 Sep 2012 01:53:48 +0200
+Message-ID: <1346716452-3080-2-git-send-email-pablo@netfilter.org>
+References: <1346716452-3080-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1346716452-3080-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 03, 2012 at 11:53:56PM +0300, Or Gerlitz wrote:
-> Michael S. Tsirkin <mst@redhat.com> wrote:
-> 
-> > [...] so it seems that a sane solution would involve an extra level of
-> > indirection, with guest addresses being translated to host IB addresses.
-> > As long as you do this, maybe using an ethernet frame format makes sense.
-> 
-> > So far the things that make sense. Here are some that don't, to me:
-> 
-> > - Is a pdf presentation all you have in terms of documentation?
-> >   We are talking communication protocols here - I would expect a
-> >   proper spec, and some effort to standardize, otherwise where's the
-> >   guarantee it won't change in an incompatible way?
-> >   Other things that I would expect to be addressed in such a spec is
-> >   interaction with other IPoIB features, such as connected
-> >   mode, checksum offloading etc, and IB features such as multipath etc.
-> >
-> > - The way you encode LID/QPN in the MAC seems questionable. IIRC there's
-> >   more to IB addressing than just the LID.  Since everyone on the subnet
-> >   need access to this translation, I think it makes sense to store it in
-> >   the SM. I think this would also obviate some IPv4 specific hacks in kernel.
-> 
-> > - IGMP/MAC snooping in a driver is just too hairy.
-> >   As you point out, bridge currently needs the uplink in promisc mode.
-> >   I don't think a driver should work around that limitation.
-> >   For some setups, it might be interesting to remove the promisc
-> >  mode requirement, failing that, I think you could use macvtap passthrough.
-> >
-> > - Currently migration works without host kernel help, would be
-> >   preferable to keep it that way.
-> 
-> Hi Michael,
-> 
-> If we rewind to this point, basically, you had few concerns
+From: Jesper Dangaard Brouer <brouer@redhat.com>
 
-I think some other people gave feedback too, you need to address it in
-the patch (as opposed to by mail - even if it's in documentation or
-comments) don't just focus on what I wrote.
+Cleaning up the IPv6 MTU checking in the IPVS xmit code, by using
+a common helper function __mtu_check_toobig_v6().
 
-> 
-> 0. not enough documentation
-> 
-> 1. the sender VM MAC isn't preserved when the packet is received
-> 
-> 2. the IGMP snooping we planned to do within netdevice - isn't good practice
-> 
-> 3. mangling of ARPs within netdevice - isn't good practice as well.
-> 
-> For 0,1,2 we have a way to address  (see below)
-> 
-> So we are remained with #3 - the ARPs -- thinking on this a little
-> further, FWIW there --are-- components in the kernel which
-> mangle/generate ARPs and are exposing netdevice, such as openvswitch,
-> anyway:
-> 
-> does it make sense to forward ARPs received into / sent over the
-> eIPoIB netdevice (e.g using some sort of rule) to some outer entity
-> such as user-space
-> daemon  for interception and later re-injection into eIPoIB?
-> 
-> Or.
+The MTU check for tunnel mode can also use this helper as
+ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) is qual to
+skb->len.  And the 'mtu' variable have been adjusted before
+calling helper.
 
-Well if this is all you want to do, you can bind a packet socket to the
-interface, and drop them at the nic.  It is harder to do for incoming
-ARP requests though.
+Notice, this also fixes a bug, as the the MTU check in ip_vs_dr_xmit_v6()
+were missing a check for skb_is_gso().
 
-I would do something else: send ARPs out to some defined IB address.
-This could be local host or queries from some SA property.  Said remote
-side could send you the responses in ethernet format so you do not need
-to mangle responses at all.  Similarly for incoming ARP requests.
+This bug e.g. caused issues for KVM IPVS setups, where different
+Segmentation Offloading techniques are utilized, between guests,
+via the virtio driver.  This resulted in very bad performance,
+due to the ICMPv6 "too big" messages didn't affect the sender.
 
-The rule to do this can also just redirect non IP packets -
-this is IPoIB after all.
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/ipvs/ip_vs_xmit.c |   21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
 
-> Documentation we will fix,
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 543a554..67a3978 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -85,6 +85,15 @@ __ip_vs_dst_check(struct ip_vs_dest *dest, u32 rtos)
+ 	return dst;
+ }
+ 
++static inline bool
++__mtu_check_toobig_v6(const struct sk_buff *skb, u32 mtu)
++{
++	if (skb->len > mtu && !skb_is_gso(skb)) {
++		return true; /* Packet size violate MTU size */
++	}
++	return false;
++}
++
+ /* Get route to daddr, update *saddr, optionally bind route to saddr */
+ static struct rtable *do_output_route4(struct net *net, __be32 daddr,
+ 				       u32 rtos, int rt_mode, __be32 *saddr)
+@@ -491,7 +500,7 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu && !skb_is_gso(skb)) {
++	if (__mtu_check_toobig_v6(skb, mtu)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -712,7 +721,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu && !skb_is_gso(skb)) {
++	if (__mtu_check_toobig_v6(skb, mtu)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -946,8 +955,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	if (skb_dst(skb))
+ 		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
+ 
+-	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) &&
+-	    !skb_is_gso(skb)) {
++	/* MTU checking: Notice that 'mtu' have been adjusted before hand */
++	if (__mtu_check_toobig_v6(skb, mtu)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -1113,7 +1122,7 @@ ip_vs_dr_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu) {
++	if (__mtu_check_toobig_v6(skb, mtu)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -1349,7 +1358,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu && !skb_is_gso(skb)) {
++	if (__mtu_check_toobig_v6(skb, mtu)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+-- 
+1.7.10.4
 
-And just to stress the point, document the limitations as well.
-
-> Preserving remote VM mac at the receiver we have few directions for
-> solution, e.g either along your suggestion with SA records and/or with
-> using "alias GUIDs" (details TBD when the submission resumes).
-> 
-> Multicast we accept the direction you suggested - implement  support
-> for multicast non promiscuous in the elements "above" eIPoIB (bridge,
-> macvtap, etc).
