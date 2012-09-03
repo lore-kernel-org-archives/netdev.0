@@ -1,264 +1,308 @@
 From: pablo@netfilter.org
-Subject: [PATCH 18/25] netfilter: ip6tables: add stateless IPv6-to-IPv6 Network Prefix Translation target
-Date: Tue,  4 Sep 2012 01:54:05 +0200
-Message-ID: <1346716452-3080-19-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 16/25] netfilter: nf_nat: support IPv6 in IRC NAT helper
+Date: Tue,  4 Sep 2012 01:54:03 +0200
+Message-ID: <1346716452-3080-17-git-send-email-pablo@netfilter.org>
 References: <1346716452-3080-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:37148 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754098Ab2ICXz6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Sep 2012 19:55:58 -0400
 In-Reply-To: <1346716452-3080-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/netfilter_ipv6/Kbuild     |    1 +
- include/linux/netfilter_ipv6/ip6t_NPT.h |   16 +++
- net/ipv6/netfilter/Kconfig              |    9 ++
- net/ipv6/netfilter/Makefile             |    1 +
- net/ipv6/netfilter/ip6t_NPT.c           |  165 +++++++++++++++++++++++++++++++
- 5 files changed, 192 insertions(+)
- create mode 100644 include/linux/netfilter_ipv6/ip6t_NPT.h
- create mode 100644 net/ipv6/netfilter/ip6t_NPT.c
+ net/ipv4/netfilter/Kconfig       |    5 --
+ net/ipv4/netfilter/Makefile      |    1 -
+ net/ipv4/netfilter/nf_nat_irc.c  |   99 --------------------------------------
+ net/netfilter/Kconfig            |    5 ++
+ net/netfilter/Makefile           |    1 +
+ net/netfilter/nf_conntrack_irc.c |    3 +-
+ net/netfilter/nf_nat_irc.c       |   93 +++++++++++++++++++++++++++++++++++
+ 7 files changed, 100 insertions(+), 107 deletions(-)
+ delete mode 100644 net/ipv4/netfilter/nf_nat_irc.c
+ create mode 100644 net/netfilter/nf_nat_irc.c
 
-diff --git a/include/linux/netfilter_ipv6/Kbuild b/include/linux/netfilter_ipv6/Kbuild
-index bd095bc..b88c005 100644
---- a/include/linux/netfilter_ipv6/Kbuild
-+++ b/include/linux/netfilter_ipv6/Kbuild
-@@ -1,6 +1,7 @@
- header-y += ip6_tables.h
- header-y += ip6t_HL.h
- header-y += ip6t_LOG.h
-+header-y += ip6t_NPT.h
- header-y += ip6t_REJECT.h
- header-y += ip6t_ah.h
- header-y += ip6t_frag.h
-diff --git a/include/linux/netfilter_ipv6/ip6t_NPT.h b/include/linux/netfilter_ipv6/ip6t_NPT.h
-new file mode 100644
-index 0000000..f763355
---- /dev/null
-+++ b/include/linux/netfilter_ipv6/ip6t_NPT.h
-@@ -0,0 +1,16 @@
-+#ifndef __NETFILTER_IP6T_NPT
-+#define __NETFILTER_IP6T_NPT
-+
-+#include <linux/types.h>
-+#include <linux/netfilter.h>
-+
-+struct ip6t_npt_tginfo {
-+	union nf_inet_addr	src_pfx;
-+	union nf_inet_addr	dst_pfx;
-+	__u8			src_pfx_len;
-+	__u8			dst_pfx_len;
-+	/* Used internally by the kernel */
-+	__sum16			adjustment;
-+};
-+
-+#endif /* __NETFILTER_IP6T_NPT */
-diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
-index 7bdf73b..3b73254 100644
---- a/net/ipv6/netfilter/Kconfig
-+++ b/net/ipv6/netfilter/Kconfig
-@@ -177,6 +177,15 @@ config IP6_NF_TARGET_REDIRECT
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+index 30197f8..843fe17 100644
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -221,11 +221,6 @@ config NF_NAT_PROTO_GRE
+ 	tristate
+ 	depends on NF_NAT_IPV4 && NF_CT_PROTO_GRE
  
- 	  To compile it as a module, choose M here.  If unsure, say N.
+-config NF_NAT_IRC
+-	tristate
+-	depends on NF_CONNTRACK && NF_NAT_IPV4
+-	default NF_NAT_IPV4 && NF_CONNTRACK_IRC
+-
+ config NF_NAT_TFTP
+ 	tristate
+ 	depends on NF_CONNTRACK && NF_NAT_IPV4
+diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
+index 8914abf..17e649b 100644
+--- a/net/ipv4/netfilter/Makefile
++++ b/net/ipv4/netfilter/Makefile
+@@ -21,7 +21,6 @@ obj-$(CONFIG_NF_DEFRAG_IPV4) += nf_defrag_ipv4.o
  
-+config IP6_NF_TARGET_NPT
-+	tristate "NPT (Network Prefix translation) target support"
-+	depends on NETFILTER_ADVANCED
-+	help
-+	  This option adds the `SNPT' and `DNPT' target, which perform
-+	  stateless IPv6-to-IPv6 Network Prefix Translation per RFC 6296.
+ # NAT helpers (nf_conntrack)
+ obj-$(CONFIG_NF_NAT_H323) += nf_nat_h323.o
+-obj-$(CONFIG_NF_NAT_IRC) += nf_nat_irc.o
+ obj-$(CONFIG_NF_NAT_PPTP) += nf_nat_pptp.o
+ obj-$(CONFIG_NF_NAT_SNMP_BASIC) += nf_nat_snmp_basic.o
+ obj-$(CONFIG_NF_NAT_TFTP) += nf_nat_tftp.o
+diff --git a/net/ipv4/netfilter/nf_nat_irc.c b/net/ipv4/netfilter/nf_nat_irc.c
+deleted file mode 100644
+index 1ce37f8..0000000
+--- a/net/ipv4/netfilter/nf_nat_irc.c
++++ /dev/null
+@@ -1,99 +0,0 @@
+-/* IRC extension for TCP NAT alteration.
+- *
+- * (C) 2000-2001 by Harald Welte <laforge@gnumonks.org>
+- * (C) 2004 Rusty Russell <rusty@rustcorp.com.au> IBM Corporation
+- * based on a copy of RR's ip_nat_ftp.c
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- */
+-
+-#include <linux/module.h>
+-#include <linux/moduleparam.h>
+-#include <linux/tcp.h>
+-#include <linux/kernel.h>
+-
+-#include <net/netfilter/nf_nat.h>
+-#include <net/netfilter/nf_nat_helper.h>
+-#include <net/netfilter/nf_conntrack_helper.h>
+-#include <net/netfilter/nf_conntrack_expect.h>
+-#include <linux/netfilter/nf_conntrack_irc.h>
+-
+-MODULE_AUTHOR("Harald Welte <laforge@gnumonks.org>");
+-MODULE_DESCRIPTION("IRC (DCC) NAT helper");
+-MODULE_LICENSE("GPL");
+-MODULE_ALIAS("ip_nat_irc");
+-
+-static unsigned int help(struct sk_buff *skb,
+-			 enum ip_conntrack_info ctinfo,
+-			 unsigned int protoff,
+-			 unsigned int matchoff,
+-			 unsigned int matchlen,
+-			 struct nf_conntrack_expect *exp)
+-{
+-	char buffer[sizeof("4294967296 65635")];
+-	u_int32_t ip;
+-	u_int16_t port;
+-	unsigned int ret;
+-
+-	/* Reply comes from server. */
+-	exp->saved_proto.tcp.port = exp->tuple.dst.u.tcp.port;
+-	exp->dir = IP_CT_DIR_REPLY;
+-	exp->expectfn = nf_nat_follow_master;
+-
+-	/* Try to get same port: if not, try to change it. */
+-	for (port = ntohs(exp->saved_proto.tcp.port); port != 0; port++) {
+-		int ret;
+-
+-		exp->tuple.dst.u.tcp.port = htons(port);
+-		ret = nf_ct_expect_related(exp);
+-		if (ret == 0)
+-			break;
+-		else if (ret != -EBUSY) {
+-			port = 0;
+-			break;
+-		}
+-	}
+-
+-	if (port == 0)
+-		return NF_DROP;
+-
+-	ip = ntohl(exp->master->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u3.ip);
+-	sprintf(buffer, "%u %u", ip, port);
+-	pr_debug("nf_nat_irc: inserting '%s' == %pI4, port %u\n",
+-		 buffer, &ip, port);
+-
+-	ret = nf_nat_mangle_tcp_packet(skb, exp->master, ctinfo,
+-				       protoff, matchoff, matchlen, buffer,
+-				       strlen(buffer));
+-	if (ret != NF_ACCEPT)
+-		nf_ct_unexpect_related(exp);
+-	return ret;
+-}
+-
+-static void __exit nf_nat_irc_fini(void)
+-{
+-	RCU_INIT_POINTER(nf_nat_irc_hook, NULL);
+-	synchronize_rcu();
+-}
+-
+-static int __init nf_nat_irc_init(void)
+-{
+-	BUG_ON(nf_nat_irc_hook != NULL);
+-	RCU_INIT_POINTER(nf_nat_irc_hook, help);
+-	return 0;
+-}
+-
+-/* Prior to 2.6.11, we had a ports param.  No longer, but don't break users. */
+-static int warn_set(const char *val, struct kernel_param *kp)
+-{
+-	printk(KERN_INFO KBUILD_MODNAME
+-	       ": kernel >= 2.6.10 only uses 'ports' for conntrack modules\n");
+-	return 0;
+-}
+-module_param_call(ports, warn_set, NULL, NULL, 0);
+-
+-module_init(nf_nat_irc_init);
+-module_exit(nf_nat_irc_fini);
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index bf3e464..cabe4da 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -390,6 +390,11 @@ config NF_NAT_FTP
+ 	depends on NF_CONNTRACK && NF_NAT
+ 	default NF_NAT && NF_CONNTRACK_FTP
+ 
++config NF_NAT_IRC
++	tristate
++	depends on NF_CONNTRACK && NF_NAT
++	default NF_NAT && NF_CONNTRACK_IRC
 +
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- config IP6_NF_FILTER
- 	tristate "Packet filtering"
- 	default m if NETFILTER_ADVANCED=n
-diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
-index 0864ce6..5752132 100644
---- a/net/ipv6/netfilter/Makefile
-+++ b/net/ipv6/netfilter/Makefile
-@@ -36,5 +36,6 @@ obj-$(CONFIG_IP6_NF_MATCH_RT) += ip6t_rt.o
- # targets
- obj-$(CONFIG_IP6_NF_TARGET_MASQUERADE) += ip6t_MASQUERADE.o
- obj-$(CONFIG_IP6_NF_TARGET_NETMAP) += ip6t_NETMAP.o
-+obj-$(CONFIG_IP6_NF_TARGET_NPT) += ip6t_NPT.o
- obj-$(CONFIG_IP6_NF_TARGET_REDIRECT) += ip6t_REDIRECT.o
- obj-$(CONFIG_IP6_NF_TARGET_REJECT) += ip6t_REJECT.o
-diff --git a/net/ipv6/netfilter/ip6t_NPT.c b/net/ipv6/netfilter/ip6t_NPT.c
+ config NF_NAT_SIP
+ 	tristate
+ 	depends on NF_CONNTRACK && NF_NAT
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 7d6d1a0..0dd7929 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -57,6 +57,7 @@ obj-$(CONFIG_NF_NAT_PROTO_SCTP) += nf_nat_proto_sctp.o
+ # NAT helpers
+ obj-$(CONFIG_NF_NAT_AMANDA) += nf_nat_amanda.o
+ obj-$(CONFIG_NF_NAT_FTP) += nf_nat_ftp.o
++obj-$(CONFIG_NF_NAT_IRC) += nf_nat_irc.o
+ obj-$(CONFIG_NF_NAT_SIP) += nf_nat_sip.o
+ 
+ # transparent proxy support
+diff --git a/net/netfilter/nf_conntrack_irc.c b/net/netfilter/nf_conntrack_irc.c
+index 95d097c..3b20aa7 100644
+--- a/net/netfilter/nf_conntrack_irc.c
++++ b/net/netfilter/nf_conntrack_irc.c
+@@ -205,8 +205,7 @@ static int help(struct sk_buff *skb, unsigned int protoff,
+ 					  IPPROTO_TCP, NULL, &port);
+ 
+ 			nf_nat_irc = rcu_dereference(nf_nat_irc_hook);
+-			if (nf_nat_irc && nf_ct_l3num(ct) == NFPROTO_IPV4 &&
+-			    ct->status & IPS_NAT_MASK)
++			if (nf_nat_irc && ct->status & IPS_NAT_MASK)
+ 				ret = nf_nat_irc(skb, ctinfo, protoff,
+ 						 addr_beg_p - ib_ptr,
+ 						 addr_end_p - addr_beg_p,
+diff --git a/net/netfilter/nf_nat_irc.c b/net/netfilter/nf_nat_irc.c
 new file mode 100644
-index 0000000..e948691
+index 0000000..1fedee6
 --- /dev/null
-+++ b/net/ipv6/netfilter/ip6t_NPT.c
-@@ -0,0 +1,165 @@
-+/*
-+ * Copyright (c) 2011, 2012 Patrick McHardy <kaber@trash.net>
++++ b/net/netfilter/nf_nat_irc.c
+@@ -0,0 +1,93 @@
++/* IRC extension for TCP NAT alteration.
 + *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
++ * (C) 2000-2001 by Harald Welte <laforge@gnumonks.org>
++ * (C) 2004 Rusty Russell <rusty@rustcorp.com.au> IBM Corporation
++ * based on a copy of RR's ip_nat_ftp.c
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
 + */
 +
 +#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/ipv6.h>
-+#include <linux/netfilter.h>
-+#include <linux/netfilter_ipv6.h>
-+#include <linux/netfilter_ipv6/ip6t_NPT.h>
-+#include <linux/netfilter/x_tables.h>
++#include <linux/moduleparam.h>
++#include <linux/tcp.h>
++#include <linux/kernel.h>
 +
-+static __sum16 csum16_complement(__sum16 a)
++#include <net/netfilter/nf_nat.h>
++#include <net/netfilter/nf_nat_helper.h>
++#include <net/netfilter/nf_conntrack_helper.h>
++#include <net/netfilter/nf_conntrack_expect.h>
++#include <linux/netfilter/nf_conntrack_irc.h>
++
++MODULE_AUTHOR("Harald Welte <laforge@gnumonks.org>");
++MODULE_DESCRIPTION("IRC (DCC) NAT helper");
++MODULE_LICENSE("GPL");
++MODULE_ALIAS("ip_nat_irc");
++
++static unsigned int help(struct sk_buff *skb,
++			 enum ip_conntrack_info ctinfo,
++			 unsigned int protoff,
++			 unsigned int matchoff,
++			 unsigned int matchlen,
++			 struct nf_conntrack_expect *exp)
 +{
-+	return (__force __sum16)(0xffff - (__force u16)a);
-+}
++	char buffer[sizeof("4294967296 65635")];
++	u_int16_t port;
++	unsigned int ret;
 +
-+static __sum16 csum16_add(__sum16 a, __sum16 b)
-+{
-+	u16 sum;
++	/* Reply comes from server. */
++	exp->saved_proto.tcp.port = exp->tuple.dst.u.tcp.port;
++	exp->dir = IP_CT_DIR_REPLY;
++	exp->expectfn = nf_nat_follow_master;
 +
-+	sum = (__force u16)a + (__force u16)b;
-+	sum += (__force u16)a < (__force u16)b;
-+	return (__force __sum16)sum;
-+}
++	/* Try to get same port: if not, try to change it. */
++	for (port = ntohs(exp->saved_proto.tcp.port); port != 0; port++) {
++		int ret;
 +
-+static __sum16 csum16_sub(__sum16 a, __sum16 b)
-+{
-+	return csum16_add(a, csum16_complement(b));
-+}
-+
-+static int ip6t_npt_checkentry(const struct xt_tgchk_param *par)
-+{
-+	struct ip6t_npt_tginfo *npt = par->targinfo;
-+	__sum16 src_sum = 0, dst_sum = 0;
-+	unsigned int i;
-+
-+	if (npt->src_pfx_len > 64 || npt->dst_pfx_len > 64)
-+		return -EINVAL;
-+
-+	for (i = 0; i < ARRAY_SIZE(npt->src_pfx.in6.s6_addr16); i++) {
-+		src_sum = csum16_add(src_sum,
-+				(__force __sum16)npt->src_pfx.in6.s6_addr16[i]);
-+		dst_sum = csum16_add(dst_sum,
-+				(__force __sum16)npt->dst_pfx.in6.s6_addr16[i]);
++		exp->tuple.dst.u.tcp.port = htons(port);
++		ret = nf_ct_expect_related(exp);
++		if (ret == 0)
++			break;
++		else if (ret != -EBUSY) {
++			port = 0;
++			break;
++		}
 +	}
 +
-+	npt->adjustment = csum16_sub(src_sum, dst_sum);
++	if (port == 0)
++		return NF_DROP;
++
++	ret = nf_nat_mangle_tcp_packet(skb, exp->master, ctinfo,
++				       protoff, matchoff, matchlen, buffer,
++				       strlen(buffer));
++	if (ret != NF_ACCEPT)
++		nf_ct_unexpect_related(exp);
++	return ret;
++}
++
++static void __exit nf_nat_irc_fini(void)
++{
++	RCU_INIT_POINTER(nf_nat_irc_hook, NULL);
++	synchronize_rcu();
++}
++
++static int __init nf_nat_irc_init(void)
++{
++	BUG_ON(nf_nat_irc_hook != NULL);
++	RCU_INIT_POINTER(nf_nat_irc_hook, help);
 +	return 0;
 +}
 +
-+static bool ip6t_npt_map_pfx(const struct ip6t_npt_tginfo *npt,
-+			     struct in6_addr *addr)
++/* Prior to 2.6.11, we had a ports param.  No longer, but don't break users. */
++static int warn_set(const char *val, struct kernel_param *kp)
 +{
-+	unsigned int pfx_len;
-+	unsigned int i, idx;
-+	__be32 mask;
-+	__sum16 sum;
-+
-+	pfx_len = max(npt->src_pfx_len, npt->dst_pfx_len);
-+	for (i = 0; i < pfx_len; i += 32) {
-+		if (pfx_len - i >= 32)
-+			mask = 0;
-+		else
-+			mask = htonl(~((1 << (pfx_len - i)) - 1));
-+
-+		idx = i / 32;
-+		addr->s6_addr32[idx] &= mask;
-+		addr->s6_addr32[idx] |= npt->dst_pfx.in6.s6_addr32[idx];
-+	}
-+
-+	if (pfx_len <= 48)
-+		idx = 3;
-+	else {
-+		for (idx = 4; idx < ARRAY_SIZE(addr->s6_addr16); idx++) {
-+			if ((__force __sum16)addr->s6_addr16[idx] !=
-+			    CSUM_MANGLED_0)
-+				break;
-+		}
-+		if (idx == ARRAY_SIZE(addr->s6_addr16))
-+			return false;
-+	}
-+
-+	sum = csum16_add((__force __sum16)addr->s6_addr16[idx],
-+			 npt->adjustment);
-+	if (sum == CSUM_MANGLED_0)
-+		sum = 0;
-+	*(__force __sum16 *)&addr->s6_addr16[idx] = sum;
-+
-+	return true;
++	printk(KERN_INFO KBUILD_MODNAME
++	       ": kernel >= 2.6.10 only uses 'ports' for conntrack modules\n");
++	return 0;
 +}
++module_param_call(ports, warn_set, NULL, NULL, 0);
 +
-+static unsigned int
-+ip6t_snpt_tg(struct sk_buff *skb, const struct xt_action_param *par)
-+{
-+	const struct ip6t_npt_tginfo *npt = par->targinfo;
-+
-+	if (!ip6t_npt_map_pfx(npt, &ipv6_hdr(skb)->saddr)) {
-+		icmpv6_send(skb, ICMPV6_PARAMPROB, ICMPV6_HDR_FIELD,
-+			    offsetof(struct ipv6hdr, saddr));
-+		return NF_DROP;
-+	}
-+	return XT_CONTINUE;
-+}
-+
-+static unsigned int
-+ip6t_dnpt_tg(struct sk_buff *skb, const struct xt_action_param *par)
-+{
-+	const struct ip6t_npt_tginfo *npt = par->targinfo;
-+
-+	if (!ip6t_npt_map_pfx(npt, &ipv6_hdr(skb)->daddr)) {
-+		icmpv6_send(skb, ICMPV6_PARAMPROB, ICMPV6_HDR_FIELD,
-+			    offsetof(struct ipv6hdr, daddr));
-+		return NF_DROP;
-+	}
-+	return XT_CONTINUE;
-+}
-+
-+static struct xt_target ip6t_npt_target_reg[] __read_mostly = {
-+	{
-+		.name		= "SNPT",
-+		.target		= ip6t_snpt_tg,
-+		.targetsize	= sizeof(struct ip6t_npt_tginfo),
-+		.checkentry	= ip6t_npt_checkentry,
-+		.family		= NFPROTO_IPV6,
-+		.hooks		= (1 << NF_INET_LOCAL_IN) |
-+				  (1 << NF_INET_POST_ROUTING),
-+		.me		= THIS_MODULE,
-+	},
-+	{
-+		.name		= "DNPT",
-+		.target		= ip6t_dnpt_tg,
-+		.targetsize	= sizeof(struct ip6t_npt_tginfo),
-+		.checkentry	= ip6t_npt_checkentry,
-+		.family		= NFPROTO_IPV6,
-+		.hooks		= (1 << NF_INET_PRE_ROUTING) |
-+				  (1 << NF_INET_LOCAL_OUT),
-+		.me		= THIS_MODULE,
-+	},
-+};
-+
-+static int __init ip6t_npt_init(void)
-+{
-+	return xt_register_targets(ip6t_npt_target_reg,
-+				   ARRAY_SIZE(ip6t_npt_target_reg));
-+}
-+
-+static void __exit ip6t_npt_exit(void)
-+{
-+	xt_unregister_targets(ip6t_npt_target_reg,
-+			      ARRAY_SIZE(ip6t_npt_target_reg));
-+}
-+
-+module_init(ip6t_npt_init);
-+module_exit(ip6t_npt_exit);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("IPv6-to-IPv6 Network Prefix Translation (RFC 6296)");
-+MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
-+MODULE_ALIAS("ip6t_SNPT");
-+MODULE_ALIAS("ip6t_DNPT");
++module_init(nf_nat_irc_init);
++module_exit(nf_nat_irc_fini);
 -- 
 1.7.10.4
-
