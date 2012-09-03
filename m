@@ -1,128 +1,82 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] sctp: Don't charge for data in sndbuf again when transmitting packet
-Date: Mon, 3 Sep 2012 11:02:51 -0400
-Message-ID: <378685E0-7225-4C9D-AE0F-7B8767ECB16A@gmail.com>
-References: <ed0aceea14e890e55829f42d1594ae9417b8ca25.1346681739.git.tgraf@suug.ch>
-Mime-Version: 1.0 (iPod Mail 7E18)
-Content-Type: text/plain;
-	charset=us-ascii;
-	format=flowed;
-	delsp=yes
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next.git 5/7] stmmac: add sysFs support
+Date: Mon, 3 Sep 2012 16:09:17 +0100
+Message-ID: <1346684957.2688.15.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1346658422-1925-1-git-send-email-peppe.cavallaro@st.com>
+	  <1346658422-1925-6-git-send-email-peppe.cavallaro@st.com>
+	 <1346676267.7787.82.camel@deadeye.wl.decadent.org.uk>
+	 <5044B245.5050703@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>
-To: Thomas Graf <tgraf@suug.ch>
+Cc: <netdev@vger.kernel.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:42253 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932200Ab2ICPCn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 11:02:43 -0400
-In-Reply-To: <ed0aceea14e890e55829f42d1594ae9417b8ca25.1346681739.git.tgraf@suug.ch>
+Received: from webmail.solarflare.com ([12.187.104.25]:17813 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753364Ab2ICPJY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 11:09:24 -0400
+In-Reply-To: <5044B245.5050703@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2012-09-03 at 15:36 +0200, Giuseppe CAVALLARO wrote:
+> Hello Ben,
+> 
+> On 9/3/2012 2:44 PM, Ben Hutchings wrote:
+> > On Mon, 2012-09-03 at 09:47 +0200, Giuseppe CAVALLARO wrote:
+> >> This patch adds the sysFs support.
+> >> Some internal driver parameters can be tuned by using some
+> >> entries exposed via sysFS. There parameter currently are,
+> >> for example, for internal timers used to mitigate the rx/tx
+> >> interrupts or for EEE.
+> > [...]
+> > 
+> > Why are you not exposing these through the standard ethtool operations?
+> > 
+> > Ben.
+> 
+> yes I want to expose them via ethtool and I'll do this as soon as I have
+> clear with ethtool parameters have to be used (
+> http://marc.info/?l=linux-netdev&m=134561966226677&w=2 ).
 
+Sorry, I meant to reply to that but didn't get round to it.
 
-On Sep 3, 2012, at 10:27 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> For the reception side, I have the RI Watchdog Timer count field and I
+> do not know what is the appropriate ethtool parameter to use.
+> From the Synopsys databook, the RI Watchdog Timer count indicates the
+> number of system clock cycles. When the it runs out, the receive
+> interrupt bit is set and the timer is stopped.
+> No idea if it can be actually covered, for example, with
+> rx_coalesce_usecs_irq.
 
-> SCTP charges wmem_alloc via sctp_set_owner_w() in sctp_sendmsg() and  
-> via
-> skb_set_owner_w() in sctp_packet_transmit(). If a sender runs out of
-> sndbuf it will sleep in sctp_wait_for_sndbuf() and expects to be  
-> waken up
-> by __sctp_write_space().
->
-> Buffer space charged via sctp_set_owner_w() is released in sctp_wfree 
-> ()
-> which calls __sctp_write_space() directly.
->
-> Buffer space charged via skb_set_owner_w() is released via sock_wfree 
-> ()
-> which calls sk->sk_write_space() _if_ SOCK_USE_WRITE_QUEUE is not set.
-> sctp_endpoint_init() sets SOCK_USE_WRITE_QUEUE on all sockets.
->
-> Therefore if sctp_packet_transmit() manages to queue up more than  
-> sndbuf
-> bytes, sctp_wait_for_sndbuf() will never be woken up again unless it  
-> is
-> interrupted by a signal.
->
-> This could be fixed by clearing the SOCK_USE_WRITE_QUEUE flag but ...
->
-> Charging for the data twice does not make sense in the first place, it
-> leads to overcharging sndbuf by a factor 2. Therefore this patch only
-> charges a single byte in wmem_alloc when transmitting an SCTP packet  
-> to
-> ensure that the socket stays alive until the packet has been released.
->
-> This means that control chunks are no longer accounted for in  
-> wmem_alloc
-> which I believe is not a problem as skb->truesize will typically lead
-> to overcharging anyway and thus compensates for any control overhead.
+As I understand it, interrupt moderation time is supposed to be the
+minimum time between completion IRQs, not a minimum delay from
+completion-with-IRQ-armed to assertion of the IRQ.  The timer should
+start running again immediately after the associated IRQ is asserted.
+But I don't know whether it's universally implemented this way.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+The field names including '_irq' are to be used if the hardware can use
+a different moderation time while the IRQ is still masked (i.e. NAPI or
+hard interrupt handler is still running).  I think most hardware doesn't
+support this.
 
--vlad
+> For the transmission I have a SW timer that periodically calls the tx
+> function (stmmac_tx) and a threshold to also set the "Interrupt on
+> completion" bit in the TDES when a frame is transmitted.
+> I wonder (but not sure) if in this case I could be: tx_coalesce_usec and
+> tx_mac_coalesced_frames.
+> From the kernel documentation IIUC these seem to have other meaning.
 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> CC: Vlad Yasevich <vyasevic@redhat.com>
-> CC: Neil Horman <nhorman@tuxdriver.com>
-> CC: David Miller <davem@davemloft.net>
-> ---
-> net/sctp/output.c | 21 ++++++++++++++++++++-
-> 1 file changed, 20 insertions(+), 1 deletion(-)
->
-> diff --git a/net/sctp/output.c b/net/sctp/output.c
-> index 838e18b..be50aa2 100644
-> --- a/net/sctp/output.c
-> +++ b/net/sctp/output.c
-> @@ -364,6 +364,25 @@ finish:
->    return retval;
-> }
->
-> +static void sctp_packet_release_owner(struct sk_buff *skb)
-> +{
-> +    sk_free(skb->sk);
-> +}
-> +
-> +static void sctp_packet_set_owner_w(struct sk_buff *skb, struct  
-> sock *sk)
-> +{
-> +    skb_orphan(skb);
-> +    skb->sk = sk;
-> +    skb->destructor = sctp_packet_release_owner;
-> +
-> +    /*
-> +     * The data chunks have already been accounted for in  
-> sctp_sendmsg(),
-> +     * therefore only reserve a single byte to keep socket around  
-> until
-> +     * the packet has been transmitted.
-> +     */
-> +    atomic_inc(&sk->sk_wmem_alloc);
-> +}
-> +
-> /* All packets are sent to the network through this function from
->  * sctp_outq_tail().
->  *
-> @@ -405,7 +424,7 @@ int sctp_packet_transmit(struct sctp_packet  
-> *packet)
->    /* Set the owning socket so that we know where to get the
->     * destination IP address.
->     */
-> -    skb_set_owner_w(nskb, sk);
-> +    sctp_packet_set_owner_w(nskb, sk);
->
->    if (!sctp_transport_dst_check(tp)) {
->        sctp_transport_route(tp, NULL, sctp_sk(sk));
-> -- 
-> 1.7.11.4
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux- 
-> sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The semantics don't seem to match the documentation exactly but I think
+this is probably close enough.
+
+Ben.
+
+> No problem, to extend ethtool to cover these kind of parameters if
+> necessary.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
