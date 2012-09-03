@@ -1,31 +1,44 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 2/2] netfilter: pass 'nf_hook_ops' instead of
- 'list_head' to nf_queue()
-Date: Mon, 3 Sep 2012 17:31:51 +0200
-Message-ID: <20120903153151.GC19926@1984>
-References: <5035C6E6.6040001@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next.git 5/7] stmmac: add sysFs support
+Date: Mon, 03 Sep 2012 13:20:30 -0400 (EDT)
+Message-ID: <20120903.132030.45862101479511279.davem@davemloft.net>
+References: <1346658422-1925-1-git-send-email-peppe.cavallaro@st.com>
+	<1346658422-1925-6-git-send-email-peppe.cavallaro@st.com>
+	<1346676267.7787.82.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	coreteam@netfilter.org, netfilter@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	David Miller <davem@davemloft.net>, kaber@trash.net
-To: Michael Wang <wangyun@linux.vnet.ibm.com>
-Return-path: <netfilter-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5035C6E6.6040001@linux.vnet.ibm.com>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48993 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753273Ab2ICRUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2012 13:20:35 -0400
+In-Reply-To: <1346676267.7787.82.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 23, 2012 at 02:00:06PM +0800, Michael Wang wrote:
-> From: Michael Wang <wangyun@linux.vnet.ibm.com>
-> 
-> Since 'list_for_each_continue_rcu' has already been replaced by
-> 'list_for_each_entry_continue_rcu', pass 'list_head' to nf_queue() as a
-> parameter can not benefit us any more.
-> 
-> This patch will replace 'list_head' with 'nf_hook_ops' as the parameter of
-> nf_queue() and __nf_queue() to save code.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Mon, 3 Sep 2012 13:44:27 +0100
 
-Applied, thanks.
+> On Mon, 2012-09-03 at 09:47 +0200, Giuseppe CAVALLARO wrote:
+>> This patch adds the sysFs support.
+>> Some internal driver parameters can be tuned by using some
+>> entries exposed via sysFS. There parameter currently are,
+>> for example, for internal timers used to mitigate the rx/tx
+>> interrupts or for EEE.
+> [...]
+> 
+> Why are you not exposing these through the standard ethtool operations?
+
+Guiseppe, I'm not appyling driver patches that add sysfs crap like
+this.  Either use existing ethtool interfaces or create new ones that
+provide the necessary functionality.
+
+Adding unique configuration mechanisms to a device driver is always a
+bug.
+
+And I'm getting real fed up with driver writers simply not getting the
+message.  Every time someone adds sysfs or ioctl crap, we push back,
+so just don't do it and stop wasting our time.
