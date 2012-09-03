@@ -1,146 +1,160 @@
 From: pablo@netfilter.org
-Subject: [PATCH 19/25] netfilter: xt_socket: fix compilation warnings with gcc 4.7
-Date: Tue,  4 Sep 2012 01:54:06 +0200
-Message-ID: <1346716452-3080-20-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 23/25] netfilter: pass 'nf_hook_ops' instead of 'list_head' to nf_iterate()
+Date: Tue,  4 Sep 2012 01:54:10 +0200
+Message-ID: <1346716452-3080-24-git-send-email-pablo@netfilter.org>
 References: <1346716452-3080-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:37169 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:37182 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756600Ab2ICX4E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Sep 2012 19:56:04 -0400
+	id S1756619Ab2ICX4J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Sep 2012 19:56:09 -0400
 In-Reply-To: <1346716452-3080-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Michael Wang <wangyun@linux.vnet.ibm.com>
 
-This patch fixes compilation warnings in xt_socket with gcc-4.7.
+Since 'list_for_each_continue_rcu' has already been replaced by
+'list_for_each_entry_continue_rcu', pass 'list_head' to nf_iterate() as a
+parameter can not benefit us any more.
 
-In file included from net/netfilter/xt_socket.c:22:0:
-net/netfilter/xt_socket.c: In function =E2=80=98socket_mt6_v1=E2=80=99:
-include/net/netfilter/nf_tproxy_core.h:175:23: warning: =E2=80=98sport=E2=
-=80=99 may be used uninitialized in this function [-Wmaybe-uninitialize=
-d]
-net/netfilter/xt_socket.c:265:16: note: =E2=80=98sport=E2=80=99 was dec=
-lared here
-In file included from net/netfilter/xt_socket.c:22:0:
-include/net/netfilter/nf_tproxy_core.h:175:23: warning: =E2=80=98dport=E2=
-=80=99 may be used uninitialized in this function [-Wmaybe-uninitialize=
-d]
-net/netfilter/xt_socket.c:265:9: note: =E2=80=98dport=E2=80=99 was decl=
-ared here
-In file included from net/netfilter/xt_socket.c:22:0:
-include/net/netfilter/nf_tproxy_core.h:175:6: warning: =E2=80=98saddr=E2=
-=80=99 may be used uninitialized in this function [-Wmaybe-uninitialize=
-d]
-net/netfilter/xt_socket.c:264:27: note: =E2=80=98saddr=E2=80=99 was dec=
-lared here
-In file included from net/netfilter/xt_socket.c:22:0:
-include/net/netfilter/nf_tproxy_core.h:175:6: warning: =E2=80=98daddr=E2=
-=80=99 may be used uninitialized in this function [-Wmaybe-uninitialize=
-d]
-net/netfilter/xt_socket.c:264:19: note: =E2=80=98daddr=E2=80=99 was dec=
-lared here
-In file included from net/netfilter/xt_socket.c:22:0:
-net/netfilter/xt_socket.c: In function =E2=80=98socket_match.isra.4=E2=80=
-=99:
-include/net/netfilter/nf_tproxy_core.h:75:2: warning: =E2=80=98protocol=
-=E2=80=99 may be used uninitialized in this function [-Wmaybe-uninitial=
-ized]
-net/netfilter/xt_socket.c:113:5: note: =E2=80=98protocol=E2=80=99 was d=
-eclared here
-In file included from include/net/tcp.h:37:0,
-                 from net/netfilter/xt_socket.c:17:
-include/net/inet_hashtables.h:356:45: warning: =E2=80=98sport=E2=80=99 =
-may be used uninitialized in this function [-Wmaybe-uninitialized]
-net/netfilter/xt_socket.c:112:16: note: =E2=80=98sport=E2=80=99 was dec=
-lared here
-In file included from net/netfilter/xt_socket.c:22:0:
-include/net/netfilter/nf_tproxy_core.h:106:23: warning: =E2=80=98dport=E2=
-=80=99 may be used uninitialized in this function [-Wmaybe-uninitialize=
-d]
-net/netfilter/xt_socket.c:112:9: note: =E2=80=98dport=E2=80=99 was decl=
-ared here
-In file included from include/net/tcp.h:37:0,
-                 from net/netfilter/xt_socket.c:17:
-include/net/inet_hashtables.h:356:15: warning: =E2=80=98saddr=E2=80=99 =
-may be used uninitialized in this function [-Wmaybe-uninitialized]
-net/netfilter/xt_socket.c:111:16: note: =E2=80=98saddr=E2=80=99 was dec=
-lared here
-In file included from include/net/tcp.h:37:0,
-                 from net/netfilter/xt_socket.c:17:
-include/net/inet_hashtables.h:356:15: warning: =E2=80=98daddr=E2=80=99 =
-may be used uninitialized in this function [-Wmaybe-uninitialized]
-net/netfilter/xt_socket.c:111:9: note: =E2=80=98daddr=E2=80=99 was decl=
-ared here
-In file included from net/netfilter/xt_socket.c:22:0:
-net/netfilter/xt_socket.c: In function =E2=80=98socket_mt6_v1=E2=80=99:
-include/net/netfilter/nf_tproxy_core.h:175:23: warning: =E2=80=98sport=E2=
-=80=99 may be used uninitialized in this function [-Wmaybe-uninitialize=
-d]
-net/netfilter/xt_socket.c:268:16: note: =E2=80=98sport=E2=80=99 was dec=
-lared here
-In file included from net/netfilter/xt_socket.c:22:0:
-include/net/netfilter/nf_tproxy_core.h:175:23: warning: =E2=80=98dport=E2=
-=80=99 may be used uninitialized in this function [-Wmaybe-uninitialize=
-d]
-net/netfilter/xt_socket.c:268:9: note: =E2=80=98dport=E2=80=99 was decl=
-ared here
-In file included from net/netfilter/xt_socket.c:22:0:
-include/net/netfilter/nf_tproxy_core.h:175:6: warning: =E2=80=98saddr=E2=
-=80=99 may be used uninitialized in this function [-Wmaybe-uninitialize=
-d]
-net/netfilter/xt_socket.c:267:27: note: =E2=80=98saddr=E2=80=99 was dec=
-lared here
-In file included from net/netfilter/xt_socket.c:22:0:
-include/net/netfilter/nf_tproxy_core.h:175:6: warning: =E2=80=98daddr=E2=
-=80=99 may be used uninitialized in this function [-Wmaybe-uninitialize=
-d]
-net/netfilter/xt_socket.c:267:19: note: =E2=80=98daddr=E2=80=99 was dec=
-lared here
+This patch will replace 'list_head' with 'nf_hook_ops' as the parameter of
+nf_iterate() to save code.
 
+Signed-off-by: Michael Wang <wangyun@linux.vnet.ibm.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_socket.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ net/netfilter/core.c         |   24 ++++++++++--------------
+ net/netfilter/nf_internals.h |    2 +-
+ net/netfilter/nf_queue.c     |    6 +++---
+ 3 files changed, 14 insertions(+), 18 deletions(-)
 
-diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
-index 9ea482d..63b2bdb 100644
---- a/net/netfilter/xt_socket.c
-+++ b/net/netfilter/xt_socket.c
-@@ -108,9 +108,9 @@ socket_match(const struct sk_buff *skb, struct xt_a=
-ction_param *par,
- 	const struct iphdr *iph =3D ip_hdr(skb);
- 	struct udphdr _hdr, *hp =3D NULL;
- 	struct sock *sk;
--	__be32 daddr, saddr;
--	__be16 dport, sport;
--	u8 protocol;
-+	__be32 uninitialized_var(daddr), uninitialized_var(saddr);
-+	__be16 uninitialized_var(dport), uninitialized_var(sport);
-+	u8 uninitialized_var(protocol);
- #ifdef XT_SOCKET_HAVE_CONNTRACK
- 	struct nf_conn const *ct;
- 	enum ip_conntrack_info ctinfo;
-@@ -261,9 +261,9 @@ socket_mt6_v1(const struct sk_buff *skb, struct xt_=
-action_param *par)
- 	struct ipv6hdr *iph =3D ipv6_hdr(skb);
- 	struct udphdr _hdr, *hp =3D NULL;
- 	struct sock *sk;
--	struct in6_addr *daddr, *saddr;
--	__be16 dport, sport;
--	int thoff =3D 0, tproto;
-+	struct in6_addr *daddr =3D NULL, *saddr =3D NULL;
-+	__be16 uninitialized_var(dport), uninitialized_var(sport);
-+	int thoff =3D 0, uninitialized_var(tproto);
- 	const struct xt_socket_mtinfo1 *info =3D (struct xt_socket_mtinfo1 *)=
- par->matchinfo;
-=20
- 	tproto =3D ipv6_find_hdr(skb, &thoff, -1, NULL, NULL);
---=20
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index e61b3ac..0b119d9 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -126,42 +126,38 @@ unsigned int nf_iterate(struct list_head *head,
+ 			unsigned int hook,
+ 			const struct net_device *indev,
+ 			const struct net_device *outdev,
+-			struct list_head **i,
++			struct nf_hook_ops **elemp,
+ 			int (*okfn)(struct sk_buff *),
+ 			int hook_thresh)
+ {
+ 	unsigned int verdict;
+-	struct nf_hook_ops *elem = list_entry_rcu(*i, struct nf_hook_ops, list);
+ 
+ 	/*
+ 	 * The caller must not block between calls to this
+ 	 * function because of risk of continuing from deleted element.
+ 	 */
+-	list_for_each_entry_continue_rcu(elem, head, list) {
+-		if (hook_thresh > elem->priority)
++	list_for_each_entry_continue_rcu((*elemp), head, list) {
++		if (hook_thresh > (*elemp)->priority)
+ 			continue;
+ 
+ 		/* Optimization: we don't need to hold module
+ 		   reference here, since function can't sleep. --RR */
+ repeat:
+-		verdict = elem->hook(hook, skb, indev, outdev, okfn);
++		verdict = (*elemp)->hook(hook, skb, indev, outdev, okfn);
+ 		if (verdict != NF_ACCEPT) {
+ #ifdef CONFIG_NETFILTER_DEBUG
+ 			if (unlikely((verdict & NF_VERDICT_MASK)
+ 							> NF_MAX_VERDICT)) {
+ 				NFDEBUG("Evil return from %p(%u).\n",
+-					elem->hook, hook);
++					(*elemp)->hook, hook);
+ 				continue;
+ 			}
+ #endif
+-			if (verdict != NF_REPEAT) {
+-				*i = &elem->list;
++			if (verdict != NF_REPEAT)
+ 				return verdict;
+-			}
+ 			goto repeat;
+ 		}
+ 	}
+-	*i = &elem->list;
+ 	return NF_ACCEPT;
+ }
+ 
+@@ -174,14 +170,14 @@ int nf_hook_slow(u_int8_t pf, unsigned int hook, struct sk_buff *skb,
+ 		 int (*okfn)(struct sk_buff *),
+ 		 int hook_thresh)
+ {
+-	struct list_head *elem;
++	struct nf_hook_ops *elem;
+ 	unsigned int verdict;
+ 	int ret = 0;
+ 
+ 	/* We may already have this, but read-locks nest anyway */
+ 	rcu_read_lock();
+ 
+-	elem = &nf_hooks[pf][hook];
++	elem = list_entry_rcu(&nf_hooks[pf][hook], struct nf_hook_ops, list);
+ next_hook:
+ 	verdict = nf_iterate(&nf_hooks[pf][hook], skb, hook, indev,
+ 			     outdev, &elem, okfn, hook_thresh);
+@@ -193,8 +189,8 @@ next_hook:
+ 		if (ret == 0)
+ 			ret = -EPERM;
+ 	} else if ((verdict & NF_VERDICT_MASK) == NF_QUEUE) {
+-		int err = nf_queue(skb, elem, pf, hook, indev, outdev, okfn,
+-						verdict >> NF_VERDICT_QBITS);
++		int err = nf_queue(skb, &elem->list, pf, hook, indev, outdev,
++					okfn, verdict >> NF_VERDICT_QBITS);
+ 		if (err < 0) {
+ 			if (err == -ECANCELED)
+ 				goto next_hook;
+diff --git a/net/netfilter/nf_internals.h b/net/netfilter/nf_internals.h
+index 770f764..2886231 100644
+--- a/net/netfilter/nf_internals.h
++++ b/net/netfilter/nf_internals.h
+@@ -18,7 +18,7 @@ extern unsigned int nf_iterate(struct list_head *head,
+ 				unsigned int hook,
+ 				const struct net_device *indev,
+ 				const struct net_device *outdev,
+-				struct list_head **i,
++				struct nf_hook_ops **elemp,
+ 				int (*okfn)(struct sk_buff *),
+ 				int hook_thresh);
+ 
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index ce60cf0..29fe102 100644
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -287,7 +287,7 @@ int nf_queue(struct sk_buff *skb,
+ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+ {
+ 	struct sk_buff *skb = entry->skb;
+-	struct list_head *elem = &entry->elem->list;
++	struct nf_hook_ops *elem = entry->elem;
+ 	const struct nf_afinfo *afinfo;
+ 	int err;
+ 
+@@ -297,7 +297,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+ 
+ 	/* Continue traversal iff userspace said ok... */
+ 	if (verdict == NF_REPEAT) {
+-		elem = elem->prev;
++		elem = list_entry(elem->list.prev, struct nf_hook_ops, list);
+ 		verdict = NF_ACCEPT;
+ 	}
+ 
+@@ -323,7 +323,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+ 		local_bh_enable();
+ 		break;
+ 	case NF_QUEUE:
+-		err = __nf_queue(skb, elem, entry->pf, entry->hook,
++		err = __nf_queue(skb, &elem->list, entry->pf, entry->hook,
+ 				 entry->indev, entry->outdev, entry->okfn,
+ 				 verdict >> NF_VERDICT_QBITS);
+ 		if (err < 0) {
+-- 
 1.7.10.4
