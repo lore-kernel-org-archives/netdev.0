@@ -1,216 +1,90 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [BUG]  TIPC handling of -ERESTARTSYS in connect()
-Date: Mon, 3 Sep 2012 11:16:13 +0800
-Message-ID: <504420FD.4030908@windriver.com>
-References: <503F84CF.208@genband.com> <504085D9.3010907@windriver.com> <5040D3C4.2010308@genband.com> <5040D5D9.4040802@genband.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="------------090507080401030106030600"
-Cc: netdev <netdev@vger.kernel.org>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: Chris Friesen <chris.friesen@genband.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH 1/3] tcp: move tcp_enter_cwr()
+Date: Sun,  2 Sep 2012 20:38:02 -0700
+Message-ID: <1346643484-12947-1-git-send-email-ycheng@google.com>
+Cc: mattmathis@google.com, edumazet@google.com, netdev@vger.kernel.org,
+	Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, ncardwell@google.com, nanditad@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:38176 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753228Ab2ICDQH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Sep 2012 23:16:07 -0400
-In-Reply-To: <5040D5D9.4040802@genband.com>
+Received: from mail-fa0-f74.google.com ([209.85.161.74]:54257 "EHLO
+	mail-fa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755811Ab2ICDiV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Sep 2012 23:38:21 -0400
+Received: by fass10 with SMTP id s10so243337fas.1
+        for <netdev@vger.kernel.org>; Sun, 02 Sep 2012 20:38:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---------------090507080401030106030600
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
+To prepare replacing rate halving with PRR algorithm in CWR state.
 
-
->>
->> It looks like the case where we come in with "sock->state ==
->> SS_LISTENING" has changed. Previously we would return -EOPNOTSUPP but
->> now it'll be -EINVAL. Is that intentional?
->
-> Just noticed something else.  In the SS_CONNECTING case I don't think 
-> there's any point in setting "res = -EALREADY" since a bit further 
-> down it gets set unconditionally anyway.
->
-Yes, you are right. Please check v2 version.
-
-Thanks,
-Ying
-
-> Chris
->
-
-
---------------090507080401030106030600
-Content-Type: text/x-diff;
-	name="0001-tipc-correct-return-value-of-connect-when-it-is-inte.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename*0="0001-tipc-correct-return-value-of-connect-when-it-is-inte.pa";
-	filename*1="tch"
-
->From 8c4606c4dbb1cf47f357cc3620ba5b70b433b670 Mon Sep 17 00:00:00 2001
-From: Ying Xue <ying.xue@windriver.com>
-Date: Mon, 3 Sep 2012 10:29:28 +0800
-Subject: [PATCH v2] tipc: correct return value of connect() when it is interrupted by a signal
-
-When connect() is interrupted by a signal, it returns -ERESTARTSYS
-error code, meanwhile socket state is also changed to SS_DISCONNECTING
-state. If connect() syscall exits from kernel space to userspace,
-kernel will deal with the pending signal. Once seeing the -ERESTARTSYS,
-it will retry this syscall again. As a result, finally userspace gets
--EISCONN error code from connect() at the moment.
-
-Correct behavior of connect() is that we should not set socket state
-SS_DISCONNECTING when signal happens, but it may return a successful
-code to userspace after signal is handled.
-
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
 ---
- net/tipc/tipc_socket.c |  109 +++++++++++++++++++++++++-----------------------
- 1 files changed, 57 insertions(+), 52 deletions(-)
+ net/ipv4/tcp_input.c |   46 +++++++++++++++++++++++-----------------------
+ 1 files changed, 23 insertions(+), 23 deletions(-)
 
-diff --git a/net/tipc/tipc_socket.c b/net/tipc/tipc_socket.c
-index c135edf..d800087 100644
---- a/net/tipc/tipc_socket.c
-+++ b/net/tipc/tipc_socket.c
-@@ -1456,21 +1456,6 @@ static int connect(struct socket *sock, struct sockaddr *dest, int destlen,
- 		goto exit;
- 	}
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 8c304a4..3ab0c75 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -743,29 +743,6 @@ __u32 tcp_init_cwnd(const struct tcp_sock *tp, const struct dst_entry *dst)
+ 	return min_t(__u32, cwnd, tp->snd_cwnd_clamp);
+ }
  
--	/* Issue Posix-compliant error code if socket is in the wrong state */
+-/* Set slow start threshold and cwnd not falling to slow start */
+-void tcp_enter_cwr(struct sock *sk, const int set_ssthresh)
+-{
+-	struct tcp_sock *tp = tcp_sk(sk);
+-	const struct inet_connection_sock *icsk = inet_csk(sk);
 -
--	if (sock->state == SS_LISTENING) {
--		res = -EOPNOTSUPP;
--		goto exit;
+-	tp->prior_ssthresh = 0;
+-	tp->bytes_acked = 0;
+-	if (icsk->icsk_ca_state < TCP_CA_CWR) {
+-		tp->undo_marker = 0;
+-		if (set_ssthresh)
+-			tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
+-		tp->snd_cwnd = min(tp->snd_cwnd,
+-				   tcp_packets_in_flight(tp) + 1U);
+-		tp->snd_cwnd_cnt = 0;
+-		tp->high_seq = tp->snd_nxt;
+-		tp->snd_cwnd_stamp = tcp_time_stamp;
+-		TCP_ECN_queue_cwr(tp);
+-
+-		tcp_set_ca_state(sk, TCP_CA_CWR);
 -	}
--	if (sock->state == SS_CONNECTING) {
--		res = -EALREADY;
--		goto exit;
--	}
--	if (sock->state != SS_UNCONNECTED) {
--		res = -EISCONN;
--		goto exit;
--	}
+-}
 -
- 	/*
- 	 * Reject connection attempt using multicast address
- 	 *
-@@ -1483,54 +1468,74 @@ static int connect(struct socket *sock, struct sockaddr *dest, int destlen,
- 		goto exit;
- 	}
+ /*
+  * Packet counting of FACK is based on in-order assumptions, therefore TCP
+  * disables it when reordering is detected
+@@ -2741,6 +2718,29 @@ static inline void tcp_complete_cwr(struct sock *sk)
+ 	tcp_ca_event(sk, CA_EVENT_COMPLETE_CWR);
+ }
  
--	/* Reject any messages already in receive queue (very unlikely) */
--
--	reject_rx_queue(sk);
-+	switch (sock->state) {
-+	case SS_UNCONNECTED:
-+		/* Reject any messages already in receive queue
-+		 * (very unlikely) */
-+		reject_rx_queue(sk);
- 
--	/* Send a 'SYN-' to destination */
-+		/* Send a 'SYN-' to destination */
-+		m.msg_name = dest;
-+		m.msg_namelen = destlen;
-+		res = send_msg(NULL, sock, &m, 0);
-+		if (res < 0) {
-+			goto exit;
-+		}
- 
--	m.msg_name = dest;
--	m.msg_namelen = destlen;
--	res = send_msg(NULL, sock, &m, 0);
--	if (res < 0) {
--		goto exit;
-+		/*
-+		 * Just entered SS_CONNECTING state; the only
-+		 * difference is that return value in non-blocking
-+		 * case is EINPROGRESS, rather than EALREADY.
-+		 */
-+		res = -EINPROGRESS;
-+		break;
-+	case SS_LISTENING:
-+		res = -EOPNOTSUPP;
-+		break;
-+	case SS_CONNECTED:
-+		res = -EISCONN;
-+		break;
-+	default:
-+		res = -EINVAL;
-+		break;
- 	}
- 
--	/* Wait until an 'ACK' or 'RST' arrives, or a timeout occurs */
--
--	timeout = tipc_sk(sk)->conn_timeout;
--	release_sock(sk);
--	res = wait_event_interruptible_timeout(*sk->sk_sleep,
--			(!skb_queue_empty(&sk->sk_receive_queue) ||
--			(sock->state != SS_CONNECTING)),
--			timeout ? (long)msecs_to_jiffies(timeout)
--				: MAX_SCHEDULE_TIMEOUT);
--	lock_sock(sk);
-+	if (sock->state == SS_CONNECTING) {
-+		/* Wait until an 'ACK' or 'RST' arrives, or a timeout occurs */
-+		timeout = tipc_sk(sk)->conn_timeout;
-+		release_sock(sk);
-+		res = wait_event_interruptible_timeout(*sk->sk_sleep,
-+				(!skb_queue_empty(&sk->sk_receive_queue) ||
-+				(sock->state != SS_CONNECTING)),
-+				timeout ? (long)msecs_to_jiffies(timeout)
-+					: MAX_SCHEDULE_TIMEOUT);
-+		lock_sock(sk);
- 
--	if (res > 0) {
--		buf = skb_peek(&sk->sk_receive_queue);
--		if (buf != NULL) {
--			msg = buf_msg(buf);
--			res = auto_connect(sock, msg);
--			if (!res) {
--				if (!msg_data_sz(msg))
--					advance_rx_queue(sk);
-+		if (res > 0) {
-+			buf = skb_peek(&sk->sk_receive_queue);
-+			if (buf != NULL) {
-+				msg = buf_msg(buf);
-+				res = auto_connect(sock, msg);
-+				if (!res) {
-+					if (!msg_data_sz(msg))
-+						advance_rx_queue(sk);
-+				}
-+			} else {
-+				if (sock->state == SS_CONNECTED) {
-+					res = -EISCONN;
-+				} else {
-+					res = -ECONNREFUSED;
-+				}
- 			}
- 		} else {
--			if (sock->state == SS_CONNECTED) {
--				res = -EISCONN;
-+			if (res == 0) {
-+				sock->state = SS_DISCONNECTING;
-+				res = -ETIMEDOUT;
- 			} else {
--				res = -ECONNREFUSED;
-+				; /* leave "res" unchanged */
- 			}
- 		}
--	} else {
--		if (res == 0)
--			res = -ETIMEDOUT;
--		else
--			; /* leave "res" unchanged */
--		sock->state = SS_DISCONNECTING;
- 	}
--
- exit:
- 	release_sock(sk);
- 	return res;
++/* Set slow start threshold and cwnd not falling to slow start */
++void tcp_enter_cwr(struct sock *sk, const int set_ssthresh)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	const struct inet_connection_sock *icsk = inet_csk(sk);
++
++	tp->prior_ssthresh = 0;
++	tp->bytes_acked = 0;
++	if (icsk->icsk_ca_state < TCP_CA_CWR) {
++		tp->undo_marker = 0;
++		if (set_ssthresh)
++			tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
++		tp->snd_cwnd = min(tp->snd_cwnd,
++				   tcp_packets_in_flight(tp) + 1U);
++		tp->snd_cwnd_cnt = 0;
++		tp->high_seq = tp->snd_nxt;
++		tp->snd_cwnd_stamp = tcp_time_stamp;
++		TCP_ECN_queue_cwr(tp);
++
++		tcp_set_ca_state(sk, TCP_CA_CWR);
++	}
++}
++
+ static void tcp_try_keep_open(struct sock *sk)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
 -- 
-1.7.1
-
-
---------------090507080401030106030600--
+1.7.7.3
