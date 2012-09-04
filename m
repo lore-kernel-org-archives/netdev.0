@@ -1,71 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Question regarding kernel panic in net/ipv4/tcp_output.c
-Date: Tue, 04 Sep 2012 14:23:08 +0200
-Message-ID: <1346761388.13121.21.camel@edumazet-glaptop>
-References: <trinity-daf22487-c4bf-4a4e-ae69-ed50d70f6169-1346759712289@3capp-webde-bs16>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] xfrm: Workaround incompatibility of ESN and async
+ crypto
+Date: Tue, 4 Sep 2012 05:31:55 -0700
+Message-ID: <20120904123155.GA3152@gondor.apana.org.au>
+References: <20120904100329.GA13023@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: smka2012@email.de
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:39417 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750778Ab2IDMXQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 08:23:16 -0400
-Received: by bkwj10 with SMTP id j10so2607833bkw.19
-        for <netdev@vger.kernel.org>; Tue, 04 Sep 2012 05:23:15 -0700 (PDT)
-In-Reply-To: <trinity-daf22487-c4bf-4a4e-ae69-ed50d70f6169-1346759712289@3capp-webde-bs16>
+Received: from sting.hengli.com.au ([178.18.18.71]:45668 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756900Ab2IDMcC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 08:32:02 -0400
+Content-Disposition: inline
+In-Reply-To: <20120904100329.GA13023@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-09-04 at 13:55 +0200, smka2012@email.de wrote:
-> Hi,
->  
-> I recently had a severe issue with multiple servers that stopped
-> working at the same time. By using the stacktrace, I could locate the
-> following line in the tcp_retransmit_skb function of the tcp_output.c
-> kernel source that led to a kernel panic on all servers. I am using
-> Debian 6.0 with the kernel version 2.6.32-45.
->  
-> (gdb) list *(tcp_retransmit_skb+0x66)
-> 0x1a93 is in tcp_retransmit_skb (net/ipv4/tcp_output.c:1905).
-> 1900  if (atomic_read(&sk->sk_wmem_alloc) >
-> 1901      min(sk->sk_wmem_queued + (sk->sk_wmem_queued >> 2),
-> sk->sk_sndbuf))
-> 1902   return -EAGAIN;
-> 1903
-> 1904  if (before(TCP_SKB_CB(skb)->seq, tp->snd_una)) {
+On Tue, Sep 04, 2012 at 12:03:29PM +0200, Steffen Klassert wrote:
+> ESN for esp is defined in RFC 4303. This RFC assumes that the
+> sequence number counters are always up to date. However,
+> this is not true if an async crypto algorithm is employed.
 > 
-> --->
-> 1905   if (before(TCP_SKB_CB(skb)->end_seq, tp->snd_una))
-> 1906    BUG();
-> <---
->  
-> 1907   if (tcp_trim_head(sk, skb, tp->snd_una - TCP_SKB_CB(skb)->seq))
-> 1908    return -ENOMEM;
-> 1909  }
->  
-> Now I am interested in getting to know what can lead to a situation
-> that the condition in line 1905 evaluates true and why the kernel goes
-> into the BUG() function in that case and does not only return an
-> error. All servers reached this line of code. They all were connected
-> to a switch that broke the same time. However, I cannot say if the
-> switch broke before the servers and eventually affected the servers or
-> if the switch was also itself affected by some external event. 
->  
-> Thank you very much for your help.
->  
-> Kind Regards,
-> Sascha
-> --
+> If the sequence number counters are not up to date on sequence
+> number check, we may incorrectly update the upper 32 bit of
+> the sequence number. This leads to a DOS.
+> 
+> We workaround this by comparing the upper sequence number,
+> (used for authentication) with the upper sequence number
+> computed after the async processing. We drop the packet
+> if these numbers are different.
+> 
+> To do this, we introduce a recheck function that does this
+> check in the ESN case.
+> 
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 
-You can see this BUG() as an early notification of a hard to
-debug/diagnose bug.
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-We shouldnt take this path at all.
+It took me a while to understand the problem but Steffen was
+correct again as usual.
 
-If we do, we have an earlier bug that we should fix anyway, because
-machine is going to crash.
-
-It would be nice you sent the stack trace you had.
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
