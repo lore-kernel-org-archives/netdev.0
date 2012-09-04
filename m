@@ -1,35 +1,43 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH iproute2 2/2] iplink: added support for ipoib rtnl link
- ops
-Date: Tue, 4 Sep 2012 10:48:41 -0700
-Message-ID: <20120904104841.3e9f848b@nehalam.linuxnetplumber.net>
-References: <1345724119-32110-1-git-send-email-ogerlitz@mellanox.com>
-	<1345724119-32110-3-git-send-email-ogerlitz@mellanox.com>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: Commit "ipconfig wait for carrier" makes boot hang for 2 mins if no
+ carrier
+Date: Tue, 4 Sep 2012 20:04:59 +0200
+Message-ID: <OF163B52E3.E2F5ACB3-ONC1257A6F.00635561-C1257A6F.00635564@transmode.se>
+References: <504627A4.9080306@neli.hopto.org>,
+	<OF61EF9E6E.9EF08C21-ONC1257A6F.004FE9B4-C1257A6F.0050A9B2@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, roland@kernel.org, netdev@vger.kernel.org
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: Micha Nelissen <micha@neli.hopto.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:55592 "EHLO mail.vyatta.com"
+Received: from gw1.transmode.se ([195.58.98.146]:60839 "EHLO gw1.transmode.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751954Ab2IDRtJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Sep 2012 13:49:09 -0400
-In-Reply-To: <1345724119-32110-3-git-send-email-ogerlitz@mellanox.com>
+	id S1757428Ab2IDSFC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 14:05:02 -0400
+In-Reply-To: <504627A4.9080306@neli.hopto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 23 Aug 2012 15:15:19 +0300
-Or Gerlitz <ogerlitz@mellanox.com> wrote:
-
-> Added basic support to create/delete IPoIB child devices,
-> where the user can optionally specify the IB PKEY (Partition Key)
-> to be used by the newly created device. If nothing is provided,
-> the child will use the same pkey as the parent.
+-----Micha Nelissen <micha@neli.hopto.org> wrote: -----
 > 
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Op 2012-09-04 16:41, Joakim Tjernlund schreef: > Above mentioned
+> commit(3fb72f1e6e6165c5f495e8dc11c5bbd14c73385c) changes
+> a ~1 sec delay to ~120 sec boot delay
+> if no carrier. This is a really
+> long time to wait if you just want to set an IP address but
+> doesn't
+> care about NFS root, holds up the boot with 2 minutes.
+>
+>  Why not set the IP address then in your rootfs yourself?  Micha 
 
-This is a good way to manage the child devices.
-But I am holding off merging it into iproute2 until after the
-kernel parts are final (in Linus's tree).  Please resubmit
-after the kernel parts are merged.
+I could ask you the same question, why do you need to have nfs in kernel?
+The answer is probably the same, it is much easier to
+manage our IP config in one place for our embedded system.
+
+I don't understand why you need 2 minutes timeout for carrier either?
+
+The wait should be conditional on NFS root or not so that non NFS roots
+can skip this stage altogether.
+
+ Jocke 
