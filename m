@@ -1,29 +1,104 @@
-From: Micha Nelissen <micha@neli.hopto.org>
-Subject: Re: Commit "ipconfig wait for carrier" makes boot hang for 2 mins
- if no carrier
-Date: Tue, 04 Sep 2012 18:09:08 +0200
-Message-ID: <504627A4.9080306@neli.hopto.org>
-References: <OF61EF9E6E.9EF08C21-ONC1257A6F.004FE9B4-C1257A6F.0050A9B2@transmode.se>
+From: Pedro Alves <palves-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and
+	naive hashtable
+Date: Tue, 04 Sep 2012 17:30:17 +0100
+Message-ID: <50462C99.5000007@redhat.com>
+References: <20120824203332.GF21325@google.com> <5037E9D9.9000605@gmail.com>
+	<20120824212348.GK21325@google.com> <5038074D.300@gmail.com>
+	<20120824230740.GN21325@google.com>
+	<20120825042419.GA27240@Krystal> <503C95E4.3010000@gmail.com>
+	<20120828101148.GA21683@Krystal> <503CAB1E.5010408@gmail.com>
+	<20120828115638.GC23818@Krystal> <20120828230050.GA3337@Krystal>
+	<1346772948.27919.9.camel@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from isp-bos-02.edutel.nl ([88.159.1.183]:45877 "EHLO
-	isp-bos-02.edutel.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750777Ab2IDQTR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 12:19:17 -0400
-In-Reply-To: <OF61EF9E6E.9EF08C21-ONC1257A6F.004FE9B4-C1257A6F.0050A9B2@transmode.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org,
+	Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>,
+	Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1346772948.27919.9.camel-f9ZlEuEWxVcJvu8Pb33WZ0EMvNT87kid@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Op 2012-09-04 16:41, Joakim Tjernlund schreef:
-> Above mentioned commit(3fb72f1e6e6165c5f495e8dc11c5bbd14c73385c) changes
-> a ~1 sec delay to ~120 sec boot delay if no carrier. This is a really
-> long time to wait if you just want to set an IP address but doesn't
-> care about NFS root, holds up the boot with 2 minutes.
+On 09/04/2012 04:35 PM, Steven Rostedt wrote:
+> On Tue, 2012-08-28 at 19:00 -0400, Mathieu Desnoyers wrote:
+> 
+>> Looking again at:
+>>
+>> +#define hash_for_each_size(name, bits, bkt, node, obj, member)                 \
+>> +       for (bkt = 0; bkt < HASH_SIZE(bits); bkt++)                             \
+>> +               hlist_for_each_entry(obj, node, &name[bkt], member)
+>>
+>> you will notice that a "break" or "continue" in the inner loop will not
+>> affect the outer loop, which is certainly not what the programmer would
+>> expect!
+>>
+>> I advise strongly against creating such error-prone construct.
+>>
+> 
+> A few existing loop macros do this. But they require a do { } while ()
+> approach, and all have a comment.
+> 
+> It's used by do_each_thread() in sched.h and ftrace does this as well.
+> Look at kernel/trace/ftrace.c at do_for_each_ftrace_rec().
+> 
+> Yes it breaks 'break' but it does not break 'continue' as it would just
+> go to the next item that would have been found (like a normal for
+> would).
 
-Why not set the IP address then in your rootfs yourself?
+/*
+ * This is a double for. Do not use 'break' to break out of the loop,
+ * you must use a goto.
+ */
+#define do_for_each_ftrace_rec(pg, rec)                                 \
+        for (pg = ftrace_pages_start; pg; pg = pg->next) {              \
+                int _____i;                                             \
+                for (_____i = 0; _____i < pg->index; _____i++) {        \
+                        rec = &pg->records[_____i];
 
-Micha
+
+
+You can make 'break' also work as expected if you can embed a little knowledge
+of the inner loop's condition in the outer loop's condition.  Sometimes it's
+trivial, most often when the inner loop's iterator is a pointer that goes
+NULL at the end, but other times not so much.  Something like (completely untested):
+
+#define do_for_each_ftrace_rec(pg, rec)                                 \
+        for (pg = ftrace_pages_start, rec = &pg->records[pg->index];    \
+             pg && rec == &pg->records[pg->index];                      \
+             pg = pg->next) {                                           \
+                int _____i;                                             \
+                for (_____i = 0; _____i < pg->index; _____i++) {        \
+                        rec = &pg->records[_____i];
+
+(other variants possible)
+
+IOW, the outer loop only iterates if the inner loop completes.  If there's
+a break in the inner loop, then the outer loop breaks too.  Of course, it
+all depends on whether the generated code looks sane or hideous, if
+the uses of the macro care for it over bug avoidance.
+
+-- 
+Pedro Alves
