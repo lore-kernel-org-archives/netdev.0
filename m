@@ -1,88 +1,36 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH 1/4] net: mvneta: driver for Marvell Armada 370/XP
- network unit
-Date: Tue, 4 Sep 2012 17:56:10 +0200
-Message-ID: <20120904175610.2c2934f1@skate>
-References: <1346764004-16332-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1346764004-16332-2-git-send-email-thomas.petazzoni@free-electrons.com>
- <201209041436.36430.arnd@arndb.de>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] nl80211: [PATCH] nl80211: fix possible memory leak
+ nl80211_connect()
+Date: Tue, 04 Sep 2012 18:07:07 +0200
+Message-ID: <1346774827.3737.34.camel@jlt4.sipsolutions.net>
+References: <CAPgLHd_ykxWnV82swesivdEkyqP+a+hBgTTT8SXwn9RYWR1HFA@mail.gmail.com>
+	 (sfid-20120902_154106_606560_49157A83)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
- Ike Pan <ike.pan@canonical.com>, Nadav Haklai <nadavh@marvell.com>,
- Ian Molton <ian.molton@codethink.co.uk>,
- Lennert Buytenhek <kernel@wantstofly.org>, David Marlin <dmarlin@redhat.com>,
- Rami Rosen <rosenr@marvell.com>, Yehuda Yitschak <yehuday@marvell.com>,
- Jani Monoses <jani.monoses@canonical.com>, Tawfik Bayouk <tawfik@marvell.com>,
- Dan Frazier <dann.frazier@canonical.com>, Eran Ben-Avi <benavi@marvell.com>,
- Li Li <li.li@canonical.com>, Leif Lindholm <leif.lindholm@arm.com>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
- Jason Cooper <jason@lakedaemon.net>, Jon Masters <jcm@redhat.com>,
- Ben Dooks <ben-linux@fluff.org>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- linux-arm-kernel@lists.infradead.org, Chris Van Hoof <vanhoof@canonical.com>,
- Nicolas Pitre <nico@fluxnic.net>, netdev@vger.k
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <201209041436.36430.arnd@arndb.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, davem@davemloft.net,
+	yongjun_wei@trendmicro.com.cn, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from he.sipsolutions.net ([78.46.109.217]:41641 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102Ab2IDQGn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 12:06:43 -0400
+In-Reply-To: <CAPgLHd_ykxWnV82swesivdEkyqP+a+hBgTTT8SXwn9RYWR1HFA@mail.gmail.com> (sfid-20120902_154106_606560_49157A83)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-QXJuZCwKClRoYW5rcyBmb3IgbG9va2luZyBzbyBxdWlja2x5IGludG8gdGhpcyBkcml2ZXIhCgpM
-ZSBUdWUsIDQgU2VwIDIwMTIgMTQ6MzY6MzYgKzAwMDAsCkFybmQgQmVyZ21hbm4gPGFybmRAYXJu
-ZGIuZGU+IGEgw6ljcml0IDoKCj4gT24gVHVlc2RheSAwNCBTZXB0ZW1iZXIgMjAxMiwgVGhvbWFz
-IFBldGF6em9uaSB3cm90ZToKPiA+ICAuLi4vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvbWFydmVs
-bC1uZXRhLnR4dCAgICAgICB8ICAgMjQgKwo+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZl
-bGwvS2NvbmZpZyAgICAgICAgICAgICAgIHwgICAxMSArCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvbWFydmVsbC9NYWtlZmlsZSAgICAgICAgICAgICAgfCAgICAxICsKPiA+ICBkcml2ZXJzL25l
-dC9ldGhlcm5ldC9tYXJ2ZWxsL212bmV0YS5jICAgICAgICAgICAgICB8IDI3MzIgKysrKysrKysr
-KysrKysrKysrKysKPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212bmV0YS5oICAg
-ICAgICAgICAgICB8ICA0OTYgKysrKwo+ID4gIDUgZmlsZXMgY2hhbmdlZCwgMzI2NCBpbnNlcnRp
-b25zKCspCj4gPiAgY3JlYXRlIG1vZGUgMTAwNjQ0IERvY3VtZW50YXRpb24vZGV2aWNldHJlZS9i
-aW5kaW5ncy9uZXQvbWFydmVsbC1uZXRhLnR4dAo+ID4gIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212bmV0YS5jCj4gPiAgY3JlYXRlIG1vZGUgMTAwNjQ0
-IGRyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZuZXRhLmgKPiAKPiBJIHVzdWFsbHkgcHJl
-ZmVyIHB1dHRpbmcgdGhlIGRlZmluaXRpb25zIGludG8gdGhlIC5jIGZpbGUgcmF0aGVyCj4gdGhh
-biBhIHNlcGFyYXRlIGhlYWRlciBpZiB0aGVyZSBpcyBvbmx5IG9ubHkgZmlsZSBpbmNsdWRpbmcg
-aXQKPiBhbnl3YXkuCgpGaW5lLiBJIGhlc2l0YXRlZCBvbiB0aGlzIG9uZSwgYnV0IHNpbmNlIHRo
-ZSBkcml2ZXIgd2FzIGFscmVhZHkgcXVpdGUKbG9uZywgSSB0aG91Z2h0IGEgc2VwYXJhdGUgaGVh
-ZGVyIHdvdWxkIGJlIG5pY2VyLCBidXQgSSBkb24ndCBoYXZlIGEKc3Ryb25nIG9waW5pb24sIHNv
-IEknbGwgcmVzdWJtaXQgd2l0aCB0aGlzIGNoYW5nZS4KCj4gPiArZXRoQGQwMDcwMDAwIHsKPiA+
-ICsgICAgICAgICAgICAgICBjb21wYXRpYmxlID0gIm1hcnZlbGwsbmV0YSI7Cj4gPiArICAgICAg
-ICAgICAgICAgcmVnID0gPDB4ZDAwNzAwMDAgMHgyNTAwPjsKPiA+ICsgICAgICAgICAgICAgICBp
-bnRlcnJ1cHRzID0gPDg+Owo+ID4gKyAgICAgICAgICAgICAgIGRldmljZV90eXBlID0gIm5ldHdv
-cmsiOwo+ID4gKyAgICAgICAgICAgICAgIGNsb2NrLWZyZXF1ZW5jeSA9IDwyNTAwMDAwMDA+Owo+
-ID4gKyAgICAgICAgICAgICAgIHN0YXR1cyA9ICJva2F5IjsKPiA+ICsgICAgICAgICAgICAgICBw
-aHktbW9kZSA9ICJzZ21paSI7Cj4gPiArICAgICAgICAgICAgICAgcGh5LWFkZHIgPSA8MjU+Owo+
-IAo+IEkgdGhpbmsgd2Ugbm9ybWFsbHkgcHV0IHRoZSBwaHkgaW50byBhIHNlcGFyYXRlIGRldmlj
-ZSBub2RlIG9uIGFuCj4gbWRpbyBidXMgYW5kIHRoZW4gdXNlIHRoZSBvZl9waHlfKiBmdW5jdGlv
-bnMgdG8gY29ubmVjdCBpdCB0bwo+IHRoZSBldGhlcm5ldCBkZXZpY2UuCgpFdmVuIHRob3VnaCBp
-dCBtYXkgbm90IGJlIGEgY29udmluY2luZyBhcmd1bWVudCwgbm9uZSBvZiB0aGUgZXhpc3Rpbmcg
-RFQKZmlsZXMgaW4gYXJjaC9hcm0vYm9vdC9kdHMgc2VlbSB0byBpbnN0YW50aWF0ZSBhIHNlcGFy
-YXRlIFBIWSBkZXZpY2UKYW5kIGEgcHJvcGVyIE1ESU8gYnVzLiBIb3dldmVyLCB0aGUgUG93ZXJQ
-QyBwbGF0Zm9ybXMgaW5kZWVkIG1ha2UgdGhpcwpkaXN0aW5jdGlvbiBhIGxvdCBjbGVhcmVyLgoK
-SG93ZXZlciwgdGhpcyBuZXR3b3JrIHVuaXQgaGFzIGEgY2xldmVyIE1BQyB0aGF0IGF1dG9ub21v
-dXNseSBxdWVyaWVzCnRoZSBQSFkgZm9yIHRoZSBsaW5rIHN0YXR1cywgYW5kIHJlcG9ydHMgY2hh
-bmdlcyAobGluaywgZHVwbGV4LCBzcGVlZCkKaW4gdGhlIGZvcm0gb2YgTUFDIGludGVycnVwdHMg
-YW5kIE1BQyByZWdpc3RlcnMuIFRoZXJlZm9yZSwgZm9yIGJhc2ljCm9wZXJhdGlvbiwgdGhlcmUg
-aXMgbm8gbmVlZCBmb3IgYSBzZXBhcmF0ZSBQSFkgZHJpdmVyIG5vciB0byBleHBvc2UgdGhlCk1E
-SU8gYnVzIGluIGFueSB3YXkuIFRoZSBvbmx5IHRoaW5nIG5lZWRlZCBpcyB0aGUgUEhZIGFkZHJl
-c3MsIHdoaWNoIGlzCmZpbGxlZCBpbnRvIGEgcmVnaXN0ZXIgb2YgdGhlIE1BQyBzbyB0aGF0IGl0
-IGNhbiBzdGFydCBpdHMgYXV0b21hdGljCnF1ZXJ5IG9mIHRoZSBQSFkuCgpLbm93aW5nIHRoaXMs
-IHdvdWxkIGl0IGJlIGFjY2VwdGFibGUgdG8gaGF2ZSB0aGlzIGRyaXZlciB3aXRob3V0IGFuCmV4
-cGxpY2l0IE1ESU8gYnVzIGluIHRoZSBEVD8KClRoYW5rcywKClRob21hcwotLSAKVGhvbWFzIFBl
-dGF6em9uaSwgRnJlZSBFbGVjdHJvbnMKS2VybmVsLCBkcml2ZXJzLCByZWFsLXRpbWUgYW5kIGVt
-YmVkZGVkIExpbnV4CmRldmVsb3BtZW50LCBjb25zdWx0aW5nLCB0cmFpbmluZyBhbmQgc3VwcG9y
-dC4KaHR0cDovL2ZyZWUtZWxlY3Ryb25zLmNvbQoKX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX18KbGludXgtYXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QKbGludXgt
-YXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3Jn
-L21haWxtYW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5lbAo=
+On Sun, 2012-09-02 at 21:41 +0800, Wei Yongjun wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> connkeys is malloced in nl80211_parse_connkeys() and should
+> be freed in the error handling case, otherwise it will cause
+> memory leak.
+> 
+> spatch with a semantic match is used to found this problem.
+> (http://coccinelle.lip6.fr/)
+
+Applied, thanks. I fixed the subject for you :)
+
+johannes
