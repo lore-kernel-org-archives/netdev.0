@@ -1,104 +1,42 @@
-From: Pedro Alves <palves@redhat.com>
-Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and naive hashtable
-Date: Tue, 04 Sep 2012 17:40:08 +0100
-Message-ID: <50462EE8.1090903@redhat.com>
-References: <20120824203332.GF21325@google.com> <5037E9D9.9000605@gmail.com>  <20120824212348.GK21325@google.com> <5038074D.300@gmail.com>  <20120824230740.GN21325@google.com> <20120825042419.GA27240@Krystal>  <503C95E4.3010000@gmail.com> <20120828101148.GA21683@Krystal>  <503CAB1E.5010408@gmail.com> <20120828115638.GC23818@Krystal>  <20120828230050.GA3337@Krystal> <1346772948.27919.9.camel@gandalf.local.home> <50462C99.5000007@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC v2] fq_codel : interval servo on hosts
+Date: Tue, 04 Sep 2012 18:54:06 +0200
+Message-ID: <1346777646.13121.46.camel@edumazet-glaptop>
+References: <1346396137.2586.301.camel@edumazet-glaptop>
+	<1346421031.2591.34.camel@edumazet-glaptop>
+	<1346421466.2591.38.camel@edumazet-glaptop>
+	<CAK6E8=cwpq0MVK6fcrOa=wTX237xQiVP2xzh0aX-AtuSmzt-sw@mail.gmail.com>
+	<1346503884.7996.65.camel@edumazet-glaptop>
+	<CAB_+Fg5xPRqEZNdH0mYogmm4LitMvycSLB-X1_7ryn4RY9FvSA@mail.gmail.com>
+	<1346772855.13121.40.camel@edumazet-glaptop>
+	<CAA93jw6k4pgwanTa81oHb8jV6WGMfoo6KuOBSjbrfU3eRMbt5A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-        Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
-        Sasha Levin <levinsasha928@gmail.com>, Tejun Heo <tj@kernel.org>,
-        torvalds@linux-foundation.org, akpm@linux-foundation.org,
-        linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-        paul.gortmaker@windriver.com, davem@davemloft.net, mingo@elte.hu,
-        ebiederm@xmission.com, aarcange@redhat.com, ericvh@gmail.com,
-        netdev@vger.kernel.org, josh@joshtriplett.org, eric.dumazet@gmail.com,
-        axboe@kernel.dk, agk@redhat.com, dm-devel@redhat.com, neilb@suse.de,
-        ccaulfie@redhat.com, teigland@redhat.com, Trond.Myklebust@netapp.com,
-        bfields@fieldses.org, fweisbec@gmail.com, jesse@nicira.com,
-        venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
-        edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <50462C99.5000007@redhat.com>
-Sender: owner-linux-mm@kvack.org
+Cc: Tomas Hruby <thruby@google.com>, Nandita Dukkipati <nanditad@google.com>,
+	netdev <netdev@vger.kernel.org>, codel@lists.bufferbloat.net
+To: Dave Taht <dave.taht@gmail.com>
+Return-path: <codel-bounces@lists.bufferbloat.net>
+In-Reply-To: <CAA93jw6k4pgwanTa81oHb8jV6WGMfoo6KuOBSjbrfU3eRMbt5A@mail.gmail.com>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
+List-Post: <mailto:codel@lists.bufferbloat.net>
+List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
+Sender: codel-bounces@lists.bufferbloat.net
+Errors-To: codel-bounces@lists.bufferbloat.net
 List-Id: netdev.vger.kernel.org
 
-On 09/04/2012 05:30 PM, Pedro Alves wrote:
-> On 09/04/2012 04:35 PM, Steven Rostedt wrote:
->> On Tue, 2012-08-28 at 19:00 -0400, Mathieu Desnoyers wrote:
->>
->>> Looking again at:
->>>
->>> +#define hash_for_each_size(name, bits, bkt, node, obj, member)                 \
->>> +       for (bkt = 0; bkt < HASH_SIZE(bits); bkt++)                             \
->>> +               hlist_for_each_entry(obj, node, &name[bkt], member)
->>>
->>> you will notice that a "break" or "continue" in the inner loop will not
->>> affect the outer loop, which is certainly not what the programmer would
->>> expect!
->>>
->>> I advise strongly against creating such error-prone construct.
->>>
->>
->> A few existing loop macros do this. But they require a do { } while ()
->> approach, and all have a comment.
->>
->> It's used by do_each_thread() in sched.h and ftrace does this as well.
->> Look at kernel/trace/ftrace.c at do_for_each_ftrace_rec().
->>
->> Yes it breaks 'break' but it does not break 'continue' as it would just
->> go to the next item that would have been found (like a normal for
->> would).
-> 
-> /*
->  * This is a double for. Do not use 'break' to break out of the loop,
->  * you must use a goto.
->  */
-> #define do_for_each_ftrace_rec(pg, rec)                                 \
->         for (pg = ftrace_pages_start; pg; pg = pg->next) {              \
->                 int _____i;                                             \
->                 for (_____i = 0; _____i < pg->index; _____i++) {        \
->                         rec = &pg->records[_____i];
-> 
-> 
-> 
-> You can make 'break' also work as expected if you can embed a little knowledge
-> of the inner loop's condition in the outer loop's condition.  Sometimes it's
-> trivial, most often when the inner loop's iterator is a pointer that goes
-> NULL at the end, but other times not so much.  Something like (completely untested):
-> 
-> #define do_for_each_ftrace_rec(pg, rec)                                 \
->         for (pg = ftrace_pages_start, rec = &pg->records[pg->index];    \
->              pg && rec == &pg->records[pg->index];                      \
->              pg = pg->next) {                                           \
->                 int _____i;                                             \
->                 for (_____i = 0; _____i < pg->index; _____i++) {        \
->                         rec = &pg->records[_____i];
->
-> 
-> (other variants possible)
-> 
-> IOW, the outer loop only iterates if the inner loop completes.  If there's
-> a break in the inner loop, then the outer loop breaks too.  Of course, it
-> all depends on whether the generated code looks sane or hideous, if
-> the uses of the macro care for it over bug avoidance.
-> 
+On Tue, 2012-09-04 at 09:40 -0700, Dave Taht wrote:
 
-BTW, you can also go a step further and remove the need to close with double }},
-with something like:
+> >
+> > Well, how things settle with a pure codel, mixing flows of very
+> > different RTT then ?
+> 
+> Elephants are shot statistically more often than mice.
 
-#define do_for_each_ftrace_rec(pg, rec)                                          \
-        for (pg = ftrace_pages_start, rec = &pg->records[pg->index];             \
-             pg && rec == &pg->records[pg->index];                               \
-             pg = pg->next)                                                      \
-          for (rec = pg->records; rec < &pg->records[pg->index]; rec++)
+This doesnt answer the question.
 
--- 
-Pedro Alves
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+long/short RTT have nothing to do with elephant and mice.
