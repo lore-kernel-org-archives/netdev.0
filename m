@@ -1,130 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] netfilter: take care of timewait sockets
-Date: Tue, 04 Sep 2012 19:49:03 +0200
-Message-ID: <1346780943.13121.58.camel@edumazet-glaptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH iproute2 2/2] iplink: added support for ipoib rtnl link
+ ops
+Date: Tue, 4 Sep 2012 10:48:41 -0700
+Message-ID: <20120904104841.3e9f848b@nehalam.linuxnetplumber.net>
+References: <1345724119-32110-1-git-send-email-ogerlitz@mellanox.com>
+	<1345724119-32110-3-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netfilter-devel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, roland@kernel.org, netdev@vger.kernel.org
+To: Or Gerlitz <ogerlitz@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:55592 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751954Ab2IDRtJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Sep 2012 13:49:09 -0400
+In-Reply-To: <1345724119-32110-3-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, 23 Aug 2012 15:15:19 +0300
+Or Gerlitz <ogerlitz@mellanox.com> wrote:
 
-Sami Farin reported crashes in xt_LOG because it assumes skb->sk is a
-full blown socket.
+> Added basic support to create/delete IPoIB child devices,
+> where the user can optionally specify the IB PKEY (Partition Key)
+> to be used by the newly created device. If nothing is provided,
+> the child will use the same pkey as the parent.
+> 
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 
-But with TCP early demux, we can have skb->sk pointing to a timewait
-socket.
-
-Same fix is needed in netfnetlink_log
-
-Diagnosed-by: Florian Westphal <fw@strlen.de>
-Reported-by: Sami Farin <hvtaifwkbgefbaei@gmail.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/netfilter/nfnetlink_log.c |   14 +++++++------
- net/netfilter/xt_LOG.c        |   33 ++++++++++++++++----------------
- 2 files changed, 25 insertions(+), 22 deletions(-)
-
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 14e2f39..5cfb5be 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -381,6 +381,7 @@ __build_packet_message(struct nfulnl_instance *inst,
- 	struct nlmsghdr *nlh;
- 	struct nfgenmsg *nfmsg;
- 	sk_buff_data_t old_tail = inst->skb->tail;
-+	struct sock *sk;
- 
- 	nlh = nlmsg_put(inst->skb, 0, 0,
- 			NFNL_SUBSYS_ULOG << 8 | NFULNL_MSG_PACKET,
-@@ -499,18 +500,19 @@ __build_packet_message(struct nfulnl_instance *inst,
- 	}
- 
- 	/* UID */
--	if (skb->sk) {
--		read_lock_bh(&skb->sk->sk_callback_lock);
--		if (skb->sk->sk_socket && skb->sk->sk_socket->file) {
--			struct file *file = skb->sk->sk_socket->file;
-+	sk = skb->sk;
-+	if (sk && sk->sk_state != TCP_TIME_WAIT) {
-+		read_lock_bh(&sk->sk_callback_lock);
-+		if (sk->sk_socket && sk->sk_socket->file) {
-+			struct file *file = sk->sk_socket->file;
- 			__be32 uid = htonl(file->f_cred->fsuid);
- 			__be32 gid = htonl(file->f_cred->fsgid);
--			read_unlock_bh(&skb->sk->sk_callback_lock);
-+			read_unlock_bh(&sk->sk_callback_lock);
- 			if (nla_put_be32(inst->skb, NFULA_UID, uid) ||
- 			    nla_put_be32(inst->skb, NFULA_GID, gid))
- 				goto nla_put_failure;
- 		} else
--			read_unlock_bh(&skb->sk->sk_callback_lock);
-+			read_unlock_bh(&sk->sk_callback_lock);
- 	}
- 
- 	/* local sequence number */
-diff --git a/net/netfilter/xt_LOG.c b/net/netfilter/xt_LOG.c
-index ff5f75f..2a4f969 100644
---- a/net/netfilter/xt_LOG.c
-+++ b/net/netfilter/xt_LOG.c
-@@ -145,6 +145,19 @@ static int dump_tcp_header(struct sbuff *m, const struct sk_buff *skb,
- 	return 0;
- }
- 
-+static void dump_sk_uid_gid(struct sbuff *m, struct sock *sk)
-+{
-+	if (!sk || sk->sk_state == TCP_TIME_WAIT)
-+		return;
-+
-+	read_lock_bh(&sk->sk_callback_lock);
-+	if (sk->sk_socket && sk->sk_socket->file)
-+		sb_add(m, "UID=%u GID=%u ",
-+			sk->sk_socket->file->f_cred->fsuid,
-+			sk->sk_socket->file->f_cred->fsgid);
-+	read_unlock_bh(&sk->sk_callback_lock);
-+}
-+
- /* One level of recursion won't kill us */
- static void dump_ipv4_packet(struct sbuff *m,
- 			const struct nf_loginfo *info,
-@@ -361,14 +374,8 @@ static void dump_ipv4_packet(struct sbuff *m,
- 	}
- 
- 	/* Max length: 15 "UID=4294967295 " */
--	if ((logflags & XT_LOG_UID) && !iphoff && skb->sk) {
--		read_lock_bh(&skb->sk->sk_callback_lock);
--		if (skb->sk->sk_socket && skb->sk->sk_socket->file)
--			sb_add(m, "UID=%u GID=%u ",
--				skb->sk->sk_socket->file->f_cred->fsuid,
--				skb->sk->sk_socket->file->f_cred->fsgid);
--		read_unlock_bh(&skb->sk->sk_callback_lock);
--	}
-+	if ((logflags & XT_LOG_UID) && !iphoff)
-+		dump_sk_uid_gid(m, skb->sk);
- 
- 	/* Max length: 16 "MARK=0xFFFFFFFF " */
- 	if (!iphoff && skb->mark)
-@@ -717,14 +724,8 @@ static void dump_ipv6_packet(struct sbuff *m,
- 	}
- 
- 	/* Max length: 15 "UID=4294967295 " */
--	if ((logflags & XT_LOG_UID) && recurse && skb->sk) {
--		read_lock_bh(&skb->sk->sk_callback_lock);
--		if (skb->sk->sk_socket && skb->sk->sk_socket->file)
--			sb_add(m, "UID=%u GID=%u ",
--				skb->sk->sk_socket->file->f_cred->fsuid,
--				skb->sk->sk_socket->file->f_cred->fsgid);
--		read_unlock_bh(&skb->sk->sk_callback_lock);
--	}
-+	if ((logflags & XT_LOG_UID) && recurse)
-+		dump_sk_uid_gid(m, skb->sk);
- 
- 	/* Max length: 16 "MARK=0xFFFFFFFF " */
- 	if (!recurse && skb->mark)
-
-
+This is a good way to manage the child devices.
+But I am holding off merging it into iproute2 until after the
+kernel parts are final (in Linus's tree).  Please resubmit
+after the kernel parts are merged.
