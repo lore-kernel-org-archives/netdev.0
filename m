@@ -1,7 +1,9 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: net: Network driver for the Armada 370 and Armada XP ARM Marvell SoCs
-Date: Tue,  4 Sep 2012 15:06:40 +0200
-Message-ID: <1346764004-16332-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH 2/4] net: mvneta: update MAINTAINERS file for the mvneta
+ maintainers
+Date: Tue,  4 Sep 2012 15:06:42 +0200
+Message-ID: <1346764004-16332-3-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <1346764004-16332-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -22,6 +24,7 @@ Cc: Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
 To: "David S. Miller" <davem@davemloft.net>,
  Lennert Buytenhek <kernel@wantstofly.org>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1346764004-16332-1-git-send-email-thomas.petazzoni@free-electrons.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -33,28 +36,27 @@ Sender: linux-arm-kernel-bounces@lists.infradead.org
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-David, Lennert,
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+ MAINTAINERS |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-This patch set adds a new network driver for the network unit
-available in the newest Marvell ARM SoCs Armada 370 and Armada XP, as
-well as the necessary Device Tree information to use this driver in
-the two evaluation platforms of those SoCs.
-
-In details:
-
- * Patch 1 contains the driver itself. The commit log contains a
-   detailed explanation about why a new driver is needed for this new
-   Marvell SoC, compared to older Marvell SoCs (Orion, Kirkwood, Dove)
-   that use the mv643xx_eth driver.
-
- * Patch 2 adds the necessary entry to the MAINTAINERS file.
-
- * Patch 3 adds the SoC-level Device Tree information for Armada 370
-   and Armada XP.
-
- * Patch 4 adds the board-level Device Tree information for the
-   Marvell evaluation boards of Armada 370 and Armada XP.
-
-Thanks,
-
-Thomas Petazzoni
+diff --git a/MAINTAINERS b/MAINTAINERS
+index fdc0119..35418e8 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4436,6 +4436,12 @@ S:	Maintained
+ F:	drivers/net/ethernet/marvell/mv643xx_eth.*
+ F:	include/linux/mv643xx.h
+ 
++MARVELL MVNETA ETHERNET DRIVER
++M:	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
++L:	netdev@vger.kernel.org
++S:	Maintained
++F:	drivers/net/ethernet/marvell/mvneta.*
++
+ MARVELL MWIFIEX WIRELESS DRIVER
+ M:	Bing Zhao <bzhao@marvell.com>
+ L:	linux-wireless@vger.kernel.org
+-- 
+1.7.9.5
