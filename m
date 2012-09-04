@@ -1,82 +1,90 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Tue, 4 Sep 2012 22:47:42 +0300
-Message-ID: <CAJZOPZKq-EBUq+8xb0Oxs+zwNS9DkFdx_8n8+-WkPyWfPkOn-Q@mail.gmail.com>
-References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com>
-	<1343840975-3252-10-git-send-email-ogerlitz@mellanox.com>
-	<87boitz044.fsf@xmission.com>
-	<20120805185031.GA18640@redhat.com>
-	<CAJZOPZ+ZHBg=vswgmWWz2D0GyWhD-ghkuY9_7CQB47uDmyzhsA@mail.gmail.com>
-	<20120903212230.GA6795@redhat.com>
-	<CAJZOPZJdmDY8rqHJ+jeuG2rLMj9CnwnemkBG=nxD=z9JBFQCRQ@mail.gmail.com>
-	<87a9x537r0.fsf@xmission.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Fw: [Bug 47021] New: kernel panic with l2tpv3 & mtu > 1500
+Date: Tue, 04 Sep 2012 21:52:14 +0200
+Message-ID: <1346788334.13121.82.camel@edumazet-glaptop>
+References: <20120904090756.71b34feb@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net,
-	roland@kernel.org, netdev@vger.kernel.org, sean.hefty@intel.com,
-	Erez Shitrit <erezsh@mellanox.co.il>,
-	Ali Ayoub <ali@mellanox.com>,
-	Doug Ledford <dledford@redhat.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, a1bert@atlas.cz
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:65362 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757729Ab2IDTrm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 15:47:42 -0400
-Received: by iahk25 with SMTP id k25so6059475iah.19
-        for <netdev@vger.kernel.org>; Tue, 04 Sep 2012 12:47:42 -0700 (PDT)
-In-Reply-To: <87a9x537r0.fsf@xmission.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:48613 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757815Ab2IDTwT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 15:52:19 -0400
+Received: by bkwj10 with SMTP id j10so2831185bkw.19
+        for <netdev@vger.kernel.org>; Tue, 04 Sep 2012 12:52:18 -0700 (PDT)
+In-Reply-To: <20120904090756.71b34feb@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 4, 2012 at 10:31 PM, Eric W. Biederman
-<ebiederm@xmission.com> wrote:
-> Or Gerlitz <or.gerlitz@gmail.com> writes:
->> On Tue, Sep 4, 2012 at 12:22 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
->>>> Documentation we will fix,
->>> And just to stress the point, document the limitations as well.
->> sure, not that I see concrete limitations for the **user** at this point, but
->> if there are such, will put them clearly written.
+From: Eric Dumazet <edumazet@google.com>
 
-> All ethernet protocols not working except IPv4 is a huge concrete limitation.
+On Tue, 2012-09-04 at 09:07 -0700, Stephen Hemminger wrote:
+> 
+> Begin forwarded message:
+> 
+> Date: Tue,  4 Sep 2012 16:06:06 +0000 (UTC)
+> From: bugzilla-daemon@bugzilla.kernel.org
+> To: shemminger@linux-foundation.org
+> Subject: [Bug 47021] New: kernel panic with l2tpv3 & mtu > 1500
+> 
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=47021
+> 
+>            Summary: kernel panic with l2tpv3 & mtu > 1500
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 3.2.28
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: a1bert@atlas.cz
+>         Regression: No
+> 
+> 
+> first l2tpv3 packet that enters physical device with MTU > 1500 causes kernel
+> panic
+> 
+> tunel created using:
+> 
+> l2tpv3tun add tunnel tunnel_id 1 peer_tunnel_id 1 encap udp udp_sport 5001
+> udp_dport 5001 local 192.168.1.1 remote 192.168.1.2
+> 
+> l2tpv3tun add session tunnel_id 1 session_id 1 peer_session_id 1 dev l2tpeth1
+> 
+> 
+> reproducible: always
+> 
 
-Oh, sure, that WILL be documented, currently eIPoIB can deliver only what
-IPoIB can which is IPv4, ARP/RARP, IPv6+ND, for IPv6 see next
+Seems following patch is needed, not sure if it helps
 
-> So far you are still playing with a design that is strongly NOT
-> ethernet.  So calling it eIPoIB will continue to be a LIE.
+[PATCH] l2tp: fix a typo in l2tp_eth_dev_recv()
 
-> You are still playing with an implementation that doesn't even dream
-> of supporting IPv6 which makes it so far from ethernet I can't imagine
-> anyone taking your code seriously.
+While investigating l2tp bug, I hit a bug in eth_type_trans(),
+because not enough bytes were pulled in skb head.
 
-This design can and will support IPv6, the IPv6 ND handling will follow the path
-we are talking now for the IPv4 ARPs, e.g not within the driver, etc.
-Could you be
-more specific?
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/l2tp/l2tp_eth.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> Any implementation that breaks a naive ARP implementation also breaks
-> IPv6.  Not to mention everything else that runs over ethernet.
-
-not sure to follow on the naive impl. comment,  eIPoIB solution will
-include kernel driver along with supporting user-space portion, this
-is to follow a comment made by the community on mangling ARPs in
-network driver.
-
-> If you are clever you can use the current IPoIB hardware accelleration
-> but you need to do something different so that you can either encode
-> or imply the MAC address so you won't have to munge ethernet protocols.
-
-also here not sure to follow, we have a new design under which the
-original VM MAC is preserved on the RX side, we will not generate MAC
-for Ethernet frames sent by VMs which we reconstruct on the RX side
-any more.
-
-> Just for fun you might want to consider what it takes to support 2 VMs
-> in the same VLAN that share the same IP address (but different MAC
-> addresses) for failover purposes.
-
-will look on that
-
-Or.
+diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+index f9ee74d..3bfb34a 100644
+--- a/net/l2tp/l2tp_eth.c
++++ b/net/l2tp/l2tp_eth.c
+@@ -153,7 +153,7 @@ static void l2tp_eth_dev_recv(struct l2tp_session *session, struct sk_buff *skb,
+ 		print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, skb->data, length);
+ 	}
+ 
+-	if (!pskb_may_pull(skb, sizeof(ETH_HLEN)))
++	if (!pskb_may_pull(skb, ETH_HLEN))
+ 		goto error;
+ 
+ 	secpath_reset(skb);
