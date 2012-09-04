@@ -1,43 +1,37 @@
-From: Micha Nelissen <micha@neli.hopto.org>
-Subject: Re: Commit "ipconfig wait for carrier" makes boot hang for 2 mins
- if no  carrier
-Date: Tue, 04 Sep 2012 21:33:37 +0200
-Message-ID: <50465791.40805@neli.hopto.org>
-References: <504627A4.9080306@neli.hopto.org>,	<OF61EF9E6E.9EF08C21-ONC1257A6F.004FE9B4-C1257A6F.0050A9B2@transmode.se> <OF163B52E3.E2F5ACB3-ONC1257A6F.00635561-C1257A6F.00635564@transmode.se>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 1/2] tcp: add generic netlink support for tcp_metrics
+Date: Tue, 04 Sep 2012 15:47:08 -0400 (EDT)
+Message-ID: <20120904.154708.2099268692603008096.davem@davemloft.net>
+References: <1346564178-1794-2-git-send-email-ja@ssi.bg>
+	<1346633144.2563.97.camel@edumazet-glaptop>
+	<alpine.LFD.2.00.1209031041340.1663@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	shemminger@vyatta.com, paulmck@linux.vnet.ibm.com
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isp-bos-02.edutel.nl ([88.159.1.183]:55095 "EHLO
-	isp-bos-02.edutel.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757568Ab2IDTdm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 15:33:42 -0400
-In-Reply-To: <OF163B52E3.E2F5ACB3-ONC1257A6F.00635561-C1257A6F.00635564@transmode.se>
+Received: from shards.monkeyblade.net ([149.20.54.216]:32809 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757696Ab2IDTrK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 15:47:10 -0400
+In-Reply-To: <alpine.LFD.2.00.1209031041340.1663@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joakim Tjernlund wrote:
->>  Why not set the IP address then in your rootfs yourself?  Micha 
-> 
-> I could ask you the same question, why do you need to have nfs in kernel?
+From: Julian Anastasov <ja@ssi.bg>
+Date: Mon, 3 Sep 2012 11:22:15 +0300 (EEST)
 
-Because that's where my root filesystem is? The IP autoconfiguration
-code exists for this purpose.
+> 	BTW, is it appropriate to use kmem_cache for
+> metrics and as result call_rcu for freeing?
 
-> The answer is probably the same, it is much easier to
-> manage our IP config in one place for our embedded system.
+I think it would work as things are implemented currently in
+slab/slub/slob, however I would not rely upon it.
 
-You retrieve the kernel via TFTP or so when booting?
+If you do move to a SLAB cache for the tcp metrics objects,
+you might consider SLAB_DESTROY_BY_RCU.  It's a very delicate
+facility (read the huge comment in linux/slab.h) but I think
+it provides the semantics we need for TCP metrics blobs.
 
-> I don't understand why you need 2 minutes timeout for carrier either?
-
-Just a safe value.
-
-> The wait should be conditional on NFS root or not so that non NFS roots
-> can skip this stage altogether.
-
-Feel free to submit a patch :-)
-
-Micha
+Looking forward to v3 :-)
