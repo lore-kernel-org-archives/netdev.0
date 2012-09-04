@@ -1,7 +1,7 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net 1/3] openvswitch: Relax set header validation.
-Date: Tue,  4 Sep 2012 12:08:06 -0700
-Message-ID: <1346785688-2910-2-git-send-email-jesse@nicira.com>
+Subject: [PATCH net 3/3] openvswitch: Fix FLOW_BUFSIZE definition.
+Date: Tue,  4 Sep 2012 12:08:08 -0700
+Message-ID: <1346785688-2910-4-git-send-email-jesse@nicira.com>
 References: <1346785688-2910-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,46 +21,42 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-When installing a flow with an action to set a particular field we
-need to validate that the packets that are part of the flow actually
-contain that header.  With IP we use zeroed addresses and with TCP/UDP
-the check is for zeroed ports.  This check is overly broad and can catch
-packets like DHCP requests that have a zero source address in a
-legitimate header.  This changes the check to look for a zeroed protocol
-number for IP or for both ports be zero for TCP/UDP before considering
-the header to not exist.
+The vlan encapsulation fields in the maximum flow defintion were
+never updated when the representation changed before upstreaming.
+In theory this could cause a kernel panic when a maximum length
+flow is used.  In practice this has never happened (to my knowledge)
+because skb allocations are padded out to a cache line so you would
+need the right combination of flow and packet being sent to userspace.
 
-Reported-by: Ethan Jackson <ethan-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/datapath.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/openvswitch/flow.h |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index d8277d2..cf58ced 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -425,10 +425,10 @@ static int validate_sample(const struct nlattr *attr,
- static int validate_tp_port(const struct sw_flow_key *flow_key)
- {
- 	if (flow_key->eth.type == htons(ETH_P_IP)) {
--		if (flow_key->ipv4.tp.src && flow_key->ipv4.tp.dst)
-+		if (flow_key->ipv4.tp.src || flow_key->ipv4.tp.dst)
- 			return 0;
- 	} else if (flow_key->eth.type == htons(ETH_P_IPV6)) {
--		if (flow_key->ipv6.tp.src && flow_key->ipv6.tp.dst)
-+		if (flow_key->ipv6.tp.src || flow_key->ipv6.tp.dst)
- 			return 0;
- 	}
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index 9b75617..c30df1a 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -145,15 +145,17 @@ u64 ovs_flow_used_time(unsigned long flow_jiffies);
+  *  OVS_KEY_ATTR_PRIORITY      4    --     4      8
+  *  OVS_KEY_ATTR_IN_PORT       4    --     4      8
+  *  OVS_KEY_ATTR_ETHERNET     12    --     4     16
++ *  OVS_KEY_ATTR_ETHERTYPE     2     2     4      8  (outer VLAN ethertype)
+  *  OVS_KEY_ATTR_8021Q         4    --     4      8
+- *  OVS_KEY_ATTR_ETHERTYPE     2     2     4      8
++ *  OVS_KEY_ATTR_ENCAP         0    --     4      4  (VLAN encapsulation)
++ *  OVS_KEY_ATTR_ETHERTYPE     2     2     4      8  (inner VLAN ethertype)
+  *  OVS_KEY_ATTR_IPV6         40    --     4     44
+  *  OVS_KEY_ATTR_ICMPV6        2     2     4      8
+  *  OVS_KEY_ATTR_ND           28    --     4     32
+  *  -------------------------------------------------
+- *  total                                       132
++ *  total                                       144
+  */
+-#define FLOW_BUFSIZE 132
++#define FLOW_BUFSIZE 144
  
-@@ -460,7 +460,7 @@ static int validate_set(const struct nlattr *a,
- 		if (flow_key->eth.type != htons(ETH_P_IP))
- 			return -EINVAL;
- 
--		if (!flow_key->ipv4.addr.src || !flow_key->ipv4.addr.dst)
-+		if (!flow_key->ip.proto)
- 			return -EINVAL;
- 
- 		ipv4_key = nla_data(ovs_key);
+ int ovs_flow_to_nlattrs(const struct sw_flow_key *, struct sk_buff *);
+ int ovs_flow_from_nlattrs(struct sw_flow_key *swkey, int *key_lenp,
 -- 
 1.7.9.5
