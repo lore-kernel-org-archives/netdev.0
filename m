@@ -1,50 +1,62 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH 2/3] ipvs: Fix faulty IPv6 extension header handling in
- IPVS
-Date: Tue, 04 Sep 2012 23:25:18 +0200
-Message-ID: <1346793918.3069.663.camel@localhost>
-References: <20120820130732.1509.13080.stgit@dragon>
-	 <20120820130840.1509.75794.stgit@dragon>
-	 <Pine.GSO.4.63.1208262311110.16771@stinky-local.trash.net>
+From: Pedro Alves <palves@redhat.com>
+Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and naive hashtable
+Date: Tue, 04 Sep 2012 22:51:04 +0100
+Message-ID: <504677C8.3050801@redhat.com>
+References: <20120824203332.GF21325@google.com> <5037E9D9.9000605@gmail.com>    <20120824212348.GK21325@google.com> <5038074D.300@gmail.com>    <20120824230740.GN21325@google.com> <20120825042419.GA27240@Krystal>    <503C95E4.3010000@gmail.com> <20120828101148.GA21683@Krystal>    <503CAB1E.5010408@gmail.com> <20120828115638.GC23818@Krystal>    <20120828230050.GA3337@Krystal>   <1346772948.27919.9.camel@gandalf.local.home>  <50462C99.5000007@redhat.com>  <50462EE8.1090903@redhat.com>  <1346779027.27919.15.camel@gandalf.local.home>  <50463883.8080706@redhat.com> <1346792345.27919.18.camel@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Hans Schillstrom <hans@schillstrom.com>,
-	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
-	Simon Horman <horms@verge.net.au>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.GSO.4.63.1208262311110.16771@stinky-local.trash.net>
-Sender: lvs-devel-owner@vger.kernel.org
+Cc: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
+        Sasha Levin <levinsasha928@gmail.com>, Tejun Heo <tj@kernel.org>,
+        torvalds@linux-foundation.org, akpm@linux-foundation.org,
+        linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+        paul.gortmaker@windriver.com, davem@davemloft.net, mingo@elte.hu,
+        ebiederm@xmission.com, aarcange@redhat.com, ericvh@gmail.com,
+        netdev@vger.kernel.org, josh@joshtriplett.org, eric.dumazet@gmail.com,
+        axboe@kernel.dk, agk@redhat.com, dm-devel@redhat.com, neilb@suse.de,
+        ccaulfie@redhat.com, teigland@redhat.com, Trond.Myklebust@netapp.com,
+        bfields@fieldses.org, fweisbec@gmail.com, jesse@nicira.com,
+        venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
+        edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
+        rds-devel@oss.oracle.com, lw@cn.fujits
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1346792345.27919.18.camel@gandalf.local.home>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Aug 2012, Jesper Dangaard Brouer wrote:
+On 09/04/2012 09:59 PM, Steven Rostedt wrote:
+> On Tue, 2012-09-04 at 18:21 +0100, Pedro Alves wrote:
+>> On 09/04/2012 06:17 PM, Steven Rostedt wrote:
+>>> On Tue, 2012-09-04 at 17:40 +0100, Pedro Alves wrote:
+>>>
+>>>> BTW, you can also go a step further and remove the need to close with double }},
+>>>> with something like:
+>>>>
+>>>> #define do_for_each_ftrace_rec(pg, rec)                                          \
+>>>>         for (pg = ftrace_pages_start, rec = &pg->records[pg->index];             \
+>>>>              pg && rec == &pg->records[pg->index];                               \
+>>>>              pg = pg->next)                                                      \
+>>>>           for (rec = pg->records; rec < &pg->records[pg->index]; rec++)
+>>>>
+>>>
+>>> Yeah, but why bother? It's hidden in a macro, and the extra '{ }' shows
+>>> that this is something "special".
+>>
+>> The point of both changes is that there's nothing special in the end
+>> at all.  It all just works...
+>>
+> 
+> It would still fail on a 'break'. The 'while' macro tells us that it is
+> special, because in the end, it wont work.
 
-[cut]
+Please explain why it would fail on a 'break'.
 
-> This patch contains a lot of API changes.  This is done, to avoid
-> the costly scan of finding the IPv6 headers, via ipv6_find_hdr().
+-- 
+Pedro Alves
 
-(small correction ipv6_find_hdr() is not that costly for the general
-case of no exthdrs)
-
-> Finding the IPv6 headers is done as early as possible, and passed
-> on as a pointer "struct ip_vs_iphdr *" to the affected functions.
-
-This passing the "struct ip_vs_iphdr" actually makes sense.  It reminds
-me of the way netfilter/iptables passes the xt_actions_param to each
-rule.  Which contains the same information as ip_vs_iphdr.  (note ipvs
-register at hooks at a lower level and don't get passed the
-xt_actions_param).
-
-Thus, perhaps we should keep these API changes.  Even if we decide to
-optimize ipv6_find_hdr().  (as proposed by my RFC patch)
-
-Perhaps we should consider adding a "family" to ip_vs_iphdr, as is done
-in xt_actions_param.  This could help us, with collapsing IPv4 and IPv6
-code, but i can see that other structs in IPVS carry this info already,
-so not sure its relevant.
-
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
