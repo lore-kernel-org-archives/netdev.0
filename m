@@ -1,57 +1,88 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] usbnet: drop unneeded check for NULL
-Date: Tue, 4 Sep 2012 17:53:43 +0200
-Message-ID: <20120904155343.GA2170@netboy.at.omicron.at>
-References: <1346768514-19823-1-git-send-email-oliver@neukum.org>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH 1/4] net: mvneta: driver for Marvell Armada 370/XP
+ network unit
+Date: Tue, 4 Sep 2012 17:56:10 +0200
+Message-ID: <20120904175610.2c2934f1@skate>
+References: <1346764004-16332-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1346764004-16332-2-git-send-email-thomas.petazzoni@free-electrons.com>
+ <201209041436.36430.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Oliver Neukum <oneukum@suse.de>
-To: Oliver Neukum <oliver@neukum.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:62156 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756602Ab2IDPxt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 11:53:49 -0400
-Received: by bkwj10 with SMTP id j10so2726746bkw.19
-        for <netdev@vger.kernel.org>; Tue, 04 Sep 2012 08:53:48 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1346768514-19823-1-git-send-email-oliver@neukum.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
+ Ike Pan <ike.pan@canonical.com>, Nadav Haklai <nadavh@marvell.com>,
+ Ian Molton <ian.molton@codethink.co.uk>,
+ Lennert Buytenhek <kernel@wantstofly.org>, David Marlin <dmarlin@redhat.com>,
+ Rami Rosen <rosenr@marvell.com>, Yehuda Yitschak <yehuday@marvell.com>,
+ Jani Monoses <jani.monoses@canonical.com>, Tawfik Bayouk <tawfik@marvell.com>,
+ Dan Frazier <dann.frazier@canonical.com>, Eran Ben-Avi <benavi@marvell.com>,
+ Li Li <li.li@canonical.com>, Leif Lindholm <leif.lindholm@arm.com>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+ Jason Cooper <jason@lakedaemon.net>, Jon Masters <jcm@redhat.com>,
+ Ben Dooks <ben-linux@fluff.org>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ linux-arm-kernel@lists.infradead.org, Chris Van Hoof <vanhoof@canonical.com>,
+ Nicolas Pitre <nico@fluxnic.net>, netdev@vger.k
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <201209041436.36430.arnd@arndb.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 04, 2012 at 04:21:54PM +0200, Oliver Neukum wrote:
-> usbnet_start_xmit() is always called with a valid skb
-
-So, has the problem that this test worked around been fixed?
-
-Thanks,
-Richard
-
- 
-> Signed-off-by: Oliver Neukum <oneukum@suse.de>
-> ---
->  drivers/net/usb/usbnet.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> index 8531c1c..5234d20 100644
-> --- a/drivers/net/usb/usbnet.c
-> +++ b/drivers/net/usb/usbnet.c
-> @@ -1092,8 +1092,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
->  	unsigned long		flags;
->  	int retval;
->  
-> -	if (skb)
-> -		skb_tx_timestamp(skb);
-> +	skb_tx_timestamp(skb);
->  
->  	// some devices want funky USB-level framing, for
->  	// win32 driver (usually) and/or hardware quirks
-> -- 
-> 1.7.7
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+QXJuZCwKClRoYW5rcyBmb3IgbG9va2luZyBzbyBxdWlja2x5IGludG8gdGhpcyBkcml2ZXIhCgpM
+ZSBUdWUsIDQgU2VwIDIwMTIgMTQ6MzY6MzYgKzAwMDAsCkFybmQgQmVyZ21hbm4gPGFybmRAYXJu
+ZGIuZGU+IGEgw6ljcml0IDoKCj4gT24gVHVlc2RheSAwNCBTZXB0ZW1iZXIgMjAxMiwgVGhvbWFz
+IFBldGF6em9uaSB3cm90ZToKPiA+ICAuLi4vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvbWFydmVs
+bC1uZXRhLnR4dCAgICAgICB8ICAgMjQgKwo+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZl
+bGwvS2NvbmZpZyAgICAgICAgICAgICAgIHwgICAxMSArCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvbWFydmVsbC9NYWtlZmlsZSAgICAgICAgICAgICAgfCAgICAxICsKPiA+ICBkcml2ZXJzL25l
+dC9ldGhlcm5ldC9tYXJ2ZWxsL212bmV0YS5jICAgICAgICAgICAgICB8IDI3MzIgKysrKysrKysr
+KysrKysrKysrKysKPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212bmV0YS5oICAg
+ICAgICAgICAgICB8ICA0OTYgKysrKwo+ID4gIDUgZmlsZXMgY2hhbmdlZCwgMzI2NCBpbnNlcnRp
+b25zKCspCj4gPiAgY3JlYXRlIG1vZGUgMTAwNjQ0IERvY3VtZW50YXRpb24vZGV2aWNldHJlZS9i
+aW5kaW5ncy9uZXQvbWFydmVsbC1uZXRhLnR4dAo+ID4gIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2
+ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212bmV0YS5jCj4gPiAgY3JlYXRlIG1vZGUgMTAwNjQ0
+IGRyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZuZXRhLmgKPiAKPiBJIHVzdWFsbHkgcHJl
+ZmVyIHB1dHRpbmcgdGhlIGRlZmluaXRpb25zIGludG8gdGhlIC5jIGZpbGUgcmF0aGVyCj4gdGhh
+biBhIHNlcGFyYXRlIGhlYWRlciBpZiB0aGVyZSBpcyBvbmx5IG9ubHkgZmlsZSBpbmNsdWRpbmcg
+aXQKPiBhbnl3YXkuCgpGaW5lLiBJIGhlc2l0YXRlZCBvbiB0aGlzIG9uZSwgYnV0IHNpbmNlIHRo
+ZSBkcml2ZXIgd2FzIGFscmVhZHkgcXVpdGUKbG9uZywgSSB0aG91Z2h0IGEgc2VwYXJhdGUgaGVh
+ZGVyIHdvdWxkIGJlIG5pY2VyLCBidXQgSSBkb24ndCBoYXZlIGEKc3Ryb25nIG9waW5pb24sIHNv
+IEknbGwgcmVzdWJtaXQgd2l0aCB0aGlzIGNoYW5nZS4KCj4gPiArZXRoQGQwMDcwMDAwIHsKPiA+
+ICsgICAgICAgICAgICAgICBjb21wYXRpYmxlID0gIm1hcnZlbGwsbmV0YSI7Cj4gPiArICAgICAg
+ICAgICAgICAgcmVnID0gPDB4ZDAwNzAwMDAgMHgyNTAwPjsKPiA+ICsgICAgICAgICAgICAgICBp
+bnRlcnJ1cHRzID0gPDg+Owo+ID4gKyAgICAgICAgICAgICAgIGRldmljZV90eXBlID0gIm5ldHdv
+cmsiOwo+ID4gKyAgICAgICAgICAgICAgIGNsb2NrLWZyZXF1ZW5jeSA9IDwyNTAwMDAwMDA+Owo+
+ID4gKyAgICAgICAgICAgICAgIHN0YXR1cyA9ICJva2F5IjsKPiA+ICsgICAgICAgICAgICAgICBw
+aHktbW9kZSA9ICJzZ21paSI7Cj4gPiArICAgICAgICAgICAgICAgcGh5LWFkZHIgPSA8MjU+Owo+
+IAo+IEkgdGhpbmsgd2Ugbm9ybWFsbHkgcHV0IHRoZSBwaHkgaW50byBhIHNlcGFyYXRlIGRldmlj
+ZSBub2RlIG9uIGFuCj4gbWRpbyBidXMgYW5kIHRoZW4gdXNlIHRoZSBvZl9waHlfKiBmdW5jdGlv
+bnMgdG8gY29ubmVjdCBpdCB0bwo+IHRoZSBldGhlcm5ldCBkZXZpY2UuCgpFdmVuIHRob3VnaCBp
+dCBtYXkgbm90IGJlIGEgY29udmluY2luZyBhcmd1bWVudCwgbm9uZSBvZiB0aGUgZXhpc3Rpbmcg
+RFQKZmlsZXMgaW4gYXJjaC9hcm0vYm9vdC9kdHMgc2VlbSB0byBpbnN0YW50aWF0ZSBhIHNlcGFy
+YXRlIFBIWSBkZXZpY2UKYW5kIGEgcHJvcGVyIE1ESU8gYnVzLiBIb3dldmVyLCB0aGUgUG93ZXJQ
+QyBwbGF0Zm9ybXMgaW5kZWVkIG1ha2UgdGhpcwpkaXN0aW5jdGlvbiBhIGxvdCBjbGVhcmVyLgoK
+SG93ZXZlciwgdGhpcyBuZXR3b3JrIHVuaXQgaGFzIGEgY2xldmVyIE1BQyB0aGF0IGF1dG9ub21v
+dXNseSBxdWVyaWVzCnRoZSBQSFkgZm9yIHRoZSBsaW5rIHN0YXR1cywgYW5kIHJlcG9ydHMgY2hh
+bmdlcyAobGluaywgZHVwbGV4LCBzcGVlZCkKaW4gdGhlIGZvcm0gb2YgTUFDIGludGVycnVwdHMg
+YW5kIE1BQyByZWdpc3RlcnMuIFRoZXJlZm9yZSwgZm9yIGJhc2ljCm9wZXJhdGlvbiwgdGhlcmUg
+aXMgbm8gbmVlZCBmb3IgYSBzZXBhcmF0ZSBQSFkgZHJpdmVyIG5vciB0byBleHBvc2UgdGhlCk1E
+SU8gYnVzIGluIGFueSB3YXkuIFRoZSBvbmx5IHRoaW5nIG5lZWRlZCBpcyB0aGUgUEhZIGFkZHJl
+c3MsIHdoaWNoIGlzCmZpbGxlZCBpbnRvIGEgcmVnaXN0ZXIgb2YgdGhlIE1BQyBzbyB0aGF0IGl0
+IGNhbiBzdGFydCBpdHMgYXV0b21hdGljCnF1ZXJ5IG9mIHRoZSBQSFkuCgpLbm93aW5nIHRoaXMs
+IHdvdWxkIGl0IGJlIGFjY2VwdGFibGUgdG8gaGF2ZSB0aGlzIGRyaXZlciB3aXRob3V0IGFuCmV4
+cGxpY2l0IE1ESU8gYnVzIGluIHRoZSBEVD8KClRoYW5rcywKClRob21hcwotLSAKVGhvbWFzIFBl
+dGF6em9uaSwgRnJlZSBFbGVjdHJvbnMKS2VybmVsLCBkcml2ZXJzLCByZWFsLXRpbWUgYW5kIGVt
+YmVkZGVkIExpbnV4CmRldmVsb3BtZW50LCBjb25zdWx0aW5nLCB0cmFpbmluZyBhbmQgc3VwcG9y
+dC4KaHR0cDovL2ZyZWUtZWxlY3Ryb25zLmNvbQoKX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX18KbGludXgtYXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QKbGludXgt
+YXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3Jn
+L21haWxtYW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5lbAo=
