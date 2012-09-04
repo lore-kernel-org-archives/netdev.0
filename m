@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [RFC v2] fq_codel : interval servo on hosts
-Date: Tue, 04 Sep 2012 18:54:06 +0200
-Message-ID: <1346777646.13121.46.camel@edumazet-glaptop>
+Date: Tue, 04 Sep 2012 18:57:29 +0200
+Message-ID: <1346777849.13121.50.camel@edumazet-glaptop>
 References: <1346396137.2586.301.camel@edumazet-glaptop>
 	<1346421031.2591.34.camel@edumazet-glaptop>
 	<1346421466.2591.38.camel@edumazet-glaptop>
@@ -31,12 +31,18 @@ List-Id: netdev.vger.kernel.org
 
 On Tue, 2012-09-04 at 09:40 -0700, Dave Taht wrote:
 
-> >
-> > Well, how things settle with a pure codel, mixing flows of very
-> > different RTT then ?
+> fq_codel has a standing queue problem, based on the fact that when a
+> queue empties, codel.h resets. This made sense for the single FIFO
+> codel but not multi-queued fq_codel. So after we hit X high rate
+> flows, target can never be achieved, even straining mightily, and we
+> end up with a standing queue again.
 > 
-> Elephants are shot statistically more often than mice.
+> Easily seen with like 150 bidirectional flows at 10 or 100Mbit.
+> 
+> (as queues go, it's still pretty good queue. And: I've fiddled with
+> various means of draining multi-queue behavior thus far, and they
+> ended up unstable/unfair)
 
-This doesnt answer the question.
+No idea of what you mean by "codel.h resets".
 
-long/short RTT have nothing to do with elephant and mice.
+Please use small mails, one idea by mail.
