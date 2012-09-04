@@ -1,39 +1,90 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 2/2] RDMA/cxgb4: Update RDMA/cxgb4 due to macro
- definition removal in cxgb4 driver
-Date: Tue, 04 Sep 2012 15:59:53 -0400 (EDT)
-Message-ID: <20120904.155953.2159440056964789329.davem@davemloft.net>
-References: <1346405072-24561-1-git-send-email-vipul@chelsio.com>
-	<1346405072-24561-3-git-send-email-vipul@chelsio.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: sctp_close/sk_free: kernel BUG at arch/x86/mm/physaddr.c:18!
+Date: Tue, 04 Sep 2012 13:32:21 -0700
+Message-ID: <87mx15zfze.fsf@xmission.com>
+References: <20120904140411.GB15068@localhost>
+	<5046361C.5070602@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
-	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, sivasu-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1346405072-24561-3-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: Fengguang Wu <fengguang.wu@intel.com>,
+	networking <netdev@vger.kernel.org>, linux-can@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <5046361C.5070602@pengutronix.de> (Marc Kleine-Budde's message of
+	"Tue, 04 Sep 2012 19:10:52 +0200")
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Date: Fri, 31 Aug 2012 14:54:32 +0530
+Marc Kleine-Budde <mkl@pengutronix.de> writes:
 
-> cxgb4 driver removed the duplicate definitions of registers which requires
-> update in RDMA/cxgb4 driver.
-> 
-> Signed-off-by: Santosh Rastapur <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-> Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-> Reviewed-by: Sivakumar Subramani <sivasu-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+> On 09/04/2012 04:04 PM, Fengguang Wu wrote:
+>> FYI, another kconfig triggering a slightly different oops on tree
+>> 
+>>         git://gitorious.org/linux-can/linux-can-next led-trigger
+>
+> This in turn means the problem doesn't come from the CAN patches, as
+> both trees have different CAN patches. I'm adding Eric W. Biederman on
+> Cc as he contributed some sctp patches between v3.6 and net-next/master.
 
-If you do this in a seperate change, the build is broken between the
-two changes.
+Anything is possible, but this seems unlikely as I don't think I touched
+anything close to that part of the code.
 
-Never do this, the tree must be fully bisectable and build and work
-at each and every step along the way.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This most definitely looks like a memory stomp somewhere.
+
+sk->inet_sk->inet_opt has a bad value.
+
+I am puzzled though what are we doing with both ipv4 and ipv6 release
+state doing on the same socket path?    Is this some crazy ipv6 socket
+doing sctp with only ipv4 addresses?
+
+Eric
+
+> Marc
+>> [   96.267311] ------------[ cut here ]------------
+>> [   96.268294] kernel BUG at /c/kernel-tests/src/stable/arch/x86/mm/physaddr.c:18!
+>> [   96.269988] invalid opcode: 0000 [#1] SMP DEBUG_PAGEALLOC
+>> [   96.270636] Modules linked in:
+>> [   96.270636] CPU 0 
+>> [   96.270636] Pid: 2116, comm: trinity Not tainted 3.6.0-rc3+ #2679 Bochs Bochs
+>> [   96.270636] RIP: 0010:[<ffffffff8102b22b>]  [<ffffffff8102b22b>] __phys_addr+0x46/0x6b
+>> [   96.270636] RSP: 0018:ffff880019585c98  EFLAGS: 00010213
+>> [   96.270636] RAX: ffff87ffffffffff RBX: 0000ea6000000bb8 RCX: 0000000000000000
+>> [   96.270636] RDX: 0000000000000000 RSI: 0000000000000296 RDI: 0000ea6000000bb8
+>> [   96.270636] RBP: ffff880019585c98 R08: 0000000000000058 R09: 0000000000000008
+>> [   96.270636] R10: 000000000000000a R11: 0000000000000058 R12: ffff8800195f7718
+>> [   96.270636] R13: ffffffff816521cf R14: ffffea0000000000 R15: 0000000000000000
+>> [   96.270636] FS:  00007fa19b534700(0000) GS:ffff88001f200000(0000) knlGS:0000000000000000
+>> [   96.270636] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>> [   96.270636] CR2: 00007fa19b03eba0 CR3: 000000001957b000 CR4: 00000000000006f0
+>> [   96.270636] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+>> [   96.270636] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+>> [   96.270636] Process trinity (pid: 2116, threadinfo ffff880019584000, task ffff88001af2c680)
+>> [   96.270636] Stack:
+>> [   96.270636]  ffff880019585cd8 ffffffff811091d7 0000000000000000 ffff88001b1ef200
+>> [   96.270636]  ffff88001b1ef4d0 0000000000000000 ffff88001b1617b0 0000000000000000
+>> [   96.270636]  ffff880019585cf8 ffffffff816521cf ffff88001b1ef200 ffff88001b1ef248
+>> [   96.270636] Call Trace:
+>> [   96.270636]  [<ffffffff811091d7>] kfree+0x63/0x162
+>> [   96.270636]  [<ffffffff816521cf>] inet_sock_destruct+0x112/0x1ca
+>> [   96.270636]  [<ffffffff815f6fa4>] __sk_free+0x1d/0x114
+>> [   96.270636]  [<ffffffff815f710b>] sk_free+0x1c/0x1e
+>> [   96.270636]  [<ffffffff816d59d5>] sctp_close+0x21a/0x229
+>> [   96.270636]  [<ffffffff810810f6>] ? lock_release_holdtime.part.6+0xb2/0xb7
+>> [   96.270636]  [<ffffffff81651b3e>] ? inet_release+0x65/0xc3
+>> [   96.270636]  [<ffffffff81651b93>] inet_release+0xba/0xc3
+>> [   96.270636]  [<ffffffff81651af9>] ? inet_release+0x20/0xc3
+>> [   96.270636]  [<ffffffff81674134>] inet6_release+0x30/0x3c
+>> [   96.270636]  [<ffffffff815f2317>] sock_release+0x1f/0x77
+>> [   96.270636]  [<ffffffff815f2396>] sock_close+0x27/0x2b
+>> [   96.270636]  [<ffffffff8110ec22>] __fput+0xf0/0x24b
+>> [   96.270636]  [<ffffffff8110ed8b>] ____fput+0xe/0x10
+>> [   96.270636]  [<ffffffff8104f370>] task_work_run+0x5d/0x75
+>> [   96.270636]  [<ffffffff81038a66>] do_exit+0x26b/0x7d7
+>> [   96.270636]  [<ffffffff81725a95>] ? retint_swapgs+0x13/0x1b
+>> [   96.270636]  [<ffffffff8103925b>] do_group_exit+0x7b/0xba
+>> [   96.270636]  [<ffffffff810392b1>] sys_exit_group+0x17/0x17
+>> [   96.270636]  [<ffffffff8172c78e>] tracesys+0xd0/0xd5
+>> [   96.270636] Code: 00 80 48 01 c7 48 81 ff ff ff ff 1f 76 02 0f 0b 48 89 f8 48 03 05 f6 bd ae 00 eb 32 48 b8 ff ff ff ff ff 87 ff ff 48 39 c7 77 02 <0f> 0b 0f b6 0d 55 57 ba 00 48 b8 00 00 00 00 00 78 00 00 48 01 
+>> [   96.270636] RIP  [<ffffffff8102b22b>] __phys_addr+0x46/0x6b
+>> [   96.270636]  RSP <ffff880019585c98>
+
