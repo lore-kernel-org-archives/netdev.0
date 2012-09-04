@@ -1,51 +1,112 @@
-From: Pedro Alves <palves@redhat.com>
-Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and naive hashtable
-Date: Tue, 04 Sep 2012 18:21:07 +0100
-Message-ID: <50463883.8080706@redhat.com>
-References: <20120824203332.GF21325@google.com> <5037E9D9.9000605@gmail.com>   <20120824212348.GK21325@google.com> <5038074D.300@gmail.com>   <20120824230740.GN21325@google.com> <20120825042419.GA27240@Krystal>   <503C95E4.3010000@gmail.com> <20120828101148.GA21683@Krystal>   <503CAB1E.5010408@gmail.com> <20120828115638.GC23818@Krystal>   <20120828230050.GA3337@Krystal>  <1346772948.27919.9.camel@gandalf.local.home> <50462C99.5000007@redhat.com>  <50462EE8.1090903@redhat.com> <1346779027.27919.15.camel@gandalf.local.home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
-        Sasha Levin <levinsasha928@gmail.com>, Tejun Heo <tj@kernel.org>,
-        torvalds@linux-foundation.org, akpm@linux-foundation.org,
-        linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-        paul.gortmaker@windriver.com, davem@davemloft.net, mingo@elte.hu,
-        ebiederm@xmission.com, aarcange@redhat.com, ericvh@gmail.com,
-        netdev@vger.kernel.org, josh@joshtriplett.org, eric.dumazet@gmail.com,
-        axboe@kernel.dk, agk@redhat.com, dm-devel@redhat.com, neilb@suse.de,
-        ccaulfie@redhat.com, teigland@redhat.com, Trond.Myklebust@netapp.com,
-        bfields@fieldses.org, fweisbec@gmail.com, jesse@nicira.com,
-        venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
-        edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
-        rds-devel@oss.oracle.com, lw@cn.fujits
-To: Steven Rostedt <rostedt@goodmis.org>
+From: Mel Gorman <mgorman@suse.de>
+Subject: [PATCH 3/4] slub: consider pfmemalloc_match() in get_partial_node()
+Date: Tue,  4 Sep 2012 18:24:38 +0100
+Message-ID: <1346779479-1097-4-git-send-email-mgorman@suse.de>
+References: <1346779479-1097-1-git-send-email-mgorman@suse.de>
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Chuck Lever <chuck.lever@oracle.com>, Joonsoo Kim <js1304@gmail.com>,
+	Pekka@suse.de, "Enberg <penberg"@kernel.org,
+	David Rientjes <rientjes@google.com>, Mel Gorman <mgorman@suse.de>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1346779027.27919.15.camel@gandalf.local.home>
+In-Reply-To: <1346779479-1097-1-git-send-email-mgorman@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 09/04/2012 06:17 PM, Steven Rostedt wrote:
-> On Tue, 2012-09-04 at 17:40 +0100, Pedro Alves wrote:
-> 
->> BTW, you can also go a step further and remove the need to close with double }},
->> with something like:
->>
->> #define do_for_each_ftrace_rec(pg, rec)                                          \
->>         for (pg = ftrace_pages_start, rec = &pg->records[pg->index];             \
->>              pg && rec == &pg->records[pg->index];                               \
->>              pg = pg->next)                                                      \
->>           for (rec = pg->records; rec < &pg->records[pg->index]; rec++)
->>
-> 
-> Yeah, but why bother? It's hidden in a macro, and the extra '{ }' shows
-> that this is something "special".
+From: Joonsoo Kim <js1304@gmail.com>
 
-The point of both changes is that there's nothing special in the end
-at all.  It all just works...
+The function get_partial() is currently not checking pfmemalloc_match()
+meaning that it is possible for pfmemalloc pages to leak to non-pfmemalloc
+users. This is a problem in the following situation.  Assume that there is
+a request from normal allocation and there are no objects in the per-cpu
+cache and no node-partial slab.
 
+In this case, slab_alloc enters the slow path and new_slab_objects()
+is called which may return a PFMEMALLOC page. As the current user is not
+allowed to access PFMEMALLOC page, deactivate_slab() is called ([5091b74a:
+mm: slub: optimise the SLUB fast path to avoid pfmemalloc checks]) and
+returns an object from PFMEMALLOC page.
+
+Next time, when we get another request from normal allocation, slab_alloc()
+enters the slow-path and calls new_slab_objects().  In new_slab_objects(),
+we call get_partial() and get a partial slab which was just deactivated
+but is a pfmemalloc page. We extract one object from it and re-deactivate.
+
+"deactivate -> re-get in get_partial -> re-deactivate" occures repeatedly.
+
+As a result, access to PFMEMALLOC page is not properly restricted and it
+can cause a performance degradation due to frequent deactivation.
+deactivation frequently.
+
+This patch changes get_partial_node() to take pfmemalloc_match() into
+account and prevents the "deactivate -> re-get in get_partial() scenario.
+Instead, new_slab() is called.
+
+Signed-off-by: Joonsoo Kim <js1304@gmail.com>
+Acked-by: David Rientjes <rientjes@google.com>
+Signed-off-by: Mel Gorman <mgorman@suse.de>
+---
+ mm/slub.c |   15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/mm/slub.c b/mm/slub.c
+index 8f78e25..2fdd96f9e9 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -1524,12 +1524,13 @@ static inline void *acquire_slab(struct kmem_cache *s,
+ }
+ 
+ static int put_cpu_partial(struct kmem_cache *s, struct page *page, int drain);
++static inline bool pfmemalloc_match(struct page *page, gfp_t gfpflags);
+ 
+ /*
+  * Try to allocate a partial slab from a specific node.
+  */
+-static void *get_partial_node(struct kmem_cache *s,
+-		struct kmem_cache_node *n, struct kmem_cache_cpu *c)
++static void *get_partial_node(struct kmem_cache *s, struct kmem_cache_node *n,
++				struct kmem_cache_cpu *c, gfp_t flags)
+ {
+ 	struct page *page, *page2;
+ 	void *object = NULL;
+@@ -1545,9 +1546,13 @@ static void *get_partial_node(struct kmem_cache *s,
+ 
+ 	spin_lock(&n->list_lock);
+ 	list_for_each_entry_safe(page, page2, &n->partial, lru) {
+-		void *t = acquire_slab(s, n, page, object == NULL);
++		void *t;
+ 		int available;
+ 
++		if (!pfmemalloc_match(page, flags))
++			continue;
++
++		t = acquire_slab(s, n, page, object == NULL);
+ 		if (!t)
+ 			break;
+ 
+@@ -1614,7 +1619,7 @@ static void *get_any_partial(struct kmem_cache *s, gfp_t flags,
+ 
+ 			if (n && cpuset_zone_allowed_hardwall(zone, flags) &&
+ 					n->nr_partial > s->min_partial) {
+-				object = get_partial_node(s, n, c);
++				object = get_partial_node(s, n, c, flags);
+ 				if (object) {
+ 					/*
+ 					 * Return the object even if
+@@ -1643,7 +1648,7 @@ static void *get_partial(struct kmem_cache *s, gfp_t flags, int node,
+ 	void *object;
+ 	int searchnode = (node == NUMA_NO_NODE) ? numa_node_id() : node;
+ 
+-	object = get_partial_node(s, get_node(s, searchnode), c);
++	object = get_partial_node(s, get_node(s, searchnode), c, flags);
+ 	if (object || node != NUMA_NO_NODE)
+ 		return object;
+ 
 -- 
-Pedro Alves
+1.7.9.2
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
