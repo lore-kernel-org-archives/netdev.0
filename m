@@ -1,136 +1,128 @@
-From: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and
-	naive	hashtable
-Date: Tue, 4 Sep 2012 13:01:38 -0400
-Message-ID: <20120904170138.GB31934@Krystal>
-References: <20120824230740.GN21325@google.com>
-	<20120825042419.GA27240@Krystal> <503C95E4.3010000@gmail.com>
-	<20120828101148.GA21683@Krystal> <503CAB1E.5010408@gmail.com>
-	<20120828115638.GC23818@Krystal> <20120828230050.GA3337@Krystal>
-	<1346772948.27919.9.camel@gandalf.local.home>
-	<50462C99.5000007@redhat.com> <50462EE8.1090903@redhat.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: sctp_close/sk_free: kernel BUG at arch/x86/mm/physaddr.c:18!
+Date: Tue, 04 Sep 2012 19:10:52 +0200
+Message-ID: <5046361C.5070602@pengutronix.de>
+References: <20120904140411.GB15068@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org,
-	teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Pedro Alves <palves-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <50462EE8.1090903-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigF8D8A75656752D84D33B0276"
+Cc: networking <netdev@vger.kernel.org>, linux-can@vger.kernel.org,
+	ebiederm@xmission.com
+To: Fengguang Wu <fengguang.wu@intel.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20120904140411.GB15068@localhost>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Pedro Alves (palves-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org) wrote:
-> On 09/04/2012 05:30 PM, Pedro Alves wrote:
-> > On 09/04/2012 04:35 PM, Steven Rostedt wrote:
-> >> On Tue, 2012-08-28 at 19:00 -0400, Mathieu Desnoyers wrote:
-> >>
-> >>> Looking again at:
-> >>>
-> >>> +#define hash_for_each_size(name, bits, bkt, node, obj, member)                 \
-> >>> +       for (bkt = 0; bkt < HASH_SIZE(bits); bkt++)                             \
-> >>> +               hlist_for_each_entry(obj, node, &name[bkt], member)
-> >>>
-> >>> you will notice that a "break" or "continue" in the inner loop will not
-> >>> affect the outer loop, which is certainly not what the programmer would
-> >>> expect!
-> >>>
-> >>> I advise strongly against creating such error-prone construct.
-> >>>
-> >>
-> >> A few existing loop macros do this. But they require a do { } while ()
-> >> approach, and all have a comment.
-> >>
-> >> It's used by do_each_thread() in sched.h and ftrace does this as well.
-> >> Look at kernel/trace/ftrace.c at do_for_each_ftrace_rec().
-> >>
-> >> Yes it breaks 'break' but it does not break 'continue' as it would just
-> >> go to the next item that would have been found (like a normal for
-> >> would).
-> > 
-> > /*
-> >  * This is a double for. Do not use 'break' to break out of the loop,
-> >  * you must use a goto.
-> >  */
-> > #define do_for_each_ftrace_rec(pg, rec)                                 \
-> >         for (pg = ftrace_pages_start; pg; pg = pg->next) {              \
-> >                 int _____i;                                             \
-> >                 for (_____i = 0; _____i < pg->index; _____i++) {        \
-> >                         rec = &pg->records[_____i];
-> > 
-> > 
-> > 
-> > You can make 'break' also work as expected if you can embed a little knowledge
-> > of the inner loop's condition in the outer loop's condition.  Sometimes it's
-> > trivial, most often when the inner loop's iterator is a pointer that goes
-> > NULL at the end, but other times not so much.  Something like (completely untested):
-> > 
-> > #define do_for_each_ftrace_rec(pg, rec)                                 \
-> >         for (pg = ftrace_pages_start, rec = &pg->records[pg->index];    \
-> >              pg && rec == &pg->records[pg->index];                      \
-> >              pg = pg->next) {                                           \
-> >                 int _____i;                                             \
-> >                 for (_____i = 0; _____i < pg->index; _____i++) {        \
-> >                         rec = &pg->records[_____i];
-> >
-> > 
-> > (other variants possible)
-> > 
-> > IOW, the outer loop only iterates if the inner loop completes.  If there's
-> > a break in the inner loop, then the outer loop breaks too.  Of course, it
-> > all depends on whether the generated code looks sane or hideous, if
-> > the uses of the macro care for it over bug avoidance.
-> > 
-> 
-> BTW, you can also go a step further and remove the need to close with double }},
-> with something like:
-> 
-> #define do_for_each_ftrace_rec(pg, rec)                                          \
->         for (pg = ftrace_pages_start, rec = &pg->records[pg->index];             \
->              pg && rec == &pg->records[pg->index];                               \
->              pg = pg->next)                                                      \
->           for (rec = pg->records; rec < &pg->records[pg->index]; rec++)
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigF8D8A75656752D84D33B0276
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Maybe in some cases there might be ways to combine the two loops into
-one ? I'm not seeing exactly how to do it for this one, but it should
-not be impossible. If the inner loop condition can be moved to the outer
-loop, and if we use (blah ? loop1_conf : loop2_cond) to test for
-different conditions depending on the context, and do the same for the
-3rd argument of the for() loop. The details elude me for now though, so
-maybe it's complete non-sense ;)
+On 09/04/2012 04:04 PM, Fengguang Wu wrote:
+> FYI, another kconfig triggering a slightly different oops on tree
+>=20
+>         git://gitorious.org/linux-can/linux-can-next led-trigger
 
-It might not be that useful for do_for_each_ftrace_rec, but if we can do
-it for the hash table iterator, it might be worth it.
+This in turn means the problem doesn't come from the CAN patches, as
+both trees have different CAN patches. I'm adding Eric W. Biederman on
+Cc as he contributed some sctp patches between v3.6 and net-next/master.
 
-Thanks,
+Marc
 
-Mathieu
+>=20
+> [   96.267311] ------------[ cut here ]------------
+> [   96.268294] kernel BUG at /c/kernel-tests/src/stable/arch/x86/mm/phy=
+saddr.c:18!
+> [   96.269988] invalid opcode: 0000 [#1] SMP DEBUG_PAGEALLOC
+> [   96.270636] Modules linked in:
+> [   96.270636] CPU 0=20
+> [   96.270636] Pid: 2116, comm: trinity Not tainted 3.6.0-rc3+ #2679 Bo=
+chs Bochs
+> [   96.270636] RIP: 0010:[<ffffffff8102b22b>]  [<ffffffff8102b22b>] __p=
+hys_addr+0x46/0x6b
+> [   96.270636] RSP: 0018:ffff880019585c98  EFLAGS: 00010213
+> [   96.270636] RAX: ffff87ffffffffff RBX: 0000ea6000000bb8 RCX: 0000000=
+000000000
+> [   96.270636] RDX: 0000000000000000 RSI: 0000000000000296 RDI: 0000ea6=
+000000bb8
+> [   96.270636] RBP: ffff880019585c98 R08: 0000000000000058 R09: 0000000=
+000000008
+> [   96.270636] R10: 000000000000000a R11: 0000000000000058 R12: ffff880=
+0195f7718
+> [   96.270636] R13: ffffffff816521cf R14: ffffea0000000000 R15: 0000000=
+000000000
+> [   96.270636] FS:  00007fa19b534700(0000) GS:ffff88001f200000(0000) kn=
+lGS:0000000000000000
+> [   96.270636] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [   96.270636] CR2: 00007fa19b03eba0 CR3: 000000001957b000 CR4: 0000000=
+0000006f0
+> [   96.270636] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000=
+000000000
+> [   96.270636] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000=
+000000400
+> [   96.270636] Process trinity (pid: 2116, threadinfo ffff880019584000,=
+ task ffff88001af2c680)
+> [   96.270636] Stack:
+> [   96.270636]  ffff880019585cd8 ffffffff811091d7 0000000000000000 ffff=
+88001b1ef200
+> [   96.270636]  ffff88001b1ef4d0 0000000000000000 ffff88001b1617b0 0000=
+000000000000
+> [   96.270636]  ffff880019585cf8 ffffffff816521cf ffff88001b1ef200 ffff=
+88001b1ef248
+> [   96.270636] Call Trace:
+> [   96.270636]  [<ffffffff811091d7>] kfree+0x63/0x162
+> [   96.270636]  [<ffffffff816521cf>] inet_sock_destruct+0x112/0x1ca
+> [   96.270636]  [<ffffffff815f6fa4>] __sk_free+0x1d/0x114
+> [   96.270636]  [<ffffffff815f710b>] sk_free+0x1c/0x1e
+> [   96.270636]  [<ffffffff816d59d5>] sctp_close+0x21a/0x229
+> [   96.270636]  [<ffffffff810810f6>] ? lock_release_holdtime.part.6+0xb=
+2/0xb7
+> [   96.270636]  [<ffffffff81651b3e>] ? inet_release+0x65/0xc3
+> [   96.270636]  [<ffffffff81651b93>] inet_release+0xba/0xc3
+> [   96.270636]  [<ffffffff81651af9>] ? inet_release+0x20/0xc3
+> [   96.270636]  [<ffffffff81674134>] inet6_release+0x30/0x3c
+> [   96.270636]  [<ffffffff815f2317>] sock_release+0x1f/0x77
+> [   96.270636]  [<ffffffff815f2396>] sock_close+0x27/0x2b
+> [   96.270636]  [<ffffffff8110ec22>] __fput+0xf0/0x24b
+> [   96.270636]  [<ffffffff8110ed8b>] ____fput+0xe/0x10
+> [   96.270636]  [<ffffffff8104f370>] task_work_run+0x5d/0x75
+> [   96.270636]  [<ffffffff81038a66>] do_exit+0x26b/0x7d7
+> [   96.270636]  [<ffffffff81725a95>] ? retint_swapgs+0x13/0x1b
+> [   96.270636]  [<ffffffff8103925b>] do_group_exit+0x7b/0xba
+> [   96.270636]  [<ffffffff810392b1>] sys_exit_group+0x17/0x17
+> [   96.270636]  [<ffffffff8172c78e>] tracesys+0xd0/0xd5
+> [   96.270636] Code: 00 80 48 01 c7 48 81 ff ff ff ff 1f 76 02 0f 0b 48=
+ 89 f8 48 03 05 f6 bd ae 00 eb 32 48 b8 ff ff ff ff ff 87 ff ff 48 39 c7 =
+77 02 <0f> 0b 0f b6 0d 55 57 ba 00 48 b8 00 00 00 00 00 78 00 00 48 01=20
+> [   96.270636] RIP  [<ffffffff8102b22b>] __phys_addr+0x46/0x6b
+> [   96.270636]  RSP <ffff880019585c98>
+>=20
+> Thanks,
+> Fengguang
+>=20
 
 
--- 
-Mathieu Desnoyers
-Operating System Efficiency R&D Consultant
-EfficiOS Inc.
-http://www.efficios.com
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enigF8D8A75656752D84D33B0276
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://www.enigmail.net/
+
+iEYEARECAAYFAlBGNh8ACgkQjTAFq1RaXHMprwCdFdw9Z/Lnpcy27a6LL7pRU4sJ
+MLkAnim74DNlk0rVcFWq3fWgps6DxUi2
+=IEEY
+-----END PGP SIGNATURE-----
+
+--------------enigF8D8A75656752D84D33B0276--
