@@ -1,58 +1,50 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Wed, 5 Sep 2012 00:21:45 +0300
-Message-ID: <20120904212145.GC3602@redhat.com>
-References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com>
- <1343840975-3252-10-git-send-email-ogerlitz@mellanox.com>
- <87boitz044.fsf@xmission.com>
- <20120805185031.GA18640@redhat.com>
- <CAJZOPZ+ZHBg=vswgmWWz2D0GyWhD-ghkuY9_7CQB47uDmyzhsA@mail.gmail.com>
- <20120903212230.GA6795@redhat.com>
- <CAJZOPZJdmDY8rqHJ+jeuG2rLMj9CnwnemkBG=nxD=z9JBFQCRQ@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH 2/3] ipvs: Fix faulty IPv6 extension header handling in
+ IPVS
+Date: Tue, 04 Sep 2012 23:25:18 +0200
+Message-ID: <1346793918.3069.663.camel@localhost>
+References: <20120820130732.1509.13080.stgit@dragon>
+	 <20120820130840.1509.75794.stgit@dragon>
+	 <Pine.GSO.4.63.1208262311110.16771@stinky-local.trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net,
-	roland@kernel.org, netdev@vger.kernel.org, sean.hefty@intel.com,
-	Erez Shitrit <erezsh@mellanox.co.il>,
-	Ali Ayoub <ali@mellanox.com>,
-	Doug Ledford <dledford@redhat.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8239 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757741Ab2IDVUs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Sep 2012 17:20:48 -0400
-Content-Disposition: inline
-In-Reply-To: <CAJZOPZJdmDY8rqHJ+jeuG2rLMj9CnwnemkBG=nxD=z9JBFQCRQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Hans Schillstrom <hans@schillstrom.com>,
+	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
+	Simon Horman <horms@verge.net.au>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.GSO.4.63.1208262311110.16771@stinky-local.trash.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 04, 2012 at 09:50:09PM +0300, Or Gerlitz wrote:
-> > And just to stress the point, document the limitations as well.
-> 
-> sure, not that I see concrete limitations for the **user** at this point, but
-> if there are such, will put them clearly written.
+On Mon, 20 Aug 2012, Jesper Dangaard Brouer wrote:
 
-Hmm, I'm afraid you mistook a short list of some major
-bugs that jumped out at me for an exhaustive list.
-This was not intended as such.
+[cut]
 
-Here's how to find some of the limitations in your design
-1. look through list archives. Some where pointed out to you
-2. list everything ethernet does that you dont, or do differently
-3. list everything ipoib does that you don't or do differently
-4. list any extra setup work required on behalf of the user
-5. check various overheads, compare with native ipoib and alternatives
-   such as routing
-6. if you still have an empty list of limitations and disadvantages,
-   look again :)
+> This patch contains a lot of API changes.  This is done, to avoid
+> the costly scan of finding the IPv6 headers, via ipv6_find_hdr().
 
-The point is to have documentation that is useful both
-for reviewers - so they can know which bugs are known
-and which need to be reported; and for users -
-who should not be expected to be familiar with
-internals of your implementation.
+(small correction ipv6_find_hdr() is not that costly for the general
+case of no exthdrs)
 
--- 
-MST
+> Finding the IPv6 headers is done as early as possible, and passed
+> on as a pointer "struct ip_vs_iphdr *" to the affected functions.
+
+This passing the "struct ip_vs_iphdr" actually makes sense.  It reminds
+me of the way netfilter/iptables passes the xt_actions_param to each
+rule.  Which contains the same information as ip_vs_iphdr.  (note ipvs
+register at hooks at a lower level and don't get passed the
+xt_actions_param).
+
+Thus, perhaps we should keep these API changes.  Even if we decide to
+optimize ipv6_find_hdr().  (as proposed by my RFC patch)
+
+Perhaps we should consider adding a "family" to ip_vs_iphdr, as is done
+in xt_actions_param.  This could help us, with collapsing IPv4 and IPv6
+code, but i can see that other structs in IPVS carry this info already,
+so not sure its relevant.
+
+
