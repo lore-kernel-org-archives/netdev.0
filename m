@@ -1,37 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] usbnet: drop unneeded check for NULL
-Date: Tue, 04 Sep 2012 12:37:40 -0400 (EDT)
-Message-ID: <20120904.123740.1915830868205918256.davem@davemloft.net>
-References: <1346768514-19823-1-git-send-email-oliver@neukum.org>
-	<20120904155343.GA2170@netboy.at.omicron.at>
-	<20747715.9FmHp7X6VE@linux-lqwf.site>
+Subject: Re: [RFC] packet: change call of synchronize_net to call_rcu
+Date: Tue, 04 Sep 2012 12:38:33 -0400 (EDT)
+Message-ID: <20120904.123833.1657238734473790349.davem@davemloft.net>
+References: <1346768215-5194-1-git-send-email-icurt@ixiacom.com>
+	<CAD6jFUSa7gD45m7WdtDymJq-WkGq+kbofkws5n3dGMtuDE6d3A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, netdev@vger.kernel.org
-To: oliver@neukum.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59502 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932415Ab2IDQhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 12:37:42 -0400
-In-Reply-To: <20747715.9FmHp7X6VE@linux-lqwf.site>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: iulius.curt@gmail.com, edumazet@google.com, xemul@parallels.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dbaluta@ixiacom.com, icurt@ixiacom.com, sdumitru@ixiacom.com
+To: danborkmann@iogearbox.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAD6jFUSa7gD45m7WdtDymJq-WkGq+kbofkws5n3dGMtuDE6d3A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Oliver Neukum <oliver@neukum.org>
-Date: Tue, 04 Sep 2012 18:13:18 +0200
+From: Daniel Borkmann <danborkmann@iogearbox.net>
+Date: Tue, 4 Sep 2012 16:53:06 +0200
 
-> If that check is ever needed and tx_fixup not needed, the driver will oops here.
-> The check is wrong in any case.
+> On Tue, Sep 4, 2012 at 4:16 PM, Iulius Curt <iulius.curt@gmail.com> wrote:
+>> synchronize_net is called every time we close a PF_PACKET socket which is
+>> causing performance loss when doing this on many sockets.
+> 
+> Do you have any particular use case in mind?
 
-Right, we are dealing with two different things here.
-
-Tree-wide there was a blind set of changes to protect skb_tx_timestamp()
-calls with a NULL skb check.
-
-But in this specific case, it's completely unnecessary.
-
-So Oliver's change is definitely correct and I will add it to net-next
-
-Thanks.
+I'm curious about this too, it seems rediculous to optimize for this
+and that only seriously mis-designed userspace would do something like
+this.
