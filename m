@@ -1,44 +1,57 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [iproute2][PATCH v2] tc: mirred target: do not report
- non-existing devices
-Date: Tue, 4 Sep 2012 08:40:29 -0700
-Message-ID: <20120904084029.04ffeae0@nehalam.linuxnetplumber.net>
-References: <20120902104107.GB8982@redhat.com>
-	<1346582882-14568-1-git-send-email-y>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] usbnet: drop unneeded check for NULL
+Date: Tue, 4 Sep 2012 17:53:43 +0200
+Message-ID: <20120904155343.GA2170@netboy.at.omicron.at>
+References: <1346768514-19823-1-git-send-email-oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Dan Kenigsberg <danken@redhat.com>
-To: y@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Oliver Neukum <oneukum@suse.de>
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:55259 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753204Ab2IDPk5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Sep 2012 11:40:57 -0400
-In-Reply-To: <1346582882-14568-1-git-send-email-y>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:62156 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756602Ab2IDPxt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 11:53:49 -0400
+Received: by bkwj10 with SMTP id j10so2726746bkw.19
+        for <netdev@vger.kernel.org>; Tue, 04 Sep 2012 08:53:48 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1346768514-19823-1-git-send-email-oliver@neukum.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun,  2 Sep 2012 13:48:02 +0300
-y@redhat.com wrote:
+On Tue, Sep 04, 2012 at 04:21:54PM +0200, Oliver Neukum wrote:
+> usbnet_start_xmit() is always called with a valid skb
 
-> From: Dan Kenigsberg <danken@redhat.com>
-> 
-> Currently, if a mirred target device is removed, `tc filter show`
-> does not reveal the fact. Instead, it replaces the original name of the
-> device with the default output of ll_map:ll_idx_n2a().
-> 
-> This is unfortunate, since one cannot differ between this case and a valid
-> mirroring target device named 'if17'.
-> 
-> It seems that the original code meant to report an error message in this
-> case, but it does not, since ll_index_to_name() never returns 0. I would
-> not like to bail out in case of an error, since the user would still be
-> interested to know what are the other details of the action.
-> 
-> v2: properly declare the new function ll_index_exsits()
+So, has the problem that this test worked around been fixed?
 
-I am okay with the concept but  "missing-if1" is still a possible
-but unlikely name for a device.  Maybe better to use something more
-obvious like [unknown-1] or UNKNOWN? 
+Thanks,
+Richard
+
+ 
+> Signed-off-by: Oliver Neukum <oneukum@suse.de>
+> ---
+>  drivers/net/usb/usbnet.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+> index 8531c1c..5234d20 100644
+> --- a/drivers/net/usb/usbnet.c
+> +++ b/drivers/net/usb/usbnet.c
+> @@ -1092,8 +1092,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+>  	unsigned long		flags;
+>  	int retval;
+>  
+> -	if (skb)
+> -		skb_tx_timestamp(skb);
+> +	skb_tx_timestamp(skb);
+>  
+>  	// some devices want funky USB-level framing, for
+>  	// win32 driver (usually) and/or hardware quirks
+> -- 
+> 1.7.7
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
