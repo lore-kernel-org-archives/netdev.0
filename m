@@ -1,57 +1,117 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] sctp: use list_move_tail instead of list_del/list_add_tail
-Date: Tue, 4 Sep 2012 17:58:16 +0800
-Message-ID: <CAPgLHd_w3-iAT66PW2i_jYyqmNrF-fKczcUEdBemPMvWX+fbOQ@mail.gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH] xfrm: Workaround incompatibility of ESN and async crypto
+Date: Tue, 4 Sep 2012 12:03:29 +0200
+Message-ID: <20120904100329.GA13023@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: vyasevich@gmail.com, sri@us.ibm.com, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:59030 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752309Ab2IDJ6Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 05:58:16 -0400
+Received: from a.mx.secunet.com ([195.81.216.161]:36660 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752309Ab2IDKDc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Sep 2012 06:03:32 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+ESN for esp is defined in RFC 4303. This RFC assumes that the
+sequence number counters are always up to date. However,
+this is not true if an async crypto algorithm is employed.
 
-Using list_move_tail() instead of list_del() + list_add_tail().
+If the sequence number counters are not up to date on sequence
+number check, we may incorrectly update the upper 32 bit of
+the sequence number. This leads to a DOS.
 
-spatch with a semantic match is used to found this problem.
-(http://coccinelle.lip6.fr/)
+We workaround this by comparing the upper sequence number,
+(used for authentication) with the upper sequence number
+computed after the async processing. We drop the packet
+if these numbers are different.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+To do this, we introduce a recheck function that does this
+check in the ESN case.
+
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/sctp/outqueue.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ include/net/xfrm.h     |    3 +++
+ net/xfrm/xfrm_input.c  |    2 +-
+ net/xfrm/xfrm_replay.c |   15 +++++++++++++++
+ 3 files changed, 19 insertions(+), 1 deletions(-)
 
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index e7aa177c..d10cbf1 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -589,9 +589,8 @@ static int sctp_outq_flush_rtx(struct sctp_outq *q, struct sctp_packet *pkt,
- 		 * next chunk.
- 		 */
- 		if (chunk->tsn_gap_acked) {
--			list_del(&chunk->transmitted_list);
--			list_add_tail(&chunk->transmitted_list,
--					&transport->transmitted);
-+			list_move_tail(&chunk->transmitted_list,
-+				       &transport->transmitted);
- 			continue;
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 976a81a..639dd13 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -273,6 +273,9 @@ struct xfrm_replay {
+ 	int	(*check)(struct xfrm_state *x,
+ 			 struct sk_buff *skb,
+ 			 __be32 net_seq);
++	int	(*recheck)(struct xfrm_state *x,
++			   struct sk_buff *skb,
++			   __be32 net_seq);
+ 	void	(*notify)(struct xfrm_state *x, int event);
+ 	int	(*overflow)(struct xfrm_state *x, struct sk_buff *skb);
+ };
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 54a0dc2..ab2bb42 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -212,7 +212,7 @@ resume:
+ 		/* only the first xfrm gets the encap type */
+ 		encap_type = 0;
+ 
+-		if (async && x->repl->check(x, skb, seq)) {
++		if (async && x->repl->recheck(x, skb, seq)) {
+ 			XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATESEQERROR);
+ 			goto drop_unlock;
  		}
+diff --git a/net/xfrm/xfrm_replay.c b/net/xfrm/xfrm_replay.c
+index 2f6d11d..3efb07d 100644
+--- a/net/xfrm/xfrm_replay.c
++++ b/net/xfrm/xfrm_replay.c
+@@ -420,6 +420,18 @@ err:
+ 	return -EINVAL;
+ }
  
-@@ -655,9 +654,8 @@ redo:
- 			/* The append was successful, so add this chunk to
- 			 * the transmitted list.
- 			 */
--			list_del(&chunk->transmitted_list);
--			list_add_tail(&chunk->transmitted_list,
--					&transport->transmitted);
-+			list_move_tail(&chunk->transmitted_list,
-+				       &transport->transmitted);
- 
- 			/* Mark the chunk as ineligible for fast retransmit
- 			 * after it is retransmitted.
++static int xfrm_replay_recheck_esn(struct xfrm_state *x,
++				   struct sk_buff *skb, __be32 net_seq)
++{
++	if (unlikely(XFRM_SKB_CB(skb)->seq.input.hi !=
++		     htonl(xfrm_replay_seqhi(x, net_seq)))) {
++			x->stats.replay_window++;
++			return -EINVAL;
++	}
++
++	return xfrm_replay_check_esn(x, skb, net_seq);
++}
++
+ static void xfrm_replay_advance_esn(struct xfrm_state *x, __be32 net_seq)
+ {
+ 	unsigned int bitnr, nr, i;
+@@ -479,6 +491,7 @@ static void xfrm_replay_advance_esn(struct xfrm_state *x, __be32 net_seq)
+ static struct xfrm_replay xfrm_replay_legacy = {
+ 	.advance	= xfrm_replay_advance,
+ 	.check		= xfrm_replay_check,
++	.recheck	= xfrm_replay_check,
+ 	.notify		= xfrm_replay_notify,
+ 	.overflow	= xfrm_replay_overflow,
+ };
+@@ -486,6 +499,7 @@ static struct xfrm_replay xfrm_replay_legacy = {
+ static struct xfrm_replay xfrm_replay_bmp = {
+ 	.advance	= xfrm_replay_advance_bmp,
+ 	.check		= xfrm_replay_check_bmp,
++	.recheck	= xfrm_replay_check_bmp,
+ 	.notify		= xfrm_replay_notify_bmp,
+ 	.overflow	= xfrm_replay_overflow_bmp,
+ };
+@@ -493,6 +507,7 @@ static struct xfrm_replay xfrm_replay_bmp = {
+ static struct xfrm_replay xfrm_replay_esn = {
+ 	.advance	= xfrm_replay_advance_esn,
+ 	.check		= xfrm_replay_check_esn,
++	.recheck	= xfrm_replay_recheck_esn,
+ 	.notify		= xfrm_replay_notify_bmp,
+ 	.overflow	= xfrm_replay_overflow_esn,
+ };
+-- 
+1.7.0.4
