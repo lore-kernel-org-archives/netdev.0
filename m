@@ -1,72 +1,72 @@
-From: Chris Wright <chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next 4/7] openvswitch: Reset upper layer
- protocol info on internal devices.
-Date: Tue, 4 Sep 2012 11:23:04 -0700
-Message-ID: <20120904182304.GD26249@x200.localdomain>
-References: <1342823210-3308-1-git-send-email-jesse@nicira.com>
-	<1342823210-3308-5-git-send-email-jesse@nicira.com>
-	<CAEP_g=-giF74zveQgLsrAwS0kp2P3cj_O7mHaKKLVfKwQCNBag@mail.gmail.com>
-	<20120903.210055.1839817610578900310.davem@davemloft.net>
-	<CAEP_g=_+Q4Axi0vH8nce6zVZgs++62PbiTWum_z+s_PbpwzgOA@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 1/4] net: mvneta: driver for Marvell Armada 370/XP
+ network unit
+Date: Tue, 4 Sep 2012 20:31:25 +0200
+Message-ID: <20120904183125.GB14683@lunn.ch>
+References: <1346764004-16332-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1346764004-16332-2-git-send-email-thomas.petazzoni@free-electrons.com>
+ <201209041436.36430.arnd@arndb.de> <20120904175610.2c2934f1@skate>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Cc: Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
+ Ike Pan <ike.pan@canonical.com>, Nadav Haklai <nadavh@marvell.com>,
+ Ian Molton <ian.molton@codethink.co.uk>,
+ Lennert Buytenhek <kernel@wantstofly.org>, David Marlin <dmarlin@redhat.com>,
+ Rami Rosen <rosenr@marvell.com>, Yehuda Yitschak <yehuday@marvell.com>,
+ Jani Monoses <jani.monoses@canonical.com>, Tawfik Bayouk <tawfik@marvell.com>,
+ Dan Frazier <dann.frazier@canonical.com>, Eran Ben-Avi <benavi@marvell.com>,
+ Li Li <li.li@canonical.com>, Leif Lindholm <leif.lindholm@arm.com>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+ Jason Cooper <jason@lakedaemon.net>, Arnd Bergmann <arnd@arndb.de>,
+ Jon Masters <jcm@redhat.com>, Ben Dooks <ben-linux@fluff.org>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ linux-arm-kernel@lists.infradead.org, Chris Van Hoof <vanhoof@canonical.com>,
+ Nicolas Pitre <n
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <CAEP_g=_+Q4Axi0vH8nce6zVZgs++62PbiTWum_z+s_PbpwzgOA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+In-Reply-To: <20120904175610.2c2934f1@skate>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-* Jesse Gross (jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org) wrote:
-> On Mon, Sep 3, 2012 at 6:00 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> > From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-> > Date: Mon, 3 Sep 2012 17:57:39 -0700
-> >
-> >> On Fri, Jul 20, 2012 at 3:26 PM, Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org> wrote:
-> >>> It's possible that packets that are sent on internal devices (from
-> >>> the OVS perspective) have already traversed the local IP stack.
-> >>> After they go through the internal device, they will again travel
-> >>> through the IP stack which may get confused by the presence of
-> >>> existing information in the skb. The problem can be observed
-> >>> when switching between namespaces. This clears out that information
-> >>> to avoid problems but deliberately leaves other metadata alone.
-> >>> This is to provide maximum flexibility in chaining together OVS
-> >>> and other Linux components.
-> >>>
-> >>> Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-> >>
-> >> It was recently discovered that the bug that this patch fixes is
-> >> causing problems in the real world.  Can you please queue this for
-> >> stable in 3.4/3.5?  It's currently in Linus's tree as
-> >> 7fe99e2d434eafeac0c57b279a77e5de39212636.
-> >>
-> >
-> > What vendor is shipping openvswitch enabled and requires the fix to
-> > be in -stable before they'll ship it to customers?
-> >
-> > That goes into what is 'real world'
+> > I think we normally put the phy into a separate device node on an
+> > mdio bus and then use the of_phy_* functions to connect it to
+> > the ethernet device.
 > 
-> Fedora is running into it I believe.  Chris Wright asked for it so he
-> might be able to elaborate more on their plans.
+> Even though it may not be a convincing argument, none of the existing DT
+> files in arch/arm/boot/dts seem to instantiate a separate PHY device
+> and a proper MDIO bus. However, the PowerPC platforms indeed make this
+> distinction a lot clearer.
+> 
+> However, this network unit has a clever MAC that autonomously queries
+> the PHY for the link status, and reports changes (link, duplex, speed)
+> in the form of MAC interrupts and MAC registers. Therefore, for basic
+> operation, there is no need for a separate PHY driver nor to expose the
+> MDIO bus in any way. The only thing needed is the PHY address, which is
+> filled into a register of the MAC so that it can start its automatic
+> query of the PHY.
 
-I've not hit the bug myself, but been made aware of the issue from
-OpenStack/Quantum folks.
+Hi Thomas
 
-There's a testing scenario that hits this as described in this launchpad
-bug:
+I've used Marvell switch chipsets, which have a phy polling unit,
+PPU. This sounds very similar. You can do a lot with the PPU, but when
+you want to configure subsets of auto-negotiation rates/duplex modes,
+or fixed speeds/duplex modes, the PPU could not do it. You had to
+disable the PPU and configure the PHY directly.
 
-  https://bugs.launchpad.net/quantum/+bug/1044318
+I see you have some of the ethtools API calls implemented, but not the
+ones needed for auto-neg and rates/duplex mode configurations. Does
+the neta PPU support this, or will you need to export the MDIO bus for
+these sorts of configuration options?
 
-thanks,
--chris
+   Thanks
+      Andrew
