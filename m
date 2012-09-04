@@ -1,63 +1,92 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Providing protocol type via system.sockprotoname
- xattr of /proc/PID/fd entries
-Date: Tue, 04 Sep 2012 15:52:56 -0400 (EDT)
-Message-ID: <20120904.155256.1287732878726830374.davem@davemloft.net>
-References: <1346273069-5390-1-git-send-email-yamato@redhat.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [Bug 47021] New: kernel panic with l2tpv3 & mtu > 1500
+Date: Tue, 4 Sep 2012 12:54:58 -0700
+Message-ID: <20120904125458.7d97ec38@nehalam.linuxnetplumber.net>
+References: <20120904090756.71b34feb@nehalam.linuxnetplumber.net>
+	<1346788334.13121.82.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: yamato@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1346273069-5390-1-git-send-email-yamato@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, a1bert@atlas.cz
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:54352 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932423Ab2IDTz0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Sep 2012 15:55:26 -0400
+In-Reply-To: <1346788334.13121.82.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Masatake YAMATO <yamato@redhat.com>
-Date: Thu, 30 Aug 2012 05:44:29 +0900
+On Tue, 04 Sep 2012 21:52:14 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> lsof reports some of socket descriptors as "can't identify protocol" like:
+> From: Eric Dumazet <edumazet@google.com>
 > 
->     [yamato@localhost]/tmp% sudo lsof | grep dbus | grep iden
->     dbus-daem   652          dbus    6u     sock ... 17812 can't identify protocol
->     dbus-daem   652          dbus   34u     sock ... 24689 can't identify protocol
->     dbus-daem   652          dbus   42u     sock ... 24739 can't identify protocol
->     dbus-daem   652          dbus   48u     sock ... 22329 can't identify protocol
->     ...
+> On Tue, 2012-09-04 at 09:07 -0700, Stephen Hemminger wrote:
+> > 
+> > Begin forwarded message:
+> > 
+> > Date: Tue,  4 Sep 2012 16:06:06 +0000 (UTC)
+> > From: bugzilla-daemon@bugzilla.kernel.org
+> > To: shemminger@linux-foundation.org
+> > Subject: [Bug 47021] New: kernel panic with l2tpv3 & mtu > 1500
+> > 
+> > 
+> > https://bugzilla.kernel.org/show_bug.cgi?id=47021
+> > 
+> >            Summary: kernel panic with l2tpv3 & mtu > 1500
+> >            Product: Networking
+> >            Version: 2.5
+> >     Kernel Version: 3.2.28
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: normal
+> >           Priority: P1
+> >          Component: Other
+> >         AssignedTo: shemminger@linux-foundation.org
+> >         ReportedBy: a1bert@atlas.cz
+> >         Regression: No
+> > 
+> > 
+> > first l2tpv3 packet that enters physical device with MTU > 1500 causes kernel
+> > panic
+> > 
+> > tunel created using:
+> > 
+> > l2tpv3tun add tunnel tunnel_id 1 peer_tunnel_id 1 encap udp udp_sport 5001
+> > udp_dport 5001 local 192.168.1.1 remote 192.168.1.2
+> > 
+> > l2tpv3tun add session tunnel_id 1 session_id 1 peer_session_id 1 dev l2tpeth1
+> > 
+> > 
+> > reproducible: always
+> > 
 > 
-> lsof cannot resolve the protocol used in a socket because procfs
-> doesn't provide the map between inode number on sockfs and protocol
-> type of the socket.
+> Seems following patch is needed, not sure if it helps
 > 
-> For improving the situation this patch adds an extended attribute named
-> 'system.sockprotoname' in which the protocol name for
-> /proc/PID/fd/SOCKET is stored. So lsof can know the protocol for a
-> given /proc/PID/fd/SOCKET with getxattr system call.
+> [PATCH] l2tp: fix a typo in l2tp_eth_dev_recv()
 > 
-> A few weeks ago I submitted a patch for the same purpose. The patch
-> was introduced /proc/net/sockfs which enumerates inodes and protocols
-> of all sockets alive on a system. However, it was rejected because (1)
-> a global lock was needed, and (2) the layout of struct socket was
-> changed with the patch.
+> While investigating l2tp bug, I hit a bug in eth_type_trans(),
+> because not enough bytes were pulled in skb head.
 > 
-> This patch doesn't use any global lock; and doesn't change the layout
-> of any structs.
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/l2tp/l2tp_eth.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> In this patch, a protocol name is stored to dentry->d_name of sockfs
-> when new socket is associated with a file descriptor. Before this
-> patch dentry->d_name was not used; it was just filled with empty
-> string. lsof may use an extended attribute named
-> 'system.sockprotoname' to retrieve the value of dentry->d_name.
-> 
-> It is nice if we can see the protocol name with ls -l
-> /proc/PID/fd. However, "socket:[#INODE]", the name format returned
-> from sockfs_dname() was already defined. To keep the compatibility
-> between kernel and user land, the extended attribute is used to
-> prepare the value of dentry->d_name.
-> 
-> Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+> diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+> index f9ee74d..3bfb34a 100644
+> --- a/net/l2tp/l2tp_eth.c
+> +++ b/net/l2tp/l2tp_eth.c
+> @@ -153,7 +153,7 @@ static void l2tp_eth_dev_recv(struct l2tp_session *session, struct sk_buff *skb,
+>  		print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, skb->data, length);
+>  	}
+>  
+> -	if (!pskb_may_pull(skb, sizeof(ETH_HLEN)))
+> +	if (!pskb_may_pull(skb, ETH_HLEN))
+>  		goto error;
 
-This looks a lot more reasonable than your previous attempt.
-
-Applied to net-next, thanks a lot.
+I guess nobody ever looked inside this code. That seems like an obvious bug.
