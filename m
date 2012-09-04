@@ -1,99 +1,113 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Tue, 4 Sep 2012 21:57:01 +0300
-Message-ID: <CAJZOPZL+hAQR_7MUGy9kLCzoLY7hbDwEGGodiMxc=yfPgmi8bQ@mail.gmail.com>
-References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com>
-	<1343840975-3252-10-git-send-email-ogerlitz@mellanox.com>
-	<87boitz044.fsf@xmission.com>
-	<20120805185031.GA18640@redhat.com>
-	<CAJZOPZ+ZHBg=vswgmWWz2D0GyWhD-ghkuY9_7CQB47uDmyzhsA@mail.gmail.com>
-	<20120903212230.GA6795@redhat.com>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [RFC PATCH 0/5] net: socket bind to file descriptor introduced
+Date: Tue, 4 Sep 2012 15:00:07 -0400
+Message-ID: <20120904190007.GB29369@fieldses.org>
+References: <20120815161141.7598.16682.stgit@localhost.localdomain>
+ <87y5lf7d37.fsf@xmission.com>
+ <50320EE5.10307@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net,
-	roland@kernel.org, netdev@vger.kernel.org, sean.hefty@intel.com,
-	Erez Shitrit <erezsh@mellanox.co.il>,
-	Ali Ayoub <ali@mellanox.com>,
-	Doug Ledford <dledford@redhat.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:52986 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757486Ab2IDS5C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 14:57:02 -0400
-Received: by ieje11 with SMTP id e11so5707815iej.19
-        for <netdev@vger.kernel.org>; Tue, 04 Sep 2012 11:57:01 -0700 (PDT)
-In-Reply-To: <20120903212230.GA6795@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"hpa@zytor.com" <hpa@zytor.com>,
+	"thierry.reding@avionic-design.de" <thierry.reding@avionic-design.de>,
+	"bfields@redhat.com" <bfields@redhat.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"x86@kernel.org" <x86@kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
+	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
+	"gorcunov@openvz.org" <gorcunov@openvz.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"tim.c.chen@linux.intel.com" <tim.c.chen@linux.intel.com>,
+	"devel@ope
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <50320EE5.10307@parallels.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 4, 2012 at 12:22 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> On Mon, Sep 03, 2012 at 11:53:56PM +0300, Or Gerlitz wrote:
->> Michael S. Tsirkin <mst@redhat.com> wrote:
->> > [...] so it seems that a sane solution would involve an extra level of
->> > indirection, with guest addresses being translated to host IB addresses.
->> > As long as you do this, maybe using an ethernet frame format makes sense.
->>
->> > So far the things that make sense. Here are some that don't, to me:
->>
->> > - Is a pdf presentation all you have in terms of documentation?
->> >   We are talking communication protocols here - I would expect a
->> >   proper spec, and some effort to standardize, otherwise where's the
->> >   guarantee it won't change in an incompatible way?
->> >   Other things that I would expect to be addressed in such a spec is
->> >   interaction with other IPoIB features, such as connected
->> >   mode, checksum offloading etc, and IB features such as multipath etc.
->> >
->> > - The way you encode LID/QPN in the MAC seems questionable. IIRC there's
->> >   more to IB addressing than just the LID.  Since everyone on the subnet
->> >   need access to this translation, I think it makes sense to store it in
->> >   the SM. I think this would also obviate some IPv4 specific hacks in kernel.
->>
->> > - IGMP/MAC snooping in a driver is just too hairy.
->> >   As you point out, bridge currently needs the uplink in promisc mode.
->> >   I don't think a driver should work around that limitation.
->> >   For some setups, it might be interesting to remove the promisc
->> >  mode requirement, failing that, I think you could use macvtap passthrough.
->> >
->> > - Currently migration works without host kernel help, would be
->> >   preferable to keep it that way.
+On Mon, Aug 20, 2012 at 02:18:13PM +0400, Stanislav Kinsbursky wrote:
+> 16.08.2012 07:03, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> >Stanislav Kinsbursky <skinsbursky@parallels.com> writes:
+> >
+> >>This patch set introduces new socket operation and new system call:
+> >>sys_fbind(), which allows to bind socket to opened file.
+> >>File to bind to can be created by sys_mknod(S_IFSOCK) and opened by
+> >>open(O_PATH).
+> >>
+> >>This system call is especially required for UNIX sockets, which has=
+ name
+> >>lenght limitation.
+> >>
+> >>The following series implements...
+> >
+> >Hmm.  I just realized this patchset is even sillier than I thought.
+> >
+> >Stanislav is the problem you are ultimately trying to solve nfs clie=
+nts
+> >in a container connecting to the wrong user space rpciod?
+> >
+>=20
+> Hi, Eric.
+> The problem you mentioned was the reason why I started to think about=
+ this.
+> But currently I believe, that limitations in unix sockets connect or
+> bind should be removed, because it will be useful it least for CRIU
+> project.
+>=20
+> >Aka net/sunrpc/xprtsock.c:xs_setup_local only taking an absolute pat=
+h
+> >and then creating a delayed work item to actually open the unix doma=
+in
+> >socket?
+> >
+> >The straight correct and straight forward thing to do appears to be:
+> >- Capture the root from current->fs in xs_setup_local.
+> >- In xs_local_finish_connect change current->fs.root to the captured
+> >   version of root before kernel_connect, and restore current->fs.ro=
+ot
+> >   after kernel_connect.
+> >
+> >It might not be a bad idea to implement open on unix domain sockets =
+in
+> >a filesystem as create(AF_LOCAL)+connect() which would allow you to
+> >replace __sock_create + kernel_connect with a simple file_open_root.
+> >
+>=20
+> I like the idea of introducing new family (AF_LOCAL_AT for example)
+> and new sockaddr for connecting or binding from specified root. The
+> only thing I'm worrying is passing file descriptor to unix bind or
+> connect routine. Because this approach doesn't provide easy way to
+> use such family and sockaddr in kernel (like in NFS example).
+>=20
+> >But I think the simple scheme of:
+> >struct path old_root;
+> >old_root =3D current->fs.root;
+> >kernel_connect(...);
+> >current->fs.root =3D old_root;
+> >
+> >Is more than sufficient and will remove the need for anything
+> >except a purely local change to get nfs clients to connect from
+> >containers.
+> >
+>=20
+> That was my first idea.
 
->> If we rewind to this point, basically, you had few concerns
+So is this what you're planning on doing now?
 
-> I think some other people gave feedback too, you need to address it in
-> the patch (as opposed to by mail - even if it's in documentation or
-> comments) don't just focus on what I wrote.
+> And probably it would be worth to change all
+> fs_struct to support sockets with relative path.
+> What do you think about it?
 
-The other feedback was:
+I didn't understand the question.  Are you suggesting that changes to
+fs_struct would be required to make this work?  I don't see why.
 
-1. suggesting to introduce new link layer for the para-virtualized
-network stack, a direction pointed by Dave and you, for which  I
-responded that it doesn't address a hard requirement I got, which is
-provide service  to an arbitrary VM which have any OS and a virtual
-Ethernet NIC on, emulated or para-virtualized.
-
-2. Suggestions to use solutions which involve routing and/or
-proxt-arp, for which I responded that in most/practical cases this
-will require for the host to know the VM IP, something which isn't
-valid assumption in many cases AND that bunch of cloud stacks,
-specifically the leading ones, don't even support that option, which
-also violates a hard requirement we got, to support these stacks which
-are in use by customers.
-
-3. Suggestions to invent EoIB -- I said, OK but this is long termish
-process that we're looking on, might be around at some future point,
-but still we are required to support whole echo systems which use
-IPoIB, and there's no point to "route" between EoIB segment to IPoIB
-segments, its back to #2 which we didn't accept
-
-4. Other feedback saying the eIPoIB driver is messy and "we don't like
-it" -- hard to exactly address in code changes
-
-----> all in all, we were suggested few directions which don't allow
-us to address  the problem statement, so there's no way to change the
-code so they are fullfilled, and some not concrete comments which are
-also hard to address --> we took the route of design changes along
-your **concrete** comments, doesn't it make sense?
-
-Or.
+--b.
