@@ -1,66 +1,80 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH net] net: usbnet: fix softirq storm on suspend
-Date: Tue, 4 Sep 2012 12:19:28 +0800
-Message-ID: <CACVXFVNykwxe-PYP_nin32htFmrFL4d=3DEhZMo3UwTEpb81+A@mail.gmail.com>
-References: <1346660778-24539-1-git-send-email-bjorn@mork.no>
+From: Bob Gilligan <gilligan@aristanetworks.com>
+Subject: Re: [PATCH 1/2] ipv4: Improve the scaling of the ARP cache for multicast
+ destinations.
+Date: Mon, 03 Sep 2012 21:22:02 -0700
+Message-ID: <504581EA.8040807@aristanetworks.com>
+References: <50400B68.3060302@aristanetworks.com> <20120830.210628.365120808137655227.davem@davemloft.net> <50410EB8.3040603@aristanetworks.com> <50435E6B.5040007@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1346660778-24539-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:38428 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750793Ab2IDEWG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 00:22:06 -0400
+Received: by pbbrr13 with SMTP id rr13so8867126pbb.19
+        for <netdev@vger.kernel.org>; Mon, 03 Sep 2012 21:22:05 -0700 (PDT)
+In-Reply-To: <50435E6B.5040007@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 3, 2012 at 4:26 PM, Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
-> Suspending an open usbnet device results in constant
-> rescheduling of usbnet_bh.
->
-> commit 65841fd5 "usbnet: handle remote wakeup asap"
-> refactored the usbnet_bh code to allow sharing the
-> urb allocate and submit code with usbnet_resume. In
-> this process, a test for, and immediate return on,
-> ENOLINK from rx_submit was unintentionally dropped.
->
-> The rx queue will not grow if rx_submit fails,
-> making usbnet_bh reschedule itself.  This results
-> in a softirq storm if the error is persistent.
-> rx_submit translates the usb_submit_urb error
-> EHOSTUNREACH into ENOLINK, so this is an expected
-> and persistent error for a suspended device. The
-> old code tested for this condition and avoided
-> rescheduling.  Putting this test back.
->
-> Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> # v3.5
-> Cc: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-> ---
-> Sorry for not noticing this before, but commit 65841fd5
-> makes usbnet autosuspend completely unusable.  The device
-> is suspended fine, but burning one CPU core at full load
-> uses a tiny bit more power making the power saving
-> negative...
+On 9/2/12 6:26 AM, Nicolas de Peslo=FCan wrote:
+> Le 31/08/2012 21:21, Bob Gilligan a =E9crit :
+>> On 8/30/12 6:06 PM, David Miller wrote:
+>>> From: Bob Gilligan<gilligan@aristanetworks.com>
+>>> Date: Thu, 30 Aug 2012 17:55:04 -0700
+>>>
+>>>> The mapping from multicast IPv4 address to MAC address can just as
+>>>> easily be done at the time a packet is to be sent.  With this chan=
+ge,
+>>>> we maintain one ARP cache entry for each interface that has at lea=
+st
+>>>> one multicast group member.  All routes to IPv4 multicast destinat=
+ions
+>>>> via a particular interface use the same ARP cache entry.  This ent=
+ry
+>>>> does not store the MAC address to use.  Instead, packets for multi=
+cast
+>>>> destinations go to a new output function that maps the destination
+>>>> IPv4 multicast address into the MAC address and forms the MAC head=
+er.
+>>>
+>>> Doing an ARP MC mapping on every packet is much more expensive than
+>>> doing a copy of the hard header cache.
+>>>
+>>> I do not believe the memory consumption issue you use to justify th=
+is
+>>> change is a real issue.
+>=20
+> My two cents:
+>=20
+> Why do we need a per interface neighbor cache for multicast? Isn't th=
+e
+> target MAC expected to be the same for a give target multicast IP
+> address, whatever the egress interface?
+>=20
+> Can't we store the target MAC for multicast address on a neighbor cac=
+he
+> entry with a fake dev value meaning "multicast"?
+>=20
+> Can't we detect the fact that the IP destination address is multicast
+> and search only the neighbor cache entries that have this fake dev
+> value, instead of the egress interface?
+>=20
+> This should reduce memory consumption (not N-squared anymore) without
+> significantly increasing the CPU usage.
+>=20
+> Do I miss something?
 
-I am wondering how you can reproduce the issue.
+Sounds like you are suggesting the converse of my proposed patch:  One
+"special" Neighbor Cache Entry per multicast group instead of one per
+interface.  Unfortunately, I don't think this will work.  Different MAC
+types have different frame formats and different multicast address
+mappings, so can't share a common neighbor cache entry.
 
-usbnet_terminate_urbs is called inside usbnet_suspend to
-consume all URBs and SKBs, and rx_alloc_submit can't be
-called during the period because of !netif_device_present().
-Once usbnet_terminate_urbs and netif_device_attach() are
-completed, who will schedule tasklet to trigger rx_alloc_submit?
-
->
-> I hope this can go into 3.6 and 3.5-stable ASAP. It is
-> a hard to notice regression, but all the same a serious
-> one.
-
-Thanks,
---
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Bob.
+>=20
+>     Nicolas.
