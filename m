@@ -1,61 +1,149 @@
-From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and
- naive hashtable
-Date: Tue, 04 Sep 2012 13:17:07 -0400
-Message-ID: <1346779027.27919.15.camel@gandalf.local.home>
-References: <20120824203332.GF21325@google.com> <5037E9D9.9000605@gmail.com>
-	<20120824212348.GK21325@google.com> <5038074D.300@gmail.com>
-	<20120824230740.GN21325@google.com> <20120825042419.GA27240@Krystal>
-	<503C95E4.3010000@gmail.com> <20120828101148.GA21683@Krystal>
-	<503CAB1E.5010408@gmail.com> <20120828115638.GC23818@Krystal>
-	<20120828230050.GA3337@Krystal>
-	<1346772948.27919.9.camel@gandalf.local.home>
-	<50462C99.5000007@redhat.com> <50462EE8.1090903@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] l2tp: fix a lockdep splat
+Date: Tue, 04 Sep 2012 19:18:57 +0200
+Message-ID: <1346779137.13121.54.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org,
-	Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>,
-	Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Pedro Alves <palves-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <50462EE8.1090903-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:35530 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932467Ab2IDRTD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 13:19:03 -0400
+Received: by bkwj10 with SMTP id j10so2768583bkw.19
+        for <netdev@vger.kernel.org>; Tue, 04 Sep 2012 10:19:02 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-09-04 at 17:40 +0100, Pedro Alves wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> BTW, you can also go a step further and remove the need to close with double }},
-> with something like:
-> 
-> #define do_for_each_ftrace_rec(pg, rec)                                          \
->         for (pg = ftrace_pages_start, rec = &pg->records[pg->index];             \
->              pg && rec == &pg->records[pg->index];                               \
->              pg = pg->next)                                                      \
->           for (rec = pg->records; rec < &pg->records[pg->index]; rec++)
-> 
+Fixes following lockdep splat :
 
-Yeah, but why bother? It's hidden in a macro, and the extra '{ }' shows
-that this is something "special".
+[ 1614.734896] =============================================
+[ 1614.734898] [ INFO: possible recursive locking detected ]
+[ 1614.734901] 3.6.0-rc3+ #782 Not tainted
+[ 1614.734903] ---------------------------------------------
+[ 1614.734905] swapper/11/0 is trying to acquire lock:
+[ 1614.734907]  (slock-AF_INET){+.-...}, at: [<ffffffffa0209d72>] l2tp_xmit_skb+0x172/0xa50 [l2tp_core]
+[ 1614.734920] 
+[ 1614.734920] but task is already holding lock:
+[ 1614.734922]  (slock-AF_INET){+.-...}, at: [<ffffffff815fce23>] tcp_v4_err+0x163/0x6b0
+[ 1614.734932] 
+[ 1614.734932] other info that might help us debug this:
+[ 1614.734935]  Possible unsafe locking scenario:
+[ 1614.734935] 
+[ 1614.734937]        CPU0
+[ 1614.734938]        ----
+[ 1614.734940]   lock(slock-AF_INET);
+[ 1614.734943]   lock(slock-AF_INET);
+[ 1614.734946] 
+[ 1614.734946]  *** DEADLOCK ***
+[ 1614.734946] 
+[ 1614.734949]  May be due to missing lock nesting notation
+[ 1614.734949] 
+[ 1614.734952] 7 locks held by swapper/11/0:
+[ 1614.734954]  #0:  (rcu_read_lock){.+.+..}, at: [<ffffffff81592801>] __netif_receive_skb+0x251/0xd00
+[ 1614.734964]  #1:  (rcu_read_lock){.+.+..}, at: [<ffffffff815d319c>] ip_local_deliver_finish+0x4c/0x4e0
+[ 1614.734972]  #2:  (rcu_read_lock){.+.+..}, at: [<ffffffff8160d116>] icmp_socket_deliver+0x46/0x230
+[ 1614.734982]  #3:  (slock-AF_INET){+.-...}, at: [<ffffffff815fce23>] tcp_v4_err+0x163/0x6b0
+[ 1614.734989]  #4:  (rcu_read_lock){.+.+..}, at: [<ffffffff815da240>] ip_queue_xmit+0x0/0x680
+[ 1614.734997]  #5:  (rcu_read_lock_bh){.+....}, at: [<ffffffff815d9925>] ip_finish_output+0x135/0x890
+[ 1614.735004]  #6:  (rcu_read_lock_bh){.+....}, at: [<ffffffff81595680>] dev_queue_xmit+0x0/0xe00
+[ 1614.735012] 
+[ 1614.735012] stack backtrace:
+[ 1614.735016] Pid: 0, comm: swapper/11 Not tainted 3.6.0-rc3+ #782
+[ 1614.735018] Call Trace:
+[ 1614.735020]  <IRQ>  [<ffffffff810a50ac>] __lock_acquire+0x144c/0x1b10
+[ 1614.735033]  [<ffffffff810a334b>] ? check_usage+0x9b/0x4d0
+[ 1614.735037]  [<ffffffff810a6762>] ? mark_held_locks+0x82/0x130
+[ 1614.735042]  [<ffffffff810a5df0>] lock_acquire+0x90/0x200
+[ 1614.735047]  [<ffffffffa0209d72>] ? l2tp_xmit_skb+0x172/0xa50 [l2tp_core]
+[ 1614.735051]  [<ffffffff810a69ad>] ? trace_hardirqs_on+0xd/0x10
+[ 1614.735060]  [<ffffffff81749b31>] _raw_spin_lock+0x41/0x50
+[ 1614.735065]  [<ffffffffa0209d72>] ? l2tp_xmit_skb+0x172/0xa50 [l2tp_core]
+[ 1614.735069]  [<ffffffffa0209d72>] l2tp_xmit_skb+0x172/0xa50 [l2tp_core]
+[ 1614.735075]  [<ffffffffa014f7f2>] l2tp_eth_dev_xmit+0x32/0x60 [l2tp_eth]
+[ 1614.735079]  [<ffffffff81595112>] dev_hard_start_xmit+0x502/0xa70
+[ 1614.735083]  [<ffffffff81594c6e>] ? dev_hard_start_xmit+0x5e/0xa70
+[ 1614.735087]  [<ffffffff815957c1>] ? dev_queue_xmit+0x141/0xe00
+[ 1614.735093]  [<ffffffff815b622e>] sch_direct_xmit+0xfe/0x290
+[ 1614.735098]  [<ffffffff81595865>] dev_queue_xmit+0x1e5/0xe00
+[ 1614.735102]  [<ffffffff81595680>] ? dev_hard_start_xmit+0xa70/0xa70
+[ 1614.735106]  [<ffffffff815b4daa>] ? eth_header+0x3a/0xf0
+[ 1614.735111]  [<ffffffff8161d33e>] ? fib_get_table+0x2e/0x280
+[ 1614.735117]  [<ffffffff8160a7e2>] arp_xmit+0x22/0x60
+[ 1614.735121]  [<ffffffff8160a863>] arp_send+0x43/0x50
+[ 1614.735125]  [<ffffffff8160b82f>] arp_solicit+0x18f/0x450
+[ 1614.735132]  [<ffffffff8159d9da>] neigh_probe+0x4a/0x70
+[ 1614.735137]  [<ffffffff815a191a>] __neigh_event_send+0xea/0x300
+[ 1614.735141]  [<ffffffff815a1c93>] neigh_resolve_output+0x163/0x260
+[ 1614.735146]  [<ffffffff815d9cf5>] ip_finish_output+0x505/0x890
+[ 1614.735150]  [<ffffffff815d9925>] ? ip_finish_output+0x135/0x890
+[ 1614.735154]  [<ffffffff815dae79>] ip_output+0x59/0xf0
+[ 1614.735158]  [<ffffffff815da1cd>] ip_local_out+0x2d/0xa0
+[ 1614.735162]  [<ffffffff815da403>] ip_queue_xmit+0x1c3/0x680
+[ 1614.735165]  [<ffffffff815da240>] ? ip_local_out+0xa0/0xa0
+[ 1614.735172]  [<ffffffff815f4402>] tcp_transmit_skb+0x402/0xa60
+[ 1614.735177]  [<ffffffff815f5a11>] tcp_retransmit_skb+0x1a1/0x620
+[ 1614.735181]  [<ffffffff815f7e93>] tcp_retransmit_timer+0x393/0x960
+[ 1614.735185]  [<ffffffff815fce23>] ? tcp_v4_err+0x163/0x6b0
+[ 1614.735189]  [<ffffffff815fd317>] tcp_v4_err+0x657/0x6b0
+[ 1614.735194]  [<ffffffff8160d116>] ? icmp_socket_deliver+0x46/0x230
+[ 1614.735199]  [<ffffffff8160d19e>] icmp_socket_deliver+0xce/0x230
+[ 1614.735203]  [<ffffffff8160d116>] ? icmp_socket_deliver+0x46/0x230
+[ 1614.735208]  [<ffffffff8160d464>] icmp_unreach+0xe4/0x2c0
+[ 1614.735213]  [<ffffffff8160e520>] icmp_rcv+0x350/0x4a0
+[ 1614.735217]  [<ffffffff815d3285>] ip_local_deliver_finish+0x135/0x4e0
+[ 1614.735221]  [<ffffffff815d319c>] ? ip_local_deliver_finish+0x4c/0x4e0
+[ 1614.735225]  [<ffffffff815d3ffa>] ip_local_deliver+0x4a/0x90
+[ 1614.735229]  [<ffffffff815d37b7>] ip_rcv_finish+0x187/0x730
+[ 1614.735233]  [<ffffffff815d425d>] ip_rcv+0x21d/0x300
+[ 1614.735237]  [<ffffffff81592a1b>] __netif_receive_skb+0x46b/0xd00
+[ 1614.735241]  [<ffffffff81592801>] ? __netif_receive_skb+0x251/0xd00
+[ 1614.735245]  [<ffffffff81593368>] process_backlog+0xb8/0x180
+[ 1614.735249]  [<ffffffff81593cf9>] net_rx_action+0x159/0x330
+[ 1614.735257]  [<ffffffff810491f0>] __do_softirq+0xd0/0x3e0
+[ 1614.735264]  [<ffffffff8109ed24>] ? tick_program_event+0x24/0x30
+[ 1614.735270]  [<ffffffff8175419c>] call_softirq+0x1c/0x30
+[ 1614.735278]  [<ffffffff8100425d>] do_softirq+0x8d/0xc0
+[ 1614.735282]  [<ffffffff8104983e>] irq_exit+0xae/0xe0
+[ 1614.735287]  [<ffffffff8175494e>] smp_apic_timer_interrupt+0x6e/0x99
+[ 1614.735291]  [<ffffffff81753a1c>] apic_timer_interrupt+0x6c/0x80
+[ 1614.735293]  <EOI>  [<ffffffff810a14ad>] ? trace_hardirqs_off+0xd/0x10
+[ 1614.735306]  [<ffffffff81336f85>] ? intel_idle+0xf5/0x150
+[ 1614.735310]  [<ffffffff81336f7e>] ? intel_idle+0xee/0x150
+[ 1614.735317]  [<ffffffff814e6ea9>] cpuidle_enter+0x19/0x20
+[ 1614.735321]  [<ffffffff814e7538>] cpuidle_idle_call+0xa8/0x630
+[ 1614.735327]  [<ffffffff8100c1ba>] cpu_idle+0x8a/0xe0
+[ 1614.735333]  [<ffffffff8173762e>] start_secondary+0x220/0x222
 
--- Steve
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/l2tp/l2tp_core.c |    4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 513cab0..36d1054 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1501,6 +1501,8 @@ out:
+ 	return err;
+ }
+ 
++static struct lock_class_key l2tp_socket_class;
++
+ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg, struct l2tp_tunnel **tunnelp)
+ {
+ 	struct l2tp_tunnel *tunnel = NULL;
+@@ -1605,6 +1607,8 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
+ 	tunnel->old_sk_destruct = sk->sk_destruct;
+ 	sk->sk_destruct = &l2tp_tunnel_destruct;
+ 	tunnel->sock = sk;
++	lockdep_set_class_and_name(&sk->sk_lock.slock, &l2tp_socket_class, "l2tp_sock");
++
+ 	sk->sk_allocation = GFP_ATOMIC;
+ 
+ 	/* Add tunnel to our list */
