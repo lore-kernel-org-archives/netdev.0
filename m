@@ -1,51 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC v2] fq_codel : interval servo on hosts
-Date: Tue, 04 Sep 2012 17:34:15 +0200
-Message-ID: <1346772855.13121.40.camel@edumazet-glaptop>
-References: <1346396137.2586.301.camel@edumazet-glaptop>
-	<1346421031.2591.34.camel@edumazet-glaptop>
-	<1346421466.2591.38.camel@edumazet-glaptop>
-	<CAK6E8=cwpq0MVK6fcrOa=wTX237xQiVP2xzh0aX-AtuSmzt-sw@mail.gmail.com>
-	<1346503884.7996.65.camel@edumazet-glaptop>
-	<CAB_+Fg5xPRqEZNdH0mYogmm4LitMvycSLB-X1_7ryn4RY9FvSA@mail.gmail.com>
+From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and
+ naive hashtable
+Date: Tue, 04 Sep 2012 11:35:48 -0400
+Message-ID: <1346772948.27919.9.camel@gandalf.local.home>
+References: <20120824203332.GF21325@google.com> <5037E9D9.9000605@gmail.com>
+	<20120824212348.GK21325@google.com> <5038074D.300@gmail.com>
+	<20120824230740.GN21325@google.com> <20120825042419.GA27240@Krystal>
+	<503C95E4.3010000@gmail.com> <20120828101148.GA21683@Krystal>
+	<503CAB1E.5010408@gmail.com> <20120828115638.GC23818@Krystal>
+	<20120828230050.GA3337@Krystal>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Tomas Hruby <thruby@google.com>, netdev <netdev@vger.kernel.org>,
-	codel@lists.bufferbloat.net
-To: Nandita Dukkipati <nanditad@google.com>
-Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <CAB_+Fg5xPRqEZNdH0mYogmm4LitMvycSLB-X1_7ryn4RY9FvSA@mail.gmail.com>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
-List-Post: <mailto:codel@lists.bufferbloat.net>
-List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
-Sender: codel-bounces@lists.bufferbloat.net
-Errors-To: codel-bounces@lists.bufferbloat.net
+Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org,
+	teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20120828230050.GA3337@Krystal>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-09-04 at 08:10 -0700, Nandita Dukkipati wrote:
-> The idea of using srtt as interval makes sense to me if alongside we
-> also hash flows with similar RTTs into same bucket. But with just the
-> change in interval, I am not sure how codel is expected to behave.
+On Tue, 2012-08-28 at 19:00 -0400, Mathieu Desnoyers wrote:
+
+> Looking again at:
 > 
-> My understanding is: the interval (usually set to worst case expected
-> RTT) is used to measure the standing queue or the "bad" queue. Suppose
-> 1ms and 100ms RTT flows get hashed to same bucket, then the interval
-> with this patch will flip flop between 1ms and 100ms. How is this
-> expected to measure a standing queue? In fact I think the 1ms flow may
-> land up measuring the burstiness or the "good" queue created by the
-> long RTT flows, and this isn't desirable.
+> +#define hash_for_each_size(name, bits, bkt, node, obj, member)                 \
+> +       for (bkt = 0; bkt < HASH_SIZE(bits); bkt++)                             \
+> +               hlist_for_each_entry(obj, node, &name[bkt], member)
+> 
+> you will notice that a "break" or "continue" in the inner loop will not
+> affect the outer loop, which is certainly not what the programmer would
+> expect!
+> 
+> I advise strongly against creating such error-prone construct.
 > 
 
-Well, how things settle with a pure codel, mixing flows of very
-different RTT then ?
+A few existing loop macros do this. But they require a do { } while ()
+approach, and all have a comment.
 
-It seems there is a high resistance on SFQ/fq_codel model because of the
-probabilities of flows sharing a bucket.
+It's used by do_each_thread() in sched.h and ftrace does this as well.
+Look at kernel/trace/ftrace.c at do_for_each_ftrace_rec().
 
-So what about removing the stochastic thing and switch to a hash with
-collision resolution ?
+Yes it breaks 'break' but it does not break 'continue' as it would just
+go to the next item that would have been found (like a normal for
+would).
+
+-- Steve
