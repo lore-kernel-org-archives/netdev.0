@@ -1,92 +1,150 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH net] net: usbnet: fix softirq storm on suspend
-Date: Tue, 04 Sep 2012 09:49:14 +0200
-Message-ID: <87y5kqcjnp.fsf@nemi.mork.no>
-References: <1346660778-24539-1-git-send-email-bjorn@mork.no>
-	<CACVXFVNykwxe-PYP_nin32htFmrFL4d=3DEhZMo3UwTEpb81+A@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] netfilter: take care of timewait sockets
+Date: Tue, 04 Sep 2012 09:55:25 +0200
+Message-ID: <1346745325.13121.4.camel@edumazet-glaptop>
+References: <20120821134921.behn76vzvhczf3gc@m.safari.iki.fi>
+	 <20120902122008.jgdhwowbuke6by7h@m.safari.iki.fi>
+	 <20120902132834.GB7456@breakpoint.cc>
+	 <1346626385.2563.44.camel@edumazet-glaptop>
+	 <1346629684.2563.78.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACVXFVNykwxe-PYP_nin32htFmrFL4d=3DEhZMo3UwTEpb81+A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-	(Ming Lei's message of "Tue, 4 Sep 2012 12:19:28 +0800")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sami Farin <hvtaifwkbgefbaei@gmail.com>, netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:35520 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750711Ab2IDHzc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 03:55:32 -0400
+Received: by bkwj10 with SMTP id j10so2480160bkw.19
+        for <netdev@vger.kernel.org>; Tue, 04 Sep 2012 00:55:30 -0700 (PDT)
+In-Reply-To: <1346629684.2563.78.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> writes:
-> On Mon, Sep 3, 2012 at 4:26 PM, Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote=
-:
->
->> Sorry for not noticing this before, but commit 65841fd5
->> makes usbnet autosuspend completely unusable.  The device
->> is suspended fine, but burning one CPU core at full load
->> uses a tiny bit more power making the power saving
->> negative...
->
-> I am wondering how you can reproduce the issue.
+On Mon, 2012-09-03 at 01:48 +0200, Eric Dumazet wrote:
+> Sami Farin reported crashes in xt_LOG because it assumes skb->sk is a
+> full blown socket.
+> 
+> But with TCP early demux, we can have skb->sk pointing to a timewait
+> socket.
+> 
+> Same fix is needed in netfnetlink_log
+> 
+> Diagnosed-by: Florian Westphal <fw@strlen.de>
+> Reported-by: Sami Farin <hvtaifwkbgefbaei@gmail.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/netfilter/nfnetlink_log.c |   14 +++++++------
+>  net/netfilter/xt_LOG.c        |   33 ++++++++++++++++----------------
+>  2 files changed, 25 insertions(+), 22 deletions(-)
+> 
+> diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+> index 14e2f39..5cfb5be 100644
+> --- a/net/netfilter/nfnetlink_log.c
+> +++ b/net/netfilter/nfnetlink_log.c
+> @@ -381,6 +381,7 @@ __build_packet_message(struct nfulnl_instance *inst,
+>  	struct nlmsghdr *nlh;
+>  	struct nfgenmsg *nfmsg;
+>  	sk_buff_data_t old_tail = inst->skb->tail;
+> +	struct sock *sk;
+>  
+>  	nlh = nlmsg_put(inst->skb, 0, 0,
+>  			NFNL_SUBSYS_ULOG << 8 | NFULNL_MSG_PACKET,
+> @@ -499,18 +500,19 @@ __build_packet_message(struct nfulnl_instance *inst,
+>  	}
+>  
+>  	/* UID */
+> -	if (skb->sk) {
+> -		read_lock_bh(&skb->sk->sk_callback_lock);
+> -		if (skb->sk->sk_socket && skb->sk->sk_socket->file) {
+> -			struct file *file = skb->sk->sk_socket->file;
+> +	sk = skb->sk;
+> +	if (sk && sk->sk_state != TCP_TIME_WAIT) {
+> +		read_lock_bh(&sk->sk_callback_lock);
+> +		if (sk->sk_socket && sk->sk_socket->file) {
+> +			struct file *file = sk->sk_socket->file;
+>  			__be32 uid = htonl(file->f_cred->fsuid);
+>  			__be32 gid = htonl(file->f_cred->fsgid);
+> -			read_unlock_bh(&skb->sk->sk_callback_lock);
+> +			read_unlock_bh(&sk->sk_callback_lock);
+>  			if (nla_put_be32(inst->skb, NFULA_UID, uid) ||
+>  			    nla_put_be32(inst->skb, NFULA_GID, gid))
+>  				goto nla_put_failure;
+>  		} else
+> -			read_unlock_bh(&skb->sk->sk_callback_lock);
+> +			read_unlock_bh(&sk->sk_callback_lock);
+>  	}
+>  
+>  	/* local sequence number */
+> diff --git a/net/netfilter/xt_LOG.c b/net/netfilter/xt_LOG.c
+> index ff5f75f..2a4f969 100644
+> --- a/net/netfilter/xt_LOG.c
+> +++ b/net/netfilter/xt_LOG.c
+> @@ -145,6 +145,19 @@ static int dump_tcp_header(struct sbuff *m, const struct sk_buff *skb,
+>  	return 0;
+>  }
+>  
+> +static void dump_sk_uid_gid(struct sbuff *m, struct sock *sk)
+> +{
+> +	if (!sk || sk->sk_state == TCP_TIME_WAIT)
+> +		return;
+> +
+> +	read_lock_bh(&sk->sk_callback_lock);
+> +	if (sk->sk_socket && sk->sk_socket->file)
+> +		sb_add(m, "UID=%u GID=%u ",
+> +			sk->sk_socket->file->f_cred->fsuid,
+> +			sk->sk_socket->file->f_cred->fsgid);
+> +	read_unlock_bh(&sk->sk_callback_lock);
+> +}
+> +
+>  /* One level of recursion won't kill us */
+>  static void dump_ipv4_packet(struct sbuff *m,
+>  			const struct nf_loginfo *info,
+> @@ -361,14 +374,8 @@ static void dump_ipv4_packet(struct sbuff *m,
+>  	}
+>  
+>  	/* Max length: 15 "UID=4294967295 " */
+> -	if ((logflags & XT_LOG_UID) && !iphoff && skb->sk) {
+> -		read_lock_bh(&skb->sk->sk_callback_lock);
+> -		if (skb->sk->sk_socket && skb->sk->sk_socket->file)
+> -			sb_add(m, "UID=%u GID=%u ",
+> -				skb->sk->sk_socket->file->f_cred->fsuid,
+> -				skb->sk->sk_socket->file->f_cred->fsgid);
+> -		read_unlock_bh(&skb->sk->sk_callback_lock);
+> -	}
+> +	if ((logflags & XT_LOG_UID) && !iphoff)
+> +		dump_sk_uid_gid(m, skb->sk);
+>  
+>  	/* Max length: 16 "MARK=0xFFFFFFFF " */
+>  	if (!iphoff && skb->mark)
+> @@ -717,14 +724,8 @@ static void dump_ipv6_packet(struct sbuff *m,
+>  	}
+>  
+>  	/* Max length: 15 "UID=4294967295 " */
+> -	if ((logflags & XT_LOG_UID) && recurse && skb->sk) {
+> -		read_lock_bh(&skb->sk->sk_callback_lock);
+> -		if (skb->sk->sk_socket && skb->sk->sk_socket->file)
+> -			sb_add(m, "UID=%u GID=%u ",
+> -				skb->sk->sk_socket->file->f_cred->fsuid,
+> -				skb->sk->sk_socket->file->f_cred->fsgid);
+> -		read_unlock_bh(&skb->sk->sk_callback_lock);
+> -	}
+> +	if ((logflags & XT_LOG_UID) && recurse)
+> +		dump_sk_uid_gid(m, skb->sk);
+>  
+>  	/* Max length: 16 "MARK=0xFFFFFFFF " */
+>  	if (!recurse && skb->mark)
+> 
 
-That's easy:
+Hi David
 
-- Take any usbnet device supporting remote wakeup (and of course with a
-  minidriver supporting it as well),
-- enable autosuspend,
-- ip link set dev ethX/usbX/wwanX up
+This patch was marked "Not applicable" in Patchwork
+( http://patchwork.ozlabs.org/patch/181275/ )
 
-And watch ksoftirqd/X use 100% of one of your CPU cores.
+It seems a mistake, since it should be applied ?
 
-I'd very much like to hear the details if you are unable to reproduce
-the bug using this simple test.
+Tell me if I should resend it
 
-> usbnet_terminate_urbs is called inside usbnet_suspend to
-> consume all URBs and SKBs, and rx_alloc_submit can't be
-> called during the period because of !netif_device_present().
-
-Huh???? We do support suspending a USB device while the network device
-is up and running. That's the whole idea here, isn't it? I.e.
-netif_device_present() is *expected* to be true while the USB device is
-suspended.
-
-> Once usbnet_terminate_urbs and netif_device_attach() are
-> completed, who will schedule tasklet to trigger rx_alloc_submit?
-
-That's a good question.  It sure would be nice if that never happened
-without waking the device first.  But there are just too many call site=
-s
-for me to follow:
-
-bjorn@nemi:/usr/local/src/git/linux$ grep tasklet_schedule drivers/net/=
-usb/usbnet.c
-                tasklet_schedule(&dev->bh);
- * but tasklet_schedule() doesn't.  hope the failure is rare.
-                        tasklet_schedule (&dev->bh);
-        tasklet_schedule(&dev->bh);
-                tasklet_schedule(&dev->bh);
-        tasklet_schedule (&dev->bh);
-                        tasklet_schedule (&dev->bh);
-                                tasklet_schedule (&dev->bh);
-        tasklet_schedule (&dev->bh);
-                                tasklet_schedule (&dev->bh);
-                        tasklet_schedule (&dev->bh);
-
-
-And I do believe the code before your change demonstrated that the
-original authors had the same view.  There was an explicit exception fo=
-r
-just this case, and I do assume that was put there for a good
-reason. usbnet_bh() will be called while the device is suspended, and w=
-e
-must avoid making it reschedule itself in this case.
-
-Anyway, the ENOLINK test was there.  You removed it with no explanation
-whatsoever. It is *your* call to verify and explain to us why this test
-is unnecessary, not mine.
-
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks
