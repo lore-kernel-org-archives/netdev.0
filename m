@@ -1,8 +1,8 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH 2/4] net: mvneta: update MAINTAINERS file for the mvneta
- maintainers
-Date: Tue,  4 Sep 2012 15:06:42 +0200
-Message-ID: <1346764004-16332-3-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH 4/4] arm: mvebu: enable Ethernet controllers on Armada 370/XP
+ eval boards
+Date: Tue,  4 Sep 2012 15:06:44 +0200
+Message-ID: <1346764004-16332-5-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1346764004-16332-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -36,27 +36,71 @@ Sender: linux-arm-kernel-bounces@lists.infradead.org
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
+This patch enables the two network interfaces of the Armada 370
+official Marvell evaluation platform, and the four network interfaces
+of the Armada XP official Marvell evaluation platform.
+
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- MAINTAINERS |    6 ++++++
- 1 file changed, 6 insertions(+)
+ arch/arm/boot/dts/armada-370-db.dts |   12 ++++++++++++
+ arch/arm/boot/dts/armada-xp-db.dts  |   24 ++++++++++++++++++++++++
+ 2 files changed, 36 insertions(+)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index fdc0119..35418e8 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -4436,6 +4436,12 @@ S:	Maintained
- F:	drivers/net/ethernet/marvell/mv643xx_eth.*
- F:	include/linux/mv643xx.h
- 
-+MARVELL MVNETA ETHERNET DRIVER
-+M:	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-+L:	netdev@vger.kernel.org
-+S:	Maintained
-+F:	drivers/net/ethernet/marvell/mvneta.*
-+
- MARVELL MWIFIEX WIRELESS DRIVER
- M:	Bing Zhao <bzhao@marvell.com>
- L:	linux-wireless@vger.kernel.org
+diff --git a/arch/arm/boot/dts/armada-370-db.dts b/arch/arm/boot/dts/armada-370-db.dts
+index fffd5c2..890f253 100644
+--- a/arch/arm/boot/dts/armada-370-db.dts
++++ b/arch/arm/boot/dts/armada-370-db.dts
+@@ -38,5 +38,17 @@
+ 			clock-frequency = <600000000>;
+ 			status = "okay";
+ 		};
++                eth@d0070000 {
++                        clock-frequency = <200000000>;
++                        status = "okay";
++                        phy-mode = "rmii";
++                        phy-addr = <0>;
++                };
++                eth@d0074000 {
++                        clock-frequency = <200000000>;
++                        status = "okay";
++                        phy-mode = "rmii";
++                        phy-addr = <1>;
++                };
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/armada-xp-db.dts b/arch/arm/boot/dts/armada-xp-db.dts
+index f97040d..fd71b69 100644
+--- a/arch/arm/boot/dts/armada-xp-db.dts
++++ b/arch/arm/boot/dts/armada-xp-db.dts
+@@ -46,5 +46,29 @@
+ 			clock-frequency = <250000000>;
+ 			status = "okay";
+ 		};
++                eth@d0070000 {
++                        clock-frequency = <250000000>;
++                        status = "okay";
++                        phy-mode = "rmii";
++                        phy-addr = <0>;
++                };
++                eth@d0074000 {
++                        clock-frequency = <250000000>;
++                        status = "okay";
++                        phy-mode = "rmii";
++                        phy-addr = <1>;
++                };
++                eth@d0030000 {
++                        clock-frequency = <250000000>;
++                        status = "okay";
++                        phy-mode = "sgmii";
++                        phy-addr = <25>;
++                };
++                eth@d0034000 {
++                        clock-frequency = <250000000>;
++                        status = "okay";
++                        phy-mode = "sgmii";
++                        phy-addr = <27>;
++                };
+ 	};
+ };
 -- 
 1.7.9.5
