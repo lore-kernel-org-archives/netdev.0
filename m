@@ -1,61 +1,33 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH] usbnet: drop unneeded check for NULL
-Date: Tue, 04 Sep 2012 18:13:18 +0200
-Message-ID: <20747715.9FmHp7X6VE@linux-lqwf.site>
-References: <1346768514-19823-1-git-send-email-oliver@neukum.org> <20120904155343.GA2170@netboy.at.omicron.at>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] netfilter: take care of timewait sockets
+Date: Tue, 04 Sep 2012 12:16:56 -0400 (EDT)
+Message-ID: <20120904.121656.2025365336670723686.davem@davemloft.net>
+References: <1346626385.2563.44.camel@edumazet-glaptop>
+	<1346629684.2563.78.camel@edumazet-glaptop>
+	<1346745325.13121.4.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: fw@strlen.de, hvtaifwkbgefbaei@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:39776 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756848Ab2IDQOi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Sep 2012 12:14:38 -0400
-In-Reply-To: <20120904155343.GA2170@netboy.at.omicron.at>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59331 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757377Ab2IDQRC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 12:17:02 -0400
+In-Reply-To: <1346745325.13121.4.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 04 September 2012 17:53:43 Richard Cochran wrote:
-> On Tue, Sep 04, 2012 at 04:21:54PM +0200, Oliver Neukum wrote:
-> > usbnet_start_xmit() is always called with a valid skb
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 04 Sep 2012 09:55:25 +0200
+
+> This patch was marked "Not applicable" in Patchwork
+> ( http://patchwork.ozlabs.org/patch/181275/ )
 > 
-> So, has the problem that this test worked around been fixed?
+> It seems a mistake, since it should be applied ?
 
-netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
-                                     struct net_device *net)
-{
-        struct usbnet           *dev = netdev_priv(net);
-        int                     length;
-        struct urb              *urb = NULL;
-        struct skb_data         *entry;
-        struct driver_info      *info = dev->driver_info;
-        unsigned long           flags;
-        int retval;
+Not applicable can mean "doesn't go through my tree"
 
-        if (skb)
-                skb_tx_timestamp(skb);
-
-        // some devices want funky USB-level framing, for
-        // win32 driver (usually) and/or hardware quirks
-        if (info->tx_fixup) {
-                skb = info->tx_fixup (dev, skb, GFP_ATOMIC);
-                if (!skb) {
-                        if (netif_msg_tx_err(dev)) {
-                                netif_dbg(dev, tx_err, dev->net, "can't tx_fixup skb\n");
-                                goto drop;
-                        } else {
-                                /* cdc_ncm collected packet; waits for more */
-                                goto not_drop;
-                        }
-                }
-        }
-        length = skb->len;
-
-If that check is ever needed and tx_fixup not needed, the driver will oops here.
-The check is wrong in any case.
-
-	Regards
-		Oliver
- 
+This is netfilter stuff, so please submit it via the
+netfilter folks :-)
