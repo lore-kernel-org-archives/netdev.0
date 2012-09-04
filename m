@@ -1,113 +1,42 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [RFC PATCH 0/5] net: socket bind to file descriptor introduced
-Date: Tue, 4 Sep 2012 15:00:07 -0400
-Message-ID: <20120904190007.GB29369@fieldses.org>
-References: <20120815161141.7598.16682.stgit@localhost.localdomain>
- <87y5lf7d37.fsf@xmission.com>
- <50320EE5.10307@parallels.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	"tglx@linutronix.de" <tglx@linutronix.de>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"hpa@zytor.com" <hpa@zytor.com>,
-	"thierry.reding@avionic-design.de" <thierry.reding@avionic-design.de>,
-	"bfields@redhat.com" <bfields@redhat.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"x86@kernel.org" <x86@kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
-	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
-	"gorcunov@openvz.org" <gorcunov@openvz.org>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"tim.c.chen@linux.intel.com" <tim.c.chen@linux.intel.com>,
-	"devel@ope
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <50320EE5.10307@parallels.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jesse Gross <jesse@nicira.com>
+Subject: [GIT net] Open vSwitch
+Date: Tue,  4 Sep 2012 12:08:05 -0700
+Message-ID: <1346785688-2910-1-git-send-email-jesse@nicira.com>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog104.obsmtp.com ([74.125.149.73]:55058 "HELO
+	na3sys009aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757489Ab2IDTIP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2012 15:08:15 -0400
+Received: by mail-pb0-f46.google.com with SMTP id rr13so9945194pbb.19
+        for <netdev@vger.kernel.org>; Tue, 04 Sep 2012 12:08:15 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 20, 2012 at 02:18:13PM +0400, Stanislav Kinsbursky wrote:
-> 16.08.2012 07:03, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> >Stanislav Kinsbursky <skinsbursky@parallels.com> writes:
-> >
-> >>This patch set introduces new socket operation and new system call:
-> >>sys_fbind(), which allows to bind socket to opened file.
-> >>File to bind to can be created by sys_mknod(S_IFSOCK) and opened by
-> >>open(O_PATH).
-> >>
-> >>This system call is especially required for UNIX sockets, which has=
- name
-> >>lenght limitation.
-> >>
-> >>The following series implements...
-> >
-> >Hmm.  I just realized this patchset is even sillier than I thought.
-> >
-> >Stanislav is the problem you are ultimately trying to solve nfs clie=
-nts
-> >in a container connecting to the wrong user space rpciod?
-> >
->=20
-> Hi, Eric.
-> The problem you mentioned was the reason why I started to think about=
- this.
-> But currently I believe, that limitations in unix sockets connect or
-> bind should be removed, because it will be useful it least for CRIU
-> project.
->=20
-> >Aka net/sunrpc/xprtsock.c:xs_setup_local only taking an absolute pat=
-h
-> >and then creating a delayed work item to actually open the unix doma=
-in
-> >socket?
-> >
-> >The straight correct and straight forward thing to do appears to be:
-> >- Capture the root from current->fs in xs_setup_local.
-> >- In xs_local_finish_connect change current->fs.root to the captured
-> >   version of root before kernel_connect, and restore current->fs.ro=
-ot
-> >   after kernel_connect.
-> >
-> >It might not be a bad idea to implement open on unix domain sockets =
-in
-> >a filesystem as create(AF_LOCAL)+connect() which would allow you to
-> >replace __sock_create + kernel_connect with a simple file_open_root.
-> >
->=20
-> I like the idea of introducing new family (AF_LOCAL_AT for example)
-> and new sockaddr for connecting or binding from specified root. The
-> only thing I'm worrying is passing file descriptor to unix bind or
-> connect routine. Because this approach doesn't provide easy way to
-> use such family and sockaddr in kernel (like in NFS example).
->=20
-> >But I think the simple scheme of:
-> >struct path old_root;
-> >old_root =3D current->fs.root;
-> >kernel_connect(...);
-> >current->fs.root =3D old_root;
-> >
-> >Is more than sufficient and will remove the need for anything
-> >except a purely local change to get nfs clients to connect from
-> >containers.
-> >
->=20
-> That was my first idea.
+A few bug fixes intended for net/3.6.
 
-So is this what you're planning on doing now?
+The following changes since commit 0d7614f09c1ebdbaa1599a5aba7593f147bf96ee:
 
-> And probably it would be worth to change all
-> fs_struct to support sockets with relative path.
-> What do you think about it?
+  Linux 3.6-rc1 (2012-08-02 16:38:10 -0700)
 
-I didn't understand the question.  Are you suggesting that changes to
-fs_struct would be required to make this work?  I don't see why.
+are available in the git repository at:
 
---b.
+  git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git fixes
+
+for you to fetch changes up to c303aa94cdae483a7577230e61720e126e600a52:
+
+  openvswitch: Fix FLOW_BUFSIZE definition. (2012-09-03 19:06:27 -0700)
+
+----------------------------------------------------------------
+Jesse Gross (2):
+      openvswitch: Relax set header validation.
+      openvswitch: Fix FLOW_BUFSIZE definition.
+
+Joe Stringer (1):
+      openvswitch: Fix typo
+
+ net/openvswitch/actions.c  |    2 +-
+ net/openvswitch/datapath.c |    6 +++---
+ net/openvswitch/flow.h     |    8 +++++---
+ 3 files changed, 9 insertions(+), 7 deletions(-)
