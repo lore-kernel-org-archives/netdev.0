@@ -1,54 +1,44 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: Commit "ipconfig wait for carrier" makes boot hang for 2 mins if no
-  carrier
-Date: Wed, 5 Sep 2012 09:04:59 +0200
-Message-ID: <OFFA3AC1B1.08FC3AAD-ONC1257A70.00266EDC-C1257A70.0026E8BC@transmode.se>
-References: <504627A4.9080306@neli.hopto.org>,	<OF61EF9E6E.9EF08C21-ONC1257A6F.004FE9B4-C1257A6F.0050A9B2@transmode.se> <OF163B52E3.E2F5ACB3-ONC1257A6F.00635561-C1257A6F.00635564@transmode.se> <50465791.40805@neli.hopto.org>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] bnx2x: use list_move_tail instead of list_del/list_add_tail
+Date: Wed, 5 Sep 2012 15:06:55 +0800
+Message-ID: <CAPgLHd-P-x3ZqrUMirMBbx74vz1XXNLb-nb3UWa43nVmmwNMCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Micha Nelissen <micha@neli.hopto.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([195.58.98.146]:51197 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751238Ab2IEHFD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Sep 2012 03:05:03 -0400
-In-Reply-To: <50465791.40805@neli.hopto.org>
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:47799 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751238Ab2IEHG4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 03:06:56 -0400
+Received: by qaas11 with SMTP id s11so341872qaa.19
+        for <netdev@vger.kernel.org>; Wed, 05 Sep 2012 00:06:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Micha Nelissen <micha@neli.hopto.org> wrote on 2012/09/04 21:33:37:
->
-> Joakim Tjernlund wrote:
-> >>  Why not set the IP address then in your rootfs yourself?  Micha
-> >
-> > I could ask you the same question, why do you need to have nfs in kernel?
->
-> Because that's where my root filesystem is? The IP autoconfiguration
-> code exists for this purpose.
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-This is not the only purpose.
+Using list_move_tail() instead of list_del() + list_add_tail().
 
->
-> > The answer is probably the same, it is much easier to
-> > manage our IP config in one place for our embedded system.
->
-> You retrieve the kernel via TFTP or so when booting?
+spatch with a semantic match is used to found this problem.
+(http://coccinelle.lip6.fr/)
 
-Yes, but mostly not. This really doesn't matter
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
->
-> > I don't understand why you need 2 minutes timeout for carrier either?
->
-> Just a safe value.
->
-> > The wait should be conditional on NFS root or not so that non NFS roots
-> > can skip this stage altogether.
->
-> Feel free to submit a patch :-)
-
-Your patch broke other use cases so my patch would just revert or change the tmo
-to 2 secs or so.
-Or you could clean up your stuff so it works for all and not just for you.
-
- Jocke
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+index 62f754b..5a5fbf5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+@@ -229,8 +229,7 @@ static inline int bnx2x_exe_queue_step(struct bnx2x *bp,
+ 			 */
+ 			list_add_tail(&spacer.link, &o->pending_comp);
+ 			mb();
+-			list_del(&elem->link);
+-			list_add_tail(&elem->link, &o->pending_comp);
++			list_move_tail(&elem->link, &o->pending_comp);
+ 			list_del(&spacer.link);
+ 		} else
+ 			break;
