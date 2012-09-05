@@ -1,107 +1,114 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH 10/10] net/macb: Offset first RX buffer by two bytes
-Date: Wed, 5 Sep 2012 11:04:06 +0200
-Message-ID: <68a0e4baf2ace47c04874f1918a3bd5f1e5784dc.1346775479.git.nicolas.ferre@atmel.com>
-References: <cover.1346775479.git.nicolas.ferre@atmel.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-arm-kernel@lists.infradead.org>, <davem@davemloft.net>,
-	<havard@skinnemoen.net>, <nicolas.ferre@atmel.com>,
-	<plagnioj@jcrosoft.com>, <jamie@jamieiles.com>,
-	<linux-kernel@vger.kernel.org>, <patrice.vilchez@atmel.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1346775479.git.nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH v2] ipv6: fix handling of blackhole and prohibit routes
+Date: Wed,  5 Sep 2012 07:34:18 -0400
+Message-ID: <1346844858-3210-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <20120904.155836.51164588359279575.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:57121 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751398Ab2IEJhm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 05:37:42 -0400
+In-Reply-To: <20120904.155836.51164588359279575.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Havard Skinnemoen <havard@skinnemoen.net>
+When adding a blackhole or a prohibit route, they were handling like classic
+routes. Moreover, it was only possible to add this kind of routes by specifying
+an interface.
 
-Make the ethernet frame payload word-aligned, possibly making the
-memcpy into the skb a bit faster. This will be even more important
-after we eliminate the copy altogether.
+Bug already reported here:
+  http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=498498
 
-Also eliminate the redundant RX_OFFSET constant -- it has the same
-definition and purpose as NET_IP_ALIGN.
+Before the patch:
+  $ ip route add blackhole 2001::1/128
+  RTNETLINK answers: No such device
+  $ ip route add blackhole 2001::1/128 dev eth0
+  $ ip -6 route | grep 2001
+  2001::1 dev eth0  metric 1024
 
-Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
-[nicolas.ferre@atmel.com: adapt to newer kernel]
-Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+After:
+  $ ip route add blackhole 2001::1/128
+  $ ip -6 route | grep 2001
+  blackhole 2001::1 dev lo  metric 1024  error -22
+
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- drivers/net/ethernet/cadence/macb.c |   23 ++++++++++++++++-------
- 1 file changed, 16 insertions(+), 7 deletions(-)
+ include/net/ip6_fib.h |  1 +
+ net/ipv6/route.c      | 32 ++++++++++++++++++++++++++++----
+ 2 files changed, 29 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index f31c0a7..f7716b6 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -33,9 +33,6 @@
- #define RX_RING_SIZE		512
- #define RX_RING_BYTES		(sizeof(struct macb_dma_desc) * RX_RING_SIZE)
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index 0fedbd8..cd64cf3 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -37,6 +37,7 @@ struct fib6_config {
+ 	int		fc_ifindex;
+ 	u32		fc_flags;
+ 	u32		fc_protocol;
++	u32		fc_type;	/* only 8 bits are used */
  
--/* Make the IP header word-aligned (the ethernet header is 14 bytes) */
--#define RX_OFFSET		2
--
- #define TX_RING_SIZE		128
- #define TX_RING_BYTES		(sizeof(struct macb_dma_desc) * TX_RING_SIZE)
- 
-@@ -466,7 +463,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- {
- 	unsigned int len;
- 	unsigned int frag;
--	unsigned int offset = 0;
-+	unsigned int offset;
- 	struct sk_buff *skb;
- 	struct macb_dma_desc *desc;
- 
-@@ -477,7 +474,16 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 		macb_rx_ring_wrap(first_frag),
- 		macb_rx_ring_wrap(last_frag), len);
- 
--	skb = netdev_alloc_skb(bp->dev, len + RX_OFFSET);
-+	/*
-+	 * The ethernet header starts NET_IP_ALIGN bytes into the
-+	 * first buffer. Since the header is 14 bytes, this makes the
-+	 * payload word-aligned.
-+	 *
-+	 * Instead of calling skb_reserve(NET_IP_ALIGN), we just copy
-+	 * the two padding bytes into the skb so that we avoid hitting
-+	 * the slowpath in memcpy(), and pull them off afterwards.
-+	 */
-+	skb = netdev_alloc_skb(bp->dev, len + NET_IP_ALIGN);
- 	if (!skb) {
- 		bp->stats.rx_dropped++;
- 		for (frag = first_frag; ; frag++) {
-@@ -493,7 +499,8 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 		return 1;
+ 	struct in6_addr	fc_dst;
+ 	struct in6_addr	fc_src;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 8e80fd2..5642fb5 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1463,8 +1463,18 @@ int ip6_route_add(struct fib6_config *cfg)
+ 		}
+ 		rt->dst.output = ip6_pkt_discard_out;
+ 		rt->dst.input = ip6_pkt_discard;
+-		rt->dst.error = -ENETUNREACH;
+ 		rt->rt6i_flags = RTF_REJECT|RTF_NONEXTHOP;
++		switch (cfg->fc_type) {
++		case RTM_BLACKHOLE:
++			rt->dst.error = -EINVAL;
++			break;
++		case RTM_PROHIBIT:
++			rt->dst.error = -EACCES;
++			break;
++		default:
++			rt->dst.error = -ENETUNREACH;
++			break;
++		}
+ 		goto install_route;
  	}
  
--	skb_reserve(skb, RX_OFFSET);
-+	offset = 0;
-+	len += NET_IP_ALIGN;
- 	skb_checksum_none_assert(skb);
- 	skb_put(skb, len);
+@@ -2261,8 +2271,11 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	cfg->fc_src_len = rtm->rtm_src_len;
+ 	cfg->fc_flags = RTF_UP;
+ 	cfg->fc_protocol = rtm->rtm_protocol;
++	cfg->type = rtm->rtm_type;
  
-@@ -517,10 +524,11 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 	/* Make descriptor updates visible to hardware */
- 	wmb();
+-	if (rtm->rtm_type == RTN_UNREACHABLE)
++	if (rtm->rtm_type == RTN_UNREACHABLE ||
++	    rtm->rtm_type == RTN_BLACKHOLE ||
++	    rtm->rtm_type == RTN_PROHIBIT)
+ 		cfg->fc_flags |= RTF_REJECT;
  
-+	__skb_pull(skb, NET_IP_ALIGN);
- 	skb->protocol = eth_type_trans(skb, bp->dev);
- 
- 	bp->stats.rx_packets++;
--	bp->stats.rx_bytes += len;
-+	bp->stats.rx_bytes += skb->len;
- 	netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
- 		   skb->len, skb->csum);
- 	netif_receive_skb(skb);
-@@ -985,6 +993,7 @@ static void macb_init_hw(struct macb *bp)
- 	__macb_set_hwaddr(bp);
- 
- 	config = macb_mdc_clk_div(bp);
-+	config |= MACB_BF(RBOF, NET_IP_ALIGN);	/* Make eth data aligned */
- 	config |= MACB_BIT(PAE);		/* PAuse Enable */
- 	config |= MACB_BIT(DRFCS);		/* Discard Rx FCS */
- 	config |= MACB_BIT(BIG);		/* Receive oversized frames */
+ 	if (rtm->rtm_type == RTN_LOCAL)
+@@ -2391,8 +2404,19 @@ static int rt6_fill_node(struct net *net,
+ 	rtm->rtm_table = table;
+ 	if (nla_put_u32(skb, RTA_TABLE, table))
+ 		goto nla_put_failure;
+-	if (rt->rt6i_flags & RTF_REJECT)
+-		rtm->rtm_type = RTN_UNREACHABLE;
++	if (rt->rt6i_flags & RTF_REJECT) {
++		switch (rt->dst.error) {
++		case -EINVAL:
++			rtm->rtm_type = RTN_BLACKHOLE;
++			break;
++		case -EACCES:
++			rtm->rtm_type = RTN_PROHIBIT;
++			break;
++		default:
++			rtm->rtm_type = RTN_UNREACHABLE;
++			break;
++		}
++	}
+ 	else if (rt->rt6i_flags & RTF_LOCAL)
+ 		rtm->rtm_type = RTN_LOCAL;
+ 	else if (rt->dst.dev && (rt->dst.dev->flags & IFF_LOOPBACK))
 -- 
-1.7.10
+1.7.12
