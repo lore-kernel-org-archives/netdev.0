@@ -1,31 +1,53 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: NULL pointer dereference in xt_register_target()
-Date: Wed, 5 Sep 2012 23:43:51 +0800
-Message-ID: <CAM_iQpVUZ50RYLUgEHbcm7ua996hgE7Gj-P-bWNJutuvm1nUoQ@mail.gmail.com>
+From: Sage Weil <sage@inktank.com>
+Subject: Re: [PATCH] ceph: [PATCH] ceph: use list_move_tail instead of
+ list_del/list_add_tail
+Date: Wed, 5 Sep 2012 08:48:31 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.1209050848220.8916@cobra.newdream.net>
+References: <CAPgLHd-+oONn90yq4yy6-NKDcSwTduqu44ZUFbSCDP8bci84qw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:32827 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758848Ab2IEPnw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 11:43:52 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@davemloft.net, yongjun_wei@trendmicro.com.cn,
+	ceph-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
+Return-path: <ceph-devel-owner@vger.kernel.org>
+In-Reply-To: <CAPgLHd-+oONn90yq4yy6-NKDcSwTduqu44ZUFbSCDP8bci84qw@mail.gmail.com>
+Sender: ceph-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi, folks,
+Applied to the ceph queue. Thanks!
+sage
 
-The latest net-next tree can't boot due to a NULL ptr def
-bug in the kernel, the full backtrack is:
 
-http://img1.douban.com/view/photo/photo/public/p1697139550.jpg
+On Wed, 5 Sep 2012, Wei Yongjun wrote:
 
-the kernel .config file is:
-
-http://pastebin.com/9YTnkqKN
-
-I don't have time to look into the issue. If you need other info,
-please let me know.
-
-Thanks.
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> Using list_move_tail() instead of list_del() + list_add_tail().
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> ---
+>  net/ceph/pagelist.c | 5 ++---
+>  1 file changed, 2 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/ceph/pagelist.c b/net/ceph/pagelist.c
+> index 665cd23..92866be 100644
+> --- a/net/ceph/pagelist.c
+> +++ b/net/ceph/pagelist.c
+> @@ -1,4 +1,3 @@
+> -
+>  #include <linux/module.h>
+>  #include <linux/gfp.h>
+>  #include <linux/pagemap.h>
+> @@ -134,8 +133,8 @@ int ceph_pagelist_truncate(struct ceph_pagelist *pl,
+>  	ceph_pagelist_unmap_tail(pl);
+>  	while (pl->head.prev != c->page_lru) {
+>  		page = list_entry(pl->head.prev, struct page, lru);
+> -		list_del(&page->lru);                /* remove from pagelist */
+> -		list_add_tail(&page->lru, &pl->free_list); /* add to reserve */
+> +		/* move from pagelist to reserve */
+> +		list_move_tail(&page->lru, &pl->free_list);
+>  		++pl->num_pages_free;
+>  	}
+>  	pl->room = c->room;
+> 
+> 
