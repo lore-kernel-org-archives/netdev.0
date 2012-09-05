@@ -1,37 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] usbnet: drop unneeded check for NULL
-Date: Wed, 05 Sep 2012 12:50:16 -0400 (EDT)
-Message-ID: <20120905.125016.2259674613767082102.davem@davemloft.net>
-References: <20120904.123740.1915830868205918256.davem@davemloft.net>
-	<20120905044712.GA2284@netboy.at.omicron.at>
-	<2037108.ZemStJh9zr@linux-lqwf.site>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net-next] netfilter: x_tables: xt_init() should run
+ earlier
+Date: Wed, 5 Sep 2012 18:53:21 +0200
+Message-ID: <20120905165321.GA22243@1984>
+References: <CAM_iQpVUZ50RYLUgEHbcm7ua996hgE7Gj-P-bWNJutuvm1nUoQ@mail.gmail.com>
+ <1346860506.13121.148.camel@edumazet-glaptop>
+ <1346861569.13121.149.camel@edumazet-glaptop>
+ <1346863073.13121.155.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, netdev@vger.kernel.org
-To: oneukum@suse.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42580 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750800Ab2IEQuU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 12:50:20 -0400
-In-Reply-To: <2037108.ZemStJh9zr@linux-lqwf.site>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1346863073.13121.155.camel@edumazet-glaptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Oliver Neukum <oneukum@suse.de>
-Date: Wed, 05 Sep 2012 08:24:25 +0200
+Hi Eric,
 
-> On Wednesday 05 September 2012 06:47:12 Richard Cochran wrote:
->> and so I think the problem that the test addresses is still present,
->> or am I missing something?
+On Wed, Sep 05, 2012 at 06:37:53PM +0200, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> No,
+> Cong Wang reported a NULL dereference in xt_register_target()
 > 
-> you are right. Thank you.
+> It turns out xt_nat_init() was called before xt_init(), so xt array
+> was not yet setup.
 > 
-> Dave, for now, please don't apply this patch. In the long run, this crap
-> in cdc-ncm needs to go. I am starting rewriting this driver right now.
+> xt_init() should be marked core_initcall() to solve this problem.
+> 
+> Reported-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/netfilter/x_tables.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+> index 8d987c3..afcea11 100644
+> --- a/net/netfilter/x_tables.c
+> +++ b/net/netfilter/x_tables.c
+> @@ -1390,6 +1390,6 @@ static void __exit xt_fini(void)
+>  	kfree(xt);
+>  }
+>  
+> -module_init(xt_init);
+> +core_initcall(xt_init);
+>  module_exit(xt_fini);
 
-I already applied it several days ago, someone send me a revert with a
-verbose commit message explaining the situation.
+It seems we've clashed fixing this, sorry. Can you still see any
+problem with my patch?
+
+Thanks for looking into this.
