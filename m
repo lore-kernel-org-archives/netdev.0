@@ -1,33 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bug 47021] New: kernel panic with l2tpv3 & mtu > 1500
-Date: Wed, 05 Sep 2012 10:34:12 +0200
-Message-ID: <1346834052.13121.97.camel@edumazet-glaptop>
-References: <20120904090756.71b34feb@nehalam.linuxnetplumber.net>
-	 <1346788334.13121.82.camel@edumazet-glaptop>
-	 <20120904125458.7d97ec38@nehalam.linuxnetplumber.net>
-	 <50470324.5040805@atlas.cz>
+From: Steven Whitehouse <swhiteho@redhat.com>
+Subject: Re: [PATCH] decnet: fix shutdown parameter checking
+Date: Wed, 05 Sep 2012 09:37:56 +0100
+Message-ID: <1346834276.2799.4.camel@menhir>
+References: <1346035027-2347-1-git-send-email-xi.wang@gmail.com>
+	 <1346059001.2703.7.camel@menhir>
+	 <20120831.155719.2228399422573401952.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: a1 <a1bert@atlas.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:41506 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750990Ab2IEIeS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 04:34:18 -0400
-Received: by bkwj10 with SMTP id j10so101567bkw.19
-        for <netdev@vger.kernel.org>; Wed, 05 Sep 2012 01:34:17 -0700 (PDT)
-In-Reply-To: <50470324.5040805@atlas.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: xi.wang@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120831.155719.2228399422573401952.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-09-05 at 09:45 +0200, a1 wrote:
-> Thanks, it definitely helped, no more panics now...
+Hi,
 
-It seems MTU of device is wrong, and lot of packets are fragmented...
+On Fri, 2012-08-31 at 15:57 -0400, David Miller wrote:
+> From: Steven Whitehouse <swhiteho@redhat.com>
+> Date: Mon, 27 Aug 2012 10:16:41 +0100
+> 
+> > On Sun, 2012-08-26 at 22:37 -0400, Xi Wang wrote:
+> >> The allowed value of "how" is SHUT_RD/SHUT_WR/SHUT_RDWR (0/1/2),
+> >> rather than SHUTDOWN_MASK (3).
+> >> 
+> >> Signed-off-by: Xi Wang <xi.wang@gmail.com>
+> > Acked-by: Steven Whitehouse <swhiteho@redhat.com>
+> 
+> Applied to net-next.
+> 
+> > Although it could be argued that we should also continue to accept the
+> > value 3 just in case there is any userland software out there which
+> > sends that value,
+> 
+> True, but this is a rather standard BSD socket interface with a very
+> specific small set of legitimate input parameters.  Allowing
+> deviation, even for compatability for specific protocols, is largely
+> unwise.
 
-Its currently 1488, but it really should be less than that (accounting
-for the IP+UDP header)
+Yes, I'd agree on the whole, and certainly if this was a recent
+addition. However since this code has been around for somewhere close to
+16 years now, I'd say that means that either (a) nobody calls shutdown
+for DECnet or (b) existing users are buggy too.
 
-I wonder if anybody ever used this code ?
+We do have a precedent for this kind of compatibility, such as the AX.25
+use of SOCK_SEQPACKET.
+
+However, I'm not overly worried and we'll soon know if it will cause any
+problems or not,
+
+Steve.
