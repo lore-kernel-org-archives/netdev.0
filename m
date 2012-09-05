@@ -1,63 +1,93 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] usbnet: drop unneeded check for NULL
-Date: Wed, 5 Sep 2012 23:14:35 +0100
-Message-ID: <1346883275.5325.28.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120904.123740.1915830868205918256.davem@davemloft.net>
-	 <20120905044712.GA2284@netboy.at.omicron.at>
-	 <2037108.ZemStJh9zr@linux-lqwf.site>
-	 <20120905.125016.2259674613767082102.davem@davemloft.net>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: Re: sctp_close/sk_free: kernel BUG at arch/x86/mm/physaddr.c:18!
+Date: Thu, 6 Sep 2012 06:28:50 +0800
+Message-ID: <20120905222850.GA11230@localhost>
+References: <20120904140411.GB15068@localhost>
+ <5046361C.5070602@pengutronix.de>
+ <87mx15zfze.fsf@xmission.com>
+ <20120905145508.GA9450@localhost>
+ <50476931.20100@pengutronix.de>
+ <1346859046.13121.144.camel@edumazet-glaptop>
+ <1346859645.13121.146.camel@edumazet-glaptop>
+ <1346864220.13121.157.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <oneukum@suse.de>, <richardcochran@gmail.com>,
-	<netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:39105 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755066Ab2IEWOj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 18:14:39 -0400
-In-Reply-To: <20120905.125016.2259674613767082102.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	"H.K. Jerry Chu" <hkchu@google.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	networking <netdev@vger.kernel.org>, linux-can@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1346864220.13121.157.camel@edumazet-glaptop>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-09-05 at 12:50 -0400, David Miller wrote:
-> From: Oliver Neukum <oneukum@suse.de>
-> Date: Wed, 05 Sep 2012 08:24:25 +0200
+On Wed, Sep 05, 2012 at 06:57:00PM +0200, Eric Dumazet wrote:
+> On Wed, 2012-09-05 at 17:40 +0200, Eric Dumazet wrote:
 > 
-> > On Wednesday 05 September 2012 06:47:12 Richard Cochran wrote:
-> >> and so I think the problem that the test addresses is still present,
-> >> or am I missing something?
+> > Could you test the following patch please ?
+
+It works - no single error for 1000 boots!
+
+btw, the first bad commit has been bisected to 
+
+        commit 8336886f786fdacbc19b719c1f7ea91eb70706d4
+        Author: Jerry Chu <hkchu@google.com>
+        Date:   Fri Aug 31 12:29:12 2012 +0000
+
+            tcp: TCP Fast Open Server - support TFO listeners
+
+> > (Not sure why sctp doesnt memset/bzero its whole socket by the way...)
 > > 
-> > No,
-> > 
-> > you are right. Thank you.
-> > 
-> > Dave, for now, please don't apply this patch. In the long run, this crap
-> > in cdc-ncm needs to go. I am starting rewriting this driver right now.
+> > Thanks
 > 
-> I already applied it several days ago, someone send me a revert with a
-> verbose commit message explaining the situation.
+> Here is a more complete patch, as there are three potential problems,
+> not only one :
 
-cdc-ncm is aggregating skbs into jumbo USB packets and then, because the
-netdev is not signalled when the qdisc stops transmitting, flushing them
-after one scheduler tick.  Flushing is done by calling
-usbnet_start_xmit() with a null skb pointer and then substituting a real
-skb in the tx_fixup callback.
+Great! I'll start tests for it.
 
-Perhaps the skb_tx_timestamp() call should be moved below the
-'if (info->tx_fixup)' block, at which point skb is definitely non-null.
-It doesn't look like cdc-ncm will provide useful timestamps either way.
+Thanks,
+Fengguang
 
-cdc-ncm's aggregation could be improved by either (1) implementing some
-type of GSO with appropriate gso_max_size and gso_max_segs limits (2)
-adding an explicit transmit flushing operation, similar to that
-Alexander Duyck proposed.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index 4f70ef0..845372b 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -149,11 +149,8 @@ void inet_sock_destruct(struct sock *sk)
+>  		pr_err("Attempt to release alive inet socket %p\n", sk);
+>  		return;
+>  	}
+> -	if (sk->sk_type == SOCK_STREAM) {
+> -		struct fastopen_queue *fastopenq =
+> -			inet_csk(sk)->icsk_accept_queue.fastopenq;
+> -		kfree(fastopenq);
+> -	}
+> +	if (sk->sk_protocol == IPPROTO_TCP)
+> +		kfree(inet_csk(sk)->icsk_accept_queue.fastopenq);
+>  
+>  	WARN_ON(atomic_read(&sk->sk_rmem_alloc));
+>  	WARN_ON(atomic_read(&sk->sk_wmem_alloc));
+> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+> index 8464b79..f0c5b9c 100644
+> --- a/net/ipv4/inet_connection_sock.c
+> +++ b/net/ipv4/inet_connection_sock.c
+> @@ -314,7 +314,7 @@ struct sock *inet_csk_accept(struct sock *sk, int flags, int *err)
+>  	newsk = req->sk;
+>  
+>  	sk_acceptq_removed(sk);
+> -	if (sk->sk_type == SOCK_STREAM && queue->fastopenq != NULL) {
+> +	if (sk->sk_protocol == IPPROTO_TCP && queue->fastopenq != NULL) {
+>  		spin_lock_bh(&queue->fastopenq->lock);
+>  		if (tcp_rsk(req)->listener) {
+>  			/* We are still waiting for the final ACK from 3WHS
+> @@ -775,7 +775,7 @@ void inet_csk_listen_stop(struct sock *sk)
+>  
+>  		percpu_counter_inc(sk->sk_prot->orphan_count);
+>  
+> -		if (sk->sk_type == SOCK_STREAM && tcp_rsk(req)->listener) {
+> +		if (sk->sk_protocol == IPPROTO_TCP && tcp_rsk(req)->listener) {
+>  			BUG_ON(tcp_sk(child)->fastopen_rsk != req);
+>  			BUG_ON(sk != tcp_rsk(req)->listener);
+>  
+> 
