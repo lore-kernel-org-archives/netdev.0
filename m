@@ -1,39 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next.git 4/7] stmmac: add Rx watchdog optimization to
- mitigate the DMA irqs
-Date: Wed, 05 Sep 2012 13:16:15 -0400 (EDT)
-Message-ID: <20120905.131615.1131246696009291033.davem@davemloft.net>
-References: <1346857432-24657-1-git-send-email-peppe.cavallaro@st.com>
-	<1346857432-24657-5-git-send-email-peppe.cavallaro@st.com>
-	<1346861675.5325.13.camel@bwh-desktop.uk.solarflarecom.com>
+From: Naresh Kumar Inna <naresh@chelsio.com>
+Subject: Re: [V2 PATCH 1/9] csiostor: Chelsio FCoE offload driver submission
+ (sources part 1).
+Date: Wed, 5 Sep 2012 22:48:24 +0530
+Message-ID: <50478960.5000003@chelsio.com>
+References: <1346848442-4573-1-git-send-email-naresh@chelsio.com> <1346848442-4573-2-git-send-email-naresh@chelsio.com> <20120905092326.0a54226f@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: "JBottomley@parallels.com" <JBottomley@parallels.com>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	Dimitrios Michailidis <dm@chelsio.com>,
+	Casey Leedom <leedom@chelsio.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Chethan Seshadri <chethan@chelsio.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42859 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753895Ab2IERQR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 13:16:17 -0400
-In-Reply-To: <1346861675.5325.13.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:1907 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753837Ab2IERSh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 13:18:37 -0400
+In-Reply-To: <20120905092326.0a54226f@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 5 Sep 2012 17:14:35 +0100
-
-> On Wed, 2012-09-05 at 17:03 +0200, Giuseppe CAVALLARO wrote:
->> GMAC devices newer than databook 3.50 has an embedded timer
->> that can be used for mitigating the number of interrupts.
->> So this patch adds this optimizations.
->> Old MAC will continue to use NAPI.
-> [...]
+On 9/5/2012 9:53 PM, Stephen Hemminger wrote:
+> On Wed,  5 Sep 2012 18:03:54 +0530
+> Naresh Kumar Inna <naresh@chelsio.com> wrote:
 > 
-> Interrupt moderation is *not* a substitute for NAPI; you should continue
-> using NAPI as well.
+>> +
+>> +/* FCoE Adapter types & its description */
+>> +static struct csio_adap_desc csio_fcoe_adapters[] = {
+> 
+> Tables like this should be const.
+> 
 
-Absolutely correct, these two facilities are _complementary_ not _exlusive_.
-
-In fact, the most optimal driver will use NAPI with relatively short HW
-mitigation settings.
+Thanks for reviewing. I will change it to const.
