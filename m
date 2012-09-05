@@ -1,72 +1,118 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH 04/10] net/macb: Fix a race in macb_start_xmit()
-Date: Wed, 5 Sep 2012 10:19:11 +0200
-Message-ID: <40f02ee50a29aaec6c949432a1bcf09f4b027181.1346775479.git.nicolas.ferre@atmel.com>
+Subject: [PATCH 02/10] net/macb: memory barriers cleanup
+Date: Wed, 5 Sep 2012 10:19:09 +0200
+Message-ID: <8f4d7383d051ed4e3617944141c7746505e35638.1346775479.git.nicolas.ferre@atmel.com>
 References: <cover.1346775479.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-arm-kernel@lists.infradead.org>, <davem@davemloft.net>,
-	<havard@skinnemoen.net>, <nicolas.ferre@atmel.com>,
-	<plagnioj@jcrosoft.com>, <jamie@jamieiles.com>,
-	<linux-kernel@vger.kernel.org>, <patrice.vilchez@atmel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: patrice.vilchez@atmel.com, nicolas.ferre@atmel.com,
+ linux-kernel@vger.kernel.org, havard@skinnemoen.net, jamie@jamieiles.com,
+ plagnioj@jcrosoft.com, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <cover.1346775479.git.nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 From: Havard Skinnemoen <havard@skinnemoen.net>
 
-Fix a race in macb_start_xmit() where we unconditionally set the TSTART bit.
-If an underrun just happened (we do this with interrupts disabled, so it might
-not have been handled yet), the controller starts transmitting from the first
-entry in the ring, which is usually wrong.
-Restart the controller after error handling.
+Remove a couple of unneeded barriers and document the remaining ones.
 
 Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
 [nicolas.ferre@atmel.com: split patch in topics]
 Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 ---
- drivers/net/ethernet/cadence/macb.c |   20 +++++++++++++++++++-
- 1 file changed, 19 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/cadence/macb.c |   18 ++++++++++++++----
+ 1 file changed, 14 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 2228dfc..f4b8adf 100644
+index 9a10f69..26ca01e 100644
 --- a/drivers/net/ethernet/cadence/macb.c
 +++ b/drivers/net/ethernet/cadence/macb.c
-@@ -390,6 +390,13 @@ static void macb_tx(struct macb *bp)
- 		dev_kfree_skb_irq(skb);
+@@ -372,7 +372,9 @@ static void macb_tx(struct macb *bp)
+ 
+ 		BUG_ON(skb == NULL);
+ 
++		/* Make hw descriptor updates visible to CPU */
+ 		rmb();
++
+ 		bufstat = bp->tx_ring[tail].ctrl;
+ 
+ 		if (!(bufstat & MACB_BIT(TX_USED)))
+@@ -415,7 +417,10 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 			if (frag == last_frag)
+ 				break;
+ 		}
++
++		/* Make descriptor updates visible to hardware */
+ 		wmb();
++
+ 		return 1;
  	}
  
-+	/*
-+	 * Someone may have submitted a new frame while this interrupt
-+	 * was pending, or we may just have handled an error.
-+	 */
-+	if (head != tail && !(status & MACB_BIT(TGO)))
-+		macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(TSTART));
+@@ -436,12 +441,14 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 					       frag_len);
+ 		offset += RX_BUFFER_SIZE;
+ 		bp->rx_ring[frag].addr &= ~MACB_BIT(RX_USED);
+-		wmb();
+ 
+ 		if (frag == last_frag)
+ 			break;
+ 	}
+ 
++	/* Make descriptor updates visible to hardware */
++	wmb();
 +
- 	bp->tx_tail = tail;
- 	if (netif_queue_stopped(bp->dev) &&
- 	    TX_BUFFS_AVAIL(bp) > MACB_TX_WAKEUP_THRESH)
-@@ -696,7 +703,18 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	skb->protocol = eth_type_trans(skb, bp->dev);
  
- 	skb_tx_timestamp(skb);
+ 	bp->stats.rx_packets++;
+@@ -461,6 +468,8 @@ static void discard_partial_frame(struct macb *bp, unsigned int begin,
  
--	macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(TSTART));
-+	/*
-+	 * Only start the controller if the queue was empty; otherwise
-+	 * we may race against the hardware resetting the ring pointer
-+	 * due to a transmit error.
-+	 *
-+	 * If the controller is idle but the queue isn't empty, there
-+	 * must be a pending interrupt that will trigger as soon as we
-+	 * re-enable interrupts, and the interrupt handler will make
-+	 * sure the controler is started.
-+	 */
-+	if (NEXT_TX(bp->tx_tail) == bp->tx_head)
-+		macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(TSTART));
+ 	for (frag = begin; frag != end; frag = NEXT_RX(frag))
+ 		bp->rx_ring[frag].addr &= ~MACB_BIT(RX_USED);
++
++	/* Make descriptor updates visible to hardware */
+ 	wmb();
  
- 	if (TX_BUFFS_AVAIL(bp) < 1)
- 		netif_stop_queue(dev);
+ 	/*
+@@ -479,7 +488,9 @@ static int macb_rx(struct macb *bp, int budget)
+ 	for (; budget > 0; tail = NEXT_RX(tail)) {
+ 		u32 addr, ctrl;
+ 
++		/* Make hw descriptor updates visible to CPU */
+ 		rmb();
++
+ 		addr = bp->rx_ring[tail].addr;
+ 		ctrl = bp->rx_ring[tail].ctrl;
+ 
+@@ -674,6 +685,8 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	bp->tx_ring[entry].addr = mapping;
+ 	bp->tx_ring[entry].ctrl = ctrl;
++
++	/* Make newly initialized descriptor visible to hardware */
+ 	wmb();
+ 
+ 	entry = NEXT_TX(entry);
+@@ -782,9 +795,6 @@ static void macb_init_rings(struct macb *bp)
+ 
+ static void macb_reset_hw(struct macb *bp)
+ {
+-	/* Make sure we have the write buffer for ourselves */
+-	wmb();
+-
+ 	/*
+ 	 * Disable RX and TX (XXX: Should we halt the transmission
+ 	 * more gracefully?)
 -- 
 1.7.10
