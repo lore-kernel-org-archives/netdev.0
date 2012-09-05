@@ -1,57 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] usbnet: drop unneeded check for NULL
-Date: Wed, 5 Sep 2012 23:53:14 +0100
-Message-ID: <1346885594.5325.42.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120904.123740.1915830868205918256.davem@davemloft.net>
-	 <20120905.125016.2259674613767082102.davem@davemloft.net>
-	 <1346883275.5325.28.camel@bwh-desktop.uk.solarflarecom.com>
-	 <2059099.RnKXUv0tR1@linux-lqwf.site>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [V2 PATCH 2/9] csiostor: Chelsio FCoE offload driver submission
+ (sources part 2).
+Date: Wed, 5 Sep 2012 15:59:56 -0700
+Message-ID: <20120905155956.561b172d@nehalam.linuxnetplumber.net>
+References: <1346848442-4573-1-git-send-email-naresh@chelsio.com>
+	<1346848442-4573-3-git-send-email-naresh@chelsio.com>
+	<20120905092957.7d24187e@nehalam.linuxnetplumber.net>
+	<50478F52.208@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <richardcochran@gmail.com>,
-	<netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: Oliver Neukum <oliver@neukum.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:7687 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1759772Ab2IEWxS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 18:53:18 -0400
-In-Reply-To: <2059099.RnKXUv0tR1@linux-lqwf.site>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "JBottomley@parallels.com" <JBottomley@parallels.com>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	Dimitrios Michailidis <dm@chelsio.com>,
+	Casey Leedom <leedom@chelsio.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Chethan Seshadri <chethan@chelsio.com>
+To: Naresh Kumar Inna <naresh@chelsio.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <50478F52.208@chelsio.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-09-06 at 00:34 +0200, Oliver Neukum wrote:
-> On Wednesday 05 September 2012 23:14:35 Ben Hutchings wrote:
-> > cdc-ncm is aggregating skbs into jumbo USB packets and then, because the
-> > netdev is not signalled when the qdisc stops transmitting, flushing them
-> > after one scheduler tick.  Flushing is done by calling
-> > usbnet_start_xmit() with a null skb pointer and then substituting a real
-> > skb in the tx_fixup callback.
+On Wed, 5 Sep 2012 23:13:46 +0530
+Naresh Kumar Inna <naresh@chelsio.com> wrote:
+
+> On 9/5/2012 9:59 PM, Stephen Hemminger wrote:
+> > On Wed,  5 Sep 2012 18:03:55 +0530
+> > Naresh Kumar Inna <naresh@chelsio.com> wrote:
 > > 
-> > Perhaps the skb_tx_timestamp() call should be moved below the
-> > 'if (info->tx_fixup)' block, at which point skb is definitely non-null.
-> > It doesn't look like cdc-ncm will provide useful timestamps either way.
+> >> This patch contains code for driver initialization, driver resource
+> >> allocation and the Work Request module functionality. Driver initialization
+> >> includes module entry/exit points, registration with PCI, FC transport and
+> >> SCSI mid layer subsystems. The Work Request module provides services for
+> >> allocation of DMA queues, posting Work Requests on them and processing
+> >> completions.
+> >>
+> >> Signed-off-by: Naresh Kumar Inna <naresh@chelsio.com>
 > > 
-> > cdc-ncm's aggregation could be improved by either (1) implementing some
-> > type of GSO with appropriate gso_max_size and gso_max_segs limits (2)
-> > adding an explicit transmit flushing operation, similar to that
-> > Alexander Duyck proposed.
+> > Although the comments say you are using proc fs, there is no
+> > code here related to that.
 > 
-> Actually, I thought about changing it. This is the current version. What do you think?
-> It lacks a bit of logic in the completion handler still.
-[...]
+> I will remove that comment.
+> 
+> > 
+> > Any use of debugfs must be conditional the DEBUG_FS kernel configuration
+> > parameter.  Your code probably will break if DEBUG_FS is not
+> > enabled.  For a possible alternative see how a sub-config parameter
+> > was added in sky2 driver.
+> > 
+> 
+> It appears that debugfs_create_dir() returns an error if DEBUG_FS is not
+> enabled. Considering the driver handles this error and continues
+> initialization, do you still think I should guard this code within DEBUG_FS?
+> 
+> Thanks.
 
-I'm not familiar with the USB net framework (or USB in general), so I
-don't know whether this would work.  But it looks like you're trying to
-use the TX completions to trigger flushing of the aggregated USB packet,
-and flushing immediately if there are no packets currently outstanding.
-That seems like a reasonable approach.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+That works, just make sure and test it.
