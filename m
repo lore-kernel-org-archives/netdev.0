@@ -1,9 +1,9 @@
 From: Naresh Kumar Inna <naresh@chelsio.com>
-Subject: Re: [V2 PATCH 1/9] csiostor: Chelsio FCoE offload driver submission
- (sources part 1).
-Date: Wed, 5 Sep 2012 22:48:24 +0530
-Message-ID: <50478960.5000003@chelsio.com>
-References: <1346848442-4573-1-git-send-email-naresh@chelsio.com> <1346848442-4573-2-git-send-email-naresh@chelsio.com> <20120905092326.0a54226f@nehalam.linuxnetplumber.net>
+Subject: Re: [V2 PATCH 6/9] csiostor: Chelsio FCoE offload driver submission
+ (headers part 1).
+Date: Wed, 5 Sep 2012 22:56:14 +0530
+Message-ID: <50478B36.6000103@chelsio.com>
+References: <1346848442-4573-1-git-send-email-naresh@chelsio.com> <1346848442-4573-7-git-send-email-naresh@chelsio.com> <20120905093133.5f97fcbb@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
@@ -14,24 +14,17 @@ Cc: "JBottomley@parallels.com" <JBottomley@parallels.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Chethan Seshadri <chethan@chelsio.com>
 To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:1907 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753837Ab2IERSh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 13:18:37 -0400
-In-Reply-To: <20120905092326.0a54226f@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20120905093133.5f97fcbb@nehalam.linuxnetplumber.net>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9/5/2012 9:53 PM, Stephen Hemminger wrote:
-> On Wed,  5 Sep 2012 18:03:54 +0530
+On 9/5/2012 10:01 PM, Stephen Hemminger wrote:
+> On Wed,  5 Sep 2012 18:03:59 +0530
 > Naresh Kumar Inna <naresh@chelsio.com> wrote:
 > 
->> +
->> +/* FCoE Adapter types & its description */
->> +static struct csio_adap_desc csio_fcoe_adapters[] = {
+>> +#define CSIO_ROUNDUP(__v, __r)		(((__v) + (__r) - 1) / (__r))
 > 
-> Tables like this should be const.
+> This is similar to existing round_up() in kernel.h could you use that?
 > 
-
-Thanks for reviewing. I will change it to const.
+I will replace it with round_up() if it serves the same purpose. Thanks.
