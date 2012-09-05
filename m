@@ -1,18 +1,17 @@
 From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] bnx2x: use list_move_tail instead of list_del/list_add_tail
-Date: Wed, 5 Sep 2012 15:06:55 +0800
-Message-ID: <CAPgLHd-P-x3ZqrUMirMBbx74vz1XXNLb-nb3UWa43nVmmwNMCg@mail.gmail.com>
+Subject: [PATCH] ath6kl: use list_move_tail instead of list_del/list_add_tail
+Date: Wed, 5 Sep 2012 15:07:29 +0800
+Message-ID: <CAPgLHd-6RmrLpi9FPTFhXiA+BHywGknmvNAd-KCdHaM+tn0qgQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: eilong@broadcom.com
+Cc: yongjun_wei@trendmicro.com.cn, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: kvalo@qca.qualcomm.com, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:47799 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751238Ab2IEHG4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 03:06:56 -0400
-Received: by qaas11 with SMTP id s11so341872qaa.19
-        for <netdev@vger.kernel.org>; Wed, 05 Sep 2012 00:06:55 -0700 (PDT)
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:41477 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753287Ab2IEHH3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 03:07:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -25,20 +24,38 @@ spatch with a semantic match is used to found this problem.
 
 Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/wireless/ath/ath6kl/htc_pipe.c | 14 ++++++--------
+ 1 file changed, 6 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-index 62f754b..5a5fbf5 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-@@ -229,8 +229,7 @@ static inline int bnx2x_exe_queue_step(struct bnx2x *bp,
- 			 */
- 			list_add_tail(&spacer.link, &o->pending_comp);
- 			mb();
--			list_del(&elem->link);
--			list_add_tail(&elem->link, &o->pending_comp);
-+			list_move_tail(&elem->link, &o->pending_comp);
- 			list_del(&spacer.link);
- 		} else
- 			break;
+diff --git a/drivers/net/wireless/ath/ath6kl/htc_pipe.c b/drivers/net/wireless/ath/ath6kl/htc_pipe.c
+index f9626c7..ba6bd49 100644
+--- a/drivers/net/wireless/ath/ath6kl/htc_pipe.c
++++ b/drivers/net/wireless/ath/ath6kl/htc_pipe.c
+@@ -374,9 +374,8 @@ static enum htc_send_queue_result htc_try_send(struct htc_target *target,
+ 				packet = list_first_entry(txq,
+ 							  struct htc_packet,
+ 							  list);
+-				list_del(&packet->list);
+-				/* insert into local queue */
+-				list_add_tail(&packet->list, &send_queue);
++				/* move to local queue */
++				list_move_tail(&packet->list, &send_queue);
+ 			}
+ 
+ 			/*
+@@ -399,11 +398,10 @@ static enum htc_send_queue_result htc_try_send(struct htc_target *target,
+ 					 * for cleanup */
+ 				} else {
+ 					/* callback wants to keep this packet,
+-					 * remove from caller's queue */
+-					list_del(&packet->list);
+-					/* put it in the send queue */
+-					list_add_tail(&packet->list,
+-						      &send_queue);
++					 * move from caller's queue to the send
++					 * queue */
++					list_move_tail(&packet->list,
++						       &send_queue);
+ 				}
+ 
+ 			}
