@@ -1,50 +1,36 @@
 From: Naresh Kumar Inna <naresh@chelsio.com>
-Subject: [V2 PATCH 5/9] csiostor: Chelsio FCoE offload driver submission (sources part 5).
-Date: Wed,  5 Sep 2012 18:03:58 +0530
-Message-ID: <1346848442-4573-6-git-send-email-naresh@chelsio.com>
+Subject: [V2 PATCH 3/9] csiostor: Chelsio FCoE offload driver submission (sources part 3).
+Date: Wed,  5 Sep 2012 18:03:56 +0530
+Message-ID: <1346848442-4573-4-git-send-email-naresh@chelsio.com>
 References: <1346848442-4573-1-git-send-email-naresh@chelsio.com>
 Cc: netdev@vger.kernel.org, naresh@chelsio.com, chethan@chelsio.com
 To: JBottomley@parallels.com, linux-scsi@vger.kernel.org,
 	dm@chelsio.com, leedom@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:20593 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753771Ab2IEHAa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 03:00:30 -0400
+Return-path: <linux-scsi-owner@vger.kernel.org>
 In-Reply-To: <1346848442-4573-1-git-send-email-naresh@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch contains code to implement the interrupt handling and the fast
-path I/O functionality. The interrupt handling includes allocation of
-MSIX vectors, registering and implemeting the interrupt service routines.
-The fast path I/O functionality includes posting the I/O request to firmware
-via Work Requests, tracking/completing them, and handling task management
-requests. SCSI midlayer host template implementation is also covered by
-this patch.
+This patch contains code for the FC transport template callbacks and the
+Mailbox module functionality. The FC transport callbacks include Virtual
+Node ports creation and deletion, FC session registration, unregistration and
+teardown. The Mailbox module provides services to issue/track/cancel
+mailbox commands and wrappers for them.
 
 Signed-off-by: Naresh Kumar Inna <naresh@chelsio.com>
 ---
-V2:
-- Inlined code instead of macro in csio_isr.c
-- Use true/false instead if CSIO_TRUE/CSIO_FALSE.
-- Use DMA_ defines instead of CSIO_IOREQF_DMA_ defines.
-- Replaced large local stack buffer with pre-allocated memory.
-- Replaced fast path macros with static functions.
-- Removed extra empty lines, needless comment.
-	    
- drivers/scsi/csiostor/csio_isr.c  |  624 +++++++++
- drivers/scsi/csiostor/csio_scsi.c | 2561 +++++++++++++++++++++++++++++++++++++
- 2 files changed, 3185 insertions(+), 0 deletions(-)
- create mode 100644 drivers/scsi/csiostor/csio_isr.c
- create mode 100644 drivers/scsi/csiostor/csio_scsi.c
+ drivers/scsi/csiostor/csio_attr.c |  809 +++++++++++++++++
+ drivers/scsi/csiostor/csio_mb.c   | 1769 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 2578 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/scsi/csiostor/csio_attr.c
+ create mode 100644 drivers/scsi/csiostor/csio_mb.c
 
-diff --git a/drivers/scsi/csiostor/csio_isr.c b/drivers/scsi/csiostor/csio_isr.c
+diff --git a/drivers/scsi/csiostor/csio_attr.c b/drivers/scsi/csiostor/csio_attr.c
 new file mode 100644
-index 0000000..7ee9777
+index 0000000..ad29fd9
 --- /dev/null
-+++ b/drivers/scsi/csiostor/csio_isr.c
-@@ -0,0 +1,624 @@
++++ b/drivers/scsi/csiostor/csio_attr.c
+@@ -0,0 +1,809 @@
 +/*
 + * This file is part of the Chelsio FCoE driver for Linux.
 + *
@@ -80,601 +66,786 @@ index 0000000..7ee9777
 + */
 +
 +#include <linux/kernel.h>
-+#include <linux/pci.h>
-+#include <linux/interrupt.h>
-+#include <linux/cpumask.h>
 +#include <linux/string.h>
++#include <linux/delay.h>
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/pci.h>
++#include <linux/mm.h>
++#include <linux/jiffies.h>
++#include <scsi/fc/fc_fs.h>
 +
 +#include "csio_init.h"
-+#include "csio_hw.h"
 +
-+static irqreturn_t
-+csio_nondata_isr(int irq, void *dev_id)
-+{
-+	struct csio_hw *hw = (struct csio_hw *) dev_id;
-+	int rv;
-+	unsigned long flags;
-+
-+	if (unlikely(!hw))
-+		return IRQ_NONE;
-+
-+	if (unlikely(pci_channel_offline(hw->pdev))) {
-+		CSIO_INC_STATS(hw, n_pcich_offline);
-+		return IRQ_NONE;
-+	}
-+
-+	spin_lock_irqsave(&hw->lock, flags);
-+	csio_hw_slow_intr_handler(hw);
-+	rv = csio_mb_isr_handler(hw);
-+
-+	if (rv == 0 && !(hw->flags & CSIO_HWF_FWEVT_PENDING)) {
-+		hw->flags |= CSIO_HWF_FWEVT_PENDING;
-+		spin_unlock_irqrestore(&hw->lock, flags);
-+		schedule_work(&hw->evtq_work);
-+		return IRQ_HANDLED;
-+	}
-+	spin_unlock_irqrestore(&hw->lock, flags);
-+	return IRQ_HANDLED;
-+}
++static void
++csio_vport_set_state(struct csio_lnode *ln);
 +
 +/*
-+ * csio_fwevt_handler - Common FW event handler routine.
-+ * @hw: HW module.
++ * csio_reg_rnode - Register a remote port with FC transport.
++ * @rn: Rnode representing remote port.
 + *
-+ * This is the ISR for FW events. It is shared b/w MSIX
-+ * and INTx handlers.
++ * Call fc_remote_port_add() to register this remote port with FC transport.
++ * If remote port is Initiator OR Target OR both, change the role appropriately.
++ *
 + */
-+static void
-+csio_fwevt_handler(struct csio_hw *hw)
++void
++csio_reg_rnode(struct csio_rnode *rn)
 +{
-+	int rv;
-+	unsigned long flags;
++	struct csio_lnode *ln		= csio_rnode_to_lnode(rn);
++	struct Scsi_Host *shost		= csio_ln_to_shost(ln);
++	struct fc_rport_identifiers ids;
++	struct fc_rport  *rport;
++	struct csio_service_parms *sp;
 +
-+	rv = csio_fwevtq_handler(hw);
++	ids.node_name	= wwn_to_u64(csio_rn_wwnn(rn));
++	ids.port_name	= wwn_to_u64(csio_rn_wwpn(rn));
++	ids.port_id	= rn->nport_id;
++	ids.roles	= FC_RPORT_ROLE_UNKNOWN;
 +
-+	spin_lock_irqsave(&hw->lock, flags);
-+	if (rv == 0 && !(hw->flags & CSIO_HWF_FWEVT_PENDING)) {
-+		hw->flags |= CSIO_HWF_FWEVT_PENDING;
-+		spin_unlock_irqrestore(&hw->lock, flags);
-+		schedule_work(&hw->evtq_work);
++	if (rn->role & CSIO_RNFR_INITIATOR || rn->role & CSIO_RNFR_TARGET) {
++		rport = rn->rport;
++		CSIO_ASSERT(rport != NULL);
++		goto update_role;
++	}
++
++	rn->rport = fc_remote_port_add(shost, 0, &ids);
++	if (!rn->rport) {
++		csio_ln_err(ln, "Failed to register rport = 0x%x.\n",
++					rn->nport_id);
 +		return;
 +	}
-+	spin_unlock_irqrestore(&hw->lock, flags);
 +
-+} /* csio_fwevt_handler */
++	ln->num_reg_rnodes++;
++	rport = rn->rport;
++	spin_lock_irq(shost->host_lock);
++	*((struct csio_rnode **)rport->dd_data) = rn;
++	spin_unlock_irq(shost->host_lock);
 +
-+/*
-+ * csio_fwevt_isr() - FW events MSIX ISR
-+ * @irq:
-+ * @dev_id:
-+ *
-+ * Process WRs on the FW event queue.
-+ *
-+ */
-+static irqreturn_t
-+csio_fwevt_isr(int irq, void *dev_id)
-+{
-+	struct csio_hw *hw = (struct csio_hw *) dev_id;
-+
-+	if (unlikely(!hw))
-+		return IRQ_NONE;
-+
-+	if (unlikely(pci_channel_offline(hw->pdev))) {
-+		CSIO_INC_STATS(hw, n_pcich_offline);
-+		return IRQ_NONE;
++	sp = &rn->rn_sparm;
++	rport->maxframe_size		= sp->csp.sp_bb_data;
++	if (ntohs(sp->clsp[2].cp_class) & FC_CPC_VALID)
++		rport->supported_classes = FC_COS_CLASS3;
++	else
++		rport->supported_classes = FC_COS_UNSPECIFIED;
++update_role:
++	if (rn->role & CSIO_RNFR_INITIATOR)
++		ids.roles |= FC_RPORT_ROLE_FCP_INITIATOR;
++	if (rn->role & CSIO_RNFR_TARGET) {
++		ids.roles |= FC_RPORT_ROLE_FCP_TARGET;
++		ln->n_scsi_tgts++;
 +	}
 +
-+	csio_fwevt_handler(hw);
++	if (ids.roles != FC_RPORT_ROLE_UNKNOWN)
++		fc_remote_port_rolechg(rport, ids.roles);
 +
-+	return IRQ_HANDLED;
++	rn->scsi_id = rport->scsi_target_id;
++
++	csio_ln_dbg(ln, "Remote port x%x role 0x%x registered\n",
++		rn->nport_id, ids.roles);
 +}
 +
 +/*
-+ * csio_fwevt_isr() - INTx wrapper for handling FW events.
-+ * @irq:
-+ * @dev_id:
-+ */
-+void
-+csio_fwevt_intx_handler(struct csio_hw *hw, void *wr, uint32_t len,
-+			   struct csio_fl_dma_buf *flb, void *priv)
-+{
-+	csio_fwevt_handler(hw);
-+} /* csio_fwevt_intx_handler */
-+
-+/*
-+ * csio_process_scsi_cmpl - Process a SCSI WR completion.
-+ * @hw: HW module.
-+ * @wr: The completed WR from the ingress queue.
-+ * @len: Length of the WR.
-+ * @flb: Freelist buffer array.
++ * csio_unreg_rnode - Unregister a remote port with FC transport.
++ * @rn: Rnode representing remote port.
++ *
++ * Call fc_remote_port_delete() to unregister this remote port with FC
++ * transport.
 + *
 + */
-+static void
-+csio_process_scsi_cmpl(struct csio_hw *hw, void *wr, uint32_t len,
-+			struct csio_fl_dma_buf *flb, void *cbfn_q)
++void
++csio_unreg_rnode(struct csio_rnode *rn)
 +{
-+	struct csio_ioreq *ioreq;
-+	uint8_t *scsiwr;
-+	uint8_t subop;
-+	void *cmnd;
-+	unsigned long flags;
++	struct csio_lnode *ln = csio_rnode_to_lnode(rn);
++	struct fc_rport *rport = rn->rport;
 +
-+	ioreq = csio_scsi_cmpl_handler(hw, wr, len, flb, NULL, &scsiwr);
-+	if (likely(ioreq)) {
-+		if (unlikely(*scsiwr == FW_SCSI_ABRT_CLS_WR)) {
-+			subop = FW_SCSI_ABRT_CLS_WR_SUB_OPCODE_GET(
-+					((struct fw_scsi_abrt_cls_wr *)
-+					    scsiwr)->sub_opcode_to_chk_all_io);
++	rn->role &= ~(CSIO_RNFR_INITIATOR | CSIO_RNFR_TARGET);
++	fc_remote_port_delete(rport);
++	ln->num_reg_rnodes--;
 +
-+			csio_dbg(hw, "%s cmpl recvd ioreq:%p status:%d\n",
-+				    subop ? "Close" : "Abort",
-+				    ioreq, ioreq->wr_status);
++	if (ln->n_scsi_tgts)
++		ln->n_scsi_tgts--;
 +
-+			spin_lock_irqsave(&hw->lock, flags);
-+			if (subop)
-+				csio_scsi_closed(ioreq,
-+						 (struct list_head *)cbfn_q);
-+			else
-+				csio_scsi_aborted(ioreq,
-+						  (struct list_head *)cbfn_q);
++	if (ln->last_scan_ntgts)
++		ln->last_scan_ntgts--;
++
++	csio_ln_dbg(ln, "Remote port x%x un-registered\n", rn->nport_id);
++}
++
++/*
++ * csio_lnode_async_event - Async events from local port.
++ * @ln: lnode representing local port.
++ *
++ * Async events from local node that FC transport/SCSI ML
++ * should be made aware of (Eg: RSCN).
++ */
++void
++csio_lnode_async_event(struct csio_lnode *ln, enum csio_ln_fc_evt fc_evt)
++{
++	switch (fc_evt) {
++	case CSIO_LN_FC_RSCN:
++		/* Get payload of rscn from ln */
++		/* For each RSCN entry */
 +			/*
-+			 * We call scsi_done for I/Os that driver thinks aborts
-+			 * have timed out. If there is a race caused by FW
-+			 * completing abort at the exact same time that the
-+			 * driver has deteced the abort timeout, the following
-+			 * check prevents calling of scsi_done twice for the
-+			 * same command: once from the eh_abort_handler, another
-+			 * from csio_scsi_isr_handler(). This also avoids the
-+			 * need to check if csio_scsi_cmnd(req) is NULL in the
-+			 * fast path.
++			 * fc_host_post_event(shost,
++			 *		      fc_get_event_number(),
++			 *		      FCH_EVT_RSCN,
++			 *		      rscn_entry);
 +			 */
-+			cmnd = csio_scsi_cmnd(ioreq);
-+			if (unlikely(cmnd == NULL))
-+				list_del_init(&ioreq->sm.sm_list);
-+
-+			spin_unlock_irqrestore(&hw->lock, flags);
-+
-+			if (unlikely(cmnd == NULL))
-+				csio_put_scsi_ioreq_lock(hw,
-+						csio_hw_to_scsim(hw), ioreq);
-+		} else {
-+			spin_lock_irqsave(&hw->lock, flags);
-+			csio_scsi_completed(ioreq, (struct list_head *)cbfn_q);
-+			spin_unlock_irqrestore(&hw->lock, flags);
-+		}
-+	}
-+}
-+
-+/*
-+ * csio_scsi_isr_handler() - Common SCSI ISR handler.
-+ * @iq: Ingress queue pointer.
-+ *
-+ * Processes SCSI completions on the SCSI IQ indicated by scm->iq_idx
-+ * by calling csio_wr_process_iq_idx. If there are completions on the
-+ * isr_cbfn_q, yank them out into a local queue and call their io_cbfns.
-+ * Once done, add these completions onto the freelist.
-+ * This routine is shared b/w MSIX and INTx.
-+ */
-+static inline irqreturn_t
-+csio_scsi_isr_handler(struct csio_q *iq)
-+{
-+	struct csio_hw *hw = (struct csio_hw *)iq->owner;
-+	LIST_HEAD(cbfn_q);
-+	struct list_head *tmp;
-+	struct csio_scsim *scm;
-+	struct csio_ioreq *ioreq;
-+	int isr_completions = 0;
-+
-+	scm = csio_hw_to_scsim(hw);
-+
-+	if (unlikely(csio_wr_process_iq(hw, iq, csio_process_scsi_cmpl,
-+					&cbfn_q) != 0))
-+		return IRQ_NONE;
-+
-+	/* Call back the completion routines */
-+	list_for_each(tmp, &cbfn_q) {
-+		ioreq = (struct csio_ioreq *)tmp;
-+		isr_completions++;
-+		ioreq->io_cbfn(hw, ioreq);
-+		/* Release ddp buffer if used for this req */
-+		if (unlikely(ioreq->dcopy))
-+			csio_put_scsi_ddp_list_lock(hw, scm, &ioreq->gen_list,
-+						    ioreq->nsge);
-+	}
-+
-+	if (isr_completions) {
-+		/* Return the ioreqs back to ioreq->freelist */
-+		csio_put_scsi_ioreq_list_lock(hw, scm, &cbfn_q,
-+					      isr_completions);
-+	}
-+
-+	return IRQ_HANDLED;
-+}
-+
-+/*
-+ * csio_scsi_isr() - SCSI MSIX handler
-+ * @irq:
-+ * @dev_id:
-+ *
-+ * This is the top level SCSI MSIX handler. Calls csio_scsi_isr_handler()
-+ * for handling SCSI completions.
-+ */
-+static irqreturn_t
-+csio_scsi_isr(int irq, void *dev_id)
-+{
-+	struct csio_q *iq = (struct csio_q *) dev_id;
-+	struct csio_hw *hw;
-+
-+	if (unlikely(!iq))
-+		return IRQ_NONE;
-+
-+	hw = (struct csio_hw *)iq->owner;
-+
-+	if (unlikely(pci_channel_offline(hw->pdev))) {
-+		CSIO_INC_STATS(hw, n_pcich_offline);
-+		return IRQ_NONE;
-+	}
-+
-+	csio_scsi_isr_handler(iq);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+/*
-+ * csio_scsi_intx_handler() - SCSI INTx handler
-+ * @irq:
-+ * @dev_id:
-+ *
-+ * This is the top level SCSI INTx handler. Calls csio_scsi_isr_handler()
-+ * for handling SCSI completions.
-+ */
-+void
-+csio_scsi_intx_handler(struct csio_hw *hw, void *wr, uint32_t len,
-+			struct csio_fl_dma_buf *flb, void *priv)
-+{
-+	struct csio_q *iq = priv;
-+
-+	csio_scsi_isr_handler(iq);
-+
-+} /* csio_scsi_intx_handler */
-+
-+/*
-+ * csio_fcoe_isr() - INTx/MSI interrupt service routine for FCoE.
-+ * @irq:
-+ * @dev_id:
-+ *
-+ *
-+ */
-+static irqreturn_t
-+csio_fcoe_isr(int irq, void *dev_id)
-+{
-+	struct csio_hw *hw = (struct csio_hw *) dev_id;
-+	struct csio_q *intx_q = NULL;
-+	int rv;
-+	irqreturn_t ret = IRQ_NONE;
-+	unsigned long flags;
-+
-+	if (unlikely(!hw))
-+		return IRQ_NONE;
-+
-+	if (unlikely(pci_channel_offline(hw->pdev))) {
-+		CSIO_INC_STATS(hw, n_pcich_offline);
-+		return IRQ_NONE;
-+	}
-+
-+	/* Disable the interrupt for this PCI function. */
-+	if (hw->intr_mode == CSIO_IM_INTX)
-+		csio_wr_reg32(hw, 0, MYPF_REG(PCIE_PF_CLI));
-+
-+	/*
-+	 * The read in the following function will flush the
-+	 * above write.
-+	 */
-+	if (csio_hw_slow_intr_handler(hw))
-+		ret = IRQ_HANDLED;
-+
-+	/* Get the INTx Forward interrupt IQ. */
-+	intx_q = csio_get_q(hw, hw->intr_iq_idx);
-+
-+	CSIO_DB_ASSERT(intx_q);
-+
-+	/* IQ handler is not possible for intx_q, hence pass in NULL */
-+	if (likely(csio_wr_process_iq(hw, intx_q, NULL, NULL) == 0))
-+		ret = IRQ_HANDLED;
-+
-+	spin_lock_irqsave(&hw->lock, flags);
-+	rv = csio_mb_isr_handler(hw);
-+	if (rv == 0 && !(hw->flags & CSIO_HWF_FWEVT_PENDING)) {
-+		hw->flags |= CSIO_HWF_FWEVT_PENDING;
-+		spin_unlock_irqrestore(&hw->lock, flags);
-+		schedule_work(&hw->evtq_work);
-+		return IRQ_HANDLED;
-+	}
-+	spin_unlock_irqrestore(&hw->lock, flags);
-+
-+	return ret;
-+}
-+
-+static void
-+csio_add_msix_desc(struct csio_hw *hw)
-+{
-+	int i;
-+	struct csio_msix_entries *entryp = &hw->msix_entries[0];
-+	int k = CSIO_EXTRA_VECS;
-+	int len = sizeof(entryp->desc) - 1;
-+	int cnt = hw->num_sqsets + k;
-+
-+	/* Non-data vector */
-+	memset(entryp->desc, 0, len + 1);
-+	snprintf(entryp->desc, len, "csio-%02x:%02x:%x-nondata",
-+		 CSIO_PCI_BUS(hw), CSIO_PCI_DEV(hw), CSIO_PCI_FUNC(hw));
-+
-+	entryp++;
-+	memset(entryp->desc, 0, len + 1);
-+	snprintf(entryp->desc, len, "csio-%02x:%02x:%x-fwevt",
-+		 CSIO_PCI_BUS(hw), CSIO_PCI_DEV(hw), CSIO_PCI_FUNC(hw));
-+	entryp++;
-+
-+	/* Name SCSI vecs */
-+	for (i = k; i < cnt; i++, entryp++) {
-+		memset(entryp->desc, 0, len + 1);
-+		snprintf(entryp->desc, len, "csio-%02x:%02x:%x-scsi%d",
-+			 CSIO_PCI_BUS(hw), CSIO_PCI_DEV(hw),
-+			 CSIO_PCI_FUNC(hw), i - CSIO_EXTRA_VECS);
-+	}
-+}
-+
-+int
-+csio_request_irqs(struct csio_hw *hw)
-+{
-+	int rv, i, j, k = 0;
-+	struct csio_msix_entries *entryp = &hw->msix_entries[0];
-+	struct csio_scsi_cpu_info *info;
-+
-+	if (hw->intr_mode != CSIO_IM_MSIX) {
-+		rv = request_irq(hw->pdev->irq, csio_fcoe_isr,
-+					(hw->intr_mode == CSIO_IM_MSI) ?
-+							0 : IRQF_SHARED,
-+					KBUILD_MODNAME, hw);
-+		if (rv) {
-+			if (hw->intr_mode == CSIO_IM_MSI)
-+				pci_disable_msi(hw->pdev);
-+			csio_err(hw, "Failed to allocate interrupt line.\n");
-+			return -EINVAL;
-+		}
-+
-+		goto out;
-+	}
-+
-+	/* Add the MSIX vector descriptions */
-+	csio_add_msix_desc(hw);
-+
-+	rv = request_irq(entryp[k].vector, csio_nondata_isr, 0,
-+			 entryp[k].desc, hw);
-+	if (rv) {
-+		csio_err(hw, "IRQ request failed for vec %d err:%d\n",
-+			 entryp[k].vector, rv);
-+		goto err;
-+	}
-+
-+	entryp[k++].dev_id = (void *)hw;
-+
-+	rv = request_irq(entryp[k].vector, csio_fwevt_isr, 0,
-+			 entryp[k].desc, hw);
-+	if (rv) {
-+		csio_err(hw, "IRQ request failed for vec %d err:%d\n",
-+			 entryp[k].vector, rv);
-+		goto err;
-+	}
-+
-+	entryp[k++].dev_id = (void *)hw;
-+
-+	/* Allocate IRQs for SCSI */
-+	for (i = 0; i < hw->num_pports; i++) {
-+		info = &hw->scsi_cpu_info[i];
-+		for (j = 0; j < info->max_cpus; j++, k++) {
-+			struct csio_scsi_qset *sqset = &hw->sqset[i][j];
-+			struct csio_q *q = hw->wrm.q_arr[sqset->iq_idx];
-+
-+			rv = request_irq(entryp[k].vector, csio_scsi_isr, 0,
-+					 entryp[k].desc, q);
-+			if (rv) {
-+				csio_err(hw,
-+				       "IRQ request failed for vec %d err:%d\n",
-+				       entryp[k].vector, rv);
-+				goto err;
-+			}
-+
-+			entryp[k].dev_id = (void *)q;
-+
-+		} /* for all scsi cpus */
-+	} /* for all ports */
-+
-+out:
-+	hw->flags |= CSIO_HWF_HOST_INTR_ENABLED;
-+
-+	return 0;
-+
-+err:
-+	for (i = 0; i < k; i++) {
-+		entryp = &hw->msix_entries[i];
-+		free_irq(entryp->vector, entryp->dev_id);
-+	}
-+	pci_disable_msix(hw->pdev);
-+
-+	return -EINVAL;
-+}
-+
-+static void
-+csio_disable_msix(struct csio_hw *hw, bool free)
-+{
-+	int i;
-+	struct csio_msix_entries *entryp;
-+	int cnt = hw->num_sqsets + CSIO_EXTRA_VECS;
-+
-+	if (free) {
-+		for (i = 0; i < cnt; i++) {
-+			entryp = &hw->msix_entries[i];
-+			free_irq(entryp->vector, entryp->dev_id);
-+		}
-+	}
-+	pci_disable_msix(hw->pdev);
-+}
-+
-+/* Reduce per-port max possible CPUs */
-+static void
-+csio_reduce_sqsets(struct csio_hw *hw, int cnt)
-+{
-+	int i;
-+	struct csio_scsi_cpu_info *info;
-+
-+	while (cnt < hw->num_sqsets) {
-+		for (i = 0; i < hw->num_pports; i++) {
-+			info = &hw->scsi_cpu_info[i];
-+			if (info->max_cpus > 1) {
-+				info->max_cpus--;
-+				hw->num_sqsets--;
-+				if (hw->num_sqsets <= cnt)
-+					break;
-+			}
-+		}
-+	}
-+
-+	csio_dbg(hw, "Reduced sqsets to %d\n", hw->num_sqsets);
-+}
-+
-+static int
-+csio_enable_msix(struct csio_hw *hw)
-+{
-+	int rv, i, j, k, n, min, cnt;
-+	struct csio_msix_entries *entryp;
-+	struct msix_entry *entries;
-+	int extra = CSIO_EXTRA_VECS;
-+	struct csio_scsi_cpu_info *info;
-+
-+	min = hw->num_pports + extra;
-+	cnt = hw->num_sqsets + extra;
-+
-+	/* Max vectors required based on #niqs configured in fw */
-+	if (hw->flags & CSIO_HWF_USING_SOFT_PARAMS || !csio_is_hw_master(hw))
-+		cnt = min_t(uint8_t, hw->cfg_niq, cnt);
-+
-+	entries = kzalloc(sizeof(struct msix_entry) * cnt, GFP_KERNEL);
-+	if (!entries)
-+		return -ENOMEM;
-+
-+	for (i = 0; i < cnt; i++)
-+		entries[i].entry = (uint16_t)i;
-+
-+	csio_dbg(hw, "FW supp #niq:%d, trying %d msix's\n", hw->cfg_niq, cnt);
-+
-+	while ((rv = pci_enable_msix(hw->pdev, entries, cnt)) >= min)
-+		cnt = rv;
-+	if (!rv) {
-+		if (cnt < (hw->num_sqsets + extra)) {
-+			csio_dbg(hw, "Reducing sqsets to %d\n", cnt - extra);
-+			csio_reduce_sqsets(hw, cnt - extra);
-+		}
-+	} else {
-+		if (rv > 0) {
-+			pci_disable_msix(hw->pdev);
-+			csio_info(hw, "Not using MSI-X, remainder:%d\n", rv);
-+		}
-+
-+		kfree(entries);
-+		return -ENOMEM;
-+	}
-+
-+	/* Save off vectors */
-+	for (i = 0; i < cnt; i++) {
-+		entryp = &hw->msix_entries[i];
-+		entryp->vector = entries[i].vector;
-+	}
-+
-+	/* Distribute vectors */
-+	k = 0;
-+	csio_set_nondata_intr_idx(hw, entries[k].entry);
-+	csio_set_mb_intr_idx(csio_hw_to_mbm(hw), entries[k++].entry);
-+	csio_set_fwevt_intr_idx(hw, entries[k++].entry);
-+
-+	for (i = 0; i < hw->num_pports; i++) {
-+		info = &hw->scsi_cpu_info[i];
-+
-+		for (j = 0; j < hw->num_scsi_msix_cpus; j++) {
-+			n = (j % info->max_cpus) +  k;
-+			hw->sqset[i][j].intr_idx = entries[n].entry;
-+		}
-+
-+		k += info->max_cpus;
-+	}
-+
-+	kfree(entries);
-+	return 0;
-+}
-+
-+void
-+csio_intr_enable(struct csio_hw *hw)
-+{
-+	hw->intr_mode = CSIO_IM_NONE;
-+	hw->flags &= ~CSIO_HWF_HOST_INTR_ENABLED;
-+
-+	/* Try MSIX, then MSI or fall back to INTx */
-+	if ((csio_msi == 2) && !csio_enable_msix(hw))
-+		hw->intr_mode = CSIO_IM_MSIX;
-+	else {
-+		/* Max iqs required based on #niqs configured in fw */
-+		if (hw->flags & CSIO_HWF_USING_SOFT_PARAMS ||
-+			!csio_is_hw_master(hw)) {
-+			int extra = CSIO_EXTRA_MSI_IQS;
-+
-+			if (hw->cfg_niq < (hw->num_sqsets + extra)) {
-+				csio_dbg(hw, "Reducing sqsets to %d\n",
-+					 hw->cfg_niq - extra);
-+				csio_reduce_sqsets(hw, hw->cfg_niq - extra);
-+			}
-+		}
-+
-+		if ((csio_msi == 1) && !pci_enable_msi(hw->pdev))
-+			hw->intr_mode = CSIO_IM_MSI;
-+		else
-+			hw->intr_mode = CSIO_IM_INTX;
-+	}
-+
-+	csio_dbg(hw, "Using %s interrupt mode.\n",
-+		(hw->intr_mode == CSIO_IM_MSIX) ? "MSIX" :
-+		((hw->intr_mode == CSIO_IM_MSI) ? "MSI" : "INTx"));
-+}
-+
-+void
-+csio_intr_disable(struct csio_hw *hw, bool free)
-+{
-+	csio_hw_intr_disable(hw);
-+
-+	switch (hw->intr_mode) {
-+	case CSIO_IM_MSIX:
-+		csio_disable_msix(hw, free);
 +		break;
-+	case CSIO_IM_MSI:
-+		if (free)
-+			free_irq(hw->pdev->irq, hw);
-+		pci_disable_msi(hw->pdev);
++	case CSIO_LN_FC_LINKUP:
++		/* send fc_host_post_event */
++		/* set vport state */
++		if (csio_is_npiv_ln(ln))
++			csio_vport_set_state(ln);
++
 +		break;
-+	case CSIO_IM_INTX:
-+		if (free)
-+			free_irq(hw->pdev->irq, hw);
++	case CSIO_LN_FC_LINKDOWN:
++		/* send fc_host_post_event */
++		/* set vport state */
++		if (csio_is_npiv_ln(ln))
++			csio_vport_set_state(ln);
++
++		break;
++	case CSIO_LN_FC_ATTRIB_UPDATE:
++		csio_fchost_attr_init(ln);
 +		break;
 +	default:
 +		break;
 +	}
-+	hw->intr_mode = CSIO_IM_NONE;
-+	hw->flags &= ~CSIO_HWF_HOST_INTR_ENABLED;
 +}
-diff --git a/drivers/scsi/csiostor/csio_scsi.c b/drivers/scsi/csiostor/csio_scsi.c
++
++/*
++ * csio_fchost_attr_init - Initialize FC transport attributes
++ * @ln: Lnode.
++ *
++ */
++void
++csio_fchost_attr_init(struct csio_lnode *ln)
++{
++	struct Scsi_Host  *shost = csio_ln_to_shost(ln);
++
++	fc_host_node_name(shost) = wwn_to_u64(csio_ln_wwnn(ln));
++	fc_host_port_name(shost) = wwn_to_u64(csio_ln_wwpn(ln));
++
++	fc_host_supported_classes(shost) = FC_COS_CLASS3;
++	fc_host_max_npiv_vports(shost) =
++			(csio_lnode_to_hw(ln))->fres_info.max_vnps;
++	fc_host_supported_speeds(shost) = FC_PORTSPEED_10GBIT |
++		FC_PORTSPEED_1GBIT;
++
++	fc_host_maxframe_size(shost) = ln->ln_sparm.csp.sp_bb_data;
++	memset(fc_host_supported_fc4s(shost), 0,
++		sizeof(fc_host_supported_fc4s(shost)));
++	fc_host_supported_fc4s(shost)[7] = 1;
++
++	memset(fc_host_active_fc4s(shost), 0,
++		sizeof(fc_host_active_fc4s(shost)));
++	fc_host_active_fc4s(shost)[7] = 1;
++}
++
++/*
++ * csio_get_host_port_id - sysfs entries for nport_id is
++ * populated/cached from this function
++ */
++static void
++csio_get_host_port_id(struct Scsi_Host *shost)
++{
++	struct csio_lnode *ln	= shost_priv(shost);
++	struct csio_hw *hw = csio_lnode_to_hw(ln);
++
++	spin_lock_irq(&hw->lock);
++	fc_host_port_id(shost) = ln->nport_id;
++	spin_unlock_irq(&hw->lock);
++}
++
++/*
++ * csio_get_port_type - Return FC local port type.
++ * @shost: scsi host.
++ *
++ */
++static void
++csio_get_host_port_type(struct Scsi_Host *shost)
++{
++	struct csio_lnode *ln = shost_priv(shost);
++	struct csio_hw *hw = csio_lnode_to_hw(ln);
++
++	spin_lock_irq(&hw->lock);
++	if (csio_is_npiv_ln(ln))
++		fc_host_port_type(shost) = FC_PORTTYPE_NPIV;
++	else
++		fc_host_port_type(shost) = FC_PORTTYPE_NPORT;
++	spin_unlock_irq(&hw->lock);
++}
++
++/*
++ * csio_get_port_state - Return FC local port state.
++ * @shost: scsi host.
++ *
++ */
++static void
++csio_get_host_port_state(struct Scsi_Host *shost)
++{
++	struct csio_lnode *ln = shost_priv(shost);
++	struct csio_hw *hw = csio_lnode_to_hw(ln);
++	char state[16];
++
++	spin_lock_irq(&hw->lock);
++
++	csio_lnode_state_to_str(ln, state);
++	if (!strcmp(state, "READY"))
++		fc_host_port_state(shost) = FC_PORTSTATE_ONLINE;
++	else if (!strcmp(state, "OFFLINE"))
++		fc_host_port_state(shost) = FC_PORTSTATE_LINKDOWN;
++	else
++		fc_host_port_state(shost) = FC_PORTSTATE_UNKNOWN;
++
++	spin_unlock_irq(&hw->lock);
++}
++
++/*
++ * csio_get_host_speed - Return link speed to FC transport.
++ * @shost: scsi host.
++ *
++ */
++static void
++csio_get_host_speed(struct Scsi_Host *shost)
++{
++	struct csio_lnode *ln = shost_priv(shost);
++	struct csio_hw *hw = csio_lnode_to_hw(ln);
++
++	spin_lock_irq(&hw->lock);
++	switch (hw->pport[ln->portid].link_speed) {
++	case FW_PORT_CAP_SPEED_1G:
++		fc_host_speed(shost) = FC_PORTSPEED_1GBIT;
++		break;
++	case FW_PORT_CAP_SPEED_10G:
++		fc_host_speed(shost) = FC_PORTSPEED_10GBIT;
++		break;
++	default:
++		fc_host_speed(shost) = FC_PORTSPEED_UNKNOWN;
++		break;
++	}
++	spin_unlock_irq(&hw->lock);
++}
++
++/*
++ * csio_get_host_fabric_name - Return fabric name
++ * @shost: scsi host.
++ *
++ */
++static void
++csio_get_host_fabric_name(struct Scsi_Host *shost)
++{
++	struct csio_lnode *ln = shost_priv(shost);
++	struct csio_rnode *rn = NULL;
++	struct csio_hw *hw = csio_lnode_to_hw(ln);
++
++	spin_lock_irq(&hw->lock);
++	rn = csio_rnode_lookup_portid(ln, FC_FID_FLOGI);
++	if (rn)
++		fc_host_fabric_name(shost) = wwn_to_u64(csio_rn_wwnn(rn));
++	else
++		fc_host_fabric_name(shost) = 0;
++	spin_unlock_irq(&hw->lock);
++}
++
++/*
++ * csio_get_host_speed - Return FC transport statistics.
++ * @ln: Lnode.
++ *
++ */
++static struct fc_host_statistics *
++csio_get_stats(struct Scsi_Host *shost)
++{
++	struct csio_lnode *ln = shost_priv(shost);
++	struct csio_hw *hw = csio_lnode_to_hw(ln);
++	struct fc_host_statistics *fhs = &ln->fch_stats;
++	struct fw_fcoe_port_stats fcoe_port_stats;
++	uint64_t seconds;
++
++	memset(&fcoe_port_stats, 0, sizeof(struct fw_fcoe_port_stats));
++	csio_get_phy_port_stats(hw, ln->portid, &fcoe_port_stats);
++
++	fhs->tx_frames  += (fcoe_port_stats.tx_bcast_frames +
++				fcoe_port_stats.tx_mcast_frames +
++				fcoe_port_stats.tx_ucast_frames +
++				fcoe_port_stats.tx_offload_frames);
++	fhs->tx_words  += (fcoe_port_stats.tx_bcast_bytes +
++			   fcoe_port_stats.tx_mcast_bytes +
++			   fcoe_port_stats.tx_ucast_bytes +
++			   fcoe_port_stats.tx_offload_bytes) /
++							CSIO_WORD_TO_BYTE;
++	fhs->rx_frames += (fcoe_port_stats.rx_bcast_frames +
++				fcoe_port_stats.rx_mcast_frames +
++				fcoe_port_stats.rx_ucast_frames);
++	fhs->rx_words += (fcoe_port_stats.rx_bcast_bytes +
++				fcoe_port_stats.rx_mcast_bytes +
++				fcoe_port_stats.rx_ucast_bytes) /
++							CSIO_WORD_TO_BYTE;
++	fhs->error_frames += fcoe_port_stats.rx_err_frames;
++	fhs->fcp_input_requests +=  ln->stats.n_input_requests;
++	fhs->fcp_output_requests +=  ln->stats.n_output_requests;
++	fhs->fcp_control_requests +=  ln->stats.n_control_requests;
++	fhs->fcp_input_megabytes +=  ln->stats.n_input_bytes >> 20;
++	fhs->fcp_output_megabytes +=  ln->stats.n_output_bytes >> 20;
++	fhs->link_failure_count = ln->stats.n_link_down;
++	/* Reset stats for the device */
++	seconds = jiffies_to_msecs(jiffies);
++	fhs->seconds_since_last_reset =
++				(seconds - hw->stats.n_reset_start) / 1000;
++	return fhs;
++}
++
++/*
++ * csio_set_rport_loss_tmo - Set the rport dev loss timeout
++ * @rport: fc rport.
++ * @timeout: new value for dev loss tmo.
++ *
++ * If timeout is non zero set the dev_loss_tmo to timeout, else set
++ * dev_loss_tmo to one.
++ */
++static void
++csio_set_rport_loss_tmo(struct fc_rport *rport, uint32_t timeout)
++{
++	if (timeout)
++		rport->dev_loss_tmo = timeout;
++	else
++		rport->dev_loss_tmo = 1;
++}
++
++static void
++csio_vport_set_state(struct csio_lnode *ln)
++{
++	struct fc_vport *fc_vport = ln->fc_vport;
++	struct csio_lnode  *pln = ln->pln;
++	char state[16];
++
++	/* Set fc vport state based on phyiscal lnode */
++	csio_lnode_state_to_str(pln, state);
++	if (strcmp(state, "READY")) {
++		fc_vport_set_state(fc_vport, FC_VPORT_LINKDOWN);
++		return;
++	}
++
++	if (!(pln->flags & CSIO_LNF_NPIVSUPP)) {
++		fc_vport_set_state(fc_vport, FC_VPORT_NO_FABRIC_SUPP);
++		return;
++	}
++
++	/* Set fc vport state based on virtual lnode */
++	csio_lnode_state_to_str(ln, state);
++	if (strcmp(state, "READY")) {
++		fc_vport_set_state(fc_vport, FC_VPORT_LINKDOWN);
++		return;
++	}
++	fc_vport_set_state(fc_vport, FC_VPORT_ACTIVE);
++}
++
++static int
++csio_fcoe_alloc_vnp(struct csio_hw *hw, struct csio_lnode *ln)
++{
++	struct csio_lnode *pln;
++	struct csio_mb  *mbp;
++	struct fw_fcoe_vnp_cmd *rsp;
++	int ret;
++	int retry = 0;
++
++	/* Issue VNP cmd to alloc vport */
++	/* Allocate Mbox request */
++	spin_lock_irq(&hw->lock);
++	mbp = mempool_alloc(hw->mb_mempool, GFP_ATOMIC);
++	if (!mbp) {
++		CSIO_INC_STATS(hw, n_err_nomem);
++		spin_unlock_irq(&hw->lock);
++		return -ENOMEM;
++	}
++
++	pln = ln->pln;
++	ln->fcf_flowid = pln->fcf_flowid;
++	ln->portid = pln->portid;
++
++	csio_fcoe_vnp_alloc_init_mb(ln, mbp, CSIO_MB_DEFAULT_TMO,
++				    pln->fcf_flowid, pln->vnp_flowid, 0,
++				    csio_ln_wwnn(ln), csio_ln_wwpn(ln),
++				    NULL);
++
++	for (retry = 0; retry < 3; retry++) {
++		/* FW is expected to complete vnp cmd in immediate mode
++		 * without much delay.
++		 * Otherwise, there will be increase in IO latency since HW
++		 * lock is held till completion of vnp mbox cmd.
++		 */
++		ret = csio_mb_issue(hw, mbp);
++		if (ret != -EBUSY)
++			break;
++
++		/* Retry if mbox returns busy */
++		spin_unlock_irq(&hw->lock);
++		msleep(2000);
++		spin_lock_irq(&hw->lock);
++	}
++
++	if (ret != 0) {
++		csio_ln_err(ln, "Failed to issue mbox FCoE VNP command\n");
++		mempool_free(mbp, hw->mb_mempool);
++		spin_unlock_irq(&hw->lock);
++		return ret;
++	}
++
++	/* Process Mbox response of VNP command */
++	rsp = (struct fw_fcoe_vnp_cmd *)(mbp->mb);
++	if (FW_CMD_RETVAL_GET(ntohl(rsp->alloc_to_len16)) != FW_SUCCESS) {
++		csio_ln_err(ln, "FCOE VNP ALLOC cmd returned 0x%x!\n",
++			    FW_CMD_RETVAL_GET(ntohl(rsp->alloc_to_len16)));
++		mempool_free(mbp, hw->mb_mempool);
++		spin_unlock_irq(&hw->lock);
++		return -ENOMEM;
++	}
++
++	ln->vnp_flowid = FW_FCOE_VNP_CMD_VNPI_GET(
++				ntohl(rsp->gen_wwn_to_vnpi));
++	memcpy(csio_ln_wwnn(ln), rsp->vnport_wwnn, 8);
++	memcpy(csio_ln_wwpn(ln), rsp->vnport_wwpn, 8);
++
++	csio_ln_dbg(ln, "FCOE VNPI: 0x%x\n", ln->vnp_flowid);
++	csio_ln_dbg(ln, "\tWWNN: %x%x%x%x%x%x%x%x\n",
++		    ln->ln_sparm.wwnn[0], ln->ln_sparm.wwnn[1],
++		    ln->ln_sparm.wwnn[2], ln->ln_sparm.wwnn[3],
++		    ln->ln_sparm.wwnn[4], ln->ln_sparm.wwnn[5],
++		    ln->ln_sparm.wwnn[6], ln->ln_sparm.wwnn[7]);
++	csio_ln_dbg(ln, "\tWWPN: %x%x%x%x%x%x%x%x\n",
++		    ln->ln_sparm.wwpn[0], ln->ln_sparm.wwpn[1],
++		    ln->ln_sparm.wwpn[2], ln->ln_sparm.wwpn[3],
++		    ln->ln_sparm.wwpn[4], ln->ln_sparm.wwpn[5],
++		    ln->ln_sparm.wwpn[6], ln->ln_sparm.wwpn[7]);
++
++	mempool_free(mbp, hw->mb_mempool);
++	spin_unlock_irq(&hw->lock);
++
++	return 0;
++}
++
++static int
++csio_fcoe_free_vnp(struct csio_hw *hw, struct csio_lnode *ln)
++{
++	struct csio_lnode *pln;
++	struct csio_mb  *mbp;
++	struct fw_fcoe_vnp_cmd *rsp;
++	int ret;
++	int retry = 0;
++
++	/* Issue VNP cmd to free vport */
++	/* Allocate Mbox request */
++
++	spin_lock_irq(&hw->lock);
++	mbp = mempool_alloc(hw->mb_mempool, GFP_ATOMIC);
++	if (!mbp) {
++		CSIO_INC_STATS(hw, n_err_nomem);
++		spin_unlock_irq(&hw->lock);
++		return -ENOMEM;
++	}
++
++	pln = ln->pln;
++
++	csio_fcoe_vnp_free_init_mb(ln, mbp, CSIO_MB_DEFAULT_TMO,
++				   ln->fcf_flowid, ln->vnp_flowid,
++				   NULL);
++
++	for (retry = 0; retry < 3; retry++) {
++		ret = csio_mb_issue(hw, mbp);
++		if (ret != -EBUSY)
++			break;
++
++		/* Retry if mbox returns busy */
++		spin_unlock_irq(&hw->lock);
++		msleep(2000);
++		spin_lock_irq(&hw->lock);
++	}
++
++	if (ret) {
++		csio_ln_err(ln, "Failed to issue mbox FCoE VNP command\n");
++		mempool_free(mbp, hw->mb_mempool);
++		spin_unlock_irq(&hw->lock);
++		return -EINVAL;
++	}
++
++	/* Process Mbox response of VNP command */
++	rsp = (struct fw_fcoe_vnp_cmd *)(mbp->mb);
++	if (FW_CMD_RETVAL_GET(ntohl(rsp->alloc_to_len16)) != FW_SUCCESS) {
++		csio_ln_err(ln, "FCOE VNP FREE cmd returned 0x%x!\n",
++			    FW_CMD_RETVAL_GET(ntohl(rsp->alloc_to_len16)));
++		mempool_free(mbp, hw->mb_mempool);
++		spin_unlock_irq(&hw->lock);
++		return -ENOMEM;
++	}
++
++	mempool_free(mbp, hw->mb_mempool);
++	spin_unlock_irq(&hw->lock);
++
++	return 0;
++}
++
++static int
++csio_vport_create(struct fc_vport *fc_vport, bool disable)
++{
++	struct Scsi_Host *shost = fc_vport->shost;
++	struct csio_lnode *pln = shost_priv(shost);
++	struct csio_lnode *ln = NULL;
++	struct csio_hw *hw = csio_lnode_to_hw(pln);
++	uint8_t wwn[8];
++	int ret = -1;
++
++	ln = csio_shost_init(hw, &fc_vport->dev, false, pln);
++	if (!ln)
++		goto error;
++
++	if (fc_vport->node_name != 0) {
++		u64_to_wwn(fc_vport->node_name, wwn);
++
++		if (!CSIO_VALID_WWN(wwn)) {
++			csio_ln_err(ln,
++				    "vport create failed. Invalid wwnn\n");
++			goto error;
++		}
++		memcpy(csio_ln_wwnn(ln), wwn, 8);
++	}
++
++	if (fc_vport->port_name != 0) {
++		u64_to_wwn(fc_vport->port_name, wwn);
++
++		if (!CSIO_VALID_WWN(wwn)) {
++			csio_ln_err(ln,
++				    "vport create failed. Invalid wwpn\n");
++			goto error;
++		}
++
++		if (csio_lnode_lookup_by_wwpn(hw, wwn)) {
++			csio_ln_err(ln,
++			    "vport create failed. wwpn already exists\n");
++			goto error;
++		}
++		memcpy(csio_ln_wwpn(ln), wwn, 8);
++	}
++
++	fc_vport_set_state(fc_vport, FC_VPORT_INITIALIZING);
++
++	if (csio_fcoe_alloc_vnp(hw, ln))
++		goto error;
++
++	*(struct csio_lnode **)fc_vport->dd_data = ln;
++	ln->fc_vport = fc_vport;
++	if (!fc_vport->node_name)
++		fc_vport->node_name = wwn_to_u64(csio_ln_wwnn(ln));
++	if (!fc_vport->port_name)
++		fc_vport->port_name = wwn_to_u64(csio_ln_wwpn(ln));
++	csio_fchost_attr_init(ln);
++	return 0;
++error:
++	if (ln)
++		csio_shost_exit(ln);
++
++	return ret;
++}
++
++static int
++csio_vport_delete(struct fc_vport *fc_vport)
++{
++	struct csio_lnode *ln = *(struct csio_lnode **)fc_vport->dd_data;
++	struct Scsi_Host *shost = csio_ln_to_shost(ln);
++	struct csio_hw *hw = csio_lnode_to_hw(ln);
++
++	spin_lock_irq(&hw->lock);
++	if (csio_is_hw_removing(hw)) {
++		spin_unlock_irq(&hw->lock);
++		csio_shost_exit(ln);
++		return 0;
++	}
++	spin_unlock_irq(&hw->lock);
++
++	/* Quiesce ios and send remove event to lnode */
++	scsi_block_requests(shost);
++	spin_lock_irq(&hw->lock);
++	csio_scsim_cleanup_io_lnode(csio_hw_to_scsim(hw), ln);
++	csio_lnode_close(ln);
++	spin_unlock_irq(&hw->lock);
++	scsi_unblock_requests(shost);
++
++	/* Free vnp */
++	if (fc_vport->vport_state !=  FC_VPORT_DISABLED)
++		csio_fcoe_free_vnp(hw, ln);
++	csio_ln_err(ln, "vport deleted\n");
++	csio_shost_exit(ln);
++	return 0;
++}
++
++static int
++csio_vport_disable(struct fc_vport *fc_vport, bool disable)
++{
++	struct csio_lnode *ln = *(struct csio_lnode **)fc_vport->dd_data;
++	struct Scsi_Host *shost = csio_ln_to_shost(ln);
++	struct csio_hw *hw = csio_lnode_to_hw(ln);
++
++	/* disable vport */
++	if (disable) {
++		/* Quiesce ios and send stop event to lnode */
++		scsi_block_requests(shost);
++		spin_lock_irq(&hw->lock);
++		csio_scsim_cleanup_io_lnode(csio_hw_to_scsim(hw), ln);
++		csio_lnode_stop(ln);
++		spin_unlock_irq(&hw->lock);
++		scsi_unblock_requests(shost);
++
++		/* Free vnp */
++		csio_fcoe_free_vnp(hw, ln);
++		fc_vport_set_state(fc_vport, FC_VPORT_DISABLED);
++		csio_ln_err(ln, "vport disabled\n");
++		return 0;
++	} else {
++		/* enable vport */
++		fc_vport_set_state(fc_vport, FC_VPORT_INITIALIZING);
++		if (csio_fcoe_alloc_vnp(hw, ln)) {
++			csio_ln_err(ln, "vport enabled failed.\n");
++			return -1;
++		}
++		csio_ln_err(ln, "vport enabled\n");
++		return 0;
++	}
++}
++
++static void
++csio_dev_loss_tmo_callbk(struct fc_rport *rport)
++{
++	struct csio_rnode *rn;
++	struct csio_hw *hw;
++	struct csio_lnode *ln;
++
++	rn = *((struct csio_rnode **)rport->dd_data);
++	ln = csio_rnode_to_lnode(rn);
++	hw = csio_lnode_to_hw(ln);
++
++	spin_lock_irq(&hw->lock);
++
++	/* return if driver is being removed or same rnode comes back online */
++	if (csio_is_hw_removing(hw) || csio_is_rnode_ready(rn)) {
++		spin_unlock_irq(&hw->lock);
++		return;
++	}
++
++	csio_ln_dbg(ln, "devloss timeout on rnode:%p portid:x%x flowid:x%x\n",
++		    rn, rn->nport_id, csio_rn_flowid(rn));
++
++	CSIO_INC_STATS(ln, n_dev_loss_tmo);
++
++	/*
++	 * enqueue devloss event to event worker thread to serialize all
++	 * rnode events.
++	 */
++	if (csio_enqueue_evt(hw, CSIO_EVT_DEV_LOSS, &rn, sizeof(rn))) {
++		CSIO_INC_STATS(hw, n_evt_drop);
++		spin_unlock_irq(&hw->lock);
++		return;
++	}
++
++	if (!(hw->flags & CSIO_HWF_FWEVT_PENDING)) {
++		hw->flags |= CSIO_HWF_FWEVT_PENDING;
++		spin_unlock_irq(&hw->lock);
++		schedule_work(&hw->evtq_work);
++		return;
++	}
++
++	spin_unlock_irq(&hw->lock);
++}
++
++/* FC transport functions template - Physical port */
++struct fc_function_template csio_fc_transport_funcs = {
++	.show_host_node_name = 1,
++	.show_host_port_name = 1,
++	.show_host_supported_classes = 1,
++	.show_host_supported_fc4s = 1,
++	.show_host_maxframe_size = 1,
++
++	.get_host_port_id = csio_get_host_port_id,
++	.show_host_port_id = 1,
++
++	.get_host_port_type = csio_get_host_port_type,
++	.show_host_port_type = 1,
++
++	.get_host_port_state = csio_get_host_port_state,
++	.show_host_port_state = 1,
++
++	.show_host_active_fc4s = 1,
++	.get_host_speed = csio_get_host_speed,
++	.show_host_speed = 1,
++	.get_host_fabric_name = csio_get_host_fabric_name,
++	.show_host_fabric_name = 1,
++
++	.get_fc_host_stats = csio_get_stats,
++
++	.dd_fcrport_size = sizeof(struct csio_rnode *),
++	.show_rport_maxframe_size = 1,
++	.show_rport_supported_classes = 1,
++
++	.set_rport_dev_loss_tmo = csio_set_rport_loss_tmo,
++	.show_rport_dev_loss_tmo = 1,
++
++	.show_starget_port_id = 1,
++	.show_starget_node_name = 1,
++	.show_starget_port_name = 1,
++
++	.dev_loss_tmo_callbk = csio_dev_loss_tmo_callbk,
++	.dd_fcvport_size = sizeof(struct csio_lnode *),
++
++	.vport_create = csio_vport_create,
++	.vport_disable = csio_vport_disable,
++	.vport_delete = csio_vport_delete,
++};
++
++/* FC transport functions template - Virtual  port */
++struct fc_function_template csio_fc_transport_vport_funcs = {
++	.show_host_node_name = 1,
++	.show_host_port_name = 1,
++	.show_host_supported_classes = 1,
++	.show_host_supported_fc4s = 1,
++	.show_host_maxframe_size = 1,
++
++	.get_host_port_id = csio_get_host_port_id,
++	.show_host_port_id = 1,
++
++	.get_host_port_type = csio_get_host_port_type,
++	.show_host_port_type = 1,
++
++	.get_host_port_state = csio_get_host_port_state,
++	.show_host_port_state = 1,
++	.show_host_active_fc4s = 1,
++
++	.get_host_speed = csio_get_host_speed,
++	.show_host_speed = 1,
++
++	.get_host_fabric_name = csio_get_host_fabric_name,
++	.show_host_fabric_name = 1,
++
++	.get_fc_host_stats = csio_get_stats,
++
++	.dd_fcrport_size = sizeof(struct csio_rnode *),
++	.show_rport_maxframe_size = 1,
++	.show_rport_supported_classes = 1,
++
++	.set_rport_dev_loss_tmo = csio_set_rport_loss_tmo,
++	.show_rport_dev_loss_tmo = 1,
++
++	.show_starget_port_id = 1,
++	.show_starget_node_name = 1,
++	.show_starget_port_name = 1,
++
++	.dev_loss_tmo_callbk = csio_dev_loss_tmo_callbk,
++
++};
+diff --git a/drivers/scsi/csiostor/csio_mb.c b/drivers/scsi/csiostor/csio_mb.c
 new file mode 100644
-index 0000000..fe598bf
+index 0000000..100afd1
 --- /dev/null
-+++ b/drivers/scsi/csiostor/csio_scsi.c
-@@ -0,0 +1,2561 @@
++++ b/drivers/scsi/csiostor/csio_mb.c
+@@ -0,0 +1,1769 @@
 +/*
 + * This file is part of the Chelsio FCoE driver for Linux.
 + *
@@ -709,2532 +880,1741 @@ index 0000000..fe598bf
 + * SOFTWARE.
 + */
 +
-+#include <linux/moduleparam.h>
-+#include <linux/device.h>
 +#include <linux/delay.h>
-+#include <linux/ctype.h>
-+#include <linux/version.h>
-+#include <linux/kernel.h>
-+#include <linux/slab.h>
++#include <linux/jiffies.h>
 +#include <linux/string.h>
-+#include <linux/compiler.h>
-+#include <linux/export.h>
-+#include <linux/module.h>
-+#include <asm/unaligned.h>
-+#include <asm/page.h>
-+#include <scsi/scsi.h>
 +#include <scsi/scsi_transport_fc.h>
 +
 +#include "csio_hw.h"
 +#include "csio_lnode.h"
 +#include "csio_rnode.h"
-+#include "csio_scsi.h"
-+#include "csio_init.h"
++#include "csio_mb.h"
++#include "csio_wr.h"
 +
-+int csio_scsi_eqsize = 65536;
-+int csio_scsi_iqlen = 128;
-+int csio_scsi_ioreqs = 2048;
-+uint32_t csio_max_scan_tmo;
-+uint32_t csio_delta_scan_tmo = 5;
-+int csio_lun_qdepth = 32;
++#define csio_mb_is_host_owner(__owner)		((__owner) == CSIO_MBOWNER_PL)
 +
-+static int csio_ddp_descs = 128;
-+
-+static int csio_do_abrt_cls(struct csio_hw *,
-+				      struct csio_ioreq *, bool);
-+
-+static void csio_scsis_uninit(struct csio_ioreq *, enum csio_scsi_ev);
-+static void csio_scsis_io_active(struct csio_ioreq *, enum csio_scsi_ev);
-+static void csio_scsis_tm_active(struct csio_ioreq *, enum csio_scsi_ev);
-+static void csio_scsis_aborting(struct csio_ioreq *, enum csio_scsi_ev);
-+static void csio_scsis_closing(struct csio_ioreq *, enum csio_scsi_ev);
-+static void csio_scsis_shost_cmpl_await(struct csio_ioreq *, enum csio_scsi_ev);
-+
++/* MB Command/Response Helpers */
 +/*
-+ * csio_scsi_match_io - Match an ioreq with the given SCSI level data.
-+ * @ioreq: The I/O request
-+ * @sld: Level information
-+ *
-+ * Should be called with lock held.
++ * csio_mb_fw_retval - FW return value from a mailbox response.
++ * @mbp: Mailbox structure
 + *
 + */
-+static bool
-+csio_scsi_match_io(struct csio_ioreq *ioreq, struct csio_scsi_level_data *sld)
++enum fw_retval
++csio_mb_fw_retval(struct csio_mb *mbp)
 +{
-+	struct scsi_cmnd *scmnd = csio_scsi_cmnd(ioreq);
++	struct fw_cmd_hdr *hdr;
 +
-+	switch (sld->level) {
-+	case CSIO_LEV_LUN:
-+		if (scmnd == NULL)
-+			return false;
++	hdr = (struct fw_cmd_hdr *)(mbp->mb);
 +
-+		return ((ioreq->lnode == sld->lnode) &&
-+			(ioreq->rnode == sld->rnode) &&
-+			((uint64_t)scmnd->device->lun == sld->oslun));
++	return FW_CMD_RETVAL_GET(ntohl(hdr->lo));
++}
 +
-+	case CSIO_LEV_RNODE:
-+		return ((ioreq->lnode == sld->lnode) &&
-+				(ioreq->rnode == sld->rnode));
-+	case CSIO_LEV_LNODE:
-+		return (ioreq->lnode == sld->lnode);
-+	case CSIO_LEV_ALL:
-+		return true;
-+	default:
-+		return false;
++/*
++ * csio_mb_hello - FW HELLO command helper
++ * @hw: The HW structure
++ * @mbp: Mailbox structure
++ * @m_mbox: Master mailbox number, if any.
++ * @a_mbox: Mailbox number for asycn notifications.
++ * @master: Device mastership.
++ * @cbfn: Callback, if any.
++ *
++ */
++void
++csio_mb_hello(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo,
++	      uint32_t m_mbox, uint32_t a_mbox, enum csio_dev_master master,
++	      void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_hello_cmd *cmdp = (struct fw_hello_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, tmo, hw, cbfn, 1);
++
++	cmdp->op_to_write = htonl(FW_CMD_OP(FW_HELLO_CMD) |
++				       FW_CMD_REQUEST | FW_CMD_WRITE);
++	cmdp->retval_len16 = htonl(FW_CMD_LEN16(sizeof(*cmdp) / 16));
++	cmdp->err_to_clearinit = htonl(
++		FW_HELLO_CMD_MASTERDIS(master == CSIO_MASTER_CANT)	|
++		FW_HELLO_CMD_MASTERFORCE(master == CSIO_MASTER_MUST)	|
++		FW_HELLO_CMD_MBMASTER(master == CSIO_MASTER_MUST ?
++				m_mbox : FW_HELLO_CMD_MBMASTER_MASK)	|
++		FW_HELLO_CMD_MBASYNCNOT(a_mbox) |
++		FW_HELLO_CMD_STAGE(FW_HELLO_CMD_STAGE_OS) |
++		FW_HELLO_CMD_CLEARINIT);
++
++}
++
++/*
++ * csio_mb_process_hello_rsp - FW HELLO response processing helper
++ * @hw: The HW structure
++ * @mbp: Mailbox structure
++ * @retval: Mailbox return value from Firmware
++ * @state: State that the function is in.
++ * @mpfn: Master pfn
++ *
++ */
++void
++csio_mb_process_hello_rsp(struct csio_hw *hw, struct csio_mb *mbp,
++			  enum fw_retval *retval, enum csio_dev_state *state,
++			  uint8_t *mpfn)
++{
++	struct fw_hello_cmd *rsp = (struct fw_hello_cmd *)(mbp->mb);
++	uint32_t value;
++
++	*retval = FW_CMD_RETVAL_GET(ntohl(rsp->retval_len16));
++
++	if (*retval == FW_SUCCESS) {
++		hw->fwrev = ntohl(rsp->fwrev);
++
++		value = ntohl(rsp->err_to_clearinit);
++		*mpfn = FW_HELLO_CMD_MBMASTER_GET(value);
++
++		if (value & FW_HELLO_CMD_INIT)
++			*state = CSIO_DEV_STATE_INIT;
++		else if (value & FW_HELLO_CMD_ERR)
++			*state = CSIO_DEV_STATE_ERR;
++		else
++			*state = CSIO_DEV_STATE_UNINIT;
 +	}
 +}
 +
 +/*
-+ * csio_scsi_gather_active_ios - Gather active I/Os based on level
-+ * @scm: SCSI module
-+ * @sld: Level information
-+ * @dest: The queue where these I/Os have to be gathered.
++ * csio_mb_bye - FW BYE command helper
++ * @hw: The HW structure
++ * @mbp: Mailbox structure
++ * @cbfn: Callback, if any.
 + *
-+ * Should be called with lock held.
 + */
-+static void
-+csio_scsi_gather_active_ios(struct csio_scsim *scm,
-+			    struct csio_scsi_level_data *sld,
-+			    struct list_head *dest)
++void
++csio_mb_bye(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo,
++	    void (*cbfn) (struct csio_hw *, struct csio_mb *))
 +{
-+	struct list_head *tmp, *next;
++	struct fw_bye_cmd *cmdp = (struct fw_bye_cmd *)(mbp->mb);
 +
-+	if (list_empty(&scm->active_q))
++	CSIO_INIT_MBP(mbp, cmdp, tmo, hw, cbfn, 1);
++
++	cmdp->op_to_write = htonl(FW_CMD_OP(FW_BYE_CMD) |
++				       FW_CMD_REQUEST | FW_CMD_WRITE);
++	cmdp->retval_len16 = htonl(FW_CMD_LEN16(sizeof(*cmdp) / 16));
++
++}
++
++/*
++ * csio_mb_reset - FW RESET command helper
++ * @hw: The HW structure
++ * @mbp: Mailbox structure
++ * @reset: Type of reset.
++ * @cbfn: Callback, if any.
++ *
++ */
++void
++csio_mb_reset(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo,
++	      int reset, int halt,
++	      void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_reset_cmd *cmdp = (struct fw_reset_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, tmo, hw, cbfn, 1);
++
++	cmdp->op_to_write = htonl(FW_CMD_OP(FW_RESET_CMD) |
++				  FW_CMD_REQUEST | FW_CMD_WRITE);
++	cmdp->retval_len16 = htonl(FW_CMD_LEN16(sizeof(*cmdp) / 16));
++	cmdp->val = htonl(reset);
++	cmdp->halt_pkd = htonl(halt);
++
++}
++
++/*
++ * csio_mb_params - FW PARAMS command helper
++ * @hw: The HW structure
++ * @mbp: Mailbox structure
++ * @tmo: Command timeout.
++ * @pf: PF number.
++ * @vf: VF number.
++ * @nparams: Number of paramters
++ * @params: Parameter mnemonic array.
++ * @val: Parameter value array.
++ * @wr: Write/Read PARAMS.
++ * @cbfn: Callback, if any.
++ *
++ */
++void
++csio_mb_params(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo,
++	       unsigned int pf, unsigned int vf, unsigned int nparams,
++	       const u32 *params, u32 *val, bool wr,
++	       void (*cbfn)(struct csio_hw *, struct csio_mb *))
++{
++	uint32_t i;
++	uint32_t temp_params = 0, temp_val = 0;
++	struct fw_params_cmd *cmdp = (struct fw_params_cmd *)(mbp->mb);
++	__be32 *p = &cmdp->param[0].mnem;
++
++	CSIO_INIT_MBP(mbp, cmdp, tmo, hw, cbfn, 1);
++
++	cmdp->op_to_vfn = htonl(FW_CMD_OP(FW_PARAMS_CMD)		|
++				FW_CMD_REQUEST				|
++				(wr ? FW_CMD_WRITE : FW_CMD_READ)	|
++				FW_PARAMS_CMD_PFN(pf)			|
++				FW_PARAMS_CMD_VFN(vf));
++	cmdp->retval_len16 = htonl(FW_CMD_LEN16(sizeof(*cmdp) / 16));
++
++	/* Write Params */
++	if (wr) {
++		while (nparams--) {
++			temp_params = *params++;
++			temp_val = *val++;
++
++			*p++ = htonl(temp_params);
++			*p++ = htonl(temp_val);
++		}
++	} else {
++		for (i = 0; i < nparams; i++, p += 2) {
++			temp_params = *params++;
++			*p = htonl(temp_params);
++		}
++	}
++
++}
++
++/*
++ * csio_mb_process_read_params_rsp - FW PARAMS response processing helper
++ * @hw: The HW structure
++ * @mbp: Mailbox structure
++ * @retval: Mailbox return value from Firmware
++ * @nparams: Number of parameters
++ * @val: Parameter value array.
++ *
++ */
++void
++csio_mb_process_read_params_rsp(struct csio_hw *hw, struct csio_mb *mbp,
++			   enum fw_retval *retval, unsigned int nparams,
++			   u32 *val)
++{
++	struct fw_params_cmd *rsp = (struct fw_params_cmd *)(mbp->mb);
++	uint32_t i;
++	__be32 *p = &rsp->param[0].val;
++
++	*retval = FW_CMD_RETVAL_GET(ntohl(rsp->retval_len16));
++
++	if (*retval == FW_SUCCESS)
++		for (i = 0; i < nparams; i++, p += 2)
++			*val++ = ntohl(*p);
++}
++
++/*
++ * csio_mb_ldst - FW LDST command
++ * @hw: The HW structure
++ * @mbp: Mailbox structure
++ * @tmo: timeout
++ * @reg: register
++ *
++ */
++void
++csio_mb_ldst(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo, int reg)
++{
++	struct fw_ldst_cmd *ldst_cmd = (struct fw_ldst_cmd *)(mbp->mb);
++	CSIO_INIT_MBP(mbp, ldst_cmd, tmo, hw, NULL, 1);
++
++	/*
++	 * Construct and send the Firmware LDST Command to retrieve the
++	 * specified PCI-E Configuration Space register.
++	 */
++	ldst_cmd->op_to_addrspace =
++			htonl(FW_CMD_OP(FW_LDST_CMD)	|
++			FW_CMD_REQUEST			|
++			FW_CMD_READ			|
++			FW_LDST_CMD_ADDRSPACE(FW_LDST_ADDRSPC_FUNC_PCIE));
++	ldst_cmd->cycles_to_len16 = htonl(FW_LEN16(struct fw_ldst_cmd));
++	ldst_cmd->u.pcie.select_naccess = FW_LDST_CMD_NACCESS(1);
++	ldst_cmd->u.pcie.ctrl_to_fn =
++		(FW_LDST_CMD_LC | FW_LDST_CMD_FN(hw->pfn));
++	ldst_cmd->u.pcie.r = (uint8_t)reg;
++}
++
++/*
++ *
++ * csio_mb_caps_config - FW Read/Write Capabilities command helper
++ * @hw: The HW structure
++ * @mbp: Mailbox structure
++ * @wr: Write if 1, Read if 0
++ * @init: Turn on initiator mode.
++ * @tgt: Turn on target mode.
++ * @cofld:  If 1, Control Offload for FCoE
++ * @cbfn: Callback, if any.
++ *
++ * This helper assumes that cmdp has MB payload from a previous CAPS
++ * read command.
++ */
++void
++csio_mb_caps_config(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo,
++		    bool wr, bool init, bool tgt, bool cofld,
++		    void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_caps_config_cmd *cmdp =
++				(struct fw_caps_config_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, tmo, hw, cbfn, wr ? 0 : 1);
++
++	cmdp->op_to_write = htonl(FW_CMD_OP(FW_CAPS_CONFIG_CMD) |
++				  FW_CMD_REQUEST		|
++				  (wr ? FW_CMD_WRITE : FW_CMD_READ));
++	cmdp->cfvalid_to_len16 = htonl(FW_CMD_LEN16(sizeof(*cmdp) / 16));
++
++	/* Read config */
++	if (!wr)
 +		return;
 +
-+	/* Just splice the entire active_q into dest */
-+	if (sld->level == CSIO_LEV_ALL) {
-+		list_splice_tail_init(&scm->active_q, dest);
++	/* Write config */
++	cmdp->fcoecaps = 0;
++
++	if (cofld)
++		cmdp->fcoecaps |= htons(FW_CAPS_CONFIG_FCOE_CTRL_OFLD);
++	if (init)
++		cmdp->fcoecaps |= htons(FW_CAPS_CONFIG_FCOE_INITIATOR);
++	if (tgt)
++		cmdp->fcoecaps |= htons(FW_CAPS_CONFIG_FCOE_TARGET);
++}
++
++void
++csio_rss_glb_config(struct csio_hw *hw, struct csio_mb *mbp,
++		    uint32_t tmo, uint8_t mode, unsigned int flags,
++		    void (*cbfn)(struct csio_hw *, struct csio_mb *))
++{
++	struct fw_rss_glb_config_cmd *cmdp =
++				(struct fw_rss_glb_config_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, tmo, hw, cbfn, 1);
++
++	cmdp->op_to_write = htonl(FW_CMD_OP(FW_RSS_GLB_CONFIG_CMD) |
++				  FW_CMD_REQUEST | FW_CMD_WRITE);
++	cmdp->retval_len16 = htonl(FW_CMD_LEN16(sizeof(*cmdp) / 16));
++
++	if (mode == FW_RSS_GLB_CONFIG_CMD_MODE_MANUAL) {
++		cmdp->u.manual.mode_pkd =
++			htonl(FW_RSS_GLB_CONFIG_CMD_MODE(mode));
++	} else if (mode == FW_RSS_GLB_CONFIG_CMD_MODE_BASICVIRTUAL) {
++		cmdp->u.basicvirtual.mode_pkd =
++			htonl(FW_RSS_GLB_CONFIG_CMD_MODE(mode));
++		cmdp->u.basicvirtual.synmapen_to_hashtoeplitz = htonl(flags);
++	}
++}
++
++
++/*
++ * csio_mb_pfvf - FW Write PF/VF capabilities command helper.
++ * @hw: The HW structure
++ * @mbp: Mailbox structure
++ * @pf:
++ * @vf:
++ * @txq:
++ * @txq_eht_ctrl:
++ * @rxqi:
++ * @rxq:
++ * @tc:
++ * @vi:
++ * @pmask:
++ * @rcaps:
++ * @wxcaps:
++ * @cbfn: Callback, if any.
++ *
++ */
++void
++csio_mb_pfvf(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo,
++	     unsigned int pf, unsigned int vf, unsigned int txq,
++	     unsigned int txq_eth_ctrl, unsigned int rxqi,
++	     unsigned int rxq, unsigned int tc, unsigned int vi,
++	     unsigned int cmask, unsigned int pmask, unsigned int nexactf,
++	     unsigned int rcaps, unsigned int wxcaps,
++	     void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_pfvf_cmd *cmdp = (struct fw_pfvf_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, tmo, hw, cbfn, 1);
++
++	cmdp->op_to_vfn = htonl(FW_CMD_OP(FW_PFVF_CMD)			|
++				FW_CMD_REQUEST				|
++				FW_CMD_WRITE				|
++				FW_PFVF_CMD_PFN(pf)			|
++				FW_PFVF_CMD_VFN(vf));
++	cmdp->retval_len16 = htonl(FW_CMD_LEN16(sizeof(*cmdp) / 16));
++	cmdp->niqflint_niq = htonl(FW_PFVF_CMD_NIQFLINT(rxqi)		|
++					     FW_PFVF_CMD_NIQ(rxq));
++
++	cmdp->type_to_neq = htonl(FW_PFVF_CMD_TYPE			|
++				  FW_PFVF_CMD_CMASK(cmask)		|
++				  FW_PFVF_CMD_PMASK(pmask)		|
++				  FW_PFVF_CMD_NEQ(txq));
++	cmdp->tc_to_nexactf = htonl(FW_PFVF_CMD_TC(tc)			|
++				    FW_PFVF_CMD_NVI(vi)			|
++				    FW_PFVF_CMD_NEXACTF(nexactf));
++	cmdp->r_caps_to_nethctrl = htonl(FW_PFVF_CMD_R_CAPS(rcaps)	|
++					 FW_PFVF_CMD_WX_CAPS(wxcaps)	|
++					 FW_PFVF_CMD_NETHCTRL(txq_eth_ctrl));
++}
++
++#define CSIO_ADVERT_MASK     (FW_PORT_CAP_SPEED_100M | FW_PORT_CAP_SPEED_1G |\
++			      FW_PORT_CAP_SPEED_10G | FW_PORT_CAP_ANEG)
++
++/*
++ * csio_mb_port- FW PORT command helper
++ * @hw: The HW structure
++ * @mbp: Mailbox structure
++ * @tmo: COmmand timeout
++ * @portid: Port ID to get/set info
++ * @wr: Write/Read PORT information.
++ * @fc: Flow control
++ * @caps: Port capabilites to set.
++ * @cbfn: Callback, if any.
++ *
++ */
++void
++csio_mb_port(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo,
++	     uint8_t portid, bool wr, uint32_t fc, uint16_t caps,
++	     void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_port_cmd *cmdp = (struct fw_port_cmd *)(mbp->mb);
++	unsigned int lfc = 0, mdi = FW_PORT_MDI(FW_PORT_MDI_AUTO);
++
++	CSIO_INIT_MBP(mbp, cmdp, tmo, hw, cbfn,  1);
++
++	cmdp->op_to_portid = htonl(FW_CMD_OP(FW_PORT_CMD)		|
++				   FW_CMD_REQUEST			|
++				   (wr ? FW_CMD_EXEC : FW_CMD_READ)	|
++				   FW_PORT_CMD_PORTID(portid));
++	if (!wr) {
++		cmdp->action_to_len16 = htonl(
++			FW_PORT_CMD_ACTION(FW_PORT_ACTION_GET_PORT_INFO) |
++			FW_CMD_LEN16(sizeof(*cmdp) / 16));
 +		return;
 +	}
 +
-+	list_for_each_safe(tmp, next, &scm->active_q) {
-+		if (csio_scsi_match_io((struct csio_ioreq *)tmp, sld)) {
-+			list_del_init(tmp);
-+			list_add_tail(tmp, dest);
++	/* Set port */
++	cmdp->action_to_len16 = htonl(
++			FW_PORT_CMD_ACTION(FW_PORT_ACTION_L1_CFG) |
++			FW_CMD_LEN16(sizeof(*cmdp) / 16));
++
++	if (fc & PAUSE_RX)
++		lfc |= FW_PORT_CAP_FC_RX;
++	if (fc & PAUSE_TX)
++		lfc |= FW_PORT_CAP_FC_TX;
++
++	if (!(caps & FW_PORT_CAP_ANEG))
++		cmdp->u.l1cfg.rcap = htonl((caps & CSIO_ADVERT_MASK) | lfc);
++	else
++		cmdp->u.l1cfg.rcap = htonl((caps & CSIO_ADVERT_MASK) |
++								lfc | mdi);
++}
++
++/*
++ * csio_mb_process_read_port_rsp - FW PORT command response processing helper
++ * @hw: The HW structure
++ * @mbp: Mailbox structure
++ * @retval: Mailbox return value from Firmware
++ * @caps: port capabilities
++ *
++ */
++void
++csio_mb_process_read_port_rsp(struct csio_hw *hw, struct csio_mb *mbp,
++			 enum fw_retval *retval, uint16_t *caps)
++{
++	struct fw_port_cmd *rsp = (struct fw_port_cmd *)(mbp->mb);
++
++	*retval = FW_CMD_RETVAL_GET(ntohl(rsp->action_to_len16));
++
++	if (*retval == FW_SUCCESS)
++		*caps = ntohs(rsp->u.info.pcap);
++}
++
++/*
++ * csio_mb_initialize - FW INITIALIZE command helper
++ * @hw: The HW structure
++ * @mbp: Mailbox structure
++ * @tmo: COmmand timeout
++ * @cbfn: Callback, if any.
++ *
++ */
++void
++csio_mb_initialize(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo,
++		   void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_initialize_cmd *cmdp = (struct fw_initialize_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, tmo, hw, cbfn, 1);
++
++	cmdp->op_to_write = htonl(FW_CMD_OP(FW_INITIALIZE_CMD)	|
++				  FW_CMD_REQUEST | FW_CMD_WRITE);
++	cmdp->retval_len16 = htonl(FW_CMD_LEN16(sizeof(*cmdp) / 16));
++
++}
++
++/*
++ * csio_mb_iq_alloc - Initializes the mailbox to allocate an
++ *				Ingress DMA queue in the firmware.
++ *
++ * @hw: The hw structure
++ * @mbp: Mailbox structure to initialize
++ * @priv: Private object
++ * @mb_tmo: Mailbox time-out period (in ms).
++ * @iq_params: Ingress queue params needed for allocation.
++ * @cbfn: The call-back function
++ *
++ *
++ */
++static void
++csio_mb_iq_alloc(struct csio_hw *hw, struct csio_mb *mbp, void *priv,
++		 uint32_t mb_tmo, struct csio_iq_params *iq_params,
++		 void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_iq_cmd *cmdp = (struct fw_iq_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, mb_tmo, priv, cbfn, 1);
++
++	cmdp->op_to_vfn = htonl(FW_CMD_OP(FW_IQ_CMD)		|
++				FW_CMD_REQUEST | FW_CMD_EXEC	|
++				FW_IQ_CMD_PFN(iq_params->pfn)	|
++				FW_IQ_CMD_VFN(iq_params->vfn));
++
++	cmdp->alloc_to_len16 = htonl(FW_IQ_CMD_ALLOC		|
++				FW_CMD_LEN16(sizeof(*cmdp) / 16));
++
++	cmdp->type_to_iqandstindex = htonl(
++				FW_IQ_CMD_VIID(iq_params->viid)	|
++				FW_IQ_CMD_TYPE(iq_params->type)	|
++				FW_IQ_CMD_IQASYNCH(iq_params->iqasynch));
++
++	cmdp->fl0size = htons(iq_params->fl0size);
++	cmdp->fl0size = htons(iq_params->fl1size);
++
++} /* csio_mb_iq_alloc */
++
++/*
++ * csio_mb_iq_write - Initializes the mailbox for writing into an
++ *				Ingress DMA Queue.
++ *
++ * @hw: The HW structure
++ * @mbp: Mailbox structure to initialize
++ * @priv: Private object
++ * @mb_tmo: Mailbox time-out period (in ms).
++ * @cascaded_req: TRUE - if this request is cascased with iq-alloc request.
++ * @iq_params: Ingress queue params needed for writing.
++ * @cbfn: The call-back function
++ *
++ * NOTE: We OR relevant bits with cmdp->XXX, instead of just equating,
++ * because this IQ write request can be cascaded with a previous
++ * IQ alloc request, and we dont want to over-write the bits set by
++ * that request. This logic will work even in a non-cascaded case, since the
++ * cmdp structure is zeroed out by CSIO_INIT_MBP.
++ */
++static void
++csio_mb_iq_write(struct csio_hw *hw, struct csio_mb *mbp, void *priv,
++		 uint32_t mb_tmo, bool cascaded_req,
++		 struct csio_iq_params *iq_params,
++		 void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_iq_cmd *cmdp = (struct fw_iq_cmd *)(mbp->mb);
++
++	uint32_t iq_start_stop = (iq_params->iq_start)	?
++					FW_IQ_CMD_IQSTART(1) :
++					FW_IQ_CMD_IQSTOP(1);
++
++	/*
++	 * If this IQ write is cascaded with IQ alloc request, do not
++	 * re-initialize with 0's.
++	 *
++	 */
++	if (!cascaded_req)
++		CSIO_INIT_MBP(mbp, cmdp, mb_tmo, priv, cbfn, 1);
++
++	cmdp->op_to_vfn |= htonl(FW_CMD_OP(FW_IQ_CMD)		|
++				FW_CMD_REQUEST | FW_CMD_WRITE	|
++				FW_IQ_CMD_PFN(iq_params->pfn)	|
++				FW_IQ_CMD_VFN(iq_params->vfn));
++	cmdp->alloc_to_len16 |= htonl(iq_start_stop |
++				FW_CMD_LEN16(sizeof(*cmdp) / 16));
++	cmdp->iqid |= htons(iq_params->iqid);
++	cmdp->fl0id |= htons(iq_params->fl0id);
++	cmdp->fl1id |= htons(iq_params->fl1id);
++	cmdp->type_to_iqandstindex |= htonl(
++			FW_IQ_CMD_IQANDST(iq_params->iqandst)	|
++			FW_IQ_CMD_IQANUS(iq_params->iqanus)	|
++			FW_IQ_CMD_IQANUD(iq_params->iqanud)	|
++			FW_IQ_CMD_IQANDSTINDEX(iq_params->iqandstindex));
++	cmdp->iqdroprss_to_iqesize |= htons(
++			FW_IQ_CMD_IQPCIECH(iq_params->iqpciech)		|
++			FW_IQ_CMD_IQDCAEN(iq_params->iqdcaen)		|
++			FW_IQ_CMD_IQDCACPU(iq_params->iqdcacpu)		|
++			FW_IQ_CMD_IQINTCNTTHRESH(iq_params->iqintcntthresh) |
++			FW_IQ_CMD_IQCPRIO(iq_params->iqcprio)		|
++			FW_IQ_CMD_IQESIZE(iq_params->iqesize));
++
++	cmdp->iqsize |= htons(iq_params->iqsize);
++	cmdp->iqaddr |= cpu_to_be64(iq_params->iqaddr);
++
++	if (iq_params->type == 0) {
++		cmdp->iqns_to_fl0congen |= htonl(
++			FW_IQ_CMD_IQFLINTIQHSEN(iq_params->iqflintiqhsen)|
++			FW_IQ_CMD_IQFLINTCONGEN(iq_params->iqflintcongen));
++	}
++
++	if (iq_params->fl0size && iq_params->fl0addr &&
++	    (iq_params->fl0id != 0xFFFF)) {
++
++		cmdp->iqns_to_fl0congen |= htonl(
++			FW_IQ_CMD_FL0HOSTFCMODE(iq_params->fl0hostfcmode)|
++			FW_IQ_CMD_FL0CPRIO(iq_params->fl0cprio)		|
++			FW_IQ_CMD_FL0PADEN(iq_params->fl0paden)		|
++			FW_IQ_CMD_FL0PACKEN(iq_params->fl0packen));
++		cmdp->fl0dcaen_to_fl0cidxfthresh |= htons(
++			FW_IQ_CMD_FL0DCAEN(iq_params->fl0dcaen)		|
++			FW_IQ_CMD_FL0DCACPU(iq_params->fl0dcacpu)	|
++			FW_IQ_CMD_FL0FBMIN(iq_params->fl0fbmin)		|
++			FW_IQ_CMD_FL0FBMAX(iq_params->fl0fbmax)		|
++			FW_IQ_CMD_FL0CIDXFTHRESH(iq_params->fl0cidxfthresh));
++		cmdp->fl0size |= htons(iq_params->fl0size);
++		cmdp->fl0addr |= cpu_to_be64(iq_params->fl0addr);
++	}
++} /* csio_mb_iq_write */
++
++/*
++ * csio_mb_iq_alloc_write - Initializes the mailbox for allocating an
++ *				Ingress DMA Queue.
++ *
++ * @hw: The HW structure
++ * @mbp: Mailbox structure to initialize
++ * @priv: Private data.
++ * @mb_tmo: Mailbox time-out period (in ms).
++ * @iq_params: Ingress queue params needed for allocation & writing.
++ * @cbfn: The call-back function
++ *
++ *
++ */
++void
++csio_mb_iq_alloc_write(struct csio_hw *hw, struct csio_mb *mbp, void *priv,
++		       uint32_t mb_tmo, struct csio_iq_params *iq_params,
++		       void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	csio_mb_iq_alloc(hw, mbp, priv, mb_tmo, iq_params, cbfn);
++	csio_mb_iq_write(hw, mbp, priv, mb_tmo, true, iq_params, cbfn);
++} /* csio_mb_iq_alloc_write */
++
++/*
++ * csio_mb_iq_alloc_write_rsp - Process the allocation & writing
++ *				of ingress DMA queue mailbox's response.
++ *
++ * @hw: The HW structure.
++ * @mbp: Mailbox structure to initialize.
++ * @retval: Firmware return value.
++ * @iq_params: Ingress queue parameters, after allocation and write.
++ *
++ */
++void
++csio_mb_iq_alloc_write_rsp(struct csio_hw *hw, struct csio_mb *mbp,
++			   enum fw_retval *ret_val,
++			   struct csio_iq_params *iq_params)
++{
++	struct fw_iq_cmd *rsp = (struct fw_iq_cmd *)(mbp->mb);
++
++	*ret_val = FW_CMD_RETVAL_GET(ntohl(rsp->alloc_to_len16));
++	if (*ret_val == FW_SUCCESS) {
++		iq_params->physiqid = ntohs(rsp->physiqid);
++		iq_params->iqid = ntohs(rsp->iqid);
++		iq_params->fl0id = ntohs(rsp->fl0id);
++		iq_params->fl1id = ntohs(rsp->fl1id);
++	} else {
++		iq_params->physiqid = iq_params->iqid =
++		iq_params->fl0id = iq_params->fl1id = 0;
++	}
++} /* csio_mb_iq_alloc_write_rsp */
++
++/*
++ * csio_mb_iq_free - Initializes the mailbox for freeing a
++ *				specified Ingress DMA Queue.
++ *
++ * @hw: The HW structure
++ * @mbp: Mailbox structure to initialize
++ * @priv: Private data
++ * @mb_tmo: Mailbox time-out period (in ms).
++ * @iq_params: Parameters of ingress queue, that is to be freed.
++ * @cbfn: The call-back function
++ *
++ *
++ */
++void
++csio_mb_iq_free(struct csio_hw *hw, struct csio_mb *mbp, void *priv,
++		uint32_t mb_tmo, struct csio_iq_params *iq_params,
++		void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_iq_cmd *cmdp = (struct fw_iq_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, mb_tmo, priv, cbfn, 1);
++
++	cmdp->op_to_vfn = htonl(FW_CMD_OP(FW_IQ_CMD)		|
++				FW_CMD_REQUEST | FW_CMD_EXEC	|
++				FW_IQ_CMD_PFN(iq_params->pfn)	|
++				FW_IQ_CMD_VFN(iq_params->vfn));
++	cmdp->alloc_to_len16 = htonl(FW_IQ_CMD_FREE		|
++				FW_CMD_LEN16(sizeof(*cmdp) / 16));
++	cmdp->type_to_iqandstindex = htonl(FW_IQ_CMD_TYPE(iq_params->type));
++
++	cmdp->iqid = htons(iq_params->iqid);
++	cmdp->fl0id = htons(iq_params->fl0id);
++	cmdp->fl1id = htons(iq_params->fl1id);
++
++} /* csio_mb_iq_free */
++
++/*
++ * csio_mb_eq_ofld_alloc - Initializes the mailbox for allocating
++ *				an offload-egress queue.
++ *
++ * @hw: The HW  structure
++ * @mbp: Mailbox structure to initialize
++ * @priv: Private data
++ * @mb_tmo: Mailbox time-out period (in ms).
++ * @eq_ofld_params: (Offload) Egress queue paramters.
++ * @cbfn: The call-back function
++ *
++ *
++ */
++static void
++csio_mb_eq_ofld_alloc(struct csio_hw *hw, struct csio_mb *mbp, void *priv,
++		uint32_t mb_tmo, struct csio_eq_params *eq_ofld_params,
++		void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_eq_ofld_cmd *cmdp = (struct fw_eq_ofld_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, mb_tmo, priv, cbfn, 1);
++	cmdp->op_to_vfn = htonl(FW_CMD_OP(FW_EQ_OFLD_CMD)		|
++				FW_CMD_REQUEST | FW_CMD_EXEC		|
++				FW_EQ_OFLD_CMD_PFN(eq_ofld_params->pfn) |
++				FW_EQ_OFLD_CMD_VFN(eq_ofld_params->vfn));
++	cmdp->alloc_to_len16 = htonl(FW_EQ_OFLD_CMD_ALLOC	|
++				FW_CMD_LEN16(sizeof(*cmdp) / 16));
++
++} /* csio_mb_eq_ofld_alloc */
++
++/*
++ * csio_mb_eq_ofld_write - Initializes the mailbox for writing
++ *				an alloacted offload-egress queue.
++ *
++ * @hw: The HW structure
++ * @mbp: Mailbox structure to initialize
++ * @priv: Private data
++ * @mb_tmo: Mailbox time-out period (in ms).
++ * @cascaded_req: TRUE - if this request is cascased with Eq-alloc request.
++ * @eq_ofld_params: (Offload) Egress queue paramters.
++ * @cbfn: The call-back function
++ *
++ *
++ * NOTE: We OR relevant bits with cmdp->XXX, instead of just equating,
++ * because this EQ write request can be cascaded with a previous
++ * EQ alloc request, and we dont want to over-write the bits set by
++ * that request. This logic will work even in a non-cascaded case, since the
++ * cmdp structure is zeroed out by CSIO_INIT_MBP.
++ */
++static void
++csio_mb_eq_ofld_write(struct csio_hw *hw, struct csio_mb *mbp, void *priv,
++		      uint32_t mb_tmo, bool cascaded_req,
++		      struct csio_eq_params *eq_ofld_params,
++		      void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_eq_ofld_cmd *cmdp = (struct fw_eq_ofld_cmd *)(mbp->mb);
++
++	uint32_t eq_start_stop = (eq_ofld_params->eqstart)	?
++				FW_EQ_OFLD_CMD_EQSTART	: FW_EQ_OFLD_CMD_EQSTOP;
++
++	/*
++	 * If this EQ write is cascaded with EQ alloc request, do not
++	 * re-initialize with 0's.
++	 *
++	 */
++	if (!cascaded_req)
++		CSIO_INIT_MBP(mbp, cmdp, mb_tmo, priv, cbfn, 1);
++
++	cmdp->op_to_vfn |= htonl(FW_CMD_OP(FW_EQ_OFLD_CMD)	|
++				FW_CMD_REQUEST | FW_CMD_WRITE	|
++				FW_EQ_OFLD_CMD_PFN(eq_ofld_params->pfn) |
++				FW_EQ_OFLD_CMD_VFN(eq_ofld_params->vfn));
++	cmdp->alloc_to_len16 |= htonl(eq_start_stop		|
++				      FW_CMD_LEN16(sizeof(*cmdp) / 16));
++
++	cmdp->eqid_pkd |= htonl(FW_EQ_OFLD_CMD_EQID(eq_ofld_params->eqid));
++
++	cmdp->fetchszm_to_iqid |= htonl(
++		FW_EQ_OFLD_CMD_HOSTFCMODE(eq_ofld_params->hostfcmode)	|
++		FW_EQ_OFLD_CMD_CPRIO(eq_ofld_params->cprio)		|
++		FW_EQ_OFLD_CMD_PCIECHN(eq_ofld_params->pciechn)		|
++		FW_EQ_OFLD_CMD_IQID(eq_ofld_params->iqid));
++
++	cmdp->dcaen_to_eqsize |= htonl(
++		FW_EQ_OFLD_CMD_DCAEN(eq_ofld_params->dcaen)		|
++		FW_EQ_OFLD_CMD_DCACPU(eq_ofld_params->dcacpu)		|
++		FW_EQ_OFLD_CMD_FBMIN(eq_ofld_params->fbmin)		|
++		FW_EQ_OFLD_CMD_FBMAX(eq_ofld_params->fbmax)		|
++		FW_EQ_OFLD_CMD_CIDXFTHRESHO(eq_ofld_params->cidxfthresho) |
++		FW_EQ_OFLD_CMD_CIDXFTHRESH(eq_ofld_params->cidxfthresh) |
++		FW_EQ_OFLD_CMD_EQSIZE(eq_ofld_params->eqsize));
++
++	cmdp->eqaddr |= cpu_to_be64(eq_ofld_params->eqaddr);
++
++} /* csio_mb_eq_ofld_write */
++
++/*
++ * csio_mb_eq_ofld_alloc_write - Initializes the mailbox for allocation
++ *				writing into an Engress DMA Queue.
++ *
++ * @hw: The HW structure
++ * @mbp: Mailbox structure to initialize
++ * @priv: Private data.
++ * @mb_tmo: Mailbox time-out period (in ms).
++ * @eq_ofld_params: (Offload) Egress queue paramters.
++ * @cbfn: The call-back function
++ *
++ *
++ */
++void
++csio_mb_eq_ofld_alloc_write(struct csio_hw *hw, struct csio_mb *mbp,
++			    void *priv, uint32_t mb_tmo,
++			    struct csio_eq_params *eq_ofld_params,
++			    void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	csio_mb_eq_ofld_alloc(hw, mbp, priv, mb_tmo, eq_ofld_params, cbfn);
++	csio_mb_eq_ofld_write(hw, mbp, priv, mb_tmo, true,
++			      eq_ofld_params, cbfn);
++} /* csio_mb_eq_ofld_alloc_write */
++
++/*
++ * csio_mb_eq_ofld_alloc_write_rsp - Process the allocation
++ *				& write egress DMA queue mailbox's response.
++ *
++ * @hw: The HW structure.
++ * @mbp: Mailbox structure to initialize.
++ * @retval: Firmware return value.
++ * @eq_ofld_params: (Offload) Egress queue paramters.
++ *
++ */
++void
++csio_mb_eq_ofld_alloc_write_rsp(struct csio_hw *hw,
++				struct csio_mb *mbp, enum fw_retval *ret_val,
++				struct csio_eq_params *eq_ofld_params)
++{
++	struct fw_eq_ofld_cmd *rsp = (struct fw_eq_ofld_cmd *)(mbp->mb);
++
++	*ret_val = FW_CMD_RETVAL_GET(ntohl(rsp->alloc_to_len16));
++
++	if (*ret_val == FW_SUCCESS) {
++		eq_ofld_params->eqid = FW_EQ_OFLD_CMD_EQID_GET(
++						ntohl(rsp->eqid_pkd));
++		eq_ofld_params->physeqid = FW_EQ_OFLD_CMD_PHYSEQID_GET(
++						ntohl(rsp->physeqid_pkd));
++	} else
++		eq_ofld_params->eqid = 0;
++
++} /* csio_mb_eq_ofld_alloc_write_rsp */
++
++/*
++ * csio_mb_eq_ofld_free - Initializes the mailbox for freeing a
++ *				specified Engress DMA Queue.
++ *
++ * @hw: The HW structure
++ * @mbp: Mailbox structure to initialize
++ * @priv: Private data area.
++ * @mb_tmo: Mailbox time-out period (in ms).
++ * @eq_ofld_params: (Offload) Egress queue paramters, that is to be freed.
++ * @cbfn: The call-back function
++ *
++ *
++ */
++void
++csio_mb_eq_ofld_free(struct csio_hw *hw, struct csio_mb *mbp, void *priv,
++		     uint32_t mb_tmo, struct csio_eq_params *eq_ofld_params,
++		     void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_eq_ofld_cmd *cmdp = (struct fw_eq_ofld_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, mb_tmo, priv, cbfn, 1);
++
++	cmdp->op_to_vfn = htonl(FW_CMD_OP(FW_EQ_OFLD_CMD)	|
++				FW_CMD_REQUEST | FW_CMD_EXEC	|
++				FW_EQ_OFLD_CMD_PFN(eq_ofld_params->pfn) |
++				FW_EQ_OFLD_CMD_VFN(eq_ofld_params->vfn));
++	cmdp->alloc_to_len16 = htonl(FW_EQ_OFLD_CMD_FREE |
++				FW_CMD_LEN16(sizeof(*cmdp) / 16));
++	cmdp->eqid_pkd = htonl(FW_EQ_OFLD_CMD_EQID(eq_ofld_params->eqid));
++
++} /* csio_mb_eq_ofld_free */
++
++/*
++ * csio_write_fcoe_link_cond_init_mb - Initialize Mailbox to write FCoE link
++ *				 condition.
++ *
++ * @ln: The Lnode structure
++ * @mbp: Mailbox structure to initialize
++ * @mb_tmo: Mailbox time-out period (in ms).
++ * @cbfn: The call back function.
++ *
++ *
++ */
++void
++csio_write_fcoe_link_cond_init_mb(struct csio_lnode *ln, struct csio_mb *mbp,
++			uint32_t mb_tmo, uint8_t port_id, uint32_t sub_opcode,
++			uint8_t cos, bool link_status, uint32_t fcfi,
++			void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_fcoe_link_cmd *cmdp =
++				(struct fw_fcoe_link_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, mb_tmo, ln, cbfn, 1);
++
++	cmdp->op_to_portid = htonl((
++			FW_CMD_OP(FW_FCOE_LINK_CMD)		|
++			FW_CMD_REQUEST				|
++			FW_CMD_WRITE				|
++			FW_FCOE_LINK_CMD_PORTID(port_id)));
++	cmdp->sub_opcode_fcfi = htonl(
++			FW_FCOE_LINK_CMD_SUB_OPCODE(sub_opcode)	|
++			FW_FCOE_LINK_CMD_FCFI(fcfi));
++	cmdp->lstatus = link_status;
++	cmdp->retval_len16 = htonl(FW_CMD_LEN16(sizeof(*cmdp) / 16));
++
++} /* csio_write_fcoe_link_cond_init_mb */
++
++/*
++ * csio_fcoe_read_res_info_init_mb - Initializes the mailbox for reading FCoE
++ *				resource information(FW_GET_RES_INFO_CMD).
++ *
++ * @hw: The HW structure
++ * @mbp: Mailbox structure to initialize
++ * @mb_tmo: Mailbox time-out period (in ms).
++ * @cbfn: The call-back function
++ *
++ *
++ */
++void
++csio_fcoe_read_res_info_init_mb(struct csio_hw *hw, struct csio_mb *mbp,
++			uint32_t mb_tmo,
++			void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_fcoe_res_info_cmd *cmdp =
++			(struct fw_fcoe_res_info_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, mb_tmo, hw, cbfn, 1);
++
++	cmdp->op_to_read = htonl((FW_CMD_OP(FW_FCOE_RES_INFO_CMD)	|
++				  FW_CMD_REQUEST			|
++				  FW_CMD_READ));
++
++	cmdp->retval_len16 = htonl(FW_CMD_LEN16(sizeof(*cmdp) / 16));
++
++} /* csio_fcoe_read_res_info_init_mb */
++
++/*
++ * csio_fcoe_vnp_alloc_init_mb - Initializes the mailbox for allocating VNP
++ *				in the firmware (FW_FCOE_VNP_CMD).
++ *
++ * @ln: The Lnode structure.
++ * @mbp: Mailbox structure to initialize.
++ * @mb_tmo: Mailbox time-out period (in ms).
++ * @fcfi: FCF Index.
++ * @vnpi: vnpi
++ * @iqid: iqid
++ * @vnport_wwnn: vnport WWNN
++ * @vnport_wwpn: vnport WWPN
++ * @cbfn: The call-back function.
++ *
++ *
++ */
++void
++csio_fcoe_vnp_alloc_init_mb(struct csio_lnode *ln, struct csio_mb *mbp,
++		uint32_t mb_tmo, uint32_t fcfi, uint32_t vnpi, uint16_t iqid,
++		uint8_t vnport_wwnn[8],	uint8_t vnport_wwpn[8],
++		void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_fcoe_vnp_cmd *cmdp =
++			(struct fw_fcoe_vnp_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, mb_tmo, ln, cbfn, 1);
++
++	cmdp->op_to_fcfi = htonl((FW_CMD_OP(FW_FCOE_VNP_CMD)		|
++				  FW_CMD_REQUEST			|
++				  FW_CMD_EXEC				|
++				  FW_FCOE_VNP_CMD_FCFI(fcfi)));
++
++	cmdp->alloc_to_len16 = htonl(FW_FCOE_VNP_CMD_ALLOC		|
++				     FW_CMD_LEN16(sizeof(*cmdp) / 16));
++
++	cmdp->gen_wwn_to_vnpi = htonl(FW_FCOE_VNP_CMD_VNPI(vnpi));
++
++	cmdp->iqid = htons(iqid);
++
++	if (!wwn_to_u64(vnport_wwnn) && !wwn_to_u64(vnport_wwpn))
++		cmdp->gen_wwn_to_vnpi |= htonl(FW_FCOE_VNP_CMD_GEN_WWN);
++
++	if (vnport_wwnn)
++		memcpy(cmdp->vnport_wwnn, vnport_wwnn, 8);
++	if (vnport_wwpn)
++		memcpy(cmdp->vnport_wwpn, vnport_wwpn, 8);
++
++} /* csio_fcoe_vnp_alloc_init_mb */
++
++/*
++ * csio_fcoe_vnp_read_init_mb - Prepares VNP read cmd.
++ * @ln: The Lnode structure.
++ * @mbp: Mailbox structure to initialize.
++ * @mb_tmo: Mailbox time-out period (in ms).
++ * @fcfi: FCF Index.
++ * @vnpi: vnpi
++ * @cbfn: The call-back handler.
++ */
++void
++csio_fcoe_vnp_read_init_mb(struct csio_lnode *ln, struct csio_mb *mbp,
++		uint32_t mb_tmo, uint32_t fcfi, uint32_t vnpi,
++		void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_fcoe_vnp_cmd *cmdp =
++			(struct fw_fcoe_vnp_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, mb_tmo, ln, cbfn, 1);
++	cmdp->op_to_fcfi = htonl(FW_CMD_OP(FW_FCOE_VNP_CMD)	|
++				 FW_CMD_REQUEST			|
++				 FW_CMD_READ			|
++				 FW_FCOE_VNP_CMD_FCFI(fcfi));
++	cmdp->alloc_to_len16 = htonl(FW_CMD_LEN16(sizeof(*cmdp) / 16));
++	cmdp->gen_wwn_to_vnpi = htonl(FW_FCOE_VNP_CMD_VNPI(vnpi));
++}
++
++/*
++ * csio_fcoe_vnp_free_init_mb - Initializes the mailbox for freeing an
++ *			alloacted VNP in the firmware (FW_FCOE_VNP_CMD).
++ *
++ * @ln: The Lnode structure.
++ * @mbp: Mailbox structure to initialize.
++ * @mb_tmo: Mailbox time-out period (in ms).
++ * @fcfi: FCF flow id
++ * @vnpi: VNP flow id
++ * @cbfn: The call-back function.
++ * Return: None
++ */
++void
++csio_fcoe_vnp_free_init_mb(struct csio_lnode *ln, struct csio_mb *mbp,
++		uint32_t mb_tmo, uint32_t fcfi, uint32_t vnpi,
++		void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_fcoe_vnp_cmd *cmdp =
++			(struct fw_fcoe_vnp_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, mb_tmo, ln, cbfn, 1);
++
++	cmdp->op_to_fcfi = htonl(FW_CMD_OP(FW_FCOE_VNP_CMD)	|
++				 FW_CMD_REQUEST			|
++				 FW_CMD_EXEC			|
++				 FW_FCOE_VNP_CMD_FCFI(fcfi));
++	cmdp->alloc_to_len16 = htonl(FW_FCOE_VNP_CMD_FREE	|
++				     FW_CMD_LEN16(sizeof(*cmdp) / 16));
++	cmdp->gen_wwn_to_vnpi = htonl(FW_FCOE_VNP_CMD_VNPI(vnpi));
++}
++
++/*
++ * csio_fcoe_read_fcf_init_mb - Initializes the mailbox to read the
++ *				FCF records.
++ *
++ * @ln: The Lnode structure
++ * @mbp: Mailbox structure to initialize
++ * @mb_tmo: Mailbox time-out period (in ms).
++ * @fcf_params: FC-Forwarder parameters.
++ * @cbfn: The call-back function
++ *
++ *
++ */
++void
++csio_fcoe_read_fcf_init_mb(struct csio_lnode *ln, struct csio_mb *mbp,
++		uint32_t mb_tmo, uint32_t portid, uint32_t fcfi,
++		void (*cbfn) (struct csio_hw *, struct csio_mb *))
++{
++	struct fw_fcoe_fcf_cmd *cmdp =
++			(struct fw_fcoe_fcf_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, mb_tmo, ln, cbfn, 1);
++
++	cmdp->op_to_fcfi = htonl(FW_CMD_OP(FW_FCOE_FCF_CMD)	|
++				 FW_CMD_REQUEST			|
++				 FW_CMD_READ			|
++				 FW_FCOE_FCF_CMD_FCFI(fcfi));
++	cmdp->retval_len16 = htonl(FW_CMD_LEN16(sizeof(*cmdp) / 16));
++
++} /* csio_fcoe_read_fcf_init_mb */
++
++void
++csio_fcoe_read_portparams_init_mb(struct csio_hw *hw, struct csio_mb *mbp,
++				uint32_t mb_tmo,
++				struct fw_fcoe_port_cmd_params *portparams,
++				void (*cbfn)(struct csio_hw *,
++					     struct csio_mb *))
++{
++	struct fw_fcoe_stats_cmd *cmdp = (struct fw_fcoe_stats_cmd *)(mbp->mb);
++
++	CSIO_INIT_MBP(mbp, cmdp, mb_tmo, hw, cbfn, 1);
++	mbp->mb_size = 64;
++
++	cmdp->op_to_flowid = htonl(FW_CMD_OP(FW_FCOE_STATS_CMD)         |
++				   FW_CMD_REQUEST | FW_CMD_READ);
++	cmdp->free_to_len16 = htonl(FW_CMD_LEN16(CSIO_MAX_MB_SIZE/16));
++
++	cmdp->u.ctl.nstats_port = FW_FCOE_STATS_CMD_NSTATS(portparams->nstats) |
++				  FW_FCOE_STATS_CMD_PORT(portparams->portid);
++
++	cmdp->u.ctl.port_valid_ix = FW_FCOE_STATS_CMD_IX(portparams->idx)    |
++				    FW_FCOE_STATS_CMD_PORT_VALID;
++
++} /* csio_fcoe_read_portparams_init_mb */
++
++void
++csio_mb_process_portparams_rsp(
++				struct csio_hw *hw,
++				struct csio_mb *mbp,
++				enum fw_retval *retval,
++				struct fw_fcoe_port_cmd_params *portparams,
++				struct fw_fcoe_port_stats  *portstats
++			     )
++{
++	struct fw_fcoe_stats_cmd *rsp = (struct fw_fcoe_stats_cmd *)(mbp->mb);
++	struct fw_fcoe_port_stats stats;
++	uint8_t *src;
++	uint8_t *dst;
++
++	*retval = FW_CMD_RETVAL_GET(ntohl(rsp->free_to_len16));
++
++	memset(&stats, 0, sizeof(struct fw_fcoe_port_stats));
++
++	if (*retval == FW_SUCCESS) {
++		dst = (uint8_t *)(&stats) + ((portparams->idx - 1) * 8);
++		src = (uint8_t *)rsp + (CSIO_STATS_OFFSET * 8);
++		memcpy(dst, src, (portparams->nstats * 8));
++		if (portparams->idx == 1) {
++			/* Get the first 6 flits from the Mailbox */
++			portstats->tx_bcast_bytes	=
++					be64_to_cpu(stats.tx_bcast_bytes);
++			portstats->tx_bcast_frames	=
++					be64_to_cpu(stats.tx_bcast_frames);
++			portstats->tx_mcast_bytes	=
++					be64_to_cpu(stats.tx_mcast_bytes);
++			portstats->tx_mcast_frames	=
++					be64_to_cpu(stats.tx_mcast_frames);
++			portstats->tx_ucast_bytes	=
++					be64_to_cpu(stats.tx_ucast_bytes);
++			portstats->tx_ucast_frames	=
++					be64_to_cpu(stats.tx_ucast_frames);
++		}
++		if (portparams->idx == 7) {
++			/* Get the second 6 flits from the Mailbox */
++			portstats->tx_drop_frames	=
++				be64_to_cpu(stats.tx_drop_frames);
++			portstats->tx_offload_bytes	=
++				be64_to_cpu(stats.tx_offload_bytes);
++			portstats->tx_offload_frames	=
++				be64_to_cpu(stats.tx_offload_frames);
++#if 0
++			portstats->rx_pf_bytes		=
++					be64_to_cpu(stats.rx_pf_bytes);
++			portstats->rx_pf_frames		=
++					be64_to_cpu(stats.rx_pf_frames);
++#endif
++			portstats->rx_bcast_bytes	=
++					be64_to_cpu(stats.rx_bcast_bytes);
++			portstats->rx_bcast_frames	=
++					be64_to_cpu(stats.rx_bcast_frames);
++			portstats->rx_mcast_bytes	=
++					be64_to_cpu(stats.rx_mcast_bytes);
++		}
++		if (portparams->idx == 13) {
++			/* Get the last 4 flits from the Mailbox */
++			portstats->rx_mcast_frames	=
++					be64_to_cpu(stats.rx_mcast_frames);
++			portstats->rx_ucast_bytes	=
++					be64_to_cpu(stats.rx_ucast_bytes);
++			portstats->rx_ucast_frames	=
++					be64_to_cpu(stats.rx_ucast_frames);
++			portstats->rx_err_frames	=
++					be64_to_cpu(stats.rx_err_frames);
 +		}
 +	}
 +}
 +
-+static inline bool
-+csio_scsi_itnexus_loss_error(uint16_t error)
++/* Entry points/APIs for MB module					     */
++/*
++ * csio_mb_intr_enable - Enable Interrupts from mailboxes.
++ * @hw: The HW structure
++ *
++ * Enables CIM interrupt bit in appropriate INT_ENABLE registers.
++ */
++void
++csio_mb_intr_enable(struct csio_hw *hw)
 +{
-+	switch (error) {
-+	case FW_ERR_LINK_DOWN:
-+	case FW_RDEV_NOT_READY:
-+	case FW_ERR_RDEV_LOST:
-+	case FW_ERR_RDEV_LOGO:
-+	case FW_ERR_RDEV_IMPL_LOGO:
-+		return 1;
++	csio_wr_reg32(hw, MBMSGRDYINTEN(1), MYPF_REG(CIM_PF_HOST_INT_ENABLE));
++	csio_rd_reg32(hw, MYPF_REG(CIM_PF_HOST_INT_ENABLE));
++}
++
++/*
++ * csio_mb_intr_disable - Disable Interrupts from mailboxes.
++ * @hw: The HW structure
++ *
++ * Disable bit in HostInterruptEnable CIM register.
++ */
++void
++csio_mb_intr_disable(struct csio_hw *hw)
++{
++	csio_wr_reg32(hw, MBMSGRDYINTEN(0), MYPF_REG(CIM_PF_HOST_INT_ENABLE));
++	csio_rd_reg32(hw, MYPF_REG(CIM_PF_HOST_INT_ENABLE));
++}
++
++static void
++csio_mb_dump_fw_dbg(struct csio_hw *hw, __be64 *cmd)
++{
++	struct fw_debug_cmd *dbg = (struct fw_debug_cmd *)cmd;
++
++	if ((FW_DEBUG_CMD_TYPE_GET(ntohl(dbg->op_type))) == 1) {
++		csio_info(hw, "FW print message:\n");
++		csio_info(hw, "\tdebug->dprtstridx = %d\n",
++			    ntohs(dbg->u.prt.dprtstridx));
++		csio_info(hw, "\tdebug->dprtstrparam0 = 0x%x\n",
++			    ntohl(dbg->u.prt.dprtstrparam0));
++		csio_info(hw, "\tdebug->dprtstrparam1 = 0x%x\n",
++			    ntohl(dbg->u.prt.dprtstrparam1));
++		csio_info(hw, "\tdebug->dprtstrparam2 = 0x%x\n",
++			    ntohl(dbg->u.prt.dprtstrparam2));
++		csio_info(hw, "\tdebug->dprtstrparam3 = 0x%x\n",
++			    ntohl(dbg->u.prt.dprtstrparam3));
++	} else {
++		/* This is a FW assertion */
++		csio_fatal(hw, "FW assertion at %.16s:%u, val0 %#x, val1 %#x\n",
++			    dbg->u.assert.filename_0_7,
++			    ntohl(dbg->u.assert.line),
++			    ntohl(dbg->u.assert.x),
++			    ntohl(dbg->u.assert.y));
 +	}
++}
++
++static void
++csio_mb_debug_cmd_handler(struct csio_hw *hw)
++{
++	int i;
++	__be64 cmd[CSIO_MB_MAX_REGS];
++	uint32_t ctl_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_CTRL);
++	uint32_t data_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_DATA);
++	int size = sizeof(struct fw_debug_cmd);
++
++	/* Copy mailbox data */
++	for (i = 0; i < size; i += 8)
++		cmd[i / 8] = cpu_to_be64(csio_rd_reg64(hw, data_reg + i));
++
++	csio_mb_dump_fw_dbg(hw, cmd);
++
++	/* Notify FW of mailbox by setting owner as UP */
++	csio_wr_reg32(hw, MBMSGVALID | MBINTREQ | MBOWNER(CSIO_MBOWNER_FW),
++		      ctl_reg);
++
++	csio_rd_reg32(hw, ctl_reg);
++	wmb();
++}
++
++/*
++ * csio_mb_issue - generic routine for issuing Mailbox commands.
++ * @hw: The HW structure
++ * @mbp: Mailbox command to issue
++ *
++ *  Caller should hold hw lock across this call.
++ */
++int
++csio_mb_issue(struct csio_hw *hw, struct csio_mb *mbp)
++{
++	uint32_t owner, ctl;
++	int i;
++	uint32_t ii;
++	__be64 *cmd = mbp->mb;
++	__be64 hdr;
++	struct csio_mbm	*mbm = &hw->mbm;
++	uint32_t ctl_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_CTRL);
++	uint32_t data_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_DATA);
++	int size = mbp->mb_size;
++	int rv = -EINVAL;
++	struct fw_cmd_hdr *fw_hdr;
++
++	/* Determine mode */
++	if (mbp->mb_cbfn == NULL) {
++		/* Need to issue/get results in the same context */
++		if (mbp->tmo < CSIO_MB_POLL_FREQ) {
++			csio_err(hw, "Invalid tmo: 0x%x\n", mbp->tmo);
++			goto error_out;
++		}
++	} else if (!csio_is_host_intr_enabled(hw) ||
++		   !csio_is_hw_intr_enabled(hw)) {
++		csio_err(hw, "Cannot issue mailbox in interrupt mode 0x%x\n",
++			 *((uint8_t *)mbp->mb));
++			goto error_out;
++	}
++
++	if (mbm->mcurrent != NULL) {
++		/* Queue mbox cmd, if another mbox cmd is active */
++		if (mbp->mb_cbfn == NULL) {
++			rv = -EBUSY;
++			csio_dbg(hw, "Couldnt own Mailbox %x op:0x%x\n",
++				    hw->pfn, *((uint8_t *)mbp->mb));
++
++			goto error_out;
++		} else {
++			list_add_tail(&mbp->list, &mbm->req_q);
++			CSIO_INC_STATS(mbm, n_activeq);
++
++			return 0;
++		}
++	}
++
++	/* Now get ownership of mailbox */
++	owner = MBOWNER_GET(csio_rd_reg32(hw, ctl_reg));
++
++	if (!csio_mb_is_host_owner(owner)) {
++
++		for (i = 0; (owner == CSIO_MBOWNER_NONE) && (i < 3); i++)
++			owner = MBOWNER_GET(csio_rd_reg32(hw, ctl_reg));
++		/*
++		 * Mailbox unavailable. In immediate mode, fail the command.
++		 * In other modes, enqueue the request.
++		 */
++		if (!csio_mb_is_host_owner(owner)) {
++			if (mbp->mb_cbfn == NULL) {
++				rv = owner ? -EBUSY : -ETIMEDOUT;
++
++				csio_dbg(hw,
++					 "Couldnt own Mailbox %x op:0x%x "
++					 "owner:%x\n",
++					 hw->pfn, *((uint8_t *)mbp->mb), owner);
++				goto error_out;
++			} else {
++				if (mbm->mcurrent == NULL) {
++					csio_err(hw,
++						 "Couldnt own Mailbox %x "
++						 "op:0x%x owner:%x\n",
++						 hw->pfn, *((uint8_t *)mbp->mb),
++						 owner);
++					csio_err(hw,
++						 "No outstanding driver"
++						 " mailbox as well\n");
++					goto error_out;
++				}
++			}
++		}
++	}
++
++	/* Mailbox is available, copy mailbox data into it */
++	for (i = 0; i < size; i += 8) {
++		csio_wr_reg64(hw, be64_to_cpu(*cmd), data_reg + i);
++		cmd++;
++	}
++
++	CSIO_DUMP_MB(hw, hw->pfn, data_reg);
++
++	/* Start completion timers in non-immediate modes and notify FW */
++	if (mbp->mb_cbfn != NULL) {
++		mbm->mcurrent = mbp;
++		mod_timer(&mbm->timer, jiffies + msecs_to_jiffies(mbp->tmo));
++		csio_wr_reg32(hw, MBMSGVALID | MBINTREQ |
++			      MBOWNER(CSIO_MBOWNER_FW), ctl_reg);
++	} else
++		csio_wr_reg32(hw, MBMSGVALID | MBOWNER(CSIO_MBOWNER_FW),
++			      ctl_reg);
++
++	/* Flush posted writes */
++	csio_rd_reg32(hw, ctl_reg);
++	wmb();
++
++	CSIO_INC_STATS(mbm, n_req);
++
++	if (mbp->mb_cbfn)
++		return 0;
++
++	/* Poll for completion in immediate mode */
++	cmd = mbp->mb;
++
++	for (ii = 0; ii < mbp->tmo; ii += CSIO_MB_POLL_FREQ) {
++		mdelay(CSIO_MB_POLL_FREQ);
++
++		/* Check for response */
++		ctl = csio_rd_reg32(hw, ctl_reg);
++		if (csio_mb_is_host_owner(MBOWNER_GET(ctl))) {
++
++			if (!(ctl & MBMSGVALID)) {
++				csio_wr_reg32(hw, 0, ctl_reg);
++				continue;
++			}
++
++			CSIO_DUMP_MB(hw, hw->pfn, data_reg);
++
++			hdr = cpu_to_be64(csio_rd_reg64(hw, data_reg));
++			fw_hdr = (struct fw_cmd_hdr *)&hdr;
++
++			switch (FW_CMD_OP_GET(ntohl(fw_hdr->hi))) {
++			case FW_DEBUG_CMD:
++				csio_mb_debug_cmd_handler(hw);
++				continue;
++			}
++
++			/* Copy response */
++			for (i = 0; i < size; i += 8)
++				*cmd++ = cpu_to_be64(csio_rd_reg64
++							  (hw, data_reg + i));
++			csio_wr_reg32(hw, 0, ctl_reg);
++
++			if (FW_CMD_RETVAL_GET(*(mbp->mb)))
++				CSIO_INC_STATS(mbm, n_err);
++
++			CSIO_INC_STATS(mbm, n_rsp);
++			return 0;
++		}
++	}
++
++	CSIO_INC_STATS(mbm, n_tmo);
++
++	csio_err(hw, "Mailbox %x op:0x%x timed out!\n",
++		 hw->pfn, *((uint8_t *)cmd));
++
++	return -ETIMEDOUT;
++
++error_out:
++	CSIO_INC_STATS(mbm, n_err);
++	return rv;
++}
++
++/*
++ * csio_mb_completions - Completion handler for Mailbox commands
++ * @hw: The HW structure
++ * @cbfn_q: Completion queue.
++ *
++ */
++void
++csio_mb_completions(struct csio_hw *hw, struct list_head *cbfn_q)
++{
++	struct csio_mb *mbp;
++	struct csio_mbm *mbm = &hw->mbm;
++	enum fw_retval rv;
++
++	while (!list_empty(cbfn_q)) {
++		mbp = list_first_entry(cbfn_q, struct csio_mb, list);
++		list_del_init(&mbp->list);
++
++		rv = csio_mb_fw_retval(mbp);
++		if ((rv != FW_SUCCESS) && (rv != FW_HOSTERROR))
++			CSIO_INC_STATS(mbm, n_err);
++		else if (rv != FW_HOSTERROR)
++			CSIO_INC_STATS(mbm, n_rsp);
++
++		if (mbp->mb_cbfn)
++			mbp->mb_cbfn(hw, mbp);
++	}
++}
++
++static void
++csio_mb_portmod_changed(struct csio_hw *hw, uint8_t port_id)
++{
++	static char *mod_str[] = {
++		NULL, "LR", "SR", "ER", "TWINAX", "active TWINAX", "LRM"
++	};
++
++	struct csio_pport *port = &hw->pport[port_id];
++
++	if (port->mod_type == FW_PORT_MOD_TYPE_NONE)
++		csio_info(hw, "Port:%d - port module unplugged\n", port_id);
++	else if (port->mod_type < ARRAY_SIZE(mod_str))
++		csio_info(hw, "Port:%d - %s port module inserted\n", port_id,
++			  mod_str[port->mod_type]);
++	else if (port->mod_type == FW_PORT_MOD_TYPE_NOTSUPPORTED)
++		csio_info(hw,
++			  "Port:%d - unsupported optical port module "
++			  "inserted\n", port_id);
++	else if (port->mod_type == FW_PORT_MOD_TYPE_UNKNOWN)
++		csio_info(hw,
++			  "Port:%d - unknown port module inserted, forcing "
++			  "TWINAX\n", port_id);
++	else if (port->mod_type == FW_PORT_MOD_TYPE_ERROR)
++		csio_info(hw, "Port:%d - transceiver module error\n", port_id);
++	else
++		csio_info(hw, "Port:%d - unknown module type %d inserted\n",
++			  port_id, port->mod_type);
++}
++
++int
++csio_mb_fwevt_handler(struct csio_hw *hw, __be64 *cmd)
++{
++	uint8_t opcode = *(uint8_t *)cmd;
++	struct fw_port_cmd *pcmd;
++	uint8_t port_id;
++	uint32_t link_status;
++	uint16_t action;
++	uint8_t mod_type;
++
++	if (opcode == FW_PORT_CMD) {
++		pcmd = (struct fw_port_cmd *)cmd;
++		port_id = FW_PORT_CMD_PORTID_GET(
++				ntohl(pcmd->op_to_portid));
++		action = FW_PORT_CMD_ACTION_GET(
++				ntohl(pcmd->action_to_len16));
++		if (action != FW_PORT_ACTION_GET_PORT_INFO) {
++			csio_err(hw, "Unhandled FW_PORT_CMD action: %u\n",
++				action);
++			return -EINVAL;
++		}
++
++		link_status = ntohl(pcmd->u.info.lstatus_to_modtype);
++		mod_type = FW_PORT_CMD_MODTYPE_GET(link_status);
++
++		hw->pport[port_id].link_status =
++			FW_PORT_CMD_LSTATUS_GET(link_status);
++		hw->pport[port_id].link_speed =
++			FW_PORT_CMD_LSPEED_GET(link_status);
++
++		csio_info(hw, "Port:%x - LINK %s\n", port_id,
++			FW_PORT_CMD_LSTATUS_GET(link_status) ? "UP" : "DOWN");
++
++		if (mod_type != hw->pport[port_id].mod_type) {
++			hw->pport[port_id].mod_type = mod_type;
++			csio_mb_portmod_changed(hw, port_id);
++		}
++	} else if (opcode == FW_DEBUG_CMD) {
++		csio_mb_dump_fw_dbg(hw, cmd);
++	} else {
++		csio_dbg(hw, "Gen MB can't handle op:0x%x on evtq.\n", opcode);
++		return -EINVAL;
++	}
++
 +	return 0;
 +}
 +
-+static inline void
-+csio_scsi_tag(struct scsi_cmnd *scmnd, uint8_t *tag, uint8_t hq,
-+	      uint8_t oq, uint8_t sq)
-+{
-+	char stag[2];
-+
-+	if (scsi_populate_tag_msg(scmnd, stag)) {
-+		switch (stag[0]) {
-+		case HEAD_OF_QUEUE_TAG:
-+			*tag = hq;
-+			break;
-+		case ORDERED_QUEUE_TAG:
-+			*tag = oq;
-+			break;
-+		default:
-+			*tag = sq;
-+			break;
-+		}
-+	} else
-+		*tag = 0;
-+}
-+
 +/*
-+ * csio_scsi_fcp_cmnd - Frame the SCSI FCP command paylod.
-+ * @req: IO req structure.
-+ * @addr: DMA location to place the payload.
++ * csio_mb_isr_handler - Handle mailboxes related interrupts.
++ * @hw: The HW structure
 + *
-+ * This routine is shared between FCP_WRITE, FCP_READ and FCP_CMD requests.
++ * Called from the ISR to handle Mailbox related interrupts.
++ * HW Lock should be held across this call.
 + */
-+static inline void
-+csio_scsi_fcp_cmnd(struct csio_ioreq *req, void *addr)
++int
++csio_mb_isr_handler(struct csio_hw *hw)
 +{
-+	struct fcp_cmnd *fcp_cmnd = (struct fcp_cmnd *)addr;
-+	struct scsi_cmnd *scmnd = csio_scsi_cmnd(req);
++	struct csio_mbm		*mbm = &hw->mbm;
++	struct csio_mb		*mbp =  mbm->mcurrent;
++	__be64			*cmd;
++	uint32_t		ctl, cim_cause, pl_cause;
++	int			i;
++	uint32_t		ctl_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_CTRL);
++	uint32_t		data_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_DATA);
++	int			size;
++	__be64			hdr;
++	struct fw_cmd_hdr	*fw_hdr;
 +
-+	/* Check for Task Management */
-+	if (likely(scmnd->SCp.Message == 0)) {
-+		int_to_scsilun(scmnd->device->lun, &fcp_cmnd->fc_lun);
-+		fcp_cmnd->fc_tm_flags = 0;
-+		fcp_cmnd->fc_cmdref = 0;
-+		fcp_cmnd->fc_pri_ta = 0;
++	pl_cause = csio_rd_reg32(hw, MYPF_REG(PL_PF_INT_CAUSE));
++	cim_cause = csio_rd_reg32(hw, MYPF_REG(CIM_PF_HOST_INT_CAUSE));
 +
-+		memcpy(fcp_cmnd->fc_cdb, scmnd->cmnd, 16);
-+		csio_scsi_tag(scmnd, &fcp_cmnd->fc_pri_ta,
-+			      FCP_PTA_HEADQ, FCP_PTA_ORDERED, FCP_PTA_SIMPLE);
-+		fcp_cmnd->fc_dl = cpu_to_be32(scsi_bufflen(scmnd));
-+
-+		if (req->nsge)
-+			if (req->datadir == DMA_TO_DEVICE)
-+				fcp_cmnd->fc_flags = FCP_CFL_WRDATA;
-+			else
-+				fcp_cmnd->fc_flags = FCP_CFL_RDDATA;
-+		else
-+			fcp_cmnd->fc_flags = 0;
-+	} else {
-+		memset(fcp_cmnd, 0, sizeof(*fcp_cmnd));
-+		int_to_scsilun(scmnd->device->lun, &fcp_cmnd->fc_lun);
-+		fcp_cmnd->fc_tm_flags = (uint8_t)scmnd->SCp.Message;
-+	}
-+}
-+
-+/*
-+ * csio_scsi_init_cmd_wr - Initialize the SCSI CMD WR.
-+ * @req: IO req structure.
-+ * @addr: DMA location to place the payload.
-+ * @size: Size of WR (including FW WR + immed data + rsp SG entry
-+ *
-+ * Wrapper for populating fw_scsi_cmd_wr.
-+ */
-+static inline void
-+csio_scsi_init_cmd_wr(struct csio_ioreq *req, void *addr, uint32_t size)
-+{
-+	struct csio_hw *hw = req->lnode->hwp;
-+	struct csio_rnode *rn = req->rnode;
-+	struct fw_scsi_cmd_wr *wr = (struct fw_scsi_cmd_wr *)addr;
-+	struct csio_dma_buf *dma_buf;
-+	uint8_t imm = csio_hw_to_scsim(hw)->proto_cmd_len;
-+
-+	wr->op_immdlen = cpu_to_be32(FW_WR_OP(FW_SCSI_CMD_WR) |
-+					  FW_SCSI_CMD_WR_IMMDLEN(imm));
-+	wr->flowid_len16 = cpu_to_be32(FW_WR_FLOWID(rn->flowid) |
-+					    FW_WR_LEN16(
-+						CSIO_ROUNDUP(size, 16)));
-+
-+	wr->cookie = (uintptr_t) req;
-+	wr->iqid = (uint16_t)cpu_to_be16(csio_q_physiqid(hw, req->iq_idx));
-+	wr->tmo_val = (uint8_t) req->tmo;
-+	wr->r3 = 0;
-+	memset(&wr->r5, 0, 8);
-+
-+	/* Get RSP DMA buffer */
-+	dma_buf = &req->dma_buf;
-+
-+	/* Prepare RSP SGL */
-+	wr->rsp_dmalen = cpu_to_be32(dma_buf->len);
-+	wr->rsp_dmaaddr = cpu_to_be64(dma_buf->paddr);
-+
-+	wr->r6 = 0;
-+
-+	wr->u.fcoe.ctl_pri = 0;
-+	wr->u.fcoe.cp_en_class = 0;
-+	wr->u.fcoe.r4_lo[0] = 0;
-+	wr->u.fcoe.r4_lo[1] = 0;
-+
-+	/* Frame a FCP command */
-+	csio_scsi_fcp_cmnd(req, (void *)((uintptr_t)addr +
-+				    sizeof(struct fw_scsi_cmd_wr)));
-+}
-+
-+#define CSIO_SCSI_CMD_WR_SZ(_imm)					\
-+	(sizeof(struct fw_scsi_cmd_wr) +		/* WR size */	\
-+	 ALIGN((_imm), 16))				/* Immed data */
-+
-+#define CSIO_SCSI_CMD_WR_SZ_16(_imm)					\
-+			(ALIGN(CSIO_SCSI_CMD_WR_SZ((_imm)), 16))
-+
-+/*
-+ * csio_scsi_cmd - Create a SCSI CMD WR.
-+ * @req: IO req structure.
-+ *
-+ * Gets a WR slot in the ingress queue and initializes it with SCSI CMD WR.
-+ *
-+ */
-+static inline void
-+csio_scsi_cmd(struct csio_ioreq *req)
-+{
-+	struct csio_wr_pair wrp;
-+	struct csio_hw *hw = req->lnode->hwp;
-+	struct csio_scsim *scsim = csio_hw_to_scsim(hw);
-+	uint32_t size = CSIO_SCSI_CMD_WR_SZ_16(scsim->proto_cmd_len);
-+
-+	req->drv_status = csio_wr_get(hw, req->eq_idx, size, &wrp);
-+	if (unlikely(req->drv_status != 0))
-+		return;
-+
-+	if (wrp.size1 >= size) {
-+		/* Initialize WR in one shot */
-+		csio_scsi_init_cmd_wr(req, wrp.addr1, size);
-+	} else {
-+		uint8_t *tmpwr = csio_q_eq_wrap(hw, req->eq_idx);
-+
-+		/*
-+		 * Make a temporary copy of the WR and write back
-+		 * the copy into the WR pair.
-+		 */
-+		csio_scsi_init_cmd_wr(req, (void *)tmpwr, size);
-+		memcpy(wrp.addr1, tmpwr, wrp.size1);
-+		memcpy(wrp.addr2, tmpwr + wrp.size1, size - wrp.size1);
-+	}
-+}
-+
-+/*
-+ * csio_scsi_init_ulptx_dsgl - Fill in a ULP_TX_SC_DSGL
-+ * @hw: HW module
-+ * @req: IO request
-+ * @sgl: ULP TX SGL pointer.
-+ *
-+ */
-+static inline void
-+csio_scsi_init_ultptx_dsgl(struct csio_hw *hw, struct csio_ioreq *req,
-+			   struct ulptx_sgl *sgl)
-+{
-+	struct ulptx_sge_pair *sge_pair = NULL;
-+	struct scatterlist *sgel;
-+	uint32_t i = 0;
-+	uint32_t xfer_len;
-+	struct list_head *tmp;
-+	struct csio_dma_buf *dma_buf;
-+	struct scsi_cmnd *scmnd = csio_scsi_cmnd(req);
-+
-+	sgl->cmd_nsge = htonl(ULPTX_CMD(ULP_TX_SC_DSGL) | ULPTX_MORE |
-+				     ULPTX_NSGE(req->nsge));
-+	/* Now add the data SGLs */
-+	if (likely(!req->dcopy)) {
-+		scsi_for_each_sg(scmnd, sgel, req->nsge, i) {
-+			if (i == 0) {
-+				sgl->addr0 = cpu_to_be64(sg_dma_address(sgel));
-+				sgl->len0 = cpu_to_be32(sg_dma_len(sgel));
-+				sge_pair = (struct ulptx_sge_pair *)(sgl + 1);
-+				continue;
-+			}
-+			if ((i - 1) & 0x1) {
-+				sge_pair->addr[1] = cpu_to_be64(
-+							sg_dma_address(sgel));
-+				sge_pair->len[1] = cpu_to_be32(
-+							sg_dma_len(sgel));
-+				sge_pair++;
-+			} else {
-+				sge_pair->addr[0] = cpu_to_be64(
-+							sg_dma_address(sgel));
-+				sge_pair->len[0] = cpu_to_be32(
-+							sg_dma_len(sgel));
-+			}
-+		}
-+	} else {
-+		/* Program sg elements with driver's DDP buffer */
-+		xfer_len = scsi_bufflen(scmnd);
-+		list_for_each(tmp, &req->gen_list) {
-+			dma_buf = (struct csio_dma_buf *)tmp;
-+			if (i == 0) {
-+				sgl->addr0 = cpu_to_be64(dma_buf->paddr);
-+				sgl->len0 = cpu_to_be32(
-+						min(xfer_len, dma_buf->len));
-+				sge_pair = (struct ulptx_sge_pair *)(sgl + 1);
-+			} else if ((i - 1) & 0x1) {
-+				sge_pair->addr[1] = cpu_to_be64(dma_buf->paddr);
-+				sge_pair->len[1] = cpu_to_be32(
-+						min(xfer_len, dma_buf->len));
-+				sge_pair++;
-+			} else {
-+				sge_pair->addr[0] = cpu_to_be64(dma_buf->paddr);
-+				sge_pair->len[0] = cpu_to_be32(
-+						min(xfer_len, dma_buf->len));
-+			}
-+			xfer_len -= min(xfer_len, dma_buf->len);
-+			i++;
-+		}
-+	}
-+}
-+
-+/*
-+ * csio_scsi_init_read_wr - Initialize the READ SCSI WR.
-+ * @req: IO req structure.
-+ * @wrp: DMA location to place the payload.
-+ * @size: Size of WR (including FW WR + immed data + rsp SG entry + data SGL
-+ *
-+ * Wrapper for populating fw_scsi_read_wr.
-+ */
-+static inline void
-+csio_scsi_init_read_wr(struct csio_ioreq *req, void *wrp, uint32_t size)
-+{
-+	struct csio_hw *hw = req->lnode->hwp;
-+	struct csio_rnode *rn = req->rnode;
-+	struct fw_scsi_read_wr *wr = (struct fw_scsi_read_wr *)wrp;
-+	struct ulptx_sgl *sgl;
-+	struct csio_dma_buf *dma_buf;
-+	uint8_t imm = csio_hw_to_scsim(hw)->proto_cmd_len;
-+	struct scsi_cmnd *scmnd = csio_scsi_cmnd(req);
-+
-+	wr->op_immdlen = cpu_to_be32(FW_WR_OP(FW_SCSI_READ_WR) |
-+				     FW_SCSI_READ_WR_IMMDLEN(imm));
-+	wr->flowid_len16 = cpu_to_be32(FW_WR_FLOWID(rn->flowid) |
-+				       FW_WR_LEN16(CSIO_ROUNDUP(size, 16)));
-+	wr->cookie = (uintptr_t)req;
-+	wr->iqid = (uint16_t)cpu_to_be16(csio_q_physiqid(hw, req->iq_idx));
-+	wr->tmo_val = (uint8_t)(req->tmo);
-+	wr->use_xfer_cnt = 1;
-+	wr->xfer_cnt = cpu_to_be32(scsi_bufflen(scmnd));
-+	wr->ini_xfer_cnt = cpu_to_be32(scsi_bufflen(scmnd));
-+	/* Get RSP DMA buffer */
-+	dma_buf = &req->dma_buf;
-+
-+	/* Prepare RSP SGL */
-+	wr->rsp_dmalen = cpu_to_be32(dma_buf->len);
-+	wr->rsp_dmaaddr = cpu_to_be64(dma_buf->paddr);
-+
-+	wr->r4 = 0;
-+
-+	wr->u.fcoe.ctl_pri = 0;
-+	wr->u.fcoe.cp_en_class = 0;
-+	wr->u.fcoe.r3_lo[0] = 0;
-+	wr->u.fcoe.r3_lo[1] = 0;
-+	csio_scsi_fcp_cmnd(req, (void *)((uintptr_t)wrp +
-+					sizeof(struct fw_scsi_read_wr)));
-+
-+	/* Move WR pointer past command and immediate data */
-+	sgl = (struct ulptx_sgl *)((uintptr_t)wrp +
-+			      sizeof(struct fw_scsi_read_wr) + ALIGN(imm, 16));
-+
-+	/* Fill in the DSGL */
-+	csio_scsi_init_ultptx_dsgl(hw, req, sgl);
-+}
-+
-+/*
-+ * csio_scsi_init_write_wr - Initialize the WRITE SCSI WR.
-+ * @req: IO req structure.
-+ * @wrp: DMA location to place the payload.
-+ * @size: Size of WR (including FW WR + immed data + rsp SG entry + data SGL
-+ *
-+ * Wrapper for populating fw_scsi_write_wr.
-+ */
-+static inline void
-+csio_scsi_init_write_wr(struct csio_ioreq *req, void *wrp, uint32_t size)
-+{
-+	struct csio_hw *hw = req->lnode->hwp;
-+	struct csio_rnode *rn = req->rnode;
-+	struct fw_scsi_write_wr *wr = (struct fw_scsi_write_wr *)wrp;
-+	struct ulptx_sgl *sgl;
-+	struct csio_dma_buf *dma_buf;
-+	uint8_t imm = csio_hw_to_scsim(hw)->proto_cmd_len;
-+	struct scsi_cmnd *scmnd = csio_scsi_cmnd(req);
-+
-+	wr->op_immdlen = cpu_to_be32(FW_WR_OP(FW_SCSI_WRITE_WR) |
-+				     FW_SCSI_WRITE_WR_IMMDLEN(imm));
-+	wr->flowid_len16 = cpu_to_be32(FW_WR_FLOWID(rn->flowid) |
-+				       FW_WR_LEN16(CSIO_ROUNDUP(size, 16)));
-+	wr->cookie = (uintptr_t)req;
-+	wr->iqid = (uint16_t)cpu_to_be16(csio_q_physiqid(hw, req->iq_idx));
-+	wr->tmo_val = (uint8_t)(req->tmo);
-+	wr->use_xfer_cnt = 1;
-+	wr->xfer_cnt = cpu_to_be32(scsi_bufflen(scmnd));
-+	wr->ini_xfer_cnt = cpu_to_be32(scsi_bufflen(scmnd));
-+	/* Get RSP DMA buffer */
-+	dma_buf = &req->dma_buf;
-+
-+	/* Prepare RSP SGL */
-+	wr->rsp_dmalen = cpu_to_be32(dma_buf->len);
-+	wr->rsp_dmaaddr = cpu_to_be64(dma_buf->paddr);
-+
-+	wr->r4 = 0;
-+
-+	wr->u.fcoe.ctl_pri = 0;
-+	wr->u.fcoe.cp_en_class = 0;
-+	wr->u.fcoe.r3_lo[0] = 0;
-+	wr->u.fcoe.r3_lo[1] = 0;
-+	csio_scsi_fcp_cmnd(req, (void *)((uintptr_t)wrp +
-+					sizeof(struct fw_scsi_write_wr)));
-+
-+	/* Move WR pointer past command and immediate data */
-+	sgl = (struct ulptx_sgl *)((uintptr_t)wrp +
-+			      sizeof(struct fw_scsi_write_wr) + ALIGN(imm, 16));
-+
-+	/* Fill in the DSGL */
-+	csio_scsi_init_ultptx_dsgl(hw, req, sgl);
-+}
-+
-+/* Calculate WR size needed for fw_scsi_read_wr/fw_scsi_write_wr */
-+#define CSIO_SCSI_DATA_WRSZ(req, oper, sz, imm)				       \
-+do {									       \
-+	(sz) = sizeof(struct fw_scsi_##oper##_wr) +	/* WR size */          \
-+	       ALIGN((imm), 16) +			/* Immed data */       \
-+	       sizeof(struct ulptx_sgl);		/* ulptx_sgl */	       \
-+									       \
-+	if (unlikely((req)->nsge > 1))				               \
-+		(sz) += (sizeof(struct ulptx_sge_pair) *		       \
-+				(ALIGN(((req)->nsge - 1), 2) / 2));            \
-+							/* Data SGE */	       \
-+} while (0)
-+
-+/*
-+ * csio_scsi_read - Create a SCSI READ WR.
-+ * @req: IO req structure.
-+ *
-+ * Gets a WR slot in the ingress queue and initializes it with
-+ * SCSI READ WR.
-+ *
-+ */
-+static inline void
-+csio_scsi_read(struct csio_ioreq *req)
-+{
-+	struct csio_wr_pair wrp;
-+	uint32_t size;
-+	struct csio_hw *hw = req->lnode->hwp;
-+	struct csio_scsim *scsim = csio_hw_to_scsim(hw);
-+
-+	CSIO_SCSI_DATA_WRSZ(req, read, size, scsim->proto_cmd_len);
-+	size = ALIGN(size, 16);
-+
-+	req->drv_status = csio_wr_get(hw, req->eq_idx, size, &wrp);
-+	if (likely(req->drv_status == 0)) {
-+		if (likely(wrp.size1 >= size)) {
-+			/* Initialize WR in one shot */
-+			csio_scsi_init_read_wr(req, wrp.addr1, size);
-+		} else {
-+			uint8_t *tmpwr = csio_q_eq_wrap(hw, req->eq_idx);
-+			/*
-+			 * Make a temporary copy of the WR and write back
-+			 * the copy into the WR pair.
-+			 */
-+			csio_scsi_init_read_wr(req, (void *)tmpwr, size);
-+			memcpy(wrp.addr1, tmpwr, wrp.size1);
-+			memcpy(wrp.addr2, tmpwr + wrp.size1, size - wrp.size1);
-+		}
-+	}
-+}
-+
-+/*
-+ * csio_scsi_write - Create a SCSI WRITE WR.
-+ * @req: IO req structure.
-+ *
-+ * Gets a WR slot in the ingress queue and initializes it with
-+ * SCSI WRITE WR.
-+ *
-+ */
-+static inline void
-+csio_scsi_write(struct csio_ioreq *req)
-+{
-+	struct csio_wr_pair wrp;
-+	uint32_t size;
-+	struct csio_hw *hw = req->lnode->hwp;
-+	struct csio_scsim *scsim = csio_hw_to_scsim(hw);
-+
-+	CSIO_SCSI_DATA_WRSZ(req, write, size, scsim->proto_cmd_len);
-+	size = ALIGN(size, 16);
-+
-+	req->drv_status = csio_wr_get(hw, req->eq_idx, size, &wrp);
-+	if (likely(req->drv_status == 0)) {
-+		if (likely(wrp.size1 >= size)) {
-+			/* Initialize WR in one shot */
-+			csio_scsi_init_write_wr(req, wrp.addr1, size);
-+		} else {
-+			uint8_t *tmpwr = csio_q_eq_wrap(hw, req->eq_idx);
-+			/*
-+			 * Make a temporary copy of the WR and write back
-+			 * the copy into the WR pair.
-+			 */
-+			csio_scsi_init_write_wr(req, (void *)tmpwr, size);
-+			memcpy(wrp.addr1, tmpwr, wrp.size1);
-+			memcpy(wrp.addr2, tmpwr + wrp.size1, size - wrp.size1);
-+		}
-+	}
-+}
-+
-+/*
-+ * csio_setup_ddp - Setup DDP buffers for Read request.
-+ * @req: IO req structure.
-+ *
-+ * Checks SGLs/Data buffers are virtually contiguous required for DDP.
-+ * If contiguous,driver posts SGLs in the WR otherwise post internal
-+ * buffers for such request for DDP.
-+ */
-+static inline void
-+csio_setup_ddp(struct csio_scsim *scsim, struct csio_ioreq *req)
-+{
-+#ifdef __CSIO_DEBUG__
-+	struct csio_hw *hw = req->lnode->hwp;
-+#endif
-+	struct scatterlist *sgel = NULL;
-+	struct scsi_cmnd *scmnd = csio_scsi_cmnd(req);
-+	uint64_t sg_addr = 0;
-+	uint32_t ddp_pagesz = 4096;
-+	uint32_t buf_off;
-+	struct csio_dma_buf *dma_buf = NULL;
-+	uint32_t alloc_len = 0;
-+	uint32_t xfer_len = 0;
-+	uint32_t sg_len = 0;
-+	uint32_t i;
-+
-+	scsi_for_each_sg(scmnd, sgel, req->nsge, i) {
-+		sg_addr = sg_dma_address(sgel);
-+		sg_len	= sg_dma_len(sgel);
-+
-+		buf_off = sg_addr & (ddp_pagesz - 1);
-+
-+		/* Except 1st buffer,all buffer addr have to be Page aligned */
-+		if (i != 0 && buf_off) {
-+			csio_dbg(hw, "SGL addr not DDP aligned (%llx:%d)\n",
-+				 sg_addr, sg_len);
-+			goto unaligned;
-+		}
-+
-+		/* Except last buffer,all buffer must end on page boundary */
-+		if ((i != (req->nsge - 1)) &&
-+			((buf_off + sg_len) & (ddp_pagesz - 1))) {
-+			csio_dbg(hw,
-+				 "SGL addr not ending on page boundary"
-+				 "(%llx:%d)\n", sg_addr, sg_len);
-+			goto unaligned;
-+		}
++	if (!(pl_cause & PFCIM) || !(cim_cause & MBMSGRDYINT)) {
++		CSIO_INC_STATS(hw, n_mbint_unexp);
++		return -EINVAL;
 +	}
 +
-+	/* SGL's are virtually contiguous. HW will DDP to SGLs */
-+	req->dcopy = 0;
-+	csio_scsi_read(req);
-+
-+	return;
-+
-+unaligned:
-+	CSIO_INC_STATS(scsim, n_unaligned);
 +	/*
-+	 * For unaligned SGLs, driver will allocate internal DDP buffer.
-+	 * Once command is completed data from DDP buffer copied to SGLs
++	 * The cause registers below HAVE to be cleared in the SAME
++	 * order as below: The low level cause register followed by
++	 * the upper level cause register. In other words, CIM-cause
++	 * first followed by PL-Cause next.
 +	 */
-+	req->dcopy = 1;
++	csio_wr_reg32(hw, MBMSGRDYINT, MYPF_REG(CIM_PF_HOST_INT_CAUSE));
++	csio_wr_reg32(hw, PFCIM, MYPF_REG(PL_PF_INT_CAUSE));
 +
-+	/* Use gen_list to store the DDP buffers */
-+	INIT_LIST_HEAD(&req->gen_list);
-+	xfer_len = scsi_bufflen(scmnd);
++	ctl = csio_rd_reg32(hw, ctl_reg);
 +
-+	i = 0;
-+	/* Allocate ddp buffers for this request */
-+	while (alloc_len < xfer_len) {
-+		dma_buf = csio_get_scsi_ddp(scsim);
-+		if (dma_buf == NULL || i > scsim->max_sge) {
-+			req->drv_status = -EBUSY;
-+			break;
-+		}
-+		alloc_len += dma_buf->len;
-+		/* Added to IO req */
-+		list_add_tail(&dma_buf->list, &req->gen_list);
-+		i++;
-+	}
++	if (csio_mb_is_host_owner(MBOWNER_GET(ctl))) {
 +
-+	if (!req->drv_status) {
-+		/* set number of ddp bufs used */
-+		req->nsge = i;
-+		csio_scsi_read(req);
-+		return;
-+	}
++		CSIO_DUMP_MB(hw, hw->pfn, data_reg);
 +
-+	 /* release dma descs */
-+	if (i > 0)
-+		csio_put_scsi_ddp_list(scsim, &req->gen_list, i);
-+}
-+
-+/*
-+ * csio_scsi_init_abrt_cls_wr - Initialize an ABORT/CLOSE WR.
-+ * @req: IO req structure.
-+ * @addr: DMA location to place the payload.
-+ * @size: Size of WR
-+ * @abort: abort OR close
-+ *
-+ * Wrapper for populating fw_scsi_cmd_wr.
-+ */
-+static inline void
-+csio_scsi_init_abrt_cls_wr(struct csio_ioreq *req, void *addr, uint32_t size,
-+			   bool abort)
-+{
-+	struct csio_hw *hw = req->lnode->hwp;
-+	struct csio_rnode *rn = req->rnode;
-+	struct fw_scsi_abrt_cls_wr *wr = (struct fw_scsi_abrt_cls_wr *)addr;
-+
-+	wr->op_immdlen = cpu_to_be32(FW_WR_OP(FW_SCSI_ABRT_CLS_WR));
-+	wr->flowid_len16 = cpu_to_be32(FW_WR_FLOWID(rn->flowid) |
-+					    FW_WR_LEN16(
-+						CSIO_ROUNDUP(size, 16)));
-+
-+	wr->cookie = (uintptr_t) req;
-+	wr->iqid = (uint16_t)cpu_to_be16(csio_q_physiqid(hw, req->iq_idx));
-+	wr->tmo_val = (uint8_t) req->tmo;
-+	/* 0 for CHK_ALL_IO tells FW to look up t_cookie */
-+	wr->sub_opcode_to_chk_all_io =
-+				(FW_SCSI_ABRT_CLS_WR_SUB_OPCODE(abort) |
-+				 FW_SCSI_ABRT_CLS_WR_CHK_ALL_IO(0));
-+	wr->r3[0] = 0;
-+	wr->r3[1] = 0;
-+	wr->r3[2] = 0;
-+	wr->r3[3] = 0;
-+	/* Since we re-use the same ioreq for abort as well */
-+	wr->t_cookie = (uintptr_t) req;
-+}
-+
-+static inline void
-+csio_scsi_abrt_cls(struct csio_ioreq *req, bool abort)
-+{
-+	struct csio_wr_pair wrp;
-+	struct csio_hw *hw = req->lnode->hwp;
-+	uint32_t size = ALIGN(sizeof(struct fw_scsi_abrt_cls_wr), 16);
-+
-+	req->drv_status = csio_wr_get(hw, req->eq_idx, size, &wrp);
-+	if (req->drv_status != 0)
-+		return;
-+
-+	if (wrp.size1 >= size) {
-+		/* Initialize WR in one shot */
-+		csio_scsi_init_abrt_cls_wr(req, wrp.addr1, size, abort);
-+	} else {
-+		uint8_t *tmpwr = csio_q_eq_wrap(hw, req->eq_idx);
-+		/*
-+		 * Make a temporary copy of the WR and write back
-+		 * the copy into the WR pair.
-+		 */
-+		csio_scsi_init_abrt_cls_wr(req, (void *)tmpwr, size, abort);
-+		memcpy(wrp.addr1, tmpwr, wrp.size1);
-+		memcpy(wrp.addr2, tmpwr + wrp.size1, size - wrp.size1);
-+	}
-+}
-+
-+/*****************************************************************************/
-+/* START: SCSI SM                                                            */
-+/*****************************************************************************/
-+static void
-+csio_scsis_uninit(struct csio_ioreq *req, enum csio_scsi_ev evt)
-+{
-+	struct csio_hw *hw = req->lnode->hwp;
-+	struct csio_scsim *scsim = csio_hw_to_scsim(hw);
-+
-+	switch (evt) {
-+	case CSIO_SCSIE_START_IO:
-+
-+		if (req->nsge) {
-+			if (req->datadir == DMA_TO_DEVICE) {
-+				req->dcopy = 0;
-+				csio_scsi_write(req);
-+			} else
-+				csio_setup_ddp(scsim, req);
-+		} else {
-+			csio_scsi_cmd(req);
-+		}
-+
-+		if (likely(req->drv_status == 0)) {
-+			/* change state and enqueue on active_q */
-+			csio_set_state(&req->sm, csio_scsis_io_active);
-+			list_add_tail(&req->sm.sm_list, &scsim->active_q);
-+			csio_wr_issue(hw, req->eq_idx, false);
-+			CSIO_INC_STATS(scsim, n_active);
-+
-+			return;
-+		}
-+		break;
-+
-+	case CSIO_SCSIE_START_TM:
-+		csio_scsi_cmd(req);
-+		if (req->drv_status == 0) {
-+			/*
-+			 * NOTE: We collect the affected I/Os prior to issuing
-+			 * LUN reset, and not after it. This is to prevent
-+			 * aborting I/Os that get issued after the LUN reset,
-+			 * but prior to LUN reset completion (in the event that
-+			 * the host stack has not blocked I/Os to a LUN that is
-+			 * being reset.
-+			 */
-+			csio_set_state(&req->sm, csio_scsis_tm_active);
-+			list_add_tail(&req->sm.sm_list, &scsim->active_q);
-+			csio_wr_issue(hw, req->eq_idx, false);
-+			CSIO_INC_STATS(scsim, n_tm_active);
-+		}
-+		return;
-+
-+	case CSIO_SCSIE_ABORT:
-+	case CSIO_SCSIE_CLOSE:
-+		/*
-+		 * NOTE:
-+		 * We could get here due to  :
-+		 * - a window in the cleanup path of the SCSI module
-+		 *   (csio_scsi_abort_io()). Please see NOTE in this function.
-+		 * - a window in the time we tried to issue an abort/close
-+		 *   of a request to FW, and the FW completed the request
-+		 *   itself.
-+		 *   Print a message for now, and return INVAL either way.
-+		 */
-+		req->drv_status = -EINVAL;
-+		csio_warn(hw, "Trying to abort/close completed IO:%p!\n", req);
-+		break;
-+
-+	default:
-+		csio_dbg(hw, "Unhandled event:%d sent to req:%p\n", evt, req);
-+		CSIO_DB_ASSERT(0);
-+	}
-+}
-+
-+static void
-+csio_scsis_io_active(struct csio_ioreq *req, enum csio_scsi_ev evt)
-+{
-+	struct csio_hw *hw = req->lnode->hwp;
-+	struct csio_scsim *scm = csio_hw_to_scsim(hw);
-+	struct csio_rnode *rn;
-+
-+	switch (evt) {
-+	case CSIO_SCSIE_COMPLETED:
-+		CSIO_DEC_STATS(scm, n_active);
-+		list_del_init(&req->sm.sm_list);
-+		csio_set_state(&req->sm, csio_scsis_uninit);
-+		/*
-+		 * In MSIX mode, with multiple queues, the SCSI compeltions
-+		 * could reach us sooner than the FW events sent to indicate
-+		 * I-T nexus loss (link down, remote device logo etc). We
-+		 * dont want to be returning such I/Os to the upper layer
-+		 * immediately, since we wouldnt have reported the I-T nexus
-+		 * loss itself. This forces us to serialize such completions
-+		 * with the reporting of the I-T nexus loss. Therefore, we
-+		 * internally queue up such up such completions in the rnode.
-+		 * The reporting of I-T nexus loss to the upper layer is then
-+		 * followed by the returning of I/Os in this internal queue.
-+		 * Having another state alongwith another queue helps us take
-+		 * actions for events such as ABORT received while we are
-+		 * in this rnode queue.
-+		 */
-+		if (unlikely(req->wr_status != FW_SUCCESS)) {
-+			rn = req->rnode;
-+			/*
-+			 * FW says remote device is lost, but rnode
-+			 * doesnt reflect it.
-+			 */
-+			if (csio_scsi_itnexus_loss_error(req->wr_status) &&
-+						csio_is_rnode_ready(rn)) {
-+				csio_set_state(&req->sm,
-+						csio_scsis_shost_cmpl_await);
-+				list_add_tail(&req->sm.sm_list,
-+					      &rn->host_cmpl_q);
-+			}
-+		}
-+
-+		break;
-+
-+	case CSIO_SCSIE_ABORT:
-+		csio_scsi_abrt_cls(req, SCSI_ABORT);
-+		if (req->drv_status == 0) {
-+			csio_wr_issue(hw, req->eq_idx, false);
-+			csio_set_state(&req->sm, csio_scsis_aborting);
-+		}
-+		break;
-+
-+	case CSIO_SCSIE_CLOSE:
-+		csio_scsi_abrt_cls(req, SCSI_CLOSE);
-+		if (req->drv_status == 0) {
-+			csio_wr_issue(hw, req->eq_idx, false);
-+			csio_set_state(&req->sm, csio_scsis_closing);
-+		}
-+		break;
-+
-+	case CSIO_SCSIE_DRVCLEANUP:
-+		req->wr_status = FW_HOSTERROR;
-+		CSIO_DEC_STATS(scm, n_active);
-+		csio_set_state(&req->sm, csio_scsis_uninit);
-+		break;
-+
-+	default:
-+		csio_dbg(hw, "Unhandled event:%d sent to req:%p\n", evt, req);
-+		CSIO_DB_ASSERT(0);
-+	}
-+}
-+
-+static void
-+csio_scsis_tm_active(struct csio_ioreq *req, enum csio_scsi_ev evt)
-+{
-+	struct csio_hw *hw = req->lnode->hwp;
-+	struct csio_scsim *scm = csio_hw_to_scsim(hw);
-+
-+	switch (evt) {
-+	case CSIO_SCSIE_COMPLETED:
-+		CSIO_DEC_STATS(scm, n_tm_active);
-+		list_del_init(&req->sm.sm_list);
-+		csio_set_state(&req->sm, csio_scsis_uninit);
-+
-+		break;
-+
-+	case CSIO_SCSIE_ABORT:
-+		csio_scsi_abrt_cls(req, SCSI_ABORT);
-+		if (req->drv_status == 0) {
-+			csio_wr_issue(hw, req->eq_idx, false);
-+			csio_set_state(&req->sm, csio_scsis_aborting);
-+		}
-+		break;
-+
-+
-+	case CSIO_SCSIE_CLOSE:
-+		csio_scsi_abrt_cls(req, SCSI_CLOSE);
-+		if (req->drv_status == 0) {
-+			csio_wr_issue(hw, req->eq_idx, false);
-+			csio_set_state(&req->sm, csio_scsis_closing);
-+		}
-+		break;
-+
-+	case CSIO_SCSIE_DRVCLEANUP:
-+		req->wr_status = FW_HOSTERROR;
-+		CSIO_DEC_STATS(scm, n_tm_active);
-+		csio_set_state(&req->sm, csio_scsis_uninit);
-+		break;
-+
-+	default:
-+		csio_dbg(hw, "Unhandled event:%d sent to req:%p\n", evt, req);
-+		CSIO_DB_ASSERT(0);
-+	}
-+}
-+
-+static void
-+csio_scsis_aborting(struct csio_ioreq *req, enum csio_scsi_ev evt)
-+{
-+	struct csio_hw *hw = req->lnode->hwp;
-+	struct csio_scsim *scm = csio_hw_to_scsim(hw);
-+
-+	switch (evt) {
-+	case CSIO_SCSIE_COMPLETED:
-+		csio_dbg(hw,
-+			 "ioreq %p recvd cmpltd (wr_status:%d) "
-+			 "in aborting st\n", req, req->wr_status);
-+		/*
-+		 * Use -ECANCELED to explicitly tell the ABORTED event that
-+		 * the original I/O was returned to driver by FW.
-+		 * We dont really care if the I/O was returned with success by
-+		 * FW (because the ABORT and completion of the I/O crossed each
-+		 * other), or any other return value. Once we are in aborting
-+		 * state, the success or failure of the I/O is unimportant to
-+		 * us.
-+		 */
-+		req->drv_status = -ECANCELED;
-+		break;
-+
-+	case CSIO_SCSIE_ABORT:
-+		CSIO_INC_STATS(scm, n_abrt_dups);
-+		break;
-+
-+	case CSIO_SCSIE_ABORTED:
-+
-+		csio_dbg(hw, "abort of %p return status:0x%x drv_status:%x\n",
-+			 req, req->wr_status, req->drv_status);
-+		/*
-+		 * Check if original I/O WR completed before the Abort
-+		 * completion.
-+		 */
-+		if (req->drv_status != -ECANCELED) {
++		if (!(ctl & MBMSGVALID)) {
 +			csio_warn(hw,
-+				  "Abort completed before original I/O,"
-+				   " req:%p\n", req);
-+			CSIO_DB_ASSERT(0);
++				  "Stray mailbox interrupt recvd,"
++				  " mailbox data not valid\n");
++			csio_wr_reg32(hw, 0, ctl_reg);
++			/* Flush */
++			csio_rd_reg32(hw, ctl_reg);
++			return -EINVAL;
 +		}
 +
-+		/*
-+		 * There are the following possible scenarios:
-+		 * 1. The abort completed successfully, FW returned FW_SUCCESS.
-+		 * 2. The completion of an I/O and the receipt of
-+		 *    abort for that I/O by the FW crossed each other.
-+		 *    The FW returned FW_EINVAL. The original I/O would have
-+		 *    returned with FW_SUCCESS or any other SCSI error.
-+		 * 3. The FW couldnt sent the abort out on the wire, as there
-+		 *    was an I-T nexus loss (link down, remote device logged
-+		 *    out etc). FW sent back an appropriate IT nexus loss status
-+		 *    for the abort.
-+		 * 4. FW sent an abort, but abort timed out (remote device
-+		 *    didnt respond). FW replied back with
-+		 *    FW_SCSI_ABORT_TIMEDOUT.
-+		 * 5. FW couldnt genuinely abort the request for some reason,
-+		 *    and sent us an error.
-+		 *
-+		 * The first 3 scenarios are treated as  succesful abort
-+		 * operations by the host, while the last 2 are failed attempts
-+		 * to abort. Manipulate the return value of the request
-+		 * appropriately, so that host can convey these results
-+		 * back to the upper layer.
-+		 */
-+		if ((req->wr_status == FW_SUCCESS) ||
-+		    (req->wr_status == FW_EINVAL) ||
-+		    csio_scsi_itnexus_loss_error(req->wr_status))
-+			req->wr_status = FW_SCSI_ABORT_REQUESTED;
++		hdr = cpu_to_be64(csio_rd_reg64(hw, data_reg));
++		fw_hdr = (struct fw_cmd_hdr *)&hdr;
 +
-+		CSIO_DEC_STATS(scm, n_active);
-+		list_del_init(&req->sm.sm_list);
-+		csio_set_state(&req->sm, csio_scsis_uninit);
-+		break;
-+
-+	case CSIO_SCSIE_DRVCLEANUP:
-+		req->wr_status = FW_HOSTERROR;
-+		CSIO_DEC_STATS(scm, n_active);
-+		csio_set_state(&req->sm, csio_scsis_uninit);
-+		break;
-+
-+	case CSIO_SCSIE_CLOSE:
-+		/*
-+		 * We can receive this event from the module
-+		 * cleanup paths, if the FW forgot to reply to the ABORT WR
-+		 * and left this ioreq in this state. For now, just ignore
-+		 * the event. The CLOSE event is sent to this state, as
-+		 * the LINK may have already gone down.
-+		 */
-+		break;
-+
-+	default:
-+		csio_dbg(hw, "Unhandled event:%d sent to req:%p\n", evt, req);
-+		CSIO_DB_ASSERT(0);
-+	}
-+}
-+
-+static void
-+csio_scsis_closing(struct csio_ioreq *req, enum csio_scsi_ev evt)
-+{
-+	struct csio_hw *hw = req->lnode->hwp;
-+	struct csio_scsim *scm = csio_hw_to_scsim(hw);
-+
-+	switch (evt) {
-+	case CSIO_SCSIE_COMPLETED:
-+		csio_dbg(hw,
-+			 "ioreq %p recvd cmpltd (wr_status:%d) "
-+			 "in closing st\n", req, req->wr_status);
-+		/*
-+		 * Use -ECANCELED to explicitly tell the CLOSED event that
-+		 * the original I/O was returned to driver by FW.
-+		 * We dont really care if the I/O was returned with success by
-+		 * FW (because the CLOSE and completion of the I/O crossed each
-+		 * other), or any other return value. Once we are in aborting
-+		 * state, the success or failure of the I/O is unimportant to
-+		 * us.
-+		 */
-+		req->drv_status = -ECANCELED;
-+		break;
-+
-+	case CSIO_SCSIE_CLOSED:
-+		/*
-+		 * Check if original I/O WR completed before the Close
-+		 * completion.
-+		 */
-+		if (req->drv_status != -ECANCELED) {
-+			csio_fatal(hw,
-+				   "Close completed before original I/O,"
-+				   " req:%p\n", req);
-+			CSIO_DB_ASSERT(0);
++		switch (FW_CMD_OP_GET(ntohl(fw_hdr->hi))) {
++		case FW_DEBUG_CMD:
++			csio_mb_debug_cmd_handler(hw);
++			return -EINVAL;
++#if 0
++		case FW_ERROR_CMD:
++		case FW_INITIALIZE_CMD: /* When we are not master */
++#endif
 +		}
 +
++		CSIO_ASSERT(mbp != NULL);
++
++		cmd = mbp->mb;
++		size = mbp->mb_size;
++		/* Get response */
++		for (i = 0; i < size; i += 8)
++			*cmd++ = cpu_to_be64(csio_rd_reg64
++						  (hw, data_reg + i));
++
++		csio_wr_reg32(hw, 0, ctl_reg);
++		/* Flush */
++		csio_rd_reg32(hw, ctl_reg);
++
++		mbm->mcurrent = NULL;
++
++		/* Add completion to tail of cbfn queue */
++		list_add_tail(&mbp->list, &mbm->cbfn_q);
++		CSIO_INC_STATS(mbm, n_cbfnq);
++
 +		/*
-+		 * Either close succeeded, or we issued close to FW at the
-+		 * same time FW compelted it to us. Either way, the I/O
-+		 * is closed.
++		 * Enqueue event to EventQ. Events processing happens
++		 * in Event worker thread context
 +		 */
-+		CSIO_DB_ASSERT((req->wr_status == FW_SUCCESS) ||
-+					(req->wr_status == FW_EINVAL));
-+		req->wr_status = FW_SCSI_CLOSE_REQUESTED;
++		if (csio_enqueue_evt(hw, CSIO_EVT_MBX, mbp, sizeof(mbp)))
++			CSIO_INC_STATS(hw, n_evt_drop);
 +
-+		CSIO_DEC_STATS(scm, n_active);
-+		list_del_init(&req->sm.sm_list);
-+		csio_set_state(&req->sm, csio_scsis_uninit);
-+		break;
++		return 0;
 +
-+	case CSIO_SCSIE_CLOSE:
-+		break;
-+
-+	case CSIO_SCSIE_DRVCLEANUP:
-+		req->wr_status = FW_HOSTERROR;
-+		CSIO_DEC_STATS(scm, n_active);
-+		csio_set_state(&req->sm, csio_scsis_uninit);
-+		break;
-+
-+	default:
-+		csio_dbg(hw, "Unhandled event:%d sent to req:%p\n", evt, req);
-+		CSIO_DB_ASSERT(0);
-+	}
-+}
-+
-+static void
-+csio_scsis_shost_cmpl_await(struct csio_ioreq *req, enum csio_scsi_ev evt)
-+{
-+	switch (evt) {
-+	case CSIO_SCSIE_ABORT:
-+	case CSIO_SCSIE_CLOSE:
++	} else {
 +		/*
-+		 * Just succeed the abort request, and hope that
-+		 * the remote device unregister path will cleanup
-+		 * this I/O to the upper layer within a sane
-+		 * amount of time.
++		 * We can get here if mailbox MSIX vector is shared,
++		 * or in INTx case. Or a stray interrupt.
 +		 */
-+		/*
-+		 * A close can come in during a LINK DOWN. The FW would have
-+		 * returned us the I/O back, but not the remote device lost
-+		 * FW event. In this interval, if the I/O times out at the upper
-+		 * layer, a close can come in. Take the same action as abort:
-+		 * return success, and hope that the remote device unregister
-+		 * path will cleanup this I/O. If the FW still doesnt send
-+		 * the msg, the close times out, and the upper layer resorts
-+		 * to the next level of error recovery.
-+		 */
-+		req->drv_status = 0;
-+		break;
-+	case CSIO_SCSIE_DRVCLEANUP:
-+		csio_set_state(&req->sm, csio_scsis_uninit);
-+		break;
-+	default:
-+		csio_dbg(req->lnode->hwp, "Unhandled event:%d sent to req:%p\n",
-+			 evt, req);
-+		CSIO_DB_ASSERT(0);
++		csio_dbg(hw, "Host not owner, no mailbox interrupt\n");
++		CSIO_INC_STATS(hw, n_int_stray);
++		return -EINVAL;
 +	}
 +}
 +
 +/*
-+ * csio_scsi_cmpl_handler - WR completion handler for SCSI.
-+ * @hw: HW module.
-+ * @wr: The completed WR from the ingress queue.
-+ * @len: Length of the WR.
-+ * @flb: Freelist buffer array.
-+ * @priv: Private object
-+ * @scsiwr: Pointer to SCSI WR.
++ * csio_mb_tmo_handler - Timeout handler
++ * @hw: The HW structure
 + *
-+ * This is the WR completion handler called per completion from the
-+ * ISR. It is called with lock held. It walks past the RSS and CPL message
-+ * header where the actual WR is present.
-+ * It then gets the status, WR handle (ioreq pointer) and the len of
-+ * the WR, based on WR opcode. Only on a non-good status is the entire
-+ * WR copied into the WR cache (ioreq->fw_wr).
-+ * The ioreq corresponding to the WR is returned to the caller.
-+ * NOTE: The SCSI queue doesnt allocate a freelist today, hence
-+ * no freelist buffer is expected.
 + */
-+struct csio_ioreq *
-+csio_scsi_cmpl_handler(struct csio_hw *hw, void *wr, uint32_t len,
-+		     struct csio_fl_dma_buf *flb, void *priv, uint8_t **scsiwr)
++struct csio_mb *
++csio_mb_tmo_handler(struct csio_hw *hw)
 +{
-+	struct csio_ioreq *ioreq = NULL;
-+	struct cpl_fw6_msg *cpl;
-+	uint8_t *tempwr;
-+	uint8_t	status;
-+	struct csio_scsim *scm = csio_hw_to_scsim(hw);
++	struct csio_mbm *mbm = &hw->mbm;
++	struct csio_mb *mbp =  mbm->mcurrent;
++	struct fw_cmd_hdr *fw_hdr;
 +
-+	/* skip RSS header */
-+	cpl = (struct cpl_fw6_msg *)((uintptr_t)wr + sizeof(__be64));
-+
-+	if (unlikely(cpl->opcode != CPL_FW6_MSG)) {
-+		csio_warn(hw, "Error: Invalid CPL msg %x recvd on SCSI q\n",
-+			  cpl->opcode);
-+		CSIO_INC_STATS(scm, n_inval_cplop);
++	/*
++	 * Could be a race b/w the completion handler and the timer
++	 * and the completion handler won that race.
++	 */
++	if (mbp == NULL) {
++		CSIO_DB_ASSERT(0);
 +		return NULL;
 +	}
 +
-+	tempwr = (uint8_t *)(cpl->data);
-+	status = csio_wr_status(tempwr);
-+	*scsiwr = tempwr;
++	fw_hdr = (struct fw_cmd_hdr *)(mbp->mb);
 +
-+	if (likely((*tempwr == FW_SCSI_READ_WR) ||
-+			(*tempwr == FW_SCSI_WRITE_WR) ||
-+			(*tempwr == FW_SCSI_CMD_WR))) {
-+		ioreq = (struct csio_ioreq *)((uintptr_t)
-+				 (((struct fw_scsi_read_wr *)tempwr)->cookie));
-+		CSIO_DB_ASSERT(virt_addr_valid(ioreq));
++	csio_dbg(hw, "Mailbox num:%x op:0x%x timed out\n", hw->pfn,
++		    FW_CMD_OP_GET(ntohl(fw_hdr->hi)));
 +
-+		ioreq->wr_status = status;
++	mbm->mcurrent = NULL;
++	CSIO_INC_STATS(mbm, n_tmo);
++	fw_hdr->lo = htonl(FW_CMD_RETVAL(FW_ETIMEDOUT));
 +
-+		return ioreq;
-+	}
-+
-+	if (*tempwr == FW_SCSI_ABRT_CLS_WR) {
-+		ioreq = (struct csio_ioreq *)((uintptr_t)
-+			 (((struct fw_scsi_abrt_cls_wr *)tempwr)->cookie));
-+		CSIO_DB_ASSERT(virt_addr_valid(ioreq));
-+
-+		ioreq->wr_status = status;
-+		return ioreq;
-+	}
-+
-+	csio_warn(hw, "WR with invalid opcode in SCSI IQ: %x\n", *tempwr);
-+	CSIO_INC_STATS(scm, n_inval_scsiop);
-+	return NULL;
++	return mbp;
 +}
 +
 +/*
-+ * csio_scsi_cleanup_io_q - Cleanup the given queue.
-+ * @scm: SCSI module.
-+ * @q: Queue to be cleaned up.
++ * csio_mb_cancel_all - Cancel all waiting commands.
++ * @hw: The HW structure
++ * @cbfn_q: The callback queue.
 + *
-+ * Called with lock held. Has to exit with lock held.
++ * Caller should hold hw lock across this call.
 + */
 +void
-+csio_scsi_cleanup_io_q(struct csio_scsim *scm, struct list_head *q)
++csio_mb_cancel_all(struct csio_hw *hw, struct list_head *cbfn_q)
 +{
-+	struct csio_hw *hw = scm->hw;
-+	struct csio_ioreq *ioreq;
-+	struct list_head *tmp, *next;
-+	struct scsi_cmnd *scmnd;
++	struct csio_mb *mbp;
++	struct csio_mbm *mbm = &hw->mbm;
++	struct fw_cmd_hdr *hdr;
++	struct list_head *tmp;
 +
-+	/* Call back the completion routines of the active_q */
-+	list_for_each_safe(tmp, next, q) {
-+		ioreq = (struct csio_ioreq *)tmp;
-+		csio_scsi_drvcleanup(ioreq);
-+		list_del_init(&ioreq->sm.sm_list);
-+		scmnd = csio_scsi_cmnd(ioreq);
-+		spin_unlock_irq(&hw->lock);
++	if (mbm->mcurrent) {
++		mbp = mbm->mcurrent;
 +
-+		/*
-+		 * Upper layers may have cleared this command, hence this
-+		 * check to avoid accessing stale references.
-+		 */
-+		if (scmnd != NULL)
-+			ioreq->io_cbfn(hw, ioreq);
++		/* Stop mailbox completion timer */
++		del_timer_sync(&mbm->timer);
 +
-+		spin_lock_irq(&scm->freelist_lock);
-+		csio_put_scsi_ioreq(scm, ioreq);
-+		spin_unlock_irq(&scm->freelist_lock);
-+
-+		spin_lock_irq(&hw->lock);
++		/* Add completion to tail of cbfn queue */
++		list_add_tail(&mbp->list, cbfn_q);
++		mbm->mcurrent = NULL;
 +	}
-+}
 +
-+#define CSIO_SCSI_ABORT_Q_POLL_MS		2000
++	if (!list_empty(&mbm->req_q)) {
++		list_splice_tail_init(&mbm->req_q, cbfn_q);
++		mbm->stats.n_activeq = 0;
++	}
 +
-+static void
-+csio_abrt_cls(struct csio_ioreq *ioreq, struct scsi_cmnd *scmnd)
-+{
-+	struct csio_lnode *ln = ioreq->lnode;
-+	struct csio_hw *hw = ln->hwp;
-+	int ready = 0;
-+	struct csio_scsim *scsim = csio_hw_to_scsim(hw);
-+	int rv;
++	if (!list_empty(&mbm->cbfn_q)) {
++		list_splice_tail_init(&mbm->cbfn_q, cbfn_q);
++		mbm->stats.n_cbfnq = 0;
++	}
 +
-+	if (csio_scsi_cmnd(ioreq) != scmnd) {
-+		CSIO_INC_STATS(scsim, n_abrt_race_comp);
++	if (list_empty(cbfn_q))
 +		return;
-+	}
 +
-+	ready = csio_is_lnode_ready(ln);
++	list_for_each(tmp, cbfn_q) {
++		mbp = (struct csio_mb *)tmp;
++		hdr = (struct fw_cmd_hdr *)(mbp->mb);
 +
-+	rv = csio_do_abrt_cls(hw, ioreq, (ready ? SCSI_ABORT : SCSI_CLOSE));
-+	if (rv != 0) {
-+		if (ready)
-+			CSIO_INC_STATS(scsim, n_abrt_busy_error);
-+		else
-+			CSIO_INC_STATS(scsim, n_cls_busy_error);
++		csio_dbg(hw, "Cancelling pending mailbox num %x op:%x\n",
++			    hw->pfn, FW_CMD_OP_GET(ntohl(hdr->hi)));
++
++		CSIO_INC_STATS(mbm, n_cancel);
++		hdr->lo = htonl(FW_CMD_RETVAL(FW_HOSTERROR));
 +	}
 +}
 +
 +/*
-+ * csio_scsi_abort_io_q - Abort all I/Os on given queue
-+ * @scm: SCSI module.
-+ * @q: Queue to abort.
-+ * @tmo: Timeout in ms
++ * csio_mbm_init - Initialize Mailbox module
++ * @mbm: Mailbox module
++ * @hw: The HW structure
++ * @timer: Timing function for interrupting mailboxes
 + *
-+ * Attempt to abort all I/Os on given queue, and wait for a max
-+ * of tmo milliseconds for them to complete. Returns success
-+ * if all I/Os are aborted. Else returns -ETIMEDOUT.
-+ * Should be entered with lock held. Exits with lock held.
-+ * NOTE:
-+ * Lock has to be held across the loop that aborts I/Os, since dropping the lock
-+ * in between can cause the list to be corrupted. As a result, the caller
-+ * of this function has to ensure that the number of I/os to be aborted
-+ * is finite enough to not cause lock-held-for-too-long issues.
-+ */
-+static int
-+csio_scsi_abort_io_q(struct csio_scsim *scm, struct list_head *q, uint32_t tmo)
-+{
-+	struct csio_hw *hw = scm->hw;
-+	struct list_head *tmp, *next;
-+	int count = CSIO_ROUNDUP(tmo, CSIO_SCSI_ABORT_Q_POLL_MS);
-+	struct scsi_cmnd *scmnd;
-+
-+	if (list_empty(q))
-+		return 0;
-+
-+	csio_dbg(hw, "Aborting SCSI I/Os\n");
-+
-+	/* Now abort/close I/Os in the queue passed */
-+	list_for_each_safe(tmp, next, q) {
-+		scmnd = csio_scsi_cmnd((struct csio_ioreq *)tmp);
-+		csio_abrt_cls((struct csio_ioreq *)tmp, scmnd);
-+	}
-+
-+	/* Wait till all active I/Os are completed/aborted/closed */
-+	while (!list_empty(q) && count--) {
-+		spin_unlock_irq(&hw->lock);
-+		msleep(CSIO_SCSI_ABORT_Q_POLL_MS);
-+		spin_lock_irq(&hw->lock);
-+	}
-+
-+	/* all aborts completed */
-+	if (list_empty(q))
-+		return 0;
-+
-+	return -ETIMEDOUT;
-+}
-+
-+/*
-+ * csio_scsim_cleanup_io - Cleanup all I/Os in SCSI module.
-+ * @scm: SCSI module.
-+ * @abort: abort required.
-+ * Called with lock held, should exit with lock held.
-+ * Can sleep when waiting for I/Os to complete.
++ * Initialize timer and the request/response queues.
 + */
 +int
-+csio_scsim_cleanup_io(struct csio_scsim *scm, bool abort)
++csio_mbm_init(struct csio_mbm *mbm, struct csio_hw *hw,
++	      void (*timer_fn)(uintptr_t))
 +{
-+	struct csio_hw *hw = scm->hw;
-+	int rv = 0;
-+	int count = CSIO_ROUNDUP(60 * 1000, CSIO_SCSI_ABORT_Q_POLL_MS);
++	struct timer_list *timer = &mbm->timer;
 +
-+	/* No I/Os pending */
-+	if (list_empty(&scm->active_q))
-+		return 0;
++	init_timer(timer);
++	timer->function = timer_fn;
++	timer->data = (unsigned long)hw;
 +
-+	/* Wait until all active I/Os are completed */
-+	while (!list_empty(&scm->active_q) && count--) {
-+		spin_unlock_irq(&hw->lock);
-+		msleep(CSIO_SCSI_ABORT_Q_POLL_MS);
-+		spin_lock_irq(&hw->lock);
-+	}
++	INIT_LIST_HEAD(&mbm->req_q);
++	INIT_LIST_HEAD(&mbm->cbfn_q);
++	csio_set_mb_intr_idx(mbm, -1);
 +
-+	/* all I/Os completed */
-+	if (list_empty(&scm->active_q))
-+		return 0;
-+
-+	/* Else abort */
-+	if (abort) {
-+		rv = csio_scsi_abort_io_q(scm, &scm->active_q, 30000);
-+		if (rv == 0)
-+			return rv;
-+		csio_dbg(hw, "Some I/O aborts timed out, cleaning up..\n");
-+	}
-+
-+	csio_scsi_cleanup_io_q(scm, &scm->active_q);
-+
-+	CSIO_DB_ASSERT(list_empty(&scm->active_q));
-+
-+	return rv;
++	return 0;
 +}
 +
 +/*
-+ * csio_scsim_cleanup_io_lnode - Cleanup all I/Os of given lnode.
-+ * @scm: SCSI module.
-+ * @lnode: lnode
++ * csio_mbm_exit - Uninitialize mailbox module
++ * @mbm: Mailbox module
 + *
-+ * Called with lock held, should exit with lock held.
-+ * Can sleep (with dropped lock) when waiting for I/Os to complete.
-+ */
-+int
-+csio_scsim_cleanup_io_lnode(struct csio_scsim *scm, struct csio_lnode *ln)
-+{
-+	struct csio_hw *hw = scm->hw;
-+	struct csio_scsi_level_data sld;
-+	int rv;
-+	int count = CSIO_ROUNDUP(60 * 1000, CSIO_SCSI_ABORT_Q_POLL_MS);
-+
-+	csio_dbg(hw, "Gathering all SCSI I/Os on lnode %p\n", ln);
-+
-+	sld.level = CSIO_LEV_LNODE;
-+	sld.lnode = ln;
-+	INIT_LIST_HEAD(&ln->cmpl_q);
-+	csio_scsi_gather_active_ios(scm, &sld, &ln->cmpl_q);
-+
-+	/* No I/Os pending on this lnode  */
-+	if (list_empty(&ln->cmpl_q))
-+		return 0;
-+
-+	/* Wait until all active I/Os on this lnode are completed */
-+	while (!list_empty(&ln->cmpl_q) && count--) {
-+		spin_unlock_irq(&hw->lock);
-+		msleep(CSIO_SCSI_ABORT_Q_POLL_MS);
-+		spin_lock_irq(&hw->lock);
-+	}
-+
-+	/* all I/Os completed */
-+	if (list_empty(&ln->cmpl_q))
-+		return 0;
-+
-+	csio_dbg(hw, "Some I/Os pending on ln:%p, aborting them..\n", ln);
-+
-+	/* I/Os are pending, abort them */
-+	rv = csio_scsi_abort_io_q(scm, &ln->cmpl_q, 30000);
-+	if (rv != 0) {
-+		csio_dbg(hw, "Some I/O aborts timed out, cleaning up..\n");
-+		csio_scsi_cleanup_io_q(scm, &ln->cmpl_q);
-+	}
-+
-+	CSIO_DB_ASSERT(list_empty(&ln->cmpl_q));
-+
-+	return rv;
-+}
-+
-+static ssize_t
-+csio_show_hw_state(struct device *dev,
-+		   struct device_attribute *attr, char *buf)
-+{
-+	struct csio_lnode *ln = shost_priv(class_to_shost(dev));
-+	struct csio_hw *hw = csio_lnode_to_hw(ln);
-+
-+	if (csio_is_hw_ready(hw))
-+		return snprintf(buf, PAGE_SIZE, "ready\n");
-+	else
-+		return snprintf(buf, PAGE_SIZE, "not ready\n");
-+}
-+
-+/* Device reset */
-+static ssize_t
-+csio_device_reset(struct device *dev,
-+		   struct device_attribute *attr, const char *buf, size_t count)
-+{
-+	struct csio_lnode *ln = shost_priv(class_to_shost(dev));
-+	struct csio_hw *hw = csio_lnode_to_hw(ln);
-+
-+	if (*buf != '1')
-+		return -EINVAL;
-+
-+	/* Delete NPIV lnodes */
-+	 csio_lnodes_exit(hw, 1);
-+
-+	/* Block upper IOs */
-+	csio_lnodes_block_request(hw);
-+
-+	spin_lock_irq(&hw->lock);
-+	csio_hw_reset(hw);
-+	spin_unlock_irq(&hw->lock);
-+
-+	/* Unblock upper IOs */
-+	csio_lnodes_unblock_request(hw);
-+	return count;
-+}
-+
-+/* disable port */
-+static ssize_t
-+csio_disable_port(struct device *dev,
-+		   struct device_attribute *attr, const char *buf, size_t count)
-+{
-+	struct csio_lnode *ln = shost_priv(class_to_shost(dev));
-+	struct csio_hw *hw = csio_lnode_to_hw(ln);
-+	bool disable;
-+
-+	if (*buf == '1' || *buf == '0')
-+		disable = (*buf == '1') ? true : false;
-+	else
-+		return -EINVAL;
-+
-+	/* Block upper IOs */
-+	csio_lnodes_block_by_port(hw, ln->portid);
-+
-+	spin_lock_irq(&hw->lock);
-+	csio_disable_lnodes(hw, ln->portid, disable);
-+	spin_unlock_irq(&hw->lock);
-+
-+	/* Unblock upper IOs */
-+	csio_lnodes_unblock_by_port(hw, ln->portid);
-+	return count;
-+}
-+
-+/* Show debug level */
-+static ssize_t
-+csio_show_dbg_level(struct device *dev,
-+		   struct device_attribute *attr, char *buf)
-+{
-+	struct csio_lnode *ln = shost_priv(class_to_shost(dev));
-+
-+	return snprintf(buf, PAGE_SIZE, "%x\n", ln->params.log_level);
-+}
-+
-+/* Store debug level */
-+static ssize_t
-+csio_store_dbg_level(struct device *dev,
-+		   struct device_attribute *attr, const char *buf, size_t count)
-+{
-+	struct csio_lnode *ln = shost_priv(class_to_shost(dev));
-+	struct csio_hw *hw = csio_lnode_to_hw(ln);
-+	uint32_t dbg_level = 0;
-+
-+	if (!isdigit(buf[0]))
-+		return -EINVAL;
-+
-+	if (sscanf(buf, "%i", &dbg_level))
-+		return -EINVAL;
-+
-+	ln->params.log_level = dbg_level;
-+	hw->params.log_level = dbg_level;
-+
-+	return 0;
-+}
-+
-+static DEVICE_ATTR(hw_state, S_IRUGO, csio_show_hw_state, NULL);
-+static DEVICE_ATTR(device_reset, S_IRUGO | S_IWUSR, NULL, csio_device_reset);
-+static DEVICE_ATTR(disable_port, S_IRUGO | S_IWUSR, NULL, csio_disable_port);
-+static DEVICE_ATTR(dbg_level, S_IRUGO | S_IWUSR, csio_show_dbg_level,
-+		  csio_store_dbg_level);
-+
-+static struct device_attribute *csio_fcoe_lport_attrs[] = {
-+	&dev_attr_hw_state,
-+	&dev_attr_device_reset,
-+	&dev_attr_disable_port,
-+	&dev_attr_dbg_level,
-+	NULL,
-+};
-+
-+static ssize_t
-+csio_show_num_reg_rnodes(struct device *dev,
-+		     struct device_attribute *attr, char *buf)
-+{
-+	struct csio_lnode *ln = shost_priv(class_to_shost(dev));
-+
-+	return snprintf(buf, PAGE_SIZE, "%d\n", ln->num_reg_rnodes);
-+}
-+
-+static DEVICE_ATTR(num_reg_rnodes, S_IRUGO, csio_show_num_reg_rnodes, NULL);
-+
-+static struct device_attribute *csio_fcoe_vport_attrs[] = {
-+	&dev_attr_num_reg_rnodes,
-+	&dev_attr_dbg_level,
-+	NULL,
-+};
-+
-+static inline uint32_t
-+csio_scsi_copy_to_sgl(struct csio_hw *hw, struct csio_ioreq *req)
-+{
-+	struct scsi_cmnd *scmnd  = (struct scsi_cmnd *)csio_scsi_cmnd(req);
-+	struct scatterlist *sg;
-+	uint32_t bytes_left;
-+	uint32_t bytes_copy;
-+	uint32_t buf_off = 0;
-+	uint32_t start_off = 0;
-+	uint32_t sg_off = 0;
-+	void *sg_addr;
-+	void *buf_addr;
-+	struct csio_dma_buf *dma_buf;
-+
-+	bytes_left = scsi_bufflen(scmnd);
-+	sg = scsi_sglist(scmnd);
-+	dma_buf = (struct csio_dma_buf *)csio_list_next(&req->gen_list);
-+
-+	/* Copy data from driver buffer to SGs of SCSI CMD */
-+	while (bytes_left > 0 && sg && dma_buf) {
-+		if (buf_off >= dma_buf->len) {
-+			buf_off = 0;
-+			dma_buf = (struct csio_dma_buf *)
-+					csio_list_next(dma_buf);
-+			continue;
-+		}
-+
-+		if (start_off >= sg->length) {
-+			start_off -= sg->length;
-+			sg = sg_next(sg);
-+			continue;
-+		}
-+
-+		buf_addr = dma_buf->vaddr + buf_off;
-+		sg_off = sg->offset + start_off;
-+		bytes_copy = min((dma_buf->len - buf_off),
-+				sg->length - start_off);
-+		bytes_copy = min((uint32_t)(PAGE_SIZE - (sg_off & ~PAGE_MASK)),
-+				 bytes_copy);
-+
-+		sg_addr = kmap_atomic(sg_page(sg) + (sg_off >> PAGE_SHIFT));
-+		if (!sg_addr) {
-+			csio_err(hw, "failed to kmap sg:%p of ioreq:%p\n",
-+				sg, req);
-+			break;
-+		}
-+
-+		csio_dbg(hw, "copy_to_sgl:sg_addr %p sg_off %d buf %p len %d\n",
-+				sg_addr, sg_off, buf_addr, bytes_copy);
-+		memcpy(sg_addr + (sg_off & ~PAGE_MASK), buf_addr, bytes_copy);
-+		kunmap_atomic(sg_addr);
-+
-+		start_off +=  bytes_copy;
-+		buf_off += bytes_copy;
-+		bytes_left -= bytes_copy;
-+	}
-+
-+	if (bytes_left > 0)
-+		return DID_ERROR;
-+	else
-+		return DID_OK;
-+}
-+
-+/*
-+ * csio_scsi_err_handler - SCSI error handler.
-+ * @hw: HW module.
-+ * @req: IO request.
-+ *
-+ */
-+static inline void
-+csio_scsi_err_handler(struct csio_hw *hw, struct csio_ioreq *req)
-+{
-+	struct scsi_cmnd *cmnd  = (struct scsi_cmnd *)csio_scsi_cmnd(req);
-+	struct csio_scsim *scm = csio_hw_to_scsim(hw);
-+	struct fcp_resp_with_ext *fcp_resp;
-+	struct fcp_resp_rsp_info *rsp_info;
-+	struct csio_dma_buf *dma_buf;
-+	uint8_t flags, scsi_status = 0;
-+	uint32_t host_status = DID_OK;
-+	uint32_t rsp_len = 0, sns_len = 0;
-+	struct csio_rnode *rn = (struct csio_rnode *)(cmnd->device->hostdata);
-+
-+
-+	switch (req->wr_status) {
-+	case FW_HOSTERROR:
-+		if (unlikely(!csio_is_hw_ready(hw)))
-+			return;
-+
-+		host_status = DID_ERROR;
-+		CSIO_INC_STATS(scm, n_hosterror);
-+
-+		break;
-+	case FW_SCSI_RSP_ERR:
-+		dma_buf = &req->dma_buf;
-+		fcp_resp = (struct fcp_resp_with_ext *)dma_buf->vaddr;
-+		rsp_info = (struct fcp_resp_rsp_info *)(fcp_resp + 1);
-+		flags = fcp_resp->resp.fr_flags;
-+		scsi_status = fcp_resp->resp.fr_status;
-+
-+		if (flags & FCP_RSP_LEN_VAL) {
-+			rsp_len = be32_to_cpu(fcp_resp->ext.fr_rsp_len);
-+			if ((rsp_len != 0 && rsp_len != 4 && rsp_len != 8) ||
-+				(rsp_info->rsp_code != FCP_TMF_CMPL)) {
-+				host_status = DID_ERROR;
-+				goto out;
-+			}
-+		}
-+
-+		if ((flags & FCP_SNS_LEN_VAL) && fcp_resp->ext.fr_sns_len) {
-+			sns_len = be32_to_cpu(fcp_resp->ext.fr_sns_len);
-+			if (sns_len > SCSI_SENSE_BUFFERSIZE)
-+				sns_len = SCSI_SENSE_BUFFERSIZE;
-+
-+			memcpy(cmnd->sense_buffer,
-+			       &rsp_info->_fr_resvd[0] + rsp_len, sns_len);
-+			CSIO_INC_STATS(scm, n_autosense);
-+		}
-+
-+		scsi_set_resid(cmnd, 0);
-+
-+		/* Under run */
-+		if (flags & FCP_RESID_UNDER) {
-+			scsi_set_resid(cmnd,
-+				       be32_to_cpu(fcp_resp->ext.fr_resid));
-+
-+			if (!(flags & FCP_SNS_LEN_VAL) &&
-+			    (scsi_status == SAM_STAT_GOOD) &&
-+			    ((scsi_bufflen(cmnd) - scsi_get_resid(cmnd))
-+							< cmnd->underflow))
-+				host_status = DID_ERROR;
-+		} else if (flags & FCP_RESID_OVER)
-+			host_status = DID_ERROR;
-+
-+		CSIO_INC_STATS(scm, n_rsperror);
-+		break;
-+
-+	case FW_SCSI_OVER_FLOW_ERR:
-+		csio_warn(hw,
-+			  "Over-flow error,cmnd:0x%x expected len:0x%x"
-+			  " resid:0x%x\n", cmnd->cmnd[0],
-+			  scsi_bufflen(cmnd), scsi_get_resid(cmnd));
-+		host_status = DID_ERROR;
-+		CSIO_INC_STATS(scm, n_ovflerror);
-+		break;
-+
-+	case FW_SCSI_UNDER_FLOW_ERR:
-+		csio_warn(hw,
-+			  "Under-flow error,cmnd:0x%x expected"
-+			  " len:0x%x resid:0x%x lun:0x%x ssn:0x%x\n",
-+			  cmnd->cmnd[0], scsi_bufflen(cmnd),
-+			  scsi_get_resid(cmnd), cmnd->device->lun,
-+			  rn->flowid);
-+		host_status = DID_ERROR;
-+		CSIO_INC_STATS(scm, n_unflerror);
-+		break;
-+
-+	case FW_SCSI_ABORT_REQUESTED:
-+	case FW_SCSI_ABORTED:
-+	case FW_SCSI_CLOSE_REQUESTED:
-+		csio_dbg(hw, "Req %p cmd:%p op:%x %s\n", req, cmnd,
-+			     cmnd->cmnd[0],
-+			    (req->wr_status == FW_SCSI_CLOSE_REQUESTED) ?
-+			    "closed" : "aborted");
-+		/*
-+		 * csio_eh_abort_handler checks this value to
-+		 * succeed or fail the abort request.
-+		 */
-+		host_status = DID_REQUEUE;
-+		if (req->wr_status == FW_SCSI_CLOSE_REQUESTED)
-+			CSIO_INC_STATS(scm, n_closed);
-+		else
-+			CSIO_INC_STATS(scm, n_aborted);
-+		break;
-+
-+	case FW_SCSI_ABORT_TIMEDOUT:
-+		/* FW timed out the abort itself */
-+		csio_dbg(hw, "FW timed out abort req:%p cmnd:%p status:%x\n",
-+			 req, cmnd, req->wr_status);
-+		host_status = DID_ERROR;
-+		CSIO_INC_STATS(scm, n_abrt_timedout);
-+		break;
-+
-+	case FW_RDEV_NOT_READY:
-+		/*
-+		 * In firmware, a RDEV can get into this state
-+		 * temporarily, before moving into dissapeared/lost
-+		 * state. So, the driver should complete the request equivalent
-+		 * to device-disappeared!
-+		 */
-+		CSIO_INC_STATS(scm, n_rdev_nr_error);
-+		host_status = DID_ERROR;
-+		break;
-+
-+	case FW_ERR_RDEV_LOST:
-+		CSIO_INC_STATS(scm, n_rdev_lost_error);
-+		host_status = DID_ERROR;
-+		break;
-+
-+	case FW_ERR_RDEV_LOGO:
-+		CSIO_INC_STATS(scm, n_rdev_logo_error);
-+		host_status = DID_ERROR;
-+		break;
-+
-+	case FW_ERR_RDEV_IMPL_LOGO:
-+		host_status = DID_ERROR;
-+		break;
-+
-+	case FW_ERR_LINK_DOWN:
-+		CSIO_INC_STATS(scm, n_link_down_error);
-+		host_status = DID_ERROR;
-+		break;
-+
-+	case FW_FCOE_NO_XCHG:
-+		CSIO_INC_STATS(scm, n_no_xchg_error);
-+		host_status = DID_ERROR;
-+		break;
-+
-+	default:
-+		csio_err(hw, "Unknown SCSI FW WR status:%d req:%p cmnd:%p\n",
-+			    req->wr_status, req, cmnd);
-+		CSIO_DB_ASSERT(0);
-+
-+		CSIO_INC_STATS(scm, n_unknown_error);
-+		host_status = DID_ERROR;
-+		break;
-+	}
-+
-+out:
-+	if (req->nsge > 0)
-+		scsi_dma_unmap(cmnd);
-+
-+	cmnd->result = (((host_status) << 16) | scsi_status);
-+	cmnd->scsi_done(cmnd);
-+
-+	/* Wake up waiting threads */
-+	csio_scsi_cmnd(req) = NULL;
-+	complete_all(&req->cmplobj);
-+}
-+
-+/*
-+ * csio_scsi_cbfn - SCSI callback function.
-+ * @hw: HW module.
-+ * @req: IO request.
-+ *
-+ */
-+static void
-+csio_scsi_cbfn(struct csio_hw *hw, struct csio_ioreq *req)
-+{
-+	struct scsi_cmnd *cmnd  = (struct scsi_cmnd *)csio_scsi_cmnd(req);
-+	uint8_t scsi_status = SAM_STAT_GOOD;
-+	uint32_t host_status = DID_OK;
-+
-+	if (likely(req->wr_status == FW_SUCCESS)) {
-+		if (req->nsge > 0) {
-+			scsi_dma_unmap(cmnd);
-+			if (req->dcopy)
-+				host_status = csio_scsi_copy_to_sgl(hw, req);
-+		}
-+
-+		cmnd->result = (((host_status) << 16) | scsi_status);
-+		cmnd->scsi_done(cmnd);
-+		csio_scsi_cmnd(req) = NULL;
-+		CSIO_INC_STATS(csio_hw_to_scsim(hw), n_tot_success);
-+	} else {
-+		/* Error handling */
-+		csio_scsi_err_handler(hw, req);
-+	}
-+}
-+
-+/**
-+ * csio_queuecommand_lck - Entry point to kickstart an I/O request.
-+ * @cmnd:	The I/O request from ML.
-+ * @done:	The ML callback routine.
-+ *
-+ * This routine does the following:
-+ *	- Checks for HW and Rnode module readiness.
-+ *	- Gets a free ioreq structure (which is already initialized
-+ *	  to uninit during its allocation).
-+ *	- Maps SG elements.
-+ *	- Initializes ioreq members.
-+ *	- Kicks off the SCSI state machine for this IO.
-+ *	- Returns busy status on error.
-+ */
-+static int
-+csio_queuecommand_lck(struct scsi_cmnd *cmnd, void (*done)(struct scsi_cmnd *))
-+{
-+	struct csio_lnode *ln = shost_priv(cmnd->device->host);
-+	struct csio_hw *hw = csio_lnode_to_hw(ln);
-+	struct csio_scsim *scsim = csio_hw_to_scsim(hw);
-+	struct csio_rnode *rn = (struct csio_rnode *)(cmnd->device->hostdata);
-+	struct csio_ioreq *ioreq = NULL;
-+	unsigned long flags;
-+	int nsge = 0;
-+	int rv = SCSI_MLQUEUE_HOST_BUSY, nr;
-+	int retval;
-+	int cpu;
-+	struct csio_scsi_qset *sqset;
-+	struct fc_rport *rport = starget_to_rport(scsi_target(cmnd->device));
-+
-+	if (!blk_rq_cpu_valid(cmnd->request))
-+		cpu = smp_processor_id();
-+	else
-+		cpu = cmnd->request->cpu;
-+
-+	sqset = &hw->sqset[ln->portid][cpu];
-+
-+	nr = fc_remote_port_chkready(rport);
-+	if (nr) {
-+		cmnd->result = nr;
-+		CSIO_INC_STATS(scsim, n_rn_nr_error);
-+		goto err_done;
-+	}
-+
-+	if (unlikely(!csio_is_hw_ready(hw))) {
-+		cmnd->result = (DID_REQUEUE << 16);
-+		CSIO_INC_STATS(scsim, n_hw_nr_error);
-+		goto err_done;
-+	}
-+
-+	/* Get req->nsge, if there are SG elements to be mapped  */
-+	nsge = scsi_dma_map(cmnd);
-+	if (unlikely(nsge < 0)) {
-+		CSIO_INC_STATS(scsim, n_dmamap_error);
-+		goto err;
-+	}
-+
-+	/* Do we support so many mappings? */
-+	if (unlikely(nsge > scsim->max_sge)) {
-+		csio_warn(hw,
-+			  "More SGEs than can be supported."
-+			  " SGEs: %d, Max SGEs: %d\n", nsge, scsim->max_sge);
-+		CSIO_INC_STATS(scsim, n_unsupp_sge_error);
-+		goto err_dma_unmap;
-+	}
-+
-+	/* Get a free ioreq structure - SM is already set to uninit */
-+	ioreq = csio_get_scsi_ioreq_lock(hw, scsim);
-+	if (!ioreq) {
-+		csio_err(hw, "Out of I/O request elements. Active #:%d\n",
-+			 scsim->stats.n_active);
-+		CSIO_INC_STATS(scsim, n_no_req_error);
-+		goto err_dma_unmap;
-+	}
-+
-+	ioreq->nsge		= nsge;
-+	ioreq->lnode		= ln;
-+	ioreq->rnode		= rn;
-+	ioreq->iq_idx		= sqset->iq_idx;
-+	ioreq->eq_idx		= sqset->eq_idx;
-+	ioreq->wr_status	= 0;
-+	ioreq->drv_status	= 0;
-+	csio_scsi_cmnd(ioreq)	= (void *)cmnd;
-+	ioreq->tmo		= 0;
-+	ioreq->datadir		= cmnd->sc_data_direction;
-+
-+	if (cmnd->sc_data_direction == DMA_TO_DEVICE) {
-+		CSIO_INC_STATS(ln, n_output_requests);
-+		ln->stats.n_output_bytes += scsi_bufflen(cmnd);
-+	} else if (cmnd->sc_data_direction == DMA_FROM_DEVICE) {
-+		CSIO_INC_STATS(ln, n_input_requests);
-+		ln->stats.n_input_bytes += scsi_bufflen(cmnd);
-+	} else
-+		CSIO_INC_STATS(ln, n_control_requests);
-+
-+	/* Set cbfn */
-+	ioreq->io_cbfn = csio_scsi_cbfn;
-+
-+	/* Needed during abort */
-+	cmnd->host_scribble = (unsigned char *)ioreq;
-+	cmnd->scsi_done = done;
-+	cmnd->SCp.Message = 0;
-+
-+	/* Kick off SCSI IO SM on the ioreq */
-+	spin_lock_irqsave(&hw->lock, flags);
-+	retval = csio_scsi_start_io(ioreq);
-+	spin_unlock_irqrestore(&hw->lock, flags);
-+
-+	if (retval != 0) {
-+		csio_err(hw, "ioreq: %p couldnt be started, status:%d\n",
-+			 ioreq, retval);
-+		CSIO_INC_STATS(scsim, n_busy_error);
-+		goto err_put_req;
-+	}
-+
-+	return 0;
-+
-+err_put_req:
-+	csio_put_scsi_ioreq_lock(hw, scsim, ioreq);
-+err_dma_unmap:
-+	if (nsge > 0)
-+		scsi_dma_unmap(cmnd);
-+err:
-+	return rv;
-+
-+err_done:
-+	done(cmnd);
-+	return 0;
-+}
-+
-+static DEF_SCSI_QCMD(csio_queuecommand);
-+
-+static int
-+csio_do_abrt_cls(struct csio_hw *hw, struct csio_ioreq *ioreq, bool abort)
-+{
-+	int rv;
-+	int cpu = smp_processor_id();
-+	struct csio_lnode *ln = ioreq->lnode;
-+	struct csio_scsi_qset *sqset = &hw->sqset[ln->portid][cpu];
-+
-+	ioreq->tmo = CSIO_SCSI_ABRT_TMO_MS;
-+	/*
-+	 * Use current processor queue for posting the abort/close, but retain
-+	 * the ingress queue ID of the original I/O being aborted/closed - we
-+	 * need the abort/close completion to be received on the same queue
-+	 * as the original I/O.
-+	 */
-+	ioreq->eq_idx = sqset->eq_idx;
-+
-+	if (abort == SCSI_ABORT)
-+		rv = csio_scsi_abort(ioreq);
-+	else
-+		rv = csio_scsi_close(ioreq);
-+
-+	return rv;
-+}
-+
-+static int
-+csio_eh_abort_handler(struct scsi_cmnd *cmnd)
-+{
-+	struct csio_ioreq *ioreq;
-+	struct csio_lnode *ln = shost_priv(cmnd->device->host);
-+	struct csio_hw *hw = csio_lnode_to_hw(ln);
-+	struct csio_scsim *scsim = csio_hw_to_scsim(hw);
-+	int ready = 0, ret;
-+	unsigned long tmo = 0;
-+	int rv;
-+	struct csio_rnode *rn = (struct csio_rnode *)(cmnd->device->hostdata);
-+
-+	ret = fc_block_scsi_eh(cmnd);
-+	if (ret)
-+		return ret;
-+
-+	ioreq = (struct csio_ioreq *)cmnd->host_scribble;
-+	if (!ioreq)
-+		return SUCCESS;
-+
-+	if (!rn)
-+		return FAILED;
-+
-+	csio_dbg(hw,
-+		 "Request to abort ioreq:%p cmd:%p cdb:%08llx"
-+		 " ssni:0x%x lun:%d iq:0x%x\n",
-+		ioreq, cmnd, *((uint64_t *)cmnd->cmnd), rn->flowid,
-+		cmnd->device->lun, csio_q_physiqid(hw, ioreq->iq_idx));
-+
-+	if (((struct scsi_cmnd *)csio_scsi_cmnd(ioreq)) != cmnd) {
-+		CSIO_INC_STATS(scsim, n_abrt_race_comp);
-+		return SUCCESS;
-+	}
-+
-+	ready = csio_is_lnode_ready(ln);
-+	tmo = CSIO_SCSI_ABRT_TMO_MS;
-+
-+	spin_lock_irq(&hw->lock);
-+	rv = csio_do_abrt_cls(hw, ioreq, (ready ? SCSI_ABORT : SCSI_CLOSE));
-+	spin_unlock_irq(&hw->lock);
-+
-+	if (rv != 0) {
-+		if (rv == -EINVAL) {
-+			/* Return success, if abort/close request issued on
-+			 * already completed IO
-+			 */
-+			return SUCCESS;
-+		}
-+		if (ready)
-+			CSIO_INC_STATS(scsim, n_abrt_busy_error);
-+		else
-+			CSIO_INC_STATS(scsim, n_cls_busy_error);
-+
-+		goto inval_scmnd;
-+	}
-+
-+	/* Wait for completion */
-+	init_completion(&ioreq->cmplobj);
-+	wait_for_completion_timeout(&ioreq->cmplobj, msecs_to_jiffies(tmo));
-+
-+	/* FW didnt respond to abort within our timeout */
-+	if (((struct scsi_cmnd *)csio_scsi_cmnd(ioreq)) == cmnd) {
-+
-+		csio_err(hw, "Abort timed out -- req: %p\n", ioreq);
-+		CSIO_INC_STATS(scsim, n_abrt_timedout);
-+
-+inval_scmnd:
-+		if (ioreq->nsge > 0)
-+			scsi_dma_unmap(cmnd);
-+
-+		spin_lock_irq(&hw->lock);
-+		csio_scsi_cmnd(ioreq) = NULL;
-+		spin_unlock_irq(&hw->lock);
-+
-+		cmnd->result = (DID_ERROR << 16);
-+		cmnd->scsi_done(cmnd);
-+
-+		return FAILED;
-+	}
-+
-+	/* FW successfully aborted the request */
-+	if (host_byte(cmnd->result) == DID_REQUEUE) {
-+		csio_info(hw,
-+			"Aborted SCSI command to (%d:%d) serial#:0x%lx\n",
-+			cmnd->device->id, cmnd->device->lun,
-+			cmnd->serial_number);
-+		return SUCCESS;
-+	} else {
-+		csio_info(hw,
-+			"Failed to abort SCSI command, (%d:%d) serial#:0x%lx\n",
-+			cmnd->device->id, cmnd->device->lun,
-+			cmnd->serial_number);
-+		return FAILED;
-+	}
-+}
-+
-+/*
-+ * csio_tm_cbfn - TM callback function.
-+ * @hw: HW module.
-+ * @req: IO request.
-+ *
-+ * Cache the result in 'cmnd', since ioreq will be freed soon
-+ * after we return from here, and the waiting thread shouldnt trust
-+ * the ioreq contents.
-+ */
-+static void
-+csio_tm_cbfn(struct csio_hw *hw, struct csio_ioreq *req)
-+{
-+	struct scsi_cmnd *cmnd  = (struct scsi_cmnd *)csio_scsi_cmnd(req);
-+	struct csio_dma_buf *dma_buf;
-+	uint8_t flags = 0;
-+	struct fcp_resp_with_ext *fcp_resp;
-+	struct fcp_resp_rsp_info *rsp_info;
-+
-+	csio_dbg(hw, "req: %p in csio_tm_cbfn status: %d\n",
-+		      req, req->wr_status);
-+
-+	/* Cache FW return status */
-+	cmnd->SCp.Status = req->wr_status;
-+
-+	/* Special handling based on FCP response */
-+
-+	/*
-+	 * FW returns us this error, if flags were set. FCP4 says
-+	 * FCP_RSP_LEN_VAL in flags shall be set for TM completions.
-+	 * So if a target were to set this bit, we expect that the
-+	 * rsp_code is set to FCP_TMF_CMPL for a successful TM
-+	 * completion. Any other rsp_code means TM operation failed.
-+	 * If a target were to just ignore setting flags, we treat
-+	 * the TM operation as success, and FW returns FW_SUCCESS.
-+	 */
-+	if (req->wr_status == FW_SCSI_RSP_ERR) {
-+		dma_buf = &req->dma_buf;
-+		fcp_resp = (struct fcp_resp_with_ext *)dma_buf->vaddr;
-+		rsp_info = (struct fcp_resp_rsp_info *)(fcp_resp + 1);
-+
-+		flags = fcp_resp->resp.fr_flags;
-+
-+		/* Modify return status if flags indicate success */
-+		if (flags & FCP_RSP_LEN_VAL)
-+			if (rsp_info->rsp_code == FCP_TMF_CMPL)
-+				cmnd->SCp.Status = FW_SUCCESS;
-+
-+		csio_dbg(hw, "TM FCP rsp code: %d\n", rsp_info->rsp_code);
-+	}
-+
-+	/* Wake up the TM handler thread */
-+	csio_scsi_cmnd(req) = NULL;
-+}
-+
-+static int
-+csio_eh_lun_reset_handler(struct scsi_cmnd *cmnd)
-+{
-+	struct csio_lnode *ln = shost_priv(cmnd->device->host);
-+	struct csio_hw *hw = csio_lnode_to_hw(ln);
-+	struct csio_scsim *scsim = csio_hw_to_scsim(hw);
-+	struct csio_rnode *rn = (struct csio_rnode *)(cmnd->device->hostdata);
-+	struct csio_ioreq *ioreq = NULL;
-+	struct csio_scsi_qset *sqset;
-+	unsigned long flags;
-+	int retval;
-+	int count, ret;
-+	LIST_HEAD(local_q);
-+	struct csio_scsi_level_data sld;
-+
-+	if (!rn)
-+		goto fail;
-+
-+	csio_dbg(hw, "Request to reset LUN:%d (ssni:0x%x tgtid:%d)\n",
-+		      cmnd->device->lun, rn->flowid, rn->scsi_id);
-+
-+	if (!csio_is_lnode_ready(ln)) {
-+		csio_err(hw,
-+			 "LUN reset cannot be issued on non-ready"
-+			 " local node vnpi:0x%x (LUN:%d)\n",
-+			 ln->vnp_flowid, cmnd->device->lun);
-+		goto fail;
-+	}
-+
-+	/* Lnode is ready, now wait on rport node readiness */
-+	ret = fc_block_scsi_eh(cmnd);
-+	if (ret)
-+		return ret;
-+
-+	/*
-+	 * If we have blocked in the previous call, at this point, either the
-+	 * remote node has come back online, or device loss timer has fired
-+	 * and the remote node is destroyed. Allow the LUN reset only for
-+	 * the former case, since LUN reset is a TMF I/O on the wire, and we
-+	 * need a valid session to issue it.
-+	 */
-+	if (fc_remote_port_chkready(rn->rport)) {
-+		csio_err(hw,
-+			 "LUN reset cannot be issued on non-ready"
-+			 " remote node ssni:0x%x (LUN:%d)\n",
-+			 rn->flowid, cmnd->device->lun);
-+		goto fail;
-+	}
-+
-+	/* Get a free ioreq structure - SM is already set to uninit */
-+	ioreq = csio_get_scsi_ioreq_lock(hw, scsim);
-+
-+	if (!ioreq) {
-+		csio_err(hw, "Out of IO request elements. Active # :%d\n",
-+			 scsim->stats.n_active);
-+		goto fail;
-+	}
-+
-+	sqset			= &hw->sqset[ln->portid][smp_processor_id()];
-+	ioreq->nsge		= 0;
-+	ioreq->lnode		= ln;
-+	ioreq->rnode		= rn;
-+	ioreq->iq_idx		= sqset->iq_idx;
-+	ioreq->eq_idx		= sqset->eq_idx;
-+
-+	csio_scsi_cmnd(ioreq)	= cmnd;
-+	cmnd->host_scribble	= (unsigned char *)ioreq;
-+	cmnd->SCp.Status	= 0;
-+
-+	cmnd->SCp.Message	= FCP_TMF_LUN_RESET;
-+	ioreq->tmo		= CSIO_SCSI_LUNRST_TMO_MS / 1000;
-+
-+	/*
-+	 * FW times the LUN reset for ioreq->tmo, so we got to wait a little
-+	 * longer (10s for now) than that to allow FW to return the timed
-+	 * out command.
-+	 */
-+	count = CSIO_ROUNDUP((ioreq->tmo + 10) * 1000, CSIO_SCSI_TM_POLL_MS);
-+
-+	/* Set cbfn */
-+	ioreq->io_cbfn = csio_tm_cbfn;
-+
-+	/* Save of the ioreq info for later use */
-+	sld.level = CSIO_LEV_LUN;
-+	sld.lnode = ioreq->lnode;
-+	sld.rnode = ioreq->rnode;
-+	sld.oslun = (uint64_t)cmnd->device->lun;
-+
-+	spin_lock_irqsave(&hw->lock, flags);
-+	/* Kick off TM SM on the ioreq */
-+	retval = csio_scsi_start_tm(ioreq);
-+	spin_unlock_irqrestore(&hw->lock, flags);
-+
-+	if (retval != 0) {
-+		csio_err(hw, "Failed to issue LUN reset, req:%p, status:%d\n",
-+			    ioreq, retval);
-+		goto fail_ret_ioreq;
-+	}
-+
-+	csio_dbg(hw, "Waiting max %d secs for LUN reset completion\n",
-+		    count * (CSIO_SCSI_TM_POLL_MS / 1000));
-+	/* Wait for completion */
-+	while ((((struct scsi_cmnd *)csio_scsi_cmnd(ioreq)) == cmnd)
-+								&& count--)
-+		msleep(CSIO_SCSI_TM_POLL_MS);
-+
-+	/* LUN reset timed-out */
-+	if (((struct scsi_cmnd *)csio_scsi_cmnd(ioreq)) == cmnd) {
-+		csio_err(hw, "LUN reset (%d:%d) timed out\n",
-+			 cmnd->device->id, cmnd->device->lun);
-+
-+		spin_lock_irq(&hw->lock);
-+		csio_scsi_drvcleanup(ioreq);
-+		list_del_init(&ioreq->sm.sm_list);
-+		spin_unlock_irq(&hw->lock);
-+
-+		goto fail_ret_ioreq;
-+	}
-+
-+	/* LUN reset returned, check cached status */
-+	if (cmnd->SCp.Status != FW_SUCCESS) {
-+		csio_err(hw, "LUN reset failed (%d:%d), status: %d\n",
-+			 cmnd->device->id, cmnd->device->lun, cmnd->SCp.Status);
-+		goto fail;
-+	}
-+
-+	/* LUN reset succeeded, Start aborting affected I/Os */
-+	/*
-+	 * Since the host guarantees during LUN reset that there
-+	 * will not be any more I/Os to that LUN, until the LUN reset
-+	 * completes, we gather pending I/Os after the LUN reset.
-+	 */
-+	spin_lock_irq(&hw->lock);
-+	csio_scsi_gather_active_ios(scsim, &sld, &local_q);
-+
-+	retval = csio_scsi_abort_io_q(scsim, &local_q, 30000);
-+	spin_unlock_irq(&hw->lock);
-+
-+	/* Aborts may have timed out */
-+	if (retval != 0) {
-+		csio_err(hw,
-+			 "Attempt to abort I/Os during LUN reset of %d"
-+			 " returned %d\n", cmnd->device->lun, retval);
-+		/* Return I/Os back to active_q */
-+		spin_lock_irq(&hw->lock);
-+		list_splice_tail_init(&local_q, &scsim->active_q);
-+		spin_unlock_irq(&hw->lock);
-+		goto fail;
-+	}
-+
-+	CSIO_INC_STATS(rn, n_lun_rst);
-+
-+	csio_info(hw, "LUN reset occurred (%d:%d)\n",
-+		  cmnd->device->id, cmnd->device->lun);
-+
-+	return SUCCESS;
-+
-+fail_ret_ioreq:
-+	csio_put_scsi_ioreq_lock(hw, scsim, ioreq);
-+fail:
-+	CSIO_INC_STATS(rn, n_lun_rst_fail);
-+	return FAILED;
-+}
-+
-+static int
-+csio_slave_alloc(struct scsi_device *sdev)
-+{
-+	struct fc_rport *rport = starget_to_rport(scsi_target(sdev));
-+
-+	if (!rport || fc_remote_port_chkready(rport))
-+		return -ENXIO;
-+
-+	sdev->hostdata = *((struct csio_lnode **)(rport->dd_data));
-+
-+	return 0;
-+}
-+
-+static int
-+csio_slave_configure(struct scsi_device *sdev)
-+{
-+	if (sdev->tagged_supported)
-+		scsi_activate_tcq(sdev, csio_lun_qdepth);
-+	else
-+		scsi_deactivate_tcq(sdev, csio_lun_qdepth);
-+
-+	return 0;
-+}
-+
-+static void
-+csio_slave_destroy(struct scsi_device *sdev)
-+{
-+	sdev->hostdata = NULL;
-+}
-+
-+static int
-+csio_scan_finished(struct Scsi_Host *shost, unsigned long time)
-+{
-+	struct csio_lnode *ln = shost_priv(shost);
-+	int rv = 0;
-+
-+	spin_lock_irq(shost->host_lock);
-+	if (!ln->hwp || csio_list_deleted(&ln->sm.sm_list)) {
-+		spin_unlock_irq(shost->host_lock);
-+		return 1;
-+	}
-+
-+	rv = csio_scan_done(ln, jiffies, time, csio_max_scan_tmo * HZ,
-+			    csio_delta_scan_tmo * HZ);
-+
-+	spin_unlock_irq(shost->host_lock);
-+
-+	return rv;
-+}
-+
-+struct scsi_host_template csio_fcoe_shost_template = {
-+	.module			= THIS_MODULE,
-+	.name			= CSIO_DRV_DESC,
-+	.proc_name		= KBUILD_MODNAME,
-+	.queuecommand		= csio_queuecommand,
-+	.eh_abort_handler	= csio_eh_abort_handler,
-+	.eh_device_reset_handler = csio_eh_lun_reset_handler,
-+	.slave_alloc		= csio_slave_alloc,
-+	.slave_configure	= csio_slave_configure,
-+	.slave_destroy		= csio_slave_destroy,
-+	.scan_finished		= csio_scan_finished,
-+	.this_id		= -1,
-+	.sg_tablesize		= CSIO_SCSI_MAX_SGE,
-+	.cmd_per_lun		= CSIO_MAX_CMD_PER_LUN,
-+	.use_clustering		= ENABLE_CLUSTERING,
-+	.shost_attrs		= csio_fcoe_lport_attrs,
-+	.max_sectors		= CSIO_MAX_SECTOR_SIZE,
-+};
-+
-+struct scsi_host_template csio_fcoe_shost_vport_template = {
-+	.module			= THIS_MODULE,
-+	.name			= CSIO_DRV_DESC,
-+	.proc_name		= KBUILD_MODNAME,
-+	.queuecommand		= csio_queuecommand,
-+	.eh_abort_handler	= csio_eh_abort_handler,
-+	.eh_device_reset_handler = csio_eh_lun_reset_handler,
-+	.slave_alloc		= csio_slave_alloc,
-+	.slave_configure	= csio_slave_configure,
-+	.slave_destroy		= csio_slave_destroy,
-+	.scan_finished		= csio_scan_finished,
-+	.this_id		= -1,
-+	.sg_tablesize		= CSIO_SCSI_MAX_SGE,
-+	.cmd_per_lun		= CSIO_MAX_CMD_PER_LUN,
-+	.use_clustering		= ENABLE_CLUSTERING,
-+	.shost_attrs		= csio_fcoe_vport_attrs,
-+	.max_sectors		= CSIO_MAX_SECTOR_SIZE,
-+};
-+
-+/*
-+ * csio_scsi_alloc_ddp_bufs - Allocate buffers for DDP of unaligned SGLs.
-+ * @scm: SCSI Module
-+ * @hw: HW device.
-+ * @buf_size: buffer size
-+ * @num_buf : Number of buffers.
-+ *
-+ * This routine allocates DMA buffers required for SCSI Data xfer, if
-+ * each SGL buffer for a SCSI Read request posted by SCSI midlayer are
-+ * not virtually contiguous.
-+ */
-+static int
-+csio_scsi_alloc_ddp_bufs(struct csio_scsim *scm, struct csio_hw *hw,
-+			 int buf_size, int num_buf)
-+{
-+	int n = 0;
-+	struct list_head *tmp;
-+	struct csio_dma_buf *ddp_desc = NULL;
-+	uint32_t unit_size = 0;
-+
-+	if (!num_buf)
-+		return 0;
-+
-+	if (!buf_size)
-+		return -EINVAL;
-+
-+	INIT_LIST_HEAD(&scm->ddp_freelist);
-+
-+	/* Align buf size to page size */
-+	buf_size = (buf_size + PAGE_SIZE - 1) & PAGE_MASK;
-+	/* Initialize dma descriptors */
-+	for (n = 0; n < num_buf; n++) {
-+		/* Set unit size to request size */
-+		unit_size = buf_size;
-+		ddp_desc = kzalloc(sizeof(struct csio_dma_buf), GFP_KERNEL);
-+		if (!ddp_desc) {
-+			csio_err(hw,
-+				 "Failed to allocate ddp descriptors,"
-+				 " Num allocated = %d.\n",
-+				 scm->stats.n_free_ddp);
-+			goto no_mem;
-+		}
-+
-+		/* Allocate Dma buffers for DDP */
-+		ddp_desc->vaddr = pci_alloc_consistent(hw->pdev, unit_size,
-+							&ddp_desc->paddr);
-+		if (!ddp_desc->vaddr) {
-+			csio_err(hw,
-+				 "SCSI response DMA buffer (ddp) allocation"
-+				 " failed!\n");
-+			kfree(ddp_desc);
-+			goto no_mem;
-+		}
-+
-+		ddp_desc->len = unit_size;
-+
-+		/* Added it to scsi ddp freelist */
-+		list_add_tail(&ddp_desc->list, &scm->ddp_freelist);
-+		CSIO_INC_STATS(scm, n_free_ddp);
-+	}
-+
-+	return 0;
-+no_mem:
-+	/* release dma descs back to freelist and free dma memory */
-+	list_for_each(tmp, &scm->ddp_freelist) {
-+		ddp_desc = (struct csio_dma_buf *) tmp;
-+		tmp = csio_list_prev(tmp);
-+		pci_free_consistent(hw->pdev, ddp_desc->len, ddp_desc->vaddr,
-+				    ddp_desc->paddr);
-+		list_del_init(&ddp_desc->list);
-+		kfree(ddp_desc);
-+	}
-+	scm->stats.n_free_ddp = 0;
-+
-+	return -ENOMEM;
-+}
-+
-+/*
-+ * csio_scsi_free_ddp_bufs - free DDP buffers of unaligned SGLs.
-+ * @scm: SCSI Module
-+ * @hw: HW device.
-+ *
-+ * This routine frees ddp buffers.
-+ */
-+static void
-+csio_scsi_free_ddp_bufs(struct csio_scsim *scm, struct csio_hw *hw)
-+{
-+	struct list_head *tmp;
-+	struct csio_dma_buf *ddp_desc;
-+
-+	/* release dma descs back to freelist and free dma memory */
-+	list_for_each(tmp, &scm->ddp_freelist) {
-+		ddp_desc = (struct csio_dma_buf *) tmp;
-+		tmp = csio_list_prev(tmp);
-+		pci_free_consistent(hw->pdev, ddp_desc->len, ddp_desc->vaddr,
-+				    ddp_desc->paddr);
-+		list_del_init(&ddp_desc->list);
-+		kfree(ddp_desc);
-+	}
-+	scm->stats.n_free_ddp = 0;
-+}
-+
-+/**
-+ * csio_scsim_init - Initialize SCSI Module
-+ * @scm:	SCSI Module
-+ * @hw:		HW module
-+ *
-+ */
-+int
-+csio_scsim_init(struct csio_scsim *scm, struct csio_hw *hw)
-+{
-+	int i;
-+	struct csio_ioreq *ioreq;
-+	struct csio_dma_buf *dma_buf;
-+
-+	INIT_LIST_HEAD(&scm->active_q);
-+	scm->hw = hw;
-+
-+	scm->proto_cmd_len = sizeof(struct fcp_cmnd);
-+	scm->proto_rsp_len = CSIO_SCSI_RSP_LEN;
-+	scm->max_sge = CSIO_SCSI_MAX_SGE;
-+
-+	spin_lock_init(&scm->freelist_lock);
-+
-+	/* Pre-allocate ioreqs and initialize them */
-+	INIT_LIST_HEAD(&scm->ioreq_freelist);
-+	for (i = 0; i < csio_scsi_ioreqs; i++) {
-+
-+		ioreq = kzalloc(sizeof(struct csio_ioreq), GFP_KERNEL);
-+		if (!ioreq) {
-+			csio_err(hw,
-+				 "I/O request element allocation failed, "
-+				 " Num allocated = %d.\n",
-+				 scm->stats.n_free_ioreq);
-+
-+			goto free_ioreq;
-+		}
-+
-+		/* Allocate Dma buffers for Response Payload */
-+		dma_buf = &ioreq->dma_buf;
-+		dma_buf->vaddr = pci_pool_alloc(hw->scsi_pci_pool, GFP_KERNEL,
-+						&dma_buf->paddr);
-+		if (!dma_buf->vaddr) {
-+			csio_err(hw,
-+				 "SCSI response DMA buffer allocation"
-+				 " failed!\n");
-+			kfree(ioreq);
-+			goto free_ioreq;
-+		}
-+
-+		dma_buf->len = scm->proto_rsp_len;
-+
-+		/* Set state to uninit */
-+		csio_init_state(&ioreq->sm, csio_scsis_uninit);
-+		INIT_LIST_HEAD(&ioreq->gen_list);
-+		init_completion(&ioreq->cmplobj);
-+
-+		list_add_tail(&ioreq->sm.sm_list, &scm->ioreq_freelist);
-+		CSIO_INC_STATS(scm, n_free_ioreq);
-+	}
-+
-+	if (csio_scsi_alloc_ddp_bufs(scm, hw, PAGE_SIZE, csio_ddp_descs))
-+		goto free_ioreq;
-+
-+	return 0;
-+
-+free_ioreq:
-+	/*
-+	 * Free up existing allocations, since an error
-+	 * from here means we are returning for good
-+	 */
-+	while (!list_empty(&scm->ioreq_freelist)) {
-+		struct csio_sm *tmp;
-+
-+		tmp = list_first_entry(&scm->ioreq_freelist,
-+				       struct csio_sm, sm_list);
-+		list_del_init(&tmp->sm_list);
-+		ioreq = (struct csio_ioreq *)tmp;
-+
-+		dma_buf = &ioreq->dma_buf;
-+		pci_pool_free(hw->scsi_pci_pool, dma_buf->vaddr,
-+			      dma_buf->paddr);
-+
-+		kfree(ioreq);
-+	}
-+
-+	scm->stats.n_free_ioreq = 0;
-+
-+	return -ENOMEM;
-+}
-+
-+/**
-+ * csio_scsim_exit: Uninitialize SCSI Module
-+ * @scm: SCSI Module
-+ *
++ * Stop timer.
 + */
 +void
-+csio_scsim_exit(struct csio_scsim *scm)
++csio_mbm_exit(struct csio_mbm *mbm)
 +{
-+	struct csio_ioreq *ioreq;
-+	struct csio_dma_buf *dma_buf;
++	del_timer_sync(&mbm->timer);
 +
-+	while (!list_empty(&scm->ioreq_freelist)) {
-+		struct csio_sm *tmp;
-+
-+		tmp = list_first_entry(&scm->ioreq_freelist,
-+				       struct csio_sm, sm_list);
-+		list_del_init(&tmp->sm_list);
-+		ioreq = (struct csio_ioreq *)tmp;
-+
-+		dma_buf = &ioreq->dma_buf;
-+		pci_pool_free(scm->hw->scsi_pci_pool, dma_buf->vaddr,
-+			      dma_buf->paddr);
-+
-+		kfree(ioreq);
-+	}
-+
-+	scm->stats.n_free_ioreq = 0;
-+
-+	csio_scsi_free_ddp_bufs(scm, scm->hw);
++	CSIO_DB_ASSERT(mbm->mcurrent == NULL);
++	CSIO_DB_ASSERT(list_empty(&mbm->req_q));
++	CSIO_DB_ASSERT(list_empty(&mbm->cbfn_q));
 +}
 -- 
 1.7.1
+
