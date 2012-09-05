@@ -1,38 +1,34 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: Commit "ipconfig wait for carrier" makes boot hang for 2 mins if no
- carrier
-Date: Wed, 5 Sep 2012 23:41:06 +0200
-Message-ID: <OF108CC91F.7D158BF1-ONC1257A70.00768584-C1257A70.00771E9B@transmode.se>
-References: <OFFA3AC1B1.08FC3AAD-ONC1257A70.00266EDC-C1257A70.0026E8BC@transmode.se>	<50470DAC.8030009@neli.hopto.org>
-	<OF70CDBF7F.EFE301C2-ONC1257A70.002F0D3F-C1257A70.003055BF@transmode.se> <20120905.130158.897788930198410991.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH V2 0/2] Remove duplicate register definitions in
+ Chelsio cxgb4
+Date: Wed, 05 Sep 2012 17:43:23 -0400 (EDT)
+Message-ID: <20120905.174323.648192110881034657.davem@davemloft.net>
+References: <1346846515-25997-1-git-send-email-vipul@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: micha@neli.hopto.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([195.58.98.146]:55091 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759549Ab2IEVlI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Sep 2012 17:41:08 -0400
-In-Reply-To: <20120905.130158.897788930198410991.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, sivasu-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1346846515-25997-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote on 2012/09/05 19:01:58:
->
-> From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-> Date: Wed, 5 Sep 2012 10:47:56 +0200
->
-> > Please adjust the 2 min wait to nfsroot= only and keep the old way for ip=
->
-> Sorry, this is not happening, I fully support the change in the tree
-> as-is and will not modify it in the way you request.
->
-> You'll have to accomodate this situation in some other local way.
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Date: Wed,  5 Sep 2012 17:31:53 +0530
 
-I have fixed it locally, but I would like to know why you support the current way.
-It adds a incredibly long delay for systems that doesn't need a carrier, they
-just want an IP address defined for a particular I/F. I cannot see why
-this change would be beneficial for all.
+> This patch series has minor changes in cxgb4 driver. It removes the duplicate
+> definitions of the registers in cxgb4 driver. It also has a minor update in
+> RDMA/cxgb4 driver due to change in cxgb4 driver.
+> 
+> This patch series is built against Stephen Rothwell's linux-next tree. We
+> request to merge patch series thorough single tree to avoid build failures.
 
- Jocke
+Applied to net-next, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
