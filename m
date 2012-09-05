@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/6] igb: Store the MAC address in the name in the PTP struct.
-Date: Wed,  5 Sep 2012 16:35:04 -0700
-Message-ID: <1346888106-25638-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/6] igb: Prevent dropped Tx timestamps via work items and interrupts.
+Date: Wed,  5 Sep 2012 16:35:05 -0700
+Message-ID: <1346888106-25638-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1346888106-25638-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -9,68 +9,399 @@ Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:27164 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:23480 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759944Ab2IEXfM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Sep 2012 19:35:12 -0400
+	id S1759942Ab2IEXfO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Sep 2012 19:35:14 -0400
 In-Reply-To: <1346888106-25638-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Matthew Vick <matthew.vick@intel.com>
 
-Change the name of the adapter in the PTP struct to enable easier
-correlation between interface and PTP device.
+In rare circumstances, it's possible a descriptor writeback will occur
+before a timestamped Tx packet will go out on the wire, leading to the
+driver believing the hardware failed to timestamp the packet. Schedule a
+work item for 82576 and use the available time sync interrupt registers
+on 82580 and above to account for this.
 
 Cc: Richard Cochran <richardcochran@gmail.com>
 Signed-off-by: Matthew Vick <matthew.vick@intel.com>
-Acked-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by:  Jeff Pieper <jeffrey.e.pieper@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_ptp.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_defines.h |   5 ++
+ drivers/net/ethernet/intel/igb/e1000_regs.h    |   2 +
+ drivers/net/ethernet/intel/igb/igb.h           |   8 +-
+ drivers/net/ethernet/intel/igb/igb_main.c      |  61 +++++++++++++--
+ drivers/net/ethernet/intel/igb/igb_ptp.c       | 102 +++++++++++++++++++++----
+ 5 files changed, 153 insertions(+), 25 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
+index ec7e4fe..0b27e8f 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_defines.h
++++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
+@@ -360,6 +360,7 @@
+ #define E1000_ICR_RXDMT0        0x00000010 /* rx desc min. threshold (0) */
+ #define E1000_ICR_RXT0          0x00000080 /* rx timer intr (ring 0) */
+ #define E1000_ICR_VMMB          0x00000100 /* VM MB event */
++#define E1000_ICR_TS            0x00080000 /* Time Sync Interrupt */
+ #define E1000_ICR_DRSTA         0x40000000 /* Device Reset Asserted */
+ /* If this bit asserted, the driver should claim the interrupt */
+ #define E1000_ICR_INT_ASSERTED  0x80000000
+@@ -399,6 +400,7 @@
+ #define E1000_IMS_TXDW      E1000_ICR_TXDW      /* Transmit desc written back */
+ #define E1000_IMS_LSC       E1000_ICR_LSC       /* Link Status Change */
+ #define E1000_IMS_VMMB      E1000_ICR_VMMB      /* Mail box activity */
++#define E1000_IMS_TS        E1000_ICR_TS        /* Time Sync Interrupt */
+ #define E1000_IMS_RXSEQ     E1000_ICR_RXSEQ     /* rx sequence error */
+ #define E1000_IMS_RXDMT0    E1000_ICR_RXDMT0    /* rx desc min. threshold */
+ #define E1000_IMS_RXT0      E1000_ICR_RXT0      /* rx timer intr */
+@@ -510,6 +512,9 @@
+ 
+ #define E1000_TIMINCA_16NS_SHIFT 24
+ 
++#define E1000_TSICR_TXTS 0x00000002
++#define E1000_TSIM_TXTS 0x00000002
++
+ #define E1000_MDICNFG_EXT_MDIO    0x80000000      /* MDI ext/int destination */
+ #define E1000_MDICNFG_COM_MDIO    0x40000000      /* MDI shared w/ lan 0 */
+ #define E1000_MDICNFG_PHY_MASK    0x03E00000
+diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
+index 28394be..faec840 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_regs.h
++++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
+@@ -91,6 +91,8 @@
+ #define E1000_TIMINCA    0x0B608 /* Increment attributes register - RW */
+ #define E1000_TSAUXC     0x0B640 /* Timesync Auxiliary Control register */
+ #define E1000_SYSTIMR    0x0B6F8 /* System time register Residue */
++#define E1000_TSICR      0x0B66C /* Interrupt Cause Register */
++#define E1000_TSIM       0x0B674 /* Interrupt Mask Register */
+ 
+ /* Filtering Registers */
+ #define E1000_SAQF(_n) (0x5980 + 4 * (_n))
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 7973469..43c8e29 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -381,6 +381,8 @@ struct igb_adapter {
+ 	struct ptp_clock *ptp_clock;
+ 	struct ptp_clock_info ptp_caps;
+ 	struct delayed_work ptp_overflow_work;
++	struct work_struct ptp_tx_work;
++	struct sk_buff *ptp_tx_skb;
+ 	spinlock_t tmreg_lock;
+ 	struct cyclecounter cc;
+ 	struct timecounter tc;
+@@ -394,6 +396,7 @@ struct igb_adapter {
+ #define IGB_FLAG_QUAD_PORT_A       (1 << 2)
+ #define IGB_FLAG_QUEUE_PAIRS       (1 << 3)
+ #define IGB_FLAG_DMAC              (1 << 4)
++#define IGB_FLAG_PTP               (1 << 5)
+ 
+ /* DMA Coalescing defines */
+ #define IGB_MIN_TXPBSIZE           20408
+@@ -440,8 +443,9 @@ extern void igb_set_fw_version(struct igb_adapter *);
+ #ifdef CONFIG_IGB_PTP
+ extern void igb_ptp_init(struct igb_adapter *adapter);
+ extern void igb_ptp_stop(struct igb_adapter *adapter);
+-extern void igb_ptp_tx_hwtstamp(struct igb_q_vector *q_vector,
+-				struct igb_tx_buffer *buffer_info);
++extern void igb_ptp_reset(struct igb_adapter *adapter);
++extern void igb_ptp_tx_work(struct work_struct *work);
++extern void igb_ptp_tx_hwtstamp(struct igb_adapter *adapter);
+ extern void igb_ptp_rx_hwtstamp(struct igb_q_vector *q_vector,
+ 				union e1000_adv_rx_desc *rx_desc,
+ 				struct sk_buff *skb);
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 6e39f0c..19d7666 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -1751,6 +1751,11 @@ void igb_reset(struct igb_adapter *adapter)
+ 	/* Enable h/w to recognize an 802.1Q VLAN Ethernet packet */
+ 	wr32(E1000_VET, ETHERNET_IEEE_VLAN_TYPE);
+ 
++#ifdef CONFIG_IGB_PTP
++	/* Re-enable PTP, where applicable. */
++	igb_ptp_reset(adapter);
++#endif /* CONFIG_IGB_PTP */
++
+ 	igb_get_phy_info(hw);
+ }
+ 
+@@ -4234,7 +4239,7 @@ static __le32 igb_tx_cmd_type(u32 tx_flags)
+ 
+ #ifdef CONFIG_IGB_PTP
+ 	/* set timestamp bit if present */
+-	if (tx_flags & IGB_TX_FLAGS_TSTAMP)
++	if (unlikely(tx_flags & IGB_TX_FLAGS_TSTAMP))
+ 		cmd_type |= cpu_to_le32(E1000_ADVTXD_MAC_TSTAMP);
+ #endif /* CONFIG_IGB_PTP */
+ 
+@@ -4445,6 +4450,9 @@ static inline int igb_maybe_stop_tx(struct igb_ring *tx_ring, const u16 size)
+ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+ 				struct igb_ring *tx_ring)
+ {
++#ifdef CONFIG_IGB_PTP
++	struct igb_adapter *adapter = netdev_priv(tx_ring->netdev);
++#endif /* CONFIG_IGB_PTP */
+ 	struct igb_tx_buffer *first;
+ 	int tso;
+ 	u32 tx_flags = 0;
+@@ -4468,9 +4476,14 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+ 	first->gso_segs = 1;
+ 
+ #ifdef CONFIG_IGB_PTP
+-	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
++	if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
++		     !(adapter->ptp_tx_skb))) {
+ 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+ 		tx_flags |= IGB_TX_FLAGS_TSTAMP;
++
++		adapter->ptp_tx_skb = skb_get(skb);
++		if (adapter->hw.mac.type == e1000_82576)
++			schedule_work(&adapter->ptp_tx_work);
+ 	}
+ #endif /* CONFIG_IGB_PTP */
+ 
+@@ -4859,6 +4872,19 @@ static irqreturn_t igb_msix_other(int irq, void *data)
+ 			mod_timer(&adapter->watchdog_timer, jiffies + 1);
+ 	}
+ 
++#ifdef CONFIG_IGB_PTP
++	if (icr & E1000_ICR_TS) {
++		u32 tsicr = rd32(E1000_TSICR);
++
++		if (tsicr & E1000_TSICR_TXTS) {
++			/* acknowledge the interrupt */
++			wr32(E1000_TSICR, E1000_TSICR_TXTS);
++			/* retrieve hardware timestamp */
++			schedule_work(&adapter->ptp_tx_work);
++		}
++	}
++#endif /* CONFIG_IGB_PTP */
++
+ 	wr32(E1000_EIMS, adapter->eims_other);
+ 
+ 	return IRQ_HANDLED;
+@@ -5650,6 +5676,19 @@ static irqreturn_t igb_intr_msi(int irq, void *data)
+ 			mod_timer(&adapter->watchdog_timer, jiffies + 1);
+ 	}
+ 
++#ifdef CONFIG_IGB_PTP
++	if (icr & E1000_ICR_TS) {
++		u32 tsicr = rd32(E1000_TSICR);
++
++		if (tsicr & E1000_TSICR_TXTS) {
++			/* acknowledge the interrupt */
++			wr32(E1000_TSICR, E1000_TSICR_TXTS);
++			/* retrieve hardware timestamp */
++			schedule_work(&adapter->ptp_tx_work);
++		}
++	}
++#endif /* CONFIG_IGB_PTP */
++
+ 	napi_schedule(&q_vector->napi);
+ 
+ 	return IRQ_HANDLED;
+@@ -5691,6 +5730,19 @@ static irqreturn_t igb_intr(int irq, void *data)
+ 			mod_timer(&adapter->watchdog_timer, jiffies + 1);
+ 	}
+ 
++#ifdef CONFIG_IGB_PTP
++	if (icr & E1000_ICR_TS) {
++		u32 tsicr = rd32(E1000_TSICR);
++
++		if (tsicr & E1000_TSICR_TXTS) {
++			/* acknowledge the interrupt */
++			wr32(E1000_TSICR, E1000_TSICR_TXTS);
++			/* retrieve hardware timestamp */
++			schedule_work(&adapter->ptp_tx_work);
++		}
++	}
++#endif /* CONFIG_IGB_PTP */
++
+ 	napi_schedule(&q_vector->napi);
+ 
+ 	return IRQ_HANDLED;
+@@ -5794,11 +5846,6 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
+ 		total_bytes += tx_buffer->bytecount;
+ 		total_packets += tx_buffer->gso_segs;
+ 
+-#ifdef CONFIG_IGB_PTP
+-		/* retrieve hardware timestamp */
+-		igb_ptp_tx_hwtstamp(q_vector, tx_buffer);
+-#endif /* CONFIG_IGB_PTP */
+-
+ 		/* free the skb */
+ 		dev_kfree_skb_any(tx_buffer->skb);
+ 		tx_buffer->skb = NULL;
 diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index 34e0d69..e69555f 100644
+index e69555f..d57060c 100644
 --- a/drivers/net/ethernet/intel/igb/igb_ptp.c
 +++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -547,14 +547,15 @@ int igb_ptp_hwtstamp_ioctl(struct net_device *netdev,
- void igb_ptp_init(struct igb_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
-+	struct net_device *netdev = adapter->netdev;
+@@ -289,6 +289,31 @@ static int igb_ptp_enable(struct ptp_clock_info *ptp,
+ 	return -EOPNOTSUPP;
+ }
  
- 	switch (hw->mac.type) {
- 	case e1000_i210:
- 	case e1000_i211:
- 	case e1000_i350:
- 	case e1000_82580:
-+		snprintf(adapter->ptp_caps.name, 16, "%pm", netdev->dev_addr);
- 		adapter->ptp_caps.owner = THIS_MODULE;
--		strcpy(adapter->ptp_caps.name, "igb-82580");
- 		adapter->ptp_caps.max_adj = 62499999;
- 		adapter->ptp_caps.n_ext_ts = 0;
- 		adapter->ptp_caps.pps = 0;
-@@ -570,10 +571,9 @@ void igb_ptp_init(struct igb_adapter *adapter)
- 		/* Enable the timer functions by clearing bit 31. */
- 		wr32(E1000_TSAUXC, 0x0);
- 		break;
++/**
++ * igb_ptp_tx_work
++ * @work: pointer to work struct
++ *
++ * This work function polls the TSYNCTXCTL valid bit to determine when a
++ * timestamp has been taken for the current stored skb.
++ */
++void igb_ptp_tx_work(struct work_struct *work)
++{
++	struct igb_adapter *adapter = container_of(work, struct igb_adapter,
++						   ptp_tx_work);
++	struct e1000_hw *hw = &adapter->hw;
++	u32 tsynctxctl;
++
++	if (!adapter->ptp_tx_skb)
++		return;
++
++	tsynctxctl = rd32(E1000_TSYNCTXCTL);
++	if (tsynctxctl & E1000_TSYNCTXCTL_VALID)
++		igb_ptp_tx_hwtstamp(adapter);
++	else
++		/* reschedule to check later */
++		schedule_work(&adapter->ptp_tx_work);
++}
++
+ static void igb_ptp_overflow_check(struct work_struct *work)
+ {
+ 	struct igb_adapter *igb =
+@@ -305,31 +330,25 @@ static void igb_ptp_overflow_check(struct work_struct *work)
+ 
+ /**
+  * igb_ptp_tx_hwtstamp - utility function which checks for TX time stamp
+- * @q_vector: pointer to q_vector containing needed info
+- * @buffer: pointer to igb_tx_buffer structure
++ * @adapter: Board private structure.
+  *
+  * If we were asked to do hardware stamping and such a time stamp is
+  * available, then it must have been for this skb here because we only
+  * allow only one such packet into the queue.
+  */
+-void igb_ptp_tx_hwtstamp(struct igb_q_vector *q_vector,
+-			 struct igb_tx_buffer *buffer_info)
++void igb_ptp_tx_hwtstamp(struct igb_adapter *adapter)
+ {
+-	struct igb_adapter *adapter = q_vector->adapter;
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct skb_shared_hwtstamps shhwtstamps;
+ 	u64 regval;
+ 
+-	/* if skb does not support hw timestamp or TX stamp not valid exit */
+-	if (likely(!(buffer_info->tx_flags & IGB_TX_FLAGS_TSTAMP)) ||
+-	    !(rd32(E1000_TSYNCTXCTL) & E1000_TSYNCTXCTL_VALID))
+-		return;
 -
- 	case e1000_82576:
-+		snprintf(adapter->ptp_caps.name, 16, "%pm", netdev->dev_addr);
- 		adapter->ptp_caps.owner = THIS_MODULE;
--		strcpy(adapter->ptp_caps.name, "igb-82576");
- 		adapter->ptp_caps.max_adj = 1000000000;
- 		adapter->ptp_caps.n_ext_ts = 0;
- 		adapter->ptp_caps.pps = 0;
-@@ -589,7 +589,6 @@ void igb_ptp_init(struct igb_adapter *adapter)
- 		/* Dial the nominal frequency. */
- 		wr32(E1000_TIMINCA, INCPERIOD_82576 | INCVALUE_82576);
- 		break;
--
- 	default:
+ 	regval = rd32(E1000_TXSTMPL);
+ 	regval |= (u64)rd32(E1000_TXSTMPH) << 32;
+ 
+ 	igb_ptp_systim_to_hwtstamp(adapter, &shhwtstamps, regval);
+-	skb_tstamp_tx(buffer_info->skb, &shhwtstamps);
++	skb_tstamp_tx(adapter->ptp_tx_skb, &shhwtstamps);
++	dev_kfree_skb_any(adapter->ptp_tx_skb);
++	adapter->ptp_tx_skb = NULL;
+ }
+ 
+ void igb_ptp_rx_hwtstamp(struct igb_q_vector *q_vector,
+@@ -603,16 +622,26 @@ void igb_ptp_init(struct igb_adapter *adapter)
+ 
+ 	spin_lock_init(&adapter->tmreg_lock);
+ 
++	INIT_WORK(&adapter->ptp_tx_work, igb_ptp_tx_work);
++
+ 	schedule_delayed_work(&adapter->ptp_overflow_work,
+ 			      IGB_SYSTIM_OVERFLOW_PERIOD);
+ 
++	/* Initialize the time sync interrupts for devices that support it. */
++	if (hw->mac.type >= e1000_82580) {
++		wr32(E1000_TSIM, E1000_TSIM_TXTS);
++		wr32(E1000_IMS, E1000_IMS_TS);
++	}
++
+ 	adapter->ptp_clock = ptp_clock_register(&adapter->ptp_caps);
+ 	if (IS_ERR(adapter->ptp_clock)) {
  		adapter->ptp_clock = NULL;
+ 		dev_err(&adapter->pdev->dev, "ptp_clock_register failed\n");
+-	} else
++	} else {
+ 		dev_info(&adapter->pdev->dev, "added PHC on %s\n",
+ 			 adapter->netdev->name);
++		adapter->flags |= IGB_FLAG_PTP;
++	}
+ }
+ 
+ /**
+@@ -624,20 +653,61 @@ void igb_ptp_init(struct igb_adapter *adapter)
+ void igb_ptp_stop(struct igb_adapter *adapter)
+ {
+ 	switch (adapter->hw.mac.type) {
+-	case e1000_i211:
+-	case e1000_i210:
+-	case e1000_i350:
+-	case e1000_82580:
+ 	case e1000_82576:
++	case e1000_82580:
++	case e1000_i350:
+ 		cancel_delayed_work_sync(&adapter->ptp_overflow_work);
+ 		break;
++	case e1000_i210:
++	case e1000_i211:
++		/* No delayed work to cancel. */
++		break;
+ 	default:
  		return;
+ 	}
+ 
++	cancel_work_sync(&adapter->ptp_tx_work);
++
+ 	if (adapter->ptp_clock) {
+ 		ptp_clock_unregister(adapter->ptp_clock);
+ 		dev_info(&adapter->pdev->dev, "removed PHC on %s\n",
+ 			 adapter->netdev->name);
++		adapter->flags &= ~IGB_FLAG_PTP;
+ 	}
+ }
++
++/**
++ * igb_ptp_reset - Re-enable the adapter for PTP following a reset.
++ * @adapter: Board private structure.
++ *
++ * This function handles the reset work required to re-enable the PTP device.
++ **/
++void igb_ptp_reset(struct igb_adapter *adapter)
++{
++	struct e1000_hw *hw = &adapter->hw;
++
++	if (!(adapter->flags & IGB_FLAG_PTP))
++		return;
++
++	switch (adapter->hw.mac.type) {
++	case e1000_82576:
++		/* Dial the nominal frequency. */
++		wr32(E1000_TIMINCA, INCPERIOD_82576 | INCVALUE_82576);
++		break;
++	case e1000_82580:
++	case e1000_i350:
++	case e1000_i210:
++	case e1000_i211:
++		/* Enable the timer functions and interrupts. */
++		wr32(E1000_TSAUXC, 0x0);
++		wr32(E1000_TSIM, E1000_TSIM_TXTS);
++		wr32(E1000_IMS, E1000_IMS_TS);
++		break;
++	default:
++		/* No work to do. */
++		return;
++	}
++
++	timecounter_init(&adapter->tc, &adapter->cc,
++			 ktime_to_ns(ktime_get_real()));
++}
 -- 
 1.7.11.4
