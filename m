@@ -1,144 +1,498 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next.git 2/7] stmmac: manage tx clean out of rx_poll
-Date: Wed,  5 Sep 2012 17:03:47 +0200
-Message-ID: <1346857432-24657-3-git-send-email-peppe.cavallaro@st.com>
+Subject: [net-next.git 1/7] stmmac: remove dead code for TIMER
+Date: Wed,  5 Sep 2012 17:03:46 +0200
+Message-ID: <1346857432-24657-2-git-send-email-peppe.cavallaro@st.com>
 References: <1346857432-24657-1-git-send-email-peppe.cavallaro@st.com>
 Cc: bhutchings@solarflare.com, davem@davemloft.net,
 	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:44130 "EHLO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752370Ab2IEPEL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 11:04:11 -0400
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:39192 "EHLO
+	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752246Ab2IEPEN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 11:04:13 -0400
 In-Reply-To: <1346857432-24657-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to invoke the stmmac_tx (tx handler)
-out of the NAPI poll method.
-This will make easier the next step to add the new
-mitigation schema.
-Also the patch enhances the ethtool to report some
-stats for normal TX and RX IRQs.
+TIMER option is not longer supported and this
+code can be considered dead for this driver in
+the new kernel series.
+In fact, It was not updated at all and never used.
 
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/common.h       |   13 +++++++----
- drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c    |    7 +++--
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    4 ++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   22 ++++++++++++++-----
- 4 files changed, 31 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |   25 ----
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |    1 -
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    6 -
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  101 +--------------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c |  134 --------------------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h |   46 -------
+ 6 files changed, 3 insertions(+), 310 deletions(-)
+ delete mode 100644 drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
+ delete mode 100644 drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 719be39..bd32fe6 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -95,7 +95,9 @@ struct stmmac_extra_stats {
- 	unsigned long threshold;
- 	unsigned long tx_pkt_n;
- 	unsigned long rx_pkt_n;
--	unsigned long poll_n;
-+	unsigned long rx_napi_poll;
-+	unsigned long rx_normal_irq_n;
-+	unsigned long tx_normal_irq_n;
- 	unsigned long sched_timer_n;
- 	unsigned long normal_irq_n;
- 	unsigned long mmc_tx_irq_n;
-@@ -169,10 +171,11 @@ enum rx_frame_status { /* IPC status */
- 	llc_snap = 4,
- };
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+index 9f44827..1164930 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
++++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+@@ -54,31 +54,6 @@ config STMMAC_DA
+ 	  By default, the DMA arbitration scheme is based on Round-robin
+ 	  (rx:tx priority is 1:1).
  
--enum tx_dma_irq_status {
--	tx_hard_error = 1,
--	tx_hard_error_bump_tc = 2,
--	handle_tx_rx = 3,
-+enum dma_irq_status {
-+	tx_hard_error = 0x1,
-+	tx_hard_error_bump_tc = 0x2,
-+	handle_rx = 0x4,
-+	handle_tx = 0x8,
- };
+-config STMMAC_TIMER
+-	bool "STMMAC Timer optimisation"
+-	default n
+-	depends on RTC_HCTOSYS_DEVICE
+-	---help---
+-	  Use an external timer for mitigating the number of network
+-	  interrupts. Currently, for SH architectures, it is possible
+-	  to use the TMU channel 2 and the SH-RTC device.
+-
+-choice
+-        prompt "Select Timer device"
+-        depends on STMMAC_TIMER
+-
+-config STMMAC_TMU_TIMER
+-        bool "TMU channel 2"
+-        depends on CPU_SH4
+-	---help---
+-
+-config STMMAC_RTC_TIMER
+-        bool "Real time clock"
+-        depends on RTC_CLASS
+-	---help---
+-
+-endchoice
+-
+ choice
+ 	prompt "Select the DMA TX/RX descriptor operating modes"
+ 	depends on STMMAC_ETH
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
+index bc965ac..c8e8ea6 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Makefile
++++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
+@@ -1,5 +1,4 @@
+ obj-$(CONFIG_STMMAC_ETH) += stmmac.o
+-stmmac-$(CONFIG_STMMAC_TIMER) += stmmac_timer.o
+ stmmac-$(CONFIG_STMMAC_RING) += ring_mode.o
+ stmmac-$(CONFIG_STMMAC_CHAINED) += chain_mode.o
+ stmmac-$(CONFIG_STMMAC_PLATFORM) += stmmac_platform.o
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index e872e1d..9f35769 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -31,9 +31,6 @@
+ #include <linux/phy.h>
+ #include <linux/pci.h>
+ #include "common.h"
+-#ifdef CONFIG_STMMAC_TIMER
+-#include "stmmac_timer.h"
+-#endif
  
- enum core_specific_irq_mask {
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-index 4e0e18a..73766e6 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-@@ -206,9 +206,10 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
- 	/* TX/RX NORMAL interrupts */
- 	if (intr_status & DMA_STATUS_NIS) {
- 		x->normal_irq_n++;
--		if (likely((intr_status & DMA_STATUS_RI) ||
--			 (intr_status & (DMA_STATUS_TI))))
--				ret = handle_tx_rx;
-+		if (likely(intr_status & DMA_STATUS_RI))
-+			ret |= handle_rx;
-+		if (intr_status & (DMA_STATUS_TI))
-+			ret |= handle_tx;
- 	}
- 	/* Optional hardware blocks, interrupts should be disabled */
- 	if (unlikely(intr_status &
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 76fd61a..505fe71 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -90,7 +90,9 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
- 	STMMAC_STAT(threshold),
- 	STMMAC_STAT(tx_pkt_n),
- 	STMMAC_STAT(rx_pkt_n),
--	STMMAC_STAT(poll_n),
-+	STMMAC_STAT(rx_napi_poll),
-+	STMMAC_STAT(rx_normal_irq_n),
-+	STMMAC_STAT(tx_normal_irq_n),
- 	STMMAC_STAT(sched_timer_n),
- 	STMMAC_STAT(normal_irq_n),
- 	STMMAC_STAT(normal_irq_n),
+ struct stmmac_priv {
+ 	/* Frequently used values are kept adjacent for cache effect */
+@@ -78,9 +75,6 @@ struct stmmac_priv {
+ 	spinlock_t tx_lock;
+ 	int wolopts;
+ 	int wol_irq;
+-#ifdef CONFIG_STMMAC_TIMER
+-	struct stmmac_timer *tm;
+-#endif
+ 	struct plat_stmmacenet_data *plat;
+ 	struct stmmac_counters mmc;
+ 	struct dma_features dma_cap;
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index c8985f3..b247c39 100644
+index c136162..c8985f3 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -824,16 +824,27 @@ static void stmmac_tx_err(struct stmmac_priv *priv)
- 	netif_wake_queue(priv->dev);
+@@ -115,16 +115,6 @@ static int tc = TC_DEFAULT;
+ module_param(tc, int, S_IRUGO | S_IWUSR);
+ MODULE_PARM_DESC(tc, "DMA threshold control value");
+ 
+-/* Pay attention to tune this parameter; take care of both
+- * hardware capability and network stabitily/performance impact.
+- * Many tests showed that ~4ms latency seems to be good enough. */
+-#ifdef CONFIG_STMMAC_TIMER
+-#define DEFAULT_PERIODIC_RATE	256
+-static int tmrate = DEFAULT_PERIODIC_RATE;
+-module_param(tmrate, int, S_IRUGO | S_IWUSR);
+-MODULE_PARM_DESC(tmrate, "External timer freq. (default: 256Hz)");
+-#endif
+-
+ #define DMA_BUFFER_SIZE	BUF_SIZE_2KiB
+ static int buf_sz = DMA_BUFFER_SIZE;
+ module_param(buf_sz, int, S_IRUGO | S_IWUSR);
+@@ -536,12 +526,6 @@ static void init_dma_desc_rings(struct net_device *dev)
+ 	else
+ 		bfsize = stmmac_set_bfsize(dev->mtu, priv->dma_buf_sz);
+ 
+-#ifdef CONFIG_STMMAC_TIMER
+-	/* Disable interrupts on completion for the reception if timer is on */
+-	if (likely(priv->tm->enable))
+-		dis_ic = 1;
+-#endif
+-
+ 	DBG(probe, INFO, "stmmac: txsize %d, rxsize %d, bfsize %d\n",
+ 	    txsize, rxsize, bfsize);
+ 
+@@ -786,22 +770,12 @@ static void stmmac_tx(struct stmmac_priv *priv)
+ 
+ static inline void stmmac_enable_irq(struct stmmac_priv *priv)
+ {
+-#ifdef CONFIG_STMMAC_TIMER
+-	if (likely(priv->tm->enable))
+-		priv->tm->timer_start(tmrate);
+-	else
+-#endif
+-		priv->hw->dma->enable_dma_irq(priv->ioaddr);
++	priv->hw->dma->enable_dma_irq(priv->ioaddr);
  }
  
-+static inline void stmmac_rx_schedule(struct stmmac_priv *priv)
-+{
-+	if (likely(napi_schedule_prep(&priv->napi))) {
-+		stmmac_disable_irq(priv);
-+		__napi_schedule(&priv->napi);
-+	}
-+}
- 
- static void stmmac_dma_interrupt(struct stmmac_priv *priv)
+ static inline void stmmac_disable_irq(struct stmmac_priv *priv)
  {
- 	int status;
+-#ifdef CONFIG_STMMAC_TIMER
+-	if (likely(priv->tm->enable))
+-		priv->tm->timer_stop();
+-	else
+-#endif
+-		priv->hw->dma->disable_dma_irq(priv->ioaddr);
++	priv->hw->dma->disable_dma_irq(priv->ioaddr);
+ }
  
- 	status = priv->hw->dma->dma_interrupt(priv->ioaddr, &priv->xstats);
--	if (likely(status == handle_tx_rx))
--		_stmmac_schedule(priv);
+ static int stmmac_has_work(struct stmmac_priv *priv)
+@@ -829,25 +803,6 @@ static inline void _stmmac_schedule(struct stmmac_priv *priv)
+ 	}
+ }
+ 
+-#ifdef CONFIG_STMMAC_TIMER
+-void stmmac_schedule(struct net_device *dev)
+-{
+-	struct stmmac_priv *priv = netdev_priv(dev);
 -
--	else if (unlikely(status == tx_hard_error_bump_tc)) {
-+	if (likely(status == handle_rx)) {
-+		priv->xstats.rx_normal_irq_n++;
-+		stmmac_rx_schedule(priv);
-+	}
-+	if (likely(status == handle_tx)) {
-+		priv->xstats.tx_normal_irq_n++;
-+		stmmac_tx(priv);
-+	} else if (unlikely(status == tx_hard_error_bump_tc)) {
- 		/* Try to bump up the dma threshold on this failure */
- 		if (unlikely(tc != SF_DMA_MODE) && (tc <= 256)) {
- 			tc += 64;
-@@ -1443,8 +1454,7 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
- 	struct stmmac_priv *priv = container_of(napi, struct stmmac_priv, napi);
- 	int work_done = 0;
+-	priv->xstats.sched_timer_n++;
+-
+-	_stmmac_schedule(priv);
+-}
+-
+-static void stmmac_no_timer_started(unsigned int x)
+-{;
+-};
+-
+-static void stmmac_no_timer_stopped(void)
+-{;
+-};
+-#endif
+-
+ /**
+  * stmmac_tx_err:
+  * @priv: pointer to the private device structure
+@@ -1049,23 +1004,6 @@ static int stmmac_open(struct net_device *dev)
+ 	struct stmmac_priv *priv = netdev_priv(dev);
+ 	int ret;
  
--	priv->xstats.poll_n++;
--	stmmac_tx(priv);
-+	priv->xstats.rx_napi_poll++;
- 	work_done = stmmac_rx(priv, budget);
+-#ifdef CONFIG_STMMAC_TIMER
+-	priv->tm = kzalloc(sizeof(struct stmmac_timer *), GFP_KERNEL);
+-	if (unlikely(priv->tm == NULL))
+-		return -ENOMEM;
+-
+-	priv->tm->freq = tmrate;
+-
+-	/* Test if the external timer can be actually used.
+-	 * In case of failure continue without timer. */
+-	if (unlikely((stmmac_open_ext_timer(dev, priv->tm)) < 0)) {
+-		pr_warning("stmmaceth: cannot attach the external timer.\n");
+-		priv->tm->freq = 0;
+-		priv->tm->timer_start = stmmac_no_timer_started;
+-		priv->tm->timer_stop = stmmac_no_timer_stopped;
+-	} else
+-		priv->tm->enable = 1;
+-#endif
+ 	clk_enable(priv->stmmac_clk);
  
- 	if (work_done < budget) {
+ 	stmmac_check_ether_addr(priv);
+@@ -1152,10 +1090,6 @@ static int stmmac_open(struct net_device *dev)
+ 	priv->hw->dma->start_tx(priv->ioaddr);
+ 	priv->hw->dma->start_rx(priv->ioaddr);
+ 
+-#ifdef CONFIG_STMMAC_TIMER
+-	priv->tm->timer_start(tmrate);
+-#endif
+-
+ 	/* Dump DMA/MAC registers */
+ 	if (netif_msg_hw(priv)) {
+ 		priv->hw->mac->dump_regs(priv->ioaddr);
+@@ -1182,9 +1116,6 @@ open_error_wolirq:
+ 	free_irq(dev->irq, dev);
+ 
+ open_error:
+-#ifdef CONFIG_STMMAC_TIMER
+-	kfree(priv->tm);
+-#endif
+ 	if (priv->phydev)
+ 		phy_disconnect(priv->phydev);
+ 
+@@ -1215,12 +1146,6 @@ static int stmmac_release(struct net_device *dev)
+ 
+ 	netif_stop_queue(dev);
+ 
+-#ifdef CONFIG_STMMAC_TIMER
+-	/* Stop and release the timer */
+-	stmmac_close_ext_timer();
+-	if (priv->tm != NULL)
+-		kfree(priv->tm);
+-#endif
+ 	napi_disable(&priv->napi);
+ 	skb_queue_purge(&priv->rx_recycle);
+ 
+@@ -1336,12 +1261,6 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* Interrupt on completition only for the latest segment */
+ 	priv->hw->desc->close_tx_desc(desc);
+ 
+-#ifdef CONFIG_STMMAC_TIMER
+-	/* Clean IC while using timer */
+-	if (likely(priv->tm->enable))
+-		priv->hw->desc->clear_tx_ic(desc);
+-#endif
+-
+ 	wmb();
+ 
+ 	/* To avoid raise condition */
+@@ -1539,7 +1458,7 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
+  *  stmmac_tx_timeout
+  *  @dev : Pointer to net device structure
+  *  Description: this function is called when a packet transmission fails to
+- *   complete within a reasonable tmrate. The driver will mark the error in the
++ *   complete within a reasonable time. The driver will mark the error in the
+  *   netdev structure and arrange for the device to be reset to a sane state
+  *   in order to transmit a new packet.
+  */
+@@ -2157,11 +2076,6 @@ int stmmac_suspend(struct net_device *ndev)
+ 	netif_device_detach(ndev);
+ 	netif_stop_queue(ndev);
+ 
+-#ifdef CONFIG_STMMAC_TIMER
+-	priv->tm->timer_stop();
+-	if (likely(priv->tm->enable))
+-		dis_ic = 1;
+-#endif
+ 	napi_disable(&priv->napi);
+ 
+ 	/* Stop TX/RX DMA */
+@@ -2212,10 +2126,6 @@ int stmmac_resume(struct net_device *ndev)
+ 	priv->hw->dma->start_tx(priv->ioaddr);
+ 	priv->hw->dma->start_rx(priv->ioaddr);
+ 
+-#ifdef CONFIG_STMMAC_TIMER
+-	if (likely(priv->tm->enable))
+-		priv->tm->timer_start(tmrate);
+-#endif
+ 	napi_enable(&priv->napi);
+ 
+ 	netif_start_queue(ndev);
+@@ -2311,11 +2221,6 @@ static int __init stmmac_cmdline_opt(char *str)
+ 		} else if (!strncmp(opt, "eee_timer:", 6)) {
+ 			if (kstrtoint(opt + 10, 0, &eee_timer))
+ 				goto err;
+-#ifdef CONFIG_STMMAC_TIMER
+-		} else if (!strncmp(opt, "tmrate:", 7)) {
+-			if (kstrtoint(opt + 7, 0, &tmrate))
+-				goto err;
+-#endif
+ 		}
+ 	}
+ 	return 0;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
+deleted file mode 100644
+index 2a0e1ab..0000000
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
++++ /dev/null
+@@ -1,134 +0,0 @@
+-/*******************************************************************************
+-  STMMAC external timer support.
+-
+-  Copyright (C) 2007-2009  STMicroelectronics Ltd
+-
+-  This program is free software; you can redistribute it and/or modify it
+-  under the terms and conditions of the GNU General Public License,
+-  version 2, as published by the Free Software Foundation.
+-
+-  This program is distributed in the hope it will be useful, but WITHOUT
+-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-  more details.
+-
+-  You should have received a copy of the GNU General Public License along with
+-  this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+-
+-  The full GNU General Public License is included in this distribution in
+-  the file called "COPYING".
+-
+-  Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+-*******************************************************************************/
+-
+-#include <linux/kernel.h>
+-#include <linux/etherdevice.h>
+-#include "stmmac_timer.h"
+-
+-static void stmmac_timer_handler(void *data)
+-{
+-	struct net_device *dev = (struct net_device *)data;
+-
+-	stmmac_schedule(dev);
+-}
+-
+-#define STMMAC_TIMER_MSG(timer, freq) \
+-printk(KERN_INFO "stmmac_timer: %s Timer ON (freq %dHz)\n", timer, freq);
+-
+-#if defined(CONFIG_STMMAC_RTC_TIMER)
+-#include <linux/rtc.h>
+-static struct rtc_device *stmmac_rtc;
+-static rtc_task_t stmmac_task;
+-
+-static void stmmac_rtc_start(unsigned int new_freq)
+-{
+-	rtc_irq_set_freq(stmmac_rtc, &stmmac_task, new_freq);
+-	rtc_irq_set_state(stmmac_rtc, &stmmac_task, 1);
+-}
+-
+-static void stmmac_rtc_stop(void)
+-{
+-	rtc_irq_set_state(stmmac_rtc, &stmmac_task, 0);
+-}
+-
+-int stmmac_open_ext_timer(struct net_device *dev, struct stmmac_timer *tm)
+-{
+-	stmmac_task.private_data = dev;
+-	stmmac_task.func = stmmac_timer_handler;
+-
+-	stmmac_rtc = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
+-	if (stmmac_rtc == NULL) {
+-		pr_err("open rtc device failed\n");
+-		return -ENODEV;
+-	}
+-
+-	rtc_irq_register(stmmac_rtc, &stmmac_task);
+-
+-	/* Periodic mode is not supported */
+-	if ((rtc_irq_set_freq(stmmac_rtc, &stmmac_task, tm->freq) < 0)) {
+-		pr_err("set periodic failed\n");
+-		rtc_irq_unregister(stmmac_rtc, &stmmac_task);
+-		rtc_class_close(stmmac_rtc);
+-		return -1;
+-	}
+-
+-	STMMAC_TIMER_MSG(CONFIG_RTC_HCTOSYS_DEVICE, tm->freq);
+-
+-	tm->timer_start = stmmac_rtc_start;
+-	tm->timer_stop = stmmac_rtc_stop;
+-
+-	return 0;
+-}
+-
+-int stmmac_close_ext_timer(void)
+-{
+-	rtc_irq_set_state(stmmac_rtc, &stmmac_task, 0);
+-	rtc_irq_unregister(stmmac_rtc, &stmmac_task);
+-	rtc_class_close(stmmac_rtc);
+-	return 0;
+-}
+-
+-#elif defined(CONFIG_STMMAC_TMU_TIMER)
+-#include <linux/clk.h>
+-#define TMU_CHANNEL "tmu2_clk"
+-static struct clk *timer_clock;
+-
+-static void stmmac_tmu_start(unsigned int new_freq)
+-{
+-	clk_set_rate(timer_clock, new_freq);
+-	clk_enable(timer_clock);
+-}
+-
+-static void stmmac_tmu_stop(void)
+-{
+-	clk_disable(timer_clock);
+-}
+-
+-int stmmac_open_ext_timer(struct net_device *dev, struct stmmac_timer *tm)
+-{
+-	timer_clock = clk_get(NULL, TMU_CHANNEL);
+-
+-	if (timer_clock == NULL)
+-		return -1;
+-
+-	if (tmu2_register_user(stmmac_timer_handler, (void *)dev) < 0) {
+-		timer_clock = NULL;
+-		return -1;
+-	}
+-
+-	STMMAC_TIMER_MSG("TMU2", tm->freq);
+-	tm->timer_start = stmmac_tmu_start;
+-	tm->timer_stop = stmmac_tmu_stop;
+-
+-	return 0;
+-}
+-
+-int stmmac_close_ext_timer(void)
+-{
+-	clk_disable(timer_clock);
+-	tmu2_unregister_user();
+-	clk_put(timer_clock);
+-	return 0;
+-}
+-#endif
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h
+deleted file mode 100644
+index aea9b14..0000000
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h
++++ /dev/null
+@@ -1,46 +0,0 @@
+-/*******************************************************************************
+-  STMMAC external timer Header File.
+-
+-  Copyright (C) 2007-2009  STMicroelectronics Ltd
+-
+-  This program is free software; you can redistribute it and/or modify it
+-  under the terms and conditions of the GNU General Public License,
+-  version 2, as published by the Free Software Foundation.
+-
+-  This program is distributed in the hope it will be useful, but WITHOUT
+-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-  more details.
+-
+-  You should have received a copy of the GNU General Public License along with
+-  this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+-
+-  The full GNU General Public License is included in this distribution in
+-  the file called "COPYING".
+-
+-  Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+-*******************************************************************************/
+-#ifndef __STMMAC_TIMER_H__
+-#define __STMMAC_TIMER_H__
+-
+-struct stmmac_timer {
+-	void (*timer_start) (unsigned int new_freq);
+-	void (*timer_stop) (void);
+-	unsigned int freq;
+-	unsigned int enable;
+-};
+-
+-/* Open the HW timer device and return 0 in case of success */
+-int stmmac_open_ext_timer(struct net_device *dev, struct stmmac_timer *tm);
+-/* Stop the timer and release it */
+-int stmmac_close_ext_timer(void);
+-/* Function used for scheduling task within the stmmac */
+-void stmmac_schedule(struct net_device *dev);
+-
+-#if defined(CONFIG_STMMAC_TMU_TIMER)
+-extern int tmu2_register_user(void *fnt, void *data);
+-extern void tmu2_unregister_user(void);
+-#endif
+-
+-#endif /* __STMMAC_TIMER_H__ */
 -- 
 1.7.4.4
