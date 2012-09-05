@@ -1,117 +1,80 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: when the MTU interface is modified, the promiscuous mode is reset
- in gianfar driver
-Date: Wed, 5 Sep 2012 16:46:20 +0300
-Message-ID: <504757AC.90007@freescale.com>
-References: <201208270838.AA02326@VF09040P.jp.fujitsu.com> <20120903.155332.1814926007061594344.davem@davemloft.net>
+From: Dave Jones <davej@redhat.com>
+Subject: kernel BUG at kernel/timer.c:748!
+Date: Wed, 5 Sep 2012 00:35:23 -0400
+Message-ID: <20120905043523.GA12988@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
-Content-Transfer-Encoding: 7bit
-Cc: <chikazawa.akifu@jp.fujitsu.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120903.155332.1814926007061594344.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:27678 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753607Ab2IENtm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Sep 2012 09:49:42 -0400
+Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q85DnfGf011098
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 5 Sep 2012 09:49:42 -0400
+Received: from gelk.kernelslacker.org (ovpn-113-157.phx2.redhat.com [10.3.113.157])
+	by int-mx12.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id q85DneSl008597
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 5 Sep 2012 09:49:41 -0400
+Received: from gelk.kernelslacker.org (localhost [127.0.0.1])
+	by gelk.kernelslacker.org (8.14.5/8.14.5) with ESMTP id q854ZN5j013351
+	for <netdev@vger.kernel.org>; Wed, 5 Sep 2012 00:35:24 -0400
+Received: (from davej@localhost)
+	by gelk.kernelslacker.org (8.14.5/8.14.5/Submit) id q854ZNkk013348
+	for netdev@vger.kernel.org; Wed, 5 Sep 2012 00:35:23 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/03/2012 10:53 PM, David Miller wrote:
-> From: chikazawa.akifu@jp.fujitsu.com (近沢 哲史)
-> Date: Mon, 27 Aug 2012 17:38:34 +0900
->
->>  I am using the gianfar ethernet driver. I am having a problem with the
->>  interface settings.
->>  Under promiscuous mode, when the MTU interface is modified, the promiscuous
->>  mode setting is turned off in gianfar driver when it should not be.
->> The details are as follows:
->>  After changing MTU with ifconfig, I could see that the interface flag of
->>  eth0 is still PROMISC.
->>  However, when I checked value of RCTL register with ethtool, PROM bit of
->>  RTCL register is cleared.
->>  It seems to be cause that is the gfar_init_mac() function, it doesn't set
->>  the PROM bit after the interface MTU is changed.
->>  This problem was detected on linux-2.6.32.2, but it seems to same on
->>  linux-3.6.0-rc3.
->> Is this behavior on purpose?
->>
->> I also attach the amended file,I think it would be so.
->>
->> Signed-off-by: Akifumi Chikazawa <chikazawa.akifu@jp.fujitsu.com>
-> It seems like we also lose all of the multicast configurations as
-> well.
->
-> Therefore, the thing to do is to simply call gfar_set_multi() at the
-> appropriate location.  That will take care of both the promiscuous
-> bit, as well as the multicast addresses.
->
-> You can then remove some of the code in gfar_init_mac() that does
-> things like gfar_clear_exact_match(), because gfar_set_multi() will
-> take care of that if necessary.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-> .
->
-Hello David,
+Just hit this bug on 3.6-rc4.
 
-Though apparently it would make sense to change init_mac as shown in the
-patch below, I must say I could *not* reproduce the issue with the
-current net-next code (just for reference:
-uname -a
-Linux p1020rdb 3.6.0-rc3-22396-g600e177 #8 SMP Wed Sep 5 ... 2012 ppc
-GNU/Linux
-)
+The BUG is..
 
-So, having eth1 up, I configured promisc mode - then checked that this
-is correctly
-reflected by rctlr (with ethtool -d eth1):
-300: 00 08 37 ca 00 00 00 00 00 00 00 00 00 00 00 00
-then, after changing mtu (while eth1 up): ifconfig eth1 mtu 500
-further checks on rctlr show that the promiscuity setting is preserved
-(i.e. rctlr
-has same value as above).
+	BUG_ON(!timer->function);
 
-Though changing the mtu with the interface up results indeed in a call to
-gfar_init_mac(), I found out that the ndo_set_rx_mode hook (set to
-gfar_set_multi()) is being also invoked in the process, to update
-the multicast and promiscuity settings. So unless there's some kind
-of concurrency/timing issue(?), I don't see how the promisc mode would
-be reset by changing the mtu. Maybe more details on the issue reproduction
-would help (or maybe a usecase involving multicast settings?)
 
-regards,
-Claudiu
+Not much to go on... Any thoughts on what I could add to get
+more debug info on which protocol etc this was ?
 
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
----
-drivers/net/ethernet/freescale/gianfar.c | 5 +++--
-1 files changed, 3 insertions(+), 2 deletions(-)
+	Dave
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c
-b/drivers/net/ethernet/freescale/gianfar.c
-index 4d5b58c..ede7efe 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -353,6 +353,9 @@ static void gfar_init_mac(struct net_device *ndev)
-/* Configure the coalescing support */
-gfar_configure_coalescing(priv, 0xFF, 0xFF);
 
-+ /* update multicast configs and promiscuity of the device */
-+ gfar_set_multi(ndev);
-+
-if (priv->rx_filer_enable) {
-rctrl |= RCTRL_FILREN;
-/* Program the RIR0 reg with the required distribution */
-@@ -364,8 +367,6 @@ static void gfar_init_mac(struct net_device *ndev)
-
-if (priv->extended_hash) {
-rctrl |= RCTRL_EXTHASH;
--
-- gfar_clear_exact_match(ndev);
-rctrl |= RCTRL_EMEN;
-}
-
--- 
-1.7.6.5
+kernel BUG at kernel/timer.c:748!
+invalid opcode: 0000 [#1] SMP 
+Modules linked in: tun fuse ipt_ULOG binfmt_misc nfnetlink nfc caif_socket caif phonet can llc2 pppoe pppox ppp_generic slhc irda crc_ccitt rds af_key decnet rose x25 atm netrom appletalk ipx p8023 psnap p8022 llc ax25 nfsv3 nfs_acl nfs fscache lockd sunrpc bluetooth rfkill ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_filter ip6_tables nf_conntrack_ipv4 nf_defrag_ipv4 xt_state nf_conntrack kvm_intel kvm crc32c_intel ghash_clmulni_intel microcode pcspkr i2c_i801 e1000e uinput i915 video i2c_algo_bit drm_kms_helper drm i2c_core
+CPU 3 
+Pid: 12330, comm: trinity-child3 Not tainted 3.6.0-rc4+ #36
+RIP: 0010:[<ffffffff810813f5>]  [<ffffffff810813f5>] mod_timer+0x2c5/0x2f0
+RSP: 0018:ffff88000dfd7e08  EFLAGS: 00010246
+RAX: 000000000000001a RBX: ffff880122d62948 RCX: 000000000000001a
+RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffff88000dfd7e10
+RBP: ffff88000dfd7e48 R08: 0000000000000000 R09: 0000000000000000
+R10: 0000000001517000 R11: 0000000000000246 R12: 000000016c000000
+R13: 000000016c12bcb1 R14: ffff8801236cee00 R15: 00000000ffffff01
+FS:  00007fa96745f740(0000) GS:ffff880148200000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 00000000100ff000 CR3: 0000000099344000 CR4: 00000000001407e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process trinity-child3 (pid: 12330, threadinfo ffff88000dfd6000, task ffff880090890000)
+Stack:
+ ffffffff8154cb6d 0000000007b5edf7 ffff88000dfd7e28 ffff880122d62520
+ 0000000000000009 0000000000000004 ffff8801236cee00 00000000ffffff01
+ ffff88000dfd7e68 ffffffff8154c79c ffffffff81550e6c ffff880122d62520
+Call Trace:
+ [<ffffffff8154cb6d>] ? lock_sock_nested+0x8d/0xa0
+ [<ffffffff8154c79c>] sk_reset_timer+0x1c/0x30
+ [<ffffffff81550e6c>] ? sock_setsockopt+0x8c/0x960
+ [<ffffffff815a84a0>] inet_csk_reset_keepalive_timer+0x20/0x30
+ [<ffffffff815c018d>] tcp_set_keepalive+0x3d/0x50
+ [<ffffffff81551703>] sock_setsockopt+0x923/0x960
+ [<ffffffff810ddf76>] ? trace_hardirqs_on_caller+0x16/0x1e0
+ [<ffffffff811db0ac>] ? fget_light+0x24c/0x520
+ [<ffffffff8154af86>] sys_setsockopt+0xc6/0xe0
+ [<ffffffff816a50ed>] system_call_fastpath+0x1a/0x1f
+Code: 00 74 43 9c 58 0f 1f 44 00 00 f6 c4 02 0f 84 14 ff ff ff eb 93 48 c7 c7 20 48 c3 81 e8 f5 70 05 00 85 c0 0f 85 fe fe ff ff eb b7 <0f> 0b 48 8b 75 08 48 89 df e8 3d f6 ff ff e9 b2 fd ff ff 4d 89 
+RIP  [<ffffffff810813f5>] mod_timer+0x2c5/0x2f0
+ RSP <ffff88000dfd7e08>
+---[ end trace 7e7b5910138e49a3 ]---
