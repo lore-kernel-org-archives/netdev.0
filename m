@@ -1,124 +1,107 @@
-From: =?UTF-8?Q?=22Sascha_M=C3=BChlbach=22?= <smka2012@email.de>
-Subject: Aw: Re: Question regarding kernel panic in net/ipv4/tcp_output.c
-Date: Wed, 5 Sep 2012 11:01:43 +0200 (CEST)
-Message-ID: <trinity-299e8894-40a0-46ec-bc19-1b74a0090b83-1346835703144@3capp-webde-bs46>
-References: <trinity-daf22487-c4bf-4a4e-ae69-ed50d70f6169-1346759712289@3capp-webde-bs16>,
- <1346761388.13121.21.camel@edumazet-glaptop>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: [PATCH 10/10] net/macb: Offset first RX buffer by two bytes
+Date: Wed, 5 Sep 2012 11:04:06 +0200
+Message-ID: <68a0e4baf2ace47c04874f1918a3bd5f1e5784dc.1346775479.git.nicolas.ferre@atmel.com>
+References: <cover.1346775479.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.15.4]:53294 "EHLO mout.web.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932475Ab2IEJBq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 05:01:46 -0400
-In-Reply-To: <1346761388.13121.21.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-arm-kernel@lists.infradead.org>, <davem@davemloft.net>,
+	<havard@skinnemoen.net>, <nicolas.ferre@atmel.com>,
+	<plagnioj@jcrosoft.com>, <jamie@jamieiles.com>,
+	<linux-kernel@vger.kernel.org>, <patrice.vilchez@atmel.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1346775479.git.nicolas.ferre@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,=0D
-=C2=A0=0D
-this is the stack trace I could save by making a screenshot of the remo=
-te console:=0D
-=C2=A0=0D
-[<ffffffff8101193b>] ? invalid_op+0x1b/0x20=0D
-[<ffffffff81289e6a>] ? tcp_retransmit_skb+0x66/0x5aa=0D
-[<ffffffff8128a546>] ? tcp_xmit_retransmit_queue+0x198/0x223=0D
-[<ffffffff81286113>] ? tcp_ack+0x1744/0x1952=0D
-[<ffffffff81286871>] ? tcp_validate_incoming+0x1ba/0x2be=0D
-[<ffffffff81286f5e>] ? tcp_rcv_established+0x5e9/0x6d9=0D
-[<ffffffff8128e00f>] ? tcp_v4_do_rcv+0x1bb/0x376=0D
-[<ffffffff8128e639>] ? tcp_v4_rcv+0x46f/0x6f8=0D
-[<ffffffff81273afa>] ? ip_local_deliver_finish+0x0/0x1e9=0D
-[<ffffffff81273afa>] ? ip_local_deliver_finish+0x0/0x1e9=0D
-[<ffffffff81273c40>] ? ip_local_deliver_finish+0x146/0x1e9=0D
-[<ffffffff8127378f>] ? ip_rcv_finish+0x373/0x38d=0D
-[<ffffffffa004d95c>] ? bnx2_poll_work+0x954/0xa7e [bnx2]=0D
-[<ffffffffa004d95c>] ? bnx2_poll_work+0x954/0xa7e [bnx2]=0D
-[<ffffffff8105aeb6>] ? __mod_timer+0x141/0x153=0D
-[<ffffffff810964a1>] ? handle_edge_irq+0xdd/0x101=0D
-[<ffffffffa004daae>] ? bnx2_poll_msix+0x28/0xa6 [bnx2]=0D
-[<ffffffff8125039f>] ? net_rx_action+0xae/0x1c9=0D
-[<ffffffff81053d6f>] ? __do_softirq+0xdd/0x1a6=0D
-[<ffffffff81011cac>] ? call_softirq+0x1c/0x30=0D
-[<ffffffff8101322b>] ? do_softirq+0x3f/0x7c=0D
-[<ffffffff81053bdf>] ? irq_exit+0x36/0x76=0D
-[<ffffffff81012922>] ? do_IRQ+0xa0/0xb6=0D
-[<ffffffff810114d3>] ? ret_from_intr+0x0/0x11=0D
-<E0I> [<ffffffffa0135509>] ? acpi_idle_enter_bm+0x27d/0x2af [processor]=
-=0D
-[<ffffffffa0135509>] ? acpi_idle_enter_bm+0x27d/0x2af=C2=A0[processor]=0D
-[<ffffffffa0135502>] ? acpi_idle_enter_bm+0x276/0x2af=C2=A0[processor]=0D
-[<ffffffff8123a2c6>] ? cpuidle_idle_call+0x94/0xee=0D
-[<ffffffff8100fe97>] ? cpu_idle+0xa2/0xda=0D
-[<ffffffff8151c140>] ? early_idt_handler+0x0/0x71=0D
-[<ffffffff8151ccdd>] ? start_kernel+0x3dc/0x3e8=0D
-[<ffffffff8151c3b7>] ? x86_64_start_kernel+0xf9/0x106=0D
-=0D
-Kind Regards,=0D
-Sascha=0D
-=0D
->Gesendet:=C2=A0Dienstag, 04. September 2012 um 14:23 Uhr=0D
->Von:=C2=A0"Eric Dumazet" <eric.dumazet@gmail.com>=0D
->An:=C2=A0smka2012@email.de=0D
->Cc:=C2=A0netdev@vger.kernel.org=0D
->Betreff:=C2=A0Re: Question regarding kernel panic in net/ipv4/tcp_outp=
-ut.c=0D
->On Tue, 2012-09-04 at 13:55 +0200, smka2012@email.de wrote:=0D
->> Hi,=0D
->>=0D
->> I recently had a severe issue with multiple servers that stopped=0D
->> working at the same time. By using the stacktrace, I could locate th=
-e=0D
->> following line in the tcp_retransmit_skb function of the tcp_output.=
-c=0D
->> kernel source that led to a kernel panic on all servers. I am using=0D
->> Debian 6.0 with the kernel version 2.6.32-45.=0D
->>=0D
->> (gdb) list *(tcp_retransmit_skb+0x66)=0D
->> 0x1a93 is in tcp_retransmit_skb (net/ipv4/tcp_output.c:1905).=0D
->> 1900 if (atomic_read(&sk->sk_wmem_alloc) >=0D
->> 1901 min(sk->sk_wmem_queued + (sk->sk_wmem_queued >> 2),=0D
->> sk->sk_sndbuf))=0D
->> 1902 return -EAGAIN;=0D
->> 1903=0D
->> 1904 if (before(TCP_SKB_CB(skb)->seq, tp->snd_una)) {=0D
->>=0D
->> --->=0D
->> 1905 if (before(TCP_SKB_CB(skb)->end_seq, tp->snd_una))=0D
->> 1906 BUG();=0D
->> <---=0D
->>=0D
->> 1907 if (tcp_trim_head(sk, skb, tp->snd_una - TCP_SKB_CB(skb)->seq))=
-=0D
->> 1908 return -ENOMEM;=0D
->> 1909 }=0D
->>=0D
->> Now I am interested in getting to know what can lead to a situation=0D
->> that the condition in line 1905 evaluates true and why the kernel go=
-es=0D
->> into the BUG() function in that case and does not only return an=0D
->> error. All servers reached this line of code. They all were connecte=
-d=0D
->> to a switch that broke the same time. However, I cannot say if the=0D
->> switch broke before the servers and eventually affected the servers =
-or=0D
->> if the switch was also itself affected by some external event.=0D
->>=0D
->> Thank you very much for your help.=0D
->>=0D
->> Kind Regards,=0D
->> Sascha=0D
->> --=0D
->=0D
->You can see this BUG() as an early notification of a hard to=0D
->debug/diagnose bug.=0D
->=0D
->We shouldnt take this path at all.=0D
->=0D
->If we do, we have an earlier bug that we should fix anyway, because=0D
->machine is going to crash.=0D
->=0D
->It would be nice you sent the stack trace you had.
+From: Havard Skinnemoen <havard@skinnemoen.net>
+
+Make the ethernet frame payload word-aligned, possibly making the
+memcpy into the skb a bit faster. This will be even more important
+after we eliminate the copy altogether.
+
+Also eliminate the redundant RX_OFFSET constant -- it has the same
+definition and purpose as NET_IP_ALIGN.
+
+Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
+[nicolas.ferre@atmel.com: adapt to newer kernel]
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
+ drivers/net/ethernet/cadence/macb.c |   23 ++++++++++++++++-------
+ 1 file changed, 16 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index f31c0a7..f7716b6 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -33,9 +33,6 @@
+ #define RX_RING_SIZE		512
+ #define RX_RING_BYTES		(sizeof(struct macb_dma_desc) * RX_RING_SIZE)
+ 
+-/* Make the IP header word-aligned (the ethernet header is 14 bytes) */
+-#define RX_OFFSET		2
+-
+ #define TX_RING_SIZE		128
+ #define TX_RING_BYTES		(sizeof(struct macb_dma_desc) * TX_RING_SIZE)
+ 
+@@ -466,7 +463,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ {
+ 	unsigned int len;
+ 	unsigned int frag;
+-	unsigned int offset = 0;
++	unsigned int offset;
+ 	struct sk_buff *skb;
+ 	struct macb_dma_desc *desc;
+ 
+@@ -477,7 +474,16 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 		macb_rx_ring_wrap(first_frag),
+ 		macb_rx_ring_wrap(last_frag), len);
+ 
+-	skb = netdev_alloc_skb(bp->dev, len + RX_OFFSET);
++	/*
++	 * The ethernet header starts NET_IP_ALIGN bytes into the
++	 * first buffer. Since the header is 14 bytes, this makes the
++	 * payload word-aligned.
++	 *
++	 * Instead of calling skb_reserve(NET_IP_ALIGN), we just copy
++	 * the two padding bytes into the skb so that we avoid hitting
++	 * the slowpath in memcpy(), and pull them off afterwards.
++	 */
++	skb = netdev_alloc_skb(bp->dev, len + NET_IP_ALIGN);
+ 	if (!skb) {
+ 		bp->stats.rx_dropped++;
+ 		for (frag = first_frag; ; frag++) {
+@@ -493,7 +499,8 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 		return 1;
+ 	}
+ 
+-	skb_reserve(skb, RX_OFFSET);
++	offset = 0;
++	len += NET_IP_ALIGN;
+ 	skb_checksum_none_assert(skb);
+ 	skb_put(skb, len);
+ 
+@@ -517,10 +524,11 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 	/* Make descriptor updates visible to hardware */
+ 	wmb();
+ 
++	__skb_pull(skb, NET_IP_ALIGN);
+ 	skb->protocol = eth_type_trans(skb, bp->dev);
+ 
+ 	bp->stats.rx_packets++;
+-	bp->stats.rx_bytes += len;
++	bp->stats.rx_bytes += skb->len;
+ 	netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
+ 		   skb->len, skb->csum);
+ 	netif_receive_skb(skb);
+@@ -985,6 +993,7 @@ static void macb_init_hw(struct macb *bp)
+ 	__macb_set_hwaddr(bp);
+ 
+ 	config = macb_mdc_clk_div(bp);
++	config |= MACB_BF(RBOF, NET_IP_ALIGN);	/* Make eth data aligned */
+ 	config |= MACB_BIT(PAE);		/* PAuse Enable */
+ 	config |= MACB_BIT(DRFCS);		/* Discard Rx FCS */
+ 	config |= MACB_BIT(BIG);		/* Receive oversized frames */
+-- 
+1.7.10
