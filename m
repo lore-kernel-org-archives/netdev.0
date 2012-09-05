@@ -1,26 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] decnet: fix shutdown parameter checking
-Date: Wed, 05 Sep 2012 13:00:20 -0400 (EDT)
-Message-ID: <20120905.130020.768517336834373231.davem@davemloft.net>
-References: <1346059001.2703.7.camel@menhir>
-	<20120831.155719.2228399422573401952.davem@davemloft.net>
-	<1346834276.2799.4.camel@menhir>
+Subject: Re: Commit "ipconfig wait for carrier" makes boot hang for 2 mins
+ if no carrier
+Date: Wed, 05 Sep 2012 13:01:58 -0400 (EDT)
+Message-ID: <20120905.130158.897788930198410991.davem@davemloft.net>
+References: <OFFA3AC1B1.08FC3AAD-ONC1257A70.00266EDC-C1257A70.0026E8BC@transmode.se>
+	<50470DAC.8030009@neli.hopto.org>
+	<OF70CDBF7F.EFE301C2-ONC1257A70.002F0D3F-C1257A70.003055BF@transmode.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xi.wang@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: swhiteho@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1346834276.2799.4.camel@menhir>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: micha@neli.hopto.org, netdev@vger.kernel.org
+To: joakim.tjernlund@transmode.se
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42710 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750800Ab2IERCA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 13:02:00 -0400
+In-Reply-To: <OF70CDBF7F.EFE301C2-ONC1257A70.002F0D3F-C1257A70.003055BF@transmode.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Steven Whitehouse <swhiteho@redhat.com>
-Date: Wed, 05 Sep 2012 09:37:56 +0100
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Date: Wed, 5 Sep 2012 10:47:56 +0200
 
-> However, I'm not overly worried and we'll soon know if it will cause any
-> problems or not,
+> Please adjust the 2 min wait to nfsroot= only and keep the old way for ip=
 
-You can be sure that if we get real bug reports due to this change, I will
-revert it back to how it was before.
+Sorry, this is not happening, I fully support the change in the tree
+as-is and will not modify it in the way you request.
+
+You'll have to accomodate this situation in some other local way.
