@@ -1,34 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH V2 0/2] Remove duplicate register definitions in
- Chelsio cxgb4
-Date: Wed, 05 Sep 2012 17:43:23 -0400 (EDT)
-Message-ID: <20120905.174323.648192110881034657.davem@davemloft.net>
-References: <1346846515-25997-1-git-send-email-vipul@chelsio.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ibmveth: Fix alignment of rx queue bug
+Date: Wed, 05 Sep 2012 17:45:43 -0400 (EDT)
+Message-ID: <20120905.174543.111505618029273524.davem@davemloft.net>
+References: <50469FC1.2000202@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, sivasu-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1346846515-25997-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: santil@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45030 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755072Ab2IEVpo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 17:45:44 -0400
+In-Reply-To: <50469FC1.2000202@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Date: Wed,  5 Sep 2012 17:31:53 +0530
+From: Santiago Leon <santil@linux.vnet.ibm.com>
+Date: Tue, 04 Sep 2012 19:41:37 -0500
 
-> This patch series has minor changes in cxgb4 driver. It removes the duplicate
-> definitions of the registers in cxgb4 driver. It also has a minor update in
-> RDMA/cxgb4 driver due to change in cxgb4 driver.
+> This patch fixes a bug found by Nish Aravamudan 
+> (https://lkml.org/lkml/2012/5/15/220) where the driver is not following
+> the spec (it is not aligning the rx buffer on a 16-byte boundary) and the
+> hypervisor aborts the registration, making the device unusable. 
 > 
-> This patch series is built against Stephen Rothwell's linux-next tree. We
-> request to merge patch series thorough single tree to avoid build failures.
+> The fix follows BenH's recommendation (https://lkml.org/lkml/2012/7/20/461)
+> to replace the kmalloc+map for a single call to dma_alloc_coherent()
+> because that function always aligns to a 16-byte boundary.
+> 
+> The stable trees will run into this bug whenever the rx buffer kmalloc call
+> returns something not aligned on a 16-byte boundary.
+> 
+> Cc: <stable@vger.kernel.org>
+> Signed-off-by: Santiago Leon <santil@linux.vnet.ibm.com>
 
-Applied to net-next, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
