@@ -1,49 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] netfilter: x_tables: xt_init() should run earlier
-Date: Wed, 05 Sep 2012 18:37:53 +0200
-Message-ID: <1346863073.13121.155.camel@edumazet-glaptop>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: NULL pointer dereference in xt_register_target()
+Date: Wed, 5 Sep 2012 18:48:31 +0200
+Message-ID: <20120905164831.GA21836@1984>
 References: <CAM_iQpVUZ50RYLUgEHbcm7ua996hgE7Gj-P-bWNJutuvm1nUoQ@mail.gmail.com>
-	 <1346860506.13121.148.camel@edumazet-glaptop>
-	 <1346861569.13121.149.camel@edumazet-glaptop>
+ <1346860506.13121.148.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	netfilter-devel@vger.kernel.org,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1346861569.13121.149.camel@edumazet-glaptop>
+Content-Disposition: inline
+In-Reply-To: <1346860506.13121.148.camel@edumazet-glaptop>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, Sep 05, 2012 at 05:55:06PM +0200, Eric Dumazet wrote:
+> On Wed, 2012-09-05 at 23:43 +0800, Cong Wang wrote:
+> > Hi, folks,
+> > 
+> > The latest net-next tree can't boot due to a NULL ptr def
+> > bug in the kernel, the full backtrack is:
+> > 
+> > http://img1.douban.com/view/photo/photo/public/p1697139550.jpg
+> > 
+> > the kernel .config file is:
+> > 
+> > http://pastebin.com/9YTnkqKN
+> > 
+> > I don't have time to look into the issue. If you need other info,
+> > please let me know.
+> 
+> It seems xt_nat_init() is called before xt_init(), so xt array is not
+> yet setup.
 
-Cong Wang reported a NULL dereference in xt_register_target()
+I have enqueued the following patch to fix this:
 
-It turns out xt_nat_init() was called before xt_init(), so xt array
-was not yet setup.
+http://1984.lsi.us.es/git/nf-next/commit/?id=00545bec9412d130c77f72a08d6c8b6ad21d4a1
+e
+commit 00545bec9412d130c77f72a08d6c8b6ad21d4a1e
+Author: Pablo Neira Ayuso <pablo@netfilter.org>
+Date:   Wed Sep 5 18:24:55 2012 +0200
 
-xt_init() should be marked core_initcall() to solve this problem.
+    netfilter: fix crash during boot if NAT has been compiled built-in
 
-Reported-by: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/netfilter/x_tables.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index 8d987c3..afcea11 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -1390,6 +1390,6 @@ static void __exit xt_fini(void)
- 	kfree(xt);
- }
- 
--module_init(xt_init);
-+core_initcall(xt_init);
- module_exit(xt_fini);
- 
-
-
+Thanks.
