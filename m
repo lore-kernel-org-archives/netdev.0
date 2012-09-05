@@ -1,52 +1,98 @@
-From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v7 1/1] ieee802154: MRF24J40 driver
-Date: Wed, 5 Sep 2012 12:05:21 +0400
-Message-ID: <CAJmB2rAvJyhi=iTgkmhgz4nS1-0DMRwUt_qu0=qr8-kbfCwv_A@mail.gmail.com>
-References: <1346300194-3286-1-git-send-email-alan@signal11.us>
-	<1346636653-28903-1-git-send-email-alan@signal11.us>
-	<1346636653-28903-2-git-send-email-alan@signal11.us>
-	<20120904.144630.82568755842479462.davem@davemloft.net>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: [PATCH 01/10] net/macb: Add support for Gigabit Ethernet mode
+Date: Wed, 5 Sep 2012 10:19:08 +0200
+Message-ID: <6ba606a2333630154d5c4139d672a09ce4cc44f1.1346775479.git.nicolas.ferre@atmel.com>
+References: <cover.1346775479.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20120904.144630.82568755842479462.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: text/plain
+Cc: <linux-arm-kernel@lists.infradead.org>, <davem@davemloft.net>,
+	<havard@skinnemoen.net>, <nicolas.ferre@atmel.com>,
+	<plagnioj@jcrosoft.com>, <jamie@jamieiles.com>,
+	<linux-kernel@vger.kernel.org>, <patrice.vilchez@atmel.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1346775479.git.nicolas.ferre@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear colleagues,
+From: Patrice Vilchez <patrice.vilchez@atmel.com>
 
-2012/9/4 David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>:
-> From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-> Date: Sun,  2 Sep 2012 21:44:13 -0400
->
->> Driver for the Microchip MRF24J40 802.15.4 WPAN module.
+Add Gigabit Ethernet mode to GEM cadence IP and enable RGMII connection.
 
-I wan on vacation so had no possibility to review the code.
-Alan, thank you for the contribution!
+Signed-off-by: Patrice Vilchez <patrice.vilchez@atmel.com>
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
+ drivers/net/ethernet/cadence/macb.c |   15 ++++++++++++---
+ drivers/net/ethernet/cadence/macb.h |    4 ++++
+ 2 files changed, 16 insertions(+), 3 deletions(-)
 
->>
->> Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
->
-> Applied to net-next, thanks.
-
-Thanks David.
-
-Alex
-
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 033064b..9a10f69 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -152,13 +152,17 @@ static void macb_handle_link_change(struct net_device *dev)
+ 
+ 			reg = macb_readl(bp, NCFGR);
+ 			reg &= ~(MACB_BIT(SPD) | MACB_BIT(FD));
++			if (macb_is_gem(bp))
++				reg &= ~GEM_BIT(GBE);
+ 
+ 			if (phydev->duplex)
+ 				reg |= MACB_BIT(FD);
+ 			if (phydev->speed == SPEED_100)
+ 				reg |= MACB_BIT(SPD);
++			if (phydev->speed == SPEED_1000)
++				reg |= GEM_BIT(GBE);
+ 
+-			macb_writel(bp, NCFGR, reg);
++			macb_or_gem_writel(bp, NCFGR, reg);
+ 
+ 			bp->speed = phydev->speed;
+ 			bp->duplex = phydev->duplex;
+@@ -216,7 +220,10 @@ static int macb_mii_probe(struct net_device *dev)
+ 	}
+ 
+ 	/* mask with MAC supported features */
+-	phydev->supported &= PHY_BASIC_FEATURES;
++	if (macb_is_gem(bp))
++		phydev->supported &= PHY_GBIT_FEATURES;
++	else
++		phydev->supported &= PHY_BASIC_FEATURES;
+ 
+ 	phydev->advertising = phydev->supported;
+ 
+@@ -1384,7 +1391,9 @@ static int __init macb_probe(struct platform_device *pdev)
+ 		bp->phy_interface = err;
+ 	}
+ 
+-	if (bp->phy_interface == PHY_INTERFACE_MODE_RMII)
++	if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
++		macb_or_gem_writel(bp, USRIO, GEM_BIT(RGMII));
++	else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII)
+ #if defined(CONFIG_ARCH_AT91)
+ 		macb_or_gem_writel(bp, USRIO, (MACB_BIT(RMII) |
+ 					       MACB_BIT(CLKEN)));
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index 335e288..f69ceef 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -145,6 +145,8 @@
+ #define MACB_IRXFCS_SIZE			1
+ 
+ /* GEM specific NCFGR bitfields. */
++#define GEM_GBE_OFFSET				10
++#define GEM_GBE_SIZE				1
+ #define GEM_CLK_OFFSET				18
+ #define GEM_CLK_SIZE				3
+ #define GEM_DBW_OFFSET				21
+@@ -246,6 +248,8 @@
+ /* Bitfields in USRIO (AT91) */
+ #define MACB_RMII_OFFSET			0
+ #define MACB_RMII_SIZE				1
++#define GEM_RGMII_OFFSET			0	/* GEM gigabit mode */
++#define GEM_RGMII_SIZE				1
+ #define MACB_CLKEN_OFFSET			1
+ #define MACB_CLKEN_SIZE				1
+ 
+-- 
+1.7.10
