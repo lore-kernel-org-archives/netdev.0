@@ -1,42 +1,37 @@
-From: Naresh Kumar Inna <naresh@chelsio.com>
-Subject: Re: [V2 PATCH 6/9] csiostor: Chelsio FCoE offload driver submission
- (headers part 1).
-Date: Wed, 5 Sep 2012 23:14:30 +0530
-Message-ID: <50478F7E.1020606@chelsio.com>
-References: <1346848442-4573-1-git-send-email-naresh@chelsio.com> <1346848442-4573-7-git-send-email-naresh@chelsio.com> <20120905093305.2418eac8@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] netfilter: take care of timewait sockets
+Date: Wed, 05 Sep 2012 19:52:22 +0200
+Message-ID: <1346867542.13121.160.camel@edumazet-glaptop>
+References: <1346780943.13121.58.camel@edumazet-glaptop>
+	 <20120905171016.GA23211@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "JBottomley@parallels.com" <JBottomley@parallels.com>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	Dimitrios Michailidis <dm@chelsio.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Chethan Seshadri <chethan@chelsio.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Patrick McHardy <kaber@trash.net>, netfilter-devel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:29690 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754555Ab2IERor (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 13:44:47 -0400
-In-Reply-To: <20120905093305.2418eac8@nehalam.linuxnetplumber.net>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:45249 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754164Ab2IERw1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 13:52:27 -0400
+In-Reply-To: <20120905171016.GA23211@1984>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/5/2012 10:03 PM, Stephen Hemminger wrote:
-> On Wed,  5 Sep 2012 18:03:59 +0530
-> Naresh Kumar Inna <naresh@chelsio.com> wrote:
+On Wed, 2012-09-05 at 19:10 +0200, Pablo Neira Ayuso wrote:
+> On Tue, Sep 04, 2012 at 07:49:03PM +0200, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > Sami Farin reported crashes in xt_LOG because it assumes skb->sk is a
+> > full blown socket.
+> > 
+> > But with TCP early demux, we can have skb->sk pointing to a timewait
+> > socket.
 > 
->> +
->> +#define	CSIO_ASSERT(cond)						\
->> +do {									\
->> +	if (unlikely(!((cond))))					\
->> +		BUG();                                                  \
->> +} while (0)
->> +
+> TCP early demux is there since 3.6-rc.
 > 
-> Why is this not just BUG_ON(!(cond)) ?
-> 
+> I'll add that to the changelog if you don't mind, to help tracking
+> things for -stable.
 
-I will replace the 2 lines in the macro with BUG_ON() as you have
-suggested. Thanks.
+Sure, its not a stable candidate.
