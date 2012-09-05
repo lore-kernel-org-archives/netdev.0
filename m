@@ -1,27 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: when the MTU interface is modified, the promiscuous mode is
- reset in gianfar driver
-Date: Wed, 05 Sep 2012 13:09:11 -0400 (EDT)
-Message-ID: <20120905.130911.1579305809056694360.davem@davemloft.net>
-References: <201208270838.AA02326@VF09040P.jp.fujitsu.com>
-	<20120903.155332.1814926007061594344.davem@davemloft.net>
-	<504757AC.90007@freescale.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: take care of timewait sockets
+Date: Wed, 5 Sep 2012 19:10:16 +0200
+Message-ID: <20120905171016.GA23211@1984>
+References: <1346780943.13121.58.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: chikazawa.akifu@jp.fujitsu.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: claudiu.manoil@freescale.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <504757AC.90007@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netfilter-devel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1346780943.13121.58.camel@edumazet-glaptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Date: Wed, 5 Sep 2012 16:46:20 +0300
+On Tue, Sep 04, 2012 at 07:49:03PM +0200, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Sami Farin reported crashes in xt_LOG because it assumes skb->sk is a
+> full blown socket.
+> 
+> But with TCP early demux, we can have skb->sk pointing to a timewait
+> socket.
 
-> I don't see how the promisc mode would be reset by changing the
-> mtu. Maybe more details on the issue reproduction would help (or
-> maybe a usecase involving multicast settings?)
+TCP early demux is there since 3.6-rc.
 
-Agreed, I can't see how this problem is even possible either.
+I'll add that to the changelog if you don't mind, to help tracking
+things for -stable.
