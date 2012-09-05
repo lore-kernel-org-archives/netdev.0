@@ -1,29 +1,39 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: take care of timewait sockets
-Date: Wed, 5 Sep 2012 19:10:16 +0200
-Message-ID: <20120905171016.GA23211@1984>
-References: <1346780943.13121.58.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next.git 4/7] stmmac: add Rx watchdog optimization to
+ mitigate the DMA irqs
+Date: Wed, 05 Sep 2012 13:16:15 -0400 (EDT)
+Message-ID: <20120905.131615.1131246696009291033.davem@davemloft.net>
+References: <1346857432-24657-1-git-send-email-peppe.cavallaro@st.com>
+	<1346857432-24657-5-git-send-email-peppe.cavallaro@st.com>
+	<1346861675.5325.13.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netfilter-devel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1346780943.13121.58.camel@edumazet-glaptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42859 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753895Ab2IERQR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 13:16:17 -0400
+In-Reply-To: <1346861675.5325.13.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 04, 2012 at 07:49:03PM +0200, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 5 Sep 2012 17:14:35 +0100
+
+> On Wed, 2012-09-05 at 17:03 +0200, Giuseppe CAVALLARO wrote:
+>> GMAC devices newer than databook 3.50 has an embedded timer
+>> that can be used for mitigating the number of interrupts.
+>> So this patch adds this optimizations.
+>> Old MAC will continue to use NAPI.
+> [...]
 > 
-> Sami Farin reported crashes in xt_LOG because it assumes skb->sk is a
-> full blown socket.
-> 
-> But with TCP early demux, we can have skb->sk pointing to a timewait
-> socket.
+> Interrupt moderation is *not* a substitute for NAPI; you should continue
+> using NAPI as well.
 
-TCP early demux is there since 3.6-rc.
+Absolutely correct, these two facilities are _complementary_ not _exlusive_.
 
-I'll add that to the changelog if you don't mind, to help tracking
-things for -stable.
+In fact, the most optimal driver will use NAPI with relatively short HW
+mitigation settings.
