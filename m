@@ -1,41 +1,47 @@
-From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH V2 0/2] Remove duplicate register definitions in Chelsio cxgb4
-Date: Wed,  5 Sep 2012 17:31:53 +0530
-Message-ID: <1346846515-25997-1-git-send-email-vipul@chelsio.com>
-Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, sivasu-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH V2 1/2] RDMA/cxgb4: Update RDMA/cxgb4 due to macro definition removal in cxgb4 driver
+Date: Wed,  5 Sep 2012 17:31:54 +0530
+Message-ID: <1346846515-25997-2-git-send-email-vipul@chelsio.com>
+References: <1346846515-25997-1-git-send-email-vipul@chelsio.com>
+Cc: roland@purestorage.com, davem@davemloft.net, divy@chelsio.com,
+	dm@chelsio.com, swise@opengridcomputing.com, kumaras@chelsio.com,
+	santosh@chelsio.com, sivasu@chelsio.com,
+	Vipul Pandya <vipul@chelsio.com>
+To: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:22654 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752406Ab2IEMFF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 08:05:05 -0400
+In-Reply-To: <1346846515-25997-1-git-send-email-vipul@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David Miller/Roland,
+cxgb4 driver has duplicate definitions of registers which will be removed. This
+patch updates the RDMA/cxgb4 driver accordingly.
 
-This patch series has minor changes in cxgb4 driver. It removes the duplicate
-definitions of the registers in cxgb4 driver. It also has a minor update in
-RDMA/cxgb4 driver due to change in cxgb4 driver.
+Signed-off-by: Santosh Rastapur <santosh@chelsio.com>
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+Reviewed-by: Sivakumar Subramani <sivasu@chelsio.com>
+---
+V2: Changed the order of the patch in patch series to avoid build failure
+between two changes.
 
-This patch series is built against Stephen Rothwell's linux-next tree. We
-request to merge patch series thorough single tree to avoid build failures.
+ drivers/infiniband/hw/cxgb4/qp.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Thanks,
-Vipul Pandya
-
-Vipul Pandya (2):
-  RDMA/cxgb4: Update RDMA/cxgb4 due to macro definition removal in
-    cxgb4 driver
-  cxgb4: Remove duplicate register definitions
-
- drivers/infiniband/hw/cxgb4/qp.c                |    2 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   18 ++++----
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |    4 +-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   12 +++---
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   54 +++++-----------------
- 5 files changed, 31 insertions(+), 59 deletions(-)
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
+index 45aedf1..5213bab 100644
+--- a/drivers/infiniband/hw/cxgb4/qp.c
++++ b/drivers/infiniband/hw/cxgb4/qp.c
+@@ -1155,7 +1155,7 @@ static int ring_kernel_db(struct c4iw_qp *qhp, u32 qid, u16 inc)
+ 		 */
+ 		if (cxgb4_dbfifo_count(qhp->rhp->rdev.lldi.ports[0], 1) <
+ 		    (qhp->rhp->rdev.lldi.dbfifo_int_thresh << 5)) {
+-			writel(V_QID(qid) | V_PIDX(inc), qhp->wq.db);
++			writel(QID(qid) | PIDX(inc), qhp->wq.db);
+ 			break;
+ 		}
+ 		set_current_state(TASK_UNINTERRUPTIBLE);
+-- 
+1.7.1
