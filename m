@@ -1,8 +1,8 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH 02/10] net/macb: memory barriers cleanup
-Date: Wed, 5 Sep 2012 10:19:09 +0200
-Message-ID: <8f4d7383d051ed4e3617944141c7746505e35638.1346775479.git.nicolas.ferre@atmel.com>
-References: <cover.1346775479.git.nicolas.ferre@atmel.com>
+Subject: [PATCH 00/10] net/macb: driver enhancement concerning GEM support,
+ ring logic and cleanup
+Date: Wed, 5 Sep 2012 10:19:07 +0200
+Message-ID: <cover.1346775479.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -12,7 +12,6 @@ Cc: patrice.vilchez@atmel.com, nicolas.ferre@atmel.com,
  linux-arm-kernel@lists.infradead.org
 To: <netdev@vger.kernel.org>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <cover.1346775479.git.nicolas.ferre@atmel.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -24,95 +23,35 @@ Sender: linux-arm-kernel-bounces@lists.infradead.org
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Havard Skinnemoen <havard@skinnemoen.net>
+This is an enhancement work that began several years ago. I try to catchup with
+some performance improvement that has been implemented then by Havard.
+The ring index logic and the TX error path modification are the biggest changes
+but some cleanup/debugging have been added along the way.
+The GEM revision will benefit from the Gigabit support.
 
-Remove a couple of unneeded barriers and document the remaining ones.
+The series has been tested on several Atmel AT91 SoC with the two MACB/GEM
+flavors.
 
-Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
-[nicolas.ferre@atmel.com: split patch in topics]
-Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
----
- drivers/net/ethernet/cadence/macb.c |   18 ++++++++++++++----
- 1 file changed, 14 insertions(+), 4 deletions(-)
+Havard Skinnemoen (5):
+  net/macb: memory barriers cleanup
+  net/macb: change debugging messages
+  net/macb: Fix a race in macb_start_xmit()
+  net/macb: clean up ring buffer logic
+  net/macb: Offset first RX buffer by two bytes
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 9a10f69..26ca01e 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -372,7 +372,9 @@ static void macb_tx(struct macb *bp)
- 
- 		BUG_ON(skb == NULL);
- 
-+		/* Make hw descriptor updates visible to CPU */
- 		rmb();
-+
- 		bufstat = bp->tx_ring[tail].ctrl;
- 
- 		if (!(bufstat & MACB_BIT(TX_USED)))
-@@ -415,7 +417,10 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 			if (frag == last_frag)
- 				break;
- 		}
-+
-+		/* Make descriptor updates visible to hardware */
- 		wmb();
-+
- 		return 1;
- 	}
- 
-@@ -436,12 +441,14 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 					       frag_len);
- 		offset += RX_BUFFER_SIZE;
- 		bp->rx_ring[frag].addr &= ~MACB_BIT(RX_USED);
--		wmb();
- 
- 		if (frag == last_frag)
- 			break;
- 	}
- 
-+	/* Make descriptor updates visible to hardware */
-+	wmb();
-+
- 	skb->protocol = eth_type_trans(skb, bp->dev);
- 
- 	bp->stats.rx_packets++;
-@@ -461,6 +468,8 @@ static void discard_partial_frame(struct macb *bp, unsigned int begin,
- 
- 	for (frag = begin; frag != end; frag = NEXT_RX(frag))
- 		bp->rx_ring[frag].addr &= ~MACB_BIT(RX_USED);
-+
-+	/* Make descriptor updates visible to hardware */
- 	wmb();
- 
- 	/*
-@@ -479,7 +488,9 @@ static int macb_rx(struct macb *bp, int budget)
- 	for (; budget > 0; tail = NEXT_RX(tail)) {
- 		u32 addr, ctrl;
- 
-+		/* Make hw descriptor updates visible to CPU */
- 		rmb();
-+
- 		addr = bp->rx_ring[tail].addr;
- 		ctrl = bp->rx_ring[tail].ctrl;
- 
-@@ -674,6 +685,8 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	bp->tx_ring[entry].addr = mapping;
- 	bp->tx_ring[entry].ctrl = ctrl;
-+
-+	/* Make newly initialized descriptor visible to hardware */
- 	wmb();
- 
- 	entry = NEXT_TX(entry);
-@@ -782,9 +795,6 @@ static void macb_init_rings(struct macb *bp)
- 
- static void macb_reset_hw(struct macb *bp)
- {
--	/* Make sure we have the write buffer for ourselves */
--	wmb();
--
- 	/*
- 	 * Disable RX and TX (XXX: Should we halt the transmission
- 	 * more gracefully?)
+Nicolas Ferre (4):
+  net/macb: better manage tx errors
+  net/macb: tx status is more than 8 bits now
+  net/macb: macb_get_drvinfo: add GEM/MACB suffix to differentiate
+    revision
+  net/macb: ethtool interface: add register dump feature
+
+Patrice Vilchez (1):
+  net/macb: Add support for Gigabit Ethernet mode
+
+ drivers/net/ethernet/cadence/macb.c |  408 ++++++++++++++++++++++++-----------
+ drivers/net/ethernet/cadence/macb.h |   29 ++-
+ 2 files changed, 304 insertions(+), 133 deletions(-)
+
 -- 
 1.7.10
