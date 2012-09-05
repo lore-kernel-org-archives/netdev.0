@@ -1,57 +1,57 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH 00/10] net/macb: driver enhancement concerning GEM support,
- ring logic and cleanup
-Date: Wed, 5 Sep 2012 10:19:07 +0200
-Message-ID: <cover.1346775479.git.nicolas.ferre@atmel.com>
+From: Micha Nelissen <micha@neli.hopto.org>
+Subject: Re: Commit "ipconfig wait for carrier" makes boot hang for 2 mins
+ if no   carrier
+Date: Wed, 05 Sep 2012 10:30:36 +0200
+Message-ID: <50470DAC.8030009@neli.hopto.org>
+References: <504627A4.9080306@neli.hopto.org>,	<OF61EF9E6E.9EF08C21-ONC1257A6F.004FE9B4-C1257A6F.0050A9B2@transmode.se> <OF163B52E3.E2F5ACB3-ONC1257A6F.00635561-C1257A6F.00635564@transmode.se> <50465791.40805@neli.hopto.org> <OFFA3AC1B1.08FC3AAD-ONC1257A70.00266EDC-C1257A70.0026E8BC@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: patrice.vilchez@atmel.com, nicolas.ferre@atmel.com,
- linux-kernel@vger.kernel.org, havard@skinnemoen.net, jamie@jamieiles.com,
- plagnioj@jcrosoft.com, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org
-To: <netdev@vger.kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from isp-bos-02.edutel.nl ([88.159.1.183]:43093 "EHLO
+	isp-bos-02.edutel.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751059Ab2IEIao (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 04:30:44 -0400
+In-Reply-To: <OFFA3AC1B1.08FC3AAD-ONC1257A70.00266EDC-C1257A70.0026E8BC@transmode.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an enhancement work that began several years ago. I try to catchup with
-some performance improvement that has been implemented then by Havard.
-The ring index logic and the TX error path modification are the biggest changes
-but some cleanup/debugging have been added along the way.
-The GEM revision will benefit from the Gigabit support.
+Op 2012-09-05 9:04, Joakim Tjernlund schreef:
+>> Because that's where my root filesystem is? The IP autoconfiguration
+>> code exists for this purpose.
+>
+> This is not the only purpose.
 
-The series has been tested on several Atmel AT91 SoC with the two MACB/GEM
-flavors.
+Documentation/filesystems/nfs/nfsroot.txt seems to suggest so (this is 
+where the ip= parameter is documented), but it works independently indeed.
 
-Havard Skinnemoen (5):
-  net/macb: memory barriers cleanup
-  net/macb: change debugging messages
-  net/macb: Fix a race in macb_start_xmit()
-  net/macb: clean up ring buffer logic
-  net/macb: Offset first RX buffer by two bytes
+So explain your reasons?
 
-Nicolas Ferre (4):
-  net/macb: better manage tx errors
-  net/macb: tx status is more than 8 bits now
-  net/macb: macb_get_drvinfo: add GEM/MACB suffix to differentiate
-    revision
-  net/macb: ethtool interface: add register dump feature
+>>> The answer is probably the same, it is much easier to
+>>> manage our IP config in one place for our embedded system.
+>>
+>> You retrieve the kernel via TFTP or so when booting?
+>
+> Yes, but mostly not. This really doesn't matter
 
-Patrice Vilchez (1):
-  net/macb: Add support for Gigabit Ethernet mode
+Seems to me that if you boot standalone there is no reason to let the IP 
+address be configured by the kernel? Retrieve the IP address in user 
+space from your bootloader environment or whatever. And if you boot from 
+ethernet (or some other networking interface), then you have a carrier, 
+and there is no 2 minute delay (maybe less even than before with this 
+patch!).
 
- drivers/net/ethernet/cadence/macb.c |  408 ++++++++++++++++++++++++-----------
- drivers/net/ethernet/cadence/macb.h |   29 ++-
- 2 files changed, 304 insertions(+), 133 deletions(-)
+>>> The wait should be conditional on NFS root or not so that non NFS roots
+>>> can skip this stage altogether.
+>
+> Your patch broke other use cases so my patch would just revert or change the tmo
+> to 2 secs or so.
+> Or you could clean up your stuff so it works for all and not just for you.
 
--- 
-1.7.10
+It didn't break anything, it does work for you also, you just need to 
+wait somewhat longer. Or make sure there is a carrier. The intent of the 
+original 1 second delay was to let the link come up!
+
+Micha
