@@ -1,7 +1,7 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH 01/10] net/macb: Add support for Gigabit Ethernet mode
-Date: Wed, 5 Sep 2012 10:19:08 +0200
-Message-ID: <6ba606a2333630154d5c4139d672a09ce4cc44f1.1346775479.git.nicolas.ferre@atmel.com>
+Subject: [PATCH 03/10] net/macb: change debugging messages
+Date: Wed, 5 Sep 2012 10:19:10 +0200
+Message-ID: <1d9bd330ac3fa84b6f0edc33a1a19f17ea1d696a.1346775479.git.nicolas.ferre@atmel.com>
 References: <cover.1346775479.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,84 +15,111 @@ In-Reply-To: <cover.1346775479.git.nicolas.ferre@atmel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrice Vilchez <patrice.vilchez@atmel.com>
+From: Havard Skinnemoen <havard@skinnemoen.net>
 
-Add Gigabit Ethernet mode to GEM cadence IP and enable RGMII connection.
+Convert some noisy netdev_dbg() statements to netdev_vdbg(). Defining
+DEBUG will no longer fill up the logs; VERBOSE_DEBUG still does.
+Add one more verbose debug for ISR status.
 
-Signed-off-by: Patrice Vilchez <patrice.vilchez@atmel.com>
+Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
+[nicolas.ferre@atmel.com: split patch in topics, add ISR status]
 Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 ---
- drivers/net/ethernet/cadence/macb.c |   15 ++++++++++++---
- drivers/net/ethernet/cadence/macb.h |    4 ++++
- 2 files changed, 16 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/cadence/macb.c |   22 ++++++++++++----------
+ 1 file changed, 12 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 033064b..9a10f69 100644
+index 26ca01e..2228dfc 100644
 --- a/drivers/net/ethernet/cadence/macb.c
 +++ b/drivers/net/ethernet/cadence/macb.c
-@@ -152,13 +152,17 @@ static void macb_handle_link_change(struct net_device *dev)
+@@ -313,7 +313,7 @@ static void macb_tx(struct macb *bp)
+ 	status = macb_readl(bp, TSR);
+ 	macb_writel(bp, TSR, status);
  
- 			reg = macb_readl(bp, NCFGR);
- 			reg &= ~(MACB_BIT(SPD) | MACB_BIT(FD));
-+			if (macb_is_gem(bp))
-+				reg &= ~GEM_BIT(GBE);
+-	netdev_dbg(bp->dev, "macb_tx status = %02lx\n", (unsigned long)status);
++	netdev_vdbg(bp->dev, "macb_tx status = %02lx\n", (unsigned long)status);
  
- 			if (phydev->duplex)
- 				reg |= MACB_BIT(FD);
- 			if (phydev->speed == SPEED_100)
- 				reg |= MACB_BIT(SPD);
-+			if (phydev->speed == SPEED_1000)
-+				reg |= GEM_BIT(GBE);
+ 	if (status & (MACB_BIT(UND) | MACB_BIT(TSR_RLE))) {
+ 		int i;
+@@ -380,7 +380,7 @@ static void macb_tx(struct macb *bp)
+ 		if (!(bufstat & MACB_BIT(TX_USED)))
+ 			break;
  
--			macb_writel(bp, NCFGR, reg);
-+			macb_or_gem_writel(bp, NCFGR, reg);
+-		netdev_dbg(bp->dev, "skb %u (data %p) TX complete\n",
++		netdev_vdbg(bp->dev, "skb %u (data %p) TX complete\n",
+ 			   tail, skb->data);
+ 		dma_unmap_single(&bp->pdev->dev, rp->mapping, skb->len,
+ 				 DMA_TO_DEVICE);
+@@ -406,7 +406,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
  
- 			bp->speed = phydev->speed;
- 			bp->duplex = phydev->duplex;
-@@ -216,7 +220,10 @@ static int macb_mii_probe(struct net_device *dev)
+ 	len = MACB_BFEXT(RX_FRMLEN, bp->rx_ring[last_frag].ctrl);
+ 
+-	netdev_dbg(bp->dev, "macb_rx_frame frags %u - %u (len %u)\n",
++	netdev_vdbg(bp->dev, "macb_rx_frame frags %u - %u (len %u)\n",
+ 		   first_frag, last_frag, len);
+ 
+ 	skb = netdev_alloc_skb(bp->dev, len + RX_OFFSET);
+@@ -453,7 +453,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 
+ 	bp->stats.rx_packets++;
+ 	bp->stats.rx_bytes += len;
+-	netdev_dbg(bp->dev, "received skb of length %u, csum: %08x\n",
++	netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
+ 		   skb->len, skb->csum);
+ 	netif_receive_skb(skb);
+ 
+@@ -535,7 +535,7 @@ static int macb_poll(struct napi_struct *napi, int budget)
+ 
+ 	work_done = 0;
+ 
+-	netdev_dbg(bp->dev, "poll: status = %08lx, budget = %d\n",
++	netdev_vdbg(bp->dev, "poll: status = %08lx, budget = %d\n",
+ 		   (unsigned long)status, budget);
+ 
+ 	work_done = macb_rx(bp, budget);
+@@ -574,6 +574,8 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 			break;
+ 		}
+ 
++		netdev_vdbg(bp->dev, "isr = 0x%08lx\n", (unsigned long)status);
++
+ 		if (status & MACB_RX_INT_FLAGS) {
+ 			/*
+ 			 * There's no point taking any more interrupts
+@@ -585,7 +587,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 			macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
+ 
+ 			if (napi_schedule_prep(&bp->napi)) {
+-				netdev_dbg(bp->dev, "scheduling RX softirq\n");
++				netdev_vdbg(bp->dev, "scheduling RX softirq\n");
+ 				__napi_schedule(&bp->napi);
+ 			}
+ 		}
+@@ -647,8 +649,8 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	u32 ctrl;
+ 	unsigned long flags;
+ 
+-#ifdef DEBUG
+-	netdev_dbg(bp->dev,
++#if defined(DEBUG) && defined(VERBOSE_DEBUG)
++	netdev_vdbg(bp->dev,
+ 		   "start_xmit: len %u head %p data %p tail %p end %p\n",
+ 		   skb->len, skb->head, skb->data,
+ 		   skb_tail_pointer(skb), skb_end_pointer(skb));
+@@ -670,12 +672,12 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
  	}
  
- 	/* mask with MAC supported features */
--	phydev->supported &= PHY_BASIC_FEATURES;
-+	if (macb_is_gem(bp))
-+		phydev->supported &= PHY_GBIT_FEATURES;
-+	else
-+		phydev->supported &= PHY_BASIC_FEATURES;
+ 	entry = bp->tx_head;
+-	netdev_dbg(bp->dev, "Allocated ring entry %u\n", entry);
++	netdev_vdbg(bp->dev, "Allocated ring entry %u\n", entry);
+ 	mapping = dma_map_single(&bp->pdev->dev, skb->data,
+ 				 len, DMA_TO_DEVICE);
+ 	bp->tx_skb[entry].skb = skb;
+ 	bp->tx_skb[entry].mapping = mapping;
+-	netdev_dbg(bp->dev, "Mapped skb data %p to DMA addr %08lx\n",
++	netdev_vdbg(bp->dev, "Mapped skb data %p to DMA addr %08lx\n",
+ 		   skb->data, (unsigned long)mapping);
  
- 	phydev->advertising = phydev->supported;
- 
-@@ -1384,7 +1391,9 @@ static int __init macb_probe(struct platform_device *pdev)
- 		bp->phy_interface = err;
- 	}
- 
--	if (bp->phy_interface == PHY_INTERFACE_MODE_RMII)
-+	if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
-+		macb_or_gem_writel(bp, USRIO, GEM_BIT(RGMII));
-+	else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII)
- #if defined(CONFIG_ARCH_AT91)
- 		macb_or_gem_writel(bp, USRIO, (MACB_BIT(RMII) |
- 					       MACB_BIT(CLKEN)));
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 335e288..f69ceef 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -145,6 +145,8 @@
- #define MACB_IRXFCS_SIZE			1
- 
- /* GEM specific NCFGR bitfields. */
-+#define GEM_GBE_OFFSET				10
-+#define GEM_GBE_SIZE				1
- #define GEM_CLK_OFFSET				18
- #define GEM_CLK_SIZE				3
- #define GEM_DBW_OFFSET				21
-@@ -246,6 +248,8 @@
- /* Bitfields in USRIO (AT91) */
- #define MACB_RMII_OFFSET			0
- #define MACB_RMII_SIZE				1
-+#define GEM_RGMII_OFFSET			0	/* GEM gigabit mode */
-+#define GEM_RGMII_SIZE				1
- #define MACB_CLKEN_OFFSET			1
- #define MACB_CLKEN_SIZE				1
- 
+ 	ctrl = MACB_BF(TX_FRMLEN, len);
 -- 
 1.7.10
