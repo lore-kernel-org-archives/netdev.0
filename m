@@ -1,566 +1,1582 @@
 From: Naresh Kumar Inna <naresh@chelsio.com>
-Subject: [V2 PATCH 8/9] cxgb4: Chelsio FCoE offload driver submission (cxgb4 common header updates).
-Date: Wed,  5 Sep 2012 18:04:01 +0530
-Message-ID: <1346848442-4573-9-git-send-email-naresh@chelsio.com>
+Subject: [V2 PATCH 6/9] csiostor: Chelsio FCoE offload driver submission (headers part 1).
+Date: Wed,  5 Sep 2012 18:03:59 +0530
+Message-ID: <1346848442-4573-7-git-send-email-naresh@chelsio.com>
 References: <1346848442-4573-1-git-send-email-naresh@chelsio.com>
 Cc: netdev@vger.kernel.org, naresh@chelsio.com, chethan@chelsio.com
 To: JBottomley@parallels.com, linux-scsi@vger.kernel.org,
 	dm@chelsio.com, leedom@chelsio.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:9120 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753908Ab2IEHAi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 03:00:38 -0400
 In-Reply-To: <1346848442-4573-1-git-send-email-naresh@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch contains updates to firmware/hardware header files shared
-between csiostor and cxgb4/cxgb4vf, and the resulting changes to the cxgb4
-source files.
+This patch contains the first set of the header files for csiostor driver.
 
 Signed-off-by: Naresh Kumar Inna <naresh@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    2 +-
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |   10 +-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   16 ++--
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |    1 +
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   69 ++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  104 +++++++++++++++++++---
- 6 files changed, 170 insertions(+), 32 deletions(-)
+V2:
+- Removed csio_fcoe_proto.h, using defines from include/scsi/fc instead.
+- Removed driver-specific return values, using errno values instead.
+- Retained CSIO_INC_STATS, since it is useful in multiple places and
+  the name of the structure has been standardized to make use of this macro.
+- Removed csio_deq_from_head(), replaced it inline with calls from list.h.
+- Removed csio_deq_from_tail().
+- Replaced state machine macros with static functions.
+- Capitalizing macros with CPP keys.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 5ed49af..b56d96c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3102,7 +3102,7 @@ static int adap_init1(struct adapter *adap, struct fw_caps_config_cmd *c)
- 	memset(c, 0, sizeof(*c));
- 	c->op_to_write = htonl(FW_CMD_OP(FW_CAPS_CONFIG_CMD) |
- 			       FW_CMD_REQUEST | FW_CMD_READ);
--	c->retval_len16 = htonl(FW_LEN16(*c));
-+	c->cfvalid_to_len16 = htonl(FW_LEN16(*c));
- 	ret = t4_wr_mbox(adap, adap->fn, c, sizeof(*c), c);
- 	if (ret < 0)
- 		return ret;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index d49933e..121b1e9 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -455,7 +455,7 @@ static inline void ring_fl_db(struct adapter *adap, struct sge_fl *q)
- {
- 	if (q->pend_cred >= 8) {
- 		wmb();
--		t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL), DBPRIO |
-+		t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL), DBPRIO(1) |
- 			     QID(q->cntxt_id) | PIDX(q->pend_cred / 8));
- 		q->pend_cred &= 7;
- 	}
-@@ -2020,10 +2020,10 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 			goto fl_nomem;
- 
- 		flsz = fl->size / 8 + STAT_LEN / sizeof(struct tx_desc);
--		c.iqns_to_fl0congen = htonl(FW_IQ_CMD_FL0PACKEN |
-+		c.iqns_to_fl0congen = htonl(FW_IQ_CMD_FL0PACKEN(1) |
- 					    FW_IQ_CMD_FL0FETCHRO(1) |
- 					    FW_IQ_CMD_FL0DATARO(1) |
--					    FW_IQ_CMD_FL0PADEN);
-+					    FW_IQ_CMD_FL0PADEN(1));
- 		c.fl0dcaen_to_fl0cidxfthresh = htons(FW_IQ_CMD_FL0FBMIN(2) |
- 				FW_IQ_CMD_FL0FBMAX(3));
- 		c.fl0size = htons(flsz);
-@@ -2416,10 +2416,10 @@ void t4_sge_init(struct adapter *adap)
- 	unsigned int fl_align_log = ilog2(FL_ALIGN);
- 
- 	t4_set_reg_field(adap, SGE_CONTROL, PKTSHIFT_MASK |
--			 INGPADBOUNDARY_MASK | EGRSTATUSPAGESIZE,
-+			 INGPADBOUNDARY_MASK | EGRSTATUSPAGESIZE(1),
- 			 INGPADBOUNDARY(fl_align_log - 5) | PKTSHIFT(2) |
- 			 RXPKTCPLMODE |
--			 (STAT_LEN == 128 ? EGRSTATUSPAGESIZE : 0));
-+			 (STAT_LEN == 128 ? EGRSTATUSPAGESIZE(1) : 0));
- 
- 	/*
- 	 * Set up to drop DOORBELL writes when the DOORBELL FIFO overflows
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index fa947df..a943faa 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -456,12 +456,12 @@ static int sf1_read(struct adapter *adapter, unsigned int byte_cnt, int cont,
- 
- 	if (!byte_cnt || byte_cnt > 4)
- 		return -EINVAL;
--	if (t4_read_reg(adapter, SF_OP) & BUSY)
-+	if (t4_read_reg(adapter, SF_OP) & SF_BUSY)
- 		return -EBUSY;
- 	cont = cont ? SF_CONT : 0;
- 	lock = lock ? SF_LOCK : 0;
- 	t4_write_reg(adapter, SF_OP, lock | cont | BYTECNT(byte_cnt - 1));
--	ret = t4_wait_op_done(adapter, SF_OP, BUSY, 0, SF_ATTEMPTS, 5);
-+	ret = t4_wait_op_done(adapter, SF_OP, SF_BUSY, 0, SF_ATTEMPTS, 5);
- 	if (!ret)
- 		*valp = t4_read_reg(adapter, SF_DATA);
- 	return ret;
-@@ -484,14 +484,14 @@ static int sf1_write(struct adapter *adapter, unsigned int byte_cnt, int cont,
- {
- 	if (!byte_cnt || byte_cnt > 4)
- 		return -EINVAL;
--	if (t4_read_reg(adapter, SF_OP) & BUSY)
-+	if (t4_read_reg(adapter, SF_OP) & SF_BUSY)
- 		return -EBUSY;
- 	cont = cont ? SF_CONT : 0;
- 	lock = lock ? SF_LOCK : 0;
- 	t4_write_reg(adapter, SF_DATA, val);
- 	t4_write_reg(adapter, SF_OP, lock |
- 		     cont | BYTECNT(byte_cnt - 1) | OP_WR);
--	return t4_wait_op_done(adapter, SF_OP, BUSY, 0, SF_ATTEMPTS, 5);
-+	return t4_wait_op_done(adapter, SF_OP, SF_BUSY, 0, SF_ATTEMPTS, 5);
- }
- 
- /**
-@@ -1972,14 +1972,14 @@ int t4_wol_pat_enable(struct adapter *adap, unsigned int port, unsigned int map,
- 		t4_write_reg(adap, EPIO_REG(DATA0), mask0);
- 		t4_write_reg(adap, EPIO_REG(OP), ADDRESS(i) | EPIOWR);
- 		t4_read_reg(adap, EPIO_REG(OP));                /* flush */
--		if (t4_read_reg(adap, EPIO_REG(OP)) & BUSY)
-+		if (t4_read_reg(adap, EPIO_REG(OP)) & SF_BUSY)
- 			return -ETIMEDOUT;
- 
- 		/* write CRC */
- 		t4_write_reg(adap, EPIO_REG(DATA0), crc);
- 		t4_write_reg(adap, EPIO_REG(OP), ADDRESS(i + 32) | EPIOWR);
- 		t4_read_reg(adap, EPIO_REG(OP));                /* flush */
--		if (t4_read_reg(adap, EPIO_REG(OP)) & BUSY)
-+		if (t4_read_reg(adap, EPIO_REG(OP)) & SF_BUSY)
- 			return -ETIMEDOUT;
- 	}
- #undef EPIO_REG
-@@ -2118,7 +2118,7 @@ int t4_fw_hello(struct adapter *adap, unsigned int mbox, unsigned int evt_mbox,
- 	struct fw_hello_cmd c;
- 
- 	INIT_CMD(c, HELLO, WRITE);
--	c.err_to_mbasyncnot = htonl(
-+	c.err_to_clearinit = htonl(
- 		FW_HELLO_CMD_MASTERDIS(master == MASTER_CANT) |
- 		FW_HELLO_CMD_MASTERFORCE(master == MASTER_MUST) |
- 		FW_HELLO_CMD_MBMASTER(master == MASTER_MUST ? mbox : 0xff) |
-@@ -2126,7 +2126,7 @@ int t4_fw_hello(struct adapter *adap, unsigned int mbox, unsigned int evt_mbox,
- 
- 	ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
- 	if (ret == 0 && state) {
--		u32 v = ntohl(c.err_to_mbasyncnot);
-+		u32 v = ntohl(c.err_to_clearinit);
- 		if (v & FW_HELLO_CMD_INIT)
- 			*state = DEV_STATE_INIT;
- 		else if (v & FW_HELLO_CMD_ERR)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-index eb71b82..b760808 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-@@ -658,6 +658,7 @@ struct ulptx_sgl {
- 	__be32 cmd_nsge;
- #define ULPTX_CMD(x) ((x) << 24)
- #define ULPTX_NSGE(x) ((x) << 0)
-+#define ULPTX_MORE (1U << 23)
- 	__be32 len0;
- 	__be64 addr0;
- 	struct ulptx_sge_pair sge[0];
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 111fc32..6bace75 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -67,7 +67,7 @@
- #define  QID_MASK    0xffff8000U
- #define  QID_SHIFT   15
- #define  QID(x)      ((x) << QID_SHIFT)
--#define  DBPRIO      0x00004000U
-+#define  DBPRIO(x)   ((x) << 14)
- #define  PIDX_MASK   0x00003fffU
- #define  PIDX_SHIFT  0
- #define  PIDX(x)     ((x) << PIDX_SHIFT)
-@@ -89,7 +89,7 @@
- #define SGE_CONTROL 0x1008
- #define  DCASYSTYPE             0x00080000U
- #define  RXPKTCPLMODE           0x00040000U
--#define  EGRSTATUSPAGESIZE      0x00020000U
-+#define  EGRSTATUSPAGESIZE(x)   ((x) << 17)
- #define  PKTSHIFT_MASK          0x00001c00U
- #define  PKTSHIFT_SHIFT         10
- #define  PKTSHIFT(x)            ((x) << PKTSHIFT_SHIFT)
-@@ -111,6 +111,13 @@
- #define  HOSTPAGESIZEPF0_MASK   0x0000000fU
- #define  HOSTPAGESIZEPF0_SHIFT  0
- #define  HOSTPAGESIZEPF0(x)     ((x) << HOSTPAGESIZEPF0_SHIFT)
-+#define  HOSTPAGESIZEPF1(x)     ((x) << 4)
-+#define  HOSTPAGESIZEPF2(x)     ((x) << 8)
-+#define  HOSTPAGESIZEPF3(x)     ((x) << 12)
-+#define  HOSTPAGESIZEPF4(x)     ((x) << 16)
-+#define  HOSTPAGESIZEPF5(x)     ((x) << 20)
-+#define  HOSTPAGESIZEPF6(x)     ((x) << 24)
-+#define  HOSTPAGESIZEPF7(x)     ((x) << 28)
- 
- #define SGE_EGRESS_QUEUES_PER_PAGE_PF 0x1010
- #define  QUEUESPERPAGEPF0_MASK   0x0000000fU
-@@ -155,6 +162,14 @@
- #define SGE_INT_ENABLE3 0x1040
- #define SGE_FL_BUFFER_SIZE0 0x1044
- #define SGE_FL_BUFFER_SIZE1 0x1048
-+#define SGE_FL_BUFFER_SIZE2 0x104c
-+#define SGE_FL_BUFFER_SIZE3 0x1050
-+#define SGE_FL_BUFFER_SIZE4 0x1054
-+#define SGE_FL_BUFFER_SIZE5 0x1058
-+#define SGE_FL_BUFFER_SIZE6 0x105c
-+#define SGE_FL_BUFFER_SIZE7 0x1060
-+#define SGE_FL_BUFFER_SIZE8 0x1064
+ drivers/scsi/csiostor/csio_defs.h     |  113 ++++++
+ drivers/scsi/csiostor/csio_hw.h       |  666 +++++++++++++++++++++++++++++++++
+ drivers/scsi/csiostor/csio_init.h     |  158 ++++++++
+ drivers/scsi/csiostor/t4fw_api_stor.h |  578 ++++++++++++++++++++++++++++
+ 4 files changed, 1515 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/scsi/csiostor/csio_defs.h
+ create mode 100644 drivers/scsi/csiostor/csio_hw.h
+ create mode 100644 drivers/scsi/csiostor/csio_init.h
+ create mode 100644 drivers/scsi/csiostor/t4fw_api_stor.h
+
+diff --git a/drivers/scsi/csiostor/csio_defs.h b/drivers/scsi/csiostor/csio_defs.h
+new file mode 100644
+index 0000000..5a82f63
+--- /dev/null
++++ b/drivers/scsi/csiostor/csio_defs.h
+@@ -0,0 +1,113 @@
++/*
++ * This file is part of the Chelsio FCoE driver for Linux.
++ *
++ * Copyright (c) 2008-2012 Chelsio Communications, Inc. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
 +
- #define SGE_INGRESS_RX_THRESHOLD 0x10a0
- #define  THRESHOLD_0_MASK   0x3f000000U
- #define  THRESHOLD_0_SHIFT  24
-@@ -173,6 +188,17 @@
- #define  THRESHOLD_3(x)     ((x) << THRESHOLD_3_SHIFT)
- #define  THRESHOLD_3_GET(x) (((x) & THRESHOLD_3_MASK) >> THRESHOLD_3_SHIFT)
- 
-+#define SGE_DBFIFO_STATUS 0x10a4
-+#define  HP_INT_THRESH_SHIFT 28
-+#define  HP_INT_THRESH_MASK  0xfU
-+#define  HP_INT_THRESH(x)    ((x) << HP_INT_THRESH_SHIFT)
-+#define  LP_INT_THRESH_SHIFT 12
-+#define  LP_INT_THRESH_MASK  0xfU
-+#define  LP_INT_THRESH(x)    ((x) << LP_INT_THRESH_SHIFT)
++#ifndef __CSIO_DEFS_H__
++#define __CSIO_DEFS_H__
 +
-+#define SGE_DOORBELL_CONTROL 0x10a8
-+#define  ENABLE_DROP        (1 << 13)
++#include <linux/kernel.h>
++#include <linux/stddef.h>
++#include <linux/timer.h>
++#include <linux/list.h>
++#include <linux/bug.h>
++#include <linux/pci.h>
++#include <linux/jiffies.h>
 +
- #define SGE_TIMER_VALUE_0_AND_1 0x10b8
- #define  TIMERVALUE0_MASK   0xffff0000U
- #define  TIMERVALUE0_SHIFT  16
-@@ -184,7 +210,25 @@
- #define  TIMERVALUE1_GET(x) (((x) & TIMERVALUE1_MASK) >> TIMERVALUE1_SHIFT)
- 
- #define SGE_TIMER_VALUE_2_AND_3 0x10bc
-+#define  TIMERVALUE2_MASK   0xffff0000U
-+#define  TIMERVALUE2_SHIFT  16
-+#define  TIMERVALUE2(x)     ((x) << TIMERVALUE0_SHIFT)
-+#define  TIMERVALUE2_GET(x) (((x) & TIMERVALUE0_MASK) >> TIMERVALUE0_SHIFT)
-+#define  TIMERVALUE3_MASK   0x0000ffffU
-+#define  TIMERVALUE3_SHIFT  0
-+#define  TIMERVALUE3(x)     ((x) << TIMERVALUE1_SHIFT)
-+#define  TIMERVALUE3_GET(x) (((x) & TIMERVALUE1_MASK) >> TIMERVALUE1_SHIFT)
++#define CSIO_ROUNDUP(__v, __r)		(((__v) + (__r) - 1) / (__r))
++#define CSIO_INVALID_IDX		0xFFFFFFFF
++#define CSIO_INC_STATS(elem, val)	((elem)->stats.val++)
++#define CSIO_DEC_STATS(elem, val)	((elem)->stats.val--)
++#define CSIO_VALID_WWN(__n)		((*__n >> 4) == 0x5 ? true : false)
++#define CSIO_DID_MASK			0xFFFFFF
++#define CSIO_WORD_TO_BYTE		4
 +
- #define SGE_TIMER_VALUE_4_AND_5 0x10c0
-+#define  TIMERVALUE4_MASK   0xffff0000U
-+#define  TIMERVALUE4_SHIFT  16
-+#define  TIMERVALUE4(x)     ((x) << TIMERVALUE0_SHIFT)
-+#define  TIMERVALUE4_GET(x) (((x) & TIMERVALUE0_MASK) >> TIMERVALUE0_SHIFT)
-+#define  TIMERVALUE5_MASK   0x0000ffffU
-+#define  TIMERVALUE5_SHIFT  0
-+#define  TIMERVALUE5(x)     ((x) << TIMERVALUE1_SHIFT)
-+#define  TIMERVALUE5_GET(x) (((x) & TIMERVALUE1_MASK) >> TIMERVALUE1_SHIFT)
++static inline int
++csio_list_deleted(struct list_head *list)
++{
++	return ((list->next == list) && (list->prev == list));
++}
 +
- #define SGE_DEBUG_INDEX 0x10cc
- #define SGE_DEBUG_DATA_HIGH 0x10d0
- #define SGE_DEBUG_DATA_LOW 0x10d4
-@@ -243,6 +287,10 @@
- #define M_HP_INT_THRESH 0xfU
- #define M_LP_INT_THRESH 0xfU
- 
-+#define PCIE_PF_CFG 0x40
-+#define  AIVEC(x)	((x) << 4)
-+#define  AIVEC_MASK	0x3ffU
++#define csio_list_next(elem)	(((struct list_head *)(elem))->next)
++#define csio_list_prev(elem)	(((struct list_head *)(elem))->prev)
 +
- #define PCIE_PF_CLI 0x44
- #define PCIE_INT_CAUSE 0x3004
- #define  UNXSPLCPLERR  0x20000000U
-@@ -287,6 +335,15 @@
- #define  WINDOW(x)       ((x) << WINDOW_SHIFT)
- #define PCIE_MEM_ACCESS_OFFSET 0x306c
- 
-+#define PCIE_FW 0x30b8
-+#define  PCIE_FW_ERR		0x80000000U
-+#define  PCIE_FW_INIT		0x40000000U
-+#define  PCIE_FW_HALT		0x20000000U
-+#define  PCIE_FW_MASTER_VLD	0x00008000U
-+#define  PCIE_FW_MASTER(x)	((x) << 12)
-+#define  PCIE_FW_MASTER_MASK	0x7
-+#define  PCIE_FW_MASTER_GET(x)	(((x) >> 12) & PCIE_FW_MASTER_MASK)
++/* State machine */
++typedef void (*csio_sm_state_t)(void *, uint32_t);
 +
- #define PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS 0x5908
- #define  RNPP 0x80000000U
- #define  RPCP 0x20000000U
-@@ -384,6 +441,8 @@
- #define EDC_1_BASE_ADDR 0x7980
- 
- #define CIM_BOOT_CFG 0x7b00
-+#define  UPCRST		0x00000001U
-+
- #define  BOOTADDR_MASK 0xffffff00U
- 
- #define CIM_PF_MAILBOX_DATA 0x240
-@@ -395,6 +454,9 @@
- #define  MBOWNER(x)     ((x) << MBOWNER_SHIFT)
- #define  MBOWNER_GET(x) (((x) & MBOWNER_MASK) >> MBOWNER_SHIFT)
- 
-+#define CIM_PF_HOST_INT_ENABLE 0x288
-+#define  MBMSGRDYINTEN(x) ((x) << 19)
-+
- #define CIM_PF_HOST_INT_CAUSE 0x28c
- #define  MBMSGRDYINT 0x00080000U
- 
-@@ -825,7 +887,7 @@
- 
- #define SF_DATA 0x193f8
- #define SF_OP 0x193fc
--#define  BUSY          0x80000000U
-+#define  SF_BUSY       0x80000000U
- #define  SF_LOCK       0x00000010U
- #define  SF_CONT       0x00000008U
- #define  BYTECNT_MASK  0x00000006U
-@@ -884,6 +946,7 @@
- #define  I2CM       0x00000002U
- #define  CIM        0x00000001U
- 
-+#define PL_INT_ENABLE 0x19410
- #define PL_INT_MAP0 0x19414
- #define PL_RST 0x19428
- #define  PIORST     0x00000002U
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index ad53f79..034ca39 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -68,6 +68,7 @@ struct fw_wr_hdr {
- };
- 
- #define FW_WR_OP(x)	 ((x) << 24)
-+#define FW_WR_OP_GET(x)	 (((x) >> 24) & 0xff)
- #define FW_WR_ATOMIC(x)	 ((x) << 23)
- #define FW_WR_FLUSH(x)   ((x) << 22)
- #define FW_WR_COMPL(x)   ((x) << 21)
-@@ -155,6 +156,9 @@ struct fw_eth_tx_pkt_vm_wr {
- 
- #define FW_CMD_MAX_TIMEOUT 3000
- 
-+#define FW_CMD_HELLO_TIMEOUT (3 * FW_CMD_MAX_TIMEOUT)
-+#define FW_CMD_HELLO_RETRIES 3
-+
- enum fw_cmd_opcodes {
- 	FW_LDST_CMD                    = 0x01,
- 	FW_RESET_CMD                   = 0x03,
-@@ -209,6 +213,7 @@ struct fw_cmd_hdr {
- #define FW_CMD_OP(x)		((x) << 24)
- #define FW_CMD_OP_GET(x)        (((x) >> 24) & 0xff)
- #define FW_CMD_REQUEST          (1U << 23)
-+#define FW_CMD_REQUEST_GET(x)   (((x) >> 23) & 0x1)
- #define FW_CMD_READ		(1U << 22)
- #define FW_CMD_WRITE		(1U << 21)
- #define FW_CMD_EXEC		(1U << 20)
-@@ -216,6 +221,7 @@ struct fw_cmd_hdr {
- #define FW_CMD_RETVAL(x)	((x) << 8)
- #define FW_CMD_RETVAL_GET(x)	(((x) >> 8) & 0xff)
- #define FW_CMD_LEN16(x)         ((x) << 0)
-+#define FW_LEN16(fw_struct)	FW_CMD_LEN16(sizeof(fw_struct) / 16)
- 
- enum fw_ldst_addrspc {
- 	FW_LDST_ADDRSPC_FIRMWARE  = 0x0001,
-@@ -228,7 +234,8 @@ enum fw_ldst_addrspc {
- 	FW_LDST_ADDRSPC_TP_MIB    = 0x0012,
- 	FW_LDST_ADDRSPC_MDIO      = 0x0018,
- 	FW_LDST_ADDRSPC_MPS       = 0x0020,
--	FW_LDST_ADDRSPC_FUNC      = 0x0028
-+	FW_LDST_ADDRSPC_FUNC      = 0x0028,
-+	FW_LDST_ADDRSPC_FUNC_PCIE = 0x0029,
- };
- 
- enum fw_ldst_mps_fid {
-@@ -290,6 +297,16 @@ struct fw_ldst_cmd {
- 			__be64 data0;
- 			__be64 data1;
- 		} func;
-+		struct fw_ldst_pcie {
-+			u8 ctrl_to_fn;
-+			u8 bnum;
-+			u8 r;
-+			u8 ext_r;
-+			u8 select_naccess;
-+			u8 pcie_fn;
-+			__be16 nset_pkd;
-+			__be32 data[12];
-+		} pcie;
- 	} u;
- };
- 
-@@ -299,24 +316,42 @@ struct fw_ldst_cmd {
- #define FW_LDST_CMD_FID(x)	((x) << 15)
- #define FW_LDST_CMD_CTL(x)	((x) << 0)
- #define FW_LDST_CMD_RPLCPF(x)	((x) << 0)
-+#define FW_LDST_CMD_LC		(1U << 4)
-+#define FW_LDST_CMD_NACCESS(x)	((x) << 0)
-+#define FW_LDST_CMD_FN(x)	((x) << 0)
- 
- struct fw_reset_cmd {
- 	__be32 op_to_write;
- 	__be32 retval_len16;
- 	__be32 val;
--	__be32 r3;
-+	__be32 halt_pkd;
++struct csio_sm {
++	struct list_head	sm_list;
++	csio_sm_state_t		sm_state;
 +};
 +
-+#define FW_RESET_CMD_HALT	(1U << 31)
++static inline void
++csio_set_state(void *smp, void *state)
++{
++	((struct csio_sm *)smp)->sm_state = (csio_sm_state_t)state;
++}
++
++static inline void
++csio_init_state(struct csio_sm *smp, void *state)
++{
++	csio_set_state(smp, state);
++}
++
++static inline void
++csio_post_event(void *smp, uint32_t evt)
++{
++	((struct csio_sm *)smp)->sm_state(smp, evt);
++}
++
++static inline csio_sm_state_t
++csio_get_state(void *smp)
++{
++	return ((struct csio_sm *)smp)->sm_state;
++}
++
++static inline bool
++csio_match_state(void *smp, void *state)
++{
++	return (csio_get_state(smp) == (csio_sm_state_t)state);
++}
++
++#define	CSIO_ASSERT(cond)						\
++do {									\
++	if (unlikely(!((cond))))					\
++		BUG();                                                  \
++} while (0)
++
++#ifdef __CSIO_DEBUG__
++#define CSIO_DB_ASSERT(__c)		CSIO_ASSERT((__c))
++#else
++#define CSIO_DB_ASSERT(__c)
++#endif
++
++#endif /* ifndef __CSIO_DEFS_H__ */
+diff --git a/drivers/scsi/csiostor/csio_hw.h b/drivers/scsi/csiostor/csio_hw.h
+new file mode 100644
+index 0000000..a58fdc9
+--- /dev/null
++++ b/drivers/scsi/csiostor/csio_hw.h
+@@ -0,0 +1,666 @@
++/*
++ * This file is part of the Chelsio FCoE driver for Linux.
++ *
++ * Copyright (c) 2008-2012 Chelsio Communications, Inc. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#ifndef __CSIO_HW_H__
++#define __CSIO_HW_H__
++
++#include <linux/kernel.h>
++#include <linux/pci.h>
++#include <linux/device.h>
++#include <linux/workqueue.h>
++#include <linux/compiler.h>
++#include <linux/cdev.h>
++#include <linux/list.h>
++#include <linux/mempool.h>
++#include <linux/io.h>
++#include <linux/spinlock_types.h>
++#include <scsi/scsi_transport_fc.h>
++
++#include "csio_wr.h"
++#include "csio_mb.h"
++#include "csio_scsi.h"
++#include "csio_defs.h"
++#include "t4_regs.h"
++#include "t4_msg.h"
++
++/*
++ * An error value used by host. Should not clash with FW defined return values.
++ */
++#define	FW_HOSTERROR			255
++
++#define CSIO_FW_FNAME		"cxgb4/t4fw.bin"
++#define CSIO_CF_FNAME		"cxgb4/t4-config.txt"
++
++#define FW_VERSION_MAJOR	1
++#define FW_VERSION_MINOR	2
++#define FW_VERSION_MICRO	8
++
++#define CSIO_HW_NAME		"Chelsio FCoE Adapter"
++#define CSIO_MAX_PFN		8
++#define CSIO_MAX_PPORTS		4
++
++#define CSIO_MAX_LUN		0xFFFF
++#define CSIO_MAX_QUEUE		2048
++#define CSIO_MAX_CMD_PER_LUN	32
++#define CSIO_MAX_DDP_BUF_SIZE	(1024 * 1024)
++#define CSIO_MAX_SECTOR_SIZE	128
++
++/* Interrupts */
++#define CSIO_EXTRA_MSI_IQS	2	/* Extra iqs for INTX/MSI mode
++					 * (Forward intr iq + fw iq) */
++#define CSIO_EXTRA_VECS		2	/* non-data + FW evt */
++#define CSIO_MAX_SCSI_CPU	128
++#define CSIO_MAX_SCSI_QSETS	(CSIO_MAX_SCSI_CPU * CSIO_MAX_PPORTS)
++#define CSIO_MAX_MSIX_VECS	(CSIO_MAX_SCSI_QSETS + CSIO_EXTRA_VECS)
++
++/* Queues */
++enum {
++	CSIO_INTR_WRSIZE = 128,
++	CSIO_INTR_IQSIZE = ((CSIO_MAX_MSIX_VECS + 1) * CSIO_INTR_WRSIZE),
++	CSIO_FWEVT_WRSIZE = 128,
++	CSIO_FWEVT_IQLEN = 128,
++	CSIO_FWEVT_FLBUFS = 64,
++	CSIO_FWEVT_IQSIZE = (CSIO_FWEVT_WRSIZE * CSIO_FWEVT_IQLEN),
++	CSIO_HW_NIQ = 1,
++	CSIO_HW_NFLQ = 1,
++	CSIO_HW_NEQ = 1,
++	CSIO_HW_NINTXQ = 1,
++};
++
++struct csio_msix_entries {
++	unsigned short	vector;		/* Vector assigned by pci_enable_msix */
++	void		*dev_id;	/* Priv object associated w/ this msix*/
++	char		desc[24];	/* Description of this vector */
++};
++
++struct csio_scsi_qset {
++	int		iq_idx;		/* Ingress index */
++	int		eq_idx;		/* Egress index */
++	uint32_t	intr_idx;	/* MSIX Vector index */
++};
++
++struct csio_scsi_cpu_info {
++	int16_t	max_cpus;
++};
++
++extern int csio_dbg_level;
++extern int csio_force_master;
++extern unsigned int csio_port_mask;
++extern int csio_msi;
++
++#define CSIO_VENDOR_ID				0x1425
++#define CSIO_ASIC_DEVID_PROTO_MASK		0xFF00
++#define CSIO_ASIC_DEVID_TYPE_MASK		0x00FF
++#define CSIO_FPGA				0xA000
++#define CSIO_T4_FCOE_ASIC			0x4600
++
++#define CSIO_GLBL_INTR_MASK		(CIM | MPS | PL | PCIE | MC | EDC0 | \
++					 EDC1 | LE | TP | MA | PM_TX | PM_RX | \
++					 ULP_RX | CPL_SWITCH | SGE | \
++					 ULP_TX | SF)
++
++/*
++ * Hard parameters used to initialize the card in the absence of a
++ * configuration file.
++ */
++enum {
++	/* General */
++	CSIO_SGE_DBFIFO_INT_THRESH	= 10,
++
++	CSIO_SGE_RX_DMA_OFFSET		= 2,
++
++	CSIO_SGE_FLBUF_SIZE1		= 65536,
++	CSIO_SGE_FLBUF_SIZE2		= 1536,
++	CSIO_SGE_FLBUF_SIZE3		= 9024,
++	CSIO_SGE_FLBUF_SIZE4		= 9216,
++	CSIO_SGE_FLBUF_SIZE5		= 2048,
++	CSIO_SGE_FLBUF_SIZE6		= 128,
++	CSIO_SGE_FLBUF_SIZE7		= 8192,
++	CSIO_SGE_FLBUF_SIZE8		= 16384,
++
++	CSIO_SGE_TIMER_VAL_0		= 5,
++	CSIO_SGE_TIMER_VAL_1		= 10,
++	CSIO_SGE_TIMER_VAL_2		= 20,
++	CSIO_SGE_TIMER_VAL_3		= 50,
++	CSIO_SGE_TIMER_VAL_4		= 100,
++	CSIO_SGE_TIMER_VAL_5		= 200,
++
++	CSIO_SGE_INT_CNT_VAL_0		= 1,
++	CSIO_SGE_INT_CNT_VAL_1		= 4,
++	CSIO_SGE_INT_CNT_VAL_2		= 8,
++	CSIO_SGE_INT_CNT_VAL_3		= 16,
++
++	/* Storage specific - used by FW_PFVF_CMD */
++	CSIO_WX_CAPS			= FW_CMD_CAP_PF, /* w/x all */
++	CSIO_R_CAPS			= FW_CMD_CAP_PF, /* r all */
++	CSIO_NVI			= 4,
++	CSIO_NIQ_FLINT			= 34,
++	CSIO_NETH_CTRL			= 32,
++	CSIO_NEQ			= 66,
++	CSIO_NEXACTF			= 32,
++	CSIO_CMASK			= FW_PFVF_CMD_CMASK_MASK,
++	CSIO_PMASK			= FW_PFVF_CMD_PMASK_MASK,
++};
++
++/* Slowpath events */
++enum csio_evt {
++	CSIO_EVT_FW  = 0,	/* FW event */
++	CSIO_EVT_MBX,		/* MBX event */
++	CSIO_EVT_SCN,		/* State change notification */
++	CSIO_EVT_DEV_LOSS,	/* Device loss event */
++	CSIO_EVT_MAX,		/* Max supported event */
++};
++
++#define CSIO_EVT_MSG_SIZE	512
++#define CSIO_EVTQ_SIZE		512
++
++/* Event msg  */
++struct csio_evt_msg {
++	struct list_head	list;	/* evt queue*/
++	enum csio_evt		type;
++	uint8_t			data[CSIO_EVT_MSG_SIZE];
++};
 +
 +enum {
-+	FW_HELLO_CMD_STAGE_OS		= 0,
-+	FW_HELLO_CMD_STAGE_PREOS0	= 1,
-+	FW_HELLO_CMD_STAGE_PREOS1	= 2,
-+	FW_HELLO_CMD_STAGE_POSTOS	= 3,
- };
- 
- struct fw_hello_cmd {
- 	__be32 op_to_write;
- 	__be32 retval_len16;
--	__be32 err_to_mbasyncnot;
--#define FW_HELLO_CMD_ERR	    (1U << 31)
--#define FW_HELLO_CMD_INIT	    (1U << 30)
--#define FW_HELLO_CMD_MASTERDIS(x)   ((x) << 29)
--#define FW_HELLO_CMD_MASTERFORCE(x) ((x) << 28)
--#define FW_HELLO_CMD_MBMASTER(x)    ((x) << 24)
--#define FW_HELLO_CMD_MBASYNCNOT(x)  ((x) << 20)
-+	__be32 err_to_clearinit;
-+#define FW_HELLO_CMD_ERR	        (1U << 31)
-+#define FW_HELLO_CMD_INIT	        (1U << 30)
-+#define FW_HELLO_CMD_MASTERDIS(x)	((x) << 29)
-+#define FW_HELLO_CMD_MASTERFORCE(x)	((x) << 28)
-+#define FW_HELLO_CMD_MBMASTER_MASK	0xf
-+#define FW_HELLO_CMD_MBMASTER(x)	((x) << 24)
-+#define FW_HELLO_CMD_MBMASTER_GET(x)	\
-+		(((x) >> 24) & FW_HELLO_CMD_MBMASTER_MASK)
-+#define FW_HELLO_CMD_MBASYNCNOTINT(x)	((x) << 23)
-+#define FW_HELLO_CMD_MBASYNCNOT(x)	((x) << 20)
-+#define FW_HELLO_CMD_STAGE(x)		((x) << 17)
-+#define FW_HELLO_CMD_CLEARINIT		(1U << 16)
- 	__be32 fwrev;
- };
- 
-@@ -399,11 +434,20 @@ enum fw_caps_config_iscsi {
- enum fw_caps_config_fcoe {
- 	FW_CAPS_CONFIG_FCOE_INITIATOR	= 0x00000001,
- 	FW_CAPS_CONFIG_FCOE_TARGET	= 0x00000002,
-+	FW_CAPS_CONFIG_FCOE_CTRL_OFLD	= 0x00000004,
++	EEPROMVSIZE    = 32768, /* Serial EEPROM virtual address space size */
++	SERNUM_LEN     = 16,    /* Serial # length */
++	EC_LEN         = 16,    /* E/C length */
++	ID_LEN         = 16,    /* ID length */
++	TRACE_LEN      = 112,   /* length of trace data and mask */
 +};
 +
-+enum fw_memtype_cf {
-+	FW_MEMTYPE_CF_EDC0		= 0x0,
-+	FW_MEMTYPE_CF_EDC1		= 0x1,
-+	FW_MEMTYPE_CF_EXTMEM		= 0x2,
-+	FW_MEMTYPE_CF_FLASH		= 0x4,
-+	FW_MEMTYPE_CF_INTERNAL		= 0x5,
- };
- 
- struct fw_caps_config_cmd {
- 	__be32 op_to_write;
--	__be32 retval_len16;
-+	__be32 cfvalid_to_len16;
- 	__be32 r2;
- 	__be32 hwmbitmap;
- 	__be16 nbmcaps;
-@@ -416,10 +460,15 @@ struct fw_caps_config_cmd {
- 	__be16 r4;
- 	__be16 iscsicaps;
- 	__be16 fcoecaps;
--	__be32 r5;
--	__be64 r6;
-+	__be32 cfcsum;
-+	__be32 finiver;
-+	__be32 finicsum;
- };
- 
-+#define FW_CAPS_CONFIG_CMD_CFVALID (1U << 27)
-+#define FW_CAPS_CONFIG_CMD_MEMTYPE_CF(x) ((x) << 24)
-+#define FW_CAPS_CONFIG_CMD_MEMADDR64K_CF(x) ((x) << 16)
-+
- /*
-  * params command mnemonics
-  */
-@@ -451,6 +500,7 @@ enum fw_params_param_dev {
- 	FW_PARAMS_PARAM_DEV_INTVER_FCOE = 0x0A,
- 	FW_PARAMS_PARAM_DEV_FWREV = 0x0B,
- 	FW_PARAMS_PARAM_DEV_TPREV = 0x0C,
-+	FW_PARAMS_PARAM_DEV_CF = 0x0D,
- };
- 
- /*
-@@ -511,6 +561,9 @@ enum fw_params_param_dmaq {
- #define FW_PARAMS_PARAM_Z(x)   ((x) << 0)
- #define FW_PARAMS_PARAM_XYZ(x) ((x) << 0)
- #define FW_PARAMS_PARAM_YZ(x)  ((x) << 0)
-+#define FW_PARAMS_PARAM_X_GET(x) (((x) >> 16) & 0xff)
-+#define FW_PARAMS_PARAM_Y_GET(x) (((x) >> 8) & 0xff)
-+#define FW_PARAMS_PARAM_Z_GET(x) (((x) >> 0) & 0xff)
- 
- struct fw_params_cmd {
- 	__be32 op_to_vfn;
-@@ -648,8 +701,8 @@ struct fw_iq_cmd {
- #define FW_IQ_CMD_FL0FETCHRO(x) ((x) << 6)
- #define FW_IQ_CMD_FL0HOSTFCMODE(x) ((x) << 4)
- #define FW_IQ_CMD_FL0CPRIO(x) ((x) << 3)
--#define FW_IQ_CMD_FL0PADEN (1U << 2)
--#define FW_IQ_CMD_FL0PACKEN (1U << 1)
-+#define FW_IQ_CMD_FL0PADEN(x) ((x) << 2)
-+#define FW_IQ_CMD_FL0PACKEN(x) ((x) << 1)
- #define FW_IQ_CMD_FL0CONGEN (1U << 0)
- 
- #define FW_IQ_CMD_FL0DCAEN(x) ((x) << 15)
-@@ -1137,6 +1190,14 @@ enum fw_port_dcb_cfg_rc {
- 	FW_PORT_DCB_CFG_ERROR	= 0x1
- };
- 
-+enum fw_port_dcb_type {
-+	FW_PORT_DCB_TYPE_PGID		= 0x00,
-+	FW_PORT_DCB_TYPE_PGRATE		= 0x01,
-+	FW_PORT_DCB_TYPE_PRIORATE	= 0x02,
-+	FW_PORT_DCB_TYPE_PFC		= 0x03,
-+	FW_PORT_DCB_TYPE_APP_ID		= 0x04,
++enum {
++	SF_PAGE_SIZE = 256,           /* serial flash page size */
++	SF_SEC_SIZE = 64 * 1024,      /* serial flash sector size */
++	SF_SIZE = SF_SEC_SIZE * 16,   /* serial flash size */
 +};
 +
- struct fw_port_cmd {
- 	__be32 op_to_portid;
- 	__be32 action_to_len16;
-@@ -1204,6 +1265,7 @@ struct fw_port_cmd {
- #define FW_PORT_CMD_TXIPG(x) ((x) << 19)
- 
- #define FW_PORT_CMD_LSTATUS (1U << 31)
-+#define FW_PORT_CMD_LSTATUS_GET(x) (((x) >> 31) & 0x1)
- #define FW_PORT_CMD_LSPEED(x) ((x) << 24)
- #define FW_PORT_CMD_LSPEED_GET(x) (((x) >> 24) & 0x3f)
- #define FW_PORT_CMD_TXPAUSE (1U << 23)
-@@ -1252,6 +1314,9 @@ enum fw_port_module_type {
- 	FW_PORT_MOD_TYPE_TWINAX_PASSIVE,
- 	FW_PORT_MOD_TYPE_TWINAX_ACTIVE,
- 	FW_PORT_MOD_TYPE_LRM,
-+	FW_PORT_MOD_TYPE_ERROR		= FW_PORT_CMD_MODTYPE_MASK - 3,
-+	FW_PORT_MOD_TYPE_UNKNOWN	= FW_PORT_CMD_MODTYPE_MASK - 2,
-+	FW_PORT_MOD_TYPE_NOTSUPPORTED	= FW_PORT_CMD_MODTYPE_MASK - 1,
- 
- 	FW_PORT_MOD_TYPE_NONE = FW_PORT_CMD_MODTYPE_MASK
- };
-@@ -1613,7 +1678,11 @@ struct fw_hdr {
- 	u8 intfver_iscsi;
- 	u8 intfver_fcoe;
- 	u8 reserved2;
--	__be32  reserved3[27];
-+	__u32   reserved3;
-+	__u32   reserved4;
-+	__u32   reserved5;
-+	__be32  flags;
-+	__be32  reserved6[23];
- };
- 
- #define FW_HDR_FW_VER_MAJOR_GET(x) (((x) >> 24) & 0xff)
-@@ -1621,6 +1690,11 @@ struct fw_hdr {
- #define FW_HDR_FW_VER_MICRO_GET(x) (((x) >> 8) & 0xff)
- #define FW_HDR_FW_VER_BUILD_GET(x) (((x) >> 0) & 0xff)
- 
-+enum fw_hdr_flags {
-+	FW_HDR_FLAGS_RESET_HALT	= 0x00000001,
++enum { MEM_EDC0, MEM_EDC1, MEM_MC };
++
++enum {
++	MEMWIN0_APERTURE = 2048,
++	MEMWIN0_BASE     = 0x1b800,
++	MEMWIN1_APERTURE = 32768,
++	MEMWIN1_BASE     = 0x28000,
++	MEMWIN2_APERTURE = 65536,
++	MEMWIN2_BASE     = 0x30000,
 +};
 +
++/* serial flash and firmware constants */
++enum {
++	SF_ATTEMPTS = 10,             /* max retries for SF operations */
 +
- #define S_FW_CMD_OP 24
- #define V_FW_CMD_OP(x) ((x) << S_FW_CMD_OP)
- 
++	/* flash command opcodes */
++	SF_PROG_PAGE    = 2,          /* program page */
++	SF_WR_DISABLE   = 4,          /* disable writes */
++	SF_RD_STATUS    = 5,          /* read status register */
++	SF_WR_ENABLE    = 6,          /* enable writes */
++	SF_RD_DATA_FAST = 0xb,        /* read flash */
++	SF_RD_ID	= 0x9f,	      /* read ID */
++	SF_ERASE_SECTOR = 0xd8,       /* erase sector */
++
++	FW_START_SEC = 8,             /* first flash sector for FW */
++	FW_END_SEC = 15,              /* last flash sector for FW */
++	FW_IMG_START = FW_START_SEC * SF_SEC_SIZE,
++	FW_MAX_SIZE = (FW_END_SEC - FW_START_SEC + 1) * SF_SEC_SIZE,
++
++	FLASH_CFG_MAX_SIZE    = 0x10000 , /* max size of the flash config file*/
++	FLASH_CFG_OFFSET      = 0x1f0000,
++	FLASH_CFG_START_SEC   = FLASH_CFG_OFFSET / SF_SEC_SIZE,
++	FPGA_FLASH_CFG_OFFSET = 0xf0000 , /* if FPGA mode, then cfg file is
++					   * at 1MB - 64KB */
++	FPGA_FLASH_CFG_START_SEC  = FPGA_FLASH_CFG_OFFSET / SF_SEC_SIZE,
++};
++
++/*
++ * Flash layout.
++ */
++#define FLASH_START(start)	((start) * SF_SEC_SIZE)
++#define FLASH_MAX_SIZE(nsecs)	((nsecs) * SF_SEC_SIZE)
++
++enum {
++	/*
++	 * Location of firmware image in FLASH.
++	 */
++	FLASH_FW_START_SEC = 8,
++	FLASH_FW_NSECS = 8,
++	FLASH_FW_START = FLASH_START(FLASH_FW_START_SEC),
++	FLASH_FW_MAX_SIZE = FLASH_MAX_SIZE(FLASH_FW_NSECS),
++
++};
++
++#undef FLASH_START
++#undef FLASH_MAX_SIZE
++
++/* Management module */
++enum {
++	CSIO_MGMT_EQ_WRSIZE = 512,
++	CSIO_MGMT_IQ_WRSIZE = 128,
++	CSIO_MGMT_EQLEN = 64,
++	CSIO_MGMT_IQLEN = 64,
++};
++
++#define CSIO_MGMT_EQSIZE	(CSIO_MGMT_EQLEN * CSIO_MGMT_EQ_WRSIZE)
++#define CSIO_MGMT_IQSIZE	(CSIO_MGMT_IQLEN * CSIO_MGMT_IQ_WRSIZE)
++
++/* mgmt module stats */
++struct csio_mgmtm_stats {
++	uint32_t	n_abort_req;		/* Total abort request */
++	uint32_t	n_abort_rsp;		/* Total abort response */
++	uint32_t	n_close_req;		/* Total close request */
++	uint32_t	n_close_rsp;		/* Total close response */
++	uint32_t	n_err;			/* Total Errors */
++	uint32_t	n_drop;			/* Total request dropped */
++	uint32_t	n_active;		/* Count of active_q */
++	uint32_t	n_cbfn;			/* Count of cbfn_q */
++};
++
++/* MGMT module */
++struct csio_mgmtm {
++	struct	csio_hw		*hw;		/* Pointer to HW moduel */
++	int			eq_idx;		/* Egress queue index */
++	int			iq_idx;		/* Ingress queue index */
++	int			msi_vec;	/* MSI vector */
++	struct list_head	active_q;	/* Outstanding ELS/CT */
++	struct list_head	abort_q;	/* Outstanding abort req */
++	struct list_head	cbfn_q;		/* Completion queue */
++	struct list_head	mgmt_req_freelist; /* Free poll of reqs */
++						/* ELSCT request freelist*/
++	struct timer_list	mgmt_timer;	/* MGMT timer */
++	struct csio_mgmtm_stats stats;		/* ELS/CT stats */
++};
++
++struct csio_adap_desc {
++	char model_no[16];
++	char description[32];
++};
++
++struct pci_params {
++	uint16_t   vendor_id;
++	uint16_t   device_id;
++	uint32_t   vpd_cap_addr;
++	uint16_t   speed;
++	uint8_t    width;
++};
++
++/* User configurable hw parameters */
++struct csio_hw_params {
++	uint32_t		sf_size;		/* serial flash
++							 * size in bytes
++							 */
++	uint32_t		sf_nsec;		/* # of flash sectors */
++	struct pci_params	pci;
++	uint32_t		log_level;		/* Module-level for
++							 * debug log.
++							 */
++};
++
++struct csio_vpd {
++	uint32_t cclk;
++	uint8_t ec[EC_LEN + 1];
++	uint8_t sn[SERNUM_LEN + 1];
++	uint8_t id[ID_LEN + 1];
++};
++
++struct csio_pport {
++	uint16_t	pcap;
++	uint8_t		portid;
++	uint8_t		link_status;
++	uint16_t	link_speed;
++	uint8_t		mac[6];
++	uint8_t		mod_type;
++	uint8_t		rsvd1;
++	uint8_t		rsvd2;
++	uint8_t		rsvd3;
++};
++
++/* fcoe resource information */
++struct csio_fcoe_res_info {
++	uint16_t	e_d_tov;
++	uint16_t	r_a_tov_seq;
++	uint16_t	r_a_tov_els;
++	uint16_t	r_r_tov;
++	uint32_t	max_xchgs;
++	uint32_t	max_ssns;
++	uint32_t	used_xchgs;
++	uint32_t	used_ssns;
++	uint32_t	max_fcfs;
++	uint32_t	max_vnps;
++	uint32_t	used_fcfs;
++	uint32_t	used_vnps;
++};
++
++/* HW State machine Events */
++enum csio_hw_ev {
++	CSIO_HWE_CFG = (uint32_t)1, /* Starts off the State machine */
++	CSIO_HWE_INIT,	         /* Config done, start Init      */
++	CSIO_HWE_INIT_DONE,      /* Init Mailboxes sent, HW ready */
++	CSIO_HWE_FATAL,		 /* Fatal error during initialization */
++	CSIO_HWE_PCIERR_DETECTED,/* PCI error recovery detetced */
++	CSIO_HWE_PCIERR_SLOT_RESET, /* Slot reset after PCI recoviery */
++	CSIO_HWE_PCIERR_RESUME,  /* Resume after PCI error recovery */
++	CSIO_HWE_QUIESCED,	 /* HBA quiesced */
++	CSIO_HWE_HBA_RESET,      /* HBA reset requested */
++	CSIO_HWE_HBA_RESET_DONE, /* HBA reset completed */
++	CSIO_HWE_FW_DLOAD,       /* FW download requested */
++	CSIO_HWE_PCI_REMOVE,     /* PCI de-instantiation */
++	CSIO_HWE_SUSPEND,        /* HW suspend for Online(hot) replacement */
++	CSIO_HWE_RESUME,         /* HW resume for Online(hot) replacement */
++	CSIO_HWE_MAX,		 /* Max HW event */
++};
++
++/* hw stats */
++struct csio_hw_stats {
++	uint32_t	n_evt_activeq;	/* Number of event in active Q */
++	uint32_t	n_evt_freeq;	/* Number of event in free Q */
++	uint32_t	n_evt_drop;	/* Number of event droped */
++	uint32_t	n_evt_unexp;	/* Number of unexpected events */
++	uint32_t	n_pcich_offline;/* Number of pci channel offline */
++	uint32_t	n_lnlkup_miss;  /* Number of lnode lookup miss */
++	uint32_t	n_cpl_fw6_msg;	/* Number of cpl fw6 message*/
++	uint32_t	n_cpl_fw6_pld;	/* Number of cpl fw6 payload*/
++	uint32_t	n_cpl_unexp;	/* Number of unexpected cpl */
++	uint32_t	n_mbint_unexp;	/* Number of unexpected mbox */
++					/* interrupt */
++	uint32_t	n_plint_unexp;	/* Number of unexpected PL */
++					/* interrupt */
++	uint32_t	n_plint_cnt;	/* Number of PL interrupt */
++	uint32_t	n_int_stray;	/* Number of stray interrupt */
++	uint32_t	n_err;		/* Number of hw errors */
++	uint32_t	n_err_fatal;	/* Number of fatal errors */
++	uint32_t	n_err_nomem;	/* Number of memory alloc failure */
++	uint32_t	n_err_io;	/* Number of IO failure */
++	enum csio_hw_ev	n_evt_sm[CSIO_HWE_MAX];	/* Number of sm events */
++	uint64_t	n_reset_start;  /* Start time after the reset */
++	uint32_t	rsvd1;
++};
++
++/* Defines for hw->flags */
++#define CSIO_HWF_MASTER			0x00000001	/* This is the Master
++							 * function for the
++							 * card.
++							 */
++#define	CSIO_HWF_HW_INTR_ENABLED	0x00000002	/* Are HW Interrupt
++							 * enable bit set?
++							 */
++#define	CSIO_HWF_FWEVT_PENDING		0x00000004	/* FW events pending */
++#define	CSIO_HWF_Q_MEM_ALLOCED		0x00000008	/* Queues have been
++							 * allocated memory.
++							 */
++#define	CSIO_HWF_Q_FW_ALLOCED		0x00000010	/* Queues have been
++							 * allocated in FW.
++							 */
++#define CSIO_HWF_VPD_VALID		0x00000020	/* Valid VPD copied */
++#define CSIO_HWF_DEVID_CACHED		0X00000040	/* PCI vendor & device
++							 * id cached */
++#define	CSIO_HWF_FWEVT_STOP		0x00000080	/* Stop processing
++							 * FW events
++							 */
++#define CSIO_HWF_USING_SOFT_PARAMS	0x00000100      /* Using FW config
++							 * params
++							 */
++#define	CSIO_HWF_HOST_INTR_ENABLED	0x00000200	/* Are host interrupts
++							 * enabled?
++							 */
++
++#define csio_is_hw_intr_enabled(__hw)	\
++				((__hw)->flags & CSIO_HWF_HW_INTR_ENABLED)
++#define csio_is_host_intr_enabled(__hw)	\
++				((__hw)->flags & CSIO_HWF_HOST_INTR_ENABLED)
++#define csio_is_hw_master(__hw)		((__hw)->flags & CSIO_HWF_MASTER)
++#define csio_is_valid_vpd(__hw)		((__hw)->flags & CSIO_HWF_VPD_VALID)
++#define csio_is_dev_id_cached(__hw)	((__hw)->flags & CSIO_HWF_DEVID_CACHED)
++#define csio_valid_vpd_copied(__hw)	((__hw)->flags |= CSIO_HWF_VPD_VALID)
++#define csio_dev_id_cached(__hw)	((__hw)->flags |= CSIO_HWF_DEVID_CACHED)
++
++/* Defines for intr_mode */
++enum csio_intr_mode {
++	CSIO_IM_NONE = 0,
++	CSIO_IM_INTX = 1,
++	CSIO_IM_MSI  = 2,
++	CSIO_IM_MSIX = 3,
++};
++
++/* Master HW structure: One per function */
++struct csio_hw {
++	struct csio_sm		sm;			/* State machine: should
++							 * be the 1st member.
++							 */
++	spinlock_t		lock;			/* Lock for hw */
++
++	struct csio_scsim	scsim;			/* SCSI module*/
++	struct csio_wrm		wrm;			/* Work request module*/
++	struct pci_dev		*pdev;			/* PCI device */
++
++	void __iomem		*regstart;		/* Virtual address of
++							 * register map
++							 */
++	/* SCSI queue sets */
++	uint32_t		num_sqsets;		/* Number of SCSI
++							 * queue sets */
++	uint32_t		num_scsi_msix_cpus;	/* Number of CPUs that
++							 * will be used
++							 * for ingress
++							 * processing.
++							 */
++
++	struct csio_scsi_qset	sqset[CSIO_MAX_PPORTS][CSIO_MAX_SCSI_CPU];
++	struct csio_scsi_cpu_info scsi_cpu_info[CSIO_MAX_PPORTS];
++
++	uint32_t		evtflag;		/* Event flag  */
++	uint32_t		flags;			/* HW flags */
++
++	struct csio_mgmtm	mgmtm;			/* management module */
++	struct csio_mbm		mbm;			/* Mailbox module */
++
++	/* Lnodes */
++	uint32_t		num_lns;		/* Number of lnodes */
++	struct csio_lnode	*rln;			/* Root lnode */
++	struct list_head	sln_head;		/* Sibling node list
++							 * list
++							 */
++	int			intr_iq_idx;		/* Forward interrupt
++							 * queue.
++							 */
++	int			fwevt_iq_idx;		/* FW evt queue */
++	struct work_struct	evtq_work;		/* Worker thread for
++							 * HW events.
++							 */
++	struct list_head	evt_free_q;		/* freelist of evt
++							 * elements
++							 */
++	struct list_head	evt_active_q;		/* active evt queue*/
++
++	/* board related info */
++	char			name[32];
++	char			hw_ver[16];
++	char			model_desc[32];
++	char			drv_version[32];
++	char			fwrev_str[32];
++	uint32_t		optrom_ver;
++	uint32_t		fwrev;
++	uint32_t		tp_vers;
++	char			chip_ver;
++	uint32_t		cfg_finiver;
++	uint32_t		cfg_finicsum;
++	uint32_t		cfg_cfcsum;
++	uint8_t			cfg_csum_status;
++	uint8_t			cfg_store;
++	enum csio_dev_state	fw_state;
++	struct csio_vpd		vpd;
++
++	uint8_t			pfn;			/* Physical Function
++							 * number
++							 */
++	uint32_t		port_vec;		/* Port vector */
++	uint8_t			num_pports;		/* Number of physical
++							 * ports.
++							 */
++	uint8_t			rst_retries;		/* Reset retries */
++	uint8_t			cur_evt;		/* current s/m evt */
++	uint8_t			prev_evt;		/* Previous s/m evt */
++	uint32_t		dev_num;		/* device number */
++	struct csio_pport	pport[CSIO_MAX_PPORTS];	/* Ports (XGMACs) */
++	struct csio_hw_params	params;			/* Hw parameters */
++
++	struct pci_pool		*scsi_pci_pool;		/* PCI pool for SCSI */
++	mempool_t		*mb_mempool;		/* Mailbox memory pool*/
++	mempool_t		*rnode_mempool;		/* rnode memory pool */
++
++	/* Interrupt */
++	enum csio_intr_mode	intr_mode;		/* INTx, MSI, MSIX */
++	uint32_t		fwevt_intr_idx;		/* FW evt MSIX/interrupt
++							 * index
++							 */
++	uint32_t		nondata_intr_idx;	/* nondata MSIX/intr
++							 * idx
++							 */
++
++	uint8_t			cfg_neq;		/* FW configured no of
++							 * egress queues
++							 */
++	uint8_t			cfg_niq;		/* FW configured no of
++							 * iq queues.
++							 */
++
++	struct csio_fcoe_res_info  fres_info;		/* Fcoe resource info */
++
++	/* MSIX vectors */
++	struct csio_msix_entries msix_entries[CSIO_MAX_MSIX_VECS];
++
++	struct dentry		*debugfs_root;		/* Debug FS */
++	struct csio_hw_stats	stats;			/* Hw statistics */
++};
++
++/* Register access macros */
++#define csio_reg(_b, _r)		((_b) + (_r))
++
++#define	csio_rd_reg8(_h, _r)		readb(csio_reg((_h)->regstart, (_r)))
++#define	csio_rd_reg16(_h, _r)		readw(csio_reg((_h)->regstart, (_r)))
++#define	csio_rd_reg32(_h, _r)		readl(csio_reg((_h)->regstart, (_r)))
++#define	csio_rd_reg64(_h, _r)		readq(csio_reg((_h)->regstart, (_r)))
++
++#define	csio_wr_reg8(_h, _v, _r)	writeb((_v), \
++						csio_reg((_h)->regstart, (_r)))
++#define	csio_wr_reg16(_h, _v, _r)	writew((_v), \
++						csio_reg((_h)->regstart, (_r)))
++#define	csio_wr_reg32(_h, _v, _r)	writel((_v), \
++						csio_reg((_h)->regstart, (_r)))
++#define	csio_wr_reg64(_h, _v, _r)	writeq((_v), \
++						csio_reg((_h)->regstart, (_r)))
++
++void csio_set_reg_field(struct csio_hw *, uint32_t, uint32_t, uint32_t);
++
++/* Core clocks <==> uSecs */
++static inline uint32_t
++csio_core_ticks_to_us(struct csio_hw *hw, uint32_t ticks)
++{
++	/* add Core Clock / 2 to round ticks to nearest uS */
++	return (ticks * 1000 + hw->vpd.cclk/2) / hw->vpd.cclk;
++}
++
++static inline uint32_t
++csio_us_to_core_ticks(struct csio_hw *hw, uint32_t us)
++{
++	return (us * hw->vpd.cclk) / 1000;
++}
++
++/* Easy access macros */
++#define csio_hw_to_wrm(hw)		((struct csio_wrm *)(&(hw)->wrm))
++#define csio_hw_to_mbm(hw)		((struct csio_mbm *)(&(hw)->mbm))
++#define csio_hw_to_scsim(hw)		((struct csio_scsim *)(&(hw)->scsim))
++#define csio_hw_to_mgmtm(hw)		((struct csio_mgmtm *)(&(hw)->mgmtm))
++
++#define CSIO_PCI_BUS(hw)		((hw)->pdev->bus->number)
++#define CSIO_PCI_DEV(hw)		(PCI_SLOT((hw)->pdev->devfn))
++#define CSIO_PCI_FUNC(hw)		(PCI_FUNC((hw)->pdev->devfn))
++
++#define csio_set_fwevt_intr_idx(_h, _i)		((_h)->fwevt_intr_idx = (_i))
++#define csio_get_fwevt_intr_idx(_h)		((_h)->fwevt_intr_idx)
++#define csio_set_nondata_intr_idx(_h, _i)	((_h)->nondata_intr_idx = (_i))
++#define csio_get_nondata_intr_idx(_h)		((_h)->nondata_intr_idx)
++
++/* Printing/logging */
++#define CSIO_DEVID(__dev)		((__dev)->dev_num)
++#define CSIO_DEVID_LO(__dev)		(CSIO_DEVID((__dev)) & 0xFFFF)
++#define CSIO_DEVID_HI(__dev)		((CSIO_DEVID((__dev)) >> 16) & 0xFFFF)
++
++#define csio_info(__hw, __fmt, ...)					\
++			dev_info(&(__hw)->pdev->dev, __fmt, ##__VA_ARGS__)
++
++#define csio_fatal(__hw, __fmt, ...)					\
++			dev_crit(&(__hw)->pdev->dev, __fmt, ##__VA_ARGS__)
++
++#define csio_err(__hw, __fmt, ...)					\
++			dev_err(&(__hw)->pdev->dev, __fmt, ##__VA_ARGS__)
++
++#define csio_warn(__hw, __fmt, ...)					\
++			dev_warn(&(__hw)->pdev->dev, __fmt, ##__VA_ARGS__)
++
++#ifdef __CSIO_DEBUG__
++#define csio_dbg(__hw, __fmt, ...)					\
++			csio_info((__hw), __fmt, ##__VA_ARGS__);
++#else
++#define csio_dbg(__hw, __fmt, ...)
++#endif
++
++int csio_mgmt_req_lookup(struct csio_mgmtm *, struct csio_ioreq *);
++void csio_hw_intr_disable(struct csio_hw *);
++int csio_hw_slow_intr_handler(struct csio_hw *hw);
++int csio_hw_start(struct csio_hw *);
++int csio_hw_stop(struct csio_hw *);
++int csio_hw_reset(struct csio_hw *);
++int csio_is_hw_ready(struct csio_hw *);
++int csio_is_hw_removing(struct csio_hw *);
++
++int csio_fwevtq_handler(struct csio_hw *);
++void csio_evtq_worker(struct work_struct *);
++int csio_enqueue_evt(struct csio_hw *hw, enum csio_evt type,
++				void *evt_msg, uint16_t len);
++void csio_evtq_flush(struct csio_hw *hw);
++
++int csio_request_irqs(struct csio_hw *);
++void csio_intr_enable(struct csio_hw *);
++void csio_intr_disable(struct csio_hw *, bool);
++
++struct csio_lnode *csio_lnode_alloc(struct csio_hw *);
++int csio_config_queues(struct csio_hw *);
++
++int csio_hw_mc_read(struct csio_hw *, uint32_t,
++			      uint32_t *, uint64_t *);
++int csio_hw_edc_read(struct csio_hw *, int, uint32_t, uint32_t *,
++			       uint64_t *);
++int csio_hw_init(struct csio_hw *);
++void csio_hw_exit(struct csio_hw *);
++#endif /* ifndef __CSIO_HW_H__ */
+diff --git a/drivers/scsi/csiostor/csio_init.h b/drivers/scsi/csiostor/csio_init.h
+new file mode 100644
+index 0000000..0838fd7
+--- /dev/null
++++ b/drivers/scsi/csiostor/csio_init.h
+@@ -0,0 +1,158 @@
++/*
++ * This file is part of the Chelsio FCoE driver for Linux.
++ *
++ * Copyright (c) 2008-2012 Chelsio Communications, Inc. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#ifndef __CSIO_INIT_H__
++#define __CSIO_INIT_H__
++
++#include <linux/pci.h>
++#include <linux/if_ether.h>
++#include <scsi/scsi.h>
++#include <scsi/scsi_device.h>
++#include <scsi/scsi_host.h>
++#include <scsi/scsi_transport_fc.h>
++
++#include "csio_scsi.h"
++#include "csio_lnode.h"
++#include "csio_rnode.h"
++#include "csio_hw.h"
++
++#define CSIO_DRV_AUTHOR			"Chelsio Communications"
++#define CSIO_DRV_LICENSE		"Dual BSD/GPL"
++#define CSIO_DRV_DESC			"Chelsio FCoE driver"
++#define CSIO_DRV_VERSION		"1.0.0"
++
++#define CSIO_DEVICE(devid, idx)					\
++{ PCI_VENDOR_ID_CHELSIO, (devid), PCI_ANY_ID, PCI_ANY_ID, 0, 0, (idx) }
++
++#define CSIO_IS_T4_FPGA(_dev)		(((_dev) == CSIO_DEVID_PE10K) ||\
++					 ((_dev) == CSIO_DEVID_PE10K_PF1))
++
++/* FCoE device IDs */
++#define CSIO_DEVID_PE10K		0xA000
++#define CSIO_DEVID_PE10K_PF1		0xA001
++#define CSIO_DEVID_T440DBG_FCOE		0x4600
++#define CSIO_DEVID_T420CR_FCOE		0x4601
++#define CSIO_DEVID_T422CR_FCOE		0x4602
++#define CSIO_DEVID_T440CR_FCOE		0x4603
++#define CSIO_DEVID_T420BCH_FCOE		0x4604
++#define CSIO_DEVID_T440BCH_FCOE		0x4605
++#define CSIO_DEVID_T440CH_FCOE		0x4606
++#define CSIO_DEVID_T420SO_FCOE		0x4607
++#define CSIO_DEVID_T420CX_FCOE		0x4608
++#define CSIO_DEVID_T420BT_FCOE		0x4609
++#define CSIO_DEVID_T404BT_FCOE		0x460A
++#define CSIO_DEVID_B420_FCOE		0x460B
++#define CSIO_DEVID_B404_FCOE		0x460C
++#define CSIO_DEVID_T480CR_FCOE		0x460D
++#define CSIO_DEVID_T440LPCR_FCOE	0x460E
++
++extern struct fc_function_template csio_fc_transport_funcs;
++extern struct fc_function_template csio_fc_transport_vport_funcs;
++
++void csio_fchost_attr_init(struct csio_lnode *);
++
++/* INTx handlers */
++void csio_scsi_intx_handler(struct csio_hw *, void *, uint32_t,
++			       struct csio_fl_dma_buf *, void *);
++
++void csio_fwevt_intx_handler(struct csio_hw *, void *, uint32_t,
++				struct csio_fl_dma_buf *, void *);
++
++/* Common os lnode APIs */
++void csio_lnodes_block_request(struct csio_hw *);
++void csio_lnodes_unblock_request(struct csio_hw *);
++void csio_lnodes_block_by_port(struct csio_hw *, uint8_t);
++void csio_lnodes_unblock_by_port(struct csio_hw *, uint8_t);
++
++struct csio_lnode *csio_shost_init(struct csio_hw *, struct device *, bool,
++					struct csio_lnode *);
++void csio_shost_exit(struct csio_lnode *);
++void csio_lnodes_exit(struct csio_hw *, bool);
++
++static inline struct Scsi_Host *
++csio_ln_to_shost(struct csio_lnode *ln)
++{
++	return container_of((void *)ln, struct Scsi_Host, hostdata[0]);
++}
++
++/* SCSI -- locking version of get/put ioreqs  */
++static inline struct csio_ioreq *
++csio_get_scsi_ioreq_lock(struct csio_hw *hw, struct csio_scsim *scsim)
++{
++	struct csio_ioreq *ioreq;
++	unsigned long flags;
++
++	spin_lock_irqsave(&scsim->freelist_lock, flags);
++	ioreq = csio_get_scsi_ioreq(scsim);
++	spin_unlock_irqrestore(&scsim->freelist_lock, flags);
++
++	return ioreq;
++}
++
++static inline void
++csio_put_scsi_ioreq_lock(struct csio_hw *hw, struct csio_scsim *scsim,
++			 struct csio_ioreq *ioreq)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&scsim->freelist_lock, flags);
++	csio_put_scsi_ioreq(scsim, ioreq);
++	spin_unlock_irqrestore(&scsim->freelist_lock, flags);
++}
++
++/* Called in interrupt context */
++static inline void
++csio_put_scsi_ioreq_list_lock(struct csio_hw *hw, struct csio_scsim *scsim,
++			      struct list_head *reqlist, int n)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&scsim->freelist_lock, flags);
++	csio_put_scsi_ioreq_list(scsim, reqlist, n);
++	spin_unlock_irqrestore(&scsim->freelist_lock, flags);
++}
++
++/* Called in interrupt context */
++static inline void
++csio_put_scsi_ddp_list_lock(struct csio_hw *hw, struct csio_scsim *scsim,
++			      struct list_head *reqlist, int n)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&hw->lock, flags);
++	csio_put_scsi_ddp_list(scsim, reqlist, n);
++	spin_unlock_irqrestore(&hw->lock, flags);
++}
++
++#endif /* ifndef __CSIO_INIT_H__ */
+diff --git a/drivers/scsi/csiostor/t4fw_api_stor.h b/drivers/scsi/csiostor/t4fw_api_stor.h
+new file mode 100644
+index 0000000..b96903a
+--- /dev/null
++++ b/drivers/scsi/csiostor/t4fw_api_stor.h
+@@ -0,0 +1,578 @@
++/*
++ * This file is part of the Chelsio FCoE driver for Linux.
++ *
++ * Copyright (c) 2009-2010 Chelsio Communications, Inc. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#ifndef _T4FW_API_STOR_H_
++#define _T4FW_API_STOR_H_
++
++
++/******************************************************************************
++ *   R E T U R N   V A L U E S
++ ********************************/
++
++enum fw_retval {
++	FW_SUCCESS		= 0,	/* completed sucessfully */
++	FW_EPERM		= 1,	/* operation not permitted */
++	FW_ENOENT		= 2,	/* no such file or directory */
++	FW_EIO			= 5,	/* input/output error; hw bad */
++	FW_ENOEXEC		= 8,	/* exec format error; inv microcode */
++	FW_EAGAIN		= 11,	/* try again */
++	FW_ENOMEM		= 12,	/* out of memory */
++	FW_EFAULT		= 14,	/* bad address; fw bad */
++	FW_EBUSY		= 16,	/* resource busy */
++	FW_EEXIST		= 17,	/* file exists */
++	FW_EINVAL		= 22,	/* invalid argument */
++	FW_ENOSPC		= 28,	/* no space left on device */
++	FW_ENOSYS		= 38,	/* functionality not implemented */
++	FW_EPROTO		= 71,	/* protocol error */
++	FW_EADDRINUSE		= 98,	/* address already in use */
++	FW_EADDRNOTAVAIL	= 99,	/* cannot assigned requested address */
++	FW_ENETDOWN		= 100,	/* network is down */
++	FW_ENETUNREACH		= 101,	/* network is unreachable */
++	FW_ENOBUFS		= 105,	/* no buffer space available */
++	FW_ETIMEDOUT		= 110,	/* timeout */
++	FW_EINPROGRESS		= 115,	/* fw internal */
++	FW_SCSI_ABORT_REQUESTED	= 128,	/* */
++	FW_SCSI_ABORT_TIMEDOUT	= 129,	/* */
++	FW_SCSI_ABORTED		= 130,	/* */
++	FW_SCSI_CLOSE_REQUESTED	= 131,	/* */
++	FW_ERR_LINK_DOWN	= 132,	/* */
++	FW_RDEV_NOT_READY	= 133,	/* */
++	FW_ERR_RDEV_LOST	= 134,	/* */
++	FW_ERR_RDEV_LOGO	= 135,	/* */
++	FW_FCOE_NO_XCHG		= 136,	/* */
++	FW_SCSI_RSP_ERR		= 137,	/* */
++	FW_ERR_RDEV_IMPL_LOGO	= 138,	/* */
++	FW_SCSI_UNDER_FLOW_ERR  = 139,	/* */
++	FW_SCSI_OVER_FLOW_ERR   = 140,	/* */
++	FW_SCSI_DDP_ERR		= 141,	/* DDP error*/
++	FW_SCSI_TASK_ERR	= 142,	/* No SCSI tasks available */
++};
++
++enum fw_fcoe_link_sub_op {
++	FCOE_LINK_DOWN	= 0x0,
++	FCOE_LINK_UP	= 0x1,
++	FCOE_LINK_COND	= 0x2,
++};
++
++enum fw_fcoe_link_status {
++	FCOE_LINKDOWN	= 0x0,
++	FCOE_LINKUP	= 0x1,
++};
++
++enum fw_ofld_prot {
++	PROT_FCOE	= 0x1,
++	PROT_ISCSI	= 0x2,
++};
++
++enum rport_type_fcoe {
++	FLOGI_VFPORT	= 0x1,		/* 0xfffffe */
++	FDISC_VFPORT	= 0x2,		/* 0xfffffe */
++	NS_VNPORT	= 0x3,		/* 0xfffffc */
++	REG_FC4_VNPORT	= 0x4,		/* any FC4 type VN_PORT */
++	REG_VNPORT	= 0x5,		/* 0xfffxxx - non FC4 port in switch */
++	FDMI_VNPORT	= 0x6,		/* 0xfffffa */
++	FAB_CTLR_VNPORT	= 0x7,		/* 0xfffffd */
++};
++
++enum event_cause_fcoe {
++	PLOGI_ACC_RCVD		= 0x01,
++	PLOGI_RJT_RCVD		= 0x02,
++	PLOGI_RCVD		= 0x03,
++	PLOGO_RCVD		= 0x04,
++	PRLI_ACC_RCVD		= 0x05,
++	PRLI_RJT_RCVD		= 0x06,
++	PRLI_RCVD		= 0x07,
++	PRLO_RCVD		= 0x08,
++	NPORT_ID_CHGD		= 0x09,
++	FLOGO_RCVD		= 0x0a,
++	CLR_VIRT_LNK_RCVD	= 0x0b,
++	FLOGI_ACC_RCVD		= 0x0c,
++	FLOGI_RJT_RCVD		= 0x0d,
++	FDISC_ACC_RCVD		= 0x0e,
++	FDISC_RJT_RCVD		= 0x0f,
++	FLOGI_TMO_MAX_RETRY	= 0x10,
++	IMPL_LOGO_ADISC_ACC	= 0x11,
++	IMPL_LOGO_ADISC_RJT	= 0x12,
++	IMPL_LOGO_ADISC_CNFLT	= 0x13,
++	PRLI_TMO		= 0x14,
++	ADISC_TMO		= 0x15,
++	RSCN_DEV_LOST		= 0x16,
++	SCR_ACC_RCVD		= 0x17,
++	ADISC_RJT_RCVD		= 0x18,
++	LOGO_SNT		= 0x19,
++	PROTO_ERR_IMPL_LOGO	= 0x1a,
++};
++
++enum fcoe_cmn_type {
++	FCOE_ELS,
++	FCOE_CT,
++	FCOE_SCSI_CMD,
++	FCOE_UNSOL_ELS,
++};
++
++enum fw_wr_stor_opcodes {
++	FW_RDEV_WR                     = 0x38,
++	FW_FCOE_ELS_CT_WR              = 0x30,
++	FW_SCSI_WRITE_WR               = 0x31,
++	FW_SCSI_READ_WR                = 0x32,
++	FW_SCSI_CMD_WR                 = 0x33,
++	FW_SCSI_ABRT_CLS_WR            = 0x34,
++};
++
++struct fw_rdev_wr {
++	__be32 op_to_immdlen;
++	__be32 alloc_to_len16;
++	__be64 cookie;
++	u8     protocol;
++	u8     event_cause;
++	u8     cur_state;
++	u8     prev_state;
++	__be32 flags_to_assoc_flowid;
++	union rdev_entry {
++		struct fcoe_rdev_entry {
++			__be32 flowid;
++			u8     protocol;
++			u8     event_cause;
++			u8     flags;
++			u8     rjt_reason;
++			u8     cur_login_st;
++			u8     prev_login_st;
++			__be16 rcv_fr_sz;
++			u8     rd_xfer_rdy_to_rport_type;
++			u8     vft_to_qos;
++			u8     org_proc_assoc_to_acc_rsp_code;
++			u8     enh_disc_to_tgt;
++			u8     wwnn[8];
++			u8     wwpn[8];
++			__be16 iqid;
++			u8     fc_oui[3];
++			u8     r_id[3];
++		} fcoe_rdev;
++		struct iscsi_rdev_entry {
++			__be32 flowid;
++			u8     protocol;
++			u8     event_cause;
++			u8     flags;
++			u8     r3;
++			__be16 iscsi_opts;
++			__be16 tcp_opts;
++			__be16 ip_opts;
++			__be16 max_rcv_len;
++			__be16 max_snd_len;
++			__be16 first_brst_len;
++			__be16 max_brst_len;
++			__be16 r4;
++			__be16 def_time2wait;
++			__be16 def_time2ret;
++			__be16 nop_out_intrvl;
++			__be16 non_scsi_to;
++			__be16 isid;
++			__be16 tsid;
++			__be16 port;
++			__be16 tpgt;
++			u8     r5[6];
++			__be16 iqid;
++		} iscsi_rdev;
++	} u;
++};
++
++#define FW_RDEV_WR_FLOWID_GET(x)	(((x) >> 8) & 0xfffff)
++#define FW_RDEV_WR_ASSOC_FLOWID_GET(x)	(((x) >> 0) & 0xfffff)
++#define FW_RDEV_WR_RPORT_TYPE_GET(x)	(((x) >> 0) & 0x1f)
++#define FW_RDEV_WR_NPIV_GET(x)		(((x) >> 6) & 0x1)
++#define FW_RDEV_WR_CLASS_GET(x)		(((x) >> 4) & 0x3)
++#define FW_RDEV_WR_TASK_RETRY_ID_GET(x)	(((x) >> 5) & 0x1)
++#define FW_RDEV_WR_RETRY_GET(x)		(((x) >> 4) & 0x1)
++#define FW_RDEV_WR_CONF_CMPL_GET(x)	(((x) >> 3) & 0x1)
++#define FW_RDEV_WR_INI_GET(x)		(((x) >> 1) & 0x1)
++#define FW_RDEV_WR_TGT_GET(x)		(((x) >> 0) & 0x1)
++
++struct fw_fcoe_els_ct_wr {
++	__be32 op_immdlen;
++	__be32 flowid_len16;
++	__be64 cookie;
++	__be16 iqid;
++	u8     tmo_val;
++	u8     els_ct_type;
++	u8     ctl_pri;
++	u8     cp_en_class;
++	__be16 xfer_cnt;
++	u8     fl_to_sp;
++	u8     l_id[3];
++	u8     r5;
++	u8     r_id[3];
++	__be64 rsp_dmaaddr;
++	__be32 rsp_dmalen;
++	__be32 r6;
++};
++
++#define FW_FCOE_ELS_CT_WR_OPCODE(x)		((x) << 24)
++#define FW_FCOE_ELS_CT_WR_OPCODE_GET(x)		(((x) >> 24) & 0xff)
++#define FW_FCOE_ELS_CT_WR_IMMDLEN(x)		((x) << 0)
++#define FW_FCOE_ELS_CT_WR_IMMDLEN_GET(x)	(((x) >> 0) & 0xff)
++#define FW_FCOE_ELS_CT_WR_SP(x)			((x) << 0)
++
++struct fw_scsi_write_wr {
++	__be32 op_immdlen;
++	__be32 flowid_len16;
++	__be64 cookie;
++	__be16 iqid;
++	u8     tmo_val;
++	u8     use_xfer_cnt;
++	union fw_scsi_write_priv {
++		struct fcoe_write_priv {
++			u8   ctl_pri;
++			u8   cp_en_class;
++			u8   r3_lo[2];
++		} fcoe;
++		struct iscsi_write_priv {
++			u8   r3[4];
++		} iscsi;
++	} u;
++	__be32 xfer_cnt;
++	__be32 ini_xfer_cnt;
++	__be64 rsp_dmaaddr;
++	__be32 rsp_dmalen;
++	__be32 r4;
++};
++
++#define FW_SCSI_WRITE_WR_IMMDLEN(x)	((x) << 0)
++
++struct fw_scsi_read_wr {
++	__be32 op_immdlen;
++	__be32 flowid_len16;
++	__be64 cookie;
++	__be16 iqid;
++	u8     tmo_val;
++	u8     use_xfer_cnt;
++	union fw_scsi_read_priv {
++		struct fcoe_read_priv {
++			u8   ctl_pri;
++			u8   cp_en_class;
++			u8   r3_lo[2];
++		} fcoe;
++		struct iscsi_read_priv {
++			u8   r3[4];
++		} iscsi;
++	} u;
++	__be32 xfer_cnt;
++	__be32 ini_xfer_cnt;
++	__be64 rsp_dmaaddr;
++	__be32 rsp_dmalen;
++	__be32 r4;
++};
++
++#define FW_SCSI_READ_WR_IMMDLEN(x)	((x) << 0)
++
++struct fw_scsi_cmd_wr {
++	__be32 op_immdlen;
++	__be32 flowid_len16;
++	__be64 cookie;
++	__be16 iqid;
++	u8     tmo_val;
++	u8     r3;
++	union fw_scsi_cmd_priv {
++		struct fcoe_cmd_priv {
++			u8   ctl_pri;
++			u8   cp_en_class;
++			u8   r4_lo[2];
++		} fcoe;
++		struct iscsi_cmd_priv {
++			u8   r4[4];
++		} iscsi;
++	} u;
++	u8     r5[8];
++	__be64 rsp_dmaaddr;
++	__be32 rsp_dmalen;
++	__be32 r6;
++};
++
++#define FW_SCSI_CMD_WR_IMMDLEN(x)	((x) << 0)
++
++#define SCSI_ABORT 0
++#define SCSI_CLOSE 1
++
++struct fw_scsi_abrt_cls_wr {
++	__be32 op_immdlen;
++	__be32 flowid_len16;
++	__be64 cookie;
++	__be16 iqid;
++	u8     tmo_val;
++	u8     sub_opcode_to_chk_all_io;
++	u8     r3[4];
++	__be64 t_cookie;
++};
++
++#define FW_SCSI_ABRT_CLS_WR_SUB_OPCODE(x)	((x) << 2)
++#define FW_SCSI_ABRT_CLS_WR_SUB_OPCODE_GET(x)	(((x) >> 2) & 0x3f)
++#define FW_SCSI_ABRT_CLS_WR_CHK_ALL_IO(x)	((x) << 0)
++
++enum fw_cmd_stor_opcodes {
++	FW_FCOE_RES_INFO_CMD           = 0x31,
++	FW_FCOE_LINK_CMD               = 0x32,
++	FW_FCOE_VNP_CMD                = 0x33,
++	FW_FCOE_SPARAMS_CMD            = 0x35,
++	FW_FCOE_STATS_CMD              = 0x37,
++	FW_FCOE_FCF_CMD                = 0x38,
++};
++
++struct fw_fcoe_res_info_cmd {
++	__be32 op_to_read;
++	__be32 retval_len16;
++	__be16 e_d_tov;
++	__be16 r_a_tov_seq;
++	__be16 r_a_tov_els;
++	__be16 r_r_tov;
++	__be32 max_xchgs;
++	__be32 max_ssns;
++	__be32 used_xchgs;
++	__be32 used_ssns;
++	__be32 max_fcfs;
++	__be32 max_vnps;
++	__be32 used_fcfs;
++	__be32 used_vnps;
++};
++
++struct fw_fcoe_link_cmd {
++	__be32 op_to_portid;
++	__be32 retval_len16;
++	__be32 sub_opcode_fcfi;
++	u8     r3;
++	u8     lstatus;
++	__be16 flags;
++	u8     r4;
++	u8     set_vlan;
++	__be16 vlan_id;
++	__be32 vnpi_pkd;
++	__be16 r6;
++	u8     phy_mac[6];
++	u8     vnport_wwnn[8];
++	u8     vnport_wwpn[8];
++};
++
++#define FW_FCOE_LINK_CMD_PORTID(x)	((x) << 0)
++#define FW_FCOE_LINK_CMD_PORTID_GET(x)	(((x) >> 0) & 0xf)
++#define FW_FCOE_LINK_CMD_SUB_OPCODE(x)  ((x) << 24U)
++#define FW_FCOE_LINK_CMD_FCFI(x)	((x) << 0)
++#define FW_FCOE_LINK_CMD_FCFI_GET(x)	(((x) >> 0) & 0xffffff)
++#define FW_FCOE_LINK_CMD_VNPI_GET(x)	(((x) >> 0) & 0xfffff)
++
++struct fw_fcoe_vnp_cmd {
++	__be32 op_to_fcfi;
++	__be32 alloc_to_len16;
++	__be32 gen_wwn_to_vnpi;
++	__be32 vf_id;
++	__be16 iqid;
++	u8   vnport_mac[6];
++	u8   vnport_wwnn[8];
++	u8   vnport_wwpn[8];
++	u8   cmn_srv_parms[16];
++	u8   clsp_word_0_1[8];
++};
++
++#define FW_FCOE_VNP_CMD_FCFI(x)		((x) << 0)
++#define FW_FCOE_VNP_CMD_ALLOC		(1U << 31)
++#define FW_FCOE_VNP_CMD_FREE		(1U << 30)
++#define FW_FCOE_VNP_CMD_MODIFY		(1U << 29)
++#define FW_FCOE_VNP_CMD_GEN_WWN		(1U << 22)
++#define FW_FCOE_VNP_CMD_VFID_EN		(1U << 20)
++#define FW_FCOE_VNP_CMD_VNPI(x)		((x) << 0)
++#define FW_FCOE_VNP_CMD_VNPI_GET(x)	(((x) >> 0) & 0xfffff)
++
++struct fw_fcoe_sparams_cmd {
++	__be32 op_to_portid;
++	__be32 retval_len16;
++	u8     r3[7];
++	u8     cos;
++	u8     lport_wwnn[8];
++	u8     lport_wwpn[8];
++	u8     cmn_srv_parms[16];
++	u8     cls_srv_parms[16];
++};
++
++#define FW_FCOE_SPARAMS_CMD_PORTID(x)	((x) << 0)
++
++struct fw_fcoe_stats_cmd {
++	__be32 op_to_flowid;
++	__be32 free_to_len16;
++	union fw_fcoe_stats {
++		struct fw_fcoe_stats_ctl {
++			u8   nstats_port;
++			u8   port_valid_ix;
++			__be16 r6;
++			__be32 r7;
++			__be64 stat0;
++			__be64 stat1;
++			__be64 stat2;
++			__be64 stat3;
++			__be64 stat4;
++			__be64 stat5;
++		} ctl;
++		struct fw_fcoe_port_stats {
++			__be64 tx_bcast_bytes;
++			__be64 tx_bcast_frames;
++			__be64 tx_mcast_bytes;
++			__be64 tx_mcast_frames;
++			__be64 tx_ucast_bytes;
++			__be64 tx_ucast_frames;
++			__be64 tx_drop_frames;
++			__be64 tx_offload_bytes;
++			__be64 tx_offload_frames;
++			__be64 rx_bcast_bytes;
++			__be64 rx_bcast_frames;
++			__be64 rx_mcast_bytes;
++			__be64 rx_mcast_frames;
++			__be64 rx_ucast_bytes;
++			__be64 rx_ucast_frames;
++			__be64 rx_err_frames;
++		} port_stats;
++		struct fw_fcoe_fcf_stats {
++			__be32 fip_tx_bytes;
++			__be32 fip_tx_fr;
++			__be64 fcf_ka;
++			__be64 mcast_adv_rcvd;
++			__be16 ucast_adv_rcvd;
++			__be16 sol_sent;
++			__be16 vlan_req;
++			__be16 vlan_rpl;
++			__be16 clr_vlink;
++			__be16 link_down;
++			__be16 link_up;
++			__be16 logo;
++			__be16 flogi_req;
++			__be16 flogi_rpl;
++			__be16 fdisc_req;
++			__be16 fdisc_rpl;
++			__be16 fka_prd_chg;
++			__be16 fc_map_chg;
++			__be16 vfid_chg;
++			u8   no_fka_req;
++			u8   no_vnp;
++		} fcf_stats;
++		struct fw_fcoe_pcb_stats {
++			__be64 tx_bytes;
++			__be64 tx_frames;
++			__be64 rx_bytes;
++			__be64 rx_frames;
++			__be32 vnp_ka;
++			__be32 unsol_els_rcvd;
++			__be64 unsol_cmd_rcvd;
++			__be16 implicit_logo;
++			__be16 flogi_inv_sparm;
++			__be16 fdisc_inv_sparm;
++			__be16 flogi_rjt;
++			__be16 fdisc_rjt;
++			__be16 no_ssn;
++			__be16 mac_flt_fail;
++			__be16 inv_fr_rcvd;
++		} pcb_stats;
++		struct fw_fcoe_scb_stats {
++			__be64 tx_bytes;
++			__be64 tx_frames;
++			__be64 rx_bytes;
++			__be64 rx_frames;
++			__be32 host_abrt_req;
++			__be32 adap_auto_abrt;
++			__be32 adap_abrt_rsp;
++			__be32 host_ios_req;
++			__be16 ssn_offl_ios;
++			__be16 ssn_not_rdy_ios;
++			u8   rx_data_ddp_err;
++			u8   ddp_flt_set_err;
++			__be16 rx_data_fr_err;
++			u8   bad_st_abrt_req;
++			u8   no_io_abrt_req;
++			u8   abort_tmo;
++			u8   abort_tmo_2;
++			__be32 abort_req;
++			u8   no_ppod_res_tmo;
++			u8   bp_tmo;
++			u8   adap_auto_cls;
++			u8   no_io_cls_req;
++			__be32 host_cls_req;
++			__be64 unsol_cmd_rcvd;
++			__be32 plogi_req_rcvd;
++			__be32 prli_req_rcvd;
++			__be16 logo_req_rcvd;
++			__be16 prlo_req_rcvd;
++			__be16 plogi_rjt_rcvd;
++			__be16 prli_rjt_rcvd;
++			__be32 adisc_req_rcvd;
++			__be32 rscn_rcvd;
++			__be32 rrq_req_rcvd;
++			__be32 unsol_els_rcvd;
++			u8   adisc_rjt_rcvd;
++			u8   scr_rjt;
++			u8   ct_rjt;
++			u8   inval_bls_rcvd;
++			__be32 ba_rjt_rcvd;
++		} scb_stats;
++	} u;
++};
++
++#define FW_FCOE_STATS_CMD_FLOWID(x)	((x) << 0)
++#define FW_FCOE_STATS_CMD_FREE		(1U << 30)
++#define FW_FCOE_STATS_CMD_NSTATS(x)	((x) << 4)
++#define FW_FCOE_STATS_CMD_PORT(x)	((x) << 0)
++#define FW_FCOE_STATS_CMD_PORT_VALID	(1U << 7)
++#define FW_FCOE_STATS_CMD_IX(x)		((x) << 0)
++
++struct fw_fcoe_fcf_cmd {
++	__be32 op_to_fcfi;
++	__be32 retval_len16;
++	__be16 priority_pkd;
++	u8     mac[6];
++	u8     name_id[8];
++	u8     fabric[8];
++	__be16 vf_id;
++	__be16 max_fcoe_size;
++	u8     vlan_id;
++	u8     fc_map[3];
++	__be32 fka_adv;
++	__be32 r6;
++	u8     r7_hi;
++	u8     fpma_to_portid;
++	u8     spma_mac[6];
++	__be64 r8;
++};
++
++#define FW_FCOE_FCF_CMD_FCFI(x)		((x) << 0)
++#define FW_FCOE_FCF_CMD_FCFI_GET(x)	(((x) >> 0) & 0xfffff)
++#define FW_FCOE_FCF_CMD_PRIORITY_GET(x)	(((x) >> 0) & 0xff)
++#define FW_FCOE_FCF_CMD_FPMA_GET(x)	(((x) >> 6) & 0x1)
++#define FW_FCOE_FCF_CMD_SPMA_GET(x)	(((x) >> 5) & 0x1)
++#define FW_FCOE_FCF_CMD_LOGIN_GET(x)	(((x) >> 4) & 0x1)
++#define FW_FCOE_FCF_CMD_PORTID_GET(x)	(((x) >> 0) & 0xf)
++
++#endif /* _T4FW_API_STOR_H_ */
 -- 
 1.7.1
-
