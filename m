@@ -1,7 +1,7 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH 03/10] net/macb: change debugging messages
-Date: Wed, 5 Sep 2012 10:19:10 +0200
-Message-ID: <1d9bd330ac3fa84b6f0edc33a1a19f17ea1d696a.1346775479.git.nicolas.ferre@atmel.com>
+Subject: [PATCH 04/10] net/macb: Fix a race in macb_start_xmit()
+Date: Wed, 5 Sep 2012 10:19:11 +0200
+Message-ID: <40f02ee50a29aaec6c949432a1bcf09f4b027181.1346775479.git.nicolas.ferre@atmel.com>
 References: <cover.1346775479.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,109 +17,56 @@ List-Id: netdev.vger.kernel.org
 
 From: Havard Skinnemoen <havard@skinnemoen.net>
 
-Convert some noisy netdev_dbg() statements to netdev_vdbg(). Defining
-DEBUG will no longer fill up the logs; VERBOSE_DEBUG still does.
-Add one more verbose debug for ISR status.
+Fix a race in macb_start_xmit() where we unconditionally set the TSTART bit.
+If an underrun just happened (we do this with interrupts disabled, so it might
+not have been handled yet), the controller starts transmitting from the first
+entry in the ring, which is usually wrong.
+Restart the controller after error handling.
 
 Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
-[nicolas.ferre@atmel.com: split patch in topics, add ISR status]
+[nicolas.ferre@atmel.com: split patch in topics]
 Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 ---
- drivers/net/ethernet/cadence/macb.c |   22 ++++++++++++----------
- 1 file changed, 12 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/cadence/macb.c |   20 +++++++++++++++++++-
+ 1 file changed, 19 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 26ca01e..2228dfc 100644
+index 2228dfc..f4b8adf 100644
 --- a/drivers/net/ethernet/cadence/macb.c
 +++ b/drivers/net/ethernet/cadence/macb.c
-@@ -313,7 +313,7 @@ static void macb_tx(struct macb *bp)
- 	status = macb_readl(bp, TSR);
- 	macb_writel(bp, TSR, status);
- 
--	netdev_dbg(bp->dev, "macb_tx status = %02lx\n", (unsigned long)status);
-+	netdev_vdbg(bp->dev, "macb_tx status = %02lx\n", (unsigned long)status);
- 
- 	if (status & (MACB_BIT(UND) | MACB_BIT(TSR_RLE))) {
- 		int i;
-@@ -380,7 +380,7 @@ static void macb_tx(struct macb *bp)
- 		if (!(bufstat & MACB_BIT(TX_USED)))
- 			break;
- 
--		netdev_dbg(bp->dev, "skb %u (data %p) TX complete\n",
-+		netdev_vdbg(bp->dev, "skb %u (data %p) TX complete\n",
- 			   tail, skb->data);
- 		dma_unmap_single(&bp->pdev->dev, rp->mapping, skb->len,
- 				 DMA_TO_DEVICE);
-@@ -406,7 +406,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 
- 	len = MACB_BFEXT(RX_FRMLEN, bp->rx_ring[last_frag].ctrl);
- 
--	netdev_dbg(bp->dev, "macb_rx_frame frags %u - %u (len %u)\n",
-+	netdev_vdbg(bp->dev, "macb_rx_frame frags %u - %u (len %u)\n",
- 		   first_frag, last_frag, len);
- 
- 	skb = netdev_alloc_skb(bp->dev, len + RX_OFFSET);
-@@ -453,7 +453,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 
- 	bp->stats.rx_packets++;
- 	bp->stats.rx_bytes += len;
--	netdev_dbg(bp->dev, "received skb of length %u, csum: %08x\n",
-+	netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
- 		   skb->len, skb->csum);
- 	netif_receive_skb(skb);
- 
-@@ -535,7 +535,7 @@ static int macb_poll(struct napi_struct *napi, int budget)
- 
- 	work_done = 0;
- 
--	netdev_dbg(bp->dev, "poll: status = %08lx, budget = %d\n",
-+	netdev_vdbg(bp->dev, "poll: status = %08lx, budget = %d\n",
- 		   (unsigned long)status, budget);
- 
- 	work_done = macb_rx(bp, budget);
-@@ -574,6 +574,8 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 			break;
- 		}
- 
-+		netdev_vdbg(bp->dev, "isr = 0x%08lx\n", (unsigned long)status);
-+
- 		if (status & MACB_RX_INT_FLAGS) {
- 			/*
- 			 * There's no point taking any more interrupts
-@@ -585,7 +587,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 			macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
- 
- 			if (napi_schedule_prep(&bp->napi)) {
--				netdev_dbg(bp->dev, "scheduling RX softirq\n");
-+				netdev_vdbg(bp->dev, "scheduling RX softirq\n");
- 				__napi_schedule(&bp->napi);
- 			}
- 		}
-@@ -647,8 +649,8 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	u32 ctrl;
- 	unsigned long flags;
- 
--#ifdef DEBUG
--	netdev_dbg(bp->dev,
-+#if defined(DEBUG) && defined(VERBOSE_DEBUG)
-+	netdev_vdbg(bp->dev,
- 		   "start_xmit: len %u head %p data %p tail %p end %p\n",
- 		   skb->len, skb->head, skb->data,
- 		   skb_tail_pointer(skb), skb_end_pointer(skb));
-@@ -670,12 +672,12 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -390,6 +390,13 @@ static void macb_tx(struct macb *bp)
+ 		dev_kfree_skb_irq(skb);
  	}
  
- 	entry = bp->tx_head;
--	netdev_dbg(bp->dev, "Allocated ring entry %u\n", entry);
-+	netdev_vdbg(bp->dev, "Allocated ring entry %u\n", entry);
- 	mapping = dma_map_single(&bp->pdev->dev, skb->data,
- 				 len, DMA_TO_DEVICE);
- 	bp->tx_skb[entry].skb = skb;
- 	bp->tx_skb[entry].mapping = mapping;
--	netdev_dbg(bp->dev, "Mapped skb data %p to DMA addr %08lx\n",
-+	netdev_vdbg(bp->dev, "Mapped skb data %p to DMA addr %08lx\n",
- 		   skb->data, (unsigned long)mapping);
++	/*
++	 * Someone may have submitted a new frame while this interrupt
++	 * was pending, or we may just have handled an error.
++	 */
++	if (head != tail && !(status & MACB_BIT(TGO)))
++		macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(TSTART));
++
+ 	bp->tx_tail = tail;
+ 	if (netif_queue_stopped(bp->dev) &&
+ 	    TX_BUFFS_AVAIL(bp) > MACB_TX_WAKEUP_THRESH)
+@@ -696,7 +703,18 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
  
- 	ctrl = MACB_BF(TX_FRMLEN, len);
+ 	skb_tx_timestamp(skb);
+ 
+-	macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(TSTART));
++	/*
++	 * Only start the controller if the queue was empty; otherwise
++	 * we may race against the hardware resetting the ring pointer
++	 * due to a transmit error.
++	 *
++	 * If the controller is idle but the queue isn't empty, there
++	 * must be a pending interrupt that will trigger as soon as we
++	 * re-enable interrupts, and the interrupt handler will make
++	 * sure the controler is started.
++	 */
++	if (NEXT_TX(bp->tx_tail) == bp->tx_head)
++		macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(TSTART));
+ 
+ 	if (TX_BUFFS_AVAIL(bp) < 1)
+ 		netif_stop_queue(dev);
 -- 
 1.7.10
