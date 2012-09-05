@@ -1,97 +1,244 @@
-From: Lin Ming <mlin@ss.pku.edu.cn>
-Subject: Re: kernel BUG at kernel/timer.c:748!
-Date: Thu, 6 Sep 2012 00:04:56 +0800
-Message-ID: <CAF1ivSauxzNhrm9c==_xFpuh9Lo3KrUNLNRb_62fLZxMfTuU1w@mail.gmail.com>
-References: <20120905043523.GA12988@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next.git 3/7] stmmac: add the initial tx coalesce schema
+Date: Wed, 5 Sep 2012 17:11:59 +0100
+Message-ID: <1346861519.5325.11.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1346857432-24657-1-git-send-email-peppe.cavallaro@st.com>
+	 <1346857432-24657-4-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
-To: Dave Jones <davej@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [124.207.24.138] ([124.207.24.138]:34562 "EHLO
-	mail.ss.pku.edu.cn" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751265Ab2IEQFn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 12:05:43 -0400
-Received: from mail-lb0-f174.google.com (mail-lb0-f174.google.com [209.85.217.174])
-	(Authenticated sender: mlin@ss.pku.edu.cn)
-	by mail.ss.pku.edu.cn (Postfix) with ESMTPA id 31EB9DBC37
-	for <netdev@vger.kernel.org>; Thu,  6 Sep 2012 00:05:00 +0800 (CST)
-Received: by lbbgj3 with SMTP id gj3so481361lbb.19
-        for <netdev@vger.kernel.org>; Wed, 05 Sep 2012 09:04:56 -0700 (PDT)
-In-Reply-To: <20120905043523.GA12988@redhat.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:23781 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751265Ab2IEQMC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 12:12:02 -0400
+In-Reply-To: <1346857432-24657-4-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 5, 2012 at 12:35 PM, Dave Jones <davej@redhat.com> wrote:
-> Just hit this bug on 3.6-rc4.
->
-> The BUG is..
->
->         BUG_ON(!timer->function);
+On Wed, 2012-09-05 at 17:03 +0200, Giuseppe CAVALLARO wrote:
+> This patch adds a new schema used for mitigating the
+> number of transmit interrupts.
+> It is based on a sw timer and a threshold value.
+> The timer is used to periodically call the stmmac_tx
+> function that can be invoked by the ISR but only for
+> the descriptors where the interrupt on completion
+> field has been set. This is tuned by a threshold.
+> 
+> Next step is to add the ability to tune these coalesce
+> values by ethtool.
+> 
+> Till now I have put a default that showed a real gain
+> on all the platforms ARM/SH4 where I performed benchmarks.
+> 
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/common.h       |    8 +-
+>  drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    4 +
+>  .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    9 +-
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   86 +++++++++++++-------
+>  4 files changed, 72 insertions(+), 35 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+> index bd32fe6..1d6bd3e 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
+> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+> @@ -95,11 +95,13 @@ struct stmmac_extra_stats {
+>  	unsigned long threshold;
+>  	unsigned long tx_pkt_n;
+>  	unsigned long rx_pkt_n;
+> -	unsigned long rx_napi_poll;
+> +	unsigned long normal_irq_n;
+>  	unsigned long rx_normal_irq_n;
+> +	unsigned long rx_napi_poll;
+>  	unsigned long tx_normal_irq_n;
+> -	unsigned long sched_timer_n;
+> -	unsigned long normal_irq_n;
+> +	unsigned long txtimer;
+> +	unsigned long tx_clean;
+> +	unsigned long tx_reset_ic_bit;
+>  	unsigned long mmc_tx_irq_n;
+>  	unsigned long mmc_rx_irq_n;
+>  	unsigned long mmc_rx_csum_offload_irq_n;
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+> index 9f35769..0f5ab28 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+> @@ -88,6 +88,10 @@ struct stmmac_priv {
+>  	int eee_enabled;
+>  	int eee_active;
+>  	int tx_lpi_timer;
+> +	struct timer_list txtimer;
+> +	u32 tx_count_frames;
+> +	u32 tx_coal_frames;
+> +	u32 tx_coal_timer;
+>  };
+>  
+>  extern int phyaddr;
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+> index 505fe71..48ad0bc 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+> @@ -90,12 +90,13 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
+>  	STMMAC_STAT(threshold),
+>  	STMMAC_STAT(tx_pkt_n),
+>  	STMMAC_STAT(rx_pkt_n),
+> -	STMMAC_STAT(rx_napi_poll),
+> +	STMMAC_STAT(normal_irq_n),
+>  	STMMAC_STAT(rx_normal_irq_n),
+> +	STMMAC_STAT(rx_napi_poll),
+>  	STMMAC_STAT(tx_normal_irq_n),
+> -	STMMAC_STAT(sched_timer_n),
+> -	STMMAC_STAT(normal_irq_n),
+> -	STMMAC_STAT(normal_irq_n),
+> +	STMMAC_STAT(txtimer),
+> +	STMMAC_STAT(tx_clean),
+> +	STMMAC_STAT(tx_reset_ic_bit),
+>  	STMMAC_STAT(mmc_tx_irq_n),
+>  	STMMAC_STAT(mmc_rx_irq_n),
+>  	STMMAC_STAT(mmc_rx_csum_offload_irq_n),
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index b247c39..d7f5482 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -77,6 +77,8 @@
+>  
+>  #define STMMAC_ALIGN(x)	L1_CACHE_ALIGN(x)
+>  #define JUMBO_LEN	9000
+> +#define	STMMAC_TX_TM	40000
+> +#define STMMAC_TX_MAX_FRAMES	64	/* Max coalesced frame */
+>  
+>  /* Module parameters */
+>  #define TX_TIMEO 5000 /* default 5 seconds */
+> @@ -695,8 +697,11 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
+>  static void stmmac_tx(struct stmmac_priv *priv)
+>  {
+>  	unsigned int txsize = priv->dma_tx_size;
+> +	unsigned long flags;
+> +
+> +	spin_lock_irqsave(&priv->tx_lock, flags);
+>  
+> -	spin_lock(&priv->tx_lock);
+> +	priv->xstats.tx_clean++;
+>  
+>  	while (priv->dirty_tx != priv->cur_tx) {
+>  		int last;
+> @@ -765,7 +770,7 @@ static void stmmac_tx(struct stmmac_priv *priv)
+>  		stmmac_enable_eee_mode(priv);
+>  		mod_timer(&priv->eee_ctrl_timer, STMMAC_LPI_TIMER(eee_timer));
+>  	}
+> -	spin_unlock(&priv->tx_lock);
+> +	spin_unlock_irqrestore(&priv->tx_lock, flags);
+>  }
+>  
+>  static inline void stmmac_enable_irq(struct stmmac_priv *priv)
+> @@ -778,29 +783,16 @@ static inline void stmmac_disable_irq(struct stmmac_priv *priv)
+>  	priv->hw->dma->disable_dma_irq(priv->ioaddr);
+>  }
+>  
+> -static int stmmac_has_work(struct stmmac_priv *priv)
+> +static void stmmac_txtimer(unsigned long data)
+>  {
+> -	unsigned int has_work = 0;
+> -	int rxret, tx_work = 0;
+> +	struct stmmac_priv *priv = (struct stmmac_priv *)data;
+>  
+> -	rxret = priv->hw->desc->get_rx_owner(priv->dma_rx +
+> -		(priv->cur_rx % priv->dma_rx_size));
+> +	priv->xstats.txtimer++;
+>  
+>  	if (priv->dirty_tx != priv->cur_tx)
+> -		tx_work = 1;
+> -
+> -	if (likely(!rxret || tx_work))
+> -		has_work = 1;
+> +		stmmac_tx(priv);
+>  
+> -	return has_work;
+> -}
+> -
+> -static inline void _stmmac_schedule(struct stmmac_priv *priv)
+> -{
+> -	if (likely(stmmac_has_work(priv))) {
+> -		stmmac_disable_irq(priv);
+> -		napi_schedule(&priv->napi);
+> -	}
+> +	return;
+>  }
+>  
+>  /**
+> @@ -824,7 +816,7 @@ static void stmmac_tx_err(struct stmmac_priv *priv)
+>  	netif_wake_queue(priv->dev);
+>  }
+>  
+> -static inline void stmmac_rx_schedule(struct stmmac_priv *priv)
+> +static void stmmac_rx_schedule(struct stmmac_priv *priv)
+>  {
+>  	if (likely(napi_schedule_prep(&priv->napi))) {
+>  		stmmac_disable_irq(priv);
+> @@ -1001,6 +993,36 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
+>  				   priv->dma_rx_phy);
+>  }
+>  
+> +static int stmmac_check_coal(int size, int max_coal_frames)
+> +{
+> +	int ret = 0;
+> +
+> +	if (max_coal_frames >= size)
+> +		return ret;
+> +
+> +	return max_coal_frames;
+> +}
 
-TCP keepalive timer is setup when the socket is created.
+Not sure this makes sense.  You're limiting the number of frames to be
+coalesced to the size of the TX DMA ring.  But each frame can consume
+multiple DMA descriptors, so it doesn't make sense to compare these
+numbers.
 
-__sock_create
-inet_create
-tcp_v4_init_sock
-tcp_init_sock
-tcp_init_xmit_timers
-inet_csk_init_xmit_timers
+It looks like patch 6 reverts this, but why do it in the first place?
 
-timer->function should not be NULL when set keepalive option.
+[...]
+> @@ -1213,10 +1240,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+>  		return NETDEV_TX_BUSY;
+>  	}
+>  
+> -	spin_lock(&priv->tx_lock);
+> -
+> -	if (priv->tx_path_in_lpi_mode)
+> -		stmmac_disable_eee_mode(priv);
 
-Strange...have bug somewhere.
+Why are you removing the call to stmmac_disable_eee_mode()?
 
-Lin Ming
+> +	spin_lock_irqsave(&priv->tx_lock, flags);
+>  
+>  	entry = priv->cur_tx % txsize;
+>  
+> @@ -1272,7 +1296,14 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	/* Interrupt on completition only for the latest segment */
+>  	priv->hw->desc->close_tx_desc(desc);
 
->
->
-> Not much to go on... Any thoughts on what I could add to get
-> more debug info on which protocol etc this was ?
->
->         Dave
->
->
-> kernel BUG at kernel/timer.c:748!
-> invalid opcode: 0000 [#1] SMP
-> Modules linked in: tun fuse ipt_ULOG binfmt_misc nfnetlink nfc caif_socket caif phonet can llc2 pppoe pppox ppp_generic slhc irda crc_ccitt rds af_key decnet rose x25 atm netrom appletalk ipx p8023 psnap p8022 llc ax25 nfsv3 nfs_acl nfs fscache lockd sunrpc bluetooth rfkill ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_filter ip6_tables nf_conntrack_ipv4 nf_defrag_ipv4 xt_state nf_conntrack kvm_intel kvm crc32c_intel ghash_clmulni_intel microcode pcspkr i2c_i801 e1000e uinput i915 video i2c_algo_bit drm_kms_helper drm i2c_core
-> CPU 3
-> Pid: 12330, comm: trinity-child3 Not tainted 3.6.0-rc4+ #36
-> RIP: 0010:[<ffffffff810813f5>]  [<ffffffff810813f5>] mod_timer+0x2c5/0x2f0
-> RSP: 0018:ffff88000dfd7e08  EFLAGS: 00010246
-> RAX: 000000000000001a RBX: ffff880122d62948 RCX: 000000000000001a
-> RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffff88000dfd7e10
-> RBP: ffff88000dfd7e48 R08: 0000000000000000 R09: 0000000000000000
-> R10: 0000000001517000 R11: 0000000000000246 R12: 000000016c000000
-> R13: 000000016c12bcb1 R14: ffff8801236cee00 R15: 00000000ffffff01
-> FS:  00007fa96745f740(0000) GS:ffff880148200000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 00000000100ff000 CR3: 0000000099344000 CR4: 00000000001407e0
-> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> Process trinity-child3 (pid: 12330, threadinfo ffff88000dfd6000, task ffff880090890000)
-> Stack:
->  ffffffff8154cb6d 0000000007b5edf7 ffff88000dfd7e28 ffff880122d62520
->  0000000000000009 0000000000000004 ffff8801236cee00 00000000ffffff01
->  ffff88000dfd7e68 ffffffff8154c79c ffffffff81550e6c ffff880122d62520
-> Call Trace:
->  [<ffffffff8154cb6d>] ? lock_sock_nested+0x8d/0xa0
->  [<ffffffff8154c79c>] sk_reset_timer+0x1c/0x30
->  [<ffffffff81550e6c>] ? sock_setsockopt+0x8c/0x960
->  [<ffffffff815a84a0>] inet_csk_reset_keepalive_timer+0x20/0x30
->  [<ffffffff815c018d>] tcp_set_keepalive+0x3d/0x50
->  [<ffffffff81551703>] sock_setsockopt+0x923/0x960
->  [<ffffffff810ddf76>] ? trace_hardirqs_on_caller+0x16/0x1e0
->  [<ffffffff811db0ac>] ? fget_light+0x24c/0x520
->  [<ffffffff8154af86>] sys_setsockopt+0xc6/0xe0
->  [<ffffffff816a50ed>] system_call_fastpath+0x1a/0x1f
-> Code: 00 74 43 9c 58 0f 1f 44 00 00 f6 c4 02 0f 84 14 ff ff ff eb 93 48 c7 c7 20 48 c3 81 e8 f5 70 05 00 85 c0 0f 85 fe fe ff ff eb b7 <0f> 0b 48 8b 75 08 48 89 df e8 3d f6 ff ff e9 b2 fd ff ff 4d 89
-> RIP  [<ffffffff810813f5>] mod_timer+0x2c5/0x2f0
->  RSP <ffff88000dfd7e08>
-> ---[ end trace 7e7b5910138e49a3 ]---
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Comment above this is now incorrect.
+
+> -	wmb();
+
+Why are you removing this barrier?
+
+> +	/* Do not set the IC according to the coalesce patameters */
+> +	priv->tx_count_frames++;
+> +	if (priv->tx_coal_frames > priv->tx_count_frames) {
+> +		priv->hw->desc->clear_tx_ic(desc);
+> +		priv->xstats.tx_reset_ic_bit++;
+> +		mod_timer(&priv->txtimer, priv->tx_coal_timer);
+> +	} else
+> +		priv->tx_count_frames = 0;
+>  
+>  	/* To avoid raise condition */
+>  	priv->hw->desc->set_tx_owner(first);
+[...]
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
