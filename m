@@ -1,45 +1,41 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next] ipv6: Export nd_tbl to allow modules to support IPv6
-Date: Wed,  5 Sep 2012 13:14:08 +0200
-Message-ID: <fd8b9a9ad300edfc378065ef7887c3debeeb5e89.1346843399.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59665 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758599Ab2IELOL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Sep 2012 07:14:11 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH V2 0/2] Remove duplicate register definitions in Chelsio cxgb4
+Date: Wed,  5 Sep 2012 17:31:53 +0530
+Message-ID: <1346846515-25997-1-git-send-email-vipul@chelsio.com>
+Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, sivasu-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Several out of the tree modules use the exported symbol arp_tbl
-to read the ARP table. These modules now seek to support IPv6
-but can't because nd_tbl is not exported.
+Hi David Miller/Roland,
 
-Having access to the protocol specific neigh_table structure is
-required in order to use the functions neigh_lookup() or
-neigh_create() which are already exported to modules.
+This patch series has minor changes in cxgb4 driver. It removes the duplicate
+definitions of the registers in cxgb4 driver. It also has a minor update in
+RDMA/cxgb4 driver due to change in cxgb4 driver.
 
-It does not make sense to export these functions if we don't
-export the table itself as well.
+This patch series is built against Stephen Rothwell's linux-next tree. We
+request to merge patch series thorough single tree to avoid build failures.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- net/ipv6/ndisc.c | 2 ++
- 1 file changed, 2 insertions(+)
+Thanks,
+Vipul Pandya
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index ff36194..0a0eb3f 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -143,6 +143,8 @@ struct neigh_table nd_tbl = {
- 	.gc_thresh3 =	1024,
- };
- 
-+EXPORT_SYMBOL(nd_tbl);
-+
- static inline int ndisc_opt_addr_space(struct net_device *dev)
- {
- 	return NDISC_OPT_SPACE(dev->addr_len + ndisc_addr_option_pad(dev->type));
--- 
-1.7.11.4
+Vipul Pandya (2):
+  RDMA/cxgb4: Update RDMA/cxgb4 due to macro definition removal in
+    cxgb4 driver
+  cxgb4: Remove duplicate register definitions
+
+ drivers/infiniband/hw/cxgb4/qp.c                |    2 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   18 ++++----
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |    4 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   12 +++---
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   54 +++++-----------------
+ 5 files changed, 31 insertions(+), 59 deletions(-)
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
