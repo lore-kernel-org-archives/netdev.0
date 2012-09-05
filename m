@@ -1,37 +1,30 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netfilter: take care of timewait sockets
-Date: Wed, 05 Sep 2012 19:52:22 +0200
-Message-ID: <1346867542.13121.160.camel@edumazet-glaptop>
-References: <1346780943.13121.58.camel@edumazet-glaptop>
-	 <20120905171016.GA23211@1984>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/4][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 05 Sep 2012 15:10:11 -0400 (EDT)
+Message-ID: <20120905.151011.900756800755573767.davem@davemloft.net>
+References: <1346826350-27733-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netfilter-devel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:45249 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754164Ab2IERw1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 13:52:27 -0400
-In-Reply-To: <20120905171016.GA23211@1984>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43828 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759005Ab2IETKQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 15:10:16 -0400
+In-Reply-To: <1346826350-27733-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-09-05 at 19:10 +0200, Pablo Neira Ayuso wrote:
-> On Tue, Sep 04, 2012 at 07:49:03PM +0200, Eric Dumazet wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > Sami Farin reported crashes in xt_LOG because it assumes skb->sk is a
-> > full blown socket.
-> > 
-> > But with TCP early demux, we can have skb->sk pointing to a timewait
-> > socket.
-> 
-> TCP early demux is there since 3.6-rc.
-> 
-> I'll add that to the changelog if you don't mind, to help tracking
-> things for -stable.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue,  4 Sep 2012 23:25:46 -0700
 
-Sure, its not a stable candidate.
+> This series contains updates to igb and ixgbe.
+> 
+> The following are changes since commit 600e177920df936d03b807780ca92c662af98990:
+>   net: Providing protocol type via system.sockprotoname xattr of /proc/PID/fd entries
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Pulled, thanks Jeff.
