@@ -1,59 +1,40 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 08/10] net/macb: macb_get_drvinfo: add GEM/MACB suffix
- to differentiate revision
-Date: Thu, 6 Sep 2012 00:27:51 +0100
-Message-ID: <1346887671.5325.47.camel@bwh-desktop.uk.solarflarecom.com>
-References: <cover.1346775479.git.nicolas.ferre@atmel.com>
-	 <fc701a2ed18198b7a671c55f1e65725f1709509c.1346775479.git.nicolas.ferre@atmel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-	<davem@davemloft.net>, <havard@skinnemoen.net>,
-	<plagnioj@jcrosoft.com>, <jamie@jamieiles.com>,
-	<linux-kernel@vger.kernel.org>, <patrice.vilchez@atmel.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <fc701a2ed18198b7a671c55f1e65725f1709509c.1346775479.git.nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
+Date: Wed,  5 Sep 2012 16:35:00 -0700
+Message-ID: <1346888106-25638-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:43704 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759919Ab2IEXfJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Sep 2012 19:35:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-09-05 at 11:00 +0200, Nicolas Ferre wrote:
-> Add an indication about which revision of the hardware we are running in
-> info->driver string.
-> 
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-> ---
->  drivers/net/ethernet/cadence/macb.c |    4 ++++
->  1 file changed, 4 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index bd331fd..c7c39f1 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -1313,6 +1313,10 @@ static void macb_get_drvinfo(struct net_device *dev,
->  	struct macb *bp = netdev_priv(dev);
->  
->  	strcpy(info->driver, bp->pdev->dev.driver->name);
-> +	if (macb_is_gem(bp))
-> +		strcat(info->driver, " GEM");
-> +	else
-> +		strcat(info->driver, " MACB");
->  	strcpy(info->version, "$Revision: 1.14 $");
+This series contains updates to igb (specifically PTP code).
 
-Related to hardware revisions (which don't belong here, as David said),
-I rather doubt this CVS ID is very useful as a driver version.
+The following are changes since commit f6fe569fe056388166575af1cfaed0bcbc688305:
+  Revert "usbnet: drop unneeded check for NULL"
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-If the driver doesn't have a meaningful version (aside from the kernel
-version) then you can remove this function and let the ethtool core fill
-in the other two fields automatically.
+Matthew Vick (6):
+  igb: Tidy up wrapping for CONFIG_IGB_PTP.
+  igb: Update PTP function names/variables and locations.
+  igb: Correct PTP support query from ethtool.
+  igb: Store the MAC address in the name in the PTP struct.
+  igb: Prevent dropped Tx timestamps via work items and interrupts.
+  igb: Add 1588 support to I210/I211.
 
-Ben.
-
->  	strcpy(info->bus_info, dev_name(&bp->pdev->dev));
->  }
+ drivers/net/ethernet/intel/igb/e1000_defines.h |   8 +
+ drivers/net/ethernet/intel/igb/e1000_regs.h    |   2 +
+ drivers/net/ethernet/intel/igb/igb.h           |  29 +-
+ drivers/net/ethernet/intel/igb/igb_ethtool.c   |  84 +--
+ drivers/net/ethernet/intel/igb/igb_main.c      | 329 +++---------
+ drivers/net/ethernet/intel/igb/igb_ptp.c       | 676 ++++++++++++++++++++-----
+ 6 files changed, 708 insertions(+), 420 deletions(-)
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.11.4
