@@ -1,141 +1,74 @@
-From: JoonSoo Kim <js1304@gmail.com>
-Subject: Re: [PATCH 1/4] slab: do ClearSlabPfmemalloc() for all pages of slab
-Date: Fri, 7 Sep 2012 02:57:39 +0900
-Message-ID: <CAAmzW4M_3hVBfjqFLG=7iydkXeQPdCXRbRmkqUJD4vwo0eWVWQ@mail.gmail.com>
-References: <1346779479-1097-1-git-send-email-mgorman@suse.de>
-	<1346779479-1097-2-git-send-email-mgorman@suse.de>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: changing usbnet's API to better deal with cdc-ncm
+Date: Thu, 06 Sep 2012 19:56:50 +0200
+Message-ID: <1676538.CEPj2RtrPe@linux-lqwf.site>
+References: <2791550.LhGu6po6Xy@linux-lqwf.site> <87a9x33656.fsf@nemi.mork.no> <CACVXFVMYmTFLamWzTL2gTtu31eQg6bpLA4NapJehPoROF4t3dw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Chuck Lever <chuck.lever@oracle.com>, Pekka@suse.de,
-	"Enberg <penberg"@kernel.org, David Rientjes <rientjes@google.com>,
-	Christoph Lameter <cl@linux.com>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1346779479-1097-2-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	alexey.orishko@stericsson.com, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: Ming Lei <tom.leiming@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:35944 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932609Ab2IFR6M convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 13:58:12 -0400
+In-Reply-To: <CACVXFVMYmTFLamWzTL2gTtu31eQg6bpLA4NapJehPoROF4t3dw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add "Cc" to "Christoph Lameter" <cl@linux.com>
+On Friday 07 September 2012 00:09:13 Ming Lei wrote:
+> On Thu, Sep 6, 2012 at 4:30 PM, Bj=F8rn Mork <bjorn@mork.no> wrote:
+> > Ming Lei <tom.leiming@gmail.com> writes:
 
-2012/9/5 Mel Gorman <mgorman@suse.de>:
-> Right now, we call ClearSlabPfmemalloc() for first page of slab when we
-> clear SlabPfmemalloc flag. This is fine for most swap-over-network use
-> cases as it is expected that order-0 pages are in use. Unfortunately it
-> is possible that that __ac_put_obj() checks SlabPfmemalloc on a tail page
-> and while this is harmless, it is sloppy. This patch ensures that the head
-> page is always used.
->
-> This problem was originally identified by Joonsoo Kim.
->
-> [js1304@gmail.com: Original implementation and problem identification]
-> Signed-off-by: Mel Gorman <mgorman@suse.de>
-> ---
->  mm/slab.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/mm/slab.c b/mm/slab.c
-> index 811af03..d34a903 100644
-> --- a/mm/slab.c
-> +++ b/mm/slab.c
-> @@ -1000,7 +1000,7 @@ static void *__ac_get_obj(struct kmem_cache *cachep, struct array_cache *ac,
->                 l3 = cachep->nodelists[numa_mem_id()];
->                 if (!list_empty(&l3->slabs_free) && force_refill) {
->                         struct slab *slabp = virt_to_slab(objp);
-> -                       ClearPageSlabPfmemalloc(virt_to_page(slabp->s_mem));
-> +                       ClearPageSlabPfmemalloc(virt_to_head_page(slabp->s_mem));
->                         clear_obj_pfmemalloc(&objp);
->                         recheck_pfmemalloc_active(cachep, ac);
->                         return objp;
+> >> Looks the introduced .tx_bundle is not necessary since .tx_fixup i=
+s OK.
+> >
+> > The minidriver does not have any information about tx in progress. =
+ The
+>=20
+> Inside .tx_fixup, the low level driver will get the tx progress infor=
+mation.
 
-We assume that slabp->s_mem's address is always in head page, so
-"virt_to_head_page" is not needed.
+That information changes after tx_fixup
+=20
+> > strategy above, which is what cdc_ncm uses today, is fine as long a=
+s you
+> > always want to wait as long as you always want to fill as many fram=
+es as
+> > possible in each packet.  But what if the queue is empty and the de=
+vice
+>=20
+> For cdc_ncm, the wait time is controlled by cdc_ncm driver, see
+> cdc_ncm_tx_timeout_start().
 
-> @@ -1032,7 +1032,7 @@ static void *__ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
->  {
->         if (unlikely(pfmemalloc_active)) {
->                 /* Some pfmemalloc slabs exist, check if this is one */
-> -               struct page *page = virt_to_page(objp);
-> +               struct page *page = virt_to_head_page(objp);
->                 if (PageSlabPfmemalloc(page))
->                         set_obj_pfmemalloc(&objp);
->         }
-> --
-> 1.7.9.2
->
+Well, that is the mistake. Using a timer is a bad idea.
 
-If we always use head page, following suggestion is more good to me.
-How about you?
+> If we can abstract some common things about aggregation, it should be
+> meaningful. As far as I know, most of aggregation protocol is very di=
+fferent,
+> so almost all aggregation work is only done by low level driver, such=
+ as
+> cdc_ncm.
+>=20
+> If we want to implement some aggregation framework, maybe below is
+> one solution, correct me if it is wrong.
 
-diff --git a/mm/slab.c b/mm/slab.c
-index f8b0d53..ce70989 100644
---- a/mm/slab.c
-+++ b/mm/slab.c
-@@ -1032,7 +1032,7 @@ static void *__ac_put_obj(struct kmem_cache
-*cachep, struct array_cache *ac,
- {
-        if (unlikely(pfmemalloc_active)) {
-                /* Some pfmemalloc slabs exist, check if this is one */
--               struct page *page = virt_to_page(objp);
-+               struct page *page = virt_to_head_page(objp);
-                if (PageSlabPfmemalloc(page))
-                        set_obj_pfmemalloc(&objp);
-        }
-@@ -1921,10 +1921,9 @@ static void *kmem_getpages(struct kmem_cache
-*cachep, gfp_t flags, int nodeid)
-                        NR_SLAB_UNRECLAIMABLE, nr_pages);
-        for (i = 0; i < nr_pages; i++) {
-                __SetPageSlab(page + i);
--
--               if (page->pfmemalloc)
--                       SetPageSlabPfmemalloc(page + i);
-        }
-+       if (page->pfmemalloc)
-+               SetPageSlabPfmemalloc(page);
+It isn't so much wrong as incomplete.
 
-        if (kmemcheck_enabled && !(cachep->flags & SLAB_NOTRACK)) {
-                kmemcheck_alloc_shadow(page, cachep->gfporder, flags, nodeid);
-@@ -1943,26 +1942,26 @@ static void *kmem_getpages(struct kmem_cache
-*cachep, gfp_t flags, int nodeid)
-  */
- static void kmem_freepages(struct kmem_cache *cachep, void *addr)
- {
--       unsigned long i = (1 << cachep->gfporder);
-+       int nr_pages = (1 << cachep->gfporder);
-+       int i;
-        struct page *page = virt_to_page(addr);
--       const unsigned long nr_freed = i;
+It seems to me we can have
 
-        kmemcheck_free_shadow(page, cachep->gfporder);
+- can queue, buffer not full -> do nothing more
+- can queue, buffer full -> transmit
+- cannot queue, buffer full -> transmit and then try again to queue
 
-        if (cachep->flags & SLAB_RECLAIM_ACCOUNT)
-                sub_zone_page_state(page_zone(page),
--                               NR_SLAB_RECLAIMABLE, nr_freed);
-+                               NR_SLAB_RECLAIMABLE, nr_pages);
-        else
-                sub_zone_page_state(page_zone(page),
--                               NR_SLAB_UNRECLAIMABLE, nr_freed);
--       while (i--) {
--               BUG_ON(!PageSlab(page));
--               __ClearPageSlabPfmemalloc(page);
--               __ClearPageSlab(page);
--               page++;
-+                               NR_SLAB_UNRECLAIMABLE, nr_pages);
-+       for (i = 0; i < nr_pages; i++) {
-+               BUG_ON(!PageSlab(page + i));
-+               __ClearPageSlab(page + i);
-        }
-+       __ClearPageSlabPfmemalloc(page);
-+
-        if (current->reclaim_state)
--               current->reclaim_state->reclaimed_slab += nr_freed;
-+               current->reclaim_state->reclaimed_slab += nr_pages;
-        free_pages((unsigned long)addr, cachep->gfporder);
- }
+and an error case
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+- cannot queue, buffer not full
+
+And that's the way I coded it.
+
+	Regards
+		Oliver
