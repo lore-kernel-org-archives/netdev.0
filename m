@@ -1,48 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Small bug on rxhash calculation
-Date: Thu, 06 Sep 2012 08:42:13 +0200
-Message-ID: <1346913733.13121.179.camel@edumazet-glaptop>
-References: <CAEb0MffEfboq_VmPFCtzGHe-SQ4Dd1O6Hptrc_jHVnp7itKyQg@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] usbnet: drop unneeded check for NULL
+Date: Thu, 6 Sep 2012 09:52:55 +0200
+Message-ID: <20120906075255.GC2550@netboy.at.omicron.at>
+References: <20120904.123740.1915830868205918256.davem@davemloft.net>
+ <20120905044712.GA2284@netboy.at.omicron.at>
+ <2037108.ZemStJh9zr@linux-lqwf.site>
+ <20120905.125016.2259674613767082102.davem@davemloft.net>
+ <1346883275.5325.28.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, edumazet@google.com,
-	Chema Gonzalez <chema@google.com>
-To: Chema Gonzalez <chema@berkeley.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, oneukum@suse.de,
+	netdev@vger.kernel.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:33831 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750914Ab2IFGmT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 02:42:19 -0400
-Received: by bkwj10 with SMTP id j10so613026bkw.19
-        for <netdev@vger.kernel.org>; Wed, 05 Sep 2012 23:42:17 -0700 (PDT)
-In-Reply-To: <CAEb0MffEfboq_VmPFCtzGHe-SQ4Dd1O6Hptrc_jHVnp7itKyQg@mail.gmail.com>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:64466 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751423Ab2IFHxG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 03:53:06 -0400
+Received: by wibhr14 with SMTP id hr14so1103501wib.1
+        for <netdev@vger.kernel.org>; Thu, 06 Sep 2012 00:53:05 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1346883275.5325.28.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-09-05 at 23:35 -0700, Chema Gonzalez wrote:
-> From 5c02179069826bfba9360383b88601b31ff05517 Mon Sep 17 00:00:00 2001
-> From: Chema Gonzalez <chema@google.com>
-> Date: Wed, 5 Sep 2012 17:05:48 -0700
-> Subject: [PATCH] net: Small bug on rxhash calculation
+On Wed, Sep 05, 2012 at 11:14:35PM +0100, Ben Hutchings wrote:
 > 
-> While the (current) sorting of the ports/addresses is coherent
-> (you get the same rxhash for packets sharing the same (unsorted)
-> 4-tuple), ports and addresses should not be sorted independently,
-> which currently are: For traffic between A=S:l and B=L:s, packets
-> in both directions would get their rxhash from hashing
-> {L, S, {s, l}}. The same rxhash is obtained from packets between
-> C=S:s and D=L:l.
-> 
-> This patch ensures traffic between A and B gets their rxhash
-> from {S, L, {s, l}}, and traffic between C and D from {S, L,
-> {l, s}}
-> 
-> The patch is co-written with Eric Dumazet <edumazet@google.com>
-> 
-> Signed-off-by: Chema Gonzalez <chema@google.com>
-> ---
+> Perhaps the skb_tx_timestamp() call should be moved below the
+> 'if (info->tx_fixup)' block, at which point skb is definitely non-null.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+No, that block shuffles the packet alignment all around, and spoils
+any code which needs to match packets with time stamps.
 
-Thanks !
+> It doesn't look like cdc-ncm will provide useful timestamps either way.
+
+But it is not the only user of this code. Furthermore, the PHY driver
+will want a chance to provide a HW time stamp in any case.
+
+Thanks,
+Richard
