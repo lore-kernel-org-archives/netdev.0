@@ -1,73 +1,104 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and naive hashtable
-Date: Thu, 06 Sep 2012 15:53:58 +0200
-Message-ID: <5048AAF6.5090101@gmail.com>
-References: <20120824230740.GN21325@google.com> <20120825042419.GA27240@Krystal> <503C95E4.3010000@gmail.com> <20120828101148.GA21683@Krystal> <503CAB1E.5010408@gmail.com> <20120828115638.GC23818@Krystal> <20120828230050.GA3337@Krystal> <1346772948.27919.9.camel@gandalf.local.home> <50462C99.5000007@redhat.com> <50462EE8.1090903@redhat.com> <20120904170138.GB31934@Krystal>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: CBQ(but probably u32 filter bug), kernel "freeze", at least
+ from 3.2.0
+Date: Thu, 06 Sep 2012 16:47:34 +0300
+Message-ID: <3012b13d6556b629a84089b68bce9a6b@visp.net.lb>
+References: <a680a8297b2f099eb713b266792b9b82@visp.net.lb>
+ <1346151568.3001.20.camel@edumazet-glaptop>
+ <1346920806.13121.180.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Pedro Alves <palves@redhat.com>, Steven Rostedt <rostedt@goodmis.org>,
- Tejun Heo <tj@kernel.org>,
- torvalds@linux-foundation.org, akpm@linux-foundation.org,
- linux-kernel@vger.kernel.org, linux-mm@kvack.org,
- paul.gortmaker@windriver.com, davem@davemloft.net, mingo@elte.hu,
- ebiederm@xmission.com, aarcange@redhat.com, ericvh@gmail.com,
- netdev@vger.kernel.org, josh@joshtriplett.org, eric.dumazet@gmail.com,
- axboe@kernel.dk, agk@redhat.com, dm-devel@redhat.com, neilb@suse.de,
- ccaulfie@redhat.com, teigland@redhat.com, Trond.Myklebust@netapp.com,
- bfields@fieldses.org, fweisbec@gmail.com, jesse@nicira.com,
- venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
- edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
- rds-devel@oss.oracle.com, lw@cn.fujitsu.com
-To: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20120904170138.GB31934@Krystal>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hosting.visp.net.lb ([194.146.153.11]:50720 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753471Ab2IFNy3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 09:54:29 -0400
+In-Reply-To: <1346920806.13121.180.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/04/2012 07:01 PM, Mathieu Desnoyers wrote:
->> #define do_for_each_ftrace_rec(pg, rec)                                          \
->> >         for (pg = ftrace_pages_start, rec = &pg->records[pg->index];             \
->> >              pg && rec == &pg->records[pg->index];                               \
->> >              pg = pg->next)                                                      \
->> >           for (rec = pg->records; rec < &pg->records[pg->index]; rec++)
-> Maybe in some cases there might be ways to combine the two loops into
-> one ? I'm not seeing exactly how to do it for this one, but it should
-> not be impossible. If the inner loop condition can be moved to the outer
-> loop, and if we use (blah ? loop1_conf : loop2_cond) to test for
-> different conditions depending on the context, and do the same for the
-> 3rd argument of the for() loop. The details elude me for now though, so
-> maybe it's complete non-sense ;)
-> 
-> It might not be that useful for do_for_each_ftrace_rec, but if we can do
-> it for the hash table iterator, it might be worth it.
+On 2012-09-06 11:40, Eric Dumazet wrote:
+> On Tue, 2012-08-28 at 03:59 -0700, Eric Dumazet wrote:
+>> On Tue, 2012-08-28 at 07:50 +0300, Denys Fedoryshchenko wrote:
+>> > Hi
+>> >
+>> > Got information from friend, confirmed that it crashed at least 
+>> two my
+>> > boxes also :)
+>> > 3.0.5-rc1 is working fine, 3.4.1 , 3.2.0 from ubuntu  - crashing
+>> > No watchdog fired, and didn't got yet significant debugging
+>> > information.
+>> >
+>> > Very easy to reproduce:
+>> > 1)run the script
+>> > 2)ping 192.168.3.234
+>> >
+>> > script:
+>> > DEV_OUT=eth0
+>> > ICMP="match ip protocol 1 0xff"
+>> > U32="protocol ip u32"
+>> > DST="match ip dst"
+>> > tc qdisc add dev $DEV_OUT root handle 1: cbq avpkt 1000 bandwidth
+>> > 100mbit
+>> > tc class add dev $DEV_OUT parent 1: classid 1:1 cbq rate 512kbit 
+>> allot
+>> > 1500 prio 5 bounded isolated
+>> > tc filter add dev $DEV_OUT parent 1:              prio 3 $U32 
+>> $ICMP
+>> > $DST 192.168.3.234 flowid 1:
+>> > tc qdisc add dev $DEV_OUT parent 1:1 sfq perturb 10
+>>
+>> Not sure what your friend expected from this buggy configuration.
+>>
+>> It probably never worked at all.
+>>
+>> CBQ needs at least one child class and one leaf class.
+>>
+>> This scripts creates a loop inside CBQ, so cpu is probably looping 
+>> in
+>> cbq_enqueue() (or more exactly cbq_classify()), as instructed by the
+>> sysadmin ;)
+>>
+>> u32 (or sfq) seems ok.
+>>
+>> Could you try the following patch ?
+>>
+>> Thanks !
+>>
+>> diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+>> index 6aabd77..564b9fc 100644
+>> --- a/net/sched/sch_cbq.c
+>> +++ b/net/sched/sch_cbq.c
+>> @@ -250,10 +250,11 @@ cbq_classify(struct sk_buff *skb, struct Qdisc 
+>> *sch, int *qerr)
+>>  			else if ((cl = defmap[res.classid & TC_PRIO_MAX]) == NULL)
+>>  				cl = defmap[TC_PRIO_BESTEFFORT];
+>>
+>> -			if (cl == NULL || cl->level >= head->level)
+>> +			if (cl == NULL)
+>>  				goto fallback;
+>>  		}
+>> -
+>> +		if (cl->level >= head->level)
+>> +			goto fallback;
+>>  #ifdef CONFIG_NET_CLS_ACT
+>>  		switch (result) {
+>>  		case TC_ACT_QUEUED:
+>>
+>
+> Hi Denys
+>
+> Any feedback on the suggested patch ?
+>
+> Thanks !
+Dear Eric
 
-So I think that for the hash iterator it might actually be simpler.
+Very sorry for delay, most of time in desert, without decent internet.
+I will try to test today or tomorrow.
 
-My solution to making 'break' work in the iterator is:
-
-	for (bkt = 0, node = NULL; bkt < HASH_SIZE(name) && node == NULL; bkt++)
-		hlist_for_each_entry(obj, node, &name[bkt], member)
-
-We initialize our node loop cursor with NULL in the external loop, and the
-external loop will have a new condition to loop while that cursor is NULL.
-
-My logic is that we can only 'break' when we are iterating over an object in the
-internal loop. If we're iterating over an object in that loop then 'node != NULL'.
-
-This way, if we broke from within the internal loop, the external loop will see
-node as not NULL, and so it will stop looping itself. On the other hand, if the
-internal loop has actually ended, then node will be NULL, and the outer loop
-will keep running.
-
-Is there anything I've missed?
-
-
-Thanks,
-Sasha
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+---
+Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
