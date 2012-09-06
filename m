@@ -1,52 +1,54 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 0/5] dev_<level> and dynamic_debug cleanups
-Date: Thu, 6 Sep 2012 09:13:59 -0700
-Message-ID: <20120906161359.GC23641@kroah.com>
-References: <cover.1345978012.git.joe@perches.com>
- <CAJfuBxyQc-XeNHxw0_XDs0JuCrNArNzcgsmrLya4ncDvSojZxQ@mail.gmail.com>
- <CAJfuBxyToA9-=c3H88GGba3GFX64kdbP4OCEC0f4trnBnjpU-w@mail.gmail.com>
+From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and naive hashtable
+Date: Thu, 06 Sep 2012 18:21:54 +0200
+Message-ID: <5048CDA2.10300@gmail.com>
+References: <503C95E4.3010000@gmail.com> <20120828101148.GA21683@Krystal>  <503CAB1E.5010408@gmail.com> <20120828115638.GC23818@Krystal>  <20120828230050.GA3337@Krystal>  <1346772948.27919.9.camel@gandalf.local.home> <50462C99.5000007@redhat.com>  <50462EE8.1090903@redhat.com> <20120904170138.GB31934@Krystal>  <5048AAF6.5090101@gmail.com> <20120906145545.GA17332@leaf>  <5048C615.4070204@gmail.com> <1346947206.1680.36.camel@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kay Sievers <kay@vrfy.org>, Joe Perches <joe@perches.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: Jim Cromie <jim.cromie@gmail.com>, Jason Baron <jbaron@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAJfuBxyToA9-=c3H88GGba3GFX64kdbP4OCEC0f4trnBnjpU-w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Josh Triplett <josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org>,
+	Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>,
+	Pedro Alves <palves-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
+	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
+	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
+	venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org
+To: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1346947206.1680.36.camel-f9ZlEuEWxVcJvu8Pb33WZ0EMvNT87kid@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 30, 2012 at 09:48:12PM -0600, Jim Cromie wrote:
-> On Thu, Aug 30, 2012 at 11:43 AM, Jim Cromie <jim.cromie@gmail.com> wrote:
-> > On Sun, Aug 26, 2012 at 5:25 AM, Joe Perches <joe@perches.com> wrote:
-> >> The recent commit to fix dynamic_debug was a bit unclean.
-> >> Neaten the style for dynamic_debug.
-> >> Reduce the stack use of message logging that uses netdev_printk
-> >> Add utility functions dev_printk_emit and dev_vprintk_emit for /dev/kmsg.
-> >>
-> >> Joe Perches (5):
-> >>   dev_dbg/dynamic_debug: Update to use printk_emit, optimize stack
-> >>   netdev_printk/dynamic_netdev_dbg: Directly call printk_emit
-> >>   netdev_printk/netif_printk: Remove a superfluous logging colon
-> >>   dev: Add dev_vprintk_emit and dev_printk_emit
-> >>   device and dynamic_debug: Use dev_vprintk_emit and dev_printk_emit
-> >>
-> >
-> > Ive tested this on 2 builds differing only by DYNAMIC_DEBUG
-> > It works for me on x86-64
-> >
-> > However, I just booted a non-dyndbg build on x86-32, and got this.
-> >
-> 
-> Ok, transient error, went away with a clean build.
-> 
-> tested-by: Jim Cromie <jim.cromie@gmail.com>
+On 09/06/2012 06:00 PM, Steven Rostedt wrote:
+>> > I think that that code doesn't make sense. The users of hlist_for_each_* aren't
+>> > supposed to be changing the loop cursor.
+> I totally agree. Modifying the 'node' pointer is just asking for issues.
+> Yes that is error prone, but not due to the double loop. It's due to the
+> modifying of the node pointer that is used internally by the loop
+> counter. Don't do that :-)
 
-Jason, any ACK on these, or any of the other random dynamic debug
-patches floating around?  What am I supposed to be applying here?
+While we're on this subject, I haven't actually seen hlist_for_each_entry() code
+that even *touches* 'pos'.
 
-thanks,
+Will people yell at me loudly if I change the prototype of those macros to be:
 
-greg k-h
+	hlist_for_each_entry(tpos, head, member)
+
+(Dropping the 'pos' parameter), and updating anything that calls those macros to
+drop it as well?
+
+
+Thanks,
+Sasha
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
