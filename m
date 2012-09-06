@@ -1,40 +1,145 @@
-From: Vincent Bernat <bernat@luffy.cx>
-Subject: Re: [PATCH] Fix "ip -6 route add ... nexthop"
-Date: Thu, 06 Sep 2012 19:53:46 +0200
-Message-ID: <87a9x3vxzp.fsf@guybrush.luffy.cx>
-References: <1346952649-5716-1-git-send-email-bernat@luffy.cx>
-	<1346952649-5716-2-git-send-email-bernat@luffy.cx>
+From: JoonSoo Kim <js1304@gmail.com>
+Subject: Re: [PATCH 1/4] slab: do ClearSlabPfmemalloc() for all pages of slab
+Date: Fri, 7 Sep 2012 03:05:39 +0900
+Message-ID: <CAAmzW4MfFUH1Mi447sQvPNeae_BShEmbECUaK9eoX-8ughEdJw@mail.gmail.com>
+References: <1346779479-1097-1-git-send-email-mgorman@suse.de>
+	<1346779479-1097-2-git-send-email-mgorman@suse.de>
+	<CAAmzW4M_3hVBfjqFLG=7iydkXeQPdCXRbRmkqUJD4vwo0eWVWQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:54280 "EHLO bart.luffy.cx"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932654Ab2IFSBM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 14:01:12 -0400
-Received: from bart.luffy.cx (localhost [127.0.0.1])
-	by bart.luffy.cx (Postfix) with ESMTP id BB56014203
-	for <netdev@vger.kernel.org>; Thu,  6 Sep 2012 19:53:48 +0200 (CEST)
-Received: from guybrush.luffy.cx (nat-bureautique.net.b1.fti.net [193.252.118.2])
-	by bart.luffy.cx (Postfix) with ESMTPS id 712EC14127
-	for <netdev@vger.kernel.org>; Thu,  6 Sep 2012 19:53:48 +0200 (CEST)
-In-Reply-To: <1346952649-5716-2-git-send-email-bernat@luffy.cx> (Vincent
-	Bernat's message of "Thu, 6 Sep 2012 19:30:49 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Chuck Lever <chuck.lever@oracle.com>,
+	Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>,
+	Christoph Lameter <cl@linux.com>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CAAmzW4M_3hVBfjqFLG=7iydkXeQPdCXRbRmkqUJD4vwo0eWVWQ@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
- =E2=9D=A6  6 septembre 2012 19:30 CEST, Vincent Bernat <bernat@luffy.c=
-x>=C2=A0:
+Correct Pekka's mail address and resend.
+Sorry.
 
-> IPv6 multipath routes were not accepted by "ip route" because an IPv4
-> address was expected for each gateway. Use `get_addr()` instead of
-> `get_addr32()`.
+Add "Cc" to "Christoph Lameter" <cl@linux.com>
 
-Well, looking at the kernel, I have just discovered that there is no
-support for IPv6 multipath. This explains a lot of things for me and
-this patch is therefore useless (but could still be applied for future
-purposes?).
---=20
-panic("CPU too expensive - making holiday in the ANDES!");
-	2.2.16 /usr/src/linux/arch/mips/kernel/traps.c
+2012/9/5 Mel Gorman <mgorman@suse.de>:
+> Right now, we call ClearSlabPfmemalloc() for first page of slab when we
+> clear SlabPfmemalloc flag. This is fine for most swap-over-network use
+> cases as it is expected that order-0 pages are in use. Unfortunately it
+> is possible that that __ac_put_obj() checks SlabPfmemalloc on a tail page
+> and while this is harmless, it is sloppy. This patch ensures that the head
+> page is always used.
+>
+> This problem was originally identified by Joonsoo Kim.
+>
+> [js1304@gmail.com: Original implementation and problem identification]
+> Signed-off-by: Mel Gorman <mgorman@suse.de>
+> ---
+>  mm/slab.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/mm/slab.c b/mm/slab.c
+> index 811af03..d34a903 100644
+> --- a/mm/slab.c
+> +++ b/mm/slab.c
+> @@ -1000,7 +1000,7 @@ static void *__ac_get_obj(struct kmem_cache *cachep, struct array_cache *ac,
+>                 l3 = cachep->nodelists[numa_mem_id()];
+>                 if (!list_empty(&l3->slabs_free) && force_refill) {
+>                         struct slab *slabp = virt_to_slab(objp);
+> -                       ClearPageSlabPfmemalloc(virt_to_page(slabp->s_mem));
+> +                       ClearPageSlabPfmemalloc(virt_to_head_page(slabp->s_mem));
+>                         clear_obj_pfmemalloc(&objp);
+>                         recheck_pfmemalloc_active(cachep, ac);
+>                         return objp;
+
+We assume that slabp->s_mem's address is always in head page, so
+"virt_to_head_page" is not needed.
+
+> @@ -1032,7 +1032,7 @@ static void *__ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
+>  {
+>         if (unlikely(pfmemalloc_active)) {
+>                 /* Some pfmemalloc slabs exist, check if this is one */
+> -               struct page *page = virt_to_page(objp);
+> +               struct page *page = virt_to_head_page(objp);
+>                 if (PageSlabPfmemalloc(page))
+>                         set_obj_pfmemalloc(&objp);
+>         }
+> --
+> 1.7.9.2
+>
+
+If we always use head page, following suggestion is more good to me.
+How about you?
+
+diff --git a/mm/slab.c b/mm/slab.c
+index f8b0d53..ce70989 100644
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -1032,7 +1032,7 @@ static void *__ac_put_obj(struct kmem_cache
+*cachep, struct array_cache *ac,
+ {
+        if (unlikely(pfmemalloc_active)) {
+                /* Some pfmemalloc slabs exist, check if this is one */
+-               struct page *page = virt_to_page(objp);
++               struct page *page = virt_to_head_page(objp);
+                if (PageSlabPfmemalloc(page))
+                        set_obj_pfmemalloc(&objp);
+        }
+@@ -1921,10 +1921,9 @@ static void *kmem_getpages(struct kmem_cache
+*cachep, gfp_t flags, int nodeid)
+                        NR_SLAB_UNRECLAIMABLE, nr_pages);
+        for (i = 0; i < nr_pages; i++) {
+                __SetPageSlab(page + i);
+-
+-               if (page->pfmemalloc)
+-                       SetPageSlabPfmemalloc(page + i);
+        }
++       if (page->pfmemalloc)
++               SetPageSlabPfmemalloc(page);
+
+        if (kmemcheck_enabled && !(cachep->flags & SLAB_NOTRACK)) {
+                kmemcheck_alloc_shadow(page, cachep->gfporder, flags, nodeid);
+@@ -1943,26 +1942,26 @@ static void *kmem_getpages(struct kmem_cache
+*cachep, gfp_t flags, int nodeid)
+  */
+ static void kmem_freepages(struct kmem_cache *cachep, void *addr)
+ {
+-       unsigned long i = (1 << cachep->gfporder);
++       int nr_pages = (1 << cachep->gfporder);
++       int i;
+        struct page *page = virt_to_page(addr);
+-       const unsigned long nr_freed = i;
+
+        kmemcheck_free_shadow(page, cachep->gfporder);
+
+        if (cachep->flags & SLAB_RECLAIM_ACCOUNT)
+                sub_zone_page_state(page_zone(page),
+-                               NR_SLAB_RECLAIMABLE, nr_freed);
++                               NR_SLAB_RECLAIMABLE, nr_pages);
+        else
+                sub_zone_page_state(page_zone(page),
+-                               NR_SLAB_UNRECLAIMABLE, nr_freed);
+-       while (i--) {
+-               BUG_ON(!PageSlab(page));
+-               __ClearPageSlabPfmemalloc(page);
+-               __ClearPageSlab(page);
+-               page++;
++                               NR_SLAB_UNRECLAIMABLE, nr_pages);
++       for (i = 0; i < nr_pages; i++) {
++               BUG_ON(!PageSlab(page + i));
++               __ClearPageSlab(page + i);
+        }
++       __ClearPageSlabPfmemalloc(page);
++
+        if (current->reclaim_state)
+-               current->reclaim_state->reclaimed_slab += nr_freed;
++               current->reclaim_state->reclaimed_slab += nr_pages;
+        free_pages((unsigned long)addr, cachep->gfporder);
+ }
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
