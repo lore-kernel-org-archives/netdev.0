@@ -1,119 +1,75 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 09/10] net/macb: ethtool interface: add register dump
- feature
-Date: Thu, 6 Sep 2012 00:36:14 +0100
-Message-ID: <1346888174.5325.55.camel@bwh-desktop.uk.solarflarecom.com>
-References: <cover.1346775479.git.nicolas.ferre@atmel.com>
-	 <fcd1c2443a30f23ffcd8de28328c5a382e2a2459.1346775479.git.nicolas.ferre@atmel.com>
+From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Subject: Increased multicast packet drops in 3.4
+Date: Wed, 5 Sep 2012 19:11:08 -0500
+Message-ID: <20120906001108.GA6035@BohrerMBP.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-	<davem@davemloft.net>, <havard@skinnemoen.net>,
-	<plagnioj@jcrosoft.com>, <jamie@jamieiles.com>,
-	<linux-kernel@vger.kernel.org>, <patrice.vilchez@atmel.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <fcd1c2443a30f23ffcd8de28328c5a382e2a2459.1346775479.git.nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:50994 "EHLO
+	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755205Ab2IFALP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2012 20:11:15 -0400
+Received: by mail-ob0-f174.google.com with SMTP id uo13so1459664obb.19
+        for <netdev@vger.kernel.org>; Wed, 05 Sep 2012 17:11:14 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-09-05 at 11:00 +0200, Nicolas Ferre wrote:
-> Add macb_get_regs() ethtool function and its helper function:
-> macb_get_regs_len().
-> 
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-> ---
->  drivers/net/ethernet/cadence/macb.c |   40 +++++++++++++++++++++++++++++++++++
->  drivers/net/ethernet/cadence/macb.h |    3 +++
->  2 files changed, 43 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index c7c39f1..f31c0a7 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -1321,10 +1321,50 @@ static void macb_get_drvinfo(struct net_device *dev,
->  	strcpy(info->bus_info, dev_name(&bp->pdev->dev));
->  }
->  
-> +static int macb_get_regs_len(struct net_device *netdev)
-> +{
-> +	return MACB_GREGS_LEN * sizeof(u32);
-> +}
-> +
-> +static void macb_get_regs(struct net_device *dev, struct ethtool_regs *regs,
-> +			  void *p)
-> +{
-> +	struct macb *bp = netdev_priv(dev);
-> +	unsigned int tail, head;
-> +	u32 *regs_buff = p;
-> +
-> +        memset(p, 0, MACB_GREGS_LEN * sizeof(u32));
+I've been testing the 3.4 kernel compared to the 3.1 kernel and
+noticed my application is experiencing a noticeable increase in packet
+drops compared to 3.1.  In this case I have 8 processes all listening
+on the same multicast group and occasionally 1 or more of the
+processes will report drops based on gaps in the sequence numbers on
+the packets.  One thing I find interesting is that some of the time 2
+or 3 of the 8 processes will report that they missed the exact same
+50+ packets.  Since the other processes receive the packets I know
+that they are making it to the machine and past the driver.
 
-The ethtool core does that for you.  (Drivers can't be trusted to do
-it!)
+So far I have not been able to _see_ any OS counters increase when the
+drops occur but perhaps there is a location that I have not yet
+looked.  I've been looking for drops in /proc/net/udp /proc/net/snmp
+and /proc/net/dev.
 
-> +	regs->version = MACB_BFEXT(IDNUM, macb_readl(bp, MID));
+I've tried using dropwatch/drop_monitor but it is awfully noisy even
+after back porting many of the patches Eric Dumazet has contributed to
+silence the false positives.  Similarly I setup trace-cmd/ftrace to
+record skb:kfree_skb calls with a stacktrace and had my application
+stop the trace when a drop was reported.  From these traces I see a
+number of the following:
 
-Note that the version field is supposed to be the version of the
-register dump format.  Is this value sufficient for userland to easily
-decide whether macb_is_gem()?  Are there spare bits that you can set if
-you change the format later?
+    md_connector-12791 [014]  7952.982818: kfree_skb:            skbaddr=0xffff880583bd7500 protocol=2048 location=0xffffffff813c930b
+    md_connector-12791 [014]  7952.982821: kernel_stack:         <stack trace>
+=> skb_release_data (ffffffff813c930b)
+=> __kfree_skb (ffffffff813c934e)
+=> skb_free_datagram_locked (ffffffff813ccca8)
+=> udp_recvmsg (ffffffff8143335c)
+=> inet_recvmsg (ffffffff8143cbfb)
+=> sock_recvmsg_nosec (ffffffff813be80f)
+=> __sys_recvmsg (ffffffff813bfe70)
+=> __sys_recvmmsg (ffffffff813c2392)
+=> sys_recvmmsg (ffffffff813c25b0)
+=> system_call_fastpath (ffffffff8148cfd2)
 
-> +	tail = macb_tx_ring_wrap(bp->tx_tail);
-> +	head = macb_tx_ring_wrap(bp->tx_head);
-> +
-> +	regs_buff[0]  = macb_readl(bp, NCR);
-> +	regs_buff[1]  = macb_or_gem_readl(bp, NCFGR);
-> +	regs_buff[2]  = macb_readl(bp, NSR);
-> +	regs_buff[3]  = macb_readl(bp, TSR);
-> +	regs_buff[4]  = macb_readl(bp, RBQP);
-> +	regs_buff[5]  = macb_readl(bp, TBQP);
-> +	regs_buff[6]  = macb_readl(bp, RSR);
-> +	regs_buff[7]  = macb_readl(bp, IMR);
-> +
-> +	regs_buff[8]  = tail;
-> +	regs_buff[9]  = head;
-> +	regs_buff[10] = macb_tx_dma(bp, tail);
-> +	regs_buff[11] = macb_tx_dma(bp, head);
-> +
-> +	if (macb_is_gem(bp)) {
-> +		regs_buff[12] = gem_readl(bp, USRIO);
-> +		regs_buff[13] = gem_readl(bp, DMACFG);
-> +	}
-> +}
-> +
->  static const struct ethtool_ops macb_ethtool_ops = {
->  	.get_settings		= macb_get_settings,
->  	.set_settings		= macb_set_settings,
->  	.get_drvinfo		= macb_get_drvinfo,
-> +	.get_regs_len		= macb_get_regs_len,
-> +	.get_regs		= macb_get_regs,
->  	.get_link		= ethtool_op_get_link,
->  	.get_ts_info		= ethtool_op_get_ts_info,
->  };
-> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-> index 8a4ee2f..d509e88 100644
-> --- a/drivers/net/ethernet/cadence/macb.h
-> +++ b/drivers/net/ethernet/cadence/macb.h
-> @@ -10,6 +10,9 @@
->  #ifndef _MACB_H
->  #define _MACB_H
->  
-> +
-> +#define MACB_GREGS_LEN 32
+Looking at the code it does look like these could be the drops, since
+I do not see any counters incremented in this code path.  However I'm
+not very familiar with this code so it could also be a false positive.
+It does look like the above stack only gets called if
+skb_has_frag_list(skb) does this imply the packet was over one MTU
+(1500)?
 
-Why is this rather larger than the actual number of registers you
-return?  Also, the name is not a great idea as 'regs_len' is normally a
-number of bytes.
+I'd appreciate any input on possible causes/solutions for these drops.
+Or ways that I can further debug this issue to find the root cause of
+the increase in drops on 3.4.
 
-Ben.
-
->  /* MACB register offsets */
->  #define MACB_NCR				0x0000
->  #define MACB_NCFGR				0x0004
+Thanks,
+Shawn
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
+---------------------------------------------------------------
+This email, along with any attachments, is confidential. If you 
+believe you received this message in error, please contact the 
+sender immediately and delete all copies of the message.  
+Thank you.
