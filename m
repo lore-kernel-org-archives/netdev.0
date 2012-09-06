@@ -1,245 +1,108 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.com>
-Subject: [PATCH net 1/5] net/mlx4_core: Put Firmware flow steering structures in common header files
-Date: Thu,  6 Sep 2012 11:50:48 +0300
-Message-ID: <1346921452-2035-2-git-send-email-yevgenyp@mellanox.com>
+Subject: [PATCH net 3/5] net/mlx4_core: Looking for promiscuous entries on the correct port
+Date: Thu,  6 Sep 2012 11:50:50 +0300
+Message-ID: <1346921452-2035-4-git-send-email-yevgenyp@mellanox.com>
 References: <1346921452-2035-1-git-send-email-yevgenyp@mellanox.com>
-Cc: netdev@vger.kernel.org, Hadar Hen Zion <hadarh@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Aviad Yehezkel <aviadye@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:48668 "HELO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754455Ab2IFIvS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 04:51:18 -0400
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:43502 "HELO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754466Ab2IFIvX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 04:51:23 -0400
 In-Reply-To: <1346921452-2035-1-git-send-email-yevgenyp@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hadar Hen Zion <hadarh@mellanox.com>
+From: Aviad Yehezkel <aviadye@mellanox.com>
 
-To allow for usage of the flow steering Firmware structures in more locations over the driver,
-such as the resource tracker, move them from mcg.c to common header files.
+The search for promisc entries was always done on the first port,
+While the addition is done on the correct port.
+This lead to resource leackage of promisc entries on the second
+port and brought to a state where we could no longer enter to
+promiscuous mode after enough iterations of "ifconfig promisc"
+on the second port.
+Fix that by using the correct port when searching.
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reported-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Signed-off-by: Aviad Yehezkel <aviadye@mellanox.com>
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/mcg.c  |   90 ++--------------------------
- drivers/net/ethernet/mellanox/mlx4/mlx4.h |   76 ++++++++++++++++++++++++
- include/linux/mlx4/device.h               |    2 +
- 3 files changed, 85 insertions(+), 83 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/mcg.c |   16 ++++++++--------
+ 1 files changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index a018ea2..2673f3b 100644
+index 2673f3b..e151c21 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -650,13 +650,6 @@ static int find_entry(struct mlx4_dev *dev, u8 port,
+@@ -137,11 +137,11 @@ static int mlx4_GID_HASH(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox,
  	return err;
  }
  
--struct mlx4_net_trans_rule_hw_ctrl {
--	__be32 ctrl;
--	__be32 vf_vep_port;
--	__be32 qpn;
--	__be32 reserved;
--};
--
- static void trans_rule_ctrl_to_hw(struct mlx4_net_trans_rule *ctrl,
- 				  struct mlx4_net_trans_rule_hw_ctrl *hw)
+-static struct mlx4_promisc_qp *get_promisc_qp(struct mlx4_dev *dev, u8 pf_num,
++static struct mlx4_promisc_qp *get_promisc_qp(struct mlx4_dev *dev, u8 port,
+ 					      enum mlx4_steer_type steer,
+ 					      u32 qpn)
  {
-@@ -680,87 +673,18 @@ static void trans_rule_ctrl_to_hw(struct mlx4_net_trans_rule *ctrl,
- 	hw->qpn = cpu_to_be32(ctrl->qpn);
- }
+-	struct mlx4_steer *s_steer = &mlx4_priv(dev)->steer[pf_num];
++	struct mlx4_steer *s_steer = &mlx4_priv(dev)->steer[port - 1];
+ 	struct mlx4_promisc_qp *pqp;
  
--struct mlx4_net_trans_rule_hw_ib {
--	u8	size;
--	u8	rsvd1;
--	__be16	id;
--	u32	rsvd2;
--	__be32	qpn;
--	__be32	qpn_mask;
--	u8	dst_gid[16];
--	u8	dst_gid_msk[16];
--} __packed;
--
--struct mlx4_net_trans_rule_hw_eth {
--	u8	size;
--	u8	rsvd;
--	__be16	id;
--	u8	rsvd1[6];
--	u8	dst_mac[6];
--	u16	rsvd2;
--	u8	dst_mac_msk[6];
--	u16	rsvd3;
--	u8	src_mac[6];
--	u16	rsvd4;
--	u8	src_mac_msk[6];
--	u8      rsvd5;
--	u8      ether_type_enable;
--	__be16  ether_type;
--	__be16  vlan_id_msk;
--	__be16  vlan_id;
--} __packed;
--
--struct mlx4_net_trans_rule_hw_tcp_udp {
--	u8	size;
--	u8	rsvd;
--	__be16	id;
--	__be16	rsvd1[3];
--	__be16	dst_port;
--	__be16	rsvd2;
--	__be16	dst_port_msk;
--	__be16	rsvd3;
--	__be16	src_port;
--	__be16	rsvd4;
--	__be16	src_port_msk;
--} __packed;
--
--struct mlx4_net_trans_rule_hw_ipv4 {
--	u8	size;
--	u8	rsvd;
--	__be16	id;
--	__be32	rsvd1;
--	__be32	dst_ip;
--	__be32	dst_ip_msk;
--	__be32	src_ip;
--	__be32	src_ip_msk;
--} __packed;
--
--struct _rule_hw {
--	union {
--		struct {
--			u8 size;
--			u8 rsvd;
--			__be16 id;
--		};
--		struct mlx4_net_trans_rule_hw_eth eth;
--		struct mlx4_net_trans_rule_hw_ib ib;
--		struct mlx4_net_trans_rule_hw_ipv4 ipv4;
--		struct mlx4_net_trans_rule_hw_tcp_udp tcp_udp;
--	};
-+const u16 __sw_id_hw[] = {
-+	[MLX4_NET_TRANS_RULE_ID_ETH]     = 0xE001,
-+	[MLX4_NET_TRANS_RULE_ID_IB]      = 0xE005,
-+	[MLX4_NET_TRANS_RULE_ID_IPV6]    = 0xE003,
-+	[MLX4_NET_TRANS_RULE_ID_IPV4]    = 0xE002,
-+	[MLX4_NET_TRANS_RULE_ID_TCP]     = 0xE004,
-+	[MLX4_NET_TRANS_RULE_ID_UDP]     = 0xE006
- };
+ 	list_for_each_entry(pqp, &s_steer->promisc_qps[steer], list) {
+@@ -182,7 +182,7 @@ static int new_steering_entry(struct mlx4_dev *dev, u8 port,
+ 	/* If the given qpn is also a promisc qp,
+ 	 * it should be inserted to duplicates list
+ 	 */
+-	pqp = get_promisc_qp(dev, 0, steer, qpn);
++	pqp = get_promisc_qp(dev, port, steer, qpn);
+ 	if (pqp) {
+ 		dqp = kmalloc(sizeof *dqp, GFP_KERNEL);
+ 		if (!dqp) {
+@@ -256,7 +256,7 @@ static int existing_steering_entry(struct mlx4_dev *dev, u8 port,
  
- static int parse_trans_rule(struct mlx4_dev *dev, struct mlx4_spec_list *spec,
- 			    struct _rule_hw *rule_hw)
- {
--	static const u16 __sw_id_hw[] = {
--		[MLX4_NET_TRANS_RULE_ID_ETH]     = 0xE001,
--		[MLX4_NET_TRANS_RULE_ID_IB]      = 0xE005,
--		[MLX4_NET_TRANS_RULE_ID_IPV6]    = 0xE003,
--		[MLX4_NET_TRANS_RULE_ID_IPV4]    = 0xE002,
--		[MLX4_NET_TRANS_RULE_ID_TCP]     = 0xE004,
--		[MLX4_NET_TRANS_RULE_ID_UDP]     = 0xE006
--	};
--
- 	static const size_t __rule_hw_sz[] = {
- 		[MLX4_NET_TRANS_RULE_ID_ETH] =
- 			sizeof(struct mlx4_net_trans_rule_hw_eth),
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 4d9df8f..dba69d9 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -690,6 +690,82 @@ struct mlx4_steer {
- 	struct list_head steer_entries[MLX4_NUM_STEERS];
- };
+ 	s_steer = &mlx4_priv(dev)->steer[port - 1];
  
-+struct mlx4_net_trans_rule_hw_ctrl {
-+	__be32 ctrl;
-+	__be32 vf_vep_port;
-+	__be32 qpn;
-+	__be32 reserved;
-+};
-+
-+struct mlx4_net_trans_rule_hw_ib {
-+	u8 size;
-+	u8 rsvd1;
-+	__be16 id;
-+	u32 rsvd2;
-+	__be32 qpn;
-+	__be32 qpn_mask;
-+	u8 dst_gid[16];
-+	u8 dst_gid_msk[16];
-+} __packed;
-+
-+struct mlx4_net_trans_rule_hw_eth {
-+	u8	size;
-+	u8	rsvd;
-+	__be16	id;
-+	u8	rsvd1[6];
-+	u8	dst_mac[6];
-+	u16	rsvd2;
-+	u8	dst_mac_msk[6];
-+	u16	rsvd3;
-+	u8	src_mac[6];
-+	u16	rsvd4;
-+	u8	src_mac_msk[6];
-+	u8      rsvd5;
-+	u8      ether_type_enable;
-+	__be16  ether_type;
-+	__be16  vlan_id_msk;
-+	__be16  vlan_id;
-+} __packed;
-+
-+struct mlx4_net_trans_rule_hw_tcp_udp {
-+	u8	size;
-+	u8	rsvd;
-+	__be16	id;
-+	__be16	rsvd1[3];
-+	__be16	dst_port;
-+	__be16	rsvd2;
-+	__be16	dst_port_msk;
-+	__be16	rsvd3;
-+	__be16	src_port;
-+	__be16	rsvd4;
-+	__be16	src_port_msk;
-+} __packed;
-+
-+struct mlx4_net_trans_rule_hw_ipv4 {
-+	u8	size;
-+	u8	rsvd;
-+	__be16	id;
-+	__be32	rsvd1;
-+	__be32	dst_ip;
-+	__be32	dst_ip_msk;
-+	__be32	src_ip;
-+	__be32	src_ip_msk;
-+} __packed;
-+
-+struct _rule_hw {
-+	union {
-+		struct {
-+			u8 size;
-+			u8 rsvd;
-+			__be16 id;
-+		};
-+		struct mlx4_net_trans_rule_hw_eth eth;
-+		struct mlx4_net_trans_rule_hw_ib ib;
-+		struct mlx4_net_trans_rule_hw_ipv4 ipv4;
-+		struct mlx4_net_trans_rule_hw_tcp_udp tcp_udp;
-+	};
-+};
-+
- struct mlx4_priv {
- 	struct mlx4_dev		dev;
+-	pqp = get_promisc_qp(dev, 0, steer, qpn);
++	pqp = get_promisc_qp(dev, port, steer, qpn);
+ 	if (!pqp)
+ 		return 0; /* nothing to do */
  
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index bd6c9fc..244ba90 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -796,6 +796,8 @@ enum mlx4_net_trans_rule_id {
- 	MLX4_NET_TRANS_RULE_NUM, /* should be last */
- };
+@@ -302,7 +302,7 @@ static bool check_duplicate_entry(struct mlx4_dev *dev, u8 port,
+ 	s_steer = &mlx4_priv(dev)->steer[port - 1];
  
-+extern const u16 __sw_id_hw[];
-+
- enum mlx4_net_trans_promisc_mode {
- 	MLX4_FS_PROMISC_NONE = 0,
- 	MLX4_FS_PROMISC_UPLINK,
+ 	/* if qp is not promisc, it cannot be duplicated */
+-	if (!get_promisc_qp(dev, 0, steer, qpn))
++	if (!get_promisc_qp(dev, port, steer, qpn))
+ 		return false;
+ 
+ 	/* The qp is promisc qp so it is a duplicate on this index
+@@ -352,7 +352,7 @@ static bool can_remove_steering_entry(struct mlx4_dev *dev, u8 port,
+ 	members_count = be32_to_cpu(mgm->members_count) & 0xffffff;
+ 	for (i = 0;  i < members_count; i++) {
+ 		qpn = be32_to_cpu(mgm->qp[i]) & MGM_QPN_MASK;
+-		if (!get_promisc_qp(dev, 0, steer, qpn) && qpn != tqpn) {
++		if (!get_promisc_qp(dev, port, steer, qpn) && qpn != tqpn) {
+ 			/* the qp is not promisc, the entry can't be removed */
+ 			goto out;
+ 		}
+@@ -398,7 +398,7 @@ static int add_promisc_qp(struct mlx4_dev *dev, u8 port,
+ 
+ 	mutex_lock(&priv->mcg_table.mutex);
+ 
+-	if (get_promisc_qp(dev, 0, steer, qpn)) {
++	if (get_promisc_qp(dev, port, steer, qpn)) {
+ 		err = 0;  /* Noting to do, already exists */
+ 		goto out_mutex;
+ 	}
+@@ -503,7 +503,7 @@ static int remove_promisc_qp(struct mlx4_dev *dev, u8 port,
+ 	s_steer = &mlx4_priv(dev)->steer[port - 1];
+ 	mutex_lock(&priv->mcg_table.mutex);
+ 
+-	pqp = get_promisc_qp(dev, 0, steer, qpn);
++	pqp = get_promisc_qp(dev, port, steer, qpn);
+ 	if (unlikely(!pqp)) {
+ 		mlx4_warn(dev, "QP %x is not promiscuous QP\n", qpn);
+ 		/* nothing to do */
 -- 
 1.7.7
