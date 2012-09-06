@@ -1,46 +1,37 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 0/5] dev_<level> and dynamic_debug cleanups
-Date: Thu, 06 Sep 2012 11:43:46 -0700
-Message-ID: <1346957026.13424.5.camel@joe2Laptop>
-References: <cover.1345978012.git.joe@perches.com>
-	 <20120906175158.GB9786@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v2] ethtool: don't overwrite useful bits in advertising
+ bitfield
+Date: Thu, 6 Sep 2012 20:05:48 +0100
+Message-ID: <1346958348.2714.34.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1345807965-16236-1-git-send-email-johangu@axis.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jim Cromie <jim.cromie@gmail.com>, Kay Sievers <kay@vrfy.org>,
-	linux-kernel@vger.kernel.org
-To: Jason Baron <jbaron@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120906175158.GB9786@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Johan Gunnarsson <johan.gunnarsson@axis.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:55458 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751927Ab2IFTFx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 15:05:53 -0400
+In-Reply-To: <1345807965-16236-1-git-send-email-johangu@axis.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-09-06 at 13:51 -0400, Jason Baron wrote:
-> On Sun, Aug 26, 2012 at 04:25:25AM -0700, Joe Perches wrote:
-> > The recent commit to fix dynamic_debug was a bit unclean.
-> > Neaten the style for dynamic_debug.
-> > Reduce the stack use of message logging that uses netdev_printk
-> > Add utility functions dev_printk_emit and dev_vprintk_emit for /dev/kmsg.
-> > 
-> > Joe Perches (5):
-> >   dev_dbg/dynamic_debug: Update to use printk_emit, optimize stack
-> >   netdev_printk/dynamic_netdev_dbg: Directly call printk_emit
-> >   netdev_printk/netif_printk: Remove a superfluous logging colon
-> >   dev: Add dev_vprintk_emit and dev_printk_emit
-> >   device and dynamic_debug: Use dev_vprintk_emit and dev_printk_emit
-> > 
+On Fri, 2012-08-24 at 13:32 +0200, Johan Gunnarsson wrote:
+> There are bits in this bitfield that we want to leave untouched (PAUSE
+> and ASYM_PAUSE bits) when changing other bits (speed and duplex bits.)
+> Previously, these were always overwritten to zero when running commands
+> like "ethtool -s eth0 speed 10 duplex full autoneg off".
 > 
-> Looks Good.
-> 
-> The one thing that is bothering me though, is that for
-> __dynamic_dev_dbg(), __dynamic_netdev_dbg(), we are copying much of the core
-> logic of __dev_printk(), __netdev_printk(), respectively. I would prefer
-> have this in one place. Can we add a 'prefix' argument to __dev_printk(),
-> and __netdev_printk() that dynamic debug can use, but is simply empty
-> for dev_printk() and netdev_printk().
+> Signed-off-by: Johan Gunnarsson <johangu@axis.com>
+[...]
 
-I don't think that's an improvement actually.
-Why don't you try it.
+Applied, thanks.  I made some minor fixes to spelling and formatting.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
