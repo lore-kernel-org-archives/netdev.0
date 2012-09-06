@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: Increased multicast packet drops in 3.4
-Date: Thu, 06 Sep 2012 08:07:10 +0200
-Message-ID: <1346911630.13121.162.camel@edumazet-glaptop>
+Date: Thu, 06 Sep 2012 08:22:40 +0200
+Message-ID: <1346912560.13121.175.camel@edumazet-glaptop>
 References: <20120906001108.GA6035@BohrerMBP.rgmadvisors.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -9,12 +9,12 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Shawn Bohrer <sbohrer@rgmadvisors.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:47268 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751108Ab2IFGHP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 02:07:15 -0400
-Received: by wibhr14 with SMTP id hr14so1003915wib.1
-        for <netdev@vger.kernel.org>; Wed, 05 Sep 2012 23:07:14 -0700 (PDT)
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:35472 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751342Ab2IFGWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 02:22:46 -0400
+Received: by bkwj10 with SMTP id j10so606678bkw.19
+        for <netdev@vger.kernel.org>; Wed, 05 Sep 2012 23:22:44 -0700 (PDT)
 In-Reply-To: <20120906001108.GA6035@BohrerMBP.rgmadvisors.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -70,6 +70,27 @@ On Wed, 2012-09-05 at 19:11 -0500, Shawn Bohrer wrote:
 > Shawn
 > 
 
-Thanks Shawn for this excellent report.
+What NIC driver are you using ?
 
-I am taking a look right now.
+Could you trace if skb_copy_and_csum_datagram_iovec() or
+skb_copy_datagram_iovec() returns an error (it could be EFAULT by
+example) ?
+
+If so, you could add some debugging to these functions to track what
+exact error it is
+
+It seems following patch is needed anyway :
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 6f6d1ac..2c965c9 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1226,6 +1226,8 @@ try_again:
+ 
+ 	if (unlikely(err)) {
+ 		trace_kfree_skb(skb, udp_recvmsg);
++		if (!peeked)
++			UDP_INC_STATS_USER(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+ 		goto out_free;
+ 	}
+ 
