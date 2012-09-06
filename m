@@ -1,74 +1,57 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v3 01/17] hashtable: introduce a small and naive hashtable
-Date: Thu, 6 Sep 2012 15:36:52 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6FDE@saturn3.aculab.com>
-References: <20120824230740.GN21325@google.com> <20120825042419.GA27240@Krystal> <503C95E4.3010000@gmail.com> <20120828101148.GA21683@Krystal> <503CAB1E.5010408@gmail.com> <20120828115638.GC23818@Krystal> <20120828230050.GA3337@Krystal> <1346772948.27919.9.camel@gandalf.local.home> <50462C99.5000007@redhat.com> <50462EE8.1090903@redhat.com> <20120904170138.GB31934@Krystal> <5048AAF6.5090101@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: NULL pointer dereference in xt_register_target()
+Date: Thu, 6 Sep 2012 16:44:03 +0200
+Message-ID: <20120906144403.GA11095@1984>
+References: <CAM_iQpVUZ50RYLUgEHbcm7ua996hgE7Gj-P-bWNJutuvm1nUoQ@mail.gmail.com>
+ <1346860506.13121.148.camel@edumazet-glaptop>
+ <20120905164831.GA21836@1984>
+ <CAM_iQpVAZwKhZxLdk-BLMjnK3eX4DD_o9KvzuAoTttyxvmCsJA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "Pedro Alves" <palves@redhat.com>,
-	"Steven Rostedt" <rostedt@goodmis.org>,
-	"Tejun Heo" <tj@kernel.org>,
-	<torvalds@linux-foundation.org>,
-	<akpm@linux-foundation.org>,
-	<linux-kernel@vger.kernel.org>,
-	<linux-mm@kvack.org>,
-	<paul.gortmaker@windriver.com>,
-	<davem@davemloft.net>,
-	<mingo@elte.hu>,
-	<ebiederm@xmission.com>,
-	<aarcange@redhat.com>,
-	<ericvh@gmail.com>,
-	<netdev@vger.kernel.org>,
-	<josh@joshtriplett.org>,
-	<eric.dumazet@gmail.com>,
-	<axboe@kernel.dk>,
-	<agk@redhat.com>,
-	<dm-devel@redhat.com>,
-	<neilb@suse.de>,
-	<ccaulfie@redhat.com>,
-	<teigland@redhat.com>,
-	<Trond.Myklebust@netapp.com>,
-	<bfields@fieldses.org>,
-	<fweisbec@gmail.com>,
-	<jesse@nicira.com>,
-	<venkat.x.venkatsubra@oracle.com>,
-	<ejt@redhat.com>,
-	<snitzer@redhat.com>,
-	<edumazet@google.com>,
-	<linux-nfs@vger.kernel.org>,
-	<dev@openvswitch.org>,
-	<rds-devel@oss.oracle.com>,
-	<lw@cn.fujitsu.com>
-To: "Sasha Levin" <levinsasha928@gmail.com>,
-	"Mathieu Desnoyers" <mathieu.desnoyers@efficios.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <5048AAF6.5090101@gmail.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netfilter-devel@vger.kernel.org,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpVAZwKhZxLdk-BLMjnK3eX4DD_o9KvzuAoTttyxvmCsJA@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> My solution to making 'break' work in the iterator is:
->=20
-> 	for (bkt =3D 0, node =3D NULL; bkt < HASH_SIZE(name) && node =3D=3D
-NULL; bkt++)
-> 		hlist_for_each_entry(obj, node, &name[bkt], member)
+On Thu, Sep 06, 2012 at 10:27:22PM +0800, Cong Wang wrote:
+> On Thu, Sep 6, 2012 at 12:48 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> > On Wed, Sep 05, 2012 at 05:55:06PM +0200, Eric Dumazet wrote:
+> >> On Wed, 2012-09-05 at 23:43 +0800, Cong Wang wrote:
+> >> > Hi, folks,
+> >> >
+> >> > The latest net-next tree can't boot due to a NULL ptr def
+> >> > bug in the kernel, the full backtrack is:
+> >> >
+> >> > http://img1.douban.com/view/photo/photo/public/p1697139550.jpg
+> >> >
+> >> > the kernel .config file is:
+> >> >
+> >> > http://pastebin.com/9YTnkqKN
+> >> >
+> >> > I don't have time to look into the issue. If you need other info,
+> >> > please let me know.
+> >>
+> >> It seems xt_nat_init() is called before xt_init(), so xt array is not
+> >> yet setup.
+> >
+> > I have enqueued the following patch to fix this:
+> >
+> > http://1984.lsi.us.es/git/nf-next/commit/?id=00545bec9412d130c77f72a08d6c8b6ad21d4a1
+> > e
+> > commit 00545bec9412d130c77f72a08d6c8b6ad21d4a1e
+> > Author: Pablo Neira Ayuso <pablo@netfilter.org>
+> > Date:   Wed Sep 5 18:24:55 2012 +0200
+> >
+> >     netfilter: fix crash during boot if NAT has been compiled built-in
+> >
+> 
+> Yeah, this indeed fixes the bug.
+> 
+> Please push it to net-next as soon as possible?
 
-I'd take a look at the generated code.
-Might come out a bit better if the condition is changed to:
-	node =3D=3D NULL && bkt < HASH_SIZE(name)
-you might find the compiler always optimises out the
-node =3D=3D NULL comparison.
-(It might anyway, but switching the order gives it a better
-chance.)
-
-	David
-
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Will do, thanks for testing.
