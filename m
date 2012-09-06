@@ -1,43 +1,47 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] mac80211: use list_move instead of list_del/list_add
-Date: Thu, 6 Sep 2012 13:20:53 +0800
-Message-ID: <CAPgLHd_VrjzzfPDsd3KKzgX2bKJ47zUCJmsQO+Q49ajNVLnTVg@mail.gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [net-next.git 4/7] stmmac: add Rx watchdog optimization to mitigate
+ the DMA irqs
+Date: Thu, 06 Sep 2012 08:06:14 +0200
+Message-ID: <50483D56.1020208@st.com>
+References: <1346857432-24657-1-git-send-email-peppe.cavallaro@st.com> <1346857432-24657-5-git-send-email-peppe.cavallaro@st.com> <1346861675.5325.13.camel@bwh-desktop.uk.solarflarecom.com> <20120905.131615.1131246696009291033.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: linville@tuxdriver.com, johannes@sipsolutions.net
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:36088 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751004Ab2IFFUy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 01:20:54 -0400
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:56918 "EHLO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751301Ab2IFGGd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 02:06:33 -0400
+In-Reply-To: <20120905.131615.1131246696009291033.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On 9/5/2012 7:16 PM, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Wed, 5 Sep 2012 17:14:35 +0100
+> 
+>> On Wed, 2012-09-05 at 17:03 +0200, Giuseppe CAVALLARO wrote:
+>>> GMAC devices newer than databook 3.50 has an embedded timer
+>>> that can be used for mitigating the number of interrupts.
+>>> So this patch adds this optimizations.
+>>> Old MAC will continue to use NAPI.
+>> [...]
+>>
+>> Interrupt moderation is *not* a substitute for NAPI; you should continue
+>> using NAPI as well.
+> 
+> Absolutely correct, these two facilities are _complementary_ not _exlusive_.
+> 
+> In fact, the most optimal driver will use NAPI with relatively short HW
+> mitigation settings.
+> 
 
-Using list_move() instead of list_del() + list_add().
+David, Ben,
 
-spatch with a semantic match is used to found this problem.
-(http://coccinelle.lip6.fr/)
+many thanks for your notes and review. I'll apply them and re-test the
+driver using NAPI plus the HW wdt feature.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- net/mac80211/offchannel.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/net/mac80211/offchannel.c b/net/mac80211/offchannel.c
-index 635c325..7fbf99d 100644
---- a/net/mac80211/offchannel.c
-+++ b/net/mac80211/offchannel.c
-@@ -227,8 +227,7 @@ static void ieee80211_hw_roc_start(struct work_struct *work)
- 			u32 dur = dep->duration;
- 			dep->duration = dur - roc->duration;
- 			roc->duration = dur;
--			list_del(&dep->list);
--			list_add(&dep->list, &roc->list);
-+			list_move(&dep->list, &roc->list);
- 		}
- 	}
-  out_unlock:
+Regards
+Peppe
