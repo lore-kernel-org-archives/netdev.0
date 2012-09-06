@@ -1,66 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Increased multicast packet drops in 3.4
-Date: Thu, 06 Sep 2012 15:31:57 +0200
-Message-ID: <1346938317.2484.40.camel@edumazet-glaptop>
-References: <20120906001108.GA6035@BohrerMBP.rgmadvisors.com>
-	 <1346912560.13121.175.camel@edumazet-glaptop>
-	 <20120906130316.GA2310@BohrerMBP.gateway.2wire.net>
-	 <1346937667.2484.33.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Shawn Bohrer <sbohrer@rgmadvisors.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next] ipv6: fix handling of throw routes
+Date: Thu,  6 Sep 2012 11:53:35 -0400
+Message-ID: <1346946815-3094-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <5048A374.60005@6wind.com>
+Cc: netdev@vger.kernel.org, markus.stenberg@iki.fi,
+	eric.dumazet@gmail.com, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:34563 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753471Ab2IFNcB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 09:32:01 -0400
-Received: by eekc1 with SMTP id c1so698096eek.19
-        for <netdev@vger.kernel.org>; Thu, 06 Sep 2012 06:32:00 -0700 (PDT)
-In-Reply-To: <1346937667.2484.33.camel@edumazet-glaptop>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:59735 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755019Ab2IFNvC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 09:51:02 -0400
+In-Reply-To: <5048A374.60005@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-09-06 at 15:21 +0200, Eric Dumazet wrote:
+It's the same problem that previous fix about blackhole and prohibit routes.
 
-> 
-> Are you receiving fragmented UDP frames ?
-> 
-> I ask this because with latest kernels (linux-3.5), we should no longer
-> build a list of skb, but a single skb with page fragments.
-> 
-> commit 3cc4949269e01f39443d0fcfffb5bc6b47878d45
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Sat May 19 03:02:20 2012 +0000
-> 
->     ipv4: use skb coalescing in defragmentation
->     
->     ip_frag_reasm() can use skb_try_coalesce() to build optimized skb,
->     reducing memory used by them (truesize), and reducing number of cache
->     line misses and overhead for the consumer.
->     
->     Signed-off-by: Eric Dumazet <edumazet@google.com>
->     Cc: Alexander Duyck <alexander.h.duyck@intel.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> 
+When adding a throw route, it was handled like a classic route.
+Moreover, it was only possible to add this kind of routes by specifying
+an interface.
 
-Unfortunately mlx4 pulls too many bytes from the frame to skb->head, so
-it defeats coalescing completely.
+Before the patch:
+  $ ip route add throw 2001::2/128
+  RTNETLINK answers: No such device
+  $ ip route add throw 2001::2/128 dev eth0
+  $ ip -6 route | grep 2001::2
+  2001::2 dev eth0  metric 1024
 
-Try following patch (if you also try linux-3.5)
+After:
+  $ ip route add throw 2001::2/128
+  $ ip -6 route | grep 2001::2
+  throw 2001::2 dev lo  metric 1024  error -11
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 9d27e42..700e70e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -150,7 +150,7 @@ enum {
- #define ETH_LLC_SNAP_SIZE	8
+Reported-by: Markus Stenberg <markus.stenberg@iki.fi>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/ipv6/route.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index fa26444..339d921 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1471,6 +1471,9 @@ int ip6_route_add(struct fib6_config *cfg)
+ 		case RTN_PROHIBIT:
+ 			rt->dst.error = -EACCES;
+ 			break;
++		case RTN_THROW:
++			rt->dst.error = -EAGAIN;
++			break;
+ 		default:
+ 			rt->dst.error = -ENETUNREACH;
+ 			break;
+@@ -2275,7 +2278,8 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
  
- #define SMALL_PACKET_SIZE      (256 - NET_IP_ALIGN)
--#define HEADER_COPY_SIZE       (128 - NET_IP_ALIGN)
-+#define HEADER_COPY_SIZE       ETH_HLEN
- #define MLX4_LOOPBACK_TEST_PAYLOAD (HEADER_COPY_SIZE - ETH_HLEN)
+ 	if (rtm->rtm_type == RTN_UNREACHABLE ||
+ 	    rtm->rtm_type == RTN_BLACKHOLE ||
+-	    rtm->rtm_type == RTN_PROHIBIT)
++	    rtm->rtm_type == RTN_PROHIBIT ||
++	    rtm->rtm_type == RTN_THROW)
+ 		cfg->fc_flags |= RTF_REJECT;
  
- #define MLX4_EN_MIN_MTU		46
+ 	if (rtm->rtm_type == RTN_LOCAL)
+@@ -2412,6 +2416,9 @@ static int rt6_fill_node(struct net *net,
+ 		case -EACCES:
+ 			rtm->rtm_type = RTN_PROHIBIT;
+ 			break;
++		case -EAGAIN:
++			rtm->rtm_type = RTN_THROW;
++			break;
+ 		default:
+ 			rtm->rtm_type = RTN_UNREACHABLE;
+ 			break;
+-- 
+1.7.12
