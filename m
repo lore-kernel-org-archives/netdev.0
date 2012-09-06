@@ -1,65 +1,83 @@
-From: Dave Jones <davej@redhat.com>
-Subject: WARNING: at net/ipv4/tcp.c:1303 tcp_cleanup_rbuf+0x54/0x120()
-Date: Thu, 6 Sep 2012 11:32:40 -0400
-Message-ID: <20120906153240.GA25087@redhat.com>
-References: <bug-854367-176318@bugzilla.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Fedora Kernel Team <kernel-team@fedoraproject.org>
-To: netdev@vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH] sctp: check dst validity after IPsec operations
+Date: Thu,  6 Sep 2012 13:40:29 -0400
+Message-ID: <1346953229-3825-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: vyasevich@gmail.com, sri@us.ibm.com, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55871 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752158Ab2IFPcn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Sep 2012 11:32:43 -0400
-Content-Disposition: inline
-In-Reply-To: <bug-854367-176318@bugzilla.redhat.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:59977 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757680Ab2IFPj0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 11:39:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We've had about 20 reports of this bug in the last 2 days. 
-No idea why it only just started showing up, but it may coincide with
-users updating from 3.4->3.5 when we pushed an update.
+dst stored in struct sctp_transport needs to be recalculated when ipsec policy
+are updated. We use flow_cache_genid for that.
 
-Seems to be affecting multiple different network drivers.
-(The original trace is a 'crap' driver from staging, but there are
- reports from e1000e and iwlwifi for eg)
+For example, if a SCTP connection is established and then an IPsec policy is
+set, the old SCTP flow will not be updated and thus will not use the new
+IPsec policy.
 
- > https://bugzilla.redhat.com/show_bug.cgi?id=854367
- > 
- > backtrace:
- > :WARNING: at net/ipv4/tcp.c:1303 tcp_cleanup_rbuf+0x54/0x120()
- > :Hardware name: GA-MA785GM-US2H
- > :cleanup rbuf bug: copied A48FD80 seq A48FD80 rcvnxt A48FD80
- > :Modules linked in: fuse ebtable_nat ebtables ipt_MASQUERADE
- > nf_conntrack_netbios_ns nf_conntrack_broadcast ip6table_mangle ip6t_REJECT
- > nf_conntrack_ipv6 nf_defrag_ipv6 lockd ip6table_filter sunrpc ip6_tables
- > iptable_nat nf_nat rfcomm iptable_mangle nf_conntrack_ipv4 nf_defrag_ipv4 bnep
- > xt_conntrack nf_conntrack binfmt_misc btusb bluetooth snd_hda_codec_hdmi
- > snd_hda_codec_realtek snd_hda_intel joydev r8712u(C) snd_hda_codec rfkill
- > snd_hwdep shpchp sp5100_tco r8169 mii serio_raw snd_pcm snd_page_alloc
- > snd_timer snd soundcore i2c_piix4 edac_core edac_mce_amd ppdev parport_pc
- > parport microcode k10temp vhost_net tun macvtap macvlan kvm_amd kvm uinput
- > ata_generic pata_acpi firewire_ohci firewire_core crc_itu_t pata_atiixp wmi
- > usb_storage radeon i2c_algo_bit drm_kms_helper ttm drm i2c_core [last unloaded:
- > scsi_wait_scan]
- > :Pid: 2241, comm: Chrome_IOThread Tainted: G         C   3.5.3-1.fc17.x86_64 #1
- > :Call Trace:
- > : [<ffffffff810584bf>] warn_slowpath_common+0x7f/0xc0
- > : [<ffffffff810585b6>] warn_slowpath_fmt+0x46/0x50
- > : [<ffffffff815443c4>] tcp_cleanup_rbuf+0x54/0x120
- > : [<ffffffff8154564c>] tcp_recvmsg+0x76c/0xd30
- > : [<ffffffff81569c1b>] inet_recvmsg+0x6b/0x80
- > : [<ffffffff814e7612>] sock_aio_read.part.9+0x142/0x170
- > : [<ffffffff814e7665>] sock_aio_read+0x25/0x40
- > : [<ffffffff81187a06>] do_sync_read+0xe6/0x120
- > : [<ffffffff8127948a>] ? inode_has_perm.isra.31.constprop.61+0x2a/0x30
- > : [<ffffffff812764d2>] ? security_file_permission+0x92/0xb0
- > : [<ffffffff81187ea1>] ? rw_verify_area+0x61/0xf0
- > : [<ffffffff811883ed>] vfs_read+0x15d/0x180
- > : [<ffffffff8118845a>] sys_read+0x4a/0x90
- > : [<ffffffff81614ae9>] system_call_fastpath+0x16/0x1b
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/net/sctp/sctp.h    | 3 ++-
+ include/net/sctp/structs.h | 3 +++
+ net/sctp/ipv6.c            | 1 +
+ net/sctp/protocol.c        | 1 +
+ 4 files changed, 7 insertions(+), 1 deletion(-)
 
-Could this be related to the "recvmsg bug" WARN's we've also been seeing recently ?
-
-	Dave
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 9c6414f..3267246 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -712,7 +712,8 @@ static inline void sctp_v4_map_v6(union sctp_addr *addr)
+  */
+ static inline struct dst_entry *sctp_transport_dst_check(struct sctp_transport *t)
+ {
+-	if (t->dst && !dst_check(t->dst, 0)) {
++	if ((t->dst && !dst_check(t->dst, 0)) ||
++	    (t->flow_cache_genid != atomic_read(&flow_cache_genid))) {
+ 		dst_release(t->dst);
+ 		t->dst = NULL;
+ 	}
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 0fef00f..9dab882 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -948,6 +948,9 @@ struct sctp_transport {
+ 
+ 	/* 64-bit random number sent with heartbeat. */
+ 	__u64 hb_nonce;
++
++	/* used to check validity of dst */
++	__u32 flow_cache_genid;
+ };
+ 
+ struct sctp_transport *sctp_transport_new(struct net *, const union sctp_addr *,
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index ea14cb4..2ed7410 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -349,6 +349,7 @@ out:
+ 		struct rt6_info *rt;
+ 		rt = (struct rt6_info *)dst;
+ 		t->dst = dst;
++		t->flow_cache_genid = atomic_read(&flow_cache_genid);
+ 		SCTP_DEBUG_PRINTK("rt6_dst:%pI6 rt6_src:%pI6\n",
+ 			&rt->rt6i_dst.addr, &fl6->saddr);
+ 	} else {
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 2d51842..4795a1a 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -512,6 +512,7 @@ out_unlock:
+ 	rcu_read_unlock();
+ out:
+ 	t->dst = dst;
++	t->flow_cache_genid = atomic_read(&flow_cache_genid);
+ 	if (dst)
+ 		SCTP_DEBUG_PRINTK("rt_dst:%pI4, rt_src:%pI4\n",
+ 				  &fl4->daddr, &fl4->saddr);
+-- 
+1.7.12
