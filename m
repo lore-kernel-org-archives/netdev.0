@@ -1,65 +1,102 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and naive
- hashtable
-Date: Thu, 06 Sep 2012 13:15:42 -0400
-Message-ID: <1346951742.1680.38.camel@gandalf.local.home>
-References: <503C95E4.3010000@gmail.com> <20120828101148.GA21683@Krystal>
-	  <503CAB1E.5010408@gmail.com> <20120828115638.GC23818@Krystal>
-	  <20120828230050.GA3337@Krystal>
-	  <1346772948.27919.9.camel@gandalf.local.home>
-	 <50462C99.5000007@redhat.com>  <50462EE8.1090903@redhat.com>
-	 <20120904170138.GB31934@Krystal>  <5048AAF6.5090101@gmail.com>
-	 <20120906145545.GA17332@leaf>  <5048C615.4070204@gmail.com>
-	 <1346947206.1680.36.camel@gandalf.local.home> <5048CDA2.10300@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 06/12] qlcnic: 83xx data path and HW interfaces routines
+Date: Thu, 6 Sep 2012 18:33:20 +0100
+Message-ID: <1346952800.2714.5.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1346912529-17406-1-git-send-email-sony.chacko@qlogic.com>
+	 <1346912529-17406-7-git-send-email-sony.chacko@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Josh Triplett <josh@joshtriplett.org>, Mathieu Desnoyers
- <mathieu.desnoyers@efficios.com>, Pedro Alves <palves@redhat.com>, Tejun
- Heo <tj@kernel.org>, torvalds@linux-foundation.org,
- akpm@linux-foundation.org,  linux-kernel@vger.kernel.org,
- linux-mm@kvack.org, paul.gortmaker@windriver.com,  davem@davemloft.net,
- mingo@elte.hu, ebiederm@xmission.com, aarcange@redhat.com,
- ericvh@gmail.com, netdev@vger.kernel.org, eric.dumazet@gmail.com,
- axboe@kernel.dk,  agk@redhat.com, dm-devel@redhat.com, neilb@suse.de,
- ccaulfie@redhat.com,  teigland@redhat.com, Trond.Myklebust@netapp.com,
- bfields@fieldses.org,  fweisbec@gmail.com, jesse@nicira.com,
- venkat.x.venkatsubra@oracle.com,  ejt@redhat.com, snitzer@redhat.com,
- edumazet@google.com, linux-nfs@vger.kernel.org,  dev@openvswitch.org,
- rds-devel@oss.oracle.com, lw@cn.fujitsu.com
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <5048CDA2.10300@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: Sony Chacko <sony.chacko@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:42148 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932654Ab2IFRdY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 13:33:24 -0400
+In-Reply-To: <1346912529-17406-7-git-send-email-sony.chacko@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-09-06 at 18:21 +0200, Sasha Levin wrote:
-> On 09/06/2012 06:00 PM, Steven Rostedt wrote:
-> >> > I think that that code doesn't make sense. The users of hlist_for_each_* aren't
-> >> > supposed to be changing the loop cursor.
-> > I totally agree. Modifying the 'node' pointer is just asking for issues.
-> > Yes that is error prone, but not due to the double loop. It's due to the
-> > modifying of the node pointer that is used internally by the loop
-> > counter. Don't do that :-)
+On Thu, 2012-09-06 at 02:22 -0400, Sony Chacko wrote:
+> From: Sony Chacko <sony.chacko@qlogic.com>
 > 
-> While we're on this subject, I haven't actually seen hlist_for_each_entry() code
-> that even *touches* 'pos'.
-> 
-> Will people yell at me loudly if I change the prototype of those macros to be:
-> 
-> 	hlist_for_each_entry(tpos, head, member)
-> 
-> (Dropping the 'pos' parameter), and updating anything that calls those macros to
-> drop it as well?
+> Modify 82xx driver to support new adapter - Qlogic 83XX CNA
+> Create 83xx adapter data path and hardware interface routines
+[...]
+> --- /dev/null
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+[...]
+> +int qlcnic_83xx_set_settings(struct qlcnic_adapter *adapter,
+> +			     struct ethtool_cmd *ecmd)
+> +{
+> +	int status = 0;
+> +	u32 config = adapter->ahw->port_config;
+> +
+> +	if (ecmd->autoneg)
+> +		adapter->ahw->port_config |= BIT_15;
+> +
+> +	switch (ethtool_cmd_speed(ecmd)) {
+> +	case SPEED_10:
+> +		adapter->ahw->port_config |= BIT_8;
+> +		break;
+> +	case SPEED_100:
+> +		adapter->ahw->port_config |= BIT_9;
+> +		break;
+> +	case SPEED_1000:
+> +		adapter->ahw->port_config |= BIT_10;
+> +		break;
+> +	case SPEED_10000:
+> +		adapter->ahw->port_config |= BIT_11;
+> +		break;
+> +	default:
+> +		return -EIO;
 
-If 'pos' is no longer used in the macro, I don't see any reason for
-keeping it around.
+Should be -EINVAL.
 
--- Steve
+> +	}
+> +
+> +	status = qlcnic_83xx_set_port_config(adapter);
+> +	if (status) {
+> +		dev_info(&adapter->pdev->dev,
+> +			 "Faild to Set Link Speed and autoneg.\n");
+> +		adapter->ahw->port_config = config;
+> +	}
+> +	return status;
+> +}
+[...]
+> +static u64*
+> +qlcnic_83xx_fill_stats(struct qlcnic_adapter *adapter,
+> +		       struct qlcnic_cmd_args *cmd, u64 *data, int type,
+> +		       int *ret)
+> +{
+> +	int err, k, total_regs;
+> +
+> +	*ret = 0;
+> +	err = qlcnic_issue_cmd(adapter, cmd);
+> +	if (err != QLCNIC_RCODE_SUCCESS) {
+> +		dev_info(&adapter->pdev->dev,
+> +			 "Error in get statistics mailbox command\n");
+> +		*ret = -EIO;
+> +		return data;
+> +	}
+> +	total_regs = cmd->rsp.num;
+> +	switch (type) {
+[...]
+> +	default:
+> +		dev_info(&adapter->pdev->dev, "Unknown get statistics mode\n");
 
+It seems like this default case can only be reached in case of a driver
+bug, so WARN would be more appropriate.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> +		*ret = -EIO;
+> +	}
+> +	return data;
+> +}
+[...]
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
