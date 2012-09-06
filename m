@@ -1,61 +1,141 @@
-From: Jason Baron <jbaron@redhat.com>
-Subject: Re: [PATCH 0/5] dev_<level> and dynamic_debug cleanups
-Date: Thu, 6 Sep 2012 13:53:13 -0400
-Message-ID: <20120906175313.GC9786@redhat.com>
-References: <cover.1345978012.git.joe@perches.com>
- <CAJfuBxyQc-XeNHxw0_XDs0JuCrNArNzcgsmrLya4ncDvSojZxQ@mail.gmail.com>
- <CAJfuBxyToA9-=c3H88GGba3GFX64kdbP4OCEC0f4trnBnjpU-w@mail.gmail.com>
- <20120906161359.GC23641@kroah.com>
+From: JoonSoo Kim <js1304@gmail.com>
+Subject: Re: [PATCH 1/4] slab: do ClearSlabPfmemalloc() for all pages of slab
+Date: Fri, 7 Sep 2012 02:57:39 +0900
+Message-ID: <CAAmzW4M_3hVBfjqFLG=7iydkXeQPdCXRbRmkqUJD4vwo0eWVWQ@mail.gmail.com>
+References: <1346779479-1097-1-git-send-email-mgorman@suse.de>
+	<1346779479-1097-2-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jim Cromie <jim.cromie@gmail.com>, Kay Sievers <kay@vrfy.org>,
-	Joe Perches <joe@perches.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120906161359.GC23641@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Chuck Lever <chuck.lever@oracle.com>, Pekka@suse.de,
+	"Enberg <penberg"@kernel.org, David Rientjes <rientjes@google.com>,
+	Christoph Lameter <cl@linux.com>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1346779479-1097-2-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 06, 2012 at 09:13:59AM -0700, Greg Kroah-Hartman wrote:
-> On Thu, Aug 30, 2012 at 09:48:12PM -0600, Jim Cromie wrote:
-> > On Thu, Aug 30, 2012 at 11:43 AM, Jim Cromie <jim.cromie@gmail.com> wrote:
-> > > On Sun, Aug 26, 2012 at 5:25 AM, Joe Perches <joe@perches.com> wrote:
-> > >> The recent commit to fix dynamic_debug was a bit unclean.
-> > >> Neaten the style for dynamic_debug.
-> > >> Reduce the stack use of message logging that uses netdev_printk
-> > >> Add utility functions dev_printk_emit and dev_vprintk_emit for /dev/kmsg.
-> > >>
-> > >> Joe Perches (5):
-> > >>   dev_dbg/dynamic_debug: Update to use printk_emit, optimize stack
-> > >>   netdev_printk/dynamic_netdev_dbg: Directly call printk_emit
-> > >>   netdev_printk/netif_printk: Remove a superfluous logging colon
-> > >>   dev: Add dev_vprintk_emit and dev_printk_emit
-> > >>   device and dynamic_debug: Use dev_vprintk_emit and dev_printk_emit
-> > >>
-> > >
-> > > Ive tested this on 2 builds differing only by DYNAMIC_DEBUG
-> > > It works for me on x86-64
-> > >
-> > > However, I just booted a non-dyndbg build on x86-32, and got this.
-> > >
-> > 
-> > Ok, transient error, went away with a clean build.
-> > 
-> > tested-by: Jim Cromie <jim.cromie@gmail.com>
-> 
-> Jason, any ACK on these, or any of the other random dynamic debug
-> patches floating around?  What am I supposed to be applying here?
-> 
+Add "Cc" to "Christoph Lameter" <cl@linux.com>
 
-Hi Greg,
+2012/9/5 Mel Gorman <mgorman@suse.de>:
+> Right now, we call ClearSlabPfmemalloc() for first page of slab when we
+> clear SlabPfmemalloc flag. This is fine for most swap-over-network use
+> cases as it is expected that order-0 pages are in use. Unfortunately it
+> is possible that that __ac_put_obj() checks SlabPfmemalloc on a tail page
+> and while this is harmless, it is sloppy. This patch ensures that the head
+> page is always used.
+>
+> This problem was originally identified by Joonsoo Kim.
+>
+> [js1304@gmail.com: Original implementation and problem identification]
+> Signed-off-by: Mel Gorman <mgorman@suse.de>
+> ---
+>  mm/slab.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/mm/slab.c b/mm/slab.c
+> index 811af03..d34a903 100644
+> --- a/mm/slab.c
+> +++ b/mm/slab.c
+> @@ -1000,7 +1000,7 @@ static void *__ac_get_obj(struct kmem_cache *cachep, struct array_cache *ac,
+>                 l3 = cachep->nodelists[numa_mem_id()];
+>                 if (!list_empty(&l3->slabs_free) && force_refill) {
+>                         struct slab *slabp = virt_to_slab(objp);
+> -                       ClearPageSlabPfmemalloc(virt_to_page(slabp->s_mem));
+> +                       ClearPageSlabPfmemalloc(virt_to_head_page(slabp->s_mem));
+>                         clear_obj_pfmemalloc(&objp);
+>                         recheck_pfmemalloc_active(cachep, ac);
+>                         return objp;
 
-I just posted some follow up comments to Joe, so let's see where that
-discussion goes.
+We assume that slabp->s_mem's address is always in head page, so
+"virt_to_head_page" is not needed.
 
-Thanks,
+> @@ -1032,7 +1032,7 @@ static void *__ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
+>  {
+>         if (unlikely(pfmemalloc_active)) {
+>                 /* Some pfmemalloc slabs exist, check if this is one */
+> -               struct page *page = virt_to_page(objp);
+> +               struct page *page = virt_to_head_page(objp);
+>                 if (PageSlabPfmemalloc(page))
+>                         set_obj_pfmemalloc(&objp);
+>         }
+> --
+> 1.7.9.2
+>
 
--Jason 
+If we always use head page, following suggestion is more good to me.
+How about you?
+
+diff --git a/mm/slab.c b/mm/slab.c
+index f8b0d53..ce70989 100644
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -1032,7 +1032,7 @@ static void *__ac_put_obj(struct kmem_cache
+*cachep, struct array_cache *ac,
+ {
+        if (unlikely(pfmemalloc_active)) {
+                /* Some pfmemalloc slabs exist, check if this is one */
+-               struct page *page = virt_to_page(objp);
++               struct page *page = virt_to_head_page(objp);
+                if (PageSlabPfmemalloc(page))
+                        set_obj_pfmemalloc(&objp);
+        }
+@@ -1921,10 +1921,9 @@ static void *kmem_getpages(struct kmem_cache
+*cachep, gfp_t flags, int nodeid)
+                        NR_SLAB_UNRECLAIMABLE, nr_pages);
+        for (i = 0; i < nr_pages; i++) {
+                __SetPageSlab(page + i);
+-
+-               if (page->pfmemalloc)
+-                       SetPageSlabPfmemalloc(page + i);
+        }
++       if (page->pfmemalloc)
++               SetPageSlabPfmemalloc(page);
+
+        if (kmemcheck_enabled && !(cachep->flags & SLAB_NOTRACK)) {
+                kmemcheck_alloc_shadow(page, cachep->gfporder, flags, nodeid);
+@@ -1943,26 +1942,26 @@ static void *kmem_getpages(struct kmem_cache
+*cachep, gfp_t flags, int nodeid)
+  */
+ static void kmem_freepages(struct kmem_cache *cachep, void *addr)
+ {
+-       unsigned long i = (1 << cachep->gfporder);
++       int nr_pages = (1 << cachep->gfporder);
++       int i;
+        struct page *page = virt_to_page(addr);
+-       const unsigned long nr_freed = i;
+
+        kmemcheck_free_shadow(page, cachep->gfporder);
+
+        if (cachep->flags & SLAB_RECLAIM_ACCOUNT)
+                sub_zone_page_state(page_zone(page),
+-                               NR_SLAB_RECLAIMABLE, nr_freed);
++                               NR_SLAB_RECLAIMABLE, nr_pages);
+        else
+                sub_zone_page_state(page_zone(page),
+-                               NR_SLAB_UNRECLAIMABLE, nr_freed);
+-       while (i--) {
+-               BUG_ON(!PageSlab(page));
+-               __ClearPageSlabPfmemalloc(page);
+-               __ClearPageSlab(page);
+-               page++;
++                               NR_SLAB_UNRECLAIMABLE, nr_pages);
++       for (i = 0; i < nr_pages; i++) {
++               BUG_ON(!PageSlab(page + i));
++               __ClearPageSlab(page + i);
+        }
++       __ClearPageSlabPfmemalloc(page);
++
+        if (current->reclaim_state)
+-               current->reclaim_state->reclaimed_slab += nr_freed;
++               current->reclaim_state->reclaimed_slab += nr_pages;
+        free_pages((unsigned long)addr, cachep->gfporder);
+ }
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
