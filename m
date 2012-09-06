@@ -1,77 +1,73 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next] ipv6: fix handling of throw routes
-Date: Thu,  6 Sep 2012 11:53:35 -0400
-Message-ID: <1346946815-3094-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <5048A374.60005@6wind.com>
-Cc: netdev@vger.kernel.org, markus.stenberg@iki.fi,
-	eric.dumazet@gmail.com, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:59735 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755019Ab2IFNvC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 09:51:02 -0400
-In-Reply-To: <5048A374.60005@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and naive hashtable
+Date: Thu, 06 Sep 2012 15:53:58 +0200
+Message-ID: <5048AAF6.5090101@gmail.com>
+References: <20120824230740.GN21325@google.com> <20120825042419.GA27240@Krystal> <503C95E4.3010000@gmail.com> <20120828101148.GA21683@Krystal> <503CAB1E.5010408@gmail.com> <20120828115638.GC23818@Krystal> <20120828230050.GA3337@Krystal> <1346772948.27919.9.camel@gandalf.local.home> <50462C99.5000007@redhat.com> <50462EE8.1090903@redhat.com> <20120904170138.GB31934@Krystal>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Pedro Alves <palves@redhat.com>, Steven Rostedt <rostedt@goodmis.org>,
+ Tejun Heo <tj@kernel.org>,
+ torvalds@linux-foundation.org, akpm@linux-foundation.org,
+ linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+ paul.gortmaker@windriver.com, davem@davemloft.net, mingo@elte.hu,
+ ebiederm@xmission.com, aarcange@redhat.com, ericvh@gmail.com,
+ netdev@vger.kernel.org, josh@joshtriplett.org, eric.dumazet@gmail.com,
+ axboe@kernel.dk, agk@redhat.com, dm-devel@redhat.com, neilb@suse.de,
+ ccaulfie@redhat.com, teigland@redhat.com, Trond.Myklebust@netapp.com,
+ bfields@fieldses.org, fweisbec@gmail.com, jesse@nicira.com,
+ venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
+ edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
+ rds-devel@oss.oracle.com, lw@cn.fujitsu.com
+To: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20120904170138.GB31934@Krystal>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-It's the same problem that previous fix about blackhole and prohibit routes.
+On 09/04/2012 07:01 PM, Mathieu Desnoyers wrote:
+>> #define do_for_each_ftrace_rec(pg, rec)                                          \
+>> >         for (pg = ftrace_pages_start, rec = &pg->records[pg->index];             \
+>> >              pg && rec == &pg->records[pg->index];                               \
+>> >              pg = pg->next)                                                      \
+>> >           for (rec = pg->records; rec < &pg->records[pg->index]; rec++)
+> Maybe in some cases there might be ways to combine the two loops into
+> one ? I'm not seeing exactly how to do it for this one, but it should
+> not be impossible. If the inner loop condition can be moved to the outer
+> loop, and if we use (blah ? loop1_conf : loop2_cond) to test for
+> different conditions depending on the context, and do the same for the
+> 3rd argument of the for() loop. The details elude me for now though, so
+> maybe it's complete non-sense ;)
+> 
+> It might not be that useful for do_for_each_ftrace_rec, but if we can do
+> it for the hash table iterator, it might be worth it.
 
-When adding a throw route, it was handled like a classic route.
-Moreover, it was only possible to add this kind of routes by specifying
-an interface.
+So I think that for the hash iterator it might actually be simpler.
 
-Before the patch:
-  $ ip route add throw 2001::2/128
-  RTNETLINK answers: No such device
-  $ ip route add throw 2001::2/128 dev eth0
-  $ ip -6 route | grep 2001::2
-  2001::2 dev eth0  metric 1024
+My solution to making 'break' work in the iterator is:
 
-After:
-  $ ip route add throw 2001::2/128
-  $ ip -6 route | grep 2001::2
-  throw 2001::2 dev lo  metric 1024  error -11
+	for (bkt = 0, node = NULL; bkt < HASH_SIZE(name) && node == NULL; bkt++)
+		hlist_for_each_entry(obj, node, &name[bkt], member)
 
-Reported-by: Markus Stenberg <markus.stenberg@iki.fi>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/route.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+We initialize our node loop cursor with NULL in the external loop, and the
+external loop will have a new condition to loop while that cursor is NULL.
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index fa26444..339d921 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1471,6 +1471,9 @@ int ip6_route_add(struct fib6_config *cfg)
- 		case RTN_PROHIBIT:
- 			rt->dst.error = -EACCES;
- 			break;
-+		case RTN_THROW:
-+			rt->dst.error = -EAGAIN;
-+			break;
- 		default:
- 			rt->dst.error = -ENETUNREACH;
- 			break;
-@@ -2275,7 +2278,8 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
- 
- 	if (rtm->rtm_type == RTN_UNREACHABLE ||
- 	    rtm->rtm_type == RTN_BLACKHOLE ||
--	    rtm->rtm_type == RTN_PROHIBIT)
-+	    rtm->rtm_type == RTN_PROHIBIT ||
-+	    rtm->rtm_type == RTN_THROW)
- 		cfg->fc_flags |= RTF_REJECT;
- 
- 	if (rtm->rtm_type == RTN_LOCAL)
-@@ -2412,6 +2416,9 @@ static int rt6_fill_node(struct net *net,
- 		case -EACCES:
- 			rtm->rtm_type = RTN_PROHIBIT;
- 			break;
-+		case -EAGAIN:
-+			rtm->rtm_type = RTN_THROW;
-+			break;
- 		default:
- 			rtm->rtm_type = RTN_UNREACHABLE;
- 			break;
--- 
-1.7.12
+My logic is that we can only 'break' when we are iterating over an object in the
+internal loop. If we're iterating over an object in that loop then 'node != NULL'.
+
+This way, if we broke from within the internal loop, the external loop will see
+node as not NULL, and so it will stop looping itself. On the other hand, if the
+internal loop has actually ended, then node will be NULL, and the outer loop
+will keep running.
+
+Is there anything I've missed?
+
+
+Thanks,
+Sasha
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
