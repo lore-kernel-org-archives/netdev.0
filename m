@@ -1,80 +1,91 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: changing usbnet's API to better deal with cdc-ncm
-Date: Thu, 06 Sep 2012 10:30:29 +0200
-Message-ID: <87a9x33656.fsf@nemi.mork.no>
-References: <2791550.LhGu6po6Xy@linux-lqwf.site>
-	<CACVXFVMXz1mqANBYR56KZsh3RgN5M_og_OggDEHT02w0Pe-UiA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: CBQ(but probably u32 filter bug), kernel "freeze", at least
+ from 3.2.0
+Date: Thu, 06 Sep 2012 10:40:06 +0200
+Message-ID: <1346920806.13121.180.camel@edumazet-glaptop>
+References: <a680a8297b2f099eb713b266792b9b82@visp.net.lb>
+	 <1346151568.3001.20.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACVXFVMXz1mqANBYR56KZsh3RgN5M_og_OggDEHT02w0Pe-UiA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-	(Ming Lei's message of "Thu, 6 Sep 2012 11:23:51 +0800")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:61551 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751619Ab2IFIkM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 04:40:12 -0400
+Received: by bkwj10 with SMTP id j10so666150bkw.19
+        for <netdev@vger.kernel.org>; Thu, 06 Sep 2012 01:40:11 -0700 (PDT)
+In-Reply-To: <1346151568.3001.20.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
-> On Thu, Sep 6, 2012 at 4:12 AM, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> wrote=
-:
->> Hi,
->>
->> looking at cdc-ncm it seeems to me that cdc-ncm is forced to play
->> very dirty games because usbnet doesn't have a notion about aggregat=
-ing
->> packets for a single transfer.
->
-> The Ethernet API we are using does not support transmitting multiple =
-Ethernet
-> frames in a single call, so the aggregation things should be done ins=
-ide low
-> level driver, in fact it is just what some wlan(802.11n) drivers have
-> been doing.
->
-> IMO, the current .tx_fixup is intelligent enough to handle aggregatio=
-n:
->
->       - return a skb_out for sending if low level drivers think it is
-> ready to send
->         the aggregated frames
->      -  return NULL if  the low level drivers think they need to wait
-> for more frames
->
-> Of course, the low level drivers need to start a timer to trigger sen=
-ding
-> remainder frames in case of timeout and no further frames come from
-> upper protocol stack.
->
-> Looks the introduced .tx_bundle is not necessary since .tx_fixup is O=
-K.
+On Tue, 2012-08-28 at 03:59 -0700, Eric Dumazet wrote:
+> On Tue, 2012-08-28 at 07:50 +0300, Denys Fedoryshchenko wrote:
+> > Hi
+> > 
+> > Got information from friend, confirmed that it crashed at least two my 
+> > boxes also :)
+> > 3.0.5-rc1 is working fine, 3.4.1 , 3.2.0 from ubuntu  - crashing
+> > No watchdog fired, and didn't got yet significant debugging 
+> > information.
+> > 
+> > Very easy to reproduce:
+> > 1)run the script
+> > 2)ping 192.168.3.234
+> > 
+> > script:
+> > DEV_OUT=eth0
+> > ICMP="match ip protocol 1 0xff"
+> > U32="protocol ip u32"
+> > DST="match ip dst"
+> > tc qdisc add dev $DEV_OUT root handle 1: cbq avpkt 1000 bandwidth 
+> > 100mbit
+> > tc class add dev $DEV_OUT parent 1: classid 1:1 cbq rate 512kbit allot 
+> > 1500 prio 5 bounded isolated
+> > tc filter add dev $DEV_OUT parent 1:              prio 3 $U32 $ICMP 
+> > $DST 192.168.3.234 flowid 1:
+> > tc qdisc add dev $DEV_OUT parent 1:1 sfq perturb 10
+> 
+> Not sure what your friend expected from this buggy configuration.
+> 
+> It probably never worked at all.
+> 
+> CBQ needs at least one child class and one leaf class.
+> 
+> This scripts creates a loop inside CBQ, so cpu is probably looping in
+> cbq_enqueue() (or more exactly cbq_classify()), as instructed by the
+> sysadmin ;)
+> 
+> u32 (or sfq) seems ok.
+> 
+> Could you try the following patch ?
+> 
+> Thanks !
+> 
+> diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+> index 6aabd77..564b9fc 100644
+> --- a/net/sched/sch_cbq.c
+> +++ b/net/sched/sch_cbq.c
+> @@ -250,10 +250,11 @@ cbq_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+>  			else if ((cl = defmap[res.classid & TC_PRIO_MAX]) == NULL)
+>  				cl = defmap[TC_PRIO_BESTEFFORT];
+>  
+> -			if (cl == NULL || cl->level >= head->level)
+> +			if (cl == NULL)
+>  				goto fallback;
+>  		}
+> -
+> +		if (cl->level >= head->level)
+> +			goto fallback;
+>  #ifdef CONFIG_NET_CLS_ACT
+>  		switch (result) {
+>  		case TC_ACT_QUEUED:
+> 
 
-The minidriver does not have any information about tx in progress.  The
-strategy above, which is what cdc_ncm uses today, is fine as long as yo=
-u
-always want to wait as long as you always want to fill as many frames a=
-s
-possible in each packet.  But what if the queue is empty and the device
-is just sitting there doing nothing while you are waiting for more
-frames?  Then you are just adding unnecessary latency.
+Hi Denys
 
-There are also several usbnet minidrivers for protocols with frame
-aggregation support.  Most of them do not currently implement tx
-aggregation, possibly due to the complexity.  This makes a common
-aggregation framework interesting in any case.  Reimplementing similar
-loginc in multiple minidrivers is meaningless.
+Any feedback on the suggested patch ?
 
-I believe Oliver is adding very useful functionality to usbnet here.
-=46unctionality which at least cdc_ncm and possibly other existing
-minidrivers can take advantage of immediately.  There also seems to be =
-a
-trend towards more complex aggregating protocols as the devices get
-smarter and speeds go up.
-
-
-BJ=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks !
