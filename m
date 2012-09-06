@@ -1,46 +1,58 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: [RFC] ip autoconfig: allow specifying a list of devices rather than
- one or all
-Date: Thu, 06 Sep 2012 16:35:51 -0600
-Message-ID: <50492547.8070307@genband.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [net-next 4/6] igb: Store the MAC address in the name in the
+ PTP struct.
+Date: Thu, 6 Sep 2012 22:59:36 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB580785F9F4@ORSMSX105.amr.corp.intel.com>
+References: <1346888106-25638-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1346888106-25638-5-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20120906080628.GD2550@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Richard Cochran <richardcochran@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og117.obsmtp.com ([64.18.2.6]:46332 "EHLO
-	exprod7og117.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753788Ab2IFWgM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 18:36:12 -0400
+Received: from mga09.intel.com ([134.134.136.24]:40543 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751173Ab2IFW7j convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 18:59:39 -0400
+In-Reply-To: <20120906080628.GD2550@netboy.at.omicron.at>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Richard Cochran
+> Sent: Thursday, September 06, 2012 1:06 AM
+> To: Kirsher, Jeffrey T
+> Cc: davem@davemloft.net; Vick, Matthew; netdev@vger.kernel.org;
+> gospo@redhat.com; sassmann@redhat.com
+> Subject: Re: [net-next 4/6] igb: Store the MAC address in the name in the
+> PTP struct.
+> 
+> On Wed, Sep 05, 2012 at 04:35:04PM -0700, Jeff Kirsher wrote:
+> > From: Matthew Vick <matthew.vick@intel.com>
+> >
+> > Change the name of the adapter in the PTP struct to enable easier
+> > correlation between interface and PTP device.
+> 
+> Still think it is better to have the driver name, not the MAC address.
+> The correlation is clear by using the ethtool method.
+> 
 
-We have an embedded system that boots of the network.  This system has a 
-pair of bonded gigE links used for booting and management, and a pair of 
-bonded 10G links used for data traffic.
+I found a method to correct the init code so that the device name can appear here, and I would prefer that over either the driver name or MAC address. It requires moving the ptp initialization into the netdev open handler though.
 
-What we're seeing is that when ip_auto_config() calls
-ic_open_devs() to open up all the network ports, the data ports 
-immediately start getting *hammered* with traffic, we get "nf_conntrack: 
-table full, dropping packet", errors, and we sometimes lose the DHCP 
-responses because of this.
+- Jake
 
-We need to be able to boot off of both the gigE ports for redundancy, so 
-it seems like it might be a reasonable idea to extend the "ip=" boot arg 
-to allow specifying a list of devices rather than choosing between a 
-single device or all of them.
-
-Thoughts?  Anyone ever done this?
-
-Chris
-
-
--- 
-
-Chris Friesen
-Software Designer
-
-3500 Carling Avenue
-Ottawa, Ontario K2H 8E9
-www.genband.com
+> Thanks,
+> Richard
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in the
+> body of a message to majordomo@vger.kernel.org More majordomo info at
+> http://vger.kernel.org/majordomo-info.html
