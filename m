@@ -1,35 +1,43 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: sctp_close/sk_free: kernel BUG at arch/x86/mm/physaddr.c:18!
-Date: Thu, 6 Sep 2012 12:54:52 +0800
-Message-ID: <20120906045452.GA18181@localhost>
-References: <20120904140411.GB15068@localhost>
- <5046361C.5070602@pengutronix.de>
- <87mx15zfze.fsf@xmission.com>
- <20120905145508.GA9450@localhost>
- <50476931.20100@pengutronix.de>
- <1346859046.13121.144.camel@edumazet-glaptop>
- <1346859645.13121.146.camel@edumazet-glaptop>
- <1346864220.13121.157.camel@edumazet-glaptop>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] mac80211: use list_move instead of list_del/list_add
+Date: Thu, 6 Sep 2012 13:20:53 +0800
+Message-ID: <CAPgLHd_VrjzzfPDsd3KKzgX2bKJ47zUCJmsQO+Q49ajNVLnTVg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-	"H.K. Jerry Chu" <hkchu@google.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	networking <netdev@vger.kernel.org>, linux-can@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1346864220.13121.157.camel@edumazet-glaptop>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: linville@tuxdriver.com, johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:36088 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751004Ab2IFFUy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 01:20:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 05, 2012 at 06:57:00PM +0200, Eric Dumazet wrote:
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-> Here is a more complete patch, as there are three potential problems,
-> not only one :
+Using list_move() instead of list_del() + list_add().
 
-It's fine, too.
+spatch with a semantic match is used to found this problem.
+(http://coccinelle.lip6.fr/)
 
-Tested-by: Fengguang Wu <wfg@linux.intel.com>
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ net/mac80211/offchannel.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-Thanks!
+diff --git a/net/mac80211/offchannel.c b/net/mac80211/offchannel.c
+index 635c325..7fbf99d 100644
+--- a/net/mac80211/offchannel.c
++++ b/net/mac80211/offchannel.c
+@@ -227,8 +227,7 @@ static void ieee80211_hw_roc_start(struct work_struct *work)
+ 			u32 dur = dep->duration;
+ 			dep->duration = dur - roc->duration;
+ 			roc->duration = dur;
+-			list_del(&dep->list);
+-			list_add(&dep->list, &roc->list);
++			list_move(&dep->list, &roc->list);
+ 		}
+ 	}
+  out_unlock:
