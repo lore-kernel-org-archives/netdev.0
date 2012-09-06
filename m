@@ -1,41 +1,68 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: take care of timewait sockets
-Date: Thu, 6 Sep 2012 14:34:07 +0200
-Message-ID: <20120906123407.GB1217@1984>
-References: <1346780943.13121.58.camel@edumazet-glaptop>
- <20120905171016.GA23211@1984>
- <1346867542.13121.160.camel@edumazet-glaptop>
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: usbnet: fix oops in usbnet_start_xmit
+Date: Thu, 6 Sep 2012 05:52:30 -0700
+Message-ID: <20120906125230.GI19410@mwanda>
+References: <20111109073459.GA14409@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netfilter-devel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:42866 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751208Ab2IFMeJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Sep 2012 08:34:09 -0400
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: khlebnikov-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1346867542.13121.160.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20111109073459.GA14409-mgFCXtclrQlZLf2FXnZxJA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 05, 2012 at 07:52:22PM +0200, Eric Dumazet wrote:
-> On Wed, 2012-09-05 at 19:10 +0200, Pablo Neira Ayuso wrote:
-> > On Tue, Sep 04, 2012 at 07:49:03PM +0200, Eric Dumazet wrote:
-> > > From: Eric Dumazet <edumazet@google.com>
-> > > 
-> > > Sami Farin reported crashes in xt_LOG because it assumes skb->sk is a
-> > > full blown socket.
-> > > 
-> > > But with TCP early demux, we can have skb->sk pointing to a timewait
-> > > socket.
-> > 
-> > TCP early demux is there since 3.6-rc.
-> > 
-> > I'll add that to the changelog if you don't mind, to help tracking
-> > things for -stable.
+I sent this email a year ago when the patch was committed but I
+never received a response.
+
+regards,
+dan carpenter
+
+On Wed, Nov 09, 2011 at 10:34:59AM +0300, Dan Carpenter wrote:
+> Hello Konstantin Khlebnikov,
 > 
-> Sure, its not a stable candidate.
-
-Done, applied thanks a lot Eric!
+> This is a semi-automatic email about new static checker warnings.
+> 
+> The patch 23ba07991dad: "usbnet: fix oops in usbnet_start_xmit" from 
+> Nov 7, 2011, leads to the following Smatch complaint:
+> 
+> drivers/net/usb/usbnet.c +1077 usbnet_start_xmit()
+> 	 error: we previously assumed 'skb' could be null (see line 1060)
+> 
+> drivers/net/usb/usbnet.c
+>   1059	
+>   1060		if (skb)
+>                     ^^^
+> check introduced here.
+> 
+>   1061			skb_tx_timestamp(skb);
+>   1062	
+>   1063		// some devices want funky USB-level framing, for
+>   1064		// win32 driver (usually) and/or hardware quirks
+>   1065		if (info->tx_fixup) {
+>   1066			skb = info->tx_fixup (dev, skb, GFP_ATOMIC);
+>   1067			if (!skb) {
+>   1068				if (netif_msg_tx_err(dev)) {
+>   1069					netif_dbg(dev, tx_err, dev->net, "can't tx_fixup skb\n");
+>   1070					goto drop;
+>   1071				} else {
+>   1072					/* cdc_ncm collected packet; waits for more */
+>   1073					goto not_drop;
+>   1074				}
+>   1075			}
+>   1076		}
+>   1077		length = skb->len;
+>                          ^^^^^^^^
+> dereference without checking.
+> 
+>   1078	
+>   1079		if (!(urb = usb_alloc_urb (0, GFP_ATOMIC))) {
+> 
+> regards,
+> dan carpenter
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
