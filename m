@@ -1,57 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: Export nd_tbl to allow modules to
- support IPv6
-Date: Thu, 06 Sep 2012 13:47:38 -0400 (EDT)
-Message-ID: <20120906.134738.425625608685741613.davem@davemloft.net>
-References: <fd8b9a9ad300edfc378065ef7887c3debeeb5e89.1346843399.git.tgraf@suug.ch>
-	<20120905.130636.2295422323329670307.davem@davemloft.net>
-	<20120906085102.GA14711@canuck.infradead.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tgraf@suug.ch
+From: Vincent Bernat <bernat@luffy.cx>
+Subject: IPv6 multipath routes
+Date: Thu,  6 Sep 2012 19:30:48 +0200
+Message-ID: <1346952649-5716-1-git-send-email-bernat@luffy.cx>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55584 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759372Ab2IFRrk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 13:47:40 -0400
-In-Reply-To: <20120906085102.GA14711@canuck.infradead.org>
+Received: from ftmxout01ba.infra.b2.fti.net ([193.252.121.124]:42670 "EHLO
+	ftmxout01ba.infra.b2.fti.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759426Ab2IFRsZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 13:48:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu, 6 Sep 2012 04:51:02 -0400
+Hi!
 
-> On Wed, Sep 05, 2012 at 01:06:36PM -0400, David Miller wrote:
->> So if one of our goals is to move towards a situation where all neigh
->> accesses are refcount'less, having those external users makes that
->> nearly impossible.
->> 
->> Instead, I'd rather see patches that mark arp_tbl as being exported
->> only for internal usage inside of the tree, so that we can reach that
->> goal.
->> 
->> I'm not applying this, sorry.
-> 
-> Fair enough
-> 
-> Does that mean you dismiss neighbour lookups by external users in
-> general in order to get rid of the refcnt?
-> 
-> Assuming that lookups would still be ok, would an ipv6 version of
-> __ipv4_neigh_lookup() be an acceptable API for external users?
-> (Yes there is __ipv6_neigh_lookup() already but unlike the ipv4 version
-> it takes the table as first argument)
+It appears that "ip -6 route add" expects IPv4 addresses with nexthop directives:
 
-Right now we're in a transition period where ipv4 is mostly refcount'less
-and ipv6 is not.
+$ ip -6 route add to 2a01:c9c0:a1:982::/64 proto bird \
+   nexthop via fe80::ea39:35ff:febd:f9e dev bai2.2008 weight 1 \
+   nexthop via fe80::ea39:35ff:febd:fd6 dev bai1.2009 weight 1
+Error: an IP address is expected rather than "fe80::ea39:35ff:febd:f9e"
 
-This is part of the reason I don't want to expose these things, the
-calling convention and locking requirements are going to be fluid for
-any interface you might propose.
+The following patch fix this problem. However, it does not work. I now have:
+ RTNETLINK answers: No such device
 
-arp_tbl was exported only for in-tree users, and I therefore say that
-we should only export nd_tbl for in-tree users as well, since that's
-the only way we can audit and update all the referencing callers as
-the semantics radically change.
+I have little knowledge of netlink so it is likely that my patch is
+buggy. However, I have found this problem by trying to debug what
+appears to be a valid netlink message refused by the kernel with the
+same error. Therefore, I suspect that there is also a bug in the kernel.
