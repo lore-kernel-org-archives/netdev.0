@@ -1,41 +1,245 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next] ipv6: Export nd_tbl to allow modules to support
- IPv6
-Date: Thu, 6 Sep 2012 04:51:02 -0400
-Message-ID: <20120906085102.GA14711@canuck.infradead.org>
-References: <fd8b9a9ad300edfc378065ef7887c3debeeb5e89.1346843399.git.tgraf@suug.ch>
- <20120905.130636.2295422323329670307.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Subject: [PATCH net 1/5] net/mlx4_core: Put Firmware flow steering structures in common header files
+Date: Thu,  6 Sep 2012 11:50:48 +0300
+Message-ID: <1346921452-2035-2-git-send-email-yevgenyp@mellanox.com>
+References: <1346921452-2035-1-git-send-email-yevgenyp@mellanox.com>
+Cc: netdev@vger.kernel.org, Hadar Hen Zion <hadarh@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:56188 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751619Ab2IFIvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 04:51:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20120905.130636.2295422323329670307.davem@davemloft.net>
+Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:48668 "HELO
+	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754455Ab2IFIvS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 04:51:18 -0400
+In-Reply-To: <1346921452-2035-1-git-send-email-yevgenyp@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 05, 2012 at 01:06:36PM -0400, David Miller wrote:
-> So if one of our goals is to move towards a situation where all neigh
-> accesses are refcount'less, having those external users makes that
-> nearly impossible.
-> 
-> Instead, I'd rather see patches that mark arp_tbl as being exported
-> only for internal usage inside of the tree, so that we can reach that
-> goal.
-> 
-> I'm not applying this, sorry.
+From: Hadar Hen Zion <hadarh@mellanox.com>
 
-Fair enough
+To allow for usage of the flow steering Firmware structures in more locations over the driver,
+such as the resource tracker, move them from mcg.c to common header files.
 
-Does that mean you dismiss neighbour lookups by external users in
-general in order to get rid of the refcnt?
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/mcg.c  |   90 ++--------------------------
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h |   76 ++++++++++++++++++++++++
+ include/linux/mlx4/device.h               |    2 +
+ 3 files changed, 85 insertions(+), 83 deletions(-)
 
-Assuming that lookups would still be ok, would an ipv6 version of
-__ipv4_neigh_lookup() be an acceptable API for external users?
-(Yes there is __ipv6_neigh_lookup() already but unlike the ipv4 version
-it takes the table as first argument)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+index a018ea2..2673f3b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+@@ -650,13 +650,6 @@ static int find_entry(struct mlx4_dev *dev, u8 port,
+ 	return err;
+ }
+ 
+-struct mlx4_net_trans_rule_hw_ctrl {
+-	__be32 ctrl;
+-	__be32 vf_vep_port;
+-	__be32 qpn;
+-	__be32 reserved;
+-};
+-
+ static void trans_rule_ctrl_to_hw(struct mlx4_net_trans_rule *ctrl,
+ 				  struct mlx4_net_trans_rule_hw_ctrl *hw)
+ {
+@@ -680,87 +673,18 @@ static void trans_rule_ctrl_to_hw(struct mlx4_net_trans_rule *ctrl,
+ 	hw->qpn = cpu_to_be32(ctrl->qpn);
+ }
+ 
+-struct mlx4_net_trans_rule_hw_ib {
+-	u8	size;
+-	u8	rsvd1;
+-	__be16	id;
+-	u32	rsvd2;
+-	__be32	qpn;
+-	__be32	qpn_mask;
+-	u8	dst_gid[16];
+-	u8	dst_gid_msk[16];
+-} __packed;
+-
+-struct mlx4_net_trans_rule_hw_eth {
+-	u8	size;
+-	u8	rsvd;
+-	__be16	id;
+-	u8	rsvd1[6];
+-	u8	dst_mac[6];
+-	u16	rsvd2;
+-	u8	dst_mac_msk[6];
+-	u16	rsvd3;
+-	u8	src_mac[6];
+-	u16	rsvd4;
+-	u8	src_mac_msk[6];
+-	u8      rsvd5;
+-	u8      ether_type_enable;
+-	__be16  ether_type;
+-	__be16  vlan_id_msk;
+-	__be16  vlan_id;
+-} __packed;
+-
+-struct mlx4_net_trans_rule_hw_tcp_udp {
+-	u8	size;
+-	u8	rsvd;
+-	__be16	id;
+-	__be16	rsvd1[3];
+-	__be16	dst_port;
+-	__be16	rsvd2;
+-	__be16	dst_port_msk;
+-	__be16	rsvd3;
+-	__be16	src_port;
+-	__be16	rsvd4;
+-	__be16	src_port_msk;
+-} __packed;
+-
+-struct mlx4_net_trans_rule_hw_ipv4 {
+-	u8	size;
+-	u8	rsvd;
+-	__be16	id;
+-	__be32	rsvd1;
+-	__be32	dst_ip;
+-	__be32	dst_ip_msk;
+-	__be32	src_ip;
+-	__be32	src_ip_msk;
+-} __packed;
+-
+-struct _rule_hw {
+-	union {
+-		struct {
+-			u8 size;
+-			u8 rsvd;
+-			__be16 id;
+-		};
+-		struct mlx4_net_trans_rule_hw_eth eth;
+-		struct mlx4_net_trans_rule_hw_ib ib;
+-		struct mlx4_net_trans_rule_hw_ipv4 ipv4;
+-		struct mlx4_net_trans_rule_hw_tcp_udp tcp_udp;
+-	};
++const u16 __sw_id_hw[] = {
++	[MLX4_NET_TRANS_RULE_ID_ETH]     = 0xE001,
++	[MLX4_NET_TRANS_RULE_ID_IB]      = 0xE005,
++	[MLX4_NET_TRANS_RULE_ID_IPV6]    = 0xE003,
++	[MLX4_NET_TRANS_RULE_ID_IPV4]    = 0xE002,
++	[MLX4_NET_TRANS_RULE_ID_TCP]     = 0xE004,
++	[MLX4_NET_TRANS_RULE_ID_UDP]     = 0xE006
+ };
+ 
+ static int parse_trans_rule(struct mlx4_dev *dev, struct mlx4_spec_list *spec,
+ 			    struct _rule_hw *rule_hw)
+ {
+-	static const u16 __sw_id_hw[] = {
+-		[MLX4_NET_TRANS_RULE_ID_ETH]     = 0xE001,
+-		[MLX4_NET_TRANS_RULE_ID_IB]      = 0xE005,
+-		[MLX4_NET_TRANS_RULE_ID_IPV6]    = 0xE003,
+-		[MLX4_NET_TRANS_RULE_ID_IPV4]    = 0xE002,
+-		[MLX4_NET_TRANS_RULE_ID_TCP]     = 0xE004,
+-		[MLX4_NET_TRANS_RULE_ID_UDP]     = 0xE006
+-	};
+-
+ 	static const size_t __rule_hw_sz[] = {
+ 		[MLX4_NET_TRANS_RULE_ID_ETH] =
+ 			sizeof(struct mlx4_net_trans_rule_hw_eth),
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index 4d9df8f..dba69d9 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -690,6 +690,82 @@ struct mlx4_steer {
+ 	struct list_head steer_entries[MLX4_NUM_STEERS];
+ };
+ 
++struct mlx4_net_trans_rule_hw_ctrl {
++	__be32 ctrl;
++	__be32 vf_vep_port;
++	__be32 qpn;
++	__be32 reserved;
++};
++
++struct mlx4_net_trans_rule_hw_ib {
++	u8 size;
++	u8 rsvd1;
++	__be16 id;
++	u32 rsvd2;
++	__be32 qpn;
++	__be32 qpn_mask;
++	u8 dst_gid[16];
++	u8 dst_gid_msk[16];
++} __packed;
++
++struct mlx4_net_trans_rule_hw_eth {
++	u8	size;
++	u8	rsvd;
++	__be16	id;
++	u8	rsvd1[6];
++	u8	dst_mac[6];
++	u16	rsvd2;
++	u8	dst_mac_msk[6];
++	u16	rsvd3;
++	u8	src_mac[6];
++	u16	rsvd4;
++	u8	src_mac_msk[6];
++	u8      rsvd5;
++	u8      ether_type_enable;
++	__be16  ether_type;
++	__be16  vlan_id_msk;
++	__be16  vlan_id;
++} __packed;
++
++struct mlx4_net_trans_rule_hw_tcp_udp {
++	u8	size;
++	u8	rsvd;
++	__be16	id;
++	__be16	rsvd1[3];
++	__be16	dst_port;
++	__be16	rsvd2;
++	__be16	dst_port_msk;
++	__be16	rsvd3;
++	__be16	src_port;
++	__be16	rsvd4;
++	__be16	src_port_msk;
++} __packed;
++
++struct mlx4_net_trans_rule_hw_ipv4 {
++	u8	size;
++	u8	rsvd;
++	__be16	id;
++	__be32	rsvd1;
++	__be32	dst_ip;
++	__be32	dst_ip_msk;
++	__be32	src_ip;
++	__be32	src_ip_msk;
++} __packed;
++
++struct _rule_hw {
++	union {
++		struct {
++			u8 size;
++			u8 rsvd;
++			__be16 id;
++		};
++		struct mlx4_net_trans_rule_hw_eth eth;
++		struct mlx4_net_trans_rule_hw_ib ib;
++		struct mlx4_net_trans_rule_hw_ipv4 ipv4;
++		struct mlx4_net_trans_rule_hw_tcp_udp tcp_udp;
++	};
++};
++
+ struct mlx4_priv {
+ 	struct mlx4_dev		dev;
+ 
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index bd6c9fc..244ba90 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -796,6 +796,8 @@ enum mlx4_net_trans_rule_id {
+ 	MLX4_NET_TRANS_RULE_NUM, /* should be last */
+ };
+ 
++extern const u16 __sw_id_hw[];
++
+ enum mlx4_net_trans_promisc_mode {
+ 	MLX4_FS_PROMISC_NONE = 0,
+ 	MLX4_FS_PROMISC_UPLINK,
+-- 
+1.7.7
