@@ -1,156 +1,41 @@
-From: Jerry Chu <hkchu@google.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next] tcp: fix TFO regression
-Date: Thu, 6 Sep 2012 11:18:25 -0700
-Message-ID: <CAPshTCi2F9fB95AmzEr8h6BHRDkL425iGsUf=4giswfni2BBOw@mail.gmail.com>
-References: <20120904140411.GB15068@localhost>
-	<5046361C.5070602@pengutronix.de>
-	<87mx15zfze.fsf@xmission.com>
-	<20120905145508.GA9450@localhost>
-	<50476931.20100@pengutronix.de>
-	<1346859046.13121.144.camel@edumazet-glaptop>
-	<1346859645.13121.146.camel@edumazet-glaptop>
-	<1346864220.13121.157.camel@edumazet-glaptop>
-	<20120906045452.GA18181@localhost>
+Date: Thu, 06 Sep 2012 14:23:31 -0400 (EDT)
+Message-ID: <20120906.142331.2164007571017884925.davem@davemloft.net>
+References: <20120906045452.GA18181@localhost>
 	<1346954833.2484.50.camel@edumazet-glaptop>
+	<CADVnQykCJJdM3PfN=_1yyzizao2T6XQJGzC=3uwx5_oazaBicA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Fengguang Wu <fengguang.wu@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	networking <netdev@vger.kernel.org>, linux-can@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, fengguang.wu@intel.com, mkl@pengutronix.de,
+	hkchu@google.com, ebiederm@xmission.com, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org
+To: ncardwell@google.com
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1346954833.2484.50.camel@edumazet-glaptop>
+In-Reply-To: <CADVnQykCJJdM3PfN=_1yyzizao2T6XQJGzC=3uwx5_oazaBicA@mail.gmail.com>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 6, 2012 at 11:07 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Fengguang Wu reported various panics and bisected to commit
-> 8336886f786fdac (tcp: TCP Fast Open Server - support TFO listeners)
->
-> Fix this by making sure socket is a TCP socket before accessing TFO data
-> structures.
->
-> [  233.046014] kfree_debugcheck: out of range ptr ea6000000bb8h.
-> [  233.047399] ------------[ cut here ]------------
-> [  233.048393] kernel BUG at /c/kernel-tests/src/stable/mm/slab.c:3074!
-> [  233.048393] invalid opcode: 0000 [#1] SMP DEBUG_PAGEALLOC
-> [  233.048393] Modules linked in:
-> [  233.048393] CPU 0
-> [  233.048393] Pid: 3929, comm: trinity-watchdo Not tainted 3.6.0-rc3+
-> #4192 Bochs Bochs
-> [  233.048393] RIP: 0010:[<ffffffff81169653>]  [<ffffffff81169653>]
-> kfree_debugcheck+0x27/0x2d
-> [  233.048393] RSP: 0018:ffff88000facbca8  EFLAGS: 00010092
-> [  233.048393] RAX: 0000000000000031 RBX: 0000ea6000000bb8 RCX:
-> 00000000a189a188
-> [  233.048393] RDX: 000000000000a189 RSI: ffffffff8108ad32 RDI:
-> ffffffff810d30f9
-> [  233.048393] RBP: ffff88000facbcb8 R08: 0000000000000002 R09:
-> ffffffff843846f0
-> [  233.048393] R10: ffffffff810ae37c R11: 0000000000000908 R12:
-> 0000000000000202
-> [  233.048393] R13: ffffffff823dbd5a R14: ffff88000ec5bea8 R15:
-> ffffffff8363c780
-> [  233.048393] FS:  00007faa6899c700(0000) GS:ffff88001f200000(0000)
-> knlGS:0000000000000000
-> [  233.048393] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> [  233.048393] CR2: 00007faa6841019c CR3: 0000000012c82000 CR4:
-> 00000000000006f0
-> [  233.048393] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
-> 0000000000000000
-> [  233.048393] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
-> 0000000000000400
-> [  233.048393] Process trinity-watchdo (pid: 3929, threadinfo
-> ffff88000faca000, task ffff88000faec600)
-> [  233.048393] Stack:
-> [  233.048393]  0000000000000000 0000ea6000000bb8 ffff88000facbce8
-> ffffffff8116ad81
-> [  233.048393]  ffff88000ff588a0 ffff88000ff58850 ffff88000ff588a0
-> 0000000000000000
-> [  233.048393]  ffff88000facbd08 ffffffff823dbd5a ffffffff823dbcb0
-> ffff88000ff58850
-> [  233.048393] Call Trace:
-> [  233.048393]  [<ffffffff8116ad81>] kfree+0x5f/0xca
-> [  233.048393]  [<ffffffff823dbd5a>] inet_sock_destruct+0xaa/0x13c
-> [  233.048393]  [<ffffffff823dbcb0>] ? inet_sk_rebuild_header
-> +0x319/0x319
-> [  233.048393]  [<ffffffff8231c307>] __sk_free+0x21/0x14b
-> [  233.048393]  [<ffffffff8231c4bd>] sk_free+0x26/0x2a
-> [  233.048393]  [<ffffffff825372db>] sctp_close+0x215/0x224
-> [  233.048393]  [<ffffffff810d6835>] ? lock_release+0x16f/0x1b9
-> [  233.048393]  [<ffffffff823daf12>] inet_release+0x7e/0x85
-> [  233.048393]  [<ffffffff82317d15>] sock_release+0x1f/0x77
-> [  233.048393]  [<ffffffff82317d94>] sock_close+0x27/0x2b
-> [  233.048393]  [<ffffffff81173bbe>] __fput+0x101/0x20a
-> [  233.048393]  [<ffffffff81173cd5>] ____fput+0xe/0x10
-> [  233.048393]  [<ffffffff810a3794>] task_work_run+0x5d/0x75
-> [  233.048393]  [<ffffffff8108da70>] do_exit+0x290/0x7f5
-> [  233.048393]  [<ffffffff82707415>] ? retint_swapgs+0x13/0x1b
-> [  233.048393]  [<ffffffff8108e23f>] do_group_exit+0x7b/0xba
-> [  233.048393]  [<ffffffff8108e295>] sys_exit_group+0x17/0x17
-> [  233.048393]  [<ffffffff8270de10>] tracesys+0xdd/0xe2
-> [  233.048393] Code: 59 01 5d c3 55 48 89 e5 53 41 50 0f 1f 44 00 00 48
-> 89 fb e8 d4 b0 f0 ff 84 c0 75 11 48 89 de 48 c7 c7 fc fa f7 82 e8 0d 0f
-> 57 01 <0f> 0b 5f 5b 5d c3 55 48 89 e5 0f 1f 44 00 00 48 63 87 d8 00 00
-> [  233.048393] RIP  [<ffffffff81169653>] kfree_debugcheck+0x27/0x2d
-> [  233.048393]  RSP <ffff88000facbca8>
->
-> Reported-by: Fengguang Wu <wfg@linux.intel.com>
-> Tested-by: Fengguang Wu <wfg@linux.intel.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: "H.K. Jerry Chu" <hkchu@google.com>
-> ---
->  net/ipv4/af_inet.c              |    7 ++-----
->  net/ipv4/inet_connection_sock.c |    4 ++--
->  2 files changed, 4 insertions(+), 7 deletions(-)
->
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 4f70ef0..845372b 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -149,11 +149,8 @@ void inet_sock_destruct(struct sock *sk)
->                 pr_err("Attempt to release alive inet socket %p\n", sk);
->                 return;
->         }
-> -       if (sk->sk_type == SOCK_STREAM) {
-> -               struct fastopen_queue *fastopenq =
-> -                       inet_csk(sk)->icsk_accept_queue.fastopenq;
-> -               kfree(fastopenq);
-> -       }
-> +       if (sk->sk_protocol == IPPROTO_TCP)
-> +               kfree(inet_csk(sk)->icsk_accept_queue.fastopenq);
->
->         WARN_ON(atomic_read(&sk->sk_rmem_alloc));
->         WARN_ON(atomic_read(&sk->sk_wmem_alloc));
-> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-> index 8464b79..f0c5b9c 100644
-> --- a/net/ipv4/inet_connection_sock.c
-> +++ b/net/ipv4/inet_connection_sock.c
-> @@ -314,7 +314,7 @@ struct sock *inet_csk_accept(struct sock *sk, int flags, int *err)
->         newsk = req->sk;
->
->         sk_acceptq_removed(sk);
-> -       if (sk->sk_type == SOCK_STREAM && queue->fastopenq != NULL) {
-> +       if (sk->sk_protocol == IPPROTO_TCP && queue->fastopenq != NULL) {
->                 spin_lock_bh(&queue->fastopenq->lock);
->                 if (tcp_rsk(req)->listener) {
->                         /* We are still waiting for the final ACK from 3WHS
-> @@ -775,7 +775,7 @@ void inet_csk_listen_stop(struct sock *sk)
->
->                 percpu_counter_inc(sk->sk_prot->orphan_count);
->
-> -               if (sk->sk_type == SOCK_STREAM && tcp_rsk(req)->listener) {
-> +               if (sk->sk_protocol == IPPROTO_TCP && tcp_rsk(req)->listener) {
->                         BUG_ON(tcp_sk(child)->fastopen_rsk != req);
->                         BUG_ON(sk != tcp_rsk(req)->listener);
->
->
->
+From: Neal Cardwell <ncardwell@google.com>
+Date: Thu, 6 Sep 2012 14:15:38 -0400
 
-Thanks, Eric.
+> On Thu, Sep 6, 2012 at 2:07 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> Fengguang Wu reported various panics and bisected to commit
+>> 8336886f786fdac (tcp: TCP Fast Open Server - support TFO listeners)
+>>
+>> Fix this by making sure socket is a TCP socket before accessing TFO data
+>> structures.
+>>
+> ...
+>>
+>> Reported-by: Fengguang Wu <wfg@linux.intel.com>
+>> Tested-by: Fengguang Wu <wfg@linux.intel.com>
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> Cc: "H.K. Jerry Chu" <hkchu@google.com>
+> 
+> Acked-by: Neal Cardwell <ncardwell@google.com>
 
-Acked-by: H.K. Jerry Chu <hkchu@google.com>
+Applied, thanks everyone.
