@@ -1,201 +1,44 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.com>
-Subject: [PATCH net 2/5] net/mlx4_core: Add security check / enforcement for flow steering rules set for VMs
-Date: Thu,  6 Sep 2012 11:50:49 +0300
-Message-ID: <1346921452-2035-3-git-send-email-yevgenyp@mellanox.com>
+Subject: [PATCH net 5/5] net/mlx4_core: Return the error value in case of command initialization failure
+Date: Thu,  6 Sep 2012 11:50:52 +0300
+Message-ID: <1346921452-2035-6-git-send-email-yevgenyp@mellanox.com>
 References: <1346921452-2035-1-git-send-email-yevgenyp@mellanox.com>
-Cc: netdev@vger.kernel.org, Hadar Hen Zion <hadarh@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Eugenia Emantayev <eugenia@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:36868 "HELO
-	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754455Ab2IFIvd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 04:51:33 -0400
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:34005 "HELO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756759Ab2IFIvg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 04:51:36 -0400
 In-Reply-To: <1346921452-2035-1-git-send-email-yevgenyp@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hadar Hen Zion <hadarh@mellanox.com>
+From: Eugenia Emantayev <eugenia@mellanox.com>
 
-Since VFs may be mapped to VMs which aren't trusted entities,  flow
-steering rules attached through the wrapper on behalf of VFs must be
-checked to make sure that their L2 specification relate to MAC address
-assigned to that VF, and add L2 specification if its missing.
+If mlx4_cmd_init() failed, the init_one function returned
+success, although no resources were opened.
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  116 ++++++++++++++++++++
- include/linux/mlx4/device.h                        |   11 ++
- 2 files changed, 127 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 94ceddd..293c9e8 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -42,6 +42,7 @@
- #include <linux/mlx4/cmd.h>
- #include <linux/mlx4/qp.h>
- #include <linux/if_ether.h>
-+#include <linux/etherdevice.h>
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 0fadac5..2f816c6 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -1997,7 +1997,8 @@ static int __mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
+ 	}
  
- #include "mlx4.h"
- #include "fw.h"
-@@ -2776,18 +2777,133 @@ ex_put:
- 	return err;
- }
- 
-+/*
-+ * MAC validation for Flow Steering rules.
-+ * VF can attach rules only with a mac address which is assigned to it.
-+ */
-+static int validate_eth_header_mac(int slave, struct _rule_hw *eth_header,
-+				   struct list_head *rlist)
-+{
-+	struct mac_res *res, *tmp;
-+	__be64 be_mac;
-+
-+	/* make sure it isn't multicast or broadcast mac*/
-+	if (!is_multicast_ether_addr(eth_header->eth.dst_mac) &&
-+	    !is_broadcast_ether_addr(eth_header->eth.dst_mac)) {
-+		list_for_each_entry_safe(res, tmp, rlist, list) {
-+			be_mac = cpu_to_be64(res->mac << 16);
-+			if (!memcmp(&be_mac, eth_header->eth.dst_mac, ETH_ALEN))
-+				return 0;
-+		}
-+		pr_err("MAC %pM doesn't belong to VF %d, Steering rule rejected\n",
-+		       eth_header->eth.dst_mac, slave);
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+/*
-+ * In case of missing eth header, append eth header with a MAC address
-+ * assigned to the VF.
-+ */
-+static int add_eth_header(struct mlx4_dev *dev, int slave,
-+			  struct mlx4_cmd_mailbox *inbox,
-+			  struct list_head *rlist, int header_id)
-+{
-+	struct mac_res *res, *tmp;
-+	u8 port;
-+	struct mlx4_net_trans_rule_hw_ctrl *ctrl;
-+	struct mlx4_net_trans_rule_hw_eth *eth_header;
-+	struct mlx4_net_trans_rule_hw_ipv4 *ip_header;
-+	struct mlx4_net_trans_rule_hw_tcp_udp *l4_header;
-+	__be64 be_mac = 0;
-+	__be64 mac_msk = cpu_to_be64(MLX4_MAC_MASK << 16);
-+
-+	ctrl = (struct mlx4_net_trans_rule_hw_ctrl *)inbox->buf;
-+	port = be32_to_cpu(ctrl->vf_vep_port) & 0xff;
-+	eth_header = (struct mlx4_net_trans_rule_hw_eth *)(ctrl + 1);
-+
-+	/* Clear a space in the inbox for eth header */
-+	switch (header_id) {
-+	case MLX4_NET_TRANS_RULE_ID_IPV4:
-+		ip_header =
-+			(struct mlx4_net_trans_rule_hw_ipv4 *)(eth_header + 1);
-+		memmove(ip_header, eth_header,
-+			sizeof(*ip_header) + sizeof(*l4_header));
-+		break;
-+	case MLX4_NET_TRANS_RULE_ID_TCP:
-+	case MLX4_NET_TRANS_RULE_ID_UDP:
-+		l4_header = (struct mlx4_net_trans_rule_hw_tcp_udp *)
-+			    (eth_header + 1);
-+		memmove(l4_header, eth_header, sizeof(*l4_header));
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+	list_for_each_entry_safe(res, tmp, rlist, list) {
-+		if (port == res->port) {
-+			be_mac = cpu_to_be64(res->mac << 16);
-+			break;
-+		}
-+	}
-+	if (!be_mac) {
-+		pr_err("Failed adding eth header to FS rule, Can't find matching MAC for port %d .\n",
-+		       port);
-+		return -EINVAL;
-+	}
-+
-+	memset(eth_header, 0, sizeof(*eth_header));
-+	eth_header->size = sizeof(*eth_header) >> 2;
-+	eth_header->id = cpu_to_be16(__sw_id_hw[MLX4_NET_TRANS_RULE_ID_ETH]);
-+	memcpy(eth_header->dst_mac, &be_mac, ETH_ALEN);
-+	memcpy(eth_header->dst_mac_msk, &mac_msk, ETH_ALEN);
-+
-+	return 0;
-+
-+}
-+
- int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
- 					 struct mlx4_vhcr *vhcr,
- 					 struct mlx4_cmd_mailbox *inbox,
- 					 struct mlx4_cmd_mailbox *outbox,
- 					 struct mlx4_cmd_info *cmd)
- {
-+
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_resource_tracker *tracker = &priv->mfunc.master.res_tracker;
-+	struct list_head *rlist = &tracker->slave_list[slave].res_list[RES_MAC];
- 	int err;
-+	struct mlx4_net_trans_rule_hw_ctrl *ctrl;
-+	struct _rule_hw  *rule_header;
-+	int header_id;
- 
- 	if (dev->caps.steering_mode !=
- 	    MLX4_STEERING_MODE_DEVICE_MANAGED)
- 		return -EOPNOTSUPP;
- 
-+	ctrl = (struct mlx4_net_trans_rule_hw_ctrl *)inbox->buf;
-+	rule_header = (struct _rule_hw *)(ctrl + 1);
-+	header_id = map_hw_to_sw_id(be16_to_cpu(rule_header->id));
-+
-+	switch (header_id) {
-+	case MLX4_NET_TRANS_RULE_ID_ETH:
-+		if (validate_eth_header_mac(slave, rule_header, rlist))
-+			return -EINVAL;
-+		break;
-+	case MLX4_NET_TRANS_RULE_ID_IPV4:
-+	case MLX4_NET_TRANS_RULE_ID_TCP:
-+	case MLX4_NET_TRANS_RULE_ID_UDP:
-+		pr_warn("Can't attach FS rule without L2 headers, adding L2 header.\n");
-+		if (add_eth_header(dev, slave, inbox, rlist, header_id))
-+			return -EINVAL;
-+		vhcr->in_modifier +=
-+			sizeof(struct mlx4_net_trans_rule_hw_eth) >> 2;
-+		break;
-+	default:
-+		pr_err("Corrupted mailbox.\n");
-+		return -EINVAL;
-+	}
-+
- 	err = mlx4_cmd_imm(dev, inbox->dma, &vhcr->out_param,
- 			   vhcr->in_modifier, 0,
- 			   MLX4_QP_FLOW_STEERING_ATTACH, MLX4_CMD_TIME_CLASS_A,
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 244ba90..6e1b0f9 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -798,6 +798,17 @@ enum mlx4_net_trans_rule_id {
- 
- extern const u16 __sw_id_hw[];
- 
-+static inline int map_hw_to_sw_id(u16 header_id)
-+{
-+
-+	int i;
-+	for (i = 0; i < MLX4_NET_TRANS_RULE_NUM; i++) {
-+		if (header_id == __sw_id_hw[i])
-+			return i;
-+	}
-+	return -EINVAL;
-+}
-+
- enum mlx4_net_trans_promisc_mode {
- 	MLX4_FS_PROMISC_NONE = 0,
- 	MLX4_FS_PROMISC_UPLINK,
+ slave_start:
+-	if (mlx4_cmd_init(dev)) {
++	err = mlx4_cmd_init(dev);
++	if (err) {
+ 		mlx4_err(dev, "Failed to init command interface, aborting.\n");
+ 		goto err_sriov;
+ 	}
 -- 
 1.7.7
