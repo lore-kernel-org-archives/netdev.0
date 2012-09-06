@@ -1,44 +1,50 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: Re: [PATCH] mac80211: use list_move instead of list_del/list_add
-Date: Thu, 6 Sep 2012 21:57:53 +0800
-Message-ID: <CAPgLHd_Vwr2oGWEGi_Ey5WcVz+XKT8yh76CYDNiy1d73rk2cbQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: fix handling of throw routes
+Date: Thu, 06 Sep 2012 15:58:25 +0200
+Message-ID: <1346939905.2484.43.camel@edumazet-glaptop>
+References: <5048A374.60005@6wind.com>
+	 <1346946815-3094-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linville@tuxdriver.com, yongjun_wei@trendmicro.com.cn,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: johannes@sipsolutions.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, markus.stenberg@iki.fi
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:33499 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752742Ab2IFN5y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 09:57:54 -0400
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:46426 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752838Ab2IFN63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 09:58:29 -0400
+Received: by eekc1 with SMTP id c1so712220eek.19
+        for <netdev@vger.kernel.org>; Thu, 06 Sep 2012 06:58:28 -0700 (PDT)
+In-Reply-To: <1346946815-3094-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/06/2012 05:56 PM, Johannes Berg wrote:
+On Thu, 2012-09-06 at 11:53 -0400, Nicolas Dichtel wrote:
+> It's the same problem that previous fix about blackhole and prohibit routes.
+> 
+> When adding a throw route, it was handled like a classic route.
+> Moreover, it was only possible to add this kind of routes by specifying
+> an interface.
+> 
+> Before the patch:
+>   $ ip route add throw 2001::2/128
+>   RTNETLINK answers: No such device
+>   $ ip route add throw 2001::2/128 dev eth0
+>   $ ip -6 route | grep 2001::2
+>   2001::2 dev eth0  metric 1024
+> 
+> After:
+>   $ ip route add throw 2001::2/128
+>   $ ip -6 route | grep 2001::2
+>   throw 2001::2 dev lo  metric 1024  error -11
+> 
+> Reported-by: Markus Stenberg <markus.stenberg@iki.fi>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>  net/ipv6/route.c | 9 ++++++++-
+>  1 file changed, 8 insertions(+), 1 deletion(-)
 
-Hi Johannes,
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-> On Thu, 2012-09-06 at 13:20 +0800, Wei Yongjun wrote:
->> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->>
->> Using list_move() instead of list_del() + list_add().
->>
->> spatch with a semantic match is used to found this problem.
->> (http://coccinelle.lip6.fr/)
->>
->> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> Applied. FWIW, I don't think it's really a "problem" rather than a
-> simplification or something like that, but anyway.
-
-That is right, I will change the patch description if I send some other
-patchs like this cleanup.
-
-Thanks,
-Yongjun Wei
-
->
-> johannes
->
->
->
+Thanks Nicolas
