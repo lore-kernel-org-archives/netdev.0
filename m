@@ -1,52 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: IPv6 routing type - not at par with IPv4 one?
-Date: Thu, 06 Sep 2012 12:35:05 +0200
-Message-ID: <1346927705.2484.22.camel@edumazet-glaptop>
-References: <loom.20120906T115737-277@post.gmane.org>
+From: Jean Delvare <khali@linux-fr.org>
+Subject: |PATCH] seeq: Add missing spinlock init
+Date: Thu, 6 Sep 2012 12:47:05 +0200
+Message-ID: <20120906124705.2631ae01@endymion.delvare>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: Markus Stenberg <markus.stenberg@iki.fi>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:62159 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754428Ab2IFKfJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 06:35:09 -0400
-Received: by eekc1 with SMTP id c1so613011eek.19
-        for <netdev@vger.kernel.org>; Thu, 06 Sep 2012 03:35:08 -0700 (PDT)
-In-Reply-To: <loom.20120906T115737-277@post.gmane.org>
+Received: from zoneX.GCU-Squad.org ([194.213.125.0]:41305 "EHLO
+	services.gcu-squad.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758228Ab2IFKrP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 06:47:15 -0400
+Received: from jdelvare.pck.nerim.net ([62.212.121.182] helo=endymion.delvare)
+	by services.gcu-squad.org (GCU Mailer Daemon) with esmtpsa id 1T9Zc8-0000x9-KG
+	(TLSv1:AES128-SHA:128)
+	(envelope-from <khali@linux-fr.org>)
+	for netdev@vger.kernel.org; Thu, 06 Sep 2012 12:47:12 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-09-06 at 10:02 +0000, Markus Stenberg wrote:
-> ~ # ip route add throw 1.2.3.4
-> ~ # ip -6 route add throw ::1.2.3.4
-> RTNETLINK answers: No such device
-> ~ # ip route add blackhole 1.2.3.5
-> ~ # ip -6 route add blackhole ::1.2.3.5
-> RTNETLINK answers: No such device
-> ~ #
-> 
-> The reason for this is in net/ipv6/route.c - ipv6_route_add:
-> 
-> Eventually code winds up at this (1423 line in 3.5.3):
-> 
-> 	err = -ENODEV;
-> 	if (!dev)
-> 		goto out;
-> 
-> and poof, ENODEV.
-> 
-> Is there some reason for this? Or should I write a patch? 
-> Or does someone else want to? Support for dev=NULL 
-> elsewhere in the code seems to be ok.
-> 
-> Based on quick googling I'm not the first one to have encountered this.
+It doesn't seem this spinlock was properly initialized.
 
-Well, it  seems you missed this : 
+Signed-off-by: Jean Delvare <khali@linux-fr.org>
+---
+I can't even build-test this.
 
-http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git;a=commitdiff;h=ef2c7d7b59708d54213c7556a82d14de9a7e4475
+ drivers/net/ethernet/seeq/sgiseeq.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-At least the blackhole is now supported on IPv6, so you probably have to
-add the 'throw' bit, if it makes any sense.
+--- linux-3.6-rc4.orig/drivers/net/ethernet/seeq/sgiseeq.c	2012-07-21 22:58:29.000000000 +0200
++++ linux-3.6-rc4/drivers/net/ethernet/seeq/sgiseeq.c	2012-09-06 12:40:30.092144722 +0200
+@@ -751,6 +751,7 @@ static int __devinit sgiseeq_probe(struc
+ 	sp->srings = sr;
+ 	sp->rx_desc = sp->srings->rxvector;
+ 	sp->tx_desc = sp->srings->txvector;
++	spin_lock_init(&sp->tx_lock);
+ 
+ 	/* A couple calculations now, saves many cycles later. */
+ 	setup_rx_ring(dev, sp->rx_desc, SEEQ_RX_BUFFERS);
+
+
+-- 
+Jean Delvare
