@@ -1,111 +1,74 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2 09/10] net/macb: ethtool interface: add register dump
- feature
-Date: Thu, 6 Sep 2012 15:34:44 +0100
-Message-ID: <1346942084.17321.22.camel@deadeye.wl.decadent.org.uk>
-References: <1346888174.5325.55.camel@bwh-desktop.uk.solarflarecom.com>
-	 <1346941256-15676-1-git-send-email-nicolas.ferre@atmel.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v3 01/17] hashtable: introduce a small and naive hashtable
+Date: Thu, 6 Sep 2012 15:36:52 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6FDE@saturn3.aculab.com>
+References: <20120824230740.GN21325@google.com> <20120825042419.GA27240@Krystal> <503C95E4.3010000@gmail.com> <20120828101148.GA21683@Krystal> <503CAB1E.5010408@gmail.com> <20120828115638.GC23818@Krystal> <20120828230050.GA3337@Krystal> <1346772948.27919.9.camel@gandalf.local.home> <50462C99.5000007@redhat.com> <50462EE8.1090903@redhat.com> <20120904170138.GB31934@Krystal> <5048AAF6.5090101@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<linux-arm-kernel@lists.infradead.org>, <havard@skinnemoen.net>,
-	<plagnioj@jcrosoft.com>, <patrice.vilchez@atmel.com>,
-	<linux-kernel@vger.kernel.org>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1346941256-15676-1-git-send-email-nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Pedro Alves" <palves@redhat.com>,
+	"Steven Rostedt" <rostedt@goodmis.org>,
+	"Tejun Heo" <tj@kernel.org>,
+	<torvalds@linux-foundation.org>,
+	<akpm@linux-foundation.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-mm@kvack.org>,
+	<paul.gortmaker@windriver.com>,
+	<davem@davemloft.net>,
+	<mingo@elte.hu>,
+	<ebiederm@xmission.com>,
+	<aarcange@redhat.com>,
+	<ericvh@gmail.com>,
+	<netdev@vger.kernel.org>,
+	<josh@joshtriplett.org>,
+	<eric.dumazet@gmail.com>,
+	<axboe@kernel.dk>,
+	<agk@redhat.com>,
+	<dm-devel@redhat.com>,
+	<neilb@suse.de>,
+	<ccaulfie@redhat.com>,
+	<teigland@redhat.com>,
+	<Trond.Myklebust@netapp.com>,
+	<bfields@fieldses.org>,
+	<fweisbec@gmail.com>,
+	<jesse@nicira.com>,
+	<venkat.x.venkatsubra@oracle.com>,
+	<ejt@redhat.com>,
+	<snitzer@redhat.com>,
+	<edumazet@google.com>,
+	<linux-nfs@vger.kernel.org>,
+	<dev@openvswitch.org>,
+	<rds-devel@oss.oracle.com>,
+	<lw@cn.fujitsu.com>
+To: "Sasha Levin" <levinsasha928@gmail.com>,
+	"Mathieu Desnoyers" <mathieu.desnoyers@efficios.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <5048AAF6.5090101@gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-09-06 at 16:20 +0200, Nicolas Ferre wrote:
-> Add macb_get_regs() ethtool function and its helper function:
-> macb_get_regs_len().
-> The version field is deduced from the IP revision which gives the
-> "MACB or GEM" information. An additional version field is reserved.
-> 
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> v2: - modify MACB_GREGS_NBR name and adapt to number of registers
->       actually displayed.
->     - change version format to reflect register layout and
->       add a version number to be future proof.
-> 
->  drivers/net/ethernet/cadence/macb.c |   40 +++++++++++++++++++++++++++++++++++
->  drivers/net/ethernet/cadence/macb.h |    3 +++
->  2 files changed, 43 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index dc34ff1..cab42e7 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -1223,9 +1223,49 @@ static int macb_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
->  	return phy_ethtool_sset(phydev, cmd);
->  }
->  
-> +static int macb_get_regs_len(struct net_device *netdev)
-> +{
-> +	return MACB_GREGS_NBR * sizeof(u32);
-> +}
-> +
-> +static void macb_get_regs(struct net_device *dev, struct ethtool_regs *regs,
-> +			  void *p)
-> +{
-> +	struct macb *bp = netdev_priv(dev);
-> +	unsigned int tail, head;
-> +	u32 *regs_buff = p;
-> +
-> +	regs->version = (macb_readl(bp, MID) & ((1 << MACB_REV_SIZE) - 1))
-> +			| MACB_GREGS_VERSION;
-> +
-> +	tail = macb_tx_ring_wrap(bp->tx_tail);
-> +	head = macb_tx_ring_wrap(bp->tx_head);
-> +
-> +	regs_buff[0]  = macb_readl(bp, NCR);
-> +	regs_buff[1]  = macb_or_gem_readl(bp, NCFGR);
-> +	regs_buff[2]  = macb_readl(bp, NSR);
-> +	regs_buff[3]  = macb_readl(bp, TSR);
-> +	regs_buff[4]  = macb_readl(bp, RBQP);
-> +	regs_buff[5]  = macb_readl(bp, TBQP);
-> +	regs_buff[6]  = macb_readl(bp, RSR);
-> +	regs_buff[7]  = macb_readl(bp, IMR);
-> +
-> +	regs_buff[8]  = tail;
-> +	regs_buff[9]  = head;
-> +	regs_buff[10] = macb_tx_dma(bp, tail);
-> +	regs_buff[11] = macb_tx_dma(bp, head);
-> +
-> +	if (macb_is_gem(bp)) {
-> +		regs_buff[12] = gem_readl(bp, USRIO);
-> +		regs_buff[13] = gem_readl(bp, DMACFG);
-> +	}
-> +}
-> +
->  static const struct ethtool_ops macb_ethtool_ops = {
->  	.get_settings		= macb_get_settings,
->  	.set_settings		= macb_set_settings,
-> +	.get_regs_len		= macb_get_regs_len,
-> +	.get_regs		= macb_get_regs,
->  	.get_link		= ethtool_op_get_link,
->  };
->  
-> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-> index f69ceef..bcadc3c 100644
-> --- a/drivers/net/ethernet/cadence/macb.h
-> +++ b/drivers/net/ethernet/cadence/macb.h
-> @@ -10,6 +10,9 @@
->  #ifndef _MACB_H
->  #define _MACB_H
->  
-> +#define MACB_GREGS_NBR 16
-> +#define MACB_GREGS_VERSION 1
-> +
->  /* MACB register offsets */
->  #define MACB_NCR				0x0000
->  #define MACB_NCFGR				0x0004
+> My solution to making 'break' work in the iterator is:
+>=20
+> 	for (bkt =3D 0, node =3D NULL; bkt < HASH_SIZE(name) && node =3D=3D
+NULL; bkt++)
+> 		hlist_for_each_entry(obj, node, &name[bkt], member)
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I'd take a look at the generated code.
+Might come out a bit better if the condition is changed to:
+	node =3D=3D NULL && bkt < HASH_SIZE(name)
+you might find the compiler always optimises out the
+node =3D=3D NULL comparison.
+(It might anyway, but switching the order gives it a better
+chance.)
+
+	David
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
