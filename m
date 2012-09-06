@@ -1,73 +1,33 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [net-next 13/13] igb: Store the MAC address in the name in the
- PTP struct.
-Date: Thu, 6 Sep 2012 23:04:05 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB580785FA09@ORSMSX105.amr.corp.intel.com>
-References: <1345715813-20757-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1345715813-20757-14-git-send-email-jeffrey.t.kirsher@intel.com>
- <20120823104554.GA2238@netboy.at.omicron.at>
- <1345757737.2579.22.camel@bwh-desktop.uk.solarflarecom.com>
- <20120824061956.GA2212@netboy.at.omicron.at>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv3] virtio-spec: virtio network device multiqueue support
+Date: Fri, 7 Sep 2012 02:16:47 +0300
+Message-ID: <20120906231647.GB1873@redhat.com>
+References: <20120906120828.GA1534@redhat.com>
+ <5048D2B8.4060003@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	Stuart Hodgson <smhodgson@solarflare.com>
-To: Richard Cochran <richardcochran@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:40501 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752946Ab2IFXEH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 19:04:07 -0400
-In-Reply-To: <20120824061956.GA2212@netboy.at.omicron.at>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Paolo Bonzini <pbonzini@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <5048D2B8.4060003@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Richard Cochran
-> Sent: Thursday, August 23, 2012 11:20 PM
-> To: Ben Hutchings
-> Cc: Kirsher, Jeffrey T; davem@davemloft.net; Vick, Matthew;
-> netdev@vger.kernel.org; gospo@redhat.com; sassmann@redhat.com; Stuart
-> Hodgson
-> Subject: Re: [net-next 13/13] igb: Store the MAC address in the name in
-> the PTP struct.
+On Thu, Sep 06, 2012 at 06:43:36PM +0200, Paolo Bonzini wrote:
+> Il 06/09/2012 14:08, Michael S. Tsirkin ha scritto:
+> > +#define VIRTIO_NET_CTRL_STEERING_HOST  1
 > 
-> In an ideal world, there is only one clock device per system, so the
-> original concept was to use the driver name. The hardware designers have
-> ignored or not understood the "one clock per system" model, and so,
-> unfortunately, we have to deal with it.
-> 
-> A clock device can and should be connected to more than one network device
-> (see gianfar, dp83640), and to give it a MAC address is misleading.
-> 
-> The ethtool solution works perfectly to go from interface->clock, which is
-> all the information that a user space PTP stack needs.
-> 
-> I think for sysfs and the ioctl it is nicer to have the driver name, since
-> it is associated with the clock and its capabilities.
-> 
-Correct. MAC address is misleading. However driver name for our parts is
-misleading because each driver creates one clock per port. In either case, one
-driver handling multiple cards would also have to create multiple ptp devices
-and that is just as misleading.
+> You didn't change this occurrence.
 
-The ethtool method is definitely preferred, and is the correct way to identify
-the clock device correlation.
-
-- Jake
-
-> Thanks,
-> Richard
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the
-> body of a message to majordomo@vger.kernel.org More majordomo info at
-> http://vger.kernel.org/majordomo-info.html
+Good catch, thanks!
