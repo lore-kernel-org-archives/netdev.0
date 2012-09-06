@@ -1,145 +1,149 @@
-From: JoonSoo Kim <js1304@gmail.com>
-Subject: Re: [PATCH 1/4] slab: do ClearSlabPfmemalloc() for all pages of slab
-Date: Fri, 7 Sep 2012 03:05:39 +0900
-Message-ID: <CAAmzW4MfFUH1Mi447sQvPNeae_BShEmbECUaK9eoX-8ughEdJw@mail.gmail.com>
-References: <1346779479-1097-1-git-send-email-mgorman@suse.de>
-	<1346779479-1097-2-git-send-email-mgorman@suse.de>
-	<CAAmzW4M_3hVBfjqFLG=7iydkXeQPdCXRbRmkqUJD4vwo0eWVWQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: fix TFO regression
+Date: Thu, 06 Sep 2012 20:07:13 +0200
+Message-ID: <1346954833.2484.50.camel@edumazet-glaptop>
+References: <20120904140411.GB15068@localhost>
+	 <5046361C.5070602@pengutronix.de> <87mx15zfze.fsf@xmission.com>
+	 <20120905145508.GA9450@localhost> <50476931.20100@pengutronix.de>
+	 <1346859046.13121.144.camel@edumazet-glaptop>
+	 <1346859645.13121.146.camel@edumazet-glaptop>
+	 <1346864220.13121.157.camel@edumazet-glaptop>
+	 <20120906045452.GA18181@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Chuck Lever <chuck.lever@oracle.com>,
-	Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>,
-	Christoph Lameter <cl@linux.com>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CAAmzW4M_3hVBfjqFLG=7iydkXeQPdCXRbRmkqUJD4vwo0eWVWQ@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	"H.K. Jerry Chu" <hkchu@google.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	networking <netdev@vger.kernel.org>, linux-can@vger.kernel.org
+To: Fengguang Wu <fengguang.wu@intel.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20120906045452.GA18181@localhost>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Correct Pekka's mail address and resend.
-Sorry.
+From: Eric Dumazet <edumazet@google.com>
 
-Add "Cc" to "Christoph Lameter" <cl@linux.com>
+Fengguang Wu reported various panics and bisected to commit
+8336886f786fdac (tcp: TCP Fast Open Server - support TFO listeners)
 
-2012/9/5 Mel Gorman <mgorman@suse.de>:
-> Right now, we call ClearSlabPfmemalloc() for first page of slab when we
-> clear SlabPfmemalloc flag. This is fine for most swap-over-network use
-> cases as it is expected that order-0 pages are in use. Unfortunately it
-> is possible that that __ac_put_obj() checks SlabPfmemalloc on a tail page
-> and while this is harmless, it is sloppy. This patch ensures that the head
-> page is always used.
->
-> This problem was originally identified by Joonsoo Kim.
->
-> [js1304@gmail.com: Original implementation and problem identification]
-> Signed-off-by: Mel Gorman <mgorman@suse.de>
-> ---
->  mm/slab.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/mm/slab.c b/mm/slab.c
-> index 811af03..d34a903 100644
-> --- a/mm/slab.c
-> +++ b/mm/slab.c
-> @@ -1000,7 +1000,7 @@ static void *__ac_get_obj(struct kmem_cache *cachep, struct array_cache *ac,
->                 l3 = cachep->nodelists[numa_mem_id()];
->                 if (!list_empty(&l3->slabs_free) && force_refill) {
->                         struct slab *slabp = virt_to_slab(objp);
-> -                       ClearPageSlabPfmemalloc(virt_to_page(slabp->s_mem));
-> +                       ClearPageSlabPfmemalloc(virt_to_head_page(slabp->s_mem));
->                         clear_obj_pfmemalloc(&objp);
->                         recheck_pfmemalloc_active(cachep, ac);
->                         return objp;
+Fix this by making sure socket is a TCP socket before accessing TFO data
+structures.
 
-We assume that slabp->s_mem's address is always in head page, so
-"virt_to_head_page" is not needed.
+[  233.046014] kfree_debugcheck: out of range ptr ea6000000bb8h.
+[  233.047399] ------------[ cut here ]------------
+[  233.048393] kernel BUG at /c/kernel-tests/src/stable/mm/slab.c:3074!
+[  233.048393] invalid opcode: 0000 [#1] SMP DEBUG_PAGEALLOC
+[  233.048393] Modules linked in:
+[  233.048393] CPU 0 
+[  233.048393] Pid: 3929, comm: trinity-watchdo Not tainted 3.6.0-rc3+
+#4192 Bochs Bochs
+[  233.048393] RIP: 0010:[<ffffffff81169653>]  [<ffffffff81169653>]
+kfree_debugcheck+0x27/0x2d
+[  233.048393] RSP: 0018:ffff88000facbca8  EFLAGS: 00010092
+[  233.048393] RAX: 0000000000000031 RBX: 0000ea6000000bb8 RCX:
+00000000a189a188
+[  233.048393] RDX: 000000000000a189 RSI: ffffffff8108ad32 RDI:
+ffffffff810d30f9
+[  233.048393] RBP: ffff88000facbcb8 R08: 0000000000000002 R09:
+ffffffff843846f0
+[  233.048393] R10: ffffffff810ae37c R11: 0000000000000908 R12:
+0000000000000202
+[  233.048393] R13: ffffffff823dbd5a R14: ffff88000ec5bea8 R15:
+ffffffff8363c780
+[  233.048393] FS:  00007faa6899c700(0000) GS:ffff88001f200000(0000)
+knlGS:0000000000000000
+[  233.048393] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[  233.048393] CR2: 00007faa6841019c CR3: 0000000012c82000 CR4:
+00000000000006f0
+[  233.048393] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
+0000000000000000
+[  233.048393] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
+0000000000000400
+[  233.048393] Process trinity-watchdo (pid: 3929, threadinfo
+ffff88000faca000, task ffff88000faec600)
+[  233.048393] Stack:
+[  233.048393]  0000000000000000 0000ea6000000bb8 ffff88000facbce8
+ffffffff8116ad81
+[  233.048393]  ffff88000ff588a0 ffff88000ff58850 ffff88000ff588a0
+0000000000000000
+[  233.048393]  ffff88000facbd08 ffffffff823dbd5a ffffffff823dbcb0
+ffff88000ff58850
+[  233.048393] Call Trace:
+[  233.048393]  [<ffffffff8116ad81>] kfree+0x5f/0xca
+[  233.048393]  [<ffffffff823dbd5a>] inet_sock_destruct+0xaa/0x13c
+[  233.048393]  [<ffffffff823dbcb0>] ? inet_sk_rebuild_header
++0x319/0x319
+[  233.048393]  [<ffffffff8231c307>] __sk_free+0x21/0x14b
+[  233.048393]  [<ffffffff8231c4bd>] sk_free+0x26/0x2a
+[  233.048393]  [<ffffffff825372db>] sctp_close+0x215/0x224
+[  233.048393]  [<ffffffff810d6835>] ? lock_release+0x16f/0x1b9
+[  233.048393]  [<ffffffff823daf12>] inet_release+0x7e/0x85
+[  233.048393]  [<ffffffff82317d15>] sock_release+0x1f/0x77
+[  233.048393]  [<ffffffff82317d94>] sock_close+0x27/0x2b
+[  233.048393]  [<ffffffff81173bbe>] __fput+0x101/0x20a
+[  233.048393]  [<ffffffff81173cd5>] ____fput+0xe/0x10
+[  233.048393]  [<ffffffff810a3794>] task_work_run+0x5d/0x75
+[  233.048393]  [<ffffffff8108da70>] do_exit+0x290/0x7f5
+[  233.048393]  [<ffffffff82707415>] ? retint_swapgs+0x13/0x1b
+[  233.048393]  [<ffffffff8108e23f>] do_group_exit+0x7b/0xba
+[  233.048393]  [<ffffffff8108e295>] sys_exit_group+0x17/0x17
+[  233.048393]  [<ffffffff8270de10>] tracesys+0xdd/0xe2
+[  233.048393] Code: 59 01 5d c3 55 48 89 e5 53 41 50 0f 1f 44 00 00 48
+89 fb e8 d4 b0 f0 ff 84 c0 75 11 48 89 de 48 c7 c7 fc fa f7 82 e8 0d 0f
+57 01 <0f> 0b 5f 5b 5d c3 55 48 89 e5 0f 1f 44 00 00 48 63 87 d8 00 00 
+[  233.048393] RIP  [<ffffffff81169653>] kfree_debugcheck+0x27/0x2d
+[  233.048393]  RSP <ffff88000facbca8>
 
-> @@ -1032,7 +1032,7 @@ static void *__ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
->  {
->         if (unlikely(pfmemalloc_active)) {
->                 /* Some pfmemalloc slabs exist, check if this is one */
-> -               struct page *page = virt_to_page(objp);
-> +               struct page *page = virt_to_head_page(objp);
->                 if (PageSlabPfmemalloc(page))
->                         set_obj_pfmemalloc(&objp);
->         }
-> --
-> 1.7.9.2
->
+Reported-by: Fengguang Wu <wfg@linux.intel.com>
+Tested-by: Fengguang Wu <wfg@linux.intel.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: "H.K. Jerry Chu" <hkchu@google.com>
+---
+ net/ipv4/af_inet.c              |    7 ++-----
+ net/ipv4/inet_connection_sock.c |    4 ++--
+ 2 files changed, 4 insertions(+), 7 deletions(-)
 
-If we always use head page, following suggestion is more good to me.
-How about you?
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 4f70ef0..845372b 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -149,11 +149,8 @@ void inet_sock_destruct(struct sock *sk)
+ 		pr_err("Attempt to release alive inet socket %p\n", sk);
+ 		return;
+ 	}
+-	if (sk->sk_type == SOCK_STREAM) {
+-		struct fastopen_queue *fastopenq =
+-			inet_csk(sk)->icsk_accept_queue.fastopenq;
+-		kfree(fastopenq);
+-	}
++	if (sk->sk_protocol == IPPROTO_TCP)
++		kfree(inet_csk(sk)->icsk_accept_queue.fastopenq);
+ 
+ 	WARN_ON(atomic_read(&sk->sk_rmem_alloc));
+ 	WARN_ON(atomic_read(&sk->sk_wmem_alloc));
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 8464b79..f0c5b9c 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -314,7 +314,7 @@ struct sock *inet_csk_accept(struct sock *sk, int flags, int *err)
+ 	newsk = req->sk;
+ 
+ 	sk_acceptq_removed(sk);
+-	if (sk->sk_type == SOCK_STREAM && queue->fastopenq != NULL) {
++	if (sk->sk_protocol == IPPROTO_TCP && queue->fastopenq != NULL) {
+ 		spin_lock_bh(&queue->fastopenq->lock);
+ 		if (tcp_rsk(req)->listener) {
+ 			/* We are still waiting for the final ACK from 3WHS
+@@ -775,7 +775,7 @@ void inet_csk_listen_stop(struct sock *sk)
+ 
+ 		percpu_counter_inc(sk->sk_prot->orphan_count);
+ 
+-		if (sk->sk_type == SOCK_STREAM && tcp_rsk(req)->listener) {
++		if (sk->sk_protocol == IPPROTO_TCP && tcp_rsk(req)->listener) {
+ 			BUG_ON(tcp_sk(child)->fastopen_rsk != req);
+ 			BUG_ON(sk != tcp_rsk(req)->listener);
+ 
 
-diff --git a/mm/slab.c b/mm/slab.c
-index f8b0d53..ce70989 100644
---- a/mm/slab.c
-+++ b/mm/slab.c
-@@ -1032,7 +1032,7 @@ static void *__ac_put_obj(struct kmem_cache
-*cachep, struct array_cache *ac,
- {
-        if (unlikely(pfmemalloc_active)) {
-                /* Some pfmemalloc slabs exist, check if this is one */
--               struct page *page = virt_to_page(objp);
-+               struct page *page = virt_to_head_page(objp);
-                if (PageSlabPfmemalloc(page))
-                        set_obj_pfmemalloc(&objp);
-        }
-@@ -1921,10 +1921,9 @@ static void *kmem_getpages(struct kmem_cache
-*cachep, gfp_t flags, int nodeid)
-                        NR_SLAB_UNRECLAIMABLE, nr_pages);
-        for (i = 0; i < nr_pages; i++) {
-                __SetPageSlab(page + i);
--
--               if (page->pfmemalloc)
--                       SetPageSlabPfmemalloc(page + i);
-        }
-+       if (page->pfmemalloc)
-+               SetPageSlabPfmemalloc(page);
 
-        if (kmemcheck_enabled && !(cachep->flags & SLAB_NOTRACK)) {
-                kmemcheck_alloc_shadow(page, cachep->gfporder, flags, nodeid);
-@@ -1943,26 +1942,26 @@ static void *kmem_getpages(struct kmem_cache
-*cachep, gfp_t flags, int nodeid)
-  */
- static void kmem_freepages(struct kmem_cache *cachep, void *addr)
- {
--       unsigned long i = (1 << cachep->gfporder);
-+       int nr_pages = (1 << cachep->gfporder);
-+       int i;
-        struct page *page = virt_to_page(addr);
--       const unsigned long nr_freed = i;
-
-        kmemcheck_free_shadow(page, cachep->gfporder);
-
-        if (cachep->flags & SLAB_RECLAIM_ACCOUNT)
-                sub_zone_page_state(page_zone(page),
--                               NR_SLAB_RECLAIMABLE, nr_freed);
-+                               NR_SLAB_RECLAIMABLE, nr_pages);
-        else
-                sub_zone_page_state(page_zone(page),
--                               NR_SLAB_UNRECLAIMABLE, nr_freed);
--       while (i--) {
--               BUG_ON(!PageSlab(page));
--               __ClearPageSlabPfmemalloc(page);
--               __ClearPageSlab(page);
--               page++;
-+                               NR_SLAB_UNRECLAIMABLE, nr_pages);
-+       for (i = 0; i < nr_pages; i++) {
-+               BUG_ON(!PageSlab(page + i));
-+               __ClearPageSlab(page + i);
-        }
-+       __ClearPageSlabPfmemalloc(page);
-+
-        if (current->reclaim_state)
--               current->reclaim_state->reclaimed_slab += nr_freed;
-+               current->reclaim_state->reclaimed_slab += nr_pages;
-        free_pages((unsigned long)addr, cachep->gfporder);
- }
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
