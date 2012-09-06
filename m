@@ -1,40 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: check dst validity after IPsec operations
-Date: Thu, 06 Sep 2012 14:10:19 -0400 (EDT)
-Message-ID: <20120906.141019.129727465932440024.davem@davemloft.net>
-References: <1346953229-3825-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next] tcp: fix TFO regression
+Date: Thu, 6 Sep 2012 14:15:38 -0400
+Message-ID: <CADVnQykCJJdM3PfN=_1yyzizao2T6XQJGzC=3uwx5_oazaBicA@mail.gmail.com>
+References: <20120904140411.GB15068@localhost>
+	<5046361C.5070602@pengutronix.de>
+	<87mx15zfze.fsf@xmission.com>
+	<20120905145508.GA9450@localhost>
+	<50476931.20100@pengutronix.de>
+	<1346859046.13121.144.camel@edumazet-glaptop>
+	<1346859645.13121.146.camel@edumazet-glaptop>
+	<1346864220.13121.157.camel@edumazet-glaptop>
+	<20120906045452.GA18181@localhost>
+	<1346954833.2484.50.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, sri@us.ibm.com, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55859 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754787Ab2IFSKV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 14:10:21 -0400
-In-Reply-To: <1346953229-3825-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Fengguang Wu <fengguang.wu@intel.com>,
+	David Miller <davem@davemloft.net>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	"H.K. Jerry Chu" <hkchu@google.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	networking <netdev@vger.kernel.org>, linux-can@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1346954833.2484.50.camel@edumazet-glaptop>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Thu,  6 Sep 2012 13:40:29 -0400
+On Thu, Sep 6, 2012 at 2:07 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Fengguang Wu reported various panics and bisected to commit
+> 8336886f786fdac (tcp: TCP Fast Open Server - support TFO listeners)
+>
+> Fix this by making sure socket is a TCP socket before accessing TFO data
+> structures.
+>
+...
+>
+> Reported-by: Fengguang Wu <wfg@linux.intel.com>
+> Tested-by: Fengguang Wu <wfg@linux.intel.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: "H.K. Jerry Chu" <hkchu@google.com>
 
-> dst stored in struct sctp_transport needs to be recalculated when ipsec policy
-> are updated. We use flow_cache_genid for that.
-> 
-> For example, if a SCTP connection is established and then an IPsec policy is
-> set, the old SCTP flow will not be updated and thus will not use the new
-> IPsec policy.
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-I don't like that SCTP need to perform special DST validation.
-
-The normal DST validation mechanism already in place should be
-sufficient.
-
-Otherwise this problem must exist in other protocols too, and
-fixing a tree wide issue privately inside of one protocol is
-not acceptable.
+neal
