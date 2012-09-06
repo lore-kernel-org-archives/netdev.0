@@ -1,40 +1,47 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 6 Sep 2012 10:13:15 +0200
-Message-ID: <20120906081315.GF2550@netboy.at.omicron.at>
-References: <1346888106-25638-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Alexey ORISHKO <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+Subject: RE: changing usbnet's API to better deal with cdc-ncm
+Date: Thu, 6 Sep 2012 10:13:01 +0200
+Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520154A6AA56BF9@EXDCVYMBSTM006.EQ1STM.local>
+References: <2791550.LhGu6po6Xy@linux-lqwf.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:41880 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752310Ab2IFIN1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 04:13:27 -0400
-Received: by bkwj10 with SMTP id j10so652436bkw.19
-        for <netdev@vger.kernel.org>; Thu, 06 Sep 2012 01:13:25 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1346888106-25638-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, "bjorn-yOkvZcmFvRU@public.gmane.org" <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <2791550.LhGu6po6Xy-ugxBuEnWX9yG/4A2pS7c2Q@public.gmane.org>
+Content-Language: en-US
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 05, 2012 at 04:35:00PM -0700, Jeff Kirsher wrote:
-> 
-> Matthew Vick (6):
->   igb: Tidy up wrapping for CONFIG_IGB_PTP.
->   igb: Update PTP function names/variables and locations.
->   igb: Correct PTP support query from ethtool.
->   igb: Store the MAC address in the name in the PTP struct.
+> -----Original Message-----
+> From: Oliver Neukum [mailto:oneukum-l3A5Bk7waGM@public.gmane.org]
 
-These four still look like unnecessary churn to me, and possibly the
-wrong direction WRT time stamping in the 82580.
 
->   igb: Prevent dropped Tx timestamps via work items and interrupts.
->   igb: Add 1588 support to I210/I211.
+> looking at cdc-ncm it seeems to me that cdc-ncm is forced to play very
+> dirty games because usbnet doesn't have a notion about aggregating
+> packets for a single transfer.
 
-But these two look important, so I don't know what to say.
+Several issues need to be improved:
+Tx path:
+1. IP packets must be accumulated in one NTB. Currently it's done via data copy.
+Preferred way would be a possibility to have a list of skb-s in resulting frame sent down.
 
-Sorry,
-Richard
+2. Timer is needed to accumulate enough packets to get acceptable throughput and reducing amount of HW INTs on device side.
+If we get access to Tx queue size and can read skb from it, time can be removed. But Tx queue is above usbnet, so doesn't look possible in current framework.
+
+3. While trying to get best throughput we also need to keep latency in mind, because in some setups it is quite important.
+As a simple solution configuration parameters could be used to address this issue.
+
+Rx path:
+4. IP packets are cloned to separate skb and length of actual data set to eth packet size, while skb size is still the same as skb containing full NTB frame. This causes problems with TCP stack when throughput is high because of flow control in the stack, if too much data allocated.
+Someone suggested a patch for it, which was rejected. Anyway, I don't think copy data to a new skb would be a nice solution, but keeping several clones with size equal to incoming skb in not good either. 
+
+/alexey
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
