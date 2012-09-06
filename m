@@ -1,142 +1,65 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] sctp: check dst validity after IPsec operations
-Date: Thu, 06 Sep 2012 13:03:48 -0400
-Message-ID: <5048D774.3020008@gmail.com>
-References: <1346953229-3825-1-git-send-email-nicolas.dichtel@6wind.com> <5048C984.3030306@gmail.com> <5048D219.4020001@6wind.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH v3 01/17] hashtable: introduce a small and naive
+ hashtable
+Date: Thu, 06 Sep 2012 13:15:42 -0400
+Message-ID: <1346951742.1680.38.camel@gandalf.local.home>
+References: <503C95E4.3010000@gmail.com> <20120828101148.GA21683@Krystal>
+	  <503CAB1E.5010408@gmail.com> <20120828115638.GC23818@Krystal>
+	  <20120828230050.GA3337@Krystal>
+	  <1346772948.27919.9.camel@gandalf.local.home>
+	 <50462C99.5000007@redhat.com>  <50462EE8.1090903@redhat.com>
+	 <20120904170138.GB31934@Krystal>  <5048AAF6.5090101@gmail.com>
+	 <20120906145545.GA17332@leaf>  <5048C615.4070204@gmail.com>
+	 <1346947206.1680.36.camel@gandalf.local.home> <5048CDA2.10300@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sri@us.ibm.com, linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:61743 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758152Ab2IFRDv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 13:03:51 -0400
-In-Reply-To: <5048D219.4020001@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Josh Triplett <josh@joshtriplett.org>, Mathieu Desnoyers
+ <mathieu.desnoyers@efficios.com>, Pedro Alves <palves@redhat.com>, Tejun
+ Heo <tj@kernel.org>, torvalds@linux-foundation.org,
+ akpm@linux-foundation.org,  linux-kernel@vger.kernel.org,
+ linux-mm@kvack.org, paul.gortmaker@windriver.com,  davem@davemloft.net,
+ mingo@elte.hu, ebiederm@xmission.com, aarcange@redhat.com,
+ ericvh@gmail.com, netdev@vger.kernel.org, eric.dumazet@gmail.com,
+ axboe@kernel.dk,  agk@redhat.com, dm-devel@redhat.com, neilb@suse.de,
+ ccaulfie@redhat.com,  teigland@redhat.com, Trond.Myklebust@netapp.com,
+ bfields@fieldses.org,  fweisbec@gmail.com, jesse@nicira.com,
+ venkat.x.venkatsubra@oracle.com,  ejt@redhat.com, snitzer@redhat.com,
+ edumazet@google.com, linux-nfs@vger.kernel.org,  dev@openvswitch.org,
+ rds-devel@oss.oracle.com, lw@cn.fujitsu.com
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <5048CDA2.10300@gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 09/06/2012 12:40 PM, Nicolas Dichtel wrote:
-> Le 06/09/2012 18:04, Vlad Yasevich a =E9crit :
->> On 09/06/2012 01:40 PM, Nicolas Dichtel wrote:
->>> dst stored in struct sctp_transport needs to be recalculated when
->>> ipsec policy
->>> are updated. We use flow_cache_genid for that.
->>>
->>> For example, if a SCTP connection is established and then an IPsec
->>> policy is
->>> set, the old SCTP flow will not be updated and thus will not use th=
-e new
->>> IPsec policy.
->>>
->>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->>
->> why doesn't this need to be done for TCP?  What makes SCTP special i=
-n
->> this case?
-> Tests prove that the pb does not exist with TCP. I made the patch som=
-e
-> times ago, I will look again deeply to find the difference.
->
+On Thu, 2012-09-06 at 18:21 +0200, Sasha Levin wrote:
+> On 09/06/2012 06:00 PM, Steven Rostedt wrote:
+> >> > I think that that code doesn't make sense. The users of hlist_for_each_* aren't
+> >> > supposed to be changing the loop cursor.
+> > I totally agree. Modifying the 'node' pointer is just asking for issues.
+> > Yes that is error prone, but not due to the double loop. It's due to the
+> > modifying of the node pointer that is used internally by the loop
+> > counter. Don't do that :-)
+> 
+> While we're on this subject, I haven't actually seen hlist_for_each_entry() code
+> that even *touches* 'pos'.
+> 
+> Will people yell at me loudly if I change the prototype of those macros to be:
+> 
+> 	hlist_for_each_entry(tpos, head, member)
+> 
+> (Dropping the 'pos' parameter), and updating anything that calls those macros to
+> drop it as well?
 
-TCP appears to cache the flowi and uses that to re-route the packet.
-However, re-route still seems predicated on dst_check()...
+If 'pos' is no longer used in the macro, I don't see any reason for
+keeping it around.
 
->>
->> ip_queue_xmit does an __sk_dst_check() which is essentially what
->> sctp_transport_dst_check() does.  That should determine if the
->> currently cached
->> route is valid or not.
-> The problem is that route will not be invalidated, because dst->check=
-()
-> has no xfrm path so xfrm_dst_check() will never be called.
->
+-- Steve
 
-Shouldn't the cache be invalidated in this case?  If the cache is=20
-invalidated, that should cause a new lookup.  If the cache isn't=20
-invalidated, then any established connections that may now be impacted=20
-by the policy will not pick it up.
 
--vlad
-
->
-> Regards,
-> Nicolas
->
->>
->> Looks like sctp may need to change to using ip_route_output_ports() =
-call
->> as ip_route_output_key may not do all that is necessary
->>
->> -vlad
->>
->>> ---
->>>   include/net/sctp/sctp.h    | 3 ++-
->>>   include/net/sctp/structs.h | 3 +++
->>>   net/sctp/ipv6.c            | 1 +
->>>   net/sctp/protocol.c        | 1 +
->>>   4 files changed, 7 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
->>> index 9c6414f..3267246 100644
->>> --- a/include/net/sctp/sctp.h
->>> +++ b/include/net/sctp/sctp.h
->>> @@ -712,7 +712,8 @@ static inline void sctp_v4_map_v6(union sctp_ad=
-dr
->>> *addr)
->>>    */
->>>   static inline struct dst_entry *sctp_transport_dst_check(struct
->>> sctp_transport *t)
->>>   {
->>> -    if (t->dst && !dst_check(t->dst, 0)) {
->>> +    if ((t->dst && !dst_check(t->dst, 0)) ||
->>> +        (t->flow_cache_genid !=3D atomic_read(&flow_cache_genid)))=
- {
->>>           dst_release(t->dst);
->>>           t->dst =3D NULL;
->>>       }
->>> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.=
-h
->>> index 0fef00f..9dab882 100644
->>> --- a/include/net/sctp/structs.h
->>> +++ b/include/net/sctp/structs.h
->>> @@ -948,6 +948,9 @@ struct sctp_transport {
->>>
->>>       /* 64-bit random number sent with heartbeat. */
->>>       __u64 hb_nonce;
->>> +
->>> +    /* used to check validity of dst */
->>> +    __u32 flow_cache_genid;
->>>   };
->>>
->>>   struct sctp_transport *sctp_transport_new(struct net *, const uni=
-on
->>> sctp_addr *,
->>> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
->>> index ea14cb4..2ed7410 100644
->>> --- a/net/sctp/ipv6.c
->>> +++ b/net/sctp/ipv6.c
->>> @@ -349,6 +349,7 @@ out:
->>>           struct rt6_info *rt;
->>>           rt =3D (struct rt6_info *)dst;
->>>           t->dst =3D dst;
->>> +        t->flow_cache_genid =3D atomic_read(&flow_cache_genid);
->>>           SCTP_DEBUG_PRINTK("rt6_dst:%pI6 rt6_src:%pI6\n",
->>>               &rt->rt6i_dst.addr, &fl6->saddr);
->>>       } else {
->>> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
->>> index 2d51842..4795a1a 100644
->>> --- a/net/sctp/protocol.c
->>> +++ b/net/sctp/protocol.c
->>> @@ -512,6 +512,7 @@ out_unlock:
->>>       rcu_read_unlock();
->>>   out:
->>>       t->dst =3D dst;
->>> +    t->flow_cache_genid =3D atomic_read(&flow_cache_genid);
->>>       if (dst)
->>>           SCTP_DEBUG_PRINTK("rt_dst:%pI4, rt_src:%pI4\n",
->>>                     &fl4->daddr, &fl4->saddr);
->>>
->>
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
