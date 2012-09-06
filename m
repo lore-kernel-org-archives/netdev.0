@@ -1,108 +1,54 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH v2 09/10] net/macb: ethtool interface: add register dump feature
-Date: Thu, 6 Sep 2012 16:20:56 +0200
-Message-ID: <1346941256-15676-1-git-send-email-nicolas.ferre@atmel.com>
-References: <1346888174.5325.55.camel@bwh-desktop.uk.solarflarecom.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: NULL pointer dereference in xt_register_target()
+Date: Thu, 6 Sep 2012 22:27:22 +0800
+Message-ID: <CAM_iQpVAZwKhZxLdk-BLMjnK3eX4DD_o9KvzuAoTttyxvmCsJA@mail.gmail.com>
+References: <CAM_iQpVUZ50RYLUgEHbcm7ua996hgE7Gj-P-bWNJutuvm1nUoQ@mail.gmail.com>
+	<1346860506.13121.148.camel@edumazet-glaptop>
+	<20120905164831.GA21836@1984>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-arm-kernel@lists.infradead.org>, <havard@skinnemoen.net>,
-	<plagnioj@jcrosoft.com>, <patrice.vilchez@atmel.com>,
-	<linux-kernel@vger.kernel.org>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>
-To: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>,
-	<davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.242]:64029 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756074Ab2IFOU7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 10:20:59 -0400
-In-Reply-To: <1346888174.5325.55.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netfilter-devel@vger.kernel.org,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120905164831.GA21836@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add macb_get_regs() ethtool function and its helper function:
-macb_get_regs_len().
-The version field is deduced from the IP revision which gives the
-"MACB or GEM" information. An additional version field is reserved.
+On Thu, Sep 6, 2012 at 12:48 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Wed, Sep 05, 2012 at 05:55:06PM +0200, Eric Dumazet wrote:
+>> On Wed, 2012-09-05 at 23:43 +0800, Cong Wang wrote:
+>> > Hi, folks,
+>> >
+>> > The latest net-next tree can't boot due to a NULL ptr def
+>> > bug in the kernel, the full backtrack is:
+>> >
+>> > http://img1.douban.com/view/photo/photo/public/p1697139550.jpg
+>> >
+>> > the kernel .config file is:
+>> >
+>> > http://pastebin.com/9YTnkqKN
+>> >
+>> > I don't have time to look into the issue. If you need other info,
+>> > please let me know.
+>>
+>> It seems xt_nat_init() is called before xt_init(), so xt array is not
+>> yet setup.
+>
+> I have enqueued the following patch to fix this:
+>
+> http://1984.lsi.us.es/git/nf-next/commit/?id=00545bec9412d130c77f72a08d6c8b6ad21d4a1
+> e
+> commit 00545bec9412d130c77f72a08d6c8b6ad21d4a1e
+> Author: Pablo Neira Ayuso <pablo@netfilter.org>
+> Date:   Wed Sep 5 18:24:55 2012 +0200
+>
+>     netfilter: fix crash during boot if NAT has been compiled built-in
+>
 
-Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
----
-v2: - modify MACB_GREGS_NBR name and adapt to number of registers
-      actually displayed.
-    - change version format to reflect register layout and
-      add a version number to be future proof.
+Yeah, this indeed fixes the bug.
 
- drivers/net/ethernet/cadence/macb.c |   40 +++++++++++++++++++++++++++++++++++
- drivers/net/ethernet/cadence/macb.h |    3 +++
- 2 files changed, 43 insertions(+)
+Please push it to net-next as soon as possible?
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index dc34ff1..cab42e7 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1223,9 +1223,49 @@ static int macb_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	return phy_ethtool_sset(phydev, cmd);
- }
- 
-+static int macb_get_regs_len(struct net_device *netdev)
-+{
-+	return MACB_GREGS_NBR * sizeof(u32);
-+}
-+
-+static void macb_get_regs(struct net_device *dev, struct ethtool_regs *regs,
-+			  void *p)
-+{
-+	struct macb *bp = netdev_priv(dev);
-+	unsigned int tail, head;
-+	u32 *regs_buff = p;
-+
-+	regs->version = (macb_readl(bp, MID) & ((1 << MACB_REV_SIZE) - 1))
-+			| MACB_GREGS_VERSION;
-+
-+	tail = macb_tx_ring_wrap(bp->tx_tail);
-+	head = macb_tx_ring_wrap(bp->tx_head);
-+
-+	regs_buff[0]  = macb_readl(bp, NCR);
-+	regs_buff[1]  = macb_or_gem_readl(bp, NCFGR);
-+	regs_buff[2]  = macb_readl(bp, NSR);
-+	regs_buff[3]  = macb_readl(bp, TSR);
-+	regs_buff[4]  = macb_readl(bp, RBQP);
-+	regs_buff[5]  = macb_readl(bp, TBQP);
-+	regs_buff[6]  = macb_readl(bp, RSR);
-+	regs_buff[7]  = macb_readl(bp, IMR);
-+
-+	regs_buff[8]  = tail;
-+	regs_buff[9]  = head;
-+	regs_buff[10] = macb_tx_dma(bp, tail);
-+	regs_buff[11] = macb_tx_dma(bp, head);
-+
-+	if (macb_is_gem(bp)) {
-+		regs_buff[12] = gem_readl(bp, USRIO);
-+		regs_buff[13] = gem_readl(bp, DMACFG);
-+	}
-+}
-+
- static const struct ethtool_ops macb_ethtool_ops = {
- 	.get_settings		= macb_get_settings,
- 	.set_settings		= macb_set_settings,
-+	.get_regs_len		= macb_get_regs_len,
-+	.get_regs		= macb_get_regs,
- 	.get_link		= ethtool_op_get_link,
- };
- 
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index f69ceef..bcadc3c 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -10,6 +10,9 @@
- #ifndef _MACB_H
- #define _MACB_H
- 
-+#define MACB_GREGS_NBR 16
-+#define MACB_GREGS_VERSION 1
-+
- /* MACB register offsets */
- #define MACB_NCR				0x0000
- #define MACB_NCFGR				0x0004
--- 
-1.7.10
+Thanks!
