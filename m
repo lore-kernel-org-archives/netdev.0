@@ -1,45 +1,36 @@
-From: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH] NFC: fix possible memory leak
-Date: Fri, 7 Sep 2012 19:01:21 +0200
-Message-ID: <20120907170121.GF3647@sortiz-mobl>
-References: <CAPgLHd_sD6NYc=Dj4yJpHY0yLBuDmQx=upQY=XQLi-9kTycK-Q@mail.gmail.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net-next 0/2] qmi_wwan changes intended for 3.7
+Date: Fri,  7 Sep 2012 19:36:05 +0200
+Message-ID: <1347039367-12399-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org, aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAPgLHd_sD6NYc=Dj4yJpHY0yLBuDmQx=upQY=XQLi-9kTycK-Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Wei,
+Just a couple of minor improvements for 3.7.  The QMI
+message size issue is not considered important enough for
+stable.  It does not affect the primary device function
+at all, and I consider it more of a feature enhancement
+than a fix.
 
-On Sun, Sep 02, 2012 at 09:21:46PM +0800, Wei Yongjun wrote:
-> From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
-> 
-> nfc_llcp_build_tlv() malloced the memory and should be free in
-> nfc_llcp_build_gb() after used, and the same in the error handling
-> case, otherwise it will cause memory leak.
-> 
-> spatch with a semantic match is used to found this problem.
-> (http://coccinelle.lip6.fr/)
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
-> ---
->  net/nfc/llcp/llcp.c | 14 +++++++++-----
->  1 file changed, 9 insertions(+), 5 deletions(-)
-Patch applied, thanks.
 
-Cheers,
-Samuel.
+Bj=C3=B8rn Mork (2):
+  net: qmi_wwan: increase max QMI message size to 4096
+  net: qmi_wwan: use a single bind function for all device types
 
--- 
-Intel Open Source Technology Centre
-http://oss.intel.com/
+ drivers/net/usb/qmi_wwan.c |   47 ++++++++++++++++--------------------=
+--------
+ 1 file changed, 17 insertions(+), 30 deletions(-)
+
+--=20
+1.7.10.4
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
