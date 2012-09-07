@@ -1,32 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netdev/phy: mdio-mux-mmioreg.c should include
- of_address.h
-Date: Fri, 07 Sep 2012 17:25:06 -0400 (EDT)
-Message-ID: <20120907.172506.1680438781148301994.davem@davemloft.net>
-References: <1347048592-22957-1-git-send-email-timur@freescale.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next] scm: Don't use struct ucred in NETLINK_CB and struct scm_cookie.
+Date: Fri, 07 Sep 2012 14:25:09 -0700
+Message-ID: <87627ple4q.fsf@xmission.com>
+References: <87haralb0u.fsf@xmission.com>
+	<1347030446.2484.771.camel@edumazet-glaptop>
+	<20120907.144151.1366430170552241987.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, sfr@canb.auug.org.au,
-	rdunlap@xenotime.net
-To: timur@freescale.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1347048592-22957-1-git-send-email-timur@freescale.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, serge@hallyn.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:52443 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751101Ab2IGVZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 17:25:21 -0400
+In-Reply-To: <20120907.144151.1366430170552241987.davem@davemloft.net> (David
+	Miller's message of "Fri, 07 Sep 2012 14:41:51 -0400 (EDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Timur Tabi <timur@freescale.com>
-Date: Fri, 7 Sep 2012 15:09:52 -0500
+David Miller <davem@davemloft.net> writes:
 
-> mdio-mux-mmioreg.c uses function of_address_to_resource(), which is defined
-> in linux/of_address.h.  This fixes a compilation error:
-> 
-> drivers/net/phy/mdio-mux-mmioreg.c: In function 'mdio_mux_mmioreg_probe':
-> drivers/net/phy/mdio-mux-mmioreg.c:83:2: error: implicit declaration of
-> 	function 'of_address_to_resource'
-> 
-> Signed-off-by: Timur Tabi <timur@freescale.com>
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 07 Sep 2012 17:07:26 +0200
+>
+>> Seems fine to me, but I am not sure why you kept NETLINK_CREDS()
+>> defined/used once.
+>
+> There are two remaining users, kernel/audit.c and scsi netlink.
 
-Please provide "Reported-by: ..." tags to give credit to the problem
-reporter, Randy Dunlap in this case.
+Good point.  I have a change to kernel/audit.c that removes the
+usage.    I believe the scsi netlink usage is just plain bogus,
+and it wants the netlink port identifier instead.
+
+Would anyone mind if we changed the name of the field in netlink from
+pid to portid?  It seems to cause a lot of confusion.  We can't change
+the user space fields of course but...
+
+Right now because we can now use current using NETLINK_CREDS in the
+kernel is unnecessary.
+
+Eric
