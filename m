@@ -1,30 +1,28 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless 2012-09-07
-Date: Fri, 07 Sep 2012 14:38:36 -0400 (EDT)
-Message-ID: <20120907.143836.1702942180532226924.davem@davemloft.net>
-References: <20120907182955.GA1854@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] scm: Don't use struct ucred in NETLINK_CB and
+ struct scm_cookie.
+Date: Fri, 07 Sep 2012 14:41:51 -0400 (EDT)
+Message-ID: <20120907.144151.1366430170552241987.davem@davemloft.net>
+References: <87haralb0u.fsf@xmission.com>
+	<1347030446.2484.771.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120907182955.GA1854-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: ebiederm@xmission.com, netdev@vger.kernel.org, serge@hallyn.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40216 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754352Ab2IGSly (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 14:41:54 -0400
+In-Reply-To: <1347030446.2484.771.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 7 Sep 2012 14:29:55 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 07 Sep 2012 17:07:26 +0200
 
-> I'll slow it down after this!
+> Seems fine to me, but I am not sure why you kept NETLINK_CREDS()
+> defined/used once.
 
-I'm going to hold you to it :-)
-
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-davem
-
-Pulled, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+There are two remaining users, kernel/audit.c and scsi netlink.
