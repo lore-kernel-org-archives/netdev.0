@@ -1,172 +1,107 @@
-From: Eric Miao <eric.y.miao@gmail.com>
-Subject: Re: [PATCH v2 2/6] net: pxaficp_ir: add irq resources
-Date: Fri, 7 Sep 2012 11:54:17 +0800
-Message-ID: <CAMPhdO_KQGwFpnEsKqt_ijv55uQ0cYbuNY6Tn7=fhPr8=9YW4A@mail.gmail.com>
-References: <1346960563-18689-1-git-send-email-robherring2@gmail.com> <1346960563-18689-3-git-send-email-robherring2@gmail.com>
+From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: changing usbnet's API to better deal with cdc-ncm
+Date: Fri, 7 Sep 2012 11:55:53 +0800
+Message-ID: <CACVXFVM9OdUbmOFvf1KG4ePoz7wCxLRwCET3cgL=EynNBLx2AA@mail.gmail.com>
+References: <2791550.LhGu6po6Xy@linux-lqwf.site>
+	<87a9x33656.fsf@nemi.mork.no>
+	<CACVXFVMYmTFLamWzTL2gTtu31eQg6bpLA4NapJehPoROF4t3dw@mail.gmail.com>
+	<1676538.CEPj2RtrPe@linux-lqwf.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-arm-kernel@lists.infradead.org,
-	Russell King <linux@arm.linux.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>, Olof Johansson <olof@lixom.net>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Samuel Ortiz <samuel@sortiz.org>,
-	Haojian Zhuang <haojian.zhuang@gmail.com>,
-	netdev@vger.kernel.org
-To: Rob Herring <robherring2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:57385 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759491Ab2IGDyk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 23:54:40 -0400
-Received: by lbbgj3 with SMTP id gj3so1607619lbb.19
-        for <netdev@vger.kernel.org>; Thu, 06 Sep 2012 20:54:38 -0700 (PDT)
-In-Reply-To: <1346960563-18689-3-git-send-email-robherring2@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1676538.CEPj2RtrPe-ugxBuEnWX9yG/4A2pS7c2Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 7, 2012 at 3:42 AM, Rob Herring <robherring2@gmail.com> wrote:
-> From: Rob Herring <rob.herring@calxeda.com>
+On Fri, Sep 7, 2012 at 1:56 AM, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> wrote:
+> On Friday 07 September 2012 00:09:13 Ming Lei wrote:
+>> On Thu, Sep 6, 2012 at 4:30 PM, Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
+>> > Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 >
-> In order to remove dependency on mach/irqs.h, add platform device
-> resources for irqs.
+>> >> Looks the introduced .tx_bundle is not necessary since .tx_fixup =
+is OK.
+>> >
+>> > The minidriver does not have any information about tx in progress.=
+  The
+>>
+>> Inside .tx_fixup, the low level driver will get the tx progress info=
+rmation.
 >
+> That information changes after tx_fixup
 
-Looks good to me, we shall have this change landed long before this, thanks Rob
+You mean the low level drive can't see if the later transmission
+for the aggregated frame is successful?  If so, there is no any complet=
+e
+notification to all low level drivers (with aggregation capability
+or not) now, isn't there?
 
-Acked-by: Eric Miao <eric.y.miao@gmail.com>
+If no aggregated frame is ready for transmission, the information
+can't be changed after current tx_fixup and before the next .tx_fixup.
 
-> Signed-off-by: Rob Herring <rob.herring@calxeda.com>
-> Cc: Samuel Ortiz <samuel@sortiz.org>
-> Cc: Eric Miao <eric.y.miao@gmail.com>
-> Cc: Haojian Zhuang <haojian.zhuang@gmail.com>
-> Cc: netdev@vger.kernel.org
-> ---
->  arch/arm/mach-pxa/devices.c   |   15 +++++++++++++++
->  drivers/net/irda/pxaficp_ir.c |   28 +++++++++++++++++-----------
->  2 files changed, 32 insertions(+), 11 deletions(-)
 >
-> diff --git a/arch/arm/mach-pxa/devices.c b/arch/arm/mach-pxa/devices.c
-> index 166eee5..339eb2a 100644
-> --- a/arch/arm/mach-pxa/devices.c
-> +++ b/arch/arm/mach-pxa/devices.c
-> @@ -384,9 +384,24 @@ struct platform_device pxa_device_asoc_platform = {
+>> > strategy above, which is what cdc_ncm uses today, is fine as long =
+as you
+>> > always want to wait as long as you always want to fill as many fra=
+mes as
+>> > possible in each packet.  But what if the queue is empty and the d=
+evice
+>>
+>> For cdc_ncm, the wait time is controlled by cdc_ncm driver, see
+>> cdc_ncm_tx_timeout_start().
 >
->  static u64 pxaficp_dmamask = ~(u32)0;
+> Well, that is the mistake. Using a timer is a bad idea.
+
+Why is a bad idea?  Without a timer, how can usbnet or
+low level driver aggregate the later coming transmit frames to
+form a biger aggregated frame?
+
 >
-> +static struct resource pxa_ir_resources[] = {
-> +       [0] = {
-> +               .start  = IRQ_STUART,
-> +               .end    = IRQ_STUART,
-> +               .flags  = IORESOURCE_IRQ,
-> +       },
-> +       [1] = {
-> +               .start  = IRQ_ICP,
-> +               .end    = IRQ_ICP,
-> +               .flags  = IORESOURCE_IRQ,
-> +       },
-> +};
-> +
->  struct platform_device pxa_device_ficp = {
->         .name           = "pxa2xx-ir",
->         .id             = -1,
-> +       .num_resources  = ARRAY_SIZE(pxa_ir_resources),
-> +       .resource       = pxa_ir_resources,
->         .dev            = {
->                 .dma_mask = &pxaficp_dmamask,
->                 .coherent_dma_mask = 0xffffffff,
-> diff --git a/drivers/net/irda/pxaficp_ir.c b/drivers/net/irda/pxaficp_ir.c
-> index 8d54767..cb0a5d3 100644
-> --- a/drivers/net/irda/pxaficp_ir.c
-> +++ b/drivers/net/irda/pxaficp_ir.c
-> @@ -29,8 +29,8 @@
+>> If we can abstract some common things about aggregation, it should b=
+e
+>> meaningful. As far as I know, most of aggregation protocol is very d=
+ifferent,
+>> so almost all aggregation work is only done by low level driver, suc=
+h as
+>> cdc_ncm.
+>>
+>> If we want to implement some aggregation framework, maybe below is
+>> one solution, correct me if it is wrong.
 >
->  #include <mach/dma.h>
->  #include <mach/irda.h>
-> -#include <mach/regs-uart.h>
->  #include <mach/regs-ost.h>
-> +#include <mach/regs-uart.h>
+> It isn't so much wrong as incomplete.
 >
->  #define FICP           __REG(0x40800000)  /* Start of FICP area */
->  #define ICCR0          __REG(0x40800000)  /* ICP Control Register 0 */
-> @@ -112,6 +112,9 @@ struct pxa_irda {
->         int                     txdma;
->         int                     rxdma;
+> It seems to me we can have
 >
-> +       int                     uart_irq;
-> +       int                     icp_irq;
-> +
->         struct irlap_cb         *irlap;
->         struct qos_info         qos;
+> - can queue, buffer not full -> do nothing more
+
+As I said above, without a timeout timer, the queued skb
+might not be sent out even some long time passed if no
+frame comes later.
+
+So could you add the wait for more mechanism to your patch
+for further discussion?
+
+> - can queue, buffer full -> transmit
+> - cannot queue, buffer full -> transmit and then try again to queue
+
+This might not happen, the buffer full should have been observed
+in last xmit path.
+
 >
-> @@ -672,19 +675,19 @@ static int pxa_irda_start(struct net_device *dev)
+> and an error case
 >
->         si->speed = 9600;
->
-> -       err = request_irq(IRQ_STUART, pxa_irda_sir_irq, 0, dev->name, dev);
-> +       err = request_irq(si->uart_irq, pxa_irda_sir_irq, 0, dev->name, dev);
->         if (err)
->                 goto err_irq1;
->
-> -       err = request_irq(IRQ_ICP, pxa_irda_fir_irq, 0, dev->name, dev);
-> +       err = request_irq(si->icp_irq, pxa_irda_fir_irq, 0, dev->name, dev);
->         if (err)
->                 goto err_irq2;
->
->         /*
->          * The interrupt must remain disabled for now.
->          */
-> -       disable_irq(IRQ_STUART);
-> -       disable_irq(IRQ_ICP);
-> +       disable_irq(si->uart_irq);
-> +       disable_irq(si->icp_irq);
->
->         err = -EBUSY;
->         si->rxdma = pxa_request_dma("FICP_RX",DMA_PRIO_LOW, pxa_irda_fir_dma_rx_irq, dev);
-> @@ -720,8 +723,8 @@ static int pxa_irda_start(struct net_device *dev)
->         /*
->          * Now enable the interrupt and start the queue
->          */
-> -       enable_irq(IRQ_STUART);
-> -       enable_irq(IRQ_ICP);
-> +       enable_irq(si->uart_irq);
-> +       enable_irq(si->icp_irq);
->         netif_start_queue(dev);
->
->         printk(KERN_DEBUG "pxa_ir: irda driver opened\n");
-> @@ -738,9 +741,9 @@ err_dma_rx_buff:
->  err_tx_dma:
->         pxa_free_dma(si->rxdma);
->  err_rx_dma:
-> -       free_irq(IRQ_ICP, dev);
-> +       free_irq(si->icp_irq, dev);
->  err_irq2:
-> -       free_irq(IRQ_STUART, dev);
-> +       free_irq(si->uart_irq, dev);
->  err_irq1:
->
->         return err;
-> @@ -760,8 +763,8 @@ static int pxa_irda_stop(struct net_device *dev)
->                 si->irlap = NULL;
->         }
->
-> -       free_irq(IRQ_STUART, dev);
-> -       free_irq(IRQ_ICP, dev);
-> +       free_irq(si->uart_irq, dev);
-> +       free_irq(si->icp_irq, dev);
->
->         pxa_free_dma(si->rxdma);
->         pxa_free_dma(si->txdma);
-> @@ -851,6 +854,9 @@ static int pxa_irda_probe(struct platform_device *pdev)
->         si->dev = &pdev->dev;
->         si->pdata = pdev->dev.platform_data;
->
-> +       si->uart_irq = platform_get_irq(pdev, 0);
-> +       si->icp_irq = platform_get_irq(pdev, 1);
-> +
->         si->sir_clk = clk_get(&pdev->dev, "UARTCLK");
->         si->fir_clk = clk_get(&pdev->dev, "FICPCLK");
->         if (IS_ERR(si->sir_clk) || IS_ERR(si->fir_clk)) {
-> --
-> 1.7.9.5
->
+> - cannot queue, buffer not full
+
+
+
+Thanks,
+--=20
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
