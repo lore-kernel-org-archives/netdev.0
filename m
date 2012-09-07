@@ -1,41 +1,30 @@
-From: Timur Tabi <timur@freescale.com>
-Subject: [PATCH][v2] netdev/phy: mdio-mux-mmioreg.c should include of_address.h
-Date: Fri, 7 Sep 2012 16:30:57 -0500
-Message-ID: <1347053457-24935-1-git-send-email-timur@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] scm: Don't use struct ucred in NETLINK_CB and
+ struct scm_cookie.
+Date: Fri, 07 Sep 2012 17:32:03 -0400 (EDT)
+Message-ID: <20120907.173203.1282154627743766272.davem@davemloft.net>
+References: <1347030446.2484.771.camel@edumazet-glaptop>
+	<20120907.144151.1366430170552241987.davem@davemloft.net>
+	<87627ple4q.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-next@vger.kernel.org>, <sfr@canb.auug.org.au>,
-	<rdunlap@xenotime.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, serge@hallyn.com
+To: ebiederm@xmission.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41748 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757621Ab2IGVcF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 17:32:05 -0400
+In-Reply-To: <87627ple4q.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-mdio-mux-mmioreg.c uses function of_address_to_resource(), which is defined
-in linux/of_address.h.  This fixes a compilation error:
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Fri, 07 Sep 2012 14:25:09 -0700
 
-drivers/net/phy/mdio-mux-mmioreg.c: In function 'mdio_mux_mmioreg_probe':
-drivers/net/phy/mdio-mux-mmioreg.c:83:2: error: implicit declaration of
-	function 'of_address_to_resource'
+> Would anyone mind if we changed the name of the field in netlink from
+> pid to portid?  It seems to cause a lot of confusion.  We can't change
+> the user space fields of course but...
 
-Reported-by: Randy Dunlap <rdunlap@xenotime.net>
-Signed-off-by: Timur Tabi <timur@freescale.com>
-
----
- drivers/net/phy/mdio-mux-mmioreg.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/phy/mdio-mux-mmioreg.c b/drivers/net/phy/mdio-mux-mmioreg.c
-index 098239a..9061ba6 100644
---- a/drivers/net/phy/mdio-mux-mmioreg.c
-+++ b/drivers/net/phy/mdio-mux-mmioreg.c
-@@ -12,6 +12,7 @@
- 
- #include <linux/platform_device.h>
- #include <linux/device.h>
-+#include <linux/of_address.h>
- #include <linux/of_mdio.h>
- #include <linux/module.h>
- #include <linux/init.h>
--- 
-1.7.3.4
+No objections.
