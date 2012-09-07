@@ -1,185 +1,55 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next] scm: Don't use struct ucred in NETLINK_CB and struct scm_cookie.
-Date: Thu, 06 Sep 2012 21:20:01 -0700
-Message-ID: <87haralb0u.fsf@xmission.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [net-next 4/6] igb: Store the MAC address in the name in the
+ PTP struct.
+Date: Fri, 7 Sep 2012 07:51:40 +0200
+Message-ID: <20120907055139.GA2282@netboy.at.omicron.at>
+References: <1346888106-25638-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1346888106-25638-5-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20120906080628.GD2550@netboy.at.omicron.at>
+ <02874ECE860811409154E81DA85FBB580785F9F4@ORSMSX105.amr.corp.intel.com>
+ <1346973787.2714.62.camel@bwh-desktop.uk.solarflarecom.com>
+ <02874ECE860811409154E81DA85FBB580785FA77@ORSMSX105.amr.corp.intel.com>
+ <1346974770.2714.64.camel@bwh-desktop.uk.solarflarecom.com>
+ <02874ECE860811409154E81DA85FBB580785FAB4@ORSMSX105.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, "Serge E. Hallyn" <serge@hallyn.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:59400 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750773Ab2IGEUM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 00:20:12 -0400
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:64889 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752075Ab2IGFvw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 01:51:52 -0400
+Received: by wibhi8 with SMTP id hi8so1278756wib.1
+        for <netdev@vger.kernel.org>; Thu, 06 Sep 2012 22:51:50 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <02874ECE860811409154E81DA85FBB580785FAB4@ORSMSX105.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Sep 06, 2012 at 11:40:23PM +0000, Keller, Jacob E wrote:
+> > -----Original Message-----
+> > From: Ben Hutchings [mailto:bhutchings@solarflare.com]
+> > 
+> > The PTP clock is instantiated by some driver, bound to some device,
+> > whether that's a PCI device or a platform device or something else.  I
+> > think that device (not a net device) should be the parent of the clock
+> > device.
+> > 
+> 
+> Agreed, that would make the most sense.
 
-Passing uids and gids on NETLINK_CB from a process in one user
-namespace to a process in another user namespace can result in the
-wrong uid or gid being presented to userspace.  Avoid that problem by
-passing kuids and kgids instead.
+Okay, makes sense, but that will require a change to the phc core.
 
-- define struct scm_creds for use in scm_cookie and netlink_skb_parms
-  that holds uid and gid information in kuid_t and kgid_t.
+For the present, I can buy Jacob's argument that the MAC address is a
+way to clarify to the user that there are "unfortunate" multiple clock
+instances.
 
-- Modify scm_set_cred to fill out scm_creds by heand instead of using
-  cred_to_ucred to fill out struct ucred.  This conversion ensures
-  userspace does not get incorrect uid or gid values to look at.
-
-- Modify scm_recv to convert from struct scm_creds to struct ucred
-  before copying credential values to userspace.
-
-- Modify __scm_send to populate struct scm_creds on in the scm_cookie,
-  instead of just copying struct ucred from userspace.
-
-- Modify netlink_sendmsg to copy scm_creds instead of struct ucred
-  into the NETLINK_CB.
-
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- include/linux/netlink.h  |    3 ++-
- include/net/scm.h        |   23 +++++++++++++++++++----
- net/core/scm.c           |   17 +++++++++++------
- net/netlink/af_netlink.c |    2 +-
- 4 files changed, 33 insertions(+), 12 deletions(-)
-
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index c9fdde2..df73cf4 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -153,6 +153,7 @@ struct nlattr {
- 
- #include <linux/capability.h>
- #include <linux/skbuff.h>
-+#include <net/scm.h>
- 
- struct net;
- 
-@@ -162,7 +163,7 @@ static inline struct nlmsghdr *nlmsg_hdr(const struct sk_buff *skb)
- }
- 
- struct netlink_skb_parms {
--	struct ucred		creds;		/* Skb credentials	*/
-+	struct scm_creds	creds;		/* Skb credentials	*/
- 	__u32			pid;
- 	__u32			dst_group;
- 	struct sock		*ssk;
-diff --git a/include/net/scm.h b/include/net/scm.h
-index 079d788..000b6f7 100644
---- a/include/net/scm.h
-+++ b/include/net/scm.h
-@@ -12,6 +12,12 @@
-  */
- #define SCM_MAX_FD	253
- 
-+struct scm_creds {
-+	u32	pid;
-+	kuid_t	uid;
-+	kgid_t	gid;
-+};
-+
- struct scm_fp_list {
- 	short			count;
- 	short			max;
-@@ -22,7 +28,7 @@ struct scm_cookie {
- 	struct pid		*pid;		/* Skb credentials */
- 	const struct cred	*cred;
- 	struct scm_fp_list	*fp;		/* Passed files		*/
--	struct ucred		creds;		/* Skb credentials	*/
-+	struct scm_creds	creds;		/* Skb credentials	*/
- #ifdef CONFIG_SECURITY_NETWORK
- 	u32			secid;		/* Passed security ID 	*/
- #endif
-@@ -49,7 +55,9 @@ static __inline__ void scm_set_cred(struct scm_cookie *scm,
- {
- 	scm->pid  = get_pid(pid);
- 	scm->cred = cred ? get_cred(cred) : NULL;
--	cred_to_ucred(pid, cred, &scm->creds);
-+	scm->creds.pid = pid_vnr(pid);
-+	scm->creds.uid = cred ? cred->euid : INVALID_UID;
-+	scm->creds.gid = cred ? cred->egid : INVALID_GID;
- }
- 
- static __inline__ void scm_destroy_cred(struct scm_cookie *scm)
-@@ -110,8 +118,15 @@ static __inline__ void scm_recv(struct socket *sock, struct msghdr *msg,
- 		return;
- 	}
- 
--	if (test_bit(SOCK_PASSCRED, &sock->flags))
--		put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, sizeof(scm->creds), &scm->creds);
-+	if (test_bit(SOCK_PASSCRED, &sock->flags)) {
-+		struct user_namespace *current_ns = current_user_ns();
-+		struct ucred ucreds = {
-+			.pid = scm->creds.pid,
-+			.uid = from_kuid_munged(current_ns, scm->creds.uid),
-+			.gid = from_kgid_munged(current_ns, scm->creds.gid),
-+		};
-+		put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, sizeof(ucreds), &ucreds);
-+	}
- 
- 	scm_destroy_cred(scm);
- 
-diff --git a/net/core/scm.c b/net/core/scm.c
-index 5472ae7..64b41d8 100644
---- a/net/core/scm.c
-+++ b/net/core/scm.c
-@@ -155,19 +155,21 @@ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *p)
- 			break;
- 		case SCM_CREDENTIALS:
- 		{
-+			struct ucred creds;
- 			kuid_t uid;
- 			kgid_t gid;
- 			if (cmsg->cmsg_len != CMSG_LEN(sizeof(struct ucred)))
- 				goto error;
--			memcpy(&p->creds, CMSG_DATA(cmsg), sizeof(struct ucred));
--			err = scm_check_creds(&p->creds);
-+			memcpy(&creds, CMSG_DATA(cmsg), sizeof(struct ucred));
-+			err = scm_check_creds(&creds);
- 			if (err)
- 				goto error;
- 
--			if (!p->pid || pid_vnr(p->pid) != p->creds.pid) {
-+			p->creds.pid = creds.pid;
-+			if (!p->pid || pid_vnr(p->pid) != creds.pid) {
- 				struct pid *pid;
- 				err = -ESRCH;
--				pid = find_get_pid(p->creds.pid);
-+				pid = find_get_pid(creds.pid);
- 				if (!pid)
- 					goto error;
- 				put_pid(p->pid);
-@@ -175,11 +177,14 @@ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *p)
- 			}
- 
- 			err = -EINVAL;
--			uid = make_kuid(current_user_ns(), p->creds.uid);
--			gid = make_kgid(current_user_ns(), p->creds.gid);
-+			uid = make_kuid(current_user_ns(), creds.uid);
-+			gid = make_kgid(current_user_ns(), creds.gid);
- 			if (!uid_valid(uid) || !gid_valid(gid))
- 				goto error;
- 
-+			p->creds.uid = uid;
-+			p->creds.gid = gid;
-+
- 			if (!p->cred ||
- 			    !uid_eq(p->cred->euid, uid) ||
- 			    !gid_eq(p->cred->egid, gid)) {
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 7cb7867..6473267 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1398,7 +1398,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 
- 	NETLINK_CB(skb).pid	= nlk->pid;
- 	NETLINK_CB(skb).dst_group = dst_group;
--	memcpy(NETLINK_CREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
-+	NETLINK_CB(skb).creds	= siocb->scm->creds;
- 
- 	err = -EFAULT;
- 	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
--- 
-1.7.5.4
+Thanks,
+Richard
