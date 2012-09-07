@@ -1,80 +1,120 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv3] virtio-spec: virtio network device multiqueue support
-Date: Fri, 7 Sep 2012 03:26:03 +0300
-Message-ID: <20120907002603.GA3178@redhat.com>
-References: <20120906120828.GA1534@redhat.com>
- <50493D04.1090408@gmail.com>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: [PATCH] ip autoconfig: allow specifying a list of devices rather
+ than one or all
+Date: Thu, 06 Sep 2012 18:31:20 -0600
+Message-ID: <50494058.10803@genband.com>
+References: <50492547.8070307@genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <50493D04.1090408@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod7og103.obsmtp.com ([64.18.2.159]:35721 "EHLO
+	exprod7og103.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756064Ab2IGAbW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2012 20:31:22 -0400
+In-Reply-To: <50492547.8070307@genband.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 07, 2012 at 02:17:08AM +0200, Sasha Levin wrote:
-> Hi Michael,
-> 
-> On 09/06/2012 02:08 PM, Michael S. Tsirkin wrote:
-> > Add multiqueue support to virtio network device.
-> > Add a new feature flag VIRTIO_NET_F_MULTIQUEUE for this feature, a new
-> > configuration field max_virtqueue_pairs to detect supported number of
-> > virtqueues as well as a new command VIRTIO_NET_CTRL_STEERING to program
-> > packet steering.
-> > 
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> Some comments about the change:
-> 
->  - "The following four read-only fields only exists if VIRTIO_NET_F_MULTIQUEUE
-> is set." => Should be "exist" (I think).
-> 
->  - "When rule is set to VIRTIO_NET_CTRL_STEERING_RX_FOLLOWS_TX packets are
-> steered by driver to the first (param+1) multiqueue virtqueues
-> transmitq1...transmitqN;" - Why param+1?  I thought we ignore the default
-> transmit/receive in this case.
+On 09/06/2012 04:35 PM, Chris Friesen wrote:
 
-This is so that all values are valid. E.g. param=0 -> use q1.
-
+> We need to be able to boot off of both the gigE ports for redundancy, so 
+> it seems like it might be a reasonable idea to extend the "ip=" boot arg 
+> to allow specifying a list of devices rather than choosing between a 
+> single device or all of them.
 > 
->  - "As selecting a specific steering ais n optimization feature" - "is an".
-> 
->  - It's mentioned several times that the ability to read the steering rule from
-> the virtio-net config is there for debug reasons. Is it really necessary? I
-> think it's the first time I see debug features go in as part of the spec.
+> Thoughts? Anyone ever done this?
 
-I actually think we need to work on more debug features.
+Just for kicks I tried coding it up.  This seems to work, so I include it
+as fuel for discussion.  This applies to linus' current git.
 
->  - I'm slightly confused, why are there both receive and transmit steering? I
-> can't find a difference in the way to configure the rule for transmit and
-> receive. Is it a plan for the future to allow different rules for tx and rx? If
-> so, shouldn't we use different ctrl commands (
-> VIRTIO_NET_CTRL_TX_STEERING/VIRTIO_NET_CTRL_RX_STEERING)?
-
-No. Receive steering is done by device. Documented for driver writer's
-benefit. xmit streering by driver. documented for device benefit.
-They must match for tcp to work well so I doubt we will have
-commands to control them separately.
-
->  - "When rule is set to VIRTIO_NET_CTRL_STEERING_SINGLE all packets are steered
-> to the default virtqueue receveq (0);" - "receiveq (0)"
-> 
-> 
-> 
-> Thanks,
-> Sasha
+Chris
 
 
-Thanks for the comments will address!
+
+
+Allow the user to specify up to four device names as part of IP
+autoconfiguration.  This allows a degree of redundancy while also
+allowing the user to limit which devices are opened by the kernel
+during boot (this may be useful if some devices are very high traffic
+or need special configuration).
+
+
+Signed-off-by: Chris Friesen <chris.friesen@genband.com>
+
+
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index 67e8a6b..4d24ad4 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -157,7 +157,9 @@ static u8 ic_domain[64];		/* DNS (not NIS) domain name */
+  */
+ 
+ /* Name of user-selected boot device */
+-static char user_dev_name[IFNAMSIZ] __initdata = { 0, };
++#define NUM_NAMED_BOOTDEV 4
++static int user_dev_count __initdata;
++static char user_dev_name[NUM_NAMED_BOOTDEV][IFNAMSIZ] __initdata;
+ 
+ /* Protocols supported by available interfaces */
+ static int ic_proto_have_if __initdata = 0;
+@@ -189,16 +191,27 @@ struct ic_device {
+ static struct ic_device *ic_first_dev __initdata = NULL;/* List of open device */
+ static struct net_device *ic_dev __initdata = NULL;	/* Selected device */
+ 
++static int __init dev_in_userdevlist(struct net_device *dev)
++{
++	int i;
++	for(i=0;i<NUM_NAMED_BOOTDEV;i++) {
++		if (!strcmp(dev->name, user_dev_name[i]))
++			return 1;
++	}
++	return 0;
++}
++
+ static bool __init ic_is_init_dev(struct net_device *dev)
+ {
+ 	if (dev->flags & IFF_LOOPBACK)
+ 		return false;
+-	return user_dev_name[0] ? !strcmp(dev->name, user_dev_name) :
++	return user_dev_count ? dev_in_userdevlist(dev) :
+ 	    (!(dev->flags & IFF_LOOPBACK) &&
+ 	     (dev->flags & (IFF_POINTOPOINT|IFF_BROADCAST)) &&
+ 	     strncmp(dev->name, "dummy", 5));
+ }
+ 
++
+ static int __init ic_open_devs(void)
+ {
+ 	struct ic_device *d, **last;
+@@ -274,9 +287,8 @@ have_carrier:
+ 	*last = NULL;
+ 
+ 	if (!ic_first_dev) {
+-		if (user_dev_name[0])
+-			pr_err("IP-Config: Device `%s' not found\n",
+-			       user_dev_name);
++		if (user_dev_count)
++			pr_err("IP-Config: Specified boot device(s) not found\n");
+ 		else
+ 			pr_err("IP-Config: No network devices available\n");
+ 		return -ENODEV;
+@@ -1605,7 +1617,16 @@ static int __init ip_auto_config_setup(char *addrs)
+ 				ic_host_name_set = 1;
+ 				break;
+ 			case 5:
+-				strlcpy(user_dev_name, ip, sizeof(user_dev_name));
++				do {
++					dp = strchr(ip, ',');
++					if (dp)
++						*dp++ = '\0';
++					strlcpy(user_dev_name[user_dev_count], ip,
++						sizeof(user_dev_name[0]));
++					user_dev_count++;
++					if (dp)
++						ip = dp;
++				} while (dp && (user_dev_count < NUM_NAMED_BOOTDEV));
+ 				break;
+ 			case 6:
+ 				if (ic_proto_name(ip) == 0 &&
