@@ -1,48 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] scm: Don't use struct ucred in NETLINK_CB and
- struct scm_cookie.
-Date: Fri, 07 Sep 2012 14:42:50 -0400 (EDT)
-Message-ID: <20120907.144250.592587303760599718.davem@davemloft.net>
-References: <87haralb0u.fsf@xmission.com>
+Subject: Re: [PATCH net-next v2] ipv4/route: arg delay is useless in
+ rt_cache_flush()
+Date: Fri, 07 Sep 2012 14:44:29 -0400 (EDT)
+Message-ID: <20120907.144429.1841200052046360061.davem@davemloft.net>
+References: <1347013794.2484.488.camel@edumazet-glaptop>
+	<1347014729-28461-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1347031479.2484.799.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, serge@hallyn.com, eric.dumazet@gmail.com
-To: ebiederm@xmission.com
+Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40230 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40255 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753540Ab2IGSmw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 14:42:52 -0400
-In-Reply-To: <87haralb0u.fsf@xmission.com>
+	with ESMTP id S1755742Ab2IGSoa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 14:44:30 -0400
+In-Reply-To: <1347031479.2484.799.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Thu, 06 Sep 2012 21:20:01 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 07 Sep 2012 17:24:39 +0200
 
+> On Fri, 2012-09-07 at 12:45 +0200, Nicolas Dichtel wrote:
+>> Since route cache deletion (89aef8921bfbac22f), delay is no
+>> more used. Remove it.
+>> 
+>> v2: remove ctl in ipv4_sysctl_rtcache_flush()
+>> 
 > 
-> Passing uids and gids on NETLINK_CB from a process in one user
-> namespace to a process in another user namespace can result in the
-> wrong uid or gid being presented to userspace.  Avoid that problem by
-> passing kuids and kgids instead.
-> 
-> - define struct scm_creds for use in scm_cookie and netlink_skb_parms
->   that holds uid and gid information in kuid_t and kgid_t.
-> 
-> - Modify scm_set_cred to fill out scm_creds by heand instead of using
->   cred_to_ucred to fill out struct ucred.  This conversion ensures
->   userspace does not get incorrect uid or gid values to look at.
-> 
-> - Modify scm_recv to convert from struct scm_creds to struct ucred
->   before copying credential values to userspace.
-> 
-> - Modify __scm_send to populate struct scm_creds on in the scm_cookie,
->   instead of just copying struct ucred from userspace.
-> 
-> - Modify netlink_sendmsg to copy scm_creds instead of struct ucred
->   into the NETLINK_CB.
-> 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> Ideally, this v2:....: should be after the --- marker
 
-Applied, thanks Eric.
+I took care of this.
+
+>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+...
+> Acked-by: Eric Dumazet <edumazet@google.com>
+
+Applied, thanks everyone.
