@@ -1,84 +1,55 @@
-From: Alexey ORISHKO <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-Subject: RE: changing usbnet's API to better deal with cdc-ncm
-Date: Fri, 7 Sep 2012 14:01:23 +0200
-Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520154A6AA5741E@EXDCVYMBSTM006.EQ1STM.local>
-References: <2791550.LhGu6po6Xy@linux-lqwf.site>
- <1676538.CEPj2RtrPe@linux-lqwf.site>
- <CACVXFVM9OdUbmOFvf1KG4ePoz7wCxLRwCET3cgL=EynNBLx2AA@mail.gmail.com>
- <1446113.XC2Qbo4flT@linux-lqwf.site>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] sctp: check dst validity after IPsec operations
+Date: Fri, 07 Sep 2012 14:07:05 +0200
+Message-ID: <5049E369.9060901@6wind.com>
+References: <1346953229-3825-1-git-send-email-nicolas.dichtel@6wind.com> <5048C984.3030306@gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: =?iso-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1446113.XC2Qbo4flT-ugxBuEnWX9yG/4A2pS7c2Q@public.gmane.org>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sri@us.ibm.com, linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:65315 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933186Ab2IGMHK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 08:07:10 -0400
+Received: by eekc1 with SMTP id c1so1138455eek.19
+        for <netdev@vger.kernel.org>; Fri, 07 Sep 2012 05:07:08 -0700 (PDT)
+In-Reply-To: <5048C984.3030306@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Oliver Neukum [mailto:oneukum-l3A5Bk7waGM@public.gmane.org]
-> Sent: Friday, September 07, 2012 9:36 AM
+Le 06/09/2012 18:04, Vlad Yasevich a =E9crit :
+> On 09/06/2012 01:40 PM, Nicolas Dichtel wrote:
+>> dst stored in struct sctp_transport needs to be recalculated when ip=
+sec policy
+>> are updated. We use flow_cache_genid for that.
+>>
+>> For example, if a SCTP connection is established and then an IPsec p=
+olicy is
+>> set, the old SCTP flow will not be updated and thus will not use the=
+ new
+>> IPsec policy.
+>>
+>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>
+> why doesn't this need to be done for TCP?  What makes SCTP special in=
+ this case?
+>
+> ip_queue_xmit does an __sk_dst_check() which is essentially what
+> sctp_transport_dst_check() does.  That should determine if the curren=
+tly cached
+> route is valid or not.
+>
+> Looks like sctp may need to change to using ip_route_output_ports() c=
+all
+> as ip_route_output_key may not do all that is necessary
+I try, but it doesn't solve the problem. In fact, it seems better to us=
+e=20
+ip_route_output_ports(), would you like me to send a patch?
 
-> > > Well, that is the mistake. Using a timer is a bad idea.
-> >
-> > Why is a bad idea?  Without a timer, how can usbnet or low level
-> > driver aggregate the later coming transmit frames to form a biger
-> > aggregated frame?
-> 
-> By registering demand in an abstract sense. The timer makes sense only
-> when no other buffers are being transfered.
-> 
-> The timer means that we transmit if no other more packages are coming
-> down from the upper layers. Now, either the device is still busy or it
-> is not.
-> While it is busy, we might just as well wait, because the upper layer
-> may change its mind.
-> If the device is not busy we worsen latency by waiting for the timer.
-
-...
-
-> > As I said above, without a timeout timer, the queued skb might not be
-> > sent out even some long time passed if no frame comes later.
-> 
-> Therefore we check whether the device is still busy.
-> 
-
-The purpose of NCM is to reduce the amount of interrupts and the number
-of DMA jobs that must be handled by the device. It is most efficient to
-send and especially to receive NTBs of agreed size, padded if needed.
-
-Misunderstanding of the reason why NCM protocol is doing aggregation
-of several ETH frames into a single NTB leads to crippled implementation. 
-Look at NCM gadget, which is not really NCM device at all, it's kinda ECM
-device with NCM framing.
-
-The experience from early implementations and prototyping of NCM was that
-using NCM with 4-8kB NTB increased max throughput in loop-mode by a factor
-of 5-6 even 8-10 times compared to using ECM. One real-world example was
-modem for 21+6Mbit/s what used 100% CPU with ECM responsible for approx. 40%
-of the MIPS used. Using NCM instead CPU was only at approx. 65% utilization.
-Which allowed multiple other functions to be added and significantly increased
-the usability and value of the modem.
-
-NCM efficiency is gained either by accessing TX queue of upper layer or
-by using timer. 
-
-These findings were later confirmed by multiple major industry players
-(names withheld), and demonstrated during multiple NCM interoperability
-workshops using multiple device HW platforms, multiple operating systems
-and multiple host HW ranging from Beagleboard to latest quad-core x86.    
-
-Until we do something with network device framework in order to get access
-to upper layer Tx queue we need to utilize timer.
 
 Regards,
-Alexey
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Nicolas
