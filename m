@@ -1,41 +1,37 @@
-From: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH] NFC: remove pointless conditional before kfree_skb()
-Date: Fri, 7 Sep 2012 18:48:58 +0200
-Message-ID: <20120907164858.GE3647@sortiz-mobl>
-References: <CAPgLHd80nD+uYpMMC+sLjcErRcLbGpAVMw7PktrAoxJB8NwHsg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Small bug on rxhash calculation
+Date: Fri, 07 Sep 2012 12:57:48 -0400 (EDT)
+Message-ID: <20120907.125748.25526531079163699.davem@davemloft.net>
+References: <CAEb0MffEfboq_VmPFCtzGHe-SQ4Dd1O6Hptrc_jHVnp7itKyQg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org, aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAPgLHd80nD+uYpMMC+sLjcErRcLbGpAVMw7PktrAoxJB8NwHsg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, chema@google.com
+To: chema@berkeley.edu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39088 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751402Ab2IGQ5v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 12:57:51 -0400
+In-Reply-To: <CAEb0MffEfboq_VmPFCtzGHe-SQ4Dd1O6Hptrc_jHVnp7itKyQg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Wei,
+From: Chema Gonzalez <chema@berkeley.edu>
+Date: Wed, 5 Sep 2012 23:35:40 -0700
 
-On Tue, Aug 28, 2012 at 09:02:40PM +0800, Wei Yongjun wrote:
-> From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
-> 
-> Remove pointless conditional before kfree_skb().
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
-> ---
->  net/nfc/hci/shdlc.c | 3 +--
->  net/nfc/hci/core.c  | 3 +--
->  2 files changed, 2 insertions(+), 4 deletions(-)
-Thanks, patch applied to my nfc-next branch.
+> -       if (keys.ports) {
+> -               if ((__force u16)keys.port16[1] < (__force u16)keys.port16[0])
+> -                       swap(keys.port16[0], keys.port16[1]);
+> +       if (keys.ports)
 
-Cheers,
-Samuel.
+This patch was corrupted by your email client, it transformed TAB characters
+into spaces, making your patch completely useless to us.
 
--- 
-Intel Open Source Technology Centre
-http://oss.intel.com/
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please fix this, send a test patch to yourself, and make sure that the patch
+you receive in that test email will apply cleanly and properly.
+
+Only after you are able to get such an email test patch to work should
+you submit it here again.
+
+Thanks.
