@@ -1,19 +1,20 @@
 From: Chema Gonzalez <chema@google.com>
 Subject: [PATCH] net: small bug on rxhash calculation
-Date: Fri,  7 Sep 2012 16:40:50 -0700
-Message-ID: <1347061251-2019-1-git-send-email-chema@google.com>
+Date: Fri,  7 Sep 2012 16:40:51 -0700
+Message-ID: <1347061251-2019-2-git-send-email-chema@google.com>
 References: <20120907.125748.25526531079163699.davem@davemloft.net>
+ <1347061251-2019-1-git-send-email-chema@google.com>
 Cc: netdev@vger.kernel.org, Chema Gonzalez <chema@berkeley.edu>,
 	Chema Gonzalez <chema@google.com>
 To: David Miller <davem@davemloft.net>, edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f202.google.com ([209.85.212.202]:59013 "EHLO
-	mail-wi0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751686Ab2IGXk6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 19:40:58 -0400
-Received: by wibhr14 with SMTP id hr14so2093wib.1
-        for <netdev@vger.kernel.org>; Fri, 07 Sep 2012 16:40:57 -0700 (PDT)
-In-Reply-To: <20120907.125748.25526531079163699.davem@davemloft.net>
+Received: from mail-qc0-f202.google.com ([209.85.216.202]:60822 "EHLO
+	mail-qc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758133Ab2IGXlE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 19:41:04 -0400
+Received: by qcqs25 with SMTP id s25so21557qcq.1
+        for <netdev@vger.kernel.org>; Fri, 07 Sep 2012 16:41:03 -0700 (PDT)
+In-Reply-To: <1347061251-2019-1-git-send-email-chema@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
