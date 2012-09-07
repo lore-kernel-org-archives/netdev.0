@@ -1,94 +1,64 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [net-next 4/6] igb: Store the MAC address in the name in the
- PTP struct.
-Date: Thu, 6 Sep 2012 23:40:23 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB580785FAB4@ORSMSX105.amr.corp.intel.com>
-References: <1346888106-25638-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1346888106-25638-5-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20120906080628.GD2550@netboy.at.omicron.at>
-	 <02874ECE860811409154E81DA85FBB580785F9F4@ORSMSX105.amr.corp.intel.com>
-	 <1346973787.2714.62.camel@bwh-desktop.uk.solarflarecom.com>
-	 <02874ECE860811409154E81DA85FBB580785FA77@ORSMSX105.amr.corp.intel.com>
- <1346974770.2714.64.camel@bwh-desktop.uk.solarflarecom.com>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [PATCHv3] virtio-spec: virtio network device multiqueue support
+Date: Fri, 07 Sep 2012 02:17:08 +0200
+Message-ID: <50493D04.1090408@gmail.com>
+References: <20120906120828.GA1534@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:36621 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755706Ab2IFXk1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Sep 2012 19:40:27 -0400
-In-Reply-To: <1346974770.2714.64.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120906120828.GA1534@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBTZXB0
-ZW1iZXIgMDYsIDIwMTIgNDo0MCBQTQ0KPiBUbzogS2VsbGVyLCBKYWNvYiBFDQo+IENjOiBSaWNo
-YXJkIENvY2hyYW47IEtpcnNoZXIsIEplZmZyZXkgVDsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgVmlj
-aywNCj4gTWF0dGhldzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgZ29zcG9AcmVkaGF0LmNvbTsg
-c2Fzc21hbm5AcmVkaGF0LmNvbQ0KPiBTdWJqZWN0OiBSRTogW25ldC1uZXh0IDQvNl0gaWdiOiBT
-dG9yZSB0aGUgTUFDIGFkZHJlc3MgaW4gdGhlIG5hbWUgaW4gdGhlDQo+IFBUUCBzdHJ1Y3QuDQo+
-IA0KPiBPbiBUaHUsIDIwMTItMDktMDYgYXQgMjM6MjQgKzAwMDAsIEtlbGxlciwgSmFjb2IgRSB3
-cm90ZToNCj4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPiBGcm9tOiBCZW4g
-SHV0Y2hpbmdzIFttYWlsdG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gPiA+IFNlbnQ6
-IFRodXJzZGF5LCBTZXB0ZW1iZXIgMDYsIDIwMTIgNDoyMyBQTQ0KPiA+ID4gVG86IEtlbGxlciwg
-SmFjb2IgRTsgUmljaGFyZCBDb2NocmFuDQo+ID4gPiBDYzogS2lyc2hlciwgSmVmZnJleSBUOyBk
-YXZlbUBkYXZlbWxvZnQubmV0OyBWaWNrLCBNYXR0aGV3Ow0KPiA+ID4gbmV0ZGV2QHZnZXIua2Vy
-bmVsLm9yZzsgZ29zcG9AcmVkaGF0LmNvbTsgc2Fzc21hbm5AcmVkaGF0LmNvbQ0KPiA+ID4gU3Vi
-amVjdDogUkU6IFtuZXQtbmV4dCA0LzZdIGlnYjogU3RvcmUgdGhlIE1BQyBhZGRyZXNzIGluIHRo
-ZSBuYW1lDQo+ID4gPiBpbiB0aGUgUFRQIHN0cnVjdC4NCj4gPiA+DQo+ID4gPiBPbiBUaHUsIDIw
-MTItMDktMDYgYXQgMjI6NTkgKzAwMDAsIEtlbGxlciwgSmFjb2IgRSB3cm90ZToNCj4gPiA+ID4g
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+ID4gPiA+IEZyb206IG5ldGRldi1vd25l
-ckB2Z2VyLmtlcm5lbC5vcmcNCj4gPiA+ID4gPiBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtl
-cm5lbC5vcmddDQo+ID4gPiA+ID4gT24gQmVoYWxmIE9mIFJpY2hhcmQgQ29jaHJhbg0KPiA+ID4g
-PiA+IFNlbnQ6IFRodXJzZGF5LCBTZXB0ZW1iZXIgMDYsIDIwMTIgMTowNiBBTQ0KPiA+ID4gPiA+
-IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gPiA+ID4gPiBDYzogZGF2ZW1AZGF2ZW1sb2Z0Lm5l
-dDsgVmljaywgTWF0dGhldzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gPiA+ID4gPiBnb3Nw
-b0ByZWRoYXQuY29tOyBzYXNzbWFubkByZWRoYXQuY29tDQo+ID4gPiA+ID4gU3ViamVjdDogUmU6
-IFtuZXQtbmV4dCA0LzZdIGlnYjogU3RvcmUgdGhlIE1BQyBhZGRyZXNzIGluIHRoZQ0KPiA+ID4g
-PiA+IG5hbWUgaW4gdGhlIFBUUCBzdHJ1Y3QuDQo+ID4gPiA+ID4NCj4gPiA+ID4gPiBPbiBXZWQs
-IFNlcCAwNSwgMjAxMiBhdCAwNDozNTowNFBNIC0wNzAwLCBKZWZmIEtpcnNoZXIgd3JvdGU6DQo+
-ID4gPiA+ID4gPiBGcm9tOiBNYXR0aGV3IFZpY2sgPG1hdHRoZXcudmlja0BpbnRlbC5jb20+DQo+
-ID4gPiA+ID4gPg0KPiA+ID4gPiA+ID4gQ2hhbmdlIHRoZSBuYW1lIG9mIHRoZSBhZGFwdGVyIGlu
-IHRoZSBQVFAgc3RydWN0IHRvIGVuYWJsZQ0KPiA+ID4gPiA+ID4gZWFzaWVyIGNvcnJlbGF0aW9u
-IGJldHdlZW4gaW50ZXJmYWNlIGFuZCBQVFAgZGV2aWNlLg0KPiA+ID4gPiA+DQo+ID4gPiA+ID4g
-U3RpbGwgdGhpbmsgaXQgaXMgYmV0dGVyIHRvIGhhdmUgdGhlIGRyaXZlciBuYW1lLCBub3QgdGhl
-IE1BQw0KPiBhZGRyZXNzLg0KPiA+ID4gPiA+IFRoZSBjb3JyZWxhdGlvbiBpcyBjbGVhciBieSB1
-c2luZyB0aGUgZXRodG9vbCBtZXRob2QuDQo+ID4gPiA+ID4NCj4gPiA+ID4NCj4gPiA+ID4gSSBm
-b3VuZCBhIG1ldGhvZCB0byBjb3JyZWN0IHRoZSBpbml0IGNvZGUgc28gdGhhdCB0aGUgZGV2aWNl
-IG5hbWUNCj4gPiA+ID4gY2FuIGFwcGVhciBoZXJlLCBhbmQgSSB3b3VsZCBwcmVmZXIgdGhhdCBv
-dmVyIGVpdGhlciB0aGUgZHJpdmVyDQo+ID4gPiA+IG5hbWUgb3IgTUFDIGFkZHJlc3MuIEl0IHJl
-cXVpcmVzIG1vdmluZyB0aGUgcHRwIGluaXRpYWxpemF0aW9uDQo+ID4gPiA+IGludG8gdGhlIG5l
-dGRldiBvcGVuIGhhbmRsZXIgdGhvdWdoLg0KPiA+ID4NCj4gPiA+IEkgZG9uJ3QgdGhpbmsgeW91
-IHNob3VsZCB1c2UgdGhlIG5ldCBkZXZpY2UgbmFtZSBmb3IgdGhpcywgYXMgbmV0DQo+ID4gPiBk
-ZXZpY2VzIGNhbiBiZSByZW5hbWVkIGFmdGVyIGNyZWF0aW9uLiAgKFRob3VnaCB5b3UgY291bGQg
-dXBkYXRlIHRoZQ0KPiA+ID4gc3RydWN0IHB0cF9jbG9ja19pbmZvIHdoZW5ldmVyIHRoaXMgaGFw
-cGVucy4pDQo+ID4gPg0KPiA+ID4gSSdtIHN0YXJ0aW5nIHRvIHdvbmRlciB3aGF0IHVzZSB0aGVy
-ZSBpcyBmb3IgYSAnY2xvY2sgbmFtZScgZGlzdGluY3QNCj4gPiA+IGZyb20gdGhlIGNsb2NrIGRl
-dmljZSBuYW1lLiAgV2hhdCB3b3VsZCBiZSBtb3JlIHVzZWZ1bCBpcyB0byBnaXZlIGl0IGENCj4g
-cGFyZW50Lg0KPiA+ID4gUmljaGFyZCwgaXMgdGhlcmUgYW55IHJlYXNvbiB3aHkgcHRwX2Nsb2Nr
-X3JlZ2lzdGVyKCkgZG9lc24ndCBhbGxvdw0KPiA+ID4gc3BlY2lmeWluZyB0aGUgcGFyZW50IGRl
-dmljZT8gIFlvdSBjYW4gdGhlbiBtYWtlIHRoZSBjbG9ja19uYW1lDQo+ID4gPiBhdHRyaWJ1dGUg
-Y29udGFpbiB0aGUgcGFyZW50IGRldmljZSdzIGRyaXZlciBuYW1lIG9yIHdoYXRldmVyIGl0IGlz
-DQo+IHlvdSBwcmVmZXIuDQo+ID4gPg0KPiA+ID4gQmVuLg0KPiA+DQo+ID4gQmVjYXVzZSBpZGVh
-bGx5IHRoZSBwdHAgZGV2aWNlIGJlbG9uZ3MgdG8gbXVsdGlwbGUgZXRoZXJuZXQgZGV2aWNlcy4u
-Lg0KPiA+DQo+ID4gU2FkbHkgY3VycmVudCBpbnRlbCBoYXJkd2FyZSBkb2Vzbid0IHN1cHBvcnQg
-dGhpcy4NCj4gDQo+IFRoZSBQVFAgY2xvY2sgaXMgaW5zdGFudGlhdGVkIGJ5IHNvbWUgZHJpdmVy
-LCBib3VuZCB0byBzb21lIGRldmljZSwNCj4gd2hldGhlciB0aGF0J3MgYSBQQ0kgZGV2aWNlIG9y
-IGEgcGxhdGZvcm0gZGV2aWNlIG9yIHNvbWV0aGluZyBlbHNlLiAgSQ0KPiB0aGluayB0aGF0IGRl
-dmljZSAobm90IGEgbmV0IGRldmljZSkgc2hvdWxkIGJlIHRoZSBwYXJlbnQgb2YgdGhlIGNsb2Nr
-DQo+IGRldmljZS4NCj4gDQoNCkFncmVlZCwgdGhhdCB3b3VsZCBtYWtlIHRoZSBtb3N0IHNlbnNl
-Lg0KDQo+IEJlbi4NCj4gDQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MsIFN0YWZmIEVuZ2luZWVyLCBT
-b2xhcmZsYXJlIE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7DQo+IHRoYXQncyB0aGUgbWFy
-a2V0aW5nIGRlcGFydG1lbnQncyBqb2IuDQo+IFRoZXkgYXNrZWQgdXMgdG8gbm90ZSB0aGF0IFNv
-bGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQoNCg==
+Hi Michael,
+
+On 09/06/2012 02:08 PM, Michael S. Tsirkin wrote:
+> Add multiqueue support to virtio network device.
+> Add a new feature flag VIRTIO_NET_F_MULTIQUEUE for this feature, a new
+> configuration field max_virtqueue_pairs to detect supported number of
+> virtqueues as well as a new command VIRTIO_NET_CTRL_STEERING to program
+> packet steering.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+Some comments about the change:
+
+ - "The following four read-only fields only exists if VIRTIO_NET_F_MULTIQUEUE
+is set." => Should be "exist" (I think).
+
+ - "When rule is set to VIRTIO_NET_CTRL_STEERING_RX_FOLLOWS_TX packets are
+steered by driver to the first (param+1) multiqueue virtqueues
+transmitq1...transmitqN;" - Why param+1?  I thought we ignore the default
+transmit/receive in this case.
+
+ - "As selecting a specific steering ais n optimization feature" - "is an".
+
+ - It's mentioned several times that the ability to read the steering rule from
+the virtio-net config is there for debug reasons. Is it really necessary? I
+think it's the first time I see debug features go in as part of the spec.
+
+ - I'm slightly confused, why are there both receive and transmit steering? I
+can't find a difference in the way to configure the rule for transmit and
+receive. Is it a plan for the future to allow different rules for tx and rx? If
+so, shouldn't we use different ctrl commands (
+VIRTIO_NET_CTRL_TX_STEERING/VIRTIO_NET_CTRL_RX_STEERING)?
+
+ - "When rule is set to VIRTIO_NET_CTRL_STEERING_SINGLE all packets are steered
+to the default virtqueue receveq (0);" - "receiveq (0)"
+
+
+
+Thanks,
+Sasha
