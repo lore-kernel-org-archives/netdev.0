@@ -1,47 +1,64 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 0/5] dev_<level> and dynamic_debug cleanups
-Date: Fri, 07 Sep 2012 07:58:41 -0700
-Message-ID: <1347029921.13424.14.camel@joe2Laptop>
-References: <cover.1345978012.git.joe@perches.com>
-	 <20120906175158.GB9786@redhat.com> <1346957026.13424.5.camel@joe2Laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] scm: Don't use struct ucred in NETLINK_CB and
+ struct scm_cookie.
+Date: Fri, 07 Sep 2012 17:07:26 +0200
+Message-ID: <1347030446.2484.771.camel@edumazet-glaptop>
+References: <87haralb0u.fsf@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jim Cromie <jim.cromie@gmail.com>, Kay Sievers <kay@vrfy.org>,
-	linux-kernel@vger.kernel.org
-To: Jason Baron <jbaron@redhat.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	"Serge E. Hallyn" <serge@hallyn.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:48066 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751737Ab2IGO6m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Sep 2012 10:58:42 -0400
-In-Reply-To: <1346957026.13424.5.camel@joe2Laptop>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:42424 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751394Ab2IGPHc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 11:07:32 -0400
+Received: by bkwj10 with SMTP id j10so1436797bkw.19
+        for <netdev@vger.kernel.org>; Fri, 07 Sep 2012 08:07:30 -0700 (PDT)
+In-Reply-To: <87haralb0u.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-09-06 at 11:43 -0700, Joe Perches wrote:
-> On Thu, 2012-09-06 at 13:51 -0400, Jason Baron wrote:
-> > On Sun, Aug 26, 2012 at 04:25:25AM -0700, Joe Perches wrote:
-> > > The recent commit to fix dynamic_debug was a bit unclean.
-> > > Neaten the style for dynamic_debug.
-> > > Reduce the stack use of message logging that uses netdev_printk
-> > > Add utility functions dev_printk_emit and dev_vprintk_emit for /dev/kmsg.
-[]
-> > The one thing that is bothering me though, is that for
-> > __dynamic_dev_dbg(), __dynamic_netdev_dbg(), we are copying much of the core
-> > logic of __dev_printk(), __netdev_printk(), respectively. I would prefer
-> > have this in one place. Can we add a 'prefix' argument to __dev_printk(),
-> > and __netdev_printk() that dynamic debug can use, but is simply empty
-> > for dev_printk() and netdev_printk().
+On Thu, 2012-09-06 at 21:20 -0700, Eric W. Biederman wrote:
+> Passing uids and gids on NETLINK_CB from a process in one user
+> namespace to a process in another user namespace can result in the
+> wrong uid or gid being presented to userspace.  Avoid that problem by
+> passing kuids and kgids instead.
 > 
-> I don't think that's an improvement actually.
+> - define struct scm_creds for use in scm_cookie and netlink_skb_parms
+>   that holds uid and gid information in kuid_t and kgid_t.
+> 
+> - Modify scm_set_cred to fill out scm_creds by heand instead of using
+>   cred_to_ucred to fill out struct ucred.  This conversion ensures
+>   userspace does not get incorrect uid or gid values to look at.
+> 
+> - Modify scm_recv to convert from struct scm_creds to struct ucred
+>   before copying credential values to userspace.
+> 
+> - Modify __scm_send to populate struct scm_creds on in the scm_cookie,
+>   instead of just copying struct ucred from userspace.
+> 
+> - Modify netlink_sendmsg to copy scm_creds instead of struct ucred
+>   into the NETLINK_CB.
+> 
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Because it would add an always effectively unused "" argument
-to dev_printk and netdev_printk calls in non dynamic_debug
-builds.
 
-dynamic_debug is still mostly a developer feature and I
-believe most distros do not enable it.
+> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> index 7cb7867..6473267 100644
+> --- a/net/netlink/af_netlink.c
+> +++ b/net/netlink/af_netlink.c
+> @@ -1398,7 +1398,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+>  
+>  	NETLINK_CB(skb).pid	= nlk->pid;
+>  	NETLINK_CB(skb).dst_group = dst_group;
+> -	memcpy(NETLINK_CREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
+> +	NETLINK_CB(skb).creds	= siocb->scm->creds;
+>  
+>  	err = -EFAULT;
+>  	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
+
+Seems fine to me, but I am not sure why you kept NETLINK_CREDS()
+defined/used once.
