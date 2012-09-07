@@ -1,48 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: fix handling of throw routes
-Date: Fri, 07 Sep 2012 14:18:08 -0400 (EDT)
-Message-ID: <20120907.141808.933339383624986735.davem@davemloft.net>
-References: <5048A374.60005@6wind.com>
-	<1346946815-3094-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH 1/10] drivers/net/usb/sierra_net.c: removes unnecessary
+ semicolon
+Date: Fri, 07 Sep 2012 14:18:24 -0400 (EDT)
+Message-ID: <20120907.141824.1007901825186424576.davem@davemloft.net>
+References: <1346947757-10481-1-git-send-email-peter.senna@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, markus.stenberg@iki.fi,
-	eric.dumazet@gmail.com
-To: nicolas.dichtel@6wind.com
+Cc: gregkh@linuxfoundation.org, kernel-janitors@vger.kernel.org,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: peter.senna@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39963 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39975 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753247Ab2IGSSK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 14:18:10 -0400
-In-Reply-To: <1346946815-3094-1-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S1753540Ab2IGSS1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 14:18:27 -0400
+In-Reply-To: <1346947757-10481-1-git-send-email-peter.senna@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Thu,  6 Sep 2012 11:53:35 -0400
+From: Peter Senna Tschudin <peter.senna@gmail.com>
+Date: Thu,  6 Sep 2012 18:09:08 +0200
 
-> It's the same problem that previous fix about blackhole and prohibit routes.
+> From: Peter Senna Tschudin <peter.senna@gmail.com>
 > 
-> When adding a throw route, it was handled like a classic route.
-> Moreover, it was only possible to add this kind of routes by specifying
-> an interface.
+> removes unnecessary semicolon
 > 
-> Before the patch:
->   $ ip route add throw 2001::2/128
->   RTNETLINK answers: No such device
->   $ ip route add throw 2001::2/128 dev eth0
->   $ ip -6 route | grep 2001::2
->   2001::2 dev eth0  metric 1024
+> Found by Coccinelle: http://coccinelle.lip6.fr/
 > 
-> After:
->   $ ip route add throw 2001::2/128
->   $ ip -6 route | grep 2001::2
->   throw 2001::2 dev lo  metric 1024  error -11
-> 
-> Reported-by: Markus Stenberg <markus.stenberg@iki.fi>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
 
 Applied, thanks.
-
-See how easy this was to implement via ->rtm_type? :-)
