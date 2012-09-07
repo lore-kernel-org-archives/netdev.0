@@ -1,93 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2] dst: take into account policy update on check()
-Date: Fri, 07 Sep 2012 17:21:52 +0200
-Message-ID: <1347031312.2484.794.camel@edumazet-glaptop>
-References: <5049FAE3.2050403@6wind.com>
-	 <1347033467-3757-1-git-send-email-nicolas.dichtel@6wind.com>
-	 <1347033467-3757-2-git-send-email-nicolas.dichtel@6wind.com>
-	 <1347028510.2484.736.camel@edumazet-glaptop>  <504A08EA.3080506@6wind.com>
-	 <1347030598.2484.777.camel@edumazet-glaptop>  <504A0F1F.5060504@6wind.com>
+From: Alexey ORISHKO <alexey.orishko@stericsson.com>
+Subject: RE: changing usbnet's API to better deal with cdc-ncm
+Date: Fri, 7 Sep 2012 17:23:33 +0200
+Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520154A6AA5753D@EXDCVYMBSTM006.EQ1STM.local>
+References: <2791550.LhGu6po6Xy@linux-lqwf.site>
+ <1446113.XC2Qbo4flT@linux-lqwf.site>
+ <2AC7D4AD8BA1C640B4C60C61C8E520154A6AA5741E@EXDCVYMBSTM006.EQ1STM.local>
+ <1800340.RWjbMaZGSN@linux-lqwf.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: vyasevich@gmail.com, davem@davemloft.net, sri@us.ibm.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: =?iso-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
+	Ming Lei <tom.leiming@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: Oliver Neukum <oneukum@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:48365 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751635Ab2IGPV6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 11:21:58 -0400
-In-Reply-To: <504A0F1F.5060504@6wind.com>
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:39894 "EHLO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755791Ab2IGPXx convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Sep 2012 11:23:53 -0400
+In-Reply-To: <1800340.RWjbMaZGSN@linux-lqwf.site>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-09-07 at 17:13 +0200, Nicolas Dichtel wrote:
-> Le 07/09/2012 17:09, Eric Dumazet a =C3=A9crit :
-> > On Fri, 2012-09-07 at 16:47 +0200, Nicolas Dichtel wrote:
-> >> Le 07/09/2012 16:35, Eric Dumazet a =C3=A9crit :
-> >>>
-> >>> Hmm... cant we reuse rt_genid ?
-> >>>
-> >>> (When changing flow_cache_genid, change &net->ipv4.rt_genid)
-> >>
-> >> And so adding a new field in net->ipv6?
-> >
-> > or move net->ipv4.rt_genid to net->rt_genid
-> >
-> > Having separate field for IPv4/IPv6 is of little interest IMHO
-> >
-> Ok, I will wait feedback from other people and repost a patch after.
+> -----Original Message-----
+> From: Oliver Neukum [mailto:oneukum@suse.de]
+> Sent: Friday, September 07, 2012 3:09 PM
 
-By the way, the get_random_bytes() calls in rt_cache_invalidate() and i=
-n
-rt_genid_init() are no longer needed, since we dont use jhash anymore
-(no more route cache)
+> >
+> > Until we do something with network device framework in order to get
+> > access to upper layer Tx queue we need to utilize timer.
+> 
+> Could you explain your reasoning? From what you say we must reduce the
+> number of transfers, thus use them efficiently, but why by means of a
+> timer?
+> 
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index dc9549b..d6b2b1c 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -448,26 +448,12 @@ static inline bool rt_is_expired(const struct rta=
-ble *rth)
- }
-=20
- /*
-- * Perturbation of rt_genid by a small quantity [1..256]
-- * Using 8 bits of shuffling ensure we can call rt_cache_invalidate()
-- * many times (2^24) without giving recent rt_genid.
-- * Jenkins hash is strong enough that litle changes of rt_genid are OK=
-=2E
-- */
--static void rt_cache_invalidate(struct net *net)
--{
--	unsigned char shuffle;
--
--	get_random_bytes(&shuffle, sizeof(shuffle));
--	atomic_add(shuffle + 1U, &net->ipv4.rt_genid);
--}
--
--/*
-  * delay < 0  : invalidate cache (fast : entries will be deleted later=
-)
-  * delay >=3D 0 : invalidate & flush cache (can be long)
-  */
- void rt_cache_flush(struct net *net, int delay)
- {
--	rt_cache_invalidate(net);
-+	atomic_inc(&net->ipv4.rt_genid);
- }
-=20
- static struct neighbour *ipv4_neigh_lookup(const struct dst_entry *dst=
-,
-@@ -2533,8 +2519,7 @@ static __net_initdata struct pernet_operations sy=
-sctl_route_ops =3D {
-=20
- static __net_init int rt_genid_init(struct net *net)
- {
--	get_random_bytes(&net->ipv4.rt_genid,
--			 sizeof(net->ipv4.rt_genid));
-+	atomic_set(&net->ipv4.rt_genid, 0);
- 	get_random_bytes(&net->ipv4.dev_addr_genid,
- 			 sizeof(net->ipv4.dev_addr_genid));
- 	return 0;
+What was omitted in the previous mail is the fact that in addition to
+reducing amount of transfers we need to fill in NTB to the maximum size.
+It's quite important especially for embedded systems.
+
+As an example, on device (modem) side, DMA job for max NTB is initially
+set. 
+- If device receives full NTB, only one interrupt (per NTB) is
+generated at the completion of DMA job and NCM function can immediately
+parse incoming NTB frame. 
+- In case of "skinny" (not full) NTB, device gets INT for the short
+packet, then original DMA job for full NTB shall be cancelled, then DMA
+job to get short packet shall be set and after that we get INT for its
+completion. Only at this point all data is received and NTB parsing
+can be done by NCM function. All above takes quite more time than first
+case.
+
+There is a temptation to send full NTBs even with a single IP packet,
+But it will lead to wasted USB bandwidth and reduced ability to send
+real data for other functions in the device or other devices on the
+same root hub. Most important it will also harm IN direction.
+
+The challenge is to ensure that an acceptable timeout value is used. Too
+long and latency is introduced. Too short and too many padded NTBs will
+go out and that reduces the available throughput. The ideal timer value
+depends on the throughput available in the network. Something that is not
+really explicitly known to the NCM layer nor to the layer above.
+
+Alternate methods exist to achieve the same result without using a timer.
+But an optimal implementation requires that the amount of IP packets "in
+progress" or queued up is known to NCM so NCM can decide to send short or
+padded NTB or aggregate and send one or more full NTBs plus short or
+padded NTB. 
+
+An implementation where NCM only knows if there is more data available or
+not can be shown to have side-effects that are not easily circumvented.
+And likewise shown to limit throughput compared to a timer-based solution.   
+
+Regards,
+Alexey
