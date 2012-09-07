@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Small bug on rxhash calculation
-Date: Fri, 07 Sep 2012 12:57:48 -0400 (EDT)
-Message-ID: <20120907.125748.25526531079163699.davem@davemloft.net>
-References: <CAEb0MffEfboq_VmPFCtzGHe-SQ4Dd1O6Hptrc_jHVnp7itKyQg@mail.gmail.com>
+Subject: Re: [PATCH net 0/5] net/mlx4: Fixes to mlx4_core driver.
+Date: Fri, 07 Sep 2012 12:58:54 -0400 (EDT)
+Message-ID: <20120907.125854.2234018619889706404.davem@davemloft.net>
+References: <1346921452-2035-1-git-send-email-yevgenyp@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, chema@google.com
-To: chema@berkeley.edu
+Cc: netdev@vger.kernel.org
+To: yevgenyp@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39088 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39108 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751402Ab2IGQ5v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 12:57:51 -0400
-In-Reply-To: <CAEb0MffEfboq_VmPFCtzGHe-SQ4Dd1O6Hptrc_jHVnp7itKyQg@mail.gmail.com>
+	with ESMTP id S1752681Ab2IGQ64 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 12:58:56 -0400
+In-Reply-To: <1346921452-2035-1-git-send-email-yevgenyp@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chema Gonzalez <chema@berkeley.edu>
-Date: Wed, 5 Sep 2012 23:35:40 -0700
+From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Date: Thu,  6 Sep 2012 11:50:47 +0300
 
-> -       if (keys.ports) {
-> -               if ((__force u16)keys.port16[1] < (__force u16)keys.port16[0])
-> -                       swap(keys.port16[0], keys.port16[1]);
-> +       if (keys.ports)
+> Add security check / enforcement for flow steering rules set for VMs:
+> Since VFs may be mapped to VMs which aren't trusted entities, flow
+> steering rules attached through the wrapper on behalf of VFs must be
+> checked to make sure that their L2 specification relate to MAC address
+> assigned to that VF, and add L2 specification if its missing.
+> 
+> Fixing bad handling of command failures, can lead to crash.
+> 
+> Fixing wrong promiscuous mode entries management.
 
-This patch was corrupted by your email client, it transformed TAB characters
-into spaces, making your patch completely useless to us.
-
-Please fix this, send a test patch to yourself, and make sure that the patch
-you receive in that test email will apply cleanly and properly.
-
-Only after you are able to get such an email test patch to work should
-you submit it here again.
-
-Thanks.
+All applied, thanks.
