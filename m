@@ -1,47 +1,62 @@
-From: Alexey ORISHKO <alexey.orishko@stericsson.com>
-Subject: RE: changing usbnet's API to better deal with cdc-ncm
-Date: Fri, 7 Sep 2012 15:10:40 +0200
-Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520154A6AA574A0@EXDCVYMBSTM006.EQ1STM.local>
-References: <2791550.LhGu6po6Xy@linux-lqwf.site>
-	<2AC7D4AD8BA1C640B4C60C61C8E520154A6AA56BF9@EXDCVYMBSTM006.EQ1STM.local>
- <CACVXFVOmjvJQVWGzff_t7Hn7oAOxFzfV1CXyJWhuuBqjFcM3eQ@mail.gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] sctp: check dst validity after IPsec operations
+Date: Fri, 07 Sep 2012 15:47:15 +0200
+Message-ID: <5049FAE3.2050403@6wind.com>
+References: <1346953229-3825-1-git-send-email-nicolas.dichtel@6wind.com> <20120906.141019.129727465932440024.davem@davemloft.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Oliver Neukum <oneukum@suse.de>, "bjorn@mork.no" <bjorn@mork.no>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	Alexey Orishko <alexey.orishko@gmail.com>
-To: Ming Lei <tom.leiming@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: vyasevich@gmail.com, sri@us.ibm.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:43668 "EHLO
-	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759366Ab2IGNdW convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Sep 2012 09:33:22 -0400
-In-Reply-To: <CACVXFVOmjvJQVWGzff_t7Hn7oAOxFzfV1CXyJWhuuBqjFcM3eQ@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:36685 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760624Ab2IGNrU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 09:47:20 -0400
+Received: by eekc1 with SMTP id c1so1186467eek.19
+        for <netdev@vger.kernel.org>; Fri, 07 Sep 2012 06:47:18 -0700 (PDT)
+In-Reply-To: <20120906.141019.129727465932440024.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Ming Lei [mailto:tom.leiming@gmail.com]
-> Sent: Friday, September 07, 2012 2:58 PM
+Le 06/09/2012 20:10, David Miller a =E9crit :
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Date: Thu,  6 Sep 2012 13:40:29 -0400
+>
+>> dst stored in struct sctp_transport needs to be recalculated when ip=
+sec policy
+>> are updated. We use flow_cache_genid for that.
+>>
+>> For example, if a SCTP connection is established and then an IPsec p=
+olicy is
+>> set, the old SCTP flow will not be updated and thus will not use the=
+ new
+>> IPsec policy.
+>>
+>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>
+> I don't like that SCTP need to perform special DST validation.
+Ipv6 do the same:
 
-> > Several issues need to be improved:
-> > Tx path:
-> > 1. IP packets must be accumulated in one NTB. Currently it's done via
-> data copy.
-> > Preferred way would be a possibility to have a list of skb-s in
-> resulting frame sent down.
-> 
-> Looks the copy is inevitable because the buffer length of each skb in
-> the list is not possible to be max endpoint packet aligned, so one
-> short packet may terminate the current tx urb transfer.
+inet6_csk_xmit()->inet6_csk_route_socket()->__inet6_csk_dst_check()
+-> compare flow_cache_genid and rt6i_flow_cache_genid.
 
-Zero or short packet shall not be added if resulting NTB is max negotiated size.
-It's yet another problem with usbnet, where we had to add some workarounds
-to avoid redundant short/zero packets.
+>
+> The normal DST validation mechanism already in place should be
+> sufficient.
+I don't find why TCP recalculate the route, but it's not immediate, we =
+should=20
+wait a little.
+
+>
+> Otherwise this problem must exist in other protocols too, and
+> fixing a tree wide issue privately inside of one protocol is
+> not acceptable.
+I will propose another patch.
+
 
 Regards,
-Alexey
+Nicolas
