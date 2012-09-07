@@ -1,31 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] udp: increment UDP_MIB_INERRORS if copy failed
-Date: Fri, 07 Sep 2012 12:59:45 -0400 (EDT)
-Message-ID: <20120907.125945.1731223999630461002.davem@davemloft.net>
-References: <1346924084.2484.12.camel@edumazet-glaptop>
+Subject: Re: |PATCH] seeq: Add missing spinlock init
+Date: Fri, 07 Sep 2012 12:59:51 -0400 (EDT)
+Message-ID: <20120907.125951.1083769704534390217.davem@davemloft.net>
+References: <20120906124705.2631ae01@endymion.delvare>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sbohrer@rgmadvisors.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: khali@linux-fr.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39133 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39138 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752349Ab2IGQ7r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 12:59:47 -0400
-In-Reply-To: <1346924084.2484.12.camel@edumazet-glaptop>
+	with ESMTP id S1751353Ab2IGQ7x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 12:59:53 -0400
+In-Reply-To: <20120906124705.2631ae01@endymion.delvare>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 06 Sep 2012 11:34:44 +0200
+From: Jean Delvare <khali@linux-fr.org>
+Date: Thu, 6 Sep 2012 12:47:05 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> It doesn't seem this spinlock was properly initialized.
 > 
-> In UDP recvmsg(), we miss an increase of UDP_MIB_INERRORS if the copy
-> of skb to userspace failed for whatever reason.
-> 
-> Reported-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Jean Delvare <khali@linux-fr.org>
 
-Applied to 'net', since this significantly helps diagnose problems.
+Applied.
