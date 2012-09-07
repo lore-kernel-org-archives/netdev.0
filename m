@@ -1,34 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] qmi_wwan changes intended for 3.7
-Date: Fri, 07 Sep 2012 14:50:34 -0400 (EDT)
-Message-ID: <20120907.145034.1344376502528011934.davem@davemloft.net>
-References: <1347039367-12399-1-git-send-email-bjorn@mork.no>
+From: Timur Tabi <timur@freescale.com>
+Subject: Re: linux-next: Tree for Sept 4 (drivers/net/phy/mdio-mux-mmioreg.c)
+Date: Fri, 7 Sep 2012 14:37:38 -0500
+Message-ID: <504A4D02.8050709@freescale.com>
+References: <20120904171330.f6b0a922a754ba0f3acc123b@canb.auug.org.au> <5046933A.6080400@xenotime.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: bjorn@mork.no
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	<linux-next@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Randy Dunlap <rdunlap@xenotime.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40356 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751737Ab2IGSug convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 14:50:36 -0400
-In-Reply-To: <1347039367-12399-1-git-send-email-bjorn@mork.no>
+Received: from [216.32.181.186] ([216.32.181.186]:45917 "EHLO
+	ch1outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755459Ab2IGTjS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 15:39:18 -0400
+In-Reply-To: <5046933A.6080400@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Fri,  7 Sep 2012 19:36:05 +0200
+Randy Dunlap wrote:
+> drivers/net/phy/mdio-mux-mmioreg.c: In function 'mdio_mux_mmioreg_probe':
+> drivers/net/phy/mdio-mux-mmioreg.c:83:2: error: implicit declaration of function 'of_address_to_resource'
 
-> Just a couple of minor improvements for 3.7.  The QMI
-> message size issue is not considered important enough for
-> stable.  It does not affect the primary device function
-> at all, and I consider it more of a feature enhancement
-> than a fix.
->=20
->=20
-> Bj=F8rn Mork (2):
->   net: qmi_wwan: increase max QMI message size to 4096
->   net: qmi_wwan: use a single bind function for all device types
+I can't reproduce the problem, but I think I have a fix.  I'll post a
+patch in a minute.  Can you test it and let me know (e.g. via an ACK)
+whether it works?
 
-Both applied, thanks.
+-- 
+Timur Tabi
+Linux kernel developer at Freescale
