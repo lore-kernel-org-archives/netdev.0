@@ -1,69 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: rt_cache_flush() cleanup
-Date: Fri, 07 Sep 2012 22:27:11 +0200
-Message-ID: <1347049631.1234.35.camel@edumazet-glaptop>
+From: JoonSoo Kim <js1304@gmail.com>
+Subject: Re: [PATCH 1/4] slab: do ClearSlabPfmemalloc() for all pages of slab
+Date: Sat, 8 Sep 2012 06:10:06 +0900
+Message-ID: <CAAmzW4O2xF4Oo6VhnFHHBufg35xJ2Ko3c2KD5DUGgJ1VrL8jJw@mail.gmail.com>
+References: <1346779479-1097-1-git-send-email-mgorman@suse.de>
+	<1346779479-1097-2-git-send-email-mgorman@suse.de>
+	<CAAmzW4M_3hVBfjqFLG=7iydkXeQPdCXRbRmkqUJD4vwo0eWVWQ@mail.gmail.com>
+	<CAAmzW4MfFUH1Mi447sQvPNeae_BShEmbECUaK9eoX-8ughEdJw@mail.gmail.com>
+	<20120907125519.GB11266@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:53645 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756864Ab2IGU1Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 16:27:16 -0400
-Received: by eaac11 with SMTP id c11so1081036eaa.19
-        for <netdev@vger.kernel.org>; Fri, 07 Sep 2012 13:27:14 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Chuck Lever <chuck.lever@oracle.com>,
+	Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>,
+	Christoph Lameter <cl@linux.com>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20120907125519.GB11266@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+2012/9/7 Mel Gorman <mgorman@suse.de>:
+> This churns code a lot more than is necessary. How about this as a
+> replacement patch?
+>
+> ---8<---
+> From: Joonsoo Kim <js1304@gmail.com>
+> Subject: [PATCH] slab: do ClearSlabPfmemalloc() for all pages of slab
+>
+> Right now, we call ClearSlabPfmemalloc() for first page of slab when we
+> clear SlabPfmemalloc flag. This is fine for most swap-over-network use
+> cases as it is expected that order-0 pages are in use. Unfortunately it
+> is possible that that __ac_put_obj() checks SlabPfmemalloc on a tail page
+> and while this is harmless, it is sloppy. This patch ensures that the head
+> page is always used.
+>
+> [mgorman@suse.de: Easier implementation, changelog cleanup]
+> Signed-off-by: Joonsoo Kim <js1304@gmail.com>
+> Signed-off-by: Mel Gorman <mgorman@suse.de>
+> ---
+>  mm/slab.c |   12 +++++-------
+>  1 file changed, 5 insertions(+), 7 deletions(-)
+>
+> diff --git a/mm/slab.c b/mm/slab.c
+> index 811af03..590d52a 100644
+> --- a/mm/slab.c
+> +++ b/mm/slab.c
+> @@ -1032,7 +1032,7 @@ static void *__ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
+>  {
+>         if (unlikely(pfmemalloc_active)) {
+>                 /* Some pfmemalloc slabs exist, check if this is one */
+> -               struct page *page = virt_to_page(objp);
+> +               struct page *page = virt_to_head_page(objp);
+>                 if (PageSlabPfmemalloc(page))
+>                         set_obj_pfmemalloc(&objp);
+>         }
+> @@ -1919,12 +1919,10 @@ static void *kmem_getpages(struct kmem_cache *cachep, gfp_t flags, int nodeid)
+>         else
+>                 add_zone_page_state(page_zone(page),
+>                         NR_SLAB_UNRECLAIMABLE, nr_pages);
+> -       for (i = 0; i < nr_pages; i++) {
+> +       for (i = 0; i < nr_pages; i++)
+>                 __SetPageSlab(page + i);
+> -
+> -               if (page->pfmemalloc)
+> -                       SetPageSlabPfmemalloc(page + i);
+> -       }
+> +       if (page->pfmemalloc)
+> +               SetPageSlabPfmemalloc(page);
+>
+>         if (kmemcheck_enabled && !(cachep->flags & SLAB_NOTRACK)) {
+>                 kmemcheck_alloc_shadow(page, cachep->gfporder, flags, nodeid);
+> @@ -1955,9 +1953,9 @@ static void kmem_freepages(struct kmem_cache *cachep, void *addr)
+>         else
+>                 sub_zone_page_state(page_zone(page),
+>                                 NR_SLAB_UNRECLAIMABLE, nr_freed);
+> +       __ClearPageSlabPfmemalloc(page);
+>         while (i--) {
+>                 BUG_ON(!PageSlab(page));
+> -               __ClearPageSlabPfmemalloc(page);
+>                 __ClearPageSlab(page);
+>                 page++;
+>         }
 
-We dont use jhash anymore since route cache removal,
-so we can get rid of get_random_bytes() calls for rt_genid
-changes.
+Okay.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/route.c |   19 ++-----------------
- 1 file changed, 2 insertions(+), 17 deletions(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index ab1e7c7..d39edf1 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -447,23 +447,9 @@ static inline bool rt_is_expired(const struct rtable *rth)
- 	return rth->rt_genid != rt_genid(dev_net(rth->dst.dev));
- }
- 
--/*
-- * Perturbation of rt_genid by a small quantity [1..256]
-- * Using 8 bits of shuffling ensure we can call rt_cache_invalidate()
-- * many times (2^24) without giving recent rt_genid.
-- * Jenkins hash is strong enough that litle changes of rt_genid are OK.
-- */
--static void rt_cache_invalidate(struct net *net)
--{
--	unsigned char shuffle;
--
--	get_random_bytes(&shuffle, sizeof(shuffle));
--	atomic_add(shuffle + 1U, &net->ipv4.rt_genid);
--}
--
- void rt_cache_flush(struct net *net)
- {
--	rt_cache_invalidate(net);
-+	atomic_inc(&net->ipv4.rt_genid);
- }
- 
- static struct neighbour *ipv4_neigh_lookup(const struct dst_entry *dst,
-@@ -2520,8 +2506,7 @@ static __net_initdata struct pernet_operations sysctl_route_ops = {
- 
- static __net_init int rt_genid_init(struct net *net)
- {
--	get_random_bytes(&net->ipv4.rt_genid,
--			 sizeof(net->ipv4.rt_genid));
-+	atomic_set(&net->ipv4.rt_genid, 0);
- 	get_random_bytes(&net->ipv4.dev_addr_genid,
- 			 sizeof(net->ipv4.dev_addr_genid));
- 	return 0;
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
