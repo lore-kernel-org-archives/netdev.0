@@ -1,166 +1,185 @@
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Subject: Re: Increased multicast packet drops in 3.4
-Date: Thu, 6 Sep 2012 23:00:43 -0500
-Message-ID: <20120907040043.GA2714@BohrerMBP.rgmadvisors.com>
-References: <20120906001108.GA6035@BohrerMBP.rgmadvisors.com>
- <1346912560.13121.175.camel@edumazet-glaptop>
- <20120906130316.GA2310@BohrerMBP.gateway.2wire.net>
- <1346937667.2484.33.camel@edumazet-glaptop>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH net-next] scm: Don't use struct ucred in NETLINK_CB and struct scm_cookie.
+Date: Thu, 06 Sep 2012 21:20:01 -0700
+Message-ID: <87haralb0u.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, "Serge E. Hallyn" <serge@hallyn.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog127.obsmtp.com ([74.125.149.107]:47003 "EHLO
-	na3sys009aog127.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750703Ab2IGEAw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 00:00:52 -0400
-Received: by oago6 with SMTP id o6so70301oag.19
-        for <netdev@vger.kernel.org>; Thu, 06 Sep 2012 21:00:50 -0700 (PDT)
-In-Reply-To: <1346937667.2484.33.camel@edumazet-glaptop>
-Content-Disposition: inline
+Received: from out02.mta.xmission.com ([166.70.13.232]:59400 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750773Ab2IGEUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2012 00:20:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 06, 2012 at 03:21:07PM +0200, Eric Dumazet wrote:
-> kfree_skb() can free a list of skb, and we use a generic function to do
-> so, without forwarding the drop/notdrop status. So its unfortunate, but
-> adding extra parameters just for the sake of drop_monitor is not worth
-> it.  skb_drop_fraglist() doesnt know if the parent skb is dropped or
-> only freed, so it calls kfree_skb(), not consume_skb() or kfree_skb()
 
-I understand that this means that dropwatch or the skb:kfree_skb
-tracepoint won't know if the packet was really dropped, but do we
-know in this case from the context of the stack trace?  I'm assuming
-since we didn't receive an error that the packet was delivered and
-these aren't real drops.
+Passing uids and gids on NETLINK_CB from a process in one user
+namespace to a process in another user namespace can result in the
+wrong uid or gid being presented to userspace.  Avoid that problem by
+passing kuids and kgids instead.
 
-> Are you receiving fragmented UDP frames ?
+- define struct scm_creds for use in scm_cookie and netlink_skb_parms
+  that holds uid and gid information in kuid_t and kgid_t.
 
-I looked at the sending application and it yes it is possible it is
-sending fragmented frames.
+- Modify scm_set_cred to fill out scm_creds by heand instead of using
+  cred_to_ucred to fill out struct ucred.  This conversion ensures
+  userspace does not get incorrect uid or gid values to look at.
 
-> I ask this because with latest kernels (linux-3.5), we should no longer
-> build a list of skb, but a single skb with page fragments.
-> 
-> commit 3cc4949269e01f39443d0fcfffb5bc6b47878d45
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Sat May 19 03:02:20 2012 +0000
-> 
->     ipv4: use skb coalescing in defragmentation
->     
->     ip_frag_reasm() can use skb_try_coalesce() to build optimized skb,
->     reducing memory used by them (truesize), and reducing number of cache
->     line misses and overhead for the consumer.
->     
->     Signed-off-by: Eric Dumazet <edumazet@google.com>
->     Cc: Alexander Duyck <alexander.h.duyck@intel.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
+- Modify scm_recv to convert from struct scm_creds to struct ucred
+  before copying credential values to userspace.
 
-I'll have to give 3.5 a try tomorrow and see if it has the same
-problem.  After backporting all of your patches to convert kfree_skb()
-to consume_skb() to 3.4 I actually don't have that many different
-places hitting the skb:kfree_skb tracepoint at the time of the drop.
-Here are some of the ones I have left that might be relevant.
+- Modify __scm_send to populate struct scm_creds on in the scm_cookie,
+  instead of just copying struct ucred from userspace.
 
-          <idle>-0     [001] 11933.738797: kfree_skb:            skbaddr=0xffff8805ebcf9500 protocol=2048 location=0xffffffff81404e33
-          <idle>-0     [001] 11933.738801: kernel_stack:         <stack trace>
-=> ip_rcv (ffffffff81404e33)
-=> __netif_receive_skb (ffffffff813ce123)
-=> netif_receive_skb (ffffffff813d0da1)
-=> process_responses (ffffffffa018486c)
-=> napi_rx_handler (ffffffffa0185606)
-=> net_rx_action (ffffffff813d2449)
-=> __do_softirq (ffffffff8103bfd0)
-=> call_softirq (ffffffff8148a14c)
-=> do_softirq (ffffffff81003e85)
-=> irq_exit (ffffffff8103c3a5)
-=> do_IRQ (ffffffff8148a693)
-=> ret_from_intr (ffffffff814814a7)
-=> cpu_idle (ffffffff8100ac16)
-=> start_secondary (ffffffff81af5e66)
+- Modify netlink_sendmsg to copy scm_creds instead of struct ucred
+  into the NETLINK_CB.
 
-My IPSTATS_MIB_INHDRERRORS, IPSTATS_MIB_INDISCARDS, and
-IPSTATS_MIB_INTRUNCATEDPKTS counters are all 0 so maybe this is from
-skb->pkt_type == PACKET_OTHERHOST?
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ include/linux/netlink.h  |    3 ++-
+ include/net/scm.h        |   23 +++++++++++++++++++----
+ net/core/scm.c           |   17 +++++++++++------
+ net/netlink/af_netlink.c |    2 +-
+ 4 files changed, 33 insertions(+), 12 deletions(-)
 
-          <idle>-0     [001] 11933.937378: kfree_skb:            skbaddr=0xffff8805ebcf8c00 protocol=2048 location=0xffffffff81404660
-          <idle>-0     [001] 11933.937385: kernel_stack:         <stack trace>
-=> ip_rcv_finish (ffffffff81404660)
-=> ip_rcv (ffffffff81404f61)
-=> __netif_receive_skb (ffffffff813ce123)
-=> netif_receive_skb (ffffffff813d0da1)
-=> process_responses (ffffffffa018486c)
-=> napi_rx_handler (ffffffffa0185606)
-=> net_rx_action (ffffffff813d2449)
-=> __do_softirq (ffffffff8103bfd0)
-=> call_softirq (ffffffff8148a14c)
-=> do_softirq (ffffffff81003e85)
-=> irq_exit (ffffffff8103c3a5)
-=> do_IRQ (ffffffff8148a693)
-=> ret_from_intr (ffffffff814814a7)
-=> cpu_idle (ffffffff8100ac16)
-=> start_secondary (ffffffff81af5e66)
-
-I see two places here that I might be hitting that don't increment any
-counters.  I can try instrumenting these to see which one I hit.
-
-          <idle>-0     [003] 11932.454375: kfree_skb:            skbaddr=0xffff880584843700 protocol=4 location=0xffffffffa00492d4
-          <idle>-0     [003] 11932.454382: kernel_stack:         <stack trace>
-=> llc_rcv (ffffffffa00492d4)
-=> __netif_receive_skb (ffffffff813ce123)
-=> netif_receive_skb (ffffffff813d0da1)
-=> process_responses (ffffffffa018486c)
-=> napi_rx_handler (ffffffffa0185606)
-=> net_rx_action (ffffffff813d2449)
-=> __do_softirq (ffffffff8103bfd0)
-=> call_softirq (ffffffff8148a14c)
-=> do_softirq (ffffffff81003e85)
-=> irq_exit (ffffffff8103c3a5)
-=> do_IRQ (ffffffff8148a693)
-=> ret_from_intr (ffffffff814814a7)
-=> cpu_idle (ffffffff8100ac16)
-=> start_secondary (ffffffff81af5e66)
-
-This is protocol=4 so I don't know if it is really relevant but then
-again I don't know what this is.
-
-          <idle>-0     [003] 11914.266635: kfree_skb:            skbaddr=0xffff880584843b00 protocol=2048 location=0xffffffff8143bfa8
-          <idle>-0     [003] 11914.266641: kernel_stack:         <stack trace>
-=> igmp_rcv (ffffffff8143bfa8)
-=> ip_local_deliver_finish (ffffffff814049ed)
-=> ip_local_deliver (ffffffff81404d1a)
-=> ip_rcv_finish (ffffffff814046ad)
-=> ip_rcv (ffffffff81404f61)
-=> __netif_receive_skb (ffffffff813ce123)
-=> netif_receive_skb (ffffffff813d0da1)
-=> mlx4_en_process_rx_cq (ffffffffa010a4fe)
-=> mlx4_en_poll_rx_cq (ffffffffa010a9ef)
-=> net_rx_action (ffffffff813d2449)
-=> __do_softirq (ffffffff8103bfd0)
-=> call_softirq (ffffffff8148a14c)
-=> do_softirq (ffffffff81003e85)
-=> irq_exit (ffffffff8103c3a5)
-=> do_IRQ (ffffffff8148a693)
-=> ret_from_intr (ffffffff814814a7)
-=> cpu_idle (ffffffff8100ac16)
-=> start_secondary (ffffffff81af5e66)
-
-Also don't know if this one is relevant.  This looks like an igmp
-packet so probably not my drop, but I am receiving multicast packets
-in this case so maybe it is somehow related.
-
-If any of these spark any ideas let me know otherwise I'll keep
-digging and try 3.5/3.6 tomorrow.
-
-Thanks,
-Shawn
-
-
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index c9fdde2..df73cf4 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -153,6 +153,7 @@ struct nlattr {
+ 
+ #include <linux/capability.h>
+ #include <linux/skbuff.h>
++#include <net/scm.h>
+ 
+ struct net;
+ 
+@@ -162,7 +163,7 @@ static inline struct nlmsghdr *nlmsg_hdr(const struct sk_buff *skb)
+ }
+ 
+ struct netlink_skb_parms {
+-	struct ucred		creds;		/* Skb credentials	*/
++	struct scm_creds	creds;		/* Skb credentials	*/
+ 	__u32			pid;
+ 	__u32			dst_group;
+ 	struct sock		*ssk;
+diff --git a/include/net/scm.h b/include/net/scm.h
+index 079d788..000b6f7 100644
+--- a/include/net/scm.h
++++ b/include/net/scm.h
+@@ -12,6 +12,12 @@
+  */
+ #define SCM_MAX_FD	253
+ 
++struct scm_creds {
++	u32	pid;
++	kuid_t	uid;
++	kgid_t	gid;
++};
++
+ struct scm_fp_list {
+ 	short			count;
+ 	short			max;
+@@ -22,7 +28,7 @@ struct scm_cookie {
+ 	struct pid		*pid;		/* Skb credentials */
+ 	const struct cred	*cred;
+ 	struct scm_fp_list	*fp;		/* Passed files		*/
+-	struct ucred		creds;		/* Skb credentials	*/
++	struct scm_creds	creds;		/* Skb credentials	*/
+ #ifdef CONFIG_SECURITY_NETWORK
+ 	u32			secid;		/* Passed security ID 	*/
+ #endif
+@@ -49,7 +55,9 @@ static __inline__ void scm_set_cred(struct scm_cookie *scm,
+ {
+ 	scm->pid  = get_pid(pid);
+ 	scm->cred = cred ? get_cred(cred) : NULL;
+-	cred_to_ucred(pid, cred, &scm->creds);
++	scm->creds.pid = pid_vnr(pid);
++	scm->creds.uid = cred ? cred->euid : INVALID_UID;
++	scm->creds.gid = cred ? cred->egid : INVALID_GID;
+ }
+ 
+ static __inline__ void scm_destroy_cred(struct scm_cookie *scm)
+@@ -110,8 +118,15 @@ static __inline__ void scm_recv(struct socket *sock, struct msghdr *msg,
+ 		return;
+ 	}
+ 
+-	if (test_bit(SOCK_PASSCRED, &sock->flags))
+-		put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, sizeof(scm->creds), &scm->creds);
++	if (test_bit(SOCK_PASSCRED, &sock->flags)) {
++		struct user_namespace *current_ns = current_user_ns();
++		struct ucred ucreds = {
++			.pid = scm->creds.pid,
++			.uid = from_kuid_munged(current_ns, scm->creds.uid),
++			.gid = from_kgid_munged(current_ns, scm->creds.gid),
++		};
++		put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, sizeof(ucreds), &ucreds);
++	}
+ 
+ 	scm_destroy_cred(scm);
+ 
+diff --git a/net/core/scm.c b/net/core/scm.c
+index 5472ae7..64b41d8 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -155,19 +155,21 @@ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *p)
+ 			break;
+ 		case SCM_CREDENTIALS:
+ 		{
++			struct ucred creds;
+ 			kuid_t uid;
+ 			kgid_t gid;
+ 			if (cmsg->cmsg_len != CMSG_LEN(sizeof(struct ucred)))
+ 				goto error;
+-			memcpy(&p->creds, CMSG_DATA(cmsg), sizeof(struct ucred));
+-			err = scm_check_creds(&p->creds);
++			memcpy(&creds, CMSG_DATA(cmsg), sizeof(struct ucred));
++			err = scm_check_creds(&creds);
+ 			if (err)
+ 				goto error;
+ 
+-			if (!p->pid || pid_vnr(p->pid) != p->creds.pid) {
++			p->creds.pid = creds.pid;
++			if (!p->pid || pid_vnr(p->pid) != creds.pid) {
+ 				struct pid *pid;
+ 				err = -ESRCH;
+-				pid = find_get_pid(p->creds.pid);
++				pid = find_get_pid(creds.pid);
+ 				if (!pid)
+ 					goto error;
+ 				put_pid(p->pid);
+@@ -175,11 +177,14 @@ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *p)
+ 			}
+ 
+ 			err = -EINVAL;
+-			uid = make_kuid(current_user_ns(), p->creds.uid);
+-			gid = make_kgid(current_user_ns(), p->creds.gid);
++			uid = make_kuid(current_user_ns(), creds.uid);
++			gid = make_kgid(current_user_ns(), creds.gid);
+ 			if (!uid_valid(uid) || !gid_valid(gid))
+ 				goto error;
+ 
++			p->creds.uid = uid;
++			p->creds.gid = gid;
++
+ 			if (!p->cred ||
+ 			    !uid_eq(p->cred->euid, uid) ||
+ 			    !gid_eq(p->cred->egid, gid)) {
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 7cb7867..6473267 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1398,7 +1398,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 
+ 	NETLINK_CB(skb).pid	= nlk->pid;
+ 	NETLINK_CB(skb).dst_group = dst_group;
+-	memcpy(NETLINK_CREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
++	NETLINK_CB(skb).creds	= siocb->scm->creds;
+ 
+ 	err = -EFAULT;
+ 	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
 -- 
-
----------------------------------------------------------------
-This email, along with any attachments, is confidential. If you 
-believe you received this message in error, please contact the 
-sender immediately and delete all copies of the message.  
-Thank you.
+1.7.5.4
