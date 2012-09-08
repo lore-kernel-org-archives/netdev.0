@@ -1,48 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] scsi_netlink: Remove dead and buggy code
-Date: Sat, 08 Sep 2012 18:51:05 -0400 (EDT)
-Message-ID: <20120908.185105.2033125004492160106.davem@davemloft.net>
-References: <87pq5xjw4m.fsf@xmission.com>
+Subject: Re: [PATCH 0/2] [v3] netlink_kernel_create updates
+Date: Sat, 08 Sep 2012 19:16:26 -0400 (EDT)
+Message-ID: <20120908.191626.1983652914856307985.davem@davemloft.net>
+References: <1347108834-15429-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, James.Bottomley@parallels.com,
-	James.Smart@Emulex.Com
-To: ebiederm@xmission.com
+Cc: netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35571 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35976 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753375Ab2IHWvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2012 18:51:07 -0400
-In-Reply-To: <87pq5xjw4m.fsf@xmission.com>
+	with ESMTP id S1753841Ab2IHXQ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2012 19:16:27 -0400
+In-Reply-To: <1347108834-15429-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Fri, 07 Sep 2012 15:39:21 -0700
+From: pablo@netfilter.org
+Date: Sat,  8 Sep 2012 14:53:52 +0200
 
-> 
-> The scsi netlink code confuses the netlink port id with a process id,
-> going so far as to read NETLINK_CREDS(skb)->pid instead of the correct
-> NETLINK_CB(skb).pid.  Fortunately it does not matter because nothing
-> registers to respond to scsi netlink requests.
-> 
-> The only interesting use of the scsi_netlink interface is
-> fc_host_post_vendor_event which sends a netlink multicast message.
-> 
-> Since nothing registers to handle scsi netlink messages kill all of the
-> registration logic, while retaining the same error handling behavior
-> preserving the userspace visible behavior and removing all of the
-> confused code that thought a netlink port id was a process id.
-> 
-> This was tested with a kernel allyesconfig build which had no problems.
-> 
-> Cc: James Bottomley <James.Bottomley@parallels.com>
-> Cc: James Smart <James.Smart@Emulex.Com>
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> Fixed the infiniband issue. New round of these patches.
+ ...
+> Pablo Neira Ayuso (2):
+>   netlink: kill netlink_set_nonroot
+>   netlink: hide struct module parameter in netlink_kernel_create
 
-Yeah I can't see anyone, anywhere, using these scsi_send_nl_*()
-interfaces at all.
-
-When I get an ACK from the scsi folks I'll add this to net-next,
-thanks Eric.
+All applied to net-next, thanks.
