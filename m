@@ -1,52 +1,255 @@
 From: pablo@netfilter.org
-Subject: [PATCH 0/2] [v3] netlink_kernel_create updates
-Date: Sat,  8 Sep 2012 14:53:52 +0200
-Message-ID: <1347108834-15429-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/2] netlink: kill netlink_set_nonroot
+Date: Sat,  8 Sep 2012 14:53:53 +0200
+Message-ID: <1347108834-15429-2-git-send-email-pablo@netfilter.org>
+References: <1347108834-15429-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:43846 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:43847 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752584Ab2IHMzF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Sep 2012 08:55:05 -0400
+	id S1752717Ab2IHMzG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Sep 2012 08:55:06 -0400
+In-Reply-To: <1347108834-15429-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Hi David,
+Replace netlink_set_nonroot by one new field `flags' in
+struct netlink_kernel_cfg that is passed to netlink_kernel_create.
 
-Fixed the infiniband issue. New round of these patches.
+This patch also renames NL_NONROOT_* to NL_CFG_F_NONROOT_* since
+now the flags field in nl_table is generic (so we can add more
+flags if needed in the future).
 
-Please, apply.
+Also adjust all callers in the net-next tree to use these flags
+instead of netlink_set_nonroot.
 
-Thanks!
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ include/linux/netlink.h    |    9 ++++-----
+ lib/kobject_uevent.c       |    2 +-
+ net/core/rtnetlink.c       |    2 +-
+ net/netlink/af_netlink.c   |   28 +++++++++++++---------------
+ net/netlink/genetlink.c    |    3 +--
+ security/selinux/netlink.c |    2 +-
+ 6 files changed, 21 insertions(+), 25 deletions(-)
 
-Pablo Neira Ayuso (2):
-  netlink: kill netlink_set_nonroot
-  netlink: hide struct module parameter in netlink_kernel_create
-
- crypto/crypto_user.c                |    3 +--
- drivers/connector/connector.c       |    3 +--
- drivers/infiniband/core/netlink.c   |    2 +-
- drivers/scsi/scsi_netlink.c         |    2 +-
- drivers/scsi/scsi_transport_iscsi.c |    3 +--
- drivers/staging/gdm72xx/netlink_k.c |    2 +-
- include/linux/netlink.h             |   22 +++++++++++++--------
- kernel/audit.c                      |    3 +--
- lib/kobject_uevent.c                |    5 ++---
- net/bridge/netfilter/ebt_ulog.c     |    3 +--
- net/core/rtnetlink.c                |    4 ++--
- net/core/sock_diag.c                |    3 +--
- net/decnet/netfilter/dn_rtmsg.c     |    3 +--
- net/ipv4/fib_frontend.c             |    2 +-
- net/ipv4/netfilter/ipt_ULOG.c       |    3 +--
- net/netfilter/nfnetlink.c           |    2 +-
- net/netlink/af_netlink.c            |   36 ++++++++++++++++-------------------
- net/netlink/genetlink.c             |    6 ++----
- net/xfrm/xfrm_user.c                |    2 +-
- security/selinux/netlink.c          |    5 ++---
- 20 files changed, 52 insertions(+), 62 deletions(-)
-
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index c9fdde2..d30ee743 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -175,12 +175,16 @@ struct netlink_skb_parms {
+ extern void netlink_table_grab(void);
+ extern void netlink_table_ungrab(void);
+ 
++#define NL_CFG_F_NONROOT_RECV	(1 << 0)
++#define NL_CFG_F_NONROOT_SEND	(1 << 1)
++
+ /* optional Netlink kernel configuration parameters */
+ struct netlink_kernel_cfg {
+ 	unsigned int	groups;
+ 	void		(*input)(struct sk_buff *skb);
+ 	struct mutex	*cb_mutex;
+ 	void		(*bind)(int group);
++	unsigned int	flags;
+ };
+ 
+ extern struct sock *netlink_kernel_create(struct net *net, int unit,
+@@ -259,11 +263,6 @@ extern int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
+ 			      const struct nlmsghdr *nlh,
+ 			      struct netlink_dump_control *control);
+ 
+-
+-#define NL_NONROOT_RECV 0x1
+-#define NL_NONROOT_SEND 0x2
+-extern void netlink_set_nonroot(int protocol, unsigned flag);
+-
+ #endif /* __KERNEL__ */
+ 
+ #endif	/* __LINUX_NETLINK_H */
+diff --git a/lib/kobject_uevent.c b/lib/kobject_uevent.c
+index 0401d29..c2e9778 100644
+--- a/lib/kobject_uevent.c
++++ b/lib/kobject_uevent.c
+@@ -375,6 +375,7 @@ static int uevent_net_init(struct net *net)
+ 	struct uevent_sock *ue_sk;
+ 	struct netlink_kernel_cfg cfg = {
+ 		.groups	= 1,
++		.flags	= NL_CFG_F_NONROOT_RECV,
+ 	};
+ 
+ 	ue_sk = kzalloc(sizeof(*ue_sk), GFP_KERNEL);
+@@ -422,7 +423,6 @@ static struct pernet_operations uevent_net_ops = {
+ 
+ static int __init kobject_uevent_init(void)
+ {
+-	netlink_set_nonroot(NETLINK_KOBJECT_UEVENT, NL_NONROOT_RECV);
+ 	return register_pernet_subsys(&uevent_net_ops);
+ }
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index c64efcf..a71806e 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2381,6 +2381,7 @@ static int __net_init rtnetlink_net_init(struct net *net)
+ 		.groups		= RTNLGRP_MAX,
+ 		.input		= rtnetlink_rcv,
+ 		.cb_mutex	= &rtnl_mutex,
++		.flags		= NL_CFG_F_NONROOT_RECV,
+ 	};
+ 
+ 	sk = netlink_kernel_create(net, NETLINK_ROUTE, THIS_MODULE, &cfg);
+@@ -2416,7 +2417,6 @@ void __init rtnetlink_init(void)
+ 	if (register_pernet_subsys(&rtnetlink_net_ops))
+ 		panic("rtnetlink_init: cannot initialize rtnetlink\n");
+ 
+-	netlink_set_nonroot(NETLINK_ROUTE, NL_NONROOT_RECV);
+ 	register_netdevice_notifier(&rtnetlink_dev_notifier);
+ 
+ 	rtnl_register(PF_UNSPEC, RTM_GETLINK, rtnl_getlink,
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 3821199..1543a66 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -121,7 +121,7 @@ struct netlink_table {
+ 	struct nl_pid_hash	hash;
+ 	struct hlist_head	mc_list;
+ 	struct listeners __rcu	*listeners;
+-	unsigned int		nl_nonroot;
++	unsigned int		flags;
+ 	unsigned int		groups;
+ 	struct mutex		*cb_mutex;
+ 	struct module		*module;
+@@ -536,6 +536,8 @@ static int netlink_release(struct socket *sock)
+ 		if (--nl_table[sk->sk_protocol].registered == 0) {
+ 			kfree(nl_table[sk->sk_protocol].listeners);
+ 			nl_table[sk->sk_protocol].module = NULL;
++			nl_table[sk->sk_protocol].bind = NULL;
++			nl_table[sk->sk_protocol].flags = 0;
+ 			nl_table[sk->sk_protocol].registered = 0;
+ 		}
+ 	} else if (nlk->subscriptions) {
+@@ -596,7 +598,7 @@ retry:
+ 
+ static inline int netlink_capable(const struct socket *sock, unsigned int flag)
+ {
+-	return (nl_table[sock->sk->sk_protocol].nl_nonroot & flag) ||
++	return (nl_table[sock->sk->sk_protocol].flags & flag) ||
+ 	       capable(CAP_NET_ADMIN);
+ }
+ 
+@@ -659,7 +661,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 
+ 	/* Only superuser is allowed to listen multicasts */
+ 	if (nladdr->nl_groups) {
+-		if (!netlink_capable(sock, NL_NONROOT_RECV))
++		if (!netlink_capable(sock, NL_CFG_F_NONROOT_RECV))
+ 			return -EPERM;
+ 		err = netlink_realloc_groups(sk);
+ 		if (err)
+@@ -721,7 +723,7 @@ static int netlink_connect(struct socket *sock, struct sockaddr *addr,
+ 		return -EINVAL;
+ 
+ 	/* Only superuser is allowed to send multicasts */
+-	if (nladdr->nl_groups && !netlink_capable(sock, NL_NONROOT_SEND))
++	if (nladdr->nl_groups && !netlink_capable(sock, NL_CFG_F_NONROOT_SEND))
+ 		return -EPERM;
+ 
+ 	if (!nlk->pid)
+@@ -1244,7 +1246,7 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
+ 		break;
+ 	case NETLINK_ADD_MEMBERSHIP:
+ 	case NETLINK_DROP_MEMBERSHIP: {
+-		if (!netlink_capable(sock, NL_NONROOT_RECV))
++		if (!netlink_capable(sock, NL_CFG_F_NONROOT_RECV))
+ 			return -EPERM;
+ 		err = netlink_realloc_groups(sk);
+ 		if (err)
+@@ -1376,7 +1378,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		dst_group = ffs(addr->nl_groups);
+ 		err =  -EPERM;
+ 		if ((dst_group || dst_pid) &&
+-		    !netlink_capable(sock, NL_NONROOT_SEND))
++		    !netlink_capable(sock, NL_CFG_F_NONROOT_SEND))
+ 			goto out;
+ 	} else {
+ 		dst_pid = nlk->dst_pid;
+@@ -1580,7 +1582,10 @@ netlink_kernel_create(struct net *net, int unit,
+ 		rcu_assign_pointer(nl_table[unit].listeners, listeners);
+ 		nl_table[unit].cb_mutex = cb_mutex;
+ 		nl_table[unit].module = module;
+-		nl_table[unit].bind = cfg ? cfg->bind : NULL;
++		if (cfg) {
++			nl_table[unit].bind = cfg->bind;
++			nl_table[unit].flags = cfg->flags;
++		}
+ 		nl_table[unit].registered = 1;
+ 	} else {
+ 		kfree(listeners);
+@@ -1679,13 +1684,6 @@ void netlink_clear_multicast_users(struct sock *ksk, unsigned int group)
+ 	netlink_table_ungrab();
+ }
+ 
+-void netlink_set_nonroot(int protocol, unsigned int flags)
+-{
+-	if ((unsigned int)protocol < MAX_LINKS)
+-		nl_table[protocol].nl_nonroot = flags;
+-}
+-EXPORT_SYMBOL(netlink_set_nonroot);
+-
+ struct nlmsghdr *
+ __nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len, int flags)
+ {
+@@ -2150,7 +2148,7 @@ static void __init netlink_add_usersock_entry(void)
+ 	rcu_assign_pointer(nl_table[NETLINK_USERSOCK].listeners, listeners);
+ 	nl_table[NETLINK_USERSOCK].module = THIS_MODULE;
+ 	nl_table[NETLINK_USERSOCK].registered = 1;
+-	nl_table[NETLINK_USERSOCK].nl_nonroot = NL_NONROOT_SEND;
++	nl_table[NETLINK_USERSOCK].flags = NL_CFG_F_NONROOT_SEND;
+ 
+ 	netlink_table_ungrab();
+ }
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index fda4974..c1b71ae 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -918,6 +918,7 @@ static int __net_init genl_pernet_init(struct net *net)
+ 	struct netlink_kernel_cfg cfg = {
+ 		.input		= genl_rcv,
+ 		.cb_mutex	= &genl_mutex,
++		.flags		= NL_CFG_F_NONROOT_RECV,
+ 	};
+ 
+ 	/* we'll bump the group number right afterwards */
+@@ -955,8 +956,6 @@ static int __init genl_init(void)
+ 	if (err < 0)
+ 		goto problem;
+ 
+-	netlink_set_nonroot(NETLINK_GENERIC, NL_NONROOT_RECV);
+-
+ 	err = register_pernet_subsys(&genl_pernet_ops);
+ 	if (err)
+ 		goto problem;
+diff --git a/security/selinux/netlink.c b/security/selinux/netlink.c
+index 8a77725..0d2cd11 100644
+--- a/security/selinux/netlink.c
++++ b/security/selinux/netlink.c
+@@ -113,13 +113,13 @@ static int __init selnl_init(void)
+ {
+ 	struct netlink_kernel_cfg cfg = {
+ 		.groups	= SELNLGRP_MAX,
++		.flags	= NL_CFG_F_NONROOT_RECV,
+ 	};
+ 
+ 	selnl = netlink_kernel_create(&init_net, NETLINK_SELINUX,
+ 				      THIS_MODULE, &cfg);
+ 	if (selnl == NULL)
+ 		panic("SELinux:  Cannot create netlink socket.");
+-	netlink_set_nonroot(NETLINK_SELINUX, NL_NONROOT_RECV);
+ 	return 0;
+ }
+ 
 -- 
 1.7.10.4
