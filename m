@@ -1,49 +1,52 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH] xfrm: Report user triggered expirations against the users
- socket
-Date: Sat, 08 Sep 2012 07:48:14 -0400
-Message-ID: <504B307E.2030607@mojatatu.com>
-References: <87a9x1j9qh.fsf@xmission.com> <871uidj8so.fsf@xmission.com> <87pq5xhtky.fsf_-_@xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jamal Hadi Salim <hadi@cyberus.ca>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+From: pablo@netfilter.org
+Subject: [PATCH 0/2] [v3] netlink_kernel_create updates
+Date: Sat,  8 Sep 2012 14:53:52 +0200
+Message-ID: <1347108834-15429-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:43441 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754143Ab2IHLs1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2012 07:48:27 -0400
-Received: by ieje11 with SMTP id e11so529609iej.19
-        for <netdev@vger.kernel.org>; Sat, 08 Sep 2012 04:48:26 -0700 (PDT)
-In-Reply-To: <87pq5xhtky.fsf_-_@xmission.com>
+Received: from mail.us.es ([193.147.175.20]:43846 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752584Ab2IHMzF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Sep 2012 08:55:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12-09-08 03:17 AM, Eric W. Biederman wrote:
-> When a policy expiration is triggered from user space the request
-> travles through km_policy_expired and ultimately into
-> xfrm_exp_policy_notify which calls build_polexpire.  build_polexpire
-> uses the netlink port passed to km_policy_expired as the source port for
-> the netlink message it builds.
->
-> When a state expiration is triggered from user space the request travles
-> through km_state_expired and ultimately into xfrm_exp_state_notify which
-> calls build_expire.  build_expire uses the netlink port passed to
-> km_state_expired as the source port for the netlink message it builds.
->
-> Pass nlh->nlmsg_pid from the user generated netlink message that
-> requested the expiration to km_policy_expired and km_state_expired
-> instead of current->pid which is not a netlink port number.
->
-> Cc: Jamal Hadi Salim <hadi@cyberus.ca>
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
->
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-I suppose.
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Hi David,
 
+Fixed the infiniband issue. New round of these patches.
 
-cheers,
-jamal
+Please, apply.
+
+Thanks!
+
+Pablo Neira Ayuso (2):
+  netlink: kill netlink_set_nonroot
+  netlink: hide struct module parameter in netlink_kernel_create
+
+ crypto/crypto_user.c                |    3 +--
+ drivers/connector/connector.c       |    3 +--
+ drivers/infiniband/core/netlink.c   |    2 +-
+ drivers/scsi/scsi_netlink.c         |    2 +-
+ drivers/scsi/scsi_transport_iscsi.c |    3 +--
+ drivers/staging/gdm72xx/netlink_k.c |    2 +-
+ include/linux/netlink.h             |   22 +++++++++++++--------
+ kernel/audit.c                      |    3 +--
+ lib/kobject_uevent.c                |    5 ++---
+ net/bridge/netfilter/ebt_ulog.c     |    3 +--
+ net/core/rtnetlink.c                |    4 ++--
+ net/core/sock_diag.c                |    3 +--
+ net/decnet/netfilter/dn_rtmsg.c     |    3 +--
+ net/ipv4/fib_frontend.c             |    2 +-
+ net/ipv4/netfilter/ipt_ULOG.c       |    3 +--
+ net/netfilter/nfnetlink.c           |    2 +-
+ net/netlink/af_netlink.c            |   36 ++++++++++++++++-------------------
+ net/netlink/genetlink.c             |    6 ++----
+ net/xfrm/xfrm_user.c                |    2 +-
+ security/selinux/netlink.c          |    5 ++---
+ 20 files changed, 52 insertions(+), 62 deletions(-)
+
+-- 
+1.7.10.4
