@@ -1,130 +1,99 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 1/5] cnic: Add functions to allocate and free
- UIO rings
-Date: Sat, 8 Sep 2012 09:01:01 -0700
-Message-ID: <1347120065-26492-1-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net-next 3/5] cnic: Add function pointers to arm IRQ for
+ different devices.
+Date: Sat, 8 Sep 2012 09:01:03 -0700
+Message-ID: <1347120065-26492-3-git-send-email-mchan@broadcom.com>
+References: <1347120065-26492-1-git-send-email-mchan@broadcom.com>
+ <1347120065-26492-2-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3146 "EHLO mms3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3150 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754894Ab2IHPsV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754953Ab2IHPsV (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 8 Sep 2012 11:48:21 -0400
+In-Reply-To: <1347120065-26492-2-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These functions are needed to free up memory when the rings are no longer
-needed.
+This will make it easier to exit IRQ loop and re-arm IRQ on devices that
+don't support FCoE.
 
 Reviewed-by: Eddie Wai <eddie.wai@broadcom.com>
 Reviewed-by: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/cnic.c |   59 +++++++++++++++++++++++-----------
- 1 files changed, 40 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/broadcom/cnic.c |   26 ++++++++++++++++++++++----
+ drivers/net/ethernet/broadcom/cnic.h |    1 +
+ 2 files changed, 23 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-index 3b4fc61..ff35894 100644
+index 38be4d9..ac08b8e 100644
 --- a/drivers/net/ethernet/broadcom/cnic.c
 +++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -823,10 +823,8 @@ static void cnic_free_context(struct cnic_dev *dev)
- 	}
+@@ -3078,6 +3078,22 @@ static void cnic_ack_bnx2x_e2_msix(struct cnic_dev *dev)
+ 			IGU_INT_DISABLE, 0);
  }
  
--static void __cnic_free_uio(struct cnic_uio_dev *udev)
-+static void __cnic_free_uio_rings(struct cnic_uio_dev *udev)
- {
--	uio_unregister_device(&udev->cnic_uinfo);
--
- 	if (udev->l2_buf) {
- 		dma_free_coherent(&udev->pdev->dev, udev->l2_buf_size,
- 				  udev->l2_buf, udev->l2_buf_map);
-@@ -839,6 +837,14 @@ static void __cnic_free_uio(struct cnic_uio_dev *udev)
- 		udev->l2_ring = NULL;
- 	}
- 
++static void cnic_arm_bnx2x_msix(struct cnic_dev *dev, u32 idx)
++{
++	struct cnic_local *cp = dev->cnic_priv;
++
++	cnic_ack_bnx2x_int(dev, cp->bnx2x_igu_sb_id, CSTORM_ID, idx,
++			   IGU_INT_ENABLE, 1);
 +}
 +
-+static void __cnic_free_uio(struct cnic_uio_dev *udev)
++static void cnic_arm_bnx2x_e2_msix(struct cnic_dev *dev, u32 idx)
 +{
-+	uio_unregister_device(&udev->cnic_uinfo);
++	struct cnic_local *cp = dev->cnic_priv;
 +
-+	__cnic_free_uio_rings(udev);
++	cnic_ack_igu_sb(dev, cp->bnx2x_igu_sb_id, IGU_SEG_ACCESS_DEF, idx,
++			IGU_INT_ENABLE, 1);
++}
 +
- 	pci_dev_put(udev->pdev);
- 	kfree(udev);
- }
-@@ -996,6 +1002,34 @@ static int cnic_alloc_kcq(struct cnic_dev *dev, struct kcq_info *info,
- 	return 0;
- }
+ static u32 cnic_service_bnx2x_kcq(struct cnic_dev *dev, struct kcq_info *info)
+ {
+ 	u32 last_status = *info->status_idx_ptr;
+@@ -3115,8 +3131,7 @@ static void cnic_service_bnx2x_bh(unsigned long data)
+ 			  cp->kcq1.sw_prod_idx + MAX_KCQ_IDX);
  
-+static int __cnic_alloc_uio_rings(struct cnic_uio_dev *udev, int pages)
-+{
-+	struct cnic_local *cp = udev->dev->cnic_priv;
-+
-+	if (udev->l2_ring)
-+		return 0;
-+
-+	udev->l2_ring_size = pages * BCM_PAGE_SIZE;
-+	udev->l2_ring = dma_alloc_coherent(&udev->pdev->dev, udev->l2_ring_size,
-+					   &udev->l2_ring_map,
-+					   GFP_KERNEL | __GFP_COMP);
-+	if (!udev->l2_ring)
-+		return -ENOMEM;
-+
-+	udev->l2_buf_size = (cp->l2_rx_ring_size + 1) * cp->l2_single_buf_size;
-+	udev->l2_buf_size = PAGE_ALIGN(udev->l2_buf_size);
-+	udev->l2_buf = dma_alloc_coherent(&udev->pdev->dev, udev->l2_buf_size,
-+					  &udev->l2_buf_map,
-+					  GFP_KERNEL | __GFP_COMP);
-+	if (!udev->l2_buf) {
-+		__cnic_free_uio_rings(udev);
-+		return -ENOMEM;
+ 		if (!BNX2X_CHIP_IS_E2_PLUS(cp->chip_id)) {
+-			cnic_ack_bnx2x_int(dev, cp->bnx2x_igu_sb_id, USTORM_ID,
+-					   status_idx, IGU_INT_ENABLE, 1);
++			cp->arm_int(dev, status_idx);
+ 			break;
+ 		}
+ 
+@@ -5520,10 +5535,13 @@ static struct cnic_dev *init_bnx2x_cnic(struct net_device *dev)
+ 	cp->stop_cm = cnic_cm_stop_bnx2x_hw;
+ 	cp->enable_int = cnic_enable_bnx2x_int;
+ 	cp->disable_int_sync = cnic_disable_bnx2x_int_sync;
+-	if (BNX2X_CHIP_IS_E2_PLUS(cp->chip_id))
++	if (BNX2X_CHIP_IS_E2_PLUS(cp->chip_id)) {
+ 		cp->ack_int = cnic_ack_bnx2x_e2_msix;
+-	else
++		cp->arm_int = cnic_arm_bnx2x_e2_msix;
++	} else {
+ 		cp->ack_int = cnic_ack_bnx2x_msix;
++		cp->arm_int = cnic_arm_bnx2x_msix;
 +	}
-+
-+	return 0;
-+
-+}
-+
- static int cnic_alloc_uio_rings(struct cnic_dev *dev, int pages)
- {
- 	struct cnic_local *cp = dev->cnic_priv;
-@@ -1020,20 +1054,9 @@ static int cnic_alloc_uio_rings(struct cnic_dev *dev, int pages)
+ 	cp->close_conn = cnic_close_bnx2x_conn;
+ 	return cdev;
+ }
+diff --git a/drivers/net/ethernet/broadcom/cnic.h b/drivers/net/ethernet/broadcom/cnic.h
+index 3032809..9643e3a 100644
+--- a/drivers/net/ethernet/broadcom/cnic.h
++++ b/drivers/net/ethernet/broadcom/cnic.h
+@@ -334,6 +334,7 @@ struct cnic_local {
+ 	void			(*enable_int)(struct cnic_dev *);
+ 	void			(*disable_int_sync)(struct cnic_dev *);
+ 	void			(*ack_int)(struct cnic_dev *);
++	void			(*arm_int)(struct cnic_dev *, u32 index);
+ 	void			(*close_conn)(struct cnic_sock *, u32 opcode);
+ };
  
- 	udev->dev = dev;
- 	udev->pdev = dev->pcidev;
--	udev->l2_ring_size = pages * BCM_PAGE_SIZE;
--	udev->l2_ring = dma_alloc_coherent(&udev->pdev->dev, udev->l2_ring_size,
--					   &udev->l2_ring_map,
--					   GFP_KERNEL | __GFP_COMP);
--	if (!udev->l2_ring)
--		goto err_udev;
- 
--	udev->l2_buf_size = (cp->l2_rx_ring_size + 1) * cp->l2_single_buf_size;
--	udev->l2_buf_size = PAGE_ALIGN(udev->l2_buf_size);
--	udev->l2_buf = dma_alloc_coherent(&udev->pdev->dev, udev->l2_buf_size,
--					  &udev->l2_buf_map,
--					  GFP_KERNEL | __GFP_COMP);
--	if (!udev->l2_buf)
--		goto err_dma;
-+	if (__cnic_alloc_uio_rings(udev, pages))
-+		goto err_udev;
- 
- 	write_lock(&cnic_dev_lock);
- 	list_add(&udev->list, &cnic_udev_list);
-@@ -1044,9 +1067,7 @@ static int cnic_alloc_uio_rings(struct cnic_dev *dev, int pages)
- 	cp->udev = udev;
- 
- 	return 0;
-- err_dma:
--	dma_free_coherent(&udev->pdev->dev, udev->l2_ring_size,
--			  udev->l2_ring, udev->l2_ring_map);
-+
-  err_udev:
- 	kfree(udev);
- 	return -ENOMEM;
 -- 
 1.7.1
