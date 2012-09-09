@@ -1,46 +1,47 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: [PATCH] configure: Add search path for 64bit library.
-Date: Sun, 9 Sep 2012 21:42:58 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1209092141390.22738@frira.zrqbmnf.qr>
-References: <1344313376-22602-1-git-send-email-lw@cn.fujitsu.com> <1344363358.2688.8.camel@bwh-desktop.uk.solarflarecom.com> <20120813082624.153167a8@nehalam.linuxnetplumber.net> <1344874960.2733.2.camel@bwh-desktop.uk.solarflarecom.com>
- <20120813093323.1506aa83@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net-tcp: TCP/IP stack bypass for loopback
+ connections
+Date: Sun, 09 Sep 2012 17:39:03 -0400 (EDT)
+Message-ID: <20120909.173903.593154957401069229.davem@davemloft.net>
+References: <50360C81.6000009@draigBrady.com>
+	<1345722015.5904.675.camel@edumazet-glaptop>
+	<alpine.LNX.2.01.1209091954120.15847@frira.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Li Wei <lw@cn.fujitsu.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, P@draigBrady.com, brutus@google.com,
+	edumazet@google.com, netdev@vger.kernel.org
+To: jengelh@inai.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ares07.inai.de ([5.9.24.206]:48641 "EHLO seven.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752589Ab2IITnB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Sep 2012 15:43:01 -0400
-In-Reply-To: <20120813093323.1506aa83@nehalam.linuxnetplumber.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46903 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754939Ab2IIVjG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Sep 2012 17:39:06 -0400
+In-Reply-To: <alpine.LNX.2.01.1209091954120.15847@frira.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: Jan Engelhardt <jengelh@inai.de>
+Date: Sun, 9 Sep 2012 19:54:42 +0200 (CEST)
 
-On Monday 2012-08-13 18:33, Stephen Hemminger wrote:
->> > > >  	IPT_LIB_DIR=""
->> > > > -	for dir in /lib /usr/lib /usr/local/lib
->> > > > +	for dir in /lib /usr/lib /usr/local/lib /lib64 /usr/lib64 /usr/local/lib64
->> > > >  	do
->> > > >  		for file in $dir/{xtables,iptables}/lib*t_*so ; do
->> > > >  			if [ -f $file ]; then
->> > > 
->> > > I think this should be done with pkg-config:
->> > > 
->> > >     pkg-config --variable=xtlibdir xtables
->> > 
->> > Does every distro have pkg-config or does more logic need to be done here?
->> 
->> Every distro has pkg-config; the question is whether you want to support
->> library versions that don't include a pkg-config file (xtables.pc), if
->> they exist.
->
->Let's do pkg-config first, and as a fallback keep the old code and only
->look in the same old places.
+>=20
+> On Thursday 2012-08-23 13:40, Eric Dumazet wrote:
+>>On Thu, 2012-08-23 at 11:57 +0100, P=E1draig Brady wrote:
+>>
+>>> Just to quantify the loopback testing compat issue.
+>>> I often do stuff like the following to test latency.
+>>> Will that be impacted?
+>>>=20
+>>>   tc qdisc add dev lo root handle 1:0 netem delay 20msec
+>>>=20
+>>
+>>Yes this will. At least for tcp traffic this wont "work".
+>>
+>>TCP friends bypass layers, by directly queuing skbs to sockets.
+>>
+>>-> no iptables,=20
+>=20
+> If it amounts to that, you will have upset users rather soon.
 
-Every distro that has libxtables.so also has the .pc file.
-
-The obvious reason to have the .pc file is to render such error
-prone static path searching redundant.
+This is over "loopback", you're just being rediculous.  %99.9999 of
+people simply do not care.
