@@ -1,47 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net-tcp: TCP/IP stack bypass for loopback
- connections
-Date: Sun, 09 Sep 2012 17:39:03 -0400 (EDT)
-Message-ID: <20120909.173903.593154957401069229.davem@davemloft.net>
-References: <50360C81.6000009@draigBrady.com>
-	<1345722015.5904.675.camel@edumazet-glaptop>
-	<alpine.LNX.2.01.1209091954120.15847@frira.zrqbmnf.qr>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: netlink: hide struct module parameter in netlink_kernel_create
+Date: Mon, 10 Sep 2012 09:37:12 +1000
+Message-ID: <20120910093712.18e5718b605f84aa4e76f7d9@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, P@draigBrady.com, brutus@google.com,
-	edumazet@google.com, netdev@vger.kernel.org
-To: jengelh@inai.de
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Mon__10_Sep_2012_09_37_12_+1000_PV8FnS2eXKkH9gtC"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46903 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754939Ab2IIVjG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Sep 2012 17:39:06 -0400
-In-Reply-To: <alpine.LNX.2.01.1209091954120.15847@frira.zrqbmnf.qr>
+Received: from haggis.pcug.org.au ([203.10.76.10]:34813 "EHLO
+	members.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755703Ab2IIXhY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Sep 2012 19:37:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Jan Engelhardt <jengelh@inai.de>
-Date: Sun, 9 Sep 2012 19:54:42 +0200 (CEST)
+--Signature=_Mon__10_Sep_2012_09_37_12_+1000_PV8FnS2eXKkH9gtC
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
->=20
-> On Thursday 2012-08-23 13:40, Eric Dumazet wrote:
->>On Thu, 2012-08-23 at 11:57 +0100, P=E1draig Brady wrote:
->>
->>> Just to quantify the loopback testing compat issue.
->>> I often do stuff like the following to test latency.
->>> Will that be impacted?
->>>=20
->>>   tc qdisc add dev lo root handle 1:0 netem delay 20msec
->>>=20
->>
->>Yes this will. At least for tcp traffic this wont "work".
->>
->>TCP friends bypass layers, by directly queuing skbs to sockets.
->>
->>-> no iptables,=20
->=20
-> If it amounts to that, you will have upset users rather soon.
+Hi all,
 
-This is over "loopback", you're just being rediculous.  %99.9999 of
-people simply do not care.
+I didn't see the original patch until it reached linux-enxt this morning,
+but just a comment:
+
+THIS_MODULE is defined in linux/export.h, so that should be included in
+linux/netlink.h instead of linux/module.h as it is much smaller.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Mon__10_Sep_2012_09_37_12_+1000_PV8FnS2eXKkH9gtC
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJQTSgoAAoJEECxmPOUX5FEkW4P/0kCSS+103zPIB1wm33KTo23
+hjq4g9pNPZAlwqrfCh+hAmLyAsGDgCpe++sOHULMidtE4+9r1VJKMwE18bjv6Ss/
+oBiWVnCFd5PtwiZaSizV8K/qERfR/9PkpmSpt5rcDA7O4qHZBjOCZyzdu5hZxg1Z
+yE8R1sO7rmsRSisuPxncqEDnGFnTG8Qu28sYE3+xLNlJmWX40+Ryo9mQGcy6k9ev
+a9m2HjPqtDv8QnZZpIg2p9PjIAGOgmuYjBss9p0ImkDIZ6dykc+v8O69FWrXYpbA
+zI3EKPBq9wk7vQZFB836/LBJhHK41Tjc4Uyg3eOOWAar1Msk4t9zyW//V1+uMMi1
+DUbehc2h4Xcw0oIB5NUXAbL9p7GFKtuWpEIsYc6rLEIjBYVt/9dQYAyNLCPONjxS
+cMDI7cj4g58aUbNJygpOmFMXIYSrQBAiVNypdiUl/UHo/iOPRhwP/KQuktKemrdw
+nDMHDvsI4iZwAOdiltd0f3fOLze2CbjTvuwKGfbEEuJbNdYrsLdJRPU6At1YaNMT
+Inxbq903GuisAvhTdqzueJTE3+Y+3Gq9o1F9pJMqCOvxA6EElV8F4zK4v18tpEu6
+C4cmtGyOFoJpS5bvwJLFCuIyj3rcley5Yf8snlUHw0p4cyFEiArgBMhs9w4mkQCr
+4n3uYSfLhImSbyZhqpRm
+=PTZH
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__10_Sep_2012_09_37_12_+1000_PV8FnS2eXKkH9gtC--
