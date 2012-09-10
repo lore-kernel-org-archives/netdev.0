@@ -1,35 +1,33 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: Re: [PATCH 2/3] ipv6, route: remove BACKTRACK() macro
-Date: Mon, 10 Sep 2012 21:43:37 +0800
-Message-ID: <504DEE89.8030606@gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 2/3] ipv6, route: remove BACKTRACK() macro
+Date: Mon, 10 Sep 2012 14:54:45 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6FE6@saturn3.aculab.com>
 References: <1347281326-26890-1-git-send-email-amwang@redhat.com> <1347281326-26890-2-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>
+To: "Cong Wang" <amwang@redhat.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:38140 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755754Ab2IJNnn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 09:43:43 -0400
-Received: by pbbrr13 with SMTP id rr13so2469765pbb.19
-        for <netdev@vger.kernel.org>; Mon, 10 Sep 2012 06:43:42 -0700 (PDT)
+Received: from mx0.aculab.com ([213.249.233.131]:58720 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1757068Ab2IJOF2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 10:05:28 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 01919-06 for <netdev@vger.kernel.org>;
+ Mon, 10 Sep 2012 15:05:24 +0100 (BST)
+Content-class: urn:content-classes:message
 In-Reply-To: <1347281326-26890-2-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang said, at 2012/9/10 20:48:
+> Subject: [PATCH 2/3] ipv6, route: remove BACKTRACK() macro
+> 
 > It doesn't save any code, nor it helps readability.
 > 
 > Signed-off-by: Cong Wang <amwang@redhat.com>
-
-this macro, don't reduce showing lines?
-with it, more readability on terminal, right?
-
-P.S. when doing backport work, some bored patches influence me.
-this patch and [PATCH 3/3] are typical. :-)
-
 > ---
 >  net/ipv6/route.c |   48 ++++++++++++++++++++++++++++--------------------
 >  1 files changed, 28 insertions(+), 20 deletions(-)
@@ -41,7 +39,7 @@ this patch and [PATCH 3/3] are typical. :-)
 > @@ -675,24 +675,6 @@ int rt6_route_rcv(struct net_device *dev, u8 *opt, int len,
 >  }
 >  #endif
->  
+> 
 > -#define BACKTRACK(__net, saddr)			\
 > -do { \
 > -	if (rt == __net->ipv6.ip6_null_entry) {	\
@@ -60,51 +58,10 @@ this patch and [PATCH 3/3] are typical. :-)
 > -	} \
 > -} while (0)
 > -
->  static struct rt6_info *ip6_pol_route_lookup(struct net *net,
->  					     struct fib6_table *table,
->  					     struct flowi6 *fl6, int flags)
-> @@ -705,7 +687,20 @@ static struct rt6_info *ip6_pol_route_lookup(struct net *net,
->  restart:
->  	rt = fn->leaf;
->  	rt = rt6_device_match(net, rt, &fl6->saddr, fl6->flowi6_oif, flags);
-> -	BACKTRACK(net, &fl6->saddr);
-> +	if (rt == net->ipv6.ip6_null_entry) {
-> +		struct fib6_node *pn;
-> +		while (1) {
-> +			if (fn->fn_flags & RTN_TL_ROOT)
-> +				goto out;
-> +			pn = fn->parent;
-> +			if (FIB6_SUBTREE(pn) && FIB6_SUBTREE(pn) != fn)
-> +				fn = fib6_lookup(FIB6_SUBTREE(pn), NULL, &fl6->saddr);
-> +			else
-> +				fn = pn;
-> +			if (fn->fn_flags & RTN_RTINFO)
-> +				goto restart;
-> +		}
-> +	}
->  out:
->  	dst_use(&rt->dst, jiffies);
->  	read_unlock_bh(&table->tb6_lock);
-> @@ -867,7 +862,20 @@ restart_2:
->  restart:
->  	rt = rt6_select(fn, oif, strict | reachable);
->  
-> -	BACKTRACK(net, &fl6->saddr);
-> +	if (rt == net->ipv6.ip6_null_entry) {
-> +		struct fib6_node *pn;
-> +		while (1) {
-> +			if (fn->fn_flags & RTN_TL_ROOT)
-> +				goto out;
-> +			pn = fn->parent;
-> +			if (FIB6_SUBTREE(pn) && FIB6_SUBTREE(pn) != fn)
-> +				fn = fib6_lookup(FIB6_SUBTREE(pn), NULL, &fl6->saddr);
-> +			else
-> +				fn = pn;
-> +			if (fn->fn_flags & RTN_RTINFO)
-> +				goto restart;
-> +		}
-> +	}
->  	if (rt == net->ipv6.ip6_null_entry ||
->  	    rt->rt6i_flags & RTF_CACHE)
->  		goto out;
-> 
+
+It does, however, seem to avoid replicating some relatively complex logic.
+OTOH goto out of a #define and hidden parameters (rt, fn ...) are not nice.
+
+Maybe the 'while (1)' part can be an inline function?
+
+	David
