@@ -1,61 +1,52 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH net v2] ixp4xx_hss: fix build failure due to missing linux/module.h inclusion
-Date: Mon, 10 Sep 2012 14:06:58 +0200
-Message-ID: <1347278818-6913-1-git-send-email-florian@openwrt.org>
-Cc: khc@pm.waw.pl, joe@perches.com, David Miller <davem@davemloft.net>,
-	Florian Fainelli <florian@openwrt.org>, stable@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH 1/2] dst: take into account policy update on check()
+Date: Mon, 10 Sep 2012 14:47:54 +0200
+Message-ID: <504DE17A.1000908@6wind.com>
+References: <504A08EA.3080506@6wind.com> <1347030598.2484.777.camel@edumazet-glaptop> <504A0F1F.5060504@6wind.com> <20120907.144828.97793990734588625.davem@davemloft.net>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, vyasevich@gmail.com, sri@us.ibm.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zmc.proxad.net ([212.27.53.206]:39204 "EHLO zmc.proxad.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752805Ab2IJMHp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Sep 2012 08:07:45 -0400
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:57844 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757838Ab2IJMr6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 08:47:58 -0400
+Received: by eekc1 with SMTP id c1so1097309eek.19
+        for <netdev@vger.kernel.org>; Mon, 10 Sep 2012 05:47:57 -0700 (PDT)
+In-Reply-To: <20120907.144828.97793990734588625.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 36a1211970193ce215de50ed1e4e1272bc814df1 (netprio_cgroup.h:
-dont include module.h from other includes) made the following build
-error on ixp4xx_hss pop up:
+Le 07/09/2012 20:48, David Miller a =E9crit :
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Date: Fri, 07 Sep 2012 17:13:35 +0200
+>
+>> Le 07/09/2012 17:09, Eric Dumazet a =E9crit :
+>>> On Fri, 2012-09-07 at 16:47 +0200, Nicolas Dichtel wrote:
+>>>> Le 07/09/2012 16:35, Eric Dumazet a =E9crit :
+>>>>>
+>>>>> Hmm... cant we reuse rt_genid ?
+>>>>>
+>>>>> (When changing flow_cache_genid, change &net->ipv4.rt_genid)
+>>>>
+>>>> And so adding a new field in net->ipv6?
+>>>
+>>> or move net->ipv4.rt_genid to net->rt_genid
+>>>
+>>> Having separate field for IPv4/IPv6 is of little interest IMHO
+>>>
+>> Ok, I will wait feedback from other people and repost a patch after.
+>
+> A global net->rt_genid is definitely the way to go.
+>
+So it means that IPv6 dst entries will be invalidated by IPv4 route man=
+agement.=20
+=46or example, calling rt_cache_flush() will flush IPv6 dst too. Is thi=
+s acceptable?
 
-  CC [M]  drivers/net/wan/ixp4xx_hss.o
- drivers/net/wan/ixp4xx_hss.c:1412:20: error: expected ';', ',' or ')'
- before string constant
- drivers/net/wan/ixp4xx_hss.c:1413:25: error: expected ';', ',' or ')'
- before string constant
- drivers/net/wan/ixp4xx_hss.c:1414:21: error: expected ';', ',' or ')'
- before string constant
- drivers/net/wan/ixp4xx_hss.c:1415:19: error: expected ';', ',' or ')'
- before string constant
- make[8]: *** [drivers/net/wan/ixp4xx_hss.o] Error 1
-
-This was previously hidden because ixp4xx_hss includes linux/hdlc.h which
-includes linux/netdevice.h which includes linux/netprio_cgroup.h which
-used to include linux/module.h. The real issue was actually present since
-the initial commit that added this driver since it uses macros from
-linux/module.h without including this file.
-
-CC: stable@vger.kernel.org
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
-[stable: 3.3+]
-
-Changes since v1:
-- properly identify the bad commit
-
- drivers/net/wan/ixp4xx_hss.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4xx_hss.c
-index aaaca9a..3f575af 100644
---- a/drivers/net/wan/ixp4xx_hss.c
-+++ b/drivers/net/wan/ixp4xx_hss.c
-@@ -10,6 +10,7 @@
- 
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
-+#include <linux/module.h>
- #include <linux/bitops.h>
- #include <linux/cdev.h>
- #include <linux/dma-mapping.h>
--- 
-1.7.9.5
+I will send a new version.
