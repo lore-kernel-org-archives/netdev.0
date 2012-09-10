@@ -1,70 +1,82 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net] ixp4xx_hss: fix build failure after logging
- conversion
-Date: Mon, 10 Sep 2012 18:04:25 +0100
-Message-ID: <1347296665.2823.13.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1347266590-884-1-git-send-email-florian@openwrt.org>
+From: Alexey ORISHKO <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+Subject: RE: changing usbnet's API to better deal with cdc-ncm
+Date: Mon, 10 Sep 2012 19:10:19 +0200
+Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520154A6AAB5822@EXDCVYMBSTM006.EQ1STM.local>
+References: <2791550.LhGu6po6Xy@linux-lqwf.site>
+ <1800340.RWjbMaZGSN@linux-lqwf.site>
+ <2AC7D4AD8BA1C640B4C60C61C8E520154A6AA5753D@EXDCVYMBSTM006.EQ1STM.local>
+ <1609320.M17H7UceTZ@linux-lqwf.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <khc@pm.waw.pl>, <joe@perches.com>,
-	David Miller <davem@davemloft.net>, <stable@vger.kernel.org>
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:38689 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750891Ab2IJRE3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 13:04:29 -0400
-In-Reply-To: <1347266590-884-1-git-send-email-florian@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: =?iso-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1609320.M17H7UceTZ-ugxBuEnWX9yG/4A2pS7c2Q@public.gmane.org>
+Content-Language: en-US
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-09-10 at 10:43 +0200, Florian Fainelli wrote:
-> Commit c75bb2c6f0cf455c23e60f14d780e841dd47f801 (ixp4xx_hss: Update to
-> current logging forms) converted the ixp4xx_hss module to use the current
-> logging macros, but forgot to include linux/module.h, leading to the
-> following build failures:
+> -----Original Message-----
+> From: Oliver Neukum [mailto:oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org]
+> Sent: Friday, September 07, 2012 8:23 PM
 > 
->   CC [M]  drivers/net/wan/ixp4xx_hss.o
->  drivers/net/wan/ixp4xx_hss.c:1412:20: error: expected ';', ',' or ')'
->  before string constant
->  drivers/net/wan/ixp4xx_hss.c:1413:25: error: expected ';', ',' or ')'
->  before string constant
->  drivers/net/wan/ixp4xx_hss.c:1414:21: error: expected ';', ',' or ')'
->  before string constant
->  drivers/net/wan/ixp4xx_hss.c:1415:19: error: expected ';', ',' or ')'
->  before string constant
->  make[8]: *** [drivers/net/wan/ixp4xx_hss.o] Error 1
+> > There is a temptation to send full NTBs even with a single IP packet,
+> > But it will lead to wasted USB bandwidth and reduced ability to send
+> > real data for other functions in the device or other devices on the
+> > same root hub. Most important it will also harm IN direction.
 > 
-> CC: stable@vger.kernel.org
-> Signed-off-by: Florian Fainelli <florian@openwrt.org>
-> ---
-> [stable: 3.1+]
+> Well, we will eventually need to do so. In that case, shall we send a
+> short package or not?
 
-The versions to receive stable updates should be noted on the inline Cc
-line, not in non-committed comments.  (But David prefers to collect up
-networking patches in his own stable queue rather than using the inline
-Cc mechanism.  So the Cc may not be appropriate at all.)
+The trick is to find a compromise for device load vs wasted bandwidth. 
+Currently if data size is less than 512 bytes, a shot packet will be sent. 
+However, this value might be better tuned based on bus speed (HS/SS)
+and max NTB size negotiated.
 
-Ben.
+Note, that ZLP was avoided in the ncm driver by using flag in usbnet,
+because on some embedded USB controllers handling ZLP was more costly
+than short packet.
 
->  drivers/net/wan/ixp4xx_hss.c |    1 +
->  1 file changed, 1 insertion(+)
+> Well, we know how many packages are available to the device because
+> they have already been scheduled. It seems to be clear that we need to
+> batch while enough are on the way.
+
+It doesn't matter much that some packets on the way to device. What
+matters is the amount of packets in the application Tx queue for
+ncm network device.
+
+> > But an optimal implementation requires that the amount of IP packets
+> > "in progress" or queued up is known to NCM so NCM can decide to send
+> > short or padded NTB or aggregate and send one or more full NTBs plus
+> > short or padded NTB.
 > 
-> diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4xx_hss.c
-> index aaaca9a..3f575af 100644
-> --- a/drivers/net/wan/ixp4xx_hss.c
-> +++ b/drivers/net/wan/ixp4xx_hss.c
-> @@ -10,6 +10,7 @@
->  
->  #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
->  
-> +#include <linux/module.h>
->  #include <linux/bitops.h>
->  #include <linux/cdev.h>
->  #include <linux/dma-mapping.h>
+> What exactly means "in progress"?
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Sent by application to the network device.
+
+> 
+> > An implementation where NCM only knows if there is more data
+> available
+> > or not can be shown to have side-effects that are not easily
+> circumvented.
+> > And likewise shown to limit throughput compared to a timer-based
+> solution.
+> 
+> Well, I must say that the timer is ugly. If absolutely necessary we can
+> keep it, but then I'd much prefer to put it into usbnet and have a
+> generic batching functionality. However, I'd like to explore
+> aternatives.
+
+Is it possible to implement upper layer Tx queue in usbnet, so mini driver 
+could get a clue about outstanding packets to be transmitted?
+
+Regards,
+Alexey
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
