@@ -1,53 +1,41 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH net] ixp4xx_hss: fix build failure after logging conversion
-Date: Mon, 10 Sep 2012 10:43:10 +0200
-Message-ID: <1347266590-884-1-git-send-email-florian@openwrt.org>
-Cc: khc@pm.waw.pl, joe@perches.com, David Miller <davem@davemloft.net>,
-	Florian Fainelli <florian@openwrt.org>, stable@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Andrei Dolnikov <andrey.dolnikov@cogentembedded.com>
+Subject: Failure to send fragmented IP packet in case of missing ARP entry
+Date: Mon, 10 Sep 2012 12:59:46 +0400
+Message-ID: <504DAC02.8040808@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zmc.proxad.net ([212.27.53.206]:36695 "EHLO zmc.proxad.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753176Ab2IJIxv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Sep 2012 04:53:51 -0400
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:38303 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756568Ab2IJI7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 04:59:50 -0400
+Received: by lagy9 with SMTP id y9so936953lag.19
+        for <netdev@vger.kernel.org>; Mon, 10 Sep 2012 01:59:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit c75bb2c6f0cf455c23e60f14d780e841dd47f801 (ixp4xx_hss: Update to
-current logging forms) converted the ixp4xx_hss module to use the current
-logging macros, but forgot to include linux/module.h, leading to the
-following build failures:
+Hello all,
 
-  CC [M]  drivers/net/wan/ixp4xx_hss.o
- drivers/net/wan/ixp4xx_hss.c:1412:20: error: expected ';', ',' or ')'
- before string constant
- drivers/net/wan/ixp4xx_hss.c:1413:25: error: expected ';', ',' or ')'
- before string constant
- drivers/net/wan/ixp4xx_hss.c:1414:21: error: expected ';', ',' or ')'
- before string constant
- drivers/net/wan/ixp4xx_hss.c:1415:19: error: expected ';', ',' or ')'
- before string constant
- make[8]: *** [drivers/net/wan/ixp4xx_hss.o] Error 1
+The following issue is observed on most Linux distributions:
+Transmission of fragmented IP packets in case of missing ARP entry for 
+destination IP fails.
+Actually ARP request is sent, and, once ARP response is received, only 
+few queued fragments are transmitted. Remaining fragments are lost.
+It can be easily reproduced as follows:
+     # arp -d <dst IP>
+     # ping -s 65000 -c 1 <dst IP>
+Ping result is: "1 packets transmitted, 0 received, 100% packet loss, 
+time 0ms".
 
-CC: stable@vger.kernel.org
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
-[stable: 3.1+]
+The latest kernel version I tried was 3.5.0-1 x86_64, but I also was 
+able to reproduce it with 3.2.x, 3.0.x and 2.6.32.
+It doesn't depend on hardware: was able to reproduce with VMWare Player, 
+Intel based laptop, Intel Atom and ARM based custom boards.
+As I'm not a networking standards expert I'm not sure if it's a real bug 
+or acceptable behaviour, but decided to raise the issue here as I can't 
+reproduce this anomaly with the Windows 7 PC.
 
- drivers/net/wan/ixp4xx_hss.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4xx_hss.c
-index aaaca9a..3f575af 100644
---- a/drivers/net/wan/ixp4xx_hss.c
-+++ b/drivers/net/wan/ixp4xx_hss.c
-@@ -10,6 +10,7 @@
- 
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
-+#include <linux/module.h>
- #include <linux/bitops.h>
- #include <linux/cdev.h>
- #include <linux/dma-mapping.h>
--- 
-1.7.9.5
+Thanks,
+Andrei.
