@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 5/5] cnic: Allocate UIO resources only on
- devices that support iSCSI.
-Date: Mon, 10 Sep 2012 15:48:56 -0400 (EDT)
-Message-ID: <20120910.154856.1013818040265740988.davem@davemloft.net>
-References: <1347120065-26492-3-git-send-email-mchan@broadcom.com>
-	<1347120065-26492-4-git-send-email-mchan@broadcom.com>
-	<1347120065-26492-5-git-send-email-mchan@broadcom.com>
+Subject: Re: [PATCH net-next] etherdevice: introduce help function
+ eth_zero_addr()
+Date: Mon, 10 Sep 2012 15:50:05 -0400 (EDT)
+Message-ID: <20120910.155005.1299267014702772651.davem@davemloft.net>
+References: <504BFFBC.9070209@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+To: djduanjiong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33117 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33128 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932152Ab2IJTs5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 15:48:57 -0400
-In-Reply-To: <1347120065-26492-5-git-send-email-mchan@broadcom.com>
+	with ESMTP id S1754213Ab2IJTuG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 15:50:06 -0400
+In-Reply-To: <504BFFBC.9070209@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Sat, 8 Sep 2012 09:01:05 -0700
+From: Duan Jiong <djduanjiong@gmail.com>
+Date: Sun, 09 Sep 2012 10:32:28 +0800
 
-> Update version to 2.5.13.
+> a lot of code has either the memset or an inefficient copy
+> from a static array that contains the all-zeros Ethernet address.
+> Introduce help function eth_zero_addr() to fill an address with
+> all zeros, making the code clearer and allowing us to get rid of
+> some constant arrays.
 > 
-> Reviewed-by: Eddie Wai <eddie.wai@broadcom.com>
-> Reviewed-by: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Signed-off-by: Duan Jiong <djduanjiong@gmail.com>
 
-Applied.
+Applied, thanks.
