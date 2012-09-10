@@ -1,53 +1,249 @@
-From: Marc MERLIN <marc-xnduUnryOU1AfugRpC6u6w@public.gmane.org>
-Subject: Re: kernel 3.5.2/amd64: iwlwifi 0000:03:00.0: failed to allocate pci memory
-Date: Mon, 10 Sep 2012 08:34:31 -0700
-Message-ID: <20120910153431.GD5053@merlins.org>
-References: <20120908161038.GF3347@merlins.org> <1347122927.1234.849.camel@edumazet-glaptop> <20120904003014.GB6287@merlins.org> <20120908170128.GK3347@merlins.org> <1347130641.11167.0.camel@jlt4.sipsolutions.net> <1347272641.4272.1.camel@jlt4.sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-q7rQbLoQdy39qxiX1TGQuw@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1347272641.4272.1.camel-8Nb76shvtaUJvtFkdXX2HixXY32XiHfO@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Christophe Leroy <christophe.leroy@c-s.fr>
+Subject: [PATCH v2] lxt PHY: Support for the buggy LXT973 rev A2
+Date: Mon, 10 Sep 2012 17:45:49 +0200
+Message-ID: <201209101545.q8AFjn7u021483@localhost.localdomain>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David S Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pegase1.c-s.fr ([93.17.236.30]:27301 "EHLO mailhub1.si.c-s.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757547Ab2IJPqw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Sep 2012 11:46:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 10, 2012 at 12:24:01PM +0200, Johannes Berg wrote:
-> On Sat, 2012-09-08 at 20:57 +0200, Johannes Berg wrote:
-> 
-> > > [856806.497959]  [<ffffffff810cf54c>] warn_alloc_failed+0x117/0x12c
-> > > [856806.497963]  [<ffffffff810d23af>] __alloc_pages_nodemask+0x6e3/0x792
-> > > [856806.497969]  [<ffffffff812b7f41>] ? pfn_to_dma_pte+0x116/0x15e
-> > > [856806.497976]  [<ffffffff810ff58b>] alloc_pages_current+0xcd/0xee
-> > > [856806.497979]  [<ffffffff810cecca>] __get_free_pages+0x9/0x45
-> > > [856806.497982]  [<ffffffff812ba67d>] intel_alloc_coherent+0x84/0xe7
-> > > [856806.497986]  [<ffffffff81085cf8>] ? arch_local_irq_save+0x15/0x1b
-> > > [856806.497999]  [<ffffffffa0b84afc>] iwl_ucode_callback+0xa49/0xc0d [iwlwifi]
-> > 
-> > Yes, unfortunately we need a whole bunch of contiguous memory to load
-> > the firmware.
-> > 
-> > > Any ideas?
-> > 
-> > Nothing we can do from the driver side, I'm afraid.
-> 
-> Turns out I was wrong. Here's a patch you can test. Note that we still
-> need a lot of DMA-coherent memory for other things, but at least for the
-> firmware image we don't.
+This patch adds proper handling of the buggy revision A2 of LXT973 phy, adding
+precautions linked to ERRATA Item 4:
 
-Thanks for that, I'll try it out and report back if I have other problems
-(it's hard to prove that it worked since I don't have the fragmented memory
-right away).
+Item 4: MDIO Interface and Repeated Polling
+Problem: Repeated polling of odd-numbered registers via the MDIO interface
+	randomly returns the contents of the previous even register.
+Implication: Managed applications may not obtain the correct register contents
+	when a particular register is monitored for device status.
+Workaround: None.
+Status: This erratum has been previously fixed (in rev A3)
 
-Marc
--- 
-"A mouse is a device used to point at the xterm you want to type in" - A.S.R.
-Microsoft is to operating systems ....
-                                      .... what McDonalds is to gourmet cooking
-Home page: http://marc.merlins.org/  
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+
+diff -u linux-3.5-vanilla/drivers/net/phy/lxt.c linux-3.5/drivers/net/phy/lxt.c
+--- linux-3.5-vanilla/drivers/net/phy/lxt.c	2012-07-21 22:58:29.000000000 +0200
++++ linux-3.5/drivers/net/phy/lxt.c	2012-09-07 18:08:54.000000000 +0200
+@@ -7,6 +7,10 @@
+  *
+  * Copyright (c) 2004 Freescale Semiconductor, Inc.
+  *
++ * Copyright (c) 2010 CSSI
++ *
++ * Added support for buggy LXT973 rev A2
++ *
+  * This program is free software; you can redistribute  it and/or modify it
+  * under  the terms of  the GNU General  Public License as published by the
+  * Free Software Foundation;  either version 2 of the  License, or (at your
+@@ -54,8 +58,12 @@
+ #define MII_LXT971_ISR		19  /* Interrupt Status Register */
+ 
+ /* register definitions for the 973 */
+-#define MII_LXT973_PCR 16 /* Port Configuration Register */
++#define MII_LXT973_PCR		16 /* Port Configuration Register */
+ #define PCR_FIBER_SELECT 1
++#define MII_LXT973_SFR		27  /* Special Function Register */
++
++#define PHYDEV_PRIV_FIBER	1
++#define PHYDEV_PRIV_REVA2	2
+ 
+ MODULE_DESCRIPTION("Intel LXT PHY driver");
+ MODULE_AUTHOR("Andy Fleming");
+@@ -99,6 +107,9 @@
+ 	return err;
+ }
+ 
++/* register definitions for the 973 */
++#define MII_LXT973_PCR 16 /* Port Configuration Register */
++#define PCR_FIBER_SELECT 1
+ 
+ static int lxt971_ack_interrupt(struct phy_device *phydev)
+ {
+@@ -122,9 +133,141 @@
+ 	return err;
+ }
+ 
++/*
++ * ERRATA on LXT973
++ *
++ * Item 4: MDIO Interface and Repeated Polling
++ * Problem: Repeated polling of odd-numbered registers via the MDIO interface randomly returns the
++ * 	contents of the previous even register.
++ * Implication: Managed applications may not obtain the correct register contents when a particular
++ * 	register is monitored for device status.
++ * Workaround: None.
++ * Status: This erratum has been previously fixed (in rev A3)
++ *
++ */
++
++static int lxt973a2_update_link(struct phy_device *phydev)
++{
++	int status;
++	int control;
++	int retry = 8; /* we try 8 times */
++
++	/* Do a fake read */
++	status = phy_read(phydev, MII_BMSR);
++
++	if (status < 0)
++		return status;
++
++	control = phy_read(phydev, MII_BMCR);
++	if (control < 0)
++		return control;
++
++	do {
++		/* Read link and autonegotiation status */
++		status = phy_read(phydev, MII_BMSR);
++	} while (status>=0 && retry-- && status == control);
++
++	if (status < 0)
++		return status;
++
++	if ((status & BMSR_LSTATUS) == 0)
++		phydev->link = 0;
++	else
++		phydev->link = 1;
++
++	return 0;
++}
++
++int lxt973a2_read_status(struct phy_device *phydev)
++{
++	int adv;
++	int err;
++	int lpa;
++	int lpagb = 0;
++
++	/* Update the link, but return if there was an error */
++	err = lxt973a2_update_link(phydev);
++	if (err)
++		return err;
++
++	if (AUTONEG_ENABLE == phydev->autoneg) {
++		int retry = 1;
++		
++		adv = phy_read(phydev, MII_ADVERTISE);
++
++		if (adv < 0)
++			return adv;
++
++		do {
++			lpa = phy_read(phydev, MII_LPA);
++
++			if (lpa < 0)
++				return lpa;
++
++			/* If both registers are equal, it is suspect but not impossible, hence a new try */	
++		} while (lpa == adv && retry--);
++
++		lpa &= adv;
++
++		phydev->speed = SPEED_10;
++		phydev->duplex = DUPLEX_HALF;
++		phydev->pause = phydev->asym_pause = 0;
++
++		if (lpagb & (LPA_1000FULL | LPA_1000HALF)) {
++			phydev->speed = SPEED_1000;
++
++			if (lpagb & LPA_1000FULL)
++				phydev->duplex = DUPLEX_FULL;
++		} else if (lpa & (LPA_100FULL | LPA_100HALF)) {
++			phydev->speed = SPEED_100;
++
++			if (lpa & LPA_100FULL)
++				phydev->duplex = DUPLEX_FULL;
++		} else
++			if (lpa & LPA_10FULL)
++				phydev->duplex = DUPLEX_FULL;
++
++		if (phydev->duplex == DUPLEX_FULL){
++			phydev->pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
++			phydev->asym_pause = lpa & LPA_PAUSE_ASYM ? 1 : 0;
++		}
++	} else {
++		int bmcr = phy_read(phydev, MII_BMCR);
++
++		if (bmcr < 0)
++			return bmcr;
++
++		if (bmcr & BMCR_FULLDPLX)
++			phydev->duplex = DUPLEX_FULL;
++		else
++			phydev->duplex = DUPLEX_HALF;
++
++		if (bmcr & BMCR_SPEED1000)
++			phydev->speed = SPEED_1000;
++		else if (bmcr & BMCR_SPEED100)
++			phydev->speed = SPEED_100;
++		else
++			phydev->speed = SPEED_10;
++
++		phydev->pause = phydev->asym_pause = 0;
++	}
++
++	return 0;
++}
++
++static int lxt973_read_status(struct phy_device *phydev)
++{
++	return (int)phydev->priv&PHYDEV_PRIV_REVA2 ? lxt973a2_read_status(phydev) : genphy_read_status(phydev);
++}
++
+ static int lxt973_probe(struct phy_device *phydev)
+ {
+ 	int val = phy_read(phydev, MII_LXT973_PCR);
++	int priv = 0;
++
++	phydev->priv = NULL;
++
++	if (val<0) return val;
+ 
+ 	if (val & PCR_FIBER_SELECT) {
+ 		/*
+@@ -136,17 +279,24 @@
+ 		val &= ~BMCR_ANENABLE;
+ 		phy_write(phydev, MII_BMCR, val);
+ 		/* Remember that the port is in fiber mode. */
+-		phydev->priv = lxt973_probe;
+-	} else {
+-		phydev->priv = NULL;
++		priv |= PHYDEV_PRIV_FIBER;
+ 	}
++	val = phy_read(phydev, MII_PHYSID2);
++
++	if (val<0) return val;
++
++	if ((val & 0xf) == 0) { /* rev A2 */
++		dev_info(&phydev->dev, " LXT973 revision A2 has bugs\n");
++		priv |= PHYDEV_PRIV_REVA2;
++	}
++	phydev->priv = (void*)priv;
+ 	return 0;
+ }
+ 
+ static int lxt973_config_aneg(struct phy_device *phydev)
+ {
+ 	/* Do nothing if port is in fiber mode. */
+-	return phydev->priv ? 0 : genphy_config_aneg(phydev);
++	return (int)phydev->priv&PHYDEV_PRIV_FIBER ? 0 : genphy_config_aneg(phydev);
+ }
+ 
+ static struct phy_driver lxt970_driver = {
+@@ -184,7 +334,10 @@
+ 	.flags		= 0,
+ 	.probe		= lxt973_probe,
+ 	.config_aneg	= lxt973_config_aneg,
+-	.read_status	= genphy_read_status,
++	.read_status	= lxt973_read_status,
++	.suspend	= genphy_suspend,
++	.resume		= genphy_resume,
++	.isolate	= genphy_isolate,
+ 	.driver 	= { .owner = THIS_MODULE,},
+ };
+ 
