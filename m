@@ -1,63 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] r8169: use unlimited DMA burst for TX
-Date: Mon, 10 Sep 2012 15:50:46 -0400 (EDT)
-Message-ID: <20120910.155046.568702072740433838.davem@davemloft.net>
-References: <1347234926-5263-1-git-send-email-mschmidt@redhat.com>
+Subject: Re: [PATCH] caif: move the dereference below the NULL test
+Date: Mon, 10 Sep 2012 16:14:07 -0400 (EDT)
+Message-ID: <20120910.161407.1806703127621226080.davem@davemloft.net>
+References: <CAPgLHd-MBQnrU9tS0VFw-O7yvs47r3waHqGm1SRS4GA72Pn1hg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com,
-	hayeswang@realtek.com, nic_swsd@realtek.com, ivecera@redhat.com
-To: mschmidt@redhat.com
+Cc: sjur.brandeland@stericsson.com, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33143 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33395 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758499Ab2IJTut (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 15:50:49 -0400
-In-Reply-To: <1347234926-5263-1-git-send-email-mschmidt@redhat.com>
+	with ESMTP id S1754626Ab2IJUOL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 16:14:11 -0400
+In-Reply-To: <CAPgLHd-MBQnrU9tS0VFw-O7yvs47r3waHqGm1SRS4GA72Pn1hg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Schmidt <mschmidt@redhat.com>
-Date: Mon, 10 Sep 2012 01:55:26 +0200
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Mon, 10 Sep 2012 12:38:27 +0800
 
-> The r8169 driver currently limits the DMA burst for TX to 1024 bytes. I have
-> a box where this prevents the interface from using the gigabit line to its full
-> potential. This patch solves the problem by setting TX_DMA_BURST to unlimited.
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
-> The box has an ASRock B75M motherboard with on-board RTL8168evl/8111evl
-> (XID 0c900880). TSO is enabled.
+> The dereference should be moved below the NULL test.
 > 
-> I used netperf (TCP_STREAM test) to measure the dependency of TX throughput
-> on MTU. I did it for three different values of TX_DMA_BURST ('5'=512, '6'=1024,
-> '7'=unlimited). This chart shows the results:
-> http://michich.fedorapeople.org/r8169/r8169-effects-of-TX_DMA_BURST.png
+> spatch with a semantic match is used to found this.
+> (http://coccinelle.lip6.fr/)
 > 
-> Interesting points:
->  - With the current DMA burst limit (1024):
->    - at the default MTU=1500 I get only 842 Mbit/s.
->    - when going from small MTU, the performance rises monotonically with
->      increasing MTU only up to a peak at MTU=1076 (908 MBit/s). Then there's
->      a sudden drop to 762 MBit/s from which the throughput rises monotonically
->      again with further MTU increases.
->  - With a smaller DMA burst limit (512):
->    - there's a similar peak at MTU=1076 and another one at MTU=564.
->  - With unlimited DMA burst:
->    - at the default MTU=1500 I get nice 940 Mbit/s.
->    - the throughput rises monotonically with increasing MTU with no strange
->      peaks.
-> 
-> Notice that the peaks occur at MTU sizes that are multiples of the DMA burst
-> limit plus 52. Why 52? Because:
->   20 (IP header) + 20 (TCP header) + 12 (TCP options) = 52
-> 
-> The Realtek-provided r8168 driver (v8.032.00) uses unlimited TX DMA burst too,
-> except for CFG_METHOD_1 where the TX DMA burst is set to 512 bytes.
-> CFG_METHOD_1 appears to be the oldest MAC version of "RTL8168B/8111B",
-> i.e. RTL_GIGA_MAC_VER_11 in r8169. Not sure if this MAC version really needs
-> the smaller burst limit, or if any other versions have similar requirements.
-> 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-I really need Francois et al. to take a look at this before even thinking
-about applying it.
+Applied, thanks.
