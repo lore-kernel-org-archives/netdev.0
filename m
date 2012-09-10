@@ -1,50 +1,70 @@
-From: pierre.sauter@gmail.com
-Subject: [PATCH 1/1] [PATCH] net: qmi_wwan: fix Gobi device probing for un2430
-Date: Mon, 10 Sep 2012 19:02:59 +0200
-Message-ID: <1347296579-15692-1-git-send-email-pierre.sauter@gmail.com>
-Cc: netdev@vger.kernel.org, Pierre Sauter <pierre.sauter@gmail.com>
-To: gregkh@linuxfoundation.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net] ixp4xx_hss: fix build failure after logging
+ conversion
+Date: Mon, 10 Sep 2012 18:04:25 +0100
+Message-ID: <1347296665.2823.13.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1347266590-884-1-git-send-email-florian@openwrt.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <khc@pm.waw.pl>, <joe@perches.com>,
+	David Miller <davem@davemloft.net>, <stable@vger.kernel.org>
+To: Florian Fainelli <florian@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:47579 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750891Ab2IJRDZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 13:03:25 -0400
-Received: by wibhr14 with SMTP id hr14so2504568wib.1
-        for <netdev@vger.kernel.org>; Mon, 10 Sep 2012 10:03:24 -0700 (PDT)
+Received: from webmail.solarflare.com ([12.187.104.25]:38689 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750891Ab2IJRE3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 13:04:29 -0400
+In-Reply-To: <1347266590-884-1-git-send-email-florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pierre Sauter <pierre.sauter@gmail.com>
+On Mon, 2012-09-10 at 10:43 +0200, Florian Fainelli wrote:
+> Commit c75bb2c6f0cf455c23e60f14d780e841dd47f801 (ixp4xx_hss: Update to
+> current logging forms) converted the ixp4xx_hss module to use the current
+> logging macros, but forgot to include linux/module.h, leading to the
+> following build failures:
+> 
+>   CC [M]  drivers/net/wan/ixp4xx_hss.o
+>  drivers/net/wan/ixp4xx_hss.c:1412:20: error: expected ';', ',' or ')'
+>  before string constant
+>  drivers/net/wan/ixp4xx_hss.c:1413:25: error: expected ';', ',' or ')'
+>  before string constant
+>  drivers/net/wan/ixp4xx_hss.c:1414:21: error: expected ';', ',' or ')'
+>  before string constant
+>  drivers/net/wan/ixp4xx_hss.c:1415:19: error: expected ';', ',' or ')'
+>  before string constant
+>  make[8]: *** [drivers/net/wan/ixp4xx_hss.o] Error 1
+> 
+> CC: stable@vger.kernel.org
+> Signed-off-by: Florian Fainelli <florian@openwrt.org>
+> ---
+> [stable: 3.1+]
 
-HP un2430 is a Gobi 3000 device. It was mistakenly treated as Gobi 1000
-in patch b9f90eb2740203ff2592efe640409ad48335d1c2.
+The versions to receive stable updates should be noted on the inline Cc
+line, not in non-committed comments.  (But David prefers to collect up
+networking patches in his own stable queue rather than using the inline
+Cc mechanism.  So the Cc may not be appropriate at all.)
 
-I own this device and qmi_wwan works again with this fix.
+Ben.
 
-Signed-off-by: Pierre Sauter <pierre.sauter@gmail.com>
----
- drivers/net/usb/qmi_wwan.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+>  drivers/net/wan/ixp4xx_hss.c |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4xx_hss.c
+> index aaaca9a..3f575af 100644
+> --- a/drivers/net/wan/ixp4xx_hss.c
+> +++ b/drivers/net/wan/ixp4xx_hss.c
+> @@ -10,6 +10,7 @@
+>  
+>  #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+>  
+> +#include <linux/module.h>
+>  #include <linux/bitops.h>
+>  #include <linux/cdev.h>
+>  #include <linux/dma-mapping.h>
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index adfab3f..17b8f3e 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -398,7 +398,6 @@ static const struct usb_device_id products[] = {
- 	/* 4. Gobi 1000 devices */
- 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
- 	{QMI_GOBI1K_DEVICE(0x03f0, 0x1f1d)},	/* HP un2400 Gobi Modem Device */
--	{QMI_GOBI1K_DEVICE(0x03f0, 0x371d)},	/* HP un2430 Mobile Broadband Module */
- 	{QMI_GOBI1K_DEVICE(0x04da, 0x250d)},	/* Panasonic Gobi Modem device */
- 	{QMI_GOBI1K_DEVICE(0x413c, 0x8172)},	/* Dell Gobi Modem device */
- 	{QMI_GOBI1K_DEVICE(0x1410, 0xa001)},	/* Novatel Gobi Modem device */
-@@ -440,6 +439,7 @@ static const struct usb_device_id products[] = {
- 	{QMI_GOBI_DEVICE(0x16d8, 0x8002)},	/* CMDTech Gobi 2000 Modem device (VU922) */
- 	{QMI_GOBI_DEVICE(0x05c6, 0x9205)},	/* Gobi 2000 Modem device */
- 	{QMI_GOBI_DEVICE(0x1199, 0x9013)},	/* Sierra Wireless Gobi 3000 Modem device (MC8355) */
-+	{QMI_GOBI_DEVICE(0x03f0, 0x371d)},	/* HP un2430 Mobile Broadband Module */
- 	{QMI_GOBI_DEVICE(0x1199, 0x9015)},	/* Sierra Wireless Gobi 3000 Modem device */
- 	{QMI_GOBI_DEVICE(0x1199, 0x9019)},	/* Sierra Wireless Gobi 3000 Modem device */
- 	{QMI_GOBI_DEVICE(0x1199, 0x901b)},	/* Sierra Wireless MC7770 */
 -- 
-1.7.10.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
