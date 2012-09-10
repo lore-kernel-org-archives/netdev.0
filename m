@@ -1,62 +1,198 @@
-From: "Vick, Matthew" <matthew.vick@intel.com>
-Subject: RE: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
-Date: Mon, 10 Sep 2012 22:58:35 +0000
-Message-ID: <06DFBC1E25D8024DB214DC7F41A3CD34488E717B@ORSMSX101.amr.corp.intel.com>
-References: <1346888106-25638-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <20120906081315.GF2550@netboy.at.omicron.at>
+From: Robert Love <robert.w.love@intel.com>
+Subject: [RFC PATCH 1/5] libfcoe, fcoe: Allow user to set a ctlr's mode
+Date: Mon, 10 Sep 2012 15:59:14 -0700
+Message-ID: <20120910225914.13140.22190.stgit@fritz>
+References: <20120910225908.13140.97277.stgit@fritz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Richard Cochran <richardcochran@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:56485 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753766Ab2IJW6h convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 18:58:37 -0400
-In-Reply-To: <20120906081315.GF2550@netboy.at.omicron.at>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: devel@open-fcoe.org
+To: netdev@vger.kernel.org, gregkh@linuxfoundation.org,
+	linux-scsi@vger.kernel.org, bprakash@broadcom.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20120910225908.13140.97277.stgit@fritz>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Richard Cochran
-> Sent: Thursday, September 06, 2012 1:13 AM
-> To: Kirsher, Jeffrey T
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; gospo@redhat.com;
-> sassmann@redhat.com
-> Subject: Re: [net-next 0/6][pull request] Intel Wired LAN Driver
-> Updates
-> 
-> On Wed, Sep 05, 2012 at 04:35:00PM -0700, Jeff Kirsher wrote:
-> >
-> > Matthew Vick (6):
-> >   igb: Tidy up wrapping for CONFIG_IGB_PTP.
-> >   igb: Update PTP function names/variables and locations.
-> >   igb: Correct PTP support query from ethtool.
-> >   igb: Store the MAC address in the name in the PTP struct.
-> 
-> These four still look like unnecessary churn to me, and possibly the
-> wrong direction WRT time stamping in the 82580.
+This patch makes the 'mode' attribute of a
+fcoe_ctlr_device writale. This allows the user
+to store the mode with with the ctlr will be in.
 
-(I apologize for the delayed response--I was out of the office. I've read through the discussions and will respond here in the interest of brevity.)
+Possible modes would be 'Fabric', or 'VN2VN'.
 
-I still fail to see how they're churn. I'm making the code make sense for what is actually supported today. I understand that, theoretically, some of this work may be reverted if/when we pull out hardware timestamping as a separate feature from the PTP support in the driver, but I don't think we should leave it general because someone someday might get around to doing something with it. It's confusing and more difficult to maintain for no benefit. It should be part of the development effort to generalize and consolidate where possible when adding a feature.
+The default mode for a fcoe_ctlr{,_device} is 'Fabric'.
+Drivers must implement the set_fcoe_ctlr_mode routine
+to support this feature.
 
-> >   igb: Prevent dropped Tx timestamps via work items and interrupts.
-> >   igb: Add 1588 support to I210/I211.
-> 
-> But these two look important, so I don't know what to say.
-> 
-> Sorry,
-> Richard
+libfcoe offers an exported routine to set a fcoe_ctlr's
+mode.
 
-Those two are definitely important. :)
+Signed-off-by: Robert Love <robert.w.love@intel.com>
+---
+ Documentation/ABI/testing/sysfs-bus-fcoe |    8 ++++
+ drivers/scsi/fcoe/fcoe_ctlr.c            |   22 +++++++++++
+ drivers/scsi/fcoe/fcoe_sysfs.c           |   61 +++++++++++++++++++++++++++++-
+ include/scsi/fcoe_sysfs.h                |    1 
+ include/scsi/libfcoe.h                   |    1 
+ 5 files changed, 91 insertions(+), 2 deletions(-)
 
-Cheers,
-Matthew
+diff --git a/Documentation/ABI/testing/sysfs-bus-fcoe b/Documentation/ABI/testing/sysfs-bus-fcoe
+index 469d09c..1b06ec1 100644
+--- a/Documentation/ABI/testing/sysfs-bus-fcoe
++++ b/Documentation/ABI/testing/sysfs-bus-fcoe
+@@ -9,6 +9,14 @@ Attributes:
+ 			  this value will change the dev_loss_tmo for all
+ 			  FCFs discovered by this controller.
+ 
++	mode:		  Display or change the FCoE Controller's mode. Possible
++			  modes are 'Fabric' and 'VN2VN'. If a FCoE Controller
++			  is started in 'Fabric' mode then FIP FCF discovery is
++			  initiated and ultimately a fabric login is attempted.
++			  If a FCoE Controller is started in 'VN2VN' mode then
++			  FIP VN2VN discovery and login is performed. A FCoE
++			  Controller only supports one mode at a time.
++
+ 	lesb_link_fail:   Link Error Status Block (LESB) link failure count.
+ 
+ 	lesb_vlink_fail:  Link Error Status Block (LESB) virtual link
+diff --git a/drivers/scsi/fcoe/fcoe_ctlr.c b/drivers/scsi/fcoe/fcoe_ctlr.c
+index d68d572..bd899bf 100644
+--- a/drivers/scsi/fcoe/fcoe_ctlr.c
++++ b/drivers/scsi/fcoe/fcoe_ctlr.c
+@@ -2884,3 +2884,25 @@ void fcoe_ctlr_get_fip_mode(struct fcoe_ctlr_device *ctlr_dev)
+ 	mutex_unlock(&ctlr->ctlr_mutex);
+ }
+ EXPORT_SYMBOL(fcoe_ctlr_get_fip_mode);
++
++void fcoe_ctlr_set_fip_mode(struct fcoe_ctlr_device *ctlr_dev)
++{
++	struct fcoe_ctlr *ctlr = fcoe_ctlr_device_priv(ctlr_dev);
++
++	mutex_lock(&ctlr->ctlr_mutex);
++	switch (ctlr_dev->mode) {
++	case FIP_CONN_TYPE_VN2VN:
++		ctlr->mode = FIP_MODE_VN2VN;
++		break;
++	case FIP_CONN_TYPE_FABRIC:
++	default:
++		ctlr->mode = FIP_MODE_FABRIC;
++		break;
++	}
++
++	/* TODO: Probably need to restart the state machine */
++
++	mutex_unlock(&ctlr->ctlr_mutex);
++
++}
++EXPORT_SYMBOL(fcoe_ctlr_set_fip_mode);
+diff --git a/drivers/scsi/fcoe/fcoe_sysfs.c b/drivers/scsi/fcoe/fcoe_sysfs.c
+index 2bc1631..3fbc556 100644
+--- a/drivers/scsi/fcoe/fcoe_sysfs.c
++++ b/drivers/scsi/fcoe/fcoe_sysfs.c
+@@ -21,6 +21,7 @@
+ #include <linux/types.h>
+ #include <linux/kernel.h>
+ #include <linux/etherdevice.h>
++#include <linux/ctype.h>
+ 
+ #include <scsi/fcoe_sysfs.h>
+ 
+@@ -40,6 +41,46 @@ MODULE_PARM_DESC(fcf_dev_loss_tmo,
+ 		 " insulate the loss of a fcf. Once this value is"
+ 		 " exceeded, the fcf is removed.");
+ 
++#define FCOE_MAX_MODENAME_LEN 20
++struct fcoe_ctlr_mode_table {
++	char *modename;
++	enum fip_conn_type mode;
++};
++
++const struct fcoe_ctlr_mode_table ctlr_mode_tbl[] = {
++	{       "fabric",           FIP_CONN_TYPE_FABRIC},
++	{       "vn2vn",            FIP_CONN_TYPE_VN2VN},
++	{       NULL,               -1},
++};
++
++static enum fip_conn_type fcoe_parse_mode(const char *buf,
++				  const struct fcoe_ctlr_mode_table *tbl)
++{
++	int modeint = -1, i, rv;
++	char *p, modestr[FCOE_MAX_MODENAME_LEN + 1] = { 0, };
++
++	for (p = (char *)buf; *p; p++)
++		if (!(isdigit(*p) || isspace(*p)))
++			break;
++
++	if (*p)
++		rv = sscanf(buf, "%20s", modestr);
++	else
++		rv = sscanf(buf, "%d", &modeint);
++
++	if (!rv)
++		return FIP_CONN_TYPE_UNKNOWN;
++
++	for (i = 0; tbl[i].modename; i++) {
++		if (modeint == tbl[i].mode)
++			return tbl[i].mode;
++		if (strcmp(modestr, tbl[i].modename) == 0)
++			return tbl[i].mode;
++	}
++
++	return FIP_CONN_TYPE_UNKNOWN;
++}
++
+ /*
+  * These are used by the fcoe_*_show_function routines, they
+  * are intentionally placed in the .c file as they're not intended
+@@ -273,8 +314,24 @@ static ssize_t show_ctlr_mode(struct device *dev,
+ 	return snprintf(buf, FCOE_CTLR_MODE_MAX_NAMELEN,
+ 			"%s\n", name);
+ }
+-static FCOE_DEVICE_ATTR(ctlr, mode, S_IRUGO,
+-			show_ctlr_mode, NULL);
++
++static ssize_t store_ctlr_mode(struct device *dev,
++			       struct device_attribute *attr,
++			       const char *buf, size_t count)
++{
++	struct fcoe_ctlr_device *ctlr = dev_to_ctlr(dev);
++
++	if (!ctlr->f->set_fcoe_ctlr_mode)
++		return -EINVAL;
++
++	ctlr->mode = fcoe_parse_mode(buf, ctlr_mode_tbl);
++	ctlr->f->set_fcoe_ctlr_mode(ctlr);
++
++	return count;
++}
++
++static FCOE_DEVICE_ATTR(ctlr, mode, S_IRUGO | S_IWUSR,
++			show_ctlr_mode, store_ctlr_mode);
+ 
+ static ssize_t
+ store_private_fcoe_ctlr_fcf_dev_loss_tmo(struct device *dev,
+diff --git a/include/scsi/fcoe_sysfs.h b/include/scsi/fcoe_sysfs.h
+index 604cb9b..421ae67 100644
+--- a/include/scsi/fcoe_sysfs.h
++++ b/include/scsi/fcoe_sysfs.h
+@@ -35,6 +35,7 @@ struct fcoe_sysfs_function_template {
+ 	void (*get_fcoe_ctlr_err_block)(struct fcoe_ctlr_device *);
+ 	void (*get_fcoe_ctlr_fcs_error)(struct fcoe_ctlr_device *);
+ 	void (*get_fcoe_ctlr_mode)(struct fcoe_ctlr_device *);
++	void (*set_fcoe_ctlr_mode)(struct fcoe_ctlr_device *);
+ 	void (*get_fcoe_fcf_selected)(struct fcoe_fcf_device *);
+ 	void (*get_fcoe_fcf_vlan_id)(struct fcoe_fcf_device *);
+ };
+diff --git a/include/scsi/libfcoe.h b/include/scsi/libfcoe.h
+index 22b07cc..20533cc 100644
+--- a/include/scsi/libfcoe.h
++++ b/include/scsi/libfcoe.h
+@@ -359,6 +359,7 @@ int fcoe_get_paged_crc_eof(struct sk_buff *skb, int tlen,
+ /* FCoE Sysfs helpers */
+ void fcoe_fcf_get_selected(struct fcoe_fcf_device *);
+ void fcoe_ctlr_get_fip_mode(struct fcoe_ctlr_device *);
++void fcoe_ctlr_set_fip_mode(struct fcoe_ctlr_device *);
+ 
+ /**
+  * struct netdev_list
+
