@@ -1,57 +1,62 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next v2 2/4] xfrm: invalidate dst on policy insertion/deletion
-Date: Mon, 10 Sep 2012 16:56:16 +0200
-Message-ID: <504DFF90.3010802@6wind.com>
-References: <20120907.144828.97793990734588625.davem@davemloft.net> <1347283338-4249-1-git-send-email-nicolas.dichtel@6wind.com> <1347283338-4249-3-git-send-email-nicolas.dichtel@6wind.com> <504DF77B.7070000@gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Regression associated with commit c8628155ece3 - "tcp: reduce
+ out_of_order memory use"
+Date: Mon, 10 Sep 2012 17:04:06 +0200
+Message-ID: <1347289446.1234.1717.camel@edumazet-glaptop>
+References: <50369925.3050705@lwfinger.net>
+	 <1345757200.5904.1890.camel@edumazet-glaptop> <50378B35.80307@lwfinger.net>
+	 <20120824.111948.680531915905273128.davem@davemloft.net>
+	 <5037A4B0.3080208@lwfinger.net>
+	 <1345825095.19483.19.camel@edumazet-glaptop>
+	 <1345825432.19483.20.camel@edumazet-glaptop> <5037B2AC.50704@lwfinger.net>
+	 <1345830424.19483.69.camel@edumazet-glaptop>
+	 <503BB49C.5010402@lwfinger.net>
+	 <1347266366.1234.1267.camel@edumazet-glaptop>
+	 <504DFEFF.6060004@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, sri@us.ibm.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:39963 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753100Ab2IJO4U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 10:56:20 -0400
-Received: by eekc1 with SMTP id c1so1221632eek.19
-        for <netdev@vger.kernel.org>; Mon, 10 Sep 2012 07:56:19 -0700 (PDT)
-In-Reply-To: <504DF77B.7070000@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <504DFEFF.6060004-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le 10/09/2012 16:21, Vlad Yasevich a =E9crit :
-> On 09/10/2012 09:22 AM, Nicolas Dichtel wrote:
->> When a policy is inserted or deleted, all dst should be recalculated=
-=2E
->>
->> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->> ---
->>   net/xfrm/xfrm_policy.c | 1 +
->>   1 file changed, 1 insertion(+)
->>
->> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
->> index 741a32a..67f456d 100644
->> --- a/net/xfrm/xfrm_policy.c
->> +++ b/net/xfrm/xfrm_policy.c
->> @@ -602,6 +602,7 @@ int xfrm_policy_insert(int dir, struct xfrm_poli=
-cy
->> *policy, int excl)
->>       xfrm_pol_hold(policy);
->>       net->xfrm.policy_count[dir]++;
->>       atomic_inc(&flow_cache_genid);
->> +    rt_genid_bump(net);
->>       if (delpol)
->>           __xfrm_policy_unlink(delpol, dir);
->>       policy->index =3D delpol ? delpol->index : xfrm_gen_index(net,=
- dir);
->>
->
-> What about security_load_policy() and security_set_bools(). They also=
- bumps the
-> flow_cache_genid by way of selinux_xfrm_notify_policyload().
-Right. I'm not familiar with this part, but it seems you're right, rt_g=
-enid=20
-should be bumped too.
+On Mon, 2012-09-10 at 09:53 -0500, Larry Finger wrote:
+
+> Eric,
+> 
+> What is the md5sum for the firmware file /lib/firmware/rtlwifi/rtl8712u.bin? 
+> Over the weekend, there was a report of another device that had problems with 
+> firmware that was added to the linux-firmware repo in July with md5sum of 
+> c6f3b7b880aefb7b3f249428d659bdbb. An older version with md5sum of 
+> 200fd952db3cc9259b1fd05e3e51966f works in that case. I'll send you this one 
+> privately.
+> 
+> I have a Netgear WNDR3300 and also get the addbareq events, but I do not get 
+> freezes. I'm not sure the message is correlated.
+> 
+
+It seems I have the c6f3b7b880aefb7b3f249428d659bdbb one
+# md5sum /data/src/linux-firmware/rtlwifi/rtl8712u.bin /lib/firmware/rtlwifi/rtl8712u.bin
+c6f3b7b880aefb7b3f249428d659bdbb  /data/src/linux-firmware/rtlwifi/rtl8712u.bin
+c6f3b7b880aefb7b3f249428d659bdbb  /lib/firmware/rtlwifi/rtl8712u.bin
+
+Since I have linux-firmware tree, should I go back to initial commit 
+commit 8f919160792e4702c6b7a67a243cea4f757407e4
+Author: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Date:   Mon Nov 1 23:56:52 2010 -0500
+
+    linux-firmware: Add firmware files for Realtek RTL8712U and
+RTL8192CE
+
+Thanks !
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
