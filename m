@@ -1,63 +1,150 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH v3 0/7] mv643xx.c: Add basic device tree support.
-Date: Mon, 10 Sep 2012 14:22:13 +0000
-Message-ID: <201209101422.13875.arnd@arndb.de>
-References: <1344350092-24050-1-git-send-email-ian.molton@codethink.co.uk>
- <5028D040.60604@codethink.co.uk> <502D201E.9030304@codethink.co.uk>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next v2 3/4] ipv6: use net->rt_genid to check dst
+ validity
+Date: Mon, 10 Sep 2012 10:29:36 -0400
+Message-ID: <504DF950.4010401@gmail.com>
+References: <20120907.144828.97793990734588625.davem@davemloft.net> <1347283338-4249-1-git-send-email-nicolas.dichtel@6wind.com> <1347283338-4249-4-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, ben.dooks-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org,
- dale-1viX+2+OPRFcxvNqPlePQg@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Ian Molton <ian.molton-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <502D201E.9030304-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, sri@us.ibm.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:52365 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751257Ab2IJO3j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 10:29:39 -0400
+In-Reply-To: <1347283338-4249-4-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 16 August 2012, Ian Molton wrote:
-> Ping :)
-> 
-> Can we get some consensus on the right approach here? I'm loathe to code
-> this if its going to be rejected.
-> 
-> I'd prefer the driver to be properly split so we dont have the MDIO
-> driver mapping the ethernet drivers address spaces, but if thats not
-> going to be merged, I'm not feeling like doing the work for nothing.
-> 
-> If the driver is to use the overlapping-address mapped-by-the-mdio
-> scheme, then so be it, but I could do with knowing.
-> 
-> Another point against the latter scheme is that the MDIO driver could
-> sensibly be used (the block is identical) on the ArmadaXP, which has 4
-> ethernet blocks rather than two, yet grouped in two pairs with a
-> discontiguous address range.
-> 
-> I'd like to get this moved along as soon as possible though.
+On 09/10/2012 09:22 AM, Nicolas Dichtel wrote:
+> IPv6 dst should take care of rt_genid too. When a xfrm policy is inserted or
+> deleted, all dst should be invalidated.
+> To force the validation, dst entries should be created with ->obsolete set to
+> DST_OBSOLETE_FORCE_CHK. This was already the case for all functions calling
+> ip6_dst_alloc(), except for ip6_rt_copy().
+>
+> As a consequence, we can remove the specific code in inet6_connection_sock.
+>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>   include/net/ip6_fib.h            |  2 +-
+>   net/ipv6/inet6_connection_sock.c | 23 +----------------------
+>   net/ipv6/route.c                 | 17 +++++++++++++----
+>   3 files changed, 15 insertions(+), 27 deletions(-)
+>
+> diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+> index cd64cf3..5eb93f4 100644
+> --- a/include/net/ip6_fib.h
+> +++ b/include/net/ip6_fib.h
+> @@ -113,7 +113,7 @@ struct rt6_info {
+>   	unsigned long			_rt6i_peer;
+>
+>   #ifdef CONFIG_XFRM
+> -	u32				rt6i_flow_cache_genid;
+> +	u32				rt6i_genid;
+>   #endif
+>   	/* more non-fragment space at head required */
+>   	unsigned short			rt6i_nfheader_len;
+> diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
+> index 0251a60..c4f9341 100644
+> --- a/net/ipv6/inet6_connection_sock.c
+> +++ b/net/ipv6/inet6_connection_sock.c
+> @@ -175,33 +175,12 @@ void __inet6_csk_dst_store(struct sock *sk, struct dst_entry *dst,
+>   			   const struct in6_addr *saddr)
+>   {
+>   	__ip6_dst_store(sk, dst, daddr, saddr);
+> -
+> -#ifdef CONFIG_XFRM
+> -	{
+> -		struct rt6_info *rt = (struct rt6_info  *)dst;
+> -		rt->rt6i_flow_cache_genid = atomic_read(&flow_cache_genid);
+> -	}
+> -#endif
+>   }
+>
+>   static inline
+>   struct dst_entry *__inet6_csk_dst_check(struct sock *sk, u32 cookie)
+>   {
+> -	struct dst_entry *dst;
+> -
+> -	dst = __sk_dst_check(sk, cookie);
+> -
+> -#ifdef CONFIG_XFRM
+> -	if (dst) {
+> -		struct rt6_info *rt = (struct rt6_info *)dst;
+> -		if (rt->rt6i_flow_cache_genid != atomic_read(&flow_cache_genid)) {
+> -			__sk_dst_reset(sk);
+> -			dst = NULL;
+> -		}
+> -	}
+> -#endif
+> -
+> -	return dst;
+> +	return __sk_dst_check(sk, cookie);
+>   }
+>
+>   static struct dst_entry *inet6_csk_route_socket(struct sock *sk,
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 339d921..db7b78f 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -281,13 +281,16 @@ static inline struct rt6_info *ip6_dst_alloc(struct net *net,
+>   					     struct fib6_table *table)
+>   {
+>   	struct rt6_info *rt = dst_alloc(&net->ipv6.ip6_dst_ops, dev,
+> -					0, DST_OBSOLETE_NONE, flags);
+> +					0, DST_OBSOLETE_FORCE_CHK, flags);
+>
+>   	if (rt) {
+>   		struct dst_entry *dst = &rt->dst;
+>
+>   		memset(dst + 1, 0, sizeof(*rt) - sizeof(*dst));
+>   		rt6_init_peer(rt, table ? &table->tb6_peers : net->ipv6.peers);
+> +#ifdef CONFIG_XFRM
+> +		rt->rt6i_genid = rt_genid(net);
+> +#endif
 
-Following up on the old discussion, I talked briefly about this
-issue with BenH at the kernel summit. The outcome basically is that
-it's a bit sad to have incompatible bindings, but it's not the end
-of the world,and it's more important to do it right this time.
+This isn't XFRM dependent any more, is it?
 
-Just make sure that you use different values for the 'compatible'
-strings and then do what you need to get the ARM hardware working.
+-vlad
 
-Ideally, the new binding should be written in a way that powerpc
-machines can use the same one, but the existing ones all use
-an version of Open Firmware that is not going to get updated
-and it's also not too likely that we are going to see new
-powerpc machines based on this chip.
-
-	Arnd
+>   	}
+>   	return rt;
+>   }
+> @@ -1031,6 +1034,15 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
+>
+>   	rt = (struct rt6_info *) dst;
+>
+> +	/* All IPV6 dsts are created with ->obsolete set to the value
+> +	 * DST_OBSOLETE_FORCE_CHK which forces validation calls down
+> +	 * into this function always.
+> +	 */
+> +#ifdef CONFIG_XFRM
+> +	if (rt->rt6i_genid != rt_genid(dev_net(rt->dst.dev)))
+> +		return NULL;
+> +#endif
+> +
+>   	if (rt->rt6i_node && (rt->rt6i_node->fn_sernum == cookie)) {
+>   		if (rt->rt6i_peer_genid != rt6_peer_genid()) {
+>   			if (!rt6_has_peer(rt))
+> @@ -1397,8 +1409,6 @@ int ip6_route_add(struct fib6_config *cfg)
+>   		goto out;
+>   	}
+>
+> -	rt->dst.obsolete = -1;
+> -
+>   	if (cfg->fc_flags & RTF_EXPIRES)
+>   		rt6_set_expires(rt, jiffies +
+>   				clock_t_to_jiffies(cfg->fc_expires));
+> @@ -2093,7 +2103,6 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+>   	rt->dst.input = ip6_input;
+>   	rt->dst.output = ip6_output;
+>   	rt->rt6i_idev = idev;
+> -	rt->dst.obsolete = -1;
+>
+>   	rt->rt6i_flags = RTF_UP | RTF_NONEXTHOP;
+>   	if (anycast)
+>
