@@ -1,62 +1,52 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Regression associated with commit c8628155ece3 - "tcp: reduce
- out_of_order memory use"
-Date: Mon, 10 Sep 2012 10:39:26 +0200
-Message-ID: <1347266366.1234.1267.camel@edumazet-glaptop>
-References: <50369925.3050705@lwfinger.net>
-	 <1345757200.5904.1890.camel@edumazet-glaptop> <50378B35.80307@lwfinger.net>
-	 <20120824.111948.680531915905273128.davem@davemloft.net>
-	 <5037A4B0.3080208@lwfinger.net>
-	 <1345825095.19483.19.camel@edumazet-glaptop>
-	 <1345825432.19483.20.camel@edumazet-glaptop> <5037B2AC.50704@lwfinger.net>
-	 <1345830424.19483.69.camel@edumazet-glaptop>
-	 <503BB49C.5010402@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <503BB49C.5010402-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: chris@chris-wilson.co.uk
+Subject: net/ipv4/route.c:645 suspicious rcu_dereference_check() usage!
+Date: Mon, 10 Sep 2012 09:44:38 +0100
+Message-ID: <84c8a8$5m6f27@orsmga001.jf.intel.com>
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-08-27 at 12:55 -0500, Larry Finger wrote:
+I've not seen this reported yet, so here's a warning that happens
+occasionally:
 
-> I have prepared a patch to fix all the unchecked allocations.
-> 
-> Over the weekend I made some progress. To test the latest vendor driver, I 
-> installed a 32-bit system. Their driver is not compatible with a 64-bit system. 
-> I found that not only did the vendor driver work with secure sites, but so did 
-> the in-kernel version. I now have tcpdump output for the 32-bit case that works, 
-> and the 64-bit case that fails. It seems likely that I missed some 32/64 bit 
-> incompatibility when I did the conversion.
-> 
-> Thanks for all your help in trying to resolve this issue.
-> 
-> Larry
-> 
-> 
+[192979.475833] 
+[192979.475840] ===============================
+[192979.475841] [ INFO: suspicious RCU usage. ]
+[192979.475844] 3.6.0-rc2+ #33 Not tainted
+[192979.475846] -------------------------------
+[192979.475848] net/ipv4/route.c:645 suspicious rcu_dereference_check() usage!
+[192979.475850] 
+[192979.475850] other info that might help us debug this:
+[192979.475850] 
+[192979.475853] 
+[192979.475853] rcu_scheduler_active = 1, debug_locks = 0
+[192979.475856] 2 locks held by firefox-bin/4634:
+[192979.475858]  #0:  (slock-AF_INET){+.-...}, at: [<ffffffff814261b4>] release_sock+0x34/0x1e0
+[192979.475870]  #1:  (fnhe_lock){+.-...}, at: [<ffffffff81461c94>] update_or_create_fnhe.isra.30+0x44/0x480
+[192979.475878] 
+[192979.475878] stack backtrace:
+[192979.475881] Pid: 4634, comm: firefox-bin Not tainted 3.6.0-rc2+ #33
+[192979.475883] Call Trace:
+[192979.475891]  [<ffffffff810903cd>] lockdep_rcu_suspicious+0xfd/0x130
+[192979.475895]  [<ffffffff81461e8e>] update_or_create_fnhe.isra.30+0x23e/0x480
+[192979.475899]  [<ffffffff814624ba>] __ip_rt_update_pmtu.isra.31+0x6a/0xb0
+[192979.475903]  [<ffffffff81465038>] ip_rt_update_pmtu+0x48/0xd0
+[192979.475907]  [<ffffffff814759b1>] inet_csk_update_pmtu+0x31/0x80
+[192979.475912]  [<ffffffff8148b663>] tcp_v4_mtu_reduced+0x33/0xd0
+[192979.475915]  [<ffffffff814888be>] tcp_release_cb+0x5e/0xb0
+[192979.475919]  [<ffffffff81426289>] release_sock+0x109/0x1e0
+[192979.475922]  [<ffffffff81479037>] tcp_sendmsg+0x527/0x1030
+[192979.475927]  [<ffffffff814a4d9d>] inet_sendmsg+0xed/0x240
+[192979.475931]  [<ffffffff814a4cb0>] ? inet_autobind+0x70/0x70
+[192979.475934]  [<ffffffff81424e8a>] ? sock_update_classid+0xaa/0x370
+[192979.475937]  [<ffffffff81424eb8>] ? sock_update_classid+0xd8/0x370
+[192979.475941]  [<ffffffff8141ee1b>] sock_sendmsg+0xab/0xe0
+[192979.475946]  [<ffffffff814222be>] sys_sendto+0x11e/0x160
+[192979.475951]  [<ffffffff8153e547>] ? sysret_check+0x1b/0x56
+[192979.475956]  [<ffffffff8125849e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+[192979.475960]  [<ffffffff8153e522>] system_call_fastpath+0x16/0x1b
 
-Hi Larry
-
-It appears I have a D-Link N300 (DWA-131) nano USB adapter, using
-staging/rtl8712 driver.
-
-I tried many kernel versions (including 3.3) and none seems to work
-reliably.
-
-Sometime, I have some traffic but only for about 50 frames...
-It might be because my access point is a netgear wndr3800, because I
-have following warning a bit before the freezes :
-
-r8712u: [r8712_got_addbareq_event_callback] mac = 20:4e:7f:5a:cd:30, sea = 80, tid = 0
-
-Thanks
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Chris Wilson, Intel Open Source Technology Centre
