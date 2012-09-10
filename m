@@ -1,7 +1,7 @@
 From: Robert Love <robert.w.love@intel.com>
-Subject: [RFC PATCH 5/5] libfcoe, fcoe: Remove libfcoe module parameters
-Date: Mon, 10 Sep 2012 15:59:35 -0700
-Message-ID: <20120910225935.13140.1505.stgit@fritz>
+Subject: [RFC PATCH 3/5] fcoe: Use new fcoe_sysfs control interface
+Date: Mon, 10 Sep 2012 15:59:25 -0700
+Message-ID: <20120910225924.13140.84794.stgit@fritz>
 References: <20120910225908.13140.97277.stgit@fritz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,290 +9,328 @@ Content-Transfer-Encoding: 7bit
 Cc: devel@open-fcoe.org
 To: netdev@vger.kernel.org, gregkh@linuxfoundation.org,
 	linux-scsi@vger.kernel.org, bprakash@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:16398 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757975Ab2IJW7i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Sep 2012 18:59:38 -0400
+Return-path: <linux-scsi-owner@vger.kernel.org>
 In-Reply-To: <20120910225908.13140.97277.stgit@fritz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch removes the create, create_vn2vn, destroy,
-enable and disable module parameters. Previous patches
-have added these interfaces to the fcoe_sysfs layout
-and these misplaced interfaces are no longer necessary.
+Convert fcoe to use the new fcoe_sysfs create, delete,
+enable, disable, start and mode.
 
 Signed-off-by: Robert Love <robert.w.love@intel.com>
 ---
- drivers/scsi/fcoe/fcoe_transport.c |  211 ------------------------------------
- include/scsi/libfcoe.h             |    7 -
- 2 files changed, 1 insertion(+), 217 deletions(-)
+ drivers/scsi/fcoe/fcoe.c |  229 +++++++++++++++++++++++-----------------------
+ 1 file changed, 115 insertions(+), 114 deletions(-)
 
-diff --git a/drivers/scsi/fcoe/fcoe_transport.c b/drivers/scsi/fcoe/fcoe_transport.c
-index 8e50d9a..f9e6e67 100644
---- a/drivers/scsi/fcoe/fcoe_transport.c
-+++ b/drivers/scsi/fcoe/fcoe_transport.c
-@@ -32,15 +32,11 @@ MODULE_AUTHOR("Open-FCoE.org");
- MODULE_DESCRIPTION("FIP discovery protocol and FCoE transport for FCoE HBAs");
- MODULE_LICENSE("GPL v2");
+diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
+index fe30b1b..fe9ce98 100644
+--- a/drivers/scsi/fcoe/fcoe.c
++++ b/drivers/scsi/fcoe/fcoe.c
+@@ -112,10 +112,10 @@ static int fcoe_dcb_app_notification(struct notifier_block *notifier,
+ 				     ulong event, void *ptr);
  
--static int fcoe_transport_create(const char *, struct kernel_param *);
--static int fcoe_transport_destroy(const char *, struct kernel_param *);
- static int fcoe_transport_show(char *buffer, const struct kernel_param *kp);
- static struct fcoe_transport *fcoe_transport_lookup(struct net_device *device);
- static struct fcoe_transport *fcoe_netdev_map_lookup(struct net_device *device);
--static int fcoe_transport_enable(const char *, struct kernel_param *);
--static int fcoe_transport_disable(const char *, struct kernel_param *);
- static int libfcoe_device_notification(struct notifier_block *notifier,
--				    ulong event, void *ptr);
-+				       ulong event, void *ptr);
+ static bool fcoe_match(struct net_device *netdev);
+-static int fcoe_create(struct net_device *netdev, enum fip_state fip_mode);
++static int fcoe_start(struct fcoe_ctlr_device *cdev);
+ static int fcoe_destroy(struct net_device *netdev);
+-static int fcoe_enable(struct net_device *netdev);
+-static int fcoe_disable(struct net_device *netdev);
++static int fcoe_enable(struct fcoe_ctlr_device *cdev);
++static int fcoe_disable(struct fcoe_ctlr_device *cdev);
  
- static LIST_HEAD(fcoe_transports);
- static DEFINE_MUTEX(ft_mutex);
-@@ -55,29 +51,6 @@ module_param_call(show, NULL, fcoe_transport_show, NULL, S_IRUSR);
- __MODULE_PARM_TYPE(show, "string");
- MODULE_PARM_DESC(show, " Show attached FCoE transports");
+ static struct fc_seq *fcoe_elsct_send(struct fc_lport *,
+ 				      u32 did, struct fc_frame *,
+@@ -155,6 +155,10 @@ static void fcoe_ctlr_get_lesb(struct fcoe_ctlr_device *);
+ static void fcoe_fcf_get_vlan_id(struct fcoe_fcf_device *);
  
--module_param_call(create, fcoe_transport_create, NULL,
--		  (void *)FIP_MODE_FABRIC, S_IWUSR);
--__MODULE_PARM_TYPE(create, "string");
--MODULE_PARM_DESC(create, " Creates fcoe instance on a ethernet interface");
--
--module_param_call(create_vn2vn, fcoe_transport_create, NULL,
--		  (void *)FIP_MODE_VN2VN, S_IWUSR);
--__MODULE_PARM_TYPE(create_vn2vn, "string");
--MODULE_PARM_DESC(create_vn2vn, " Creates a VN_node to VN_node FCoE instance "
--		 "on an Ethernet interface");
--
--module_param_call(destroy, fcoe_transport_destroy, NULL, NULL, S_IWUSR);
--__MODULE_PARM_TYPE(destroy, "string");
--MODULE_PARM_DESC(destroy, " Destroys fcoe instance on a ethernet interface");
--
--module_param_call(enable, fcoe_transport_enable, NULL, NULL, S_IWUSR);
--__MODULE_PARM_TYPE(enable, "string");
--MODULE_PARM_DESC(enable, " Enables fcoe on a ethernet interface.");
--
--module_param_call(disable, fcoe_transport_disable, NULL, NULL, S_IWUSR);
--__MODULE_PARM_TYPE(disable, "string");
--MODULE_PARM_DESC(disable, " Disables fcoe on a ethernet interface.");
--
- /* notification function for packets from net device */
- static struct notifier_block libfcoe_notifier = {
- 	.notifier_call = libfcoe_device_notification,
-@@ -730,188 +703,6 @@ out_nodev:
- EXPORT_SYMBOL(fcoe_ctlr_destroy_store);
+ static struct fcoe_sysfs_function_template fcoe_sysfs_templ = {
++	.set_fcoe_ctlr_mode = fcoe_ctlr_set_fip_mode,
++	.set_fcoe_ctlr_start = fcoe_start,
++	.set_fcoe_ctlr_enable = fcoe_enable,
++	.set_fcoe_ctlr_disable = fcoe_disable,
+ 	.get_fcoe_ctlr_mode = fcoe_ctlr_get_fip_mode,
+ 	.get_fcoe_ctlr_link_fail = fcoe_ctlr_get_lesb,
+ 	.get_fcoe_ctlr_vlink_fail = fcoe_ctlr_get_lesb,
+@@ -2034,105 +2038,6 @@ out:
+ }
  
  /**
-- * fcoe_transport_create() - Create a fcoe interface
-- * @buffer: The name of the Ethernet interface to create on
-- * @kp:	    The associated kernel param
+- * fcoe_disable() - Disables a FCoE interface
+- * @netdev  : The net_device object the Ethernet interface to create on
 - *
-- * Called from sysfs. This holds the ft_mutex while calling the
-- * registered fcoe transport's create function.
+- * Called from fcoe transport.
 - *
 - * Returns: 0 for success
 - */
--static int fcoe_transport_create(const char *buffer, struct kernel_param *kp)
+-static int fcoe_disable(struct net_device *netdev)
 -{
--	int rc = -ENODEV;
--	struct net_device *netdev = NULL;
--	struct fcoe_transport *ft = NULL;
--	enum fip_state fip_mode = (enum fip_state)(long)kp->arg;
+-	struct fcoe_ctlr *ctlr;
+-	struct fcoe_interface *fcoe;
+-	int rc = 0;
 -
--	mutex_lock(&ft_mutex);
+-	mutex_lock(&fcoe_config_mutex);
 -
--	netdev = fcoe_if_to_netdev(buffer);
--	if (!netdev) {
--		LIBFCOE_TRANSPORT_DBG("Invalid device %s.\n", buffer);
--		goto out_nodev;
--	}
+-	rtnl_lock();
+-	fcoe = fcoe_hostlist_lookup_port(netdev);
+-	rtnl_unlock();
 -
--	ft = fcoe_netdev_map_lookup(netdev);
--	if (ft) {
--		LIBFCOE_TRANSPORT_DBG("transport %s already has existing "
--				      "FCoE instance on %s.\n",
--				      ft->name, netdev->name);
--		rc = -EEXIST;
--		goto out_putdev;
--	}
+-	if (fcoe) {
+-		ctlr = fcoe_to_ctlr(fcoe);
+-		fcoe_ctlr_link_down(ctlr);
+-		fcoe_clean_pending_queue(ctlr->lp);
+-	} else
+-		rc = -ENODEV;
 -
--	ft = fcoe_transport_lookup(netdev);
--	if (!ft) {
--		LIBFCOE_TRANSPORT_DBG("no FCoE transport found for %s.\n",
--				      netdev->name);
--		goto out_putdev;
--	}
--
--	rc = fcoe_add_netdev_mapping(netdev, ft);
--	if (rc) {
--		LIBFCOE_TRANSPORT_DBG("failed to add new netdev mapping "
--				      "for FCoE transport %s for %s.\n",
--				      ft->name, netdev->name);
--		goto out_putdev;
--	}
--
--	/* pass to transport create */
--	rc = ft->create ? ft->create(netdev, fip_mode) : -ENODEV;
--	if (rc)
--		fcoe_del_netdev_mapping(netdev);
--
--	LIBFCOE_TRANSPORT_DBG("transport %s %s to create fcoe on %s.\n",
--			      ft->name, (rc) ? "failed" : "succeeded",
--			      netdev->name);
--
--out_putdev:
--	dev_put(netdev);
--out_nodev:
--	mutex_unlock(&ft_mutex);
+-	mutex_unlock(&fcoe_config_mutex);
 -	return rc;
 -}
 -
 -/**
-- * fcoe_transport_destroy() - Destroy a FCoE interface
-- * @buffer: The name of the Ethernet interface to be destroyed
-- * @kp:	    The associated kernel parameter
+- * fcoe_enable() - Enables a FCoE interface
+- * @netdev  : The net_device object the Ethernet interface to create on
 - *
-- * Called from sysfs. This holds the ft_mutex while calling the
-- * registered fcoe transport's destroy function.
+- * Called from fcoe transport.
 - *
 - * Returns: 0 for success
 - */
--static int fcoe_transport_destroy(const char *buffer, struct kernel_param *kp)
+-static int fcoe_enable(struct net_device *netdev)
 -{
--	int rc = -ENODEV;
--	struct net_device *netdev = NULL;
--	struct fcoe_transport *ft = NULL;
+-	struct fcoe_ctlr *ctlr;
+-	struct fcoe_interface *fcoe;
+-	int rc = 0;
 -
--	mutex_lock(&ft_mutex);
+-	mutex_lock(&fcoe_config_mutex);
+-	rtnl_lock();
+-	fcoe = fcoe_hostlist_lookup_port(netdev);
+-	rtnl_unlock();
 -
--	netdev = fcoe_if_to_netdev(buffer);
--	if (!netdev) {
--		LIBFCOE_TRANSPORT_DBG("invalid device %s.\n", buffer);
--		goto out_nodev;
+-	if (!fcoe) {
+-		rc = -ENODEV;
+-		goto out;
 -	}
 -
--	ft = fcoe_netdev_map_lookup(netdev);
--	if (!ft) {
--		LIBFCOE_TRANSPORT_DBG("no FCoE transport found for %s.\n",
--				      netdev->name);
--		goto out_putdev;
--	}
+-	ctlr = fcoe_to_ctlr(fcoe);
 -
--	/* pass to transport destroy */
--	rc = ft->destroy ? ft->destroy(netdev) : -ENODEV;
--	fcoe_del_netdev_mapping(netdev);
--	LIBFCOE_TRANSPORT_DBG("transport %s %s to destroy fcoe on %s.\n",
--			      ft->name, (rc) ? "failed" : "succeeded",
--			      netdev->name);
+-	if (!fcoe_link_ok(ctlr->lp))
+-		fcoe_ctlr_link_up(ctlr);
 -
--out_putdev:
--	dev_put(netdev);
--out_nodev:
--	mutex_unlock(&ft_mutex);
+-out:
+-	mutex_unlock(&fcoe_config_mutex);
 -	return rc;
 -}
 -
 -/**
-- * fcoe_transport_disable() - Disables a FCoE interface
-- * @buffer: The name of the Ethernet interface to be disabled
-- * @kp:	    The associated kernel parameter
+- * fcoe_destroy() - Destroy a FCoE interface
+- * @netdev  : The net_device object the Ethernet interface to create on
 - *
-- * Called from sysfs.
-- *
-- * Returns: 0 for success
-- */
--static int fcoe_transport_disable(const char *buffer, struct kernel_param *kp)
--{
--	int rc = -ENODEV;
--	struct net_device *netdev = NULL;
--	struct fcoe_transport *ft = NULL;
--
--	mutex_lock(&ft_mutex);
--
--	netdev = fcoe_if_to_netdev(buffer);
--	if (!netdev)
--		goto out_nodev;
--
--	ft = fcoe_netdev_map_lookup(netdev);
--	if (!ft)
--		goto out_putdev;
--
--	rc = ft->disable ? ft->disable(netdev) : -ENODEV;
--
--out_putdev:
--	dev_put(netdev);
--out_nodev:
--	mutex_unlock(&ft_mutex);
--
--	if (rc == -ERESTARTSYS)
--		return restart_syscall();
--	else
--		return rc;
--}
--
--/**
-- * fcoe_transport_enable() - Enables a FCoE interface
-- * @buffer: The name of the Ethernet interface to be enabled
-- * @kp:     The associated kernel parameter
-- *
-- * Called from sysfs.
+- * Called from fcoe transport
 - *
 - * Returns: 0 for success
 - */
--static int fcoe_transport_enable(const char *buffer, struct kernel_param *kp)
+-static int fcoe_destroy(struct net_device *netdev)
 -{
--	int rc = -ENODEV;
--	struct net_device *netdev = NULL;
--	struct fcoe_transport *ft = NULL;
+-	struct fcoe_ctlr *ctlr;
+-	struct fcoe_interface *fcoe;
+-	struct fc_lport *lport;
+-	struct fcoe_port *port;
+-	int rc = 0;
 -
--	mutex_lock(&ft_mutex);
--
--	netdev = fcoe_if_to_netdev(buffer);
--	if (!netdev)
+-	mutex_lock(&fcoe_config_mutex);
+-	rtnl_lock();
+-	fcoe = fcoe_hostlist_lookup_port(netdev);
+-	if (!fcoe) {
+-		rc = -ENODEV;
 -		goto out_nodev;
--
--	ft = fcoe_netdev_map_lookup(netdev);
--	if (!ft)
--		goto out_putdev;
--
--	rc = ft->enable ? ft->enable(netdev) : -ENODEV;
--
--out_putdev:
--	dev_put(netdev);
+-	}
+-	ctlr = fcoe_to_ctlr(fcoe);
+-	lport = ctlr->lp;
+-	port = lport_priv(lport);
+-	list_del(&fcoe->list);
+-	queue_work(fcoe_wq, &port->destroy_work);
 -out_nodev:
--	mutex_unlock(&ft_mutex);
+-	rtnl_unlock();
+-	mutex_unlock(&fcoe_config_mutex);
 -	return rc;
 -}
 -
 -/**
-  * libfcoe_init() - Initialization routine for libfcoe.ko
+  * fcoe_destroy_work() - Destroy a FCoE port in a deferred work context
+  * @work: Handle to the FCoE port to be destroyed
   */
- static int __init libfcoe_init(void)
-diff --git a/include/scsi/libfcoe.h b/include/scsi/libfcoe.h
-index b19a489..af2e444 100644
---- a/include/scsi/libfcoe.h
-+++ b/include/scsi/libfcoe.h
-@@ -291,11 +291,7 @@ static inline bool is_fip_mode(struct fcoe_ctlr *fip)
-  * @match:	handler to allow the transport driver to match up a given netdev
-  * @alloc:      handler to allocate per-instance FCoE structures
-  *		(no discovery or login)
-- * @create:	handler to sysfs entry of create for FCoE instances
-  * @destroy:    handler to delete per-instance FCoE structures
-- *		(frees all memory)
-- * @enable:	handler to sysfs entry of enable for FCoE instances
-- * @disable:	handler to sysfs entry of disable for FCoE instances
+@@ -2207,18 +2112,17 @@ static void fcoe_dcb_create(struct fcoe_interface *fcoe)
+ }
+ 
+ /**
+- * fcoe_create() - Create a fcoe interface
++ * fcoe_alloc() - Allocate memory for a fcoe interface
+  * @netdev  : The net_device object the Ethernet interface to create on
+- * @fip_mode: The FIP mode for this creation
+  *
+  * Called from fcoe transport
+  *
+  * Returns: 0 for success
   */
- struct fcoe_transport {
- 	char name[IFNAMSIZ];
-@@ -303,10 +299,7 @@ struct fcoe_transport {
- 	struct list_head list;
- 	bool (*match) (struct net_device *device);
- 	int (*alloc) (struct net_device *device);
--	int (*create) (struct net_device *device, enum fip_state fip_mode);
- 	int (*destroy) (struct net_device *device);
--	int (*enable) (struct net_device *device);
--	int (*disable) (struct net_device *device);
+-static int fcoe_create(struct net_device *netdev, enum fip_state fip_mode)
++static int fcoe_alloc(struct net_device *netdev)
+ {
+ 	int rc = 0;
+-	struct fcoe_ctlr_device *ctlr_dev;
++	struct fcoe_ctlr_device *ctlr_dev = NULL;
+ 	struct fcoe_ctlr *ctlr;
+ 	struct fcoe_interface *fcoe;
+ 	struct fc_lport *lport;
+@@ -2232,7 +2136,10 @@ static int fcoe_create(struct net_device *netdev, enum fip_state fip_mode)
+ 		goto out_nodev;
+ 	}
+ 
+-	fcoe = fcoe_interface_create(netdev, fip_mode);
++	/*
++	 * Create the interface with the default 'Fabric' mode.
++	 */
++	fcoe = fcoe_interface_create(netdev, FIP_MODE_FABRIC);
+ 	if (IS_ERR(fcoe)) {
+ 		rc = PTR_ERR(fcoe);
+ 		goto out_nodev;
+@@ -2250,14 +2157,36 @@ static int fcoe_create(struct net_device *netdev, enum fip_state fip_mode)
+ 		goto out_nortnl;
+ 	}
+ 
++	/* add to lports list */
++	fcoe_hostlist_add(lport);
++
+ 	/* Make this the "master" N_Port */
+ 	ctlr->lp = lport;
+ 
+ 	/* setup DCB priority attributes. */
+ 	fcoe_dcb_create(fcoe);
+ 
+-	/* add to lports list */
+-	fcoe_hostlist_add(lport);
++out_nodev:
++	rtnl_unlock();
++out_nortnl:
++	mutex_unlock(&fcoe_config_mutex);
++	return rc;
++}
++
++/**
++ * fcoe_start() - Start the controller on a fcoe interface
++ * @cdev  : The FCoE Controller Device to start
++ *
++ * Returns: 0 for success
++ */
++int fcoe_start(struct fcoe_ctlr_device *cdev)
++{
++	struct fcoe_ctlr *ctlr = fcoe_ctlr_device_priv(cdev);
++	struct fc_lport *lport = ctlr->lp;
++	int rc = 0;
++
++	mutex_lock(&fcoe_config_mutex);
++	rtnl_lock();
+ 
+ 	/* start FIP Discovery and FLOGI */
+ 	lport->boot_time = jiffies;
+@@ -2269,14 +2198,88 @@ static int fcoe_create(struct net_device *netdev, enum fip_state fip_mode)
+ 		return rc;
+ 	}
+ 
+-out_nodev:
+ 	rtnl_unlock();
+-out_nortnl:
+ 	mutex_unlock(&fcoe_config_mutex);
++
+ 	return rc;
+ }
+ 
+ /**
++ * fcoe_destroy() - Destroy the controller on a fcoe interface
++ * @netdev: The netdevice associated with the controller to destroy
++ *
++ * Called from fcoe transport
++ *
++ * Returns: 0 for success
++ */
++int fcoe_destroy(struct net_device *netdev)
++{
++	struct fcoe_ctlr *ctlr;
++	struct fcoe_interface *fcoe;
++	struct fcoe_port *port;
++	int rc = 0;
++
++	mutex_lock(&fcoe_config_mutex);
++	rtnl_lock();
++
++	fcoe = fcoe_hostlist_lookup_port(netdev);
++	if (!fcoe) {
++		rc = -ENODEV;
++		goto out_nodev;
++	}
++
++	ctlr = fcoe_to_ctlr(fcoe);
++	port = lport_priv(ctlr->lp);
++	list_del(&fcoe->list);
++	queue_work(fcoe_wq, &port->destroy_work);
++
++out_nodev:
++	rtnl_unlock();
++	mutex_unlock(&fcoe_config_mutex);
++	return 0;
++}
++
++/**
++ * fcoe_enable() - Enable the controller on a fcoe interface
++ * @cdev  : The FCoE Controller Device to enable
++ *
++ * Returns: 0 for success
++ */
++int fcoe_enable(struct fcoe_ctlr_device *cdev)
++{
++	struct fcoe_ctlr *ctlr = fcoe_ctlr_device_priv(cdev);
++
++	mutex_lock(&fcoe_config_mutex);
++
++	if (!fcoe_link_ok(ctlr->lp))
++		fcoe_ctlr_link_up(ctlr);
++
++	mutex_unlock(&fcoe_config_mutex);
++
++	return 0;
++}
++
++/**
++ * fcoe_disable() - Disable the controller on a fcoe interface
++ * @cdev  : The FCoE Controller Device to disable
++ *
++ * Returns: 0 for success
++ */
++int fcoe_disable(struct fcoe_ctlr_device *cdev)
++{
++	struct fcoe_ctlr *ctlr = fcoe_ctlr_device_priv(cdev);
++
++	mutex_lock(&fcoe_config_mutex);
++
++	fcoe_ctlr_link_down(ctlr);
++	fcoe_clean_pending_queue(ctlr->lp);
++
++	mutex_unlock(&fcoe_config_mutex);
++
++	return 0;
++}
++
++/**
+  * fcoe_link_speed_update() - Update the supported and actual link speeds
+  * @lport: The local port to update speeds for
+  *
+@@ -2453,10 +2456,8 @@ static struct fcoe_transport fcoe_sw_transport = {
+ 	.attached = false,
+ 	.list = LIST_HEAD_INIT(fcoe_sw_transport.list),
+ 	.match = fcoe_match,
+-	.create = fcoe_create,
++	.alloc = fcoe_alloc,
+ 	.destroy = fcoe_destroy,
+-	.enable = fcoe_enable,
+-	.disable = fcoe_disable,
  };
  
  /**
+
