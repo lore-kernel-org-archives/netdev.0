@@ -1,237 +1,45 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [net-next PATCH 5/5] bnx2x: use native EEE instead of
- auto-greeen
-Date: Mon, 10 Sep 2012 18:51:08 +0300
-Message-ID: <1347292268-30348-6-git-send-email-yuvalmin@broadcom.com>
-References: <1347292268-30348-1-git-send-email-yuvalmin@broadcom.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH v2] iproute2: tc.8: update UNITS section.
+Date: Mon, 10 Sep 2012 09:35:20 -0700
+Message-ID: <20120910093520.16ac508f@nehalam.linuxnetplumber.net>
+References: <1346132337-21325-1-git-send-email-lw@cn.fujitsu.com>
+	<1346222516-14814-1-git-send-email-lw@cn.fujitsu.com>
+	<20120829111956.77d504ce@s6510.linuxnetplumber.net>
+	<504D4252.4030104@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Li Wei <lw@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2552 "EHLO mms2.broadcom.com"
+Received: from mail.vyatta.com ([76.74.103.46]:39735 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751639Ab2IJQ3f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Sep 2012 12:29:35 -0400
-In-Reply-To: <1347292268-30348-1-git-send-email-yuvalmin@broadcom.com>
+	id S1751971Ab2IJQfu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Sep 2012 12:35:50 -0400
+In-Reply-To: <504D4252.4030104@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables boards with 54618SE phys and a sufficiently new
-firmware to use native EEE instead of auto-greeen.
+On Mon, 10 Sep 2012 09:28:50 +0800
+Li Wei <lw@cn.fujitsu.com> wrote:
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |  105 +++++++++++++---------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h |    1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h  |   13 ++-
- 3 files changed, 73 insertions(+), 46 deletions(-)
+> On 08/30/2012 02:19 AM, Stephen Hemminger wrote:
+> > On Wed, 29 Aug 2012 14:41:56 +0800
+> > Li Wei <lw@cn.fujitsu.com> wrote:
+> > 
+> >> - rename section UNITS to PARAMETERS.
+> >> - break section PARAMETERS down to four subsections to cover the
+> >>   common used parameter types(RATES, TIMES, SIZES, VALUES).
+> >> - add some explaination for IEC units in RATES.
+> >> - point out the max value we can set for RATES, TIMES and SIZES.
+> >>
+> >> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
+> > 
+> > Plan to merge this when I get back next week.
+> 
+> ping ...
+> 
+> > 
+> > 
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 839ddd2..c660afd 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -1584,6 +1584,16 @@ static void bnx2x_umac_enable(struct link_params *params,
- 	REG_WR(bp, umac_base + UMAC_REG_COMMAND_CONFIG, val);
- 	udelay(50);
- 
-+	/* Configure UMAC for EEE */
-+	if (vars->eee_status & SHMEM_EEE_ADV_STATUS_MASK) {
-+		DP(NETIF_MSG_LINK, "configured UMAC for EEE\n");
-+		REG_WR(bp, umac_base + UMAC_REG_UMAC_EEE_CTRL,
-+		       UMAC_UMAC_EEE_CTRL_REG_EEE_EN);
-+		REG_WR(bp, umac_base + UMAC_REG_EEE_WAKE_TIMER, 0x11);
-+	} else {
-+		REG_WR(bp, umac_base + UMAC_REG_UMAC_EEE_CTRL, 0x0);
-+	}
-+
- 	/* Set MAC address for source TX Pause/PFC frames (under SW reset) */
- 	REG_WR(bp, umac_base + UMAC_REG_MAC_ADDR0,
- 	       ((params->mac_addr[2] << 24) |
-@@ -4263,6 +4273,8 @@ static void bnx2x_warpcore_set_sgmii_speed(struct bnx2x_phy *phy,
- 	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
- 			 MDIO_WC_REG_RX66_CONTROL, val16 & ~(3<<13));
- 
-+	bnx2x_warpcore_set_lpi_passthrough(phy, params);
-+
- 	if (always_autoneg || phy->req_line_speed == SPEED_AUTO_NEG) {
- 		/* SGMII Autoneg */
- 		bnx2x_cl45_read(bp, phy, MDIO_WC_DEVAD,
-@@ -10792,28 +10804,52 @@ static int bnx2x_54618se_config_init(struct bnx2x_phy *phy,
- 		DP(NETIF_MSG_LINK, "Setting 10M force\n");
- 	}
- 
--	/* Check if we should turn on Auto-GrEEEn */
--	bnx2x_cl22_read(bp, phy, MDIO_REG_GPHY_PHYID_LSB, &temp);
--	if (temp == MDIO_REG_GPHY_ID_54618SE) {
--		if (params->feature_config_flags &
--		    FEATURE_CONFIG_AUTOGREEEN_ENABLED) {
--			temp = 6;
--			DP(NETIF_MSG_LINK, "Enabling Auto-GrEEEn\n");
-+	if ((phy->flags & FLAGS_EEE) && bnx2x_eee_has_cap(params)) {
-+		int rc;
-+
-+		bnx2x_cl22_write(bp, phy, MDIO_REG_GPHY_EXP_ACCESS,
-+				 MDIO_REG_GPHY_EXP_ACCESS_TOP |
-+				 MDIO_REG_GPHY_EXP_TOP_2K_BUF);
-+		bnx2x_cl22_read(bp, phy, MDIO_REG_GPHY_EXP_ACCESS_GATE, &temp);
-+		temp &= 0xfffe;
-+		bnx2x_cl22_write(bp, phy, MDIO_REG_GPHY_EXP_ACCESS_GATE, temp);
-+
-+		rc = bnx2x_eee_initial_config(params, vars, SHMEM_EEE_1G_ADV);
-+		if (rc) {
-+			DP(NETIF_MSG_LINK, "Failed to configure EEE timers\n");
-+			bnx2x_eee_disable(phy, params, vars);
-+		} else if ((params->eee_mode & EEE_MODE_ADV_LPI) &&
-+			   (phy->req_duplex == DUPLEX_FULL) &&
-+			   (bnx2x_eee_calc_timer(params) ||
-+			    !(params->eee_mode & EEE_MODE_ENABLE_LPI))) {
-+			/* Need to advertise EEE only when requested,
-+			 * and either no LPI assertion was requested,
-+			 * or it was requested and a valid timer was set.
-+			 * Also notice full duplex is required for EEE.
-+			 */
-+			bnx2x_eee_advertise(phy, params, vars,
-+					    SHMEM_EEE_1G_ADV);
- 		} else {
--			temp = 0;
--			DP(NETIF_MSG_LINK, "Disabling Auto-GrEEEn\n");
-+			DP(NETIF_MSG_LINK, "Don't Advertise 1GBase-T EEE\n");
-+			bnx2x_eee_disable(phy, params, vars);
-+		}
-+	} else {
-+		vars->eee_status &= ~SHMEM_EEE_1G_ADV <<
-+				    SHMEM_EEE_SUPPORTED_SHIFT;
-+
-+		if (phy->flags & FLAGS_EEE) {
-+			/* Handle legacy auto-grEEEn */
-+			if (params->feature_config_flags &
-+			    FEATURE_CONFIG_AUTOGREEEN_ENABLED) {
-+				temp = 6;
-+				DP(NETIF_MSG_LINK, "Enabling Auto-GrEEEn\n");
-+			} else {
-+				temp = 0;
-+				DP(NETIF_MSG_LINK, "Don't Adv. EEE\n");
-+			}
-+			bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD,
-+					 MDIO_AN_REG_EEE_ADV, temp);
- 		}
--		bnx2x_cl22_write(bp, phy,
--				 MDIO_REG_GPHY_CL45_ADDR_REG, MDIO_AN_DEVAD);
--		bnx2x_cl22_write(bp, phy,
--				 MDIO_REG_GPHY_CL45_DATA_REG,
--				 MDIO_REG_GPHY_EEE_ADV);
--		bnx2x_cl22_write(bp, phy,
--				 MDIO_REG_GPHY_CL45_ADDR_REG,
--				 (0x1 << 14) | MDIO_AN_DEVAD);
--		bnx2x_cl22_write(bp, phy,
--				 MDIO_REG_GPHY_CL45_DATA_REG,
--				 temp);
- 	}
- 
- 	bnx2x_cl22_write(bp, phy,
-@@ -10960,29 +10996,6 @@ static u8 bnx2x_54618se_read_status(struct bnx2x_phy *phy,
- 		DP(NETIF_MSG_LINK, "BCM54618SE: link speed is %d\n",
- 			   vars->line_speed);
- 
--		/* Report whether EEE is resolved. */
--		bnx2x_cl22_read(bp, phy, MDIO_REG_GPHY_PHYID_LSB, &val);
--		if (val == MDIO_REG_GPHY_ID_54618SE) {
--			if (vars->link_status &
--			    LINK_STATUS_AUTO_NEGOTIATE_COMPLETE)
--				val = 0;
--			else {
--				bnx2x_cl22_write(bp, phy,
--					MDIO_REG_GPHY_CL45_ADDR_REG,
--					MDIO_AN_DEVAD);
--				bnx2x_cl22_write(bp, phy,
--					MDIO_REG_GPHY_CL45_DATA_REG,
--					MDIO_REG_GPHY_EEE_RESOLVED);
--				bnx2x_cl22_write(bp, phy,
--					MDIO_REG_GPHY_CL45_ADDR_REG,
--					(0x1 << 14) | MDIO_AN_DEVAD);
--				bnx2x_cl22_read(bp, phy,
--					MDIO_REG_GPHY_CL45_DATA_REG,
--					&val);
--			}
--			DP(NETIF_MSG_LINK, "EEE resolution: 0x%x\n", val);
--		}
--
- 		bnx2x_ext_phy_resolve_fc(phy, params, vars);
- 
- 		if (vars->link_status & LINK_STATUS_AUTO_NEGOTIATE_COMPLETE) {
-@@ -11012,6 +11025,10 @@ static u8 bnx2x_54618se_read_status(struct bnx2x_phy *phy,
- 			if (val & (1<<11))
- 				vars->link_status |=
- 				  LINK_STATUS_LINK_PARTNER_1000TFD_CAPABLE;
-+
-+			if ((phy->flags & FLAGS_EEE) &&
-+			    bnx2x_eee_has_cap(params))
-+				bnx2x_eee_an_resolve(phy, params, vars);
- 		}
- 	}
- 	return link_up;
-@@ -11925,6 +11942,8 @@ static int bnx2x_populate_ext_phy(struct bnx2x *bp,
- 	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54616:
- 	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE:
- 		*phy = phy_54618se;
-+		if (phy_type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE)
-+			phy->flags |= FLAGS_EEE;
- 		break;
- 	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101:
- 		*phy = phy_7101;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-index 3967aa8..360ecf9 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-@@ -155,6 +155,7 @@ struct bnx2x_phy {
- #define FLAGS_DUMMY_READ		(1<<9)
- #define FLAGS_MDC_MDIO_WA_B0		(1<<10)
- #define FLAGS_TX_ERROR_CHECK		(1<<12)
-+#define FLAGS_EEE			(1<<13)
- 
- 	/* preemphasis values for the rx side */
- 	u16 rx_preemphasis[4];
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-index d32293f..1b1999d 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-@@ -4949,6 +4949,10 @@
- #define UMAC_COMMAND_CONFIG_REG_SW_RESET			 (0x1<<13)
- #define UMAC_COMMAND_CONFIG_REG_TX_ENA				 (0x1<<0)
- #define UMAC_REG_COMMAND_CONFIG					 0x8
-+/* [RW 16] This is the duration for which MAC must wait to go back to ACTIVE
-+ * state from LPI state when it receives packet for transmission. The
-+ * decrement unit is 1 micro-second. */
-+#define UMAC_REG_EEE_WAKE_TIMER					 0x6c
- /* [RW 32] Register Bit 0 refers to Bit 16 of the MAC address; Bit 1 refers
-  * to bit 17 of the MAC address etc. */
- #define UMAC_REG_MAC_ADDR0					 0xc
-@@ -4958,6 +4962,8 @@
- /* [RW 14] Defines a 14-Bit maximum frame length used by the MAC receive
-  * logic to check frames. */
- #define UMAC_REG_MAXFR						 0x14
-+#define UMAC_REG_UMAC_EEE_CTRL					 0x64
-+#define UMAC_UMAC_EEE_CTRL_REG_EEE_EN				 (0x1<<3)
- /* [RW 8] The event id for aggregated interrupt 0 */
- #define USDM_REG_AGG_INT_EVENT_0				 0xc4038
- #define USDM_REG_AGG_INT_EVENT_1				 0xc403c
-@@ -7161,10 +7167,11 @@ Theotherbitsarereservedandshouldbezero*/
- #define MDIO_REG_GPHY_ID_54618SE		0x5cd5
- #define MDIO_REG_GPHY_CL45_ADDR_REG			0xd
- #define MDIO_REG_GPHY_CL45_DATA_REG			0xe
--#define MDIO_REG_GPHY_EEE_ADV			0x3c
--#define MDIO_REG_GPHY_EEE_1G		(0x1 << 2)
--#define MDIO_REG_GPHY_EEE_100		(0x1 << 1)
- #define MDIO_REG_GPHY_EEE_RESOLVED		0x803e
-+#define MDIO_REG_GPHY_EXP_ACCESS_GATE			0x15
-+#define MDIO_REG_GPHY_EXP_ACCESS			0x17
-+#define MDIO_REG_GPHY_EXP_ACCESS_TOP		0xd00
-+#define MDIO_REG_GPHY_EXP_TOP_2K_BUF		0x40
- #define MDIO_REG_GPHY_AUX_STATUS			0x19
- #define MDIO_REG_INTR_STATUS				0x1a
- #define MDIO_REG_INTR_MASK				0x1b
--- 
-1.7.9.rc2
+Pushed it out this morning.
