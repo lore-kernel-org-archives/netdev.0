@@ -1,52 +1,47 @@
-From: chris@chris-wilson.co.uk
-Subject: net/ipv4/route.c:645 suspicious rcu_dereference_check() usage!
-Date: Mon, 10 Sep 2012 09:44:38 +0100
-Message-ID: <84c8a8$5m6f27@orsmga001.jf.intel.com>
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [tcpdump-workers] Modular arithmetic
+Date: Mon, 10 Sep 2012 09:41:02 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6FE4@saturn3.aculab.com>
+References: <20120905213941.03c85968@arrowsmith> <C71A36A8-08D2-4D3D-AF2B-EF89FEECE1A6@alum.mit.edu> <20120906073615.693d14e0@arrowsmith> <46AB14E3-73F4-41FA-8086-F1D663AF4549@alum.mit.edu> <20120907074910.2df46817@arrowsmith> <20120908030311.GM17289@tassilo.jf.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Jay Schulist" <jschlst@samba.org>, <netdev@vger.kernel.org>
+To: "Andi Kleen" <ak@linux.intel.com>,
+	"George Bakos" <gbakos@alpinista.org>,
+	<tcpdump-workers@lists.tcpdump.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:51935 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753136Ab2IJIrz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 04:47:55 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 24358-07 for <netdev@vger.kernel.org>;
+ Mon, 10 Sep 2012 09:47:51 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <20120908030311.GM17289@tassilo.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I've not seen this reported yet, so here's a warning that happens
-occasionally:
+> On Fri, Sep 07, 2012 at 07:49:10AM +0000, George Bakos wrote:
+> > Gents,
+> > Any fundamental reason why the following (, etc.) shouldn't be
+> > included in net/core/filter.c?
+> >
+> >                 case BPF_S_ALU_MOD_X:
+> >                         if (X == 0)
+> >                                 return 0;
+> >                         A %= X;
+> >                         continue;
+> 
+> Copying netdev.
+> 
+> In principle no reason against it, but you may need to update
+> the various BPF JITs too that Linux now has too.
 
-[192979.475833] 
-[192979.475840] ===============================
-[192979.475841] [ INFO: suspicious RCU usage. ]
-[192979.475844] 3.6.0-rc2+ #33 Not tainted
-[192979.475846] -------------------------------
-[192979.475848] net/ipv4/route.c:645 suspicious rcu_dereference_check() usage!
-[192979.475850] 
-[192979.475850] other info that might help us debug this:
-[192979.475850] 
-[192979.475853] 
-[192979.475853] rcu_scheduler_active = 1, debug_locks = 0
-[192979.475856] 2 locks held by firefox-bin/4634:
-[192979.475858]  #0:  (slock-AF_INET){+.-...}, at: [<ffffffff814261b4>] release_sock+0x34/0x1e0
-[192979.475870]  #1:  (fnhe_lock){+.-...}, at: [<ffffffff81461c94>] update_or_create_fnhe.isra.30+0x44/0x480
-[192979.475878] 
-[192979.475878] stack backtrace:
-[192979.475881] Pid: 4634, comm: firefox-bin Not tainted 3.6.0-rc2+ #33
-[192979.475883] Call Trace:
-[192979.475891]  [<ffffffff810903cd>] lockdep_rcu_suspicious+0xfd/0x130
-[192979.475895]  [<ffffffff81461e8e>] update_or_create_fnhe.isra.30+0x23e/0x480
-[192979.475899]  [<ffffffff814624ba>] __ip_rt_update_pmtu.isra.31+0x6a/0xb0
-[192979.475903]  [<ffffffff81465038>] ip_rt_update_pmtu+0x48/0xd0
-[192979.475907]  [<ffffffff814759b1>] inet_csk_update_pmtu+0x31/0x80
-[192979.475912]  [<ffffffff8148b663>] tcp_v4_mtu_reduced+0x33/0xd0
-[192979.475915]  [<ffffffff814888be>] tcp_release_cb+0x5e/0xb0
-[192979.475919]  [<ffffffff81426289>] release_sock+0x109/0x1e0
-[192979.475922]  [<ffffffff81479037>] tcp_sendmsg+0x527/0x1030
-[192979.475927]  [<ffffffff814a4d9d>] inet_sendmsg+0xed/0x240
-[192979.475931]  [<ffffffff814a4cb0>] ? inet_autobind+0x70/0x70
-[192979.475934]  [<ffffffff81424e8a>] ? sock_update_classid+0xaa/0x370
-[192979.475937]  [<ffffffff81424eb8>] ? sock_update_classid+0xd8/0x370
-[192979.475941]  [<ffffffff8141ee1b>] sock_sendmsg+0xab/0xe0
-[192979.475946]  [<ffffffff814222be>] sys_sendto+0x11e/0x160
-[192979.475951]  [<ffffffff8153e547>] ? sysret_check+0x1b/0x56
-[192979.475956]  [<ffffffff8125849e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
-[192979.475960]  [<ffffffff8153e522>] system_call_fastpath+0x16/0x1b
+What about the other OS - eg all the BSDs?
+I had a vague idea that BPF was supposed to be reasonable portable.
 
--- 
-Chris Wilson, Intel Open Source Technology Centre
+	David    (dsl@netbsd.org)
