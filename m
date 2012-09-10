@@ -1,43 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlink: Rename pid to portid to avoid confusion
-Date: Mon, 10 Sep 2012 15:31:42 -0400 (EDT)
-Message-ID: <20120910.153142.112339451501543835.davem@davemloft.net>
-References: <87fw6tjb4p.fsf@xmission.com>
-	<20120908095441.359df1d1@s6510.linuxnetplumber.net>
+Subject: Re: [PATCH] xfrm: Report user triggered expirations against the
+ users socket
+Date: Mon, 10 Sep 2012 15:34:51 -0400 (EDT)
+Message-ID: <20120910.153451.799687655699800104.davem@davemloft.net>
+References: <871uidj8so.fsf@xmission.com>
+	<87pq5xhtky.fsf_-_@xmission.com>
+	<504B307E.2030607@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: ebiederm@xmission.com, netdev@vger.kernel.org, hadi@cyberus.ca
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32831 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:32873 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758347Ab2IJTbo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 15:31:44 -0400
-In-Reply-To: <20120908095441.359df1d1@s6510.linuxnetplumber.net>
+	with ESMTP id S1758414Ab2IJTex (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 15:34:53 -0400
+In-Reply-To: <504B307E.2030607@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Sat, 8 Sep 2012 09:54:41 -0700
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Sat, 08 Sep 2012 07:48:14 -0400
 
-> On Fri, 07 Sep 2012 23:12:54 -0700
-> ebiederm@xmission.com (Eric W. Biederman) wrote:
-> 
->> It is a frequent mistake to confuse the netlink port identifier with a
->> process identifier.  Try to reduce this confusion by renaming fields
->> that hold port identifiers portid instead of pid.
->> 
->> I have carefully avoided changing the structures exported to
->> userspace to avoid changing the userspace API.
->> 
->> I have successfully built an allyesconfig kernel with this change.
->> 
+> On 12-09-08 03:17 AM, Eric W. Biederman wrote:
+>> When a policy expiration is triggered from user space the request
+>> travles through km_policy_expired and ultimately into
+>> xfrm_exp_policy_notify which calls build_polexpire.  build_polexpire
+>> uses the netlink port passed to km_policy_expired as the source port
+>> for
+>> the netlink message it builds.
+>>
+>> When a state expiration is triggered from user space the request
+>> travles
+>> through km_state_expired and ultimately into xfrm_exp_state_notify
+>> which
+>> calls build_expire.  build_expire uses the netlink port passed to
+>> km_state_expired as the source port for the netlink message it builds.
+>>
+>> Pass nlh->nlmsg_pid from the user generated netlink message that
+>> requested the expiration to km_policy_expired and km_state_expired
+>> instead of current->pid which is not a netlink port number.
+>>
+>> Cc: Jamal Hadi Salim <hadi@cyberus.ca>
 >> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
->> ---
+>>
 > 
-> Ok. I validated that no header file used by iproute2 is affected.
-> 
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> I suppose.
+> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
 Applied to net-next, thanks.
