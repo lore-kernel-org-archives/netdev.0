@@ -1,50 +1,122 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: Re: Modular arithmetic
-Date: Mon, 10 Sep 2012 11:41:54 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6FE5@saturn3.aculab.com>
-References: <20120905213941.03c85968@arrowsmith>
-	<C71A36A8-08D2-4D3D-AF2B-EF89FEECE1A6@alum.mit.edu>
-	<20120906073615.693d14e0@arrowsmith>
-	<46AB14E3-73F4-41FA-8086-F1D663AF4549@alum.mit.edu>
-	<20120907074910.2df46817@arrowsmith>
-	<20120908030311.GM17289@tassilo.jf.intel.com>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B6FE4@saturn3.aculab.com>
-	<1347269124.1234.1326.camel@edumazet-glaptop>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCHv4] virtio-spec: virtio network device multiqueue support
+Date: Mon, 10 Sep 2012 19:00:01 +0800
+Message-ID: <504DC831.1000709@redhat.com>
+References: <20120909130308.GA3471@redhat.com> <878vcifwxi.fsf@rustcorp.com.au>
+	<20120910061629.GC16819@redhat.com>
+	<20120910062738.GA17331@redhat.com>
+	<20120910063346.GA17338@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jay Schulist <jschlst@samba.org>,
-	Andi Kleen <ak@linux.intel.com>, tcpdump-workers@lists.tcpdump.org
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <tcpdump-workers-bounces@lists.tcpdump.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1347269124.1234.1326.camel@edumazet-glaptop>
-List-Unsubscribe: <https://lists.sandelman.ca/mailman/options/tcpdump-workers>,
-	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=unsubscribe>
-List-Archive: <http://lists.sandelman.ca/pipermail/tcpdump-workers>
-List-Post: <mailto:tcpdump-workers@lists.tcpdump.org>
-List-Help: <mailto:tcpdump-workers-request@lists.tcpdump.org?subject=help>
-List-Subscribe: <https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers>,
-	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=subscribe>
-Sender: tcpdump-workers-bounces@lists.tcpdump.org
-Errors-To: tcpdump-workers-bounces@lists.tcpdump.org
+Cc: rick.jones2@hp.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	levinsasha928@gmail.com, pbonzini@redhat.com,
+	Tom Herbert <therbert@google.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120910063346.GA17338@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-> > What about the other OS - eg all the BSDs?
-> > I had a vague idea that BPF was supposed to be reasonable portable.
-> 
-> Yes, does it mean BPF is frozen ?
-> 
-> Or is BSD so hard to update these days ?
+On 09/10/2012 02:33 PM, Michael S. Tsirkin wrote:
+> On Mon, Sep 10, 2012 at 09:27:38AM +0300, Michael S. Tsirkin wrote:
+>> On Mon, Sep 10, 2012 at 09:16:29AM +0300, Michael S. Tsirkin wrote:
+>>> On Mon, Sep 10, 2012 at 11:42:25AM +0930, Rusty Russell wrote:
+>>>> OK, I read the spec (pasted below for easy of reading), but I'm still
+>>>> confused over how this will work.
+>>>>
+>>>> I thought normal net drivers have the hardware provide an rxhash for
+>>>> each packet, and we map that to CPU to queue the packet on[1].  We hope
+>>>> that the receiving process migrates to that CPU, so xmit queue
+>>>> matches.
+>>> This ony works sometimes.  For example it's common to pin netperf to a
+>>> cpu to get consistent performance.  Proper hardware must obey what
+>>> applications want it to do, not the other way around.
+>>>
+>>>> For virtio this would mean a new per-packet rxhash value, right?
+>>>>
+>>>> Why are we doing something different?  What am I missing?
+>>>>
+>>>> Thanks,
+>>>> Rusty.
+>>>> [1] Everything I Know About Networking I Learned From LWN:
+>>>>      https://lwn.net/Articles/362339/
+>>> I think you missed this:
+>>>
+>>> 	Some network interfaces can help with the distribution of incoming
+>>> 	packets; they have multiple receive queues and multiple interrupt lines.
+>>> 	Others, though, are equipped with a single queue, meaning that the
+>>> 	driver for that hardware must deal with all incoming packets in a
+>>> 	single, serialized stream. Parallelizing such a stream requires some
+>>> 	intelligence on the part of the host operating system.
+>>>
+>>> In other words RPS is a hack to speed up networking on cheapo
+>>> hardware, this is one of the reasons it is off by default.
+>>> Good hardware has multiple receive queues.
+>>> We can implement a good one so we do not need RPS.
+>>>
+>>> Also not all guest OS-es support RPS.
+>>>
+>>> Does this clarify?
+>> I would like to add that on many processors, sending
+>> IPCs between guest CPUs requires exits on sending *and*
+>> receiving path, making it very expensive.
+> A final addition: what you suggest above would be
+> "TX follows RX", right?
+> It is in anticipation of something like that, that I made
+> steering programming so generic.
+> I think TX follows RX is more immediately useful for reasons above
+> but we can add both to spec and let drivers and devices
+> decide what they want to support.
+> Pls let me know.
 
-Not really - but it some other places that need updating in order
-to make this useful for cross-platform tools (like tcpdump).
-
-The 'real fun (tm)' happens when NetBSD tries to run Linux binaries
-that include the Linux libpcap.
-
-	David
-_______________________________________________
-tcpdump-workers mailing list
-tcpdump-workers@lists.tcpdump.org
-https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers
+AFAIK, ixgbe does "rx follows tx". The only differences between ixgbe 
+and virtio-net is that ixgbe driver programs the flow director during 
+packet transmission but we suggest to do it silently in the device for 
+simplicity. Even with this, more co-operation is still needed for the 
+driver ( e.g ixgbe try to use per-cpu queue by setting affinity hint and 
+using cpuid to choose the txq which could be reused in virtio-net driver).
+>
+>>>> ---
+>>>> Transmit Packet Steering
+>>>>
+>>>> When VIRTIO_NET_F_MULTIQUEUE feature bit is negotiated, guest can use any of multiple configured transmit queues to transmit a given packet. To avoid packet reordering by device (which generally leads to performance degradation) driver should attempt to utilize the same transmit virtqueue for all packets of a given transmit flow. For bi-directional protocols (in practice, TCP), a given network connection can utilize both transmit and receive queues. For best performance, packets from a single connection should utilize the paired transmit and receive queues from the same virtqueue pair; for example both transmitqN and receiveqN. This rule makes it possible to optimize processing on the device side, but this is not a hard requirement: devices should function correctly even when this rul
+ e is not followed.
+>>>>
+>>>> Driver selects an active steering rule using VIRTIO_NET_CTRL_STEERING command (this controls both which virtqueue is selected for a given packet for receive and notifies the device which virtqueues are about to be used for transmit).
+>>>>
+>>>> This command accepts a single out argument in the following format:
+>>>>
+>>>> #define VIRTIO_NET_CTRL_STEERING               4
+>>>>
+>>>> The field rule specifies the function used to select transmit virtqueue for a given packet; the field param makes it possible to pass an extra parameter if appropriate. When rule is set to VIRTIO_NET_CTRL_STEERING_SINGLE (this is the default) all packets are steered to the default virtqueue transmitq (1); param is unused; this is the default. With any other rule, When rule is set to VIRTIO_NET_CTRL_STEERING_RX_FOLLOWS_TX packets are steered by driver to the first N=(param+1) multiqueue virtqueues transmitq1...transmitqN; the default transmitq is unused. Driver must have configured all these (param+1) virtqueues beforehand.
+>>>>
+>>>> Supported steering rules can be added and removed in the future. Driver should check that the request to change the steering rule was successful by checking ack values of the command. As selecting a specific steering is an optimization feature, drivers should avoid hard failure and fall back on using a supported steering rule if this command fails. The default steering rule is VIRTIO_NET_CTRL_STEERING_SINGLE. It will not be removed.
+>>>>
+>>>> When the steering rule is modified, some packets can still be outstanding in one or more of the transmit virtqueues. Since drivers might choose to modify the current steering rule at a high rate (e.g. adaptively in response to changes in the workload) to avoid reordering packets, device is recommended to complete processing of the transmit queue(s) utilized by the original steering before processing any packets delivered by the modified steering rule.
+>>>>
+>>>> For debugging, the current steering rule can also be read from the configuration space.
+>>>>
+>>>> Receive Packet Steering
+>>>>
+>>>> When VIRTIO_NET_F_MULTIQUEUE feature bit is negotiated, device can use any of multiple configured receive queues to pass a given packet to driver. Driver controls which virtqueue is selected in practice by configuring packet steering rule using VIRTIO_NET_CTRL_STEERING command, as described above[sub:Transmit-Packet-Steering].
+>>>>
+>>>> The field rule specifies the function used to select receive virtqueue for a given packet; the field param makes it possible to pass an extra parameter if appropriate. When rule is set to VIRTIO_NET_CTRL_STEERING_SINGLE all packets are steered to the default virtqueue receiveq (0); param is unused; this is the default. When rule is set to VIRTIO_NET_CTRL_STEERING_RX_FOLLOWS_TX packets are steered by host to the first N=(param+1) multiqueue virtqueues receiveq1...receiveqN; the default receiveq is unused. Driver must have configured all these (param+1) virtqueues beforehand. For best performance for bi-directional flows (such as TCP) device should detect the flow to virtqueue pair mapping on transmit and select the receive virtqueue from the same virtqueue pair. For uni-directional flo
+ ws, or when this mapping information is missing, a device-specific steering function is used.
+>>>>
+>>>> Supported steering rules can be added and removed in the future. Driver should probe for supported rules by checking ack values of the command.
+>>>>
+>>>> When the steering rule is modified, some packets can still be outstanding in one or more of the virtqueues. Device is not required to wait for these packets to be consumed before delivering packets using the new streering rule. Drivers modifying the steering rule at a high rate (e.g. adaptively in response to changes in the workload) are recommended to complete processing of the receive queue(s) utilized by the original steering before processing any packets delivered by the modified steering rule.
+> --
+> To unsubscribe from this list: send the line "unsubscribe kvm" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
