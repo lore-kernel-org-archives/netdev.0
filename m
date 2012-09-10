@@ -1,48 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] ixp4xx_hss: fix build failure due to missing
- linux/module.h inclusion
-Date: Mon, 10 Sep 2012 16:15:43 -0400 (EDT)
-Message-ID: <20120910.161543.255714089600943802.davem@davemloft.net>
-References: <1347278818-6913-1-git-send-email-florian@openwrt.org>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net] net: qmi_wwan: call subdriver with control intf only
+Date: Mon, 10 Sep 2012 22:15:50 +0200
+Message-ID: <1347308150-19088-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, khc@pm.waw.pl, joe@perches.com,
-	stable@vger.kernel.org
-To: florian@openwrt.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33424 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754626Ab2IJUPp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 16:15:45 -0400
-In-Reply-To: <1347278818-6913-1-git-send-email-florian@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <florian@openwrt.org>
-Date: Mon, 10 Sep 2012 14:06:58 +0200
+This fixes a hang on suspend due to calling wdm_suspend on
+the unregistered data interface. The hang should have been
+a NULL pointer reference had it not been for a logic error
+in the cdc_wdm code.
 
-> Commit 36a1211970193ce215de50ed1e4e1272bc814df1 (netprio_cgroup.h:
-> dont include module.h from other includes) made the following build
-> error on ixp4xx_hss pop up:
-> 
->   CC [M]  drivers/net/wan/ixp4xx_hss.o
->  drivers/net/wan/ixp4xx_hss.c:1412:20: error: expected ';', ',' or ')'
->  before string constant
->  drivers/net/wan/ixp4xx_hss.c:1413:25: error: expected ';', ',' or ')'
->  before string constant
->  drivers/net/wan/ixp4xx_hss.c:1414:21: error: expected ';', ',' or ')'
->  before string constant
->  drivers/net/wan/ixp4xx_hss.c:1415:19: error: expected ';', ',' or ')'
->  before string constant
->  make[8]: *** [drivers/net/wan/ixp4xx_hss.o] Error 1
-> 
-> This was previously hidden because ixp4xx_hss includes linux/hdlc.h which
-> includes linux/netdevice.h which includes linux/netprio_cgroup.h which
-> used to include linux/module.h. The real issue was actually present since
-> the initial commit that added this driver since it uses macros from
-> linux/module.h without including this file.
-> 
-> Signed-off-by: Florian Fainelli <florian@openwrt.org>
+  commit 230718bd net: qmi_wwan: bind to both control and data interfac=
+e
 
-Applied and queued up for -stable, thanks.
+changed qmi_wwan to use cdc_wdm as a subdriver for devices with
+a two-interface QMI/wwan function.  The commit failed to update
+qmi_wwan_suspend and qmi_wwan_resume, which were written to handle
+either a single combined interface function, or no subdriver at all.
+
+The result was that we called into the subdriver both when the
+control interface was suspended and when the data interface was
+suspended.  Calling the subdriver suspend function with an
+unregistered interface is not supported and will make the
+subdriver bug out.
+
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+ drivers/net/usb/qmi_wwan.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index adfab3f..9d1679f 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -297,7 +297,7 @@ static int qmi_wwan_suspend(struct usb_interface *i=
+ntf, pm_message_t message)
+ 	if (ret < 0)
+ 		goto err;
+=20
+-	if (info->subdriver && info->subdriver->suspend)
++	if (intf =3D=3D info->control && info->subdriver && info->subdriver->=
+suspend)
+ 		ret =3D info->subdriver->suspend(intf, message);
+ 	if (ret < 0)
+ 		usbnet_resume(intf);
+@@ -311,7 +311,7 @@ static int qmi_wwan_resume(struct usb_interface *in=
+tf)
+ 	struct qmi_wwan_state *info =3D (void *)&dev->data;
+ 	int ret =3D 0;
+=20
+-	if (info->subdriver && info->subdriver->resume)
++	if (intf =3D=3D info->control && info->subdriver && info->subdriver->=
+resume)
+ 		ret =3D info->subdriver->resume(intf);
+ 	if (ret < 0)
+ 		goto err;
+--=20
+1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
