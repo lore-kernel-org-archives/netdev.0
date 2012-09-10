@@ -1,42 +1,27 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: [PATCH -next] net: fix net/core/sock.c build error
-Date: Mon, 10 Sep 2012 09:13:07 -0700
-Message-ID: <504E1193.4060809@xenotime.net>
-References: <20120910172407.c5ad953c008165fcd862bd3c@canb.auug.org.au>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [net-next PATCH 0/5] Energy Efficient Ethernet patch series
+Date: Mon, 10 Sep 2012 18:51:03 +0300
+Message-ID: <1347292268-30348-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120910172407.c5ad953c008165fcd862bd3c@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3497 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754372Ab2IJQPX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Sep 2012 12:15:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@xenotime.net>
+Hi Dave,
 
-Fix net/core/sock.c build error when CONFIG_INET is not enabled:
+This patch series contains various EEE changes, the most significant being
+the addition of EEE support for devices with 4-ports, as well as replacing the
+auto-grEEEn feature with native EEE (802.3az) for boards with 54618SE phys.
 
-net/built-in.o: In function `sock_edemux':
-(.text+0xd396): undefined reference to `inet_twsk_put'
+Please consider applying this patch series to 'net-next'.
 
-Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
----
- net/core/sock.c |    2 ++
- 1 file changed, 2 insertions(+)
-
---- linux-next-20120910.orig/net/core/sock.c
-+++ linux-next-20120910/net/core/sock.c
-@@ -1525,9 +1525,11 @@ void sock_edemux(struct sk_buff *skb)
- {
- 	struct sock *sk = skb->sk;
- 
-+#ifdef CONFIG_INET
- 	if (sk->sk_state == TCP_TIME_WAIT)
- 		inet_twsk_put(inet_twsk(sk));
- 	else
-+#endif
- 		sock_put(sk);
- }
- EXPORT_SYMBOL(sock_edemux);
+Thanks,
+Yuval Mintz
