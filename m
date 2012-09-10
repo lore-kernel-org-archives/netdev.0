@@ -1,58 +1,90 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [net PATCH 2/7] bnx2x: fix stats copying logic
-Date: Mon, 10 Sep 2012 18:48:50 +0300
-Message-ID: <1347292135-30250-3-git-send-email-yuvalmin@broadcom.com>
+Subject: [net PATCH 4/7] bnx2x: display the correct duplex value
+Date: Mon, 10 Sep 2012 18:48:52 +0300
+Message-ID: <1347292135-30250-5-git-send-email-yuvalmin@broadcom.com>
 References: <1347292135-30250-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>
+Cc: eilong@broadcom.com, "Yaniv Rosner" <yaniv.rosner@broadcom.com>,
+	"Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1636 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1634 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754379Ab2IJQNI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Sep 2012 12:13:08 -0400
+	id S932112Ab2IJQNN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Sep 2012 12:13:13 -0400
 In-Reply-To: <1347292135-30250-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-FW needs the driver statistics for management. Current logic is broken
-in that the function that gathers the port statistics does not copy
-its own statistics to a place where the FW can use it.
-This patch causes every function that can pass statistics to the FW to
-do so.
+From: Yaniv Rosner <yaniv.rosner@broadcom.com>
 
+Prior to this fix, the driver reported the chip's active duplex state
+is always 'full', even if using half-duplex mode.
+
+Signed-off-by: Yaniv Rosner <yaniv.rosner@broadcom.com>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-index d848dc9..a1d0446 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-@@ -101,6 +101,11 @@ static void bnx2x_hw_stats_post(struct bnx2x *bp)
- 	if (CHIP_REV_IS_SLOW(bp))
- 		return;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+index 40a7b8d..b046beb 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+@@ -5434,7 +5434,7 @@ static int bnx2x_get_link_speed_duplex(struct bnx2x_phy *phy,
+ 		switch (speed_mask) {
+ 		case GP_STATUS_10M:
+ 			vars->line_speed = SPEED_10;
+-			if (vars->duplex == DUPLEX_FULL)
++			if (is_duplex == DUPLEX_FULL)
+ 				vars->link_status |= LINK_10TFD;
+ 			else
+ 				vars->link_status |= LINK_10THD;
+@@ -5442,7 +5442,7 @@ static int bnx2x_get_link_speed_duplex(struct bnx2x_phy *phy,
  
-+	/* Update MCP's statistics if possible */
-+	if (bp->func_stx)
-+		memcpy(bnx2x_sp(bp, func_stats), &bp->func_stats,
-+		       sizeof(bp->func_stats));
-+
- 	/* loader */
- 	if (bp->executer_idx) {
- 		int loader_idx = PMF_DMAE_C(bp);
-@@ -128,8 +133,6 @@ static void bnx2x_hw_stats_post(struct bnx2x *bp)
+ 		case GP_STATUS_100M:
+ 			vars->line_speed = SPEED_100;
+-			if (vars->duplex == DUPLEX_FULL)
++			if (is_duplex == DUPLEX_FULL)
+ 				vars->link_status |= LINK_100TXFD;
+ 			else
+ 				vars->link_status |= LINK_100TXHD;
+@@ -5451,7 +5451,7 @@ static int bnx2x_get_link_speed_duplex(struct bnx2x_phy *phy,
+ 		case GP_STATUS_1G:
+ 		case GP_STATUS_1G_KX:
+ 			vars->line_speed = SPEED_1000;
+-			if (vars->duplex == DUPLEX_FULL)
++			if (is_duplex == DUPLEX_FULL)
+ 				vars->link_status |= LINK_1000TFD;
+ 			else
+ 				vars->link_status |= LINK_1000THD;
+@@ -5459,7 +5459,7 @@ static int bnx2x_get_link_speed_duplex(struct bnx2x_phy *phy,
  
- 	} else if (bp->func_stx) {
- 		*stats_comp = 0;
--		memcpy(bnx2x_sp(bp, func_stats), &bp->func_stats,
--		       sizeof(bp->func_stats));
- 		bnx2x_post_dmae(bp, dmae, INIT_DMAE_C(bp));
+ 		case GP_STATUS_2_5G:
+ 			vars->line_speed = SPEED_2500;
+-			if (vars->duplex == DUPLEX_FULL)
++			if (is_duplex == DUPLEX_FULL)
+ 				vars->link_status |= LINK_2500TFD;
+ 			else
+ 				vars->link_status |= LINK_2500THD;
+@@ -5533,6 +5533,7 @@ static int bnx2x_link_settings_status(struct bnx2x_phy *phy,
+ 
+ 	if (gp_status & MDIO_GP_STATUS_TOP_AN_STATUS1_LINK_STATUS) {
+ 		if (SINGLE_MEDIA_DIRECT(params)) {
++			vars->duplex = duplex;
+ 			bnx2x_flow_ctrl_resolve(phy, params, vars, gp_status);
+ 			if (phy->req_line_speed == SPEED_AUTO_NEG)
+ 				bnx2x_xgxs_an_resolve(phy, params, vars,
+@@ -5627,6 +5628,7 @@ static int bnx2x_warpcore_read_status(struct bnx2x_phy *phy,
+ 					LINK_STATUS_PARALLEL_DETECTION_USED;
+ 			}
+ 			bnx2x_ext_phy_resolve_fc(phy, params, vars);
++			vars->duplex = duplex;
+ 		}
  	}
- }
+ 
 -- 
 1.7.9.rc2
