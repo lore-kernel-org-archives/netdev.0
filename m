@@ -1,82 +1,33 @@
-From: Alexey ORISHKO <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-Subject: RE: changing usbnet's API to better deal with cdc-ncm
-Date: Mon, 10 Sep 2012 19:10:19 +0200
-Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520154A6AAB5822@EXDCVYMBSTM006.EQ1STM.local>
-References: <2791550.LhGu6po6Xy@linux-lqwf.site>
- <1800340.RWjbMaZGSN@linux-lqwf.site>
- <2AC7D4AD8BA1C640B4C60C61C8E520154A6AA5753D@EXDCVYMBSTM006.EQ1STM.local>
- <1609320.M17H7UceTZ@linux-lqwf.site>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] Take care of xfrm policy when checking dst
+ entries
+Date: Mon, 10 Sep 2012 13:18:29 -0400 (EDT)
+Message-ID: <20120910.131829.193126565067890591.davem@davemloft.net>
+References: <20120907.144828.97793990734588625.davem@davemloft.net>
+	<1347283338-4249-1-git-send-email-nicolas.dichtel@6wind.com>
+	<504DFA97.7070509@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: =?iso-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1609320.M17H7UceTZ-ugxBuEnWX9yG/4A2pS7c2Q@public.gmane.org>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nicolas.dichtel@6wind.com, eric.dumazet@gmail.com, sri@us.ibm.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: vyasevich@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59467 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753676Ab2IJRSj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 13:18:39 -0400
+In-Reply-To: <504DFA97.7070509@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Oliver Neukum [mailto:oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org]
-> Sent: Friday, September 07, 2012 8:23 PM
+From: Vlad Yasevich <vyasevich@gmail.com>
+Date: Mon, 10 Sep 2012 10:35:03 -0400
+
+> I am not sure this is right...  This has a side-effect that when an
+> rt_cache_flush() is called, it invalidates IPv6 routes a well....
 > 
-> > There is a temptation to send full NTBs even with a single IP packet,
-> > But it will lead to wasted USB bandwidth and reduced ability to send
-> > real data for other functions in the device or other devices on the
-> > same root hub. Most important it will also harm IN direction.
-> 
-> Well, we will eventually need to do so. In that case, shall we send a
-> short package or not?
+> Its all fine and good do this when a new policy is added, but not when
+> IPv4 routing table changes.
 
-The trick is to find a compromise for device load vs wasted bandwidth. 
-Currently if data size is less than 512 bytes, a shot packet will be sent. 
-However, this value might be better tuned based on bus speed (HS/SS)
-and max NTB size negotiated.
-
-Note, that ZLP was avoided in the ncm driver by using flag in usbnet,
-because on some embedded USB controllers handling ZLP was more costly
-than short packet.
-
-> Well, we know how many packages are available to the device because
-> they have already been scheduled. It seems to be clear that we need to
-> batch while enough are on the way.
-
-It doesn't matter much that some packets on the way to device. What
-matters is the amount of packets in the application Tx queue for
-ncm network device.
-
-> > But an optimal implementation requires that the amount of IP packets
-> > "in progress" or queued up is known to NCM so NCM can decide to send
-> > short or padded NTB or aggregate and send one or more full NTBs plus
-> > short or padded NTB.
-> 
-> What exactly means "in progress"?
-
-Sent by application to the network device.
-
-> 
-> > An implementation where NCM only knows if there is more data
-> available
-> > or not can be shown to have side-effects that are not easily
-> circumvented.
-> > And likewise shown to limit throughput compared to a timer-based
-> solution.
-> 
-> Well, I must say that the timer is ugly. If absolutely necessary we can
-> keep it, but then I'd much prefer to put it into usbnet and have a
-> generic batching functionality. However, I'd like to explore
-> aternatives.
-
-Is it possible to implement upper layer Tx queue in usbnet, so mini driver 
-could get a clue about outstanding packets to be transmitted?
-
-Regards,
-Alexey
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I disagree.
