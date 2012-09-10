@@ -1,52 +1,99 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH 1/2] dst: take into account policy update on check()
-Date: Mon, 10 Sep 2012 14:47:54 +0200
-Message-ID: <504DE17A.1000908@6wind.com>
-References: <504A08EA.3080506@6wind.com> <1347030598.2484.777.camel@edumazet-glaptop> <504A0F1F.5060504@6wind.com> <20120907.144828.97793990734588625.davem@davemloft.net>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, vyasevich@gmail.com, sri@us.ibm.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: [PATCH 2/3] ipv6, route: remove BACKTRACK() macro
+Date: Mon, 10 Sep 2012 20:48:45 +0800
+Message-ID: <1347281326-26890-2-git-send-email-amwang@redhat.com>
+References: <1347281326-26890-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:57844 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757838Ab2IJMr6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 08:47:58 -0400
-Received: by eekc1 with SMTP id c1so1097309eek.19
-        for <netdev@vger.kernel.org>; Mon, 10 Sep 2012 05:47:57 -0700 (PDT)
-In-Reply-To: <20120907.144828.97793990734588625.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:40967 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757880Ab2IJMs4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Sep 2012 08:48:56 -0400
+In-Reply-To: <1347281326-26890-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 07/09/2012 20:48, David Miller a =E9crit :
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Date: Fri, 07 Sep 2012 17:13:35 +0200
->
->> Le 07/09/2012 17:09, Eric Dumazet a =E9crit :
->>> On Fri, 2012-09-07 at 16:47 +0200, Nicolas Dichtel wrote:
->>>> Le 07/09/2012 16:35, Eric Dumazet a =E9crit :
->>>>>
->>>>> Hmm... cant we reuse rt_genid ?
->>>>>
->>>>> (When changing flow_cache_genid, change &net->ipv4.rt_genid)
->>>>
->>>> And so adding a new field in net->ipv6?
->>>
->>> or move net->ipv4.rt_genid to net->rt_genid
->>>
->>> Having separate field for IPv4/IPv6 is of little interest IMHO
->>>
->> Ok, I will wait feedback from other people and repost a patch after.
->
-> A global net->rt_genid is definitely the way to go.
->
-So it means that IPv6 dst entries will be invalidated by IPv4 route man=
-agement.=20
-=46or example, calling rt_cache_flush() will flush IPv6 dst too. Is thi=
-s acceptable?
+It doesn't save any code, nor it helps readability.
 
-I will send a new version.
+Signed-off-by: Cong Wang <amwang@redhat.com>
+---
+ net/ipv6/route.c |   48 ++++++++++++++++++++++++++++--------------------
+ 1 files changed, 28 insertions(+), 20 deletions(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index b130bf2..71267e9 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -675,24 +675,6 @@ int rt6_route_rcv(struct net_device *dev, u8 *opt, int len,
+ }
+ #endif
+ 
+-#define BACKTRACK(__net, saddr)			\
+-do { \
+-	if (rt == __net->ipv6.ip6_null_entry) {	\
+-		struct fib6_node *pn; \
+-		while (1) { \
+-			if (fn->fn_flags & RTN_TL_ROOT) \
+-				goto out; \
+-			pn = fn->parent; \
+-			if (FIB6_SUBTREE(pn) && FIB6_SUBTREE(pn) != fn) \
+-				fn = fib6_lookup(FIB6_SUBTREE(pn), NULL, saddr); \
+-			else \
+-				fn = pn; \
+-			if (fn->fn_flags & RTN_RTINFO) \
+-				goto restart; \
+-		} \
+-	} \
+-} while (0)
+-
+ static struct rt6_info *ip6_pol_route_lookup(struct net *net,
+ 					     struct fib6_table *table,
+ 					     struct flowi6 *fl6, int flags)
+@@ -705,7 +687,20 @@ static struct rt6_info *ip6_pol_route_lookup(struct net *net,
+ restart:
+ 	rt = fn->leaf;
+ 	rt = rt6_device_match(net, rt, &fl6->saddr, fl6->flowi6_oif, flags);
+-	BACKTRACK(net, &fl6->saddr);
++	if (rt == net->ipv6.ip6_null_entry) {
++		struct fib6_node *pn;
++		while (1) {
++			if (fn->fn_flags & RTN_TL_ROOT)
++				goto out;
++			pn = fn->parent;
++			if (FIB6_SUBTREE(pn) && FIB6_SUBTREE(pn) != fn)
++				fn = fib6_lookup(FIB6_SUBTREE(pn), NULL, &fl6->saddr);
++			else
++				fn = pn;
++			if (fn->fn_flags & RTN_RTINFO)
++				goto restart;
++		}
++	}
+ out:
+ 	dst_use(&rt->dst, jiffies);
+ 	read_unlock_bh(&table->tb6_lock);
+@@ -867,7 +862,20 @@ restart_2:
+ restart:
+ 	rt = rt6_select(fn, oif, strict | reachable);
+ 
+-	BACKTRACK(net, &fl6->saddr);
++	if (rt == net->ipv6.ip6_null_entry) {
++		struct fib6_node *pn;
++		while (1) {
++			if (fn->fn_flags & RTN_TL_ROOT)
++				goto out;
++			pn = fn->parent;
++			if (FIB6_SUBTREE(pn) && FIB6_SUBTREE(pn) != fn)
++				fn = fib6_lookup(FIB6_SUBTREE(pn), NULL, &fl6->saddr);
++			else
++				fn = pn;
++			if (fn->fn_flags & RTN_RTINFO)
++				goto restart;
++		}
++	}
+ 	if (rt == net->ipv6.ip6_null_entry ||
+ 	    rt->rt6i_flags & RTF_CACHE)
+ 		goto out;
+-- 
+1.7.7.6
