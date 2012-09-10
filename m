@@ -1,59 +1,77 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next.git 5/8] stmmac: get/set coalesce parameters via
- ethtool
-Date: Mon, 10 Sep 2012 17:45:10 +0100
-Message-ID: <1347295510.2823.4.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1347262689-21251-1-git-send-email-peppe.cavallaro@st.com>
-	 <1347262689-21251-6-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [PATCH 06/12] qlcnic: 83xx data path and HW interfaces routines
+Date: Mon, 10 Sep 2012 17:54:29 +0100
+Message-ID: <1347296069.2823.9.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1347058893-30165-1-git-send-email-sony.chacko@qlogic.com>
+	 <1347058893-30165-7-git-send-email-sony.chacko@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: Sony Chacko <sony.chacko@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:29544 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:34894 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754778Ab2IJQpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 12:45:16 -0400
-In-Reply-To: <1347262689-21251-6-git-send-email-peppe.cavallaro@st.com>
+	by vger.kernel.org with ESMTP id S1751076Ab2IJQyd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 12:54:33 -0400
+In-Reply-To: <1347058893-30165-7-git-send-email-sony.chacko@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-09-10 at 09:38 +0200, Giuseppe CAVALLARO wrote:
-> This patch is to get/set the tx/rx coalesce parameters
-> via ethtool interface.
+On Fri, 2012-09-07 at 19:01 -0400, Sony Chacko wrote:
+> From: Sony Chacko <sony.chacko@qlogic.com>
 > 
-> Tests have been done on several platform with
-> different GMAC chips w/o w/ RX watchdog feature.
+> Modify 82xx driver to support new adapter - Qlogic 83XX CNA
+> Create 83xx adapter data path and hardware interface routines
 [...]
-> +static int stmmac_set_coalesce(struct net_device *dev,
-> +			       struct ethtool_coalesce *ec)
+> +int qlcnic_83xx_set_pauseparam(struct qlcnic_adapter *adapter,
+> +			       struct ethtool_pauseparam *pause)
 > +{
-> +	struct stmmac_priv *priv = netdev_priv(dev);
-> +	unsigned int rx_riwt;
+> +	int status = 0;
+> +	u32 config = adapter->ahw->port_config;
 > +
-> +	/* No rx interrupts will be generated if both are zero */
-> +	if (ec->rx_coalesce_usecs == 0)
-> +		return -EINVAL;
-> +
-> +	/* No tx interrupts will be generated if both are zero */
-> +	if ((ec->tx_coalesce_usecs == 0) &&
-> +	    (ec->tx_max_coalesced_frames == 0))
-> +		return -EINVAL;
-> +
-> +	if ((ec->tx_coalesce_usecs > STMMAC_COAL_TX_TIMER) ||
-> +	    (ec->tx_max_coalesced_frames > STMMAC_TX_MAX_FRAMES))
+> +	if ((pause->rx_pause) || (pause->tx_pause) || (pause->autoneg))
+> +		adapter->ahw->port_config |= QLC_83XX_CFG_PAUSE_STD;
+> +	else if (!(pause->rx_pause && pause->tx_pause && pause->autoneg))
+
+Since you appear to support only all-enabled or all-disabled, this
+second condition should be:
+
+	!pause->rx_pause && !pause->tx_pause && !pause->autoneg
+
+> +		adapter->ahw->port_config &= ~QLC_83XX_CFG_PAUSE_STD;
+> +	else
 > +		return -EINVAL;
 [...]
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> @@ -35,28 +35,31 @@ char qlcnic_driver_name[] = "qlcnic";
+[...] 
+> -static int use_msi = 1;
+> +int use_msi = 1;
+>  module_param(use_msi, int, 0444);
+>  MODULE_PARM_DESC(use_msi, "MSI interrupt (0=disabled, 1=enabled");
+>  
+> -static int use_msi_x = 1;
+> +int use_msi_x = 1;
+>  module_param(use_msi_x, int, 0444);
+>  MODULE_PARM_DESC(use_msi_x, "MSI-X interrupt (0=disabled, 1=enabled");
+>  
+> -static int auto_fw_reset = 1;
+> +int auto_fw_reset = 1;
+>  module_param(auto_fw_reset, int, 0644);
+>  MODULE_PARM_DESC(auto_fw_reset, "Auto firmware reset (0=disabled, 1=enabled");
+>  
+> -static int load_fw_file;
+> +int load_fw_file;
+>  module_param(load_fw_file, int, 0444);
+>  MODULE_PARM_DESC(load_fw_file, "Load firmware from (0=flash, 1=file");
+[...]
 
-You should also check that the settings you don't support
-(rx_max_coalesced_frames, use_adaptive_rx_coalesce,
-use_adaptive_tx_coalesce, *_irq) are equal to 0.  (This isn't done
-consistently in all drivers - but I believe best practice is to reject
-rather than quietly ignoring settings you don't support.)
-
-I don't have time to review the other changes properly, but at a quick
-look they seem to be OK.
+All the variables being declared extern need to be renamed to have a
+'qlcnic_' prefix.  (The parameters shouldn't be renamed, though - use
+module_param_named().)
 
 Ben.
 
