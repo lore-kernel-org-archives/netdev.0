@@ -1,7 +1,8 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [net PATCH 4/7] bnx2x: display the correct duplex value
-Date: Mon, 10 Sep 2012 18:48:52 +0300
-Message-ID: <1347292135-30250-5-git-send-email-yuvalmin@broadcom.com>
+Subject: [net PATCH 5/7] bnx2x: correct advertisement of pause
+ capabilities
+Date: Mon, 10 Sep 2012 18:48:53 +0300
+Message-ID: <1347292135-30250-6-git-send-email-yuvalmin@broadcom.com>
 References: <1347292135-30250-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,79 +13,41 @@ To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms1.broadcom.com ([216.31.210.17]:1634 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932112Ab2IJQNN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Sep 2012 12:13:13 -0400
+	id S932137Ab2IJQNS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Sep 2012 12:13:18 -0400
 In-Reply-To: <1347292135-30250-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yaniv Rosner <yaniv.rosner@broadcom.com>
 
-Prior to this fix, the driver reported the chip's active duplex state
-is always 'full', even if using half-duplex mode.
+This patch propagates users' requested flow-control into the link layer,
+which will later be used to advertise this flow-control for auto-negotiation
+(until now these values were ignored).
 
 Signed-off-by: Yaniv Rosner <yaniv.rosner@broadcom.com>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 40a7b8d..b046beb 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -5434,7 +5434,7 @@ static int bnx2x_get_link_speed_duplex(struct bnx2x_phy *phy,
- 		switch (speed_mask) {
- 		case GP_STATUS_10M:
- 			vars->line_speed = SPEED_10;
--			if (vars->duplex == DUPLEX_FULL)
-+			if (is_duplex == DUPLEX_FULL)
- 				vars->link_status |= LINK_10TFD;
- 			else
- 				vars->link_status |= LINK_10THD;
-@@ -5442,7 +5442,7 @@ static int bnx2x_get_link_speed_duplex(struct bnx2x_phy *phy,
- 
- 		case GP_STATUS_100M:
- 			vars->line_speed = SPEED_100;
--			if (vars->duplex == DUPLEX_FULL)
-+			if (is_duplex == DUPLEX_FULL)
- 				vars->link_status |= LINK_100TXFD;
- 			else
- 				vars->link_status |= LINK_100TXHD;
-@@ -5451,7 +5451,7 @@ static int bnx2x_get_link_speed_duplex(struct bnx2x_phy *phy,
- 		case GP_STATUS_1G:
- 		case GP_STATUS_1G_KX:
- 			vars->line_speed = SPEED_1000;
--			if (vars->duplex == DUPLEX_FULL)
-+			if (is_duplex == DUPLEX_FULL)
- 				vars->link_status |= LINK_1000TFD;
- 			else
- 				vars->link_status |= LINK_1000THD;
-@@ -5459,7 +5459,7 @@ static int bnx2x_get_link_speed_duplex(struct bnx2x_phy *phy,
- 
- 		case GP_STATUS_2_5G:
- 			vars->line_speed = SPEED_2500;
--			if (vars->duplex == DUPLEX_FULL)
-+			if (is_duplex == DUPLEX_FULL)
- 				vars->link_status |= LINK_2500TFD;
- 			else
- 				vars->link_status |= LINK_2500THD;
-@@ -5533,6 +5533,7 @@ static int bnx2x_link_settings_status(struct bnx2x_phy *phy,
- 
- 	if (gp_status & MDIO_GP_STATUS_TOP_AN_STATUS1_LINK_STATUS) {
- 		if (SINGLE_MEDIA_DIRECT(params)) {
-+			vars->duplex = duplex;
- 			bnx2x_flow_ctrl_resolve(phy, params, vars, gp_status);
- 			if (phy->req_line_speed == SPEED_AUTO_NEG)
- 				bnx2x_xgxs_an_resolve(phy, params, vars,
-@@ -5627,6 +5628,7 @@ static int bnx2x_warpcore_read_status(struct bnx2x_phy *phy,
- 					LINK_STATUS_PARALLEL_DETECTION_USED;
- 			}
- 			bnx2x_ext_phy_resolve_fc(phy, params, vars);
-+			vars->duplex = duplex;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index c37a68d..bbf4cf0 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -1587,6 +1587,12 @@ static int bnx2x_set_pauseparam(struct net_device *dev,
+ 			bp->link_params.req_flow_ctrl[cfg_idx] =
+ 				BNX2X_FLOW_CTRL_AUTO;
  		}
++		bp->link_params.req_fc_auto_adv = BNX2X_FLOW_CTRL_NONE;
++		if (epause->rx_pause)
++			bp->link_params.req_fc_auto_adv |= BNX2X_FLOW_CTRL_RX;
++
++		if (epause->tx_pause)
++			bp->link_params.req_fc_auto_adv |= BNX2X_FLOW_CTRL_TX;
  	}
  
+ 	DP(BNX2X_MSG_ETHTOOL,
 -- 
 1.7.9.rc2
