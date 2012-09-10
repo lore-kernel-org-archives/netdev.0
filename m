@@ -1,58 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] staging: r8712u: fix bug in r8712_recv_indicatepkt()
-Date: Mon, 10 Sep 2012 19:55:15 +0200
-Message-ID: <1347299715.1234.1902.camel@edumazet-glaptop>
-References: <50369925.3050705@lwfinger.net>
-	 <1345757200.5904.1890.camel@edumazet-glaptop> <50378B35.80307@lwfinger.net>
-	 <20120824.111948.680531915905273128.davem@davemloft.net>
-	 <5037A4B0.3080208@lwfinger.net>
-	 <1345825095.19483.19.camel@edumazet-glaptop>
-	 <1345825432.19483.20.camel@edumazet-glaptop> <5037B2AC.50704@lwfinger.net>
-	 <1345830424.19483.69.camel@edumazet-glaptop>
-	 <503BB49C.5010402@lwfinger.net>
-	 <1347266366.1234.1267.camel@edumazet-glaptop>
-	 <504DFEFF.6060004@lwfinger.net>
-	 <1347289446.1234.1717.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+From: Guy Harris <guy@alum.mit.edu>
+Subject: Re: Modular arithmetic
+Date: Mon, 10 Sep 2012 10:50:30 -0700
+Message-ID: <2B555EBC-A130-476B-9E29-DB75E668904E@alum.mit.edu>
+References: <20120905213941.03c85968@arrowsmith>
+	<C71A36A8-08D2-4D3D-AF2B-EF89FEECE1A6@alum.mit.edu>
+	<20120906073615.693d14e0@arrowsmith>
+	<46AB14E3-73F4-41FA-8086-F1D663AF4549@alum.mit.edu>
+	<20120907074910.2df46817@arrowsmith>
+	<20120908030311.GM17289@tassilo.jf.intel.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B6FE4@saturn3.aculab.com>
+	<1347269124.1234.1326.camel@edumazet-glaptop>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B6FE5@saturn3.aculab.com>
+Mime-Version: 1.0 (Mac OS X Mail 6.0 \(1486\))
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:34616 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756964Ab2IJRzY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 13:55:24 -0400
-In-Reply-To: <1347289446.1234.1717.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Jay Schulist <jschlst@samba.org>,
+	Andi Kleen <ak@linux.intel.com>, tcpdump-workers@lists.tcpdump.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David Laight" <David.Laight@ACULAB.COM>
+Return-path: <tcpdump-workers-bounces@lists.tcpdump.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6FE5@saturn3.aculab.com>
+List-Unsubscribe: <https://lists.sandelman.ca/mailman/options/tcpdump-workers>,
+	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=unsubscribe>
+List-Archive: <http://lists.sandelman.ca/pipermail/tcpdump-workers>
+List-Post: <mailto:tcpdump-workers@lists.tcpdump.org>
+List-Help: <mailto:tcpdump-workers-request@lists.tcpdump.org?subject=help>
+List-Subscribe: <https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers>,
+	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=subscribe>
+Sender: tcpdump-workers-bounces@lists.tcpdump.org
+Errors-To: tcpdump-workers-bounces@lists.tcpdump.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
 
-64bit arches have a buggy r8712u driver, let's fix it.
+On Sep 10, 2012, at 3:41 AM, "David Laight" <David.Laight@ACULAB.COM> wrote:
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- drivers/staging/rtl8712/recv_linux.c |    7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
+>>> What about the other OS - eg all the BSDs?
+>>> I had a vague idea that BPF was supposed to be reasonable portable.
+>> 
+>> Yes, does it mean BPF is frozen ?
+>> 
+>> Or is BSD so hard to update these days ?
+> 
+> Not really - but it some other places that need updating in order
+> to make this useful for cross-platform tools (like tcpdump).
+> 
+> The 'real fun (tm)' happens when NetBSD tries to run Linux binaries
+> that include the Linux libpcap.
 
-diff --git a/drivers/staging/rtl8712/recv_linux.c b/drivers/staging/rtl8712/recv_linux.c
-index 0e26d5f..495ee12 100644
---- a/drivers/staging/rtl8712/recv_linux.c
-+++ b/drivers/staging/rtl8712/recv_linux.c
-@@ -117,13 +117,8 @@ void r8712_recv_indicatepkt(struct _adapter *padapter,
- 	if (skb == NULL)
- 		goto _recv_indicatepkt_drop;
- 	skb->data = precv_frame->u.hdr.rx_data;
--#ifdef NET_SKBUFF_DATA_USES_OFFSET
--	skb->tail = (sk_buff_data_t)(precv_frame->u.hdr.rx_tail -
--		     precv_frame->u.hdr.rx_head);
--#else
--	skb->tail = (sk_buff_data_t)precv_frame->u.hdr.rx_tail;
--#endif
- 	skb->len = precv_frame->u.hdr.len;
-+	skb_set_tail_pointer(skb, skb->len);
- 	if ((pattrib->tcpchk_valid == 1) && (pattrib->tcp_chkrpt == 1))
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	else
+Additional fun happens when a Linux system with a kernel that doesn't have the mod instruction tries to run Linux binaries that include a Linux libpcap that generates code using the mod instruction; this is not a BSD-vs.-Linux issue, it's a "kernel that lacks the mod instruction vs. libpcap that generates code that includes the mod instruction" issue.
+
+BSD/OS X, Linux, Solaris, and the WinPcap driver need, if they adopt new BPF instructions, to have a mechanism by which libpcap (or anything else using BPF filtering) can inquire about the capabilities of the OS BPF interpreter; libpcap would use that to determine what code to generate if generating code for the in-kernel BPF interpreter.
+
+(Please reply to tcpdump-workers@lists.tcpdump.org as well as to netdev@vger.kernel.org, so that people not on both of those lists can follow the discussion.  Messages from non-members of tcpdump-workers to tcpdump-workers shouldn't bounce, but they do need to be approved by a moderator; Michael, if you want to at least temporarily turn the flood on for my e-mail address, so I can help moderate, go ahead.)
+_______________________________________________
+tcpdump-workers mailing list
+tcpdump-workers@lists.tcpdump.org
+https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers
