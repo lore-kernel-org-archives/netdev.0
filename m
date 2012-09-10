@@ -1,29 +1,46 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net] ixp4xx_hss: fix build failure after logging
- conversion
-Date: Mon, 10 Sep 2012 02:04:15 -0700
-Message-ID: <1347267855.6069.2.camel@joe2Laptop>
-References: <1347266590-884-1-git-send-email-florian@openwrt.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: ndo_get_stats and rtnl_netlink
+Date: Mon, 10 Sep 2012 11:09:49 +0200
+Message-ID: <1347268189.1234.1301.camel@edumazet-glaptop>
+References: <504CB464.6010207@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, khc@pm.waw.pl,
-	David Miller <davem@davemloft.net>, stable@vger.kernel.org
-To: Florian Fainelli <florian@openwrt.org>
+Cc: netdev@vger.kernel.org
+To: Shlomo Pongartz <shlomop@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:42651 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756801Ab2IJJER (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Sep 2012 05:04:17 -0400
-In-Reply-To: <1347266590-884-1-git-send-email-florian@openwrt.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:59829 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751031Ab2IJJJy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 05:09:54 -0400
+Received: by eaac11 with SMTP id c11so763215eaa.19
+        for <netdev@vger.kernel.org>; Mon, 10 Sep 2012 02:09:53 -0700 (PDT)
+In-Reply-To: <504CB464.6010207@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-09-10 at 10:43 +0200, Florian Fainelli wrote:
-> Commit c75bb2c6f0cf455c23e60f14d780e841dd47f801 (ixp4xx_hss: Update to
-> current logging forms) converted the ixp4xx_hss module to use the current
-> logging macros, but forgot to include linux/module.h, leading to the
-> following build failures:
+On Sun, 2012-09-09 at 18:23 +0300, Shlomo Pongartz wrote:
+> Hi,
+> 
+> Just realized that dev_get_stats which calls into a netdevice 
+> ndo_get_stats64/ndo_get_stats can be
+> called with or without RTNL lock protection. If called from 
+> rtnl_fill_ifinfo e.g as of invocation of
+> "ip link show <interface>, there IS locking, however if called from 
+> dev_seq_printf_stats e.g as of
+> invocation of reading the /sys/class/net/<interface>/statistics/ 
+> entries, etc more cases -- no locking.
+> 
+> This turned to be problematic when implementing the ethtool 
+> "set_channels" directive which
+> changes the number of **rings**, since we stepped on a bug where the 
+> rings data structure was
+> changed by the ethtool flow in the same time a statistics call was done 
+> into the driver, etc.
+> 
+> What would be the way to continue here, per driver lock sounds non 
+> generic...
 
-Bad explanation.
-This commit had nothing to do with any missing module.h.
+RTNL locking is not needed to fetch stats, and would be overkill.
+
+Each driver has its own way to protect/gather its stats.
