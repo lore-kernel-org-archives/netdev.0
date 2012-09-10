@@ -1,72 +1,47 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCHv4] virtio-spec: virtio network device multiqueue support
-Date: Mon, 10 Sep 2012 11:42:25 +0930
-Message-ID: <878vcifwxi.fsf@rustcorp.com.au>
-References: <20120909130308.GA3471@redhat.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] caif: move the dereference below the NULL test
+Date: Mon, 10 Sep 2012 12:38:27 +0800
+Message-ID: <CAPgLHd-MBQnrU9tS0VFw-O7yvs47r3waHqGm1SRS4GA72Pn1hg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: pbonzini@redhat.com, rick.jones2@hp.com, levinsasha928@gmail.com,
-	Tom Herbert <therbert@google.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120909130308.GA3471@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: sjur.brandeland@stericsson.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:43527 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750718Ab2IJEi2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 00:38:28 -0400
+Received: by qaas11 with SMTP id s11so679168qaa.19
+        for <netdev@vger.kernel.org>; Sun, 09 Sep 2012 21:38:27 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-OK, I read the spec (pasted below for easy of reading), but I'm still
-confused over how this will work.
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-I thought normal net drivers have the hardware provide an rxhash for
-each packet, and we map that to CPU to queue the packet on[1].  We hope
-that the receiving process migrates to that CPU, so xmit queue
-matches.
+The dereference should be moved below the NULL test.
 
-For virtio this would mean a new per-packet rxhash value, right?
+spatch with a semantic match is used to found this.
+(http://coccinelle.lip6.fr/)
 
-Why are we doing something different?  What am I missing?
-
-Thanks,
-Rusty.
-[1] Everything I Know About Networking I Learned From LWN:
-    https://lwn.net/Articles/362339/
-
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 ---
-Transmit Packet Steering
+ net/caif/cfsrvl.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-When VIRTIO_NET_F_MULTIQUEUE feature bit is negotiated, guest can use any of multiple configured transmit queues to transmit a given packet. To avoid packet reordering by device (which generally leads to performance degradation) driver should attempt to utilize the same transmit virtqueue for all packets of a given transmit flow. For bi-directional protocols (in practice, TCP), a given network connection can utilize both transmit and receive queues. For best performance, packets from a single connection should utilize the paired transmit and receive queues from the same virtqueue pair; for example both transmitqN and receiveqN. This rule makes it possible to optimize processing on the device side, but this is not a hard requirement: devices should function correctly even when this rule is 
- not followed.
-
-Driver selects an active steering rule using VIRTIO_NET_CTRL_STEERING command (this controls both which virtqueue is selected for a given packet for receive and notifies the device which virtqueues are about to be used for transmit).
-
-This command accepts a single out argument in the following format:
-
-#define VIRTIO_NET_CTRL_STEERING               4
-
-The field rule specifies the function used to select transmit virtqueue for a given packet; the field param makes it possible to pass an extra parameter if appropriate. When rule is set to VIRTIO_NET_CTRL_STEERING_SINGLE (this is the default) all packets are steered to the default virtqueue transmitq (1); param is unused; this is the default. With any other rule, When rule is set to VIRTIO_NET_CTRL_STEERING_RX_FOLLOWS_TX packets are steered by driver to the first N=(param+1) multiqueue virtqueues transmitq1...transmitqN; the default transmitq is unused. Driver must have configured all these (param+1) virtqueues beforehand.
-
-Supported steering rules can be added and removed in the future. Driver should check that the request to change the steering rule was successful by checking ack values of the command. As selecting a specific steering is an optimization feature, drivers should avoid hard failure and fall back on using a supported steering rule if this command fails. The default steering rule is VIRTIO_NET_CTRL_STEERING_SINGLE. It will not be removed.
-
-When the steering rule is modified, some packets can still be outstanding in one or more of the transmit virtqueues. Since drivers might choose to modify the current steering rule at a high rate (e.g. adaptively in response to changes in the workload) to avoid reordering packets, device is recommended to complete processing of the transmit queue(s) utilized by the original steering before processing any packets delivered by the modified steering rule.
-
-For debugging, the current steering rule can also be read from the configuration space.
-
-Receive Packet Steering
-
-When VIRTIO_NET_F_MULTIQUEUE feature bit is negotiated, device can use any of multiple configured receive queues to pass a given packet to driver. Driver controls which virtqueue is selected in practice by configuring packet steering rule using VIRTIO_NET_CTRL_STEERING command, as described above[sub:Transmit-Packet-Steering].
-
-The field rule specifies the function used to select receive virtqueue for a given packet; the field param makes it possible to pass an extra parameter if appropriate. When rule is set to VIRTIO_NET_CTRL_STEERING_SINGLE all packets are steered to the default virtqueue receiveq (0); param is unused; this is the default. When rule is set to VIRTIO_NET_CTRL_STEERING_RX_FOLLOWS_TX packets are steered by host to the first N=(param+1) multiqueue virtqueues receiveq1...receiveqN; the default receiveq is unused. Driver must have configured all these (param+1) virtqueues beforehand. For best performance for bi-directional flows (such as TCP) device should detect the flow to virtqueue pair mapping on transmit and select the receive virtqueue from the same virtqueue pair. For uni-directional flows, o
- r when this mapping information is missing, a device-specific steering function is used.
-
-Supported steering rules can be added and removed in the future. Driver should probe for supported rules by checking ack values of the command.
-
-When the steering rule is modified, some packets can still be outstanding in one or more of the virtqueues. Device is not required to wait for these packets to be consumed before delivering packets using the new streering rule. Drivers modifying the steering rule at a high rate (e.g. adaptively in response to changes in the workload) are recommended to complete processing of the receive queue(s) utilized by the original steering before processing any packets delivered by the modified steering rule.
+diff --git a/net/caif/cfsrvl.c b/net/caif/cfsrvl.c
+index dd485f6..ba217e9 100644
+--- a/net/caif/cfsrvl.c
++++ b/net/caif/cfsrvl.c
+@@ -211,9 +211,10 @@ void caif_client_register_refcnt(struct cflayer *adapt_layer,
+ 					void (*put)(struct cflayer *lyr))
+ {
+ 	struct cfsrvl *service;
+-	service = container_of(adapt_layer->dn, struct cfsrvl, layer);
+ 
+-	WARN_ON(adapt_layer == NULL || adapt_layer->dn == NULL);
++	if (WARN_ON(adapt_layer == NULL || adapt_layer->dn == NULL))
++		return;
++	service = container_of(adapt_layer->dn, struct cfsrvl, layer);
+ 	service->hold = hold;
+ 	service->put = put;
+ }
