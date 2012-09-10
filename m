@@ -1,146 +1,213 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next.git 2/8 (V2)] stmmac: manage tx clean out of rx_poll
-Date: Mon, 10 Sep 2012 09:38:03 +0200
-Message-ID: <1347262689-21251-3-git-send-email-peppe.cavallaro@st.com>
+Subject: [net-next.git 5/8] stmmac: get/set coalesce parameters via ethtool
+Date: Mon, 10 Sep 2012 09:38:06 +0200
+Message-ID: <1347262689-21251-6-git-send-email-peppe.cavallaro@st.com>
 References: <1347262689-21251-1-git-send-email-peppe.cavallaro@st.com>
 Cc: bhutchings@solarflare.com, davem@davemloft.net,
 	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:52138 "EHLO
-	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751672Ab2IJHiu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 03:38:50 -0400
+Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:56707 "EHLO
+	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751420Ab2IJHiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 03:38:52 -0400
 In-Reply-To: <1347262689-21251-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to invoke the stmmac_tx (tx handler)
-out of the NAPI poll method.
-This will make easier the next step to add the new
-mitigation schema.
-Also the patch enhances the ethtool to report some
-stats for normal TX and RX IRQs.
+This patch is to get/set the tx/rx coalesce parameters
+via ethtool interface.
 
-V2: use status & handle_rx/tx
+Tests have been done on several platform with
+different GMAC chips w/o w/ RX watchdog feature.
 
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/common.h       |   13 +++++++----
- drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c    |    7 +++--
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    4 ++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   22 ++++++++++++++-----
- 4 files changed, 31 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h       |    8 ++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    1 +
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   71 ++++++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   20 +++---
+ 4 files changed, 89 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 719be39..bd32fe6 100644
+index 63d4bad..3ab3684 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/common.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -95,7 +95,9 @@ struct stmmac_extra_stats {
- 	unsigned long threshold;
- 	unsigned long tx_pkt_n;
- 	unsigned long rx_pkt_n;
--	unsigned long poll_n;
-+	unsigned long rx_napi_poll;
-+	unsigned long rx_normal_irq_n;
-+	unsigned long tx_normal_irq_n;
- 	unsigned long sched_timer_n;
- 	unsigned long normal_irq_n;
- 	unsigned long mmc_tx_irq_n;
-@@ -169,10 +171,11 @@ enum rx_frame_status { /* IPC status */
- 	llc_snap = 4,
+@@ -169,7 +169,13 @@ struct stmmac_extra_stats {
+ #define DMA_HW_FEAT_SAVLANINS	0x08000000 /* Source Addr or VLAN Insertion */
+ #define DMA_HW_FEAT_ACTPHYIF	0x70000000 /* Active/selected PHY interface */
+ #define DEFAULT_DMA_PBL		8
+-#define DEFAULT_DMA_RIWT	0xff	/* Max RI Watchdog Timer count */
++
++/* Coalesce defines */
++#define MAX_DMA_RIWT		0xff	/* Max RI Watchdog Timer count */
++#define MIN_DMA_RIWT		0x20
++#define STMMAC_COAL_TX_TIMER	40000
++#define STMMAC_MAX_COAL_TX_TICK	100000
++#define STMMAC_TX_MAX_FRAMES	32
+ 
+ enum rx_frame_status { /* IPC status */
+ 	good_frame = 0,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index 6901e3c..ad4f6b9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -93,6 +93,7 @@ struct stmmac_priv {
+ 	u32 tx_count_frames;
+ 	u32 tx_coal_frames;
+ 	u32 tx_coal_timer;
++	u32 rx_riwt;
  };
  
--enum tx_dma_irq_status {
--	tx_hard_error = 1,
--	tx_hard_error_bump_tc = 2,
--	handle_tx_rx = 3,
-+enum dma_irq_status {
-+	tx_hard_error = 0x1,
-+	tx_hard_error_bump_tc = 0x2,
-+	handle_rx = 0x4,
-+	handle_tx = 0x8,
- };
- 
- enum core_specific_irq_mask {
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-index 4e0e18a..73766e6 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-@@ -206,9 +206,10 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
- 	/* TX/RX NORMAL interrupts */
- 	if (intr_status & DMA_STATUS_NIS) {
- 		x->normal_irq_n++;
--		if (likely((intr_status & DMA_STATUS_RI) ||
--			 (intr_status & (DMA_STATUS_TI))))
--				ret = handle_tx_rx;
-+		if (likely(intr_status & DMA_STATUS_RI))
-+			ret |= handle_rx;
-+		if (intr_status & (DMA_STATUS_TI))
-+			ret |= handle_tx;
- 	}
- 	/* Optional hardware blocks, interrupts should be disabled */
- 	if (unlikely(intr_status &
+ extern int phyaddr;
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 76fd61a..505fe71 100644
+index 48ad0bc..145b97d 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -90,7 +90,9 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
- 	STMMAC_STAT(threshold),
- 	STMMAC_STAT(tx_pkt_n),
- 	STMMAC_STAT(rx_pkt_n),
--	STMMAC_STAT(poll_n),
-+	STMMAC_STAT(rx_napi_poll),
-+	STMMAC_STAT(rx_normal_irq_n),
-+	STMMAC_STAT(tx_normal_irq_n),
- 	STMMAC_STAT(sched_timer_n),
- 	STMMAC_STAT(normal_irq_n),
- 	STMMAC_STAT(normal_irq_n),
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index c8985f3..8e1e53e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -824,16 +824,27 @@ static void stmmac_tx_err(struct stmmac_priv *priv)
- 	netif_wake_queue(priv->dev);
+@@ -522,6 +522,75 @@ static int stmmac_ethtool_op_set_eee(struct net_device *dev,
+ 	return phy_ethtool_set_eee(priv->phydev, edata);
  }
  
-+static inline void stmmac_rx_schedule(struct stmmac_priv *priv)
++static u32 stmmac_usec2riwt(u32 usec, struct stmmac_priv *priv)
 +{
-+	if (likely(napi_schedule_prep(&priv->napi))) {
-+		stmmac_disable_irq(priv);
-+		__napi_schedule(&priv->napi);
-+	}
++	unsigned long clk = clk_get_rate(priv->stmmac_clk);
++
++	if (!clk)
++		return 0;
++
++	return (usec * (clk / 1000000)) / 256;
 +}
++
++static u32 stmmac_riwt2usec(u32 riwt, struct stmmac_priv *priv)
++{
++	unsigned long clk = clk_get_rate(priv->stmmac_clk);
++
++	if (!clk)
++		return 0;
++
++	return (riwt * 256) / (clk / 1000000);
++}
++
++static int stmmac_get_coalesce(struct net_device *dev,
++			       struct ethtool_coalesce *ec)
++{
++	struct stmmac_priv *priv = netdev_priv(dev);
++
++	ec->tx_coalesce_usecs = priv->tx_coal_timer;
++	ec->tx_max_coalesced_frames = priv->tx_coal_frames;
++
++	if (priv->use_riwt)
++		ec->rx_coalesce_usecs = stmmac_riwt2usec(priv->rx_riwt, priv);
++
++	return 0;
++}
++
++static int stmmac_set_coalesce(struct net_device *dev,
++			       struct ethtool_coalesce *ec)
++{
++	struct stmmac_priv *priv = netdev_priv(dev);
++	unsigned int rx_riwt;
++
++	/* No rx interrupts will be generated if both are zero */
++	if (ec->rx_coalesce_usecs == 0)
++		return -EINVAL;
++
++	/* No tx interrupts will be generated if both are zero */
++	if ((ec->tx_coalesce_usecs == 0) &&
++	    (ec->tx_max_coalesced_frames == 0))
++		return -EINVAL;
++
++	if ((ec->tx_coalesce_usecs > STMMAC_COAL_TX_TIMER) ||
++	    (ec->tx_max_coalesced_frames > STMMAC_TX_MAX_FRAMES))
++		return -EINVAL;
++
++	rx_riwt = stmmac_usec2riwt(ec->rx_coalesce_usecs, priv);
++
++	if ((rx_riwt > MAX_DMA_RIWT) || (rx_riwt < MIN_DMA_RIWT))
++		return -EINVAL;
++	else if (!priv->use_riwt)
++		return -EOPNOTSUPP;
++
++	/* Only copy relevant parameters, ignore all others. */
++	priv->tx_coal_frames = ec->tx_max_coalesced_frames;
++	priv->tx_coal_timer = ec->tx_coalesce_usecs;
++	priv->rx_riwt = rx_riwt;
++	priv->hw->dma->rx_watchdog(priv->ioaddr, priv->rx_riwt);
++
++	return 0;
++}
++
+ static const struct ethtool_ops stmmac_ethtool_ops = {
+ 	.begin = stmmac_check_if_running,
+ 	.get_drvinfo = stmmac_ethtool_getdrvinfo,
+@@ -542,6 +611,8 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
+ 	.set_eee = stmmac_ethtool_op_set_eee,
+ 	.get_sset_count	= stmmac_get_sset_count,
+ 	.get_ts_info = ethtool_op_get_ts_info,
++	.get_coalesce = stmmac_get_coalesce,
++	.set_coalesce = stmmac_set_coalesce,
+ };
  
- static void stmmac_dma_interrupt(struct stmmac_priv *priv)
+ void stmmac_set_ethtool_ops(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 8e610a1..b0731e6 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -77,8 +77,6 @@
+ 
+ #define STMMAC_ALIGN(x)	L1_CACHE_ALIGN(x)
+ #define JUMBO_LEN	9000
+-#define	STMMAC_TX_TM	40000
+-#define STMMAC_TX_MAX_FRAMES	32	/* Max coalesced frame */
+ 
+ /* Module parameters */
+ #define TX_TIMEO 5000 /* default 5 seconds */
+@@ -140,6 +138,8 @@ static int stmmac_init_fs(struct net_device *dev);
+ static void stmmac_exit_fs(void);
+ #endif
+ 
++#define STMMAC_COAL_TIMER(x) (jiffies + usecs_to_jiffies(x))
++
+ /**
+  * stmmac_verify_args - verify the driver parameters.
+  * Description: it verifies if some wrong parameter is passed to the driver.
+@@ -996,9 +996,9 @@ static void stmmac_init_tx_coalesce(struct stmmac_priv *priv)
  {
- 	int status;
+ 	/* Set Tx coalesce parameters and timers */
+ 	priv->tx_coal_frames = STMMAC_TX_MAX_FRAMES;
+-	priv->tx_coal_timer = jiffies + usecs_to_jiffies(STMMAC_TX_TM);
++	priv->tx_coal_timer = STMMAC_COAL_TX_TIMER;
+ 	init_timer(&priv->txtimer);
+-	priv->txtimer.expires = priv->tx_coal_timer;
++	priv->txtimer.expires = STMMAC_COAL_TIMER(priv->tx_coal_timer);
+ 	priv->txtimer.data = (unsigned long)priv;
+ 	priv->txtimer.function = stmmac_txtimer;
+ 	add_timer(&priv->txtimer);
+@@ -1118,11 +1118,10 @@ static int stmmac_open(struct net_device *dev)
  
- 	status = priv->hw->dma->dma_interrupt(priv->ioaddr, &priv->xstats);
--	if (likely(status == handle_tx_rx))
--		_stmmac_schedule(priv);
--
--	else if (unlikely(status == tx_hard_error_bump_tc)) {
-+	if (likely(status & handle_rx)) {
-+		priv->xstats.rx_normal_irq_n++;
-+		stmmac_rx_schedule(priv);
+ 	stmmac_init_tx_coalesce(priv);
+ 
+-	if ((priv->use_riwt) && (priv->hw->dma->rx_watchdog))
+-		/* Program RX Watchdog register to the default values
+-		 * FIXME: provide user value for RIWT
+-		 */
+-		priv->hw->dma->rx_watchdog(priv->ioaddr, DEFAULT_DMA_RIWT);
++	if ((priv->use_riwt) && (priv->hw->dma->rx_watchdog)) {
++		priv->rx_riwt = MAX_DMA_RIWT;
++		priv->hw->dma->rx_watchdog(priv->ioaddr, MAX_DMA_RIWT);
 +	}
-+	if (likely(status & handle_tx)) {
-+		priv->xstats.tx_normal_irq_n++;
-+		stmmac_tx(priv);
-+	} else if (unlikely(status & tx_hard_error_bump_tc)) {
- 		/* Try to bump up the dma threshold on this failure */
- 		if (unlikely(tc != SF_DMA_MODE) && (tc <= 256)) {
- 			tc += 64;
-@@ -1443,8 +1454,7 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
- 	struct stmmac_priv *priv = container_of(napi, struct stmmac_priv, napi);
- 	int work_done = 0;
  
--	priv->xstats.poll_n++;
--	stmmac_tx(priv);
-+	priv->xstats.rx_napi_poll++;
- 	work_done = stmmac_rx(priv, budget);
+ 	napi_enable(&priv->napi);
  
- 	if (work_done < budget) {
+@@ -1299,7 +1298,8 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		priv->xstats.tx_reset_ic_bit++;
+ 		TX_DBG("\t[entry %d]: tx_count_frames %d\n", entry,
+ 		       priv->tx_count_frames);
+-		mod_timer(&priv->txtimer, priv->tx_coal_timer);
++		mod_timer(&priv->txtimer,
++			  STMMAC_COAL_TIMER(priv->tx_coal_timer));
+ 	} else
+ 		priv->tx_count_frames = 0;
+ 
 -- 
 1.7.4.4
