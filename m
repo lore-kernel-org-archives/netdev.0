@@ -1,107 +1,33 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] net, cgroup: Fix boot failure due to iteration of
- uninitialized list
-Date: Mon, 10 Sep 2012 09:16:03 -0400
-Message-ID: <20120910131603.GA29742@hmsreliant.think-freely.org>
-References: <20120719162532.23505.85946.stgit@srivatsabhat.in.ibm.com>
- <500CA599.6030907@cn.fujitsu.com>
- <20120723114057.GA16518@hmsreliant.think-freely.org>
- <504DB2EE.2030700@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Gao feng <gaofeng@cn.fujitsu.com>, eric.dumazet@gmail.com,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, mark.d.rustad@intel.com,
-	john.r.fastabend@intel.com, lizefan@huawei.com
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <504DB2EE.2030700@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v2] Take care of xfrm policy when checking dst entries
+Date: Mon, 10 Sep 2012 15:22:14 +0200
+Message-ID: <1347283338-4249-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <20120907.144828.97793990734588625.davem@davemloft.net>
+Cc: sri@us.ibm.com, linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: vyasevich@gmail.com, davem@davemloft.net, eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:38161 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752805Ab2IJNWD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 09:22:03 -0400
+In-Reply-To: <20120907.144828.97793990734588625.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 10, 2012 at 02:59:18PM +0530, Srivatsa S. Bhat wrote:
-> On 07/23/2012 05:10 PM, Neil Horman wrote:
-> > On Mon, Jul 23, 2012 at 09:15:05AM +0800, Gao feng wrote:
-> >> =E4=BA=8E 2012=E5=B9=B407=E6=9C=8820=E6=97=A5 00:27, Srivatsa S. B=
-hat =E5=86=99=E9=81=93:
-> >>> After commit ef209f15 (net: cgroup: fix access the unallocated me=
-mory in
-> >>> netprio cgroup), boot fails with the following NULL pointer deref=
-erence:
-> >>>
-> [...]
-> >>> Call Trace:
-> >>>  [<ffffffff81b1cb78>] cgroup_init_subsys+0x83/0x169
-> >>>  [<ffffffff81b1ce13>] cgroup_init+0x36/0x119
-> >>>  [<ffffffff81affef7>] start_kernel+0x3ba/0x3ef
-> >>>  [<ffffffff81aff95b>] ? kernel_init+0x27b/0x27b
-> >>>  [<ffffffff81aff356>] x86_64_start_reservations+0x131/0x136
-> >>>  [<ffffffff81aff45e>] x86_64_start_kernel+0x103/0x112
-> >>> RIP  [<ffffffff8145e8d6>] cgrp_create+0xf6/0x190
-> >>>  RSP <ffffffff81a01ea8>
-> >>> CR2: 0000000000000698
-> >>> ---[ end trace a7919e7f17c0a725 ]---
-> >>> Kernel panic - not syncing: Attempted to kill the idle task!
-> >>>
-> >>> The code corresponds to:
-> >>>
-> >>> update_netdev_tables():
-> >>>         for_each_netdev(&init_net, dev) {
-> >>>                 map =3D rtnl_dereference(dev->priomap);  <---- HE=
-RE
-> >>>
-> >>>
-> >>> The list head is initialized in netdev_init(), which is called mu=
-ch
-> >>> later than cgrp_create(). So the problem is that we are calling
-> >>> update_netdev_tables() way too early (in cgrp_create()), which wi=
-ll
-> >>> end up traversing the not-yet-circular linked list. So at some po=
-int,
-> >>> the dev pointer will become NULL and hence dev->priomap becomes a=
-n
-> >>> invalid access.
-> >>>
-> >>> To fix this, just remove the update_netdev_tables() function enti=
-rely,
-> >>> since it appears that write_update_netdev_table() will handle thi=
-ngs
-> >>> just fine.
-> >>
-> >> The reason I add update_netdev_tables in cgrp_create is to avoid a=
-dditional
-> >> bound checkings when we accessing the dev->priomap.priomap.
-> >>
-> >> Eric,can we revert this commit 91c68ce2b26319248a32d7baa1226f819d2=
-83758 now?
-> >> I think it's safe enough to access priomap without bound check.
-> >>
-> >=20
-> > I think its probably safe, yes, but lets leave it there for just a =
-bit.  Its not
-> > hurting anything, and I'd like to look into getting Srivatsa' patch=
- in first.
->=20
-> Hi Neil,
->=20
-> Did you get around to look into this again?
->=20
-I haven't looked at it specifically no, I apologize.  That said I think=
- the
-other changes that went in back in that time frame have had time to soa=
-k, and
-looking at the way we current update the priomap table, I think its saf=
-e for us
-to remove the update_netdev_table call and definition.  If you repost y=
-our
-patch, I'll ack it.=20
+The goal of these patches is to fix the following problem: a session is
+established (TCP, SCTP) and after a new policy is inserted. The current
+code does not recalculate the route, thus the traffic is not encrypted.
 
-Thanks!
-Neil
+The patch propose to check flow_cache_genid value when checking a dst
+entry, which is incremented each time a policy is inserted or deleted.
 
-> Regards,
-> Srivatsa S. Bhat
->=20
->=20
+v2: use net->ipv4.rt_genid instead of flow_cache_genid (and thus save a test
+    in fast path). Also move it to net->rt_genid, to be able to use it for IPv6
+    too. Note that IPv6 will have one more test in fast path.
+
+Patches are tested with TCP and SCTP, IPv4 and IPv6.
+
+Comments are welcome.
+
+Regards,
+Nicolas
