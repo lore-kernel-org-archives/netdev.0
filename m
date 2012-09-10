@@ -1,46 +1,59 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ndo_get_stats and rtnl_netlink
-Date: Mon, 10 Sep 2012 11:09:49 +0200
-Message-ID: <1347268189.1234.1301.camel@edumazet-glaptop>
-References: <504CB464.6010207@mellanox.com>
+Subject: RE: [tcpdump-workers] Modular arithmetic
+Date: Mon, 10 Sep 2012 11:25:24 +0200
+Message-ID: <1347269124.1234.1326.camel@edumazet-glaptop>
+References: <20120905213941.03c85968@arrowsmith>
+	 <C71A36A8-08D2-4D3D-AF2B-EF89FEECE1A6@alum.mit.edu>
+	 <20120906073615.693d14e0@arrowsmith>
+	 <46AB14E3-73F4-41FA-8086-F1D663AF4549@alum.mit.edu>
+	 <20120907074910.2df46817@arrowsmith>
+	 <20120908030311.GM17289@tassilo.jf.intel.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B6FE4@saturn3.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Shlomo Pongartz <shlomop@mellanox.com>
+Cc: Andi Kleen <ak@linux.intel.com>,
+	George Bakos <gbakos@alpinista.org>,
+	tcpdump-workers@lists.tcpdump.org,
+	Jay Schulist <jschlst@samba.org>, netdev@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:59829 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751031Ab2IJJJy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 05:09:54 -0400
-Received: by eaac11 with SMTP id c11so763215eaa.19
-        for <netdev@vger.kernel.org>; Mon, 10 Sep 2012 02:09:53 -0700 (PDT)
-In-Reply-To: <504CB464.6010207@mellanox.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:40450 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754552Ab2IJJZ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 05:25:29 -0400
+Received: by eekc1 with SMTP id c1so930780eek.19
+        for <netdev@vger.kernel.org>; Mon, 10 Sep 2012 02:25:28 -0700 (PDT)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6FE4@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-09-09 at 18:23 +0300, Shlomo Pongartz wrote:
-> Hi,
+On Mon, 2012-09-10 at 09:41 +0100, David Laight wrote:
+> > On Fri, Sep 07, 2012 at 07:49:10AM +0000, George Bakos wrote:
+> > > Gents,
+> > > Any fundamental reason why the following (, etc.) shouldn't be
+> > > included in net/core/filter.c?
+> > >
+> > >                 case BPF_S_ALU_MOD_X:
+> > >                         if (X == 0)
+> > >                                 return 0;
+> > >                         A %= X;
+> > >                         continue;
+> > 
+> > Copying netdev.
+> > 
+> > In principle no reason against it, but you may need to update
+> > the various BPF JITs too that Linux now has too.
 > 
-> Just realized that dev_get_stats which calls into a netdevice 
-> ndo_get_stats64/ndo_get_stats can be
-> called with or without RTNL lock protection. If called from 
-> rtnl_fill_ifinfo e.g as of invocation of
-> "ip link show <interface>, there IS locking, however if called from 
-> dev_seq_printf_stats e.g as of
-> invocation of reading the /sys/class/net/<interface>/statistics/ 
-> entries, etc more cases -- no locking.
-> 
-> This turned to be problematic when implementing the ethtool 
-> "set_channels" directive which
-> changes the number of **rings**, since we stepped on a bug where the 
-> rings data structure was
-> changed by the ethtool flow in the same time a statistics call was done 
-> into the driver, etc.
-> 
-> What would be the way to continue here, per driver lock sounds non 
-> generic...
+> What about the other OS - eg all the BSDs?
+> I had a vague idea that BPF was supposed to be reasonable portable.
 
-RTNL locking is not needed to fetch stats, and would be overkill.
+Yes, does it mean BPF is frozen ?
 
-Each driver has its own way to protect/gather its stats.
+Or is BSD so hard to update these days ?
+
+modulus can be implemented using fallback to div and sub, I am not sure
+libpcap should sense kernel support or not.
+
+George, make sure libpcap optimizer correctly replaces MOD X  by AND (X
+- 1) if X is a power of two.
