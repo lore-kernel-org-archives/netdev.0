@@ -1,29 +1,48 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: netlink: hide struct module parameter in netlink_kernel_create
-Date: Mon, 10 Sep 2012 09:45:35 +0200
-Message-ID: <20120910074535.GA32043@1984>
-References: <20120910093712.18e5718b605f84aa4e76f7d9@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Who maintains and handles patches for drivers/net/phy/ ?
+Date: Mon, 10 Sep 2012 04:02:20 -0400 (EDT)
+Message-ID: <20120910.040220.405537912839670655.davem@davemloft.net>
+References: <504D94AB.7070404@c-s.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: christophe.leroy@c-s.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58241 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750957Ab2IJHpj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Sep 2012 03:45:39 -0400
-Content-Disposition: inline
-In-Reply-To: <20120910093712.18e5718b605f84aa4e76f7d9@canb.auug.org.au>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53213 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753077Ab2IJICZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 04:02:25 -0400
+In-Reply-To: <504D94AB.7070404@c-s.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 10, 2012 at 09:37:12AM +1000, Stephen Rothwell wrote:
-> Hi all,
-> 
-> I didn't see the original patch until it reached linux-enxt this morning,
-> but just a comment:
-> 
-> THIS_MODULE is defined in linux/export.h, so that should be included in
-> linux/netlink.h instead of linux/module.h as it is much smaller.
+From: leroy christophe <christophe.leroy@c-s.fr>
+Date: Mon, 10 Sep 2012 09:20:11 +0200
 
-I'll send a follow-up patch for this to David, thanks Stephen.
+> The MAINTAINER file doesn't include any maintainer for
+> drivers/net/phy/
+> Section NETWORKING DRIVERS doesn't refer to anyone.
+> 
+> I have a patch for the Intel LXT phy driver. I submitted it to the
+> list a few weeks ago but didn't get any feedback at all.
+> Who shall I contact to get my patch taken into account ?
+
+Your comments were not formatted correctly so I tossed your patch
+from the queue.  FOrmat comments:
+
+	/* Like
+	 * this.
+	 */
+
+not:
+
+	/* Like
+	 * this. */
+
+and not:
+
+	/* Like
+	   this. */
+
+Thanks.
