@@ -1,51 +1,72 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: kernel 3.5.2/amd64: iwlwifi 0000:03:00.0: failed to allocate
- pci memory
-Date: Mon, 10 Sep 2012 12:24:01 +0200
-Message-ID: <1347272641.4272.1.camel@jlt4.sipsolutions.net>
-References: <20120908161038.GF3347@merlins.org>
-	 <1347122927.1234.849.camel@edumazet-glaptop>
-	 <20120904003014.GB6287@merlins.org> <20120908170128.GK3347@merlins.org>
-	 (sfid-20120908_190214_109241_625AC686) <1347130641.11167.0.camel@jlt4.sipsolutions.net>
-	 (sfid-20120908_205654_374994_2998A2BE)
+From: Mohammed Shafi <shafi.wireless@gmail.com>
+Subject: Re: [PATCH -next v1] wireless: ath9k-htc: only load firmware in need
+Date: Mon, 10 Sep 2012 15:53:27 +0530
+Message-ID: <CAD2nsn284v68zNqxFQNBSh1ZMVF85ge=cGVmC1bgs2yu_zYQQg@mail.gmail.com>
+References: <1345536267-9449-1-git-send-email-ming.lei@canonical.com>
+	<CACVXFVPX1NB5uJ6yXkNbDWoX4OVdYfRU_=tsWC529-tH+3WfDA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-q7rQbLoQdy39qxiX1TGQuw@public.gmane.org
-To: Marc MERLIN <marc-xnduUnryOU1AfugRpC6u6w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1347130641.11167.0.camel-8Nb76shvtaUJvtFkdXX2HixXY32XiHfO@public.gmane.org> (sfid-20120908_205654_374994_2998A2BE)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	ath9k-devel@lists.ath9k.org,
+	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
+	Jouni Malinen <jouni@qca.qualcomm.com>,
+	Vasanthakumar Thiagarajan <vthiagar@qca.qualcomm.com>,
+	Senthil Balasubramanian <senthilb@qca.qualcomm.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:56691 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751741Ab2IJKX2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 06:23:28 -0400
+In-Reply-To: <CACVXFVPX1NB5uJ6yXkNbDWoX4OVdYfRU_=tsWC529-tH+3WfDA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-09-08 at 20:57 +0200, Johannes Berg wrote:
+Hi,
 
-> > [856806.497959]  [<ffffffff810cf54c>] warn_alloc_failed+0x117/0x12c
-> > [856806.497963]  [<ffffffff810d23af>] __alloc_pages_nodemask+0x6e3/0x792
-> > [856806.497969]  [<ffffffff812b7f41>] ? pfn_to_dma_pte+0x116/0x15e
-> > [856806.497976]  [<ffffffff810ff58b>] alloc_pages_current+0xcd/0xee
-> > [856806.497979]  [<ffffffff810cecca>] __get_free_pages+0x9/0x45
-> > [856806.497982]  [<ffffffff812ba67d>] intel_alloc_coherent+0x84/0xe7
-> > [856806.497986]  [<ffffffff81085cf8>] ? arch_local_irq_save+0x15/0x1b
-> > [856806.497999]  [<ffffffffa0b84afc>] iwl_ucode_callback+0xa49/0xc0d [iwlwifi]
-> 
-> Yes, unfortunately we need a whole bunch of contiguous memory to load
-> the firmware.
-> 
-> > Any ideas?
-> 
-> Nothing we can do from the driver side, I'm afraid.
+On Sat, Sep 1, 2012 at 10:41 AM, Ming Lei <ming.lei@canonical.com> wrote:
+> On Tue, Aug 21, 2012 at 4:04 PM, Ming Lei <ming.lei@canonical.com> wrote:
+>> It is not necessary to hold the firmware memory during the whole
+>> driver lifetime, and obviously it does waste memory. Suppose there
+>> are 4 ath9k-htc usb dongles working, kernel has to consume about
+>> 4*50KBytes RAM to cache firmware for all dongles. After applying the
+>> patch, kernel only caches one single firmware image in RAM for
+>> all ath9k-htc devices just during system suspend/resume cycle.
+>>
+>> When system is ready for loading firmware, ath9k-htc can request
+>> the loading from usersapce. During system resume, ath9k-htc still
+>> can load the firmware which was cached in kernel memory before
+>> system suspend.
+>>
+>> Cc: ath9k-devel@lists.ath9k.org
+>> Cc: "Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>
+>> Cc: Jouni Malinen <jouni@qca.qualcomm.com>
+>> Cc: Vasanthakumar Thiagarajan <vthiagar@qca.qualcomm.com>
+>> Cc: Senthil Balasubramanian <senthilb@qca.qualcomm.com>
+>> Cc: "John W. Linville" <linville@tuxdriver.com>
+>> Signed-off-by: Ming Lei <ming.lei@canonical.com>
+>> ---
+>> v1:
+>>         fix double free of firmware in failue path of
+>>         ath9k_hif_usb_firmware_cb
+>
+> Gentle ping, :-)
 
-Turns out I was wrong. Here's a patch you can test. Note that we still
-need a lot of DMA-coherent memory for other things, but at least for the
-firmware image we don't.
+this patch is now in wireless-testing :-)
 
-http://p.sipsolutions.net/11ea33b376a5bac5.txt
+>
+>
+> Thanks,
+> --
+> Ming Lei
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-johannes
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+-- 
+thanks,
+shafi
