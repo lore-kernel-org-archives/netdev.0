@@ -1,33 +1,283 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] Take care of xfrm policy when checking dst
- entries
-Date: Mon, 10 Sep 2012 13:18:29 -0400 (EDT)
-Message-ID: <20120910.131829.193126565067890591.davem@davemloft.net>
-References: <20120907.144828.97793990734588625.davem@davemloft.net>
-	<1347283338-4249-1-git-send-email-nicolas.dichtel@6wind.com>
-	<504DFA97.7070509@gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v2] lxt PHY: Support for the buggy LXT973 rev A2
+Date: Mon, 10 Sep 2012 19:28:22 +0200
+Message-ID: <20120910172822.GA2388@netboy.at.omicron.at>
+References: <201209101545.q8AFjn7u021483@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, eric.dumazet@gmail.com, sri@us.ibm.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: vyasevich@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59467 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753676Ab2IJRSj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 13:18:39 -0400
-In-Reply-To: <504DFA97.7070509@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David S Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Christophe Leroy <christophe.leroy@c-s.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201209101545.q8AFjn7u021483@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vyasevich@gmail.com>
-Date: Mon, 10 Sep 2012 10:35:03 -0400
+On Mon, Sep 10, 2012 at 05:45:49PM +0200, Christophe Leroy wrote:
+> This patch adds proper handling of the buggy revision A2 of LXT973 phy, adding
+> precautions linked to ERRATA Item 4:
 
-> I am not sure this is right...  This has a side-effect that when an
-> rt_cache_flush() is called, it invalidates IPv6 routes a well....
+I have a few nit picking remarks, below...
+ 
+> Item 4: MDIO Interface and Repeated Polling
+> Problem: Repeated polling of odd-numbered registers via the MDIO interface
+> 	randomly returns the contents of the previous even register.
+> Implication: Managed applications may not obtain the correct register contents
+> 	when a particular register is monitored for device status.
+> Workaround: None.
+> Status: This erratum has been previously fixed (in rev A3)
+
+This text looks like it has been copied verbatim from a errata
+sheet. If so, that document is probably under someone else's
+copyright. If am right, then you should paraphrase the erratum
+instead, both here and in the code comment.
+ 
 > 
-> Its all fine and good do this when a new policy is added, but not when
-> IPv4 routing table changes.
+> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+> 
+> diff -u linux-3.5-vanilla/drivers/net/phy/lxt.c linux-3.5/drivers/net/phy/lxt.c
+> --- linux-3.5-vanilla/drivers/net/phy/lxt.c	2012-07-21 22:58:29.000000000 +0200
+> +++ linux-3.5/drivers/net/phy/lxt.c	2012-09-07 18:08:54.000000000 +0200
+> @@ -7,6 +7,10 @@
+>   *
+>   * Copyright (c) 2004 Freescale Semiconductor, Inc.
+>   *
+> + * Copyright (c) 2010 CSSI
+> + *
+> + * Added support for buggy LXT973 rev A2
 
-I disagree.
+We don't do change logs in the code. That is what git is for.
+
+Also, I think it is a bit of a stretch to add your copyright here.
+
+> + *
+>   * This program is free software; you can redistribute  it and/or modify it
+>   * under  the terms of  the GNU General  Public License as published by the
+>   * Free Software Foundation;  either version 2 of the  License, or (at your
+> @@ -54,8 +58,12 @@
+>  #define MII_LXT971_ISR		19  /* Interrupt Status Register */
+>  
+>  /* register definitions for the 973 */
+> -#define MII_LXT973_PCR 16 /* Port Configuration Register */
+> +#define MII_LXT973_PCR		16 /* Port Configuration Register */
+>  #define PCR_FIBER_SELECT 1
+> +#define MII_LXT973_SFR		27  /* Special Function Register */
+> +
+> +#define PHYDEV_PRIV_FIBER	1
+> +#define PHYDEV_PRIV_REVA2	2
+>  
+>  MODULE_DESCRIPTION("Intel LXT PHY driver");
+>  MODULE_AUTHOR("Andy Fleming");
+> @@ -99,6 +107,9 @@
+>  	return err;
+>  }
+>  
+> +/* register definitions for the 973 */
+> +#define MII_LXT973_PCR 16 /* Port Configuration Register */
+> +#define PCR_FIBER_SELECT 1
+>  
+>  static int lxt971_ack_interrupt(struct phy_device *phydev)
+>  {
+> @@ -122,9 +133,141 @@
+>  	return err;
+>  }
+>  
+> +/*
+> + * ERRATA on LXT973
+> + *
+> + * Item 4: MDIO Interface and Repeated Polling
+> + * Problem: Repeated polling of odd-numbered registers via the MDIO interface randomly returns the
+> + * 	contents of the previous even register.
+> + * Implication: Managed applications may not obtain the correct register contents when a particular
+> + * 	register is monitored for device status.
+> + * Workaround: None.
+> + * Status: This erratum has been previously fixed (in rev A3)
+> + *
+> + */
+
+Please make sure that the above text is your own words.
+
+> +static int lxt973a2_update_link(struct phy_device *phydev)
+> +{
+> +	int status;
+> +	int control;
+> +	int retry = 8; /* we try 8 times */
+> +
+> +	/* Do a fake read */
+> +	status = phy_read(phydev, MII_BMSR);
+> +
+> +	if (status < 0)
+> +		return status;
+> +
+> +	control = phy_read(phydev, MII_BMCR);
+> +	if (control < 0)
+> +		return control;
+> +
+> +	do {
+> +		/* Read link and autonegotiation status */
+> +		status = phy_read(phydev, MII_BMSR);
+> +	} while (status>=0 && retry-- && status == control);
+
+spacing: status >= 0
+
+> +
+> +	if (status < 0)
+> +		return status;
+> +
+> +	if ((status & BMSR_LSTATUS) == 0)
+> +		phydev->link = 0;
+> +	else
+> +		phydev->link = 1;
+> +
+> +	return 0;
+> +}
+> +
+> +int lxt973a2_read_status(struct phy_device *phydev)
+> +{
+> +	int adv;
+> +	int err;
+> +	int lpa;
+> +	int lpagb = 0;
+> +
+> +	/* Update the link, but return if there was an error */
+> +	err = lxt973a2_update_link(phydev);
+> +	if (err)
+> +		return err;
+> +
+> +	if (AUTONEG_ENABLE == phydev->autoneg) {
+> +		int retry = 1;
+> +		
+> +		adv = phy_read(phydev, MII_ADVERTISE);
+> +
+> +		if (adv < 0)
+> +			return adv;
+> +
+> +		do {
+> +			lpa = phy_read(phydev, MII_LPA);
+> +
+> +			if (lpa < 0)
+> +				return lpa;
+> +
+> +			/* If both registers are equal, it is suspect but not impossible, hence a new try */	
+
+Trailing white space. Line is way too long.
+
+> +		} while (lpa == adv && retry--);
+> +
+> +		lpa &= adv;
+> +
+> +		phydev->speed = SPEED_10;
+> +		phydev->duplex = DUPLEX_HALF;
+> +		phydev->pause = phydev->asym_pause = 0;
+> +
+> +		if (lpagb & (LPA_1000FULL | LPA_1000HALF)) {
+> +			phydev->speed = SPEED_1000;
+> +
+> +			if (lpagb & LPA_1000FULL)
+> +				phydev->duplex = DUPLEX_FULL;
+> +		} else if (lpa & (LPA_100FULL | LPA_100HALF)) {
+> +			phydev->speed = SPEED_100;
+> +
+> +			if (lpa & LPA_100FULL)
+> +				phydev->duplex = DUPLEX_FULL;
+> +		} else
+
+I would either put this 'else' with the 'if' on the same line, or add
+braces like in the other cases.
+
+> +			if (lpa & LPA_10FULL)
+> +				phydev->duplex = DUPLEX_FULL;
+> +
+> +		if (phydev->duplex == DUPLEX_FULL){
+> +			phydev->pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
+> +			phydev->asym_pause = lpa & LPA_PAUSE_ASYM ? 1 : 0;
+> +		}
+> +	} else {
+> +		int bmcr = phy_read(phydev, MII_BMCR);
+> +
+> +		if (bmcr < 0)
+> +			return bmcr;
+> +
+> +		if (bmcr & BMCR_FULLDPLX)
+> +			phydev->duplex = DUPLEX_FULL;
+> +		else
+> +			phydev->duplex = DUPLEX_HALF;
+> +
+> +		if (bmcr & BMCR_SPEED1000)
+> +			phydev->speed = SPEED_1000;
+> +		else if (bmcr & BMCR_SPEED100)
+> +			phydev->speed = SPEED_100;
+> +		else
+> +			phydev->speed = SPEED_10;
+> +
+> +		phydev->pause = phydev->asym_pause = 0;
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+> +static int lxt973_read_status(struct phy_device *phydev)
+> +{
+> +	return (int)phydev->priv&PHYDEV_PRIV_REVA2 ? lxt973a2_read_status(phydev) : genphy_read_status(phydev);
+
+spacing, and way too long line.
+
+	return (int) phydev->priv & PHYDEV_PRIV_REVA2 ?
+		lxt973a2_read_status(phydev) : genphy_read_status(phydev);
+
+> +}
+> +
+>  static int lxt973_probe(struct phy_device *phydev)
+>  {
+>  	int val = phy_read(phydev, MII_LXT973_PCR);
+> +	int priv = 0;
+> +
+> +	phydev->priv = NULL;
+> +
+> +	if (val<0) return val;
+
+spacing
+
+>  
+>  	if (val & PCR_FIBER_SELECT) {
+>  		/*
+> @@ -136,17 +279,24 @@
+>  		val &= ~BMCR_ANENABLE;
+>  		phy_write(phydev, MII_BMCR, val);
+>  		/* Remember that the port is in fiber mode. */
+> -		phydev->priv = lxt973_probe;
+> -	} else {
+> -		phydev->priv = NULL;
+> +		priv |= PHYDEV_PRIV_FIBER;
+>  	}
+> +	val = phy_read(phydev, MII_PHYSID2);
+> +
+> +	if (val<0) return val;
+
+spacing
+
+> +
+> +	if ((val & 0xf) == 0) { /* rev A2 */
+> +		dev_info(&phydev->dev, " LXT973 revision A2 has bugs\n");
+> +		priv |= PHYDEV_PRIV_REVA2;
+> +	}
+> +	phydev->priv = (void*)priv;
+
+spacing
+
+>  	return 0;
+>  }
+>  
+>  static int lxt973_config_aneg(struct phy_device *phydev)
+>  {
+>  	/* Do nothing if port is in fiber mode. */
+> -	return phydev->priv ? 0 : genphy_config_aneg(phydev);
+> +	return (int)phydev->priv&PHYDEV_PRIV_FIBER ? 0 : genphy_config_aneg(phydev);
+
+spacing, and a long line.
+
+You might want to try checkpatch next time.
+
+Thanks,
+Richard
