@@ -1,49 +1,43 @@
-From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: Re: RFC: mac802154 Packet Queueing and Slave
-	Devices
-Date: Mon, 10 Sep 2012 23:00:44 -0400
-Message-ID: <504EA95C.9010003@signal11.us>
-References: <504D37A7.60109@signal11.us>
-	<1347257547.1234.1110.camel@edumazet-glaptop>
+From: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH 1/1] [PATCH] net: qmi_wwan: fix Gobi device probing for un2430
+Date: Tue, 11 Sep 2012 06:59:57 +0200
+Message-ID: <22bf77fd-e0de-4a07-acf2-cd816a543ee9@email.android.com>
+References: <1347296579-15692-1-git-send-email-pierre.sauter@gmail.com> <20120910.164314.1674016370550788813.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1347257547.1234.1110.camel@edumazet-glaptop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, pierre.sauter@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:49062 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751313Ab2IKFA1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Sep 2012 01:00:27 -0400
+In-Reply-To: <20120910.164314.1674016370550788813.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/10/2012 02:12 AM, Eric Dumazet wrote:
-> On Sun, 2012-09-09 at 20:43 -0400, Alan Ott wrote:
->> Tony and I were recently talking about packet queueing on 802.15.4.
->>
->> The problem with this is that it defeats the netif flow control.
-> And qdisc ability to better control bufferbloat...
+David Miller <davem@davemloft.net> wrote:
+
+>From: pierre.sauter@gmail.com
+>Date: Mon, 10 Sep 2012 19:02:59 +0200
 >
-> By the way, mac802154_tx() looks buggy :
+>> From: Pierre Sauter <pierre.sauter@gmail.com>
+>>=20
+>> HP un2430 is a Gobi 3000 device. It was mistakenly treated as Gobi
+>1000
+>> in patch b9f90eb2740203ff2592efe640409ad48335d1c2.
+>>=20
+>> I own this device and qmi_wwan works again with this fix.
+>>=20
+>> Signed-off-by: Pierre Sauter <pierre.sauter@gmail.com>
 >
-> Also mac802154_wpan_xmit() returns NETDEV_TX_OK without kfree_skb(skb)
->
+>Bjorn, ACK/NACK?
 
-Hi Eric,
+Acked-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 
-Thanks for the review. I'll get this patched up.
-
-Alan.
+Thanks for fixing this, Pierre. I wonder how I managed to get this wron=
+g. Better look it all over again, I guess...
 
 
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+Bj=C3=B8rn
