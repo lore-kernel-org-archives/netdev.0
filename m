@@ -1,37 +1,44 @@
-From: Chris Leech <cleech@redhat.com>
-Subject: Re: [RFC PATCH 0/5] Reorganize libfcoe control interfaces
-Date: Tue, 11 Sep 2012 10:12:09 -0700
-Message-ID: <CAHNqLyXhUo9ny3Wez5kWazaj_bk7mOEqvB8TemkFsu8ZP-ypXw@mail.gmail.com>
-References: <20120910225908.13140.97277.stgit@fritz>
-	<504E8040.70403@broadcom.com>
+From: Anisse Astier <anisse-fwwRqrJYcP2HXe+LvDLADg@public.gmane.org>
+Subject: Re: [PATCH] rtlwifi: rtl8192ce: Log message that B_CUT device may
+ not work
+Date: Tue, 11 Sep 2012 19:23:27 +0200
+Message-ID: <20120911192327.62fec16a@destiny.ordissimo>
+References: <1347379873-9390-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Robert Love <robert.w.love@intel.com>, netdev@vger.kernel.org,
-	gregkh@linuxfoundation.org, linux-scsi@vger.kernel.org,
-	devel@open-fcoe.org
-To: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <504E8040.70403@broadcom.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Li Chaoming <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1347379873-9390-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 10, 2012 at 5:05 PM, Bhanu Prakash Gollapudi
-<bprakash@broadcom.com> wrote:
->
-> I'm concerned that we will be breaking user space compatibility with this
-> change, as there should be a corresponding fcoemon/fipvlan change along with
-> this, and existing utilities will not work.  Also the way we start fcoe will
-> be completely different and the user may need to do the scripting changes,
-> if any.
->
+On Tue, 11 Sep 2012 11:11:13 -0500, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> wrote :
 
-I agree with Bhanu on these concerns, even though I hope everyone's
-using fcoeadm/fcoemon/fipvlan.  I think there needs to be more of a
-transition plan than requiring everyone moving to a new kernel to
-update the user-space tools at the same time.  Removing the module
-parameters with the last patch might be rushed, they should probably
-remain for a few kernel cycles with a warning.  When the tools are
-updated for the new interface, they should probably maintain fallback
-support for the module parameters for a while as well.
+> There are a number of problems that occur for the latest version
+> of the Realtek RTL8188CE device with the in-kernel driver. These
+> include selection of the wrong firmware, and system lockup. A full
+> fix is known, but is too invasive for inclusion in stable. This patch
+> fixes the problem with loading the wrong firmware, and logs a message
+> that the device may not work for kernels 3.6 and older.
+> 
+> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+> Cc: Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+> Cc: Anisse Astier <anisse-fwwRqrJYcP2HXe+LvDLADg@public.gmane.org>
+> Cc: Li Chaoming <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
 
-- Chris
+Tested-by: Anisse Astier <anisse-fwwRqrJYcP2HXe+LvDLADg@public.gmane.org>
+
+Behaves as expected: I can see the warning then about 20 seconds later
+the machine locks up.
+
+Regards,
+
+Anisse
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
