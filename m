@@ -1,49 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] ipv6, route: remove BACKTRACK() macro
-Date: Mon, 10 Sep 2012 21:42:45 -0400 (EDT)
-Message-ID: <20120910.214245.368123682481775366.davem@davemloft.net>
-References: <1347281326-26890-2-git-send-email-amwang@redhat.com>
-	<20120910.163229.421777922179988802.davem@davemloft.net>
-	<1347326362.30731.9.camel@cr0>
+From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+Subject: Re: RFC: mac802154 Packet Queueing and Slave
+	Devices
+Date: Mon, 10 Sep 2012 23:00:44 -0400
+Message-ID: <504EA95C.9010003@signal11.us>
+References: <504D37A7.60109@signal11.us>
+	<1347257547.1234.1110.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: amwang@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36366 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753121Ab2IKBmr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 21:42:47 -0400
-In-Reply-To: <1347326362.30731.9.camel@cr0>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1347257547.1234.1110.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
-Date: Tue, 11 Sep 2012 09:19:22 +0800
+On 09/10/2012 02:12 AM, Eric Dumazet wrote:
+> On Sun, 2012-09-09 at 20:43 -0400, Alan Ott wrote:
+>> Tony and I were recently talking about packet queueing on 802.15.4.
+>>
+>> The problem with this is that it defeats the netif flow control.
+> And qdisc ability to better control bufferbloat...
+>
+> By the way, mac802154_tx() looks buggy :
+>
+> Also mac802154_wpan_xmit() returns NETDEV_TX_OK without kfree_skb(skb)
+>
 
-> On Mon, 2012-09-10 at 16:32 -0400, David Miller wrote:
->> From: Cong Wang <amwang@redhat.com>
->> Date: Mon, 10 Sep 2012 20:48:45 +0800
->> 
->> > It doesn't save any code, nor it helps readability.
->> > 
->> > Signed-off-by: Cong Wang <amwang@redhat.com>
->> 
->> I'm not applying this.
->> 
->> Having two copies of the same exact logic means we will accumulate
->> bugs in the future if someone fixes the problem only in one
->> copy.
-> 
-> Makes sense, but BACKTRACK() is not well written, as it jumps out of its
-> definition. :(
+Hi Eric,
 
-Anyone who has worked with longest-matching-prefix TRIE traversal
-functions will have a pretty good idea what is going on here.
+Thanks for the review. I'll get this patched up.
 
-Yes, I know this conflicts with cases like how we killed all of
-the netlink macros with embedded gotos.
+Alan.
 
-But this patch made things worse and added code duplication.  Fix
-it without the code duplication side effect and it'll be fine.
+
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
