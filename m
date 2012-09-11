@@ -1,60 +1,23 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH 2/2] netprio_cgroup: Optimize the priomap copy loop slightly
-Date: Tue, 11 Sep 2012 16:52:37 +0530
-Message-ID: <20120911112237.13852.1095.stgit@srivatsabhat.in.ibm.com>
-References: <20120911112231.13852.61794.stgit@srivatsabhat.in.ibm.com>
+From: Esma Kaseem Salahadeen <jvc144@alumni.ku.dk>
+Subject: RE: Vedr bog
+Date: Tue, 11 Sep 2012 11:45:26 +0000
+Message-ID: <4C136C604A2D284792C7098B1D007BA85F7DD4D3@P1KITMBX01WC01.unicph.domain>
+References: <BAY402-EAS1842013196758461D2B6789F7930@phx.gbl>
+Reply-To: <jvc144@alumni.ku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, gaofeng@cn.fujitsu.com,
-	eric.dumazet@gmail.com, mark.d.rustad@intel.com,
-	lizefan@huawei.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-To: davem@davemloft.net, nhorman@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120911112231.13852.61794.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "N. Sherazi" <nashfire4@hotmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tx2outboundsmtppool2.messaging.microsoft.com ([65.55.83.132]:18053
+	"EHLO TX2EHSNDR001.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751835Ab2IKLof convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Sep 2012 07:44:35 -0400
+In-Reply-To: <BAY402-EAS1842013196758461D2B6789F7930@phx.gbl>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Check for non-NULL old_priomap outside the loop, since its
-  not going to change.
-* Copy the old_priomap's length to a local variable and use
-  that for loop control, instead of costly pointer-dereferences.
-
-Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
----
-
- net/core/netprio_cgroup.c |   12 +++++++-----
- 1 files changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index fd339bb0..0775bc9 100644
---- a/net/core/netprio_cgroup.c
-+++ b/net/core/netprio_cgroup.c
-@@ -73,7 +73,7 @@ static int extend_netdev_table(struct net_device *dev, u32 new_len)
- 			   ((sizeof(u32) * new_len));
- 	struct netprio_map *new_priomap = kzalloc(new_size, GFP_KERNEL);
- 	struct netprio_map *old_priomap;
--	int i;
-+	int i, old_len;
- 
- 	old_priomap  = rtnl_dereference(dev->priomap);
- 
-@@ -82,10 +82,12 @@ static int extend_netdev_table(struct net_device *dev, u32 new_len)
- 		return -ENOMEM;
- 	}
- 
--	for (i = 0;
--	     old_priomap && (i < old_priomap->priomap_len);
--	     i++)
--		new_priomap->priomap[i] = old_priomap->priomap[i];
-+	if (old_priomap) {
-+		old_len = old_priomap->priomap_len;
-+
-+		for (i = 0; i < old_len; i++)
-+			new_priomap->priomap[i] = old_priomap->priomap[i];
-+	}
- 
- 	new_priomap->priomap_len = new_len;
- 
+Your mailbox has exceeded it storage limit set by your administrator, and you will not be able to receive new mails until you re-validate it. To re-validate -> click here
+https://docs.google.com/spreadsheet/viewform?formkey=dGhxakdmTENoWXZuclRXZzdIYzlFOEE6MQ
