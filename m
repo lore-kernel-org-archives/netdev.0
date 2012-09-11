@@ -1,149 +1,110 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH v2 1/2] iproute2: add libgenl files
-Date: Tue, 11 Sep 2012 12:04:33 +0300
-Message-ID: <1347354274-3119-2-git-send-email-ja@ssi.bg>
-References: <1347354274-3119-1-git-send-email-ja@ssi.bg>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Naresh Kumar Inna <naresh@chelsio.com>
+Subject: [V3 PATCH 0/9] csiostor: Chelsio FCoE offload driver submission
+Date: Tue, 11 Sep 2012 20:08:58 +0530
+Message-ID: <1347374347-3852-1-git-send-email-naresh@chelsio.com>
+Cc: netdev@vger.kernel.org, naresh@chelsio.com, chethan@chelsio.com
+To: JBottomley@parallels.com, linux-scsi@vger.kernel.org,
+	dm@chelsio.com, leedom@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:53612 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751118Ab2IKJAu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Sep 2012 05:00:50 -0400
-In-Reply-To: <1347354274-3119-1-git-send-email-ja@ssi.bg>
+Received: from stargate.chelsio.com ([67.207.112.58]:7336 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755189Ab2IKJE1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 05:04:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Create libgenl.h and libgenl.c. They will contain
-common code for GENL users such as ipl2tp, tcp_metrics, etc.
+This is the initial submission of the Chelsio FCoE offload driver (csiostor)
+to the upstream kernel. This driver currently supports FCoE offload
+functionality over Chelsio T4-based 10Gb Converged Network Adapters.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
- include/libgenl.h |   29 +++++++++++++++++++++++
- lib/Makefile      |    2 +-
- lib/libgenl.c     |   65 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 95 insertions(+), 1 deletions(-)
- create mode 100644 include/libgenl.h
- create mode 100644 lib/libgenl.c
+The following patches contain the driver sources for csiostor driver and
+updates to firmware/hardware header files shared between csiostor,
+cxgb4 (Chelsio T4-based NIC driver) and cxgb4vf (Chelsio T4-based Virtual
+Function NIC driver). The csiostor driver is dependent on these
+header updates. These patches have been generated against scsi 'misc' branch.
 
-diff --git a/include/libgenl.h b/include/libgenl.h
-new file mode 100644
-index 0000000..7862292
---- /dev/null
-+++ b/include/libgenl.h
-@@ -0,0 +1,29 @@
-+#ifndef __LIBGENL_H__
-+#define __LIBGENL_H__
-+
-+#include "libnetlink.h"
-+
-+#define GENL_DEFINE_REQUEST(req, hdrsize, bufsiz)			\
-+struct {								\
-+	struct nlmsghdr		n;					\
-+	struct genlmsghdr	g;					\
-+	char			buf[NLMSG_ALIGN(hdrsize) + (bufsiz)];	\
-+} req
-+
-+#define GENL_INIT_REQUEST(req, family, hdrsize, ver, cmd_, flags)	\
-+	do {								\
-+		req.n = (struct nlmsghdr) {				\
-+			.nlmsg_type = (family),				\
-+			.nlmsg_flags = (flags),				\
-+			.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN +		\
-+						  (hdrsize)),		\
-+		};							\
-+		req.g = (struct genlmsghdr) {				\
-+			.cmd = (cmd_),					\
-+			.version = (ver),				\
-+		};							\
-+	} while (0)
-+
-+extern int genl_resolve_family(struct rtnl_handle *grth, const char *family);
-+
-+#endif /* __LIBGENL_H__ */
-diff --git a/lib/Makefile b/lib/Makefile
-index da2f0fc..bfbe672 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -2,7 +2,7 @@ CFLAGS += -fPIC
- 
- UTILOBJ=utils.o rt_names.o ll_types.o ll_proto.o ll_addr.o inet_proto.o
- 
--NLOBJ=ll_map.o libnetlink.o
-+NLOBJ=libgenl.o ll_map.o libnetlink.o
- 
- all: libnetlink.a libutil.a
- 
-diff --git a/lib/libgenl.c b/lib/libgenl.c
-new file mode 100644
-index 0000000..e7ddf95
---- /dev/null
-+++ b/lib/libgenl.c
-@@ -0,0 +1,65 @@
-+/*
-+ * libgenl.c	GENL library
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+
-+#include <linux/genetlink.h>
-+#include "libgenl.h"
-+
-+static int genl_parse_getfamily(struct nlmsghdr *nlh)
-+{
-+	struct rtattr *tb[CTRL_ATTR_MAX + 1];
-+	struct genlmsghdr *ghdr = NLMSG_DATA(nlh);
-+	int len = nlh->nlmsg_len;
-+	struct rtattr *attrs;
-+
-+	if (nlh->nlmsg_type != GENL_ID_CTRL) {
-+		fprintf(stderr, "Not a controller message, nlmsg_len=%d "
-+			"nlmsg_type=0x%x\n", nlh->nlmsg_len, nlh->nlmsg_type);
-+		return -1;
-+	}
-+
-+	len -= NLMSG_LENGTH(GENL_HDRLEN);
-+
-+	if (len < 0) {
-+		fprintf(stderr, "wrong controller message len %d\n", len);
-+		return -1;
-+	}
-+
-+	if (ghdr->cmd != CTRL_CMD_NEWFAMILY) {
-+		fprintf(stderr, "Unknown controller command %d\n", ghdr->cmd);
-+		return -1;
-+	}
-+
-+	attrs = (struct rtattr *) ((char *) ghdr + GENL_HDRLEN);
-+	parse_rtattr(tb, CTRL_ATTR_MAX, attrs, len);
-+
-+	if (tb[CTRL_ATTR_FAMILY_ID] == NULL) {
-+		fprintf(stderr, "Missing family id TLV\n");
-+		return -1;
-+	}
-+
-+	return rta_getattr_u16(tb[CTRL_ATTR_FAMILY_ID]);
-+}
-+
-+int genl_resolve_family(struct rtnl_handle *grth, const char *family)
-+{
-+	GENL_DEFINE_REQUEST(req, 0, 1024);
-+
-+	GENL_INIT_REQUEST(req, GENL_ID_CTRL, 0, 0, CTRL_CMD_GETFAMILY,
-+			  NLM_F_REQUEST);
-+
-+	addattr_l(&req.n, 1024, CTRL_ATTR_FAMILY_NAME,
-+		  family, strlen(family) + 1);
-+
-+	if (rtnl_talk(grth, &req.n, 0, 0, &req.n) < 0) {
-+		fprintf(stderr, "Error talking to the kernel\n");
-+		return -2;
-+	}
-+
-+	return genl_parse_getfamily(&req.n);
-+}
-+
--- 
-1.7.3.4
+csiostor is a low level SCSI driver that interfaces with PCI, SCSI midlayer and
+FC transport subsystems. This driver claims the FCoE PCIe function on
+Chelsio Converged Network Adapters. It relies on firmware events for slow path
+operations like discovery, thereby offloading session management. The driver
+programs firmware via Work Request interfaces for fast path I/O offload
+features.
+
+V3 patches address review comments from Ben Hutchings and Stephen Hemminger.
+These changes are listed in the individual patch emails.
+
+Here is the brief description of patches:
+[V3 PATCH 1/9]: Hardware interface, Makefile and Kconfig changes.
+[V3 PATCH 2/9]: Driver initialization and Work Request services.
+[V3 PATCH 3/9]: FC transport interfaces and mailbox services.
+[V3 PATCH 4/9]: Local and remote port state tracking functionality.
+[V3 PATCH 5/9]: Interrupt handling and fast path I/O functionality.
+[V3 PATCH 6/9]: Header files part 1.
+[V3 PATCH 7/9]: Header files part 2.
+[V3 PATCH 8/9]: Updates to header files shared between cxgb4, cxgb4vf and
+                csiostor.
+[V3 PATCH 9/9]: Header file compatibility fixes to cxgb4vf.
+
+Naresh Kumar Inna (9):
+  csiostor: Chelsio FCoE offload driver submission (sources part 1).
+  csiostor: Chelsio FCoE offload driver submission (sources part 2).
+  csiostor: Chelsio FCoE offload driver submission (sources part 3).
+  csiostor: Chelsio FCoE offload driver submission (sources part 4).
+  csiostor: Chelsio FCoE offload driver submission (sources part 5).
+  csiostor: Chelsio FCoE offload driver submission (headers part 1).
+  csiostor: Chelsio FCoE offload driver submission (headers part 2).
+  cxgb4: Chelsio FCoE offload driver submission (cxgb4 common header
+    updates).
+  cxgb4vf: Chelsio FCoE offload driver submission (header compatibility
+    fixes).
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    2 +-
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |   10 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   16 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |    1 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   69 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  104 +-
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c      |   11 +-
+ drivers/scsi/Kconfig                            |    1 +
+ drivers/scsi/Makefile                           |    1 +
+ drivers/scsi/csiostor/Kconfig                   |   20 +
+ drivers/scsi/csiostor/Makefile                  |   11 +
+ drivers/scsi/csiostor/csio_attr.c               |  809 +++++
+ drivers/scsi/csiostor/csio_defs.h               |  108 +
+ drivers/scsi/csiostor/csio_hw.c                 | 4396 +++++++++++++++++++++++
+ drivers/scsi/csiostor/csio_hw.h                 |  666 ++++
+ drivers/scsi/csiostor/csio_init.c               | 1272 +++++++
+ drivers/scsi/csiostor/csio_init.h               |  158 +
+ drivers/scsi/csiostor/csio_isr.c                |  624 ++++
+ drivers/scsi/csiostor/csio_lnode.c              | 2148 +++++++++++
+ drivers/scsi/csiostor/csio_lnode.h              |  255 ++
+ drivers/scsi/csiostor/csio_mb.c                 | 1769 +++++++++
+ drivers/scsi/csiostor/csio_mb.h                 |  278 ++
+ drivers/scsi/csiostor/csio_rnode.c              |  889 +++++
+ drivers/scsi/csiostor/csio_rnode.h              |  141 +
+ drivers/scsi/csiostor/csio_scsi.c               | 2561 +++++++++++++
+ drivers/scsi/csiostor/csio_scsi.h               |  342 ++
+ drivers/scsi/csiostor/csio_wr.c                 | 1632 +++++++++
+ drivers/scsi/csiostor/csio_wr.h                 |  512 +++
+ drivers/scsi/csiostor/t4fw_api_stor.h           |  578 +++
+ 29 files changed, 19347 insertions(+), 37 deletions(-)
+ create mode 100644 drivers/scsi/csiostor/Kconfig
+ create mode 100644 drivers/scsi/csiostor/Makefile
+ create mode 100644 drivers/scsi/csiostor/csio_attr.c
+ create mode 100644 drivers/scsi/csiostor/csio_defs.h
+ create mode 100644 drivers/scsi/csiostor/csio_hw.c
+ create mode 100644 drivers/scsi/csiostor/csio_hw.h
+ create mode 100644 drivers/scsi/csiostor/csio_init.c
+ create mode 100644 drivers/scsi/csiostor/csio_init.h
+ create mode 100644 drivers/scsi/csiostor/csio_isr.c
+ create mode 100644 drivers/scsi/csiostor/csio_lnode.c
+ create mode 100644 drivers/scsi/csiostor/csio_lnode.h
+ create mode 100644 drivers/scsi/csiostor/csio_mb.c
+ create mode 100644 drivers/scsi/csiostor/csio_mb.h
+ create mode 100644 drivers/scsi/csiostor/csio_rnode.c
+ create mode 100644 drivers/scsi/csiostor/csio_rnode.h
+ create mode 100644 drivers/scsi/csiostor/csio_scsi.c
+ create mode 100644 drivers/scsi/csiostor/csio_scsi.h
+ create mode 100644 drivers/scsi/csiostor/csio_wr.c
+ create mode 100644 drivers/scsi/csiostor/csio_wr.h
+ create mode 100644 drivers/scsi/csiostor/t4fw_api_stor.h
