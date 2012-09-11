@@ -1,65 +1,67 @@
-From: "Love, Robert W" <robert.w.love@intel.com>
-Subject: Re: [RFC PATCH 0/5] Reorganize libfcoe control interfaces
-Date: Tue, 11 Sep 2012 18:47:33 +0000
-Message-ID: <504F8744.8000400@intel.com>
-References: <20120910225908.13140.97277.stgit@fritz>
- <CAHNqLyUUeVPVzvZCKzmbp0LdOGnOYudOehVfagySokrq8zj4hA@mail.gmail.com>
- <504F76A1.50809@intel.com> <504F836C.3040907@broadcom.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: GRO aggregation
+Date: Tue, 11 Sep 2012 15:48:13 -0300
+Message-ID: <504F876D.9020102@redhat.com>
+References: <504F4063.9030706@mellanox.com>,<504F80DC.7010707@redhat.com> <36F7E4A28C18BE4DB7C86058E7B607241E622015@MTRDAG01.mtl.com>
+Reply-To: mleitner@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Chris Leech <leech@pobox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"devel@open-fcoe.org" <devel@open-fcoe.org>
-To: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Shlomo Pongratz <shlomop@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:64971 "EHLO mga14.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54323 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751293Ab2IKSrg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Sep 2012 14:47:36 -0400
-In-Reply-To: <504F836C.3040907@broadcom.com>
-Content-Language: en-US
-Content-ID: <80E25DF96BCD624CB6466B638F70A179@intel.com>
+	id S1751895Ab2IKSsT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Sep 2012 14:48:19 -0400
+In-Reply-To: <36F7E4A28C18BE4DB7C86058E7B607241E622015@MTRDAG01.mtl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlIDExIFNlcCAyMDEyIDExOjMxOjA4IEFNIFBEVCwgQmhhbnUgUHJha2FzaCBHb2xsYXB1
-ZGkgd3JvdGU6DQo+IE9uIDkvMTEvMjAxMiAxMDozNiBBTSwgTG92ZSwgUm9iZXJ0IFcgd3JvdGU6
-DQo+PiBPbiBUdWUgMTEgU2VwIDIwMTIgMTA6MDY6MjkgQU0gUERULCBDaHJpcyBMZWVjaCB3cm90
-ZToNCj4+PiBPbiBNb24sIFNlcCAxMCwgMjAxMiBhdCAzOjU5IFBNLCBSb2JlcnQgTG92ZQ0KPj4+
-IDxyb2JlcnQudy5sb3ZlQGludGVsLmNvbT4gd3JvdGU6DQo+Pg0KPj4gPHNuaXA+DQo+Pg0KPj4+
-PiAxKSBDcmVhdGUvYWxsb2MgdGhlIHBvcnQNCj4+Pj4gICAgICAtIEFsbG9jYXRlIGtlcm5lbCBt
-ZW1vcnkgYW5kIGNyZWF0ZSBwZXItaW5zdGFuY2Ugc3lzZnMgZGV2aWNlcw0KPj4+PiAgICAgIC0g
-Tm8gZGlzY292ZXJ5IG9yIGxvZ2luDQo+Pj4+DQo+Pg0KPj4gIyBlY2hvIGV0aDMuMTcyLWZjb2Ug
-PiAvc3lzL2J1cy9mY29lL2N0bHJfY3JlYXRlDQo+DQo+IEknbSBhc3N1bWluZyB0aGUgZXhpc3Rp
-bmcgZnVuY3Rpb25hbGl0eSBvZiBhdXRvbWF0aWNhbGx5IGNyZWF0aW5nIHRoZQ0KPiB2bGFuIGlu
-dGVyZmFjZSBieSBmY29lbW9uICh1c2luZyB0aGUgY2ZnLWV0aFgpIGNvbnRpbnVlcyB0byBleGlz
-dCBhbmQNCj4gdGhlIGFib3ZlIGlzIG5vdCBhIHJlcGxhY2VtZW50IGZvciBmY29lYWRtIC1jLg0K
-Pg0KDQpZZXMsIHlvdSdyZSByaWdodC4gVGhlc2UgZXhhbXBsZXMgYXJlIG9ubHkgaWYgeW91IHdl
-cmUgdXNpbmcgdGhlIA0KaW50ZXJmYWNlcyBmcm9tIEJBU0guIEl0J3MgYWxsIGNvZGVkIHVwIGZv
-ciBmY29lbW9uIGFuZCB0aGVyZSBzaG91bGRuJ3QgDQpiZSBhbnkgdXNlciBleHBlcmllbmNlIGNo
-YW5nZSB3aXRoIHRoZSBuZXcgY29kZS4gSSdsbCBwb3N0IHRoYXQgY29kZSB0byANCmRldmVsQG9w
-ZW4tZmNvZS5vcmcgb25jZSBJIGdldCBpdCByZWJhc2VkIGFuZCBxdWlja2x5IHRlc3RlZC4NCg0K
-Pj4NCj4+IHJlc3VsdHMgaW46DQo+Pg0KPj4gL3N5cy9idXMvZmNvZS9kZXZpY2VzL2N0bHJfMC8N
-Cj4+DQo+Pj4+IDIpIENvbmZpZ3VyZSB0aGUgcG9ydA0KPj4+PiAgICAgIC0gQ2hhbmdlIG1vZGUs
-IHNldCBkZHBfbWluLCBldGMuLi4NCj4+Pj4NCj4+DQo+PiAjIGVjaG8gIkZhYnJpYyIgPiAvc3lz
-L2J1cy9mY29lL2RldmljZXMvY3Rscl8wL21vZGUNCj4+DQo+PiBubyB2aXNpYmxlIGNoYW5nZQ0K
-Pj4NCj4+Pj4gMykgU3RhcnQgdGhlIHBvcnQNCj4+Pj4gICAgICAtIEJlZ2lucyBkaXNjb3Zlcnkg
-YW5kL29yIGxvZ2luIChkZXBlbmRpbmcgb24gbW9kZSkNCj4+Pj4NCj4+DQo+PiAjIGVjaG8gMSA+
-IC9zeXMvYnVzL2Zjb2UvZGV2aWNlcy9jdGxyXzAvc3RhcnQNCj4+DQo+PiBCZWdpbnMgZGlzY292
-ZXJ5IGFuZCBsb2dpbi4gQXNzdW1pbmcgdGhlcmUgYXJlIEZDRnMgdGhlbiByZXN1bHRzIGluOg0K
-Pj4NCj4+IC9zeXMvYnVzL2Zjb2UvZGV2aWNlcy9mY2ZfMA0KPg0KPiBJJ20gYWxzbyBhc3N1bWlu
-ZyB0aGF0IHRoZSBhYm92ZSB0aHJlZSBzdGVwcyBjYW4gYmUgY2x1YmJlZCBieQ0KPiBmY29ldXRp
-bHMsIHBlcmhhcHMgYnkgYWRkaW5nICdtb2RlJyBwYXJhbWV0ZXIgaW50byB0aGUgY2ZnLWV0aFgg
-ZmlsZS4NCj4gVGhhdCB3YXkgJ3NlcnZpY2UgZmNvZSBzdGFydCcgd2lsbCBiZSBubyBkaWZmZXJl
-bnQgd2l0aCB0aGUgcHJvcG9zZWQNCj4gbW9kZWwsIGV4Y2VwdCB0aGF0IHRoZXJlIHdpbGwgYmUg
-bXVsdGlwbGUgZW50cnkgcG9pbnRzIGludG8gdGhlIGRyaXZlcg0KPiAoYWxsb2MsIGNvbmZpZywg
-c3RhcnQpIGluc3RlYWQgb2YganVzdCBvbmUgKGNyZWF0ZSkuDQo+DQoNClllcywgeW91J3JlIHJp
-Z2h0IGhlcmUgdG9vLiBIb3dldmVyLCB0aGUgZGVmYXVsdCBpcyAnRmFicmljJyBzbyBmY29lbW9u
-IA0Kd29uJ3QgYWN0dWFsbHkgaGF2ZSB0byBjaGFuZ2UgdGhlIG1vZGUuIEhvd2V2ZXIsIEknZCBs
-aWtlIHRvIHNlZSBWTjJWTiANCnN1cHBvcnQgYWRkZWQgdG8gZmNvZWFkbS9mY29lbW9uLiBJdCdz
-IG9uIHRoZSBUT0RPIGxpc3QuIE9uY2UgdGhhdCdzIA0KaW1wbGVtZW50ZWQgZmNvZW1vbiB3b3Vs
-ZCBuZWVkIHRvIGNoYW5nZSB0aGUgbW9kZSBkZXBlbmRpbmcgb24gdGhlIA0KdXNlcidzIHNlbGVj
-dGlvbi4=
+On 09/11/2012 03:41 PM, Shlomo Pongratz wrote:
+> From: Marcelo Ricardo Leitner [mleitner@redhat.com]
+> Sent: Tuesday, September 11, 2012 9:20 PM
+> To: Shlomo Pongratz
+> Cc: netdev@vger.kernel.org
+> Subject: Re: GRO aggregation
+>
+> On 09/11/2012 10:45 AM, Shlomo Pongartz wrote:
+>> Hi,
+>>
+>> I=92m checking GRO aggregation with kernel 3.6.0-rc1+ using Intel ix=
+gbe
+>> driver.
+>> The mtu is 1500 and GRO is on and so are SG and RX checksum.
+>> I ran iperf with default setting and monitor the receiver with tcpdu=
+mp.
+>> The tcpdump shows that the maximal aggregation is 32120 which is 21 =
+* 1500.
+>> In the transmitter side tcpdump shows that TSO works better (~64K).
+>> I did a capture without GRO enabled to see if there was a difference
+>> between any flag
+>> of any two consecutive packets that forced flushing but didn't find
+>> anything.
+>> Is the GRO aggregation can be tuned.
+>
+> Hi Shlomo,
+>
+> Have you tried tuning coalescing parameters?
+>
+> Marcelo
+>
+>
+> Hi Marcelo
+>
+> I didn't play with interrupts coalescing.
+> Do you suggest to increase the value?
+
+Actually it was an idea from top of my mind, I don't know how it applie=
+s=20
+to ixgbe, sorry. But making the NIC hold the packets a bit more should=20
+make it send larger ones to kernel. Trade-off between latency/throughpu=
+t.
+
+I was thinking about ethtool -c options, like rx-usecs*
+
+Marcelo
