@@ -1,44 +1,34 @@
-From: Anisse Astier <anisse-fwwRqrJYcP2HXe+LvDLADg@public.gmane.org>
-Subject: Re: [PATCH] rtlwifi: rtl8192ce: Log message that B_CUT device may
- not work
-Date: Tue, 11 Sep 2012 19:23:27 +0200
-Message-ID: <20120911192327.62fec16a@destiny.ordissimo>
-References: <1347379873-9390-1-git-send-email-Larry.Finger@lwfinger.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [V3 PATCH 9/9] cxgb4vf: Chelsio FCoE offload driver submission
+ (header compatibility fixes).
+Date: Tue, 11 Sep 2012 13:33:21 -0400 (EDT)
+Message-ID: <20120911.133321.282568248903907762.davem@davemloft.net>
+References: <1347374347-3852-1-git-send-email-naresh@chelsio.com>
+	<1347374347-3852-10-git-send-email-naresh@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Li Chaoming <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1347379873-9390-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: JBottomley@parallels.com, linux-scsi@vger.kernel.org,
+	dm@chelsio.com, leedom@chelsio.com, netdev@vger.kernel.org,
+	chethan@chelsio.com
+To: naresh@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45695 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750736Ab2IKRdZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 13:33:25 -0400
+In-Reply-To: <1347374347-3852-10-git-send-email-naresh@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 11 Sep 2012 11:11:13 -0500, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> wrote :
+From: Naresh Kumar Inna <naresh@chelsio.com>
+Date: Tue, 11 Sep 2012 20:09:07 +0530
 
-> There are a number of problems that occur for the latest version
-> of the Realtek RTL8188CE device with the in-kernel driver. These
-> include selection of the wrong firmware, and system lockup. A full
-> fix is known, but is too invasive for inclusion in stable. This patch
-> fixes the problem with loading the wrong firmware, and logs a message
-> that the device may not work for kernels 3.6 and older.
+> This patch contains minor fixes to make cxgb4vf driver work with the updates to
+> shared firmware/hardware header files.
 > 
-> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-> Cc: Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-> Cc: Anisse Astier <anisse-fwwRqrJYcP2HXe+LvDLADg@public.gmane.org>
-> Cc: Li Chaoming <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
+> Signed-off-by: Naresh Kumar Inna <naresh@chelsio.com>
 
-Tested-by: Anisse Astier <anisse-fwwRqrJYcP2HXe+LvDLADg@public.gmane.org>
-
-Behaves as expected: I can see the warning then about 20 seconds later
-the machine locks up.
-
-Regards,
-
-Anisse
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You cannot submit a patch set that isn't bisectable, and in particular
+create a situation that mid-way through your patch set things do not
+build or operate correctly.
