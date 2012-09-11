@@ -1,40 +1,33 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next] r8169: use unlimited DMA burst for TX
-Date: Tue, 11 Sep 2012 16:09:52 +0800
-Message-ID: <CAF7E57619E34A17A56F6D13097342EA@realtek.com.tw>
-References: <1347234926-5263-1-git-send-email-mschmidt@redhat.com> <20120910.155046.568702072740433838.davem@davemloft.net> <20120910215521.GA930@electric-eye.fr.zoreil.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH 2/3] ipv6, route: remove BACKTRACK() macro
+Date: Tue, 11 Sep 2012 16:39:19 +0800
+Message-ID: <1347352759.30731.38.camel@cr0>
+References: <1347281326-26890-2-git-send-email-amwang@redhat.com>
+	 <20120910.163229.421777922179988802.davem@davemloft.net>
+	 <1347326362.30731.9.camel@cr0>
+	 <20120910.214245.368123682481775366.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <mschmidt@redhat.com>, <netdev@vger.kernel.org>,
-	<ivecera@redhat.com>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>,
-	'David Miller' <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:41781 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752819Ab2IKIKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 04:10:13 -0400
-In-Reply-To: <20120910215521.GA930@electric-eye.fr.zoreil.com>
+Received: from mx1.redhat.com ([209.132.183.28]:29582 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750886Ab2IKIjZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Sep 2012 04:39:25 -0400
+In-Reply-To: <20120910.214245.368123682481775366.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, 
-
- Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> Sent: Tuesday, September 11, 2012 5:55 AM
-> To: David Miller
-> Cc: mschmidt@redhat.com; netdev@vger.kernel.org; Hayeswang; 
-> nic_swsd; ivecera@redhat.com
-> Subject: Re: [PATCH net-next] r8169: use unlimited DMA burst for TX
+On Mon, 2012-09-10 at 21:42 -0400, David Miller wrote:
 > 
-> Hayes, should we:
-> - mimic Realtek's 8168, 8169 and 810x drivers ?
-> - always set TX_DMA_BURST at the max value ?
-> - do something different (per chipset) ?
+> Yes, I know this conflicts with cases like how we killed all of
+> the netlink macros with embedded gotos.
+> 
+> But this patch made things worse and added code duplication.  Fix
+> it without the code duplication side effect and it'll be fine.
 
-Our hw engineer suggets to set unlimited for both TX_DMA_BURST and RX_DMA_BURST
-for all chipsets.
- 
-Best Regards,
-Hayes
+Ok, will do.
+
+Thanks, David!
