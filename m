@@ -1,8 +1,8 @@
 From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Subject: Re: [PATCH v3 7/8] cgroup: Assign subsystem IDs during compile time
-Date: Tue, 11 Sep 2012 23:15:59 +0200
-Message-ID: <504FAA0F.600@monom.org>
-References: <1347380774-9546-1-git-send-email-wagi@monom.org> <1347380774-9546-8-git-send-email-wagi@monom.org> <20120911210435.GA7677@google.com>
+Subject: Re: [PATCH v3 0/8] cgroup: Assign subsystem IDs during compile time
+Date: Tue, 11 Sep 2012 23:19:07 +0200
+Message-ID: <504FAACB.2020704@monom.org>
+References: <1347380774-9546-1-git-send-email-wagi@monom.org> <20120911211151.GC7677@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -20,38 +20,35 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mH
 	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120911210435.GA7677-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <20120911211151.GC7677-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 Hi Tejun,
 
-On 09/11/2012 11:04 PM, Tejun Heo wrote:
-> Hello, Daniel.
+On 09/11/2012 11:11 PM, Tejun Heo wrote:
+> Hello,
 >
-> One more thing.
->
-> On Tue, Sep 11, 2012 at 06:26:13PM +0200, Daniel Wagner wrote:
+> On Tue, Sep 11, 2012 at 06:26:06PM +0200, Daniel Wagner wrote:
 >> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
 >>
->> WARNING: With this change it is not possible to load external built
->> controllers anymore.
+>> Hi,
 >>
->> In case where CONFIG_NETPRIO_CGROUP=m and CONFIG_NET_CLS_CGROUP=m is
->> set, the type of the corresponding subsys_id should also be of type
->> enum. Up to now, net_prio_subsys_id and net_cls_subsys_id would be an
->> int in this configuration.
->>
->> With switching the macro definition IS_SUBSYS_ENABLED from IS_BUILTIN
->> to IS_ENABLED, the subsys_id will always be enum for all
->> subsystems. That means we need to remove all the code which assumes
->> that net_prio_subsys_id and net_cls_subsys_id is of type int.
+>> In this version I tried to concentrate on the main topic of this
+>> series, so I removed some of the things which were not really needed
+>> and I have to admit the result looks much better. So I hope that will
+>> simplify the review for you.
 >
-> I don't think int or enum is the matter here.  enum is an int.  It's
-> whether the ID is allocated statically or dynamically.  Can you please
-> update the description using those terms instead?
+> Other than the few nits I like the whole series and, given that all
+> the changes are entangled with cgroup core, I would like to route it
+> through cgroup/for-3.7 if nobody objects.  Daniel, can you please
+> rebase on top of the following branch when sending out updated
+> version?
+>
+>    git://git.kernel.org/pub/scm/linux/kernel/git/tj/cgroup.git for-3.7
 
-Sure, no problem.
+Sure, I'll rebase and update the series tomorrow. Thanks for your 
+patience with me.
 
 cheers,
 daniel
