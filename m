@@ -1,35 +1,54 @@
-From: byungho an <bh74an@gmail.com>
-Subject: Regarding ethernet dir
-Date: Tue, 11 Sep 2012 23:37:50 +0900
-Message-ID: <CAG4h5ywMFfDK-wdseTL0Tq0=jxbB_OxT1-3W_ef3ksO38fJLMg@mail.gmail.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [net PATCH v2 5/7] bnx2x: correct advertisement of pause
+ capabilities
+Date: Tue, 11 Sep 2012 17:34:12 +0300
+Message-ID: <1347374054-16730-6-git-send-email-yuvalmin@broadcom.com>
+References: <1347374054-16730-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Yaniv Rosner" <yaniv.rosner@broadcom.com>,
+	"Yuval Mintz" <yuvalmin@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:45418 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753522Ab2IKOhv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 10:37:51 -0400
-Received: by oago6 with SMTP id o6so277753oag.19
-        for <netdev@vger.kernel.org>; Tue, 11 Sep 2012 07:37:50 -0700 (PDT)
+Received: from mms3.broadcom.com ([216.31.210.19]:3253 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759287Ab2IKO6m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Sep 2012 10:58:42 -0400
+In-Reply-To: <1347374054-16730-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Yaniv Rosner <yaniv.rosner@broadcom.com>
 
-I have one suggestion for ethernet dir.
-Currently It is well-defined and good for management.
+This patch propagates users' requested flow-control into the link layer,
+which will later be used to advertise this flow-control for auto-negotiation
+(until now these values were ignored).
 
-But if IP vendor is different from SoC vender, It is a bit confusing
-to guess dir name.
-For example, stmmac is using Synopsys dwmac.
-In this case, if another SoC vendors try to use Synopsys IP, they
-sould make their own dir under the their name?
+Signed-off-by: Yaniv Rosner <yaniv.rosner@broadcom.com>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-If there is common dir of IP vendor, It would be more clear like below.
-
-What do you think about it?
-I want to exchange opinion and find a resonable and rational way.
-
-Thank you.
-Andy.
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index c37a68d..bbf4cf0 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -1587,6 +1587,12 @@ static int bnx2x_set_pauseparam(struct net_device *dev,
+ 			bp->link_params.req_flow_ctrl[cfg_idx] =
+ 				BNX2X_FLOW_CTRL_AUTO;
+ 		}
++		bp->link_params.req_fc_auto_adv = BNX2X_FLOW_CTRL_NONE;
++		if (epause->rx_pause)
++			bp->link_params.req_fc_auto_adv |= BNX2X_FLOW_CTRL_RX;
++
++		if (epause->tx_pause)
++			bp->link_params.req_fc_auto_adv |= BNX2X_FLOW_CTRL_TX;
+ 	}
+ 
+ 	DP(BNX2X_MSG_ETHTOOL,
+-- 
+1.7.9.rc2
