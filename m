@@ -1,41 +1,41 @@
-From: "Love, Robert W" <robert.w.love@intel.com>
-Subject: Re: [Open-FCoE] [RFC PATCH 0/5] Reorganize libfcoe control
- interfaces
-Date: Tue, 11 Sep 2012 17:46:47 +0000
-Message-ID: <504F7906.9040806@intel.com>
-References: <20120910225908.13140.97277.stgit@fritz>
- <CAHNqLyUUeVPVzvZCKzmbp0LdOGnOYudOehVfagySokrq8zj4hA@mail.gmail.com>
- <504F76A1.50809@intel.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: NIC emulation with built-in rate limiting?
+Date: Tue, 11 Sep 2012 11:07:07 -0700
+Message-ID: <504F7DCB.3050401@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devel@open-fcoe.org" <devel@open-fcoe.org>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
-To: Chris Leech <leech@pobox.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <504F76A1.50809@intel.com>
-Content-Language: en-US
-Content-ID: <3900D9BF58C3834086100588937889CC@intel.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Lee Schermerhorn <Lee.Schermerhorn@hp.com>,
+	Brian Haley <Brian.Haley@hp.com>
+To: netdev@vger.kernel.org, kvm@vger.kernel.org
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gVHVlIDExIFNlcCAyMDEyIDEwOjM2OjM1IEFNIFBEVCwgTG92ZSwgUm9iZXJ0IFcgd3JvdGU6
-DQo+IE9uIFR1ZSAxMSBTZXAgMjAxMiAxMDowNjoyOSBBTSBQRFQsIENocmlzIExlZWNoIHdyb3Rl
-Og0KPj4gT24gTW9uLCBTZXAgMTAsIDIwMTIgYXQgMzo1OSBQTSwgUm9iZXJ0IExvdmUgPHJvYmVy
-dC53LmxvdmVAaW50ZWwuY29tPiB3cm90ZToNCg0KPHNuaXA+DQoNCj4+IFRoYXQgYmVpbmcgc2Fp
-ZCwgSSdtIGdsYWQgdGhpcyBpcyBiZWluZyByZXdvcmtlZC4gIERvIHlvdSBoYXZlIGFueQ0KPj4g
-b3RoZXIgZnVuY3Rpb25hbGl0eSBpbiBtaW5kIHRoYXQgdGhpcyBpcyBsYXlpbmcgdGhlIGdyb3Vu
-ZHdvcmsgZm9yPw0KPj4NCj4NCj4gSSBoYXZlIG9uZSBmZWF0dXJlIGFuZCBhIGZldyBpZGVhcy4g
-SSBjdXJyZW50bHkgaGF2ZSBhIHBhdGNoIHRoYXQgYWRkcw0KPiBhIGZhYnJpYyBzZWxlY3Rpb24g
-ZmVhdHVyZS4gSSBhZGQgYW5vdGhlciBSVyBhdHRyaWJ1dGUgdG8gdGhlIGN0bHJfWA0KPiBkZXZp
-Y2UuIElmIHRoZSB1c2VyIHdyaXRlcyBmYWJyaWMgbmFtZSB0byB0aGUgZmlsZSBsaWJmY29lIHVz
-ZXMgaXQgaW4NCj4gaXQncyBGQ0Ygc2VsZWN0aW9uIGFsZ29yaXRobS4gSGVyZSdzIG15IGNvbW1p
-dCBtZXNzYWdlIGZyb20gdGhhdCBwYXRjaC4NCj4gSSBjYW4gc2hhcmUgdGhlIHBhdGNoIGlmIHBl
-b3BsZSB3b3VsZCBsaWtlIHRvIHNlZSBpdCB0b28uIFRoZSBjdXJyZW50DQo+IGltcGxlbWVudGF0
-aW9uIGFsc28gYWxsb3dzIHRoZSB1c2VyIHRvIGZvcmNlIHRoZSBsb2dpbiB0aHJvdWdoIGENCj4g
-c3BlY2lmaWMgRkNGLg0KPg0KDQpNeSBmY29lLXV0aWxzLmdpdCBjaGFuZ2UgaGVyZSBhbHNvIGFs
-bG93cyB0aGUgdXNlciB0byBkcml2ZSB0aGlzIGZhYnJpYyANCnNlbGVjdGlvbiB1c2luZyBhIG5l
-dyB2YXJpYWJsZSBpbiB0aGUgL2V0Yy9mY29lL2NmZy1ldGhYIGZpbGVzIHRoYXQgdGhlIA0KJ2Zj
-b2Ugc2VydmljZScgdXNlcy4=
+Are there NIC emulations in the kernel with built-in rate limiting?  Or 
+is that supposed to be strictly the province of qdiscs/filters?
+
+I've been messing about with netperf in a VM using virtio_net, to which 
+rate limiting has been applied to its corresponding vnetN interface - 
+rate policing on vnetN ingress (the VM's outbound) and htb on the vnetN 
+egress (the VM's inbound).
+
+Looking at the "demo mode" output of netperf and a VM throttled to 800 
+Mbit/s in each direction I see that inbound to the VM is quite steady 
+over time - right at about 800 Mbit/s.  However, looking at that same 
+sort of data for outbound from the VM shows considerable variability 
+ranging anywhere from 700 to 900 Mbit/s (though the bulk of the 
+variability is clustered more like 750 to 850.
+
+I was thinking that part of the reason may stem from the lack of direct 
+feedback to the VM since the policing is on the vnetN interface and 
+wondered if it might be "better" if the VM's outbound network rate were 
+constrained not by an ingress policing filter on the vnetN interface but 
+by the host/hypervisor/emulator portion of the NIC and how quickly it 
+pulls packets from the tx queue.  That would allow the queue which 
+built-up to be in the VM itself and would more accurately represent what 
+a "real NIC" of that bandwidth would do.
+
+happy benchmarking,
+
+rick jones
