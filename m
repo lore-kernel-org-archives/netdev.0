@@ -1,7 +1,7 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next v3 1/4] netns: move net->ipv4.rt_genid to net->rt_genid
-Date: Tue, 11 Sep 2012 10:09:44 +0200
-Message-ID: <1347350987-8054-2-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v3 3/4] ipv6: use net->rt_genid to check dst validity
+Date: Tue, 11 Sep 2012 10:09:46 +0200
+Message-ID: <1347350987-8054-4-git-send-email-nicolas.dichtel@6wind.com>
 References: <504DFF90.3010802@6wind.com>
  <1347350987-8054-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: sri@us.ibm.com, linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
@@ -9,96 +9,134 @@ Cc: sri@us.ibm.com, linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
 To: vyasevich@gmail.com, davem@davemloft.net, eric.dumazet@gmail.com,
 	sds@tycho.nsa.gov, james.l.morris@oracle.com, eparis@parisplace.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:39446 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:39463 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751646Ab2IKIJi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 04:09:38 -0400
+	with ESMTP id S1754377Ab2IKIJl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 04:09:41 -0400
 In-Reply-To: <1347350987-8054-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit prepares the use of rt_genid by both IPv4 and IPv6.
-Initialization is left in IPv4 part.
+IPv6 dst should take care of rt_genid too. When a xfrm policy is inserted or
+deleted, all dst should be invalidated.
+To force the validation, dst entries should be created with ->obsolete set to
+DST_OBSOLETE_FORCE_CHK. This was already the case for all functions calling
+ip6_dst_alloc(), except for ip6_rt_copy().
+
+As a consequence, we can remove the specific code in inet6_connection_sock.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- include/net/net_namespace.h | 10 ++++++++++
- include/net/netns/ipv4.h    |  1 -
- net/ipv4/route.c            |  9 ++-------
- 3 files changed, 12 insertions(+), 8 deletions(-)
+ include/net/ip6_fib.h            |  5 ++---
+ net/ipv6/inet6_connection_sock.c | 23 +----------------------
+ net/ipv6/route.c                 | 13 +++++++++----
+ 3 files changed, 12 insertions(+), 29 deletions(-)
 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 5ae57f1..037190a 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -107,6 +107,7 @@ struct net {
- #endif
- 	struct netns_ipvs	*ipvs;
- 	struct sock		*diag_nlsk;
-+	atomic_t		rt_genid;
- };
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index cd64cf3..8a2a203 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -112,9 +112,8 @@ struct rt6_info {
+ 	struct inet6_dev		*rt6i_idev;
+ 	unsigned long			_rt6i_peer;
  
- /*
-@@ -312,5 +313,14 @@ static inline void unregister_net_sysctl_table(struct ctl_table_header *header)
- }
- #endif
- 
-+static inline int rt_genid(struct net *net)
-+{
-+	return atomic_read(&net->rt_genid);
-+}
+-#ifdef CONFIG_XFRM
+-	u32				rt6i_flow_cache_genid;
+-#endif
++	u32				rt6i_genid;
 +
-+static inline void rt_genid_bump(struct net *net)
-+{
-+	atomic_inc(&net->rt_genid);
-+}
+ 	/* more non-fragment space at head required */
+ 	unsigned short			rt6i_nfheader_len;
  
- #endif /* __NET_NET_NAMESPACE_H */
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 7d00583..2ae2b83 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -64,7 +64,6 @@ struct netns_ipv4 {
- 	kgid_t sysctl_ping_group_range[2];
- 	long sysctl_tcp_mem[3];
- 
--	atomic_t rt_genid;
- 	atomic_t dev_addr_genid;
- 
- #ifdef CONFIG_IP_MROUTE
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index d39edf1..8ff984b 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -202,11 +202,6 @@ EXPORT_SYMBOL(ip_tos2prio);
- static DEFINE_PER_CPU(struct rt_cache_stat, rt_cache_stat);
- #define RT_CACHE_STAT_INC(field) __this_cpu_inc(rt_cache_stat.field)
- 
--static inline int rt_genid(struct net *net)
--{
--	return atomic_read(&net->ipv4.rt_genid);
--}
+diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
+index 0251a60..c4f9341 100644
+--- a/net/ipv6/inet6_connection_sock.c
++++ b/net/ipv6/inet6_connection_sock.c
+@@ -175,33 +175,12 @@ void __inet6_csk_dst_store(struct sock *sk, struct dst_entry *dst,
+ 			   const struct in6_addr *saddr)
+ {
+ 	__ip6_dst_store(sk, dst, daddr, saddr);
 -
- #ifdef CONFIG_PROC_FS
- static void *rt_cache_seq_start(struct seq_file *seq, loff_t *pos)
- {
-@@ -449,7 +444,7 @@ static inline bool rt_is_expired(const struct rtable *rth)
- 
- void rt_cache_flush(struct net *net)
- {
--	atomic_inc(&net->ipv4.rt_genid);
-+	rt_genid_bump(net);
+-#ifdef CONFIG_XFRM
+-	{
+-		struct rt6_info *rt = (struct rt6_info  *)dst;
+-		rt->rt6i_flow_cache_genid = atomic_read(&flow_cache_genid);
+-	}
+-#endif
  }
  
- static struct neighbour *ipv4_neigh_lookup(const struct dst_entry *dst,
-@@ -2506,7 +2501,7 @@ static __net_initdata struct pernet_operations sysctl_route_ops = {
- 
- static __net_init int rt_genid_init(struct net *net)
+ static inline
+ struct dst_entry *__inet6_csk_dst_check(struct sock *sk, u32 cookie)
  {
--	atomic_set(&net->ipv4.rt_genid, 0);
-+	atomic_set(&net->rt_genid, 0);
- 	get_random_bytes(&net->ipv4.dev_addr_genid,
- 			 sizeof(net->ipv4.dev_addr_genid));
- 	return 0;
+-	struct dst_entry *dst;
+-
+-	dst = __sk_dst_check(sk, cookie);
+-
+-#ifdef CONFIG_XFRM
+-	if (dst) {
+-		struct rt6_info *rt = (struct rt6_info *)dst;
+-		if (rt->rt6i_flow_cache_genid != atomic_read(&flow_cache_genid)) {
+-			__sk_dst_reset(sk);
+-			dst = NULL;
+-		}
+-	}
+-#endif
+-
+-	return dst;
++	return __sk_dst_check(sk, cookie);
+ }
+ 
+ static struct dst_entry *inet6_csk_route_socket(struct sock *sk,
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 339d921..561f249 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -281,13 +281,14 @@ static inline struct rt6_info *ip6_dst_alloc(struct net *net,
+ 					     struct fib6_table *table)
+ {
+ 	struct rt6_info *rt = dst_alloc(&net->ipv6.ip6_dst_ops, dev,
+-					0, DST_OBSOLETE_NONE, flags);
++					0, DST_OBSOLETE_FORCE_CHK, flags);
+ 
+ 	if (rt) {
+ 		struct dst_entry *dst = &rt->dst;
+ 
+ 		memset(dst + 1, 0, sizeof(*rt) - sizeof(*dst));
+ 		rt6_init_peer(rt, table ? &table->tb6_peers : net->ipv6.peers);
++		rt->rt6i_genid = rt_genid(net);
+ 	}
+ 	return rt;
+ }
+@@ -1031,6 +1032,13 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
+ 
+ 	rt = (struct rt6_info *) dst;
+ 
++	/* All IPV6 dsts are created with ->obsolete set to the value
++	 * DST_OBSOLETE_FORCE_CHK which forces validation calls down
++	 * into this function always.
++	 */
++	if (rt->rt6i_genid != rt_genid(dev_net(rt->dst.dev)))
++		return NULL;
++
+ 	if (rt->rt6i_node && (rt->rt6i_node->fn_sernum == cookie)) {
+ 		if (rt->rt6i_peer_genid != rt6_peer_genid()) {
+ 			if (!rt6_has_peer(rt))
+@@ -1397,8 +1405,6 @@ int ip6_route_add(struct fib6_config *cfg)
+ 		goto out;
+ 	}
+ 
+-	rt->dst.obsolete = -1;
+-
+ 	if (cfg->fc_flags & RTF_EXPIRES)
+ 		rt6_set_expires(rt, jiffies +
+ 				clock_t_to_jiffies(cfg->fc_expires));
+@@ -2093,7 +2099,6 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 	rt->dst.input = ip6_input;
+ 	rt->dst.output = ip6_output;
+ 	rt->rt6i_idev = idev;
+-	rt->dst.obsolete = -1;
+ 
+ 	rt->rt6i_flags = RTF_UP | RTF_NONEXTHOP;
+ 	if (anycast)
 -- 
 1.7.12
