@@ -1,81 +1,53 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH v3 7/8] cgroup: Assign subsystem IDs during compile time
-Date: Tue, 11 Sep 2012 14:01:09 -0700
-Message-ID: <20120911210109.GZ7677@google.com>
-References: <1347380774-9546-1-git-send-email-wagi@monom.org>
- <1347380774-9546-8-git-send-email-wagi@monom.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH v2 2/2] iproute2: use libgenl in ipl2tp
+Date: Tue, 11 Sep 2012 14:02:13 -0700
+Message-ID: <20120911140213.6c34e892@nehalam.linuxnetplumber.net>
+References: <1347354274-3119-1-git-send-email-ja@ssi.bg>
+	<1347354274-3119-3-git-send-email-ja@ssi.bg>
+	<20120911090908.605d1fbe@nehalam.linuxnetplumber.net>
+	<alpine.LFD.2.00.1209112304410.2023@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, cgroups@vger.kernel.org,
-	Daniel Wagner <daniel.wagner@bmw-carit.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	Glauber Costa <glommer@parallels.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Kamezawa Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
-	Li Zefan <lizefan@huawei.com>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Daniel Wagner <wagi@monom.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:49881 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754036Ab2IKVBO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 17:01:14 -0400
-Content-Disposition: inline
-In-Reply-To: <1347380774-9546-8-git-send-email-wagi@monom.org>
+Received: from mail.vyatta.com ([76.74.103.46]:54677 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754036Ab2IKVCn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Sep 2012 17:02:43 -0400
+In-Reply-To: <alpine.LFD.2.00.1209112304410.2023@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, Daniel.
+On Tue, 11 Sep 2012 23:22:41 +0300 (EEST)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-I generally like this but I still think it's too big a patch.
+> 
+> 	Hello,
+> 
+> On Tue, 11 Sep 2012, Stephen Hemminger wrote:
+> 
+> > On Tue, 11 Sep 2012 12:04:34 +0300
+> > Julian Anastasov <ja@ssi.bg> wrote:
+> > 
+> > > 	Use the common code from libgenl.c to parse family.
+> > > 
+> > > Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> > 
+> > I applied these two but made some modifications:
+> >   1. change to GENL_INITIALIZER
+> >   2. use GENL_INITIALIZER
+> 
+> 	I used 2 defines, so that in tcp_metrics.c I can
+> use different initialization depending on the command.
+> But as the structure is unnamed may be it is better to have
+> single define (both defines merged as you proposed) and
+> later just to update cmd and flags if needed.
+> 
+> Regards
+> 
+> --
+> Julian Anastasov <ja@ssi.bg>
 
-> diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-> index c75e3f9..6bc460c 100644
-> --- a/net/core/netprio_cgroup.c
-> +++ b/net/core/netprio_cgroup.c
-> @@ -326,9 +326,7 @@ struct cgroup_subsys net_prio_subsys = {
->  	.create		= cgrp_create,
->  	.destroy	= cgrp_destroy,
->  	.attach		= net_prio_attach,
-> -#ifdef CONFIG_NETPRIO_CGROUP
->  	.subsys_id	= net_prio_subsys_id,
-> -#endif
->  	.base_cftypes	= ss_files,
->  	.module		= THIS_MODULE
->  };
-> @@ -366,10 +364,6 @@ static int __init init_cgroup_netprio(void)
->  	ret = cgroup_load_subsys(&net_prio_subsys);
->  	if (ret)
->  		goto out;
-> -#ifndef CONFIG_NETPRIO_CGROUP
-> -	smp_wmb();
-> -	net_prio_subsys_id = net_prio_subsys.subsys_id;
-> -#endif
->  
->  	register_netdevice_notifier(&netprio_device_notifier);
->  
-> @@ -386,11 +380,6 @@ static void __exit exit_cgroup_netprio(void)
->  
->  	cgroup_unload_subsys(&net_prio_subsys);
->  
-> -#ifndef CONFIG_NETPRIO_CGROUP
-> -	net_prio_subsys_id = -1;
-> -	synchronize_rcu();
-
-For example, it's not evident the above is correct and it's burried
-with all other changes.  Can't we just assign the fixed subsys ID to
-net_prio_subsys_id in this patch?  This patch would be correct without
-any netprio changes, no?  Please separate these changes and explain
-them.
-
-BTW, people who use barriers of any kind without explicitly explaining
-what's going on need to be kicked hard in the ass.  :(
-
-Thanks.
-
--- 
-tejun
+Changes accepted any time.
