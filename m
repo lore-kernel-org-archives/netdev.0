@@ -1,52 +1,26 @@
-From: Bart Van Assche <bvanassche@acm.org>
-Subject: Re: [RFC PATCH 1/5] libfcoe, fcoe: Allow user to set a ctlr's mode
-Date: Tue, 11 Sep 2012 07:51:41 +0200
-Message-ID: <504ED16D.5080607@acm.org>
-References: <20120910225908.13140.97277.stgit@fritz> <20120910225914.13140.22190.stgit@fritz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Recall: [net PATCH 3/7] bnx2x: prevent timeouts when using PFC
+Date: Tue, 11 Sep 2012 01:57:41 -0400 (EDT)
+Message-ID: <20120911.015741.1841990384719609864.davem@davemloft.net>
+References: <A6AA2EF896BED345B0F23520D832A4B10B73BF@SJEXCHMB05.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gregkh@linuxfoundation.org,
-	linux-scsi@vger.kernel.org, bprakash@broadcom.com,
-	devel@open-fcoe.org
-To: Robert Love <robert.w.love@intel.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20120910225914.13140.22190.stgit@fritz>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: yuvalmin@broadcom.com, netdev@vger.kernel.org, eilong@broadcom.com
+To: yaniv.rosner@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38077 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753877Ab2IKF5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 01:57:44 -0400
+In-Reply-To: <A6AA2EF896BED345B0F23520D832A4B10B73BF@SJEXCHMB05.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/11/12 00:59, Robert Love wrote:
-> +static enum fip_conn_type fcoe_parse_mode(const char *buf,
-> +				  const struct fcoe_ctlr_mode_table *tbl)
-> +{
-> +	int modeint = -1, i, rv;
-> +	char *p, modestr[FCOE_MAX_MODENAME_LEN + 1] = { 0, };
-> +
-> +	for (p = (char *)buf; *p; p++)
-> +		if (!(isdigit(*p) || isspace(*p)))
-> +			break;
+From: "Yaniv Rosner" <yaniv.rosner@broadcom.com>
+Date: Tue, 11 Sep 2012 05:50:04 +0000
 
-If you change the declaration of p from "char *p" into "const char *p"
-you won't need a cast in the above for loop.
+> Yaniv Rosner would like to recall the message, "[net PATCH 3/7]
+> bnx2x: prevent timeouts when using PFC".
 
-[ ... ]
-
-> -static FCOE_DEVICE_ATTR(ctlr, mode, S_IRUGO,
-> -			show_ctlr_mode, NULL);
-> +
-> +static ssize_t store_ctlr_mode(struct device *dev,
-> +			       struct device_attribute *attr,
-> +			       const char *buf, size_t count)
-> +{
-> +	struct fcoe_ctlr_device *ctlr = dev_to_ctlr(dev);
-> +
-> +	if (!ctlr->f->set_fcoe_ctlr_mode)
-> +		return -EINVAL;
-> +
-> +	ctlr->mode = fcoe_parse_mode(buf, ctlr_mode_tbl);
-
-As far as I know sysfs doesn't terminate buf with a '\0' before calling
-a store method. Does that mean that you are passing a string that is not
-'\0'-terminated to a function that expects a '\0'-terminated string ?
-
-Bart.
+What in the world are you doing?
