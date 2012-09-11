@@ -1,79 +1,65 @@
-From: Shlomo Pongratz <shlomop@mellanox.com>
-Subject: RE: GRO aggregation
-Date: Tue, 11 Sep 2012 18:51:13 +0000
-Message-ID: <36F7E4A28C18BE4DB7C86058E7B607241E62204C@MTRDAG01.mtl.com>
-References: <504F4063.9030706@mellanox.com>,<504F80DC.7010707@redhat.com>
- <36F7E4A28C18BE4DB7C86058E7B607241E622015@MTRDAG01.mtl.com>,<504F876D.9020102@redhat.com>
+From: =?ISO-8859-1?Q?Cristian_Rodr=EDguez?= <crrodriguez@opensuse.org>
+Subject: e1000e: Disabling IRQ #57 .. machine dies
+Date: Tue, 11 Sep 2012 15:50:25 -0300
+Message-ID: <504F87F1.5040004@opensuse.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=Windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "mleitner@redhat.com" <mleitner@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:39043 "HELO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755879Ab2IKSvS convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Sep 2012 14:51:18 -0400
-In-Reply-To: <504F876D.9020102@redhat.com>
-Content-Language: en-US
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:36760 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758563Ab2IKSwN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 14:52:13 -0400
+Received: by oago6 with SMTP id o6so459276oag.19
+        for <netdev@vger.kernel.org>; Tue, 11 Sep 2012 11:52:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Marcelo Ricardo Leitner [mleitner@redhat.com]
-Sent: Tuesday, September 11, 2012 9:48 PM
-To: Shlomo Pongratz
-Cc: netdev@vger.kernel.org
-Subject: Re: GRO aggregation
+Hi:
 
-On 09/11/2012 03:41 PM, Shlomo Pongratz wrote:
-> From: Marcelo Ricardo Leitner [mleitner@redhat.com]
-> Sent: Tuesday, September 11, 2012 9:20 PM
-> To: Shlomo Pongratz
-> Cc: netdev@vger.kernel.org
-> Subject: Re: GRO aggregation
->
-> On 09/11/2012 10:45 AM, Shlomo Pongartz wrote:
->> Hi,
->>
->> I=92m checking GRO aggregation with kernel 3.6.0-rc1+ using Intel ix=
-gbe
->> driver.
->> The mtu is 1500 and GRO is on and so are SG and RX checksum.
->> I ran iperf with default setting and monitor the receiver with tcpdu=
-mp.
->> The tcpdump shows that the maximal aggregation is 32120 which is 21 =
-* 1500.
->> In the transmitter side tcpdump shows that TSO works better (~64K).
->> I did a capture without GRO enabled to see if there was a difference
->> between any flag
->> of any two consecutive packets that forced flushing but didn't find
->> anything.
->> Is the GRO aggregation can be tuned.
->
-> Hi Shlomo,
->
-> Have you tried tuning coalescing parameters?
->
-> Marcelo
->
->
-> Hi Marcelo
->
-> I didn't play with interrupts coalescing.
-> Do you suggest to increase the value?
+In current linus tree, in a machine using the e1000e driver
 
-Actually it was an idea from top of my mind, I don't know how it applie=
-s
-to ixgbe, sorry. But making the NIC hold the packets a bit more should
-make it send larger ones to kernel. Trade-off between latency/throughpu=
-t.
+hwinfo --netcard
+22: PCI 400.0: 0200 Ethernet controller
+  [Created at pci.319]
+  Unique ID: rBUF.cuT2KaC3ZS1
+  Parent ID: HnsE.Z52SDLRIaH2
+  SysFS ID: /devices/pci0000:00/0000:00:1c.5/0000:04:00.0
+  SysFS BusID: 0000:04:00.0
+  Hardware Class: network
+  Model: "Intel 82574L Gigabit Network Connection"
+  Vendor: pci 0x8086 "Intel Corporation"
+  Device: pci 0x10d3 "82574L Gigabit Network Connection"
+  SubVendor: pci 0x1043 "ASUSTeK Computer Inc."
+  SubDevice: pci 0x8369
+  Driver: "e1000e"
+  Driver Modules: "e1000e"
+  Device File: eth0
+  Memory Range: 0xf7d00000-0xf7d1ffff (rw,non-prefetchable)
+  I/O Ports: 0xd000-0xdfff (rw)
+  Memory Range: 0xf7d20000-0xf7d23fff (rw,non-prefetchable)
+  IRQ: 17 (no events)
+  Link detected: yes
+  Module Alias: "pci:v00008086d000010D3sv00001043sd00008369bc02sc00i00"
+  Driver Info #0:
+    Driver Status: e1000e is active
+    Driver Activation Cmd: "modprobe e1000e"
+  Config Status: cfg=no, avail=yes, need=no, active=unknown
+  Attached to: #15 (PCI bridge)
 
-I was thinking about ethtool -c options, like rx-usecs*
 
-Marcelo
 
-I'll try to play with it a little.
-Thanks.
+cat /proc/interrupts
 
-Shlomo
+57 IR-PCI-MSI-edge      eth0
+
+the driver works after a while, but then a single message
+
+"Disabling IRQ #57"
+
+is sent to the console and the machine dies, nothing else is written in
+the logs and remote ikvm becames unresponsive so there is no way to
+bring more debug info back.. kernel 3.5.3 works ok.
+
+Anyone else seeing this ?
