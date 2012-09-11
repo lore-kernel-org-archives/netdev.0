@@ -1,33 +1,35 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH 2/3] ipv6, route: remove BACKTRACK() macro
-Date: Tue, 11 Sep 2012 16:39:19 +0800
-Message-ID: <1347352759.30731.38.camel@cr0>
-References: <1347281326-26890-2-git-send-email-amwang@redhat.com>
-	 <20120910.163229.421777922179988802.davem@davemloft.net>
-	 <1347326362.30731.9.camel@cr0>
-	 <20120910.214245.368123682481775366.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH v2 0/2] iproute2: add GENL helpers
+Date: Tue, 11 Sep 2012 12:04:32 +0300
+Message-ID: <1347354274-3119-1-git-send-email-ja@ssi.bg>
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29582 "EHLO mx1.redhat.com"
+Received: from ja.ssi.bg ([178.16.129.10]:53611 "EHLO ja.ssi.bg"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750886Ab2IKIjZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Sep 2012 04:39:25 -0400
-In-Reply-To: <20120910.214245.368123682481775366.davem@davemloft.net>
+	id S1752644Ab2IKJAu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Sep 2012 05:00:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-09-10 at 21:42 -0400, David Miller wrote:
-> 
-> Yes, I know this conflicts with cases like how we killed all of
-> the netlink macros with embedded gotos.
-> 
-> But this patch made things worse and added code duplication.  Fix
-> it without the code duplication side effect and it'll be fine.
+	Put common code for GENL users in new files.
 
-Ok, will do.
+v2:
+- remove memset for buffer in GENL_INIT_REQUEST and use
+C99 style initializers
+- rename funcs: libgenl_ to genl_
 
-Thanks, David!
+Julian Anastasov (2):
+  iproute2: add libgenl files
+  iproute2: use libgenl in ipl2tp
+
+ include/libgenl.h |   29 +++++++++++++++++++++++
+ ip/ipl2tp.c       |   64 +--------------------------------------------------
+ lib/Makefile      |    2 +-
+ lib/libgenl.c     |   65 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 97 insertions(+), 63 deletions(-)
+ create mode 100644 include/libgenl.h
+ create mode 100644 lib/libgenl.c
+
+-- 
+1.7.3.4
