@@ -1,291 +1,73 @@
-From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Subject: [PATCH v3 4/8] cgroup: Remove CGROUP_BUILTIN_SUBSYS_COUNT
-Date: Tue, 11 Sep 2012 18:26:10 +0200
-Message-ID: <1347380774-9546-5-git-send-email-wagi@monom.org>
-References: <1347380774-9546-1-git-send-email-wagi@monom.org>
+From: Chris Leech <leech@pobox.com>
+Subject: Re: [RFC PATCH 0/5] Reorganize libfcoe control interfaces
+Date: Tue, 11 Sep 2012 10:06:29 -0700
+Message-ID: <CAHNqLyUUeVPVzvZCKzmbp0LdOGnOYudOehVfagySokrq8zj4hA@mail.gmail.com>
+References: <20120910225908.13140.97277.stgit@fritz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1347380774-9546-1-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, gregkh@linuxfoundation.org,
+	linux-scsi@vger.kernel.org, bprakash@broadcom.com,
+	devel@open-fcoe.org
+To: Robert Love <robert.w.love@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:60885 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759255Ab2IKRGa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 13:06:30 -0400
+In-Reply-To: <20120910225908.13140.97277.stgit@fritz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+On Mon, Sep 10, 2012 at 3:59 PM, Robert Love <robert.w.love@intel.com> wrote:
+> The following series implements a move from using module parameters
+> as control interfaces to /sys/bus/fcoe based interfaces. A sysfs infrastructure
+> was added to the kernel a few cycles ago, this series builds on that work.
+>
+> It moves the create, vn2vn_create, destroy, enable and disable interfaces
+> from /sys/module/libfcoe/parameters/ to various places under /sys/bus/fcoe/.
+> These interfaces simply are not module configurations- they are control
+> interfaces.
+>
+> A second goal of this series is to change the initialization sequence for
+> a FCoE device. The result of this series is that interfaces created using
+> libfcoe.ko interfaces (i.e. fcoe.ko or bnx2fc.ko) will have the following
+> starting steps-
+>
+> 1) Create/alloc the port
+>    - Allocate kernel memory and create per-instance sysfs devices
+>    - No discovery or login
+>
+> 2) Configure the port
+>    - Change mode, set ddp_min, etc...
+>
+> 3) Start the port
+>    - Begins discovery and/or login (depending on mode)
+>
+> 4) Destroy the port
+>    - Logout and free all memory
+>
+> I'm looking for feedback on using sysfs files as control interfaces that
+> the user (application) would write interface names to. I modeled this
+> series off of the bonding sysfs interface, but it was suggested to me that
+> it might not be a good example. I belive bonding uses two values per-file
+> a '+' or a '-" to add or delete and then the ifname apended. I am simply
+> writing the ifname to the ctlr_create or ctlr_destroy.
 
-CGROUP_BUILTIN_SUBSYS_COUNT is used as start index or stop index when
-looping over the subsys array looking either at the builtin or the
-module subsystems. Since all the builtin subsystems have an id which
-is lower then CGROUP_BUILTIN_SUBSYS_COUNT we know that any module will
-have an id larger than CGROUP_BUILTIN_SUBSYS_COUNT. In short the ids
-are sorted.
+Can you give an example session that goes through the 4 steps above
+and what the sysfs hierarchy looks like at each step?  I mostly get it
+from the patch descriptions, but I think it would help discussion of
+your proposed interfaces to see an example of them in use.
 
-We are about to change id assignment to happen only at compile time
-later in this series. That means we can't rely on the above trick
-since all ids will always be defined at compile time. Furthermore,
-ordering the builtin subsystems and the module subsystems is not
-really necessary.
+This feels a little awkward with all the special control files.  Have
+you thought about something designed for creating kernel objects, like
+configfs?  Similarly the separate start, enable, disable files vs.
+having some sort of status attribute that can take different values.
+I feel like these need to be rethought as attributes instead of
+triggers.  Is there a big difference between start and enable?  Can
+you achieve the split between create and start by having it come up in
+a disabled state by default?
 
-So we need a different way to know which subsystem is a builtin or a
-module one. We can use the subsys[]->module pointer for this. Any
-place where we need to know if a subsys is module we just check for
-the pointer. If it is NULL then the subsystem is a builtin one.
+That being said, I'm glad this is being reworked.  Do you have any
+other functionality in mind that this is laying the groundwork for?
 
-With this we are able to drop the CGROUP_BUILTIN_SUBSYS_COUNT
-enum. Though we need to introduce a temporary placeholder so that we
-don't get a compilation error when only CONFIG_CGROUP is selected and
-no single controller. An empty enum definition is not valid. Later in
-this series we are able to remove the placeholder again.
-
-And with this change we get a fix for this:
-
-kernel/cgroup.c: In function =E2=80=98cgroup_load_subsys=E2=80=99:
-kernel/cgroup.c:4326:38: warning: array subscript is below array bounds=
- [-Warray-bounds]
-
-when CONFIG_CGROUP=3Dy and no built in controller was enabled.
-
-Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-Cc: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Cc: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Cc: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
----
- include/linux/cgroup.h |  2 +-
- kernel/cgroup.c        | 75 +++++++++++++++++++++++++++++++-----------=
---------
- 2 files changed, 48 insertions(+), 29 deletions(-)
-
-diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
-index c90eaa8..2140f91 100644
---- a/include/linux/cgroup.h
-+++ b/include/linux/cgroup.h
-@@ -47,7 +47,7 @@ extern const struct file_operations proc_cgroup_opera=
-tions;
- #define SUBSYS(_x) _x ## _subsys_id,
- enum cgroup_subsys_id {
- #include <linux/cgroup_subsys.h>
--	CGROUP_BUILTIN_SUBSYS_COUNT
-+	__CGROUP_TEMPORARY_PLACEHOLDER
- };
- #undef SUBSYS
- /*
-diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-index 7981850..40f881b 100644
---- a/kernel/cgroup.c
-+++ b/kernel/cgroup.c
-@@ -88,7 +88,7 @@ static DEFINE_MUTEX(cgroup_root_mutex);
-=20
- /*
-  * Generate an array of cgroup subsystem pointers. At boot time, this =
-is
-- * populated up to CGROUP_BUILTIN_SUBSYS_COUNT, and modular subsystems=
- are
-+ * populated with the built in subsystems, and modular subsystems are
-  * registered after that. The mutable section of this array is protect=
-ed by
-  * cgroup_mutex.
-  */
-@@ -1291,11 +1291,13 @@ static int parse_cgroupfs_options(char *data, s=
-truct cgroup_sb_opts *opts)
- 	 * take duplicate reference counts on a subsystem that's already used=
-,
- 	 * but rebind_subsystems handles this case.
- 	 */
--	for (i =3D CGROUP_BUILTIN_SUBSYS_COUNT; i < CGROUP_SUBSYS_COUNT; i++)=
- {
-+	for (i =3D 0; i < CGROUP_SUBSYS_COUNT; i++) {
- 		unsigned long bit =3D 1UL << i;
-=20
- 		if (!(bit & opts->subsys_bits))
- 			continue;
-+		if (!subsys[i]->module)
-+			continue;
- 		if (!try_module_get(subsys[i]->module)) {
- 			module_pin_failed =3D true;
- 			break;
-@@ -1307,12 +1309,14 @@ static int parse_cgroupfs_options(char *data, s=
-truct cgroup_sb_opts *opts)
- 		 * raced with a module_delete call, and to the user this is
- 		 * essentially a "subsystem doesn't exist" case.
- 		 */
--		for (i--; i >=3D CGROUP_BUILTIN_SUBSYS_COUNT; i--) {
-+		for (i--; i >=3D 0; i--) {
- 			/* drop refcounts only on the ones we took */
- 			unsigned long bit =3D 1UL << i;
-=20
- 			if (!(bit & opts->subsys_bits))
- 				continue;
-+			if (!subsys[i]->module)
-+				continue;
- 			module_put(subsys[i]->module);
- 		}
- 		return -ENOENT;
-@@ -1324,11 +1328,13 @@ static int parse_cgroupfs_options(char *data, s=
-truct cgroup_sb_opts *opts)
- static void drop_parsed_module_refcounts(unsigned long subsys_bits)
- {
- 	int i;
--	for (i =3D CGROUP_BUILTIN_SUBSYS_COUNT; i < CGROUP_SUBSYS_COUNT; i++)=
- {
-+	for (i =3D 0; i < CGROUP_SUBSYS_COUNT; i++) {
- 		unsigned long bit =3D 1UL << i;
-=20
- 		if (!(bit & subsys_bits))
- 			continue;
-+		if (!subsys[i]->module)
-+			continue;
- 		module_put(subsys[i]->module);
- 	}
- }
-@@ -1401,6 +1407,7 @@ static void init_cgroup_housekeeping(struct cgrou=
-p *cgrp)
- 	mutex_init(&cgrp->pidlist_mutex);
- 	INIT_LIST_HEAD(&cgrp->event_list);
- 	spin_lock_init(&cgrp->event_list_lock);
-+	memset(cgrp->subsys, 0, sizeof(cgrp->subsys));
- }
-=20
- static void init_cgroup_root(struct cgroupfs_root *root)
-@@ -4321,8 +4328,7 @@ int __init_or_module cgroup_load_subsys(struct cg=
-roup_subsys *ss)
- 	 * since cgroup_init_subsys will have already taken care of it.
- 	 */
- 	if (ss->module =3D=3D NULL) {
--		/* a few sanity checks */
--		BUG_ON(ss->subsys_id >=3D CGROUP_BUILTIN_SUBSYS_COUNT);
-+		/* a sanity check */
- 		BUG_ON(subsys[ss->subsys_id] !=3D ss);
- 		return 0;
- 	}
-@@ -4336,7 +4342,7 @@ int __init_or_module cgroup_load_subsys(struct cg=
-roup_subsys *ss)
- 	 */
- 	mutex_lock(&cgroup_mutex);
- 	/* find the first empty slot in the array */
--	for (i =3D CGROUP_BUILTIN_SUBSYS_COUNT; i < CGROUP_SUBSYS_COUNT; i++)=
- {
-+	for (i =3D 0; i < CGROUP_SUBSYS_COUNT; i++) {
- 		if (subsys[i] =3D=3D NULL)
- 			break;
- 	}
-@@ -4439,7 +4445,6 @@ void cgroup_unload_subsys(struct cgroup_subsys *s=
-s)
-=20
- 	mutex_lock(&cgroup_mutex);
- 	/* deassign the subsys_id */
--	BUG_ON(ss->subsys_id < CGROUP_BUILTIN_SUBSYS_COUNT);
- 	subsys[ss->subsys_id] =3D NULL;
-=20
- 	/* remove subsystem from rootnode's list of subsystems */
-@@ -4502,10 +4507,13 @@ int __init cgroup_init_early(void)
- 	for (i =3D 0; i < CSS_SET_TABLE_SIZE; i++)
- 		INIT_HLIST_HEAD(&css_set_table[i]);
-=20
--	/* at bootup time, we don't worry about modular subsystems */
--	for (i =3D 0; i < CGROUP_BUILTIN_SUBSYS_COUNT; i++) {
-+	for (i =3D 0; i < CGROUP_SUBSYS_COUNT; i++) {
- 		struct cgroup_subsys *ss =3D subsys[i];
-=20
-+		/* at bootup time, we don't worry about modular subsystems */
-+		if (!ss || (ss && ss->module))
-+			continue;
-+
- 		BUG_ON(!ss->name);
- 		BUG_ON(strlen(ss->name) > MAX_CGROUP_TYPE_NAMELEN);
- 		BUG_ON(!ss->create);
-@@ -4538,9 +4546,12 @@ int __init cgroup_init(void)
- 	if (err)
- 		return err;
-=20
--	/* at bootup time, we don't worry about modular subsystems */
--	for (i =3D 0; i < CGROUP_BUILTIN_SUBSYS_COUNT; i++) {
-+	for (i =3D 0; i < CGROUP_SUBSYS_COUNT; i++) {
- 		struct cgroup_subsys *ss =3D subsys[i];
-+
-+		/* at bootup time, we don't worry about modular subsystems */
-+		if (!ss || (ss && ss->module))
-+			continue;
- 		if (!ss->early_init)
- 			cgroup_init_subsys(ss);
- 		if (ss->use_id)
-@@ -4735,13 +4746,16 @@ void cgroup_fork_callbacks(struct task_struct *=
-child)
- {
- 	if (need_forkexit_callback) {
- 		int i;
--		/*
--		 * forkexit callbacks are only supported for builtin
--		 * subsystems, and the builtin section of the subsys array is
--		 * immutable, so we don't need to lock the subsys array here.
--		 */
--		for (i =3D 0; i < CGROUP_BUILTIN_SUBSYS_COUNT; i++) {
-+		for (i =3D 0; i < CGROUP_SUBSYS_COUNT; i++) {
- 			struct cgroup_subsys *ss =3D subsys[i];
-+
-+			/*
-+			 * forkexit callbacks are only supported for
-+			 * builtin subsystems.
-+			 */
-+			if (!ss || (ss && ss->module))
-+				continue;
-+
- 			if (ss->fork)
- 				ss->fork(child);
- 		}
-@@ -4846,12 +4860,13 @@ void cgroup_exit(struct task_struct *tsk, int r=
-un_callbacks)
- 	tsk->cgroups =3D &init_css_set;
-=20
- 	if (run_callbacks && need_forkexit_callback) {
--		/*
--		 * modular subsystems can't use callbacks, so no need to lock
--		 * the subsys array
--		 */
--		for (i =3D 0; i < CGROUP_BUILTIN_SUBSYS_COUNT; i++) {
-+		for (i =3D 0; i < CGROUP_SUBSYS_COUNT; i++) {
- 			struct cgroup_subsys *ss =3D subsys[i];
-+
-+			/* modular subsystems can't use callbacks */
-+			if (!ss || (ss && ss->module))
-+				continue;
-+
- 			if (ss->exit) {
- 				struct cgroup *old_cgrp =3D
- 					rcu_dereference_raw(cg->subsys[i])->cgroup;
-@@ -5037,13 +5052,17 @@ static int __init cgroup_disable(char *str)
- 	while ((token =3D strsep(&str, ",")) !=3D NULL) {
- 		if (!*token)
- 			continue;
--		/*
--		 * cgroup_disable, being at boot time, can't know about module
--		 * subsystems, so we don't worry about them.
--		 */
--		for (i =3D 0; i < CGROUP_BUILTIN_SUBSYS_COUNT; i++) {
-+		for (i =3D 0; i < CGROUP_SUBSYS_COUNT; i++) {
- 			struct cgroup_subsys *ss =3D subsys[i];
-=20
-+			/*
-+			 * cgroup_disable, being at boot time, can't
-+			 * know about module subsystems, so we don't
-+			 * worry about them.
-+			 */
-+			if (!ss || (ss && ss->module))
-+				continue;
-+
- 			if (!strcmp(token, ss->name)) {
- 				ss->disabled =3D 1;
- 				printk(KERN_INFO "Disabling %s control group"
---=20
-1.7.12.315.g682ce8b
+- Chris
