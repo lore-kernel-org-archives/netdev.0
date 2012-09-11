@@ -1,83 +1,49 @@
-From: "Love, Robert W" <robert.w.love@intel.com>
-Subject: Re: [RFC PATCH 0/5] Reorganize libfcoe control interfaces
-Date: Tue, 11 Sep 2012 01:41:47 +0000
-Message-ID: <504E96DA.1080406@intel.com>
-References: <20120910225908.13140.97277.stgit@fritz>
- <504E8040.70403@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/3] ipv6, route: remove BACKTRACK() macro
+Date: Mon, 10 Sep 2012 21:42:45 -0400 (EDT)
+Message-ID: <20120910.214245.368123682481775366.davem@davemloft.net>
+References: <1347281326-26890-2-git-send-email-amwang@redhat.com>
+	<20120910.163229.421777922179988802.davem@davemloft.net>
+	<1347326362.30731.9.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"devel@open-fcoe.org" <devel@open-fcoe.org>
-To: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <504E8040.70403@broadcom.com>
-Content-Language: en-US
-Content-ID: <03EE67DDD09F2E4991AD3FCC09C9F1C0@intel.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: amwang@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36366 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753121Ab2IKBmr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2012 21:42:47 -0400
+In-Reply-To: <1347326362.30731.9.camel@cr0>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uIDEwIFNlcCAyMDEyIDA1OjA1OjIwIFBNIFBEVCwgQmhhbnUgUHJha2FzaCBHb2xsYXB1
-ZGkgd3JvdGU6DQo+IE9uIDkvMTAvMjAxMiAzOjU5IFBNLCBSb2JlcnQgTG92ZSB3cm90ZToNCj4+
-IFRoZSBmb2xsb3dpbmcgc2VyaWVzIGltcGxlbWVudHMgYSBtb3ZlIGZyb20gdXNpbmcgbW9kdWxl
-IHBhcmFtZXRlcnMNCj4+IGFzIGNvbnRyb2wgaW50ZXJmYWNlcyB0byAvc3lzL2J1cy9mY29lIGJh
-c2VkIGludGVyZmFjZXMuIEEgc3lzZnMNCj4+IGluZnJhc3RydWN0dXJlDQo+PiB3YXMgYWRkZWQg
-dG8gdGhlIGtlcm5lbCBhIGZldyBjeWNsZXMgYWdvLCB0aGlzIHNlcmllcyBidWlsZHMgb24gdGhh
-dA0KPj4gd29yay4NCj4+DQo+PiBJdCBtb3ZlcyB0aGUgY3JlYXRlLCB2bjJ2bl9jcmVhdGUsIGRl
-c3Ryb3ksIGVuYWJsZSBhbmQgZGlzYWJsZQ0KPj4gaW50ZXJmYWNlcw0KPj4gZnJvbSAvc3lzL21v
-ZHVsZS9saWJmY29lL3BhcmFtZXRlcnMvIHRvIHZhcmlvdXMgcGxhY2VzIHVuZGVyDQo+PiAvc3lz
-L2J1cy9mY29lLy4NCj4+IFRoZXNlIGludGVyZmFjZXMgc2ltcGx5IGFyZSBub3QgbW9kdWxlIGNv
-bmZpZ3VyYXRpb25zLSB0aGV5IGFyZSBjb250cm9sDQo+PiBpbnRlcmZhY2VzLg0KPj4NCj4+IEEg
-c2Vjb25kIGdvYWwgb2YgdGhpcyBzZXJpZXMgaXMgdG8gY2hhbmdlIHRoZSBpbml0aWFsaXphdGlv
-biBzZXF1ZW5jZQ0KPj4gZm9yDQo+PiBhIEZDb0UgZGV2aWNlLiBUaGUgcmVzdWx0IG9mIHRoaXMg
-c2VyaWVzIGlzIHRoYXQgaW50ZXJmYWNlcyBjcmVhdGVkDQo+PiB1c2luZw0KPj4gbGliZmNvZS5r
-byBpbnRlcmZhY2VzIChpLmUuIGZjb2Uua28gb3IgYm54MmZjLmtvKSB3aWxsIGhhdmUgdGhlDQo+
-PiBmb2xsb3dpbmcNCj4+IHN0YXJ0aW5nIHN0ZXBzLQ0KPj4NCj4+IDEpIENyZWF0ZS9hbGxvYyB0
-aGUgcG9ydA0KPj4gICAgIC0gQWxsb2NhdGUga2VybmVsIG1lbW9yeSBhbmQgY3JlYXRlIHBlci1p
-bnN0YW5jZSBzeXNmcyBkZXZpY2VzDQo+PiAgICAgLSBObyBkaXNjb3Zlcnkgb3IgbG9naW4NCj4+
-DQo+PiAyKSBDb25maWd1cmUgdGhlIHBvcnQNCj4+ICAgICAtIENoYW5nZSBtb2RlLCBzZXQgZGRw
-X21pbiwgZXRjLi4uDQo+Pg0KPj4gMykgU3RhcnQgdGhlIHBvcnQNCj4+ICAgICAtIEJlZ2lucyBk
-aXNjb3ZlcnkgYW5kL29yIGxvZ2luIChkZXBlbmRpbmcgb24gbW9kZSkNCj4+DQo+PiA0KSBEZXN0
-cm95IHRoZSBwb3J0DQo+PiAgICAgLSBMb2dvdXQgYW5kIGZyZWUgYWxsIG1lbW9yeQ0KPg0KPiBS
-b2JlcnQsIENhbiB5b3UgcGxlYXNlIGxldCBtZSBub3cgd2hhdCBpcyB0aGUgbW90aXZhdGlvbiBm
-b3IgdGhpcw0KPiBjaGFuZ2UgYW5kIHdoYXQgcHJvYmxlbSBhcmUgd2Ugc29sdmluZyB3aXRoIHRo
-aXMgYXBwcm9hY2g/IElzIHRoaXMNCj4gcHJpbWFyaWx5IHRvIGFsbG93IHVzZXIgdG8gc2V0IHRo
-ZSBtb2RlPw0KPg0KDQpUaGUgbWFpbiBwcm9ibGVtIGlzIHRoYXQgb3VyIGNvbnRyb2wgaW50ZXJm
-YWNlcyBzaG91bGRuJ3QgYmUgbW9kdWxlIA0KcGFyYW1ldGVycy4gSSB0aGluayBvZiBtb2R1bGUg
-cGFyYW1ldGVycyBhcyB0aGluZ3MgdGhhdCBnbG9iYWxseSBhbHRlciANCnRoZSBtb2R1bGUuDQoN
-CkkgYWxzbyB0aGluayB0aGF0IG1vdmluZyB0byBhIGNyZWF0ZS9jb25maWd1cmUvc3RhcnQgbW9k
-ZWwgZ2l2ZXMgdXMgDQptb3JlIGZsZXhpYmlsaXR5IGdvaW5nIGZvcndhcmQuIFdlIGRvbid0IGhh
-dmUgdG9vIG1hbnkgRkMvRkNvRSBrbm9icyB0byANCnR1bmUgcmlnaHQgbm93LCBidXQgaWYgd2Ug
-d2FudGVkIHRvIGFkZCBtb3JlIHdlIGRvbid0IGhhdmUgYSBnb29kIHdheSANCnRvIGRvIGl0IHdp
-dGhvdXQgc3RhcnRpbmcgdGhlIHdob2xlIGRpc2NvdmVyeS9sb2dpbiBwcm9jZXNzIGFuZCB0aGVu
-IA0KbWFraW5nIGNoYW5nZXMgZHVyaW5nIHRoZSBkaXNjb3ZlcnkvbG9naW4uDQoNCkkgdGhpbmsg
-dGhlIG1vZHVsZSBwYXJhbWV0ZXIgcHJvYmxlbSBpcyB0aGUganVzdGlmaWNhdGlvbiwgYnV0IEkn
-bSANCnRyeWluZyB0byBiZSBjb21wcmVoZW5zaXZlIGluIGNvbWluZyB1cCB3aXRoIGEgZmxleGli
-bGUgaW50ZXJmYWNlIHRoYXQgDQp3aWxsIGFsbG93IHVzIHRvIGV2b2x2ZSBhcyB3ZWxsLg0KDQo+
-IEknbSBjb25jZXJuZWQgdGhhdCB3ZSB3aWxsIGJlIGJyZWFraW5nIHVzZXIgc3BhY2UgY29tcGF0
-aWJpbGl0eSB3aXRoDQo+IHRoaXMgY2hhbmdlLCBhcyB0aGVyZSBzaG91bGQgYmUgYSBjb3JyZXNw
-b25kaW5nIGZjb2Vtb24vZmlwdmxhbiBjaGFuZ2UNCj4gYWxvbmcgd2l0aCB0aGlzLCBhbmQgZXhp
-c3RpbmcgdXRpbGl0aWVzIHdpbGwgbm90IHdvcmsuICBBbHNvIHRoZSB3YXkNCj4gd2Ugc3RhcnQg
-ZmNvZSB3aWxsIGJlIGNvbXBsZXRlbHkgZGlmZmVyZW50IGFuZCB0aGUgdXNlciBtYXkgbmVlZCB0
-byBkbw0KPiB0aGUgc2NyaXB0aW5nIGNoYW5nZXMsIGlmIGFueS4NCg0KU2VlIHRoZSBsYXN0IHN0
-YXRlbWVudCBmcm9tIG15IGluaXRpYWwgcG9zdGluZyAoaXQncyBiZWxvdykuIEkgaGF2ZSANCnBh
-dGNoZXMgdG8gbW9kaWZ5IGZjb2Vtb24gdG8gdXNlIHRoZXNlIG5ldyBpbnRlcmZhY2VzLiBJJ2Qg
-YmUgaGFwcHkgdG8gDQpzaGFyZSB0aGVtLCBJIGp1c3QgZGlkbid0IHdhbnQgdG8gc3BhbSB0aGlz
-IGJyb2FkIG9mIGEgYXVkaWVuY2UuDQoNCj4NCj4gVGhhbmtzLA0KPiBCaGFudQ0KPg0KPj4NCj4+
-IEknbSBsb29raW5nIGZvciBmZWVkYmFjayBvbiB1c2luZyBzeXNmcyBmaWxlcyBhcyBjb250cm9s
-IGludGVyZmFjZXMgdGhhdA0KPj4gdGhlIHVzZXIgKGFwcGxpY2F0aW9uKSB3b3VsZCB3cml0ZSBp
-bnRlcmZhY2UgbmFtZXMgdG8uIEkgbW9kZWxlZCB0aGlzDQo+PiBzZXJpZXMgb2ZmIG9mIHRoZSBi
-b25kaW5nIHN5c2ZzIGludGVyZmFjZSwgYnV0IGl0IHdhcyBzdWdnZXN0ZWQgdG8gbWUNCj4+IHRo
-YXQNCj4+IGl0IG1pZ2h0IG5vdCBiZSBhIGdvb2QgZXhhbXBsZS4gSSBiZWxpdmUgYm9uZGluZyB1
-c2VzIHR3byB2YWx1ZXMNCj4+IHBlci1maWxlDQo+PiBhICcrJyBvciBhICctIiB0byBhZGQgb3Ig
-ZGVsZXRlIGFuZCB0aGVuIHRoZSBpZm5hbWUgYXBlbmRlZC4gSSBhbSBzaW1wbHkNCj4+IHdyaXRp
-bmcgdGhlIGlmbmFtZSB0byB0aGUgY3Rscl9jcmVhdGUgb3IgY3Rscl9kZXN0cm95Lg0KPj4NCj4+
-IFNlcmllcyBjb21waWxlZCBhbmQgdGVzdGVkIGFnYWluc3QgdjMuNS4gbGliZmNvZS5rbyBjb21w
-aWxlIHdhcm5pbmcNCj4+IGZpeGVkDQo+PiB1cHN0cmVhbSBhZnRlciB2My41LCBhbnlvbmUgd2hv
-IGNvbXBpbGVzIHRoaXMgY2FuIGlnbm9yZSBzZWN0aW9uDQo+PiBtaXNtYXRjaA0KPj4gd2Fybmlu
-Zy4gQWxzbyBub3RlIHRoYXQgYSBtb2RpZmllZCBmY29lbW9uIGlzIG5lZWRlZCB0byB1c2UgdGhl
-IGZjb2UNCj4+IHN5c3RlbQ0KPj4gc2VydmljZSBhZ2FpbnN0IHRoaXMga2VybmVsIG1vZGlmaWNh
-dGlvbi4gSSdkIGJlIGhhcHB5IHRvIHByb3ZpZGUgdGhhdA0KPj4gZmNvZW1vbiBjb2RlIG9uIHJl
-cXVlc3QuDQoNCg==
+From: Cong Wang <amwang@redhat.com>
+Date: Tue, 11 Sep 2012 09:19:22 +0800
+
+> On Mon, 2012-09-10 at 16:32 -0400, David Miller wrote:
+>> From: Cong Wang <amwang@redhat.com>
+>> Date: Mon, 10 Sep 2012 20:48:45 +0800
+>> 
+>> > It doesn't save any code, nor it helps readability.
+>> > 
+>> > Signed-off-by: Cong Wang <amwang@redhat.com>
+>> 
+>> I'm not applying this.
+>> 
+>> Having two copies of the same exact logic means we will accumulate
+>> bugs in the future if someone fixes the problem only in one
+>> copy.
+> 
+> Makes sense, but BACKTRACK() is not well written, as it jumps out of its
+> definition. :(
+
+Anyone who has worked with longest-matching-prefix TRIE traversal
+functions will have a pretty good idea what is going on here.
+
+Yes, I know this conflicts with cases like how we killed all of
+the netlink macros with embedded gotos.
+
+But this patch made things worse and added code duplication.  Fix
+it without the code duplication side effect and it'll be fine.
