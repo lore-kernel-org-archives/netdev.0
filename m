@@ -1,48 +1,37 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next.git 5/8] stmmac: get/set coalesce parameters via ethtool
-Date: Tue, 11 Sep 2012 08:58:02 +0200
-Message-ID: <504EE0FA.8050907@st.com>
-References: <1347262689-21251-1-git-send-email-peppe.cavallaro@st.com>  <1347262689-21251-6-git-send-email-peppe.cavallaro@st.com> <1347295510.2823.4.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v3 0/4] Take care of xfrm policy when checking dst entries
+Date: Tue, 11 Sep 2012 10:09:43 +0200
+Message-ID: <1347350987-8054-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <504DFF90.3010802@6wind.com>
+Cc: sri@us.ibm.com, linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: vyasevich@gmail.com, davem@davemloft.net, eric.dumazet@gmail.com,
+	sds@tycho.nsa.gov, james.l.morris@oracle.com, eparis@parisplace.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:60325 "EHLO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753011Ab2IKG6J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 02:58:09 -0400
-In-Reply-To: <1347295510.2823.4.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:39440 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751646Ab2IKIJd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 04:09:33 -0400
+In-Reply-To: <504DFF90.3010802@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Ben
+The goal of these patches is to fix the following problem: a session is
+established (TCP, SCTP) and after a new policy is inserted. The current
+code does not recalculate the route, thus the traffic is not encrypted.
 
-On 9/10/2012 6:45 PM, Ben Hutchings wrote:
-> You should also check that the settings you don't support
-> (rx_max_coalesced_frames, use_adaptive_rx_coalesce,
-> use_adaptive_tx_coalesce, *_irq) are equal to 0.  (This isn't done
-> consistently in all drivers - but I believe best practice is to reject
-> rather than quietly ignoring settings you don't support.)
+The patch propose to check flow_cache_genid value when checking a dst
+entry, which is incremented each time a policy is inserted or deleted.
 
-Agreed. I've added this check in ethtool and now, for example, I get the
-following on un-supported setting
+v2: use net->ipv4.rt_genid instead of flow_cache_genid (and thus save a test
+    in fast path). Also move it to net->rt_genid, to be able to use it for IPv6
+    too. Note that IPv6 will have one more test in fast path.
 
-$ ethtool -C eth0 tx-usecs-irq 50
-Cannot set device ring parameters: Operation not supported
-$ ethtool -C eth0 tx-usecs-irq 0
-tx-usecs-irq unmodified, ignoring
-no ring parameters changed, aborting
+v3: remove unrelated "#ifdef CONFIG_XFRM" in IPv6 part
+    bump rt_genid in selinux code (same place than flow_cache_genid)
 
-> 
-> I don't have time to review the other changes properly, but at a quick
-> look they seem to be OK.
+Patches are tested with TCP and SCTP, IPv4 and IPv6.
 
-Thanks a lot
+Comments are welcome.
 
-peppe
-
-> 
-> Ben.
-> 
+Regards,
+Nicolas
