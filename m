@@ -1,91 +1,134 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [net PATCH v2 4/7] bnx2x: display the correct duplex value
-Date: Tue, 11 Sep 2012 17:34:11 +0300
-Message-ID: <1347374054-16730-5-git-send-email-yuvalmin@broadcom.com>
+Subject: [net PATCH v2 6/7] bnx2x: fix registers dumped
+Date: Tue, 11 Sep 2012 17:34:13 +0300
+Message-ID: <1347374054-16730-7-git-send-email-yuvalmin@broadcom.com>
 References: <1347374054-16730-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Yaniv Rosner" <yaniv.rosner@broadcom.com>,
+Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Yuval Mintz" <yuvalmin@broadcom.com>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1391 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3253 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759330Ab2IKO6l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Sep 2012 10:58:41 -0400
+	id S1759287Ab2IKO6r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Sep 2012 10:58:47 -0400
 In-Reply-To: <1347374054-16730-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yaniv Rosner <yaniv.rosner@broadcom.com>
+From: Dmitry Kravkov <dmitry@broadcom.com>
 
-Prior to this fix, the driver reported the chip's active duplex state
-is always 'full', even if using half-duplex mode.
+Under traffic, there are several registers that when read (e.g., via
+'ethtool -d') may cause the chip to stall.
+This patch corrects the registers read in such flows.
 
-Signed-off-by: Yaniv Rosner <yaniv.rosner@broadcom.com>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h   |   25 ++++++-------------
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |    2 +-
+ 2 files changed, 9 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 40a7b8d..b046beb 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -5434,7 +5434,7 @@ static int bnx2x_get_link_speed_duplex(struct bnx2x_phy *phy,
- 		switch (speed_mask) {
- 		case GP_STATUS_10M:
- 			vars->line_speed = SPEED_10;
--			if (vars->duplex == DUPLEX_FULL)
-+			if (is_duplex == DUPLEX_FULL)
- 				vars->link_status |= LINK_10TFD;
- 			else
- 				vars->link_status |= LINK_10THD;
-@@ -5442,7 +5442,7 @@ static int bnx2x_get_link_speed_duplex(struct bnx2x_phy *phy,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h
+index 3e4cff9..b926f58 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h
+@@ -401,11 +401,11 @@ static const struct reg_addr reg_addrs[] = {
+ 	{ 0x70000, 8, RI_ALL_ONLINE },
+ 	{ 0x70020, 8184, RI_ALL_OFFLINE },
+ 	{ 0x78000, 8192, RI_E3E3B0_OFFLINE },
+-	{ 0x85000, 3, RI_ALL_ONLINE },
+-	{ 0x8501c, 7, RI_ALL_ONLINE },
+-	{ 0x85048, 1, RI_ALL_ONLINE },
+-	{ 0x85200, 32, RI_ALL_ONLINE },
+-	{ 0xb0000, 16384, RI_E1H_ONLINE },
++	{ 0x85000, 3, RI_ALL_OFFLINE },
++	{ 0x8501c, 7, RI_ALL_OFFLINE },
++	{ 0x85048, 1, RI_ALL_OFFLINE },
++	{ 0x85200, 32, RI_ALL_OFFLINE },
++	{ 0xb0000, 16384, RI_E1H_OFFLINE },
+ 	{ 0xc1000, 7, RI_ALL_ONLINE },
+ 	{ 0xc103c, 2, RI_E2E3E3B0_ONLINE },
+ 	{ 0xc1800, 2, RI_ALL_ONLINE },
+@@ -581,17 +581,12 @@ static const struct reg_addr reg_addrs[] = {
+ 	{ 0x140188, 3, RI_E1E1HE2E3_ONLINE },
+ 	{ 0x140194, 13, RI_ALL_ONLINE },
+ 	{ 0x140200, 6, RI_E1E1HE2E3_ONLINE },
+-	{ 0x140220, 4, RI_E2E3_ONLINE },
+-	{ 0x140240, 4, RI_E2E3_ONLINE },
+ 	{ 0x140260, 4, RI_E2E3_ONLINE },
+ 	{ 0x140280, 4, RI_E2E3_ONLINE },
+-	{ 0x1402a0, 4, RI_E2E3_ONLINE },
+-	{ 0x1402c0, 4, RI_E2E3_ONLINE },
+ 	{ 0x1402e0, 2, RI_E2E3_ONLINE },
+ 	{ 0x1402e8, 2, RI_E2E3E3B0_ONLINE },
+ 	{ 0x1402f0, 9, RI_E2E3_ONLINE },
+ 	{ 0x140314, 44, RI_E3B0_ONLINE },
+-	{ 0x1403d0, 70, RI_E3B0_ONLINE },
+ 	{ 0x144000, 4, RI_E1E1H_ONLINE },
+ 	{ 0x148000, 4, RI_E1E1H_ONLINE },
+ 	{ 0x14c000, 4, RI_E1E1H_ONLINE },
+@@ -704,7 +699,6 @@ static const struct reg_addr reg_addrs[] = {
+ 	{ 0x180398, 1, RI_E2E3E3B0_ONLINE },
+ 	{ 0x1803a0, 5, RI_E2E3E3B0_ONLINE },
+ 	{ 0x1803b4, 2, RI_E3E3B0_ONLINE },
+-	{ 0x180400, 1, RI_ALL_ONLINE },
+ 	{ 0x180404, 255, RI_E1E1H_OFFLINE },
+ 	{ 0x181000, 4, RI_ALL_ONLINE },
+ 	{ 0x181010, 1020, RI_ALL_OFFLINE },
+@@ -800,9 +794,9 @@ static const struct reg_addr reg_addrs[] = {
+ 	{ 0x1b905c, 1, RI_E3E3B0_ONLINE },
+ 	{ 0x1b9064, 1, RI_E3B0_ONLINE },
+ 	{ 0x1b9080, 10, RI_E3B0_ONLINE },
+-	{ 0x1b9400, 14, RI_E2E3E3B0_ONLINE },
+-	{ 0x1b943c, 19, RI_E2E3E3B0_ONLINE },
+-	{ 0x1b9490, 10, RI_E2E3E3B0_ONLINE },
++	{ 0x1b9400, 14, RI_E2E3E3B0_OFFLINE },
++	{ 0x1b943c, 19, RI_E2E3E3B0_OFFLINE },
++	{ 0x1b9490, 10, RI_E2E3E3B0_OFFLINE },
+ 	{ 0x1c0000, 2, RI_ALL_ONLINE },
+ 	{ 0x200000, 65, RI_ALL_ONLINE },
+ 	{ 0x20014c, 2, RI_E1HE2E3E3B0_ONLINE },
+@@ -814,7 +808,6 @@ static const struct reg_addr reg_addrs[] = {
+ 	{ 0x200398, 1, RI_E2E3E3B0_ONLINE },
+ 	{ 0x2003a0, 1, RI_E2E3E3B0_ONLINE },
+ 	{ 0x2003a8, 2, RI_E2E3E3B0_ONLINE },
+-	{ 0x200400, 1, RI_ALL_ONLINE },
+ 	{ 0x200404, 255, RI_E1E1H_OFFLINE },
+ 	{ 0x202000, 4, RI_ALL_ONLINE },
+ 	{ 0x202010, 2044, RI_ALL_OFFLINE },
+@@ -921,7 +914,6 @@ static const struct reg_addr reg_addrs[] = {
+ 	{ 0x280398, 1, RI_E2E3E3B0_ONLINE },
+ 	{ 0x2803a0, 1, RI_E2E3E3B0_ONLINE },
+ 	{ 0x2803a8, 2, RI_E2E3E3B0_ONLINE },
+-	{ 0x280400, 1, RI_ALL_ONLINE },
+ 	{ 0x280404, 255, RI_E1E1H_OFFLINE },
+ 	{ 0x282000, 4, RI_ALL_ONLINE },
+ 	{ 0x282010, 2044, RI_ALL_OFFLINE },
+@@ -1031,7 +1023,6 @@ static const struct reg_addr reg_addrs[] = {
+ 	{ 0x300398, 1, RI_E2E3E3B0_ONLINE },
+ 	{ 0x3003a0, 1, RI_E2E3E3B0_ONLINE },
+ 	{ 0x3003a8, 2, RI_E2E3E3B0_ONLINE },
+-	{ 0x300400, 1, RI_ALL_ONLINE },
+ 	{ 0x300404, 255, RI_E1E1H_OFFLINE },
+ 	{ 0x302000, 4, RI_ALL_ONLINE },
+ 	{ 0x302010, 2044, RI_ALL_OFFLINE },
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index bbf4cf0..ebf40cd 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -775,7 +775,7 @@ static void bnx2x_get_regs(struct net_device *dev,
+ 	struct bnx2x *bp = netdev_priv(dev);
+ 	struct dump_hdr dump_hdr = {0};
  
- 		case GP_STATUS_100M:
- 			vars->line_speed = SPEED_100;
--			if (vars->duplex == DUPLEX_FULL)
-+			if (is_duplex == DUPLEX_FULL)
- 				vars->link_status |= LINK_100TXFD;
- 			else
- 				vars->link_status |= LINK_100TXHD;
-@@ -5451,7 +5451,7 @@ static int bnx2x_get_link_speed_duplex(struct bnx2x_phy *phy,
- 		case GP_STATUS_1G:
- 		case GP_STATUS_1G_KX:
- 			vars->line_speed = SPEED_1000;
--			if (vars->duplex == DUPLEX_FULL)
-+			if (is_duplex == DUPLEX_FULL)
- 				vars->link_status |= LINK_1000TFD;
- 			else
- 				vars->link_status |= LINK_1000THD;
-@@ -5459,7 +5459,7 @@ static int bnx2x_get_link_speed_duplex(struct bnx2x_phy *phy,
+-	regs->version = 0;
++	regs->version = 1;
+ 	memset(p, 0, regs->len);
  
- 		case GP_STATUS_2_5G:
- 			vars->line_speed = SPEED_2500;
--			if (vars->duplex == DUPLEX_FULL)
-+			if (is_duplex == DUPLEX_FULL)
- 				vars->link_status |= LINK_2500TFD;
- 			else
- 				vars->link_status |= LINK_2500THD;
-@@ -5533,6 +5533,7 @@ static int bnx2x_link_settings_status(struct bnx2x_phy *phy,
- 
- 	if (gp_status & MDIO_GP_STATUS_TOP_AN_STATUS1_LINK_STATUS) {
- 		if (SINGLE_MEDIA_DIRECT(params)) {
-+			vars->duplex = duplex;
- 			bnx2x_flow_ctrl_resolve(phy, params, vars, gp_status);
- 			if (phy->req_line_speed == SPEED_AUTO_NEG)
- 				bnx2x_xgxs_an_resolve(phy, params, vars,
-@@ -5627,6 +5628,7 @@ static int bnx2x_warpcore_read_status(struct bnx2x_phy *phy,
- 					LINK_STATUS_PARALLEL_DETECTION_USED;
- 			}
- 			bnx2x_ext_phy_resolve_fc(phy, params, vars);
-+			vars->duplex = duplex;
- 		}
- 	}
- 
+ 	if (!netif_running(bp->dev))
 -- 
 1.7.9.rc2
