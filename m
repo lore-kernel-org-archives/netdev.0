@@ -1,134 +1,125 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [net PATCH v2 6/7] bnx2x: fix registers dumped
-Date: Tue, 11 Sep 2012 17:34:13 +0300
-Message-ID: <1347374054-16730-7-git-send-email-yuvalmin@broadcom.com>
+Subject: [net PATCH v2 7/7] bnx2x: Add missing afex code
+Date: Tue, 11 Sep 2012 17:34:14 +0300
+Message-ID: <1347374054-16730-8-git-send-email-yuvalmin@broadcom.com>
 References: <1347374054-16730-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Yuval Mintz" <yuvalmin@broadcom.com>,
+Cc: "Yuval Mintz" <yuvalmin@broadcom.com>,
+	"Barak Witkowski" <barak@broadcom.com>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3253 "EHLO mms3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1815 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759287Ab2IKO6r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Sep 2012 10:58:47 -0400
+	id S1757495Ab2IKO7U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Sep 2012 10:59:20 -0400
 In-Reply-To: <1347374054-16730-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Kravkov <dmitry@broadcom.com>
+Commit a334872224a67b614dc888460377862621f3dac7 added afex support but lacked
+several logical changes. This lack can cause afex to crash, and also
+have a slight effect on other flows (i.e., driver always assumes the Tx ring
+has less available buffers than what it actually has).
 
-Under traffic, there are several registers that when read (e.g., via
-'ethtool -d') may cause the chip to stall.
-This patch corrects the registers read in such flows.
+This patch adds the missing segments, fixing said issues.
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Barak Witkowski <barak@broadcom.com>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h   |   25 ++++++-------------
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |    2 +-
- 2 files changed, 9 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  |   11 +++++------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   21 ++++++++++++++++-----
+ 2 files changed, 21 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h
-index 3e4cff9..b926f58 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h
-@@ -401,11 +401,11 @@ static const struct reg_addr reg_addrs[] = {
- 	{ 0x70000, 8, RI_ALL_ONLINE },
- 	{ 0x70020, 8184, RI_ALL_OFFLINE },
- 	{ 0x78000, 8192, RI_E3E3B0_OFFLINE },
--	{ 0x85000, 3, RI_ALL_ONLINE },
--	{ 0x8501c, 7, RI_ALL_ONLINE },
--	{ 0x85048, 1, RI_ALL_ONLINE },
--	{ 0x85200, 32, RI_ALL_ONLINE },
--	{ 0xb0000, 16384, RI_E1H_ONLINE },
-+	{ 0x85000, 3, RI_ALL_OFFLINE },
-+	{ 0x8501c, 7, RI_ALL_OFFLINE },
-+	{ 0x85048, 1, RI_ALL_OFFLINE },
-+	{ 0x85200, 32, RI_ALL_OFFLINE },
-+	{ 0xb0000, 16384, RI_E1H_OFFLINE },
- 	{ 0xc1000, 7, RI_ALL_ONLINE },
- 	{ 0xc103c, 2, RI_E2E3E3B0_ONLINE },
- 	{ 0xc1800, 2, RI_ALL_ONLINE },
-@@ -581,17 +581,12 @@ static const struct reg_addr reg_addrs[] = {
- 	{ 0x140188, 3, RI_E1E1HE2E3_ONLINE },
- 	{ 0x140194, 13, RI_ALL_ONLINE },
- 	{ 0x140200, 6, RI_E1E1HE2E3_ONLINE },
--	{ 0x140220, 4, RI_E2E3_ONLINE },
--	{ 0x140240, 4, RI_E2E3_ONLINE },
- 	{ 0x140260, 4, RI_E2E3_ONLINE },
- 	{ 0x140280, 4, RI_E2E3_ONLINE },
--	{ 0x1402a0, 4, RI_E2E3_ONLINE },
--	{ 0x1402c0, 4, RI_E2E3_ONLINE },
- 	{ 0x1402e0, 2, RI_E2E3_ONLINE },
- 	{ 0x1402e8, 2, RI_E2E3E3B0_ONLINE },
- 	{ 0x1402f0, 9, RI_E2E3_ONLINE },
- 	{ 0x140314, 44, RI_E3B0_ONLINE },
--	{ 0x1403d0, 70, RI_E3B0_ONLINE },
- 	{ 0x144000, 4, RI_E1E1H_ONLINE },
- 	{ 0x148000, 4, RI_E1E1H_ONLINE },
- 	{ 0x14c000, 4, RI_E1E1H_ONLINE },
-@@ -704,7 +699,6 @@ static const struct reg_addr reg_addrs[] = {
- 	{ 0x180398, 1, RI_E2E3E3B0_ONLINE },
- 	{ 0x1803a0, 5, RI_E2E3E3B0_ONLINE },
- 	{ 0x1803b4, 2, RI_E3E3B0_ONLINE },
--	{ 0x180400, 1, RI_ALL_ONLINE },
- 	{ 0x180404, 255, RI_E1E1H_OFFLINE },
- 	{ 0x181000, 4, RI_ALL_ONLINE },
- 	{ 0x181010, 1020, RI_ALL_OFFLINE },
-@@ -800,9 +794,9 @@ static const struct reg_addr reg_addrs[] = {
- 	{ 0x1b905c, 1, RI_E3E3B0_ONLINE },
- 	{ 0x1b9064, 1, RI_E3B0_ONLINE },
- 	{ 0x1b9080, 10, RI_E3B0_ONLINE },
--	{ 0x1b9400, 14, RI_E2E3E3B0_ONLINE },
--	{ 0x1b943c, 19, RI_E2E3E3B0_ONLINE },
--	{ 0x1b9490, 10, RI_E2E3E3B0_ONLINE },
-+	{ 0x1b9400, 14, RI_E2E3E3B0_OFFLINE },
-+	{ 0x1b943c, 19, RI_E2E3E3B0_OFFLINE },
-+	{ 0x1b9490, 10, RI_E2E3E3B0_OFFLINE },
- 	{ 0x1c0000, 2, RI_ALL_ONLINE },
- 	{ 0x200000, 65, RI_ALL_ONLINE },
- 	{ 0x20014c, 2, RI_E1HE2E3E3B0_ONLINE },
-@@ -814,7 +808,6 @@ static const struct reg_addr reg_addrs[] = {
- 	{ 0x200398, 1, RI_E2E3E3B0_ONLINE },
- 	{ 0x2003a0, 1, RI_E2E3E3B0_ONLINE },
- 	{ 0x2003a8, 2, RI_E2E3E3B0_ONLINE },
--	{ 0x200400, 1, RI_ALL_ONLINE },
- 	{ 0x200404, 255, RI_E1E1H_OFFLINE },
- 	{ 0x202000, 4, RI_ALL_ONLINE },
- 	{ 0x202010, 2044, RI_ALL_OFFLINE },
-@@ -921,7 +914,6 @@ static const struct reg_addr reg_addrs[] = {
- 	{ 0x280398, 1, RI_E2E3E3B0_ONLINE },
- 	{ 0x2803a0, 1, RI_E2E3E3B0_ONLINE },
- 	{ 0x2803a8, 2, RI_E2E3E3B0_ONLINE },
--	{ 0x280400, 1, RI_ALL_ONLINE },
- 	{ 0x280404, 255, RI_E1E1H_OFFLINE },
- 	{ 0x282000, 4, RI_ALL_ONLINE },
- 	{ 0x282010, 2044, RI_ALL_OFFLINE },
-@@ -1031,7 +1023,6 @@ static const struct reg_addr reg_addrs[] = {
- 	{ 0x300398, 1, RI_E2E3E3B0_ONLINE },
- 	{ 0x3003a0, 1, RI_E2E3E3B0_ONLINE },
- 	{ 0x3003a8, 2, RI_E2E3E3B0_ONLINE },
--	{ 0x300400, 1, RI_ALL_ONLINE },
- 	{ 0x300404, 255, RI_E1E1H_OFFLINE },
- 	{ 0x302000, 4, RI_ALL_ONLINE },
- 	{ 0x302010, 2044, RI_ALL_OFFLINE },
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index bbf4cf0..ebf40cd 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -775,7 +775,7 @@ static void bnx2x_get_regs(struct net_device *dev,
- 	struct bnx2x *bp = netdev_priv(dev);
- 	struct dump_hdr dump_hdr = {0};
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index 21b5532..dfd86a5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -710,17 +710,15 @@ static inline u16 bnx2x_tx_avail(struct bnx2x *bp,
+ 	prod = txdata->tx_bd_prod;
+ 	cons = txdata->tx_bd_cons;
  
--	regs->version = 0;
-+	regs->version = 1;
- 	memset(p, 0, regs->len);
+-	/* NUM_TX_RINGS = number of "next-page" entries
+-	   It will be used as a threshold */
+-	used = SUB_S16(prod, cons) + (s16)NUM_TX_RINGS;
++	used = SUB_S16(prod, cons);
  
- 	if (!netif_running(bp->dev))
+ #ifdef BNX2X_STOP_ON_ERROR
+ 	WARN_ON(used < 0);
+-	WARN_ON(used > bp->tx_ring_size);
+-	WARN_ON((bp->tx_ring_size - used) > MAX_TX_AVAIL);
++	WARN_ON(used > txdata->tx_ring_size);
++	WARN_ON((txdata->tx_ring_size - used) > MAX_TX_AVAIL);
+ #endif
+ 
+-	return (s16)(bp->tx_ring_size) - used;
++	return (s16)(txdata->tx_ring_size) - used;
+ }
+ 
+ static inline int bnx2x_tx_queue_has_work(struct bnx2x_fp_txdata *txdata)
+@@ -1088,6 +1086,7 @@ static inline void bnx2x_init_txdata(struct bnx2x *bp,
+ 	txdata->txq_index = txq_index;
+ 	txdata->tx_cons_sb = tx_cons_sb;
+ 	txdata->parent_fp = fp;
++	txdata->tx_ring_size = IS_FCOE_FP(fp) ? MAX_TX_AVAIL : bp->tx_ring_size;
+ 
+ 	DP(NETIF_MSG_IFUP, "created tx data cid %d, txq %d\n",
+ 	   txdata->cid, txdata->txq_index);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 2105498..211753e 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -7561,8 +7561,14 @@ int bnx2x_set_mac_one(struct bnx2x *bp, u8 *mac,
+ 	}
+ 
+ 	rc = bnx2x_config_vlan_mac(bp, &ramrod_param);
+-	if (rc < 0)
++
++	if (rc == -EEXIST) {
++		DP(BNX2X_MSG_SP, "Failed to schedule ADD operations: %d\n", rc);
++		/* do not treat adding same MAC as error */
++		rc = 0;
++	} else if (rc < 0)
+ 		BNX2X_ERR("%s MAC failed\n", (set ? "Set" : "Del"));
++
+ 	return rc;
+ }
+ 
+@@ -10294,13 +10300,11 @@ static void __devinit bnx2x_get_fcoe_info(struct bnx2x *bp)
+ 				dev_info.port_hw_config[port].
+ 				 fcoe_wwn_node_name_lower);
+ 	} else if (!IS_MF_SD(bp)) {
+-		u32 cfg = MF_CFG_RD(bp, func_ext_config[func].func_cfg);
+-
+ 		/*
+ 		 * Read the WWN info only if the FCoE feature is enabled for
+ 		 * this function.
+ 		 */
+-		if (cfg & MACP_FUNC_CFG_FLAGS_FCOE_OFFLOAD)
++		if (BNX2X_MF_EXT_PROTOCOL_FCOE(bp) && !CHIP_IS_E1x(bp))
+ 			bnx2x_get_ext_wwn_info(bp, func);
+ 
+ 	} else if (IS_MF_FCOE_SD(bp))
+@@ -11073,7 +11077,14 @@ static int bnx2x_set_uc_list(struct bnx2x *bp)
+ 	netdev_for_each_uc_addr(ha, dev) {
+ 		rc = bnx2x_set_mac_one(bp, bnx2x_uc_addr(ha), mac_obj, true,
+ 				       BNX2X_UC_LIST_MAC, &ramrod_flags);
+-		if (rc < 0) {
++		if (rc == -EEXIST) {
++			DP(BNX2X_MSG_SP,
++			   "Failed to schedule ADD operations: %d\n", rc);
++			/* do not treat adding same MAC as error */
++			rc = 0;
++
++		} else if (rc < 0) {
++
+ 			BNX2X_ERR("Failed to schedule ADD operations: %d\n",
+ 				  rc);
+ 			return rc;
 -- 
 1.7.9.rc2
