@@ -1,39 +1,54 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v3 7/8] cgroup: Assign subsystem IDs during compile time
-Date: Tue, 11 Sep 2012 14:08:21 -0700
-Message-ID: <20120911210821.GB7677@google.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH v3 0/8] cgroup: Assign subsystem IDs during compile time
+Date: Tue, 11 Sep 2012 14:11:51 -0700
+Message-ID: <20120911211151.GC7677@google.com>
 References: <1347380774-9546-1-git-send-email-wagi@monom.org>
- <1347380774-9546-8-git-send-email-wagi@monom.org>
- <20120911210109.GZ7677@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev@vger.kernel.org, cgroups@vger.kernel.org,
+	Daniel Wagner <daniel.wagner@bmw-carit.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	Glauber Costa <glommer@parallels.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Kamezawa Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
+	Li Zefan <lizefan@huawei.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Daniel Wagner <wagi@monom.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:38213 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758176Ab2IKVL4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 17:11:56 -0400
 Content-Disposition: inline
-In-Reply-To: <20120911210109.GZ7677-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1347380774-9546-1-git-send-email-wagi@monom.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 11, 2012 at 02:01:09PM -0700, Tejun Heo wrote:
-> For example, it's not evident the above is correct and it's burried
-> with all other changes.  Can't we just assign the fixed subsys ID to
-> net_prio_subsys_id in this patch?  This patch would be correct without
-> any netprio changes, no?
+Hello,
 
-Oops, that was wrong.  net_prio_subsys_id itself becomes constant.
-Let's please better explain why the RCU trick removal is safe then.
+On Tue, Sep 11, 2012 at 06:26:06PM +0200, Daniel Wagner wrote:
+> From: Daniel Wagner <daniel.wagner@bmw-carit.de>
+> 
+> Hi,
+> 
+> In this version I tried to concentrate on the main topic of this
+> series, so I removed some of the things which were not really needed
+> and I have to admit the result looks much better. So I hope that will
+> simplify the review for you.
+
+Other than the few nits I like the whole series and, given that all
+the changes are entangled with cgroup core, I would like to route it
+through cgroup/for-3.7 if nobody objects.  Daniel, can you please
+rebase on top of the following branch when sending out updated
+version?
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/tj/cgroup.git for-3.7
+
+Li, can you please review these?
 
 Thanks.
 
