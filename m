@@ -1,30 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] scsi_netlink: Remove dead and buggy code
-Date: Tue, 11 Sep 2012 18:48:46 -0400 (EDT)
-Message-ID: <20120911.184846.1973557158791638595.davem@davemloft.net>
-References: <20120910.150700.1197774171539303770.davem@davemloft.net>
-	<1347314879.3038.74.camel@dabdike.int.hansenpartnership.com>
-	<878vcggp4n.fsf@xmission.com>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: CBQ(but probably u32 filter bug), kernel "freeze", at least
+ from 3.2.0
+Date: Wed, 12 Sep 2012 01:50:09 +0300
+Message-ID: <ceeee25e4588b250ce7b363afe97a489@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: James.Bottomley@HansenPartnership.com, netdev@vger.kernel.org,
-	James.Smart@Emulex.Com, linux-scsi@vger.kernel.org
-To: ebiederm@xmission.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <878vcggp4n.fsf@xmission.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: <netdev@vger.kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hosting.visp.net.lb ([194.146.153.11]:41560 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751788Ab2IKWuO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 18:50:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Tue, 11 Sep 2012 15:40:08 -0700
+>No problem, I reproduced the bug on my dev machine, but its always
+>better to have bug reporter adding its own 'Tested-by:' tag ;)
+>
+>Thanks
+Tested-by: Denys Fedoryschenko <denys@visp.net.lb>
 
-> So just for curiosity I searched the entire git history for scsi_nl_add_
-> and the only commit that I found was the addition of that code to the
-> tree in August of 2008.
-> 
-> Does anyone have any reason to keep scsi_nl_add_transport or
-> scsi_nl_add_driver that have never been used in the 4 years since
-> they have been added?
+Thank you a lot, it fixes the problem!
 
-That's basically the question on the table right now :-)
+---
+Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
