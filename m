@@ -1,44 +1,50 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2 2/2] iproute2: use libgenl in ipl2tp
-Date: Tue, 11 Sep 2012 23:22:41 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1209112304410.2023@ja.ssi.bg>
-References: <1347354274-3119-1-git-send-email-ja@ssi.bg> <1347354274-3119-3-git-send-email-ja@ssi.bg> <20120911090908.605d1fbe@nehalam.linuxnetplumber.net>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v3 3/8] cgroup: net_prio: Do not define
+ task_netpioidx() when not selected
+Date: Tue, 11 Sep 2012 13:37:28 -0700
+Message-ID: <20120911203728.GX7677@google.com>
+References: <1347380774-9546-1-git-send-email-wagi@monom.org>
+ <1347380774-9546-4-git-send-email-wagi@monom.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:50605 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751329Ab2IKUSt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Sep 2012 16:18:49 -0400
-In-Reply-To: <20120911090908.605d1fbe@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1347380774-9546-4-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-	Hello,
-
-On Tue, 11 Sep 2012, Stephen Hemminger wrote:
-
-> On Tue, 11 Sep 2012 12:04:34 +0300
-> Julian Anastasov <ja@ssi.bg> wrote:
+On Tue, Sep 11, 2012 at 06:26:09PM +0200, Daniel Wagner wrote:
+> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
 > 
-> > 	Use the common code from libgenl.c to parse family.
-> > 
-> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> task_netprioidx() should not be defined in case the configuration is
+> CONFIG_NETPRIO_CGROUP=n. The reason is that in a following patch the
+> net_prio_subsys_id will only be defined if CONFIG_NETPRIO_CGROUP!=n.
+> When net_prio is not built at all any callee should only get an empty
+> task_netprioidx() without any references to net_prio_subsys_id.
 > 
-> I applied these two but made some modifications:
->   1. change to GENL_INITIALIZER
->   2. use GENL_INITIALIZER
+> Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+> Cc: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+> Cc: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+> Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Cc: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-	I used 2 defines, so that in tcp_metrics.c I can
-use different initialization depending on the command.
-But as the structure is unnamed may be it is better to have
-single define (both defines merged as you proposed) and
-later just to update cmd and flags if needed.
+For 1-3.
 
-Regards
+  Acked-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
---
-Julian Anastasov <ja@ssi.bg>
+Thanks.
+
+-- 
+tejun
