@@ -1,65 +1,37 @@
-From: =?ISO-8859-1?Q?Cristian_Rodr=EDguez?= <crrodriguez@opensuse.org>
-Subject: e1000e: Disabling IRQ #57 .. machine dies
-Date: Tue, 11 Sep 2012 15:50:25 -0300
-Message-ID: <504F87F1.5040004@opensuse.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: GRO aggregation
+Date: Tue, 11 Sep 2012 21:01:53 +0200
+Message-ID: <1347390113.13103.660.camel@edumazet-glaptop>
+References: <504F4063.9030706@mellanox.com>
+	 ,<1347388396.13103.658.camel@edumazet-glaptop>
+	 <36F7E4A28C18BE4DB7C86058E7B607241E622022@MTRDAG01.mtl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Netdev <netdev@vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Shlomo Pongratz <shlomop@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:36760 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758563Ab2IKSwN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 14:52:13 -0400
-Received: by oago6 with SMTP id o6so459276oag.19
-        for <netdev@vger.kernel.org>; Tue, 11 Sep 2012 11:52:12 -0700 (PDT)
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:35160 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759171Ab2IKTB6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 15:01:58 -0400
+Received: by eekc1 with SMTP id c1so698341eek.19
+        for <netdev@vger.kernel.org>; Tue, 11 Sep 2012 12:01:57 -0700 (PDT)
+In-Reply-To: <36F7E4A28C18BE4DB7C86058E7B607241E622022@MTRDAG01.mtl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+On Tue, 2012-09-11 at 18:49 +0000, Shlomo Pongratz wrote:
 
-In current linus tree, in a machine using the e1000e driver
+> I disabled the LRO. I actually tried the all the 4 options and found that LRO, GRO, LRO+GRO gives the same results for ixgbe w.r.t aggregation size (didn't check for throughput or latency).
+> Is there a timeout that flushes the aggregated SKBs before 64K were aggregated?
 
-hwinfo --netcard
-22: PCI 400.0: 0200 Ethernet controller
-  [Created at pci.319]
-  Unique ID: rBUF.cuT2KaC3ZS1
-  Parent ID: HnsE.Z52SDLRIaH2
-  SysFS ID: /devices/pci0000:00/0000:00:1c.5/0000:04:00.0
-  SysFS BusID: 0000:04:00.0
-  Hardware Class: network
-  Model: "Intel 82574L Gigabit Network Connection"
-  Vendor: pci 0x8086 "Intel Corporation"
-  Device: pci 0x10d3 "82574L Gigabit Network Connection"
-  SubVendor: pci 0x1043 "ASUSTeK Computer Inc."
-  SubDevice: pci 0x8369
-  Driver: "e1000e"
-  Driver Modules: "e1000e"
-  Device File: eth0
-  Memory Range: 0xf7d00000-0xf7d1ffff (rw,non-prefetchable)
-  I/O Ports: 0xd000-0xdfff (rw)
-  Memory Range: 0xf7d20000-0xf7d23fff (rw,non-prefetchable)
-  IRQ: 17 (no events)
-  Link detected: yes
-  Module Alias: "pci:v00008086d000010D3sv00001043sd00008369bc02sc00i00"
-  Driver Info #0:
-    Driver Status: e1000e is active
-    Driver Activation Cmd: "modprobe e1000e"
-  Config Status: cfg=no, avail=yes, need=no, active=unknown
-  Attached to: #15 (PCI bridge)
+At the end of NAPI run, we flush the gro state.
 
+It basically means that an interrupt came, and we fetched 21 frames from
+the NIC.
 
+To get more packets per interrupt, you might try to slow down your
+cpu ;)
 
-cat /proc/interrupts
-
-57 IR-PCI-MSI-edge      eth0
-
-the driver works after a while, but then a single message
-
-"Disabling IRQ #57"
-
-is sent to the console and the machine dies, nothing else is written in
-the logs and remote ikvm becames unresponsive so there is no way to
-bring more debug info back.. kernel 3.5.3 works ok.
-
-Anyone else seeing this ?
+But I dont get the point.
