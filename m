@@ -1,55 +1,41 @@
 From: "Love, Robert W" <robert.w.love@intel.com>
-Subject: Re: [RFC PATCH 0/5] Reorganize libfcoe control interfaces
-Date: Tue, 11 Sep 2012 17:43:07 +0000
-Message-ID: <504F782A.7090206@intel.com>
+Subject: Re: [Open-FCoE] [RFC PATCH 0/5] Reorganize libfcoe control
+ interfaces
+Date: Tue, 11 Sep 2012 17:46:47 +0000
+Message-ID: <504F7906.9040806@intel.com>
 References: <20120910225908.13140.97277.stgit@fritz>
- <504E8040.70403@broadcom.com>
- <CAHNqLyXhUo9ny3Wez5kWazaj_bk7mOEqvB8TemkFsu8ZP-ypXw@mail.gmail.com>
+ <CAHNqLyUUeVPVzvZCKzmbp0LdOGnOYudOehVfagySokrq8zj4hA@mail.gmail.com>
+ <504F76A1.50809@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
 	"devel@open-fcoe.org" <devel@open-fcoe.org>,
-	Bhanu Prakash Gollapudi <bprakash@broadcom.com>
-To: Chris Leech <cleech@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:51843 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753014Ab2IKRnL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Sep 2012 13:43:11 -0400
-In-Reply-To: <CAHNqLyXhUo9ny3Wez5kWazaj_bk7mOEqvB8TemkFsu8ZP-ypXw@mail.gmail.com>
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
+To: Chris Leech <leech@pobox.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <504F76A1.50809@intel.com>
 Content-Language: en-US
-Content-ID: <82B3805525AB3A46952417BA9F55AD84@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-ID: <3900D9BF58C3834086100588937889CC@intel.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gVHVlIDExIFNlcCAyMDEyIDEwOjEyOjA5IEFNIFBEVCwgQ2hyaXMgTGVlY2ggd3JvdGU6DQo+
-IE9uIE1vbiwgU2VwIDEwLCAyMDEyIGF0IDU6MDUgUE0sIEJoYW51IFByYWthc2ggR29sbGFwdWRp
-DQo+IDxicHJha2FzaEBicm9hZGNvbS5jb20+IHdyb3RlOg0KPj4NCj4+IEknbSBjb25jZXJuZWQg
-dGhhdCB3ZSB3aWxsIGJlIGJyZWFraW5nIHVzZXIgc3BhY2UgY29tcGF0aWJpbGl0eSB3aXRoIHRo
-aXMNCj4+IGNoYW5nZSwgYXMgdGhlcmUgc2hvdWxkIGJlIGEgY29ycmVzcG9uZGluZyBmY29lbW9u
-L2ZpcHZsYW4gY2hhbmdlIGFsb25nIHdpdGgNCj4+IHRoaXMsIGFuZCBleGlzdGluZyB1dGlsaXRp
-ZXMgd2lsbCBub3Qgd29yay4gIEFsc28gdGhlIHdheSB3ZSBzdGFydCBmY29lIHdpbGwNCj4+IGJl
-IGNvbXBsZXRlbHkgZGlmZmVyZW50IGFuZCB0aGUgdXNlciBtYXkgbmVlZCB0byBkbyB0aGUgc2Ny
-aXB0aW5nIGNoYW5nZXMsDQo+PiBpZiBhbnkuDQo+Pg0KPg0KPiBJIGFncmVlIHdpdGggQmhhbnUg
-b24gdGhlc2UgY29uY2VybnMsIGV2ZW4gdGhvdWdoIEkgaG9wZSBldmVyeW9uZSdzDQo+IHVzaW5n
-IGZjb2VhZG0vZmNvZW1vbi9maXB2bGFuLiAgSSB0aGluayB0aGVyZSBuZWVkcyB0byBiZSBtb3Jl
-IG9mIGENCj4gdHJhbnNpdGlvbiBwbGFuIHRoYW4gcmVxdWlyaW5nIGV2ZXJ5b25lIG1vdmluZyB0
-byBhIG5ldyBrZXJuZWwgdG8NCj4gdXBkYXRlIHRoZSB1c2VyLXNwYWNlIHRvb2xzIGF0IHRoZSBz
-YW1lIHRpbWUuICBSZW1vdmluZyB0aGUgbW9kdWxlDQo+IHBhcmFtZXRlcnMgd2l0aCB0aGUgbGFz
-dCBwYXRjaCBtaWdodCBiZSBydXNoZWQsIHRoZXkgc2hvdWxkIHByb2JhYmx5DQo+IHJlbWFpbiBm
-b3IgYSBmZXcga2VybmVsIGN5Y2xlcyB3aXRoIGEgd2FybmluZy4gIFdoZW4gdGhlIHRvb2xzIGFy
-ZQ0KPiB1cGRhdGVkIGZvciB0aGUgbmV3IGludGVyZmFjZSwgdGhleSBzaG91bGQgcHJvYmFibHkg
-bWFpbnRhaW4gZmFsbGJhY2sNCj4gc3VwcG9ydCBmb3IgdGhlIG1vZHVsZSBwYXJhbWV0ZXJzIGZv
-ciBhIHdoaWxlIGFzIHdlbGwuDQo+DQoNCkRlcHJlY2F0aW5nIHRoZSBvbGQgaW50ZXJmYWNlcyBp
-bnN0ZWFkIG9mIGltbWVkaWF0ZWx5IHJlbW92aW5nIHRoZW0gDQpzb3VuZHMgbGlrZSBhIGdvb2Qg
-aWRlYSB0byBtZS4NCg0KSSBob3BlIGV2ZXJ5b25lIGlzIHVzaW5nIGZjb2VhZG0vZmNvZW1vbi9m
-aXB2bGFuIHRvby4gV2UgZG8gc3RpbGwgY2FycnkgDQp0aGUgJ2ZjYy5zaCcgc2NyaXB0IGluIGZj
-b2UtdXRpbHMuZ2l0L2NvbnRyaWIvLiBJIGRvbid0IHVzZSBpdCwgYnV0IEkgDQprbm93IG90aGVy
-cyBkby4gSSBkaWQgbm90IHVwZGF0ZSAnZmNjLnNoJyB3aXRoIG15IHVzZXIgc3BhY2UgY2hhbmdl
-Lg0KDQpJJ2xsIHBvc3QgdGhlIGZjb2Vtb24gY2hhbmdlcyB0byBkZXZlbEBvcGVuLWZjb2Uub3Jn
-LiBJIHRoaW5rIEkgaGF2ZSBhIA0KYnVuY2ggb2YgY2xlYW51cCBwYXRjaGVzIHRoYXQgdGhlIGNo
-YW5nZSBkZXBlbmRzIG9uLCBzbyB0aGUgc2VyaWVzIHdpbGwgDQpwcm9iYWJseSBiZSBoYWxmIGNs
-ZWFudXAgYW5kIGhhbGYgZmVhdHVyZS4NCg0KIFRoYW5rcywgLy9Sb2INCg==
+T24gVHVlIDExIFNlcCAyMDEyIDEwOjM2OjM1IEFNIFBEVCwgTG92ZSwgUm9iZXJ0IFcgd3JvdGU6
+DQo+IE9uIFR1ZSAxMSBTZXAgMjAxMiAxMDowNjoyOSBBTSBQRFQsIENocmlzIExlZWNoIHdyb3Rl
+Og0KPj4gT24gTW9uLCBTZXAgMTAsIDIwMTIgYXQgMzo1OSBQTSwgUm9iZXJ0IExvdmUgPHJvYmVy
+dC53LmxvdmVAaW50ZWwuY29tPiB3cm90ZToNCg0KPHNuaXA+DQoNCj4+IFRoYXQgYmVpbmcgc2Fp
+ZCwgSSdtIGdsYWQgdGhpcyBpcyBiZWluZyByZXdvcmtlZC4gIERvIHlvdSBoYXZlIGFueQ0KPj4g
+b3RoZXIgZnVuY3Rpb25hbGl0eSBpbiBtaW5kIHRoYXQgdGhpcyBpcyBsYXlpbmcgdGhlIGdyb3Vu
+ZHdvcmsgZm9yPw0KPj4NCj4NCj4gSSBoYXZlIG9uZSBmZWF0dXJlIGFuZCBhIGZldyBpZGVhcy4g
+SSBjdXJyZW50bHkgaGF2ZSBhIHBhdGNoIHRoYXQgYWRkcw0KPiBhIGZhYnJpYyBzZWxlY3Rpb24g
+ZmVhdHVyZS4gSSBhZGQgYW5vdGhlciBSVyBhdHRyaWJ1dGUgdG8gdGhlIGN0bHJfWA0KPiBkZXZp
+Y2UuIElmIHRoZSB1c2VyIHdyaXRlcyBmYWJyaWMgbmFtZSB0byB0aGUgZmlsZSBsaWJmY29lIHVz
+ZXMgaXQgaW4NCj4gaXQncyBGQ0Ygc2VsZWN0aW9uIGFsZ29yaXRobS4gSGVyZSdzIG15IGNvbW1p
+dCBtZXNzYWdlIGZyb20gdGhhdCBwYXRjaC4NCj4gSSBjYW4gc2hhcmUgdGhlIHBhdGNoIGlmIHBl
+b3BsZSB3b3VsZCBsaWtlIHRvIHNlZSBpdCB0b28uIFRoZSBjdXJyZW50DQo+IGltcGxlbWVudGF0
+aW9uIGFsc28gYWxsb3dzIHRoZSB1c2VyIHRvIGZvcmNlIHRoZSBsb2dpbiB0aHJvdWdoIGENCj4g
+c3BlY2lmaWMgRkNGLg0KPg0KDQpNeSBmY29lLXV0aWxzLmdpdCBjaGFuZ2UgaGVyZSBhbHNvIGFs
+bG93cyB0aGUgdXNlciB0byBkcml2ZSB0aGlzIGZhYnJpYyANCnNlbGVjdGlvbiB1c2luZyBhIG5l
+dyB2YXJpYWJsZSBpbiB0aGUgL2V0Yy9mY29lL2NmZy1ldGhYIGZpbGVzIHRoYXQgdGhlIA0KJ2Zj
+b2Ugc2VydmljZScgdXNlcy4=
