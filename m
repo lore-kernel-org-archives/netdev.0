@@ -1,83 +1,51 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [PATCH V3 8/8] ipvs: SIP fragment handling
-Date: Tue, 11 Sep 2012 14:39:30 +0200
-Message-ID: <20120911123901.4305.10642.stgit@dragon>
-References: <20120911123531.4305.40304.stgit@dragon>
+From: Ulrich Weber <ulrich.weber@gmail.com>
+Subject: Re: IPv6 multipath routes
+Date: Tue, 11 Sep 2012 14:57:41 +0200
+Message-ID: <504F3545.2070103@gmail.com>
+References: <1346952649-5716-1-git-send-email-bernat@luffy.cx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	netfilter-devel@vger.kernel.org, Simon Horman <horms@verge.net.au>
-To: Hans Schillstrom <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	netdev@vger.kernel.org, "Patrick McHardy" <kaber@trash.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>
+Cc: netdev@vger.kernel.org
+To: Vincent Bernat <bernat@luffy.cx>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13776 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752793Ab2IKMfK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Sep 2012 08:35:10 -0400
-In-Reply-To: <20120911123531.4305.40304.stgit@dragon>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:36983 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751188Ab2IKM5p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 08:57:45 -0400
+Received: by eaac11 with SMTP id c11so248762eaa.19
+        for <netdev@vger.kernel.org>; Tue, 11 Sep 2012 05:57:44 -0700 (PDT)
+In-Reply-To: <1346952649-5716-1-git-send-email-bernat@luffy.cx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the nfct_reasm SKB if available.
+Hi Vincent,
 
-Based on part of a patch from: Hans Schillstrom
-I have left Hans'es comment in the patch (marked /HS)
+there is no multipath support for IPv6 in the kernel.
+RTA_MULTIPATH attributes are not parsed for IPv6.
 
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Cheers
+  Ulrich
 
----
-V3:
- - I have split out the SIP fragment handling into a seperate patch.
-   As I have not been able to test this part.
- - Change the strange SKB swapping reasm = skb, reverse logic to minimize patch
-
-
- net/netfilter/ipvs/ip_vs_pe_sip.c |   19 +++++++++++++++----
- 1 files changed, 15 insertions(+), 4 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_pe_sip.c b/net/netfilter/ipvs/ip_vs_pe_sip.c
-index ee4e2e3..43acba6 100644
---- a/net/netfilter/ipvs/ip_vs_pe_sip.c
-+++ b/net/netfilter/ipvs/ip_vs_pe_sip.c
-@@ -68,6 +68,7 @@ static int get_callid(const char *dptr, unsigned int dataoff,
- static int
- ip_vs_sip_fill_param(struct ip_vs_conn_param *p, struct sk_buff *skb)
- {
-+	struct sk_buff *reasm = skb_nfct_reasm(skb);
- 	struct ip_vs_iphdr iph;
- 	unsigned int dataoff, datalen, matchoff, matchlen;
- 	const char *dptr;
-@@ -78,13 +79,23 @@ ip_vs_sip_fill_param(struct ip_vs_conn_param *p, struct sk_buff *skb)
- 	/* Only useful with UDP */
- 	if (iph.protocol != IPPROTO_UDP)
- 		return -EINVAL;
-+	/*
-+	 * todo: IPv6 fragments:
-+	 *       I think this only should be done for the first fragment. /HS
-+	 */
-+	if (reasm) {
-+		skb = reasm;
-+		dataoff = iph.thoff_reasm + sizeof(struct udphdr);
-+	} else
-+		dataoff = iph.len + sizeof(struct udphdr);
- 
--	/* No Data ? */
--	dataoff = iph.len + sizeof(struct udphdr);
- 	if (dataoff >= skb->len)
- 		return -EINVAL;
--
--	if ((retc=skb_linearize(skb)) < 0)
-+	/*
-+	 * todo: Check if this will mess-up the reasm skb !!! /HS
-+	 */
-+	retc = skb_linearize(skb);
-+	if (retc < 0)
- 		return retc;
- 	dptr = skb->data + dataoff;
- 	datalen = skb->len - dataoff;
+On 09/06/2012 07:30 PM, Vincent Bernat wrote:
+> Hi!
+>
+> It appears that "ip -6 route add" expects IPv4 addresses with nexthop directives:
+>
+> $ ip -6 route add to 2a01:c9c0:a1:982::/64 proto bird \
+>     nexthop via fe80::ea39:35ff:febd:f9e dev bai2.2008 weight 1 \
+>     nexthop via fe80::ea39:35ff:febd:fd6 dev bai1.2009 weight 1
+> Error: an IP address is expected rather than "fe80::ea39:35ff:febd:f9e"
+>
+> The following patch fix this problem. However, it does not work. I now have:
+>   RTNETLINK answers: No such device
+>
+> I have little knowledge of netlink so it is likely that my patch is
+> buggy. However, I have found this problem by trying to debug what
+> appears to be a valid netlink message refused by the kernel with the
+> same error. Therefore, I suspect that there is also a bug in the kernel.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
