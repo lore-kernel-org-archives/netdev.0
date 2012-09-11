@@ -1,37 +1,108 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] iproute: Add ability to save, restore and show the
- interfaces' addresses (resend)
-Date: Tue, 11 Sep 2012 09:18:44 -0700
-Message-ID: <20120911091844.0868ea9a@nehalam.linuxnetplumber.net>
-References: <50121F4D.8090606@parallels.com>
-	<50121FB0.6060200@parallels.com>
-	<5012211A.4040307@parallels.com>
-	<504F5CF4.1040202@parallels.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Pavel Emelyanov <xemul@parallels.com>
+From: Daniel Wagner <wagi@monom.org>
+Subject: [PATCH v3 3/8] cgroup: net_prio: Do not define task_netpioidx() when not selected
+Date: Tue, 11 Sep 2012 18:26:09 +0200
+Message-ID: <1347380774-9546-4-git-send-email-wagi@monom.org>
+References: <1347380774-9546-1-git-send-email-wagi@monom.org>
+Cc: Daniel Wagner <daniel.wagner@bmw-carit.de>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Li Zefan <lizefan@huawei.com>,
+	Neil Horman <nhorman@tuxdriver.com>, Tejun Heo <tj@kernel.org>
+To: netdev@vger.kernel.org, cgroups@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60343 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752838Ab2IKQTN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Sep 2012 12:19:13 -0400
-In-Reply-To: <504F5CF4.1040202@parallels.com>
+Received: from hotel311.server4you.de ([85.25.146.15]:60256 "EHLO
+	hotel311.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756109Ab2IKQ0V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 12:26:21 -0400
+In-Reply-To: <1347380774-9546-1-git-send-email-wagi@monom.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 11 Sep 2012 19:47:00 +0400
-Pavel Emelyanov <xemul@parallels.com> wrote:
+From: Daniel Wagner <daniel.wagner@bmw-carit.de>
 
-> This functionality is required by checkpoint-restore project. Since the
-> dump and restore for routes is already done in ip tool it's naturally to
-> dump and restore addresses in the ip tool as well.
-> 
-> The implementation logic is the same as for the respective one for routes.
-> The magic number digits are taken from the Seattle coordinates.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+task_netprioidx() should not be defined in case the configuration is
+CONFIG_NETPRIO_CGROUP=n. The reason is that in a following patch the
+net_prio_subsys_id will only be defined if CONFIG_NETPRIO_CGROUP!=n.
+When net_prio is not built at all any callee should only get an empty
+task_netprioidx() without any references to net_prio_subsys_id.
 
-Applied.
+Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
+Cc: Gao feng <gaofeng@cn.fujitsu.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>
+Cc: Li Zefan <lizefan@huawei.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: Tejun Heo <tj@kernel.org>
+Cc: netdev@vger.kernel.org
+Cc: cgroups@vger.kernel.org
+---
+ include/net/netprio_cgroup.h | 12 +++++-------
+ net/core/sock.c              |  2 ++
+ 2 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/netprio_cgroup.h b/include/net/netprio_cgroup.h
+index 2719dec..b202de8 100644
+--- a/include/net/netprio_cgroup.h
++++ b/include/net/netprio_cgroup.h
+@@ -18,14 +18,13 @@
+ #include <linux/rcupdate.h>
+ 
+ 
++#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
+ struct netprio_map {
+ 	struct rcu_head rcu;
+ 	u32 priomap_len;
+ 	u32 priomap[];
+ };
+ 
+-#ifdef CONFIG_CGROUPS
+-
+ struct cgroup_netprio_state {
+ 	struct cgroup_subsys_state css;
+ 	u32 prioidx;
+@@ -71,18 +70,17 @@ static inline u32 task_netprioidx(struct task_struct *p)
+ 	rcu_read_unlock();
+ 	return idx;
+ }
++#endif
+ 
+-#else
++#else /* !CONFIG_NETPRIO_CGROUP */
+ 
+ static inline u32 task_netprioidx(struct task_struct *p)
+ {
+ 	return 0;
+ }
+ 
+-#endif /* CONFIG_NETPRIO_CGROUP */
+-
+-#else
+ #define sock_update_netprioidx(sk, task)
+-#endif
++
++#endif /* CONFIG_NETPRIO_CGROUP */
+ 
+ #endif  /* _NET_CLS_CGROUP_H */
+diff --git a/net/core/sock.c b/net/core/sock.c
+index a2af5ef..a1f1c02 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1237,6 +1237,7 @@ void sock_update_classid(struct sock *sk)
+ EXPORT_SYMBOL(sock_update_classid);
+ #endif
+ 
++#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
+ void sock_update_netprioidx(struct sock *sk, struct task_struct *task)
+ {
+ 	if (in_interrupt())
+@@ -1246,6 +1247,7 @@ void sock_update_netprioidx(struct sock *sk, struct task_struct *task)
+ }
+ EXPORT_SYMBOL_GPL(sock_update_netprioidx);
+ #endif
++#endif
+ 
+ /**
+  *	sk_alloc - All socket objects are allocated here
+-- 
+1.7.12.315.g682ce8b
