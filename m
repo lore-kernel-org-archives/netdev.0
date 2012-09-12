@@ -1,62 +1,57 @@
-From: Aki Parviainen <aki.parviainen@iki.fi>
-Subject: Re: [PATCH] staging: r8712u: fix bug in r8712_recv_indicatepkt()
-Date: Wed, 12 Sep 2012 20:52:14 +0300
-Message-ID: <CAKNFNKoowxSsbkV_tsBDG1uZeuWBDxPQFQoHQZ2R2O7Y6hnrmA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [v2 PATCH 2/2] netprio_cgroup: Use memcpy instead of the
+ for-loop to copy priomap
+Date: Wed, 12 Sep 2012 13:58:44 -0400 (EDT)
+Message-ID: <20120912.135844.2128028507911988895.davem@davemloft.net>
+References: <20120912060747.11037.42623.stgit@srivatsabhat.in.ibm.com>
+	<20120912.034901.184817520125489015.davem@davemloft.net>
+	<505046A5.1050009@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: edumazet@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:53976 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760641Ab2ILRwQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 13:52:16 -0400
-Received: by lbbgj3 with SMTP id gj3so1347543lbb.19
-        for <netdev@vger.kernel.org>; Wed, 12 Sep 2012 10:52:14 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nhorman@tuxdriver.com, David.Laight@aculab.com,
+	john.r.fastabend@intel.com, gaofeng@cn.fujitsu.com,
+	eric.dumazet@gmail.com, mark.d.rustad@intel.com,
+	lizefan@huawei.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: srivatsa.bhat@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <505046A5.1050009@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->From: Eric Dumazet <edumazet@google.com>
->
->64bit arches have a buggy r8712u driver, let's fix it.
->
->skb->tail must be set properly or network stack behavior is undefined.
->
->Addresses https://bugzilla.redhat.com/show_bug.cgi?id=847525
->Addresses https://bugzilla.kernel.org/show_bug.cgi?id=45071
->
->Signed-off-by: Eric Dumazet <edumazet@google.com>
->Cc: Larry Finger <Larry.Finger@lwfinger.net>
->Cc: Dave Jones <davej@redhat.com>
->Cc: stable@vger.kernel.org [2.6.37+]
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Date: Wed, 12 Sep 2012 13:54:05 +0530
 
-Tested this patch on 64bit linux-3.6-rc5 & fixes problem for me. Thank
-you very much for fixing this very annoying & long time open bug!
+> On 09/12/2012 01:19 PM, David Miller wrote:
+>> From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+>> Date: Wed, 12 Sep 2012 11:37:47 +0530
+>> 
+>>> +		memcpy(new_priomap->priomap, old_priomap->priomap,
+>>> +			old_priomap->priomap_len *
+>>> +					sizeof(old_priomap->priomap[0]));
+>> 
+>> This argument indentation is ridiculous.  Try:
+>> 
+>> 		memcpy(new_priomap->priomap, old_priomap->priomap,
+>> 		       old_priomap->priomap_len *
+>> 		       sizeof(old_priomap->priomap[0]));
+>> 
+>> Using TABs exclusively for argumentat indentation is not the goal.
+>> 
+>> Rather, lining the arguments up properly so that they sit at the first
+>> column after the first line's openning parenthesis is what you should
+>> be trying to achieve.
+> 
+> OK, will fix it, thanks!
+> 
+>> 
+>> And ignoring whatever stylistic convention we may or may not have, I
+>> find it impossibly hard to believe that the code quoted above looks
+>> good even to you.
+>>
+> 
+> On second thoughts, I think the memcpy in this case will actually be worse
+> since it will copy the contents in chunks of smaller size than the for-loop.
 
-Tested-by: Aki Parviainen <aki.parviainen@iki.fi>
-
-Aki
-
->---
-> drivers/staging/rtl8712/recv_linux.c |    7 +------
-> 1 file changed, 1 insertion(+), 6 deletions(-)
->
->diff --git a/drivers/staging/rtl8712/recv_linux.c b/drivers/staging/rtl8712/recv_linux.c
->index 0e26d5f..495ee12 100644
->--- a/drivers/staging/rtl8712/recv_linux.c
->+++ b/drivers/staging/rtl8712/recv_linux.c
->@@ -117,13 +117,8 @@ void r8712_recv_indicatepkt(struct _adapter *padapter,
->  if (skb == NULL)
->  goto _recv_indicatepkt_drop;
->  skb->data = precv_frame->u.hdr.rx_data;
->-#ifdef NET_SKBUFF_DATA_USES_OFFSET
->- skb->tail = (sk_buff_data_t)(precv_frame->u.hdr.rx_tail -
->-     precv_frame->u.hdr.rx_head);
->-#else
->- skb->tail = (sk_buff_data_t)precv_frame->u.hdr.rx_tail;
->-#endif
->  skb->len = precv_frame->u.hdr.len;
->+ skb_set_tail_pointer(skb, skb->len);
->  if ((pattrib->tcpchk_valid == 1) && (pattrib->tcp_chkrpt == 1))
->  skb->ip_summed = CHECKSUM_UNNECESSARY;
->  else
+I meant just coding style wise, not semantically.
