@@ -1,63 +1,75 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v3 4/4] ipv6: use DST_* macro to set obselete
- field
-Date: Wed, 12 Sep 2012 09:40:31 +0200
-Message-ID: <1347435631.13103.691.camel@edumazet-glaptop>
-References: <504DFF90.3010802@6wind.com>
-	 <1347350987-8054-1-git-send-email-nicolas.dichtel@6wind.com>
-	 <1347350987-8054-5-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] ipv6: replace write lock with read lock when get route
+ info
+Date: Wed, 12 Sep 2012 09:45:07 +0200
+Message-ID: <1347435907.13103.693.camel@edumazet-glaptop>
+References: <1347427553-17781-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, davem@davemloft.net, sds@tycho.nsa.gov,
-	james.l.morris@oracle.com, eparis@parisplace.org, sri@us.ibm.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:51640 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752732Ab2ILHkg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 03:40:36 -0400
-In-Reply-To: <1347350987-8054-5-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:49840 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751654Ab2ILHpM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 03:45:12 -0400
+Received: by eekc1 with SMTP id c1so995768eek.19
+        for <netdev@vger.kernel.org>; Wed, 12 Sep 2012 00:45:11 -0700 (PDT)
+In-Reply-To: <1347427553-17781-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-09-11 at 10:09 +0200, Nicolas Dichtel wrote:
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+On Wed, 2012-09-12 at 13:25 +0800, roy.qing.li@gmail.com wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
+> 
+> geting route info does not write rt->rt6i_table, so replace
+> write lock with read lock
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 > ---
->  net/ipv6/route.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
+>  net/ipv6/route.c |    8 ++++----
+>  1 files changed, 4 insertions(+), 4 deletions(-)
 > 
 > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 561f249..0c6f132 100644
+> index 399613b..8be1d86 100644
 > --- a/net/ipv6/route.c
 > +++ b/net/ipv6/route.c
-> @@ -226,7 +226,7 @@ static struct rt6_info ip6_null_entry_template = {
->  	.dst = {
->  		.__refcnt	= ATOMIC_INIT(1),
->  		.__use		= 1,
-> -		.obsolete	= -1,
-> +		.obsolete	= DST_OBSOLETE_FORCE_CHK,
->  		.error		= -ENETUNREACH,
->  		.input		= ip6_pkt_discard,
->  		.output		= ip6_pkt_discard_out,
-> @@ -246,7 +246,7 @@ static struct rt6_info ip6_prohibit_entry_template = {
->  	.dst = {
->  		.__refcnt	= ATOMIC_INIT(1),
->  		.__use		= 1,
-> -		.obsolete	= -1,
-> +		.obsolete	= DST_OBSOLETE_FORCE_CHK,
->  		.error		= -EACCES,
->  		.input		= ip6_pkt_prohibit,
->  		.output		= ip6_pkt_prohibit_out,
-> @@ -261,7 +261,7 @@ static struct rt6_info ip6_blk_hole_entry_template = {
->  	.dst = {
->  		.__refcnt	= ATOMIC_INIT(1),
->  		.__use		= 1,
-> -		.obsolete	= -1,
-> +		.obsolete	= DST_OBSOLETE_FORCE_CHK,
->  		.error		= -EINVAL,
->  		.input		= dst_discard,
->  		.output		= dst_discard,
+> @@ -1837,7 +1837,7 @@ static struct rt6_info *rt6_get_route_info(struct net *net,
+>  	if (!table)
+>  		return NULL;
+>  
+> -	write_lock_bh(&table->tb6_lock);
+> +	read_lock_bh(&table->tb6_lock);
+>  	fn = fib6_locate(&table->tb6_root, prefix ,prefixlen, NULL, 0);
+>  	if (!fn)
+>  		goto out;
+> @@ -1853,7 +1853,7 @@ static struct rt6_info *rt6_get_route_info(struct net *net,
+>  		break;
+>  	}
+>  out:
+> -	write_unlock_bh(&table->tb6_lock);
+> +	read_unlock_bh(&table->tb6_lock);
+>  	return rt;
+>  }
+>  
+> @@ -1896,7 +1896,7 @@ struct rt6_info *rt6_get_dflt_router(const struct in6_addr *addr, struct net_dev
+>  	if (!table)
+>  		return NULL;
+>  
+> -	write_lock_bh(&table->tb6_lock);
+> +	read_lock_bh(&table->tb6_lock);
+>  	for (rt = table->tb6_root.leaf; rt; rt=rt->dst.rt6_next) {
+>  		if (dev == rt->dst.dev &&
+>  		    ((rt->rt6i_flags & (RTF_ADDRCONF | RTF_DEFAULT)) == (RTF_ADDRCONF | RTF_DEFAULT)) &&
+> @@ -1905,7 +1905,7 @@ struct rt6_info *rt6_get_dflt_router(const struct in6_addr *addr, struct net_dev
+>  	}
+>  	if (rt)
+>  		dst_hold(&rt->dst);
+> -	write_unlock_bh(&table->tb6_lock);
+> +	read_unlock_bh(&table->tb6_lock);
+>  	return rt;
+>  }
+>  
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Why dont you also change addrconf_get_prefix_route() ?
