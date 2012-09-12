@@ -1,134 +1,62 @@
-From: Dave Airlie <airlied@gmail.com>
-Subject: Re: [REVIEW][PATCH 12/15] userns: Convert drm to use kuid and kgid
- and struct pid where appropriate
-Date: Thu, 13 Sep 2012 11:31:36 +1000
-Message-ID: <CAPM=9ty=0=+w8VaFC9QhajUkYwmym_JaWR9sbwmgw5tCKg5nGw@mail.gmail.com>
-References: <87lih2h6i4.fsf@xmission.com>
-	<87mx1iecwi.fsf@xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	David Miller <davem@davemloft.net>,
-	David Airlie <airlied@linux.ie>,
-	dri-devel@lists.freedesktop.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+From: Craig Hada <craig.hada@hp.com>
+Subject: [PATCH net-next] drivers/net: Enable IOMMU pass through for be2net
+Date: Wed, 12 Sep 2012 10:58:53 -0700
+Message-ID: <1347472734-3196-1-git-send-email-craig.hada@hp.com>
+Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
+	ajit.khaparde@emulex.com, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org, craig.hada@hp.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87mx1iecwi.fsf@xmission.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Blink Blink this had not been converted to use struct pid ages ago?
->
-> - On drm open capture the openers kuid and struct pid.
-> - On drm close release the kuid and struct pid
-> - When reporting the uid and pid convert the kuid and struct pid
->   into values in the appropriate namespace.
->
+This patch sets the coherent DMA mask to 64-bit after the be2net driver
+has been acknowledged that the system is 64-bit DMA capable. The coherent
+DMA mask is examined by the Intel IOMMU driver to determine whether to
+allow pass through context mapping for all devices. With this patch, the
+be2net driver combined with be2net compatible hardware provides
+comparable performance to the case where vt-d is disabled. The main use
+case for this change is to decrease the time necessary to copy virtual
+machine memory during KVM live migration instantiations.
 
-Hi Eric,
+This patch was tested on a system that enables the IOMMU in non-coherent
+mode. Two DMA remapper issues were encountered and both are in the Intel
+IOMMU driver with the following patches submitted upstream but not yet
+commited.
 
-I'm fine with this seems okay, do you want me to merge it via drm-next?
+Patch 1 - DMAR:[fault reason 02] Present bit in context entry is clear
+https://lkml.org/lkml/2012/6/15/20
 
-Dave.
+Patch 2 - DMAR:[fault reason 02] Present bit in context entry is clear
+https://lkml.org/lkml/2011/11/11/279
 
-> Cc: David Airlie <airlied@linux.ie>
-> Cc: dri-devel@lists.freedesktop.org
-> Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-> ---
->  drivers/gpu/drm/drm_fops.c  |    3 ++-
->  drivers/gpu/drm/drm_info.c  |    5 +++--
->  drivers/gpu/drm/drm_ioctl.c |    4 ++--
->  include/drm/drmP.h          |    4 ++--
->  init/Kconfig                |    1 -
->  5 files changed, 9 insertions(+), 8 deletions(-)
->
-> diff --git a/drivers/gpu/drm/drm_fops.c b/drivers/gpu/drm/drm_fops.c
-> index 5062eec..433d2fa 100644
-> --- a/drivers/gpu/drm/drm_fops.c
-> +++ b/drivers/gpu/drm/drm_fops.c
-> @@ -251,7 +251,7 @@ static int drm_open_helper(struct inode *inode, struct file *filp,
->         filp->private_data = priv;
->         priv->filp = filp;
->         priv->uid = current_euid();
-> -       priv->pid = task_pid_nr(current);
-> +       priv->pid = get_pid(task_pid(current));
->         priv->minor = idr_find(&drm_minors_idr, minor_id);
->         priv->ioctl_count = 0;
->         /* for compatibility root is always authenticated */
-> @@ -524,6 +524,7 @@ int drm_release(struct inode *inode, struct file *filp)
->         if (drm_core_check_feature(dev, DRIVER_PRIME))
->                 drm_prime_destroy_file_private(&file_priv->prime);
->
-> +       put_pid(file_priv->pid);
->         kfree(file_priv);
->
->         /* ========================================================
-> diff --git a/drivers/gpu/drm/drm_info.c b/drivers/gpu/drm/drm_info.c
-> index 8928edb..eb0af39 100644
-> --- a/drivers/gpu/drm/drm_info.c
-> +++ b/drivers/gpu/drm/drm_info.c
-> @@ -191,8 +191,9 @@ int drm_clients_info(struct seq_file *m, void *data)
->                 seq_printf(m, "%c %3d %5d %5d %10u %10lu\n",
->                            priv->authenticated ? 'y' : 'n',
->                            priv->minor->index,
-> -                          priv->pid,
-> -                          priv->uid, priv->magic, priv->ioctl_count);
-> +                          pid_vnr(priv->pid),
-> +                          from_kuid_munged(seq_user_ns(m), priv->uid),
-> +                          priv->magic, priv->ioctl_count);
->         }
->         mutex_unlock(&dev->struct_mutex);
->         return 0;
-> diff --git a/drivers/gpu/drm/drm_ioctl.c b/drivers/gpu/drm/drm_ioctl.c
-> index 64a62c6..39a4383 100644
-> --- a/drivers/gpu/drm/drm_ioctl.c
-> +++ b/drivers/gpu/drm/drm_ioctl.c
-> @@ -215,8 +215,8 @@ int drm_getclient(struct drm_device *dev, void *data,
->         list_for_each_entry(pt, &dev->filelist, lhead) {
->                 if (i++ >= idx) {
->                         client->auth = pt->authenticated;
-> -                       client->pid = pt->pid;
-> -                       client->uid = pt->uid;
-> +                       client->pid = pid_vnr(pt->pid);
-> +                       client->uid = from_kuid_munged(current_user_ns(), pt->uid);
->                         client->magic = pt->magic;
->                         client->iocs = pt->ioctl_count;
->                         mutex_unlock(&dev->struct_mutex);
-> diff --git a/include/drm/drmP.h b/include/drm/drmP.h
-> index d6b67bb..9bc5c6a 100644
-> --- a/include/drm/drmP.h
-> +++ b/include/drm/drmP.h
-> @@ -426,8 +426,8 @@ struct drm_prime_file_private {
->  /** File private data */
->  struct drm_file {
->         int authenticated;
-> -       pid_t pid;
-> -       uid_t uid;
-> +       struct pid *pid;
-> +       kuid_t uid;
->         drm_magic_t magic;
->         unsigned long ioctl_count;
->         struct list_head lhead;
-> diff --git a/init/Kconfig b/init/Kconfig
-> index d849ba2..2a388e5 100644
-> --- a/init/Kconfig
-> +++ b/init/Kconfig
-> @@ -930,7 +930,6 @@ config UIDGID_CONVERTED
->         depends on FS_POSIX_ACL = n
->         depends on QUOTA = n
->         depends on QUOTACTL = n
-> -       depends on DRM = n
->
->         # Networking
->         depends on NET_9P = n
-> --
-> 1.7.5.4
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+The performance of this patch was measured with netperf with vt-d
+enabled and disabled along with kernel boot parameters intel_iommu
+and iommu. Netperf was run 3 times and averaged for each configuration
+of vt-d and boot parameters. The command and parameters used in the
+netperf runs along with results are as follows:
+
+# netperf -c -p 12865 -H 10.10.0.2 -t TCP_STREAM -l 60
+
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   us/KB
+
+vt-d enabled and intel-iommu=on
+ 87380  16384  16384    60.0       3634.29   16.76    -1.00    2.267   -1.000
+
+vt-d enabled
+ 87380  16384  16384    60.00      6779.01   6.77     -1.00    0.489   -1.000
+
+vt-d disabled
+ 87380  16384  16384    60.00      6807.70   7.00     -1.00    0.505   -1.000
+
+vt-d enabled and intel_iommu=on and iommu=pt
+ 87380  16384  16384    60.00      6849.93   7.19     -1.00    0.516   -1.000
+
+
+Craig Hada (1):
+  drivers/net: Enable IOMMU pass through for be2net
+
+ drivers/net/ethernet/emulex/benet/be_main.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
