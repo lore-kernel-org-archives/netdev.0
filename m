@@ -1,84 +1,97 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCHv4] virtio-spec: virtio network device multiqueue support
-Date: Wed, 12 Sep 2012 07:40:50 -0700
-Message-ID: <CA+mtBx9NB=t=3YAB=MdRY_6hMe9J=z4U9o-pPe3iYfmxkeKJRw@mail.gmail.com>
-References: <20120909130308.GA3471@redhat.com>
-	<878vcifwxi.fsf@rustcorp.com.au>
-	<20120910061629.GC16819@redhat.com>
-	<20120910062738.GA17331@redhat.com>
-	<20120910063346.GA17338@redhat.com>
-	<504DC831.1000709@redhat.com>
-	<87har3dc4o.fsf@rustcorp.com.au>
-	<20120912075737.GA30455@redhat.com>
+From: Shlomo Pongartz <shlomop@mellanox.com>
+Subject: Re: GRO aggregation
+Date: Wed, 12 Sep 2012 17:41:52 +0300
+Message-ID: <50509F30.30402@mellanox.com>
+References: <504F4063.9030706@mellanox.com>  ,<1347388396.13103.658.camel@edumazet-glaptop>  <36F7E4A28C18BE4DB7C86058E7B607241E622022@MTRDAG01.mtl.com>  ,<1347390113.13103.660.camel@edumazet-glaptop>  <36F7E4A28C18BE4DB7C86058E7B607241E622083@MTRDAG01.mtl.com>  <1347392132.13103.663.camel@edumazet-glaptop>  <505054AE.9040901@mellanox.com> <1347442394.13103.703.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Jason Wang <jasowang@redhat.com>, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	pbonzini@redhat.com, levinsasha928@gmail.com, rick.jones2@hp.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20120912075737.GA30455@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:40063 "HELO
+	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752157Ab2ILOql (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 10:46:41 -0400
+In-Reply-To: <1347442394.13103.703.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 12, 2012 at 12:57 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> On Wed, Sep 12, 2012 at 03:19:11PM +0930, Rusty Russell wrote:
->> Jason Wang <jasowang@redhat.com> writes:
->> > On 09/10/2012 02:33 PM, Michael S. Tsirkin wrote:
->> >> A final addition: what you suggest above would be
->> >> "TX follows RX", right?
+On 9/12/2012 12:33 PM, Eric Dumazet wrote:
+> On Wed, 2012-09-12 at 12:23 +0300, Shlomo Pongartz wrote:
+>> On 9/11/2012 10:35 PM, Eric Dumazet wrote:
+>>> On Tue, 2012-09-11 at 19:24 +0000, Shlomo Pongratz wrote:
+>>>
+>>>> I see that in ixgbe the weight for the NAPI is 64 (netif_napi_add). So
+>>>> if packets are arriving in high rate then an the CPU is fast enough to
+>>>> collect the packets as they arrive, assuming packets continue to
+>>>> arrives while the NAPI runs. Then it should have aggregate more. So we
+>>>> will have less passes trough the stack.
+>>>>
+>>> As I said, _if_ your cpu was loaded by other stuff, then you would see
+>>> biggest GRO packets.
+>>>
+>>> GRO is not : "We want to kill latency and have big packets just because
+>>> its better"
+>>>
+>>> Its more like : If load is big enough, try to aggregate TCP frames in
+>>> less skbs.
+>>>
+>>>
+>>>
+>>>
+>> First I want to apologize for breaking the mailing thread. I wasn't at
+>> work and used webmail.
 >>
->> BTW, yes.  But it's a weird way to express what the nic is doing.
+>> I agree with your but I think that something is still strange.
+>> On the transmitter side all the offloading are enabled, e.g. TSO and GSO.
+>> The tcpdump on the sender side shows size of 64240 which is 44 packets
+>> of 1460 each.
+>> Now since the offloading are enabled the HW should transmit 44 frames
+>> back to back,
+>> that is in a burst of 44 * 1500 bytes, which according to my calculation
+>> should take 52.8 micro on 10G Ethernet.
+>> Using ethtool I've set the rx-usecs to 1022 micro, which I think is the
+>> maximal value for ixgbe.
+>> Note that there is no way to set rx-frames on ixgbe.
+>> Now since the ixgbe weight is 64 I expected that the NAPI will be able
+>> to poll for more then 21 packets,
+>> since 44 packets came in one burst.
+>> However the results remains the same.
+> TSO uses PAGE frags, so 64KB needs about 16 pages.
 >
-> It explains what the system is doing.
-> TX is done by driver, RX by nic.
-> We document both driver and device in the spec
-> so I thought it's fine. any suggestions wellcome.
+> tcp_sendmsg() could even use order-3 pages, so that only 2 pages would
+> be needed to fill 64KB of data.
 >
->> >> It is in anticipation of something like that, that I made
->> >> steering programming so generic.
->>
->> >> I think TX follows RX is more immediately useful for reasons above
->> >> but we can add both to spec and let drivers and devices
->> >> decide what they want to support.
->>
->> You mean "RX follows TX"?  ie. accelerated RFS.  I agree.
+> GRO uses whatever fragment size provided by NIC, depending on MTU.
 >
-RX following TX is logic of flow director I believe.  {a}RFS has RX
-follow CPU where application receive is done on the socket.  So in RFS
-there is no requirement to have a 1-1 correspondence between TX and RX
-queues, and in fact this allows different number of queues between TX
-and RX.  We found this necessary when using priority HW queues, so
-that there are more TX queues than RX.
+> One skb has a limit on number of frags.
+>
+> Handling a huge array of frags would be actually slower in some helper
+> functions.
+>
+> Since you dont exactly describe why you ask all these questions, its
+> hard to guess what problem you try to solve.
+>
+>
+>
+> .
+>
+Hi Eric
 
->
-> Yes that's what I meant. Thanks for the correction.
->
->> Perhaps Tom can explain how we avoid out-of-order receive for the
->> accelerated RFS case?  It's not clear to me, but we need to be able to
->> do that for virtio-net if it implements accelerated RFS.
->
-AFAIK ooo RX is still possible with accelerated RFS.  We have an
-algorithm that prevents this for RFS by deferring a migration to a new
-queue as long as it's possible that a flow might have outstanding
-packets on the old queue.  I suppose this could be implemented in the
-device for the HW queues, but I don't think it would be easy to cover
-all cases where packets were already in transit to the host or other
-cases where host and device queues are out of sync.
+The TSO is just a mean to create a burst of frames on the wire so the 
+NAPI will be able to pool as much as possible.
+I'm looking on the aggregation done by GRO on behalf of IPoIB. With 
+IPoIB I added a counter that counts how many
+packets were aggregated before napi_complete is called (ether directly 
+or by net_rx_action) and found that although
+the NAPI consumes 64 packets on average before napi_complete is called, 
+the tcpdump shows  that no more then 16-17
+packets were aggregated. BTW when I increased the MTU  to 4K I did 
+reached 64K aggregation which again is 16-17 packets.
+So in order to see if 17 packets is the aggregation limit I  wanted to 
+see how ixgbe is doing and found that it aggregates 21 packets.
+So I wanted to know if there is another factor that governs the 
+aggregation, one that I can tune.
 
-> Basically this has tx vq per cpu and relies on scheduler not bouncing threads
-> between cpus too aggressively. Appears to be what ixgbe does.
->
->> > AFAIK, ixgbe does "rx follows tx". The only differences between ixgbe
->> > and virtio-net is that ixgbe driver programs the flow director during
->> > packet transmission but we suggest to do it silently in the device for
->> > simplicity.
->>
->> Implying the receive queue by xmit will be slightly laggy.  Don't know
->> if that's a problem.
->>
->> Cheers,
->> Rusty.
->
-> Doesn't seem to be a problem in Jason's testing so far.
+Shlomo.
