@@ -1,64 +1,59 @@
-From: Naresh Kumar Inna <naresh@chelsio.com>
-Subject: Re: [V3 PATCH 9/9] cxgb4vf: Chelsio FCoE offload driver submission
- (header compatibility fixes).
-Date: Wed, 12 Sep 2012 11:57:06 +0530
-Message-ID: <50502B3A.6080803@chelsio.com>
-References: <1347374347-3852-10-git-send-email-naresh@chelsio.com> <20120911.133321.282568248903907762.davem@davemloft.net> <50501F1A.6040905@chelsio.com> <20120912.014746.636228439025755624.davem@davemloft.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCHv4] virtio-spec: virtio network device multiqueue support
+Date: Wed, 12 Sep 2012 15:19:11 +0930
+Message-ID: <87har3dc4o.fsf@rustcorp.com.au>
+References: <20120909130308.GA3471@redhat.com> <878vcifwxi.fsf@rustcorp.com.au>
+	<20120910061629.GC16819@redhat.com>
+	<20120910062738.GA17331@redhat.com>
+	<20120910063346.GA17338@redhat.com> <504DC831.1000709@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "JBottomley@parallels.com" <JBottomley@parallels.com>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	Dimitrios Michailidis <dm@chelsio.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Chethan Seshadri <chethan@chelsio.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:6238 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753876Ab2ILG1W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 02:27:22 -0400
-In-Reply-To: <20120912.014746.636228439025755624.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, rick.jones2@hp.com,
+	virtualization@lists.linux-foundation.org,
+	levinsasha928@gmail.com, pbonzini@redhat.com,
+	Tom Herbert <therbert@google.com>
+To: Jason Wang <jasowang@redhat.com>, "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <504DC831.1000709@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 9/12/2012 11:17 AM, David Miller wrote:
-> From: Naresh Kumar Inna <naresh@chelsio.com>
-> Date: Wed, 12 Sep 2012 11:05:22 +0530
-> 
->> On 9/11/2012 11:03 PM, David Miller wrote:
->>> From: Naresh Kumar Inna <naresh@chelsio.com>
->>> Date: Tue, 11 Sep 2012 20:09:07 +0530
->>>
->>>> This patch contains minor fixes to make cxgb4vf driver work with the updates to
->>>> shared firmware/hardware header files.
->>>>
->>>> Signed-off-by: Naresh Kumar Inna <naresh@chelsio.com>
->>>
->>> You cannot submit a patch set that isn't bisectable, and in particular
->>> create a situation that mid-way through your patch set things do not
->>> build or operate correctly.
->>>
->>
->> Sorry, I am new to this process. The reason I did that was because I was
->> not sure if I could create a single patch with both cxgb4 and cxgb4vf
->> files in it, since they are two different subsystems. If I could do
->> that, the single patch then would build on its own, and not be dependent
->> on the other patches in the series. Is that something I can do?
-> 
-> I don't know how else to say this, every step along the way the tree
-> has to build.  You arrange the patches however necessary to achieve
-> that goal.
-> 
+Jason Wang <jasowang@redhat.com> writes:
+> On 09/10/2012 02:33 PM, Michael S. Tsirkin wrote:
+>> A final addition: what you suggest above would be
+>> "TX follows RX", right?
 
-OK, I think I should be able to arrange the patch set to fulfill that
-requirement. I was under the impression it was fine for new drivers to
-split patches in this fashion, since they go as a single commit, sorry
-about that.
+BTW, yes.  But it's a weird way to express what the nic is doing.
 
-As for a single patch with both cxgb4 and cxgb4vf changes, I assume it
-is OK for the commit log to start with "cxgb4/cxgb4vf:..."?
+>> It is in anticipation of something like that, that I made
+>> steering programming so generic.
 
-Thanks,
-Naresh.
+>> I think TX follows RX is more immediately useful for reasons above
+>> but we can add both to spec and let drivers and devices
+>> decide what they want to support.
+
+You mean "RX follows TX"?  ie. accelerated RFS.  I agree.
+
+Perhaps Tom can explain how we avoid out-of-order receive for the
+accelerated RFS case?  It's not clear to me, but we need to be able to
+do that for virtio-net if it implements accelerated RFS.
+
+> AFAIK, ixgbe does "rx follows tx". The only differences between ixgbe 
+> and virtio-net is that ixgbe driver programs the flow director during 
+> packet transmission but we suggest to do it silently in the device for 
+> simplicity.
+
+Implying the receive queue by xmit will be slightly laggy.  Don't know
+if that's a problem.
+
+Cheers,
+Rusty.
