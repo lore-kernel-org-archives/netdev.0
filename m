@@ -1,43 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [v2 PATCH 2/2] netprio_cgroup: Use memcpy instead of the
- for-loop to copy priomap
-Date: Wed, 12 Sep 2012 03:49:01 -0400 (EDT)
-Message-ID: <20120912.034901.184817520125489015.davem@davemloft.net>
-References: <20120912060741.11037.37347.stgit@srivatsabhat.in.ibm.com>
-	<20120912060747.11037.42623.stgit@srivatsabhat.in.ibm.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv4] virtio-spec: virtio network device multiqueue support
+Date: Wed, 12 Sep 2012 10:57:37 +0300
+Message-ID: <20120912075737.GA30455@redhat.com>
+References: <20120909130308.GA3471@redhat.com> <878vcifwxi.fsf@rustcorp.com.au>
+	<20120910061629.GC16819@redhat.com>
+	<20120910062738.GA17331@redhat.com>
+	<20120910063346.GA17338@redhat.com> <504DC831.1000709@redhat.com>
+	<87har3dc4o.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, David.Laight@aculab.com,
-	john.r.fastabend@intel.com, gaofeng@cn.fujitsu.com,
-	eric.dumazet@gmail.com, mark.d.rustad@intel.com,
-	lizefan@huawei.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: srivatsa.bhat@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120912060747.11037.42623.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, rick.jones2@hp.com,
+	virtualization@lists.linux-foundation.org,
+	levinsasha928@gmail.com, pbonzini@redhat.com,
+	Tom Herbert <therbert@google.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <87har3dc4o.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Date: Wed, 12 Sep 2012 11:37:47 +0530
+On Wed, Sep 12, 2012 at 03:19:11PM +0930, Rusty Russell wrote:
+> Jason Wang <jasowang@redhat.com> writes:
+> > On 09/10/2012 02:33 PM, Michael S. Tsirkin wrote:
+> >> A final addition: what you suggest above would be
+> >> "TX follows RX", right?
+> 
+> BTW, yes.  But it's a weird way to express what the nic is doing.
 
-> +		memcpy(new_priomap->priomap, old_priomap->priomap,
-> +			old_priomap->priomap_len *
-> +					sizeof(old_priomap->priomap[0]));
+It explains what the system is doing.
+TX is done by driver, RX by nic.
+We document both driver and device in the spec
+so I thought it's fine. any suggestions wellcome.
 
-This argument indentation is ridiculous.  Try:
+> >> It is in anticipation of something like that, that I made
+> >> steering programming so generic.
+> 
+> >> I think TX follows RX is more immediately useful for reasons above
+> >> but we can add both to spec and let drivers and devices
+> >> decide what they want to support.
+> 
+> You mean "RX follows TX"?  ie. accelerated RFS.  I agree.
 
-		memcpy(new_priomap->priomap, old_priomap->priomap,
-		       old_priomap->priomap_len *
-		       sizeof(old_priomap->priomap[0]));
 
-Using TABs exclusively for argumentat indentation is not the goal.
+Yes that's what I meant. Thanks for the correction.
 
-Rather, lining the arguments up properly so that they sit at the first
-column after the first line's openning parenthesis is what you should
-be trying to achieve.
+> Perhaps Tom can explain how we avoid out-of-order receive for the
+> accelerated RFS case?  It's not clear to me, but we need to be able to
+> do that for virtio-net if it implements accelerated RFS.
 
-And ignoring whatever stylistic convention we may or may not have, I
-find it impossibly hard to believe that the code quoted above looks
-good even to you.
+Basically this has tx vq per cpu and relies on scheduler not bouncing threads
+between cpus too aggressively. Appears to be what ixgbe does.
+
+> > AFAIK, ixgbe does "rx follows tx". The only differences between ixgbe 
+> > and virtio-net is that ixgbe driver programs the flow director during 
+> > packet transmission but we suggest to do it silently in the device for 
+> > simplicity.
+> 
+> Implying the receive queue by xmit will be slightly laggy.  Don't know
+> if that's a problem.
+> 
+> Cheers,
+> Rusty.
+
+Doesn't seem to be a problem in Jason's testing so far.
