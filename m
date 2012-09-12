@@ -1,55 +1,49 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [v2 PATCH 2/2] netprio_cgroup: Use memcpy instead of the for-loop
- to copy priomap
-Date: Wed, 12 Sep 2012 13:54:05 +0530
-Message-ID: <505046A5.1050009@linux.vnet.ibm.com>
-References: <20120912060741.11037.37347.stgit@srivatsabhat.in.ibm.com> <20120912060747.11037.42623.stgit@srivatsabhat.in.ibm.com> <20120912.034901.184817520125489015.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, David.Laight@aculab.com,
-	john.r.fastabend@intel.com, gaofeng@cn.fujitsu.com,
-	eric.dumazet@gmail.com, mark.d.rustad@intel.com,
-	lizefan@huawei.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120912.034901.184817520125489015.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH net-next 0/1] Add support of ECMPv6
+Date: Wed, 12 Sep 2012 10:29:56 +0200
+Message-ID: <1347438597-4233-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <87a9x3vxzp.fsf@guybrush.luffy.cx>
+To: bernat@luffy.cx, netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:41400 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751596Ab2ILI3d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 04:29:33 -0400
+In-Reply-To: <87a9x3vxzp.fsf@guybrush.luffy.cx>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/12/2012 01:19 PM, David Miller wrote:
-> From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-> Date: Wed, 12 Sep 2012 11:37:47 +0530
-> 
->> +		memcpy(new_priomap->priomap, old_priomap->priomap,
->> +			old_priomap->priomap_len *
->> +					sizeof(old_priomap->priomap[0]));
-> 
-> This argument indentation is ridiculous.  Try:
-> 
-> 		memcpy(new_priomap->priomap, old_priomap->priomap,
-> 		       old_priomap->priomap_len *
-> 		       sizeof(old_priomap->priomap[0]));
-> 
-> Using TABs exclusively for argumentat indentation is not the goal.
-> 
-> Rather, lining the arguments up properly so that they sit at the first
-> column after the first line's openning parenthesis is what you should
-> be trying to achieve.
+Here is a proposal to add the support of ECMPv6. The previous patch
+from Vincent against iproute2 can be used, but a little other patch is needed
+too:
 
-OK, will fix it, thanks!
+diff --git a/ip/iproute.c b/ip/iproute.c
+index 2fe44b3..b71f150 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -693,8 +693,10 @@ int parse_nexthops(struct nlmsghdr *n, struct rtmsg *r, int argc, char **argv)
+ 		rtnh = RTNH_NEXT(rtnh);
+ 	}
+ 
+-	if (rta->rta_len > RTA_LENGTH(0))
++	if (rta->rta_len > RTA_LENGTH(0)) {
+ 		addattr_l(n, 1024, RTA_MULTIPATH, RTA_DATA(rta), RTA_PAYLOAD(rta));
++		n->nlmsg_flags &= ~NLM_F_EXCL;
++	}
+ 	return 0;
+ }
+ 
 
-> 
-> And ignoring whatever stylistic convention we may or may not have, I
-> find it impossibly hard to believe that the code quoted above looks
-> good even to you.
->
+If the kernel patch is approved, I will submit formally the patch for
+iproute2.
 
-On second thoughts, I think the memcpy in this case will actually be worse
-since it will copy the contents in chunks of smaller size than the for-loop.
+Here is an example of a command to add an ECMP route:
+$ ip -6 route add 3ffe:304:124:2306::/64 \
+	nexthop via fe80::230:1bff:feb4:e05c dev eth0 weight 1 \
+	nexthop via fe80::230:1bff:feb4:dd4f dev eth0 weight 1
 
-Or, did you mean to say that this code is plain wrong for some reason?
+Comments are welcome.
 
 Regards,
-Srivatsa S. Bhat
+Nicolas
