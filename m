@@ -1,119 +1,86 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH V3 0/8] ipvs: IPv6 fragment handling for IPVS
-Date: Thu, 13 Sep 2012 01:57:27 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1209130143410.1653@ja.ssi.bg>
-References: <20120911123531.4305.40304.stgit@dragon>
+From: "Nishank Trivedi (nistrive)" <nistrive@cisco.com>
+Subject: Re: [PATCH] pktgen: fix crash with vlan and packet size less than 46
+Date: Wed, 12 Sep 2012 23:33:27 +0000
+Message-ID: <CC7669CD.21FEF%nistrive@cisco.com>
+References: <1347492769-32409-1-git-send-email-nistrive@cisco.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Hans Schillstrom <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	lvs-devel@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	netfilter-devel@vger.kernel.org, Simon Horman <horms@verge.net.au>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20120911123531.4305.40304.stgit@dragon>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Christian Benvenuti (benve)" <benve@cisco.com>
+To: "Nishank Trivedi (nistrive)" <nistrive@cisco.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcdn-iport-9.cisco.com ([173.37.86.80]:44804 "EHLO
+	rcdn-iport-9.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933148Ab2ILXnD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 19:43:03 -0400
+Received: from xhc-rcd-x02.cisco.com (xhc-rcd-x02.cisco.com [173.37.183.76])
+	by rcdn-core-5.cisco.com (8.14.5/8.14.5) with ESMTP id q8CNXSv3014083
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=FAIL)
+	for <netdev@vger.kernel.org>; Wed, 12 Sep 2012 23:33:28 GMT
+In-Reply-To: <1347492769-32409-1-git-send-email-nistrive@cisco.com>
+Content-Language: en-US
+Content-ID: <07F0092A037DF5429A9A47A33BBC87E0@cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Alternatively, instead of checking for datalen this late, one can also
+impose a condition that pkt_size input must be at least 64. Within module,
+I see various values hard-coded for UDP over ethernet, but not sure why
+pkt_size is not rounded off to 64.
+
+Thanks,
+Nishank
 
 
-	Hello,
 
-On Tue, 11 Sep 2012, Jesper Dangaard Brouer wrote:
 
-> The following patchset implement IPv6 fragment handling for IPVS.
+On 9/12/12 4:32 PM, "Nishank Trivedi (nistrive)" <nistrive@cisco.com>
+wrote:
+
+>If vlan option is being specified in the pktgen and packet size
+>being requested is less than 46 bytes, despite being illogical
+>request, pktgen should not crash the kernel.
+>
+>BUG: unable to handle kernel paging request at ffff88021fb82000
+>Process kpktgend_0 (pid: 1184, threadinfo ffff880215f1a000, task
+>ffff880218544530)
+>Call Trace:
+>[<ffffffffa0637cd2>] ? pktgen_finalize_skb+0x222/0x300 [pktgen]
+>[<ffffffff814f0084>] ? build_skb+0x34/0x1c0
+>[<ffffffffa0639b11>] pktgen_thread_worker+0x5d1/0x1790 [pktgen]
+>[<ffffffffa03ffb10>] ? igb_xmit_frame_ring+0xa30/0xa30 [igb]
+>[<ffffffff8107ba20>] ? wake_up_bit+0x40/0x40
+>[<ffffffff8107ba20>] ? wake_up_bit+0x40/0x40
+>[<ffffffffa0639540>] ? spin+0x240/0x240 [pktgen]
+>[<ffffffff8107b4e3>] kthread+0x93/0xa0
+>[<ffffffff81615de4>] kernel_thread_helper+0x4/0x10
+>[<ffffffff8107b450>] ? flush_kthread_worker+0x80/0x80
+>[<ffffffff81615de0>] ? gs_change+0x13/0x13
+>
+>The root cause of why pktgen is not able to handle this case is due
+>to comparison of signed (datalen) and unsigned data (sizeof), which
+>eventually passes a huge number to skb_put().
+>
+>Signed-off-by: Nishank Trivedi <nistrive@cisco.com>
+>---
+> net/core/pktgen.c | 2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+>index cce9e53..148e73d 100644
+>--- a/net/core/pktgen.c
+>+++ b/net/core/pktgen.c
+>@@ -2721,7 +2721,7 @@ static struct sk_buff *fill_packet_ipv4(struct
+>net_device *odev,
+> 	/* Eth + IPh + UDPh + mpls */
+> 	datalen = pkt_dev->cur_pkt_size - 14 - 20 - 8 -
+> 		  pkt_dev->pkt_overhead;
+>-	if (datalen < sizeof(struct pktgen_hdr))
+>+	if (datalen < 0 || datalen < sizeof(struct pktgen_hdr))
+> 		datalen = sizeof(struct pktgen_hdr);
 > 
-> This work is based upon patches from Hans Schillstrom.  I have taken
-> over the patchset, in close agreement with Hans, because he don't have
-> (gotten allocated) time to complete his work.
-> 
-> I have cleaned up the patchset significantly, and split the patchset
-> up into eight patches.
-> 
-> The first 4 patches, are ready to be merged
-> 
->  Patch01: Trivial changes, use compressed IPv6 address in output
->  Patch02: IPv6 extend ICMPv6 handling for future types
->  Patch03: Use config macro IS_ENABLED()
->  Patch04: Fix bug in IPVS IPv6 NAT mangling of ports inside ICMPv6 packets
-> 
-> The next 4 patches, I consider V3 of the patches I have submitted
-> earlier, where I have incorporated all of Julian's feedback.  I have
-> also tried to make the patches easier to review, by reorganizing the
-> changes, to be more strictly split (exthdr vs. fragment handling).
-> 
-> I have also removed the API changes, and moved those to patch07.  This
-> is done, (1) to make it easier to review the patches, and (2) to allow
-> easier integration of Patricks idea and my RFC patch of caching exthdr
-> info in skb->cb[].  Thus, we can get these patches applied (and later
-> go back and apply the caching scheme easier).
-> 
->  Patch05: Fix faulty IPv6 extension header handling in IPVS
->  Patch06: Complete IPv6 fragment handling for IPVS
->  Patch07: IPVS API change to avoid rescan of IPv6 exthdr
->  Patch08: IPVS SIP fragment handling
-> 
-> The SIP frag handling have been split into its own patch, as I have
-> not been able to test this part my self.
-> 
-> This patchset is based upon:
->   Pablo's nf-next tree:  git://1984.lsi.us.es/nf-next
->   On top of commit 0edd94887d19ad73539477395c17ea0d6898947a
-> 
-> ---
-> 
-> Jesper Dangaard Brouer (8):
->       ipvs: SIP fragment handling
->       ipvs: API change to avoid rescan of IPv6 exthdr
->       ipvs: Complete IPv6 fragment handling for IPVS
->       ipvs: Fix faulty IPv6 extension header handling in IPVS
->       ipvs: Fix bug in IPv6 NAT mangling of ports inside ICMPv6 packets
->       ipvs: Use config macro IS_ENABLED()
->       ipvs: IPv6 extend ICMPv6 handling for future types
->       ipvs: Trivial changes, use compressed IPv6 address in output
-
-	Some comments:
-
-- About patch 4: ip_vs_icmp_xmit_v6 already calls skb_make_writable
-before ip_vs_nat_icmp_v6, that is why we provide 'offset'.
-
-- May be we can provide the offset of ICMPv6 header
-from ip_vs_in_icmp_v6 to ip_vs_icmp_xmit_v6 as additional
-argument (icmp_offset) and then to ip_vs_nat_icmp_v6. By this
-way we can avoid the two ipv6_find_hdr calls if we also provide
-the iph argument from ip_vs_icmp_xmit_v6 to ip_vs_nat_icmp_v6,
-its ->len points to the ports. ip_vs_in_icmp_v6 provides
-also protocol in this ciph, so may be we have everything.
-
-- in ip_vs_in_icmp_v6 there must be 'offs_ciph = ciph.len;'
-just before this line:
-
-if (IPPROTO_TCP == ciph.protocol || IPPROTO_UDP == ciph.protocol ||
-
-	The idea is that we linearize for writing the inner
-IP header and optionally the 2 ports. That is why old
-logic was 'offset += 2 * sizeof(__u16);'
-
-- initially, ip_vs_fill_iph_skb fills iphdr->flags from
-current fragment, later ip_vs_out_icmp_v6 uses the same
-ipvsh when calling ipv6_find_hdr. Should we initialize
-ipvsh->flags to 0 before calling ipv6_find_hdr because
-it is I/O argument?
-
-- in patch 5: in ip_vs_nat_icmp_v6 skb_make_writable can
-move data to other addresses on linearization. Any pointers
-like 'ciph' should be recalculated based on offsets. But
-it does not matter because we should not call skb_make_writable
-here.
-
-	I also see that we should not send ICMP
-errors (FRAG NEEDED/TOO BIG) in response to large
-ICMP error packets but it is not related to your changes,
-it needs separate change to all transmitters.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+> 	udph->source = htons(pkt_dev->cur_udp_src);
+>-- 
+>1.7.11.4
+>
