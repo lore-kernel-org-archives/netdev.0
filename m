@@ -1,44 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-sched: sch_cbq: avoid infinite loop
-Date: Tue, 11 Sep 2012 22:21:31 -0400 (EDT)
-Message-ID: <20120911.222131.2305298175633650636.davem@davemloft.net>
-References: <ceeee25e4588b250ce7b363afe97a489@visp.net.lb>
-	<1347405072.13103.675.camel@edumazet-glaptop>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCHv4] virtio-spec: virtio network device multiqueue support
+Date: Wed, 12 Sep 2012 09:59:16 +0930
+Message-ID: <87txv4ccdf.fsf@rustcorp.com.au>
+References: <20120909130308.GA3471@redhat.com> <878vcifwxi.fsf@rustcorp.com.au>
+	<20120910061629.GC16819@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: denys@visp.net.lb, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51104 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757410Ab2ILCVg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 22:21:36 -0400
-In-Reply-To: <1347405072.13103.675.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, rick.jones2@hp.com,
+	virtualization@lists.linux-foundation.org,
+	levinsasha928@gmail.com, pbonzini@redhat.com,
+	Tom Herbert <therbert@google.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120910061629.GC16819@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 12 Sep 2012 01:11:12 +0200
+"Michael S. Tsirkin" <mst@redhat.com> writes:
+> In other words RPS is a hack to speed up networking on cheapo
+> hardware, this is one of the reasons it is off by default.
+> Good hardware has multiple receive queues.
+> We can implement a good one so we do not need RPS.
+>
+> Also not all guest OS-es support RPS.
+>
+> Does this clarify?
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Its possible to setup a bad cbq configuration leading to
-> an infinite loop in cbq_classify()
-> 
-> DEV_OUT=eth0
-> ICMP="match ip protocol 1 0xff"
-> U32="protocol ip u32"
-> DST="match ip dst"
-> tc qdisc add dev $DEV_OUT root handle 1: cbq avpkt 1000 \
-> 	bandwidth 100mbit
-> tc class add dev $DEV_OUT parent 1: classid 1:1 cbq \
-> 	rate 512kbit allot 1500 prio 5 bounded isolated
-> tc filter add dev $DEV_OUT parent 1: prio 3 $U32 \
-> 	$ICMP $DST 192.168.3.234 flowid 1:
-> 
-> Reported-by: Denys Fedoryschenko <denys@visp.net.lb>
-> Tested-by: Denys Fedoryschenko <denys@visp.net.lb>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Ok, thanks.
 
-Applied and queued up for -stable, thanks Eric.
+BTW, I found a better description by Tom Herbert, BTW:
+        https://code.google.com/p/kernel/wiki/NetScalingGuide
+
+Now, I find the description of VIRTIO_NET_CTRL_STEERING_RX_FOLLOWS_TX
+confusing:
+
+1) AFAICT it turns on multiqueue rx, with no semantics attached.
+   I have no idea why it's called what it is.  Why?
+
+2) We've said we can remove steering methods, but we haven't actually
+   defined any, as we've left it completely open.
+
+If I were a driver author, it leaves me completely baffled on how to
+implement the spec :(
+
+What are we actually planning to implement at the moment?
+
+>For best performance, packets from a single connection should utilize
+>the paired transmit and receive queues from the same virtqueue pair;
+>for example both transmitqN and receiveqN. This rule makes it possible
+>to optimize processing on the device side, but this is not a hard
+>requirement: devices should function correctly even when this rule is
+>not followed.
+
+Why is this true?  I don't actually see why the queues are in pairs at
+all; are tx and rx not completely independent?  So why does it matter?
+
+>> When the steering rule is modified, some packets can still be
+>> outstanding in one or more of the virtqueues. Device is not required
+>> to wait for these packets to be consumed before delivering packets
+>> using the new streering rule. Drivers modifying the steering rule at
+>> a high rate (e.g. adaptively in response to changes in the workload)
+>> are recommended to complete processing of the receive queue(s)
+>> utilized by the original steering before processing any packets
+>> delivered by the modified steering rule.
+
+How can this be done?  This isn't actually possible without taking the
+queue down, since more packets are incoming.
+
+Cheers,
+Rusty.
