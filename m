@@ -1,67 +1,47 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH] ipv6: replace write lock with read lock when get route info
-Date: Wed, 12 Sep 2012 13:25:53 +0800
-Message-ID: <1347427553-17781-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
+From: Naresh Kumar Inna <naresh@chelsio.com>
+Subject: Re: [V3 PATCH 9/9] cxgb4vf: Chelsio FCoE offload driver submission
+ (header compatibility fixes).
+Date: Wed, 12 Sep 2012 11:05:22 +0530
+Message-ID: <50501F1A.6040905@chelsio.com>
+References: <1347374347-3852-1-git-send-email-naresh@chelsio.com> <1347374347-3852-10-git-send-email-naresh@chelsio.com> <20120911.133321.282568248903907762.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "JBottomley@parallels.com" <JBottomley@parallels.com>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	Dimitrios Michailidis <dm@chelsio.com>,
+	Casey Leedom <leedom@chelsio.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Chethan Seshadri <chethan@chelsio.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:54876 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751995Ab2ILF0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 01:26:03 -0400
-Received: by dady13 with SMTP id y13so741323dad.19
-        for <netdev@vger.kernel.org>; Tue, 11 Sep 2012 22:26:01 -0700 (PDT)
+Received: from stargate.chelsio.com ([67.207.112.58]:2492 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752398Ab2ILFfh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 01:35:37 -0400
+In-Reply-To: <20120911.133321.282568248903907762.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
+On 9/11/2012 11:03 PM, David Miller wrote:
+> From: Naresh Kumar Inna <naresh@chelsio.com>
+> Date: Tue, 11 Sep 2012 20:09:07 +0530
+> 
+>> This patch contains minor fixes to make cxgb4vf driver work with the updates to
+>> shared firmware/hardware header files.
+>>
+>> Signed-off-by: Naresh Kumar Inna <naresh@chelsio.com>
+> 
+> You cannot submit a patch set that isn't bisectable, and in particular
+> create a situation that mid-way through your patch set things do not
+> build or operate correctly.
+> 
 
-geting route info does not write rt->rt6i_table, so replace
-write lock with read lock
+Sorry, I am new to this process. The reason I did that was because I was
+not sure if I could create a single patch with both cxgb4 and cxgb4vf
+files in it, since they are two different subsystems. If I could do
+that, the single patch then would build on its own, and not be dependent
+on the other patches in the series. Is that something I can do?
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/ipv6/route.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 399613b..8be1d86 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1837,7 +1837,7 @@ static struct rt6_info *rt6_get_route_info(struct net *net,
- 	if (!table)
- 		return NULL;
- 
--	write_lock_bh(&table->tb6_lock);
-+	read_lock_bh(&table->tb6_lock);
- 	fn = fib6_locate(&table->tb6_root, prefix ,prefixlen, NULL, 0);
- 	if (!fn)
- 		goto out;
-@@ -1853,7 +1853,7 @@ static struct rt6_info *rt6_get_route_info(struct net *net,
- 		break;
- 	}
- out:
--	write_unlock_bh(&table->tb6_lock);
-+	read_unlock_bh(&table->tb6_lock);
- 	return rt;
- }
- 
-@@ -1896,7 +1896,7 @@ struct rt6_info *rt6_get_dflt_router(const struct in6_addr *addr, struct net_dev
- 	if (!table)
- 		return NULL;
- 
--	write_lock_bh(&table->tb6_lock);
-+	read_lock_bh(&table->tb6_lock);
- 	for (rt = table->tb6_root.leaf; rt; rt=rt->dst.rt6_next) {
- 		if (dev == rt->dst.dev &&
- 		    ((rt->rt6i_flags & (RTF_ADDRCONF | RTF_DEFAULT)) == (RTF_ADDRCONF | RTF_DEFAULT)) &&
-@@ -1905,7 +1905,7 @@ struct rt6_info *rt6_get_dflt_router(const struct in6_addr *addr, struct net_dev
- 	}
- 	if (rt)
- 		dst_hold(&rt->dst);
--	write_unlock_bh(&table->tb6_lock);
-+	read_unlock_bh(&table->tb6_lock);
- 	return rt;
- }
- 
--- 
-1.7.4.1
+Thanks,
+Naresh.
