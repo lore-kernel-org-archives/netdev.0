@@ -1,83 +1,43 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] checkpatch: Check networking specific block comment style
-Date: Tue, 11 Sep 2012 17:47:33 -0700
-Message-ID: <1347410853.2456.7.camel@joe2Laptop>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: [PATCH] checkpatch: Check networking specific block comment
+ style
+Date: Wed, 12 Sep 2012 01:19:51 +0000
+Message-ID: <804857E1F29AAC47BF68C404FC60A1842EB021D9@ORSMSX102.amr.corp.intel.com>
+References: <1347410853.2456.7.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Andy Whitcroft <apw@canonical.com>,
 	David Miller <davem@davemloft.net>,
 	LKML <linux-kernel@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>
+To: Joe Perches <joe@perches.com>,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1347410853.2456.7.camel@joe2Laptop>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In an effort to get fewer checkpatch reviewer corrections,
-add a networking specific style test for the preferred
-networking comment style.
-
-	/* The preferred style for block comments in
-	 * drivers/net/... and net/... is like this
-	 */
-
-These tests are only used in net/ and drivers/net/
-
-Tested with:
-
-$ cat drivers/net/t.c
-
-/* foo */
-
-/*
- * foo
- */
-
-/* foo
- */
-
-/* foo
- * bar */
-$ ./scripts/checkpatch.pl -f drivers/net/t.c
-WARNING: networking block comments don't use an empty /* line, use /* Comment...
-#4: FILE: net/t.c:4:
-+
-+/*
-
-WARNING: networking block comments put the trailing */ on a separate line
-#12: FILE: net/t.c:12:
-+ * bar */
-
-total: 0 errors, 2 warnings, 12 lines checked
-
-Signed-off-by: Joe Perches <joe@perches.com>
----
- scripts/checkpatch.pl |   14 ++++++++++++++
- 1 files changed, 14 insertions(+), 0 deletions(-)
-
-diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-index ca05ba2..7165516 100755
---- a/scripts/checkpatch.pl
-+++ b/scripts/checkpatch.pl
-@@ -1873,6 +1873,20 @@ sub process {
- 			    "No space is necessary after a cast\n" . $hereprev);
- 		}
- 
-+		if ($realfile =~ m@^(drivers/net/|net/)@ &&
-+		    $rawline =~ /^\+[ \t]*\/\*[ \t]*$/ &&
-+		    $prevrawline =~ /^\+[ \t]*$/) {
-+			WARN("NETWORKING_BLOCK_COMMENT_STYLE",
-+			     "networking block comments don't use an empty /* line, use /* Comment...\n" . $hereprev);
-+		}
-+
-+		if ($realfile =~ m@^(drivers/net/|net/)@ &&
-+		    $rawline !~ m@^\+[ \t]*(\/\*|\*\/)@ &&
-+		    $rawline =~ m@^\+[ \t]*.+\*\/[ \t]*$@) {
-+			WARN("NETWORKING_BLOCK_COMMENT_STYLE",
-+			     "networking block comments put the trailing */ on a separate line\n" . $herecurr);
-+		}
-+
- # check for spaces at the beginning of a line.
- # Exceptions:
- #  1) within comments
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
+aGFsZiBPZiBKb2UgUGVyY2hlcw0KPiBTZW50OiBUdWVzZGF5LCBTZXB0ZW1iZXIgMTEsIDIwMTIg
+NTo0OCBQTQ0KPiBUbzogQW5kcmV3IE1vcnRvbg0KPiBDYzogQW5keSBXaGl0Y3JvZnQ7IERhdmlk
+IE1pbGxlcjsgTEtNTDsgbmV0ZGV2DQo+IFN1YmplY3Q6IFtQQVRDSF0gY2hlY2twYXRjaDogQ2hl
+Y2sgbmV0d29ya2luZyBzcGVjaWZpYyBibG9jayBjb21tZW50DQo+IHN0eWxlDQo+IA0KPiBJbiBh
+biBlZmZvcnQgdG8gZ2V0IGZld2VyIGNoZWNrcGF0Y2ggcmV2aWV3ZXIgY29ycmVjdGlvbnMsDQo+
+IGFkZCBhIG5ldHdvcmtpbmcgc3BlY2lmaWMgc3R5bGUgdGVzdCBmb3IgdGhlIHByZWZlcnJlZA0K
+PiBuZXR3b3JraW5nIGNvbW1lbnQgc3R5bGUuDQo+IA0KPiAJLyogVGhlIHByZWZlcnJlZCBzdHls
+ZSBmb3IgYmxvY2sgY29tbWVudHMgaW4NCj4gCSAqIGRyaXZlcnMvbmV0Ly4uLiBhbmQgbmV0Ly4u
+LiBpcyBsaWtlIHRoaXMNCj4gCSAqLw0KPiANCj4gVGhlc2UgdGVzdHMgYXJlIG9ubHkgdXNlZCBp
+biBuZXQvIGFuZCBkcml2ZXJzL25ldC8NCj4gDQo+IFRlc3RlZCB3aXRoOg0KPiANCj4gJCBjYXQg
+ZHJpdmVycy9uZXQvdC5jDQo+IA0KPiAvKiBmb28gKi8NCj4gDQo+IC8qDQo+ICAqIGZvbw0KPiAg
+Ki8NCj4gDQo+IC8qIGZvbw0KPiAgKi8NCj4gDQo+IC8qIGZvbw0KPiAgKiBiYXIgKi8NCj4gJCAu
+L3NjcmlwdHMvY2hlY2twYXRjaC5wbCAtZiBkcml2ZXJzL25ldC90LmMNCj4gV0FSTklORzogbmV0
+d29ya2luZyBibG9jayBjb21tZW50cyBkb24ndCB1c2UgYW4gZW1wdHkgLyogbGluZSwgdXNlIC8q
+IENvbW1lbnQuLi4NCg0KVGhpcyBjb25mbGljdHMgd2l0aCB0aGUgcHJlZmVycmVkIHN0eWxlIGZv
+ciBsb25nIChtdWx0aS1saW5lKSBjb21tZW50cyBkb2N1bWVudGVkIGluDQouL0RvY3VtZW50YXRp
+b24vQ29kaW5nU3R5bGUuICBJZiB0aGlzIGlzIHRoZSB3YXkgY29tbWVudHMgc2hvdWxkIGJlIGRv
+bmUgaW4gdGhlDQpuZXR3b3JraW5nIGNvZGUgdGhpcyBwYXRjaCBzaG91bGQgYWxzbyBpbmNsdWRl
+IGFuIHVwZGF0ZSB0byBDaGFwdGVyIDggaW4gQ29kaW5nU3R5bGUNCmRvY3VtZW50aW5nIHRoZSBu
+ZXR3b3JraW5nIHNwZWNpZmljIHN0eWxlIHRvIGF2b2lkIGNvbmZ1c2lvbi4NCg0KDQo=
