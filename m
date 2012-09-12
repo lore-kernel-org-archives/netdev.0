@@ -1,57 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [v2 PATCH 2/2] netprio_cgroup: Use memcpy instead of the
- for-loop to copy priomap
-Date: Wed, 12 Sep 2012 13:58:44 -0400 (EDT)
-Message-ID: <20120912.135844.2128028507911988895.davem@davemloft.net>
-References: <20120912060747.11037.42623.stgit@srivatsabhat.in.ibm.com>
-	<20120912.034901.184817520125489015.davem@davemloft.net>
-	<505046A5.1050009@linux.vnet.ibm.com>
+Subject: Re: [PATCH V2] Generalise "auto-negotiation done" function, move
+ generic PHY code to phy_device.c
+Date: Wed, 12 Sep 2012 14:05:22 -0400 (EDT)
+Message-ID: <20120912.140522.912336194714928072.davem@davemloft.net>
+References: <50506DCE.9050400@sysgo.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, David.Laight@aculab.com,
-	john.r.fastabend@intel.com, gaofeng@cn.fujitsu.com,
-	eric.dumazet@gmail.com, mark.d.rustad@intel.com,
-	lizefan@huawei.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: srivatsa.bhat@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <505046A5.1050009@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, afleming@freescale.com
+To: asv@sysgo.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:32851 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753508Ab2ILSFZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 14:05:25 -0400
+In-Reply-To: <50506DCE.9050400@sysgo.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Date: Wed, 12 Sep 2012 13:54:05 +0530
 
-> On 09/12/2012 01:19 PM, David Miller wrote:
->> From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
->> Date: Wed, 12 Sep 2012 11:37:47 +0530
->> 
->>> +		memcpy(new_priomap->priomap, old_priomap->priomap,
->>> +			old_priomap->priomap_len *
->>> +					sizeof(old_priomap->priomap[0]));
->> 
->> This argument indentation is ridiculous.  Try:
->> 
->> 		memcpy(new_priomap->priomap, old_priomap->priomap,
->> 		       old_priomap->priomap_len *
->> 		       sizeof(old_priomap->priomap[0]));
->> 
->> Using TABs exclusively for argumentat indentation is not the goal.
->> 
->> Rather, lining the arguments up properly so that they sit at the first
->> column after the first line's openning parenthesis is what you should
->> be trying to achieve.
-> 
-> OK, will fix it, thanks!
-> 
->> 
->> And ignoring whatever stylistic convention we may or may not have, I
->> find it impossibly hard to believe that the code quoted above looks
->> good even to you.
->>
-> 
-> On second thoughts, I think the memcpy in this case will actually be worse
-> since it will copy the contents in chunks of smaller size than the for-loop.
+Please set your Subject lines correctly.
 
-I meant just coding style wise, not semantically.
+It should be:
+
+[PATCH VX] $(subsystem): $(description)
+
+Without the subsystem prefix people can't tell quickly what general
+area of code you are changing.
+
+For these changes I'd use either "net: " or "phy: " as the subsystem
+prefix.
