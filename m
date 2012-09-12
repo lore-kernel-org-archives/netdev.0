@@ -1,69 +1,119 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: Oops with latest (netfilter) nf-next tree, when unloading
- iptable_nat
-Date: Wed, 12 Sep 2012 23:36:27 +0200
-Message-ID: <20120912213627.GJ14750@breakpoint.cc>
-References: <1347357081.3928.32.camel@localhost>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH V3 0/8] ipvs: IPv6 fragment handling for IPVS
+Date: Thu, 13 Sep 2012 01:57:27 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1209130143410.1653@ja.ssi.bg>
+References: <20120911123531.4305.40304.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@gnumonks.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>,
-	yongjun_wei@trendmicro.com.cn, kaber@trash.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Hans Schillstrom <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	lvs-devel@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	netfilter-devel@vger.kernel.org, Simon Horman <horms@verge.net.au>
 To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1347357081.3928.32.camel@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20120911123531.4305.40304.stgit@dragon>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 
-[ CC'd Patrick ]
+	Hello,
 
-> I'm hitting this general protection fault, when unloading iptables_nat.
-> [  524.591067] Pid: 5842, comm: modprobe Not tainted 3.6.0-rc3-pablo-nf-next+ #1 Red Hat KVM
-> [  524.591067] RIP: 0010:[<ffffffffa002c2fd>]  [<ffffffffa002c2fd>] nf_nat_proto_clean+0x6d/0xc0 [nf_nat]
-> [  524.591067] RSP: 0018:ffff880073203e18  EFLAGS: 00010246
-> [  524.591067] RAX: 0000000000000000 RBX: ffff880077dff2c8 RCX: ffff8800797fab70
-> [  524.591067] RDX: dead000000200200 RSI: ffff880073203e88 RDI: ffffffffa002f208
-> [  524.591067] RBP: ffff880073203e28 R08: ffff880073202000 R09: 0000000000000000
-> [  524.591067] R10: dead000000200200 R11: dead000000100100 R12: ffffffff81c6dc00
->  list corruption?   ^^^^^^^^^^^^^^^^      ^^^^^^^^^^^^^^^^
+On Tue, 11 Sep 2012, Jesper Dangaard Brouer wrote:
 
-Yep, looks like it.
+> The following patchset implement IPv6 fragment handling for IPVS.
+> 
+> This work is based upon patches from Hans Schillstrom.  I have taken
+> over the patchset, in close agreement with Hans, because he don't have
+> (gotten allocated) time to complete his work.
+> 
+> I have cleaned up the patchset significantly, and split the patchset
+> up into eight patches.
+> 
+> The first 4 patches, are ready to be merged
+> 
+>  Patch01: Trivial changes, use compressed IPv6 address in output
+>  Patch02: IPv6 extend ICMPv6 handling for future types
+>  Patch03: Use config macro IS_ENABLED()
+>  Patch04: Fix bug in IPVS IPv6 NAT mangling of ports inside ICMPv6 packets
+> 
+> The next 4 patches, I consider V3 of the patches I have submitted
+> earlier, where I have incorporated all of Julian's feedback.  I have
+> also tried to make the patches easier to review, by reorganizing the
+> changes, to be more strictly split (exthdr vs. fragment handling).
+> 
+> I have also removed the API changes, and moved those to patch07.  This
+> is done, (1) to make it easier to review the patches, and (2) to allow
+> easier integration of Patricks idea and my RFC patch of caching exthdr
+> info in skb->cb[].  Thus, we can get these patches applied (and later
+> go back and apply the caching scheme easier).
+> 
+>  Patch05: Fix faulty IPv6 extension header handling in IPVS
+>  Patch06: Complete IPv6 fragment handling for IPVS
+>  Patch07: IPVS API change to avoid rescan of IPv6 exthdr
+>  Patch08: IPVS SIP fragment handling
+> 
+> The SIP frag handling have been split into its own patch, as I have
+> not been able to test this part my self.
+> 
+> This patchset is based upon:
+>   Pablo's nf-next tree:  git://1984.lsi.us.es/nf-next
+>   On top of commit 0edd94887d19ad73539477395c17ea0d6898947a
+> 
+> ---
+> 
+> Jesper Dangaard Brouer (8):
+>       ipvs: SIP fragment handling
+>       ipvs: API change to avoid rescan of IPv6 exthdr
+>       ipvs: Complete IPv6 fragment handling for IPVS
+>       ipvs: Fix faulty IPv6 extension header handling in IPVS
+>       ipvs: Fix bug in IPv6 NAT mangling of ports inside ICMPv6 packets
+>       ipvs: Use config macro IS_ENABLED()
+>       ipvs: IPv6 extend ICMPv6 handling for future types
+>       ipvs: Trivial changes, use compressed IPv6 address in output
 
-> [  524.591067]  [<ffffffffa002c290>] ? nf_nat_net_exit+0x50/0x50 [nf_nat]
-> [  524.591067]  [<ffffffff815614e3>] nf_ct_iterate_cleanup+0xc3/0x170
-> [  524.591067]  [<ffffffffa002c54a>] nf_nat_l3proto_unregister+0x8a/0x100 [nf_nat]
-> [  524.591067]  [<ffffffff812a0303>] ? compat_prepare_timeout+0x13/0xb0
-> [  524.591067]  [<ffffffffa0035848>] nf_nat_l3proto_ipv4_exit+0x10/0x23 [nf_nat_ipv4]
+	Some comments:
 
-On module removal nf_nat_ipv4 calls nf_iterate_cleanup which invokes
-nf_nat_proto_clean() for each conntrack.  That will then call
-hlist_del_rcu(&nat->bysource) using eachs conntracks nat ext area.
+- About patch 4: ip_vs_icmp_xmit_v6 already calls skb_make_writable
+before ip_vs_nat_icmp_v6, that is why we provide 'offset'.
 
-Problem is that nf_nat_proto_clean() is called multiple times for the same
-conntrack:
-a) nf_ct_iterate_cleanup() returns each ct twice (origin, reply)
-b) we call it both for l3 and for l4 protocol ids
+- May be we can provide the offset of ICMPv6 header
+from ip_vs_in_icmp_v6 to ip_vs_icmp_xmit_v6 as additional
+argument (icmp_offset) and then to ip_vs_nat_icmp_v6. By this
+way we can avoid the two ipv6_find_hdr calls if we also provide
+the iph argument from ip_vs_icmp_xmit_v6 to ip_vs_nat_icmp_v6,
+its ->len points to the ports. ip_vs_in_icmp_v6 provides
+also protocol in this ciph, so may be we have everything.
 
-We barf in hlist_del_rcu the 2nd time because ->pprev is poisoned.
+- in ip_vs_in_icmp_v6 there must be 'offs_ciph = ciph.len;'
+just before this line:
 
-This was introduced with the ipv6 nat patches.
+if (IPPROTO_TCP == ciph.protocol || IPPROTO_UDP == ciph.protocol ||
 
---- a/net/netfilter/nf_nat_core.c
-+++ b/net/netfilter/nf_nat_core.c
-@@ -487,7 +487,7 @@ static int nf_nat_proto_clean(struct nf_conn *i, void *data)
- 
-        if (clean->hash) {
-                spin_lock_bh(&nf_nat_lock);
--               hlist_del_rcu(&nat->bysource);
-+               hlist_del_init_rcu(&nat->bysource);
-                spin_unlock_bh(&nf_nat_lock);
-        } else {
+	The idea is that we linearize for writing the inner
+IP header and optionally the 2 ports. That is why old
+logic was 'offset += 2 * sizeof(__u16);'
 
-Would probably avoid it.  I guess it would be nicer to only call this
-once for each ct.
+- initially, ip_vs_fill_iph_skb fills iphdr->flags from
+current fragment, later ip_vs_out_icmp_v6 uses the same
+ipvsh when calling ipv6_find_hdr. Should we initialize
+ipvsh->flags to 0 before calling ipv6_find_hdr because
+it is I/O argument?
 
-Patrick, any other idea?
+- in patch 5: in ip_vs_nat_icmp_v6 skb_make_writable can
+move data to other addresses on linearization. Any pointers
+like 'ciph' should be recalculated based on offsets. But
+it does not matter because we should not call skb_make_writable
+here.
+
+	I also see that we should not send ICMP
+errors (FRAG NEEDED/TOO BIG) in response to large
+ICMP error packets but it is not related to your changes,
+it needs separate change to all transmitters.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
