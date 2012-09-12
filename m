@@ -1,80 +1,54 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCHv4] virtio-spec: virtio network device multiqueue support
-Date: Wed, 12 Sep 2012 09:59:16 +0930
-Message-ID: <87txv4ccdf.fsf@rustcorp.com.au>
-References: <20120909130308.GA3471@redhat.com> <878vcifwxi.fsf@rustcorp.com.au>
-	<20120910061629.GC16819@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] CodingStyle: Add networking specific block comment style
+Date: Tue, 11 Sep 2012 20:11:21 -0700
+Message-ID: <1347419481.2456.10.camel@joe2Laptop>
+References: <1347410853.2456.7.camel@joe2Laptop>
+	 <804857E1F29AAC47BF68C404FC60A1842EB021D9@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, rick.jones2@hp.com,
-	virtualization@lists.linux-foundation.org,
-	levinsasha928@gmail.com, pbonzini@redhat.com,
-	Tom Herbert <therbert@google.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120910061629.GC16819@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Andy Whitcroft <apw@canonical.com>,
+	David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <804857E1F29AAC47BF68C404FC60A1842EB021D9@ORSMSX102.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Michael S. Tsirkin" <mst@redhat.com> writes:
-> In other words RPS is a hack to speed up networking on cheapo
-> hardware, this is one of the reasons it is off by default.
-> Good hardware has multiple receive queues.
-> We can implement a good one so we do not need RPS.
->
-> Also not all guest OS-es support RPS.
->
-> Does this clarify?
+The block comment style in net/ and drivers/net is non-standard.
+Document it.
 
-Ok, thanks.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+> This conflicts with the preferred style for long (multi-line) comments documented in
+> ./Documentation/CodingStyle.  If this is the way comments should be done in the
+> networking code this patch should also include an update to Chapter 8 in CodingStyle
+> documenting the networking specific style to avoid confusion.
 
-BTW, I found a better description by Tom Herbert, BTW:
-        https://code.google.com/p/kernel/wiki/NetScalingGuide
+ Documentation/CodingStyle |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
 
-Now, I find the description of VIRTIO_NET_CTRL_STEERING_RX_FOLLOWS_TX
-confusing:
-
-1) AFAICT it turns on multiqueue rx, with no semantics attached.
-   I have no idea why it's called what it is.  Why?
-
-2) We've said we can remove steering methods, but we haven't actually
-   defined any, as we've left it completely open.
-
-If I were a driver author, it leaves me completely baffled on how to
-implement the spec :(
-
-What are we actually planning to implement at the moment?
-
->For best performance, packets from a single connection should utilize
->the paired transmit and receive queues from the same virtqueue pair;
->for example both transmitqN and receiveqN. This rule makes it possible
->to optimize processing on the device side, but this is not a hard
->requirement: devices should function correctly even when this rule is
->not followed.
-
-Why is this true?  I don't actually see why the queues are in pairs at
-all; are tx and rx not completely independent?  So why does it matter?
-
->> When the steering rule is modified, some packets can still be
->> outstanding in one or more of the virtqueues. Device is not required
->> to wait for these packets to be consumed before delivering packets
->> using the new streering rule. Drivers modifying the steering rule at
->> a high rate (e.g. adaptively in response to changes in the workload)
->> are recommended to complete processing of the receive queue(s)
->> utilized by the original steering before processing any packets
->> delivered by the modified steering rule.
-
-How can this be done?  This isn't actually possible without taking the
-queue down, since more packets are incoming.
-
-Cheers,
-Rusty.
+diff --git a/Documentation/CodingStyle b/Documentation/CodingStyle
+index cb9258b..495e5ba 100644
+--- a/Documentation/CodingStyle
++++ b/Documentation/CodingStyle
+@@ -454,6 +454,16 @@ The preferred style for long (multi-line) comments is:
+ 	 * with beginning and ending almost-blank lines.
+ 	 */
+ 
++For files in net/ and drivers/net/ the preferred style for long (multi-line)
++comments is a little different.
++
++	/* The preferred comment style for files in net/ and drivers/net
++	 * looks like this.
++	 *
++	 * It is nearly the same as the generally preferred comment style,
++	 * but there is no initial almost-blank line.
++	 */
++
+ It's also important to comment data, whether they are basic types or derived
+ types.  To this end, use just one data declaration per line (no commas for
+ multiple data declarations).  This leaves you room for a small comment on each
