@@ -1,59 +1,74 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCHv4] virtio-spec: virtio network device multiqueue support
-Date: Wed, 12 Sep 2012 15:19:11 +0930
-Message-ID: <87har3dc4o.fsf@rustcorp.com.au>
-References: <20120909130308.GA3471@redhat.com> <878vcifwxi.fsf@rustcorp.com.au>
-	<20120910061629.GC16819@redhat.com>
-	<20120910062738.GA17331@redhat.com>
-	<20120910063346.GA17338@redhat.com> <504DC831.1000709@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net_tx_action: Call trace_consume_skb() instead of
+ trace_kfree_skb()
+Date: Wed, 12 Sep 2012 09:33:19 +0200
+Message-ID: <1347435199.13103.690.camel@edumazet-glaptop>
+References: <1347406098-22071-1-git-send-email-sbohrer@rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, rick.jones2@hp.com,
-	virtualization@lists.linux-foundation.org,
-	levinsasha928@gmail.com, pbonzini@redhat.com,
-	Tom Herbert <therbert@google.com>
-To: Jason Wang <jasowang@redhat.com>, "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <504DC831.1000709@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sanagi.koki@jp.fujitsu.com,
+	davem@davemloft.net
+To: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:56034 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751143Ab2ILHdY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 03:33:24 -0400
+Received: by eekc1 with SMTP id c1so987363eek.19
+        for <netdev@vger.kernel.org>; Wed, 12 Sep 2012 00:33:22 -0700 (PDT)
+In-Reply-To: <1347406098-22071-1-git-send-email-sbohrer@rgmadvisors.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jason Wang <jasowang@redhat.com> writes:
-> On 09/10/2012 02:33 PM, Michael S. Tsirkin wrote:
->> A final addition: what you suggest above would be
->> "TX follows RX", right?
+On Tue, 2012-09-11 at 18:28 -0500, Shawn Bohrer wrote:
+> Call trace_consume_skb() instead of trace_kfree_skb() as skbs are
+> removed from the completion_queue during transmit.  This avoids false
+> positives from dropwatch/drop_monitor making them more useful.
+> 
+> Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
+> ---
+> 
+> In my case I seem to hit this tracepoint for every packet I transmit so
+> these appear to be false positives to me.  Perhaps there are cases where
+> you could hit this and it is a real packet drop?
+> 
+>  net/core/dev.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 8398836..00774ce 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -3015,7 +3015,7 @@ static void net_tx_action(struct softirq_action *h)
+>  			clist = clist->next;
+>  
+>  			WARN_ON(atomic_read(&skb->users));
+> -			trace_kfree_skb(skb, net_tx_action);
+> +			trace_consume_skb(skb);
+>  			__kfree_skb(skb);
+>  		}
+>  	}
+> -- 
+> 1.7.7.6
+> 
+> 
 
-BTW, yes.  But it's a weird way to express what the nic is doing.
 
->> It is in anticipation of something like that, that I made
->> steering programming so generic.
+Problem here is : we dont know if caller of dev_kfree_skb_irq(skb)
+wanted to drop or consume skb.
 
->> I think TX follows RX is more immediately useful for reasons above
->> but we can add both to spec and let drivers and devices
->> decide what they want to support.
+(We dont have a dev_consume_skb_irq(skb) function)
 
-You mean "RX follows TX"?  ie. accelerated RFS.  I agree.
+For example, drivers/infiniband/ulp/ipoib/ipoib_main.c function
+path_free() does :
 
-Perhaps Tom can explain how we avoid out-of-order receive for the
-accelerated RFS case?  It's not clear to me, but we need to be able to
-do that for virtio-net if it implements accelerated RFS.
+while ((skb = __skb_dequeue(&path->queue)))
+	dev_kfree_skb_irq(skb);
 
-> AFAIK, ixgbe does "rx follows tx". The only differences between ixgbe 
-> and virtio-net is that ixgbe driver programs the flow director during 
-> packet transmission but we suggest to do it silently in the device for 
-> simplicity.
+Are these packets dropped or consumed, I dont really know...
 
-Implying the receive queue by xmit will be slightly laggy.  Don't know
-if that's a problem.
+Note : NAPI drivers dont use dev_kfree_skb_irq(skb).
 
-Cheers,
-Rusty.
+What is the NIC driver you are using, I thought it was mellanox (wich is
+NAPI) ?
