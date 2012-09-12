@@ -1,58 +1,113 @@
 From: Daniel Wagner <wagi@monom.org>
-Subject: [PATCH v4 6/8] cgroup: Do not depend on a given order when populating the subsys array
-Date: Wed, 12 Sep 2012 16:12:06 +0200
-Message-ID: <1347459128-32236-7-git-send-email-wagi@monom.org>
+Subject: [PATCH v4 2/8] cgroup: net_cls: Do not define task_cls_classid() when not selected
+Date: Wed, 12 Sep 2012 16:12:02 +0200
+Message-ID: <1347459128-32236-3-git-send-email-wagi@monom.org>
 References: <1347459128-32236-1-git-send-email-wagi@monom.org>
 Cc: Daniel Wagner <daniel.wagner@bmw-carit.de>,
 	Gao feng <gaofeng@cn.fujitsu.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
 	John Fastabend <john.r.fastabend@intel.com>,
 	Li Zefan <lizefan@huawei.com>,
-	Neil Horman <nhorman@tuxdriver.com>, Tejun Heo <tj@kernel.org>
+	Neil Horman <nhorman@tuxdriver.com>
 To: netdev@vger.kernel.org, cgroups@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from hotel311.server4you.de ([85.25.146.15]:33132 "EHLO
 	hotel311.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758853Ab2ILOMP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 10:12:15 -0400
+	with ESMTP id S1758111Ab2ILOMM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 10:12:12 -0400
 In-Reply-To: <1347459128-32236-1-git-send-email-wagi@monom.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Daniel Wagner <daniel.wagner@bmw-carit.de>
 
-The *_subsys_id will be used as index to access the subsys. Therefore
-we need to care we populate the subsystem at the correct position by
-using designated initialization.
-
-With this change we are able to interleave builtin and modules in the subsys
-array.
+task_cls_classid() should not be defined in case the configuration is
+CONFIG_NET_CLS_CGROUP=n. The reason is that in a following patch the
+net_cls_subsys_id will only be defined if CONFIG_NET_CLS_CGROUP!=n.
+When net_cls is not built at all a callee should only get an empty
+task_cls_classid() without any references to net_cls_subsys_id.
 
 Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
+Acked-by: Tejun Heo <tj@kernel.org>
 Cc: Gao feng <gaofeng@cn.fujitsu.com>
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 Cc: John Fastabend <john.r.fastabend@intel.com>
 Cc: Li Zefan <lizefan@huawei.com>
 Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: Tejun Heo <tj@kernel.org>
 Cc: netdev@vger.kernel.org
 Cc: cgroups@vger.kernel.org
 ---
- kernel/cgroup.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/net/cls_cgroup.h | 11 ++++++-----
+ net/core/sock.c          |  2 ++
+ 2 files changed, 8 insertions(+), 5 deletions(-)
 
-diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-index 769600c..343ab4e 100644
---- a/kernel/cgroup.c
-+++ b/kernel/cgroup.c
-@@ -92,7 +92,7 @@ static DEFINE_MUTEX(cgroup_root_mutex);
-  * registered after that. The mutable section of this array is protected by
-  * cgroup_mutex.
-  */
--#define SUBSYS(_x) &_x ## _subsys,
-+#define SUBSYS(_x) [_x ## _subsys_id] = &_x ## _subsys,
- #define IS_SUBSYS_ENABLED(option) IS_BUILTIN(option)
- static struct cgroup_subsys *subsys[CGROUP_SUBSYS_COUNT] = {
- #include <linux/cgroup_subsys.h>
+diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
+index e88527a..9bd5db9 100644
+--- a/include/net/cls_cgroup.h
++++ b/include/net/cls_cgroup.h
+@@ -17,7 +17,7 @@
+ #include <linux/hardirq.h>
+ #include <linux/rcupdate.h>
+ 
+-#ifdef CONFIG_CGROUPS
++#if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
+ struct cgroup_cls_state
+ {
+ 	struct cgroup_subsys_state css;
+@@ -26,7 +26,7 @@ struct cgroup_cls_state
+ 
+ extern void sock_update_classid(struct sock *sk);
+ 
+-#ifdef CONFIG_NET_CLS_CGROUP
++#if IS_BUILTIN(CONFIG_NET_CLS_CGROUP)
+ static inline u32 task_cls_classid(struct task_struct *p)
+ {
+ 	int classid;
+@@ -41,7 +41,8 @@ static inline u32 task_cls_classid(struct task_struct *p)
+ 
+ 	return classid;
+ }
+-#else
++#elif IS_MODULE(CONFIG_NET_CLS_CGROUP)
++
+ extern int net_cls_subsys_id;
+ 
+ static inline u32 task_cls_classid(struct task_struct *p)
+@@ -63,7 +64,7 @@ static inline u32 task_cls_classid(struct task_struct *p)
+ 	return classid;
+ }
+ #endif
+-#else
++#else /* !CGROUP_NET_CLS_CGROUP */
+ static inline void sock_update_classid(struct sock *sk)
+ {
+ }
+@@ -72,5 +73,5 @@ static inline u32 task_cls_classid(struct task_struct *p)
+ {
+ 	return 0;
+ }
+-#endif
++#endif /* CGROUP_NET_CLS_CGROUP */
+ #endif  /* _NET_CLS_CGROUP_H */
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 8f67ced..82cadc6 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1223,6 +1223,7 @@ static void sk_prot_free(struct proto *prot, struct sock *sk)
+ }
+ 
+ #ifdef CONFIG_CGROUPS
++#if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
+ void sock_update_classid(struct sock *sk)
+ {
+ 	u32 classid;
+@@ -1234,6 +1235,7 @@ void sock_update_classid(struct sock *sk)
+ 		sk->sk_classid = classid;
+ }
+ EXPORT_SYMBOL(sock_update_classid);
++#endif
+ 
+ void sock_update_netprioidx(struct sock *sk, struct task_struct *task)
+ {
 -- 
 1.7.12.315.g682ce8b
