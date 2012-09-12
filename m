@@ -1,91 +1,92 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH v2] ipv6: replace write lock with read lock when get route info
-Date: Wed, 12 Sep 2012 15:59:01 +0800
-Message-ID: <1347436741-344-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:38603 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751308Ab2ILH7H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 03:59:07 -0400
-Received: by pbbrr13 with SMTP id rr13so1904153pbb.19
-        for <netdev@vger.kernel.org>; Wed, 12 Sep 2012 00:59:06 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] netfilter/iptables: Fix log-level processing
+Date: Wed, 12 Sep 2012 10:07:25 +0200
+Message-ID: <1347437245.13103.697.camel@edumazet-glaptop>
+References: <20120912045120.9E1A76F446@smtp.hushmail.com>
+	<1347435973.2456.23.camel@joe2Laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: auto75914331@hushmail.com, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Bart De Schuymer <bart.de.schuymer@pandora.be>,
+	netfilter-devel@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>, Pablo Neira Ayuso <pablo@netfilter.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1347435973.2456.23.camel@joe2Laptop>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Li RongQing <roy.qing.li@gmail.com>
+On Wed, 2012-09-12 at 00:46 -0700, Joe Perches wrote:
+> auto75914331@hushmail.com reports that iptables does not correctly
+> output the KERN_<level>.
+> 
+> $IPTABLES -A RULE_0_in  -j LOG  --log-level notice --log-prefix "DENY  in: "
+> 
+> result with linux 3.6-rc5
+> Sep 12 06:37:29 xxxxx kernel: <5>DENY  in: IN=eth0 OUT= MAC=.......
+> 
+> result with linux 3.5.3 and older:
+> Sep  9 10:43:01 xxxxx kernel: DENY  in: IN=eth0 OUT= MAC......
+> 
+> commit 04d2c8c83d0
+> ("printk: convert the format for KERN_<LEVEL> to a 2 byte pattern")
+> updated the syslog header style but did not update netfilter uses.
+> 
+> Do so.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> cc: auto75914331@hushmail.com
+> ---
+>  net/bridge/netfilter/ebt_log.c |    4 ++--
+>  net/netfilter/xt_LOG.c         |    4 ++--
+>  2 files changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
+> index f88ee53..cb46d2f 100644
+> --- a/net/bridge/netfilter/ebt_log.c
+> +++ b/net/bridge/netfilter/ebt_log.c
+> @@ -80,8 +80,8 @@ ebt_log_packet(u_int8_t pf, unsigned int hooknum,
+>  	unsigned int bitmask;
+>  
+>  	spin_lock_bh(&ebt_log_lock);
+> -	printk("<%c>%s IN=%s OUT=%s MAC source = %pM MAC dest = %pM proto = 0x%04x",
+> -	       '0' + loginfo->u.log.level, prefix,
+> +	printk("%c%c%s IN=%s OUT=%s MAC source = %pM MAC dest = %pM proto = 0x%04x",
+> +	       KERN_SOH_ASCII, '0' + loginfo->u.log.level, prefix,
+>  	       in ? in->name : "", out ? out->name : "",
+>  	       eth_hdr(skb)->h_source, eth_hdr(skb)->h_dest,
+>  	       ntohs(eth_hdr(skb)->h_proto));
+> diff --git a/net/netfilter/xt_LOG.c b/net/netfilter/xt_LOG.c
+> index ff5f75f..bdc5352 100644
+> --- a/net/netfilter/xt_LOG.c
+> +++ b/net/netfilter/xt_LOG.c
+> @@ -436,8 +436,8 @@ log_packet_common(struct sbuff *m,
+>  		  const struct nf_loginfo *loginfo,
+>  		  const char *prefix)
+>  {
+> -	sb_add(m, "<%d>%sIN=%s OUT=%s ", loginfo->u.log.level,
+> -	       prefix,
+> +	sb_add(m, "%c%c%sIN=%s OUT=%s ",
+> +	       KERN_SOH_ASCII, '0' + loginfo->u.log.level, prefix,
+>  	       in ? in->name : "",
+>  	       out ? out->name : "");
+>  #ifdef CONFIG_BRIDGE_NETFILTER
+> 
 
-geting route info does not write rt->rt6i_table, so replace
-write lock with read lock
+would be better to avoid the %c
 
-Suggested-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/ipv6/addrconf.c |    4 ++--
- net/ipv6/route.c    |    8 ++++----
- 2 files changed, 6 insertions(+), 6 deletions(-)
+->
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 1237d5d..061c100 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1706,7 +1706,7 @@ static struct rt6_info *addrconf_get_prefix_route(const struct in6_addr *pfx,
- 	if (table == NULL)
- 		return NULL;
- 
--	write_lock_bh(&table->tb6_lock);
-+	read_lock_bh(&table->tb6_lock);
- 	fn = fib6_locate(&table->tb6_root, pfx, plen, NULL, 0);
- 	if (!fn)
- 		goto out;
-@@ -1721,7 +1721,7 @@ static struct rt6_info *addrconf_get_prefix_route(const struct in6_addr *pfx,
- 		break;
- 	}
- out:
--	write_unlock_bh(&table->tb6_lock);
-+	read_unlock_bh(&table->tb6_lock);
- 	return rt;
- }
- 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 399613b..8be1d86 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1837,7 +1837,7 @@ static struct rt6_info *rt6_get_route_info(struct net *net,
- 	if (!table)
- 		return NULL;
- 
--	write_lock_bh(&table->tb6_lock);
-+	read_lock_bh(&table->tb6_lock);
- 	fn = fib6_locate(&table->tb6_root, prefix ,prefixlen, NULL, 0);
- 	if (!fn)
- 		goto out;
-@@ -1853,7 +1853,7 @@ static struct rt6_info *rt6_get_route_info(struct net *net,
- 		break;
- 	}
- out:
--	write_unlock_bh(&table->tb6_lock);
-+	read_unlock_bh(&table->tb6_lock);
- 	return rt;
- }
- 
-@@ -1896,7 +1896,7 @@ struct rt6_info *rt6_get_dflt_router(const struct in6_addr *addr, struct net_dev
- 	if (!table)
- 		return NULL;
- 
--	write_lock_bh(&table->tb6_lock);
-+	read_lock_bh(&table->tb6_lock);
- 	for (rt = table->tb6_root.leaf; rt; rt=rt->dst.rt6_next) {
- 		if (dev == rt->dst.dev &&
- 		    ((rt->rt6i_flags & (RTF_ADDRCONF | RTF_DEFAULT)) == (RTF_ADDRCONF | RTF_DEFAULT)) &&
-@@ -1905,7 +1905,7 @@ struct rt6_info *rt6_get_dflt_router(const struct in6_addr *addr, struct net_dev
- 	}
- 	if (rt)
- 		dst_hold(&rt->dst);
--	write_unlock_bh(&table->tb6_lock);
-+	read_unlock_bh(&table->tb6_lock);
- 	return rt;
- }
- 
--- 
-1.7.4.1
+ sb_add(m, KERN_SOH "%c%sIN=%s OUT=%s ",
+	'0' + loginfo->u.log.level, prefix,
