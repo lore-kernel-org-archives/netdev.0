@@ -1,191 +1,295 @@
 From: Daniel Wagner <wagi@monom.org>
-Subject: [PATCH v4 0/8] cgroup: Assign subsystem IDs during compile time
-Date: Wed, 12 Sep 2012 16:12:00 +0200
-Message-ID: <1347459128-32236-1-git-send-email-wagi@monom.org>
+Subject: [PATCH v4 4/8] cgroup: Remove CGROUP_BUILTIN_SUBSYS_COUNT
+Date: Wed, 12 Sep 2012 16:12:04 +0200
+Message-ID: <1347459128-32236-5-git-send-email-wagi@monom.org>
+References: <1347459128-32236-1-git-send-email-wagi@monom.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Daniel Wagner <daniel.wagner@bmw-carit.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>,
 	Gao feng <gaofeng@cn.fujitsu.com>,
-	Glauber Costa <glommer@parallels.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
 	John Fastabend <john.r.fastabend@intel.com>,
-	Kamezawa Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
 	Li Zefan <lizefan@huawei.com>,
-	Neil Horman <nhorman@tuxdriver.com>, Tejun Heo <tj@kernel.org>
+	Neil Horman <nhorman@tuxdriver.com>
 To: netdev@vger.kernel.org, cgroups@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hotel311.server4you.de ([85.25.146.15]:33109 "EHLO
+Received: from hotel311.server4you.de ([85.25.146.15]:33132 "EHLO
 	hotel311.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751188Ab2ILOMK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 10:12:10 -0400
+	with ESMTP id S1758847Ab2ILOMN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 10:12:13 -0400
+In-Reply-To: <1347459128-32236-1-git-send-email-wagi@monom.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Wagner <daniel.wagner@bmw-carit.de>
+=46rom: Daniel Wagner <daniel.wagner@bmw-carit.de>
 
-Hi,
+CGROUP_BUILTIN_SUBSYS_COUNT is used as start index or stop index when
+looping over the subsys array looking either at the builtin or the
+module subsystems. Since all the builtin subsystems have an id which
+is lower then CGROUP_BUILTIN_SUBSYS_COUNT we know that any module will
+have an id larger than CGROUP_BUILTIN_SUBSYS_COUNT. In short the ids
+are sorted.
 
-I've removed the useless test in patch #4 and updated the commit message
-on patch #7. 
+We are about to change id assignment to happen only at compile time
+later in this series. That means we can't rely on the above trick
+since all ids will always be defined at compile time. Furthermore,
+ordering the builtin subsystems and the module subsystems is not
+really necessary.
 
-While rewriting the commit message #7 I realized the pointer check was
-completely wrong. Instead testing the return value of
-task_subsys_state() I tested the pointer return by container_of. For
-more details on this see the commit message. 
+So we need a different way to know which subsystem is a builtin or a
+module one. We can use the subsys[]->module pointer for this. Any
+place where we need to know if a subsys is module we just check for
+the pointer. If it is NULL then the subsystem is a builtin one.
 
-Because of this I added Herbert and Paul to the Cc list. Please have
-close look at my rambling on the RCU part in patch #7. Thanks a lot!
+With this we are able to drop the CGROUP_BUILTIN_SUBSYS_COUNT
+enum. Though we need to introduce a temporary placeholder so that we
+don't get a compilation error when only CONFIG_CGROUP is selected and
+no single controller. An empty enum definition is not valid. Later in
+this series we are able to remove the placeholder again.
 
-This series is against 
+And with this change we get a fix for this:
 
-     git://git.kernel.org/pub/scm/linux/kernel/git/tj/cgroup.git for-3.7
+kernel/cgroup.c: In function =E2=80=98cgroup_load_subsys=E2=80=99:
+kernel/cgroup.c:4326:38: warning: array subscript is below array bounds=
+ [-Warray-bounds]
 
-cheers,
-daniel
-
-
-Previous cover letters:
-
-v3:
-
-In this version I tried to concentrate on the main topic of this
-series, so I removed some of the things which were not really needed
-and I have to admit the result looks much better. So I hope that will
-simplify the review for you.
-
-I reordered some of the patches and dropped the jump label
-optimization for now. When this series is applied, then I can follow
-up with those changes.
-
-Overall, I tried to address all comments I got from v2. I didn't address
-Tejun comment on 
-
-  cgroup: Assign subsystem IDs during compile time
-
-to split the net_cls and net_prio changes from that patch.  But I
-tried to 'fix' this by beeing a bit more verbose.
-
-The last patch is then the sweet one which gives some memory
-back. 
-
-v2:
-
-Most notable changes are, that enabling/disabling of the jump labels
-are not inside the cgroup_lock anymore (create/destroy cb). Instead
-the corresponding functions will be called on module load or unload.
-
-CGROUP_BUILTIN_SUBSYS_COUNT is also gone in this version.  This time I
-trade space for speed. Some extra cycles are spend to identify the
-modules in the for loops, e.g.
-
-for (i = 0; i < CGROUP_SUBSYS_COUNT; i++) {
-	struct cgroup_subsys_state *ss = cgrp->subsys[i];
-
-	/* at bootup time, we don't worry about modular subsystems */
-	if (!ss || (ss && ss->module))
-		continue;
-
-	[...]
-}
-
-CGROUP_SUBSYS_COUNT is currently 12 if all controllers are built.  I
-haven't found any other way to get rid of CGROUP_BUILTIN_SUBSYS_COUNT
-without real dirty preprocessor tricks.
-
-Finally, the two versions of task_cls_classid() and task_netprioidx()
-are merged together.
-
-v1:
-
-I was able to 'fix' CGROUP_BUILTIN_SUBSYS_COUNT defition. With this
-version there is no unused subsys_id. 
-
-The number of builtin subsystem are counted with gcc's predefined
-__COUNTER__ macro. This is a bit fragile, because __COUNTER__
-is only reset to 0 per compile unit. There is a workaround for this.
-When starting to enumate we need to store the current value of
-__COUNTER__ and then subtract that from all enums we define. 
-
-Not sure if that is okay or not.
-
-v0:
-
-The patch #1 and #2 are there to be able to introduce (#3, #4) the 
-jump labels in task_cls_classid() and task_netprioidx(). The jump
-labels are needed to know when it is safe to access the controller. 
-For example not safe means the module is not yet loaded.
-
-All those patches are just preparation for the center piece (#5) 
-of these series. This one will remove the dynamic subsystem ID
-generation and falls back to compile time generated IDs. 
-
-This is the first result from the discussion around on the
-"cgroup cls & netprio 'cleanups'" patches.
-
-This patches are against net-next
-
-v4: - removed unnecessary testing in patch #4
-    - updated commit message in patch #7
-    - fixed wrong pointer check in patch #7
-v3: - dropping unrelated patches such as the jump label patch
-    - reordered the patches
-    - splitted "cgroup: Assign subsystem IDs during compile time" patch a bit
-    - fixed the ordering dependency when assigning the subsystems
-    - removed synchronize_rcu() calls
-    - more verbose commit messages
-v2: - do not use dirty precompiler tricks:
-      use ss->module to identify modules in the loops.
-    - enable/disable jump labels in module load/unload functions
-    - merge builtin/module versions of task_cls_classid() and task_netprioidx
-v1: - only use jump labels when built as module (#3, #4)
-    - get rid of the additional 'pointer' (#5)
-v0: - initial version
+when CONFIG_CGROUP=3Dy and no built in controller was enabled.
 
 Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Eric Dumazet <edumazet@google.com>
+Acked-by: Tejun Heo <tj@kernel.org>
 Cc: Gao feng <gaofeng@cn.fujitsu.com>
-Cc: Glauber Costa <glommer@parallels.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 Cc: John Fastabend <john.r.fastabend@intel.com>
-Cc: Kamezawa Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 Cc: Li Zefan <lizefan@huawei.com>
 Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: Tejun Heo <tj@kernel.org>
 Cc: netdev@vger.kernel.org
 Cc: cgroups@vger.kernel.org
+---
+ include/linux/cgroup.h |  2 +-
+ kernel/cgroup.c        | 75 +++++++++++++++++++++++++++++++-----------=
+--------
+ 2 files changed, 48 insertions(+), 29 deletions(-)
 
-Daniel Wagner (8):
-  cgroup: net_cls: Move sock_update_classid() declaration to
-    cls_cgroup.h
-  cgroup: net_cls: Do not define task_cls_classid() when not selected
-  cgroup: net_prio: Do not define task_netpioidx() when not selected
-  cgroup: Remove CGROUP_BUILTIN_SUBSYS_COUNT
-  cgroup: Wrap subsystem selection macro
-  cgroup: Do not depend on a given order when populating the subsys
-    array
-  cgroup: Assign subsystem IDs during compile time
-  cgroup: Define CGROUP_SUBSYS_COUNT according the configuration
-
- include/linux/cgroup.h        | 12 +++---
- include/linux/cgroup_subsys.h | 24 +++++------
- include/net/cls_cgroup.h      | 27 ++++++------
- include/net/netprio_cgroup.h  | 30 +++++--------
- include/net/sock.h            |  8 ----
- kernel/cgroup.c               | 98 ++++++++++++++++++++++---------------------
- net/core/netprio_cgroup.c     | 11 -----
- net/core/sock.c               | 15 ++-----
- net/sched/cls_cgroup.c        | 13 ------
- 9 files changed, 97 insertions(+), 141 deletions(-)
-
--- 
+diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
+index 145901f..1916cdb 100644
+--- a/include/linux/cgroup.h
++++ b/include/linux/cgroup.h
+@@ -48,7 +48,7 @@ extern const struct file_operations proc_cgroup_opera=
+tions;
+ #define SUBSYS(_x) _x ## _subsys_id,
+ enum cgroup_subsys_id {
+ #include <linux/cgroup_subsys.h>
+-	CGROUP_BUILTIN_SUBSYS_COUNT
++	__CGROUP_TEMPORARY_PLACEHOLDER
+ };
+ #undef SUBSYS
+ /*
+diff --git a/kernel/cgroup.c b/kernel/cgroup.c
+index ced292d..2726d82 100644
+--- a/kernel/cgroup.c
++++ b/kernel/cgroup.c
+@@ -88,7 +88,7 @@ static DEFINE_MUTEX(cgroup_root_mutex);
+=20
+ /*
+  * Generate an array of cgroup subsystem pointers. At boot time, this =
+is
+- * populated up to CGROUP_BUILTIN_SUBSYS_COUNT, and modular subsystems=
+ are
++ * populated with the built in subsystems, and modular subsystems are
+  * registered after that. The mutable section of this array is protect=
+ed by
+  * cgroup_mutex.
+  */
+@@ -1321,11 +1321,13 @@ static int parse_cgroupfs_options(char *data, s=
+truct cgroup_sb_opts *opts)
+ 	 * take duplicate reference counts on a subsystem that's already used=
+,
+ 	 * but rebind_subsystems handles this case.
+ 	 */
+-	for (i =3D CGROUP_BUILTIN_SUBSYS_COUNT; i < CGROUP_SUBSYS_COUNT; i++)=
+ {
++	for (i =3D 0; i < CGROUP_SUBSYS_COUNT; i++) {
+ 		unsigned long bit =3D 1UL << i;
+=20
+ 		if (!(bit & opts->subsys_mask))
+ 			continue;
++		if (!subsys[i]->module)
++			continue;
+ 		if (!try_module_get(subsys[i]->module)) {
+ 			module_pin_failed =3D true;
+ 			break;
+@@ -1337,12 +1339,14 @@ static int parse_cgroupfs_options(char *data, s=
+truct cgroup_sb_opts *opts)
+ 		 * raced with a module_delete call, and to the user this is
+ 		 * essentially a "subsystem doesn't exist" case.
+ 		 */
+-		for (i--; i >=3D CGROUP_BUILTIN_SUBSYS_COUNT; i--) {
++		for (i--; i >=3D 0; i--) {
+ 			/* drop refcounts only on the ones we took */
+ 			unsigned long bit =3D 1UL << i;
+=20
+ 			if (!(bit & opts->subsys_mask))
+ 				continue;
++			if (!subsys[i]->module)
++				continue;
+ 			module_put(subsys[i]->module);
+ 		}
+ 		return -ENOENT;
+@@ -1354,11 +1358,13 @@ static int parse_cgroupfs_options(char *data, s=
+truct cgroup_sb_opts *opts)
+ static void drop_parsed_module_refcounts(unsigned long subsys_mask)
+ {
+ 	int i;
+-	for (i =3D CGROUP_BUILTIN_SUBSYS_COUNT; i < CGROUP_SUBSYS_COUNT; i++)=
+ {
++	for (i =3D 0; i < CGROUP_SUBSYS_COUNT; i++) {
+ 		unsigned long bit =3D 1UL << i;
+=20
+ 		if (!(bit & subsys_mask))
+ 			continue;
++		if (!subsys[i]->module)
++			continue;
+ 		module_put(subsys[i]->module);
+ 	}
+ }
+@@ -1437,6 +1443,7 @@ static void init_cgroup_housekeeping(struct cgrou=
+p *cgrp)
+ 	INIT_LIST_HEAD(&cgrp->event_list);
+ 	spin_lock_init(&cgrp->event_list_lock);
+ 	simple_xattrs_init(&cgrp->xattrs);
++	memset(cgrp->subsys, 0, sizeof(cgrp->subsys));
+ }
+=20
+ static void init_cgroup_root(struct cgroupfs_root *root)
+@@ -4442,8 +4449,7 @@ int __init_or_module cgroup_load_subsys(struct cg=
+roup_subsys *ss)
+ 	 * since cgroup_init_subsys will have already taken care of it.
+ 	 */
+ 	if (ss->module =3D=3D NULL) {
+-		/* a few sanity checks */
+-		BUG_ON(ss->subsys_id >=3D CGROUP_BUILTIN_SUBSYS_COUNT);
++		/* a sanity check */
+ 		BUG_ON(subsys[ss->subsys_id] !=3D ss);
+ 		return 0;
+ 	}
+@@ -4457,7 +4463,7 @@ int __init_or_module cgroup_load_subsys(struct cg=
+roup_subsys *ss)
+ 	 */
+ 	mutex_lock(&cgroup_mutex);
+ 	/* find the first empty slot in the array */
+-	for (i =3D CGROUP_BUILTIN_SUBSYS_COUNT; i < CGROUP_SUBSYS_COUNT; i++)=
+ {
++	for (i =3D 0; i < CGROUP_SUBSYS_COUNT; i++) {
+ 		if (subsys[i] =3D=3D NULL)
+ 			break;
+ 	}
+@@ -4560,7 +4566,6 @@ void cgroup_unload_subsys(struct cgroup_subsys *s=
+s)
+=20
+ 	mutex_lock(&cgroup_mutex);
+ 	/* deassign the subsys_id */
+-	BUG_ON(ss->subsys_id < CGROUP_BUILTIN_SUBSYS_COUNT);
+ 	subsys[ss->subsys_id] =3D NULL;
+=20
+ 	/* remove subsystem from rootnode's list of subsystems */
+@@ -4623,10 +4628,13 @@ int __init cgroup_init_early(void)
+ 	for (i =3D 0; i < CSS_SET_TABLE_SIZE; i++)
+ 		INIT_HLIST_HEAD(&css_set_table[i]);
+=20
+-	/* at bootup time, we don't worry about modular subsystems */
+-	for (i =3D 0; i < CGROUP_BUILTIN_SUBSYS_COUNT; i++) {
++	for (i =3D 0; i < CGROUP_SUBSYS_COUNT; i++) {
+ 		struct cgroup_subsys *ss =3D subsys[i];
+=20
++		/* at bootup time, we don't worry about modular subsystems */
++		if (!ss || ss->module)
++			continue;
++
+ 		BUG_ON(!ss->name);
+ 		BUG_ON(strlen(ss->name) > MAX_CGROUP_TYPE_NAMELEN);
+ 		BUG_ON(!ss->create);
+@@ -4659,9 +4667,12 @@ int __init cgroup_init(void)
+ 	if (err)
+ 		return err;
+=20
+-	/* at bootup time, we don't worry about modular subsystems */
+-	for (i =3D 0; i < CGROUP_BUILTIN_SUBSYS_COUNT; i++) {
++	for (i =3D 0; i < CGROUP_SUBSYS_COUNT; i++) {
+ 		struct cgroup_subsys *ss =3D subsys[i];
++
++		/* at bootup time, we don't worry about modular subsystems */
++		if (!ss || ss->module)
++			continue;
+ 		if (!ss->early_init)
+ 			cgroup_init_subsys(ss);
+ 		if (ss->use_id)
+@@ -4856,13 +4867,16 @@ void cgroup_fork_callbacks(struct task_struct *=
+child)
+ {
+ 	if (need_forkexit_callback) {
+ 		int i;
+-		/*
+-		 * forkexit callbacks are only supported for builtin
+-		 * subsystems, and the builtin section of the subsys array is
+-		 * immutable, so we don't need to lock the subsys array here.
+-		 */
+-		for (i =3D 0; i < CGROUP_BUILTIN_SUBSYS_COUNT; i++) {
++		for (i =3D 0; i < CGROUP_SUBSYS_COUNT; i++) {
+ 			struct cgroup_subsys *ss =3D subsys[i];
++
++			/*
++			 * forkexit callbacks are only supported for
++			 * builtin subsystems.
++			 */
++			if (!ss || ss->module)
++				continue;
++
+ 			if (ss->fork)
+ 				ss->fork(child);
+ 		}
+@@ -4967,12 +4981,13 @@ void cgroup_exit(struct task_struct *tsk, int r=
+un_callbacks)
+ 	tsk->cgroups =3D &init_css_set;
+=20
+ 	if (run_callbacks && need_forkexit_callback) {
+-		/*
+-		 * modular subsystems can't use callbacks, so no need to lock
+-		 * the subsys array
+-		 */
+-		for (i =3D 0; i < CGROUP_BUILTIN_SUBSYS_COUNT; i++) {
++		for (i =3D 0; i < CGROUP_SUBSYS_COUNT; i++) {
+ 			struct cgroup_subsys *ss =3D subsys[i];
++
++			/* modular subsystems can't use callbacks */
++			if (!ss || ss->module)
++				continue;
++
+ 			if (ss->exit) {
+ 				struct cgroup *old_cgrp =3D
+ 					rcu_dereference_raw(cg->subsys[i])->cgroup;
+@@ -5158,13 +5173,17 @@ static int __init cgroup_disable(char *str)
+ 	while ((token =3D strsep(&str, ",")) !=3D NULL) {
+ 		if (!*token)
+ 			continue;
+-		/*
+-		 * cgroup_disable, being at boot time, can't know about module
+-		 * subsystems, so we don't worry about them.
+-		 */
+-		for (i =3D 0; i < CGROUP_BUILTIN_SUBSYS_COUNT; i++) {
++		for (i =3D 0; i < CGROUP_SUBSYS_COUNT; i++) {
+ 			struct cgroup_subsys *ss =3D subsys[i];
+=20
++			/*
++			 * cgroup_disable, being at boot time, can't
++			 * know about module subsystems, so we don't
++			 * worry about them.
++			 */
++			if (!ss || ss->module)
++				continue;
++
+ 			if (!strcmp(token, ss->name)) {
+ 				ss->disabled =3D 1;
+ 				printk(KERN_INFO "Disabling %s control group"
+--=20
 1.7.12.315.g682ce8b
