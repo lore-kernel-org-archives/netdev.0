@@ -1,56 +1,64 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v4 0/8] cgroup: Assign subsystem IDs during compile time
-Date: Wed, 12 Sep 2012 11:56:36 -0700
-Message-ID: <20120912185636.GR7677@google.com>
-References: <1347459128-32236-1-git-send-email-wagi@monom.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCHv4] virtio-spec: virtio network device multiqueue support
+Date: Wed, 12 Sep 2012 20:11:23 +0100
+Message-ID: <1347477083.2580.19.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20120909130308.GA3471@redhat.com>
+	<878vcifwxi.fsf@rustcorp.com.au> <20120910061629.GC16819@redhat.com>
+	<20120910062738.GA17331@redhat.com> <20120910063346.GA17338@redhat.com>
+	<504DC831.1000709@redhat.com> <87har3dc4o.fsf@rustcorp.com.au>
+	<20120912075737.GA30455@redhat.com>
+	<CA+mtBx9NB=t=3YAB=MdRY_6hMe9J=z4U9o-pPe3iYfmxkeKJRw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1347459128-32236-1-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: rick.jones2@hp.com, kvm@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	levinsasha928@gmail.com, pbonzini@redhat.com
+To: Tom Herbert <therbert@google.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CA+mtBx9NB=t=3YAB=MdRY_6hMe9J=z4U9o-pPe3iYfmxkeKJRw@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 12, 2012 at 04:12:00PM +0200, Daniel Wagner wrote:
-> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-> 
-> Hi,
-> 
-> I've removed the useless test in patch #4 and updated the commit message
-> on patch #7. 
-> 
-> While rewriting the commit message #7 I realized the pointer check was
-> completely wrong. Instead testing the return value of
-> task_subsys_state() I tested the pointer return by container_of. For
-> more details on this see the commit message. 
-> 
-> Because of this I added Herbert and Paul to the Cc list. Please have
-> close look at my rambling on the RCU part in patch #7. Thanks a lot!
-> 
-> This series is against 
-> 
->      git://git.kernel.org/pub/scm/linux/kernel/git/tj/cgroup.git for-3.7
+On Wed, 2012-09-12 at 07:40 -0700, Tom Herbert wrote:
+> On Wed, Sep 12, 2012 at 12:57 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> > On Wed, Sep 12, 2012 at 03:19:11PM +0930, Rusty Russell wrote:
+[...]
+> >> Perhaps Tom can explain how we avoid out-of-order receive for the
+> >> accelerated RFS case?  It's not clear to me, but we need to be able to
+> >> do that for virtio-net if it implements accelerated RFS.
+> >
+> AFAIK ooo RX is still possible with accelerated RFS.  We have an
+> algorithm that prevents this for RFS by deferring a migration to a new
+> queue as long as it's possible that a flow might have outstanding
+> packets on the old queue.  I suppose this could be implemented in the
+> device for the HW queues, but I don't think it would be easy to cover
+> all cases where packets were already in transit to the host or other
+> cases where host and device queues are out of sync.
+[...]
 
-All look good to me.  Li, can you please review this?  Herbert, can
-you please confirm the synchronize_rcu() removal in patch 7?
+Yes, I couldn't see any way to eliminate the possibility of OOO.  The
+software queue check in RFS should redirect the flow only when it is new
+or has had an idle period, when I hope only a few packets will be
+received before we send some kind of response (transport or application
+layer ACK).  So I think that OOO is not that likely in practice, but I
+don't have the evidence to back that up.
 
-Once Li review it, I'll route the series through cgroup/for-3.7.
-Thanks.
+If the filter update latency is high enough that a response can overtake
+the filter update, there may be more of a problem.
+
+Ben.
 
 -- 
-tejun
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
