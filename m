@@ -1,59 +1,34 @@
-From: "Love, Robert W" <robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH 0/5] Reorganize libfcoe control
- interfaces
-Date: Wed, 12 Sep 2012 19:35:18 +0000
-Message-ID: <5050E3F5.3080008@intel.com>
-References: <20120910225908.13140.97277.stgit@fritz>
- <CAHNqLyUUeVPVzvZCKzmbp0LdOGnOYudOehVfagySokrq8zj4hA@mail.gmail.com>
- <504F76A1.50809@intel.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: [PATCH 0/4] PCI error handler const
+Date: Wed, 12 Sep 2012 14:01:37 -0600
+Message-ID: <CAErSpo5q6-afy-ekqTAZnDKxsy=cmj4-GP5gjSaDJEutFm+xyg@mail.gmail.com>
+References: <20120907163313.614852012@vyatta.com> <CAErSpo6T=vQnP2u6KP0+sDvT5=iQs1UFjpOLub+9y=B2k_MRgQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "devel-s9riP+hp16TNLxjTenLetw@public.gmane.org" <devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>,
- "linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org" <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-To: Chris Leech <leech-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
-Return-path: <devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-In-Reply-To: <504F76A1.50809-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Content-Language: en-US
-Content-ID: <35A936175D2BFF4A9C3AD6302AFFAB80-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.open-fcoe.org/mailman/options/devel>,
- <mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-fcoe.org/pipermail/devel>
-List-Post: <mailto:devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-List-Help: <mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-fcoe.org/mailman/listinfo/devel>,
- <mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=subscribe>
-Errors-To: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
-Sender: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Linas Vepstas <linasvepstas@gmail.com>, linux-pci@vger.kernel.org,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org,
+	James Bottomley <James.Bottomley@hansenpartnership.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAErSpo6T=vQnP2u6KP0+sDvT5=iQs1UFjpOLub+9y=B2k_MRgQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12-09-11 10:36 AM, Love, Robert W wrote:
-> On Tue 11 Sep 2012 10:06:29 AM PDT, Chris Leech wrote:
->> On Mon, Sep 10, 2012 at 3:59 PM, Robert Love <robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
+On Fri, Sep 7, 2012 at 4:42 PM, Bjorn Helgaas <bhelgaas@google.com> wrote:
+> On Fri, Sep 7, 2012 at 9:33 AM, Stephen Hemminger <shemminger@vyatta.com> wrote:
+>> This is a trivial patch to make PCI error handler function
+>> tables const. Split into pieces so that core changes are first.
+>
+> I put all four of these on this branch:
+>
+> http://git.kernel.org/?p=linux/kernel/git/helgaas/pci.git;a=shortlog;h=refs/heads/pci/stephen-const
+>
+> If the netdev and scsi folks approve, I can handle them all through my PCI tree.
 
-<snip>
+I didn't see any objection, so I pushed these four patches to the PCI
+"next" branch.
 
-> This feels a little awkward with all the special control files.  Have
-> you thought about something designed for creating kernel objects, like
-> configfs?  Similarly the separate start, enable, disable files vs.
-> Let me do some more reading about configfs. I may not have given it
-> enough thought.
+Thanks!
 
-I read though the configfs documentation and the fact that it's designed 
-for user driven object creation does fit with what I'm trying to do. I 
-have a couple concerns that I'm trying to sort through now-
-
-1) This adds a new dependency for boot. I don't know if that is a 
-problem or not. Are there any examples of configfs being mounted in an 
-initrd?
-
-2) Using configfs would likely mean that I'd be creating controller 
-instances and possibly FCF instances in configfs, since they're already 
-there in sysfs these objects would be duplicated. I'm not sure there's 
-harm in that, but it certainly feels disjointed and messy. I suppose we 
-could remove the /sys/bus/fcoe stuff in favor of configfs if it's the 
-right thing to do.
-
-Thanks, //Rob
+Bjorn
