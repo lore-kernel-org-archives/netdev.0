@@ -1,47 +1,59 @@
-From: "Love, Robert W" <robert.w.love@intel.com>
-Subject: Re: [RFC PATCH 1/5] libfcoe, fcoe: Allow user to set a ctlr's mode
-Date: Wed, 12 Sep 2012 19:24:37 +0000
-Message-ID: <5050E174.2070200@intel.com>
+From: "Love, Robert W" <robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH 0/5] Reorganize libfcoe control
+ interfaces
+Date: Wed, 12 Sep 2012 19:35:18 +0000
+Message-ID: <5050E3F5.3080008@intel.com>
 References: <20120910225908.13140.97277.stgit@fritz>
- <20120910225914.13140.22190.stgit@fritz> <504ED16D.5080607@acm.org>
+ <CAHNqLyUUeVPVzvZCKzmbp0LdOGnOYudOehVfagySokrq8zj4hA@mail.gmail.com>
+ <504F76A1.50809@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"bprakash@broadcom.com" <bprakash@broadcom.com>,
-	"devel@open-fcoe.org" <devel@open-fcoe.org>
-To: Bart Van Assche <bvanassche@acm.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <504ED16D.5080607@acm.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "devel-s9riP+hp16TNLxjTenLetw@public.gmane.org" <devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>,
+ "linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org" <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+To: Chris Leech <leech-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Return-path: <devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
+In-Reply-To: <504F76A1.50809-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 Content-Language: en-US
-Content-ID: <0A843583CB7B7A4AA8140BE72AD0CA08@intel.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-ID: <35A936175D2BFF4A9C3AD6302AFFAB80-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.open-fcoe.org/mailman/options/devel>,
+ <mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-fcoe.org/pipermail/devel>
+List-Post: <mailto:devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
+List-Help: <mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-fcoe.org/mailman/listinfo/devel>,
+ <mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=subscribe>
+Errors-To: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
+Sender: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uIDEwIFNlcCAyMDEyIDEwOjUxOjQxIFBNIFBEVCwgQmFydCBWYW4gQXNzY2hlIHdyb3Rl
-Og0KPiBPbiAwOS8xMS8xMiAwMDo1OSwgUm9iZXJ0IExvdmUgd3JvdGU6DQo+PiArc3RhdGljIGVu
-dW0gZmlwX2Nvbm5fdHlwZSBmY29lX3BhcnNlX21vZGUoY29uc3QgY2hhciAqYnVmLA0KPj4gKwkJ
-CQkgIGNvbnN0IHN0cnVjdCBmY29lX2N0bHJfbW9kZV90YWJsZSAqdGJsKQ0KPj4gK3sNCj4+ICsJ
-aW50IG1vZGVpbnQgPSAtMSwgaSwgcnY7DQo+PiArCWNoYXIgKnAsIG1vZGVzdHJbRkNPRV9NQVhf
-TU9ERU5BTUVfTEVOICsgMV0gPSB7IDAsIH07DQo+PiArDQo+PiArCWZvciAocCA9IChjaGFyICop
-YnVmOyAqcDsgcCsrKQ0KPj4gKwkJaWYgKCEoaXNkaWdpdCgqcCkgfHwgaXNzcGFjZSgqcCkpKQ0K
-Pj4gKwkJCWJyZWFrOw0KPg0KPiBJZiB5b3UgY2hhbmdlIHRoZSBkZWNsYXJhdGlvbiBvZiBwIGZy
-b20gImNoYXIgKnAiIGludG8gImNvbnN0IGNoYXIgKnAiDQo+IHlvdSB3b24ndCBuZWVkIGEgY2Fz
-dCBpbiB0aGUgYWJvdmUgZm9yIGxvb3AuDQo+DQo+IFsgLi4uIF0NCj4NCj4+IC1zdGF0aWMgRkNP
-RV9ERVZJQ0VfQVRUUihjdGxyLCBtb2RlLCBTX0lSVUdPLA0KPj4gLQkJCXNob3dfY3Rscl9tb2Rl
-LCBOVUxMKTsNCj4+ICsNCj4+ICtzdGF0aWMgc3NpemVfdCBzdG9yZV9jdGxyX21vZGUoc3RydWN0
-IGRldmljZSAqZGV2LA0KPj4gKwkJCSAgICAgICBzdHJ1Y3QgZGV2aWNlX2F0dHJpYnV0ZSAqYXR0
-ciwNCj4+ICsJCQkgICAgICAgY29uc3QgY2hhciAqYnVmLCBzaXplX3QgY291bnQpDQo+PiArew0K
-Pj4gKwlzdHJ1Y3QgZmNvZV9jdGxyX2RldmljZSAqY3RsciA9IGRldl90b19jdGxyKGRldik7DQo+
-PiArDQo+PiArCWlmICghY3Rsci0+Zi0+c2V0X2Zjb2VfY3Rscl9tb2RlKQ0KPj4gKwkJcmV0dXJu
-IC1FSU5WQUw7DQo+PiArDQo+PiArCWN0bHItPm1vZGUgPSBmY29lX3BhcnNlX21vZGUoYnVmLCBj
-dGxyX21vZGVfdGJsKTsNCj4NCj4gQXMgZmFyIGFzIEkga25vdyBzeXNmcyBkb2Vzbid0IHRlcm1p
-bmF0ZSBidWYgd2l0aCBhICdcMCcgYmVmb3JlIGNhbGxpbmcNCj4gYSBzdG9yZSBtZXRob2QuIERv
-ZXMgdGhhdCBtZWFuIHRoYXQgeW91IGFyZSBwYXNzaW5nIGEgc3RyaW5nIHRoYXQgaXMgbm90DQo+
-ICdcMCctdGVybWluYXRlZCB0byBhIGZ1bmN0aW9uIHRoYXQgZXhwZWN0cyBhICdcMCctdGVybWlu
-YXRlZCBzdHJpbmcgPw0KPg0KPiBCYXJ0Lg0KDQpIZXkgQmFydC4gSSBqdXN0IHdhbnRlZCB0byBh
-Y2tub3dsZWRnZSB5b3VyIGNvbW1lbnRzLiBJIHdpbGwgbWFrZSBzdXJlIA0KdGhhdCB0aGV5J3Jl
-IGFkZHJlc3NlZCBhZnRlciBmaWd1cmluZyBvdXQgaWYgc3lzZnMgaXMgdGhlIHJpZ2h0IHBsYWNl
-IA0KZm9yIHRoZSBpbnRlcmZhY2VzLg0KDQpUaGFua3MsIC8vUm9iDQo=
+On 12-09-11 10:36 AM, Love, Robert W wrote:
+> On Tue 11 Sep 2012 10:06:29 AM PDT, Chris Leech wrote:
+>> On Mon, Sep 10, 2012 at 3:59 PM, Robert Love <robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
+
+<snip>
+
+> This feels a little awkward with all the special control files.  Have
+> you thought about something designed for creating kernel objects, like
+> configfs?  Similarly the separate start, enable, disable files vs.
+> Let me do some more reading about configfs. I may not have given it
+> enough thought.
+
+I read though the configfs documentation and the fact that it's designed 
+for user driven object creation does fit with what I'm trying to do. I 
+have a couple concerns that I'm trying to sort through now-
+
+1) This adds a new dependency for boot. I don't know if that is a 
+problem or not. Are there any examples of configfs being mounted in an 
+initrd?
+
+2) Using configfs would likely mean that I'd be creating controller 
+instances and possibly FCF instances in configfs, since they're already 
+there in sysfs these objects would be duplicated. I'm not sure there's 
+harm in that, but it certainly feels disjointed and messy. I suppose we 
+could remove the /sys/bus/fcoe stuff in favor of configfs if it's the 
+right thing to do.
+
+Thanks, //Rob
