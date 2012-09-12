@@ -1,75 +1,91 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv4] virtio-spec: virtio network device multiqueue support
-Date: Wed, 12 Sep 2012 10:57:37 +0300
-Message-ID: <20120912075737.GA30455@redhat.com>
-References: <20120909130308.GA3471@redhat.com> <878vcifwxi.fsf@rustcorp.com.au>
-	<20120910061629.GC16819@redhat.com>
-	<20120910062738.GA17331@redhat.com>
-	<20120910063346.GA17338@redhat.com> <504DC831.1000709@redhat.com>
-	<87har3dc4o.fsf@rustcorp.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, rick.jones2@hp.com,
-	virtualization@lists.linux-foundation.org,
-	levinsasha928@gmail.com, pbonzini@redhat.com,
-	Tom Herbert <therbert@google.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <87har3dc4o.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: roy.qing.li@gmail.com
+Subject: [PATCH v2] ipv6: replace write lock with read lock when get route info
+Date: Wed, 12 Sep 2012 15:59:01 +0800
+Message-ID: <1347436741-344-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:38603 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751308Ab2ILH7H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 03:59:07 -0400
+Received: by pbbrr13 with SMTP id rr13so1904153pbb.19
+        for <netdev@vger.kernel.org>; Wed, 12 Sep 2012 00:59:06 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 12, 2012 at 03:19:11PM +0930, Rusty Russell wrote:
-> Jason Wang <jasowang@redhat.com> writes:
-> > On 09/10/2012 02:33 PM, Michael S. Tsirkin wrote:
-> >> A final addition: what you suggest above would be
-> >> "TX follows RX", right?
-> 
-> BTW, yes.  But it's a weird way to express what the nic is doing.
+From: Li RongQing <roy.qing.li@gmail.com>
 
-It explains what the system is doing.
-TX is done by driver, RX by nic.
-We document both driver and device in the spec
-so I thought it's fine. any suggestions wellcome.
+geting route info does not write rt->rt6i_table, so replace
+write lock with read lock
 
-> >> It is in anticipation of something like that, that I made
-> >> steering programming so generic.
-> 
-> >> I think TX follows RX is more immediately useful for reasons above
-> >> but we can add both to spec and let drivers and devices
-> >> decide what they want to support.
-> 
-> You mean "RX follows TX"?  ie. accelerated RFS.  I agree.
+Suggested-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/ipv6/addrconf.c |    4 ++--
+ net/ipv6/route.c    |    8 ++++----
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-
-Yes that's what I meant. Thanks for the correction.
-
-> Perhaps Tom can explain how we avoid out-of-order receive for the
-> accelerated RFS case?  It's not clear to me, but we need to be able to
-> do that for virtio-net if it implements accelerated RFS.
-
-Basically this has tx vq per cpu and relies on scheduler not bouncing threads
-between cpus too aggressively. Appears to be what ixgbe does.
-
-> > AFAIK, ixgbe does "rx follows tx". The only differences between ixgbe 
-> > and virtio-net is that ixgbe driver programs the flow director during 
-> > packet transmission but we suggest to do it silently in the device for 
-> > simplicity.
-> 
-> Implying the receive queue by xmit will be slightly laggy.  Don't know
-> if that's a problem.
-> 
-> Cheers,
-> Rusty.
-
-Doesn't seem to be a problem in Jason's testing so far.
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 1237d5d..061c100 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1706,7 +1706,7 @@ static struct rt6_info *addrconf_get_prefix_route(const struct in6_addr *pfx,
+ 	if (table == NULL)
+ 		return NULL;
+ 
+-	write_lock_bh(&table->tb6_lock);
++	read_lock_bh(&table->tb6_lock);
+ 	fn = fib6_locate(&table->tb6_root, pfx, plen, NULL, 0);
+ 	if (!fn)
+ 		goto out;
+@@ -1721,7 +1721,7 @@ static struct rt6_info *addrconf_get_prefix_route(const struct in6_addr *pfx,
+ 		break;
+ 	}
+ out:
+-	write_unlock_bh(&table->tb6_lock);
++	read_unlock_bh(&table->tb6_lock);
+ 	return rt;
+ }
+ 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 399613b..8be1d86 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1837,7 +1837,7 @@ static struct rt6_info *rt6_get_route_info(struct net *net,
+ 	if (!table)
+ 		return NULL;
+ 
+-	write_lock_bh(&table->tb6_lock);
++	read_lock_bh(&table->tb6_lock);
+ 	fn = fib6_locate(&table->tb6_root, prefix ,prefixlen, NULL, 0);
+ 	if (!fn)
+ 		goto out;
+@@ -1853,7 +1853,7 @@ static struct rt6_info *rt6_get_route_info(struct net *net,
+ 		break;
+ 	}
+ out:
+-	write_unlock_bh(&table->tb6_lock);
++	read_unlock_bh(&table->tb6_lock);
+ 	return rt;
+ }
+ 
+@@ -1896,7 +1896,7 @@ struct rt6_info *rt6_get_dflt_router(const struct in6_addr *addr, struct net_dev
+ 	if (!table)
+ 		return NULL;
+ 
+-	write_lock_bh(&table->tb6_lock);
++	read_lock_bh(&table->tb6_lock);
+ 	for (rt = table->tb6_root.leaf; rt; rt=rt->dst.rt6_next) {
+ 		if (dev == rt->dst.dev &&
+ 		    ((rt->rt6i_flags & (RTF_ADDRCONF | RTF_DEFAULT)) == (RTF_ADDRCONF | RTF_DEFAULT)) &&
+@@ -1905,7 +1905,7 @@ struct rt6_info *rt6_get_dflt_router(const struct in6_addr *addr, struct net_dev
+ 	}
+ 	if (rt)
+ 		dst_hold(&rt->dst);
+-	write_unlock_bh(&table->tb6_lock);
++	read_unlock_bh(&table->tb6_lock);
+ 	return rt;
+ }
+ 
+-- 
+1.7.4.1
