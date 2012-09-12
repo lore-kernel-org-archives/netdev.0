@@ -1,57 +1,83 @@
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Subject: [PATCH] net_tx_action: Call trace_consume_skb() instead of trace_kfree_skb()
-Date: Tue, 11 Sep 2012 18:28:18 -0500
-Message-ID: <1347406098-22071-1-git-send-email-sbohrer@rgmadvisors.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] checkpatch: Check networking specific block comment style
+Date: Tue, 11 Sep 2012 17:47:33 -0700
+Message-ID: <1347410853.2456.7.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: sanagi.koki@jp.fujitsu.com, davem@davemloft.net,
-	eric.dumazet@gmail.com, Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:53350 "EHLO
-	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759302Ab2IKX2c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 19:28:32 -0400
-Received: by obbuo13 with SMTP id uo13so1692933obb.19
-        for <netdev@vger.kernel.org>; Tue, 11 Sep 2012 16:28:30 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andy Whitcroft <apw@canonical.com>,
+	David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Call trace_consume_skb() instead of trace_kfree_skb() as skbs are
-removed from the completion_queue during transmit.  This avoids false
-positives from dropwatch/drop_monitor making them more useful.
+In an effort to get fewer checkpatch reviewer corrections,
+add a networking specific style test for the preferred
+networking comment style.
 
-Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
+	/* The preferred style for block comments in
+	 * drivers/net/... and net/... is like this
+	 */
+
+These tests are only used in net/ and drivers/net/
+
+Tested with:
+
+$ cat drivers/net/t.c
+
+/* foo */
+
+/*
+ * foo
+ */
+
+/* foo
+ */
+
+/* foo
+ * bar */
+$ ./scripts/checkpatch.pl -f drivers/net/t.c
+WARNING: networking block comments don't use an empty /* line, use /* Comment...
+#4: FILE: net/t.c:4:
++
++/*
+
+WARNING: networking block comments put the trailing */ on a separate line
+#12: FILE: net/t.c:12:
++ * bar */
+
+total: 0 errors, 2 warnings, 12 lines checked
+
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
+ scripts/checkpatch.pl |   14 ++++++++++++++
+ 1 files changed, 14 insertions(+), 0 deletions(-)
 
-In my case I seem to hit this tracepoint for every packet I transmit so
-these appear to be false positives to me.  Perhaps there are cases where
-you could hit this and it is a real packet drop?
-
- net/core/dev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8398836..00774ce 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3015,7 +3015,7 @@ static void net_tx_action(struct softirq_action *h)
- 			clist = clist->next;
- 
- 			WARN_ON(atomic_read(&skb->users));
--			trace_kfree_skb(skb, net_tx_action);
-+			trace_consume_skb(skb);
- 			__kfree_skb(skb);
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index ca05ba2..7165516 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -1873,6 +1873,20 @@ sub process {
+ 			    "No space is necessary after a cast\n" . $hereprev);
  		}
- 	}
--- 
-1.7.7.6
-
-
--- 
-
----------------------------------------------------------------
-This email, along with any attachments, is confidential. If you 
-believe you received this message in error, please contact the 
-sender immediately and delete all copies of the message.  
-Thank you.
+ 
++		if ($realfile =~ m@^(drivers/net/|net/)@ &&
++		    $rawline =~ /^\+[ \t]*\/\*[ \t]*$/ &&
++		    $prevrawline =~ /^\+[ \t]*$/) {
++			WARN("NETWORKING_BLOCK_COMMENT_STYLE",
++			     "networking block comments don't use an empty /* line, use /* Comment...\n" . $hereprev);
++		}
++
++		if ($realfile =~ m@^(drivers/net/|net/)@ &&
++		    $rawline !~ m@^\+[ \t]*(\/\*|\*\/)@ &&
++		    $rawline =~ m@^\+[ \t]*.+\*\/[ \t]*$@) {
++			WARN("NETWORKING_BLOCK_COMMENT_STYLE",
++			     "networking block comments put the trailing */ on a separate line\n" . $herecurr);
++		}
++
+ # check for spaces at the beginning of a line.
+ # Exceptions:
+ #  1) within comments
