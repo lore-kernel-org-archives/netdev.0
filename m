@@ -1,111 +1,121 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH net-next 1/2] ipv6: force RTF_NONEXTHOP for SIT device
-Date: Wed, 12 Sep 2012 13:53:13 -0700
-Message-ID: <CANP3RGcpM+an8u5-cxz-VqKFFN0Oj4zsrcQ3YXz=a4_4J6XLzQ@mail.gmail.com>
-References: <1347451266.13103.882.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Lorenzo Colitti <lorenzo@google.com>,
-	Tom Herbert <therbert@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:62078 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753186Ab2ILUxO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 16:53:14 -0400
-Received: by iahk25 with SMTP id k25so1622277iah.19
-        for <netdev@vger.kernel.org>; Wed, 12 Sep 2012 13:53:13 -0700 (PDT)
-In-Reply-To: <1347451266.13103.882.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [RFC/RFT 00/15] Add new driver RTL8723AE
+Date: Wed, 12 Sep 2012 15:54:39 -0500
+Message-ID: <1347483294-6943-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 12, 2012 at 5:01 AM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> We have special handling of SIT devices in addrconf_prefix_route()
-> to avoid using a neighbour for each destination.
->
-> If routing entry is :
->
-> ip -6 route add 2001:db8::/64 dev sit1
->
-> Then the kernel will create a new route for every new address
-> under 2001:db8::/64 that we send a packet to (potentially, 2^64
-> routes).
->
-> Under load, we immediately get the infamous "Neighbour table overflow=
-"
-> message and machine eventually crash.
->
-> This does not happen if we specify a next-hop explicitly, like so:
->
-> ip -6 route add 2001:db8::/64 via fe80:: dev sit1
->
-> We can avoid this hassle doing the SIT test in ip6_route_add() instea=
-d
-> of addrconf_prefix_route().
->
-> This permits ip6_pol_route() to clone route instead of calling
-> rt6_alloc_cow() and allocate a neighbour
->
-> Reported-by: Lorenzo Colitti <lorenzo@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Maciej =C5=BBenczykowski <maze@google.com>
-> Cc: Tom Herbert <therbert@google.com>
-> ---
->  net/ipv6/addrconf.c |   10 ----------
->  net/ipv6/route.c    |    9 +++++++++
->  2 files changed, 9 insertions(+), 10 deletions(-)
->
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 1237d5d..c6837d2 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -1679,16 +1679,6 @@ addrconf_prefix_route(struct in6_addr *pfx, in=
-t plen, struct net_device *dev,
->         };
->
->         cfg.fc_dst =3D *pfx;
-> -
-> -       /* Prevent useless cloning on PtP SIT.
-> -          This thing is done here expecting that the whole
-> -          class of non-broadcast devices need not cloning.
-> -        */
-> -#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
-> -       if (dev->type =3D=3D ARPHRD_SIT && (dev->flags & IFF_POINTOPO=
-INT))
-> -               cfg.fc_flags |=3D RTF_NONEXTHOP;
-> -#endif
-> -
->         ip6_route_add(&cfg);
->  }
->
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 399613b..d4ba3fc 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1540,6 +1540,15 @@ int ip6_route_add(struct fib6_config *cfg)
->         } else
->                 rt->rt6i_prefsrc.plen =3D 0;
->
-> +       /* Prevent useless cloning on PtP SIT.
-> +        *  This thing is done here expecting that the whole
-> +        *  class of non-broadcast devices need not cloning.
-> +        */
-> +#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
-> +       if (dev && dev->type =3D=3D ARPHRD_SIT && (dev->flags & IFF_P=
-OINTOPOINT))
-> +               cfg->fc_flags |=3D RTF_NONEXTHOP;
-> +#endif
-> +
->         if (cfg->fc_flags & (RTF_GATEWAY | RTF_NONEXTHOP)) {
->                 err =3D rt6_bind_neighbour(rt, dev);
->                 if (err)
->
->
+This set of patches add the new driver rtl8723ae to the rtlwifi family
+of drivers. It handles the RTL8723AE, which is now being included in
+some Toshiba laptops. This driver is derived from version 0007.0809.2012
+of the vendor driver.
 
-Acked-by: Maciej =C5=BBenczykowski <maze@google.com>
+Depending on how long the review process takes, I am hoping to include
+this driver in kernel 3.7.
+
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+
+Larry Finger (15):
+  rtlwifi: rtl8723ae: Add new driver - Part 1
+  rtlwifi: rtl8723ae: Add new driver - Part 2
+  rtlwifi: rtl8723ae: Add new driver - Part 3
+  rtlwifi: rtl8723ae: Add new driver - Part 4
+  rtlwifi: rtl8723ae: Add new driver - Part 5
+  rtlwifi: rtl8723ae: Add new driver - Part 6
+  rtlwifi: rtl8723ae: Add new driver - Part 7
+  rtlwifi: rtl8723ae: Add new driver - Part 8
+  rtlwifi: rtl8723ae: Add new driver - Part 9
+  rtlwifi: rtl8723ae: Add new driver - Part 10
+  rtlwifi: rtl8723ae: Add new driver - Part 11
+  rtlwifi: rtl8723ae: Add new driver - Part 12
+  rtlwifi: rtl8723ae: Add new driver - Part 13
+  rtlwifi: Modify files for addition of rtl8723ae
+  rtlwifi: rtl8192ce: rtl8192cu: rtl8192se: rtl81723ae: Turn on
+    building of the new driver
+
+ drivers/net/wireless/rtlwifi/Kconfig               |   19 +-
+ drivers/net/wireless/rtlwifi/Makefile              |    4 +-
+ drivers/net/wireless/rtlwifi/debug.h               |    2 +
+ drivers/net/wireless/rtlwifi/pci.h                 |    1 +
+ drivers/net/wireless/rtlwifi/rtl8192ce/hw.c        |   83 +-
+ drivers/net/wireless/rtlwifi/rtl8192cu/hw.c        |   10 +-
+ drivers/net/wireless/rtlwifi/rtl8192se/hw.c        |    6 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/Makefile    |   23 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/btc.h       |   41 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/def.h       |  291 +++
+ drivers/net/wireless/rtlwifi/rtl8723ae/dm.c        |  952 ++++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/dm.h        |  174 ++
+ drivers/net/wireless/rtlwifi/rtl8723ae/fw.c        |  758 ++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/fw.h        |   99 +
+ .../wireless/rtlwifi/rtl8723ae/hal_bt_coexist.c    |  554 +++++
+ .../wireless/rtlwifi/rtl8723ae/hal_bt_coexist.h    |  161 ++
+ drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.c   | 1807 ++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.h   |  161 ++
+ drivers/net/wireless/rtlwifi/rtl8723ae/hw.c        | 2559 ++++++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/hw.h        |   70 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/led.c       |  158 ++
+ drivers/net/wireless/rtlwifi/rtl8723ae/led.h       |   40 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/phy.c       | 2160 +++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/phy.h       |  228 ++
+ drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.c    |  113 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.h    |  313 +++
+ drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.c |  145 ++
+ drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.h |  101 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/reg.h       | 2129 ++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/rf.c        |  518 ++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/rf.h        |   45 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/sw.c        |  405 ++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/sw.h        |   38 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/table.c     |  744 ++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/table.h     |   51 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/trx.c       |  830 +++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/trx.h       |  725 ++++++
+ drivers/net/wireless/rtlwifi/stats.c               |  274 +++
+ drivers/net/wireless/rtlwifi/stats.h               |   47 +
+ drivers/net/wireless/rtlwifi/wifi.h                |  112 +-
+ 40 files changed, 16919 insertions(+), 32 deletions(-)
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/Makefile
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/btc.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/def.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/dm.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/dm.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/fw.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/fw.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/hal_bt_coexist.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/hal_bt_coexist.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/hw.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/hw.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/led.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/led.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/phy.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/phy.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/reg.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/rf.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/rf.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/sw.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/sw.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/table.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/table.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/trx.h
+ create mode 100644 drivers/net/wireless/rtlwifi/stats.c
+ create mode 100644 drivers/net/wireless/rtlwifi/stats.h
+
+-- 
+1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
