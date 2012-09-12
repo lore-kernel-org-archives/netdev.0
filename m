@@ -1,94 +1,33 @@
-From: Andrei Dolnikov <andrey.dolnikov@cogentembedded.com>
-Subject: Re: Failure to send fragmented IP packet in case of missing ARP entry
-Date: Wed, 12 Sep 2012 19:54:43 +0400
-Message-ID: <5050B043.6070301@cogentembedded.com>
-References: <504DAC02.8040808@cogentembedded.com>  <1347270171.1234.1353.camel@edumazet-glaptop> <1347270798.1234.1370.camel@edumazet-glaptop>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: GRO aggregation
+Date: Wed, 12 Sep 2012 09:23:27 -0700
+Message-ID: <5050B6FF.5050002@hp.com>
+References: <504F4063.9030706@mellanox.com>  , <1347388396.13103.658.camel@edumazet-glaptop> <36F7E4A28C18BE4DB7C86058E7B607241E622022@MTRDAG01.mtl.com> , <1347390113.13103.660.camel@edumazet-glaptop> <36F7E4A28C18BE4DB7C86058E7B607241E622083@MTRDAG01.mtl.com> <1347392132.13103.663.camel@edumazet-glaptop> <505054AE.9040901@mellanox.com> <1347442394.13103.703.camel@edumazet-glaptop> <50509F30.30402@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Shlomo Pongartz <shlomop@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:53161 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750966Ab2ILPyu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 11:54:50 -0400
-Received: by lbbgj3 with SMTP id gj3so1254566lbb.19
-        for <netdev@vger.kernel.org>; Wed, 12 Sep 2012 08:54:48 -0700 (PDT)
-In-Reply-To: <1347270798.1234.1370.camel@edumazet-glaptop>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:12928 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756885Ab2ILQX2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 12:23:28 -0400
+In-Reply-To: <50509F30.30402@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Works for me.
+On 09/12/2012 07:41 AM, Shlomo Pongartz wrote:
+> Hi Eric
+>
+> The TSO is just a mean to create a burst of frames on the wire so the
+> NAPI will be able to pool as much as possible.
 
-Thank you!
-Andrei.
+Is it?  If I recall correctly, TSO was in place well before all drivers 
+were using NAPI.  And NAPI was being proposed independent of TSO. TSO is 
+there to save CPU cycles on the transmit side.  "On the wire" what it 
+sends is to be identical to what a host with greater CPU performance 
+could accomplish.
 
-On 09/10/2012 01:53 PM, Eric Dumazet wrote:
-> On Mon, 2012-09-10 at 11:42 +0200, Eric Dumazet wrote:
->> On Mon, 2012-09-10 at 12:59 +0400, Andrei Dolnikov wrote:
->>> Hello all,
->>>
->>> The following issue is observed on most Linux distributions:
->>> Transmission of fragmented IP packets in case of missing ARP entry for
->>> destination IP fails.
->>> Actually ARP request is sent, and, once ARP response is received, only
->>> few queued fragments are transmitted. Remaining fragments are lost.
->>> It can be easily reproduced as follows:
->>>       # arp -d <dst IP>
->>>       # ping -s 65000 -c 1 <dst IP>
->>> Ping result is: "1 packets transmitted, 0 received, 100% packet loss,
->>> time 0ms".
->>>
->>> The latest kernel version I tried was 3.5.0-1 x86_64, but I also was
->>> able to reproduce it with 3.2.x, 3.0.x and 2.6.32.
->>> It doesn't depend on hardware: was able to reproduce with VMWare Player,
->>> Intel based laptop, Intel Atom and ARM based custom boards.
->>> As I'm not a networking standards expert I'm not sure if it's a real bug
->>> or acceptable behaviour, but decided to raise the issue here as I can't
->>> reproduce this anomaly with the Windows 7 PC.
->>>
->>> Thanks,
->>> Andrei.
->>> --
->> Its a bit better with linux-3.3, with commit
->> 8b5c171bb3dc0686b2647a84e990199c5faa9ef8
->> (neigh: new unresolved queue limits)
->>
->> +neigh/default/unres_qlen_bytes - INTEGER
->> +       The maximum number of bytes which may be used by packets
->> +       queued for each unresolved address by other network layers.
->> +       (added in linux 3.3)
->> +
->> +neigh/default/unres_qlen - INTEGER
->> +       The maximum number of packets which may be queued for each
->> +       unresolved address by other network layers.
->> +       (deprecated in linux 3.3) : use unres_qlen_bytes instead.
->>
->>
->> Problem is : unres_qlen_bytes default value is 65536, so its a bit too
->> small once you take into account truesize overhead
->>
->> I guess following patch would be needed :
->>
->> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
->> index 4780045..3395bb6 100644
->> --- a/net/ipv4/arp.c
->> +++ b/net/ipv4/arp.c
->> @@ -171,7 +171,7 @@ struct neigh_table arp_tbl = {
->>   		.gc_staletime		= 60 * HZ,
->>   		.reachable_time		= 30 * HZ,
->>   		.delay_probe_time	= 5 * HZ,
->> -		.queue_len_bytes	= 64*1024,
->> +		.queue_len_bytes	= 64 * SKB_TRUESIZE(1024),
->>   		.ucast_probes		= 3,
->>   		.mcast_probes		= 3,
->>   		.anycast_delay		= 1 * HZ,
-> In the mean time, you can also do
->
-> echo 50 >/proc/sys/net/ipv4/neigh/eth0/unres_qlen
->
-> (change eth0 by the name of your interface)
->
->
->
+rick jones
