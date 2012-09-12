@@ -1,81 +1,100 @@
-From: Sylvain Munaut <s.munaut@whatever-company.com>
-Subject: Re: NULL deref in bnx2 / crashes ? ( was: netconsole leads to stalled
- CPU task )
-Date: Wed, 12 Sep 2012 13:53:44 +0200
-Message-ID: <CAF6-1L5hKU-VM0E5vCwExJ4kb8YB=ndotgfH7pbpxO6Q7+JHUQ@mail.gmail.com>
-References: <CAF6-1L4wh0P-Wi-keN98wb-2V_avZYVE3ycf3tEe9SBpgK1dDQ@mail.gmail.com>
-	<1345634026.5158.1084.camel@edumazet-glaptop>
-	<CAF6-1L6zr5WJxo6FVk+2ya=EEs++u3x9iSrDxX-weBofLJuA1g@mail.gmail.com>
-	<1345640757.5158.1321.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next 1/2] ipv6: force RTF_NONEXTHOP for SIT device
+Date: Wed, 12 Sep 2012 14:01:06 +0200
+Message-ID: <1347451266.13103.882.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Cong Wang <amwang@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Lorenzo Colitti <lorenzo@google.com>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	Tom Herbert <therbert@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:47923 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751044Ab2ILLxp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 07:53:45 -0400
-Received: by vbbff1 with SMTP id ff1so1871876vbb.19
-        for <netdev@vger.kernel.org>; Wed, 12 Sep 2012 04:53:45 -0700 (PDT)
-In-Reply-To: <1345640757.5158.1321.camel@edumazet-glaptop>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:35151 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755024Ab2ILMBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 08:01:11 -0400
+Received: by eaac11 with SMTP id c11so799888eaa.19
+        for <netdev@vger.kernel.org>; Wed, 12 Sep 2012 05:01:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+=46rom: Eric Dumazet <edumazet@google.com>
 
-AFAICT, the following patch was never merged but I just confirmed that
-I do need it over 3.6-rc5 for things to work properly.
+We have special handling of SIT devices in addrconf_prefix_route()
+to avoid using a neighbour for each destination.
 
->> > diff --git a/net/core/netpoll.c b/net/core/netpoll.c
->> > index 346b1eb..df731a0 100644
->> > --- a/net/core/netpoll.c
->> > +++ b/net/core/netpoll.c
->> > @@ -335,8 +335,11 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
->> >         /* don't get messages out of order, and no recursion */
->> >         if (skb_queue_len(&npinfo->txq) == 0 && !netpoll_owner_active(dev)) {
->> >                 struct netdev_queue *txq;
->> > +               int queue_index = skb_get_queue_mapping(skb);
->> >
->> > -               txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
->> > +               if (queue_index >= dev->real_num_tx_queues)
->> > +                       queue_index = 0;
->> > +               txq = netdev_get_tx_queue(dev, queue_index);
->> >
->> >                 /* try until next clock tick */
->> >                 for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
->>
->>
->> Well, it doesn't solve the problem :(
->>
->> It does have an effect though. Now even on the machine with the
->> broadcom card, it just freeze the machine ...
->> On the machine with intel card, it actually does get a couple of
->> netconsole packet out and then freeze as well.
->>
->
-> my patch was incomplete, sorry :
->
-> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-> index 346b1eb..ddc453b 100644
-> --- a/net/core/netpoll.c
-> +++ b/net/core/netpoll.c
-> @@ -335,8 +335,13 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
->         /* don't get messages out of order, and no recursion */
->         if (skb_queue_len(&npinfo->txq) == 0 && !netpoll_owner_active(dev)) {
->                 struct netdev_queue *txq;
-> +               int queue_index = skb_get_queue_mapping(skb);
->
-> -               txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
-> +               if (queue_index >= dev->real_num_tx_queues) {
-> +                       queue_index = 0;
-> +                       skb_set_queue_mapping(skb, 0);
-> +               }
-> +               txq = netdev_get_tx_queue(dev, queue_index);
->
->                 /* try until next clock tick */
->                 for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
+If routing entry is :
 
-Cheers,
+ip -6 route add 2001:db8::/64 dev sit1
 
-    Sylvain
+Then the kernel will create a new route for every new address
+under 2001:db8::/64 that we send a packet to (potentially, 2^64
+routes).
+
+Under load, we immediately get the infamous "Neighbour table overflow"
+message and machine eventually crash.
+
+This does not happen if we specify a next-hop explicitly, like so:
+
+ip -6 route add 2001:db8::/64 via fe80:: dev sit1
+
+We can avoid this hassle doing the SIT test in ip6_route_add() instead
+of addrconf_prefix_route().
+
+This permits ip6_pol_route() to clone route instead of calling
+rt6_alloc_cow() and allocate a neighbour
+
+Reported-by: Lorenzo Colitti <lorenzo@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Maciej =C5=BBenczykowski <maze@google.com>
+Cc: Tom Herbert <therbert@google.com>
+---
+ net/ipv6/addrconf.c |   10 ----------
+ net/ipv6/route.c    |    9 +++++++++
+ 2 files changed, 9 insertions(+), 10 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 1237d5d..c6837d2 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1679,16 +1679,6 @@ addrconf_prefix_route(struct in6_addr *pfx, int =
+plen, struct net_device *dev,
+ 	};
+=20
+ 	cfg.fc_dst =3D *pfx;
+-
+-	/* Prevent useless cloning on PtP SIT.
+-	   This thing is done here expecting that the whole
+-	   class of non-broadcast devices need not cloning.
+-	 */
+-#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
+-	if (dev->type =3D=3D ARPHRD_SIT && (dev->flags & IFF_POINTOPOINT))
+-		cfg.fc_flags |=3D RTF_NONEXTHOP;
+-#endif
+-
+ 	ip6_route_add(&cfg);
+ }
+=20
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 399613b..d4ba3fc 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1540,6 +1540,15 @@ int ip6_route_add(struct fib6_config *cfg)
+ 	} else
+ 		rt->rt6i_prefsrc.plen =3D 0;
+=20
++	/* Prevent useless cloning on PtP SIT.
++	 *  This thing is done here expecting that the whole
++	 *  class of non-broadcast devices need not cloning.
++	 */
++#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
++	if (dev && dev->type =3D=3D ARPHRD_SIT && (dev->flags & IFF_POINTOPOI=
+NT))
++		cfg->fc_flags |=3D RTF_NONEXTHOP;
++#endif
++
+ 	if (cfg->fc_flags & (RTF_GATEWAY | RTF_NONEXTHOP)) {
+ 		err =3D rt6_bind_neighbour(rt, dev);
+ 		if (err)
