@@ -1,43 +1,44 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: [PATCH] checkpatch: Check networking specific block comment
- style
-Date: Wed, 12 Sep 2012 01:19:51 +0000
-Message-ID: <804857E1F29AAC47BF68C404FC60A1842EB021D9@ORSMSX102.amr.corp.intel.com>
-References: <1347410853.2456.7.camel@joe2Laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net-sched: sch_cbq: avoid infinite loop
+Date: Tue, 11 Sep 2012 22:21:31 -0400 (EDT)
+Message-ID: <20120911.222131.2305298175633650636.davem@davemloft.net>
+References: <ceeee25e4588b250ce7b363afe97a489@visp.net.lb>
+	<1347405072.13103.675.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Andy Whitcroft <apw@canonical.com>,
-	David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1347410853.2456.7.camel@joe2Laptop>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: denys@visp.net.lb, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51104 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757410Ab2ILCVg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2012 22:21:36 -0400
+In-Reply-To: <1347405072.13103.675.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
-aGFsZiBPZiBKb2UgUGVyY2hlcw0KPiBTZW50OiBUdWVzZGF5LCBTZXB0ZW1iZXIgMTEsIDIwMTIg
-NTo0OCBQTQ0KPiBUbzogQW5kcmV3IE1vcnRvbg0KPiBDYzogQW5keSBXaGl0Y3JvZnQ7IERhdmlk
-IE1pbGxlcjsgTEtNTDsgbmV0ZGV2DQo+IFN1YmplY3Q6IFtQQVRDSF0gY2hlY2twYXRjaDogQ2hl
-Y2sgbmV0d29ya2luZyBzcGVjaWZpYyBibG9jayBjb21tZW50DQo+IHN0eWxlDQo+IA0KPiBJbiBh
-biBlZmZvcnQgdG8gZ2V0IGZld2VyIGNoZWNrcGF0Y2ggcmV2aWV3ZXIgY29ycmVjdGlvbnMsDQo+
-IGFkZCBhIG5ldHdvcmtpbmcgc3BlY2lmaWMgc3R5bGUgdGVzdCBmb3IgdGhlIHByZWZlcnJlZA0K
-PiBuZXR3b3JraW5nIGNvbW1lbnQgc3R5bGUuDQo+IA0KPiAJLyogVGhlIHByZWZlcnJlZCBzdHls
-ZSBmb3IgYmxvY2sgY29tbWVudHMgaW4NCj4gCSAqIGRyaXZlcnMvbmV0Ly4uLiBhbmQgbmV0Ly4u
-LiBpcyBsaWtlIHRoaXMNCj4gCSAqLw0KPiANCj4gVGhlc2UgdGVzdHMgYXJlIG9ubHkgdXNlZCBp
-biBuZXQvIGFuZCBkcml2ZXJzL25ldC8NCj4gDQo+IFRlc3RlZCB3aXRoOg0KPiANCj4gJCBjYXQg
-ZHJpdmVycy9uZXQvdC5jDQo+IA0KPiAvKiBmb28gKi8NCj4gDQo+IC8qDQo+ICAqIGZvbw0KPiAg
-Ki8NCj4gDQo+IC8qIGZvbw0KPiAgKi8NCj4gDQo+IC8qIGZvbw0KPiAgKiBiYXIgKi8NCj4gJCAu
-L3NjcmlwdHMvY2hlY2twYXRjaC5wbCAtZiBkcml2ZXJzL25ldC90LmMNCj4gV0FSTklORzogbmV0
-d29ya2luZyBibG9jayBjb21tZW50cyBkb24ndCB1c2UgYW4gZW1wdHkgLyogbGluZSwgdXNlIC8q
-IENvbW1lbnQuLi4NCg0KVGhpcyBjb25mbGljdHMgd2l0aCB0aGUgcHJlZmVycmVkIHN0eWxlIGZv
-ciBsb25nIChtdWx0aS1saW5lKSBjb21tZW50cyBkb2N1bWVudGVkIGluDQouL0RvY3VtZW50YXRp
-b24vQ29kaW5nU3R5bGUuICBJZiB0aGlzIGlzIHRoZSB3YXkgY29tbWVudHMgc2hvdWxkIGJlIGRv
-bmUgaW4gdGhlDQpuZXR3b3JraW5nIGNvZGUgdGhpcyBwYXRjaCBzaG91bGQgYWxzbyBpbmNsdWRl
-IGFuIHVwZGF0ZSB0byBDaGFwdGVyIDggaW4gQ29kaW5nU3R5bGUNCmRvY3VtZW50aW5nIHRoZSBu
-ZXR3b3JraW5nIHNwZWNpZmljIHN0eWxlIHRvIGF2b2lkIGNvbmZ1c2lvbi4NCg0KDQo=
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 12 Sep 2012 01:11:12 +0200
+
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Its possible to setup a bad cbq configuration leading to
+> an infinite loop in cbq_classify()
+> 
+> DEV_OUT=eth0
+> ICMP="match ip protocol 1 0xff"
+> U32="protocol ip u32"
+> DST="match ip dst"
+> tc qdisc add dev $DEV_OUT root handle 1: cbq avpkt 1000 \
+> 	bandwidth 100mbit
+> tc class add dev $DEV_OUT parent 1: classid 1:1 cbq \
+> 	rate 512kbit allot 1500 prio 5 bounded isolated
+> tc filter add dev $DEV_OUT parent 1: prio 3 $U32 \
+> 	$ICMP $DST 192.168.3.234 flowid 1:
+> 
+> Reported-by: Denys Fedoryschenko <denys@visp.net.lb>
+> Tested-by: Denys Fedoryschenko <denys@visp.net.lb>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+
+Applied and queued up for -stable, thanks Eric.
