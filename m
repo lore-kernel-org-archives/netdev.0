@@ -1,31 +1,43 @@
-From: RongQing Li <roy.qing.li@gmail.com>
-Subject: Re: [PATCH] ipv6: replace write lock with read lock when get route info
-Date: Wed, 12 Sep 2012 15:49:08 +0800
-Message-ID: <CAJFZqHyk3O-8wQCmUGBOBkGvoYrY9JicWLxTX9ZZaF=QO4fWVQ@mail.gmail.com>
-References: <1347427553-17781-1-git-send-email-roy.qing.li@gmail.com>
-	<1347435907.13103.693.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [v2 PATCH 2/2] netprio_cgroup: Use memcpy instead of the
+ for-loop to copy priomap
+Date: Wed, 12 Sep 2012 03:49:01 -0400 (EDT)
+Message-ID: <20120912.034901.184817520125489015.davem@davemloft.net>
+References: <20120912060741.11037.37347.stgit@srivatsabhat.in.ibm.com>
+	<20120912060747.11037.42623.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:38237 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755193Ab2ILHtJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 03:49:09 -0400
-Received: by obbuo13 with SMTP id uo13so2191614obb.19
-        for <netdev@vger.kernel.org>; Wed, 12 Sep 2012 00:49:08 -0700 (PDT)
-In-Reply-To: <1347435907.13103.693.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nhorman@tuxdriver.com, David.Laight@aculab.com,
+	john.r.fastabend@intel.com, gaofeng@cn.fujitsu.com,
+	eric.dumazet@gmail.com, mark.d.rustad@intel.com,
+	lizefan@huawei.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: srivatsa.bhat@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120912060747.11037.42623.stgit@srivatsabhat.in.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>
->
-> Why dont you also change addrconf_get_prefix_route() ?
->
->
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Date: Wed, 12 Sep 2012 11:37:47 +0530
 
-I did not find it, I will send v2
-Thanks
+> +		memcpy(new_priomap->priomap, old_priomap->priomap,
+> +			old_priomap->priomap_len *
+> +					sizeof(old_priomap->priomap[0]));
 
--Roy
+This argument indentation is ridiculous.  Try:
+
+		memcpy(new_priomap->priomap, old_priomap->priomap,
+		       old_priomap->priomap_len *
+		       sizeof(old_priomap->priomap[0]));
+
+Using TABs exclusively for argumentat indentation is not the goal.
+
+Rather, lining the arguments up properly so that they sit at the first
+column after the first line's openning parenthesis is what you should
+be trying to achieve.
+
+And ignoring whatever stylistic convention we may or may not have, I
+find it impossibly hard to believe that the code quoted above looks
+good even to you.
