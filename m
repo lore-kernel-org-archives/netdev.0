@@ -1,97 +1,45 @@
-From: Shlomo Pongartz <shlomop@mellanox.com>
-Subject: Re: GRO aggregation
-Date: Wed, 12 Sep 2012 17:41:52 +0300
-Message-ID: <50509F30.30402@mellanox.com>
-References: <504F4063.9030706@mellanox.com>  ,<1347388396.13103.658.camel@edumazet-glaptop>  <36F7E4A28C18BE4DB7C86058E7B607241E622022@MTRDAG01.mtl.com>  ,<1347390113.13103.660.camel@edumazet-glaptop>  <36F7E4A28C18BE4DB7C86058E7B607241E622083@MTRDAG01.mtl.com>  <1347392132.13103.663.camel@edumazet-glaptop>  <505054AE.9040901@mellanox.com> <1347442394.13103.703.camel@edumazet-glaptop>
+From: Rami Rosen <roszenrami@gmail.com>
+Subject: Re: [PATCH net-next V3 1/2] IB/ipoib: Add rtnl_link_ops support
+Date: Wed, 12 Sep 2012 17:53:32 +0300
+Message-ID: <CAKoUAr=8zZA9EgvJEVrd0a-Uw=zzksHj+5P2Sp3Lb4vXgSJRYA@mail.gmail.com>
+References: <1345724119-32110-1-git-send-email-ogerlitz@mellanox.com>
+	<1345724119-32110-2-git-send-email-ogerlitz@mellanox.com>
+	<Pine.GSO.4.63.1208291450330.1098@stinky-local.trash.net>
+	<5050668B.1010105@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Shlomo Pongratz <shlomop@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:40063 "HELO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752157Ab2ILOql (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 10:46:41 -0400
-In-Reply-To: <1347442394.13103.703.camel@edumazet-glaptop>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:46135 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759780Ab2ILOxe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 10:53:34 -0400
+Received: by lagy9 with SMTP id y9so1167192lag.19
+        for <netdev@vger.kernel.org>; Wed, 12 Sep 2012 07:53:33 -0700 (PDT)
+In-Reply-To: <5050668B.1010105@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/12/2012 12:33 PM, Eric Dumazet wrote:
-> On Wed, 2012-09-12 at 12:23 +0300, Shlomo Pongartz wrote:
->> On 9/11/2012 10:35 PM, Eric Dumazet wrote:
->>> On Tue, 2012-09-11 at 19:24 +0000, Shlomo Pongratz wrote:
->>>
->>>> I see that in ixgbe the weight for the NAPI is 64 (netif_napi_add). So
->>>> if packets are arriving in high rate then an the CPU is fast enough to
->>>> collect the packets as they arrive, assuming packets continue to
->>>> arrives while the NAPI runs. Then it should have aggregate more. So we
->>>> will have less passes trough the stack.
->>>>
->>> As I said, _if_ your cpu was loaded by other stuff, then you would see
->>> biggest GRO packets.
->>>
->>> GRO is not : "We want to kill latency and have big packets just because
->>> its better"
->>>
->>> Its more like : If load is big enough, try to aggregate TCP frames in
->>> less skbs.
->>>
->>>
->>>
->>>
->> First I want to apologize for breaking the mailing thread. I wasn't at
->> work and used webmail.
->>
->> I agree with your but I think that something is still strange.
->> On the transmitter side all the offloading are enabled, e.g. TSO and GSO.
->> The tcpdump on the sender side shows size of 64240 which is 44 packets
->> of 1460 each.
->> Now since the offloading are enabled the HW should transmit 44 frames
->> back to back,
->> that is in a burst of 44 * 1500 bytes, which according to my calculation
->> should take 52.8 micro on 10G Ethernet.
->> Using ethtool I've set the rx-usecs to 1022 micro, which I think is the
->> maximal value for ixgbe.
->> Note that there is no way to set rx-frames on ixgbe.
->> Now since the ixgbe weight is 64 I expected that the NAPI will be able
->> to poll for more then 21 packets,
->> since 44 packets came in one burst.
->> However the results remains the same.
-> TSO uses PAGE frags, so 64KB needs about 16 pages.
->
-> tcp_sendmsg() could even use order-3 pages, so that only 2 pages would
-> be needed to fill 64KB of data.
->
-> GRO uses whatever fragment size provided by NIC, depending on MTU.
->
-> One skb has a limit on number of frags.
->
-> Handling a huge array of frags would be actually slower in some helper
-> functions.
->
-> Since you dont exactly describe why you ask all these questions, its
-> hard to guess what problem you try to solve.
->
->
->
-> .
->
-Hi Eric
+Hi,
 
-The TSO is just a mean to create a burst of frames on the wire so the 
-NAPI will be able to pool as much as possible.
-I'm looking on the aggregation done by GRO on behalf of IPoIB. With 
-IPoIB I added a counter that counts how many
-packets were aggregated before napi_complete is called (ether directly 
-or by net_rx_action) and found that although
-the NAPI consumes 64 packets on average before napi_complete is called, 
-the tcpdump shows  that no more then 16-17
-packets were aggregated. BTW when I increased the MTU  to 4K I did 
-reached 64K aggregation which again is 16-17 packets.
-So in order to see if 17 packets is the aggregation limit I  wanted to 
-see how ixgbe is doing and found that it aggregates 21 packets.
-So I wanted to know if there is another factor that governs the 
-aggregation, one that I can tune.
+>From the dump of CPU #1, it seems indeed not related at all to "modprobe -r".
 
-Shlomo.
+Could it be that there is some IB stack sysfs write activity?
+(regardless of the modprobe -r" you issued) ?  I see some candidates
+for it.
+
+delete_child() is a method of the IB stack (ipoib/ipoib_main.c)
+
+Maybe in order to help debug the problem, you might try to add in
+delete_child() method, print of the name of the attribute which is
+being deleted ?
+
+  (struct device_attribute has a a member "struct attribute attr",
+which in turn has  "const char *name").
+
+
+Regards,
+Rami Rosen
