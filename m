@@ -1,32 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2] Generalise "auto-negotiation done" function, move
- generic PHY code to phy_device.c
-Date: Wed, 12 Sep 2012 14:05:22 -0400 (EDT)
-Message-ID: <20120912.140522.912336194714928072.davem@davemloft.net>
-References: <50506DCE.9050400@sysgo.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] staging: r8712u: fix bug in r8712_recv_indicatepkt()
+Date: Wed, 12 Sep 2012 20:25:42 +0200
+Message-ID: <1347474342.13103.1278.camel@edumazet-glaptop>
+References: <CAKNFNKoowxSsbkV_tsBDG1uZeuWBDxPQFQoHQZ2R2O7Y6hnrmA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, afleming@freescale.com
-To: asv@sysgo.com
+Cc: edumazet@google.com, netdev@vger.kernel.org
+To: Aki Parviainen <aki.parviainen@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32851 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753508Ab2ILSFZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 14:05:25 -0400
-In-Reply-To: <50506DCE.9050400@sysgo.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:48808 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752763Ab2ILSZs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 14:25:48 -0400
+Received: by bkwj10 with SMTP id j10so73187bkw.19
+        for <netdev@vger.kernel.org>; Wed, 12 Sep 2012 11:25:47 -0700 (PDT)
+In-Reply-To: <CAKNFNKoowxSsbkV_tsBDG1uZeuWBDxPQFQoHQZ2R2O7Y6hnrmA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2012-09-12 at 20:52 +0300, Aki Parviainen wrote:
 
-Please set your Subject lines correctly.
+> Tested this patch on 64bit linux-3.6-rc5 & fixes problem for me. Thank
+> you very much for fixing this very annoying & long time open bug!
+> 
+> Tested-by: Aki Parviainen <aki.parviainen@iki.fi>
 
-It should be:
-
-[PATCH VX] $(subsystem): $(description)
-
-Without the subsystem prefix people can't tell quickly what general
-area of code you are changing.
-
-For these changes I'd use either "net: " or "phy: " as the subsystem
-prefix.
+Thanks for testing !
