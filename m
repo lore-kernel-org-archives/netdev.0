@@ -1,39 +1,38 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [RFC/RFT 12/15] rtlwifi: rtl8723ae: Add new driver - Part 12
-Date: Wed, 12 Sep 2012 15:54:51 -0500
-Message-ID: <1347483294-6943-13-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [RFC/RFT 11/15] rtlwifi: rtl8723ae: Add new driver - Part 11
+Date: Wed, 12 Sep 2012 15:54:50 -0500
+Message-ID: <1347483294-6943-12-git-send-email-Larry.Finger@lwfinger.net>
 References: <1347483294-6943-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless@vger.kernel.org,
 	Larry Finger <Larry.Finger@lwfinger.net>,
 	netdev@vger.kernel.org, <chaoming_li@realsil.com.cn>
 To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:63094 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753958Ab2ILUzp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 16:55:45 -0400
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:65116 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753943Ab2ILUzn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 16:55:43 -0400
 In-Reply-To: <1347483294-6943-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is part 12 of the addition of files for a new driver to handle
+This patch is part 11 of the addition of files for a new driver to handle
 the Realtek RTL8723AE wireless device.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 Cc: <chaoming_li@realsil.com.cn>
 ---
- drivers/net/wireless/rtlwifi/rtl8723ae/table.c |  744 ++++++++++++++++++++++++
- drivers/net/wireless/rtlwifi/rtl8723ae/table.h |   51 ++
- 2 files changed, 795 insertions(+)
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/table.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/table.h
+ drivers/net/wireless/rtlwifi/rtl8723ae/sw.c |  405 +++++++++++++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/sw.h |   38 +++
+ 2 files changed, 443 insertions(+)
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/sw.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/sw.h
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/table.c b/drivers/net/wireless/rtlwifi/rtl8723ae/table.c
-new file mode 100644
-index 0000000..14ead87
+Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/sw.c
+===================================================================
 --- /dev/null
-+++ b/drivers/net/wireless/rtlwifi/rtl8723ae/table.c
-@@ -0,0 +1,744 @@
++++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/sw.c
+@@ -0,0 +1,392 @@
 +/******************************************************************************
 + *
 + * Copyright(c) 2009-2012  Realtek Corporation.
@@ -59,731 +58,378 @@ index 0000000..14ead87
 + * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
 + * Hsinchu 300, Taiwan.
 + *
-+ * Created on  2010/ 5/18,  1:41
-+ *
 + * Larry Finger <Larry.Finger@lwfinger.net>
 + *
 + *****************************************************************************/
 +
++#include "../wifi.h"
++#include <linux/vmalloc.h>
++#include <linux/module.h>
++
++#include "../core.h"
++#include "../pci.h"
++#include "reg.h"
++#include "def.h"
++#include "phy.h"
++#include "dm.h"
++#include "hw.h"
++#include "sw.h"
++#include "trx.h"
++#include "led.h"
 +#include "table.h"
++#include "hal_btc.h"
 +
-+u32 RTL8723EPHY_REG_1TARRAY[RTL8723E_PHY_REG_1TARRAY_LENGTH] = {
-+	0x800, 0x80040000,
-+	0x804, 0x00000003,
-+	0x808, 0x0000fc00,
-+	0x80c, 0x0000000a,
-+	0x810, 0x10005388,
-+	0x814, 0x020c3d10,
-+	0x818, 0x02200385,
-+	0x81c, 0x00000000,
-+	0x820, 0x01000100,
-+	0x824, 0x00390004,
-+	0x828, 0x00000000,
-+	0x82c, 0x00000000,
-+	0x830, 0x00000000,
-+	0x834, 0x00000000,
-+	0x838, 0x00000000,
-+	0x83c, 0x00000000,
-+	0x840, 0x00010000,
-+	0x844, 0x00000000,
-+	0x848, 0x00000000,
-+	0x84c, 0x00000000,
-+	0x850, 0x00000000,
-+	0x854, 0x00000000,
-+	0x858, 0x569a569a,
-+	0x85c, 0x001b25a4,
-+	0x860, 0x66f60110,
-+	0x864, 0x061f0130,
-+	0x868, 0x00000000,
-+	0x86c, 0x32323200,
-+	0x870, 0x07000760,
-+	0x874, 0x22004000,
-+	0x878, 0x00000808,
-+	0x87c, 0x00000000,
-+	0x880, 0xc0083070,
-+	0x884, 0x000004d5,
-+	0x888, 0x00000000,
-+	0x88c, 0xccc000c0,
-+	0x890, 0x00000800,
-+	0x894, 0xfffffffe,
-+	0x898, 0x40302010,
-+	0x89c, 0x00706050,
-+	0x900, 0x00000000,
-+	0x904, 0x00000023,
-+	0x908, 0x00000000,
-+	0x90c, 0x81121111,
-+	0xa00, 0x00d047c8,
-+	0xa04, 0x80ff000c,
-+	0xa08, 0x8c838300,
-+	0xa0c, 0x2e68120f,
-+	0xa10, 0x9500bb78,
-+	0xa14, 0x11144028,
-+	0xa18, 0x00881117,
-+	0xa1c, 0x89140f00,
-+	0xa20, 0x1a1b0000,
-+	0xa24, 0x090e1317,
-+	0xa28, 0x00000204,
-+	0xa2c, 0x00d30000,
-+	0xa70, 0x101fbf00,
-+	0xa74, 0x00000007,
-+	0xa78, 0x00000900,
-+	0xc00, 0x48071d40,
-+	0xc04, 0x03a05611,
-+	0xc08, 0x000000e4,
-+	0xc0c, 0x6c6c6c6c,
-+	0xc10, 0x08800000,
-+	0xc14, 0x40000100,
-+	0xc18, 0x08800000,
-+	0xc1c, 0x40000100,
-+	0xc20, 0x00000000,
-+	0xc24, 0x00000000,
-+	0xc28, 0x00000000,
-+	0xc2c, 0x00000000,
-+	0xc30, 0x69e9ac44,
-+	0xc34, 0x469652cf,
-+	0xc38, 0x49795994,
-+	0xc3c, 0x0a97971c,
-+	0xc40, 0x1f7c403f,
-+	0xc44, 0x000100b7,
-+	0xc48, 0xec020107,
-+	0xc4c, 0x007f037f,
-+	0xc50, 0x69543420,
-+	0xc54, 0x43bc0094,
-+	0xc58, 0x69543420,
-+	0xc5c, 0x433c0094,
-+	0xc60, 0x00000000,
-+	0xc64, 0x7116848b,
-+	0xc68, 0x47c00bff,
-+	0xc6c, 0x00000036,
-+	0xc70, 0x2c7f000d,
-+	0xc74, 0x018610db,
-+	0xc78, 0x0000001f,
-+	0xc7c, 0x00b91612,
-+	0xc80, 0x40000100,
-+	0xc84, 0x20f60000,
-+	0xc88, 0x40000100,
-+	0xc8c, 0x20200000,
-+	0xc90, 0x00121820,
-+	0xc94, 0x00000000,
-+	0xc98, 0x00121820,
-+	0xc9c, 0x00007f7f,
-+	0xca0, 0x00000000,
-+	0xca4, 0x00000080,
-+	0xca8, 0x00000000,
-+	0xcac, 0x00000000,
-+	0xcb0, 0x00000000,
-+	0xcb4, 0x00000000,
-+	0xcb8, 0x00000000,
-+	0xcbc, 0x28000000,
-+	0xcc0, 0x00000000,
-+	0xcc4, 0x00000000,
-+	0xcc8, 0x00000000,
-+	0xccc, 0x00000000,
-+	0xcd0, 0x00000000,
-+	0xcd4, 0x00000000,
-+	0xcd8, 0x64b22427,
-+	0xcdc, 0x00766932,
-+	0xce0, 0x00222222,
-+	0xce4, 0x00000000,
-+	0xce8, 0x37644302,
-+	0xcec, 0x2f97d40c,
-+	0xd00, 0x00080740,
-+	0xd04, 0x00020401,
-+	0xd08, 0x0000907f,
-+	0xd0c, 0x20010201,
-+	0xd10, 0xa0633333,
-+	0xd14, 0x3333bc43,
-+	0xd18, 0x7a8f5b6b,
-+	0xd2c, 0xcc979975,
-+	0xd30, 0x00000000,
-+	0xd34, 0x80608000,
-+	0xd38, 0x00000000,
-+	0xd3c, 0x00027293,
-+	0xd40, 0x00000000,
-+	0xd44, 0x00000000,
-+	0xd48, 0x00000000,
-+	0xd4c, 0x00000000,
-+	0xd50, 0x6437140a,
-+	0xd54, 0x00000000,
-+	0xd58, 0x00000000,
-+	0xd5c, 0x30032064,
-+	0xd60, 0x4653de68,
-+	0xd64, 0x04518a3c,
-+	0xd68, 0x00002101,
-+	0xd6c, 0x2a201c16,
-+	0xd70, 0x1812362e,
-+	0xd74, 0x322c2220,
-+	0xd78, 0x000e3c24,
-+	0xe00, 0x2a2a2a2a,
-+	0xe04, 0x2a2a2a2a,
-+	0xe08, 0x03902a2a,
-+	0xe10, 0x2a2a2a2a,
-+	0xe14, 0x2a2a2a2a,
-+	0xe18, 0x2a2a2a2a,
-+	0xe1c, 0x2a2a2a2a,
-+	0xe28, 0x00000000,
-+	0xe30, 0x1000dc1f,
-+	0xe34, 0x10008c1f,
-+	0xe38, 0x02140102,
-+	0xe3c, 0x681604c2,
-+	0xe40, 0x01007c00,
-+	0xe44, 0x01004800,
-+	0xe48, 0xfb000000,
-+	0xe4c, 0x000028d1,
-+	0xe50, 0x1000dc1f,
-+	0xe54, 0x10008c1f,
-+	0xe58, 0x02140102,
-+	0xe5c, 0x28160d05,
-+	0xe60, 0x00000008,
-+	0xe68, 0x001b25a4,
-+	0xe6c, 0x631b25a0,
-+	0xe70, 0x631b25a0,
-+	0xe74, 0x081b25a0,
-+	0xe78, 0x081b25a0,
-+	0xe7c, 0x081b25a0,
-+	0xe80, 0x081b25a0,
-+	0xe84, 0x631b25a0,
-+	0xe88, 0x081b25a0,
-+	0xe8c, 0x631b25a0,
-+	0xed0, 0x631b25a0,
-+	0xed4, 0x631b25a0,
-+	0xed8, 0x631b25a0,
-+	0xedc, 0x001b25a0,
-+	0xee0, 0x001b25a0,
-+	0xeec, 0x6b1b25a0,
-+	0xf14, 0x00000003,
-+	0xf4c, 0x00000000,
-+	0xf00, 0x00000300,
++static void rtl8723ae_init_aspm_vars(struct ieee80211_hw *hw)
++{
++	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
++
++	/*close ASPM for AMD defaultly */
++	rtlpci->const_amdpci_aspm = 0;
++
++	/*
++	 * ASPM PS mode.
++	 * 0 - Disable ASPM,
++	 * 1 - Enable ASPM without Clock Req,
++	 * 2 - Enable ASPM with Clock Req,
++	 * 3 - Alwyas Enable ASPM with Clock Req,
++	 * 4 - Always Enable ASPM without Clock Req.
++	 * set defult to RTL8192CE:3 RTL8192E:2
++	 * */
++	rtlpci->const_pci_aspm = 3;
++
++	/*Setting for PCI-E device */
++	rtlpci->const_devicepci_aspm_setting = 0x03;
++
++	/*Setting for PCI-E bridge */
++	rtlpci->const_hostpci_aspm_setting = 0x02;
++
++	/*
++	 * In Hw/Sw Radio Off situation.
++	 * 0 - Default,
++	 * 1 - From ASPM setting without low Mac Pwr,
++	 * 2 - From ASPM setting with low Mac Pwr,
++	 * 3 - Bus D3
++	 * set default to RTL8192CE:0 RTL8192SE:2
++	 */
++	rtlpci->const_hwsw_rfoff_d3 = 0;
++
++	/*
++	 * This setting works for those device with
++	 * backdoor ASPM setting such as EPHY setting.
++	 * 0 - Not support ASPM,
++	 * 1 - Support ASPM,
++	 * 2 - According to chipset.
++	 */
++	rtlpci->const_support_pciaspm = 1;
++}
++
++int rtl8723ae_init_sw_vars(struct ieee80211_hw *hw)
++{
++	int err = 0;
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
++	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
++
++	rtl8723ae_bt_reg_init(hw);
++
++	rtlpriv->dm.dm_initialgain_enable = 1;
++	rtlpriv->dm.dm_flag = 0;
++	rtlpriv->dm.disable_framebursting = 0;
++	rtlpriv->dm.thermalvalue = 0;
++	rtlpci->transmit_config = CFENDFORM | BIT(12) | BIT(13);
++
++	/* compatible 5G band 88ce just 2.4G band & smsp */
++	rtlpriv->rtlhal.current_bandtype = BAND_ON_2_4G;
++	rtlpriv->rtlhal.bandset = BAND_ON_2_4G;
++	rtlpriv->rtlhal.macphymode = SINGLEMAC_SINGLEPHY;
++
++	rtlpci->receive_config = (RCR_APPFCS |
++				  RCR_APP_MIC |
++				  RCR_APP_ICV |
++				  RCR_APP_PHYST_RXFF |
++				  RCR_HTC_LOC_CTRL |
++				  RCR_AMF |
++				  RCR_ACF |
++				  RCR_ADF |
++				  RCR_AICV |
++				  RCR_AB |
++				  RCR_AM |
++				  RCR_APM |
++				  0);
++
++	rtlpci->irq_mask[0] =
++	    (u32) (PHIMR_ROK |
++		   PHIMR_RDU |
++		   PHIMR_VODOK |
++		   PHIMR_VIDOK |
++		   PHIMR_BEDOK |
++		   PHIMR_BKDOK |
++		   PHIMR_MGNTDOK |
++		   PHIMR_HIGHDOK |
++		   PHIMR_C2HCMD |
++		   PHIMR_HISRE_IND |
++		   PHIMR_TSF_BIT32_TOGGLE |
++		   PHIMR_TXBCNOK |
++		   PHIMR_PSTIMEOUT |
++		   0);
++
++	rtlpci->irq_mask[1] = (u32)(PHIMR_RXFOVW | 0);
++
++	/* for debug level */
++	rtlpriv->dbg.global_debuglevel = rtlpriv->cfg->mod_params->debug;
++	/* for LPS & IPS */
++	rtlpriv->psc.inactiveps = rtlpriv->cfg->mod_params->inactiveps;
++	rtlpriv->psc.swctrl_lps = rtlpriv->cfg->mod_params->swctrl_lps;
++	rtlpriv->psc.fwctrl_lps = rtlpriv->cfg->mod_params->fwctrl_lps;
++	rtlpriv->psc.reg_fwctrl_lps = 3;
++	rtlpriv->psc.reg_max_lps_awakeintvl = 5;
++	/* for ASPM, you can close aspm through
++	 * set const_support_pciaspm = 0 */
++	rtl8723ae_init_aspm_vars(hw);
++
++	if (rtlpriv->psc.reg_fwctrl_lps == 1)
++		rtlpriv->psc.fwctrl_psmode = FW_PS_MIN_MODE;
++	else if (rtlpriv->psc.reg_fwctrl_lps == 2)
++		rtlpriv->psc.fwctrl_psmode = FW_PS_MAX_MODE;
++	else if (rtlpriv->psc.reg_fwctrl_lps == 3)
++		rtlpriv->psc.fwctrl_psmode = FW_PS_DTIM_MODE;
++
++	/* for firmware buf */
++	rtlpriv->rtlhal.pfirmware = vmalloc(0x6000);
++	if (!rtlpriv->rtlhal.pfirmware) {
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++			 "Can't alloc buffer for fw.\n");
++		return 1;
++	}
++
++	if (IS_VENDOR_8723_A_CUT(rtlhal->version))
++		rtlpriv->cfg->fw_name = "rtlwifi/rtl8723fw.bin";
++	else if (IS_81xxC_VENDOR_UMC_B_CUT(rtlhal->version))
++		rtlpriv->cfg->fw_name = "rtlwifi/rtl8723fw_B.bin";
++
++	rtlpriv->max_fw_size = 0x6000;
++	pr_info("Using firmware %s\n", rtlpriv->cfg->fw_name);
++	err = request_firmware_nowait(THIS_MODULE, 1, rtlpriv->cfg->fw_name,
++				      rtlpriv->io.dev, GFP_KERNEL, hw,
++				      rtl_fw_cb);
++	if (err) {
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++			 "Failed to request firmware!\n");
++		return 1;
++	}
++	return 0;
++}
++
++void rtl8723ae_deinit_sw_vars(struct ieee80211_hw *hw)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++
++	if (rtlpriv->rtlhal.pfirmware) {
++		vfree(rtlpriv->rtlhal.pfirmware);
++		rtlpriv->rtlhal.pfirmware = NULL;
++	}
++}
++
++static struct rtl_hal_ops rtl8723ae_hal_ops = {
++	.init_sw_vars = rtl8723ae_init_sw_vars,
++	.deinit_sw_vars = rtl8723ae_deinit_sw_vars,
++	.read_eeprom_info = rtl8723ae_read_eeprom_info,
++	.interrupt_recognized = rtl8723ae_interrupt_recognized,
++	.hw_init = rtl8723ae_hw_init,
++	.hw_disable = rtl8723ae_card_disable,
++	.hw_suspend = rtl8723ae_suspend,
++	.hw_resume = rtl8723ae_resume,
++	.enable_interrupt = rtl8723ae_enable_interrupt,
++	.disable_interrupt = rtl8723ae_disable_interrupt,
++	.set_network_type = rtl8723ae_set_network_type,
++	.set_chk_bssid = rtl8723ae_set_check_bssid,
++	.set_qos = rtl8723ae_set_qos,
++	.set_bcn_reg = rtl8723ae_set_beacon_related_registers,
++	.set_bcn_intv = rtl8723ae_set_beacon_interval,
++	.update_interrupt_mask = rtl8723ae_update_interrupt_mask,
++	.get_hw_reg = rtl8723ae_get_hw_reg,
++	.set_hw_reg = rtl8723ae_set_hw_reg,
++	.update_rate_tbl = rtl8723ae_update_hal_rate_tbl,
++	.fill_tx_desc = rtl8723ae_tx_fill_desc,
++	.fill_tx_cmddesc = rtl8723ae_tx_fill_cmddesc,
++	.query_rx_desc = rtl8723ae_rx_query_desc,
++	.set_channel_access = rtl8723ae_update_channel_access_setting,
++	.radio_onoff_checking = rtl8723ae_gpio_radio_on_off_checking,
++	.set_bw_mode = rtl8723ae_phy_set_bw_mode,
++	.switch_channel = rtl8723ae_phy_sw_chnl,
++	.dm_watchdog = rtl8723ae_dm_watchdog,
++	.scan_operation_backup = rtl8723ae_phy_scan_operation_backup,
++	.set_rf_power_state = rtl8723ae_phy_set_rf_power_state,
++	.led_control = rtl8723ae_led_control,
++	.set_desc = rtl8723ae_set_desc,
++	.get_desc = rtl8723ae_get_desc,
++	.tx_polling = rtl8723ae_tx_polling,
++	.enable_hw_sec = rtl8723ae_enable_hw_security_config,
++	.set_key = rtl8723ae_set_key,
++	.init_sw_leds = rtl8723ae_init_sw_leds,
++	.allow_all_destaddr = rtl8723ae_allow_all_destaddr,
++	.get_bbreg = rtl8723ae_phy_query_bb_reg,
++	.set_bbreg = rtl8723ae_phy_set_bb_reg,
++	.get_rfreg = rtl8723ae_phy_query_rf_reg,
++	.set_rfreg = rtl8723ae_phy_set_rf_reg,
++	.c2h_command_handle = rtl_8723e_c2h_command_handle,
++	.bt_wifi_media_status_notify = rtl_8723e_bt_wifi_media_status_notify,
++	.bt_turn_off_bt_coexist_before_enter_lps =
++		 rtl8723ae_dm_bt_turn_off_bt_coexist_before_enter_lps,
 +};
 +
-+u32 RTL8723EPHY_REG_ARRAY_PG[RTL8723E_PHY_REG_ARRAY_PGLENGTH] = {
-+	0xe00, 0xffffffff, 0x0a0c0c0c,
-+	0xe04, 0xffffffff, 0x02040608,
-+	0xe08, 0x0000ff00, 0x00000000,
-+	0x86c, 0xffffff00, 0x00000000,
-+	0xe10, 0xffffffff, 0x0a0c0d0e,
-+	0xe14, 0xffffffff, 0x02040608,
-+	0xe18, 0xffffffff, 0x0a0c0d0e,
-+	0xe1c, 0xffffffff, 0x02040608,
-+	0x830, 0xffffffff, 0x0a0c0c0c,
-+	0x834, 0xffffffff, 0x02040608,
-+	0x838, 0xffffff00, 0x00000000,
-+	0x86c, 0x000000ff, 0x00000000,
-+	0x83c, 0xffffffff, 0x0a0c0d0e,
-+	0x848, 0xffffffff, 0x02040608,
-+	0x84c, 0xffffffff, 0x0a0c0d0e,
-+	0x868, 0xffffffff, 0x02040608,
-+	0xe00, 0xffffffff, 0x00000000,
-+	0xe04, 0xffffffff, 0x00000000,
-+	0xe08, 0x0000ff00, 0x00000000,
-+	0x86c, 0xffffff00, 0x00000000,
-+	0xe10, 0xffffffff, 0x00000000,
-+	0xe14, 0xffffffff, 0x00000000,
-+	0xe18, 0xffffffff, 0x00000000,
-+	0xe1c, 0xffffffff, 0x00000000,
-+	0x830, 0xffffffff, 0x00000000,
-+	0x834, 0xffffffff, 0x00000000,
-+	0x838, 0xffffff00, 0x00000000,
-+	0x86c, 0x000000ff, 0x00000000,
-+	0x83c, 0xffffffff, 0x00000000,
-+	0x848, 0xffffffff, 0x00000000,
-+	0x84c, 0xffffffff, 0x00000000,
-+	0x868, 0xffffffff, 0x00000000,
-+	0xe00, 0xffffffff, 0x04040404,
-+	0xe04, 0xffffffff, 0x00020204,
-+	0xe08, 0x0000ff00, 0x00000000,
-+	0x86c, 0xffffff00, 0x00000000,
-+	0xe10, 0xffffffff, 0x06060606,
-+	0xe14, 0xffffffff, 0x00020406,
-+	0xe18, 0xffffffff, 0x00000000,
-+	0xe1c, 0xffffffff, 0x00000000,
-+	0x830, 0xffffffff, 0x04040404,
-+	0x834, 0xffffffff, 0x00020204,
-+	0x838, 0xffffff00, 0x00000000,
-+	0x86c, 0x000000ff, 0x00000000,
-+	0x83c, 0xffffffff, 0x06060606,
-+	0x848, 0xffffffff, 0x00020406,
-+	0x84c, 0xffffffff, 0x00000000,
-+	0x868, 0xffffffff, 0x00000000,
-+	0xe00, 0xffffffff, 0x00000000,
-+	0xe04, 0xffffffff, 0x00000000,
-+	0xe08, 0x0000ff00, 0x00000000,
-+	0x86c, 0xffffff00, 0x00000000,
-+	0xe10, 0xffffffff, 0x00000000,
-+	0xe14, 0xffffffff, 0x00000000,
-+	0xe18, 0xffffffff, 0x00000000,
-+	0xe1c, 0xffffffff, 0x00000000,
-+	0x830, 0xffffffff, 0x00000000,
-+	0x834, 0xffffffff, 0x00000000,
-+	0x838, 0xffffff00, 0x00000000,
-+	0x86c, 0x000000ff, 0x00000000,
-+	0x83c, 0xffffffff, 0x00000000,
-+	0x848, 0xffffffff, 0x00000000,
-+	0x84c, 0xffffffff, 0x00000000,
-+	0x868, 0xffffffff, 0x00000000,
-+	0xe00, 0xffffffff, 0x00000000,
-+	0xe04, 0xffffffff, 0x00000000,
-+	0xe08, 0x0000ff00, 0x00000000,
-+	0x86c, 0xffffff00, 0x00000000,
-+	0xe10, 0xffffffff, 0x00000000,
-+	0xe14, 0xffffffff, 0x00000000,
-+	0xe18, 0xffffffff, 0x00000000,
-+	0xe1c, 0xffffffff, 0x00000000,
-+	0x830, 0xffffffff, 0x00000000,
-+	0x834, 0xffffffff, 0x00000000,
-+	0x838, 0xffffff00, 0x00000000,
-+	0x86c, 0x000000ff, 0x00000000,
-+	0x83c, 0xffffffff, 0x00000000,
-+	0x848, 0xffffffff, 0x00000000,
-+	0x84c, 0xffffffff, 0x00000000,
-+	0x868, 0xffffffff, 0x00000000,
-+	0xe00, 0xffffffff, 0x04040404,
-+	0xe04, 0xffffffff, 0x00020204,
-+	0xe08, 0x0000ff00, 0x00000000,
-+	0x86c, 0xffffff00, 0x00000000,
-+	0xe10, 0xffffffff, 0x00000000,
-+	0xe14, 0xffffffff, 0x00000000,
-+	0xe18, 0xffffffff, 0x00000000,
-+	0xe1c, 0xffffffff, 0x00000000,
-+	0x830, 0xffffffff, 0x04040404,
-+	0x834, 0xffffffff, 0x00020204,
-+	0x838, 0xffffff00, 0x00000000,
-+	0x86c, 0x000000ff, 0x00000000,
-+	0x83c, 0xffffffff, 0x00000000,
-+	0x848, 0xffffffff, 0x00000000,
-+	0x84c, 0xffffffff, 0x00000000,
-+	0x868, 0xffffffff, 0x00000000,
-+	0xe00, 0xffffffff, 0x00000000,
-+	0xe04, 0xffffffff, 0x00000000,
-+	0xe08, 0x0000ff00, 0x00000000,
-+	0x86c, 0xffffff00, 0x00000000,
-+	0xe10, 0xffffffff, 0x00000000,
-+	0xe14, 0xffffffff, 0x00000000,
-+	0xe18, 0xffffffff, 0x00000000,
-+	0xe1c, 0xffffffff, 0x00000000,
-+	0x830, 0xffffffff, 0x00000000,
-+	0x834, 0xffffffff, 0x00000000,
-+	0x838, 0xffffff00, 0x00000000,
-+	0x86c, 0x000000ff, 0x00000000,
-+	0x83c, 0xffffffff, 0x00000000,
-+	0x848, 0xffffffff, 0x00000000,
-+	0x84c, 0xffffffff, 0x00000000,
-+	0x868, 0xffffffff, 0x00000000,
++static struct rtl_mod_params rtl8723ae_mod_params = {
++	.sw_crypto = false,
++	.inactiveps = true,
++	.swctrl_lps = false,
++	.fwctrl_lps = true,
++	.debug = DBG_EMERG,
 +};
 +
++static struct rtl_hal_cfg rtl8723ae_hal_cfg = {
++	.bar_id = 2,
++	.write_readback = true,
++	.name = "rtl8723ae_pci",
++	.fw_name = "rtlwifi/rtl8723aefw.bin",
++	.ops = &rtl8723ae_hal_ops,
++	.mod_params = &rtl8723ae_mod_params,
++	.maps[SYS_ISO_CTRL] = REG_SYS_ISO_CTRL,
++	.maps[SYS_FUNC_EN] = REG_SYS_FUNC_EN,
++	.maps[SYS_CLK] = REG_SYS_CLKR,
++	.maps[MAC_RCR_AM] = AM,
++	.maps[MAC_RCR_AB] = AB,
++	.maps[MAC_RCR_ACRC32] = ACRC32,
++	.maps[MAC_RCR_ACF] = ACF,
++	.maps[MAC_RCR_AAP] = AAP,
++	.maps[EFUSE_TEST] = REG_EFUSE_TEST,
++	.maps[EFUSE_CTRL] = REG_EFUSE_CTRL,
++	.maps[EFUSE_CLK] = 0,
++	.maps[EFUSE_CLK_CTRL] = REG_EFUSE_CTRL,
++	.maps[EFUSE_PWC_EV12V] = PWC_EV12V,
++	.maps[EFUSE_FEN_ELDR] = FEN_ELDR,
++	.maps[EFUSE_LOADER_CLK_EN] = LOADER_CLK_EN,
++	.maps[EFUSE_ANA8M] = ANA8M,
++	.maps[EFUSE_HWSET_MAX_SIZE] = HWSET_MAX_SIZE,
++	.maps[EFUSE_MAX_SECTION_MAP] = EFUSE_MAX_SECTION,
++	.maps[EFUSE_REAL_CONTENT_SIZE] = EFUSE_REAL_CONTENT_LEN,
++	.maps[EFUSE_OOB_PROTECT_BYTES_LEN] = EFUSE_OOB_PROTECT_BYTES,
++
++	.maps[RWCAM] = REG_CAMCMD,
++	.maps[WCAMI] = REG_CAMWRITE,
++	.maps[RCAMO] = REG_CAMREAD,
++	.maps[CAMDBG] = REG_CAMDBG,
++	.maps[SECR] = REG_SECCFG,
++	.maps[SEC_CAM_NONE] = CAM_NONE,
++	.maps[SEC_CAM_WEP40] = CAM_WEP40,
++	.maps[SEC_CAM_TKIP] = CAM_TKIP,
++	.maps[SEC_CAM_AES] = CAM_AES,
++	.maps[SEC_CAM_WEP104] = CAM_WEP104,
++
++	.maps[RTL_IMR_BCNDMAINT6] = IMR_BCNDMAINT6,
++	.maps[RTL_IMR_BCNDMAINT5] = IMR_BCNDMAINT5,
++	.maps[RTL_IMR_BCNDMAINT4] = IMR_BCNDMAINT4,
++	.maps[RTL_IMR_BCNDMAINT3] = IMR_BCNDMAINT3,
++	.maps[RTL_IMR_BCNDMAINT2] = IMR_BCNDMAINT2,
++	.maps[RTL_IMR_BCNDMAINT1] = IMR_BCNDMAINT1,
++	.maps[RTL_IMR_BCNDOK8] = IMR_BCNDOK8,
++	.maps[RTL_IMR_BCNDOK7] = IMR_BCNDOK7,
++	.maps[RTL_IMR_BCNDOK6] = IMR_BCNDOK6,
++	.maps[RTL_IMR_BCNDOK5] = IMR_BCNDOK5,
++	.maps[RTL_IMR_BCNDOK4] = IMR_BCNDOK4,
++	.maps[RTL_IMR_BCNDOK3] = IMR_BCNDOK3,
++	.maps[RTL_IMR_BCNDOK2] = IMR_BCNDOK2,
++	.maps[RTL_IMR_BCNDOK1] = IMR_BCNDOK1,
++	.maps[RTL_IMR_TIMEOUT2] = IMR_TIMEOUT2,
++	.maps[RTL_IMR_TIMEOUT1] = IMR_TIMEOUT1,
++
++	.maps[RTL_IMR_TXFOVW] = PHIMR_TXFOVW,
++	.maps[RTL_IMR_PSTIMEOUT] = PHIMR_PSTIMEOUT,
++	.maps[RTL_IMR_BcnInt] = PHIMR_BCNDMAINT0,
++	.maps[RTL_IMR_RXFOVW] = PHIMR_RXFOVW,
++	.maps[RTL_IMR_RDU] = PHIMR_RDU,
++	.maps[RTL_IMR_ATIMEND] = PHIMR_ATIMEND_E,
++	.maps[RTL_IMR_BDOK] = PHIMR_BCNDOK0,
++	.maps[RTL_IMR_MGNTDOK] = PHIMR_MGNTDOK,
++	.maps[RTL_IMR_TBDER] = PHIMR_TXBCNERR,
++	.maps[RTL_IMR_HIGHDOK] = PHIMR_HIGHDOK,
++	.maps[RTL_IMR_TBDOK] = PHIMR_TXBCNOK,
++	.maps[RTL_IMR_BKDOK] = PHIMR_BKDOK,
++	.maps[RTL_IMR_BEDOK] = PHIMR_BEDOK,
++	.maps[RTL_IMR_VIDOK] = PHIMR_VIDOK,
++	.maps[RTL_IMR_VODOK] = PHIMR_VODOK,
++	.maps[RTL_IMR_ROK] = PHIMR_ROK,
++	.maps[RTL_IBSS_INT_MASKS] = (PHIMR_BCNDMAINT0 |
++				     PHIMR_TXBCNOK | PHIMR_TXBCNERR),
++	.maps[RTL_IMR_C2HCMD] = PHIMR_C2HCMD,
 +
 +
++	.maps[RTL_RC_CCK_RATE1M] = DESC92C_RATE1M,
++	.maps[RTL_RC_CCK_RATE2M] = DESC92C_RATE2M,
++	.maps[RTL_RC_CCK_RATE5_5M] = DESC92C_RATE5_5M,
++	.maps[RTL_RC_CCK_RATE11M] = DESC92C_RATE11M,
++	.maps[RTL_RC_OFDM_RATE6M] = DESC92C_RATE6M,
++	.maps[RTL_RC_OFDM_RATE9M] = DESC92C_RATE9M,
++	.maps[RTL_RC_OFDM_RATE12M] = DESC92C_RATE12M,
++	.maps[RTL_RC_OFDM_RATE18M] = DESC92C_RATE18M,
++	.maps[RTL_RC_OFDM_RATE24M] = DESC92C_RATE24M,
++	.maps[RTL_RC_OFDM_RATE36M] = DESC92C_RATE36M,
++	.maps[RTL_RC_OFDM_RATE48M] = DESC92C_RATE48M,
++	.maps[RTL_RC_OFDM_RATE54M] = DESC92C_RATE54M,
 +
-+u32 RTL8723E_RADIOA_1TARRAY[Rtl8723ERADIOA_1TARRAYLENGTH] = {
-+	0x000, 0x00030159,
-+	0x001, 0x00031284,
-+	0x002, 0x00098000,
-+	0x003, 0x00018c63,
-+	0x004, 0x000210e7,
-+	0x009, 0x0002044f,
-+	0x00a, 0x0001a3f1,
-+	0x00b, 0x00014787,
-+	0x00c, 0x000896fe,
-+	0x00d, 0x0000e02c,
-+	0x00e, 0x00039ce7,
-+	0x00f, 0x00000451,
-+	0x019, 0x00000000,
-+	0x01a, 0x00030355,
-+	0x01b, 0x00060a00,
-+	0x01c, 0x000fc378,
-+	0x01d, 0x000a1250,
-+	0x01e, 0x0004445f,
-+	0x01f, 0x00080001,
-+	0x020, 0x0000b614,
-+	0x021, 0x0006c000,
-+	0x022, 0x00000000,
-+	0x023, 0x00001558,
-+	0x024, 0x00000060,
-+	0x025, 0x00000483,
-+	0x026, 0x0004f000,
-+	0x027, 0x000ec7d9,
-+	0x028, 0x00057730,
-+	0x029, 0x00004783,
-+	0x02a, 0x00000001,
-+	0x02b, 0x00021334,
-+	0x02a, 0x00000000,
-+	0x02b, 0x00000054,
-+	0x02a, 0x00000001,
-+	0x02b, 0x00000808,
-+	0x02b, 0x00053333,
-+	0x02c, 0x0000000c,
-+	0x02a, 0x00000002,
-+	0x02b, 0x00000808,
-+	0x02b, 0x0005b333,
-+	0x02c, 0x0000000d,
-+	0x02a, 0x00000003,
-+	0x02b, 0x00000808,
-+	0x02b, 0x00063333,
-+	0x02c, 0x0000000d,
-+	0x02a, 0x00000004,
-+	0x02b, 0x00000808,
-+	0x02b, 0x0006b333,
-+	0x02c, 0x0000000d,
-+	0x02a, 0x00000005,
-+	0x02b, 0x00000808,
-+	0x02b, 0x00073333,
-+	0x02c, 0x0000000d,
-+	0x02a, 0x00000006,
-+	0x02b, 0x00000709,
-+	0x02b, 0x0005b333,
-+	0x02c, 0x0000000d,
-+	0x02a, 0x00000007,
-+	0x02b, 0x00000709,
-+	0x02b, 0x00063333,
-+	0x02c, 0x0000000d,
-+	0x02a, 0x00000008,
-+	0x02b, 0x0000060a,
-+	0x02b, 0x0004b333,
-+	0x02c, 0x0000000d,
-+	0x02a, 0x00000009,
-+	0x02b, 0x0000060a,
-+	0x02b, 0x00053333,
-+	0x02c, 0x0000000d,
-+	0x02a, 0x0000000a,
-+	0x02b, 0x0000060a,
-+	0x02b, 0x0005b333,
-+	0x02c, 0x0000000d,
-+	0x02a, 0x0000000b,
-+	0x02b, 0x0000060a,
-+	0x02b, 0x00063333,
-+	0x02c, 0x0000000d,
-+	0x02a, 0x0000000c,
-+	0x02b, 0x0000060a,
-+	0x02b, 0x0006b333,
-+	0x02c, 0x0000000d,
-+	0x02a, 0x0000000d,
-+	0x02b, 0x0000060a,
-+	0x02b, 0x00073333,
-+	0x02c, 0x0000000d,
-+	0x02a, 0x0000000e,
-+	0x02b, 0x0000050b,
-+	0x02b, 0x00066666,
-+	0x02c, 0x0000001a,
-+	0x02a, 0x000e0000,
-+	0x010, 0x0004000f,
-+	0x011, 0x000e31fc,
-+	0x010, 0x0006000f,
-+	0x011, 0x000ff9f8,
-+	0x010, 0x0002000f,
-+	0x011, 0x000203f9,
-+	0x010, 0x0003000f,
-+	0x011, 0x000ff500,
-+	0x010, 0x00000000,
-+	0x011, 0x00000000,
-+	0x010, 0x0008000f,
-+	0x011, 0x0003f100,
-+	0x010, 0x0009000f,
-+	0x011, 0x00023100,
-+	0x012, 0x00032000,
-+	0x012, 0x00071000,
-+	0x012, 0x000b0000,
-+	0x012, 0x000fc000,
-+	0x013, 0x000287b3,
-+	0x013, 0x000244b7,
-+	0x013, 0x000204ab,
-+	0x013, 0x0001c49f,
-+	0x013, 0x00018493,
-+	0x013, 0x0001429b,
-+	0x013, 0x00010299,
-+	0x013, 0x0000c29c,
-+	0x013, 0x000081a0,
-+	0x013, 0x000040ac,
-+	0x013, 0x00000020,
-+	0x014, 0x0001944c,
-+	0x014, 0x00059444,
-+	0x014, 0x0009944c,
-+	0x014, 0x000d9444,
-+	0x015, 0x0000f424,
-+	0x015, 0x0004f407,
-+	0x015, 0x0008f424,
-+	0x015, 0x000cf424,
-+	0x016, 0x00000339,
-+	0x016, 0x00040339,
-+	0x016, 0x00080339,
-+	0x016, 0x000c0336,
-+	0x000, 0x00010159,
-+	0x018, 0x0000f401,
-+	0x0fe, 0x00000000,
-+	0x0fe, 0x00000000,
-+	0x01f, 0x00080003,
-+	0x0fe, 0x00000000,
-+	0x0fe, 0x00000000,
-+	0x01e, 0x00044457,
-+	0x01f, 0x00080000,
-+	0x000, 0x00030159,
++	.maps[RTL_RC_HT_RATEMCS7] = DESC92C_RATEMCS7,
++	.maps[RTL_RC_HT_RATEMCS15] = DESC92C_RATEMCS15,
 +};
 +
-+
-+u32 RTL8723E_RADIOB_1TARRAY[RTL8723E_RADIOB_1TARRAYLENGTH] = {
-+	0x0,
++static struct pci_device_id rtl8723ae_pci_ids[] __devinitdata = {
++	{RTL_PCI_DEVICE(PCI_VENDOR_ID_REALTEK, 0x8723, rtl8723ae_hal_cfg)},
++	{},
 +};
 +
++MODULE_DEVICE_TABLE(pci, rtl8723ae_pci_ids);
 +
-+u32 RTL8723EMAC_ARRAY[RTL8723E_MACARRAYLENGTH] = {
-+	0x420, 0x00000080,
-+	0x423, 0x00000000,
-+	0x430, 0x00000000,
-+	0x431, 0x00000000,
-+	0x432, 0x00000000,
-+	0x433, 0x00000001,
-+	0x434, 0x00000004,
-+	0x435, 0x00000005,
-+	0x436, 0x00000006,
-+	0x437, 0x00000007,
-+	0x438, 0x00000000,
-+	0x439, 0x00000000,
-+	0x43a, 0x00000000,
-+	0x43b, 0x00000001,
-+	0x43c, 0x00000004,
-+	0x43d, 0x00000005,
-+	0x43e, 0x00000006,
-+	0x43f, 0x00000007,
-+	0x440, 0x0000005d,
-+	0x441, 0x00000001,
-+	0x442, 0x00000000,
-+	0x444, 0x00000015,
-+	0x445, 0x000000f0,
-+	0x446, 0x0000000f,
-+	0x447, 0x00000000,
-+	0x458, 0x00000041,
-+	0x459, 0x000000a8,
-+	0x45a, 0x00000072,
-+	0x45b, 0x000000b9,
-+	0x460, 0x00000066,
-+	0x461, 0x00000066,
-+	0x462, 0x00000008,
-+	0x463, 0x00000003,
-+	0x4c8, 0x000000ff,
-+	0x4c9, 0x00000008,
-+	0x4cc, 0x000000ff,
-+	0x4cd, 0x000000ff,
-+	0x4ce, 0x00000001,
-+	0x500, 0x00000026,
-+	0x501, 0x000000a2,
-+	0x502, 0x0000002f,
-+	0x503, 0x00000000,
-+	0x504, 0x00000028,
-+	0x505, 0x000000a3,
-+	0x506, 0x0000005e,
-+	0x507, 0x00000000,
-+	0x508, 0x0000002b,
-+	0x509, 0x000000a4,
-+	0x50a, 0x0000005e,
-+	0x50b, 0x00000000,
-+	0x50c, 0x0000004f,
-+	0x50d, 0x000000a4,
-+	0x50e, 0x00000000,
-+	0x50f, 0x00000000,
-+	0x512, 0x0000001c,
-+	0x514, 0x0000000a,
-+	0x515, 0x00000010,
-+	0x516, 0x0000000a,
-+	0x517, 0x00000010,
-+	0x51a, 0x00000016,
-+	0x524, 0x0000000f,
-+	0x525, 0x0000004f,
-+	0x546, 0x00000040,
-+	0x547, 0x00000000,
-+	0x550, 0x00000010,
-+	0x551, 0x00000010,
-+	0x559, 0x00000002,
-+	0x55a, 0x00000002,
-+	0x55d, 0x000000ff,
-+	0x605, 0x00000030,
-+	0x608, 0x0000000e,
-+	0x609, 0x0000002a,
-+	0x652, 0x00000020,
-+	0x63c, 0x0000000a,
-+	0x63d, 0x0000000e,
-+	0x63e, 0x0000000a,
-+	0x63f, 0x0000000e,
-+	0x66e, 0x00000005,
-+	0x700, 0x00000021,
-+	0x701, 0x00000043,
-+	0x702, 0x00000065,
-+	0x703, 0x00000087,
-+	0x708, 0x00000021,
-+	0x709, 0x00000043,
-+	0x70a, 0x00000065,
-+	0x70b, 0x00000087,
++MODULE_AUTHOR("lizhaoming	<chaoming_li@realsil.com.cn>");
++MODULE_AUTHOR("Realtek WlanFAE	<wlanfae@realtek.com>");
++MODULE_AUTHOR("Larry Finger	<Larry.Finger@lwfinger.net>");
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Realtek 8723E 802.11n PCI wireless");
++MODULE_FIRMWARE("rtlwifi/rtl8723aefw.bin");
++MODULE_FIRMWARE("rtlwifi/rtl8723aefw_B.bin");
++
++module_param_named(swenc, rtl8723ae_mod_params.sw_crypto, bool, 0444);
++module_param_named(debug, rtl8723ae_mod_params.debug, int, 0444);
++module_param_named(ips, rtl8723ae_mod_params.inactiveps, bool, 0444);
++module_param_named(swlps, rtl8723ae_mod_params.swctrl_lps, bool, 0444);
++module_param_named(fwlps, rtl8723ae_mod_params.fwctrl_lps, bool, 0444);
++MODULE_PARM_DESC(swenc, "Set to 1 for software crypto (default 0)\n");
++MODULE_PARM_DESC(ips, "Set to 0 to not use link power save (default 1)\n");
++MODULE_PARM_DESC(swlps, "Set to 1 to use SW control power save (default 0)\n");
++MODULE_PARM_DESC(fwlps, "Set to 1 to use FW control power save (default 1)\n");
++MODULE_PARM_DESC(debug, "Set debug level (0-5) (default 0)");
++
++static const struct dev_pm_ops rtlwifi_pm_ops = {
++	.suspend = rtl_pci_suspend,
++	.resume = rtl_pci_resume,
++	.freeze = rtl_pci_suspend,
++	.thaw = rtl_pci_resume,
++	.poweroff = rtl_pci_suspend,
++	.restore = rtl_pci_resume,
 +};
 +
-+
-+u32 RTL8723EAGCTAB_1TARRAY[RTL8723E_AGCTAB_1TARRAYLENGTH] = {
-+	0xc78, 0x7b000001,
-+	0xc78, 0x7b010001,
-+	0xc78, 0x7b020001,
-+	0xc78, 0x7b030001,
-+	0xc78, 0x7b040001,
-+	0xc78, 0x7b050001,
-+	0xc78, 0x7a060001,
-+	0xc78, 0x79070001,
-+	0xc78, 0x78080001,
-+	0xc78, 0x77090001,
-+	0xc78, 0x760a0001,
-+	0xc78, 0x750b0001,
-+	0xc78, 0x740c0001,
-+	0xc78, 0x730d0001,
-+	0xc78, 0x720e0001,
-+	0xc78, 0x710f0001,
-+	0xc78, 0x70100001,
-+	0xc78, 0x6f110001,
-+	0xc78, 0x6e120001,
-+	0xc78, 0x6d130001,
-+	0xc78, 0x6c140001,
-+	0xc78, 0x6b150001,
-+	0xc78, 0x6a160001,
-+	0xc78, 0x69170001,
-+	0xc78, 0x68180001,
-+	0xc78, 0x67190001,
-+	0xc78, 0x661a0001,
-+	0xc78, 0x651b0001,
-+	0xc78, 0x641c0001,
-+	0xc78, 0x631d0001,
-+	0xc78, 0x621e0001,
-+	0xc78, 0x611f0001,
-+	0xc78, 0x60200001,
-+	0xc78, 0x49210001,
-+	0xc78, 0x48220001,
-+	0xc78, 0x47230001,
-+	0xc78, 0x46240001,
-+	0xc78, 0x45250001,
-+	0xc78, 0x44260001,
-+	0xc78, 0x43270001,
-+	0xc78, 0x42280001,
-+	0xc78, 0x41290001,
-+	0xc78, 0x402a0001,
-+	0xc78, 0x262b0001,
-+	0xc78, 0x252c0001,
-+	0xc78, 0x242d0001,
-+	0xc78, 0x232e0001,
-+	0xc78, 0x222f0001,
-+	0xc78, 0x21300001,
-+	0xc78, 0x20310001,
-+	0xc78, 0x06320001,
-+	0xc78, 0x05330001,
-+	0xc78, 0x04340001,
-+	0xc78, 0x03350001,
-+	0xc78, 0x02360001,
-+	0xc78, 0x01370001,
-+	0xc78, 0x00380001,
-+	0xc78, 0x00390001,
-+	0xc78, 0x003a0001,
-+	0xc78, 0x003b0001,
-+	0xc78, 0x003c0001,
-+	0xc78, 0x003d0001,
-+	0xc78, 0x003e0001,
-+	0xc78, 0x003f0001,
-+	0xc78, 0x7b400001,
-+	0xc78, 0x7b410001,
-+	0xc78, 0x7b420001,
-+	0xc78, 0x7b430001,
-+	0xc78, 0x7b440001,
-+	0xc78, 0x7b450001,
-+	0xc78, 0x7a460001,
-+	0xc78, 0x79470001,
-+	0xc78, 0x78480001,
-+	0xc78, 0x77490001,
-+	0xc78, 0x764a0001,
-+	0xc78, 0x754b0001,
-+	0xc78, 0x744c0001,
-+	0xc78, 0x734d0001,
-+	0xc78, 0x724e0001,
-+	0xc78, 0x714f0001,
-+	0xc78, 0x70500001,
-+	0xc78, 0x6f510001,
-+	0xc78, 0x6e520001,
-+	0xc78, 0x6d530001,
-+	0xc78, 0x6c540001,
-+	0xc78, 0x6b550001,
-+	0xc78, 0x6a560001,
-+	0xc78, 0x69570001,
-+	0xc78, 0x68580001,
-+	0xc78, 0x67590001,
-+	0xc78, 0x665a0001,
-+	0xc78, 0x655b0001,
-+	0xc78, 0x645c0001,
-+	0xc78, 0x635d0001,
-+	0xc78, 0x625e0001,
-+	0xc78, 0x615f0001,
-+	0xc78, 0x60600001,
-+	0xc78, 0x49610001,
-+	0xc78, 0x48620001,
-+	0xc78, 0x47630001,
-+	0xc78, 0x46640001,
-+	0xc78, 0x45650001,
-+	0xc78, 0x44660001,
-+	0xc78, 0x43670001,
-+	0xc78, 0x42680001,
-+	0xc78, 0x41690001,
-+	0xc78, 0x406a0001,
-+	0xc78, 0x266b0001,
-+	0xc78, 0x256c0001,
-+	0xc78, 0x246d0001,
-+	0xc78, 0x236e0001,
-+	0xc78, 0x226f0001,
-+	0xc78, 0x21700001,
-+	0xc78, 0x20710001,
-+	0xc78, 0x06720001,
-+	0xc78, 0x05730001,
-+	0xc78, 0x04740001,
-+	0xc78, 0x03750001,
-+	0xc78, 0x02760001,
-+	0xc78, 0x01770001,
-+	0xc78, 0x00780001,
-+	0xc78, 0x00790001,
-+	0xc78, 0x007a0001,
-+	0xc78, 0x007b0001,
-+	0xc78, 0x007c0001,
-+	0xc78, 0x007d0001,
-+	0xc78, 0x007e0001,
-+	0xc78, 0x007f0001,
-+	0xc78, 0x3800001e,
-+	0xc78, 0x3801001e,
-+	0xc78, 0x3802001e,
-+	0xc78, 0x3803001e,
-+	0xc78, 0x3804001e,
-+	0xc78, 0x3805001e,
-+	0xc78, 0x3806001e,
-+	0xc78, 0x3807001e,
-+	0xc78, 0x3808001e,
-+	0xc78, 0x3c09001e,
-+	0xc78, 0x3e0a001e,
-+	0xc78, 0x400b001e,
-+	0xc78, 0x440c001e,
-+	0xc78, 0x480d001e,
-+	0xc78, 0x4c0e001e,
-+	0xc78, 0x500f001e,
-+	0xc78, 0x5210001e,
-+	0xc78, 0x5611001e,
-+	0xc78, 0x5a12001e,
-+	0xc78, 0x5e13001e,
-+	0xc78, 0x6014001e,
-+	0xc78, 0x6015001e,
-+	0xc78, 0x6016001e,
-+	0xc78, 0x6217001e,
-+	0xc78, 0x6218001e,
-+	0xc78, 0x6219001e,
-+	0xc78, 0x621a001e,
-+	0xc78, 0x621b001e,
-+	0xc78, 0x621c001e,
-+	0xc78, 0x621d001e,
-+	0xc78, 0x621e001e,
-+	0xc78, 0x621f001e,
++static struct pci_driver rtl8723ae_driver = {
++	.name = KBUILD_MODNAME,
++	.id_table = rtl8723ae_pci_ids,
++	.probe = rtl_pci_probe,
++	.remove = rtl_pci_disconnect,
++	.driver.pm = &rtlwifi_pm_ops,
 +};
 +
++module_pci_driver(rtl8723ae_driver);
 +
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/table.h b/drivers/net/wireless/rtlwifi/rtl8723ae/table.h
-new file mode 100644
-index 0000000..a07e8a9
+Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/sw.h
+===================================================================
 --- /dev/null
-+++ b/drivers/net/wireless/rtlwifi/rtl8723ae/table.h
-@@ -0,0 +1,51 @@
++++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/sw.h
+@@ -0,0 +1,38 @@
 +/******************************************************************************
 + *
 + * Copyright(c) 2009-2012  Realtek Corporation.
@@ -809,31 +455,16 @@ index 0000000..a07e8a9
 + * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
 + * Hsinchu 300, Taiwan.
 + *
-+ * Created on  2010/ 5/18,  1:41
-+ *
 + * Larry Finger <Larry.Finger@lwfinger.net>
 + *
 + *****************************************************************************/
 +
-+#ifndef __RTL8723E_TABLE__H_
-+#define __RTL8723E_TABLE__H_
++#ifndef __RTL8723E_SW_H__
++#define __RTL8723E_SW_H__
 +
-+#include <linux/types.h>
-+
-+#define RTL8723E_PHY_REG_1TARRAY_LENGTH		372
-+extern u32 RTL8723EPHY_REG_1TARRAY[RTL8723E_PHY_REG_1TARRAY_LENGTH];
-+#define RTL8723E_PHY_REG_ARRAY_PGLENGTH		336
-+extern u32 RTL8723EPHY_REG_ARRAY_PG[RTL8723E_PHY_REG_ARRAY_PGLENGTH];
-+#define Rtl8723ERADIOA_1TARRAYLENGTH		 282
-+extern u32 RTL8723E_RADIOA_1TARRAY[Rtl8723ERADIOA_1TARRAYLENGTH];
-+#define RTL8723E_RADIOB_1TARRAYLENGTH		1
-+extern u32 RTL8723E_RADIOB_1TARRAY[RTL8723E_RADIOB_1TARRAYLENGTH];
-+#define RTL8723E_MACARRAYLENGTH			172
-+extern u32 RTL8723EMAC_ARRAY[RTL8723E_MACARRAYLENGTH];
-+#define RTL8723E_AGCTAB_1TARRAYLENGTH		320
-+extern u32 RTL8723EAGCTAB_1TARRAY[RTL8723E_AGCTAB_1TARRAYLENGTH];
++int rtl8723ae_init_sw_vars(struct ieee80211_hw *hw);
++void rtl8723ae_deinit_sw_vars(struct ieee80211_hw *hw);
++void rtl8723ae_init_var_map(struct ieee80211_hw *hw);
 +
 +#endif
 +
--- 
-1.7.10.4
