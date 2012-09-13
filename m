@@ -1,163 +1,105 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 5/5] device and dynamic_debug: Use dev_vprintk_emit and
- dev_printk_emit
-Date: Wed, 12 Sep 2012 20:14:11 -0700
-Message-ID: <1347506051.2749.6.camel@joe2Laptop>
-References: <cover.1345978012.git.joe@perches.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2 net-next] ipv6: prevent useless neigh alloc on PTP or lo
+ routes
+Date: Thu, 13 Sep 2012 05:15:58 +0200
+Message-ID: <1347506158.13103.1365.camel@edumazet-glaptop>
+References: <1347451266.13103.882.camel@edumazet-glaptop>
+	 <1347505193.13103.1340.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jim Cromie <jim.cromie@gmail.com>, Kay Sievers <kay@vrfy.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jason Baron <jbaron@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1345978012.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Lorenzo Colitti <lorenzo@google.com>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:36863 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752764Ab2IMDQE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 23:16:04 -0400
+Received: by weyx8 with SMTP id x8so1402722wey.19
+        for <netdev@vger.kernel.org>; Wed, 12 Sep 2012 20:16:02 -0700 (PDT)
+In-Reply-To: <1347505193.13103.1340.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Convert direct calls of vprintk_emit and printk_emit to the
-dev_ equivalents.
+=46rom: Eric Dumazet <edumazet@google.com>
 
-Make create_syslog_header static.
+We have special handling of SIT devices in addrconf_prefix_route()
+to avoid allocating a neighbour for each destination.
 
-Signed-off-by: Joe Perches <joe@perches.com>
-Acked-by: David S. Miller <davem@davemloft.net>
-Tested-by: Jim Cromie <jim.cromie@gmail.com>
-Acked-by: Jason Baron <jbaron@redhat.com>
+If routing entry is :
+
+ip -6 route add 2001:db8::/64 dev sit1
+
+Then the kernel will create a new route and neighbour for every new
+address under 2001:db8::/64 that we send a packet to=20
+(potentially, 2^64 routes and neighbours).
+
+Under load, we immediately get the infamous "Neighbour table overflow"
+message and machine eventually crash.
+
+This does not happen if we specify a next-hop explicitly, like so:
+
+ip -6 route add 2001:db8::/64 via fe80:: dev sit1
+
+Same problem happens if we use routes to loopback.
+
+Idea of this patch is to move existing SIT related code from
+addrconf_prefix_route() to a more generic one in ip6_route_add().=20
+
+This permits ip6_pol_route() to clone route instead of calling
+rt6_alloc_cow() and allocate a neighbour.
+
+Many thanks to Lorenzo for his help and suggestions.
+
+Reported-by: Lorenzo Colitti <lorenzo@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Maciej =C5=BBenczykowski <maze@google.com>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Willem de Bruijn <willemb@google.com>
 ---
- drivers/base/core.c    |   14 +++++---------
- include/linux/device.h |    2 --
- lib/dynamic_debug.c    |   31 +++++++++++--------------------
- net/core/dev.c         |   16 ++++++----------
- 4 files changed, 22 insertions(+), 41 deletions(-)
+ net/ipv6/addrconf.c |   10 ----------
+ net/ipv6/route.c    |    4 ++++
+ 2 files changed, 4 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/base/core.c b/drivers/base/core.c
-index ffccb64..65f82e3 100644
---- a/drivers/base/core.c
-+++ b/drivers/base/core.c
-@@ -1861,7 +1861,8 @@ void device_shutdown(void)
-  */
- 
- #ifdef CONFIG_PRINTK
--int create_syslog_header(const struct device *dev, char *hdr, size_t hdrlen)
-+static int
-+create_syslog_header(const struct device *dev, char *hdr, size_t hdrlen)
- {
- 	const char *subsys;
- 	size_t pos = 0;
-@@ -1939,17 +1940,12 @@ EXPORT_SYMBOL(dev_printk_emit);
- static int __dev_printk(const char *level, const struct device *dev,
- 			struct va_format *vaf)
- {
--	char hdr[128];
--	size_t hdrlen;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 1237d5d..c6837d2 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1679,16 +1679,6 @@ addrconf_prefix_route(struct in6_addr *pfx, int =
+plen, struct net_device *dev,
+ 	};
+=20
+ 	cfg.fc_dst =3D *pfx;
 -
- 	if (!dev)
- 		return printk("%s(NULL device *): %pV", level, vaf);
- 
--	hdrlen = create_syslog_header(dev, hdr, sizeof(hdr));
+-	/* Prevent useless cloning on PtP SIT.
+-	   This thing is done here expecting that the whole
+-	   class of non-broadcast devices need not cloning.
+-	 */
+-#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
+-	if (dev->type =3D=3D ARPHRD_SIT && (dev->flags & IFF_POINTOPOINT))
+-		cfg.fc_flags |=3D RTF_NONEXTHOP;
+-#endif
 -
--	return printk_emit(0, level[1] - '0', hdrlen ? hdr : NULL, hdrlen,
--			   "%s %s: %pV",
--			   dev_driver_string(dev), dev_name(dev), vaf);
-+	return dev_printk_emit(level[1] - '0', dev,
-+			       "%s %s: %pV",
-+			       dev_driver_string(dev), dev_name(dev), vaf);
+ 	ip6_route_add(&cfg);
  }
- 
- int dev_printk(const char *level, const struct device *dev,
-diff --git a/include/linux/device.h b/include/linux/device.h
-index 0063d01..2da4589 100644
---- a/include/linux/device.h
-+++ b/include/linux/device.h
-@@ -891,8 +891,6 @@ extern const char *dev_driver_string(const struct device *dev);
- 
- #ifdef CONFIG_PRINTK
- 
--extern int create_syslog_header(const struct device *dev,
--				char *hdr, size_t hdrlen);
- extern int dev_vprintk_emit(int level, const struct device *dev,
- 			    const char *fmt, va_list args);
- extern __printf(3, 4)
-diff --git a/lib/dynamic_debug.c b/lib/dynamic_debug.c
-index 6b3ebab..e7f7d99 100644
---- a/lib/dynamic_debug.c
-+++ b/lib/dynamic_debug.c
-@@ -591,15 +591,11 @@ int __dynamic_dev_dbg(struct _ddebug *descriptor,
- 		res = printk(KERN_DEBUG "(NULL device *): %pV", &vaf);
- 	} else {
- 		char buf[PREFIX_SIZE];
--		char dict[128];
--		size_t dictlen;
- 
--		dictlen = create_syslog_header(dev, dict, sizeof(dict));
--
--		res = printk_emit(0, 7, dictlen ? dict : NULL, dictlen,
--				  "%s%s %s: %pV",
--				  dynamic_emit_prefix(descriptor, buf),
--				  dev_driver_string(dev), dev_name(dev), &vaf);
-+		res = dev_printk_emit(7, dev, "%s%s %s: %pV",
-+				      dynamic_emit_prefix(descriptor, buf),
-+				      dev_driver_string(dev), dev_name(dev),
-+				      &vaf);
- 	}
- 
- 	va_end(args);
-@@ -627,18 +623,13 @@ int __dynamic_netdev_dbg(struct _ddebug *descriptor,
- 
- 	if (dev && dev->dev.parent) {
- 		char buf[PREFIX_SIZE];
--		char dict[128];
--		size_t dictlen;
--
--		dictlen = create_syslog_header(dev->dev.parent,
--					       dict, sizeof(dict));
--
--		res = printk_emit(0, 7, dictlen ? dict : NULL, dictlen,
--				  "%s%s %s %s: %pV",
--				  dynamic_emit_prefix(descriptor, buf),
--				  dev_driver_string(dev->dev.parent),
--				  dev_name(dev->dev.parent),
--				  netdev_name(dev), &vaf);
+=20
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 399613b..7df8dfc 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1540,6 +1540,10 @@ int ip6_route_add(struct fib6_config *cfg)
+ 	} else
+ 		rt->rt6i_prefsrc.plen =3D 0;
+=20
++	/* Prevent useless cloning on link types that don't have next hops. *=
+/
++	if (dev->flags & (IFF_POINTOPOINT | IFF_LOOPBACK))
++		cfg->fc_flags |=3D RTF_NONEXTHOP;
 +
-+		res = dev_printk_emit(7, dev->dev.parent,
-+				      "%s%s %s %s: %pV",
-+				      dynamic_emit_prefix(descriptor, buf),
-+				      dev_driver_string(dev->dev.parent),
-+				      dev_name(dev->dev.parent),
-+				      netdev_name(dev), &vaf);
- 	} else if (dev) {
- 		res = printk(KERN_DEBUG "%s: %pV", netdev_name(dev), &vaf);
- 	} else {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1ec186a..8ad42fd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6428,16 +6428,12 @@ static int __netdev_printk(const char *level, const struct net_device *dev,
- 	int r;
- 
- 	if (dev && dev->dev.parent) {
--		char dict[128];
--		size_t dictlen = create_syslog_header(dev->dev.parent,
--						      dict, sizeof(dict));
--
--		r = printk_emit(0, level[1] - '0',
--				dictlen ? dict : NULL, dictlen,
--				"%s %s %s: %pV",
--				dev_driver_string(dev->dev.parent),
--				dev_name(dev->dev.parent),
--				netdev_name(dev), vaf);
-+		r = dev_printk_emit(level[1] - '0',
-+				    dev->dev.parent,
-+				    "%s %s %s: %pV",
-+				    dev_driver_string(dev->dev.parent),
-+				    dev_name(dev->dev.parent),
-+				    netdev_name(dev), vaf);
- 	} else if (dev) {
- 		r = printk("%s%s: %pV", level, netdev_name(dev), vaf);
- 	} else {
--- 
-1.7.8.111.gad25c.dirty
+ 	if (cfg->fc_flags & (RTF_GATEWAY | RTF_NONEXTHOP)) {
+ 		err =3D rt6_bind_neighbour(rt, dev);
+ 		if (err)
