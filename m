@@ -1,68 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] ipv6: prevent useless neigh alloc on PTP
- or lo routes
-Date: Thu, 13 Sep 2012 17:13:05 -0400 (EDT)
-Message-ID: <20120913.171305.713716058425991240.davem@davemloft.net>
-References: <1347451266.13103.882.camel@edumazet-glaptop>
-	<1347505193.13103.1340.camel@edumazet-glaptop>
-	<1347506158.13103.1365.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lorenzo@google.com, maze@google.com,
-	therbert@google.com, willemb@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49544 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751997Ab2IMVNH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 17:13:07 -0400
-In-Reply-To: <1347506158.13103.1365.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Vagin <avagin@openvz.org>
+Subject: [PATCH] tcp: restore rcv_wscale in a repair mode
+Date: Fri, 14 Sep 2012 01:28:07 +0400
+Message-ID: <1347571687-3539973-1-git-send-email-avagin@openvz.org>
+Cc: linux-kernel@vger.kernel.org,
+	Pavel Emelyanov <xemul@parallels.com>,
+	Andrew Vagin <avagin@openvz.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 13 Sep 2012 05:15:58 +0200
+rcv_wscale is a symetric parameter with snd_wscale.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> We have special handling of SIT devices in addrconf_prefix_route()
-> to avoid allocating a neighbour for each destination.
-> 
-> If routing entry is :
-> 
-> ip -6 route add 2001:db8::/64 dev sit1
-> 
-> Then the kernel will create a new route and neighbour for every new
-> address under 2001:db8::/64 that we send a packet to 
-> (potentially, 2^64 routes and neighbours).
-> 
-> Under load, we immediately get the infamous "Neighbour table overflow"
-> message and machine eventually crash.
-> 
-> This does not happen if we specify a next-hop explicitly, like so:
-> 
-> ip -6 route add 2001:db8::/64 via fe80:: dev sit1
-> 
-> Same problem happens if we use routes to loopback.
-> 
-> Idea of this patch is to move existing SIT related code from
-> addrconf_prefix_route() to a more generic one in ip6_route_add(). 
-> 
-> This permits ip6_pol_route() to clone route instead of calling
-> rt6_alloc_cow() and allocate a neighbour.
-> 
-> Many thanks to Lorenzo for his help and suggestions.
-> 
-> Reported-by: Lorenzo Colitti <lorenzo@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Both this parameters are set on a connection handshake.
 
-This patch lacks the desired effect without your clone-caching-removal
-patch, which I will not apply.
+Without this value a remote window size can not be interpreted correctly,
+because a value from a packet should be shifted on rcv_wscale.
 
-Therefore it doesn't make any sense to apply this either, as it won't
-fix the stated problem.
+And one more thing is that wscale_ok should be set too.
 
-Doing a proper conversion of ipv6 to ref-count-less neigh's will solve
-this problem and allow all of the clone/cow caching code to be elided
-for the majority of cases and is the correct approach to these problems.
+This patch doesn't break a backward compatibility.
+If someone uses it in a old scheme, a rcv window
+will be restored with the same bug (rcv_wscale = 0).
+
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Acked-by: Pavel Emelyanov <xemul@parallels.com>
+Signed-off-by: Andrew Vagin <avagin@openvz.org>
+---
+ net/ipv4/tcp.c |   20 ++++++++++++++++----
+ 1 files changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index df83d74..ed22cd7 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2348,10 +2348,22 @@ static int tcp_repair_options_est(struct tcp_sock *tp,
+ 			tp->rx_opt.mss_clamp = opt.opt_val;
+ 			break;
+ 		case TCPOPT_WINDOW:
+-			if (opt.opt_val > 14)
+-				return -EFBIG;
+-
+-			tp->rx_opt.snd_wscale = opt.opt_val;
++			{
++				union {
++					struct {
++						u16 snd_wscale;
++						u16 rcv_wscale;
++					};
++					u32 raw;
++				} val = { .raw = opt.opt_val };
++
++				if (val.snd_wscale > 14 || val.rcv_wscale > 14)
++					return -EFBIG;
++
++				tp->rx_opt.snd_wscale = val.snd_wscale;
++				tp->rx_opt.rcv_wscale = val.rcv_wscale;
++				tp->rx_opt.wscale_ok = 1;
++			}
+ 			break;
+ 		case TCPOPT_SACK_PERM:
+ 			if (opt.opt_val != 0)
+-- 
+1.7.1
