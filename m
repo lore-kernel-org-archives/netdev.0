@@ -1,57 +1,46 @@
-From: Craig Hada <craig.hada@hp.com>
-Subject: [PATCH net-next] drivers/net: Enable IOMMU pass through for be2net
-Date: Wed, 12 Sep 2012 10:58:54 -0700
-Message-ID: <1347472734-3196-2-git-send-email-craig.hada@hp.com>
-References: <1347472734-3196-1-git-send-email-craig.hada@hp.com>
-Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
-	ajit.khaparde@emulex.com, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org, craig.hada@hp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1347472734-3196-1-git-send-email-craig.hada@hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [REVIEW][PATCH 12/15] userns: Convert drm to use kuid and kgid and struct pid where appropriate
+Date: Wed, 12 Sep 2012 19:14:55 -0700
+Message-ID: <87ligefz34.fsf@xmission.com>
+References: <87lih2h6i4.fsf@xmission.com> <87mx1iecwi.fsf@xmission.com>
+	<CAPM=9ty=0=+w8VaFC9QhajUkYwmym_JaWR9sbwmgw5tCKg5nGw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	David Miller <davem@davemloft.net>,
+	David Airlie <airlied@linux.ie>,
+	dri-devel@lists.freedesktop.org
+To: Dave Airlie <airlied@gmail.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <CAPM=9ty=0=+w8VaFC9QhajUkYwmym_JaWR9sbwmgw5tCKg5nGw@mail.gmail.com>
+	(Dave Airlie's message of "Thu, 13 Sep 2012 11:31:36 +1000")
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch sets the coherent DMA mask to 64-bit after the be2net driver
-has been acknowledged that the system is 64-bit DMA capable. The coherent
-DMA mask is examined by the Intel IOMMU driver to determine whether to
-allow pass through context mapping for all devices. With this patch, the
-be2net driver combined with be2net compatible hardware provides
-comparable performance to the case where vt-d is disabled. The main use
-case for this change is to decrease the time necessary to copy virtual
-machine memory during KVM live migration instantiations.
+Dave Airlie <airlied@gmail.com> writes:
 
-This patch was tested on a system that enables the IOMMU in non-coherent
-mode. Two DMA remapper issues were encountered and both are in the Intel
-IOMMU driver with the following patches submitted upstream but not yet
-commited.
+>> Blink Blink this had not been converted to use struct pid ages ago?
+>>
+>> - On drm open capture the openers kuid and struct pid.
+>> - On drm close release the kuid and struct pid
+>> - When reporting the uid and pid convert the kuid and struct pid
+>>   into values in the appropriate namespace.
+>>
+>
+> Hi Eric,
+>
+> I'm fine with this seems okay, do you want me to merge it via
+> drm-next?
 
-Patch 1 - DMAR:[fault reason 02] Present bit in context entry is clear
-https://lkml.org/lkml/2012/6/15/20
+My plan is to merge it via my user namespace tree.  And since you have
+responed positively I will add your acked-by.  There are some nice
+synergies when I get all of the changes in one tree.
 
-Patch 2 - DMAR:[fault reason 02] Present bit in context entry is clear
-https://lkml.org/lkml/2011/11/11/279
+If for some reason you want to carry this in your drm tree we can work
+something out.
 
-Signed-off-by: Craig Hada <craig.hada@hp.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+In this case I expect the change isn't big enough to worry about.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 78b8aa8..57bbea4 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3835,6 +3835,12 @@ static int __devinit be_probe(struct pci_dev *pdev,
- 
- 	status = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
- 	if (!status) {
-+		status = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
-+		if (status < 0) {
-+			dev_err(&pdev->dev,
-+				"dma_set_coherent_mask failed, aborting\n");
-+			goto free_netdev;
-+		}
- 		netdev->features |= NETIF_F_HIGHDMA;
- 	} else {
- 		status = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
--- 
-1.7.1
+Eric
