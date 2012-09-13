@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 0/4] netfilter updates for 3.6-rc5
-Date: Thu, 13 Sep 2012 12:54:04 +0200
-Message-ID: <1347533648-3451-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 0/5] Netfilter updates for net-next
+Date: Thu, 13 Sep 2012 13:01:27 +0200
+Message-ID: <1347534092-3579-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
@@ -12,39 +12,44 @@ From: Pablo Neira Ayuso <pablo@netfilter.org>
 
 Hi David,
 
-The following patchset contains four updates for your net tree, they are:
+The following patchset contains four Netfilter updates, mostly targeting
+to fix issues added with IPv6 NAT, and one little IPVS update for net-next:
 
-* Fix crash on timewait sockets, since the TCP early demux was added,
-  in nfnetlink_log, from Eric Dumazet.
+* Remove unneeded conditional free of skb in nfnetlink_queue, from
+  Wei Yongjun.
 
-* Fix broken syslog log-level for xt_LOG and ebt_log since printk format was
-  converted from <.> to a 2 bytes pattern using ASCII SOH, from Joe Perches.
+* One semantic path from coccinelle detected the use of list_del +
+  INIT_LIST_HEAD, instead of list_del_init, again from Wei Yongjun.
 
-* Two security fixes for the TCP connection tracking targeting off-path attacks,
-  from Jozsef Kadlecsik. The problem was discovered by Jan Wrobel and it is
-  documented in: http://mixedbit.org/reflection_scan/reflection_scan.pdf.
+* Fix out-of-bound memory access in the NAT address selection, from
+  Florian Westphal. This was introduced with the IPv6 NAT patches.
+
+* Two fixes for crashes that were introduced in the recently merged
+  IPv6 NAT support, from myself.
 
 You can pull these changes from:
 
-git://1984.lsi.us.es/nf master
+git://1984.lsi.us.es/nf-next master
 
 Thanks!
 
-Eric Dumazet (1):
-  netfilter: take care of timewait sockets
+Florian Westphal (1):
+  netfilter: nf_nat: fix out-of-bounds access in address selection
 
-Joe Perches (1):
-  netfilter: log: Fix log-level processing
+Pablo Neira Ayuso (2):
+  netfilter: fix crash during boot if NAT has been compiled built-in
+  netfilter: ctnetlink: fix module auto-load in ctnetlink_parse_nat
 
-Jozsef Kadlecsik (2):
-  netfilter: Mark SYN/ACK packets as invalid from original direction
-  netfilter: Validate the sequence number of dataless ACK packets as well
+Wei Yongjun (2):
+  netfilter: nfnetlink_queue: remove pointless conditional before kfree_skb()
+  ipvs: use list_del_init instead of list_del/INIT_LIST_HEAD
 
- net/bridge/netfilter/ebt_log.c         |    2 +-
- net/netfilter/nf_conntrack_proto_tcp.c |   29 +++++++++----------------
- net/netfilter/nfnetlink_log.c          |   14 ++++++------
- net/netfilter/xt_LOG.c                 |   37 ++++++++++++++++----------------
- 4 files changed, 38 insertions(+), 44 deletions(-)
+ net/netfilter/Makefile               |    2 +-
+ net/netfilter/ipvs/ip_vs_ctl.c       |    3 +--
+ net/netfilter/nf_conntrack_netlink.c |    3 ---
+ net/netfilter/nf_nat_core.c          |    2 +-
+ net/netfilter/nfnetlink_queue_core.c |    3 +--
+ 5 files changed, 4 insertions(+), 9 deletions(-)
 
 -- 
 1.7.10.4
