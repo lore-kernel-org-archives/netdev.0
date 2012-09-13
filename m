@@ -1,95 +1,58 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 13 Sep 2012 14:05:59 -0700
-Message-ID: <1347570359.2219.96.camel@jtkirshe-mobl>
-References: <1346888106-25638-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] drivers/net: Enable IOMMU pass through for
+ be2net
+Date: Thu, 13 Sep 2012 17:09:02 -0400 (EDT)
+Message-ID: <20120913.170902.501405009717590679.davem@davemloft.net>
+References: <1347472734-3196-1-git-send-email-craig.hada@hp.com>
+	<4988B24899FF4448BF3D99EFCD2A3562323AD5@G1W3785.americas.hpqcorp.net>
+	<505212A3.1030307@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-QNSvpaaFnrreAPBHHDh7"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	"Keller, Jacob E" <jacob.e.keller@intel.com>,
-	Richard Cochran <richardcochran@gmail.com>
-To: "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:56787 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758830Ab2IMVGB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Sep 2012 17:06:01 -0400
-In-Reply-To: <1346888106-25638-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-QNSvpaaFnrreAPBHHDh7
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2012-09-05 at 16:35 -0700, Kirsher, Jeffrey T wrote:
-> This series contains updates to igb (specifically PTP code).
->=20
-> The following are changes since commit f6fe569fe056388166575af1cfaed0bcbc=
-688305:
->   Revert "usbnet: drop unneeded check for NULL"
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
->=20
-> Matthew Vick (6):
->   igb: Tidy up wrapping for CONFIG_IGB_PTP.
->   igb: Update PTP function names/variables and locations.
->   igb: Correct PTP support query from ethtool.
->   igb: Store the MAC address in the name in the PTP struct.
->   igb: Prevent dropped Tx timestamps via work items and interrupts.
->   igb: Add 1588 support to I210/I211.
->=20
->  drivers/net/ethernet/intel/igb/e1000_defines.h |   8 +
->  drivers/net/ethernet/intel/igb/e1000_regs.h    |   2 +
->  drivers/net/ethernet/intel/igb/igb.h           |  29 +-
->  drivers/net/ethernet/intel/igb/igb_ethtool.c   |  84 +--
->  drivers/net/ethernet/intel/igb/igb_main.c      | 329 +++---------
->  drivers/net/ethernet/intel/igb/igb_ptp.c       | 676 +++++++++++++++++++=
-+-----
->  6 files changed, 708 insertions(+), 420 deletions(-)
->=20
-> --
-
-Dave-
-I see you have set this series to "Changes Requested" in patchworks, and
-I am assuming that is from the discussion that occurred on patch 04 of
-the series.  That discussion came to the conclusion that changes should
-happen in the PTP core, and that the patch is fine as is currently.
-
-If there was something else you want changed, let me/Matthew know so
-that we can make the necessary changes.
-
-Cheers,
-Jeff
-
---=-QNSvpaaFnrreAPBHHDh7
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sathya.perla@emulex.com,
+	subbu.seetharaman@emulex.com, ajit.khaparde@emulex.com,
+	linux-kernel@vger.kernel.org
+To: craig.hada@hp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <505212A3.1030307@hp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+From: Craig Hada <craig.hada@hp.com>
+Date: Thu, 13 Sep 2012 10:06:43 -0700
 
-iQIcBAABCgAGBQJQUkq3AAoJEOVv75VaS+3O9esP/2wU+9g2JQArGRC5mbjdBDeM
-NlViwyCkrIVX+qQXzs6QUzrIOAqr7HAT7j5wHKFRT4BPQlUHHePZWsLEdtHHwzHY
-g4I32I97n+ie5SMGhAb1xeNVijLKx3k+VaOpee+S0CwzpveiOss2Plf5HQpP6JZi
-TeeGjRglluXtoyUXmhdcsKEN81mDlKURqtJD8/AefXQz2He2cCd8X0oMh1g5Jm5i
-3Dl4Q1QGoWBELAqzoaEcFmXHFaP5nRhvHttQORPodfWv76kgZg5RcsMeQPG9wNWI
-wASkK0r0Bw7Zfi1ykBCxvjc2um9GJmbyTnO9oDuevOgGaT5epbmB1gr9qob3nwIB
-Awl3aQlzIV5ITzBfg3jwdnVZ3gS/7ayNEBG9Dzx/UB9bk+PlHj8/6/2RE6gaYli7
-/gtaO8T00Xu/RX1D7Qs3iKJFwWVeQy4UjE/ROtKZ/OQga3488PPUm/ZcFnHLDY7S
-9vSXyC1bdS47VfMp8RnT7YlqY7bwdA9H4GsY5XLs9eGeocIRJROauD7HCaZpA7gk
-fFT8/DCWrIhGqsndCQsWKl1iqNxFqe0nrfkeC4PfceZwsd0VsDxpx6sTpeytS0KV
-uM0ryyQr4ozlqN9DUJgit/NFOblpSBIWylLie7bBNr9f/X8nUasrnqC2tofzcs0t
-+8FlK8Ljyyd0LObv8VHA
-=3m8w
------END PGP SIGNATURE-----
+> On 9/13/2012 9:27 AM, Hada, Craig M wrote:
+>> This patch sets the coherent DMA mask to 64-bit after the be2net
+>> driver has been acknowledged that the system is 64-bit DMA
+>> capable. The coherent DMA mask is examined by the Intel IOMMU driver
+>> to determine whether to allow pass through context mapping for all
+>> devices. With this patch, the be2net driver combined with be2net
+>> compatible hardware provides comparable performance to the case where
+>> vt-d is disabled. The main use case for this change is to decrease the
+>> time necessary to copy virtual machine memory during KVM live
+>> migration instantiations.
+>>
+>> This patch was tested on a system that enables the IOMMU in
+>> non-coherent mode. Two DMA remapper issues were encountered and both
+>> are in the Intel IOMMU driver with the following patches submitted
+>> upstream but not yet commited.
+>>
+>> Patch 1 - DMAR:[fault reason 02] Present bit in context entry is clear
+>> https://lkml.org/lkml/2012/6/15/20
+> 
+> My apologies for posting a truncated link for the above. The correct
+> link is https://lkml.org/lkml/2012/6/15/204
 
---=-QNSvpaaFnrreAPBHHDh7--
+First of all you've made this email reply in such a way it didn't
+get logged in the patch in patchwork, perhaps because either the
+Message-Id got changed or flat-out removed, I can't say for sure.
+
+Secondly, it is not appropriate to install a change that will
+knowingly break usage of the device until the IOMMU reaper fixes
+actually exist upstream.  This patch is absolutely dependent upon
+those fixes, and therefore must only get applied to trees that
+have the IOMMU fixes installed.
+
+You must therefore wait for upstream to acquire the fixes, upstream to
+get sync'd into the networking trees, and then you apply a patch with
+these requirements.
