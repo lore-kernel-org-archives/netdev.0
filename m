@@ -1,39 +1,50 @@
-From: Pablo Neira Ayuso <pablo@gnumonks.org>
-Subject: Re: xt_nat_init: BUG: unable to handle kernel NULL pointer
- dereference at 00000000000000e0
-Date: Thu, 13 Sep 2012 11:42:05 +0200
-Message-ID: <20120913094205.GA30612@1984>
-References: <20120913091629.GA28022@localhost>
- <20120913093024.GL14750@breakpoint.cc>
+From: Sylvain Munaut <s.munaut@whatever-company.com>
+Subject: Interface working only after first packet is sent out ...
+Date: Thu, 13 Sep 2012 11:48:06 +0200
+Message-ID: <CAF6-1L4H7AtT0OP4C0E1wHdrRs+T0r9Qv17wDntZsnJbYv9xaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Fengguang Wu <fengguang.wu@intel.com>,
-	Patrick McHardy <kaber@trash.net>,
-	networking <netdev@vger.kernel.org>,
-	"Netfilter Development Maili..." <netfilter-devel@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120913093024.GL14750@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:44432 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755895Ab2IMJsH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 05:48:07 -0400
+Received: by vbbff1 with SMTP id ff1so3173953vbb.19
+        for <netdev@vger.kernel.org>; Thu, 13 Sep 2012 02:48:06 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 13, 2012 at 11:30:24AM +0200, Florian Westphal wrote:
-> Fengguang Wu <fengguang.wu@intel.com> wrote:
-> > Hi Patrick,
-> > 
-> > This happens in today's linux-next tree and is pretty reproducible.
-> > [    1.834544] nf_conntrack version 0.5.0 (1786 buckets, 7144 max)
-> > [    1.835406] ctnetlink v0.93: registering with nfnetlink.
-> > [    1.836202] BUG: unable to handle kernel NULL pointer dereference at 00000000000000e0
-> > [    1.837539] IP: [<ffffffff81a19123>] mutex_lock_interruptible+0x23/0x70
-> 
-> Should be fixed by
-> commit 00545bec9412d130c77f72a08d6c8b6ad21d4a1e
-> Author: Pablo Neira Ayuso <pablo@netfilter.org>
-> Subject: netfilter: fix crash during boot if NAT has been compiled built-in
-> 
-> But seems its not yet in net-next.  Pablo?
+Hi,
 
-I'll request the pull asap.
+
+I've been having an issue for a fairly long time, on several system
+(either physical or virtual machine).
+
+Basically I don't have network connectivity until the machine
+initiates it's first packet out.
+
+So let's say I just booted the machine (and it has no sw running on
+it, just base system), if I try to ping it, it won't respond.
+In a tcpdump on the interface, I can see the incoming ping, but not
+outgoing responses.
+
+Now from the machine itself, I generate a single ping to anywhere,
+then everything will start working as expected and it will last
+forever until the next reboot.
+
+Has anyone ever seen something like this ?
+
+Most of the time I don't notice it because either it's a desktop
+machine and then even just a DHCP request makes it work from boot, or
+even on server, the ntp daemon generates the first packet and it
+works.
+
+I don't know if it's a bug or if I'm doing something wrong somewhere,
+but I really don't see what it could be ....
+
+
+
+Cheers,
+
+    Sylvain
