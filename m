@@ -1,57 +1,166 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [RFC/RFT 14/15] rtlwifi: Modify files for addition of rtl8723ae
-Date: Thu, 13 Sep 2012 13:11:58 +1000
-Message-ID: <CAGRGNgWezEzXV0-k6DA7TckNpa=zgN6LNv898N-PRU6P1LYgOw@mail.gmail.com>
-References: <1347483294-6943-1-git-send-email-Larry.Finger@lwfinger.net> <1347483294-6943-15-git-send-email-Larry.Finger@lwfinger.net>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 2/5] netdev_printk/dynamic_netdev_dbg: Directly call
+ printk_emit
+Date: Wed, 12 Sep 2012 20:12:19 -0700
+Message-ID: <1347505939.2749.3.camel@joe2Laptop>
+References: <cover.1345978012.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, chaoming_li@realsil.com.cn
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:40503 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754541Ab2IMDMU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 23:12:20 -0400
-In-Reply-To: <1347483294-6943-15-git-send-email-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jim Cromie <jim.cromie@gmail.com>, Kay Sievers <kay@vrfy.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jason Baron <jbaron@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1345978012.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Larry,
+A lot of stack is used in recursive printks with %pV.
 
-On Thu, Sep 13, 2012 at 6:54 AM, Larry Finger <Larry.Finger@lwfinger.net> wrote:
-> This patch modifies the files of rtlwifi for the addition of a new driver
-> to handle the Realtek RTL8723AE wireless device, and introduces a new
-> routine to maintaim statistics that will be used later for roaming.
->
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> Cc: <chaoming_li@realsil.com.cn>
-> ---
->  drivers/net/wireless/rtlwifi/debug.h |    2 +
->  drivers/net/wireless/rtlwifi/pci.h   |    1 +
->  drivers/net/wireless/rtlwifi/stats.c |  274 ++++++++++++++++++++++++++++++++++
->  drivers/net/wireless/rtlwifi/stats.h |   47 ++++++
->  4 files changed, 324 insertions(+)
->  create mode 100644 drivers/net/wireless/rtlwifi/stats.c
->  create mode 100644 drivers/net/wireless/rtlwifi/stats.h
->
-> diff --git a/drivers/net/wireless/rtlwifi/debug.h b/drivers/net/wireless/rtlwifi/debug.h
-> index 07493d2..b81e299 100644
-> --- a/drivers/net/wireless/rtlwifi/debug.h
-> +++ b/drivers/net/wireless/rtlwifi/debug.h
-> @@ -106,6 +106,8 @@
->  #define COMP_REGD                      BIT(27)
->  #define COMP_CHAN                      BIT(28)
->  #define COMP_USB                       BIT(29)
-> +#define COMP_EASY_CONCURRENT           BIT(29)
+Using multiple levels of %pV (a logging function with %pV
+that calls another logging function with %pV) can consume
+more stack than necessary.
 
-Is this supposed to be bit #29 - I notice that COMP_USB is also bit 29.
+Avoid excessive stack use by not calling dev_printk from
+netdev_printk and dynamic_netdev_dbg.  Duplicate the logic
+and form of dev_printk instead.
 
-Thanks,
+Make __netdev_printk static.
+Remove EXPORT_SYMBOL(__netdev_printk)
+Whitespace and brace style neatening.
 
+Signed-off-by: Joe Perches <joe@perches.com>
+Acked-by: David S. Miller <davem@davemloft.net>
+Tested-by: Jim Cromie <jim.cromie@gmail.com>
+Acked-by: Jason Baron <jbaron@redhat.com>
+---
+ include/linux/netdevice.h |    3 ---
+ lib/dynamic_debug.c       |   26 +++++++++++++++++++++++---
+ net/core/dev.c            |   24 +++++++++++++++++-------
+ 3 files changed, 40 insertions(+), 13 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 59dc05f3..5f49cc0 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2720,9 +2720,6 @@ static inline const char *netdev_name(const struct net_device *dev)
+ 	return dev->name;
+ }
+ 
+-extern int __netdev_printk(const char *level, const struct net_device *dev,
+-			struct va_format *vaf);
+-
+ extern __printf(3, 4)
+ int netdev_printk(const char *level, const struct net_device *dev,
+ 		  const char *format, ...);
+diff --git a/lib/dynamic_debug.c b/lib/dynamic_debug.c
+index 29ff2e4..2a29f4e 100644
+--- a/lib/dynamic_debug.c
++++ b/lib/dynamic_debug.c
+@@ -611,20 +611,40 @@ EXPORT_SYMBOL(__dynamic_dev_dbg);
+ #ifdef CONFIG_NET
+ 
+ int __dynamic_netdev_dbg(struct _ddebug *descriptor,
+-		      const struct net_device *dev, const char *fmt, ...)
++			 const struct net_device *dev, const char *fmt, ...)
+ {
+ 	struct va_format vaf;
+ 	va_list args;
+ 	int res;
+-	char buf[PREFIX_SIZE];
+ 
+ 	BUG_ON(!descriptor);
+ 	BUG_ON(!fmt);
+ 
+ 	va_start(args, fmt);
++
+ 	vaf.fmt = fmt;
+ 	vaf.va = &args;
+-	res = __netdev_printk(dynamic_emit_prefix(descriptor, buf), dev, &vaf);
++
++	if (dev && dev->dev.parent) {
++		char buf[PREFIX_SIZE];
++		char dict[128];
++		size_t dictlen;
++
++		dictlen = create_syslog_header(dev->dev.parent,
++					       dict, sizeof(dict));
++
++		res = printk_emit(0, 7, dictlen ? dict : NULL, dictlen,
++				  "%s%s %s: %s: %pV",
++				  dynamic_emit_prefix(descriptor, buf),
++				  dev_driver_string(dev->dev.parent),
++				  dev_name(dev->dev.parent),
++				  netdev_name(dev), &vaf);
++	} else if (dev) {
++		res = printk(KERN_DEBUG "%s: %pV", netdev_name(dev), &vaf);
++	} else {
++		res = printk(KERN_DEBUG "(NULL net_device): %pV", &vaf);
++	}
++
+ 	va_end(args);
+ 
+ 	return res;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8398836..a588145 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6422,22 +6422,30 @@ const char *netdev_drivername(const struct net_device *dev)
+ 	return empty;
+ }
+ 
+-int __netdev_printk(const char *level, const struct net_device *dev,
++static int __netdev_printk(const char *level, const struct net_device *dev,
+ 			   struct va_format *vaf)
+ {
+ 	int r;
+ 
+-	if (dev && dev->dev.parent)
+-		r = dev_printk(level, dev->dev.parent, "%s: %pV",
+-			       netdev_name(dev), vaf);
+-	else if (dev)
++	if (dev && dev->dev.parent) {
++		char dict[128];
++		size_t dictlen = create_syslog_header(dev->dev.parent,
++						      dict, sizeof(dict));
++
++		r = printk_emit(0, level[1] - '0',
++				dictlen ? dict : NULL, dictlen,
++				"%s %s: %s: %pV",
++				dev_driver_string(dev->dev.parent),
++				dev_name(dev->dev.parent),
++				netdev_name(dev), vaf);
++	} else if (dev) {
+ 		r = printk("%s%s: %pV", level, netdev_name(dev), vaf);
+-	else
++	} else {
+ 		r = printk("%s(NULL net_device): %pV", level, vaf);
++	}
+ 
+ 	return r;
+ }
+-EXPORT_SYMBOL(__netdev_printk);
+ 
+ int netdev_printk(const char *level, const struct net_device *dev,
+ 		  const char *format, ...)
+@@ -6452,6 +6460,7 @@ int netdev_printk(const char *level, const struct net_device *dev,
+ 	vaf.va = &args;
+ 
+ 	r = __netdev_printk(level, dev, &vaf);
++
+ 	va_end(args);
+ 
+ 	return r;
+@@ -6471,6 +6480,7 @@ int func(const struct net_device *dev, const char *fmt, ...)	\
+ 	vaf.va = &args;						\
+ 								\
+ 	r = __netdev_printk(level, dev, &vaf);			\
++								\
+ 	va_end(args);						\
+ 								\
+ 	return r;						\
 -- 
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
-.Plan: http://sites.google.com/site/juliancalaby/
+1.7.8.111.gad25c.dirty
