@@ -1,42 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next.git 3/8 (V2)] stmmac: add the initial tx coalesce
- schema
-Date: Thu, 13 Sep 2012 17:37:27 -0400 (EDT)
-Message-ID: <20120913.173727.314155374058895289.davem@davemloft.net>
-References: <1347568971.13258.19.camel@deadeye.wl.decadent.org.uk>
-	<20120913.164645.1268091771093604148.davem@davemloft.net>
-	<1347570650.13258.40.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49785 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754147Ab2IMVh3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 17:37:29 -0400
-In-Reply-To: <1347570650.13258.40.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mathias Krause <minipli@googlemail.com>
+Subject: [PATCH] xfrm_user: return error pointer instead of NULL
+Date: Thu, 13 Sep 2012 23:41:26 +0200
+Message-ID: <1347572486-1628-1-git-send-email-minipli@googlemail.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mathias Krause <minipli@googlemail.com>, stable@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 13 Sep 2012 22:10:50 +0100
+When dump_one_state() returns an error, e.g. because of a too small
+buffer to dump the whole xfrm state, xfrm_state_netlink() returns NULL
+instead of an error pointer. But its callers expect an error pointer
+and therefore continue to operate on a NULL skbuff.
 
-> On Thu, 2012-09-13 at 16:46 -0400, David Miller wrote:
->> From: Ben Hutchings <bhutchings@solarflare.com>
->> Date: Thu, 13 Sep 2012 21:42:51 +0100
->> 
->> Well written NAPI drivers never need to disable hardware interrupts
->> in their ->poll() method and it's callers, neither should you.
-> 
-> Perhaps you should get round to reviewing netpoll, because it does
-> exactly this.
+This could lead to a privilege escalation (execution of user code in
+kernel context) if the attacker has CAP_NET_ADMIN and is able to map
+address 0.
 
-Then I don't understand the point you're trying to make.
+Cc: stable@vger.kernel.org
+Signed-off-by: Mathias Krause <minipli@googlemail.com>
+---
 
-Hardware interrupt disabling has absolutely no place in the
-NAPI polling fast paths.
+A test case can be provided on request.
 
-If NAPI drivers can't be implemented without hardware interrupt
-toggling in ->poll(), we've failed.
+ net/xfrm/xfrm_user.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index e75d8e4..dac08e2 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -878,6 +878,7 @@ static struct sk_buff *xfrm_state_netlink(struct sk_buff *in_skb,
+ {
+ 	struct xfrm_dump_info info;
+ 	struct sk_buff *skb;
++	int err;
+ 
+ 	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+ 	if (!skb)
+@@ -888,9 +889,10 @@ static struct sk_buff *xfrm_state_netlink(struct sk_buff *in_skb,
+ 	info.nlmsg_seq = seq;
+ 	info.nlmsg_flags = 0;
+ 
+-	if (dump_one_state(x, 0, &info)) {
++	err = dump_one_state(x, 0, &info);
++	if (err) {
+ 		kfree_skb(skb);
+-		return NULL;
++		return ERR_PTR(err);
+ 	}
+ 
+ 	return skb;
+-- 
+1.7.10.4
