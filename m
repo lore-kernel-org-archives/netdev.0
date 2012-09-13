@@ -1,63 +1,76 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next.git 3/8 (V2)] stmmac: add the initial tx coalesce
- schema
-Date: Fri, 14 Sep 2012 00:11:15 +0100
-Message-ID: <1347577875.13258.70.camel@deadeye.wl.decadent.org.uk>
-References: <1347568971.13258.19.camel@deadeye.wl.decadent.org.uk>
-	 <20120913.164645.1268091771093604148.davem@davemloft.net>
-	 <1347570650.13258.40.camel@deadeye.wl.decadent.org.uk>
-	 <20120913.173727.314155374058895289.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bnx2x: fix rx checksum validation for IPv6
+Date: Fri, 14 Sep 2012 01:14:39 +0200
+Message-ID: <1347578079.8555.141.camel@edumazet-glaptop>
+References: <1347577184-8417-1-git-send-email-mschmidt@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <peppe.cavallaro@st.com>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Eilon Greenstein <eilong@broadcom.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Yaniv Rosner <yanivr@broadcom.com>,
+	Yuval Mintz <yuvalmin@broadcom.com>,
+	Merav Sicron <meravs@broadcom.com>,
+	Robert Evans <evansr@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	David Miller <davem@davemloft.net>,
+	Havard Skinnemoen <hskinnemoen@google.com>
+To: Michal Schmidt <mschmidt@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:50995 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752889Ab2IMXLT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 19:11:19 -0400
-In-Reply-To: <20120913.173727.314155374058895289.davem@davemloft.net>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:52837 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750958Ab2IMXOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 19:14:45 -0400
+Received: by weyx8 with SMTP id x8so2018775wey.19
+        for <netdev@vger.kernel.org>; Thu, 13 Sep 2012 16:14:44 -0700 (PDT)
+In-Reply-To: <1347577184-8417-1-git-send-email-mschmidt@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-09-13 at 17:37 -0400, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Thu, 13 Sep 2012 22:10:50 +0100
+On Fri, 2012-09-14 at 00:59 +0200, Michal Schmidt wrote:
+> Commit d6cb3e41 "bnx2x: fix checksum validation" caused a performance
+> regression for IPv6. Rx checksum offload does not work. IPv6 packets
+> are passed to the stack with CHECKSUM_NONE.
 > 
-> > On Thu, 2012-09-13 at 16:46 -0400, David Miller wrote:
-> >> From: Ben Hutchings <bhutchings@solarflare.com>
-> >> Date: Thu, 13 Sep 2012 21:42:51 +0100
-> >> 
-> >> Well written NAPI drivers never need to disable hardware interrupts
-> >> in their ->poll() method and it's callers, neither should you.
-> > 
-> > Perhaps you should get round to reviewing netpoll, because it does
-> > exactly this.
+> The hardware obviously cannot perform IP checksum validation for IPv6,
+> because there is no checksum in the IPv6 header. This should not prevent
+> us from setting CHECKSUM_UNNECESSARY.
 > 
-> Then I don't understand the point you're trying to make.
+> Tested on BCM57711.
 > 
-> Hardware interrupt disabling has absolutely no place in the
-> NAPI polling fast paths.
+> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 12 +++++++-----
+>  1 file changed, 7 insertions(+), 5 deletions(-)
 > 
-> If NAPI drivers can't be implemented without hardware interrupt
-> toggling in ->poll(), we've failed.
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> index af20c6e..e8e97a7 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> @@ -662,14 +662,16 @@ void bnx2x_csum_validate(struct sk_buff *skb, union eth_rx_cqe *cqe,
+>  				 struct bnx2x_fastpath *fp,
+>  				 struct bnx2x_eth_q_stats *qstats)
+>  {
+> -	/* Do nothing if no IP/L4 csum validation was done */
+> -
+> +	/* Do nothing if no L4 csum validation was done.
+> +	 * We do not check whether IP csum was validated. For IPv4 we assume
+> +	 * that if the card got as far as validating the L4 csum, it also
+> +	 * validated the IP csum. IPv6 has no IP csum.
+> +	 */
+>  	if (cqe->fast_path_cqe.status_flags &
+> -	    (ETH_FAST_PATH_RX_CQE_IP_XSUM_NO_VALIDATION_FLG |
+> -	     ETH_FAST_PATH_RX_CQE_L4_XSUM_NO_VALIDATION_FLG))
+> +	    ETH_FAST_PATH_RX_CQE_L4_XSUM_NO_VALIDATION_FLG)
+>  		return;
+>  
+> -	/* If both IP/L4 validation were done, check if an error was found. */
+> +	/* If L4 validation was done, check if an error was found. */
+>  
+>  	if (cqe->fast_path_cqe.type_error_flags &
+>  	    (ETH_FAST_PATH_RX_CQE_IP_BAD_XSUM_FLG |
 
-Right.
+Thanks for fixing this bug !
 
-The problem being that NAPI poll functions *are* sometimes called in
-hardware interrupt context.  Thus, any spinlock that may be taken by a
-NAPI handler, may well need to be taken with spinlock_irq or
-spinlock_irqsave elsewhere.  (This is horrible and I think it's well
-past time that we ripped the NAPI polling out of netpoll.)
-
-I think you're right that stmmac_tx() (completion handler?) doesn't need
-to disable hardware interrupts, but sadly stmmac_xmit() does right now
-unless Giuseppe can work out how to make their interaction lockless.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Acked-by: Eric Dumazet <edumazet@google.com>
