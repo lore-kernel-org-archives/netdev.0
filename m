@@ -1,68 +1,65 @@
-From: Erwan Velu <erwanaliasr1@gmail.com>
-Subject: [PATCH] ipconfig: Inform user if carrier is not ready
-Date: Thu, 13 Sep 2012 23:59:52 +0200
-Message-ID: <50525758.1090609@gmail.com>
-References: <5052403B.4040408@gmail.com> <20120913.163134.361379133013906511.davem@davemloft.net> <50524419.4080404@gmail.com> <20120913.164525.1171098883605242394.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: [PATCH] bnx2x: fix rx checksum validation for IPv6
+Date: Fri, 14 Sep 2012 00:59:44 +0200
+Message-ID: <1347577184-8417-1-git-send-email-mschmidt@redhat.com>
+Cc: Eilon Greenstein <eilong@broadcom.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Yaniv Rosner <yanivr@broadcom.com>,
+	Yuval Mintz <yuvalmin@broadcom.com>,
+	Merav Sicron <meravs@broadcom.com>,
+	Robert Evans <evansr@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:47319 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758834Ab2IMV77 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 17:59:59 -0400
-Received: by weyx8 with SMTP id x8so1987489wey.19
-        for <netdev@vger.kernel.org>; Thu, 13 Sep 2012 14:59:58 -0700 (PDT)
-In-Reply-To: <20120913.164525.1171098883605242394.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:8799 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751663Ab2IMW7y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2012 18:59:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erwan Velu <erwanaliasr1@gmail.com>
+Commit d6cb3e41 "bnx2x: fix checksum validation" caused a performance
+regression for IPv6. Rx checksum offload does not work. IPv6 packets
+are passed to the stack with CHECKSUM_NONE.
 
-While using the ip= option at the cmdline, the kernel can hold the boot
-process for 2 minutes (CONF_CARRIER_TIMEOUT) if the carrier is not
-present.
+The hardware obviously cannot perform IP checksum validation for IPv6,
+because there is no checksum in the IPv6 header. This should not prevent
+us from setting CHECKSUM_UNNECESSARY.
 
-While waiting the carrier, user is not informed about this situation and
-so could think the kernel is frozen.
+Tested on BCM57711.
 
-This patch is just adding a simple message every second telling we are
-waiting the carrier to come up.
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
 ---
-  net/ipv4/ipconfig.c |    8 ++++++++
-  1 file changed, 8 insertions(+)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 67e8a6b..d9f34b7 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -205,6 +205,7 @@ static int __init ic_open_devs(void)
-      struct net_device *dev;
-      unsigned short oflags;
-      unsigned long start;
-+    unsigned int loops=0;
-
-      last = &ic_first_dev;
-      rtnl_lock();
-@@ -266,6 +267,13 @@ static int __init ic_open_devs(void)
-              if (ic_is_init_dev(dev) && netif_carrier_ok(dev))
-                  goto have_carrier;
-
-+        loops++;
-+        /* This loop is blocking the boot process until we get the 
-carrier or reach the timeout.
-+         * We have to inform the user about the situation as it could 
-look like a kernel freeze.
-+         * Every second, we display a short message indicating we wait 
-the carrier */
-+        if ((loops % 1000) == 0) {
-+            pr_info("IP-Config: Waiting Carrier (%d/%d):\n",loops / 
-1000, CONF_CARRIER_TIMEOUT / 1000);
-+        }
-          msleep(1);
-      }
-  have_carrier:
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index af20c6e..e8e97a7 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -662,14 +662,16 @@ void bnx2x_csum_validate(struct sk_buff *skb, union eth_rx_cqe *cqe,
+ 				 struct bnx2x_fastpath *fp,
+ 				 struct bnx2x_eth_q_stats *qstats)
+ {
+-	/* Do nothing if no IP/L4 csum validation was done */
+-
++	/* Do nothing if no L4 csum validation was done.
++	 * We do not check whether IP csum was validated. For IPv4 we assume
++	 * that if the card got as far as validating the L4 csum, it also
++	 * validated the IP csum. IPv6 has no IP csum.
++	 */
+ 	if (cqe->fast_path_cqe.status_flags &
+-	    (ETH_FAST_PATH_RX_CQE_IP_XSUM_NO_VALIDATION_FLG |
+-	     ETH_FAST_PATH_RX_CQE_L4_XSUM_NO_VALIDATION_FLG))
++	    ETH_FAST_PATH_RX_CQE_L4_XSUM_NO_VALIDATION_FLG)
+ 		return;
+ 
+-	/* If both IP/L4 validation were done, check if an error was found. */
++	/* If L4 validation was done, check if an error was found. */
+ 
+ 	if (cqe->fast_path_cqe.type_error_flags &
+ 	    (ETH_FAST_PATH_RX_CQE_IP_BAD_XSUM_FLG |
 -- 
-1.7.10
+1.7.11.4
