@@ -1,32 +1,35 @@
-From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: Re: [PATCH 9/9] drivers/isdn/gigaset/common.c: Remove useless kfree
-Date: Thu, 13 Sep 2012 11:27:49 +0200
-Message-ID: <CA+MoWDqiudaBC=sLUuQABTZHp2yUTVB+RY73no8s61fsG7vaZQ@mail.gmail.com>
-References: <1347462407-13499-9-git-send-email-peter.senna@gmail.com>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B6FEE@saturn3.aculab.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: xt_nat_init: BUG: unable to handle kernel NULL pointer
+ dereference at 00000000000000e0
+Date: Thu, 13 Sep 2012 11:30:24 +0200
+Message-ID: <20120913093024.GL14750@breakpoint.cc>
+References: <20120913091629.GA28022@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Hansjoerg Lipp <hjlipp@web.de>, kernel-janitors@vger.kernel.org,
-	Tilman Schmidt <tilman@imap.cc>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Laight <David.Laight@aculab.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	networking <netdev@vger.kernel.org>,
+	Pablo Neira Ayuso <pablo@gnumonks.org>,
+	"Netfilter Development Maili..." <netfilter-devel@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Fengguang Wu <fengguang.wu@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6FEE@saturn3.aculab.com>
+Content-Disposition: inline
+In-Reply-To: <20120913091629.GA28022@localhost>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Seems to me that (assuming kfree(NULL) is ok) the kfree()
-> is best left in - just in case some other error path is
-> added after drv->cs is assigned.
-> Better safe than a memory leak.
+Fengguang Wu <fengguang.wu@intel.com> wrote:
+> Hi Patrick,
+> 
+> This happens in today's linux-next tree and is pretty reproducible.
+> [    1.834544] nf_conntrack version 0.5.0 (1786 buckets, 7144 max)
+> [    1.835406] ctnetlink v0.93: registering with nfnetlink.
+> [    1.836202] BUG: unable to handle kernel NULL pointer dereference at 00000000000000e0
+> [    1.837539] IP: [<ffffffff81a19123>] mutex_lock_interruptible+0x23/0x70
 
-I'm not sure if I got your point. Now the label "error:" is only
-reached if drv->cs is NULL. There is not other way to move to error:
-unless drv->cs is NULL. Why wouldn't be safe to remove the
-kfree(drv->cs) when drv->cs is NULL?
+Should be fixed by
+commit 00545bec9412d130c77f72a08d6c8b6ad21d4a1e
+Author: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: netfilter: fix crash during boot if NAT has been compiled built-in
 
-
--- 
-Peter
+But seems its not yet in net-next.  Pablo?
