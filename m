@@ -1,54 +1,39 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH v4 0/8] cgroup: Assign subsystem IDs during compile time
-Date: Thu, 13 Sep 2012 11:13:02 -0700
-Message-ID: <20120913181302.GE7677@google.com>
-References: <1347459128-32236-1-git-send-email-wagi@monom.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] netfilter updates for 3.6-rc5
+Date: Thu, 13 Sep 2012 14:25:31 -0400 (EDT)
+Message-ID: <20120913.142531.1141106551750112538.davem@davemloft.net>
+References: <1347533648-3451-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, cgroups@vger.kernel.org,
-	Daniel Wagner <daniel.wagner@bmw-carit.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	Glauber Costa <glommer@parallels.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Kamezawa Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
-	Li Zefan <lizefan@huawei.com>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Daniel Wagner <wagi@monom.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:42082 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755292Ab2IMSNH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 14:13:07 -0400
-Content-Disposition: inline
-In-Reply-To: <1347459128-32236-1-git-send-email-wagi@monom.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48060 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750828Ab2IMSZe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 14:25:34 -0400
+In-Reply-To: <1347533648-3451-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 12, 2012 at 04:12:00PM +0200, Daniel Wagner wrote:
-> I've removed the useless test in patch #4 and updated the commit message
-> on patch #7. 
-> 
-> While rewriting the commit message #7 I realized the pointer check was
-> completely wrong. Instead testing the return value of
-> task_subsys_state() I tested the pointer return by container_of. For
-> more details on this see the commit message. 
-> 
-> Because of this I added Herbert and Paul to the Cc list. Please have
-> close look at my rambling on the RCU part in patch #7. Thanks a lot!
-> 
-> This series is against 
-> 
->      git://git.kernel.org/pub/scm/linux/kernel/git/tj/cgroup.git for-3.7
+From: pablo@netfilter.org
+Date: Thu, 13 Sep 2012 12:54:04 +0200
 
-Applied to cgroup/for-3.7.
+> The following patchset contains four updates for your net tree, they are:
+> 
+> * Fix crash on timewait sockets, since the TCP early demux was added,
+>   in nfnetlink_log, from Eric Dumazet.
+> 
+> * Fix broken syslog log-level for xt_LOG and ebt_log since printk format was
+>   converted from <.> to a 2 bytes pattern using ASCII SOH, from Joe Perches.
+> 
+> * Two security fixes for the TCP connection tracking targeting off-path attacks,
+>   from Jozsef Kadlecsik. The problem was discovered by Jan Wrobel and it is
+>   documented in: http://mixedbit.org/reflection_scan/reflection_scan.pdf.
+> 
+> You can pull these changes from:
+> 
+> git://1984.lsi.us.es/nf master
 
-Thanks!
-
--- 
-tejun
+Pulled, thanks Pablo.
