@@ -1,698 +1,360 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [net-next PATCH 2/3] bnx2x: Link Flap Avoidance
-Date: Thu, 13 Sep 2012 15:56:20 +0300
-Message-ID: <1347540981-16198-3-git-send-email-yuvalmin@broadcom.com>
+Subject: [net-next PATCH 3/3] bnx2x: Utilize Link Flap Avoidance
+Date: Thu, 13 Sep 2012 15:56:21 +0300
+Message-ID: <1347540981-16198-4-git-send-email-yuvalmin@broadcom.com>
 References: <1347540981-16198-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: eilong@broadcom.com, ariele@broadcom.com,
-	"Yaniv Rosner" <yaniv.rosner@broadcom.com>,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
+	"Yuval Mintz" <yuvalmin@broadcom.com>,
+	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3281 "EHLO mms3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4286 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751224Ab2IMNVH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Sep 2012 09:21:07 -0400
+	id S1751607Ab2IMNVM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2012 09:21:12 -0400
 In-Reply-To: <1347540981-16198-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yaniv Rosner <yaniv.rosner@broadcom.com>
+Change various flows in the bnx2x driver which up until now flapped
+the link - these flows now benefit from the link flap avoidance mechanism.
 
-Various flows in the bnx2x driver cause a link-flap - if the link
-is up, it would be toggled down (after a mac/phy reset) and then
-taken back up.
+This includes the removal of the link reset made upon nic init, as it is
+possible the link is already active at that time.
 
-In many of these cases, there is no need to do cause such a flap,
-as the associated flows should not actually affect the link.
-
-This patch adds the 'Link Flap Avoidance' mechanism, which allows
-the driver to better determine if a given flow requires a link change,
-and thus minimize the number of link flaps caused by the driver.
-
-Signed-off-by: Yaniv Rosner <yaniv.rosner@broadcom.com>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Yaniv Rosner <yaniv.rosner@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h  |   48 +++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |  435 +++++++++++++++++++---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h |    2 +
- 3 files changed, 437 insertions(+), 48 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |   12 +++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |   16 +++++++--
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |   10 +++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h    |    3 ++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h   |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |   34 +++++++++++++-------
+ 6 files changed, 51 insertions(+), 26 deletions(-)
 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index af20c6e..ca80487 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -2283,7 +2283,7 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 	/* Wait for all pending SP commands to complete */
+ 	if (!bnx2x_wait_sp_comp(bp, ~0x0UL)) {
+ 		BNX2X_ERR("Timeout waiting for SP elements to complete\n");
+-		bnx2x_nic_unload(bp, UNLOAD_CLOSE);
++		bnx2x_nic_unload(bp, UNLOAD_CLOSE, false);
+ 		return -EBUSY;
+ 	}
+ 
+@@ -2331,7 +2331,7 @@ load_error0:
+ }
+ 
+ /* must be called with rtnl_lock */
+-int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
++int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode, bool keep_link)
+ {
+ 	int i;
+ 	bool global = false;
+@@ -2393,7 +2393,7 @@ int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
+ 
+ 	/* Cleanup the chip if needed */
+ 	if (unload_mode != UNLOAD_RECOVERY)
+-		bnx2x_chip_cleanup(bp, unload_mode);
++		bnx2x_chip_cleanup(bp, unload_mode, keep_link);
+ 	else {
+ 		/* Send the UNLOAD_REQUEST to the MCP */
+ 		bnx2x_send_unload_req(bp, unload_mode);
+@@ -2417,7 +2417,7 @@ int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
+ 		bnx2x_free_irq(bp);
+ 
+ 		/* Report UNLOAD_DONE to MCP */
+-		bnx2x_send_unload_done(bp);
++		bnx2x_send_unload_done(bp, false);
+ 	}
+ 
+ 	/*
+@@ -3768,7 +3768,7 @@ int bnx2x_reload_if_running(struct net_device *dev)
+ 	if (unlikely(!netif_running(dev)))
+ 		return 0;
+ 
+-	bnx2x_nic_unload(bp, UNLOAD_NORMAL);
++	bnx2x_nic_unload(bp, UNLOAD_NORMAL, true);
+ 	return bnx2x_nic_load(bp, LOAD_NORMAL);
+ }
+ 
+@@ -3965,7 +3965,7 @@ int bnx2x_suspend(struct pci_dev *pdev, pm_message_t state)
+ 
+ 	netif_device_detach(dev);
+ 
+-	bnx2x_nic_unload(bp, UNLOAD_CLOSE);
++	bnx2x_nic_unload(bp, UNLOAD_CLOSE, false);
+ 
+ 	bnx2x_set_power_state(bp, pci_choose_state(pdev, state));
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index 21b5532..96e998c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -83,8 +83,9 @@ u32 bnx2x_send_unload_req(struct bnx2x *bp, int unload_mode);
+  * bnx2x_send_unload_done - send UNLOAD_DONE command to the MCP.
+  *
+  * @bp:		driver handle
++ * @keep_link:		true iff link should be kept up
+  */
+-void bnx2x_send_unload_done(struct bnx2x *bp);
++void bnx2x_send_unload_done(struct bnx2x *bp, bool keep_link);
+ 
+ /**
+  * bnx2x_config_rss_pf - configure RSS parameters in a PF.
+@@ -153,6 +154,14 @@ u8 bnx2x_initial_phy_init(struct bnx2x *bp, int load_mode);
+ void bnx2x_link_set(struct bnx2x *bp);
+ 
+ /**
++ * bnx2x_force_link_reset - Forces link reset, and put the PHY
++ * in reset as well.
++ *
++ * @bp:		driver handle
++ */
++void bnx2x_force_link_reset(struct bnx2x *bp);
++
++/**
+  * bnx2x_link_test - query link status.
+  *
+  * @bp:		driver handle
+@@ -312,12 +321,13 @@ void bnx2x_set_num_queues(struct bnx2x *bp);
+  *
+  * @bp:			driver handle
+  * @unload_mode:	COMMON, PORT, FUNCTION
++ * @keep_link:		true iff link should be kept up.
+  *
+  * - Cleanup MAC configuration.
+  * - Closes clients.
+  * - etc.
+  */
+-void bnx2x_chip_cleanup(struct bnx2x *bp, int unload_mode);
++void bnx2x_chip_cleanup(struct bnx2x *bp, int unload_mode, bool keep_link);
+ 
+ /**
+  * bnx2x_acquire_hw_lock - acquire HW lock.
+@@ -446,7 +456,7 @@ void bnx2x_fw_dump_lvl(struct bnx2x *bp, const char *lvl);
+ bool bnx2x_test_firmware_version(struct bnx2x *bp, bool is_err);
+ 
+ /* dev_close main block */
+-int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode);
++int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode, bool keep_link);
+ 
+ /* dev_open main block */
+ int bnx2x_nic_load(struct bnx2x *bp, int load_mode);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index c37a68d..19d2fc5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -905,6 +905,7 @@ static int bnx2x_nway_reset(struct net_device *dev)
+ 
+ 	if (netif_running(dev)) {
+ 		bnx2x_stats_handle(bp, STATS_EVENT_STOP);
++		bnx2x_force_link_reset(bp);
+ 		bnx2x_link_set(bp);
+ 	}
+ 
+@@ -1733,6 +1734,7 @@ static int bnx2x_set_eee(struct net_device *dev, struct ethtool_eee *edata)
+ 	/* Restart link to propogate changes */
+ 	if (netif_running(dev)) {
+ 		bnx2x_stats_handle(bp, STATS_EVENT_STOP);
++		bnx2x_force_link_reset(bp);
+ 		bnx2x_link_set(bp);
+ 	}
+ 
+@@ -2257,7 +2259,7 @@ static int bnx2x_test_ext_loopback(struct bnx2x *bp)
+ 	if (!netif_running(bp->dev))
+ 		return BNX2X_EXT_LOOPBACK_FAILED;
+ 
+-	bnx2x_nic_unload(bp, UNLOAD_NORMAL);
++	bnx2x_nic_unload(bp, UNLOAD_NORMAL, false);
+ 	rc = bnx2x_nic_load(bp, LOAD_LOOPBACK_EXT);
+ 	if (rc) {
+ 		DP(BNX2X_MSG_ETHTOOL,
+@@ -2408,7 +2410,7 @@ static void bnx2x_self_test(struct net_device *dev,
+ 
+ 		link_up = bp->link_vars.link_up;
+ 
+-		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
++		bnx2x_nic_unload(bp, UNLOAD_NORMAL, false);
+ 		rc = bnx2x_nic_load(bp, LOAD_DIAG);
+ 		if (rc) {
+ 			etest->flags |= ETH_TEST_FL_FAILED;
+@@ -2440,7 +2442,7 @@ static void bnx2x_self_test(struct net_device *dev,
+ 			etest->flags |= ETH_TEST_FL_EXTERNAL_LB_DONE;
+ 		}
+ 
+-		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
++		bnx2x_nic_unload(bp, UNLOAD_NORMAL, false);
+ 
+ 		/* restore input for TX port IF */
+ 		REG_WR(bp, NIG_REG_EGRESS_UMP0_IN_EN + port*4, val);
+@@ -2934,7 +2936,7 @@ static int bnx2x_set_channels(struct net_device *dev,
+ 		bnx2x_change_num_queues(bp, channels->combined_count);
+ 		return 0;
+ 	}
+-	bnx2x_nic_unload(bp, UNLOAD_NORMAL);
++	bnx2x_nic_unload(bp, UNLOAD_NORMAL, true);
+ 	bnx2x_change_num_queues(bp, channels->combined_count);
+ 	return bnx2x_nic_load(bp, LOAD_NORMAL);
+ }
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-index 76b6e65..df14006 100644
+index df14006..c795cfc 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-@@ -1909,6 +1909,54 @@ struct lldp_local_mib {
- };
- /***END OF DCBX STRUCTURES DECLARATIONS***/
+@@ -1286,6 +1286,9 @@ struct drv_func_mb {
+ 	#define DRV_MSG_CODE_SET_MF_BW_MIN_MASK         0x00ff0000
+ 	#define DRV_MSG_CODE_SET_MF_BW_MAX_MASK         0xff000000
  
-+/***********************************************************/
-+/*                         Elink section                   */
-+/***********************************************************/
-+#define SHMEM_LINK_CONFIG_SIZE 2
-+struct shmem_lfa {
-+	u32 req_duplex;
-+	#define REQ_DUPLEX_PHY0_MASK        0x0000ffff
-+	#define REQ_DUPLEX_PHY0_SHIFT       0
-+	#define REQ_DUPLEX_PHY1_MASK        0xffff0000
-+	#define REQ_DUPLEX_PHY1_SHIFT       16
-+	u32 req_flow_ctrl;
-+	#define REQ_FLOW_CTRL_PHY0_MASK     0x0000ffff
-+	#define REQ_FLOW_CTRL_PHY0_SHIFT    0
-+	#define REQ_FLOW_CTRL_PHY1_MASK     0xffff0000
-+	#define REQ_FLOW_CTRL_PHY1_SHIFT    16
-+	u32 req_line_speed; /* Also determine AutoNeg */
-+	#define REQ_LINE_SPD_PHY0_MASK      0x0000ffff
-+	#define REQ_LINE_SPD_PHY0_SHIFT     0
-+	#define REQ_LINE_SPD_PHY1_MASK      0xffff0000
-+	#define REQ_LINE_SPD_PHY1_SHIFT     16
-+	u32 speed_cap_mask[SHMEM_LINK_CONFIG_SIZE];
-+	u32 additional_config;
-+	#define REQ_FC_AUTO_ADV_MASK        0x0000ffff
-+	#define REQ_FC_AUTO_ADV0_SHIFT      0
-+	#define NO_LFA_DUE_TO_DCC_MASK      0x00010000
-+	u32 lfa_sts;
-+	#define LFA_LINK_FLAP_REASON_OFFSET		0
-+	#define LFA_LINK_FLAP_REASON_MASK		0x000000ff
-+		#define LFA_LINK_DOWN			    0x1
-+		#define LFA_LOOPBACK_ENABLED		0x2
-+		#define LFA_DUPLEX_MISMATCH		    0x3
-+		#define LFA_MFW_IS_TOO_OLD		    0x4
-+		#define LFA_LINK_SPEED_MISMATCH		0x5
-+		#define LFA_FLOW_CTRL_MISMATCH		0x6
-+		#define LFA_SPEED_CAP_MISMATCH		0x7
-+		#define LFA_DCC_LFA_DISABLED		0x8
-+		#define LFA_EEE_MISMATCH		0x9
++	#define DRV_MSG_CODE_UNLOAD_SKIP_LINK_RESET     0x00000002
 +
-+	#define LINK_FLAP_AVOIDANCE_COUNT_OFFSET	8
-+	#define LINK_FLAP_AVOIDANCE_COUNT_MASK		0x0000ff00
-+
-+	#define LINK_FLAP_COUNT_OFFSET			16
-+	#define LINK_FLAP_COUNT_MASK			0x00ff0000
-+
-+	#define LFA_FLAGS_MASK				0xff000000
-+	#define SHMEM_LFA_DONT_CLEAR_STAT		(1<<24)
-+};
-+
- struct ncsi_oem_fcoe_features {
- 	u32 fcoe_features1;
- 	#define FCOE_FEATURES1_IOS_PER_CONNECTION_MASK          0x0000FFFF
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 05620ef..8eabd33 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -321,6 +321,127 @@ static u32 bnx2x_bits_dis(struct bnx2x *bp, u32 reg, u32 bits)
- 	return val;
- }
- 
-+/*
-+ * bnx2x_check_lfa - This function checks if link reinitialization is required,
-+ *                   or link flap can be avoided.
-+ *
-+ * @params:	link parameters
-+ * Returns 0 if Link Flap Avoidance conditions are met otherwise, the failed
-+ *         condition code.
-+ */
-+static int bnx2x_check_lfa(struct link_params *params)
-+{
-+	u32 link_status, cfg_idx, lfa_mask, cfg_size;
-+	u32 cur_speed_cap_mask, cur_req_fc_auto_adv, additional_config;
-+	u32 saved_val, req_val, eee_status;
-+	struct bnx2x *bp = params->bp;
-+
-+	additional_config =
-+		REG_RD(bp, params->lfa_base +
-+			   offsetof(struct shmem_lfa, additional_config));
-+
-+	/* NOTE: must be first condition checked -
-+	* to verify DCC bit is cleared in any case!
-+	*/
-+	if (additional_config & NO_LFA_DUE_TO_DCC_MASK) {
-+		DP(NETIF_MSG_LINK, "No LFA due to DCC flap after clp exit\n");
-+		REG_WR(bp, params->lfa_base +
-+			   offsetof(struct shmem_lfa, additional_config),
-+		       additional_config & ~NO_LFA_DUE_TO_DCC_MASK);
-+		return LFA_DCC_LFA_DISABLED;
-+	}
-+
-+	/* Verify that link is up */
-+	link_status = REG_RD(bp, params->shmem_base +
-+			     offsetof(struct shmem_region,
-+				      port_mb[params->port].link_status));
-+	if (!(link_status & LINK_STATUS_LINK_UP))
-+		return LFA_LINK_DOWN;
-+
-+	/* Verify that loopback mode is not set */
-+	if (params->loopback_mode)
-+		return LFA_LOOPBACK_ENABLED;
-+
-+	/* Verify that MFW supports LFA */
-+	if (!params->lfa_base)
-+		return LFA_MFW_IS_TOO_OLD;
-+
-+	if (params->num_phys == 3) {
-+		cfg_size = 2;
-+		lfa_mask = 0xffffffff;
-+	} else {
-+		cfg_size = 1;
-+		lfa_mask = 0xffff;
-+	}
-+
-+	/* Compare Duplex */
-+	saved_val = REG_RD(bp, params->lfa_base +
-+			   offsetof(struct shmem_lfa, req_duplex));
-+	req_val = params->req_duplex[0] | (params->req_duplex[1] << 16);
-+	if ((saved_val & lfa_mask) != (req_val & lfa_mask)) {
-+		DP(NETIF_MSG_LINK, "Duplex mismatch %x vs. %x\n",
-+			       (saved_val & lfa_mask), (req_val & lfa_mask));
-+		return LFA_DUPLEX_MISMATCH;
-+	}
-+	/* Compare Flow Control */
-+	saved_val = REG_RD(bp, params->lfa_base +
-+			   offsetof(struct shmem_lfa, req_flow_ctrl));
-+	req_val = params->req_flow_ctrl[0] | (params->req_flow_ctrl[1] << 16);
-+	if ((saved_val & lfa_mask) != (req_val & lfa_mask)) {
-+		DP(NETIF_MSG_LINK, "Flow control mismatch %x vs. %x\n",
-+			       (saved_val & lfa_mask), (req_val & lfa_mask));
-+		return LFA_FLOW_CTRL_MISMATCH;
-+	}
-+	/* Compare Link Speed */
-+	saved_val = REG_RD(bp, params->lfa_base +
-+			   offsetof(struct shmem_lfa, req_line_speed));
-+	req_val = params->req_line_speed[0] | (params->req_line_speed[1] << 16);
-+	if ((saved_val & lfa_mask) != (req_val & lfa_mask)) {
-+		DP(NETIF_MSG_LINK, "Link speed mismatch %x vs. %x\n",
-+			       (saved_val & lfa_mask), (req_val & lfa_mask));
-+		return LFA_LINK_SPEED_MISMATCH;
-+	}
-+
-+	for (cfg_idx = 0; cfg_idx < cfg_size; cfg_idx++) {
-+		cur_speed_cap_mask = REG_RD(bp, params->lfa_base +
-+					    offsetof(struct shmem_lfa,
-+						     speed_cap_mask[cfg_idx]));
-+
-+		if (cur_speed_cap_mask != params->speed_cap_mask[cfg_idx]) {
-+			DP(NETIF_MSG_LINK, "Speed Cap mismatch %x vs. %x\n",
-+				       cur_speed_cap_mask,
-+				       params->speed_cap_mask[cfg_idx]);
-+			return LFA_SPEED_CAP_MISMATCH;
-+		}
-+	}
-+
-+	cur_req_fc_auto_adv =
-+		REG_RD(bp, params->lfa_base +
-+		       offsetof(struct shmem_lfa, additional_config)) &
-+		REQ_FC_AUTO_ADV_MASK;
-+
-+	if ((u16)cur_req_fc_auto_adv != params->req_fc_auto_adv) {
-+		DP(NETIF_MSG_LINK, "Flow Ctrl AN mismatch %x vs. %x\n",
-+			       cur_req_fc_auto_adv, params->req_fc_auto_adv);
-+		return LFA_FLOW_CTRL_MISMATCH;
-+	}
-+
-+	eee_status = REG_RD(bp, params->shmem2_base +
-+			    offsetof(struct shmem2_region,
-+				     eee_status[params->port]));
-+
-+	if (((eee_status & SHMEM_EEE_LPI_REQUESTED_BIT) ^
-+	     (params->eee_mode & EEE_MODE_ENABLE_LPI)) ||
-+	    ((eee_status & SHMEM_EEE_REQUESTED_BIT) ^
-+	     (params->eee_mode & EEE_MODE_ADV_LPI))) {
-+		DP(NETIF_MSG_LINK, "EEE mismatch %x vs. %x\n", params->eee_mode,
-+			       eee_status);
-+		return LFA_EEE_MISMATCH;
-+	}
-+
-+	/* LFA conditions are met */
-+	return 0;
-+}
- /******************************************************************/
- /*			EPIO/GPIO section			  */
- /******************************************************************/
-@@ -1606,16 +1727,23 @@ static void bnx2x_set_xumac_nig(struct link_params *params,
- 	       NIG_REG_P0_MAC_PAUSE_OUT_EN, tx_pause_en);
- }
- 
--static void bnx2x_umac_disable(struct link_params *params)
-+static void bnx2x_set_umac_rxtx(struct link_params *params, u8 en)
- {
- 	u32 umac_base = params->port ? GRCBASE_UMAC1 : GRCBASE_UMAC0;
-+	u32 val;
- 	struct bnx2x *bp = params->bp;
- 	if (!(REG_RD(bp, MISC_REG_RESET_REG_2) &
- 		   (MISC_REGISTERS_RESET_REG_2_UMAC0 << params->port)))
- 		return;
--
-+	val = REG_RD(bp, umac_base + UMAC_REG_COMMAND_CONFIG);
-+	if (en)
-+		val |= (UMAC_COMMAND_CONFIG_REG_TX_ENA |
-+			UMAC_COMMAND_CONFIG_REG_RX_ENA);
-+	else
-+		val &= ~(UMAC_COMMAND_CONFIG_REG_TX_ENA |
-+			 UMAC_COMMAND_CONFIG_REG_RX_ENA);
- 	/* Disable RX and TX */
--	REG_WR(bp, umac_base + UMAC_REG_COMMAND_CONFIG, 0);
-+	REG_WR(bp, umac_base + UMAC_REG_COMMAND_CONFIG, val);
- }
- 
- static void bnx2x_umac_enable(struct link_params *params,
-@@ -1766,11 +1894,12 @@ static void bnx2x_xmac_init(struct link_params *params, u32 max_speed)
- 
- }
- 
--static void bnx2x_xmac_disable(struct link_params *params)
-+static void bnx2x_set_xmac_rxtx(struct link_params *params, u8 en)
- {
- 	u8 port = params->port;
- 	struct bnx2x *bp = params->bp;
- 	u32 pfc_ctrl, xmac_base = (port) ? GRCBASE_XMAC1 : GRCBASE_XMAC0;
-+	u32 val;
- 
- 	if (REG_RD(bp, MISC_REG_RESET_REG_2) &
- 	    MISC_REGISTERS_RESET_REG_2_XMAC) {
-@@ -1784,7 +1913,12 @@ static void bnx2x_xmac_disable(struct link_params *params)
- 		REG_WR(bp, xmac_base + XMAC_REG_PFC_CTRL_HI,
- 		       (pfc_ctrl | (1<<1)));
- 		DP(NETIF_MSG_LINK, "Disable XMAC on port %x\n", port);
--		REG_WR(bp, xmac_base + XMAC_REG_CTRL, 0);
-+		val = REG_RD(bp, xmac_base + XMAC_REG_CTRL);
-+		if (en)
-+			val |= (XMAC_CTRL_REG_TX_EN | XMAC_CTRL_REG_RX_EN);
-+		else
-+			val &= ~(XMAC_CTRL_REG_TX_EN | XMAC_CTRL_REG_RX_EN);
-+		REG_WR(bp, xmac_base + XMAC_REG_CTRL, val);
- 	}
- }
- 
-@@ -2825,16 +2959,18 @@ static int bnx2x_bmac2_enable(struct link_params *params,
- 
- static int bnx2x_bmac_enable(struct link_params *params,
- 			     struct link_vars *vars,
--			     u8 is_lb)
-+			     u8 is_lb, u8 reset_bmac)
- {
- 	int rc = 0;
- 	u8 port = params->port;
- 	struct bnx2x *bp = params->bp;
- 	u32 val;
- 	/* Reset and unreset the BigMac */
--	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_CLEAR,
--	       (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port));
--	usleep_range(1000, 2000);
-+	if (reset_bmac) {
-+		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_CLEAR,
-+		       (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port));
-+		usleep_range(1000, 2000);
-+	}
- 
- 	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET,
- 	       (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port));
-@@ -2866,37 +3002,28 @@ static int bnx2x_bmac_enable(struct link_params *params,
- 	return rc;
- }
- 
--static void bnx2x_bmac_rx_disable(struct bnx2x *bp, u8 port)
-+static void bnx2x_set_bmac_rx(struct bnx2x *bp, u32 chip_id, u8 port, u8 en)
- {
- 	u32 bmac_addr = port ? NIG_REG_INGRESS_BMAC1_MEM :
- 			NIG_REG_INGRESS_BMAC0_MEM;
- 	u32 wb_data[2];
- 	u32 nig_bmac_enable = REG_RD(bp, NIG_REG_BMAC0_REGS_OUT_EN + port*4);
- 
-+	if (CHIP_IS_E2(bp))
-+		bmac_addr += BIGMAC2_REGISTER_BMAC_CONTROL;
-+	else
-+		bmac_addr += BIGMAC_REGISTER_BMAC_CONTROL;
- 	/* Only if the bmac is out of reset */
- 	if (REG_RD(bp, MISC_REG_RESET_REG_2) &
- 			(MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port) &&
- 	    nig_bmac_enable) {
--
--		if (CHIP_IS_E2(bp)) {
--			/* Clear Rx Enable bit in BMAC_CONTROL register */
--			REG_RD_DMAE(bp, bmac_addr +
--				    BIGMAC2_REGISTER_BMAC_CONTROL,
--				    wb_data, 2);
--			wb_data[0] &= ~BMAC_CONTROL_RX_ENABLE;
--			REG_WR_DMAE(bp, bmac_addr +
--				    BIGMAC2_REGISTER_BMAC_CONTROL,
--				    wb_data, 2);
--		} else {
--			/* Clear Rx Enable bit in BMAC_CONTROL register */
--			REG_RD_DMAE(bp, bmac_addr +
--					BIGMAC_REGISTER_BMAC_CONTROL,
--					wb_data, 2);
-+		/* Clear Rx Enable bit in BMAC_CONTROL register */
-+		REG_RD_DMAE(bp, bmac_addr, wb_data, 2);
-+		if (en)
-+			wb_data[0] |= BMAC_CONTROL_RX_ENABLE;
-+		else
- 			wb_data[0] &= ~BMAC_CONTROL_RX_ENABLE;
--			REG_WR_DMAE(bp, bmac_addr +
--					BIGMAC_REGISTER_BMAC_CONTROL,
--					wb_data, 2);
--		}
-+		REG_WR_DMAE(bp, bmac_addr, wb_data, 2);
- 		usleep_range(1000, 2000);
- 	}
- }
-@@ -4407,7 +4534,7 @@ static void bnx2x_warpcore_config_init(struct bnx2x_phy *phy,
- 			   "serdes_net_if = 0x%x\n",
- 		       vars->line_speed, serdes_net_if);
- 	bnx2x_set_aer_mmd(params, phy);
--
-+	bnx2x_warpcore_reset_lane(bp, phy, 1);
- 	vars->phy_flags |= PHY_XGXS_FLAG;
- 	if ((serdes_net_if == PORT_HW_CFG_NET_SERDES_IF_SGMII) ||
- 	    (phy->req_line_speed &&
-@@ -6526,12 +6653,9 @@ static int bnx2x_update_link_down(struct link_params *params,
- 	usleep_range(10000, 20000);
- 	/* Reset BigMac/Xmac */
- 	if (CHIP_IS_E1x(bp) ||
--	    CHIP_IS_E2(bp)) {
--		bnx2x_bmac_rx_disable(bp, params->port);
--		REG_WR(bp, GRCBASE_MISC +
--		       MISC_REGISTERS_RESET_REG_2_CLEAR,
--	       (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port));
--	}
-+	    CHIP_IS_E2(bp))
-+		bnx2x_set_bmac_rx(bp, params->chip_id, params->port, 0);
-+
- 	if (CHIP_IS_E3(bp)) {
- 		/* Prevent LPI Generation by chip */
- 		REG_WR(bp, MISC_REG_CPMU_LP_FW_ENABLE_P0 + (params->port << 2),
-@@ -6543,8 +6667,8 @@ static int bnx2x_update_link_down(struct link_params *params,
- 				      SHMEM_EEE_ACTIVE_BIT);
- 
- 		bnx2x_update_mng_eee(params, vars->eee_status);
--		bnx2x_xmac_disable(params);
--		bnx2x_umac_disable(params);
-+		bnx2x_set_xmac_rxtx(params, 0);
-+		bnx2x_set_umac_rxtx(params, 0);
- 	}
- 
- 	return 0;
-@@ -6596,7 +6720,7 @@ static int bnx2x_update_link_up(struct link_params *params,
- 	if ((CHIP_IS_E1x(bp) ||
- 	     CHIP_IS_E2(bp))) {
- 		if (link_10g) {
--			if (bnx2x_bmac_enable(params, vars, 0) ==
-+			if (bnx2x_bmac_enable(params, vars, 0, 1) ==
- 			    -ESRCH) {
- 				DP(NETIF_MSG_LINK, "Found errors on BMAC\n");
- 				vars->link_up = 0;
-@@ -12171,7 +12295,7 @@ void bnx2x_init_bmac_loopback(struct link_params *params,
- 		bnx2x_xgxs_deassert(params);
- 
- 		/* set bmac loopback */
--		bnx2x_bmac_enable(params, vars, 1);
-+		bnx2x_bmac_enable(params, vars, 1, 1);
- 
- 		REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + params->port*4, 0);
- }
-@@ -12263,7 +12387,7 @@ void bnx2x_init_xgxs_loopback(struct link_params *params,
- 		if (USES_WARPCORE(bp))
- 			bnx2x_xmac_enable(params, vars, 0);
- 		else
--			bnx2x_bmac_enable(params, vars, 0);
-+			bnx2x_bmac_enable(params, vars, 0, 1);
- 	}
- 
- 		if (params->loopback_mode == LOOPBACK_XGXS) {
-@@ -12288,8 +12412,161 @@ void bnx2x_init_xgxs_loopback(struct link_params *params,
- 	bnx2x_set_led(params, vars, LED_MODE_OPER, vars->line_speed);
- }
- 
-+static void bnx2x_set_rx_filter(struct link_params *params, u8 en)
-+{
-+	struct bnx2x *bp = params->bp;
-+	u8 val = en * 0x1F;
-+
-+	/* Open the gate between the NIG to the BRB */
-+	if (!CHIP_IS_E1x(bp))
-+		val |= en * 0x20;
-+	REG_WR(bp, NIG_REG_LLH0_BRB1_DRV_MASK + params->port*4, val);
-+
-+	if (!CHIP_IS_E1(bp)) {
-+		REG_WR(bp, NIG_REG_LLH0_BRB1_DRV_MASK_MF + params->port*4,
-+		       en*0x3);
-+	}
-+
-+	REG_WR(bp, (params->port ? NIG_REG_LLH1_BRB1_NOT_MCP :
-+		    NIG_REG_LLH0_BRB1_NOT_MCP), en);
-+}
-+static int bnx2x_avoid_link_flap(struct link_params *params,
-+					    struct link_vars *vars)
-+{
-+	u32 phy_idx;
-+	u32 dont_clear_stat, lfa_sts;
-+	struct bnx2x *bp = params->bp;
-+
-+	/* Sync the link parameters */
-+	bnx2x_link_status_update(params, vars);
-+
-+	/*
-+	 * The module verification was already done by previous link owner,
-+	 * so this call is meant only to get warning message
-+	 */
-+
-+	for (phy_idx = INT_PHY; phy_idx < params->num_phys; phy_idx++) {
-+		struct bnx2x_phy *phy = &params->phy[phy_idx];
-+		if (phy->phy_specific_func) {
-+			DP(NETIF_MSG_LINK, "Calling PHY specific func\n");
-+			phy->phy_specific_func(phy, params, PHY_INIT);
-+		}
-+		if ((phy->media_type == ETH_PHY_SFPP_10G_FIBER) ||
-+		    (phy->media_type == ETH_PHY_SFP_1G_FIBER) ||
-+		    (phy->media_type == ETH_PHY_DA_TWINAX))
-+			bnx2x_verify_sfp_module(phy, params);
-+	}
-+	lfa_sts = REG_RD(bp, params->lfa_base +
-+			 offsetof(struct shmem_lfa,
-+				  lfa_sts));
-+
-+	dont_clear_stat = lfa_sts & SHMEM_LFA_DONT_CLEAR_STAT;
-+
-+	/* Re-enable the NIG/MAC */
-+	if (CHIP_IS_E3(bp)) {
-+		if (!dont_clear_stat) {
-+			REG_WR(bp, GRCBASE_MISC +
-+			       MISC_REGISTERS_RESET_REG_2_CLEAR,
-+			       (MISC_REGISTERS_RESET_REG_2_MSTAT0 <<
-+				params->port));
-+			REG_WR(bp, GRCBASE_MISC +
-+			       MISC_REGISTERS_RESET_REG_2_SET,
-+			       (MISC_REGISTERS_RESET_REG_2_MSTAT0 <<
-+				params->port));
-+		}
-+		if (vars->line_speed < SPEED_10000)
-+			bnx2x_umac_enable(params, vars, 0);
-+		else
-+			bnx2x_xmac_enable(params, vars, 0);
-+	} else {
-+		if (vars->line_speed < SPEED_10000)
-+			bnx2x_emac_enable(params, vars, 0);
-+		else
-+			bnx2x_bmac_enable(params, vars, 0, !dont_clear_stat);
-+	}
-+
-+	/* Increment LFA count */
-+	lfa_sts = ((lfa_sts & ~LINK_FLAP_AVOIDANCE_COUNT_MASK) |
-+		   (((((lfa_sts & LINK_FLAP_AVOIDANCE_COUNT_MASK) >>
-+		       LINK_FLAP_AVOIDANCE_COUNT_OFFSET) + 1) & 0xff)
-+		    << LINK_FLAP_AVOIDANCE_COUNT_OFFSET));
-+	/* Clear link flap reason */
-+	lfa_sts &= ~LFA_LINK_FLAP_REASON_MASK;
-+
-+	REG_WR(bp, params->lfa_base +
-+	       offsetof(struct shmem_lfa, lfa_sts), lfa_sts);
-+
-+	/* Disable NIG DRAIN */
-+	REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + params->port*4, 0);
-+
-+	/* Enable interrupts */
-+	bnx2x_link_int_enable(params);
-+	return 0;
-+}
-+
-+static void bnx2x_cannot_avoid_link_flap(struct link_params *params,
-+					 struct link_vars *vars,
-+					 int lfa_status)
-+{
-+	u32 lfa_sts, cfg_idx, tmp_val;
-+	struct bnx2x *bp = params->bp;
-+
-+	bnx2x_link_reset(params, vars, 1);
-+
-+	if (!params->lfa_base)
-+		return;
-+	/* Store the new link parameters */
-+	REG_WR(bp, params->lfa_base +
-+	       offsetof(struct shmem_lfa, req_duplex),
-+	       params->req_duplex[0] | (params->req_duplex[1] << 16));
-+
-+	REG_WR(bp, params->lfa_base +
-+	       offsetof(struct shmem_lfa, req_flow_ctrl),
-+	       params->req_flow_ctrl[0] | (params->req_flow_ctrl[1] << 16));
-+
-+	REG_WR(bp, params->lfa_base +
-+	       offsetof(struct shmem_lfa, req_line_speed),
-+	       params->req_line_speed[0] | (params->req_line_speed[1] << 16));
-+
-+	for (cfg_idx = 0; cfg_idx < SHMEM_LINK_CONFIG_SIZE; cfg_idx++) {
-+		REG_WR(bp, params->lfa_base +
-+		       offsetof(struct shmem_lfa,
-+				speed_cap_mask[cfg_idx]),
-+		       params->speed_cap_mask[cfg_idx]);
-+	}
-+
-+	tmp_val = REG_RD(bp, params->lfa_base +
-+			 offsetof(struct shmem_lfa, additional_config));
-+	tmp_val &= ~REQ_FC_AUTO_ADV_MASK;
-+	tmp_val |= params->req_fc_auto_adv;
-+
-+	REG_WR(bp, params->lfa_base +
-+	       offsetof(struct shmem_lfa, additional_config), tmp_val);
-+
-+	lfa_sts = REG_RD(bp, params->lfa_base +
-+			 offsetof(struct shmem_lfa, lfa_sts));
-+
-+	/* Clear the "Don't Clear Statistics" bit, and set reason */
-+	lfa_sts &= ~SHMEM_LFA_DONT_CLEAR_STAT;
-+
-+	/* Set link flap reason */
-+	lfa_sts &= ~LFA_LINK_FLAP_REASON_MASK;
-+	lfa_sts |= ((lfa_status & LFA_LINK_FLAP_REASON_MASK) <<
-+		    LFA_LINK_FLAP_REASON_OFFSET);
-+
-+	/* Increment link flap counter */
-+	lfa_sts = ((lfa_sts & ~LINK_FLAP_COUNT_MASK) |
-+		   (((((lfa_sts & LINK_FLAP_COUNT_MASK) >>
-+		       LINK_FLAP_COUNT_OFFSET) + 1) & 0xff)
-+		    << LINK_FLAP_COUNT_OFFSET));
-+	REG_WR(bp, params->lfa_base +
-+	       offsetof(struct shmem_lfa, lfa_sts), lfa_sts);
-+	/* Proceed with regular link initialization */
-+}
-+
- int bnx2x_phy_init(struct link_params *params, struct link_vars *vars)
- {
-+	int lfa_status;
- 	struct bnx2x *bp = params->bp;
- 	DP(NETIF_MSG_LINK, "Phy Initialization started\n");
- 	DP(NETIF_MSG_LINK, "(1) req_speed %d, req_flowctrl %d\n",
-@@ -12304,6 +12581,19 @@ int bnx2x_phy_init(struct link_params *params, struct link_vars *vars)
- 	vars->flow_ctrl = BNX2X_FLOW_CTRL_NONE;
- 	vars->mac_type = MAC_TYPE_NONE;
- 	vars->phy_flags = 0;
-+	/* Driver opens NIG-BRB filters */
-+	bnx2x_set_rx_filter(params, 1);
-+	/* Check if link flap can be avoided */
-+	lfa_status = bnx2x_check_lfa(params);
-+
-+	if (lfa_status == 0) {
-+		DP(NETIF_MSG_LINK, "Link Flap Avoidance in progress\n");
-+		return bnx2x_avoid_link_flap(params, vars);
-+	}
-+
-+	DP(NETIF_MSG_LINK, "Cannot avoid link flap lfa_sta=0x%x\n",
-+		       lfa_status);
-+	bnx2x_cannot_avoid_link_flap(params, vars, lfa_status);
- 
- 	/* Disable attentions */
- 	bnx2x_bits_dis(bp, NIG_REG_MASK_INTERRUPT_PORT0 + params->port*4,
-@@ -12386,13 +12676,12 @@ int bnx2x_link_reset(struct link_params *params, struct link_vars *vars,
- 		REG_WR(bp, NIG_REG_EGRESS_EMAC0_OUT_EN + port*4, 0);
- 	}
- 
--	/* Stop BigMac rx */
--	if (!CHIP_IS_E3(bp))
--		bnx2x_bmac_rx_disable(bp, port);
--	else {
--		bnx2x_xmac_disable(params);
--		bnx2x_umac_disable(params);
--	}
-+		if (!CHIP_IS_E3(bp)) {
-+			bnx2x_set_bmac_rx(bp, params->chip_id, port, 0);
-+		} else {
-+			bnx2x_set_xmac_rxtx(params, 0);
-+			bnx2x_set_umac_rxtx(params, 0);
-+		}
- 	/* Disable emac */
- 	if (!CHIP_IS_E3(bp))
- 		REG_WR(bp, NIG_REG_NIG_EMAC0_EN + port*4, 0);
-@@ -12450,6 +12739,56 @@ int bnx2x_link_reset(struct link_params *params, struct link_vars *vars,
- 	vars->phy_flags = 0;
- 	return 0;
- }
-+int bnx2x_lfa_reset(struct link_params *params,
-+			       struct link_vars *vars)
-+{
-+	struct bnx2x *bp = params->bp;
-+	vars->link_up = 0;
-+	vars->phy_flags = 0;
-+	if (!params->lfa_base)
-+		return bnx2x_link_reset(params, vars, 1);
-+	/*
-+	 * Activate NIG drain so that during this time the device won't send
-+	 * anything while it is unable to response.
-+	 */
-+	REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + params->port*4, 1);
-+
-+	/*
-+	 * Close gracefully the gate from BMAC to NIG such that no half packets
-+	 * are passed.
-+	 */
-+	if (!CHIP_IS_E3(bp))
-+		bnx2x_set_bmac_rx(bp, params->chip_id, params->port, 0);
-+
-+	if (CHIP_IS_E3(bp)) {
-+		bnx2x_set_xmac_rxtx(params, 0);
-+		bnx2x_set_umac_rxtx(params, 0);
-+	}
-+	/* Wait 10ms for the pipe to clean up*/
-+	usleep_range(10000, 20000);
-+
-+	/* Clean the NIG-BRB using the network filters in a way that will
-+	 * not cut a packet in the middle.
-+	 */
-+	bnx2x_set_rx_filter(params, 0);
-+
-+	/*
-+	 * Re-open the gate between the BMAC and the NIG, after verifying the
-+	 * gate to the BRB is closed, otherwise packets may arrive to the
-+	 * firmware before driver had initialized it. The target is to achieve
-+	 * minimum management protocol down time.
-+	 */
-+	if (!CHIP_IS_E3(bp))
-+		bnx2x_set_bmac_rx(bp, params->chip_id, params->port, 1);
-+
-+	if (CHIP_IS_E3(bp)) {
-+		bnx2x_set_xmac_rxtx(params, 1);
-+		bnx2x_set_umac_rxtx(params, 1);
-+	}
-+	/* Disable NIG drain */
-+	REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + params->port*4, 0);
-+	return 0;
-+}
- 
- /****************************************************************************/
- /*				Common function				    */
++	#define DRV_MSG_CODE_LOAD_REQ_WITH_LFA          0x0000100a
+ 	u32 fw_mb_header;
+ 	#define FW_MSG_CODE_MASK                        0xffff0000
+ 	#define FW_MSG_CODE_DRV_LOAD_COMMON             0x10100000
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-index 600ffda..5b64d3d 100644
+index 5b64d3d..3cd2391 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-@@ -305,6 +305,8 @@ struct link_params {
- 	struct bnx2x *bp;
- 	u16 req_fc_auto_adv; /* Should be set to TX / BOTH when
- 				req_flow_ctrl is set to AUTO */
-+	u16 rsrv1;
-+	u32 lfa_base;
- };
+@@ -359,7 +359,7 @@ int bnx2x_phy_init(struct link_params *params, struct link_vars *vars);
+    to 0 */
+ int bnx2x_link_reset(struct link_params *params, struct link_vars *vars,
+ 		     u8 reset_ext_phy);
+-
++int bnx2x_lfa_reset(struct link_params *params, struct link_vars *vars);
+ /* bnx2x_link_update should be called upon link interrupt */
+ int bnx2x_link_update(struct link_params *params, struct link_vars *vars);
  
- /* Output parameters */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 2105498..dfc5b60 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -2171,7 +2171,6 @@ void bnx2x_link_set(struct bnx2x *bp)
+ {
+ 	if (!BP_NOMCP(bp)) {
+ 		bnx2x_acquire_phy_lock(bp);
+-		bnx2x_link_reset(&bp->link_params, &bp->link_vars, 1);
+ 		bnx2x_phy_init(&bp->link_params, &bp->link_vars);
+ 		bnx2x_release_phy_lock(bp);
+ 
+@@ -2184,12 +2183,19 @@ static void bnx2x__link_reset(struct bnx2x *bp)
+ {
+ 	if (!BP_NOMCP(bp)) {
+ 		bnx2x_acquire_phy_lock(bp);
+-		bnx2x_link_reset(&bp->link_params, &bp->link_vars, 1);
++		bnx2x_lfa_reset(&bp->link_params, &bp->link_vars);
+ 		bnx2x_release_phy_lock(bp);
+ 	} else
+ 		BNX2X_ERR("Bootcode is missing - can not reset link\n");
+ }
+ 
++void bnx2x_force_link_reset(struct bnx2x *bp)
++{
++	bnx2x_acquire_phy_lock(bp);
++	bnx2x_link_reset(&bp->link_params, &bp->link_vars, 1);
++	bnx2x_release_phy_lock(bp);
++}
++
+ u8 bnx2x_link_test(struct bnx2x *bp, u8 is_serdes)
+ {
+ 	u8 rc = 0;
+@@ -6757,7 +6763,6 @@ static int bnx2x_init_hw_port(struct bnx2x *bp)
+ 	u32 low, high;
+ 	u32 val;
+ 
+-	bnx2x__link_reset(bp);
+ 
+ 	DP(NETIF_MSG_HW, "starting port init  port %d\n", port);
+ 
+@@ -8244,12 +8249,15 @@ u32 bnx2x_send_unload_req(struct bnx2x *bp, int unload_mode)
+  * bnx2x_send_unload_done - send UNLOAD_DONE command to the MCP.
+  *
+  * @bp:		driver handle
++ * @keep_link:		true iff link should be kept up
+  */
+-void bnx2x_send_unload_done(struct bnx2x *bp)
++void bnx2x_send_unload_done(struct bnx2x *bp, bool keep_link)
+ {
++	u32 reset_param = keep_link ? DRV_MSG_CODE_UNLOAD_SKIP_LINK_RESET : 0;
++
+ 	/* Report UNLOAD_DONE to MCP */
+ 	if (!BP_NOMCP(bp))
+-		bnx2x_fw_command(bp, DRV_MSG_CODE_UNLOAD_DONE, 0);
++		bnx2x_fw_command(bp, DRV_MSG_CODE_UNLOAD_DONE, reset_param);
+ }
+ 
+ static int bnx2x_func_wait_started(struct bnx2x *bp)
+@@ -8318,7 +8326,7 @@ static int bnx2x_func_wait_started(struct bnx2x *bp)
+ 	return 0;
+ }
+ 
+-void bnx2x_chip_cleanup(struct bnx2x *bp, int unload_mode)
++void bnx2x_chip_cleanup(struct bnx2x *bp, int unload_mode, bool keep_link)
+ {
+ 	int port = BP_PORT(bp);
+ 	int i, rc = 0;
+@@ -8440,7 +8448,7 @@ unload_error:
+ 
+ 
+ 	/* Report UNLOAD_DONE to MCP */
+-	bnx2x_send_unload_done(bp);
++	bnx2x_send_unload_done(bp, keep_link);
+ }
+ 
+ void bnx2x_disable_close_the_gate(struct bnx2x *bp)
+@@ -8852,7 +8860,8 @@ int bnx2x_leader_reset(struct bnx2x *bp)
+ 	 * driver is owner of the HW
+ 	 */
+ 	if (!global && !BP_NOMCP(bp)) {
+-		load_code = bnx2x_fw_command(bp, DRV_MSG_CODE_LOAD_REQ, 0);
++		load_code = bnx2x_fw_command(bp, DRV_MSG_CODE_LOAD_REQ,
++					     DRV_MSG_CODE_LOAD_REQ_WITH_LFA);
+ 		if (!load_code) {
+ 			BNX2X_ERR("MCP response failure, aborting\n");
+ 			rc = -EAGAIN;
+@@ -8958,7 +8967,7 @@ static void bnx2x_parity_recover(struct bnx2x *bp)
+ 
+ 			/* Stop the driver */
+ 			/* If interface has been removed - break */
+-			if (bnx2x_nic_unload(bp, UNLOAD_RECOVERY))
++			if (bnx2x_nic_unload(bp, UNLOAD_RECOVERY, false))
+ 				return;
+ 
+ 			bp->recovery_state = BNX2X_RECOVERY_WAIT;
+@@ -9124,7 +9133,7 @@ static void bnx2x_sp_rtnl_task(struct work_struct *work)
+ 		bp->sp_rtnl_state = 0;
+ 		smp_mb();
+ 
+-		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
++		bnx2x_nic_unload(bp, UNLOAD_NORMAL, true);
+ 		bnx2x_nic_load(bp, LOAD_NORMAL);
+ 
+ 		goto sp_rtnl_exit;
+@@ -9310,7 +9319,8 @@ static void __devinit bnx2x_prev_unload_undi_inc(struct bnx2x *bp, u8 port,
+ 
+ static int __devinit bnx2x_prev_mcp_done(struct bnx2x *bp)
+ {
+-	u32 rc = bnx2x_fw_command(bp, DRV_MSG_CODE_UNLOAD_DONE, 0);
++	u32 rc = bnx2x_fw_command(bp, DRV_MSG_CODE_UNLOAD_DONE,
++				  DRV_MSG_CODE_UNLOAD_SKIP_LINK_RESET);
+ 	if (!rc) {
+ 		BNX2X_ERR("MCP response failure, aborting\n");
+ 		return -EBUSY;
+@@ -11005,7 +11015,7 @@ static int bnx2x_close(struct net_device *dev)
+ 	struct bnx2x *bp = netdev_priv(dev);
+ 
+ 	/* Unload the driver, release IRQs */
+-	bnx2x_nic_unload(bp, UNLOAD_CLOSE);
++	bnx2x_nic_unload(bp, UNLOAD_CLOSE, false);
+ 
+ 	/* Power off */
+ 	bnx2x_set_power_state(bp, PCI_D3hot);
 -- 
 1.7.9.rc2
