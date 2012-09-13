@@ -1,50 +1,155 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mISDN: Fix wrong usage of flush_work_sync while
- holding locks
-Date: Thu, 13 Sep 2012 15:06:59 -0400 (EDT)
-Message-ID: <20120913.150659.17331564270446673.davem@davemloft.net>
-References: <1347546980-15923-1-git-send-email-keil@b1-systems.de>
-	<20120913.145937.235693485700301637.davem@davemloft.net>
+From: "Ward, David - 0663 - MITLL" <david.ward@ll.mit.edu>
+Subject: Re: [PATCH 4/4] net_sched: gred: actually perform idling in WRED
+ mode
+Date: Thu, 13 Sep 2012 15:38:26 -0400
+Message-ID: <50523632.60703@ll.mit.edu>
+References: <1347549755-19438-1-git-send-email-david.ward@ll.mit.edu>
+ <1347549755-19438-4-git-send-email-david.ward@ll.mit.edu>
+ <50522106.40404@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@kernel.org
-To: keil@b1-systems.de
+Content-Type: multipart/signed; protocol="application/pkcs7-signature";
+	micalg=sha1; boundary="------------ms030702090503000803050903"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Bruce Osler <brosler@cisco.com>,
+	Cyril Chemparathy <cyril@ti.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48408 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752142Ab2IMTHB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 15:07:01 -0400
-In-Reply-To: <20120913.145937.235693485700301637.davem@davemloft.net>
+Received: from MX2.LL.MIT.EDU ([129.55.12.46]:50118 "EHLO mx2.ll.mit.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752419Ab2IMTid (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2012 15:38:33 -0400
+In-Reply-To: <50522106.40404@mojatatu.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 13 Sep 2012 14:59:37 -0400 (EDT)
+--------------ms030702090503000803050903
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
-> From: Karsten Keil <keil@b1-systems.de>
-> Date: Thu, 13 Sep 2012 16:36:20 +0200
-> 
->> It is a bad idea to hold a spinlock and call flush_work_sync.
->> Move the workqueue cleanup outside the spinlock and use cancel_work_sync,
->> on closing the channel this seems to be the more correct function.
->> Remove the never used and constant return value of mISDN_freebchannel.
->> 
->> Signed-off-by: Karsten Keil <keil@b1-systems.de>
->> Cc: <stable@kernel.org>
-> 
-> Applied, thanks.
+On 13/09/12 14:08, Jamal Hadi Salim wrote:
+> On 12-09-13 11:22 AM, David Ward wrote:
+>> gred_dequeue() and gred_drop() do not seem to get called when the
+>> queue is empty, meaning that we never start idling while in WRED
+>> mode. And since qidlestart is not stored by gred_store_wred_set(),
+>> we would never stop idling while in WRED mode if we ever started.
+>> This messes up the average queue size calculation that influences
+>> packet marking/dropping behavior.
+>>
+>> Now, we start WRED mode idling as we are removing the last packet
+>> from the queue. Also we now actually stop WRED mode idling when we
+>> are enqueuing a packet.
+>>
+>> Cc: Bruce Osler <brosler@cisco.com>
+>> Signed-off-by: David Ward <david.ward@ll.mit.edu>
+> This is one is not so obvious. Iam assuming you vetted it via some test=
+s.
+> In which case:
+> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>
+> cheers,
+> jamal
+>
 
-BTW, about -stable:
+Before applying this patch, the average queue size (as seen with "tc -s=20
+qdisc") remained constant forever after I stopped sending any packets=20
+through the interface -- it didn't taper off as you would expect.  After =
 
-1) Even if it were appropriate to submit this directly to -stable,
-   stable@kernel.org is not the correct email address and you must
-   have seen the bounce produced by trying to send email there.
+the patch, the average queue size will now taper off if packets are not=20
+being sent.
 
-   Rather, stable@vger.kernel.org is the correct address.
+David
 
-2) I queue up and submit networking bug fixes for -stable myself so
-   you should not submit them directly but rather make a request that
-   I add your patch to my networking -stable queue.
 
-Thanks.
+--------------ms030702090503000803050903
+Content-Type: application/pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Description: S/MIME Cryptographic Signature
+
+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
+--------------ms030702090503000803050903--
