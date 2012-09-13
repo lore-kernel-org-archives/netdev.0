@@ -1,147 +1,102 @@
-From: Karsten Keil <keil@b1-systems.de>
-Subject: [PATCH] mISDN: Fix wrong usage of flush_work_sync while holding locks
-Date: Thu, 13 Sep 2012 16:36:20 +0200
-Message-ID: <1347546980-15923-1-git-send-email-keil@b1-systems.de>
-Cc: netdev@vger.kernel.org, <stable@kernel.org>
-To: davem@davemloft.net
+From: David Ward <david.ward@ll.mit.edu>
+Subject: [PATCH 4/4] net_sched: gred: actually perform idling in WRED mode
+Date: Thu, 13 Sep 2012 11:22:35 -0400
+Message-ID: <1347549755-19438-4-git-send-email-david.ward@ll.mit.edu>
+References: <1347549755-19438-1-git-send-email-david.ward@ll.mit.edu>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Bruce Osler <brosler@cisco.com>, Cyril Chemparathy <cyril@ti.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	David Ward <david.ward@ll.mit.edu>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.b1-systems.de ([217.11.58.35]:52860 "EHLO mx1.b1-systems.de"
+Received: from MX2.LL.MIT.EDU ([129.55.12.46]:48066 "EHLO mx2.ll.mit.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754358Ab2IMOqy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Sep 2012 10:46:54 -0400
+	id S1758106Ab2IMPf7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2012 11:35:59 -0400
+In-Reply-To: <1347549755-19438-1-git-send-email-david.ward@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is a bad idea to hold a spinlock and call flush_work_sync.
-Move the workqueue cleanup outside the spinlock and use cancel_work_sync,
-on closing the channel this seems to be the more correct function.
-Remove the never used and constant return value of mISDN_freebchannel.
+gred_dequeue() and gred_drop() do not seem to get called when the
+queue is empty, meaning that we never start idling while in WRED
+mode. And since qidlestart is not stored by gred_store_wred_set(),
+we would never stop idling while in WRED mode if we ever started.
+This messes up the average queue size calculation that influences
+packet marking/dropping behavior.
 
-Signed-off-by: Karsten Keil <keil@b1-systems.de>
-Cc: <stable@kernel.org>
+Now, we start WRED mode idling as we are removing the last packet
+from the queue. Also we now actually stop WRED mode idling when we
+are enqueuing a packet.
+
+Cc: Bruce Osler <brosler@cisco.com>
+Signed-off-by: David Ward <david.ward@ll.mit.edu>
 ---
- drivers/isdn/hardware/mISDN/avmfritz.c  |    3 ++-
- drivers/isdn/hardware/mISDN/mISDNipac.c |    3 ++-
- drivers/isdn/hardware/mISDN/mISDNisar.c |    3 ++-
- drivers/isdn/hardware/mISDN/netjet.c    |    3 ++-
- drivers/isdn/hardware/mISDN/w6692.c     |    3 ++-
- drivers/isdn/mISDN/hwchannel.c          |    9 ++++-----
- include/linux/mISDNhw.h                 |    2 +-
- 7 files changed, 15 insertions(+), 11 deletions(-)
+ net/sched/sch_gred.c |   26 +++++++++++++++-----------
+ 1 files changed, 15 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/isdn/hardware/mISDN/avmfritz.c b/drivers/isdn/hardware/mISDN/avmfritz.c
-index fa6ca47..dceaec8 100644
---- a/drivers/isdn/hardware/mISDN/avmfritz.c
-+++ b/drivers/isdn/hardware/mISDN/avmfritz.c
-@@ -857,8 +857,9 @@ avm_bctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
- 	switch (cmd) {
- 	case CLOSE_CHANNEL:
- 		test_and_clear_bit(FLG_OPEN, &bch->Flags);
-+		cancel_work_sync(&bch->workq);
- 		spin_lock_irqsave(&fc->lock, flags);
--		mISDN_freebchannel(bch);
-+		mISDN_clear_bchannel(bch);
- 		modehdlc(bch, ISDN_P_NONE);
- 		spin_unlock_irqrestore(&fc->lock, flags);
- 		ch->protocol = ISDN_P_NONE;
-diff --git a/drivers/isdn/hardware/mISDN/mISDNipac.c b/drivers/isdn/hardware/mISDN/mISDNipac.c
-index 752e082..ccd7d85 100644
---- a/drivers/isdn/hardware/mISDN/mISDNipac.c
-+++ b/drivers/isdn/hardware/mISDN/mISDNipac.c
-@@ -1406,8 +1406,9 @@ hscx_bctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
- 	switch (cmd) {
- 	case CLOSE_CHANNEL:
- 		test_and_clear_bit(FLG_OPEN, &bch->Flags);
-+		cancel_work_sync(&bch->workq);
- 		spin_lock_irqsave(hx->ip->hwlock, flags);
--		mISDN_freebchannel(bch);
-+		mISDN_clear_bchannel(bch);
- 		hscx_mode(hx, ISDN_P_NONE);
- 		spin_unlock_irqrestore(hx->ip->hwlock, flags);
- 		ch->protocol = ISDN_P_NONE;
-diff --git a/drivers/isdn/hardware/mISDN/mISDNisar.c b/drivers/isdn/hardware/mISDN/mISDNisar.c
-index be5973d..182ecf0 100644
---- a/drivers/isdn/hardware/mISDN/mISDNisar.c
-+++ b/drivers/isdn/hardware/mISDN/mISDNisar.c
-@@ -1588,8 +1588,9 @@ isar_bctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
- 	switch (cmd) {
- 	case CLOSE_CHANNEL:
- 		test_and_clear_bit(FLG_OPEN, &bch->Flags);
-+		cancel_work_sync(&bch->workq);
- 		spin_lock_irqsave(ich->is->hwlock, flags);
--		mISDN_freebchannel(bch);
-+		mISDN_clear_bchannel(bch);
- 		modeisar(ich, ISDN_P_NONE);
- 		spin_unlock_irqrestore(ich->is->hwlock, flags);
- 		ch->protocol = ISDN_P_NONE;
-diff --git a/drivers/isdn/hardware/mISDN/netjet.c b/drivers/isdn/hardware/mISDN/netjet.c
-index c3e3e76..9bcade5 100644
---- a/drivers/isdn/hardware/mISDN/netjet.c
-+++ b/drivers/isdn/hardware/mISDN/netjet.c
-@@ -812,8 +812,9 @@ nj_bctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
- 	switch (cmd) {
- 	case CLOSE_CHANNEL:
- 		test_and_clear_bit(FLG_OPEN, &bch->Flags);
-+		cancel_work_sync(&bch->workq);
- 		spin_lock_irqsave(&card->lock, flags);
--		mISDN_freebchannel(bch);
-+		mISDN_clear_bchannel(bch);
- 		mode_tiger(bc, ISDN_P_NONE);
- 		spin_unlock_irqrestore(&card->lock, flags);
- 		ch->protocol = ISDN_P_NONE;
-diff --git a/drivers/isdn/hardware/mISDN/w6692.c b/drivers/isdn/hardware/mISDN/w6692.c
-index 26a86b8..335fe64 100644
---- a/drivers/isdn/hardware/mISDN/w6692.c
-+++ b/drivers/isdn/hardware/mISDN/w6692.c
-@@ -1054,8 +1054,9 @@ w6692_bctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
- 	switch (cmd) {
- 	case CLOSE_CHANNEL:
- 		test_and_clear_bit(FLG_OPEN, &bch->Flags);
-+		cancel_work_sync(&bch->workq);
- 		spin_lock_irqsave(&card->lock, flags);
--		mISDN_freebchannel(bch);
-+		mISDN_clear_bchannel(bch);
- 		w6692_mode(bc, ISDN_P_NONE);
- 		spin_unlock_irqrestore(&card->lock, flags);
- 		ch->protocol = ISDN_P_NONE;
-diff --git a/drivers/isdn/mISDN/hwchannel.c b/drivers/isdn/mISDN/hwchannel.c
-index ef34fd4..2602be2 100644
---- a/drivers/isdn/mISDN/hwchannel.c
-+++ b/drivers/isdn/mISDN/hwchannel.c
-@@ -148,17 +148,16 @@ mISDN_clear_bchannel(struct bchannel *ch)
- 	ch->next_minlen = ch->init_minlen;
- 	ch->maxlen = ch->init_maxlen;
- 	ch->next_maxlen = ch->init_maxlen;
-+	skb_queue_purge(&ch->rqueue);
-+	ch->rcount = 0;
- }
- EXPORT_SYMBOL(mISDN_clear_bchannel);
- 
--int
-+void
- mISDN_freebchannel(struct bchannel *ch)
+diff --git a/net/sched/sch_gred.c b/net/sched/sch_gred.c
+index b2570b5..d42234c 100644
+--- a/net/sched/sch_gred.c
++++ b/net/sched/sch_gred.c
+@@ -136,6 +136,7 @@ static inline void gred_store_wred_set(struct gred_sched *table,
+ 				       struct gred_sched_data *q)
  {
-+	cancel_work_sync(&ch->workq);
- 	mISDN_clear_bchannel(ch);
--	skb_queue_purge(&ch->rqueue);
--	ch->rcount = 0;
--	flush_work_sync(&ch->workq);
--	return 0;
+ 	table->wred_set.qavg = q->vars.qavg;
++	table->wred_set.qidlestart = q->vars.qidlestart;
  }
- EXPORT_SYMBOL(mISDN_freebchannel);
  
-diff --git a/include/linux/mISDNhw.h b/include/linux/mISDNhw.h
-index d0752ec..9d96d5d 100644
---- a/include/linux/mISDNhw.h
-+++ b/include/linux/mISDNhw.h
-@@ -183,7 +183,7 @@ extern int	mISDN_initbchannel(struct bchannel *, unsigned short,
- 				   unsigned short);
- extern int	mISDN_freedchannel(struct dchannel *);
- extern void	mISDN_clear_bchannel(struct bchannel *);
--extern int	mISDN_freebchannel(struct bchannel *);
-+extern void	mISDN_freebchannel(struct bchannel *);
- extern int	mISDN_ctrl_bchannel(struct bchannel *, struct mISDN_ctrl_req *);
- extern void	queue_ch_frame(struct mISDNchannel *, u_int,
- 			int, struct sk_buff *);
+ static inline int gred_use_ecn(struct gred_sched *t)
+@@ -259,16 +260,18 @@ static struct sk_buff *gred_dequeue(struct Qdisc *sch)
+ 		} else {
+ 			q->backlog -= qdisc_pkt_len(skb);
+ 
+-			if (!q->backlog && !gred_wred_mode(t))
+-				red_start_of_idle_period(&q->vars);
++			if (gred_wred_mode(t)) {
++				if (!sch->qstats.backlog)
++					red_start_of_idle_period(&t->wred_set);
++			} else {
++				if (!q->backlog)
++					red_start_of_idle_period(&q->vars);
++			}
+ 		}
+ 
+ 		return skb;
+ 	}
+ 
+-	if (gred_wred_mode(t) && !red_is_idling(&t->wred_set))
+-		red_start_of_idle_period(&t->wred_set);
+-
+ 	return NULL;
+ }
+ 
+@@ -290,19 +293,20 @@ static unsigned int gred_drop(struct Qdisc *sch)
+ 			q->backlog -= len;
+ 			q->stats.other++;
+ 
+-			if (!q->backlog && !gred_wred_mode(t))
+-				red_start_of_idle_period(&q->vars);
++			if (gred_wred_mode(t)) {
++				if (!sch->qstats.backlog)
++					red_start_of_idle_period(&t->wred_set);
++			} else {
++				if (!q->backlog)
++					red_start_of_idle_period(&q->vars);
++			}
+ 		}
+ 
+ 		qdisc_drop(skb, sch);
+ 		return len;
+ 	}
+ 
+-	if (gred_wred_mode(t) && !red_is_idling(&t->wred_set))
+-		red_start_of_idle_period(&t->wred_set);
+-
+ 	return 0;
+-
+ }
+ 
+ static void gred_reset(struct Qdisc *sch)
 -- 
-1.7.7
+1.7.4.1
