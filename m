@@ -1,46 +1,37 @@
-From: Erwan Velu <erwanaliasr1@gmail.com>
-Subject: Re: Remarks and comments about ipconfig behavior
-Date: Thu, 13 Sep 2012 22:37:45 +0200
-Message-ID: <50524419.4080404@gmail.com>
-References: <5052403B.4040408@gmail.com> <20120913.163134.361379133013906511.davem@davemloft.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH 4/4] net_sched: gred: actually perform idling in WRED
+ mode
+Date: Thu, 13 Sep 2012 16:37:54 -0400
+Message-ID: <50524422.8000804@mojatatu.com>
+References: <1347549755-19438-1-git-send-email-david.ward@ll.mit.edu> <1347549755-19438-4-git-send-email-david.ward@ll.mit.edu> <50522106.40404@mojatatu.com> <50523632.60703@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Bruce Osler <brosler@cisco.com>,
+	Cyril Chemparathy <cyril@ti.com>
+To: "Ward, David - 0663 - MITLL" <david.ward@ll.mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:41854 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751224Ab2IMUh4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 16:37:56 -0400
-Received: by eekc1 with SMTP id c1so2168976eek.19
-        for <netdev@vger.kernel.org>; Thu, 13 Sep 2012 13:37:54 -0700 (PDT)
-In-Reply-To: <20120913.163134.361379133013906511.davem@davemloft.net>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:37912 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756478Ab2IMUh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 16:37:59 -0400
+Received: by vbbff1 with SMTP id ff1so4013270vbb.19
+        for <netdev@vger.kernel.org>; Thu, 13 Sep 2012 13:37:58 -0700 (PDT)
+In-Reply-To: <50523632.60703@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 13/09/2012 22:31, David Miller a =E9crit :
-> From: Erwan Velu<erwanaliasr1@gmail.com>
-> Date: Thu, 13 Sep 2012 22:21:15 +0200
+On 12-09-13 03:38 PM, Ward, David - 0663 - MITLL wrote:
+> Before applying this patch, the average queue size (as seen with "tc 
+> -s qdisc") remained constant forever after I stopped sending any 
+> packets through the interface -- it didn't taper off as you would 
+> expect.  After the patch, the average queue size will now taper off if 
+> packets are not being sent.
 >
->> That lever for me two points :
->> - why is this timeout setup for so long ? Even with a spantree
->> - configuration, not having a carrier for 2mn is *waow* ... Does a 3=
-0sec
->> - could not be enough ? What is the need of waiting so long time ?
-> I've seen PHY/switch/hub combinations that take longer than 30 second=
-s
-> to fully negotiate the link.
->
-> There is really no upper limit to the link speed/duplex/etc.
-> negoatiation process.
->
-> Even if the actual negoatiation protocol had an upper limit on
-> negoatiation time, hardware implementations do things like try
-> sampling the quality of the cable signal and may choose to
-> down-rev the advertised features and restart the negoatiation.
-Ok but shouldn't we display some message to the user trying to explain=20
-why the kernel is stopped and perfectly silent during its booting=20
-process ? 2 minutes, that's a pretty long time with an almost frozen=20
-kernel isn't it ?
+
+
+That makes sense. thanks
+
+cheers,
+jamal
