@@ -1,46 +1,45 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [REVIEW][PATCH 12/15] userns: Convert drm to use kuid and kgid and struct pid where appropriate
-Date: Wed, 12 Sep 2012 19:14:55 -0700
-Message-ID: <87ligefz34.fsf@xmission.com>
-References: <87lih2h6i4.fsf@xmission.com> <87mx1iecwi.fsf@xmission.com>
-	<CAPM=9ty=0=+w8VaFC9QhajUkYwmym_JaWR9sbwmgw5tCKg5nGw@mail.gmail.com>
+From: Jason Baron <jbaron@redhat.com>
+Subject: Re: [PATCH 0/5] dev_<level> and dynamic_debug cleanups
+Date: Wed, 12 Sep 2012 22:39:48 -0400
+Message-ID: <20120913023948.GC3214@redhat.com>
+References: <cover.1345978012.git.joe@perches.com>
+ <CAJfuBxyQc-XeNHxw0_XDs0JuCrNArNzcgsmrLya4ncDvSojZxQ@mail.gmail.com>
+ <CAJfuBxyToA9-=c3H88GGba3GFX64kdbP4OCEC0f4trnBnjpU-w@mail.gmail.com>
+ <20120906161359.GC23641@kroah.com>
+ <20120906175313.GC9786@redhat.com>
+ <1347498810.2749.0.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	David Miller <davem@davemloft.net>,
-	David Airlie <airlied@linux.ie>,
-	dri-devel@lists.freedesktop.org
-To: Dave Airlie <airlied@gmail.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <CAPM=9ty=0=+w8VaFC9QhajUkYwmym_JaWR9sbwmgw5tCKg5nGw@mail.gmail.com>
-	(Dave Airlie's message of "Thu, 13 Sep 2012 11:31:36 +1000")
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jim Cromie <jim.cromie@gmail.com>, Kay Sievers <kay@vrfy.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1347498810.2749.0.camel@joe2Laptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave Airlie <airlied@gmail.com> writes:
+On Wed, Sep 12, 2012 at 06:13:30PM -0700, Joe Perches wrote:
+> On Thu, 2012-09-06 at 13:53 -0400, Jason Baron wrote:
+> > On Thu, Sep 06, 2012 at 09:13:59AM -0700, Greg Kroah-Hartman wrote:
+> > > Jason, any ACK on these, or any of the other random dynamic debug
+> > > patches floating around?  What am I supposed to be applying here?
+> []
+> > I just posted some follow up comments to Joe, so let's see where that
+> > discussion goes.
+> 
+> Jason, I think you need to ack these original 5 patches.
+> 
 
->> Blink Blink this had not been converted to use struct pid ages ago?
->>
->> - On drm open capture the openers kuid and struct pid.
->> - On drm close release the kuid and struct pid
->> - When reporting the uid and pid convert the kuid and struct pid
->>   into values in the appropriate namespace.
->>
->
-> Hi Eric,
->
-> I'm fine with this seems okay, do you want me to merge it via
-> drm-next?
+Hi,
 
-My plan is to merge it via my user namespace tree.  And since you have
-responed positively I will add your acked-by.  There are some nice
-synergies when I get all of the changes in one tree.
+Yes, they are certainly an improvement. Please add to the series:
 
-If for some reason you want to carry this in your drm tree we can work
-something out.
+Acked-by: Jason Baron <jbaron@redhat.com>
 
-In this case I expect the change isn't big enough to worry about.
+Thanks!
 
-Eric
+-Jason
