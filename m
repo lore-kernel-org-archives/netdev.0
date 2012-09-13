@@ -1,43 +1,50 @@
-From: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v4 1/8] cgroup: net_cls: Move sock_update_classid() declaration
- to cls_cgroup.h
-Date: Thu, 13 Sep 2012 14:34:57 +0800
-Message-ID: <50517E91.5090709@huawei.com>
-References: <1347459128-32236-1-git-send-email-wagi@monom.org> <1347459128-32236-2-git-send-email-wagi@monom.org>
+From: Li Zefan <lizefan@huawei.com>
+Subject: Re: [PATCH v4 2/8] cgroup: net_cls: Do not define task_cls_classid()
+ when not selected
+Date: Thu, 13 Sep 2012 14:35:31 +0800
+Message-ID: <50517EB3.6000502@huawei.com>
+References: <1347459128-32236-1-git-send-email-wagi@monom.org> <1347459128-32236-3-git-send-email-wagi@monom.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="GB2312"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1347459128-32236-2-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <cgroups@vger.kernel.org>,
+	Daniel Wagner <daniel.wagner@bmw-carit.de>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Daniel Wagner <wagi@monom.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:18928 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753675Ab2IMGgj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 02:36:39 -0400
+In-Reply-To: <1347459128-32236-3-git-send-email-wagi@monom.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On 2012/9/12 22:12, Daniel Wagner wrote:
-> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+> From: Daniel Wagner <daniel.wagner@bmw-carit.de>
 > 
-> The only user of sock_update_classid() is net/socket.c which happens
-> to include cls_cgroup.h directly.
+> task_cls_classid() should not be defined in case the configuration is
+> CONFIG_NET_CLS_CGROUP=n. The reason is that in a following patch the
+> net_cls_subsys_id will only be defined if CONFIG_NET_CLS_CGROUP!=n.
+> When net_cls is not built at all a callee should only get an empty
+> task_cls_classid() without any references to net_cls_subsys_id.
 > 
-> Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-> Acked-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> Cc: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-> Cc: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-> Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> Cc: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
+> Acked-by: Tejun Heo <tj@kernel.org>
+> Cc: Gao feng <gaofeng@cn.fujitsu.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: John Fastabend <john.r.fastabend@intel.com>
+> Cc: Li Zefan <lizefan@huawei.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Cc: netdev@vger.kernel.org
+> Cc: cgroups@vger.kernel.org
 
-Acked-by: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Acked-by: Li Zefan <lizefan@huawei.com>
 
 > ---
->  include/net/cls_cgroup.h | 6 ++++++
->  include/net/sock.h       | 8 --------
->  2 files changed, 6 insertions(+), 8 deletions(-)
+>  include/net/cls_cgroup.h | 11 ++++++-----
+>  net/core/sock.c          |  2 ++
+>  2 files changed, 8 insertions(+), 5 deletions(-)
