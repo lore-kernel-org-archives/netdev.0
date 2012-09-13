@@ -1,70 +1,104 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 3/5] netdev_printk/netif_printk: Remove a superfluous
- logging colon
-Date: Wed, 12 Sep 2012 20:13:01 -0700
-Message-ID: <1347505981.2749.4.camel@joe2Laptop>
+Subject: [PATCH 4/5] dev: Add dev_vprintk_emit and dev_printk_emit
+Date: Wed, 12 Sep 2012 20:13:37 -0700
+Message-ID: <1347506017.2749.5.camel@joe2Laptop>
 References: <cover.1345978012.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jason Baron <jbaron@redhat.com>,
 	Jim Cromie <jim.cromie@gmail.com>, Kay Sievers <kay@vrfy.org>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Andrew Morton <akpm@linux-foundation.org>,
-	Jason Baron <jbaron@redhat.com>
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1345978012.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netdev_printk originally called dev_printk with %pV.
+Add utility functions to consolidate the use of
+create_syslog_header and vprintk_emit.
 
-This style emitted the complete dev_printk header with
-a colon followed by the netdev_name prefix followed
-by a colon.
-
-Now that netdev_printk does not call dev_printk, the
-extra colon is superfluous.  Remove it.
-
-Example:
-old: sky2 0000:02:00.0: eth0: Link is up at 100 Mbps, full duplex, flow control both
-new: sky2 0000:02:00.0 eth0: Link is up at 100 Mbps, full duplex, flow control both
+This allows conversion of logging functions that
+call create_syslog_header and then call vprintk_emit
+or printk_emit to the dev_ equivalents.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 Acked-by: David S. Miller <davem@davemloft.net>
 Tested-by: Jim Cromie <jim.cromie@gmail.com>
 Acked-by: Jason Baron <jbaron@redhat.com>
 ---
- lib/dynamic_debug.c |    2 +-
- net/core/dev.c      |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/base/core.c    |   27 +++++++++++++++++++++++++++
+ include/linux/device.h |   11 +++++++++++
+ 2 files changed, 38 insertions(+), 0 deletions(-)
 
-diff --git a/lib/dynamic_debug.c b/lib/dynamic_debug.c
-index 2a29f4e..6b3ebab 100644
---- a/lib/dynamic_debug.c
-+++ b/lib/dynamic_debug.c
-@@ -634,7 +634,7 @@ int __dynamic_netdev_dbg(struct _ddebug *descriptor,
- 					       dict, sizeof(dict));
+diff --git a/drivers/base/core.c b/drivers/base/core.c
+index d46b635..ffccb64 100644
+--- a/drivers/base/core.c
++++ b/drivers/base/core.c
+@@ -1909,6 +1909,33 @@ int create_syslog_header(const struct device *dev, char *hdr, size_t hdrlen)
+ }
+ EXPORT_SYMBOL(create_syslog_header);
  
- 		res = printk_emit(0, 7, dictlen ? dict : NULL, dictlen,
--				  "%s%s %s: %s: %pV",
-+				  "%s%s %s %s: %pV",
- 				  dynamic_emit_prefix(descriptor, buf),
- 				  dev_driver_string(dev->dev.parent),
- 				  dev_name(dev->dev.parent),
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a588145..1ec186a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6434,7 +6434,7 @@ static int __netdev_printk(const char *level, const struct net_device *dev,
++int dev_vprintk_emit(int level, const struct device *dev,
++		     const char *fmt, va_list args)
++{
++	char hdr[128];
++	size_t hdrlen;
++
++	hdrlen = create_syslog_header(dev, hdr, sizeof(hdr));
++
++	return vprintk_emit(0, level, hdrlen ? hdr : NULL, hdrlen, fmt, args);
++}
++EXPORT_SYMBOL(dev_vprintk_emit);
++
++int dev_printk_emit(int level, const struct device *dev, const char *fmt, ...)
++{
++	va_list args;
++	int r;
++
++	va_start(args, fmt);
++
++	r = dev_vprintk_emit(level, dev, fmt, args);
++
++	va_end(args);
++
++	return r;
++}
++EXPORT_SYMBOL(dev_printk_emit);
++
+ static int __dev_printk(const char *level, const struct device *dev,
+ 			struct va_format *vaf)
+ {
+diff --git a/include/linux/device.h b/include/linux/device.h
+index 4800d73..0063d01 100644
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -893,6 +893,10 @@ extern const char *dev_driver_string(const struct device *dev);
  
- 		r = printk_emit(0, level[1] - '0',
- 				dictlen ? dict : NULL, dictlen,
--				"%s %s: %s: %pV",
-+				"%s %s %s: %pV",
- 				dev_driver_string(dev->dev.parent),
- 				dev_name(dev->dev.parent),
- 				netdev_name(dev), vaf);
+ extern int create_syslog_header(const struct device *dev,
+ 				char *hdr, size_t hdrlen);
++extern int dev_vprintk_emit(int level, const struct device *dev,
++			    const char *fmt, va_list args);
++extern __printf(3, 4)
++int dev_printk_emit(int level, const struct device *dev, const char *fmt, ...);
+ 
+ extern __printf(3, 4)
+ int dev_printk(const char *level, const struct device *dev,
+@@ -914,6 +918,13 @@ int _dev_info(const struct device *dev, const char *fmt, ...);
+ 
+ #else
+ 
++static int dev_vprintk_emit(int level, const struct device *dev,
++			    const char *fmt, va_list args)
++{ return 0; }
++static inline __printf(3, 4)
++int dev_printk_emit(int level, const struct device *dev, const char *fmt, ...)
++{ return 0; }
++
+ static inline int __dev_printk(const char *level, const struct device *dev,
+ 			       struct va_format *vaf)
+ { return 0; }
 -- 
 1.7.8.111.gad25c.dirty
