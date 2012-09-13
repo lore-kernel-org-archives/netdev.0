@@ -1,117 +1,280 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/2] ipv6: force RTF_NONEXTHOP for SIT device
-Date: Thu, 13 Sep 2012 04:59:53 +0200
-Message-ID: <1347505193.13103.1340.camel@edumazet-glaptop>
-References: <1347451266.13103.882.camel@edumazet-glaptop>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 1/5] dev_dbg/dynamic_debug: Update to use printk_emit,
+ optimize stack
+Date: Wed, 12 Sep 2012 20:11:29 -0700
+Message-ID: <1347505889.2749.2.camel@joe2Laptop>
+References: <cover.1345978012.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Lorenzo Colitti <lorenzo@google.com>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
-	Tom Herbert <therbert@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:34025 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752749Ab2IMC76 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2012 22:59:58 -0400
-Received: by wgbdr13 with SMTP id dr13so2071958wgb.1
-        for <netdev@vger.kernel.org>; Wed, 12 Sep 2012 19:59:57 -0700 (PDT)
-In-Reply-To: <1347451266.13103.882.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jim Cromie <jim.cromie@gmail.com>, Kay Sievers <kay@vrfy.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jason Baron <jbaron@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1345978012.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-09-12 at 14:01 +0200, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->=20
-> We have special handling of SIT devices in addrconf_prefix_route()
-> to avoid using a neighbour for each destination.
->=20
-> If routing entry is :
->=20
-> ip -6 route add 2001:db8::/64 dev sit1
->=20
-> Then the kernel will create a new route for every new address
-> under 2001:db8::/64 that we send a packet to (potentially, 2^64
-> routes).
->=20
-> Under load, we immediately get the infamous "Neighbour table overflow=
-"
-> message and machine eventually crash.
->=20
-> This does not happen if we specify a next-hop explicitly, like so:
->=20
-> ip -6 route add 2001:db8::/64 via fe80:: dev sit1
->=20
-> We can avoid this hassle doing the SIT test in ip6_route_add() instea=
-d
-> of addrconf_prefix_route().
->=20
-> This permits ip6_pol_route() to clone route instead of calling
-> rt6_alloc_cow() and allocate a neighbour
->=20
-> Reported-by: Lorenzo Colitti <lorenzo@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Maciej =C5=BBenczykowski <maze@google.com>
-> Cc: Tom Herbert <therbert@google.com>
-> ---
->  net/ipv6/addrconf.c |   10 ----------
->  net/ipv6/route.c    |    9 +++++++++
->  2 files changed, 9 insertions(+), 10 deletions(-)
->=20
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 1237d5d..c6837d2 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -1679,16 +1679,6 @@ addrconf_prefix_route(struct in6_addr *pfx, in=
-t plen, struct net_device *dev,
->  	};
-> =20
->  	cfg.fc_dst =3D *pfx;
-> -
-> -	/* Prevent useless cloning on PtP SIT.
-> -	   This thing is done here expecting that the whole
-> -	   class of non-broadcast devices need not cloning.
-> -	 */
-> -#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
-> -	if (dev->type =3D=3D ARPHRD_SIT && (dev->flags & IFF_POINTOPOINT))
-> -		cfg.fc_flags |=3D RTF_NONEXTHOP;
-> -#endif
-> -
->  	ip6_route_add(&cfg);
->  }
-> =20
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 399613b..d4ba3fc 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1540,6 +1540,15 @@ int ip6_route_add(struct fib6_config *cfg)
->  	} else
->  		rt->rt6i_prefsrc.plen =3D 0;
-> =20
-> +	/* Prevent useless cloning on PtP SIT.
-> +	 *  This thing is done here expecting that the whole
-> +	 *  class of non-broadcast devices need not cloning.
-> +	 */
-> +#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
-> +	if (dev && dev->type =3D=3D ARPHRD_SIT && (dev->flags & IFF_POINTOP=
-OINT))
-> +		cfg->fc_flags |=3D RTF_NONEXTHOP;
-> +#endif
-> +
->  	if (cfg->fc_flags & (RTF_GATEWAY | RTF_NONEXTHOP)) {
->  		err =3D rt6_bind_neighbour(rt, dev);
->  		if (err)
->=20
+commit c4e00daaa9
+("driver-core: extend dev_printk() to pass structured data")
+changed __dev_printk and broke dynamic-debug's ability to control the
+dynamic prefix of dev_dbg(dev,..).
 
-Please hold this patch, I'll send a v2, based on excellent feedback fro=
-m
-Lorenzo.
+commit af7f2158fd
+("drivers-core: make structured logging play nice with dynamic-debug")
+made a minimal correction.
 
-Idea is to just do :
+The current dynamic debug code uses up to 3 recursion levels via %pV.
+This can consume quite a bit of stack.  Directly call printk_emit to
+reduce the recursion depth.
 
-	if (dev->flags & (IFF_POINTOPOINT | IFF_LOOPBACK))
-		cfg->fc_flags |=3D RFT_NONEXTHOP;
+These changes include:
 
-(no mention of SIT anymore, and a change in the title patch)
+dev_dbg:
+o Create and use function create_syslog_header to format the syslog
+  header for printk_emit uses.
+o Call create_syslog_header and neaten __dev_printk
+o Make __dev_printk static not global
+o Remove include header declaration of __dev_printk
+o Remove now unused EXPORT_SYMBOL() of __dev_printk
+o Whitespace neatening
+
+dynamic_dev_dbg:
+o Remove KERN_DEBUG from dynamic_emit_prefix
+o Call create_syslog_header and printk_emit
+o Whitespace neatening
+
+Signed-off-by: Joe Perches <joe@perches.com>
+Acked-by: David S. Miller <davem@davemloft.net>
+Tested-by: Jim Cromie <jim.cromie@gmail.com>
+Acked-by: Jason Baron <jbaron@redhat.com>
+
+---
+ drivers/base/core.c    |   64 +++++++++++++++++++++++++----------------------
+ include/linux/device.h |    8 +++---
+ lib/dynamic_debug.c    |   39 +++++++++++++++++++++-------
+ 3 files changed, 67 insertions(+), 44 deletions(-)
+
+diff --git a/drivers/base/core.c b/drivers/base/core.c
+index 5e6e00b..d46b635 100644
+--- a/drivers/base/core.c
++++ b/drivers/base/core.c
+@@ -1861,26 +1861,19 @@ void device_shutdown(void)
+  */
+ 
+ #ifdef CONFIG_PRINTK
+-int __dev_printk(const char *level, const struct device *dev,
+-		 struct va_format *vaf)
++int create_syslog_header(const struct device *dev, char *hdr, size_t hdrlen)
+ {
+-	char dict[128];
+-	const char *level_extra = "";
+-	size_t dictlen = 0;
+ 	const char *subsys;
+-
+-	if (!dev)
+-		return printk("%s(NULL device *): %pV", level, vaf);
++	size_t pos = 0;
+ 
+ 	if (dev->class)
+ 		subsys = dev->class->name;
+ 	else if (dev->bus)
+ 		subsys = dev->bus->name;
+ 	else
+-		goto skip;
++		return 0;
+ 
+-	dictlen += snprintf(dict + dictlen, sizeof(dict) - dictlen,
+-			    "SUBSYSTEM=%s", subsys);
++	pos += snprintf(hdr + pos, hdrlen - pos, "SUBSYSTEM=%s", subsys);
+ 
+ 	/*
+ 	 * Add device identifier DEVICE=:
+@@ -1896,32 +1889,41 @@ int __dev_printk(const char *level, const struct device *dev,
+ 			c = 'b';
+ 		else
+ 			c = 'c';
+-		dictlen++;
+-		dictlen += snprintf(dict + dictlen, sizeof(dict) - dictlen,
+-				   "DEVICE=%c%u:%u",
+-				   c, MAJOR(dev->devt), MINOR(dev->devt));
++		pos++;
++		pos += snprintf(hdr + pos, hdrlen - pos,
++				"DEVICE=%c%u:%u",
++				c, MAJOR(dev->devt), MINOR(dev->devt));
+ 	} else if (strcmp(subsys, "net") == 0) {
+ 		struct net_device *net = to_net_dev(dev);
+ 
+-		dictlen++;
+-		dictlen += snprintf(dict + dictlen, sizeof(dict) - dictlen,
+-				    "DEVICE=n%u", net->ifindex);
++		pos++;
++		pos += snprintf(hdr + pos, hdrlen - pos,
++				"DEVICE=n%u", net->ifindex);
+ 	} else {
+-		dictlen++;
+-		dictlen += snprintf(dict + dictlen, sizeof(dict) - dictlen,
+-				    "DEVICE=+%s:%s", subsys, dev_name(dev));
++		pos++;
++		pos += snprintf(hdr + pos, hdrlen - pos,
++				"DEVICE=+%s:%s", subsys, dev_name(dev));
+ 	}
+-skip:
+-	if (level[2])
+-		level_extra = &level[2]; /* skip past KERN_SOH "L" */
+ 
+-	return printk_emit(0, level[1] - '0',
+-			   dictlen ? dict : NULL, dictlen,
+-			   "%s %s: %s%pV",
+-			   dev_driver_string(dev), dev_name(dev),
+-			   level_extra, vaf);
++	return pos;
++}
++EXPORT_SYMBOL(create_syslog_header);
++
++static int __dev_printk(const char *level, const struct device *dev,
++			struct va_format *vaf)
++{
++	char hdr[128];
++	size_t hdrlen;
++
++	if (!dev)
++		return printk("%s(NULL device *): %pV", level, vaf);
++
++	hdrlen = create_syslog_header(dev, hdr, sizeof(hdr));
++
++	return printk_emit(0, level[1] - '0', hdrlen ? hdr : NULL, hdrlen,
++			   "%s %s: %pV",
++			   dev_driver_string(dev), dev_name(dev), vaf);
+ }
+-EXPORT_SYMBOL(__dev_printk);
+ 
+ int dev_printk(const char *level, const struct device *dev,
+ 	       const char *fmt, ...)
+@@ -1936,6 +1938,7 @@ int dev_printk(const char *level, const struct device *dev,
+ 	vaf.va = &args;
+ 
+ 	r = __dev_printk(level, dev, &vaf);
++
+ 	va_end(args);
+ 
+ 	return r;
+@@ -1955,6 +1958,7 @@ int func(const struct device *dev, const char *fmt, ...)	\
+ 	vaf.va = &args;						\
+ 								\
+ 	r = __dev_printk(kern_level, dev, &vaf);		\
++								\
+ 	va_end(args);						\
+ 								\
+ 	return r;						\
+diff --git a/include/linux/device.h b/include/linux/device.h
+index 52a5f15..4800d73 100644
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -891,12 +891,12 @@ extern const char *dev_driver_string(const struct device *dev);
+ 
+ #ifdef CONFIG_PRINTK
+ 
+-extern int __dev_printk(const char *level, const struct device *dev,
+-			struct va_format *vaf);
++extern int create_syslog_header(const struct device *dev,
++				char *hdr, size_t hdrlen);
++
+ extern __printf(3, 4)
+ int dev_printk(const char *level, const struct device *dev,
+-	       const char *fmt, ...)
+-	;
++	       const char *fmt, ...);
+ extern __printf(2, 3)
+ int dev_emerg(const struct device *dev, const char *fmt, ...);
+ extern __printf(2, 3)
+diff --git a/lib/dynamic_debug.c b/lib/dynamic_debug.c
+index 7ca29a0..29ff2e4 100644
+--- a/lib/dynamic_debug.c
++++ b/lib/dynamic_debug.c
+@@ -521,25 +521,25 @@ static char *dynamic_emit_prefix(const struct _ddebug *desc, char *buf)
+ 	int pos_after_tid;
+ 	int pos = 0;
+ 
+-	pos += snprintf(buf + pos, remaining(pos), "%s", KERN_DEBUG);
++	*buf = '\0';
++
+ 	if (desc->flags & _DPRINTK_FLAGS_INCL_TID) {
+ 		if (in_interrupt())
+-			pos += snprintf(buf + pos, remaining(pos), "%s ",
+-						"<intr>");
++			pos += snprintf(buf + pos, remaining(pos), "<intr> ");
+ 		else
+ 			pos += snprintf(buf + pos, remaining(pos), "[%d] ",
+-						task_pid_vnr(current));
++					task_pid_vnr(current));
+ 	}
+ 	pos_after_tid = pos;
+ 	if (desc->flags & _DPRINTK_FLAGS_INCL_MODNAME)
+ 		pos += snprintf(buf + pos, remaining(pos), "%s:",
+-					desc->modname);
++				desc->modname);
+ 	if (desc->flags & _DPRINTK_FLAGS_INCL_FUNCNAME)
+ 		pos += snprintf(buf + pos, remaining(pos), "%s:",
+-					desc->function);
++				desc->function);
+ 	if (desc->flags & _DPRINTK_FLAGS_INCL_LINENO)
+ 		pos += snprintf(buf + pos, remaining(pos), "%d:",
+-					desc->lineno);
++				desc->lineno);
+ 	if (pos - pos_after_tid)
+ 		pos += snprintf(buf + pos, remaining(pos), " ");
+ 	if (pos >= PREFIX_SIZE)
+@@ -559,9 +559,13 @@ int __dynamic_pr_debug(struct _ddebug *descriptor, const char *fmt, ...)
+ 	BUG_ON(!fmt);
+ 
+ 	va_start(args, fmt);
++
+ 	vaf.fmt = fmt;
+ 	vaf.va = &args;
+-	res = printk("%s%pV", dynamic_emit_prefix(descriptor, buf), &vaf);
++
++	res = printk(KERN_DEBUG "%s%pV",
++		     dynamic_emit_prefix(descriptor, buf), &vaf);
++
+ 	va_end(args);
+ 
+ 	return res;
+@@ -574,15 +578,30 @@ int __dynamic_dev_dbg(struct _ddebug *descriptor,
+ 	struct va_format vaf;
+ 	va_list args;
+ 	int res;
+-	char buf[PREFIX_SIZE];
+ 
+ 	BUG_ON(!descriptor);
+ 	BUG_ON(!fmt);
+ 
+ 	va_start(args, fmt);
++
+ 	vaf.fmt = fmt;
+ 	vaf.va = &args;
+-	res = __dev_printk(dynamic_emit_prefix(descriptor, buf), dev, &vaf);
++
++	if (!dev) {
++		res = printk(KERN_DEBUG "(NULL device *): %pV", &vaf);
++	} else {
++		char buf[PREFIX_SIZE];
++		char dict[128];
++		size_t dictlen;
++
++		dictlen = create_syslog_header(dev, dict, sizeof(dict));
++
++		res = printk_emit(0, 7, dictlen ? dict : NULL, dictlen,
++				  "%s%s %s: %pV",
++				  dynamic_emit_prefix(descriptor, buf),
++				  dev_driver_string(dev), dev_name(dev), &vaf);
++	}
++
+ 	va_end(args);
+ 
+ 	return res;
+-- 
+1.7.8.111.gad25c.dirty
