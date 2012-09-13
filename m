@@ -1,45 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH v2 1/7] bnx2x: Avoid sending multiple statistics
- queries
-Date: Thu, 13 Sep 2012 16:38:39 -0400 (EDT)
-Message-ID: <20120913.163839.1430346384226710502.davem@davemloft.net>
-References: <1347374054-16730-2-git-send-email-yuvalmin@broadcom.com>
-	<20120913.161711.2180618409918407558.davem@davemloft.net>
-	<979A8436335E3744ADCD3A9F2A2B68A504B81E31@SJEXCHMB10.corp.ad.broadcom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next.git 3/8 (V2)] stmmac: add the initial tx coalesce
+ schema
+Date: Thu, 13 Sep 2012 21:42:51 +0100
+Message-ID: <1347568971.13258.19.camel@deadeye.wl.decadent.org.uk>
+References: <1347346514-23411-1-git-send-email-peppe.cavallaro@st.com>
+	 <1347346514-23411-4-git-send-email-peppe.cavallaro@st.com>
+	 <20120913.162333.1518469374321928795.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dmitry@broadcom.com, eilong@broadcom.com
-To: yuvalmin@broadcom.com
+Cc: <peppe.cavallaro@st.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49232 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751224Ab2IMUil (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 16:38:41 -0400
-In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A504B81E31@SJEXCHMB10.corp.ad.broadcom.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:43177 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754653Ab2IMUmz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 16:42:55 -0400
+In-Reply-To: <20120913.162333.1518469374321928795.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Thu, 13 Sep 2012 20:34:57 +0000
-
-> But there is a difference between:
-> If (A && B) {
-> 	C;
-> 	D;
-> }
+On Thu, 2012-09-13 at 16:23 -0400, David Miller wrote:
+> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+> Date: Tue, 11 Sep 2012 08:55:09 +0200
 > 
-> And:
-> if (A) {
-> 	if (B) {
-> 		C;
-> 	}
-> 	D;
-> }
+> > +	unsigned long flags;
+> > +
+> > +	spin_lock_irqsave(&priv->tx_lock, flags);
+> >  
+> > -	spin_lock(&priv->tx_lock);
+> > +	priv->xstats.tx_clean++;
+> 
+> You are changing the locking here for the sake of the new timer.
+> 
+> But timers run in software interrupt context, so this change is
+> completely unnecessary since NAPI runs in software interrupt context
+> as well, and neither timers nor NAPI run in hardware interrupts
+> context.
 
-Indeed, I missed the return, it make a lot more sense now.
+NAPI pollers can be called by netpoll in hardware interrupt context, and
+this driver supports netpoll.
 
-I've applied this series to 'net' and will push it out after
-build testing.
+Ben.
 
-Thanks.
+> Therefore, disabling hardware interrupts for this lock is unnecessary
+> and will decrease performance.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
