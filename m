@@ -1,42 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] scsi_netlink: Remove dead and buggy code
-Date: Thu, 13 Sep 2012 16:24:57 -0400 (EDT)
-Message-ID: <20120913.162457.81364799304138498.davem@davemloft.net>
-References: <1347314879.3038.74.camel@dabdike.int.hansenpartnership.com>
-	<878vcggp4n.fsf@xmission.com>
-	<20120911.184846.1973557158791638595.davem@davemloft.net>
+Subject: Re: Remarks and comments about ipconfig behavior
+Date: Thu, 13 Sep 2012 16:31:34 -0400 (EDT)
+Message-ID: <20120913.163134.361379133013906511.davem@davemloft.net>
+References: <5052403B.4040408@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: James.Bottomley@HansenPartnership.com, netdev@vger.kernel.org,
-	James.Smart@Emulex.Com, linux-scsi@vger.kernel.org
-To: ebiederm@xmission.com
+Cc: netdev@vger.kernel.org
+To: erwanaliasr1@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49110 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49155 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754155Ab2IMUY7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 16:24:59 -0400
-In-Reply-To: <20120911.184846.1973557158791638595.davem@davemloft.net>
+	with ESMTP id S1756519Ab2IMUbg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 16:31:36 -0400
+In-Reply-To: <5052403B.4040408@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 11 Sep 2012 18:48:46 -0400 (EDT)
+From: Erwan Velu <erwanaliasr1@gmail.com>
+Date: Thu, 13 Sep 2012 22:21:15 +0200
 
-> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Tue, 11 Sep 2012 15:40:08 -0700
-> 
->> So just for curiosity I searched the entire git history for scsi_nl_add_
->> and the only commit that I found was the addition of that code to the
->> tree in August of 2008.
->> 
->> Does anyone have any reason to keep scsi_nl_add_transport or
->> scsi_nl_add_driver that have never been used in the 4 years since
->> they have been added?
-> 
-> That's basically the question on the table right now :-)
+> That lever for me two points :
+> - why is this timeout setup for so long ? Even with a spantree
+> - configuration, not having a carrier for 2mn is *waow* ... Does a 30sec
+> - could not be enough ? What is the need of waiting so long time ?
 
-Time has run out.
+I've seen PHY/switch/hub combinations that take longer than 30 seconds
+to fully negotiate the link.
 
-Letting legitimate and reasonable patches simply rot for a week is
-absolutely never acceptable, so I'm applying Eric's patch to net-next.
+There is really no upper limit to the link speed/duplex/etc.
+negoatiation process.
+
+Even if the actual negoatiation protocol had an upper limit on
+negoatiation time, hardware implementations do things like try
+sampling the quality of the cable signal and may choose to
+down-rev the advertised features and restart the negoatiation.
