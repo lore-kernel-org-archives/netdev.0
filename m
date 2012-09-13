@@ -1,78 +1,43 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [v3 PATCH 1/2] netprio_cgroup: Remove update_netdev_tables() since it
- is unnecessary
-Date: Thu, 13 Sep 2012 12:02:25 +0530
-Message-ID: <20120913063225.6278.87780.stgit@srivatsabhat.in.ibm.com>
+From: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v4 1/8] cgroup: net_cls: Move sock_update_classid() declaration
+ to cls_cgroup.h
+Date: Thu, 13 Sep 2012 14:34:57 +0800
+Message-ID: <50517E91.5090709@huawei.com>
+References: <1347459128-32236-1-git-send-email-wagi@monom.org> <1347459128-32236-2-git-send-email-wagi@monom.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="GB2312"
 Content-Transfer-Encoding: 7bit
-Cc: David.Laight@aculab.com, john.r.fastabend@intel.com,
-	gaofeng@cn.fujitsu.com, eric.dumazet@gmail.com,
-	mark.d.rustad@intel.com, lizefan@huawei.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-To: davem@davemloft.net, nhorman@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1347459128-32236-2-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The update_netdev_tables() function appears to be unnecessary, since the
-write_update_netdev_table() function will adjust the priomaps as and when
-required anyway. So drop the usage of update_netdev_tables() entirely.
+On 2012/9/12 22:12, Daniel Wagner wrote:
+> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+> 
+> The only user of sock_update_classid() is net/socket.c which happens
+> to include cls_cgroup.h directly.
+> 
+> Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+> Acked-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Cc: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+> Cc: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+> Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Cc: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
----
+Acked-by: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 
- net/core/netprio_cgroup.c |   32 --------------------------------
- 1 files changed, 0 insertions(+), 32 deletions(-)
-
-diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index c75e3f9..fd339bb0 100644
---- a/net/core/netprio_cgroup.c
-+++ b/net/core/netprio_cgroup.c
-@@ -109,32 +109,6 @@ static int write_update_netdev_table(struct net_device *dev)
- 	return ret;
- }
- 
--static int update_netdev_tables(void)
--{
--	int ret = 0;
--	struct net_device *dev;
--	u32 max_len;
--	struct netprio_map *map;
--
--	rtnl_lock();
--	max_len = atomic_read(&max_prioidx) + 1;
--	for_each_netdev(&init_net, dev) {
--		map = rtnl_dereference(dev->priomap);
--		/*
--		 * don't allocate priomap if we didn't
--		 * change net_prio.ifpriomap (map == NULL),
--		 * this will speed up skb_update_prio.
--		 */
--		if (map && map->priomap_len < max_len) {
--			ret = extend_netdev_table(dev, max_len);
--			if (ret < 0)
--				break;
--		}
--	}
--	rtnl_unlock();
--	return ret;
--}
--
- static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
- {
- 	struct cgroup_netprio_state *cs;
-@@ -153,12 +127,6 @@ static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
- 		goto out;
- 	}
- 
--	ret = update_netdev_tables();
--	if (ret < 0) {
--		put_prioidx(cs->prioidx);
--		goto out;
--	}
--
- 	return &cs->css;
- out:
- 	kfree(cs);
+> ---
+>  include/net/cls_cgroup.h | 6 ++++++
+>  include/net/sock.h       | 8 --------
+>  2 files changed, 6 insertions(+), 8 deletions(-)
