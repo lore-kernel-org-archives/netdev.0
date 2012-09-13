@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 4/4] netfilter: log: Fix log-level processing
-Date: Thu, 13 Sep 2012 12:54:08 +0200
-Message-ID: <1347533648-3451-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/4] netfilter: Validate the sequence number of dataless ACK packets as well
+Date: Thu, 13 Sep 2012 12:54:07 +0200
+Message-ID: <1347533648-3451-4-git-send-email-pablo@netfilter.org>
 References: <1347533648-3451-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,64 +10,42 @@ In-Reply-To: <1347533648-3451-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-auto75914331@hushmail.com reports that iptables does not correctly
-output the KERN_<level>.
+We spare nothing by not validating the sequence number of dataless
+ACK packets and enabling it makes harder off-path attacks.
 
-$IPTABLES -A RULE_0_in  -j LOG  --log-level notice --log-prefix "DENY  in: "
+See: "Reflection scan: an Off-Path Attack on TCP" by Jan Wrobel,
+http://arxiv.org/abs/1201.2074
 
-result with linux 3.6-rc5
-Sep 12 06:37:29 xxxxx kernel: <5>DENY  in: IN=eth0 OUT= MAC=.......
-
-result with linux 3.5.3 and older:
-Sep  9 10:43:01 xxxxx kernel: DENY  in: IN=eth0 OUT= MAC......
-
-commit 04d2c8c83d0
-("printk: convert the format for KERN_<LEVEL> to a 2 byte pattern")
-updated the syslog header style but did not update netfilter uses.
-
-Do so.
-
-Use KERN_SOH and string concatenation instead of "%c" KERN_SOH_ASCII
-as suggested by Eric Dumazet.
-
-Signed-off-by: Joe Perches <joe@perches.com>
-cc: auto75914331@hushmail.com
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/bridge/netfilter/ebt_log.c |    2 +-
- net/netfilter/xt_LOG.c         |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ net/netfilter/nf_conntrack_proto_tcp.c |   10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
 
-diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
-index f88ee53..92de5e5 100644
---- a/net/bridge/netfilter/ebt_log.c
-+++ b/net/bridge/netfilter/ebt_log.c
-@@ -80,7 +80,7 @@ ebt_log_packet(u_int8_t pf, unsigned int hooknum,
- 	unsigned int bitmask;
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index aba98f9..e046b37 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -630,15 +630,9 @@ static bool tcp_in_window(const struct nf_conn *ct,
+ 		ack = sack = receiver->td_end;
+ 	}
  
- 	spin_lock_bh(&ebt_log_lock);
--	printk("<%c>%s IN=%s OUT=%s MAC source = %pM MAC dest = %pM proto = 0x%04x",
-+	printk(KERN_SOH "%c%s IN=%s OUT=%s MAC source = %pM MAC dest = %pM proto = 0x%04x",
- 	       '0' + loginfo->u.log.level, prefix,
- 	       in ? in->name : "", out ? out->name : "",
- 	       eth_hdr(skb)->h_source, eth_hdr(skb)->h_dest,
-diff --git a/net/netfilter/xt_LOG.c b/net/netfilter/xt_LOG.c
-index 2a4f969..91e9af4 100644
---- a/net/netfilter/xt_LOG.c
-+++ b/net/netfilter/xt_LOG.c
-@@ -443,8 +443,8 @@ log_packet_common(struct sbuff *m,
- 		  const struct nf_loginfo *loginfo,
- 		  const char *prefix)
- {
--	sb_add(m, "<%d>%sIN=%s OUT=%s ", loginfo->u.log.level,
--	       prefix,
-+	sb_add(m, KERN_SOH "%c%sIN=%s OUT=%s ",
-+	       '0' + loginfo->u.log.level, prefix,
- 	       in ? in->name : "",
- 	       out ? out->name : "");
- #ifdef CONFIG_BRIDGE_NETFILTER
+-	if (seq == end
+-	    && (!tcph->rst
+-		|| (seq == 0 && state->state == TCP_CONNTRACK_SYN_SENT)))
++	if (tcph->rst && seq == 0 && state->state == TCP_CONNTRACK_SYN_SENT)
+ 		/*
+-		 * Packets contains no data: we assume it is valid
+-		 * and check the ack value only.
+-		 * However RST segments are always validated by their
+-		 * SEQ number, except when seq == 0 (reset sent answering
+-		 * SYN.
++		 * RST sent answering SYN.
+ 		 */
+ 		seq = end = sender->td_end;
+ 
 -- 
 1.7.10.4
 
