@@ -1,45 +1,55 @@
-From: Andres Lagar-Cavilla <andres.lagarcavilla@gmail.com>
-Subject: Re: [PATCH] Xen backend support for paged out grant targets.
-Date: Thu, 13 Sep 2012 15:45:14 -0400
-Message-ID: <B4C805E1-3390-4002-BECC-7D1AFF2BD56D@gmail.com>
-References: <1347557306-25453-1-git-send-email-andres@lagarcavilla.org> <1347559899.25803.64.camel@dagon.hellion.org.uk>
-Mime-Version: 1.0 (Apple Message framework v1278)
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Andres Lagar-Cavilla <andres@lagarcavilla.org>,
-	"xen-devel@xen.lists.org" <xen-devel@xen.lists.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	David Miller <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1347559899.25803.64.camel@dagon.hellion.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Karsten Keil <kkeil@linux-pingi.de>
+Subject: Re: [PATCH] mISDN: Fix wrong usage of flush_work_sync while holding
+ locks
+Date: Thu, 13 Sep 2012 21:50:49 +0200
+Message-ID: <50523919.9080701@linux-pingi.de>
+References: <1347546980-15923-1-git-send-email-keil@b1-systems.de> <20120913.145937.235693485700301637.davem@davemloft.net> <20120913.150659.17331564270446673.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: keil@b1-systems.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.187]:49942 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755424Ab2IMTuy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 15:50:54 -0400
+In-Reply-To: <20120913.150659.17331564270446673.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Sep 13, 2012, at 2:11 PM, Ian Campbell wrote:
-
-> On Thu, 2012-09-13 at 18:28 +0100, Andres Lagar-Cavilla wrote:
->> 
->> * Add placeholder in array of grant table error descriptions for
->> unrelated error code we jump over. 
+Am 13.09.2012 21:06, schrieb David Miller:
+> From: David Miller <davem@davemloft.net>
+> Date: Thu, 13 Sep 2012 14:59:37 -0400 (EDT)
 > 
-> Why not just define it, it's listed here:
-> http://xenbits.xen.org/docs/unstable/hypercall/include,public,grant_table.h.html#Enum_grant_status
-Well, a) we'd be defining something no one will be using (for the moment) b) I would be signing-off on something unrelated.
+>> From: Karsten Keil <keil@b1-systems.de>
+>> Date: Thu, 13 Sep 2012 16:36:20 +0200
+>>
+>>> It is a bad idea to hold a spinlock and call flush_work_sync.
+>>> Move the workqueue cleanup outside the spinlock and use cancel_work_sync,
+>>> on closing the channel this seems to be the more correct function.
+>>> Remove the never used and constant return value of mISDN_freebchannel.
+>>>
+>>> Signed-off-by: Karsten Keil <keil@b1-systems.de>
+>>> Cc: <stable@kernel.org>
+>>
+>> Applied, thanks.
 > 
-> I notice the specific wording of the error msg is different here too.
-That should not be, I'll re-spin the patch.
+> BTW, about -stable:
+> 
+> 1) Even if it were appropriate to submit this directly to -stable,
+>    stable@kernel.org is not the correct email address and you must
+>    have seen the bounce produced by trying to send email there.
+> 
+>    Rather, stable@vger.kernel.org is the correct address.
+> 
+> 2) I queue up and submit networking bug fixes for -stable myself so
+>    you should not submit them directly but rather make a request that
+>    I add your patch to my networking -stable queue.
+> 
 
-Thanks
-Andres
+OK, then I will put something like, "Should be considered for stable
+too" in the comment and do not add the CC: stable@vger.kernel.org
+for the next time.
 
-> It'd probably be best to use the same wording as the Xen definition, so
-> all OSes end up with the same name for the same condition (else bug
-> reports will be confusing).
-> 
-> Ian.
-> 
+Thanks.
