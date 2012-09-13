@@ -1,8 +1,9 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH 3/4] net_sched: gred: fix qave reporting via netlink
-Date: Thu, 13 Sep 2012 14:01:59 -0400
-Message-ID: <50521F97.20503@mojatatu.com>
-References: <1347549755-19438-1-git-send-email-david.ward@ll.mit.edu> <1347549755-19438-3-git-send-email-david.ward@ll.mit.edu>
+Subject: Re: [PATCH 4/4] net_sched: gred: actually perform idling in WRED
+ mode
+Date: Thu, 13 Sep 2012 14:08:06 -0400
+Message-ID: <50522106.40404@mojatatu.com>
+References: <1347549755-19438-1-git-send-email-david.ward@ll.mit.edu> <1347549755-19438-4-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -10,25 +11,34 @@ Cc: netdev@vger.kernel.org, Bruce Osler <brosler@cisco.com>,
 	Cyril Chemparathy <cyril@ti.com>
 To: David Ward <david.ward@ll.mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:52856 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751897Ab2IMSCC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 14:02:02 -0400
-Received: by vcbfo13 with SMTP id fo13so2846819vcb.19
-        for <netdev@vger.kernel.org>; Thu, 13 Sep 2012 11:02:01 -0700 (PDT)
-In-Reply-To: <1347549755-19438-3-git-send-email-david.ward@ll.mit.edu>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:51139 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755119Ab2IMSIK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 14:08:10 -0400
+Received: by vbbff1 with SMTP id ff1so3805724vbb.19
+        for <netdev@vger.kernel.org>; Thu, 13 Sep 2012 11:08:09 -0700 (PDT)
+In-Reply-To: <1347549755-19438-4-git-send-email-david.ward@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 12-09-13 11:22 AM, David Ward wrote:
-> q->vars.qavg is a Wlog scaled value, but q->backlog is not. In order
-> to pass q->vars.qavg as the backlog value, we need to un-scale it.
-> Additionally, the qave value returned via netlink should not be Wlog
-> scaled, so we need to un-scale the result of red_calc_qavg().
+> gred_dequeue() and gred_drop() do not seem to get called when the
+> queue is empty, meaning that we never start idling while in WRED
+> mode. And since qidlestart is not stored by gred_store_wred_set(),
+> we would never stop idling while in WRED mode if we ever started.
+> This messes up the average queue size calculation that influences
+> packet marking/dropping behavior.
 >
-> This caused artificially high values for "Average Queue" to be shown
-> by 'tc -s -d qdisc', but did not affect the actual operation of GRED.
+> Now, we start WRED mode idling as we are removing the last packet
+> from the queue. Also we now actually stop WRED mode idling when we
+> are enqueuing a packet.
 >
+> Cc: Bruce Osler <brosler@cisco.com>
 > Signed-off-by: David Ward <david.ward@ll.mit.edu>
 
+This is one is not so obvious. Iam assuming you vetted it via some tests.
+In which case:
 Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+cheers,
+jamal
