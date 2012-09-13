@@ -1,59 +1,86 @@
-From: Shlomo Pongartz <shlomop@mellanox.com>
-Subject: Re: GRO aggregation
-Date: Thu, 13 Sep 2012 09:36:49 +0300
-Message-ID: <50517F01.9050501@mellanox.com>
-References: <504F4063.9030706@mellanox.com>  , <1347388396.13103.658.camel@edumazet-glaptop> <36F7E4A28C18BE4DB7C86058E7B607241E622022@MTRDAG01.mtl.com> , <1347390113.13103.660.camel@edumazet-glaptop> <36F7E4A28C18BE4DB7C86058E7B607241E622083@MTRDAG01.mtl.com> <1347392132.13103.663.camel@edumazet-glaptop> <505054AE.9040901@mellanox.com> <1347442394.13103.703.camel@edumazet-glaptop> <50509F30.30402@mellanox.com> <5050B6FF.5050002@hp.com> <5050B9B2.5070107@mellanox.com> <5050BDB5.8090200@hp.com>
+From: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v4 4/8] cgroup: Remove CGROUP_BUILTIN_SUBSYS_COUNT
+Date: Thu, 13 Sep 2012 14:41:03 +0800
+Message-ID: <50517FFF.4030106@huawei.com>
+References: <1347459128-32236-1-git-send-email-wagi@monom.org> <1347459128-32236-5-git-send-email-wagi@monom.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:36238 "HELO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750726Ab2IMGhR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 02:37:17 -0400
-In-Reply-To: <5050BDB5.8090200@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1347459128-32236-5-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 9/12/2012 7:52 PM, Rick Jones wrote:
-> On 09/12/2012 09:34 AM, Shlomo Pongartz wrote:
->> On 9/12/2012 7:23 PM, Rick Jones wrote:
->>> On 09/12/2012 07:41 AM, Shlomo Pongartz wrote:
->>>> Hi Eric
->>>>
->>>> The TSO is just a mean to create a burst of frames on the wire so the
->>>> NAPI will be able to pool as much as possible.
->>>
->>> Is it?  If I recall correctly, TSO was in place well before all
->>> drivers were using NAPI.  And NAPI was being proposed independent of
->>> TSO. TSO is there to save CPU cycles on the transmit side. "On the
->>> wire" what it sends is to be identical to what a host with greater CPU
->>> performance could accomplish.
->>>
->>> rick jones
->>>
->> Hi Rick.
->>
->> What I say is that I use TSO on the machine that transmits so I'll have
->> a burst of frames on the wire for the NAPI on the receiver machine.
->
-> Also, NAPI was in place before GRO.  IIRC, the napi code was simply a 
-> convenient/correct/natural place to have the GRO functionality.
->
-> rick jones
->
-Hi Rick
+> @@ -1321,11 +1321,13 @@ static int parse_cgroupfs_options(char *data, struct cgroup_sb_opts *opts)
+>  	 * take duplicate reference counts on a subsystem that's already used,
+>  	 * but rebind_subsystems handles this case.
+>  	 */
+> -	for (i = CGROUP_BUILTIN_SUBSYS_COUNT; i < CGROUP_SUBSYS_COUNT; i++) {
+> +	for (i = 0; i < CGROUP_SUBSYS_COUNT; i++) {
+>  		unsigned long bit = 1UL << i;
+>  
+>  		if (!(bit & opts->subsys_mask))
+>  			continue;
+> +		if (!subsys[i]->module)
+> +			continue;
 
-The thing is that napi_complete calls napi_gro_flush so this pose a 
-limit on the aggregation.
-However when I count the number of packets received until this routine 
-is been called, I get a number,
-which is bigger then what I see with tcpdump, and this number is less 
-than what is expected if the limit is 64K.
-So I what to know what can I do in order to improve things, e.g. 
-allocate the skb differently.
+This check is not necessary. If it's builtin, try_module_get() will just return 1, and
+we're fine.
 
-Shlomo
+>  		if (!try_module_get(subsys[i]->module)) {
+>  			module_pin_failed = true;
+>  			break;
+> @@ -1337,12 +1339,14 @@ static int parse_cgroupfs_options(char *data, struct cgroup_sb_opts *opts)
+>  		 * raced with a module_delete call, and to the user this is
+>  		 * essentially a "subsystem doesn't exist" case.
+>  		 */
+> -		for (i--; i >= CGROUP_BUILTIN_SUBSYS_COUNT; i--) {
+> +		for (i--; i >= 0; i--) {
+>  			/* drop refcounts only on the ones we took */
+>  			unsigned long bit = 1UL << i;
+>  
+>  			if (!(bit & opts->subsys_mask))
+>  				continue;
+> +			if (!subsys[i]->module)
+> +				continue;
+
+ditto
+
+>  			module_put(subsys[i]->module);
+>  		}
+>  		return -ENOENT;
+> @@ -1354,11 +1358,13 @@ static int parse_cgroupfs_options(char *data, struct cgroup_sb_opts *opts)
+>  static void drop_parsed_module_refcounts(unsigned long subsys_mask)
+>  {
+>  	int i;
+> -	for (i = CGROUP_BUILTIN_SUBSYS_COUNT; i < CGROUP_SUBSYS_COUNT; i++) {
+> +	for (i = 0; i < CGROUP_SUBSYS_COUNT; i++) {
+>  		unsigned long bit = 1UL << i;
+>  
+>  		if (!(bit & subsys_mask))
+>  			continue;
+> +		if (!subsys[i]->module)
+> +			continue;
+
+ditto
+
+>  		module_put(subsys[i]->module);
+>  	}
+>  }
+> @@ -1437,6 +1443,7 @@ static void init_cgroup_housekeeping(struct cgroup *cgrp)
+>  	INIT_LIST_HEAD(&cgrp->event_list);
+>  	spin_lock_init(&cgrp->event_list_lock);
+>  	simple_xattrs_init(&cgrp->xattrs);
+> +	memset(cgrp->subsys, 0, sizeof(cgrp->subsys));
+
+This seems an unrelated change, and is redundant. Am I missing something?
+
+>  }
+>  
