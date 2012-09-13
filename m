@@ -1,68 +1,68 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next.git 3/8 (V2)] stmmac: add the initial tx coalesce
- schema
-Date: Thu, 13 Sep 2012 22:10:50 +0100
-Message-ID: <1347570650.13258.40.camel@deadeye.wl.decadent.org.uk>
-References: <1347346514-23411-4-git-send-email-peppe.cavallaro@st.com>
-	 <20120913.162333.1518469374321928795.davem@davemloft.net>
-	 <1347568971.13258.19.camel@deadeye.wl.decadent.org.uk>
-	 <20120913.164645.1268091771093604148.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] ipv6: prevent useless neigh alloc on PTP
+ or lo routes
+Date: Thu, 13 Sep 2012 17:13:05 -0400 (EDT)
+Message-ID: <20120913.171305.713716058425991240.davem@davemloft.net>
+References: <1347451266.13103.882.camel@edumazet-glaptop>
+	<1347505193.13103.1340.camel@edumazet-glaptop>
+	<1347506158.13103.1365.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <peppe.cavallaro@st.com>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, lorenzo@google.com, maze@google.com,
+	therbert@google.com, willemb@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:32361 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752799Ab2IMVKz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 17:10:55 -0400
-In-Reply-To: <20120913.164645.1268091771093604148.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49544 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751997Ab2IMVNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 17:13:07 -0400
+In-Reply-To: <1347506158.13103.1365.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-09-13 at 16:46 -0400, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Thu, 13 Sep 2012 21:42:51 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 13 Sep 2012 05:15:58 +0200
+
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> > On Thu, 2012-09-13 at 16:23 -0400, David Miller wrote:
-> >> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-> >> Date: Tue, 11 Sep 2012 08:55:09 +0200
-> >> 
-> >> > +	unsigned long flags;
-> >> > +
-> >> > +	spin_lock_irqsave(&priv->tx_lock, flags);
-> >> >  
-> >> > -	spin_lock(&priv->tx_lock);
-> >> > +	priv->xstats.tx_clean++;
-> >> 
-> >> You are changing the locking here for the sake of the new timer.
-> >> 
-> >> But timers run in software interrupt context, so this change is
-> >> completely unnecessary since NAPI runs in software interrupt context
-> >> as well, and neither timers nor NAPI run in hardware interrupts
-> >> context.
-> > 
-> > NAPI pollers can be called by netpoll in hardware interrupt context, and
-> > this driver supports netpoll.
+> We have special handling of SIT devices in addrconf_prefix_route()
+> to avoid allocating a neighbour for each destination.
 > 
-> And the netpoll handler need to make amends to make sure that
-> hardware the environment expected by the software interrupt
-> code is preserved.
->
-> Well written NAPI drivers never need to disable hardware interrupts
-> in their ->poll() method and it's callers, neither should you.
+> If routing entry is :
+> 
+> ip -6 route add 2001:db8::/64 dev sit1
+> 
+> Then the kernel will create a new route and neighbour for every new
+> address under 2001:db8::/64 that we send a packet to 
+> (potentially, 2^64 routes and neighbours).
+> 
+> Under load, we immediately get the infamous "Neighbour table overflow"
+> message and machine eventually crash.
+> 
+> This does not happen if we specify a next-hop explicitly, like so:
+> 
+> ip -6 route add 2001:db8::/64 via fe80:: dev sit1
+> 
+> Same problem happens if we use routes to loopback.
+> 
+> Idea of this patch is to move existing SIT related code from
+> addrconf_prefix_route() to a more generic one in ip6_route_add(). 
+> 
+> This permits ip6_pol_route() to clone route instead of calling
+> rt6_alloc_cow() and allocate a neighbour.
+> 
+> Many thanks to Lorenzo for his help and suggestions.
+> 
+> Reported-by: Lorenzo Colitti <lorenzo@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Perhaps you should get round to reviewing netpoll, because it does
-exactly this.
+This patch lacks the desired effect without your clone-caching-removal
+patch, which I will not apply.
 
-> I'm not considering your patches until you implement this properly.
+Therefore it doesn't make any sense to apply this either, as it won't
+fix the stated problem.
 
-These aren't my patches.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Doing a proper conversion of ipv6 to ref-count-less neigh's will solve
+this problem and allow all of the clone/cow caching code to be elided
+for the majority of cases and is the correct approach to these problems.
