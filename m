@@ -1,49 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pktgen: fix crash with vlan and packet size less than
- 46
-Date: Thu, 13 Sep 2012 17:10:37 -0400 (EDT)
-Message-ID: <20120913.171037.995189832370944059.davem@davemloft.net>
-References: <1347492769-32409-1-git-send-email-nistrive@cisco.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next.git 3/8 (V2)] stmmac: add the initial tx coalesce
+ schema
+Date: Thu, 13 Sep 2012 22:10:50 +0100
+Message-ID: <1347570650.13258.40.camel@deadeye.wl.decadent.org.uk>
+References: <1347346514-23411-4-git-send-email-peppe.cavallaro@st.com>
+	 <20120913.162333.1518469374321928795.davem@davemloft.net>
+	 <1347568971.13258.19.camel@deadeye.wl.decadent.org.uk>
+	 <20120913.164645.1268091771093604148.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benve@cisco.com
-To: nistrive@cisco.com
+Cc: <peppe.cavallaro@st.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49523 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752075Ab2IMVKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 17:10:39 -0400
-In-Reply-To: <1347492769-32409-1-git-send-email-nistrive@cisco.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:32361 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752799Ab2IMVKz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 17:10:55 -0400
+In-Reply-To: <20120913.164645.1268091771093604148.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nishank Trivedi <nistrive@cisco.com>
-Date: Wed, 12 Sep 2012 16:32:49 -0700
+On Thu, 2012-09-13 at 16:46 -0400, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Thu, 13 Sep 2012 21:42:51 +0100
+> 
+> > On Thu, 2012-09-13 at 16:23 -0400, David Miller wrote:
+> >> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+> >> Date: Tue, 11 Sep 2012 08:55:09 +0200
+> >> 
+> >> > +	unsigned long flags;
+> >> > +
+> >> > +	spin_lock_irqsave(&priv->tx_lock, flags);
+> >> >  
+> >> > -	spin_lock(&priv->tx_lock);
+> >> > +	priv->xstats.tx_clean++;
+> >> 
+> >> You are changing the locking here for the sake of the new timer.
+> >> 
+> >> But timers run in software interrupt context, so this change is
+> >> completely unnecessary since NAPI runs in software interrupt context
+> >> as well, and neither timers nor NAPI run in hardware interrupts
+> >> context.
+> > 
+> > NAPI pollers can be called by netpoll in hardware interrupt context, and
+> > this driver supports netpoll.
+> 
+> And the netpoll handler need to make amends to make sure that
+> hardware the environment expected by the software interrupt
+> code is preserved.
+>
+> Well written NAPI drivers never need to disable hardware interrupts
+> in their ->poll() method and it's callers, neither should you.
 
-> If vlan option is being specified in the pktgen and packet size
-> being requested is less than 46 bytes, despite being illogical
-> request, pktgen should not crash the kernel.
-> 
-> BUG: unable to handle kernel paging request at ffff88021fb82000
-> Process kpktgend_0 (pid: 1184, threadinfo ffff880215f1a000, task ffff880218544530)
-> Call Trace:
-> [<ffffffffa0637cd2>] ? pktgen_finalize_skb+0x222/0x300 [pktgen]
-> [<ffffffff814f0084>] ? build_skb+0x34/0x1c0
-> [<ffffffffa0639b11>] pktgen_thread_worker+0x5d1/0x1790 [pktgen]
-> [<ffffffffa03ffb10>] ? igb_xmit_frame_ring+0xa30/0xa30 [igb]
-> [<ffffffff8107ba20>] ? wake_up_bit+0x40/0x40
-> [<ffffffff8107ba20>] ? wake_up_bit+0x40/0x40
-> [<ffffffffa0639540>] ? spin+0x240/0x240 [pktgen]
-> [<ffffffff8107b4e3>] kthread+0x93/0xa0
-> [<ffffffff81615de4>] kernel_thread_helper+0x4/0x10
-> [<ffffffff8107b450>] ? flush_kthread_worker+0x80/0x80
-> [<ffffffff81615de0>] ? gs_change+0x13/0x13
-> 
-> The root cause of why pktgen is not able to handle this case is due
-> to comparison of signed (datalen) and unsigned data (sizeof), which
-> eventually passes a huge number to skb_put().
-> 
-> Signed-off-by: Nishank Trivedi <nistrive@cisco.com>
+Perhaps you should get round to reviewing netpoll, because it does
+exactly this.
 
-Applied, thanks.
+> I'm not considering your patches until you implement this properly.
+
+These aren't my patches.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
