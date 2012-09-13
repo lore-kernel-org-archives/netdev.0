@@ -1,53 +1,85 @@
-From: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v4 5/8] cgroup: Wrap subsystem selection macro
-Date: Thu, 13 Sep 2012 14:41:34 +0800
-Message-ID: <5051801E.2010703@huawei.com>
-References: <1347459128-32236-1-git-send-email-wagi@monom.org> <1347459128-32236-6-git-send-email-wagi@monom.org>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net v2] net: qmi_wwan: call subdriver with control intf only
+Date: Thu, 13 Sep 2012 08:44:35 +0200
+Message-ID: <1347518675-8427-1-git-send-email-bjorn@mork.no>
+References: <1347308150-19088-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="GB2312"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1347459128-32236-6-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1347308150-19088-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 2012/9/12 22:12, Daniel Wagner wrote:
-> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-> 
-> Before we are able to define all subsystem ids at compile time we need
-> a more fine grained control what gets defined when we include
-> cgroup_subsys.h. For example we define the enums for the subsystems or
-> to declare for struct cgroup_subsys (builtin subsystem) by including
-> cgroup_subsys.h and defining SUBSYS accordingly.
-> 
-> Currently, the decision if a subsys is used is defined inside the
-> header by testing if CONFIG_*=y is true. By moving this test outside
-> of cgroup_subsys.h we are able to control it on the include level.
-> 
-> This is done by introducing IS_SUBSYS_ENABLED which then is defined
-> according the task, e.g. is CONFIG_*=y or CONFIG_*=m.
-> 
-> Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-> Cc: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-> Cc: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-> Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> Cc: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+This fixes a hang on suspend due to calling wdm_suspend on
+the unregistered data interface. The hang should have been
+a NULL pointer reference had it not been for a logic error
+in the cdc_wdm code.
 
-Acked-by: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+  commit 230718bd net: qmi_wwan: bind to both control and data interfac=
+e
 
-> ---
->  include/linux/cgroup.h        |  4 ++++
->  include/linux/cgroup_subsys.h | 24 ++++++++++++------------
->  kernel/cgroup.c               |  1 +
->  3 files changed, 17 insertions(+), 12 deletions(-)
+changed qmi_wwan to use cdc_wdm as a subdriver for devices with
+a two-interface QMI/wwan function.  The commit failed to update
+qmi_wwan_suspend and qmi_wwan_resume, which were written to handle
+either a single combined interface function, or no subdriver at all.
+
+The result was that we called into the subdriver both when the
+control interface was suspended and when the data interface was
+suspended.  Calling the subdriver suspend function with an
+unregistered interface is not supported and will make the
+subdriver bug out.
+
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+v2: fix resume error path as well
+
+
+ drivers/net/usb/qmi_wwan.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 17b8f3e..b1ba68f 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -297,7 +297,7 @@ static int qmi_wwan_suspend(struct usb_interface *i=
+ntf, pm_message_t message)
+ 	if (ret < 0)
+ 		goto err;
+=20
+-	if (info->subdriver && info->subdriver->suspend)
++	if (intf =3D=3D info->control && info->subdriver && info->subdriver->=
+suspend)
+ 		ret =3D info->subdriver->suspend(intf, message);
+ 	if (ret < 0)
+ 		usbnet_resume(intf);
+@@ -310,13 +310,14 @@ static int qmi_wwan_resume(struct usb_interface *=
+intf)
+ 	struct usbnet *dev =3D usb_get_intfdata(intf);
+ 	struct qmi_wwan_state *info =3D (void *)&dev->data;
+ 	int ret =3D 0;
++	bool callsub =3D (intf =3D=3D info->control && info->subdriver && inf=
+o->subdriver->resume);
+=20
+-	if (info->subdriver && info->subdriver->resume)
++	if (callsub)
+ 		ret =3D info->subdriver->resume(intf);
+ 	if (ret < 0)
+ 		goto err;
+ 	ret =3D usbnet_resume(intf);
+-	if (ret < 0 && info->subdriver && info->subdriver->resume && info->su=
+bdriver->suspend)
++	if (ret < 0 && callsub && info->subdriver->suspend)
+ 		info->subdriver->suspend(intf, PMSG_SUSPEND);
+ err:
+ 	return ret;
+--=20
+1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
