@@ -1,38 +1,54 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] Xen backend support for paged out grant targets.
-Date: Thu, 13 Sep 2012 19:11:39 +0100
-Message-ID: <1347559899.25803.64.camel@dagon.hellion.org.uk>
-References: <1347557306-25453-1-git-send-email-andres@lagarcavilla.org>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH v4 0/8] cgroup: Assign subsystem IDs during compile time
+Date: Thu, 13 Sep 2012 11:13:02 -0700
+Message-ID: <20120913181302.GE7677@google.com>
+References: <1347459128-32236-1-git-send-email-wagi@monom.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@xen.lists.org" <xen-devel@xen.lists.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	David Miller <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andres Lagar-Cavilla <andres@lagarcavilla.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, cgroups@vger.kernel.org,
+	Daniel Wagner <daniel.wagner@bmw-carit.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	Glauber Costa <glommer@parallels.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Kamezawa Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
+	Li Zefan <lizefan@huawei.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Daniel Wagner <wagi@monom.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:28482 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758709Ab2IMSLl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 14:11:41 -0400
-In-Reply-To: <1347557306-25453-1-git-send-email-andres@lagarcavilla.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:42082 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755292Ab2IMSNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 14:13:07 -0400
+Content-Disposition: inline
+In-Reply-To: <1347459128-32236-1-git-send-email-wagi@monom.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-09-13 at 18:28 +0100, Andres Lagar-Cavilla wrote:
+On Wed, Sep 12, 2012 at 04:12:00PM +0200, Daniel Wagner wrote:
+> I've removed the useless test in patch #4 and updated the commit message
+> on patch #7. 
 > 
-> * Add placeholder in array of grant table error descriptions for
-> unrelated error code we jump over. 
+> While rewriting the commit message #7 I realized the pointer check was
+> completely wrong. Instead testing the return value of
+> task_subsys_state() I tested the pointer return by container_of. For
+> more details on this see the commit message. 
+> 
+> Because of this I added Herbert and Paul to the Cc list. Please have
+> close look at my rambling on the RCU part in patch #7. Thanks a lot!
+> 
+> This series is against 
+> 
+>      git://git.kernel.org/pub/scm/linux/kernel/git/tj/cgroup.git for-3.7
 
-Why not just define it, it's listed here:
-http://xenbits.xen.org/docs/unstable/hypercall/include,public,grant_table.h.html#Enum_grant_status
+Applied to cgroup/for-3.7.
 
-I notice the specific wording of the error msg is different here too.
-It'd probably be best to use the same wording as the Xen definition, so
-all OSes end up with the same name for the same condition (else bug
-reports will be confusing).
+Thanks!
 
-Ian.
+-- 
+tejun
