@@ -1,50 +1,44 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH net-next] ipv6: recursive check rt->dst.from when call rt6_check_expired
-Date: Fri, 14 Sep 2012 13:54:57 +0800
-Message-ID: <1347602097-18034-1-git-send-email-roy.qing.li@gmail.com>
-To: gaofeng@cn.fujitsu.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:32817 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754166Ab2INFzI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2012 01:55:08 -0400
-Received: by pbbrr13 with SMTP id rr13so5107831pbb.19
-        for <netdev@vger.kernel.org>; Thu, 13 Sep 2012 22:55:08 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC/RFT 14/15] rtlwifi: Modify files for addition of rtl8723ae
+Date: Fri, 14 Sep 2012 09:10:56 +0300
+Message-ID: <87mx0t3zin.fsf@purkki.adurom.net>
+References: <1347483294-6943-1-git-send-email-Larry.Finger@lwfinger.net>
+	<1347483294-6943-15-git-send-email-Larry.Finger@lwfinger.net>
+	<CAGRGNgWezEzXV0-k6DA7TckNpa=zgN6LNv898N-PRU6P1LYgOw@mail.gmail.com>
+	<505170C6.8090003@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <505170C6.8090003-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> (Larry Finger's message of "Thu,
+	13 Sep 2012 00:36:06 -0500")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Li RongQing <roy.qing.li@gmail.com>
+Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> writes:
 
-If dst cache dst_a copies from dst_b, and dst_b copies from dst_c, check
-if dst_a is expired or not, we should not end with dst_a->dst.from, dst_b,
-we should check dst_c.
+>> Is this supposed to be bit #29 - I notice that COMP_USB is also bit 29.
+>
+> Yes, that is OK. One will only be used for PCI-based drivers, and the
+> other is obviously for USB. As nearly all the bits of a 32-bit
+> quantity are used, I wanted to save one if possible.
+>
+> In the final version, I'll code this as
+>
+> #define COMP_USB                       BIT(29)
+> #define COMP_EASY_CONCURRENT           COMP_USB
+>
+> That way will be more obvious.
 
-CC: Gao feng <gaofeng@cn.fujitsu.com>
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/ipv6/route.c |    6 +-----
- 1 files changed, 1 insertions(+), 5 deletions(-)
+You could also add a comment explaining it, just to make sure that
+everyone understands it.
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 83dafa5..0607ee3 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -369,15 +369,11 @@ static void ip6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
- 
- static bool rt6_check_expired(const struct rt6_info *rt)
- {
--	struct rt6_info *ort = NULL;
--
- 	if (rt->rt6i_flags & RTF_EXPIRES) {
- 		if (time_after(jiffies, rt->dst.expires))
- 			return true;
- 	} else if (rt->dst.from) {
--		ort = (struct rt6_info *) rt->dst.from;
--		return (ort->rt6i_flags & RTF_EXPIRES) &&
--			time_after(jiffies, ort->dst.expires);
-+		return rt6_check_expired((struct rt6_info *) rt->dst.from);
- 	}
- 	return false;
- }
 -- 
-1.7.4.1
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
