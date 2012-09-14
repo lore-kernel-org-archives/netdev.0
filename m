@@ -1,45 +1,44 @@
-From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
-Subject: [PATCH v2 5/7] dt/net/fsl_pq_mdio: Use of_get_child_by_name to get a named child.
-Date: Fri, 14 Sep 2012 09:19:42 +0100
-Message-ID: <1347610782-20265-1-git-send-email-srinivas.kandagatla@st.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org, robherring2@gmail.com,
-	srinivas.kandagatla@st.com, grant.likely@secretlab.ca
-To: afleming@freescale.com
+From: Sami Farin <hvtaifwkbgefbaei@gmail.com>
+Subject: Re: [PATCH v2] netfilter: take care of timewait sockets
+Date: Fri, 14 Sep 2012 12:30:58 +0300
+Message-ID: <20120914093058.ycodkuik6raclaja@m.safari.iki.fi>
+References: <20120821134921.behn76vzvhczf3gc@m.safari.iki.fi>
+ <20120902122008.jgdhwowbuke6by7h@m.safari.iki.fi>
+ <20120902132834.GB7456@breakpoint.cc>
+ <1346626385.2563.44.camel@edumazet-glaptop>
+ <1346629684.2563.78.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	Sami Farin <hvtaifwkbgefbaei@gmail.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:42047 "EHLO
-	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759151Ab2INIWv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2012 04:22:51 -0400
+Received: from smtp.kponet.fi ([213.145.209.38]:34529 "EHLO smtp.kponet.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758190Ab2INJbA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2012 05:31:00 -0400
+Received: from safari.iki.fi (unknown [77.223.43.54])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by smtp.kponet.fi (Postfix) with ESMTP id D419ADAD8F
+	for <netdev@vger.kernel.org>; Fri, 14 Sep 2012 12:30:58 +0300 (EEST)
+Content-Disposition: inline
+In-Reply-To: <1346629684.2563.78.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+On Mon, Sep 03, 2012 at 01:48:04 +0200, Eric Dumazet wrote:
+> Sami Farin reported crashes in xt_LOG because it assumes skb->sk is a
+> full blown socket.
+> 
+> But with TCP early demux, we can have skb->sk pointing to a timewait
+> socket.
+> 
+> Same fix is needed in netfnetlink_log
 
-As follow-up to "dt: introduce of_get_child_by_name to get child node by
-name." patch, This patch removes some of the code duplication in the
-driver by replacing it with of_get_child_by_name instead.
+with ip_early_demux=0 and without these patches I did not get panics for
+7 days, and with the patches and ip_early_demux=1 it has worked OK for 5 days,
+thanks.
 
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
----
- drivers/net/ethernet/freescale/fsl_pq_mdio.c |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fsl_pq_mdio.c b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-index 9527b28..e710c60 100644
---- a/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-+++ b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-@@ -355,10 +355,7 @@ static int fsl_pq_mdio_probe(struct platform_device *ofdev)
- 		goto err_free_irqs;
- 	}
- 
--	for_each_child_of_node(np, tbi) {
--		if (!strncmp(tbi->type, "tbi-phy", 8))
--			break;
--	}
-+	tbi = of_get_child_by_name(np, "tbi-phy");
- 
- 	if (tbi) {
- 		const u32 *prop = of_get_property(tbi, "reg", NULL);
 -- 
-1.7.0.4
+Do what you love because life is too short for anything else.
