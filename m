@@ -1,61 +1,37 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net] tcp: flush DMA queue before sk_wait_data if rcv_wnd is zero
-Date: Fri, 14 Sep 2012 16:59:52 +0200
-Message-ID: <20120914170432.C8B8DC6405@unicorn.suse.cz>
-Cc: "Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>,
-	"James Morris" <jmorris@namei.org>,
-	"Hideaki YOSHIFUJI" <yoshfuji@linux-ipv6.org>,
-	"Patrick McHardy" <kaber@trash.net>, <netdev@vger.kernel.org>,
-	<mkubecek@suse.cz>
-To: "David S. Miller" <davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] iproute2: bridge: finish removing replace option in man
+ pages
+Date: Fri, 14 Sep 2012 10:05:20 -0700
+Message-ID: <20120914100520.5d711bfd@nehalam.linuxnetplumber.net>
+References: <20120914065036.9063.86401.stgit@jf-dev1-dcblab>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:36187 "EHLO mx2.suse.de"
+Received: from mail.vyatta.com ([76.74.103.46]:49092 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753344Ab2INREe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2012 13:04:34 -0400
+	id S1757688Ab2INRFv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2012 13:05:51 -0400
+In-Reply-To: <20120914065036.9063.86401.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If recv() syscall is called for a TCP socket so that
-  - IOAT DMA is used
-  - MSG_WAITALL flag is used
-  - requested length is bigger than sk_rcvbuf
-  - enough data has already arrived to bring rcv_wnd to zero
-then when tcp_recvmsg() gets to calling sk_wait_data(), receive
-window can be still zero while sk_async_wait_queue exhausts
-enough space to keep it zero. As this queue isn't cleaned until
-the tcp_service_net_dma() call, sk_wait_data() cannot receive
-any data and blocks forever.
+On Thu, 13 Sep 2012 23:50:36 -0700
+John Fastabend <john.r.fastabend@intel.com> wrote:
 
-If zero receive window and non-empty sk_async_wait_queue is
-detected before calling sk_wait_data(), process the queue first.
+> This patch finishes removing the replace option from the bridge
+> man page which I missed in this commit
+> 
+> commit 57b9785de32404da3d2ac5483469b7fcc5a9c9e7
+> Author: John Fastabend <john.r.fastabend@intel.com>
+> Date:   Mon Aug 27 10:52:31 2012 -0700
+> 
+>     iproute2: bridge: remove replace and change options
+> 
+> Also add documentation for "{ self | embedded }" already shown on
+> the cmd line help msg.
+> 
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-Cc: <stable@vger.kernel.org>
----
- net/ipv4/tcp.c |   10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 2109ff4..bf9a8ab 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1762,8 +1762,14 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		}
- 
- #ifdef CONFIG_NET_DMA
--		if (tp->ucopy.dma_chan)
--			dma_async_memcpy_issue_pending(tp->ucopy.dma_chan);
-+		if (tp->ucopy.dma_chan) {
-+			if (tp->rcv_wnd == 0 &&
-+			    !skb_queue_empty(&sk->sk_async_wait_queue)) {
-+				tcp_service_net_dma(sk, true);
-+				tcp_cleanup_rbuf(sk, copied);
-+			} else
-+				dma_async_memcpy_issue_pending(tp->ucopy.dma_chan);
-+		}
- #endif
- 		if (copied >= target) {
- 			/* Do not sleep, just process backlog. */
--- 
-1.7.10.4
+Applied, thanks
