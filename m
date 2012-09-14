@@ -1,48 +1,94 @@
-From: Pablo Neira Ayuso <pablo@gnumonks.org>
-Subject: Re: [PATCH] netfilter: Allow xt_nat.c and x_tables.c to compiled in
-Date: Fri, 14 Sep 2012 14:46:35 +0200
-Message-ID: <20120914124635.GA8791@1984>
-References: <87627hfi69.fsf@xmission.com>
- <Pine.GSO.4.63.1209141353470.11622@stinky-local.trash.net>
- <20120914120853.GA6056@1984>
- <1347625514.26523.2.camel@edumazet-glaptop>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [PATCH] Xen backend support for paged out grant targets.
+Date: Fri, 14 Sep 2012 08:44:11 -0400
+Message-ID: <20120914124411.GB25249@phenom.dumpdata.com>
+References: <1347557306-25453-1-git-send-email-andres@lagarcavilla.org>
+ <1347559899.25803.64.camel@dagon.hellion.org.uk>
+ <B4C805E1-3390-4002-BECC-7D1AFF2BD56D@gmail.com>
+ <1347607141.25803.73.camel@dagon.hellion.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:33329 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755004Ab2INMqn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2012 08:46:43 -0400
+Cc: Andres Lagar-Cavilla <andres.lagarcavilla@gmail.com>,
+	Andres Lagar-Cavilla <andres@lagarcavilla.org>,
+	"xen-devel@xen.lists.org" <xen-devel@xen.lists.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	David Miller <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1347625514.26523.2.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1347607141.25803.73.camel@dagon.hellion.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 14, 2012 at 02:25:14PM +0200, Eric Dumazet wrote:
-> On Fri, 2012-09-14 at 14:08 +0200, Pablo Neira Ayuso wrote:
-> > On Fri, Sep 14, 2012 at 01:54:22PM +0200, Patrick McHardy wrote:
-> > > On Thu, 13 Sep 2012, Eric W. Biederman wrote:
-> > > 
-> > > >xt_init in x_tables.c must be called before xt_nat_init in xt_nat.c
-> > > >Reorder the makefile so that x_tables.o comes before xt_nat.o in
-> > > >netfilter.o.
-> > > >
-> > > >This allows me to built a kernel with both of these modules compiled in.
-> > > 
-> > > Thanks, we've already fixed that, the patch is queued in Pablo's tree.
+On Fri, Sep 14, 2012 at 08:19:01AM +0100, Ian Campbell wrote:
+> On Thu, 2012-09-13 at 20:45 +0100, Andres Lagar-Cavilla wrote:
+> > On Sep 13, 2012, at 2:11 PM, Ian Campbell wrote:
 > > 
-> > It should hit Linus tree soon, David pulled the fix yesterday.
-> > --
+> > > On Thu, 2012-09-13 at 18:28 +0100, Andres Lagar-Cavilla wrote:
+> > >> 
+> > >> * Add placeholder in array of grant table error descriptions for
+> > >> unrelated error code we jump over. 
+> > > 
+> > > Why not just define it, it's listed here:
+> > > http://xenbits.xen.org/docs/unstable/hypercall/include,public,grant_table.h.html#Enum_grant_status
+> > Well, a) we'd be defining something no one will be using (for the
+> > moment)
 > 
-> Little correction :
+> Even if no one in the kernel is using it, having "placeholder" as an
+> entry in GNTTABOP_error_msgs is just silly, even things which don't
+> understand GNTST_address_too_big directly could end up looking it up
+> here.
 > 
-> Its in net-next, Linus tree doesnt need this fix yet.
+> >  b) I would be signing-off on something unrelated.
 > 
-> http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git;a=commitdiff;h=00545bec9412d130c77f72a08d6c8b6ad21d4a1e
+> Lets take this patch instead then.
+> 
+> 8<------------------------------------------------
+> 
+> >From cb9daaf3029accb6d5fef58b450a625b27190429 Mon Sep 17 00:00:00 2001
+> From: Ian Campbell <ian.campbell@citrix.com>
+> Date: Fri, 14 Sep 2012 08:10:06 +0100
+> Subject: [PATCH] xen: resynchronise grant table status codes with upstream
+> 
+> Adds GNTST_address_too_big and GNTST_eagain.
+> 
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
 
-You're right, thanks for the clarification.
+applied.
+
+> ---
+>  include/xen/interface/grant_table.h |    8 ++++++--
+>  1 file changed, 6 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/xen/interface/grant_table.h b/include/xen/interface/grant_table.h
+> index a17d844..84a8fbf 100644
+> --- a/include/xen/interface/grant_table.h
+> +++ b/include/xen/interface/grant_table.h
+> @@ -519,7 +519,9 @@ DEFINE_GUEST_HANDLE_STRUCT(gnttab_get_version);
+>  #define GNTST_no_device_space  (-7) /* Out of space in I/O MMU.              */
+>  #define GNTST_permission_denied (-8) /* Not enough privilege for operation.  */
+>  #define GNTST_bad_page         (-9) /* Specified page was invalid for op.    */
+> -#define GNTST_bad_copy_arg    (-10) /* copy arguments cross page boundary */
+> +#define GNTST_bad_copy_arg    (-10) /* copy arguments cross page boundary.   */
+> +#define GNTST_address_too_big (-11) /* transfer page address too large.      */
+> +#define GNTST_eagain          (-12) /* Operation not done; try again.        */
+>  
+>  #define GNTTABOP_error_msgs {                   \
+>      "okay",                                     \
+> @@ -532,7 +534,9 @@ DEFINE_GUEST_HANDLE_STRUCT(gnttab_get_version);
+>      "no spare translation slot in the I/O MMU", \
+>      "permission denied",                        \
+>      "bad page",                                 \
+> -    "copy arguments cross page boundary"        \
+> +    "copy arguments cross page boundary",       \
+> +    "page address size too large",              \
+> +    "operation not done; try again"             \
+>  }
+>  
+>  #endif /* __XEN_PUBLIC_GRANT_TABLE_H__ */
+> -- 
+> 1.7.10.4
+> 
+> 
