@@ -1,99 +1,267 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH net-next] net: dev: fix incorrect getting net device's name
-Date: Fri, 14 Sep 2012 14:58:27 +0800
-Message-ID: <1347605907-3884-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: ebiederm@xmission.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, Gao feng <gaofeng@cn.fujitsu.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:53419 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750955Ab2ING6X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2012 02:58:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Bhanu Prakash Gollapudi" <bprakash@broadcom.com>
+Subject: Re: [RFC PATCH 2/5] libfcoe: Create new libfcoe control
+ interfaces
+Date: Fri, 14 Sep 2012 00:06:05 -0700
+Message-ID: <5052D75D.5060908@broadcom.com>
+References: <20120910225908.13140.97277.stgit@fritz>
+ <20120910225919.13140.63240.stgit@fritz>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=utf-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gregkh@linuxfoundation.org,
+	linux-scsi@vger.kernel.org, devel@open-fcoe.org
+To: "Robert Love" <robert.w.love@intel.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20120910225919.13140.63240.stgit@fritz>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When moving a nic from net namespace A to net namespace B,
-in dev_change_net_namesapce,we call __dev_get_by_name to
-decide if the netns B has the device has the same name.
+On 9/10/2012 3:59 PM, Robert Love wrote:
+> This patch is the first in a series that will remove
+> libfcoe's create, destroy, enable and disable module
+> parameters and replace them with interface files in
+> the new /sys/bus/fcoe subsystem.
+>
+> Old layout:
+>
+> /sys/module/libfcoe/parameters/{create,destroy,enable,disable,vn2vn_create}
+>
+> New layout:
+>
+> /sys/bus/fcoe/ctlr_{create,destroy}
+> /sys/bus/fcoe/ctlr_X/{enable,disable,start}
+>
+> This patch moves fcoe drivers to the following
+> initialization sequence-
+>
+> 1) create/alloc
+> 2) configure
+> 3) start
+>
+> A control sysfs interface at /sys/bus/fcoe/ctlr_create
+> is added. Writing the interface name to this file
+> will allocate memory and create a sysfs entry for a
+> new fcoe_ctlr_device. The user may then tune the interface in
+> any desired way. After configuration the user will
+> echo any value into the /sys/bus/fcoe/devices/ctlr_X/start
+> interface to proceed with logging in.
+>
+> VN2VN logins will still use the module parameters.
+> A follow up patch to this one will make the 'mode'
+> attribute of the fcoe_ctlr_device writable. Which will
+> allow a user to change the ctlr's mode to 'VN2VN'.
+>
+> Signed-off-by: Robert Love <robert.w.love@intel.com>
+> ---
+>   Documentation/ABI/testing/sysfs-bus-fcoe |   43 ++++++++++++
+>   drivers/scsi/fcoe/fcoe.h                 |    9 +++
+>   drivers/scsi/fcoe/fcoe_ctlr.c            |    2 -
+>   drivers/scsi/fcoe/fcoe_sysfs.c           |   78 ++++++++++++++++++++++
+>   drivers/scsi/fcoe/fcoe_transport.c       |  105 +++++++++++++++++++++++++++++-
+>   include/scsi/fcoe_sysfs.h                |    4 +
+>   include/scsi/libfcoe.h                   |   14 ++++
+>   7 files changed, 250 insertions(+), 5 deletions(-)
+>
 
-if the netns B already has the same named device,we call
-dev_get_valid_name to try to get a valid name for this nic in
-the netns B,but net_device->nd_net still point to netns A now.
+<snip>
 
-this patch fix it.
+> diff --git a/drivers/scsi/fcoe/fcoe_ctlr.c b/drivers/scsi/fcoe/fcoe_ctlr.c
+> index bd899bf..ccb92323 100644
+> --- a/drivers/scsi/fcoe/fcoe_ctlr.c
+> +++ b/drivers/scsi/fcoe/fcoe_ctlr.c
+> @@ -147,7 +147,7 @@ static void fcoe_ctlr_map_dest(struct fcoe_ctlr *fip)
+>    */
+>   void fcoe_ctlr_init(struct fcoe_ctlr *fip, enum fip_state mode)
+>   {
+> -	fcoe_ctlr_set_state(fip, FIP_ST_LINK_WAIT);
+> +	fcoe_ctlr_set_state(fip, FIP_ST_DISABLED);
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
----
- net/core/dev.c |   28 ++++++++++++++++++++--------
- 1 files changed, 20 insertions(+), 8 deletions(-)
+Robert, what is the reason for initializing it to DISABLED? Unless the 
+FIP state is FIP_ST_LINK_WAIT, fcoe_ctlr_link_up() doesnt set 
+lport->link_up and hence does not allow any FIP/FCoE frames to be sent out.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b1e6d63..381ea68 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -959,18 +959,30 @@ int dev_alloc_name(struct net_device *dev, const char *name)
- }
- EXPORT_SYMBOL(dev_alloc_name);
- 
--static int dev_get_valid_name(struct net_device *dev, const char *name)
-+static int dev_alloc_name_ns(struct net *net,
-+			     struct net_device *dev,
-+			     const char *name)
- {
--	struct net *net;
-+	char buf[IFNAMSIZ];
-+	int ret;
- 
--	BUG_ON(!dev_net(dev));
--	net = dev_net(dev);
-+	ret = __dev_alloc_name(net, name, buf);
-+	if (ret >= 0)
-+		strlcpy(dev->name, buf, IFNAMSIZ);
-+	return ret;
-+}
-+
-+static int dev_get_valid_name(struct net *net,
-+			      struct net_device *dev,
-+			      const char *name)
-+{
-+	BUG_ON(!net);
- 
- 	if (!dev_valid_name(name))
- 		return -EINVAL;
- 
- 	if (strchr(name, '%'))
--		return dev_alloc_name(dev, name);
-+		return dev_alloc_name_ns(net, dev, name);
- 	else if (__dev_get_by_name(net, name))
- 		return -EEXIST;
- 	else if (dev->name != name)
-@@ -1006,7 +1018,7 @@ int dev_change_name(struct net_device *dev, const char *newname)
- 
- 	memcpy(oldname, dev->name, IFNAMSIZ);
- 
--	err = dev_get_valid_name(dev, newname);
-+	err = dev_get_valid_name(net, dev, newname);
- 	if (err < 0)
- 		return err;
- 
-@@ -5585,7 +5597,7 @@ int register_netdevice(struct net_device *dev)
- 
- 	dev->iflink = -1;
- 
--	ret = dev_get_valid_name(dev, dev->name);
-+	ret = dev_get_valid_name(net, dev, dev->name);
- 	if (ret < 0)
- 		goto out;
- 
-@@ -6229,7 +6241,7 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
- 		/* We get here if we can't use the current device name */
- 		if (!pat)
- 			goto out;
--		if (dev_get_valid_name(dev, pat) < 0)
-+		if (dev_get_valid_name(net, dev, pat) < 0)
- 			goto out;
- 	}
- 
--- 
-1.7.7.6
+>   	fip->mode = mode;
+>   	INIT_LIST_HEAD(&fip->fcfs);
+>   	mutex_init(&fip->ctlr_mutex);
+
+<snip>
+
+> @@ -627,6 +626,108 @@ static int libfcoe_device_notification(struct notifier_block *notifier,
+>   	return NOTIFY_OK;
+>   }
+>
+> +ssize_t fcoe_ctlr_create_store(struct bus_type *bus,
+> +			       const char *buf, size_t count)
+> +{
+> +	struct net_device *netdev = NULL;
+> +	struct fcoe_transport *ft = NULL;
+> +	struct fcoe_ctlr_device *ctlr_dev = NULL;
+> +	int rc = -ENODEV;
+> +	int err;
+> +
+> +	mutex_lock(&ft_mutex);
+> +
+> +	netdev = fcoe_if_to_netdev(buf);
+> +	if (!netdev) {
+> +		LIBFCOE_TRANSPORT_DBG("Invalid device %s.\n", buf);
+> +		rc = -ENODEV;
+> +		goto out_nodev;
+> +	}
+> +
+> +	ft = fcoe_netdev_map_lookup(netdev);
+> +	if (ft) {
+> +		LIBFCOE_TRANSPORT_DBG("transport %s already has existing "
+> +				      "FCoE instance on %s.\n",
+> +				      ft->name, netdev->name);
+> +		rc = -EEXIST;
+> +		goto out_putdev;
+> +	}
+> +
+> +	ft = fcoe_transport_lookup(netdev);
+> +	if (!ft) {
+> +		LIBFCOE_TRANSPORT_DBG("no FCoE transport found for %s.\n",
+> +				      netdev->name);
+> +		rc = -ENODEV;
+> +		goto out_putdev;
+> +	}
+> +
+> +	/* pass to transport create */
+> +	err = ft->alloc ? ft->alloc(netdev) : -ENODEV;
+> +	if (err) {
+> +		fcoe_del_netdev_mapping(netdev);
+> +		rc = -ENOMEM;
+> +		goto out_putdev;
+> +	}
+> +
+> +	err = fcoe_add_netdev_mapping(netdev, ft);
+> +	if (err) {
+> +		LIBFCOE_TRANSPORT_DBG("failed to add new netdev mapping "
+> +				      "for FCoE transport %s for %s.\n",
+> +				      ft->name, netdev->name);
+> +		rc = -ENODEV;
+> +		goto out_putdev;
+> +	}
+> +
+> +	LIBFCOE_TRANSPORT_DBG("transport %s %s to create fcoe on %s.\n",
+> +			      ft->name, (ctlr_dev) ? "succeeded" : "failed",
+> +			      netdev->name);
+
+Where is ctlr_dev updated? I guess you're intending to check return 
+status of ft->alloc() here.
+
+> +
+> +out_putdev:
+> +	dev_put(netdev);
+> +out_nodev:
+> +	mutex_unlock(&ft_mutex);
+> +	return rc;
+> +}
+> +
+> +ssize_t fcoe_ctlr_destroy_store(struct bus_type *bus,
+> +				const char *buf, size_t count)
+> +{
+> +	int rc = -ENODEV;
+> +	struct net_device *netdev = NULL;
+> +	struct fcoe_transport *ft = NULL;
+> +
+> +	mutex_lock(&ft_mutex);
+> +
+> +	netdev = fcoe_if_to_netdev(buf);
+> +	if (!netdev) {
+> +		LIBFCOE_TRANSPORT_DBG("invalid device %s.\n", buf);
+> +		goto out_nodev;
+> +	}
+> +
+> +	ft = fcoe_netdev_map_lookup(netdev);
+> +	if (!ft) {
+> +		LIBFCOE_TRANSPORT_DBG("no FCoE transport found for %s.\n",
+> +				      netdev->name);
+> +		goto out_putdev;
+> +	}
+> +
+> +	/* pass to transport destroy */
+> +	rc = ft->destroy(netdev);
+> +	if (rc)
+> +		goto out_putdev;
+> +
+> +	fcoe_del_netdev_mapping(netdev);
+> +	LIBFCOE_TRANSPORT_DBG("transport %s %s to destroy fcoe on %s.\n",
+> +			      ft->name, (rc) ? "failed" : "succeeded",
+> +			      netdev->name);
+> +	rc = count; /* required for successful return */
+> +out_putdev:
+> +	dev_put(netdev);
+> +out_nodev:
+> +	mutex_unlock(&ft_mutex);
+> +	return rc;
+> +}
+> +EXPORT_SYMBOL(fcoe_ctlr_destroy_store);
+>
+>   /**
+>    * fcoe_transport_create() - Create a fcoe interface
+> diff --git a/include/scsi/fcoe_sysfs.h b/include/scsi/fcoe_sysfs.h
+> index 421ae67..8c5ea70 100644
+> --- a/include/scsi/fcoe_sysfs.h
+> +++ b/include/scsi/fcoe_sysfs.h
+> @@ -36,6 +36,9 @@ struct fcoe_sysfs_function_template {
+>   	void (*get_fcoe_ctlr_fcs_error)(struct fcoe_ctlr_device *);
+>   	void (*get_fcoe_ctlr_mode)(struct fcoe_ctlr_device *);
+>   	void (*set_fcoe_ctlr_mode)(struct fcoe_ctlr_device *);
+> +	int  (*set_fcoe_ctlr_start)(struct fcoe_ctlr_device *);
+> +	int  (*set_fcoe_ctlr_enable)(struct fcoe_ctlr_device *);
+> +	int  (*set_fcoe_ctlr_disable)(struct fcoe_ctlr_device *);
+>   	void (*get_fcoe_fcf_selected)(struct fcoe_fcf_device *);
+>   	void (*get_fcoe_fcf_vlan_id)(struct fcoe_fcf_device *);
+>   };
+> @@ -64,6 +67,7 @@ struct fcoe_ctlr_device {
+>
+>   	int                             fcf_dev_loss_tmo;
+>   	enum fip_conn_type              mode;
+> +	u8                              started:1;
+>
+>   	/* expected in host order for displaying */
+>   	struct fcoe_fc_els_lesb         lesb;
+> diff --git a/include/scsi/libfcoe.h b/include/scsi/libfcoe.h
+> index 20533cc..b19a489 100644
+> --- a/include/scsi/libfcoe.h
+> +++ b/include/scsi/libfcoe.h
+> @@ -289,8 +289,11 @@ static inline bool is_fip_mode(struct fcoe_ctlr *fip)
+>    * @attached:	whether this transport is already attached
+>    * @list:	list linkage to all attached transports
+>    * @match:	handler to allow the transport driver to match up a given netdev
+> + * @alloc:      handler to allocate per-instance FCoE structures
+> + *		(no discovery or login)
+>    * @create:	handler to sysfs entry of create for FCoE instances
+> - * @destroy:	handler to sysfs entry of destroy for FCoE instances
+> + * @destroy:    handler to delete per-instance FCoE structures
+> + *		(frees all memory)
+>    * @enable:	handler to sysfs entry of enable for FCoE instances
+>    * @disable:	handler to sysfs entry of disable for FCoE instances
+>    */
+> @@ -299,6 +302,7 @@ struct fcoe_transport {
+>   	bool attached;
+>   	struct list_head list;
+>   	bool (*match) (struct net_device *device);
+> +	int (*alloc) (struct net_device *device);
+>   	int (*create) (struct net_device *device, enum fip_state fip_mode);
+>   	int (*destroy) (struct net_device *device);
+>   	int (*enable) (struct net_device *device);
+> @@ -375,4 +379,12 @@ struct fcoe_netdev_mapping {
+>   int fcoe_transport_attach(struct fcoe_transport *ft);
+>   int fcoe_transport_detach(struct fcoe_transport *ft);
+>
+> +/* sysfs store handler for ctrl_control interface */
+> +ssize_t fcoe_ctlr_create_store(struct bus_type *bus,
+> +			       const char *buf, size_t count);
+> +ssize_t fcoe_ctlr_destroy_store(struct bus_type *bus,
+> +				const char *buf, size_t count);
+> +
+>   #endif /* _LIBFCOE_H */
+> +
+> +
+>
+>
+
+
