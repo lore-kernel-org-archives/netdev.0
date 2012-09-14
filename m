@@ -1,108 +1,118 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Oops with latest (netfilter) nf-next tree, when unloading
- iptable_nat
-Date: Fri, 14 Sep 2012 15:15:47 +0200 (MEST)
-Message-ID: <Pine.GSO.4.63.1209141511020.11622@stinky-local.trash.net>
-References: <1347357081.3928.32.camel@localhost> <20120912213627.GJ14750@breakpoint.cc>
- <20120914120750.GA5764@1984>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: NULL deref in bnx2 / crashes ? ( was: netconsole leads to stalled
+ CPU task )
+Date: Fri, 14 Sep 2012 21:22:41 +0800
+Message-ID: <50532FA1.3070706@gmail.com>
+References: <CAF6-1L4wh0P-Wi-keN98wb-2V_avZYVE3ycf3tEe9SBpgK1dDQ@mail.gmail.com> <1345634026.5158.1084.camel@edumazet-glaptop> <CAF6-1L6zr5WJxo6FVk+2ya=EEs++u3x9iSrDxX-weBofLJuA1g@mail.gmail.com> <1345640757.5158.1321.camel@edumazet-glaptop> <CAF6-1L5hKU-VM0E5vCwExJ4kb8YB=ndotgfH7pbpxO6Q7+JHUQ@mail.gmail.com> <k2q0ck$rpr$1@ger.gmane.org> <1347455135.13103.949.camel@edumazet-glaptop> <CAF6-1L6RJkV6u4Rc2uDMQGUG23EGRKrdWSzTiHEYO9Z9ioGtaw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-559023410-959030623-1347628547=:11622"
-Cc: Florian Westphal <fw@strlen.de>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, yongjun_wei@trendmicro.com.cn
-To: Pablo Neira Ayuso <pablo@gnumonks.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120914120750.GA5764@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------040102090303070508030509"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Sylvain Munaut <s.munaut@whatever-company.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:65301 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751521Ab2INNWr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2012 09:22:47 -0400
+Received: by obbuo13 with SMTP id uo13so6196163obb.19
+        for <netdev@vger.kernel.org>; Fri, 14 Sep 2012 06:22:46 -0700 (PDT)
+In-Reply-To: <CAF6-1L6RJkV6u4Rc2uDMQGUG23EGRKrdWSzTiHEYO9Z9ioGtaw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+This is a multi-part message in MIME format.
+--------------040102090303070508030509
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
----559023410-959030623-1347628547=:11622
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-
-On Fri, 14 Sep 2012, Pablo Neira Ayuso wrote:
-
-> On Wed, Sep 12, 2012 at 11:36:27PM +0200, Florian Westphal wrote:
->> Jesper Dangaard Brouer <brouer@redhat.com> wrote:
->>
->> [ CC'd Patrick ]
->>
->>> I'm hitting this general protection fault, when unloading iptables_nat.
->>> [  524.591067] Pid: 5842, comm: modprobe Not tainted 3.6.0-rc3-pablo-nf-next+ #1 Red Hat KVM
->>> [  524.591067] RIP: 0010:[<ffffffffa002c2fd>]  [<ffffffffa002c2fd>] nf_nat_proto_clean+0x6d/0xc0 [nf_nat]
->>> [  524.591067] RSP: 0018:ffff880073203e18  EFLAGS: 00010246
->>> [  524.591067] RAX: 0000000000000000 RBX: ffff880077dff2c8 RCX: ffff8800797fab70
->>> [  524.591067] RDX: dead000000200200 RSI: ffff880073203e88 RDI: ffffffffa002f208
->>> [  524.591067] RBP: ffff880073203e28 R08: ffff880073202000 R09: 0000000000000000
->>> [  524.591067] R10: dead000000200200 R11: dead000000100100 R12: ffffffff81c6dc00
->>>  list corruption?   ^^^^^^^^^^^^^^^^      ^^^^^^^^^^^^^^^^
->>
->> Yep, looks like it.
->>
->>> [  524.591067]  [<ffffffffa002c290>] ? nf_nat_net_exit+0x50/0x50 [nf_nat]
->>> [  524.591067]  [<ffffffff815614e3>] nf_ct_iterate_cleanup+0xc3/0x170
->>> [  524.591067]  [<ffffffffa002c54a>] nf_nat_l3proto_unregister+0x8a/0x100 [nf_nat]
->>> [  524.591067]  [<ffffffff812a0303>] ? compat_prepare_timeout+0x13/0xb0
->>> [  524.591067]  [<ffffffffa0035848>] nf_nat_l3proto_ipv4_exit+0x10/0x23 [nf_nat_ipv4]
->>
->> On module removal nf_nat_ipv4 calls nf_iterate_cleanup which invokes
->> nf_nat_proto_clean() for each conntrack.  That will then call
->> hlist_del_rcu(&nat->bysource) using eachs conntracks nat ext area.
->>
->> Problem is that nf_nat_proto_clean() is called multiple times for the same
->> conntrack:
->> a) nf_ct_iterate_cleanup() returns each ct twice (origin, reply)
->> b) we call it both for l3 and for l4 protocol ids
->>
->> We barf in hlist_del_rcu the 2nd time because ->pprev is poisoned.
->>
->> This was introduced with the ipv6 nat patches.
->>
->> --- a/net/netfilter/nf_nat_core.c
->> +++ b/net/netfilter/nf_nat_core.c
->> @@ -487,7 +487,7 @@ static int nf_nat_proto_clean(struct nf_conn *i, void *data)
->>
->>         if (clean->hash) {
->>                 spin_lock_bh(&nf_nat_lock);
->> -               hlist_del_rcu(&nat->bysource);
->> +               hlist_del_init_rcu(&nat->bysource);
->>                 spin_unlock_bh(&nf_nat_lock);
->>         } else {
->>
->> Would probably avoid it.  I guess it would be nicer to only call this
->> once for each ct.
->>
->> Patrick, any other idea?
+On 09/14/2012 01:35 AM, Sylvain Munaut wrote:
+> Hi,
 >
-> I already discussed this with Florian (I've been having problems with
-> two out of three of my email accounts this week... so I couldn't reply
-> to this email in the mailing list).
+>> Yes, but I have some worries of why it is needed.
+>>
+>> Isnt it covering a bug elsewhere ?
 >
-> We can add nf_nat_iterate_cleanup that can iterate over the NAT
-> hashtable to replace current usage of nf_ct_iterate_cleanup.
+> That may very well be.
+>
+> Of the few test servers I have running the same kernel, I just found
+> the one with netconsole active to be "stuck".
+>
+> Not frozen, but all user process are hanged up and it's spitting
+> message about processes and CPU being "stuck". The trace is different
+> in each case depending on what the process was actually doing at the
+> time it got stuck.
+>
+> No message sent to the netconsole with the root cause and nothing was
+> written in the logs ...
+>
 
-Lets just bail out when IPS_SRC_NAT_DONE is not set, that should also fix
-it. Could you try this patch please?
----559023410-959030623-1347628547=:11622
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name=x
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.GSO.4.63.1209141515470.11622@stinky-local.trash.net>
-Content-Description: 
-Content-Disposition: attachment; filename=x
+Yeah, in this case, kdump is your friend. :)
 
-ZGlmZiAtLWdpdCBhL25ldC9uZXRmaWx0ZXIvbmZfbmF0X2NvcmUuYyBiL25l
-dC9uZXRmaWx0ZXIvbmZfbmF0X2NvcmUuYw0KaW5kZXggMjlkNDQ1Mi4uOGI1
-ZDIyMCAxMDA2NDQNCi0tLSBhL25ldC9uZXRmaWx0ZXIvbmZfbmF0X2NvcmUu
-Yw0KKysrIGIvbmV0L25ldGZpbHRlci9uZl9uYXRfY29yZS5jDQpAQCAtNDgx
-LDYgKzQ4MSw4IEBAIHN0YXRpYyBpbnQgbmZfbmF0X3Byb3RvX2NsZWFuKHN0
-cnVjdCBuZl9jb25uICppLCB2b2lkICpkYXRhKQ0KIA0KIAlpZiAoIW5hdCkN
-CiAJCXJldHVybiAwOw0KKwlpZiAoIShpLT5zdGF0dXMgJiBJUFNfU1JDX05B
-VF9ET05FKSkNCisJCXJldHVybiAwOw0KIAlpZiAoKGNsZWFuLT5sM3Byb3Rv
-ICYmIG5mX2N0X2wzbnVtKGkpICE9IGNsZWFuLT5sM3Byb3RvKSB8fA0KIAkg
-ICAgKGNsZWFuLT5sNHByb3RvICYmIG5mX2N0X3Byb3RvbnVtKGkpICE9IGNs
-ZWFuLT5sNHByb3RvKSkNCiAJCXJldHVybiAwOw0K
+Anyway, I think Eric is right, the bug may be in other place. I am 
+wondering if the attached patch could help? It seems in netpoll tx path, 
+we miss the chance of calling ->ndo_select_queue().
 
----559023410-959030623-1347628547=:11622--
+Please give it a try.
+
+Thanks!
+
+--------------040102090303070508030509
+Content-Type: text/x-patch;
+ name="netpoll-txq.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="netpoll-txq.diff"
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index ae3153c0..72661f6 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1403,6 +1403,9 @@ static inline void netdev_for_each_tx_queue(struct net_device *dev,
+ 		f(dev, &dev->_tx[i], arg);
+ }
+ 
++extern struct netdev_queue *netdev_pick_tx(struct net_device *dev,
++					   struct sk_buff *skb);
++
+ /*
+  * Net namespace inlines
+  */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b1e6d63..d76bf73 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2381,8 +2381,8 @@ static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
+ #endif
+ }
+ 
+-static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+-					struct sk_buff *skb)
++struct netdev_queue *netdev_pick_tx(struct net_device *dev,
++				    struct sk_buff *skb)
+ {
+ 	int queue_index;
+ 	const struct net_device_ops *ops = dev->netdev_ops;
+@@ -2556,7 +2556,7 @@ int dev_queue_xmit(struct sk_buff *skb)
+ 
+ 	skb_update_prio(skb);
+ 
+-	txq = dev_pick_tx(dev, skb);
++	txq = netdev_pick_tx(dev, skb);
+ 	q = rcu_dereference_bh(txq->qdisc);
+ 
+ #ifdef CONFIG_NET_CLS_ACT
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index dd67818..77a0388 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -328,7 +328,7 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
+ 	if (skb_queue_len(&npinfo->txq) == 0 && !netpoll_owner_active(dev)) {
+ 		struct netdev_queue *txq;
+ 
+-		txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
++		txq = netdev_pick_tx(dev, skb);
+ 
+ 		/* try until next clock tick */
+ 		for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
+
+--------------040102090303070508030509--
