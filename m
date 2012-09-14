@@ -1,120 +1,94 @@
-From: "Bhanu Prakash Gollapudi" <bprakash@broadcom.com>
-Subject: Re: [RFC PATCH 4/5] bnx2fc: Use new fcoe_sysfs control
- interface
-Date: Fri, 14 Sep 2012 00:28:54 -0700
-Message-ID: <5052DCB6.4030704@broadcom.com>
-References: <20120910225908.13140.97277.stgit@fritz>
- <20120910225930.13140.97949.stgit@fritz>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [net-next.git 3/8 (V2)] stmmac: add the initial tx coalesce schema
+Date: Fri, 14 Sep 2012 09:36:30 +0200
+Message-ID: <5052DE7E.8070704@st.com>
+References: <1347346514-23411-1-git-send-email-peppe.cavallaro@st.com> <1347346514-23411-4-git-send-email-peppe.cavallaro@st.com> <20120913.162333.1518469374321928795.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8;
- format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gregkh@linuxfoundation.org,
-	linux-scsi@vger.kernel.org, devel@open-fcoe.org
-To: "Robert Love" <robert.w.love@intel.com>
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2149 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756468Ab2INH3I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2012 03:29:08 -0400
-In-Reply-To: <20120910225930.13140.97949.stgit@fritz>
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:57525 "EHLO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756578Ab2INHgu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2012 03:36:50 -0400
+In-Reply-To: <20120913.162333.1518469374321928795.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/10/2012 03:59 PM, Robert Love wrote:
-> Convert	bnx2fc to use the new fcoe_sysfs create, delete,
-> enable, disable, start and mode.
+On 9/13/2012 10:23 PM, David Miller wrote:
+> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+> Date: Tue, 11 Sep 2012 08:55:09 +0200
 >
-> bnx2fc doesn't support VN2VN. bnx2fc will not initialize
-> the set_fcoe_ctlr_mode routine and therefore its instances
-> will always be in FABRIC mode. There was previously an
-> explicit check for the ctlr's mode, but this is no longer
-> needed because not implementing set_fcoe_ctlr_mode implies
-> that the ctlr cannot change from the FABRIC mode.
+>> +	unsigned long flags;
+>> +
+>> +	spin_lock_irqsave(&priv->tx_lock, flags);
+>>
+>> -	spin_lock(&priv->tx_lock);
+>> +	priv->xstats.tx_clean++;
 >
-> Signed-off-by: Robert Love <robert.w.love@intel.com>
-> ---
->   drivers/scsi/bnx2fc/bnx2fc_fcoe.c |   98 +++++++++++++++++++++++--------------
->   1 file changed, 60 insertions(+), 38 deletions(-)
+> You are changing the locking here for the sake of the new timer.
 >
-> diff --git a/drivers/scsi/bnx2fc/bnx2fc_fcoe.c b/drivers/scsi/bnx2fc/bnx2fc_fcoe.c
-> index f52f668f..560c8c8 100644
-> --- a/drivers/scsi/bnx2fc/bnx2fc_fcoe.c
-> +++ b/drivers/scsi/bnx2fc/bnx2fc_fcoe.c
-<snip>
+> But timers run in software interrupt context, so this change is
+> completely unnecessary since NAPI runs in software interrupt context
+> as well, and neither timers nor NAPI run in hardware interrupts
+> context.
 
->   /**
-> + * bnx2fc_alloc - Alocate a bnx2fc FCoE interface
-> + *
-> + * @cdev: The FCoE Controller Device to start
-> + *
-> + * Called from sysfs.
-> + *
-> + * Returns: 0 for success
-> + */
-> +static int bnx2fc_start(struct fcoe_ctlr_device *cdev)
-> +{
-> +	struct fcoe_ctlr *ctlr = fcoe_ctlr_device_priv(cdev);
-> +	struct fc_lport *lport = ctlr->lp;
-> +	struct fcoe_port *port = lport_priv(lport);
-> +	struct bnx2fc_interface *interface = port->priv;
-> +
-> +	lport->boot_time = jiffies;
-> +
-> +	/* Make this master N_port */
-> +	ctlr->lp = lport;
+Indeed It can be called by the ISR too in this new implementation.
+I have added the spin_lock_irqsave/restore otherwise, testing with 
+CONFIG_PROVE_LOOKING, I get the following warning on ARM SMP.
 
-ctlr->lp should be set in bnx2fc_alloc() as we access it here in the 
-beginning of this function.
+[    8.030000]
+[    8.030000] =================================
+[    8.030000] [ INFO: inconsistent lock state ]
+[    8.030000] 3.4.7_stm24_0302-b2000+ #103 Not tainted
+[    8.030000] ---------------------------------
+[    8.030000] inconsistent {HARDIRQ-ON-W} -> {IN-HARDIRQ-W} usage.
+[    8.030000] swapper/0/1 [HC1[1]:SC0[0]:HE0:SE1] takes:
+[    8.030000]  (&(&priv->tx_lock)->rlock){?.-...}, at: [<802651d8>] 
+stmmac_tx+0x1c/0x388
+[    8.030000] {HARDIRQ-ON-W} state was registered at:
+[    8.030000]   [<800562b4>] __lock_acquire+0x638/0x179c
+[    8.030000]   [<80057884>] lock_acquire+0x60/0x74
+[    8.030000]   [<80428a08>] _raw_spin_lock+0x40/0x50
+[    8.030000]   [<802651d8>] stmmac_tx+0x1c/0x388
+[    8.030000]   [<80026be0>] run_timer_softirq+0x180/0x23c
+[    8.030000]   [<80020ccc>] __do_softirq+0xa0/0x114
+[    8.030000]   [<80021204>] irq_exit+0x58/0x7c
+[    8.030000]   [<8000dc80>] handle_IRQ+0x7c/0xb8
+[    8.030000]   [<80008464>] gic_handle_irq+0x34/0x58
+[    8.030000]   [<80429684>] __irq_svc+0x44/0x78
+[    8.030000]   [<8001c3f4>] vprintk+0x41c/0x480
+[    8.030000]   [<8042097c>] printk+0x18/0x24
+[    8.030000]   [<805aef6c>] prepare_namespace+0x1c/0x1a4
+[    8.030000]   [<805ae980>] kernel_init+0x1c8/0x20c
+[    8.030000]   [<8000deb8>] kernel_thread_exit+0x0/0x8
+[    8.030000] irq event stamp: 254745
+[    8.030000] hardirqs last  enabled at (254744): [<80429240>] 
+_raw_spin_unlock_irqrestore+0x3c/0x6c
+[    8.030000] hardirqs last disabled at (254745): [<80429674>] 
+__irq_svc+0x34/0x78
+[    8.030000] softirqs last  enabled at (254741): [<8035d964>] 
+dev_queue_xmit+0x6a4/0x724
+[    8.030000] softirqs last disabled at (254737): [<8035d2d4>] 
+dev_queue_xmit+0x14/0x724
+[    8.030000]
+[    8.030000] other info that might help us debug this:
+[    8.030000]  Possible unsafe locking scenario:
+[    8.030000]
+[    8.030000]        CPU0
+[    8.030000]        ----
+[    8.030000]   lock(&(&priv->tx_lock)->rlock);
+[    8.030000]   <Interrupt>
+[    8.030000]     lock(&(&priv->tx_lock)->rlock);
+[    8.030000]
+[    8.030000]  *** DEADLOCK ***
 
-> +
-> +	if (!bnx2fc_link_ok(lport)) {
-> +		fcoe_ctlr_link_up(ctlr);
-> +		fc_host_port_type(lport->host) = FC_PORTTYPE_NPORT;
-> +		set_bit(ADAPTER_STATE_READY, &interface->hba->adapter_state);
-> +	}
-> +
-> +	BNX2FC_HBA_DBG(lport, "create: START DISC\n");
-> +	bnx2fc_start_disc(interface);
-I think more changes are required for bnx2fc as fc_lport_init() is 
-called just before calling fc_fabric_login() - whcih is called during 
-'start'. Because of this, if we just call 'create' followed by 'destroy' 
-without calling 'start', lport is not initialized and I expect to see 
-some panics when destroy is called.
-
-Let me try testing your patches and send you any fixes that are required.
-
-> +	interface->enabled = true;
-> +
-> +	return 0;
-> +}
-> +
-> +/**
->    * bnx2fc_find_hba_for_cnic - maps cnic instance to bnx2fc hba instance
->    *
->    * @cnic:	Pointer to cnic device instance
-> @@ -2271,10 +2292,8 @@ static struct fcoe_transport bnx2fc_transport = {
->   	.attached = false,
->   	.list = LIST_HEAD_INIT(bnx2fc_transport.list),
->   	.match = bnx2fc_match,
-> -	.create = bnx2fc_create,
-> +	.alloc = bnx2fc_alloc,
->   	.destroy = bnx2fc_destroy,
-> -	.enable = bnx2fc_enable,
-> -	.disable = bnx2fc_disable,
->   };
->   
->   /**
-> @@ -2514,6 +2533,9 @@ module_init(bnx2fc_mod_init);
->   module_exit(bnx2fc_mod_exit);
->   
->   static struct fcoe_sysfs_function_template bnx2fc_fcoe_sysfs_templ = {
-> +	.set_fcoe_ctlr_start = bnx2fc_start,
-> +	.set_fcoe_ctlr_enable = bnx2fc_enable,
-> +	.set_fcoe_ctlr_disable = bnx2fc_disable,
->   	.get_fcoe_ctlr_mode = fcoe_ctlr_get_fip_mode,
->   	.get_fcoe_ctlr_link_fail = bnx2fc_ctlr_get_lesb,
->   	.get_fcoe_ctlr_vlink_fail = bnx2fc_ctlr_get_lesb,
->
+> Therefore, disabling hardware interrupts for this lock is unnecessary
+> and will decrease performance.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
