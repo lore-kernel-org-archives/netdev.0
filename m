@@ -1,20 +1,24 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
 Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Fri, 14 Sep 2012 11:17:57 +1000
-Message-ID: <20120914111757.83aee928b17b60bbbc09f4d7@canb.auug.org.au>
+Date: Fri, 14 Sep 2012 11:18:10 +1000
+Message-ID: <20120914111810.f88f60875881742ce92cbf43@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/pgp-signature";
  micalg="PGP-SHA256";
- boundary="Signature=_Fri__14_Sep_2012_11_17_57_+1000_xSdNcQbr+ugS0EU3"
+ boundary="Signature=_Fri__14_Sep_2012_11_18_10_+1000_z=XJr1t.G6QUt5yC"
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Eric Dumazet <edumazet@google.com>
+	Eric Dumazet <edumazet@google.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from haggis.pcug.org.au ([203.10.76.10]:58615 "EHLO
+	members.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752421Ab2INBSM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2012 21:18:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__14_Sep_2012_11_17_57_+1000_xSdNcQbr+ugS0EU3
+--Signature=_Fri__14_Sep_2012_11_18_10_+1000_z=XJr1t.G6QUt5yC
 Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
@@ -22,66 +26,67 @@ Content-Transfer-Encoding: quoted-printable
 Hi all,
 
 Today's linux-next merge of the net-next tree got a conflict in
-net/netfilter/xt_LOG.c between commit 0626af313957 ("netfilter: take care
-of timewait sockets") from the net tree and commit 8c6e2a941ae7 ("userns:
-Convert xt_LOG to print socket kuids and kgids as uids and gids") from
-the net-next tree.
+net/netfilter/nfnetlink_log.c between commit 0626af313957 ("netfilter:
+take care of timewait sockets") from the  tree and commit 9eea9515cb5f
+("userns: nfnetlink_log: Report socket uids in the log sockets user
+namespace") from the net-next tree.
 
-I fixed it up (I think - see below) and can carry the fix as necessary
-(no action is required).
+Just context changes. I fixed it up (see below) and can carry the fix as
+necessary (no action is required).
 
 --=20
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
 
-diff --cc net/netfilter/xt_LOG.c
-index 91e9af4,02a2bf4..0000000
---- a/net/netfilter/xt_LOG.c
-+++ b/net/netfilter/xt_LOG.c
-@@@ -145,19 -145,6 +145,21 @@@ static int dump_tcp_header(struct sbuf
-  	return 0;
-  }
+diff --cc net/netfilter/nfnetlink_log.c
+index 5cfb5be,8cb67c4..0000000
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@@ -500,14 -501,16 +502,17 @@@ __build_packet_message(struct nfulnl_in
+  	}
  =20
- +static void dump_sk_uid_gid(struct sbuff *m, struct sock *sk)
- +{
- +	if (!sk || sk->sk_state =3D=3D TCP_TIME_WAIT)
- +		return;
- +
- +	read_lock_bh(&sk->sk_callback_lock);
- +	if (sk->sk_socket && sk->sk_socket->file) {
-++		const struct cred *cred =3D sk->sk_socket->file->f_cred;
- +		sb_add(m, "UID=3D%u GID=3D%u ",
-- 			sk->sk_socket->file->f_cred->fsuid,
-- 			sk->sk_socket->file->f_cred->fsgid);
-++			from_kuid_munged(&init_user_ns, cred->fsuid),
-++			from_kgid_munged(&init_user_ns, cred->fsgid));
-++	}
- +	read_unlock_bh(&sk->sk_callback_lock);
- +}
- +
-  /* One level of recursion won't kill us */
-  static void dump_ipv4_packet(struct sbuff *m,
-  			const struct nf_loginfo *info,
+  	/* UID */
+ -	if (skb->sk) {
+ -		read_lock_bh(&skb->sk->sk_callback_lock);
+ -		if (skb->sk->sk_socket && skb->sk->sk_socket->file) {
+ -			struct file *file =3D skb->sk->sk_socket->file;
+ +	sk =3D skb->sk;
+ +	if (sk && sk->sk_state !=3D TCP_TIME_WAIT) {
+ +		read_lock_bh(&sk->sk_callback_lock);
+ +		if (sk->sk_socket && sk->sk_socket->file) {
+ +			struct file *file =3D sk->sk_socket->file;
+- 			__be32 uid =3D htonl(file->f_cred->fsuid);
+- 			__be32 gid =3D htonl(file->f_cred->fsgid);
++ 			__be32 uid =3D htonl(from_kuid_munged(inst->peer_user_ns,
++ 							    file->f_cred->fsuid));
++ 			__be32 gid =3D htonl(from_kgid_munged(inst->peer_user_ns,
++ 							    file->f_cred->fsgid));
++ 			/* need to unlock here since NLA_PUT may goto */
+ -			read_unlock_bh(&skb->sk->sk_callback_lock);
+ +			read_unlock_bh(&sk->sk_callback_lock);
+  			if (nla_put_be32(inst->skb, NFULA_UID, uid) ||
+  			    nla_put_be32(inst->skb, NFULA_GID, gid))
+  				goto nla_put_failure;
 
---Signature=_Fri__14_Sep_2012_11_17_57_+1000_xSdNcQbr+ugS0EU3
+--Signature=_Fri__14_Sep_2012_11_18_10_+1000_z=XJr1t.G6QUt5yC
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAEBCAAGBQJQUoXFAAoJEECxmPOUX5FE/SUQAJn3bmHOSOWg/4w57bS8toxv
-njVa6n9BW+vugSA0f+AloczncYGw7UOBVTNJb/UR/STKO3Q9nSTw0TLAVpsltDOu
-eDEyqJzc8JIIJOz9DNSMg8QOKMGy1Rif0XOiz+pds2EUKa1O+JaXVZby4bTB+mae
-/fDbNLyzDxVZPSYYihbhSmwhtdWSyvA5lDg2MCilA/CznXgyu0UQ01bEVVRXVAly
-Yft3hki6qBKxSoYFYCFNd4NAhyh9NhfA7yYV/qFhEB4kUq/OPW3CqLr2GEgnEfYt
-A8qeaDJZUCi5d8nzH3Mnx0vM8o4+7iqDRxd5iyOSTlgUruP/FactzmAv91DqwueQ
-kQrneQ9/qX5T1g67oCcOAfdmOLg0uzkR/AQYNHux5CIf8gukV7wobrxI8sqh95kW
-gwld3SLnZhYsPgrjfcKL7NGDLG1nfTEKd5iej3hYHfZnqCsD5nsPqkuSZDOi5aYG
-ynHRBQBSdcSSg/yxL3197nwnSl5Kc3/+SQLWYrIavXDMT8bLquDWZEZGoMaqbvwJ
-SqjRaIXPPdqHRNnGnsvRBukaIz+U4aQGMeR10Hm/OAOcXarsKPSTW5t0CusKLtan
-Xq0MM6IeGwcZnC6R8P01/SvJuKFkuQV9n0OOQJtgq0nM4z8HGVJRLCXcwCYrZ4Cc
-SxYquPR3GciyJCV/Wk/3
-=4M74
+iQIcBAEBCAAGBQJQUoXSAAoJEECxmPOUX5FEbnoP/2NLujmAdcoQbe47Ow85kDi3
+Q5Dw1uMOrkxgv7Cy006tre6mgafEsm/X/2vIb1eV2l26Yy8aB6LxXW4mPb5eMpUN
+TolHfl/PBNATMpm11xY1Z7dYUPb91Y9rNSHMpeLPO5qWgANp8GIFG+K6SUj4Ivdq
+sF4DjG29jvCuELe0jhv9xeqdAqbaP4bNvD0ffNattJVcn3KPA2R8mxO6S0jZBpZz
+rgMzOd5R+u6TZmpF2/zqkE5+ftqOXQ7tfJpaKCxZ1KBLf8NxraYGD7AjW0mzyMFo
+qYr6h5TelGNVkm7e59xVQ/mMNFDTAcqWZEqenRCzK6F3d7buuIlvmxHhrSa67X5l
+EduKWICVgSX0xbpYl6EV8O0oZDCEL4iWzp7Z9uhWses68AZ2Qr2aK/8Mu206U+6A
+d3Yjzs3PebtenJ8AUlcTh33mFJcXxZ/J+fGMzd1e8rAbSNFTYEHPuvGx5Ip8sJsq
+RMXKLpCpf9oICccarb9/5hnoSo+S72MgM7QC9qrRbENyxHD3mkf3wK/Ao3I6qqdO
+U7Zn93XNkh69MV3jkI022oliN5EP7RHXzfzMZsSGzcumXf47qbeBCLkap6VRfKWB
+xxlgjWN2c9Sx5DYBpnY710/UGYlaZtfVXrAsTmYoQix0iStiaGF7Gu2XDHgN02zG
+k1O9K3YGGtxawZg49k2p
+=C0hZ
 -----END PGP SIGNATURE-----
 
---Signature=_Fri__14_Sep_2012_11_17_57_+1000_xSdNcQbr+ugS0EU3--
+--Signature=_Fri__14_Sep_2012_11_18_10_+1000_z=XJr1t.G6QUt5yC--
