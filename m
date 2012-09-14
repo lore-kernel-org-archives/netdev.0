@@ -1,44 +1,99 @@
-From: Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC/RFT 14/15] rtlwifi: Modify files for addition of rtl8723ae
-Date: Fri, 14 Sep 2012 09:10:56 +0300
-Message-ID: <87mx0t3zin.fsf@purkki.adurom.net>
-References: <1347483294-6943-1-git-send-email-Larry.Finger@lwfinger.net>
-	<1347483294-6943-15-git-send-email-Larry.Finger@lwfinger.net>
-	<CAGRGNgWezEzXV0-k6DA7TckNpa=zgN6LNv898N-PRU6P1LYgOw@mail.gmail.com>
-	<505170C6.8090003@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <505170C6.8090003-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> (Larry Finger's message of "Thu,
-	13 Sep 2012 00:36:06 -0500")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH net-next] net: dev: fix incorrect getting net device's name
+Date: Fri, 14 Sep 2012 14:58:27 +0800
+Message-ID: <1347605907-3884-1-git-send-email-gaofeng@cn.fujitsu.com>
+Cc: ebiederm@xmission.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, Gao feng <gaofeng@cn.fujitsu.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:53419 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750955Ab2ING6X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2012 02:58:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> writes:
+When moving a nic from net namespace A to net namespace B,
+in dev_change_net_namesapce,we call __dev_get_by_name to
+decide if the netns B has the device has the same name.
 
->> Is this supposed to be bit #29 - I notice that COMP_USB is also bit 29.
->
-> Yes, that is OK. One will only be used for PCI-based drivers, and the
-> other is obviously for USB. As nearly all the bits of a 32-bit
-> quantity are used, I wanted to save one if possible.
->
-> In the final version, I'll code this as
->
-> #define COMP_USB                       BIT(29)
-> #define COMP_EASY_CONCURRENT           COMP_USB
->
-> That way will be more obvious.
+if the netns B already has the same named device,we call
+dev_get_valid_name to try to get a valid name for this nic in
+the netns B,but net_device->nd_net still point to netns A now.
 
-You could also add a comment explaining it, just to make sure that
-everyone understands it.
+this patch fix it.
 
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ net/core/dev.c |   28 ++++++++++++++++++++--------
+ 1 files changed, 20 insertions(+), 8 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b1e6d63..381ea68 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -959,18 +959,30 @@ int dev_alloc_name(struct net_device *dev, const char *name)
+ }
+ EXPORT_SYMBOL(dev_alloc_name);
+ 
+-static int dev_get_valid_name(struct net_device *dev, const char *name)
++static int dev_alloc_name_ns(struct net *net,
++			     struct net_device *dev,
++			     const char *name)
+ {
+-	struct net *net;
++	char buf[IFNAMSIZ];
++	int ret;
+ 
+-	BUG_ON(!dev_net(dev));
+-	net = dev_net(dev);
++	ret = __dev_alloc_name(net, name, buf);
++	if (ret >= 0)
++		strlcpy(dev->name, buf, IFNAMSIZ);
++	return ret;
++}
++
++static int dev_get_valid_name(struct net *net,
++			      struct net_device *dev,
++			      const char *name)
++{
++	BUG_ON(!net);
+ 
+ 	if (!dev_valid_name(name))
+ 		return -EINVAL;
+ 
+ 	if (strchr(name, '%'))
+-		return dev_alloc_name(dev, name);
++		return dev_alloc_name_ns(net, dev, name);
+ 	else if (__dev_get_by_name(net, name))
+ 		return -EEXIST;
+ 	else if (dev->name != name)
+@@ -1006,7 +1018,7 @@ int dev_change_name(struct net_device *dev, const char *newname)
+ 
+ 	memcpy(oldname, dev->name, IFNAMSIZ);
+ 
+-	err = dev_get_valid_name(dev, newname);
++	err = dev_get_valid_name(net, dev, newname);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -5585,7 +5597,7 @@ int register_netdevice(struct net_device *dev)
+ 
+ 	dev->iflink = -1;
+ 
+-	ret = dev_get_valid_name(dev, dev->name);
++	ret = dev_get_valid_name(net, dev, dev->name);
+ 	if (ret < 0)
+ 		goto out;
+ 
+@@ -6229,7 +6241,7 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 		/* We get here if we can't use the current device name */
+ 		if (!pat)
+ 			goto out;
+-		if (dev_get_valid_name(dev, pat) < 0)
++		if (dev_get_valid_name(net, dev, pat) < 0)
+ 			goto out;
+ 	}
+ 
 -- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.7.6
