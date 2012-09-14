@@ -1,26 +1,33 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: inet_gifconf question
-Date: Fri, 14 Sep 2012 23:09:35 +0100
-Message-ID: <20120914230935.65a3769b@pyramind.ukuu.org.uk>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH 24/24] net: seeq: use __iomem pointers for MMIO
+Date: Sat, 15 Sep 2012 00:56:07 +0100
+Message-ID: <20120914235607.GF12245@n2100.arm.linux.org.uk>
+References: <1347658492-11608-1-git-send-email-arnd@arndb.de>
+ <1347658492-11608-25-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lxorguk.ukuu.org.uk ([81.2.110.251]:59161 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751959Ab2INWEl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2012 18:04:41 -0400
-Received: from pyramind.ukuu.org.uk (earthlight.etchedpixels.co.uk [81.2.110.250])
-	by lxorguk.ukuu.org.uk (8.14.5/8.14.1) with ESMTP id q8EMbEPP004506
-	for <netdev@vger.kernel.org>; Fri, 14 Sep 2012 23:37:19 +0100
-Received: from pyramind.ukuu.org.uk (localhost [127.0.0.1])
-	by pyramind.ukuu.org.uk (8.14.5/8.14.5) with ESMTP id q8EM9ZCr027624
-	for <netdev@vger.kernel.org>; Fri, 14 Sep 2012 23:09:35 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Nicolas Pitre <nico@linaro.org>, netdev@vger.kernel.org,
+ Will Deacon <will.deacon@arm.com>, linux-kernel@vger.kernel.org,
+ "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1347658492-11608-25-git-send-email-arnd@arndb.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Can anyone tell me what inet_gifconf is meant to be doing with the test
-of ifa->ifa_label against NULL when ifa->ifa_label is an array ?
+On Fri, Sep 14, 2012 at 11:34:52PM +0200, Arnd Bergmann wrote:
+> ARM is moving to stricter checks on readl/write functions,
+> so we need to use the correct types everywhere.
 
-Alan
+Same comment as for eesox.  const void __iomem * is not a problem on
+x86, so it should not be a problem on ARM.
