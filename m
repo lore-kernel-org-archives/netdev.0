@@ -1,47 +1,43 @@
-From: Sylvain Munaut <s.munaut@whatever-company.com>
-Subject: Re: NULL deref in bnx2 / crashes ? ( was: netconsole leads to stalled
- CPU task )
-Date: Fri, 14 Sep 2012 17:36:55 +0200
-Message-ID: <CAF6-1L42ZLSm4SMRSoz6ZwDKRpfRhwQmN3R5D7kjmjqRLn=2xg@mail.gmail.com>
-References: <CAF6-1L4wh0P-Wi-keN98wb-2V_avZYVE3ycf3tEe9SBpgK1dDQ@mail.gmail.com>
-	<1345634026.5158.1084.camel@edumazet-glaptop>
-	<CAF6-1L6zr5WJxo6FVk+2ya=EEs++u3x9iSrDxX-weBofLJuA1g@mail.gmail.com>
-	<1345640757.5158.1321.camel@edumazet-glaptop>
-	<CAF6-1L5hKU-VM0E5vCwExJ4kb8YB=ndotgfH7pbpxO6Q7+JHUQ@mail.gmail.com>
-	<k2q0ck$rpr$1@ger.gmane.org>
-	<1347455135.13103.949.camel@edumazet-glaptop>
-	<CAF6-1L6RJkV6u4Rc2uDMQGUG23EGRKrdWSzTiHEYO9Z9ioGtaw@mail.gmail.com>
-	<50532FA1.3070706@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: nikolay@redhat.com
+Subject: [PATCH] netxen: check for root bus in netxen_mask_aer_correctable
+Date: Fri, 14 Sep 2012 17:50:03 +0200
+Message-ID: <1347637803-4837-1-git-send-email-nikolay@redhat.com>
+Cc: rajesh.borundia@qlogic.com, netdev@vger.kernel.org
+To: sony.chacko@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:63752 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757330Ab2INPg4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2012 11:36:56 -0400
-Received: by vbbff1 with SMTP id ff1so625929vbb.19
-        for <netdev@vger.kernel.org>; Fri, 14 Sep 2012 08:36:55 -0700 (PDT)
-In-Reply-To: <50532FA1.3070706@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53762 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758824Ab2INPvV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2012 11:51:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Nikolay Aleksandrov <nikolay@redhat.com>
 
-> Anyway, I think Eric is right, the bug may be in other place. I am wondering
-> if the attached patch could help? It seems in netpoll tx path, we miss the
-> chance of calling ->ndo_select_queue().
->
-> Please give it a try.
+Add a check if pdev->bus->self == NULL (root bus). When attaching
+a netxen NIC to a VM it can be on the root bus and the guest would
+crash in netxen_mask_aer_correctable() because of a NULL pointer
+dereference if CONFIG_PCIEAER is present.
 
-This fixes the NULL deref as well. I applied your patch over vanilla
-3.6-rc5 (so without eric's patch) and I can load netconsole without it
-crashing directly.
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-I will try to put a bit of load on the machine and see how it behaves,
-if it solves the hung cpu tasks as well.
-
-Cheers,
-
-    Sylvain
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index 342b3a7..e2a4858 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -1378,6 +1378,10 @@ static void netxen_mask_aer_correctable(struct netxen_adapter *adapter)
+ 	struct pci_dev *root = pdev->bus->self;
+ 	u32 aer_pos;
+ 
++	/* root bus? */
++	if (!root)
++		return;
++
+ 	if (adapter->ahw.board_type != NETXEN_BRDTYPE_P3_4_GB_MM &&
+ 		adapter->ahw.board_type != NETXEN_BRDTYPE_P3_10G_TP)
+ 		return;
+-- 
+1.7.11.4
