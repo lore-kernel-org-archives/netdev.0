@@ -1,118 +1,77 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: NULL deref in bnx2 / crashes ? ( was: netconsole leads to stalled
- CPU task )
-Date: Fri, 14 Sep 2012 21:22:41 +0800
-Message-ID: <50532FA1.3070706@gmail.com>
-References: <CAF6-1L4wh0P-Wi-keN98wb-2V_avZYVE3ycf3tEe9SBpgK1dDQ@mail.gmail.com> <1345634026.5158.1084.camel@edumazet-glaptop> <CAF6-1L6zr5WJxo6FVk+2ya=EEs++u3x9iSrDxX-weBofLJuA1g@mail.gmail.com> <1345640757.5158.1321.camel@edumazet-glaptop> <CAF6-1L5hKU-VM0E5vCwExJ4kb8YB=ndotgfH7pbpxO6Q7+JHUQ@mail.gmail.com> <k2q0ck$rpr$1@ger.gmane.org> <1347455135.13103.949.camel@edumazet-glaptop> <CAF6-1L6RJkV6u4Rc2uDMQGUG23EGRKrdWSzTiHEYO9Z9ioGtaw@mail.gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [RFC PATCH net-next v2 0/1] Add support of ECMPv6
+Date: Fri, 14 Sep 2012 15:35:27 +0200
+Message-ID: <5053329F.6030109@6wind.com>
+References: <505058F5.9020707@linux-ipv6.org> <1347609548-14494-1-git-send-email-nicolas.dichtel@6wind.com> <87392l7xjc.fsf@guybrush.luffy.cx>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040102090303070508030509"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Sylvain Munaut <s.munaut@whatever-company.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Vincent Bernat <bernat@luffy.cx>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:65301 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751521Ab2INNWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2012 09:22:47 -0400
-Received: by obbuo13 with SMTP id uo13so6196163obb.19
-        for <netdev@vger.kernel.org>; Fri, 14 Sep 2012 06:22:46 -0700 (PDT)
-In-Reply-To: <CAF6-1L6RJkV6u4Rc2uDMQGUG23EGRKrdWSzTiHEYO9Z9ioGtaw@mail.gmail.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:49966 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751692Ab2INNfd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2012 09:35:33 -0400
+Received: by eekc1 with SMTP id c1so2507218eek.19
+        for <netdev@vger.kernel.org>; Fri, 14 Sep 2012 06:35:31 -0700 (PDT)
+In-Reply-To: <87392l7xjc.fsf@guybrush.luffy.cx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------040102090303070508030509
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
-On 09/14/2012 01:35 AM, Sylvain Munaut wrote:
-> Hi,
+Le 14/09/2012 11:40, Vincent Bernat a =C3=A9crit :
+>   =E2=9D=A6 14 septembre 2012 09:59 CEST, Nicolas Dichtel <nicolas.di=
+chtel@6wind.com> :
 >
->> Yes, but I have some worries of why it is needed.
->>
->> Isnt it covering a bug elsewhere ?
+>> Here is an example of a command to add an ECMP route:
+>> $ ip -6 route add 3ffe:304:124:2306::/64 \
+>> 	nexthop via fe80::230:1bff:feb4:e05c dev eth0 weight 1 \
+>> 	nexthop via fe80::230:1bff:feb4:dd4f dev eth0 weight 1
+In fact, I use this command as a shortcut. You can also use:
+$ ip -6 route add 3ffe:304:124:2306::/64 via fe80::230:1bff:feb4:dd4f d=
+ev eth0
+$ ip -6 route append 3ffe:304:124:2406::/64 via fe80::230:1bff:feb4:dd4=
+f dev eth0
+
+and these commands will output two standard netlink messages, without '=
+nexthop'=20
+lines.
+
 >
-> That may very well be.
+> When displaying ECMP routes, the display is different than for IPv4: =
+we
+> get two distinct routes instead of an ECMP route (with nexthop
+> keyword).
+Sure, this implementation stores each 'nexthop' like a standard route i=
+n the=20
+kernel table.
+
 >
-> Of the few test servers I have running the same kernel, I just found
-> the one with netconsole active to be "stuck".
+> With IPv4:
 >
-> Not frozen, but all user process are hanged up and it's spitting
-> message about processes and CPU being "stuck". The trace is different
-> in each case depending on what the process was actually doing at the
-> time it got stuck.
+> 193.252.X.X/26  proto zebra  metric 20
+> 	nexthop via 193.252.X.X  dev bae1 weight 1
+> 	nexthop via 193.252.X.X  dev bae2 weight 1
 >
-> No message sent to the netconsole with the root cause and nothing was
-> written in the logs ...
+> With IPv6:
 >
-
-Yeah, in this case, kdump is your friend. :)
-
-Anyway, I think Eric is right, the bug may be in other place. I am 
-wondering if the attached patch could help? It seems in netpoll tx path, 
-we miss the chance of calling ->ndo_select_queue().
-
-Please give it a try.
-
-Thanks!
-
---------------040102090303070508030509
-Content-Type: text/x-patch;
- name="netpoll-txq.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="netpoll-txq.diff"
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index ae3153c0..72661f6 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1403,6 +1403,9 @@ static inline void netdev_for_each_tx_queue(struct net_device *dev,
- 		f(dev, &dev->_tx[i], arg);
- }
- 
-+extern struct netdev_queue *netdev_pick_tx(struct net_device *dev,
-+					   struct sk_buff *skb);
-+
- /*
-  * Net namespace inlines
-  */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b1e6d63..d76bf73 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2381,8 +2381,8 @@ static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
- #endif
- }
- 
--static struct netdev_queue *dev_pick_tx(struct net_device *dev,
--					struct sk_buff *skb)
-+struct netdev_queue *netdev_pick_tx(struct net_device *dev,
-+				    struct sk_buff *skb)
- {
- 	int queue_index;
- 	const struct net_device_ops *ops = dev->netdev_ops;
-@@ -2556,7 +2556,7 @@ int dev_queue_xmit(struct sk_buff *skb)
- 
- 	skb_update_prio(skb);
- 
--	txq = dev_pick_tx(dev, skb);
-+	txq = netdev_pick_tx(dev, skb);
- 	q = rcu_dereference_bh(txq->qdisc);
- 
- #ifdef CONFIG_NET_CLS_ACT
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index dd67818..77a0388 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -328,7 +328,7 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
- 	if (skb_queue_len(&npinfo->txq) == 0 && !netpoll_owner_active(dev)) {
- 		struct netdev_queue *txq;
- 
--		txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
-+		txq = netdev_pick_tx(dev, skb);
- 
- 		/* try until next clock tick */
- 		for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
-
---------------040102090303070508030509--
+> 2a01:c9c0:X:X::/64 via fe80::215:17ff:fe85:76b9 dev bae1 metric 11
+> 2a01:c9c0:X:X::/64 via fe80::222:91ff:fe4e:b000 dev bae2 metric 11
+>
+> If I capture the netlink message from the add command, put it in a fi=
+le
+> and use "ip monitor file ...", I see this:
+>
+> 2a01:c9c0:X:X::/64
+> 	nexthop via fe80::215:17ff:fe85:76b9  dev if12 weight 1
+> 	nexthop via fe80::222:91ff:fe4e:b000  dev if11 weight 1
+>
+> Therefore, the problem is not in iproute2 which knows how to display
+> those ECMP routes. I fear that this difference make support in routin=
+g
+> daemons more difficult.
+Hmm, can you elaborate? Our routing daemon, quagga, manage it without a=
+ny problem.
