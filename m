@@ -1,59 +1,34 @@
-From: "Dowdal, John" <jdowdal@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: RE: [PATCH] sch_red: fix weighted average calculation
-Date: Fri, 14 Sep 2012 13:01:12 +0000
-Message-ID: <2D29FFBF554947468515B8EF6C733BB72E564F65@DLEE09.ent.ti.com>
+Date: Fri, 14 Sep 2012 15:13:16 +0200
+Message-ID: <1347628396.26523.6.camel@edumazet-glaptop>
 References: <1347543820-27548-1-git-send-email-cyril@ti.com>
- <1347544431.13103.1557.camel@edumazet-glaptop>
+	 <1347544431.13103.1557.camel@edumazet-glaptop>
+	 <2D29FFBF554947468515B8EF6C733BB72E564F65@DLEE09.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Chemparathy, Cyril" <cyril@ti.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"david.ward@ll.mit.edu" <david.ward@ll.mit.edu>,
 	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	"Chemparathy, Cyril" <cyril@ti.com>
+To: "Dowdal, John" <jdowdal@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1347544431.13103.1557.camel@edumazet-glaptop>
-Content-Language: en-US
+In-Reply-To: <2D29FFBF554947468515B8EF6C733BB72E564F65@DLEE09.ent.ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RXJpYywgdGhhbmsgeW91IGZvciByZXZpZXdpbmcgdGhlIGNvZGUuICBJIG5vdyBzZWUgdGhlIHBy
-b2JsZW0gd2l0aCB0aGUgcGF0Y2ggc2luY2UgYmFja2xvZyBpcyBhbiBpbnRlZ2VyIGFuZCBxYXZn
-IGlzIGEgZml4ZWQgcG9pbnQgbnVtYmVyIGF0IGxvZ1cuICANCg0KV2UgYXJlIGNvbnNpZGVyaW5n
-IGFub3RoZXIgcGF0Y2ggdG8gdXBkYXRlIHRoZSBjb21tZW50cyB0byB0aGlzIGNvZGUgKHdpdGgg
-dGhlIGFjdHVhbCBDIGNvZGUgY2hhbmdlIHJldmVydGVkKSB0byBzdG9wIHRoZSBGUFAgYnkgc2hv
-d2luZyB0aGUgZGVyaXZhdGlvbiBvZiB0aGUgZXF1YXRpb24gaW4gdGhlIGNvbW1lbnRzLiAgRG9l
-cyB0aGlzIHNvdW5kIGdvb2Q/DQoNCg0KLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206
-IEVyaWMgRHVtYXpldCBbbWFpbHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dIA0KU2VudDogVGh1
-cnNkYXksIFNlcHRlbWJlciAxMywgMjAxMiA5OjU0IEFNDQpUbzogQ2hlbXBhcmF0aHksIEN5cmls
-DQpDYzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9y
-ZzsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgZGF2aWQud2FyZEBsbC5taXQuZWR1OyBEb3dkYWwsIEpv
-aG47IHBhdWwuZ29ydG1ha2VyQHdpbmRyaXZlci5jb20NClN1YmplY3Q6IFJlOiBbUEFUQ0hdIHNj
-aF9yZWQ6IGZpeCB3ZWlnaHRlZCBhdmVyYWdlIGNhbGN1bGF0aW9uDQoNCk9uIFRodSwgMjAxMi0w
-OS0xMyBhdCAwOTo0MyAtMDQwMCwgQ3lyaWwgQ2hlbXBhcmF0aHkgd3JvdGU6DQo+IFRoaXMgcGF0
-Y2ggZml4ZXMgYW4gYXBwYXJlbnQgYnVnIGluIHRoZSBydW5uaW5nIHdlaWdodGVkIGF2ZXJhZ2Ug
-Y2FsY3VsYXRpb24NCj4gdXNlZCBpbiB0aGUgUkVEIGFsZ29yaXRobS4NCj4gDQo+IEdvaW5nIGJ5
-IHRoZSBkZXNjcmliZWQgZm9ybXVsYToNCj4gCSAgIHFhdmcgPSBxYXZnKigxLVcpICsgYmFja2xv
-ZypXDQo+IAk9PiBxYXZnID0gcWF2ZyArIChiYWNrbG9nIC0gcWF2ZykgKiBXDQo+IA0KPiAuLi4g
-d2l0aCBXIGNvbnZlcnRlZCB0byBhIHByZS1jYWxjdWxhdGVkIHNoaWZ0LCB0aGlzIHRoZW4gYmVj
-b21lczoNCj4gCXFhdmcgPSBxYXZnICsgKGJhY2tsb2cgLSBxYXZnKSA+PiBsb2dXDQo+IA0KPiAu
-Li4gZ2l2aW5nIHRoZSBtb2RpZmllZCBleHByZXNzaW9uIGludHJvZHVjZWQgYnkgdGhpcyBwYXRj
-aC4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEpvaG4gRG93ZGFsIDxqZG93ZGFsQHRpLmNvbT4NCj4g
-LS0tDQo+ICBpbmNsdWRlL25ldC9yZWQuaCB8ICAgIDIgKy0NCj4gIDEgZmlsZSBjaGFuZ2VkLCAx
-IGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUv
-bmV0L3JlZC5oIGIvaW5jbHVkZS9uZXQvcmVkLmgNCj4gaW5kZXggZWY0NjA1OC4uMDU5NjBhNCAx
-MDA2NDQNCj4gLS0tIGEvaW5jbHVkZS9uZXQvcmVkLmgNCj4gKysrIGIvaW5jbHVkZS9uZXQvcmVk
-LmgNCj4gQEAgLTI4Nyw3ICsyODcsNyBAQCBzdGF0aWMgaW5saW5lIHVuc2lnbmVkIGxvbmcgcmVk
-X2NhbGNfcWF2Z19ub19pZGxlX3RpbWUoY29uc3Qgc3RydWN0IHJlZF9wYXJtcyAqcA0KPiAgCSAq
-DQo+ICAJICogLS1BTksgKDk4MDkyNCkNCj4gIAkgKi8NCj4gLQlyZXR1cm4gdi0+cWF2ZyArIChi
-YWNrbG9nIC0gKHYtPnFhdmcgPj4gcC0+V2xvZykpOw0KPiArCXJldHVybiB2LT5xYXZnICsgKGJh
-Y2tsb2cgLSB2LT5xYXZnKSA+PiBwLT5XbG9nOw0KPiAgfQ0KPiAgDQo+ICBzdGF0aWMgaW5saW5l
-IHVuc2lnbmVkIGxvbmcgcmVkX2NhbGNfcWF2Zyhjb25zdCBzdHJ1Y3QgcmVkX3Bhcm1zICpwLA0K
-DQpUaGlzIGlzIGdvaW5nIHRvIGJlIGEgRlBQIChGcmVxdWVudGx5IFBvc3RlZCBQYXRjaCkNCg0K
-Q3VycmVudCBmb3JtdWxhZSBpcyBmaW5lLg0KDQpUaGF0cyBiZWNhdXNlIGJhY2tsb2csIGF0IHN0
-YXJ0IG9mIHJlZF9jYWxjX3Fhdmdfbm9faWRsZV90aW1lKCkgaXMgbm90DQp5ZXQgc2NhbGVkIGJ5
-IHAtPldsb2cuIHYtPmF2ZyBpcyBzY2FsZWQsIGJ1dCBub3QgYmFja2xvZy4NCg0KSGF2ZSB5b3Ug
-dGVzdGVkIFJFRCBhZnRlciB5b3VyIHBhdGNoID8NCg0KDQo=
+On Fri, 2012-09-14 at 13:01 +0000, Dowdal, John wrote:
+> Eric, thank you for reviewing the code.  I now see the problem with
+> the patch since backlog is an integer and qavg is a fixed point number
+> at logW.  
+> 
+> We are considering another patch to update the comments to this code
+> (with the actual C code change reverted) to stop the FPP by showing
+> the derivation of the equation in the comments.  Does this sound good?
+
+This would be good, please do so.
+
+Thanks
