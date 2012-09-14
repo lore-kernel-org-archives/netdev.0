@@ -1,44 +1,58 @@
-From: Sami Farin <hvtaifwkbgefbaei@gmail.com>
-Subject: Re: [PATCH v2] netfilter: take care of timewait sockets
-Date: Fri, 14 Sep 2012 12:30:58 +0300
-Message-ID: <20120914093058.ycodkuik6raclaja@m.safari.iki.fi>
-References: <20120821134921.behn76vzvhczf3gc@m.safari.iki.fi>
- <20120902122008.jgdhwowbuke6by7h@m.safari.iki.fi>
- <20120902132834.GB7456@breakpoint.cc>
- <1346626385.2563.44.camel@edumazet-glaptop>
- <1346629684.2563.78.camel@edumazet-glaptop>
+From: Vincent Bernat <bernat@luffy.cx>
+Subject: Re: [RFC PATCH net-next v2 0/1] Add support of ECMPv6
+Date: Fri, 14 Sep 2012 11:40:07 +0200
+Message-ID: <87392l7xjc.fsf@guybrush.luffy.cx>
+References: <505058F5.9020707@linux-ipv6.org>
+	<1347609548-14494-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	Sami Farin <hvtaifwkbgefbaei@gmail.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.kponet.fi ([213.145.209.38]:34529 "EHLO smtp.kponet.fi"
+Received: from bart.luffy.cx ([78.47.78.131]:34395 "EHLO bart.luffy.cx"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758190Ab2INJbA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2012 05:31:00 -0400
-Received: from safari.iki.fi (unknown [77.223.43.54])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by smtp.kponet.fi (Postfix) with ESMTP id D419ADAD8F
-	for <netdev@vger.kernel.org>; Fri, 14 Sep 2012 12:30:58 +0300 (EEST)
-Content-Disposition: inline
-In-Reply-To: <1346629684.2563.78.camel@edumazet-glaptop>
+	id S1753250Ab2INJkL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2012 05:40:11 -0400
+In-Reply-To: <1347609548-14494-1-git-send-email-nicolas.dichtel@6wind.com>
+	(Nicolas Dichtel's message of "Fri\, 14 Sep 2012 09\:59\:07 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 03, 2012 at 01:48:04 +0200, Eric Dumazet wrote:
-> Sami Farin reported crashes in xt_LOG because it assumes skb->sk is a
-> full blown socket.
-> 
-> But with TCP early demux, we can have skb->sk pointing to a timewait
-> socket.
-> 
-> Same fix is needed in netfnetlink_log
+ =E2=9D=A6 14 septembre 2012 09:59 CEST, Nicolas Dichtel <nicolas.dicht=
+el@6wind.com>=C2=A0:
 
-with ip_early_demux=0 and without these patches I did not get panics for
-7 days, and with the patches and ip_early_demux=1 it has worked OK for 5 days,
-thanks.
+> Here is an example of a command to add an ECMP route:
+> $ ip -6 route add 3ffe:304:124:2306::/64 \
+> 	nexthop via fe80::230:1bff:feb4:e05c dev eth0 weight 1 \
+> 	nexthop via fe80::230:1bff:feb4:dd4f dev eth0 weight 1
 
--- 
-Do what you love because life is too short for anything else.
+When displaying ECMP routes, the display is different than for IPv4: we
+get two distinct routes instead of an ECMP route (with nexthop
+keyword).
+
+With IPv4:
+
+193.252.X.X/26  proto zebra  metric 20=20
+	nexthop via 193.252.X.X  dev bae1 weight 1
+	nexthop via 193.252.X.X  dev bae2 weight 1
+
+With IPv6:
+
+2a01:c9c0:X:X::/64 via fe80::215:17ff:fe85:76b9 dev bae1 metric 11=20
+2a01:c9c0:X:X::/64 via fe80::222:91ff:fe4e:b000 dev bae2 metric 11
+
+If I capture the netlink message from the add command, put it in a file
+and use "ip monitor file ...", I see this:
+
+2a01:c9c0:X:X::/64
+	nexthop via fe80::215:17ff:fe85:76b9  dev if12 weight 1
+	nexthop via fe80::222:91ff:fe4e:b000  dev if11 weight 1
+
+Therefore, the problem is not in iproute2 which knows how to display
+those ECMP routes. I fear that this difference make support in routing
+daemons more difficult.
+--=20
+Make the coupling between modules visible.
+            - The Elements of Programming Style (Kernighan & Plauger)
