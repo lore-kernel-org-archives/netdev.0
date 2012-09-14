@@ -1,39 +1,85 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC PATCH net-next v2 0/1] Add support of ECMPv6
-Date: Fri, 14 Sep 2012 15:37:09 +0200
-Message-ID: <50533305.9070604@6wind.com>
-References: <505058F5.9020707@linux-ipv6.org> <1347609548-14494-1-git-send-email-nicolas.dichtel@6wind.com> <87392l7xjc.fsf@guybrush.luffy.cx> <5053329F.6030109@6wind.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Sergey Vlasov <vsu-u2l5PoMzF/Uox3rIn2DAYQ@public.gmane.org>
+Subject: Re: tulip Ethernet driver messes up USB keyboard
+Date: Fri, 14 Sep 2012 18:24:37 +0400
+Message-ID: <20120914142437.GD11919@newmaster.mivlgu.local>
+References: <CABRT9RDdbqz6iscOz7BYwEQPOo8xfstfUZyBqVw44gmPsauLTg@mail.gmail.com>
+ <CABRT9RCWU1RqpAay9iWPKwduejvkdk_CA2P_gV70iiEE2FS5HQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Vincent Bernat <bernat@luffy.cx>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:53052 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751543Ab2INNhO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2012 09:37:14 -0400
-Received: by eaac11 with SMTP id c11so1694692eaa.19
-        for <netdev@vger.kernel.org>; Fri, 14 Sep 2012 06:37:13 -0700 (PDT)
-In-Reply-To: <5053329F.6030109@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="DrWhICOqskFTAXiy"
+Cc: Kernel hackers <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux network list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Marti Raudsepp <marti-HlJQ7cSfIDjYtjvyW6yDsg@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CABRT9RCWU1RqpAay9iWPKwduejvkdk_CA2P_gV70iiEE2FS5HQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le 14/09/2012 15:35, Nicolas Dichtel a =C3=A9crit :
-> Le 14/09/2012 11:40, Vincent Bernat a =C3=A9crit :
->>   =E2=9D=A6 14 septembre 2012 09:59 CEST, Nicolas Dichtel <nicolas.d=
-ichtel@6wind.com> :
->>
->>> Here is an example of a command to add an ECMP route:
->>> $ ip -6 route add 3ffe:304:124:2306::/64 \
->>>     nexthop via fe80::230:1bff:feb4:e05c dev eth0 weight 1 \
->>>     nexthop via fe80::230:1bff:feb4:dd4f dev eth0 weight 1
-> In fact, I use this command as a shortcut. You can also use:
-> $ ip -6 route add 3ffe:304:124:2306::/64 via fe80::230:1bff:feb4:dd4f=
- dev eth0
-> $ ip -6 route append 3ffe:304:124:2406::/64 via fe80::230:1bff:feb4:d=
-d4f dev eth0
-Note also that with these commands, there is no need to patch iproute2.
+
+--DrWhICOqskFTAXiy
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, Sep 14, 2012 at 12:49:45PM +0300, Marti Raudsepp wrote:
+> After installing an old 100Mbit PCI Ethernet card to my machine, it has
+> complained a few times about spurious interrupts ("nobody cared") at a
+> random time of the day. After the oops is reported, my USB keyboard (HP
+> smart card keyboard) stops working properly -- it has lots of delay, it
+> misses some keystrokes and also causes "stuck keys". Strangely enough my =
+USB
+> mouse continues to work without problems. Apparently the USB controller a=
+nd
+> the Ethernet card share an interrupt line. Un-/replugging the keyboard do=
+es
+> not help.
+>=20
+> So far I have simply rebooted to fix the issue. I haven't been able to
+> reproduce this on will despite my best attempts.
+>=20
+> The Ethernet card is driven by the tulip driver and is listed as "ADMtek
+> NC100 Network Everywhere Fast Ethernet 10/100 (rev 11)" in lspci. My
+> motherboard uses the Intel H77 chipset (ASRock H77 Pro4/MVP)
+
+This board uses the ASMedia ASM1083 PCIe-to-PCI bridge (or maybe ASM1085 -
+hard to see from photos available on the net, and the PCI IDs for these
+chips are the same), which is known to have problems with interrupt
+handling:
+
+  https://lkml.org/lkml/2012/1/30/216
+
+I experience the same problem with ASUS P8P67 LE (except in my case the
+interrupt is not shared with anything, and the network card does not stop
+working completely, just gives horrible performance with > 100ms pings).
+
+Some people use "noirqdebug irqpoll" as a workaround:
+
+  http://lkml.indiana.edu/hypermail/linux/kernel/1204.1/03451.html
+
+But this workaround basically turns off the protection against stuck
+interrupts in the kernel, so the system could potentially be busy handling
+a stuck interrupt forever.
+
+You can also try to move the PCI card to another slot, so that it would
+use another interrupt, which might be not shared with USB or another
+important device.
+
+--DrWhICOqskFTAXiy
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iD8DBQFQUz4kW82GfkQfsqIRAoC7AJ9U9dq+xJINxEBPRnUUlYk9+JCHBACbBlMO
+5tseIVosdhOry05Mhbr/PJg=
+=icQx
+-----END PGP SIGNATURE-----
+
+--DrWhICOqskFTAXiy--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
