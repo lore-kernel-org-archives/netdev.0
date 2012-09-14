@@ -1,94 +1,59 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH] Xen backend support for paged out grant targets.
-Date: Fri, 14 Sep 2012 08:44:11 -0400
-Message-ID: <20120914124411.GB25249@phenom.dumpdata.com>
-References: <1347557306-25453-1-git-send-email-andres@lagarcavilla.org>
- <1347559899.25803.64.camel@dagon.hellion.org.uk>
- <B4C805E1-3390-4002-BECC-7D1AFF2BD56D@gmail.com>
- <1347607141.25803.73.camel@dagon.hellion.org.uk>
+From: "Dowdal, John" <jdowdal@ti.com>
+Subject: RE: [PATCH] sch_red: fix weighted average calculation
+Date: Fri, 14 Sep 2012 13:01:12 +0000
+Message-ID: <2D29FFBF554947468515B8EF6C733BB72E564F65@DLEE09.ent.ti.com>
+References: <1347543820-27548-1-git-send-email-cyril@ti.com>
+ <1347544431.13103.1557.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andres Lagar-Cavilla <andres.lagarcavilla@gmail.com>,
-	Andres Lagar-Cavilla <andres@lagarcavilla.org>,
-	"xen-devel@xen.lists.org" <xen-devel@xen.lists.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	David Miller <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"david.ward@ll.mit.edu" <david.ward@ll.mit.edu>,
+	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Chemparathy, Cyril" <cyril@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1347607141.25803.73.camel@dagon.hellion.org.uk>
+In-Reply-To: <1347544431.13103.1557.camel@edumazet-glaptop>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 14, 2012 at 08:19:01AM +0100, Ian Campbell wrote:
-> On Thu, 2012-09-13 at 20:45 +0100, Andres Lagar-Cavilla wrote:
-> > On Sep 13, 2012, at 2:11 PM, Ian Campbell wrote:
-> > 
-> > > On Thu, 2012-09-13 at 18:28 +0100, Andres Lagar-Cavilla wrote:
-> > >> 
-> > >> * Add placeholder in array of grant table error descriptions for
-> > >> unrelated error code we jump over. 
-> > > 
-> > > Why not just define it, it's listed here:
-> > > http://xenbits.xen.org/docs/unstable/hypercall/include,public,grant_table.h.html#Enum_grant_status
-> > Well, a) we'd be defining something no one will be using (for the
-> > moment)
-> 
-> Even if no one in the kernel is using it, having "placeholder" as an
-> entry in GNTTABOP_error_msgs is just silly, even things which don't
-> understand GNTST_address_too_big directly could end up looking it up
-> here.
-> 
-> >  b) I would be signing-off on something unrelated.
-> 
-> Lets take this patch instead then.
-> 
-> 8<------------------------------------------------
-> 
-> >From cb9daaf3029accb6d5fef58b450a625b27190429 Mon Sep 17 00:00:00 2001
-> From: Ian Campbell <ian.campbell@citrix.com>
-> Date: Fri, 14 Sep 2012 08:10:06 +0100
-> Subject: [PATCH] xen: resynchronise grant table status codes with upstream
-> 
-> Adds GNTST_address_too_big and GNTST_eagain.
-> 
-> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-
-applied.
-
-> ---
->  include/xen/interface/grant_table.h |    8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/xen/interface/grant_table.h b/include/xen/interface/grant_table.h
-> index a17d844..84a8fbf 100644
-> --- a/include/xen/interface/grant_table.h
-> +++ b/include/xen/interface/grant_table.h
-> @@ -519,7 +519,9 @@ DEFINE_GUEST_HANDLE_STRUCT(gnttab_get_version);
->  #define GNTST_no_device_space  (-7) /* Out of space in I/O MMU.              */
->  #define GNTST_permission_denied (-8) /* Not enough privilege for operation.  */
->  #define GNTST_bad_page         (-9) /* Specified page was invalid for op.    */
-> -#define GNTST_bad_copy_arg    (-10) /* copy arguments cross page boundary */
-> +#define GNTST_bad_copy_arg    (-10) /* copy arguments cross page boundary.   */
-> +#define GNTST_address_too_big (-11) /* transfer page address too large.      */
-> +#define GNTST_eagain          (-12) /* Operation not done; try again.        */
->  
->  #define GNTTABOP_error_msgs {                   \
->      "okay",                                     \
-> @@ -532,7 +534,9 @@ DEFINE_GUEST_HANDLE_STRUCT(gnttab_get_version);
->      "no spare translation slot in the I/O MMU", \
->      "permission denied",                        \
->      "bad page",                                 \
-> -    "copy arguments cross page boundary"        \
-> +    "copy arguments cross page boundary",       \
-> +    "page address size too large",              \
-> +    "operation not done; try again"             \
->  }
->  
->  #endif /* __XEN_PUBLIC_GRANT_TABLE_H__ */
-> -- 
-> 1.7.10.4
-> 
-> 
+RXJpYywgdGhhbmsgeW91IGZvciByZXZpZXdpbmcgdGhlIGNvZGUuICBJIG5vdyBzZWUgdGhlIHBy
+b2JsZW0gd2l0aCB0aGUgcGF0Y2ggc2luY2UgYmFja2xvZyBpcyBhbiBpbnRlZ2VyIGFuZCBxYXZn
+IGlzIGEgZml4ZWQgcG9pbnQgbnVtYmVyIGF0IGxvZ1cuICANCg0KV2UgYXJlIGNvbnNpZGVyaW5n
+IGFub3RoZXIgcGF0Y2ggdG8gdXBkYXRlIHRoZSBjb21tZW50cyB0byB0aGlzIGNvZGUgKHdpdGgg
+dGhlIGFjdHVhbCBDIGNvZGUgY2hhbmdlIHJldmVydGVkKSB0byBzdG9wIHRoZSBGUFAgYnkgc2hv
+d2luZyB0aGUgZGVyaXZhdGlvbiBvZiB0aGUgZXF1YXRpb24gaW4gdGhlIGNvbW1lbnRzLiAgRG9l
+cyB0aGlzIHNvdW5kIGdvb2Q/DQoNCg0KLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206
+IEVyaWMgRHVtYXpldCBbbWFpbHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dIA0KU2VudDogVGh1
+cnNkYXksIFNlcHRlbWJlciAxMywgMjAxMiA5OjU0IEFNDQpUbzogQ2hlbXBhcmF0aHksIEN5cmls
+DQpDYzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9y
+ZzsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgZGF2aWQud2FyZEBsbC5taXQuZWR1OyBEb3dkYWwsIEpv
+aG47IHBhdWwuZ29ydG1ha2VyQHdpbmRyaXZlci5jb20NClN1YmplY3Q6IFJlOiBbUEFUQ0hdIHNj
+aF9yZWQ6IGZpeCB3ZWlnaHRlZCBhdmVyYWdlIGNhbGN1bGF0aW9uDQoNCk9uIFRodSwgMjAxMi0w
+OS0xMyBhdCAwOTo0MyAtMDQwMCwgQ3lyaWwgQ2hlbXBhcmF0aHkgd3JvdGU6DQo+IFRoaXMgcGF0
+Y2ggZml4ZXMgYW4gYXBwYXJlbnQgYnVnIGluIHRoZSBydW5uaW5nIHdlaWdodGVkIGF2ZXJhZ2Ug
+Y2FsY3VsYXRpb24NCj4gdXNlZCBpbiB0aGUgUkVEIGFsZ29yaXRobS4NCj4gDQo+IEdvaW5nIGJ5
+IHRoZSBkZXNjcmliZWQgZm9ybXVsYToNCj4gCSAgIHFhdmcgPSBxYXZnKigxLVcpICsgYmFja2xv
+ZypXDQo+IAk9PiBxYXZnID0gcWF2ZyArIChiYWNrbG9nIC0gcWF2ZykgKiBXDQo+IA0KPiAuLi4g
+d2l0aCBXIGNvbnZlcnRlZCB0byBhIHByZS1jYWxjdWxhdGVkIHNoaWZ0LCB0aGlzIHRoZW4gYmVj
+b21lczoNCj4gCXFhdmcgPSBxYXZnICsgKGJhY2tsb2cgLSBxYXZnKSA+PiBsb2dXDQo+IA0KPiAu
+Li4gZ2l2aW5nIHRoZSBtb2RpZmllZCBleHByZXNzaW9uIGludHJvZHVjZWQgYnkgdGhpcyBwYXRj
+aC4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEpvaG4gRG93ZGFsIDxqZG93ZGFsQHRpLmNvbT4NCj4g
+LS0tDQo+ICBpbmNsdWRlL25ldC9yZWQuaCB8ICAgIDIgKy0NCj4gIDEgZmlsZSBjaGFuZ2VkLCAx
+IGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUv
+bmV0L3JlZC5oIGIvaW5jbHVkZS9uZXQvcmVkLmgNCj4gaW5kZXggZWY0NjA1OC4uMDU5NjBhNCAx
+MDA2NDQNCj4gLS0tIGEvaW5jbHVkZS9uZXQvcmVkLmgNCj4gKysrIGIvaW5jbHVkZS9uZXQvcmVk
+LmgNCj4gQEAgLTI4Nyw3ICsyODcsNyBAQCBzdGF0aWMgaW5saW5lIHVuc2lnbmVkIGxvbmcgcmVk
+X2NhbGNfcWF2Z19ub19pZGxlX3RpbWUoY29uc3Qgc3RydWN0IHJlZF9wYXJtcyAqcA0KPiAgCSAq
+DQo+ICAJICogLS1BTksgKDk4MDkyNCkNCj4gIAkgKi8NCj4gLQlyZXR1cm4gdi0+cWF2ZyArIChi
+YWNrbG9nIC0gKHYtPnFhdmcgPj4gcC0+V2xvZykpOw0KPiArCXJldHVybiB2LT5xYXZnICsgKGJh
+Y2tsb2cgLSB2LT5xYXZnKSA+PiBwLT5XbG9nOw0KPiAgfQ0KPiAgDQo+ICBzdGF0aWMgaW5saW5l
+IHVuc2lnbmVkIGxvbmcgcmVkX2NhbGNfcWF2Zyhjb25zdCBzdHJ1Y3QgcmVkX3Bhcm1zICpwLA0K
+DQpUaGlzIGlzIGdvaW5nIHRvIGJlIGEgRlBQIChGcmVxdWVudGx5IFBvc3RlZCBQYXRjaCkNCg0K
+Q3VycmVudCBmb3JtdWxhZSBpcyBmaW5lLg0KDQpUaGF0cyBiZWNhdXNlIGJhY2tsb2csIGF0IHN0
+YXJ0IG9mIHJlZF9jYWxjX3Fhdmdfbm9faWRsZV90aW1lKCkgaXMgbm90DQp5ZXQgc2NhbGVkIGJ5
+IHAtPldsb2cuIHYtPmF2ZyBpcyBzY2FsZWQsIGJ1dCBub3QgYmFja2xvZy4NCg0KSGF2ZSB5b3Ug
+dGVzdGVkIFJFRCBhZnRlciB5b3VyIHBhdGNoID8NCg0KDQo=
