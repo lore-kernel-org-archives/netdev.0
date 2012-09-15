@@ -1,47 +1,48 @@
-From: Paolo Valente <paolo.valente@unimore.it>
-Subject: [PATCH] sched: fix virtual-start-time update in QFQ
-Date: Sat, 15 Sep 2012 12:41:35 +0200
-Message-ID: <20120915104134.GA29862@paolo-ThinkPad-W520>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: interrupt coalescing and CSUM offload
+Date: Sat, 15 Sep 2012 14:09:09 +0200
+Message-ID: <OFF8862166.946F925C-ONC1257A7A.00386AD8-C1257A7A.0042C1CF@transmode.se>
+References: <OF3E0CDC2E.8FFEBDC0-ONC1257A79.004A2EB6-C1257A79.00502122@transmode.se> <20120914093252.020992cc@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fchecconi@gmail.com, rizzo@iet.unipi.it, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, paolo.valente@unimore.it
-To: davem@davemloft.net, shemminger@vyatta.com, jhs@mojatatu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.transmode.se ([195.58.98.146]:60172 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753031Ab2IOMJN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Sep 2012 08:09:13 -0400
+In-Reply-To: <20120914093252.020992cc@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If the old timestamps of a class, say cl, are stale when the class
-becomes active, then QFQ may assign to cl a much higher start time
-than the maximum value allowed. This may happen when QFQ assigns to
-the start time of cl the finish time of a group whose classes are
-characterized by a higher value of the ratio
-max_class_pkt/weight_of_the_class with respect to that of
-cl. Inserting a class with a too high start time into the bucket list
-corrupts the data structure and may eventually lead to crashes.
-This patch limits the maximum start time assigned to a class.
+Stephen Hemminger <shemminger@vyatta.com> wrote on 2012/09/14 18:32:52:
+>
+> On Fri, 14 Sep 2012 16:35:13 +0200
+> Joakim Tjernlund <joakim.tjernlund@transmode.se> wrote:
+>
+> >
+> > I am adding interrupt coalescing to the ucc_geth driver. Unfortunately
+> > there is only support for RX interrupt coalescing.
+> > I wonder if there is any way "simulate" TX interrupt coalescing?
+> >
+> > I am also looking at adding HWCSUM support but this device can only do
+> > IP header CSUM offload. This doesn't seem to be an option in Linux?
+> > As I understand it, one must do CSUM offload for the whole frame, both
+> > IP header and TCP/UDP csums?
+> >
+> >  Jocke
+>
+> There are a few drivers that turn off TX interrupt completely.
+> They cleanup TX buffers on next send and have a timer to cleanup
 
-Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
----
- net/sched/sch_qfq.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+Only on send? Currently ucc_geth does TX free in napi(where RX is processed too).
+It would be nice if one could indicate to the drivers xmit() if there
+are more frames to be sent. Then xmit() could choose not to turn on TX irq for
+preceding frames.
 
-diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-index e4723d3..211a212 100644
---- a/net/sched/sch_qfq.c
-+++ b/net/sched/sch_qfq.c
-@@ -865,7 +865,10 @@ static void qfq_update_start(struct qfq_sched *q, struct qfq_class *cl)
- 		if (mask) {
- 			struct qfq_group *next = qfq_ffs(q, mask);
- 			if (qfq_gt(roundedF, next->F)) {
--				cl->S = next->F;
-+				if (qfq_gt(limit, next->F))
-+					cl->S = next->F;
-+				else /* preserve timestamp correctness */
-+					cl->S = limit;
- 				return;
- 			}
- 		}
--- 
-1.7.9.5
+> as well. This has performance benefits, but it does cause issues
+> with local flow control (the freeing of skb is used to rate
+> limit local traffic).
+
+Was my reasoning correct w.r.t CSUM?
