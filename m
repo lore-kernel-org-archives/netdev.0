@@ -1,41 +1,46 @@
-From: Erwan Velu <erwanaliasr1@gmail.com>
-Subject: Re: Remarks and comments about ipconfig behavior
-Date: Sat, 15 Sep 2012 18:18:24 +0200
-Message-ID: <5054AA50.70108@gmail.com>
-References: <5052403B.4040408@gmail.com> <20120913.163134.361379133013906511.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [RFC PATCH 0/3] usbnet: support runtime PM triggered by link change
+Date: Sun, 16 Sep 2012 01:48:16 +0800
+Message-ID: <1347731299-29898-1-git-send-email-ming.lei@canonical.com>
+Cc: Oliver Neukum <oneukum@suse.de>, Fink Dmitry <finik@ti.com>,
+	Rafael Wysocki <rjw@sisk.pl>,
+	Alan Stern <stern@rowland.harvard.edu>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:60947 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753126Ab2IOQSc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Sep 2012 12:18:32 -0400
-Received: by eekc1 with SMTP id c1so2908987eek.19
-        for <netdev@vger.kernel.org>; Sat, 15 Sep 2012 09:18:31 -0700 (PDT)
-In-Reply-To: <20120913.163134.361379133013906511.davem@davemloft.net>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:52585 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752471Ab2IORsf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Sep 2012 13:48:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 13/09/2012 22:31, David Miller a =E9crit :
-> I've seen PHY/switch/hub combinations that take longer than 30 second=
-s to fully negotiate the link. There is really no upper limit to the li=
-nk speed/duplex/etc. negoatiation process. Even if the actual negoatiat=
-ion protocol had an upper limit on negoatiation time, hardware implemen=
-tations do things like try sampling the quality of the cable signal and=
- may choose to down-rev the advertised features and restart the negoati=
-ation.=20
+Hi,
 
-I do understand that some might need some longer values while some othe=
-rs like me really need a smaller one.
+Currently only very few usbnet devices support the traffic based
+runtime PM, eg. wake up devices if there are packets to be transmitted.
 
-On my case, this 2mn wait breaks an hardware watchdog, so I did a small=
- patch on my local build to get it reduced as I know  the selected valu=
-e works fine for this hardware setup. And it works now perfectly.
+For the below situation, it should make sense to runtime suspend usbnet
+device to save power:
+	
+	- after network link becomes down
 
-So could it be valuable to export it as a CONFIG_something instead of p=
-atching this #define ?
+This patch implements the runtime PM triggered by network link change
+event, and it works basically on asix usbnet device after a simple
+runtime PM test.
 
-Cheers,
+ drivers/net/usb/asix_devices.c |    6 +-
+ drivers/net/usb/cdc_ether.c    |    5 +-
+ drivers/net/usb/cdc_ncm.c      |    9 +-
+ drivers/net/usb/dm9601.c       |    7 +-
+ drivers/net/usb/mcs7830.c      |    6 +-
+ drivers/net/usb/sierra_net.c   |    6 +-
+ drivers/net/usb/usbnet.c       |  224 +++++++++++++++++++++++++++++++++++++++-
+ include/linux/usb/usbnet.h     |   21 +++-
+ 8 files changed, 250 insertions(+), 34 deletions(-)
+
+
+Thanks
+--
+Ming Lei
