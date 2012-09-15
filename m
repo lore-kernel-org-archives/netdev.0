@@ -1,95 +1,41 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 1/2] net: provide a default dev->ethtool_ops
-Date: Sat, 15 Sep 2012 14:40:47 +0100
-Message-ID: <1347716447.13258.101.camel@deadeye.wl.decadent.org.uk>
-References: <1347607441.8555.265.camel@edumazet-glaptop>
+From: Erwan Velu <erwanaliasr1@gmail.com>
+Subject: Re: Remarks and comments about ipconfig behavior
+Date: Sat, 15 Sep 2012 18:18:24 +0200
+Message-ID: <5054AA50.70108@gmail.com>
+References: <5052403B.4040408@gmail.com> <20120913.163134.361379133013906511.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:31972 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751165Ab2IONkw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Sep 2012 09:40:52 -0400
-In-Reply-To: <1347607441.8555.265.camel@edumazet-glaptop>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:60947 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753126Ab2IOQSc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Sep 2012 12:18:32 -0400
+Received: by eekc1 with SMTP id c1so2908987eek.19
+        for <netdev@vger.kernel.org>; Sat, 15 Sep 2012 09:18:31 -0700 (PDT)
+In-Reply-To: <20120913.163134.361379133013906511.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-09-14 at 09:24 +0200, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->=20
-> Instead of forcing device drivers to provide empty ethtool_ops or twe=
-ak
-> net/core/ethtool.c again, we could provide a generic ethtool_ops.
->=20
-> This occurred to me when I wanted to add GSO support to GRE tunnels.
-> ethtool -k support should be generic for all drivers.
->=20
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Maciej =C5=BBenczykowski <maze@google.com>
+Le 13/09/2012 22:31, David Miller a =E9crit :
+> I've seen PHY/switch/hub combinations that take longer than 30 second=
+s to fully negotiate the link. There is really no upper limit to the li=
+nk speed/duplex/etc. negoatiation process. Even if the actual negoatiat=
+ion protocol had an upper limit on negoatiation time, hardware implemen=
+tations do things like try sampling the quality of the cable signal and=
+ may choose to down-rev the advertised features and restart the negoati=
+ation.=20
 
-Yes, I should have done this ages ago.  Just some nit-picking below:
+I do understand that some might need some longer values while some othe=
+rs like me really need a smaller one.
 
-[...]
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index b1e6d63..ff8dcfc 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -6045,6 +6045,11 @@ struct net_device *alloc_netdev_mqs(int sizeof=
-_priv, const char *name,
-> =20
->  	strcpy(dev->name, name);
->  	dev->group =3D INIT_NETDEV_GROUP;
-> +	if (!dev->ethtool_ops) {
-> +		static const struct ethtool_ops default_ethtool_ops;
-> +
-> +		dev->ethtool_ops =3D &default_ethtool_ops;
-> +	}
+On my case, this 2mn wait breaks an hardware watchdog, so I did a small=
+ patch on my local build to get it reduced as I know  the selected valu=
+e works fine for this hardware setup. And it works now perfectly.
 
-This block has a blank line in it, so I think it needs a blank line
-either side to make the visual grouping of code right.  Alternately you
-could pull the variable out of the block.
+So could it be valuable to export it as a CONFIG_something instead of p=
+atching this #define ?
 
-[...]=20
-> @@ -1410,8 +1409,9 @@ static int ethtool_get_module_eeprom(struct net=
-_device *dev,
->  				      modinfo.eeprom_len);
->  }
-> =20
-> -/* The main entry point in this file.  Called from net/core/dev.c */
-> -
-> +/* The main entry point in this file.  Called from net/core/dev.c
-> + * with RTNL held.
-> + */
-
-Good point but an unrelated change.
-
->  int dev_ethtool(struct net *net, struct ifreq *ifr)
->  {
->  	struct net_device *dev =3D __dev_get_by_name(net, ifr->ifr_name);
-> @@ -1419,25 +1419,15 @@ int dev_ethtool(struct net *net, struct ifreq=
- *ifr)
->  	u32 ethcmd;
->  	int rc;
->  	u32 old_features;
-> +	const struct ethtool_ops *ops;
-> =20
->  	if (!dev || !netif_device_present(dev))
->  		return -ENODEV;
-> =20
-> +	ops =3D dev->ethtool_ops;
-[...]
-
-Introducing this local variable is a useful cleanup but again should be
-a separate change.
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Cheers,
