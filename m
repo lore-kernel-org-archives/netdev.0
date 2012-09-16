@@ -1,46 +1,39 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] net: fix memory leak on oom with zerocopy
-Date: Sun, 16 Sep 2012 11:44:16 +0300
-Message-ID: <20120916084416.GA22936@redhat.com>
+Subject: skb_linearize
+Date: Sun, 16 Sep 2012 12:17:47 +0300
+Message-ID: <20120916091747.GA23775@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35998 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751480Ab2IPJQR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Sep 2012 05:16:17 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If orphan flags fails, we don't free the skb
-on receive, which leaks the skb memory.
+I notice that dev_hard_start_xmit might invoke
+__skb_linearize e.g. if device does not support NETIF_F_SG.
 
-Return value was also wrong: netif_receive_skb
-is supposed to return NET_RX_DROP, not ENOMEM.
+This in turn onvokes __pskb_pull_tail, and
+documentation of __pskb_pull_tail says:
+  &sk_buff MUST have reference count of 1.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
+I am guessing 'reference count' means users in this context, right?
+IIUC this is because it modifies skb in a way that
+isn't safe if anyone else is looking at the skb.
 
-Fixes a memory leak so 3.6 material?
 
- net/core/dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+However, I don't see what guarantees that reference
+count is 1 when dev_hard_start_xmit invokes
+linearize. In particular it calls dev_queue_xmit_nit
+which could queue packets on a network tap.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8398836..899f827 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3321,7 +3321,7 @@ ncls:
- 
- 	if (pt_prev) {
- 		if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
--			ret = -ENOMEM;
-+			goto drop;
- 		else
- 			ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
- 	} else {
+Could someone help me understand please?
+
+Thanks!
+
 -- 
 MST
