@@ -1,39 +1,30 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] ncm: allow for NULL terminations
-Date: Mon, 17 Sep 2012 17:31:49 +0100
-Message-ID: <20120917173149.4730024c@pyramind.ukuu.org.uk>
-References: <20120917105853.30298.29234.stgit@localhost.localdomain>
-	<1347896724.2685.2.camel@bwh-desktop.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net] e1000: Small packets may get corrupted during padding by
+ HW
+Date: Mon, 17 Sep 2012 12:31:13 -0400 (EDT)
+Message-ID: <20120917.123113.458101376016589070.davem@davemloft.net>
+References: <061C8A8601E8EE4CA8D8FD6990CEA89130DC20AA@ORSMSX102.amr.corp.intel.com>
+	<50552FF1.5030708@intel.com>
+	<061C8A8601E8EE4CA8D8FD6990CEA89130DC3631@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: john.r.fastabend@intel.com, mirqus@gmail.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: tushar.n.dave@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lxorguk.ukuu.org.uk ([81.2.110.251]:33449 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752278Ab2IQQ1B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 12:27:01 -0400
-In-Reply-To: <1347896724.2685.2.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58846 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751881Ab2IQQbQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 12:31:16 -0400
+In-Reply-To: <061C8A8601E8EE4CA8D8FD6990CEA89130DC3631@ORSMSX102.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 17 Sep 2012 16:45:24 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+From: "Dave, Tushar N" <tushar.n.dave@intel.com>
+Date: Mon, 17 Sep 2012 07:33:12 +0000
 
-> On Mon, 2012-09-17 at 11:58 +0100, Alan Cox wrote:
-> > From: Alan Cox <alan@linux.intel.com>
-> > 
-> > The strings are passed to snprintf so must be null terminated. It seems the
-> > copy length is incorrectly set.
-> 
-> Please use strlcpy() instead.  (I thought someone had already gone round
-> the get_drvinfo implementations and fixed them to do that, actually.)
+> No because it is quite normal to have packet < ETH_ZLEN. e.g. ARP packets.
 
-There are still plenty of them. I'm just noting they are one out. I'm
-doing a first pass over a whole pile of stuff so if you'd prefer it in a
-different form treat it as a note to the maintainer than their code is
-buggy as I probably won't be back round to it for a couple of months
-judging by the size of the audit pile I'm working down.
-
-Alan
+You're optimizing for ARP packets?  You're kidding right?
