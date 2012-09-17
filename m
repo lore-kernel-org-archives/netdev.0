@@ -1,47 +1,67 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net] sky2: fix rx filter setup on link up
-Date: Mon, 17 Sep 2012 22:47:24 +0200
-Message-ID: <20120917204724.GA1749@minipsycho.orion>
-References: <1347894617-13614-1-git-send-email-jiri@resnulli.us>
- <20120917091214.5cd9b0f5@nehalam.linuxnetplumber.net>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [net] e1000: Small packets may get corrupted during padding by
+ HW
+Date: Mon, 17 Sep 2012 13:53:56 -0700
+Message-ID: <50578DE4.7080806@intel.com>
+References: <1347740217-10257-1-git-send-email-jeffrey.t.kirsher@intel.com>  <CAHXqBFJZnGUSUutN=L-_LpCN7dXLPFY0ndJnQJ10NCcbzPVLww@mail.gmail.com>  <061C8A8601E8EE4CA8D8FD6990CEA89130DC20AA@ORSMSX102.amr.corp.intel.com>  <50552FF1.5030708@intel.com>  <061C8A8601E8EE4CA8D8FD6990CEA89130DC3631@ORSMSX102.amr.corp.intel.com> <1347868702.26523.79.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, mlindner@marvell.com,
-	linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120917091214.5cd9b0f5@nehalam.linuxnetplumber.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "Dave, Tushar N" <tushar.n.dave@intel.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	Michal Miroslaw <mirqus@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:1569 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755231Ab2IQUx5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Sep 2012 16:53:57 -0400
+In-Reply-To: <1347868702.26523.79.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mon, Sep 17, 2012 at 06:12:14PM CEST, shemminger@vyatta.com wrote:
->On Mon, 17 Sep 2012 17:10:17 +0200
->Jiri Pirko <jiri@resnulli.us> wrote:
+On 09/17/2012 12:58 AM, Eric Dumazet wrote:
+> On Mon, 2012-09-17 at 07:33 +0000, Dave, Tushar N wrote:
+>>> -----Original Message-----
+>>> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+>>> On Behalf Of John Fastabend
+>>> Also wouldn't you want an unlikely() in your patch?
+>> No because it is quite normal to have packet < ETH_ZLEN. e.g. ARP packets.
+> ARP packets ? Hardly a performance problem.
 >
->> In my case I have following problem. sky2_set_multicast() sets registers
->> GM_MC_ADDR_H[1-4] correctly to:
->> 0000 0800 0001 0410
->> However, when adapter gets link and sky2_link_up() is called, the values
->> are for some reason different:
->> 0000 0800 0016 0410
+> Or make sure all these packets have enough tailroom, or else you are
+> going to hit the cost of reallocating packets.
 >
->Rather than papering over the problem, it would be better to
->trace back what is setting those registers and fix that code.
+> I would better point TCP pure ACK packets, since their size can be 54
+> bytes.
+>
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index cfe6ffe..aefc681 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -3083,8 +3083,9 @@ void tcp_send_ack(struct sock *sk)
+>  	/* We are not putting this on the write queue, so
+>  	 * tcp_transmit_skb() will set the ownership to this
+>  	 * sock.
+> +	 * Add 64 bytes of tailroom so that some drivers can use skb_pad()
+>  	 */
+> -	buff = alloc_skb(MAX_TCP_HEADER, sk_gfp_atomic(sk, GFP_ATOMIC));
+> +	buff = alloc_skb(MAX_TCP_HEADER + 64, sk_gfp_atomic(sk, GFP_ATOMIC));
+>  	if (buff == NULL) {
+>  		inet_csk_schedule_ack(sk);
+>  		inet_csk(sk)->icsk_ack.ato = TCP_ATO_MIN;
+For most systems that extra padding should already be added since
+alloc_skb will cache line align the buffer anyway.
 
-Yes, I did that. No code at sky2.[ch] is writing to this registers other
-than sky2_set_multicast() and sky2_gmac_reset() (I hooked on sky2_write*()).
-So I strongly believe this is a HW issue (maybe only issue of my revision
-"Yukon-2 EC chip revision 2")
+A more general fix might be to make it so that alloc_skb cannot allocate
+less than 60 byte buffers on systems with a cache line size smaller than
+64 bytes.
 
->
->> This in my case prevents iface to be able to receive packets with dst mac
->> 01:80:C2:00:00:02 (LACPDU dst mac), which I set up previously by
->> SIOCADDMULTI.
->> 
->> So remember computed rx_filter data and write it to GM_MC_ADDR_H[1-4] on
->> link_up.
->>
->
->Please do some more root cause analysis. Just save/restoring the
->registers is just a temporary workaround.
+Thanks,
+
+Alex
