@@ -1,38 +1,34 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 04/15] rtlwifi: rtl8723ae: Add new driver - Part 4
-Date: Mon, 17 Sep 2012 16:18:43 -0500
-Message-ID: <1347916754-9219-4-git-send-email-Larry.Finger@lwfinger.net>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH 02/15] rtlwifi: rtl8723ae: Add new driver - Part 2
+Date: Mon, 17 Sep 2012 16:18:41 -0500
+Message-ID: <1347916754-9219-2-git-send-email-Larry.Finger@lwfinger.net>
 References: <1347483294-6943-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, <chaoming_li@realsil.com.cn>
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:57066 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754175Ab2IQVT3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 17:19:29 -0400
-In-Reply-To: <1347483294-6943-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1347483294-6943-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch is part 4 of the addition of files for a new driver to handle
+This patch is part 2 of the addition of files for a new driver to handle
 the Realtek RTL8723AE wireless device.
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: <chaoming_li@realsil.com.cn>
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Cc: <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
 ---
- .../wireless/rtlwifi/rtl8723ae/hal_bt_coexist.c    |  554 ++++++++++++++++++++
- .../wireless/rtlwifi/rtl8723ae/hal_bt_coexist.h    |  161 ++++++
- 2 files changed, 715 insertions(+)
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/hal_bt_coexist.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/hal_bt_coexist.h
+ drivers/net/wireless/rtlwifi/rtl8723ae/fw.c |  758 +++++++++++++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/fw.h |   99 ++++
+ 2 files changed, 857 insertions(+)
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/fw.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/fw.h
 
-Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/hal_bt_coexist.c
+Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/fw.c
 ===================================================================
 --- /dev/null
-+++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/hal_bt_coexist.c
-@@ -0,0 +1,553 @@
++++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/fw.c
+@@ -0,0 +1,758 @@
 +/******************************************************************************
 + *
 + * Copyright(c) 2009-2012  Realtek Corporation.
@@ -54,700 +50,848 @@ Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/hal_bt_coexis
 + * file called LICENSE.
 + *
 + * Contact Information:
-+ * wlanfae <wlanfae@realtek.com>
++ * wlanfae <wlanfae-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
 + * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
 + * Hsinchu 300, Taiwan.
 + *
-+ * Larry Finger <Larry.Finger@lwfinger.net>
++ * Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 + *
 + *****************************************************************************/
-+
-+#include "hal_bt_coexist.h"
-+#include "../pci.h"
-+#include "dm.h"
-+#include "fw.h"
-+#include "phy.h"
-+#include "reg.h"
-+#include "hal_btc.h"
-+
-+void rtl8723ae_dm_bt_reject_ap_aggregated_packet(struct ieee80211_hw *hw,
-+						 bool reject)
-+{
-+}
-+
-+void _rtl8723_dm_bt_check_wifi_state(struct ieee80211_hw *hw)
-+{
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	struct rtl_pci_priv *rtlpcipriv = rtl_pcipriv(hw);
-+	struct rtl_phy *rtlphy = &(rtlpriv->phy);
-+
-+	if (rtlpriv->link_info.busytraffic) {
-+		rtlpcipriv->bt_coexist.current_state &=
-+					~BT_COEX_STATE_WIFI_IDLE;
-+
-+		if (rtlpriv->link_info.tx_busy_traffic)
-+			rtlpcipriv->bt_coexist.current_state |=
-+					BT_COEX_STATE_WIFI_UPLINK;
-+		else
-+			rtlpcipriv->bt_coexist.current_state &=
-+					~BT_COEX_STATE_WIFI_UPLINK;
-+
-+		if (rtlpriv->link_info.rx_busy_traffic)
-+			rtlpcipriv->bt_coexist.current_state |=
-+					BT_COEX_STATE_WIFI_DOWNLINK;
-+		else
-+			rtlpcipriv->bt_coexist.current_state &=
-+					~BT_COEX_STATE_WIFI_DOWNLINK;
-+	} else {
-+		rtlpcipriv->bt_coexist.current_state |=
-+					BT_COEX_STATE_WIFI_IDLE;
-+		rtlpcipriv->bt_coexist.current_state &=
-+					~BT_COEX_STATE_WIFI_UPLINK;
-+		rtlpcipriv->bt_coexist.current_state &=
-+					~BT_COEX_STATE_WIFI_DOWNLINK;
-+	}
-+
-+	if (rtlpriv->mac80211.mode == WIRELESS_MODE_G ||
-+	    rtlpriv->mac80211.mode == WIRELESS_MODE_B) {
-+		rtlpcipriv->bt_coexist.current_state |=
-+					BT_COEX_STATE_WIFI_LEGACY;
-+		rtlpcipriv->bt_coexist.current_state &=
-+					~BT_COEX_STATE_WIFI_HT20;
-+		rtlpcipriv->bt_coexist.current_state &=
-+					~BT_COEX_STATE_WIFI_HT40;
-+	} else {
-+		rtlpcipriv->bt_coexist.current_state &=
-+					~BT_COEX_STATE_WIFI_LEGACY;
-+		if (rtlphy->current_chan_bw == HT_CHANNEL_WIDTH_20_40) {
-+			rtlpcipriv->bt_coexist.current_state |=
-+					BT_COEX_STATE_WIFI_HT40;
-+			rtlpcipriv->bt_coexist.current_state &=
-+					~BT_COEX_STATE_WIFI_HT20;
-+		} else {
-+			rtlpcipriv->bt_coexist.current_state |=
-+					BT_COEX_STATE_WIFI_HT20;
-+			rtlpcipriv->bt_coexist.current_state &=
-+					~BT_COEX_STATE_WIFI_HT40;
-+		}
-+	}
-+
-+	if (rtlpriv->bt_operation_on)
-+		rtlpcipriv->bt_coexist.current_state |= BT_COEX_STATE_BT30;
-+	else
-+		rtlpcipriv->bt_coexist.current_state &= ~BT_COEX_STATE_BT30;
-+}
-+
-+u8 rtl8723ae_dm_bt_check_coex_rssi_state1(struct ieee80211_hw *hw,
-+					  u8 level_num, u8 rssi_thresh,
-+					  u8 rssi_thresh1)
-+
-+{
-+	struct rtl_pci_priv *rtlpcipriv = rtl_pcipriv(hw);
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	long undecoratedsmoothed_pwdb;
-+	u8 bt_rssi_state = 0;
-+
-+	undecoratedsmoothed_pwdb =  rtl8723ae_dm_bt_get_rx_ss(hw);
-+
-+	if (level_num == 2) {
-+		rtlpcipriv->bt_coexist.current_state &=
-+				~BT_COEX_STATE_WIFI_RSSI_1_MEDIUM;
-+
-+		if ((rtlpcipriv->bt_coexist.bt_pre_rssi_state ==
-+		    BT_RSSI_STATE_LOW) ||
-+		    (rtlpcipriv->bt_coexist.bt_pre_rssi_state ==
-+		    BT_RSSI_STATE_STAY_LOW)) {
-+			if (undecoratedsmoothed_pwdb >= (rssi_thresh +
-+			    BT_FW_COEX_THRESH_TOL)) {
-+				bt_rssi_state = BT_RSSI_STATE_HIGH;
-+				rtlpcipriv->bt_coexist.current_state |=
-+					BT_COEX_STATE_WIFI_RSSI_1_HIGH;
-+				rtlpcipriv->bt_coexist.current_state &=
-+					~BT_COEX_STATE_WIFI_RSSI_1_LOW;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI_1 state switch to High\n");
-+			} else {
-+				bt_rssi_state = BT_RSSI_STATE_STAY_LOW;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI_1 state stay at Low\n");
-+			}
-+		} else {
-+			if (undecoratedsmoothed_pwdb < rssi_thresh) {
-+				bt_rssi_state = BT_RSSI_STATE_LOW;
-+				rtlpcipriv->bt_coexist.current_state |=
-+					 BT_COEX_STATE_WIFI_RSSI_1_LOW;
-+				rtlpcipriv->bt_coexist.current_state &=
-+					 ~BT_COEX_STATE_WIFI_RSSI_1_HIGH;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI_1 state switch to Low\n");
-+			} else {
-+				bt_rssi_state = BT_RSSI_STATE_STAY_HIGH;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI_1 state stay at High\n");
-+			}
-+		}
-+	} else if (level_num == 3) {
-+		if (rssi_thresh > rssi_thresh1) {
-+			RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+				 "[DM][BT], RSSI_1 thresh error!!\n");
-+			return rtlpcipriv->bt_coexist.bt_pre_rssi_state;
-+		}
-+
-+		if ((rtlpcipriv->bt_coexist.bt_pre_rssi_state ==
-+		    BT_RSSI_STATE_LOW) ||
-+		    (rtlpcipriv->bt_coexist.bt_pre_rssi_state ==
-+		    BT_RSSI_STATE_STAY_LOW)) {
-+			if (undecoratedsmoothed_pwdb >=
-+			    (rssi_thresh+BT_FW_COEX_THRESH_TOL)) {
-+				bt_rssi_state = BT_RSSI_STATE_MEDIUM;
-+				rtlpcipriv->bt_coexist.current_state |=
-+					 BT_COEX_STATE_WIFI_RSSI_1_MEDIUM;
-+				rtlpcipriv->bt_coexist.current_state &=
-+					 ~BT_COEX_STATE_WIFI_RSSI_1_LOW;
-+				rtlpcipriv->bt_coexist.current_state &=
-+					 ~BT_COEX_STATE_WIFI_RSSI_1_HIGH;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI_1 state switch to Medium\n");
-+			} else {
-+				bt_rssi_state = BT_RSSI_STATE_STAY_LOW;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI_1 state stay at Low\n");
-+			}
-+		} else if ((rtlpcipriv->bt_coexist.bt_pre_rssi_state ==
-+			   BT_RSSI_STATE_MEDIUM) ||
-+			   (rtlpcipriv->bt_coexist.bt_pre_rssi_state ==
-+			   BT_RSSI_STATE_STAY_MEDIUM)) {
-+			if (undecoratedsmoothed_pwdb >= (rssi_thresh1 +
-+			    BT_FW_COEX_THRESH_TOL)) {
-+				bt_rssi_state = BT_RSSI_STATE_HIGH;
-+				rtlpcipriv->bt_coexist.current_state |=
-+					 BT_COEX_STATE_WIFI_RSSI_1_HIGH;
-+				rtlpcipriv->bt_coexist.current_state &=
-+					 ~BT_COEX_STATE_WIFI_RSSI_1_LOW;
-+				rtlpcipriv->bt_coexist.current_state &=
-+					 ~BT_COEX_STATE_WIFI_RSSI_1_MEDIUM;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI_1 state switch to High\n");
-+			} else if (undecoratedsmoothed_pwdb < rssi_thresh) {
-+				bt_rssi_state = BT_RSSI_STATE_LOW;
-+				rtlpcipriv->bt_coexist.current_state |=
-+					BT_COEX_STATE_WIFI_RSSI_1_LOW;
-+				rtlpcipriv->bt_coexist.current_state &=
-+					~BT_COEX_STATE_WIFI_RSSI_1_HIGH;
-+				rtlpcipriv->bt_coexist.current_state &=
-+					~BT_COEX_STATE_WIFI_RSSI_1_MEDIUM;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI_1 state switch to Low\n");
-+			} else {
-+				bt_rssi_state = BT_RSSI_STATE_STAY_MEDIUM;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI_1 state stay at Medium\n");
-+			}
-+		} else {
-+			if (undecoratedsmoothed_pwdb < rssi_thresh1) {
-+				bt_rssi_state = BT_RSSI_STATE_MEDIUM;
-+				rtlpcipriv->bt_coexist.current_state |=
-+					BT_COEX_STATE_WIFI_RSSI_1_MEDIUM;
-+				rtlpcipriv->bt_coexist.current_state &=
-+					~BT_COEX_STATE_WIFI_RSSI_1_HIGH;
-+				rtlpcipriv->bt_coexist.current_state &=
-+					~BT_COEX_STATE_WIFI_RSSI_1_LOW;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI_1 state switch to Medium\n");
-+			} else {
-+				bt_rssi_state = BT_RSSI_STATE_STAY_HIGH;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI_1 state stay at High\n");
-+			}
-+		}
-+	}
-+
-+	rtlpcipriv->bt_coexist.bt_pre_rssi_state1 = bt_rssi_state;
-+
-+	return bt_rssi_state;
-+}
-+
-+u8 rtl8723ae_dm_bt_check_coex_rssi_state(struct ieee80211_hw *hw,
-+					 u8 level_num, u8 rssi_thresh,
-+					 u8 rssi_thresh1)
-+{
-+	struct rtl_pci_priv *rtlpcipriv = rtl_pcipriv(hw);
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	long undecoratedsmoothed_pwdb;
-+	u8 bt_rssi_state = 0;
-+
-+	undecoratedsmoothed_pwdb = rtl8723ae_dm_bt_get_rx_ss(hw);
-+
-+	if (level_num == 2) {
-+		rtlpcipriv->bt_coexist.current_state &=
-+					 ~BT_COEX_STATE_WIFI_RSSI_MEDIUM;
-+
-+		if ((rtlpcipriv->bt_coexist.bt_pre_rssi_state ==
-+		    BT_RSSI_STATE_LOW) ||
-+		    (rtlpcipriv->bt_coexist.bt_pre_rssi_state ==
-+		    BT_RSSI_STATE_STAY_LOW)){
-+			if (undecoratedsmoothed_pwdb >=
-+			    (rssi_thresh + BT_FW_COEX_THRESH_TOL)) {
-+				bt_rssi_state = BT_RSSI_STATE_HIGH;
-+				rtlpcipriv->bt_coexist.current_state
-+					|= BT_COEX_STATE_WIFI_RSSI_HIGH;
-+				rtlpcipriv->bt_coexist.current_state
-+					&= ~BT_COEX_STATE_WIFI_RSSI_LOW;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI state switch to High\n");
-+			} else {
-+				bt_rssi_state = BT_RSSI_STATE_STAY_LOW;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI state stay at Low\n");
-+			}
-+		} else {
-+			if (undecoratedsmoothed_pwdb < rssi_thresh) {
-+				bt_rssi_state = BT_RSSI_STATE_LOW;
-+				rtlpcipriv->bt_coexist.current_state
-+					|= BT_COEX_STATE_WIFI_RSSI_LOW;
-+				rtlpcipriv->bt_coexist.current_state
-+					&= ~BT_COEX_STATE_WIFI_RSSI_HIGH;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI state switch to Low\n");
-+			} else {
-+				bt_rssi_state = BT_RSSI_STATE_STAY_HIGH;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI state stay at High\n");
-+			}
-+		}
-+	} else if (level_num == 3) {
-+		if (rssi_thresh > rssi_thresh1) {
-+			RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+				 "[DM][BT], RSSI thresh error!!\n");
-+			return rtlpcipriv->bt_coexist.bt_pre_rssi_state;
-+		}
-+		if ((rtlpcipriv->bt_coexist.bt_pre_rssi_state ==
-+		    BT_RSSI_STATE_LOW) ||
-+		    (rtlpcipriv->bt_coexist.bt_pre_rssi_state ==
-+		    BT_RSSI_STATE_STAY_LOW)) {
-+			if (undecoratedsmoothed_pwdb >=
-+			    (rssi_thresh + BT_FW_COEX_THRESH_TOL)) {
-+				bt_rssi_state = BT_RSSI_STATE_MEDIUM;
-+				rtlpcipriv->bt_coexist.current_state
-+					|= BT_COEX_STATE_WIFI_RSSI_MEDIUM;
-+				rtlpcipriv->bt_coexist.current_state
-+					&= ~BT_COEX_STATE_WIFI_RSSI_LOW;
-+				rtlpcipriv->bt_coexist.current_state
-+					&= ~BT_COEX_STATE_WIFI_RSSI_HIGH;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI state switch to Medium\n");
-+			} else {
-+				bt_rssi_state = BT_RSSI_STATE_STAY_LOW;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI state stay at Low\n");
-+			}
-+		} else if ((rtlpcipriv->bt_coexist.bt_pre_rssi_state ==
-+			   BT_RSSI_STATE_MEDIUM) ||
-+			   (rtlpcipriv->bt_coexist.bt_pre_rssi_state ==
-+			   BT_RSSI_STATE_STAY_MEDIUM)) {
-+			if (undecoratedsmoothed_pwdb >=
-+			    (rssi_thresh1 + BT_FW_COEX_THRESH_TOL)) {
-+				bt_rssi_state = BT_RSSI_STATE_HIGH;
-+				rtlpcipriv->bt_coexist.current_state
-+					|= BT_COEX_STATE_WIFI_RSSI_HIGH;
-+				rtlpcipriv->bt_coexist.current_state
-+					&= ~BT_COEX_STATE_WIFI_RSSI_LOW;
-+				rtlpcipriv->bt_coexist.current_state
-+					&= ~BT_COEX_STATE_WIFI_RSSI_MEDIUM;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI state switch to High\n");
-+			} else if (undecoratedsmoothed_pwdb < rssi_thresh) {
-+				bt_rssi_state = BT_RSSI_STATE_LOW;
-+				rtlpcipriv->bt_coexist.current_state
-+					|= BT_COEX_STATE_WIFI_RSSI_LOW;
-+				rtlpcipriv->bt_coexist.current_state
-+					&= ~BT_COEX_STATE_WIFI_RSSI_HIGH;
-+				rtlpcipriv->bt_coexist.current_state
-+					&= ~BT_COEX_STATE_WIFI_RSSI_MEDIUM;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI state switch to Low\n");
-+			} else {
-+				bt_rssi_state = BT_RSSI_STATE_STAY_MEDIUM;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI state stay at Medium\n");
-+			}
-+		} else {
-+			if (undecoratedsmoothed_pwdb < rssi_thresh1) {
-+				bt_rssi_state = BT_RSSI_STATE_MEDIUM;
-+				rtlpcipriv->bt_coexist.current_state
-+					|= BT_COEX_STATE_WIFI_RSSI_MEDIUM;
-+				rtlpcipriv->bt_coexist.current_state
-+					&= ~BT_COEX_STATE_WIFI_RSSI_HIGH;
-+				rtlpcipriv->bt_coexist.current_state
-+					&= ~BT_COEX_STATE_WIFI_RSSI_LOW;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI state switch to Medium\n");
-+			} else {
-+				bt_rssi_state = BT_RSSI_STATE_STAY_HIGH;
-+				RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+					 "[DM][BT], RSSI state stay at High\n");
-+			}
-+		}
-+	}
-+
-+	rtlpcipriv->bt_coexist.bt_pre_rssi_state = bt_rssi_state;
-+	return bt_rssi_state;
-+}
-+
-+long rtl8723ae_dm_bt_get_rx_ss(struct ieee80211_hw *hw)
-+{
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	long undecoratedsmoothed_pwdb = 0;
-+
-+	if (rtlpriv->mac80211.link_state >= MAC80211_LINKED) {
-+		undecoratedsmoothed_pwdb =
-+			GET_UNDECORATED_AVERAGE_RSSI(rtlpriv);
-+	} else {
-+		undecoratedsmoothed_pwdb =
-+			rtlpriv->dm.entry_min_undecoratedsmoothed_pwdb;
-+	}
-+	RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+		 "rtl8723ae_dm_bt_get_rx_ss() = %ld\n",
-+		 undecoratedsmoothed_pwdb);
-+
-+	return undecoratedsmoothed_pwdb;
-+}
-+
-+void rtl8723ae_dm_bt_balance(struct ieee80211_hw *hw,
-+			     bool balance_on, u8 ms0, u8 ms1)
-+{
-+	struct rtl_pci_priv *rtlpcipriv = rtl_pcipriv(hw);
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	u8 h2c_parameter[3] = {0};
-+
-+	if (balance_on) {
-+		h2c_parameter[2] = 1;
-+		h2c_parameter[1] = ms1;
-+		h2c_parameter[0] = ms0;
-+		rtlpcipriv->bt_coexist.fw_coexist_all_off = false;
-+	} else {
-+		h2c_parameter[2] = 0;
-+		h2c_parameter[1] = 0;
-+		h2c_parameter[0] = 0;
-+	}
-+	rtlpcipriv->bt_coexist.balance_on = balance_on;
-+
-+	RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+		 "[DM][BT], Balance=[%s:%dms:%dms], write 0xc=0x%x\n",
-+		 balance_on ? "ON" : "OFF", ms0, ms1,
-+		 h2c_parameter[0]<<16 | h2c_parameter[1]<<8 | h2c_parameter[2]);
-+
-+	rtl8723ae_fill_h2c_cmd(hw, 0xc, 3, h2c_parameter);
-+}
-+
-+
-+void rtl8723ae_dm_bt_agc_table(struct ieee80211_hw *hw, u8 type)
-+{
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	struct rtl_pci_priv *rtlpcipriv = rtl_pcipriv(hw);
-+
-+	if (type == BT_AGCTABLE_OFF) {
-+		RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+			 "[BT]AGCTable Off!\n");
-+		rtl_write_dword(rtlpriv, 0xc78, 0x641c0001);
-+		rtl_write_dword(rtlpriv, 0xc78, 0x631d0001);
-+		rtl_write_dword(rtlpriv, 0xc78, 0x621e0001);
-+		rtl_write_dword(rtlpriv, 0xc78, 0x611f0001);
-+		rtl_write_dword(rtlpriv, 0xc78, 0x60200001);
-+
-+		rtl8723ae_phy_set_rf_reg(hw, RF90_PATH_A,
-+					RF_RX_AGC_HP, 0xfffff, 0x32000);
-+		rtl8723ae_phy_set_rf_reg(hw, RF90_PATH_A,
-+					RF_RX_AGC_HP, 0xfffff, 0x71000);
-+		rtl8723ae_phy_set_rf_reg(hw, RF90_PATH_A,
-+					RF_RX_AGC_HP, 0xfffff, 0xb0000);
-+		rtl8723ae_phy_set_rf_reg(hw, RF90_PATH_A,
-+					RF_RX_AGC_HP, 0xfffff, 0xfc000);
-+		rtl8723ae_phy_set_rf_reg(hw, RF90_PATH_A,
-+					RF_RX_G1, 0xfffff, 0x30355);
-+	} else if (type == BT_AGCTABLE_ON) {
-+		RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+			 "[BT]AGCTable On!\n");
-+		rtl_write_dword(rtlpriv, 0xc78, 0x4e1c0001);
-+		rtl_write_dword(rtlpriv, 0xc78, 0x4d1d0001);
-+		rtl_write_dword(rtlpriv, 0xc78, 0x4c1e0001);
-+		rtl_write_dword(rtlpriv, 0xc78, 0x4b1f0001);
-+		rtl_write_dword(rtlpriv, 0xc78, 0x4a200001);
-+
-+		rtl8723ae_phy_set_rf_reg(hw, RF90_PATH_A,
-+					RF_RX_AGC_HP, 0xfffff, 0xdc000);
-+		rtl8723ae_phy_set_rf_reg(hw, RF90_PATH_A,
-+					RF_RX_AGC_HP, 0xfffff, 0x90000);
-+		rtl8723ae_phy_set_rf_reg(hw, RF90_PATH_A,
-+					RF_RX_AGC_HP, 0xfffff, 0x51000);
-+		rtl8723ae_phy_set_rf_reg(hw, RF90_PATH_A,
-+					RF_RX_AGC_HP, 0xfffff, 0x12000);
-+		rtl8723ae_phy_set_rf_reg(hw, RF90_PATH_A,
-+					RF_RX_G1, 0xfffff, 0x00355);
-+
-+		rtlpcipriv->bt_coexist.sw_coexist_all_off = false;
-+	}
-+}
-+
-+void rtl8723ae_dm_bt_bback_off_level(struct ieee80211_hw *hw, u8 type)
-+{
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	struct rtl_pci_priv *rtlpcipriv = rtl_pcipriv(hw);
-+
-+	if (type == BT_BB_BACKOFF_OFF) {
-+		RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+			 "[BT]BBBackOffLevel Off!\n");
-+		rtl_write_dword(rtlpriv, 0xc04, 0x3a05611);
-+	} else if (type == BT_BB_BACKOFF_ON) {
-+		RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+			 "[BT]BBBackOffLevel On!\n");
-+		rtl_write_dword(rtlpriv, 0xc04, 0x3a07611);
-+		rtlpcipriv->bt_coexist.sw_coexist_all_off = false;
-+	}
-+}
-+
-+void rtl8723ae_dm_bt_fw_coex_all_off(struct ieee80211_hw *hw)
-+{
-+	struct rtl_pci_priv *rtlpcipriv = rtl_pcipriv(hw);
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+		 "rtl8723ae_dm_bt_fw_coex_all_off()\n");
-+
-+	if (rtlpcipriv->bt_coexist.fw_coexist_all_off)
-+		return;
-+
-+	RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+		 "rtl8723ae_dm_bt_fw_coex_all_off(), real Do\n");
-+	rtl8723ae_dm_bt_fw_coex_all_off_8723a(hw);
-+	rtlpcipriv->bt_coexist.fw_coexist_all_off = true;
-+}
-+
-+void rtl8723ae_dm_bt_sw_coex_all_off(struct ieee80211_hw *hw)
-+{
-+	struct rtl_pci_priv *rtlpcipriv = rtl_pcipriv(hw);
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+
-+	RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+		 "rtl8723ae_dm_bt_sw_coex_all_off()\n");
-+
-+	if (rtlpcipriv->bt_coexist.sw_coexist_all_off)
-+		return;
-+
-+	RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+		 "rtl8723ae_dm_bt_sw_coex_all_off(), real Do\n");
-+	rtl8723ae_dm_bt_sw_coex_all_off_8723a(hw);
-+	rtlpcipriv->bt_coexist.sw_coexist_all_off = true;
-+}
-+
-+void rtl8723ae_dm_bt_hw_coex_all_off(struct ieee80211_hw *hw)
-+{
-+	struct rtl_pci_priv *rtlpcipriv = rtl_pcipriv(hw);
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+
-+	RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+		 "rtl8723ae_dm_bt_hw_coex_all_off()\n");
-+
-+	if (rtlpcipriv->bt_coexist.hw_coexist_all_off)
-+		return;
-+	RT_TRACE(rtlpriv, COMP_BT_COEXIST, DBG_TRACE,
-+		 "rtl8723ae_dm_bt_hw_coex_all_off(), real Do\n");
-+
-+	rtl8723ae_dm_bt_hw_coex_all_off_8723a(hw);
-+
-+	rtlpcipriv->bt_coexist.hw_coexist_all_off = true;
-+}
-+
-+void rtl8723ae_btdm_coex_all_off(struct ieee80211_hw *hw)
-+{
-+	rtl8723ae_dm_bt_fw_coex_all_off(hw);
-+	rtl8723ae_dm_bt_sw_coex_all_off(hw);
-+	rtl8723ae_dm_bt_hw_coex_all_off(hw);
-+}
-+
-+bool rtl8723ae_dm_bt_is_coexist_state_changed(struct ieee80211_hw *hw)
-+{
-+	struct rtl_pci_priv *rtlpcipriv = rtl_pcipriv(hw);
-+
-+	if ((rtlpcipriv->bt_coexist.previous_state ==
-+	    rtlpcipriv->bt_coexist.current_state) &&
-+	    (rtlpcipriv->bt_coexist.previous_state_h ==
-+	    rtlpcipriv->bt_coexist.current_state_h))
-+		return false;
-+	else
-+		return true;
-+}
-+
-+bool rtl8723ae_dm_bt_is_wifi_up_link(struct ieee80211_hw *hw)
-+{
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+
-+	if (rtlpriv->link_info.tx_busy_traffic)
-+		return true;
-+	else
-+		return false;
-+}
-Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/hal_bt_coexist.h
-===================================================================
---- /dev/null
-+++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/hal_bt_coexist.h
-@@ -0,0 +1,160 @@
-+/******************************************************************************
-+ *
-+ * Copyright(c) 2009-2012  Realtek Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of version 2 of the GNU General Public License as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-+ *
-+ * The full GNU General Public License is included in this distribution in the
-+ * file called LICENSE.
-+ *
-+ * Contact Information:
-+ * wlanfae <wlanfae@realtek.com>
-+ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
-+ * Hsinchu 300, Taiwan.
-+ * Larry Finger <Larry.Finger@lwfinger.net>
-+ *
-+ *****************************************************************************/
-+
-+#ifndef __RTL8723E_HAL_BT_COEXIST_H__
-+#define __RTL8723E_HAL_BT_COEXIST_H__
 +
 +#include "../wifi.h"
++#include "../pci.h"
++#include "../base.h"
++#include "reg.h"
++#include "def.h"
++#include "fw.h"
 +
-+/* The reg define is for 8723 */
-+#define	REG_HIGH_PRIORITY_TXRX			0x770
-+#define	REG_LOW_PRIORITY_TXRX			0x774
++static void _rtl8723ae_enable_fw_download(struct ieee80211_hw *hw, bool enable)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u8 tmp;
++	if (enable) {
++		tmp = rtl_read_byte(rtlpriv, REG_SYS_FUNC_EN + 1);
++		rtl_write_byte(rtlpriv, REG_SYS_FUNC_EN + 1,
++				       tmp | 0x04);
 +
-+#define BT_FW_COEX_THRESH_TOL			6
-+#define BT_FW_COEX_THRESH_20			20
-+#define BT_FW_COEX_THRESH_23			23
-+#define BT_FW_COEX_THRESH_25			25
-+#define BT_FW_COEX_THRESH_30			30
-+#define BT_FW_COEX_THRESH_35			35
-+#define BT_FW_COEX_THRESH_40			40
-+#define BT_FW_COEX_THRESH_45			45
-+#define BT_FW_COEX_THRESH_47			47
-+#define BT_FW_COEX_THRESH_50			50
-+#define BT_FW_COEX_THRESH_55			55
++		tmp = rtl_read_byte(rtlpriv, REG_MCUFWDL);
++		rtl_write_byte(rtlpriv, REG_MCUFWDL, tmp | 0x01);
 +
-+#define BT_COEX_STATE_BT30			BIT(0)
-+#define BT_COEX_STATE_WIFI_HT20			BIT(1)
-+#define BT_COEX_STATE_WIFI_HT40			BIT(2)
-+#define BT_COEX_STATE_WIFI_LEGACY		BIT(3)
++		tmp = rtl_read_byte(rtlpriv, REG_MCUFWDL + 2);
++		rtl_write_byte(rtlpriv, REG_MCUFWDL + 2, tmp & 0xf7);
++	} else {
++		tmp = rtl_read_byte(rtlpriv, REG_MCUFWDL);
++		rtl_write_byte(rtlpriv, REG_MCUFWDL, tmp & 0xfe);
 +
-+#define BT_COEX_STATE_WIFI_RSSI_LOW		BIT(4)
-+#define BT_COEX_STATE_WIFI_RSSI_MEDIUM		BIT(5)
-+#define BT_COEX_STATE_WIFI_RSSI_HIGH		BIT(6)
-+#define BT_COEX_STATE_DEC_BT_POWER		BIT(7)
++		rtl_write_byte(rtlpriv, REG_MCUFWDL + 1, 0x00);
++	}
++}
 +
-+#define BT_COEX_STATE_WIFI_IDLE			BIT(8)
-+#define BT_COEX_STATE_WIFI_UPLINK		BIT(9)
-+#define BT_COEX_STATE_WIFI_DOWNLINK		BIT(10)
++static void _rtl8723ae_fw_block_write(struct ieee80211_hw *hw,
++				      const u8 *buffer, u32 size)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u32 blockSize = sizeof(u32);
++	u8 *bufferPtr = (u8 *) buffer;
++	u32 *pu4BytePtr = (u32 *) buffer;
++	u32 i, offset, blockCount, remainSize;
 +
-+#define BT_COEX_STATE_BT_INQ_PAGE		BIT(11)
-+#define BT_COEX_STATE_BT_IDLE			BIT(12)
-+#define BT_COEX_STATE_BT_UPLINK			BIT(13)
-+#define BT_COEX_STATE_BT_DOWNLINK		BIT(14)
++	blockCount = size / blockSize;
++	remainSize = size % blockSize;
 +
-+#define BT_COEX_STATE_HOLD_FOR_BT_OPERATION	BIT(15)
-+#define BT_COEX_STATE_BT_RSSI_LOW		BIT(19)
++	for (i = 0; i < blockCount; i++) {
++		offset = i * blockSize;
++		rtl_write_dword(rtlpriv, (FW_8192C_START_ADDRESS + offset),
++				*(pu4BytePtr + i));
++	}
 +
-+#define BT_COEX_STATE_PROFILE_HID		BIT(20)
-+#define BT_COEX_STATE_PROFILE_A2DP		BIT(21)
-+#define BT_COEX_STATE_PROFILE_PAN		BIT(22)
-+#define BT_COEX_STATE_PROFILE_SCO		BIT(23)
++	if (remainSize) {
++		offset = blockCount * blockSize;
++		bufferPtr += offset;
++		for (i = 0; i < remainSize; i++) {
++			rtl_write_byte(rtlpriv, (FW_8192C_START_ADDRESS +
++						 offset + i), *(bufferPtr + i));
++		}
++	}
++}
 +
-+#define BT_COEX_STATE_WIFI_RSSI_1_LOW		BIT(24)
-+#define BT_COEX_STATE_WIFI_RSSI_1_MEDIUM	BIT(25)
-+#define BT_COEX_STATE_WIFI_RSSI_1_HIGH		BIT(26)
++static void _rtl8723ae_fw_page_write(struct ieee80211_hw *hw,
++				     u32 page, const u8 *buffer, u32 size)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u8 value8;
++	u8 u8page = (u8) (page & 0x07);
 +
-+#define BT_COEX_STATE_BTINFO_COMMON		BIT(30)
-+#define BT_COEX_STATE_BTINFO_B_HID_SCOESCO	BIT(31)
-+#define BT_COEX_STATE_BTINFO_B_FTP_A2DP		BIT(29)
++	value8 = (rtl_read_byte(rtlpriv, REG_MCUFWDL + 2) & 0xF8) | u8page;
 +
-+#define BT_COEX_STATE_BT_CNT_LEVEL_0		BIT(0)
-+#define BT_COEX_STATE_BT_CNT_LEVEL_1		BIT(1)
-+#define BT_COEX_STATE_BT_CNT_LEVEL_2		BIT(2)
-+#define BT_COEX_STATE_BT_CNT_LEVEL_3		BIT(3)
++	rtl_write_byte(rtlpriv, (REG_MCUFWDL + 2), value8);
++	_rtl8723ae_fw_block_write(hw, buffer, size);
++}
 +
-+#define BT_RSSI_STATE_HIGH			0
-+#define BT_RSSI_STATE_MEDIUM			1
-+#define BT_RSSI_STATE_LOW			2
-+#define BT_RSSI_STATE_STAY_HIGH			3
-+#define BT_RSSI_STATE_STAY_MEDIUM		4
-+#define BT_RSSI_STATE_STAY_LOW			5
++static void _rtl8723ae_write_fw(struct ieee80211_hw *hw,
++				enum version_8723e version, u8 *buffer,
++				u32 size)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u8 *bufferPtr = (u8 *) buffer;
++	u32 page_nums, remain_size;
++	u32 page, offset;
 +
-+#define	BT_AGCTABLE_OFF				0
-+#define	BT_AGCTABLE_ON				1
-+#define	BT_BB_BACKOFF_OFF			0
-+#define	BT_BB_BACKOFF_ON			1
-+#define	BT_FW_NAV_OFF				0
-+#define	BT_FW_NAV_ON				1
++	RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE, "FW size is %d bytes,\n", size);
 +
-+#define	BT_COEX_MECH_NONE			0
-+#define	BT_COEX_MECH_SCO			1
-+#define	BT_COEX_MECH_HID			2
-+#define	BT_COEX_MECH_A2DP			3
-+#define	BT_COEX_MECH_PAN			4
-+#define	BT_COEX_MECH_HID_A2DP			5
-+#define	BT_COEX_MECH_HID_PAN			6
-+#define	BT_COEX_MECH_PAN_A2DP			7
-+#define	BT_COEX_MECH_HID_SCO_ESCO		8
-+#define	BT_COEX_MECH_FTP_A2DP			9
-+#define	BT_COEX_MECH_COMMON			10
-+#define	BT_COEX_MECH_MAX			11
++	page_nums = size / FW_8192C_PAGE_SIZE;
++	remain_size = size % FW_8192C_PAGE_SIZE;
 +
-+#define	BT_DBG_PROFILE_NONE			0
-+#define	BT_DBG_PROFILE_SCO			1
-+#define	BT_DBG_PROFILE_HID			2
-+#define	BT_DBG_PROFILE_A2DP			3
-+#define	BT_DBG_PROFILE_PAN			4
-+#define	BT_DBG_PROFILE_HID_A2DP			5
-+#define	BT_DBG_PROFILE_HID_PAN			6
-+#define	BT_DBG_PROFILE_PAN_A2DP			7
-+#define	BT_DBG_PROFILE_MAX			9
++	if (page_nums > 6) {
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++			 "Page numbers should not greater then 6\n");
++	}
 +
-+#define	BTINFO_B_FTP				BIT(7)
-+#define	BTINFO_B_A2DP				BIT(6)
-+#define	BTINFO_B_HID				BIT(5)
-+#define	BTINFO_B_SCO_BUSY			BIT(4)
-+#define	BTINFO_B_ACL_BUSY			BIT(3)
-+#define	BTINFO_B_INQ_PAGE			BIT(2)
-+#define	BTINFO_B_SCO_ESCO			BIT(1)
-+#define	BTINFO_B_CONNECTION			BIT(0)
++	for (page = 0; page < page_nums; page++) {
++		offset = page * FW_8192C_PAGE_SIZE;
++		_rtl8723ae_fw_page_write(hw, page, (bufferPtr + offset),
++					 FW_8192C_PAGE_SIZE);
++	}
++
++	if (remain_size) {
++		offset = page_nums * FW_8192C_PAGE_SIZE;
++		page = page_nums;
++		_rtl8723ae_fw_page_write(hw, page, (bufferPtr + offset),
++					 remain_size);
++	}
++
++	RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE, "FW write done.\n");
++
++}
++
++static int _rtl8723ae_fw_free_to_go(struct ieee80211_hw *hw)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	int err = -EIO;
++	u32 counter = 0;
++	u32 value32;
++
++	do {
++		value32 = rtl_read_dword(rtlpriv, REG_MCUFWDL);
++	} while ((counter++ < FW_8192C_POLLING_TIMEOUT_COUNT) &&
++		 (!(value32 & FWDL_ChkSum_rpt)));
++
++	if (counter >= FW_8192C_POLLING_TIMEOUT_COUNT) {
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++			 "chksum report faill ! REG_MCUFWDL:0x%08x .\n",
++			 value32);
++		goto exit;
++	}
++
++	RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE,
++		 "Checksum report OK ! REG_MCUFWDL:0x%08x .\n", value32);
++
++	value32 = rtl_read_dword(rtlpriv, REG_MCUFWDL);
++	value32 |= MCUFWDL_RDY;
++	value32 &= ~WINTINI_RDY;
++	rtl_write_dword(rtlpriv, REG_MCUFWDL, value32);
++
++	counter = 0;
++
++	do {
++		value32 = rtl_read_dword(rtlpriv, REG_MCUFWDL);
++		if (value32 & WINTINI_RDY) {
++			RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE,
++				 "Polling FW ready success!! REG_MCUFWDL:0x%08x .\n",
++				 value32);
++			err = 0;
++			goto exit;
++		}
++
++		mdelay(FW_8192C_POLLING_DELAY);
++
++	} while (counter++ < FW_8192C_POLLING_TIMEOUT_COUNT);
++
++	RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++		 "Polling FW ready fail!! REG_MCUFWDL:0x%08x .\n", value32);
++
++exit:
++	return err;
++}
++
++int rtl8723ae_download_fw(struct ieee80211_hw *hw)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
++	struct rtl8723ae_firmware_header *pfwheader;
++	u8 *pfwdata;
++	u32 fwsize;
++	int err;
++	enum version_8723e version = rtlhal->version;
++
++	if (!rtlhal->pfirmware)
++		return 1;
++
++	pfwheader = (struct rtl8723ae_firmware_header *)rtlhal->pfirmware;
++	pfwdata = (u8 *) rtlhal->pfirmware;
++	fwsize = rtlhal->fwsize;
++
++	if (IS_FW_HEADER_EXIST(pfwheader)) {
++		RT_TRACE(rtlpriv, COMP_FW, DBG_DMESG,
++			 "Firmware Version(%d), Signature(%#x),Size(%d)\n",
++			 pfwheader->version, pfwheader->signature,
++			 (int)sizeof(struct rtl8723ae_firmware_header));
++
++		pfwdata = pfwdata + sizeof(struct rtl8723ae_firmware_header);
++		fwsize = fwsize - sizeof(struct rtl8723ae_firmware_header);
++	}
++
++	if (rtl_read_byte(rtlpriv, REG_MCUFWDL)&BIT(7)) {
++		rtl8723ae_firmware_selfreset(hw);
++		rtl_write_byte(rtlpriv, REG_MCUFWDL, 0x00);
++	}
++	_rtl8723ae_enable_fw_download(hw, true);
++	_rtl8723ae_write_fw(hw, version, pfwdata, fwsize);
++	_rtl8723ae_enable_fw_download(hw, false);
++
++	err = _rtl8723ae_fw_free_to_go(hw);
++	if (err) {
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++			 "Firmware is not ready to run!\n");
++	} else {
++		RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE,
++			 "Firmware is ready to run!\n");
++	}
++
++	return 0;
++}
++
++static bool rtl8723ae_check_fw_read_last_h2c(struct ieee80211_hw *hw, u8 boxnum)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u8 val_hmetfr, val_mcutst_1;
++	bool result = false;
++
++	val_hmetfr = rtl_read_byte(rtlpriv, REG_HMETFR);
++	val_mcutst_1 = rtl_read_byte(rtlpriv, (REG_MCUTST_1 + boxnum));
++
++	if (((val_hmetfr >> boxnum) & BIT(0)) == 0 && val_mcutst_1 == 0)
++		result = true;
++	return result;
++}
++
++static void _rtl8723ae_fill_h2c_command(struct ieee80211_hw *hw,
++					u8 element_id, u32 cmd_len,
++					u8 *p_cmdbuffer)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
++	u8 boxnum;
++	u16 box_reg = 0, box_extreg = 0;
++	u8 u1tmp;
++	bool isfw_read = false;
++	u8 buf_index = 0;
++	bool bwrite_sucess = false;
++	u8 wait_h2c_limmit = 100;
++	u8 wait_writeh2c_limmit = 100;
++	u8 boxcontent[4], boxextcontent[2];
++	u32 h2c_waitcounter = 0;
++	unsigned long flag;
++	u8 idx;
++
++	RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD, "come in\n");
++
++	while (true) {
++		spin_lock_irqsave(&rtlpriv->locks.h2c_lock, flag);
++		if (rtlhal->h2c_setinprogress) {
++			RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++				 "H2C set in progress! Wait to set..element_id(%d).\n",
++				 element_id);
++
++			while (rtlhal->h2c_setinprogress) {
++				spin_unlock_irqrestore(&rtlpriv->locks.h2c_lock,
++						       flag);
++				h2c_waitcounter++;
++				RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++					 "Wait 100 us (%d times)...\n",
++					 h2c_waitcounter);
++				udelay(100);
++
++				if (h2c_waitcounter > 1000)
++					return;
++				spin_lock_irqsave(&rtlpriv->locks.h2c_lock,
++						  flag);
++			}
++			spin_unlock_irqrestore(&rtlpriv->locks.h2c_lock, flag);
++		} else {
++			rtlhal->h2c_setinprogress = true;
++			spin_unlock_irqrestore(&rtlpriv->locks.h2c_lock, flag);
++			break;
++		}
++	}
++
++	while (!bwrite_sucess) {
++		wait_writeh2c_limmit--;
++		if (wait_writeh2c_limmit == 0) {
++			RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++				 "Write H2C fail because no trigger "
++				 "for FW INT!\n");
++			break;
++		}
++
++		boxnum = rtlhal->last_hmeboxnum;
++		switch (boxnum) {
++		case 0:
++			box_reg = REG_HMEBOX_0;
++			box_extreg = REG_HMEBOX_EXT_0;
++			break;
++		case 1:
++			box_reg = REG_HMEBOX_1;
++			box_extreg = REG_HMEBOX_EXT_1;
++			break;
++		case 2:
++			box_reg = REG_HMEBOX_2;
++			box_extreg = REG_HMEBOX_EXT_2;
++			break;
++		case 3:
++			box_reg = REG_HMEBOX_3;
++			box_extreg = REG_HMEBOX_EXT_3;
++			break;
++		default:
++			RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++				 "switch case not process\n");
++			break;
++		}
++
++		isfw_read = rtl8723ae_check_fw_read_last_h2c(hw, boxnum);
++		while (!isfw_read) {
++
++			wait_h2c_limmit--;
++			if (wait_h2c_limmit == 0) {
++				RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++					 "Wating too long for FW read "
++					  "clear HMEBox(%d)!\n", boxnum);
++				break;
++			}
++
++			udelay(10);
++
++			isfw_read = rtl8723ae_check_fw_read_last_h2c(hw,
++								     boxnum);
++			u1tmp = rtl_read_byte(rtlpriv, 0x1BF);
++			RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++				 "Wating for FW read clear HMEBox(%d)!!! "
++				 "0x1BF = %2x\n", boxnum, u1tmp);
++		}
++
++		if (!isfw_read) {
++			RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++				 "Write H2C register BOX[%d] fail!!!!! "
++				 "Fw do not read.\n", boxnum);
++			break;
++		}
++
++		memset(boxcontent, 0, sizeof(boxcontent));
++		memset(boxextcontent, 0, sizeof(boxextcontent));
++		boxcontent[0] = element_id;
++		RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++			 "Write element_id box_reg(%4x) = %2x\n",
++			  box_reg, element_id);
++
++		switch (cmd_len) {
++		case 1:
++			boxcontent[0] &= ~(BIT(7));
++			memcpy((u8 *) (boxcontent) + 1,
++			       p_cmdbuffer + buf_index, 1);
++
++			for (idx = 0; idx < 4; idx++) {
++				rtl_write_byte(rtlpriv, box_reg + idx,
++					       boxcontent[idx]);
++			}
++			break;
++		case 2:
++			boxcontent[0] &= ~(BIT(7));
++			memcpy((u8 *) (boxcontent) + 1,
++			       p_cmdbuffer + buf_index, 2);
++
++			for (idx = 0; idx < 4; idx++) {
++				rtl_write_byte(rtlpriv, box_reg + idx,
++					       boxcontent[idx]);
++			}
++			break;
++		case 3:
++			boxcontent[0] &= ~(BIT(7));
++			memcpy((u8 *) (boxcontent) + 1,
++			       p_cmdbuffer + buf_index, 3);
++
++			for (idx = 0; idx < 4; idx++) {
++				rtl_write_byte(rtlpriv, box_reg + idx,
++					       boxcontent[idx]);
++			}
++			break;
++		case 4:
++			boxcontent[0] |= (BIT(7));
++			memcpy((u8 *) (boxextcontent),
++			       p_cmdbuffer + buf_index, 2);
++			memcpy((u8 *) (boxcontent) + 1,
++			       p_cmdbuffer + buf_index + 2, 2);
++
++			for (idx = 0; idx < 2; idx++) {
++				rtl_write_byte(rtlpriv, box_extreg + idx,
++					       boxextcontent[idx]);
++			}
++
++			for (idx = 0; idx < 4; idx++) {
++				rtl_write_byte(rtlpriv, box_reg + idx,
++					       boxcontent[idx]);
++			}
++			break;
++		case 5:
++			boxcontent[0] |= (BIT(7));
++			memcpy((u8 *) (boxextcontent),
++			       p_cmdbuffer + buf_index, 2);
++			memcpy((u8 *) (boxcontent) + 1,
++			       p_cmdbuffer + buf_index + 2, 3);
++
++			for (idx = 0; idx < 2; idx++) {
++				rtl_write_byte(rtlpriv, box_extreg + idx,
++					       boxextcontent[idx]);
++			}
++
++			for (idx = 0; idx < 4; idx++) {
++				rtl_write_byte(rtlpriv, box_reg + idx,
++					       boxcontent[idx]);
++			}
++			break;
++		default:
++			RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++				 "switch case not process\n");
++			break;
++		}
++
++		bwrite_sucess = true;
++
++		rtlhal->last_hmeboxnum = boxnum + 1;
++		if (rtlhal->last_hmeboxnum == 4)
++			rtlhal->last_hmeboxnum = 0;
++
++		RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++			 "pHalData->last_hmeboxnum  = %d\n",
++			 rtlhal->last_hmeboxnum);
++	}
++
++	spin_lock_irqsave(&rtlpriv->locks.h2c_lock, flag);
++	rtlhal->h2c_setinprogress = false;
++	spin_unlock_irqrestore(&rtlpriv->locks.h2c_lock, flag);
++
++	RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD, "go out\n");
++}
++
++void rtl8723ae_fill_h2c_cmd(struct ieee80211_hw *hw,
++			    u8 element_id, u32 cmd_len, u8 *p_cmdbuffer)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_hal *rtlhal = rtl_hal(rtlpriv);
++	u32 tmp_cmdbuf[2];
++
++	if (rtlhal->fw_ready == false) {
++		RT_ASSERT(false,
++			 "return H2C cmd because of Fw download fail!!!\n");
++		return;
++	}
++
++	memset(tmp_cmdbuf, 0, 8);
++	memcpy(tmp_cmdbuf, p_cmdbuffer, cmd_len);
++	_rtl8723ae_fill_h2c_command(hw, element_id, cmd_len, (u8 *)&tmp_cmdbuf);
++
++	return;
++}
++
++void rtl8723ae_firmware_selfreset(struct ieee80211_hw *hw)
++{
++	u8 u1tmp;
++	u8 delay = 100;
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++
++	rtl_write_byte(rtlpriv, REG_HMETFR + 3, 0x20);
++	u1tmp = rtl_read_byte(rtlpriv, REG_SYS_FUNC_EN + 1);
++
++	while (u1tmp & BIT(2)) {
++		delay--;
++		if (delay == 0)
++			break;
++		udelay(50);
++		u1tmp = rtl_read_byte(rtlpriv, REG_SYS_FUNC_EN + 1);
++	}
++	if (delay == 0) {
++		u1tmp = rtl_read_byte(rtlpriv, REG_SYS_FUNC_EN + 1);
++		rtl_write_byte(rtlpriv, REG_SYS_FUNC_EN + 1, u1tmp&(~BIT(2)));
++	}
++}
++
++void rtl8723ae_set_fw_pwrmode_cmd(struct ieee80211_hw *hw, u8 mode)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u8 u1_h2c_set_pwrmode[3] = { 0 };
++	struct rtl_ps_ctl *ppsc = rtl_psc(rtl_priv(hw));
++
++	RT_TRACE(rtlpriv, COMP_POWER, DBG_LOUD, "FW LPS mode = %d\n", mode);
++
++	SET_H2CCMD_PWRMODE_PARM_MODE(u1_h2c_set_pwrmode, mode);
++	SET_H2CCMD_PWRMODE_PARM_SMART_PS(u1_h2c_set_pwrmode, 1);
++	SET_H2CCMD_PWRMODE_PARM_BCN_PASS_TIME(u1_h2c_set_pwrmode,
++					      ppsc->reg_max_lps_awakeintvl);
++
++	RT_PRINT_DATA(rtlpriv, COMP_CMD, DBG_DMESG,
++		      "rtl8723ae_set_fw_rsvdpagepkt(): u1_h2c_set_pwrmode\n",
++		      u1_h2c_set_pwrmode, 3);
++	rtl8723ae_fill_h2c_cmd(hw, H2C_SETPWRMODE, 3, u1_h2c_set_pwrmode);
++
++}
++
++static bool _rtl8723ae_cmd_send_packet(struct ieee80211_hw *hw,
++				       struct sk_buff *skb)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
++	struct rtl8192_tx_ring *ring;
++	struct rtl_tx_desc *pdesc;
++	u8 own;
++	unsigned long flags;
++	struct sk_buff *pskb = NULL;
++
++	ring = &rtlpci->tx_ring[BEACON_QUEUE];
++
++	pskb = __skb_dequeue(&ring->queue);
++	if (pskb)
++		kfree_skb(pskb);
++
++	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
++
++	pdesc = &ring->desc[0];
++	own = (u8) rtlpriv->cfg->ops->get_desc((u8 *) pdesc, true, HW_DESC_OWN);
++
++	rtlpriv->cfg->ops->fill_tx_cmddesc(hw, (u8 *) pdesc, 1, 1, skb);
++
++	__skb_queue_tail(&ring->queue, skb);
++
++	spin_unlock_irqrestore(&rtlpriv->locks.irq_th_lock, flags);
++
++	rtlpriv->cfg->ops->tx_polling(hw, BEACON_QUEUE);
++
++	return true;
++}
++
++#define BEACON_PG		0 /* ->1 */
++#define PSPOLL_PG		2
++#define NULL_PG			3
++#define PROBERSP_PG		4 /* ->5 */
++
++#define TOTAL_RESERVED_PKT_LEN	768
++
++static u8 reserved_page_packet[TOTAL_RESERVED_PKT_LEN] = {
++	/* page 0 beacon */
++	0x80, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
++	0xFF, 0xFF, 0x00, 0xE0, 0x4C, 0x76, 0x00, 0x42,
++	0x00, 0x40, 0x10, 0x10, 0x00, 0x03, 0x50, 0x08,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x64, 0x00, 0x00, 0x04, 0x00, 0x0C, 0x6C, 0x69,
++	0x6E, 0x6B, 0x73, 0x79, 0x73, 0x5F, 0x77, 0x6C,
++	0x61, 0x6E, 0x01, 0x04, 0x82, 0x84, 0x8B, 0x96,
++	0x03, 0x01, 0x01, 0x06, 0x02, 0x00, 0x00, 0x2A,
++	0x01, 0x00, 0x32, 0x08, 0x24, 0x30, 0x48, 0x6C,
++	0x0C, 0x12, 0x18, 0x60, 0x2D, 0x1A, 0x6C, 0x18,
++	0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x3D, 0x00, 0xDD, 0x06, 0x00, 0xE0, 0x4C, 0x02,
++	0x01, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++
++	/* page 1 beacon */
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x10, 0x00, 0x20, 0x8C, 0x00, 0x12, 0x10, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++
++	/* page 2  ps-poll */
++	0xA4, 0x10, 0x01, 0xC0, 0x00, 0x40, 0x10, 0x10,
++	0x00, 0x03, 0x00, 0xE0, 0x4C, 0x76, 0x00, 0x42,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x18, 0x00, 0x20, 0x8C, 0x00, 0x12, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80,
++	0x80, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++
++	/* page 3  null */
++	0x48, 0x01, 0x00, 0x00, 0x00, 0x40, 0x10, 0x10,
++	0x00, 0x03, 0x00, 0xE0, 0x4C, 0x76, 0x00, 0x42,
++	0x00, 0x40, 0x10, 0x10, 0x00, 0x03, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x72, 0x00, 0x20, 0x8C, 0x00, 0x12, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80,
++	0x80, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++
++	/* page 4  probe_resp */
++	0x50, 0x00, 0x00, 0x00, 0x00, 0x40, 0x10, 0x10,
++	0x00, 0x03, 0x00, 0xE0, 0x4C, 0x76, 0x00, 0x42,
++	0x00, 0x40, 0x10, 0x10, 0x00, 0x03, 0x00, 0x00,
++	0x9E, 0x46, 0x15, 0x32, 0x27, 0xF2, 0x2D, 0x00,
++	0x64, 0x00, 0x00, 0x04, 0x00, 0x0C, 0x6C, 0x69,
++	0x6E, 0x6B, 0x73, 0x79, 0x73, 0x5F, 0x77, 0x6C,
++	0x61, 0x6E, 0x01, 0x04, 0x82, 0x84, 0x8B, 0x96,
++	0x03, 0x01, 0x01, 0x06, 0x02, 0x00, 0x00, 0x2A,
++	0x01, 0x00, 0x32, 0x08, 0x24, 0x30, 0x48, 0x6C,
++	0x0C, 0x12, 0x18, 0x60, 0x2D, 0x1A, 0x6C, 0x18,
++	0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x3D, 0x00, 0xDD, 0x06, 0x00, 0xE0, 0x4C, 0x02,
++	0x01, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++
++	/* page 5  probe_resp */
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++};
++
++void rtl8723ae_set_fw_rsvdpagepkt(struct ieee80211_hw *hw, bool dl_finished)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
++	struct sk_buff *skb = NULL;
++
++	u32 totalpacketlen;
++	bool rtstatus;
++	u8 u1RsvdPageLoc[3] = { 0 };
++	bool dlok = false;
++
++	u8 *beacon;
++	u8 *p_pspoll;
++	u8 *nullfunc;
++	u8 *p_probersp;
++	/*---------------------------------------------------------
++				(1) beacon
++	---------------------------------------------------------*/
++	beacon = &reserved_page_packet[BEACON_PG * 128];
++	SET_80211_HDR_ADDRESS2(beacon, mac->mac_addr);
++	SET_80211_HDR_ADDRESS3(beacon, mac->bssid);
++
++	/*-------------------------------------------------------
++				(2) ps-poll
++	--------------------------------------------------------*/
++	p_pspoll = &reserved_page_packet[PSPOLL_PG * 128];
++	SET_80211_PS_POLL_AID(p_pspoll, (mac->assoc_id | 0xc000));
++	SET_80211_PS_POLL_BSSID(p_pspoll, mac->bssid);
++	SET_80211_PS_POLL_TA(p_pspoll, mac->mac_addr);
++
++	SET_H2CCMD_RSVDPAGE_LOC_PSPOLL(u1RsvdPageLoc, PSPOLL_PG);
++
++	/*--------------------------------------------------------
++				(3) null data
++	---------------------------------------------------------*/
++	nullfunc = &reserved_page_packet[NULL_PG * 128];
++	SET_80211_HDR_ADDRESS1(nullfunc, mac->bssid);
++	SET_80211_HDR_ADDRESS2(nullfunc, mac->mac_addr);
++	SET_80211_HDR_ADDRESS3(nullfunc, mac->bssid);
++
++	SET_H2CCMD_RSVDPAGE_LOC_NULL_DATA(u1RsvdPageLoc, NULL_PG);
++
++	/*---------------------------------------------------------
++				(4) probe response
++	----------------------------------------------------------*/
++	p_probersp = &reserved_page_packet[PROBERSP_PG * 128];
++	SET_80211_HDR_ADDRESS1(p_probersp, mac->bssid);
++	SET_80211_HDR_ADDRESS2(p_probersp, mac->mac_addr);
++	SET_80211_HDR_ADDRESS3(p_probersp, mac->bssid);
++
++	SET_H2CCMD_RSVDPAGE_LOC_PROBE_RSP(u1RsvdPageLoc, PROBERSP_PG);
++
++	totalpacketlen = TOTAL_RESERVED_PKT_LEN;
++
++	RT_PRINT_DATA(rtlpriv, COMP_CMD, DBG_LOUD,
++		      "rtl8723ae_set_fw_rsvdpagepkt(): HW_VAR_SET_TX_CMD: ALL\n",
++		      &reserved_page_packet[0], totalpacketlen);
++	RT_PRINT_DATA(rtlpriv, COMP_CMD, DBG_DMESG,
++		      "rtl8723ae_set_fw_rsvdpagepkt(): HW_VAR_SET_TX_CMD: ALL\n",
++		      u1RsvdPageLoc, 3);
 +
 +
-+void rtl8723ae_btdm_coex_all_off(struct ieee80211_hw *hw);
-+void rtl8723ae_dm_bt_fw_coex_all_off(struct ieee80211_hw *hw);
++	skb = dev_alloc_skb(totalpacketlen);
++	memcpy((u8 *) skb_put(skb, totalpacketlen),
++	       &reserved_page_packet, totalpacketlen);
 +
-+void rtl8723ae_dm_bt_sw_coex_all_off(struct ieee80211_hw *hw);
-+void rtl8723ae_dm_bt_hw_coex_all_off(struct ieee80211_hw *hw);
-+long rtl8723ae_dm_bt_get_rx_ss(struct ieee80211_hw *hw);
-+void rtl8723ae_dm_bt_balance(struct ieee80211_hw *hw,
-+			    bool balance_on, u8 ms0, u8 ms1);
-+void rtl8723ae_dm_bt_agc_table(struct ieee80211_hw *hw, u8 type);
-+void rtl8723ae_dm_bt_bback_off_level(struct ieee80211_hw *hw, u8 type);
-+u8 rtl8723ae_dm_bt_check_coex_rssi_state(struct ieee80211_hw *hw,
-+					u8 level_num, u8 rssi_thresh,
-+					u8 rssi_thresh1);
-+u8 rtl8723ae_dm_bt_check_coex_rssi_state1(struct ieee80211_hw *hw,
-+					 u8  level_num, u8 rssi_thresh,
-+					 u8 rssi_thresh1);
-+void _rtl8723_dm_bt_check_wifi_state(struct ieee80211_hw *hw);
-+void rtl8723ae_dm_bt_reject_ap_aggregated_packet(struct ieee80211_hw *hw,
-+						bool reject);
++	rtstatus = _rtl8723ae_cmd_send_packet(hw, skb);
 +
-+bool rtl8723ae_dm_bt_is_coexist_state_changed(struct ieee80211_hw *hw);
-+bool rtl8723ae_dm_bt_is_wifi_up_link(struct ieee80211_hw *hw);
++	if (rtstatus)
++		dlok = true;
++
++	if (dlok) {
++		RT_TRACE(rtlpriv, COMP_POWER, DBG_LOUD,
++			 "Set RSVD page location to Fw.\n");
++		RT_PRINT_DATA(rtlpriv, COMP_CMD, DBG_DMESG,
++				"H2C_RSVDPAGE:\n",
++				u1RsvdPageLoc, 3);
++		rtl8723ae_fill_h2c_cmd(hw, H2C_RSVDPAGE,
++				       sizeof(u1RsvdPageLoc), u1RsvdPageLoc);
++	} else
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_WARNING,
++			 "Set RSVD page location to Fw FAIL!!!!!!.\n");
++}
++
++void rtl8723ae_set_fw_joinbss_report_cmd(struct ieee80211_hw *hw, u8 mstatus)
++{
++	u8 u1_joinbssrpt_parm[1] = { 0 };
++
++	SET_H2CCMD_JOINBSSRPT_PARM_OPMODE(u1_joinbssrpt_parm, mstatus);
++
++	rtl8723ae_fill_h2c_cmd(hw, H2C_JOINBSSRPT, 1, u1_joinbssrpt_parm);
++}
++
+Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/fw.h
+===================================================================
+--- /dev/null
++++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/fw.h
+@@ -0,0 +1,99 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2009-2012  Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
++ *
++ * The full GNU General Public License is included in this distribution in the
++ * file called LICENSE.
++ *
++ * Contact Information:
++ * wlanfae <wlanfae-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
++ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
++ * Hsinchu 300, Taiwan.
++ * Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
++ *
++ *****************************************************************************/
++
++#ifndef __RTL92C__FW__H__
++#define __RTL92C__FW__H__
++
++#define FW_8192C_SIZE				0x3000
++#define FW_8192C_START_ADDRESS			0x1000
++#define FW_8192C_END_ADDRESS			0x3FFF
++#define FW_8192C_PAGE_SIZE			4096
++#define FW_8192C_POLLING_DELAY			5
++#define FW_8192C_POLLING_TIMEOUT_COUNT		1000
++
++#define IS_FW_HEADER_EXIST(_pfwhdr)		\
++	((_pfwhdr->signature&0xFF00) == 0x2300 || \
++	(_pfwhdr->signature&0xFF00) == 0x2301 ||  \
++	(_pfwhdr->signature&0xFF00) == 0x2302)
++
++struct rtl8723ae_firmware_header {
++	u16 signature;
++	u8 category;
++	u8 function;
++	u16 version;
++	u8 subversion;
++	u8 rsvd1;
++	u8 month;
++	u8 date;
++	u8 hour;
++	u8 minute;
++	u16 ramcodeSize;
++	u16 rsvd2;
++	u32 svnindex;
++	u32 rsvd3;
++	u32 rsvd4;
++	u32 rsvd5;
++};
++
++enum rtl8192c_h2c_cmd {
++	H2C_AP_OFFLOAD = 0,
++	H2C_SETPWRMODE = 1,
++	H2C_JOINBSSRPT = 2,
++	H2C_RSVDPAGE = 3,
++	H2C_RSSI_REPORT = 5,
++	H2C_RA_MASK = 6,
++	MAX_H2CCMD
++};
++
++#define pagenum_128(_len)	(u32)(((_len)>>7) + ((_len)&0x7F ? 1 : 0))
++
++#define SET_H2CCMD_PWRMODE_PARM_MODE(__ph2ccmd, __val)			\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 0, 8, __val)
++#define SET_H2CCMD_PWRMODE_PARM_SMART_PS(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+1, 0, 8, __val)
++#define SET_H2CCMD_PWRMODE_PARM_BCN_PASS_TIME(__ph2ccmd, __val)	\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+2, 0, 8, __val)
++#define SET_H2CCMD_JOINBSSRPT_PARM_OPMODE(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 0, 8, __val)
++#define SET_H2CCMD_RSVDPAGE_LOC_PROBE_RSP(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 0, 8, __val)
++#define SET_H2CCMD_RSVDPAGE_LOC_PSPOLL(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+1, 0, 8, __val)
++#define SET_H2CCMD_RSVDPAGE_LOC_NULL_DATA(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+2, 0, 8, __val)
++
++int rtl8723ae_download_fw(struct ieee80211_hw *hw);
++void rtl8723ae_fill_h2c_cmd(struct ieee80211_hw *hw, u8 element_id,
++			    u32 cmd_len, u8 *p_cmdbuffer);
++void rtl8723ae_firmware_selfreset(struct ieee80211_hw *hw);
++void rtl8723ae_set_fw_pwrmode_cmd(struct ieee80211_hw *hw, u8 mode);
++void rtl8723ae_set_fw_rsvdpagepkt(struct ieee80211_hw *hw, bool b_dl_finished);
++void rtl8723ae_set_fw_joinbss_report_cmd(struct ieee80211_hw *hw, u8 mstatus);
 +
 +#endif
++
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
