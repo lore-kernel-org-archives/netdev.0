@@ -1,63 +1,63 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] ncm: allow for NULL terminations
-Date: Mon, 17 Sep 2012 10:39:39 -0700
-Message-ID: <5057605B.10104@hp.com>
-References: <20120917105853.30298.29234.stgit@localhost.localdomain> <1347896724.2685.2.camel@bwh-desktop.uk.solarflarecom.com>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: RE: [PATCH] netxen: check for root bus in
+ netxen_mask_aer_correctable
+Date: Mon, 17 Sep 2012 12:53:26 -0500
+Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA827E3AE9F9@MNEXMB1.qlogic.org>
+References: <1347637803-4837-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>
+To: "nikolay@redhat.com" <nikolay@redhat.com>,
+	Sony Chacko <sony.chacko@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:16103 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754774Ab2IQRjk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 13:39:40 -0400
-In-Reply-To: <1347896724.2685.2.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from co1ehsobe003.messaging.microsoft.com ([216.32.180.186]:52616
+	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756900Ab2IQRxp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Sep 2012 13:53:45 -0400
+In-Reply-To: <1347637803-4837-1-git-send-email-nikolay@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/17/2012 08:45 AM, Ben Hutchings wrote:
-> On Mon, 2012-09-17 at 11:58 +0100, Alan Cox wrote:
->> From: Alan Cox <alan@linux.intel.com>
->>
->> The strings are passed to snprintf so must be null terminated. It seems the
->> copy length is incorrectly set.
->
-> Please use strlcpy() instead.  (I thought someone had already gone round
-> the get_drvinfo implementations and fixed them to do that, actually.)
 
-That may have been my "floor sweeping" exercise of before, but I didn't 
-go into drivers/net/usb/ at the time.
+________________________________________
+From: nikolay@redhat.com [nikolay@redhat.com]
+Sent: Friday, September 14, 2012 9:20 PM
+To: Sony Chacko
+Cc: Rajesh Borundia; netdev
+Subject: [PATCH] netxen: check for root bus in netxen_mask_aer_correctable
 
-rick
+From: Nikolay Aleksandrov <nikolay@redhat.com>
 
->
-> Ben.
->
->> Signed-off-by: Alan Cox <alan@linux.intel.com>
->> ---
->>
->>   drivers/net/usb/cdc_ncm.c |    6 +++---
->>   1 file changed, 3 insertions(+), 3 deletions(-)
->>
->> diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
->> index 4cd582a..af8cce7 100644
->> --- a/drivers/net/usb/cdc_ncm.c
->> +++ b/drivers/net/usb/cdc_ncm.c
->> @@ -145,10 +145,10 @@ cdc_ncm_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *info)
->>   {
->>   	struct usbnet *dev = netdev_priv(net);
->>
->> -	strncpy(info->driver, dev->driver_name, sizeof(info->driver));
->> -	strncpy(info->version, DRIVER_VERSION, sizeof(info->version));
->> +	strncpy(info->driver, dev->driver_name, sizeof(info->driver) - 1);
->> +	strncpy(info->version, DRIVER_VERSION, sizeof(info->version) - 1);
->>   	strncpy(info->fw_version, dev->driver_info->description,
->> -		sizeof(info->fw_version));
->> +		sizeof(info->fw_version) - 1);
->>   	usb_make_path(dev->udev, info->bus_info, sizeof(info->bus_info));
->>   }
->>
->>
->
+Add a check if pdev->bus->self == NULL (root bus). When attaching
+a netxen NIC to a VM it can be on the root bus and the guest would
+crash in netxen_mask_aer_correctable() because of a NULL pointer
+dereference if CONFIG_PCIEAER is present.
+
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index 342b3a7..e2a4858 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -1378,6 +1378,10 @@ static void netxen_mask_aer_correctable(struct netxen_adapter *adapter)
+        struct pci_dev *root = pdev->bus->self;
+        u32 aer_pos;
+
++       /* root bus? */
++       if (!root)
++               return;
++
+        if (adapter->ahw.board_type != NETXEN_BRDTYPE_P3_4_GB_MM &&
+                adapter->ahw.board_type != NETXEN_BRDTYPE_P3_10G_TP)
+                return;
+--
+1.7.11.4
+
+
+Looks okay.
