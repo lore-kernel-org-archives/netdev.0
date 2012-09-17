@@ -1,38 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/8][pull request] Intel Wired LAN Driver Updates
-Date: Mon, 17 Sep 2012 00:56:36 -0400 (EDT)
-Message-ID: <20120917.005636.200884862654234164.davem@davemloft.net>
-References: <1347855342-6610-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next 2012-09-14
+Date: Mon, 17 Sep 2012 00:58:15 -0400 (EDT)
+Message-ID: <20120917.005815.967776356679575655.davem@davemloft.net>
+References: <20120914182200.GA7190@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53226 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751703Ab2IQE4h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 00:56:37 -0400
-In-Reply-To: <1347855342-6610-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120914182200.GA7190-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sun, 16 Sep 2012 21:15:34 -0700
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Fri, 14 Sep 2012 14:22:01 -0400
 
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+> This is another batch of updates intended for the 3.7 stream.
+> 
+> There are not a lot of large items, but iwlwifi, mwifiex, rt2x00,
+> ath9k, and brcmfmac all get some attention.  Wei Yongjun also provides
+> a series of small maintenance fixes.
+> 
+> This also includes a pull of the wireless tree in order to satisfy
+> some prerequisites for later patches.
+> 
+> Please let me know if there are problems!
 
-Sigh...
-
-You changed this tree.
-
-It originally had the IGB PTP changes, which you asked me to
-reconsider.
-
-So I went to pull them in and now it had these new changes in
-it, which I accidently pushed out to net-next instead of the
-IGB stuff.
-
-Never do this.  If you wanted me to consider to sets of
-changes seperatedly, put them in seperate branches for me
-to pull from.
+Pulled, thanks John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
