@@ -1,41 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] ipv6: fix the reassembly expire code in
- nf_conntrack
-Date: Mon, 17 Sep 2012 12:59:25 -0400 (EDT)
-Message-ID: <20120917.125925.930848734158369358.davem@davemloft.net>
-References: <1347517541-10653-1-git-send-email-amwang@redhat.com>
-	<20120917.125419.1478223385564528540.davem@davemloft.net>
+Subject: Re: [PATCH] af_unux: old_cred is surplus
+Date: Mon, 17 Sep 2012 13:01:08 -0400 (EDT)
+Message-ID: <20120917.130108.2060655690148347524.davem@davemloft.net>
+References: <20120917105234.30031.82700.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	herbert@gondor.hengli.com.au
-To: amwang@redhat.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120917.125419.1478223385564528540.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: alan@lxorguk.ukuu.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59206 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752584Ab2IQRBK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 13:01:10 -0400
+In-Reply-To: <20120917105234.30031.82700.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAxNyBT
-ZXAgMjAxMiAxMjo1NDoxOSAtMDQwMCAoRURUKQ0KDQo+IEZyb206IENvbmcgV2FuZyA8YW13YW5n
-QHJlZGhhdC5jb20+DQo+IERhdGU6IFRodSwgMTMgU2VwIDIwMTIgMTQ6MjU6MzcgKzA4MDANCj4g
-DQo+PiBpcHY2OiBhZGQgYSBuZXcgbmFtZXNwYWNlIGZvciBuZl9jb25udHJhY2tfcmVhc20NCj4+
-IGlwdjY6IHVuaWZ5IGNvbm50cmFjayByZWFzc2VtYmx5IGV4cGlyZSBjb2RlIHdpdGgNCj4+IGlw
-djY6IG1ha2UgaXA2X2ZyYWdfbnF1ZXVlcygpIGFuZCBpcDZfZnJhZ19tZW0oKSBzdGF0aWMNCj4+
-IGlwdjY6IHVuaWZ5IGZyYWdtZW50IHRocmVzaCBoYW5kbGluZyBjb2RlDQo+PiANCj4+IENjOiBI
-ZXJiZXJ0IFh1IDxoZXJiZXJ0QGdvbmRvci5hcGFuYS5vcmcuYXU+DQo+PiBDYzogIkRhdmlkIFMu
-IE1pbGxlciIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQo+PiBTaWduZWQtb2ZmLWJ5OiBDb25nIFdh
-bmcgPGFtd2FuZ0ByZWRoYXQuY29tPg0KPiANCj4gVGhlc2UgY2hhbmdlcyBsb29rIGdyZWF0LCBh
-bGwgYXBwbGllZCB0byBuZXQtbmV4dCwgdGhhbmtzLg0KDQpJIGhhdmUgdG8gYXNrIGlmIHlvdSBh
-Y3R1YWxseSBidWlsZCB0ZXN0ZWQgdGhpcyBjaGFuZ2UgYXQgYWxsOg0KDQpuZXQvaXB2Ni9wcm9j
-LmM6IEluIGZ1bmN0aW9uIKFzb2Nrc3RhdDZfc2VxX3Nob3eiOg0KbmV0L2lwdjYvcHJvYy5jOjQ2
-OjEwOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goWlwNl9mcmFnX25x
-dWV1ZXOiIFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KbmV0L2lwdjYv
-cHJvYy5jOjQ2OjEwOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goWlw
-Nl9mcmFnX21lbaIgWy1XZXJyb3I9aW1wbGljaXQtZnVuY3Rpb24tZGVjbGFyYXRpb25dDQoNCkl0
-IGlzIGFic29sdXRlbHkgaW1wb3NzaWJsZSBmb3IgeW91IHRvIGhhdmUgZW5hYmxlZCBpcHY2IGFu
-ZCBub3QgZ290dGVuDQp0aGF0IGJ1aWxkIGVycm9yLg0KDQpUaGUgb25seSBsb2dpY2FsIGV4cGxh
-bmF0aW9uIGlzIHRoYXQgeW91IGRpZG4ndCBjb21taXQgdGhlIGNoYW5nZXMNCnRvIG5ldC9pcHY2
-L3Byb2MuYyBpbiB5b3VyIHRyZWUgd2hlbiB5b3UgcHV0IHRvZ2V0aGVyIHRoZXNlIHBhdGNoZXMu
-DQoNClBsZWFzZSBmaXggdGhpcyB1cCBhbmQgcmVzdWJtaXQgdGhlIGZ1bGwgc2VyaWVzLg0KDQpU
-aGFua3MuDQo=
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Date: Mon, 17 Sep 2012 11:52:41 +0100
+
+> From: Alan Cox <alan@linux.intel.com>
+> 
+> Signed-off-by: Alan Cox <alan@linux.intel.com>
+
+Very amusing, you found it worthwhile to remove a typo from
+a comment and add one to the subject of your commit message
+at the same time.  It's a wash :-)
+
+Applied to net-next with subject typo corrected.
