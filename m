@@ -1,50 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] llc2: Simplify llc_station
-Date: Mon, 17 Sep 2012 13:12:37 -0400 (EDT)
-Message-ID: <20120917.131237.518528991078697534.davem@davemloft.net>
-References: <1347764982.13258.207.camel@deadeye.wl.decadent.org.uk>
-	<20120917.130531.941621987417626917.davem@davemloft.net>
-	<20120917.131017.1646567691887140571.davem@davemloft.net>
+Subject: Re: [PATCH] Generalise "auto-negotiation done" function, move
+ generic PHY code to phy_device.c
+Date: Mon, 17 Sep 2012 13:19:10 -0400 (EDT)
+Message-ID: <20120917.131910.1238928585646354544.davem@davemloft.net>
+References: <504DCF39.3000704@sysgo.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: acme@ghostprotocols.net, netdev@vger.kernel.org
-To: ben@decadent.org.uk
+Cc: netdev@vger.kernel.org, afleming@freescale.com,
+	alexander.sverdlin.ext@nsn.com
+To: asv@sysgo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59422 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59494 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752328Ab2IQRMj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 13:12:39 -0400
-In-Reply-To: <20120917.131017.1646567691887140571.davem@davemloft.net>
+	with ESMTP id S1756246Ab2IQRTN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 13:19:13 -0400
+In-Reply-To: <504DCF39.3000704@sysgo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Mon, 17 Sep 2012 13:10:17 -0400 (EDT)
+From: Alexander Sverdlin <asv@sysgo.com>
+Date: Mon, 10 Sep 2012 13:30:01 +0200
 
-> From: David Miller <davem@davemloft.net>
-> Date: Mon, 17 Sep 2012 13:05:31 -0400 (EDT)
+> From: Alexander Sverdlin <alexander.sverdlin@sysgo.com>
 > 
->> From: Ben Hutchings <ben@decadent.org.uk>
->> Date: Sun, 16 Sep 2012 04:09:42 +0100
->> 
->>> There seem to have been some grand plans for llc_station, but as they
->>> haven't been fulfilled it's just unnecessarily complicated.
->> 
->> I went over these a few times, they look correct, so I am going
->> to apply them to net-next.
->> 
->> If there are any problems let's hope that exposure in the tree
->> helps shake those out.
+> Generalise "auto-negotiation done" function, move generic PHY code to phy_device.c 
 > 
-> It doesn't even build properly, please fix this and resubmit:
+> Not all devices have "auto-negotiation done" bit at the place, as expected by
+> phy_aneg_done() in phy.c. Example of such device is Marvell 88E61xx Ethernet 
+> switch which could be controlled by Linux PHY layer, if struct phy_driver had
+> abstraction for above function. So move hardware-dependent implementation details
+> for "generic" PHY to phy_device.c, and modify all PHY drivers to use new field.
+> Now phy.c contains only high-level state-machine functionality, leaving 
+> hardware-layer to different drivers.
 > 
-> ERROR: "sysctl_llc_station_ack_timeout" [net/llc/llc2.ko] undefined!
+> Signed-off-by: Alexander Sverdlin <alexander.sverdlin@sysgo.com>
 
-Actually, since I trusted you when you said you build tested this,
-I pushed it out to net-next pre-maturely.
+You're adding this abstration, and even describe where it would be needed,
+but you aren't providing the changes that make use of this new abstration
+at all.
 
-I'm going to fix this meanwhile by simply removing the sysctl that
-references this symbol.
+That's rather pointless, and we want to see the users of new interfaces
+before we add them.
 
-But you need to check for me whether that's ok or not.
+Resubmit this when you can also submit the patch which the Marvell driver
+needs, which would actually make use of this.
