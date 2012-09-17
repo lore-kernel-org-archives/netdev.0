@@ -1,60 +1,45 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] ncm: allow for NULL terminations
-Date: Mon, 17 Sep 2012 16:45:24 +0100
-Message-ID: <1347896724.2685.2.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120917105853.30298.29234.stgit@localhost.localdomain>
+From: "James R. Hay" <jrhay@haya.qc.ca>
+Subject: D-Link DGE-530T and r8169.c
+Date: Mon, 17 Sep 2012 11:51:08 -0400 (EDT)
+Message-ID: <alpine.LNX.2.00.1209171139540.11109@hay.haya.qc.ca>
+Reply-To: "James R. Hay" <jrhay@haya.qc.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: romieu@fr.zorrell.com, nic_swsd@realtek.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:36465 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932238Ab2IQPp2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 11:45:28 -0400
-In-Reply-To: <20120917105853.30298.29234.stgit@localhost.localdomain>
+Received: from mail5.hay-net.net ([205.236.99.37]:47314 "EHLO
+	mail4.hay-net.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932211Ab2IQQBZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 12:01:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-09-17 at 11:58 +0100, Alan Cox wrote:
-> From: Alan Cox <alan@linux.intel.com>
-> 
-> The strings are passed to snprintf so must be null terminated. It seems the
-> copy length is incorrectly set.
 
-Please use strlcpy() instead.  (I thought someone had already gone round
-the get_drvinfo implementations and fixed them to do that, actually.)
+Good morning,
 
-Ben.
+It appears that D-Link has changed the ID of the DGE-530T NIC from 
+1186:4300: to 1186:4302: which means the RTL8169 driver in the linux 
+kernel does not recognize newer DGE-530T cards.
 
-> Signed-off-by: Alan Cox <alan@linux.intel.com>
-> ---
-> 
->  drivers/net/usb/cdc_ncm.c |    6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-> index 4cd582a..af8cce7 100644
-> --- a/drivers/net/usb/cdc_ncm.c
-> +++ b/drivers/net/usb/cdc_ncm.c
-> @@ -145,10 +145,10 @@ cdc_ncm_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *info)
->  {
->  	struct usbnet *dev = netdev_priv(net);
->  
-> -	strncpy(info->driver, dev->driver_name, sizeof(info->driver));
-> -	strncpy(info->version, DRIVER_VERSION, sizeof(info->version));
-> +	strncpy(info->driver, dev->driver_name, sizeof(info->driver) - 1);
-> +	strncpy(info->version, DRIVER_VERSION, sizeof(info->version) - 1);
->  	strncpy(info->fw_version, dev->driver_info->description,
-> -		sizeof(info->fw_version));
-> +		sizeof(info->fw_version) - 1);
->  	usb_make_path(dev->udev, info->bus_info, sizeof(info->bus_info));
->  }
->  
-> 
+At link 199 of r8169.c is the following:
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x4300), 0, 0, RTL_CFG_0 },
+
+While I changed the 0x4300 to 0x4302 and recompiled the kernel to get the 
+driver to recognize the card I believe that the appropriate fix would be 
+to add the following line immediately after:
+
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x4302), 0, 0, RTL_CFG_0 },
+
+Since I only have the one machine here on which to test this driver I am 
+hoping that any further testing needed can be done by someone so that this 
+can make its way inte the kernel source code.
+
+Jim.
+
+James R. Hay				jrhay@HayA.QC.CA
+Hay-Net Networks			http://www.hay-net.net
+P.O. Box 46051
+Pointe Claire, QC
+H9R 5R4
