@@ -1,30 +1,33 @@
-From: Webmail Account Upgrade <webmail@mail.uz.ac.zw>
-Subject: Warning! Your mailbox is almost full.
-Date: Mon, 17 Sep 2012 15:07:19 +0200
-Message-ID: <20120917150719.j62d2vxtwkgwo44w@webmail.uz.ac.zw>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [PATCH] Xen backend support for paged out grant targets V4.
+Date: Mon, 17 Sep 2012 09:32:34 -0400
+Message-ID: <20120917133234.GB11553@phenom.dumpdata.com>
+References: <1347632819-13684-1-git-send-email-andres@lagarcavilla.org>
+ <1347869865.14977.15.camel@zakaz.uk.xensource.com>
+ <5B5132A4-93B2-41D0-B1A6-048810565DB5@gridcentric.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.uz.ac.zw ([196.4.80.17]:54554 "EHLO smtp.uz.ac.zw"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754807Ab2IQNN2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 09:13:28 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	Andres Lagar-Cavilla <andres@lagarcavilla.org>,
+	xen-devel <xen-devel@lists.xen.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	David Miller <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andres Lagar-Cavilla <andreslc@gridcentric.ca>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <5B5132A4-93B2-41D0-B1A6-048810565DB5@gridcentric.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-You have exceeded your email limit quota of 450MB. You need to upgrade =
-=20
-your email limit quota to 2GB within the next 48 hours. Use the below =20
-web link to upgrade your email account:
+> >> Signed-off-by: Andres Lagar-Cavilla <andres@lagarcavilla.org>
+> > 
+> > Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> > 
+> > Since this is more about grant tables than netback this should probably
+> > go via Konrad rather than Dave, is that OK with you Dave?
+> 
+> If that is the case hopefully Konrad can deal with the two typos? Otherwise happy to re-spin the patch.
 
-click link below:
-   http://www.formchamp.com/goform.php?id=3D38467
-
-Thank you for using our email.
-Copyright =A92012 Email Helpdesk Centre.
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
+Sure. Just waiting for an Ack from David.
