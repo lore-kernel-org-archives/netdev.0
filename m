@@ -1,33 +1,56 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH] Xen backend support for paged out grant targets V4.
-Date: Mon, 17 Sep 2012 09:32:34 -0400
-Message-ID: <20120917133234.GB11553@phenom.dumpdata.com>
-References: <1347632819-13684-1-git-send-email-andres@lagarcavilla.org>
- <1347869865.14977.15.camel@zakaz.uk.xensource.com>
- <5B5132A4-93B2-41D0-B1A6-048810565DB5@gridcentric.ca>
+From: Ajith Adapa <adapa.ajith@gmail.com>
+Subject: Regarding group_forward_mask in bridge in 3.4 kernel
+Date: Mon, 17 Sep 2012 20:13:48 +0530
+Message-ID: <CADAe=++yAm3t-ZqMKy9h-Rda5=pOYQD2-cKUd3S1VKmBZQfT9A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	Andres Lagar-Cavilla <andres@lagarcavilla.org>,
-	xen-devel <xen-devel@lists.xen.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	David Miller <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andres Lagar-Cavilla <andreslc@gridcentric.ca>, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5B5132A4-93B2-41D0-B1A6-048810565DB5@gridcentric.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:40772 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756348Ab2IQOoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 10:44:19 -0400
+Received: by obbuo13 with SMTP id uo13so9020251obb.19
+        for <netdev@vger.kernel.org>; Mon, 17 Sep 2012 07:44:18 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> >> Signed-off-by: Andres Lagar-Cavilla <andres@lagarcavilla.org>
-> > 
-> > Acked-by: Ian Campbell <ian.campbell@citrix.com>
-> > 
-> > Since this is more about grant tables than netback this should probably
-> > go via Konrad rather than Dave, is that OK with you Dave?
-> 
-> If that is the case hopefully Konrad can deal with the two typos? Otherwise happy to re-spin the patch.
+Hi,
 
-Sure. Just waiting for an Ack from David.
+I am trying to enable group_fwd_mask in bridge by giving the below
+command so that it can forward provider bpdu's whose destination
+address is 01-80-C2-00-00-08.
+
+echo 8 > /sys/class/net/vpc1_br/bridge/group_fwd_mask
+
+But still the provider BPDU's are dropped by the bridge. After some
+debugging I have found that logic in br_input.c has some issue
+
+                switch (dest[5]) {
+                case 0x00:      /* Bridge Group Address */
+                        /* If STP is turned off,
+                           then must forward to keep loop detection */
+                        if (p->br->stp_enabled == BR_NO_STP)
+                                goto forward;
+                        break;
+
+                case 0x01:      /* IEEE MAC (Pause) */
+                        goto drop;
+
+                default:
+                        /* Allow selective forwarding for most other
+protocols */
+                        if (p->br->group_fwd_mask & (1u << dest[5]))
+                                goto forward;
+                }
+
+In my case dest[5] is 8 and p->br->group_fwd_mask is 8. The default
+case is triggered but the expression in if condition
+is always ZERO as a result BPDU is not forwarded.
+
+Am I giving wrong value for group_fwd_mask ?? I tried other values but
+seems only 8 and 0 is accepted.
+
+Regards,
+Ajith
