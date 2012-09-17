@@ -1,39 +1,29 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch net] sky2: fix rx filter setup on link up
-Date: Mon, 17 Sep 2012 09:12:14 -0700
-Message-ID: <20120917091214.5cd9b0f5@nehalam.linuxnetplumber.net>
-References: <1347894617-13614-1-git-send-email-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
+Date: Mon, 17 Sep 2012 12:12:43 -0400 (EDT)
+Message-ID: <20120917.121243.1665284878800146060.davem@davemloft.net>
+References: <1347868144.26523.71.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, mlindner@marvell.com,
-	linux-kernel@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1347894617-13614-1-git-send-email-jiri@resnulli.us>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58715 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932325Ab2IQQMr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 12:12:47 -0400
+In-Reply-To: <1347868144.26523.71.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 17 Sep 2012 17:10:17 +0200
-Jiri Pirko <jiri@resnulli.us> wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 17 Sep 2012 09:49:04 +0200
 
-> In my case I have following problem. sky2_set_multicast() sets registers
-> GM_MC_ADDR_H[1-4] correctly to:
-> 0000 0800 0001 0410
-> However, when adapter gets link and sky2_link_up() is called, the values
-> are for some reason different:
-> 0000 0800 0016 0410
+> 2) Use order-3 pages (or order-0 pages if page size is >= 32768)
 
-Rather than papering over the problem, it would be better to
-trace back what is setting those registers and fix that code.
+We could do with an audit to make sure drivers (and the stack in
+general) can handle SKB frags of length > PAGE_SIZE.
 
-> This in my case prevents iface to be able to receive packets with dst mac
-> 01:80:C2:00:00:02 (LACPDU dst mac), which I set up previously by
-> SIOCADDMULTI.
-> 
-> So remember computed rx_filter data and write it to GM_MC_ADDR_H[1-4] on
-> link_up.
->
-
-Please do some more root cause analysis. Just save/restoring the
-registers is just a temporary workaround.
+I have no idea whether such problems might actually exist, but
+I can say it's a case that gets not so much testing.
