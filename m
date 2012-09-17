@@ -1,55 +1,333 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3] net-tcp: TCP/IP stack bypass for loopback
- connections
-Date: Mon, 17 Sep 2012 22:20:39 +0200
-Message-ID: <1347913239.26523.173.camel@edumazet-glaptop>
-References: <1347908305-13541-1-git-send-email-brutus@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: "Bruce \"Brutus\" Curtis" <brutus@google.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH NEXT V2] rtlwifi: rtl8192c: rtl8192ce: Add support for B-CUT version of RTL8188CE
+Date: Mon, 17 Sep 2012 15:35:43 -0500
+Message-ID: <1347914143-27698-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Anisse Astier <anisse@astier.eu>,
+	Li Chaoming <chaoming_li@realsil.com.cn>
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:39444 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755707Ab2IQUUt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 16:20:49 -0400
-Received: by bkwj10 with SMTP id j10so2754533bkw.19
-        for <netdev@vger.kernel.org>; Mon, 17 Sep 2012 13:20:47 -0700 (PDT)
-In-Reply-To: <1347908305-13541-1-git-send-email-brutus@google.com>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:52784 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751970Ab2IQUf5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 16:35:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-09-17 at 11:58 -0700, Bruce "Brutus" Curtis wrote:
-> From: "Bruce \"Brutus\" Curtis" <brutus@google.com>
-> 
-> TCP/IP loopback socket pair stack bypass, based on an idea by, and
-> rough upstream patch from, David Miller <davem@davemloft.net> called
-> "friends", the data structure modifcations and connection scheme are
-> reused with extensive data-path changes.
+Realtek devices with designation RTL8188CE-VL have the so-called B-cut
+of the wireless chip. This patch adds the special programming needed by
+these devices.
 
-...
-
->  
-> +		if (skb->friend) {
-> +			/*
-> +			 * If friends haven't been made yet, our sk_friend
-> +			 * still == NULL, then update with the ACK's friend
-> +			 * value (the listen()er's sock addr) which is used
-> +			 * as a place holder.
-> +			 */
-> +			cmpxchg(&sk->sk_friend, NULL, skb->friend);
-> +		}
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Anisse Astier <anisse@astier.eu>
+Cc: Li Chaoming <chaoming_li@realsil.com.cn>
+---
+ drivers/net/wireless/rtlwifi/rtl8192c/phy_common.c |   21 +++++++
+ drivers/net/wireless/rtlwifi/rtl8192ce/def.h       |    3 +
+ drivers/net/wireless/rtlwifi/rtl8192ce/hw.c        |   61 ++++++++++++++++++--
+ drivers/net/wireless/rtlwifi/rtl8192ce/phy.c       |    4 +-
+ drivers/net/wireless/rtlwifi/rtl8192ce/sw.c        |    6 +-
+ drivers/net/wireless/rtlwifi/rtl8192ce/trx.c       |    4 +-
+ 6 files changed, 87 insertions(+), 12 deletions(-)
+---
+V1 => V2	Remove extraneous white space.
 
 
-There is a fundamental issue with this patch
+John,
 
-Setting skb->friend to a socket structure, without holding a reference
-on it is going to add subtle races and bugs.
+This patch is too invasive to backport to the stable kernels, thus it should
+be applied to 3.7.
 
-In this code, we have no guarantee the socket pointed by skb->friend was
-eventually freed and/or reused.
+Thanks,
 
-But adding references might be overkill, as we need to unref them in
-some places, in hot path.
+Larry
+---
+
+Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192c/phy_common.c
+===================================================================
+--- wireless-testing-new.orig/drivers/net/wireless/rtlwifi/rtl8192c/phy_common.c
++++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192c/phy_common.c
+@@ -724,6 +724,26 @@ u8 rtl92c_phy_sw_chnl(struct ieee80211_h
+ }
+ EXPORT_SYMBOL(rtl92c_phy_sw_chnl);
+ 
++static void _rtl92c_phy_sw_rf_setting(struct ieee80211_hw *hw, u8 channel)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_phy *rtlphy = &(rtlpriv->phy);
++	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
++
++	if (IS_81xxC_VENDOR_UMC_B_CUT(rtlhal->version)) {
++		if (channel == 6 && rtlphy->current_chan_bw ==
++		    HT_CHANNEL_WIDTH_20)
++			rtl_set_rfreg(hw, RF90_PATH_A, RF_RX_G1, MASKDWORD,
++				      0x00255);
++		else{
++			u32 backupRF0x1A = (u32)rtl_get_rfreg(hw, RF90_PATH_A,
++					    RF_RX_G1, RFREG_OFFSET_MASK);
++			rtl_set_rfreg(hw, RF90_PATH_A, RF_RX_G1, MASKDWORD,
++				      backupRF0x1A);
++		}
++	}
++}
++
+ static bool _rtl92c_phy_set_sw_chnl_cmdarray(struct swchnlcmd *cmdtable,
+ 					     u32 cmdtableidx, u32 cmdtablesz,
+ 					     enum swchnlcmd_id cmdid,
+@@ -837,6 +857,7 @@ bool _rtl92c_phy_sw_chnl_step_by_step(st
+ 					      currentcmd->para1,
+ 					      RFREG_OFFSET_MASK,
+ 					      rtlphy->rfreg_chnlval[rfpath]);
++			_rtl92c_phy_sw_rf_setting(hw, channel);
+ 			}
+ 			break;
+ 		default:
+Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/def.h
+===================================================================
+--- wireless-testing-new.orig/drivers/net/wireless/rtlwifi/rtl8192ce/def.h
++++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/def.h
+@@ -116,6 +116,9 @@
+ 	LE_BITS_TO_4BYTE(((__pcmdfbhdr) + 4), 20, 12)
+ 
+ #define CHIP_VER_B			BIT(4)
++#define CHIP_BONDING_IDENTIFIER(_value) (((_value) >> 22) & 0x3)
++#define CHIP_BONDING_92C_1T2R		0x1
++#define RF_TYPE_1T2R			BIT(1)
+ #define CHIP_92C_BITMASK		BIT(0)
+ #define CHIP_UNKNOWN			BIT(7)
+ #define CHIP_92C_1T2R			0x03
+Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+===================================================================
+--- wireless-testing-new.orig/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
++++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+@@ -896,7 +896,6 @@ int rtl92ce_hw_init(struct ieee80211_hw
+ 	struct rtl_phy *rtlphy = &(rtlpriv->phy);
+ 	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
+ 	struct rtl_ps_ctl *ppsc = rtl_psc(rtl_priv(hw));
+-	static bool iqk_initialized; /* initialized to false */
+ 	bool rtstatus = true;
+ 	bool is92c;
+ 	int err;
+@@ -921,9 +920,28 @@ int rtl92ce_hw_init(struct ieee80211_hw
+ 
+ 	rtlhal->last_hmeboxnum = 0;
+ 	rtl92c_phy_mac_config(hw);
++	/* because last function modify RCR, so we update
++	 * rcr var here, or TP will unstable for receive_config
++	 * is wrong, RX RCR_ACRC32 will cause TP unstabel & Rx
++	 * RCR_APP_ICV will cause mac80211 unassoc for cisco 1252*/
++	rtlpci->receive_config = rtl_read_dword(rtlpriv, REG_RCR);
++	rtlpci->receive_config &= ~(RCR_ACRC32 | RCR_AICV);
++	rtl_write_dword(rtlpriv, REG_RCR, rtlpci->receive_config);
+ 	rtl92c_phy_bb_config(hw);
+ 	rtlphy->rf_mode = RF_OP_BY_SW_3WIRE;
+ 	rtl92c_phy_rf_config(hw);
++	if (IS_VENDOR_UMC_A_CUT(rtlhal->version) &&
++	    !IS_92C_SERIAL(rtlhal->version)) {
++		rtl_set_rfreg(hw, RF90_PATH_A, RF_RX_G1, MASKDWORD, 0x30255);
++		rtl_set_rfreg(hw, RF90_PATH_A, RF_RX_G2, MASKDWORD, 0x50a00);
++	} else if (IS_81xxC_VENDOR_UMC_B_CUT(rtlhal->version)) {
++		rtl_set_rfreg(hw, RF90_PATH_A, 0x0C, MASKDWORD, 0x894AE);
++		rtl_set_rfreg(hw, RF90_PATH_A, 0x0A, MASKDWORD, 0x1AF31);
++		rtl_set_rfreg(hw, RF90_PATH_A, RF_IPA, MASKDWORD, 0x8F425);
++		rtl_set_rfreg(hw, RF90_PATH_A, RF_SYN_G2, MASKDWORD, 0x4F200);
++		rtl_set_rfreg(hw, RF90_PATH_A, RF_RCK1, MASKDWORD, 0x44053);
++		rtl_set_rfreg(hw, RF90_PATH_A, RF_RCK2, MASKDWORD, 0x80201);
++	}
+ 	rtlphy->rfreg_chnlval[0] = rtl_get_rfreg(hw, (enum radio_path)0,
+ 						 RF_CHNLBW, RFREG_OFFSET_MASK);
+ 	rtlphy->rfreg_chnlval[1] = rtl_get_rfreg(hw, (enum radio_path)1,
+@@ -945,11 +963,11 @@ int rtl92ce_hw_init(struct ieee80211_hw
+ 
+ 	if (ppsc->rfpwr_state == ERFON) {
+ 		rtl92c_phy_set_rfpath_switch(hw, 1);
+-		if (iqk_initialized) {
++		if (rtlphy->iqk_initialized) {
+ 			rtl92c_phy_iq_calibrate(hw, true);
+ 		} else {
+ 			rtl92c_phy_iq_calibrate(hw, false);
+-			iqk_initialized = true;
++			rtlphy->iqk_initialized = true;
+ 		}
+ 
+ 		rtl92c_dm_check_txpower_tracking(hw);
+@@ -1004,6 +1022,13 @@ static enum version_8192c _rtl92ce_read_
+ 				   ? CHIP_VENDOR_UMC_B_CUT : CHIP_UNKNOWN) |
+ 				   CHIP_VENDOR_UMC));
+ 		}
++		if (IS_92C_SERIAL(version)) {
++			value32 = rtl_read_dword(rtlpriv, REG_HPON_FSM);
++			version = (enum version_8192c)(version |
++				   ((CHIP_BONDING_IDENTIFIER(value32)
++				   == CHIP_BONDING_92C_1T2R) ?
++				   RF_TYPE_1T2R : 0));
++		}
+ 	}
+ 
+ 	switch (version) {
+@@ -1019,12 +1044,30 @@ static enum version_8192c _rtl92ce_read_
+ 	case VERSION_A_CHIP_88C:
+ 		versionid = "A_CHIP_88C";
+ 		break;
++	case VERSION_NORMAL_UMC_CHIP_92C_1T2R_A_CUT:
++		versionid = "A_CUT_92C_1T2R";
++		break;
++	case VERSION_NORMAL_UMC_CHIP_92C_A_CUT:
++		versionid = "A_CUT_92C";
++		break;
++	case VERSION_NORMAL_UMC_CHIP_88C_A_CUT:
++		versionid = "A_CUT_88C";
++		break;
++	case VERSION_NORMAL_UMC_CHIP_92C_1T2R_B_CUT:
++		versionid = "B_CUT_92C_1T2R";
++		break;
++	case VERSION_NORMAL_UMC_CHIP_92C_B_CUT:
++		versionid = "B_CUT_92C";
++		break;
++	case VERSION_NORMAL_UMC_CHIP_88C_B_CUT:
++		versionid = "B_CUT_88C";
++		break;
+ 	default:
+ 		versionid = "Unknown. Bug?";
+ 		break;
+ 	}
+ 
+-	RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
++	RT_TRACE(rtlpriv, COMP_INIT, DBG_EMERG,
+ 		 "Chip Version ID: %s\n", versionid);
+ 
+ 	switch (version & 0x3) {
+@@ -1197,6 +1240,7 @@ static void _rtl92ce_poweroff_adapter(st
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	struct rtl_pci_priv *rtlpcipriv = rtl_pcipriv(hw);
++	struct rtl_hal *rtlhal = rtl_hal(rtlpriv);
+ 	u8 u1b_tmp;
+ 	u32 u4b_tmp;
+ 
+@@ -1225,7 +1269,8 @@ static void _rtl92ce_poweroff_adapter(st
+ 	rtl_write_word(rtlpriv, REG_GPIO_IO_SEL, 0x0790);
+ 	rtl_write_word(rtlpriv, REG_LEDCFG0, 0x8080);
+ 	rtl_write_byte(rtlpriv, REG_AFE_PLL_CTRL, 0x80);
+-	rtl_write_byte(rtlpriv, REG_SPS0_CTRL, 0x23);
++	if (!IS_81xxC_VENDOR_UMC_B_CUT(rtlhal->version))
++		rtl_write_byte(rtlpriv, REG_SPS0_CTRL, 0x23);
+ 	if (rtlpcipriv->bt_coexist.bt_coexistence) {
+ 		u4b_tmp = rtl_read_dword(rtlpriv, REG_AFE_XTAL_CTRL);
+ 		u4b_tmp |= 0x03824800;
+@@ -1254,6 +1299,9 @@ void rtl92ce_card_disable(struct ieee802
+ 		rtlpriv->cfg->ops->led_control(hw, LED_CTL_POWER_OFF);
+ 	RT_SET_PS_LEVEL(ppsc, RT_RF_OFF_LEVL_HALT_NIC);
+ 	_rtl92ce_poweroff_adapter(hw);
++
++	/* after power off we should do iqk again */
++	rtlpriv->phy.iqk_initialized = false;
+ }
+ 
+ void rtl92ce_interrupt_recognized(struct ieee80211_hw *hw,
+@@ -1355,9 +1403,9 @@ static void _rtl92ce_read_txpower_info_f
+ 			tempval = hwinfo[EEPROM_TXPOWERHT40_2SDIFF + i];
+ 		else
+ 			tempval = EEPROM_DEFAULT_HT40_2SDIFF;
+-		rtlefuse->eeprom_chnlarea_txpwr_ht40_2sdiif[RF90_PATH_A][i] =
++		rtlefuse->eprom_chnl_txpwr_ht40_2sdf[RF90_PATH_A][i] =
+ 		    (tempval & 0xf);
+-		rtlefuse->eeprom_chnlarea_txpwr_ht40_2sdiif[RF90_PATH_B][i] =
++		rtlefuse->eprom_chnl_txpwr_ht40_2sdf[RF90_PATH_B][i] =
+ 		    ((tempval & 0xf0) >> 4);
+ 	}
+ 
+@@ -1381,7 +1429,7 @@ static void _rtl92ce_read_txpower_info_f
+ 				"RF(%d) EEPROM HT40 2S Diff Area(%d) = 0x%x\n",
+ 				rf_path, i,
+ 				rtlefuse->
+-				eeprom_chnlarea_txpwr_ht40_2sdiif[rf_path][i]);
++				eprom_chnl_txpwr_ht40_2sdf[rf_path][i]);
+ 
+ 	for (rf_path = 0; rf_path < 2; rf_path++) {
+ 		for (i = 0; i < 14; i++) {
+@@ -1396,14 +1444,14 @@ static void _rtl92ce_read_txpower_info_f
+ 			if ((rtlefuse->
+ 			     eeprom_chnlarea_txpwr_ht40_1s[rf_path][index] -
+ 			     rtlefuse->
+-			     eeprom_chnlarea_txpwr_ht40_2sdiif[rf_path][index])
++			     eprom_chnl_txpwr_ht40_2sdf[rf_path][index])
+ 			    > 0) {
+ 				rtlefuse->txpwrlevel_ht40_2s[rf_path][i] =
+ 				    rtlefuse->
+ 				    eeprom_chnlarea_txpwr_ht40_1s[rf_path]
+ 				    [index] -
+ 				    rtlefuse->
+-				    eeprom_chnlarea_txpwr_ht40_2sdiif[rf_path]
++				    eprom_chnl_txpwr_ht40_2sdf[rf_path]
+ 				    [index];
+ 			} else {
+ 				rtlefuse->txpwrlevel_ht40_2s[rf_path][i] = 0;
+@@ -1912,6 +1960,8 @@ static void rtl92ce_update_hal_rate_mask
+ 			ratr_bitmap &= 0x0f0ff0ff;
+ 		break;
+ 	}
++	sta_entry->ratr_index = ratr_index;
++
+ 	RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG,
+ 		 "ratr_bitmap :%x\n", ratr_bitmap);
+ 	*(u32 *)&rate_mask = (ratr_bitmap & 0x0fffffff) |
+Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/phy.c
+===================================================================
+--- wireless-testing-new.orig/drivers/net/wireless/rtlwifi/rtl8192ce/phy.c
++++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/phy.c
+@@ -82,6 +82,8 @@ bool rtl92c_phy_mac_config(struct ieee80
+ 
+ 	if (is92c)
+ 		rtl_write_byte(rtlpriv, 0x14, 0x71);
++	else
++		rtl_write_byte(rtlpriv, 0x04CA, 0x0A);
+ 	return rtstatus;
+ }
+ 
+Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/sw.c
+===================================================================
+--- wireless-testing-new.orig/drivers/net/wireless/rtlwifi/rtl8192ce/sw.c
++++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/sw.c
+@@ -162,12 +162,10 @@ int rtl92c_init_sw_vars(struct ieee80211
+ 
+ 	/* request fw */
+ 	if (IS_VENDOR_UMC_A_CUT(rtlhal->version) &&
+-	    !IS_92C_SERIAL(rtlhal->version)) {
++	    !IS_92C_SERIAL(rtlhal->version))
+ 		rtlpriv->cfg->fw_name = "rtlwifi/rtl8192cfwU.bin";
+-	} else if (IS_81xxC_VENDOR_UMC_B_CUT(rtlhal->version)) {
++	else if (IS_81xxC_VENDOR_UMC_B_CUT(rtlhal->version))
+ 		rtlpriv->cfg->fw_name = "rtlwifi/rtl8192cfwU_B.bin";
+-		pr_info("****** This B_CUT device may not work with kernels 3.6 and earlier\n");
+-	}
+ 
+ 	rtlpriv->max_fw_size = 0x4000;
+ 	pr_info("Using firmware %s\n", rtlpriv->cfg->fw_name);
+Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
+===================================================================
+--- wireless-testing-new.orig/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
++++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
+@@ -127,11 +127,11 @@ static void _rtl92ce_query_rxphystatus(s
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	struct phy_sts_cck_8192s_t *cck_buf;
++	struct rtl_ps_ctl *ppsc = rtl_psc(rtlpriv);
+ 	s8 rx_pwr_all = 0, rx_pwr[4];
+ 	u8 evm, pwdb_all, rf_rx_num = 0;
+ 	u8 i, max_spatial_stream;
+ 	u32 rssi, total_rssi = 0;
+-	bool in_powersavemode = false;
+ 	bool is_cck_rate;
+ 
+ 	is_cck_rate = RX_HAL_IS_CCK_RATE(pdesc);
+@@ -147,7 +147,7 @@ static void _rtl92ce_query_rxphystatus(s
+ 		u8 report, cck_highpwr;
+ 		cck_buf = (struct phy_sts_cck_8192s_t *)p_drvinfo;
+ 
+-		if (!in_powersavemode)
++		if (ppsc->rfpwr_state == ERFON)
+ 			cck_highpwr = (u8) rtl_get_bbreg(hw,
+ 						 RFPGA0_XA_HSSIPARAMETER2,
+ 						 BIT(9));
