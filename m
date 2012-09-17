@@ -1,94 +1,76 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] Xen backend support for paged out grant targets V4.
-Date: Mon, 17 Sep 2012 09:17:45 +0100
-Message-ID: <1347869865.14977.15.camel@zakaz.uk.xensource.com>
-References: <1347632819-13684-1-git-send-email-andres@lagarcavilla.org>
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [RFC PATCH 0/3] usbnet: support runtime PM triggered by link change
+Date: Mon, 17 Sep 2012 16:25:59 +0800
+Message-ID: <CACVXFVONb+pKkydhp3iesLt0tKvc+56uv6sd5S0UwUnGZiowYA@mail.gmail.com>
+References: <1347731299-29898-1-git-send-email-ming.lei@canonical.com>
+	<2236952.YSZj5xxzHO@linux-lqwf.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel <xen-devel@lists.xen.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	"David Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andres Lagar-Cavilla <andres@lagarcavilla.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1347632819-13684-1-git-send-email-andres@lagarcavilla.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Fink Dmitry <finik-l0cyMroinI0@public.gmane.org>, Rafael Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <2236952.YSZj5xxzHO-ugxBuEnWX9yG/4A2pS7c2Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-(I think I forgot to hit send on this on Friday, sorry. Also
-s/xen.lists.org/lists.xen.org in the CC line...)
+On Mon, Sep 17, 2012 at 4:04 PM, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> wrote:
+> On Sunday 16 September 2012 01:48:16 Ming Lei wrote:
+>
+> Hi,
+>
+>> Currently only very few usbnet devices support the traffic based
+>> runtime PM, eg. wake up devices if there are packets to be transmitted.
+>>
+>> For the below situation, it should make sense to runtime suspend usbnet
+>> device to save power:
+>>
+>>         - after network link becomes down
+>
+> Basically cool design, but it raises two fundamental questions
+> and some detail questions.
+>
+>> This patch implements the runtime PM triggered by network link change
+>> event, and it works basically on asix usbnet device after a simple
+>> runtime PM test.
+>
+> 1) Does it actually save power? You are constantly waking up a CPU.
 
-On Fri, 2012-09-14 at 15:26 +0100, Andres Lagar-Cavilla wrote:
-> Since Xen-4.2, hvm domains may have portions of their memory paged out. When a
-> foreign domain (such as dom0) attempts to map these frames, the map will
-> initially fail. The hypervisor returns a suitable errno, and kicks an
-> asynchronous page-in operation carried out by a helper. The foreign domain is
-> expected to retry the mapping operation until it eventually succeeds. The
-> foreign domain is not put to sleep because itself could be the one running the
-> pager assist (typical scenario for dom0).
-> 
-> This patch adds support for this mechanism for backend drivers using grant
-> mapping and copying operations. Specifically, this covers the blkback and
-> gntdev drivers (which map foregin grants), and the netback driver (which copies
+Of course, it does. I don't know it will save how much power just on
+usbnet device, but it may save power from usb hub and usb host
+controller in the bus at least.
 
-                           foreign
+Anyway we don't need to waste power if the link of usbnet is down.
 
-> foreign grants).
-> 
-> * Add a retry method for grants that fail with GNTST_eagain (i.e. because the
->   target foregin frame is paged out).
+It just wake up CPU one time each 3sec. In modern linux distribution,
+the CPU will be wakup tens times per second, so it shouldn't be a
+big problem.
 
-          foreign
+> From that perspective it is possible that leaving on the ethernet is actually
+> better in terms of power. Only measurements can answer that question.
 
-> * Insert hooks with appropriate wrappers in the aforementioned drivers.
-> 
-> The retry loop is only invoked if the grant operation status is GNTST_eagain.
-> It guarantees to leave a new status code different from GNTST_eagain. Any other
-> status code results in identical code execution as before.
-> 
-> The retry loop performs 256 attempts with increasing time intervals through a
-> 32 second period. It uses msleep to yield while waiting for the next retry.
-[...]
-> Signed-off-by: Andres Lagar-Cavilla <andres@lagarcavilla.org>
+You know it is a bit difficult to test power save for this situation. And
+most of runtime PM patches didn't provide power save data. In fact,
+I'd like to do it, but I have not some equipment to measure it, :-(.
 
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
+>
+> 2) Do we have many devices that would be serviced with this approach?
 
-Since this is more about grant tables than netback this should probably
-go via Konrad rather than Dave, is that OK with you Dave?
+At least I found asix can be serviced by this approach. Considered asix
+is quite popular, it is worthy of the effort. Also the below devices can be
+serviced by the patch in theory:
 
-(there's one more typo below)
+                   dm9601.c / mcs7830.c / sierra_net.c
 
-> ---
->  drivers/net/xen-netback/netback.c  |   11 ++------
->  drivers/xen/grant-table.c          |   53 ++++++++++++++++++++++++++++++++++++
->  drivers/xen/xenbus/xenbus_client.c |    6 ++--
->  include/xen/grant_table.h          |   12 ++++++++
->  4 files changed, 70 insertions(+), 12 deletions(-)
-[...]
-> diff --git a/include/xen/grant_table.h b/include/xen/grant_table.h
-> index 11e27c3..da9386e 100644
-> --- a/include/xen/grant_table.h
-> +++ b/include/xen/grant_table.h
-> @@ -189,4 +189,16 @@ int gnttab_map_refs(struct gnttab_map_grant_ref *map_ops,
->  int gnttab_unmap_refs(struct gnttab_unmap_grant_ref *unmap_ops,
->  		      struct page **pages, unsigned int count, bool clear_pte);
->  
-> +/* Perform a batch of grant map/copy operations. Retry every batch slot
-> + * for which the hypervisor returns GNTST_eagain. This is typically due 
-> + * to paged out target frames.
-> + *
-> + * Will retry for 1, 2, ... 255 ms, i.e. 256 times during 32 seconds.
-> + *
-> + * Return value in each iand every status field of the batch guaranteed
+In fact, it might be used by other non-usbnet devices too.
 
-                          and
-
-> + * to not be GNTST_eagain. 
-> + */
-> +void gnttab_batch_map(struct gnttab_map_grant_ref *batch, unsigned count);
-> +void gnttab_batch_copy(struct gnttab_copy *batch, unsigned count);
-> +
->  #endif /* __ASM_GNTTAB_H__ */
+Thanks,
+--
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
