@@ -1,56 +1,29 @@
-From: Ajith Adapa <adapa.ajith@gmail.com>
-Subject: Regarding group_forward_mask in bridge in 3.4 kernel
-Date: Mon, 17 Sep 2012 20:13:48 +0530
-Message-ID: <CADAe=++yAm3t-ZqMKy9h-Rda5=pOYQD2-cKUd3S1VKmBZQfT9A@mail.gmail.com>
+From: Ivan Minev <i.minev@comnet.bg>
+Subject: Re: [RFT] sky2: fix status length check on older chips
+Date: Mon, 17 Sep 2012 14:20:25 +0000 (UTC)
+Message-ID: <loom.20120917T161911-605@post.gmane.org>
+References: <4F9AFE4E.8010108@linuxsystems.it> <20120427134127.6d536a96@nehalam.linuxnetplumber.net> <20120427135514.48b03ce8@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:40772 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756348Ab2IQOoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 10:44:19 -0400
-Received: by obbuo13 with SMTP id uo13so9020251obb.19
-        for <netdev@vger.kernel.org>; Mon, 17 Sep 2012 07:44:18 -0700 (PDT)
+Received: from plane.gmane.org ([80.91.229.3]:35506 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751837Ab2IQPKB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Sep 2012 11:10:01 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1TDcxY-0007fB-40
+	for netdev@vger.kernel.org; Mon, 17 Sep 2012 17:10:04 +0200
+Received: from sofia-160.67.comnet.bg ([sofia-160.67.comnet.bg])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 17 Sep 2012 17:10:04 +0200
+Received: from i.minev by sofia-160.67.comnet.bg with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 17 Sep 2012 17:10:04 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-I am trying to enable group_fwd_mask in bridge by giving the below
-command so that it can forward provider bpdu's whose destination
-address is 01-80-C2-00-00-08.
-
-echo 8 > /sys/class/net/vpc1_br/bridge/group_fwd_mask
-
-But still the provider BPDU's are dropped by the bridge. After some
-debugging I have found that logic in br_input.c has some issue
-
-                switch (dest[5]) {
-                case 0x00:      /* Bridge Group Address */
-                        /* If STP is turned off,
-                           then must forward to keep loop detection */
-                        if (p->br->stp_enabled == BR_NO_STP)
-                                goto forward;
-                        break;
-
-                case 0x01:      /* IEEE MAC (Pause) */
-                        goto drop;
-
-                default:
-                        /* Allow selective forwarding for most other
-protocols */
-                        if (p->br->group_fwd_mask & (1u << dest[5]))
-                                goto forward;
-                }
-
-In my case dest[5] is 8 and p->br->group_fwd_mask is 8. The default
-case is triggered but the expression in if condition
-is always ZERO as a result BPDU is not forwarded.
-
-Am I giving wrong value for group_fwd_mask ?? I tried other values but
-seems only 8 and 0 is accepted.
-
-Regards,
-Ajith
+Still vlan don't work and have rx lenght errors chipset:88E8072 rev 10
