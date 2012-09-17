@@ -1,51 +1,79 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: Regarding group_forward_mask in bridge in 3.4 kernel
-Date: Mon, 17 Sep 2012 08:24:49 -0700
-Message-ID: <505740C1.9080706@intel.com>
-References: <CADAe=++yAm3t-ZqMKy9h-Rda5=pOYQD2-cKUd3S1VKmBZQfT9A@mail.gmail.com>
+From: Chris Clayton <chris2553@googlemail.com>
+Subject: Possible networking regression in 3.6.0
+Date: Mon, 17 Sep 2012 16:44:26 +0100
+Message-ID: <5057455A.7050108@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
-To: Ajith Adapa <adapa.ajith@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:21948 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756793Ab2IQPYu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2012 11:24:50 -0400
-In-Reply-To: <CADAe=++yAm3t-ZqMKy9h-Rda5=pOYQD2-cKUd3S1VKmBZQfT9A@mail.gmail.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:43142 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756232Ab2IQPoS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 11:44:18 -0400
+Received: by eaac11 with SMTP id c11so2506884eaa.19
+        for <netdev@vger.kernel.org>; Mon, 17 Sep 2012 08:44:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/17/2012 7:43 AM, Ajith Adapa wrote:
-> Hi,
->
-> I am trying to enable group_fwd_mask in bridge by giving the below
-> command so that it can forward provider bpdu's whose destination
-> address is 01-80-C2-00-00-08.
->
-> echo 8 > /sys/class/net/vpc1_br/bridge/group_fwd_mask
->
+Hi,
 
-wrong value see the logic you quoted use 1 << 8
+I'm having a problem with networking. I'm running Windows XP as a KVM 
+guest on a laptop running kernel 3.6.0-rc6. The identical configuration 
+works fine with kernels 3.5.4 and 3.4.11 (and has done so, largely 
+unchanged, since since KVM was introduced in 2.6.<whatever>.)
 
-echo 256 > /sys/class/net/...
+The configuration is:
 
-Your example fwds non-TPMR addresses 01-80-c2-00-00-03.
+XP guest:	192.168.200.1 (gateway 192.168.200.254)
+tap0:		192.168.200.254
+host:		192.168.0.40 (gateway 192.168.0.1)
+router:		192.168.0.1
 
-[...]
+The script that starts up the firewall includes the following commands:
 
-> Am I giving wrong value for group_fwd_mask ??
+# Load the connection-sharing for qemu/kvm guests
+echo 1 > /proc/sys/net/ipv4/ip_forward
+iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+...
+# allow traffic to and from the qemu/kvm virtual networks
+NETS="200 201"
+for net in $NETS; do
+   iptables -A INPUT -s 192.168.$net.0/24 -j ACCEPT
+   iptables -A OUTPUT -d 192.168.$net.0/24 -j ACCEPT
+done
+...
 
-Yep wrong value.
+The network-related modules that are loaded are:
 
-> I tried other values but seems only 8 and 0 is accepted.
+$ lsmod
+Module                  Size  Used by
+tun                    12412  0
+xt_state                 891  1
+iptable_filter           852  1
+ipt_MASQUERADE          1222  1
+iptable_nat             3087  1
+nf_nat                 10901  2 ipt_MASQUERADE,iptable_nat
+nf_conntrack_ipv4       4942  4 nf_nat,iptable_nat
+nf_defrag_ipv4           815  1 nf_conntrack_ipv4
+nf_conntrack           37644  5 
+ipt_MASQUERADE,nf_nat,xt_state,iptable_nat,nf_conntrack_ipv4
+...
+r8169                  47159  0
 
-The logic makes an attempt to restrict forwarding by masking 0x4007u,
-catching many known control protocols.
+ From the host I can successfully ping the guest, tap0 and the router as 
+you would expect, but from the guest, although I can ping the host and 
+tap0, I cannot ping the router. In practice, this means I have no 
+internet access from the guest. As I say, this configuration works 
+perfectly under 3.5.x and 3.4.x kernels.
 
-See commit for details,
+I'll do a coarse-grained "bisect" of Linus' 3.6 release candidates and 
+report back, but does anyone have any prime-suspect patches that may be 
+at the cause of this problem?
 
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=515853ccecc6987dfb8ed809dd8bf8900286f29e
+Let me know if there are any other diagnostics I can provide. Also, as 
+I'm not subscribed to netdev, please cc me to any reply.
 
-.John
+Thanks,
+
+Chris
