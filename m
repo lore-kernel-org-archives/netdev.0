@@ -1,58 +1,39 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: interrupt coalescing and CSUM offload
-Date: Mon, 17 Sep 2012 09:18:58 -0700
-Message-ID: <20120917091858.2616d372@nehalam.linuxnetplumber.net>
-References: <OF3E0CDC2E.8FFEBDC0-ONC1257A79.004A2EB6-C1257A79.00502122@transmode.se>
-	<20120914093252.020992cc@nehalam.linuxnetplumber.net>
-	<OFF8862166.946F925C-ONC1257A7A.00386AD8-C1257A7A.0042C1CF@transmode.se>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] ncm: allow for NULL terminations
+Date: Mon, 17 Sep 2012 17:31:49 +0100
+Message-ID: <20120917173149.4730024c@pyramind.ukuu.org.uk>
+References: <20120917105853.30298.29234.stgit@localhost.localdomain>
+	<1347896724.2685.2.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Cc: <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34213 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752614Ab2IQQT2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2012 12:19:28 -0400
-In-Reply-To: <OFF8862166.946F925C-ONC1257A7A.00386AD8-C1257A7A.0042C1CF@transmode.se>
+Received: from lxorguk.ukuu.org.uk ([81.2.110.251]:33449 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752278Ab2IQQ1B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 12:27:01 -0400
+In-Reply-To: <1347896724.2685.2.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 15 Sep 2012 14:09:09 +0200
-Joakim Tjernlund <joakim.tjernlund@transmode.se> wrote:
+On Mon, 17 Sep 2012 16:45:24 +0100
+Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-> Stephen Hemminger <shemminger@vyatta.com> wrote on 2012/09/14 18:32:52:
-> >
-> > On Fri, 14 Sep 2012 16:35:13 +0200
-> > Joakim Tjernlund <joakim.tjernlund@transmode.se> wrote:
-> >
-> > >
-> > > I am adding interrupt coalescing to the ucc_geth driver. Unfortunately
-> > > there is only support for RX interrupt coalescing.
-> > > I wonder if there is any way "simulate" TX interrupt coalescing?
-> > >
-> > > I am also looking at adding HWCSUM support but this device can only do
-> > > IP header CSUM offload. This doesn't seem to be an option in Linux?
-> > > As I understand it, one must do CSUM offload for the whole frame, both
-> > > IP header and TCP/UDP csums?
-> > >
-> > >  Jocke
-> >
-> > There are a few drivers that turn off TX interrupt completely.
-> > They cleanup TX buffers on next send and have a timer to cleanup
+> On Mon, 2012-09-17 at 11:58 +0100, Alan Cox wrote:
+> > From: Alan Cox <alan@linux.intel.com>
+> > 
+> > The strings are passed to snprintf so must be null terminated. It seems the
+> > copy length is incorrectly set.
 > 
-> Only on send? Currently ucc_geth does TX free in napi(where RX is processed too).
-> It would be nice if one could indicate to the drivers xmit() if there
-> are more frames to be sent. Then xmit() could choose not to turn on TX irq for
-> preceding frames.
-> > as well. This has performance benefits, but it does cause issues
-> > with local flow control (the freeing of skb is used to rate
-> > limit local traffic).
-> 
-> Was my reasoning correct w.r.t CSUM?
-> 
+> Please use strlcpy() instead.  (I thought someone had already gone round
+> the get_drvinfo implementations and fixed them to do that, actually.)
 
-I header checksum is useless to Linux. The IP header is so short that
-it is already in the CPU cache and costs nothing to compute or check.
-The only checksuming that matters is the data (TCP or UDP).
+There are still plenty of them. I'm just noting they are one out. I'm
+doing a first pass over a whole pile of stuff so if you'd prefer it in a
+different form treat it as a note to the maintainer than their code is
+buggy as I probably won't be back round to it for a couple of months
+judging by the size of the audit pile I'm working down.
+
+Alan
