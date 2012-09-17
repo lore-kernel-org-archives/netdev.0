@@ -1,69 +1,43 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [net] e1000: Small packets may get corrupted during padding by
- HW
-Date: Mon, 17 Sep 2012 12:40:59 -0700
-Message-ID: <50577CCB.2040803@intel.com>
-References: <1347740217-10257-1-git-send-email-jeffrey.t.kirsher@intel.com> <CAHXqBFJZnGUSUutN=L-_LpCN7dXLPFY0ndJnQJ10NCcbzPVLww@mail.gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v3 0/4] Take care of xfrm policy when checking
+ dst entries
+Date: Mon, 17 Sep 2012 21:52:20 +0200
+Message-ID: <50577F74.9040200@6wind.com>
+References: <1347350987-8054-1-git-send-email-nicolas.dichtel@6wind.com> <20120917.124953.1599275868994343219.davem@davemloft.net> <5057688B.3030509@gmail.com> <20120917.142504.115219640757684297.davem@davemloft.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	Tushar Dave <tushar.n.dave@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Cc: vyasevich@gmail.com, eric.dumazet@gmail.com, sds@tycho.nsa.gov,
+	james.l.morris@oracle.com, eparis@parisplace.org, sri@us.ibm.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:56527 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932536Ab2IQTlT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2012 15:41:19 -0400
-In-Reply-To: <CAHXqBFJZnGUSUutN=L-_LpCN7dXLPFY0ndJnQJ10NCcbzPVLww@mail.gmail.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:62482 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754761Ab2IQTw1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 15:52:27 -0400
+Received: by eekc1 with SMTP id c1so3617129eek.19
+        for <netdev@vger.kernel.org>; Mon, 17 Sep 2012 12:52:25 -0700 (PDT)
+In-Reply-To: <20120917.142504.115219640757684297.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/15/2012 01:44 PM, Micha=B3 Miros=B3aw wrote:
-> 2012/9/15 Jeff Kirsher <jeffrey.t.kirsher@intel.com>:
->> From: Tushar Dave <tushar.n.dave@intel.com>
->>
->> On PCI/PCI-X HW, if packet size is less than ETH_ZLEN,
->> packets may get corrupted during padding by HW.
->> To WA this issue, pad all small packets manually.
->>
->> Signed-off-by: Tushar Dave <tushar.n.dave@intel.com>
->> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
->> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> ---
->>  drivers/net/ethernet/intel/e1000/e1000_main.c | 11 +++++++++++
->>  1 file changed, 11 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers=
-/net/ethernet/intel/e1000/e1000_main.c
->> index 3bfbb8d..bde337e 100644
->> --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
->> +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
->> @@ -3149,6 +3149,17 @@ static netdev_tx_t e1000_xmit_frame(struct sk=
-_buff *skb,
->>                 return NETDEV_TX_OK;
->>         }
->>
->> +       /* On PCI/PCI-X HW, if packet size is less than ETH_ZLEN,
->> +        * packets may get corrupted during padding by HW.
->> +        * To WA this issue, pad all small packets manually.
->> +        */
->> +       if (skb->len < ETH_ZLEN) {
->> +               if (skb_pad(skb, ETH_ZLEN - skb->len))
->> +                       return NETDEV_TX_OK;
->> +               skb->len =3D ETH_ZLEN;
->> +               skb_set_tail_pointer(skb, ETH_ZLEN);
->> +       }
->> +
-> Isn't there a skb_padto() that does just this?
+Le 17/09/2012 20:25, David Miller a =E9crit :
+> From: Vlad Yasevich <vyasevich@gmail.com>
+> Date: Mon, 17 Sep 2012 14:14:35 -0400
 >
-> Best Regards,
-> Micha=B3 Miros=B3aw
+>> I think he expected you to take Eric's patch that removed those
+>> pieces.
 >
-The problem is skb_padto() doesn't update the packet length, it just
-adds the padding but doesn't do anything to account for it.
+> Eric's patch was a cleanup, so it went into 'net-next'.
+>
+> Nicolas's patch is a bonafide bug fix so needs to be
+> targetted at 'net'
+My fault, it was 'net-next'. I will rebase them against 'net'.
 
-Thanks,
-
-Alex
+Should I post the last one (4/4) separately, against net-next? Because =
+without=20
+the '3/4', the cleanup is a bit larger and will cause a conflict during=
+ the merge.
