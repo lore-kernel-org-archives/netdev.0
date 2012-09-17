@@ -1,107 +1,46 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] sky2: fix rx filter setup on link up
-Date: Mon, 17 Sep 2012 17:10:17 +0200
-Message-ID: <1347894617-13614-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, mlindner@marvell.com, shemminger@vyatta.com,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: NULL deref in bnx2 / crashes ? ( was: netconsole leads to stalled
+ CPU task )
+Date: Mon, 17 Sep 2012 23:17:26 +0800
+Message-ID: <50573F06.90609@gmail.com>
+References: <CAF6-1L4wh0P-Wi-keN98wb-2V_avZYVE3ycf3tEe9SBpgK1dDQ@mail.gmail.com> <1345634026.5158.1084.camel@edumazet-glaptop> <CAF6-1L6zr5WJxo6FVk+2ya=EEs++u3x9iSrDxX-weBofLJuA1g@mail.gmail.com> <1345640757.5158.1321.camel@edumazet-glaptop> <CAF6-1L5hKU-VM0E5vCwExJ4kb8YB=ndotgfH7pbpxO6Q7+JHUQ@mail.gmail.com> <k2q0ck$rpr$1@ger.gmane.org> <1347455135.13103.949.camel@edumazet-glaptop> <CAF6-1L6RJkV6u4Rc2uDMQGUG23EGRKrdWSzTiHEYO9Z9ioGtaw@mail.gmail.com> <50532FA1.3070706@gmail.com> <CAF6-1L42ZLSm4SMRSoz6ZwDKRpfRhwQmN3R5D7kjmjqRLn=2xg@mail.gmail.com> <CAF6-1L4VaG4JAK0kYYizMvhBcaUM5x3uatA7JpzZqzcJ+fmGww@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Sylvain Munaut <s.munaut@whatever-company.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:57667 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754816Ab2IQPRb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 11:17:31 -0400
+Received: by obbuo13 with SMTP id uo13so9074611obb.19
+        for <netdev@vger.kernel.org>; Mon, 17 Sep 2012 08:17:31 -0700 (PDT)
+In-Reply-To: <CAF6-1L4VaG4JAK0kYYizMvhBcaUM5x3uatA7JpzZqzcJ+fmGww@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In my case I have following problem. sky2_set_multicast() sets registers
-GM_MC_ADDR_H[1-4] correctly to:
-0000 0800 0001 0410
-However, when adapter gets link and sky2_link_up() is called, the values
-are for some reason different:
-0000 0800 0016 0410
-This in my case prevents iface to be able to receive packets with dst mac
-01:80:C2:00:00:02 (LACPDU dst mac), which I set up previously by
-SIOCADDMULTI.
+On 09/17/2012 06:57 PM, Sylvain Munaut wrote:
+> Hi,
+>
+>>> Anyway, I think Eric is right, the bug may be in other place. I am wondering
+>>> if the attached patch could help? It seems in netpoll tx path, we miss the
+>>> chance of calling ->ndo_select_queue().
+>>>
+>>> Please give it a try.
+>>
+>> This fixes the NULL deref as well. I applied your patch over vanilla
+>> 3.6-rc5 (so without eric's patch) and I can load netconsole without it
+>> crashing directly.
+>>
+>> I will try to put a bit of load on the machine and see how it behaves,
+>> if it solves the hung cpu tasks as well.
+>
+> So far so good, the machine is still alive and well after 3 days with
+> netconsole enabled.
+>
 
-So remember computed rx_filter data and write it to GM_MC_ADDR_H[1-4] on
-link_up.
+Great!
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- drivers/net/ethernet/marvell/sky2.c | 30 ++++++++++++++++++++++--------
- drivers/net/ethernet/marvell/sky2.h |  2 ++
- 2 files changed, 24 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index 2b0748d..5293ff4 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -2186,6 +2186,8 @@ static u16 sky2_phy_speed(const struct sky2_hw *hw, u16 aux)
- 	}
- }
- 
-+static void sky2_write_rx_filter(struct sky2_port *sky2, u8 *filter);
-+
- static void sky2_link_up(struct sky2_port *sky2)
- {
- 	struct sky2_hw *hw = sky2->hw;
-@@ -2211,6 +2213,9 @@ static void sky2_link_up(struct sky2_port *sky2)
- 	sky2_write8(hw, SK_REG(port, LNK_LED_REG),
- 		    LINKLED_ON | LINKLED_BLINK_OFF | LINKLED_LINKSYNC_OFF);
- 
-+	/* Refresh RX filter */
-+	sky2_write_rx_filter(sky2, sky2->rx_filter);
-+
- 	netif_info(sky2, link, sky2->netdev,
- 		   "Link is up at %d Mbps, %s duplex, flow control %s\n",
- 		   sky2->speed,
-@@ -3849,6 +3854,21 @@ static inline void sky2_add_filter(u8 filter[8], const u8 *addr)
- 	filter[bit >> 3] |= 1 << (bit & 7);
- }
- 
-+static void sky2_write_rx_filter(struct sky2_port *sky2, u8 *filter)
-+{
-+	struct sky2_hw *hw = sky2->hw;
-+	unsigned port = sky2->port;
-+
-+	gma_write16(hw, port, GM_MC_ADDR_H1,
-+		    (u16) filter[0] | ((u16) filter[1] << 8));
-+	gma_write16(hw, port, GM_MC_ADDR_H2,
-+		    (u16) filter[2] | ((u16) filter[3] << 8));
-+	gma_write16(hw, port, GM_MC_ADDR_H3,
-+		    (u16) filter[4] | ((u16) filter[5] << 8));
-+	gma_write16(hw, port, GM_MC_ADDR_H4,
-+		    (u16) filter[6] | ((u16) filter[7] << 8));
-+}
-+
- static void sky2_set_multicast(struct net_device *dev)
- {
- 	struct sky2_port *sky2 = netdev_priv(dev);
-@@ -3882,14 +3902,8 @@ static void sky2_set_multicast(struct net_device *dev)
- 			sky2_add_filter(filter, ha->addr);
- 	}
- 
--	gma_write16(hw, port, GM_MC_ADDR_H1,
--		    (u16) filter[0] | ((u16) filter[1] << 8));
--	gma_write16(hw, port, GM_MC_ADDR_H2,
--		    (u16) filter[2] | ((u16) filter[3] << 8));
--	gma_write16(hw, port, GM_MC_ADDR_H3,
--		    (u16) filter[4] | ((u16) filter[5] << 8));
--	gma_write16(hw, port, GM_MC_ADDR_H4,
--		    (u16) filter[6] | ((u16) filter[7] << 8));
-+	sky2_write_rx_filter(sky2, filter);
-+	memcpy(sky2->rx_filter, filter, sizeof(sky2->rx_filter));
- 
- 	gma_write16(hw, port, GM_RX_CTRL, reg);
- }
-diff --git a/drivers/net/ethernet/marvell/sky2.h b/drivers/net/ethernet/marvell/sky2.h
-index 615ac63..513c266 100644
---- a/drivers/net/ethernet/marvell/sky2.h
-+++ b/drivers/net/ethernet/marvell/sky2.h
-@@ -2272,6 +2272,8 @@ struct sky2_port {
- #ifdef CONFIG_SKY2_DEBUG
- 	struct dentry	     *debugfs;
- #endif
-+
-+	u8		     rx_filter[8];
- };
- 
- struct sky2_hw {
--- 
-1.7.11.4
+Thanks a lot for testing, Sylvain! I will post the patch tomorrow, as I 
+need some sleep now. :)
