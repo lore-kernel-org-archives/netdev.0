@@ -1,39 +1,71 @@
-From: "Allen and Violet Large" <fernandosiqueira@ufc.br>
-Subject: Goodluck
-Date: Sun, 16 Sep 2012 21:30:54 -0300 (BRT)
-Message-ID: <d7518ed0ebefc7eb6d5ba14d0c32f088.squirrel__11374.4995477193$1347843992$gmane$org@correio3.ufc.br>
-Reply-To: allen_violetlarge03@yahoo.co.jp
+From: Yi Li <lovelylich@gmail.com>
+Subject: [TCP]: functionality of delayed_ack in Bic and Cubic Algorithm ?
+Date: Mon, 17 Sep 2012 10:34:34 +0800
+Message-ID: <50568C3A.9060908@gmail.com>
+References: <5056897A.9010009@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from correio5.ufc.br ([200.19.190.13]:41004 "EHLO correio5.ufc.br"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754193Ab2IQBGG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Sep 2012 21:06:06 -0400
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:35522 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753089Ab2IQCem (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2012 22:34:42 -0400
+Received: by oago6 with SMTP id o6so4300936oag.19
+        for <netdev@vger.kernel.org>; Sun, 16 Sep 2012 19:34:41 -0700 (PDT)
+In-Reply-To: <5056897A.9010009@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi All,
+I am try to understand the patch:
+http://patchwork.usersys.redhat.com/patch/43827/.
+But I am not sure of the functionality of delayed_ack filed in Bic and
+Cubic.
+I have found the following mails:
+http://oss.sgi.com/archives/netdev/2005-02/msg00808.html
+which is the first patch introducing the *delayed_ack* field.
+( But I am not fully understand that material, That's why I have asked
+here.)
 
+So, here is my understanding of this field, and I am not sure whether it
+is right. :-(
+Question One:
+>From comment in *struct bictcp*, delayed_ack is "the ratio of
+Packets/ACKs << 4"
+and it's updating is in function bictcp_acked():
 
+    /* Track delayed acknowledgment ratio using sliding window
+    * ratio = (15*ratio + sample) / 16
+    */
+    static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt_us)
+    {
+    const struct inet_connection_sock *icsk = inet_csk(sk);
+    const struct tcp_sock *tp = tcp_sk(sk);
+    struct bictcp *ca = inet_csk_ca(sk);
+    u32 delay;
 
-This is a personal email directed to you. My wife and I won a Jackpot
-Lottery of $11.3 million in July and have voluntarily decided to donate
-the sum of $500,000.00 USD to you as part of our own charity project to
-improve the lot of 10 lucky individuals all over the world. If you have
-received this email then you are one of the lucky recipients and all you
-have to do is get back with us so that we can send your details to the
-payout bank.
-Please note that you have to contact my private email for more
-informations (allen_violetlarge03@yahoo.co.jp)
-You can verify this by visiting the web pages below.
+    if (icsk->icsk_ca_state == TCP_CA_Open) {
+    cnt -= ca->delayed_ack >> ACK_RATIO_SHIFT;
+    ca->delayed_ack += cnt;
+    }
 
-http://www.dailymail.co.uk/news/article-1326473/Canadian-couple-Allen-Violet-Large-away-entire-11-2m-lottery-win.html
+After googling, I know ratio == delayed_ack >> ACK_RATIO_SHIFT. so here
+we are updating
+the Packets/Acks ratio, basing on the history of ratio (15/16) and the
+current ratio(1/16).
+The current ratio is cnt packets acked by the current acknowledgement,
+divided by the current
+count of acknowledgements(of course it is 1 ack packet). Right?
 
-http://www.cbc.ca/news/canada/nova-scotia/story/2010/11/04/ns-allen-violet-large-lottery-winning.html
-
-
-Goodluck,
-Allen and Violet Large
-Email: allen_violetlarge03@yahoo.co.jp
+Question Two:
+And we update the ca->cnt in function bictcp_update():
+ca->cnt = (ca->cnt << ACK_RATIO_SHIFT) / ca->delayed_ack;
+if (ca->cnt == 0) /* cannot be zero */
+ca->cnt = 1;
+It means ca->cnt= ca->cnt * Acks/Packets. Suppose normal delayed ack,
+Acks/Packets should be 1/2.
+So, ca->cnt will be cut in half. As a result, snd_cwnd will increase one
+times more rapidly, and this is just a
+compensation for delayed ack. So, TCP will still work normally. Right?
