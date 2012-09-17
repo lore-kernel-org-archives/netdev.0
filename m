@@ -1,30 +1,41 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next 0/4] ipv6: fix the reassembly expire code in
  nf_conntrack
-Date: Mon, 17 Sep 2012 12:54:19 -0400 (EDT)
-Message-ID: <20120917.125419.1478223385564528540.davem@davemloft.net>
+Date: Mon, 17 Sep 2012 12:59:25 -0400 (EDT)
+Message-ID: <20120917.125925.930848734158369358.davem@davemloft.net>
 References: <1347517541-10653-1-git-send-email-amwang@redhat.com>
+	<20120917.125419.1478223385564528540.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	herbert@gondor.hengli.com.au
 To: amwang@redhat.com
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1347517541-10653-1-git-send-email-amwang@redhat.com>
+In-Reply-To: <20120917.125419.1478223385564528540.davem@davemloft.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
-Date: Thu, 13 Sep 2012 14:25:37 +0800
-
-> ipv6: add a new namespace for nf_conntrack_reasm
-> ipv6: unify conntrack reassembly expire code with
-> ipv6: make ip6_frag_nqueues() and ip6_frag_mem() static
-> ipv6: unify fragment thresh handling code
-> 
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-
-These changes look great, all applied to net-next, thanks.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAxNyBT
+ZXAgMjAxMiAxMjo1NDoxOSAtMDQwMCAoRURUKQ0KDQo+IEZyb206IENvbmcgV2FuZyA8YW13YW5n
+QHJlZGhhdC5jb20+DQo+IERhdGU6IFRodSwgMTMgU2VwIDIwMTIgMTQ6MjU6MzcgKzA4MDANCj4g
+DQo+PiBpcHY2OiBhZGQgYSBuZXcgbmFtZXNwYWNlIGZvciBuZl9jb25udHJhY2tfcmVhc20NCj4+
+IGlwdjY6IHVuaWZ5IGNvbm50cmFjayByZWFzc2VtYmx5IGV4cGlyZSBjb2RlIHdpdGgNCj4+IGlw
+djY6IG1ha2UgaXA2X2ZyYWdfbnF1ZXVlcygpIGFuZCBpcDZfZnJhZ19tZW0oKSBzdGF0aWMNCj4+
+IGlwdjY6IHVuaWZ5IGZyYWdtZW50IHRocmVzaCBoYW5kbGluZyBjb2RlDQo+PiANCj4+IENjOiBI
+ZXJiZXJ0IFh1IDxoZXJiZXJ0QGdvbmRvci5hcGFuYS5vcmcuYXU+DQo+PiBDYzogIkRhdmlkIFMu
+IE1pbGxlciIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQo+PiBTaWduZWQtb2ZmLWJ5OiBDb25nIFdh
+bmcgPGFtd2FuZ0ByZWRoYXQuY29tPg0KPiANCj4gVGhlc2UgY2hhbmdlcyBsb29rIGdyZWF0LCBh
+bGwgYXBwbGllZCB0byBuZXQtbmV4dCwgdGhhbmtzLg0KDQpJIGhhdmUgdG8gYXNrIGlmIHlvdSBh
+Y3R1YWxseSBidWlsZCB0ZXN0ZWQgdGhpcyBjaGFuZ2UgYXQgYWxsOg0KDQpuZXQvaXB2Ni9wcm9j
+LmM6IEluIGZ1bmN0aW9uIKFzb2Nrc3RhdDZfc2VxX3Nob3eiOg0KbmV0L2lwdjYvcHJvYy5jOjQ2
+OjEwOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goWlwNl9mcmFnX25x
+dWV1ZXOiIFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KbmV0L2lwdjYv
+cHJvYy5jOjQ2OjEwOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goWlw
+Nl9mcmFnX21lbaIgWy1XZXJyb3I9aW1wbGljaXQtZnVuY3Rpb24tZGVjbGFyYXRpb25dDQoNCkl0
+IGlzIGFic29sdXRlbHkgaW1wb3NzaWJsZSBmb3IgeW91IHRvIGhhdmUgZW5hYmxlZCBpcHY2IGFu
+ZCBub3QgZ290dGVuDQp0aGF0IGJ1aWxkIGVycm9yLg0KDQpUaGUgb25seSBsb2dpY2FsIGV4cGxh
+bmF0aW9uIGlzIHRoYXQgeW91IGRpZG4ndCBjb21taXQgdGhlIGNoYW5nZXMNCnRvIG5ldC9pcHY2
+L3Byb2MuYyBpbiB5b3VyIHRyZWUgd2hlbiB5b3UgcHV0IHRvZ2V0aGVyIHRoZXNlIHBhdGNoZXMu
+DQoNClBsZWFzZSBmaXggdGhpcyB1cCBhbmQgcmVzdWJtaXQgdGhlIGZ1bGwgc2VyaWVzLg0KDQpU
+aGFua3MuDQo=
