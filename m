@@ -1,30 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] llc2: Simplify llc_station
-Date: Mon, 17 Sep 2012 13:05:31 -0400 (EDT)
-Message-ID: <20120917.130531.941621987417626917.davem@davemloft.net>
-References: <1347764982.13258.207.camel@deadeye.wl.decadent.org.uk>
+Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
+Date: Mon, 17 Sep 2012 13:07:32 -0400 (EDT)
+Message-ID: <20120917.130732.1894375657044880827.davem@davemloft.net>
+References: <20120917.121243.1665284878800146060.davem@davemloft.net>
+	<1347901326.26523.149.camel@edumazet-glaptop>
+	<1347901493.26523.151.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: acme@ghostprotocols.net, netdev@vger.kernel.org
-To: ben@decadent.org.uk
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59269 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59299 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752375Ab2IQRFe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 13:05:34 -0400
-In-Reply-To: <1347764982.13258.207.camel@deadeye.wl.decadent.org.uk>
+	with ESMTP id S1754761Ab2IQRHf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 13:07:35 -0400
+In-Reply-To: <1347901493.26523.151.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Sun, 16 Sep 2012 04:09:42 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 17 Sep 2012 19:04:53 +0200
 
-> There seem to have been some grand plans for llc_station, but as they
-> haven't been fulfilled it's just unnecessarily complicated.
+> On Mon, 2012-09-17 at 19:02 +0200, Eric Dumazet wrote:
+> 
+>> A driver already exports a dev->gso_max_size, dev->gso_max_segs, I guess
+>> it could export a dev->max_seg_order (default to 0)
+> 
+> Oh well, if we use a per thread order-3 page, a driver wont define an
+> order, but the max size of a segment (dev->max_seg_size).
 
-I went over these a few times, they look correct, so I am going
-to apply them to net-next.
+Since you said that your audit showed that most can handle arbitrary
+segment sizes, it's better to default to infinity or similar.
 
-If there are any problems let's hope that exposure in the tree
-helps shake those out.
+Otherwise we'll have to annotate almost every single driver with a
+non-zero value, that's not an efficient way to handle this and
+deploy the higher performance quickly.
