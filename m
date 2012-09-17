@@ -1,76 +1,137 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/6] igb: Store the MAC address in the name in the PTP struct.
-Date: Mon, 17 Sep 2012 02:21:47 -0700
-Message-ID: <1347873709-2190-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1347873709-2190-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Richard Cochran <richardcochran@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:32881 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755379Ab2IQJVx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2012 05:21:53 -0400
-In-Reply-To: <1347873709-2190-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andres Lagar-Cavilla <andreslc@gridcentric.ca>
+Subject: Re: [PATCH] Xen backend support for paged out grant targets V4.
+Date: Mon, 17 Sep 2012 05:29:24 -0400
+Message-ID: <5B5132A4-93B2-41D0-B1A6-048810565DB5@gridcentric.ca>
+References: <1347632819-13684-1-git-send-email-andres@lagarcavilla.org> <1347869865.14977.15.camel@zakaz.uk.xensource.com>
+Mime-Version: 1.0 (Apple Message framework v1278)
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andres Lagar-Cavilla <andres@lagarcavilla.org>,
+	xen-devel <xen-devel@lists.xen.org>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	"David Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1347869865.14977.15.camel@zakaz.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Matthew Vick <matthew.vick@intel.com>
+On Sep 17, 2012, at 4:17 AM, Ian Campbell wrote:
 
-Change the name of the adapter in the PTP struct to enable easier
-correlation between interface and PTP device.
+> (I think I forgot to hit send on this on Friday, sorry. Also
+> s/xen.lists.org/lists.xen.org in the CC line=85)
+I'm on a roll here=85
 
-Cc: Richard Cochran <richardcochran@gmail.com>
-Signed-off-by: Matthew Vick <matthew.vick@intel.com>
-Acked-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by:  Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/igb_ptp.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+>=20
+> On Fri, 2012-09-14 at 15:26 +0100, Andres Lagar-Cavilla wrote:
+>> Since Xen-4.2, hvm domains may have portions of their memory paged o=
+ut. When a
+>> foreign domain (such as dom0) attempts to map these frames, the map =
+will
+>> initially fail. The hypervisor returns a suitable errno, and kicks a=
+n
+>> asynchronous page-in operation carried out by a helper. The foreign =
+domain is
+>> expected to retry the mapping operation until it eventually succeeds=
+=2E The
+>> foreign domain is not put to sleep because itself could be the one r=
+unning the
+>> pager assist (typical scenario for dom0).
+>>=20
+>> This patch adds support for this mechanism for backend drivers using=
+ grant
+>> mapping and copying operations. Specifically, this covers the blkbac=
+k and
+>> gntdev drivers (which map foregin grants), and the netback driver (w=
+hich copies
+>=20
+>                           foreign
+>=20
+>> foreign grants).
+>>=20
+>> * Add a retry method for grants that fail with GNTST_eagain (i.e. be=
+cause the
+>>  target foregin frame is paged out).
+>=20
+>          foreign
+>=20
+>> * Insert hooks with appropriate wrappers in the aforementioned drive=
+rs.
+>>=20
+>> The retry loop is only invoked if the grant operation status is GNTS=
+T_eagain.
+>> It guarantees to leave a new status code different from GNTST_eagain=
+=2E Any other
+>> status code results in identical code execution as before.
+>>=20
+>> The retry loop performs 256 attempts with increasing time intervals =
+through a
+>> 32 second period. It uses msleep to yield while waiting for the next=
+ retry.
+> [...]
+>> Signed-off-by: Andres Lagar-Cavilla <andres@lagarcavilla.org>
+>=20
+> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+>=20
+> Since this is more about grant tables than netback this should probab=
+ly
+> go via Konrad rather than Dave, is that OK with you Dave?
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index 34e0d69..e69555f 100644
---- a/drivers/net/ethernet/intel/igb/igb_ptp.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -547,14 +547,15 @@ int igb_ptp_hwtstamp_ioctl(struct net_device *netdev,
- void igb_ptp_init(struct igb_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
-+	struct net_device *netdev = adapter->netdev;
- 
- 	switch (hw->mac.type) {
- 	case e1000_i210:
- 	case e1000_i211:
- 	case e1000_i350:
- 	case e1000_82580:
-+		snprintf(adapter->ptp_caps.name, 16, "%pm", netdev->dev_addr);
- 		adapter->ptp_caps.owner = THIS_MODULE;
--		strcpy(adapter->ptp_caps.name, "igb-82580");
- 		adapter->ptp_caps.max_adj = 62499999;
- 		adapter->ptp_caps.n_ext_ts = 0;
- 		adapter->ptp_caps.pps = 0;
-@@ -570,10 +571,9 @@ void igb_ptp_init(struct igb_adapter *adapter)
- 		/* Enable the timer functions by clearing bit 31. */
- 		wr32(E1000_TSAUXC, 0x0);
- 		break;
--
- 	case e1000_82576:
-+		snprintf(adapter->ptp_caps.name, 16, "%pm", netdev->dev_addr);
- 		adapter->ptp_caps.owner = THIS_MODULE;
--		strcpy(adapter->ptp_caps.name, "igb-82576");
- 		adapter->ptp_caps.max_adj = 1000000000;
- 		adapter->ptp_caps.n_ext_ts = 0;
- 		adapter->ptp_caps.pps = 0;
-@@ -589,7 +589,6 @@ void igb_ptp_init(struct igb_adapter *adapter)
- 		/* Dial the nominal frequency. */
- 		wr32(E1000_TIMINCA, INCPERIOD_82576 | INCVALUE_82576);
- 		break;
--
- 	default:
- 		adapter->ptp_clock = NULL;
- 		return;
--- 
-1.7.11.4
+If that is the case hopefully Konrad can deal with the two typos? Other=
+wise happy to re-spin the patch.
+Thanks!
+Andres
+
+>=20
+> (there's one more typo below)
+>=20
+>> ---
+>> drivers/net/xen-netback/netback.c  |   11 ++------
+>> drivers/xen/grant-table.c          |   53 ++++++++++++++++++++++++++=
+++++++++++
+>> drivers/xen/xenbus/xenbus_client.c |    6 ++--
+>> include/xen/grant_table.h          |   12 ++++++++
+>> 4 files changed, 70 insertions(+), 12 deletions(-)
+> [...]
+>> diff --git a/include/xen/grant_table.h b/include/xen/grant_table.h
+>> index 11e27c3..da9386e 100644
+>> --- a/include/xen/grant_table.h
+>> +++ b/include/xen/grant_table.h
+>> @@ -189,4 +189,16 @@ int gnttab_map_refs(struct gnttab_map_grant_ref=
+ *map_ops,
+>> int gnttab_unmap_refs(struct gnttab_unmap_grant_ref *unmap_ops,
+>> 		      struct page **pages, unsigned int count, bool clear_pte);
+>>=20
+>> +/* Perform a batch of grant map/copy operations. Retry every batch =
+slot
+>> + * for which the hypervisor returns GNTST_eagain. This is typically=
+ due=20
+>> + * to paged out target frames.
+>> + *
+>> + * Will retry for 1, 2, ... 255 ms, i.e. 256 times during 32 second=
+s.
+>> + *
+>> + * Return value in each iand every status field of the batch guaran=
+teed
+>=20
+>                          and
+>=20
+>> + * to not be GNTST_eagain.=20
+>> + */
+>> +void gnttab_batch_map(struct gnttab_map_grant_ref *batch, unsigned =
+count);
+>> +void gnttab_batch_copy(struct gnttab_copy *batch, unsigned count);
+>> +
+>> #endif /* __ASM_GNTTAB_H__ */
+>=20
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
