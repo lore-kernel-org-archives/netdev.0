@@ -1,45 +1,47 @@
-From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Subject: RE: [RFC PATCH 3/3] usbnet: support runtime PM triggered by link change
-Date: Mon, 17 Sep 2012 10:02:27 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6FF0@saturn3.aculab.com>
-References: <1347731299-29898-1-git-send-email-ming.lei@canonical.com> <1347731299-29898-4-git-send-email-ming.lei@canonical.com> <3287943.Bzm0t1oGWG@linux-lqwf.site>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Greg Kroah-Hartman" <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	"Fink Dmitry" <finik-l0cyMroinI0@public.gmane.org>, "Rafael Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	"Alan Stern" <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Oliver Neukum" <oneukum-l3A5Bk7waGM@public.gmane.org>,
-	"Ming Lei" <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <3287943.Bzm0t1oGWG-ugxBuEnWX9yG/4A2pS7c2Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
+Date: Mon, 17 Sep 2012 02:21:43 -0700
+Message-ID: <1347873709-2190-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net, matthew.vick@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:3469 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754096Ab2IQJVv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Sep 2012 05:21:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > +void usbnet_link_updated(struct usbnet *dev)
-> > +{
-> > +	complete(&dev->link_update_completion);
-> > +}
-> > +EXPORT_SYMBOL_GPL(usbnet_link_updated);
-> 
-> Isn't that a bit too trivial to get the _GPL version?
+This series contains updates to igb, specifically the PTP code.
+There have been no changes since the last pull request other than
+the update to the git tree to the latest net-next.
 
-Particularly if the usb infrastructure (that I presume this
-is part of) might be reasonably usable by non-gpl drivers.
+There was discussion on patch 4 of the series which resulted in
+a suggested change to the PTP core.  Once these get accepted,
+Matthew Vick will continue on with the suggested changes made by
+Richard Cochran, Ben Hutchings and Jacob Keller.
+  
+The following are changes since commit ba01dfe18241bf89b058fd8a60218b218ad2bb30:
+  Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-A few years back the function to release a reference on
-the kernel 'pid' structure was added as GPL - making
-it impossible for non-GPL to hold the reference.
+Matthew Vick (6):
+  igb: Tidy up wrapping for CONFIG_IGB_PTP.
+  igb: Update PTP function names/variables and locations.
+  igb: Correct PTP support query from ethtool.
+  igb: Store the MAC address in the name in the PTP struct.
+  igb: Prevent dropped Tx timestamps via work items and interrupts.
+  igb: Add 1588 support to I210/I211.
 
-	David
- 
+ drivers/net/ethernet/intel/igb/e1000_defines.h |   8 +
+ drivers/net/ethernet/intel/igb/e1000_regs.h    |   2 +
+ drivers/net/ethernet/intel/igb/igb.h           |  29 +-
+ drivers/net/ethernet/intel/igb/igb_ethtool.c   |  84 +--
+ drivers/net/ethernet/intel/igb/igb_main.c      | 329 +++---------
+ drivers/net/ethernet/intel/igb/igb_ptp.c       | 676 ++++++++++++++++++++-----
+ 6 files changed, 708 insertions(+), 420 deletions(-)
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+1.7.11.4
