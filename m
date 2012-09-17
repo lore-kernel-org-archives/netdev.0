@@ -1,78 +1,96 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/8] e1000: add byte queue limits
-Date: Sun, 16 Sep 2012 21:15:35 -0700
-Message-ID: <1347855342-6610-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/8] ixgbe: Fix ordering of things so that PF correctly configures its VLANs
+Date: Sun, 16 Sep 2012 21:15:36 -0700
+Message-ID: <1347855342-6610-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1347855342-6610-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Otto Estuardo Solares Cabrera <solca@galileo.edu>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:44766 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:8883 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750743Ab2IQEPs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2012 00:15:48 -0400
+	id S1750728Ab2IQEPt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Sep 2012 00:15:49 -0400
 In-Reply-To: <1347855342-6610-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Otto Estuardo Solares Cabrera <solca@galileo.edu>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Signed-off-by: Otto Estuardo Solares Cabrera <solca@galileo.edu>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+The PF was not correctly registering any of its VLANs.  As a result any
+VLAN tagged traffic from the VF would not be delivered to the PF because
+the VLAN was never assigned to the PF pool.
+
+In addition the VF was not allowed to receive traffic from VLAN 0 if it was
+allowed to receive untagged frames.  This change corrects that so that it
+will correctly receive traffic from VLAN 0.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000/e1000_main.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 9 +++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 5 +++++
+ 2 files changed, 10 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 0ae2fcf..3a8368e 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -2014,6 +2014,7 @@ static void e1000_clean_tx_ring(struct e1000_adapter *adapter,
- 		e1000_unmap_and_free_tx_resource(adapter, buffer_info);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 1cbb34f..ac91567 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3660,8 +3660,6 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
+ 	if (hw->mac.type == ixgbe_mac_82598EB)
+ 		netif_set_gso_max_size(adapter->netdev, 32768);
+ 
+-	hw->mac.ops.set_vfta(&adapter->hw, 0, 0, true);
+-
+ #ifdef IXGBE_FCOE
+ 	if (adapter->netdev->features & NETIF_F_FCOE_MTU)
+ 		max_frame = max(max_frame, IXGBE_FCOE_JUMBO_FRAME_SIZE);
+@@ -3861,6 +3859,11 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
+ #ifdef CONFIG_IXGBE_DCB
+ 	ixgbe_configure_dcb(adapter);
+ #endif
++	/*
++	 * We must restore virtualization before VLANs or else
++	 * the VLVF registers will not be populated
++	 */
++	ixgbe_configure_virtualization(adapter);
+ 
+ 	ixgbe_set_rx_mode(adapter->netdev);
+ 	ixgbe_restore_vlan(adapter);
+@@ -3892,8 +3895,6 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
+ 		break;
  	}
  
-+	netdev_reset_queue(adapter->netdev);
- 	size = sizeof(struct e1000_buffer) * tx_ring->count;
- 	memset(tx_ring->buffer_info, 0, size);
- 
-@@ -3262,6 +3263,7 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 	                     nr_frags, mss);
- 
- 	if (count) {
-+		netdev_sent_queue(netdev, skb->len);
- 		skb_tx_timestamp(skb);
- 
- 		e1000_tx_queue(adapter, tx_ring, tx_flags, count);
-@@ -3849,6 +3851,7 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
- 	unsigned int i, eop;
- 	unsigned int count = 0;
- 	unsigned int total_tx_bytes=0, total_tx_packets=0;
-+	unsigned int bytes_compl = 0, pkts_compl = 0;
- 
- 	i = tx_ring->next_to_clean;
- 	eop = tx_ring->buffer_info[i].next_to_watch;
-@@ -3866,6 +3869,11 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
- 			if (cleaned) {
- 				total_tx_packets += buffer_info->segs;
- 				total_tx_bytes += buffer_info->bytecount;
-+				if (buffer_info->skb) {
-+					bytes_compl += buffer_info->skb->len;
-+					pkts_compl++;
-+				}
+-	ixgbe_configure_virtualization(adapter);
+-
+ #ifdef IXGBE_FCOE
+ 	/* configure FCoE L2 filters, redirection table, and Rx control */
+ 	ixgbe_configure_fcoe(adapter);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 4fea871..3b1c914 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -346,6 +346,10 @@ void ixgbe_restore_vf_multicasts(struct ixgbe_adapter *adapter)
+ static int ixgbe_set_vf_vlan(struct ixgbe_adapter *adapter, int add, int vid,
+ 			     u32 vf)
+ {
++	/* VLAN 0 is a special case, don't allow it to be removed */
++	if (!vid && !add)
++		return 0;
 +
- 			}
- 			e1000_unmap_and_free_tx_resource(adapter, buffer_info);
- 			tx_desc->upper.data = 0;
-@@ -3879,6 +3887,8 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
+ 	return adapter->hw.mac.ops.set_vfta(&adapter->hw, vid, vf, (bool)add);
+ }
  
- 	tx_ring->next_to_clean = i;
- 
-+	netdev_completed_queue(netdev, pkts_compl, bytes_compl);
-+
- #define TX_WAKE_THRESHOLD 32
- 	if (unlikely(count && netif_carrier_ok(netdev) &&
- 		     E1000_DESC_UNUSED(tx_ring) >= TX_WAKE_THRESHOLD)) {
+@@ -414,6 +418,7 @@ static inline void ixgbe_vf_reset_event(struct ixgbe_adapter *adapter, u32 vf)
+ 				  VLAN_PRIO_SHIFT)), vf);
+ 		ixgbe_set_vmolr(hw, vf, false);
+ 	} else {
++		ixgbe_set_vf_vlan(adapter, true, 0, vf);
+ 		ixgbe_set_vmvir(adapter, 0, vf);
+ 		ixgbe_set_vmolr(hw, vf, true);
+ 	}
 -- 
 1.7.11.4
