@@ -1,58 +1,139 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch net] sky2: fix rx filter setup on link up
-Date: Mon, 17 Sep 2012 14:15:07 -0700
-Message-ID: <20120917141507.7528b3ee@nehalam.linuxnetplumber.net>
-References: <1347894617-13614-1-git-send-email-jiri@resnulli.us>
-	<20120917091214.5cd9b0f5@nehalam.linuxnetplumber.net>
-	<20120917204724.GA1749@minipsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, mlindner@marvell.com,
-	linux-kernel@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: (unknown)
+Date: Mon, 17 Sep 2012 14:19:12 -0700 (PDT)
+Message-ID: <505793d0.e8a1320a.44f7.fffff8d0@mx.google.com>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38188 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751781Ab2IQVPh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2012 17:15:37 -0400
-In-Reply-To: <20120917204724.GA1749@minipsycho.orion>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:57066 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752532Ab2IQVTP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 17:19:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 17 Sep 2012 22:47:24 +0200
-Jiri Pirko <jiri@resnulli.us> wrote:
+,
+	netdev@vger.kernel.org,
+	<chaoming_li@realsil.com.cn>
+Subject: [PATCH 00/15] Add new driver RTL8723AE
+Date: Mon, 17 Sep 2012 16:18:39 -0500
+Message-Id: <1347483294-6943-1-git-send-email-Larry.Finger@lwfinger.net>
+X-Mailer: git-send-email 1.7.10.4
+X-Account-Key: account11
+X-UIDL: GmailId139bc43b51cd682c
+X-Mozilla-Status: 0001
+Return-Path: <larry.finger@gmail.com>
+Received: from localhost.localdomain (CPE-75-81-36-228.kc.res.rr.com. [75.81.36.228])
+ by mx.google.com with ESMTPS id ng5sm5862034igc.0.2012.09.12.13.55.15
+ (version=TLSv1/SSLv3 cipher=OTHER);
+ Wed, 12 Sep 2012 13:55:16 -0700 (PDT)
+Sender: Larry Finger <larry.finger@gmail.com>
+X-Mailer: git-send-email 1.7.10.4
 
-> Mon, Sep 17, 2012 at 06:12:14PM CEST, shemminger@vyatta.com wrote:
-> >On Mon, 17 Sep 2012 17:10:17 +0200
-> >Jiri Pirko <jiri@resnulli.us> wrote:
-> >
-> >> In my case I have following problem. sky2_set_multicast() sets registers
-> >> GM_MC_ADDR_H[1-4] correctly to:
-> >> 0000 0800 0001 0410
-> >> However, when adapter gets link and sky2_link_up() is called, the values
-> >> are for some reason different:
-> >> 0000 0800 0016 0410
-> >
-> >Rather than papering over the problem, it would be better to
-> >trace back what is setting those registers and fix that code.
-> 
-> Yes, I did that. No code at sky2.[ch] is writing to this registers other
-> than sky2_set_multicast() and sky2_gmac_reset() (I hooked on sky2_write*()).
-> So I strongly believe this is a HW issue (maybe only issue of my revision
-> "Yukon-2 EC chip revision 2")
-> 
-> >
-> >> This in my case prevents iface to be able to receive packets with dst mac
-> >> 01:80:C2:00:00:02 (LACPDU dst mac), which I set up previously by
-> >> SIOCADDMULTI.
-> >> 
-> >> So remember computed rx_filter data and write it to GM_MC_ADDR_H[1-4] on
-> >> link_up.
-> >>
-> >
-> >Please do some more root cause analysis. Just save/restoring the
-> >registers is just a temporary workaround.
+From: Larry Finger <Larry.Finger@lwfinger.net>
 
-Are you sure it isn't IPv6 or something else setting additional mulitcast
-addresses. You may need to instrument the set_multicast call.
+This set of patches add the new driver rtl8723ae to the rtlwifi family
+of drivers. It handles the RTL8723AE, which is now being included in
+some Toshiba laptops. This driver is derived from version 0007.0809.2012
+of the vendor driver.
+
+Depending on how long the review process takes, I am hoping to include
+this driver in kernel 3.7.
+
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+
+Larry Finger (15):
+  rtlwifi: rtl8723ae: Add new driver - Part 1
+  rtlwifi: rtl8723ae: Add new driver - Part 2
+  rtlwifi: rtl8723ae: Add new driver - Part 3
+  rtlwifi: rtl8723ae: Add new driver - Part 4
+  rtlwifi: rtl8723ae: Add new driver - Part 5
+  rtlwifi: rtl8723ae: Add new driver - Part 6
+  rtlwifi: rtl8723ae: Add new driver - Part 7
+  rtlwifi: rtl8723ae: Add new driver - Part 8
+  rtlwifi: rtl8723ae: Add new driver - Part 9
+  rtlwifi: rtl8723ae: Add new driver - Part 10
+  rtlwifi: rtl8723ae: Add new driver - Part 11
+  rtlwifi: rtl8723ae: Add new driver - Part 12
+  rtlwifi: rtl8723ae: Add new driver - Part 13
+  rtlwifi: Modify files for addition of rtl8723ae
+  rtlwifi: rtl8192ce: rtl8192cu: rtl8192se: rtl81723ae: Turn on
+    building of the new driver
+
+ drivers/net/wireless/rtlwifi/Kconfig               |   19 +-
+ drivers/net/wireless/rtlwifi/Makefile              |    4 +-
+ drivers/net/wireless/rtlwifi/debug.h               |    2 +
+ drivers/net/wireless/rtlwifi/pci.h                 |    1 +
+ drivers/net/wireless/rtlwifi/rtl8192ce/hw.c        |   83 +-
+ drivers/net/wireless/rtlwifi/rtl8192cu/hw.c        |   10 +-
+ drivers/net/wireless/rtlwifi/rtl8192se/hw.c        |    6 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/Makefile    |   23 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/btc.h       |   41 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/def.h       |  291 +++
+ drivers/net/wireless/rtlwifi/rtl8723ae/dm.c        |  952 ++++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/dm.h        |  174 ++
+ drivers/net/wireless/rtlwifi/rtl8723ae/fw.c        |  758 ++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/fw.h        |   99 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/hal_bt_coexist.c    |  554 +++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/hal_bt_coexist.h    |  161 ++
+ drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.c   | 1807 ++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.h   |  161 ++
+ drivers/net/wireless/rtlwifi/rtl8723ae/hw.c        | 2559 ++++++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/hw.h        |   70 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/led.c       |  158 ++
+ drivers/net/wireless/rtlwifi/rtl8723ae/led.h       |   40 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/phy.c       | 2160 +++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/phy.h       |  228 ++
+ drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.c    |  113 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.h    |  313 +++
+ drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.c |  145 ++
+ drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.h |  101 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/reg.h       | 2129 ++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/rf.c        |  518 ++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/rf.h        |   45 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/sw.c        |  405 ++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/sw.h        |   38 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/table.c     |  744 ++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/table.h     |   51 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/trx.c       |  830 +++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/trx.h       |  725 ++++++
+ drivers/net/wireless/rtlwifi/stats.c               |  274 +++
+ drivers/net/wireless/rtlwifi/stats.h               |   47 +
+ drivers/net/wireless/rtlwifi/wifi.h                |  112 +-
+ 40 files changed, 16919 insertions(+), 32 deletions(-)
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/Makefile
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/btc.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/def.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/dm.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/dm.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/fw.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/fw.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/hal_bt_coexist.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/hal_bt_coexist.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/hw.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/hw.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/led.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/led.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/phy.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/phy.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/reg.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/rf.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/rf.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/sw.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/sw.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/table.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/table.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/trx.h
+ create mode 100644 drivers/net/wireless/rtlwifi/stats.c
+ create mode 100644 drivers/net/wireless/rtlwifi/stats.h
+
+-- 
+1.7.10.4
