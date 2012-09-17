@@ -1,51 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/4] Take care of xfrm policy when checking
- dst entries
-Date: Mon, 17 Sep 2012 15:54:58 -0400 (EDT)
-Message-ID: <20120917.155458.777649470378504320.davem@davemloft.net>
-References: <5057688B.3030509@gmail.com>
-	<20120917.142504.115219640757684297.davem@davemloft.net>
-	<50577F74.9040200@6wind.com>
+From: "James R. Hay" <jrhay@haya.qc.ca>
+Subject: Re: D-Link DGE-530T and r8169.c
+Date: Mon, 17 Sep 2012 16:01:25 -0400 (EDT)
+Message-ID: <alpine.LNX.2.00.1209171558220.13421@hay.haya.qc.ca>
+References: <alpine.LNX.2.00.1209171139540.11109@hay.haya.qc.ca> <20120917174706.GA24838@electric-eye.fr.zoreil.com>
+Reply-To: "James R. Hay" <jrhay@haya.qc.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: vyasevich@gmail.com, eric.dumazet@gmail.com, sds@tycho.nsa.gov,
-	james.l.morris@oracle.com, eparis@parisplace.org, sri@us.ibm.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: nic_swsd@realtek.com, netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60972 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754365Ab2IQTzE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 15:55:04 -0400
-In-Reply-To: <50577F74.9040200@6wind.com>
+Received: from mail5.hay-net.net ([205.236.99.37]:60795 "EHLO
+	mail4.hay-net.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756268Ab2IQUBk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 16:01:40 -0400
+In-Reply-To: <20120917174706.GA24838@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Mon, 17 Sep 2012 21:52:20 +0200
 
-> Le 17/09/2012 20:25, David Miller a =E9crit :
->> From: Vlad Yasevich <vyasevich@gmail.com>
->> Date: Mon, 17 Sep 2012 14:14:35 -0400
+Thank you very much.  Evidently I'm a bit further behind on the kernel 
+version than I thought.
+
+Jim.
+
+On Mon, 17 Sep 2012, Francois Romieu wrote:
+
+--(snip)--
+
 >>
->>> I think he expected you to take Eric's patch that removed those
->>> pieces.
->>
->> Eric's patch was a cleanup, so it went into 'net-next'.
->>
->> Nicolas's patch is a bonafide bug fix so needs to be
->> targetted at 'net'
-> My fault, it was 'net-next'. I will rebase them against 'net'.
->=20
-> Should I post the last one (4/4) separately, against net-next? Becaus=
-e
-> without the '3/4', the cleanup is a bit larger and will cause a
-> conflict during the merge.
+>> 	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x4302), 0, 0, RTL_CFG_0 },
+>
+> The ID above was added by 93a3aa25933461d76141179fc94aa32d5f9d954a between
+> v3.0 and v3.1. See:
+>
+> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=93a3aa25933461d76141179fc94aa32d5f9d954a
+>
+> -- 
+> Ueimor
+>
 
-Actually Nicolas, hold off on this for a bit.
-
-I'm reconsidering putting Eric's patch into 'net' and that would
-allow me to use your v3 patches as-is.
-
-Thanks.
+James R. Hay				jrhay@HayA.QC.CA
+Hay-Net Networks			http://www.hay-net.net
+P.O. Box 46051
+Pointe Claire, QC
+H9R 5R4
