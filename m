@@ -1,62 +1,38 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH 14/15] rtlwifi: Modify files for addition of rtl8723ae
-Date: Mon, 17 Sep 2012 16:18:53 -0500
-Message-ID: <1347916754-9219-14-git-send-email-Larry.Finger@lwfinger.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 12/15] rtlwifi: rtl8723ae: Add new driver - Part 12
+Date: Mon, 17 Sep 2012 16:18:51 -0500
+Message-ID: <1347916754-9219-12-git-send-email-Larry.Finger@lwfinger.net>
 References: <1347483294-6943-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1347483294-6943-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, <chaoming_li@realsil.com.cn>
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:39139 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755689Ab2IQVTq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 17:19:46 -0400
+In-Reply-To: <1347483294-6943-1-git-send-email-Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch modifies the files of rtlwifi for the addition of a new driver
-to handle the Realtek RTL8723AE wireless device, and introduces a new
-routine to maintaim statistics that will be used later for roaming.
+This patch is part 12 of the addition of files for a new driver to handle
+the Realtek RTL8723AE wireless device.
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Cc: <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: <chaoming_li@realsil.com.cn>
 ---
- drivers/net/wireless/rtlwifi/debug.h |    2 +
- drivers/net/wireless/rtlwifi/pci.h   |    1 +
- drivers/net/wireless/rtlwifi/stats.c |  274 ++++++++++++++++++++++++++++++++++
- drivers/net/wireless/rtlwifi/stats.h |   47 ++++++
- 4 files changed, 324 insertions(+)
- create mode 100644 drivers/net/wireless/rtlwifi/stats.c
- create mode 100644 drivers/net/wireless/rtlwifi/stats.h
+ drivers/net/wireless/rtlwifi/rtl8723ae/table.c |  744 ++++++++++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/table.h |   51 ++
+ 2 files changed, 795 insertions(+)
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/table.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/table.h
 
-Index: wireless-testing-new/drivers/net/wireless/rtlwifi/debug.h
-===================================================================
---- wireless-testing-new.orig/drivers/net/wireless/rtlwifi/debug.h
-+++ wireless-testing-new/drivers/net/wireless/rtlwifi/debug.h
-@@ -106,6 +106,8 @@
- #define COMP_REGD			BIT(27)
- #define COMP_CHAN			BIT(28)
- #define COMP_USB			BIT(29)
-+#define COMP_EASY_CONCURRENT	COMP_USB /* reuse of this bit is OK */
-+#define COMP_BT_COEXIST			BIT(30)
- 
- /*--------------------------------------------------------------
- 		Define the rt_print components
-Index: wireless-testing-new/drivers/net/wireless/rtlwifi/pci.h
-===================================================================
---- wireless-testing-new.orig/drivers/net/wireless/rtlwifi/pci.h
-+++ wireless-testing-new/drivers/net/wireless/rtlwifi/pci.h
-@@ -152,6 +152,7 @@ struct rtl8192_rx_ring {
- 
- struct rtl_pci {
- 	struct pci_dev *pdev;
-+	bool irq_enabled;
- 
- 	bool driver_is_goingto_unload;
- 	bool up_first_time;
-Index: wireless-testing-new/drivers/net/wireless/rtlwifi/stats.c
+Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/table.c
 ===================================================================
 --- /dev/null
-+++ wireless-testing-new/drivers/net/wireless/rtlwifi/stats.c
-@@ -0,0 +1,273 @@
++++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/table.c
+@@ -0,0 +1,738 @@
 +/******************************************************************************
 + *
 + * Copyright(c) 2009-2012  Realtek Corporation.
@@ -78,263 +54,728 @@ Index: wireless-testing-new/drivers/net/wireless/rtlwifi/stats.c
 + * file called LICENSE.
 + *
 + * Contact Information:
-+ * wlanfae <wlanfae-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
++ * wlanfae <wlanfae@realtek.com>
 + * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
 + * Hsinchu 300, Taiwan.
 + *
-+ * Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
++ * Created on  2010/ 5/18,  1:41
++ *
++ * Larry Finger <Larry.Finger@lwfinger.net>
 + *
 + *****************************************************************************/
-+#include "wifi.h"
-+#include "stats.h"
-+#include <linux/export.h>
 +
-+u8 rtl_query_rxpwrpercentage(char antpower)
-+{
-+	if ((antpower <= -100) || (antpower >= 20))
-+		return 0;
-+	else if (antpower >= 0)
-+		return 100;
-+	else
-+		return 100 + antpower;
-+}
-+EXPORT_SYMBOL(rtl_query_rxpwrpercentage);
++#include "table.h"
 +
-+u8 rtl_evm_db_to_percentage(char value)
-+{
-+	char ret_val;
-+	ret_val = value;
++u32 RTL8723EPHY_REG_1TARRAY[RTL8723E_PHY_REG_1TARRAY_LENGTH] = {
++	0x800, 0x80040000,
++	0x804, 0x00000003,
++	0x808, 0x0000fc00,
++	0x80c, 0x0000000a,
++	0x810, 0x10005388,
++	0x814, 0x020c3d10,
++	0x818, 0x02200385,
++	0x81c, 0x00000000,
++	0x820, 0x01000100,
++	0x824, 0x00390004,
++	0x828, 0x00000000,
++	0x82c, 0x00000000,
++	0x830, 0x00000000,
++	0x834, 0x00000000,
++	0x838, 0x00000000,
++	0x83c, 0x00000000,
++	0x840, 0x00010000,
++	0x844, 0x00000000,
++	0x848, 0x00000000,
++	0x84c, 0x00000000,
++	0x850, 0x00000000,
++	0x854, 0x00000000,
++	0x858, 0x569a569a,
++	0x85c, 0x001b25a4,
++	0x860, 0x66f60110,
++	0x864, 0x061f0130,
++	0x868, 0x00000000,
++	0x86c, 0x32323200,
++	0x870, 0x07000760,
++	0x874, 0x22004000,
++	0x878, 0x00000808,
++	0x87c, 0x00000000,
++	0x880, 0xc0083070,
++	0x884, 0x000004d5,
++	0x888, 0x00000000,
++	0x88c, 0xccc000c0,
++	0x890, 0x00000800,
++	0x894, 0xfffffffe,
++	0x898, 0x40302010,
++	0x89c, 0x00706050,
++	0x900, 0x00000000,
++	0x904, 0x00000023,
++	0x908, 0x00000000,
++	0x90c, 0x81121111,
++	0xa00, 0x00d047c8,
++	0xa04, 0x80ff000c,
++	0xa08, 0x8c838300,
++	0xa0c, 0x2e68120f,
++	0xa10, 0x9500bb78,
++	0xa14, 0x11144028,
++	0xa18, 0x00881117,
++	0xa1c, 0x89140f00,
++	0xa20, 0x1a1b0000,
++	0xa24, 0x090e1317,
++	0xa28, 0x00000204,
++	0xa2c, 0x00d30000,
++	0xa70, 0x101fbf00,
++	0xa74, 0x00000007,
++	0xa78, 0x00000900,
++	0xc00, 0x48071d40,
++	0xc04, 0x03a05611,
++	0xc08, 0x000000e4,
++	0xc0c, 0x6c6c6c6c,
++	0xc10, 0x08800000,
++	0xc14, 0x40000100,
++	0xc18, 0x08800000,
++	0xc1c, 0x40000100,
++	0xc20, 0x00000000,
++	0xc24, 0x00000000,
++	0xc28, 0x00000000,
++	0xc2c, 0x00000000,
++	0xc30, 0x69e9ac44,
++	0xc34, 0x469652cf,
++	0xc38, 0x49795994,
++	0xc3c, 0x0a97971c,
++	0xc40, 0x1f7c403f,
++	0xc44, 0x000100b7,
++	0xc48, 0xec020107,
++	0xc4c, 0x007f037f,
++	0xc50, 0x69543420,
++	0xc54, 0x43bc0094,
++	0xc58, 0x69543420,
++	0xc5c, 0x433c0094,
++	0xc60, 0x00000000,
++	0xc64, 0x7116848b,
++	0xc68, 0x47c00bff,
++	0xc6c, 0x00000036,
++	0xc70, 0x2c7f000d,
++	0xc74, 0x018610db,
++	0xc78, 0x0000001f,
++	0xc7c, 0x00b91612,
++	0xc80, 0x40000100,
++	0xc84, 0x20f60000,
++	0xc88, 0x40000100,
++	0xc8c, 0x20200000,
++	0xc90, 0x00121820,
++	0xc94, 0x00000000,
++	0xc98, 0x00121820,
++	0xc9c, 0x00007f7f,
++	0xca0, 0x00000000,
++	0xca4, 0x00000080,
++	0xca8, 0x00000000,
++	0xcac, 0x00000000,
++	0xcb0, 0x00000000,
++	0xcb4, 0x00000000,
++	0xcb8, 0x00000000,
++	0xcbc, 0x28000000,
++	0xcc0, 0x00000000,
++	0xcc4, 0x00000000,
++	0xcc8, 0x00000000,
++	0xccc, 0x00000000,
++	0xcd0, 0x00000000,
++	0xcd4, 0x00000000,
++	0xcd8, 0x64b22427,
++	0xcdc, 0x00766932,
++	0xce0, 0x00222222,
++	0xce4, 0x00000000,
++	0xce8, 0x37644302,
++	0xcec, 0x2f97d40c,
++	0xd00, 0x00080740,
++	0xd04, 0x00020401,
++	0xd08, 0x0000907f,
++	0xd0c, 0x20010201,
++	0xd10, 0xa0633333,
++	0xd14, 0x3333bc43,
++	0xd18, 0x7a8f5b6b,
++	0xd2c, 0xcc979975,
++	0xd30, 0x00000000,
++	0xd34, 0x80608000,
++	0xd38, 0x00000000,
++	0xd3c, 0x00027293,
++	0xd40, 0x00000000,
++	0xd44, 0x00000000,
++	0xd48, 0x00000000,
++	0xd4c, 0x00000000,
++	0xd50, 0x6437140a,
++	0xd54, 0x00000000,
++	0xd58, 0x00000000,
++	0xd5c, 0x30032064,
++	0xd60, 0x4653de68,
++	0xd64, 0x04518a3c,
++	0xd68, 0x00002101,
++	0xd6c, 0x2a201c16,
++	0xd70, 0x1812362e,
++	0xd74, 0x322c2220,
++	0xd78, 0x000e3c24,
++	0xe00, 0x2a2a2a2a,
++	0xe04, 0x2a2a2a2a,
++	0xe08, 0x03902a2a,
++	0xe10, 0x2a2a2a2a,
++	0xe14, 0x2a2a2a2a,
++	0xe18, 0x2a2a2a2a,
++	0xe1c, 0x2a2a2a2a,
++	0xe28, 0x00000000,
++	0xe30, 0x1000dc1f,
++	0xe34, 0x10008c1f,
++	0xe38, 0x02140102,
++	0xe3c, 0x681604c2,
++	0xe40, 0x01007c00,
++	0xe44, 0x01004800,
++	0xe48, 0xfb000000,
++	0xe4c, 0x000028d1,
++	0xe50, 0x1000dc1f,
++	0xe54, 0x10008c1f,
++	0xe58, 0x02140102,
++	0xe5c, 0x28160d05,
++	0xe60, 0x00000008,
++	0xe68, 0x001b25a4,
++	0xe6c, 0x631b25a0,
++	0xe70, 0x631b25a0,
++	0xe74, 0x081b25a0,
++	0xe78, 0x081b25a0,
++	0xe7c, 0x081b25a0,
++	0xe80, 0x081b25a0,
++	0xe84, 0x631b25a0,
++	0xe88, 0x081b25a0,
++	0xe8c, 0x631b25a0,
++	0xed0, 0x631b25a0,
++	0xed4, 0x631b25a0,
++	0xed8, 0x631b25a0,
++	0xedc, 0x001b25a0,
++	0xee0, 0x001b25a0,
++	0xeec, 0x6b1b25a0,
++	0xf14, 0x00000003,
++	0xf4c, 0x00000000,
++	0xf00, 0x00000300,
++};
 +
-+	if (ret_val >= 0)
-+		ret_val = 0;
-+	if (ret_val <= -33)
-+		ret_val = -33;
-+	ret_val = 0 - ret_val;
-+	ret_val *= 3;
-+	if (ret_val == 99)
-+		ret_val = 100;
++u32 RTL8723EPHY_REG_ARRAY_PG[RTL8723E_PHY_REG_ARRAY_PGLENGTH] = {
++	0xe00, 0xffffffff, 0x0a0c0c0c,
++	0xe04, 0xffffffff, 0x02040608,
++	0xe08, 0x0000ff00, 0x00000000,
++	0x86c, 0xffffff00, 0x00000000,
++	0xe10, 0xffffffff, 0x0a0c0d0e,
++	0xe14, 0xffffffff, 0x02040608,
++	0xe18, 0xffffffff, 0x0a0c0d0e,
++	0xe1c, 0xffffffff, 0x02040608,
++	0x830, 0xffffffff, 0x0a0c0c0c,
++	0x834, 0xffffffff, 0x02040608,
++	0x838, 0xffffff00, 0x00000000,
++	0x86c, 0x000000ff, 0x00000000,
++	0x83c, 0xffffffff, 0x0a0c0d0e,
++	0x848, 0xffffffff, 0x02040608,
++	0x84c, 0xffffffff, 0x0a0c0d0e,
++	0x868, 0xffffffff, 0x02040608,
++	0xe00, 0xffffffff, 0x00000000,
++	0xe04, 0xffffffff, 0x00000000,
++	0xe08, 0x0000ff00, 0x00000000,
++	0x86c, 0xffffff00, 0x00000000,
++	0xe10, 0xffffffff, 0x00000000,
++	0xe14, 0xffffffff, 0x00000000,
++	0xe18, 0xffffffff, 0x00000000,
++	0xe1c, 0xffffffff, 0x00000000,
++	0x830, 0xffffffff, 0x00000000,
++	0x834, 0xffffffff, 0x00000000,
++	0x838, 0xffffff00, 0x00000000,
++	0x86c, 0x000000ff, 0x00000000,
++	0x83c, 0xffffffff, 0x00000000,
++	0x848, 0xffffffff, 0x00000000,
++	0x84c, 0xffffffff, 0x00000000,
++	0x868, 0xffffffff, 0x00000000,
++	0xe00, 0xffffffff, 0x04040404,
++	0xe04, 0xffffffff, 0x00020204,
++	0xe08, 0x0000ff00, 0x00000000,
++	0x86c, 0xffffff00, 0x00000000,
++	0xe10, 0xffffffff, 0x06060606,
++	0xe14, 0xffffffff, 0x00020406,
++	0xe18, 0xffffffff, 0x00000000,
++	0xe1c, 0xffffffff, 0x00000000,
++	0x830, 0xffffffff, 0x04040404,
++	0x834, 0xffffffff, 0x00020204,
++	0x838, 0xffffff00, 0x00000000,
++	0x86c, 0x000000ff, 0x00000000,
++	0x83c, 0xffffffff, 0x06060606,
++	0x848, 0xffffffff, 0x00020406,
++	0x84c, 0xffffffff, 0x00000000,
++	0x868, 0xffffffff, 0x00000000,
++	0xe00, 0xffffffff, 0x00000000,
++	0xe04, 0xffffffff, 0x00000000,
++	0xe08, 0x0000ff00, 0x00000000,
++	0x86c, 0xffffff00, 0x00000000,
++	0xe10, 0xffffffff, 0x00000000,
++	0xe14, 0xffffffff, 0x00000000,
++	0xe18, 0xffffffff, 0x00000000,
++	0xe1c, 0xffffffff, 0x00000000,
++	0x830, 0xffffffff, 0x00000000,
++	0x834, 0xffffffff, 0x00000000,
++	0x838, 0xffffff00, 0x00000000,
++	0x86c, 0x000000ff, 0x00000000,
++	0x83c, 0xffffffff, 0x00000000,
++	0x848, 0xffffffff, 0x00000000,
++	0x84c, 0xffffffff, 0x00000000,
++	0x868, 0xffffffff, 0x00000000,
++	0xe00, 0xffffffff, 0x00000000,
++	0xe04, 0xffffffff, 0x00000000,
++	0xe08, 0x0000ff00, 0x00000000,
++	0x86c, 0xffffff00, 0x00000000,
++	0xe10, 0xffffffff, 0x00000000,
++	0xe14, 0xffffffff, 0x00000000,
++	0xe18, 0xffffffff, 0x00000000,
++	0xe1c, 0xffffffff, 0x00000000,
++	0x830, 0xffffffff, 0x00000000,
++	0x834, 0xffffffff, 0x00000000,
++	0x838, 0xffffff00, 0x00000000,
++	0x86c, 0x000000ff, 0x00000000,
++	0x83c, 0xffffffff, 0x00000000,
++	0x848, 0xffffffff, 0x00000000,
++	0x84c, 0xffffffff, 0x00000000,
++	0x868, 0xffffffff, 0x00000000,
++	0xe00, 0xffffffff, 0x04040404,
++	0xe04, 0xffffffff, 0x00020204,
++	0xe08, 0x0000ff00, 0x00000000,
++	0x86c, 0xffffff00, 0x00000000,
++	0xe10, 0xffffffff, 0x00000000,
++	0xe14, 0xffffffff, 0x00000000,
++	0xe18, 0xffffffff, 0x00000000,
++	0xe1c, 0xffffffff, 0x00000000,
++	0x830, 0xffffffff, 0x04040404,
++	0x834, 0xffffffff, 0x00020204,
++	0x838, 0xffffff00, 0x00000000,
++	0x86c, 0x000000ff, 0x00000000,
++	0x83c, 0xffffffff, 0x00000000,
++	0x848, 0xffffffff, 0x00000000,
++	0x84c, 0xffffffff, 0x00000000,
++	0x868, 0xffffffff, 0x00000000,
++	0xe00, 0xffffffff, 0x00000000,
++	0xe04, 0xffffffff, 0x00000000,
++	0xe08, 0x0000ff00, 0x00000000,
++	0x86c, 0xffffff00, 0x00000000,
++	0xe10, 0xffffffff, 0x00000000,
++	0xe14, 0xffffffff, 0x00000000,
++	0xe18, 0xffffffff, 0x00000000,
++	0xe1c, 0xffffffff, 0x00000000,
++	0x830, 0xffffffff, 0x00000000,
++	0x834, 0xffffffff, 0x00000000,
++	0x838, 0xffffff00, 0x00000000,
++	0x86c, 0x000000ff, 0x00000000,
++	0x83c, 0xffffffff, 0x00000000,
++	0x848, 0xffffffff, 0x00000000,
++	0x84c, 0xffffffff, 0x00000000,
++	0x868, 0xffffffff, 0x00000000,
++};
 +
-+	return ret_val;
-+}
-+EXPORT_SYMBOL(rtl_evm_db_to_percentage);
++u32 RTL8723E_RADIOA_1TARRAY[Rtl8723ERADIOA_1TARRAYLENGTH] = {
++	0x000, 0x00030159,
++	0x001, 0x00031284,
++	0x002, 0x00098000,
++	0x003, 0x00018c63,
++	0x004, 0x000210e7,
++	0x009, 0x0002044f,
++	0x00a, 0x0001a3f1,
++	0x00b, 0x00014787,
++	0x00c, 0x000896fe,
++	0x00d, 0x0000e02c,
++	0x00e, 0x00039ce7,
++	0x00f, 0x00000451,
++	0x019, 0x00000000,
++	0x01a, 0x00030355,
++	0x01b, 0x00060a00,
++	0x01c, 0x000fc378,
++	0x01d, 0x000a1250,
++	0x01e, 0x0004445f,
++	0x01f, 0x00080001,
++	0x020, 0x0000b614,
++	0x021, 0x0006c000,
++	0x022, 0x00000000,
++	0x023, 0x00001558,
++	0x024, 0x00000060,
++	0x025, 0x00000483,
++	0x026, 0x0004f000,
++	0x027, 0x000ec7d9,
++	0x028, 0x00057730,
++	0x029, 0x00004783,
++	0x02a, 0x00000001,
++	0x02b, 0x00021334,
++	0x02a, 0x00000000,
++	0x02b, 0x00000054,
++	0x02a, 0x00000001,
++	0x02b, 0x00000808,
++	0x02b, 0x00053333,
++	0x02c, 0x0000000c,
++	0x02a, 0x00000002,
++	0x02b, 0x00000808,
++	0x02b, 0x0005b333,
++	0x02c, 0x0000000d,
++	0x02a, 0x00000003,
++	0x02b, 0x00000808,
++	0x02b, 0x00063333,
++	0x02c, 0x0000000d,
++	0x02a, 0x00000004,
++	0x02b, 0x00000808,
++	0x02b, 0x0006b333,
++	0x02c, 0x0000000d,
++	0x02a, 0x00000005,
++	0x02b, 0x00000808,
++	0x02b, 0x00073333,
++	0x02c, 0x0000000d,
++	0x02a, 0x00000006,
++	0x02b, 0x00000709,
++	0x02b, 0x0005b333,
++	0x02c, 0x0000000d,
++	0x02a, 0x00000007,
++	0x02b, 0x00000709,
++	0x02b, 0x00063333,
++	0x02c, 0x0000000d,
++	0x02a, 0x00000008,
++	0x02b, 0x0000060a,
++	0x02b, 0x0004b333,
++	0x02c, 0x0000000d,
++	0x02a, 0x00000009,
++	0x02b, 0x0000060a,
++	0x02b, 0x00053333,
++	0x02c, 0x0000000d,
++	0x02a, 0x0000000a,
++	0x02b, 0x0000060a,
++	0x02b, 0x0005b333,
++	0x02c, 0x0000000d,
++	0x02a, 0x0000000b,
++	0x02b, 0x0000060a,
++	0x02b, 0x00063333,
++	0x02c, 0x0000000d,
++	0x02a, 0x0000000c,
++	0x02b, 0x0000060a,
++	0x02b, 0x0006b333,
++	0x02c, 0x0000000d,
++	0x02a, 0x0000000d,
++	0x02b, 0x0000060a,
++	0x02b, 0x00073333,
++	0x02c, 0x0000000d,
++	0x02a, 0x0000000e,
++	0x02b, 0x0000050b,
++	0x02b, 0x00066666,
++	0x02c, 0x0000001a,
++	0x02a, 0x000e0000,
++	0x010, 0x0004000f,
++	0x011, 0x000e31fc,
++	0x010, 0x0006000f,
++	0x011, 0x000ff9f8,
++	0x010, 0x0002000f,
++	0x011, 0x000203f9,
++	0x010, 0x0003000f,
++	0x011, 0x000ff500,
++	0x010, 0x00000000,
++	0x011, 0x00000000,
++	0x010, 0x0008000f,
++	0x011, 0x0003f100,
++	0x010, 0x0009000f,
++	0x011, 0x00023100,
++	0x012, 0x00032000,
++	0x012, 0x00071000,
++	0x012, 0x000b0000,
++	0x012, 0x000fc000,
++	0x013, 0x000287b3,
++	0x013, 0x000244b7,
++	0x013, 0x000204ab,
++	0x013, 0x0001c49f,
++	0x013, 0x00018493,
++	0x013, 0x0001429b,
++	0x013, 0x00010299,
++	0x013, 0x0000c29c,
++	0x013, 0x000081a0,
++	0x013, 0x000040ac,
++	0x013, 0x00000020,
++	0x014, 0x0001944c,
++	0x014, 0x00059444,
++	0x014, 0x0009944c,
++	0x014, 0x000d9444,
++	0x015, 0x0000f424,
++	0x015, 0x0004f407,
++	0x015, 0x0008f424,
++	0x015, 0x000cf424,
++	0x016, 0x00000339,
++	0x016, 0x00040339,
++	0x016, 0x00080339,
++	0x016, 0x000c0336,
++	0x000, 0x00010159,
++	0x018, 0x0000f401,
++	0x0fe, 0x00000000,
++	0x0fe, 0x00000000,
++	0x01f, 0x00080003,
++	0x0fe, 0x00000000,
++	0x0fe, 0x00000000,
++	0x01e, 0x00044457,
++	0x01f, 0x00080000,
++	0x000, 0x00030159,
++};
 +
-+static long rtl_translate_todbm(struct ieee80211_hw *hw,
-+				u8 signal_strength_index)
-+{
-+	long signal_power;
 +
-+	signal_power = (long)((signal_strength_index + 1) >> 1);
-+	signal_power -= 95;
-+	return signal_power;
-+}
++u32 RTL8723E_RADIOB_1TARRAY[RTL8723E_RADIOB_1TARRAYLENGTH] = {
++	0x0,
++};
 +
-+long rtl_signal_scale_mapping(struct ieee80211_hw *hw, long currsig)
-+{
-+	long retsig;
 +
-+	if (currsig >= 61 && currsig <= 100)
-+		retsig = 90 + ((currsig - 60) / 4);
-+	else if (currsig >= 41 && currsig <= 60)
-+		retsig = 78 + ((currsig - 40) / 2);
-+	else if (currsig >= 31 && currsig <= 40)
-+		retsig = 66 + (currsig - 30);
-+	else if (currsig >= 21 && currsig <= 30)
-+		retsig = 54 + (currsig - 20);
-+	else if (currsig >= 5 && currsig <= 20)
-+		retsig = 42 + (((currsig - 5) * 2) / 3);
-+	else if (currsig == 4)
-+		retsig = 36;
-+	else if (currsig == 3)
-+		retsig = 27;
-+	else if (currsig == 2)
-+		retsig = 18;
-+	else if (currsig == 1)
-+		retsig = 9;
-+	else
-+		retsig = currsig;
++u32 RTL8723EMAC_ARRAY[RTL8723E_MACARRAYLENGTH] = {
++	0x420, 0x00000080,
++	0x423, 0x00000000,
++	0x430, 0x00000000,
++	0x431, 0x00000000,
++	0x432, 0x00000000,
++	0x433, 0x00000001,
++	0x434, 0x00000004,
++	0x435, 0x00000005,
++	0x436, 0x00000006,
++	0x437, 0x00000007,
++	0x438, 0x00000000,
++	0x439, 0x00000000,
++	0x43a, 0x00000000,
++	0x43b, 0x00000001,
++	0x43c, 0x00000004,
++	0x43d, 0x00000005,
++	0x43e, 0x00000006,
++	0x43f, 0x00000007,
++	0x440, 0x0000005d,
++	0x441, 0x00000001,
++	0x442, 0x00000000,
++	0x444, 0x00000015,
++	0x445, 0x000000f0,
++	0x446, 0x0000000f,
++	0x447, 0x00000000,
++	0x458, 0x00000041,
++	0x459, 0x000000a8,
++	0x45a, 0x00000072,
++	0x45b, 0x000000b9,
++	0x460, 0x00000066,
++	0x461, 0x00000066,
++	0x462, 0x00000008,
++	0x463, 0x00000003,
++	0x4c8, 0x000000ff,
++	0x4c9, 0x00000008,
++	0x4cc, 0x000000ff,
++	0x4cd, 0x000000ff,
++	0x4ce, 0x00000001,
++	0x500, 0x00000026,
++	0x501, 0x000000a2,
++	0x502, 0x0000002f,
++	0x503, 0x00000000,
++	0x504, 0x00000028,
++	0x505, 0x000000a3,
++	0x506, 0x0000005e,
++	0x507, 0x00000000,
++	0x508, 0x0000002b,
++	0x509, 0x000000a4,
++	0x50a, 0x0000005e,
++	0x50b, 0x00000000,
++	0x50c, 0x0000004f,
++	0x50d, 0x000000a4,
++	0x50e, 0x00000000,
++	0x50f, 0x00000000,
++	0x512, 0x0000001c,
++	0x514, 0x0000000a,
++	0x515, 0x00000010,
++	0x516, 0x0000000a,
++	0x517, 0x00000010,
++	0x51a, 0x00000016,
++	0x524, 0x0000000f,
++	0x525, 0x0000004f,
++	0x546, 0x00000040,
++	0x547, 0x00000000,
++	0x550, 0x00000010,
++	0x551, 0x00000010,
++	0x559, 0x00000002,
++	0x55a, 0x00000002,
++	0x55d, 0x000000ff,
++	0x605, 0x00000030,
++	0x608, 0x0000000e,
++	0x609, 0x0000002a,
++	0x652, 0x00000020,
++	0x63c, 0x0000000a,
++	0x63d, 0x0000000e,
++	0x63e, 0x0000000a,
++	0x63f, 0x0000000e,
++	0x66e, 0x00000005,
++	0x700, 0x00000021,
++	0x701, 0x00000043,
++	0x702, 0x00000065,
++	0x703, 0x00000087,
++	0x708, 0x00000021,
++	0x709, 0x00000043,
++	0x70a, 0x00000065,
++	0x70b, 0x00000087,
++};
 +
-+	return retsig;
-+}
-+EXPORT_SYMBOL(rtl_signal_scale_mapping);
-+
-+static void rtl_process_ui_rssi(struct ieee80211_hw *hw,
-+				struct rtl_stats *pstatus)
-+{
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	struct rtl_phy *rtlphy = &(rtlpriv->phy);
-+	u8 rfpath;
-+	u32 last_rssi, tmpval;
-+
-+	rtlpriv->stats.rssi_calculate_cnt++;
-+
-+	if (rtlpriv->stats.ui_rssi.total_num++ >= PHY_RSSI_SLID_WIN_MAX) {
-+		rtlpriv->stats.ui_rssi.total_num = PHY_RSSI_SLID_WIN_MAX;
-+		last_rssi = rtlpriv->stats.ui_rssi.elements[
-+			rtlpriv->stats.ui_rssi.index];
-+		rtlpriv->stats.ui_rssi.total_val -= last_rssi;
-+	}
-+	rtlpriv->stats.ui_rssi.total_val += pstatus->signalstrength;
-+	rtlpriv->stats.ui_rssi.elements[rtlpriv->stats.ui_rssi.index++] =
-+	    pstatus->signalstrength;
-+	if (rtlpriv->stats.ui_rssi.index >= PHY_RSSI_SLID_WIN_MAX)
-+		rtlpriv->stats.ui_rssi.index = 0;
-+	tmpval = rtlpriv->stats.ui_rssi.total_val /
-+		rtlpriv->stats.ui_rssi.total_num;
-+	rtlpriv->stats.signal_strength = rtl_translate_todbm(hw,
-+		(u8) tmpval);
-+	pstatus->rssi = rtlpriv->stats.signal_strength;
-+
-+	if (pstatus->is_cck)
-+		return;
-+
-+	for (rfpath = RF90_PATH_A; rfpath < rtlphy->num_total_rfpath;
-+	     rfpath++) {
-+		if (rtlpriv->stats.rx_rssi_percentage[rfpath] == 0) {
-+			rtlpriv->stats.rx_rssi_percentage[rfpath] =
-+			    pstatus->rx_mimo_signalstrength[rfpath];
-+
-+		}
-+		if (pstatus->rx_mimo_signalstrength[rfpath] >
-+		    rtlpriv->stats.rx_rssi_percentage[rfpath]) {
-+			rtlpriv->stats.rx_rssi_percentage[rfpath] =
-+			    ((rtlpriv->stats.rx_rssi_percentage[rfpath] *
-+			      (RX_SMOOTH_FACTOR - 1)) +
-+			     (pstatus->rx_mimo_signalstrength[rfpath])) /
-+			    (RX_SMOOTH_FACTOR);
-+			rtlpriv->stats.rx_rssi_percentage[rfpath] =
-+			    rtlpriv->stats.rx_rssi_percentage[rfpath] + 1;
-+		} else {
-+			rtlpriv->stats.rx_rssi_percentage[rfpath] =
-+			    ((rtlpriv->stats.rx_rssi_percentage[rfpath] *
-+			      (RX_SMOOTH_FACTOR - 1)) +
-+			     (pstatus->rx_mimo_signalstrength[rfpath])) /
-+			    (RX_SMOOTH_FACTOR);
-+		}
-+	}
-+}
-+
-+static void rtl_update_rxsignalstatistics(struct ieee80211_hw *hw,
-+					  struct rtl_stats *pstatus)
-+{
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	int weighting = 0;
-+
-+	if (rtlpriv->stats.recv_signal_power == 0)
-+		rtlpriv->stats.recv_signal_power = pstatus->recvsignalpower;
-+	if (pstatus->recvsignalpower > rtlpriv->stats.recv_signal_power)
-+		weighting = 5;
-+	else if (pstatus->recvsignalpower < rtlpriv->stats.recv_signal_power)
-+		weighting = (-5);
-+	rtlpriv->stats.recv_signal_power = (rtlpriv->stats.recv_signal_power *
-+		5 + pstatus->recvsignalpower + weighting) / 6;
-+}
-+
-+static void rtl_process_pwdb(struct ieee80211_hw *hw, struct rtl_stats *pstatus)
-+{
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	struct rtl_sta_info *drv_priv = NULL;
-+	struct ieee80211_sta *sta = NULL;
-+	long undecorated_smoothed_pwdb;
-+
-+	rcu_read_lock();
-+	if (rtlpriv->mac80211.opmode != NL80211_IFTYPE_STATION)
-+		sta = rtl_find_sta(hw, pstatus->psaddr);
-+
-+	/* adhoc or ap mode */
-+	if (sta) {
-+		drv_priv = (struct rtl_sta_info *) sta->drv_priv;
-+		undecorated_smoothed_pwdb =
-+			drv_priv->rssi_stat.undecorated_smoothed_pwdb;
-+	} else {
-+		undecorated_smoothed_pwdb =
-+			rtlpriv->dm.undecorated_smoothed_pwdb;
-+	}
-+
-+	if (undecorated_smoothed_pwdb < 0)
-+		undecorated_smoothed_pwdb = pstatus->rx_pwdb_all;
-+	if (pstatus->rx_pwdb_all > (u32) undecorated_smoothed_pwdb) {
-+		undecorated_smoothed_pwdb = (((undecorated_smoothed_pwdb) *
-+		      (RX_SMOOTH_FACTOR - 1)) +
-+		     (pstatus->rx_pwdb_all)) / (RX_SMOOTH_FACTOR);
-+		undecorated_smoothed_pwdb = undecorated_smoothed_pwdb + 1;
-+	} else {
-+		undecorated_smoothed_pwdb = (((undecorated_smoothed_pwdb) *
-+		      (RX_SMOOTH_FACTOR - 1)) +
-+		     (pstatus->rx_pwdb_all)) / (RX_SMOOTH_FACTOR);
-+	}
-+
-+	if (sta) {
-+		drv_priv->rssi_stat.undecorated_smoothed_pwdb =
-+			undecorated_smoothed_pwdb;
-+	} else {
-+		rtlpriv->dm.undecorated_smoothed_pwdb =
-+					 undecorated_smoothed_pwdb;
-+	}
-+	rcu_read_unlock();
-+
-+	rtl_update_rxsignalstatistics(hw, pstatus);
-+}
-+
-+static void rtl_process_ui_link_quality(struct ieee80211_hw *hw,
-+					struct rtl_stats *pstatus)
-+{
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	u32 last_evm, n_stream, tmpval;
-+
-+	if (pstatus->signalquality == 0)
-+		return;
-+
-+	if (rtlpriv->stats.ui_link_quality.total_num++ >=
-+	    PHY_LINKQUALITY_SLID_WIN_MAX) {
-+		rtlpriv->stats.ui_link_quality.total_num =
-+		    PHY_LINKQUALITY_SLID_WIN_MAX;
-+		last_evm = rtlpriv->stats.ui_link_quality.elements[
-+			rtlpriv->stats.ui_link_quality.index];
-+		rtlpriv->stats.ui_link_quality.total_val -= last_evm;
-+	}
-+	rtlpriv->stats.ui_link_quality.total_val += pstatus->signalquality;
-+	rtlpriv->stats.ui_link_quality.elements[
-+		rtlpriv->stats.ui_link_quality.index++] =
-+						 pstatus->signalquality;
-+	if (rtlpriv->stats.ui_link_quality.index >=
-+	    PHY_LINKQUALITY_SLID_WIN_MAX)
-+		rtlpriv->stats.ui_link_quality.index = 0;
-+	tmpval = rtlpriv->stats.ui_link_quality.total_val /
-+	    rtlpriv->stats.ui_link_quality.total_num;
-+	rtlpriv->stats.signal_quality = tmpval;
-+	rtlpriv->stats.last_sigstrength_inpercent = tmpval;
-+	for (n_stream = 0; n_stream < 2; n_stream++) {
-+		if (pstatus->rx_mimo_signalquality[n_stream] != -1) {
-+			if (rtlpriv->stats.rx_evm_percentage[n_stream] == 0) {
-+				rtlpriv->stats.rx_evm_percentage[n_stream] =
-+				    pstatus->rx_mimo_signalquality[n_stream];
-+			}
-+			rtlpriv->stats.rx_evm_percentage[n_stream] =
-+			    ((rtlpriv->stats.rx_evm_percentage[n_stream]
-+			      * (RX_SMOOTH_FACTOR - 1)) +
-+			     (pstatus->rx_mimo_signalquality[n_stream] * 1)) /
-+			    (RX_SMOOTH_FACTOR);
-+		}
-+	}
-+}
-+
-+void rtl_process_phyinfo(struct ieee80211_hw *hw, u8 *buffer,
-+	struct rtl_stats *pstatus)
-+{
-+
-+	if (!pstatus->packet_matchbssid)
-+		return;
-+
-+	rtl_process_ui_rssi(hw, pstatus);
-+	rtl_process_pwdb(hw, pstatus);
-+	rtl_process_ui_link_quality(hw, pstatus);
-+}
-+EXPORT_SYMBOL(rtl_process_phyinfo);
-Index: wireless-testing-new/drivers/net/wireless/rtlwifi/stats.h
++u32 RTL8723EAGCTAB_1TARRAY[RTL8723E_AGCTAB_1TARRAYLENGTH] = {
++	0xc78, 0x7b000001,
++	0xc78, 0x7b010001,
++	0xc78, 0x7b020001,
++	0xc78, 0x7b030001,
++	0xc78, 0x7b040001,
++	0xc78, 0x7b050001,
++	0xc78, 0x7a060001,
++	0xc78, 0x79070001,
++	0xc78, 0x78080001,
++	0xc78, 0x77090001,
++	0xc78, 0x760a0001,
++	0xc78, 0x750b0001,
++	0xc78, 0x740c0001,
++	0xc78, 0x730d0001,
++	0xc78, 0x720e0001,
++	0xc78, 0x710f0001,
++	0xc78, 0x70100001,
++	0xc78, 0x6f110001,
++	0xc78, 0x6e120001,
++	0xc78, 0x6d130001,
++	0xc78, 0x6c140001,
++	0xc78, 0x6b150001,
++	0xc78, 0x6a160001,
++	0xc78, 0x69170001,
++	0xc78, 0x68180001,
++	0xc78, 0x67190001,
++	0xc78, 0x661a0001,
++	0xc78, 0x651b0001,
++	0xc78, 0x641c0001,
++	0xc78, 0x631d0001,
++	0xc78, 0x621e0001,
++	0xc78, 0x611f0001,
++	0xc78, 0x60200001,
++	0xc78, 0x49210001,
++	0xc78, 0x48220001,
++	0xc78, 0x47230001,
++	0xc78, 0x46240001,
++	0xc78, 0x45250001,
++	0xc78, 0x44260001,
++	0xc78, 0x43270001,
++	0xc78, 0x42280001,
++	0xc78, 0x41290001,
++	0xc78, 0x402a0001,
++	0xc78, 0x262b0001,
++	0xc78, 0x252c0001,
++	0xc78, 0x242d0001,
++	0xc78, 0x232e0001,
++	0xc78, 0x222f0001,
++	0xc78, 0x21300001,
++	0xc78, 0x20310001,
++	0xc78, 0x06320001,
++	0xc78, 0x05330001,
++	0xc78, 0x04340001,
++	0xc78, 0x03350001,
++	0xc78, 0x02360001,
++	0xc78, 0x01370001,
++	0xc78, 0x00380001,
++	0xc78, 0x00390001,
++	0xc78, 0x003a0001,
++	0xc78, 0x003b0001,
++	0xc78, 0x003c0001,
++	0xc78, 0x003d0001,
++	0xc78, 0x003e0001,
++	0xc78, 0x003f0001,
++	0xc78, 0x7b400001,
++	0xc78, 0x7b410001,
++	0xc78, 0x7b420001,
++	0xc78, 0x7b430001,
++	0xc78, 0x7b440001,
++	0xc78, 0x7b450001,
++	0xc78, 0x7a460001,
++	0xc78, 0x79470001,
++	0xc78, 0x78480001,
++	0xc78, 0x77490001,
++	0xc78, 0x764a0001,
++	0xc78, 0x754b0001,
++	0xc78, 0x744c0001,
++	0xc78, 0x734d0001,
++	0xc78, 0x724e0001,
++	0xc78, 0x714f0001,
++	0xc78, 0x70500001,
++	0xc78, 0x6f510001,
++	0xc78, 0x6e520001,
++	0xc78, 0x6d530001,
++	0xc78, 0x6c540001,
++	0xc78, 0x6b550001,
++	0xc78, 0x6a560001,
++	0xc78, 0x69570001,
++	0xc78, 0x68580001,
++	0xc78, 0x67590001,
++	0xc78, 0x665a0001,
++	0xc78, 0x655b0001,
++	0xc78, 0x645c0001,
++	0xc78, 0x635d0001,
++	0xc78, 0x625e0001,
++	0xc78, 0x615f0001,
++	0xc78, 0x60600001,
++	0xc78, 0x49610001,
++	0xc78, 0x48620001,
++	0xc78, 0x47630001,
++	0xc78, 0x46640001,
++	0xc78, 0x45650001,
++	0xc78, 0x44660001,
++	0xc78, 0x43670001,
++	0xc78, 0x42680001,
++	0xc78, 0x41690001,
++	0xc78, 0x406a0001,
++	0xc78, 0x266b0001,
++	0xc78, 0x256c0001,
++	0xc78, 0x246d0001,
++	0xc78, 0x236e0001,
++	0xc78, 0x226f0001,
++	0xc78, 0x21700001,
++	0xc78, 0x20710001,
++	0xc78, 0x06720001,
++	0xc78, 0x05730001,
++	0xc78, 0x04740001,
++	0xc78, 0x03750001,
++	0xc78, 0x02760001,
++	0xc78, 0x01770001,
++	0xc78, 0x00780001,
++	0xc78, 0x00790001,
++	0xc78, 0x007a0001,
++	0xc78, 0x007b0001,
++	0xc78, 0x007c0001,
++	0xc78, 0x007d0001,
++	0xc78, 0x007e0001,
++	0xc78, 0x007f0001,
++	0xc78, 0x3800001e,
++	0xc78, 0x3801001e,
++	0xc78, 0x3802001e,
++	0xc78, 0x3803001e,
++	0xc78, 0x3804001e,
++	0xc78, 0x3805001e,
++	0xc78, 0x3806001e,
++	0xc78, 0x3807001e,
++	0xc78, 0x3808001e,
++	0xc78, 0x3c09001e,
++	0xc78, 0x3e0a001e,
++	0xc78, 0x400b001e,
++	0xc78, 0x440c001e,
++	0xc78, 0x480d001e,
++	0xc78, 0x4c0e001e,
++	0xc78, 0x500f001e,
++	0xc78, 0x5210001e,
++	0xc78, 0x5611001e,
++	0xc78, 0x5a12001e,
++	0xc78, 0x5e13001e,
++	0xc78, 0x6014001e,
++	0xc78, 0x6015001e,
++	0xc78, 0x6016001e,
++	0xc78, 0x6217001e,
++	0xc78, 0x6218001e,
++	0xc78, 0x6219001e,
++	0xc78, 0x621a001e,
++	0xc78, 0x621b001e,
++	0xc78, 0x621c001e,
++	0xc78, 0x621d001e,
++	0xc78, 0x621e001e,
++	0xc78, 0x621f001e,
++};
+Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/table.h
 ===================================================================
 --- /dev/null
-+++ wireless-testing-new/drivers/net/wireless/rtlwifi/stats.h
-@@ -0,0 +1,47 @@
++++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8723ae/table.h
+@@ -0,0 +1,50 @@
 +/******************************************************************************
 + *
 + * Copyright(c) 2009-2012  Realtek Corporation.
@@ -356,33 +797,32 @@ Index: wireless-testing-new/drivers/net/wireless/rtlwifi/stats.h
 + * file called LICENSE.
 + *
 + * Contact Information:
-+ * wlanfae <wlanfae-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
++ * wlanfae <wlanfae@realtek.com>
 + * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
 + * Hsinchu 300, Taiwan.
 + *
-+ * Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
++ * Created on  2010/ 5/18,  1:41
++ *
++ * Larry Finger <Larry.Finger@lwfinger.net>
 + *
 + *****************************************************************************/
 +
-+#ifndef __RTL_STATS_H__
-+#define __RTL_STATS_H__
++#ifndef __RTL8723E_TABLE__H_
++#define __RTL8723E_TABLE__H_
 +
-+#define	PHY_RSSI_SLID_WIN_MAX			100
-+#define	PHY_LINKQUALITY_SLID_WIN_MAX		20
-+#define	PHY_BEACON_RSSI_SLID_WIN_MAX		10
++#include <linux/types.h>
 +
-+/* Rx smooth factor */
-+#define	RX_SMOOTH_FACTOR			20
-+
-+u8 rtl_query_rxpwrpercentage(char antpower);
-+u8 rtl_evm_db_to_percentage(char value);
-+long rtl_signal_scale_mapping(struct ieee80211_hw *hw, long currsig);
-+void rtl_process_phyinfo(struct ieee80211_hw *hw, u8 *buffer,
-+	struct rtl_stats *pstatus);
++#define RTL8723E_PHY_REG_1TARRAY_LENGTH		372
++extern u32 RTL8723EPHY_REG_1TARRAY[RTL8723E_PHY_REG_1TARRAY_LENGTH];
++#define RTL8723E_PHY_REG_ARRAY_PGLENGTH		336
++extern u32 RTL8723EPHY_REG_ARRAY_PG[RTL8723E_PHY_REG_ARRAY_PGLENGTH];
++#define Rtl8723ERADIOA_1TARRAYLENGTH		 282
++extern u32 RTL8723E_RADIOA_1TARRAY[Rtl8723ERADIOA_1TARRAYLENGTH];
++#define RTL8723E_RADIOB_1TARRAYLENGTH		1
++extern u32 RTL8723E_RADIOB_1TARRAY[RTL8723E_RADIOB_1TARRAYLENGTH];
++#define RTL8723E_MACARRAYLENGTH			172
++extern u32 RTL8723EMAC_ARRAY[RTL8723E_MACARRAYLENGTH];
++#define RTL8723E_AGCTAB_1TARRAYLENGTH		320
++extern u32 RTL8723EAGCTAB_1TARRAY[RTL8723E_AGCTAB_1TARRAYLENGTH];
 +
 +#endif
-+
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
