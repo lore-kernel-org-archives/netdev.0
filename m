@@ -1,63 +1,38 @@
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: RE: [PATCH] netxen: check for root bus in
- netxen_mask_aer_correctable
-Date: Mon, 17 Sep 2012 12:53:26 -0500
-Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA827E3AE9F9@MNEXMB1.qlogic.org>
-References: <1347637803-4837-1-git-send-email-nikolay@redhat.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: D-Link DGE-530T and r8169.c
+Date: Mon, 17 Sep 2012 19:47:06 +0200
+Message-ID: <20120917174706.GA24838@electric-eye.fr.zoreil.com>
+References: <alpine.LNX.2.00.1209171139540.11109@hay.haya.qc.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>
-To: "nikolay@redhat.com" <nikolay@redhat.com>,
-	Sony Chacko <sony.chacko@qlogic.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: nic_swsd@realtek.com, netdev@vger.kernel.org
+To: "James R. Hay" <jrhay@haya.qc.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe003.messaging.microsoft.com ([216.32.180.186]:52616
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756900Ab2IQRxp convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2012 13:53:45 -0400
-In-Reply-To: <1347637803-4837-1-git-send-email-nikolay@redhat.com>
-Content-Language: en-US
+Received: from violet.fr.zoreil.com ([92.243.8.30]:47665 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757143Ab2IQSFP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 14:05:15 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LNX.2.00.1209171139540.11109@hay.haya.qc.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+James R. Hay <jrhay@haya.qc.ca> :
+[...]
+> At line 199 of r8169.c is the following:
+> 
+> 	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x4300), 0, 0, RTL_CFG_0 },
+> 
+> While I changed the 0x4300 to 0x4302 and recompiled the kernel to
+> get the driver to recognize the card I believe that the appropriate
+> fix would be to add the following line immediately after:
+> 
+> 	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x4302), 0, 0, RTL_CFG_0 },
 
-________________________________________
-From: nikolay@redhat.com [nikolay@redhat.com]
-Sent: Friday, September 14, 2012 9:20 PM
-To: Sony Chacko
-Cc: Rajesh Borundia; netdev
-Subject: [PATCH] netxen: check for root bus in netxen_mask_aer_correctable
+The ID above was added by 93a3aa25933461d76141179fc94aa32d5f9d954a between
+v3.0 and v3.1. See: 
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=93a3aa25933461d76141179fc94aa32d5f9d954a
 
-Add a check if pdev->bus->self == NULL (root bus). When attaching
-a netxen NIC to a VM it can be on the root bus and the guest would
-crash in netxen_mask_aer_correctable() because of a NULL pointer
-dereference if CONFIG_PCIEAER is present.
-
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
- drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-index 342b3a7..e2a4858 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-@@ -1378,6 +1378,10 @@ static void netxen_mask_aer_correctable(struct netxen_adapter *adapter)
-        struct pci_dev *root = pdev->bus->self;
-        u32 aer_pos;
-
-+       /* root bus? */
-+       if (!root)
-+               return;
-+
-        if (adapter->ahw.board_type != NETXEN_BRDTYPE_P3_4_GB_MM &&
-                adapter->ahw.board_type != NETXEN_BRDTYPE_P3_10G_TP)
-                return;
---
-1.7.11.4
-
-
-Looks okay.
+-- 
+Ueimor
