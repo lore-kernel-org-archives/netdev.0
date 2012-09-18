@@ -1,37 +1,54 @@
 From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next] mlx4: use dev_kfree_skb() instead of dev_kfree_skb_any()
-Date: Tue, 18 Sep 2012 22:58:41 +0300
-Message-ID: <CAJZOPZ+=B81_mv32L7o6QSULTDZbiAGi85PiiFvc9da0eb9HqA@mail.gmail.com>
-References: <1347866974.26523.53.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next V4 0/2] Add rtnl_link_ops support to IPoIB
+Date: Tue, 18 Sep 2012 23:07:54 +0300
+Message-ID: <CAJZOPZL6cEEbyMgj+3_h-ZHf0jzNs3yF=f3uOTrKB6EO4Vx2yw@mail.gmail.com>
+References: <1347551797-2495-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>, Ying Cai <ycai@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Roland Dreier <roland@kernel.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:58849 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754501Ab2IRT6m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 15:58:42 -0400
-Received: by ieak13 with SMTP id k13so354781iea.19
-        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 12:58:41 -0700 (PDT)
-In-Reply-To: <1347866974.26523.53.camel@edumazet-glaptop>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:55975 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754583Ab2IRUHz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 16:07:55 -0400
+Received: by iahk25 with SMTP id k25so219394iah.19
+        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 13:07:54 -0700 (PDT)
+In-Reply-To: <1347551797-2495-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 17, 2012 at 10:29 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Thu, Sep 13, 2012 at 6:56 PM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+> This is about adding rtnl_link_ops to IPoIB, primarly addressing feedback
+> from Dave on a similar patch that was part of the eIPoIB submission.
+[...]
+> Roland, this patch is hanging out for pretty long while (few months) without
+> any comment from you, if it makes things easier, I would like to merge it through
+> net-next, makes sense?
 
-> Since commit e22979d96a5 (mlx4_en: Moving to Interrupts for TX
-> completions), we no longer can free TX skb from hard IRQ, but only from
-> normal softirq or process context.
->
-> Therefore, we can directly call dev_kfree_skb() from
-> mlx4_en_free_tx_desc() like other conventional NAPI drivers.
 
-Hi Eric,
+Hi Roland,
 
-The team is all off till tomorrow, we will look and get back to you
+Haven't heard from you on this patch, are you picking this or it can
+get in though net-next?
 
 Or.
+
+> Changes from V3:
+>  - addressed feedback from Patrick McHardy to move the IFLA_IPOIB_yyy ipoib
+>    rtnl defintions into include/linux/if_link.h
+>  - changed IFLA_IPOIB_CHILD_PKEY to be named IFLA_IPOIB_PKEY which will cope
+>    with more IFLA_IPOIB_yyy entries to be added once the basic support is in
+>
+> Changes from V2:
+>  - removed the notion of user defined index per child, since we can do well w.o it
+>  - for that end, make (an internal to ipoib) distrinction between legacy childs created
+>    through the old sysfs way to childs created using rtnl link ops
+>
+> Changes from V1:
+>  - applied feedback from Dave Miller to avoid using sysfs
+>  - added rtnl_link_ops support in ipoib and use them to add/delete childs
+>
+> Or Gerlitz (1):
+>   IB/ipoib: Add rtnl_link_ops support
