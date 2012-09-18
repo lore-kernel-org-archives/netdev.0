@@ -1,33 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net] e1000: Small packets may get corrupted during padding by
- HW
-Date: Mon, 17 Sep 2012 23:03:00 -0400 (EDT)
-Message-ID: <20120917.230300.653531213751776624.davem@davemloft.net>
-References: <50578DE4.7080806@intel.com>
-	<1347915723.26523.179.camel@edumazet-glaptop>
-	<5057E3F2.5090504@gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH net-next 0/4] ipv6: fix the reassembly expire code in
+ nf_conntrack
+Date: Tue, 18 Sep 2012 11:04:06 +0800
+Message-ID: <1347937446.14402.17.camel@cr0>
+References: <1347935656.14402.12.camel@cr0>
+	 <20120917.223559.1226100441781312938.davem@davemloft.net>
+	 <1347936443.14402.15.camel@cr0>
+	 <20120917.225304.1071254088219136410.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, alexander.h.duyck@intel.com,
-	tushar.n.dave@intel.com, john.r.fastabend@intel.com,
-	mirqus@gmail.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: alexander.duyck@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36110 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932121Ab2IRDDC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 23:03:02 -0400
-In-Reply-To: <5057E3F2.5090504@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	herbert@gondor.hengli.com.au
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120917.225304.1071254088219136410.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Date: Mon, 17 Sep 2012 20:01:06 -0700
+On Mon, 2012-09-17 at 22:53 -0400, David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Tue, 18 Sep 2012 10:47:23 +0800
+> 
+> > I will remove this #ifdef and resend the whole patchset.
+> 
+> Or, alternatively, use IS_ENABLED() or a similar test which will take
+> the modular case into account.
+> 
 
-> Since MAX_TCP_HEADER starts at 160 the likelihood of it not getting
-> at least 16 bytes of padding is pretty low.
+Yeah, actually net->ipv6 is also defined with #if
+IS_ENABLED(CONFIG_IPV6), so IS_ENABLED() is the right fix.
 
-I know it's not on many people's radar, but with SLOB it will happen
-a lot probably.
+Thanks!
+
