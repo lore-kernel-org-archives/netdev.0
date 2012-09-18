@@ -1,405 +1,231 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 2/4] ipv6: unify conntrack reassembly expire code with standard one
-Date: Tue, 18 Sep 2012 21:45:09 +0800
-Message-ID: <1347975911-5655-3-git-send-email-amwang@redhat.com>
-References: <1347975911-5655-1-git-send-email-amwang@redhat.com>
+From: Anisse Astier <anisse@astier.eu>
+Subject: Re: [PATCH NEXT V2] rtlwifi: rtl8192c: rtl8192ce: Add support for
+ B-CUT version of RTL8188CE
+Date: Tue, 18 Sep 2012 16:09:01 +0200
+Message-ID: <20120918160901.22cf2261@destiny.ordissimo>
+References: <1347914143-27698-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@vger.kernel.org, Cong Wang <amwang@redhat.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	=?UTF-8?q?Michal=20Kube=C4=8Dek?= <mkubecek@suse.cz>,
-	David Miller <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, Li Chaoming <chaoming_li@realsil.com.cn>
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33731 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757652Ab2IRNpt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Sep 2012 09:45:49 -0400
-In-Reply-To: <1347975911-5655-1-git-send-email-amwang@redhat.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:35531 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933152Ab2IROJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 10:09:20 -0400
+Received: by eaac11 with SMTP id c11so2857100eaa.19
+        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 07:09:19 -0700 (PDT)
+In-Reply-To: <1347914143-27698-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Two years ago, Shan Wei tried to fix this:
-http://patchwork.ozlabs.org/patch/43905/
+On Mon, 17 Sep 2012 15:35:43 -0500, Larry Finger <Larry.Finger@lwfinger.net> wrote :
 
-The problem is that RFC2460 requires an ICMP Time
-Exceeded -- Fragment Reassembly Time Exceeded message should be
-sent to the source of that fragment, if the defragmentation
-times out.
+> Realtek devices with designation RTL8188CE-VL have the so-called B-cut
+> of the wireless chip. This patch adds the special programming needed by
+> these devices.
+> 
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> Cc: Anisse Astier <anisse@astier.eu>
+> Cc: Li Chaoming <chaoming_li@realsil.com.cn>
+> ---
+>  drivers/net/wireless/rtlwifi/rtl8192c/phy_common.c |   21 +++++++
+>  drivers/net/wireless/rtlwifi/rtl8192ce/def.h       |    3 +
+>  drivers/net/wireless/rtlwifi/rtl8192ce/hw.c        |   61 ++++++++++++++++++--
+>  drivers/net/wireless/rtlwifi/rtl8192ce/phy.c       |    4 +-
+>  drivers/net/wireless/rtlwifi/rtl8192ce/sw.c        |    6 +-
+>  drivers/net/wireless/rtlwifi/rtl8192ce/trx.c       |    4 +-
+>  6 files changed, 87 insertions(+), 12 deletions(-)
+> ---
+> V1 => V2	Remove extraneous white space.
+> 
+> 
+> John,
+> 
+> This patch is too invasive to backport to the stable kernels, thus it should
+> be applied to 3.7.
+> 
+> Thanks,
+> 
+> Larry
+> ---
+> 
 
-"
-   If insufficient fragments are received to complete reassembly of a
-   packet within 60 seconds of the reception of the first-arriving
-   fragment of that packet, reassembly of that packet must be
-   abandoned and all the fragments that have been received for that
-   packet must be discarded.  If the first fragment (i.e., the one
-   with a Fragment Offset of zero) has been received, an ICMP Time
-   Exceeded -- Fragment Reassembly Time Exceeded message should be
-   sent to the source of that fragment.
-"
+[snip]
 
-As Herbert suggested, we could actually use the standard IPv6
-reassembly code which follows RFC2460.
+> Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+> ===================================================================
+> --- wireless-testing-new.orig/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+> +++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+> @@ -896,7 +896,6 @@ int rtl92ce_hw_init(struct ieee80211_hw
+>  	struct rtl_phy *rtlphy = &(rtlpriv->phy);
+>  	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
+>  	struct rtl_ps_ctl *ppsc = rtl_psc(rtl_priv(hw));
+> -	static bool iqk_initialized; /* initialized to false */
+>  	bool rtstatus = true;
+>  	bool is92c;
+>  	int err;
+> @@ -921,9 +920,28 @@ int rtl92ce_hw_init(struct ieee80211_hw
+>  
+>  	rtlhal->last_hmeboxnum = 0;
+>  	rtl92c_phy_mac_config(hw);
+> +	/* because last function modify RCR, so we update
+> +	 * rcr var here, or TP will unstable for receive_config
+> +	 * is wrong, RX RCR_ACRC32 will cause TP unstabel & Rx
+> +	 * RCR_APP_ICV will cause mac80211 unassoc for cisco 1252*/
+> +	rtlpci->receive_config = rtl_read_dword(rtlpriv, REG_RCR);
+> +	rtlpci->receive_config &= ~(RCR_ACRC32 | RCR_AICV);
+> +	rtl_write_dword(rtlpriv, REG_RCR, rtlpci->receive_config);
+>  	rtl92c_phy_bb_config(hw);
+>  	rtlphy->rf_mode = RF_OP_BY_SW_3WIRE;
+>  	rtl92c_phy_rf_config(hw);
+> +	if (IS_VENDOR_UMC_A_CUT(rtlhal->version) &&
+> +	    !IS_92C_SERIAL(rtlhal->version)) {
+> +		rtl_set_rfreg(hw, RF90_PATH_A, RF_RX_G1, MASKDWORD, 0x30255);
+> +		rtl_set_rfreg(hw, RF90_PATH_A, RF_RX_G2, MASKDWORD, 0x50a00);
+> +	} else if (IS_81xxC_VENDOR_UMC_B_CUT(rtlhal->version)) {
+> +		rtl_set_rfreg(hw, RF90_PATH_A, 0x0C, MASKDWORD, 0x894AE);
+> +		rtl_set_rfreg(hw, RF90_PATH_A, 0x0A, MASKDWORD, 0x1AF31);
+> +		rtl_set_rfreg(hw, RF90_PATH_A, RF_IPA, MASKDWORD, 0x8F425);
+> +		rtl_set_rfreg(hw, RF90_PATH_A, RF_SYN_G2, MASKDWORD, 0x4F200);
+> +		rtl_set_rfreg(hw, RF90_PATH_A, RF_RCK1, MASKDWORD, 0x44053);
+> +		rtl_set_rfreg(hw, RF90_PATH_A, RF_RCK2, MASKDWORD, 0x80201);
+> +	}
+>  	rtlphy->rfreg_chnlval[0] = rtl_get_rfreg(hw, (enum radio_path)0,
+>  						 RF_CHNLBW, RFREG_OFFSET_MASK);
+>  	rtlphy->rfreg_chnlval[1] = rtl_get_rfreg(hw, (enum radio_path)1,
+> @@ -945,11 +963,11 @@ int rtl92ce_hw_init(struct ieee80211_hw
+>  
+>  	if (ppsc->rfpwr_state == ERFON) {
+>  		rtl92c_phy_set_rfpath_switch(hw, 1);
+> -		if (iqk_initialized) {
+> +		if (rtlphy->iqk_initialized) {
+>  			rtl92c_phy_iq_calibrate(hw, true);
+>  		} else {
+>  			rtl92c_phy_iq_calibrate(hw, false);
+> -			iqk_initialized = true;
+> +			rtlphy->iqk_initialized = true;
+>  		}
+>  
+>  		rtl92c_dm_check_txpower_tracking(hw);
+> @@ -1004,6 +1022,13 @@ static enum version_8192c _rtl92ce_read_
+>  				   ? CHIP_VENDOR_UMC_B_CUT : CHIP_UNKNOWN) |
+>  				   CHIP_VENDOR_UMC));
+>  		}
+> +		if (IS_92C_SERIAL(version)) {
+> +			value32 = rtl_read_dword(rtlpriv, REG_HPON_FSM);
+> +			version = (enum version_8192c)(version |
+> +				   ((CHIP_BONDING_IDENTIFIER(value32)
+> +				   == CHIP_BONDING_92C_1T2R) ?
+> +				   RF_TYPE_1T2R : 0));
+> +		}
+>  	}
+>  
+>  	switch (version) {
+> @@ -1019,12 +1044,30 @@ static enum version_8192c _rtl92ce_read_
+>  	case VERSION_A_CHIP_88C:
+>  		versionid = "A_CHIP_88C";
+>  		break;
+> +	case VERSION_NORMAL_UMC_CHIP_92C_1T2R_A_CUT:
+> +		versionid = "A_CUT_92C_1T2R";
+> +		break;
+> +	case VERSION_NORMAL_UMC_CHIP_92C_A_CUT:
+> +		versionid = "A_CUT_92C";
+> +		break;
+> +	case VERSION_NORMAL_UMC_CHIP_88C_A_CUT:
+> +		versionid = "A_CUT_88C";
+> +		break;
+> +	case VERSION_NORMAL_UMC_CHIP_92C_1T2R_B_CUT:
+> +		versionid = "B_CUT_92C_1T2R";
+> +		break;
+> +	case VERSION_NORMAL_UMC_CHIP_92C_B_CUT:
+> +		versionid = "B_CUT_92C";
+> +		break;
+> +	case VERSION_NORMAL_UMC_CHIP_88C_B_CUT:
+> +		versionid = "B_CUT_88C";
+> +		break;
+>  	default:
+>  		versionid = "Unknown. Bug?";
+>  		break;
+>  	}
+>  
+> -	RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
+> +	RT_TRACE(rtlpriv, COMP_INIT, DBG_EMERG,
+>  		 "Chip Version ID: %s\n", versionid);
+>  
+>  	switch (version & 0x3) {
+> @@ -1197,6 +1240,7 @@ static void _rtl92ce_poweroff_adapter(st
+>  {
+>  	struct rtl_priv *rtlpriv = rtl_priv(hw);
+>  	struct rtl_pci_priv *rtlpcipriv = rtl_pcipriv(hw);
+> +	struct rtl_hal *rtlhal = rtl_hal(rtlpriv);
+>  	u8 u1b_tmp;
+>  	u32 u4b_tmp;
+>  
+> @@ -1225,7 +1269,8 @@ static void _rtl92ce_poweroff_adapter(st
+>  	rtl_write_word(rtlpriv, REG_GPIO_IO_SEL, 0x0790);
+>  	rtl_write_word(rtlpriv, REG_LEDCFG0, 0x8080);
+>  	rtl_write_byte(rtlpriv, REG_AFE_PLL_CTRL, 0x80);
+> -	rtl_write_byte(rtlpriv, REG_SPS0_CTRL, 0x23);
+> +	if (!IS_81xxC_VENDOR_UMC_B_CUT(rtlhal->version))
+> +		rtl_write_byte(rtlpriv, REG_SPS0_CTRL, 0x23);
+>  	if (rtlpcipriv->bt_coexist.bt_coexistence) {
+>  		u4b_tmp = rtl_read_dword(rtlpriv, REG_AFE_XTAL_CTRL);
+>  		u4b_tmp |= 0x03824800;
+> @@ -1254,6 +1299,9 @@ void rtl92ce_card_disable(struct ieee802
+>  		rtlpriv->cfg->ops->led_control(hw, LED_CTL_POWER_OFF);
+>  	RT_SET_PS_LEVEL(ppsc, RT_RF_OFF_LEVL_HALT_NIC);
+>  	_rtl92ce_poweroff_adapter(hw);
+> +
+> +	/* after power off we should do iqk again */
+> +	rtlpriv->phy.iqk_initialized = false;
+>  }
+>  
+>  void rtl92ce_interrupt_recognized(struct ieee80211_hw *hw,
 
-With this patch applied, I can see ICMP Time Exceeded sent
-from the receiver when the sender sent out 3/4 fragmented
-IPv6 UPD packet.
+This part:
+> @@ -1355,9 +1403,9 @@ static void _rtl92ce_read_txpower_info_f
+>  			tempval = hwinfo[EEPROM_TXPOWERHT40_2SDIFF + i];
+>  		else
+>  			tempval = EEPROM_DEFAULT_HT40_2SDIFF;
+> -		rtlefuse->eeprom_chnlarea_txpwr_ht40_2sdiif[RF90_PATH_A][i] =
+> +		rtlefuse->eprom_chnl_txpwr_ht40_2sdf[RF90_PATH_A][i] =
+>  		    (tempval & 0xf);
+> -		rtlefuse->eeprom_chnlarea_txpwr_ht40_2sdiif[RF90_PATH_B][i] =
+> +		rtlefuse->eprom_chnl_txpwr_ht40_2sdf[RF90_PATH_B][i] =
+>  		    ((tempval & 0xf0) >> 4);
+>  	}
+>  
+> @@ -1381,7 +1429,7 @@ static void _rtl92ce_read_txpower_info_f
+>  				"RF(%d) EEPROM HT40 2S Diff Area(%d) = 0x%x\n",
+>  				rf_path, i,
+>  				rtlefuse->
+> -				eeprom_chnlarea_txpwr_ht40_2sdiif[rf_path][i]);
+> +				eprom_chnl_txpwr_ht40_2sdf[rf_path][i]);
+>  
+>  	for (rf_path = 0; rf_path < 2; rf_path++) {
+>  		for (i = 0; i < 14; i++) {
+> @@ -1396,14 +1444,14 @@ static void _rtl92ce_read_txpower_info_f
+>  			if ((rtlefuse->
+>  			     eeprom_chnlarea_txpwr_ht40_1s[rf_path][index] -
+>  			     rtlefuse->
+> -			     eeprom_chnlarea_txpwr_ht40_2sdiif[rf_path][index])
+> +			     eprom_chnl_txpwr_ht40_2sdf[rf_path][index])
+>  			    > 0) {
+>  				rtlefuse->txpwrlevel_ht40_2s[rf_path][i] =
+>  				    rtlefuse->
+>  				    eeprom_chnlarea_txpwr_ht40_1s[rf_path]
+>  				    [index] -
+>  				    rtlefuse->
+> -				    eeprom_chnlarea_txpwr_ht40_2sdiif[rf_path]
+> +				    eprom_chnl_txpwr_ht40_2sdf[rf_path]
+>  				    [index];
+>  			} else {
+>  				rtlefuse->txpwrlevel_ht40_2s[rf_path][i] = 0;
 
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: Michal Kube=C4=8Dek <mkubecek@suse.cz>
-Cc: David Miller <davem@davemloft.net>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: netfilter-devel@vger.kernel.org
-Signed-off-by: Cong Wang <amwang@redhat.com>
----
- include/net/ipv6.h                      |   19 ++++++++
- net/ipv6/netfilter/nf_conntrack_reasm.c |   71 +++++++----------------=
--------
- net/ipv6/reassembly.c                   |   62 ++++++++---------------=
-----
- 3 files changed, 54 insertions(+), 98 deletions(-)
+wasn't in V1 of the patch. Is the rename normal?
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 9bed5d4..81d4455 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -411,6 +411,25 @@ struct ip6_create_arg {
- void ip6_frag_init(struct inet_frag_queue *q, void *a);
- bool ip6_frag_match(struct inet_frag_queue *q, void *a);
-=20
-+/*
-+ *	Equivalent of ipv4 struct ip
-+ */
-+struct frag_queue {
-+	struct inet_frag_queue	q;
-+
-+	__be32			id;		/* fragment id		*/
-+	u32			user;
-+	struct in6_addr		saddr;
-+	struct in6_addr		daddr;
-+
-+	int			iif;
-+	unsigned int		csum;
-+	__u16			nhoffset;
-+};
-+
-+void ip6_expire_frag_queue(struct net *net, struct frag_queue *fq,
-+			   struct inet_frags *frags);
-+
- static inline bool ipv6_addr_any(const struct in6_addr *a)
- {
- #if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG =3D=
-=3D 64
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilt=
-er/nf_conntrack_reasm.c
-index d28c067..5a1307b 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -57,19 +57,6 @@ struct nf_ct_frag6_skb_cb
-=20
- #define NFCT_FRAG6_CB(skb)	((struct nf_ct_frag6_skb_cb*)((skb)->cb))
-=20
--struct nf_ct_frag6_queue
--{
--	struct inet_frag_queue	q;
--
--	__be32			id;		/* fragment id		*/
--	u32			user;
--	struct in6_addr		saddr;
--	struct in6_addr		daddr;
--
--	unsigned int		csum;
--	__u16			nhoffset;
--};
--
- static struct inet_frags nf_frags;
-=20
- #ifdef CONFIG_SYSCTL
-@@ -150,9 +137,9 @@ static void __net_exit nf_ct_frags6_sysctl_unregist=
-er(struct net *net)
-=20
- static unsigned int nf_hashfn(struct inet_frag_queue *q)
- {
--	const struct nf_ct_frag6_queue *nq;
-+	const struct frag_queue *nq;
-=20
--	nq =3D container_of(q, struct nf_ct_frag6_queue, q);
-+	nq =3D container_of(q, struct frag_queue, q);
- 	return inet6_hash_frag(nq->id, &nq->saddr, &nq->daddr, nf_frags.rnd);
- }
-=20
-@@ -162,43 +149,19 @@ static void nf_skb_free(struct sk_buff *skb)
- 		kfree_skb(NFCT_FRAG6_CB(skb)->orig);
- }
-=20
--/* Destruction primitives. */
--
--static __inline__ void fq_put(struct nf_ct_frag6_queue *fq)
--{
--	inet_frag_put(&fq->q, &nf_frags);
--}
--
--/* Kill fq entry. It is not destroyed immediately,
-- * because caller (and someone more) holds reference count.
-- */
--static __inline__ void fq_kill(struct nf_ct_frag6_queue *fq)
--{
--	inet_frag_kill(&fq->q, &nf_frags);
--}
--
- static void nf_ct_frag6_expire(unsigned long data)
- {
--	struct nf_ct_frag6_queue *fq;
--
--	fq =3D container_of((struct inet_frag_queue *)data,
--			struct nf_ct_frag6_queue, q);
--
--	spin_lock(&fq->q.lock);
-+	struct frag_queue *fq;
-+	struct net *net;
-=20
--	if (fq->q.last_in & INET_FRAG_COMPLETE)
--		goto out;
-+	fq =3D container_of((struct inet_frag_queue *)data, struct frag_queue=
-, q);
-+	net =3D container_of(fq->q.net, struct net, nf_frag.frags);
-=20
--	fq_kill(fq);
--
--out:
--	spin_unlock(&fq->q.lock);
--	fq_put(fq);
-+	ip6_expire_frag_queue(net, fq, &nf_frags);
- }
-=20
- /* Creation primitives. */
--
--static __inline__ struct nf_ct_frag6_queue*
-+static __inline__ struct frag_queue *
- fq_find(struct net *net, __be32 id, u32 user, struct in6_addr *src, st=
-ruct in6_addr *dst)
- {
- 	struct inet_frag_queue *q;
-@@ -218,14 +181,14 @@ fq_find(struct net *net, __be32 id, u32 user, str=
-uct in6_addr *src, struct in6_a
- 	if (q =3D=3D NULL)
- 		goto oom;
-=20
--	return container_of(q, struct nf_ct_frag6_queue, q);
-+	return container_of(q, struct frag_queue, q);
-=20
- oom:
- 	return NULL;
- }
-=20
-=20
--static int nf_ct_frag6_queue(struct nf_ct_frag6_queue*fq, struct sk_bu=
-ff *skb,
-+static int nf_ct_frag6_queue(struct frag_queue *fq, struct sk_buff *sk=
-b,
- 			     const struct frag_hdr *fhdr, int nhoff)
- {
- 	struct sk_buff *prev, *next;
-@@ -366,7 +329,7 @@ found:
- 	return 0;
-=20
- discard_fq:
--	fq_kill(fq);
-+	inet_frag_kill(&fq->q, &nf_frags);
- err:
- 	return -1;
- }
-@@ -381,12 +344,12 @@ err:
-  *	the last and the first frames arrived and all the bits are here.
-  */
- static struct sk_buff *
--nf_ct_frag6_reasm(struct nf_ct_frag6_queue *fq, struct net_device *dev=
-)
-+nf_ct_frag6_reasm(struct frag_queue *fq, struct net_device *dev)
- {
- 	struct sk_buff *fp, *op, *head =3D fq->q.fragments;
- 	int    payload_len;
-=20
--	fq_kill(fq);
-+	inet_frag_kill(&fq->q, &nf_frags);
-=20
- 	WARN_ON(head =3D=3D NULL);
- 	WARN_ON(NFCT_FRAG6_CB(head)->offset !=3D 0);
-@@ -568,7 +531,7 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *=
-skb, u32 user)
- 	struct net_device *dev =3D skb->dev;
- 	struct net *net =3D skb_dst(skb) ? dev_net(skb_dst(skb)->dev) : dev_n=
-et(skb->dev);
- 	struct frag_hdr *fhdr;
--	struct nf_ct_frag6_queue *fq;
-+	struct frag_queue *fq;
- 	struct ipv6hdr *hdr;
- 	int fhoff, nhoff;
- 	u8 prevhdr;
-@@ -617,7 +580,7 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *=
-skb, u32 user)
- 	if (nf_ct_frag6_queue(fq, clone, fhdr, nhoff) < 0) {
- 		spin_unlock_bh(&fq->q.lock);
- 		pr_debug("Can't insert skb to queue\n");
--		fq_put(fq);
-+		inet_frag_put(&fq->q, &nf_frags);
- 		goto ret_orig;
- 	}
-=20
-@@ -629,7 +592,7 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *=
-skb, u32 user)
- 	}
- 	spin_unlock_bh(&fq->q.lock);
-=20
--	fq_put(fq);
-+	inet_frag_put(&fq->q, &nf_frags);
- 	return ret_skb;
-=20
- ret_orig:
-@@ -693,7 +656,7 @@ int nf_ct_frag6_init(void)
- 	nf_frags.constructor =3D ip6_frag_init;
- 	nf_frags.destructor =3D NULL;
- 	nf_frags.skb_free =3D nf_skb_free;
--	nf_frags.qsize =3D sizeof(struct nf_ct_frag6_queue);
-+	nf_frags.qsize =3D sizeof(struct frag_queue);
- 	nf_frags.match =3D ip6_frag_match;
- 	nf_frags.frag_expire =3D nf_ct_frag6_expire;
- 	nf_frags.secret_interval =3D 10 * 60 * HZ;
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 4ff9af6..8508c8c 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -65,24 +65,6 @@ struct ip6frag_skb_cb
- #define FRAG6_CB(skb)	((struct ip6frag_skb_cb*)((skb)->cb))
-=20
-=20
--/*
-- *	Equivalent of ipv4 struct ipq
-- */
--
--struct frag_queue
--{
--	struct inet_frag_queue	q;
--
--	__be32			id;		/* fragment id		*/
--	u32			user;
--	struct in6_addr		saddr;
--	struct in6_addr		daddr;
--
--	int			iif;
--	unsigned int		csum;
--	__u16			nhoffset;
--};
--
- static struct inet_frags ip6_frags;
-=20
- int ip6_frag_nqueues(struct net *net)
-@@ -159,21 +141,6 @@ void ip6_frag_init(struct inet_frag_queue *q, void=
- *a)
- }
- EXPORT_SYMBOL(ip6_frag_init);
-=20
--/* Destruction primitives. */
--
--static __inline__ void fq_put(struct frag_queue *fq)
--{
--	inet_frag_put(&fq->q, &ip6_frags);
--}
--
--/* Kill fq entry. It is not destroyed immediately,
-- * because caller (and someone more) holds reference count.
-- */
--static __inline__ void fq_kill(struct frag_queue *fq)
--{
--	inet_frag_kill(&fq->q, &ip6_frags);
--}
--
- static void ip6_evictor(struct net *net, struct inet6_dev *idev)
- {
- 	int evicted;
-@@ -183,22 +150,17 @@ static void ip6_evictor(struct net *net, struct i=
-net6_dev *idev)
- 		IP6_ADD_STATS_BH(net, idev, IPSTATS_MIB_REASMFAILS, evicted);
- }
-=20
--static void ip6_frag_expire(unsigned long data)
-+void ip6_expire_frag_queue(struct net *net, struct frag_queue *fq, str=
-uct inet_frags *frags)
- {
--	struct frag_queue *fq;
- 	struct net_device *dev =3D NULL;
--	struct net *net;
--
--	fq =3D container_of((struct inet_frag_queue *)data, struct frag_queue=
-, q);
-=20
- 	spin_lock(&fq->q.lock);
-=20
- 	if (fq->q.last_in & INET_FRAG_COMPLETE)
- 		goto out;
-=20
--	fq_kill(fq);
-+	inet_frag_kill(&fq->q, frags);
-=20
--	net =3D container_of(fq->q.net, struct net, ipv6.frags);
- 	rcu_read_lock();
- 	dev =3D dev_get_by_index_rcu(net, fq->iif);
- 	if (!dev)
-@@ -222,7 +184,19 @@ out_rcu_unlock:
- 	rcu_read_unlock();
- out:
- 	spin_unlock(&fq->q.lock);
--	fq_put(fq);
-+	inet_frag_put(&fq->q, frags);
-+}
-+EXPORT_SYMBOL(ip6_expire_frag_queue);
-+
-+static void ip6_frag_expire(unsigned long data)
-+{
-+	struct frag_queue *fq;
-+	struct net *net;
-+
-+	fq =3D container_of((struct inet_frag_queue *)data, struct frag_queue=
-, q);
-+	net =3D container_of(fq->q.net, struct net, ipv6.frags);
-+
-+	ip6_expire_frag_queue(net, fq, &ip6_frags);
- }
-=20
- static __inline__ struct frag_queue *
-@@ -391,7 +365,7 @@ found:
- 	return -1;
-=20
- discard_fq:
--	fq_kill(fq);
-+	inet_frag_kill(&fq->q, &ip6_frags);
- err:
- 	IP6_INC_STATS(net, ip6_dst_idev(skb_dst(skb)),
- 		      IPSTATS_MIB_REASMFAILS);
-@@ -417,7 +391,7 @@ static int ip6_frag_reasm(struct frag_queue *fq, st=
-ruct sk_buff *prev,
- 	unsigned int nhoff;
- 	int sum_truesize;
-=20
--	fq_kill(fq);
-+	inet_frag_kill(&fq->q, &ip6_frags);
-=20
- 	/* Make the one we just received the head. */
- 	if (prev) {
-@@ -586,7 +560,7 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
- 		ret =3D ip6_frag_queue(fq, skb, fhdr, IP6CB(skb)->nhoff);
-=20
- 		spin_unlock(&fq->q.lock);
--		fq_put(fq);
-+		inet_frag_put(&fq->q, &ip6_frags);
- 		return ret;
- 	}
-=20
---=20
-1.7.7.6
+
+Anisse
