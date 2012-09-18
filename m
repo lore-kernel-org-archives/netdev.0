@@ -1,62 +1,116 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 0/6] llc2: Simplify llc_station
-Date: Tue, 18 Sep 2012 18:49:55 +0100
-Message-ID: <20120918174955.GD29217@decadent.org.uk>
-References: <1347764982.13258.207.camel@deadeye.wl.decadent.org.uk>
- <20120917.130531.941621987417626917.davem@davemloft.net>
- <20120917.131017.1646567691887140571.davem@davemloft.net>
- <20120917.131237.518528991078697534.davem@davemloft.net>
+From: Naresh Kumar Inna <naresh@chelsio.com>
+Subject: Re: [V4 PATCH 0/8] csiostor: Chelsio FCoE offload driver submission
+Date: Tue, 18 Sep 2012 23:20:51 +0530
+Message-ID: <5058B47B.1050604@chelsio.com>
+References: <1347470328-32490-1-git-send-email-naresh@chelsio.com>  <5057F791.8020702@chelsio.com> <1347957374.2388.15.camel@dabdike.int.hansenpartnership.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: acme@ghostprotocols.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:50567 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752367Ab2IRRuA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 13:50:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20120917.131237.518528991078697534.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: James Bottomley <James.Bottomley@HansenPartnership.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1347957374.2388.15.camel@dabdike.int.hansenpartnership.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 17, 2012 at 01:12:37PM -0400, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Mon, 17 Sep 2012 13:10:17 -0400 (EDT)
+On 9/18/2012 2:06 PM, James Bottomley wrote:
+> On Tue, 2012-09-18 at 09:54, Naresh Kumar Inna wrote:
+>> Hi James,
+>>
+>> Could you please consider merging version V4 of the driver patches, if
+>> you think they are in good shape now?
 > 
-> > From: David Miller <davem@davemloft.net>
-> > Date: Mon, 17 Sep 2012 13:05:31 -0400 (EDT)
-> > 
-> >> From: Ben Hutchings <ben@decadent.org.uk>
-> >> Date: Sun, 16 Sep 2012 04:09:42 +0100
-> >> 
-> >>> There seem to have been some grand plans for llc_station, but as they
-> >>> haven't been fulfilled it's just unnecessarily complicated.
-> >> 
-> >> I went over these a few times, they look correct, so I am going
-> >> to apply them to net-next.
-> >> 
-> >> If there are any problems let's hope that exposure in the tree
-> >> helps shake those out.
-> > 
-> > It doesn't even build properly, please fix this and resubmit:
-> > 
-> > ERROR: "sysctl_llc_station_ack_timeout" [net/llc/llc2.ko] undefined!
+> Well, definitely not yet; you seem to have missed the memo on readq:
 > 
-> Actually, since I trusted you when you said you build tested this,
-> I pushed it out to net-next pre-maturely.
+>   CC [M]  drivers/scsi/cxgbi/cxgb4i/cxgb4i.o
+> drivers/scsi/csiostor/csio_hw.c: In function csio_hw_mc_read:
+> drivers/scsi/csiostor/csio_hw.c:194:3: error: implicit declaration of
+> function readq [-Werror=implicit-function-declaration]
 > 
-> I'm going to fix this meanwhile by simply removing the sysctl that
-> references this symbol.
+> It's only defined on platforms which can support an atomic 64 bit
+> operation (which is mostly not any 32 bit platforms) ... so this could
+> do with compile testing on those.
 > 
-> But you need to check for me whether that's ok or not.
- 
-The sysctl had no effect so I think it's fairly safe to assume nothing
-depends on it.  Thanks.
+> To see how to handle readq/writeq in the 32 bit case, see the uses in
+> fnic or qla2xxx
+> 
 
-Ben.
+Thanks for reviewing. I will fix up readq/writeq, as well as other
+32-bit compilation issues, if any.
 
--- 
-Ben Hutchings
-We get into the habit of living before acquiring the habit of thinking.
-                                                              - Albert Camus
+> You also have a couple of unnecessary version.h includes.
+> 
+
+I will get rid of them.
+
+> Since you're a new driver, could you not do a correctly unlocked
+> queuecommand routine?  You'll find the way you've currently got it coded
+> (holding the host lock for the entire queuecommand routine) is very
+> performance detrimental.
+> 
+
+Yes, I am aware of that. However, some of this code was written and
+tested before the lock-less queuecommand came into existence. Going the
+lock-less route would require me to test the driver thoroughly again. It
+definitely is in my to-do list, but I would like to take that up after
+the initial submission goes through. Would that be OK?
+
+> You have a lot of locking statements which aren't easy to audit by hand
+> because there are multiple unlocks.  Things like this:
+> 
+> csio_scan_finished(struct Scsi_Host *shost, unsigned long time)
+> {
+> 	struct csio_lnode *ln = shost_priv(shost);
+> 	int rv = 0;
+> 
+> 	spin_lock_irq(shost->host_lock);
+> 	if (!ln->hwp || csio_list_deleted(&ln->sm.sm_list)) {
+> 		spin_unlock_irq(shost->host_lock);
+> 		return 1;
+> 	}
+> 
+> 	rv = csio_scan_done(ln, jiffies, time, csio_max_scan_tmo * HZ,
+> 			    csio_delta_scan_tmo * HZ);
+> 
+> 	spin_unlock_irq(shost->host_lock);
+> 
+> 	return rv;
+> }
+> 
+> Are better coded as
+> 
+> csio_scan_finished(struct Scsi_Host *shost, unsigned long time)
+> {
+> 	struct csio_lnode *ln = shost_priv(shost);
+> 	int rv = 1;
+> 
+> 	spin_lock_irq(shost->host_lock);
+> 	if (!ln->hwp || csio_list_deleted(&ln->sm.sm_list))
+> 		goto out;
+> 
+> 	rv = csio_scan_done(ln, jiffies, time, csio_max_scan_tmo * HZ,
+> 			    csio_delta_scan_tmo * HZ);
+> 
+>  out:
+> 	spin_unlock_irq(shost->host_lock);
+> 
+> 	return rv;
+> }
+> 
+> It's shorter and the unlock clearly matches the lock.  You could even
+> invert the if logic and just make the csio_scan_done() conditional on it
+> avoiding the goto.
+> 
+
+I will try to minimize the lock/unlock mismatch instances per your
+suggestions, if not eliminate them altogether.
+
+> I'd also really like the people who understand FC to take a look over
+> this as well.
+> 
+
+Sure.
+
+Thanks,
+Naresh.
