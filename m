@@ -1,31 +1,44 @@
-From: =?ISO-8859-1?Q?S=F8ren?= Holm <sgh@sgh.dk>
-Subject: Re: [PATCH] asix: Support DLink DUB-E100 H/W Ver C1
-Date: Tue, 18 Sep 2012 10:40:48 +0200
-Message-ID: <1731301.juso6zgXvT@koontz>
-References: <1347909800-3056-1-git-send-email-sgh@sgh.dk> <1377162.WNQkapDPaD@koontz> <CABkLObq3jQG_KMRrNpYGsseJrCYQ08cJfQFD5fpTmYDyDMGROA@mail.gmail.com>
+From: Lin Ming <mlin@ss.pku.edu.cn>
+Subject: HTB vs CoDel performance
+Date: Tue, 18 Sep 2012 17:28:23 +0800
+Message-ID: <CAF1ivSZPpBkKk6mfhEu01bz6yP4KgJU8kK6cmeZ9e+kwH=EtiQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org
-To: Christian Riesch <christian.riesch@omicron.at>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: networking <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpe.ge-0-2-0-950.faaqnqu1.customer.tele.dk ([93.167.193.18]:11682
-	"EHLO mail.mikrofyn.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754466Ab2IRIku convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 04:40:50 -0400
-In-Reply-To: <CABkLObq3jQG_KMRrNpYGsseJrCYQ08cJfQFD5fpTmYDyDMGROA@mail.gmail.com>
+Received: from [124.207.24.138] ([124.207.24.138]:40728 "EHLO
+	mail.ss.pku.edu.cn" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1757371Ab2IRJ3M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 05:29:12 -0400
+Received: from mail-lpp01m010-f46.google.com (mail-lpp01m010-f46.google.com [209.85.215.46])
+	(Authenticated sender: mlin@ss.pku.edu.cn)
+	by mail.ss.pku.edu.cn (Postfix) with ESMTPA id D499CDBBFC
+	for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 17:28:27 +0800 (CST)
+Received: by lagy9 with SMTP id y9so4794493lag.19
+        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 02:28:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tirsdag den 18. september 2012 10:21:17 skrev Christian Riesch:
-> IIRC this is not how it works. Your patch must go into the current
-> mainline kernel first (via net or net-next) before, then it will be
-> backported to the stable series.Therefore you must always send patche=
-s
-> that apply to net, or net-next...
-> Christian
+Hi,
 
-I'm aware of that now, thanks :)
+I'm testing htb performance on a gigabit router running 2.6.32 kernel.
+Packet path: PC1 ---> Router LAN port ---> Router WAN port ---> PC2
 
---=20
-S=F8ren Holm
+pfifo_fast: 920Mbps
+htb: 750Mbps, ~20% drops compared to pfifo_fast
+
+htb tc commands as below,
+# tc qdisc add dev eth10 root handle 20: htb default 1
+# tc class add dev eth10 parent 20 classid 20:1 htb prio 2 rate
+1024Mbit ceil 1024Mbit burst 1281408b cburst 1281408b
+
+The performance drop seems caused by the complex htb enqueue/dequeue algorithm.
+
+I had a quick look at CoDel code, seems it does not have so complex
+data structure as HTB.
+I'm going to backport CoDel. Is this a good choice?
+Can I gain similar performance as pfifo_fast?
+
+Thanks,
+Lin Ming
