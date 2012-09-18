@@ -1,29 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix memory leak on oom with zerocopy
-Date: Tue, 18 Sep 2012 16:25:14 -0400 (EDT)
-Message-ID: <20120918.162514.1950372124026735732.davem@davemloft.net>
-References: <20120916084416.GA22936@redhat.com>
+Subject: Re: [patch net] sky2: fix rx filter setup on link up
+Date: Tue, 18 Sep 2012 16:25:53 -0400 (EDT)
+Message-ID: <20120918.162553.2196748185499351536.davem@davemloft.net>
+References: <20120917091214.5cd9b0f5@nehalam.linuxnetplumber.net>
+	<20120917204724.GA1749@minipsycho.orion>
+	<20120917141507.7528b3ee@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, bhutchings@solarflare.com,
-	mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org,
+Cc: jiri@resnulli.us, netdev@vger.kernel.org, mlindner@marvell.com,
 	linux-kernel@vger.kernel.org
-To: mst@redhat.com
+To: shemminger@vyatta.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120916084416.GA22936@redhat.com>
+In-Reply-To: <20120917141507.7528b3ee@nehalam.linuxnetplumber.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Sun, 16 Sep 2012 11:44:16 +0300
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 17 Sep 2012 14:15:07 -0700
 
-> If orphan flags fails, we don't free the skb
-> on receive, which leaks the skb memory.
-> 
-> Return value was also wrong: netif_receive_skb
-> is supposed to return NET_RX_DROP, not ENOMEM.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Are you sure it isn't IPv6 or something else setting additional mulitcast
+> addresses. You may need to instrument the set_multicast call.
 
-Applied, thanks Michael.
+I'm confident in Jiri's analysis and patch and it's clear the hardware
+is doing this on it's own, so please take his bug fix seriously.
