@@ -1,45 +1,77 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: re: mlx4_en: fix endianness with blue frame support
-Date: Tue, 18 Sep 2012 10:34:48 +0300
-Message-ID: <20120918073448.GA32445@elgon.mountain>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/4] ipv6: add a new namespace for nf_conntrack_reasm
+Date: Tue, 18 Sep 2012 09:37:56 +0200
+Message-ID: <20120918073756.GA18206@1984>
+References: <1347942582-23962-1-git-send-email-amwang@redhat.com>
+ <1347942582-23962-2-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: cascardo@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:28649 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932082Ab2IRHes (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 03:34:48 -0400
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Michal =?utf-8?Q?Kube=C4=8Dek?= <mkubecek@suse.cz>,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1347942582-23962-2-git-send-email-amwang@redhat.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Thadeu Lima de Souza Cascardo,
+On Tue, Sep 18, 2012 at 12:29:39PM +0800, Cong Wang wrote:
+> As pointed by Michal, it is necessary to add a new
+> namespace for nf_conntrack_reasm code, this prepares
+> for the second patch.
 
-The patch c5d6136e10d6: "mlx4_en: fix endianness with blue frame 
-support" from Oct 10, 2011, leads to the following warning:
-drivers/net/ethernet/mellanox/mlx4/en_tx.c:720 mlx4_en_xmit()
-	 warn: potential memory corrupting cast. 4 vs 2 bytes
+This looks good to me, but there are some comestical changes I have to
+request.
 
-That patch introduced a call to cpu_to_be32() and added some endian
-notation.
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: Michal Kube=C4=8Dek <mkubecek@suse.cz>
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> Cc: netfilter-devel@vger.kernel.org
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+> ---
+>  include/net/net_namespace.h             |    3 +
+>  include/net/netns/conntrack.h           |    6 ++
+>  net/ipv6/netfilter/nf_conntrack_reasm.c |  135 +++++++++++++++++++++=
+----------
+>  3 files changed, 102 insertions(+), 42 deletions(-)
+>=20
+> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.=
+h
+> index 5ae57f1..5c467bb 100644
+> --- a/include/net/net_namespace.h
+> +++ b/include/net/net_namespace.h
+> @@ -93,6 +93,9 @@ struct net {
+>  #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODU=
+LE)
+>  	struct netns_ct		ct;
+>  #endif
+> +#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
+> +	struct netns_nf_ct	nf_ct;
+> +#endif
 
-	*(__be32 *) (&tx_desc->ctrl.vlan_tag) |= cpu_to_be32(ring->doorbell_qpn);
+There's above one "struct netns_ct" that already encapsulates
+netfilter conntrack netns parameters.
 
-But it doesn't make sense because the data type is declared as u16 in
-the header and we would be corrupting the next elements in the struct
-which are ins_vlan and fence_size.
+However, I'd prefer if, while at it, you define some struct
+netns_nf_frag instead.
 
-struct mlx4_wqe_ctrl_seg {
-        __be32                  owner_opcode;
-        __be16                  vlan_tag;
-        u8                      ins_vlan;
-        u8                      fence_size;
+In net/ipv6/netfilter/Makefile, it says:
 
-I guess the reason we get away with it is that the ->doorbell_qpn is
-normally less that 65k. But doorbell_qpn is a u32 type so I think there
-is a risk here.
+# defrag
+nf_defrag_ipv6-y :=3D nf_defrag_ipv6_hooks.o nf_conntrack_reasm.o
 
-regards,
-dan carpenter
+Note that nf defragmentation is not glued to conntrack anymore. So I'd
+go for one netns_nf_frag for this in include/net/net_namespace.h
+
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
