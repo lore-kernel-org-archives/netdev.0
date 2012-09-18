@@ -1,47 +1,81 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net] sky2: fix rx filter setup on link up
-Date: Tue, 18 Sep 2012 08:15:09 +0200
-Message-ID: <20120918061509.GB2294@minipsycho.orion>
-References: <1347894617-13614-1-git-send-email-jiri@resnulli.us>
- <20120917091214.5cd9b0f5@nehalam.linuxnetplumber.net>
- <20120917204724.GA1749@minipsycho.orion>
- <175CCF5F49938B4D99B2E3EF7F558EBE1B63898F0B@SC-VEXCH4.marvell.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Mirko Lindner <mlindner@marvell.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <175CCF5F49938B4D99B2E3EF7F558EBE1B63898F0B@SC-VEXCH4.marvell.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next] netpoll: call ->ndo_select_queue() in tx path
+Date: Tue, 18 Sep 2012 14:16:31 +0800
+Message-ID: <1347948991-20860-1-git-send-email-amwang@redhat.com>
+Cc: Sylvain Munaut <s.munaut@whatever-company.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44951 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755817Ab2IRGQq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Sep 2012 02:16:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tue, Sep 18, 2012 at 02:38:52AM CEST, mlindner@marvell.com wrote:
->>Mon, Sep 17, 2012 at 06:12:14PM CEST, shemminger@vyatta.com wrote:
->>>On Mon, 17 Sep 2012 17:10:17 +0200
->>>Jiri Pirko <jiri@resnulli.us> wrote:
->>>
->>>> In my case I have following problem. sky2_set_multicast() sets registers
->>>> GM_MC_ADDR_H[1-4] correctly to:
->>>> 0000 0800 0001 0410
->>>> However, when adapter gets link and sky2_link_up() is called, the values
->>>> are for some reason different:
->>>> 0000 0800 0016 0410
->>>
->>>Rather than papering over the problem, it would be better to
->>>trace back what is setting those registers and fix that code.
->
->>Yes, I did that. No code at sky2.[ch] is writing to this registers other
->>than sky2_set_multicast() and sky2_gmac_reset() (I hooked on sky2_write*()).
->>So I strongly believe this is a HW issue (maybe only issue of my revision
->>"Yukon-2 EC chip revision 2")
->
->I would like to check the registers as soon as I'm back in my office next week and report my findings.
+In netpoll tx path, we miss the chance of calling ->ndo_select_queue(),
+thus could cause problems when bonding is involved.
 
-Okay, I'll wait for you. If you need more info from my side, please do
-not hesitate to ask. Thanks!
+This patch makes dev_pick_tx() extern (and rename it to netdev_pick_tx())
+to let netpoll call it in netpoll_send_skb_on_dev().
 
->Could you also please check the hint from Stephen?
+Reported-by: Sylvain Munaut <s.munaut@whatever-company.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+Tested-by: Sylvain Munaut <s.munaut@whatever-company.com>
+
+---
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index ae3153c0..72661f6 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1403,6 +1403,9 @@ static inline void netdev_for_each_tx_queue(struct net_device *dev,
+ 		f(dev, &dev->_tx[i], arg);
+ }
+ 
++extern struct netdev_queue *netdev_pick_tx(struct net_device *dev,
++					   struct sk_buff *skb);
++
+ /*
+  * Net namespace inlines
+  */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index dcc673d..b13317a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2381,8 +2381,8 @@ static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
+ #endif
+ }
+ 
+-static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+-					struct sk_buff *skb)
++struct netdev_queue *netdev_pick_tx(struct net_device *dev,
++				    struct sk_buff *skb)
+ {
+ 	int queue_index;
+ 	const struct net_device_ops *ops = dev->netdev_ops;
+@@ -2556,7 +2556,7 @@ int dev_queue_xmit(struct sk_buff *skb)
+ 
+ 	skb_update_prio(skb);
+ 
+-	txq = dev_pick_tx(dev, skb);
++	txq = netdev_pick_tx(dev, skb);
+ 	q = rcu_dereference_bh(txq->qdisc);
+ 
+ #ifdef CONFIG_NET_CLS_ACT
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index dd67818..77a0388 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -328,7 +328,7 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
+ 	if (skb_queue_len(&npinfo->txq) == 0 && !netpoll_owner_active(dev)) {
+ 		struct netdev_queue *txq;
+ 
+-		txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
++		txq = netdev_pick_tx(dev, skb);
+ 
+ 		/* try until next clock tick */
+ 		for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
