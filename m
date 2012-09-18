@@ -1,59 +1,41 @@
-From: Bruce Curtis <brutus@google.com>
-Subject: Re: [PATCH v3] net-tcp: TCP/IP stack bypass for loopback connections
-Date: Mon, 17 Sep 2012 16:08:25 -0700
-Message-ID: <CAEkNxbGbR_CGOo=npnBLtCq_yQr4G8CGzkbk0CJ7BRw951nWQQ@mail.gmail.com>
-References: <1347908305-13541-1-git-send-email-brutus@google.com>
-	<1347913239.26523.173.camel@edumazet-glaptop>
+From: Mirko Lindner <mlindner@marvell.com>
+Subject: RE: [patch net] sky2: fix rx filter setup on link up
+Date: Mon, 17 Sep 2012 17:38:52 -0700
+Message-ID: <175CCF5F49938B4D99B2E3EF7F558EBE1B63898F0B@SC-VEXCH4.marvell.com>
+References: <1347894617-13614-1-git-send-email-jiri@resnulli.us>
+ <20120917091214.5cd9b0f5@nehalam.linuxnetplumber.net>,<20120917204724.GA1749@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:38910 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754975Ab2IQXI0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2012 19:08:26 -0400
-Received: by ieak13 with SMTP id k13so1318035iea.19
-        for <netdev@vger.kernel.org>; Mon, 17 Sep 2012 16:08:26 -0700 (PDT)
-In-Reply-To: <1347913239.26523.173.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jiri Pirko <jiri@resnulli.us>,
+	Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120917204724.GA1749@minipsycho.orion>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 17, 2012 at 1:20 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> On Mon, 2012-09-17 at 11:58 -0700, Bruce "Brutus" Curtis wrote:
-> > From: "Bruce \"Brutus\" Curtis" <brutus@google.com>
-> >
-> > TCP/IP loopback socket pair stack bypass, based on an idea by, and
-> > rough upstream patch from, David Miller <davem@davemloft.net> called
-> > "friends", the data structure modifcations and connection scheme are
-> > reused with extensive data-path changes.
->
-> ...
->
-> >
-> > +             if (skb->friend) {
-> > +                     /*
-> > +                      * If friends haven't been made yet, our sk_friend
-> > +                      * still == NULL, then update with the ACK's friend
-> > +                      * value (the listen()er's sock addr) which is used
-> > +                      * as a place holder.
-> > +                      */
-> > +                     cmpxchg(&sk->sk_friend, NULL, skb->friend);
-> > +             }
->
->
-> There is a fundamental issue with this patch
->
-> Setting skb->friend to a socket structure, without holding a reference
-> on it is going to add subtle races and bugs.
->
-> In this code, we have no guarantee the socket pointed by skb->friend was
-> eventually freed and/or reused.
->
-> But adding references might be overkill, as we need to unref them in
-> some places, in hot path.
+>Mon, Sep 17, 2012 at 06:12:14PM CEST, shemminger@vyatta.com wrote:
+>>On Mon, 17 Sep 2012 17:10:17 +0200
+>>Jiri Pirko <jiri@resnulli.us> wrote:
+>>
+>>> In my case I have following problem. sky2_set_multicast() sets registers
+>>> GM_MC_ADDR_H[1-4] correctly to:
+>>> 0000 0800 0001 0410
+>>> However, when adapter gets link and sky2_link_up() is called, the values
+>>> are for some reason different:
+>>> 0000 0800 0016 0410
+>>
+>>Rather than papering over the problem, it would be better to
+>>trace back what is setting those registers and fix that code.
 
-Yes, this could be a problem, putting a hold on the sk would be overkill for the
-hot-path, working on it now, more soon.
+>Yes, I did that. No code at sky2.[ch] is writing to this registers other
+>than sky2_set_multicast() and sky2_gmac_reset() (I hooked on sky2_write*()).
+>So I strongly believe this is a HW issue (maybe only issue of my revision
+>"Yukon-2 EC chip revision 2")
+
+I would like to check the registers as soon as I'm back in my office next week and report my findings.
+Could you also please check the hint from Stephen?
