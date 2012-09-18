@@ -1,66 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2] tcp: fix regression in urgent data handling
-Date: Tue, 18 Sep 2012 09:54:10 +0200
-Message-ID: <1347954850.26523.211.camel@edumazet-glaptop>
-References: <1347922299.26523.198.camel@edumazet-glaptop>
+From: =?UTF-8?q?S=C3=B8ren=20Holm?= <sgh@sgh.dk>
+Subject: [PATCH] asix: Support DLink DUB-E100 H/W Ver C1
+Date: Tue, 18 Sep 2012 09:50:57 +0200
+Message-ID: <1347954657-8975-1-git-send-email-sgh@sgh.dk>
+References: <CABkLObpU3P84AHTBG1hkrHt_HdaPzdTiRU1ACnJv=Qhb+wYPbQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Stephan Springl <springl-k@bfw-online.de>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?S=C3=B8ren=20Holm?= <sgh@sgh.dk>, stable@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:36023 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753148Ab2IRHyR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 03:54:17 -0400
-Received: by bkwj10 with SMTP id j10so2947477bkw.19
-        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 00:54:15 -0700 (PDT)
-In-Reply-To: <1347922299.26523.198.camel@edumazet-glaptop>
+Received: from cpe.ge-0-2-0-950.faaqnqu1.customer.tele.dk ([93.167.193.18]:59235
+	"EHLO mail.mikrofyn.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755162Ab2IRIDS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 04:03:18 -0400
+In-Reply-To: <CABkLObpU3P84AHTBG1hkrHt_HdaPzdTiRU1ACnJv=Qhb+wYPbQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-
-Stephan Springl found that commit 1402d366019fed "tcp: introduce
-tcp_try_coalesce" introduced a regression for rlogin
-
-It turns out problem comes from TCP urgent data handling and
-a change in behavior in input path.
-
-rlogin sends two one-byte packets with URG ptr set, and when next data
-frame is coalesced, we lack sk_data_ready() calls to wakeup consumer.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Stephan Springl <springl-k@bfw-online.de>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: S=C3=B8ren Holm <sgh@sgh.dk>
+Cc: stable@vger.kernel.org
 ---
-v2: Changed Stephan Springl email address in changelog/CC
+ drivers/net/usb/asix_devices.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
- net/ipv4/tcp_input.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 6e38c6c..d377f48 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4661,7 +4661,7 @@ queue_and_out:
- 
- 		if (eaten > 0)
- 			kfree_skb_partial(skb, fragstolen);
--		else if (!sock_flag(sk, SOCK_DEAD))
-+		if (!sock_flag(sk, SOCK_DEAD))
- 			sk->sk_data_ready(sk, 0);
- 		return;
- 	}
-@@ -5556,8 +5556,7 @@ no_ack:
- #endif
- 			if (eaten)
- 				kfree_skb_partial(skb, fragstolen);
--			else
--				sk->sk_data_ready(sk, 0);
-+			sk->sk_data_ready(sk, 0);
- 			return 0;
- 		}
- 	}
+diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devi=
+ces.c
+index 4fd48df..32e31c5 100644
+--- a/drivers/net/usb/asix_devices.c
++++ b/drivers/net/usb/asix_devices.c
+@@ -962,6 +962,10 @@ static const struct usb_device_id	products [] =3D =
+{
+ 	USB_DEVICE (0x2001, 0x3c05),
+ 	.driver_info =3D (unsigned long) &ax88772_info,
+ }, {
++       // DLink DUB-E100 H/W Ver C1
++       USB_DEVICE (0x2001, 0x1a02),
++       .driver_info =3D (unsigned long) &ax88772_info,
++}, {
+ 	// Linksys USB1000
+ 	USB_DEVICE (0x1737, 0x0039),
+ 	.driver_info =3D (unsigned long) &ax88178_info,
+--=20
+1.7.10.4
