@@ -1,26 +1,42 @@
-From: ratheesh kannoth <ratheesh.ksz@gmail.com>
-Subject: loop back address question
-Date: Tue, 18 Sep 2012 19:12:58 +0530
-Message-ID: <CAGZFCEE=Txa4=meB7CTuWvcgFe4teiXG3LWbOua21TqXXYY1SQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+From: Cong Wang <amwang@redhat.com>
+Subject: [PATCH v3 net-next 0/4] ipv6: fix the reassembly expire code in nf_conntrack
+Date: Tue, 18 Sep 2012 21:45:07 +0800
+Message-ID: <1347975911-5655-1-git-send-email-amwang@redhat.com>
+Cc: netfilter-devel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:65300 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757122Ab2IRNm7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 09:42:59 -0400
-Received: by obbuo13 with SMTP id uo13so10413931obb.19
-        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 06:42:58 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:51497 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757335Ab2IRNpd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Sep 2012 09:45:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi ,
+V3: rename struct netns_nf_ct to struct netns_nf_frag
 
-i have two  linux machines(2.6.29 ) A & B, both  connected  to same lan network
+V2: use IS_ENABLED(CONFIG_IPV6) to fix a build error
+    rebase to latest net-next
 
-1)  if  i assign 127.0.2.1 and 127.0.2.2 to interfaces , can we ping
-each other ?  is there any way to  send packets out of interface ?
+ipv6: add a new namespace for nf_conntrack_reasm
+ipv6: unify conntrack reassembly expire code with standard one
+ipv6: make ip6_frag_nqueues() and ip6_frag_mem() static
+ipv6: unify fragment thresh handling code
 
-Thanks,
-Ratheesh
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
+-----
+
+ include/net/inet_frag.h                 |    2 +-
+ include/net/ipv6.h                      |   32 +++++-
+ include/net/net_namespace.h             |    3 +
+ include/net/netns/ipv6.h                |    8 ++
+ net/ipv4/inet_fragment.c                |    9 +-
+ net/ipv4/ip_fragment.c                  |    5 +-
+ net/ipv6/netfilter/nf_conntrack_reasm.c |  196 ++++++++++++++++---------------
+ net/ipv6/reassembly.c                   |   88 ++++----------
+ 8 files changed, 178 insertions(+), 165 deletions(-)
