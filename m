@@ -1,39 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: fix regression in urgent data handling
-Date: Tue, 18 Sep 2012 16:26:51 -0400 (EDT)
-Message-ID: <20120918.162651.1368150594651951061.davem@davemloft.net>
-References: <1347922299.26523.198.camel@edumazet-glaptop>
+Subject: Re: [PATCH] xfrm: fix a rcu_read_lock() imbalance in make_blackhole
+Date: Tue, 18 Sep 2012 16:30:55 -0400 (EDT)
+Message-ID: <20120918.163055.1580882472532006729.davem@davemloft.net>
+References: <1347957610-7422-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, springl-k@lar.bfw.de,
-	alexander.h.duyck@intel.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46839 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46881 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754501Ab2IRU0x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 16:26:53 -0400
-In-Reply-To: <1347922299.26523.198.camel@edumazet-glaptop>
+	with ESMTP id S1755051Ab2IRUa5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 16:30:57 -0400
+In-Reply-To: <1347957610-7422-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 18 Sep 2012 00:51:39 +0200
+From: roy.qing.li@gmail.com
+Date: Tue, 18 Sep 2012 16:40:10 +0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> Stephan Springl found that commit 1402d366019fed "tcp: introduce
-> tcp_try_coalesce" introduced a regression for rlogin
+> if xfrm_policy_get_afinfo returns 0, it has already called rcu_read_unlock,
+> xfrm_policy_put_afinfo should not be called again.
 > 
-> It turns out problem comes from TCP urgent data handling and
-> a change in behavior in input path.
-> 
-> rlogin sends two one-byte packets with URG ptr set, and when next data
-> frame is coalesced, we lack sk_data_ready() calls to wakeup consumer.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Stephan Springl <springl-k@lar.bfw.de>
-> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-Applied, thanks Eric.
+This bug exists in the 'net' tree too, where this lock is a read lock.
+
+I've applied this patch and adjusted the commit log text to accomodate
+to difference.
+
+Thanks.
