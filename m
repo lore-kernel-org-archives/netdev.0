@@ -1,43 +1,63 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net] e1000: Small packets may get corrupted during padding by
- HW
-Date: Mon, 17 Sep 2012 22:55:43 -0700
-Message-ID: <50580CDF.5050108@gmail.com>
-References: <50578DE4.7080806@intel.com>  <1347915723.26523.179.camel@edumazet-glaptop> <5057E3F2.5090504@gmail.com>  <20120917.230300.653531213751776624.davem@davemloft.net>  <5057EA05.8020005@gmail.com> <1347947120.26523.207.camel@edumazet-glaptop>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net] sky2: fix rx filter setup on link up
+Date: Tue, 18 Sep 2012 08:13:39 +0200
+Message-ID: <20120918061339.GA2294@minipsycho.orion>
+References: <1347894617-13614-1-git-send-email-jiri@resnulli.us>
+ <20120917091214.5cd9b0f5@nehalam.linuxnetplumber.net>
+ <20120917204724.GA1749@minipsycho.orion>
+ <20120917141507.7528b3ee@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, alexander.h.duyck@intel.com,
-	tushar.n.dave@intel.com, john.r.fastabend@intel.com,
-	mirqus@gmail.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:62538 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756089Ab2IRFzy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 01:55:54 -0400
-Received: by obbuo13 with SMTP id uo13so10004632obb.19
-        for <netdev@vger.kernel.org>; Mon, 17 Sep 2012 22:55:53 -0700 (PDT)
-In-Reply-To: <1347947120.26523.207.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, mlindner@marvell.com,
+	linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120917141507.7528b3ee@nehalam.linuxnetplumber.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9/17/2012 10:45 PM, Eric Dumazet wrote:
-> On Mon, 2012-09-17 at 20:27 -0700, Alexander Duyck wrote:
+Mon, Sep 17, 2012 at 11:15:07PM CEST, shemminger@vyatta.com wrote:
+>On Mon, 17 Sep 2012 22:47:24 +0200
+>Jiri Pirko <jiri@resnulli.us> wrote:
 >
->> It also just occurred to me that there might be some benefit in cache
->> aligning the max header size.  It seems like doing something like that
->> should reduce the overall memory footprint and would probably improve
->> performance.
-> Given that most ACK packets are 66 bytes (14 ethernet + 20 IP + 32 TCP),
-> I am not sure we need to make any tweak on alignment ?
-I'm honestly not sure myself.  I will probably spend a few hours 
-tomorrow tweaking a few things to test and see if there is any gain to 
-be had there.  The only reason why it occurred to me is that it really 
-isn't too far off from what we did back on the Rx side, except for there 
-we were aligning at the start of the buffer and working our way up.
+>> Mon, Sep 17, 2012 at 06:12:14PM CEST, shemminger@vyatta.com wrote:
+>> >On Mon, 17 Sep 2012 17:10:17 +0200
+>> >Jiri Pirko <jiri@resnulli.us> wrote:
+>> >
+>> >> In my case I have following problem. sky2_set_multicast() sets registers
+>> >> GM_MC_ADDR_H[1-4] correctly to:
+>> >> 0000 0800 0001 0410
+>> >> However, when adapter gets link and sky2_link_up() is called, the values
+>> >> are for some reason different:
+>> >> 0000 0800 0016 0410
+>> >
+>> >Rather than papering over the problem, it would be better to
+>> >trace back what is setting those registers and fix that code.
+>> 
+>> Yes, I did that. No code at sky2.[ch] is writing to this registers other
+>> than sky2_set_multicast() and sky2_gmac_reset() (I hooked on sky2_write*()).
+>> So I strongly believe this is a HW issue (maybe only issue of my revision
+>> "Yukon-2 EC chip revision 2")
+>> 
+>> >
+>> >> This in my case prevents iface to be able to receive packets with dst mac
+>> >> 01:80:C2:00:00:02 (LACPDU dst mac), which I set up previously by
+>> >> SIOCADDMULTI.
+>> >> 
+>> >> So remember computed rx_filter data and write it to GM_MC_ADDR_H[1-4] on
+>> >> link_up.
+>> >>
+>> >
+>> >Please do some more root cause analysis. Just save/restoring the
+>> >registers is just a temporary workaround.
+>
+>Are you sure it isn't IPv6 or something else setting additional mulitcast
+>addresses. You may need to instrument the set_multicast call.
 
-Thanks,
+I'm very sure that no code in sky2 is writing to GM_MC_ADDR_H[1-4] the
+change I see in sky2_link_up(). When sky2_set_multicast() is called
+again for any reason, the issue goes away and lacpdus are coming in.
 
-Alex
+I also experimentally used sky2_set_multicast() called from
+sky2_link_up() and it helped as well.
