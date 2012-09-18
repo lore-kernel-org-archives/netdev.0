@@ -1,43 +1,43 @@
-From: Ajith Adapa <adapa.ajith@gmail.com>
-Subject: Re: Regarding group_forward_mask in bridge in 3.4 kernel
-Date: Tue, 18 Sep 2012 14:00:39 +0530
-Message-ID: <CADAe=+JQTvY6eXH=UCTUSXER0fTND0YQUY4astzo0MVB6-T8qA@mail.gmail.com>
-References: <CADAe=++yAm3t-ZqMKy9h-Rda5=pOYQD2-cKUd3S1VKmBZQfT9A@mail.gmail.com>
- <505740C1.9080706@intel.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 24/24] net: seeq: use __iomem pointers for MMIO
+Date: Tue, 18 Sep 2012 08:14:38 +0000
+Message-ID: <201209180814.38975.arnd@arndb.de>
+References: <1347658492-11608-1-git-send-email-arnd@arndb.de> <20120914235607.GF12245@n2100.arm.linux.org.uk> <20120915.000059.636218745264773259.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:61116 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756746Ab2IRIbK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 04:31:10 -0400
-Received: by oago6 with SMTP id o6so5760964oag.19
-        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 01:31:09 -0700 (PDT)
-In-Reply-To: <505740C1.9080706@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux@arm.linux.org.uk, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, will.deacon@arm.com, nico@linaro.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120915.000059.636218745264773259.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thanks for the reply John.
+On Saturday 15 September 2012, David Miller wrote:
+> From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+> Date: Sat, 15 Sep 2012 00:56:07 +0100
+> 
+> > On Fri, Sep 14, 2012 at 11:34:52PM +0200, Arnd Bergmann wrote:
+> >> ARM is moving to stricter checks on readl/write functions,
+> >> so we need to use the correct types everywhere.
+> > 
+> > Same comment as for eesox.  const void __iomem * is not a problem on
+> > x86, so it should not be a problem on ARM.
+> 
+> Agreed.
 
-Then in the case of Link Aggregation whose mac-address is
-01-80-c2-00-00-02 I should do
+As discussed in the thread for the same patch on the scsi eesox driver,
+x86 allows reads on const __iomem pointers, but not writes, and the patch
+to asm/io.h that Russell has queued up changes ARM to do the same.
 
-echo 4 >> /sys/class/net/...
+My patch on seeq/ether3.c is still needed to avoid this warning in
+linux-next:
 
-But value 4 is not getting accepted. why ?
+drivers/net/ethernet/seeq/ether3.c: In function 'ether3_outb':
+drivers/net/ethernet/seeq/ether3.c:104:2: error: passing argument 2 of '__raw_writeb' discards 'const' qualifier from pointer target type
+arch/arm/include/asm/io.h:81:91: note: expected 'volatile void *' but argument is of type 'const void *'
 
-Regards,
-Ajith
---------------------------------------------
-codingfreak.in
-
-
-On Mon, Sep 17, 2012 at 8:54 PM, John Fastabend
-<john.r.fastabend@intel.com> wrote:
-> wrong value see the logic you quoted use 1 << 8
->
-> echo 256 > /sys/class/net/...
->
-> Your example fwds non-TPMR addresses 01-80-c2-00-00-03.
+	Arnd
