@@ -1,81 +1,45 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] netpoll: call ->ndo_select_queue() in tx path
-Date: Tue, 18 Sep 2012 14:16:31 +0800
-Message-ID: <1347948991-20860-1-git-send-email-amwang@redhat.com>
-Cc: Sylvain Munaut <s.munaut@whatever-company.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: re: mlx4_en: fix endianness with blue frame support
+Date: Tue, 18 Sep 2012 10:34:48 +0300
+Message-ID: <20120918073448.GA32445@elgon.mountain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: cascardo@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44951 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755817Ab2IRGQq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Sep 2012 02:16:46 -0400
+Received: from rcsinet15.oracle.com ([148.87.113.117]:28649 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932082Ab2IRHes (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 03:34:48 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In netpoll tx path, we miss the chance of calling ->ndo_select_queue(),
-thus could cause problems when bonding is involved.
+Hello Thadeu Lima de Souza Cascardo,
 
-This patch makes dev_pick_tx() extern (and rename it to netdev_pick_tx())
-to let netpoll call it in netpoll_send_skb_on_dev().
+The patch c5d6136e10d6: "mlx4_en: fix endianness with blue frame 
+support" from Oct 10, 2011, leads to the following warning:
+drivers/net/ethernet/mellanox/mlx4/en_tx.c:720 mlx4_en_xmit()
+	 warn: potential memory corrupting cast. 4 vs 2 bytes
 
-Reported-by: Sylvain Munaut <s.munaut@whatever-company.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-Tested-by: Sylvain Munaut <s.munaut@whatever-company.com>
+That patch introduced a call to cpu_to_be32() and added some endian
+notation.
 
----
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index ae3153c0..72661f6 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1403,6 +1403,9 @@ static inline void netdev_for_each_tx_queue(struct net_device *dev,
- 		f(dev, &dev->_tx[i], arg);
- }
- 
-+extern struct netdev_queue *netdev_pick_tx(struct net_device *dev,
-+					   struct sk_buff *skb);
-+
- /*
-  * Net namespace inlines
-  */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index dcc673d..b13317a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2381,8 +2381,8 @@ static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
- #endif
- }
- 
--static struct netdev_queue *dev_pick_tx(struct net_device *dev,
--					struct sk_buff *skb)
-+struct netdev_queue *netdev_pick_tx(struct net_device *dev,
-+				    struct sk_buff *skb)
- {
- 	int queue_index;
- 	const struct net_device_ops *ops = dev->netdev_ops;
-@@ -2556,7 +2556,7 @@ int dev_queue_xmit(struct sk_buff *skb)
- 
- 	skb_update_prio(skb);
- 
--	txq = dev_pick_tx(dev, skb);
-+	txq = netdev_pick_tx(dev, skb);
- 	q = rcu_dereference_bh(txq->qdisc);
- 
- #ifdef CONFIG_NET_CLS_ACT
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index dd67818..77a0388 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -328,7 +328,7 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
- 	if (skb_queue_len(&npinfo->txq) == 0 && !netpoll_owner_active(dev)) {
- 		struct netdev_queue *txq;
- 
--		txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
-+		txq = netdev_pick_tx(dev, skb);
- 
- 		/* try until next clock tick */
- 		for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
+	*(__be32 *) (&tx_desc->ctrl.vlan_tag) |= cpu_to_be32(ring->doorbell_qpn);
+
+But it doesn't make sense because the data type is declared as u16 in
+the header and we would be corrupting the next elements in the struct
+which are ins_vlan and fence_size.
+
+struct mlx4_wqe_ctrl_seg {
+        __be32                  owner_opcode;
+        __be16                  vlan_tag;
+        u8                      ins_vlan;
+        u8                      fence_size;
+
+I guess the reason we get away with it is that the ->doorbell_qpn is
+normally less that 65k. But doorbell_qpn is a u32 type so I think there
+is a risk here.
+
+regards,
+dan carpenter
