@@ -1,40 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/4] ipv6: fix the reassembly expire code
- in nf_conntrack
-Date: Tue, 18 Sep 2012 17:46:46 -0400 (EDT)
-Message-ID: <20120918.174646.370973540567235456.davem@davemloft.net>
-References: <1347942582-23962-1-git-send-email-amwang@redhat.com>
-	<20120918.174422.676733596356822897.davem@davemloft.net>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: BUG: TCPDUMP invalid cksum persists after disabling TCP cksum offload
+Date: Tue, 18 Sep 2012 14:46:54 -0700
+Message-ID: <CAGK4HS9LSAGJ4amNK-rWKFNz=ZCVLkQm4sWABhY5C+6DBWsmUA@mail.gmail.com>
+References: <20120918193208.GA19030@darkstar>
+	<1347998905.2685.29.camel@bwh-desktop.uk.solarflarecom.com>
+	<20120918211423.GA19115@darkstar>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	herbert@gondor.hengli.com.au
-To: amwang@redhat.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120918.174422.676733596356822897.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Jamie Gloudon <jamie.gloudon@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:51353 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754865Ab2IRVqz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 17:46:55 -0400
+Received: by oago6 with SMTP id o6so402162oag.19
+        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 14:46:54 -0700 (PDT)
+In-Reply-To: <20120918211423.GA19115@darkstar>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 18 Sep 2012 17:44:22 -0400 (EDT)
+> The results after disabling tcp cksum offload feature:
+> # ethtool -K eth1 tx off
 
-> From: Cong Wang <amwang@redhat.com>
-> Date: Tue, 18 Sep 2012 12:29:38 +0800
-> 
->> V2: use IS_ENABLED(CONFIG_IPV6) to fix a build error
->>     rebase to latest net-next
->> 
->> ipv6: add a new namespace for nf_conntrack_reasm
->> ipv6: unify conntrack reassembly expire code with standard one
->> ipv6: make ip6_frag_nqueues() and ip6_frag_mem() static
->> ipv6: unify fragment thresh handling code
->> 
->> Cc: Herbert Xu <herbert@gondor.apana.org.au>
->> Cc: "David S. Miller" <davem@davemloft.net>
->> Signed-off-by: Cong Wang <amwang@redhat.com>
-> 
-> Please address Pedro's feedback and resubmit, thanks.
+Instead of this, can you try
+# ethtool -K eth1 tso off
 
-Of course I meant "Pablo", and I meant to reply to v3 of your patches,
-sorry :-)
+
+Vijay
