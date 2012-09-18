@@ -1,231 +1,167 @@
-From: Anisse Astier <anisse@astier.eu>
-Subject: Re: [PATCH NEXT V2] rtlwifi: rtl8192c: rtl8192ce: Add support for
- B-CUT version of RTL8188CE
-Date: Tue, 18 Sep 2012 16:09:01 +0200
-Message-ID: <20120918160901.22cf2261@destiny.ordissimo>
-References: <1347914143-27698-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Chris Clayton <chris2553@googlemail.com>
+Subject: Re: Possible networking regression in 3.6.0
+Date: Tue, 18 Sep 2012 15:21:37 +0100
+Message-ID: <50588371.40103@googlemail.com>
+References: <5057455A.7050108@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, Li Chaoming <chaoming_li@realsil.com.cn>
-To: Larry Finger <Larry.Finger@lwfinger.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:35531 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933152Ab2IROJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 10:09:20 -0400
-Received: by eaac11 with SMTP id c11so2857100eaa.19
-        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 07:09:19 -0700 (PDT)
-In-Reply-To: <1347914143-27698-1-git-send-email-Larry.Finger@lwfinger.net>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:61352 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754063Ab2IROV3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 10:21:29 -0400
+Received: by bkwj10 with SMTP id j10so3184958bkw.19
+        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 07:21:28 -0700 (PDT)
+In-Reply-To: <5057455A.7050108@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 17 Sep 2012 15:35:43 -0500, Larry Finger <Larry.Finger@lwfinger.net> wrote :
 
-> Realtek devices with designation RTL8188CE-VL have the so-called B-cut
-> of the wireless chip. This patch adds the special programming needed by
-> these devices.
-> 
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> Cc: Anisse Astier <anisse@astier.eu>
-> Cc: Li Chaoming <chaoming_li@realsil.com.cn>
-> ---
->  drivers/net/wireless/rtlwifi/rtl8192c/phy_common.c |   21 +++++++
->  drivers/net/wireless/rtlwifi/rtl8192ce/def.h       |    3 +
->  drivers/net/wireless/rtlwifi/rtl8192ce/hw.c        |   61 ++++++++++++++++++--
->  drivers/net/wireless/rtlwifi/rtl8192ce/phy.c       |    4 +-
->  drivers/net/wireless/rtlwifi/rtl8192ce/sw.c        |    6 +-
->  drivers/net/wireless/rtlwifi/rtl8192ce/trx.c       |    4 +-
->  6 files changed, 87 insertions(+), 12 deletions(-)
-> ---
-> V1 => V2	Remove extraneous white space.
-> 
-> 
-> John,
-> 
-> This patch is too invasive to backport to the stable kernels, thus it should
-> be applied to 3.7.
-> 
+
+On 09/17/12 16:44, Chris Clayton wrote:
+> Hi,
+>
+> I'm having a problem with networking. I'm running Windows XP as a KVM
+> guest on a laptop running kernel 3.6.0-rc6. The identical configuration
+> works fine with kernels 3.5.4 and 3.4.11 (and has done so, largely
+> unchanged, since since KVM was introduced in 2.6.<whatever>.)
+>
+> The configuration is:
+>
+> XP guest:    192.168.200.1 (gateway 192.168.200.254)
+> tap0:        192.168.200.254
+> host:        192.168.0.40 (gateway 192.168.0.1)
+> router:        192.168.0.1
+>
+> The script that starts up the firewall includes the following commands:
+>
+> # Load the connection-sharing for qemu/kvm guests
+> echo 1 > /proc/sys/net/ipv4/ip_forward
+> iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+> ...
+> # allow traffic to and from the qemu/kvm virtual networks
+> NETS="200 201"
+> for net in $NETS; do
+>    iptables -A INPUT -s 192.168.$net.0/24 -j ACCEPT
+>    iptables -A OUTPUT -d 192.168.$net.0/24 -j ACCEPT
+> done
+> ...
+>
+> The network-related modules that are loaded are:
+>
+> $ lsmod
+> Module                  Size  Used by
+> tun                    12412  0
+> xt_state                 891  1
+> iptable_filter           852  1
+> ipt_MASQUERADE          1222  1
+> iptable_nat             3087  1
+> nf_nat                 10901  2 ipt_MASQUERADE,iptable_nat
+> nf_conntrack_ipv4       4942  4 nf_nat,iptable_nat
+> nf_defrag_ipv4           815  1 nf_conntrack_ipv4
+> nf_conntrack           37644  5
+> ipt_MASQUERADE,nf_nat,xt_state,iptable_nat,nf_conntrack_ipv4
+> ...
+> r8169                  47159  0
+>
+>  From the host I can successfully ping the guest, tap0 and the router as
+> you would expect, but from the guest, although I can ping the host and
+> tap0, I cannot ping the router. In practice, this means I have no
+> internet access from the guest. As I say, this configuration works
+> perfectly under 3.5.x and 3.4.x kernels.
+>
+> I'll do a coarse-grained "bisect" of Linus' 3.6 release candidates and
+> report back, but does anyone have any prime-suspect patches that may be
+> at the cause of this problem?
+>
+
+-rc1 turned out to have the problem so I've bisected between 3.5 and 
+3.6-rc1. I arrived at:
+
+$ git bisect bad
+d2d68ba9fe8b38eb03124b3176a013bb8aa2b5e5 is the first bad commit
+commit d2d68ba9fe8b38eb03124b3176a013bb8aa2b5e5
+Author: David S. Miller <davem@davemloft.net>
+Date:   Tue Jul 17 12:58:50 2012 -0700
+
+     ipv4: Cache input routes in fib_info nexthops.
+
+     Caching input routes is slightly simpler than output routes, since we
+     don't need to be concerned with nexthop exceptions.  (locally
+     destined, and routed packets, never trigger PMTU events or redirects
+     that will be processed by us).
+
+     However, we have to elide caching for the DIRECTSRC and non-zero itag
+     cases.
+
+     Signed-off-by: David S. Miller <davem@davemloft.net>
+
+:040000 040000 6bbc75c1cbe62bf84ea412d3b98adf2b614779cd 
+3ad7256b4a71e63ca4530977c0550121ea803d35 M      include
+:040000 040000 18c2a950a53c4eec9bfa12185d1e382dfed74af8 
+a2ab6157d6cd54930da395758c6ded3a225d1f04 M      net
+
+The bisect log:
+git bisect start
+# bad: [0d7614f09c1ebdbaa1599a5aba7593f147bf96ee] Linux 3.6-rc1
+git bisect bad 0d7614f09c1ebdbaa1599a5aba7593f147bf96ee
+# good: [28a33cbc24e4256c143dce96c7d93bf423229f92] Linux 3.5
+git bisect good 28a33cbc24e4256c143dce96c7d93bf423229f92
+# bad: [614a6d4341b3760ca98a1c2c09141b71db5d1e90] Merge branch 'for-3.6' 
+of git://git.kernel.org/pub/scm/linux/kernel/git/tj/cgroup
+git bisect bad 614a6d4341b3760ca98a1c2c09141b71db5d1e90
+# bad: [320f5ea0cedc08ef65d67e056bcb9d181386ef2c] genetlink: define 
+lockdep_genl_is_held() when CONFIG_LOCKDEP
+git bisect bad 320f5ea0cedc08ef65d67e056bcb9d181386ef2c
+# good: [0cd06647b7c24f6633e32a505930a9aa70138c22] Merge branch 'master' 
+of git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next
+git bisect good 0cd06647b7c24f6633e32a505930a9aa70138c22
+# good: [dbfa600148a25903976910863c75dae185f8d187] cxgb3: set maximal 
+number of default RSS queues
+git bisect good dbfa600148a25903976910863c75dae185f8d187
+# good: [efdfad3205403e1d1c5c0bdcbdb647ddd89bfaa3] bnx2: Try to recover 
+from PCI block reset
+git bisect good efdfad3205403e1d1c5c0bdcbdb647ddd89bfaa3
+# good: [1bf91cdc1bba94ea062a9147d924815c13f029f2] ixgbe: Drop 
+references to deprecated pci_ DMA api and instead use dma_ API
+git bisect good 1bf91cdc1bba94ea062a9147d924815c13f029f2
+# good: [b6dfd939fdc249fcf8cd7b8006f76239b33eb581] ixgbe: add support 
+for new 82599 device
+git bisect good b6dfd939fdc249fcf8cd7b8006f76239b33eb581
+# good: [3ba97381343b271296487bf073eb670d5465a8b8] net: ethernet: 
+davinci_emac: add pm_runtime support
+git bisect good 3ba97381343b271296487bf073eb670d5465a8b8
+# bad: [5e9965c15ba88319500284e590733f4a4629a288] Merge branch 
+'kill_rtcache'
+git bisect bad 5e9965c15ba88319500284e590733f4a4629a288
+# good: [f5b0a8743601a4477419171f5046bd07d1c080a0] net: Document 
+dst->obsolete better.
+git bisect good f5b0a8743601a4477419171f5046bd07d1c080a0
+# bad: [ba3f7f04ef2b19aace38f855aedd17fe43035d50] ipv4: Kill 
+FLOWI_FLAG_RT_NOCACHE and associated code.
+git bisect bad ba3f7f04ef2b19aace38f855aedd17fe43035d50
+# good: [f2bb4bedf35d5167a073dcdddf16543f351ef3ae] ipv4: Cache output 
+routes in fib_info nexthops.
+git bisect good f2bb4bedf35d5167a073dcdddf16543f351ef3ae
+# bad: [d2d68ba9fe8b38eb03124b3176a013bb8aa2b5e5] ipv4: Cache input 
+routes in fib_info nexthops.
+git bisect bad d2d68ba9fe8b38eb03124b3176a013bb8aa2b5e5
+
+Checking out the parent commit 
+(f2bb4bedf35d5167a073dcdddf16543f351ef3ae) and building and installing 
+the kernel gives a working configuration, so I'm pretty confident in the 
+outcome of the bisect. Reversing the patch gives errors, so I've not 
+tested master with the patch reversed.
+
+Let me know if I can help in any way to identify a fix.
+
+Chris
+
+> Let me know if there are any other diagnostics I can provide. Also, as
+> I'm not subscribed to netdev, please cc me to any reply.
+>
 > Thanks,
-> 
-> Larry
-> ---
-> 
-
-[snip]
-
-> Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
-> ===================================================================
-> --- wireless-testing-new.orig/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
-> +++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
-> @@ -896,7 +896,6 @@ int rtl92ce_hw_init(struct ieee80211_hw
->  	struct rtl_phy *rtlphy = &(rtlpriv->phy);
->  	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
->  	struct rtl_ps_ctl *ppsc = rtl_psc(rtl_priv(hw));
-> -	static bool iqk_initialized; /* initialized to false */
->  	bool rtstatus = true;
->  	bool is92c;
->  	int err;
-> @@ -921,9 +920,28 @@ int rtl92ce_hw_init(struct ieee80211_hw
->  
->  	rtlhal->last_hmeboxnum = 0;
->  	rtl92c_phy_mac_config(hw);
-> +	/* because last function modify RCR, so we update
-> +	 * rcr var here, or TP will unstable for receive_config
-> +	 * is wrong, RX RCR_ACRC32 will cause TP unstabel & Rx
-> +	 * RCR_APP_ICV will cause mac80211 unassoc for cisco 1252*/
-> +	rtlpci->receive_config = rtl_read_dword(rtlpriv, REG_RCR);
-> +	rtlpci->receive_config &= ~(RCR_ACRC32 | RCR_AICV);
-> +	rtl_write_dword(rtlpriv, REG_RCR, rtlpci->receive_config);
->  	rtl92c_phy_bb_config(hw);
->  	rtlphy->rf_mode = RF_OP_BY_SW_3WIRE;
->  	rtl92c_phy_rf_config(hw);
-> +	if (IS_VENDOR_UMC_A_CUT(rtlhal->version) &&
-> +	    !IS_92C_SERIAL(rtlhal->version)) {
-> +		rtl_set_rfreg(hw, RF90_PATH_A, RF_RX_G1, MASKDWORD, 0x30255);
-> +		rtl_set_rfreg(hw, RF90_PATH_A, RF_RX_G2, MASKDWORD, 0x50a00);
-> +	} else if (IS_81xxC_VENDOR_UMC_B_CUT(rtlhal->version)) {
-> +		rtl_set_rfreg(hw, RF90_PATH_A, 0x0C, MASKDWORD, 0x894AE);
-> +		rtl_set_rfreg(hw, RF90_PATH_A, 0x0A, MASKDWORD, 0x1AF31);
-> +		rtl_set_rfreg(hw, RF90_PATH_A, RF_IPA, MASKDWORD, 0x8F425);
-> +		rtl_set_rfreg(hw, RF90_PATH_A, RF_SYN_G2, MASKDWORD, 0x4F200);
-> +		rtl_set_rfreg(hw, RF90_PATH_A, RF_RCK1, MASKDWORD, 0x44053);
-> +		rtl_set_rfreg(hw, RF90_PATH_A, RF_RCK2, MASKDWORD, 0x80201);
-> +	}
->  	rtlphy->rfreg_chnlval[0] = rtl_get_rfreg(hw, (enum radio_path)0,
->  						 RF_CHNLBW, RFREG_OFFSET_MASK);
->  	rtlphy->rfreg_chnlval[1] = rtl_get_rfreg(hw, (enum radio_path)1,
-> @@ -945,11 +963,11 @@ int rtl92ce_hw_init(struct ieee80211_hw
->  
->  	if (ppsc->rfpwr_state == ERFON) {
->  		rtl92c_phy_set_rfpath_switch(hw, 1);
-> -		if (iqk_initialized) {
-> +		if (rtlphy->iqk_initialized) {
->  			rtl92c_phy_iq_calibrate(hw, true);
->  		} else {
->  			rtl92c_phy_iq_calibrate(hw, false);
-> -			iqk_initialized = true;
-> +			rtlphy->iqk_initialized = true;
->  		}
->  
->  		rtl92c_dm_check_txpower_tracking(hw);
-> @@ -1004,6 +1022,13 @@ static enum version_8192c _rtl92ce_read_
->  				   ? CHIP_VENDOR_UMC_B_CUT : CHIP_UNKNOWN) |
->  				   CHIP_VENDOR_UMC));
->  		}
-> +		if (IS_92C_SERIAL(version)) {
-> +			value32 = rtl_read_dword(rtlpriv, REG_HPON_FSM);
-> +			version = (enum version_8192c)(version |
-> +				   ((CHIP_BONDING_IDENTIFIER(value32)
-> +				   == CHIP_BONDING_92C_1T2R) ?
-> +				   RF_TYPE_1T2R : 0));
-> +		}
->  	}
->  
->  	switch (version) {
-> @@ -1019,12 +1044,30 @@ static enum version_8192c _rtl92ce_read_
->  	case VERSION_A_CHIP_88C:
->  		versionid = "A_CHIP_88C";
->  		break;
-> +	case VERSION_NORMAL_UMC_CHIP_92C_1T2R_A_CUT:
-> +		versionid = "A_CUT_92C_1T2R";
-> +		break;
-> +	case VERSION_NORMAL_UMC_CHIP_92C_A_CUT:
-> +		versionid = "A_CUT_92C";
-> +		break;
-> +	case VERSION_NORMAL_UMC_CHIP_88C_A_CUT:
-> +		versionid = "A_CUT_88C";
-> +		break;
-> +	case VERSION_NORMAL_UMC_CHIP_92C_1T2R_B_CUT:
-> +		versionid = "B_CUT_92C_1T2R";
-> +		break;
-> +	case VERSION_NORMAL_UMC_CHIP_92C_B_CUT:
-> +		versionid = "B_CUT_92C";
-> +		break;
-> +	case VERSION_NORMAL_UMC_CHIP_88C_B_CUT:
-> +		versionid = "B_CUT_88C";
-> +		break;
->  	default:
->  		versionid = "Unknown. Bug?";
->  		break;
->  	}
->  
-> -	RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
-> +	RT_TRACE(rtlpriv, COMP_INIT, DBG_EMERG,
->  		 "Chip Version ID: %s\n", versionid);
->  
->  	switch (version & 0x3) {
-> @@ -1197,6 +1240,7 @@ static void _rtl92ce_poweroff_adapter(st
->  {
->  	struct rtl_priv *rtlpriv = rtl_priv(hw);
->  	struct rtl_pci_priv *rtlpcipriv = rtl_pcipriv(hw);
-> +	struct rtl_hal *rtlhal = rtl_hal(rtlpriv);
->  	u8 u1b_tmp;
->  	u32 u4b_tmp;
->  
-> @@ -1225,7 +1269,8 @@ static void _rtl92ce_poweroff_adapter(st
->  	rtl_write_word(rtlpriv, REG_GPIO_IO_SEL, 0x0790);
->  	rtl_write_word(rtlpriv, REG_LEDCFG0, 0x8080);
->  	rtl_write_byte(rtlpriv, REG_AFE_PLL_CTRL, 0x80);
-> -	rtl_write_byte(rtlpriv, REG_SPS0_CTRL, 0x23);
-> +	if (!IS_81xxC_VENDOR_UMC_B_CUT(rtlhal->version))
-> +		rtl_write_byte(rtlpriv, REG_SPS0_CTRL, 0x23);
->  	if (rtlpcipriv->bt_coexist.bt_coexistence) {
->  		u4b_tmp = rtl_read_dword(rtlpriv, REG_AFE_XTAL_CTRL);
->  		u4b_tmp |= 0x03824800;
-> @@ -1254,6 +1299,9 @@ void rtl92ce_card_disable(struct ieee802
->  		rtlpriv->cfg->ops->led_control(hw, LED_CTL_POWER_OFF);
->  	RT_SET_PS_LEVEL(ppsc, RT_RF_OFF_LEVL_HALT_NIC);
->  	_rtl92ce_poweroff_adapter(hw);
-> +
-> +	/* after power off we should do iqk again */
-> +	rtlpriv->phy.iqk_initialized = false;
->  }
->  
->  void rtl92ce_interrupt_recognized(struct ieee80211_hw *hw,
-
-This part:
-> @@ -1355,9 +1403,9 @@ static void _rtl92ce_read_txpower_info_f
->  			tempval = hwinfo[EEPROM_TXPOWERHT40_2SDIFF + i];
->  		else
->  			tempval = EEPROM_DEFAULT_HT40_2SDIFF;
-> -		rtlefuse->eeprom_chnlarea_txpwr_ht40_2sdiif[RF90_PATH_A][i] =
-> +		rtlefuse->eprom_chnl_txpwr_ht40_2sdf[RF90_PATH_A][i] =
->  		    (tempval & 0xf);
-> -		rtlefuse->eeprom_chnlarea_txpwr_ht40_2sdiif[RF90_PATH_B][i] =
-> +		rtlefuse->eprom_chnl_txpwr_ht40_2sdf[RF90_PATH_B][i] =
->  		    ((tempval & 0xf0) >> 4);
->  	}
->  
-> @@ -1381,7 +1429,7 @@ static void _rtl92ce_read_txpower_info_f
->  				"RF(%d) EEPROM HT40 2S Diff Area(%d) = 0x%x\n",
->  				rf_path, i,
->  				rtlefuse->
-> -				eeprom_chnlarea_txpwr_ht40_2sdiif[rf_path][i]);
-> +				eprom_chnl_txpwr_ht40_2sdf[rf_path][i]);
->  
->  	for (rf_path = 0; rf_path < 2; rf_path++) {
->  		for (i = 0; i < 14; i++) {
-> @@ -1396,14 +1444,14 @@ static void _rtl92ce_read_txpower_info_f
->  			if ((rtlefuse->
->  			     eeprom_chnlarea_txpwr_ht40_1s[rf_path][index] -
->  			     rtlefuse->
-> -			     eeprom_chnlarea_txpwr_ht40_2sdiif[rf_path][index])
-> +			     eprom_chnl_txpwr_ht40_2sdf[rf_path][index])
->  			    > 0) {
->  				rtlefuse->txpwrlevel_ht40_2s[rf_path][i] =
->  				    rtlefuse->
->  				    eeprom_chnlarea_txpwr_ht40_1s[rf_path]
->  				    [index] -
->  				    rtlefuse->
-> -				    eeprom_chnlarea_txpwr_ht40_2sdiif[rf_path]
-> +				    eprom_chnl_txpwr_ht40_2sdf[rf_path]
->  				    [index];
->  			} else {
->  				rtlefuse->txpwrlevel_ht40_2s[rf_path][i] = 0;
-
-wasn't in V1 of the patch. Is the rename normal?
-
-
-Anisse
+>
+> Chris
