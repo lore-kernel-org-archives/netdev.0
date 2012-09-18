@@ -1,49 +1,35 @@
-From: Peter Senna Tschudin <peter.senna-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 2/3] net/openvswitch/vport.c: Remove unecessary
-	semicolon
-Date: Tue, 18 Sep 2012 19:10:44 +0200
-Message-ID: <1347988245-31413-2-git-send-email-peter.senna@gmail.com>
-References: <1347988245-31413-1-git-send-email-peter.senna@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Peter Senna Tschudin <peter.senna-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1347988245-31413-1-git-send-email-peter.senna-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+From: Peter Senna Tschudin <peter.senna@gmail.com>
+Subject: [PATCH 1/3] net/ieee802154/6lowpan.c: Remove unecessary semicolon
+Date: Tue, 18 Sep 2012 19:10:43 +0200
+Message-ID: <1347988245-31413-1-git-send-email-peter.senna@gmail.com>
+Cc: <dbaryshkov@gmail.com>, davem@davemloft.net,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	trivial@kernel.org, Peter Senna Tschudin <peter.senna@gmail.com>
+To: alex.bluesman.smirnov@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Found by http://coccinelle.lip6.fr/
 
-Signed-off-by: Peter Senna Tschudin <peter.senna-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
 ---
- net/openvswitch/vport.c | 2 +-
+ net/ieee802154/6lowpan.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index 9055dd6..03779e8 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -398,7 +398,7 @@ void ovs_vport_record_error(struct vport *vport, enum vport_err_type err_type)
- 	case VPORT_E_TX_ERROR:
- 		vport->err_stats.tx_errors++;
- 		break;
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index d529111..6d42c17 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -1256,7 +1256,7 @@ static int lowpan_device_event(struct notifier_block *unused,
+ 		}
+ 
+ 		unregister_netdevice_many(&del_list);
 -	};
 +	}
  
- 	spin_unlock(&vport->stats_lock);
- }
+ out:
+ 	return NOTIFY_DONE;
 -- 
 1.7.11.4
