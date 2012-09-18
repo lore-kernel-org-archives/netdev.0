@@ -1,35 +1,26 @@
-From: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
-Subject: xt_hashlimit.c race?
-Date: Tue, 18 Sep 2012 17:22:15 +0400
-Message-ID: <20201347974535@web11g.yandex.ru>
+From: ratheesh kannoth <ratheesh.ksz@gmail.com>
+Subject: loop back address question
+Date: Tue, 18 Sep 2012 19:12:58 +0530
+Message-ID: <CAGZFCEE=Txa4=meB7CTuWvcgFe4teiXG3LWbOua21TqXXYY1SQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward18.mail.yandex.net ([95.108.253.143]:33640 "EHLO
-	forward18.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757191Ab2IRNaI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 09:30:08 -0400
-Received: from web11g.yandex.ru (web11g.yandex.ru [95.108.252.111])
-	by forward18.mail.yandex.net (Yandex) with ESMTP id 48FFE1781A37
-	for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 17:22:17 +0400 (MSK)
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:65300 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757122Ab2IRNm7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 09:42:59 -0400
+Received: by obbuo13 with SMTP id uo13so10413931obb.19
+        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 06:42:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hi ,
 
-Looking at the net/netfilter/xt_hashlimit.c revealed one question. As far as
-I can understand hashlimit_mt() code under rcu_read_lock_bh() can be
-executed simultaneously by more than one CPU. So what if we have two
-packets with the same new dst value that processed in parallel by different
-CPUs? In both cases dh is NULL and both CPUs tries to create new
-entry in hash table. This is not what we want and can lead to undefined
-behavior in the future.
+i have two  linux machines(2.6.29 ) A & B, both  connected  to same lan network
 
-Or maybe I'm wrong? Could anyone tell me is this situation possible?
+1)  if  i assign 127.0.2.1 and 127.0.2.2 to interfaces , can we ping
+each other ?  is there any way to  send packets out of interface ?
 
-Thank you!
-
--- 
-wbr, Oleg.
+Thanks,
+Ratheesh
