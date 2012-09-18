@@ -1,42 +1,29 @@
-From: Jamie Gloudon <jamie.gloudon@gmail.com>
-Subject: Re: BUG: TCPDUMP invalid cksum persists after disabling TCP cksum
- offload
-Date: Tue, 18 Sep 2012 18:20:40 -0400
-Message-ID: <20120918222040.GA19201@darkstar>
-References: <20120918193208.GA19030@darkstar>
- <1347998905.2685.29.camel@bwh-desktop.uk.solarflarecom.com>
- <20120918211423.GA19115@darkstar>
- <CAGK4HS9LSAGJ4amNK-rWKFNz=ZCVLkQm4sWABhY5C+6DBWsmUA@mail.gmail.com>
- <5058ED9E.1000902@hp.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/5] ucc_geth: Reduce IRQ off in xmit path
+Date: Wed, 19 Sep 2012 00:39:38 +0200
+Message-ID: <20120918223938.GA22868@electric-eye.fr.zoreil.com>
+References: <1347987385-19071-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Vijay Subramanian <subramanian.vijay@gmail.com>,
-	netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Cc: netdev@vger.kernel.org
+To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:41170 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755351Ab2IRWUs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 18:20:48 -0400
-Received: by qaas11 with SMTP id s11so2942670qaa.19
-        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 15:20:47 -0700 (PDT)
+Received: from violet.fr.zoreil.com ([92.243.8.30]:51024 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932256Ab2IRW5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 18:57:44 -0400
 Content-Disposition: inline
-In-Reply-To: <5058ED9E.1000902@hp.com>
+In-Reply-To: <1347987385-19071-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rick is correct. Disabling TX CKO also disable TSO. You can see that in
-my ethtool output.
+Joakim Tjernlund <Joakim.Tjernlund@transmode.se> :
+> Currently ucc_geth_start_xmit wraps IRQ off for the
+> whole body just to be safe.
+> Reduce the IRQ off period to a minimum.
 
-On Tue, Sep 18, 2012 at 02:54:38PM -0700, Rick Jones wrote:
-> On 09/18/2012 02:46 PM, Vijay Subramanian wrote:
-> >>The results after disabling tcp cksum offload feature:
-> >># ethtool -K eth1 tx off
-> >
-> >Instead of this, can you try
-> ># ethtool -K eth1 tso off
-> 
-> Doesn't TSO depend on TX CKO being enabled?  That is, if TX CKO were
-> disabled, shouldn't TSO have been implicitly disabled at the same time?
-> 
-> rick jones
+The driver does not do much work in its irq handler. You may as well
+convert it to the usual tg3-ish locking style (i.e. almost no locking).
+
+-- 
+Ueimor
