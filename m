@@ -1,46 +1,35 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH 1/4] ipv6: add a new namespace for nf_conntrack_reasm
-Date: Tue, 18 Sep 2012 18:44:01 +0800
-Message-ID: <1347965041.14402.28.camel@cr0>
-References: <1347942582-23962-1-git-send-email-amwang@redhat.com>
-	 <1347942582-23962-2-git-send-email-amwang@redhat.com>
-	 <20120918073756.GA18206@1984>
+From: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
+Subject: xt_hashlimit.c race?
+Date: Tue, 18 Sep 2012 17:22:15 +0400
+Message-ID: <20201347974535@web11g.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Michal =?UTF-8?Q?Kube=C4=8Dek?= <mkubecek@suse.cz>,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120918073756.GA18206@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from forward18.mail.yandex.net ([95.108.253.143]:33640 "EHLO
+	forward18.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757191Ab2IRNaI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2012 09:30:08 -0400
+Received: from web11g.yandex.ru (web11g.yandex.ru [95.108.252.111])
+	by forward18.mail.yandex.net (Yandex) with ESMTP id 48FFE1781A37
+	for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 17:22:17 +0400 (MSK)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-09-18 at 09:37 +0200, Pablo Neira Ayuso wrote:
-> > +#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
-> > +	struct netns_nf_ct	nf_ct;
-> > +#endif
-> 
-> There's above one "struct netns_ct" that already encapsulates
-> netfilter conntrack netns parameters.
-> 
-> However, I'd prefer if, while at it, you define some struct
-> netns_nf_frag instead.
-> 
-> In net/ipv6/netfilter/Makefile, it says:
-> 
-> # defrag
-> nf_defrag_ipv6-y := nf_defrag_ipv6_hooks.o nf_conntrack_reasm.o
-> 
-> Note that nf defragmentation is not glued to conntrack anymore. So I'd
-> go for one netns_nf_frag for this in include/net/net_namespace.h
-> 
+Hello,
 
-Sure, I will rename that struct to 'struct netns_nf_frag'.
+Looking at the net/netfilter/xt_hashlimit.c revealed one question. As far as
+I can understand hashlimit_mt() code under rcu_read_lock_bh() can be
+executed simultaneously by more than one CPU. So what if we have two
+packets with the same new dst value that processed in parallel by different
+CPUs? In both cases dh is NULL and both CPUs tries to create new
+entry in hash table. This is not what we want and can lead to undefined
+behavior in the future.
 
-Thanks for review!
+Or maybe I'm wrong? Could anyone tell me is this situation possible?
 
+Thank you!
 
+-- 
+wbr, Oleg.
