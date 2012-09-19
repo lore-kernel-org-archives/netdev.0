@@ -1,35 +1,34 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH net-next] ipv6: recursive check rt->dst.from when call
- rt6_check_expired
-Date: Wed, 19 Sep 2012 16:22:22 +0800
-Message-ID: <505980BE.5060300@cn.fujitsu.com>
-References: <1347602097-18034-1-git-send-email-roy.qing.li@gmail.com>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [RFC PATCH v1 1/3] usbnet: introduce usbnet_link_change API
+Date: Wed, 19 Sep 2012 10:38:34 +0200
+Message-ID: <18002667.XoLU40z6kl@linux-lqwf.site>
+References: <1347978201-6219-1-git-send-email-ming.lei@canonical.com> <1347978201-6219-2-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:33365 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751970Ab2ISIWW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 04:22:22 -0400
-In-Reply-To: <1347602097-18034-1-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Fink Dmitry <finik-l0cyMroinI0@public.gmane.org>, Rafael Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1347978201-6219-2-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2012=E5=B9=B409=E6=9C=8814=E6=97=A5 13:54, roy.qing.li@gmail.=
-com =E5=86=99=E9=81=93:
-> From: Li RongQing <roy.qing.li@gmail.com>
->=20
-> If dst cache dst_a copies from dst_b, and dst_b copies from dst_c, ch=
-eck
-> if dst_a is expired or not, we should not end with dst_a->dst.from, d=
-st_b,
-> we should check dst_c.
->=20
-> CC: Gao feng <gaofeng@cn.fujitsu.com>
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
+On Tuesday 18 September 2012 22:23:19 Ming Lei wrote:
+> This patch introduces the API of usbnet_link_change, so that
+> usbnet can trace the link change, which may help to implement
+> the later runtime PM triggered by usb ethernet link change.
+> 
+> Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Acked-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
 
-Looks good to me,thanks rongqing :)
+	Regards
+		Oliver
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
