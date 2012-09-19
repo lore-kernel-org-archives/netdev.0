@@ -1,7 +1,7 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH v2 4/9] net/macb: remove macb_get_drvinfo()
-Date: Wed, 19 Sep 2012 13:55:17 +0200
-Message-ID: <3fbd9b0eb1e255eccd14ad43044e146776baa963.1348055112.git.nicolas.ferre@atmel.com>
+Subject: [PATCH v2 9/9] net/macb: Offset first RX buffer by two bytes
+Date: Wed, 19 Sep 2012 13:55:22 +0200
+Message-ID: <b2852ce5414b75b9693297964200abb6bf12877f.1348055112.git.nicolas.ferre@atmel.com>
 References: <cover.1348055112.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,38 +16,93 @@ In-Reply-To: <cover.1348055112.git.nicolas.ferre@atmel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This function has little meaning so remove it altogether and
-let ethtool core fill in the fields automatically.
+From: Havard Skinnemoen <havard@skinnemoen.net>
 
+Make the ethernet frame payload word-aligned, possibly making the
+memcpy into the skb a bit faster. This will be even more important
+after we eliminate the copy altogether.
+
+Also eliminate the redundant RX_OFFSET constant -- it has the same
+definition and purpose as NET_IP_ALIGN.
+
+Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
+[nicolas.ferre@atmel.com: adapt to newer kernel]
 Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 ---
- drivers/net/ethernet/cadence/macb.c | 11 -----------
- 1 file changed, 11 deletions(-)
+ drivers/net/ethernet/cadence/macb.c | 23 ++++++++++++++++-------
+ 1 file changed, 16 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 2948553..31f945c 100644
+index cfd6d5d..09ea7c7 100644
 --- a/drivers/net/ethernet/cadence/macb.c
 +++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1217,20 +1217,9 @@ static int macb_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	return phy_ethtool_sset(phydev, cmd);
- }
+@@ -33,9 +33,6 @@
+ #define RX_RING_SIZE		512
+ #define RX_RING_BYTES		(sizeof(struct macb_dma_desc) * RX_RING_SIZE)
  
--static void macb_get_drvinfo(struct net_device *dev,
--			     struct ethtool_drvinfo *info)
--{
--	struct macb *bp = netdev_priv(dev);
+-/* Make the IP header word-aligned (the ethernet header is 14 bytes) */
+-#define RX_OFFSET		2
 -
--	strcpy(info->driver, bp->pdev->dev.driver->name);
--	strcpy(info->version, "$Revision: 1.14 $");
--	strcpy(info->bus_info, dev_name(&bp->pdev->dev));
--}
--
- static const struct ethtool_ops macb_ethtool_ops = {
- 	.get_settings		= macb_get_settings,
- 	.set_settings		= macb_set_settings,
--	.get_drvinfo		= macb_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
- };
+ #define TX_RING_SIZE		128
+ #define TX_RING_BYTES		(sizeof(struct macb_dma_desc) * TX_RING_SIZE)
  
+@@ -494,7 +491,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ {
+ 	unsigned int len;
+ 	unsigned int frag;
+-	unsigned int offset = 0;
++	unsigned int offset;
+ 	struct sk_buff *skb;
+ 	struct macb_dma_desc *desc;
+ 
+@@ -505,7 +502,16 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 		macb_rx_ring_wrap(first_frag),
+ 		macb_rx_ring_wrap(last_frag), len);
+ 
+-	skb = netdev_alloc_skb(bp->dev, len + RX_OFFSET);
++	/*
++	 * The ethernet header starts NET_IP_ALIGN bytes into the
++	 * first buffer. Since the header is 14 bytes, this makes the
++	 * payload word-aligned.
++	 *
++	 * Instead of calling skb_reserve(NET_IP_ALIGN), we just copy
++	 * the two padding bytes into the skb so that we avoid hitting
++	 * the slowpath in memcpy(), and pull them off afterwards.
++	 */
++	skb = netdev_alloc_skb(bp->dev, len + NET_IP_ALIGN);
+ 	if (!skb) {
+ 		bp->stats.rx_dropped++;
+ 		for (frag = first_frag; ; frag++) {
+@@ -521,7 +527,8 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 		return 1;
+ 	}
+ 
+-	skb_reserve(skb, RX_OFFSET);
++	offset = 0;
++	len += NET_IP_ALIGN;
+ 	skb_checksum_none_assert(skb);
+ 	skb_put(skb, len);
+ 
+@@ -545,10 +552,11 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 	/* Make descriptor updates visible to hardware */
+ 	wmb();
+ 
++	__skb_pull(skb, NET_IP_ALIGN);
+ 	skb->protocol = eth_type_trans(skb, bp->dev);
+ 
+ 	bp->stats.rx_packets++;
+-	bp->stats.rx_bytes += len;
++	bp->stats.rx_bytes += skb->len;
+ 	netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
+ 		   skb->len, skb->csum);
+ 	netif_receive_skb(skb);
+@@ -1008,6 +1016,7 @@ static void macb_init_hw(struct macb *bp)
+ 	__macb_set_hwaddr(bp);
+ 
+ 	config = macb_mdc_clk_div(bp);
++	config |= MACB_BF(RBOF, NET_IP_ALIGN);	/* Make eth data aligned */
+ 	config |= MACB_BIT(PAE);		/* PAuse Enable */
+ 	config |= MACB_BIT(DRFCS);		/* Discard Rx FCS */
+ 	config |= MACB_BIT(BIG);		/* Receive oversized frames */
 -- 
 1.7.11.3
