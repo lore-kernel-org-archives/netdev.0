@@ -1,7 +1,7 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [RFC PATCH v2 8/9] net/macb: better manage tx errors
-Date: Wed, 19 Sep 2012 13:55:21 +0200
-Message-ID: <ff2a419c59882c4669b774d4a1299f4d94f36085.1348055112.git.nicolas.ferre@atmel.com>
+Subject: [PATCH v2 7/9] net/macb: ethtool interface: add register dump feature
+Date: Wed, 19 Sep 2012 13:55:20 +0200
+Message-ID: <20ebfb29f6f4a84d8ba20553e2d81cd456f438de.1348055112.git.nicolas.ferre@atmel.com>
 References: <cover.1348055112.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,265 +16,85 @@ In-Reply-To: <cover.1348055112.git.nicolas.ferre@atmel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Handle all TX errors, not only underruns. TX error management is
-deferred to a dedicated workqueue.
-Reinitialize the TX ring after treating all remaining frames, and
-restart the controller when everything has been cleaned up properly.
-Napi is not stopped during this task as the driver only handles
-napi for RX for now.
-With this sequence, we do not need a special check during the xmit
-method as the packets will be caught by TX disable during workqueue
-execution.
+Add macb_get_regs() ethtool function and its helper function:
+macb_get_regs_len().
+The version field is deduced from the IP revision which gives the
+"MACB or GEM" information. An additional version field is reserved.
 
 Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
-v2: - modify the tx error handling: now uses a workqueue
-
-Hi,
-
-I have marked this patch as RFC because I would like feedback from David and
-Havard as both of you made comments on the previous series: did I address your 
-views on this tx error handling?
-
-Thanks for your help.
-
-
- drivers/net/ethernet/cadence/macb.c | 166 ++++++++++++++++++++++++------------
- drivers/net/ethernet/cadence/macb.h |   1 +
- 2 files changed, 113 insertions(+), 54 deletions(-)
+ drivers/net/ethernet/cadence/macb.c | 40 +++++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/cadence/macb.h |  3 +++
+ 2 files changed, 43 insertions(+)
 
 diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 2c4358e..cfd6d5d 100644
+index 5758a1c..2c4358e 100644
 --- a/drivers/net/ethernet/cadence/macb.c
 +++ b/drivers/net/ethernet/cadence/macb.c
-@@ -44,6 +44,16 @@
- 
- #define MACB_RX_INT_FLAGS	(MACB_BIT(RCOMP) | MACB_BIT(RXUBR)	\
- 				 | MACB_BIT(ISR_ROVR))
-+#define MACB_TX_ERR_FLAGS	(MACB_BIT(ISR_TUND)			\
-+					| MACB_BIT(ISR_RLE)		\
-+					| MACB_BIT(TXERR))
-+#define MACB_TX_INT_FLAGS	(MACB_TX_ERR_FLAGS | MACB_BIT(TCOMP))
-+
-+/*
-+ * Graceful stop timeouts in us. We should allow up to
-+ * 1 frame time (10 Mbits/s, full-duplex, ignoring collisions)
-+ */
-+#define MACB_HALT_TIMEOUT	1230
- 
- /* Ring buffer accessors */
- static unsigned int macb_tx_ring_wrap(unsigned int index)
-@@ -335,66 +345,113 @@ static void macb_update_stats(struct macb *bp)
- 		*p += __raw_readl(reg);
+@@ -1265,9 +1265,49 @@ static int macb_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	return phy_ethtool_sset(phydev, cmd);
  }
  
--static void macb_tx(struct macb *bp)
-+static int macb_halt_tx(struct macb *bp)
- {
--	unsigned int tail;
--	unsigned int head;
--	u32 status;
-+	unsigned long	halt_time, timeout;
-+	u32		status;
- 
--	status = macb_readl(bp, TSR);
--	macb_writel(bp, TSR, status);
-+	macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(THALT));
- 
--	netdev_vdbg(bp->dev, "macb_tx status = 0x%03lx\n", (unsigned long)status);
-+	timeout = jiffies + usecs_to_jiffies(MACB_HALT_TIMEOUT);
-+	do {
-+		halt_time = jiffies;
-+		status = macb_readl(bp, TSR);
-+		if (!(status & MACB_BIT(TGO)))
-+			return 0;
- 
--	if (status & (MACB_BIT(UND) | MACB_BIT(TSR_RLE))) {
--		int i;
--		netdev_err(bp->dev, "TX %s, resetting buffers\n",
--			   status & MACB_BIT(UND) ?
--			   "underrun" : "retry limit exceeded");
-+		usleep_range(10, 250);
-+	} while (time_before(halt_time, timeout));
- 
--		/* Transfer ongoing, disable transmitter, to avoid confusion */
--		if (status & MACB_BIT(TGO))
--			macb_writel(bp, NCR, macb_readl(bp, NCR) & ~MACB_BIT(TE));
-+	return -ETIMEDOUT;
-+}
- 
--		head = bp->tx_head;
-+static void macb_tx_error_task(struct work_struct *work)
++static int macb_get_regs_len(struct net_device *netdev)
 +{
-+	struct macb	*bp = container_of(work, struct macb, tx_error_task);
-+	struct macb_tx_skb	*tx_skb;
-+	struct sk_buff		*skb;
-+	unsigned int		tail;
- 
--		/*Mark all the buffer as used to avoid sending a lost buffer*/
--		for (i = 0; i < TX_RING_SIZE; i++)
--			bp->tx_ring[i].ctrl = MACB_BIT(TX_USED);
-+	netdev_vdbg(bp->dev, "macb_tx_error_task: t = %u, h = %u\n",
-+		    bp->tx_tail, bp->tx_head);
- 
--		/* Add wrap bit */
--		bp->tx_ring[TX_RING_SIZE - 1].ctrl |= MACB_BIT(TX_WRAP);
-+	/* Make sure nobody is trying to queue up new packets */
-+	netif_stop_queue(bp->dev);
- 
--		/* free transmit buffer in upper layer*/
--		for (tail = bp->tx_tail; tail != head; tail++) {
--			struct macb_tx_skb	*tx_skb;
--			struct sk_buff		*skb;
-+	/*
-+	 * Stop transmission now
-+	 * (in case we have just queued new packets)
-+	 */
-+	if (macb_halt_tx(bp))
-+		/* Just complain for now, reinitializing TX path can be good */
-+		netdev_err(bp->dev, "BUG: halt tx timed out\n");
- 
--			rmb();
-+	/* No need for the lock here as nobody will interrupt us anymore */
- 
--			tx_skb = macb_tx_skb(bp, tail);
--			skb = tx_skb->skb;
-+	/*
-+	 * Treat frames in TX queue including the ones that caused the error.
-+	 * Free transmit buffers in upper layer.
-+	 */
-+	for (tail = bp->tx_tail; tail != bp->tx_head; tail++) {
-+		struct macb_dma_desc	*desc;
-+		u32			ctrl;
- 
--			dma_unmap_single(&bp->pdev->dev, tx_skb->mapping,
--						skb->len, DMA_TO_DEVICE);
--			tx_skb->skb = NULL;
--			dev_kfree_skb_irq(skb);
--		}
-+		desc = macb_tx_desc(bp, tail);
-+		ctrl = desc->ctrl;
-+		tx_skb = macb_tx_skb(bp, tail);
-+		skb = tx_skb->skb;
-+
-+		if (ctrl & MACB_BIT(TX_USED)) {
-+			netdev_vdbg(bp->dev, "txerr skb %u (data %p) TX complete\n",
-+				    macb_tx_ring_wrap(tail), skb->data);
-+			bp->stats.tx_packets++;
-+			bp->stats.tx_bytes += skb->len;
-+		} else {
-+			/*
-+			 * "Buffers exhausted mid-frame" errors may only happen
-+			 * if the driver is buggy, so complain loudly about those.
-+			 * Statistics are updated by hardware.
-+			 */
-+			if (ctrl & MACB_BIT(TX_BUF_EXHAUSTED))
-+				netdev_err(bp->dev,
-+					   "BUG: TX buffers exhausted mid-frame\n");
- 
--		bp->tx_head = bp->tx_tail = 0;
-+			desc->ctrl = ctrl | MACB_BIT(TX_USED);
-+		}
- 
--		/* Enable the transmitter again */
--		if (status & MACB_BIT(TGO))
--			macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(TE));
-+		dma_unmap_single(&bp->pdev->dev, tx_skb->mapping, skb->len,
-+				 DMA_TO_DEVICE);
-+		tx_skb->skb = NULL;
-+		dev_kfree_skb(skb);
- 	}
- 
--	if (!(status & MACB_BIT(COMP)))
--		/*
--		 * This may happen when a buffer becomes complete
--		 * between reading the ISR and scanning the
--		 * descriptors.  Nothing to worry about.
--		 */
--		return;
-+	/* Make descriptor updates visible to hardware */
-+	wmb();
-+
-+	/* Reinitialize the TX desc queue */
-+	macb_writel(bp, TBQP, bp->tx_ring_dma);
-+	/* Make TX ring reflect state of hardware */
-+	bp->tx_head = bp->tx_tail = 0;
-+
-+	/* Now we are ready to start transmission again */
-+	netif_wake_queue(bp->dev);
-+
-+	/* Housework before enabling TX IRQ */
-+	macb_writel(bp, TSR, macb_readl(bp, TSR));
-+	macb_writel(bp, IER, MACB_TX_INT_FLAGS);
++	return MACB_GREGS_NBR * sizeof(u32);
 +}
 +
-+static void macb_tx_interrupt(struct macb *bp)
++static void macb_get_regs(struct net_device *dev, struct ethtool_regs *regs,
++			  void *p)
 +{
-+	unsigned int tail;
-+	unsigned int head;
-+	u32 status;
++	struct macb *bp = netdev_priv(dev);
++	unsigned int tail, head;
++	u32 *regs_buff = p;
 +
-+	status = macb_readl(bp, TSR);
-+	macb_writel(bp, TSR, status);
++	regs->version = (macb_readl(bp, MID) & ((1 << MACB_REV_SIZE) - 1))
++			| MACB_GREGS_VERSION;
 +
-+	netdev_vdbg(bp->dev, "macb_tx_interrupt status = 0x%03lx\n",
-+		(unsigned long)status);
- 
- 	head = bp->tx_head;
- 	for (tail = bp->tx_tail; tail != head; tail++) {
-@@ -634,9 +691,14 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 			}
- 		}
- 
--		if (status & (MACB_BIT(TCOMP) | MACB_BIT(ISR_TUND) |
--			    MACB_BIT(ISR_RLE)))
--			macb_tx(bp);
-+		if (unlikely(status & (MACB_TX_ERR_FLAGS))) {
-+			macb_writel(bp, IDR, MACB_TX_INT_FLAGS);
-+			schedule_work(&bp->tx_error_task);
-+			break;
-+		}
++	tail = macb_tx_ring_wrap(bp->tx_tail);
++	head = macb_tx_ring_wrap(bp->tx_head);
 +
-+		if (status & MACB_BIT(TCOMP))
-+			macb_tx_interrupt(bp);
++	regs_buff[0]  = macb_readl(bp, NCR);
++	regs_buff[1]  = macb_or_gem_readl(bp, NCFGR);
++	regs_buff[2]  = macb_readl(bp, NSR);
++	regs_buff[3]  = macb_readl(bp, TSR);
++	regs_buff[4]  = macb_readl(bp, RBQP);
++	regs_buff[5]  = macb_readl(bp, TBQP);
++	regs_buff[6]  = macb_readl(bp, RSR);
++	regs_buff[7]  = macb_readl(bp, IMR);
++
++	regs_buff[8]  = tail;
++	regs_buff[9]  = head;
++	regs_buff[10] = macb_tx_dma(bp, tail);
++	regs_buff[11] = macb_tx_dma(bp, head);
++
++	if (macb_is_gem(bp)) {
++		regs_buff[12] = gem_readl(bp, USRIO);
++		regs_buff[13] = gem_readl(bp, DMACFG);
++	}
++}
++
+ static const struct ethtool_ops macb_ethtool_ops = {
+ 	.get_settings		= macb_get_settings,
+ 	.set_settings		= macb_set_settings,
++	.get_regs_len		= macb_get_regs_len,
++	.get_regs		= macb_get_regs,
+ 	.get_link		= ethtool_op_get_link,
+ };
  
- 		/*
- 		 * Link change detection isn't possible with RMII, so we'll
-@@ -966,13 +1028,8 @@ static void macb_init_hw(struct macb *bp)
- 	macb_writel(bp, NCR, MACB_BIT(RE) | MACB_BIT(TE) | MACB_BIT(MPE));
- 
- 	/* Enable interrupts */
--	macb_writel(bp, IER, (MACB_BIT(RCOMP)
--			      | MACB_BIT(RXUBR)
--			      | MACB_BIT(ISR_TUND)
--			      | MACB_BIT(ISR_RLE)
--			      | MACB_BIT(TXERR)
--			      | MACB_BIT(TCOMP)
--			      | MACB_BIT(ISR_ROVR)
-+	macb_writel(bp, IER, (MACB_RX_INT_FLAGS
-+			      | MACB_TX_INT_FLAGS
- 			      | MACB_BIT(HRESP)));
- 
- }
-@@ -1417,6 +1474,7 @@ static int __init macb_probe(struct platform_device *pdev)
- 	bp->dev = dev;
- 
- 	spin_lock_init(&bp->lock);
-+	INIT_WORK(&bp->tx_error_task, macb_tx_error_task);
- 
- 	bp->pclk = clk_get(&pdev->dev, "pclk");
- 	if (IS_ERR(bp->pclk)) {
 diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 5be5900..bfab8ef 100644
+index 8a4ee2f..5be5900 100644
 --- a/drivers/net/ethernet/cadence/macb.h
 +++ b/drivers/net/ethernet/cadence/macb.h
-@@ -532,6 +532,7 @@ struct macb {
- 	struct clk		*hclk;
- 	struct net_device	*dev;
- 	struct napi_struct	napi;
-+	struct work_struct	tx_error_task;
- 	struct net_device_stats	stats;
- 	union {
- 		struct macb_stats	macb;
+@@ -10,6 +10,9 @@
+ #ifndef _MACB_H
+ #define _MACB_H
+ 
++#define MACB_GREGS_NBR 16
++#define MACB_GREGS_VERSION 1
++
+ /* MACB register offsets */
+ #define MACB_NCR				0x0000
+ #define MACB_NCFGR				0x0004
 -- 
 1.7.11.3
