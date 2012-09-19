@@ -1,8 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 09/11] sfc: Expose FPGA bitfile partition through
- MTD
-Date: Wed, 19 Sep 2012 20:18:16 +0100
-Message-ID: <1348082296.2636.24.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 10/11] sfc: Bump version to 3.2
+Date: Wed, 19 Sep 2012 20:18:33 +0100
+Message-ID: <1348082313.2636.25.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1348081775.2636.15.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,41 +9,34 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:20236 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:20249 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932243Ab2ISTST (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 15:18:19 -0400
+	by vger.kernel.org with ESMTP id S933019Ab2ISTSg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 15:18:36 -0400
 In-Reply-To: <1348081775.2636.15.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The key new feature for 3.2 is PTP support.
+
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/mtd.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/sfc/net_driver.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/mtd.c b/drivers/net/ethernet/sfc/mtd.c
-index 8f4604d..08f825b 100644
---- a/drivers/net/ethernet/sfc/mtd.c
-+++ b/drivers/net/ethernet/sfc/mtd.c
-@@ -585,6 +585,7 @@ static const struct siena_nvram_type_info siena_nvram_types[] = {
- 	[MC_CMD_NVRAM_TYPE_EXP_ROM_CFG_PORT1]	= { 1, "sfc_exp_rom_cfg" },
- 	[MC_CMD_NVRAM_TYPE_PHY_PORT0]		= { 0, "sfc_phy_fw" },
- 	[MC_CMD_NVRAM_TYPE_PHY_PORT1]		= { 1, "sfc_phy_fw" },
-+	[MC_CMD_NVRAM_TYPE_FPGA]		= { 0, "sfc_fpga" },
- };
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 797dbed..c1a010c 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -37,7 +37,7 @@
+  *
+  **************************************************************************/
  
- static int siena_mtd_probe_partition(struct efx_nic *efx,
-@@ -598,7 +599,8 @@ static int siena_mtd_probe_partition(struct efx_nic *efx,
- 	bool protected;
- 	int rc;
+-#define EFX_DRIVER_VERSION	"3.1"
++#define EFX_DRIVER_VERSION	"3.2"
  
--	if (type >= ARRAY_SIZE(siena_nvram_types))
-+	if (type >= ARRAY_SIZE(siena_nvram_types) ||
-+	    siena_nvram_types[type].name == NULL)
- 		return -ENODEV;
- 
- 	info = &siena_nvram_types[type];
+ #ifdef DEBUG
+ #define EFX_BUG_ON_PARANOID(x) BUG_ON(x)
 -- 
 1.7.7.6
 
