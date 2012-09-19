@@ -1,35 +1,42 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
-Date: Wed, 19 Sep 2012 10:28:40 -0700
-Message-ID: <505A00C8.5050302@hp.com>
-References: <20120917.121243.1665284878800146060.davem@davemloft.net> <1347901326.26523.149.camel@edumazet-glaptop> <1347901493.26523.151.camel@edumazet-glaptop> <20120917.130732.1894375657044880827.davem@davemloft.net> <1348067659.26523.949.camel@edumazet-glaptop>
+From: michi1@michaelblizek.twilightparadox.com
+Subject: [RFC] new connection-oriented layer 3+4 protocol
+Date: Wed, 19 Sep 2012 19:08:53 +0200
+Message-ID: <20120919170853.GJ2228@grml>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0186.atlanta.hp.com ([15.193.32.63]:39909 "EHLO
-	g6t0186.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756570Ab2ISR2o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 13:28:44 -0400
-In-Reply-To: <1348067659.26523.949.camel@edumazet-glaptop>
+Received: from michaelblizek.twilightparadox.com ([193.238.157.55]:50093 "EHLO
+	michaelblizek.twilightparadox.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756645Ab2ISR3v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 13:29:51 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/19/2012 08:14 AM, Eric Dumazet wrote:
-> I did some tests and got no problem so far, even using splice() [ this
-> one was tricky because it only deals with order-0 pages at this moment ]
->
-> NIC tested : ixgbe, igb, bnx2x, tg3, mellanox mlx4
->
-> On loopback, performance of netperf goes from 31900 Mb/s to 38500 Mb/s,
-> thats a 20 % increase.
+Hi!
 
-I guess Brutus will need a new baseline for his TCP Friends patch then :)
+I am programming a new layer 3+4 protocol for mesh networks. Basically it is
+- connection oriented
+- source (+optional onion) routed
+- doing windowing between each neighbor on every connection (no congestion
+  avoidance)
+- using credits as a metric for QoS
 
-BTW, what is the change, if any for TCP_RR?
+The protocol especially tries to withstand DoS attacks and rough
+users/application without human interference. This includes protection against
+inserting bogus routes, blackholing/throttling, addressing conflicts (node
+address can be a hashed public crypto key) and ressource contention. In theory
+it could provide Byzantine robustness, but in practice the overhead for
+calculating routes and ressource contention will limit how far this gets.
 
-happy benchmarking,
+Right now the layer 3 is running somehow (without any crypto). The layer 4 is
+currently rather incomplete and broken.
 
-rick jones
+Project home:
+http://michaelblizek.homelinux.net/projects/cor/index.html
+
+Code:
+http://repo.or.cz/w/cor.git/tree/HEAD:/net/cor
+
+        -Michi
