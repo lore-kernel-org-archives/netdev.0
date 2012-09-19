@@ -1,79 +1,44 @@
-From: Neil Horman <nhorman@tuxdriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next] net: only run neigh_forced_gc() from one cpu
-Date: Wed, 19 Sep 2012 06:50:38 -0400
-Message-ID: <20120919105038.GA12352@hmsreliant.think-freely.org>
+Date: Wed, 19 Sep 2012 13:07:05 +0200
+Message-ID: <1348052825.26523.676.camel@edumazet-glaptop>
 References: <1348046827.26523.571.camel@edumazet-glaptop>
+	 <20120919105038.GA12352@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
-	Maciej =?utf-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
 	Tom Herbert <therbert@google.com>,
 	Lorenzo Colitti <lorenzo@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:58687 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753256Ab2ISKux (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 06:50:53 -0400
-Content-Disposition: inline
-In-Reply-To: <1348046827.26523.571.camel@edumazet-glaptop>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:45657 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751330Ab2ISLHM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 07:07:12 -0400
+Received: by bkwj10 with SMTP id j10so435770bkw.19
+        for <netdev@vger.kernel.org>; Wed, 19 Sep 2012 04:07:11 -0700 (PDT)
+In-Reply-To: <20120919105038.GA12352@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 19, 2012 at 11:27:07AM +0200, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->=20
-> With multiqueue NIC or RPS, we can have situation where all cpus are
-> spending huge amount of cycles in neigh_forced_gc(), and machine can
-> crash.
->=20
-> Since we are under probable attack, its better to let only one cpu
-> do the scan, and other cpus immediately return from neigh_forced_gc()
->=20
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Lorenzo Colitti <lorenzo@google.com>
-> Cc: Maciej =C5=BBenczykowski <maze@google.com>
-> Cc: Tom Herbert <therbert@google.com>
-> ---
-> Google-Bug-Id: 7121897
->=20
->  include/net/neighbour.h |    1 +
->  net/core/neighbour.c    |    9 +++++++--
->  2 files changed, 8 insertions(+), 2 deletions(-)
->=20
-> diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-> index 0dab173..ba21e93 100644
-> --- a/include/net/neighbour.h
-> +++ b/include/net/neighbour.h
-> @@ -178,6 +178,7 @@ struct neigh_table {
->  	struct neigh_statistics	__percpu *stats;
->  	struct neigh_hash_table __rcu *nht;
->  	struct pneigh_entry	**phash_buckets;
-> +	spinlock_t		forced_gc_lock;
->  };
-> =20
->  #define NEIGH_PRIV_ALIGN	sizeof(long long)
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index c160adb..1f7d8fa 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -134,9 +134,12 @@ static int neigh_forced_gc(struct neigh_table *t=
-bl)
->  	int i;
->  	struct neigh_hash_table *nht;
-> =20
-> +	if (!spin_trylock_bh(&tbl->forced_gc_lock))
-> +		return 0;
-> +
-This is going to cause callers in neigh_alloc to immediately fail their
-allocation attempts.  Would it be a good idea to modify that call site =
-so that
-instead of returning NULL, instead reread tbl->entries before comparing=
- to
-gc_thresh3, on the hope that the cpu in the garbage collecting routine =
-has freed
-some entries?
+On Wed, 2012-09-19 at 06:50 -0400, Neil Horman wrote:
 
-Neil
+> This is going to cause callers in neigh_alloc to immediately fail their
+> allocation attempts.  Would it be a good idea to modify that call site so that
+> instead of returning NULL, instead reread tbl->entries before comparing to
+> gc_thresh3, on the hope that the cpu in the garbage collecting routine has freed
+> some entries?
+
+neigh_alloc() fails only if gc_thresh3 is hit, and if it is hit, we are
+under attack by definition.
+
+(the gc is run every 5 seconds is above gc_thresh2, and below
+gc_thresh3)
+
+No matter what you try, the attacker is going to be the winner.
+
+The best thing here is to drop packets, not spending several milli
+seconds to serve one packet, as queues are going to tail drop anyway.
