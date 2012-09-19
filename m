@@ -1,127 +1,271 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [RFC PATCHv2 bridge 6/7] bridge: Add sysfs interface to display VLANS
-Date: Wed, 19 Sep 2012 08:42:15 -0400
-Message-ID: <1348058536-22607-7-git-send-email-vyasevic@redhat.com>
+Subject: [RFC PATCHv2 bridge 3/7] bridge: Add vlan id to multicast groups
+Date: Wed, 19 Sep 2012 08:42:12 -0400
+Message-ID: <1348058536-22607-4-git-send-email-vyasevic@redhat.com>
 References: <1348058536-22607-1-git-send-email-vyasevic@redhat.com>
 Cc: shemminger@vyatta.com, Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1904 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:4285 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756433Ab2ISMmX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Sep 2012 08:42:23 -0400
+	id S1756397Ab2ISMmU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Sep 2012 08:42:20 -0400
 In-Reply-To: <1348058536-22607-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a binary sysfs file that will dump out vlans currently configured on the
-port.
+Add vlan_id to multicasts groups so that we know which vlan each group belongs
+to and can correctly forward to appropriate vlan.
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+Signed-off-by: Vlad Yasevich <vyasevich@redhat.com>
 ---
- include/linux/if_bridge.h |    1 +
- net/bridge/br_sysfs_if.c  |   70 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 71 insertions(+), 0 deletions(-)
+ net/bridge/br_multicast.c |   64 +++++++++++++++++++++++++++++++--------------
+ net/bridge/br_private.h   |    1 +
+ 2 files changed, 45 insertions(+), 20 deletions(-)
 
-diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
-index 8476d6f..cc85739 100644
---- a/include/linux/if_bridge.h
-+++ b/include/linux/if_bridge.h
-@@ -20,6 +20,7 @@
- #define SYSFS_BRIDGE_PORT_SUBDIR "brif"
- #define SYSFS_BRIDGE_PORT_ATTR	"brport"
- #define SYSFS_BRIDGE_PORT_LINK	"bridge"
-+#define SYSFS_BRIDGE_PORT_VLANS "vlans"
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 2417434..888fc08 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -51,6 +51,8 @@ static inline int br_ip_equal(const struct br_ip *a, const struct br_ip *b)
+ {
+ 	if (a->proto != b->proto)
+ 		return 0;
++	if (a->vid != b->vid)
++		return 0;
+ 	switch (a->proto) {
+ 	case htons(ETH_P_IP):
+ 		return a->u.ip4 == b->u.ip4;
+@@ -62,16 +64,19 @@ static inline int br_ip_equal(const struct br_ip *a, const struct br_ip *b)
+ 	return 0;
+ }
  
- #define BRCTL_VERSION 1
+-static inline int __br_ip4_hash(struct net_bridge_mdb_htable *mdb, __be32 ip)
++static inline int __br_ip4_hash(struct net_bridge_mdb_htable *mdb, __be32 ip,
++				__u16 vid)
+ {
+-	return jhash_1word(mdb->secret, (__force u32)ip) & (mdb->max - 1);
++	return jhash_2words((__force u32)ip, vid, mdb->secret) & (mdb->max - 1);
+ }
  
-diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-index 13b36bd..b07a743 100644
---- a/net/bridge/br_sysfs_if.c
-+++ b/net/bridge/br_sysfs_if.c
-@@ -234,6 +234,71 @@ const struct sysfs_ops brport_sysfs_ops = {
- };
+ #if IS_ENABLED(CONFIG_IPV6)
+ static inline int __br_ip6_hash(struct net_bridge_mdb_htable *mdb,
+-				const struct in6_addr *ip)
++				const struct in6_addr *ip,
++				__u16 vid)
+ {
+-	return jhash2((__force u32 *)ip->s6_addr32, 4, mdb->secret) & (mdb->max - 1);
++	return jhash_2words(ipv6_addr_hash(ip), vid,
++			    mdb->secret) & (mdb->max - 1);
+ }
+ #endif
  
- /*
-+ * Export the vlan table for a given port as a binary file.
-+ * The entire bitmap is exported.
-+ *
-+ * Returns the number of bytes read.
-+ */
-+static ssize_t brport_vlans_read(struct file *filp, struct kobject *kobj,
-+				struct bin_attribute *bin_attr,
-+				char *buf, loff_t off, size_t count)
-+{
-+	struct net_bridge_port *p = to_brport(kobj);
-+	unsigned long *map = rcu_dereference(p->vlan_map);
-+	ssize_t map_len;
-+
-+	/* Just write the map back to userspace.  brctl will interpret
-+	 * it correctly.
-+	 */
-+	map_len = BITS_TO_LONGS(br_vid(VLAN_N_VID));
-+	memcpy(buf, map, map_len);
-+	return map_len;
-+}
-+
-+/* Set a vlan id specified in @buf into the vlan map of the port.  The vlan id
-+ * is specified as an unsinged short.
-+ */
-+static ssize_t brport_vlans_write(struct file *filp, struct kobject *kobj,
-+				struct bin_attribute *bin_attr,
-+				char *buf, loff_t off, size_t count)
-+{
-+	struct net_bridge_port *p = to_brport(kobj);
-+	unsigned short val;
-+	int rc = 0;
-+
-+	if (!capable(CAP_NET_ADMIN))
-+		return -EPERM;
-+
-+	if (count < sizeof(unsigned short))
-+		return -EINVAL;
-+
-+	val = *(unsigned short *)buf;
-+
-+	if (val > VLAN_N_VID)
-+		return -EINVAL;
-+
-+	if (!rtnl_trylock())
-+		return restart_syscall();
-+
-+	if (p->dev && p->br) {
-+		rc = br_set_port_vlan(p, val);
-+
-+		if (rc == 0)
-+			rc = count;
-+	}
-+
-+	rtnl_unlock();
-+	return rc;
-+}
-+
-+static struct bin_attribute port_vlans = {
-+	.attr = { .name = SYSFS_BRIDGE_PORT_VLANS,
-+		  .mode = S_IRUGO | S_IWUSR, },
-+	.read = brport_vlans_read,
-+	.write = brport_vlans_write,
-+};
-+
-+/*
-  * Add sysfs entries to ethernet device added to a bridge.
-  * Creates a brport subdirectory with bridge attributes.
-  * Puts symlink in bridge's brif subdirectory
-@@ -255,6 +320,11 @@ int br_sysfs_addif(struct net_bridge_port *p)
- 			return err;
+@@ -80,10 +85,10 @@ static inline int br_ip_hash(struct net_bridge_mdb_htable *mdb,
+ {
+ 	switch (ip->proto) {
+ 	case htons(ETH_P_IP):
+-		return __br_ip4_hash(mdb, ip->u.ip4);
++		return __br_ip4_hash(mdb, ip->u.ip4, ip->vid);
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	case htons(ETH_P_IPV6):
+-		return __br_ip6_hash(mdb, &ip->u.ip6);
++		return __br_ip6_hash(mdb, &ip->u.ip6, ip->vid);
+ #endif
+ 	}
+ 	return 0;
+@@ -113,24 +118,27 @@ static struct net_bridge_mdb_entry *br_mdb_ip_get(
+ }
+ 
+ static struct net_bridge_mdb_entry *br_mdb_ip4_get(
+-	struct net_bridge_mdb_htable *mdb, __be32 dst)
++	struct net_bridge_mdb_htable *mdb, __be32 dst, __u16 vlan_tci)
+ {
+ 	struct br_ip br_dst;
+ 
+ 	br_dst.u.ip4 = dst;
+ 	br_dst.proto = htons(ETH_P_IP);
++	br_dst.vid = vlan_tci & VLAN_VID_MASK;
+ 
+ 	return br_mdb_ip_get(mdb, &br_dst);
+ }
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ static struct net_bridge_mdb_entry *br_mdb_ip6_get(
+-	struct net_bridge_mdb_htable *mdb, const struct in6_addr *dst)
++	struct net_bridge_mdb_htable *mdb, const struct in6_addr *dst,
++	__u16 vlan_tci)
+ {
+ 	struct br_ip br_dst;
+ 
+ 	br_dst.u.ip6 = *dst;
+ 	br_dst.proto = htons(ETH_P_IPV6);
++	br_dst.vid = vlan_tci & VLAN_VID_MASK;
+ 
+ 	return br_mdb_ip_get(mdb, &br_dst);
+ }
+@@ -692,7 +700,8 @@ err:
+ 
+ static int br_ip4_multicast_add_group(struct net_bridge *br,
+ 				      struct net_bridge_port *port,
+-				      __be32 group)
++				      __be32 group,
++				      __u16 vlan_tci)
+ {
+ 	struct br_ip br_group;
+ 
+@@ -701,6 +710,7 @@ static int br_ip4_multicast_add_group(struct net_bridge *br,
+ 
+ 	br_group.u.ip4 = group;
+ 	br_group.proto = htons(ETH_P_IP);
++	br_group.vid = vlan_tci & VLAN_VID_MASK;
+ 
+ 	return br_multicast_add_group(br, port, &br_group);
+ }
+@@ -708,7 +718,8 @@ static int br_ip4_multicast_add_group(struct net_bridge *br,
+ #if IS_ENABLED(CONFIG_IPV6)
+ static int br_ip6_multicast_add_group(struct net_bridge *br,
+ 				      struct net_bridge_port *port,
+-				      const struct in6_addr *group)
++				      const struct in6_addr *group,
++				      __u16 vlan_tci)
+ {
+ 	struct br_ip br_group;
+ 
+@@ -717,6 +728,7 @@ static int br_ip6_multicast_add_group(struct net_bridge *br,
+ 
+ 	br_group.u.ip6 = *group;
+ 	br_group.proto = htons(ETH_P_IPV6);
++	br_group.vid = vlan_tci & VLAN_VID_MASK;
+ 
+ 	return br_multicast_add_group(br, port, &br_group);
+ }
+@@ -928,7 +940,8 @@ static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
+ 			continue;
+ 		}
+ 
+-		err = br_ip4_multicast_add_group(br, port, group);
++		err = br_ip4_multicast_add_group(br, port, group,
++						 br_get_vlan(skb));
+ 		if (err)
+ 			break;
+ 	}
+@@ -988,7 +1001,8 @@ static int br_ip6_multicast_mld2_report(struct net_bridge *br,
+ 			continue;
+ 		}
+ 
+-		err = br_ip6_multicast_add_group(br, port, &grec->grec_mca);
++		err = br_ip6_multicast_add_group(br, port, &grec->grec_mca,
++						 br_get_vlan(skb));
+ 		if (!err)
+ 			break;
+ 	}
+@@ -1106,7 +1120,8 @@ static int br_ip4_multicast_query(struct net_bridge *br,
+ 	if (!group)
+ 		goto out;
+ 
+-	mp = br_mdb_ip4_get(mlock_dereference(br->mdb, br), group);
++	mp = br_mdb_ip4_get(mlock_dereference(br->mdb, br), group,
++			    br_get_vlan(skb));
+ 	if (!mp)
+ 		goto out;
+ 
+@@ -1178,7 +1193,8 @@ static int br_ip6_multicast_query(struct net_bridge *br,
+ 	if (!group)
+ 		goto out;
+ 
+-	mp = br_mdb_ip6_get(mlock_dereference(br->mdb, br), group);
++	mp = br_mdb_ip6_get(mlock_dereference(br->mdb, br), group,
++			    br_get_vlan(skb));
+ 	if (!mp)
+ 		goto out;
+ 
+@@ -1262,7 +1278,8 @@ out:
+ 
+ static void br_ip4_multicast_leave_group(struct net_bridge *br,
+ 					 struct net_bridge_port *port,
+-					 __be32 group)
++					 __be32 group,
++					 __u16 vlan_tci)
+ {
+ 	struct br_ip br_group;
+ 
+@@ -1271,6 +1288,7 @@ static void br_ip4_multicast_leave_group(struct net_bridge *br,
+ 
+ 	br_group.u.ip4 = group;
+ 	br_group.proto = htons(ETH_P_IP);
++	br_group.vid = vlan_tci & VLAN_VID_MASK;
+ 
+ 	br_multicast_leave_group(br, port, &br_group);
+ }
+@@ -1278,7 +1296,8 @@ static void br_ip4_multicast_leave_group(struct net_bridge *br,
+ #if IS_ENABLED(CONFIG_IPV6)
+ static void br_ip6_multicast_leave_group(struct net_bridge *br,
+ 					 struct net_bridge_port *port,
+-					 const struct in6_addr *group)
++					 const struct in6_addr *group,
++					 __u16 vlan_tci)
+ {
+ 	struct br_ip br_group;
+ 
+@@ -1287,6 +1306,7 @@ static void br_ip6_multicast_leave_group(struct net_bridge *br,
+ 
+ 	br_group.u.ip6 = *group;
+ 	br_group.proto = htons(ETH_P_IPV6);
++	br_group.vid = vlan_tci & VLAN_VID_MASK;
+ 
+ 	br_multicast_leave_group(br, port, &br_group);
+ }
+@@ -1369,7 +1389,8 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 	case IGMP_HOST_MEMBERSHIP_REPORT:
+ 	case IGMPV2_HOST_MEMBERSHIP_REPORT:
+ 		BR_INPUT_SKB_CB(skb)->mrouters_only = 1;
+-		err = br_ip4_multicast_add_group(br, port, ih->group);
++		err = br_ip4_multicast_add_group(br, port, ih->group,
++						 br_get_vlan(skb2));
+ 		break;
+ 	case IGMPV3_HOST_MEMBERSHIP_REPORT:
+ 		err = br_ip4_multicast_igmp3_report(br, port, skb2);
+@@ -1378,7 +1399,8 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 		err = br_ip4_multicast_query(br, port, skb2);
+ 		break;
+ 	case IGMP_HOST_LEAVE_MESSAGE:
+-		br_ip4_multicast_leave_group(br, port, ih->group);
++		br_ip4_multicast_leave_group(br, port, ih->group,
++					     br_get_vlan(skb2));
+ 		break;
  	}
  
-+	err = sysfs_create_bin_file(&p->kobj, &port_vlans);
-+	if (err) {
-+		return err;
-+	}
-+
- 	strlcpy(p->sysfs_name, p->dev->name, IFNAMSIZ);
- 	return sysfs_create_link(br->ifobj, &p->kobj, p->sysfs_name);
- }
+@@ -1498,7 +1520,8 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+ 		}
+ 		mld = (struct mld_msg *)skb_transport_header(skb2);
+ 		BR_INPUT_SKB_CB(skb)->mrouters_only = 1;
+-		err = br_ip6_multicast_add_group(br, port, &mld->mld_mca);
++		err = br_ip6_multicast_add_group(br, port, &mld->mld_mca,
++						 br_get_vlan(skb2));
+ 		break;
+ 	    }
+ 	case ICMPV6_MLD2_REPORT:
+@@ -1515,7 +1538,8 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+ 			goto out;
+ 		}
+ 		mld = (struct mld_msg *)skb_transport_header(skb2);
+-		br_ip6_multicast_leave_group(br, port, &mld->mld_mca);
++		br_ip6_multicast_leave_group(br, port, &mld->mld_mca,
++					     br_get_vlan(skb2));
+ 	    }
+ 	}
+ 
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index bb382f1..166dcf4 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -62,6 +62,7 @@ struct br_ip
+ #endif
+ 	} u;
+ 	__be16		proto;
++	__u16		vid;
+ };
+ 
+ struct net_bridge_fdb_entry
 -- 
 1.7.7.6
