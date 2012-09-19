@@ -1,31 +1,28 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/5] ucc_geth: Reduce IRQ off in xmit path
-Date: Thu, 20 Sep 2012 00:34:16 +0200
-Message-ID: <20120919223416.GA16087@electric-eye.fr.zoreil.com>
-References: <1347987385-19071-1-git-send-email-Joakim.Tjernlund@transmode.se>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [patch net] sky2: fix rx filter setup on link up
+Date: Wed, 19 Sep 2012 16:04:38 -0700
+Message-ID: <20120919160438.52ed0b1a@s6510.linuxnetplumber.net>
+References: <1347894617-13614-1-git-send-email-jiri@resnulli.us>
+	<20120919132248.5fced1c7@s6510.linuxnetplumber.net>
+	<20120919203825.GA1460@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:53834 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752436Ab2ISWw3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 18:52:29 -0400
-Content-Disposition: inline
-In-Reply-To: <1347987385-19071-1-git-send-email-Joakim.Tjernlund@transmode.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, mlindner@marvell.com,
+	linux-kernel@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120919203825.GA1460@minipsycho.orion>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Joakim Tjernlund <Joakim.Tjernlund@transmode.se> :
-> Currently ucc_geth_start_xmit wraps IRQ off for the
-> whole body just to be safe.
-> Reduce the IRQ off period to a minimum.
+On Wed, 19 Sep 2012 22:38:25 +0200
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-It opens a window in ucc_geth_start_xmit where the skb slot in
-ugeth->tx_skbuff[txQ] is set and T_RA has not been written into
-the descriptor status. Consider a racing poll : the !skb test in
-ucc_geth_tx may not work as expected.
+> You cannot call sky2_set_multicast() directly here. It is called from
+> __dev_set_rx_mode(). You would have to take at lease netif_addr_lock()
+> here. I think that clearer is to remember computed value....
 
--- 
-Ueimor
+Ugh, it would mean changing link_up to being done via workqueue.
+But your code wasnt safe against changes to values from set_multicast race
+either.
