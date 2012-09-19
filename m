@@ -1,36 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: more accurate network taps in transmit
- path
-Date: Wed, 19 Sep 2012 20:21:12 +0200
-Message-ID: <1348078872.26523.1233.camel@edumazet-glaptop>
-References: <20120918211423.GA19115@darkstar>
-	 <1348034050.26523.325.camel@edumazet-glaptop>
-	 <1348037089.26523.397.camel@edumazet-glaptop>
-	 <20120919.141637.531173978256020103.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jamie.gloudon@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:46623 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753531Ab2ISSVR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 14:21:17 -0400
-Received: by bkwj10 with SMTP id j10so706088bkw.19
-        for <netdev@vger.kernel.org>; Wed, 19 Sep 2012 11:21:16 -0700 (PDT)
-In-Reply-To: <20120919.141637.531173978256020103.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ed Cashin <ecashin@coraid.com>
+Subject: [PATCH] net: do not disable sg for AoE
+Date: Tue, 18 Sep 2012 20:20:36 -0400
+Message-ID: <1348079358.4585@cat.he.net>
+Cc: ecashin@coraid.com, akpm@linux-foundation.org, jesse@nicira.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-09-19 at 14:16 -0400, David Miller wrote:
+A change in a series of VLAN-related changes appears to have
+inadvertently disabled the use of the scatter gather feature of
+network cards for transmission of non-IP ethernet protocols like ATA
+over Ethernet (AoE).  Below is a reference to the commit that
+introduces a "harmonize_features" function that turns off scatter
+gather when the NIC does not support hardware checksumming for the
+ethernet protocol of an sk buff.
 
-> Are you really sure that all the network tap implementations can
-> handle software GSO segmented skbs using skb->next linkage?
-> 
-> Because that is what they can potentially see after this change.
+  commit f01a5236bd4b140198fbcc550f085e8361fd73fa
+  Author: Jesse Gross <jesse@nicira.com>
+  Date:   Sun Jan 9 06:23:31 2011 +0000
 
-I dont think so, because skb->next is NULL at the points I call the
-network tap.
+      net offloading: Generalize netif_get_vlan_features().
 
-Or did I miss something ?
+The can_checksum_protocol function is not equipped to consider a
+protocol that does not require checksumming.  Calling it for a
+protocol that requires no checksum is inappropriate.
+
+The patch below has harmonize_features call can_checksum_protocol when
+the protocol needs a checksum, so that the network layer is not forced
+to perform unnecessary skb linearization on the transmission of AoE
+packets.  Unnecessary linearization results in decreased performance
+and increased memory pressure, as reported here:
+
+  http://www.spinics.net/lists/linux-mm/msg15184.html
+
+The problem has probably not been widely experienced yet, because
+only recently has the kernel.org-distributed aoe driver acquired the
+ability to use payloads of over a page in size, with the patchset
+recently included in the mm tree:
+
+  https://lkml.org/lkml/2012/8/28/140
+
+The coraid.com-distributed aoe driver already could use payloads of
+greater than a page in size, but its users generally do not use the
+newest kernels.
+
+Signed-off-by: Ed Cashin <ecashin@coraid.com>
+---
+ net/core/dev.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d7fe32c..5531159 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2134,7 +2134,8 @@ static bool can_checksum_protocol(netdev_features_t features, __be16 protocol)
+ static netdev_features_t harmonize_features(struct sk_buff *skb,
+ 	__be16 protocol, netdev_features_t features)
+ {
+-	if (!can_checksum_protocol(features, protocol)) {
++	if (protocol != htons(ETH_P_AOE) &&
++	    !can_checksum_protocol(features, protocol)) {
+ 		features &= ~NETIF_F_ALL_CSUM;
+ 		features &= ~NETIF_F_SG;
+ 	} else if (illegal_highdma(skb->dev, skb)) {
+-- 
+1.7.2.5
