@@ -1,33 +1,34 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: [PATCH 1/5] ucc_geth: Reduce IRQ off in xmit path
-Date: Wed, 19 Sep 2012 09:36:10 +0200
-Message-ID: <OFC5B92135.593A5C37-ONC1257A7E.0029904D-C1257A7E.0029C39F@transmode.se>
-References: <1347987385-19071-1-git-send-email-Joakim.Tjernlund@transmode.se> <20120918223938.GA22868@electric-eye.fr.zoreil.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Subject: RE: [PATCH net-next] mlx4: use dev_kfree_skb() instead of
+ dev_kfree_skb_any()
+Date: Wed, 19 Sep 2012 07:58:13 +0000
+Message-ID: <953B660C027164448AE903364AC447D28721B46E@MTLDAG01.mtl.com>
+References: <1347866974.26523.53.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	"Ying Cai" <ycai@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([195.58.98.146]:53513 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754922Ab2ISHgN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Sep 2012 03:36:13 -0400
-In-Reply-To: <20120918223938.GA22868@electric-eye.fr.zoreil.com>
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:55476 "HELO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751519Ab2ISH7g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 03:59:36 -0400
+In-Reply-To: <1347866974.26523.53.camel@edumazet-glaptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu <romieu@fr.zoreil.com> wrote on 2012/09/19 00:39:38:
->
-> Joakim Tjernlund <Joakim.Tjernlund@transmode.se> :
-> > Currently ucc_geth_start_xmit wraps IRQ off for the
-> > whole body just to be safe.
-> > Reduce the IRQ off period to a minimum.
->
-> The driver does not do much work in its irq handler. You may as well
-> convert it to the usual tg3-ish locking style (i.e. almost no locking).
-
-You mean broadcom/tg3.c? It is a bit much to look at ATM for me and
-there almost no locking with my patch also. Could possibly
-be improved further but I am happy for now.
-
- Jocke
+PiANCj4gU2luY2UgY29tbWl0IGUyMjk3OWQ5NmE1IChtbHg0X2VuOiBNb3ZpbmcgdG8gSW50ZXJy
+dXB0cyBmb3IgVFgNCj4gY29tcGxldGlvbnMpLCB3ZSBubyBsb25nZXIgY2FuIGZyZWUgVFggc2ti
+IGZyb20gaGFyZCBJUlEsIGJ1dCBvbmx5IGZyb20NCj4gbm9ybWFsIHNvZnRpcnEgb3IgcHJvY2Vz
+cyBjb250ZXh0Lg0KPiANCj4gVGhlcmVmb3JlLCB3ZSBjYW4gZGlyZWN0bHkgY2FsbCBkZXZfa2Zy
+ZWVfc2tiKCkgZnJvbQ0KPiBtbHg0X2VuX2ZyZWVfdHhfZGVzYygpIGxpa2Ugb3RoZXIgY29udmVu
+dGlvbmFsIE5BUEkgZHJpdmVycy4NCj4gDQoNCkhpIEVyaWMsDQpBdCB0aGUgbW9tZW50IHRoZSBU
+WCBjb21wbGV0aW9uIHByb2Nlc3NpbmcgaXMgZG9uZSBmcm9tIElSUSBjb250ZXh0Lg0KU28gSSB0
+aGluayB3ZSBuZWVkIHRvIGNoYW5nZSB0aGUgZHJpdmVyIHRvIHdvcmsgd2l0aCBOQVBJIGZvciBU
+WCBjb21wbGV0aW9ucw0KYmVmb3JlIG1ha2luZyB0aGlzIGNoYW5nZS4NCg0KSSdsbCBzZW5kIHRo
+ZSBwYXRjaCBpbiBhIGZldyBkYXlzLg0KDQpZZXZnZW55DQo=
