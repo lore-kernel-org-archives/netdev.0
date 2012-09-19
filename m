@@ -1,48 +1,43 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: Opportunity to backport pch_gbe patches to stable 3.2.x
-Date: Wed, 19 Sep 2012 21:49:05 +0100
-Message-ID: <20120919204905.GE29217@decadent.org.uk>
-References: <505A11E2.8000403@gmail.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: Netfilter lacks ability to filter packets via Application-origin
+Date: Wed, 19 Sep 2012 13:50:39 -0700
+Message-ID: <505A301F.5040201@intel.com>
+References: <COL002-W12C33BCBEB56AC8ADFF6B0F39B0@phx.gbl> <1348086252.2636.58.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Erwan Velu <erwanaliasr1@gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Chad Gray <chad938@hotmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:33057 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751697Ab2ISUtJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 16:49:09 -0400
-Content-Disposition: inline
-In-Reply-To: <505A11E2.8000403@gmail.com>
+Received: from mga09.intel.com ([134.134.136.24]:21711 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751787Ab2ISUul (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Sep 2012 16:50:41 -0400
+In-Reply-To: <1348086252.2636.58.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 19, 2012 at 08:41:38PM +0200, Erwan Velu wrote:
-> Hi there,
-> 
-> I'm using on a daily use and in production 3.2.x kernels (.29 currently) on a Kontron Nano-etx board that features the pch_gbe network driver.
-> 
-> I've been experiencing lots of troubles on this kernel series but since I've backported the following commits back to my 3.2.x, it works far better.
-> 
-> So from the history of next the following commits apply perfectly and runs very well.
-> 
-> I do think that other users of pch_gbe will appreciate this.
-> 
-> 1a0bdadb4e36abac63b0a9787f372aac30c11a9e
-[...]
+On 9/19/2012 1:24 PM, Ben Hutchings wrote:
+> On Wed, 2012-09-19 at 15:40 -0400, Chad Gray wrote:
+>> Users need the ability for Linux firewall to filter packets based on what
+>> Application they are originating from. This ability is present in Mac and
+>> Windows firewalls, but not Linux.
+>>
+>> For example, users would like ability to open Port 80 for Firefox, but keep
+>> Port 80 closed for other applications.
+>>
+>> This ability enhances Privacy & Security of the user but also helps to better
+>> inform the user about the comings and goings of internet traffic and what
+>> application/s are causing the traffic.
+>
+> Most of the Linux Security Modules seem to support this sort of network
+> policy.
+>
+> Ben.
+>
 
-This first one is adding support for an extra hardware feature, which
-is not suitable material for stable.  Please pick out only the
-important bug fixes, per Documentation/stable_kernel_rules.txt.
+Another approach might be to use the net_cls cgroups and set the
+classid matching against it with tc or netfilters.
 
-If you want the driver to be completely backported, look at the
-compat-drivers project
-<https://backports.wiki.kernel.org/index.php/Documentation/compat-drivers>
-or distribution kernels instead of stable.
-
-Ben.
-
--- 
-Ben Hutchings
-We get into the habit of living before acquiring the habit of thinking.
-                                                              - Albert Camus
+.John
