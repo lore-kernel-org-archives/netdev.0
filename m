@@ -1,32 +1,40 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch net] sky2: fix rx filter setup on link up
-Date: Wed, 19 Sep 2012 13:22:48 -0700
-Message-ID: <20120919132248.5fced1c7@s6510.linuxnetplumber.net>
-References: <1347894617-13614-1-git-send-email-jiri@resnulli.us>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Netfilter lacks ability to filter packets via Application-origin
+Date: Wed, 19 Sep 2012 21:24:12 +0100
+Message-ID: <1348086252.2636.58.camel@bwh-desktop.uk.solarflarecom.com>
+References: <COL002-W12C33BCBEB56AC8ADFF6B0F39B0@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, mlindner@marvell.com,
-	linux-kernel@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1347894617-13614-1-git-send-email-jiri@resnulli.us>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Chad Gray <chad938@hotmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:11958 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751692Ab2ISUYP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 16:24:15 -0400
+In-Reply-To: <COL002-W12C33BCBEB56AC8ADFF6B0F39B0@phx.gbl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rather than saving and restoring values, why not just redo the
-full setup? This would also determine if the change was a result
-of something outside the driver.
+On Wed, 2012-09-19 at 15:40 -0400, Chad Gray wrote:
+> Users need the ability for Linux firewall to filter packets based on what
+> Application they are originating from. This ability is present in Mac and
+> Windows firewalls, but not Linux.
+> 
+> For example, users would like ability to open Port 80 for Firefox, but keep
+> Port 80 closed for other applications.
+> 
+> This ability enhances Privacy & Security of the user but also helps to better
+> inform the user about the comings and goings of internet traffic and what
+> application/s are causing the traffic.
 
+Most of the Linux Security Modules seem to support this sort of network
+policy.
 
---- a/drivers/net/ethernet/marvell/sky2.c	2012-09-18 21:12:01.156438131 -0700
-+++ b/drivers/net/ethernet/marvell/sky2.c	2012-09-19 13:20:40.373620276 -0700
-@@ -2201,6 +2201,8 @@ static void sky2_link_up(struct sky2_por
- 
- 	sky2_enable_rx_tx(sky2);
- 
-+	sky2_set_multicast(sky2->netdev);
-+
- 	gm_phy_write(hw, port, PHY_MARV_INT_MASK, PHY_M_DEF_MSK);
- 
- 	netif_carrier_on(sky2->netdev);
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
