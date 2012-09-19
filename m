@@ -1,195 +1,37 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Subject: Re: New commands to configure IOV features
-Date: Wed, 19 Sep 2012 15:17:31 -0700
-Message-ID: <CAE9FiQXQj_KdWT-mVVsptxiEgGjScgDy_Lp-aXioZ4YAQh1wWQ@mail.gmail.com>
-References: <5003DC9B.8000706@broadcom.com>
-	<5005BD00.4090106@redhat.com>
-	<5005D45D.1040302@genband.com>
-	<20120717.141153.46613285253481776.davem@davemloft.net>
-	<500978C7.5050004@genband.com>
-	<50097FBD.9080202@redhat.com>
-	<1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>
-	<5009B186.6000806@genband.com>
-	<1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com>
-	<5009ECDF.4090305@genband.com>
-	<500D59BF.9040006@redhat.com>
-	<500D6932.8090306@genband.com>
-	<20120723113607.56ce7aaf@nehalam.linuxnetplumber.net>
-	<C5551D9AAB213A418B7FD5E4A6F30A070C7D9DCD@ORSMSX106.amr.corp.intel.com>
-	<5059A767.2090307@broadcom.com>
-	<20120919085306.00006af9@unknown>
-	<1348083847.2636.37.camel@bwh-desktop.uk.solarflarecom.com>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
+Date: Wed, 19 Sep 2012 15:20:45 -0700
+Message-ID: <CAGK4HS_ZKKrzFh+c3WDxbkMFpDTg7ehw9ydp39k6JPFA_j1YOw@mail.gmail.com>
+References: <20120917.121243.1665284878800146060.davem@davemloft.net>
+	<1347901326.26523.149.camel@edumazet-glaptop>
+	<1347901493.26523.151.camel@edumazet-glaptop>
+	<20120917.130732.1894375657044880827.davem@davemloft.net>
+	<1348067659.26523.949.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=00151750e6248109df04ca155fd6
-Cc: Greg Rose <gregory.v.rose@intel.com>,
-	Yuval Mintz <yuvalmin@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ariel Elior <ariele@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	linux-pci <linux-pci@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	Bjorn Helgaas <bhelgaas@google.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1348083847.2636.37.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---00151750e6248109df04ca155fd6
 Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:49103 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751100Ab2ISWUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 18:20:46 -0400
+Received: by ieak13 with SMTP id k13so2365867iea.19
+        for <netdev@vger.kernel.org>; Wed, 19 Sep 2012 15:20:45 -0700 (PDT)
+In-Reply-To: <1348067659.26523.949.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 19, 2012 at 12:44 PM, Ben Hutchings
-<bhutchings@solarflare.com> wrote:
-> On Wed, 2012-09-19 at 08:53 -0700, Greg Rose wrote:
->> I was not able to attend the Linux conference held at the end of August
->> myself but coworkers of mine here at Intel informed that method 2 here
->> seems to be the preferred approach.  Perhaps some folks who attended
->> the the conference can chime in with more specifics.
+> I did some tests and got no problem so far, even using splice() [ this
+> one was tricky because it only deals with order-0 pages at this moment ]
 >
-> There really wasn't much more specific discussion.  Bjorn's summary of
-> the mini-summit <http://lwn.net/Articles/514113/> says:
->
->> SR-IOV Management
->>
->>     Currently drivers implement module parameters like "max_vfs".  This means
->>     all devices claimed by the driver get the same number of VFs, and you can't
->>     change anything without unloading and reloading the driver.
->>
->>     Consensus that we should try to implement a knob for this in sysfs so it
->>     can be generic (not in each driver) and set individually for each device.
->
-> I don't think any implementation has been posted to the linux-pci list
+> NIC tested : ixgbe, igb, bnx2x, tg3, mellanox mlx4
 
-please check attached three patches...
 
-Thanks
+I applied this patch to net-next and tested with e1000e driver.
+With iperf I got around 8 % improvement on loopback.
 
-Yinghai
+Tested-by: Vijay Subramanian <subramanian.vijay@gmail.com>
 
---00151750e6248109df04ca155fd6
-Content-Type: application/octet-stream; name="pci_dev_type.patch"
-Content-Disposition: attachment; filename="pci_dev_type.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_h7azrg830
 
-U3ViamVjdDogW1BBVENIXSBQQ0k6IEFkZCBwY2lfZGV2X3R5cGUKCmxhdGVyIHVzZSBpdCBmb3Ig
-dmlzaWFibGUgYXR0cmlidXRlIGNvbnRyb2wuCgpTaWduZWQtb2ZmLWJ5OiBZaW5naGFpIEx1IDx5
-aW5naGFpQGtlcm5lbC5vcmc+CgotLS0KIGRyaXZlcnMvcGNpL3BjaS1zeXNmcy5jIHwgICAyNCAr
-KysrKysrKysrKysrKysrKysrKysrKysKIGRyaXZlcnMvcGNpL3BjaS5oICAgICAgIHwgICAgMSAr
-CiBkcml2ZXJzL3BjaS9wcm9iZS5jICAgICB8ICAgIDEgKwogMyBmaWxlcyBjaGFuZ2VkLCAyNiBp
-bnNlcnRpb25zKCspCgpJbmRleDogbGludXgtMi42L2RyaXZlcnMvcGNpL3BjaS1zeXNmcy5jCj09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT0KLS0tIGxpbnV4LTIuNi5vcmlnL2RyaXZlcnMvcGNpL3BjaS1zeXNmcy5jCisrKyBs
-aW51eC0yLjYvZHJpdmVycy9wY2kvcGNpLXN5c2ZzLmMKQEAgLTE0MTEsMyArMTQxMSwyNyBAQCBz
-dGF0aWMgaW50IF9faW5pdCBwY2lfc3lzZnNfaW5pdCh2b2lkKQogfQogCiBsYXRlX2luaXRjYWxs
-KHBjaV9zeXNmc19pbml0KTsKKworc3RhdGljIHN0cnVjdCBhdHRyaWJ1dGUgKnBjaV9kZXZfZGV2
-X2F0dHJzW10gPSB7CisJTlVMTCwKK307CisKK3N0YXRpYyB1bW9kZV90IHBjaV9kZXZfYXR0cnNf
-YXJlX3Zpc2libGUoc3RydWN0IGtvYmplY3QgKmtvYmosCisJCQkJCQlzdHJ1Y3QgYXR0cmlidXRl
-ICphLCBpbnQgbikKK3sKKwlyZXR1cm4gYS0+bW9kZTsKK30KKworc3RhdGljIHN0cnVjdCBhdHRy
-aWJ1dGVfZ3JvdXAgcGNpX2Rldl9hdHRyX2dyb3VwID0geworCS5hdHRycyA9IHBjaV9kZXZfZGV2
-X2F0dHJzLAorCS5pc192aXNpYmxlID0gcGNpX2Rldl9hdHRyc19hcmVfdmlzaWJsZSwKK307CisK
-K3N0YXRpYyBjb25zdCBzdHJ1Y3QgYXR0cmlidXRlX2dyb3VwICpwY2lfZGV2X2F0dHJfZ3JvdXBz
-W10gPSB7CisJJnBjaV9kZXZfYXR0cl9ncm91cCwKKwlOVUxMLAorfTsKKworc3RydWN0IGRldmlj
-ZV90eXBlIHBjaV9kZXZfdHlwZSA9IHsKKwkuZ3JvdXBzID0gcGNpX2Rldl9hdHRyX2dyb3VwcywK
-K307CkluZGV4OiBsaW51eC0yLjYvZHJpdmVycy9wY2kvcGNpLmgKPT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQotLS0gbGlu
-dXgtMi42Lm9yaWcvZHJpdmVycy9wY2kvcGNpLmgKKysrIGxpbnV4LTIuNi9kcml2ZXJzL3BjaS9w
-Y2kuaApAQCAtMTU3LDYgKzE1Nyw3IEBAIHN0YXRpYyBpbmxpbmUgaW50IHBjaV9ub19kMWQyKHN0
-cnVjdCBwY2kKIH0KIGV4dGVybiBzdHJ1Y3QgZGV2aWNlX2F0dHJpYnV0ZSBwY2lfZGV2X2F0dHJz
-W107CiBleHRlcm4gc3RydWN0IGRldmljZV9hdHRyaWJ1dGUgcGNpYnVzX2Rldl9hdHRyc1tdOwor
-ZXh0ZXJuIHN0cnVjdCBkZXZpY2VfdHlwZSBwY2lfZGV2X3R5cGU7CiAjaWZkZWYgQ09ORklHX0hP
-VFBMVUcKIGV4dGVybiBzdHJ1Y3QgYnVzX2F0dHJpYnV0ZSBwY2lfYnVzX2F0dHJzW107CiAjZWxz
-ZQpJbmRleDogbGludXgtMi42L2RyaXZlcnMvcGNpL3Byb2JlLmMKPT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQotLS0gbGlu
-dXgtMi42Lm9yaWcvZHJpdmVycy9wY2kvcHJvYmUuYworKysgbGludXgtMi42L2RyaXZlcnMvcGNp
-L3Byb2JlLmMKQEAgLTk3NSw2ICs5NzUsNyBAQCBpbnQgcGNpX3NldHVwX2RldmljZShzdHJ1Y3Qg
-cGNpX2RldiAqZGV2CiAJZGV2LT5zeXNkYXRhID0gZGV2LT5idXMtPnN5c2RhdGE7CiAJZGV2LT5k
-ZXYucGFyZW50ID0gZGV2LT5idXMtPmJyaWRnZTsKIAlkZXYtPmRldi5idXMgPSAmcGNpX2J1c190
-eXBlOworCWRldi0+ZGV2LnR5cGUgPSAmcGNpX2Rldl90eXBlOwogCWRldi0+aGRyX3R5cGUgPSBo
-ZHJfdHlwZSAmIDB4N2Y7CiAJZGV2LT5tdWx0aWZ1bmN0aW9uID0gISEoaGRyX3R5cGUgJiAweDgw
-KTsKIAlkZXYtPmVycm9yX3N0YXRlID0gcGNpX2NoYW5uZWxfaW9fbm9ybWFsOwo=
---00151750e6248109df04ca155fd6
-Content-Type: application/octet-stream;
-	name="pci_010_pci_dev_boot_vga_x.patch"
-Content-Disposition: attachment; filename="pci_010_pci_dev_boot_vga_x.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_h7azrrbh1
-
-U3ViamVjdDogW1BBVENIIDEwLzEwXSBQQ0ksIHN5czogVXNlIGlzX3Zpc2FibGUoKSB3aXRoIGJv
-b3RfdmdhIGF0dHJpYnV0ZSBmb3IgcGNpX2RldgoKVGhhdCBjb3VsZCBsZXQgcGNpX2NyZWF0ZV9z
-eXNmc19kZXZfZmlsZXMgbW9yZSBzaW1wbGUuCgphbHNvIGZpeCBwb3NzaWJsZSBmaXggbWVtbGVh
-ayBkdXJpbmcgcmVtb3ZpbmcgcGF0aC4KClNpZ25lZC1vZmYtYnk6IFlpbmdoYWkgTHUgPHlpbmdo
-YWlAa2VybmVsLm9yZz4KCi0tLQogZHJpdmVycy9wY2kvcGNpLXN5c2ZzLmMgfCAgIDIxICsrKysr
-KysrKystLS0tLS0tLS0tLQogMSBmaWxlIGNoYW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDExIGRl
-bGV0aW9ucygtKQoKSW5kZXg6IGxpbnV4LTIuNi9kcml2ZXJzL3BjaS9wY2ktc3lzZnMuYwo9PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09Ci0tLSBsaW51eC0yLjYub3JpZy9kcml2ZXJzL3BjaS9wY2ktc3lzZnMuYworKysgbGlu
-dXgtMi42L2RyaXZlcnMvcGNpL3BjaS1zeXNmcy5jCkBAIC0xMzA0LDI5ICsxMzA0LDIwIEBAIGlu
-dCBfX211c3RfY2hlY2sgcGNpX2NyZWF0ZV9zeXNmc19kZXZfZmkKIAkJcGRldi0+cm9tX2F0dHIg
-PSBhdHRyOwogCX0KIAotCWlmICgocGRldi0+Y2xhc3MgPj4gOCkgPT0gUENJX0NMQVNTX0RJU1BM
-QVlfVkdBKSB7Ci0JCXJldHZhbCA9IGRldmljZV9jcmVhdGVfZmlsZSgmcGRldi0+ZGV2LCAmdmdh
-X2F0dHIpOwotCQlpZiAocmV0dmFsKQotCQkJZ290byBlcnJfcm9tX2ZpbGU7Ci0JfQotCiAJLyog
-YWRkIHBsYXRmb3JtLXNwZWNpZmljIGF0dHJpYnV0ZXMgKi8KIAlyZXR2YWwgPSBwY2liaW9zX2Fk
-ZF9wbGF0Zm9ybV9lbnRyaWVzKHBkZXYpOwogCWlmIChyZXR2YWwpCi0JCWdvdG8gZXJyX3ZnYV9m
-aWxlOworCQlnb3RvIGVycl9yb21fZmlsZTsKIAogCS8qIGFkZCBzeXNmcyBlbnRyaWVzIGZvciB2
-YXJpb3VzIGNhcGFiaWxpdGllcyAqLwogCXJldHZhbCA9IHBjaV9jcmVhdGVfY2FwYWJpbGl0aWVz
-X3N5c2ZzKHBkZXYpOwogCWlmIChyZXR2YWwpCi0JCWdvdG8gZXJyX3ZnYV9maWxlOworCQlnb3Rv
-IGVycl9yb21fZmlsZTsKIAogCXBjaV9jcmVhdGVfZmlybXdhcmVfbGFiZWxfZmlsZXMocGRldik7
-CiAKIAlyZXR1cm4gMDsKIAotZXJyX3ZnYV9maWxlOgotCWlmICgocGRldi0+Y2xhc3MgPj4gOCkg
-PT0gUENJX0NMQVNTX0RJU1BMQVlfVkdBKQotCQlkZXZpY2VfcmVtb3ZlX2ZpbGUoJnBkZXYtPmRl
-diwgJnZnYV9hdHRyKTsKIGVycl9yb21fZmlsZToKIAlpZiAocm9tX3NpemUpIHsKIAkJc3lzZnNf
-cmVtb3ZlX2Jpbl9maWxlKCZwZGV2LT5kZXYua29iaiwgcGRldi0+cm9tX2F0dHIpOwpAQCAtMTQx
-NCwxMiArMTQwNSwyMCBAQCBzdGF0aWMgaW50IF9faW5pdCBwY2lfc3lzZnNfaW5pdCh2b2lkKQog
-bGF0ZV9pbml0Y2FsbChwY2lfc3lzZnNfaW5pdCk7CiAKIHN0YXRpYyBzdHJ1Y3QgYXR0cmlidXRl
-ICpwY2lfZGV2X2Rldl9hdHRyc1tdID0geworCSZ2Z2FfYXR0ci5hdHRyLAogCU5VTEwsCiB9Owog
-CiBzdGF0aWMgdW1vZGVfdCBwY2lfZGV2X2F0dHJzX2FyZV92aXNpYmxlKHN0cnVjdCBrb2JqZWN0
-ICprb2JqLAogCQkJCQkJc3RydWN0IGF0dHJpYnV0ZSAqYSwgaW50IG4pCiB7CisJc3RydWN0IGRl
-dmljZSAqZGV2ID0gY29udGFpbmVyX29mKGtvYmosIHN0cnVjdCBkZXZpY2UsIGtvYmopOworCXN0
-cnVjdCBwY2lfZGV2ICpwZGV2ID0gdG9fcGNpX2RldihkZXYpOworCisJaWYgKGEgPT0gJnZnYV9h
-dHRyLmF0dHIpCisJCWlmICgocGRldi0+Y2xhc3MgPj4gOCkgIT0gUENJX0NMQVNTX0RJU1BMQVlf
-VkdBKQorCQkJcmV0dXJuIDA7CisKIAlyZXR1cm4gYS0+bW9kZTsKIH0KIAo=
---00151750e6248109df04ca155fd6
-Content-Type: application/octet-stream; name="sriov_xxx.patch"
-Content-Disposition: attachment; filename="sriov_xxx.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_h7azs0h42
-
-U3ViamVjdDogW1BBVENIXSBQQ0k6IEFkZCBtYXhfdmZzIGluIHN5c2ZzIHBlciBwY2kgZGV2aWNl
-IHdoZXJlIHN1cHBvcnRzCgpkcml2ZXIgbGF0ZXIgbmVlZCB0byBjaGVjayBkZXYtPm1heF92ZnMg
-aW4gL3N5cwoKU2lnbmVkLW9mZi1ieTogWWluZ2hhaSBMdSA8eWluZ2hhaUBrZXJuZWwub3JnPgoK
-LS0tCiBkcml2ZXJzL3BjaS9wY2ktc3lzZnMuYyB8ICAgMjkgKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKysKIGluY2x1ZGUvbGludXgvcGNpLmggICAgIHwgICAgMSArCiAyIGZpbGVzIGNoYW5n
-ZWQsIDMwIGluc2VydGlvbnMoKykKCkluZGV4OiBsaW51eC0yLjYvZHJpdmVycy9wY2kvcGNpLXN5
-c2ZzLmMKPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PQotLS0gbGludXgtMi42Lm9yaWcvZHJpdmVycy9wY2kvcGNpLXN5c2Zz
-LmMKKysrIGxpbnV4LTIuNi9kcml2ZXJzL3BjaS9wY2ktc3lzZnMuYwpAQCAtNDU5LDYgKzQ1OSwz
-MCBAQCBib290X3ZnYV9zaG93KHN0cnVjdCBkZXZpY2UgKmRldiwgc3RydWN0CiB9CiBzdHJ1Y3Qg
-ZGV2aWNlX2F0dHJpYnV0ZSB2Z2FfYXR0ciA9IF9fQVRUUl9STyhib290X3ZnYSk7CiAKK3N0YXRp
-YyBzc2l6ZV90CittYXhfdmZzX3Nob3coc3RydWN0IGRldmljZSAqZGV2LCBzdHJ1Y3QgZGV2aWNl
-X2F0dHJpYnV0ZSAqYXR0ciwgY2hhciAqYnVmKQoreworCXN0cnVjdCBwY2lfZGV2ICpwZGV2ID0g
-dG9fcGNpX2RldihkZXYpOworCisJcmV0dXJuIHNwcmludGYoYnVmLCAiJXVcbiIsIHBkZXYtPm1h
-eF92ZnMpOworfQorc3RhdGljIHNzaXplX3QKK21heF92ZnNfc3RvcmUoc3RydWN0IGRldmljZSAq
-ZGV2LCBzdHJ1Y3QgZGV2aWNlX2F0dHJpYnV0ZSAqYXR0ciwKKwkJIGNvbnN0IGNoYXIgKmJ1Ziwg
-c2l6ZV90IGNvdW50KQoreworCXVuc2lnbmVkIGxvbmcgdmFsOworCXN0cnVjdCBwY2lfZGV2ICpw
-ZGV2ID0gdG9fcGNpX2RldihkZXYpOworCisJaWYgKHN0cmljdF9zdHJ0b3VsKGJ1ZiwgMCwgJnZh
-bCkgPCAwKQorCQlyZXR1cm4gLUVJTlZBTDsKKworCXBkZXYtPm1heF92ZnMgPSB2YWw7CisKKwly
-ZXR1cm4gY291bnQ7Cit9CitzdHJ1Y3QgZGV2aWNlX2F0dHJpYnV0ZSBtYXhfdmZzX2F0dHIgPQor
-CV9fQVRUUihtYXhfdmZzLCAwNjQ0LCBtYXhfdmZzX3Nob3csIG1heF92ZnNfc3RvcmUpOworCiBz
-dGF0aWMgdm9pZAogcGNpX2NvbmZpZ19wbV9ydW50aW1lX2dldChzdHJ1Y3QgcGNpX2RldiAqcGRl
-dikKIHsKQEAgLTE0MDYsNiArMTQzMCw3IEBAIGxhdGVfaW5pdGNhbGwocGNpX3N5c2ZzX2luaXQp
-OwogCiBzdGF0aWMgc3RydWN0IGF0dHJpYnV0ZSAqcGNpX2Rldl9kZXZfYXR0cnNbXSA9IHsKIAkm
-dmdhX2F0dHIuYXR0ciwKKwkmbWF4X3Zmc19hdHRyLmF0dHIsCiAJTlVMTCwKIH07CiAKQEAgLTE0
-MTksNiArMTQ0NCwxMCBAQCBzdGF0aWMgdW1vZGVfdCBwY2lfZGV2X2F0dHJzX2FyZV92aXNpYmxl
-CiAJCWlmICgocGRldi0+Y2xhc3MgPj4gOCkgIT0gUENJX0NMQVNTX0RJU1BMQVlfVkdBKQogCQkJ
-cmV0dXJuIDA7CiAKKwlpZiAoYSA9PSAmbWF4X3Zmc19hdHRyLmF0dHIpCisJCWlmICghcGRldi0+
-aXNfcGh5c2ZuKQorCQkJcmV0dXJuIDA7CisKIAlyZXR1cm4gYS0+bW9kZTsKIH0KIApJbmRleDog
-bGludXgtMi42L2luY2x1ZGUvbGludXgvcGNpLmgKPT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQotLS0gbGludXgtMi42Lm9y
-aWcvaW5jbHVkZS9saW51eC9wY2kuaAorKysgbGludXgtMi42L2luY2x1ZGUvbGludXgvcGNpLmgK
-QEAgLTM1OSw2ICszNTksNyBAQCBzdHJ1Y3QgcGNpX2RldiB7CiAJdW5zaWduZWQgaW50CWJyb2tl
-bl9pbnR4X21hc2tpbmc6MTsKIAl1bnNpZ25lZCBpbnQJaW9fd2luZG93XzFrOjE7CS8qIEludGVs
-IFAyUCBicmlkZ2UgMUsgSS9PIHdpbmRvd3MgKi8KIAlwY2lfZGV2X2ZsYWdzX3QgZGV2X2ZsYWdz
-OworCXVuc2lnbmVkIGludAltYXhfdmZzOwogCWF0b21pY190CWVuYWJsZV9jbnQ7CS8qIHBjaV9l
-bmFibGVfZGV2aWNlIGhhcyBiZWVuIGNhbGxlZCAqLwogCiAJdTMyCQlzYXZlZF9jb25maWdfc3Bh
-Y2VbMTZdOyAvKiBjb25maWcgc3BhY2Ugc2F2ZWQgYXQgc3VzcGVuZCB0aW1lICovCg==
---00151750e6248109df04ca155fd6--
+Vijay
