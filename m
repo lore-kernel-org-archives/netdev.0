@@ -1,30 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: New commands to configure IOV features
-Date: Wed, 19 Sep 2012 13:49:09 -0400 (EDT)
-Message-ID: <20120919.134909.1049328991192933473.davem@davemloft.net>
-References: <20120723113607.56ce7aaf@nehalam.linuxnetplumber.net>
-	<C5551D9AAB213A418B7FD5E4A6F30A070C7D9DCD@ORSMSX106.amr.corp.intel.com>
-	<5059A767.2090307@broadcom.com>
+Subject: Re: [PATCH v2 0/9] net/macb: driver enhancement concerning GEM
+ support, ring logic and cleanup
+Date: Wed, 19 Sep 2012 13:50:06 -0400 (EDT)
+Message-ID: <20120919.135006.394934820049386022.davem@davemloft.net>
+References: <cover.1348055112.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariele@broadcom.com, eilong@broadcom.com
-To: yuvalmin@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55710 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932717Ab2ISRtM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 13:49:12 -0400
-In-Reply-To: <5059A767.2090307@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, havard@skinnemoen.net,
+	bhutchings@solarflare.com, linux-arm-kernel@lists.infradead.org,
+	plagnioj@jcrosoft.com, patrice.vilchez@atmel.com,
+	linux-kernel@vger.kernel.org
+To: nicolas.ferre@atmel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1348055112.git.nicolas.ferre@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Wed, 19 Sep 2012 14:07:19 +0300
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Date: Wed, 19 Sep 2012 13:55:13 +0200
 
->  3. Implement a module param in our bnx2x code.
+> This is an enhancement work that began several years ago. I try to catchup with
+> some performance improvement that has been implemented then by Havard.
+> The ring index logic and the TX error path modification are the biggest changes
+> but some cleanup/debugging have been added along the way.
+> The GEM revision will benefit from the Gigabit support.
+> 
+> The series has been tested on several Atmel AT91 SoC with the two MACB/GEM
+> flavors.
+> 
+> v2: - modify the tx error handling: now uses a workqueue
+>     - information provided by ethtool -i were not accurate: removed
 
-Just because I was a moron and didn't notice the other cases
-doesn't mean I should let you guys do it too.
+Don't submit patches like this.
 
-So I just want to say that #3 is absolutely not an option.
+When you put an RFC right in the middle of the series, it screws everything
+up.
+
+It means that I can't only apply the parts that are not RFC.
