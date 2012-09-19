@@ -1,28 +1,31 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch net] sky2: fix rx filter setup on link up
-Date: Wed, 19 Sep 2012 16:04:38 -0700
-Message-ID: <20120919160438.52ed0b1a@s6510.linuxnetplumber.net>
-References: <1347894617-13614-1-git-send-email-jiri@resnulli.us>
-	<20120919132248.5fced1c7@s6510.linuxnetplumber.net>
-	<20120919203825.GA1460@minipsycho.orion>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] r8169: use unlimited DMA burst for TX
+Date: Wed, 19 Sep 2012 19:19:53 -0400 (EDT)
+Message-ID: <20120919.191953.2302083256132457034.davem@davemloft.net>
+References: <1347234926-5263-1-git-send-email-mschmidt@redhat.com>
+	<20120914051932.GA26256@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, mlindner@marvell.com,
-	linux-kernel@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120919203825.GA1460@minipsycho.orion>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mschmidt@redhat.com, netdev@vger.kernel.org, hayeswang@realtek.com,
+	ivecera@redhat.com
+To: romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58672 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752884Ab2ISXYI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 19:24:08 -0400
+In-Reply-To: <20120914051932.GA26256@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 19 Sep 2012 22:38:25 +0200
-Jiri Pirko <jiri@resnulli.us> wrote:
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Fri, 14 Sep 2012 07:19:32 +0200
 
-> You cannot call sky2_set_multicast() directly here. It is called from
-> __dev_set_rx_mode(). You would have to take at lease netif_addr_lock()
-> here. I think that clearer is to remember computed value....
+> Michal Schmidt <mschmidt@redhat.com> :
+> [...]
+>> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> 
+> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Ugh, it would mean changing link_up to being done via workqueue.
-But your code wasnt safe against changes to values from set_multicast race
-either.
+Applied, thanks everyone.
