@@ -1,133 +1,111 @@
-From: Chris Clayton <chris2553@googlemail.com>
-Subject: Re: Possible networking regression in 3.6.0
-Date: Wed, 19 Sep 2012 16:26:04 +0100
-Message-ID: <5059E40C.4070607@googlemail.com>
-References: <5057455A.7050108@googlemail.com>  <50588371.40103@googlemail.com>  <505885DC.1060006@googlemail.com> <1347979239.26523.267.camel@edumazet-glaptop>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: New commands to configure IOV features
+Date: Wed, 19 Sep 2012 08:53:06 -0700
+Message-ID: <20120919085306.00006af9@unknown>
+References: <5003DC9B.8000706@broadcom.com>
+	<5005BD00.4090106@redhat.com>
+	<5005D45D.1040302@genband.com>
+	<20120717.141153.46613285253481776.davem@davemloft.net>
+	<500978C7.5050004@genband.com>
+	<50097FBD.9080202@redhat.com>
+	<1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>
+	<5009B186.6000806@genband.com>
+	<1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com>
+	<5009ECDF.4090305@genband.com>
+	<500D59BF.9040006@redhat.com>
+	<500D6932.8090306@genband.com>
+	<20120723113607.56ce7aaf@nehalam.linuxnetplumber.net>
+	<C5551D9AAB213A418B7FD5E4A6F30A070C7D9DCD@ORSMSX106.amr.corp.intel.com>
+	<5059A767.2090307@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ariel Elior <ariele@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Yuval Mintz <yuvalmin@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:47250 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755556Ab2ISPZz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 11:25:55 -0400
-Received: by eekc1 with SMTP id c1so483708eek.19
-        for <netdev@vger.kernel.org>; Wed, 19 Sep 2012 08:25:54 -0700 (PDT)
-In-Reply-To: <1347979239.26523.267.camel@edumazet-glaptop>
+Received: from mga09.intel.com ([134.134.136.24]:28098 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755830Ab2ISPxN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Sep 2012 11:53:13 -0400
+In-Reply-To: <5059A767.2090307@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->
-> It would help to have some traffic sample, maybe.
->
-> Especially if the problem is not easily reproductible for us.
->
+On Wed, 19 Sep 2012 14:07:19 +0300
+Yuval Mintz <yuvalmin@broadcom.com> wrote:
 
-OK, I've used an netsniff-ng to capture the traffic on all interfaces on 
-the host (that would be tap0 and eth0, I guess) whilst attempting to 
-ping the router from the WinXP KVM client. The result is a pcap file 
-that I processed with tcpdump to produce:
+> >>> Back to the original discussion though--has anyone got any ideas
+> >>> about the best way to trigger runtime creation of VFs?  I don't
+> >>> know what the binary APIs looks like, but via sysfs I could see
+> >>> something like
+> >>>
+> >>> echo number_of_new_vfs_to_create >
+> >>> /sys/bus/pci/devices/<address>/create_vfs
+> >>>
+> >>> Something else that occurred to me--is there buy-in from driver
+> >>> maintainers?  I know the Intel ethernet drivers (what I'm most
+> >>> familiar
+> >>> with) would need to be substantially modified to support
+> >>> on-the-fly addition of new vfs.  Currently they assume that the
+> >>> number of vfs is known at module init time.
+> >>
+> >> Why couldn't rtnl_link_ops be used for this. It is already the
+> >> preferred interface to create vlan's, bond devices, and other
+> >> virtual devices? The one issue is that do the created VF's exist
+> >> in kernel as devices or only visible to guest?
+> > 
+> > I would say that rtnl_link_ops are network oriented and not
+> > appropriate for something like a storage controller or graphics
+> > device, which are two other common SR-IOV capable devices.
+> 
+> Hi Dave,
+> 
+> We're currently fine-tuning our SRIOV support, which we will shortly
+> send upstream.
+> 
+> We've encountered a problem though - all drivers currently supporting
+> SRIOV do so with the usage of a module param: e.g., 'max_vfs' for
+> ixgbe, 'num_vfs' for benet, etc.
+> The SRIOV feature is disabled by default on all the drivers; it can
+> only be enabled via usage of the module param.
+> 
+> We don't want the lack of SRIOV module param in the bnx2x driver to be
+> the bottle-neck when we'll submit the SRIOV feature upstream, and we
+> also don't want to enable SRIOV by default (following the same logic
+> of other drivers; most users don't use SRIOV and it would strain their
+> resources).
+> 
+> As we see it, there are several possible ways of solving the issue:
+>  1. Use some network-tool (e.g., ethtool).
+>  2. Implement a standard sysfs interface for PCIe devices, as SRIOV is
+>     not solely network-related (this should be done via the PCI linux
+>     tree).
 
-reading from file net-trace.pcap, link-type EN10MB (Ethernet)
-14:56:31.406336 ARP, Request who-has 192.168.200.254 tell 192.168.200.1, 
-length 28
-         0x0000:  0001 0800 0604 0001 5254 0c3b 1728 c0a8
-         0x0010:  c801 0000 0000 0000 c0a8 c8fe
-14:56:31.406357 ARP, Reply 192.168.200.254 is-at 46:83:93:8f:f0:7e, 
-length 28
-         0x0000:  0001 0800 0604 0002 4683 938f f07e c0a8
-         0x0010:  c8fe 5254 0c3b 1728 c0a8 c801
-14:56:31.406534 IP 192.168.200.1 > 192.168.0.1: ICMP echo request, id 
-512, seq 4352, length 40
-         0x0000:  4500 003c 0195 0000 8001 efd8 c0a8 c801
-         0x0010:  c0a8 0001 0800 3a5c 0200 1100 6162 6364
-         0x0020:  6566 6768 696a 6b6c 6d6e 6f70 7172 7374
-         0x0030:  7576 7761 6263 6465 6667 6869
-14:56:31.406566 ARP, Request who-has 192.168.0.1 tell 192.168.0.40, 
-length 28
-         0x0000:  0001 0800 0604 0001 5c9a d85c 6331 c0a8
-         0x0010:  0028 0000 0000 0000 c0a8 0001
-14:56:31.410830 ARP, Reply 192.168.0.1 is-at 00:1f:33:80:09:44, length 46
-         0x0000:  0001 0800 0604 0002 001f 3380 0944 c0a8
-         0x0010:  0001 5c9a d85c 6331 c0a8 0028 c0a8 0001
-         0x0020:  e000 0001 1164 ee9b 0000 0000 4500
-14:56:31.410851 IP 192.168.0.40 > 192.168.0.1: ICMP echo request, id 
-512, seq 4352, length 40
-         0x0000:  4500 003c 0195 0000 7f01 b8b2 c0a8 0028
-         0x0010:  c0a8 0001 0800 3a5c 0200 1100 6162 6364
-         0x0020:  6566 6768 696a 6b6c 6d6e 6f70 7172 7374
-         0x0030:  7576 7761 6263 6465 6667 6869
-14:56:31.414474 IP 192.168.0.1 > 192.168.0.40: ICMP echo reply, id 512, 
-seq 4352, length 40
-         0x0000:  4500 003c cf4f 0000 ff01 6af7 c0a8 0001
-         0x0010:  c0a8 0028 0000 425c 0200 1100 6162 6364
-         0x0020:  6566 6768 696a 6b6c 6d6e 6f70 7172 7374
-         0x0030:  7576 7761 6263 6465 6667 6869
-14:56:36.404781 ARP, Request who-has 192.168.0.40 tell 192.168.0.1, 
-length 46
-         0x0000:  0001 0800 0604 0001 001f 3380 0944 c0a8
-         0x0010:  0001 0000 0000 0000 c0a8 0028 c0a8 0001
-         0x0020:  c0a8 0028 0000 425c 0200 1100 6162
-14:56:36.404806 ARP, Reply 192.168.0.40 is-at 5c:9a:d8:5c:63:31, length 28
-         0x0000:  0001 0800 0604 0002 5c9a d85c 6331 c0a8
-         0x0010:  0028 001f 3380 0944 c0a8 0001
-14:56:36.689750 IP 192.168.200.1 > 192.168.0.1: ICMP echo request, id 
-512, seq 4608, length 40
-         0x0000:  4500 003c 0196 0000 8001 efd7 c0a8 c801
-         0x0010:  c0a8 0001 0800 395c 0200 1200 6162 6364
-         0x0020:  6566 6768 696a 6b6c 6d6e 6f70 7172 7374
-         0x0030:  7576 7761 6263 6465 6667 6869
-14:56:36.689774 IP 192.168.0.40 > 192.168.0.1: ICMP echo request, id 
-512, seq 4608, length 40
-         0x0000:  4500 003c 0196 0000 7f01 b8b1 c0a8 0028
-         0x0010:  c0a8 0001 0800 395c 0200 1200 6162 6364
-         0x0020:  6566 6768 696a 6b6c 6d6e 6f70 7172 7374
-         0x0030:  7576 7761 6263 6465 6667 6869
-14:56:36.693330 IP 192.168.0.1 > 192.168.0.40: ICMP echo reply, id 512, 
-seq 4608, length 40
-         0x0000:  4500 003c cf50 0000 ff01 6af6 c0a8 0001
-         0x0010:  c0a8 0028 0000 415c 0200 1200 6162 6364
-         0x0020:  6566 6768 696a 6b6c 6d6e 6f70 7172 7374
-         0x0030:  7576 7761 6263 6465 6667 6869
-14:56:42.189424 IP 192.168.200.1 > 192.168.0.1: ICMP echo request, id 
-512, seq 4864, length 40
-         0x0000:  4500 003c 0197 0000 8001 efd6 c0a8 c801
-         0x0010:  c0a8 0001 0800 385c 0200 1300 6162 6364
-         0x0020:  6566 6768 696a 6b6c 6d6e 6f70 7172 7374
-         0x0030:  7576 7761 6263 6465 6667 6869
-14:56:42.189447 IP 192.168.0.40 > 192.168.0.1: ICMP echo request, id 
-512, seq 4864, length 40
-         0x0000:  4500 003c 0197 0000 7f01 b8b0 c0a8 0028
-         0x0010:  c0a8 0001 0800 385c 0200 1300 6162 6364
-         0x0020:  6566 6768 696a 6b6c 6d6e 6f70 7172 7374
-         0x0030:  7576 7761 6263 6465 6667 6869
-14:56:42.193029 IP 192.168.0.1 > 192.168.0.40: ICMP echo reply, id 512, 
-seq 4864, length 40
-         0x0000:  4500 003c cf51 0000 ff01 6af5 c0a8 0001
-         0x0010:  c0a8 0028 0000 405c 0200 1300 6162 6364
-         0x0020:  6566 6768 696a 6b6c 6d6e 6f70 7172 7374
-         0x0030:  7576 7761 6263 6465 6667 6869
-14:56:47.689414 IP 192.168.200.1 > 192.168.0.1: ICMP echo request, id 
-512, seq 5120, length 40
-         0x0000:  4500 003c 0198 0000 8001 efd5 c0a8 c801
-         0x0010:  c0a8 0001 0800 375c 0200 1400 6162 6364
-         0x0020:  6566 6768 696a 6b6c 6d6e 6f70 7172 7374
-         0x0030:  7576 7761 6263 6465 6667 6869
-14:56:47.689439 IP 192.168.0.40 > 192.168.0.1: ICMP echo request, id 
-512, seq 5120, length 40
-         0x0000:  4500 003c 0198 0000 7f01 b8af c0a8 0028
-         0x0010:  c0a8 0001 0800 375c 0200 1400 6162 6364
-         0x0020:  6566 6768 696a 6b6c 6d6e 6f70 7172 7374
-         0x0030:  7576 7761 6263 6465 6667 6869
-14:56:47.693661 IP 192.168.0.1 > 192.168.0.40: ICMP echo reply, id 512, 
-seq 5120, length 40
-         0x0000:  4500 003c cf52 0000 ff01 6af4 c0a8 0001
-         0x0010:  c0a8 0028 0000 3f5c 0200 1400 6162 6364
-         0x0020:  6566 6768 696a 6b6c 6d6e 6f70 7172 7374
-         0x0030:  7576 7761 6263 6465 6667 6869
+I was not able to attend the Linux conference held at the end of August
+myself but coworkers of mine here at Intel informed that method 2 here
+seems to be the preferred approach.  Perhaps some folks who attended
+the the conference can chime in with more specifics.
 
-Is this what you asked for?
+- Greg
+LAN Access Division
+Intel Corp.
 
-Chris
+
+
+>  3. Implement a module param in our bnx2x code.
+> 
+> We would like to know what's your preferred method for solving this
+> issue, and to hear if you have another (better?) method by which we
+> can add this kind of support.
+> 
+> Thanks,
+> Yuval Mintz
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
