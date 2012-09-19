@@ -1,43 +1,36 @@
-From: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next] net: more accurate network taps in transmit
  path
-Date: Wed, 19 Sep 2012 14:16:37 -0400 (EDT)
-Message-ID: <20120919.141637.531173978256020103.davem@davemloft.net>
+Date: Wed, 19 Sep 2012 20:21:12 +0200
+Message-ID: <1348078872.26523.1233.camel@edumazet-glaptop>
 References: <20120918211423.GA19115@darkstar>
-	<1348034050.26523.325.camel@edumazet-glaptop>
-	<1348037089.26523.397.camel@edumazet-glaptop>
+	 <1348034050.26523.325.camel@edumazet-glaptop>
+	 <1348037089.26523.397.camel@edumazet-glaptop>
+	 <20120919.141637.531173978256020103.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: jamie.gloudon@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55999 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932907Ab2ISSQk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 14:16:40 -0400
-In-Reply-To: <1348037089.26523.397.camel@edumazet-glaptop>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:46623 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753531Ab2ISSVR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 14:21:17 -0400
+Received: by bkwj10 with SMTP id j10so706088bkw.19
+        for <netdev@vger.kernel.org>; Wed, 19 Sep 2012 11:21:16 -0700 (PDT)
+In-Reply-To: <20120919.141637.531173978256020103.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 19 Sep 2012 08:44:49 +0200
+On Wed, 2012-09-19 at 14:16 -0400, David Miller wrote:
 
-> From: Eric Dumazet <edumazet@google.com>
+> Are you really sure that all the network tap implementations can
+> handle software GSO segmented skbs using skb->next linkage?
 > 
-> dev_queue_xmit_nit() should be called right before ndo_start_xmit()
-> calls or we might give wrong packet contents to taps users :
-> 
-> Packet checksum can be changed, or packet can be linearized or
-> segmented, and segments partially sent for the later case.
-> 
-> Also a memory allocation can fail and packet never really hit the
-> driver entry point.
-> 
-> Reported-by: Jamie Gloudon <jamie.gloudon@gmail.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Because that is what they can potentially see after this change.
 
-Are you really sure that all the network tap implementations can
-handle software GSO segmented skbs using skb->next linkage?
+I dont think so, because skb->next is NULL at the points I call the
+network tap.
 
-Because that is what they can potentially see after this change.
+Or did I miss something ?
