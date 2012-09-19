@@ -1,26 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] asix: Support DLink DUB-E100 H/W Ver C1
-Date: Wed, 19 Sep 2012 17:21:58 -0400 (EDT)
-Message-ID: <20120919.172158.179849677462112091.davem@davemloft.net>
-References: <CABkLObpU3P84AHTBG1hkrHt_HdaPzdTiRU1ACnJv=Qhb+wYPbQ@mail.gmail.com>
-	<1347954657-8975-1-git-send-email-sgh@sgh.dk>
+Subject: Re: [PATCH v4 net-next 0/4] ipv6: fix the reassembly expire code
+ in nf_conntrack
+Date: Wed, 19 Sep 2012 17:28:35 -0400 (EDT)
+Message-ID: <20120919.172835.698305064973980053.davem@davemloft.net>
+References: <1348023011-16195-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org
-To: sgh@sgh.dk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57859 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751948Ab2ISVV7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 17:21:59 -0400
-In-Reply-To: <1347954657-8975-1-git-send-email-sgh@sgh.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	herbert@gondor.hengli.com.au, pablo@netfilter.org
+To: amwang@redhat.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1348023011-16195-1-git-send-email-amwang@redhat.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: S=F8ren Holm <sgh@sgh.dk>
-Date: Tue, 18 Sep 2012 09:50:57 +0200
+From: Cong Wang <amwang@redhat.com>
+Date: Wed, 19 Sep 2012 10:50:07 +0800
 
-> Signed-off-by: S=F8ren Holm <sgh@sgh.dk>
+> V4: some coding style fix
+> 
+> V3: rename struct netns_nf_ct to struct netns_nf_frag
+> 
+> V2: use IS_ENABLED(CONFIG_IPV6) to fix a build error
+>     rebase to latest net-next
+> 
+> ipv6: add a new namespace for nf_conntrack_reasm
+> ipv6: unify conntrack reassembly expire code with standard one
+> ipv6: make ip6_frag_nqueues() and ip6_frag_mem() static
+> ipv6: unify fragment thresh handling code
+> 
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Applied, thanks.
+All applied to net-next, thanks.
