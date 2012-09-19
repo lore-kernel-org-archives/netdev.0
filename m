@@ -1,37 +1,96 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
-Date: Wed, 19 Sep 2012 15:20:45 -0700
-Message-ID: <CAGK4HS_ZKKrzFh+c3WDxbkMFpDTg7ehw9ydp39k6JPFA_j1YOw@mail.gmail.com>
-References: <20120917.121243.1665284878800146060.davem@davemloft.net>
-	<1347901326.26523.149.camel@edumazet-glaptop>
-	<1347901493.26523.151.camel@edumazet-glaptop>
-	<20120917.130732.1894375657044880827.davem@davemloft.net>
-	<1348067659.26523.949.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 5/6] xfrm_user: ensure user supplied esn replay window
+ is valid
+Date: Wed, 19 Sep 2012 23:38:29 +0100
+Message-ID: <1348094309.2636.80.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1348090423-32665-1-git-send-email-minipli@googlemail.com>
+	 <1348090423-32665-6-git-send-email-minipli@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:49103 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751100Ab2ISWUq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 18:20:46 -0400
-Received: by ieak13 with SMTP id k13so2365867iea.19
-        for <netdev@vger.kernel.org>; Wed, 19 Sep 2012 15:20:45 -0700 (PDT)
-In-Reply-To: <1348067659.26523.949.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Martin Willi <martin@revosec.ch>
+To: Mathias Krause <minipli@googlemail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1348090423-32665-6-git-send-email-minipli@googlemail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I did some tests and got no problem so far, even using splice() [ this
-> one was tricky because it only deals with order-0 pages at this moment ]
+On Wed, 2012-09-19 at 23:33 +0200, Mathias Krause wrote:
+> The current code fails to ensure that the netlink message actually
+> contains as many bytes as the header indicates. If a user creates a new
+> state or updates an existing one but does not supply the bytes for the
+> whole ESN replay window, the kernel copies random heap bytes into the
+> replay bitmap, the ones happen to follow the XFRMA_REPLAY_ESN_VAL
+> netlink attribute. This leads to following issues:
+> 
+> 1. The replay window has random bits set confusing the replay handling
+>    code later on.
+> 
+> 2. A malicious user could use this flaw to leak up to ~3.5kB of heap
+>    memory when she has access to the XFRM netlink interface (requires
+>    CAP_NET_ADMIN).
+
+Where does this limit come from?  Is that just the standard size netlink
+skb?
+
+I'm a little worried that the user-provided
+xfrm_replay_state_esn::bmp_len is not being directly validated anywhere.
+Currently xfrm_replay_state_esn_len() may overflow, and as its return
+type is int it may unexpectedly return a negative value.
+
+[...]
+> --- a/net/xfrm/xfrm_user.c
+> +++ b/net/xfrm/xfrm_user.c
+[...]
+> @@ -370,14 +378,15 @@ static inline int xfrm_replay_verify_len(struct xfrm_replay_state_esn *replay_es
+>  					 struct nlattr *rp)
+>  {
+>  	struct xfrm_replay_state_esn *up;
+> +	size_t ulen;
+
+I would normally expect to see sizes declared as size_t but mixing
+size_t and int in comparisons tends to result in bugs.  So I think this
+should to be int, matching the return types of nla_len() and
+xfrm_replay_state_esn_len() (and apparently all lengths in netlink...)
+
+>  	if (!replay_esn || !rp)
+>  		return 0;
+>  
+>  	up = nla_data(rp);
+> +	ulen = xfrm_replay_state_esn_len(up);
 >
-> NIC tested : ixgbe, igb, bnx2x, tg3, mellanox mlx4
+> -	if (xfrm_replay_state_esn_len(replay_esn) !=
+> -			xfrm_replay_state_esn_len(up))
+> +	if (nla_len(rp) < ulen || xfrm_replay_state_esn_len(replay_esn) != ulen)
+>  		return -EINVAL;
+>  
+>  	return 0;
+> @@ -388,22 +397,28 @@ static int xfrm_alloc_replay_state_esn(struct xfrm_replay_state_esn **replay_esn
+>  				       struct nlattr *rta)
+>  {
+>  	struct xfrm_replay_state_esn *p, *pp, *up;
+> +	size_t klen, ulen;
 
+Also int, for the same reason.
 
-I applied this patch to net-next and tested with e1000e driver.
-With iperf I got around 8 % improvement on loopback.
+>  	if (!rta)
+>  		return 0;
+>  
+>  	up = nla_data(rta);
+> +	klen = xfrm_replay_state_esn_len(up);
+> +	ulen = nla_len(rta) > sizeof(*up) ? klen : sizeof(*up);
+[...]
 
-Tested-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+I understand that this is correct since verify_replay() previously
+checked that nla_len(rta) is either == sizeof(*up) or >= klen.  But
+would it not be more obviously correct to test nla_len(rta) >= klen?
 
+Ben.
 
-Vijay
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
