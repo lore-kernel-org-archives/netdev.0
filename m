@@ -1,42 +1,62 @@
-From: michi1@michaelblizek.twilightparadox.com
-Subject: [RFC] new connection-oriented layer 3+4 protocol
-Date: Wed, 19 Sep 2012 19:08:53 +0200
-Message-ID: <20120919170853.GJ2228@grml>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netxen: check for root bus in
+ netxen_mask_aer_correctable
+Date: Wed, 19 Sep 2012 13:40:22 -0400 (EDT)
+Message-ID: <20120919.134022.1671174149302809170.davem@davemloft.net>
+References: <13A253B3F9BEFE43B93C09CF75F63CAA827E3AE9F9@MNEXMB1.qlogic.org>
+	<20120918.162321.1283398796161136088.davem@davemloft.net>
+	<13A253B3F9BEFE43B93C09CF75F63CAA827E3AEA05@MNEXMB1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nikolay@redhat.com, sony.chacko@qlogic.com, netdev@vger.kernel.org
+To: rajesh.borundia@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from michaelblizek.twilightparadox.com ([193.238.157.55]:50093 "EHLO
-	michaelblizek.twilightparadox.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756645Ab2ISR3v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 13:29:51 -0400
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:55604 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756779Ab2ISRk1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 13:40:27 -0400
+In-Reply-To: <13A253B3F9BEFE43B93C09CF75F63CAA827E3AEA05@MNEXMB1.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Date: Wed, 19 Sep 2012 02:24:29 -0500
 
-I am programming a new layer 3+4 protocol for mesh networks. Basically it is
-- connection oriented
-- source (+optional onion) routed
-- doing windowing between each neighbor on every connection (no congestion
-  avoidance)
-- using credits as a metric for QoS
+> 
+> ________________________________________
+> From: David Miller [davem@davemloft.net]
+> Sent: Wednesday, September 19, 2012 1:53 AM
+> To: Rajesh Borundia
+> Cc: nikolay@redhat.com; Sony Chacko; netdev
+> Subject: Re: [PATCH] netxen: check for root bus in netxen_mask_aer_correctable
+> 
+> No, this is not the correct way to submit patches written by other
+> people.
+> 
+> Look at how people like Jeff Kirsher submits Intel driver patches
+> written by people other than himself.
+> 
+> Apologies, will follow the guideline.
 
-The protocol especially tries to withstand DoS attacks and rough
-users/application without human interference. This includes protection against
-inserting bogus routes, blackholing/throttling, addressing conflicts (node
-address can be a hashed public crypto key) and ressource contention. In theory
-it could provide Byzantine robustness, but in practice the overhead for
-calculating routes and ressource contention will limit how far this gets.
+This is also not the correct way to reply to people in email.
 
-Right now the layer 3 is running somehow (without any crypto). The layer 4 is
-currently rather incomplete and broken.
+You haven't properly quoted me, so it's impossible to discern the text
+that I wrote from the text that you have written in response.
 
-Project home:
-http://michaelblizek.homelinux.net/projects/cor/index.html
+If you look at how other people respond in email, you'll see that the
+respondee is properly quoted using prefix characters in the initial
+columns of the quoted test.
 
-Code:
-http://repo.or.cz/w/cor.git/tree/HEAD:/net/cor
+> Like
+> this.
 
-        -Michi
+This is a function of your email client, please learn how to configure
+it so that you can reply properly on these mailing lists.  Don't try
+to force it and do the quoting by hand.
+
+It is extremely frustrating to communicate with contributors who
+cannot write email that conforms to accepted practices and conventions
+on the mailing list.  Please get your act together, or you will find
+that your postings will get less attention and care than you would
+like.
