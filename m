@@ -1,115 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BUG: TCPDUMP invalid cksum persists after disabling TCP cksum
- offload
-Date: Wed, 19 Sep 2012 07:54:10 +0200
-Message-ID: <1348034050.26523.325.camel@edumazet-glaptop>
-References: <20120918193208.GA19030@darkstar>
-	 <1347998905.2685.29.camel@bwh-desktop.uk.solarflarecom.com>
-	 <20120918211423.GA19115@darkstar>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 0/4][pull request] Intel Wired LAN Driver Updates
+Date: Tue, 18 Sep 2012 23:03:55 -0700
+Message-ID: <1348034635.2006.52.camel@jtkirshe-mobl>
+References: <1348029108-26659-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jamie Gloudon <jamie.gloudon@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-TT1wLLuJgN+En6W7hwB1"
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:36478 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754157Ab2ISFyN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 01:54:13 -0400
-Received: by wibhr14 with SMTP id hr14so692057wib.1
-        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 22:54:12 -0700 (PDT)
-In-Reply-To: <20120918211423.GA19115@darkstar>
+Received: from mga09.intel.com ([134.134.136.24]:30371 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754157Ab2ISGD4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Sep 2012 02:03:56 -0400
+In-Reply-To: <1348029108-26659-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-09-18 at 17:14 -0400, Jamie Gloudon wrote:
-> Hello,
->    I am seeing that tx checksum offload appears to be still running after disabling the feature with ethtool. I'm using kernel 3.6.0-rc6 and the latest ethtool from the git repo. 
->  
-> The default settings on my e1000e NIC:
-> # ethtool -k eth1 | grep ': on'
->  rx-checksumming: on
->  tx-checksumming: on
->         tx-checksum-ip-generic: on
->  scatter-gather: on
->          tx-scatter-gather: on
->  tcp-segmentation-offload: on
->          tx-tcp-segmentation: on
->          tx-tcp6-segmentation: on
->  generic-segmentation-offload: on
->  generic-receive-offload: on
->  rx-vlan-offload: on
->  tx-vlan-offload: on
->  receive-hashing: on
->  highdma: on [fixed]
->  rx-vlan-filter: on [fixed]
->  tx-nocache-copy: on
->  
-> The results after disabling tcp cksum offload feature:
-> # ethtool -K eth1 tx off
-> Actual changes:
->  tx-checksumming: off
->          tx-checksum-ip-generic: off
->  scatter-gather: off
->          tx-scatter-gather: off [requested on]
->  tcp-segmentation-offload: off
->          tx-tcp-segmentation: off [requested on]
->          tx-tcp6-segmentation: off [requested on]
->  generic-segmentation-offload: off [requested on]
->  
-> However, in tcpdump, I'm still observing incorrect tcp checksum:
-> 14:44:38.838711 IP (tos 0x10, ttl 64, id 45798, offset 0, flags [DF], proto TCP
-> (6), length 60)
->      1.1.1.2.59748 > 1.1.1.1.23: Flags [S], cksum 0x0433 (incorrect -> 0x4137), seq 318222122, win 14600, options [mss 1460,sackOK,TS val 5447116 ecr 0,nop,wscale 7], length 0
->  
-> Is this behaviour valid? I'm quite baffled.
 
-Thats because dev_hard_start_xmit() calls dev_queue_xmit_nit() before
-doing the features tests : 
+--=-TT1wLLuJgN+En6W7hwB1
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-tcpdump gets a copy of the packet before all mangling done
-(skb_checksum_help() in your case)
+On Tue, 2012-09-18 at 21:31 -0700, Jeff Kirsher wrote:
+> This series contains updates to igb and ixgbevf.
+>=20
+> The following are changes since commit adccff34de1ef81564b7e6c436f762e7a1=
+caf807:
+>   net/tipc/name_table.c: Remove unecessary semicolon
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+>=20
+> Akeem G. Abodunrin (1):
+>   igb: Support to enable EEE on all eee_supported devices
+>=20
+> Alexander Duyck (2):
+>   igb: Remove artificial restriction on RQDPC stat reading
+>   ixgbevf: Add support for VF API negotiation
+>=20
+> John Fastabend (1):
+>   ixgbevf: scheduling while atomic in reset hw path
+>=20
+>  drivers/net/ethernet/intel/igb/e1000_82575.c      | 17 +++++++---
+>  drivers/net/ethernet/intel/igb/e1000_defines.h    |  3 +-
+>  drivers/net/ethernet/intel/igb/e1000_regs.h       |  1 +
+>  drivers/net/ethernet/intel/igb/igb_main.c         |  8 +++--
+>  drivers/net/ethernet/intel/ixgbevf/defines.h      |  1 +
+>  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 23 +++++++++++++
+>  drivers/net/ethernet/intel/ixgbevf/mbx.h          | 21 ++++++++++--
+>  drivers/net/ethernet/intel/ixgbevf/vf.c           | 39 +++++++++++++++++=
++++++-
+>  drivers/net/ethernet/intel/ixgbevf/vf.h           |  3 ++
+>  9 files changed, 105 insertions(+), 11 deletions(-)
+>=20
 
-                if (!list_empty(&ptype_all))
-                        dev_queue_xmit_nit(skb, dev);
+Dave,
 
-                features = netif_skb_features(skb);
+Do not pull, it appears there will be changes to patch 04 of the series,
+I will be sending a v2 of the series once John gets patch 04 fixed up.
 
-                if (vlan_tx_tag_present(skb) &&
-                    !(features & NETIF_F_HW_VLAN_TX)) {
-                        skb = __vlan_put_tag(skb, vlan_tx_tag_get(skb));
-                        if (unlikely(!skb))
-                                goto out;
+Cheers,
+Jeff
 
-                        skb->vlan_tci = 0;
-                }
+--=-TT1wLLuJgN+En6W7hwB1
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-                if (netif_needs_gso(skb, features)) {
-                        if (unlikely(dev_gso_segment(skb, features)))
-                                goto out_kfree_skb;
-                        if (skb->next)
-                                goto gso;
-                } else {
-                        if (skb_needs_linearize(skb, features) &&
-                            __skb_linearize(skb))
-                                goto out_kfree_skb;
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-                        /* If packet is not checksummed and device does not
-                         * support checksumming for this protocol, complete
-                         * checksumming here.
-                         */
-                        if (skb->ip_summed == CHECKSUM_PARTIAL) {
-                                skb_set_transport_header(skb,
-                                        skb_checksum_start_offset(skb));
-                                if (!(features & NETIF_F_ALL_CSUM) &&
-                                     skb_checksum_help(skb))
-                                        goto out_kfree_skb;
-                        }
-                }
+iQIcBAABCgAGBQJQWWBLAAoJEOVv75VaS+3OJN0P/3ABPKu8Az5k1HG3JrcHQCMe
+vLdBaBFVEp/KDurtYHYB3vSzc6UB3IRiu0Rus9DNRBZ+j/yFM7CPXpslNReuOWFu
+XMPTDwHXrZOsFbvgaNxDt2cz29TCFEAYzXnuQQlB2PUO6c9tXTvlCcz7+FmA4r8Z
+K6pZuslC2KhI2X5E3CJtzaiEC57AXo3TaHpjBnrrwAo0NwkbkkOKM2qpCApBHOKD
+IAf5axEjPBD7dKwejG6vDx7L6LdgvNSp5IwQ1kICf0529pHM2A2wv+U04M5PMEZ/
+7n1V2+9Els25V3HNN7mjPRmRtg1Xm14d+SkW6Kde46gsH+Nbyftr7XyNY7q+vJMP
+NAD7HaIwMsDzMgW0OLYGVJK8cnpocFdlLG1y04ATq7hpiwClNrji5T6zZ07oe38E
+5Ss2M83gXeBp6eYbPT8TUnv329Bz0uTmoBFH0xDyUQcnEGIGREJQyO97GxeVBGMe
+nBTP2DtM03nmMvdibLfTwWI2tNJ0hkLu3Gzx1LzM2ZY+ftKZcS7p+K9ZX8Rtay6i
+bm92tzJN1cP8TwqZp9yZcxSCBSQzmjVVMt34yHCQvEv4t3wDcWCGypsJwzUoI2oU
+M8Pl3BEW1eayoiFN4ThIflvSV0BQ4wX06SH5CMbvK4OdDCIGRcMmuyDPzzxgXQrP
+VGwjt6LDuKYmpzqtZTv3
+=4Va7
+-----END PGP SIGNATURE-----
 
-                skb_len = skb->len;
-                rc = ops->ndo_start_xmit(skb, dev);
-
-
-I guess we could move dev_queue_xmit_nit(skb, dev) calls right before the
-ndo_start_xmit() calls...
+--=-TT1wLLuJgN+En6W7hwB1--
