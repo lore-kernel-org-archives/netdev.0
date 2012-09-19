@@ -1,75 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: more accurate network taps in transmit path
-Date: Wed, 19 Sep 2012 08:44:49 +0200
-Message-ID: <1348037089.26523.397.camel@edumazet-glaptop>
-References: <20120918193208.GA19030@darkstar>
-	 <1347998905.2685.29.camel@bwh-desktop.uk.solarflarecom.com>
-	 <20120918211423.GA19115@darkstar>
-	 <1348034050.26523.325.camel@edumazet-glaptop>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: RE: [PATCH] netxen: check for root bus in
+ netxen_mask_aer_correctable
+Date: Wed, 19 Sep 2012 02:24:29 -0500
+Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA827E3AEA05@MNEXMB1.qlogic.org>
+References: <1347637803-4837-1-git-send-email-nikolay@redhat.com>
+	<13A253B3F9BEFE43B93C09CF75F63CAA827E3AE9F9@MNEXMB1.qlogic.org>,<20120918.162321.1283398796161136088.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jamie Gloudon <jamie.gloudon@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "nikolay@redhat.com" <nikolay@redhat.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:48082 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752260Ab2ISGoy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 02:44:54 -0400
-Received: by bkwj10 with SMTP id j10so297032bkw.19
-        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 23:44:53 -0700 (PDT)
-In-Reply-To: <1348034050.26523.325.camel@edumazet-glaptop>
+Received: from [216.32.180.11] ([216.32.180.11]:23449 "EHLO
+	va3outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753701Ab2ISH1h convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Sep 2012 03:27:37 -0400
+In-Reply-To: <20120918.162321.1283398796161136088.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
 
-dev_queue_xmit_nit() should be called right before ndo_start_xmit()
-calls or we might give wrong packet contents to taps users :
+________________________________________
+From: David Miller [davem@davemloft.net]
+Sent: Wednesday, September 19, 2012 1:53 AM
+To: Rajesh Borundia
+Cc: nikolay@redhat.com; Sony Chacko; netdev
+Subject: Re: [PATCH] netxen: check for root bus in netxen_mask_aer_correctable
 
-Packet checksum can be changed, or packet can be linearized or
-segmented, and segments partially sent for the later case.
+No, this is not the correct way to submit patches written by other
+people.
 
-Also a memory allocation can fail and packet never really hit the
-driver entry point.
+Look at how people like Jeff Kirsher submits Intel driver patches
+written by people other than himself.
 
-Reported-by: Jamie Gloudon <jamie.gloudon@gmail.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/dev.c |    9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index dcc673d..52cd1d7 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2213,9 +2213,6 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- 		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
- 			skb_dst_drop(skb);
- 
--		if (!list_empty(&ptype_all))
--			dev_queue_xmit_nit(skb, dev);
--
- 		features = netif_skb_features(skb);
- 
- 		if (vlan_tx_tag_present(skb) &&
-@@ -2250,6 +2247,9 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- 			}
- 		}
- 
-+		if (!list_empty(&ptype_all))
-+			dev_queue_xmit_nit(skb, dev);
-+
- 		skb_len = skb->len;
- 		rc = ops->ndo_start_xmit(skb, dev);
- 		trace_net_dev_xmit(skb, rc, dev, skb_len);
-@@ -2272,6 +2272,9 @@ gso:
- 		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
- 			skb_dst_drop(nskb);
- 
-+		if (!list_empty(&ptype_all))
-+			dev_queue_xmit_nit(nskb, dev);
-+
- 		skb_len = nskb->len;
- 		rc = ops->ndo_start_xmit(nskb, dev);
- 		trace_net_dev_xmit(nskb, rc, dev, skb_len);
+Apologies, will follow the guideline.
