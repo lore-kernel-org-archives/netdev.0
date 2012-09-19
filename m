@@ -1,7 +1,7 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH v2 2/9] net/macb: memory barriers cleanup
-Date: Wed, 19 Sep 2012 13:55:15 +0200
-Message-ID: <44c58f2fdddf8f1521a032f331907149bd6bdb99.1348055112.git.nicolas.ferre@atmel.com>
+Subject: [PATCH v2 5/9] net/macb: tx status is more than 8 bits now
+Date: Wed, 19 Sep 2012 13:55:18 +0200
+Message-ID: <bfe08a1f18b7f4bb248517e319b6c42f041f7351.1348055112.git.nicolas.ferre@atmel.com>
 References: <cover.1348055112.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,95 +16,25 @@ In-Reply-To: <cover.1348055112.git.nicolas.ferre@atmel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Havard Skinnemoen <havard@skinnemoen.net>
+On some revision of GEM, TSR status register has more information.
 
-Remove a couple of unneeded barriers and document the remaining ones.
-
-Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
-[nicolas.ferre@atmel.com: split patch in topics]
 Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 ---
- drivers/net/ethernet/cadence/macb.c | 18 ++++++++++++++----
- 1 file changed, 14 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/cadence/macb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 56375e2..313cba2 100644
+index 31f945c..e98f6fc 100644
 --- a/drivers/net/ethernet/cadence/macb.c
 +++ b/drivers/net/ethernet/cadence/macb.c
-@@ -369,7 +369,9 @@ static void macb_tx(struct macb *bp)
+@@ -310,7 +310,7 @@ static void macb_tx(struct macb *bp)
+ 	status = macb_readl(bp, TSR);
+ 	macb_writel(bp, TSR, status);
  
- 		BUG_ON(skb == NULL);
+-	netdev_vdbg(bp->dev, "macb_tx status = %02lx\n", (unsigned long)status);
++	netdev_vdbg(bp->dev, "macb_tx status = 0x%03lx\n", (unsigned long)status);
  
-+		/* Make hw descriptor updates visible to CPU */
- 		rmb();
-+
- 		bufstat = bp->tx_ring[tail].ctrl;
- 
- 		if (!(bufstat & MACB_BIT(TX_USED)))
-@@ -412,7 +414,10 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 			if (frag == last_frag)
- 				break;
- 		}
-+
-+		/* Make descriptor updates visible to hardware */
- 		wmb();
-+
- 		return 1;
- 	}
- 
-@@ -433,12 +438,14 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 					       frag_len);
- 		offset += RX_BUFFER_SIZE;
- 		bp->rx_ring[frag].addr &= ~MACB_BIT(RX_USED);
--		wmb();
- 
- 		if (frag == last_frag)
- 			break;
- 	}
- 
-+	/* Make descriptor updates visible to hardware */
-+	wmb();
-+
- 	skb->protocol = eth_type_trans(skb, bp->dev);
- 
- 	bp->stats.rx_packets++;
-@@ -458,6 +465,8 @@ static void discard_partial_frame(struct macb *bp, unsigned int begin,
- 
- 	for (frag = begin; frag != end; frag = NEXT_RX(frag))
- 		bp->rx_ring[frag].addr &= ~MACB_BIT(RX_USED);
-+
-+	/* Make descriptor updates visible to hardware */
- 	wmb();
- 
- 	/*
-@@ -476,7 +485,9 @@ static int macb_rx(struct macb *bp, int budget)
- 	for (; budget > 0; tail = NEXT_RX(tail)) {
- 		u32 addr, ctrl;
- 
-+		/* Make hw descriptor updates visible to CPU */
- 		rmb();
-+
- 		addr = bp->rx_ring[tail].addr;
- 		ctrl = bp->rx_ring[tail].ctrl;
- 
-@@ -671,6 +682,8 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	bp->tx_ring[entry].addr = mapping;
- 	bp->tx_ring[entry].ctrl = ctrl;
-+
-+	/* Make newly initialized descriptor visible to hardware */
- 	wmb();
- 
- 	entry = NEXT_TX(entry);
-@@ -779,9 +792,6 @@ static void macb_init_rings(struct macb *bp)
- 
- static void macb_reset_hw(struct macb *bp)
- {
--	/* Make sure we have the write buffer for ourselves */
--	wmb();
--
- 	/*
- 	 * Disable RX and TX (XXX: Should we halt the transmission
- 	 * more gracefully?)
+ 	if (status & (MACB_BIT(UND) | MACB_BIT(TSR_RLE))) {
+ 		int i;
 -- 
 1.7.11.3
