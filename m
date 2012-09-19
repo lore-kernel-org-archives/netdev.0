@@ -1,7 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v5 03/10] ipc: segment key change helper introduced
-Date: Wed, 19 Sep 2012 20:05:42 +0400
-Message-ID: <20120919160542.11254.52904.stgit@localhost6.localdomain6>
+Subject: [PATCH v5 06/10] glge driver: rename internal SEM_SET macro to
+ SEM_INIT
+Date: Wed, 19 Sep 2012 20:05:59 +0400
+Message-ID: <20120919160559.11254.48746.stgit@localhost6.localdomain6>
 References: <20120919160430.11254.86848.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -21,147 +22,73 @@ In-Reply-To: <20120919160430.11254.86848.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces existent segment key changing infrastructure.
-New function ipc_update_key() can be used change segment key, cuid, cgid
-values. It checks for that new key is not used (except IPC_PRIVATE) prior to
-set it on existent.
-To make this possible, added copying of this fields from user-space in
-__get_compat_ipc_perm() and __get_compat_ipc64_perm() functions. Also segment
-search by key and lock were splitted into different functions, because
-ipc_update_key() doesn't need to lock the segment during check that new key is
-not used.
-
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+The reason for shit patch is that SET_SET is desired to be a part of new part
+of API of IPC sys_semctl() system call.
+The name itself for IPC is quite natural, because all linux-specific commands
+names for IPC system calls are originally created by replacing "IPC_" part by
+"SEM_"("MSG_", "SHM_") part.
+So, I'm hoping, that this change doesn't really matters for "QLogic qlge NIC
+HBA Driver" developers, since it's just an internal define.
 ---
- ipc/compat.c |    6 ++++++
- ipc/util.c   |   51 ++++++++++++++++++++++++++++++++++++++++++++++++---
- ipc/util.h   |    2 ++
- 3 files changed, 56 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/qlogic/qlge/qlge.h      |    4 ++--
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c |   16 ++++++++--------
+ 2 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/ipc/compat.c b/ipc/compat.c
-index ad9518e..af30d13 100644
---- a/ipc/compat.c
-+++ b/ipc/compat.c
-@@ -144,6 +144,9 @@ static inline int __get_compat_ipc64_perm(struct ipc64_perm *p64,
- 	err  = __get_user(p64->uid, &up64->uid);
- 	err |= __get_user(p64->gid, &up64->gid);
- 	err |= __get_user(p64->mode, &up64->mode);
-+	err |= __get_user(p64->cuid, &up64->cuid);
-+	err |= __get_user(p64->cgid, &up64->cgid);
-+	err |= __get_user(p64->key, &up64->key);
- 	return err;
- }
- 
-@@ -155,6 +158,9 @@ static inline int __get_compat_ipc_perm(struct ipc64_perm *p,
- 	err  = __get_user(p->uid, &up->uid);
- 	err |= __get_user(p->gid, &up->gid);
- 	err |= __get_user(p->mode, &up->mode);
-+	err |= __get_user(p->cuid, &up->cuid);
-+	err |= __get_user(p->cgid, &up->cgid);
-+	err |= __get_user(p->key, &up->key);
- 	return err;
- }
- 
-diff --git a/ipc/util.c b/ipc/util.c
-index 328abd1..1154245 100644
---- a/ipc/util.c
-+++ b/ipc/util.c
-@@ -173,7 +173,7 @@ void __init ipc_init_proc_interface(const char *path, const char *header,
-  *	@key: The key to find
-  *	
-  *	Requires ipc_ids.rw_mutex locked.
-- *	Returns the LOCKED pointer to the ipc structure if found or NULL
-+ *	Returns the UNLOCKED pointer to the ipc structure if found or NULL
-  *	if not.
-  *	If key is found ipc points to the owning ipc structure
-  */
-@@ -195,7 +195,6 @@ static struct kern_ipc_perm *ipc_findkey(struct ipc_ids *ids, key_t key)
- 			continue;
- 		}
- 
--		ipc_lock_by_ptr(ipc);
- 		return ipc;
- 	}
- 
-@@ -203,6 +202,27 @@ static struct kern_ipc_perm *ipc_findkey(struct ipc_ids *ids, key_t key)
- }
- 
- /**
-+ *	ipc_findkey_locked	-	find and lock a key in an ipc identifier set
-+ *	@ids: Identifier set
-+ *	@key: The key to find
-+ *
-+ *	Requires ipc_ids.rw_mutex locked.
-+ *	Returns the LOCKED pointer to the ipc structure if found or NULL
-+ *	if not.
-+ *	If key is found ipc points to the owning ipc structure
-+ */
-+
-+static struct kern_ipc_perm *ipc_findkey_locked(struct ipc_ids *ids, key_t key)
-+{
-+	struct kern_ipc_perm *ipc;
-+
-+	ipc = ipc_findkey(ids, key);
-+	if (ipc)
-+		ipc_lock_by_ptr(ipc);
-+	return ipc;
-+}
-+
-+/**
-  *	ipc_get_maxid 	-	get the last assigned id
-  *	@ids: IPC identifier set
-  *
-@@ -388,7 +408,7 @@ retry:
- 	 * a new entry + read locks are not "upgradable"
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge.h b/drivers/net/ethernet/qlogic/qlge/qlge.h
+index a131d7b..6f46ea5 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge.h
++++ b/drivers/net/ethernet/qlogic/qlge/qlge.h
+@@ -347,10 +347,10 @@ enum {
+ enum {
+ 	/*
+ 	 * Example:
+-	 * reg = SEM_XGMAC0_MASK | (SEM_SET << SEM_XGMAC0_SHIFT)
++	 * reg = SEM_XGMAC0_MASK | (SEM_INIT << SEM_XGMAC0_SHIFT)
  	 */
- 	down_write(&ids->rw_mutex);
--	ipcp = ipc_findkey(ids, params->key);
-+	ipcp = ipc_findkey_locked(ids, params->key);
- 	if (ipcp == NULL) {
- 		/* key not used */
- 		if (!(flg & IPC_CREAT))
-@@ -755,6 +775,31 @@ int ipcget(struct ipc_namespace *ns, struct ipc_ids *ids,
- }
+ 	SEM_CLEAR = 0,
+-	SEM_SET = 1,
++	SEM_INIT = 1,
+ 	SEM_FORCE = 3,
+ 	SEM_XGMAC0_SHIFT = 0,
+ 	SEM_XGMAC1_SHIFT = 2,
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+index b53a3b6..18e0a0c 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
++++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+@@ -109,28 +109,28 @@ static int ql_sem_trylock(struct ql_adapter *qdev, u32 sem_mask)
  
- /**
-+ * ipc_update_key - update the key of an IPC.
-+ * @in:  the permission given as input.
-+ * @out: the permission of the ipc to set.
-+ *
-+ * Common routine called by sys_shmctl(), sys_semctl(). sys_msgctl().
-+ */
-+int ipc_update_key(struct ipc_ids *ids, struct ipc64_perm *in,
-+		    struct kern_ipc_perm *out)
-+{
-+
-+	if (in->key && out->key != in->key) {
-+		/*
-+		 * Check for existent segment with the same key.
-+		 * Note: ipc_ids.rw_mutex is taken for write already.
-+		 */
-+		if (ipc_findkey(ids, in->key))
-+			return -EEXIST;
-+	}
-+	out->cuid = in->cuid;
-+	out->cgid = in->cgid;
-+	out->key = in->key;
-+	return 0;
-+}
-+
-+/**
-  * ipc_update_perm - update the permissions of an IPC.
-  * @in:  the permission given as input.
-  * @out: the permission of the ipc to set.
-diff --git a/ipc/util.h b/ipc/util.h
-index 878df18..b48016d 100644
---- a/ipc/util.h
-+++ b/ipc/util.h
-@@ -126,6 +126,8 @@ struct kern_ipc_perm *ipc_lock(struct ipc_ids *, int);
- 
- void kernel_to_ipc64_perm(struct kern_ipc_perm *in, struct ipc64_perm *out);
- void ipc64_perm_to_ipc_perm(struct ipc64_perm *in, struct ipc_perm *out);
-+int ipc_update_key(struct ipc_ids *ids, struct ipc64_perm *in,
-+		   struct kern_ipc_perm *out);
- void ipc_update_perm(struct ipc64_perm *in, struct kern_ipc_perm *out);
- struct kern_ipc_perm *ipcctl_pre_down(struct ipc_namespace *ns,
- 				      struct ipc_ids *ids, int id, int cmd,
+ 	switch (sem_mask) {
+ 	case SEM_XGMAC0_MASK:
+-		sem_bits = SEM_SET << SEM_XGMAC0_SHIFT;
++		sem_bits = SEM_INIT << SEM_XGMAC0_SHIFT;
+ 		break;
+ 	case SEM_XGMAC1_MASK:
+-		sem_bits = SEM_SET << SEM_XGMAC1_SHIFT;
++		sem_bits = SEM_INIT << SEM_XGMAC1_SHIFT;
+ 		break;
+ 	case SEM_ICB_MASK:
+-		sem_bits = SEM_SET << SEM_ICB_SHIFT;
++		sem_bits = SEM_INIT << SEM_ICB_SHIFT;
+ 		break;
+ 	case SEM_MAC_ADDR_MASK:
+-		sem_bits = SEM_SET << SEM_MAC_ADDR_SHIFT;
++		sem_bits = SEM_INIT << SEM_MAC_ADDR_SHIFT;
+ 		break;
+ 	case SEM_FLASH_MASK:
+-		sem_bits = SEM_SET << SEM_FLASH_SHIFT;
++		sem_bits = SEM_INIT << SEM_FLASH_SHIFT;
+ 		break;
+ 	case SEM_PROBE_MASK:
+-		sem_bits = SEM_SET << SEM_PROBE_SHIFT;
++		sem_bits = SEM_INIT << SEM_PROBE_SHIFT;
+ 		break;
+ 	case SEM_RT_IDX_MASK:
+-		sem_bits = SEM_SET << SEM_RT_IDX_SHIFT;
++		sem_bits = SEM_INIT << SEM_RT_IDX_SHIFT;
+ 		break;
+ 	case SEM_PROC_REG_MASK:
+-		sem_bits = SEM_SET << SEM_PROC_REG_SHIFT;
++		sem_bits = SEM_INIT << SEM_PROC_REG_SHIFT;
+ 		break;
+ 	default:
+ 		netif_alert(qdev, probe, qdev->ndev, "bad Semaphore mask!.\n");
