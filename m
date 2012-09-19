@@ -1,208 +1,98 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/4] ixgbevf: Add support for VF API negotiation
-Date: Tue, 18 Sep 2012 21:31:47 -0700
-Message-ID: <1348029108-26659-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 4/4] ixgbevf: scheduling while atomic in reset hw path
+Date: Tue, 18 Sep 2012 21:31:48 -0700
+Message-ID: <1348029108-26659-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1348029108-26659-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+Cc: John Fastabend <john.r.fastabend@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:16232 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752048Ab2ISEcN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Sep 2012 00:32:13 -0400
+	id S1753784Ab2ISEcR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Sep 2012 00:32:17 -0400
 In-Reply-To: <1348029108-26659-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-This change makes it so that the VF can support the PF/VF API negotiation
-protocol.  Specifically in this case we are adding support for API 1.0
-which will mean that the VF is capable of cleaning up buffers that span
-multiple descriptors without triggering an error.
+In ixgbevf_reset_hw_vf() msleep is called while holding rtnl_lock
+and mbx_lock resulting in a schedule while atomic bug with trace
+below.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+This patch uses mdelay instead.
+
+BUG: scheduling while atomic: ip/6539/0x00000002
+2 locks held by ip/6539:
+ #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81419cc3>] rtnl_lock+0x17/0x19
+ #1:  (&(&adapter->mbx_lock)->rlock){+.+...}, at: [<ffffffffa0030855>] ixgbevf_reset+0x30/0xc1 [ixgbevf]
+Modules linked in: ixgbevf ixgbe mdio libfc scsi_transport_fc 8021q scsi_tgt garp stp llc cpufreq_ondemand acpi_cpufreq freq_table mperf ipv6 uinput igb coretemp hwmon crc32c_intel ioatdma i2c_i801 shpchp microcode lpc_ich mfd_core i2c_core joydev dca pcspkr serio_raw pata_acpi ata_generic usb_storage pata_jmicron
+Pid: 6539, comm: ip Not tainted 3.6.0-rc3jk-net-next+ #104
+Call Trace:
+ [<ffffffff81072202>] __schedule_bug+0x6a/0x79
+ [<ffffffff814bc7e0>] __schedule+0xa2/0x684
+ [<ffffffff8108f85f>] ? trace_hardirqs_off+0xd/0xf
+ [<ffffffff814bd0c0>] schedule+0x64/0x66
+ [<ffffffff814bb5e2>] schedule_timeout+0xa6/0xca
+ [<ffffffff810536b9>] ? lock_timer_base+0x52/0x52
+ [<ffffffff812629e0>] ? __udelay+0x15/0x17
+ [<ffffffff814bb624>] schedule_timeout_uninterruptible+0x1e/0x20
+ [<ffffffff810541c0>] msleep+0x1b/0x22
+ [<ffffffffa002e723>] ixgbevf_reset_hw_vf+0x90/0xe5 [ixgbevf]
+ [<ffffffffa0030860>] ixgbevf_reset+0x3b/0xc1 [ixgbevf]
+ [<ffffffffa0032fba>] ixgbevf_open+0x43/0x43e [ixgbevf]
+ [<ffffffff81409610>] ? dev_set_rx_mode+0x2e/0x33
+ [<ffffffff8140b0f1>] __dev_open+0xa0/0xe5
+ [<ffffffff814097ed>] __dev_change_flags+0xbe/0x142
+ [<ffffffff8140b01c>] dev_change_flags+0x21/0x56
+ [<ffffffff8141a843>] do_setlink+0x2e2/0x7f4
+ [<ffffffff81016e36>] ? native_sched_clock+0x37/0x39
+ [<ffffffff8141b0ac>] rtnl_newlink+0x277/0x4bb
+ [<ffffffff8141aee9>] ? rtnl_newlink+0xb4/0x4bb
+ [<ffffffff812217d1>] ? selinux_capable+0x32/0x3a
+ [<ffffffff8104fb17>] ? ns_capable+0x4f/0x67
+ [<ffffffff81419cc3>] ? rtnl_lock+0x17/0x19
+ [<ffffffff81419f28>] rtnetlink_rcv_msg+0x236/0x253
+ [<ffffffff81419cf2>] ? rtnetlink_rcv+0x2d/0x2d
+ [<ffffffff8142fd42>] netlink_rcv_skb+0x43/0x94
+ [<ffffffff81419ceb>] rtnetlink_rcv+0x26/0x2d
+ [<ffffffff8142faf1>] netlink_unicast+0xee/0x174
+ [<ffffffff81430327>] netlink_sendmsg+0x26a/0x288
+ [<ffffffff813fb04f>] ? rcu_read_unlock+0x56/0x67
+ [<ffffffff813f5e6d>] __sock_sendmsg_nosec+0x58/0x61
+ [<ffffffff813f81b7>] __sock_sendmsg+0x3d/0x48
+ [<ffffffff813f8339>] sock_sendmsg+0x6e/0x87
+ [<ffffffff81107c9f>] ? might_fault+0xa5/0xac
+ [<ffffffff81402a72>] ? copy_from_user+0x2a/0x2c
+ [<ffffffff81402e62>] ? verify_iovec+0x54/0xaa
+ [<ffffffff813f9834>] __sys_sendmsg+0x206/0x288
+ [<ffffffff810694fa>] ? up_read+0x23/0x3d
+ [<ffffffff811307e5>] ? fcheck_files+0xac/0xea
+ [<ffffffff8113095e>] ? fget_light+0x3a/0xb9
+ [<ffffffff813f9a2e>] sys_sendmsg+0x42/0x60
+ [<ffffffff814c5ba9>] system_call_fastpath+0x16/0x1b
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Tested-by: Robert Garrett <robertx.e.garrett@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/defines.h      |  1 +
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 23 ++++++++++++++
- drivers/net/ethernet/intel/ixgbevf/mbx.h          | 21 +++++++++++--
- drivers/net/ethernet/intel/ixgbevf/vf.c           | 37 +++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbevf/vf.h           |  3 ++
- 5 files changed, 83 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/vf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/defines.h b/drivers/net/ethernet/intel/ixgbevf/defines.h
-index 418af82..da17ccf 100644
---- a/drivers/net/ethernet/intel/ixgbevf/defines.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/defines.h
-@@ -272,5 +272,6 @@ struct ixgbe_adv_tx_context_desc {
- /* Error Codes */
- #define IXGBE_ERR_INVALID_MAC_ADDR              -1
- #define IXGBE_ERR_RESET_FAILED                  -2
-+#define IXGBE_ERR_INVALID_ARGUMENT              -3
- 
- #endif /* _IXGBEVF_DEFINES_H_ */
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index a5d9cc5..c5ffe1d 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1334,6 +1334,25 @@ static void ixgbevf_init_last_counter_stats(struct ixgbevf_adapter *adapter)
- 	adapter->stats.base_vfmprc = adapter->stats.last_vfmprc;
- }
- 
-+static void ixgbevf_negotiate_api(struct ixgbevf_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int api[] = { ixgbe_mbox_api_10,
-+		      ixgbe_mbox_api_unknown };
-+	int err = 0, idx = 0;
-+
-+	spin_lock(&adapter->mbx_lock);
-+
-+	while (api[idx] != ixgbe_mbox_api_unknown) {
-+		err = ixgbevf_negotiate_api_version(hw, api[idx]);
-+		if (!err)
-+			break;
-+		idx++;
-+	}
-+
-+	spin_unlock(&adapter->mbx_lock);
-+}
-+
- static void ixgbevf_up_complete(struct ixgbevf_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
-@@ -1399,6 +1418,8 @@ void ixgbevf_up(struct ixgbevf_adapter *adapter)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
- 
-+	ixgbevf_negotiate_api(adapter);
-+
- 	ixgbevf_configure(adapter);
- 
- 	ixgbevf_up_complete(adapter);
-@@ -2388,6 +2409,8 @@ static int ixgbevf_open(struct net_device *netdev)
- 		}
- 	}
- 
-+	ixgbevf_negotiate_api(adapter);
-+
- 	/* allocate transmit descriptors */
- 	err = ixgbevf_setup_all_tx_resources(adapter);
- 	if (err)
-diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.h b/drivers/net/ethernet/intel/ixgbevf/mbx.h
-index cf9131c..946ce86 100644
---- a/drivers/net/ethernet/intel/ixgbevf/mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/mbx.h
-@@ -76,12 +76,29 @@
- /* bits 23:16 are used for exra info for certain messages */
- #define IXGBE_VT_MSGINFO_MASK     (0xFF << IXGBE_VT_MSGINFO_SHIFT)
- 
-+/* definitions to support mailbox API version negotiation */
-+
-+/*
-+ * each element denotes a version of the API; existing numbers may not
-+ * change; any additions must go at the end
-+ */
-+enum ixgbe_pfvf_api_rev {
-+	ixgbe_mbox_api_10,	/* API version 1.0, linux/freebsd VF driver */
-+	ixgbe_mbox_api_20,	/* API version 2.0, solaris Phase1 VF driver */
-+	/* This value should always be last */
-+	ixgbe_mbox_api_unknown,	/* indicates that API version is not known */
-+};
-+
-+/* mailbox API, legacy requests */
- #define IXGBE_VF_RESET            0x01 /* VF requests reset */
- #define IXGBE_VF_SET_MAC_ADDR     0x02 /* VF requests PF to set MAC addr */
- #define IXGBE_VF_SET_MULTICAST    0x03 /* VF requests PF to set MC addr */
- #define IXGBE_VF_SET_VLAN         0x04 /* VF requests PF to set VLAN */
--#define IXGBE_VF_SET_LPE          0x05 /* VF requests PF to set VMOLR.LPE */
--#define IXGBE_VF_SET_MACVLAN      0x06 /* VF requests PF for unicast filter */
-+
-+/* mailbox API, version 1.0 VF requests */
-+#define IXGBE_VF_SET_LPE	0x05 /* VF requests PF to set VMOLR.LPE */
-+#define IXGBE_VF_SET_MACVLAN	0x06 /* VF requests PF for unicast filter */
-+#define IXGBE_VF_API_NEGOTIATE	0x08 /* negotiate API version */
- 
- /* length of permanent address message returned from PF */
- #define IXGBE_VF_PERMADDR_MSG_LEN 4
 diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
-index 3d555a1..690801b 100644
+index 690801b..87b3f3b 100644
 --- a/drivers/net/ethernet/intel/ixgbevf/vf.c
 +++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
-@@ -79,6 +79,9 @@ static s32 ixgbevf_reset_hw_vf(struct ixgbe_hw *hw)
- 	/* Call adapter stop to disable tx/rx and clear interrupts */
- 	hw->mac.ops.stop_adapter(hw);
+@@ -100,7 +100,7 @@ static s32 ixgbevf_reset_hw_vf(struct ixgbe_hw *hw)
+ 	msgbuf[0] = IXGBE_VF_RESET;
+ 	mbx->ops.write_posted(hw, msgbuf, 1);
  
-+	/* reset the api version */
-+	hw->api_version = ixgbe_mbox_api_10;
-+
- 	IXGBE_WRITE_REG(hw, IXGBE_VFCTRL, IXGBE_CTRL_RST);
- 	IXGBE_WRITE_FLUSH(hw);
+-	msleep(10);
++	mdelay(10);
  
-@@ -433,6 +436,40 @@ void ixgbevf_rlpml_set_vf(struct ixgbe_hw *hw, u16 max_size)
- 	ixgbevf_write_msg_read_ack(hw, msgbuf, 2);
- }
- 
-+/**
-+ *  ixgbevf_negotiate_api_version - Negotiate supported API version
-+ *  @hw: pointer to the HW structure
-+ *  @api: integer containing requested API version
-+ **/
-+int ixgbevf_negotiate_api_version(struct ixgbe_hw *hw, int api)
-+{
-+	int err;
-+	u32 msg[3];
-+
-+	/* Negotiate the mailbox API version */
-+	msg[0] = IXGBE_VF_API_NEGOTIATE;
-+	msg[1] = api;
-+	msg[2] = 0;
-+	err = hw->mbx.ops.write_posted(hw, msg, 3);
-+
-+	if (!err)
-+		err = hw->mbx.ops.read_posted(hw, msg, 3);
-+
-+	if (!err) {
-+		msg[0] &= ~IXGBE_VT_MSGTYPE_CTS;
-+
-+		/* Store value and return 0 on success */
-+		if (msg[0] == (IXGBE_VF_API_NEGOTIATE | IXGBE_VT_MSGTYPE_ACK)) {
-+			hw->api_version = api;
-+			return 0;
-+		}
-+
-+		err = IXGBE_ERR_INVALID_ARGUMENT;
-+	}
-+
-+	return err;
-+}
-+
- static const struct ixgbe_mac_operations ixgbevf_mac_ops = {
- 	.init_hw             = ixgbevf_init_hw_vf,
- 	.reset_hw            = ixgbevf_reset_hw_vf,
-diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
-index 07fd876..47f11a5 100644
---- a/drivers/net/ethernet/intel/ixgbevf/vf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
-@@ -137,6 +137,8 @@ struct ixgbe_hw {
- 
- 	u8  revision_id;
- 	bool adapter_stopped;
-+
-+	int api_version;
- };
- 
- struct ixgbevf_hw_stats {
-@@ -171,5 +173,6 @@ struct ixgbevf_info {
- };
- 
- void ixgbevf_rlpml_set_vf(struct ixgbe_hw *hw, u16 max_size);
-+int ixgbevf_negotiate_api_version(struct ixgbe_hw *hw, int api);
- #endif /* __IXGBE_VF_H__ */
- 
+ 	/* set our "perm_addr" based on info provided by PF */
+ 	/* also set up the mc_filter_type which is piggy backed
 -- 
 1.7.11.4
