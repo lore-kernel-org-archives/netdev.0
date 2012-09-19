@@ -1,63 +1,65 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2 4/9] net/macb: remove macb_get_drvinfo()
-Date: Wed, 19 Sep 2012 16:10:54 +0100
-Message-ID: <1348067454.4836.56.camel@deadeye.wl.decadent.org.uk>
-References: <cover.1348055112.git.nicolas.ferre@atmel.com>
-	 <3fbd9b0eb1e255eccd14ad43044e146776baa963.1348055112.git.nicolas.ferre@atmel.com>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: [PATCH 2/4] ipv6: unify conntrack reassembly expire code with
+ standard one
+Date: Wed, 19 Sep 2012 17:12:46 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1209191659150.12601@ask.diku.dk>
+References: <1348023011-16195-1-git-send-email-amwang@redhat.com>
+ <1348023011-16195-3-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<havard@skinnemoen.net>, <linux-arm-kernel@lists.infradead.org>,
-	<plagnioj@jcrosoft.com>, <patrice.vilchez@atmel.com>,
-	<linux-kernel@vger.kernel.org>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	=?UTF-8?q?Michal=20Kube=C4=8Dek?= <mkubecek@suse.cz>,
+	David Miller <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:19569 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754790Ab2ISPK7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 11:10:59 -0400
-In-Reply-To: <3fbd9b0eb1e255eccd14ad43044e146776baa963.1348055112.git.nicolas.ferre@atmel.com>
+Received: from mgw2.diku.dk ([130.225.96.92]:36154 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755229Ab2ISPLQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Sep 2012 11:11:16 -0400
+In-Reply-To: <1348023011-16195-3-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-09-19 at 13:55 +0200, Nicolas Ferre wrote:
-> This function has little meaning so remove it altogether and
-> let ethtool core fill in the fields automatically.
-> 
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
->  drivers/net/ethernet/cadence/macb.c | 11 -----------
->  1 file changed, 11 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index 2948553..31f945c 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -1217,20 +1217,9 @@ static int macb_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
->  	return phy_ethtool_sset(phydev, cmd);
->  }
->  
-> -static void macb_get_drvinfo(struct net_device *dev,
-> -			     struct ethtool_drvinfo *info)
-> -{
-> -	struct macb *bp = netdev_priv(dev);
-> -
-> -	strcpy(info->driver, bp->pdev->dev.driver->name);
-> -	strcpy(info->version, "$Revision: 1.14 $");
-> -	strcpy(info->bus_info, dev_name(&bp->pdev->dev));
-> -}
-> -
->  static const struct ethtool_ops macb_ethtool_ops = {
->  	.get_settings		= macb_get_settings,
->  	.set_settings		= macb_set_settings,
-> -	.get_drvinfo		= macb_get_drvinfo,
->  	.get_link		= ethtool_op_get_link,
->  };
->  
+On Wed, 19 Sep 2012, Cong Wang wrote:
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+[cut]
+> With this patch applied, I can see ICMP Time Exceeded sent
+> from the receiver when the sender sent out 3/4 fragmented
+> IPv6 UPD packet.
+
+Typo "UPD" -> "UDP"
+
+If people want to redo the IPv6 UDP fragment tests, they can use my scapy 
+script, and comment out sending the last fragment:
+  https://github.com/netoptimizer/network-testing/blob/master/scapy/ipv6_fragment01.py
+
+Another thing, could you please "mark"/put the version of the patch in the 
+subject line, like:
+
+  [PATCH V4 2/4] ipv6: ...
+
+This makes it easier, to follow on which version of the patch people are 
+replying to.
+
+With git send-email I think you have to do:
+
+   git send-email --subject-prefix="PATCH V4"
+
+And with stg (stacked git) I usually do:
+
+   stg mail --version "V4" --to netdev ...
+
+Cheers,
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
