@@ -1,62 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netxen: check for root bus in
- netxen_mask_aer_correctable
-Date: Wed, 19 Sep 2012 13:40:22 -0400 (EDT)
-Message-ID: <20120919.134022.1671174149302809170.davem@davemloft.net>
-References: <13A253B3F9BEFE43B93C09CF75F63CAA827E3AE9F9@MNEXMB1.qlogic.org>
-	<20120918.162321.1283398796161136088.davem@davemloft.net>
-	<13A253B3F9BEFE43B93C09CF75F63CAA827E3AEA05@MNEXMB1.qlogic.org>
+Subject: Re: [PATCH net-next] ipv6: recursive check rt->dst.from when call
+ rt6_check_expired
+Date: Wed, 19 Sep 2012 13:41:39 -0400 (EDT)
+Message-ID: <20120919.134139.249773796773112801.davem@davemloft.net>
+References: <1347602097-18034-1-git-send-email-roy.qing.li@gmail.com>
+	<505980BE.5060300@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: nikolay@redhat.com, sony.chacko@qlogic.com, netdev@vger.kernel.org
-To: rajesh.borundia@qlogic.com
+Cc: roy.qing.li@gmail.com, netdev@vger.kernel.org
+To: gaofeng@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55604 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55621 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756779Ab2ISRk1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 13:40:27 -0400
-In-Reply-To: <13A253B3F9BEFE43B93C09CF75F63CAA827E3AEA05@MNEXMB1.qlogic.org>
+	with ESMTP id S1756779Ab2ISRll (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 13:41:41 -0400
+In-Reply-To: <505980BE.5060300@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Date: Wed, 19 Sep 2012 02:24:29 -0500
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Date: Wed, 19 Sep 2012 16:22:22 +0800
 
+> 于 2012年09月14日 13:54, roy.qing.li@gmail.com 写道:
+>> From: Li RongQing <roy.qing.li@gmail.com>
+>> 
+>> If dst cache dst_a copies from dst_b, and dst_b copies from dst_c, check
+>> if dst_a is expired or not, we should not end with dst_a->dst.from, dst_b,
+>> we should check dst_c.
+>> 
+>> CC: Gao feng <gaofeng@cn.fujitsu.com>
+>> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+>> ---
 > 
-> ________________________________________
-> From: David Miller [davem@davemloft.net]
-> Sent: Wednesday, September 19, 2012 1:53 AM
-> To: Rajesh Borundia
-> Cc: nikolay@redhat.com; Sony Chacko; netdev
-> Subject: Re: [PATCH] netxen: check for root bus in netxen_mask_aer_correctable
-> 
-> No, this is not the correct way to submit patches written by other
-> people.
-> 
-> Look at how people like Jeff Kirsher submits Intel driver patches
-> written by people other than himself.
-> 
-> Apologies, will follow the guideline.
+> Looks good to me,thanks rongqing :)
 
-This is also not the correct way to reply to people in email.
-
-You haven't properly quoted me, so it's impossible to discern the text
-that I wrote from the text that you have written in response.
-
-If you look at how other people respond in email, you'll see that the
-respondee is properly quoted using prefix characters in the initial
-columns of the quoted test.
-
-> Like
-> this.
-
-This is a function of your email client, please learn how to configure
-it so that you can reply properly on these mailing lists.  Don't try
-to force it and do the quoting by hand.
-
-It is extremely frustrating to communicate with contributors who
-cannot write email that conforms to accepted practices and conventions
-on the mailing list.  Please get your act together, or you will find
-that your postings will get less attention and care than you would
-like.
+An explicit "Acked-by: " is more useful to us than simply saying
+it looks good.
