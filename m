@@ -1,45 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] batman-adv: make batadv_test_bit() return 0 or 1
- only
-Date: Wed, 19 Sep 2012 15:50:49 -0400 (EDT)
-Message-ID: <20120919.155049.1144637355081576911.davem@davemloft.net>
-References: <1347619254-22862-1-git-send-email-ordex@autistici.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net: do not disable sg for AoE
+Date: Wed, 19 Sep 2012 20:55:04 +0100
+Message-ID: <1348084504.2636.41.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1348079358.4585@cat.he.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	linus.luessing@web.de
-To: ordex@autistici.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56856 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751110Ab2ISTuv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 15:50:51 -0400
-In-Reply-To: <1347619254-22862-1-git-send-email-ordex@autistici.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <akpm@linux-foundation.org>,
+	<jesse@nicira.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Ed Cashin <ecashin@coraid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1348079358.4585@cat.he.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Antonio Quartulli <ordex@autistici.org>
-Date: Fri, 14 Sep 2012 12:40:54 +0200
+On Tue, 2012-09-18 at 20:20 -0400, Ed Cashin wrote:
+> A change in a series of VLAN-related changes appears to have
+> inadvertently disabled the use of the scatter gather feature of
+> network cards for transmission of non-IP ethernet protocols like ATA
+> over Ethernet (AoE).  Below is a reference to the commit that
+> introduces a "harmonize_features" function that turns off scatter
+> gather when the NIC does not support hardware checksumming for the
+> ethernet protocol of an sk buff.
+> 
+>   commit f01a5236bd4b140198fbcc550f085e8361fd73fa
+>   Author: Jesse Gross <jesse@nicira.com>
+>   Date:   Sun Jan 9 06:23:31 2011 +0000
+> 
+>       net offloading: Generalize netif_get_vlan_features().
+> 
+> The can_checksum_protocol function is not equipped to consider a
+> protocol that does not require checksumming.  Calling it for a
+> protocol that requires no checksum is inappropriate.
 
-> From: Linus L=FCssing <linus.luessing@web.de>
->=20
-> On some architectures test_bit() can return other values than 0 or 1:
->=20
-> With a generic x86 OpenWrt image in a kvm setup (batadv_)test_bit()
-> frequently returns -1 for me, leading to batadv_iv_ogm_update_seqnos(=
-)
-> wrongly signaling a protected seqno window.
->=20
-> This patch tries to fix this issue by making batadv_test_bit() return=
- 0
-> or 1 only.
->=20
-> Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
-> Acked-by: Sven Eckelmann <sven@narfation.org>
-> Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+Right, but...
 
-Indeed, for variable bit testing x86 uses the 'sbb' instruction
-to form the result.  So we either get 0 or -1 from test_bit().
+[...]
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index d7fe32c..5531159 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2134,7 +2134,8 @@ static bool can_checksum_protocol(netdev_features_t features, __be16 protocol)
+>  static netdev_features_t harmonize_features(struct sk_buff *skb,
+>  	__be16 protocol, netdev_features_t features)
+>  {
+> -	if (!can_checksum_protocol(features, protocol)) {
+> +	if (protocol != htons(ETH_P_AOE) &&
 
-Patch applied, thanks a lot.
+the generic way to check that would be skb->ip_summed != CHECKSUM_NONE.
+
+Ben.
+
+> +	    !can_checksum_protocol(features, protocol)) {
+>  		features &= ~NETIF_F_ALL_CSUM;
+>  		features &= ~NETIF_F_SG;
+>  	} else if (illegal_highdma(skb->dev, skb)) {
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
