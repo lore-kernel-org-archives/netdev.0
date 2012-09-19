@@ -1,40 +1,41 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Netfilter lacks ability to filter packets via Application-origin
-Date: Wed, 19 Sep 2012 21:24:12 +0100
-Message-ID: <1348086252.2636.58.camel@bwh-desktop.uk.solarflarecom.com>
-References: <COL002-W12C33BCBEB56AC8ADFF6B0F39B0@phx.gbl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sched: fix virtual-start-time update in QFQ
+Date: Wed, 19 Sep 2012 16:25:06 -0400 (EDT)
+Message-ID: <20120919.162506.1493337375457097539.davem@davemloft.net>
+References: <20120915104134.GA29862@paolo-ThinkPad-W520>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Chad Gray <chad938@hotmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:11958 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751692Ab2ISUYP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 16:24:15 -0400
-In-Reply-To: <COL002-W12C33BCBEB56AC8ADFF6B0F39B0@phx.gbl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: shemminger@vyatta.com, jhs@mojatatu.com, fchecconi@gmail.com,
+	rizzo@iet.unipi.it, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: paolo.valente@unimore.it
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120915104134.GA29862@paolo-ThinkPad-W520>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-09-19 at 15:40 -0400, Chad Gray wrote:
-> Users need the ability for Linux firewall to filter packets based on what
-> Application they are originating from. This ability is present in Mac and
-> Windows firewalls, but not Linux.
+From: Paolo Valente <paolo.valente@unimore.it>
+Date: Sat, 15 Sep 2012 12:41:35 +0200
+
+> If the old timestamps of a class, say cl, are stale when the class
+> becomes active, then QFQ may assign to cl a much higher start time
+> than the maximum value allowed. This may happen when QFQ assigns to
+> the start time of cl the finish time of a group whose classes are
+> characterized by a higher value of the ratio
+> max_class_pkt/weight_of_the_class with respect to that of
+> cl. Inserting a class with a too high start time into the bucket list
+> corrupts the data structure and may eventually lead to crashes.
+> This patch limits the maximum start time assigned to a class.
 > 
-> For example, users would like ability to open Port 80 for Firefox, but keep
-> Port 80 closed for other applications.
-> 
-> This ability enhances Privacy & Security of the user but also helps to better
-> inform the user about the comings and goings of internet traffic and what
-> application/s are causing the traffic.
+> Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
 
-Most of the Linux Security Modules seem to support this sort of network
-policy.
+Applied and queued up for -stable, thanks.
 
-Ben.
+Please use "pkt_sched" instead of just plain "sched" in the prefixes
+of your subject lines for packet scheduler changes so such changes
+can be distinguished from process scheduler changes.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I fixed it up for you this time.
+
+Thanks.
