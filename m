@@ -1,78 +1,122 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Pull request: sfc-next 2012-09-19
-Date: Wed, 19 Sep 2012 20:09:35 +0100
-Message-ID: <1348081775.2636.15.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 01/11] pps/ptp: Allow PHC devices to adjust PPS
+ events for known delay
+Date: Wed, 19 Sep 2012 20:13:44 +0100
+Message-ID: <1348082024.2636.16.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1348081775.2636.15.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Richard Cochran <richardcochran@gmail.com>,
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
+	Richard Cochran <richardcochran@gmail.com>,
 	Rodolfo Giometti <giometti@enneenne.com>,
-	linux-net-drivers <linux-net-drivers@solarflare.com>,
-	netdev <netdev@vger.kernel.org>,
 	Andrew Jackson <ajackson@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:58271 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:58366 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754601Ab2ISTJj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 15:09:39 -0400
+	by vger.kernel.org with ESMTP id S1754843Ab2ISTNs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 15:13:48 -0400
+In-Reply-To: <1348081775.2636.15.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit b4516a288e71c64d7e214902250baf78b7b3cdcf:
+Initial version by Stuart Hodgson <smhodgson@solarflare.com>
 
-  llc: Remove stray reference to sysctl_llc_station_ack_timeout. (2012-09-17 13:13:24 -0400)
+Some PHC device drivers may deliver PPS events with a significant
+and variable delay, but still be able to measure precisely what
+that delay is.
 
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
+Add a pps_sub_ts() function for subtracting a delay from the
+timestamp(s) in a PPS event, and a PTP event type (PTP_CLOCK_PPSUSR)
+for which the caller provides a complete PPS event.
 
-(commit 450783747f42dfa3883920acfad4acdd93ce69af)
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/ptp/ptp_clock.c          |    5 +++++
+ include/linux/pps_kernel.h       |    9 +++++++++
+ include/linux/ptp_clock_kernel.h |   10 ++++++++--
+ 3 files changed, 22 insertions(+), 2 deletions(-)
 
-1. Extension to PPS/PTP to allow for PHC devices where pulses are
-   subject to a variable but measurable delay.
-2. PPS/PTP/PHC support for Solarflare boards with a timestamping 
-   peripheral.
-3. MTD support for updating the timestamping peripheral on those boards.
-4. Fix for potential over-length requests to firmware.
+diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
+index 1e528b5..966875d 100644
+--- a/drivers/ptp/ptp_clock.c
++++ b/drivers/ptp/ptp_clock.c
+@@ -300,6 +300,11 @@ void ptp_clock_event(struct ptp_clock *ptp, struct ptp_clock_event *event)
+ 		pps_get_ts(&evt);
+ 		pps_event(ptp->pps_source, &evt, PTP_PPS_EVENT, NULL);
+ 		break;
++
++	case PTP_CLOCK_PPSUSR:
++		pps_event(ptp->pps_source, &event->pps_times,
++			  PTP_PPS_EVENT, NULL);
++		break;
+ 	}
+ }
+ EXPORT_SYMBOL(ptp_clock_event);
+diff --git a/include/linux/pps_kernel.h b/include/linux/pps_kernel.h
+index 9404854..0cc45ae 100644
+--- a/include/linux/pps_kernel.h
++++ b/include/linux/pps_kernel.h
+@@ -116,5 +116,14 @@ static inline void pps_get_ts(struct pps_event_time *ts)
+ 
+ #endif /* CONFIG_NTP_PPS */
+ 
++/* Subtract known time delay from PPS event time(s) */
++static inline void pps_sub_ts(struct pps_event_time *ts, struct timespec delta)
++{
++	ts->ts_real = timespec_sub(ts->ts_real, delta);
++#ifdef CONFIG_NTP_PPS
++	ts->ts_raw = timespec_sub(ts->ts_raw, delta);
++#endif
++}
++
+ #endif /* LINUX_PPS_KERNEL_H */
+ 
+diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
+index 945704c..a644b29 100644
+--- a/include/linux/ptp_clock_kernel.h
++++ b/include/linux/ptp_clock_kernel.h
+@@ -21,6 +21,7 @@
+ #ifndef _PTP_CLOCK_KERNEL_H_
+ #define _PTP_CLOCK_KERNEL_H_
+ 
++#include <linux/pps_kernel.h>
+ #include <linux/ptp_clock.h>
+ 
 
-Ben.
+@@ -110,6 +111,7 @@ enum ptp_clock_events {
+ 	PTP_CLOCK_ALARM,
+ 	PTP_CLOCK_EXTTS,
+ 	PTP_CLOCK_PPS,
++	PTP_CLOCK_PPSUSR,
+ };
+ 
+ /**
+@@ -117,13 +119,17 @@ enum ptp_clock_events {
+  *
+  * @type:  One of the ptp_clock_events enumeration values.
+  * @index: Identifies the source of the event.
+- * @timestamp: When the event occured.
++ * @timestamp: When the event occurred (%PTP_CLOCK_EXTTS only).
++ * @pps_times: When the event occurred (%PTP_CLOCK_PPSUSR only).
+  */
+ 
+ struct ptp_clock_event {
+ 	int type;
+ 	int index;
+-	u64 timestamp;
++	union {
++		u64 timestamp;
++		struct pps_event_time pps_times;
++	};
+ };
+ 
+ /**
+-- 
+1.7.7.6
 
-Ben Hutchings (7):
-      pps/ptp: Allow PHC devices to adjust PPS events for known delay
-      sfc: Fix maximum array sizes for various MCDI commands
-      sfc: Convert firmware subtypes to native byte order in efx_mcdi_get_board_cfg()
-      sfc: Support variable-length response to MCDI GET_BOARD_CFG
-      sfc: Expose FPGA bitfile partition through MTD
-      sfc: Bump version to 3.2
-      sfc: Avoid generating over-length MC_CMD_FLUSH_RX_QUEUES request
 
-Stuart Hodgson (4):
-      sfc: Add explicit RX queue flag to channel
-      sfc: Add channel specific receive_skb handler and post_remove callback
-      sfc: Allow efx_mcdi_rpc to be called in two parts
-      sfc: Add support for IEEE-1588 PTP
-
- drivers/net/ethernet/sfc/Kconfig       |    7 +
- drivers/net/ethernet/sfc/Makefile      |    1 +
- drivers/net/ethernet/sfc/efx.c         |   17 +-
- drivers/net/ethernet/sfc/efx.h         |    1 +
- drivers/net/ethernet/sfc/ethtool.c     |    1 +
- drivers/net/ethernet/sfc/mcdi.c        |   49 +-
- drivers/net/ethernet/sfc/mcdi.h        |    6 +
- drivers/net/ethernet/sfc/mcdi_pcol.h   |   29 +-
- drivers/net/ethernet/sfc/mtd.c         |    7 +-
- drivers/net/ethernet/sfc/net_driver.h  |   29 +-
- drivers/net/ethernet/sfc/nic.h         |   36 +
- drivers/net/ethernet/sfc/ptp.c         | 1483 ++++++++++++++++++++++++++++++++
- drivers/net/ethernet/sfc/rx.c          |   20 +-
- drivers/net/ethernet/sfc/siena.c       |    1 +
- drivers/net/ethernet/sfc/siena_sriov.c |    7 +
- drivers/net/ethernet/sfc/tx.c          |    6 +
- drivers/ptp/ptp_clock.c                |    5 +
- include/linux/pps_kernel.h             |    9 +
- include/linux/ptp_clock_kernel.h       |   10 +-
- 19 files changed, 1688 insertions(+), 36 deletions(-)
- create mode 100644 drivers/net/ethernet/sfc/ptp.c
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
