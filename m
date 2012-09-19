@@ -1,118 +1,119 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 01/11] pps/ptp: Allow PHC devices to adjust PPS
- events for known delay
-Date: Wed, 19 Sep 2012 20:13:44 +0100
-Message-ID: <1348082024.2636.16.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 02/11] sfc: Add explicit RX queue flag to channel
+Date: Wed, 19 Sep 2012 20:14:28 +0100
+Message-ID: <1348082068.2636.17.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1348081775.2636.15.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Rodolfo Giometti <giometti@enneenne.com>,
-	Andrew Jackson <ajackson@solarflare.com>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:58366 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:20139 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754843Ab2ISTNs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 15:13:48 -0400
+	by vger.kernel.org with ESMTP id S1756230Ab2ISTOb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 15:14:31 -0400
 In-Reply-To: <1348081775.2636.15.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Initial version by Stuart Hodgson <smhodgson@solarflare.com>
+The PTP channel will have its own RX queue even though it's not
+a regular traffic channel.
 
-Some PHC device drivers may deliver PPS events with a significant
-and variable delay, but still be able to measure precisely what
-that delay is.
+Original work by Ben Hutchings <bhutchings@solarflare.com>
 
-Add a pps_sub_ts() function for subtracting a delay from the
-timestamp(s) in a PPS event, and a PTP event type (PTP_CLOCK_PPSUSR)
-for which the caller provides a complete PPS event.
-
+Signed-off-by: Stuart Hodgson <smhodgson@solarflare.com>
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/ptp/ptp_clock.c          |    5 +++++
- include/linux/pps_kernel.h       |    9 +++++++++
- include/linux/ptp_clock_kernel.h |   10 ++++++++--
- 3 files changed, 22 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/sfc/efx.c        |    8 +++++++-
+ drivers/net/ethernet/sfc/net_driver.h |    5 ++++-
+ drivers/net/ethernet/sfc/rx.c         |    7 +++++--
+ 3 files changed, 16 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
-index 1e528b5..966875d 100644
---- a/drivers/ptp/ptp_clock.c
-+++ b/drivers/ptp/ptp_clock.c
-@@ -300,6 +300,11 @@ void ptp_clock_event(struct ptp_clock *ptp, struct ptp_clock_event *event)
- 		pps_get_ts(&evt);
- 		pps_event(ptp->pps_source, &evt, PTP_PPS_EVENT, NULL);
- 		break;
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index a606db4..342a1f3 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -1451,10 +1451,16 @@ static void efx_set_channels(struct efx_nic *efx)
+ 	efx->tx_channel_offset =
+ 		separate_tx_channels ? efx->n_channels - efx->n_tx_channels : 0;
+ 
+-	/* We need to adjust the TX queue numbers if we have separate
++	/* We need to mark which channels really have RX and TX
++	 * queues, and adjust the TX queue numbers if we have separate
+ 	 * RX-only and TX-only channels.
+ 	 */
+ 	efx_for_each_channel(channel, efx) {
++		if (channel->channel < efx->n_rx_channels)
++			channel->rx_queue.core_index = channel->channel;
++		else
++			channel->rx_queue.core_index = -1;
 +
-+	case PTP_CLOCK_PPSUSR:
-+		pps_event(ptp->pps_source, &event->pps_times,
-+			  PTP_PPS_EVENT, NULL);
-+		break;
- 	}
- }
- EXPORT_SYMBOL(ptp_clock_event);
-diff --git a/include/linux/pps_kernel.h b/include/linux/pps_kernel.h
-index 9404854..0cc45ae 100644
---- a/include/linux/pps_kernel.h
-+++ b/include/linux/pps_kernel.h
-@@ -116,5 +116,14 @@ static inline void pps_get_ts(struct pps_event_time *ts)
- 
- #endif /* CONFIG_NTP_PPS */
- 
-+/* Subtract known time delay from PPS event time(s) */
-+static inline void pps_sub_ts(struct pps_event_time *ts, struct timespec delta)
-+{
-+	ts->ts_real = timespec_sub(ts->ts_real, delta);
-+#ifdef CONFIG_NTP_PPS
-+	ts->ts_raw = timespec_sub(ts->ts_raw, delta);
-+#endif
-+}
-+
- #endif /* LINUX_PPS_KERNEL_H */
- 
-diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
-index 945704c..a644b29 100644
---- a/include/linux/ptp_clock_kernel.h
-+++ b/include/linux/ptp_clock_kernel.h
-@@ -21,6 +21,7 @@
- #ifndef _PTP_CLOCK_KERNEL_H_
- #define _PTP_CLOCK_KERNEL_H_
- 
-+#include <linux/pps_kernel.h>
- #include <linux/ptp_clock.h>
- 
-
-@@ -110,6 +111,7 @@ enum ptp_clock_events {
- 	PTP_CLOCK_ALARM,
- 	PTP_CLOCK_EXTTS,
- 	PTP_CLOCK_PPS,
-+	PTP_CLOCK_PPSUSR,
- };
- 
+ 		efx_for_each_channel_tx_queue(tx_queue, channel)
+ 			tx_queue->queue -= (efx->tx_channel_offset *
+ 					    EFX_TXQ_TYPES);
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 7ab1232..24a78a3 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -242,6 +242,8 @@ struct efx_rx_page_state {
  /**
-@@ -117,13 +119,17 @@ enum ptp_clock_events {
-  *
-  * @type:  One of the ptp_clock_events enumeration values.
-  * @index: Identifies the source of the event.
-- * @timestamp: When the event occured.
-+ * @timestamp: When the event occurred (%PTP_CLOCK_EXTTS only).
-+ * @pps_times: When the event occurred (%PTP_CLOCK_PPSUSR only).
+  * struct efx_rx_queue - An Efx RX queue
+  * @efx: The associated Efx NIC
++ * @core_index:  Index of network core RX queue.  Will be >= 0 iff this
++ *	is associated with a real RX queue.
+  * @buffer: The software buffer ring
+  * @rxd: The hardware descriptor ring
+  * @ptr_mask: The size of the ring minus 1.
+@@ -263,6 +265,7 @@ struct efx_rx_page_state {
   */
+ struct efx_rx_queue {
+ 	struct efx_nic *efx;
++	int core_index;
+ 	struct efx_rx_buffer *buffer;
+ 	struct efx_special_buffer rxd;
+ 	unsigned int ptr_mask;
+@@ -1047,7 +1050,7 @@ static inline bool efx_tx_queue_used(struct efx_tx_queue *tx_queue)
  
- struct ptp_clock_event {
- 	int type;
- 	int index;
--	u64 timestamp;
-+	union {
-+		u64 timestamp;
-+		struct pps_event_time pps_times;
-+	};
- };
+ static inline bool efx_channel_has_rx_queue(struct efx_channel *channel)
+ {
+-	return channel->channel < channel->efx->n_rx_channels;
++	return channel->rx_queue.core_index >= 0;
+ }
  
- /**
+ static inline struct efx_rx_queue *
+diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+index 719319b..e997f83 100644
+--- a/drivers/net/ethernet/sfc/rx.c
++++ b/drivers/net/ethernet/sfc/rx.c
+@@ -479,7 +479,7 @@ static void efx_rx_packet_gro(struct efx_channel *channel,
+ 		skb->ip_summed = ((rx_buf->flags & EFX_RX_PKT_CSUMMED) ?
+ 				  CHECKSUM_UNNECESSARY : CHECKSUM_NONE);
+ 
+-		skb_record_rx_queue(skb, channel->channel);
++		skb_record_rx_queue(skb, channel->rx_queue.core_index);
+ 
+ 		gro_result = napi_gro_frags(napi);
+ 	} else {
+@@ -571,6 +571,9 @@ static void efx_rx_deliver(struct efx_channel *channel,
+ 	/* Set the SKB flags */
+ 	skb_checksum_none_assert(skb);
+ 
++	/* Record the rx_queue */
++	skb_record_rx_queue(skb, channel->rx_queue.core_index);
++
+ 	/* Pass the packet up */
+ 	netif_receive_skb(skb);
+ 
+@@ -608,7 +611,7 @@ void __efx_rx_packet(struct efx_channel *channel, struct efx_rx_buffer *rx_buf)
+ 		 * at the ethernet header */
+ 		skb->protocol = eth_type_trans(skb, efx->net_dev);
+ 
+-		skb_record_rx_queue(skb, channel->channel);
++		skb_record_rx_queue(skb, channel->rx_queue.core_index);
+ 	}
+ 
+ 	if (unlikely(!(efx->net_dev->features & NETIF_F_RXCSUM)))
 -- 
 1.7.7.6
 
