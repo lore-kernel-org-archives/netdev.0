@@ -1,34 +1,35 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.com>
-Subject: RE: [PATCH net-next] mlx4: use dev_kfree_skb() instead of
- dev_kfree_skb_any()
-Date: Wed, 19 Sep 2012 07:58:13 +0000
-Message-ID: <953B660C027164448AE903364AC447D28721B46E@MTLDAG01.mtl.com>
-References: <1347866974.26523.53.camel@edumazet-glaptop>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH net-next] ipv6: recursive check rt->dst.from when call
+ rt6_check_expired
+Date: Wed, 19 Sep 2012 16:22:22 +0800
+Message-ID: <505980BE.5060300@cn.fujitsu.com>
+References: <1347602097-18034-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	"Ying Cai" <ycai@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:55476 "HELO
-	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751519Ab2ISH7g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 03:59:36 -0400
-In-Reply-To: <1347866974.26523.53.camel@edumazet-glaptop>
-Content-Language: en-US
+Received: from cn.fujitsu.com ([222.73.24.84]:33365 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751970Ab2ISIWW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 04:22:22 -0400
+In-Reply-To: <1347602097-18034-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiANCj4gU2luY2UgY29tbWl0IGUyMjk3OWQ5NmE1IChtbHg0X2VuOiBNb3ZpbmcgdG8gSW50ZXJy
-dXB0cyBmb3IgVFgNCj4gY29tcGxldGlvbnMpLCB3ZSBubyBsb25nZXIgY2FuIGZyZWUgVFggc2ti
-IGZyb20gaGFyZCBJUlEsIGJ1dCBvbmx5IGZyb20NCj4gbm9ybWFsIHNvZnRpcnEgb3IgcHJvY2Vz
-cyBjb250ZXh0Lg0KPiANCj4gVGhlcmVmb3JlLCB3ZSBjYW4gZGlyZWN0bHkgY2FsbCBkZXZfa2Zy
-ZWVfc2tiKCkgZnJvbQ0KPiBtbHg0X2VuX2ZyZWVfdHhfZGVzYygpIGxpa2Ugb3RoZXIgY29udmVu
-dGlvbmFsIE5BUEkgZHJpdmVycy4NCj4gDQoNCkhpIEVyaWMsDQpBdCB0aGUgbW9tZW50IHRoZSBU
-WCBjb21wbGV0aW9uIHByb2Nlc3NpbmcgaXMgZG9uZSBmcm9tIElSUSBjb250ZXh0Lg0KU28gSSB0
-aGluayB3ZSBuZWVkIHRvIGNoYW5nZSB0aGUgZHJpdmVyIHRvIHdvcmsgd2l0aCBOQVBJIGZvciBU
-WCBjb21wbGV0aW9ucw0KYmVmb3JlIG1ha2luZyB0aGlzIGNoYW5nZS4NCg0KSSdsbCBzZW5kIHRo
-ZSBwYXRjaCBpbiBhIGZldyBkYXlzLg0KDQpZZXZnZW55DQo=
+=E4=BA=8E 2012=E5=B9=B409=E6=9C=8814=E6=97=A5 13:54, roy.qing.li@gmail.=
+com =E5=86=99=E9=81=93:
+> From: Li RongQing <roy.qing.li@gmail.com>
+>=20
+> If dst cache dst_a copies from dst_b, and dst_b copies from dst_c, ch=
+eck
+> if dst_a is expired or not, we should not end with dst_a->dst.from, d=
+st_b,
+> we should check dst_c.
+>=20
+> CC: Gao feng <gaofeng@cn.fujitsu.com>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> ---
+
+Looks good to me,thanks rongqing :)
