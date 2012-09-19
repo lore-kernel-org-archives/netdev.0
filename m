@@ -1,53 +1,36 @@
-From: Bruce Curtis <brutus@google.com>
-Subject: Re: [PATCH v3] net-tcp: TCP/IP stack bypass for loopback connections
-Date: Wed, 19 Sep 2012 14:19:30 -0700
-Message-ID: <CAEkNxbEJjAu3+3yDGPGSzzee-LY_797RdNbBgcC6=-aDHfEAJQ@mail.gmail.com>
-References: <1347908305-13541-1-git-send-email-brutus@google.com>
-	<1347913239.26523.173.camel@edumazet-glaptop>
-	<20120919.163406.487082174277409074.davem@davemloft.net>
-	<1348088634.31352.26.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] netpoll: call ->ndo_select_queue() in tx path
+Date: Wed, 19 Sep 2012 17:21:08 -0400 (EDT)
+Message-ID: <20120919.172108.1539457128236567338.davem@davemloft.net>
+References: <1347948991-20860-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, s.munaut@whatever-company.com,
+	edumazet@google.com
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:62875 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751930Ab2ISVTb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 17:19:31 -0400
-Received: by vbbff1 with SMTP id ff1so1824625vbb.19
-        for <netdev@vger.kernel.org>; Wed, 19 Sep 2012 14:19:30 -0700 (PDT)
-In-Reply-To: <1348088634.31352.26.camel@edumazet-glaptop>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57833 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751904Ab2ISVVK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 17:21:10 -0400
+In-Reply-To: <1347948991-20860-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 19, 2012 at 2:03 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> On Wed, 2012-09-19 at 16:34 -0400, David Miller wrote:
->
-> > I have an idea on how to handle this.
-> >
-> > In drivers/net/loopback.c:loopback_tx(), skip the SKB orphan operation
-> > if there is a friend socket at skb->friend.
-> >
-> > When sending such friend SKBs out at connection startup, arrange it
-> > such that the skb->destructor will zap the skb->friend pointer to
-> > NULL.
-> >
-> > Also, in skb_orphan*(), if necessary, set skb->friend to NULL.
-> >
-> > skb->sk will hold a reference to the socket, and since skb->friend
-> > will be equal, this will make sure a pointer to an unreferenced
-> > socket does not escape.
->
-> I now am wondering if we still need skb->friend field.
->
-> If skb->sk is not zeroed by a premature skb_orphan(), then
->
-> skb->sk->sk_friend gives the friend ?
->
->
-Good question, in the friends data path it's only used to
-differentiate a friend directly Q'd skb so should work, I'll look into
-it.
+From: Cong Wang <amwang@redhat.com>
+Date: Tue, 18 Sep 2012 14:16:31 +0800
+
+> In netpoll tx path, we miss the chance of calling ->ndo_select_queue(),
+> thus could cause problems when bonding is involved.
+> 
+> This patch makes dev_pick_tx() extern (and rename it to netdev_pick_tx())
+> to let netpoll call it in netpoll_send_skb_on_dev().
+> 
+> Reported-by: Sylvain Munaut <s.munaut@whatever-company.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+> Tested-by: Sylvain Munaut <s.munaut@whatever-company.com>
+
+Applied, thanks.
