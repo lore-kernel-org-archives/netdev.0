@@ -1,90 +1,57 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 11/11] sfc: Avoid generating over-length
- MC_CMD_FLUSH_RX_QUEUES request
-Date: Wed, 19 Sep 2012 20:18:49 +0100
-Message-ID: <1348082329.2636.26.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1348081775.2636.15.camel@bwh-desktop.uk.solarflarecom.com>
+From: "Arend van Spriel" <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH 2/2] Using LP firmware for taking advantage of the
+ low-power capabilities.
+Date: Wed, 19 Sep 2012 21:33:02 +0200
+Message-ID: <505A1DEE.9010905@broadcom.com>
+References: <1348053493-22955-1-git-send-email-jarl@softace.dk>
+ <1348053493-22955-2-git-send-email-jarl@softace.dk>
+ <5059DFF1.4060405@lwfinger.net>
+ <CAOjsGA25PR9OCC_cAVn=gztk9YB6pNxCz=1mFjDxxQoc-tofEw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=utf-8;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:20258 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932495Ab2ISTSw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 15:18:52 -0400
-In-Reply-To: <1348081775.2636.15.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Larry Finger" <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	"Stefano Brivio" <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>,
+	=?UTF-8?B?R8OhYm9yIFN0ZWZhbmlr?= <netrolller.3d-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: "Jarl Friis" <jarl-bE7lSbLpGj1/SzgSGea1oA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAOjsGA25PR9OCC_cAVn=gztk9YB6pNxCz=1mFjDxxQoc-tofEw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-MCDI supports requests up to 252 bytes long, which is only enough to
-pass 63 RX queue IDs to MC_CMD_FLUSH_RX_QUEUES.  However a VF may have
-up to 64 RX queues, and if we try to flush them all we will generate
-an over-length request and BUG() in efx_mcdi_copyin().  Currently
-all VF drivers limit themselves to 32 RX queues, so reducing the
-limit to 63 does no harm.
+On 09/19/2012 08:54 PM, Jarl Friis wrote:
+>> Is the addition of your copyright to the driver
+>> >warranted by this change?
+> As far as I understand the copyright law: Yes, but I'm not an expert.
+> Neither am I 100% sure what you mean.
 
-Also add a BUILD_BUG_ON in efx_mcdi_flush_rxqs() so we remember to
-deal with the same problem there if EFX_MAX_CHANNELS is increased.
+You add your name to the copy notice of the file so you claim it for the 
+entire file.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/mcdi.c        |    3 +++
- drivers/net/ethernet/sfc/siena_sriov.c |    7 +++++++
- 2 files changed, 10 insertions(+), 0 deletions(-)
+>> >For example, I have made much larger contributions
+>> >to b43 over the years before I started doing reverse-engineering on this
+>> >driver, but I never added my copyright.
+> I suggest you do.
 
-diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index e855f4c..aea43cb 100644
---- a/drivers/net/ethernet/sfc/mcdi.c
-+++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -1195,6 +1195,9 @@ int efx_mcdi_flush_rxqs(struct efx_nic *efx)
- 	__le32 *qid;
- 	int rc, count;
- 
-+	BUILD_BUG_ON(EFX_MAX_CHANNELS >
-+		     MC_CMD_FLUSH_RX_QUEUES_IN_QID_OFST_MAXNUM);
-+
- 	qid = kmalloc(EFX_MAX_CHANNELS * sizeof(*qid), GFP_KERNEL);
- 	if (qid == NULL)
- 		return -ENOMEM;
-diff --git a/drivers/net/ethernet/sfc/siena_sriov.c b/drivers/net/ethernet/sfc/siena_sriov.c
-index 9cb3b84..a8f48a4 100644
---- a/drivers/net/ethernet/sfc/siena_sriov.c
-+++ b/drivers/net/ethernet/sfc/siena_sriov.c
-@@ -21,6 +21,9 @@
- /* Number of longs required to track all the VIs in a VF */
- #define VI_MASK_LENGTH BITS_TO_LONGS(1 << EFX_VI_SCALE_MAX)
- 
-+/* Maximum number of RX queues supported */
-+#define VF_MAX_RX_QUEUES 63
-+
- /**
-  * enum efx_vf_tx_filter_mode - TX MAC filtering behaviour
-  * @VF_TX_FILTER_OFF: Disabled
-@@ -578,6 +581,7 @@ static int efx_vfdi_init_rxq(struct efx_vf *vf)
- 	efx_oword_t reg;
- 
- 	if (bad_vf_index(efx, vf_evq) || bad_vf_index(efx, vf_rxq) ||
-+	    vf_rxq >= VF_MAX_RX_QUEUES ||
- 	    bad_buf_count(buf_count, EFX_MAX_DMAQ_SIZE)) {
- 		if (net_ratelimit())
- 			netif_err(efx, hw, efx->net_dev,
-@@ -683,6 +687,9 @@ static int efx_vfdi_fini_all_queues(struct efx_vf *vf)
- 	__le32 *rxqs;
- 	int rc;
- 
-+	BUILD_BUG_ON(VF_MAX_RX_QUEUES >
-+		     MC_CMD_FLUSH_RX_QUEUES_IN_QID_OFST_MAXNUM);
-+
- 	rxqs = kmalloc(count * sizeof(*rxqs), GFP_KERNEL);
- 	if (rxqs == NULL)
- 		return VFDI_RC_ENOMEM;
--- 
-1.7.7.6
+Typically, the names you see there are and/or were b43 maintainers.
 
+>> >Your "Signed-off-by" implies
+>> >copyright for the patch.
+> The fact that I authored the patch implies copyright (even without
+> Signed-off-by)
+>
+> Jarl
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+You can indeed claim it for your patch, but I think not beyond that. But 
+I am no lawyer either so .....pffff.
+
+Gr. AvS
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
