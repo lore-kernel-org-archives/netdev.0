@@ -1,46 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: only run neigh_forced_gc() from one cpu
-Date: Wed, 19 Sep 2012 13:45:03 -0400 (EDT)
-Message-ID: <20120919.134503.2070066674881117065.davem@davemloft.net>
-References: <1348046827.26523.571.camel@edumazet-glaptop>
+Subject: Re: New commands to configure IOV features
+Date: Wed, 19 Sep 2012 13:49:09 -0400 (EDT)
+Message-ID: <20120919.134909.1049328991192933473.davem@davemloft.net>
+References: <20120723113607.56ce7aaf@nehalam.linuxnetplumber.net>
+	<C5551D9AAB213A418B7FD5E4A6F30A070C7D9DCD@ORSMSX106.amr.corp.intel.com>
+	<5059A767.2090307@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maze@google.com, therbert@google.com,
-	lorenzo@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, ariele@broadcom.com, eilong@broadcom.com
+To: yuvalmin@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55661 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55710 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932775Ab2ISRpF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 13:45:05 -0400
-In-Reply-To: <1348046827.26523.571.camel@edumazet-glaptop>
+	with ESMTP id S932717Ab2ISRtM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 13:49:12 -0400
+In-Reply-To: <5059A767.2090307@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 19 Sep 2012 11:27:07 +0200
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Date: Wed, 19 Sep 2012 14:07:19 +0300
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> With multiqueue NIC or RPS, we can have situation where all cpus are
-> spending huge amount of cycles in neigh_forced_gc(), and machine can
-> crash.
-> 
-> Since we are under probable attack, its better to let only one cpu
-> do the scan, and other cpus immediately return from neigh_forced_gc()
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>  3. Implement a module param in our bnx2x code.
 
-I suspect you're only seeing this with ipv6 traffic present.
+Just because I was a moron and didn't notice the other cases
+doesn't mean I should let you guys do it too.
 
-And you should mention that because it determines how we really
-should handle this.
-
-I seriously doubt you can trigger this with a pure-ipv4 workload
-because all neigh entries are ref-less and thus trivially reclaimable.
-
-If you can trigger it with ipv4, then reclaim needs to be rewritten so
-that for ref-less entries it's more efficient and scalable.
-
-I'm not applying this patch.
+So I just want to say that #3 is absolutely not an option.
