@@ -1,427 +1,133 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH v2 6/9] net/macb: clean up ring buffer logic
-Date: Wed, 19 Sep 2012 13:55:19 +0200
-Message-ID: <733dedf159c750dff9026441a0c4995b43a536aa.1348055112.git.nicolas.ferre@atmel.com>
+Subject: [PATCH v2 3/9] net/macb: change debugging messages
+Date: Wed, 19 Sep 2012 13:55:16 +0200
+Message-ID: <b853c43377c39e410fcade1cddda1019fbd103ca.1348055112.git.nicolas.ferre@atmel.com>
 References: <cover.1348055112.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <bhutchings@solarflare.com>,
-	<linux-arm-kernel@lists.infradead.org>, <plagnioj@jcrosoft.com>,
-	<patrice.vilchez@atmel.com>, <linux-kernel@vger.kernel.org>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<havard@skinnemoen.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.243]:16801 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755267Ab2ISL4l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 07:56:41 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, patrice.vilchez@atmel.com,
+ linux-kernel@vger.kernel.org, bhutchings@solarflare.com, plagnioj@jcrosoft.com,
+ linux-arm-kernel@lists.infradead.org
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>, <havard@skinnemoen.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <cover.1348055112.git.nicolas.ferre@atmel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
 From: Havard Skinnemoen <havard@skinnemoen.net>
 
-Instead of masking head and tail every time we increment them, just let them
-wrap through UINT_MAX and mask them when subscripting. Add simple accessor
-functions to do the subscripting properly to minimize the chances of messing
-this up.
-
-This makes the code slightly smaller, and hopefully faster as well.  Also,
-doing the ring buffer management this way will simplify things a lot when
-making the ring sizes configurable in the future.
+Convert some noisy netdev_dbg() statements to netdev_vdbg(). Defining
+DEBUG will no longer fill up the logs; VERBOSE_DEBUG still does.
+Add one more verbose debug for ISR status.
 
 Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
-[nicolas.ferre@atmel.com: split patch in topics, adapt to newer kernel]
+[nicolas.ferre@atmel.com: split patch in topics, add ISR status]
 Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 ---
- drivers/net/ethernet/cadence/macb.c | 168 +++++++++++++++++++++++-------------
- drivers/net/ethernet/cadence/macb.h |  22 +++--
- 2 files changed, 122 insertions(+), 68 deletions(-)
+ drivers/net/ethernet/cadence/macb.c | 22 ++++++++++++----------
+ 1 file changed, 12 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index e98f6fc..5758a1c 100644
+index 313cba2..2948553 100644
 --- a/drivers/net/ethernet/cadence/macb.c
 +++ b/drivers/net/ethernet/cadence/macb.c
-@@ -31,24 +31,13 @@
+@@ -310,7 +310,7 @@ static void macb_tx(struct macb *bp)
+ 	status = macb_readl(bp, TSR);
+ 	macb_writel(bp, TSR, status);
  
- #define RX_BUFFER_SIZE		128
- #define RX_RING_SIZE		512
--#define RX_RING_BYTES		(sizeof(struct dma_desc) * RX_RING_SIZE)
-+#define RX_RING_BYTES		(sizeof(struct macb_dma_desc) * RX_RING_SIZE)
+-	netdev_dbg(bp->dev, "macb_tx status = %02lx\n", (unsigned long)status);
++	netdev_vdbg(bp->dev, "macb_tx status = %02lx\n", (unsigned long)status);
  
- /* Make the IP header word-aligned (the ethernet header is 14 bytes) */
- #define RX_OFFSET		2
- 
- #define TX_RING_SIZE		128
--#define DEF_TX_RING_PENDING	(TX_RING_SIZE - 1)
--#define TX_RING_BYTES		(sizeof(struct dma_desc) * TX_RING_SIZE)
--
--#define TX_RING_GAP(bp)						\
--	(TX_RING_SIZE - (bp)->tx_pending)
--#define TX_BUFFS_AVAIL(bp)					\
--	(((bp)->tx_tail <= (bp)->tx_head) ?			\
--	 (bp)->tx_tail + (bp)->tx_pending - (bp)->tx_head :	\
--	 (bp)->tx_tail - (bp)->tx_head - TX_RING_GAP(bp))
--#define NEXT_TX(n)		(((n) + 1) & (TX_RING_SIZE - 1))
--
--#define NEXT_RX(n)		(((n) + 1) & (RX_RING_SIZE - 1))
-+#define TX_RING_BYTES		(sizeof(struct macb_dma_desc) * TX_RING_SIZE)
- 
- /* minimum number of free TX descriptors before waking up TX process */
- #define MACB_TX_WAKEUP_THRESH	(TX_RING_SIZE / 4)
-@@ -56,6 +45,51 @@
- #define MACB_RX_INT_FLAGS	(MACB_BIT(RCOMP) | MACB_BIT(RXUBR)	\
- 				 | MACB_BIT(ISR_ROVR))
- 
-+/* Ring buffer accessors */
-+static unsigned int macb_tx_ring_wrap(unsigned int index)
-+{
-+	return index & (TX_RING_SIZE - 1);
-+}
-+
-+static unsigned int macb_tx_ring_avail(struct macb *bp)
-+{
-+	return TX_RING_SIZE - (bp->tx_head - bp->tx_tail);
-+}
-+
-+static struct macb_dma_desc *macb_tx_desc(struct macb *bp, unsigned int index)
-+{
-+	return &bp->tx_ring[macb_tx_ring_wrap(index)];
-+}
-+
-+static struct macb_tx_skb *macb_tx_skb(struct macb *bp, unsigned int index)
-+{
-+	return &bp->tx_skb[macb_tx_ring_wrap(index)];
-+}
-+
-+static dma_addr_t macb_tx_dma(struct macb *bp, unsigned int index)
-+{
-+	dma_addr_t offset;
-+
-+	offset = macb_tx_ring_wrap(index) * sizeof(struct macb_dma_desc);
-+
-+	return bp->tx_ring_dma + offset;
-+}
-+
-+static unsigned int macb_rx_ring_wrap(unsigned int index)
-+{
-+	return index & (RX_RING_SIZE - 1);
-+}
-+
-+static struct macb_dma_desc *macb_rx_desc(struct macb *bp, unsigned int index)
-+{
-+	return &bp->rx_ring[macb_rx_ring_wrap(index)];
-+}
-+
-+static void *macb_rx_buffer(struct macb *bp, unsigned int index)
-+{
-+	return bp->rx_buffers + RX_BUFFER_SIZE * macb_rx_ring_wrap(index);
-+}
-+
- static void __macb_set_hwaddr(struct macb *bp)
- {
- 	u32 bottom;
-@@ -332,17 +366,18 @@ static void macb_tx(struct macb *bp)
- 		bp->tx_ring[TX_RING_SIZE - 1].ctrl |= MACB_BIT(TX_WRAP);
- 
- 		/* free transmit buffer in upper layer*/
--		for (tail = bp->tx_tail; tail != head; tail = NEXT_TX(tail)) {
--			struct ring_info *rp = &bp->tx_skb[tail];
--			struct sk_buff *skb = rp->skb;
--
--			BUG_ON(skb == NULL);
-+		for (tail = bp->tx_tail; tail != head; tail++) {
-+			struct macb_tx_skb	*tx_skb;
-+			struct sk_buff		*skb;
- 
- 			rmb();
- 
--			dma_unmap_single(&bp->pdev->dev, rp->mapping, skb->len,
--							 DMA_TO_DEVICE);
--			rp->skb = NULL;
-+			tx_skb = macb_tx_skb(bp, tail);
-+			skb = tx_skb->skb;
-+
-+			dma_unmap_single(&bp->pdev->dev, tx_skb->mapping,
-+						skb->len, DMA_TO_DEVICE);
-+			tx_skb->skb = NULL;
- 			dev_kfree_skb_irq(skb);
- 		}
- 
-@@ -362,34 +397,38 @@ static void macb_tx(struct macb *bp)
- 		return;
- 
- 	head = bp->tx_head;
--	for (tail = bp->tx_tail; tail != head; tail = NEXT_TX(tail)) {
--		struct ring_info *rp = &bp->tx_skb[tail];
--		struct sk_buff *skb = rp->skb;
--		u32 bufstat;
-+	for (tail = bp->tx_tail; tail != head; tail++) {
-+		struct macb_tx_skb	*tx_skb;
-+		struct sk_buff		*skb;
-+		struct macb_dma_desc	*desc;
-+		u32			ctrl;
- 
--		BUG_ON(skb == NULL);
-+		desc = macb_tx_desc(bp, tail);
- 
- 		/* Make hw descriptor updates visible to CPU */
- 		rmb();
- 
--		bufstat = bp->tx_ring[tail].ctrl;
-+		ctrl = desc->ctrl;
- 
--		if (!(bufstat & MACB_BIT(TX_USED)))
-+		if (!(ctrl & MACB_BIT(TX_USED)))
+ 	if (status & (MACB_BIT(UND) | MACB_BIT(TSR_RLE))) {
+ 		int i;
+@@ -377,7 +377,7 @@ static void macb_tx(struct macb *bp)
+ 		if (!(bufstat & MACB_BIT(TX_USED)))
  			break;
  
-+		tx_skb = macb_tx_skb(bp, tail);
-+		skb = tx_skb->skb;
-+
- 		netdev_vdbg(bp->dev, "skb %u (data %p) TX complete\n",
--			   tail, skb->data);
--		dma_unmap_single(&bp->pdev->dev, rp->mapping, skb->len,
-+			macb_tx_ring_wrap(tail), skb->data);
-+		dma_unmap_single(&bp->pdev->dev, tx_skb->mapping, skb->len,
+-		netdev_dbg(bp->dev, "skb %u (data %p) TX complete\n",
++		netdev_vdbg(bp->dev, "skb %u (data %p) TX complete\n",
+ 			   tail, skb->data);
+ 		dma_unmap_single(&bp->pdev->dev, rp->mapping, skb->len,
  				 DMA_TO_DEVICE);
- 		bp->stats.tx_packets++;
- 		bp->stats.tx_bytes += skb->len;
--		rp->skb = NULL;
-+		tx_skb->skb = NULL;
- 		dev_kfree_skb_irq(skb);
- 	}
+@@ -403,7 +403,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
  
- 	bp->tx_tail = tail;
--	if (netif_queue_stopped(bp->dev) &&
--	    TX_BUFFS_AVAIL(bp) > MACB_TX_WAKEUP_THRESH)
-+	if (netif_queue_stopped(bp->dev)
-+			&& macb_tx_ring_avail(bp) > MACB_TX_WAKEUP_THRESH)
- 		netif_wake_queue(bp->dev);
- }
+ 	len = MACB_BFEXT(RX_FRMLEN, bp->rx_ring[last_frag].ctrl);
  
-@@ -400,17 +439,21 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 	unsigned int frag;
- 	unsigned int offset = 0;
- 	struct sk_buff *skb;
-+	struct macb_dma_desc *desc;
- 
--	len = MACB_BFEXT(RX_FRMLEN, bp->rx_ring[last_frag].ctrl);
-+	desc = macb_rx_desc(bp, last_frag);
-+	len = MACB_BFEXT(RX_FRMLEN, desc->ctrl);
- 
- 	netdev_vdbg(bp->dev, "macb_rx_frame frags %u - %u (len %u)\n",
--		   first_frag, last_frag, len);
-+		macb_rx_ring_wrap(first_frag),
-+		macb_rx_ring_wrap(last_frag), len);
+-	netdev_dbg(bp->dev, "macb_rx_frame frags %u - %u (len %u)\n",
++	netdev_vdbg(bp->dev, "macb_rx_frame frags %u - %u (len %u)\n",
+ 		   first_frag, last_frag, len);
  
  	skb = netdev_alloc_skb(bp->dev, len + RX_OFFSET);
- 	if (!skb) {
- 		bp->stats.rx_dropped++;
--		for (frag = first_frag; ; frag = NEXT_RX(frag)) {
--			bp->rx_ring[frag].addr &= ~MACB_BIT(RX_USED);
-+		for (frag = first_frag; ; frag++) {
-+			desc = macb_rx_desc(bp, frag);
-+			desc->addr &= ~MACB_BIT(RX_USED);
- 			if (frag == last_frag)
- 				break;
- 		}
-@@ -425,7 +468,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 	skb_checksum_none_assert(skb);
- 	skb_put(skb, len);
+@@ -450,7 +450,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
  
--	for (frag = first_frag; ; frag = NEXT_RX(frag)) {
-+	for (frag = first_frag; ; frag++) {
- 		unsigned int frag_len = RX_BUFFER_SIZE;
+ 	bp->stats.rx_packets++;
+ 	bp->stats.rx_bytes += len;
+-	netdev_dbg(bp->dev, "received skb of length %u, csum: %08x\n",
++	netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
+ 		   skb->len, skb->csum);
+ 	netif_receive_skb(skb);
  
- 		if (offset + frag_len > len) {
-@@ -433,11 +476,10 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 			frag_len = len - offset;
- 		}
- 		skb_copy_to_linear_data_offset(skb, offset,
--					       (bp->rx_buffers +
--					        (RX_BUFFER_SIZE * frag)),
--					       frag_len);
-+				macb_rx_buffer(bp, frag), frag_len);
- 		offset += RX_BUFFER_SIZE;
--		bp->rx_ring[frag].addr &= ~MACB_BIT(RX_USED);
-+		desc = macb_rx_desc(bp, frag);
-+		desc->addr &= ~MACB_BIT(RX_USED);
+@@ -532,7 +532,7 @@ static int macb_poll(struct napi_struct *napi, int budget)
  
- 		if (frag == last_frag)
+ 	work_done = 0;
+ 
+-	netdev_dbg(bp->dev, "poll: status = %08lx, budget = %d\n",
++	netdev_vdbg(bp->dev, "poll: status = %08lx, budget = %d\n",
+ 		   (unsigned long)status, budget);
+ 
+ 	work_done = macb_rx(bp, budget);
+@@ -571,6 +571,8 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
  			break;
-@@ -463,8 +505,10 @@ static void discard_partial_frame(struct macb *bp, unsigned int begin,
- {
- 	unsigned int frag;
+ 		}
  
--	for (frag = begin; frag != end; frag = NEXT_RX(frag))
--		bp->rx_ring[frag].addr &= ~MACB_BIT(RX_USED);
-+	for (frag = begin; frag != end; frag++) {
-+		struct macb_dma_desc *desc = macb_rx_desc(bp, frag);
-+		desc->addr &= ~MACB_BIT(RX_USED);
-+	}
++		netdev_vdbg(bp->dev, "isr = 0x%08lx\n", (unsigned long)status);
++
+ 		if (status & MACB_RX_INT_FLAGS) {
+ 			/*
+ 			 * There's no point taking any more interrupts
+@@ -582,7 +584,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 			macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
  
- 	/* Make descriptor updates visible to hardware */
- 	wmb();
-@@ -479,17 +523,18 @@ static void discard_partial_frame(struct macb *bp, unsigned int begin,
- static int macb_rx(struct macb *bp, int budget)
- {
- 	int received = 0;
--	unsigned int tail = bp->rx_tail;
-+	unsigned int tail;
- 	int first_frag = -1;
- 
--	for (; budget > 0; tail = NEXT_RX(tail)) {
-+	for (tail = bp->rx_tail; budget > 0; tail++) {
-+		struct macb_dma_desc *desc = macb_rx_desc(bp, tail);
- 		u32 addr, ctrl;
- 
- 		/* Make hw descriptor updates visible to CPU */
- 		rmb();
- 
--		addr = bp->rx_ring[tail].addr;
--		ctrl = bp->rx_ring[tail].ctrl;
-+		addr = desc->addr;
-+		ctrl = desc->ctrl;
- 
- 		if (!(addr & MACB_BIT(RX_USED)))
- 			break;
-@@ -643,6 +688,8 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct macb *bp = netdev_priv(dev);
- 	dma_addr_t mapping;
- 	unsigned int len, entry;
-+	struct macb_dma_desc *desc;
-+	struct macb_tx_skb *tx_skb;
+ 			if (napi_schedule_prep(&bp->napi)) {
+-				netdev_dbg(bp->dev, "scheduling RX softirq\n");
++				netdev_vdbg(bp->dev, "scheduling RX softirq\n");
+ 				__napi_schedule(&bp->napi);
+ 			}
+ 		}
+@@ -644,8 +646,8 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
  	u32 ctrl;
  	unsigned long flags;
  
-@@ -659,7 +706,7 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	spin_lock_irqsave(&bp->lock, flags);
- 
- 	/* This is a hard error, log it. */
--	if (TX_BUFFS_AVAIL(bp) < 1) {
-+	if (macb_tx_ring_avail(bp) < 1) {
- 		netif_stop_queue(dev);
- 		spin_unlock_irqrestore(&bp->lock, flags);
- 		netdev_err(bp->dev, "BUG! Tx Ring full when queue awake!\n");
-@@ -668,12 +715,15 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		return NETDEV_TX_BUSY;
+-#ifdef DEBUG
+-	netdev_dbg(bp->dev,
++#if defined(DEBUG) && defined(VERBOSE_DEBUG)
++	netdev_vdbg(bp->dev,
+ 		   "start_xmit: len %u head %p data %p tail %p end %p\n",
+ 		   skb->len, skb->head, skb->data,
+ 		   skb_tail_pointer(skb), skb_end_pointer(skb));
+@@ -667,12 +669,12 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
  	}
  
--	entry = bp->tx_head;
-+	entry = macb_tx_ring_wrap(bp->tx_head);
-+	bp->tx_head++;
- 	netdev_vdbg(bp->dev, "Allocated ring entry %u\n", entry);
+ 	entry = bp->tx_head;
+-	netdev_dbg(bp->dev, "Allocated ring entry %u\n", entry);
++	netdev_vdbg(bp->dev, "Allocated ring entry %u\n", entry);
  	mapping = dma_map_single(&bp->pdev->dev, skb->data,
  				 len, DMA_TO_DEVICE);
--	bp->tx_skb[entry].skb = skb;
--	bp->tx_skb[entry].mapping = mapping;
-+
-+	tx_skb = &bp->tx_skb[entry];
-+	tx_skb->skb = skb;
-+	tx_skb->mapping = mapping;
- 	netdev_vdbg(bp->dev, "Mapped skb data %p to DMA addr %08lx\n",
+ 	bp->tx_skb[entry].skb = skb;
+ 	bp->tx_skb[entry].mapping = mapping;
+-	netdev_dbg(bp->dev, "Mapped skb data %p to DMA addr %08lx\n",
++	netdev_vdbg(bp->dev, "Mapped skb data %p to DMA addr %08lx\n",
  		   skb->data, (unsigned long)mapping);
  
-@@ -682,20 +732,18 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (entry == (TX_RING_SIZE - 1))
- 		ctrl |= MACB_BIT(TX_WRAP);
- 
--	bp->tx_ring[entry].addr = mapping;
--	bp->tx_ring[entry].ctrl = ctrl;
-+	desc = &bp->tx_ring[entry];
-+	desc->addr = mapping;
-+	desc->ctrl = ctrl;
- 
- 	/* Make newly initialized descriptor visible to hardware */
- 	wmb();
- 
--	entry = NEXT_TX(entry);
--	bp->tx_head = entry;
--
- 	skb_tx_timestamp(skb);
- 
- 	macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(TSTART));
- 
--	if (TX_BUFFS_AVAIL(bp) < 1)
-+	if (macb_tx_ring_avail(bp) < 1)
- 		netif_stop_queue(dev);
- 
- 	spin_unlock_irqrestore(&bp->lock, flags);
-@@ -731,7 +779,7 @@ static int macb_alloc_consistent(struct macb *bp)
- {
- 	int size;
- 
--	size = TX_RING_SIZE * sizeof(struct ring_info);
-+	size = TX_RING_SIZE * sizeof(struct macb_tx_skb);
- 	bp->tx_skb = kmalloc(size, GFP_KERNEL);
- 	if (!bp->tx_skb)
- 		goto out_err;
-@@ -1401,8 +1449,6 @@ static int __init macb_probe(struct platform_device *pdev)
- 		macb_or_gem_writel(bp, USRIO, MACB_BIT(MII));
- #endif
- 
--	bp->tx_pending = DEF_TX_RING_PENDING;
--
- 	err = register_netdev(dev);
- 	if (err) {
- 		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index f69ceef..8a4ee2f 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -356,7 +356,12 @@
- 		__v; \
- 	})
- 
--struct dma_desc {
-+/**
-+ * struct macb_dma_desc - Hardware DMA descriptor
-+ * @addr: DMA address of data buffer
-+ * @ctrl: Control and status bits
-+ */
-+struct macb_dma_desc {
- 	u32	addr;
- 	u32	ctrl;
- };
-@@ -421,7 +426,12 @@ struct dma_desc {
- #define MACB_TX_USED_OFFSET			31
- #define MACB_TX_USED_SIZE			1
- 
--struct ring_info {
-+/**
-+ * struct macb_tx_skb - data about an skb which is being transmitted
-+ * @skb: skb currently being transmitted
-+ * @mapping: DMA address of the skb's data buffer
-+ */
-+struct macb_tx_skb {
- 	struct sk_buff		*skb;
- 	dma_addr_t		mapping;
- };
-@@ -506,12 +516,12 @@ struct macb {
- 	void __iomem		*regs;
- 
- 	unsigned int		rx_tail;
--	struct dma_desc		*rx_ring;
-+	struct macb_dma_desc	*rx_ring;
- 	void			*rx_buffers;
- 
- 	unsigned int		tx_head, tx_tail;
--	struct dma_desc		*tx_ring;
--	struct ring_info	*tx_skb;
-+	struct macb_dma_desc	*tx_ring;
-+	struct macb_tx_skb	*tx_skb;
- 
- 	spinlock_t		lock;
- 	struct platform_device	*pdev;
-@@ -529,8 +539,6 @@ struct macb {
- 	dma_addr_t		tx_ring_dma;
- 	dma_addr_t		rx_buffers_dma;
- 
--	unsigned int		rx_pending, tx_pending;
--
- 	struct mii_bus		*mii_bus;
- 	struct phy_device	*phy_dev;
- 	unsigned int 		link;
+ 	ctrl = MACB_BF(TX_FRMLEN, len);
 -- 
 1.7.11.3
