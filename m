@@ -1,38 +1,92 @@
-From: Jarl Friis <jarl-bE7lSbLpGj1/SzgSGea1oA@public.gmane.org>
-Subject: Re: [PATCH 2/2] Using LP firmware for taking advantage of the
- low-power capabilities.
-Date: Wed, 19 Sep 2012 22:10:10 +0200
-Message-ID: <CAOjsGA2uvCxnX1PH85w2vO894kZT+af-Tgj7bV-3kw3ScxN10g@mail.gmail.com>
-References: <1348053493-22955-1-git-send-email-jarl@softace.dk> <1348053493-22955-2-git-send-email-jarl@softace.dk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4] ipconfig: Inform user if carrier is not ready
+Date: Wed, 19 Sep 2012 16:13:03 -0400 (EDT)
+Message-ID: <20120919.161303.1543204155807997032.davem@davemloft.net>
+References: <1347656179-17638-1-git-send-email-erwanaliasr1@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Jarl Friis <jarl-bE7lSbLpGj1/SzgSGea1oA@public.gmane.org>
-To: Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>,
-	=?UTF-8?Q?G=C3=A1bor_Stefanik?= <netrolller.3d-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1348053493-22955-2-git-send-email-jarl-bE7lSbLpGj1/SzgSGea1oA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: erwanaliasr1@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57130 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751292Ab2ISUNF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 16:13:05 -0400
+In-Reply-To: <1347656179-17638-1-git-send-email-erwanaliasr1@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2012/9/19 Jarl Friis <jarl-bE7lSbLpGj1/SzgSGea1oA@public.gmane.org>:
-> This is using the LP specific firmware to better take advantage of the
-> Low-Power capabilities.
+From: Erwan Velu <erwanaliasr1@gmail.com>
+Date: Fri, 14 Sep 2012 22:56:19 +0200
 
-Gosh... I just realized that the code I introduced is completely
-untested. My hardware does not reach these pieces of code...
+> While using the ip= option at the cmdline, the kernel can hold the boot
+> process for 2 minutes (CONF_CARRIER_TIMEOUT) if the carrier is not
+> present.
+> 
+> While waiting the carrier, user is not informed about this situation and
+> so could think the kernel is frozen.
+> 
+> If we don't get the carrier after some seconds, let's display a message to
+> inform the user about the remaining time before reaching the timeout.
+> 
+> Signed-off-by: Erwan Velu <erwanaliasr1@gmail.com>
+> ---
+>  net/ipv4/ipconfig.c |   13 +++++++++++++
+>  1 file changed, 13 insertions(+)
+> 
+> diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+> index 67e8a6b..fb17bad 100644
+> --- a/net/ipv4/ipconfig.c
+> +++ b/net/ipv4/ipconfig.c
+> @@ -90,6 +90,7 @@
+>  /* Define the friendly delay before and after opening net devices */
+>  #define CONF_POST_OPEN		10	/* After opening: 10 msecs */
+>  #define CONF_CARRIER_TIMEOUT	120000	/* Wait for carrier timeout */
+> +#define CONF_WARN_CARRIER_TIMEOUT 5000	/* Time before showing a warning message  */
+>  
+>  /* Define the timeout for waiting for a DHCP/BOOTP/RARP reply */
+>  #define CONF_OPEN_RETRIES 	2	/* (Re)open devices twice */
+> @@ -205,6 +206,7 @@ static int __init ic_open_devs(void)
+>  	struct net_device *dev;
+>  	unsigned short oflags;
+>  	unsigned long start;
+> +	unsigned int loops = 0;
+>  
+>  	last = &ic_first_dev;
+>  	rtnl_lock();
+> @@ -266,6 +268,17 @@ static int __init ic_open_devs(void)
+>  			if (ic_is_init_dev(dev) && netif_carrier_ok(dev))
+>  				goto have_carrier;
+>  
+> +		/* This loop is blocking the boot process until 
+> +		 *  we get the carrier or reach the timeout.
+> +		 *  We have to inform the user about the situation as 
+> +		 *  it could look like a kernel freeze.
+> +		 *  After CONF_WARN_CARRIER_TIMEOUT milliseconds,
+> +		 *  we display the remaing time before reaching the timeout.
+> +		 */
 
-Sorry...
+Please format this comment consistently.  On the first line you have one
+leading space, and on all the subsequent lines you use two leading spaces.
+This looks ugly, use one leading space on every. line
 
-However the code seems natural (due to the firmware file name pattern)
-for a PHY-LP hardware, that is a bcm4313 chip (pciid 14e4:4315).
+		/* This loop is blocking the boot process until 
+		 * we get the carrier or reach the timeout.
+		 * We have to inform the user about the situation as 
+		 * it could look like a kernel freeze.
+		 * After CONF_WARN_CARRIER_TIMEOUT milliseconds,
+		 * we display the remaing time before reaching the timeout.
+		 */
 
-So if there is anybody with such hardware... you might want to try it... Sorry.
+> +		if (++loops == CONF_WARN_CARRIER_TIMEOUT) {
+> +			pr_info("IP-Config: Waiting up to %d seconds for carrier on interface\n", 
+> +				(CONF_CARRIER_TIMEOUT - CONF_WARN_CARRIER_TIMEOUT)/ 1000);
+> +		}
 
-Jarl
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Missing space right before the "/" in the calculation and this line
+non-trivially exceeds 80 columns.  Perhaps split it up like:
+
+				((CONF_CARRIER_TIMEOUT -
+				 CONF_WARN_CARRIER_TIMEOUT)
+				 / 1000));
