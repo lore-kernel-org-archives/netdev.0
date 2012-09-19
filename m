@@ -1,176 +1,99 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [RFC PATCHv2 bridge 7/7] bridge:  Add the ability to show dump the vlan map from a bridge port
-Date: Wed, 19 Sep 2012 08:42:16 -0400
-Message-ID: <1348058536-22607-8-git-send-email-vyasevic@redhat.com>
-References: <1348058536-22607-1-git-send-email-vyasevic@redhat.com>
-Cc: shemminger@vyatta.com, Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33064 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756400Ab2ISMmY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Sep 2012 08:42:24 -0400
-In-Reply-To: <1348058536-22607-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Oops with latest (netfilter) nf-next tree, when unloading
+ iptable_nat
+Date: Wed, 19 Sep 2012 14:46:31 +0200
+Message-ID: <1348058791.2761.94.camel@localhost>
+References: <1347357081.3928.32.camel@localhost>
+	 <20120912213627.GJ14750@breakpoint.cc> <20120914120750.GA5764@1984>
+	 <Pine.GSO.4.63.1209141511020.11622@stinky-local.trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@gnumonks.org>,
+	Florian Westphal <fw@strlen.de>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, yongjun_wei@trendmicro.com.cn
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.GSO.4.63.1209141511020.11622@stinky-local.trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Using the RTM_GETLINK dump the vlan map of a given bridge port.
+On Fri, 2012-09-14 at 15:15 +0200, Patrick McHardy wrote:
+> On Fri, 14 Sep 2012, Pablo Neira Ayuso wrote:
+> 
+[...cut...]
+> >> Patrick, any other idea?
+> >
+[...cut...]
+> > >
+> > We can add nf_nat_iterate_cleanup that can iterate over the NAT
+> > hashtable to replace current usage of nf_ct_iterate_cleanup.
+> 
+> Lets just bail out when IPS_SRC_NAT_DONE is not set, that should also fix
+> it. Could you try this patch please?
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- include/linux/if_link.h |    1 +
- net/bridge/br_netlink.c |   73 +++++++++++++++++++++++++++++++++++++++++++---
- net/bridge/br_private.h |    2 +
- 3 files changed, 71 insertions(+), 5 deletions(-)
+On Fri, 2012-09-14 at 15:15 +0200, Patrick McHardy wrote:
+diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+> index 29d4452..8b5d220 100644
+> --- a/net/netfilter/nf_nat_core.c
+> +++ b/net/netfilter/nf_nat_core.c
+> @@ -481,6 +481,8 @@ static int nf_nat_proto_clean(struct nf_conn *i,
+void *data)
+>  
+>         if (!nat)
+>                 return 0;
+> +       if (!(i->status & IPS_SRC_NAT_DONE))
+> +               return 0;
+>         if ((clean->l3proto && nf_ct_l3num(i) != clean->l3proto) ||
+>             (clean->l4proto && nf_ct_protonum(i) != clean->l4proto))
+>                 return 0;
+> 
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 38dbcff..6953233 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -416,6 +416,7 @@ enum {
- 	IFLA_BR_VLAN_UNSPEC,
- 	IFLA_BR_VLAN_ADD,
- 	IFLA_BR_VLAN_DEL,
-+	IFLA_BR_VLAN_MAP,
- 	__IFLA_BR_VLAN_MAX,
- };
- #define IFLA_BR_VLAN_MAX (__IFLA_BR_VLAN_MAX - 1)
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 8a97f93..72fec1b 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -69,9 +69,35 @@ static int br_fill_ifinfo(struct sk_buff *skb, const struct net_bridge_port *por
- 	     nla_put(skb, IFLA_ADDRESS, dev->addr_len, dev->dev_addr)) ||
- 	    (dev->ifindex != dev->iflink &&
- 	     nla_put_u32(skb, IFLA_LINK, dev->iflink)) ||
--	    (event == RTM_NEWLINK &&
-+	    ((event == RTM_NEWLINK || event == RTM_GETLINK) &&
- 	     nla_put_u8(skb, IFLA_PROTINFO, port->state)))
- 		goto nla_put_failure;
-+
-+	if (event == RTM_GETLINK) {
-+		unsigned long *map = rcu_dereference(port->vlan_map);
-+		struct nlattr *af;
-+		struct nlattr *vidinfo;
-+
-+		if (!map)
-+			goto done;
-+
-+		af = nla_nest_start(skb, IFLA_AF_SPEC);
-+		if (!af)
-+			goto nla_put_failure;
-+
-+		vidinfo = nla_nest_start(skb, IFLA_BR_VLAN_INFO);
-+		if (!vidinfo)
-+			goto nla_put_failure;
-+
-+		if (nla_put(skb, IFLA_BR_VLAN_MAP,
-+			    BITS_TO_LONGS(br_vid(VLAN_N_VID)), map))
-+			goto nla_put_failure;
-+
-+		nla_nest_end(skb, vidinfo);
-+		nla_nest_end(skb, af);
-+	}
-+
-+done:
- 	return nlmsg_end(skb, nlh);
- 
- nla_put_failure:
-@@ -129,7 +155,7 @@ static int br_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- 
- 		if (br_fill_ifinfo(skb, port,
- 				   NETLINK_CB(cb->skb).pid,
--				   cb->nlh->nlmsg_seq, RTM_NEWLINK,
-+				   cb->nlh->nlmsg_seq, RTM_GETLINK,
- 				   NLM_F_MULTI) < 0)
- 			break;
- skip:
-@@ -283,6 +309,36 @@ static int br_validate(struct nlattr *tb[], struct nlattr *data[])
- 	return 0;
- }
- 
-+static size_t br_get_link_af_size(const struct net_device *dev)
-+{
-+	struct net_bridge_port *p;
-+	unsigned long *map;
-+
-+	rcu_read_lock();
-+	p = br_port_get_rcu(dev);
-+	if (!p)
-+		goto err;
-+
-+	map = rcu_dereference(p->vlan_map);
-+	if (!map)
-+		goto err;
-+
-+	rcu_read_unlock();
-+
-+	/* Account for the full bitmap length.  We are going to export the
-+	 * whole bitmap.
-+	 */
-+	return nla_total_size(BITS_TO_LONGS(br_vid(VLAN_N_VID)));
-+err:
-+	rcu_read_unlock();
-+	return 0;
-+}
-+
-+struct rtnl_af_ops br_af_ops = {
-+	.family			= AF_BRIDGE,
-+	.get_link_af_size	= br_get_link_af_size,
-+};
-+
- struct rtnl_link_ops br_link_ops __read_mostly = {
- 	.kind		= "bridge",
- 	.priv_size	= sizeof(struct net_bridge),
-@@ -299,19 +355,25 @@ int __init br_netlink_init(void)
- 	if (err < 0)
- 		goto err1;
- 
-+	err = rtnl_af_register(&br_af_ops);
-+	if (err < 0)
-+		goto err2;
-+
- 	err = __rtnl_register(PF_BRIDGE, RTM_GETLINK, NULL,
- 			      br_dump_ifinfo, NULL);
- 	if (err)
--		goto err2;
-+		goto err3;
- 	err = __rtnl_register(PF_BRIDGE, RTM_SETLINK,
- 			      br_rtm_setlink, NULL, NULL);
- 	if (err)
--		goto err3;
-+		goto err4;
- 
- 	return 0;
- 
--err3:
-+err4:
- 	rtnl_unregister_all(PF_BRIDGE);
-+err3:
-+	rtnl_af_unregister(&br_af_ops);
- err2:
- 	rtnl_link_unregister(&br_link_ops);
- err1:
-@@ -320,6 +382,7 @@ err1:
- 
- void __exit br_netlink_fini(void)
- {
-+	rtnl_af_unregister(&br_af_ops);
- 	rtnl_link_unregister(&br_link_ops);
- 	rtnl_unregister_all(PF_BRIDGE);
- }
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 8eb3ffc..0575edb 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -419,6 +419,8 @@ extern netdev_features_t br_features_recompute(struct net_bridge *br,
- 	netdev_features_t features);
- extern int br_set_port_vlan(struct net_bridge_port *p, unsigned short vid);
- extern int br_del_port_vlan(struct net_bridge_port *p, unsigned short vid);
-+extern size_t br_port_fill_vlans(struct net_bridge_port *p, char *buf,
-+				unsigned long max, unsigned long skip);
- 
- /* br_input.c */
- extern int br_handle_frame_finish(struct sk_buff *skb);
+No it does not work :-(
+
+
+[ 1216.310146] general protection fault: 0000 [#1] SMP 
+[ 1216.311046] Modules linked in: netconsole ip_vs_lblc ip_vs_lc ip_vs_rr ip_vs libcrc32c ipt_MASQUERADE nf_nat_ipv4(-) nf_nat iptable_mangle xt_mark ip6table_mangle xt_LOG ip6table_filter ip6_tables virtio_balloon virtio_net [last unloaded: iptable_nat]
+[ 1216.311046] CPU 1 
+[ 1216.311046] Pid: 4052, comm: modprobe Not tainted 3.6.0-rc3-test-nat-unload-fix+ #32 Red Hat KVM
+[ 1216.311046] RIP: 0010:[<ffffffffa002c303>]  [<ffffffffa002c303>] nf_nat_proto_clean+0x73/0xd0 [nf_nat]
+[ 1216.311046] RSP: 0018:ffff88007808fe18  EFLAGS: 00010246
+[ 1216.311046] RAX: 0000000000000000 RBX: ffff8800728550c0 RCX: ffff8800756288b0
+[ 1216.311046] RDX: dead000000200200 RSI: ffff88007808fe88 RDI: ffffffffa002f208
+[ 1216.311046] RBP: ffff88007808fe28 R08: ffff88007808e000 R09: 0000000000000000
+[ 1216.311046] R10: dead000000200200 R11: dead000000100100 R12: ffffffff81c6dc00
+[ 1216.311046] R13: ffff8800787582b8 R14: ffff880078758278 R15: ffff88007808fe88
+[ 1216.311046] FS:  00007f515985d700(0000) GS:ffff88007cd00000(0000) knlGS:0000000000000000
+[ 1216.311046] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[ 1216.311046] CR2: 00007f515986a000 CR3: 000000007867a000 CR4: 00000000000006e0
+[ 1216.311046] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[ 1216.311046] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[ 1216.311046] Process modprobe (pid: 4052, threadinfo ffff88007808e000, task ffff8800756288b0)
+[ 1216.311046] Stack:
+[ 1216.311046]  ffff88007808fe68 ffffffffa002c290 ffff88007808fe78 ffffffff815614e3
+[ 1216.311046]  ffffffff00000000 00000aeb00000246 ffff88007808fe68 ffffffff81c6dc00
+[ 1216.311046]  ffff88007808fe88 ffffffffa00358a0 0000000000000000 000000000040f5b0
+[ 1216.311046] Call Trace:
+[ 1216.311046]  [<ffffffffa002c290>] ? nf_nat_net_exit+0x50/0x50 [nf_nat]
+[ 1216.311046]  [<ffffffff815614e3>] nf_ct_iterate_cleanup+0xc3/0x170
+[ 1216.311046]  [<ffffffffa002c55a>] nf_nat_l3proto_unregister+0x8a/0x100 [nf_nat]
+[ 1216.311046]  [<ffffffff812a0303>] ? compat_prepare_timeout+0x13/0xb0
+[ 1216.311046]  [<ffffffffa0035848>] nf_nat_l3proto_ipv4_exit+0x10/0x23 [nf_nat_ipv4]
+[ 1216.311046]  [<ffffffff8109f4a5>] sys_delete_module+0x235/0x2b0
+[ 1216.311046]  [<ffffffff810b8193>] ? __audit_syscall_entry+0x1b3/0x1f0
+[ 1216.311046]  [<ffffffff810b8776>] ? __audit_syscall_exit+0x3e6/0x410
+[ 1216.311046]  [<ffffffff816679e2>] system_call_fastpath+0x16/0x1b
+[ 1216.311046] Code: 75 6e 0f b6 46 01 84 c0 74 05 3a 42 3e 75 61 80 7e 02 00 74 43 48 c7 c7 08 f2 02 a0 e8 37 3b 63 e1 48 8b 03 48 8b 53 08 48 85 c0 <48> 89 02 74 04 48 89 50 08 48 be 00 02 20 00 00 00 ad de 48 c7 
+[ 1216.311046] RIP  [<ffffffffa002c303>] nf_nat_proto_clean+0x73/0xd0 [nf_nat]
+[ 1216.311046]  RSP <ffff88007808fe18>
+
+
 -- 
-1.7.7.6
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+
