@@ -1,41 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] l2tp: fix compile error when CONFIG_IPV6=m
- and CONFIG_L2TP=y
-Date: Wed, 19 Sep 2012 16:44:03 -0400 (EDT)
-Message-ID: <20120919.164403.1265757047954729748.davem@davemloft.net>
-References: <1347947642-20330-1-git-send-email-amwang@redhat.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: Opportunity to backport pch_gbe patches to stable 3.2.x
+Date: Wed, 19 Sep 2012 21:49:05 +0100
+Message-ID: <20120919204905.GE29217@decadent.org.uk>
+References: <505A11E2.8000403@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: amwang@redhat.com
+To: Erwan Velu <erwanaliasr1@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57515 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751786Ab2ISUoF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 16:44:05 -0400
-In-Reply-To: <1347947642-20330-1-git-send-email-amwang@redhat.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:33057 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751697Ab2ISUtJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 16:49:09 -0400
+Content-Disposition: inline
+In-Reply-To: <505A11E2.8000403@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Tue, 18 Sep 2012 13:54:02 +0800
-
-> When CONFIG_IPV6=m and CONFIG_L2TP=y, I got the following compile error:
- ...
-> This is due to l2tp uses symbols from IPV6, so when l2tp is
-> builtin, IPV6 has to be builtin too.
+On Wed, Sep 19, 2012 at 08:41:38PM +0200, Erwan Velu wrote:
+> Hi there,
 > 
-> Cc: David Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+> I'm using on a daily use and in production 3.2.x kernels (.29 currently) on a Kontron Nano-etx board that features the pch_gbe network driver.
+> 
+> I've been experiencing lots of troubles on this kernel series but since I've backported the following commits back to my 3.2.x, it works far better.
+> 
+> So from the history of next the following commits apply perfectly and runs very well.
+> 
+> I do think that other users of pch_gbe will appreciate this.
+> 
+> 1a0bdadb4e36abac63b0a9787f372aac30c11a9e
+[...]
 
-The correct way to express this is:
+This first one is adding support for an extra hardware feature, which
+is not suitable material for stable.  Please pick out only the
+important bug fixes, per Documentation/stable_kernel_rules.txt.
 
-	depends on (IPV6 || IPV6=n)
+If you want the driver to be completely backported, look at the
+compat-drivers project
+<https://backports.wiki.kernel.org/index.php/Documentation/compat-drivers>
+or distribution kernels instead of stable.
 
-Which results in the KCONFIG option only being offers in modes
-compatible with the dependency.  Using a 'select' doesn't work
-properly in these kinds of cases.
+Ben.
 
-Anyways, grep for that string to see how it is used in other similar
-situations.
+-- 
+Ben Hutchings
+We get into the habit of living before acquiring the habit of thinking.
+                                                              - Albert Camus
