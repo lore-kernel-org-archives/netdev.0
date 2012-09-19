@@ -1,37 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dev: fix incorrect getting net device's
- name
-Date: Wed, 19 Sep 2012 15:37:24 -0400 (EDT)
-Message-ID: <20120919.153724.1218581037036054616.davem@davemloft.net>
-References: <1347605907-3884-1-git-send-email-gaofeng@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: gaofeng@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56730 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750720Ab2ISTh0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 15:37:26 -0400
-In-Reply-To: <1347605907-3884-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Vagin <avagin@openvz.org>
+Subject: [PATCH] tcp: restore rcv_wscale in a repair mode (v2)
+Date: Wed, 19 Sep 2012 23:40:00 +0400
+Message-ID: <1348083600-3881500-1-git-send-email-avagin@openvz.org>
+Cc: linux-kernel@vger.kernel.org, Andrew Vagin <avagin@openvz.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Pavel Emelyanov <xemul@parallels.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Date: Fri, 14 Sep 2012 14:58:27 +0800
+rcv_wscale is a symetric parameter with snd_wscale.
 
-> When moving a nic from net namespace A to net namespace B,
-> in dev_change_net_namesapce,we call __dev_get_by_name to
-> decide if the netns B has the device has the same name.
-> 
-> if the netns B already has the same named device,we call
-> dev_get_valid_name to try to get a valid name for this nic in
-> the netns B,but net_device->nd_net still point to netns A now.
-> 
-> this patch fix it.
-> 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Both this parameters are set on a connection handshake.
 
-Looks good, applied, thanks!
+Without this value a remote window size can not be interpreted correctly,
+because a value from a packet should be shifted on rcv_wscale.
+
+And one more thing is that wscale_ok should be set too.
+
+This patch doesn't break a backward compatibility.
+If someone uses it in a old scheme, a rcv window
+will be restored with the same bug (rcv_wscale = 0).
+
+v2: Save backward compatibility on big-endian system. Before
+    the first two bytes were snd_wscale and the second two bytes were
+    rcv_wscale. Now snd_wscale is opt_val & 0xFFFF and rcv_wscale >> 16.
+    This approach is independent on byte ordering.
+
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+CC: Pavel Emelyanov <xemul@parallels.com>
+Signed-off-by: Andrew Vagin <avagin@openvz.org>
+---
+ net/ipv4/tcp.c |   13 ++++++++++---
+ 1 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index df83d74..42689aa 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2348,10 +2348,17 @@ static int tcp_repair_options_est(struct tcp_sock *tp,
+ 			tp->rx_opt.mss_clamp = opt.opt_val;
+ 			break;
+ 		case TCPOPT_WINDOW:
+-			if (opt.opt_val > 14)
+-				return -EFBIG;
++			{
++				u16 snd_wscale = opt.opt_val & 0xFFFF;
++				u16 rcv_wscale = opt.opt_val >> 16;
++
++				if (snd_wscale > 14 || rcv_wscale > 14)
++					return -EFBIG;
+ 
+-			tp->rx_opt.snd_wscale = opt.opt_val;
++				tp->rx_opt.snd_wscale = snd_wscale;
++				tp->rx_opt.rcv_wscale = rcv_wscale;
++				tp->rx_opt.wscale_ok = 1;
++			}
+ 			break;
+ 		case TCPOPT_SACK_PERM:
+ 			if (opt.opt_val != 0)
+-- 
+1.7.1
