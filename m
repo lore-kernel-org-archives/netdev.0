@@ -1,48 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH net-next] mlx4: use dev_kfree_skb() instead of
- dev_kfree_skb_any()
-Date: Wed, 19 Sep 2012 14:12:57 +0200
-Message-ID: <1348056777.26523.750.camel@edumazet-glaptop>
-References: <1347866974.26523.53.camel@edumazet-glaptop>
-	 <953B660C027164448AE903364AC447D28721B46E@MTLDAG01.mtl.com>
+From: byungho an <bh74an@gmail.com>
+Subject: Regarding ethernet directory between IP and SoC chip vendor.
+Date: Wed, 19 Sep 2012 21:39:47 +0900
+Message-ID: <CAG4h5ywgCS0n8t70uUNmSOVhKBPkOLeVLaO+D4tYfUT2qN7qTg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>, Ying Cai <ycai@google.com>
-To: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, peppe.cavallaro@st.com, deepak.silki@st.com,
+	francesco.virlinzi@st.com, jeffrey.t.kirsher@intel.com,
+	eilong@broadcom.com, alexander.h.duyck@intel.com,
+	bhutchings@solarflare.com, linville@tuxdriver.com,
+	wey-ty.w.guy@intel.com, coelho@ti.com, e.wahlig@samsung.com,
+	aditya.ps@samsung.com, ihlee215@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:65396 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756280Ab2ISMNE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 08:13:04 -0400
-Received: by bkwj10 with SMTP id j10so472923bkw.19
-        for <netdev@vger.kernel.org>; Wed, 19 Sep 2012 05:13:02 -0700 (PDT)
-In-Reply-To: <953B660C027164448AE903364AC447D28721B46E@MTLDAG01.mtl.com>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:49660 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751500Ab2ISMjs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 08:39:48 -0400
+Received: by oago6 with SMTP id o6so968940oag.19
+        for <netdev@vger.kernel.org>; Wed, 19 Sep 2012 05:39:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-09-19 at 07:58 +0000, Yevgeny Petrilin wrote:
-> > 
-> > Since commit e22979d96a5 (mlx4_en: Moving to Interrupts for TX
-> > completions), we no longer can free TX skb from hard IRQ, but only from
-> > normal softirq or process context.
-> > 
-> > Therefore, we can directly call dev_kfree_skb() from
-> > mlx4_en_free_tx_desc() like other conventional NAPI drivers.
-> > 
-> 
-> Hi Eric,
-> At the moment the TX completion processing is done from IRQ context.
-> So I think we need to change the driver to work with NAPI for TX completions
-> before making this change.
-> 
-> I'll send the patch in a few days.
+Hi all,
 
-Oops you're right, it seems I misread e22979d96 commit.
+I have one suggestion for ethernet dir.
+Currently It is well-defined and good for management.
 
-irq term is a bit generic, you might add soft/hard qualifiers to
-distinguish the variant.
+But if IP vendor is different from SoC vender, It is a bit confusing
+to guess dir name.
+For example, stmmac is using Synopsys dwmac.
+In this case, if another SoC vendors try to use Synopsys IP, they
+sould make their own dir under the their name? Even the IP is same...
 
-Thanks
+If there is common dir of IP vendor, It would be more clear.
+If that, other SoC vendors that try to use the IP can make their own
+directory and drivers intuitionally.
+
+What do you think about it?
+I want to exchange opinion and find a resonable and rational way.
+
+Thank you.
+Andy
