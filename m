@@ -1,7 +1,7 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH v2 9/9] net/macb: Offset first RX buffer by two bytes
-Date: Wed, 19 Sep 2012 13:55:22 +0200
-Message-ID: <b2852ce5414b75b9693297964200abb6bf12877f.1348055112.git.nicolas.ferre@atmel.com>
+Subject: [RFC PATCH v2 8/9] net/macb: better manage tx errors
+Date: Wed, 19 Sep 2012 13:55:21 +0200
+Message-ID: <ff2a419c59882c4669b774d4a1299f4d94f36085.1348055112.git.nicolas.ferre@atmel.com>
 References: <cover.1348055112.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,93 +16,265 @@ In-Reply-To: <cover.1348055112.git.nicolas.ferre@atmel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Havard Skinnemoen <havard@skinnemoen.net>
+Handle all TX errors, not only underruns. TX error management is
+deferred to a dedicated workqueue.
+Reinitialize the TX ring after treating all remaining frames, and
+restart the controller when everything has been cleaned up properly.
+Napi is not stopped during this task as the driver only handles
+napi for RX for now.
+With this sequence, we do not need a special check during the xmit
+method as the packets will be caught by TX disable during workqueue
+execution.
 
-Make the ethernet frame payload word-aligned, possibly making the
-memcpy into the skb a bit faster. This will be even more important
-after we eliminate the copy altogether.
-
-Also eliminate the redundant RX_OFFSET constant -- it has the same
-definition and purpose as NET_IP_ALIGN.
-
-Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
-[nicolas.ferre@atmel.com: adapt to newer kernel]
 Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 ---
- drivers/net/ethernet/cadence/macb.c | 23 ++++++++++++++++-------
- 1 file changed, 16 insertions(+), 7 deletions(-)
+v2: - modify the tx error handling: now uses a workqueue
+
+Hi,
+
+I have marked this patch as RFC because I would like feedback from David and
+Havard as both of you made comments on the previous series: did I address your 
+views on this tx error handling?
+
+Thanks for your help.
+
+
+ drivers/net/ethernet/cadence/macb.c | 166 ++++++++++++++++++++++++------------
+ drivers/net/ethernet/cadence/macb.h |   1 +
+ 2 files changed, 113 insertions(+), 54 deletions(-)
 
 diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index cfd6d5d..09ea7c7 100644
+index 2c4358e..cfd6d5d 100644
 --- a/drivers/net/ethernet/cadence/macb.c
 +++ b/drivers/net/ethernet/cadence/macb.c
-@@ -33,9 +33,6 @@
- #define RX_RING_SIZE		512
- #define RX_RING_BYTES		(sizeof(struct macb_dma_desc) * RX_RING_SIZE)
+@@ -44,6 +44,16 @@
  
--/* Make the IP header word-aligned (the ethernet header is 14 bytes) */
--#define RX_OFFSET		2
--
- #define TX_RING_SIZE		128
- #define TX_RING_BYTES		(sizeof(struct macb_dma_desc) * TX_RING_SIZE)
+ #define MACB_RX_INT_FLAGS	(MACB_BIT(RCOMP) | MACB_BIT(RXUBR)	\
+ 				 | MACB_BIT(ISR_ROVR))
++#define MACB_TX_ERR_FLAGS	(MACB_BIT(ISR_TUND)			\
++					| MACB_BIT(ISR_RLE)		\
++					| MACB_BIT(TXERR))
++#define MACB_TX_INT_FLAGS	(MACB_TX_ERR_FLAGS | MACB_BIT(TCOMP))
++
++/*
++ * Graceful stop timeouts in us. We should allow up to
++ * 1 frame time (10 Mbits/s, full-duplex, ignoring collisions)
++ */
++#define MACB_HALT_TIMEOUT	1230
  
-@@ -494,7 +491,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ /* Ring buffer accessors */
+ static unsigned int macb_tx_ring_wrap(unsigned int index)
+@@ -335,66 +345,113 @@ static void macb_update_stats(struct macb *bp)
+ 		*p += __raw_readl(reg);
+ }
+ 
+-static void macb_tx(struct macb *bp)
++static int macb_halt_tx(struct macb *bp)
  {
- 	unsigned int len;
- 	unsigned int frag;
--	unsigned int offset = 0;
-+	unsigned int offset;
- 	struct sk_buff *skb;
- 	struct macb_dma_desc *desc;
+-	unsigned int tail;
+-	unsigned int head;
+-	u32 status;
++	unsigned long	halt_time, timeout;
++	u32		status;
  
-@@ -505,7 +502,16 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 		macb_rx_ring_wrap(first_frag),
- 		macb_rx_ring_wrap(last_frag), len);
+-	status = macb_readl(bp, TSR);
+-	macb_writel(bp, TSR, status);
++	macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(THALT));
  
--	skb = netdev_alloc_skb(bp->dev, len + RX_OFFSET);
+-	netdev_vdbg(bp->dev, "macb_tx status = 0x%03lx\n", (unsigned long)status);
++	timeout = jiffies + usecs_to_jiffies(MACB_HALT_TIMEOUT);
++	do {
++		halt_time = jiffies;
++		status = macb_readl(bp, TSR);
++		if (!(status & MACB_BIT(TGO)))
++			return 0;
+ 
+-	if (status & (MACB_BIT(UND) | MACB_BIT(TSR_RLE))) {
+-		int i;
+-		netdev_err(bp->dev, "TX %s, resetting buffers\n",
+-			   status & MACB_BIT(UND) ?
+-			   "underrun" : "retry limit exceeded");
++		usleep_range(10, 250);
++	} while (time_before(halt_time, timeout));
+ 
+-		/* Transfer ongoing, disable transmitter, to avoid confusion */
+-		if (status & MACB_BIT(TGO))
+-			macb_writel(bp, NCR, macb_readl(bp, NCR) & ~MACB_BIT(TE));
++	return -ETIMEDOUT;
++}
+ 
+-		head = bp->tx_head;
++static void macb_tx_error_task(struct work_struct *work)
++{
++	struct macb	*bp = container_of(work, struct macb, tx_error_task);
++	struct macb_tx_skb	*tx_skb;
++	struct sk_buff		*skb;
++	unsigned int		tail;
+ 
+-		/*Mark all the buffer as used to avoid sending a lost buffer*/
+-		for (i = 0; i < TX_RING_SIZE; i++)
+-			bp->tx_ring[i].ctrl = MACB_BIT(TX_USED);
++	netdev_vdbg(bp->dev, "macb_tx_error_task: t = %u, h = %u\n",
++		    bp->tx_tail, bp->tx_head);
+ 
+-		/* Add wrap bit */
+-		bp->tx_ring[TX_RING_SIZE - 1].ctrl |= MACB_BIT(TX_WRAP);
++	/* Make sure nobody is trying to queue up new packets */
++	netif_stop_queue(bp->dev);
+ 
+-		/* free transmit buffer in upper layer*/
+-		for (tail = bp->tx_tail; tail != head; tail++) {
+-			struct macb_tx_skb	*tx_skb;
+-			struct sk_buff		*skb;
 +	/*
-+	 * The ethernet header starts NET_IP_ALIGN bytes into the
-+	 * first buffer. Since the header is 14 bytes, this makes the
-+	 * payload word-aligned.
-+	 *
-+	 * Instead of calling skb_reserve(NET_IP_ALIGN), we just copy
-+	 * the two padding bytes into the skb so that we avoid hitting
-+	 * the slowpath in memcpy(), and pull them off afterwards.
++	 * Stop transmission now
++	 * (in case we have just queued new packets)
 +	 */
-+	skb = netdev_alloc_skb(bp->dev, len + NET_IP_ALIGN);
- 	if (!skb) {
- 		bp->stats.rx_dropped++;
- 		for (frag = first_frag; ; frag++) {
-@@ -521,7 +527,8 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 		return 1;
++	if (macb_halt_tx(bp))
++		/* Just complain for now, reinitializing TX path can be good */
++		netdev_err(bp->dev, "BUG: halt tx timed out\n");
+ 
+-			rmb();
++	/* No need for the lock here as nobody will interrupt us anymore */
+ 
+-			tx_skb = macb_tx_skb(bp, tail);
+-			skb = tx_skb->skb;
++	/*
++	 * Treat frames in TX queue including the ones that caused the error.
++	 * Free transmit buffers in upper layer.
++	 */
++	for (tail = bp->tx_tail; tail != bp->tx_head; tail++) {
++		struct macb_dma_desc	*desc;
++		u32			ctrl;
+ 
+-			dma_unmap_single(&bp->pdev->dev, tx_skb->mapping,
+-						skb->len, DMA_TO_DEVICE);
+-			tx_skb->skb = NULL;
+-			dev_kfree_skb_irq(skb);
+-		}
++		desc = macb_tx_desc(bp, tail);
++		ctrl = desc->ctrl;
++		tx_skb = macb_tx_skb(bp, tail);
++		skb = tx_skb->skb;
++
++		if (ctrl & MACB_BIT(TX_USED)) {
++			netdev_vdbg(bp->dev, "txerr skb %u (data %p) TX complete\n",
++				    macb_tx_ring_wrap(tail), skb->data);
++			bp->stats.tx_packets++;
++			bp->stats.tx_bytes += skb->len;
++		} else {
++			/*
++			 * "Buffers exhausted mid-frame" errors may only happen
++			 * if the driver is buggy, so complain loudly about those.
++			 * Statistics are updated by hardware.
++			 */
++			if (ctrl & MACB_BIT(TX_BUF_EXHAUSTED))
++				netdev_err(bp->dev,
++					   "BUG: TX buffers exhausted mid-frame\n");
+ 
+-		bp->tx_head = bp->tx_tail = 0;
++			desc->ctrl = ctrl | MACB_BIT(TX_USED);
++		}
+ 
+-		/* Enable the transmitter again */
+-		if (status & MACB_BIT(TGO))
+-			macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(TE));
++		dma_unmap_single(&bp->pdev->dev, tx_skb->mapping, skb->len,
++				 DMA_TO_DEVICE);
++		tx_skb->skb = NULL;
++		dev_kfree_skb(skb);
  	}
  
--	skb_reserve(skb, RX_OFFSET);
-+	offset = 0;
-+	len += NET_IP_ALIGN;
- 	skb_checksum_none_assert(skb);
- 	skb_put(skb, len);
+-	if (!(status & MACB_BIT(COMP)))
+-		/*
+-		 * This may happen when a buffer becomes complete
+-		 * between reading the ISR and scanning the
+-		 * descriptors.  Nothing to worry about.
+-		 */
+-		return;
++	/* Make descriptor updates visible to hardware */
++	wmb();
++
++	/* Reinitialize the TX desc queue */
++	macb_writel(bp, TBQP, bp->tx_ring_dma);
++	/* Make TX ring reflect state of hardware */
++	bp->tx_head = bp->tx_tail = 0;
++
++	/* Now we are ready to start transmission again */
++	netif_wake_queue(bp->dev);
++
++	/* Housework before enabling TX IRQ */
++	macb_writel(bp, TSR, macb_readl(bp, TSR));
++	macb_writel(bp, IER, MACB_TX_INT_FLAGS);
++}
++
++static void macb_tx_interrupt(struct macb *bp)
++{
++	unsigned int tail;
++	unsigned int head;
++	u32 status;
++
++	status = macb_readl(bp, TSR);
++	macb_writel(bp, TSR, status);
++
++	netdev_vdbg(bp->dev, "macb_tx_interrupt status = 0x%03lx\n",
++		(unsigned long)status);
  
-@@ -545,10 +552,11 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 	/* Make descriptor updates visible to hardware */
- 	wmb();
+ 	head = bp->tx_head;
+ 	for (tail = bp->tx_tail; tail != head; tail++) {
+@@ -634,9 +691,14 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 			}
+ 		}
  
-+	__skb_pull(skb, NET_IP_ALIGN);
- 	skb->protocol = eth_type_trans(skb, bp->dev);
+-		if (status & (MACB_BIT(TCOMP) | MACB_BIT(ISR_TUND) |
+-			    MACB_BIT(ISR_RLE)))
+-			macb_tx(bp);
++		if (unlikely(status & (MACB_TX_ERR_FLAGS))) {
++			macb_writel(bp, IDR, MACB_TX_INT_FLAGS);
++			schedule_work(&bp->tx_error_task);
++			break;
++		}
++
++		if (status & MACB_BIT(TCOMP))
++			macb_tx_interrupt(bp);
  
- 	bp->stats.rx_packets++;
--	bp->stats.rx_bytes += len;
-+	bp->stats.rx_bytes += skb->len;
- 	netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
- 		   skb->len, skb->csum);
- 	netif_receive_skb(skb);
-@@ -1008,6 +1016,7 @@ static void macb_init_hw(struct macb *bp)
- 	__macb_set_hwaddr(bp);
+ 		/*
+ 		 * Link change detection isn't possible with RMII, so we'll
+@@ -966,13 +1028,8 @@ static void macb_init_hw(struct macb *bp)
+ 	macb_writel(bp, NCR, MACB_BIT(RE) | MACB_BIT(TE) | MACB_BIT(MPE));
  
- 	config = macb_mdc_clk_div(bp);
-+	config |= MACB_BF(RBOF, NET_IP_ALIGN);	/* Make eth data aligned */
- 	config |= MACB_BIT(PAE);		/* PAuse Enable */
- 	config |= MACB_BIT(DRFCS);		/* Discard Rx FCS */
- 	config |= MACB_BIT(BIG);		/* Receive oversized frames */
+ 	/* Enable interrupts */
+-	macb_writel(bp, IER, (MACB_BIT(RCOMP)
+-			      | MACB_BIT(RXUBR)
+-			      | MACB_BIT(ISR_TUND)
+-			      | MACB_BIT(ISR_RLE)
+-			      | MACB_BIT(TXERR)
+-			      | MACB_BIT(TCOMP)
+-			      | MACB_BIT(ISR_ROVR)
++	macb_writel(bp, IER, (MACB_RX_INT_FLAGS
++			      | MACB_TX_INT_FLAGS
+ 			      | MACB_BIT(HRESP)));
+ 
+ }
+@@ -1417,6 +1474,7 @@ static int __init macb_probe(struct platform_device *pdev)
+ 	bp->dev = dev;
+ 
+ 	spin_lock_init(&bp->lock);
++	INIT_WORK(&bp->tx_error_task, macb_tx_error_task);
+ 
+ 	bp->pclk = clk_get(&pdev->dev, "pclk");
+ 	if (IS_ERR(bp->pclk)) {
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index 5be5900..bfab8ef 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -532,6 +532,7 @@ struct macb {
+ 	struct clk		*hclk;
+ 	struct net_device	*dev;
+ 	struct napi_struct	napi;
++	struct work_struct	tx_error_task;
+ 	struct net_device_stats	stats;
+ 	union {
+ 		struct macb_stats	macb;
 -- 
 1.7.11.3
