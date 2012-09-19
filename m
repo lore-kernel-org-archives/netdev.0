@@ -1,69 +1,41 @@
-From: Ed Cashin <ecashin@coraid.com>
-Subject: [PATCH] net: do not disable sg for AoE
-Date: Tue, 18 Sep 2012 20:20:36 -0400
-Message-ID: <1348079358.4585@cat.he.net>
-Cc: ecashin@coraid.com, akpm@linux-foundation.org, jesse@nicira.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Erwan Velu <erwanaliasr1@gmail.com>
+Subject: Opportunity to backport pch_gbe patches to stable 3.2.x
+Date: Wed, 19 Sep 2012 20:41:38 +0200
+Message-ID: <505A11E2.8000403@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:52482 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756812Ab2ISSlo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 14:41:44 -0400
+Received: by eekc1 with SMTP id c1so574202eek.19
+        for <netdev@vger.kernel.org>; Wed, 19 Sep 2012 11:41:42 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A change in a series of VLAN-related changes appears to have
-inadvertently disabled the use of the scatter gather feature of
-network cards for transmission of non-IP ethernet protocols like ATA
-over Ethernet (AoE).  Below is a reference to the commit that
-introduces a "harmonize_features" function that turns off scatter
-gather when the NIC does not support hardware checksumming for the
-ethernet protocol of an sk buff.
+Hi there,
 
-  commit f01a5236bd4b140198fbcc550f085e8361fd73fa
-  Author: Jesse Gross <jesse@nicira.com>
-  Date:   Sun Jan 9 06:23:31 2011 +0000
+I'm using on a daily use and in production 3.2.x kernels (.29 currently) on a Kontron Nano-etx board that features the pch_gbe network driver.
 
-      net offloading: Generalize netif_get_vlan_features().
+I've been experiencing lots of troubles on this kernel series but since I've backported the following commits back to my 3.2.x, it works far better.
 
-The can_checksum_protocol function is not equipped to consider a
-protocol that does not require checksumming.  Calling it for a
-protocol that requires no checksum is inappropriate.
+So from the history of next the following commits apply perfectly and runs very well.
 
-The patch below has harmonize_features call can_checksum_protocol when
-the protocol needs a checksum, so that the network layer is not forced
-to perform unnecessary skb linearization on the transmission of AoE
-packets.  Unnecessary linearization results in decreased performance
-and increased memory pressure, as reported here:
+I do think that other users of pch_gbe will appreciate this.
 
-  http://www.spinics.net/lists/linux-mm/msg15184.html
+1a0bdadb4e36abac63b0a9787f372aac30c11a9e
+5481c8cd83b4cb0f9f0746e1f477ac231e7eedb6
+eefc48b078e1c74c701e8b44a56717418e9cd2bb
+93c8acb599b72ca7da42e36d7971a28dce273665
+32127a0a0a35706c18df11cd7ad69e96214b3c68
+d89bdff152acc0c1e1c8093832547a553b69b45c
+62ecc37986414ff98ba863f8f4b8c3fa9c8fb808
+3ab77bf271e6a41512e366dfa5110edb981ed1d3
+913f53e4c8a464c46a70898c88f2291ade28c196
+f2c31662762b9e82b9891d6b385b17f9e5ef0ed2
 
-The problem has probably not been widely experienced yet, because
-only recently has the kernel.org-distributed aoe driver acquired the
-ability to use payloads of over a page in size, with the patchset
-recently included in the mm tree:
-
-  https://lkml.org/lkml/2012/8/28/140
-
-The coraid.com-distributed aoe driver already could use payloads of
-greater than a page in size, but its users generally do not use the
-newest kernels.
-
-Signed-off-by: Ed Cashin <ecashin@coraid.com>
----
- net/core/dev.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d7fe32c..5531159 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2134,7 +2134,8 @@ static bool can_checksum_protocol(netdev_features_t features, __be16 protocol)
- static netdev_features_t harmonize_features(struct sk_buff *skb,
- 	__be16 protocol, netdev_features_t features)
- {
--	if (!can_checksum_protocol(features, protocol)) {
-+	if (protocol != htons(ETH_P_AOE) &&
-+	    !can_checksum_protocol(features, protocol)) {
- 		features &= ~NETIF_F_ALL_CSUM;
- 		features &= ~NETIF_F_SG;
- 	} else if (illegal_highdma(skb->dev, skb)) {
--- 
-1.7.2.5
+Cheers,
+Erwan
