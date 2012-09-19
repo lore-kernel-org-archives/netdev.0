@@ -1,110 +1,51 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next 4/4] ixgbevf: scheduling while atomic in reset hw
- path
-Date: Wed, 19 Sep 2012 07:05:46 +0200
-Message-ID: <1348031146.26523.276.camel@edumazet-glaptop>
-References: <1348029108-26659-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1348029108-26659-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] net/core: fix comment in skb_try_coalesce
+Date: Wed, 19 Sep 2012 07:08:16 +0200
+Message-ID: <1348031296.26523.277.camel@edumazet-glaptop>
+References: <1348023201-7727-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:60977 "EHLO
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:56502 "EHLO
 	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754536Ab2ISFFu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 01:05:50 -0400
-Received: by wgbdr13 with SMTP id dr13so515324wgb.1
-        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 22:05:48 -0700 (PDT)
-In-Reply-To: <1348029108-26659-5-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1754536Ab2ISFIY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 01:08:24 -0400
+Received: by wgbdr13 with SMTP id dr13so517023wgb.1
+        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 22:08:23 -0700 (PDT)
+In-Reply-To: <1348023201-7727-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-09-18 at 21:31 -0700, Jeff Kirsher wrote:
-> From: John Fastabend <john.r.fastabend@intel.com>
+On Wed, 2012-09-19 at 10:53 +0800, roy.qing.li@gmail.com wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> In ixgbevf_reset_hw_vf() msleep is called while holding rtnl_lock
-> and mbx_lock resulting in a schedule while atomic bug with trace
-> below.
+> It should be the skb which is not cloned
 > 
-
-This sentence is misleading, as rtnl is a mutex.
-
-Its legal to sleep while holding it
-
-So the atomic context is because of lock #1, not 'lock' #2
-
-> This patch uses mdelay instead.
-> 
-> BUG: scheduling while atomic: ip/6539/0x00000002
-> 2 locks held by ip/6539:
->  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81419cc3>] rtnl_lock+0x17/0x19
->  #1:  (&(&adapter->mbx_lock)->rlock){+.+...}, at: [<ffffffffa0030855>] ixgbevf_reset+0x30/0xc1 [ixgbevf]
-> Modules linked in: ixgbevf ixgbe mdio libfc scsi_transport_fc 8021q scsi_tgt garp stp llc cpufreq_ondemand acpi_cpufreq freq_table mperf ipv6 uinput igb coretemp hwmon crc32c_intel ioatdma i2c_i801 shpchp microcode lpc_ich mfd_core i2c_core joydev dca pcspkr serio_raw pata_acpi ata_generic usb_storage pata_jmicron
-> Pid: 6539, comm: ip Not tainted 3.6.0-rc3jk-net-next+ #104
-> Call Trace:
->  [<ffffffff81072202>] __schedule_bug+0x6a/0x79
->  [<ffffffff814bc7e0>] __schedule+0xa2/0x684
->  [<ffffffff8108f85f>] ? trace_hardirqs_off+0xd/0xf
->  [<ffffffff814bd0c0>] schedule+0x64/0x66
->  [<ffffffff814bb5e2>] schedule_timeout+0xa6/0xca
->  [<ffffffff810536b9>] ? lock_timer_base+0x52/0x52
->  [<ffffffff812629e0>] ? __udelay+0x15/0x17
->  [<ffffffff814bb624>] schedule_timeout_uninterruptible+0x1e/0x20
->  [<ffffffff810541c0>] msleep+0x1b/0x22
->  [<ffffffffa002e723>] ixgbevf_reset_hw_vf+0x90/0xe5 [ixgbevf]
->  [<ffffffffa0030860>] ixgbevf_reset+0x3b/0xc1 [ixgbevf]
->  [<ffffffffa0032fba>] ixgbevf_open+0x43/0x43e [ixgbevf]
->  [<ffffffff81409610>] ? dev_set_rx_mode+0x2e/0x33
->  [<ffffffff8140b0f1>] __dev_open+0xa0/0xe5
->  [<ffffffff814097ed>] __dev_change_flags+0xbe/0x142
->  [<ffffffff8140b01c>] dev_change_flags+0x21/0x56
->  [<ffffffff8141a843>] do_setlink+0x2e2/0x7f4
->  [<ffffffff81016e36>] ? native_sched_clock+0x37/0x39
->  [<ffffffff8141b0ac>] rtnl_newlink+0x277/0x4bb
->  [<ffffffff8141aee9>] ? rtnl_newlink+0xb4/0x4bb
->  [<ffffffff812217d1>] ? selinux_capable+0x32/0x3a
->  [<ffffffff8104fb17>] ? ns_capable+0x4f/0x67
->  [<ffffffff81419cc3>] ? rtnl_lock+0x17/0x19
->  [<ffffffff81419f28>] rtnetlink_rcv_msg+0x236/0x253
->  [<ffffffff81419cf2>] ? rtnetlink_rcv+0x2d/0x2d
->  [<ffffffff8142fd42>] netlink_rcv_skb+0x43/0x94
->  [<ffffffff81419ceb>] rtnetlink_rcv+0x26/0x2d
->  [<ffffffff8142faf1>] netlink_unicast+0xee/0x174
->  [<ffffffff81430327>] netlink_sendmsg+0x26a/0x288
->  [<ffffffff813fb04f>] ? rcu_read_unlock+0x56/0x67
->  [<ffffffff813f5e6d>] __sock_sendmsg_nosec+0x58/0x61
->  [<ffffffff813f81b7>] __sock_sendmsg+0x3d/0x48
->  [<ffffffff813f8339>] sock_sendmsg+0x6e/0x87
->  [<ffffffff81107c9f>] ? might_fault+0xa5/0xac
->  [<ffffffff81402a72>] ? copy_from_user+0x2a/0x2c
->  [<ffffffff81402e62>] ? verify_iovec+0x54/0xaa
->  [<ffffffff813f9834>] __sys_sendmsg+0x206/0x288
->  [<ffffffff810694fa>] ? up_read+0x23/0x3d
->  [<ffffffff811307e5>] ? fcheck_files+0xac/0xea
->  [<ffffffff8113095e>] ? fget_light+0x3a/0xb9
->  [<ffffffff813f9a2e>] sys_sendmsg+0x42/0x60
->  [<ffffffff814c5ba9>] system_call_fastpath+0x16/0x1b
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> Tested-by: Robert Garrett <robertx.e.garrett@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 > ---
->  drivers/net/ethernet/intel/ixgbevf/vf.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+>  net/core/skbuff.c |    4 +++-
+>  1 files changed, 3 insertions(+), 1 deletions(-)
 > 
-> diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
-> index 690801b..87b3f3b 100644
-> --- a/drivers/net/ethernet/intel/ixgbevf/vf.c
-> +++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
-> @@ -100,7 +100,7 @@ static s32 ixgbevf_reset_hw_vf(struct ixgbe_hw *hw)
->  	msgbuf[0] = IXGBE_VF_RESET;
->  	mbx->ops.write_posted(hw, msgbuf, 1);
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index fe00d12..354a4e4 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -3502,7 +3502,9 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+>  	if (!skb_cloned(from))
+>  		skb_shinfo(from)->nr_frags = 0;
 >  
-> -	msleep(10);
-> +	mdelay(10);
+> -	/* if the skb is cloned this does nothing since we set nr_frags to 0 */
+> +	/* if the skb is not cloned this does nothing
+> +	 * since we set nr_frags to 0.
+> +	 */
+>  	for (i = 0; i < skb_shinfo(from)->nr_frags; i++)
+>  		skb_frag_ref(from, i);
 >  
->  	/* set our "perm_addr" based on info provided by PF */
->  	/* also set up the mc_filter_type which is piggy backed
+
+Yes I saw that yesterday and was about to submit the same change (more
+or less)
+
+Acked-by: Eric Dumazet <edumazet@google.com>
