@@ -1,71 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: Fixed a TFO server bug that crashed kernel by raw
- sockets
-Date: Wed, 19 Sep 2012 07:12:06 +0200
-Message-ID: <1348031526.26523.278.camel@edumazet-glaptop>
-References: <1348011351-13882-1-git-send-email-hkchu@google.com>
-	 <4380003.jOHRfqhomY@cpaasch-mac>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCHv4] virtio-spec: virtio network device multiqueue support
+Date: Wed, 19 Sep 2012 11:10:10 +0930
+Message-ID: <87wqzqpz7p.fsf@rustcorp.com.au>
+References: <20120909130308.GA3471@redhat.com> <878vcifwxi.fsf@rustcorp.com.au>
+	<20120910061629.GC16819@redhat.com>
+	<20120910062738.GA17331@redhat.com>
+	<20120910063346.GA17338@redhat.com>
+	<504DC831.1000709@redhat.com> <87har3dc4o.fsf@rustcorp.com.au>
+	<CA+mtBx_Kjp62UYJs-7OSFsFKndx6H1oOkuD8U3ooAUuR1PMF=Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "H.K. Jerry Chu" <hkchu@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, ncardwell@google.com, edumazet@google.com
-To: Christoph Paasch <christoph.paasch@uclouvain.be>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:55815 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754646Ab2ISFMJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 01:12:09 -0400
-Received: by wgbdr13 with SMTP id dr13so519432wgb.1
-        for <netdev@vger.kernel.org>; Tue, 18 Sep 2012 22:12:08 -0700 (PDT)
-In-Reply-To: <4380003.jOHRfqhomY@cpaasch-mac>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, rick.jones2@hp.com,
+	virtualization@lists.linux-foundation.org,
+	levinsasha928@gmail.com, pbonzini@redhat.com
+To: Tom Herbert <therbert@google.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CA+mtBx_Kjp62UYJs-7OSFsFKndx6H1oOkuD8U3ooAUuR1PMF=Q@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-09-19 at 02:19 +0200, Christoph Paasch wrote:
+Tom Herbert <therbert@google.com> writes:
+> On Tue, Sep 11, 2012 at 10:49 PM, Rusty Russell <rusty@rustcorp.com.au>wrote:
+>> Perhaps Tom can explain how we avoid out-of-order receive for the
+>> accelerated RFS case?  It's not clear to me, but we need to be able to
+>> do that for virtio-net if it implements accelerated RFS.
+>
+> AFAIK ooo RX is possible with accelerated RFS.  We have an algorithm that
+> prevents this for RFS case by deferring a migration to a new queue as long
+> as it's possible that a flow might have outstanding packets on the old
+> queue.  I suppose this could be implemented in the device for the HW
+> queues, but I don't think it would be easy to cover all cases where packets
+> were already in transit to the host or other cases where host and device
+> queues are out of sync.
 
-> Why not moving the TCP-code out of inet_sock_destruct by modifying the sk_destruct
-> callback when TFO is in use? Like the below (only compile-tested) patch. That
-> way inet_sock_destruct stays TFO-free.
-> 
-> 
-> Cheers,
-> Christoph
-> 
-> ---------
-> 
-> From: Christoph Paasch <christoph.paasch@uclouvain.be>
-> Date: Wed, 19 Sep 2012 02:06:53 +0200
-> Subject: [PATCH] Don't add TCP-code in inet_sock_destruct
-> 
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
-> ---
->  include/linux/tcp.h |    4 ++++
->  net/ipv4/af_inet.c  |    2 --
->  net/ipv4/tcp.c      |    7 +++++++
->  3 files changed, 11 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> index ae46df5..67c789a 100644
-> --- a/include/linux/tcp.h
-> +++ b/include/linux/tcp.h
-> @@ -574,6 +574,8 @@ static inline bool fastopen_cookie_present(struct tcp_fastopen_cookie *foc)
->  	return foc->len != -1;
->  }
->  
-> +extern void tcp_sock_destruct(struct sock *sk);
-> +
->  static inline int fastopen_init_queue(struct sock *sk, int backlog)
->  {
->  	struct request_sock_queue *queue =
-> @@ -585,6 +587,8 @@ static inline int fastopen_init_queue(struct sock *sk, int backlog)
->  		    sk->sk_allocation);
->  		if (queue->fastopenq == NULL)
->  			return -ENOMEM;
-> +
-> +		sk->sk_destruct = tcp_sock_destruct;
->  		spin_lock_init(&queue->fastopenq->lock);
+Having gone to such great lengths to avoid ooo for RFS, I don't think
+DaveM would be happy if we allow it for virtio_net.
 
-Yes, it seems much better, thanks !
+So, how *would* we implement such a thing for a "hardware" device?  What
+if the device will only change the receive queue if the old receive
+queue is empty?
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Cheers,
+Rusty.
