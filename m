@@ -1,32 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] core: adjust checks for calling skb_copy_bits
- in skb_try_coalesce
-Date: Thu, 20 Sep 2012 09:00:33 +0200
-Message-ID: <1348124433.31352.64.camel@edumazet-glaptop>
-References: <1348111182-6827-1-git-send-email-roy.qing.li@gmail.com>
-	 <1348118417.31352.52.camel@edumazet-glaptop>
-	 <CAJFZqHzTEwgJaKjvNLW3yYbMLUu0xm8tHwQ2e_TZJNdiTKOTFw@mail.gmail.com>
-	 <1348120438.31352.63.camel@edumazet-glaptop>
-	 <CAJFZqHz5Ny8kbXk4arj-CEfQs+r28oGUQChNJ+0nSOTTg=c82A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: RongQing Li <roy.qing.li@gmail.com>
+From: Devendra Naga <devendra.aaru@gmail.com>
+Subject: [PATCH] at91ether: return PTR_ERR if call to clk_get fails
+Date: Thu, 20 Sep 2012 03:04:36 -0400
+Message-ID: <1348124676-6627-1-git-send-email-devendra.aaru@gmail.com>
+Cc: Devendra Naga <devendra.aaru@gmail.com>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:55106 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753136Ab2ITHAh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 03:00:37 -0400
-Received: by bkwj10 with SMTP id j10so938593bkw.19
-        for <netdev@vger.kernel.org>; Thu, 20 Sep 2012 00:00:36 -0700 (PDT)
-In-Reply-To: <CAJFZqHz5Ny8kbXk4arj-CEfQs+r28oGUQChNJ+0nSOTTg=c82A@mail.gmail.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:48046 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751378Ab2ITHEp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 03:04:45 -0400
+Received: by pbbrr13 with SMTP id rr13so4403660pbb.19
+        for <netdev@vger.kernel.org>; Thu, 20 Sep 2012 00:04:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-09-20 at 13:57 +0800, RongQing Li wrote:
+we are currently returning ENODEV, as the clk_get may give a exact
+error code in its returned pointer, assign it to the ret by using the
+PTR_ERR function, so that the subsequent goto label will jump to the
+error path and clean the driver and return the error correctly.
 
-> 
-> I am wrong, thanks.
+Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
+---
+ drivers/net/ethernet/cadence/at91_ether.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Thanks for taking a look at this stuff ;)
+diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
+index 7788419..4e980a7 100644
+--- a/drivers/net/ethernet/cadence/at91_ether.c
++++ b/drivers/net/ethernet/cadence/at91_ether.c
+@@ -1086,7 +1086,7 @@ static int __init at91ether_probe(struct platform_device *pdev)
+ 	/* Clock */
+ 	lp->ether_clk = clk_get(&pdev->dev, "ether_clk");
+ 	if (IS_ERR(lp->ether_clk)) {
+-		res = -ENODEV;
++		res = PTR_ERR(lp->ether_clk);
+ 		goto err_ioumap;
+ 	}
+ 	clk_enable(lp->ether_clk);
+-- 
+1.7.1
