@@ -1,55 +1,52 @@
-From: Subhendu Ghosh <sghosh151@gmail.com>
-Subject: Re: New commands to configure IOV features
-Date: Wed, 19 Sep 2012 23:08:02 -0400
-Message-ID: <CA+MMT=k_tKiW=peLkbTJR+5DvNiAq6Qi1MPbhbbsjbuhMQ4LpA@mail.gmail.com>
-References: <5003DC9B.8000706@broadcom.com> <5005BD00.4090106@redhat.com>
- <5005D45D.1040302@genband.com> <20120717.141153.46613285253481776.davem@davemloft.net>
- <500978C7.5050004@genband.com> <50097FBD.9080202@redhat.com>
- <1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>
- <5009B186.6000806@genband.com> <1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com>
- <5009ECDF.4090305@genband.com> <500D59BF.9040006@redhat.com>
- <500D6932.8090306@genband.com> <20120723113607.56ce7aaf@nehalam.linuxnetplumber.net>
- <C5551D9AAB213A418B7FD5E4A6F30A070C7D9DCD@ORSMSX106.amr.corp.intel.com>
- <5059A767.2090307@broadcom.com> <20120919085306.00006af9@unknown>
- <1348083847.2636.37.camel@bwh-desktop.uk.solarflarecom.com>
- <CAE9FiQXQj_KdWT-mVVsptxiEgGjScgDy_Lp-aXioZ4YAQh1wWQ@mail.gmail.com>
- <1348094773.2636.85.camel@bwh-desktop.uk.solarflarecom.com>
- <CAE9FiQVk-uXgLK6dM8q5-Xsh8LO+c-Dd_cEpu2WzJ6Uzt6ztnA@mail.gmail.com>
- <1348104190.4836.61.camel@deadeye.wl.decadent.org.uk> <CAE9FiQX72SE+NSx=P26x3Ta74U0_UHM28n9cwfy6HeK3bPiXeg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Yuval Mintz <yuvalmin@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ariel Elior <ariele@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	linux-pci <linux-pci@vger.kernel.org>
-To: Yinghai Lu <yinghai@kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <CAE9FiQX72SE+NSx=P26x3Ta74U0_UHM28n9cwfy6HeK3bPiXeg@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roy.qing.li@gmail.com
+Subject: [PATCH net-next] core: adjust checks for calling skb_copy_bits in skb_try_coalesce
+Date: Thu, 20 Sep 2012 11:19:42 +0800
+Message-ID: <1348111182-6827-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org, edumazet@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:60314 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754119Ab2ITDT4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2012 23:19:56 -0400
+Received: by pbbrr13 with SMTP id rr13so4025537pbb.19
+        for <netdev@vger.kernel.org>; Wed, 19 Sep 2012 20:19:56 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 19, 2012 at 10:27 PM, Yinghai Lu <yinghai@kernel.org> wrote:
-> On Wed, Sep 19, 2012 at 6:23 PM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
->> On Wed, 2012-09-19 at 17:19 -0700, Yinghai Lu wrote:
->>> could just stop the device and add it back again?
->>
->> This is highly disruptive and I think it would be totally unacceptable
->> for at least networking devices.
->
-> so you want PF network device continue work while enable VF on it?
->
+From: Li RongQing <roy.qing.li@gmail.com>
 
-Yes - normal scenario a system is installed thru automation over a
-network. The default initrd for installer does not configure VFs.
-Post install, a management tool like Openstack Quantum or others are
-used to enable VFs. If the PF NIC happens to be the communication path
-- disrupting the PF during a remote configuration cycle can leave you
-blind and the system unreachable.
+Ensure that frags and frags_list of dst skb are empty if need to call
+skb_copy_bits, or else it will break the data sequence.
 
--subhendu
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/core/skbuff.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index fe00d12..f0b9446 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3455,15 +3455,15 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+ 	if (skb_cloned(to))
+ 		return false;
+ 
+-	if (len <= skb_tailroom(to)) {
++	if (skb_has_frag_list(to) || skb_has_frag_list(from))
++		return false;
++
++	if (len <= skb_tailroom(to) && !skb_shinfo(to)->nr_frags) {
+ 		BUG_ON(skb_copy_bits(from, 0, skb_put(to, len), len));
+ 		*delta_truesize = 0;
+ 		return true;
+ 	}
+ 
+-	if (skb_has_frag_list(to) || skb_has_frag_list(from))
+-		return false;
+-
+ 	if (skb_headlen(from) != 0) {
+ 		struct page *page;
+ 		unsigned int offset;
+-- 
+1.7.4.1
