@@ -1,40 +1,55 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: kernel BUG at kernel/timer.c:748!
-Date: Wed, 19 Sep 2012 22:02:23 -0400
-Message-ID: <20120920020223.GA28110@redhat.com>
-References: <20120905043523.GA12988@redhat.com>
- <alpine.LFD.2.00.1209052343110.2201@ja.ssi.bg>
- <20120914212958.GA25053@redhat.com>
- <CAK6E8=cAOTqOzrzWCG=_wcQkWKS4bKh1HJ0UAH2vJNqvDPh+GQ@mail.gmail.com>
- <20120919211059.GA10985@redhat.com>
- <1348092082.31352.51.camel@edumazet-glaptop>
+From: Subhendu Ghosh <sghosh151@gmail.com>
+Subject: Re: New commands to configure IOV features
+Date: Wed, 19 Sep 2012 23:08:02 -0400
+Message-ID: <CA+MMT=k_tKiW=peLkbTJR+5DvNiAq6Qi1MPbhbbsjbuhMQ4LpA@mail.gmail.com>
+References: <5003DC9B.8000706@broadcom.com> <5005BD00.4090106@redhat.com>
+ <5005D45D.1040302@genband.com> <20120717.141153.46613285253481776.davem@davemloft.net>
+ <500978C7.5050004@genband.com> <50097FBD.9080202@redhat.com>
+ <1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>
+ <5009B186.6000806@genband.com> <1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com>
+ <5009ECDF.4090305@genband.com> <500D59BF.9040006@redhat.com>
+ <500D6932.8090306@genband.com> <20120723113607.56ce7aaf@nehalam.linuxnetplumber.net>
+ <C5551D9AAB213A418B7FD5E4A6F30A070C7D9DCD@ORSMSX106.amr.corp.intel.com>
+ <5059A767.2090307@broadcom.com> <20120919085306.00006af9@unknown>
+ <1348083847.2636.37.camel@bwh-desktop.uk.solarflarecom.com>
+ <CAE9FiQXQj_KdWT-mVVsptxiEgGjScgDy_Lp-aXioZ4YAQh1wWQ@mail.gmail.com>
+ <1348094773.2636.85.camel@bwh-desktop.uk.solarflarecom.com>
+ <CAE9FiQVk-uXgLK6dM8q5-Xsh8LO+c-Dd_cEpu2WzJ6Uzt6ztnA@mail.gmail.com>
+ <1348104190.4836.61.camel@deadeye.wl.decadent.org.uk> <CAE9FiQX72SE+NSx=P26x3Ta74U0_UHM28n9cwfy6HeK3bPiXeg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yuchung Cheng <ycheng@google.com>, Julian Anastasov <ja@ssi.bg>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12850 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753820Ab2ITCzr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Sep 2012 22:55:47 -0400
-Content-Disposition: inline
-In-Reply-To: <1348092082.31352.51.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Yuval Mintz <yuvalmin@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ariel Elior <ariele@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	linux-pci <linux-pci@vger.kernel.org>
+To: Yinghai Lu <yinghai@kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <CAE9FiQX72SE+NSx=P26x3Ta74U0_UHM28n9cwfy6HeK3bPiXeg@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 20, 2012 at 12:01:22AM +0200, Eric Dumazet wrote:
+On Wed, Sep 19, 2012 at 10:27 PM, Yinghai Lu <yinghai@kernel.org> wrote:
+> On Wed, Sep 19, 2012 at 6:23 PM, Ben Hutchings
+> <bhutchings@solarflare.com> wrote:
+>> On Wed, 2012-09-19 at 17:19 -0700, Yinghai Lu wrote:
+>>> could just stop the device and add it back again?
+>>
+>> This is highly disruptive and I think it would be totally unacceptable
+>> for at least networking devices.
+>
+> so you want PF network device continue work while enable VF on it?
+>
 
- > I spent some time trying to track this bug, but found nothing so far.
- > 
- > The timer->function are never cleared by TCP stack at tear down, and
- > should be set before fd is installed and can be caught by other threads.
- > 
- > Most likely its a refcounting issue...
- > 
- > Following debugging patch might trigger a bug sooner ?
+Yes - normal scenario a system is installed thru automation over a
+network. The default initrd for installer does not configure VFs.
+Post install, a management tool like Openstack Quantum or others are
+used to enable VFs. If the PF NIC happens to be the communication path
+- disrupting the PF during a remote configuration cycle can leave you
+blind and the system unreachable.
 
-4 hours so far, nothing.. I'll leave it run overnight, but it doesn't seem to have
-made much difference if any.
-
-	Dave
+-subhendu
