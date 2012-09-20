@@ -1,39 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V4] IB/ipoib: Add rtnl_link_ops support
-Date: Thu, 20 Sep 2012 16:58:12 -0400 (EDT)
-Message-ID: <20120920.165812.1484686663057692048.davem@davemloft.net>
-References: <1347551797-2495-1-git-send-email-ogerlitz@mellanox.com>
-	<1347551797-2495-2-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [RFC PATCH 0/3] usbnet: support runtime PM triggered by link
+ change
+Date: Thu, 20 Sep 2012 17:02:27 -0400 (EDT)
+Message-ID: <20120920.170227.258356702969458329.davem@davemloft.net>
+References: <2236952.YSZj5xxzHO@linux-lqwf.site>
+	<CACVXFVONb+pKkydhp3iesLt0tKvc+56uv6sd5S0UwUnGZiowYA@mail.gmail.com>
+	<87r4pxumdd.fsf@nemi.mork.no>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roland@kernel.org, netdev@vger.kernel.org, erezsh@mellanox.co.il
-To: ogerlitz@mellanox.com
+Cc: ming.lei@canonical.com, oneukum@suse.de,
+	gregkh@linuxfoundation.org, finik@ti.com, rjw@sisk.pl,
+	stern@rowland.harvard.edu, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39325 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39357 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752001Ab2ITU6O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 16:58:14 -0400
-In-Reply-To: <1347551797-2495-2-git-send-email-ogerlitz@mellanox.com>
+	with ESMTP id S1752515Ab2ITVCa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 17:02:30 -0400
+In-Reply-To: <87r4pxumdd.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu, 13 Sep 2012 18:56:36 +0300
 
-> Add rtnl_link_ops to IPoIB, with the first usage being child device
-> create/delete through them. Childs devices are now either legacy ones,
-> created/deleted through the ipoib sysfs entries, or RTNL ones.
-> 
-> Adding support for RTNL childs involved refactoring of ipoib_vlan_add
-> which is now used by both the sysfs and the link_ops code.
-> 
-> Also, added ndo_uninit entry to support calling unregister_netdevice_queue
-> from the rtnl dellink entry. This required removal of calls to
-> ipoib_dev_cleanup from the driver in flows which use unregister_netdevice,
-> since the networking core will invoke ipoib_uninit which does exactly that.
-> 
-> Signed-off-by: Erez Shitrit <erezsh@mellanox.co.il>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+There seems to be some discussion about the legitimacy of doing things
+this way, and in any event the patches were an RFC.
 
-Applied to net-next, thanks.
+Please resubmit as a non-RFC once all the issues have been worked
+out, if appropriate.
+
+Thanks.
