@@ -1,40 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
-Date: Thu, 20 Sep 2012 19:43:51 +0200
-Message-ID: <1348163031.3440.3.camel@edumazet-glaptop>
-References: <20120917.121243.1665284878800146060.davem@davemloft.net>
-	 <1347901326.26523.149.camel@edumazet-glaptop>
-	 <1347901493.26523.151.camel@edumazet-glaptop>
-	 <20120917.130732.1894375657044880827.davem@davemloft.net>
-	 <1348067659.26523.949.camel@edumazet-glaptop>
-	 <CAGK4HS_ZKKrzFh+c3WDxbkMFpDTg7ehw9ydp39k6JPFA_j1YOw@mail.gmail.com>
-	 <1348119475.31352.60.camel@edumazet-glaptop>  <505B4E13.5000501@hp.com>
+From: "Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH] openvswitch: using kfree_rcu() to simplify
+	the code
+Date: Thu, 20 Sep 2012 10:47:36 -0700
+Message-ID: <20120920174736.GJ2449@linux.vnet.ibm.com>
+References: <CAPgLHd_71Qh90j9FCkT2cQ35wNMkZeLDwHT2QLP55_3gfzfjTQ@mail.gmail.com>
+Reply-To: paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Vijay Subramanian <subramanian.vijay@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:38458 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751932Ab2ITRnz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 13:43:55 -0400
-Received: by bkuw11 with SMTP id w11so382932bku.19
-        for <netdev@vger.kernel.org>; Thu, 20 Sep 2012 10:43:54 -0700 (PDT)
-In-Reply-To: <505B4E13.5000501@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAPgLHd_71Qh90j9FCkT2cQ35wNMkZeLDwHT2QLP55_3gfzfjTQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-09-20 at 10:10 -0700, Rick Jones wrote:
-> On 09/19/2012 10:37 PM, Eric Dumazet wrote:
-> > loopback is lossless, so its always surprising we can have TCP
-> > retransmits on this medium ;)
+On Mon, Aug 27, 2012 at 12:20:45PM +0800, Wei Yongjun wrote:
+> From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
 > 
-> Is it lossless?
+> The callback function of call_rcu() just calls a kfree(), so we
+> can use kfree_rcu() instead of call_rcu() + callback function.
 > 
+> spatch with a semantic match is used to found this problem.
+> (http://coccinelle.lip6.fr/)
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
 
-It is lossless, yes.
+Reviewed-by: Paul E. McKenney <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
 
-But packets can be dropped by TCP stack for various reasons, including
-reordering and retransmits.
+> ---
+>  net/openvswitch/flow.c | 10 +---------
+>  1 file changed, 1 insertion(+), 9 deletions(-)
+> 
+> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+> index b7f38b1..c7bf2f2 100644
+> --- a/net/openvswitch/flow.c
+> +++ b/net/openvswitch/flow.c
+> @@ -427,19 +427,11 @@ void ovs_flow_deferred_free(struct sw_flow *flow)
+>  	call_rcu(&flow->rcu, rcu_free_flow_callback);
+>  }
+> 
+> -/* RCU callback used by ovs_flow_deferred_free_acts. */
+> -static void rcu_free_acts_callback(struct rcu_head *rcu)
+> -{
+> -	struct sw_flow_actions *sf_acts = container_of(rcu,
+> -			struct sw_flow_actions, rcu);
+> -	kfree(sf_acts);
+> -}
+> -
+>  /* Schedules 'sf_acts' to be freed after the next RCU grace period.
+>   * The caller must hold rcu_read_lock for this to be sensible. */
+>  void ovs_flow_deferred_free_acts(struct sw_flow_actions *sf_acts)
+>  {
+> -	call_rcu(&sf_acts->rcu, rcu_free_acts_callback);
+> +	kfree_rcu(sf_acts, rcu);
+>  }
+> 
+>  static int parse_vlan(struct sk_buff *skb, struct sw_flow_key *key)
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
