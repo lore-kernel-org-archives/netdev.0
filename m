@@ -1,35 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
-Date: Thu, 20 Sep 2012 15:40:07 -0400 (EDT)
-Message-ID: <20120920.154007.1073423645697694793.davem@davemloft.net>
-References: <CAGK4HS_ZKKrzFh+c3WDxbkMFpDTg7ehw9ydp39k6JPFA_j1YOw@mail.gmail.com>
-	<1348119475.31352.60.camel@edumazet-glaptop>
-	<505B4E13.5000501@hp.com>
+Subject: Re: [PATCH v3] net-tcp: TCP/IP stack bypass for loopback
+ connections
+Date: Thu, 20 Sep 2012 15:41:03 -0400 (EDT)
+Message-ID: <20120920.154103.310589245720062013.davem@davemloft.net>
+References: <505AFDE9.4080602@earthlink.net>
+	<1348141871.31352.66.camel@edumazet-glaptop>
+	<505B5154.3020002@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, subramanian.vijay@gmail.com,
-	netdev@vger.kernel.org
+Cc: eric.dumazet@gmail.com, sclark46@earthlink.net, brutus@google.com,
+	edumazet@google.com, netdev@vger.kernel.org
 To: rick.jones2@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38817 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38842 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754093Ab2ITTkJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 15:40:09 -0400
-In-Reply-To: <505B4E13.5000501@hp.com>
+	with ESMTP id S1756102Ab2ITTlF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 15:41:05 -0400
+In-Reply-To: <505B5154.3020002@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Rick Jones <rick.jones2@hp.com>
-Date: Thu, 20 Sep 2012 10:10:43 -0700
+Date: Thu, 20 Sep 2012 10:24:36 -0700
 
-> On 09/19/2012 10:37 PM, Eric Dumazet wrote:
->> loopback is lossless, so its always surprising we can have TCP
->> retransmits on this medium ;)
+> On 09/20/2012 04:51 AM, Eric Dumazet wrote:
+>> On Thu, 2012-09-20 at 07:28 -0400, Stephen Clark wrote:
+>>>
+>>> Does this mean traffic on the loopback interface will not traverse
+>>> netfilter?
+>>>
+>>
+>> Yes this was already mentioned.
+>>
+>> Only the SYN / SYNACK messages will
+>>
+>> All data will bypass IP stack, qdisc (if any), loopback driver, and
+>> netfilter.
 > 
-> Is it lossless?
-> 
-> raj@tardy:~/netperf2_trunk$ netstat -s | grep pru
->     19 packets pruned from receive queue because of socket buffer overrun
+> Does that then lift the tent flap for TOE?  As I recall, TOE's
+> bypassing of all those things is one of the reasons used to reject
+> TOE.
 
-Those packets are not being dropped by the loopback device.
+Wrong.  This bypassing is completely in software, and completely
+controlled by us.
+
+Which is completely opposite to TOE.
+
+Don't spread fud like this, even on a whim.
