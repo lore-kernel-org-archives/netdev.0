@@ -1,34 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 0/19] qlcnic: patches for new adapter - Qlogic 83XX
- CNA
-Date: Thu, 20 Sep 2012 18:47:00 -0400 (EDT)
-Message-ID: <20120920.184700.2136373489392331942.davem@davemloft.net>
-References: <1348098373-20745-1-git-send-email-sony.chacko@qlogic.com>
+Subject: Re: linux-next: build failure after merge of the final tree
+ (net-next tree related)
+Date: Thu, 20 Sep 2012 18:53:15 -0400 (EDT)
+Message-ID: <20120920.185315.576326460331670020.davem@davemloft.net>
+References: <20120920.164558.2281417114805373564.davem@davemloft.net>
+	<20120921081531.67db8a7d0ac1b35426b22c45@canb.auug.org.au>
+	<1348179764.1132.35.camel@pasglop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: sony.chacko@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40150 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932184Ab2ITWrC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 18:47:02 -0400
-In-Reply-To: <1348098373-20745-1-git-send-email-sony.chacko@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, paulus@samba.org,
+	linuxppc-dev@lists.ozlabs.org, mika.westerberg@linux.intel.com,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: benh@kernel.crashing.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1348179764.1132.35.camel@pasglop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Fri, 21 Sep 2012 08:22:44 +1000
 
-I tired reviewing this driver just for coding style issues after just
-looking at two or three of them.
+> Hrm, that's ancient gunk, I'll have to dig. We potentially can support
+> ISA devices DMA'ing from an ISA bridge... but via the iommu, which means
+> isa_virt_to_bus is a non-starter.
+> 
+> But then, do we really care ? IE. Is there single device that actually
+> requires ISA_DMA_API and that is expected to work on any currently
+> supported powerpc hw ? :-)
+> 
+> We don't even support PReP anymore, so that leaves us with what ?
 
-I hope that it is no surprise to you that people are very reluctant to
-review this driver at all, given how much basic stylistic issues
-remain.
+ISA_DMA_API implies a fixed window of addresses which are <= 32-bits
+on the bus, which is a hardware requirement of these devices.
 
-I haven't even begun to think about the actual technical semantics and
-correctness of these patches.  I doubt anyone else in the community
-had either, and that won't even begin to happen until the coding style
-issues are rectified.
+isa_virt_to_bus() goes to that physical address, and the expection is
+that you use GFP_DMA and thus the physical addresses fit inside of
+an unsigned int.
 
-You guys have a long, very long, way to go with this patch set.
+isa_virt_to_bus() basically amounts to a virt-->phys plus a cast.
+
+> Anybody has an objection to turning ISA_DMA_API off ?
+
+Then you can remove all of the DMA api stuff in powerpc's asm/dma.h
+but some of it looks like it might be in use.
