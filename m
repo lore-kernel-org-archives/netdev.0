@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net-tcp: TCP/IP stack bypass for loopback
- connections
-Date: Thu, 20 Sep 2012 15:30:18 -0400 (EDT)
-Message-ID: <20120920.153018.1693489820883898343.davem@davemloft.net>
-References: <1348088634.31352.26.camel@edumazet-glaptop>
-	<CAEkNxbEJjAu3+3yDGPGSzzee-LY_797RdNbBgcC6=-aDHfEAJQ@mail.gmail.com>
-	<505AFDE9.4080602@earthlink.net>
+Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
+Date: Thu, 20 Sep 2012 15:40:07 -0400 (EDT)
+Message-ID: <20120920.154007.1073423645697694793.davem@davemloft.net>
+References: <CAGK4HS_ZKKrzFh+c3WDxbkMFpDTg7ehw9ydp39k6JPFA_j1YOw@mail.gmail.com>
+	<1348119475.31352.60.camel@edumazet-glaptop>
+	<505B4E13.5000501@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: brutus@google.com, eric.dumazet@gmail.com, edumazet@google.com,
+Cc: eric.dumazet@gmail.com, subramanian.vijay@gmail.com,
 	netdev@vger.kernel.org
-To: sclark46@earthlink.net
+To: rick.jones2@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38737 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38817 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754093Ab2ITTa0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 15:30:26 -0400
-In-Reply-To: <505AFDE9.4080602@earthlink.net>
+	with ESMTP id S1754093Ab2ITTkJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 15:40:09 -0400
+In-Reply-To: <505B4E13.5000501@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Clark <sclark46@earthlink.net>
-Date: Thu, 20 Sep 2012 07:28:41 -0400
+From: Rick Jones <rick.jones2@hp.com>
+Date: Thu, 20 Sep 2012 10:10:43 -0700
 
-> Does this mean traffic on the loopback interface will not traverse
-> netfilter?
+> On 09/19/2012 10:37 PM, Eric Dumazet wrote:
+>> loopback is lossless, so its always surprising we can have TCP
+>> retransmits on this medium ;)
+> 
+> Is it lossless?
+> 
+> raj@tardy:~/netperf2_trunk$ netstat -s | grep pru
+>     19 packets pruned from receive queue because of socket buffer overrun
 
-Please, we've had this discussion before, let's not have it again.
-Read the archives for the postings of the previous versions of
-this patch.
+Those packets are not being dropped by the loopback device.
