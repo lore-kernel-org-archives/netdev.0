@@ -1,38 +1,48 @@
-From: "valent.turkovic@gmail.com" <valent.turkovic@gmail.com>
-Subject: Equal bandwidth for all users - Per Connection Queue (PCQ) on Linux ?
-Date: Thu, 20 Sep 2012 15:22:32 +0200
-Message-ID: <CAD=nrE8URRsz5aEWqH23TpVxQUn87SpUwR-qF8J2r+VH0j4cBg@mail.gmail.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: mlx4: dropping multicast packets at promisc leave
+Date: Thu, 20 Sep 2012 16:21:56 +0300
+Message-ID: <505B1874.3040904@mellanox.com>
+References: <505A66CC.8010701@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: Marcelo Ricardo Leitner <mleitner@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:58247 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753940Ab2ITNWd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 09:22:33 -0400
-Received: by weyx8 with SMTP id x8so1262577wey.19
-        for <netdev@vger.kernel.org>; Thu, 20 Sep 2012 06:22:32 -0700 (PDT)
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:35665 "HELO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753513Ab2ITNX0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 09:23:26 -0400
+In-Reply-To: <505A66CC.8010701@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
-is ther any way that would allow to dynamically distribute bandwidth
-per conneted client?
-For example if maximum bandiwdth available is 10/10 MBits/s and only
-two clients are connected then they both get 1/2 (5/5 Mbits), and when
-there are 10 clients connected and using the connection, each gets
-1/10 (1/1 Mbit).
+On 20/09/2012 03:43, Marcelo Ricardo Leitner wrote:
+> I have a report that our mlx4 driver (RHEL 6.3) is dropping multicast 
+> packets when NIC leaves promisc mode. It seems this is being cause due 
+> to the new steering mode that took place near by commit 
+> 1679200f91da6a054b06954c9bd3eeed29b6731f. As it seems, the new 
+> steering mode needs more commands/time to leave the promisc mode, 
+> which may be leading to packet drops.
 
-I haven't yet seen any qos technique on linux that allows this, but my
-quess is that some linux networking guru has this figured out.
+Marcelo,
 
-Mikrorik (linux based embedded OS specialized for networking) has qos
-type called PCQ [1] that dynamically spreads bandwidth just as
-explained.
+The commit you point on below 6d19993 "net/mlx4_en: Re-design multicast 
+attachments flow" makes sure to avoid
+doing extra firmware comments and not leave a window in time where 
+"correct" addresses are not attached. Its hard to say what's the case on 
+that RHEL 6.3 system, it would be very helpful through if you manage to 
+reproduce the problem on an upstream kernel -- BTW you didn't say on 
+which kernel you are  trying to reproduce  this, note that upstream has 
+also commit 60d31c1475f2 "net/mlx4_core: Looking for promiscuous entries 
+on the correct port" (reported by you...) , so if somehow this commit 
+makes the diff you could use it also on their system.
 
-[1] http://wiki.mikrotik.com/wiki/Manual:Queues_-_PCQ_Examples
+> It takes 300ms to perform the change there against my 600us. Hitting 
+> something like tcpdump -c 10 in a loop helps triggering it.
 
--- 
-follow me - www.twitter.com/valentt & http://kernelreloaded.blog385.com
-linux, anime, spirituality, wireless, scuba, linuxmce smart home, zwave
-ICQ: 2125241, Skype: valent.turkovic, MSN: valent.turkovic@hotmail.com
+Do you have any insight for this huge difference?
+
+Or.
