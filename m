@@ -1,48 +1,57 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: mlx4: dropping multicast packets at promisc leave
-Date: Thu, 20 Sep 2012 16:21:56 +0300
-Message-ID: <505B1874.3040904@mellanox.com>
-References: <505A66CC.8010701@redhat.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: mlx4_en: fix endianness with blue frame support
+Date: Thu, 20 Sep 2012 16:46:51 +0300
+Message-ID: <CAJZOPZLAQf8K_+naaGEiNzMN5RtRiupcm+gZSHf87ez2Dp7cYA@mail.gmail.com>
+References: <20120918073448.GA32445@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: cascardo@linux.vnet.ibm.com, netdev@vger.kernel.org,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: Marcelo Ricardo Leitner <mleitner@redhat.com>
+	Eli Cohen <eli@mellanox.co.il>
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:35665 "HELO
-	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753513Ab2ITNX0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 09:23:26 -0400
-In-Reply-To: <505A66CC.8010701@redhat.com>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:54802 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751034Ab2ITNqw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 09:46:52 -0400
+Received: by ieak13 with SMTP id k13so3390353iea.19
+        for <netdev@vger.kernel.org>; Thu, 20 Sep 2012 06:46:52 -0700 (PDT)
+In-Reply-To: <20120918073448.GA32445@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20/09/2012 03:43, Marcelo Ricardo Leitner wrote:
-> I have a report that our mlx4 driver (RHEL 6.3) is dropping multicast 
-> packets when NIC leaves promisc mode. It seems this is being cause due 
-> to the new steering mode that took place near by commit 
-> 1679200f91da6a054b06954c9bd3eeed29b6731f. As it seems, the new 
-> steering mode needs more commands/time to leave the promisc mode, 
-> which may be leading to packet drops.
+On Tue, Sep 18, 2012 at 10:34 AM, Dan Carpenter
+<dan.carpenter@oracle.com> wrote:
+> Hello Thadeu Lima de Souza Cascardo,
+>
+> The patch c5d6136e10d6: "mlx4_en: fix endianness with blue frame
+> support" from Oct 10, 2011, leads to the following warning:
+> drivers/net/ethernet/mellanox/mlx4/en_tx.c:720 mlx4_en_xmit()
+>          warn: potential memory corrupting cast. 4 vs 2 bytes
+>
+> That patch introduced a call to cpu_to_be32() and added some endian notation.
+>         *(__be32 *) (&tx_desc->ctrl.vlan_tag) |= cpu_to_be32(ring->doorbell_qpn);
+> But it doesn't make sense because the data type is declared as u16 in
+> the header and we would be corrupting the next elements in the struct
+> which are ins_vlan and fence_size.
+>
+> struct mlx4_wqe_ctrl_seg {
+>         __be32                  owner_opcode;
+>         __be16                  vlan_tag;
+>         u8                      ins_vlan;
+>         u8                      fence_size;
+>
+> I guess the reason we get away with it is that the ->doorbell_qpn is
+> normally less that 65k. But doorbell_qpn is a u32 type so I think there is a risk here.
 
-Marcelo,
+Dan,
 
-The commit you point on below 6d19993 "net/mlx4_en: Re-design multicast 
-attachments flow" makes sure to avoid
-doing extra firmware comments and not leave a window in time where 
-"correct" addresses are not attached. Its hard to say what's the case on 
-that RHEL 6.3 system, it would be very helpful through if you manage to 
-reproduce the problem on an upstream kernel -- BTW you didn't say on 
-which kernel you are  trying to reproduce  this, note that upstream has 
-also commit 60d31c1475f2 "net/mlx4_core: Looking for promiscuous entries 
-on the correct port" (reported by you...) , so if somehow this commit 
-makes the diff you could use it also on their system.
-
-> It takes 300ms to perform the change there against my 600us. Hitting 
-> something like tcpdump -c 10 in a loop helps triggering it.
-
-Do you have any insight for this huge difference?
+QP numbers are 24 bit in size, under blue-flame setting the QP number
+is written
+over the "vlan_tag" field and potentially also the "ins_vlan" field of
+the control segment,
+we can do a little cleanup here with introducing a modified version of
+the mlx4_wqe_ctrl_seg
+structure over which the cast is made  under the blue-flame flow.
 
 Or.
