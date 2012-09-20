@@ -1,36 +1,55 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC PATCH 0/3] usbnet: support runtime PM triggered by link change
-Date: Thu, 20 Sep 2012 23:04:38 +0200
-Message-ID: <1703568.mhE1zQzG7o@linux-lqwf.site>
-References: <2236952.YSZj5xxzHO@linux-lqwf.site> <87r4pxumdd.fsf@nemi.mork.no> <20120920.170227.258356702969458329.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] ucc_geth: Reduce IRQ off in xmit path
+Date: Thu, 20 Sep 2012 17:08:52 -0400 (EDT)
+Message-ID: <20120920.170852.391382615902951147.davem@davemloft.net>
+References: <20120919223416.GA16087@electric-eye.fr.zoreil.com>
+	<1348129021-28333-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: bjorn-yOkvZcmFvRU@public.gmane.org, ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-	finik-l0cyMroinI0@public.gmane.org, rjw-KKrjLPT3xs0@public.gmane.org, stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120920.170227.258356702969458329.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com
+To: Joakim.Tjernlund@transmode.se
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39430 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752678Ab2ITVIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 17:08:54 -0400
+In-Reply-To: <1348129021-28333-1-git-send-email-Joakim.Tjernlund@transmode.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 20 September 2012 17:02:27 David Miller wrote:
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Date: Thu, 20 Sep 2012 10:17:01 +0200
+
+> Currently ucc_geth_start_xmit wraps IRQ off for the
+> whole body just to be safe.
+> Reduce the IRQ off period to a minimum.
 > 
-> There seems to be some discussion about the legitimacy of doing things
-> this way, and in any event the patches were an RFC.
+> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> ---
 > 
-> Please resubmit as a non-RFC once all the issues have been worked
-> out, if appropriate.
+>  v2: Move assignment of ugeth->tx_skbuff[txQ][ugeth->skb_curtx[txQ]]
+>      inside IRQ off section to prevent racing against
+>      ucc_geth_tx(). Spotted by Francois Romieu <romieu@fr.zoreil.com>
 
-Just to make this clear, I'd like to state that the discussion involved
-only the third, last patch in the series. The first two are fine and make
-sense by themselves.
+I agree with Francois's initial analysis, and disagree with you're
+response to him, wrt. the suggest to remove all locking entirely.
 
-	Regards
-		Oliver
+Unlike what you claim, there isn't much of a gain at all from merely
+make the window of lock holding smaller, especially on the scale
+in which you are doing it here.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Whereas removing the lock and the atomic completely, as tg3 does,
+will give very significant performance gains.
+
+The locking cost of grabbing the spinlock, and the memory transactions
+associated with it, dominate.
+
+Furthermore, even if the gains of your change are non-trivial, you
+haven't documented it.  So unless you should some noticable gains from
+this, it's just code masterbation as far as I'm concerned and I'm
+therefore inclined to not apply patches like this.
+
+TG3's core interrupt locking is not that difficult to understand and
+replicate in other drivers, so I dismiss your attempts to avoid that
+approach on difficulty grounds as well.
