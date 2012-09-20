@@ -1,62 +1,45 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH 2/4] ipv6: unify conntrack reassembly expire code with
- standard one
-Date: Thu, 20 Sep 2012 15:41:37 +0800
-Message-ID: <1348126897.17345.11.camel@cr0>
-References: <1348023011-16195-1-git-send-email-amwang@redhat.com>
-	 <1348023011-16195-3-git-send-email-amwang@redhat.com>
-	 <Pine.LNX.4.64.1209191659150.12601@ask.diku.dk>
+From: Rodolfo Giometti <giometti@enneenne.com>
+Subject: Re: [PATCH net-next 01/11] pps/ptp: Allow PHC devices to adjust
+	PPS events for known delay
+Date: Thu, 20 Sep 2012 09:29:54 +0200
+Message-ID: <20120920072954.GA6531@gundam.enneenne.com>
+References: <1348081775.2636.15.camel@bwh-desktop.uk.solarflarecom.com> <1348082024.2636.16.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Michal =?UTF-8?Q?Kube=C4=8Dek?= <mkubecek@suse.cz>,
-	David Miller <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.1209191659150.12601@ask.diku.dk>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com,
+	Richard Cochran <richardcochran@gmail.com>,
+	Andrew Jackson <ajackson@solarflare.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ip-196-116.sn1.eutelia.it ([62.94.196.116]:15741 "EHLO
+	goldrake.enneenne.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751260Ab2ITIGo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 04:06:44 -0400
+Content-Disposition: inline
+In-Reply-To: <1348082024.2636.16.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-09-19 at 17:12 +0200, Jesper Dangaard Brouer wrote:
-> On Wed, 19 Sep 2012, Cong Wang wrote:
+On Wed, Sep 19, 2012 at 08:13:44PM +0100, Ben Hutchings wrote:
+> Initial version by Stuart Hodgson <smhodgson@solarflare.com>
 > 
-> [cut]
-> > With this patch applied, I can see ICMP Time Exceeded sent
-> > from the receiver when the sender sent out 3/4 fragmented
-> > IPv6 UPD packet.
+> Some PHC device drivers may deliver PPS events with a significant
+> and variable delay, but still be able to measure precisely what
+> that delay is.
 > 
-> Typo "UPD" -> "UDP"
+> Add a pps_sub_ts() function for subtracting a delay from the
+> timestamp(s) in a PPS event, and a PTP event type (PTP_CLOCK_PPSUSR)
+> for which the caller provides a complete PPS event.
 > 
-> If people want to redo the IPv6 UDP fragment tests, they can use my scapy 
-> script, and comment out sending the last fragment:
->   https://github.com/netoptimizer/network-testing/blob/master/scapy/ipv6_fragment01.py
-> 
-> Another thing, could you please "mark"/put the version of the patch in the 
-> subject line, like:
-> 
->   [PATCH V4 2/4] ipv6: ...
-> 
-> This makes it easier, to follow on which version of the patch people are 
-> replying to.
-> 
-> With git send-email I think you have to do:
-> 
->    git send-email --subject-prefix="PATCH V4"
-> 
-> And with stg (stacked git) I usually do:
-> 
->    stg mail --version "V4" --to netdev ...
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Thanks, Jesper!
+Acked-by: Rodolfo Giometti <giometti@enneenne.com>
 
-Unfortunately, git-send-email on F16 doesn't have --subject-prefix
-option (git-format-patch does), that is why I didn't add "V4" to every
-patch. Perhaps I should use git-format-patch + git-send-email next time.
+-- 
 
-
+GNU/Linux Solutions                  e-mail: giometti@enneenne.com
+Linux Device Driver                          giometti@linux.it
+Embedded Systems                     phone:  +39 349 2432127
+UNIX programming                     skype:  rodolfo.giometti
+Freelance ICT Italia - Consulente ICT Italia - www.consulenti-ict.it
