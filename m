@@ -1,40 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] USB: remove dbg() usage in USB networking drivers
-Date: Thu, 20 Sep 2012 17:53:35 -0400 (EDT)
-Message-ID: <20120920.175335.1128494030737237412.davem@davemloft.net>
-References: <1348077212.22122.13.camel@joe2Laptop>
-	<20120919193536.GA13933@kroah.com>
-	<20120919194614.GA17585@kroah.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net] net: qmi_wwan: call subdriver with control intf
+ only
+Date: Thu, 20 Sep 2012 17:54:54 -0400 (EDT)
+Message-ID: <20120920.175454.1700471593150372802.davem@davemloft.net>
+References: <1347308150-19088-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@perches.com, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: gregkh@linuxfoundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120919194614.GA17585@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: bjorn-yOkvZcmFvRU@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1347308150-19088-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Wed, 19 Sep 2012 20:46:14 +0100
+=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Date: Mon, 10 Sep 2012 22:15:50 +0200
 
-> From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> 
-> The dbg() USB macro is so old, it predates me.  The USB networking drivers are
-> the last hold-out using this macro, and we want to get rid of it, so replace
-> the usage of it with the proper netdev_dbg() or dev_dbg() (depending on the
-> context) calls.
-> 
-> Some places we end up using a local variable for the debug call, so also
-> convert the other existing dev_* calls to use it as well, to save tiny amounts
-> of code space.
-> 
-> Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> ---
-> v2: Addressed review comments from Joe Perches
-> 
-> Again, I am glad to take this in the usb-next tree if wanted, whatever is
-> easiest.
+> This fixes a hang on suspend due to calling wdm_suspend on
+> the unregistered data interface. The hang should have been
+> a NULL pointer reference had it not been for a logic error
+> in the cdc_wdm code.
+>=20
+>   commit 230718bd net: qmi_wwan: bind to both control and data interf=
+ace
+>=20
+> changed qmi_wwan to use cdc_wdm as a subdriver for devices with
+> a two-interface QMI/wwan function.  The commit failed to update
+> qmi_wwan_suspend and qmi_wwan_resume, which were written to handle
+> either a single combined interface function, or no subdriver at all.
+>=20
+> The result was that we called into the subdriver both when the
+> control interface was suspended and when the data interface was
+> suspended.  Calling the subdriver suspend function with an
+> unregistered interface is not supported and will make the
+> subdriver bug out.
+>=20
+> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 
-I'll take this into net-next, applied, thanks Greg.
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
