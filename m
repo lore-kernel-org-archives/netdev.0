@@ -1,105 +1,208 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/4] igb: Support to enable EEE on all eee_supported devices
-Date: Thu, 20 Sep 2012 03:07:15 -0700
-Message-ID: <1348135637-17857-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 3/4] ixgbevf: Add support for VF API negotiation
+Date: Thu, 20 Sep 2012 03:07:16 -0700
+Message-ID: <1348135637-17857-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1348135637-17857-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:17508 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753360Ab2ITKHU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Sep 2012 06:07:20 -0400
+	id S1753364Ab2ITKHV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2012 06:07:21 -0400
 In-Reply-To: <1348135637-17857-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Current implementation enables EEE on only i350 device. This patch enables
-EEE on all eee_supported devices. Also, configured LPI clock to keep
-running before EEE is enabled on i210 and i211 devices.
+This change makes it so that the VF can support the PF/VF API negotiation
+protocol.  Specifically in this case we are adding support for API 1.0
+which will mean that the VF is capable of cleaning up buffers that span
+multiple descriptors without triggering an error.
 
-Signed-off-by: Akeem G. Abodunrin <akeem.g.abodunrin@intel.com>
-Tested-by: Jeff Pieper  <jeffrey.e.pieper@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.c   | 17 +++++++++++++----
- drivers/net/ethernet/intel/igb/e1000_defines.h |  3 ++-
- drivers/net/ethernet/intel/igb/e1000_regs.h    |  1 +
- 3 files changed, 16 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/defines.h      |  1 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 23 ++++++++++++++
+ drivers/net/ethernet/intel/ixgbevf/mbx.h          | 21 +++++++++++--
+ drivers/net/ethernet/intel/ixgbevf/vf.c           | 37 +++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbevf/vf.h           |  3 ++
+ 5 files changed, 83 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index ba994fb..ca4641e 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -2223,11 +2223,10 @@ out:
- s32 igb_set_eee_i350(struct e1000_hw *hw)
+diff --git a/drivers/net/ethernet/intel/ixgbevf/defines.h b/drivers/net/ethernet/intel/ixgbevf/defines.h
+index 418af82..da17ccf 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/defines.h
++++ b/drivers/net/ethernet/intel/ixgbevf/defines.h
+@@ -272,5 +272,6 @@ struct ixgbe_adv_tx_context_desc {
+ /* Error Codes */
+ #define IXGBE_ERR_INVALID_MAC_ADDR              -1
+ #define IXGBE_ERR_RESET_FAILED                  -2
++#define IXGBE_ERR_INVALID_ARGUMENT              -3
+ 
+ #endif /* _IXGBEVF_DEFINES_H_ */
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index a5d9cc5..c5ffe1d 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1334,6 +1334,25 @@ static void ixgbevf_init_last_counter_stats(struct ixgbevf_adapter *adapter)
+ 	adapter->stats.base_vfmprc = adapter->stats.last_vfmprc;
+ }
+ 
++static void ixgbevf_negotiate_api(struct ixgbevf_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	int api[] = { ixgbe_mbox_api_10,
++		      ixgbe_mbox_api_unknown };
++	int err = 0, idx = 0;
++
++	spin_lock(&adapter->mbx_lock);
++
++	while (api[idx] != ixgbe_mbox_api_unknown) {
++		err = ixgbevf_negotiate_api_version(hw, api[idx]);
++		if (!err)
++			break;
++		idx++;
++	}
++
++	spin_unlock(&adapter->mbx_lock);
++}
++
+ static void ixgbevf_up_complete(struct ixgbevf_adapter *adapter)
  {
- 	s32 ret_val = 0;
--	u32 ipcnfg, eeer, ctrl_ext;
-+	u32 ipcnfg, eeer;
+ 	struct net_device *netdev = adapter->netdev;
+@@ -1399,6 +1418,8 @@ void ixgbevf_up(struct ixgbevf_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
  
--	ctrl_ext = rd32(E1000_CTRL_EXT);
--	if ((hw->mac.type != e1000_i350) ||
--	    (ctrl_ext & E1000_CTRL_EXT_LINK_MODE_MASK))
-+	if ((hw->mac.type < e1000_i350) ||
-+	    (hw->phy.media_type != e1000_media_type_copper))
- 		goto out;
- 	ipcnfg = rd32(E1000_IPCNFG);
- 	eeer = rd32(E1000_EEER);
-@@ -2240,6 +2239,14 @@ s32 igb_set_eee_i350(struct e1000_hw *hw)
- 			E1000_EEER_RX_LPI_EN |
- 			E1000_EEER_LPI_FC);
++	ixgbevf_negotiate_api(adapter);
++
+ 	ixgbevf_configure(adapter);
  
-+		/* keep the LPI clock running before EEE is enabled */
-+		if (hw->mac.type == e1000_i210 || hw->mac.type == e1000_i211) {
-+			u32 eee_su;
-+			eee_su = rd32(E1000_EEE_SU);
-+			eee_su &= ~E1000_EEE_SU_LPI_CLK_STP;
-+			wr32(E1000_EEE_SU, eee_su);
+ 	ixgbevf_up_complete(adapter);
+@@ -2388,6 +2409,8 @@ static int ixgbevf_open(struct net_device *netdev)
+ 		}
+ 	}
+ 
++	ixgbevf_negotiate_api(adapter);
++
+ 	/* allocate transmit descriptors */
+ 	err = ixgbevf_setup_all_tx_resources(adapter);
+ 	if (err)
+diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.h b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+index cf9131c..946ce86 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/mbx.h
++++ b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+@@ -76,12 +76,29 @@
+ /* bits 23:16 are used for exra info for certain messages */
+ #define IXGBE_VT_MSGINFO_MASK     (0xFF << IXGBE_VT_MSGINFO_SHIFT)
+ 
++/* definitions to support mailbox API version negotiation */
++
++/*
++ * each element denotes a version of the API; existing numbers may not
++ * change; any additions must go at the end
++ */
++enum ixgbe_pfvf_api_rev {
++	ixgbe_mbox_api_10,	/* API version 1.0, linux/freebsd VF driver */
++	ixgbe_mbox_api_20,	/* API version 2.0, solaris Phase1 VF driver */
++	/* This value should always be last */
++	ixgbe_mbox_api_unknown,	/* indicates that API version is not known */
++};
++
++/* mailbox API, legacy requests */
+ #define IXGBE_VF_RESET            0x01 /* VF requests reset */
+ #define IXGBE_VF_SET_MAC_ADDR     0x02 /* VF requests PF to set MAC addr */
+ #define IXGBE_VF_SET_MULTICAST    0x03 /* VF requests PF to set MC addr */
+ #define IXGBE_VF_SET_VLAN         0x04 /* VF requests PF to set VLAN */
+-#define IXGBE_VF_SET_LPE          0x05 /* VF requests PF to set VMOLR.LPE */
+-#define IXGBE_VF_SET_MACVLAN      0x06 /* VF requests PF for unicast filter */
++
++/* mailbox API, version 1.0 VF requests */
++#define IXGBE_VF_SET_LPE	0x05 /* VF requests PF to set VMOLR.LPE */
++#define IXGBE_VF_SET_MACVLAN	0x06 /* VF requests PF for unicast filter */
++#define IXGBE_VF_API_NEGOTIATE	0x08 /* negotiate API version */
+ 
+ /* length of permanent address message returned from PF */
+ #define IXGBE_VF_PERMADDR_MSG_LEN 4
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
+index 3d555a1..690801b 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.c
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
+@@ -79,6 +79,9 @@ static s32 ixgbevf_reset_hw_vf(struct ixgbe_hw *hw)
+ 	/* Call adapter stop to disable tx/rx and clear interrupts */
+ 	hw->mac.ops.stop_adapter(hw);
+ 
++	/* reset the api version */
++	hw->api_version = ixgbe_mbox_api_10;
++
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFCTRL, IXGBE_CTRL_RST);
+ 	IXGBE_WRITE_FLUSH(hw);
+ 
+@@ -433,6 +436,40 @@ void ixgbevf_rlpml_set_vf(struct ixgbe_hw *hw, u16 max_size)
+ 	ixgbevf_write_msg_read_ack(hw, msgbuf, 2);
+ }
+ 
++/**
++ *  ixgbevf_negotiate_api_version - Negotiate supported API version
++ *  @hw: pointer to the HW structure
++ *  @api: integer containing requested API version
++ **/
++int ixgbevf_negotiate_api_version(struct ixgbe_hw *hw, int api)
++{
++	int err;
++	u32 msg[3];
++
++	/* Negotiate the mailbox API version */
++	msg[0] = IXGBE_VF_API_NEGOTIATE;
++	msg[1] = api;
++	msg[2] = 0;
++	err = hw->mbx.ops.write_posted(hw, msg, 3);
++
++	if (!err)
++		err = hw->mbx.ops.read_posted(hw, msg, 3);
++
++	if (!err) {
++		msg[0] &= ~IXGBE_VT_MSGTYPE_CTS;
++
++		/* Store value and return 0 on success */
++		if (msg[0] == (IXGBE_VF_API_NEGOTIATE | IXGBE_VT_MSGTYPE_ACK)) {
++			hw->api_version = api;
++			return 0;
 +		}
 +
- 	} else {
- 		ipcnfg &= ~(E1000_IPCNFG_EEE_1G_AN |
- 			E1000_IPCNFG_EEE_100M_AN);
-@@ -2249,6 +2256,8 @@ s32 igb_set_eee_i350(struct e1000_hw *hw)
- 	}
- 	wr32(E1000_IPCNFG, ipcnfg);
- 	wr32(E1000_EEER, eeer);
-+	rd32(E1000_IPCNFG);
-+	rd32(E1000_EEER);
- out:
++		err = IXGBE_ERR_INVALID_ARGUMENT;
++	}
++
++	return err;
++}
++
+ static const struct ixgbe_mac_operations ixgbevf_mac_ops = {
+ 	.init_hw             = ixgbevf_init_hw_vf,
+ 	.reset_hw            = ixgbevf_reset_hw_vf,
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
+index 07fd876..47f11a5 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
+@@ -137,6 +137,8 @@ struct ixgbe_hw {
  
- 	return ret_val;
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index cae3070..de4b41e 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -857,8 +857,9 @@
- #define E1000_IPCNFG_EEE_100M_AN     0x00000004  /* EEE Enable 100M AN */
- #define E1000_EEER_TX_LPI_EN         0x00010000  /* EEE Tx LPI Enable */
- #define E1000_EEER_RX_LPI_EN         0x00020000  /* EEE Rx LPI Enable */
--#define E1000_EEER_FRC_AN            0x10000000 /* Enable EEE in loopback */
-+#define E1000_EEER_FRC_AN            0x10000000  /* Enable EEE in loopback */
- #define E1000_EEER_LPI_FC            0x00040000  /* EEE Enable on FC */
-+#define E1000_EEE_SU_LPI_CLK_STP     0X00800000  /* EEE LPI Clock Stop */
+ 	u8  revision_id;
+ 	bool adapter_stopped;
++
++	int api_version;
+ };
  
- /* SerDes Control */
- #define E1000_GEN_CTL_READY             0x80000000
-diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
-index faec840..e5db485 100644
---- a/drivers/net/ethernet/intel/igb/e1000_regs.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
-@@ -349,6 +349,7 @@
- /* Energy Efficient Ethernet "EEE" register */
- #define E1000_IPCNFG  0x0E38  /* Internal PHY Configuration */
- #define E1000_EEER    0x0E30  /* Energy Efficient Ethernet */
-+#define E1000_EEE_SU  0X0E34  /* EEE Setup */
+ struct ixgbevf_hw_stats {
+@@ -171,5 +173,6 @@ struct ixgbevf_info {
+ };
  
- /* Thermal Sensor Register */
- #define E1000_THSTAT    0x08110 /* Thermal Sensor Status */
+ void ixgbevf_rlpml_set_vf(struct ixgbe_hw *hw, u16 max_size);
++int ixgbevf_negotiate_api_version(struct ixgbe_hw *hw, int api);
+ #endif /* __IXGBE_VF_H__ */
+ 
 -- 
 1.7.11.4
