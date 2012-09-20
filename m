@@ -1,42 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the final tree
- (net-next tree related)
-Date: Thu, 20 Sep 2012 16:45:58 -0400 (EDT)
-Message-ID: <20120920.164558.2281417114805373564.davem@davemloft.net>
-References: <20120920173622.2aa7209cd241a3945f4384d4@canb.auug.org.au>
-	<20120920091013.GV15548@intel.com>
+Subject: Re: [PATCH net-next V4] IB/ipoib: Add rtnl_link_ops support
+Date: Thu, 20 Sep 2012 16:58:12 -0400 (EDT)
+Message-ID: <20120920.165812.1484686663057692048.davem@davemloft.net>
+References: <1347551797-2495-1-git-send-email-ogerlitz@mellanox.com>
+	<1347551797-2495-2-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mika.westerberg@linux.intel.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20120920091013.GV15548@intel.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: roland@kernel.org, netdev@vger.kernel.org, erezsh@mellanox.co.il
+To: ogerlitz@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39325 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752001Ab2ITU6O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 16:58:14 -0400
+In-Reply-To: <1347551797-2495-2-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Date: Thu, 20 Sep 2012 12:10:14 +0300
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Thu, 13 Sep 2012 18:56:36 +0300
 
-> On Thu, Sep 20, 2012 at 05:36:22PM +1000, Stephen Rothwell wrote:
->> Hi all,
->> 
->> After merging the final tree, today's linux-next build (powerpc
->> allyesconfig) failed like this:
->> 
->> drivers/net/ethernet/i825xx/znet.c: In function 'hardware_init':
->> drivers/net/ethernet/i825xx/znet.c:868:2: error: implicit declaration of function 'isa_virt_to_bus' [-Werror=implicit-function-declaration]
->> 
->> Caused by commit 1d3ff76759b7 ("i825xx: znet: fix compiler warnings when
->> building a 64-bit kernel").  Is there some Kconfig dependency missing (CONFIG_ISA)?
+> Add rtnl_link_ops to IPoIB, with the first usage being child device
+> create/delete through them. Childs devices are now either legacy ones,
+> created/deleted through the ipoib sysfs entries, or RTNL ones.
 > 
-> If we make it dependent on CONFIG_ISA then the driver cannot be built with
-> 64-bit kernel. Then again is there someone running 64-bit kernel on Zenith
-> Z-note notebook? From the pictures it looks like very ancient "laptop".
+> Adding support for RTNL childs involved refactoring of ipoib_vlan_add
+> which is now used by both the sysfs and the link_ops code.
 > 
-> An alternative is to make it depend on X86 like this:
+> Also, added ndo_uninit entry to support calling unregister_netdevice_queue
+> from the rtnl dellink entry. This required removal of calls to
+> ipoib_dev_cleanup from the driver in flows which use unregister_netdevice,
+> since the networking core will invoke ipoib_uninit which does exactly that.
+> 
+> Signed-off-by: Erez Shitrit <erezsh@mellanox.co.il>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 
-I think the powerpc port is at fault here.
-
-Part of being able to advertise ISA_DMA_API is providing isa_virt_to_bus().
+Applied to net-next, thanks.
