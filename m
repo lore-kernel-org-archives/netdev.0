@@ -1,36 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipconfig: add nameserver IPs to kernel-parameter ip=
-Date: Thu, 20 Sep 2012 17:37:19 -0400 (EDT)
-Message-ID: <20120920.173719.1238894522809866676.davem@davemloft.net>
-References: <1348176485.3858.92.camel@mars>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
+Date: Thu, 20 Sep 2012 14:39:08 -0700
+Message-ID: <CAGK4HS8T=aoz0YdsJg5m0OofXWVGL4Re3fc-DVyfw3egJcgDxQ@mail.gmail.com>
+References: <20120917.121243.1665284878800146060.davem@davemloft.net>
+	<1347901326.26523.149.camel@edumazet-glaptop>
+	<1347901493.26523.151.camel@edumazet-glaptop>
+	<20120917.130732.1894375657044880827.davem@davemloft.net>
+	<1348067659.26523.949.camel@edumazet-glaptop>
+	<CAGK4HS_ZKKrzFh+c3WDxbkMFpDTg7ehw9ydp39k6JPFA_j1YOw@mail.gmail.com>
+	<1348119475.31352.60.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rob@landley.net, kuznet@ms2.inr.ac.ru, j.weitzel@phytec.de,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, hjk@hansjkoch.de, daniel@zonque.org
-To: chf.fritz@googlemail.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1348176485.3858.92.camel@mars>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:62337 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753027Ab2ITVjJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 17:39:09 -0400
+Received: by obbuo13 with SMTP id uo13so1973161obb.19
+        for <netdev@vger.kernel.org>; Thu, 20 Sep 2012 14:39:09 -0700 (PDT)
+In-Reply-To: <1348119475.31352.60.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Fritz <chf.fritz@googlemail.com>
-Date: Thu, 20 Sep 2012 23:28:05 +0200
+>>
+>> I applied this patch to net-next and tested with e1000e driver.
+>> With iperf I got around 8 % improvement on loopback.
+>>
+>> Tested-by: Vijay Subramanian <subramanian.vijay@gmail.com>
 
-> +			pr_info("     nameserver%u=%pI4",
-> +							i, &ic_nameservers[i]);
+I think this tag should be on the thread with the actual patch. I will
+reply to your patch with the Tested-by tag.
 
-Why don't you just tab that second line out to planet Mars while
-you're at it?
+Thanks for your tips, Eric. For what its worth, here is what I found.
 
-Please format this correctly, the goal is not to use a million
-TAB characters.  Rather, the goal is to get the text starting
-on the second line of a function call to line up with the
-first column after the openning parenthesis on the previous line.
+>
+> If you keep the producer and consumer on separate cpus, and use large
+> enough send() (64KB or 128KB), gain is more like 15 or 20%
+>
 
-What you're doing there looks awful, so you'll need to fix this
-up before this patch will be considered seriously.
+Curiously, when I use taskset to run iperf server and client on
+different cpus, throughput goes down by half
+for both baseline (master branch) and with patch. Is taskset the right
+way to test this?
 
-Thanks.
+I did notice a change in absolute throughout when I increase the
+send() buffer size.
+However, both the basline as well the patch showed improvement but the
+relative improvement
+was still around 8%.
+
+
+> iperf uses 8KB writes, while netperf uses a 16KB default.
+
+I think iperf has a bug. Both man page and comments in code claim
+default buffer size for read/write is 8KB but
+actual number seems to be 128KB. I believe the actual default is 128KB
+not 8KB (-l option with iperf).
+
+
+Thanks !
+Vijay
