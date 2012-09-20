@@ -1,55 +1,105 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/4] igb: Remove artificial restriction on RQDPC stat reading
-Date: Thu, 20 Sep 2012 03:07:14 -0700
-Message-ID: <1348135637-17857-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/4] igb: Support to enable EEE on all eee_supported devices
+Date: Thu, 20 Sep 2012 03:07:15 -0700
+Message-ID: <1348135637-17857-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1348135637-17857-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+Cc: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:17508 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753336Ab2ITKHU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753360Ab2ITKHU (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 20 Sep 2012 06:07:20 -0400
 In-Reply-To: <1348135637-17857-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
 
-For some reason the reading of the RQDPC register was being artificially
-limited to 4K.  Instead of limiting the value we should read the value and
-add the full amount.  Otherwise this can lead to a misleading number of
-dropped packets when the actual value is in fact much higher.
+Current implementation enables EEE on only i350 device. This patch enables
+EEE on all eee_supported devices. Also, configured LPI clock to keep
+running before EEE is enabled on i210 and i211 devices.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Jeff Pieper   <jeffrey.e.pieper@intel.com>
+Signed-off-by: Akeem G. Abodunrin <akeem.g.abodunrin@intel.com>
+Tested-by: Jeff Pieper  <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_82575.c   | 17 +++++++++++++----
+ drivers/net/ethernet/intel/igb/e1000_defines.h |  3 ++-
+ drivers/net/ethernet/intel/igb/e1000_regs.h    |  1 +
+ 3 files changed, 16 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 19d7666..246646b 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -4681,11 +4681,13 @@ void igb_update_stats(struct igb_adapter *adapter,
- 	bytes = 0;
- 	packets = 0;
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
--		u32 rqdpc_tmp = rd32(E1000_RQDPC(i)) & 0x0FFF;
-+		u32 rqdpc = rd32(E1000_RQDPC(i));
- 		struct igb_ring *ring = adapter->rx_ring[i];
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index ba994fb..ca4641e 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -2223,11 +2223,10 @@ out:
+ s32 igb_set_eee_i350(struct e1000_hw *hw)
+ {
+ 	s32 ret_val = 0;
+-	u32 ipcnfg, eeer, ctrl_ext;
++	u32 ipcnfg, eeer;
  
--		ring->rx_stats.drops += rqdpc_tmp;
--		net_stats->rx_fifo_errors += rqdpc_tmp;
-+		if (rqdpc) {
-+			ring->rx_stats.drops += rqdpc;
-+			net_stats->rx_fifo_errors += rqdpc;
+-	ctrl_ext = rd32(E1000_CTRL_EXT);
+-	if ((hw->mac.type != e1000_i350) ||
+-	    (ctrl_ext & E1000_CTRL_EXT_LINK_MODE_MASK))
++	if ((hw->mac.type < e1000_i350) ||
++	    (hw->phy.media_type != e1000_media_type_copper))
+ 		goto out;
+ 	ipcnfg = rd32(E1000_IPCNFG);
+ 	eeer = rd32(E1000_EEER);
+@@ -2240,6 +2239,14 @@ s32 igb_set_eee_i350(struct e1000_hw *hw)
+ 			E1000_EEER_RX_LPI_EN |
+ 			E1000_EEER_LPI_FC);
+ 
++		/* keep the LPI clock running before EEE is enabled */
++		if (hw->mac.type == e1000_i210 || hw->mac.type == e1000_i211) {
++			u32 eee_su;
++			eee_su = rd32(E1000_EEE_SU);
++			eee_su &= ~E1000_EEE_SU_LPI_CLK_STP;
++			wr32(E1000_EEE_SU, eee_su);
 +		}
++
+ 	} else {
+ 		ipcnfg &= ~(E1000_IPCNFG_EEE_1G_AN |
+ 			E1000_IPCNFG_EEE_100M_AN);
+@@ -2249,6 +2256,8 @@ s32 igb_set_eee_i350(struct e1000_hw *hw)
+ 	}
+ 	wr32(E1000_IPCNFG, ipcnfg);
+ 	wr32(E1000_EEER, eeer);
++	rd32(E1000_IPCNFG);
++	rd32(E1000_EEER);
+ out:
  
- 		do {
- 			start = u64_stats_fetch_begin_bh(&ring->rx_syncp);
+ 	return ret_val;
+diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
+index cae3070..de4b41e 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_defines.h
++++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
+@@ -857,8 +857,9 @@
+ #define E1000_IPCNFG_EEE_100M_AN     0x00000004  /* EEE Enable 100M AN */
+ #define E1000_EEER_TX_LPI_EN         0x00010000  /* EEE Tx LPI Enable */
+ #define E1000_EEER_RX_LPI_EN         0x00020000  /* EEE Rx LPI Enable */
+-#define E1000_EEER_FRC_AN            0x10000000 /* Enable EEE in loopback */
++#define E1000_EEER_FRC_AN            0x10000000  /* Enable EEE in loopback */
+ #define E1000_EEER_LPI_FC            0x00040000  /* EEE Enable on FC */
++#define E1000_EEE_SU_LPI_CLK_STP     0X00800000  /* EEE LPI Clock Stop */
+ 
+ /* SerDes Control */
+ #define E1000_GEN_CTL_READY             0x80000000
+diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
+index faec840..e5db485 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_regs.h
++++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
+@@ -349,6 +349,7 @@
+ /* Energy Efficient Ethernet "EEE" register */
+ #define E1000_IPCNFG  0x0E38  /* Internal PHY Configuration */
+ #define E1000_EEER    0x0E30  /* Energy Efficient Ethernet */
++#define E1000_EEE_SU  0X0E34  /* EEE Setup */
+ 
+ /* Thermal Sensor Register */
+ #define E1000_THSTAT    0x08110 /* Thermal Sensor Status */
 -- 
 1.7.11.4
