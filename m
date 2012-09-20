@@ -1,53 +1,40 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH v3] net-tcp: TCP/IP stack bypass for loopback
- connections
-Date: Thu, 20 Sep 2012 12:21:56 -0400
-Message-ID: <20120920122156.44cbfd59.billfink@mindspring.com>
-References: <1347908305-13541-1-git-send-email-brutus@google.com>
-	<1347913239.26523.173.camel@edumazet-glaptop>
-	<20120919.163406.487082174277409074.davem@davemloft.net>
-	<1348088634.31352.26.camel@edumazet-glaptop>
-	<CAEkNxbEJjAu3+3yDGPGSzzee-LY_797RdNbBgcC6=-aDHfEAJQ@mail.gmail.com>
-	<505AFDE9.4080602@earthlink.net>
-	<1348141871.31352.66.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
+Date: Thu, 20 Sep 2012 19:43:51 +0200
+Message-ID: <1348163031.3440.3.camel@edumazet-glaptop>
+References: <20120917.121243.1665284878800146060.davem@davemloft.net>
+	 <1347901326.26523.149.camel@edumazet-glaptop>
+	 <1347901493.26523.151.camel@edumazet-glaptop>
+	 <20120917.130732.1894375657044880827.davem@davemloft.net>
+	 <1348067659.26523.949.camel@edumazet-glaptop>
+	 <CAGK4HS_ZKKrzFh+c3WDxbkMFpDTg7ehw9ydp39k6JPFA_j1YOw@mail.gmail.com>
+	 <1348119475.31352.60.camel@edumazet-glaptop>  <505B4E13.5000501@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: sclark46@earthlink.net, Bruce Curtis <brutus@google.com>,
-	David Miller <davem@davemloft.net>, edumazet@google.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Vijay Subramanian <subramanian.vijay@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-junco.atl.sa.earthlink.net ([209.86.89.63]:52733 "EHLO
-	elasmtp-junco.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751484Ab2ITRar (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 13:30:47 -0400
-In-Reply-To: <1348141871.31352.66.camel@edumazet-glaptop>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:38458 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751932Ab2ITRnz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 13:43:55 -0400
+Received: by bkuw11 with SMTP id w11so382932bku.19
+        for <netdev@vger.kernel.org>; Thu, 20 Sep 2012 10:43:54 -0700 (PDT)
+In-Reply-To: <505B4E13.5000501@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 20 Sep 2012, Eric Dumazet wrote:
-
-> On Thu, 2012-09-20 at 07:28 -0400, Stephen Clark wrote:
-> >  
-> > Does this mean traffic on the loopback interface will not traverse 
-> > netfilter?
-> > 
+On Thu, 2012-09-20 at 10:10 -0700, Rick Jones wrote:
+> On 09/19/2012 10:37 PM, Eric Dumazet wrote:
+> > loopback is lossless, so its always surprising we can have TCP
+> > retransmits on this medium ;)
 > 
-> Yes this was already mentioned.
+> Is it lossless?
 > 
-> Only the SYN / SYNACK messages will
-> 
-> All data will bypass IP stack, qdisc (if any), loopback driver, and
-> netfilter.
 
-These restrictions and any others should be documented in ip-sysctl.txt.
+It is lossless, yes.
 
->From Eric's earlier e-mail:
-
--> no iptables, 
-   no qdisc (by default there is no qdisc on lo),
-   no loopback stats (ifconfig lo).
-   some SNMP stats missing as well (netstat -s)
-
-						-Bill
+But packets can be dropped by TCP stack for various reasons, including
+reordering and retransmits.
