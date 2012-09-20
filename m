@@ -1,60 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] core: adjust checks for calling skb_copy_bits
- in skb_try_coalesce
-Date: Thu, 20 Sep 2012 07:20:17 +0200
-Message-ID: <1348118417.31352.52.camel@edumazet-glaptop>
-References: <1348111182-6827-1-git-send-email-roy.qing.li@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: roy.qing.li@gmail.com
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH] ipv6: release referenct of ip6_null_entry's dst entry in __ip6_del_rt
+Date: Thu, 20 Sep 2012 13:25:34 +0800
+Message-ID: <1348118734-2967-1-git-send-email-gaofeng@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org, Gao feng <gaofeng@cn.fujitsu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:50270 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742Ab2ITFUW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 01:20:22 -0400
-Received: by wgbdr13 with SMTP id dr13so126243wgb.1
-        for <netdev@vger.kernel.org>; Wed, 19 Sep 2012 22:20:21 -0700 (PDT)
-In-Reply-To: <1348111182-6827-1-git-send-email-roy.qing.li@gmail.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:40575 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751236Ab2ITFZd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2012 01:25:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-09-20 at 11:19 +0800, roy.qing.li@gmail.com wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> Ensure that frags and frags_list of dst skb are empty if need to call
-> skb_copy_bits, or else it will break the data sequence.
-> 
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
->  net/core/skbuff.c |    8 ++++----
->  1 files changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index fe00d12..f0b9446 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -3455,15 +3455,15 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
->  	if (skb_cloned(to))
->  		return false;
->  
-> -	if (len <= skb_tailroom(to)) {
-> +	if (skb_has_frag_list(to) || skb_has_frag_list(from))
-> +		return false;
-> +
-> +	if (len <= skb_tailroom(to) && !skb_shinfo(to)->nr_frags) {
->  		BUG_ON(skb_copy_bits(from, 0, skb_put(to, len), len));
->  		*delta_truesize = 0;
->  		return true;
->  	}
->  
-> -	if (skb_has_frag_list(to) || skb_has_frag_list(from))
-> -		return false;
-> -
->  	if (skb_headlen(from) != 0) {
->  		struct page *page;
->  		unsigned int offset;
+as we hold dst_entry before we call __ip6_del_rt,
+so we should alse call dst_release not only return
+-ENOENT when the rt6_info is ip6_null_entry.
 
-This is not needed at all.
+and we already hold the dst entry, so I think it's
+safe to call dst_release out of the write-read lock.
+
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ net/ipv6/route.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 854e401..46eff42 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1589,17 +1589,18 @@ static int __ip6_del_rt(struct rt6_info *rt, struct nl_info *info)
+ 	struct fib6_table *table;
+ 	struct net *net = dev_net(rt->dst.dev);
+ 
+-	if (rt == net->ipv6.ip6_null_entry)
+-		return -ENOENT;
++	if (rt == net->ipv6.ip6_null_entry) {
++		err = -ENOENT;
++		goto out;
++	}
+ 
+ 	table = rt->rt6i_table;
+ 	write_lock_bh(&table->tb6_lock);
+-
+ 	err = fib6_del(rt, info);
+-	dst_release(&rt->dst);
+-
+ 	write_unlock_bh(&table->tb6_lock);
+ 
++out:
++	dst_release(&rt->dst);
+ 	return err;
+ }
+ 
+-- 
+1.7.7.6
