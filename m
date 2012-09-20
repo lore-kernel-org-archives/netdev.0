@@ -1,36 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 1/1] ipv6: add support of ECMP
-Date: Thu, 20 Sep 2012 17:15:25 -0400 (EDT)
-Message-ID: <20120920.171525.2005584636029506440.davem@davemloft.net>
-References: <1347609548-14494-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1348046304-4156-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1348046304-4156-2-git-send-email-nicolas.dichtel@6wind.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [RFC PATCH 0/3] usbnet: support runtime PM triggered by link
+ change
+Date: Thu, 20 Sep 2012 17:16:10 -0400 (EDT)
+Message-ID: <20120920.171610.1120043891672310370.davem@davemloft.net>
+References: <87r4pxumdd.fsf@nemi.mork.no>
+	<20120920.170227.258356702969458329.davem@davemloft.net>
+	<1703568.mhE1zQzG7o@linux-lqwf.site>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bernat@luffy.cx, yoshfuji@linux-ipv6.org
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39494 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755883Ab2ITVP2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 17:15:28 -0400
-In-Reply-To: <1348046304-4156-2-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bjorn-yOkvZcmFvRU@public.gmane.org, ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+	finik-l0cyMroinI0@public.gmane.org, rjw-KKrjLPT3xs0@public.gmane.org, stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1703568.mhE1zQzG7o-ugxBuEnWX9yG/4A2pS7c2Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Wed, 19 Sep 2012 11:18:24 +0200
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Date: Thu, 20 Sep 2012 23:04:38 +0200
 
-> This patch adds the support of equal cost multipath for IPv6.
+> On Thursday 20 September 2012 17:02:27 David Miller wrote:
+>> 
+>> There seems to be some discussion about the legitimacy of doing things
+>> this way, and in any event the patches were an RFC.
+>> 
+>> Please resubmit as a non-RFC once all the issues have been worked
+>> out, if appropriate.
 > 
-> The patch is based on a previous work from
-> Luc Saillard <luc.saillard@6wind.com>.
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Just to make this clear, I'd like to state that the discussion involved
+> only the third, last patch in the series. The first two are fine and make
+> sense by themselves.
 
-Please make the algorithm selection run-time rather than compile
-time.
-
-For %99.999999999999999999 of users, making compile time changes
-to get the semantics they want is not an option.
+I want changes in those, see my replies.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
