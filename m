@@ -1,99 +1,162 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/4 v2] ixgbevf: scheduling while atomic in reset hw path
-Date: Thu, 20 Sep 2012 03:07:17 -0700
-Message-ID: <1348135637-17857-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1348135637-17857-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Eric Dumazet <edumazet@google.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:17508 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753367Ab2ITKHV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Sep 2012 06:07:21 -0400
-In-Reply-To: <1348135637-17857-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@gnumonks.org>
+Subject: Re: Oops with latest (netfilter) nf-next tree, when unloading
+ iptable_nat
+Date: Thu, 20 Sep 2012 12:08:59 +0200
+Message-ID: <20120920100859.GB20828@1984>
+References: <1347357081.3928.32.camel@localhost>
+ <20120912213627.GJ14750@breakpoint.cc>
+ <20120914120750.GA5764@1984>
+ <Pine.GSO.4.63.1209141511020.11622@stinky-local.trash.net>
+ <1348058791.2761.94.camel@localhost>
+ <Pine.GSO.4.63.1209200855500.8409@stinky-local.trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Florian Westphal <fw@strlen.de>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, yongjun_wei@trendmicro.com.cn
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.GSO.4.63.1209200855500.8409@stinky-local.trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.r.fastabend@intel.com>
+On Thu, Sep 20, 2012 at 08:57:04AM +0200, Patrick McHardy wrote:
+> On Wed, 19 Sep 2012, Jesper Dangaard Brouer wrote:
+> 
+> >On Fri, 2012-09-14 at 15:15 +0200, Patrick McHardy wrote:
+> >>On Fri, 14 Sep 2012, Pablo Neira Ayuso wrote:
+> >>
+> >[...cut...]
+> >>>>Patrick, any other idea?
+> >>>
+> >[...cut...]
+> >>>>
+> >>>We can add nf_nat_iterate_cleanup that can iterate over the NAT
+> >>>hashtable to replace current usage of nf_ct_iterate_cleanup.
+> >>
+> >>Lets just bail out when IPS_SRC_NAT_DONE is not set, that should also fix
+> >>it. Could you try this patch please?
+> >
+> >On Fri, 2012-09-14 at 15:15 +0200, Patrick McHardy wrote:
+> >diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+> >>index 29d4452..8b5d220 100644
+> >>--- a/net/netfilter/nf_nat_core.c
+> >>+++ b/net/netfilter/nf_nat_core.c
+> >>@@ -481,6 +481,8 @@ static int nf_nat_proto_clean(struct nf_conn *i,
+> >void *data)
+> >>
+> >>        if (!nat)
+> >>                return 0;
+> >>+       if (!(i->status & IPS_SRC_NAT_DONE))
+> >>+               return 0;
+> >>        if ((clean->l3proto && nf_ct_l3num(i) != clean->l3proto) ||
+> >>            (clean->l4proto && nf_ct_protonum(i) != clean->l4proto))
+> >>                return 0;
+> >>
+> >
+> >No it does not work :-(
+> 
+> Ok I think I understand the problem now, we're invoking the NAT cleanup
+> callback twice with clean->hash = true, once for each direction of the
+> conntrack.
+> 
+> Does this patch fix the problem?
 
-In ixgbevf_reset_hw_vf() msleep is called while holding mbx_lock
-resulting in a schedule while atomic bug with trace below.
+> commit 6c46a3bfb2776ca098565daf7e872a3283d14e0d
+> Author: Patrick McHardy <kaber@trash.net>
+> Date:   Thu Sep 20 08:43:02 2012 +0200
+> 
+>     netfilter: nf_nat: fix oops when unloading protocol modules
+>     
+>     When unloading a protocol module nf_ct_iterate_cleanup() is used to
+>     remove all conntracks using the protocol from the bysource hash and
+>     clean their NAT sections. Since the conntrack isn't actually killed,
+>     the NAT callback is invoked twice, once for each direction, which
+>     causes an oops when trying to delete it from the bysource hash for
+>     the second time.
+>     
+>     The same oops can also happen when removing both an L3 and L4 protocol
+>     since the cleanup function doesn't check whether the conntrack has
+>     already been cleaned up.
+>     
+>     Pid: 4052, comm: modprobe Not tainted 3.6.0-rc3-test-nat-unload-fix+ #32 Red Hat KVM
+>     RIP: 0010:[<ffffffffa002c303>]  [<ffffffffa002c303>] nf_nat_proto_clean+0x73/0xd0 [nf_nat]
+>     RSP: 0018:ffff88007808fe18  EFLAGS: 00010246
+>     RAX: 0000000000000000 RBX: ffff8800728550c0 RCX: ffff8800756288b0
+>     RDX: dead000000200200 RSI: ffff88007808fe88 RDI: ffffffffa002f208
+>     RBP: ffff88007808fe28 R08: ffff88007808e000 R09: 0000000000000000
+>     R10: dead000000200200 R11: dead000000100100 R12: ffffffff81c6dc00
+>     R13: ffff8800787582b8 R14: ffff880078758278 R15: ffff88007808fe88
+>     FS:  00007f515985d700(0000) GS:ffff88007cd00000(0000) knlGS:0000000000000000
+>     CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+>     CR2: 00007f515986a000 CR3: 000000007867a000 CR4: 00000000000006e0
+>     DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+>     DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+>     Process modprobe (pid: 4052, threadinfo ffff88007808e000, task ffff8800756288b0)
+>     Stack:
+>      ffff88007808fe68 ffffffffa002c290 ffff88007808fe78 ffffffff815614e3
+>      ffffffff00000000 00000aeb00000246 ffff88007808fe68 ffffffff81c6dc00
+>      ffff88007808fe88 ffffffffa00358a0 0000000000000000 000000000040f5b0
+>     Call Trace:
+>      [<ffffffffa002c290>] ? nf_nat_net_exit+0x50/0x50 [nf_nat]
+>      [<ffffffff815614e3>] nf_ct_iterate_cleanup+0xc3/0x170
+>      [<ffffffffa002c55a>] nf_nat_l3proto_unregister+0x8a/0x100 [nf_nat]
+>      [<ffffffff812a0303>] ? compat_prepare_timeout+0x13/0xb0
+>      [<ffffffffa0035848>] nf_nat_l3proto_ipv4_exit+0x10/0x23 [nf_nat_ipv4]
+>      ...
+>     
+>     To fix this,
+>     
+>     - check whether the conntrack has already been cleaned up in
+>       nf_nat_proto_clean
+>     
+>     - change nf_ct_iterate_cleanup() to only invoke the callback function
+>       once for each conntrack (IP_CT_DIR_ORIGINAL).
+>     
+>     The second change doesn't affect other callers since when conntracks are
+>     actually killed, both directions are removed from the hash immediately
+>     and the callback is already only invoked once. If it is not killed, the
+>     second callback invocation will always return the same decision not to
+>     kill it.
+>     
+>     Reported-by: Jesper Dangaard Brouer <brouer@redhat.com>
+>     Signed-off-by: Patrick McHardy <kaber@trash.net>
+> 
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index dcb2791..0f241be 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -1224,6 +1224,8 @@ get_next_corpse(struct net *net, int (*iter)(struct nf_conn *i, void *data),
+>  	spin_lock_bh(&nf_conntrack_lock);
+>  	for (; *bucket < net->ct.htable_size; (*bucket)++) {
+>  		hlist_nulls_for_each_entry(h, n, &net->ct.hash[*bucket], hnnode) {
+> +			if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL)
+> +				continue;
 
-This patch uses mdelay instead.
+I think this will make the deletion of entries via `conntrack -F'
+slowier as we'll have to iterate over more entries (we won't delete
+entries for the reply tuple).
 
-BUG: scheduling while atomic: ip/6539/0x00000002
-2 locks held by ip/6539:
- #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81419cc3>] rtnl_lock+0x17/0x19
- #1:  (&(&adapter->mbx_lock)->rlock){+.+...}, at: [<ffffffffa0030855>] ixgbevf_reset+0x30/0xc1 [ixgbevf]
-Modules linked in: ixgbevf ixgbe mdio libfc scsi_transport_fc 8021q scsi_tgt garp stp llc cpufreq_ondemand acpi_cpufreq freq_table mperf ipv6 uinput igb coretemp hwmon crc32c_intel ioatdma i2c_i801 shpchp microcode lpc_ich mfd_core i2c_core joydev dca pcspkr serio_raw pata_acpi ata_generic usb_storage pata_jmicron
-Pid: 6539, comm: ip Not tainted 3.6.0-rc3jk-net-next+ #104
-Call Trace:
- [<ffffffff81072202>] __schedule_bug+0x6a/0x79
- [<ffffffff814bc7e0>] __schedule+0xa2/0x684
- [<ffffffff8108f85f>] ? trace_hardirqs_off+0xd/0xf
- [<ffffffff814bd0c0>] schedule+0x64/0x66
- [<ffffffff814bb5e2>] schedule_timeout+0xa6/0xca
- [<ffffffff810536b9>] ? lock_timer_base+0x52/0x52
- [<ffffffff812629e0>] ? __udelay+0x15/0x17
- [<ffffffff814bb624>] schedule_timeout_uninterruptible+0x1e/0x20
- [<ffffffff810541c0>] msleep+0x1b/0x22
- [<ffffffffa002e723>] ixgbevf_reset_hw_vf+0x90/0xe5 [ixgbevf]
- [<ffffffffa0030860>] ixgbevf_reset+0x3b/0xc1 [ixgbevf]
- [<ffffffffa0032fba>] ixgbevf_open+0x43/0x43e [ixgbevf]
- [<ffffffff81409610>] ? dev_set_rx_mode+0x2e/0x33
- [<ffffffff8140b0f1>] __dev_open+0xa0/0xe5
- [<ffffffff814097ed>] __dev_change_flags+0xbe/0x142
- [<ffffffff8140b01c>] dev_change_flags+0x21/0x56
- [<ffffffff8141a843>] do_setlink+0x2e2/0x7f4
- [<ffffffff81016e36>] ? native_sched_clock+0x37/0x39
- [<ffffffff8141b0ac>] rtnl_newlink+0x277/0x4bb
- [<ffffffff8141aee9>] ? rtnl_newlink+0xb4/0x4bb
- [<ffffffff812217d1>] ? selinux_capable+0x32/0x3a
- [<ffffffff8104fb17>] ? ns_capable+0x4f/0x67
- [<ffffffff81419cc3>] ? rtnl_lock+0x17/0x19
- [<ffffffff81419f28>] rtnetlink_rcv_msg+0x236/0x253
- [<ffffffff81419cf2>] ? rtnetlink_rcv+0x2d/0x2d
- [<ffffffff8142fd42>] netlink_rcv_skb+0x43/0x94
- [<ffffffff81419ceb>] rtnetlink_rcv+0x26/0x2d
- [<ffffffff8142faf1>] netlink_unicast+0xee/0x174
- [<ffffffff81430327>] netlink_sendmsg+0x26a/0x288
- [<ffffffff813fb04f>] ? rcu_read_unlock+0x56/0x67
- [<ffffffff813f5e6d>] __sock_sendmsg_nosec+0x58/0x61
- [<ffffffff813f81b7>] __sock_sendmsg+0x3d/0x48
- [<ffffffff813f8339>] sock_sendmsg+0x6e/0x87
- [<ffffffff81107c9f>] ? might_fault+0xa5/0xac
- [<ffffffff81402a72>] ? copy_from_user+0x2a/0x2c
- [<ffffffff81402e62>] ? verify_iovec+0x54/0xaa
- [<ffffffff813f9834>] __sys_sendmsg+0x206/0x288
- [<ffffffff810694fa>] ? up_read+0x23/0x3d
- [<ffffffff811307e5>] ? fcheck_files+0xac/0xea
- [<ffffffff8113095e>] ? fget_light+0x3a/0xb9
- [<ffffffff813f9a2e>] sys_sendmsg+0x42/0x60
- [<ffffffff814c5ba9>] system_call_fastpath+0x16/0x1b
+I think I prefer Florian's patch, it's fairly small and it does not
+change the current nf_ct_iterate behaviour or adding some
+nf_nat_iterate cleanup.
 
-CC: Eric Dumazet <edumazet@google.com>
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-By: Robert Garrett <robertx.e.garrett@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbevf/vf.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+>  			ct = nf_ct_tuplehash_to_ctrack(h);
+>  			if (iter(ct, data))
+>  				goto found;
+> diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+> index 1816ad3..65cf694 100644
+> --- a/net/netfilter/nf_nat_core.c
+> +++ b/net/netfilter/nf_nat_core.c
+> @@ -481,6 +481,8 @@ static int nf_nat_proto_clean(struct nf_conn *i, void *data)
+>  
+>  	if (!nat)
+>  		return 0;
+> +	if (!(i->status & IPS_SRC_NAT_DONE))
+> +		return 0;
+>  	if ((clean->l3proto && nf_ct_l3num(i) != clean->l3proto) ||
+>  	    (clean->l4proto && nf_ct_protonum(i) != clean->l4proto))
+>  		return 0;
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
-index 690801b..87b3f3b 100644
---- a/drivers/net/ethernet/intel/ixgbevf/vf.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
-@@ -100,7 +100,7 @@ static s32 ixgbevf_reset_hw_vf(struct ixgbe_hw *hw)
- 	msgbuf[0] = IXGBE_VF_RESET;
- 	mbx->ops.write_posted(hw, msgbuf, 1);
- 
--	msleep(10);
-+	mdelay(10);
- 
- 	/* set our "perm_addr" based on info provided by PF */
- 	/* also set up the mc_filter_type which is piggy backed
--- 
-1.7.11.4
