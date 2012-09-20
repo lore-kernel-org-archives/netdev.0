@@ -1,162 +1,73 @@
-From: Pablo Neira Ayuso <pablo@gnumonks.org>
-Subject: Re: Oops with latest (netfilter) nf-next tree, when unloading
- iptable_nat
-Date: Thu, 20 Sep 2012 12:08:59 +0200
-Message-ID: <20120920100859.GB20828@1984>
-References: <1347357081.3928.32.camel@localhost>
- <20120912213627.GJ14750@breakpoint.cc>
- <20120914120750.GA5764@1984>
- <Pine.GSO.4.63.1209141511020.11622@stinky-local.trash.net>
- <1348058791.2761.94.camel@localhost>
- <Pine.GSO.4.63.1209200855500.8409@stinky-local.trash.net>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v2] USB: remove dbg() usage in USB networking drivers
+Date: Thu, 20 Sep 2012 11:30:23 +0100
+Message-ID: <20120920103023.GA2012@kroah.com>
+References: <20120919171316.GA12248@kroah.com>
+ <1348077212.22122.13.camel@joe2Laptop>
+ <20120919193536.GA13933@kroah.com>
+ <20120919194614.GA17585@kroah.com>
+ <1348135633.5604.5.camel@joe2Laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Florian Westphal <fw@strlen.de>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, yongjun_wei@trendmicro.com.cn
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <Pine.GSO.4.63.1209200855500.8409@stinky-local.trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+In-Reply-To: <1348135633.5604.5.camel@joe2Laptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 20, 2012 at 08:57:04AM +0200, Patrick McHardy wrote:
-> On Wed, 19 Sep 2012, Jesper Dangaard Brouer wrote:
+On Thu, Sep 20, 2012 at 03:07:13AM -0700, Joe Perches wrote:
+> On Wed, 2012-09-19 at 20:46 +0100, Greg Kroah-Hartman wrote:
+> > The dbg() USB macro is so old, it predates me.  The USB networking drivers are
+> > the last hold-out using this macro, and we want to get rid of it, so replace
+> > the usage of it with the proper netdev_dbg() or dev_dbg() (depending on the
+> > context) calls.
 > 
-> >On Fri, 2012-09-14 at 15:15 +0200, Patrick McHardy wrote:
-> >>On Fri, 14 Sep 2012, Pablo Neira Ayuso wrote:
-> >>
-> >[...cut...]
-> >>>>Patrick, any other idea?
-> >>>
-> >[...cut...]
-> >>>>
-> >>>We can add nf_nat_iterate_cleanup that can iterate over the NAT
-> >>>hashtable to replace current usage of nf_ct_iterate_cleanup.
-> >>
-> >>Lets just bail out when IPS_SRC_NAT_DONE is not set, that should also fix
-> >>it. Could you try this patch please?
-> >
-> >On Fri, 2012-09-14 at 15:15 +0200, Patrick McHardy wrote:
-> >diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
-> >>index 29d4452..8b5d220 100644
-> >>--- a/net/netfilter/nf_nat_core.c
-> >>+++ b/net/netfilter/nf_nat_core.c
-> >>@@ -481,6 +481,8 @@ static int nf_nat_proto_clean(struct nf_conn *i,
-> >void *data)
-> >>
-> >>        if (!nat)
-> >>                return 0;
-> >>+       if (!(i->status & IPS_SRC_NAT_DONE))
-> >>+               return 0;
-> >>        if ((clean->l3proto && nf_ct_l3num(i) != clean->l3proto) ||
-> >>            (clean->l4proto && nf_ct_protonum(i) != clean->l4proto))
-> >>                return 0;
-> >>
-> >
-> >No it does not work :-(
+> OK, one more bit of trivia
 > 
-> Ok I think I understand the problem now, we're invoking the NAT cleanup
-> callback twice with clean->hash = true, once for each direction of the
-> conntrack.
+> > diff --git a/drivers/net/usb/net1080.c b/drivers/net/usb/net1080.c
+> []
+> > @@ -422,8 +419,9 @@ static int net1080_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+> >  	if (!(skb->len & 0x01)) {
+> >  #ifdef DEBUG
+> >  		struct net_device	*net = dev->net;
+> > -		dbg("rx framesize %d range %d..%d mtu %d", skb->len,
+> > -			net->hard_header_len, dev->hard_mtu, net->mtu);
+> > +		netdev_dbg(dev->net, "rx framesize %d range %d..%d mtu %d\n",
+> > +			   skb->len, net->hard_header_len, dev->hard_mtu,
+> > +			   net->mtu);
+> >  #endif
 > 
-> Does this patch fix the problem?
-
-> commit 6c46a3bfb2776ca098565daf7e872a3283d14e0d
-> Author: Patrick McHardy <kaber@trash.net>
-> Date:   Thu Sep 20 08:43:02 2012 +0200
+> maybe
+> 		netdev_dbg(net, ...
 > 
->     netfilter: nf_nat: fix oops when unloading protocol modules
->     
->     When unloading a protocol module nf_ct_iterate_cleanup() is used to
->     remove all conntracks using the protocol from the bysource hash and
->     clean their NAT sections. Since the conntrack isn't actually killed,
->     the NAT callback is invoked twice, once for each direction, which
->     causes an oops when trying to delete it from the bysource hash for
->     the second time.
->     
->     The same oops can also happen when removing both an L3 and L4 protocol
->     since the cleanup function doesn't check whether the conntrack has
->     already been cleaned up.
->     
->     Pid: 4052, comm: modprobe Not tainted 3.6.0-rc3-test-nat-unload-fix+ #32 Red Hat KVM
->     RIP: 0010:[<ffffffffa002c303>]  [<ffffffffa002c303>] nf_nat_proto_clean+0x73/0xd0 [nf_nat]
->     RSP: 0018:ffff88007808fe18  EFLAGS: 00010246
->     RAX: 0000000000000000 RBX: ffff8800728550c0 RCX: ffff8800756288b0
->     RDX: dead000000200200 RSI: ffff88007808fe88 RDI: ffffffffa002f208
->     RBP: ffff88007808fe28 R08: ffff88007808e000 R09: 0000000000000000
->     R10: dead000000200200 R11: dead000000100100 R12: ffffffff81c6dc00
->     R13: ffff8800787582b8 R14: ffff880078758278 R15: ffff88007808fe88
->     FS:  00007f515985d700(0000) GS:ffff88007cd00000(0000) knlGS:0000000000000000
->     CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
->     CR2: 00007f515986a000 CR3: 000000007867a000 CR4: 00000000000006e0
->     DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
->     DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
->     Process modprobe (pid: 4052, threadinfo ffff88007808e000, task ffff8800756288b0)
->     Stack:
->      ffff88007808fe68 ffffffffa002c290 ffff88007808fe78 ffffffff815614e3
->      ffffffff00000000 00000aeb00000246 ffff88007808fe68 ffffffff81c6dc00
->      ffff88007808fe88 ffffffffa00358a0 0000000000000000 000000000040f5b0
->     Call Trace:
->      [<ffffffffa002c290>] ? nf_nat_net_exit+0x50/0x50 [nf_nat]
->      [<ffffffff815614e3>] nf_ct_iterate_cleanup+0xc3/0x170
->      [<ffffffffa002c55a>] nf_nat_l3proto_unregister+0x8a/0x100 [nf_nat]
->      [<ffffffff812a0303>] ? compat_prepare_timeout+0x13/0xb0
->      [<ffffffffa0035848>] nf_nat_l3proto_ipv4_exit+0x10/0x23 [nf_nat_ipv4]
->      ...
->     
->     To fix this,
->     
->     - check whether the conntrack has already been cleaned up in
->       nf_nat_proto_clean
->     
->     - change nf_ct_iterate_cleanup() to only invoke the callback function
->       once for each conntrack (IP_CT_DIR_ORIGINAL).
->     
->     The second change doesn't affect other callers since when conntracks are
->     actually killed, both directions are removed from the hash immediately
->     and the callback is already only invoked once. If it is not killed, the
->     second callback invocation will always return the same decision not to
->     kill it.
->     
->     Reported-by: Jesper Dangaard Brouer <brouer@redhat.com>
->     Signed-off-by: Patrick McHardy <kaber@trash.net>
+> or remove the odd #ifdef DEBUG surround used to guard
+> the otherwise unused net variable and use:
 > 
-> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> index dcb2791..0f241be 100644
-> --- a/net/netfilter/nf_conntrack_core.c
-> +++ b/net/netfilter/nf_conntrack_core.c
-> @@ -1224,6 +1224,8 @@ get_next_corpse(struct net *net, int (*iter)(struct nf_conn *i, void *data),
->  	spin_lock_bh(&nf_conntrack_lock);
->  	for (; *bucket < net->ct.htable_size; (*bucket)++) {
->  		hlist_nulls_for_each_entry(h, n, &net->ct.hash[*bucket], hnnode) {
-> +			if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL)
-> +				continue;
+> 		netdev_dbg(dev->net, "rx framesize %d range %d..%d mtu %d\n",
+> 			   skb->len, dev->net->hard_header_len, dev->hard_mtu,
+> 			   dev->net->mtu);
+> 
 
-I think this will make the deletion of entries via `conntrack -F'
-slowier as we'll have to iterate over more entries (we won't delete
-entries for the reply tuple).
+Yeah, that would be better.
 
-I think I prefer Florian's patch, it's fairly small and it does not
-change the current nf_ct_iterate behaviour or adding some
-nf_nat_iterate cleanup.
+Even better would be just to delete all of this debug crud from these
+drivers.  Almost all of the messages are there from when the developer
+originally wrote the driver, trying to figure out what was going on.
+>From what I have seen, in doing all of these cleanups, is that the need
+for maybe a few debug lines that can be used if users have issues, but
+the majority are just useless.
 
->  			ct = nf_ct_tuplehash_to_ctrack(h);
->  			if (iter(ct, data))
->  				goto found;
-> diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
-> index 1816ad3..65cf694 100644
-> --- a/net/netfilter/nf_nat_core.c
-> +++ b/net/netfilter/nf_nat_core.c
-> @@ -481,6 +481,8 @@ static int nf_nat_proto_clean(struct nf_conn *i, void *data)
->  
->  	if (!nat)
->  		return 0;
-> +	if (!(i->status & IPS_SRC_NAT_DONE))
-> +		return 0;
->  	if ((clean->l3proto && nf_ct_l3num(i) != clean->l3proto) ||
->  	    (clean->l4proto && nf_ct_protonum(i) != clean->l4proto))
->  		return 0;
+But, as I'm not the author or maintainer of these drivers, I'll be nice
+and just leave them in, all I want to do is get rid of the old, foolish,
+macros for debugging and use the proper dynamic debug code that works so
+much better.
 
+So I'll leave this change alone, and if someone wants to do the cleanup
+better, the 3 liner above is fine with me to add later.
+
+thanks,
+
+greg k-h
