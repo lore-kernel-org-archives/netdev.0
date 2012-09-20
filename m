@@ -1,42 +1,80 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
-Date: Thu, 20 Sep 2012 13:06:22 -0700
-Message-ID: <505B773E.9070501@hp.com>
-References: <CAGK4HS_ZKKrzFh+c3WDxbkMFpDTg7ehw9ydp39k6JPFA_j1YOw@mail.gmail.com> <1348119475.31352.60.camel@edumazet-glaptop> <505B4E13.5000501@hp.com> <20120920.154007.1073423645697694793.davem@davemloft.net>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: bnx2x: link detected up at startup even when it should be
+ down
+Date: Thu, 20 Sep 2012 20:08:12 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F2EB97C@SJEXCHMB06.corp.ad.broadcom.com>
+References: <CAL8zT=hFPQ-NZw8eKQwnktRrcpsOFk3aa_ac5mSWa+TAwyTGBQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, subramanian.vijay@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "Barak Witkowski" <barak@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "Jean-Michel Hautbois" <jhautbois@gmail.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:43040 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754870Ab2ITUGY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 16:06:24 -0400
-In-Reply-To: <20120920.154007.1073423645697694793.davem@davemloft.net>
+Received: from mms1.broadcom.com ([216.31.210.17]:4548 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754654Ab2ITUI1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2012 16:08:27 -0400
+In-Reply-To: <CAL8zT=hFPQ-NZw8eKQwnktRrcpsOFk3aa_ac5mSWa+TAwyTGBQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/20/2012 12:40 PM, David Miller wrote:
-> From: Rick Jones <rick.jones2@hp.com>
-> Date: Thu, 20 Sep 2012 10:10:43 -0700
->
->> On 09/19/2012 10:37 PM, Eric Dumazet wrote:
->>> loopback is lossless, so its always surprising we can have TCP
->>> retransmits on this medium ;)
->>
->> Is it lossless?
->>
->> raj@tardy:~/netperf2_trunk$ netstat -s | grep pru
->>      19 packets pruned from receive queue because of socket buffer overrun
->
-> Those packets are not being dropped by the loopback device.
->
-
-Yes, I was being too fast and loose with my wording, paying more 
-attention to the netperf tests than the rest of it.  While loopback may 
-be lossless, TCP retransmissions over loopback shouldn't be all *that* 
-surprising.
-
-rick
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIEplYW4tTWljaGVsIEhhdXRib2lzDQo+IFNlbnQ6IFRodXJzZGF5LCBTZXB0ZW1iZXIg
+MjAsIDIwMTIgNjozOSBQTQ0KPiBUbzogbmV0ZGV2DQo+IENjOiBCYXJhayBXaXRrb3dza2k7IEVp
+bG9uIEdyZWVuc3RlaW47IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4gU3ViamVjdDogYm54Mng6IGxp
+bmsgZGV0ZWN0ZWQgdXAgYXQgc3RhcnR1cCBldmVuIHdoZW4gaXQgc2hvdWxkIGJlIGRvd24NCj4g
+DQo+IEhpIGFsbCwNCj4gDQo+IEkgYW0gd29ya2luZyB3aXRoIGEgSFAgYmxhZGUgd2hpY2ggaGFz
+IGEgYm54MnggYmFzZWQgY2FyZCAoQnJvYWRjb20NCj4gTmV0WHRyZW1lIElJIEJDTTU3ODEwIDEw
+IEdpZ2FiaXQgRXRoZXJuZXQpLg0KPiBJIGFtIHVzaW5nIGEgMy4yIGxpbnV4IGtlcm5lbCwgd2hp
+Y2ggd29ya3MgdmVyeSB3ZWxsIGV4Y2VwdCBvbg0KPiBkZXRlY3RpbmcgdGhlIGxpbmsgc3RhdGUg
+YXQgc3RhcnR1cC4NCj4gSSBoYXZlIG15IGV0aGVybmV0IGludGVyZmFjZXMgbGlua2VkIHdpdGgg
+YSBib25kLCBhbmQgSSB3YW50IHRvDQo+IGNvbmZpZ3VyZSBpdCBmb3IgSEEgKGluIG1paW1vbiBt
+b2RlKS4NCj4gSSBhbSB1c2luZyBhIG1hbmFnZWQgc3dpdGNoIHdoaWNoIGhlbHBzIG1lIGluIGRp
+c2FibGluZy9lbmFibGluZyBwb3J0cy4NCj4gDQo+IFdoZW4gdGhlIHBvcnQgaXMgZGlzYWJsZWQs
+IGF0IHN0YXJ0dXAsIHRoZSBsaW5rIGlzIGRldGVjdGVkICJVUCIuDQo+IFdoZW4gSSBlbmFibGUg
+dGhlIHBvcnQsIGl0IGlzIHN0aWxsICJVUCIsIGFuZCB3aGVuIEkgZGlzYWJsZSBpdCBhZ2FpbiwN
+Cj4gdGhlbiBpdCBpcyBkZXRlY3RlZCAiRE9XTiIuDQo+IA0KPiBJIGhhdmUgdHJpZWQgdGhlIGxh
+dGVzdCAzLjYtcmM2IGtlcm5lbCwgYW5kIGl0IHdvcmtzIHdlbGwgKGxpbmsgaXMNCj4gIkRPV04i
+IGF0IHN0YXJ0dXAgd2hlbiBwb3J0IGlzIGRpc2FibGVkKS4NCj4gVGhlbiBJIGJpc2VjdGVkIGl0
+LCBhbmQgSSBmb3VuZCBvdXQgdGhhdCB0aGUgY29tbWl0IHdoaWNoIG1ha2VzIGl0DQo+IHdvcmtp
+bmcgKHllcywgaXQgaXMgYW4gaW52ZXJzZSBiaXNlY3QsIHRoYW5rcyB0byB0aGlzIHBvd2VyZnVs
+IGdpdA0KPiB0b29sIDopKSBpcyA6DQo+IA0KPiBhMzM0ODcyMjI0YTY3YjYxNGRjODg4NDYwMzc3
+ODYyNjIxZjNkYWM3IGlzIHRoZSBmaXJzdCBiYWQgY29tbWl0DQo+IGNvbW1pdCBhMzM0ODcyMjI0
+YTY3YjYxNGRjODg4NDYwMzc3ODYyNjIxZjNkYWM3DQo+IEF1dGhvcjogQmFyYWsgV2l0a293c2tp
+IDxiYXJha0Bicm9hZGNvbS5jb20+DQo+IERhdGU6ICAgTW9uIEFwciAyMyAwMzowNDo0NiAyMDEy
+ICswMDAwDQo+IA0KPiAgICAgYm54Mng6IGFkZCBhZmV4IHN1cHBvcnQNCj4gDQo+ICAgICBGb2xs
+b3dpbmcgcGF0Y2ggYWRkcyBhZmV4IG11bHRpZnVuY3Rpb24gc3VwcG9ydCB0byB0aGUgZHJpdmVy
+IChhZmV4DQo+ICAgICBtdWx0aWZ1bmN0aW9uIGlzIGJhc2VkIG9uIHZudGFnIGhlYWRlcikgYW5k
+IHVwZGF0ZXMgRlcgdmVyc2lvbg0KPiB1c2VkIHRvIDcuMi41MS4NCj4gDQo+ICAgICBTdXBwb3J0
+IGluY2x1ZGVzIHRoZSBmb2xsb3dpbmc6DQo+IA0KPiAgICAgMS4gQ29uZmlndXJlIHZpZiBwYXJh
+bWV0ZXJzIGluIGZpcm13YXJlIChkZWZhdWx0IHZsYW4sIHZpZiBpZCwgZGVmYXVsdA0KPiAgICAg
+ICAgcHJpb3JpdHksIGFsbG93ZWQgcHJpb3JpdGllcykgYWNjb3JkaW5nIHRvIHZhbHVlcyByZWNl
+aXZlZCBmcm9tIE5JQy4NCj4gICAgIDIuIENvbmZpZ3VyZSBGVyB0byBzdHJpcC9hZGQgZGVmYXVs
+dCB2bGFuIGFjY29yZGluZyB0byBhZmV4IHZsYW4gbW9kZS4NCj4gICAgIDMuIE5vdGlmeSBsaW5r
+IHVwIHRvIE9TIG9ubHkgYWZ0ZXIgdmlmIGlzIGZ1bGx5IGluaXRpYWxpemVkLg0KPiAgICAgNC4g
+U3VwcG9ydCB2aWYgbGlzdCBzZXQvZ2V0IHJlcXVlc3RzIGFuZCBjb25maWd1cmUgRlcgYWNjb3Jk
+aW5nbHkuDQo+ICAgICA1LiBTdXBwbHkgYWZleCBzdGF0aXN0aWNzIHVwb24gcmVxdWVzdCBmcm9t
+IE5JQy4NCj4gICAgIDYuIFNwZWNpYWwgaGFuZGxpbmcgdG8gTDIgaW50ZXJmYWNlIGluIGNhc2Ug
+b2YgRkNvRSB2aWYuDQo+IA0KPiAgICAgU2lnbmVkLW9mZi1ieTogQmFyYWsgV2l0a293c2tpIDxi
+YXJha0Bicm9hZGNvbS5jb20+DQo+ICAgICBTaWduZWQtb2ZmLWJ5OiBFaWxvbiBHcmVlbnN0ZWlu
+IDxlaWxvbmdAYnJvYWRjb20uY29tPg0KPiAgICAgU2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWls
+bGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KPiANCj4gVGhpcyBjb21taXQgaXMgcHJlc2VudCBp
+biB0aGUgMy41Lnkgc3RhYmxlIGJyYW5jaCwgYnV0IG5vdCB0aGUgMy4yLnkgb25lLg0KPiBJcyB0
+aGVyZSBhIHdvcmthcm91bmQgd2hpY2ggd291bGQgbWFrZSB0aGlzIGZlYXR1cmUgd29yayBjb3Jy
+ZWN0bHkNCj4gZXZlbiBvbiBvbGRlciBrZXJuZWxzID8NCj4gSXQgZG9lcyBub3Qgc2VlbSB0byBi
+ZSB0cml2aWFsLCBidXQgSSBtYXkgbWlzcyBzb21ldGhpbmcgYXMgdGhpcw0KPiBkcml2ZXIgaXMg
+cHJldHR5IGJpZy4uLg0KDQogSmVhbiwNCkkgaGF2ZSBwYXNzZWQgb3ZlciB0aGUgcGF0Y2gsIGJ1
+dCB3YXMgdW5hYmxlIHRvIGNhdGNoIGxpbmsgcmVsYXRlZCBjaGFuZ2Ugb3V0IG9mIHRoZSANCkFG
+RVggZmxvdy4gV2Ugd2lsbCBnZXQgY2xvc2VyIGxvb2sgYXNhcCBpbiBvdXQgbGFiIChndXlzIGFy
+ZSBvdXQgZm9yIHRoZSB3ZWVrZW5kIGFscmVhZHkpDQoNCkNhbiB5b3UgZG91YmxlIGNoZWNrIGJp
+c2VjdCByZXN1bHQgZm9yIG1lLCBwbHM/DQoNClRoYW5rcw0KPiANCj4gQ2hlZXJzLA0KPiBKTQ0K
+PiAtLQ0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5z
+dWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21v
+QHZnZXIua2VybmVsLm9yZw0KPiBNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5r
+ZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwNCg0K
