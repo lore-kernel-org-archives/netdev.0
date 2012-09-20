@@ -1,61 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] tcp: use of undefined variable
-Date: Thu, 20 Sep 2012 17:31:50 -0400 (EDT)
-Message-ID: <20120920.173150.1701050165912197082.davem@davemloft.net>
-References: <20120919144557.16956.11280.stgit@localhost.localdomain>
+Subject: Re: [PATCH] ipconfig: add nameserver IPs to kernel-parameter ip=
+Date: Thu, 20 Sep 2012 17:37:19 -0400 (EDT)
+Message-ID: <20120920.173719.1238894522809866676.davem@davemloft.net>
+References: <1348176485.3858.92.camel@mars>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: alan@lxorguk.ukuu.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39604 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751777Ab2ITVbw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 17:31:52 -0400
-In-Reply-To: <20120919144557.16956.11280.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rob@landley.net, kuznet@ms2.inr.ac.ru, j.weitzel@phytec.de,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, hjk@hansjkoch.de, daniel@zonque.org
+To: chf.fritz@googlemail.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1348176485.3858.92.camel@mars>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Wed, 19 Sep 2012 15:46:06 +0100
+From: Christoph Fritz <chf.fritz@googlemail.com>
+Date: Thu, 20 Sep 2012 23:28:05 +0200
 
-> From: Alan Cox <alan@linux.intel.com>
-> 
-> Both tcp_timewait_state_process and tcp_check_req use the same basic
-> construct of
-> 
-> 	struct tcp_options received tmp_opt;
-> 	tmp_opt.saw_tstamp = 0;
-> 
-> then call
-> 
-> 	tcp_parse_options
-> 
-> However if they are fed a frame containing a TCP_SACK then tbe code
-> behaviour is undefined because opt_rx->sack_ok is undefined data.
-> 
-> This ought to be documented if it is intentional.
-> 
-> Signed-off-by: Alan Cox <alan@linux.intel.com>
+> +			pr_info("     nameserver%u=%pI4",
+> +							i, &ic_nameservers[i]);
 
-Applied to net-next, except I took this hunk out:
+Why don't you just tab that second line out to planet Mars while
+you're at it?
 
-> @@ -96,6 +98,7 @@ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
->  	bool paws_reject = false;
->  
->  	tmp_opt.saw_tstamp = 0;
-> +
->  	if (th->doff > (sizeof(*th) >> 2) && tcptw->tw_ts_recent_stamp) {
->  		tcp_parse_options(skb, &tmp_opt, &hash_location, 0, NULL);
->  
+Please format this correctly, the goal is not to use a million
+TAB characters.  Rather, the goal is to get the text starting
+on the second line of a function call to line up with the
+first column after the openning parenthesis on the previous line.
 
-Since it's unrelated to your change, and if you were going to do this in
-tcp_timewait_state_process() you should do it in tcp_check_req() as well
-since the code is identical.
+What you're doing there looks awful, so you'll need to fix this
+up before this patch will be considered seriously.
 
-Longer term maybe we probably should add a
-tcp_minisock_parse_options() that elides TCP_SACK and other bits these
-cases do not want.
-
-Thanks Alan.
+Thanks.
