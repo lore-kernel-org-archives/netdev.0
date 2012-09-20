@@ -1,43 +1,46 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Oops with latest (netfilter) nf-next tree, when unloading
- iptable_nat
-Date: Thu, 20 Sep 2012 12:31:37 +0200 (MEST)
-Message-ID: <Pine.GSO.4.63.1209201212480.1775@stinky-local.trash.net>
-References: <1347357081.3928.32.camel@localhost> <20120912213627.GJ14750@breakpoint.cc>
- <20120914120750.GA5764@1984> <Pine.GSO.4.63.1209141511020.11622@stinky-local.trash.net>
- <1348058791.2761.94.camel@localhost> <Pine.GSO.4.63.1209200855500.8409@stinky-local.trash.net>
- <20120920100859.GB20828@1984>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH net-next] net: only run neigh_forced_gc() from one cpu
+Date: Thu, 20 Sep 2012 20:22:50 +0900
+Message-ID: <CAKD1Yr09PKW6yMXfELNQ+NW6N4PE5t63T2etUA96fcRYzUSYCg@mail.gmail.com>
+References: <1348046827.26523.571.camel@edumazet-glaptop> <20120919.134503.2070066674881117065.davem@davemloft.net>
+ <CAKD1Yr11twYakD=-Mn8FiB11-xtyOLb-Q6XWmiE3H63SFRbzUw@mail.gmail.com> <20120919.235102.1659819445753338481.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Florian Westphal <fw@strlen.de>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, yongjun_wei@trendmicro.com.cn
-To: Pablo Neira Ayuso <pablo@gnumonks.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120920100859.GB20828@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, maze@google.com,
+	therbert@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:63448 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753946Ab2ITLXL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 07:23:11 -0400
+Received: by obbuo13 with SMTP id uo13so1322195obb.19
+        for <netdev@vger.kernel.org>; Thu, 20 Sep 2012 04:23:11 -0700 (PDT)
+In-Reply-To: <20120919.235102.1659819445753338481.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
->> index dcb2791..0f241be 100644
->> --- a/net/netfilter/nf_conntrack_core.c
->> +++ b/net/netfilter/nf_conntrack_core.c
->> @@ -1224,6 +1224,8 @@ get_next_corpse(struct net *net, int (*iter)(struct nf_conn *i, void *data),
->>  	spin_lock_bh(&nf_conntrack_lock);
->>  	for (; *bucket < net->ct.htable_size; (*bucket)++) {
->>  		hlist_nulls_for_each_entry(h, n, &net->ct.hash[*bucket], hnnode) {
->> +			if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL)
->> +				continue;
+On Thu, Sep 20, 2012 at 12:51 PM, David Miller <davem@davemloft.net> wrote:
+>> If this patch makes IPv6 performance better without affecting IPv4, it's a
+>> good idea to apply it anyway, right? IPv6 dst entry garbage collection can
+>> potentially cause serious performance issues on any server with a public
+>> IPv6 address, and this patch substantially improves the situation.
 >
-> I think this will make the deletion of entries via `conntrack -F'
-> slowier as we'll have to iterate over more entries (we won't delete
-> entries for the reply tuple).
+> He's targetting net-next, and I've told him both in previous public
+> discussions and in recent private communication that the correct fix
+> is to make ipv6 routes use ref-count-less neighbour handling schemes
+> like ipv4.
 
-Slightly maybe, but I doubt it makes much of a difference.
+Fair enough. Removing the cache is a better solution - requiring a
+separate cache entry for every address you want to send a packet to is
+not suited to a world where every user has 2^64 addresses or more. But
+if removing the route cache for IPv6 is a large amount of work that
+nobody will sign up for, then fixing the symptoms might be better than
+nothing.
 
-> I think I prefer Florian's patch, it's fairly small and it does not
-> change the current nf_ct_iterate behaviour or adding some
-> nf_nat_iterate cleanup.
+The performance degradation could become an attack vector. Of course
+the people that run IPv6 servers today can maintain their own patches,
+but that's sort of suboptimal.
 
-I don't think I've received it. Could you forward it to me please?
+Is there something else that can be done other than moving to
+non-refcounted neighbours?
