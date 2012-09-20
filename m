@@ -1,73 +1,79 @@
-From: Ed Cashin <ecashin@coraid.com>
-Subject: [PATCH 2/2] net: do not disable sg for packets requiring no checksum
-Date: Wed, 19 Sep 2012 18:20:28 -0700
-Message-ID: <d7700b3b5e169d98c058fe086e69ed665048a475.1348088283.git.ecashin@coraid.com>
-References: <1348079358.4585@cat.he.net>
-	<cover.1348088283.git.ecashin@coraid.com>
-Cc: ecashin@coraid.com, akpm@linux-foundation.org,
-	bhutchings@solarflare.com, jesse@nicira.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1348088283.git.ecashin@coraid.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: New commands to configure IOV features
+Date: Thu, 20 Sep 2012 02:23:10 +0100
+Message-ID: <1348104190.4836.61.camel@deadeye.wl.decadent.org.uk>
+References: <5003DC9B.8000706@broadcom.com> <5005BD00.4090106@redhat.com>
+	 <5005D45D.1040302@genband.com>
+	 <20120717.141153.46613285253481776.davem@davemloft.net>
+	 <500978C7.5050004@genband.com> <50097FBD.9080202@redhat.com>
+	 <1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>
+	 <5009B186.6000806@genband.com>
+	 <1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com>
+	 <5009ECDF.4090305@genband.com> <500D59BF.9040006@redhat.com>
+	 <500D6932.8090306@genband.com>
+	 <20120723113607.56ce7aaf@nehalam.linuxnetplumber.net>
+	 <C5551D9AAB213A418B7FD5E4A6F30A070C7D9DCD@ORSMSX106.amr.corp.intel.com>
+	 <5059A767.2090307@broadcom.com> <20120919085306.00006af9@unknown>
+	 <1348083847.2636.37.camel@bwh-desktop.uk.solarflarecom.com>
+	 <CAE9FiQXQj_KdWT-mVVsptxiEgGjScgDy_Lp-aXioZ4YAQh1wWQ@mail.gmail.com>
+	 <1348094773.2636.85.camel@bwh-desktop.uk.solarflarecom.com>
+	 <CAE9FiQVk-uXgLK6dM8q5-Xsh8LO+c-Dd_cEpu2WzJ6Uzt6ztnA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Bjorn Helgaas <bhelgaas@google.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Yuval Mintz <yuvalmin@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ariel Elior <ariele@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	linux-pci <linux-pci@vger.kernel.org>
+To: Yinghai Lu <yinghai@kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <CAE9FiQVk-uXgLK6dM8q5-Xsh8LO+c-Dd_cEpu2WzJ6Uzt6ztnA@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A change in a series of VLAN-related changes appears to have
-inadvertently disabled the use of the scatter gather feature of
-network cards for transmission of non-IP ethernet protocols like ATA
-over Ethernet (AoE).  Below is a reference to the commit that
-introduces a "harmonize_features" function that turns off scatter
-gather when the NIC does not support hardware checksumming for the
-ethernet protocol of an sk buff.
+On Wed, 2012-09-19 at 17:19 -0700, Yinghai Lu wrote:
+> On Wed, Sep 19, 2012 at 3:46 PM, Ben Hutchings
+> <bhutchings@solarflare.com> wrote:
+> > On Wed, 2012-09-19 at 15:17 -0700, Yinghai Lu wrote:
+> >> +max_vfs_store(struct device *dev, struct device_attribute *attr,
+> >> +                const char *buf, size_t count)
+> >> +{
+> >> +       unsigned long val;
+> >> +       struct pci_dev *pdev = to_pci_dev(dev);
+> >> +
+> >> +       if (strict_strtoul(buf, 0, &val) < 0)
+> >> +               return -EINVAL;
+> >> +
+> >> +       pdev->max_vfs = val;
+> >> +
+> >> +       return count;
+> >> +}
+> > [...]
+> >
+> > Then what would actually trigger creation of the VFs?  There's no way we
+> > can assume that some sysfs attribute will be written before the PF
+> > driver is loaded (what if it's built-in?).  I thought the idea was to
+> > add a driver callback that would be called when the sysfs attribute was
+> > written.
+> 
+> could just stop the device and add it back again?
 
-  commit f01a5236bd4b140198fbcc550f085e8361fd73fa
-  Author: Jesse Gross <jesse@nicira.com>
-  Date:   Sun Jan 9 06:23:31 2011 +0000
+This is highly disruptive and I think it would be totally unacceptable
+for at least networking devices.
 
-      net offloading: Generalize netif_get_vlan_features().
+Ben.
 
-The can_checksum_protocol function is not equipped to consider a
-protocol that does not require checksumming.  Calling it for a
-protocol that requires no checksum is inappropriate.
+> just like updated patch.
+> 
+> Thanks
+> 
+> Yinghai
 
-The patch below has harmonize_features call can_checksum_protocol when
-the protocol needs a checksum, so that the network layer is not forced
-to perform unnecessary skb linearization on the transmission of AoE
-packets.  Unnecessary linearization results in decreased performance
-and increased memory pressure, as reported here:
-
-  http://www.spinics.net/lists/linux-mm/msg15184.html
-
-The problem has probably not been widely experienced yet, because
-only recently has the kernel.org-distributed aoe driver acquired the
-ability to use payloads of over a page in size, with the patchset
-recently included in the mm tree:
-
-  https://lkml.org/lkml/2012/8/28/140
-
-The coraid.com-distributed aoe driver already could use payloads of
-greater than a page in size, but its users generally do not use the
-newest kernels.
-
-Signed-off-by: Ed Cashin <ecashin@coraid.com>
----
- net/core/dev.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d7fe32c..9b934d4 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2134,7 +2134,8 @@ static bool can_checksum_protocol(netdev_features_t features, __be16 protocol)
- static netdev_features_t harmonize_features(struct sk_buff *skb,
- 	__be16 protocol, netdev_features_t features)
- {
--	if (!can_checksum_protocol(features, protocol)) {
-+	if (skb->ip_summed != CHECKSUM_NONE &&
-+	    !can_checksum_protocol(features, protocol)) {
- 		features &= ~NETIF_F_ALL_CSUM;
- 		features &= ~NETIF_F_SG;
- 	} else if (illegal_highdma(skb->dev, skb)) {
 -- 
-1.7.2.5
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
