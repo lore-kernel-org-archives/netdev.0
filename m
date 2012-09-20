@@ -1,54 +1,62 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] at91ether: return PTR_ERR if call to clk_get fails
-Date: Thu, 20 Sep 2012 09:42:14 +0200
-Message-ID: <505AC8D6.5080404@atmel.com>
-References: <1348124676-6627-1-git-send-email-devendra.aaru@gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH 2/4] ipv6: unify conntrack reassembly expire code with
+ standard one
+Date: Thu, 20 Sep 2012 15:41:37 +0800
+Message-ID: <1348126897.17345.11.camel@cr0>
+References: <1348023011-16195-1-git-send-email-amwang@redhat.com>
+	 <1348023011-16195-3-git-send-email-amwang@redhat.com>
+	 <Pine.LNX.4.64.1209191659150.12601@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
-To: Devendra Naga <devendra.aaru@gmail.com>, <netdev@vger.kernel.org>,
-	"David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.243]:35036 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753074Ab2ITHma (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 03:42:30 -0400
-In-Reply-To: <1348124676-6627-1-git-send-email-devendra.aaru@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Michal =?UTF-8?Q?Kube=C4=8Dek?= <mkubecek@suse.cz>,
+	David Miller <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.1209191659150.12601@ask.diku.dk>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/20/2012 09:04 AM, Devendra Naga :
-> we are currently returning ENODEV, as the clk_get may give a exact
-> error code in its returned pointer, assign it to the ret by using the
-> PTR_ERR function, so that the subsequent goto label will jump to the
-> error path and clean the driver and return the error correctly.
+On Wed, 2012-09-19 at 17:12 +0200, Jesper Dangaard Brouer wrote:
+> On Wed, 19 Sep 2012, Cong Wang wrote:
 > 
-> Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
-
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-
-Thanks,
-
-> ---
->  drivers/net/ethernet/cadence/at91_ether.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+> [cut]
+> > With this patch applied, I can see ICMP Time Exceeded sent
+> > from the receiver when the sender sent out 3/4 fragmented
+> > IPv6 UPD packet.
 > 
-> diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-> index 7788419..4e980a7 100644
-> --- a/drivers/net/ethernet/cadence/at91_ether.c
-> +++ b/drivers/net/ethernet/cadence/at91_ether.c
-> @@ -1086,7 +1086,7 @@ static int __init at91ether_probe(struct platform_device *pdev)
->  	/* Clock */
->  	lp->ether_clk = clk_get(&pdev->dev, "ether_clk");
->  	if (IS_ERR(lp->ether_clk)) {
-> -		res = -ENODEV;
-> +		res = PTR_ERR(lp->ether_clk);
->  		goto err_ioumap;
->  	}
->  	clk_enable(lp->ether_clk);
+> Typo "UPD" -> "UDP"
 > 
+> If people want to redo the IPv6 UDP fragment tests, they can use my scapy 
+> script, and comment out sending the last fragment:
+>   https://github.com/netoptimizer/network-testing/blob/master/scapy/ipv6_fragment01.py
+> 
+> Another thing, could you please "mark"/put the version of the patch in the 
+> subject line, like:
+> 
+>   [PATCH V4 2/4] ipv6: ...
+> 
+> This makes it easier, to follow on which version of the patch people are 
+> replying to.
+> 
+> With git send-email I think you have to do:
+> 
+>    git send-email --subject-prefix="PATCH V4"
+> 
+> And with stg (stacked git) I usually do:
+> 
+>    stg mail --version "V4" --to netdev ...
+
+Thanks, Jesper!
+
+Unfortunately, git-send-email on F16 doesn't have --subject-prefix
+option (git-format-patch does), that is why I didn't add "V4" to every
+patch. Perhaps I should use git-format-patch + git-send-email next time.
 
 
--- 
-Nicolas Ferre
