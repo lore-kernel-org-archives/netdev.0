@@ -1,49 +1,52 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH] tcp: restore rcv_wscale in a repair mode (v2)
-Date: Thu, 20 Sep 2012 13:31:57 +0400
-Message-ID: <505AE28D.9060901@parallels.com>
-References: <1348083600-3881500-1-git-send-email-avagin@openvz.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2] USB: remove dbg() usage in USB networking drivers
+Date: Thu, 20 Sep 2012 03:07:13 -0700
+Message-ID: <1348135633.5604.5.camel@joe2Laptop>
+References: <20120919171316.GA12248@kroah.com>
+	 <1348077212.22122.13.camel@joe2Laptop> <20120919193536.GA13933@kroah.com>
+	 <20120919194614.GA17585@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Vagin <avagin@openvz.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1348083600-3881500-1-git-send-email-avagin@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:37444 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752985Ab2ITKHQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2012 06:07:16 -0400
+In-Reply-To: <20120919194614.GA17585@kroah.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/19/2012 11:40 PM, Andrew Vagin wrote:
-> rcv_wscale is a symetric parameter with snd_wscale.
-> 
-> Both this parameters are set on a connection handshake.
-> 
-> Without this value a remote window size can not be interpreted correctly,
-> because a value from a packet should be shifted on rcv_wscale.
-> 
-> And one more thing is that wscale_ok should be set too.
-> 
-> This patch doesn't break a backward compatibility.
-> If someone uses it in a old scheme, a rcv window
-> will be restored with the same bug (rcv_wscale = 0).
-> 
-> v2: Save backward compatibility on big-endian system. Before
->     the first two bytes were snd_wscale and the second two bytes were
->     rcv_wscale. Now snd_wscale is opt_val & 0xFFFF and rcv_wscale >> 16.
->     This approach is independent on byte ordering.
-> 
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> Cc: James Morris <jmorris@namei.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> CC: Pavel Emelyanov <xemul@parallels.com>
-> Signed-off-by: Andrew Vagin <avagin@openvz.org>
+On Wed, 2012-09-19 at 20:46 +0100, Greg Kroah-Hartman wrote:
+> The dbg() USB macro is so old, it predates me.  The USB networking drivers are
+> the last hold-out using this macro, and we want to get rid of it, so replace
+> the usage of it with the proper netdev_dbg() or dev_dbg() (depending on the
+> context) calls.
 
-Acked-by: Pavel Emelyanov <xemul@parallels.com>
+OK, one more bit of trivia
+
+> diff --git a/drivers/net/usb/net1080.c b/drivers/net/usb/net1080.c
+[]
+> @@ -422,8 +419,9 @@ static int net1080_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+>  	if (!(skb->len & 0x01)) {
+>  #ifdef DEBUG
+>  		struct net_device	*net = dev->net;
+> -		dbg("rx framesize %d range %d..%d mtu %d", skb->len,
+> -			net->hard_header_len, dev->hard_mtu, net->mtu);
+> +		netdev_dbg(dev->net, "rx framesize %d range %d..%d mtu %d\n",
+> +			   skb->len, net->hard_header_len, dev->hard_mtu,
+> +			   net->mtu);
+>  #endif
+
+maybe
+		netdev_dbg(net, ...
+
+or remove the odd #ifdef DEBUG surround used to guard
+the otherwise unused net variable and use:
+
+		netdev_dbg(dev->net, "rx framesize %d range %d..%d mtu %d\n",
+			   skb->len, dev->net->hard_header_len, dev->hard_mtu,
+			   dev->net->mtu);
