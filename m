@@ -1,88 +1,52 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: Regarding ethernet directory between IP and SoC chip vendor.
-Date: Thu, 20 Sep 2012 01:35:57 -0700
-Message-ID: <1348130157.2006.87.camel@jtkirshe-mobl>
-References: <CAG4h5ywgCS0n8t70uUNmSOVhKBPkOLeVLaO+D4tYfUT2qN7qTg@mail.gmail.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Mika Westerberg <mika.westerberg@linux.intel.com>
+Subject: Re: linux-next: build failure after merge of the final tree
+ (net-next tree related)
+Date: Thu, 20 Sep 2012 12:10:14 +0300
+Message-ID: <20120920091013.GV15548@intel.com>
+References: <20120920173622.2aa7209cd241a3945f4384d4@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Fxm7SpPZEhQiCU3aE5vT"
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	peppe.cavallaro@st.com, deepak.silki@st.com,
-	francesco.virlinzi@st.com, eilong@broadcom.com,
-	alexander.h.duyck@intel.com, bhutchings@solarflare.com,
-	linville@tuxdriver.com, wey-ty.w.guy@intel.com, coelho@ti.com,
-	e.wahlig@samsung.com, aditya.ps@samsung.com, ihlee215@gmail.com
-To: byungho an <bh74an@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:40680 "EHLO mga11.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:34318 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752082Ab2ITIgA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Sep 2012 04:36:00 -0400
-In-Reply-To: <CAG4h5ywgCS0n8t70uUNmSOVhKBPkOLeVLaO+D4tYfUT2qN7qTg@mail.gmail.com>
+	id S1750847Ab2ITJHu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2012 05:07:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20120920173622.2aa7209cd241a3945f4384d4@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-Fxm7SpPZEhQiCU3aE5vT
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2012-09-19 at 21:39 +0900, byungho an wrote:
+On Thu, Sep 20, 2012 at 05:36:22PM +1000, Stephen Rothwell wrote:
 > Hi all,
->=20
-> I have one suggestion for ethernet dir.
-> Currently It is well-defined and good for management.
->=20
-> But if IP vendor is different from SoC vender, It is a bit confusing
-> to guess dir name.
-> For example, stmmac is using Synopsys dwmac.
-> In this case, if another SoC vendors try to use Synopsys IP, they
-> sould make their own dir under the their name? Even the IP is same...
->=20
-> If there is common dir of IP vendor, It would be more clear.
-> If that, other SoC vendors that try to use the IP can make their own
-> directory and drivers intuitionally.
->=20
-> What do you think about it?
-> I want to exchange opinion and find a resonable and rational way.
->=20
-> Thank you.
-> Andy
+> 
+> After merging the final tree, today's linux-next build (powerpc
+> allyesconfig) failed like this:
+> 
+> drivers/net/ethernet/i825xx/znet.c: In function 'hardware_init':
+> drivers/net/ethernet/i825xx/znet.c:868:2: error: implicit declaration of function 'isa_virt_to_bus' [-Werror=implicit-function-declaration]
+> 
+> Caused by commit 1d3ff76759b7 ("i825xx: znet: fix compiler warnings when
+> building a 64-bit kernel").  Is there some Kconfig dependency missing (CONFIG_ISA)?
 
-A lot of thought went into how to organize all the Ethernet drivers, and
-after much discussion, it seemed best to organize the drivers by the
-manufacturer rather than by who was supporting/writing the driver.  The
-reason being is that the manufacturer of the silicon was not going to
-change as frequently as the driver supporters.  We did not want to have
-to change the location of a driver every time a company was bought.
+If we make it dependent on CONFIG_ISA then the driver cannot be built with
+64-bit kernel. Then again is there someone running 64-bit kernel on Zenith
+Z-note notebook? From the pictures it looks like very ancient "laptop".
 
-I personally am open to suggestions on improving the directory structure
-so if have an idea on how to improve the directory structure please
-provide a patch.  Keep in mind, that drivers can not keep moving because
-some company bought another company.
+An alternative is to make it depend on X86 like this:
 
---=-Fxm7SpPZEhQiCU3aE5vT
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJQWtVtAAoJEOVv75VaS+3O0eIQAJo3OXG5QXpGKvWmAvMP3ISw
-Oqb/YeW9qBCkpMyh3YtNxFWkEAHzL0biZDcxjXXfHz1h+qutnYica4+cNxGDhEWu
-dtz9cuF0PyxAj7zy4XNhS3SzeOthqwlY6uogkIaZ0x+81tz2xTD9V7Bqa1jeIFGI
-7y/Clkj80TS4XQtzD982OvZ2B7UM2GIy9gu7f4yd8bQBbJ3x0OL6SUKq8YjHw9TH
-ZHoePV7HAz85Z2TOjx0HI4guzUA+9RYgyLN0tGNiBJQD+Mq3HSrb3RVS3uA0ODbI
-3/Rgi5YK7ig/i5YhnJzqlT5wIICYzGD7yPoCD0awJ1b1pdV2pLbMdyFIKqdXFuSU
-EMQHzAYDYho7eYOw09TZZUmcbZtWKa0ZrygIq1d0iPrTN6+fdHNDjmIj/xkZHNkQ
-JhxTQ9VYP0jz4Q2iJ76u55kFK+ys02EqQgRYPOdclS1OIoN/gaHKlL8WonQaRuRe
-nngbz/uFSiZ5Zli4YG5uyGrT3gWdX3rJgUeYyCzoPn/9dghAF3CYwC2H0vo1/w69
-dvbCXALyFQj2K8L2cOKEKz7aq5fNvvB6auGLBaS3A+yY5fH+DtcGRqulDKKuDGaV
-HQ5VQM7kXw7F+VJ/bzTaKRgH6tILbVduJJkrzzUn5ThND93QJ8BP9JYC2hnCOJX2
-HTibghff0cDxn91jN6ft
-=0jrA
------END PGP SIGNATURE-----
-
---=-Fxm7SpPZEhQiCU3aE5vT--
+diff --git a/drivers/net/ethernet/i825xx/Kconfig b/drivers/net/ethernet/i825xx/Kconfig
+index fed5080..959faf7 100644
+--- a/drivers/net/ethernet/i825xx/Kconfig
++++ b/drivers/net/ethernet/i825xx/Kconfig
+@@ -150,7 +150,7 @@ config SUN3_82586
+ 
+ config ZNET
+ 	tristate "Zenith Z-Note support (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL && ISA_DMA_API
++	depends on EXPERIMENTAL && ISA_DMA_API && X86
+ 	---help---
+ 	  The Zenith Z-Note notebook computer has a built-in network
+ 	  (Ethernet) card, and this is the Linux driver for it. Note that the
