@@ -1,41 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Pull request: sfc-next 2012-09-19
-Date: Thu, 20 Sep 2012 16:42:43 -0400 (EDT)
-Message-ID: <20120920.164243.1102617524689876120.davem@davemloft.net>
-References: <1348081775.2636.15.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: linux-next: build failure after merge of the final tree
+ (net-next tree related)
+Date: Thu, 20 Sep 2012 16:45:58 -0400 (EDT)
+Message-ID: <20120920.164558.2281417114805373564.davem@davemloft.net>
+References: <20120920173622.2aa7209cd241a3945f4384d4@canb.auug.org.au>
+	<20120920091013.GV15548@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, giometti@enneenne.com,
-	linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
-	ajackson@solarflare.com
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39236 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752857Ab2ITUmt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 16:42:49 -0400
-In-Reply-To: <1348081775.2636.15.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: mika.westerberg@linux.intel.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20120920091013.GV15548@intel.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 19 Sep 2012 20:09:35 +0100
+From: Mika Westerberg <mika.westerberg@linux.intel.com>
+Date: Thu, 20 Sep 2012 12:10:14 +0300
 
-> The following changes since commit b4516a288e71c64d7e214902250baf78b7b3cdcf:
+> On Thu, Sep 20, 2012 at 05:36:22PM +1000, Stephen Rothwell wrote:
+>> Hi all,
+>> 
+>> After merging the final tree, today's linux-next build (powerpc
+>> allyesconfig) failed like this:
+>> 
+>> drivers/net/ethernet/i825xx/znet.c: In function 'hardware_init':
+>> drivers/net/ethernet/i825xx/znet.c:868:2: error: implicit declaration of function 'isa_virt_to_bus' [-Werror=implicit-function-declaration]
+>> 
+>> Caused by commit 1d3ff76759b7 ("i825xx: znet: fix compiler warnings when
+>> building a 64-bit kernel").  Is there some Kconfig dependency missing (CONFIG_ISA)?
 > 
->   llc: Remove stray reference to sysctl_llc_station_ack_timeout. (2012-09-17 13:13:24 -0400)
+> If we make it dependent on CONFIG_ISA then the driver cannot be built with
+> 64-bit kernel. Then again is there someone running 64-bit kernel on Zenith
+> Z-note notebook? From the pictures it looks like very ancient "laptop".
 > 
-> are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
-> 
-> (commit 450783747f42dfa3883920acfad4acdd93ce69af)
-> 
-> 1. Extension to PPS/PTP to allow for PHC devices where pulses are
->    subject to a variable but measurable delay.
-> 2. PPS/PTP/PHC support for Solarflare boards with a timestamping 
->    peripheral.
-> 3. MTD support for updating the timestamping peripheral on those boards.
-> 4. Fix for potential over-length requests to firmware.
+> An alternative is to make it depend on X86 like this:
 
-Pulled, thanks Ben.
+I think the powerpc port is at fault here.
+
+Part of being able to advertise ISA_DMA_API is providing isa_virt_to_bus().
