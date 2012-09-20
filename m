@@ -1,80 +1,54 @@
-From: Mathias Krause <minipli@googlemail.com>
-Subject: Re: [PATCH 5/6] xfrm_user: ensure user supplied esn replay window is valid
-Date: Thu, 20 Sep 2012 09:37:34 +0200
-Message-ID: <CA+rthh_tRHpQzy0jpbaqwNZTBk+f8t5=cFE4w7yu=6CM-chTSA@mail.gmail.com>
-References: <1348090423-32665-1-git-send-email-minipli@googlemail.com>
-	<1348090423-32665-6-git-send-email-minipli@googlemail.com>
-	<1348094309.2636.80.camel@bwh-desktop.uk.solarflarecom.com>
-	<CA+rthh8Q464Jw5okH5aXds0QZztay9dpcyniahtWFxev8tpN9w@mail.gmail.com>
-	<20120920070508.GA4221@secunet.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH] at91ether: return PTR_ERR if call to clk_get fails
+Date: Thu, 20 Sep 2012 09:42:14 +0200
+Message-ID: <505AC8D6.5080404@atmel.com>
+References: <1348124676-6627-1-git-send-email-devendra.aaru@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Martin Willi <martin@revosec.ch>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120920070508.GA4221@secunet.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
+To: Devendra Naga <devendra.aaru@gmail.com>, <netdev@vger.kernel.org>,
+	"David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eusmtp01.atmel.com ([212.144.249.243]:35036 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753074Ab2ITHma (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 03:42:30 -0400
+In-Reply-To: <1348124676-6627-1-git-send-email-devendra.aaru@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 20, 2012 at 9:05 AM, Steffen Klassert
-<steffen.klassert@secunet.com> wrote:
-> On Thu, Sep 20, 2012 at 08:12:11AM +0200, Mathias Krause wrote:
->> On Thu, Sep 20, 2012 at 12:38 AM, Ben Hutchings
->> <bhutchings@solarflare.com> wrote:
->> > On Wed, 2012-09-19 at 23:33 +0200, Mathias Krause wrote:
->>
->> > I'm a little worried that the user-provided
->> > xfrm_replay_state_esn::bmp_len is not being directly validated anywhere.
->>
->> That's what my P.S. in the cover letter tried to hint at -- a missing
->> upper limit check. But as I wanted to avoid lengthy discussions about
->> the concrete value and the possible need for some sysctl knob to tune
->> this even further, I just left this as an exercise for someone else
->> who is more familiar with the code ;)
->>
->
-> I think we should limit bmp_len to some sane value. RFC 4303 recommends
-> an anti replay window size of 64 packets, so limiting bmp_len to cover
-> 4096 packets should be more that enough. Also we can increase this value
-> later without changing the user API if this is needed.
+On 09/20/2012 09:04 AM, Devendra Naga :
+> we are currently returning ENODEV, as the clk_get may give a exact
+> error code in its returned pointer, assign it to the ret by using the
+> PTR_ERR function, so that the subsequent goto label will jump to the
+> error path and clean the driver and return the error correctly.
+> 
+> Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
 
-Okay. If no-one objects, I'll at add a upper limit check for 4096
-packets to verify_replay().
-
->> [...]
->> I disagree. The value of nla_len() is ensured to be in the range of
->> [sizeof(*up), USHRT_MAX-NLA_HDRLEN], i.e. a positive 16 bit number,
->> when it passes nlmsg_parse() in xfrm_user_rcv_msg(). This in turn
->> allows us to assume the int value returned by nla_len() is actually
->> positive and the compiler can safely make it unsigned for the compare
->> -- no sign bit, no hassle.
->
-> I think xfrm_replay_state_esn_len() should return the same type as
-> nla_len(), no matter what we can assume from the current code base.
-
-The type of the expression calculated in xfrm_replay_state_esn_len()
-is size_t; the functions the value get passed onto (k*alloc, kmemdup,
-memcpy, memcmp) expect a size_t argument; expressions where the value
-is evaluated to calculate sizes (e.g. in xfrm_sa_len) operate on
-size_t types. So size_t feels just natural.
-
-> Also it should not return anything else than the other xfrm length
-> calculation functions.
-
-So the other functions should have a return type of size_t, too?
-
-Anyway, such a cleanup should go into a separate patch as the other
-functions are not vulnerable to an overflow like it could happen in
-xfrm_replay_state_esn_len().
-
-> Once we limited bmp_len, xfrm_replay_state_esn_len() should return
-> always a positive value.
-
-True. So int it'll be then again for xfrm_replay_state_esn_len() in v3
-of the patch.
-
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
 Thanks,
-Mathias
+
+> ---
+>  drivers/net/ethernet/cadence/at91_ether.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
+> index 7788419..4e980a7 100644
+> --- a/drivers/net/ethernet/cadence/at91_ether.c
+> +++ b/drivers/net/ethernet/cadence/at91_ether.c
+> @@ -1086,7 +1086,7 @@ static int __init at91ether_probe(struct platform_device *pdev)
+>  	/* Clock */
+>  	lp->ether_clk = clk_get(&pdev->dev, "ether_clk");
+>  	if (IS_ERR(lp->ether_clk)) {
+> -		res = -ENODEV;
+> +		res = PTR_ERR(lp->ether_clk);
+>  		goto err_ioumap;
+>  	}
+>  	clk_enable(lp->ether_clk);
+> 
+
+
+-- 
+Nicolas Ferre
