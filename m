@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: Fixed a TFO server bug that crashed kernel by raw
- sockets
-Date: Thu, 20 Sep 2012 17:13:14 -0400 (EDT)
-Message-ID: <20120920.171314.539416435511236353.davem@davemloft.net>
-References: <1348011351-13882-1-git-send-email-hkchu@google.com>
-	<4380003.jOHRfqhomY@cpaasch-mac>
+Subject: Re: [PATCH net-next v3 1/1] ipv6: add support of ECMP
+Date: Thu, 20 Sep 2012 17:15:25 -0400 (EDT)
+Message-ID: <20120920.171525.2005584636029506440.davem@davemloft.net>
+References: <1347609548-14494-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1348046304-4156-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1348046304-4156-2-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hkchu@google.com, netdev@vger.kernel.org, ncardwell@google.com,
-	edumazet@google.com
-To: christoph.paasch@uclouvain.be
+Cc: netdev@vger.kernel.org, bernat@luffy.cx, yoshfuji@linux-ipv6.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39465 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39494 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751708Ab2ITVNQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 17:13:16 -0400
-In-Reply-To: <4380003.jOHRfqhomY@cpaasch-mac>
+	with ESMTP id S1755883Ab2ITVP2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 17:15:28 -0400
+In-Reply-To: <1348046304-4156-2-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Date: Wed, 19 Sep 2012 02:19:23 +0200
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Wed, 19 Sep 2012 11:18:24 +0200
 
-> From: Christoph Paasch <christoph.paasch@uclouvain.be>
-> Date: Wed, 19 Sep 2012 02:06:53 +0200
-> Subject: [PATCH] Don't add TCP-code in inet_sock_destruct
+> This patch adds the support of equal cost multipath for IPv6.
 > 
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> The patch is based on a previous work from
+> Luc Saillard <luc.saillard@6wind.com>.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Applied, thanks.
+Please make the algorithm selection run-time rather than compile
+time.
+
+For %99.999999999999999999 of users, making compile time changes
+to get the semantics they want is not an option.
