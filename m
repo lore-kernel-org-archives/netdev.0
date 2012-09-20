@@ -1,38 +1,36 @@
-From: John Jolly <jjolly@suse.com>
-Subject: [PATCH] rds: Error on offset mismatch if not loopback
-Date: Thu, 20 Sep 2012 01:11:34 -0600
-Message-ID: <20120920071134.GF14393@linux-tkdk.sfcn.org>
+From: Mathias Krause <minipli@googlemail.com>
+Subject: Re: [PATCH 5/6] xfrm_user: ensure user supplied esn replay window is valid
+Date: Thu, 20 Sep 2012 09:13:19 +0200
+Message-ID: <CA+rthh8r3UrBKCQ9kr4yAVpEkH3tpcCYXKt27yY64Snoi=bmBg@mail.gmail.com>
+References: <1348090423-32665-1-git-send-email-minipli@googlemail.com>
+	<1348090423-32665-6-git-send-email-minipli@googlemail.com>
+	<1348094309.2636.80.camel@bwh-desktop.uk.solarflarecom.com>
+	<CA+rthh8Q464Jw5okH5aXds0QZztay9dpcyniahtWFxev8tpN9w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Martin Willi <martin@revosec.ch>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <CA+rthh8Q464Jw5okH5aXds0QZztay9dpcyniahtWFxev8tpN9w@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Attempting an rds connection from the IP address of an IPoIB interface
-to itself causes a kernel panic due to a BUG_ON() being triggered. Making
-the test less strict allows rds-ping to work without crashing the machine.
+On Thu, Sep 20, 2012 at 8:12 AM, Mathias Krause <minipli@googlemail.com> wrote:
+> What still might happen is the overflow in xfrm_replay_state_esn_len()
+> resulting in a to small bitmap allocation for the requested replay
+> size. But that gets catched in xfrm_init_replay(). Little late, but
+> hey.
 
-A local unprivileged user could use this flaw to crash the sytem.
----
- net/rds/ib_send.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Sorry, I mixed that up. The replay_window check in xfrm_init_replay()
+has only little to do with the bmp_len overflow. But changing the
+return type of xfrm_replay_state_esn_len() to size_t and by doing so,
+making the all the size compares operating on positive values, we'll
+at least allocate enough memory to not run into memory corruptions.
+Though, the replay window will be much smaller, than requested -- due
+to the overflow. But userland should expect this. A check for some
+upper limit in verify_replay() could catch this early.
 
-diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
-index e590949..7920c85 100644
---- a/net/rds/ib_send.c
-+++ b/net/rds/ib_send.c
-@@ -544,7 +544,7 @@ int rds_ib_xmit(struct rds_connection *conn, struct rds_message *rm,
- 	int flow_controlled = 0;
- 	int nr_sig = 0;
- 
--	BUG_ON(off % RDS_FRAG_SIZE);
-+	BUG_ON(!conn->c_loopback && off % RDS_FRAG_SIZE);
- 	BUG_ON(hdr_off != 0 && hdr_off != sizeof(struct rds_header));
- 
- 	/* Do not send cong updates to IB loopback */
--- 
-1.7.7
+Mathias
