@@ -1,66 +1,60 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH net-next v2] ipv6: remove unnecessary call rt6_clean_expires
-Date: Thu, 20 Sep 2012 13:31:58 +0800
-Message-ID: <1348119118-23416-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org, gaofeng@cn.fujitsu.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
+Date: Thu, 20 Sep 2012 07:37:55 +0200
+Message-ID: <1348119475.31352.60.camel@edumazet-glaptop>
+References: <20120917.121243.1665284878800146060.davem@davemloft.net>
+	 <1347901326.26523.149.camel@edumazet-glaptop>
+	 <1347901493.26523.151.camel@edumazet-glaptop>
+	 <20120917.130732.1894375657044880827.davem@davemloft.net>
+	 <1348067659.26523.949.camel@edumazet-glaptop>
+	 <CAGK4HS_ZKKrzFh+c3WDxbkMFpDTg7ehw9ydp39k6JPFA_j1YOw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:54423 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751441Ab2ITFcN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 01:32:13 -0400
-Received: by pbbrr13 with SMTP id rr13so4240559pbb.19
-        for <netdev@vger.kernel.org>; Wed, 19 Sep 2012 22:32:12 -0700 (PDT)
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:40399 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750957Ab2ITFiE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 01:38:04 -0400
+Received: by wibhi8 with SMTP id hi8so181041wib.1
+        for <netdev@vger.kernel.org>; Wed, 19 Sep 2012 22:38:02 -0700 (PDT)
+In-Reply-To: <CAGK4HS_ZKKrzFh+c3WDxbkMFpDTg7ehw9ydp39k6JPFA_j1YOw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
+On Wed, 2012-09-19 at 15:20 -0700, Vijay Subramanian wrote:
+> > I did some tests and got no problem so far, even using splice() [ this
+> > one was tricky because it only deals with order-0 pages at this moment ]
+> >
+> > NIC tested : ixgbe, igb, bnx2x, tg3, mellanox mlx4
+> 
+> 
+> I applied this patch to net-next and tested with e1000e driver.
+> With iperf I got around 8 % improvement on loopback.
+> 
+> Tested-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> 
+> 
+> Vijay
 
-the from of dst_entry and rt6i_flags of rt6_info have been zeroed out in
-ip6_blackhole_route or after calling ip6_dst_alloc, so it is unnecessary
-to call rt6_clean_expires again.
+If you keep the producer and consumer on separate cpus, and use large
+enough send() (64KB or 128KB), gain is more like 15 or 20%
 
-Cc: Gao feng <gaofeng@cn.fujitsu.com>
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/ipv6/route.c |    9 ++-------
- 1 files changed, 2 insertions(+), 7 deletions(-)
+iperf uses 8KB writes, while netperf uses a 16KB default.
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 0607ee3..fd5dabf 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -996,8 +996,7 @@ struct dst_entry *ip6_blackhole_route(struct net *net, struct dst_entry *dst_ori
- 			in6_dev_hold(rt->rt6i_idev);
- 
- 		rt->rt6i_gateway = ort->rt6i_gateway;
--		rt->rt6i_flags = ort->rt6i_flags;
--		rt6_clean_expires(rt);
-+		rt->rt6i_flags = ort->rt6i_flags & ~RTF_EXPIRES;
- 		rt->rt6i_metric = 0;
- 
- 		memcpy(&rt->rt6i_dst, &ort->rt6i_dst, sizeof(struct rt6key));
-@@ -1393,8 +1392,6 @@ int ip6_route_add(struct fib6_config *cfg)
- 	if (cfg->fc_flags & RTF_EXPIRES)
- 		rt6_set_expires(rt, jiffies +
- 				clock_t_to_jiffies(cfg->fc_expires));
--	else
--		rt6_clean_expires(rt);
- 
- 	if (cfg->fc_protocol == RTPROT_UNSPEC)
- 		cfg->fc_protocol = RTPROT_BOOT;
-@@ -1803,12 +1800,10 @@ static struct rt6_info *ip6_rt_copy(struct rt6_info *ort,
- 		rt->dst.lastuse = jiffies;
- 
- 		rt->rt6i_gateway = ort->rt6i_gateway;
--		rt->rt6i_flags = ort->rt6i_flags;
-+		rt->rt6i_flags = ort->rt6i_flags & ~RTF_EXPIRES;
- 		if ((ort->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF)) ==
- 		    (RTF_DEFAULT | RTF_ADDRCONF))
- 			rt6_set_from(rt, ort);
--		else
--			rt6_clean_expires(rt);
- 		rt->rt6i_metric = 0;
- 
- #ifdef CONFIG_IPV6_SUBTREES
--- 
-1.7.4.1
+TCP stack has a problem because /proc/sys/net/ipv4/tcp_reordering
+default value (3) is too small for loopback, since a packet contains 4
+MSS
+
+A single reorder and some packets are retransmitted.
+
+Following setting is better
+
+echo 16 >/proc/sys/net/ipv4/tcp_reordering
+
+loopback is lossless, so its always surprising we can have TCP
+retransmits on this medium ;)
+
+Thanks
