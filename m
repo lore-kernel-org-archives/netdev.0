@@ -1,60 +1,80 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH v2 0/9] net/macb: driver enhancement concerning GEM support,
- ring logic and cleanup
-Date: Thu, 20 Sep 2012 15:03:21 +0200
-Message-ID: <505B1419.2070706@atmel.com>
-References: <cover.1348055112.git.nicolas.ferre@atmel.com> <20120919.135006.394934820049386022.davem@davemloft.net>
+From: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: regression: tethering fails in 3.5 with iwlwifi
+Date: Thu, 20 Sep 2012 15:04:50 +0200
+Message-ID: <CANn89i+9Th=xVgDgoy7tHwKtLNpOC8rgJkA09nQ1Yf0zvqBw6w@mail.gmail.com>
+References: <1347361823.26457.3.camel@sauron.fi.intel.com>
+	<1DC40B07CD6EC041A66726C271A73AE6195AE9C8@IRSMSX102.ger.corp.intel.com>
+	<1347631355.5263.19.camel@sauron.fi.intel.com>
+	<1347640763.5263.24.camel@sauron.fi.intel.com>
+	<1347892887.7112.9.camel@sauron.fi.intel.com>
+	<1348142775.2388.10.camel@sauron.fi.intel.com>
+	<1348144524.4161.26.camel@jlt4.sipsolutions.net>
+	<CANn89iJkXrZPB14KU8xA-Dn8_n=H3J4-R60BTZFV+STF9_ASdA@mail.gmail.com>
+	<CANn89iKStHAwVZtpgQMzEpByGYG2FKpjSQsJFT-9qQmjw+KJ8g@mail.gmail.com>
+	<1348145936.2388.18.camel@sauron.fi.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <havard@skinnemoen.net>,
-	<bhutchings@solarflare.com>,
-	<linux-arm-kernel@lists.infradead.org>, <plagnioj@jcrosoft.com>,
-	<patrice.vilchez@atmel.com>, <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120919.135006.394934820049386022.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: artem.bityutskiy-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1348145936.2388.18.camel-Bxnoe/o8FG+Ef9UqXRslZEEOCMrvLtNR@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 09/19/2012 07:50 PM, David Miller :
-> From: Nicolas Ferre <nicolas.ferre@atmel.com>
-> Date: Wed, 19 Sep 2012 13:55:13 +0200
-> 
->> This is an enhancement work that began several years ago. I try to catchup with
->> some performance improvement that has been implemented then by Havard.
->> The ring index logic and the TX error path modification are the biggest changes
->> but some cleanup/debugging have been added along the way.
->> The GEM revision will benefit from the Gigabit support.
+Try to pull 40 bytes : Thats OK for tcp performance, because 40 bytes
+is the minimum size of IP+TCP headers
+
+pskb_may_pull(skb, 40);
+
+(instead of your  skb_linearize(skb);)
+
+
+On Thu, Sep 20, 2012 at 2:58 PM, Artem Bityutskiy
+<artem.bityutskiy-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> wrote:
+> On Thu, 2012-09-20 at 14:45 +0200, Eric Dumazet wrote:
+>> I guess you only need to make sure 14 bytes of ethernet header are
+>> available before eth_type_trans(skb, dev);
 >>
->> The series has been tested on several Atmel AT91 SoC with the two MACB/GEM
->> flavors.
+>> diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+>> index 61c621e..ffe5f84 100644
+>> --- a/net/mac80211/rx.c
+>> +++ b/net/mac80211/rx.c
+>> @@ -1795,9 +1795,13 @@ ieee80211_deliver_skb(struct ieee80211_rx_data *rx)
 >>
->> v2: - modify the tx error handling: now uses a workqueue
->>     - information provided by ethtool -i were not accurate: removed
-> 
-> Don't submit patches like this.
-> 
-> When you put an RFC right in the middle of the series, it screws everything
-> up.
-> 
-> It means that I can't only apply the parts that are not RFC.
-
-I will submit a v3 patch series when I am more confident about the patch
-that I have tagged as RFC...
-
-And as you noted last time that I have included a modified patch in a
-series:
-"Please, when you receive feedback on your patches, you need to
-resubmit the whole patch series for review not just the patches where
-changes were asked for."
-==> I thought that it was a better idea to post the whole patch series
-so that people could figure out the context. As the TX error path is
-greatly modified, it could make senses.
-
-Now, is it possible to review this series as it is or should I repost
-patches? attached to the previous thread? RFC patch alone?
-
-puzzled,
--- 
-Nicolas Ferre
+>>                 if (skb) {
+>>                         /* deliver to local stack */
+>> -                       skb->protocol = eth_type_trans(skb, dev);
+>> -                       memset(skb->cb, 0, sizeof(skb->cb));
+>> -                       netif_receive_skb(skb);
+>> +                       if (pskb_may_pull(skb, sizeof(struct ethhdr))) {
+>> +                               skb->protocol = eth_type_trans(skb, dev);
+>> +                               memset(skb->cb, 0, sizeof(skb->cb));
+>> +                               netif_receive_skb(skb);
+>> +                       } else {
+>> +                               kfree_skb(skb);
+>> +                       }
+>>                 }
+>>         }
+>
+> Does not help, this one does:
+>
+> diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+> index 61c621e..6888586 100644
+> --- a/net/mac80211/rx.c
+> +++ b/net/mac80211/rx.c
+> @@ -1797,6 +1797,7 @@ ieee80211_deliver_skb(struct ieee80211_rx_data *rx)
+>                         /* deliver to local stack */
+>                         skb->protocol = eth_type_trans(skb, dev);
+>                         memset(skb->cb, 0, sizeof(skb->cb));
+> +                       skb_linearize(skb);
+>                         netif_receive_skb(skb);
+>                 }
+>
+> --
+> Best Regards,
+> Artem Bityutskiy
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
