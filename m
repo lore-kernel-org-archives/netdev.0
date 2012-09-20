@@ -1,48 +1,61 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Oops with latest (netfilter) nf-next tree, when unloading
- iptable_nat
-Date: Thu, 20 Sep 2012 09:31:53 +0200 (MEST)
-Message-ID: <Pine.GSO.4.63.1209200931400.8409@stinky-local.trash.net>
-References: <1347357081.3928.32.camel@localhost>   <20120912213627.GJ14750@breakpoint.cc>
- <20120914120750.GA5764@1984>   <Pine.GSO.4.63.1209141511020.11622@stinky-local.trash.net>
-  <1348058791.2761.94.camel@localhost>  <Pine.GSO.4.63.1209200855500.8409@stinky-local.trash.net>
- <1348126142.2761.172.camel@localhost>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the final tree (net-next
+ tree related)
+Date: Thu, 20 Sep 2012 17:36:22 +1000
+Message-ID: <20120920173622.2aa7209cd241a3945f4384d4@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Pablo Neira Ayuso <pablo@gnumonks.org>,
-	Florian Westphal <fw@strlen.de>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, yongjun_wei@trendmicro.com.cn
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1348126142.2761.172.camel@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__20_Sep_2012_17_36_22_+1000_OR2iKvAWGf=5rQZb"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mika Westerberg <mika.westerberg@linux.intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Sep 2012, Jesper Dangaard Brouer wrote:
+--Signature=_Thu__20_Sep_2012_17_36_22_+1000_OR2iKvAWGf=5rQZb
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> On Thu, 2012-09-20 at 08:57 +0200, Patrick McHardy wrote:
->> On Wed, 19 Sep 2012, Jesper Dangaard Brouer wrote:
->>
->>> On Fri, 2012-09-14 at 15:15 +0200, Patrick McHardy wrote:
->>>> On Fri, 14 Sep 2012, Pablo Neira Ayuso wrote:
->>>>
->>> [...cut...]
->>>>>> Patrick, any other idea?
->>>>>
->>> [...cut...]
-> [... (hair)cut(?)...]
->
->>> No it does not work :-(
->>
->> Ok I think I understand the problem now, we're invoking the NAT cleanup
->> callback twice with clean->hash = true, once for each direction of the
->> conntrack.
->>
->> Does this patch fix the problem?
->
-> Yes, it fixes the problem :-)
->
-> Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Hi all,
 
-Great, thanks for testing.
+After merging the final tree, today's linux-next build (powerpc
+allyesconfig) failed like this:
+
+drivers/net/ethernet/i825xx/znet.c: In function 'hardware_init':
+drivers/net/ethernet/i825xx/znet.c:868:2: error: implicit declaration of fu=
+nction 'isa_virt_to_bus' [-Werror=3Dimplicit-function-declaration]
+
+Caused by commit 1d3ff76759b7 ("i825xx: znet: fix compiler warnings when
+building a 64-bit kernel").  Is there some Kconfig dependency missing (CONF=
+IG_ISA)?
+
+I have reverted that commit for today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Thu__20_Sep_2012_17_36_22_+1000_OR2iKvAWGf=5rQZb
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJQWsd2AAoJEECxmPOUX5FEf8YP/RMOnhYeXVHPZxPj8JO1Mkkt
+1Z7czcmR0yDt5vnO/XoCNcNWfCLTGuSClxonTmUmx0IofYgMgVe17ww+c4DcdWkU
+txcT3sw0UjI+nthzvkmuhjgNoU3f/wC8Z/MgtS9H10CEqJgNGQ0slQitIJ4DaAAl
+9HGWVP0a/2Mzwh+RLU7yOValMP9DogDRFoXIIyjhxWi5LOfFu9MJ5EQfAhBLXzTo
+hp+vsaLJEp8T9kTQyZrt0KredzAOsaKi3q1vSH7NXSpWlsfMcIWffs3fWz0CEEaH
+6SF7awfG9vzR1+oaR6n0fxgIJGM4Iz8mLfNdFXiDrsdpAnyEfX/hi8yD4wgb/xGs
+SRYEtlJU1gXFF07g5R93S9fTC38E658GhGYkoj09p1/oAH3dCXzwmDWtOVCUQyIu
+YdgmbETCxcjyWgv8Cl0bYEE2BB123HgYJQTHlBotCBriU1InFY5t0PDGjEjjyBkC
+qM7Y4ZiKJ6Ffu7aBLBlK1SA7euP94+B3mC/y6pBRMN5pn2sezw0GaQ3FQynL6zEo
+DESuHQXk20qD2k6eyIOUdLU5HJsDpjFuIi6anZ82jTT+qPiW2cTiC1xN7PqBjCEK
+PKE5H47Q6TNNawmVXuGVSo7meHzTTSKBSKD9QrsMEen4cVrLnawms/D1pbCE3+0V
+IEf5/N8ZhRj/pkD4K3M2
+=SUiP
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__20_Sep_2012_17_36_22_+1000_OR2iKvAWGf=5rQZb--
