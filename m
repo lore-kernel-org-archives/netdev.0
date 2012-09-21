@@ -1,72 +1,45 @@
-From: Dave Jones <davej@redhat.com>
-Subject: 3.6rc6 use-after-free in destroy_conntrack()
-Date: Fri, 21 Sep 2012 11:31:58 -0400
-Message-ID: <20120921153158.GA25012@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
+Date: Fri, 21 Sep 2012 17:48:31 +0200
+Message-ID: <1348242511.2669.635.camel@edumazet-glaptop>
+References: <CAGK4HS_ZKKrzFh+c3WDxbkMFpDTg7ehw9ydp39k6JPFA_j1YOw@mail.gmail.com>
+	 <1348119475.31352.60.camel@edumazet-glaptop> <505B4E13.5000501@hp.com>
+	 <20120920.154007.1073423645697694793.davem@davemloft.net>
+	 <505B773E.9070501@hp.com>  <1348172722.2669.10.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stefw@redhat.com,
-	Fedora Kernel Team <kernel-team@fedoraproject.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, subramanian.vijay@gmail.com,
+	netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49212 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753684Ab2IUPcB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Sep 2012 11:32:01 -0400
-Content-Disposition: inline
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:42892 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752494Ab2IUPsh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 11:48:37 -0400
+Received: by bkuw11 with SMTP id w11so898904bku.19
+        for <netdev@vger.kernel.org>; Fri, 21 Sep 2012 08:48:35 -0700 (PDT)
+In-Reply-To: <1348172722.2669.10.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We just had a report of this happening during shutdown..
+On Thu, 2012-09-20 at 22:25 +0200, Eric Dumazet wrote:
+> On Thu, 2012-09-20 at 13:06 -0700, Rick Jones wrote:
+> 
+> > 
+> > Yes, I was being too fast and loose with my wording, paying more 
+> > attention to the netperf tests than the rest of it.  While loopback may 
+> > be lossless, TCP retransmissions over loopback shouldn't be all *that* 
+> > surprising.
+> 
+> Sending perfect packets (large packets) should trigger no retransmits.
 
-There's a blurry photograph of the full trace here.. https://bugzilla.redhat.com/attachment.cgi?id=615311
+By the way, with current MTU of 16436 on loopback, max packet size is
+48KB (3 MSS)
 
-Rough transcription:
+Using an mtu of 65536 allows another 25% increase of bulk performance...
 
-general protection fault
-RIP: destroy_conntrack+0x88
+(and less potential reordering effects, as a packet contains one MSS
+instead of three)
 
-RAX: 6b6b6b6b6b6b6b6b6b6b
-
-trace:
- ? destroy_conntrack
- ? __nf_conntrack_find
- nf_conntrack_destroy
- ? nf_regsiter_afinfo
- skb_release_head_state
- __kfree
- kfree
- arp_error_report
- ? neigh_parms_alloc
- neigh_invalidate
- ? neigh_parms_alloc
- neigh_timer_handler
- run_timer_softirq
- ? run_timer_softirq
- __do_softirq
- call_softirq
- do_softirq
- irq_exit
- smp_apic_timer_interrupt
- apic_timer_interrupt
- <EOI>
- ? mwait_idle
- ? mwait_idle
- cpu_idle
- start_secondary
-
-Disassembly of the code line shows that the dereference is happening here
-in destroy_conntrack ..
-
-
-        l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
-    1403:       0f b6 b3 86 00 00 00    movzbl 0x86(%rbx),%esi
-    140a:       0f b7 7b 72             movzwl 0x72(%rbx),%edi
-    140e:       e8 00 00 00 00          callq  1413 <destroy_conntrack+0x83>
-->       if (l4proto && l4proto->destroy)
-    1413:       48 85 c0                test   %rax,%rax
-    1416:       74 0e                   je     1426 <destroy_conntrack+0x96>
-    1418:       48 8b 40 28             mov    0x28(%rax),%rax
-
-'l4proto' seems to have been freed already, judging by the value in rax.
-
-	Dave
+There is probably a reason why lo default MTU is 16436 ?
