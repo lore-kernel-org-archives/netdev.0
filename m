@@ -1,99 +1,76 @@
-From: Jean-Michel Hautbois <jhautbois@gmail.com>
-Subject: Re: bnx2x: link detected up at startup even when it should be down
-Date: Fri, 21 Sep 2012 08:03:45 +0200
-Message-ID: <CAL8zT=i_eV3SjuBgdWrBPaE-CoBBVh5QJD8jg-YMoQHDuA4AOQ@mail.gmail.com>
-References: <CAL8zT=hFPQ-NZw8eKQwnktRrcpsOFk3aa_ac5mSWa+TAwyTGBQ@mail.gmail.com>
- <504C9EFCA2D0054393414C9CB605C37F2EB97C@SJEXCHMB06.corp.ad.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Barak Witkowski <barak@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Dmitry Kravkov <dmitry@broadcom.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next v2] l2tp: fix compile error when CONFIG_IPV6=m and CONFIG_L2TP=y
+Date: Fri, 21 Sep 2012 14:36:06 +0800
+Message-ID: <1348209366-26978-1-git-send-email-amwang@redhat.com>
+Cc: David Miller <davem@davemloft.net>, Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:60886 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754616Ab2IUGEH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 02:04:07 -0400
-Received: by ieak13 with SMTP id k13so4714388iea.19
-        for <netdev@vger.kernel.org>; Thu, 20 Sep 2012 23:04:06 -0700 (PDT)
-In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F2EB97C@SJEXCHMB06.corp.ad.broadcom.com>
+Received: from mx1.redhat.com ([209.132.183.28]:37204 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751415Ab2IUGgQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Sep 2012 02:36:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dmitry,
+When CONFIG_IPV6=m and CONFIG_L2TP=y, I got the following compile error:
 
-2012/9/20 Dmitry Kravkov <dmitry@broadcom.com>:
->> -----Original Message-----
->> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
->> On Behalf Of Jean-Michel Hautbois
->> Sent: Thursday, September 20, 2012 6:39 PM
->> To: netdev
->> Cc: Barak Witkowski; Eilon Greenstein; davem@davemloft.net
->> Subject: bnx2x: link detected up at startup even when it should be down
->>
->> Hi all,
->>
->> I am working with a HP blade which has a bnx2x based card (Broadcom
->> NetXtreme II BCM57810 10 Gigabit Ethernet).
->> I am using a 3.2 linux kernel, which works very well except on
->> detecting the link state at startup.
->> I have my ethernet interfaces linked with a bond, and I want to
->> configure it for HA (in miimon mode).
->> I am using a managed switch which helps me in disabling/enabling ports.
->>
->> When the port is disabled, at startup, the link is detected "UP".
->> When I enable the port, it is still "UP", and when I disable it again,
->> then it is detected "DOWN".
->>
->> I have tried the latest 3.6-rc6 kernel, and it works well (link is
->> "DOWN" at startup when port is disabled).
->> Then I bisected it, and I found out that the commit which makes it
->> working (yes, it is an inverse bisect, thanks to this powerful git
->> tool :)) is :
->>
->> a334872224a67b614dc888460377862621f3dac7 is the first bad commit
->> commit a334872224a67b614dc888460377862621f3dac7
->> Author: Barak Witkowski <barak@broadcom.com>
->> Date:   Mon Apr 23 03:04:46 2012 +0000
->>
->>     bnx2x: add afex support
->>
->>     Following patch adds afex multifunction support to the driver (afex
->>     multifunction is based on vntag header) and updates FW version
->> used to 7.2.51.
->>
->>     Support includes the following:
->>
->>     1. Configure vif parameters in firmware (default vlan, vif id, default
->>        priority, allowed priorities) according to values received from NIC.
->>     2. Configure FW to strip/add default vlan according to afex vlan mode.
->>     3. Notify link up to OS only after vif is fully initialized.
->>     4. Support vif list set/get requests and configure FW accordingly.
->>     5. Supply afex statistics upon request from NIC.
->>     6. Special handling to L2 interface in case of FCoE vif.
->>
->>     Signed-off-by: Barak Witkowski <barak@broadcom.com>
->>     Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
->>     Signed-off-by: David S. Miller <davem@davemloft.net>
->>
->> This commit is present in the 3.5.y stable branch, but not the 3.2.y one.
->> Is there a workaround which would make this feature work correctly
->> even on older kernels ?
->> It does not seem to be trivial, but I may miss something as this
->> driver is pretty big...
->
->  Jean,
-> I have passed over the patch, but was unable to catch link related change out of the
-> AFEX flow. We will get closer look asap in out lab (guys are out for the weekend already)
->
-> Can you double check bisect result for me, pls?
->
-> Thanks
+  LD      init/built-in.o
+net/built-in.o: In function `l2tp_xmit_core':
+l2tp_core.c:(.text+0x147781): undefined reference to `inet6_csk_xmit'
+net/built-in.o: In function `l2tp_tunnel_create':
+(.text+0x149067): undefined reference to `udpv6_encap_enable'
+net/built-in.o: In function `l2tp_ip6_recvmsg':
+l2tp_ip6.c:(.text+0x14e991): undefined reference to `ipv6_recv_error'
+net/built-in.o: In function `l2tp_ip6_sendmsg':
+l2tp_ip6.c:(.text+0x14ec64): undefined reference to `fl6_sock_lookup'
+l2tp_ip6.c:(.text+0x14ed6b): undefined reference to `datagram_send_ctl'
+l2tp_ip6.c:(.text+0x14eda0): undefined reference to `fl6_sock_lookup'
+l2tp_ip6.c:(.text+0x14ede5): undefined reference to `fl6_merge_options'
+l2tp_ip6.c:(.text+0x14edf4): undefined reference to `ipv6_fixup_options'
+l2tp_ip6.c:(.text+0x14ee5d): undefined reference to `fl6_update_dst'
+l2tp_ip6.c:(.text+0x14eea3): undefined reference to `ip6_dst_lookup_flow'
+l2tp_ip6.c:(.text+0x14eee7): undefined reference to `ip6_dst_hoplimit'
+l2tp_ip6.c:(.text+0x14ef8b): undefined reference to `ip6_append_data'
+l2tp_ip6.c:(.text+0x14ef9d): undefined reference to `ip6_flush_pending_frames'
+l2tp_ip6.c:(.text+0x14efe2): undefined reference to `ip6_push_pending_frames'
+net/built-in.o: In function `l2tp_ip6_destroy_sock':
+l2tp_ip6.c:(.text+0x14f090): undefined reference to `ip6_flush_pending_frames'
+l2tp_ip6.c:(.text+0x14f0a0): undefined reference to `inet6_destroy_sock'
+net/built-in.o: In function `l2tp_ip6_connect':
+l2tp_ip6.c:(.text+0x14f14d): undefined reference to `ip6_datagram_connect'
+net/built-in.o: In function `l2tp_ip6_bind':
+l2tp_ip6.c:(.text+0x14f4fe): undefined reference to `ipv6_chk_addr'
+net/built-in.o: In function `l2tp_ip6_init':
+l2tp_ip6.c:(.init.text+0x73fa): undefined reference to `inet6_add_protocol'
+l2tp_ip6.c:(.init.text+0x740c): undefined reference to `inet6_register_protosw'
+net/built-in.o: In function `l2tp_ip6_exit':
+l2tp_ip6.c:(.exit.text+0x1954): undefined reference to `inet6_unregister_protosw'
+l2tp_ip6.c:(.exit.text+0x1965): undefined reference to `inet6_del_protocol'
+net/built-in.o:(.rodata+0xf2d0): undefined reference to `inet6_release'
+net/built-in.o:(.rodata+0xf2d8): undefined reference to `inet6_bind'
+net/built-in.o:(.rodata+0xf308): undefined reference to `inet6_ioctl'
+net/built-in.o:(.data+0x1af40): undefined reference to `ipv6_setsockopt'
+net/built-in.o:(.data+0x1af48): undefined reference to `ipv6_getsockopt'
+net/built-in.o:(.data+0x1af50): undefined reference to `compat_ipv6_setsockopt'
+net/built-in.o:(.data+0x1af58): undefined reference to `compat_ipv6_getsockopt'
+make: *** [vmlinux] Error 1
 
-I already did it twice. I think this is FW related and not only the
-commit adding afex support. It may have solved a link issue (I am just
-guessing, based on experiments) ?
+This is due to l2tp uses symbols from IPV6, so when IPV6
+is a module, l2tp is not allowed to be builtin.
 
-JM
+Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
+---
+diff --git a/net/l2tp/Kconfig b/net/l2tp/Kconfig
+index 4b1e717..147a8fd 100644
+--- a/net/l2tp/Kconfig
++++ b/net/l2tp/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ menuconfig L2TP
+ 	tristate "Layer Two Tunneling Protocol (L2TP)"
++	depends on (IPV6 || IPV6=n)
+ 	depends on INET
+ 	---help---
+ 	  Layer Two Tunneling Protocol
