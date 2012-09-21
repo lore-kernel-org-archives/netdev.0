@@ -1,66 +1,118 @@
-From: Don Dutile <ddutile@redhat.com>
-Subject: Re: New commands to configure IOV features
-Date: Fri, 21 Sep 2012 16:08:16 -0400
-Message-ID: <505CC930.5070807@redhat.com>
-References: <5003DC9B.8000706@broadcom.com> <5009B186.6000806@genband.com> <1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com> <5009ECDF.4090305@genband.com> <500D59BF.9040006@redhat.com> <500D6932.8090306@genband.com> <20120723113607.56ce7aaf@nehalam.linuxnetplumber.net> <C5551D9AAB213A418B7FD5E4A6F30A070C7D9DCD@ORSMSX106.amr.corp.intel.com> <5059A767.2090307@broadcom.com> <20120919085306.00006af9@unknown> <1348083847.2636.37.camel@bwh-desktop.uk.solarflarecom.com> <CAE9FiQXQj_KdWT-mVVsptxiEgGjScgDy_Lp-aXioZ4YAQh1wWQ@mail.gmail.com> <1348094773.2636.85.camel@bwh-desktop.uk.solarflarecom.com> <CAE9FiQVk-uXgLK6dM8q5-Xsh8LO+c-Dd_cEpu2WzJ6Uzt6ztnA@mail.gmail.com> <1348104190.4836.61.camel@deadeye.wl.decadent.org.uk> <C5551D9AAB213A418B7FD5E4A6F30A07152FA5F6@ORSMSX106.amr.corp.intel.co
- m> <CAE9FiQXqFnrXT8ibD2zsmeTj-VzXb8sAOjUtryBOxEXj216pQQ@mail.gmail.com> <505CAC93.8020304@redhat.com> <CAE9FiQW4vY3SwAt1TGhSa=bcmKnzxS96b9HGoU5_CDb3FRvGVA@mail.gmail.com>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [PATCH] Xen backend support for paged out grant targets V4.
+Date: Fri, 21 Sep 2012 16:05:21 -0400
+Message-ID: <20120921200521.GA20408@phenom.dumpdata.com>
+References: <1347632819-13684-1-git-send-email-andres@lagarcavilla.org>
+ <1347869865.14977.15.camel@zakaz.uk.xensource.com>
+ <5B5132A4-93B2-41D0-B1A6-048810565DB5@gridcentric.ca>
+ <20120921185258.GA4931@phenom.dumpdata.com>
+ <ACFBD23A-6B32-47F3-B71A-37F4557FDE47@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Yuval Mintz <yuvalmin@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ariel Elior <ariele@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	linux-pci <linux-pci@vger.kernel.org>
-To: Yinghai Lu <yinghai@kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <CAE9FiQW4vY3SwAt1TGhSa=bcmKnzxS96b9HGoU5_CDb3FRvGVA@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andres Lagar-Cavilla <andreslc@gridcentric.ca>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Andres Lagar-Cavilla <andres@lagarcavilla.org>,
+	xen-devel <xen-devel@lists.xen.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	David Miller <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andres Lagar-Cavilla <andres.lagarcavilla@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <ACFBD23A-6B32-47F3-B71A-37F4557FDE47@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/21/2012 03:49 PM, Yinghai Lu wrote:
-> On Fri, Sep 21, 2012 at 11:06 AM, Don Dutile<ddutile@redhat.com>  wrote:
->>>
->>> ok, something like attached patches?
->>>
->>> ixgbe change need more cleanup from ixgbe guys.
->>>
->> yuk, no.
->> I have a set of patches almost done.
->
-> good. includes update to those network drivers?
->
->> It provides 3 sysfs files (enable, disable, num_max_vfs);
->> callbacks for enable&  disable.
->
-> why using three? only pass max_vfs should be enough...
->
-> aka pass 0 mean disabling, pass other value mean enabling.
->
-could do that.  but I wouldn't use 'max_vfs'; I would recommend
-'num_vfs', as max implies, er, um, the maximum, and what one
-wants is to be able to enable a number from 1->max_vfs.
-'max_vfs' will be provided by another file.
+On Fri, Sep 21, 2012 at 03:30:01PM -0400, Andres Lagar-Cavilla wrote:
+> On Sep 21, 2012, at 2:52 PM, Konrad Rzeszutek Wilk wrote:
+>=20
+> > On Mon, Sep 17, 2012 at 05:29:24AM -0400, Andres Lagar-Cavilla wrot=
+e:
+> >> On Sep 17, 2012, at 4:17 AM, Ian Campbell wrote:
+> >>=20
+> >>> (I think I forgot to hit send on this on Friday, sorry. Also
+> >>> s/xen.lists.org/lists.xen.org in the CC line=E2=80=A6)
+> >> I'm on a roll here=E2=80=A6
+> >>=20
+> >>>=20
+> >>> On Fri, 2012-09-14 at 15:26 +0100, Andres Lagar-Cavilla wrote:
+> >>>> Since Xen-4.2, hvm domains may have portions of their memory pag=
+ed out. When a
+> >>>> foreign domain (such as dom0) attempts to map these frames, the =
+map will
+> >>>> initially fail. The hypervisor returns a suitable errno, and kic=
+ks an
+> >>>> asynchronous page-in operation carried out by a helper. The fore=
+ign domain is
+> >>>> expected to retry the mapping operation until it eventually succ=
+eeds. The
+> >>>> foreign domain is not put to sleep because itself could be the o=
+ne running the
+> >>>> pager assist (typical scenario for dom0).
+> >>>>=20
+> >>>> This patch adds support for this mechanism for backend drivers u=
+sing grant
+> >>>> mapping and copying operations. Specifically, this covers the bl=
+kback and
+> >>>> gntdev drivers (which map foregin grants), and the netback drive=
+r (which copies
+> >>>=20
+> >>>                          foreign
+> >>>=20
+> >>>> foreign grants).
+> >>>>=20
+> >>>> * Add a retry method for grants that fail with GNTST_eagain (i.e=
+=2E because the
+> >>>> target foregin frame is paged out).
+> >>>=20
+> >>>         foreign
+> >>>=20
+> >>>> * Insert hooks with appropriate wrappers in the aforementioned d=
+rivers.
+> >>>>=20
+> >>>> The retry loop is only invoked if the grant operation status is =
+GNTST_eagain.
+> >>>> It guarantees to leave a new status code different from GNTST_ea=
+gain. Any other
+> >>>> status code results in identical code execution as before.
+> >>>>=20
+> >>>> The retry loop performs 256 attempts with increasing time interv=
+als through a
+> >>>> 32 second period. It uses msleep to yield while waiting for the =
+next retry.
+> >>> [...]
+> >>>> Signed-off-by: Andres Lagar-Cavilla <andres@lagarcavilla.org>
+> >>>=20
+> >>> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> >>>=20
+> >>> Since this is more about grant tables than netback this should pr=
+obably
+> >>> go via Konrad rather than Dave, is that OK with you Dave?
+> >>=20
+> >> If that is the case hopefully Konrad can deal with the two typos? =
+Otherwise happy to re-spin the patch.
+> >=20
+> > So with this patch when I launch an PVHVM guest on Xen 4.1 I get th=
+is
+> > in the initial domain and the guest is crashed:
+> >=20
+> > [  261.927218] privcmd_fault: vma=3Dffff88002a31dce8 7f4edc095000-7=
+f4edc195000, pgoff=3Dc8, uv=3D00007f4edc15d000
+>=20
+> With this patch? Or with the mmapbatch v2? This is a page fault in a =
+foreign-mapped VMA. Not touched by this grant backend patch we are talk=
+ing about.
 
->>
->> i'm tied up until Monday on RHEL6, then I'll switch gears&  post a set of
->> patches.
->
-> so that is your employer 'sinternal policy? for RHEL 6 kernel first,
-> then upstream kernel?
-No, I have deadlines for RHEL6 for *other work* until Monday.  After that,
-I can re-focus on upstream work.  Some of us actually have other work than
-just upstream.... crazy talk, I know! ;-)
+This patch. But I also had a modified blkback. So let me double check
+that it is not the persistent grants and this patch doing something nau=
+ghty.
 
-> thought RH only accept backporting only patches get into upstream already.
->
-yup. 'upstream first' is the rule at RH before it gets into a RHEL release...
-and sometimes that isn't sufficient!
+>=20
+> Does the hypervisor dump anything to its console?
+>=20
+> At which point during xc_hvm_build do you see this? (or elsewhere in =
+the toolstack?)
 
-Have a beer, enjoy the weekend, posting forthcoming next week!
-
-> -Yinghai
+No idea. Didn't examine that much.
