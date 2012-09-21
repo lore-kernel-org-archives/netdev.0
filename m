@@ -1,47 +1,67 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] ipv6: fix return value check in fib6_add()
-Date: Fri, 21 Sep 2012 12:29:56 +0800
-Message-ID: <CAPgLHd9vdKJfj1yUqU+zDaH6PiuqY8ZG_V5B1py--NiDwa+WkA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH 1/1] gianfar: fix phc index build failure
+Date: Fri, 21 Sep 2012 07:11:12 +0200
+Message-ID: <24134c2d3a9bcbe65f1becd809b98d9c2559212d.1348203988.git.richardcochran@gmail.com>
+References: <cover.1348203988.git.richardcochran@gmail.com>
+Cc: David Miller <davem@davemloft.net>, <stable@vger.kernel.org>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:54986 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751414Ab2IUE35 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 00:29:57 -0400
-Received: by qcro28 with SMTP id o28so2309091qcr.19
-        for <netdev@vger.kernel.org>; Thu, 20 Sep 2012 21:29:56 -0700 (PDT)
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:59457 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753285Ab2IUFL2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 01:11:28 -0400
+In-Reply-To: <cover.1348203988.git.richardcochran@gmail.com>
+In-Reply-To: <cover.1348203988.git.richardcochran@gmail.com>
+References: <cover.1348203988.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+This patch fixes a build failure introduced in commit 66636287. Not only
+was a global variable inconsistently named, but also it was not exported
+as it should have been.
 
-In case of error, the function fib6_add_1() returns ERR_PTR()
-or NULL pointer. The ERR_PTR() case check is missing in fib6_add().
+This fix is also needed in stable version 3.5.
 
-dpatch engine is used to generated this patch.
-(https://github.com/weiyj/dpatch)
-
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+Cc: <stable@vger.kernel.org>
 ---
- net/ipv6/ip6_fib.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/ethernet/freescale/gianfar_ethtool.c |    1 +
+ drivers/net/ethernet/freescale/gianfar_ptp.c     |    4 ++--
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 13690d6..286acfc 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -819,6 +819,10 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info)
- 					offsetof(struct rt6_info, rt6i_src),
- 					allow_create, replace_required);
+diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+index 8971921..ab6762c 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
++++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+@@ -1773,6 +1773,7 @@ static int gfar_get_nfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
+ }
  
-+			if (IS_ERR(sn)) {
-+				err = PTR_ERR(sn);
-+				sn = NULL;
-+			}
- 			if (!sn) {
- 				/* If it is failed, discard just allocated
- 				   root, and then (in st_failure) stale node
+ int gfar_phc_index = -1;
++EXPORT_SYMBOL(gfar_phc_index);
+ 
+ static int gfar_get_ts_info(struct net_device *dev,
+ 			    struct ethtool_ts_info *info)
+diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
+index c08e5d4..0daa66b 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ptp.c
++++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
+@@ -515,7 +515,7 @@ static int gianfar_ptp_probe(struct platform_device *dev)
+ 		err = PTR_ERR(etsects->clock);
+ 		goto no_clock;
+ 	}
+-	gfar_phc_clock = ptp_clock_index(etsects->clock);
++	gfar_phc_index = ptp_clock_index(etsects->clock);
+ 
+ 	dev_set_drvdata(&dev->dev, etsects);
+ 
+@@ -539,7 +539,7 @@ static int gianfar_ptp_remove(struct platform_device *dev)
+ 	gfar_write(&etsects->regs->tmr_temask, 0);
+ 	gfar_write(&etsects->regs->tmr_ctrl,   0);
+ 
+-	gfar_phc_clock = -1;
++	gfar_phc_index = -1;
+ 	ptp_clock_unregister(etsects->clock);
+ 	iounmap(etsects->regs);
+ 	release_resource(etsects->rsrc);
+-- 
+1.7.2.5
