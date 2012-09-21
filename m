@@ -1,76 +1,45 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v2] l2tp: fix compile error when CONFIG_IPV6=m and CONFIG_L2TP=y
-Date: Fri, 21 Sep 2012 14:36:06 +0800
-Message-ID: <1348209366-26978-1-git-send-email-amwang@redhat.com>
-Cc: David Miller <davem@davemloft.net>, Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] stmmac: fix return value check in stmmac_open_ext_timer()
+Date: Fri, 21 Sep 2012 15:06:10 +0800
+Message-ID: <CAPgLHd87SqVa40-SGrgEfRAPWj1dr9aGPDD7b3aALCqka2ssuA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37204 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751415Ab2IUGgQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Sep 2012 02:36:16 -0400
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:56230 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752308Ab2IUHGL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 03:06:11 -0400
+Received: by qaas11 with SMTP id s11so1024257qaa.19
+        for <netdev@vger.kernel.org>; Fri, 21 Sep 2012 00:06:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When CONFIG_IPV6=m and CONFIG_L2TP=y, I got the following compile error:
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-  LD      init/built-in.o
-net/built-in.o: In function `l2tp_xmit_core':
-l2tp_core.c:(.text+0x147781): undefined reference to `inet6_csk_xmit'
-net/built-in.o: In function `l2tp_tunnel_create':
-(.text+0x149067): undefined reference to `udpv6_encap_enable'
-net/built-in.o: In function `l2tp_ip6_recvmsg':
-l2tp_ip6.c:(.text+0x14e991): undefined reference to `ipv6_recv_error'
-net/built-in.o: In function `l2tp_ip6_sendmsg':
-l2tp_ip6.c:(.text+0x14ec64): undefined reference to `fl6_sock_lookup'
-l2tp_ip6.c:(.text+0x14ed6b): undefined reference to `datagram_send_ctl'
-l2tp_ip6.c:(.text+0x14eda0): undefined reference to `fl6_sock_lookup'
-l2tp_ip6.c:(.text+0x14ede5): undefined reference to `fl6_merge_options'
-l2tp_ip6.c:(.text+0x14edf4): undefined reference to `ipv6_fixup_options'
-l2tp_ip6.c:(.text+0x14ee5d): undefined reference to `fl6_update_dst'
-l2tp_ip6.c:(.text+0x14eea3): undefined reference to `ip6_dst_lookup_flow'
-l2tp_ip6.c:(.text+0x14eee7): undefined reference to `ip6_dst_hoplimit'
-l2tp_ip6.c:(.text+0x14ef8b): undefined reference to `ip6_append_data'
-l2tp_ip6.c:(.text+0x14ef9d): undefined reference to `ip6_flush_pending_frames'
-l2tp_ip6.c:(.text+0x14efe2): undefined reference to `ip6_push_pending_frames'
-net/built-in.o: In function `l2tp_ip6_destroy_sock':
-l2tp_ip6.c:(.text+0x14f090): undefined reference to `ip6_flush_pending_frames'
-l2tp_ip6.c:(.text+0x14f0a0): undefined reference to `inet6_destroy_sock'
-net/built-in.o: In function `l2tp_ip6_connect':
-l2tp_ip6.c:(.text+0x14f14d): undefined reference to `ip6_datagram_connect'
-net/built-in.o: In function `l2tp_ip6_bind':
-l2tp_ip6.c:(.text+0x14f4fe): undefined reference to `ipv6_chk_addr'
-net/built-in.o: In function `l2tp_ip6_init':
-l2tp_ip6.c:(.init.text+0x73fa): undefined reference to `inet6_add_protocol'
-l2tp_ip6.c:(.init.text+0x740c): undefined reference to `inet6_register_protosw'
-net/built-in.o: In function `l2tp_ip6_exit':
-l2tp_ip6.c:(.exit.text+0x1954): undefined reference to `inet6_unregister_protosw'
-l2tp_ip6.c:(.exit.text+0x1965): undefined reference to `inet6_del_protocol'
-net/built-in.o:(.rodata+0xf2d0): undefined reference to `inet6_release'
-net/built-in.o:(.rodata+0xf2d8): undefined reference to `inet6_bind'
-net/built-in.o:(.rodata+0xf308): undefined reference to `inet6_ioctl'
-net/built-in.o:(.data+0x1af40): undefined reference to `ipv6_setsockopt'
-net/built-in.o:(.data+0x1af48): undefined reference to `ipv6_getsockopt'
-net/built-in.o:(.data+0x1af50): undefined reference to `compat_ipv6_setsockopt'
-net/built-in.o:(.data+0x1af58): undefined reference to `compat_ipv6_getsockopt'
-make: *** [vmlinux] Error 1
+In case of error, the function clk_get() returns ERR_PTR()
+and never returns NULL pointer. The NULL test in the error
+handling should be replaced with IS_ERR().
 
-This is due to l2tp uses symbols from IPV6, so when IPV6
-is a module, l2tp is not allowed to be builtin.
+dpatch engine is used to auto generated this patch.
+(https://github.com/weiyj/dpatch)
 
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 ---
-diff --git a/net/l2tp/Kconfig b/net/l2tp/Kconfig
-index 4b1e717..147a8fd 100644
---- a/net/l2tp/Kconfig
-+++ b/net/l2tp/Kconfig
-@@ -4,6 +4,7 @@
+ drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
+index 2a0e1ab..197fb8c 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
+@@ -109,7 +109,7 @@ int stmmac_open_ext_timer(struct net_device *dev, struct stmmac_timer *tm)
+ {
+ 	timer_clock = clk_get(NULL, TMU_CHANNEL);
  
- menuconfig L2TP
- 	tristate "Layer Two Tunneling Protocol (L2TP)"
-+	depends on (IPV6 || IPV6=n)
- 	depends on INET
- 	---help---
- 	  Layer Two Tunneling Protocol
+-	if (timer_clock == NULL)
++	if (IS_ERR(timer_clock))
+ 		return -1;
+ 
+ 	if (tmu2_register_user(stmmac_timer_handler, (void *)dev) < 0) {
