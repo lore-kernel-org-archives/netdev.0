@@ -1,28 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
-Date: Fri, 21 Sep 2012 12:27:05 -0400 (EDT)
-Message-ID: <20120921.122705.1344923255084267186.davem@davemloft.net>
-References: <505B773E.9070501@hp.com>
-	<1348172722.2669.10.camel@edumazet-glaptop>
-	<1348242511.2669.635.camel@edumazet-glaptop>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: [PATCH net-next] be2net: Ignore spurious UE indication from NIC
+Date: Fri, 21 Sep 2012 11:36:20 -0500
+Message-ID: <20120921163620.GA6147@akhaparde-VBox>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, subramanian.vijay@gmail.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49694 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757358Ab2IUQ1H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 12:27:07 -0400
-In-Reply-To: <1348242511.2669.635.camel@edumazet-glaptop>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:34660 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751932Ab2IUQgW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 12:36:22 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 21 Sep 2012 17:48:31 +0200
+Ignore spurious UE indication seen on some platforms.
+Consider the error as un-recoverable only when the bits
+stay high during second sampling.
 
-> There is probably a reason why lo default MTU is 16436 ?
+Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h      |    2 ++
+ drivers/net/ethernet/emulex/benet/be_main.c |   18 +++++++++++++++---
+ 2 files changed, 17 insertions(+), 3 deletions(-)
 
-That's what fit into L1 caches back in 1999
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 5b622993..3d4a7bc 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -401,6 +401,8 @@ struct be_adapter {
+ 	bool eeh_error;
+ 	bool fw_timeout;
+ 	bool hw_error;
++	u32 ue_lo;
++	u32 ue_hi;
+ 
+ 	u32 port_num;
+ 	bool promiscuous;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 84379f4..e970f77 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2105,6 +2105,7 @@ void be_detect_error(struct be_adapter *adapter)
+ 	u32 ue_lo = 0, ue_hi = 0, ue_lo_mask = 0, ue_hi_mask = 0;
+ 	u32 sliport_status = 0, sliport_err1 = 0, sliport_err2 = 0;
+ 	u32 i;
++	struct device *dev = &adapter->pdev->dev;
+ 
+ 	if (be_crit_error(adapter))
+ 		return;
+@@ -2129,13 +2130,22 @@ void be_detect_error(struct be_adapter *adapter)
+ 
+ 		ue_lo = (ue_lo & ~ue_lo_mask);
+ 		ue_hi = (ue_hi & ~ue_hi_mask);
++		if (ue_lo != adapter->ue_lo || ue_hi != adapter->ue_hi) {
++			dev_err(dev, "UE read: 0x%x/0x%x\n", ue_lo, ue_hi);
++			goto done;
++		}
++	}
++
++	if (ue_lo == 0xffffffff || ue_hi == 0xffffffff) {
++		adapter->eeh_error = true;
++		dev_err(dev, "PCI slot disconnected\n");
++		goto done;
+ 	}
+ 
+ 	if (ue_lo || ue_hi ||
+ 		sliport_status & SLIPORT_STATUS_ERR_MASK) {
+ 		adapter->hw_error = true;
+-		dev_err(&adapter->pdev->dev,
+-			"Error detected in the card\n");
++		dev_err(dev, "UE detected\n");
+ 	}
+ 
+ 	if (sliport_status & SLIPORT_STATUS_ERR_MASK) {
+@@ -2162,7 +2172,9 @@ void be_detect_error(struct be_adapter *adapter)
+ 				"UE: %s bit set\n", ue_status_hi_desc[i]);
+ 		}
+ 	}
+-
++done:
++	adapter->ue_lo = ue_lo;
++	adapter->ue_hi = ue_hi;
+ }
+ 
+ static void be_msix_disable(struct be_adapter *adapter)
+-- 
+1.7.9.5
