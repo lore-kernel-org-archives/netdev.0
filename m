@@ -1,43 +1,47 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: bnx2x: link detected up at startup even when it should be
- down
-Date: Fri, 21 Sep 2012 19:23:02 +0000
-Message-ID: <504C9EFCA2D0054393414C9CB605C37F2F1B50@SJEXCHMB06.corp.ad.broadcom.com>
-References: <CAL8zT=hFPQ-NZw8eKQwnktRrcpsOFk3aa_ac5mSWa+TAwyTGBQ@mail.gmail.com>
- <504C9EFCA2D0054393414C9CB605C37F2EB97C@SJEXCHMB06.corp.ad.broadcom.com>
- <CAL8zT=i_eV3SjuBgdWrBPaE-CoBBVh5QJD8jg-YMoQHDuA4AOQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] sunbmac: Remove unused local variable.
+Date: Fri, 21 Sep 2012 15:23:46 -0400 (EDT)
+Message-ID: <20120921.152346.215918842698130443.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	"Barak Witkowski" <barak@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "Jean-Michel Hautbois" <jhautbois@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2980 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757742Ab2IUTXK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Sep 2012 15:23:10 -0400
-In-Reply-To: <CAL8zT=i_eV3SjuBgdWrBPaE-CoBBVh5QJD8jg-YMoQHDuA4AOQ@mail.gmail.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:52112 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757703Ab2IUTXs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 15:23:48 -0400
+Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 5E8925819DF
+	for <netdev@vger.kernel.org>; Fri, 21 Sep 2012 12:23:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgSmVhbiwNCg0KVGhhbmsgeW91IGZvciB0aGUgaW5mbw0KDQo+IC0tLS0tT3JpZ2luYWwgTWVz
-c2FnZS0tLS0tDQo+IEZyb206IEplYW4tTWljaGVsIEhhdXRib2lzIFttYWlsdG86amhhdXRib2lz
-QGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBTZXB0ZW1iZXIgMjEsIDIwMTIgOTowNCBBTQ0K
-PiBUbzogRG1pdHJ5IEtyYXZrb3YNCj4gQ2M6IG5ldGRldjsgQmFyYWsgV2l0a293c2tpOyBFaWxv
-biBHcmVlbnN0ZWluOyBkYXZlbUBkYXZlbWxvZnQubmV0DQo+IFN1YmplY3Q6IFJlOiBibngyeDog
-bGluayBkZXRlY3RlZCB1cCBhdCBzdGFydHVwIGV2ZW4gd2hlbiBpdCBzaG91bGQgYmUgZG93bg0K
-PiANCj4gSSBhbHJlYWR5IGRpZCBpdCB0d2ljZS4gSSB0aGluayB0aGlzIGlzIEZXIHJlbGF0ZWQg
-YW5kIG5vdCBvbmx5IHRoZQ0KPiBjb21taXQgYWRkaW5nIGFmZXggc3VwcG9ydC4gSXQgbWF5IGhh
-dmUgc29sdmVkIGEgbGluayBpc3N1ZSAoSSBhbSBqdXN0DQo+IGd1ZXNzaW5nLCBiYXNlZCBvbiBl
-eHBlcmltZW50cykgPw0KDQpGVyByZXBsYWNlZCBpbiB0aGlzIGNvbW1pdCBkb2VzIG5vdCBkZWFs
-IHdpdGggbGluayBhdCBhbGwsDQoNCk9uZSBpcyBpbnZvbHZlZCBpbiBsaW5rIG1hbmFnZW1lbnQg
-aXMgZGlzcGxheWVkIHVzaW5nICdldGh0b29sIC1pJyAtIGl0IGNvbWVzIHdpdGggYSBjYXJkICBh
-bmQgZHJpdmVyIGluZGVwZW5kZW50LiANCg0KSXMgZGV2aWNlIGNvbmZpZ3VyZWQgZm9yIE1GIGJ5
-IHRoZSBzd2l0Y2g/DQpDYW4geW91IHBsZWFzZSBzaGFyZSBsc3BjaSBvdXRwdXQ/DQoNCk90aGVy
-IHRoaW5nIHRoYXQgY2FuIGhlbHAgaW4gYW5hbHlzaXMgaXMgbXNnbHZsIDB4NCBmb3IgYm90aCBz
-aXR1YXRpb25zDQoNClRoYW5rcyBhIGxvdA0KDQoNCg==
+
+Commit eb716c54b1c71ad28ab20461bff831bd481066c4 ("sunbmac: remove
+unnecessary setting of skb->dev") caused the local varible 'dev'
+in bigmac_init_rings to become unused.  And now the compiler
+warns about it.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+Noticed while doing some sparc test builds, committed to net-next
+
+ drivers/net/ethernet/sun/sunbmac.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/sun/sunbmac.c b/drivers/net/ethernet/sun/sunbmac.c
+index 967fe8c..c9c977b 100644
+--- a/drivers/net/ethernet/sun/sunbmac.c
++++ b/drivers/net/ethernet/sun/sunbmac.c
+@@ -212,7 +212,6 @@ static void bigmac_clean_rings(struct bigmac *bp)
+ static void bigmac_init_rings(struct bigmac *bp, int from_irq)
+ {
+ 	struct bmac_init_block *bb = bp->bmac_block;
+-	struct net_device *dev = bp->dev;
+ 	int i;
+ 	gfp_t gfp_flags = GFP_KERNEL;
+ 
+-- 
+1.7.11.4
