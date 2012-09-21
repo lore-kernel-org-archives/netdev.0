@@ -1,32 +1,41 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH 0/1] for 3.6 - fix gianfar build failure
-Date: Fri, 21 Sep 2012 07:11:11 +0200
-Message-ID: <cover.1348203988.git.richardcochran@gmail.com>
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+From: Mathias Krause <minipli@googlemail.com>
+Subject: Re: [PATCH 0/6] xfrm_user info leaks
+Date: Fri, 21 Sep 2012 07:37:29 +0200
+Message-ID: <CA+rthh8iRhymobiYMi=9TrO1FGfrHBrPZzCpsUgnKXsjD0bZiA@mail.gmail.com>
+References: <1348090423-32665-1-git-send-email-minipli@googlemail.com>
+	<20120920.180949.2287169159603922703.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:62948 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753285Ab2IUFLX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 01:11:23 -0400
-Received: by weyx8 with SMTP id x8so1727597wey.19
-        for <netdev@vger.kernel.org>; Thu, 20 Sep 2012 22:11:22 -0700 (PDT)
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:45984 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754049Ab2IUFha (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 01:37:30 -0400
+In-Reply-To: <20120920.180949.2287169159603922703.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The gianfar ethtool time stamping change doesn't even build. This
-should really get fixed for 3.6 if at all possible.
+On Fri, Sep 21, 2012 at 12:09 AM, David Miller <davem@davemloft.net> wrote:
+> From: Mathias Krause <minipli@googlemail.com>
+> Date: Wed, 19 Sep 2012 23:33:37 +0200
+>
+>> the following series fixes various info leaks in the xfrm netlink
+>> interface. As always, a test case can be supplied on request.
+>>
+>> Patches 1 to 5 are probably material for stable, too. Patch 6 is just a
+>> minor optimization I stumbled across while auditing the code.
+>>
+>> Please apply!
+>
+> All applied, and I made sure to use v3 of patch #5 (which you marked
+> as 5/7 instead of 5/6 :-)
 
-Thanks,
-Richard
+Sorry for the confusion. Looks like I've to learn a few more git
+tricks, so this won't happen again ;)
 
+> Also, these have been queued up for -stable as well.
 
-Richard Cochran (1):
-  gianfar: fix phc index build failure
-
- drivers/net/ethernet/freescale/gianfar_ethtool.c |    1 +
- drivers/net/ethernet/freescale/gianfar_ptp.c     |    4 ++--
- 2 files changed, 3 insertions(+), 2 deletions(-)
-
--- 
-1.7.2.5
+Thanks!
