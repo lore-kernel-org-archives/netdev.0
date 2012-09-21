@@ -1,16 +1,20 @@
 From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] can: mscan-mpc5xxx: fix return value check in mpc512x_can_get_clock()
-Date: Fri, 21 Sep 2012 15:09:47 +0800
-Message-ID: <CAPgLHd9fRAvQ77rD_PCp45XW9-FsBisUATOT00Je39nbv5o28A@mail.gmail.com>
+Subject: [PATCH] net/irda: sh_sir: fix return value check in sh_sir_set_baudrate()
+Date: Fri, 21 Sep 2012 15:13:55 +0800
+Message-ID: <CAPgLHd9DZuXtx2atvpLV3bHC9tnv+CNaKhvEWzv6f3iS--vfcg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
-To: wg@grandegger.com, mkl@pengutronix.de, grant.likely@secretlab.ca,
-	rob.herring@calxeda.com
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: samuel@sortiz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:58597 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753479Ab2IUHNz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 03:13:55 -0400
+Received: by qaas11 with SMTP id s11so1029887qaa.19
+        for <netdev@vger.kernel.org>; Fri, 21 Sep 2012 00:13:55 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
@@ -23,30 +27,19 @@ dpatch engine is used to auto generated this patch.
 
 Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 ---
- drivers/net/can/mscan/mpc5xxx_can.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/irda/sh_sir.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/can/mscan/mpc5xxx_can.c b/drivers/net/can/mscan/mpc5xxx_can.c
-index 06adf88..524ef96 100644
---- a/drivers/net/can/mscan/mpc5xxx_can.c
-+++ b/drivers/net/can/mscan/mpc5xxx_can.c
-@@ -181,7 +181,7 @@ static u32 __devinit mpc512x_can_get_clock(struct platform_device *ofdev,
+diff --git a/drivers/net/irda/sh_sir.c b/drivers/net/irda/sh_sir.c
+index 256eddf..7951094 100644
+--- a/drivers/net/irda/sh_sir.c
++++ b/drivers/net/irda/sh_sir.c
+@@ -280,7 +280,7 @@ static int sh_sir_set_baudrate(struct sh_sir_self *self, u32 baudrate)
+ 	}
  
- 		if (!clock_name || !strcmp(clock_name, "sys")) {
- 			sys_clk = clk_get(&ofdev->dev, "sys_clk");
--			if (!sys_clk) {
-+			if (IS_ERR(sys_clk)) {
- 				dev_err(&ofdev->dev, "couldn't get sys_clk\n");
- 				goto exit_unmap;
- 			}
-@@ -204,7 +204,7 @@ static u32 __devinit mpc512x_can_get_clock(struct platform_device *ofdev,
- 
- 		if (clocksrc < 0) {
- 			ref_clk = clk_get(&ofdev->dev, "ref_clk");
--			if (!ref_clk) {
-+			if (IS_ERR(ref_clk)) {
- 				dev_err(&ofdev->dev, "couldn't get ref_clk\n");
- 				goto exit_unmap;
- 			}
-
-
+ 	clk = clk_get(NULL, "irda_clk");
+-	if (!clk) {
++	if (IS_ERR(clk)) {
+ 		dev_err(dev, "can not get irda_clk\n");
+ 		return -EIO;
+ 	}
