@@ -1,59 +1,55 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [PATCH 1/3 V2] phy/micrel: Implement support for KSZ8021
-Date: Fri, 21 Sep 2012 20:04:09 +0200
-Message-ID: <201209212004.10148.marex@denx.de>
-References: <1348195976-31703-1-git-send-email-marex@denx.de> <20120921.134215.1719885507288305623.davem@davemloft.net>
+From: Don Dutile <ddutile@redhat.com>
+Subject: Re: New commands to configure IOV features
+Date: Fri, 21 Sep 2012 14:06:11 -0400
+Message-ID: <505CAC93.8020304@redhat.com>
+References: <5003DC9B.8000706@broadcom.com> <500978C7.5050004@genband.com> <50097FBD.9080202@redhat.com> <1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com> <5009B186.6000806@genband.com> <1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com> <5009ECDF.4090305@genband.com> <500D59BF.9040006@redhat.com> <500D6932.8090306@genband.com> <20120723113607.56ce7aaf@nehalam.linuxnetplumber.net> <C5551D9AAB213A418B7FD5E4A6F30A070C7D9DCD@ORSMSX106.amr.corp.intel.com> <5059A767.2090307@broadcom.com> <20120919085306.00006af9@unknown> <1348083847.2636.37.camel@bwh-desktop.uk.solarflarecom.com> <CAE9FiQXQj_KdWT-mVVsptxiEgGjScgDy_Lp-aXioZ4YAQh1wWQ@mail.gmail.com> <1348094773.2636.85.camel@bwh-desktop.uk.solarflarecom.com> <CAE9FiQVk-uXgLK6dM8q5-Xsh8LO+c-Dd_cEpu2WzJ6Uzt6ztnA@mail.gmail.com> <1
+ 348104190.4836.61.camel@deadeye.wl.decadent.org.uk> <C5551D9AAB213A418B7FD5E4A6F30A07152FA5F6@ORSMSX106.amr.corp.intel.com> <CAE9FiQXqFnrXT8ibD2zsmeTj-VzXb8sAOjUtryBOxEXj216pQQ@mail.gmail.c!
+ om>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, david.choi@micrel.com,
-	nobuhiro.iwamatsu.yj@renesas.com, fabio.estevam@freescale.com,
-	shawn.guo@linaro.org
-To: David Miller <davem@davemloft.net>
+Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Yuval Mintz <yuvalmin@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ariel Elior <ariele@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	linux-pci <linux-pci@vger.kernel.org>
+To: Yinghai Lu <yinghai@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:49409 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753547Ab2IUSEO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 14:04:14 -0400
-In-Reply-To: <20120921.134215.1719885507288305623.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:7670 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754579Ab2IUSGV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Sep 2012 14:06:21 -0400
+In-Reply-To: <CAE9FiQXqFnrXT8ibD2zsmeTj-VzXb8sAOjUtryBOxEXj216pQQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear David Miller,
+On 09/21/2012 01:50 AM, Yinghai Lu wrote:
+> On Thu, Sep 20, 2012 at 8:39 AM, Rose, Gregory V
+> <gregory.v.rose@intel.com>  wrote:
+>>> -----Original Message-----
+>>> From: Ben Hutchings [mailto:bhutchings@solarflare.com]
+>>>>
+>>>> could just stop the device and add it back again?
+>>>
+>>> This is highly disruptive and I think it would be totally unacceptable for
+>>> at least networking devices.
+>>
+>> Agreed.
+>>
+>> We need the driver callback.
+>
+> ok, something like attached patches?
+>
+> ixgbe change need more cleanup from ixgbe guys.
+>
+> -Yinghai
+yuk, no.
+I have a set of patches almost done.
+It provides 3 sysfs files (enable, disable, num_max_vfs);
+callbacks for enable & disable.
 
-> From: Marek Vasut <marex@denx.de>
-> Date: Fri, 21 Sep 2012 04:52:54 +0200
-> 
-> > +	phy_write(phydev, MII_KSZPHY_OMSO,
-> > +		KSZPHY_OMSO_B_CAST_OFF | KSZPHY_OMSO_RMII_OVERRIDE);
-> 
-> This is not indented properly.  The goal is not to exclusively use
-> TAB characters to indent code until it sort-of looks fine.
-
-The goal was to avoid checkpatch trouble.
-
-> Rather, the goal is to properly line up function arguments with
-> the first column after the openning parenthesis on the previous
-> line.  Using TAB and SPACE characters, as needed.
-> 
-> > +	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
-> > +				| SUPPORTED_Asym_Pause),
-> 
-> This is similarly not styled properly.
-
-This is copy-pasted from other entry. I'd hate to reformat the whole file.
-
-> Besies being indented imporperly on the second line, the final "|"
-> character should be at the end of the first line, rather than
-> start the second line.
-
-DTTO here.
-
-> Resubmit this entire patch series, not just this one patch, once
-> you've made these corrections.
-> 
-> Thanks.
-
-Best regards,
-Marek Vasut
+i'm tied up until Monday on RHEL6, then I'll switch gears & post a set of patches.
