@@ -1,58 +1,32 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: [PATCH 1/6] xen-netfront: handle backend CLOSED without CLOSING
-Date: Fri, 21 Sep 2012 17:04:19 +0100
-Message-ID: <1348243464-15903-2-git-send-email-david.vrabel@citrix.com>
-References: <1348243464-15903-1-git-send-email-david.vrabel@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next v2] l2tp: fix compile error when CONFIG_IPV6=m
+ and CONFIG_L2TP=y
+Date: Fri, 21 Sep 2012 12:07:08 -0400 (EDT)
+Message-ID: <20120921.120708.2049925225953926043.davem@davemloft.net>
+References: <1348209366-26978-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David Vrabel" <david.vrabel@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	linux-kernel@vger.kernel.org,
-	Ian Campbell <ian.campbell@citrix.com>,
-	<netdev@vger.kernel.org>
-To: xen-devel@lists.xensource.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1348243464-15903-1-git-send-email-david.vrabel@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: amwang@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49442 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751604Ab2IUQHQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 12:07:16 -0400
+In-Reply-To: <1348209366-26978-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Vrabel <david.vrabel@citrix.com>
+From: Cong Wang <amwang@redhat.com>
+Date: Fri, 21 Sep 2012 14:36:06 +0800
 
-Backend drivers shouldn't transistion to CLOSED unless the frontend is
-CLOSED.  If a backend does transition to CLOSED too soon then the
-frontend may not see the CLOSING state and will not properly shutdown.
+> When CONFIG_IPV6=m and CONFIG_L2TP=y, I got the following compile error:
+...
+> This is due to l2tp uses symbols from IPV6, so when IPV6
+> is a module, l2tp is not allowed to be builtin.
+> 
+> Cc: David Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-So, treat an unexpected backend CLOSED state the same as CLOSING.
-
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: <netdev@vger.kernel.org>
----
- drivers/net/xen-netfront.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 3089990..843533a 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1719,7 +1719,6 @@ static void netback_changed(struct xenbus_device *dev,
- 	case XenbusStateReconfiguring:
- 	case XenbusStateReconfigured:
- 	case XenbusStateUnknown:
--	case XenbusStateClosed:
- 		break;
- 
- 	case XenbusStateInitWait:
-@@ -1734,6 +1733,10 @@ static void netback_changed(struct xenbus_device *dev,
- 		netif_notify_peers(netdev);
- 		break;
- 
-+	case XenbusStateClosed:
-+		if (dev->state == XenbusStateClosed)
-+			break;
-+		/* Missed the backend's CLOSING state -- fallthrough */
- 	case XenbusStateClosing:
- 		xenbus_frontend_closed(dev);
- 		break;
--- 
-1.7.2.5
+Applied, thanks.
