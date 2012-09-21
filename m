@@ -1,48 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/stmmac: Use clk_prepare_enable and
- clk_disable_unprepare
-Date: Fri, 21 Sep 2012 15:00:19 -0400 (EDT)
-Message-ID: <20120921.150019.2260891366589656756.davem@davemloft.net>
-References: <1348225589-8126-1-git-send-email-sr@denx.de>
-	<CAKohpomw8u5wgtWAukfqH7t3iwge+jyFxBY4bv6AT2u5c_=arA@mail.gmail.com>
+Subject: Re: [patch net-next] team: send port changed when added
+Date: Fri, 21 Sep 2012 15:01:42 -0400 (EDT)
+Message-ID: <20120921.150142.1121078984466626799.davem@davemloft.net>
+References: <1348228319-11453-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sr@denx.de, netdev@vger.kernel.org, peppe.cavallaro@st.com,
-	spear-devel@list.st.com
-To: viresh.kumar@linaro.org
+Cc: netdev@vger.kernel.org
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51816 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51842 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933085Ab2IUTAV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 15:00:21 -0400
-In-Reply-To: <CAKohpomw8u5wgtWAukfqH7t3iwge+jyFxBY4bv6AT2u5c_=arA@mail.gmail.com>
+	with ESMTP id S933023Ab2IUTBn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 15:01:43 -0400
+In-Reply-To: <1348228319-11453-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Viresh Kumar <viresh.kumar@linaro.org>
-Date: Fri, 21 Sep 2012 16:51:28 +0530
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri, 21 Sep 2012 13:51:59 +0200
 
-> On 21 September 2012 16:36, Stefan Roese <sr@denx.de> wrote:
->> This patch fixes an issue introduced by commit ID 6a81c26f
->> [net/stmmac: remove conditional compilation of clk code], which
->> switched from the internal stmmac_clk_{en}{dis}able calls to
->> clk_{en}{dis}able. By this, calling clk_prepare and clk_unprepare
->> was removed.
->>
->> clk_{un}prepare is mandatory for platforms using common clock framework.
->> Since these drivers are used by SPEAr platform, which supports common
->> clock framework, add clk_{un}prepare() support for them. Otherwise
->> the clocks are not correctly en-/disabled and ethernet support doesn't
->> work.
+> On some hw, link is not up during adding iface to team. That causes event
+> not being sent to userspace and that may cause confusion.
+> Fix this bug by sending port changed event once it's added to team.
 > 
-> I can't believe i have done this. :)
-> 
-> IIRC, when i wrote this code prepare/unprepare weren't there. And by the
-> time my code got merged, they were. And this mistake was missed there.
-> 
-> Thanks for fixing it.
-> 
-> Reviewed-by: Viresh Kumar <viresh.kumar@linaro.org>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Applied, thanks.
+Applied, thanks a lot Jiri.
