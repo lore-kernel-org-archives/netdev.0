@@ -1,35 +1,42 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v3] ucc_geth: Lockless xmit
-Date: Fri, 21 Sep 2012 14:51:29 +0200
-Message-ID: <20120921125129.GA21792@electric-eye.fr.zoreil.com>
-References: <1348129021-28333-1-git-send-email-Joakim.Tjernlund@transmode.se> <1348218675-3804-1-git-send-email-Joakim.Tjernlund@transmode.se>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [PATCH] Xen backend support for paged out grant targets V4.
+Date: Fri, 21 Sep 2012 09:28:36 -0400
+Message-ID: <20120921132836.GA13090@phenom.dumpdata.com>
+References: <1347632819-13684-1-git-send-email-andres@lagarcavilla.org>
+ <1347869865.14977.15.camel@zakaz.uk.xensource.com>
+ <5B5132A4-93B2-41D0-B1A6-048810565DB5@gridcentric.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:58192 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755097Ab2IUNJu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 09:09:50 -0400
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	Andres Lagar-Cavilla <andres@lagarcavilla.org>,
+	xen-devel <xen-devel@lists.xen.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	David Miller <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1348218675-3804-1-git-send-email-Joakim.Tjernlund@transmode.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <5B5132A4-93B2-41D0-B1A6-048810565DB5@gridcentric.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Joakim Tjernlund <Joakim.Tjernlund@transmode.se> :
-> Currently ucc_geth_start_xmit wraps IRQ off for the
-> whole body just to be safe. By rearranging the code a bit
-> one can avoid the lock completely.
+> >> Signed-off-by: Andres Lagar-Cavilla <andres@lagarcavilla.org>
+> > 
+> > Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> > 
+> > Since this is more about grant tables than netback this should probably
+> > go via Konrad rather than Dave, is that OK with you Dave?
+> 
+> If that is the case hopefully Konrad can deal with the two typos? Otherwise happy to re-spin the patch.
+> Thanks!
 
-Afaics you went a bit too lockless with the queueing disable / enable
-logic. The hard_start_xmit handler is run in a locally softirq disabled
-section but it will happily race with the napi handler on a different
-CPU. Grep netif_tx_lock in tg3.c for it.
+David, I pulled it in my tree since the only changes it does to drivers/net/xen-* is
+change the name of the function to call in the bowels of grant API.
 
-The Tx skb free logic probably requires some smp memory barriers as
-well since the current skb is used by the ucc_geth driver to sync the
-Tx xmit with the napi completion handler.
+HYPERVISOR_grant_table_op(GNTTABOP_copy, netbk->tx_copy_ops, nr_gops);
+to
+gnttab_batch_copy(netbk->tx_copy_ops, nr_gops);
 
--- 
-Ueimor
+Hope that is OK - if not I can prep a branch that has patches that this depends
+on that you can pull.
