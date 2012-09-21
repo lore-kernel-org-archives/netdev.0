@@ -1,75 +1,64 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH] net/can:  rename peak_usb dump_mem function
-Date: Fri, 21 Sep 2012 14:42:23 -0700
-Message-ID: <505CDF3F.6040009@xenotime.net>
-References: <1346577700-8156-1-git-send-email-geert@linux-m68k.org> <504393A7.8040007@xenotime.net>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: linux-next: build failure after merge of the final tree
+ (net-next tree related)
+Date: Sat, 22 Sep 2012 07:46:40 +1000
+Message-ID: <1348264000.1132.63.camel@pasglop>
+References: <20120920.164558.2281417114805373564.davem@davemloft.net>
+	 <20120921081531.67db8a7d0ac1b35426b22c45@canb.auug.org.au>
+	 <1348179764.1132.35.camel@pasglop>
+	 <20120920.185315.576326460331670020.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Stephane Grosjean <s.grosjean@peak-system.com>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-can@vger.kernel.org
-To: Randy Dunlap <rdunlap@xenotime.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <504393A7.8040007@xenotime.net>
-Sender: linux-can-owner@vger.kernel.org
+Cc: sfr@canb.auug.org.au, paulus@samba.org,
+	linuxppc-dev@lists.ozlabs.org, mika.westerberg@linux.intel.com,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20120920.185315.576326460331670020.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/02/2012 10:13 AM, Randy Dunlap wrote:
-
-> From: Randy Dunlap <rdunlap@xenotime.net>
+On Thu, 2012-09-20 at 18:53 -0400, David Miller wrote:
+> From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Date: Fri, 21 Sep 2012 08:22:44 +1000
 > 
-> Rename generic-sounding function dump_mem() to pcan_dump_mem()
-> so that it does not conflict with the dump_mem() function in
-> arch/sh/include/asm/kdebug.h.
+> > Hrm, that's ancient gunk, I'll have to dig. We potentially can support
+> > ISA devices DMA'ing from an ISA bridge... but via the iommu, which means
+> > isa_virt_to_bus is a non-starter.
+> > 
+> > But then, do we really care ? IE. Is there single device that actually
+> > requires ISA_DMA_API and that is expected to work on any currently
+> > supported powerpc hw ? :-)
+> > 
+> > We don't even support PReP anymore, so that leaves us with what ?
 > 
-> drivers/net/can/usb/peak_usb/pcan_usb_core.c: error: conflicting types for 'dump_mem':  => 56:6
-> drivers/net/can/usb/peak_usb/pcan_usb_core.h: error: conflicting types for 'dump_mem':  => 134:6
+> ISA_DMA_API implies a fixed window of addresses which are <= 32-bits
+> on the bus, which is a hardware requirement of these devices.
+>
+> isa_virt_to_bus() goes to that physical address, and the expection is
+> that you use GFP_DMA and thus the physical addresses fit inside of
+> an unsigned int.
+
+Right, but on ppc, GFP_DMA is a nop (no separate ZONE_DMA, or rather all
+of memory is ZONE_DMA). It's always been like that afaik.
+
+We could support ISA device limited addressability using the iommu but
+that would involve a map/unmap type API (which I remember we did support
+in the old days by passing NULL to pci_map_*, but we dropped that along
+the way).
+
+> isa_virt_to_bus() basically amounts to a virt-->phys plus a cast.
 > 
-> Not tested.
+> > Anybody has an objection to turning ISA_DMA_API off ?
 > 
-> Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
-> Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> Cc: Stephane Grosjean <s.grosjean@peak-system.com>
-> Cc: Wolfgang Grandegger <wg@grandegger.com>
-> Cc: Marc Kleine-Budde <mkl@pengutronix.de>
+> Then you can remove all of the DMA api stuff in powerpc's asm/dma.h
+> but some of it looks like it might be in use.
 
+I will dig a bit. I think there might be some users of the ISA DMA
+engine for legacy floppies and parport on some early pSeries and CHRP
+machines (including Pegasos).
 
-ping.
-
-> ---
->  drivers/net/can/usb/peak_usb/pcan_usb_core.c |    2 +-
->  drivers/net/can/usb/peak_usb/pcan_usb_core.h |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> --- lnx-36-rc4.orig/drivers/net/can/usb/peak_usb/pcan_usb_core.c
-> +++ lnx-36-rc4/drivers/net/can/usb/peak_usb/pcan_usb_core.c
-> @@ -53,7 +53,7 @@ static struct peak_usb_adapter *peak_usb
->   * dump memory
->   */
->  #define DUMP_WIDTH	16
-> -void dump_mem(char *prompt, void *p, int l)
-> +void pcan_dump_mem(char *prompt, void *p, int l)
->  {
->  	pr_info("%s dumping %s (%d bytes):\n",
->  		PCAN_USB_DRIVER_NAME, prompt ? prompt : "memory", l);
-> --- lnx-36-rc4.orig/drivers/net/can/usb/peak_usb/pcan_usb_core.h
-> +++ lnx-36-rc4/drivers/net/can/usb/peak_usb/pcan_usb_core.h
-> @@ -131,7 +131,7 @@ struct peak_usb_device {
->  	struct peak_usb_device *next_siblings;
->  };
->  
-> -void dump_mem(char *prompt, void *p, int l);
-> +void pcan_dump_mem(char *prompt, void *p, int l);
->  
->  /* common timestamp management */
->  void peak_usb_init_time_ref(struct peak_time_ref *time_ref,
-> 
-
-
-
--- 
-~Randy
+Cheers,
+Ben.
