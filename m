@@ -1,59 +1,47 @@
-From: Marek Vasut <marex@denx.de>
-Subject: [PATCH 3/3 RESEND] phy/micrel: Add missing header to micrel_phy.h
-Date: Fri, 21 Sep 2012 04:52:56 +0200
-Message-ID: <1348195976-31703-3-git-send-email-marex@denx.de>
-References: <1348195976-31703-1-git-send-email-marex@denx.de>
-Cc: Marek Vasut <marex@denx.de>,
-	"David J. Choi" <david.choi@micrel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Shawn Guo <shawn.guo@linaro.org>
-To: netdev@vger.kernel.org
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] ipv6: fix return value check in fib6_add()
+Date: Fri, 21 Sep 2012 12:29:56 +0800
+Message-ID: <CAPgLHd9vdKJfj1yUqU+zDaH6PiuqY8ZG_V5B1py--NiDwa+WkA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:53602 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756980Ab2IUCxH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 22:53:07 -0400
-In-Reply-To: <1348195976-31703-1-git-send-email-marex@denx.de>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:54986 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751414Ab2IUE35 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 00:29:57 -0400
+Received: by qcro28 with SMTP id o28so2309091qcr.19
+        for <netdev@vger.kernel.org>; Thu, 20 Sep 2012 21:29:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The license header was missing in micrel_phy.h . This patch adds
-one.
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Signed-off-by: Marek Vasut <marex@denx.de>
-Cc: David J. Choi <david.choi@micrel.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Cc: Fabio Estevam <fabio.estevam@freescale.com>
-Cc: Shawn Guo <shawn.guo@linaro.org>
+In case of error, the function fib6_add_1() returns ERR_PTR()
+or NULL pointer. The ERR_PTR() case check is missing in fib6_add().
+
+dpatch engine is used to generated this patch.
+(https://github.com/weiyj/dpatch)
+
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 ---
- include/linux/micrel_phy.h |   12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ net/ipv6/ip6_fib.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-NOTE: I'd like to have ACK on this from the original author of
-      the file, as this now says it's GPL2+.
-
-diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
-index d02355d..de20120 100644
---- a/include/linux/micrel_phy.h
-+++ b/include/linux/micrel_phy.h
-@@ -1,3 +1,15 @@
-+/*
-+ * include/linux/micrel_phy.h
-+ *
-+ * Micrel PHY IDs
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ *
-+ */
-+
- #ifndef _MICREL_PHY_H
- #define _MICREL_PHY_H
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 13690d6..286acfc 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -819,6 +819,10 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info)
+ 					offsetof(struct rt6_info, rt6i_src),
+ 					allow_create, replace_required);
  
--- 
-1.7.10.4
++			if (IS_ERR(sn)) {
++				err = PTR_ERR(sn);
++				sn = NULL;
++			}
+ 			if (!sn) {
+ 				/* If it is failed, discard just allocated
+ 				   root, and then (in st_failure) stale node
