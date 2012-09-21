@@ -1,109 +1,35 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] team: send port changed when added
-Date: Fri, 21 Sep 2012 13:51:59 +0200
-Message-ID: <1348228319-11453-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v3] ucc_geth: Lockless xmit
+Date: Fri, 21 Sep 2012 14:51:29 +0200
+Message-ID: <20120921125129.GA21792@electric-eye.fr.zoreil.com>
+References: <1348129021-28333-1-git-send-email-Joakim.Tjernlund@transmode.se> <1348218675-3804-1-git-send-email-Joakim.Tjernlund@transmode.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:37666 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751436Ab2IULwD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 07:52:03 -0400
-Received: by wgbdr13 with SMTP id dr13so1370681wgb.1
-        for <netdev@vger.kernel.org>; Fri, 21 Sep 2012 04:52:02 -0700 (PDT)
+Received: from violet.fr.zoreil.com ([92.243.8.30]:58192 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755097Ab2IUNJu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 09:09:50 -0400
+Content-Disposition: inline
+In-Reply-To: <1348218675-3804-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On some hw, link is not up during adding iface to team. That causes event
-not being sent to userspace and that may cause confusion.
-Fix this bug by sending port changed event once it's added to team.
+Joakim Tjernlund <Joakim.Tjernlund@transmode.se> :
+> Currently ucc_geth_start_xmit wraps IRQ off for the
+> whole body just to be safe. By rearranging the code a bit
+> one can avoid the lock completely.
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- drivers/net/team/team.c | 33 +++++++++++++++++++++++++--------
- 1 file changed, 25 insertions(+), 8 deletions(-)
+Afaics you went a bit too lockless with the queueing disable / enable
+logic. The hard_start_xmit handler is run in a locally softirq disabled
+section but it will happily race with the napi handler on a different
+CPU. Grep netif_tx_lock in tg3.c for it.
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 266af7b..9ce0c51 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -966,7 +966,8 @@ static struct netpoll_info *team_netpoll_info(struct team *team)
- }
- #endif
- 
--static void __team_port_change_check(struct team_port *port, bool linkup);
-+static void __team_port_change_port_added(struct team_port *port, bool linkup);
-+
- static int team_dev_type_check_change(struct net_device *dev,
- 				      struct net_device *port_dev);
- 
-@@ -1079,7 +1080,7 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
- 	team_port_enable(team, port);
- 	list_add_tail_rcu(&port->list, &team->port_list);
- 	__team_compute_features(team);
--	__team_port_change_check(port, !!netif_carrier_ok(port_dev));
-+	__team_port_change_port_added(port, !!netif_carrier_ok(port_dev));
- 	__team_options_change_check(team);
- 
- 	netdev_info(dev, "Port device %s added\n", portname);
-@@ -1114,6 +1115,8 @@ err_set_mtu:
- 	return err;
- }
- 
-+static void __team_port_change_port_removed(struct team_port *port);
-+
- static int team_port_del(struct team *team, struct net_device *port_dev)
- {
- 	struct net_device *dev = team->dev;
-@@ -1130,8 +1133,7 @@ static int team_port_del(struct team *team, struct net_device *port_dev)
- 	__team_option_inst_mark_removed_port(team, port);
- 	__team_options_change_check(team);
- 	__team_option_inst_del_port(team, port);
--	port->removed = true;
--	__team_port_change_check(port, false);
-+	__team_port_change_port_removed(port);
- 	team_port_disable(team, port);
- 	list_del_rcu(&port->list);
- 	netdev_rx_handler_unregister(port_dev);
-@@ -2499,13 +2501,11 @@ static void __team_options_change_check(struct team *team)
- }
- 
- /* rtnl lock is held */
--static void __team_port_change_check(struct team_port *port, bool linkup)
-+
-+static void __team_port_change_send(struct team_port *port, bool linkup)
- {
- 	int err;
- 
--	if (!port->removed && port->state.linkup == linkup)
--		return;
--
- 	port->changed = true;
- 	port->state.linkup = linkup;
- 	team_refresh_port_linkup(port);
-@@ -2530,6 +2530,23 @@ send_event:
- 
- }
- 
-+static void __team_port_change_check(struct team_port *port, bool linkup)
-+{
-+	if (port->state.linkup != linkup)
-+		__team_port_change_send(port, linkup);
-+}
-+
-+static void __team_port_change_port_added(struct team_port *port, bool linkup)
-+{
-+	__team_port_change_send(port, linkup);
-+}
-+
-+static void __team_port_change_port_removed(struct team_port *port)
-+{
-+	port->removed = true;
-+	__team_port_change_send(port, false);
-+}
-+
- static void team_port_change_check(struct team_port *port, bool linkup)
- {
- 	struct team *team = port->team;
+The Tx skb free logic probably requires some smp memory barriers as
+well since the current skb is used by the ucc_geth driver to sync the
+Tx xmit with the napi completion handler.
+
 -- 
-1.7.12
+Ueimor
