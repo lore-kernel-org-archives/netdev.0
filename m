@@ -1,52 +1,75 @@
-From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Subject: Re: [PATCH] rds: Error on offset mismatch if not loopback
-Date: Fri, 21 Sep 2012 16:38:15 -0500
-Message-ID: <505CDE47.1090300@oracle.com>
-References: <20120921213239.GJ14393@linux-tkdk.sfcn.org>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: Re: [PATCH] net/can:  rename peak_usb dump_mem function
+Date: Fri, 21 Sep 2012 14:42:23 -0700
+Message-ID: <505CDF3F.6040009@xenotime.net>
+References: <1346577700-8156-1-git-send-email-geert@linux-m68k.org> <504393A7.8040007@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: John Jolly <jjolly@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120921213239.GJ14393@linux-tkdk.sfcn.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Stephane Grosjean <s.grosjean@peak-system.com>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	linux-can@vger.kernel.org
+To: Randy Dunlap <rdunlap@xenotime.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <504393A7.8040007@xenotime.net>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/21/2012 4:32 PM, John Jolly wrote:
-> Attempting an rds connection from the IP address of an IPoIB interface
-> to itself causes a kernel panic due to a BUG_ON() being triggered.
-> Making the test less strict allows rds-ping to work without crashing
-> the machine.
->
-> A local unprivileged user could use this flaw to crash the system.
->
-> Signed-off-by: John Jolly<jjolly@suse.com>
+On 09/02/2012 10:13 AM, Randy Dunlap wrote:
+
+> From: Randy Dunlap <rdunlap@xenotime.net>
+> 
+> Rename generic-sounding function dump_mem() to pcan_dump_mem()
+> so that it does not conflict with the dump_mem() function in
+> arch/sh/include/asm/kdebug.h.
+> 
+> drivers/net/can/usb/peak_usb/pcan_usb_core.c: error: conflicting types for 'dump_mem':  => 56:6
+> drivers/net/can/usb/peak_usb/pcan_usb_core.h: error: conflicting types for 'dump_mem':  => 134:6
+> 
+> Not tested.
+> 
+> Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+> Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> Cc: Stephane Grosjean <s.grosjean@peak-system.com>
+> Cc: Wolfgang Grandegger <wg@grandegger.com>
+> Cc: Marc Kleine-Budde <mkl@pengutronix.de>
+
+
+ping.
+
 > ---
->   net/rds/ib_send.c |    2 +-
->   1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
-> index e590949..7920c85 100644
-> --- a/net/rds/ib_send.c
-> +++ b/net/rds/ib_send.c
-> @@ -544,7 +544,7 @@ int rds_ib_xmit(struct rds_connection *conn, struct rds_message *rm,
->          int flow_controlled = 0;
->          int nr_sig = 0;
->
-> -       BUG_ON(off % RDS_FRAG_SIZE);
-> +       BUG_ON(!conn->c_loopback&&  off % RDS_FRAG_SIZE);
->          BUG_ON(hdr_off != 0&&  hdr_off != sizeof(struct rds_header));
->
->          /* Do not send cong updates to IB loopback */
-Hi John,
+>  drivers/net/can/usb/peak_usb/pcan_usb_core.c |    2 +-
+>  drivers/net/can/usb/peak_usb/pcan_usb_core.h |    2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> --- lnx-36-rc4.orig/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+> +++ lnx-36-rc4/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+> @@ -53,7 +53,7 @@ static struct peak_usb_adapter *peak_usb
+>   * dump memory
+>   */
+>  #define DUMP_WIDTH	16
+> -void dump_mem(char *prompt, void *p, int l)
+> +void pcan_dump_mem(char *prompt, void *p, int l)
+>  {
+>  	pr_info("%s dumping %s (%d bytes):\n",
+>  		PCAN_USB_DRIVER_NAME, prompt ? prompt : "memory", l);
+> --- lnx-36-rc4.orig/drivers/net/can/usb/peak_usb/pcan_usb_core.h
+> +++ lnx-36-rc4/drivers/net/can/usb/peak_usb/pcan_usb_core.h
+> @@ -131,7 +131,7 @@ struct peak_usb_device {
+>  	struct peak_usb_device *next_siblings;
+>  };
+>  
+> -void dump_mem(char *prompt, void *p, int l);
+> +void pcan_dump_mem(char *prompt, void *p, int l);
+>  
+>  /* common timestamp management */
+>  void peak_usb_init_time_ref(struct peak_time_ref *time_ref,
+> 
 
-How do you trigger this BUG_ON ?
-With rds-ping I could not hit this condition of non-zero "off % 
-RDS_FRAG_SIZE".
-rds-ping uses zero byte messages to ping or pong back. How does the 
-"off" become non-zero ?
 
-Thanks.
 
-Venkat
+-- 
+~Randy
