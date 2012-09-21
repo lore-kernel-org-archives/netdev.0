@@ -1,283 +1,99 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Subject: Re: New commands to configure IOV features
-Date: Thu, 20 Sep 2012 22:50:10 -0700
-Message-ID: <CAE9FiQXqFnrXT8ibD2zsmeTj-VzXb8sAOjUtryBOxEXj216pQQ@mail.gmail.com>
-References: <5003DC9B.8000706@broadcom.com>
-	<5005BD00.4090106@redhat.com>
-	<5005D45D.1040302@genband.com>
-	<20120717.141153.46613285253481776.davem@davemloft.net>
-	<500978C7.5050004@genband.com>
-	<50097FBD.9080202@redhat.com>
-	<1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>
-	<5009B186.6000806@genband.com>
-	<1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com>
-	<5009ECDF.4090305@genband.com>
-	<500D59BF.9040006@redhat.com>
-	<500D6932.8090306@genband.com>
-	<20120723113607.56ce7aaf@nehalam.linuxnetplumber.net>
-	<C5551D9AAB213A418B7FD5E4A6F30A070C7D9DCD@ORSMSX106.amr.corp.intel.com>
-	<5059A767.2090307@broadcom.com>
-	<20120919085306.00006af9@unknown>
-	<1348083847.2636.37.camel@bwh-desktop.uk.solarflarecom.com>
-	<CAE9FiQXQj_KdWT-mVVsptxiEgGjScgDy_Lp-aXioZ4YAQh1wWQ@mail.gmail.com>
-	<1348094773.2636.85.camel@bwh-desktop.uk.solarflarecom.com>
-	<CAE9FiQVk-uXgLK6dM8q5-Xsh8LO+c-Dd_cEpu2WzJ6Uzt6ztnA@mail.gmail.com>
-	<1348104190.4836.61.camel@deadeye.wl.decadent.org.uk>
-	<C5551D9AAB213A418B7FD5E4A6F30A07152FA5F6@ORSMSX106.amr.corp.intel.com>
+From: Jean-Michel Hautbois <jhautbois@gmail.com>
+Subject: Re: bnx2x: link detected up at startup even when it should be down
+Date: Fri, 21 Sep 2012 08:03:45 +0200
+Message-ID: <CAL8zT=i_eV3SjuBgdWrBPaE-CoBBVh5QJD8jg-YMoQHDuA4AOQ@mail.gmail.com>
+References: <CAL8zT=hFPQ-NZw8eKQwnktRrcpsOFk3aa_ac5mSWa+TAwyTGBQ@mail.gmail.com>
+ <504C9EFCA2D0054393414C9CB605C37F2EB97C@SJEXCHMB06.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0015175cab1420922d04ca2fd008
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Yuval Mintz <yuvalmin@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ariel Elior <ariele@broadcom.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Barak Witkowski <barak@broadcom.com>,
 	Eilon Greenstein <eilong@broadcom.com>,
-	linux-pci <linux-pci@vger.kernel.org>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A07152FA5F6@ORSMSX106.amr.corp.intel.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Dmitry Kravkov <dmitry@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:60886 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754616Ab2IUGEH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 02:04:07 -0400
+Received: by ieak13 with SMTP id k13so4714388iea.19
+        for <netdev@vger.kernel.org>; Thu, 20 Sep 2012 23:04:06 -0700 (PDT)
+In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F2EB97C@SJEXCHMB06.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---0015175cab1420922d04ca2fd008
-Content-Type: text/plain; charset=ISO-8859-1
+Hi Dmitry,
 
-On Thu, Sep 20, 2012 at 8:39 AM, Rose, Gregory V
-<gregory.v.rose@intel.com> wrote:
+2012/9/20 Dmitry Kravkov <dmitry@broadcom.com>:
 >> -----Original Message-----
->> From: Ben Hutchings [mailto:bhutchings@solarflare.com]
->> >
->> > could just stop the device and add it back again?
+>> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+>> On Behalf Of Jean-Michel Hautbois
+>> Sent: Thursday, September 20, 2012 6:39 PM
+>> To: netdev
+>> Cc: Barak Witkowski; Eilon Greenstein; davem@davemloft.net
+>> Subject: bnx2x: link detected up at startup even when it should be down
 >>
->> This is highly disruptive and I think it would be totally unacceptable for
->> at least networking devices.
+>> Hi all,
+>>
+>> I am working with a HP blade which has a bnx2x based card (Broadcom
+>> NetXtreme II BCM57810 10 Gigabit Ethernet).
+>> I am using a 3.2 linux kernel, which works very well except on
+>> detecting the link state at startup.
+>> I have my ethernet interfaces linked with a bond, and I want to
+>> configure it for HA (in miimon mode).
+>> I am using a managed switch which helps me in disabling/enabling ports.
+>>
+>> When the port is disabled, at startup, the link is detected "UP".
+>> When I enable the port, it is still "UP", and when I disable it again,
+>> then it is detected "DOWN".
+>>
+>> I have tried the latest 3.6-rc6 kernel, and it works well (link is
+>> "DOWN" at startup when port is disabled).
+>> Then I bisected it, and I found out that the commit which makes it
+>> working (yes, it is an inverse bisect, thanks to this powerful git
+>> tool :)) is :
+>>
+>> a334872224a67b614dc888460377862621f3dac7 is the first bad commit
+>> commit a334872224a67b614dc888460377862621f3dac7
+>> Author: Barak Witkowski <barak@broadcom.com>
+>> Date:   Mon Apr 23 03:04:46 2012 +0000
+>>
+>>     bnx2x: add afex support
+>>
+>>     Following patch adds afex multifunction support to the driver (afex
+>>     multifunction is based on vntag header) and updates FW version
+>> used to 7.2.51.
+>>
+>>     Support includes the following:
+>>
+>>     1. Configure vif parameters in firmware (default vlan, vif id, default
+>>        priority, allowed priorities) according to values received from NIC.
+>>     2. Configure FW to strip/add default vlan according to afex vlan mode.
+>>     3. Notify link up to OS only after vif is fully initialized.
+>>     4. Support vif list set/get requests and configure FW accordingly.
+>>     5. Supply afex statistics upon request from NIC.
+>>     6. Special handling to L2 interface in case of FCoE vif.
+>>
+>>     Signed-off-by: Barak Witkowski <barak@broadcom.com>
+>>     Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+>>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>>
+>> This commit is present in the 3.5.y stable branch, but not the 3.2.y one.
+>> Is there a workaround which would make this feature work correctly
+>> even on older kernels ?
+>> It does not seem to be trivial, but I may miss something as this
+>> driver is pretty big...
 >
-> Agreed.
+>  Jean,
+> I have passed over the patch, but was unable to catch link related change out of the
+> AFEX flow. We will get closer look asap in out lab (guys are out for the weekend already)
 >
-> We need the driver callback.
+> Can you double check bisect result for me, pls?
+>
+> Thanks
 
-ok, something like attached patches?
+I already did it twice. I think this is FW related and not only the
+commit adding afex support. It may have solved a link issue (I am just
+guessing, based on experiments) ?
 
-ixgbe change need more cleanup from ixgbe guys.
-
--Yinghai
-
---0015175cab1420922d04ca2fd008
-Content-Type: application/octet-stream; name="pci_dev_type.patch"
-Content-Disposition: attachment; filename="pci_dev_type.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_h7cv9bwx0
-
-U3ViamVjdDogW1BBVENIXSBQQ0k6IEFkZCBwY2lfZGV2X3R5cGUKCmxhdGVyIHVzZSBpdCBmb3Ig
-dmlzaWFibGUgYXR0cmlidXRlIGNvbnRyb2wuCgpTaWduZWQtb2ZmLWJ5OiBZaW5naGFpIEx1IDx5
-aW5naGFpQGtlcm5lbC5vcmc+CgotLS0KIGRyaXZlcnMvcGNpL3BjaS1zeXNmcy5jIHwgICAyNCAr
-KysrKysrKysrKysrKysrKysrKysrKysKIGRyaXZlcnMvcGNpL3BjaS5oICAgICAgIHwgICAgMSAr
-CiBkcml2ZXJzL3BjaS9wcm9iZS5jICAgICB8ICAgIDEgKwogMyBmaWxlcyBjaGFuZ2VkLCAyNiBp
-bnNlcnRpb25zKCspCgpJbmRleDogbGludXgtMi42L2RyaXZlcnMvcGNpL3BjaS1zeXNmcy5jCj09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT0KLS0tIGxpbnV4LTIuNi5vcmlnL2RyaXZlcnMvcGNpL3BjaS1zeXNmcy5jCisrKyBs
-aW51eC0yLjYvZHJpdmVycy9wY2kvcGNpLXN5c2ZzLmMKQEAgLTE0MTIsMyArMTQxMiwyNyBAQCBz
-dGF0aWMgaW50IF9faW5pdCBwY2lfc3lzZnNfaW5pdCh2b2lkKQogfQogCiBsYXRlX2luaXRjYWxs
-KHBjaV9zeXNmc19pbml0KTsKKworc3RhdGljIHN0cnVjdCBhdHRyaWJ1dGUgKnBjaV9kZXZfZGV2
-X2F0dHJzW10gPSB7CisJTlVMTCwKK307CisKK3N0YXRpYyB1bW9kZV90IHBjaV9kZXZfYXR0cnNf
-YXJlX3Zpc2libGUoc3RydWN0IGtvYmplY3QgKmtvYmosCisJCQkJCQlzdHJ1Y3QgYXR0cmlidXRl
-ICphLCBpbnQgbikKK3sKKwlyZXR1cm4gYS0+bW9kZTsKK30KKworc3RhdGljIHN0cnVjdCBhdHRy
-aWJ1dGVfZ3JvdXAgcGNpX2Rldl9hdHRyX2dyb3VwID0geworCS5hdHRycyA9IHBjaV9kZXZfZGV2
-X2F0dHJzLAorCS5pc192aXNpYmxlID0gcGNpX2Rldl9hdHRyc19hcmVfdmlzaWJsZSwKK307CisK
-K3N0YXRpYyBjb25zdCBzdHJ1Y3QgYXR0cmlidXRlX2dyb3VwICpwY2lfZGV2X2F0dHJfZ3JvdXBz
-W10gPSB7CisJJnBjaV9kZXZfYXR0cl9ncm91cCwKKwlOVUxMLAorfTsKKworc3RydWN0IGRldmlj
-ZV90eXBlIHBjaV9kZXZfdHlwZSA9IHsKKwkuZ3JvdXBzID0gcGNpX2Rldl9hdHRyX2dyb3VwcywK
-K307CkluZGV4OiBsaW51eC0yLjYvZHJpdmVycy9wY2kvcGNpLmgKPT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQotLS0gbGlu
-dXgtMi42Lm9yaWcvZHJpdmVycy9wY2kvcGNpLmgKKysrIGxpbnV4LTIuNi9kcml2ZXJzL3BjaS9w
-Y2kuaApAQCAtMTU4LDYgKzE1OCw3IEBAIHN0YXRpYyBpbmxpbmUgaW50IHBjaV9ub19kMWQyKHN0
-cnVjdCBwY2kKIH0KIGV4dGVybiBzdHJ1Y3QgZGV2aWNlX2F0dHJpYnV0ZSBwY2lfZGV2X2F0dHJz
-W107CiBleHRlcm4gc3RydWN0IGRldmljZV9hdHRyaWJ1dGUgcGNpYnVzX2Rldl9hdHRyc1tdOwor
-ZXh0ZXJuIHN0cnVjdCBkZXZpY2VfdHlwZSBwY2lfZGV2X3R5cGU7CiAjaWZkZWYgQ09ORklHX0hP
-VFBMVUcKIGV4dGVybiBzdHJ1Y3QgYnVzX2F0dHJpYnV0ZSBwY2lfYnVzX2F0dHJzW107CiAjZWxz
-ZQpJbmRleDogbGludXgtMi42L2RyaXZlcnMvcGNpL3Byb2JlLmMKPT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQotLS0gbGlu
-dXgtMi42Lm9yaWcvZHJpdmVycy9wY2kvcHJvYmUuYworKysgbGludXgtMi42L2RyaXZlcnMvcGNp
-L3Byb2JlLmMKQEAgLTEyNzcsNiArMTI3Nyw3IEBAIGludCBwY2lfc2V0dXBfZGV2aWNlKHN0cnVj
-dCBwY2lfZGV2ICpkZXYKIAlkZXYtPnN5c2RhdGEgPSBkZXYtPmJ1cy0+c3lzZGF0YTsKIAlkZXYt
-PmRldi5wYXJlbnQgPSBkZXYtPmJ1cy0+YnJpZGdlOwogCWRldi0+ZGV2LmJ1cyA9ICZwY2lfYnVz
-X3R5cGU7CisJZGV2LT5kZXYudHlwZSA9ICZwY2lfZGV2X3R5cGU7CiAJZGV2LT5oZHJfdHlwZSA9
-IGhkcl90eXBlICYgMHg3ZjsKIAlkZXYtPm11bHRpZnVuY3Rpb24gPSAhIShoZHJfdHlwZSAmIDB4
-ODApOwogCWRldi0+ZXJyb3Jfc3RhdGUgPSBwY2lfY2hhbm5lbF9pb19ub3JtYWw7Cg==
---0015175cab1420922d04ca2fd008
-Content-Type: application/octet-stream;
-	name="pci_010_pci_dev_boot_vga_x.patch"
-Content-Disposition: attachment; filename="pci_010_pci_dev_boot_vga_x.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_h7cv9ld11
-
-U3ViamVjdDogW1BBVENIIDEwLzEwXSBQQ0ksIHN5czogVXNlIGlzX3Zpc2FibGUoKSB3aXRoIGJv
-b3RfdmdhIGF0dHJpYnV0ZSBmb3IgcGNpX2RldgoKVGhhdCBjb3VsZCBsZXQgcGNpX2NyZWF0ZV9z
-eXNmc19kZXZfZmlsZXMgbW9yZSBzaW1wbGUuCgphbHNvIGZpeCBwb3NzaWJsZSBmaXggbWVtbGVh
-ayBkdXJpbmcgcmVtb3ZpbmcgcGF0aC4KClNpZ25lZC1vZmYtYnk6IFlpbmdoYWkgTHUgPHlpbmdo
-YWlAa2VybmVsLm9yZz4KCi0tLQogZHJpdmVycy9wY2kvcGNpLXN5c2ZzLmMgfCAgIDIxICsrKysr
-KysrKystLS0tLS0tLS0tLQogMSBmaWxlIGNoYW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDExIGRl
-bGV0aW9ucygtKQoKSW5kZXg6IGxpbnV4LTIuNi9kcml2ZXJzL3BjaS9wY2ktc3lzZnMuYwo9PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09Ci0tLSBsaW51eC0yLjYub3JpZy9kcml2ZXJzL3BjaS9wY2ktc3lzZnMuYworKysgbGlu
-dXgtMi42L2RyaXZlcnMvcGNpL3BjaS1zeXNmcy5jCkBAIC0xMzA0LDI5ICsxMzA0LDIwIEBAIGlu
-dCBfX211c3RfY2hlY2sgcGNpX2NyZWF0ZV9zeXNmc19kZXZfZmkKIAkJcGRldi0+cm9tX2F0dHIg
-PSBhdHRyOwogCX0KIAotCWlmICgocGRldi0+Y2xhc3MgPj4gOCkgPT0gUENJX0NMQVNTX0RJU1BM
-QVlfVkdBKSB7Ci0JCXJldHZhbCA9IGRldmljZV9jcmVhdGVfZmlsZSgmcGRldi0+ZGV2LCAmdmdh
-X2F0dHIpOwotCQlpZiAocmV0dmFsKQotCQkJZ290byBlcnJfcm9tX2ZpbGU7Ci0JfQotCiAJLyog
-YWRkIHBsYXRmb3JtLXNwZWNpZmljIGF0dHJpYnV0ZXMgKi8KIAlyZXR2YWwgPSBwY2liaW9zX2Fk
-ZF9wbGF0Zm9ybV9lbnRyaWVzKHBkZXYpOwogCWlmIChyZXR2YWwpCi0JCWdvdG8gZXJyX3ZnYV9m
-aWxlOworCQlnb3RvIGVycl9yb21fZmlsZTsKIAogCS8qIGFkZCBzeXNmcyBlbnRyaWVzIGZvciB2
-YXJpb3VzIGNhcGFiaWxpdGllcyAqLwogCXJldHZhbCA9IHBjaV9jcmVhdGVfY2FwYWJpbGl0aWVz
-X3N5c2ZzKHBkZXYpOwogCWlmIChyZXR2YWwpCi0JCWdvdG8gZXJyX3ZnYV9maWxlOworCQlnb3Rv
-IGVycl9yb21fZmlsZTsKIAogCXBjaV9jcmVhdGVfZmlybXdhcmVfbGFiZWxfZmlsZXMocGRldik7
-CiAKIAlyZXR1cm4gMDsKIAotZXJyX3ZnYV9maWxlOgotCWlmICgocGRldi0+Y2xhc3MgPj4gOCkg
-PT0gUENJX0NMQVNTX0RJU1BMQVlfVkdBKQotCQlkZXZpY2VfcmVtb3ZlX2ZpbGUoJnBkZXYtPmRl
-diwgJnZnYV9hdHRyKTsKIGVycl9yb21fZmlsZToKIAlpZiAocm9tX3NpemUpIHsKIAkJc3lzZnNf
-cmVtb3ZlX2Jpbl9maWxlKCZwZGV2LT5kZXYua29iaiwgcGRldi0+cm9tX2F0dHIpOwpAQCAtMTQx
-NCwxMiArMTQwNSwyMCBAQCBzdGF0aWMgaW50IF9faW5pdCBwY2lfc3lzZnNfaW5pdCh2b2lkKQog
-bGF0ZV9pbml0Y2FsbChwY2lfc3lzZnNfaW5pdCk7CiAKIHN0YXRpYyBzdHJ1Y3QgYXR0cmlidXRl
-ICpwY2lfZGV2X2Rldl9hdHRyc1tdID0geworCSZ2Z2FfYXR0ci5hdHRyLAogCU5VTEwsCiB9Owog
-CiBzdGF0aWMgdW1vZGVfdCBwY2lfZGV2X2F0dHJzX2FyZV92aXNpYmxlKHN0cnVjdCBrb2JqZWN0
-ICprb2JqLAogCQkJCQkJc3RydWN0IGF0dHJpYnV0ZSAqYSwgaW50IG4pCiB7CisJc3RydWN0IGRl
-dmljZSAqZGV2ID0gY29udGFpbmVyX29mKGtvYmosIHN0cnVjdCBkZXZpY2UsIGtvYmopOworCXN0
-cnVjdCBwY2lfZGV2ICpwZGV2ID0gdG9fcGNpX2RldihkZXYpOworCisJaWYgKGEgPT0gJnZnYV9h
-dHRyLmF0dHIpCisJCWlmICgocGRldi0+Y2xhc3MgPj4gOCkgIT0gUENJX0NMQVNTX0RJU1BMQVlf
-VkdBKQorCQkJcmV0dXJuIDA7CisKIAlyZXR1cm4gYS0+bW9kZTsKIH0KIAo=
---0015175cab1420922d04ca2fd008
-Content-Type: application/octet-stream; name="pci_drv_set_max_vfs.patch"
-Content-Disposition: attachment; filename="pci_drv_set_max_vfs.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_h7cv9vpp2
-
-LS0tCiBpbmNsdWRlL2xpbnV4L3BjaS5oIHwgICAgMSArCiAxIGZpbGUgY2hhbmdlZCwgMSBpbnNl
-cnRpb24oKykKCkluZGV4OiBsaW51eC0yLjYvaW5jbHVkZS9saW51eC9wY2kuaAo9PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-Ci0tLSBsaW51eC0yLjYub3JpZy9pbmNsdWRlL2xpbnV4L3BjaS5oCisrKyBsaW51eC0yLjYvaW5j
-bHVkZS9saW51eC9wY2kuaApAQCAtNjYzLDYgKzY2Myw3IEBAIHN0cnVjdCBwY2lfZHJpdmVyIHsK
-IAljb25zdCBzdHJ1Y3QgcGNpX2RldmljZV9pZCAqaWRfdGFibGU7CS8qIG11c3QgYmUgbm9uLU5V
-TEwgZm9yIHByb2JlIHRvIGJlIGNhbGxlZCAqLwogCWludCAgKCpwcm9iZSkgIChzdHJ1Y3QgcGNp
-X2RldiAqZGV2LCBjb25zdCBzdHJ1Y3QgcGNpX2RldmljZV9pZCAqaWQpOwkvKiBOZXcgZGV2aWNl
-IGluc2VydGVkICovCiAJdm9pZCAoKnJlbW92ZSkgKHN0cnVjdCBwY2lfZGV2ICpkZXYpOwkvKiBE
-ZXZpY2UgcmVtb3ZlZCAoTlVMTCBpZiBub3QgYSBob3QtcGx1ZyBjYXBhYmxlIGRyaXZlcikgKi8K
-Kwl2b2lkICgqc2V0X21heF92ZnMpIChzdHJ1Y3QgcGNpX2RldiAqZGV2KTsgLyogZW5hYmxlIHNy
-aW92ICovCiAJaW50ICAoKnN1c3BlbmQpIChzdHJ1Y3QgcGNpX2RldiAqZGV2LCBwbV9tZXNzYWdl
-X3Qgc3RhdGUpOwkvKiBEZXZpY2Ugc3VzcGVuZGVkICovCiAJaW50ICAoKnN1c3BlbmRfbGF0ZSkg
-KHN0cnVjdCBwY2lfZGV2ICpkZXYsIHBtX21lc3NhZ2VfdCBzdGF0ZSk7CiAJaW50ICAoKnJlc3Vt
-ZV9lYXJseSkgKHN0cnVjdCBwY2lfZGV2ICpkZXYpOwo=
---0015175cab1420922d04ca2fd008
-Content-Type: application/octet-stream; name="sriov_xxx.patch"
-Content-Disposition: attachment; filename="sriov_xxx.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_h7cvaa3g3
-
-U3ViamVjdDogW1BBVENIXSBQQ0k6IEFkZCBtYXhfdmZzIGluIHN5c2ZzIHBlciBwY2kgZGV2aWNl
-IHdoZXJlIHN1cHBvcnRzCgpkcml2ZXIgbGF0ZXIgbmVlZCB0byBjaGVjayBkZXYtPm1heF92ZnMg
-aW4gL3N5cwoKU2lnbmVkLW9mZi1ieTogWWluZ2hhaSBMdSA8eWluZ2hhaUBrZXJuZWwub3JnPgoK
-LS0tCiBkcml2ZXJzL3BjaS9wY2ktc3lzZnMuYyB8ICAgNTMgKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrCiBpbmNsdWRlL2xpbnV4L3BjaS5oICAgICB8ICAg
-IDEgCiAyIGZpbGVzIGNoYW5nZWQsIDU0IGluc2VydGlvbnMoKykKCkluZGV4OiBsaW51eC0yLjYv
-ZHJpdmVycy9wY2kvcGNpLXN5c2ZzLmMKPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQotLS0gbGludXgtMi42Lm9yaWcvZHJp
-dmVycy9wY2kvcGNpLXN5c2ZzLmMKKysrIGxpbnV4LTIuNi9kcml2ZXJzL3BjaS9wY2ktc3lzZnMu
-YwpAQCAtNDU5LDYgKzQ1OSw1NCBAQCBib290X3ZnYV9zaG93KHN0cnVjdCBkZXZpY2UgKmRldiwg
-c3RydWN0CiB9CiBzdHJ1Y3QgZGV2aWNlX2F0dHJpYnV0ZSB2Z2FfYXR0ciA9IF9fQVRUUl9STyhi
-b290X3ZnYSk7CiAKK3N0YXRpYyBzc2l6ZV90CittYXhfdmZzX3Nob3coc3RydWN0IGRldmljZSAq
-ZGV2LCBzdHJ1Y3QgZGV2aWNlX2F0dHJpYnV0ZSAqYXR0ciwgY2hhciAqYnVmKQoreworCXN0cnVj
-dCBwY2lfZGV2ICpwZGV2ID0gdG9fcGNpX2RldihkZXYpOworCisJcmV0dXJuIHNwcmludGYoYnVm
-LCAiJXVcbiIsIHBkZXYtPm1heF92ZnMpOworfQorCitzdGF0aWMgdm9pZCBtYXhfdmZzX2NhbGxi
-YWNrKHN0cnVjdCBkZXZpY2UgKmRldikKK3sKKwlzdHJ1Y3QgcGNpX2RldiAqcGRldiA9IHRvX3Bj
-aV9kZXYoZGV2KTsKKworCW11dGV4X2xvY2soJnBjaV9yZW1vdmVfcmVzY2FuX211dGV4KTsKKwlp
-ZiAocGRldi0+aXNfYWRkZWQgJiYgZGV2LT5kcml2ZXIpeworCQlzdHJ1Y3QgcGNpX2RyaXZlciAq
-cGRydjsKKworCQlwZHJ2ID0gdG9fcGNpX2RyaXZlcihkZXYtPmRyaXZlcik7CisJCWlmIChwZHJ2
-LT5zZXRfbWF4X3ZmcykKKwkJCXBkcnYtPnNldF9tYXhfdmZzKHBkZXYpOworCisJfQorCW11dGV4
-X3VubG9jaygmcGNpX3JlbW92ZV9yZXNjYW5fbXV0ZXgpOworfQorc3RhdGljIHNzaXplX3QKK21h
-eF92ZnNfc3RvcmUoc3RydWN0IGRldmljZSAqZGV2LCBzdHJ1Y3QgZGV2aWNlX2F0dHJpYnV0ZSAq
-YXR0ciwKKwkJIGNvbnN0IGNoYXIgKmJ1Ziwgc2l6ZV90IGNvdW50KQoreworCXVuc2lnbmVkIGxv
-bmcgdmFsOworCXN0cnVjdCBwY2lfZGV2ICpwZGV2ID0gdG9fcGNpX2RldihkZXYpOworCisJaWYg
-KHN0cmljdF9zdHJ0b3VsKGJ1ZiwgMCwgJnZhbCkgPCAwKQorCQlyZXR1cm4gLUVJTlZBTDsKKwor
-CXBkZXYtPm1heF92ZnMgPSB2YWw7CisKKwlpZiAocGRldi0+aXNfYWRkZWQpIHsKKwkJaW50IGVy
-cjsKKwkJZXJyID0gZGV2aWNlX3NjaGVkdWxlX2NhbGxiYWNrKGRldiwgbWF4X3Zmc19jYWxsYmFj
-ayk7CisKKwkJaWYgKGVycikKKwkJCXJldHVybiBlcnI7CisJfQorCisJcmV0dXJuIGNvdW50Owor
-fQorc3RydWN0IGRldmljZV9hdHRyaWJ1dGUgbWF4X3Zmc19hdHRyID0KKwlfX0FUVFIobWF4X3Zm
-cywgMDY0NCwgbWF4X3Zmc19zaG93LCBtYXhfdmZzX3N0b3JlKTsKKwogc3RhdGljIHZvaWQKIHBj
-aV9jb25maWdfcG1fcnVudGltZV9nZXQoc3RydWN0IHBjaV9kZXYgKnBkZXYpCiB7CkBAIC0xNDA2
-LDYgKzE0NTQsNyBAQCBsYXRlX2luaXRjYWxsKHBjaV9zeXNmc19pbml0KTsKIAogc3RhdGljIHN0
-cnVjdCBhdHRyaWJ1dGUgKnBjaV9kZXZfZGV2X2F0dHJzW10gPSB7CiAJJnZnYV9hdHRyLmF0dHIs
-CisJJm1heF92ZnNfYXR0ci5hdHRyLAogCU5VTEwsCiB9OwogCkBAIC0xNDE5LDYgKzE0NjgsMTAg
-QEAgc3RhdGljIHVtb2RlX3QgcGNpX2Rldl9hdHRyc19hcmVfdmlzaWJsZQogCQlpZiAoKHBkZXYt
-PmNsYXNzID4+IDgpICE9IFBDSV9DTEFTU19ESVNQTEFZX1ZHQSkKIAkJCXJldHVybiAwOwogCisJ
-aWYgKGEgPT0gJm1heF92ZnNfYXR0ci5hdHRyKQorCQlpZiAoIXBkZXYtPmlzX3BoeXNmbikKKwkJ
-CXJldHVybiAwOworCiAJcmV0dXJuIGEtPm1vZGU7CiB9CiAKSW5kZXg6IGxpbnV4LTIuNi9pbmNs
-dWRlL2xpbnV4L3BjaS5oCj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT0KLS0tIGxpbnV4LTIuNi5vcmlnL2luY2x1ZGUvbGlu
-dXgvcGNpLmgKKysrIGxpbnV4LTIuNi9pbmNsdWRlL2xpbnV4L3BjaS5oCkBAIC0zNTksNiArMzU5
-LDcgQEAgc3RydWN0IHBjaV9kZXYgewogCXVuc2lnbmVkIGludAlicm9rZW5faW50eF9tYXNraW5n
-OjE7CiAJdW5zaWduZWQgaW50CWlvX3dpbmRvd18xazoxOwkvKiBJbnRlbCBQMlAgYnJpZGdlIDFL
-IEkvTyB3aW5kb3dzICovCiAJcGNpX2Rldl9mbGFnc190IGRldl9mbGFnczsKKwl1bnNpZ25lZCBp
-bnQJbWF4X3ZmczsKIAlhdG9taWNfdAllbmFibGVfY250OwkvKiBwY2lfZW5hYmxlX2RldmljZSBo
-YXMgYmVlbiBjYWxsZWQgKi8KIAogCXUzMgkJc2F2ZWRfY29uZmlnX3NwYWNlWzE2XTsgLyogY29u
-ZmlnIHNwYWNlIHNhdmVkIGF0IHN1c3BlbmQgdGltZSAqLwo=
---0015175cab1420922d04ca2fd008
-Content-Type: application/octet-stream; name="ixgbe_max_vfs.patch"
-Content-Disposition: attachment; filename="ixgbe_max_vfs.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_h7cvakvx4
-
-LS0tCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZS5oICAgICAgfCAgICAy
-ICsKIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYyB8ICAgNDMg
-KysrKysrKysrKysrKysrKysrKystLS0tLS0KIDIgZmlsZXMgY2hhbmdlZCwgMzYgaW5zZXJ0aW9u
-cygrKSwgOSBkZWxldGlvbnMoLSkKCkluZGV4OiBsaW51eC0yLjYvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jCj09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KLS0tIGxpbnV4LTIuNi5vcmln
-L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYworKysgbGludXgt
-Mi42L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYwpAQCAtMTI5
-LDEzICsxMjksNiBAQCBzdGF0aWMgc3RydWN0IG5vdGlmaWVyX2Jsb2NrIGRjYV9ub3RpZmllCiB9
-OwogI2VuZGlmCiAKLSNpZmRlZiBDT05GSUdfUENJX0lPVgotc3RhdGljIHVuc2lnbmVkIGludCBt
-YXhfdmZzOwotbW9kdWxlX3BhcmFtKG1heF92ZnMsIHVpbnQsIDApOwotTU9EVUxFX1BBUk1fREVT
-QyhtYXhfdmZzLAotCQkgIk1heGltdW0gbnVtYmVyIG9mIHZpcnR1YWwgZnVuY3Rpb25zIHRvIGFs
-bG9jYXRlIHBlciBwaHlzaWNhbCBmdW5jdGlvbiAtIGRlZmF1bHQgaXMgemVybyBhbmQgbWF4aW11
-bSB2YWx1ZSBpcyA2MyIpOwotI2VuZGlmIC8qIENPTkZJR19QQ0lfSU9WICovCi0KIHN0YXRpYyB1
-bnNpZ25lZCBpbnQgYWxsb3dfdW5zdXBwb3J0ZWRfc2ZwOwogbW9kdWxlX3BhcmFtKGFsbG93X3Vu
-c3VwcG9ydGVkX3NmcCwgdWludCwgMCk7CiBNT0RVTEVfUEFSTV9ERVNDKGFsbG93X3Vuc3VwcG9y
-dGVkX3NmcCwKQEAgLTQ1MjgsNyArNDUyMSw3IEBAIHN0YXRpYyBpbnQgX19kZXZpbml0IGl4Z2Jl
-X3N3X2luaXQoc3RydWMKICNpZmRlZiBDT05GSUdfUENJX0lPVgogCS8qIGFzc2lnbiBudW1iZXIg
-b2YgU1ItSU9WIFZGcyAqLwogCWlmIChody0+bWFjLnR5cGUgIT0gaXhnYmVfbWFjXzgyNTk4RUIp
-Ci0JCWFkYXB0ZXItPm51bV92ZnMgPSAobWF4X3ZmcyA+IDYzKSA/IDAgOiBtYXhfdmZzOworCQlh
-ZGFwdGVyLT5udW1fdmZzID0gKHBkZXYtPm1heF92ZnMgPiA2MykgPyAwIDogcGRldi0+bWF4X3Zm
-czsKIAogI2VuZGlmCiAJLyogZW5hYmxlIGl0ciBieSBkZWZhdWx0IGluIGR5bmFtaWMgbW9kZSAq
-LwpAQCAtNzI0OSw4ICs3MjQyLDkgQEAgc3RhdGljIGludCBfX2RldmluaXQgaXhnYmVfcHJvYmUo
-c3RydWN0CiAKICNpZmRlZiBDT05GSUdfUENJX0lPVgogCWl4Z2JlX2VuYWJsZV9zcmlvdihhZGFw
-dGVyLCBpaSk7Ci0KICNlbmRpZgorCWFkYXB0ZXItPml4Z2JlX2luZm8gPSBpaTsKKwogCW5ldGRl
-di0+ZmVhdHVyZXMgPSBORVRJRl9GX1NHIHwKIAkJCSAgIE5FVElGX0ZfSVBfQ1NVTSB8CiAJCQkg
-ICBORVRJRl9GX0lQVjZfQ1NVTSB8CkBAIC03NzIwLDExICs3NzE0LDQyIEBAIHN0YXRpYyBjb25z
-dCBzdHJ1Y3QgcGNpX2Vycm9yX2hhbmRsZXJzIGkKIAkucmVzdW1lID0gaXhnYmVfaW9fcmVzdW1l
-LAogfTsKIAorc3RhdGljIHZvaWQgaXhnYmVfc2V0X21heF92ZnMoc3RydWN0IHBjaV9kZXYgKnBk
-ZXYpCit7CisjaWZkZWYgQ09ORklHX1BDSV9JT1YKKwlzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRh
-cHRlciA9IHBjaV9nZXRfZHJ2ZGF0YShwZGV2KTsKKwlzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2
-ID0gYWRhcHRlci0+bmV0ZGV2OworCXN0cnVjdCBpeGdiZV9odyAqaHcgPSAmYWRhcHRlci0+aHc7
-CisJaW50IG51bV92ZnMgPSAwOworCisJLyogYXNzaWduIG51bWJlciBvZiBTUi1JT1YgVkZzICov
-CisJaWYgKGh3LT5tYWMudHlwZSAhPSBpeGdiZV9tYWNfODI1OThFQikKKwkJbnVtX3ZmcyA9IChw
-ZGV2LT5tYXhfdmZzID4gNjMpID8gMCA6IHBkZXYtPm1heF92ZnM7CisKKwkvKiBubyBjaGFuZ2Ug
-Ki8KKwlpZiAoYWRhcHRlci0+bnVtX3ZmcyA9PSBudW1fdmZzKQorCQlyZXR1cm47CisKKwlpZiAo
-IW51bV92ZnMpIHsKKwkJLyogZGlzYWJsZSBzcmlvdiAqLworCQlpeGdiZV9kaXNhYmxlX3NyaW92
-KGFkYXB0ZXIpOworCQlhZGFwdGVyLT5udW1fdmZzID0gMDsKKwl9IGVsc2UgaWYgKCFhZGFwdGVy
-LT5udW1fdmZzICYmIG51bV92ZnMpIHsKKwkJLyogZW5hYmxlIHNyaW92ICovCisJCWFkYXB0ZXIt
-Pm51bV92ZnMgPSBudW1fdmZzOworCQlpeGdiZV9lbmFibGVfc3Jpb3YoYWRhcHRlciwgYWRhcHRl
-ci0+aXhnYmVfaW5mbyk7CisJfSBlbHNlIHsKKwkJLyogaW5jcmVhc2Ugb3IgZGVjcmVhc2UgKi8K
-Kwl9CisjZW5kaWYKK30KKwogc3RhdGljIHN0cnVjdCBwY2lfZHJpdmVyIGl4Z2JlX2RyaXZlciA9
-IHsKIAkubmFtZSAgICAgPSBpeGdiZV9kcml2ZXJfbmFtZSwKIAkuaWRfdGFibGUgPSBpeGdiZV9w
-Y2lfdGJsLAogCS5wcm9iZSAgICA9IGl4Z2JlX3Byb2JlLAogCS5yZW1vdmUgICA9IF9fZGV2ZXhp
-dF9wKGl4Z2JlX3JlbW92ZSksCisJLnNldF9tYXhfdmZzID0gaXhnYmVfc2V0X21heF92ZnMsCiAj
-aWZkZWYgQ09ORklHX1BNCiAJLnN1c3BlbmQgID0gaXhnYmVfc3VzcGVuZCwKIAkucmVzdW1lICAg
-PSBpeGdiZV9yZXN1bWUsCkluZGV4OiBsaW51eC0yLjYvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50
-ZWwvaXhnYmUvaXhnYmUuaAo9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09Ci0tLSBsaW51eC0yLjYub3JpZy9kcml2ZXJzL25l
-dC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZS5oCisrKyBsaW51eC0yLjYvZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmUuaApAQCAtNTcxLDYgKzU3MSw4IEBAIHN0cnVjdCBp
-eGdiZV9hZGFwdGVyIHsKIAl1MzIgaW50ZXJydXB0X2V2ZW50OwogCXUzMiBsZWRfcmVnOwogCisJ
-c3RydWN0IGl4Z2JlX2luZm8gKml4Z2JlX2luZm87CisKICNpZmRlZiBDT05GSUdfSVhHQkVfUFRQ
-CiAJc3RydWN0IHB0cF9jbG9jayAqcHRwX2Nsb2NrOwogCXN0cnVjdCBwdHBfY2xvY2tfaW5mbyBw
-dHBfY2FwczsK
---0015175cab1420922d04ca2fd008--
+JM
