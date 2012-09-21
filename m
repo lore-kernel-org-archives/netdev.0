@@ -1,54 +1,43 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [PATCH 1/3 V2] phy/micrel: Implement support for KSZ8021
-Date: Fri, 21 Sep 2012 21:19:17 +0200
-Message-ID: <201209212119.18155.marex@denx.de>
-References: <201209212050.46319.marex@denx.de> <201209212106.53069.marex@denx.de> <20120921.151104.718226045755546422.davem@davemloft.net>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: bnx2x: link detected up at startup even when it should be
+ down
+Date: Fri, 21 Sep 2012 19:23:02 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F2F1B50@SJEXCHMB06.corp.ad.broadcom.com>
+References: <CAL8zT=hFPQ-NZw8eKQwnktRrcpsOFk3aa_ac5mSWa+TAwyTGBQ@mail.gmail.com>
+ <504C9EFCA2D0054393414C9CB605C37F2EB97C@SJEXCHMB06.corp.ad.broadcom.com>
+ <CAL8zT=i_eV3SjuBgdWrBPaE-CoBBVh5QJD8jg-YMoQHDuA4AOQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, david.choi@micrel.com,
-	nobuhiro.iwamatsu.yj@renesas.com, fabio.estevam@freescale.com,
-	shawn.guo@linaro.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	"Barak Witkowski" <barak@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "Jean-Michel Hautbois" <jhautbois@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:56951 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755906Ab2IUTTT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 15:19:19 -0400
-In-Reply-To: <20120921.151104.718226045755546422.davem@davemloft.net>
+Received: from mms1.broadcom.com ([216.31.210.17]:2980 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757742Ab2IUTXK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Sep 2012 15:23:10 -0400
+In-Reply-To: <CAL8zT=i_eV3SjuBgdWrBPaE-CoBBVh5QJD8jg-YMoQHDuA4AOQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear David Miller,
-
-> From: Marek Vasut <marex@denx.de>
-> Date: Fri, 21 Sep 2012 21:06:52 +0200
-> 
-> > You know, youth and all ... I was under the impression the patches shall
-> > be checkpatch clean. But you got me there quite well, something must be
-> > wrong with my precommit hook.
-> 
-> checkpatch is not a panacea, and it is in particular not an automaton
-> that one uses without using any human judgement at all.
-> 
-> In particular, checkpatch does not enforce the comment style we use in
-> the networking code nor several other conventions that we use which
-> are slightly different from the rest of the tree.
-> 
-> Therefore strick checkpatch conformance is never appropriate.
-
-Understood.
-
-> > Anyway, about the checkpatch cleanup of the file, will that be
-> > welcome (afterwards I fix the patchset and repost)?
-> 
-> See above, strict checkpatch cleanups, especially those done in
-> a completely automaton style with zero human judgment involved,
-> are not welcome.
-
-I meant the .features field ... it seems that the | at the following line 
-appears in other PHY drivers as well though. Lets leave it at that anyway.
-
-Best regards,
-Marek Vasut
+SGkgSmVhbiwNCg0KVGhhbmsgeW91IGZvciB0aGUgaW5mbw0KDQo+IC0tLS0tT3JpZ2luYWwgTWVz
+c2FnZS0tLS0tDQo+IEZyb206IEplYW4tTWljaGVsIEhhdXRib2lzIFttYWlsdG86amhhdXRib2lz
+QGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBTZXB0ZW1iZXIgMjEsIDIwMTIgOTowNCBBTQ0K
+PiBUbzogRG1pdHJ5IEtyYXZrb3YNCj4gQ2M6IG5ldGRldjsgQmFyYWsgV2l0a293c2tpOyBFaWxv
+biBHcmVlbnN0ZWluOyBkYXZlbUBkYXZlbWxvZnQubmV0DQo+IFN1YmplY3Q6IFJlOiBibngyeDog
+bGluayBkZXRlY3RlZCB1cCBhdCBzdGFydHVwIGV2ZW4gd2hlbiBpdCBzaG91bGQgYmUgZG93bg0K
+PiANCj4gSSBhbHJlYWR5IGRpZCBpdCB0d2ljZS4gSSB0aGluayB0aGlzIGlzIEZXIHJlbGF0ZWQg
+YW5kIG5vdCBvbmx5IHRoZQ0KPiBjb21taXQgYWRkaW5nIGFmZXggc3VwcG9ydC4gSXQgbWF5IGhh
+dmUgc29sdmVkIGEgbGluayBpc3N1ZSAoSSBhbSBqdXN0DQo+IGd1ZXNzaW5nLCBiYXNlZCBvbiBl
+eHBlcmltZW50cykgPw0KDQpGVyByZXBsYWNlZCBpbiB0aGlzIGNvbW1pdCBkb2VzIG5vdCBkZWFs
+IHdpdGggbGluayBhdCBhbGwsDQoNCk9uZSBpcyBpbnZvbHZlZCBpbiBsaW5rIG1hbmFnZW1lbnQg
+aXMgZGlzcGxheWVkIHVzaW5nICdldGh0b29sIC1pJyAtIGl0IGNvbWVzIHdpdGggYSBjYXJkICBh
+bmQgZHJpdmVyIGluZGVwZW5kZW50LiANCg0KSXMgZGV2aWNlIGNvbmZpZ3VyZWQgZm9yIE1GIGJ5
+IHRoZSBzd2l0Y2g/DQpDYW4geW91IHBsZWFzZSBzaGFyZSBsc3BjaSBvdXRwdXQ/DQoNCk90aGVy
+IHRoaW5nIHRoYXQgY2FuIGhlbHAgaW4gYW5hbHlzaXMgaXMgbXNnbHZsIDB4NCBmb3IgYm90aCBz
+aXR1YXRpb25zDQoNClRoYW5rcyBhIGxvdA0KDQoNCg==
