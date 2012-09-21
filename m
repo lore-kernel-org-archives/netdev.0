@@ -1,114 +1,43 @@
-From: Stefan Roese <sr@denx.de>
-Subject: [PATCH] net/stmmac: Use clk_prepare_enable and clk_disable_unprepare
-Date: Fri, 21 Sep 2012 13:06:29 +0200
-Message-ID: <1348225589-8126-1-git-send-email-sr@denx.de>
-Cc: Viresh Kumar <viresh.kumar@linaro.org>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+From: Viresh Kumar <viresh.kumar@linaro.org>
+Subject: Re: [PATCH] net/stmmac: Use clk_prepare_enable and clk_disable_unprepare
+Date: Fri, 21 Sep 2012 16:51:28 +0530
+Message-ID: <CAKohpomw8u5wgtWAukfqH7t3iwge+jyFxBY4bv6AT2u5c_=arA@mail.gmail.com>
+References: <1348225589-8126-1-git-send-email-sr@denx.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	spear-devel <spear-devel@list.st.com>
+To: Stefan Roese <sr@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p05-ob.rzone.de ([81.169.146.181]:27149 "EHLO
-	mo-p05-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757258Ab2IULGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 07:06:36 -0400
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:63965 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756312Ab2IULV3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 07:21:29 -0400
+Received: by ieak13 with SMTP id k13so5123046iea.19
+        for <netdev@vger.kernel.org>; Fri, 21 Sep 2012 04:21:28 -0700 (PDT)
+In-Reply-To: <1348225589-8126-1-git-send-email-sr@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes an issue introduced by commit ID 6a81c26f
-[net/stmmac: remove conditional compilation of clk code], which
-switched from the internal stmmac_clk_{en}{dis}able calls to
-clk_{en}{dis}able. By this, calling clk_prepare and clk_unprepare
-was removed.
+On 21 September 2012 16:36, Stefan Roese <sr@denx.de> wrote:
+> This patch fixes an issue introduced by commit ID 6a81c26f
+> [net/stmmac: remove conditional compilation of clk code], which
+> switched from the internal stmmac_clk_{en}{dis}able calls to
+> clk_{en}{dis}able. By this, calling clk_prepare and clk_unprepare
+> was removed.
+>
+> clk_{un}prepare is mandatory for platforms using common clock framework.
+> Since these drivers are used by SPEAr platform, which supports common
+> clock framework, add clk_{un}prepare() support for them. Otherwise
+> the clocks are not correctly en-/disabled and ethernet support doesn't
+> work.
 
-clk_{un}prepare is mandatory for platforms using common clock framework.
-Since these drivers are used by SPEAr platform, which supports common
-clock framework, add clk_{un}prepare() support for them. Otherwise
-the clocks are not correctly en-/disabled and ethernet support doesn't
-work.
+I can't believe i have done this. :)
 
-Signed-off-by: Stefan Roese <sr@denx.de>
-Cc: Viresh Kumar <viresh.kumar@linaro.org>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 10 +++++-----
- drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c |  6 +++---
- 2 files changed, 8 insertions(+), 8 deletions(-)
+IIRC, when i wrote this code prepare/unprepare weren't there. And by the
+time my code got merged, they were. And this mistake was missed there.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index c136162..3be8833 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1066,7 +1066,7 @@ static int stmmac_open(struct net_device *dev)
- 	} else
- 		priv->tm->enable = 1;
- #endif
--	clk_enable(priv->stmmac_clk);
-+	clk_prepare_enable(priv->stmmac_clk);
- 
- 	stmmac_check_ether_addr(priv);
- 
-@@ -1188,7 +1188,7 @@ open_error:
- 	if (priv->phydev)
- 		phy_disconnect(priv->phydev);
- 
--	clk_disable(priv->stmmac_clk);
-+	clk_disable_unprepare(priv->stmmac_clk);
- 
- 	return ret;
- }
-@@ -1246,7 +1246,7 @@ static int stmmac_release(struct net_device *dev)
- #ifdef CONFIG_STMMAC_DEBUG_FS
- 	stmmac_exit_fs();
- #endif
--	clk_disable(priv->stmmac_clk);
-+	clk_disable_unprepare(priv->stmmac_clk);
- 
- 	return 0;
- }
-@@ -2178,7 +2178,7 @@ int stmmac_suspend(struct net_device *ndev)
- 	else {
- 		stmmac_set_mac(priv->ioaddr, false);
- 		/* Disable clock in case of PWM is off */
--		clk_disable(priv->stmmac_clk);
-+		clk_disable_unprepare(priv->stmmac_clk);
- 	}
- 	spin_unlock_irqrestore(&priv->lock, flags);
- 	return 0;
-@@ -2203,7 +2203,7 @@ int stmmac_resume(struct net_device *ndev)
- 		priv->hw->mac->pmt(priv->ioaddr, 0);
- 	else
- 		/* enable the clk prevously disabled */
--		clk_enable(priv->stmmac_clk);
-+		clk_prepare_enable(priv->stmmac_clk);
- 
- 	netif_device_attach(ndev);
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
-index 2a0e1ab..63ea9987 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
-@@ -97,12 +97,12 @@ static struct clk *timer_clock;
- static void stmmac_tmu_start(unsigned int new_freq)
- {
- 	clk_set_rate(timer_clock, new_freq);
--	clk_enable(timer_clock);
-+	clk_prepare_enable(timer_clock);
- }
- 
- static void stmmac_tmu_stop(void)
- {
--	clk_disable(timer_clock);
-+	clk_disable_unprepare(timer_clock);
- }
- 
- int stmmac_open_ext_timer(struct net_device *dev, struct stmmac_timer *tm)
-@@ -126,7 +126,7 @@ int stmmac_open_ext_timer(struct net_device *dev, struct stmmac_timer *tm)
- 
- int stmmac_close_ext_timer(void)
- {
--	clk_disable(timer_clock);
-+	clk_disable_unprepare(timer_clock);
- 	tmu2_unregister_user();
- 	clk_put(timer_clock);
- 	return 0;
--- 
-1.7.12.1
+Thanks for fixing it.
+
+Reviewed-by: Viresh Kumar <viresh.kumar@linaro.org>
