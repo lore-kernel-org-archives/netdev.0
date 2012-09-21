@@ -1,46 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipconfig: add nameserver IPs to kernel-parameter ip=
-Date: Fri, 21 Sep 2012 13:37:59 -0400 (EDT)
-Message-ID: <20120921.133759.1667263015470766968.davem@davemloft.net>
-References: <1348176485.3858.92.camel@mars>
-	<20120920.173719.1238894522809866676.davem@davemloft.net>
-	<1348177730.3858.98.camel@mars>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [PATCH net-next 3/3] ptp: derive the device name from the
+ parent device
+Date: Fri, 21 Sep 2012 17:39:02 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB5818BFF5B4@ORSMSX105.amr.corp.intel.com>
+References: <cover.1348245523.git.richardcochran@gmail.com>
+ <9f2ed4a62d52182eeab86ad3dca7f6feeb68368a.1348245523.git.richardcochran@gmail.com>
+ <1348247965.2521.11.camel@bwh-desktop.uk.solarflarecom.com>
+ <20120921173709.GB6129@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rob@landley.net, kuznet@ms2.inr.ac.ru, j.weitzel@phytec.de,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, hjk@hansjkoch.de, daniel@zonque.org
-To: chf.fritz@googlemail.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1348177730.3858.98.camel@mars>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	"Vick, Matthew" <matthew.vick@intel.com>
+To: Richard Cochran <richardcochran@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:6921 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932070Ab2IURjG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 13:39:06 -0400
+In-Reply-To: <20120921173709.GB6129@netboy.at.omicron.at>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Fritz <chf.fritz@googlemail.com>
-Date: Thu, 20 Sep 2012 23:48:50 +0200
+> -----Original Message-----
+> From: Richard Cochran [mailto:richardcochran@gmail.com]
+> Sent: Friday, September 21, 2012 10:37 AM
+> To: Ben Hutchings
+> Cc: netdev@vger.kernel.org; David Miller; Keller, Jacob E; Kirsher,
+> Jeffrey T; John Stultz; Vick, Matthew
+> Subject: Re: [PATCH net-next 3/3] ptp: derive the device name from the
+> parent device
+> 
+> On Fri, Sep 21, 2012 at 06:19:25PM +0100, Ben Hutchings wrote:
+> > On Fri, 2012-09-21 at 19:00 +0200, Richard Cochran wrote:
+> > > PTP Hardware Clock device have a name that appears under sysfs that
+> > > should identify the underlying device. Instead of leaving it up to
+> > > the driver to invent a name, this patch changes the registration to
+> > > automatically use the name from the parent device.
+> >
+> > I thought you wanted the driver name and not the parent device name?
+> 
+> Yes, I originally wanted the driver name, because it gives the user
+> information about the expected performance. But here I am bowing to
+> Jacob's suggestion that we really need to identify the device. Intel cards
+> with two ports have *two* clocks. Sad but true.
+> 
 
-> diff --git a/Documentation/filesystems/nfs/nfsroot.txt b/Documentation/filesystems/nfs/nfsroot.txt
-> index ffdd9d8..4ed7875 100644
-> --- a/Documentation/filesystems/nfs/nfsroot.txt
-> +++ b/Documentation/filesystems/nfs/nfsroot.txt
-> @@ -158,6 +158,13 @@ ip=<client-ip>:<server-ip>:<gw-ip>:<netmask>:<hostname>:<device>:<autoconf>
->  
->                  Default: any
->  
-> +  <dns0-ip>	IP address of first nameserver.
-> +		Value gets exported by /proc/net/pnp which is often linked
-> +		on embedded systems by /etc/resolv.conf.
-> +
-> +  <dns1-ip>	IP address of secound nameserver.
-> +		Same as above.
-> +
->  
->  nfsrootdebug
->  
+With the device, it is possible to lookup the driver.
 
-This documentation update is not sufficient.
+- Jake
 
-You have to properly show, in the lines above where you made your change,
-where the new settings are placed in the "ip=" option.
+> Thanks,
+> Richard
