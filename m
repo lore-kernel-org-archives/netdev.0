@@ -1,104 +1,61 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2012-09-22
-Date: Sat, 22 Sep 2012 00:24:28 +0200
-Message-ID: <505CE91C.1070504@pengutronix.de>
+From: Jon Mason <jon.mason@intel.com>
+Subject: Re: [RFC v3 1/2] PCI-Express Non-Transparent Bridge Support
+Date: Fri, 21 Sep 2012 16:45:59 -0700
+Message-ID: <20120921234558.GA6531@jonmason-lab>
+References: <1348250989-6962-1-git-send-email-jon.mason@intel.com>
+ <1348250989-6962-2-git-send-email-jon.mason@intel.com>
+ <20120921.141447.1146043198575242769.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigCAE396B5F25D2CBDC791E97F"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, dave.jiang@intel.com,
+	nab@risingtidesystems.com
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120921.141447.1146043198575242769.davem@davemloft.net>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigCAE396B5F25D2CBDC791E97F
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Fri, Sep 21, 2012 at 02:14:47PM -0400, David Miller wrote:
+> From: Jon Mason <jon.mason@intel.com>
+> Date: Fri, 21 Sep 2012 11:09:48 -0700
+> 
+> > A PCI-Express non-transparent bridge (NTB) is a point-to-point PCIe bus
+> > connecting 2 systems, providing electrical isolation between the two subsystems.
+> > A non-transparent bridge is functionally similar to a transparent bridge except
+> > that both sides of the bridge have their own independent address domains.  The
+> > host on one side of the bridge will not have the visibility of the complete
+> > memory or I/O space on the other side of the bridge.  To communicate across the
+> > non-transparent bridge, each NTB endpoint has one (or more) apertures exposed to
+> > the local system.  Writes to these apertures are mirrored to memory on the
+> > remote system.  Communications can also occur through the use of doorbell
+> > registers that initiate interrupts to the alternate domain, and scratch-pad
+> > registers accessible from both sides.
+> > 
+> > The NTB device driver is needed to configure these memory windows, doorbell, and
+> > scratch-pad registers as well as use them in such a way as they can be turned
+> > into a viable communication channel to the remote system.  ntb_hw.[ch]
+> > determines the usage model (NTB to NTB or NTB to Root Port) and abstracts away
+> > the underlying hardware to provide access and a common interface to the doorbell
+> > registers, scratch pads, and memory windows.  These hardware interfaces are
+> > exported so that other, non-mainlined kernel drivers can access these.
+> > ntb_transport.[ch] also uses the exported interfaces in ntb_hw.[ch] to setup a
+> > communication channel(s) and provide a reliable way of transferring data from
+> > one side to the other, which it then exports so that "client" drivers can access
+> > them.  These client drivers are used to provide a standard kernel interface
+> > (i.e., Ethernet device) to NTB, such that Linux can transfer data from one
+> > system to the other in a standard way.
+> > 
+> > Signed-off-by: Jon Mason <jon.mason@intel.com>
+> 
+> I really don't see anything that requires the TX networking processing
+> to occur in a tasklet.  I see no sleeping, strange locking, or
+> anything like that.
+> 
+> And if that's the case, it's just pure overhead.
 
-Hello David,
+Good point.  Removed (and I see a nice little perf bump).
 
-this pull request is intended for net-next (v3.7 cycle), it consist of
-5 patches by AnilKumar bringing device tree support, runtime PM, suspend
-resume and pinctrl support to the c_can/d_can driver.
-
-Andreas Larsson improves the sja1000 driver (one-shot, listen only).
-Randy Dunlap fixes a function name conflict in the peak driver.
-Wei Yongjun fixes a return value check in the mscan-mpc5xxx driver.
-
-regards, Marc
---
-
-The following changes since commit abb17e6c0c7b27693201dc85f75dbb184279fd=
-10:
-
-  netlink: use <linux/export.h> instead of <linux/module.h> (2012-09-21 1=
-5:43:58 -0400)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can-next.git for-davem
-
-for you to fetch changes up to cb8db899a6b73334b41fd1a72252533afdf080dc:
-
-  can: sja1000: Add support for listen-only mode and one-shot mode (2012-=
-09-21 23:58:49 +0200)
-
-----------------------------------------------------------------
-Andreas Larsson (1):
-      can: sja1000: Add support for listen-only mode and one-shot mode
-
-AnilKumar Ch (5):
-      can: c_can: Modify c_can device names
-      can: c_can: Add device tree support to Bosch C_CAN/D_CAN controller=
-
-      can: c_can: Add runtime PM support to Bosch C_CAN/D_CAN controller
-      can: c_can: Add d_can suspend resume support
-      can: c_can: Adopt pinctrl support
-
-Randy Dunlap (1):
-      can: usb: peak: rename peak_usb dump_mem function
-
-Wei Yongjun (1):
-      can: mscan-mpc5xxx: fix return value check in mpc512x_can_get_clock=
-()
-
- .../devicetree/bindings/net/can/c_can.txt          |   49 ++++++++
- drivers/net/can/c_can/c_can.c                      |  127 ++++++++++++++=
-+++++-
- drivers/net/can/c_can/c_can.h                      |   14 ++-
- drivers/net/can/c_can/c_can_pci.c                  |    6 +-
- drivers/net/can/c_can/c_can_platform.c             |  123 ++++++++++++++=
-++---
- drivers/net/can/mscan/mpc5xxx_can.c                |    4 +-
- drivers/net/can/sja1000/sja1000.c                  |   31 +++--
- drivers/net/can/usb/peak_usb/pcan_usb_core.c       |    8 +-
- drivers/net/can/usb/peak_usb/pcan_usb_core.h       |    2 +-
- drivers/net/can/usb/peak_usb/pcan_usb_pro.c        |    8 +-
- 10 files changed, 332 insertions(+), 40 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/can/c_can.txt
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enigCAE396B5F25D2CBDC791E97F
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://www.enigmail.net/
-
-iEYEARECAAYFAlBc6SAACgkQjTAFq1RaXHOWNwCfXJOB3RS0kn2zc5LQ1GLagsG+
-sqcAnRgDzbABNgIbAq4x6wCOr+8Lt4Qt
-=subJ
------END PGP SIGNATURE-----
-
---------------enigCAE396B5F25D2CBDC791E97F--
+Thanks,
+Jon
