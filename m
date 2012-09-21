@@ -1,35 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] ipconfig: add nameserver IPs to kernel-parameter ip=
-Date: Fri, 21 Sep 2012 14:51:44 -0400 (EDT)
-Message-ID: <20120921.145144.14955032475453606.davem@davemloft.net>
-References: <1348177730.3858.98.camel@mars>
-	<20120921.133759.1667263015470766968.davem@davemloft.net>
-	<1348252279.12456.2.camel@mars>
+Subject: Re: [PATCH 1/3 V2] phy/micrel: Implement support for KSZ8021
+Date: Fri, 21 Sep 2012 14:54:05 -0400 (EDT)
+Message-ID: <20120921.145405.646315503417542108.davem@davemloft.net>
+References: <201209212033.12738.marex@denx.de>
+	<20120921.144840.730495056587914350.davem@davemloft.net>
+	<201209212050.46319.marex@denx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rob@landley.net, kuznet@ms2.inr.ac.ru, j.weitzel@phytec.de,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, hjk@hansjkoch.de, daniel@zonque.org
-To: chf.fritz@googlemail.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1348252279.12456.2.camel@mars>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, david.choi@micrel.com,
+	nobuhiro.iwamatsu.yj@renesas.com, fabio.estevam@freescale.com,
+	shawn.guo@linaro.org
+To: marex@denx.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51727 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757553Ab2IUSyH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 14:54:07 -0400
+In-Reply-To: <201209212050.46319.marex@denx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Fritz <chf.fritz@googlemail.com>
-Date: Fri, 21 Sep 2012 20:31:19 +0200
+From: Marek Vasut <marex@denx.de>
+Date: Fri, 21 Sep 2012 20:50:46 +0200
 
-> On small systems (e.g. embedded ones) IP addresses are often configured
-> by bootloaders and get assigned to kernel via parameter "ip=".  If set to
-> "ip=dhcp", even nameserver entries from DHCP daemons are handled. These
-> entries exported in /proc/net/pnp are commonly linked by /etc/resolv.conf.
+> Dear David Miller,
 > 
-> To configure nameservers for networks without DHCP, this patch adds option
-> <dns0-ip> and <dns1-ip> to kernel-parameter 'ip='.
+>> From: Marek Vasut <marex@denx.de>
+>> Date: Fri, 21 Sep 2012 20:33:12 +0200
+>> 
+>> > I don't like it.
+>> 
+>> Then I'm not applying your patches.
 > 
-> Signed-off-by: Christoph Fritz <chf.fritz@googlemail.com>
-> Tested-by: Jan Weitzel <j.weitzel@phytec.de>
+> What about the other part of my offer ?
 
-Applied to net-next, thanks.
+I read it, and if it were relevant to this discussion I would
+have quoted it.
+
+Can you please just fix up your patches exactly how I have asked you
+to so that I can get these bug fixes into the 'net' tree?
+
+This is completely rediculous, nobody else pushes back when I make
+simple coding style correction requests for their changes like you
+are.
+
+You're behavior is self defeating, it's causing your work to not be
+useful and to not propagate to the very place where people can benefit
+from it the most.
