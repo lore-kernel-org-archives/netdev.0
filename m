@@ -1,47 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3 V2] phy/micrel: Implement support for KSZ8021
-Date: Fri, 21 Sep 2012 13:42:15 -0400 (EDT)
-Message-ID: <20120921.134215.1719885507288305623.davem@davemloft.net>
-References: <1348195976-31703-1-git-send-email-marex@denx.de>
+Subject: Re: [PATCH] ipv6: fix return value check in fib6_add()
+Date: Fri, 21 Sep 2012 13:44:35 -0400 (EDT)
+Message-ID: <20120921.134435.90667959444720339.davem@davemloft.net>
+References: <CAPgLHd9vdKJfj1yUqU+zDaH6PiuqY8ZG_V5B1py--NiDwa+WkA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, david.choi@micrel.com,
-	nobuhiro.iwamatsu.yj@renesas.com, fabio.estevam@freescale.com,
-	shawn.guo@linaro.org
-To: marex@denx.de
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50827 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50865 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932070Ab2IURmR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 13:42:17 -0400
-In-Reply-To: <1348195976-31703-1-git-send-email-marex@denx.de>
+	with ESMTP id S932122Ab2IURoi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 13:44:38 -0400
+In-Reply-To: <CAPgLHd9vdKJfj1yUqU+zDaH6PiuqY8ZG_V5B1py--NiDwa+WkA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marek Vasut <marex@denx.de>
-Date: Fri, 21 Sep 2012 04:52:54 +0200
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Fri, 21 Sep 2012 12:29:56 +0800
 
-> +	phy_write(phydev, MII_KSZPHY_OMSO,
-> +		KSZPHY_OMSO_B_CAST_OFF | KSZPHY_OMSO_RMII_OVERRIDE);
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> In case of error, the function fib6_add_1() returns ERR_PTR()
+> or NULL pointer. The ERR_PTR() case check is missing in fib6_add().
+> 
+> dpatch engine is used to generated this patch.
+> (https://github.com/weiyj/dpatch)
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-This is not indented properly.  The goal is not to exclusively use
-TAB characters to indent code until it sort-of looks fine.
+Applied, thanks.
 
-Rather, the goal is to properly line up function arguments with
-the first column after the openning parenthesis on the previous
-line.  Using TAB and SPACE characters, as needed.
-
-> +	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
-> +				| SUPPORTED_Asym_Pause),
-
-This is similarly not styled properly.
-
-Besies being indented imporperly on the second line, the final "|"
-character should be at the end of the first line, rather than
-start the second line.
-
-Resubmit this entire patch series, not just this one patch, once
-you've made these corrections.
-
-Thanks.
+Longer term fib6_add_1() should consistently return errno pointers,
+rather than a mixture of NULL and errno pointers.
