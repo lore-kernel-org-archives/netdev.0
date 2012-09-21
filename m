@@ -1,20 +1,16 @@
 From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] stmmac: fix return value check in stmmac_open_ext_timer()
-Date: Fri, 21 Sep 2012 15:06:10 +0800
-Message-ID: <CAPgLHd87SqVa40-SGrgEfRAPWj1dr9aGPDD7b3aALCqka2ssuA@mail.gmail.com>
+Subject: [PATCH] can: mscan-mpc5xxx: fix return value check in mpc512x_can_get_clock()
+Date: Fri, 21 Sep 2012 15:09:47 +0800
+Message-ID: <CAPgLHd9fRAvQ77rD_PCp45XW9-FsBisUATOT00Je39nbv5o28A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:56230 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752308Ab2IUHGL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 03:06:11 -0400
-Received: by qaas11 with SMTP id s11so1024257qaa.19
-        for <netdev@vger.kernel.org>; Fri, 21 Sep 2012 00:06:10 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: yongjun_wei@trendmicro.com.cn, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
+To: wg@grandegger.com, mkl@pengutronix.de, grant.likely@secretlab.ca,
+	rob.herring@calxeda.com
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
@@ -27,19 +23,30 @@ dpatch engine is used to auto generated this patch.
 
 Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/can/mscan/mpc5xxx_can.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
-index 2a0e1ab..197fb8c 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
-@@ -109,7 +109,7 @@ int stmmac_open_ext_timer(struct net_device *dev, struct stmmac_timer *tm)
- {
- 	timer_clock = clk_get(NULL, TMU_CHANNEL);
+diff --git a/drivers/net/can/mscan/mpc5xxx_can.c b/drivers/net/can/mscan/mpc5xxx_can.c
+index 06adf88..524ef96 100644
+--- a/drivers/net/can/mscan/mpc5xxx_can.c
++++ b/drivers/net/can/mscan/mpc5xxx_can.c
+@@ -181,7 +181,7 @@ static u32 __devinit mpc512x_can_get_clock(struct platform_device *ofdev,
  
--	if (timer_clock == NULL)
-+	if (IS_ERR(timer_clock))
- 		return -1;
+ 		if (!clock_name || !strcmp(clock_name, "sys")) {
+ 			sys_clk = clk_get(&ofdev->dev, "sys_clk");
+-			if (!sys_clk) {
++			if (IS_ERR(sys_clk)) {
+ 				dev_err(&ofdev->dev, "couldn't get sys_clk\n");
+ 				goto exit_unmap;
+ 			}
+@@ -204,7 +204,7 @@ static u32 __devinit mpc512x_can_get_clock(struct platform_device *ofdev,
  
- 	if (tmu2_register_user(stmmac_timer_handler, (void *)dev) < 0) {
+ 		if (clocksrc < 0) {
+ 			ref_clk = clk_get(&ofdev->dev, "ref_clk");
+-			if (!ref_clk) {
++			if (IS_ERR(ref_clk)) {
+ 				dev_err(&ofdev->dev, "couldn't get ref_clk\n");
+ 				goto exit_unmap;
+ 			}
+
+
