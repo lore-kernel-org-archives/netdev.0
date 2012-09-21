@@ -1,7 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 0/3] Two new PTP Hardware Clock features
-Date: Fri, 21 Sep 2012 19:00:24 +0200
-Message-ID: <cover.1348245523.git.richardcochran@gmail.com>
+Subject: [PATCH net-next 2/3] ptp: provide the clock's adjusted frequency
+Date: Fri, 21 Sep 2012 19:00:26 +0200
+Message-ID: <fa133ada6c2f42ebe4f83998b7f3480b1a3b1f26.1348245523.git.richardcochran@gmail.com>
+References: <cover.1348245523.git.richardcochran@gmail.com>
 Cc: Ben Hutchings <bhutchings@solarflare.com>,
 	David Miller <davem@davemloft.net>,
 	Jacob Keller <jacob.e.keller@intel.com>,
@@ -10,45 +11,41 @@ Cc: Ben Hutchings <bhutchings@solarflare.com>,
 	Matthew Vick <matthew.vick@intel.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:53214 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751467Ab2IURAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 13:00:40 -0400
-Received: by weyx8 with SMTP id x8so2072211wey.19
-        for <netdev@vger.kernel.org>; Fri, 21 Sep 2012 10:00:38 -0700 (PDT)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:50181 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754643Ab2IURAo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 13:00:44 -0400
+Received: by wibhr14 with SMTP id hr14so2320932wib.1
+        for <netdev@vger.kernel.org>; Fri, 21 Sep 2012 10:00:43 -0700 (PDT)
+In-Reply-To: <cover.1348245523.git.richardcochran@gmail.com>
+In-Reply-To: <cover.1348245523.git.richardcochran@gmail.com>
+References: <cover.1348245523.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series adds two new features to the PHC code.
+If the timex.mode field indicates a query, then we provide the value of
+the current frequency adjustment.
 
-The first two patches let a user program find out the previously
-dialed frequency adjustment. This is primarily useful when restarting
-a PTP service, since without this information, the presumably correct
-adjustment will bias the new frequency estimation.
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+---
+ drivers/ptp/ptp_clock.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-The third patch makes the sysfs clock name come from the 'struct
-device'. This idea was recently discussed on netdev as a way of taking
-the guesswork out of the naming scheme.
-
-Thanks,
-Richard
-
-Richard Cochran (3):
-  ptp: remember the adjusted frequency
-  ptp: provide the clock's adjusted frequency
-  ptp: derive the device name from the parent device
-
- drivers/net/ethernet/freescale/gianfar_ptp.c |    3 +--
- drivers/net/ethernet/intel/igb/igb_ptp.c     |    7 ++-----
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c |    5 ++---
- drivers/net/phy/dp83640.c                    |    3 +--
- drivers/ptp/ptp_clock.c                      |   13 +++++++++++--
- drivers/ptp/ptp_ixp46x.c                     |    3 +--
- drivers/ptp/ptp_pch.c                        |    3 +--
- drivers/ptp/ptp_private.h                    |    2 ++
- drivers/ptp/ptp_sysfs.c                      |    2 +-
- include/linux/ptp_clock_kernel.h             |    8 +++++---
- 10 files changed, 27 insertions(+), 22 deletions(-)
-
+diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
+index fbd7104..6e47450 100644
+--- a/drivers/ptp/ptp_clock.c
++++ b/drivers/ptp/ptp_clock.c
+@@ -148,6 +148,11 @@ static int ptp_clock_adjtime(struct posix_clock *pc, struct timex *tx)
+ 
+ 		err = ops->adjfreq(ops, scaled_ppm_to_ppb(tx->freq));
+ 		ptp->dialed_frequency = tx->freq;
++
++	} else if (tx->modes == 0) {
++
++		tx->freq = ptp->dialed_frequency;
++		err = 0;
+ 	}
+ 
+ 	return err;
 -- 
 1.7.2.5
