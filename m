@@ -1,43 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: sysctl for initial receive window
-Date: Fri, 21 Sep 2012 17:25:11 +0200
-Message-ID: <1348241111.2669.580.camel@edumazet-glaptop>
-References: <20120921085502.4534.20232.stgit@dragon>
+From: Dave Jones <davej@redhat.com>
+Subject: 3.6rc6 use-after-free in destroy_conntrack()
+Date: Fri, 21 Sep 2012 11:31:58 -0400
+Message-ID: <20120921153158.GA25012@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Nandita Dukkipati <nanditad@google.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: stefw@redhat.com,
+	Fedora Kernel Team <kernel-team@fedoraproject.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:63473 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756285Ab2IUPZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 11:25:16 -0400
-Received: by bkuw11 with SMTP id w11so884604bku.19
-        for <netdev@vger.kernel.org>; Fri, 21 Sep 2012 08:25:15 -0700 (PDT)
-In-Reply-To: <20120921085502.4534.20232.stgit@dragon>
+Received: from mx1.redhat.com ([209.132.183.28]:49212 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753684Ab2IUPcB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Sep 2012 11:32:01 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-09-21 at 10:55 +0200, Jesper Dangaard Brouer wrote:
-> Make it possible to adjust the TCP default initial advertised receive
-> window, via sysctl /proc/sys/net/ipv4/tcp_init_recv_window.
-> 
-> The window size is this value multiplied by the MSS of the connection.
-> The default value is (still) 10, as descibed in commit 356f039822b
-> (TCP: increase default initial receive window.)
-> 
-> Allow minimum value of 1, but recommend against setting value below 2
-> in the documentation.
-> 
-> Its possible to control/override this value per route table entry via
-> the iproute2 option initrwnd.  Having the global default exported via
-> sysctl, helps determine the default setting, and make is easier to
-> adjust.
+We just had a report of this happening during shutdown..
 
-I was wondering why its not symmetric :
+There's a blurry photograph of the full trace here.. https://bugzilla.redhat.com/attachment.cgi?id=615311
 
-If we add a sysctl for initial receive window, we need another one for
-initial send window ?
+Rough transcription:
 
-Thanks
+general protection fault
+RIP: destroy_conntrack+0x88
+
+RAX: 6b6b6b6b6b6b6b6b6b6b
+
+trace:
+ ? destroy_conntrack
+ ? __nf_conntrack_find
+ nf_conntrack_destroy
+ ? nf_regsiter_afinfo
+ skb_release_head_state
+ __kfree
+ kfree
+ arp_error_report
+ ? neigh_parms_alloc
+ neigh_invalidate
+ ? neigh_parms_alloc
+ neigh_timer_handler
+ run_timer_softirq
+ ? run_timer_softirq
+ __do_softirq
+ call_softirq
+ do_softirq
+ irq_exit
+ smp_apic_timer_interrupt
+ apic_timer_interrupt
+ <EOI>
+ ? mwait_idle
+ ? mwait_idle
+ cpu_idle
+ start_secondary
+
+Disassembly of the code line shows that the dereference is happening here
+in destroy_conntrack ..
+
+
+        l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
+    1403:       0f b6 b3 86 00 00 00    movzbl 0x86(%rbx),%esi
+    140a:       0f b7 7b 72             movzwl 0x72(%rbx),%edi
+    140e:       e8 00 00 00 00          callq  1413 <destroy_conntrack+0x83>
+->       if (l4proto && l4proto->destroy)
+    1413:       48 85 c0                test   %rax,%rax
+    1416:       74 0e                   je     1426 <destroy_conntrack+0x96>
+    1418:       48 8b 40 28             mov    0x28(%rax),%rax
+
+'l4proto' seems to have been freed already, judging by the value in rax.
+
+	Dave
