@@ -1,76 +1,96 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: Oops with latest (netfilter) nf-next tree, when unloading
- iptable_nat
-Date: Fri, 21 Sep 2012 03:00:25 +0200
-Message-ID: <20120921010025.GA20479@1984>
-References: <1347357081.3928.32.camel@localhost>
- <20120912213627.GJ14750@breakpoint.cc>
- <20120914120750.GA5764@1984>
- <Pine.GSO.4.63.1209141511020.11622@stinky-local.trash.net>
- <1348058791.2761.94.camel@localhost>
- <Pine.GSO.4.63.1209200855500.8409@stinky-local.trash.net>
- <20120920100859.GB20828@1984>
- <Pine.GSO.4.63.1209201212480.1775@stinky-local.trash.net>
- <Pine.GSO.4.63.1209201859140.14078@stinky-local.trash.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Fri, 21 Sep 2012 11:30:09 +1000
+Message-ID: <20120921113009.29a296b6405b96b4d3c05f84@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Florian Westphal <fw@strlen.de>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, yongjun_wei@trendmicro.com.cn
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.GSO.4.63.1209201859140.14078@stinky-local.trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__21_Sep_2012_11_30_09_+1000_.0CtsRlNUgBO2s0W"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	=?UTF-8?B?IkJqw7hybiBNb3JrIg==?= <bjorn@mork.no>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 20, 2012 at 07:06:52PM +0200, Patrick McHardy wrote:
-> On Thu, 20 Sep 2012, Patrick McHardy wrote:
-> 
-> >>>diff --git a/net/netfilter/nf_conntrack_core.c
-> >>>b/net/netfilter/nf_conntrack_core.c
-> >>>index dcb2791..0f241be 100644
-> >>>--- a/net/netfilter/nf_conntrack_core.c
-> >>>+++ b/net/netfilter/nf_conntrack_core.c
-> >>>@@ -1224,6 +1224,8 @@ get_next_corpse(struct net *net, int
-> >>>(*iter)(struct nf_conn *i, void *data),
-> >>> 	spin_lock_bh(&nf_conntrack_lock);
-> >>> 	for (; *bucket < net->ct.htable_size; (*bucket)++) {
-> >>> 		hlist_nulls_for_each_entry(h, n, &net->ct.hash[*bucket],
-> >>>hnnode) {
-> >>>+			if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL)
-> >>>+				continue;
-> >>
-> >>I think this will make the deletion of entries via `conntrack -F'
-> >>slowier as we'll have to iterate over more entries (we won't delete
-> >>entries for the reply tuple).
-> >
-> >Slightly maybe, but I doubt it makes much of a difference.
-> >
-> >>I think I prefer Florian's patch, it's fairly small and it does not
-> >>change the current nf_ct_iterate behaviour or adding some
-> >>nf_nat_iterate cleanup.
-> >
-> >I don't think I've received it. Could you forward it to me please?
-> 
-> Florian forwarded the patch to me. While it fixes the problem, it
-> is a workaround and it certainly is inelegant to do the
-> list_del_rcu_init() and memset up to *four* times for a single conntrack.
-> 
-> The correct thing IMO is to invoke the callbacks exactly once per
-> conntrack, either through my nf_ct_iterate_cleanup() change or through
-> a new iteration function for callers that don't kill conntracks. As
-> soon as we start generating events for NAT section cleanup this will be
-> needed in any case.
-> 
-> Unless I'm missing something, conntrack flushing is also a really
-> rare operation anyways and for large tables where this might make a
-> small difference will take a quite large time anyway.
+--Signature=_Fri__21_Sep_2012_11_30_09_+1000_.0CtsRlNUgBO2s0W
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Makes sense. And we can revisit this to improve it later.
+Hi all,
 
-I'll take this patch. I'll send a batch with updates for the nf-nat
-thin asap.
+Today's linux-next merge of the net-next tree got a conflict in drivers/net=
+/usb/qmi_wwan.c between commit 9db273f45686 ("net: qmi_wwan: adding Huawei =
+E367, ZTE MF683 and Pantech P4200") from the net tree and commit bd877e4891=
+26 ("net: qmi_wwan: use a single bind function for all device types") from =
+the net-next tree.
 
-Thanks a lot Patrick.
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/usb/qmi_wwan.c
+index 3543c9e,e7b53f0..0000000
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@@ -366,21 -353,17 +353,21 @@@ static const struct usb_device_id produ
+  	},
+ =20
+  	/* 2. Combined interface devices matching on class+protocol */
+ +	{	/* Huawei E367 and possibly others in "Windows mode" */
+ +		USB_VENDOR_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, USB_CLASS_VENDOR_SPEC, =
+1, 7),
+ +		.driver_info        =3D (unsigned long)&qmi_wwan_info,
+ +	},
+  	{	/* Huawei E392, E398 and possibly others in "Windows mode" */
+  		USB_VENDOR_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, USB_CLASS_VENDOR_SPEC, =
+1, 17),
+- 		.driver_info        =3D (unsigned long)&qmi_wwan_shared,
++ 		.driver_info        =3D (unsigned long)&qmi_wwan_info,
+  	},
+ -	{	/* Pantech UML290 */
+ -		USB_DEVICE_AND_INTERFACE_INFO(0x106c, 0x3718, USB_CLASS_VENDOR_SPEC, 0x=
+f0, 0xff),
+ +	{	/* Pantech UML290, P4200 and more */
+ +		USB_VENDOR_AND_INTERFACE_INFO(0x106c, USB_CLASS_VENDOR_SPEC, 0xf0, 0xff=
+),
+- 		.driver_info        =3D (unsigned long)&qmi_wwan_shared,
++ 		.driver_info        =3D (unsigned long)&qmi_wwan_info,
+  	},
+  	{	/* Pantech UML290 - newer firmware */
+ -		USB_DEVICE_AND_INTERFACE_INFO(0x106c, 0x3718, USB_CLASS_VENDOR_SPEC, 0x=
+f1, 0xff),
+ +		USB_VENDOR_AND_INTERFACE_INFO(0x106c, USB_CLASS_VENDOR_SPEC, 0xf1, 0xff=
+),
+- 		.driver_info        =3D (unsigned long)&qmi_wwan_shared,
++ 		.driver_info        =3D (unsigned long)&qmi_wwan_info,
+  	},
+ =20
+  	/* 3. Combined interface devices matching on interface number */
+
+--Signature=_Fri__21_Sep_2012_11_30_09_+1000_.0CtsRlNUgBO2s0W
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJQW8MhAAoJEECxmPOUX5FELVYQAJNJPOzFx6x8Jc7s+FNATqTT
+OIS5lEnttw1te2ha2AHCbSBVVYJ5XtfXJW14/Kf1wa8Zla6Qqb0DaTSbHu7e/jNn
+Y7dKtX4DR35t8ChH1z4hvD6/X/f5sqZ4HYyTkLU+lK/P4dCI+5w4qnzQ+IsPvzE7
+OJ+ePZMrK6e1pR693Q/e3zXdXO8iP0GPMCy87kG9lfEYRgMvYWcEfuox4el2udCY
+gfzClClSqhSmV+4Yrjr9JBDfRvpXfWWOHqqKMT/CbJDeALS1XRiCJr45wtFctGwO
+4yeduwU3q7Udwvw/r1jfFJPZAp49WW7HBYakjVMkU1ms4S09gbjesGukWLcEQ34z
+hK0p0+Zo9ndglfRO+oPLrK1oGLxvFMBDq2oll2J2RPrnRpPSq1D7K2zmpKqKkwZY
+SSCCIKDWROwsGKwUe1PF7qQ2FZmXR2tk3kCi2hJDkwEbSDcbBBP3CNnkEfcgjHOo
+R7BT6Fl6tYojBkILoG+YcFcvPlmCPoQptEykjNakNdOT+Erphhuib1TjPuXy769D
+oujVPLsGwS7rp4swNcbfDbNKXvIZoNxBQSvkbXIEixenIIdeBeUPrzuKIGBV6Q9i
+xFVekXswWwTg/fnAv0Hdu2AobOmG6pdZMdz5JL7n93PXF2LWYBfSuAu+inhZ/A0m
+uRj5Vw2KlwtY4thRkxts
+=Nhpt
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__21_Sep_2012_11_30_09_+1000_.0CtsRlNUgBO2s0W--
