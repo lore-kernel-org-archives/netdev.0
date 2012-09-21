@@ -1,63 +1,57 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: mscan-mpc5xxx: fix return value check in mpc512x_can_get_clock()
-Date: Fri, 21 Sep 2012 10:09:51 +0200
-Message-ID: <505C20CF.20508@pengutronix.de>
-References: <CAPgLHd9fRAvQ77rD_PCp45XW9-FsBisUATOT00Je39nbv5o28A@mail.gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] stmmac: fix return value check in stmmac_open_ext_timer()
+Date: Fri, 21 Sep 2012 10:21:30 +0200
+Message-ID: <505C238A.5050301@st.com>
+References: <CAPgLHd87SqVa40-SGrgEfRAPWj1dr9aGPDD7b3aALCqka2ssuA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig2D9F288324D5187D24A039D9"
-Cc: wg@grandegger.com, grant.likely@secretlab.ca,
-	rob.herring@calxeda.com, yongjun_wei@trendmicro.com.cn,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
 To: Wei Yongjun <weiyj.lk@gmail.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <CAPgLHd9fRAvQ77rD_PCp45XW9-FsBisUATOT00Je39nbv5o28A@mail.gmail.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:42145 "EHLO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753491Ab2IUIVp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 04:21:45 -0400
+In-Reply-To: <CAPgLHd87SqVa40-SGrgEfRAPWj1dr9aGPDD7b3aALCqka2ssuA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig2D9F288324D5187D24A039D9
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-On 09/21/2012 09:09 AM, Wei Yongjun wrote:
+On 9/21/2012 9:06 AM, Wei Yongjun wrote:
 > From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->=20
+>
 > In case of error, the function clk_get() returns ERR_PTR()
 > and never returns NULL pointer. The NULL test in the error
 > handling should be replaced with IS_ERR().
->=20
+>
 > dpatch engine is used to auto generated this patch.
 > (https://github.com/weiyj/dpatch)
->=20
+
+FYI I have recently sent some patches (still under reviewing) to 
+completely remove this dead code from the driver.
+
+http://marc.info/?l=linux-netdev&m=134734656020277&w=2
+
+Peppe
+
 > Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-
-Applied to can-next
-
-Tnx,
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig2D9F288324D5187D24A039D9
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://www.enigmail.net/
-
-iEYEARECAAYFAlBcIM8ACgkQjTAFq1RaXHOxzgCeNLxu1serLpCTc3MheBIOUoEM
-DKwAmwYlhDORE13jmsaMTO6c1XE5ByJo
-=VA+E
------END PGP SIGNATURE-----
-
---------------enig2D9F288324D5187D24A039D9--
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
+> index 2a0e1ab..197fb8c 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
+> @@ -109,7 +109,7 @@ int stmmac_open_ext_timer(struct net_device *dev, struct stmmac_timer *tm)
+>   {
+>   	timer_clock = clk_get(NULL, TMU_CHANNEL);
+>
+> -	if (timer_clock == NULL)
+> +	if (IS_ERR(timer_clock))
+>   		return -1;
+>
+>   	if (tmu2_register_user(stmmac_timer_handler, (void *)dev) < 0) {
+>
+>
+>
