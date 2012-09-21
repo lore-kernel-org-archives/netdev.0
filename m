@@ -1,49 +1,47 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: [PATCH] mISDN: suppress compiler warning
-Date: Fri, 21 Sep 2012 12:25:24 +0200
-Message-ID: <1348223124.1581.15.camel@x61.thuisdomein>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2012-09-21
+Date: Fri, 21 Sep 2012 13:05:33 +0200
+Message-ID: <1348225535-24976-1-git-send-email-mkl@pengutronix.de>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Building the hfcpci driver triggers this GCC warning:
-    drivers/isdn/hardware/mISDN/hfcpci.c:2298:2: warning: ignoring return value of 'driver_for_each_device', declared with attribute warn_unused_result [-Wunused-result]
+Hello David,
 
-That return value is apparently ignored because _hfcpci_softirq() will
-always return 0. Suppress this warning in the way a few other drivers do
-that too.
+two patches for the v3.6 release cycle. Ira W. Snyder fixed support for the
+older version of the Janz CMOD-IO Carrier Board. I found and fixed an oops in
+the ti_hecc driver, which occurs when removing the module if the network
+interface is still open.
 
-Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
----
-0) I noticed this warning while building v3.6-rc6 on current Fedora 17,
-using Fedora's default config.
-
-1) Compile tested only.
-
- drivers/isdn/hardware/mISDN/hfcpci.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/isdn/hardware/mISDN/hfcpci.c b/drivers/isdn/hardware/mISDN/hfcpci.c
-index 81363ff..a547c8c 100644
---- a/drivers/isdn/hardware/mISDN/hfcpci.c
-+++ b/drivers/isdn/hardware/mISDN/hfcpci.c
-@@ -2295,8 +2295,11 @@ _hfcpci_softirq(struct device *dev, void *arg)
- static void
- hfcpci_softirq(void *arg)
- {
--	(void) driver_for_each_device(&hfc_driver.driver, NULL, arg,
-+	int ret;
-+
-+	ret = driver_for_each_device(&hfc_driver.driver, NULL, arg,
- 				      _hfcpci_softirq);
-+	(void)ret;	/* suppress compiler warning */
+If it's too late for these patches, I'll rebase them to net-next.
  
- 	/* if next event would be in the past ... */
- 	if ((s32)(hfc_jiffies + tics - jiffies) <= 0)
--- 
-1.7.11.4
+regards, Marc
+
+--
+
+The following changes since commit c0d680e577ff171e7b37dbdb1b1bf5451e851f04:
+
+  net: do not disable sg for packets requiring no checksum (2012-09-20 22:23:40 -0400)
+
+are available in the git repository at:
+
+  git://gitorious.org/linux-can/linux-can.git fixes-for-3.6
+
+for you to fetch changes up to ab04c8bd423edb03e2148350a091836c196107fc:
+
+  can: ti_hecc: fix oops during rmmod (2012-09-21 12:54:53 +0200)
+
+----------------------------------------------------------------
+Ira W. Snyder (1):
+      can: janz-ican3: fix support for older hardware revisions
+
+Marc Kleine-Budde (1):
+      can: ti_hecc: fix oops during rmmod
+
+ drivers/net/can/janz-ican3.c |    4 +---
+ drivers/net/can/ti_hecc.c    |    2 +-
+ 2 files changed, 2 insertions(+), 4 deletions(-)
+
+
