@@ -1,37 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: qmi_wwan: adding Huawei E367, ZTE MF683
- and Pantech P4200
-Date: Fri, 21 Sep 2012 13:22:18 -0400 (EDT)
-Message-ID: <20120921.132218.169536453080825317.davem@davemloft.net>
-References: <1348085016-30850-1-git-send-email-bjorn@mork.no>
-	<1348125485-3404-1-git-send-email-bjorn@mork.no>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: regression: tethering fails in 3.5 with iwlwifi
+Date: Fri, 21 Sep 2012 13:24:45 -0400 (EDT)
+Message-ID: <20120921.132445.72763806946072284.davem@davemloft.net>
+References: <CANn89i+9Th=xVgDgoy7tHwKtLNpOC8rgJkA09nQ1Yf0zvqBw6w@mail.gmail.com>
+	<1348147353.2388.19.camel@sauron.fi.intel.com>
+	<1348151149.31352.109.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	fangxiaozhi@huawei.com, tschaefer@t-online.de, dcbw@redhat.com,
-	shawn7400@gmail.com
-To: bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50539 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756614Ab2IURWU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 13:22:20 -0400
-In-Reply-To: <1348125485-3404-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: artem.bityutskiy-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1348151149.31352.109.camel@edumazet-glaptop>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Thu, 20 Sep 2012 09:18:05 +0200
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 20 Sep 2012 16:25:49 +0200
 
-> This is the net-next version of the previously posted patch with the
-> same title.  I totally forgot that I had messed with the .driver_info
-> fields, making it impossible to apply the same patch to both net and=20
-> net-next.
->=20
-> Sorry about that.  Please apply this version to net-next.  The other
-> one should still be applied to net (if still possible) and stable.
+> Please remove this hack and try the following bugfix in raw handler
+> 
+> icmp_filter() should not modify skb, or else its caller should not
+> assume ip_hdr() is unchanged.
 
-Ok I applied this to net-next, and it should help with the merge
-resolution between net and net-next, which BTW Stephen Rothwell
-already had to deal with.
+Right, good catch.
+
+Please submit this fix formally Eric, thanks a lot.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
