@@ -1,16 +1,16 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] teamd: send port changed when added
-Date: Fri, 21 Sep 2012 13:50:37 +0200
-Message-ID: <1348228237-11378-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next] team: send port changed when added
+Date: Fri, 21 Sep 2012 13:51:59 +0200
+Message-ID: <1348228319-11453-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:61063 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755804Ab2IULum (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 07:50:42 -0400
-Received: by bkuw11 with SMTP id w11so759130bku.19
-        for <netdev@vger.kernel.org>; Fri, 21 Sep 2012 04:50:41 -0700 (PDT)
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:37666 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751436Ab2IULwD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 07:52:03 -0400
+Received: by wgbdr13 with SMTP id dr13so1370681wgb.1
+        for <netdev@vger.kernel.org>; Fri, 21 Sep 2012 04:52:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
