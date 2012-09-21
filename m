@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/irda: sh_sir: fix return value check in
- sh_sir_set_baudrate()
-Date: Fri, 21 Sep 2012 13:47:42 -0400 (EDT)
-Message-ID: <20120921.134742.1997041315490397151.davem@davemloft.net>
-References: <CAPgLHd9DZuXtx2atvpLV3bHC9tnv+CNaKhvEWzv6f3iS--vfcg@mail.gmail.com>
+Subject: Re: [PATCH net-next v4 0/1] Add support of ECMPv6
+Date: Fri, 21 Sep 2012 13:48:33 -0400 (EDT)
+Message-ID: <20120921.134833.1294721941180523200.davem@davemloft.net>
+References: <20120920.171525.2005584636029506440.davem@davemloft.net>
+	<1348221545-14747-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, yongjun_wei@trendmicro.com.cn,
-	netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
+Cc: bernat@luffy.cx, netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50909 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50966 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932345Ab2IURro (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 13:47:44 -0400
-In-Reply-To: <CAPgLHd9DZuXtx2atvpLV3bHC9tnv+CNaKhvEWzv6f3iS--vfcg@mail.gmail.com>
+	with ESMTP id S932344Ab2IURsf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 13:48:35 -0400
+In-Reply-To: <1348221545-14747-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Fri, 21 Sep 2012 15:13:55 +0800
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Fri, 21 Sep 2012 11:59:04 +0200
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> 
-> In case of error, the function clk_get() returns ERR_PTR()
-> and never returns NULL pointer. The NULL test in the error
-> handling should be replaced with IS_ERR().
-> 
-> dpatch engine is used to auto generated this patch.
-> (https://github.com/weiyj/dpatch)
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> v4: remove compilation options to choose multipath algorithm for next hop
+>     selection. Now the choice can be done at run time via
+>     /proc/sys/net/ipv6/route/multipath_algorithm
 
-Applied.
+Please specify this in the routing configuration protocol, rather than
+via some obscure procfs file.
+
+Thanks.
