@@ -1,34 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: regression: tethering fails in 3.5 with iwlwifi
-Date: Fri, 21 Sep 2012 13:24:45 -0400 (EDT)
-Message-ID: <20120921.132445.72763806946072284.davem@davemloft.net>
-References: <CANn89i+9Th=xVgDgoy7tHwKtLNpOC8rgJkA09nQ1Yf0zvqBw6w@mail.gmail.com>
-	<1348147353.2388.19.camel@sauron.fi.intel.com>
-	<1348151149.31352.109.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] bnx2x: remove false warning regarding interrupt
+ number
+Date: Fri, 21 Sep 2012 13:27:41 -0400 (EDT)
+Message-ID: <20120921.132741.2134378410644822329.davem@davemloft.net>
+References: <1348154801-6592-1-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: artem.bityutskiy-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1348151149.31352.109.camel@edumazet-glaptop>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: ariele@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50600 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932078Ab2IUR1n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 13:27:43 -0400
+In-Reply-To: <1348154801-6592-1-git-send-email-ariele@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Thu, 20 Sep 2012 16:25:49 +0200
+From: "Ariel Elior" <ariele@broadcom.com>
+Date: Thu, 20 Sep 2012 18:26:41 +0300
 
-> Please remove this hack and try the following bugfix in raw handler
+> Since version 7.4 the FW configures in the pci config space the max
+> number of interrupts available to the physical function, instead of
+> the exact number to use.
+> This causes a false warning in driver when comparing the number of
+> configured interrupts to the number about to be used.
 > 
-> icmp_filter() should not modify skb, or else its caller should not
-> assume ip_hdr() is unchanged.
+> Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-Right, good catch.
-
-Please submit this fix formally Eric, thanks a lot.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
