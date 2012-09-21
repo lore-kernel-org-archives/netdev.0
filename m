@@ -1,46 +1,64 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [PATCH 1/3 V2] phy/micrel: Implement support for KSZ8021
-Date: Fri, 21 Sep 2012 20:33:12 +0200
-Message-ID: <201209212033.12738.marex@denx.de>
-References: <1348195976-31703-1-git-send-email-marex@denx.de> <201209212004.10148.marex@denx.de> <20120921.141037.1710579690343556147.davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next 3/3] ptp: derive the device name from the
+ parent device
+Date: Fri, 21 Sep 2012 20:40:35 +0200
+Message-ID: <20120921184035.GF6129@netboy.at.omicron.at>
+References: <cover.1348245523.git.richardcochran@gmail.com>
+ <9f2ed4a62d52182eeab86ad3dca7f6feeb68368a.1348245523.git.richardcochran@gmail.com>
+ <1348247965.2521.11.camel@bwh-desktop.uk.solarflarecom.com>
+ <20120921173709.GB6129@netboy.at.omicron.at>
+ <02874ECE860811409154E81DA85FBB5818BFF5B4@ORSMSX105.amr.corp.intel.com>
+ <1348249258.2521.25.camel@bwh-desktop.uk.solarflarecom.com>
+ <20120921181115.GE6129@netboy.at.omicron.at>
+ <1348251783.2521.42.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, david.choi@micrel.com,
-	nobuhiro.iwamatsu.yj@renesas.com, fabio.estevam@freescale.com,
-	shawn.guo@linaro.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	"Vick, Matthew" <matthew.vick@intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:40276 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757518Ab2IUSdQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 14:33:16 -0400
-In-Reply-To: <20120921.141037.1710579690343556147.davem@davemloft.net>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:59828 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757369Ab2IUSkr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 14:40:47 -0400
+Received: by wibhi8 with SMTP id hi8so2494148wib.1
+        for <netdev@vger.kernel.org>; Fri, 21 Sep 2012 11:40:46 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1348251783.2521.42.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear David Miller,
-
-> From: Marek Vasut <marex@denx.de>
-> Date: Fri, 21 Sep 2012 20:04:09 +0200
+On Fri, Sep 21, 2012 at 07:23:03PM +0100, Ben Hutchings wrote:
 > 
-> >> Rather, the goal is to properly line up function arguments with
-> >> the first column after the openning parenthesis on the previous
-> >> line.  Using TAB and SPACE characters, as needed.
-> >> 
-> >> > +	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
-> >> > +				| SUPPORTED_Asym_Pause),
-> >> 
-> >> This is similarly not styled properly.
-> > 
-> > This is copy-pasted from other entry. I'd hate to reformat the whole
-> > file.
-> 
-> I'm not asking you to, just the new code you're adding.
+> I think what I'm still missing from you is some explanation of what the
+> 'clock name' is meant to be used as - a type name, a unique identifier,
+> a 'friendly name' for listing clocks in a user interface?
 
-I don't like it. What'd you say to me linting the whole file with checkpatch in 
-a subsequent patch?
+The original idea was a type/friendly kind of thing.
 
-Best regards,
-Marek Vasut
+Imagine you are the admin of some random box that should run PTP. You
+do 'cat /sys/class/ptp/ptp0/clock_name' and see "gianfar clock". Then
+you think to yourself, "Excellent, I know that one, it works great,
+and I can even get a PPS output."
+
+But if you saw "IXP46X timer" then you would think, "Forget it, this
+will never work."
+
+That was the idea.
+
+But before the ethtool thing came along, people started putting MAC
+addresses in that string, and it continued even after the ethtool
+method appeared. I wanted to correct the MAC abuses, but then I
+thought you were concurring with putting some kind of semi-unique
+device ID there.
+
+I really don't care too much about the clock_name anyhow, because I
+always know my own hardware. I don't mind changing it from type-string
+or friendly-name to device ID, if people think that is more useful.
+
+Thanks,
+Richard
