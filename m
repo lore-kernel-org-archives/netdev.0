@@ -1,30 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next] net1080: Neaten netdev_dbg use
-Date: Thu, 20 Sep 2012 22:06:12 -0400 (EDT)
-Message-ID: <20120920.220612.2006365556684233063.davem@davemloft.net>
-References: <20120919194614.GA17585@kroah.com>
-	<20120920.175335.1128494030737237412.davem@davemloft.net>
-	<1348186223.2134.1.camel@joe2Laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] at91ether: return PTR_ERR if call to clk_get fails
+Date: Thu, 20 Sep 2012 22:22:21 -0400 (EDT)
+Message-ID: <20120920.222221.1362666243095294465.davem@davemloft.net>
+References: <1348124676-6627-1-git-send-email-devendra.aaru@gmail.com>
+	<505AC8D6.5080404@atmel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1348186223.2134.1.camel@joe2Laptop>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: devendra.aaru@gmail.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: nicolas.ferre@atmel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41476 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755899Ab2IUCWW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2012 22:22:22 -0400
+In-Reply-To: <505AC8D6.5080404@atmel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Date: Thu, 20 Sep 2012 17:10:23 -0700
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Date: Thu, 20 Sep 2012 09:42:14 +0200
 
-> Remove unnecessary temporary variable and #ifdef DEBUG block.
+> On 09/20/2012 09:04 AM, Devendra Naga :
+>> we are currently returning ENODEV, as the clk_get may give a exact
+>> error code in its returned pointer, assign it to the ret by using the
+>> PTR_ERR function, so that the subsequent goto label will jump to the
+>> error path and clean the driver and return the error correctly.
+>> 
+>> Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
 > 
-> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-Applied, thanks Joe.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
