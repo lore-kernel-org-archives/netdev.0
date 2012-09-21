@@ -1,34 +1,42 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [PATCH] ath6kl: use list_move_tail instead of list_del/list_add_tail
-Date: Fri, 21 Sep 2012 19:42:45 +0300
-Message-ID: <505C9905.2000003@qca.qualcomm.com>
-References: <CAPgLHd-6RmrLpi9FPTFhXiA+BHywGknmvNAd-KCdHaM+tn0qgQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
+Date: Fri, 21 Sep 2012 18:51:21 +0200
+Message-ID: <1348246281.2669.755.camel@edumazet-glaptop>
+References: <505B773E.9070501@hp.com>
+	 <1348172722.2669.10.camel@edumazet-glaptop>
+	 <1348242511.2669.635.camel@edumazet-glaptop>
+	 <20120921.122705.1344923255084267186.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linville@tuxdriver.com>, <yongjun_wei@trendmicro.com.cn>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-	ath6kl-devel <ath6kl-devel@qualcomm.com>
-To: Wei Yongjun <weiyj.lk@gmail.com>
+Cc: rick.jones2@hp.com, subramanian.vijay@gmail.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:13216 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756407Ab2IUQmv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 12:42:51 -0400
-In-Reply-To: <CAPgLHd-6RmrLpi9FPTFhXiA+BHywGknmvNAd-KCdHaM+tn0qgQ@mail.gmail.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:51830 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756456Ab2IUQv2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 12:51:28 -0400
+Received: by bkuw11 with SMTP id w11so932837bku.19
+        for <netdev@vger.kernel.org>; Fri, 21 Sep 2012 09:51:27 -0700 (PDT)
+In-Reply-To: <20120921.122705.1344923255084267186.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/05/2012 10:07 AM, Wei Yongjun wrote:
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Fri, 2012-09-21 at 12:27 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 21 Sep 2012 17:48:31 +0200
 > 
-> Using list_move_tail() instead of list_del() + list_add_tail().
+> > There is probably a reason why lo default MTU is 16436 ?
 > 
-> spatch with a semantic match is used to found this problem.
-> (http://coccinelle.lip6.fr/)
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> That's what fit into L1 caches back in 1999
 
-Thanks, applied to ath6kl.git.
+I see ;)
 
-Kalle
+Nowadays, we even have the NETIF_F_NOCACHE_COPY flag and
+__copy_from_user_nocache()
+
+Hmm, we can not toggle this flag on loopback yet
+
+# ethtool -K lo tx-nocache-copy on
+Could not change any device features
