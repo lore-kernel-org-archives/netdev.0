@@ -1,182 +1,65 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v3] lxt PHY: Support for the buggy LXT973 rev A2
-Date: Sat, 22 Sep 2012 19:32:25 +0200
-Message-ID: <20120922173225.GA6796@netboy.at.omicron.at>
-References: <201209221616.q8MGGnRc019864@localhost.localdomain>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH V3 net-next 3/4] ptp: link the phc device to its parent
+ device
+Date: Sat, 22 Sep 2012 10:32:41 -0700
+Message-ID: <1348335161.31385.11.camel@jtkirshe-mobl>
+References: <cover.1348332940.git.richardcochran@gmail.com>
+	 <5cbf85cdd74396119af11ba00b4b0bcd93f23ba0.1348332941.git.richardcochran@gmail.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David S Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Christophe Leroy <christophe.leroy@c-s.fr>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-jHQfWlnvATukhOWEe8oP"
+Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Matthew Vick <matthew.vick@intel.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:58300 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752904Ab2IVRci (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2012 13:32:38 -0400
-Content-Disposition: inline
-In-Reply-To: <201209221616.q8MGGnRc019864@localhost.localdomain>
+Received: from mga11.intel.com ([192.55.52.93]:43453 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753128Ab2IVRcv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Sep 2012 13:32:51 -0400
+In-Reply-To: <5cbf85cdd74396119af11ba00b4b0bcd93f23ba0.1348332941.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 22, 2012 at 06:16:49PM +0200, Christophe Leroy wrote:
-> This patch adds proper handling of the buggy revision A2 of LXT973 phy, adding
-> precautions linked to ERRATA Item 4:
-> 
-> Revision A2 of LXT973 chip randomly returns the contents of the previous even
-> register when you read a odd register regularly
 
-This patch does not apply to net-next.
+--=-jHQfWlnvATukhOWEe8oP
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Also, I have just a few stylistic comments, below.
+On Sat, 2012-09-22 at 19:02 +0200, Richard Cochran wrote:
+> PTP Hardware Clock devices appear as class devices in sysfs. This
+> patch
+> changes the registration API to use the parent device, clarifying the
+> clock's relationship to the underlying device.
+>=20
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>=20
 
-> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
-> 
-> diff -u linux-3.5-vanilla/drivers/net/phy/lxt.c linux-3.5/drivers/net/phy/lxt.c
-> --- linux-3.5-vanilla/drivers/net/phy/lxt.c	2012-07-21 22:58:29.000000000 +0200
-> +++ linux-3.5/drivers/net/phy/lxt.c	2012-09-15 19:20:34.000000000 +0200
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-...
+--=-jHQfWlnvATukhOWEe8oP
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-> +int lxt973a2_read_status(struct phy_device *phydev)
-> +{
-> +	int adv;
-> +	int err;
-> +	int lpa;
-> +	int lpagb = 0;
-> +
-> +	/* Update the link, but return if there was an error */
-> +	err = lxt973a2_update_link(phydev);
-> +	if (err)
-> +		return err;
-> +
-> +	if (AUTONEG_ENABLE == phydev->autoneg) {
-> +		int retry = 1;
-> +
-> +		adv = phy_read(phydev, MII_ADVERTISE);
-> +
-> +		if (adv < 0)
-> +			return adv;
-> +
-> +		do {
-> +			lpa = phy_read(phydev, MII_LPA);
-> +
-> +			if (lpa < 0)
-> +				return lpa;
-> +
-> +			/* If both registers are equal, it is suspect but not
-> +			* impossible, hence a new try
-> +			*/
-> +		} while (lpa == adv && retry--);
-> +
-> +		lpa &= adv;
-> +
-> +		phydev->speed = SPEED_10;
-> +		phydev->duplex = DUPLEX_HALF;
-> +		phydev->pause = phydev->asym_pause = 0;
-> +
-> +		if (lpagb & (LPA_1000FULL | LPA_1000HALF)) {
-> +			phydev->speed = SPEED_1000;
-> +
-> +			if (lpagb & LPA_1000FULL)
-> +				phydev->duplex = DUPLEX_FULL;
-> +		} else if (lpa & (LPA_100FULL | LPA_100HALF)) {
-> +			phydev->speed = SPEED_100;
-> +
-> +			if (lpa & LPA_100FULL)
-> +				phydev->duplex = DUPLEX_FULL;
-> +		} else
-> +			if (lpa & LPA_10FULL)
-> +				phydev->duplex = DUPLEX_FULL;
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-This last 'else' could use braces.
+iQIcBAABCgAGBQJQXfY5AAoJEOVv75VaS+3OQ7wP+wS4L5iEpJiBhZDT0u8+dy3T
++8wBa1LI8q6IG7/YRFOmpywD6WEFNct9AJy+xc27Tl+n2kjwa+SMmR64iJfTmtqf
+ex1Ij2RJUHhjjTC5pB2TuHftuR/7YJ4NQusj38X9absFQLTWjztu8qTFvfddmFoF
+z+A3a+aygBolxymevC8hPHChCzFNUJFfrSMEtt/zzVJpTx6T/l3ZlcGc1KpDwxqx
+9ThQ9I7jLTQyEeJ35RrLHHPN4NSNnAi3l4Wk+7MWhwMtxaEr7wRrfH28WR1YrNBX
+jbAR79fe3Cnsve2lzAsdRA8SgnFma97gM/pQYq/poo1Uctm2Dy9aXY3q+v4maN3m
+FiYlBRBToaiCk1a+oScRA3A6tvkzvQUeG2U6/OMHtGBj7Q11rGDE8puEaK0ULSFm
+vRDHa8LcjrrezTV7nD0eHjafD+xvRn4wQDtwfQGJZMhabCKCJTjVPjw0S3ove5JX
+XwsiZOphfuy8LMw3VLMSCSqP+VuyNa/e8ZQwQZRup7KQuw3VGvAOJsF2bKkL7yyM
+h0cv2kHzNLDa33+rfxr1AA6M26Se9DPD6PV/rvIrQJwrtw+39GumJuxpAbuZlXnx
+gOyLSnhwCwYuH1+w1I4727vLGScM+p8hwFqzmp6dE9dF7poVaNNdMhUobhGy5rYj
+QE9K6Z39sRph0XzJAbFn
+=ZnYP
+-----END PGP SIGNATURE-----
 
-> +
-> +		if (phydev->duplex == DUPLEX_FULL) {
-> +			phydev->pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
-> +			phydev->asym_pause = lpa & LPA_PAUSE_ASYM ? 1 : 0;
-> +		}
-> +	} else {
-> +		int bmcr = phy_read(phydev, MII_BMCR);
-> +
-> +		if (bmcr < 0)
-> +			return bmcr;
-> +
-> +		if (bmcr & BMCR_FULLDPLX)
-> +			phydev->duplex = DUPLEX_FULL;
-> +		else
-> +			phydev->duplex = DUPLEX_HALF;
-> +
-> +		if (bmcr & BMCR_SPEED1000)
-> +			phydev->speed = SPEED_1000;
-> +		else if (bmcr & BMCR_SPEED100)
-> +			phydev->speed = SPEED_100;
-> +		else
-> +			phydev->speed = SPEED_10;
-> +
-> +		phydev->pause = phydev->asym_pause = 0;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static int lxt973_read_status(struct phy_device *phydev)
-> +{
-> +	return (int)phydev->priv&PHYDEV_PRIV_REVA2 ?
-> +			lxt973a2_read_status(phydev) :
-> +			genphy_read_status(phydev);
-
-Needs spacing, like this:
-
-	return (int) phydev->priv & PHYDEV_PRIV_REVA2 ?
-		lxt973a2_read_status(phydev) : genphy_read_status(phydev);
-
-> +}
-> +
->  static int lxt973_probe(struct phy_device *phydev)
->  {
->  	int val = phy_read(phydev, MII_LXT973_PCR);
-> +	int priv = 0;
-> +
-> +	phydev->priv = NULL;
-> +
-> +	if (val < 0)
-> +		return val;
->  
->  	if (val & PCR_FIBER_SELECT) {
->  		/*
-> @@ -136,17 +272,26 @@
->  		val &= ~BMCR_ANENABLE;
->  		phy_write(phydev, MII_BMCR, val);
->  		/* Remember that the port is in fiber mode. */
-> -		phydev->priv = lxt973_probe;
-> -	} else {
-> -		phydev->priv = NULL;
-> +		priv |= PHYDEV_PRIV_FIBER;
-> +	}
-> +	val = phy_read(phydev, MII_PHYSID2);
-> +
-> +	if (val < 0)
-> +		return val;
-> +
-> +	if ((val & 0xf) == 0) { /* rev A2 */
-> +		dev_info(&phydev->dev, " LXT973 revision A2 has bugs\n");
-> +		priv |= PHYDEV_PRIV_REVA2;
->  	}
-> +	phydev->priv = (void *)priv;
-
-One space after cast, please: (void *) priv;
-
->  	return 0;
->  }
->  
->  static int lxt973_config_aneg(struct phy_device *phydev)
->  {
->  	/* Do nothing if port is in fiber mode. */
-> -	return phydev->priv ? 0 : genphy_config_aneg(phydev);
-> +	return (int)phydev->priv&PHYDEV_PRIV_FIBER ?
-> +			0 : genphy_config_aneg(phydev);
-
-Same spacing issue again.
-
-Thanks,
-Richard
+--=-jHQfWlnvATukhOWEe8oP--
