@@ -1,42 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the final tree
- (net-next tree related)
-Date: Sat, 22 Sep 2012 16:00:27 -0400 (EDT)
-Message-ID: <20120922.160027.1528491047223302539.davem@davemloft.net>
-References: <1348179764.1132.35.camel@pasglop>
-	<20120920.185315.576326460331670020.davem@davemloft.net>
-	<1348264000.1132.63.camel@pasglop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC PATCHv2 bridge 7/7] bridge: Add the ability to show dump
+ the vlan map from a bridge port
+Date: Sat, 22 Sep 2012 13:05:53 -0700
+Message-ID: <20120922130553.3d7e0299@nehalam.linuxnetplumber.net>
+References: <1348058536-22607-1-git-send-email-vyasevic@redhat.com>
+	<1348058536-22607-8-git-send-email-vyasevic@redhat.com>
+	<1348334132.2521.100.camel@bwh-desktop.uk.solarflarecom.com>
+	<20120922.132747.1937291269030903700.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, paulus@samba.org,
-	linuxppc-dev@lists.ozlabs.org, mika.westerberg@linux.intel.com,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: benh@kernel.crashing.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1348264000.1132.63.camel@pasglop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bhutchings@solarflare.com, vyasevic@redhat.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:42638 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751645Ab2IVUGX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Sep 2012 16:06:23 -0400
+In-Reply-To: <20120922.132747.1937291269030903700.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Sat, 22 Sep 2012 07:46:40 +1000
+On Sat, 22 Sep 2012 13:27:47 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
-> Right, but on ppc, GFP_DMA is a nop (no separate ZONE_DMA, or rather all
-> of memory is ZONE_DMA). It's always been like that afaik.
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Sat, 22 Sep 2012 18:15:32 +0100
 > 
-> We could support ISA device limited addressability using the iommu but
-> that would involve a map/unmap type API (which I remember we did support
-> in the old days by passing NULL to pci_map_*, but we dropped that along
-> the way).
+> > On Wed, 2012-09-19 at 08:42 -0400, Vlad Yasevich wrote:
+> >> Using the RTM_GETLINK dump the vlan map of a given bridge port.
+> > [...]
+> > 
+> > This enlarges the RTM_GETLINK response quite a bit.  I think perhaps
+> > this should be optional, like IFLA_VFINFO_LIST is now.
+> 
+> Completely agreed.
 
-I think I'm going to just end up restricting this driver to X86
-as was originally suggested.
-
-There seems to be no real consistent Kconfig protection for users
-of isa_virt_to_bus() and friends.
-
-We know that ISA_DMA_API doesn't do it, and ISA doesn't do it either
-as powerpc also allows that to bet set for CHRP and friends.
-
-Thanks.
+Since most users won't use it, it should be not necessary to include
+it if the map is blank.
