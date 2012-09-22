@@ -1,10 +1,10 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH V2 net-next 3/4] ptp: link the phc device to its parent
- device
-Date: Sat, 22 Sep 2012 16:40:52 +0100
-Message-ID: <1348328452.2521.78.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [PATCH V2 net-next 4/4] ptp: clarify the clock_name sysfs
+ attribute
+Date: Sat, 22 Sep 2012 16:44:48 +0100
+Message-ID: <1348328688.2521.81.camel@bwh-desktop.uk.solarflarecom.com>
 References: <cover.1348299094.git.richardcochran@gmail.com>
-	 <847f89f4f5a2757c2487b23dac218e15613c2bb5.1348299094.git.richardcochran@gmail.com>
+	 <6bc914f0607428ab0d8f5d5fc42a5e87bedc95c5.1348299094.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -15,34 +15,47 @@ Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
 	Matthew Vick <matthew.vick@intel.com>
 To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:27720 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:27769 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751427Ab2IVPk6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2012 11:40:58 -0400
-In-Reply-To: <847f89f4f5a2757c2487b23dac218e15613c2bb5.1348299094.git.richardcochran@gmail.com>
+	by vger.kernel.org with ESMTP id S1751816Ab2IVPow (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2012 11:44:52 -0400
+In-Reply-To: <6bc914f0607428ab0d8f5d5fc42a5e87bedc95c5.1348299094.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Sat, 2012-09-22 at 09:42 +0200, Richard Cochran wrote:
-> PTP Hardware Clock devices appear as class devices in sysfs. This patch
-> changes the registration API to use the parent device, clarifying the
-> clock's relationship to the underlying device.
-[...]
-> --- a/drivers/net/ethernet/sfc/ptp.c
-> +++ b/drivers/net/ethernet/sfc/ptp.c
-> @@ -931,7 +931,8 @@ static int efx_ptp_probe_channel(struct efx_channel *channel)
->  	ptp->phc_clock_info.settime = efx_phc_settime;
->  	ptp->phc_clock_info.enable = efx_phc_enable;
->  
-> -	ptp->phc_clock = ptp_clock_register(&ptp->phc_clock_info);
-> +	ptp->phc_clock = ptp_clock_register(&ptp->phc_clock_info,
-> +					    &channel->napi_dev->dev);
-[...]
+> There has been some confusion among PHC driver authors about the
+> intended purpose of the clock_name attribute. This patch expands the
+> documation in order to clarify how the clock_name field should be
+> understood.
+> 
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+> ---
+>  Documentation/ABI/testing/sysfs-ptp |    5 ++++-
+>  1 files changed, 4 insertions(+), 1 deletions(-)
+> 
+> diff --git a/Documentation/ABI/testing/sysfs-ptp b/Documentation/ABI/testing/sysfs-ptp
+> index d40d2b5..c906488 100644
+> --- a/Documentation/ABI/testing/sysfs-ptp
+> +++ b/Documentation/ABI/testing/sysfs-ptp
+> @@ -19,7 +19,10 @@ Date:		September 2010
+>  Contact:	Richard Cochran <richardcochran@gmail.com>
+>  Description:
+>  		This file contains the name of the PTP hardware clock
+> -		as a human readable string.
+> +		as a human readable string. The purpose of this
+> +		attribute is to provide the user with a "friendly
+> +		name" and to help distinguish PHY based devices from
+> +		MAC based ones.
 
-channel->napi_dev is the net device, not the PCI device.  The parent
-device should be &efx->pci_dev->dev.
+Might also be worth saying that it is not required to be unique.  And
+this explanation should also go in the kernel-doc in ptp_clock_kernel.h,
+which is what driver writers are most likely to read.
 
 Ben.
+
+>  What:		/sys/class/ptp/ptpN/max_adjustment
+>  Date:		September 2010
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
