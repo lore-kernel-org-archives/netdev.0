@@ -1,61 +1,55 @@
-From: Jon Mason <jon.mason@intel.com>
-Subject: Re: [RFC v3 1/2] PCI-Express Non-Transparent Bridge Support
-Date: Fri, 21 Sep 2012 16:45:59 -0700
-Message-ID: <20120921234558.GA6531@jonmason-lab>
-References: <1348250989-6962-1-git-send-email-jon.mason@intel.com>
- <1348250989-6962-2-git-send-email-jon.mason@intel.com>
- <20120921.141447.1146043198575242769.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, dave.jiang@intel.com,
-	nab@risingtidesystems.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120921.141447.1146043198575242769.davem@davemloft.net>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marek Vasut <marex@denx.de>
+Subject: [PATCH 3/3 RESEND] phy/micrel: Add missing header to micrel_phy.h
+Date: Sat, 22 Sep 2012 03:41:49 +0200
+Message-ID: <1348278110-11603-3-git-send-email-marex@denx.de>
+References: <1348278110-11603-1-git-send-email-marex@denx.de>
+Cc: Marek Vasut <marex@denx.de>,
+	"David J. Choi" <david.choi@micrel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.10]:37967 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758178Ab2IVBmJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2012 21:42:09 -0400
+In-Reply-To: <1348278110-11603-1-git-send-email-marex@denx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 21, 2012 at 02:14:47PM -0400, David Miller wrote:
-> From: Jon Mason <jon.mason@intel.com>
-> Date: Fri, 21 Sep 2012 11:09:48 -0700
-> 
-> > A PCI-Express non-transparent bridge (NTB) is a point-to-point PCIe bus
-> > connecting 2 systems, providing electrical isolation between the two subsystems.
-> > A non-transparent bridge is functionally similar to a transparent bridge except
-> > that both sides of the bridge have their own independent address domains.  The
-> > host on one side of the bridge will not have the visibility of the complete
-> > memory or I/O space on the other side of the bridge.  To communicate across the
-> > non-transparent bridge, each NTB endpoint has one (or more) apertures exposed to
-> > the local system.  Writes to these apertures are mirrored to memory on the
-> > remote system.  Communications can also occur through the use of doorbell
-> > registers that initiate interrupts to the alternate domain, and scratch-pad
-> > registers accessible from both sides.
-> > 
-> > The NTB device driver is needed to configure these memory windows, doorbell, and
-> > scratch-pad registers as well as use them in such a way as they can be turned
-> > into a viable communication channel to the remote system.  ntb_hw.[ch]
-> > determines the usage model (NTB to NTB or NTB to Root Port) and abstracts away
-> > the underlying hardware to provide access and a common interface to the doorbell
-> > registers, scratch pads, and memory windows.  These hardware interfaces are
-> > exported so that other, non-mainlined kernel drivers can access these.
-> > ntb_transport.[ch] also uses the exported interfaces in ntb_hw.[ch] to setup a
-> > communication channel(s) and provide a reliable way of transferring data from
-> > one side to the other, which it then exports so that "client" drivers can access
-> > them.  These client drivers are used to provide a standard kernel interface
-> > (i.e., Ethernet device) to NTB, such that Linux can transfer data from one
-> > system to the other in a standard way.
-> > 
-> > Signed-off-by: Jon Mason <jon.mason@intel.com>
-> 
-> I really don't see anything that requires the TX networking processing
-> to occur in a tasklet.  I see no sleeping, strange locking, or
-> anything like that.
-> 
-> And if that's the case, it's just pure overhead.
+The license header was missing in micrel_phy.h . This patch adds
+one.
 
-Good point.  Removed (and I see a nice little perf bump).
+Signed-off-by: Marek Vasut <marex@denx.de>
+Cc: David J. Choi <david.choi@micrel.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+---
+ include/linux/micrel_phy.h |   12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-Thanks,
-Jon
+NOTE: I'd like to have ACK on this from the original author of
+      the file, as this now says it's GPL2+.
+
+diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
+index d02355d..de20120 100644
+--- a/include/linux/micrel_phy.h
++++ b/include/linux/micrel_phy.h
+@@ -1,3 +1,15 @@
++/*
++ * include/linux/micrel_phy.h
++ *
++ * Micrel PHY IDs
++ *
++ * This program is free software; you can redistribute  it and/or modify it
++ * under  the terms of  the GNU General  Public License as published by the
++ * Free Software Foundation;  either version 2 of the  License, or (at your
++ * option) any later version.
++ *
++ */
++
+ #ifndef _MICREL_PHY_H
+ #define _MICREL_PHY_H
+ 
+-- 
+1.7.10.4
