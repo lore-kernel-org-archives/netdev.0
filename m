@@ -1,65 +1,45 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH V3 net-next 3/4] ptp: link the phc device to its parent
- device
-Date: Sat, 22 Sep 2012 10:32:41 -0700
-Message-ID: <1348335161.31385.11.camel@jtkirshe-mobl>
-References: <cover.1348332940.git.richardcochran@gmail.com>
-	 <5cbf85cdd74396119af11ba00b4b0bcd93f23ba0.1348332941.git.richardcochran@gmail.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] rds: Error on offset mismatch if not loopback
+Date: Sat, 22 Sep 2012 15:25:24 -0400 (EDT)
+Message-ID: <20120922.152524.1294103117346567757.davem@davemloft.net>
+References: <20120921213239.GJ14393@linux-tkdk.sfcn.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-jHQfWlnvATukhOWEe8oP"
-Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Matthew Vick <matthew.vick@intel.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, venkat.x.venkatsubra@oracle.com,
+	netdev@vger.kernel.org
+To: jjolly@suse.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:43453 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753128Ab2IVRcv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Sep 2012 13:32:51 -0400
-In-Reply-To: <5cbf85cdd74396119af11ba00b4b0bcd93f23ba0.1348332941.git.richardcochran@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34622 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751527Ab2IVTZ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2012 15:25:26 -0400
+In-Reply-To: <20120921213239.GJ14393@linux-tkdk.sfcn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: John Jolly <jjolly@suse.com>
+Date: Fri, 21 Sep 2012 15:32:40 -0600
 
---=-jHQfWlnvATukhOWEe8oP
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> Attempting an rds connection from the IP address of an IPoIB interface
+> to itself causes a kernel panic due to a BUG_ON() being triggered.
+> Making the test less strict allows rds-ping to work without crashing
+> the machine.
+> 
+> A local unprivileged user could use this flaw to crash the system.
+> 
+> Signed-off-by: John Jolly <jjolly@suse.com>
 
-On Sat, 2012-09-22 at 19:02 +0200, Richard Cochran wrote:
-> PTP Hardware Clock devices appear as class devices in sysfs. This
-> patch
-> changes the registration API to use the parent device, clarifying the
-> clock's relationship to the underlying device.
->=20
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>=20
+Besides the questions being asked of you by Venkat Venkatsubra, this
+patch has another issue.
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+It has been completely corrupted by your email client, it has
+turned all TAB characters into spaces, making the patch useless.
 
---=-jHQfWlnvATukhOWEe8oP
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Please learn how to send a patch unmolested in the body of your
+email.  Test it by emailing the patch to yourself, and verifying
+that you can in fact apply the patch you receive in that email.
+Then, and only then, should you consider making a new submission
+of this patch.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJQXfY5AAoJEOVv75VaS+3OQ7wP+wS4L5iEpJiBhZDT0u8+dy3T
-+8wBa1LI8q6IG7/YRFOmpywD6WEFNct9AJy+xc27Tl+n2kjwa+SMmR64iJfTmtqf
-ex1Ij2RJUHhjjTC5pB2TuHftuR/7YJ4NQusj38X9absFQLTWjztu8qTFvfddmFoF
-z+A3a+aygBolxymevC8hPHChCzFNUJFfrSMEtt/zzVJpTx6T/l3ZlcGc1KpDwxqx
-9ThQ9I7jLTQyEeJ35RrLHHPN4NSNnAi3l4Wk+7MWhwMtxaEr7wRrfH28WR1YrNBX
-jbAR79fe3Cnsve2lzAsdRA8SgnFma97gM/pQYq/poo1Uctm2Dy9aXY3q+v4maN3m
-FiYlBRBToaiCk1a+oScRA3A6tvkzvQUeG2U6/OMHtGBj7Q11rGDE8puEaK0ULSFm
-vRDHa8LcjrrezTV7nD0eHjafD+xvRn4wQDtwfQGJZMhabCKCJTjVPjw0S3ove5JX
-XwsiZOphfuy8LMw3VLMSCSqP+VuyNa/e8ZQwQZRup7KQuw3VGvAOJsF2bKkL7yyM
-h0cv2kHzNLDa33+rfxr1AA6M26Se9DPD6PV/rvIrQJwrtw+39GumJuxpAbuZlXnx
-gOyLSnhwCwYuH1+w1I4727vLGScM+p8hwFqzmp6dE9dF7poVaNNdMhUobhGy5rYj
-QE9K6Z39sRph0XzJAbFn
-=ZnYP
------END PGP SIGNATURE-----
-
---=-jHQfWlnvATukhOWEe8oP--
+Use Documentation/email-clients.txt for guidance.
