@@ -1,43 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/7][pull request] Intel Wired LAN Driver Updates
-Date: Sat, 22 Sep 2012 15:39:22 -0400 (EDT)
-Message-ID: <20120922.153922.821544789629097304.davem@davemloft.net>
-References: <1348309836-7107-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH V3 net-next 0/4] Two new PTP Hardware Clock features
+Date: Sat, 22 Sep 2012 15:43:34 -0400 (EDT)
+Message-ID: <20120922.154334.1781240216569115874.davem@davemloft.net>
+References: <cover.1348332940.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
+	jacob.e.keller@intel.com, jeffrey.t.kirsher@intel.com,
+	john.stultz@linaro.org, matthew.vick@intel.com
+To: richardcochran@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34737 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34768 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751445Ab2IVTjY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2012 15:39:24 -0400
-In-Reply-To: <1348309836-7107-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1753179Ab2IVTng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2012 15:43:36 -0400
+In-Reply-To: <cover.1348332940.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sat, 22 Sep 2012 03:30:29 -0700
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Sat, 22 Sep 2012 19:02:00 +0200
 
-> This series contains updates to igb only.
+> This patch series adds two new features to the PHC code.
 > 
-> The following are changes since commit abb17e6c0c7b27693201dc85f75dbb184279fd10:
->   netlink: use <linux/export.h> instead of <linux/module.h>
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+> * ChangeLog
+> ** V3
+>    - Use the correct parent device in the solarflare driver.
+>    - Expand the sysfs documentation of clock_name.
+>    - Also document the clock_name field in the header file.
+> ** V2 
+>    - Preserves the clock_name attribute as it was meant to be, instead
+>      of making any changes to it.
+>    - Covers the registration API change in the brand new solarflare phc
+>      device, which was overlooked in V1.
 > 
-> Alexander Duyck (5):
->   igb: Remove logic that was doing NUMA pseudo-aware allocations
->   igb: Change Tx cleanup loop to do/while instead of for
->   igb: Change how we populate the RSS indirection table
->   igb: Simplify how we populate the RSS key
->   igb: Use dma_unmap_addr and dma_unmap_len defines
+> The first two patches let a user program find out the previously
+> dialed frequency adjustment. This is primarily useful when restarting
+> a PTP service, since without this information, the presumably correct
+> adjustment will bias the new frequency estimation.
 > 
-> Carolyn Wyborny (1):
->   igb: Fix stats output on i210/i211 parts.
+> The third patch links the phc class device to its parent device within
+> the driver model and sysfs.
 > 
-> Stefan Assmann (1):
->   igb: Change how we check for pre-existing and assigned VFs
+> The fourth patch adds a bit more documentation of the sysfs clock_name
+> attribute. This should help clarify the naming scheme.
 
-Pulled, thanks Jeff.
+All applied, with a minor coding style correction made to patch #2
+
+Thanks.
