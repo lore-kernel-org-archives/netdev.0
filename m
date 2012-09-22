@@ -1,45 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rds: Error on offset mismatch if not loopback
-Date: Sat, 22 Sep 2012 15:25:24 -0400 (EDT)
-Message-ID: <20120922.152524.1294103117346567757.davem@davemloft.net>
-References: <20120921213239.GJ14393@linux-tkdk.sfcn.org>
+Subject: Re: pull-request: can-next 2012-09-22
+Date: Sat, 22 Sep 2012 15:26:41 -0400 (EDT)
+Message-ID: <20120922.152641.232413793871445214.davem@davemloft.net>
+References: <505CE91C.1070504@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, venkat.x.venkatsubra@oracle.com,
-	netdev@vger.kernel.org
-To: jjolly@suse.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34622 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751527Ab2IVTZ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2012 15:25:26 -0400
-In-Reply-To: <20120921213239.GJ14393@linux-tkdk.sfcn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <505CE91C.1070504@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Jolly <jjolly@suse.com>
-Date: Fri, 21 Sep 2012 15:32:40 -0600
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Sat, 22 Sep 2012 00:24:28 +0200
 
-> Attempting an rds connection from the IP address of an IPoIB interface
-> to itself causes a kernel panic due to a BUG_ON() being triggered.
-> Making the test less strict allows rds-ping to work without crashing
-> the machine.
+> this pull request is intended for net-next (v3.7 cycle), it consist of
+> 5 patches by AnilKumar bringing device tree support, runtime PM, suspend
+> resume and pinctrl support to the c_can/d_can driver.
 > 
-> A local unprivileged user could use this flaw to crash the system.
-> 
-> Signed-off-by: John Jolly <jjolly@suse.com>
+> Andreas Larsson improves the sja1000 driver (one-shot, listen only).
+> Randy Dunlap fixes a function name conflict in the peak driver.
+> Wei Yongjun fixes a return value check in the mscan-mpc5xxx driver.
 
-Besides the questions being asked of you by Venkat Venkatsubra, this
-patch has another issue.
-
-It has been completely corrupted by your email client, it has
-turned all TAB characters into spaces, making the patch useless.
-
-Please learn how to send a patch unmolested in the body of your
-email.  Test it by emailing the patch to yourself, and verifying
-that you can in fact apply the patch you receive in that email.
-Then, and only then, should you consider making a new submission
-of this patch.
-
-Use Documentation/email-clients.txt for guidance.
+Pulled, thanks Marc.
