@@ -1,44 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 4/4] tcp: TCP Fast Open Server - call
- tcp_validate_incoming() for all packets
-Date: Sat, 22 Sep 2012 15:48:02 -0400 (EDT)
-Message-ID: <20120922.154802.549925222027300949.davem@davemloft.net>
-References: <1348323537-30310-1-git-send-email-ncardwell@google.com>
-	<1348323537-30310-4-git-send-email-ncardwell@google.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless 2012-09-22
+Date: Sat, 22 Sep 2012 15:51:33 -0400 (EDT)
+Message-ID: <20120922.155133.484429173339077143.davem@davemloft.net>
+References: <20120922171341.GB2101@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, ycheng@google.com,
-	hkchu@google.com
-To: ncardwell@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34825 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751329Ab2IVTsE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2012 15:48:04 -0400
-In-Reply-To: <1348323537-30310-4-git-send-email-ncardwell@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120922171341.GB2101-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Neal Cardwell <ncardwell@google.com>
-Date: Sat, 22 Sep 2012 10:18:57 -0400
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Sat, 22 Sep 2012 13:13:42 -0400
 
-> A TCP Fast Open (TFO) passive connection must call both
-> tcp_check_req() and tcp_validate_incoming() for all incoming ACKs that
-> are attempting to complete the 3WHS.
+> Please pull this last(?) batch of fixes intended for 3.6...
 > 
-> This is needed to parallel all the action that happens for a non-TFO
-> connection, where for an ACK that is attempting to complete the 3WHS
-> we call both tcp_check_req() and tcp_validate_incoming().
+> For the Bluetooth bits, Gustavo says this:
 > 
-> For example, upon receiving the ACK that completes the 3WHS, we need
-> to call tcp_fast_parse_options() and update ts_recent based on the
-> incoming timestamp value in the ACK.
+> "Here goes probably my last update to 3.6. It includes the two patches
+> you were ok last week(from Andrzej Kaczmarek), those are critical
+> ones, and two other fixes one for a system crash and the other for
+> a missing lockdep annotation."
 > 
-> One symptom of the problem with the previous code was that for passive
-> TFO connections using TCP timestamps, the outgoing TS ecr values
-> ignored the incoming TS val value on the ACK that completed the 3WHS.
+> The referenced fixes from Andrzej prevent attempts to configure devices
+> that are powered-off.
 > 
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Along with the Bluetooth fixes, there are a couple of 802.11 fixes.
+> Emmanuel Grumbach gives us an iwlwifi fix to prevent releasing an
+> interrupt twice.  Luis R. Rodriguez provides a fix for a possible
+> circular lock dependency in the cfg80211 regulatory enforcement code.
+> 
+> All of these have been in linux-next for a few days.  I hope they are
+> not too late to make the 3.6 release!
 
-Applied.
+Pulled, thanks John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
