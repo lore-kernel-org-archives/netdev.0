@@ -1,35 +1,63 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: [PATCH net-next v2] Take care of xfrm policy when checking dst
- entries
-Date: Sat, 22 Sep 2012 18:49:07 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1209221841220.18458@nerf07.vanv.qr>
-References: <504DFA97.7070509@gmail.com> <20120910.131829.193126565067890591.davem@davemloft.net> <504E2A7A.9000003@gmail.com> <20120910.140105.1099041309239526456.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: vyasevich@gmail.com, nicolas.dichtel@6wind.com,
-	eric.dumazet@gmail.com, sri@us.ibm.com, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH V3 net-next 1/4] ptp: remember the adjusted frequency
+Date: Sat, 22 Sep 2012 19:02:01 +0200
+Message-ID: <b422fb386d81ed94464530d3775cd3e1336ae867.1348332940.git.richardcochran@gmail.com>
+References: <cover.1348332940.git.richardcochran@gmail.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Matthew Vick <matthew.vick@intel.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ares07.inai.de ([5.9.24.206]:36545 "EHLO seven.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751894Ab2IVQtL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Sep 2012 12:49:11 -0400
-In-Reply-To: <20120910.140105.1099041309239526456.davem@davemloft.net>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:57709 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752662Ab2IVRCT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2012 13:02:19 -0400
+Received: by wgbdr13 with SMTP id dr13so2335244wgb.1
+        for <netdev@vger.kernel.org>; Sat, 22 Sep 2012 10:02:17 -0700 (PDT)
+In-Reply-To: <cover.1348332940.git.richardcochran@gmail.com>
+In-Reply-To: <cover.1348332940.git.richardcochran@gmail.com>
+References: <cover.1348332940.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch adds a field to the representation of a PTP hardware clock in
+order to remember the frequency adjustment value dialed by the user.
 
-On Monday 2012-09-10 20:01, David Miller wrote:
->> 
->> So you are perfectly ok with invalidating IPv6 cache when IPv4 table
->> changes, but not invalidating IPv4 cache if IPv6 table changes?
->
->Due to tunneling I can't see how this is avoidable?
->
->We do ipv6 over ipv4, but not vice-versa.
+Adding this field will let us answer queries in the manner of adjtimex
+in a follow on patch.
 
-I have a setup here where 6 machines are connected with one another 
-(most of them) to form 9 IPsec sessions, all of which are ESP6 links - 
-since native IPv6 is provided - that also handle the site-to-site IPv4 
-traffic. Does that count?
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+---
+ drivers/ptp/ptp_clock.c   |    1 +
+ drivers/ptp/ptp_private.h |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
+index 966875d..67e628e 100644
+--- a/drivers/ptp/ptp_clock.c
++++ b/drivers/ptp/ptp_clock.c
+@@ -147,6 +147,7 @@ static int ptp_clock_adjtime(struct posix_clock *pc, struct timex *tx)
+ 	} else if (tx->modes & ADJ_FREQUENCY) {
+ 
+ 		err = ops->adjfreq(ops, scaled_ppm_to_ppb(tx->freq));
++		ptp->dialed_frequency = tx->freq;
+ 	}
+ 
+ 	return err;
+diff --git a/drivers/ptp/ptp_private.h b/drivers/ptp/ptp_private.h
+index 4d5b508..69d3207 100644
+--- a/drivers/ptp/ptp_private.h
++++ b/drivers/ptp/ptp_private.h
+@@ -45,6 +45,7 @@ struct ptp_clock {
+ 	dev_t devid;
+ 	int index; /* index into clocks.map */
+ 	struct pps_device *pps_source;
++	long dialed_frequency; /* remembers the frequency adjustment */
+ 	struct timestamp_event_queue tsevq; /* simple fifo for time stamps */
+ 	struct mutex tsevq_mux; /* one process at a time reading the fifo */
+ 	wait_queue_head_t tsev_wq;
+-- 
+1.7.2.5
