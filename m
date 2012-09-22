@@ -1,56 +1,228 @@
-From: Jeff Kirsher <tarbal@gmail.com>
-Subject: Re: [PATCH V2 net-next 4/4] ptp: clarify the clock_name sysfs attribute
-Date: Sat, 22 Sep 2012 09:03:47 -0700
-Message-ID: <505DE163.1030809@gmail.com>
-References: <cover.1348299094.git.richardcochran@gmail.com>  <6bc914f0607428ab0d8f5d5fc42a5e87bedc95c5.1348299094.git.richardcochran@gmail.com> <1348328688.2521.81.camel@bwh-desktop.uk.solarflarecom.com>
-Reply-To: jeffrey.t.kirsher@intel.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Matthew Vick <matthew.vick@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:24976 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751627Ab2IVQDt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Sep 2012 12:03:49 -0400
-In-Reply-To: <1348328688.2521.81.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christophe Leroy <christophe.leroy@c-s.fr>
+Subject: [PATCH v3] lxt PHY: Support for the buggy LXT973 rev A2
+Date: Sat, 22 Sep 2012 18:16:49 +0200
+Message-ID: <201209221616.q8MGGnRc019864@localhost.localdomain>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David S Miller <davem@davemloft.net>,
+	Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/22/2012 08:44 AM, Ben Hutchings wrote:
-> On Sat, 2012-09-22 at 09:42 +0200, Richard Cochran wrote:
->> There has been some confusion among PHC driver authors about the
->> intended purpose of the clock_name attribute. This patch expands the
->> documation in order to clarify how the clock_name field should be
->> understood.
->>
->> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
->> ---
->>   Documentation/ABI/testing/sysfs-ptp |    5 ++++-
->>   1 files changed, 4 insertions(+), 1 deletions(-)
->>
->> diff --git a/Documentation/ABI/testing/sysfs-ptp b/Documentation/ABI/testing/sysfs-ptp
->> index d40d2b5..c906488 100644
->> --- a/Documentation/ABI/testing/sysfs-ptp
->> +++ b/Documentation/ABI/testing/sysfs-ptp
->> @@ -19,7 +19,10 @@ Date:		September 2010
->>   Contact:	Richard Cochran <richardcochran@gmail.com>
->>   Description:
->>   		This file contains the name of the PTP hardware clock
->> -		as a human readable string.
->> +		as a human readable string. The purpose of this
->> +		attribute is to provide the user with a "friendly
->> +		name" and to help distinguish PHY based devices from
->> +		MAC based ones.
-> Might also be worth saying that it is not required to be unique.  And
-> this explanation should also go in the kernel-doc in ptp_clock_kernel.h,
-> which is what driver writers are most likely to read.
->
-> Ben
-FWIW, I agree with Ben.
+This patch adds proper handling of the buggy revision A2 of LXT973 phy, adding
+precautions linked to ERRATA Item 4:
+
+Revision A2 of LXT973 chip randomly returns the contents of the previous even
+register when you read a odd register regularly
+
+Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+
+diff -u linux-3.5-vanilla/drivers/net/phy/lxt.c linux-3.5/drivers/net/phy/lxt.c
+--- linux-3.5-vanilla/drivers/net/phy/lxt.c	2012-07-21 22:58:29.000000000 +0200
++++ linux-3.5/drivers/net/phy/lxt.c	2012-09-15 19:20:34.000000000 +0200
+@@ -54,8 +54,12 @@
+ #define MII_LXT971_ISR		19  /* Interrupt Status Register */
+ 
+ /* register definitions for the 973 */
+-#define MII_LXT973_PCR 16 /* Port Configuration Register */
++#define MII_LXT973_PCR		16 /* Port Configuration Register */
+ #define PCR_FIBER_SELECT 1
++#define MII_LXT973_SFR		27  /* Special Function Register */
++
++#define PHYDEV_PRIV_FIBER	1
++#define PHYDEV_PRIV_REVA2	2
+ 
+ MODULE_DESCRIPTION("Intel LXT PHY driver");
+ MODULE_AUTHOR("Andy Fleming");
+@@ -99,6 +103,9 @@
+ 	return err;
+ }
+ 
++/* register definitions for the 973 */
++#define MII_LXT973_PCR 16 /* Port Configuration Register */
++#define PCR_FIBER_SELECT 1
+ 
+ static int lxt971_ack_interrupt(struct phy_device *phydev)
+ {
+@@ -122,9 +129,138 @@
+ 	return err;
+ }
+ 
++/*
++ * A2 version of LXT973 chip has an ERRATA: it randomly return the contents
++ * of the previous even register when you read a odd register regularly
++ */
++
++static int lxt973a2_update_link(struct phy_device *phydev)
++{
++	int status;
++	int control;
++	int retry = 8; /* we try 8 times */
++
++	/* Do a fake read */
++	status = phy_read(phydev, MII_BMSR);
++
++	if (status < 0)
++		return status;
++
++	control = phy_read(phydev, MII_BMCR);
++	if (control < 0)
++		return control;
++
++	do {
++		/* Read link and autonegotiation status */
++		status = phy_read(phydev, MII_BMSR);
++	} while (status >= 0 && retry-- && status == control);
++
++	if (status < 0)
++		return status;
++
++	if ((status & BMSR_LSTATUS) == 0)
++		phydev->link = 0;
++	else
++		phydev->link = 1;
++
++	return 0;
++}
++
++int lxt973a2_read_status(struct phy_device *phydev)
++{
++	int adv;
++	int err;
++	int lpa;
++	int lpagb = 0;
++
++	/* Update the link, but return if there was an error */
++	err = lxt973a2_update_link(phydev);
++	if (err)
++		return err;
++
++	if (AUTONEG_ENABLE == phydev->autoneg) {
++		int retry = 1;
++
++		adv = phy_read(phydev, MII_ADVERTISE);
++
++		if (adv < 0)
++			return adv;
++
++		do {
++			lpa = phy_read(phydev, MII_LPA);
++
++			if (lpa < 0)
++				return lpa;
++
++			/* If both registers are equal, it is suspect but not
++			* impossible, hence a new try
++			*/
++		} while (lpa == adv && retry--);
++
++		lpa &= adv;
++
++		phydev->speed = SPEED_10;
++		phydev->duplex = DUPLEX_HALF;
++		phydev->pause = phydev->asym_pause = 0;
++
++		if (lpagb & (LPA_1000FULL | LPA_1000HALF)) {
++			phydev->speed = SPEED_1000;
++
++			if (lpagb & LPA_1000FULL)
++				phydev->duplex = DUPLEX_FULL;
++		} else if (lpa & (LPA_100FULL | LPA_100HALF)) {
++			phydev->speed = SPEED_100;
++
++			if (lpa & LPA_100FULL)
++				phydev->duplex = DUPLEX_FULL;
++		} else
++			if (lpa & LPA_10FULL)
++				phydev->duplex = DUPLEX_FULL;
++
++		if (phydev->duplex == DUPLEX_FULL) {
++			phydev->pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
++			phydev->asym_pause = lpa & LPA_PAUSE_ASYM ? 1 : 0;
++		}
++	} else {
++		int bmcr = phy_read(phydev, MII_BMCR);
++
++		if (bmcr < 0)
++			return bmcr;
++
++		if (bmcr & BMCR_FULLDPLX)
++			phydev->duplex = DUPLEX_FULL;
++		else
++			phydev->duplex = DUPLEX_HALF;
++
++		if (bmcr & BMCR_SPEED1000)
++			phydev->speed = SPEED_1000;
++		else if (bmcr & BMCR_SPEED100)
++			phydev->speed = SPEED_100;
++		else
++			phydev->speed = SPEED_10;
++
++		phydev->pause = phydev->asym_pause = 0;
++	}
++
++	return 0;
++}
++
++static int lxt973_read_status(struct phy_device *phydev)
++{
++	return (int)phydev->priv&PHYDEV_PRIV_REVA2 ?
++			lxt973a2_read_status(phydev) :
++			genphy_read_status(phydev);
++}
++
+ static int lxt973_probe(struct phy_device *phydev)
+ {
+ 	int val = phy_read(phydev, MII_LXT973_PCR);
++	int priv = 0;
++
++	phydev->priv = NULL;
++
++	if (val < 0)
++		return val;
+ 
+ 	if (val & PCR_FIBER_SELECT) {
+ 		/*
+@@ -136,17 +272,26 @@
+ 		val &= ~BMCR_ANENABLE;
+ 		phy_write(phydev, MII_BMCR, val);
+ 		/* Remember that the port is in fiber mode. */
+-		phydev->priv = lxt973_probe;
+-	} else {
+-		phydev->priv = NULL;
++		priv |= PHYDEV_PRIV_FIBER;
++	}
++	val = phy_read(phydev, MII_PHYSID2);
++
++	if (val < 0)
++		return val;
++
++	if ((val & 0xf) == 0) { /* rev A2 */
++		dev_info(&phydev->dev, " LXT973 revision A2 has bugs\n");
++		priv |= PHYDEV_PRIV_REVA2;
+ 	}
++	phydev->priv = (void *)priv;
+ 	return 0;
+ }
+ 
+ static int lxt973_config_aneg(struct phy_device *phydev)
+ {
+ 	/* Do nothing if port is in fiber mode. */
+-	return phydev->priv ? 0 : genphy_config_aneg(phydev);
++	return (int)phydev->priv&PHYDEV_PRIV_FIBER ?
++			0 : genphy_config_aneg(phydev);
+ }
+ 
+ static struct phy_driver lxt970_driver = {
+@@ -184,7 +329,10 @@
+ 	.flags		= 0,
+ 	.probe		= lxt973_probe,
+ 	.config_aneg	= lxt973_config_aneg,
+-	.read_status	= genphy_read_status,
++	.read_status	= lxt973_read_status,
++	.suspend	= genphy_suspend,
++	.resume		= genphy_resume,
++	.isolate	= genphy_isolate,
+ 	.driver 	= { .owner = THIS_MODULE,},
+ };
+ 
