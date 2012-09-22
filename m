@@ -1,142 +1,50 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net-next 2/4] tcp: TCP Fast Open Server - take SYNACK RTT after completing 3WHS
-Date: Sat, 22 Sep 2012 10:18:55 -0400
-Message-ID: <1348323537-30310-2-git-send-email-ncardwell@google.com>
-References: <1348323537-30310-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Jerry Chu <hkchu@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: David Miller <davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH V2 net-next 3/4] ptp: link the phc device to its parent
+ device
+Date: Sat, 22 Sep 2012 16:40:52 +0100
+Message-ID: <1348328452.2521.78.camel@bwh-desktop.uk.solarflarecom.com>
+References: <cover.1348299094.git.richardcochran@gmail.com>
+	 <847f89f4f5a2757c2487b23dac218e15613c2bb5.1348299094.git.richardcochran@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Matthew Vick <matthew.vick@intel.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f74.google.com ([209.85.216.74]:55566 "EHLO
-	mail-qa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751705Ab2IVOTa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2012 10:19:30 -0400
-Received: by qafl39 with SMTP id l39so336829qaf.1
-        for <netdev@vger.kernel.org>; Sat, 22 Sep 2012 07:19:29 -0700 (PDT)
-In-Reply-To: <1348323537-30310-1-git-send-email-ncardwell@google.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:27720 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751427Ab2IVPk6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2012 11:40:58 -0400
+In-Reply-To: <847f89f4f5a2757c2487b23dac218e15613c2bb5.1348299094.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When taking SYNACK RTT samples for servers using TCP Fast Open, fix
-the code to ensure that we only call tcp_valid_rtt_meas() after we
-receive the ACK that completes the 3-way handshake.
+On Sat, 2012-09-22 at 09:42 +0200, Richard Cochran wrote:
+> PTP Hardware Clock devices appear as class devices in sysfs. This patch
+> changes the registration API to use the parent device, clarifying the
+> clock's relationship to the underlying device.
+[...]
+> --- a/drivers/net/ethernet/sfc/ptp.c
+> +++ b/drivers/net/ethernet/sfc/ptp.c
+> @@ -931,7 +931,8 @@ static int efx_ptp_probe_channel(struct efx_channel *channel)
+>  	ptp->phc_clock_info.settime = efx_phc_settime;
+>  	ptp->phc_clock_info.enable = efx_phc_enable;
+>  
+> -	ptp->phc_clock = ptp_clock_register(&ptp->phc_clock_info);
+> +	ptp->phc_clock = ptp_clock_register(&ptp->phc_clock_info,
+> +					    &channel->napi_dev->dev);
+[...]
 
-Previously we were always taking an RTT sample in
-tcp_v4_syn_recv_sock(). However, for TCP Fast Open connections
-tcp_v4_conn_req_fastopen() calls tcp_v4_syn_recv_sock() at the time we
-receive the SYN. So for TFO we must wait until tcp_rcv_state_process()
-to take the RTT sample.
+channel->napi_dev is the net device, not the PCI device.  The parent
+device should be &efx->pci_dev->dev.
 
-To fix this, we wait until after TFO calls tcp_v4_syn_recv_sock()
-before we set the snt_synack timestamp, since tcp_synack_rtt_meas()
-already ensures that we only take a SYNACK RTT sample if snt_synack is
-non-zero. To be careful, we only take a snt_synack timestamp when
-a SYNACK transmit or retransmit succeeds.
+Ben.
 
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
----
- include/net/tcp.h    |    1 +
- net/ipv4/tcp_input.c |    1 +
- net/ipv4/tcp_ipv4.c  |   12 +++++++++---
- net/ipv6/tcp_ipv6.c  |    2 +-
- 4 files changed, 12 insertions(+), 4 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index a718d0e..6feeccd 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1125,6 +1125,7 @@ static inline void tcp_openreq_init(struct request_sock *req,
- 	req->cookie_ts = 0;
- 	tcp_rsk(req)->rcv_isn = TCP_SKB_CB(skb)->seq;
- 	tcp_rsk(req)->rcv_nxt = TCP_SKB_CB(skb)->seq + 1;
-+	tcp_rsk(req)->snt_synack = 0;
- 	req->mss = rx_opt->mss_clamp;
- 	req->ts_recent = rx_opt->saw_tstamp ? rx_opt->rcv_tsval : 0;
- 	ireq->tstamp_ok = rx_opt->tstamp_ok;
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index e2bec81..bb32668 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5983,6 +5983,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 				 * need req so release it.
- 				 */
- 				if (req) {
-+					tcp_synack_rtt_meas(sk, req);
- 					reqsk_fastopen_remove(sk, req, false);
- 				} else {
- 					/* Make sure socket is routed, for
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 1e66f7f..0a7e020 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -868,6 +868,8 @@ static int tcp_v4_send_synack(struct sock *sk, struct dst_entry *dst,
- 					    ireq->rmt_addr,
- 					    ireq->opt);
- 		err = net_xmit_eval(err);
-+		if (!tcp_rsk(req)->snt_synack && !err)
-+			tcp_rsk(req)->snt_synack = tcp_time_stamp;
- 	}
- 
- 	return err;
-@@ -1382,6 +1384,7 @@ static int tcp_v4_conn_req_fastopen(struct sock *sk,
- 	struct request_sock_queue *queue = &inet_csk(sk)->icsk_accept_queue;
- 	const struct inet_request_sock *ireq = inet_rsk(req);
- 	struct sock *child;
-+	int err;
- 
- 	req->retrans = 0;
- 	req->sk = NULL;
-@@ -1393,8 +1396,11 @@ static int tcp_v4_conn_req_fastopen(struct sock *sk,
- 		kfree_skb(skb_synack);
- 		return -1;
- 	}
--	ip_build_and_send_pkt(skb_synack, sk, ireq->loc_addr,
--			ireq->rmt_addr, ireq->opt);
-+	err = ip_build_and_send_pkt(skb_synack, sk, ireq->loc_addr,
-+				    ireq->rmt_addr, ireq->opt);
-+	err = net_xmit_eval(err);
-+	if (!err)
-+		tcp_rsk(req)->snt_synack = tcp_time_stamp;
- 	/* XXX (TFO) - is it ok to ignore error and continue? */
- 
- 	spin_lock(&queue->fastopenq->lock);
-@@ -1612,7 +1618,6 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 		isn = tcp_v4_init_sequence(skb);
- 	}
- 	tcp_rsk(req)->snt_isn = isn;
--	tcp_rsk(req)->snt_synack = tcp_time_stamp;
- 
- 	if (dst == NULL) {
- 		dst = inet_csk_route_req(sk, &fl4, req);
-@@ -1650,6 +1655,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 		if (err || want_cookie)
- 			goto drop_and_free;
- 
-+		tcp_rsk(req)->snt_synack = tcp_time_stamp;
- 		tcp_rsk(req)->listener = NULL;
- 		/* Add the request_sock to the SYN table */
- 		inet_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index cfeeeb7..d6212d6 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1169,7 +1169,6 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 	}
- have_isn:
- 	tcp_rsk(req)->snt_isn = isn;
--	tcp_rsk(req)->snt_synack = tcp_time_stamp;
- 
- 	if (security_inet_conn_request(sk, skb, req))
- 		goto drop_and_release;
-@@ -1180,6 +1179,7 @@ have_isn:
- 	    want_cookie)
- 		goto drop_and_free;
- 
-+	tcp_rsk(req)->snt_synack = tcp_time_stamp;
- 	tcp_rsk(req)->listener = NULL;
- 	inet6_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
- 	return 0;
 -- 
-1.7.7.3
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
