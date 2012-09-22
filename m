@@ -1,51 +1,41 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V3 net-next 2/4] ptp: provide the clock's adjusted frequency
-Date: Sat, 22 Sep 2012 19:02:02 +0200
-Message-ID: <ec433b80b10270c3b0698998df57290599408a9b.1348332941.git.richardcochran@gmail.com>
-References: <cover.1348332940.git.richardcochran@gmail.com>
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Matthew Vick <matthew.vick@intel.com>
-To: <netdev@vger.kernel.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next] team: send port changed when added
+Date: Sat, 22 Sep 2012 19:04:54 +0200
+Message-ID: <20120922170454.GA2472@minipsycho.orion>
+References: <1348228319-11453-1-git-send-email-jiri@resnulli.us>
+ <20120921.150142.1121078984466626799.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:45793 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752761Ab2IVRCU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2012 13:02:20 -0400
-Received: by wibhr14 with SMTP id hr14so3236265wib.1
-        for <netdev@vger.kernel.org>; Sat, 22 Sep 2012 10:02:19 -0700 (PDT)
-In-Reply-To: <cover.1348332940.git.richardcochran@gmail.com>
-In-Reply-To: <cover.1348332940.git.richardcochran@gmail.com>
-References: <cover.1348332940.git.richardcochran@gmail.com>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:48351 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751980Ab2IVRFA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2012 13:05:00 -0400
+Received: by wgbdr13 with SMTP id dr13so2336627wgb.1
+        for <netdev@vger.kernel.org>; Sat, 22 Sep 2012 10:04:59 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20120921.150142.1121078984466626799.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the timex.mode field indicates a query, then we provide the value of
-the current frequency adjustment.
+Fri, Sep 21, 2012 at 09:01:42PM CEST, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Fri, 21 Sep 2012 13:51:59 +0200
+>
+>> On some hw, link is not up during adding iface to team. That causes event
+>> not being sent to userspace and that may cause confusion.
+>> Fix this bug by sending port changed event once it's added to team.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>
+>Applied, thanks a lot Jiri.
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- drivers/ptp/ptp_clock.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+David, I just realized this would be good to have fixed in net tree as
+well. Unfortunately this patch does not apply cleanly. I will send you
+backported patch for net tree in a jiffy.
 
-diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
-index 67e628e..6f7009a 100644
---- a/drivers/ptp/ptp_clock.c
-+++ b/drivers/ptp/ptp_clock.c
-@@ -148,6 +148,11 @@ static int ptp_clock_adjtime(struct posix_clock *pc, struct timex *tx)
- 
- 		err = ops->adjfreq(ops, scaled_ppm_to_ppb(tx->freq));
- 		ptp->dialed_frequency = tx->freq;
-+
-+	} else if (tx->modes == 0) {
-+
-+		tx->freq = ptp->dialed_frequency;
-+		err = 0;
- 	}
- 
- 	return err;
--- 
-1.7.2.5
+Thanks!
+
+Jiri
