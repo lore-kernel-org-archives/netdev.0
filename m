@@ -1,43 +1,35 @@
-From: leroy christophe <christophe.leroy@c-s.fr>
-Subject: Re: [PATCH v2] lxt PHY: Support for the buggy LXT973 rev A2
-Date: Sat, 22 Sep 2012 18:21:38 +0200
-Message-ID: <505DE592.8060103@c-s.fr>
-References: <201209101545.q8AFjn7u021483@localhost.localdomain> <20120910181747.GA5960@lutz.bln.innominate.local>
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: Re: [PATCH net-next v2] Take care of xfrm policy when checking dst
+ entries
+Date: Sat, 22 Sep 2012 18:49:07 +0200 (CEST)
+Message-ID: <alpine.LNX.2.01.1209221841220.18458@nerf07.vanv.qr>
+References: <504DFA97.7070509@gmail.com> <20120910.131829.193126565067890591.davem@davemloft.net> <504E2A7A.9000003@gmail.com> <20120910.140105.1099041309239526456.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David S Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Lutz Jaenicke <ljaenicke@innominate.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120910181747.GA5960@lutz.bln.innominate.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: vyasevich@gmail.com, nicolas.dichtel@6wind.com,
+	eric.dumazet@gmail.com, sri@us.ibm.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ares07.inai.de ([5.9.24.206]:36545 "EHLO seven.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751894Ab2IVQtL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Sep 2012 12:49:11 -0400
+In-Reply-To: <20120910.140105.1099041309239526456.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Le 10/09/2012 20:17, Lutz Jaenicke a =E9crit :
-> On Mon, Sep 10, 2012 at 05:45:49PM +0200, Christophe Leroy wrote:
->> This patch adds proper handling of the buggy revision A2 of LXT973 p=
-hy, adding
->> precautions linked to ERRATA Item 4:
->>
->> Item 4: MDIO Interface and Repeated Polling
->> Problem: Repeated polling of odd-numbered registers via the MDIO int=
-erface
->> 	randomly returns the contents of the previous even register.
->> Implication: Managed applications may not obtain the correct registe=
-r contents
->> 	when a particular register is monitored for device status.
->> Workaround: None.
->> Status: This erratum has been previously fixed (in rev A3)
-> Hmm. Were did you get the hardware from? We have been using LXT973 in
-> our products and the A2 was replaced by A3 in 2003.
+On Monday 2012-09-10 20:01, David Miller wrote:
+>> 
+>> So you are perfectly ok with invalidating IPv6 cache when IPv4 table
+>> changes, but not invalidating IPv4 cache if IPv6 table changes?
 >
-> Best regards,
-> 	Lutz
-They are custom boards that my company manufactures. Most boards=20
-manufactured before 2006 or 2007 have this buggy chip.
+>Due to tunneling I can't see how this is avoidable?
+>
+>We do ipv6 over ipv4, but not vice-versa.
 
-Regards
-Christophe
+I have a setup here where 6 machines are connected with one another 
+(most of them) to form 9 IPsec sessions, all of which are ESP6 links - 
+since native IPv6 is provided - that also handle the site-to-site IPv4 
+traffic. Does that count?
