@@ -1,30 +1,39 @@
-From: Webmail Account Upgrade <webmail@mail.uz.ac.zw>
-Subject: Warning! Your mailbox is almost full.
-Date: Sat, 22 Sep 2012 10:35:25 +0200
-Message-ID: <20120922103525.5s1a6fqu2o40cwsw@webmail.uz.ac.zw>
+From: Xiaodong Xu <stid.smth@gmail.com>
+Subject: [PATCH] pppoe: drop PPPOX_ZOMBIEs in pppoe_release
+Date: Sat, 22 Sep 2012 17:53:30 +0800
+Message-ID: <CANEcBPTm384oo7znoyuvyBxOBweyFT6Vzv6Cd_OiJ2rB3RJ-hQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.uz.ac.zw ([196.4.80.17]:59374 "EHLO smtp.uz.ac.zw"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752491Ab2IVJaG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2012 05:30:06 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-You have exceeded your email limit quota of 450MB. You need to upgrade =
-=20
-your email limit quota to 2GB within the next 48 hours. Use the below =20
-web link to upgrade your email account:
+From: Xiaodong Xu <stid.smth@gmail.com>
 
-click link below:
-   http://www.formchamp.com/goform.php?id=3D38467
+When PPPOE is running over a virtual ethernet interface (e.g., a
+bonding interface) and the user tries to delete the interface in case
+the PPPOE state is ZOMBIE, the kernel will loop forever while
+unregistering net_device for the reference count is not decreased to
+zero which should have been done with dev_put().
 
-Thank you for using our email.
-Copyright =A92012 Email Helpdesk Centre.
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
+Signed-off-by: Xiaodong Xu <stid.smth@gmail.com>
+
+---
+
+--- drivers/net/ppp/pppoe.c.orig	2012-09-19 11:49:27.921826868 +0800
++++ drivers/net/ppp/pppoe.c	2012-09-22 17:44:03.642730082 +0800
+@@ -570,7 +570,7 @@ static int pppoe_release(struct socket *
+
+ 	po = pppox_sk(sk);
+
+-	if (sk->sk_state & (PPPOX_CONNECTED | PPPOX_BOUND)) {
++	if (sk->sk_state & (PPPOX_CONNECTED | PPPOX_BOUND | PPPOX_ZOMBIE)) {
+ 		dev_put(po->pppoe_dev);
+ 		po->pppoe_dev = NULL;
+ 	}
+
+-- 
+Regards,
+Xiaodong Xu
