@@ -1,44 +1,29 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless 2012-09-22
-Date: Sat, 22 Sep 2012 15:51:33 -0400 (EDT)
-Message-ID: <20120922.155133.484429173339077143.davem@davemloft.net>
-References: <20120922171341.GB2101@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pppoe: drop PPPOX_ZOMBIEs in pppoe_release
+Date: Sat, 22 Sep 2012 15:51:44 -0400 (EDT)
+Message-ID: <20120922.155144.1725496101166891963.davem@davemloft.net>
+References: <CANEcBPR8EvBTsJ0tG+kqvn578qXnqTMwdciS_WChe9sm5yKdaw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120922171341.GB2101-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: stid.smth@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANEcBPR8EvBTsJ0tG+kqvn578qXnqTMwdciS_WChe9sm5yKdaw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Sat, 22 Sep 2012 13:13:42 -0400
+From: Xiaodong Xu <stid.smth@gmail.com>
+Date: Sat, 22 Sep 2012 18:09:32 +0800
 
-> Please pull this last(?) batch of fixes intended for 3.6...
+> From: Xiaodong Xu <stid.smth@gmail.com>
 > 
-> For the Bluetooth bits, Gustavo says this:
+> When PPPOE is running over a virtual ethernet interface (e.g., a
+> bonding interface) and the user tries to delete the interface in case
+> the PPPOE state is ZOMBIE, the kernel will loop forever while
+> unregistering net_device for the reference count is not decreased to
+> zero which should have been done with dev_put().
 > 
-> "Here goes probably my last update to 3.6. It includes the two patches
-> you were ok last week(from Andrzej Kaczmarek), those are critical
-> ones, and two other fixes one for a system crash and the other for
-> a missing lockdep annotation."
-> 
-> The referenced fixes from Andrzej prevent attempts to configure devices
-> that are powered-off.
-> 
-> Along with the Bluetooth fixes, there are a couple of 802.11 fixes.
-> Emmanuel Grumbach gives us an iwlwifi fix to prevent releasing an
-> interrupt twice.  Luis R. Rodriguez provides a fix for a possible
-> circular lock dependency in the cfg80211 regulatory enforcement code.
-> 
-> All of these have been in linux-next for a few days.  I hope they are
-> not too late to make the 3.6 release!
+> Signed-off-by: Xiaodong Xu <stid.smth@gmail.com>
 
-Pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied and queued up for -stable, thanks.
