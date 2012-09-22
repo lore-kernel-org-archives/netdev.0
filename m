@@ -1,50 +1,114 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/7] igb: Fix stats output on i210/i211 parts.
-Date: Sat, 22 Sep 2012 03:30:31 -0700
-Message-ID: <1348309836-7107-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/7] igb: Change how we populate the RSS indirection table
+Date: Sat, 22 Sep 2012 03:30:34 -0700
+Message-ID: <1348309836-7107-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1348309836-7107-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:39138 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:8125 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755258Ab2IVKas (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Sep 2012 06:30:48 -0400
+	id S1755338Ab2IVKbI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Sep 2012 06:31:08 -0400
 In-Reply-To: <1348309836-7107-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Due to a hardware issue, on i210 and i211 parts, the TNCRS statistic
-provides an invalid value.  This patch changes the update stats function
-to increment the stat only for non-i210/i211 parts.
+This patch cleans up our RSS indirection table configuration so that we
+generate the same table regardless of CPU endianness.  In addition it
+changes the table setup so that instead of doing a modulo based setup it is
+instead a divisor based setup.  The advantage to this is that we should be
+able to take the Rx hash and compute the Rx queue with very little CPU
+overhead if needed.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 55 +++++++++++++++----------------
+ 1 file changed, 26 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 0730096..60cf3eb 100644
+index 91f542c..27688d9 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -4776,7 +4776,11 @@ void igb_update_stats(struct igb_adapter *adapter,
- 	reg = rd32(E1000_CTRL_EXT);
- 	if (!(reg & E1000_CTRL_EXT_LINK_MODE_MASK)) {
- 		adapter->stats.rxerrc += rd32(E1000_RXERRC);
--		adapter->stats.tncrs += rd32(E1000_TNCRS);
-+
-+		/* this stat has invalid values on i210/i211 */
-+		if ((hw->mac.type != e1000_i210) &&
-+		    (hw->mac.type != e1000_i211))
-+			adapter->stats.tncrs += rd32(E1000_TNCRS);
+@@ -2834,11 +2834,7 @@ static void igb_setup_mrqc(struct igb_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 mrqc, rxcsum;
+-	u32 j, num_rx_queues, shift = 0, shift2 = 0;
+-	union e1000_reta {
+-		u32 dword;
+-		u8  bytes[4];
+-	} reta;
++	u32 j, num_rx_queues, shift = 0;
+ 	static const u8 rsshash[40] = {
+ 		0x6d, 0x5a, 0x56, 0xda, 0x25, 0x5b, 0x0e, 0xc2, 0x41, 0x67,
+ 		0x25, 0x3d, 0x43, 0xa3, 0x8f, 0xb0, 0xd0, 0xca, 0x2b, 0xcb,
+@@ -2856,35 +2852,36 @@ static void igb_setup_mrqc(struct igb_adapter *adapter)
+ 
+ 	num_rx_queues = adapter->rss_queues;
+ 
+-	if (adapter->vfs_allocated_count) {
+-		/* 82575 and 82576 supports 2 RSS queues for VMDq */
+-		switch (hw->mac.type) {
+-		case e1000_i350:
+-		case e1000_82580:
+-			num_rx_queues = 1;
+-			shift = 0;
+-			break;
+-		case e1000_82576:
++	switch (hw->mac.type) {
++	case e1000_82575:
++		shift = 6;
++		break;
++	case e1000_82576:
++		/* 82576 supports 2 RSS queues for SR-IOV */
++		if (adapter->vfs_allocated_count) {
+ 			shift = 3;
+ 			num_rx_queues = 2;
+-			break;
+-		case e1000_82575:
+-			shift = 2;
+-			shift2 = 6;
+-		default:
+-			break;
+ 		}
+-	} else {
+-		if (hw->mac.type == e1000_82575)
+-			shift = 6;
++		break;
++	default:
++		break;
  	}
  
- 	adapter->stats.tsctc += rd32(E1000_TSCTC);
+-	for (j = 0; j < (32 * 4); j++) {
+-		reta.bytes[j & 3] = (j % num_rx_queues) << shift;
+-		if (shift2)
+-			reta.bytes[j & 3] |= num_rx_queues << shift2;
+-		if ((j & 3) == 3)
+-			wr32(E1000_RETA(j >> 2), reta.dword);
++	/*
++	 * Populate the indirection table 4 entries at a time.  To do this
++	 * we are generating the results for n and n+2 and then interleaving
++	 * those with the results with n+1 and n+3.
++	 */
++	for (j = 0; j < 32; j++) {
++		/* first pass generates n and n+2 */
++		u32 base = ((j * 0x00040004) + 0x00020000) * num_rx_queues;
++		u32 reta = (base & 0x07800780) >> (7 - shift);
++
++		/* second pass generates n+1 and n+3 */
++		base += 0x00010001 * num_rx_queues;
++		reta |= (base & 0x07800780) << (1 + shift);
++
++		wr32(E1000_RETA(j), reta);
+ 	}
+ 
+ 	/*
 -- 
 1.7.11.4
