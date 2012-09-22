@@ -1,7 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V3 net-next 0/4] Two new PTP Hardware Clock features
-Date: Sat, 22 Sep 2012 19:02:00 +0200
-Message-ID: <cover.1348332940.git.richardcochran@gmail.com>
+Subject: [PATCH V3 net-next 4/4] ptp: clarify the clock_name sysfs attribute
+Date: Sat, 22 Sep 2012 19:02:04 +0200
+Message-ID: <149b5cc1b5813bb4052f8dff4cbe0b5be62d086e.1348332941.git.richardcochran@gmail.com>
+References: <cover.1348332940.git.richardcochran@gmail.com>
 Cc: Ben Hutchings <bhutchings@solarflare.com>,
 	David Miller <davem@davemloft.net>,
 	Jacob Keller <jacob.e.keller@intel.com>,
@@ -10,61 +11,60 @@ Cc: Ben Hutchings <bhutchings@solarflare.com>,
 	Matthew Vick <matthew.vick@intel.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:45113 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752146Ab2IVRCQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2012 13:02:16 -0400
-Received: by weyx8 with SMTP id x8so2548946wey.19
-        for <netdev@vger.kernel.org>; Sat, 22 Sep 2012 10:02:15 -0700 (PDT)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:45793 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752808Ab2IVRCZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2012 13:02:25 -0400
+Received: by mail-wi0-f178.google.com with SMTP id hr14so3236265wib.1
+        for <netdev@vger.kernel.org>; Sat, 22 Sep 2012 10:02:24 -0700 (PDT)
+In-Reply-To: <cover.1348332940.git.richardcochran@gmail.com>
+In-Reply-To: <cover.1348332940.git.richardcochran@gmail.com>
+References: <cover.1348332940.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series adds two new features to the PHC code.
+There has been some confusion among PHC driver authors about the
+intended purpose of the clock_name attribute. This patch expands the
+documation in order to clarify how the clock_name field should be
+understood.
 
-* ChangeLog
-** V3
-   - Use the correct parent device in the solarflare driver.
-   - Expand the sysfs documentation of clock_name.
-   - Also document the clock_name field in the header file.
-** V2 
-   - Preserves the clock_name attribute as it was meant to be, instead
-     of making any changes to it.
-   - Covers the registration API change in the brand new solarflare phc
-     device, which was overlooked in V1.
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+---
+ Documentation/ABI/testing/sysfs-ptp |    6 +++++-
+ include/linux/ptp_clock_kernel.h    |    4 +++-
+ 2 files changed, 8 insertions(+), 2 deletions(-)
 
-The first two patches let a user program find out the previously
-dialed frequency adjustment. This is primarily useful when restarting
-a PTP service, since without this information, the presumably correct
-adjustment will bias the new frequency estimation.
-
-The third patch links the phc class device to its parent device within
-the driver model and sysfs.
-
-The fourth patch adds a bit more documentation of the sysfs clock_name
-attribute. This should help clarify the naming scheme.
-
-Thanks,
-Richard
-
-
-Richard Cochran (4):
-  ptp: remember the adjusted frequency
-  ptp: provide the clock's adjusted frequency
-  ptp: link the phc device to its parent device
-  ptp: clarify the clock_name sysfs attribute
-
- Documentation/ABI/testing/sysfs-ptp          |    6 +++++-
- drivers/net/ethernet/freescale/gianfar_ptp.c |    2 +-
- drivers/net/ethernet/intel/igb/igb_ptp.c     |    3 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c |    3 ++-
- drivers/net/ethernet/sfc/ptp.c               |    3 ++-
- drivers/net/phy/dp83640.c                    |    2 +-
- drivers/ptp/ptp_clock.c                      |   11 +++++++++--
- drivers/ptp/ptp_ixp46x.c                     |    2 +-
- drivers/ptp/ptp_pch.c                        |    2 +-
- drivers/ptp/ptp_private.h                    |    1 +
- include/linux/ptp_clock_kernel.h             |   11 ++++++++---
- 11 files changed, 33 insertions(+), 13 deletions(-)
-
+diff --git a/Documentation/ABI/testing/sysfs-ptp b/Documentation/ABI/testing/sysfs-ptp
+index d40d2b5..05aeedf 100644
+--- a/Documentation/ABI/testing/sysfs-ptp
++++ b/Documentation/ABI/testing/sysfs-ptp
+@@ -19,7 +19,11 @@ Date:		September 2010
+ Contact:	Richard Cochran <richardcochran@gmail.com>
+ Description:
+ 		This file contains the name of the PTP hardware clock
+-		as a human readable string.
++		as a human readable string. The purpose of this
++		attribute is to provide the user with a "friendly
++		name" and to help distinguish PHY based devices from
++		MAC based ones. The string does not necessarily have
++		to be any kind of unique id.
+ 
+ What:		/sys/class/ptp/ptpN/max_adjustment
+ Date:		September 2010
+diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
+index 56c71b2..f2dc6d8 100644
+--- a/include/linux/ptp_clock_kernel.h
++++ b/include/linux/ptp_clock_kernel.h
+@@ -42,7 +42,9 @@ struct ptp_clock_request {
+  * struct ptp_clock_info - decribes a PTP hardware clock
+  *
+  * @owner:     The clock driver should set to THIS_MODULE.
+- * @name:      A short name to identify the clock.
++ * @name:      A short "friendly name" to identify the clock and to
++ *             help distinguish PHY based devices from MAC based ones.
++ *             The string is not meant to be a unique id.
+  * @max_adj:   The maximum possible frequency adjustment, in parts per billon.
+  * @n_alarm:   The number of programmable alarms.
+  * @n_ext_ts:  The number of external time stamp channels.
 -- 
 1.7.2.5
