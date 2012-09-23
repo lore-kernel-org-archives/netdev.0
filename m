@@ -1,83 +1,82 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: [PATCH v3] ucc_geth: Lockless xmit
-Date: Sun, 23 Sep 2012 11:39:20 +0200
-Message-ID: <OF39977762.2BDD4BB8-ONC1257A82.0032A26B-C1257A82.00350A53@transmode.se>
-References: <1348129021-28333-1-git-send-email-Joakim.Tjernlund@transmode.se> <1348218675-3804-1-git-send-email-Joakim.Tjernlund@transmode.se> <20120921125129.GA21792@electric-eye.fr.zoreil.com> <OF6B2AFF0B.1C979828-ONC1257A80.00502DCF-C1257A80.00509C7E@LocalDomain> <OF53C63B27.8D5BE7C3-ONC1257A80.00575156-C1257A80.005766FC@transmode.se> <20120921173535.GA27934@electric-eye.fr.zoreil.com>
+From: "Merav Sicron" <meravs@broadcom.com>
+Subject: [net-next patch v2] bnx2x: Improve code around
+ bnx2x_tests_str_arr
+Date: Sun, 23 Sep 2012 15:12:23 +0200
+Message-ID: <1348405943-32605-1-git-send-email-meravs@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Merav Sicron" <meravs@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([195.58.98.146]:54105 "EHLO gw1.transmode.se"
+Received: from mms1.broadcom.com ([216.31.210.17]:4586 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753306Ab2IWJjY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Sep 2012 05:39:24 -0400
-In-Reply-To: <20120921173535.GA27934@electric-eye.fr.zoreil.com>
+	id S1752266Ab2IWKJy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Sep 2012 06:09:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu <romieu@fr.zoreil.com> wrote on 2012/09/21 19:35:35:
->
-> Please keep netdev in the Cc:.
+This patch changes the definition of bnx2x_tests_str_arr from static char
+pointer to static const char bi-directional array. Also the
+bnx2x_get_strings function is simplified.
 
-Sorry, wrong reply button. Now added.
+Reported-by: Joe Perches <joe@perches.com>
+Reported-by: David Laight <David.Laight@ACULAB.COM>
+Signed-off-by: Merav Sicron <meravs@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+Hi,
+Sorry for the late response.
 
->
-> Joakim Tjernlund <joakim.tjernlund@transmode.se> :
-> [...]
-> > This is what I could come up with, what do you think?
->
-> In its current state the driver implicitely relies on the Tx xmit vs Tx
-> completion exclusion to work. As long as they exclude each other the
-> ugeth->tx_skbuff[txQ][...] and the "bd_status & T_R" states are consistent.
->
-> This scheme can not work without locking. The skb alone won't provide a
-> synchronization point.
+Changes comparing to v1: Define the content of the array const, use
+bi-directional array instead of array with strings pointers, simplify the
+bnx2x_get_strings function by using memcpy.
 
-I don't get it. The skb test is there just for one special case, when
-the BD ring is empty the (bd_status & T_R) == 0 will be true as well so
-one need something more than the bd_status test.
+Dave, please consider applying this patch to net-next.
 
->
-> An usual solution would be some skb dirtytx vs curtx comparison + smp
-> barriers (Documentation/memory-barriers.txt).
+Thanks,
+Merav
 
-You mean adding an extra test in addition to !skb? Something like:
-if (!skb && ugeth->skb_dirtytx[txQ] == ugeth->skb_curtx[txQ])
-	break;
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c |   13 ++++---------
+ 1 file changed, 4 insertions(+), 9 deletions(-)
 
->
-> Sidenote: is there some reason why modulo (%) operations should be
-> avoided on this platform ?
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index f923125..a19c9e0 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -1607,7 +1607,7 @@ static int bnx2x_set_pauseparam(struct net_device *dev,
+ 	return 0;
+ }
 
-Not that I know. The original driver author did it this way.
+-static char *bnx2x_tests_str_arr[BNX2X_NUM_TESTS_SF] = {
++static const char bnx2x_tests_str_arr[BNX2X_NUM_TESTS_SF][ETH_GSTRING_LEN] = {
+ 	"register_test (offline)    ",
+ 	"memory_test (offline)      ",
+ 	"int_loopback_test (offline)",
+@@ -2536,7 +2536,7 @@ static int bnx2x_get_sset_count(struct net_device *dev, int stringset)
+ static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+ {
+ 	struct bnx2x *bp = netdev_priv(dev);
+-	int i, j, k, offset, start;
++	int i, j, k, start;
+ 	char queue_name[MAX_QUEUE_NAME_LEN+1];
 
->
-> [...]
-> > @@ -3380,8 +3380,12 @@ static int ucc_geth_tx(struct net_device *dev, u8 txQ)
-> >                      1) & TX_RING_MOD_MASK(ugeth->ug_info->bdRingLenTx[txQ]);
-> >
-> >                 /* We freed a buffer, so now we can restart transmission */
-> > -               if (netif_queue_stopped(dev))
-> > -                       netif_wake_queue(dev);
-> > +               if (netif_queue_stopped(dev)) {
-> > +                       netif_tx_lock(dev);
-> > +                       if (netif_queue_stopped(dev))
-> > +                               netif_wake_queue(dev);
-> > +                       netif_tx_unlock(dev);
-> > +               }
->
-> Without exclusion we don't know if it was stopped before or after the packet
-> was freed. There must be some "are there available Tx slots ?" test in the
-> locked section.
+ 	switch (stringset) {
+@@ -2572,13 +2572,8 @@ static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+ 			start = 0;
+ 		else
+ 			start = 4;
+-		for (i = 0, j = start; j < (start + BNX2X_NUM_TESTS(bp));
+-		     i++, j++) {
+-			offset = sprintf(buf+32*i, "%s",
+-					 bnx2x_tests_str_arr[j]);
+-			*(buf+offset) = '\0';
+-		}
+-		break;
++		memcpy(buf, bnx2x_tests_str_arr + start,
++		       ETH_GSTRING_LEN * BNX2X_NUM_TESTS(bp));
+ 	}
+ }
 
-This makes sense, but stopping relies on ugeth->confBd[txQ] which is updated
-last in ucc_geth_tx(). Looks a bit suboptimal though so it should probably
-be changed.
-
->
-> Btw the second netif_queue_stopped test can be removed if tx queueing can
-> only be stopped in a single place (I did not check).
-
-There is a netif_stop_queue in xmit and one in ucc_geth_close() so I guess
-one can say there is only one place.
+--
+1.7.10
