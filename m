@@ -1,73 +1,74 @@
-From: Lutz Jaenicke <ljaenicke@innominate.com>
-Subject: Re: [PATCH v2] lxt PHY: Support for the buggy LXT973 rev A2
-Date: Sun, 23 Sep 2012 20:44:30 +0200
-Message-ID: <20120923184430.GA29119@lutz.bln.innominate.local>
-References: <201209101545.q8AFjn7u021483@localhost.localdomain>
- <20120910181747.GA5960@lutz.bln.innominate.local>
- <505DE592.8060103@c-s.fr>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 2/7][RFC] netfilter: add xt_qtaguid matching module
+Date: Sun, 23 Sep 2012 23:26:36 +0200
+Message-ID: <20120923212636.GA1141@1984>
+References: <1348279853-44499-1-git-send-email-john.stultz@linaro.org>
+ <1348279853-44499-3-git-send-email-john.stultz@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David S Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: leroy christophe <christophe.leroy@c-s.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host2.bln.innominate.com ([77.245.32.75]:59680 "EHLO
-	home.innominate.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753842Ab2IWSoc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2012 14:44:32 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>, JP Abgrall <jpa@google.com>,
+	netdev@vger.kernel.org, Ashish Sharma <ashishsharma@google.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	netfilter-devel@vger.kernel.org
+To: John Stultz <john.stultz@linaro.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <505DE592.8060103@c-s.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1348279853-44499-3-git-send-email-john.stultz@linaro.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 22, 2012 at 06:21:38PM +0200, leroy christophe wrote:
->=20
-> Le 10/09/2012 20:17, Lutz Jaenicke a =E9crit :
-> >On Mon, Sep 10, 2012 at 05:45:49PM +0200, Christophe Leroy wrote:
-> >>This patch adds proper handling of the buggy revision A2 of LXT973 =
-phy, adding
-> >>precautions linked to ERRATA Item 4:
-> >>
-> >>Item 4: MDIO Interface and Repeated Polling
-> >>Problem: Repeated polling of odd-numbered registers via the MDIO in=
-terface
-> >>	randomly returns the contents of the previous even register.
-> >>Implication: Managed applications may not obtain the correct regist=
-er contents
-> >>	when a particular register is monitored for device status.
-> >>Workaround: None.
-> >>Status: This erratum has been previously fixed (in rev A3)
-> >Hmm. Were did you get the hardware from? We have been using LXT973 i=
-n
-> >our products and the A2 was replaced by A3 in 2003.
-> >
-> >Best regards,
-> >	Lutz
-> They are custom boards that my company manufactures. Most boards
-> manufactured before 2006 or 2007 have this buggy chip.
+Hi John,
 
-Ok, so this problem indeed is related to (very) old hardware.
-I would not be sure whether the hack needed to work around
-this bug should be added one decade after the chip has
-been fixed.
+Cc'ing netfilter-devel (better than only netdev, to attract the
+attention from other Netfilter hacker fellows).
 
-Best regards,
-	Lutz
-PS.Yes, we have used the same workaround with such hardware, fortunatel=
-y
-we only had a few first boards using A2 and the series production
-started just with A3 at that time.
---=20
-Dr.-Ing. Lutz J=E4nicke
-CTO
-Innominate Security Technologies AG  /protecting industrial networks/
-tel: +49.30.921028-200
-fax: +49.30.921028-020
-Rudower Chaussee 13
-D-12489 Berlin, Germany
-www.innominate.com
+Some comments on this:
 
-Register Court: AG Charlottenburg, HR B 81603
-Management Board: Dirk Seewald
-Chairman of the Supervisory Board: Christoph Leifer
+On Fri, Sep 21, 2012 at 10:10:48PM -0400, John Stultz wrote:
+> From: JP Abgrall <jpa@google.com>
+> 
+> This module allows tracking stats at the socket level for given UIDs.
+> It replaces xt_owner.
+> If the --uid-owner is not specified, it will just count stats based on
+> who the skb belongs to. This will even happen on incoming skbs as it
+> looks into the skb via xt_socket magic to see who owns it.
+> If an skb is lost, it will be assigned to uid=0.
+> 
+> To control what sockets of what UIDs are tagged by what, one uses:
+>   echo t $sock_fd $accounting_tag $the_billed_uid \
+>      > /proc/net/xt_qtaguid/ctrl
+>  So whenever an skb belongs to a sock_fd, it will be accounted against
+>    $the_billed_uid
+>   and matching stats will show up under the uid with the given
+>    $accounting_tag.
+> 
+> Because the number of allocations for the stats structs is not that big:
+>   ~500 apps * 32 per app
+> we'll just do it atomic. This avoids walking lists many times, and
+> the fancy worker thread handling. Slabs will grow when needed later.
+> 
+> It use netdevice and inetaddr notifications instead of hooks in the core dev
+> code to track when a device comes and goes. This removes the need for
+> exposed iface_stat.h.
+> 
+> Put procfs dirs in /proc/net/xt_qtaguid/
+>   ctrl
+>   stats
+>   iface_stat/<iface>/...
+> The uid stats are obtainable in ./stats.
+
+Unless I'm missing anything worth in this patch, this seems to me like
+a combo match of owner + nfacct infrastructure.
+
+I guess you can probably get all done with one single rule, but that
+is not enough to justify its inclusion in mainline.
+
+In case you are not familiar with the nfacct infrastructure:
+
+http://lwn.net/Articles/472094/
+
+I'd be happy anyway if you provide more examples on you use this, so I
+can assure you we can do this with the existing infrastructure in
+mainstream.
+
+Thanks!
