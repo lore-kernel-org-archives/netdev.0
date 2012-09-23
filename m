@@ -1,30 +1,40 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: [PATCH] inet_diag: make config INET_DIAG bool
-Date: Sun, 23 Sep 2012 15:40:27 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1209231540180.15692@nerf07.vanv.qr>
-References: <b133d67a-cb5f-4d46-b3d8-b1ac9448725e@tahiti.vyatta.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
+Date: Sun, 23 Sep 2012 12:16:01 -0400 (EDT)
+Message-ID: <20120923.121601.2244503178301624422.davem@davemloft.net>
+References: <1348242511.2669.635.camel@edumazet-glaptop>
+	<20120921.122705.1344923255084267186.davem@davemloft.net>
+	<alpine.LNX.2.01.1209231446170.9625@nerf07.vanv.qr>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Gao feng <gaofeng@cn.fujitsu.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, kuznet@ms2.inr.ac.ru
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, rick.jones2@hp.com,
+	subramanian.vijay@gmail.com, netdev@vger.kernel.org
+To: jengelh@inai.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ares07.inai.de ([5.9.24.206]:46568 "EHLO seven.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753812Ab2IWNkc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Sep 2012 09:40:32 -0400
-In-Reply-To: <b133d67a-cb5f-4d46-b3d8-b1ac9448725e@tahiti.vyatta.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41250 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754080Ab2IWQQC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2012 12:16:02 -0400
+In-Reply-To: <alpine.LNX.2.01.1209231446170.9625@nerf07.vanv.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 2012-09-23 06:36, Stephen Hemminger wrote:
+From: Jan Engelhardt <jengelh@inai.de>
+Date: Sun, 23 Sep 2012 14:47:28 +0200 (CEST)
 
->> when inet_diag being compiled as module, inet_diag_handler_dump
->> set netlink_dump_control.dump to inet_diag_dump,so if module
->> inet_diag is unloaded,netlink will still try to call this function
->> in netlink_dump. this will cause kernel panic.
->
->Another way to handle this to just get rid of inet_diag_exit
->so that module can be loaded but not unloaded.
+> On Friday 2012-09-21 18:27, David Miller wrote:
+> 
+>>From: Eric Dumazet <eric.dumazet@gmail.com>
+>>Date: Fri, 21 Sep 2012 17:48:31 +0200
+>>
+>>> There is probably a reason why lo default MTU is 16436 ?
+>>
+>>That's what fit into L1 caches back in 1999
+> 
+> Would it make sense to automatically set lo's MTU on device
+> registration to the actual size of the L1 that the $running system
+> has?
 
-Why don't we unset netlink_dump_control.dump on exit?
+I think a fixed value of 64K would be a easiest, because another issue
+is that back in 1999 we didn't have GRO/GSO/etc.
