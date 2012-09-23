@@ -1,35 +1,30 @@
 From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: loop back address question
-Date: Sun, 23 Sep 2012 14:37:39 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1209231433560.9625@nerf07.vanv.qr>
-References: <CAGZFCEE=Txa4=meB7CTuWvcgFe4teiXG3LWbOua21TqXXYY1SQ@mail.gmail.com>
+Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
+Date: Sun, 23 Sep 2012 14:47:28 +0200 (CEST)
+Message-ID: <alpine.LNX.2.01.1209231446170.9625@nerf07.vanv.qr>
+References: <505B773E.9070501@hp.com> <1348172722.2669.10.camel@edumazet-glaptop> <1348242511.2669.635.camel@edumazet-glaptop> <20120921.122705.1344923255084267186.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: ratheesh kannoth <ratheesh.ksz@gmail.com>
+Cc: eric.dumazet@gmail.com, rick.jones2@hp.com,
+	subramanian.vijay@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ares07.inai.de ([5.9.24.206]:46276 "EHLO seven.medozas.de"
+Received: from ares07.inai.de ([5.9.24.206]:46307 "EHLO seven.medozas.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752528Ab2IWMhm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Sep 2012 08:37:42 -0400
-In-Reply-To: <CAGZFCEE=Txa4=meB7CTuWvcgFe4teiXG3LWbOua21TqXXYY1SQ@mail.gmail.com>
+	id S1753095Ab2IWMra (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Sep 2012 08:47:30 -0400
+In-Reply-To: <20120921.122705.1344923255084267186.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 2012-09-18 15:42, ratheesh kannoth wrote:
+On Friday 2012-09-21 18:27, David Miller wrote:
 
->Hi ,
+>From: Eric Dumazet <eric.dumazet@gmail.com>
+>Date: Fri, 21 Sep 2012 17:48:31 +0200
 >
->i have two  linux machines(2.6.29 ) A & B, both  connected  to same lan network
+>> There is probably a reason why lo default MTU is 16436 ?
 >
->1)  if  i assign 127.0.2.1 and 127.0.2.2 to interfaces , can we ping
->each other ?  is there any way to  send packets out of interface ?
+>That's what fit into L1 caches back in 1999
 
-1. The route "local 127.0.0.0/8 dev lo" in the local table has a higher 
-priority than the main table, so you would need to reorder that first.
-
-2. There are a handful of places in linux where ipv4_is_loopback() is 
-used on addresses to take a different path, so the chances to 
-successfully get 127.0.2.0/24 packets out an interface may not be 100%.
-
-Just in case you tried selling blocks out of your 127 block to someone..
+Would it make sense to automatically set lo's MTU on device registration 
+to the actual size of the L1 that the $running system has?
