@@ -1,30 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
-Date: Sun, 23 Sep 2012 14:27:32 -0400 (EDT)
-Message-ID: <20120923.142732.1588718720272601448.davem@davemloft.net>
-References: <alpine.LNX.2.01.1209231446170.9625@nerf07.vanv.qr>
-	<20120923.121601.2244503178301624422.davem@davemloft.net>
-	<alpine.LNX.2.01.1209231930520.3904@nerf07.vanv.qr>
+From: Lutz Jaenicke <ljaenicke@innominate.com>
+Subject: Re: [PATCH v2] lxt PHY: Support for the buggy LXT973 rev A2
+Date: Sun, 23 Sep 2012 20:44:30 +0200
+Message-ID: <20120923184430.GA29119@lutz.bln.innominate.local>
+References: <201209101545.q8AFjn7u021483@localhost.localdomain>
+ <20120910181747.GA5960@lutz.bln.innominate.local>
+ <505DE592.8060103@c-s.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, rick.jones2@hp.com,
-	subramanian.vijay@gmail.com, netdev@vger.kernel.org
-To: jengelh@inai.de
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David S Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: leroy christophe <christophe.leroy@c-s.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42048 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753596Ab2IWS1g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2012 14:27:36 -0400
-In-Reply-To: <alpine.LNX.2.01.1209231930520.3904@nerf07.vanv.qr>
+Received: from host2.bln.innominate.com ([77.245.32.75]:59680 "EHLO
+	home.innominate.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753842Ab2IWSoc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2012 14:44:32 -0400
+Content-Disposition: inline
+In-Reply-To: <505DE592.8060103@c-s.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Engelhardt <jengelh@inai.de>
-Date: Sun, 23 Sep 2012 19:40:33 +0200 (CEST)
+On Sat, Sep 22, 2012 at 06:21:38PM +0200, leroy christophe wrote:
+>=20
+> Le 10/09/2012 20:17, Lutz Jaenicke a =E9crit :
+> >On Mon, Sep 10, 2012 at 05:45:49PM +0200, Christophe Leroy wrote:
+> >>This patch adds proper handling of the buggy revision A2 of LXT973 =
+phy, adding
+> >>precautions linked to ERRATA Item 4:
+> >>
+> >>Item 4: MDIO Interface and Repeated Polling
+> >>Problem: Repeated polling of odd-numbered registers via the MDIO in=
+terface
+> >>	randomly returns the contents of the previous even register.
+> >>Implication: Managed applications may not obtain the correct regist=
+er contents
+> >>	when a particular register is monitored for device status.
+> >>Workaround: None.
+> >>Status: This erratum has been previously fixed (in rev A3)
+> >Hmm. Were did you get the hardware from? We have been using LXT973 i=
+n
+> >our products and the A2 was replaced by A3 in 2003.
+> >
+> >Best regards,
+> >	Lutz
+> They are custom boards that my company manufactures. Most boards
+> manufactured before 2006 or 2007 have this buggy chip.
 
-> What would a MTU of 64K buy? Offloading seems pointless for the lo
-> device. There is no hardware to offload it to - well, the
-> machine already has the packet too.
+Ok, so this problem indeed is related to (very) old hardware.
+I would not be sure whether the hack needed to work around
+this bug should be added one decade after the chip has
+been fixed.
 
-Traversing the stack once instead of N times.
+Best regards,
+	Lutz
+PS.Yes, we have used the same workaround with such hardware, fortunatel=
+y
+we only had a few first boards using A2 and the series production
+started just with A3 at that time.
+--=20
+Dr.-Ing. Lutz J=E4nicke
+CTO
+Innominate Security Technologies AG  /protecting industrial networks/
+tel: +49.30.921028-200
+fax: +49.30.921028-020
+Rudower Chaussee 13
+D-12489 Berlin, Germany
+www.innominate.com
+
+Register Court: AG Charlottenburg, HR B 81603
+Management Board: Dirk Seewald
+Chairman of the Supervisory Board: Christoph Leifer
