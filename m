@@ -1,58 +1,33 @@
 From: Steve Glendinning <steve.glendinning@shawell.net>
-Subject: [PATCH 1/5] smsc95xx: sleep before read for lengthy operations
-Date: Mon, 24 Sep 2012 15:40:50 +0100
-Message-ID: <1348497654-9915-2-git-send-email-steve.glendinning@shawell.net>
-References: <1348497654-9915-1-git-send-email-steve.glendinning@shawell.net>
+Subject: [PATCH 0/5] smsc95xx enhancements
+Date: Mon, 24 Sep 2012 15:40:49 +0100
+Message-ID: <1348497654-9915-1-git-send-email-steve.glendinning@shawell.net>
 Cc: Steve Glendinning <steve.glendinning@shawell.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:37774 "EHLO
+Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:37775 "EHLO
 	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756129Ab2IXOuZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 10:50:25 -0400
-In-Reply-To: <1348497654-9915-1-git-send-email-steve.glendinning@shawell.net>
+	with ESMTP id S1756169Ab2IXOu0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 10:50:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During init, the device reset is unexpected to complete immediately,
-so sleep before testing the condition rather than after it.
+This patchset makes a few minor enhancements to the smsc95xx driver
+in preparation for some forthcoming power-saving improvements I'm
+working on.
 
-Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
----
- drivers/net/usb/smsc95xx.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Please consider all for net-next.
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index d45e539..ed1e551 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -763,12 +763,12 @@ static int smsc95xx_reset(struct usbnet *dev)
- 
- 	timeout = 0;
- 	do {
-+		msleep(10);
- 		ret = smsc95xx_read_reg(dev, HW_CFG, &read_buf);
- 		if (ret < 0) {
- 			netdev_warn(dev->net, "Failed to read HW_CFG: %d\n", ret);
- 			return ret;
- 		}
--		msleep(10);
- 		timeout++;
- 	} while ((read_buf & HW_CFG_LRST_) && (timeout < 100));
- 
-@@ -786,12 +786,12 @@ static int smsc95xx_reset(struct usbnet *dev)
- 
- 	timeout = 0;
- 	do {
-+		msleep(10);
- 		ret = smsc95xx_read_reg(dev, PM_CTRL, &read_buf);
- 		if (ret < 0) {
- 			netdev_warn(dev->net, "Failed to read PM_CTRL: %d\n", ret);
- 			return ret;
- 		}
--		msleep(10);
- 		timeout++;
- 	} while ((read_buf & PM_CTL_PHY_RST_) && (timeout < 100));
- 
+Steve Glendinning (5):
+  smsc95xx: sleep before read for lengthy operations
+  smsc95xx: remove unnecessary variables
+  smsc95xx: check return code from control messages
+  smsc95xx: fix resume when usb device is reset
+  smsc95xx: enable power saving mode during system suspend
+
+ drivers/net/usb/smsc95xx.c |  389 +++++++++++++++++++++-----------------------
+ drivers/net/usb/smsc95xx.h |    7 +-
+ 2 files changed, 192 insertions(+), 204 deletions(-)
+
 -- 
 1.7.9.5
