@@ -1,37 +1,81 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net-net] net: loopback: set default mtu to 64K
-Date: Mon, 24 Sep 2012 16:24:42 -0400 (EDT)
-Message-ID: <20120924.162442.1381532664983403691.davem@redhat.com>
-References: <1348475339.26828.188.camel@edumazet-glaptop>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCHv3 net-next 3/3] vxlan: virtual extensible lan
+Date: Mon, 24 Sep 2012 13:24:41 -0700
+Message-ID: <5060C189.8090803@intel.com>
+References: <20120924184304.727711327@vyatta.com> <20120924185050.162920909@vyatta.com> <1348515547.26828.1538.camel@edumazet-glaptop> <20120924124657.4541c186@nehalam.linuxnetplumber.net> <1348516500.26828.1570.camel@edumazet-glaptop> <20120924130239.18767146@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Chris Wright <chrisw@redhat.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43896 "EHLO mx1.redhat.com"
+Received: from mga09.intel.com ([134.134.136.24]:53349 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757893Ab2IXUYo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Sep 2012 16:24:44 -0400
-In-Reply-To: <1348475339.26828.188.camel@edumazet-glaptop>
+	id S1757893Ab2IXUZE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Sep 2012 16:25:04 -0400
+In-Reply-To: <20120924130239.18767146@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 24 Sep 2012 10:28:59 +0200
+[...]
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> loopback current mtu of 16436 bytes allows no more than 3 MSS TCP
-> segments per frame, or 48 Kbytes. Changing mtu to 64K allows TCP
-> stack to build large frames and significantly reduces stack overhead.
-> 
-> Performance boost on bulk TCP transferts can be up to 30 %, partly
-> because we now have one ACK message for two 64KB segments, and a lower
-> probability of hitting /proc/sys/net/ipv4/tcp_reordering default limit.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+On 9/24/2012 1:02 PM, Stephen Hemminger wrote:
+> +
+> +/* Transmit local packets over Vxlan
+> + *
+> + * Outer IP header inherits ECN and DF from inner header.
+> + * Outer UDP destination is the VXLAN assigned port.
+> + *           source port is based on hash of flow if available
+> + *                       otherwise use a random value
+> + */
+> +static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +	struct vxlan_dev *vxlan = netdev_priv(dev);
+> +	struct rtable *rt;
+> +	const struct ethhdr *eth;
+> +	const struct iphdr *old_iph;
+> +	struct iphdr *iph;
+> +	struct vxlanhdr *vxh;
+> +	struct udphdr *uh;
+> +	struct flowi4 fl4;
+> +	struct vxlan_fdb *f;
+> +	unsigned int pkt_len = skb->len;
+> +	unsigned int mtu;
+> +	u32 hash;
+> +	__be32 dst;
+> +	__be16 df = 0;
+> +	__u8 tos, ttl;
+> +	int err;
+> +
 
-This gives a nice %13 improvement on my SPARC-T4 box as well.
+[...]
 
-Applied, thanks Eric.
+> +	err = ip_local_out(skb);
+> +	if (likely(net_xmit_eval(err) == 0)) {
+> +		struct vxlan_stats *stats = this_cpu_ptr(vxlan->stats);
+> +
+> +		u64_stats_update_begin(&stats->syncp);
+> +		stats->tx_packets++;
+> +		stats->tx_bytes += pkt_len;
+
+Should pkt_len include the outer headers?
+
+> +		u64_stats_update_end(&stats->syncp);
+> +	} else {
+> +		dev->stats.tx_errors++;
+> +		dev->stats.tx_aborted_errors++;
+> +	}
+> +	return NETDEV_TX_OK;
+> +
+> +drop:
+> +	dev->stats.tx_dropped++;
+> +	goto tx_free;
+> +
+> +tx_error:
+> +	dev->stats.tx_errors++;
+> +tx_free:
+> +	dev_kfree_skb(skb);
+> +	return NETDEV_TX_OK;
+> +}
