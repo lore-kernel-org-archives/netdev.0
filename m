@@ -1,245 +1,84 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/6] ixgbevf: Fix code for handling timeout
-Date: Mon, 24 Sep 2012 02:00:02 -0700
-Message-ID: <1348477207-27030-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/6] ixgbevf: Add fix to VF to handle multi-descriptor buffers
+Date: Mon, 24 Sep 2012 02:00:06 -0700
+Message-ID: <1348477207-27030-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1348477207-27030-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:39455 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:2616 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751713Ab2IXJAM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Sep 2012 05:00:12 -0400
+	id S1752210Ab2IXJAP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Sep 2012 05:00:15 -0400
 In-Reply-To: <1348477207-27030-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The VF driver was not designed to correctly handle a message timeout.  As
-a result it is possible for one bad message to invalidate all messages
-following it until the part is reset.  Instead we should copy the example
-in igbvf of how to handle a mailbox event and message timeout.
+This change fixes the ixgbevf driver so that it can correctly drop a frame
+should it receive a jumbo frame.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 46 +++++----------------
- drivers/net/ethernet/intel/ixgbevf/mbx.c          | 15 +++++--
- drivers/net/ethernet/intel/ixgbevf/vf.c           | 49 ++++++++++++++++++-----
- 3 files changed, 58 insertions(+), 52 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  5 +++++
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 14 ++++++++++++--
+ 2 files changed, 17 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index eb26fda..383b4e1 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -261,6 +261,11 @@ enum ixbgevf_state_t {
+ 	__IXGBEVF_DOWN
+ };
+ 
++struct ixgbevf_cb {
++	struct sk_buff *prev;
++};
++#define IXGBE_CB(skb) ((struct ixgbevf_cb *)(skb)->cb)
++
+ enum ixgbevf_boards {
+ 	board_82599_vf,
+ 	board_X540_vf,
 diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index c5ffe1d..7aa31ee 100644
+index 37bbd86..2ba15ae 100644
 --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
 +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -716,40 +716,15 @@ static void ixgbevf_set_itr(struct ixgbevf_q_vector *q_vector)
- 	}
- }
+@@ -433,11 +433,21 @@ static bool ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
  
--static irqreturn_t ixgbevf_msix_mbx(int irq, void *data)
-+static irqreturn_t ixgbevf_msix_other(int irq, void *data)
- {
- 	struct ixgbevf_adapter *adapter = data;
- 	struct ixgbe_hw *hw = &adapter->hw;
--	u32 msg;
--	bool got_ack = false;
+ 		if (!(staterr & IXGBE_RXD_STAT_EOP)) {
+ 			skb->next = next_buffer->skb;
+-			skb->next->prev = skb;
++			IXGBE_CB(skb->next)->prev = skb;
+ 			adapter->non_eop_descs++;
+ 			goto next_desc;
+ 		}
  
--	if (!hw->mbx.ops.check_for_ack(hw))
--		got_ack = true;
-+	hw->mac.get_link_status = 1;
- 
--	if (!hw->mbx.ops.check_for_msg(hw)) {
--		hw->mbx.ops.read(hw, &msg, 1);
--
--		if ((msg & IXGBE_MBVFICR_VFREQ_MASK) == IXGBE_PF_CONTROL_MSG)
--			mod_timer(&adapter->watchdog_timer,
--				  round_jiffies(jiffies + 1));
--
--		if (msg & IXGBE_VT_MSGTYPE_NACK)
--			pr_warn("Last Request of type %2.2x to PF Nacked\n",
--				msg & 0xFF);
--		/*
--		 * Restore the PFSTS bit in case someone is polling for a
--		 * return message from the PF
--		 */
--		hw->mbx.v2p_mailbox |= IXGBE_VFMAILBOX_PFSTS;
--	}
--
--	/*
--	 * checking for the ack clears the PFACK bit.  Place
--	 * it back in the v2p_mailbox cache so that anyone
--	 * polling for an ack will not miss it
--	 */
--	if (got_ack)
--		hw->mbx.v2p_mailbox |= IXGBE_VFMAILBOX_PFACK;
-+	if (!test_bit(__IXGBEVF_DOWN, &adapter->state))
-+		mod_timer(&adapter->watchdog_timer, jiffies);
- 
- 	IXGBE_WRITE_REG(hw, IXGBE_VTEIMS, adapter->eims_other);
- 
-@@ -899,10 +874,10 @@ static int ixgbevf_request_msix_irqs(struct ixgbevf_adapter *adapter)
- 	}
- 
- 	err = request_irq(adapter->msix_entries[vector].vector,
--			  &ixgbevf_msix_mbx, 0, netdev->name, adapter);
-+			  &ixgbevf_msix_other, 0, netdev->name, adapter);
- 	if (err) {
- 		hw_dbg(&adapter->hw,
--		       "request_irq for msix_mbx failed: %d\n", err);
-+		       "request_irq for msix_other failed: %d\n", err);
- 		goto free_queue_irqs;
- 	}
- 
-@@ -1411,6 +1386,7 @@ static void ixgbevf_up_complete(struct ixgbevf_adapter *adapter)
- 	ixgbevf_save_reset_stats(adapter);
- 	ixgbevf_init_last_counter_stats(adapter);
- 
-+	hw->mac.get_link_status = 1;
- 	mod_timer(&adapter->watchdog_timer, jiffies);
- }
- 
-@@ -1589,8 +1565,6 @@ void ixgbevf_down(struct ixgbevf_adapter *adapter)
- 
- void ixgbevf_reinit_locked(struct ixgbevf_adapter *adapter)
- {
--	struct ixgbe_hw *hw = &adapter->hw;
--
- 	WARN_ON(in_interrupt());
- 
- 	while (test_and_set_bit(__IXGBEVF_RESETTING, &adapter->state))
-@@ -1603,10 +1577,8 @@ void ixgbevf_reinit_locked(struct ixgbevf_adapter *adapter)
- 	 * watchdog task will continue to schedule reset tasks until
- 	 * the PF is up and running.
- 	 */
--	if (!hw->mac.ops.reset_hw(hw)) {
--		ixgbevf_down(adapter);
--		ixgbevf_up(adapter);
--	}
-+	ixgbevf_down(adapter);
-+	ixgbevf_up(adapter);
- 
- 	clear_bit(__IXGBEVF_RESETTING, &adapter->state);
- }
-diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.c b/drivers/net/ethernet/intel/ixgbevf/mbx.c
-index 9c95590..d5028dd 100644
---- a/drivers/net/ethernet/intel/ixgbevf/mbx.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/mbx.c
-@@ -86,14 +86,17 @@ static s32 ixgbevf_poll_for_ack(struct ixgbe_hw *hw)
- static s32 ixgbevf_read_posted_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size)
- {
- 	struct ixgbe_mbx_info *mbx = &hw->mbx;
--	s32 ret_val = IXGBE_ERR_MBX;
-+	s32 ret_val = -IXGBE_ERR_MBX;
++		/* we should not be chaining buffers, if we did drop the skb */
++		if (IXGBE_CB(skb)->prev) {
++			do {
++				struct sk_buff *this = skb;
++				skb = IXGBE_CB(skb)->prev;
++				dev_kfree_skb(this);
++			} while (skb);
++			goto next_desc;
++		}
 +
-+	if (!mbx->ops.read)
-+		goto out;
- 
- 	ret_val = ixgbevf_poll_for_msg(hw);
- 
- 	/* if ack received read message, otherwise we timed out */
- 	if (!ret_val)
- 		ret_val = mbx->ops.read(hw, msg, size);
--
-+out:
- 	return ret_val;
- }
- 
-@@ -109,7 +112,11 @@ static s32 ixgbevf_read_posted_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size)
- static s32 ixgbevf_write_posted_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size)
- {
- 	struct ixgbe_mbx_info *mbx = &hw->mbx;
--	s32 ret_val;
-+	s32 ret_val = -IXGBE_ERR_MBX;
-+
-+	/* exit if either we can't write or there isn't a defined timeout */
-+	if (!mbx->ops.write || !mbx->timeout)
-+		goto out;
- 
- 	/* send msg */
- 	ret_val = mbx->ops.write(hw, msg, size);
-@@ -117,7 +124,7 @@ static s32 ixgbevf_write_posted_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size)
- 	/* if msg sent wait until we receive an ack */
- 	if (!ret_val)
- 		ret_val = ixgbevf_poll_for_ack(hw);
--
-+out:
- 	return ret_val;
- }
- 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
-index 87b3f3b..a5e66c7 100644
---- a/drivers/net/ethernet/intel/ixgbevf/vf.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
-@@ -392,20 +392,23 @@ static s32 ixgbevf_check_mac_link_vf(struct ixgbe_hw *hw,
- 				     bool *link_up,
- 				     bool autoneg_wait_to_complete)
- {
-+	struct ixgbe_mbx_info *mbx = &hw->mbx;
-+	struct ixgbe_mac_info *mac = &hw->mac;
-+	s32 ret_val = 0;
- 	u32 links_reg;
-+	u32 in_msg = 0;
- 
--	if (!(hw->mbx.ops.check_for_rst(hw))) {
--		*link_up = false;
--		*speed = 0;
--		return -1;
--	}
-+	/* If we were hit with a reset drop the link */
-+	if (!mbx->ops.check_for_rst(hw) || !mbx->timeout)
-+		mac->get_link_status = true;
- 
--	links_reg = IXGBE_READ_REG(hw, IXGBE_VFLINKS);
-+	if (!mac->get_link_status)
-+		goto out;
- 
--	if (links_reg & IXGBE_LINKS_UP)
--		*link_up = true;
--	else
--		*link_up = false;
-+	/* if link status is down no point in checking to see if pf is up */
-+	links_reg = IXGBE_READ_REG(hw, IXGBE_VFLINKS);
-+	if (!(links_reg & IXGBE_LINKS_UP))
-+		goto out;
- 
- 	switch (links_reg & IXGBE_LINKS_SPEED_82599) {
- 	case IXGBE_LINKS_SPEED_10G_82599:
-@@ -419,7 +422,31 @@ static s32 ixgbevf_check_mac_link_vf(struct ixgbe_hw *hw,
- 		break;
- 	}
- 
--	return 0;
-+	/* if the read failed it could just be a mailbox collision, best wait
-+	 * until we are called again and don't report an error */
-+	if (mbx->ops.read(hw, &in_msg, 1))
-+		goto out;
-+
-+	if (!(in_msg & IXGBE_VT_MSGTYPE_CTS)) {
-+		/* msg is not CTS and is NACK we must have lost CTS status */
-+		if (in_msg & IXGBE_VT_MSGTYPE_NACK)
-+			ret_val = -1;
-+		goto out;
-+	}
-+
-+	/* the pf is talking, if we timed out in the past we reinit */
-+	if (!mbx->timeout) {
-+		ret_val = -1;
-+		goto out;
-+	}
-+
-+	/* if we passed all the tests above then the link is up and we no
-+	 * longer need to check for link */
-+	mac->get_link_status = false;
-+
-+out:
-+	*link_up = !mac->get_link_status;
-+	return ret_val;
- }
- 
- /**
+ 		/* ERR_MASK will only have valid bits if EOP set */
+ 		if (unlikely(staterr & IXGBE_RXDADV_ERR_FRAME_ERR_MASK)) {
+ 			dev_kfree_skb_irq(skb);
+@@ -1439,7 +1449,7 @@ static void ixgbevf_clean_rx_ring(struct ixgbevf_adapter *adapter,
+ 			rx_buffer_info->skb = NULL;
+ 			do {
+ 				struct sk_buff *this = skb;
+-				skb = skb->prev;
++				skb = IXGBE_CB(skb)->prev;
+ 				dev_kfree_skb(this);
+ 			} while (skb);
+ 		}
 -- 
 1.7.11.4
