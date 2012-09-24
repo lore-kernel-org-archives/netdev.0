@@ -1,50 +1,60 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v4] lxt PHY: Support for the buggy LXT973 rev A2
-Date: Mon, 24 Sep 2012 20:30:35 +0200
-Message-ID: <20120924183035.GA2252@netboy.at.omicron.at>
-References: <201209241400.q8OE0w38011790@localhost.localdomain>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [PATCH net-next v3] net: use a per task frag allocator
+Date: Mon, 24 Sep 2012 11:34:47 -0700
+Message-ID: <CAGK4HS9CFwaiR56tym6=FkhrDBwK62Kvm4qw62BWqUXAu3XbbQ@mail.gmail.com>
+References: <1348073761.26523.1095.camel@edumazet-glaptop>
+	<20120920.174827.1245530945282009606.davem@davemloft.net>
+	<1348239433.2669.522.camel@edumazet-glaptop>
+	<CAGK4HS98RG78Auvaai3Ny6zz5c_hccO-ShD3GuT=moRRm4+RUA@mail.gmail.com>
+	<1348261871.2669.962.camel@edumazet-glaptop>
+	<1348477482.26828.235.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David S Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Christophe Leroy <christophe.leroy@c-s.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201209241400.q8OE0w38011790@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:49901 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757598Ab2IXSes (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 14:34:48 -0400
+Received: by obbuo13 with SMTP id uo13so4984813obb.19
+        for <netdev@vger.kernel.org>; Mon, 24 Sep 2012 11:34:47 -0700 (PDT)
+In-Reply-To: <1348477482.26828.235.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 24, 2012 at 04:00:58PM +0200, Christophe Leroy wrote:
+>
+> Successfully tested on various ethernet devices.
+> (ixgbe, igb, bnx2x, tg3, mellanox mlx4)
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Ben Hutchings <bhutchings@solarflare.com>
+> Cc: Vijay Subramanian <subramanian.vijay@gmail.com>
+> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+> ---
+> v3: net/sched/em_meta.c bit pointed out by Vijay
+> v2: uses existing page_frag structure to hold page/offset/size
+>     convert linear_to_page()/__ip_append_data()/ip6_append_data()
+>     remove @page and @off fields from struct inet_cork
+>     move the destructor from tcp_v4_destroy_sock() to sk_common_release
 
-> diff -u a/drivers/net/phy/lxt.c b/drivers/net/phy/lxt.c
-> --- a/drivers/net/phy/lxt.c	2012-09-23 03:08:48.000000000 +0200
-> +++ b/drivers/net/phy/lxt.c	2012-09-23 03:18:00.000000000 +0200
+With netperf (64KB send buffer) and with e1000e driver, I get 13%
+improvement with v3 of this patch.
+When I run netserver and netperf on separate cpus with taskset, I get
+7% improvement.
 
-...
+Tested-by: Vijay Subramanian <subramanian.vijay@gmail.com>
 
-> @@ -175,6 +292,16 @@
->  	.driver		= { .owner = THIS_MODULE,},
->  }, {
->  	.phy_id		= 0x00137a10,
-> +	.name		= "LXT973-A2",
-> +	.phy_id_mask	= 0xffffffff,
-> +	.features	= PHY_BASIC_FEATURES,
-> +	.flags		= 0,
-> +	.probe		= lxt973_probe,
-> +	.config_aneg	= lxt973_config_aneg,
-> +	.read_status	= lxt973a2_read_status,
 
-I like this way of matching the A2 chips much better than what you had
-before. But are you sure this will work correctly?
+FYI, checkpatch complained about this patch with 4 lines over 80
+characters (which probably be ignored I think) and one
+trailing space error.
 
-What do A3 chips have in the last nibble of phy_id?
+ERROR: trailing whitespace
+#443: FILE: net/ipv4/raw.c:139:
++^Ipr_err("icmp_filter skb_transport_offset %d data-head %ld len %d/%d\n", $
 
-> +	.driver		= { .owner = THIS_MODULE,},
-> +}, {
-> +	.phy_id		= 0x00137a10,
->  	.name		= "LXT973",
->  	.phy_id_mask	= 0xfffffff0,
->  	.features	= PHY_BASIC_FEATURES,
 
-Thanks,
-Richard
+Vijay
