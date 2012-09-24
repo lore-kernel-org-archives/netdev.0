@@ -1,8 +1,7 @@
 From: "Hefty, Sean" <sean.hefty@intel.com>
-Subject: [PATCH 24/26 v3] rdma/ucm: Allow user space to specify AF_IB when
- joining multicast
-Date: Mon, 24 Sep 2012 23:55:36 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A8237346A8F163@ORSMSX101.amr.corp.intel.com>
+Subject: [PATCH 13/26 v3] rdma/cm: Expose private data when using AF_IB
+Date: Mon, 24 Sep 2012 23:55:33 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A8237346A8F104@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -10,190 +9,98 @@ To: "linux-rdma (linux-rdma@vger.kernel.org)"
 	<linux-rdma@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:35874 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:25822 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751808Ab2IXXzj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 19:55:39 -0400
+	id S1752082Ab2IXXz7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 19:55:59 -0400
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow user space applications to join multicast groups using MGIDs
-directly.  MGIDs may be passed using AF_IB addresses.  Since the
-current multicast join command only supports addresses as large as
-sockaddr_in6, define a new structure for joining addresses specified
-using sockaddr_ib.
-
-Since AF_IB allows the user to specify the qkey when
-resolving a remote UD QP address, when joining the multicast
-group use the qkey value, if one has been assigned.
+If the source or destination address is AF_IB, then do not
+reserve a portion of the private data in the IB CM REQ or SIDR
+REQ messages for the cma header.  Instead, all private data
+should be exported to the user.  When AF_IB is used, the
+rdma cm does not have sufficient information to fill in the
+cma header.  Additionally, this will be necessary to support
+any IB connection through the rdma cm interface,
 
 Signed-off-by: Sean Hefty <sean.hefty@intel.com>
 ---
 resending with netdev copied
 
- drivers/infiniband/core/cma.c  |    9 +++++--
- drivers/infiniband/core/ucma.c |   55 ++++++++++++++++++++++++++++++++--------
- include/rdma/rdma_user_cm.h    |   12 ++++++++-
- 3 files changed, 62 insertions(+), 14 deletions(-)
+ drivers/infiniband/core/cma.c |   24 ++++++++++--------------
+ 1 files changed, 10 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index 8f9c05f..93f7b5c 100644
+index 4e205db..1264e97 100644
 --- a/drivers/infiniband/core/cma.c
 +++ b/drivers/infiniband/core/cma.c
-@@ -3200,6 +3200,8 @@ static void cma_set_mgid(struct rdma_id_private *id_priv,
- 								 0xFF10A01B)) {
- 		/* IPv6 address is an SA assigned MGID. */
- 		memcpy(mgid, &sin6->sin6_addr, sizeof *mgid);
-+	} else if (addr->sa_family == AF_IB) {
-+		memcpy(mgid, &((struct sockaddr_ib *) addr)->sib_addr, sizeof *mgid);
- 	} else if ((addr->sa_family == AF_INET6)) {
- 		ipv6_ib_mc_map(&sin6->sin6_addr, dev_addr->broadcast, mc_map);
- 		if (id_priv->id.ps == RDMA_PS_UDP)
-@@ -3227,9 +3229,12 @@ static int cma_join_ib_multicast(struct rdma_id_private *id_priv,
- 	if (ret)
- 		return ret;
- 
-+	ret = cma_set_qkey(id_priv, 0);
-+	if (ret)
-+		return ret;
-+
- 	cma_set_mgid(id_priv, (struct sockaddr *) &mc->addr, &rec.mgid);
--	if (id_priv->id.ps == RDMA_PS_UDP)
--		rec.qkey = cpu_to_be32(RDMA_UDP_QKEY);
-+	rec.qkey = cpu_to_be32(id_priv->qkey);
- 	rdma_addr_get_sgid(dev_addr, &rec.port_gid);
- 	rec.pkey = cpu_to_be16(ib_addr_get_pkey(dev_addr));
- 	rec.join_state = 1;
-diff --git a/drivers/infiniband/core/ucma.c b/drivers/infiniband/core/ucma.c
-index ecbe404..83e02f0 100644
---- a/drivers/infiniband/core/ucma.c
-+++ b/drivers/infiniband/core/ucma.c
-@@ -1244,23 +1244,23 @@ static ssize_t ucma_notify(struct ucma_file *file, const char __user *inbuf,
- 	return ret;
- }
- 
--static ssize_t ucma_join_ip_multicast(struct ucma_file *file,
--				      const char __user *inbuf,
--				      int in_len, int out_len)
-+static ssize_t ucma_process_join(struct ucma_file *file,
-+				 struct rdma_ucm_join_mcast *cmd,  int out_len)
- {
--	struct rdma_ucm_join_ip_mcast cmd;
- 	struct rdma_ucm_create_id_resp resp;
- 	struct ucma_context *ctx;
- 	struct ucma_multicast *mc;
-+	struct sockaddr *addr;
- 	int ret;
- 
- 	if (out_len < sizeof(resp))
- 		return -ENOSPC;
- 
--	if (copy_from_user(&cmd, inbuf, sizeof(cmd)))
--		return -EFAULT;
-+	addr = (struct sockaddr *) &cmd->addr;
-+	if (cmd->reserved || !cmd->addr_size || (cmd->addr_size != rdma_addr_size(addr)))
-+		return -EINVAL;
- 
--	ctx = ucma_get_ctx(file, cmd.id);
-+	ctx = ucma_get_ctx(file, cmd->id);
- 	if (IS_ERR(ctx))
- 		return PTR_ERR(ctx);
- 
-@@ -1271,14 +1271,14 @@ static ssize_t ucma_join_ip_multicast(struct ucma_file *file,
- 		goto err1;
+@@ -907,14 +907,10 @@ static void cma_save_net_info(struct rdma_addr *addr,
  	}
- 
--	mc->uid = cmd.uid;
--	memcpy(&mc->addr, &cmd.addr, sizeof cmd.addr);
-+	mc->uid = cmd->uid;
-+	memcpy(&mc->addr, addr, cmd->addr_size);
- 	ret = rdma_join_multicast(ctx->cm_id, (struct sockaddr *) &mc->addr, mc);
- 	if (ret)
- 		goto err2;
- 
- 	resp.id = mc->id;
--	if (copy_to_user((void __user *)(unsigned long)cmd.response,
-+	if (copy_to_user((void __user *)(unsigned long) cmd->response,
- 			 &resp, sizeof(resp))) {
- 		ret = -EFAULT;
- 		goto err3;
-@@ -1303,6 +1303,38 @@ err1:
- 	return ret;
  }
  
-+static ssize_t ucma_join_ip_multicast(struct ucma_file *file,
-+				      const char __user *inbuf,
-+				      int in_len, int out_len)
-+{
-+	struct rdma_ucm_join_ip_mcast cmd;
-+	struct rdma_ucm_join_mcast join_cmd;
-+
-+	if (copy_from_user(&cmd, inbuf, sizeof(cmd)))
-+		return -EFAULT;
-+
-+	join_cmd.response = cmd.response;
-+	join_cmd.uid = cmd.uid;
-+	join_cmd.id = cmd.id;
-+	join_cmd.addr_size = rdma_addr_size((struct sockaddr *) &cmd.addr);
-+	join_cmd.reserved = 0;
-+	memcpy(&join_cmd.addr, &cmd.addr, join_cmd.addr_size);
-+
-+	return ucma_process_join(file, &join_cmd, out_len);
-+}
-+
-+static ssize_t ucma_join_multicast(struct ucma_file *file,
-+				   const char __user *inbuf,
-+				   int in_len, int out_len)
-+{
-+	struct rdma_ucm_join_mcast cmd;
-+
-+	if (copy_from_user(&cmd, inbuf, sizeof(cmd)))
-+		return -EFAULT;
-+
-+	return ucma_process_join(file, &cmd, out_len);
-+}
-+
- static ssize_t ucma_leave_multicast(struct ucma_file *file,
- 				    const char __user *inbuf,
- 				    int in_len, int out_len)
-@@ -1466,7 +1498,8 @@ static ssize_t (*ucma_cmd_table[])(struct ucma_file *file,
- 	[RDMA_USER_CM_CMD_MIGRATE_ID]	 = ucma_migrate_id,
- 	[RDMA_USER_CM_CMD_QUERY]	 = ucma_query,
- 	[RDMA_USER_CM_CMD_BIND]		 = ucma_bind,
--	[RDMA_USER_CM_CMD_RESOLVE_ADDR]	 = ucma_resolve_addr
-+	[RDMA_USER_CM_CMD_RESOLVE_ADDR]	 = ucma_resolve_addr,
-+	[RDMA_USER_CM_CMD_JOIN_MCAST]	 = ucma_join_multicast
- };
+-static inline int cma_user_data_offset(enum rdma_port_space ps)
++static inline int cma_user_data_offset(struct rdma_id_private *id_priv)
+ {
+-	switch (ps) {
+-	case RDMA_PS_SDP:
+-		return 0;
+-	default:
+-		return sizeof(struct cma_hdr);
+-	}
++	return (cma_family(id_priv) == AF_IB || id_priv->id.ps == RDMA_PS_SDP) ?
++		0 : sizeof(struct cma_hdr);
+ }
  
- static ssize_t ucma_write(struct file *filp, const char __user *buf,
-diff --git a/include/rdma/rdma_user_cm.h b/include/rdma/rdma_user_cm.h
-index b731b5e..bf34156 100644
---- a/include/rdma/rdma_user_cm.h
-+++ b/include/rdma/rdma_user_cm.h
-@@ -64,7 +64,8 @@ enum {
- 	RDMA_USER_CM_CMD_MIGRATE_ID,
- 	RDMA_USER_CM_CMD_QUERY,
- 	RDMA_USER_CM_CMD_BIND,
--	RDMA_USER_CM_CMD_RESOLVE_ADDR
-+	RDMA_USER_CM_CMD_RESOLVE_ADDR,
-+	RDMA_USER_CM_CMD_JOIN_MCAST
- };
+ static void cma_cancel_route(struct rdma_id_private *id_priv)
+@@ -1310,7 +1306,7 @@ static int cma_req_handler(struct ib_cm_id *cm_id, struct ib_cm_event *ib_event)
+ 		return -ECONNABORTED;
  
- /*
-@@ -242,6 +243,15 @@ struct rdma_ucm_join_ip_mcast {
- 	__u32 id;
- };
+ 	memset(&event, 0, sizeof event);
+-	offset = cma_user_data_offset(listen_id->id.ps);
++	offset = cma_user_data_offset(listen_id);
+ 	event.event = RDMA_CM_EVENT_CONNECT_REQUEST;
+ 	if (ib_event->event == IB_CM_SIDR_REQ_RECEIVED) {
+ 		conn_id = cma_new_udp_id(&listen_id->id, ib_event);
+@@ -2637,7 +2633,7 @@ static int cma_format_hdr(void *hdr, struct rdma_id_private *id_priv)
+ 			cma_hdr->port = src4->sin_port;
+ 			break;
+ 		}
+-	} else {
++	} else if (cma_family(id_priv) == AF_INET6) {
+ 		struct sockaddr_in6 *src6, *dst6;
  
-+struct rdma_ucm_join_mcast {
-+	__u64 response;		/* rdma_ucma_create_id_resp */
-+	__u64 uid;
-+	__u32 id;
-+	__u16 addr_size;
-+	__u16 reserved;
-+	struct sockaddr_storage addr;
-+};
-+
- struct rdma_ucm_get_event {
- 	__u64 response;
- };
+ 		src6 = (struct sockaddr_in6 *) cma_src_addr(id_priv);
+@@ -2735,10 +2731,10 @@ static int cma_resolve_ib_udp(struct rdma_id_private *id_priv,
+ {
+ 	struct ib_cm_sidr_req_param req;
+ 	struct ib_cm_id	*id;
+-	int ret;
++	int offset, ret;
+ 
+-	req.private_data_len = sizeof(struct cma_hdr) +
+-			       conn_param->private_data_len;
++	offset = cma_user_data_offset(id_priv);
++	req.private_data_len = offset + conn_param->private_data_len;
+ 	if (req.private_data_len < conn_param->private_data_len)
+ 		return -EINVAL;
+ 
+@@ -2747,7 +2743,7 @@ static int cma_resolve_ib_udp(struct rdma_id_private *id_priv,
+ 		return -ENOMEM;
+ 
+ 	if (conn_param->private_data && conn_param->private_data_len)
+-		memcpy((void *) req.private_data + sizeof(struct cma_hdr),
++		memcpy((void *) req.private_data + offset,
+ 		       conn_param->private_data, conn_param->private_data_len);
+ 
+ 	ret = cma_format_hdr((void *) req.private_data, id_priv);
+@@ -2787,7 +2783,7 @@ static int cma_connect_ib(struct rdma_id_private *id_priv,
+ 	int offset, ret;
+ 
+ 	memset(&req, 0, sizeof req);
+-	offset = cma_user_data_offset(id_priv->id.ps);
++	offset = cma_user_data_offset(id_priv);
+ 	req.private_data_len = offset + conn_param->private_data_len;
+ 	if (req.private_data_len < conn_param->private_data_len)
+ 		return -EINVAL;
