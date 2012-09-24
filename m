@@ -1,53 +1,43 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH] inet_diag: make config INET_DIAG bool
-Date: Mon, 24 Sep 2012 16:48:44 +0800
-Message-ID: <50601E6C.3070106@cn.fujitsu.com>
-References: <b133d67a-cb5f-4d46-b3d8-b1ac9448725e@tahiti.vyatta.com> <alpine.LNX.2.01.1209231540180.15692@nerf07.vanv.qr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru
-To: Jan Engelhardt <jengelh@inai.de>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
+Date: Mon, 24 Sep 2012 02:00:01 -0700
+Message-ID: <1348477207-27030-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:22213 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755255Ab2IXIsl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 04:48:41 -0400
-In-Reply-To: <alpine.LNX.2.01.1209231540180.15692@nerf07.vanv.qr>
+Received: from mga03.intel.com ([143.182.124.21]:39455 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750970Ab2IXJAM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Sep 2012 05:00:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012=E5=B9=B409=E6=9C=8823=E6=97=A5 21:40, Jan Engelhardt =E5=
-=86=99=E9=81=93:
-> On Sunday 2012-09-23 06:36, Stephen Hemminger wrote:
->=20
->>> when inet_diag being compiled as module, inet_diag_handler_dump
->>> set netlink_dump_control.dump to inet_diag_dump,so if module
->>> inet_diag is unloaded,netlink will still try to call this function
->>> in netlink_dump. this will cause kernel panic.
->>
->> Another way to handle this to just get rid of inet_diag_exit
->> so that module can be loaded but not unloaded.
->=20
-> Why don't we unset netlink_dump_control.dump on exit?
+This series contains updates to ixgbe and ixgbevf (mainly ixgbevf).
 
+The following are changes since commit c9d2ea96ca3bbc85264803ff6bd66eb3bbefdb77:
+  netlink: Rearrange netlink_kernel_cfg to save space on 64-bit.
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Though I like this idea,but it may cause dead lock.
-netlink_dimp [mutex_lock(netlink_sock->cb_mutex) here]
-   |->inet_diag_dump
-	|->__inet_diag_dump
-	    |->inet_diag_lock_handler [may try to load tcp_diag here,
-					so we need module_mutex lock]
+Alexander Duyck (3):
+  ixgbevf: Fix code for handling timeout
+  ixgbevf: Add fix to VF to handle multi-descriptor buffers
+  ixgbevf: Return error on failure to enable VLAN
 
-And on module exit,we already get module_mutex lock,
-if we unset netlink_sock->cb,we need to get mutex lock of netlink_sock-=
->cb_mutex.
+Greg Rose (2):
+  ixgbe: Do not read the spoofed packets counter when not in IOV mode
+  ixgbevf: Fix AIM (Adaptive Interrupt Moderation)
 
-I think this will cause dead lock.
+Narendra K (1):
+  ixgbevf - Remove unused parameter in ixgbevf_receive_skb
 
-I don't know if I should change this patch as Stephen said,because I do=
-n't know
-witch one is better.
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  5 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  5 ++
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 89 +++++++++++------------
+ drivers/net/ethernet/intel/ixgbevf/mbx.c          | 15 +++-
+ drivers/net/ethernet/intel/ixgbevf/vf.c           | 69 ++++++++++++++----
+ 5 files changed, 117 insertions(+), 66 deletions(-)
 
-Any comments?
+-- 
+1.7.11.4
