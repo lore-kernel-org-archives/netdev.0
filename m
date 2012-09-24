@@ -1,147 +1,46 @@
-From: "Hefty, Sean" <sean.hefty@intel.com>
-Subject: [PATCH 1/26 v3] rdma/cm: define native IB address
-Date: Mon, 24 Sep 2012 20:05:44 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A8237346A8EE07@ORSMSX101.amr.corp.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv2 net-next 3/3] vxlan: virtual extensible lan
+Date: Mon, 24 Sep 2012 22:09:50 +0200
+Message-ID: <1348517390.26828.1601.camel@edumazet-glaptop>
+References: <20120924184304.727711327@vyatta.com>
+	 <20120924185050.162920909@vyatta.com>
+	 <1348515547.26828.1538.camel@edumazet-glaptop>
+	 <20120924124657.4541c186@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "linux-rdma (linux-rdma@vger.kernel.org)"
-	<linux-rdma@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Chris Wright <chrisw@redhat.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:26970 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757954Ab2IXUFs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 16:05:48 -0400
-Content-Language: en-US
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:38332 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750770Ab2IXUJz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 16:09:55 -0400
+Received: by bkcjk13 with SMTP id jk13so1161266bkc.19
+        for <netdev@vger.kernel.org>; Mon, 24 Sep 2012 13:09:54 -0700 (PDT)
+In-Reply-To: <20120924124657.4541c186@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The rdma_cm uses struct sockaddr to specify addresses.  It currently
-supports IPv4 and IPv6 address formats, which are then mapped to native
-RDMA addresses.  Allow users to specify the native RDMA address directly
-using struct sockaddr_ib.  This also adds an AF_IB address family
-definition.
+On Mon, 2012-09-24 at 12:46 -0700, Stephen Hemminger wrote:
 
-Signed-off-by: Sean Hefty <sean.hefty@intel.com>
----
- include/linux/socket.h |    2 +
- include/rdma/ib.h      |   89 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 91 insertions(+), 0 deletions(-)
- create mode 100644 include/rdma/ib.h
+> +/* Initialize the device structure. */
+> +static void vxlan_setup(struct net_device *dev)
+> +{
+> +	struct vxlan_dev *vxlan = netdev_priv(dev);
+> +	unsigned h;
+> +
+> +	eth_hw_addr_random(dev);
+> +	ether_setup(dev);
+> +
+> +	dev->netdev_ops = &vxlan_netdev_ops;
+> +	dev->destructor = vxlan_free;
+> +	SET_NETDEV_DEVTYPE(dev, &vxlan_type);
+> +
+> +	dev->tx_queue_len = 0;
+> +	dev->features	|= NETIF_F_LLTX;
+> +	dev->features	|= NETIF_F_NETNS_LOCAL;
+> +	dev->priv_flags	&= ~IFF_XMIT_DST_RELEASE;
 
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 25d6322..404de68 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -184,6 +184,7 @@ struct ucred {
- #define AF_PPPOX	24	/* PPPoX sockets		*/
- #define AF_WANPIPE	25	/* Wanpipe API Sockets */
- #define AF_LLC		26	/* Linux LLC			*/
-+#define AF_IB		27	/* Native InfiniBand address	*/
- #define AF_CAN		29	/* Controller Area Network      */
- #define AF_TIPC		30	/* TIPC sockets			*/
- #define AF_BLUETOOTH	31	/* Bluetooth sockets 		*/
-@@ -227,6 +228,7 @@ struct ucred {
- #define PF_PPPOX	AF_PPPOX
- #define PF_WANPIPE	AF_WANPIPE
- #define PF_LLC		AF_LLC
-+#define PF_IB		AF_IB
- #define PF_CAN		AF_CAN
- #define PF_TIPC		AF_TIPC
- #define PF_BLUETOOTH	AF_BLUETOOTH
-diff --git a/include/rdma/ib.h b/include/rdma/ib.h
-new file mode 100644
-index 0000000..cf8f9e7
---- /dev/null
-+++ b/include/rdma/ib.h
-@@ -0,0 +1,89 @@
-+/*
-+ * Copyright (c) 2010 Intel Corporation.  All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#if !defined(_RDMA_IB_H)
-+#define _RDMA_IB_H
-+
-+#include <linux/types.h>
-+
-+struct ib_addr {
-+	union {
-+		__u8		uib_addr8[16];
-+		__be16		uib_addr16[8];
-+		__be32		uib_addr32[4];
-+		__be64		uib_addr64[2];
-+	} ib_u;
-+#define sib_addr8		ib_u.uib_addr8
-+#define sib_addr16		ib_u.uib_addr16
-+#define sib_addr32		ib_u.uib_addr32
-+#define sib_addr64		ib_u.uib_addr64
-+#define sib_raw			ib_u.uib_addr8
-+#define sib_subnet_prefix	ib_u.uib_addr64[0]
-+#define sib_interface_id	ib_u.uib_addr64[1]
-+};
-+
-+static inline int ib_addr_any(const struct ib_addr *a)
-+{
-+	return ((a->sib_addr64[0] | a->sib_addr64[1]) == 0);
-+}
-+
-+static inline int ib_addr_loopback(const struct ib_addr *a)
-+{
-+	return ((a->sib_addr32[0] | a->sib_addr32[1] |
-+		 a->sib_addr32[2] | (a->sib_addr32[3] ^ htonl(1))) == 0);
-+}
-+
-+static inline void ib_addr_set(struct ib_addr *addr,
-+			       __be32 w1, __be32 w2, __be32 w3, __be32 w4)
-+{
-+	addr->sib_addr32[0] = w1;
-+	addr->sib_addr32[1] = w2;
-+	addr->sib_addr32[2] = w3;
-+	addr->sib_addr32[3] = w4;
-+}
-+
-+static inline int ib_addr_cmp(const struct ib_addr *a1, const struct ib_addr *a2)
-+{
-+	return memcmp(a1, a2, sizeof(struct ib_addr));
-+}
-+
-+struct sockaddr_ib {
-+	unsigned short int	sib_family;	/* AF_IB */
-+	__be16			sib_pkey;
-+	__be32			sib_flowinfo;
-+	struct ib_addr		sib_addr;
-+	__be64			sib_sid;
-+	__be64			sib_sid_mask;
-+	__u64			sib_scope_id;
-+};
-+
-+#endif /* _RDMA_IB_H */
+I am not sure why you remove IFF_XMIT_DST_RELEASE here
