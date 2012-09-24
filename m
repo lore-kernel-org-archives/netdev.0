@@ -1,28 +1,37 @@
-From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [PATCH 1/26 v3] rdma/cm: define native IB address
-Date: Mon, 24 Sep 2012 20:20:26 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A8237346A8EF9F@ORSMSX101.amr.corp.intel.com>
-References: <1828884A29C6694DAF28B7E6B8A8237346A8EE07@ORSMSX101.amr.corp.intel.com>
- <20120924.161641.1251385747585210916.davem@davemloft.net>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH net-net] net: loopback: set default mtu to 64K
+Date: Mon, 24 Sep 2012 16:24:42 -0400 (EDT)
+Message-ID: <20120924.162442.1381532664983403691.davem@redhat.com>
+References: <1348475339.26828.188.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120924.161641.1251385747585210916.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43896 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757893Ab2IXUYo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Sep 2012 16:24:44 -0400
+In-Reply-To: <1348475339.26828.188.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> I really hope you're not going to only post this one patch of the
-> series to netdev, and leave netdev out completely for the rest.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 24 Sep 2012 10:28:59 +0200
 
-I will happily resend the series with netdev copied.  All other changes are limited to the rdma stack.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> loopback current mtu of 16436 bytes allows no more than 3 MSS TCP
+> segments per frame, or 48 Kbytes. Changing mtu to 64K allows TCP
+> stack to build large frames and significantly reduces stack overhead.
+> 
+> Performance boost on bulk TCP transferts can be up to 30 %, partly
+> because we now have one ACK message for two 64KB segments, and a lower
+> probability of hitting /proc/sys/net/ipv4/tcp_reordering default limit.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-- Sean
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This gives a nice %13 improvement on my SPARC-T4 box as well.
+
+Applied, thanks Eric.
