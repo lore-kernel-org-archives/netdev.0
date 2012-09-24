@@ -1,32 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] x86: bpf_jit_comp: add XOR instruction for
- BPF JIT
-Date: Mon, 24 Sep 2012 19:44:07 +0200
-Message-ID: <1348508647.26828.1300.camel@edumazet-glaptop>
-References: <20120924173450.GA28969@thinkbox>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
+Date: Mon, 24 Sep 2012 13:48:23 -0400 (EDT)
+Message-ID: <20120924.134823.832908439524408411.davem@davemloft.net>
+References: <1348477207-27030-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Daniel Borkmann <dxchgb@gmail.com>
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:44025 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757358Ab2IXRoM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 13:44:12 -0400
-Received: by bkcjk13 with SMTP id jk13so1081661bkc.19
-        for <netdev@vger.kernel.org>; Mon, 24 Sep 2012 10:44:11 -0700 (PDT)
-In-Reply-To: <20120924173450.GA28969@thinkbox>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52100 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757234Ab2IXRsZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 13:48:25 -0400
+In-Reply-To: <1348477207-27030-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-09-24 at 19:34 +0200, Daniel Borkmann wrote:
-> This patch is a follow-up for patch "filter: add XOR instruction for use
-> with X/K" that implements BPF x86 JIT parts for the BPF XOR operation.
-> 
-> Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
-> ---
->  arch/x86/net/bpf_jit_comp.c |    9 +++++++++
->  1 files changed, 9 insertions(+), 0 deletions(-)
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon, 24 Sep 2012 02:00:01 -0700
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+> This series contains updates to ixgbe and ixgbevf (mainly ixgbevf).
+> 
+> The following are changes since commit c9d2ea96ca3bbc85264803ff6bd66eb3bbefdb77:
+>   netlink: Rearrange netlink_kernel_cfg to save space on 64-bit.
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+> 
+> Alexander Duyck (3):
+>   ixgbevf: Fix code for handling timeout
+>   ixgbevf: Add fix to VF to handle multi-descriptor buffers
+>   ixgbevf: Return error on failure to enable VLAN
+> 
+> Greg Rose (2):
+>   ixgbe: Do not read the spoofed packets counter when not in IOV mode
+>   ixgbevf: Fix AIM (Adaptive Interrupt Moderation)
+> 
+> Narendra K (1):
+>   ixgbevf - Remove unused parameter in ixgbevf_receive_skb
+
+Pulled, thanks Jeff.
