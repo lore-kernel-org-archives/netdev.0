@@ -1,48 +1,42 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [RFC PATCHv2 bridge 7/7] bridge: Add the ability to show dump
- the vlan map from a bridge port
-Date: Mon, 24 Sep 2012 09:49:52 -0400
-Message-ID: <50606500.1040102@redhat.com>
-References: <1348058536-22607-1-git-send-email-vyasevic@redhat.com> <1348058536-22607-8-git-send-email-vyasevic@redhat.com> <1348334132.2521.100.camel@bwh-desktop.uk.solarflarecom.com> <20120922.132747.1937291269030903700.davem@davemloft.net> <20120922130553.3d7e0299@nehalam.linuxnetplumber.net>
-Reply-To: vyasevic@redhat.com
+From: Daniel Borkmann <dxchgb@gmail.com>
+Subject: Re: [PATCH net-next] filter: add XOR instruction for use with X/K
+Date: Mon, 24 Sep 2012 15:50:18 +0200
+Message-ID: <20120924135017.GA26865@thinkbox>
+References: <20120924122359.GB25156@thinkbox>
+ <1348494228.26828.784.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40607 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754196Ab2IXNt5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Sep 2012 09:49:57 -0400
-In-Reply-To: <20120922130553.3d7e0299@nehalam.linuxnetplumber.net>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:41775 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755132Ab2IXNuX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 09:50:23 -0400
+Received: by bkcjk13 with SMTP id jk13so921670bkc.19
+        for <netdev@vger.kernel.org>; Mon, 24 Sep 2012 06:50:22 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1348494228.26828.784.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/22/2012 04:05 PM, Stephen Hemminger wrote:
-> On Sat, 22 Sep 2012 13:27:47 -0400 (EDT)
-> David Miller <davem@davemloft.net> wrote:
->
->> From: Ben Hutchings <bhutchings@solarflare.com>
->> Date: Sat, 22 Sep 2012 18:15:32 +0100
->>
->>> On Wed, 2012-09-19 at 08:42 -0400, Vlad Yasevich wrote:
->>>> Using the RTM_GETLINK dump the vlan map of a given bridge port.
->>> [...]
->>>
->>> This enlarges the RTM_GETLINK response quite a bit.  I think perhaps
->>> this should be optional, like IFLA_VFINFO_LIST is now.
->>
->> Completely agreed.
->
-> Since most users won't use it, it should be not necessary to include
-> it if the map is blank.
->
+Eric Dumazet <eric.dumazet@gmail.com> [2012-09-24 15:43:48 +0200] wrote:
+> On Mon, 2012-09-24 at 14:23 +0200, Daniel Borkmann wrote:
+> > BPF_S_ANC_ALU_XOR_X has been added a while ago, but as an 'ancillary'
+> > operation that is invoked through a negative offset in K within BPF
+> > load operations. Since BPF_MOD has recently been added, BPF_XOR should
+> > also be part of the common ALU operations. Removing BPF_S_ANC_ALU_XOR_X
+> > might not be an option since this is exposed to user space.
+> 
+> Please note we dont expose BPF_S_ANC_ALU_XOR_X to user space.
+> 
+> We expose SKF_AD_ALU_XOR_X instead.
 
-Response is included only for AF_BRIDGE calls (proably used by STP 
-implementation) and only when vlan filtering is configured.
-
-I do see the point though and can add a filter for this.
-
--vlad
+Indeed. Sorry for that typo.
+ 
+> But it seems easier to leave it to keep this patch small (not touching
+> various JIT implementations, even if followup are welcomed)
+> 
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> 
+> 
