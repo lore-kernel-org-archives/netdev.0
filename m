@@ -1,150 +1,205 @@
 From: pablo@netfilter.org
-Subject: [PATCH 14/16] netfilter: nf_ct_ftp: add sequence tracking pickup facility for injected entries
-Date: Mon, 24 Sep 2012 21:19:26 +0200
-Message-ID: <1348514369-3272-15-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 09/16] netfilter: ipset: Add /0 network support to hash:net,iface type
+Date: Mon, 24 Sep 2012 21:19:21 +0200
+Message-ID: <1348514369-3272-10-git-send-email-pablo@netfilter.org>
 References: <1348514369-3272-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58137 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932102Ab2IXTVJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Sep 2012 15:21:09 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1348514369-3272-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-This patch allows the FTP helper to pickup the sequence tracking from
-the first packet seen. This is useful to fix the breakage of the first
-FTP command after the failover while using conntrackd to synchronize
-states.
+Now it is possible to setup a single hash:net,iface type of set and
+a single ip6?tables match which covers all egress/ingress filtering.
 
-The seq_aft_nl_num field in struct nf_ct_ftp_info has been shrinked to
-16-bits (enough for what it does), so we can use the remaining 16-bits
-to store the flags while using the same size for the private FTP helper
-data.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 ---
- include/linux/netfilter/nf_conntrack_ftp.h |    6 +++++-
- net/netfilter/nf_conntrack_ftp.c           |   21 +++++++++++++++++++++
- net/netfilter/nf_conntrack_netlink.c       |    4 ++--
- net/netfilter/nfnetlink_cthelper.c         |    3 +++
- 4 files changed, 31 insertions(+), 3 deletions(-)
+ net/netfilter/ipset/ip_set_hash_netiface.c |   44 +++++++++++++---------------
+ 1 file changed, 21 insertions(+), 23 deletions(-)
 
-diff --git a/include/linux/netfilter/nf_conntrack_ftp.h b/include/linux/netfilter/nf_conntrack_ftp.h
-index 28f18df..8faf3f7 100644
---- a/include/linux/netfilter/nf_conntrack_ftp.h
-+++ b/include/linux/netfilter/nf_conntrack_ftp.h
-@@ -18,13 +18,17 @@ enum nf_ct_ftp_type {
- 
- #define FTP_PORT	21
- 
-+#define NF_CT_FTP_SEQ_PICKUP	(1 << 0)
-+
- #define NUM_SEQ_TO_REMEMBER 2
- /* This structure exists only once per master */
- struct nf_ct_ftp_master {
- 	/* Valid seq positions for cmd matching after newline */
- 	u_int32_t seq_aft_nl[IP_CT_DIR_MAX][NUM_SEQ_TO_REMEMBER];
- 	/* 0 means seq_match_aft_nl not set */
--	int seq_aft_nl_num[IP_CT_DIR_MAX];
-+	u_int16_t seq_aft_nl_num[IP_CT_DIR_MAX];
-+	/* pickup sequence tracking, useful for conntrackd */
-+	u_int16_t flags[IP_CT_DIR_MAX];
+diff --git a/net/netfilter/ipset/ip_set_hash_netiface.c b/net/netfilter/ipset/ip_set_hash_netiface.c
+index 632693f..e7c671d 100644
+--- a/net/netfilter/ipset/ip_set_hash_netiface.c
++++ b/net/netfilter/ipset/ip_set_hash_netiface.c
+@@ -140,7 +140,7 @@ struct hash_netiface4_elem_hashed {
+ 	u8 physdev;
+ 	u8 cidr;
+ 	u8 nomatch;
+-	u8 padding;
++	u8 elem;
  };
  
- struct nf_conntrack_expect;
-diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
-index f8cc26a..1ce3bef 100644
---- a/net/netfilter/nf_conntrack_ftp.c
-+++ b/net/netfilter/nf_conntrack_ftp.c
-@@ -396,6 +396,12 @@ static int help(struct sk_buff *skb,
+ #define HKEY_DATALEN	sizeof(struct hash_netiface4_elem_hashed)
+@@ -151,7 +151,7 @@ struct hash_netiface4_elem {
+ 	u8 physdev;
+ 	u8 cidr;
+ 	u8 nomatch;
+-	u8 padding;
++	u8 elem;
+ 	const char *iface;
+ };
  
- 	/* Look up to see if we're just after a \n. */
- 	if (!find_nl_seq(ntohl(th->seq), ct_ftp_info, dir)) {
-+		/* We're picking up this, clear flags and let it continue */
-+		if (unlikely(ct_ftp_info->flags[dir] & NF_CT_FTP_SEQ_PICKUP)) {
-+			ct_ftp_info->flags[dir] ^= NF_CT_FTP_SEQ_PICKUP;
-+			goto skip_nl_seq;
-+		}
-+
- 		/* Now if this ends in \n, update ftp info. */
- 		pr_debug("nf_conntrack_ftp: wrong seq pos %s(%u) or %s(%u)\n",
- 			 ct_ftp_info->seq_aft_nl_num[dir] > 0 ? "" : "(UNSET)",
-@@ -406,6 +412,7 @@ static int help(struct sk_buff *skb,
- 		goto out_update_nl;
- 	}
- 
-+skip_nl_seq:
- 	/* Initialize IP/IPv6 addr to expected address (it's not mentioned
- 	   in EPSV responses) */
- 	cmd.l3num = nf_ct_l3num(ct);
-@@ -512,6 +519,19 @@ out_update_nl:
- 	return ret;
+@@ -161,7 +161,7 @@ struct hash_netiface4_telem {
+ 	u8 physdev;
+ 	u8 cidr;
+ 	u8 nomatch;
+-	u8 padding;
++	u8 elem;
+ 	const char *iface;
+ 	unsigned long timeout;
+ };
+@@ -181,18 +181,14 @@ hash_netiface4_data_equal(const struct hash_netiface4_elem *ip1,
+ static inline bool
+ hash_netiface4_data_isnull(const struct hash_netiface4_elem *elem)
+ {
+-	return elem->cidr == 0;
++	return elem->elem == 0;
  }
  
-+static int nf_ct_ftp_from_nlattr(struct nlattr *attr, struct nf_conn *ct)
-+{
-+	struct nf_ct_ftp_master *ftp = nfct_help_data(ct);
-+
-+	/* This conntrack has been injected from user-space, always pick up
-+	 * sequence tracking. Otherwise, the first FTP command after the
-+	 * failover breaks.
-+	 */
-+	ftp->flags[IP_CT_DIR_ORIGINAL] |= NF_CT_FTP_SEQ_PICKUP;
-+	ftp->flags[IP_CT_DIR_REPLY] |= NF_CT_FTP_SEQ_PICKUP;
-+	return 0;
-+}
-+
- static struct nf_conntrack_helper ftp[MAX_PORTS][2] __read_mostly;
- 
- static const struct nf_conntrack_expect_policy ftp_exp_policy = {
-@@ -561,6 +581,7 @@ static int __init nf_conntrack_ftp_init(void)
- 			ftp[i][j].expect_policy = &ftp_exp_policy;
- 			ftp[i][j].me = THIS_MODULE;
- 			ftp[i][j].help = help;
-+			ftp[i][j].from_nlattr = nf_ct_ftp_from_nlattr;
- 			if (ports[i] == FTP_PORT)
- 				sprintf(ftp[i][j].name, "ftp");
- 			else
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index 2dcd080..7bbfb3d 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -1238,7 +1238,7 @@ ctnetlink_change_helper(struct nf_conn *ct, const struct nlattr * const cda[])
- 	if (help) {
- 		if (help->helper == helper) {
- 			/* update private helper data if allowed. */
--			if (helper->from_nlattr && helpinfo)
-+			if (helper->from_nlattr)
- 				helper->from_nlattr(helpinfo, ct);
- 			return 0;
- 		} else
-@@ -1467,7 +1467,7 @@ ctnetlink_create_conntrack(struct net *net, u16 zone,
- 				goto err2;
- 			}
- 			/* set private helper data if allowed. */
--			if (helper->from_nlattr && helpinfo)
-+			if (helper->from_nlattr)
- 				helper->from_nlattr(helpinfo, ct);
- 
- 			/* not in hash table yet so not strictly necessary */
-diff --git a/net/netfilter/nfnetlink_cthelper.c b/net/netfilter/nfnetlink_cthelper.c
-index 3678073..945950a 100644
---- a/net/netfilter/nfnetlink_cthelper.c
-+++ b/net/netfilter/nfnetlink_cthelper.c
-@@ -85,6 +85,9 @@ nfnl_cthelper_from_nlattr(struct nlattr *attr, struct nf_conn *ct)
+ static inline void
+ hash_netiface4_data_copy(struct hash_netiface4_elem *dst,
+ 			 const struct hash_netiface4_elem *src)
  {
- 	const struct nf_conn_help *help = nfct_help(ct);
+-	dst->ip = src->ip;
+-	dst->cidr = src->cidr;
+-	dst->physdev = src->physdev;
+-	dst->iface = src->iface;
+-	dst->nomatch = src->nomatch;
++	memcpy(dst, src, sizeof(*dst));
+ }
  
-+	if (attr == NULL)
-+		return -EINVAL;
-+
- 	if (help->helper->data_len == 0)
- 		return -EINVAL;
+ static inline void
+@@ -217,7 +213,7 @@ hash_netiface4_data_netmask(struct hash_netiface4_elem *elem, u8 cidr)
+ static inline void
+ hash_netiface4_data_zero_out(struct hash_netiface4_elem *elem)
+ {
+-	elem->cidr = 0;
++	elem->elem = 0;
+ }
  
+ static bool
+@@ -288,7 +284,8 @@ hash_netiface4_kadt(struct ip_set *set, const struct sk_buff *skb,
+ 	struct ip_set_hash *h = set->data;
+ 	ipset_adtfn adtfn = set->variant->adt[adt];
+ 	struct hash_netiface4_elem data = {
+-		.cidr = h->nets[0].cidr ? h->nets[0].cidr : HOST_MASK
++		.cidr = h->nets[0].cidr ? h->nets[0].cidr : HOST_MASK,
++		.elem = 1,
+ 	};
+ 	int ret;
+ 
+@@ -339,7 +336,7 @@ hash_netiface4_uadt(struct ip_set *set, struct nlattr *tb[],
+ {
+ 	struct ip_set_hash *h = set->data;
+ 	ipset_adtfn adtfn = set->variant->adt[adt];
+-	struct hash_netiface4_elem data = { .cidr = HOST_MASK };
++	struct hash_netiface4_elem data = { .cidr = HOST_MASK, .elem = 1 };
+ 	u32 ip = 0, ip_to, last;
+ 	u32 timeout = h->timeout;
+ 	char iface[IFNAMSIZ];
+@@ -360,7 +357,7 @@ hash_netiface4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 
+ 	if (tb[IPSET_ATTR_CIDR]) {
+ 		data.cidr = nla_get_u8(tb[IPSET_ATTR_CIDR]);
+-		if (!data.cidr || data.cidr > HOST_MASK)
++		if (data.cidr > HOST_MASK)
+ 			return -IPSET_ERR_INVALID_CIDR;
+ 	}
+ 
+@@ -389,7 +386,6 @@ hash_netiface4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		if (adt == IPSET_ADD && (cadt_flags & IPSET_FLAG_NOMATCH))
+ 			flags |= (cadt_flags << 16);
+ 	}
+-
+ 	if (adt == IPSET_TEST || !tb[IPSET_ATTR_IP_TO]) {
+ 		data.ip = htonl(ip & ip_set_hostmask(data.cidr));
+ 		ret = adtfn(set, &data, timeout, flags);
+@@ -442,7 +438,7 @@ struct hash_netiface6_elem_hashed {
+ 	u8 physdev;
+ 	u8 cidr;
+ 	u8 nomatch;
+-	u8 padding;
++	u8 elem;
+ };
+ 
+ #define HKEY_DATALEN	sizeof(struct hash_netiface6_elem_hashed)
+@@ -452,7 +448,7 @@ struct hash_netiface6_elem {
+ 	u8 physdev;
+ 	u8 cidr;
+ 	u8 nomatch;
+-	u8 padding;
++	u8 elem;
+ 	const char *iface;
+ };
+ 
+@@ -461,7 +457,7 @@ struct hash_netiface6_telem {
+ 	u8 physdev;
+ 	u8 cidr;
+ 	u8 nomatch;
+-	u8 padding;
++	u8 elem;
+ 	const char *iface;
+ 	unsigned long timeout;
+ };
+@@ -481,7 +477,7 @@ hash_netiface6_data_equal(const struct hash_netiface6_elem *ip1,
+ static inline bool
+ hash_netiface6_data_isnull(const struct hash_netiface6_elem *elem)
+ {
+-	return elem->cidr == 0;
++	return elem->elem == 0;
+ }
+ 
+ static inline void
+@@ -506,7 +502,7 @@ hash_netiface6_data_match(const struct hash_netiface6_elem *elem)
+ static inline void
+ hash_netiface6_data_zero_out(struct hash_netiface6_elem *elem)
+ {
+-	elem->cidr = 0;
++	elem->elem = 0;
+ }
+ 
+ static inline void
+@@ -590,7 +586,8 @@ hash_netiface6_kadt(struct ip_set *set, const struct sk_buff *skb,
+ 	struct ip_set_hash *h = set->data;
+ 	ipset_adtfn adtfn = set->variant->adt[adt];
+ 	struct hash_netiface6_elem data = {
+-		.cidr = h->nets[0].cidr ? h->nets[0].cidr : HOST_MASK
++		.cidr = h->nets[0].cidr ? h->nets[0].cidr : HOST_MASK,
++		.elem = 1,
+ 	};
+ 	int ret;
+ 
+@@ -637,7 +634,7 @@ hash_netiface6_uadt(struct ip_set *set, struct nlattr *tb[],
+ {
+ 	struct ip_set_hash *h = set->data;
+ 	ipset_adtfn adtfn = set->variant->adt[adt];
+-	struct hash_netiface6_elem data = { .cidr = HOST_MASK };
++	struct hash_netiface6_elem data = { .cidr = HOST_MASK, .elem = 1 };
+ 	u32 timeout = h->timeout;
+ 	char iface[IFNAMSIZ];
+ 	int ret;
+@@ -659,7 +656,7 @@ hash_netiface6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 
+ 	if (tb[IPSET_ATTR_CIDR])
+ 		data.cidr = nla_get_u8(tb[IPSET_ATTR_CIDR]);
+-	if (!data.cidr || data.cidr > HOST_MASK)
++	if (data.cidr > HOST_MASK)
+ 		return -IPSET_ERR_INVALID_CIDR;
+ 	ip6_netmask(&data.ip, data.cidr);
+ 
+@@ -777,7 +774,8 @@ static struct ip_set_type hash_netiface_type __read_mostly = {
+ 	.dimension	= IPSET_DIM_TWO,
+ 	.family		= NFPROTO_UNSPEC,
+ 	.revision_min	= 0,
+-	.revision_max	= 1,	/* nomatch flag support added */
++	/*		= 1,	   nomatch flag support added */
++	.revision_max	= 2,	/* /0 support added */
+ 	.create		= hash_netiface_create,
+ 	.create_policy	= {
+ 		[IPSET_ATTR_HASHSIZE]	= { .type = NLA_U32 },
 -- 
 1.7.10.4
+
