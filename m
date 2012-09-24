@@ -1,140 +1,50 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 1/5] [PATCH] qeth: cleanup channel path descriptor function
-Date: Mon, 24 Sep 2012 16:24:23 +0200
-Message-ID: <20120924142501.032039372@de.ibm.com>
-References: <20120924142422.001953152@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Sebastian Ott <sebott@linux.vnet.ibm.com>,
-	Ursula Braun <ursula.braun@de.ibm.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp10.uk.ibm.com ([195.75.94.106]:48528 "EHLO
-	e06smtp10.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754457Ab2IXOZM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 10:25:12 -0400
-Received: from /spool/local
-	by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
-	Mon, 24 Sep 2012 15:25:11 +0100
-Content-Disposition: inline; filename=600-qeth-chp-desc-cleanup.diff
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: leroy christophe <christophe.leroy@c-s.fr>
+Subject: Re: [PATCH v4] lxt PHY: Support for the buggy LXT973 rev A2
+Date: Mon, 24 Sep 2012 16:40:07 +0200
+Message-ID: <506070C7.9020507@c-s.fr>
+References: <201209241400.q8OE0w38011790@localhost.localdomain> <AE90C24D6B3A694183C094C60CF0A2F6026B7004@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David S Miller <davem@davemloft.net>,
+	Richard Cochran <richardcochran@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7004@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sebastian Ott <sebott@linux.vnet.ibm.com>
 
-Cleanup the qeth_get_channel_path_desc function and rename it
-to qeth_update_from_chp_desc. No functional change.
+Le 24/09/2012 16:13, David Laight a =E9crit :
+>> This patch adds proper handling of the buggy revision A2 of LXT973 p=
+hy, adding
+>> precautions linked to ERRATA Item 4:
+>>
+>> Revision A2 of LXT973 chip randomly returns the contents of the prev=
+ious even
+>> register when you read a odd register regularly
+> Does reading the PHY registers involve bit-banging an MII interface?
+> If so this code is likely to stall the system for significant
+> periods (ready phy registers at all can be a problem).
+>
+> I know some ethernet mac have hardware blocks for reading MII
+> and even polling one MII register for changes.
+>
+> Maybe some of this code ought to be using async software
+> bit-bang - especially when just polling for link status change.
+> I'm sure it ought to be possible to do one bit-bang action
+> per clock tick instead of spinning for the required delays.
+>
+> 	David
+>
+Not sure I understand what you mean. We have been using this code=20
+without any problem for about 2 years on our Hardware.
+It does almost same as genphy_read_status() except that it also reads=20
+the BMCR register (which is the register preceeding the BMSR) in order=20
+to detect the unlikely happening of the bug reported by the ERRATA. In=20
+case it happens (which is really seldom), it does a re-read.
+We are not spinning on any delays here.
 
-Signed-off-by: Sebastian Ott <sebott@linux.vnet.ibm.com>
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
-Acked-by: Ursula Braun <ursula.braun@de.ibm.com>
----
- drivers/s390/net/qeth_core_main.c |   74 +++++++++++++++++++++-----------------
- 1 file changed, 41 insertions(+), 33 deletions(-)
-
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -1257,7 +1257,30 @@ static void qeth_clean_channel(struct qe
- 		kfree(channel->iob[cnt].data);
- }
- 
--static void qeth_get_channel_path_desc(struct qeth_card *card)
-+static void qeth_set_single_write_queues(struct qeth_card *card)
-+{
-+	if ((atomic_read(&card->qdio.state) != QETH_QDIO_UNINITIALIZED) &&
-+	    (card->qdio.no_out_queues == 4))
-+		qeth_free_qdio_buffers(card);
-+
-+	card->qdio.no_out_queues = 1;
-+	if (card->qdio.default_out_queue != 0)
-+		dev_info(&card->gdev->dev, "Priority Queueing not supported\n");
-+
-+	card->qdio.default_out_queue = 0;
-+}
-+
-+static void qeth_set_multiple_write_queues(struct qeth_card *card)
-+{
-+	if ((atomic_read(&card->qdio.state) != QETH_QDIO_UNINITIALIZED) &&
-+	    (card->qdio.no_out_queues == 1)) {
-+		qeth_free_qdio_buffers(card);
-+		card->qdio.default_out_queue = 2;
-+	}
-+	card->qdio.no_out_queues = 4;
-+}
-+
-+static void qeth_update_from_chp_desc(struct qeth_card *card)
- {
- 	struct ccw_device *ccwdev;
- 	struct channelPath_dsc {
-@@ -1274,38 +1297,23 @@ static void qeth_get_channel_path_desc(s
- 	QETH_DBF_TEXT(SETUP, 2, "chp_desc");
- 
- 	ccwdev = card->data.ccwdev;
--	chp_dsc = (struct channelPath_dsc *)ccw_device_get_chp_desc(ccwdev, 0);
--	if (chp_dsc != NULL) {
--		if (card->info.type != QETH_CARD_TYPE_IQD) {
--			/* CHPP field bit 6 == 1 -> single queue */
--			if ((chp_dsc->chpp & 0x02) == 0x02) {
--				if ((atomic_read(&card->qdio.state) !=
--					QETH_QDIO_UNINITIALIZED) &&
--				    (card->qdio.no_out_queues == 4))
--					/* change from 4 to 1 outbound queues */
--					qeth_free_qdio_buffers(card);
--				card->qdio.no_out_queues = 1;
--				if (card->qdio.default_out_queue != 0)
--					dev_info(&card->gdev->dev,
--					"Priority Queueing not supported\n");
--				card->qdio.default_out_queue = 0;
--			} else {
--				if ((atomic_read(&card->qdio.state) !=
--					QETH_QDIO_UNINITIALIZED) &&
--				    (card->qdio.no_out_queues == 1)) {
--					/* change from 1 to 4 outbound queues */
--					qeth_free_qdio_buffers(card);
--					card->qdio.default_out_queue = 2;
--				}
--				card->qdio.no_out_queues = 4;
--			}
--		}
--		card->info.func_level = 0x4100 + chp_dsc->desc;
--		kfree(chp_dsc);
--	}
-+	chp_dsc = ccw_device_get_chp_desc(ccwdev, 0);
-+	if (!chp_dsc)
-+		goto out;
-+
-+	card->info.func_level = 0x4100 + chp_dsc->desc;
-+	if (card->info.type == QETH_CARD_TYPE_IQD)
-+		goto out;
-+
-+	/* CHPP field bit 6 == 1 -> single queue */
-+	if ((chp_dsc->chpp & 0x02) == 0x02)
-+		qeth_set_single_write_queues(card);
-+	else
-+		qeth_set_multiple_write_queues(card);
-+out:
-+	kfree(chp_dsc);
- 	QETH_DBF_TEXT_(SETUP, 2, "nr:%x", card->qdio.no_out_queues);
- 	QETH_DBF_TEXT_(SETUP, 2, "lvl:%02x", card->info.func_level);
--	return;
- }
- 
- static void qeth_init_qdio_info(struct qeth_card *card)
-@@ -1473,7 +1481,7 @@ static int qeth_determine_card_type(stru
- 			card->qdio.no_in_queues = 1;
- 			card->info.is_multicast_different =
- 				known_devices[i][QETH_MULTICAST_IND];
--			qeth_get_channel_path_desc(card);
-+			qeth_update_from_chp_desc(card);
- 			return 0;
- 		}
- 		i++;
-@@ -4742,7 +4750,7 @@ int qeth_core_hardsetup_card(struct qeth
- 
- 	QETH_DBF_TEXT(SETUP, 2, "hrdsetup");
- 	atomic_set(&card->force_alloc_skb, 0);
--	qeth_get_channel_path_desc(card);
-+	qeth_update_from_chp_desc(card);
- retry:
- 	if (retries)
- 		QETH_DBF_MESSAGE(2, "%s Retrying to do IDX activates.\n",
+Christophe
