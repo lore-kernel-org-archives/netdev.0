@@ -1,66 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] net: use a per task frag allocator
-Date: Mon, 24 Sep 2012 16:39:46 -0400 (EDT)
-Message-ID: <20120924.163946.1641999339438679497.davem@davemloft.net>
-References: <CAGK4HS98RG78Auvaai3Ny6zz5c_hccO-ShD3GuT=moRRm4+RUA@mail.gmail.com>
-	<1348261871.2669.962.camel@edumazet-glaptop>
-	<1348477482.26828.235.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv2 net-next 3/3] vxlan: virtual extensible lan
+Date: Mon, 24 Sep 2012 22:41:12 +0200
+Message-ID: <1348519272.26828.1670.camel@edumazet-glaptop>
+References: <20120924184304.727711327@vyatta.com>
+	 <20120924185050.162920909@vyatta.com>
+	 <1348515547.26828.1538.camel@edumazet-glaptop>
+	 <20120924124657.4541c186@nehalam.linuxnetplumber.net>
+	 <1348517390.26828.1601.camel@edumazet-glaptop>
+	 <20120924132637.17d89210@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: subramanian.vijay@gmail.com, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, alexander.h.duyck@intel.com
-To: eric.dumazet@gmail.com
+Cc: David Miller <davem@davemloft.net>,
+	Chris Wright <chrisw@redhat.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54277 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932230Ab2IXUjt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 16:39:49 -0400
-In-Reply-To: <1348477482.26828.235.camel@edumazet-glaptop>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:36189 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757887Ab2IXUlR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 16:41:17 -0400
+Received: by bkcjk13 with SMTP id jk13so1175652bkc.19
+        for <netdev@vger.kernel.org>; Mon, 24 Sep 2012 13:41:15 -0700 (PDT)
+In-Reply-To: <20120924132637.17d89210@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 24 Sep 2012 11:04:42 +0200
+On Mon, 2012-09-24 at 13:26 -0700, Stephen Hemminger wrote:
+> On Mon, 24 Sep 2012 22:09:50 +0200
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
 
-> From: Eric Dumazet <edumazet@google.com>
+> > 
+> > I am not sure why you remove IFF_XMIT_DST_RELEASE here
 > 
-> We currently use a per socket order-0 page cache for tcp_sendmsg()
-> operations.
-> 
-> This page is used to build fragments for skbs.
-> 
-> Its done to increase probability of coalescing small write() into
-> single segments in skbs still in write queue (not yet sent)
-> 
-> But it wastes a lot of memory for applications handling many mostly
-> idle sockets, since each socket holds one page in sk->sk_sndmsg_page
-> 
-> Its also quite inefficient to build TSO 64KB packets, because we need
-> about 16 pages per skb on arches where PAGE_SIZE = 4096, so we hit
-> page allocator more than wanted.
-> 
-> This patch adds a per task frag allocator and uses bigger pages,
-> if available. An automatic fallback is done in case of memory pressure.
-> 
-> (up to 32768 bytes per frag, thats order-3 pages on x86)
-> 
-> This increases TCP stream performance by 20% on loopback device,
-> but also benefits on other network devices, since 8x less frags are
-> mapped on transmit and unmapped on tx completion. Alexander Duyck
-> mentioned a probable performance win on systems with IOMMU enabled.
-> 
-> Its possible some SG enabled hardware cant cope with bigger fragments,
-> but their ndo_start_xmit() should already handle this, splitting a
-> fragment in sub fragments, since some arches have PAGE_SIZE=65536
-> 
-> Successfully tested on various ethernet devices.
-> (ixgbe, igb, bnx2x, tg3, mellanox mlx4)
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Copied from GRE. What is impact either way? 
 
-I'm going to apply this, nice work Eric.
+GRE needs skb_dst(skb) to be non NULL if tiph->daddr == NULL
 
-I'll also take care of the trailing whitespace pointed out by others.
+but I am not sure your code needs this.
 
-Thanks again.
+This is a performance issue, for packets waiting in a Qdisc : we'll need
+to force a reference (and a cache line false sharing)
