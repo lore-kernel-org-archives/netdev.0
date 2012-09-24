@@ -1,31 +1,65 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v3] ucc_geth: Lockless xmit
-Date: Mon, 24 Sep 2012 23:10:14 +0200
-Message-ID: <20120924211014.GA17378@electric-eye.fr.zoreil.com>
-References: <1348129021-28333-1-git-send-email-Joakim.Tjernlund@transmode.se> <1348218675-3804-1-git-send-email-Joakim.Tjernlund@transmode.se> <20120921125129.GA21792@electric-eye.fr.zoreil.com> <OF6B2AFF0B.1C979828-ONC1257A80.00502DCF-C1257A80.00509C7E@LocalDomain> <OF53C63B27.8D5BE7C3-ONC1257A80.00575156-C1257A80.005766FC@transmode.se> <20120921173535.GA27934@electric-eye.fr.zoreil.com> <OF39977762.2BDD4BB8-ONC1257A82.0032A26B-C1257A82.00350A53@transmode.se>
+From: David Ward <david.ward@ll.mit.edu>
+Subject: [PATCH RFC 0/2] Multiple VLAN Registration Protocol (IEEE 802.1Q-2011)
+Date: Mon, 24 Sep 2012 17:07:32 -0400
+Message-ID: <1348520855-8810-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Content-Type: text/plain
+Cc: Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Philip Foulkes <philip.foulkes@gmail.com>,
+	David Ward <david.ward@ll.mit.edu>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:36567 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750943Ab2IXV2w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 17:28:52 -0400
-Content-Disposition: inline
-In-Reply-To: <OF39977762.2BDD4BB8-ONC1257A82.0032A26B-C1257A82.00350A53@transmode.se>
+Received: from MX2.LL.MIT.EDU ([129.55.12.46]:42138 "EHLO mx2.ll.mit.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750856Ab2IXV3v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Sep 2012 17:29:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joakim Tjernlund <joakim.tjernlund@transmode.se> :
-[...]
-> I don't get it. The skb test is there just for one special case, when
-> the BD ring is empty the (bd_status & T_R) == 0 will be true as well so
-> one need something more than the bd_status test.
+The Linux kernel currently implements the GARP VLAN Registration 
+Protocol (GVRP) from IEEE 802.1Q-1998 (applicant-only participant). 
+When the GVRP flag is set for a VLAN interface on a Linux host, the 
+host advertises its membership in the VLAN to the attached bridge/
+switch, so that it is not necessary to manually configure the bridge/
+switch port to participate in the VLAN.
 
-Sure but the converse is not true : (bd_status & T_R) == 0 && skb does not
-mean that the skb has been sent. It happens when said skb is about to be
-given to the hardware by hard_start_xmit as well.
+GVRP has been superseded by the Multiple VLAN Registration Protocol 
+(MVRP) in IEEE 802.1Q-2011, which addresses scalability concerns about 
+the earlier protocol.  The following patches add support for MVRP to 
+the Linux kernel and iproute2 utility. They are based largely off of 
+the existing implementation of GVRP, but have been modified for the 
+new PDU structure and state machine.
+
+Please let me know if you have any comments. This implementation was 
+tested with two Juniper EX4200 switches and found to work as expected. 
+If you have access to other switches that implement MVRP, I would of 
+course welcome additional testing.
+
+Signed-off-by: David Ward <david.ward@ll.mit.edu>
+
+David Ward (2):
+  net/802: Implement Multiple Registration Protocol (MRP)
+  net/8021q: Implement Multiple VLAN Registration Protocol (MVRP)
+
+ include/linux/if_ether.h  |    1 +
+ include/linux/if_vlan.h   |    1 +
+ include/linux/netdevice.h |    2 +
+ include/net/mrp.h         |  142 ++++++++
+ net/802/Kconfig           |    3 +
+ net/802/Makefile          |    1 +
+ net/802/mrp.c             |  872 +++++++++++++++++++++++++++++++++++++++++++++
+ net/8021q/Kconfig         |   11 +
+ net/8021q/Makefile        |    1 +
+ net/8021q/vlan.c          |   27 ++-
+ net/8021q/vlan.h          |   16 +
+ net/8021q/vlan_dev.c      |   12 +-
+ net/8021q/vlan_mvrp.c     |   72 ++++
+ net/8021q/vlan_netlink.c  |    2 +-
+ 14 files changed, 1156 insertions(+), 7 deletions(-)
+ create mode 100644 include/net/mrp.h
+ create mode 100644 net/802/mrp.c
+ create mode 100644 net/8021q/vlan_mvrp.c
 
 -- 
-Ueimor
+1.7.4.1
