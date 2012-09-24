@@ -1,50 +1,38 @@
-From: leroy christophe <christophe.leroy@c-s.fr>
-Subject: Re: [PATCH v4] lxt PHY: Support for the buggy LXT973 rev A2
-Date: Mon, 24 Sep 2012 16:40:07 +0200
-Message-ID: <506070C7.9020507@c-s.fr>
-References: <201209241400.q8OE0w38011790@localhost.localdomain> <AE90C24D6B3A694183C094C60CF0A2F6026B7004@saturn3.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David S Miller <davem@davemloft.net>,
-	Richard Cochran <richardcochran@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7004@saturn3.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Subject: [PATCH] smsc75xx: fix resume after device reset
+Date: Mon, 24 Sep 2012 15:42:59 +0100
+Message-ID: <1348497779-10042-1-git-send-email-steve.glendinning@shawell.net>
+Cc: Steve Glendinning <steve.glendinning@shawell.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:37743 "EHLO
+	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756063Ab2IXOq1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 10:46:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On some systems this device fails to properly resume after suspend,
+this patch fixes it by running the usbnet_resume handler.
 
-Le 24/09/2012 16:13, David Laight a =E9crit :
->> This patch adds proper handling of the buggy revision A2 of LXT973 p=
-hy, adding
->> precautions linked to ERRATA Item 4:
->>
->> Revision A2 of LXT973 chip randomly returns the contents of the prev=
-ious even
->> register when you read a odd register regularly
-> Does reading the PHY registers involve bit-banging an MII interface?
-> If so this code is likely to stall the system for significant
-> periods (ready phy registers at all can be a problem).
->
-> I know some ethernet mac have hardware blocks for reading MII
-> and even polling one MII register for changes.
->
-> Maybe some of this code ought to be using async software
-> bit-bang - especially when just polling for link status change.
-> I'm sure it ought to be possible to do one bit-bang action
-> per clock tick instead of spinning for the required delays.
->
-> 	David
->
-Not sure I understand what you mean. We have been using this code=20
-without any problem for about 2 years on our Hardware.
-It does almost same as genphy_read_status() except that it also reads=20
-the BMCR register (which is the register preceeding the BMSR) in order=20
-to detect the unlikely happening of the bug reported by the ERRATA. In=20
-case it happens (which is really seldom), it does a re-read.
-We are not spinning on any delays here.
+I suspect this also fixes this bug:
 
-Christophe
+http://code.google.com/p/chromium-os/issues/detail?id=31871
+---
+ drivers/net/usb/smsc75xx.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/usb/smsc75xx.c b/drivers/net/usb/smsc75xx.c
+index f5ab6e6..376143e 100644
+--- a/drivers/net/usb/smsc75xx.c
++++ b/drivers/net/usb/smsc75xx.c
+@@ -1253,6 +1253,7 @@ static struct usb_driver smsc75xx_driver = {
+ 	.probe		= usbnet_probe,
+ 	.suspend	= usbnet_suspend,
+ 	.resume		= usbnet_resume,
++	.reset_resume	= usbnet_resume,
+ 	.disconnect	= usbnet_disconnect,
+ 	.disable_hub_initiated_lpm = 1,
+ };
+-- 
+1.7.9.5
