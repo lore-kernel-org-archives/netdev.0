@@ -1,64 +1,47 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [RFC PATCHv2 bridge 7/7] bridge: Add the ability to show dump
- the vlan map from a bridge port
-Date: Mon, 24 Sep 2012 16:29:28 -0400
-Message-ID: <5060C2A8.3040908@redhat.com>
-References: <1348058536-22607-1-git-send-email-vyasevic@redhat.com>  <1348058536-22607-8-git-send-email-vyasevic@redhat.com>  <1348334132.2521.100.camel@bwh-desktop.uk.solarflarecom.com>  <20120922.132747.1937291269030903700.davem@davemloft.net>  <20120922130553.3d7e0299@nehalam.linuxnetplumber.net>  <50606500.1040102@redhat.com> <1348511955.10741.4.camel@deadeye.wl.decadent.org.uk>
-Reply-To: vyasevic@redhat.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-net] net: loopback: set default mtu to 64K
+Date: Mon, 24 Sep 2012 22:33:16 +0200
+Message-ID: <1348518796.26828.1651.camel@edumazet-glaptop>
+References: <1348475339.26828.188.camel@edumazet-glaptop>
+	 <20120924.162442.1381532664983403691.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13388 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751372Ab2IXU3c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Sep 2012 16:29:32 -0400
-In-Reply-To: <1348511955.10741.4.camel@deadeye.wl.decadent.org.uk>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:49547 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757626Ab2IXUdU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 16:33:20 -0400
+Received: by bkcjk13 with SMTP id jk13so1171933bkc.19
+        for <netdev@vger.kernel.org>; Mon, 24 Sep 2012 13:33:19 -0700 (PDT)
+In-Reply-To: <20120924.162442.1381532664983403691.davem@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/24/2012 02:39 PM, Ben Hutchings wrote:
-> On Mon, 2012-09-24 at 09:49 -0400, Vlad Yasevich wrote:
->> On 09/22/2012 04:05 PM, Stephen Hemminger wrote:
->>> On Sat, 22 Sep 2012 13:27:47 -0400 (EDT)
->>> David Miller <davem@davemloft.net> wrote:
->>>
->>>> From: Ben Hutchings <bhutchings@solarflare.com>
->>>> Date: Sat, 22 Sep 2012 18:15:32 +0100
->>>>
->>>>> On Wed, 2012-09-19 at 08:42 -0400, Vlad Yasevich wrote:
->>>>>> Using the RTM_GETLINK dump the vlan map of a given bridge port.
->>>>> [...]
->>>>>
->>>>> This enlarges the RTM_GETLINK response quite a bit.  I think perhaps
->>>>> this should be optional, like IFLA_VFINFO_LIST is now.
->>>>
->>>> Completely agreed.
->>>
->>> Since most users won't use it, it should be not necessary to include
->>> it if the map is blank.
->>>
->>
->> Response is included only for AF_BRIDGE calls (proably used by STP
->> implementation) and only when vlan filtering is configured.
->>
->> I do see the point though and can add a filter for this.
->
-> I thought the per-AF stuff was included by default (or at least what
-> most clients ask for).  If not then this is probably fine.
-> IFLA_VFINFO_LIST was causing glibc's queries to fail and that must be
-> avoided.
->
-> Ben.
->
+On Mon, 2012-09-24 at 16:24 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 24 Sep 2012 10:28:59 +0200
+> 
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > loopback current mtu of 16436 bytes allows no more than 3 MSS TCP
+> > segments per frame, or 48 Kbytes. Changing mtu to 64K allows TCP
+> > stack to build large frames and significantly reduces stack overhead.
+> > 
+> > Performance boost on bulk TCP transferts can be up to 30 %, partly
+> > because we now have one ACK message for two 64KB segments, and a lower
+> > probability of hitting /proc/sys/net/ipv4/tcp_reordering default limit.
+> > 
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> 
+> This gives a nice %13 improvement on my SPARC-T4 box as well.
+> 
+> Applied, thanks Eric.
 
-Not just that.  This is a PF_BRIDGE family request.  Note the
-	err = __rtnl_register(PF_BRIDGE, RTM_GETLINK, NULL,
-                               br_dump_ifinfo, NULL);
+the biggest increase is with
 
-in br_netlink_init.
+netperf -- -m 63K
 
--vlad
+I reach 50000 Mbytes/second
