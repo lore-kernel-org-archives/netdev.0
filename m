@@ -1,38 +1,69 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v4] lxt PHY: Support for the buggy LXT973 rev A2
-Date: Mon, 24 Sep 2012 15:13:41 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7004@saturn3.aculab.com>
-References: <201209241400.q8OE0w38011790@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: "Christophe Leroy" <christophe.leroy@c-s.fr>,
-	"David S Miller" <davem@davemloft.net>,
-	"Richard Cochran" <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <201209241400.q8OE0w38011790@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: frank.blaschka@de.ibm.com
+Subject: [patch 5/5] [PATCH] ctcm: fix error return code
+Date: Mon, 24 Sep 2012 16:24:27 +0200
+Message-ID: <20120924142501.449097699@de.ibm.com>
+References: <20120924142422.001953152@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Peter Senna Tschudin <peter.senna@gmail.com>,
+	Ursula Braun <ursula.braun@de.ibm.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e06smtp16.uk.ibm.com ([195.75.94.112]:50433 "EHLO
+	e06smtp16.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755699Ab2IXOZJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 10:25:09 -0400
+Received: from /spool/local
+	by e06smtp16.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
+	Mon, 24 Sep 2012 15:25:08 +0100
+Content-Disposition: inline; filename=604-ctcm-return-code.diff
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> This patch adds proper handling of the buggy revision A2 of LXT973 phy, adding
-> precautions linked to ERRATA Item 4:
-> 
-> Revision A2 of LXT973 chip randomly returns the contents of the previous even
-> register when you read a odd register regularly
+From: Peter Senna Tschudin <peter.senna@gmail.com>
 
-Does reading the PHY registers involve bit-banging an MII interface?
-If so this code is likely to stall the system for significant
-periods (ready phy registers at all can be a problem).
+Convert a nonnegative error return code to a negative one, as returned
+elsewhere in the function.
 
-I know some ethernet mac have hardware blocks for reading MII
-and even polling one MII register for changes.
+A simplified version of the semantic match that finds this problem is as
+follows: (http://coccinelle.lip6.fr/)
 
-Maybe some of this code ought to be using async software
-bit-bang - especially when just polling for link status change.
-I'm sure it ought to be possible to do one bit-bang action
-per clock tick instead of spinning for the required delays. 
+// <smpl>
+(
+if@p1 (\(ret < 0\|ret != 0\))
+ { ... return ret; }
+|
+ret@p1 = 0
+)
+... when != ret = e1
+    when != &ret
+*if(...)
+{
+  ... when != ret = e2
+      when forall
+ return ret;
+}
+// </smpl>
 
-	David
+Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+---
+ drivers/s390/net/ctcm_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/s390/net/ctcm_main.c b/drivers/s390/net/ctcm_main.c
+index 5227e57..98ea9cc 100644
+--- a/drivers/s390/net/ctcm_main.c
++++ b/drivers/s390/net/ctcm_main.c
+@@ -1454,7 +1454,7 @@ static int add_channel(struct ccw_device *cdev, enum ctcm_channel_types type,
+ 				ch_fsm_len, GFP_KERNEL);
+ 	}
+ 	if (ch->fsm == NULL)
+-				goto free_return;
++				goto nomem_return;
+ 
+ 	fsm_newstate(ch->fsm, CTC_STATE_IDLE);
+ 
+-- 
+1.7.11.7
