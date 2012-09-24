@@ -1,106 +1,519 @@
 From: pablo@netfilter.org
-Subject: [PATCH 02/16] netfilter: nf_nat: fix oops when unloading protocol modules
-Date: Mon, 24 Sep 2012 21:19:14 +0200
-Message-ID: <1348514369-3272-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 04/16] netfilter: combine ipt_NETMAP and ip6t_NETMAP
+Date: Mon, 24 Sep 2012 21:19:16 +0200
+Message-ID: <1348514369-3272-5-git-send-email-pablo@netfilter.org>
 References: <1348514369-3272-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58076 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757871Ab2IXTU4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Sep 2012 15:20:56 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1348514369-3272-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
+From: Jan Engelhardt <jengelh@inai.de>
 
-When unloading a protocol module nf_ct_iterate_cleanup() is used to
-remove all conntracks using the protocol from the bysource hash and
-clean their NAT sections. Since the conntrack isn't actually killed,
-the NAT callback is invoked twice, once for each direction, which
-causes an oops when trying to delete it from the bysource hash for
-the second time.
+Combine more modules since the actual code is so small anyway that the
+kmod metadata and the module in its loaded state totally outweighs the
+combined actual code size.
 
-The same oops can also happen when removing both an L3 and L4 protocol
-since the cleanup function doesn't check whether the conntrack has
-already been cleaned up.
+IP_NF_TARGET_NETMAP becomes a compat option; IP6_NF_TARGET_NETMAP
+is completely eliminated since it has not see a release yet.
 
-Pid: 4052, comm: modprobe Not tainted 3.6.0-rc3-test-nat-unload-fix+ #32 Red Hat KVM
-RIP: 0010:[<ffffffffa002c303>]  [<ffffffffa002c303>] nf_nat_proto_clean+0x73/0xd0 [nf_nat]
-RSP: 0018:ffff88007808fe18  EFLAGS: 00010246
-RAX: 0000000000000000 RBX: ffff8800728550c0 RCX: ffff8800756288b0
-RDX: dead000000200200 RSI: ffff88007808fe88 RDI: ffffffffa002f208
-RBP: ffff88007808fe28 R08: ffff88007808e000 R09: 0000000000000000
-R10: dead000000200200 R11: dead000000100100 R12: ffffffff81c6dc00
-R13: ffff8800787582b8 R14: ffff880078758278 R15: ffff88007808fe88
-FS:  00007f515985d700(0000) GS:ffff88007cd00000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 00007f515986a000 CR3: 000000007867a000 CR4: 00000000000006e0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process modprobe (pid: 4052, threadinfo ffff88007808e000, task ffff8800756288b0)
-Stack:
- ffff88007808fe68 ffffffffa002c290 ffff88007808fe78 ffffffff815614e3
- ffffffff00000000 00000aeb00000246 ffff88007808fe68 ffffffff81c6dc00
- ffff88007808fe88 ffffffffa00358a0 0000000000000000 000000000040f5b0
-Call Trace:
- [<ffffffffa002c290>] ? nf_nat_net_exit+0x50/0x50 [nf_nat]
- [<ffffffff815614e3>] nf_ct_iterate_cleanup+0xc3/0x170
- [<ffffffffa002c55a>] nf_nat_l3proto_unregister+0x8a/0x100 [nf_nat]
- [<ffffffff812a0303>] ? compat_prepare_timeout+0x13/0xb0
- [<ffffffffa0035848>] nf_nat_l3proto_ipv4_exit+0x10/0x23 [nf_nat_ipv4]
- ...
-
-To fix this,
-
-- check whether the conntrack has already been cleaned up in
-  nf_nat_proto_clean
-
-- change nf_ct_iterate_cleanup() to only invoke the callback function
-  once for each conntrack (IP_CT_DIR_ORIGINAL).
-
-The second change doesn't affect other callers since when conntracks are
-actually killed, both directions are removed from the hash immediately
-and the callback is already only invoked once. If it is not killed, the
-second callback invocation will always return the same decision not to
-kill it.
-
-Reported-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Jan Engelhardt <jengelh@inai.de>
+Acked-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_core.c |    2 ++
- net/netfilter/nf_nat_core.c       |    2 ++
- 2 files changed, 4 insertions(+)
+ net/ipv4/netfilter/Kconfig       |   11 ++-
+ net/ipv4/netfilter/Makefile      |    1 -
+ net/ipv4/netfilter/ipt_NETMAP.c  |  101 -----------------------
+ net/ipv6/netfilter/Kconfig       |    9 ---
+ net/ipv6/netfilter/Makefile      |    1 -
+ net/ipv6/netfilter/ip6t_NETMAP.c |   94 ----------------------
+ net/netfilter/Kconfig            |   10 +++
+ net/netfilter/Makefile           |    1 +
+ net/netfilter/xt_NETMAP.c        |  165 ++++++++++++++++++++++++++++++++++++++
+ 9 files changed, 181 insertions(+), 212 deletions(-)
+ delete mode 100644 net/ipv4/netfilter/ipt_NETMAP.c
+ delete mode 100644 net/ipv6/netfilter/ip6t_NETMAP.c
+ create mode 100644 net/netfilter/xt_NETMAP.c
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index dcb2791..0f241be 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1224,6 +1224,8 @@ get_next_corpse(struct net *net, int (*iter)(struct nf_conn *i, void *data),
- 	spin_lock_bh(&nf_conntrack_lock);
- 	for (; *bucket < net->ct.htable_size; (*bucket)++) {
- 		hlist_nulls_for_each_entry(h, n, &net->ct.hash[*bucket], hnnode) {
-+			if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL)
-+				continue;
- 			ct = nf_ct_tuplehash_to_ctrack(h);
- 			if (iter(ct, data))
- 				goto found;
-diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
-index 1816ad3..65cf694 100644
---- a/net/netfilter/nf_nat_core.c
-+++ b/net/netfilter/nf_nat_core.c
-@@ -481,6 +481,8 @@ static int nf_nat_proto_clean(struct nf_conn *i, void *data)
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+index 131e537..6f14008 100644
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -172,12 +172,11 @@ config IP_NF_TARGET_MASQUERADE
+ config IP_NF_TARGET_NETMAP
+ 	tristate "NETMAP target support"
+ 	depends on NETFILTER_ADVANCED
+-	help
+-	  NETMAP is an implementation of static 1:1 NAT mapping of network
+-	  addresses. It maps the network address part, while keeping the host
+-	  address part intact.
+-
+-	  To compile it as a module, choose M here.  If unsure, say N.
++	select NETFILTER_XT_TARGET_NETMAP
++	---help---
++	This is a backwards-compat option for the user's convenience
++	(e.g. when running oldconfig). It selects
++	CONFIG_NETFILTER_XT_TARGET_NETMAP.
  
- 	if (!nat)
- 		return 0;
-+	if (!(i->status & IPS_SRC_NAT_DONE))
-+		return 0;
- 	if ((clean->l3proto && nf_ct_l3num(i) != clean->l3proto) ||
- 	    (clean->l4proto && nf_ct_protonum(i) != clean->l4proto))
- 		return 0;
+ config IP_NF_TARGET_REDIRECT
+ 	tristate "REDIRECT target support"
+diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
+index b7dd189..f4446c5 100644
+--- a/net/ipv4/netfilter/Makefile
++++ b/net/ipv4/netfilter/Makefile
+@@ -45,7 +45,6 @@ obj-$(CONFIG_IP_NF_MATCH_RPFILTER) += ipt_rpfilter.o
+ obj-$(CONFIG_IP_NF_TARGET_CLUSTERIP) += ipt_CLUSTERIP.o
+ obj-$(CONFIG_IP_NF_TARGET_ECN) += ipt_ECN.o
+ obj-$(CONFIG_IP_NF_TARGET_MASQUERADE) += ipt_MASQUERADE.o
+-obj-$(CONFIG_IP_NF_TARGET_NETMAP) += ipt_NETMAP.o
+ obj-$(CONFIG_IP_NF_TARGET_REDIRECT) += ipt_REDIRECT.o
+ obj-$(CONFIG_IP_NF_TARGET_REJECT) += ipt_REJECT.o
+ obj-$(CONFIG_IP_NF_TARGET_ULOG) += ipt_ULOG.o
+diff --git a/net/ipv4/netfilter/ipt_NETMAP.c b/net/ipv4/netfilter/ipt_NETMAP.c
+deleted file mode 100644
+index 85028dc..0000000
+--- a/net/ipv4/netfilter/ipt_NETMAP.c
++++ /dev/null
+@@ -1,101 +0,0 @@
+-/* NETMAP - static NAT mapping of IP network addresses (1:1).
+- * The mapping can be applied to source (POSTROUTING),
+- * destination (PREROUTING), or both (with separate rules).
+- */
+-
+-/* (C) 2000-2001 Svenning Soerensen <svenning@post5.tele.dk>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- */
+-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+-#include <linux/ip.h>
+-#include <linux/module.h>
+-#include <linux/netdevice.h>
+-#include <linux/netfilter.h>
+-#include <linux/netfilter_ipv4.h>
+-#include <linux/netfilter/x_tables.h>
+-#include <net/netfilter/nf_nat.h>
+-
+-MODULE_LICENSE("GPL");
+-MODULE_AUTHOR("Svenning Soerensen <svenning@post5.tele.dk>");
+-MODULE_DESCRIPTION("Xtables: 1:1 NAT mapping of IPv4 subnets");
+-
+-static int netmap_tg_check(const struct xt_tgchk_param *par)
+-{
+-	const struct nf_nat_ipv4_multi_range_compat *mr = par->targinfo;
+-
+-	if (!(mr->range[0].flags & NF_NAT_RANGE_MAP_IPS)) {
+-		pr_debug("bad MAP_IPS.\n");
+-		return -EINVAL;
+-	}
+-	if (mr->rangesize != 1) {
+-		pr_debug("bad rangesize %u.\n", mr->rangesize);
+-		return -EINVAL;
+-	}
+-	return 0;
+-}
+-
+-static unsigned int
+-netmap_tg(struct sk_buff *skb, const struct xt_action_param *par)
+-{
+-	struct nf_conn *ct;
+-	enum ip_conntrack_info ctinfo;
+-	__be32 new_ip, netmask;
+-	const struct nf_nat_ipv4_multi_range_compat *mr = par->targinfo;
+-	struct nf_nat_range newrange;
+-
+-	NF_CT_ASSERT(par->hooknum == NF_INET_PRE_ROUTING ||
+-		     par->hooknum == NF_INET_POST_ROUTING ||
+-		     par->hooknum == NF_INET_LOCAL_OUT ||
+-		     par->hooknum == NF_INET_LOCAL_IN);
+-	ct = nf_ct_get(skb, &ctinfo);
+-
+-	netmask = ~(mr->range[0].min_ip ^ mr->range[0].max_ip);
+-
+-	if (par->hooknum == NF_INET_PRE_ROUTING ||
+-	    par->hooknum == NF_INET_LOCAL_OUT)
+-		new_ip = ip_hdr(skb)->daddr & ~netmask;
+-	else
+-		new_ip = ip_hdr(skb)->saddr & ~netmask;
+-	new_ip |= mr->range[0].min_ip & netmask;
+-
+-	memset(&newrange.min_addr, 0, sizeof(newrange.min_addr));
+-	memset(&newrange.max_addr, 0, sizeof(newrange.max_addr));
+-	newrange.flags	     = mr->range[0].flags | NF_NAT_RANGE_MAP_IPS;
+-	newrange.min_addr.ip = new_ip;
+-	newrange.max_addr.ip = new_ip;
+-	newrange.min_proto   = mr->range[0].min;
+-	newrange.max_proto   = mr->range[0].max;
+-
+-	/* Hand modified range to generic setup. */
+-	return nf_nat_setup_info(ct, &newrange, HOOK2MANIP(par->hooknum));
+-}
+-
+-static struct xt_target netmap_tg_reg __read_mostly = {
+-	.name 		= "NETMAP",
+-	.family		= NFPROTO_IPV4,
+-	.target 	= netmap_tg,
+-	.targetsize	= sizeof(struct nf_nat_ipv4_multi_range_compat),
+-	.table		= "nat",
+-	.hooks		= (1 << NF_INET_PRE_ROUTING) |
+-			  (1 << NF_INET_POST_ROUTING) |
+-			  (1 << NF_INET_LOCAL_OUT) |
+-			  (1 << NF_INET_LOCAL_IN),
+-	.checkentry 	= netmap_tg_check,
+-	.me 		= THIS_MODULE
+-};
+-
+-static int __init netmap_tg_init(void)
+-{
+-	return xt_register_target(&netmap_tg_reg);
+-}
+-
+-static void __exit netmap_tg_exit(void)
+-{
+-	xt_unregister_target(&netmap_tg_reg);
+-}
+-
+-module_init(netmap_tg_init);
+-module_exit(netmap_tg_exit);
+diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
+index d8f276b..007bb45 100644
+--- a/net/ipv6/netfilter/Kconfig
++++ b/net/ipv6/netfilter/Kconfig
+@@ -209,15 +209,6 @@ config IP6_NF_TARGET_MASQUERADE
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
+-config IP6_NF_TARGET_NETMAP
+-	tristate "NETMAP target support"
+-	help
+-	  NETMAP is an implementation of static 1:1 NAT mapping of network
+-	  addresses. It maps the network address part, while keeping the host
+-	  address part intact.
+-
+-	  To compile it as a module, choose M here.  If unsure, say N.
+-
+ config IP6_NF_TARGET_REDIRECT
+ 	tristate "REDIRECT target support"
+ 	help
+diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
+index 5752132..de8e0d1 100644
+--- a/net/ipv6/netfilter/Makefile
++++ b/net/ipv6/netfilter/Makefile
+@@ -35,7 +35,6 @@ obj-$(CONFIG_IP6_NF_MATCH_RT) += ip6t_rt.o
+ 
+ # targets
+ obj-$(CONFIG_IP6_NF_TARGET_MASQUERADE) += ip6t_MASQUERADE.o
+-obj-$(CONFIG_IP6_NF_TARGET_NETMAP) += ip6t_NETMAP.o
+ obj-$(CONFIG_IP6_NF_TARGET_NPT) += ip6t_NPT.o
+ obj-$(CONFIG_IP6_NF_TARGET_REDIRECT) += ip6t_REDIRECT.o
+ obj-$(CONFIG_IP6_NF_TARGET_REJECT) += ip6t_REJECT.o
+diff --git a/net/ipv6/netfilter/ip6t_NETMAP.c b/net/ipv6/netfilter/ip6t_NETMAP.c
+deleted file mode 100644
+index 4f3bf36..0000000
+--- a/net/ipv6/netfilter/ip6t_NETMAP.c
++++ /dev/null
+@@ -1,94 +0,0 @@
+-/*
+- * Copyright (c) 2011 Patrick McHardy <kaber@trash.net>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- *
+- * Based on Svenning Soerensen's IPv4 NETMAP target. Development of IPv6
+- * NAT funded by Astaro.
+- */
+-
+-#include <linux/kernel.h>
+-#include <linux/module.h>
+-#include <linux/ipv6.h>
+-#include <linux/netfilter.h>
+-#include <linux/netfilter_ipv6.h>
+-#include <linux/netfilter/x_tables.h>
+-#include <net/netfilter/nf_nat.h>
+-
+-static unsigned int
+-netmap_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+-{
+-	const struct nf_nat_range *range = par->targinfo;
+-	struct nf_nat_range newrange;
+-	struct nf_conn *ct;
+-	enum ip_conntrack_info ctinfo;
+-	union nf_inet_addr new_addr, netmask;
+-	unsigned int i;
+-
+-	ct = nf_ct_get(skb, &ctinfo);
+-	for (i = 0; i < ARRAY_SIZE(range->min_addr.ip6); i++)
+-		netmask.ip6[i] = ~(range->min_addr.ip6[i] ^
+-				   range->max_addr.ip6[i]);
+-
+-	if (par->hooknum == NF_INET_PRE_ROUTING ||
+-	    par->hooknum == NF_INET_LOCAL_OUT)
+-		new_addr.in6 = ipv6_hdr(skb)->daddr;
+-	else
+-		new_addr.in6 = ipv6_hdr(skb)->saddr;
+-
+-	for (i = 0; i < ARRAY_SIZE(new_addr.ip6); i++) {
+-		new_addr.ip6[i] &= ~netmask.ip6[i];
+-		new_addr.ip6[i] |= range->min_addr.ip6[i] &
+-				   netmask.ip6[i];
+-	}
+-
+-	newrange.flags	= range->flags | NF_NAT_RANGE_MAP_IPS;
+-	newrange.min_addr	= new_addr;
+-	newrange.max_addr	= new_addr;
+-	newrange.min_proto	= range->min_proto;
+-	newrange.max_proto	= range->max_proto;
+-
+-	return nf_nat_setup_info(ct, &newrange, HOOK2MANIP(par->hooknum));
+-}
+-
+-static int netmap_tg6_checkentry(const struct xt_tgchk_param *par)
+-{
+-	const struct nf_nat_range *range = par->targinfo;
+-
+-	if (!(range->flags & NF_NAT_RANGE_MAP_IPS))
+-		return -EINVAL;
+-	return 0;
+-}
+-
+-static struct xt_target netmap_tg6_reg __read_mostly = {
+-	.name		= "NETMAP",
+-	.family		= NFPROTO_IPV6,
+-	.target		= netmap_tg6,
+-	.targetsize	= sizeof(struct nf_nat_range),
+-	.table		= "nat",
+-	.hooks		= (1 << NF_INET_PRE_ROUTING) |
+-			  (1 << NF_INET_POST_ROUTING) |
+-			  (1 << NF_INET_LOCAL_OUT) |
+-			  (1 << NF_INET_LOCAL_IN),
+-	.checkentry	= netmap_tg6_checkentry,
+-	.me		= THIS_MODULE,
+-};
+-
+-static int __init netmap_tg6_init(void)
+-{
+-	return xt_register_target(&netmap_tg6_reg);
+-}
+-
+-static void netmap_tg6_exit(void)
+-{
+-	xt_unregister_target(&netmap_tg6_reg);
+-}
+-
+-module_init(netmap_tg6_init);
+-module_exit(netmap_tg6_exit);
+-
+-MODULE_LICENSE("GPL");
+-MODULE_DESCRIPTION("Xtables: 1:1 NAT mapping of IPv6 subnets");
+-MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 3f4b3b4..ad0e0da 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -648,6 +648,16 @@ config NETFILTER_XT_TARGET_MARK
+ 	(e.g. when running oldconfig). It selects
+ 	CONFIG_NETFILTER_XT_MARK (combined mark/MARK module).
+ 
++config NETFILTER_XT_TARGET_NETMAP
++	tristate '"NETMAP" target support'
++	depends on NF_NAT
++	---help---
++	NETMAP is an implementation of static 1:1 NAT mapping of network
++	addresses. It maps the network address part, while keeping the host
++	address part intact.
++
++	To compile it as a module, choose M here. If unsure, say N.
++
+ config NETFILTER_XT_TARGET_NFLOG
+ 	tristate '"NFLOG" target support'
+ 	default m if NETFILTER_ADVANCED=n
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 0baa3f1..600d28b 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -83,6 +83,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_HL) += xt_HL.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_HMARK) += xt_HMARK.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_LED) += xt_LED.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_LOG) += xt_LOG.o
++obj-$(CONFIG_NETFILTER_XT_TARGET_NETMAP) += xt_NETMAP.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_NFLOG) += xt_NFLOG.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_NFQUEUE) += xt_NFQUEUE.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_RATEEST) += xt_RATEEST.o
+diff --git a/net/netfilter/xt_NETMAP.c b/net/netfilter/xt_NETMAP.c
+new file mode 100644
+index 0000000..b253e07
+--- /dev/null
++++ b/net/netfilter/xt_NETMAP.c
+@@ -0,0 +1,165 @@
++/*
++ * (C) 2000-2001 Svenning Soerensen <svenning@post5.tele.dk>
++ * Copyright (c) 2011 Patrick McHardy <kaber@trash.net>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/ip.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/netdevice.h>
++#include <linux/ipv6.h>
++#include <linux/netfilter.h>
++#include <linux/netfilter_ipv4.h>
++#include <linux/netfilter_ipv6.h>
++#include <linux/netfilter/x_tables.h>
++#include <net/netfilter/nf_nat.h>
++
++static unsigned int
++netmap_tg6(struct sk_buff *skb, const struct xt_action_param *par)
++{
++	const struct nf_nat_range *range = par->targinfo;
++	struct nf_nat_range newrange;
++	struct nf_conn *ct;
++	enum ip_conntrack_info ctinfo;
++	union nf_inet_addr new_addr, netmask;
++	unsigned int i;
++
++	ct = nf_ct_get(skb, &ctinfo);
++	for (i = 0; i < ARRAY_SIZE(range->min_addr.ip6); i++)
++		netmask.ip6[i] = ~(range->min_addr.ip6[i] ^
++				   range->max_addr.ip6[i]);
++
++	if (par->hooknum == NF_INET_PRE_ROUTING ||
++	    par->hooknum == NF_INET_LOCAL_OUT)
++		new_addr.in6 = ipv6_hdr(skb)->daddr;
++	else
++		new_addr.in6 = ipv6_hdr(skb)->saddr;
++
++	for (i = 0; i < ARRAY_SIZE(new_addr.ip6); i++) {
++		new_addr.ip6[i] &= ~netmask.ip6[i];
++		new_addr.ip6[i] |= range->min_addr.ip6[i] &
++				   netmask.ip6[i];
++	}
++
++	newrange.flags	= range->flags | NF_NAT_RANGE_MAP_IPS;
++	newrange.min_addr	= new_addr;
++	newrange.max_addr	= new_addr;
++	newrange.min_proto	= range->min_proto;
++	newrange.max_proto	= range->max_proto;
++
++	return nf_nat_setup_info(ct, &newrange, HOOK2MANIP(par->hooknum));
++}
++
++static int netmap_tg6_checkentry(const struct xt_tgchk_param *par)
++{
++	const struct nf_nat_range *range = par->targinfo;
++
++	if (!(range->flags & NF_NAT_RANGE_MAP_IPS))
++		return -EINVAL;
++	return 0;
++}
++
++static unsigned int
++netmap_tg4(struct sk_buff *skb, const struct xt_action_param *par)
++{
++	struct nf_conn *ct;
++	enum ip_conntrack_info ctinfo;
++	__be32 new_ip, netmask;
++	const struct nf_nat_ipv4_multi_range_compat *mr = par->targinfo;
++	struct nf_nat_range newrange;
++
++	NF_CT_ASSERT(par->hooknum == NF_INET_PRE_ROUTING ||
++		     par->hooknum == NF_INET_POST_ROUTING ||
++		     par->hooknum == NF_INET_LOCAL_OUT ||
++		     par->hooknum == NF_INET_LOCAL_IN);
++	ct = nf_ct_get(skb, &ctinfo);
++
++	netmask = ~(mr->range[0].min_ip ^ mr->range[0].max_ip);
++
++	if (par->hooknum == NF_INET_PRE_ROUTING ||
++	    par->hooknum == NF_INET_LOCAL_OUT)
++		new_ip = ip_hdr(skb)->daddr & ~netmask;
++	else
++		new_ip = ip_hdr(skb)->saddr & ~netmask;
++	new_ip |= mr->range[0].min_ip & netmask;
++
++	memset(&newrange.min_addr, 0, sizeof(newrange.min_addr));
++	memset(&newrange.max_addr, 0, sizeof(newrange.max_addr));
++	newrange.flags	     = mr->range[0].flags | NF_NAT_RANGE_MAP_IPS;
++	newrange.min_addr.ip = new_ip;
++	newrange.max_addr.ip = new_ip;
++	newrange.min_proto   = mr->range[0].min;
++	newrange.max_proto   = mr->range[0].max;
++
++	/* Hand modified range to generic setup. */
++	return nf_nat_setup_info(ct, &newrange, HOOK2MANIP(par->hooknum));
++}
++
++static int netmap_tg4_check(const struct xt_tgchk_param *par)
++{
++	const struct nf_nat_ipv4_multi_range_compat *mr = par->targinfo;
++
++	if (!(mr->range[0].flags & NF_NAT_RANGE_MAP_IPS)) {
++		pr_debug("bad MAP_IPS.\n");
++		return -EINVAL;
++	}
++	if (mr->rangesize != 1) {
++		pr_debug("bad rangesize %u.\n", mr->rangesize);
++		return -EINVAL;
++	}
++	return 0;
++}
++
++static struct xt_target netmap_tg_reg[] __read_mostly = {
++	{
++		.name       = "NETMAP",
++		.family     = NFPROTO_IPV6,
++		.revision   = 0,
++		.target     = netmap_tg6,
++		.targetsize = sizeof(struct nf_nat_range),
++		.table      = "nat",
++		.hooks      = (1 << NF_INET_PRE_ROUTING) |
++		              (1 << NF_INET_POST_ROUTING) |
++		              (1 << NF_INET_LOCAL_OUT) |
++		              (1 << NF_INET_LOCAL_IN),
++		.checkentry = netmap_tg6_checkentry,
++		.me         = THIS_MODULE,
++	},
++	{
++		.name       = "NETMAP",
++		.family     = NFPROTO_IPV4,
++		.revision   = 0,
++		.target     = netmap_tg4,
++		.targetsize = sizeof(struct nf_nat_ipv4_multi_range_compat),
++		.table      = "nat",
++		.hooks      = (1 << NF_INET_PRE_ROUTING) |
++		              (1 << NF_INET_POST_ROUTING) |
++		              (1 << NF_INET_LOCAL_OUT) |
++		              (1 << NF_INET_LOCAL_IN),
++		.checkentry = netmap_tg4_check,
++		.me         = THIS_MODULE,
++	},
++};
++
++static int __init netmap_tg_init(void)
++{
++	return xt_register_targets(netmap_tg_reg, ARRAY_SIZE(netmap_tg_reg));
++}
++
++static void netmap_tg_exit(void)
++{
++	xt_unregister_targets(netmap_tg_reg, ARRAY_SIZE(netmap_tg_reg));
++}
++
++module_init(netmap_tg_init);
++module_exit(netmap_tg_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Xtables: 1:1 NAT mapping of subnets");
++MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
++MODULE_ALIAS("ip6t_NETMAP");
++MODULE_ALIAS("ipt_NETMAP");
 -- 
 1.7.10.4
+
