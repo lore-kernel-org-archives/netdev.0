@@ -1,81 +1,47 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCHv3 net-next 3/3] vxlan: virtual extensible lan
-Date: Mon, 24 Sep 2012 13:24:41 -0700
-Message-ID: <5060C189.8090803@intel.com>
-References: <20120924184304.727711327@vyatta.com> <20120924185050.162920909@vyatta.com> <1348515547.26828.1538.camel@edumazet-glaptop> <20120924124657.4541c186@nehalam.linuxnetplumber.net> <1348516500.26828.1570.camel@edumazet-glaptop> <20120924130239.18767146@nehalam.linuxnetplumber.net>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH net-next v1] gianfar: Change default HW Tx queue
+ scheduling mode
+Date: Mon, 24 Sep 2012 16:25:40 -0400 (EDT)
+Message-ID: <20120924.162540.215430525974484885.davem@redhat.com>
+References: <1348475948-22721-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Chris Wright <chrisw@redhat.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com
+To: claudiu.manoil@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:53349 "EHLO mga09.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:4495 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757893Ab2IXUZE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Sep 2012 16:25:04 -0400
-In-Reply-To: <20120924130239.18767146@nehalam.linuxnetplumber.net>
+	id S1757947Ab2IXUZn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Sep 2012 16:25:43 -0400
+In-Reply-To: <1348475948-22721-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[...]
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Date: Mon, 24 Sep 2012 11:39:08 +0300
 
-On 9/24/2012 1:02 PM, Stephen Hemminger wrote:
-> +
-> +/* Transmit local packets over Vxlan
-> + *
-> + * Outer IP header inherits ECN and DF from inner header.
-> + * Outer UDP destination is the VXLAN assigned port.
-> + *           source port is based on hash of flow if available
-> + *                       otherwise use a random value
-> + */
-> +static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +	struct vxlan_dev *vxlan = netdev_priv(dev);
-> +	struct rtable *rt;
-> +	const struct ethhdr *eth;
-> +	const struct iphdr *old_iph;
-> +	struct iphdr *iph;
-> +	struct vxlanhdr *vxh;
-> +	struct udphdr *uh;
-> +	struct flowi4 fl4;
-> +	struct vxlan_fdb *f;
-> +	unsigned int pkt_len = skb->len;
-> +	unsigned int mtu;
-> +	u32 hash;
-> +	__be32 dst;
-> +	__be16 df = 0;
-> +	__u8 tos, ttl;
-> +	int err;
-> +
+> This is primarily to address transmission timeout occurrences, when
+> multiple H/W Tx queues are being used concurrently. Because in
+> the priority scheduling mode the controller does not service the
+> Tx queues equally (but in ascending index order), Tx timeouts are
+> being triggered rightaway for a basic test with multiple simultaneous
+> connections like:
+> iperf -c <server_ip> -n 100M -P 8
+> 
+> resulting in kernel trace:
+> NETDEV WATCHDOG: eth1 (fsl-gianfar): transmit queue <X> timed out
+> ------------[ cut here ]------------
+> WARNING: at net/sched/sch_generic.c:255
+> ...
+> and controller reset during intense traffic, and possibly further
+> complications.
+> 
+> This patch changes the default H/W Tx scheduling setting (TXSCHED)
+> for multi-queue devices, from priority scheduling mode to a weighted
+> round robin mode with equal weights for all H/W Tx queues, and
+> addresses the issue above.
+> 
+> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 
-[...]
-
-> +	err = ip_local_out(skb);
-> +	if (likely(net_xmit_eval(err) == 0)) {
-> +		struct vxlan_stats *stats = this_cpu_ptr(vxlan->stats);
-> +
-> +		u64_stats_update_begin(&stats->syncp);
-> +		stats->tx_packets++;
-> +		stats->tx_bytes += pkt_len;
-
-Should pkt_len include the outer headers?
-
-> +		u64_stats_update_end(&stats->syncp);
-> +	} else {
-> +		dev->stats.tx_errors++;
-> +		dev->stats.tx_aborted_errors++;
-> +	}
-> +	return NETDEV_TX_OK;
-> +
-> +drop:
-> +	dev->stats.tx_dropped++;
-> +	goto tx_free;
-> +
-> +tx_error:
-> +	dev->stats.tx_errors++;
-> +tx_free:
-> +	dev_kfree_skb(skb);
-> +	return NETDEV_TX_OK;
-> +}
+Applied, thanks.
