@@ -1,54 +1,31 @@
-From: Chris Wright <chrisw@redhat.com>
-Subject: Re: [PATCH net-next 3/3] vxlan: virtual extensible lan
-Date: Mon, 24 Sep 2012 14:22:26 -0700
-Message-ID: <20120924212226.GJ26494@x200.localdomain>
-References: <20120924184304.727711327@vyatta.com>
- <20120924185050.162920909@vyatta.com>
- <20120924205822.GI26494@x200.localdomain>
- <20120924141133.3c97e9de@nehalam.linuxnetplumber.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v3] ucc_geth: Lockless xmit
+Date: Mon, 24 Sep 2012 23:10:14 +0200
+Message-ID: <20120924211014.GA17378@electric-eye.fr.zoreil.com>
+References: <1348129021-28333-1-git-send-email-Joakim.Tjernlund@transmode.se> <1348218675-3804-1-git-send-email-Joakim.Tjernlund@transmode.se> <20120921125129.GA21792@electric-eye.fr.zoreil.com> <OF6B2AFF0B.1C979828-ONC1257A80.00502DCF-C1257A80.00509C7E@LocalDomain> <OF53C63B27.8D5BE7C3-ONC1257A80.00575156-C1257A80.005766FC@transmode.se> <20120921173535.GA27934@electric-eye.fr.zoreil.com> <OF39977762.2BDD4BB8-ONC1257A82.0032A26B-C1257A82.00350A53@transmode.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@redhat.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24742 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750715Ab2IXVW3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Sep 2012 17:22:29 -0400
+Received: from violet.fr.zoreil.com ([92.243.8.30]:36567 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750943Ab2IXV2w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 17:28:52 -0400
 Content-Disposition: inline
-In-Reply-To: <20120924141133.3c97e9de@nehalam.linuxnetplumber.net>
+In-Reply-To: <OF39977762.2BDD4BB8-ONC1257A82.0032A26B-C1257A82.00350A53@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Stephen Hemminger (shemminger@vyatta.com) wrote:
-> Chris Wright <chrisw@redhat.com> wrote:
-> > > +/* Propogate ECN bits out */
-> > > +static inline u8 vxlan_ecn_encap(u8 tos,
-> > > +				 const struct iphdr *iph,
-> > > +				 const struct sk_buff *skb)
-> > > +{
-> > > +	u8 inner = vxlan_get_dsfield(iph, skb);
-> > > +
-> > > +	return INET_ECN_encapsulate(tos, inner);
-> > > +}
-> > 
-> > Goal is to be RFC 6040 compliant, and it looks like some edge cases aren't
-> > met, for example, should drop on decap when inner is not supporting ECN
-> > and outer has set CE.
-> 
-> The code was taken from existing GRE in Linux.
-> Looks like both VXLAN and GRE need to handle that.
+Joakim Tjernlund <joakim.tjernlund@transmode.se> :
+[...]
+> I don't get it. The skb test is there just for one special case, when
+> the BD ring is empty the (bd_status & T_R) == 0 will be true as well so
+> one need something more than the bd_status test.
 
-Right.
+Sure but the converse is not true : (bd_status & T_R) == 0 && skb does not
+mean that the skb has been sent. It happens when said skb is about to be
+given to the hardware by hard_start_xmit as well.
 
-> > > +/* Callback from net/ipv4/udp.c to receive packets */
-> > > +	/* Mark socket as an encapsulation socket. */
-> > > +	udp_sk(sk)->encap_type = UDP_ENCAP_L2TPINUDP;
-> > 
-> > I don't think we need this particular encap_type value, just != 0
-> 
-> Is there any value in defining new value?
-
-No, more the propagation of L2TP constant starts to look like cargo cult
-programming.  IOW, no special meaning in this context.
+-- 
+Ueimor
