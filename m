@@ -1,97 +1,104 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH linux-firmware 1/1] bnx2x: update fw to 7.8.2
-Date: Mon, 24 Sep 2012 20:37:38 +0100
-Message-ID: <20120924193737.GI29217@decadent.org.uk>
-References: <1348471509-16658-1-git-send-email-yuvalmin@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/3] vxlan: virtual extensible lan
+Date: Mon, 24 Sep 2012 21:39:07 +0200
+Message-ID: <1348515547.26828.1538.camel@edumazet-glaptop>
+References: <20120924184304.727711327@vyatta.com>
+	 <20120924185050.162920909@vyatta.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-	protocol="application/pgp-signature"; boundary="KDt/GgjP6HVcx58l"
-Cc: dwmw2@infradead.org, netdev@vger.kernel.org,
-	Ariel Elior <ariele@broadcom.com>,
-	Eilon Goldstein <eilong@broadcom.com>
-To: Yuval Mintz <yuvalmin@broadcom.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Chris Wright <chrisw@redhat.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:50881 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757869Ab2IXThl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 15:37:41 -0400
-Content-Disposition: inline
-In-Reply-To: <1348471509-16658-1-git-send-email-yuvalmin@broadcom.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:43987 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932071Ab2IXTjM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 15:39:12 -0400
+Received: by bkcjk13 with SMTP id jk13so1145942bkc.19
+        for <netdev@vger.kernel.org>; Mon, 24 Sep 2012 12:39:11 -0700 (PDT)
+In-Reply-To: <20120924185050.162920909@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2012-09-24 at 11:43 -0700, Stephen Hemminger wrote:
 
---KDt/GgjP6HVcx58l
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> +/* Callback from net/ipv4/udp.c to receive packets */
+> +static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+> +{
+> +	struct iphdr *oip = ip_hdr(skb);
 
-On Mon, Sep 24, 2012 at 09:25:09AM +0200, Yuval Mintz wrote:
-> This new firmware fixes several minor bugs:
->  1. In switch dependent mode, DCB priority was used to override inner vlan
->     priority.
->  2. In switch dependent  mode, inner vlan was added in case of DCB priori=
-ty
->     even if outer vlan was present.
->  3. In switch dependent mode, outer vlan was overridden by DCB priority w=
-hen
->     working in STATIC COS mode while inner vlan was present.
->  4. iSCSI - under heavy iSCSI traffic, when TCP out-of-order condition
->     occurred, it was possible for the connection to close and recover.
->  5. iSCSI - connections on-chip TCP establishment might have failed.
->  6. iSCSI - out-of-order isles might have caused on-chip TCP connections
->     to fail in their graceful termination.
->  7. iSCSI - there was a theoretical race in which an RST packet sent from
->     pure-ack queue in specific timing could cause a credit-return overflo=
-w.
->  8. iSCSI - not all packets were completed on a forward channel.
->  9. DCB - fixed for 4-port devices; Until now, wrong credit counters were
->     used, causing dcb to fail.
-> 10. Fixed false parity reported in CAM memories when operating near -5% on
->     the 1.0V core supply.
-> 11. ETS default settings are set to fairness between traffic classes (rat=
-her
->     than strict priority), and uses the same chip receive buffer configur=
-ation
->     for both PFC and pause.
->=20
-> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> Signed-off-by: Ariel Elior <ariele@broadcom.com>
-> Signed-off-by: Eilon Goldstein <eilong@broadcom.com>
-> ---
-> Please consider adding this new FW into the FW tree.
-[...]
+oip is set to ip_hdr(skb)
 
-Applied, thanks.
+> +	struct vxlanhdr *vxh;
+> +	struct vxlan_dev *vxlan;
+> +	struct vxlan_stats *stats;
+> +	__u32 vni;
+> +	__be32 saddr = oip->saddr;	/* source address for learning */
+> +	__be32 daddr = oip->daddr;	/* destination for checking */
+> +
+> +	/* pop off outer UDP header */
+> +	__skb_pull(skb, sizeof(struct udphdr));
+> +
+> +	/* Need Vxlan and inner Ethernet header to be present */
+> +	if (!pskb_may_pull(skb,
+> +			   sizeof(struct vxlanhdr) + sizeof(struct ethhdr)))
+> +		goto error;
+> +
 
-Ben.
+here oip may points to a freed memory, if pskb_may_pull) has to
+reallocate skb->head
 
---=20
-Ben Hutchings
-We get into the habit of living before acquiring the habit of thinking.
-                                                              - Albert Camus
+> +	/* Drop packets with reserved bits set */
+> +	vxh = (struct vxlanhdr *) skb->data;
+> +	if (vxh->vx_flags != htonl(VXLAN_FLAGS) ||
+> +	    (vxh->vx_vni & htonl(0xff)))
+> +		goto error;
+> +
+> +	__skb_pull(skb, sizeof(struct vxlanhdr));
+> +
+> +	/* Is this VNI defined? */
+> +	vni = ntohl(vxh->vx_vni) >> 8;
+> +	vxlan = vxlan_find_vni(sock_net(sk), vni);
+> +	if (!vxlan)
+> +		goto drop;
+> +
+> +	/* Ignore packets if device is not up */
+> +	if (!netif_running(vxlan->dev))
+> +		goto drop;
+> +
+> +	/* Re-examine inner Ethernet packet */
+> +	skb->protocol = eth_type_trans(skb, vxlan->dev);
+> +	skb->ip_summed = CHECKSUM_NONE;
+> +
+> +	/* Ignore packet loops (and multicast echo) */
+> +	if (compare_ether_addr(eth_hdr(skb)->h_source,
+> +			       vxlan->dev->dev_addr) == 0)
+> +		goto drop;
+> +
+> +	/* Check for multicast group configuration errors */
+> +	if (IN_MULTICAST(ntohl(daddr)) &&
+> +	    daddr != vxlan->gaddr) {
+> +		if (net_ratelimit())
+> +			netdev_notice(vxlan->dev,
+> +				      "group address %pI4 does not match\n",
+> +				      &daddr);
+> +		goto drop;
+> +	}
+> +
+> +	if (vxlan->learn)
+> +		vxlan_snoop(skb->dev, saddr, eth_hdr(skb)->h_source);
+> +
+> +	stats = this_cpu_ptr(vxlan->stats);
+> +	u64_stats_update_begin(&stats->syncp);
+> +	stats->rx_packets++;
+> +	stats->rx_bytes += skb->len;
+> +	u64_stats_update_end(&stats->syncp);
+> +
+> +	__skb_tunnel_rx(skb, vxlan->dev);
+> +	skb_reset_network_header(skb);
 
---KDt/GgjP6HVcx58l
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+> +	vxlan_ecn_decap(oip, skb);
 
-iQIVAwUBUGC2gOe/yOyVhhEJAQq52w//RtqTGH4AM43XlfgFkiFCcG8kLSeaXMBB
-Qa4l/Yseo6wgKwi8k/yMBZ2/daYO4Efy9tfNmuxdIRF1HYtEHObyjPacmZLrJBG7
-FP8NE2mXbhf1hSHAh2h8P8Kwsdjah7uMtd2DbAVhzi+EEfVd6G5IbQqr4ysJ7thQ
-R8QJtohp+OP+Uy3hes+M/t5NhTG2ADB6spTEqJIrvjnzrLl8TzTaL1U3dkpmJn5Y
-KOGSUaMCvkLbYKzVj2WZmSmUubGKLDmbWja6vUAzJGX0d4XZN5IZ3S5Dt9iWLBw+
-pDzS4phyViBpqfufitMyzOZBJ/yCsCfedW0zumKAxcBVQUjoaO5y2QU3sAFdII/y
-2nsGuiLjO15Gi9Tn6PaRkhAI9ycTHNUh3RPbx4iXT9iMZzaow1hP8PdF28ezogw1
-A4poWA5FrTf8SMrvkGfTpsa107KTQF/rjDlGEbhRYdbNtyLBRBQZWo/w2FGBSc3y
-pPrMSxbkXmm059kvWKpkTL7hgM6ROMe8TTlkt5Eh+CiYjesKxb+R3Qvvmt4L5Fac
-SIslLsHD4O/i5vS9axKG+1MkKwqSWdtbgByEu7+t8I1PcSWLlq5q+OrWSYLJ4oNt
-TN8gZ/ukGUtLYUViLgHMrYZW1DZ++XIuhEbfzxdhqvqfcJJiUjN8mxzEyA5a+RJ4
-MMRe4U1+UdE=
-=udBD
------END PGP SIGNATURE-----
-
---KDt/GgjP6HVcx58l--
+potential crash
