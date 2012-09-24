@@ -1,416 +1,715 @@
-From: "Steven J. Hill" <sjhill@mips.com>
-Subject: [PATCH] net: mipsnet: Remove the MIPSsim Ethernet driver.
-Date: Mon, 24 Sep 2012 09:47:16 -0500
-Message-ID: <1348498036-30257-1-git-send-email-sjhill@mips.com>
-Cc: "Steven J. Hill" <sjhill@mips.com>, ralf@linux-mips.org
-To: linux-mips@linux-mips.org, netdev@vger.kernel.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Subject: [PATCH 3/5] smsc95xx: check return code from control messages
+Date: Mon, 24 Sep 2012 15:40:52 +0100
+Message-ID: <1348497654-9915-4-git-send-email-steve.glendinning@shawell.net>
+References: <1348497654-9915-1-git-send-email-steve.glendinning@shawell.net>
+Cc: Steve Glendinning <steve.glendinning@shawell.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:37775 "EHLO
+	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756171Ab2IXOu3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 10:50:29 -0400
+In-Reply-To: <1348497654-9915-1-git-send-email-steve.glendinning@shawell.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Steven J. Hill" <sjhill@mips.com>
+This patch adds additional checks of the values returned by
+smsc95xx_(read|write)_reg, and wraps their common patterns
+in macros.
 
-The MIPSsim platform is no longer supported or used. This patch
-deletes the Ethernet driver.
-
-Signed-off-by: Steven J. Hill <sjhill@mips.com>
+Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
 ---
- drivers/net/ethernet/Kconfig   |    9 --
- drivers/net/ethernet/Makefile  |    1 -
- drivers/net/ethernet/mipsnet.c |  345 ----------------------------------------
- 3 files changed, 355 deletions(-)
- delete mode 100644 drivers/net/ethernet/mipsnet.c
+ drivers/net/usb/smsc95xx.c |  331 ++++++++++++++++++++------------------------
+ 1 file changed, 148 insertions(+), 183 deletions(-)
 
-diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index e507b78..9ce995b 100644
---- a/drivers/net/ethernet/Kconfig
-+++ b/drivers/net/ethernet/Kconfig
-@@ -89,15 +89,6 @@ source "drivers/net/ethernet/marvell/Kconfig"
- source "drivers/net/ethernet/mellanox/Kconfig"
- source "drivers/net/ethernet/micrel/Kconfig"
- source "drivers/net/ethernet/microchip/Kconfig"
--
--config MIPS_SIM_NET
--	tristate "MIPS simulator Network device"
--	depends on MIPS_SIM
--	---help---
--	  The MIPSNET device is a simple Ethernet network device which is
--	  emulated by the MIPS Simulator.
--	  If you are not using a MIPSsim or are unsure, say N.
--
- source "drivers/net/ethernet/myricom/Kconfig"
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 5d0256b..d0ff01e 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -47,6 +47,15 @@
+ #define SMSC95XX_TX_OVERHEAD		(8)
+ #define SMSC95XX_TX_OVERHEAD_CSUM	(12)
  
- config FEALNX
-diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index d1c7a11..9acd1d7 100644
---- a/drivers/net/ethernet/Makefile
-+++ b/drivers/net/ethernet/Makefile
-@@ -40,7 +40,6 @@ obj-$(CONFIG_NET_VENDOR_MARVELL) += marvell/
- obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
- obj-$(CONFIG_NET_VENDOR_MICREL) += micrel/
- obj-$(CONFIG_NET_VENDOR_MICROCHIP) += microchip/
--obj-$(CONFIG_MIPS_SIM_NET) += mipsnet.o
- obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
- obj-$(CONFIG_FEALNX) += fealnx.o
- obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
-diff --git a/drivers/net/ethernet/mipsnet.c b/drivers/net/ethernet/mipsnet.c
-deleted file mode 100644
-index db5285b..0000000
---- a/drivers/net/ethernet/mipsnet.c
-+++ /dev/null
-@@ -1,345 +0,0 @@
--/*
-- * This file is subject to the terms and conditions of the GNU General Public
-- * License.  See the file "COPYING" in the main directory of this archive
-- * for more details.
-- */
--
--#include <linux/init.h>
--#include <linux/interrupt.h>
--#include <linux/io.h>
--#include <linux/kernel.h>
--#include <linux/module.h>
--#include <linux/netdevice.h>
--#include <linux/etherdevice.h>
--#include <linux/platform_device.h>
--#include <asm/mips-boards/simint.h>
--
--#define MIPSNET_VERSION "2007-11-17"
--
--/*
-- * Net status/control block as seen by sw in the core.
-- */
--struct mipsnet_regs {
--	/*
--	 * Device info for probing, reads as MIPSNET%d where %d is some
--	 * form of version.
--	 */
--	u64 devId;		/*0x00 */
--
--	/*
--	 * read only busy flag.
--	 * Set and cleared by the Net Device to indicate that an rx or a tx
--	 * is in progress.
--	 */
--	u32 busy;		/*0x08 */
--
--	/*
--	 * Set by the Net Device.
--	 * The device will set it once data has been received.
--	 * The value is the number of bytes that should be read from
--	 * rxDataBuffer.  The value will decrease till 0 until all the data
--	 * from rxDataBuffer has been read.
--	 */
--	u32 rxDataCount;	/*0x0c */
--#define MIPSNET_MAX_RXTX_DATACOUNT (1 << 16)
--
--	/*
--	 * Settable from the MIPS core, cleared by the Net Device.
--	 * The core should set the number of bytes it wants to send,
--	 * then it should write those bytes of data to txDataBuffer.
--	 * The device will clear txDataCount has been processed (not
--	 * necessarily sent).
--	 */
--	u32 txDataCount;	/*0x10 */
--
--	/*
--	 * Interrupt control
--	 *
--	 * Used to clear the interrupted generated by this dev.
--	 * Write a 1 to clear the interrupt. (except bit31).
--	 *
--	 * Bit0 is set if it was a tx-done interrupt.
--	 * Bit1 is set when new rx-data is available.
--	 *    Until this bit is cleared there will be no other RXs.
--	 *
--	 * Bit31 is used for testing, it clears after a read.
--	 *    Writing 1 to this bit will cause an interrupt to be generated.
--	 *    To clear the test interrupt, write 0 to this register.
--	 */
--	u32 interruptControl;	/*0x14 */
--#define MIPSNET_INTCTL_TXDONE     (1u << 0)
--#define MIPSNET_INTCTL_RXDONE     (1u << 1)
--#define MIPSNET_INTCTL_TESTBIT    (1u << 31)
--
--	/*
--	 * Readonly core-specific interrupt info for the device to signal
--	 * the core. The meaning of the contents of this field might change.
--	 */
--	/* XXX: the whole memIntf interrupt scheme is messy: the device
--	 * should have no control what so ever of what VPE/register set is
--	 * being used.
--	 * The MemIntf should only expose interrupt lines, and something in
--	 * the config should be responsible for the line<->core/vpe bindings.
--	 */
--	u32 interruptInfo;	/*0x18 */
--
--	/*
--	 * This is where the received data is read out.
--	 * There is more data to read until rxDataReady is 0.
--	 * Only 1 byte at this regs offset is used.
--	 */
--	u32 rxDataBuffer;	/*0x1c */
--
--	/*
--	 * This is where the data to transmit is written.
--	 * Data should be written for the amount specified in the
--	 * txDataCount register.
--	 * Only 1 byte at this regs offset is used.
--	 */
--	u32 txDataBuffer;	/*0x20 */
--};
--
--#define regaddr(dev, field) \
--  (dev->base_addr + offsetof(struct mipsnet_regs, field))
--
--static char mipsnet_string[] = "mipsnet";
--
--/*
-- * Copy data from the MIPSNET rx data port
-- */
--static int ioiocpy_frommipsnet(struct net_device *dev, unsigned char *kdata,
--			int len)
--{
--	for (; len > 0; len--, kdata++)
--		*kdata = inb(regaddr(dev, rxDataBuffer));
--
--	return inl(regaddr(dev, rxDataCount));
--}
--
--static inline void mipsnet_put_todevice(struct net_device *dev,
--	struct sk_buff *skb)
--{
--	int count_to_go = skb->len;
--	char *buf_ptr = skb->data;
--
--	outl(skb->len, regaddr(dev, txDataCount));
--
--	for (; count_to_go; buf_ptr++, count_to_go--)
--		outb(*buf_ptr, regaddr(dev, txDataBuffer));
--
--	dev->stats.tx_packets++;
--	dev->stats.tx_bytes += skb->len;
--
--	dev_kfree_skb(skb);
--}
--
--static int mipsnet_xmit(struct sk_buff *skb, struct net_device *dev)
--{
--	/*
--	 * Only one packet at a time. Once TXDONE interrupt is serviced, the
--	 * queue will be restarted.
--	 */
--	netif_stop_queue(dev);
--	mipsnet_put_todevice(dev, skb);
--
--	return NETDEV_TX_OK;
--}
--
--static inline ssize_t mipsnet_get_fromdev(struct net_device *dev, size_t len)
--{
--	struct sk_buff *skb;
--
--	if (!len)
--		return len;
--
--	skb = netdev_alloc_skb(dev, len + NET_IP_ALIGN);
--	if (!skb) {
--		dev->stats.rx_dropped++;
--		return -ENOMEM;
++#define check_warn(ret, fmt, args...) \
++	({ if (ret < 0) netdev_warn(dev->net, fmt, ##args); })
++
++#define check_warn_return(ret, fmt, args...) \
++	({ if (ret < 0) { netdev_warn(dev->net, fmt, ##args); return ret; } })
++
++#define check_warn_goto_done(ret, fmt, args...) \
++	({ if (ret < 0) { netdev_warn(dev->net, fmt, ##args); goto done; } })
++
+ struct smsc95xx_priv {
+ 	u32 mac_cr;
+ 	u32 hash_hi;
+@@ -63,7 +72,8 @@ static bool turbo_mode = true;
+ module_param(turbo_mode, bool, 0644);
+ MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
+ 
+-static int smsc95xx_read_reg(struct usbnet *dev, u32 index, u32 *data)
++static int __must_check smsc95xx_read_reg(struct usbnet *dev, u32 index,
++					  u32 *data)
+ {
+ 	u32 *buf = kmalloc(4, GFP_KERNEL);
+ 	int ret;
+@@ -88,7 +98,8 @@ static int smsc95xx_read_reg(struct usbnet *dev, u32 index, u32 *data)
+ 	return ret;
+ }
+ 
+-static int smsc95xx_write_reg(struct usbnet *dev, u32 index, u32 data)
++static int __must_check smsc95xx_write_reg(struct usbnet *dev, u32 index,
++					   u32 data)
+ {
+ 	u32 *buf = kmalloc(4, GFP_KERNEL);
+ 	int ret;
+@@ -116,13 +127,15 @@ static int smsc95xx_write_reg(struct usbnet *dev, u32 index, u32 data)
+ 
+ /* Loop until the read is completed with timeout
+  * called with phy_mutex held */
+-static int smsc95xx_phy_wait_not_busy(struct usbnet *dev)
++static int __must_check smsc95xx_phy_wait_not_busy(struct usbnet *dev)
+ {
+ 	unsigned long start_time = jiffies;
+ 	u32 val;
++	int ret;
+ 
+ 	do {
+-		smsc95xx_read_reg(dev, MII_ADDR, &val);
++		ret = smsc95xx_read_reg(dev, MII_ADDR, &val);
++		check_warn_return(ret, "Error reading MII_ACCESS");
+ 		if (!(val & MII_BUSY_))
+ 			return 0;
+ 	} while (!time_after(jiffies, start_time + HZ));
+@@ -134,33 +147,32 @@ static int smsc95xx_mdio_read(struct net_device *netdev, int phy_id, int idx)
+ {
+ 	struct usbnet *dev = netdev_priv(netdev);
+ 	u32 val, addr;
++	int ret;
+ 
+ 	mutex_lock(&dev->phy_mutex);
+ 
+ 	/* confirm MII not busy */
+-	if (smsc95xx_phy_wait_not_busy(dev)) {
+-		netdev_warn(dev->net, "MII is busy in smsc95xx_mdio_read\n");
+-		mutex_unlock(&dev->phy_mutex);
+-		return -EIO;
 -	}
--
--	skb_reserve(skb, NET_IP_ALIGN);
--	if (ioiocpy_frommipsnet(dev, skb_put(skb, len), len))
--		return -EFAULT;
--
--	skb->protocol = eth_type_trans(skb, dev);
--	skb->ip_summed = CHECKSUM_UNNECESSARY;
--
--	netif_rx(skb);
--
--	dev->stats.rx_packets++;
--	dev->stats.rx_bytes += len;
--
--	return len;
--}
--
--static irqreturn_t mipsnet_interrupt(int irq, void *dev_id)
--{
--	struct net_device *dev = dev_id;
--	u32 int_flags;
--	irqreturn_t ret = IRQ_NONE;
--
--	if (irq != dev->irq)
--		goto out_badirq;
--
--	/* TESTBIT is cleared on read. */
--	int_flags = inl(regaddr(dev, interruptControl));
--	if (int_flags & MIPSNET_INTCTL_TESTBIT) {
--		/* TESTBIT takes effect after a write with 0. */
--		outl(0, regaddr(dev, interruptControl));
--		ret = IRQ_HANDLED;
--	} else if (int_flags & MIPSNET_INTCTL_TXDONE) {
--		/* Only one packet at a time, we are done. */
--		dev->stats.tx_packets++;
--		netif_wake_queue(dev);
--		outl(MIPSNET_INTCTL_TXDONE,
--		     regaddr(dev, interruptControl));
--		ret = IRQ_HANDLED;
--	} else if (int_flags & MIPSNET_INTCTL_RXDONE) {
--		mipsnet_get_fromdev(dev, inl(regaddr(dev, rxDataCount)));
--		outl(MIPSNET_INTCTL_RXDONE, regaddr(dev, interruptControl));
--		ret = IRQ_HANDLED;
++	ret = smsc95xx_phy_wait_not_busy(dev);
++	check_warn_goto_done(ret, "MII is busy in smsc95xx_mdio_read");
+ 
+ 	/* set the address, index & direction (read from PHY) */
+ 	phy_id &= dev->mii.phy_id_mask;
+ 	idx &= dev->mii.reg_num_mask;
+ 	addr = (phy_id << 11) | (idx << 6) | MII_READ_;
+-	smsc95xx_write_reg(dev, MII_ADDR, addr);
++	ret = smsc95xx_write_reg(dev, MII_ADDR, addr);
++	check_warn_goto_done(ret, "Error writing MII_ADDR");
+ 
+-	if (smsc95xx_phy_wait_not_busy(dev)) {
+-		netdev_warn(dev->net, "Timed out reading MII reg %02X\n", idx);
+-		mutex_unlock(&dev->phy_mutex);
+-		return -EIO;
 -	}
--	return ret;
--
--out_badirq:
--	printk(KERN_INFO "%s: %s(): irq %d for unknown device\n",
--	       dev->name, __func__, irq);
--	return ret;
--}
--
--static int mipsnet_open(struct net_device *dev)
--{
--	int err;
--
--	err = request_irq(dev->irq, mipsnet_interrupt,
--			  IRQF_SHARED, dev->name, (void *) dev);
--	if (err) {
--		release_region(dev->base_addr, sizeof(struct mipsnet_regs));
--		return err;
++	ret = smsc95xx_phy_wait_not_busy(dev);
++	check_warn_goto_done(ret, "Timed out reading MII reg %02X", idx);
+ 
+-	smsc95xx_read_reg(dev, MII_DATA, &val);
++	ret = smsc95xx_read_reg(dev, MII_DATA, &val);
++	check_warn_goto_done(ret, "Error reading MII_DATA");
+ 
+-	mutex_unlock(&dev->phy_mutex);
++	ret = (u16)(val & 0xFFFF);
+ 
+-	return (u16)(val & 0xFFFF);
++done:
++	mutex_unlock(&dev->phy_mutex);
++	return ret;
+ }
+ 
+ static void smsc95xx_mdio_write(struct net_device *netdev, int phy_id, int idx,
+@@ -168,38 +180,41 @@ static void smsc95xx_mdio_write(struct net_device *netdev, int phy_id, int idx,
+ {
+ 	struct usbnet *dev = netdev_priv(netdev);
+ 	u32 val, addr;
++	int ret;
+ 
+ 	mutex_lock(&dev->phy_mutex);
+ 
+ 	/* confirm MII not busy */
+-	if (smsc95xx_phy_wait_not_busy(dev)) {
+-		netdev_warn(dev->net, "MII is busy in smsc95xx_mdio_write\n");
+-		mutex_unlock(&dev->phy_mutex);
+-		return;
 -	}
--
--	netif_start_queue(dev);
--
--	/* test interrupt handler */
--	outl(MIPSNET_INTCTL_TESTBIT, regaddr(dev, interruptControl));
--
--	return 0;
--}
--
--static int mipsnet_close(struct net_device *dev)
--{
--	netif_stop_queue(dev);
--	free_irq(dev->irq, dev);
--	return 0;
--}
--
--static void mipsnet_set_mclist(struct net_device *dev)
--{
--}
--
--static const struct net_device_ops mipsnet_netdev_ops = {
--	.ndo_open		= mipsnet_open,
--	.ndo_stop		= mipsnet_close,
--	.ndo_start_xmit		= mipsnet_xmit,
--	.ndo_set_rx_mode	= mipsnet_set_mclist,
--	.ndo_change_mtu		= eth_change_mtu,
--	.ndo_validate_addr	= eth_validate_addr,
--	.ndo_set_mac_address	= eth_mac_addr,
--};
--
--static int __devinit mipsnet_probe(struct platform_device *dev)
--{
--	struct net_device *netdev;
--	int err;
--
--	netdev = alloc_etherdev(0);
--	if (!netdev) {
--		err = -ENOMEM;
--		goto out;
++	ret = smsc95xx_phy_wait_not_busy(dev);
++	check_warn_goto_done(ret, "MII is busy in smsc95xx_mdio_write");
+ 
+ 	val = regval;
+-	smsc95xx_write_reg(dev, MII_DATA, val);
++	ret = smsc95xx_write_reg(dev, MII_DATA, val);
++	check_warn_goto_done(ret, "Error writing MII_DATA");
+ 
+ 	/* set the address, index & direction (write to PHY) */
+ 	phy_id &= dev->mii.phy_id_mask;
+ 	idx &= dev->mii.reg_num_mask;
+ 	addr = (phy_id << 11) | (idx << 6) | MII_WRITE_;
+-	smsc95xx_write_reg(dev, MII_ADDR, addr);
++	ret = smsc95xx_write_reg(dev, MII_ADDR, addr);
++	check_warn_goto_done(ret, "Error writing MII_ADDR");
+ 
+-	if (smsc95xx_phy_wait_not_busy(dev))
+-		netdev_warn(dev->net, "Timed out writing MII reg %02X\n", idx);
++	ret = smsc95xx_phy_wait_not_busy(dev);
++	check_warn_goto_done(ret, "Timed out writing MII reg %02X", idx);
+ 
++done:
+ 	mutex_unlock(&dev->phy_mutex);
+ }
+ 
+-static int smsc95xx_wait_eeprom(struct usbnet *dev)
++static int __must_check smsc95xx_wait_eeprom(struct usbnet *dev)
+ {
+ 	unsigned long start_time = jiffies;
+ 	u32 val;
++	int ret;
+ 
+ 	do {
+-		smsc95xx_read_reg(dev, E2P_CMD, &val);
++		ret = smsc95xx_read_reg(dev, E2P_CMD, &val);
++		check_warn_return(ret, "Error reading E2P_CMD");
+ 		if (!(val & E2P_CMD_BUSY_) || (val & E2P_CMD_TIMEOUT_))
+ 			break;
+ 		udelay(40);
+@@ -213,13 +228,15 @@ static int smsc95xx_wait_eeprom(struct usbnet *dev)
+ 	return 0;
+ }
+ 
+-static int smsc95xx_eeprom_confirm_not_busy(struct usbnet *dev)
++static int __must_check smsc95xx_eeprom_confirm_not_busy(struct usbnet *dev)
+ {
+ 	unsigned long start_time = jiffies;
+ 	u32 val;
++	int ret;
+ 
+ 	do {
+-		smsc95xx_read_reg(dev, E2P_CMD, &val);
++		ret = smsc95xx_read_reg(dev, E2P_CMD, &val);
++		check_warn_return(ret, "Error reading E2P_CMD");
+ 
+ 		if (!(val & E2P_CMD_BUSY_))
+ 			return 0;
+@@ -246,13 +263,15 @@ static int smsc95xx_read_eeprom(struct usbnet *dev, u32 offset, u32 length,
+ 
+ 	for (i = 0; i < length; i++) {
+ 		val = E2P_CMD_BUSY_ | E2P_CMD_READ_ | (offset & E2P_CMD_ADDR_);
+-		smsc95xx_write_reg(dev, E2P_CMD, val);
++		ret = smsc95xx_write_reg(dev, E2P_CMD, val);
++		check_warn_return(ret, "Error writing E2P_CMD");
+ 
+ 		ret = smsc95xx_wait_eeprom(dev);
+ 		if (ret < 0)
+ 			return ret;
+ 
+-		smsc95xx_read_reg(dev, E2P_DATA, &val);
++		ret = smsc95xx_read_reg(dev, E2P_DATA, &val);
++		check_warn_return(ret, "Error reading E2P_DATA");
+ 
+ 		data[i] = val & 0xFF;
+ 		offset++;
+@@ -276,7 +295,8 @@ static int smsc95xx_write_eeprom(struct usbnet *dev, u32 offset, u32 length,
+ 
+ 	/* Issue write/erase enable command */
+ 	val = E2P_CMD_BUSY_ | E2P_CMD_EWEN_;
+-	smsc95xx_write_reg(dev, E2P_CMD, val);
++	ret = smsc95xx_write_reg(dev, E2P_CMD, val);
++	check_warn_return(ret, "Error writing E2P_DATA");
+ 
+ 	ret = smsc95xx_wait_eeprom(dev);
+ 	if (ret < 0)
+@@ -286,11 +306,13 @@ static int smsc95xx_write_eeprom(struct usbnet *dev, u32 offset, u32 length,
+ 
+ 		/* Fill data register */
+ 		val = data[i];
+-		smsc95xx_write_reg(dev, E2P_DATA, val);
++		ret = smsc95xx_write_reg(dev, E2P_DATA, val);
++		check_warn_return(ret, "Error writing E2P_DATA");
+ 
+ 		/* Send "write" command */
+ 		val = E2P_CMD_BUSY_ | E2P_CMD_WRITE_ | (offset & E2P_CMD_ADDR_);
+-		smsc95xx_write_reg(dev, E2P_CMD, val);
++		ret = smsc95xx_write_reg(dev, E2P_CMD, val);
++		check_warn_return(ret, "Error writing E2P_CMD");
+ 
+ 		ret = smsc95xx_wait_eeprom(dev);
+ 		if (ret < 0)
+@@ -308,14 +330,14 @@ static void smsc95xx_async_cmd_callback(struct urb *urb)
+ 	struct usbnet *dev = usb_context->dev;
+ 	int status = urb->status;
+ 
+-	if (status < 0)
+-		netdev_warn(dev->net, "async callback failed with %d\n", status);
++	check_warn(status, "async callback failed with %d\n", status);
+ 
+ 	kfree(usb_context);
+ 	usb_free_urb(urb);
+ }
+ 
+-static int smsc95xx_write_reg_async(struct usbnet *dev, u16 index, u32 *data)
++static int __must_check smsc95xx_write_reg_async(struct usbnet *dev, u16 index,
++						 u32 *data)
+ {
+ 	struct usb_context *usb_context;
+ 	int status;
+@@ -371,6 +393,7 @@ static void smsc95xx_set_multicast(struct net_device *netdev)
+ 	struct usbnet *dev = netdev_priv(netdev);
+ 	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
+ 	unsigned long flags;
++	int ret;
+ 
+ 	pdata->hash_hi = 0;
+ 	pdata->hash_lo = 0;
+@@ -411,21 +434,23 @@ static void smsc95xx_set_multicast(struct net_device *netdev)
+ 	spin_unlock_irqrestore(&pdata->mac_cr_lock, flags);
+ 
+ 	/* Initiate async writes, as we can't wait for completion here */
+-	smsc95xx_write_reg_async(dev, HASHH, &pdata->hash_hi);
+-	smsc95xx_write_reg_async(dev, HASHL, &pdata->hash_lo);
+-	smsc95xx_write_reg_async(dev, MAC_CR, &pdata->mac_cr);
++	ret = smsc95xx_write_reg_async(dev, HASHH, &pdata->hash_hi);
++	check_warn(ret, "failed to initiate async write to HASHH");
++
++	ret = smsc95xx_write_reg_async(dev, HASHL, &pdata->hash_lo);
++	check_warn(ret, "failed to initiate async write to HASHL");
++
++	ret = smsc95xx_write_reg_async(dev, MAC_CR, &pdata->mac_cr);
++	check_warn(ret, "failed to initiate async write to MAC_CR");
+ }
+ 
+-static void smsc95xx_phy_update_flowcontrol(struct usbnet *dev, u8 duplex,
+-					    u16 lcladv, u16 rmtadv)
++static int smsc95xx_phy_update_flowcontrol(struct usbnet *dev, u8 duplex,
++					   u16 lcladv, u16 rmtadv)
+ {
+ 	u32 flow, afc_cfg = 0;
+ 
+ 	int ret = smsc95xx_read_reg(dev, AFC_CFG, &afc_cfg);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "error reading AFC_CFG\n");
+-		return;
 -	}
--
--	platform_set_drvdata(dev, netdev);
--
--	netdev->netdev_ops = &mipsnet_netdev_ops;
--
--	/*
--	 * TODO: probe for these or load them from PARAM
--	 */
--	netdev->base_addr = 0x4200;
--	netdev->irq = MIPS_CPU_IRQ_BASE + MIPSCPU_INT_MB0 +
--		      inl(regaddr(netdev, interruptInfo));
--
--	/* Get the io region now, get irq on open() */
--	if (!request_region(netdev->base_addr, sizeof(struct mipsnet_regs),
--			    "mipsnet")) {
--		err = -EBUSY;
--		goto out_free_netdev;
++	check_warn_return(ret, "Error reading AFC_CFG");
+ 
+ 	if (duplex == DUPLEX_FULL) {
+ 		u8 cap = mii_resolve_flowctrl_fdx(lcladv, rmtadv);
+@@ -449,8 +474,13 @@ static void smsc95xx_phy_update_flowcontrol(struct usbnet *dev, u8 duplex,
+ 		afc_cfg |= 0xF;
+ 	}
+ 
+-	smsc95xx_write_reg(dev, FLOW, flow);
+-	smsc95xx_write_reg(dev,	AFC_CFG, afc_cfg);
++	ret = smsc95xx_write_reg(dev, FLOW, flow);
++	check_warn_return(ret, "Error writing FLOW");
++
++	ret = smsc95xx_write_reg(dev, AFC_CFG, afc_cfg);
++	check_warn_return(ret, "Error writing AFC_CFG");
++
++	return 0;
+ }
+ 
+ static int smsc95xx_link_reset(struct usbnet *dev)
+@@ -460,10 +490,14 @@ static int smsc95xx_link_reset(struct usbnet *dev)
+ 	struct ethtool_cmd ecmd = { .cmd = ETHTOOL_GSET };
+ 	unsigned long flags;
+ 	u16 lcladv, rmtadv;
++	int ret;
+ 
+ 	/* clear interrupt status */
+-	smsc95xx_mdio_read(dev->net, mii->phy_id, PHY_INT_SRC);
+-	smsc95xx_write_reg(dev, INT_STS, INT_STS_CLEAR_ALL_);
++	ret = smsc95xx_mdio_read(dev->net, mii->phy_id, PHY_INT_SRC);
++	check_warn_return(ret, "Error reading PHY_INT_SRC");
++
++	ret = smsc95xx_write_reg(dev, INT_STS, INT_STS_CLEAR_ALL_);
++	check_warn_return(ret, "Error writing INT_STS");
+ 
+ 	mii_check_media(mii, 1, 1);
+ 	mii_ethtool_gset(&dev->mii, &ecmd);
+@@ -484,9 +518,11 @@ static int smsc95xx_link_reset(struct usbnet *dev)
+ 	}
+ 	spin_unlock_irqrestore(&pdata->mac_cr_lock, flags);
+ 
+-	smsc95xx_write_reg(dev, MAC_CR, pdata->mac_cr);
++	ret = smsc95xx_write_reg(dev, MAC_CR, pdata->mac_cr);
++	check_warn_return(ret, "Error writing MAC_CR");
+ 
+-	smsc95xx_phy_update_flowcontrol(dev, ecmd.duplex, lcladv, rmtadv);
++	ret = smsc95xx_phy_update_flowcontrol(dev, ecmd.duplex, lcladv, rmtadv);
++	check_warn_return(ret, "Error updating PHY flow control");
+ 
+ 	return 0;
+ }
+@@ -522,10 +558,7 @@ static int smsc95xx_set_features(struct net_device *netdev,
+ 	int ret;
+ 
+ 	ret = smsc95xx_read_reg(dev, COE_CR, &read_buf);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to read COE_CR: %d\n", ret);
+-		return ret;
 -	}
--
--	/*
--	 * Lacking any better mechanism to allocate a MAC address we use a
--	 * random one ...
--	 */
--	eth_hw_addr_random(netdev);
--
--	err = register_netdev(netdev);
--	if (err) {
--		printk(KERN_ERR "MIPSNet: failed to register netdev.\n");
--		goto out_free_region;
++	check_warn_return(ret, "Failed to read COE_CR: %d\n", ret);
+ 
+ 	if (features & NETIF_F_HW_CSUM)
+ 		read_buf |= Tx_COE_EN_;
+@@ -538,10 +571,7 @@ static int smsc95xx_set_features(struct net_device *netdev,
+ 		read_buf &= ~Rx_COE_EN_;
+ 
+ 	ret = smsc95xx_write_reg(dev, COE_CR, read_buf);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to write COE_CR: %d\n", ret);
+-		return ret;
 -	}
--
--	return 0;
--
--out_free_region:
--	release_region(netdev->base_addr, sizeof(struct mipsnet_regs));
--
--out_free_netdev:
--	free_netdev(netdev);
--
--out:
--	return err;
--}
--
--static int __devexit mipsnet_device_remove(struct platform_device *device)
--{
--	struct net_device *dev = platform_get_drvdata(device);
--
--	unregister_netdev(dev);
--	release_region(dev->base_addr, sizeof(struct mipsnet_regs));
--	free_netdev(dev);
--	platform_set_drvdata(device, NULL);
--
--	return 0;
--}
--
--static struct platform_driver mipsnet_driver = {
--	.driver = {
--		.name		= mipsnet_string,
--		.owner		= THIS_MODULE,
--	},
--	.probe		= mipsnet_probe,
--	.remove		= __devexit_p(mipsnet_device_remove),
--};
--
--static int __init mipsnet_init_module(void)
--{
--	int err;
--
--	printk(KERN_INFO "MIPSNet Ethernet driver. Version: %s. "
--	       "(c)2005 MIPS Technologies, Inc.\n", MIPSNET_VERSION);
--
--	err = platform_driver_register(&mipsnet_driver);
--	if (err)
--		printk(KERN_ERR "Driver registration failed\n");
--
--	return err;
--}
--
--static void __exit mipsnet_exit_module(void)
--{
--	platform_driver_unregister(&mipsnet_driver);
--}
--
--module_init(mipsnet_init_module);
--module_exit(mipsnet_exit_module);
++	check_warn_return(ret, "Failed to write COE_CR: %d\n", ret);
+ 
+ 	netif_dbg(dev, hw, dev->net, "COE_CR = 0x%08x\n", read_buf);
+ 	return 0;
+@@ -656,53 +686,56 @@ static int smsc95xx_set_mac_address(struct usbnet *dev)
+ 	int ret;
+ 
+ 	ret = smsc95xx_write_reg(dev, ADDRL, addr_lo);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to write ADDRL: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to write ADDRL: %d\n", ret);
+ 
+ 	ret = smsc95xx_write_reg(dev, ADDRH, addr_hi);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to write ADDRH: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to write ADDRH: %d\n", ret);
+ 
+ 	return 0;
+ }
+ 
+ /* starts the TX path */
+-static void smsc95xx_start_tx_path(struct usbnet *dev)
++static int smsc95xx_start_tx_path(struct usbnet *dev)
+ {
+ 	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
+ 	unsigned long flags;
++	int ret;
+ 
+ 	/* Enable Tx at MAC */
+ 	spin_lock_irqsave(&pdata->mac_cr_lock, flags);
+ 	pdata->mac_cr |= MAC_CR_TXEN_;
+ 	spin_unlock_irqrestore(&pdata->mac_cr_lock, flags);
+ 
+-	smsc95xx_write_reg(dev, MAC_CR, pdata->mac_cr);
++	ret = smsc95xx_write_reg(dev, MAC_CR, pdata->mac_cr);
++	check_warn_return(ret, "Failed to write MAC_CR: %d\n", ret);
+ 
+ 	/* Enable Tx at SCSRs */
+-	smsc95xx_write_reg(dev, TX_CFG, TX_CFG_ON_);
++	ret = smsc95xx_write_reg(dev, TX_CFG, TX_CFG_ON_);
++	check_warn_return(ret, "Failed to write TX_CFG: %d\n", ret);
++
++	return 0;
+ }
+ 
+ /* Starts the Receive path */
+-static void smsc95xx_start_rx_path(struct usbnet *dev)
++static int smsc95xx_start_rx_path(struct usbnet *dev)
+ {
+ 	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
+ 	unsigned long flags;
++	int ret;
+ 
+ 	spin_lock_irqsave(&pdata->mac_cr_lock, flags);
+ 	pdata->mac_cr |= MAC_CR_RXEN_;
+ 	spin_unlock_irqrestore(&pdata->mac_cr_lock, flags);
+ 
+-	smsc95xx_write_reg(dev, MAC_CR, pdata->mac_cr);
++	ret = smsc95xx_write_reg(dev, MAC_CR, pdata->mac_cr);
++	check_warn_return(ret, "Failed to write MAC_CR: %d\n", ret);
++
++	return 0;
+ }
+ 
+ static int smsc95xx_phy_initialize(struct usbnet *dev)
+ {
+-	int bmcr, timeout = 0;
++	int bmcr, ret, timeout = 0;
+ 
+ 	/* Initialize MII structure */
+ 	dev->mii.dev = dev->net;
+@@ -731,7 +764,8 @@ static int smsc95xx_phy_initialize(struct usbnet *dev)
+ 		ADVERTISE_PAUSE_ASYM);
+ 
+ 	/* read to clear */
+-	smsc95xx_mdio_read(dev->net, dev->mii.phy_id, PHY_INT_SRC);
++	ret = smsc95xx_mdio_read(dev->net, dev->mii.phy_id, PHY_INT_SRC);
++	check_warn_return(ret, "Failed to read PHY_INT_SRC during init");
+ 
+ 	smsc95xx_mdio_write(dev->net, dev->mii.phy_id, PHY_INT_MASK,
+ 		PHY_INT_MASK_DEFAULT_);
+@@ -750,20 +784,13 @@ static int smsc95xx_reset(struct usbnet *dev)
+ 	netif_dbg(dev, ifup, dev->net, "entering smsc95xx_reset\n");
+ 
+ 	ret = smsc95xx_write_reg(dev, HW_CFG, HW_CFG_LRST_);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to write HW_CFG_LRST_ bit in HW_CFG register, ret = %d\n",
+-			    ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to write HW_CFG_LRST_ bit in HW_CFG\n");
+ 
+ 	timeout = 0;
+ 	do {
+ 		msleep(10);
+ 		ret = smsc95xx_read_reg(dev, HW_CFG, &read_buf);
+-		if (ret < 0) {
+-			netdev_warn(dev->net, "Failed to read HW_CFG: %d\n", ret);
+-			return ret;
+-		}
++		check_warn_return(ret, "Failed to read HW_CFG: %d\n", ret);
+ 		timeout++;
+ 	} while ((read_buf & HW_CFG_LRST_) && (timeout < 100));
+ 
+@@ -773,19 +800,13 @@ static int smsc95xx_reset(struct usbnet *dev)
+ 	}
+ 
+ 	ret = smsc95xx_write_reg(dev, PM_CTRL, PM_CTL_PHY_RST_);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to write PM_CTRL: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to write PM_CTRL: %d\n", ret);
+ 
+ 	timeout = 0;
+ 	do {
+ 		msleep(10);
+ 		ret = smsc95xx_read_reg(dev, PM_CTRL, &read_buf);
+-		if (ret < 0) {
+-			netdev_warn(dev->net, "Failed to read PM_CTRL: %d\n", ret);
+-			return ret;
+-		}
++		check_warn_return(ret, "Failed to read PM_CTRL: %d\n", ret);
+ 		timeout++;
+ 	} while ((read_buf & PM_CTL_PHY_RST_) && (timeout < 100));
+ 
+@@ -802,10 +823,7 @@ static int smsc95xx_reset(struct usbnet *dev)
+ 		  "MAC Address: %pM\n", dev->net->dev_addr);
+ 
+ 	ret = smsc95xx_read_reg(dev, HW_CFG, &read_buf);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to read HW_CFG: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to read HW_CFG: %d\n", ret);
+ 
+ 	netif_dbg(dev, ifup, dev->net,
+ 		  "Read Value from HW_CFG : 0x%08x\n", read_buf);
+@@ -813,17 +831,10 @@ static int smsc95xx_reset(struct usbnet *dev)
+ 	read_buf |= HW_CFG_BIR_;
+ 
+ 	ret = smsc95xx_write_reg(dev, HW_CFG, read_buf);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to write HW_CFG_BIR_ bit in HW_CFG register, ret = %d\n",
+-			    ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to write HW_CFG_BIR_ bit in HW_CFG\n");
+ 
+ 	ret = smsc95xx_read_reg(dev, HW_CFG, &read_buf);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to read HW_CFG: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to read HW_CFG: %d\n", ret);
+ 	netif_dbg(dev, ifup, dev->net,
+ 		  "Read Value from HW_CFG after writing HW_CFG_BIR_: 0x%08x\n",
+ 		  read_buf);
+@@ -843,40 +854,28 @@ static int smsc95xx_reset(struct usbnet *dev)
+ 		  "rx_urb_size=%ld\n", (ulong)dev->rx_urb_size);
+ 
+ 	ret = smsc95xx_write_reg(dev, BURST_CAP, burst_cap);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to write BURST_CAP: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to write BURST_CAP: %d\n", ret);
+ 
+ 	ret = smsc95xx_read_reg(dev, BURST_CAP, &read_buf);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to read BURST_CAP: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to read BURST_CAP: %d\n", ret);
++
+ 	netif_dbg(dev, ifup, dev->net,
+ 		  "Read Value from BURST_CAP after writing: 0x%08x\n",
+ 		  read_buf);
+ 
+ 	ret = smsc95xx_write_reg(dev, BULK_IN_DLY, DEFAULT_BULK_IN_DELAY);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "ret = %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to write BULK_IN_DLY: %d\n", ret);
+ 
+ 	ret = smsc95xx_read_reg(dev, BULK_IN_DLY, &read_buf);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to read BULK_IN_DLY: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to read BULK_IN_DLY: %d\n", ret);
++
+ 	netif_dbg(dev, ifup, dev->net,
+ 		  "Read Value from BULK_IN_DLY after writing: 0x%08x\n",
+ 		  read_buf);
+ 
+ 	ret = smsc95xx_read_reg(dev, HW_CFG, &read_buf);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to read HW_CFG: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to read HW_CFG: %d\n", ret);
++
+ 	netif_dbg(dev, ifup, dev->net,
+ 		  "Read Value from HW_CFG: 0x%08x\n", read_buf);
+ 
+@@ -889,97 +888,66 @@ static int smsc95xx_reset(struct usbnet *dev)
+ 	read_buf |= NET_IP_ALIGN << 9;
+ 
+ 	ret = smsc95xx_write_reg(dev, HW_CFG, read_buf);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to write HW_CFG register, ret=%d\n",
+-			    ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to write HW_CFG: %d\n", ret);
+ 
+ 	ret = smsc95xx_read_reg(dev, HW_CFG, &read_buf);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to read HW_CFG: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to read HW_CFG: %d\n", ret);
++
+ 	netif_dbg(dev, ifup, dev->net,
+ 		  "Read Value from HW_CFG after writing: 0x%08x\n", read_buf);
+ 
+ 	ret = smsc95xx_write_reg(dev, INT_STS, INT_STS_CLEAR_ALL_);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to write INT_STS register, ret=%d\n",
+-			    ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to write INT_STS: %d\n", ret);
+ 
+ 	ret = smsc95xx_read_reg(dev, ID_REV, &read_buf);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to read ID_REV: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to read ID_REV: %d\n", ret);
+ 	netif_dbg(dev, ifup, dev->net, "ID_REV = 0x%08x\n", read_buf);
+ 
+ 	/* Configure GPIO pins as LED outputs */
+ 	write_buf = LED_GPIO_CFG_SPD_LED | LED_GPIO_CFG_LNK_LED |
+ 		LED_GPIO_CFG_FDX_LED;
+ 	ret = smsc95xx_write_reg(dev, LED_GPIO_CFG, write_buf);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to write LED_GPIO_CFG register, ret=%d\n",
+-			    ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to write LED_GPIO_CFG: %d\n", ret);
+ 
+ 	/* Init Tx */
+ 	ret = smsc95xx_write_reg(dev, FLOW, 0);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to write FLOW: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to write FLOW: %d\n", ret);
+ 
+ 	ret = smsc95xx_write_reg(dev, AFC_CFG, AFC_CFG_DEFAULT);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to write AFC_CFG: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to write AFC_CFG: %d\n", ret);
+ 
+ 	/* Don't need mac_cr_lock during initialisation */
+ 	ret = smsc95xx_read_reg(dev, MAC_CR, &pdata->mac_cr);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to read MAC_CR: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to read MAC_CR: %d\n", ret);
+ 
+ 	/* Init Rx */
+ 	/* Set Vlan */
+ 	ret = smsc95xx_write_reg(dev, VLAN1, (u32)ETH_P_8021Q);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to write VAN1: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to write VLAN1: %d\n", ret);
+ 
+ 	/* Enable or disable checksum offload engines */
+-	smsc95xx_set_features(dev->net, dev->net->features);
++	ret = smsc95xx_set_features(dev->net, dev->net->features);
++	check_warn_return(ret, "Failed to set checksum offload features");
+ 
+ 	smsc95xx_set_multicast(dev->net);
+ 
+-	if (smsc95xx_phy_initialize(dev) < 0)
+-		return -EIO;
++	ret = smsc95xx_phy_initialize(dev);
++	check_warn_return(ret, "Failed to init PHY");
+ 
+ 	ret = smsc95xx_read_reg(dev, INT_EP_CTL, &read_buf);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to read INT_EP_CTL: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to read INT_EP_CTL: %d\n", ret);
+ 
+ 	/* enable PHY interrupts */
+ 	read_buf |= INT_EP_CTL_PHY_INT_;
+ 
+ 	ret = smsc95xx_write_reg(dev, INT_EP_CTL, read_buf);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to write INT_EP_CTL: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "Failed to write INT_EP_CTL: %d\n", ret);
+ 
+-	smsc95xx_start_tx_path(dev);
+-	smsc95xx_start_rx_path(dev);
++	ret = smsc95xx_start_tx_path(dev);
++	check_warn_return(ret, "Failed to start TX path");
++
++	ret = smsc95xx_start_rx_path(dev);
++	check_warn_return(ret, "Failed to start RX path");
+ 
+ 	netif_dbg(dev, ifup, dev->net, "smsc95xx_reset, return 0\n");
+ 	return 0;
+@@ -1006,10 +974,7 @@ static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	printk(KERN_INFO SMSC_CHIPNAME " v" SMSC_DRIVER_VERSION "\n");
+ 
+ 	ret = usbnet_get_endpoints(dev, intf);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "usbnet_get_endpoints failed: %d\n", ret);
+-		return ret;
+-	}
++	check_warn_return(ret, "usbnet_get_endpoints failed: %d\n", ret);
+ 
+ 	dev->data[0] = (unsigned long)kzalloc(sizeof(struct smsc95xx_priv),
+ 		GFP_KERNEL);
 -- 
 1.7.9.5
