@@ -1,43 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
-Date: Mon, 24 Sep 2012 02:00:01 -0700
-Message-ID: <1348477207-27030-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 3/6] ixgbevf - Remove unused parameter in ixgbevf_receive_skb
+Date: Mon, 24 Sep 2012 02:00:04 -0700
+Message-ID: <1348477207-27030-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1348477207-27030-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Narendra K <narendra_k@dell.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:39455 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:13634 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750970Ab2IXJAM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Sep 2012 05:00:12 -0400
+	id S1750970Ab2IXJAN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Sep 2012 05:00:13 -0400
+In-Reply-To: <1348477207-27030-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe and ixgbevf (mainly ixgbevf).
+From: Narendra K <narendra_k@dell.com>
 
-The following are changes since commit c9d2ea96ca3bbc85264803ff6bd66eb3bbefdb77:
-  netlink: Rearrange netlink_kernel_cfg to save space on 64-bit.
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+Remove 'rx_ring' parameter as it is not used in ixgbevf_receive_skb
 
-Alexander Duyck (3):
-  ixgbevf: Fix code for handling timeout
-  ixgbevf: Add fix to VF to handle multi-descriptor buffers
-  ixgbevf: Return error on failure to enable VLAN
+Signed-off-by: Narendra K <narendra_k@dell.com>
+Acked-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-Greg Rose (2):
-  ixgbe: Do not read the spoofed packets counter when not in IOV mode
-  ixgbevf: Fix AIM (Adaptive Interrupt Moderation)
-
-Narendra K (1):
-  ixgbevf - Remove unused parameter in ixgbevf_receive_skb
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  5 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  5 ++
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 89 +++++++++++------------
- drivers/net/ethernet/intel/ixgbevf/mbx.c          | 15 +++-
- drivers/net/ethernet/intel/ixgbevf/vf.c           | 69 ++++++++++++++----
- 5 files changed, 117 insertions(+), 66 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 7aa31ee..cb215c6 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -272,12 +272,10 @@ cont_loop:
+  * @q_vector: structure containing interrupt and ring information
+  * @skb: packet to send up
+  * @status: hardware indication of status of receive
+- * @rx_ring: rx descriptor ring (for a specific queue) to setup
+  * @rx_desc: rx descriptor
+  **/
+ static void ixgbevf_receive_skb(struct ixgbevf_q_vector *q_vector,
+ 				struct sk_buff *skb, u8 status,
+-				struct ixgbevf_ring *ring,
+ 				union ixgbe_adv_rx_desc *rx_desc)
+ {
+ 	struct ixgbevf_adapter *adapter = q_vector->adapter;
+@@ -461,7 +459,7 @@ static bool ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
+ 		}
+ 		skb->protocol = eth_type_trans(skb, rx_ring->netdev);
+ 
+-		ixgbevf_receive_skb(q_vector, skb, staterr, rx_ring, rx_desc);
++		ixgbevf_receive_skb(q_vector, skb, staterr, rx_desc);
+ 
+ next_desc:
+ 		rx_desc->wb.upper.status_error = 0;
 -- 
 1.7.11.4
