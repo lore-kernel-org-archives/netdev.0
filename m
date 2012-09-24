@@ -1,64 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel BUG at kernel/timer.c:748!
-Date: Mon, 24 Sep 2012 19:31:18 +0200
-Message-ID: <1348507878.26828.1271.camel@edumazet-glaptop>
-References: <20120905043523.GA12988@redhat.com>
-	 <alpine.LFD.2.00.1209052343110.2201@ja.ssi.bg>
-	 <20120914212958.GA25053@redhat.com>
-	 <CAK6E8=cAOTqOzrzWCG=_wcQkWKS4bKh1HJ0UAH2vJNqvDPh+GQ@mail.gmail.com>
-	 <20120919211059.GA10985@redhat.com>
-	 <1348092082.31352.51.camel@edumazet-glaptop>
-	 <20120920020223.GA28110@redhat.com> <20120924153921.GA13845@redhat.com>
-	 <1348504445.26828.1131.camel@edumazet-glaptop>
-	 <1348506011.26828.1195.camel@edumazet-glaptop>
-	 <20120924171152.GA26454@redhat.com>
+From: Daniel Borkmann <dxchgb@gmail.com>
+Subject: [PATCH net-next] x86: bpf_jit_comp: add XOR instruction for BPF JIT
+Date: Mon, 24 Sep 2012 19:34:51 +0200
+Message-ID: <20120924173450.GA28969@thinkbox>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Yuchung Cheng <ycheng@google.com>, Julian Anastasov <ja@ssi.bg>,
-	netdev@vger.kernel.org
-To: Dave Jones <davej@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:65251 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757238Ab2IXRbW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 13:31:22 -0400
-Received: by bkcjk13 with SMTP id jk13so1074340bkc.19
-        for <netdev@vger.kernel.org>; Mon, 24 Sep 2012 10:31:21 -0700 (PDT)
-In-Reply-To: <20120924171152.GA26454@redhat.com>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:42773 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755502Ab2IXRe4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 13:34:56 -0400
+Received: by wibhr14 with SMTP id hr14so5199826wib.1
+        for <netdev@vger.kernel.org>; Mon, 24 Sep 2012 10:34:55 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-09-24 at 13:11 -0400, Dave Jones wrote:
+This patch is a follow-up for patch "filter: add XOR instruction for use
+with X/K" that implements BPF x86 JIT parts for the BPF XOR operation.
 
-> Great, I'll give this a shot.
-> 
-> Any idea why this only just started triggering ?
-> (Ie, do we need this for stable too?)
+Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
+---
+ arch/x86/net/bpf_jit_comp.c |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
 
-Seems this is a very old bug.
-
-I guess your trinity tool gets better ?
-
-I used following program to trigger the bug :
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <string.h>
-
-int main(int argc, char *argv[])
-{
-	int on = 1;
-	struct sockaddr_in addr;
-	int raw_sock = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
-
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = htonl(0x7f000001);
-	addr.sin_port = 123;
-	connect(raw_sock, (struct sockaddr *)&addr, sizeof(addr));
-	setsockopt(raw_sock, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof(on));
-	return 0;
-}
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index 106c578..520d2bd 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -335,9 +335,18 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 					EMIT1_off32(0x0d, K);	/* or imm32,%eax */
+ 				break;
+ 			case BPF_S_ANC_ALU_XOR_X: /* A ^= X; */
++			case BPF_S_ALU_XOR_X:
+ 				seen |= SEEN_XREG;
+ 				EMIT2(0x31, 0xd8);		/* xor %ebx,%eax */
+ 				break;
++			case BPF_S_ALU_XOR_K: /* A ^= K; */
++				if (K == 0)
++					break;
++				if (is_imm8(K))
++					EMIT3(0x83, 0xf0, K);	/* xor imm8,%eax */
++				else
++					EMIT1_off32(0x35, K);	/* xor imm32,%eax */
++				break;
+ 			case BPF_S_ALU_LSH_X: /* A <<= X; */
+ 				seen |= SEEN_XREG;
+ 				EMIT4(0x89, 0xd9, 0xd3, 0xe0);	/* mov %ebx,%ecx; shl %cl,%eax */
