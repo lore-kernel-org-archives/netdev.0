@@ -1,327 +1,115 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 6/7][RFC] netfilter: xt_IDLETIMER: Add new netlink msg
- type
-Date: Sun, 23 Sep 2012 23:41:52 +0200
-Message-ID: <20120923214152.GB1141@1984>
-References: <1348279853-44499-1-git-send-email-john.stultz@linaro.org>
- <1348279853-44499-7-git-send-email-john.stultz@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>, JP Abgrall <jpa@google.com>,
-	netdev@vger.kernel.org, Ashish Sharma <ashishsharma@google.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: John Stultz <john.stultz@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1348279853-44499-7-git-send-email-john.stultz@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marek Vasut <marex@denx.de>
+Subject: [PATCH 1/3 V4] phy/micrel: Implement support for KSZ8021
+Date: Mon, 24 Sep 2012 03:29:12 +0200
+Message-ID: <1348450152-16685-1-git-send-email-marex@denx.de>
+References: <20120922.153122.1337768859179326955.davem@davemloft.net>
+Cc: Marek Vasut <marex@denx.de>,
+	"David J. Choi" <david.choi@micrel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:49026 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754734Ab2IXB3T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2012 21:29:19 -0400
+In-Reply-To: <20120922.153122.1337768859179326955.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 21, 2012 at 10:10:52PM -0400, John Stultz wrote:
-> From: JP Abgrall <jpa@google.com>
-> 
-> Send notifications when the label becomes active after an idle period.
-> Send netlink message notifications in addition to sysfs notifications.
-> Using a uevent with
->   subsystem=xt_idletimer
->   INTERFACE=...
->   STATE={active,inactive}
-> 
-> This is backport from common android-3.0
-> commit: beb914e987cbbd368988d2b94a6661cb907c4d5a
-> with uevent support instead of a new netlink message type.
+The KSZ8021 PHY was previously caught by KS8051, which is not correct.
+This PHY needs additional setup if it is strapped for address 0. In such
+case an reserved bit must be written in the 0x16, "Operation Mode Strap
+Override" register. According to the KS8051 datasheet, that bit means
+"PHY Address 0 in non-broadcast" and it indeed behaves as such on KSZ8021.
+The issue where the ethernet controller (Freescale FEC) did not communicate
+with network is fixed by writing this bit as 1.
 
-I think this can be candidate to be included once some comestical
-issues are fixed.
+Signed-off-by: Marek Vasut <marex@denx.de>
+Cc: David J. Choi <david.choi@micrel.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+---
+ drivers/net/phy/micrel.c   |   27 +++++++++++++++++++++++++++
+ include/linux/micrel_phy.h |    1 +
+ 2 files changed, 28 insertions(+)
 
-> Cc: netdev@vger.kernel.org
-> Cc: JP Abgrall <jpa@google.com>
-> Cc: Ashish Sharma <ashishsharma@google.com>
-> Cc: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Ashish Sharma <ashishsharma@google.com>
-> Signed-off-by: JP Abgrall <jpa@google.com>
-> Signed-off-by: John Stultz <john.stultz@linaro.org>
-> ---
->  include/linux/netfilter/xt_IDLETIMER.h |    8 ++++
->  net/netfilter/xt_IDLETIMER.c           |   78 +++++++++++++++++++++++++++++---
->  2 files changed, 79 insertions(+), 7 deletions(-)
-> 
-> diff --git a/include/linux/netfilter/xt_IDLETIMER.h b/include/linux/netfilter/xt_IDLETIMER.h
-> index 208ae93..faaa28b 100644
-> --- a/include/linux/netfilter/xt_IDLETIMER.h
-> +++ b/include/linux/netfilter/xt_IDLETIMER.h
-> @@ -4,6 +4,7 @@
->   * Header file for Xtables timer target module.
->   *
->   * Copyright (C) 2004, 2010 Nokia Corporation
-> + *
+V2: Also add entry into micrel_tbl
+V3: - Rectify the indent problem in ksz8021_config_init() by introducing
+      const int value and using it in phy_write()
+    - Fix checkpatch issue in ksphy_driver array, put | at the end of line
+V4: Also align SUPPORTED_Asym_Pause to previous line
 
-we can live without that extra line above.
-
->   * Written by Timo Teras <ext-timo.teras@nokia.com>
->   *
->   * Converted to x_tables and forward-ported to 2.6.34
-> @@ -32,12 +33,19 @@
->  #include <linux/types.h>
->  
->  #define MAX_IDLETIMER_LABEL_SIZE 28
-> +#define NLMSG_MAX_SIZE 64
-
-better define this NLMSG_MAX_SIZE inside xt_IDLETIMER.c, this header
-is exported to user-space and that definition is not useful.
-
-> +
-> +#define NL_EVENT_TYPE_INACTIVE 0
-> +#define NL_EVENT_TYPE_ACTIVE 1
->  
->  struct idletimer_tg_info {
->  	__u32 timeout;
->  
->  	char label[MAX_IDLETIMER_LABEL_SIZE];
->  
-> +	/* Use netlink messages for notification in addition to sysfs */
-> +	__u8 send_nl_msg;
-> +
->  	/* for kernel module internal use only */
->  	struct idletimer_tg *timer __attribute__((aligned(8)));
->  };
-
-you have to define two structures:
-
-struct idletimer_tg_info
-struct idletimer_tg_info_v1
-
-and register both revisions. This (rudimentary) mechanism allows us to
-keep backward compatibility.
-
-See net/netfilter/xt_socket.c for instance.
-
-> diff --git a/net/netfilter/xt_IDLETIMER.c b/net/netfilter/xt_IDLETIMER.c
-> index f407ebc1..df91e26 100644
-> --- a/net/netfilter/xt_IDLETIMER.c
-> +++ b/net/netfilter/xt_IDLETIMER.c
-> @@ -5,6 +5,7 @@
->   * After timer expires a kevent will be sent.
->   *
->   * Copyright (C) 2004, 2010 Nokia Corporation
-> + *
->   * Written by Timo Teras <ext-timo.teras@nokia.com>
->   *
->   * Converted to x_tables and reworked for upstream inclusion
-> @@ -38,8 +39,10 @@
->  #include <linux/netfilter/xt_IDLETIMER.h>
->  #include <linux/kdev_t.h>
->  #include <linux/kobject.h>
-> +#include <linux/skbuff.h>
->  #include <linux/workqueue.h>
->  #include <linux/sysfs.h>
-> +#include <net/net_namespace.h>
->  
->  struct idletimer_tg_attr {
->  	struct attribute attr;
-> @@ -56,6 +59,8 @@ struct idletimer_tg {
->  	struct idletimer_tg_attr attr;
->  
->  	unsigned int refcnt;
-> +	bool send_nl_msg;
-> +	bool active;
->  };
->  
->  static LIST_HEAD(idletimer_tg_list);
-> @@ -63,6 +68,32 @@ static DEFINE_MUTEX(list_mutex);
->  
->  static struct kobject *idletimer_tg_kobj;
->  
-> +static void notify_netlink_uevent(const char *iface, struct idletimer_tg *timer)
-> +{
-> +	char iface_msg[NLMSG_MAX_SIZE];
-> +	char state_msg[NLMSG_MAX_SIZE];
-> +	char *envp[] = { iface_msg, state_msg, NULL };
-> +	int res;
-> +
-> +	res = snprintf(iface_msg, NLMSG_MAX_SIZE, "INTERFACE=%s",
-> +		       iface);
-> +	if (NLMSG_MAX_SIZE <= res) {
-> +		pr_err("message too long (%d)", res);
-> +		return;
-> +	}
-> +	res = snprintf(state_msg, NLMSG_MAX_SIZE, "STATE=%s",
-> +		       timer->active ? "active" : "inactive");
-> +	if (NLMSG_MAX_SIZE <= res) {
-> +		pr_err("message too long (%d)", res);
-> +		return;
-> +	}
-> +	pr_debug("putting nlmsg: <%s> <%s>\n", iface_msg, state_msg);
-> +	kobject_uevent_env(idletimer_tg_kobj, KOBJ_CHANGE, envp);
-> +	return;
-> +
-> +
-
-extra lines.
-
-> +}
-> +
->  static
->  struct idletimer_tg *__idletimer_tg_find_by_label(const char *label)
->  {
-> @@ -83,6 +114,7 @@ static ssize_t idletimer_tg_show(struct kobject *kobj, struct attribute *attr,
->  {
->  	struct idletimer_tg *timer;
->  	unsigned long expires = 0;
-> +	unsigned long now = jiffies;
->  
->  	mutex_lock(&list_mutex);
->  
-> @@ -92,11 +124,15 @@ static ssize_t idletimer_tg_show(struct kobject *kobj, struct attribute *attr,
->  
->  	mutex_unlock(&list_mutex);
->  
-> -	if (time_after(expires, jiffies))
-> +	if (time_after(expires, now))
->  		return sprintf(buf, "%u\n",
-> -			       jiffies_to_msecs(expires - jiffies) / 1000);
-> +			       jiffies_to_msecs(expires - now) / 1000);
->  
-> -	return sprintf(buf, "0\n");
-> +	if (timer->send_nl_msg)
-> +		return sprintf(buf, "0 %d\n",
-> +			jiffies_to_msecs(now - expires) / 1000);
-> +	else
-> +		return sprintf(buf, "0\n");
->  }
->  
->  static void idletimer_tg_work(struct work_struct *work)
-> @@ -105,6 +141,9 @@ static void idletimer_tg_work(struct work_struct *work)
->  						  work);
->  
->  	sysfs_notify(idletimer_tg_kobj, NULL, timer->attr.attr.name);
-> +
-> +	if (timer->send_nl_msg)
-> +		notify_netlink_uevent(timer->attr.attr.name, timer);
->  }
->  
->  static void idletimer_tg_expired(unsigned long data)
-> @@ -113,6 +152,7 @@ static void idletimer_tg_expired(unsigned long data)
->  
->  	pr_debug("timer %s expired\n", timer->attr.attr.name);
->  
-> +	timer->active = false;
->  	schedule_work(&timer->work);
->  }
->  
-> @@ -145,6 +185,8 @@ static int idletimer_tg_create(struct idletimer_tg_info *info)
->  	setup_timer(&info->timer->timer, idletimer_tg_expired,
->  		    (unsigned long) info->timer);
->  	info->timer->refcnt = 1;
-> +	info->timer->send_nl_msg = (info->send_nl_msg == 0) ? false : true;
-> +	info->timer->active = true;
->  
->  	mod_timer(&info->timer->timer,
->  		  msecs_to_jiffies(info->timeout * 1000) + jiffies);
-> @@ -168,14 +210,24 @@ static unsigned int idletimer_tg_target(struct sk_buff *skb,
->  					 const struct xt_action_param *par)
->  {
->  	const struct idletimer_tg_info *info = par->targinfo;
-> +	unsigned long now = jiffies;
->  
->  	pr_debug("resetting timer %s, timeout period %u\n",
->  		 info->label, info->timeout);
->  
->  	BUG_ON(!info->timer);
->  
-> +	info->timer->active = true;
-> +
-> +	if (time_before(info->timer->timer.expires, now)) {
-> +		schedule_work(&info->timer->work);
-> +		pr_debug("Starting timer %s (Expired, Jiffies): %lu, %lu\n",
-> +			 info->label, info->timer->timer.expires, now);
-> +	}
-
-AFAICS, this seems to fix the case in which timer has expired and we
-refresh it without sending the notification.
-
-Should go in a different patch.
-
-> +
-> +	/* TODO: Avoid modifying timers on each packet */
->  	mod_timer(&info->timer->timer,
-> -		  msecs_to_jiffies(info->timeout * 1000) + jiffies);
-> +		  msecs_to_jiffies(info->timeout * 1000) + now);
->  
->  	return XT_CONTINUE;
->  }
-> @@ -184,8 +236,9 @@ static int idletimer_tg_checkentry(const struct xt_tgchk_param *par)
->  {
->  	struct idletimer_tg_info *info = par->targinfo;
->  	int ret;
-> +	unsigned long now = jiffies;
->  
-> -	pr_debug("checkentry targinfo%s\n", info->label);
-> +	pr_debug("checkentry targinfo %s\n", info->label);
->  
->  	if (info->timeout == 0) {
->  		pr_debug("timeout value is zero\n");
-> @@ -204,8 +257,16 @@ static int idletimer_tg_checkentry(const struct xt_tgchk_param *par)
->  	info->timer = __idletimer_tg_find_by_label(info->label);
->  	if (info->timer) {
->  		info->timer->refcnt++;
-> +		info->timer->active = true;
-> +
-> +		if (time_before(info->timer->timer.expires, now)) {
-> +			schedule_work(&info->timer->work);
-> +			pr_debug("Starting Checkentry timer (Expired, Jiffies): %lu, %lu\n",
-> +				info->timer->timer.expires, now);
-> +		}
-> +
->  		mod_timer(&info->timer->timer,
-> -			  msecs_to_jiffies(info->timeout * 1000) + jiffies);
-> +			  msecs_to_jiffies(info->timeout * 1000) + now);
->  
->  		pr_debug("increased refcnt of timer %s to %u\n",
->  			 info->label, info->timer->refcnt);
-> @@ -219,6 +280,7 @@ static int idletimer_tg_checkentry(const struct xt_tgchk_param *par)
->  	}
->  
->  	mutex_unlock(&list_mutex);
-> +
-
-we don't need this.
-
->  	return 0;
->  }
->  
-> @@ -240,7 +302,7 @@ static void idletimer_tg_destroy(const struct xt_tgdtor_param *par)
->  		kfree(info->timer);
->  	} else {
->  		pr_debug("decreased refcnt of timer %s to %u\n",
-> -			 info->label, info->timer->refcnt);
-> +		info->label, info->timer->refcnt);
-
-remove this change.
-
->  	}
->  
->  	mutex_unlock(&list_mutex);
-> @@ -248,6 +310,7 @@ static void idletimer_tg_destroy(const struct xt_tgdtor_param *par)
->  
->  static struct xt_target idletimer_tg __read_mostly = {
->  	.name		= "IDLETIMER",
-> +	.revision	= 1,
->  	.family		= NFPROTO_UNSPEC,
->  	.target		= idletimer_tg_target,
->  	.targetsize     = sizeof(struct idletimer_tg_info),
-> @@ -313,3 +376,4 @@ MODULE_DESCRIPTION("Xtables: idle time monitor");
->  MODULE_LICENSE("GPL v2");
->  MODULE_ALIAS("ipt_IDLETIMER");
->  MODULE_ALIAS("ip6t_IDLETIMER");
-> +MODULE_ALIAS("arpt_IDLETIMER");
-
-Interesting, they are really using this with arptables?
-
-> -- 
-> 1.7.9.5
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index cf287e0..e8e00dc 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -21,6 +21,12 @@
+ #include <linux/phy.h>
+ #include <linux/micrel_phy.h>
+ 
++/* Operation Mode Strap Override */
++#define MII_KSZPHY_OMSO				0x16
++#define KSZPHY_OMSO_B_CAST_OFF			(1 << 9)
++#define KSZPHY_OMSO_RMII_OVERRIDE		(1 << 1)
++#define KSZPHY_OMSO_MII_OVERRIDE		(1 << 0)
++
+ /* general Interrupt control/status reg in vendor specific block. */
+ #define MII_KSZPHY_INTCS			0x1B
+ #define	KSZPHY_INTCS_JABBER			(1 << 15)
+@@ -101,6 +107,13 @@ static int kszphy_config_init(struct phy_device *phydev)
+ 	return 0;
+ }
+ 
++static int ksz8021_config_init(struct phy_device *phydev)
++{
++	const u16 val = KSZPHY_OMSO_B_CAST_OFF | KSZPHY_OMSO_RMII_OVERRIDE;
++	phy_write(phydev, MII_KSZPHY_OMSO, val);
++	return 0;
++}
++
+ static int ks8051_config_init(struct phy_device *phydev)
+ {
+ 	int regval;
+@@ -128,6 +141,19 @@ static struct phy_driver ksphy_driver[] = {
+ 	.config_intr	= ks8737_config_intr,
+ 	.driver		= { .owner = THIS_MODULE,},
+ }, {
++	.phy_id		= PHY_ID_KSZ8021,
++	.phy_id_mask	= 0x00ffffff,
++	.name		= "Micrel KSZ8021",
++	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
++			   SUPPORTED_Asym_Pause),
++	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.config_init	= ksz8021_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.ack_interrupt	= kszphy_ack_interrupt,
++	.config_intr	= kszphy_config_intr,
++	.driver		= { .owner = THIS_MODULE,},
++}, {
+ 	.phy_id		= PHY_ID_KS8041,
+ 	.phy_id_mask	= 0x00fffff0,
+ 	.name		= "Micrel KS8041",
+@@ -203,6 +229,7 @@ static struct mdio_device_id __maybe_unused micrel_tbl[] = {
+ 	{ PHY_ID_KSZ9021, 0x000ffffe },
+ 	{ PHY_ID_KS8001, 0x00ffffff },
+ 	{ PHY_ID_KS8737, 0x00fffff0 },
++	{ PHY_ID_KSZ8021, 0x00ffffff },
+ 	{ PHY_ID_KS8041, 0x00fffff0 },
+ 	{ PHY_ID_KS8051, 0x00fffff0 },
+ 	{ }
+diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
+index 61f0905..be7f366 100644
+--- a/include/linux/micrel_phy.h
++++ b/include/linux/micrel_phy.h
+@@ -5,6 +5,7 @@
+ 
+ #define PHY_ID_KSZ9021		0x00221610
+ #define PHY_ID_KS8737		0x00221720
++#define PHY_ID_KSZ8021		0x00221555
+ #define PHY_ID_KS8041		0x00221510
+ #define PHY_ID_KS8051		0x00221550
+ /* both for ks8001 Rev. A/B, and for ks8721 Rev 3. */
+-- 
+1.7.10.4
