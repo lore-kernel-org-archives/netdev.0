@@ -1,47 +1,46 @@
-From: pablo@netfilter.org
-Subject: [PATCH 03/16] netfilter: nf_nat: remove obsolete rcu_read_unlock call
-Date: Mon, 24 Sep 2012 21:19:15 +0200
-Message-ID: <1348514369-3272-4-git-send-email-pablo@netfilter.org>
-References: <1348514369-3272-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/3] vxlan: virtual extensible lan
+Date: Mon, 24 Sep 2012 21:33:03 +0200
+Message-ID: <1348515183.26828.1517.camel@edumazet-glaptop>
+References: <20120924184304.727711327@vyatta.com>
+	 <20120924185050.162920909@vyatta.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Chris Wright <chrisw@redhat.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58088 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757872Ab2IXTU5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Sep 2012 15:20:57 -0400
-In-Reply-To: <1348514369-3272-1-git-send-email-pablo@netfilter.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:60735 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755723Ab2IXTdJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 15:33:09 -0400
+Received: by bkcjk13 with SMTP id jk13so1142768bkc.19
+        for <netdev@vger.kernel.org>; Mon, 24 Sep 2012 12:33:07 -0700 (PDT)
+In-Reply-To: <20120924185050.162920909@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ulrich Weber <ulrich.weber@sophos.com>
+On Mon, 2012-09-24 at 11:43 -0700, Stephen Hemminger wrote:
 
-hlist walk in find_appropriate_src() is not protected anymore by rcu_read_lock(),
-so rcu_read_unlock() is unnecessary if in_range() matches.
+> --- a/drivers/net/Kconfig	2012-09-24 10:56:57.080291529 -0700
+> +++ b/drivers/net/Kconfig	2012-09-24 11:08:02.865416523 -0700
+> @@ -149,6 +149,19 @@ config MACVTAP
+>  	  To compile this driver as a module, choose M here: the module
+>  	  will be called macvtap.
+>  
+> +config VXLAN
+> +       tristate "Virtual eXtensible Local Area Network (VXLAN)"
+> +       depends on EXPERIMENTAL
+> +       ---help---
+> +	  This allows one to create vxlan virtual interfaces that provide
+> +	  Layer 2 Networks over Layer 3 Networks. VXLAN is often used
+> +	  to tunnel virtual network infrastructure in virtualized environments.
+> +	  For more information see:
+> +	    http://tools.ietf.org/html/draft-mahalingam-dutt-dcops-vxlan-02
+> +
+> +	  To compile this driver as a module, choose M here: the module
+> +	  will be called macvlan.
+> +
 
-This bug was added in (c7232c9 netfilter: add protocol independent NAT core).
-
-Signed-off-by: Ulrich Weber <ulrich.weber@sophos.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_nat_core.c |    4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
-index 65cf694..5f2f910 100644
---- a/net/netfilter/nf_nat_core.c
-+++ b/net/netfilter/nf_nat_core.c
-@@ -201,10 +201,8 @@ find_appropriate_src(struct net *net, u16 zone,
- 				       &ct->tuplehash[IP_CT_DIR_REPLY].tuple);
- 			result->dst = tuple->dst;
- 
--			if (in_range(l3proto, l4proto, result, range)) {
--				rcu_read_unlock();
-+			if (in_range(l3proto, l4proto, result, range))
- 				return 1;
--			}
- 		}
- 	}
- 	return 0;
--- 
-1.7.10.4
+copy/paste error, this module wont be called macvlan ;)
