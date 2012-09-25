@@ -1,32 +1,31 @@
-From: Postmaster@ntb.org.np
-Subject: IT Notification -- Attachment Removed
-Date: Tue, 25 Sep 2012 10:46:43 +0545
-Message-ID: <MDAEMON1848201209251046.AA4643117@ntb.org.np>
-Reply-To: Postmaster@ntb.org.np
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 25 Sep 2012 01:13:43 -0400 (EDT)
+Message-ID: <20120925.011343.1495275645575636949.davem@davemloft.net>
+References: <20120925123438.bbf3126889513ee5cc195e5c@canb.auug.org.au>
+	<1348549842.26828.1897.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ntb.org.np ([202.79.33.235]:3175 "EHLO mail.ntb.org.np"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751953Ab2IYFLT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Sep 2012 01:11:19 -0400
-Received: from ntb.org.np [202.79.33.235] by ntb.org.np [202.79.33.235]
-	(with RAW) (MDaemon PRO v9.6.1)
-	for <netdev@vger.kernel.org>; Tue, 25 Sep 2012 10:46:43 +0545
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	edumazet@google.com
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1348549842.26828.1897.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
--------------------------------------------------------------------
-IT has detected restricted attachments within an email message
--------------------------------------------------------------------
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 25 Sep 2012 07:10:42 +0200
 
->From      : netdev@vger.kernel.org
-To        : nandy@ntb.org.np
-Subject   : [***SPAM*** Score/Req: 05.1/5.0] Mail System Error - Returned Mail
-Message-ID: 
+> Oops, my bad, net/ipv4/raw.c changes in 5640f7685831 ("net: use a per
+> task frag allocator") should not be there :
+> 
+> I accidentally left a debugging version of the patch I sent to fix the
+> icmp bug.
+> 
+> Sorry David for this, I am not sure how I can help on this ?
 
----------------------
-Attachment(s) removed
----------------------
-TEXT.SCR
+The thing to do is send me a patch to revert the raw.c change from
+net-next, right?
