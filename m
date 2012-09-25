@@ -1,27 +1,53 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH] inet_diag: fix panic when unload inet_diag
-Date: Tue, 25 Sep 2012 15:27:17 +0800
-Message-ID: <50615CD5.4040801@cn.fujitsu.com>
-References: <1348541310-31913-1-git-send-email-gaofeng@cn.fujitsu.com> <1348555011.26828.2031.camel@edumazet-glaptop> <50615B30.80901@cn.fujitsu.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: bnx2x: link detected up at startup even when it should be
+ down
+Date: Tue, 25 Sep 2012 07:40:17 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F3079E4@SJEXCHMB06.corp.ad.broadcom.com>
+References: <CAL8zT=hFPQ-NZw8eKQwnktRrcpsOFk3aa_ac5mSWa+TAwyTGBQ@mail.gmail.com>
+ <504C9EFCA2D0054393414C9CB605C37F2EB97C@SJEXCHMB06.corp.ad.broadcom.com>
+ <CAL8zT=i_eV3SjuBgdWrBPaE-CoBBVh5QJD8jg-YMoQHDuA4AOQ@mail.gmail.com>
+ <504C9EFCA2D0054393414C9CB605C37F2F1B50@SJEXCHMB06.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, stephen.hemminger@vyatta.com, jengelh@inai.de,
-	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	"Barak Witkowski" <barak@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "Jean-Michel Hautbois" <jhautbois@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:40614 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751768Ab2IYH1Z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2012 03:27:25 -0400
-In-Reply-To: <50615B30.80901@cn.fujitsu.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:4219 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750839Ab2IYHke (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Sep 2012 03:40:34 -0400
+In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F2F1B50@SJEXCHMB06.corp.ad.broadcom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012=E5=B9=B409=E6=9C=8825=E6=97=A5 15:20, Gao feng =E5=86=99=
-=E9=81=93:
-> It's need to modify netlink_dump_start not only wrap netlink_dump_sta=
-rt.
-
-maybe it's better to add a struct module *module in struct netlink_call=
-back..
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIERtaXRyeSBLcmF2a292DQo+IFNlbnQ6IEZyaWRheSwgU2VwdGVtYmVyIDIxLCAyMDEy
+IDEwOjIzIFBNDQo+IFRvOiBKZWFuLU1pY2hlbCBIYXV0Ym9pcw0KPiBDYzogbmV0ZGV2OyBCYXJh
+ayBXaXRrb3dza2k7IEVpbG9uIEdyZWVuc3RlaW47IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4gU3Vi
+amVjdDogUkU6IGJueDJ4OiBsaW5rIGRldGVjdGVkIHVwIGF0IHN0YXJ0dXAgZXZlbiB3aGVuIGl0
+IHNob3VsZCBiZSBkb3duDQo+IA0KPiBIaSBKZWFuLA0KPiANCj4gVGhhbmsgeW91IGZvciB0aGUg
+aW5mbw0KPiANCj4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+IEZyb206IEplYW4t
+TWljaGVsIEhhdXRib2lzIFttYWlsdG86amhhdXRib2lzQGdtYWlsLmNvbV0NCj4gPiBTZW50OiBG
+cmlkYXksIFNlcHRlbWJlciAyMSwgMjAxMiA5OjA0IEFNDQo+ID4gVG86IERtaXRyeSBLcmF2a292
+DQo+ID4gQ2M6IG5ldGRldjsgQmFyYWsgV2l0a293c2tpOyBFaWxvbiBHcmVlbnN0ZWluOyBkYXZl
+bUBkYXZlbWxvZnQubmV0DQo+ID4gU3ViamVjdDogUmU6IGJueDJ4OiBsaW5rIGRldGVjdGVkIHVw
+IGF0IHN0YXJ0dXAgZXZlbiB3aGVuIGl0IHNob3VsZCBiZSBkb3duDQo+ID4NCj4gPiBJIGFscmVh
+ZHkgZGlkIGl0IHR3aWNlLiBJIHRoaW5rIHRoaXMgaXMgRlcgcmVsYXRlZCBhbmQgbm90IG9ubHkg
+dGhlDQo+ID4gY29tbWl0IGFkZGluZyBhZmV4IHN1cHBvcnQuIEl0IG1heSBoYXZlIHNvbHZlZCBh
+IGxpbmsgaXNzdWUgKEkgYW0ganVzdA0KPiA+IGd1ZXNzaW5nLCBiYXNlZCBvbiBleHBlcmltZW50
+cykgPw0KPiANCj4gRlcgcmVwbGFjZWQgaW4gdGhpcyBjb21taXQgZG9lcyBub3QgZGVhbCB3aXRo
+IGxpbmsgYXQgYWxsLA0KPiANCj4gT25lIGlzIGludm9sdmVkIGluIGxpbmsgbWFuYWdlbWVudCBp
+cyBkaXNwbGF5ZWQgdXNpbmcgJ2V0aHRvb2wgLWknIC0gaXQgY29tZXMgd2l0aA0KPiBhIGNhcmQg
+IGFuZCBkcml2ZXIgaW5kZXBlbmRlbnQuDQo+IA0KPiBJcyBkZXZpY2UgY29uZmlndXJlZCBmb3Ig
+TUYgYnkgdGhlIHN3aXRjaD8NCj4gQ2FuIHlvdSBwbGVhc2Ugc2hhcmUgbHNwY2kgb3V0cHV0Pw0K
+PiANCj4gT3RoZXIgdGhpbmcgdGhhdCBjYW4gaGVscCBpbiBhbmFseXNpcyBpcyBtc2dsdmwgMHg0
+IGZvciBib3RoIHNpdHVhdGlvbnMNCj4gDQpXZSB3ZXJlIHVuYWJsZSB0byByZXByb2R1Y2UgdGhl
+IGlzc3VlIG9uIDMuMi4gQ2FuIHlvdSBwbGVhc2UgcHJvdmlkZSBsb2dzIGZyb20geW91ciBzZXR1
+cD8NCg==
