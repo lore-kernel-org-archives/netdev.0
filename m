@@ -1,7 +1,7 @@
 From: "W. Trevor King" <wking@tremily.us>
 Subject: [PATCH] 8139too: add 1013:1211 PCI ID for a strange SMC1211TX.
 Date: Tue, 25 Sep 2012 16:35:54 -0400
-Message-ID: <eaafda75f4966acad08dd10e2627d7615b61206c.1348599606.git.wking__5693.99758610434$1348609014$gmane$org@tremily.us>
+Message-ID: <eaafda75f4966acad08dd10e2627d7615b61206c.1348599606.git.wking__8070.77625436268$1348609024$gmane$org@tremily.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
@@ -9,10 +9,14 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Ben Greear <greearb@candelatech.com>,
 	Joe Perches <joe@perches.com>, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vms173021pub.verizon.net ([206.46.173.21]:40029 "EHLO
+	vms173021pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753889Ab2IYVg3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2012 17:36:29 -0400
 Content-disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 The FCC ID on the board is HEDEN1207DTXR01, which belongs to Accton
 Technology Corporation.  This matches the expected 1113 ID.  Perhaps
