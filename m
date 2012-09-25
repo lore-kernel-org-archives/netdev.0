@@ -1,111 +1,47 @@
-From: <Narendra_K@Dell.com>
-Subject: [PATCH] qlcnic - Fix scheduling while atomic bug
-Date: Tue, 25 Sep 2012 10:53:19 -0700
-Message-ID: <20120925175212.GA1324@fedora-17-guest.blr.amer.dell.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: ixgbe unstable performance at 1Gb/s
+Date: Tue, 25 Sep 2012 17:58:38 +0000
+Message-ID: <87618083B2453E4A8714035B62D6799216E25153@FMSMSX102.amr.corp.intel.com>
+References: <loom.20120924T193212-646@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <sony.chacko@qlogic.com>, <jitendra.kalsaria@qlogic.com>,
-	<john.r.fastabend@intel.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Charles <charles.vejnar@unige.ch>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60pc101.us.dell.com ([143.166.85.206]:15513 "EHLO
-	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757607Ab2IYRzs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2012 13:55:48 -0400
+Received: from mga02.intel.com ([134.134.136.20]:19214 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756968Ab2IYR6k convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2012 13:58:40 -0400
+In-Reply-To: <loom.20120924T193212-646@post.gmane.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Narendra K <narendra_k@dell.com>
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
+>Behalf Of Charles
+>Sent: Monday, September 24, 2012 10:47 AM
+>To: netdev@vger.kernel.org
+>Subject: ixgbe unstable performance at 1Gb/s
+>
+>Hi,
+>
+>I hope I am posting on the right mailing-list. If not, sorry; please
+>redirect me
+>to the right place. Thanks.
+>
+>I have a new motherboard with integrated Intel X540 10GBase-T. For now, I
+>want
+>to use it at 1Gb/s.
+>
+>The bandwidth is only of ~300 Mbit/s (with Iperf). It's actually very
+>unstable
+>(always varies between 100 to 800 Mbit/s during the transfer).
 
-In the device close path, 'qlcnic_fw_destroy_ctx' and
-'qlcnic_poll_rsp' call msleep. But  'qlcnic_fw_destroy_ctx' and
-'qlcnic_poll_rsp' are called with 'adapter->tx_clean_lock' spin lock
-held resulting in scheduling while atomic bug causing the following
-trace.
+Do you by any chance have CONFIG_IXGBE_PTP set in your kernel config?
 
-I observed that the commit 012dc19a45b2b9cc2ebd14aaa401cf782c2abba4
-from John Fastabend addresses a similar issue in ixgbevf driver.
-Adopting the same approach used in the commit, this patch uses mdelay
-to address the issue.
+If so, try disabling it and see if it fixes your performance. 
 
-[79884.999115] BUG: scheduling while atomic: ip/30846/0x00000002
-[79885.005562] INFO: lockdep is turned off.
-[79885.009958] Modules linked in: qlcnic fuse nf_conntrack_netbios_ns nf_conntrack_broadcast ipt_MASQUERADE bnep bluetooth rfkill ip6table_mangle ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_filter ip6_tables iptable_nat nf_nat iptable_mangle ipt_REJECT nf_conntrack_ipv4 nf_defrag_ipv4 xt_conntrack nf_conntrack iptable_filter ip_tables dcdbas coretemp kvm_intel kvm iTCO_wdt ixgbe iTCO_vendor_support crc32c_intel ghash_clmulni_intel nfsd microcode sb_edac pcspkr edac_core dca bnx2x shpchp auth_rpcgss nfs_acl lpc_ich mfd_core mdio lockd libcrc32c wmi acpi_pad acpi_power_meter sunrpc uinput sd_mod sr_mod cdrom crc_t10dif ahci libahci libata megaraid_sas usb_storage dm_mirror dm_region_hash dm_log dm_mod [last unloaded: qlcnic]
-[79885.083608] Pid: 30846, comm: ip Tainted: G        W  O 3.6.0-rc7+ #1
-[79885.090805] Call Trace:
-[79885.093569]  [<ffffffff816764d8>] __schedule_bug+0x68/0x76
-[79885.099699]  [<ffffffff8168358e>] __schedule+0x99e/0xa00
-[79885.105634]  [<ffffffff81683929>] schedule+0x29/0x70
-[79885.111186]  [<ffffffff81680def>] schedule_timeout+0x16f/0x350
-[79885.117724]  [<ffffffff811afb7a>] ? init_object+0x4a/0x90
-[79885.123770]  [<ffffffff8107c190>] ? __internal_add_timer+0x140/0x140
-[79885.130873]  [<ffffffff81680fee>] schedule_timeout_uninterruptible+0x1e/0x20
-[79885.138773]  [<ffffffff8107e830>] msleep+0x20/0x30
-[79885.144159]  [<ffffffffa04c7fbf>] qlcnic_issue_cmd+0xef/0x290 [qlcnic]
-[79885.151478]  [<ffffffffa04c8265>] qlcnic_fw_cmd_destroy_rx_ctx+0x55/0x90 [qlcnic]
-[79885.159868]  [<ffffffffa04c92fd>] qlcnic_fw_destroy_ctx+0x2d/0xa0 [qlcnic]
-[79885.167576]  [<ffffffffa04bf2ed>] __qlcnic_down+0x11d/0x180 [qlcnic]
-[79885.174708]  [<ffffffffa04bf6f8>] qlcnic_close+0x18/0x20 [qlcnic]
-[79885.181547]  [<ffffffff8153b4c5>] __dev_close_many+0x95/0xe0
-[79885.187899]  [<ffffffff8153b548>] __dev_close+0x38/0x50
-[79885.193761]  [<ffffffff81545101>] __dev_change_flags+0xa1/0x180
-[79885.200419]  [<ffffffff81545298>] dev_change_flags+0x28/0x70
-[79885.206779]  [<ffffffff815531b8>] do_setlink+0x378/0xa00
-[79885.212731]  [<ffffffff81354fe1>] ? nla_parse+0x31/0xe0
-[79885.218612]  [<ffffffff815558ee>] rtnl_newlink+0x37e/0x560
-[79885.224768]  [<ffffffff812cfa19>] ? selinux_capable+0x39/0x50
-[79885.231217]  [<ffffffff812cbf98>] ? security_capable+0x18/0x20
-[79885.237765]  [<ffffffff81555114>] rtnetlink_rcv_msg+0x114/0x2f0
-[79885.244412]  [<ffffffff81551f87>] ? rtnl_lock+0x17/0x20
-[79885.250280]  [<ffffffff81551f87>] ? rtnl_lock+0x17/0x20
-[79885.256148]  [<ffffffff81555000>] ? __rtnl_unlock+0x20/0x20
-[79885.262413]  [<ffffffff81570fc1>] netlink_rcv_skb+0xa1/0xb0
-[79885.268661]  [<ffffffff81551fb5>] rtnetlink_rcv+0x25/0x40
-[79885.274727]  [<ffffffff815708bd>] netlink_unicast+0x19d/0x220
-[79885.281146]  [<ffffffff81570c45>] netlink_sendmsg+0x305/0x3f0
-[79885.287595]  [<ffffffff8152b188>] ? sock_update_classid+0x148/0x2e0
-[79885.294650]  [<ffffffff81525c2c>] sock_sendmsg+0xbc/0xf0
-[79885.300600]  [<ffffffff8152600c>] __sys_sendmsg+0x3ac/0x3c0
-[79885.306853]  [<ffffffff8109be23>] ? up_read+0x23/0x40
-[79885.312510]  [<ffffffff816896cc>] ? do_page_fault+0x2bc/0x570
-[79885.318968]  [<ffffffff81191854>] ? sys_brk+0x44/0x150
-[79885.324715]  [<ffffffff811c458c>] ? fget_light+0x24c/0x520
-[79885.330875]  [<ffffffff815286f9>] sys_sendmsg+0x49/0x90
-[79885.336707]  [<ffffffff8168e429>] system_call_fastpath+0x16/0x1b
-
-Signed-off-by: Narendra K <narendra_k@dell.com>
----
-The patch applies to latest mainline kernel version 3.6-rc7
-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-index b8ead69..2a179d0 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-@@ -15,7 +15,7 @@ qlcnic_poll_rsp(struct qlcnic_adapter *adapter)
- 
- 	do {
- 		/* give atleast 1ms for firmware to respond */
--		msleep(1);
-+		mdelay(1);
- 
- 		if (++timeout > QLCNIC_OS_CRB_RETRY_COUNT)
- 			return QLCNIC_CDRP_RSP_TIMEOUT;
-@@ -601,7 +601,7 @@ void qlcnic_fw_destroy_ctx(struct qlcnic_adapter *adapter)
- 		qlcnic_fw_cmd_destroy_tx_ctx(adapter);
- 
- 		/* Allow dma queues to drain after context reset */
--		msleep(20);
-+		mdelay(20);
- 	}
- }
- 
--- 
-1.7.10.2
-
--- 
-With regards,
-Narendra K
+Thanks,
+Emil
