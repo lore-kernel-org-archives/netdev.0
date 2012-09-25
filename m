@@ -1,26 +1,68 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v4] lxt PHY: Support for the buggy LXT973 rev A2
-Date: Tue, 25 Sep 2012 09:47:36 +0200
-Message-ID: <20120925074736.GB2169@netboy.at.omicron.at>
-References: <201209241400.q8OE0w38011790@localhost.localdomain>
- <20120924183035.GA2252@netboy.at.omicron.at>
- <50614DEE.9050400@c-s.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David S Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: leroy christophe <christophe.leroy@c-s.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <50614DEE.9050400@c-s.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH] ipconfig: fix trivial build error
+Date: Tue, 25 Sep 2012 11:09:58 +0300
+Message-ID: <1348560598-21233-1-git-send-email-andriy.shevchenko@linux.intel.com>
+References: <1348255713.12456.43.camel@mars>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	Christoph Fritz <chf.fritz@googlemail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org, linux-next@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1348255713.12456.43.camel@mars>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 25, 2012 at 08:23:42AM +0200, leroy christophe wrote:
-> 
-> A2 chip has phy_id 0x00137a10
-> A3 chip has phy_id 0x00137a11
+The commit 5e953778a2aab04929a5e7b69f53dc26e39b079e ("ipconfig: add nameserver
+IPs to kernel-parameter ip=") introduces ic_nameservers_predef() that defined
+only for BOOTP. However it is used by ip_auto_config_setup() as well. This
+patch moves it outside of #ifdef BOOTP.
 
-Okay then, thanks.
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Cc: Christoph Fritz <chf.fritz@googlemail.com>
+Cc: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/ipconfig.c |   22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index 1c0e7e0..798358b 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -583,6 +583,17 @@ static void __init ic_rarp_send_if(struct ic_device *d)
+ #endif
+ 
+ /*
++ *  Predefine Nameservers
++ */
++static inline void __init ic_nameservers_predef(void)
++{
++	int i;
++
++	for (i = 0; i < CONF_NAMESERVERS_MAX; i++)
++		ic_nameservers[i] = NONE;
++}
++
++/*
+  *	DHCP/BOOTP support.
+  */
+ 
+@@ -743,17 +754,6 @@ static void __init ic_bootp_init_ext(u8 *e)
+ 
+ 
+ /*
+- *  Predefine Nameservers
+- */
+-static inline void __init ic_nameservers_predef(void)
+-{
+-	int i;
+-
+-	for (i = 0; i < CONF_NAMESERVERS_MAX; i++)
+-		ic_nameservers[i] = NONE;
+-}
+-
+-/*
+  *  Initialize the DHCP/BOOTP mechanism.
+  */
+ static inline void __init ic_bootp_init(void)
+-- 
+1.7.10.4
