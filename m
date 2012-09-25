@@ -1,107 +1,146 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH] inet_diag: fix panic when unload inet_diag
-Date: Tue, 25 Sep 2012 10:48:30 +0800
-Message-ID: <1348541310-31913-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: stephen.hemminger@vyatta.com, jengelh@inai.de,
-	eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru,
-	netdev@vger.kernel.org, Gao feng <gaofeng@cn.fujitsu.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-next 1/4] gre: fix handling of key 0
+Date: Mon, 24 Sep 2012 21:12:23 -0700
+Message-ID: <20120925041259.115596016@vyatta.com>
+References: <20120925041222.056704869@vyatta.com>
+Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:11493 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752407Ab2IYDAN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Sep 2012 23:00:13 -0400
+Received: from fiji.vyatta.com ([76.74.103.50]:44181 "EHLO fiji.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751769Ab2IYEQ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Sep 2012 00:16:27 -0400
+Content-Disposition: inline; filename=gre-key0.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-when inet_diag being compiled as module, inet_diag_handler_dump
-set netlink_dump_control.dump to inet_diag_dump,so if module
-inet_diag is unloaded,netlink will still try to call this function
-in netlink_dump. this will cause kernel panic.
+GRE driver incorrectly uses zero as a flag value. Zero is a perfectly
+valid value for key, and the tunnel should match packets with no key only
+with tunnels created without key, and vice versa.
 
-fix this by adding a reference of inet_diag module before
-setting netlink_callback, and release this reference in
-netlink_callback.done.
+This is a slightly visible  change since previously it might be possible to
+construct a working tunnel that sent key 0 and received only because
+of the key wildcard of zero.  I.e the sender sent key of zero, but tunnel
+was defined without key.
 
-Thanks for all help from Stephen,Jan and Eric.
+Note: using gre key 0 requires iproute2 utilities v3.2 or later.
+The original utility code was broken as well.
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
----
- net/ipv4/inet_diag.c |   46 ++++++++++++++++++++++++++++++++++++++++++++--
- 1 files changed, 44 insertions(+), 2 deletions(-)
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 570e61f..e573090 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -903,6 +903,12 @@ static int inet_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	return __inet_diag_dump(skb, cb, nlmsg_data(cb->nlh), bc);
+
+--- a/net/ipv4/ip_gre.c	2012-08-15 08:59:22.958704223 -0700
++++ b/net/ipv4/ip_gre.c	2012-09-12 09:40:04.420959235 -0700
+@@ -214,11 +214,25 @@ static struct rtnl_link_stats64 *ipgre_g
+ 	return tot;
  }
  
-+static int inet_diag_done(struct netlink_callback *cb)
++/* Does key in tunnel parameters match packet */
++static bool ipgre_key_match(const struct ip_tunnel_parm *p,
++			    __u32 flags, __be32 key)
 +{
-+	module_put(THIS_MODULE);
-+	return 0;
++	if (p->i_flags & GRE_KEY) {
++		if (flags & GRE_KEY)
++			return key == p->i_key;
++		else
++			return false;	/* key expected, none present */
++	} else
++		return !(flags & GRE_KEY);
 +}
 +
- static inline int inet_diag_type2proto(int type)
+ /* Given src, dst and key, find appropriate for input tunnel. */
+ 
+ static struct ip_tunnel *ipgre_tunnel_lookup(struct net_device *dev,
+ 					     __be32 remote, __be32 local,
+-					     __be32 key, __be16 gre_proto)
++					     __u32 flags, __be32 key,
++					     __be16 gre_proto)
  {
+ 	struct net *net = dev_net(dev);
+ 	int link = dev->ifindex;
+@@ -233,10 +247,12 @@ static struct ip_tunnel *ipgre_tunnel_lo
+ 	for_each_ip_tunnel_rcu(ign->tunnels_r_l[h0 ^ h1]) {
+ 		if (local != t->parms.iph.saddr ||
+ 		    remote != t->parms.iph.daddr ||
+-		    key != t->parms.i_key ||
+ 		    !(t->dev->flags & IFF_UP))
+ 			continue;
+ 
++		if (!ipgre_key_match(&t->parms, flags, key))
++			continue;
++
+ 		if (t->dev->type != ARPHRD_IPGRE &&
+ 		    t->dev->type != dev_type)
+ 			continue;
+@@ -257,10 +273,12 @@ static struct ip_tunnel *ipgre_tunnel_lo
+ 
+ 	for_each_ip_tunnel_rcu(ign->tunnels_r[h0 ^ h1]) {
+ 		if (remote != t->parms.iph.daddr ||
+-		    key != t->parms.i_key ||
+ 		    !(t->dev->flags & IFF_UP))
+ 			continue;
+ 
++		if (!ipgre_key_match(&t->parms, flags, key))
++			continue;
++
+ 		if (t->dev->type != ARPHRD_IPGRE &&
+ 		    t->dev->type != dev_type)
+ 			continue;
+@@ -283,10 +301,12 @@ static struct ip_tunnel *ipgre_tunnel_lo
+ 		if ((local != t->parms.iph.saddr &&
+ 		     (local != t->parms.iph.daddr ||
+ 		      !ipv4_is_multicast(local))) ||
+-		    key != t->parms.i_key ||
+ 		    !(t->dev->flags & IFF_UP))
+ 			continue;
+ 
++		if (!ipgre_key_match(&t->parms, flags, key))
++			continue;
++
+ 		if (t->dev->type != ARPHRD_IPGRE &&
+ 		    t->dev->type != dev_type)
+ 			continue;
+@@ -489,6 +509,7 @@ static void ipgre_err(struct sk_buff *sk
+ 	const int code = icmp_hdr(skb)->code;
+ 	struct ip_tunnel *t;
+ 	__be16 flags;
++	__be32 key = 0;
+ 
+ 	flags = p[0];
+ 	if (flags&(GRE_CSUM|GRE_KEY|GRE_SEQ|GRE_ROUTING|GRE_VERSION)) {
+@@ -505,6 +526,9 @@ static void ipgre_err(struct sk_buff *sk
+ 	if (skb_headlen(skb) < grehlen)
+ 		return;
+ 
++	if (flags & GRE_KEY)
++		key = *(((__be32 *)p) + (grehlen / 4) - 1);
++
  	switch (type) {
-@@ -972,8 +978,26 @@ static int inet_diag_rcv_msg_compat(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		{
- 			struct netlink_dump_control c = {
- 				.dump = inet_diag_dump_compat,
-+				.done = inet_diag_done,
- 			};
--			return netlink_dump_start(net->diag_nlsk, skb, nlh, &c);
-+			int err;
-+			/*
-+			 * netlink_dump will call inet_diag_dump_compat,
-+			 * so we need a reference of THIS_MODULE.
-+			 */
-+			if (!try_module_get(THIS_MODULE))
-+				return -EPROTONOSUPPORT;
-+
-+			err = netlink_dump_start(net->diag_nlsk, skb, nlh, &c);
-+
-+			if ((err != -EINTR) && (err != -ENOBUFS)) {
-+				/*
-+				 * netlink_callback set failed, release the
-+				 * referenct of THIS_MODULE.
-+				 */
-+				module_put(THIS_MODULE);
-+			}
-+			return err;
- 		}
- 	}
+ 	default:
+ 	case ICMP_PARAMETERPROB:
+@@ -535,9 +559,8 @@ static void ipgre_err(struct sk_buff *sk
  
-@@ -1001,8 +1025,26 @@ static int inet_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
- 		{
- 			struct netlink_dump_control c = {
- 				.dump = inet_diag_dump,
-+				.done = inet_diag_done,
- 			};
--			return netlink_dump_start(net->diag_nlsk, skb, h, &c);
-+			int err;
-+			/*
-+			 * netlink_dump will call inet_diag_dump,
-+			 * so we need a reference of THIS_MODULE.
-+			 */
-+			if (!try_module_get(THIS_MODULE))
-+				return -EPROTONOSUPPORT;
+ 	rcu_read_lock();
+ 	t = ipgre_tunnel_lookup(skb->dev, iph->daddr, iph->saddr,
+-				flags & GRE_KEY ?
+-				*(((__be32 *)p) + (grehlen / 4) - 1) : 0,
+-				p[1]);
++				flags, key, p[1]);
 +
-+			err = netlink_dump_start(net->diag_nlsk, skb, h, &c);
-+
-+			if ((err != -EINTR) && (err != -ENOBUFS)) {
-+				/*
-+				 * netlink_callback set failed, release the
-+				 * referenct of THIS_MODULE.
-+				 */
-+				module_put(THIS_MODULE);
-+			}
-+			return err;
- 		}
- 	}
+ 	if (t == NULL)
+ 		goto out;
  
--- 
-1.7.7
+@@ -642,9 +665,10 @@ static int ipgre_rcv(struct sk_buff *skb
+ 	gre_proto = *(__be16 *)(h + 2);
+ 
+ 	rcu_read_lock();
+-	if ((tunnel = ipgre_tunnel_lookup(skb->dev,
+-					  iph->saddr, iph->daddr, key,
+-					  gre_proto))) {
++	tunnel = ipgre_tunnel_lookup(skb->dev,
++				     iph->saddr, iph->daddr, flags, key,
++				     gre_proto);
++	if (tunnel) {
+ 		struct pcpu_tstats *tstats;
+ 
+ 		secpath_reset(skb);
