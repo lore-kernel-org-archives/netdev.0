@@ -1,30 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: avoid tcp loop connection on lo device
-Date: Tue, 25 Sep 2012 13:04:36 -0400 (EDT)
-Message-ID: <20120925.130436.2297001740930119160.davem@davemloft.net>
-References: <50616772.8040704@gmail.com>
+Subject: Re: [PATCH] net: sh-eth: fix sleeping in atomic context
+Date: Tue, 25 Sep 2012 13:08:31 -0400 (EDT)
+Message-ID: <20120925.130831.369798738695859924.davem@davemloft.net>
+References: <Pine.LNX.4.64.1209251143210.9446@axis700.grange>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shanwei88@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35192 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756654Ab2IYREk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2012 13:04:40 -0400
-In-Reply-To: <50616772.8040704@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-sh@vger.kernel.org, lethal@linux-sh.org,
+	netdev@vger.kernel.org
+To: g.liakhovetski@gmx.de
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.1209251143210.9446@axis700.grange>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shan Wei <shanwei88@gmail.com>
-Date: Tue, 25 Sep 2012 16:12:34 +0800
+From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Date: Tue, 25 Sep 2012 12:38:59 +0200 (CEST)
 
-> Tcp supports simultaneous Connection, but we meat odd phenomenon
-> that tcp client can receive what send by itself. tcp client and tcp
-> server communicate through loop device. tcp server selects port
-> 40000 to listen which is in local port range. But after tcp server
-> program is killed, tcp client still can connect successfully.
+> I'm not sure, whether this is the correct fix, i.e., whether this function 
+> is guaranteed to be called on a resumed device, but at least this fixes 
+> this specific issue in 3.6-rc7, but leaves another BUG open:
 
-This is expected behavior and we're not special casing this after
-it being this way for 20+ years.
+Someone added the runtime PM calls for a reason.
+
+I cannot seriously consider your change until you are able to adequately
+consider that aspect.
