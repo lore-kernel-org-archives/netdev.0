@@ -1,62 +1,83 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: [PATCH] tcp: sysctl for initial receive window
-Date: Tue, 25 Sep 2012 07:29:19 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1209250719120.25195@nerf07.vanv.qr>
-References: <20120921085502.4534.20232.stgit@dragon>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] team: fix return value check
+Date: Tue, 25 Sep 2012 07:40:38 +0200
+Message-ID: <20120925054038.GA1873@minipsycho.orion>
+References: <CAPgLHd9GYYu21FhiKAr2MvmYtWbL=85-E0EzJmiJm6cDDp=WcA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Nandita Dukkipati <nanditad@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jpirko@redhat.com, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ares07.inai.de ([5.9.24.206]:38307 "EHLO seven.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751493Ab2IYF3X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Sep 2012 01:29:23 -0400
-In-Reply-To: <20120921085502.4534.20232.stgit@dragon>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:40291 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750785Ab2IYFkm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2012 01:40:42 -0400
+Received: by weyt9 with SMTP id t9so667630wey.19
+        for <netdev@vger.kernel.org>; Mon, 24 Sep 2012 22:40:41 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAPgLHd9GYYu21FhiKAr2MvmYtWbL=85-E0EzJmiJm6cDDp=WcA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On Friday 2012-09-21 10:55, Jesper Dangaard Brouer wrote:
->diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
->index c7fc107..684131c 100644
->--- a/Documentation/networking/ip-sysctl.txt
->+++ b/Documentation/networking/ip-sysctl.txt
->@@ -257,6 +257,18 @@ tcp_frto_response - INTEGER
-> 		  to the values prior timeout
-> 	Default: 0 (rate halving based)
+Tue, Sep 25, 2012 at 06:29:35AM CEST, weiyj.lk@gmail.com wrote:
+>From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+>
+>In case of error, the function genlmsg_put() returns NULL pointer
+>not ERR_PTR(). The IS_ERR() test in the return value check should
+>be replaced with NULL test.
+>
+>dpatch engine is used to auto generate this patch.
+>(https://github.com/weiyj/dpatch)
+>
+>Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+>---
+> drivers/net/team/team.c | 12 ++++++------
+> 1 file changed, 6 insertions(+), 6 deletions(-)
+>
+>diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+>index 341b65d..e19da26 100644
+>--- a/drivers/net/team/team.c
+>+++ b/drivers/net/team/team.c
+>@@ -1652,8 +1652,8 @@ static int team_nl_cmd_noop(struct sk_buff *skb, struct genl_info *info)
 > 
->+tcp_init_recv_window - INTEGER
->+	Default initial advertised receive window.  Actual window size
->+	is this value multiplied by the MSS of the connection.  Its
+> 	hdr = genlmsg_put(msg, info->snd_pid, info->snd_seq,
+> 			  &team_nl_family, 0, TEAM_CMD_NOOP);
+>-	if (IS_ERR(hdr)) {
+>-		err = PTR_ERR(hdr);
+>+	if (!hdr) {
+>+		err = -EMSGSIZE;
+> 		goto err_msg_put;
+> 	}
+> 
+>@@ -1847,8 +1847,8 @@ start_again:
+> 
+> 	hdr = genlmsg_put(skb, pid, seq, &team_nl_family, flags | NLM_F_MULTI,
+> 			  TEAM_CMD_OPTIONS_GET);
+>-	if (IS_ERR(hdr))
+>-		return PTR_ERR(hdr);
+>+	if (!hdr)
+>+		return -EMSGSIZE;
+> 
+> 	if (nla_put_u32(skb, TEAM_ATTR_TEAM_IFINDEX, team->dev->ifindex))
+> 		goto nla_put_failure;
+>@@ -2067,8 +2067,8 @@ static int team_nl_fill_port_list_get(struct sk_buff *skb,
+> 
+> 	hdr = genlmsg_put(skb, pid, seq, &team_nl_family, flags,
+> 			  TEAM_CMD_PORT_LIST_GET);
+>-	if (IS_ERR(hdr))
+>-		return PTR_ERR(hdr);
+>+	if (!hdr)
+>+		return -EMSGSIZE;
+> 
+> 	if (nla_put_u32(skb, TEAM_ATTR_TEAM_IFINDEX, team->dev->ifindex))
+> 		goto nla_put_failure;
+>
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-	is this value multiplied by the MSS of the connection.  It is
 
->+	possible to control/override this value per route table entry
->+	via the iproute2 option initrwnd.
->+	Minimum value is 1, but 2 is the recommended minimum.
->+	The effective max value, is limited by the sockets receive
-
-	The effective max value is limited by the sockets receive
-
->+	buffer size (default tcp_rmem[1], and possibly scaled by
->+	tcp_adv_win_scale), and can further be limited by window
-
-	tcp_adv_win_scale) and can further be limited by window
-
->+	clamp.
-
-	clamping.
-
->+	Default: 10
->+
-> tcp_keepalive_time - INTEGER
-> 	How often TCP sends out keepalive messages when keepalive is enabled.
-> 	Default: 2hours.
-
-The "recommended minimum" is somewhat strange from a language POV,
-since the recommendation is actually to _not touch_ the option at all
-(because the default works and there is potential abuse as Dave
-mentions).
+Acked-by: Jiri Pirko <jiri@resnulli.us>
