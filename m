@@ -1,83 +1,69 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] team: fix return value check
-Date: Tue, 25 Sep 2012 07:40:38 +0200
-Message-ID: <20120925054038.GA1873@minipsycho.orion>
-References: <CAPgLHd9GYYu21FhiKAr2MvmYtWbL=85-E0EzJmiJm6cDDp=WcA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: raw: revert unrelated change
+Date: Tue, 25 Sep 2012 08:21:16 +0200
+Message-ID: <1348554076.26828.1990.camel@edumazet-glaptop>
+References: <20120925123438.bbf3126889513ee5cc195e5c@canb.auug.org.au>
+	 <1348549842.26828.1897.camel@edumazet-glaptop>
+	 <20120925.011343.1495275645575636949.davem@davemloft.net>
+	 <1348550602.26828.1918.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jpirko@redhat.com, yongjun_wei@trendmicro.com.cn,
-	netdev@vger.kernel.org
-To: Wei Yongjun <weiyj.lk@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:40291 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750785Ab2IYFkm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2012 01:40:42 -0400
-Received: by weyt9 with SMTP id t9so667630wey.19
-        for <netdev@vger.kernel.org>; Mon, 24 Sep 2012 22:40:41 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAPgLHd9GYYu21FhiKAr2MvmYtWbL=85-E0EzJmiJm6cDDp=WcA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1348550602.26828.1918.camel@edumazet-glaptop>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Sep 25, 2012 at 06:29:35AM CEST, weiyj.lk@gmail.com wrote:
->From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->
->In case of error, the function genlmsg_put() returns NULL pointer
->not ERR_PTR(). The IS_ERR() test in the return value check should
->be replaced with NULL test.
->
->dpatch engine is used to auto generate this patch.
->(https://github.com/weiyj/dpatch)
->
->Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->---
-> drivers/net/team/team.c | 12 ++++++------
-> 1 file changed, 6 insertions(+), 6 deletions(-)
->
->diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
->index 341b65d..e19da26 100644
->--- a/drivers/net/team/team.c
->+++ b/drivers/net/team/team.c
->@@ -1652,8 +1652,8 @@ static int team_nl_cmd_noop(struct sk_buff *skb, struct genl_info *info)
-> 
-> 	hdr = genlmsg_put(msg, info->snd_pid, info->snd_seq,
-> 			  &team_nl_family, 0, TEAM_CMD_NOOP);
->-	if (IS_ERR(hdr)) {
->-		err = PTR_ERR(hdr);
->+	if (!hdr) {
->+		err = -EMSGSIZE;
-> 		goto err_msg_put;
-> 	}
-> 
->@@ -1847,8 +1847,8 @@ start_again:
-> 
-> 	hdr = genlmsg_put(skb, pid, seq, &team_nl_family, flags | NLM_F_MULTI,
-> 			  TEAM_CMD_OPTIONS_GET);
->-	if (IS_ERR(hdr))
->-		return PTR_ERR(hdr);
->+	if (!hdr)
->+		return -EMSGSIZE;
-> 
-> 	if (nla_put_u32(skb, TEAM_ATTR_TEAM_IFINDEX, team->dev->ifindex))
-> 		goto nla_put_failure;
->@@ -2067,8 +2067,8 @@ static int team_nl_fill_port_list_get(struct sk_buff *skb,
-> 
-> 	hdr = genlmsg_put(skb, pid, seq, &team_nl_family, flags,
-> 			  TEAM_CMD_PORT_LIST_GET);
->-	if (IS_ERR(hdr))
->-		return PTR_ERR(hdr);
->+	if (!hdr)
->+		return -EMSGSIZE;
-> 
-> 	if (nla_put_u32(skb, TEAM_ATTR_TEAM_IFINDEX, team->dev->ifindex))
-> 		goto nla_put_failure;
->
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+From: Eric Dumazet <edumazet@google.com>
 
+Commit 5640f7685831 ("net: use a per task frag allocator")
+accidentally contained an unrelated change to net/ipv4/raw.c,
+later committed (without the pr_err() debugging bits) in
+net tree as commit ab43ed8b749 (ipv4: raw: fix icmp_filter())
 
-Acked-by: Jiri Pirko <jiri@resnulli.us>
+This patch reverts this glitch, noticed by Stephen Rothwell.
+
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/raw.c |   19 +++++++------------
+ 1 file changed, 7 insertions(+), 12 deletions(-)
+
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index a80740b..f242578 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -131,23 +131,18 @@ found:
+  *	0 - deliver
+  *	1 - block
+  */
+-static int icmp_filter(const struct sock *sk, const struct sk_buff *skb)
++static __inline__ int icmp_filter(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct icmphdr _hdr;
+-	const struct icmphdr *hdr;
+-
+-	pr_err("icmp_filter skb_transport_offset %d data-head %ld len %d/%d\n",
+-		skb_transport_offset(skb), skb->data - skb->head, skb->len, skb->data_len);
+-	hdr = skb_header_pointer(skb, skb_transport_offset(skb),
+-				 sizeof(_hdr), &_hdr);
+-	pr_err("head %p data %p hdr %p type %d\n", skb->head, skb->data, hdr, hdr ? hdr->type : -1);
+-	if (!hdr)
++	int type;
++
++	if (!pskb_may_pull(skb, sizeof(struct icmphdr)))
+ 		return 1;
+ 
+-	if (hdr->type < 32) {
++	type = icmp_hdr(skb)->type;
++	if (type < 32) {
+ 		__u32 data = raw_sk(sk)->filter.data;
+ 
+-		return ((1U << hdr->type) & data) != 0;
++		return ((1 << type) & data) != 0;
+ 	}
+ 
+ 	/* Do not block unknown ICMP types */
