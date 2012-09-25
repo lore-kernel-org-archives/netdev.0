@@ -1,83 +1,189 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: [PATCH net-next] tcp: avoid tcp loop connection on lo device
-Date: Tue, 25 Sep 2012 16:12:34 +0800
-Message-ID: <50616772.8040704@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net-next] netxen: write IP address to firmware when using bonding
+Date: Tue, 25 Sep 2012 10:48:03 +0200
+Message-ID: <1348562883-14780-1-git-send-email-nikolay@redhat.com>
+Cc: netdev@vger.kernel.org, agospoda@redhat.com,
+	rajesh.borundia@qlogic.com, davem@davemloft.net
+To: sony.chacko@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f46.google.com ([209.85.210.46]:43720 "EHLO
-	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753726Ab2IYIMj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2012 04:12:39 -0400
-Received: by dady13 with SMTP id y13so285619dad.19
-        for <netdev@vger.kernel.org>; Tue, 25 Sep 2012 01:12:39 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:42811 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753626Ab2IYItQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Sep 2012 04:49:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tcp supports simultaneous Connection, but we meat odd phenomenon that tcp client can receive what 
-send by itself. tcp client and tcp server communicate through loop device. tcp server selects
-port 40000 to listen which is in local port range. But after tcp server program is killed, tcp client
-still can connect successfully. 
+From: Nikolay Aleksandrov <naleksan@redhat.com>
 
+This patch allows LRO aggregation on bonded devices that contain an NX3031
+device. It also adds a for_each_netdev_in_bond_rcu(bond, slave) macro
+which executes for each slave that has bond as master.
 
-  Client                    Server
-connect  <-----OK--------->   listen:127.0.0.1,port:40000
-send(d1) ----------------->   recv
-recv(d2) <-----------------   send(d2)  
- 
-
-         -----------------    killed(40000 not listened)
-
-connect  <-----OK--------->   
-send(d1) ----------------->  
-recv(d1) <-----------------  
-
-The simultaneous connection has no meaning for lo device, and for this case,
-tcp client don't know whether server is listen on port 40000.
-Just fix it sending reset to keep consistent state machine.  
-
-
-Reproduced step:
-1. while true ; do  nc 127.0.0.1 40001 ;done
-2.  ss -nt dst 127.0.0.1
-    State      Recv-Q Send-Q                                  Local Address:Port                                    Peer Address:Port 
-    ESTAB      0      0                                           127.0.0.1:40001                                      127.0.0.1:40001 
-
-
-Signed-off-by: Shan Wei <davidshan@tencent.com>
+Signed-off-by: Andy Gospodarek <agospoda@redhat.com>
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- net/ipv4/tcp_input.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+ .../net/ethernet/qlogic/netxen/netxen_nic_main.c   | 113 +++++++++++++++------
+ include/linux/netdevice.h                          |   3 +
+ 2 files changed, 87 insertions(+), 29 deletions(-)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index e037697..a2f5a10 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5659,6 +5659,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 	struct tcp_cookie_values *cvp = tp->cookie_values;
- 	struct tcp_fastopen_cookie foc = { .len = -1 };
- 	int saved_clamp = tp->rx_opt.mss_clamp;
-+	struct inet_sock *isk = inet_sk(sk);
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index e2a4858..aaf6cf7 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -3244,6 +3244,25 @@ netxen_restore_indev_addr(struct net_device *netdev, unsigned long event)
+ 	}
+ }
  
- 	tcp_parse_options(skb, &tp->rx_opt, &hash_location, 0, &foc);
- 
-@@ -5832,8 +5833,13 @@ discard:
- 	if (th->syn) {
- 		/* We see SYN without ACK. It is attempt of
- 		 * simultaneous connect with crossed SYNs.
--		 * Particularly, it can be connect to self.
-+		 * But, avoid tcp loop connection on single socket.
- 		 */
++static inline int 
++netxen_config_checkdev(struct net_device *dev)
++{
++	struct netxen_adapter *adapter;
 +
-+		if (isk->inet_dport == isk->inet_sport &&
-+		    isk->inet_saddr == isk->inet_daddr)
-+			goto reset_and_undo;
++	if (!is_netxen_netdev(dev))
++		return -ENODEV;
++	
++	adapter = netdev_priv(dev);
 +
- 		tcp_set_state(sk, TCP_SYN_RECV);
++	if(!adapter)
++		return -ENODEV;
++
++	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
++		return -ENODEV;
++
++	return 0;
++}
++
+ static int netxen_netdev_event(struct notifier_block *this,
+ 				 unsigned long event, void *ptr)
+ {
+@@ -3260,18 +3279,27 @@ recheck:
+ 		goto recheck;
+ 	}
  
- 		if (tp->rx_opt.saw_tstamp) {
+-	if (!is_netxen_netdev(dev))
+-		goto done;
+-
+-	adapter = netdev_priv(dev);
+-
+-	if (!adapter)
+-		goto done;
++	/* If this is a bonding device, look for netxen-based slaves*/
++	if (dev->priv_flags & IFF_BONDING) {
++		struct net_device *slave;
+ 
+-	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
+-		goto done;
++		rcu_read_lock();
++		for_each_netdev_in_bond_rcu(dev, slave) {
++			if (netxen_config_checkdev(slave) < 0)
++				continue;
++			
++			adapter = netdev_priv(slave);
++			netxen_config_indev_addr(adapter, orig_dev, event);
++		}
++		rcu_read_unlock();
+ 
+-	netxen_config_indev_addr(adapter, orig_dev, event);
++	} else {
++		if (netxen_config_checkdev(dev) < 0)
++			goto done;
++		
++		adapter = netdev_priv(dev);
++		netxen_config_indev_addr(adapter, orig_dev, event);
++	}
+ done:
+ 	return NOTIFY_DONE;
+ }
+@@ -3296,30 +3324,57 @@ recheck:
+ 		goto recheck;
+ 	}
+ 
+-	if (!is_netxen_netdev(dev))
+-		goto done;
++	/* If this is a bonding device, look for netxen-based slaves*/
++	if (dev->priv_flags & IFF_BONDING) {
++		struct net_device *slave;
+ 
+-	adapter = netdev_priv(dev);
++		rcu_read_lock();
++		for_each_netdev_in_bond_rcu(dev, slave) {
++			if (netxen_config_checkdev(slave) < 0)
++				continue;
+ 
+-	if (!adapter || !netxen_destip_supported(adapter))
+-		goto done;
++			adapter = netdev_priv(slave);
+ 
+-	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
+-		goto done;
++			if (!netxen_destip_supported(adapter))
++				continue;
+ 
+-	switch (event) {
+-	case NETDEV_UP:
+-		netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_UP);
+-		netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
+-		break;
+-	case NETDEV_DOWN:
+-		netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_DOWN);
+-		netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
+-		break;
+-	default:
+-		break;
+-	}
++			switch (event) {
++			case NETDEV_UP:
++				netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_UP);
++				netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
++				break;
++			case NETDEV_DOWN:
++				netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_DOWN);
++				netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
++				break;
++			default:
++				break;
++			}
++		}
++		rcu_read_unlock();
+ 
++	} else {
++		if (netxen_config_checkdev(dev) < 0)
++			goto done;
++
++		adapter = netdev_priv(dev);
++
++		if (!netxen_destip_supported(adapter))
++			goto done;
++
++		switch (event) {
++		case NETDEV_UP:
++			netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_UP);
++			netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
++			break;
++		case NETDEV_DOWN:
++			netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_DOWN);
++			netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
++			break;
++		default:
++			break;
++		}
++	}
+ done:
+ 	return NOTIFY_DONE;
+ }
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 59dc05f3..463bb40 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1578,6 +1578,9 @@ extern rwlock_t				dev_base_lock;		/* Device list lock */
+ 		list_for_each_entry_continue(d, &(net)->dev_base_head, dev_list)
+ #define for_each_netdev_continue_rcu(net, d)		\
+ 	list_for_each_entry_continue_rcu(d, &(net)->dev_base_head, dev_list)
++#define for_each_netdev_in_bond_rcu(bond, slave)	\
++	for_each_netdev_rcu(&init_net, slave)		\
++		if (slave->master == bond)
+ #define net_device_entry(lh)	list_entry(lh, struct net_device, dev_list)
+ 
+ static inline struct net_device *next_net_device(struct net_device *dev)
 -- 
-1.7.1
+1.7.11.4
