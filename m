@@ -1,72 +1,107 @@
-From: Lin Ming <mlin@ss.pku.edu.cn>
-Subject: IGMP snooping problem
-Date: Tue, 25 Sep 2012 10:59:08 +0800
-Message-ID: <CAF1ivSbGo20rUdRa3tEDv+v8iDWpdH+1e-vunLx4oC+4iwSASw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: networking <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH] inet_diag: fix panic when unload inet_diag
+Date: Tue, 25 Sep 2012 10:48:30 +0800
+Message-ID: <1348541310-31913-1-git-send-email-gaofeng@cn.fujitsu.com>
+Cc: stephen.hemminger@vyatta.com, jengelh@inai.de,
+	eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru,
+	netdev@vger.kernel.org, Gao feng <gaofeng@cn.fujitsu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [124.207.24.138] ([124.207.24.138]:50168 "EHLO
-	mail.ss.pku.edu.cn" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1750928Ab2IYDAK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2012 23:00:10 -0400
-Received: from mail-lb0-f174.google.com (mail-lb0-f174.google.com [209.85.217.174])
-	(Authenticated sender: mlin@ss.pku.edu.cn)
-	by mail.ss.pku.edu.cn (Postfix) with ESMTPA id 9B9FCDBCBC
-	for <netdev@vger.kernel.org>; Tue, 25 Sep 2012 10:59:11 +0800 (CST)
-Received: by lbbgj3 with SMTP id gj3so7706789lbb.19
-        for <netdev@vger.kernel.org>; Mon, 24 Sep 2012 19:59:08 -0700 (PDT)
+Received: from cn.fujitsu.com ([222.73.24.84]:11493 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752407Ab2IYDAN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Sep 2012 23:00:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+when inet_diag being compiled as module, inet_diag_handler_dump
+set netlink_dump_control.dump to inet_diag_dump,so if module
+inet_diag is unloaded,netlink will still try to call this function
+in netlink_dump. this will cause kernel panic.
 
-I'm testing IGMP snooping on a router which has 4 LAN ports.
+fix this by adding a reference of inet_diag module before
+setting netlink_callback, and release this reference in
+netlink_callback.done.
 
-# brctl show
-bridge name     bridge id                      STP enabled     interfaces
-br0                  8000.00037fbef050       yes                   eth0
+Thanks for all help from Stephen,Jan and Eric.
 
-          eth1
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ net/ipv4/inet_diag.c |   46 ++++++++++++++++++++++++++++++++++++++++++++--
+ 1 files changed, 44 insertions(+), 2 deletions(-)
 
-          eth2
-
-          eth3
-
-          ath0
-
-          ath1
-
-          ath2
-
-          ath3
-
-ath0, 1, 2, 3 are WIFI.
-IGMP snooping works well with this configuration.
-
-The router supports a "switch mode", namely the 4 LAN ports connected
-to a on-board switch.
-In this mode, there is only a eth0, no eth1,2,3.
-One benefit of this mode is that the traffic between LAN ports don't
-need to go to CPU.
-The LAN ports traffic will be handled by hardware switch directly.
-
-# brctl show
-bridge name     bridge id                      STP enabled     interfaces
-br0                  8000.00037fbef050       yes                   eth0
-
-          ath0
-
-          ath1
-
-          ath2
-
-          ath3
-
-In this mode, the IGMP snooping among the 4 LAN ports won't work.
-
-Any idea how to resolve this problem?
-
-Thanks,
-Lin Ming
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 570e61f..e573090 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -903,6 +903,12 @@ static int inet_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 	return __inet_diag_dump(skb, cb, nlmsg_data(cb->nlh), bc);
+ }
+ 
++static int inet_diag_done(struct netlink_callback *cb)
++{
++	module_put(THIS_MODULE);
++	return 0;
++}
++
+ static inline int inet_diag_type2proto(int type)
+ {
+ 	switch (type) {
+@@ -972,8 +978,26 @@ static int inet_diag_rcv_msg_compat(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		{
+ 			struct netlink_dump_control c = {
+ 				.dump = inet_diag_dump_compat,
++				.done = inet_diag_done,
+ 			};
+-			return netlink_dump_start(net->diag_nlsk, skb, nlh, &c);
++			int err;
++			/*
++			 * netlink_dump will call inet_diag_dump_compat,
++			 * so we need a reference of THIS_MODULE.
++			 */
++			if (!try_module_get(THIS_MODULE))
++				return -EPROTONOSUPPORT;
++
++			err = netlink_dump_start(net->diag_nlsk, skb, nlh, &c);
++
++			if ((err != -EINTR) && (err != -ENOBUFS)) {
++				/*
++				 * netlink_callback set failed, release the
++				 * referenct of THIS_MODULE.
++				 */
++				module_put(THIS_MODULE);
++			}
++			return err;
+ 		}
+ 	}
+ 
+@@ -1001,8 +1025,26 @@ static int inet_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
+ 		{
+ 			struct netlink_dump_control c = {
+ 				.dump = inet_diag_dump,
++				.done = inet_diag_done,
+ 			};
+-			return netlink_dump_start(net->diag_nlsk, skb, h, &c);
++			int err;
++			/*
++			 * netlink_dump will call inet_diag_dump,
++			 * so we need a reference of THIS_MODULE.
++			 */
++			if (!try_module_get(THIS_MODULE))
++				return -EPROTONOSUPPORT;
++
++			err = netlink_dump_start(net->diag_nlsk, skb, h, &c);
++
++			if ((err != -EINTR) && (err != -ENOBUFS)) {
++				/*
++				 * netlink_callback set failed, release the
++				 * referenct of THIS_MODULE.
++				 */
++				module_put(THIS_MODULE);
++			}
++			return err;
+ 		}
+ 	}
+ 
+-- 
+1.7.7
