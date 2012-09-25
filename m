@@ -1,89 +1,230 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH net 2/2] batman-adv: Fix symmetry check / route flapping in multi interface setups
-Date: Tue, 25 Sep 2012 17:57:17 +0200
-Message-ID: <1348588637-18441-3-git-send-email-ordex@autistici.org>
-References: <1348588637-18441-1-git-send-email-ordex@autistici.org>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: RE: [PATCH net-next] netxen: write IP address to firmware when
+ using bonding
+Date: Tue, 25 Sep 2012 10:59:25 -0500
+Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA827E7304B2@MNEXMB1.qlogic.org>
+References: <1348562883-14780-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>,
-	Antonio Quartulli <ordex@autistici.org>
-To: davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	"agospoda@redhat.com" <agospoda@redhat.com>,
+	David Miller <davem@davemloft.net>
+To: Nikolay Aleksandrov <nikolay@redhat.com>,
+	Sony Chacko <sony.chacko@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from contumacia.investici.org ([178.255.144.35]:64065 "EHLO
-	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756959Ab2IYP5w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2012 11:57:52 -0400
-In-Reply-To: <1348588637-18441-1-git-send-email-ordex@autistici.org>
+Received: from db3ehsobe003.messaging.microsoft.com ([213.199.154.141]:49094
+	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753411Ab2IYP7o convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Sep 2012 11:59:44 -0400
+In-Reply-To: <1348562883-14780-1-git-send-email-nikolay@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Linus L=C3=BCssing <linus.luessing@web.de>
 
-If receiving an OGM from a neighbor other than the currently selected
-and if it has the same TQ then we are supposed to switch if this
-neighbor provides a more symmetric link than the currently selected one=
-=2E
 
-However this symmetry check currently is broken if the interface of the
-neighbor we received the OGM from and the one of the currently selected
-neighbor differ: We are currently trying to determine the symmetry of t=
-he
-link towards the selected router via the link we received the OGM from
-instead of just checking via the link towards the currently selected
-router.
+>-----Original Message-----
+>From: Nikolay Aleksandrov [mailto:nikolay@redhat.com]
+>Sent: Tuesday, September 25, 2012 2:18 PM
+>To: Sony Chacko
+>Cc: netdev; agospoda@redhat.com; Rajesh Borundia; David Miller
+>Subject: [PATCH net-next] netxen: write IP address to firmware when
+>using bonding
+>
+>From: Nikolay Aleksandrov <naleksan@redhat.com>
+>
+>This patch allows LRO aggregation on bonded devices that contain an
+>NX3031
+>device. It also adds a for_each_netdev_in_bond_rcu(bond, slave) macro
+>which executes for each slave that has bond as master.
+>
+>Signed-off-by: Andy Gospodarek <agospoda@redhat.com>
+>Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+>---
+> .../net/ethernet/qlogic/netxen/netxen_nic_main.c   | 113
+>+++++++++++++++------
+> include/linux/netdevice.h                          |   3 +
+> 2 files changed, 87 insertions(+), 29 deletions(-)
+>
+>diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+>b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+>index e2a4858..aaf6cf7 100644
+>--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+>+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+>@@ -3244,6 +3244,25 @@ netxen_restore_indev_addr(struct net_device
+>*netdev, unsigned long event)
+> 	}
+> }
+>
+>+static inline int
+>+netxen_config_checkdev(struct net_device *dev)
+>+{
+>+	struct netxen_adapter *adapter;
+>+
+>+	if (!is_netxen_netdev(dev))
+>+		return -ENODEV;
+>+
+>+	adapter = netdev_priv(dev);
+>+
+>+	if(!adapter)
+>+		return -ENODEV;
 
-This leads to way more route switches than necessary and can lead to
-permanent route flapping in many common multi interface setups.
+It Seems space is needed after if.
+ 
+>+
+>+	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
+>+		return -ENODEV;
+>+
+>+	return 0;
+>+}
+>+
+> static int netxen_netdev_event(struct notifier_block *this,
+> 				 unsigned long event, void *ptr)
+> {
+>@@ -3260,18 +3279,27 @@ recheck:
+> 		goto recheck;
+> 	}
+>
+>-	if (!is_netxen_netdev(dev))
+>-		goto done;
+>-
+>-	adapter = netdev_priv(dev);
+>-
+>-	if (!adapter)
+>-		goto done;
+>+	/* If this is a bonding device, look for netxen-based slaves*/
+>+	if (dev->priv_flags & IFF_BONDING) {
+>+		struct net_device *slave;
+>
+>-	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
+>-		goto done;
+>+		rcu_read_lock();
+>+		for_each_netdev_in_bond_rcu(dev, slave) {
+>+			if (netxen_config_checkdev(slave) < 0)
+>+				continue;
+>+
+>+			adapter = netdev_priv(slave);
+>+			netxen_config_indev_addr(adapter, orig_dev, event);
+>+		}
+>+		rcu_read_unlock();
+>
+>-	netxen_config_indev_addr(adapter, orig_dev, event);
+>+	} else {
+>+		if (netxen_config_checkdev(dev) < 0)
+>+			goto done;
+>+
+>+		adapter = netdev_priv(dev);
+>+		netxen_config_indev_addr(adapter, orig_dev, event);
+>+	}
+> done:
+> 	return NOTIFY_DONE;
+> }
+>@@ -3296,30 +3324,57 @@ recheck:
+> 		goto recheck;
+> 	}
+>
+>-	if (!is_netxen_netdev(dev))
+>-		goto done;
+>+	/* If this is a bonding device, look for netxen-based slaves*/
+>+	if (dev->priv_flags & IFF_BONDING) {
+>+		struct net_device *slave;
+>
+>-	adapter = netdev_priv(dev);
+>+		rcu_read_lock();
+>+		for_each_netdev_in_bond_rcu(dev, slave) {
+>+			if (netxen_config_checkdev(slave) < 0)
+>+				continue;
+>
+>-	if (!adapter || !netxen_destip_supported(adapter))
+>-		goto done;
+>+			adapter = netdev_priv(slave);
+>
+>-	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
+>-		goto done;
+>+			if (!netxen_destip_supported(adapter))
+>+				continue;
+>
+>-	switch (event) {
+>-	case NETDEV_UP:
+>-		netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_UP);
+>-		netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
+>-		break;
+>-	case NETDEV_DOWN:
+>-		netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_DOWN);
+>-		netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
+>-		break;
+>-	default:
+>-		break;
+>-	}
+>+			switch (event) {
+>+			case NETDEV_UP:
+>+				netxen_config_ipaddr(adapter, ifa->ifa_address,
+>NX_IP_UP);
+>+				netxen_list_config_vlan_ip(adapter, ifa,
+>NX_IP_UP);
+>+				break;
+>+			case NETDEV_DOWN:
+>+				netxen_config_ipaddr(adapter, ifa->ifa_address,
+>NX_IP_DOWN);
+>+				netxen_list_config_vlan_ip(adapter, ifa,
+>NX_IP_DOWN);
+>+				break;
+>+			default:
+>+				break;
+>+			}
+>+		}
+>+		rcu_read_unlock();
+>
+>+	} else {
+>+		if (netxen_config_checkdev(dev) < 0)
+>+			goto done;
+>+
+>+		adapter = netdev_priv(dev);
+>+
+>+		if (!netxen_destip_supported(adapter))
+>+			goto done;
+>+
+>+		switch (event) {
+>+		case NETDEV_UP:
+>+			netxen_config_ipaddr(adapter, ifa->ifa_address,
+>NX_IP_UP);
+>+			netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
+>+			break;
+>+		case NETDEV_DOWN:
+>+			netxen_config_ipaddr(adapter, ifa->ifa_address,
+>NX_IP_DOWN);
+>+			netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
+>+			break;
+>+		default:
+>+			break;
+>+		}
+>+	}
+> done:
+> 	return NOTIFY_DONE;
+> }
+>diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>index 59dc05f3..463bb40 100644
+>--- a/include/linux/netdevice.h
+>+++ b/include/linux/netdevice.h
+>@@ -1578,6 +1578,9 @@ extern rwlock_t
+>	dev_base_lock;		/* Device list lock */
+> 		list_for_each_entry_continue(d, &(net)->dev_base_head,
+>dev_list)
+> #define for_each_netdev_continue_rcu(net, d)		\
+> 	list_for_each_entry_continue_rcu(d, &(net)->dev_base_head,
+>dev_list)
+>+#define for_each_netdev_in_bond_rcu(bond, slave)	\
+>+	for_each_netdev_rcu(&init_net, slave)		\
+>+		if (slave->master == bond)
+> #define net_device_entry(lh)	list_entry(lh, struct net_device,
+>dev_list)
+>
+> static inline struct net_device *next_net_device(struct net_device
+>*dev)
+>--
+>1.7.11.4
+>
 
-This patch fixes this issue by using the right interface for this
-symmetry check.
-
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
----
- net/batman-adv/bat_iv_ogm.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
-
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index e877af8..469daab 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -642,7 +642,8 @@ batadv_iv_ogm_orig_update(struct batadv_priv *bat_p=
-riv,
- 	struct batadv_neigh_node *router =3D NULL;
- 	struct batadv_orig_node *orig_node_tmp;
- 	struct hlist_node *node;
--	uint8_t bcast_own_sum_orig, bcast_own_sum_neigh;
-+	int if_num;
-+	uint8_t sum_orig, sum_neigh;
- 	uint8_t *neigh_addr;
-=20
- 	batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
-@@ -727,17 +728,17 @@ batadv_iv_ogm_orig_update(struct batadv_priv *bat=
-_priv,
- 	if (router && (neigh_node->tq_avg =3D=3D router->tq_avg)) {
- 		orig_node_tmp =3D router->orig_node;
- 		spin_lock_bh(&orig_node_tmp->ogm_cnt_lock);
--		bcast_own_sum_orig =3D
--			orig_node_tmp->bcast_own_sum[if_incoming->if_num];
-+		if_num =3D router->if_incoming->if_num;
-+		sum_orig =3D orig_node_tmp->bcast_own_sum[if_num];
- 		spin_unlock_bh(&orig_node_tmp->ogm_cnt_lock);
-=20
- 		orig_node_tmp =3D neigh_node->orig_node;
- 		spin_lock_bh(&orig_node_tmp->ogm_cnt_lock);
--		bcast_own_sum_neigh =3D
--			orig_node_tmp->bcast_own_sum[if_incoming->if_num];
-+		if_num =3D neigh_node->if_incoming->if_num;
-+		sum_neigh =3D orig_node_tmp->bcast_own_sum[if_num];
- 		spin_unlock_bh(&orig_node_tmp->ogm_cnt_lock);
-=20
--		if (bcast_own_sum_orig >=3D bcast_own_sum_neigh)
-+		if (sum_orig >=3D sum_neigh)
- 			goto update_tt;
- 	}
-=20
---=20
-1.7.12
+It seems at some places line is over 80 characters.
