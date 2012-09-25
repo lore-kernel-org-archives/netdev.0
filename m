@@ -1,53 +1,26 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: bnx2x: link detected up at startup even when it should be
- down
-Date: Tue, 25 Sep 2012 07:40:17 +0000
-Message-ID: <504C9EFCA2D0054393414C9CB605C37F3079E4@SJEXCHMB06.corp.ad.broadcom.com>
-References: <CAL8zT=hFPQ-NZw8eKQwnktRrcpsOFk3aa_ac5mSWa+TAwyTGBQ@mail.gmail.com>
- <504C9EFCA2D0054393414C9CB605C37F2EB97C@SJEXCHMB06.corp.ad.broadcom.com>
- <CAL8zT=i_eV3SjuBgdWrBPaE-CoBBVh5QJD8jg-YMoQHDuA4AOQ@mail.gmail.com>
- <504C9EFCA2D0054393414C9CB605C37F2F1B50@SJEXCHMB06.corp.ad.broadcom.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v4] lxt PHY: Support for the buggy LXT973 rev A2
+Date: Tue, 25 Sep 2012 09:47:36 +0200
+Message-ID: <20120925074736.GB2169@netboy.at.omicron.at>
+References: <201209241400.q8OE0w38011790@localhost.localdomain>
+ <20120924183035.GA2252@netboy.at.omicron.at>
+ <50614DEE.9050400@c-s.fr>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	"Barak Witkowski" <barak@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "Jean-Michel Hautbois" <jhautbois@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4219 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750839Ab2IYHke (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Sep 2012 03:40:34 -0400
-In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F2F1B50@SJEXCHMB06.corp.ad.broadcom.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David S Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: leroy christophe <christophe.leroy@c-s.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <50614DEE.9050400@c-s.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
-YWxmIE9mIERtaXRyeSBLcmF2a292DQo+IFNlbnQ6IEZyaWRheSwgU2VwdGVtYmVyIDIxLCAyMDEy
-IDEwOjIzIFBNDQo+IFRvOiBKZWFuLU1pY2hlbCBIYXV0Ym9pcw0KPiBDYzogbmV0ZGV2OyBCYXJh
-ayBXaXRrb3dza2k7IEVpbG9uIEdyZWVuc3RlaW47IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4gU3Vi
-amVjdDogUkU6IGJueDJ4OiBsaW5rIGRldGVjdGVkIHVwIGF0IHN0YXJ0dXAgZXZlbiB3aGVuIGl0
-IHNob3VsZCBiZSBkb3duDQo+IA0KPiBIaSBKZWFuLA0KPiANCj4gVGhhbmsgeW91IGZvciB0aGUg
-aW5mbw0KPiANCj4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+IEZyb206IEplYW4t
-TWljaGVsIEhhdXRib2lzIFttYWlsdG86amhhdXRib2lzQGdtYWlsLmNvbV0NCj4gPiBTZW50OiBG
-cmlkYXksIFNlcHRlbWJlciAyMSwgMjAxMiA5OjA0IEFNDQo+ID4gVG86IERtaXRyeSBLcmF2a292
-DQo+ID4gQ2M6IG5ldGRldjsgQmFyYWsgV2l0a293c2tpOyBFaWxvbiBHcmVlbnN0ZWluOyBkYXZl
-bUBkYXZlbWxvZnQubmV0DQo+ID4gU3ViamVjdDogUmU6IGJueDJ4OiBsaW5rIGRldGVjdGVkIHVw
-IGF0IHN0YXJ0dXAgZXZlbiB3aGVuIGl0IHNob3VsZCBiZSBkb3duDQo+ID4NCj4gPiBJIGFscmVh
-ZHkgZGlkIGl0IHR3aWNlLiBJIHRoaW5rIHRoaXMgaXMgRlcgcmVsYXRlZCBhbmQgbm90IG9ubHkg
-dGhlDQo+ID4gY29tbWl0IGFkZGluZyBhZmV4IHN1cHBvcnQuIEl0IG1heSBoYXZlIHNvbHZlZCBh
-IGxpbmsgaXNzdWUgKEkgYW0ganVzdA0KPiA+IGd1ZXNzaW5nLCBiYXNlZCBvbiBleHBlcmltZW50
-cykgPw0KPiANCj4gRlcgcmVwbGFjZWQgaW4gdGhpcyBjb21taXQgZG9lcyBub3QgZGVhbCB3aXRo
-IGxpbmsgYXQgYWxsLA0KPiANCj4gT25lIGlzIGludm9sdmVkIGluIGxpbmsgbWFuYWdlbWVudCBp
-cyBkaXNwbGF5ZWQgdXNpbmcgJ2V0aHRvb2wgLWknIC0gaXQgY29tZXMgd2l0aA0KPiBhIGNhcmQg
-IGFuZCBkcml2ZXIgaW5kZXBlbmRlbnQuDQo+IA0KPiBJcyBkZXZpY2UgY29uZmlndXJlZCBmb3Ig
-TUYgYnkgdGhlIHN3aXRjaD8NCj4gQ2FuIHlvdSBwbGVhc2Ugc2hhcmUgbHNwY2kgb3V0cHV0Pw0K
-PiANCj4gT3RoZXIgdGhpbmcgdGhhdCBjYW4gaGVscCBpbiBhbmFseXNpcyBpcyBtc2dsdmwgMHg0
-IGZvciBib3RoIHNpdHVhdGlvbnMNCj4gDQpXZSB3ZXJlIHVuYWJsZSB0byByZXByb2R1Y2UgdGhl
-IGlzc3VlIG9uIDMuMi4gQ2FuIHlvdSBwbGVhc2UgcHJvdmlkZSBsb2dzIGZyb20geW91ciBzZXR1
-cD8NCg==
+On Tue, Sep 25, 2012 at 08:23:42AM +0200, leroy christophe wrote:
+> 
+> A2 chip has phy_id 0x00137a10
+> A3 chip has phy_id 0x00137a11
+
+Okay then, thanks.
+
+Acked-by: Richard Cochran <richardcochran@gmail.com>
