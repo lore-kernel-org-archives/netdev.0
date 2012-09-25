@@ -1,69 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: raw: revert unrelated change
-Date: Tue, 25 Sep 2012 08:21:16 +0200
-Message-ID: <1348554076.26828.1990.camel@edumazet-glaptop>
-References: <20120925123438.bbf3126889513ee5cc195e5c@canb.auug.org.au>
-	 <1348549842.26828.1897.camel@edumazet-glaptop>
-	 <20120925.011343.1495275645575636949.davem@davemloft.net>
-	 <1348550602.26828.1918.camel@edumazet-glaptop>
+From: leroy christophe <christophe.leroy@c-s.fr>
+Subject: Re: [PATCH v4] lxt PHY: Support for the buggy LXT973 rev A2
+Date: Tue, 25 Sep 2012 08:23:42 +0200
+Message-ID: <50614DEE.9050400@c-s.fr>
+References: <201209241400.q8OE0w38011790@localhost.localdomain> <20120924183035.GA2252@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1348550602.26828.1918.camel@edumazet-glaptop>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David S Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120924183035.GA2252@netboy.at.omicron.at>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
 
-Commit 5640f7685831 ("net: use a per task frag allocator")
-accidentally contained an unrelated change to net/ipv4/raw.c,
-later committed (without the pr_err() debugging bits) in
-net tree as commit ab43ed8b749 (ipv4: raw: fix icmp_filter())
+Le 24/09/2012 20:30, Richard Cochran a =E9crit :
+> On Mon, Sep 24, 2012 at 04:00:58PM +0200, Christophe Leroy wrote:
+>
+>> diff -u a/drivers/net/phy/lxt.c b/drivers/net/phy/lxt.c
+>> --- a/drivers/net/phy/lxt.c	2012-09-23 03:08:48.000000000 +0200
+>> +++ b/drivers/net/phy/lxt.c	2012-09-23 03:18:00.000000000 +0200
+> ...
+>
+>> @@ -175,6 +292,16 @@
+>>   	.driver		=3D { .owner =3D THIS_MODULE,},
+>>   }, {
+>>   	.phy_id		=3D 0x00137a10,
+>> +	.name		=3D "LXT973-A2",
+>> +	.phy_id_mask	=3D 0xffffffff,
+>> +	.features	=3D PHY_BASIC_FEATURES,
+>> +	.flags		=3D 0,
+>> +	.probe		=3D lxt973_probe,
+>> +	.config_aneg	=3D lxt973_config_aneg,
+>> +	.read_status	=3D lxt973a2_read_status,
+> I like this way of matching the A2 chips much better than what you ha=
+d
+> before. But are you sure this will work correctly?
+Apparently it does.
+>
+> What do A3 chips have in the last nibble of phy_id?
 
-This patch reverts this glitch, noticed by Stephen Rothwell.
+A2 chip has phy_id 0x00137a10
+A3 chip has phy_id 0x00137a11
 
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/raw.c |   19 +++++++------------
- 1 file changed, 7 insertions(+), 12 deletions(-)
-
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index a80740b..f242578 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -131,23 +131,18 @@ found:
-  *	0 - deliver
-  *	1 - block
-  */
--static int icmp_filter(const struct sock *sk, const struct sk_buff *skb)
-+static __inline__ int icmp_filter(struct sock *sk, struct sk_buff *skb)
- {
--	struct icmphdr _hdr;
--	const struct icmphdr *hdr;
--
--	pr_err("icmp_filter skb_transport_offset %d data-head %ld len %d/%d\n",
--		skb_transport_offset(skb), skb->data - skb->head, skb->len, skb->data_len);
--	hdr = skb_header_pointer(skb, skb_transport_offset(skb),
--				 sizeof(_hdr), &_hdr);
--	pr_err("head %p data %p hdr %p type %d\n", skb->head, skb->data, hdr, hdr ? hdr->type : -1);
--	if (!hdr)
-+	int type;
-+
-+	if (!pskb_may_pull(skb, sizeof(struct icmphdr)))
- 		return 1;
- 
--	if (hdr->type < 32) {
-+	type = icmp_hdr(skb)->type;
-+	if (type < 32) {
- 		__u32 data = raw_sk(sk)->filter.data;
- 
--		return ((1U << hdr->type) & data) != 0;
-+		return ((1 << type) & data) != 0;
- 	}
- 
- 	/* Do not block unknown ICMP types */
+Christophe
+>
+>> +	.driver		=3D { .owner =3D THIS_MODULE,},
+>> +}, {
+>> +	.phy_id		=3D 0x00137a10,
+>>   	.name		=3D "LXT973",
+>>   	.phy_id_mask	=3D 0xfffffff0,
+>>   	.features	=3D PHY_BASIC_FEATURES,
+> Thanks,
+> Richard
+>
