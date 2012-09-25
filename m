@@ -1,58 +1,84 @@
-From: leroy christophe <christophe.leroy@c-s.fr>
-Subject: Re: [PATCH v4] lxt PHY: Support for the buggy LXT973 rev A2
-Date: Tue, 25 Sep 2012 08:23:42 +0200
-Message-ID: <50614DEE.9050400@c-s.fr>
-References: <201209241400.q8OE0w38011790@localhost.localdomain> <20120924183035.GA2252@netboy.at.omicron.at>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] inet_diag: fix panic when unload inet_diag
+Date: Tue, 25 Sep 2012 08:36:51 +0200
+Message-ID: <1348555011.26828.2031.camel@edumazet-glaptop>
+References: <1348541310-31913-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David S Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120924183035.GA2252@netboy.at.omicron.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, stephen.hemminger@vyatta.com, jengelh@inai.de,
+	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:61767 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750854Ab2IYGg5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2012 02:36:57 -0400
+Received: by bkcjk13 with SMTP id jk13so1327227bkc.19
+        for <netdev@vger.kernel.org>; Mon, 24 Sep 2012 23:36:55 -0700 (PDT)
+In-Reply-To: <1348541310-31913-1-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2012-09-25 at 10:48 +0800, Gao feng wrote:
+> when inet_diag being compiled as module, inet_diag_handler_dump
+> set netlink_dump_control.dump to inet_diag_dump,so if module
+> inet_diag is unloaded,netlink will still try to call this function
+> in netlink_dump. this will cause kernel panic.
+> 
+> fix this by adding a reference of inet_diag module before
+> setting netlink_callback, and release this reference in
+> netlink_callback.done.
+> 
+> Thanks for all help from Stephen,Jan and Eric.
+...
 
-Le 24/09/2012 20:30, Richard Cochran a =E9crit :
-> On Mon, Sep 24, 2012 at 04:00:58PM +0200, Christophe Leroy wrote:
->
->> diff -u a/drivers/net/phy/lxt.c b/drivers/net/phy/lxt.c
->> --- a/drivers/net/phy/lxt.c	2012-09-23 03:08:48.000000000 +0200
->> +++ b/drivers/net/phy/lxt.c	2012-09-23 03:18:00.000000000 +0200
-> ...
->
->> @@ -175,6 +292,16 @@
->>   	.driver		=3D { .owner =3D THIS_MODULE,},
->>   }, {
->>   	.phy_id		=3D 0x00137a10,
->> +	.name		=3D "LXT973-A2",
->> +	.phy_id_mask	=3D 0xffffffff,
->> +	.features	=3D PHY_BASIC_FEATURES,
->> +	.flags		=3D 0,
->> +	.probe		=3D lxt973_probe,
->> +	.config_aneg	=3D lxt973_config_aneg,
->> +	.read_status	=3D lxt973a2_read_status,
-> I like this way of matching the A2 chips much better than what you ha=
-d
-> before. But are you sure this will work correctly?
-Apparently it does.
->
-> What do A3 chips have in the last nibble of phy_id?
+>  
+> @@ -1001,8 +1025,26 @@ static int inet_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
+>  		{
+>  			struct netlink_dump_control c = {
+>  				.dump = inet_diag_dump,
+> +				.done = inet_diag_done,
+>  			};
+> -			return netlink_dump_start(net->diag_nlsk, skb, h, &c);
+> +			int err;
+> +			/*
+> +			 * netlink_dump will call inet_diag_dump,
+> +			 * so we need a reference of THIS_MODULE.
+> +			 */
+> +			if (!try_module_get(THIS_MODULE))
+> +				return -EPROTONOSUPPORT;
+> +
+> +			err = netlink_dump_start(net->diag_nlsk, skb, h, &c);
+> +
+> +			if ((err != -EINTR) && (err != -ENOBUFS)) {
+> +				/*
+> +				 * netlink_callback set failed, release the
+> +				 * referenct of THIS_MODULE.
+> +				 */
+> +				module_put(THIS_MODULE);
+> +			}
+> +			return err;
+>  		}
+>  	}
+>  
 
-A2 chip has phy_id 0x00137a10
-A3 chip has phy_id 0x00137a11
+Hmm... this seems error prone...
 
-Christophe
->
->> +	.driver		=3D { .owner =3D THIS_MODULE,},
->> +}, {
->> +	.phy_id		=3D 0x00137a10,
->>   	.name		=3D "LXT973",
->>   	.phy_id_mask	=3D 0xfffffff0,
->>   	.features	=3D PHY_BASIC_FEATURES,
-> Thanks,
-> Richard
->
+In the future, netlink_dump_start() could be changed to return other
+errors than EINTR or ENOBUFS that need the module_put()
+
+I would change netlink_dump_start() to __netlink_dump_start() and add a
+module param to it, so that this module stuff is centralized in
+__netlink_dump_start()
+
+Then, instead of calling (from inet_diag)
+
+netlink_dump_start(net->diag_nlsk, skb, nlh, &c);
+
+you would use :
+
+__netlink_dump_start(net->diag_nlsk, skb, nlh, &c, THIS_MODULE);
+
+I wonder if this fix is not needed elsewhere eventually
+(net/unix/af_unix.c for example ?)
