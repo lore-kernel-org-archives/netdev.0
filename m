@@ -1,69 +1,38 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] team: fix return value check
-Date: Tue, 25 Sep 2012 12:29:35 +0800
-Message-ID: <CAPgLHd9GYYu21FhiKAr2MvmYtWbL=85-E0EzJmiJm6cDDp=WcA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 25 Sep 2012 07:10:42 +0200
+Message-ID: <1348549842.26828.1897.camel@edumazet-glaptop>
+References: <20120925123438.bbf3126889513ee5cc195e5c@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: jpirko@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:42116 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751024Ab2IYE3f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2012 00:29:35 -0400
-Received: by qcro28 with SMTP id o28so4947577qcr.19
-        for <netdev@vger.kernel.org>; Mon, 24 Sep 2012 21:29:35 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20120925123438.bbf3126889513ee5cc195e5c@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Tue, 2012-09-25 at 12:34 +1000, Stephen Rothwell wrote:
+> Hi all,
+> 
+> Today's linux-next merge of the net-next tree got a conflict in
+> net/ipv4/raw.c between commit ab43ed8b7490 ("ipv4: raw: fix icmp_filter
+> ()") from the net tree and commit 5640f7685831 ("net: use a per task frag
+> allocator") from the net-next tree.
+> 
+> They are basically the same patch (for this file) except the net-next
+> version adds two pr_err() calls. I used the net-next version and can carry
+> the fix as necessary (no action is required).
+> 
+> I do wonder if this change belongs in the net-next patch?
 
-In case of error, the function genlmsg_put() returns NULL pointer
-not ERR_PTR(). The IS_ERR() test in the return value check should
-be replaced with NULL test.
+Oops, my bad, net/ipv4/raw.c changes in 5640f7685831 ("net: use a per
+task frag allocator") should not be there :
 
-dpatch engine is used to auto generate this patch.
-(https://github.com/weiyj/dpatch)
+I accidentally left a debugging version of the patch I sent to fix the
+icmp bug.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/team/team.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 341b65d..e19da26 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1652,8 +1652,8 @@ static int team_nl_cmd_noop(struct sk_buff *skb, struct genl_info *info)
- 
- 	hdr = genlmsg_put(msg, info->snd_pid, info->snd_seq,
- 			  &team_nl_family, 0, TEAM_CMD_NOOP);
--	if (IS_ERR(hdr)) {
--		err = PTR_ERR(hdr);
-+	if (!hdr) {
-+		err = -EMSGSIZE;
- 		goto err_msg_put;
- 	}
- 
-@@ -1847,8 +1847,8 @@ start_again:
- 
- 	hdr = genlmsg_put(skb, pid, seq, &team_nl_family, flags | NLM_F_MULTI,
- 			  TEAM_CMD_OPTIONS_GET);
--	if (IS_ERR(hdr))
--		return PTR_ERR(hdr);
-+	if (!hdr)
-+		return -EMSGSIZE;
- 
- 	if (nla_put_u32(skb, TEAM_ATTR_TEAM_IFINDEX, team->dev->ifindex))
- 		goto nla_put_failure;
-@@ -2067,8 +2067,8 @@ static int team_nl_fill_port_list_get(struct sk_buff *skb,
- 
- 	hdr = genlmsg_put(skb, pid, seq, &team_nl_family, flags,
- 			  TEAM_CMD_PORT_LIST_GET);
--	if (IS_ERR(hdr))
--		return PTR_ERR(hdr);
-+	if (!hdr)
-+		return -EMSGSIZE;
- 
- 	if (nla_put_u32(skb, TEAM_ATTR_TEAM_IFINDEX, team->dev->ifindex))
- 		goto nla_put_failure;
+Sorry David for this, I am not sure how I can help on this ?
