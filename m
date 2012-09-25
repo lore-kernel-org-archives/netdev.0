@@ -1,40 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: raw: fix icmpv6_filter()
-Date: Tue, 25 Sep 2012 13:23:07 -0400 (EDT)
-Message-ID: <20120925.132307.47817320861046816.davem@davemloft.net>
-References: <1348592620.26828.3215.camel@edumazet-glaptop>
+Subject: Re: [PATCH] ipconfig: fix trivial build error
+Date: Tue, 25 Sep 2012 13:23:17 -0400 (EDT)
+Message-ID: <20120925.132317.2132522444026609326.davem@davemloft.net>
+References: <1348255713.12456.43.camel@mars>
+	<1348560598-21233-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35481 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757247Ab2IYRXJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2012 13:23:09 -0400
-In-Reply-To: <1348592620.26828.3215.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	chf.fritz@googlemail.com
+To: andriy.shevchenko@linux.intel.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1348560598-21233-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 25 Sep 2012 19:03:40 +0200
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Date: Tue, 25 Sep 2012 11:09:58 +0300
 
-> From: Eric Dumazet <edumazet@google.com>
+> The commit 5e953778a2aab04929a5e7b69f53dc26e39b079e ("ipconfig: add nameserver
+> IPs to kernel-parameter ip=") introduces ic_nameservers_predef() that defined
+> only for BOOTP. However it is used by ip_auto_config_setup() as well. This
+> patch moves it outside of #ifdef BOOTP.
 > 
-> icmpv6_filter() should not modify its input, or else its caller
-> would need to recompute ipv6_hdr() if skb->head is reallocated.
-> 
-> Use skb_header_pointer() instead of pskb_may_pull() and
-> change the prototype to make clear both sk and skb are const.
-> 
-> Also, if icmpv6 header cannot be found, do not deliver the packet,
-> as we do in IPv4.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
-> Note: another patch is needed in mip6_mh_filter()
+> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 
-A rather pervasive issues, it appears.
-
-Applied and queued up for -stable, thanks Eric.
+Applied, thanks.
