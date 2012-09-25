@@ -1,53 +1,53 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2012-09-25
-Date: Tue, 25 Sep 2012 13:25:25 -0400 (EDT)
-Message-ID: <20120925.132525.2198280699907795077.davem@davemloft.net>
-References: <1348588637-18441-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Subject: Re: [PATCH] net: sh-eth: fix sleeping in atomic context
+Date: Tue, 25 Sep 2012 19:27:13 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1209251918230.9446@axis700.grange>
+References: <Pine.LNX.4.64.1209251143210.9446@axis700.grange>
+ <20120925.130831.369798738695859924.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1348588637-18441-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-sh@vger.kernel.org, lethal@linux-sh.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20120925.130831.369798738695859924.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Date: Tue, 25 Sep 2012 17:57:15 +0200
+Hi David
 
-> here are two fixes (the last set) we would to propose for net/linux-3=
-.6.
-> =
+On Tue, 25 Sep 2012, David Miller wrote:
 
-> The one from Def fixes a wrong behaviour of batman-adv in case of vir=
-tual
-> interface mac address change, while the other from Lin=FCs fixes a pr=
-oblem in the
-> route selection which can lead to a continuous route flapping under c=
-ertain
-> conditions.
-> =
+> From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+> Date: Tue, 25 Sep 2012 12:38:59 +0200 (CEST)
+> 
+> > I'm not sure, whether this is the correct fix, i.e., whether this function 
+> > is guaranteed to be called on a resumed device, but at least this fixes 
+> > this specific issue in 3.6-rc7, but leaves another BUG open:
+> 
+> Someone added the runtime PM calls for a reason.
 
-> We would also like to enqueue both patches for sending to stable-3.5.=
+Sure they did.
 
-> =
+> I cannot seriously consider your change until you are able to adequately
+> consider that aspect.
 
-> During merge with net/master you will hit a conflict. I'm going to se=
-nd some
-> instructions on how to solve it.
- ...
->   git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-dav=
-em
+I did too - as adequately as I could:-) My understanding is the following: 
+assuming the networking stack is right, calling .ndo_get_stats() under a 
+lock, I see 2 possibilities: (1) the method is only called during a 
+running IO, i.e. the hardware cannot possibly be runtime-suspended at that 
+time, so, no need to resume it; (2) the method can be called at any time, 
+also when the hardware is suspended, then no IO shall be perdormed there, 
+because it might involve having to wait for hardware to wake up from 
+suspend. My patch fixes the former case, in the latter case statistics has 
+to be collected outside of that method and inside it it only has to be 
+atomically returned. This is a bigger change, if this indeed is the case, 
+of course, my patch is wrong and an alternative, likely, more complex 
+solution has to be found.
 
-Pulled, thanks.
+Thanks
+Guennadi
+---
+Guennadi Liakhovetski, Ph.D.
+Freelance Open-Source Software Developer
+http://www.open-technology.de/
