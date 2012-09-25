@@ -1,230 +1,79 @@
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: RE: [PATCH net-next] netxen: write IP address to firmware when
- using bonding
-Date: Tue, 25 Sep 2012 10:59:25 -0500
-Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA827E7304B2@MNEXMB1.qlogic.org>
-References: <1348562883-14780-1-git-send-email-nikolay@redhat.com>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: Re: pull request: batman-adv 2012-09-25
+Date: Tue, 25 Sep 2012 18:01:19 +0200
+Message-ID: <20120925160119.GA31069@ritirata.org>
+References: <1348588637-18441-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	"agospoda@redhat.com" <agospoda@redhat.com>,
-	David Miller <davem@davemloft.net>
-To: Nikolay Aleksandrov <nikolay@redhat.com>,
-	Sony Chacko <sony.chacko@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe003.messaging.microsoft.com ([213.199.154.141]:49094
-	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753411Ab2IYP7o convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Sep 2012 11:59:44 -0400
-In-Reply-To: <1348562883-14780-1-git-send-email-nikolay@redhat.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1348588637-18441-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
+
+Hello David,
+
+here are some instructions to solve the conflict you will hit while merging net
+with net-next.
+
+Thank you,
+	Antonio
 
 
 
->-----Original Message-----
->From: Nikolay Aleksandrov [mailto:nikolay@redhat.com]
->Sent: Tuesday, September 25, 2012 2:18 PM
->To: Sony Chacko
->Cc: netdev; agospoda@redhat.com; Rajesh Borundia; David Miller
->Subject: [PATCH net-next] netxen: write IP address to firmware when
->using bonding
->
->From: Nikolay Aleksandrov <naleksan@redhat.com>
->
->This patch allows LRO aggregation on bonded devices that contain an
->NX3031
->device. It also adds a for_each_netdev_in_bond_rcu(bond, slave) macro
->which executes for each slave that has bond as master.
->
->Signed-off-by: Andy Gospodarek <agospoda@redhat.com>
->Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
->---
-> .../net/ethernet/qlogic/netxen/netxen_nic_main.c   | 113
->+++++++++++++++------
-> include/linux/netdevice.h                          |   3 +
-> 2 files changed, 87 insertions(+), 29 deletions(-)
->
->diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
->b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
->index e2a4858..aaf6cf7 100644
->--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
->+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
->@@ -3244,6 +3244,25 @@ netxen_restore_indev_addr(struct net_device
->*netdev, unsigned long event)
-> 	}
-> }
->
->+static inline int
->+netxen_config_checkdev(struct net_device *dev)
->+{
->+	struct netxen_adapter *adapter;
->+
->+	if (!is_netxen_netdev(dev))
->+		return -ENODEV;
->+
->+	adapter = netdev_priv(dev);
->+
->+	if(!adapter)
->+		return -ENODEV;
 
-It Seems space is needed after if.
- 
->+
->+	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
->+		return -ENODEV;
->+
->+	return 0;
->+}
->+
-> static int netxen_netdev_event(struct notifier_block *this,
-> 				 unsigned long event, void *ptr)
-> {
->@@ -3260,18 +3279,27 @@ recheck:
-> 		goto recheck;
-> 	}
->
->-	if (!is_netxen_netdev(dev))
->-		goto done;
->-
->-	adapter = netdev_priv(dev);
->-
->-	if (!adapter)
->-		goto done;
->+	/* If this is a bonding device, look for netxen-based slaves*/
->+	if (dev->priv_flags & IFF_BONDING) {
->+		struct net_device *slave;
->
->-	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
->-		goto done;
->+		rcu_read_lock();
->+		for_each_netdev_in_bond_rcu(dev, slave) {
->+			if (netxen_config_checkdev(slave) < 0)
->+				continue;
->+
->+			adapter = netdev_priv(slave);
->+			netxen_config_indev_addr(adapter, orig_dev, event);
->+		}
->+		rcu_read_unlock();
->
->-	netxen_config_indev_addr(adapter, orig_dev, event);
->+	} else {
->+		if (netxen_config_checkdev(dev) < 0)
->+			goto done;
->+
->+		adapter = netdev_priv(dev);
->+		netxen_config_indev_addr(adapter, orig_dev, event);
->+	}
-> done:
-> 	return NOTIFY_DONE;
-> }
->@@ -3296,30 +3324,57 @@ recheck:
-> 		goto recheck;
-> 	}
->
->-	if (!is_netxen_netdev(dev))
->-		goto done;
->+	/* If this is a bonding device, look for netxen-based slaves*/
->+	if (dev->priv_flags & IFF_BONDING) {
->+		struct net_device *slave;
->
->-	adapter = netdev_priv(dev);
->+		rcu_read_lock();
->+		for_each_netdev_in_bond_rcu(dev, slave) {
->+			if (netxen_config_checkdev(slave) < 0)
->+				continue;
->
->-	if (!adapter || !netxen_destip_supported(adapter))
->-		goto done;
->+			adapter = netdev_priv(slave);
->
->-	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
->-		goto done;
->+			if (!netxen_destip_supported(adapter))
->+				continue;
->
->-	switch (event) {
->-	case NETDEV_UP:
->-		netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_UP);
->-		netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
->-		break;
->-	case NETDEV_DOWN:
->-		netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_DOWN);
->-		netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
->-		break;
->-	default:
->-		break;
->-	}
->+			switch (event) {
->+			case NETDEV_UP:
->+				netxen_config_ipaddr(adapter, ifa->ifa_address,
->NX_IP_UP);
->+				netxen_list_config_vlan_ip(adapter, ifa,
->NX_IP_UP);
->+				break;
->+			case NETDEV_DOWN:
->+				netxen_config_ipaddr(adapter, ifa->ifa_address,
->NX_IP_DOWN);
->+				netxen_list_config_vlan_ip(adapter, ifa,
->NX_IP_DOWN);
->+				break;
->+			default:
->+				break;
->+			}
->+		}
->+		rcu_read_unlock();
->
->+	} else {
->+		if (netxen_config_checkdev(dev) < 0)
->+			goto done;
->+
->+		adapter = netdev_priv(dev);
->+
->+		if (!netxen_destip_supported(adapter))
->+			goto done;
->+
->+		switch (event) {
->+		case NETDEV_UP:
->+			netxen_config_ipaddr(adapter, ifa->ifa_address,
->NX_IP_UP);
->+			netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
->+			break;
->+		case NETDEV_DOWN:
->+			netxen_config_ipaddr(adapter, ifa->ifa_address,
->NX_IP_DOWN);
->+			netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
->+			break;
->+		default:
->+			break;
->+		}
->+	}
-> done:
-> 	return NOTIFY_DONE;
-> }
->diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->index 59dc05f3..463bb40 100644
->--- a/include/linux/netdevice.h
->+++ b/include/linux/netdevice.h
->@@ -1578,6 +1578,9 @@ extern rwlock_t
->	dev_base_lock;		/* Device list lock */
-> 		list_for_each_entry_continue(d, &(net)->dev_base_head,
->dev_list)
-> #define for_each_netdev_continue_rcu(net, d)		\
-> 	list_for_each_entry_continue_rcu(d, &(net)->dev_base_head,
->dev_list)
->+#define for_each_netdev_in_bond_rcu(bond, slave)	\
->+	for_each_netdev_rcu(&init_net, slave)		\
->+		if (slave->master == bond)
-> #define net_device_entry(lh)	list_entry(lh, struct net_device,
->dev_list)
->
-> static inline struct net_device *next_net_device(struct net_device
->*dev)
->--
->1.7.11.4
->
+++<<<<<<< HEAD
+++=======
++ 	int if_num;
+++>>>>>>> 7caf69f... batman-adv: Fix symmetry check / route flapping in multi interface setups
 
-It seems at some places line is over 80 characters.
+
+resolves to:
+========
+	int if_num;
+>>>>>>>>
+
+
+
+
+++<<<<<<< HEAD
+ +		sum_orig = orig_node_tmp->bcast_own_sum[if_incoming->if_num];
+++=======
++ 		if_num = router->if_incoming->if_num;
++ 		sum_orig = orig_node_tmp->bcast_own_sum[if_num];
+++>>>>>>> 7caf69f... batman-adv: Fix symmetry check / route flapping in multi interface setups
+
+resolves to:
+=======
+		if_num = router->if_incoming->if_num;
+		sum_orig = orig_node_tmp->bcast_own_sum[if_num];
+>>>>>>>
+
+
+
+
+
+++<<<<<<< HEAD
+ +		sum_neigh = orig_node_tmp->bcast_own_sum[if_incoming->if_num];
+++=======
++ 		if_num = neigh_node->if_incoming->if_num;
++ 		sum_neigh = orig_node_tmp->bcast_own_sum[if_num];
+++>>>>>>> 7caf69f... batman-adv: Fix symmetry check / route flapping in multi interface setups
+
+resolves to:
+=======
+		if_num = neigh_node->if_incoming->if_num;
+		sum_neigh = orig_node_tmp->bcast_own_sum[if_num];
+>>>>>>
