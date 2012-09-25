@@ -1,124 +1,421 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH V3 0/8] ipvs: IPv6 fragment handling for IPVS
-Date: Tue, 25 Sep 2012 23:48:11 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1209252319260.1770@ja.ssi.bg>
-References: <20120911123531.4305.40304.stgit@dragon>  <alpine.LFD.2.00.1209130143410.1653@ja.ssi.bg> <1348578674.2689.15.camel@localhost>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCHv3 net-next 4/4] tunnel: drop packet if ECN present with
+ not-ECT
+Date: Tue, 25 Sep 2012 14:02:48 -0700
+Message-ID: <20120925140248.79fea8f6@nehalam.linuxnetplumber.net>
+References: <20120925041222.056704869@vyatta.com>
+	<20120925041259.337491375@vyatta.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Hans Schillstrom <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	lvs-devel@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	netfilter-devel@vger.kernel.org, Simon Horman <horms@verge.net.au>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1348578674.2689.15.camel@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Chris Wright <chrisw@redhat.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:34675 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754736Ab2IYVDW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Sep 2012 17:03:22 -0400
+In-Reply-To: <20120925041259.337491375@vyatta.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Linux tunnels were written before RFC6040 and therefore never
+implemented the corner case of ECN getting set in the outer header
+and the inner header not being ready for it.
 
-	Hello,
+Section 4.2.  Default Tunnel Egress Behaviour.
+ o If the inner ECN field is Not-ECT, the decapsulator MUST NOT
+      propagate any other ECN codepoint onwards.  This is because the
+      inner Not-ECT marking is set by transports that rely on dropped
+      packets as an indication of congestion and would not understand or
+      respond to any other ECN codepoint [RFC4774].  Specifically:
 
-On Tue, 25 Sep 2012, Jesper Dangaard Brouer wrote:
+      *  If the inner ECN field is Not-ECT and the outer ECN field is
+         CE, the decapsulator MUST drop the packet.
 
-> > 	Some comments:
-> > 
-> > - About patch 4: ip_vs_icmp_xmit_v6 already calls skb_make_writable
-> > before ip_vs_nat_icmp_v6, that is why we provide 'offset'.
-> 
-> I see, that call path is correct, BUT I was talking about another call
-> path of ip_vs_nat_icmp_v6(), via handle_response_icmp() (which also
-> calls skb_make_writable).  That call path is triggered, if the
-> real-server, have shutdown its service and send back an ICMPv6 packet.
+      *  If the inner ECN field is Not-ECT and the outer ECN field is
+         Not-ECT, ECT(0), or ECT(1), the decapsulator MUST forward the
+         outgoing packet with the ECN field cleared to Not-ECT.
 
-	Yes, currently, both ip_vs_nat_icmp_v6 callers use
-skb_make_writable before calling it.
+This patch moves the ECN decap logic out of the individual tunnels
+into a common place.
 
-> Hmm, testing it again, I cannot trigger this issue.  Perhaps I was
-> confusing my self and were using my test script that added IPv6 exthdrs
-> to the packet.  Adding print statements to the code, also show the
-> correct offset now.
-> I'm dropping this patch-4, and I'll adjust/fix patch-5 ("ipvs: fix
-> faulty IPv6 extension header handling in IPVS") accordingly.  And I'll
-> double check patch-5, that exthdr have been accounted for (in the offset
-> used by skb_make_writable() before calling ip_vs_nat_icmp_v6()).
+It also adds logging to allow detecting broken systems that
+set ECN bits incorrectly when tunneling (or an intermediate
+router might be changing the header).
 
-	Yes, patch-4 is not needed.
+Overloads rx_frame_error to keep track of ECN related error.
 
-> > - May be we can provide the offset of ICMPv6 header
-> > from ip_vs_in_icmp_v6 to ip_vs_icmp_xmit_v6 as additional
-> > argument (icmp_offset) and then to ip_vs_nat_icmp_v6. By this
-> > way we can avoid the two ipv6_find_hdr calls if we also provide
-> > the iph argument from ip_vs_icmp_xmit_v6 to ip_vs_nat_icmp_v6,
-> > its ->len points to the ports. ip_vs_in_icmp_v6 provides
-> > also protocol in this ciph, so may be we have everything.
-> 
-> Is this comment for the API patch-7 ("ipvs: API change to avoid rescan
-> of IPv6 exthdr") ?
+Thanks to Chris Wright who caught this while reviewing the new VXLAN
+tunnel.
 
-	No, this comment is for patch-5 where 2 ipv6_find_hdr
-calls are added to ip_vs_nat_icmp_v6. But we can change it
-later in followup patch as an optimization.
+This code was tested by injecting faulty logic in other end GRE
+to send incorrectly encapsulated packets.
 
-> The API patch is going to save 19 calls to ipv6_find_hdr ().
-> 
-> 
-> > - in ip_vs_in_icmp_v6 there must be 'offs_ciph = ciph.len;'
-> > just before this line:
-> > 
-> > if (IPPROTO_TCP == ciph.protocol || IPPROTO_UDP == ciph.protocol ||
-> > 
-> 
-> It would be a lot easier for me, if you commented directly on the
-> patches.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-	Sorry, this is for patch-5, its purpose is for
-skb_make_writable in ip_vs_icmp_xmit_v6, not for debug.
+---
+v3 - add common code and logging for ECN broken encapsulation
+v2 - supersedes earlier GRE only version
 
-> I can see that 'offs_ciph = ciph.len;' is set earlier in this patch, but
-> that value is primarily used by IP_VS_DBG_PKT.  And offs_ciph, needs to
-> be updated, again, with the value of ciph.len after the call to
-> ipv6_find_hdr().  So, yes you are right ;-)
-> 
-> I'll rename offs_ciph to "writable" to emphasize what we are using this
-> value for.
+ include/net/inet_ecn.h |   76 +++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/ip_gre.c      |   38 ++++++++++++++----------
+ net/ipv4/ipip.c        |   42 ++++++++++++++++-----------
+ net/ipv6/ip6_gre.c     |   54 +++++++++++++++-------------------
+ 4 files changed, 147 insertions(+), 63 deletions(-)
 
-	Good idea, this is its purpose.
-
-> > 	The idea is that we linearize for writing the inner
-> > IP header and optionally the 2 ports. That is why old
-> > logic was 'offset += 2 * sizeof(__u16);'
-> 
-> The port logic was kept.  But I'll make it more clear whats happening,
-> and keep the "+=" coding style.
-
-	Yes, it was in this way at 2 places before your changes,
-one in handle_response_icmp and another in ip_vs_in_icmp_v6.
-
-> > - initially, ip_vs_fill_iph_skb fills iphdr->flags from
-> > current fragment, later ip_vs_out_icmp_v6 uses the same
-> > ipvsh when calling ipv6_find_hdr. Should we initialize
-> > ipvsh->flags to 0 before calling ipv6_find_hdr because
-> > it is I/O argument?
-
-	For the record, this is patch-7
-
-> As we don't use the flag, after this point, we can just give
-> ipv6_find_hdr() a NULL value instead.
-
-	Agreed, NULL for flags looks fine.
-
-> But I must give you, that it's a little confusing the way we reuse the
-> ipvsh variable (in ip_vs_out_icmp_v6()).  Think, this needs to be
-> rewritten to use a separate variable, like in ip_vs_in_icmp_v6().
-
-	The initialization is risky but saves stack. So,
-it is up to you to decide whether we need local ipvsh_stack
-var as before patch-7.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+--- a/net/ipv4/ip_gre.c	2012-09-25 08:37:13.995876570 -0700
++++ b/net/ipv4/ip_gre.c	2012-09-25 11:00:46.918340181 -0700
+@@ -120,6 +120,10 @@
+    Alexey Kuznetsov.
+  */
+ 
++static bool log_ecn_error = true;
++module_param(log_ecn_error, bool, 0644);
++MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
++
+ static struct rtnl_link_ops ipgre_link_ops __read_mostly;
+ static int ipgre_tunnel_init(struct net_device *dev);
+ static void ipgre_tunnel_setup(struct net_device *dev);
+@@ -204,7 +208,9 @@ static struct rtnl_link_stats64 *ipgre_g
+ 	tot->rx_crc_errors = dev->stats.rx_crc_errors;
+ 	tot->rx_fifo_errors = dev->stats.rx_fifo_errors;
+ 	tot->rx_length_errors = dev->stats.rx_length_errors;
++	tot->rx_frame_errors = dev->stats.rx_frame_errors;
+ 	tot->rx_errors = dev->stats.rx_errors;
++
+ 	tot->tx_fifo_errors = dev->stats.tx_fifo_errors;
+ 	tot->tx_carrier_errors = dev->stats.tx_carrier_errors;
+ 	tot->tx_dropped = dev->stats.tx_dropped;
+@@ -587,17 +593,6 @@ static void ipgre_err(struct sk_buff *sk
+ 	t->err_time = jiffies;
+ }
+ 
+-static inline void ipgre_ecn_decapsulate(const struct iphdr *iph, struct sk_buff *skb)
+-{
+-	if (INET_ECN_is_ce(iph->tos)) {
+-		if (skb->protocol == htons(ETH_P_IP)) {
+-			IP_ECN_set_ce(ip_hdr(skb));
+-		} else if (skb->protocol == htons(ETH_P_IPV6)) {
+-			IP6_ECN_set_ce(ipv6_hdr(skb));
+-		}
+-	}
+-}
+-
+ static inline u8
+ ipgre_ecn_encapsulate(u8 tos, const struct iphdr *old_iph, struct sk_buff *skb)
+ {
+@@ -620,6 +615,7 @@ static int ipgre_rcv(struct sk_buff *skb
+ 	struct ip_tunnel *tunnel;
+ 	int    offset = 4;
+ 	__be16 gre_proto;
++	int    err;
+ 
+ 	if (!pskb_may_pull(skb, 16))
+ 		goto drop;
+@@ -723,17 +719,27 @@ static int ipgre_rcv(struct sk_buff *skb
+ 			skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
+ 		}
+ 
++		__skb_tunnel_rx(skb, tunnel->dev);
++
++		skb_reset_network_header(skb);
++		err = IP_ECN_decapsulate(iph, skb);
++		if (unlikely(err)) {
++			if (log_ecn_error)
++				net_info_ratelimited("non-ECT from %pI4 with TOS=%#x\n",
++						     &iph->saddr, iph->tos);
++			if (err > 1) {
++				++tunnel->dev->stats.rx_frame_errors;
++				++tunnel->dev->stats.rx_errors;
++				goto drop;
++			}
++		}
++
+ 		tstats = this_cpu_ptr(tunnel->dev->tstats);
+ 		u64_stats_update_begin(&tstats->syncp);
+ 		tstats->rx_packets++;
+ 		tstats->rx_bytes += skb->len;
+ 		u64_stats_update_end(&tstats->syncp);
+ 
+-		__skb_tunnel_rx(skb, tunnel->dev);
+-
+-		skb_reset_network_header(skb);
+-		ipgre_ecn_decapsulate(iph, skb);
+-
+ 		netif_rx(skb);
+ 
+ 		return 0;
+--- a/net/ipv4/ipip.c	2012-09-25 08:37:14.791868701 -0700
++++ b/net/ipv4/ipip.c	2012-09-25 11:01:41.733794349 -0700
+@@ -120,6 +120,10 @@
+ #define HASH_SIZE  16
+ #define HASH(addr) (((__force u32)addr^((__force u32)addr>>4))&0xF)
+ 
++static bool log_ecn_error = true;
++module_param(log_ecn_error, bool, 0644);
++MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
++
+ static int ipip_net_id __read_mostly;
+ struct ipip_net {
+ 	struct ip_tunnel __rcu *tunnels_r_l[HASH_SIZE];
+@@ -400,28 +404,18 @@ out:
+ 	return err;
+ }
+ 
+-static inline void ipip_ecn_decapsulate(const struct iphdr *outer_iph,
+-					struct sk_buff *skb)
+-{
+-	struct iphdr *inner_iph = ip_hdr(skb);
+-
+-	if (INET_ECN_is_ce(outer_iph->tos))
+-		IP_ECN_set_ce(inner_iph);
+-}
+-
+ static int ipip_rcv(struct sk_buff *skb)
+ {
+ 	struct ip_tunnel *tunnel;
+ 	const struct iphdr *iph = ip_hdr(skb);
++	int err;
+ 
+ 	tunnel = ipip_tunnel_lookup(dev_net(skb->dev), iph->saddr, iph->daddr);
+ 	if (tunnel != NULL) {
+ 		struct pcpu_tstats *tstats;
+ 
+-		if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
+-			kfree_skb(skb);
+-			return 0;
+-		}
++		if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
++			goto drop;
+ 
+ 		secpath_reset(skb);
+ 
+@@ -430,21 +424,35 @@ static int ipip_rcv(struct sk_buff *skb)
+ 		skb->protocol = htons(ETH_P_IP);
+ 		skb->pkt_type = PACKET_HOST;
+ 
++		__skb_tunnel_rx(skb, tunnel->dev);
++
++		err = IP_ECN_decapsulate(iph, skb);
++		if (unlikely(err)) {
++			if (log_ecn_error)
++				net_info_ratelimited("non-ECT from %pI4 with TOS=%#x\n",
++						     &iph->saddr, iph->tos);
++			if (err > 1) {
++				++tunnel->dev->stats.rx_frame_errors;
++				++tunnel->dev->stats.rx_errors;
++				goto drop;
++			}
++		}
++
+ 		tstats = this_cpu_ptr(tunnel->dev->tstats);
+ 		u64_stats_update_begin(&tstats->syncp);
+ 		tstats->rx_packets++;
+ 		tstats->rx_bytes += skb->len;
+ 		u64_stats_update_end(&tstats->syncp);
+ 
+-		__skb_tunnel_rx(skb, tunnel->dev);
+-
+-		ipip_ecn_decapsulate(iph, skb);
+-
+ 		netif_rx(skb);
+ 		return 0;
+ 	}
+ 
+ 	return -1;
++
++drop:
++	kfree_skb(skb);
++	return 0;
+ }
+ 
+ /*
+--- a/net/ipv6/ip6_gre.c	2012-09-25 08:37:13.995876570 -0700
++++ b/net/ipv6/ip6_gre.c	2012-09-25 11:00:35.478454105 -0700
+@@ -56,6 +56,10 @@
+ #include <net/ip6_tunnel.h>
+ 
+ 
++static bool log_ecn_error = true;
++module_param(log_ecn_error, bool, 0644);
++MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
++
+ #define IPV6_TCLASS_MASK (IPV6_FLOWINFO_MASK & ~IPV6_FLOWLABEL_MASK)
+ #define IPV6_TCLASS_SHIFT 20
+ 
+@@ -149,7 +153,9 @@ static struct rtnl_link_stats64 *ip6gre_
+ 	tot->rx_crc_errors = dev->stats.rx_crc_errors;
+ 	tot->rx_fifo_errors = dev->stats.rx_fifo_errors;
+ 	tot->rx_length_errors = dev->stats.rx_length_errors;
++	tot->rx_frame_errors = dev->stats.rx_frame_errors;
+ 	tot->rx_errors = dev->stats.rx_errors;
++
+ 	tot->tx_fifo_errors = dev->stats.tx_fifo_errors;
+ 	tot->tx_carrier_errors = dev->stats.tx_carrier_errors;
+ 	tot->tx_dropped = dev->stats.tx_dropped;
+@@ -489,28 +495,6 @@ static void ip6gre_err(struct sk_buff *s
+ 	t->err_time = jiffies;
+ }
+ 
+-static inline void ip6gre_ecn_decapsulate_ipv4(const struct ip6_tnl *t,
+-		const struct ipv6hdr *ipv6h, struct sk_buff *skb)
+-{
+-	__u8 dsfield = ipv6_get_dsfield(ipv6h) & ~INET_ECN_MASK;
+-
+-	if (t->parms.flags & IP6_TNL_F_RCV_DSCP_COPY)
+-		ipv4_change_dsfield(ip_hdr(skb), INET_ECN_MASK, dsfield);
+-
+-	if (INET_ECN_is_ce(dsfield))
+-		IP_ECN_set_ce(ip_hdr(skb));
+-}
+-
+-static inline void ip6gre_ecn_decapsulate_ipv6(const struct ip6_tnl *t,
+-		const struct ipv6hdr *ipv6h, struct sk_buff *skb)
+-{
+-	if (t->parms.flags & IP6_TNL_F_RCV_DSCP_COPY)
+-		ipv6_copy_dscp(ipv6_get_dsfield(ipv6h), ipv6_hdr(skb));
+-
+-	if (INET_ECN_is_ce(ipv6_get_dsfield(ipv6h)))
+-		IP6_ECN_set_ce(ipv6_hdr(skb));
+-}
+-
+ static int ip6gre_rcv(struct sk_buff *skb)
+ {
+ 	const struct ipv6hdr *ipv6h;
+@@ -522,6 +506,7 @@ static int ip6gre_rcv(struct sk_buff *sk
+ 	struct ip6_tnl *tunnel;
+ 	int    offset = 4;
+ 	__be16 gre_proto;
++	int err;
+ 
+ 	if (!pskb_may_pull(skb, sizeof(struct in6_addr)))
+ 		goto drop;
+@@ -625,20 +610,29 @@ static int ip6gre_rcv(struct sk_buff *sk
+ 			skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
+ 		}
+ 
++		__skb_tunnel_rx(skb, tunnel->dev);
++
++		skb_reset_network_header(skb);
++
++		err = IP6_ECN_decapsulate(ipv6h, skb);
++		if (unlikely(err)) {
++			if (log_ecn_error)
++				net_info_ratelimited("non-ECT from %pI6 with dsfield=%#x\n",
++						     &ipv6h->saddr,
++						     ipv6_get_dsfield(ipv6h));
++			if (err > 1) {
++				++tunnel->dev->stats.rx_frame_errors;
++				++tunnel->dev->stats.rx_errors;
++				goto drop;
++			}
++		}
++
+ 		tstats = this_cpu_ptr(tunnel->dev->tstats);
+ 		u64_stats_update_begin(&tstats->syncp);
+ 		tstats->rx_packets++;
+ 		tstats->rx_bytes += skb->len;
+ 		u64_stats_update_end(&tstats->syncp);
+ 
+-		__skb_tunnel_rx(skb, tunnel->dev);
+-
+-		skb_reset_network_header(skb);
+-		if (skb->protocol == htons(ETH_P_IP))
+-			ip6gre_ecn_decapsulate_ipv4(tunnel, ipv6h, skb);
+-		else if (skb->protocol == htons(ETH_P_IPV6))
+-			ip6gre_ecn_decapsulate_ipv6(tunnel, ipv6h, skb);
+-
+ 		netif_rx(skb);
+ 
+ 		return 0;
+--- a/include/net/inet_ecn.h	2012-08-15 08:59:22.766706151 -0700
++++ b/include/net/inet_ecn.h	2012-09-25 10:50:45.408313935 -0700
+@@ -15,6 +15,8 @@ enum {
+ 	INET_ECN_MASK = 3,
+ };
+ 
++extern int sysctl_tunnel_ecn_log;
++
+ static inline int INET_ECN_is_ce(__u8 dsfield)
+ {
+ 	return (dsfield & INET_ECN_MASK) == INET_ECN_CE;
+@@ -145,4 +147,78 @@ static inline int INET_ECN_set_ce(struct
+ 	return 0;
+ }
+ 
++/*
++ * RFC 6080 4.2
++ *  To decapsulate the inner header at the tunnel egress, a compliant
++ *  tunnel egress MUST set the outgoing ECN field to the codepoint at the
++ *  intersection of the appropriate arriving inner header (row) and outer
++ *  header (column) in Figure 4
++ *
++ *      +---------+------------------------------------------------+
++ *      |Arriving |            Arriving Outer Header               |
++ *      |   Inner +---------+------------+------------+------------+
++ *      |  Header | Not-ECT | ECT(0)     | ECT(1)     |     CE     |
++ *      +---------+---------+------------+------------+------------+
++ *      | Not-ECT | Not-ECT |Not-ECT(!!!)|Not-ECT(!!!)| <drop>(!!!)|
++ *      |  ECT(0) |  ECT(0) | ECT(0)     | ECT(1)     |     CE     |
++ *      |  ECT(1) |  ECT(1) | ECT(1) (!) | ECT(1)     |     CE     |
++ *      |    CE   |      CE |     CE     |     CE(!!!)|     CE     |
++ *      +---------+---------+------------+------------+------------+
++ *
++ *             Figure 4: New IP in IP Decapsulation Behaviour
++ *
++ *  returns 0 on success
++ *          1 if something is broken and should be logged (!!! above)
++ *          2 if packet should be dropped
++ */
++static inline int INET_ECN_decapsulate(struct sk_buff *skb,
++				       __u8 outer, __u8 inner)
++{
++	if (INET_ECN_is_not_ect(inner)) {
++		switch (outer & INET_ECN_MASK) {
++		case INET_ECN_NOT_ECT:
++			return 0;
++		case INET_ECN_ECT_0:
++		case INET_ECN_ECT_1:
++			return 1;
++		case INET_ECN_CE:
++			return 2;
++		}
++	}
++
++	if (INET_ECN_is_ce(outer))
++		INET_ECN_set_ce(skb);
++
++	return 0;
++}
++
++static inline int IP_ECN_decapsulate(const struct iphdr *oiph,
++				     struct sk_buff *skb)
++{
++	__u8 inner;
++
++	if (skb->protocol == htons(ETH_P_IP))
++		inner = ip_hdr(skb)->tos;
++	else if (skb->protocol == htons(ETH_P_IPV6))
++		inner = ipv6_get_dsfield(ipv6_hdr(skb));
++	else
++		return 0;
++
++	return INET_ECN_decapsulate(skb, oiph->tos, inner);
++}
++
++static inline int IP6_ECN_decapsulate(const struct ipv6hdr *oipv6h,
++				      struct sk_buff *skb)
++{
++	__u8 inner;
++
++	if (skb->protocol == htons(ETH_P_IP))
++		inner = ip_hdr(skb)->tos;
++	else if (skb->protocol == htons(ETH_P_IPV6))
++		inner = ipv6_get_dsfield(ipv6_hdr(skb));
++	else
++		return 0;
++
++	return INET_ECN_decapsulate(skb, ipv6_get_dsfield(oipv6h), inner);
++}
+ #endif
