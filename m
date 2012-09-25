@@ -1,67 +1,75 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH NEXT V3] rtlwifi: rtl8192c: rtl8192ce: Add support for
- B-CUT version of RTL8188CE
-Date: Tue, 25 Sep 2012 15:57:31 -0400
-Message-ID: <20120925195731.GE2118@tuxdriver.com>
-References: <1347982168-10601-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] ipv6: mip6: fix mip6_mh_filter()
+Date: Tue, 25 Sep 2012 22:01:28 +0200
+Message-ID: <1348603288.26828.3398.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Anisse Astier <anisse-fwwRqrJYcP2HXe+LvDLADg@public.gmane.org>,
-	Li Chaoming <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1347982168-10601-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:52654 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753652Ab2IYUBd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2012 16:01:33 -0400
+Received: by bkcjk13 with SMTP id jk13so1487293bkc.19
+        for <netdev@vger.kernel.org>; Tue, 25 Sep 2012 13:01:32 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 18, 2012 at 10:29:28AM -0500, Larry Finger wrote:
-> Realtek devices with designation RTL8188CE-VL have the so-called B-cut
-> of the wireless chip. This patch adds the special programming needed by
-> these devices. In addition, a variable that was static has been moved into
-> the private data area as it is now needed in two different routines. This
-> change also fixes a minor bug that would be present if a system had more
-> than one RTL81{88,92}CE devices. Other drivers in the rtlwifi family had
-> already made this change, thus the variable already exists in the private
-> data structure.
-> 
-> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-> Cc: Anisse Astier <anisse-fwwRqrJYcP2HXe+LvDLADg@public.gmane.org>
-> Cc: Li Chaoming <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
-> ---
->  rtl8192c/phy_common.c |   21 +++++++++++++++++
->  rtl8192ce/def.h       |    3 ++
->  rtl8192ce/hw.c        |   60 +++++++++++++++++++++++++++++++++++++++++++++-----
->  rtl8192ce/phy.c       |    2 +
->  rtl8192ce/sw.c        |    6 +----
->  rtl8192ce/trx.c       |    4 +--
->  6 files changed, 85 insertions(+), 11 deletions(-)
-> ---
-> V1 => V2	Remove extraneous white space.
-> V2 => V3	A change that is not part of the B-cut change and was introduced
-> 		in V2 is moved to a separate patch. 
+From: Eric Dumazet <edumazet@google.com>
 
-/home/linville/git/wireless-next
-[linville-8530p.local]:> git am -s updates.mbox 
-Applying: rtlwifi: rtl8192c: rtl8192ce: Add support for B-CUT version of RTL8188CE
-error: patch failed: drivers/net/wireless/rtlwifi/rtl8192ce/def.h:116
-error: drivers/net/wireless/rtlwifi/rtl8192ce/def.h: patch does not apply
-error: patch failed: drivers/net/wireless/rtlwifi/rtl8192ce/hw.c:1004
-error: drivers/net/wireless/rtlwifi/rtl8192ce/hw.c: patch does not apply
-error: patch failed: drivers/net/wireless/rtlwifi/rtl8192ce/sw.c:162
-error: drivers/net/wireless/rtlwifi/rtl8192ce/sw.c: patch does not apply
-Patch failed at 0001 rtlwifi: rtl8192c: rtl8192ce: Add support for B-CUT version of RTL8188CE
-The copy of the patch that failed is found in:
-   /home/linville/git/wireless-next/.git/rebase-apply/patch
-When you have resolved this problem run "git am --resolved".
-If you would prefer to skip this patch, instead run "git am --skip".
-To restore the original branch and stop patching run "git am --abort".
+mip6_mh_filter() should not modify its input, or else its caller
+would need to recompute ipv6_hdr() if skb->head is reallocated.
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Use skb_header_pointer() instead of pskb_may_pull()
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv6/mip6.c |   20 +++++++++++---------
+ 1 file changed, 11 insertions(+), 9 deletions(-)
+
+diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
+index 5b087c3..0f9bdc5 100644
+--- a/net/ipv6/mip6.c
++++ b/net/ipv6/mip6.c
+@@ -86,28 +86,30 @@ static int mip6_mh_len(int type)
+ 
+ static int mip6_mh_filter(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct ip6_mh *mh;
++	struct ip6_mh _hdr;
++	const struct ip6_mh *mh;
+ 
+-	if (!pskb_may_pull(skb, (skb_transport_offset(skb)) + 8) ||
+-	    !pskb_may_pull(skb, (skb_transport_offset(skb) +
+-				 ((skb_transport_header(skb)[1] + 1) << 3))))
++	mh = skb_header_pointer(skb, skb_transport_offset(skb),
++				sizeof(_hdr), &_hdr);
++	if (!mh)
+ 		return -1;
+ 
+-	mh = (struct ip6_mh *)skb_transport_header(skb);
++	if (((mh->ip6mh_hdrlen + 1) << 3) > skb->len)
++		return -1;
+ 
+ 	if (mh->ip6mh_hdrlen < mip6_mh_len(mh->ip6mh_type)) {
+ 		LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH message too short: %d vs >=%d\n",
+ 			       mh->ip6mh_hdrlen, mip6_mh_len(mh->ip6mh_type));
+-		mip6_param_prob(skb, 0, ((&mh->ip6mh_hdrlen) -
+-					 skb_network_header(skb)));
++		mip6_param_prob(skb, 0, offsetof(struct ip6_mh, ip6mh_hdrlen) +
++				skb_network_header_len(skb));
+ 		return -1;
+ 	}
+ 
+ 	if (mh->ip6mh_proto != IPPROTO_NONE) {
+ 		LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH invalid payload proto = %d\n",
+ 			       mh->ip6mh_proto);
+-		mip6_param_prob(skb, 0, ((&mh->ip6mh_proto) -
+-					 skb_network_header(skb)));
++		mip6_param_prob(skb, 0, offsetof(struct ip6_mh, ip6mh_proto) +
++				skb_network_header_len(skb));
+ 		return -1;
+ 	}
+ 
