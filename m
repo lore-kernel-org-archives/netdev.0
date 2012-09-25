@@ -1,256 +1,178 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: bnx2x: link detected up at startup even when it should be
- down
-Date: Tue, 25 Sep 2012 13:11:27 +0000
-Message-ID: <504C9EFCA2D0054393414C9CB605C37F30910B@SJEXCHMB06.corp.ad.broadcom.com>
-References: <CAL8zT=hFPQ-NZw8eKQwnktRrcpsOFk3aa_ac5mSWa+TAwyTGBQ@mail.gmail.com>
- <504C9EFCA2D0054393414C9CB605C37F2EB97C@SJEXCHMB06.corp.ad.broadcom.com>
- <CAL8zT=i_eV3SjuBgdWrBPaE-CoBBVh5QJD8jg-YMoQHDuA4AOQ@mail.gmail.com>
- <504C9EFCA2D0054393414C9CB605C37F2F1B50@SJEXCHMB06.corp.ad.broadcom.com>
- <504C9EFCA2D0054393414C9CB605C37F3079E4@SJEXCHMB06.corp.ad.broadcom.com>
- <CAL8zT=gp5uZ-Q36=vw--j35txrnLRhguoiMHi8a1kzX=VC3nJg@mail.gmail.com>
- <504C9EFCA2D0054393414C9CB605C37F3086A3@SJEXCHMB06.corp.ad.broadcom.com>
- <CAL8zT=hJ84woFg0KFxztuTxf2NJEBzThPRXDhZ9KnMJnBxmoZA@mail.gmail.com>
- <CAL8zT=j9LC5hKtmkzBA-Epa+NhX1YpC9RodJ-C+UunTH_HRVKQ@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH V3 0/8] ipvs: IPv6 fragment handling for IPVS
+Date: Tue, 25 Sep 2012 15:11:14 +0200
+Message-ID: <1348578674.2689.15.camel@localhost>
+References: <20120911123531.4305.40304.stgit@dragon>
+	 <alpine.LFD.2.00.1209130143410.1653@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	"Barak Witkowski" <barak@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "Jean-Michel Hautbois" <jhautbois@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4444 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756222Ab2IYNL6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Sep 2012 09:11:58 -0400
-In-Reply-To: <CAL8zT=j9LC5hKtmkzBA-Epa+NhX1YpC9RodJ-C+UunTH_HRVKQ@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hans Schillstrom <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	lvs-devel@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	netfilter-devel@vger.kernel.org, Simon Horman <horms@verge.net.au>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1209130143410.1653@ja.ssi.bg>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKZWFuLU1pY2hlbCBIYXV0Ym9p
-cyBbbWFpbHRvOmpoYXV0Ym9pc0BnbWFpbC5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIFNlcHRlbWJl
-ciAyNSwgMjAxMiAyOjU0IFBNDQo+IFRvOiBEbWl0cnkgS3Jhdmtvdg0KPiBDYzogbmV0ZGV2OyBC
-YXJhayBXaXRrb3dza2k7IEVpbG9uIEdyZWVuc3RlaW47IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4g
-U3ViamVjdDogUmU6IGJueDJ4OiBsaW5rIGRldGVjdGVkIHVwIGF0IHN0YXJ0dXAgZXZlbiB3aGVu
-IGl0IHNob3VsZCBiZSBkb3duDQoNCg0KPiBBZnRlciBhIHJlYm9vdCAod2l0aCB0aGUgYWRkZWQg
-aWYgYnV0IG5vIG5ldGlmX21zZykgOg0KDQpJJ20gbG9va2luZyBmb3IgbGluayBtZXNzYWdlcyBk
-dXJpbmcgZGV2aWNlIGxvYWQuDQpUaGVzZSAoZ2V0X3NldHRpbmcvc2V0X3NldHRpbmdzKSBhcHBl
-YXIgYXQgdGhlIGxhdGVyIHN0YWdlcy4NCldpbGwgeW91IGFibGUgdG8gbG9hZCBkcml2ZXIgd2l0
-aCBtb2R1bGUgcGFyYW0gZGVidWc9MHg0IGluc3RlYWQ/IFNvIHdlIGNhbiBjYXRjaCBhbGwgbGlu
-ayByZWxhdGVkIG1lc3NhZ2VzDQooVGhpcyBjYW4gYmUgZG9uZSB2aWEgL2V0Yy9tb2Rwcm9iZS5j
-b25mKQ0KDQo+IA0KPiBbICA5OTguMjQ0MjUwXSBibngyeDogW2JueDJ4X2dldF9zZXR0aW5nczoy
-NTEoZXRoMCldZXRodG9vbF9jbWQ6IGNtZCAxDQo+IFsgIDk5OC4yNDQyNTFdICAgc3VwcG9ydGVk
-IDB4NzQ2MCAgYWR2ZXJ0aXNpbmcgMHg3NDYwICBzcGVlZCAyNTAwDQo+IFsgIDk5OC4yNDQyNTJd
-ICAgZHVwbGV4IDEgIHBvcnQgMyAgcGh5X2FkZHJlc3MgMSAgdHJhbnNjZWl2ZXIgMA0KPiBbICA5
-OTguMjQ0MjUyXSAgIGF1dG9uZWcgMSAgbWF4dHhwa3QgMCAgbWF4cnhwa3QgMA0KPiBbICA5OTgu
-MjQ0NTUxXSBibngyeDogW2JueDJ4X2dldF9zZXR0aW5nczoyNTEoZXRoMSldZXRodG9vbF9jbWQ6
-IGNtZCAxDQo+IFsgIDk5OC4yNDQ1NTJdICAgc3VwcG9ydGVkIDB4NzQ2MCAgYWR2ZXJ0aXNpbmcg
-MHg3NDYwICBzcGVlZCA4MDAwDQo+IFsgIDk5OC4yNDQ1NTJdICAgZHVwbGV4IDEgIHBvcnQgMyAg
-cGh5X2FkZHJlc3MgMSAgdHJhbnNjZWl2ZXIgMA0KPiBbICA5OTguMjQ0NTUzXSAgIGF1dG9uZWcg
-MSAgbWF4dHhwa3QgMCAgbWF4cnhwa3QgMA0KPiBbICA5OTguMjQ0ODUxXSBibngyeDogW2JueDJ4
-X2dldF9zZXR0aW5nczoyNTEoZXRoMildZXRodG9vbF9jbWQ6IGNtZCAxDQo+IFsgIDk5OC4yNDQ4
-NTJdICAgc3VwcG9ydGVkIDB4NzQ2MCAgYWR2ZXJ0aXNpbmcgMHg3NDYwICBzcGVlZCAyNTAwDQo+
-IFsgIDk5OC4yNDQ4NTJdICAgZHVwbGV4IDEgIHBvcnQgMyAgcGh5X2FkZHJlc3MgMSAgdHJhbnNj
-ZWl2ZXIgMA0KPiBbICA5OTguMjQ0ODUzXSAgIGF1dG9uZWcgMSAgbWF4dHhwa3QgMCAgbWF4cnhw
-a3QgMA0KPiBbICA5OTguMjQ2NDUzXSBibngyeDogW2JueDJ4X2dldF9zZXR0aW5nczoyNTEoZXRo
-MyldZXRodG9vbF9jbWQ6IGNtZCAxDQo+IFsgIDk5OC4yNDY0NTRdICAgc3VwcG9ydGVkIDB4NzQ2
-MCAgYWR2ZXJ0aXNpbmcgMHg3NDYwICBzcGVlZCAxMDAwDQo+IFsgIDk5OC4yNDY0NTRdICAgZHVw
-bGV4IDEgIHBvcnQgMyAgcGh5X2FkZHJlc3MgMSAgdHJhbnNjZWl2ZXIgMA0KPiBbICA5OTguMjQ2
-NDU1XSAgIGF1dG9uZWcgMSAgbWF4dHhwa3QgMCAgbWF4cnhwa3QgMA0KPiBbICA5OTguMjU1OTk1
-XSBibngyeDogW2JueDJ4X3NldF9hZXJfbW1kOjMzNDIoZXRoMyldU2V0IEFFUiB0byAweDINCj4g
-WyAgOTk4LjY0MzY0N10gYm54Mng6IFtibngyeF9zZXRfYWVyX21tZDozMzQyKGV0aDEpXVNldCBB
-RVIgdG8gMHgyDQo+IFsgIDk5OC43MjM1OTddIGJueDJ4OiBbYm54Mnhfc2V0X2Flcl9tbWQ6MzM0
-MihldGgwKV1TZXQgQUVSIHRvIDB4MA0KPiBbICA5OTguNzM1ODE2XSBibngyeDogW2JueDJ4X3Nl
-dF9hZXJfbW1kOjMzNDIoZXRoMildU2V0IEFFUiB0byAweDANCj4gWyAgOTk5LjI1NTA1MF0gYm54
-Mng6IFtibngyeF9nZXRfc2V0dGluZ3M6MjUxKGV0aDApXWV0aHRvb2xfY21kOiBjbWQgMQ0KPiBb
-ICA5OTkuMjU1MDUxXSAgIHN1cHBvcnRlZCAweDc0NjAgIGFkdmVydGlzaW5nIDB4NzQ2MCAgc3Bl
-ZWQgMjUwMA0KPiBbICA5OTkuMjU1MDUyXSAgIGR1cGxleCAxICBwb3J0IDMgIHBoeV9hZGRyZXNz
-IDEgIHRyYW5zY2VpdmVyIDANCj4gWyAgOTk5LjI1NTA1Ml0gICBhdXRvbmVnIDEgIG1heHR4cGt0
-IDAgIG1heHJ4cGt0IDANCj4gWyAgOTk5LjI1NTM1Nl0gYm54Mng6IFtibngyeF9nZXRfc2V0dGlu
-Z3M6MjUxKGV0aDEpXWV0aHRvb2xfY21kOiBjbWQgMQ0KPiBbICA5OTkuMjU1MzU2XSAgIHN1cHBv
-cnRlZCAweDc0NjAgIGFkdmVydGlzaW5nIDB4NzQ2MCAgc3BlZWQgODAwMA0KPiBbICA5OTkuMjU1
-MzU3XSAgIGR1cGxleCAxICBwb3J0IDMgIHBoeV9hZGRyZXNzIDEgIHRyYW5zY2VpdmVyIDANCj4g
-WyAgOTk5LjI1NTM1OF0gICBhdXRvbmVnIDEgIG1heHR4cGt0IDAgIG1heHJ4cGt0IDANCj4gWyAg
-OTk5LjI1NTY1MV0gYm54Mng6IFtibngyeF9nZXRfc2V0dGluZ3M6MjUxKGV0aDIpXWV0aHRvb2xf
-Y21kOiBjbWQgMQ0KPiBbICA5OTkuMjU1NjUyXSAgIHN1cHBvcnRlZCAweDc0NjAgIGFkdmVydGlz
-aW5nIDB4NzQ2MCAgc3BlZWQgMjUwMA0KPiBbICA5OTkuMjU1NjUzXSAgIGR1cGxleCAxICBwb3J0
-IDMgIHBoeV9hZGRyZXNzIDEgIHRyYW5zY2VpdmVyIDANCj4gWyAgOTk5LjI1NTY1M10gICBhdXRv
-bmVnIDEgIG1heHR4cGt0IDAgIG1heHJ4cGt0IDANCj4gWyAgOTk5LjI1NTk0M10gYm54Mng6IFti
-bngyeF9nZXRfc2V0dGluZ3M6MjUxKGV0aDMpXWV0aHRvb2xfY21kOiBjbWQgMQ0KPiBbICA5OTku
-MjU1OTQ0XSAgIHN1cHBvcnRlZCAweDc0NjAgIGFkdmVydGlzaW5nIDB4NzQ2MCAgc3BlZWQgMTAw
-MA0KPiBbICA5OTkuMjU1OTQ0XSAgIGR1cGxleCAxICBwb3J0IDMgIHBoeV9hZGRyZXNzIDEgIHRy
-YW5zY2VpdmVyIDANCj4gWyAgOTk5LjI1NTk0NV0gICBhdXRvbmVnIDEgIG1heHR4cGt0IDAgIG1h
-eHJ4cGt0IDANCj4gWyAgOTk5LjI1NzM4MF0gYm54Mng6IFtibngyeF9zZXRfYWVyX21tZDozMzQy
-KGV0aDMpXVNldCBBRVIgdG8gMHgyDQo+IFsgIDk5OS42NDQ5NjldIGJueDJ4OiBbYm54Mnhfc2V0
-X2Flcl9tbWQ6MzM0MihldGgxKV1TZXQgQUVSIHRvIDB4Mg0KPiBbICA5OTkuNzI0OTA5XSBibngy
-eDogW2JueDJ4X3NldF9hZXJfbW1kOjMzNDIoZXRoMCldU2V0IEFFUiB0byAweDANCj4gWyAgOTk5
-LjczNzEzMF0gYm54Mng6IFtibngyeF9zZXRfYWVyX21tZDozMzQyKGV0aDIpXVNldCBBRVIgdG8g
-MHgwDQo+IFsgMTAwMC4yNTg2MjJdIGJueDJ4OiBbYm54Mnhfc2V0X2Flcl9tbWQ6MzM0MihldGgz
-KV1TZXQgQUVSIHRvIDB4Mg0KPiBbIDEwMDAuMjYzOTUxXSBibngyeDogW2JueDJ4X2dldF9zZXR0
-aW5nczoyNTEoZXRoMCldZXRodG9vbF9jbWQ6IGNtZCAxDQo+IFsgMTAwMC4yNjM5NTJdICAgc3Vw
-cG9ydGVkIDB4NzQ2MCAgYWR2ZXJ0aXNpbmcgMHg3NDYwICBzcGVlZCAyNTAwDQo+IFsgMTAwMC4y
-NjM5NTJdICAgZHVwbGV4IDEgIHBvcnQgMyAgcGh5X2FkZHJlc3MgMSAgdHJhbnNjZWl2ZXIgMA0K
-PiBbIDEwMDAuMjYzOTUzXSAgIGF1dG9uZWcgMSAgbWF4dHhwa3QgMCAgbWF4cnhwa3QgMA0KPiBb
-IDEwMDAuMjY0MjQwXSBibngyeDogW2JueDJ4X2dldF9zZXR0aW5nczoyNTEoZXRoMSldZXRodG9v
-bF9jbWQ6IGNtZCAxDQo+IFsgMTAwMC4yNjQyNDFdICAgc3VwcG9ydGVkIDB4NzQ2MCAgYWR2ZXJ0
-aXNpbmcgMHg3NDYwICBzcGVlZCA4MDAwDQo+IFsgMTAwMC4yNjQyNDFdICAgZHVwbGV4IDEgIHBv
-cnQgMyAgcGh5X2FkZHJlc3MgMSAgdHJhbnNjZWl2ZXIgMA0KPiBbIDEwMDAuMjY0MjQyXSAgIGF1
-dG9uZWcgMSAgbWF4dHhwa3QgMCAgbWF4cnhwa3QgMA0KPiBbIDEwMDAuMjY0NTI1XSBibngyeDog
-W2JueDJ4X2dldF9zZXR0aW5nczoyNTEoZXRoMildZXRodG9vbF9jbWQ6IGNtZCAxDQo+IFsgMTAw
-MC4yNjQ1MjVdICAgc3VwcG9ydGVkIDB4NzQ2MCAgYWR2ZXJ0aXNpbmcgMHg3NDYwICBzcGVlZCAy
-NTAwDQo+IFsgMTAwMC4yNjQ1MjZdICAgZHVwbGV4IDEgIHBvcnQgMyAgcGh5X2FkZHJlc3MgMSAg
-dHJhbnNjZWl2ZXIgMA0KPiBbIDEwMDAuMjY0NTI3XSAgIGF1dG9uZWcgMSAgbWF4dHhwa3QgMCAg
-bWF4cnhwa3QgMA0KPiBbIDEwMDAuMjY0ODE1XSBibngyeDogW2JueDJ4X2dldF9zZXR0aW5nczoy
-NTEoZXRoMyldZXRodG9vbF9jbWQ6IGNtZCAxDQo+IFsgMTAwMC4yNjQ4MTZdICAgc3VwcG9ydGVk
-IDB4NzQ2MCAgYWR2ZXJ0aXNpbmcgMHg3NDYwICBzcGVlZCAxMDAwDQo+IFsgMTAwMC4yNjQ4MTZd
-ICAgZHVwbGV4IDEgIHBvcnQgMyAgcGh5X2FkZHJlc3MgMSAgdHJhbnNjZWl2ZXIgMA0KPiBbIDEw
-MDAuMjY0ODE3XSAgIGF1dG9uZWcgMSAgbWF4dHhwa3QgMCAgbWF4cnhwa3QgMA0KPiBbIDEwMDAu
-NjQ2MjgzXSBibngyeDogW2JueDJ4X3NldF9hZXJfbW1kOjMzNDIoZXRoMSldU2V0IEFFUiB0byAw
-eDINCj4gWyAxMDAwLjcyNjIyNF0gYm54Mng6IFtibngyeF9zZXRfYWVyX21tZDozMzQyKGV0aDAp
-XVNldCBBRVIgdG8gMHgwDQo+IFsgMTAwMC43Mzg0NDVdIGJueDJ4OiBbYm54Mnhfc2V0X2Flcl9t
-bWQ6MzM0MihldGgyKV1TZXQgQUVSIHRvIDB4MA0KPiBbIDEwMDEuMjYwMDEzXSBibngyeDogW2Ju
-eDJ4X3NldF9hZXJfbW1kOjMzNDIoZXRoMyldU2V0IEFFUiB0byAweDINCj4gWyAxMDAxLjI3Mjky
-OV0gYm54Mng6IFtibngyeF9nZXRfc2V0dGluZ3M6MjUxKGV0aDApXWV0aHRvb2xfY21kOiBjbWQg
-MQ0KPiBbIDEwMDEuMjcyOTMwXSAgIHN1cHBvcnRlZCAweDc0NjAgIGFkdmVydGlzaW5nIDB4NzQ2
-MCAgc3BlZWQgMjUwMA0KPiBbIDEwMDEuMjcyOTMxXSAgIGR1cGxleCAxICBwb3J0IDMgIHBoeV9h
-ZGRyZXNzIDEgIHRyYW5zY2VpdmVyIDANCj4gWyAxMDAxLjI3MjkzMV0gICBhdXRvbmVnIDEgIG1h
-eHR4cGt0IDAgIG1heHJ4cGt0IDANCj4gWyAxMDAxLjI3MzIyMV0gYm54Mng6IFtibngyeF9nZXRf
-c2V0dGluZ3M6MjUxKGV0aDEpXWV0aHRvb2xfY21kOiBjbWQgMQ0KPiBbIDEwMDEuMjczMjIyXSAg
-IHN1cHBvcnRlZCAweDc0NjAgIGFkdmVydGlzaW5nIDB4NzQ2MCAgc3BlZWQgODAwMA0KPiBbIDEw
-MDEuMjczMjIyXSAgIGR1cGxleCAxICBwb3J0IDMgIHBoeV9hZGRyZXNzIDEgIHRyYW5zY2VpdmVy
-IDANCj4gWyAxMDAxLjI3MzIyM10gICBhdXRvbmVnIDEgIG1heHR4cGt0IDAgIG1heHJ4cGt0IDAN
-Cj4gWyAxMDAxLjI3MzUwM10gYm54Mng6IFtibngyeF9nZXRfc2V0dGluZ3M6MjUxKGV0aDIpXWV0
-aHRvb2xfY21kOiBjbWQgMQ0KPiBbIDEwMDEuMjczNTA0XSAgIHN1cHBvcnRlZCAweDc0NjAgIGFk
-dmVydGlzaW5nIDB4NzQ2MCAgc3BlZWQgMjUwMA0KPiBbIDEwMDEuMjczNTA1XSAgIGR1cGxleCAx
-ICBwb3J0IDMgIHBoeV9hZGRyZXNzIDEgIHRyYW5zY2VpdmVyIDANCj4gWyAxMDAxLjI3MzUwNV0g
-ICBhdXRvbmVnIDEgIG1heHR4cGt0IDAgIG1heHJ4cGt0IDANCj4gWyAxMDAxLjI3Mzc5MF0gYm54
-Mng6IFtibngyeF9nZXRfc2V0dGluZ3M6MjUxKGV0aDMpXWV0aHRvb2xfY21kOiBjbWQgMQ0KPiBb
-IDEwMDEuMjczNzkwXSAgIHN1cHBvcnRlZCAweDc0NjAgIGFkdmVydGlzaW5nIDB4NzQ2MCAgc3Bl
-ZWQgMTAwMA0KPiBbIDEwMDEuMjczNzkxXSAgIGR1cGxleCAxICBwb3J0IDMgIHBoeV9hZGRyZXNz
-IDEgIHRyYW5zY2VpdmVyIDANCj4gWyAxMDAxLjI3Mzc5MV0gICBhdXRvbmVnIDEgIG1heHR4cGt0
-IDAgIG1heHJ4cGt0IDANCj4gWyAxMDAxLjY0NzU5OF0gYm54Mng6IFtibngyeF9zZXRfYWVyX21t
-ZDozMzQyKGV0aDEpXVNldCBBRVIgdG8gMHgyDQo+IFsgMTAwMS43Mjc1NDBdIGJueDJ4OiBbYm54
-Mnhfc2V0X2Flcl9tbWQ6MzM0MihldGgwKV1TZXQgQUVSIHRvIDB4MA0KPiBbIDEwMDEuNzM5NzYy
-XSBibngyeDogW2JueDJ4X3NldF9hZXJfbW1kOjMzNDIoZXRoMildU2V0IEFFUiB0byAweDANCj4g
-WyAxMDAyLjI2MTI2MV0gYm54Mng6IFtibngyeF9zZXRfYWVyX21tZDozMzQyKGV0aDMpXVNldCBB
-RVIgdG8gMHgyDQo+IFsgMTAwMi4yODE3MTVdIGJueDJ4OiBbYm54MnhfZ2V0X3NldHRpbmdzOjI1
-MShldGgwKV1ldGh0b29sX2NtZDogY21kIDENCj4gWyAxMDAyLjI4MTcxNV0gICBzdXBwb3J0ZWQg
-MHg3NDYwICBhZHZlcnRpc2luZyAweDc0NjAgIHNwZWVkIDI1MDANCj4gWyAxMDAyLjI4MTcxNl0g
-ICBkdXBsZXggMSAgcG9ydCAzICBwaHlfYWRkcmVzcyAxICB0cmFuc2NlaXZlciAwDQo+IFsgMTAw
-Mi4yODE3MTddICAgYXV0b25lZyAxICBtYXh0eHBrdCAwICBtYXhyeHBrdCAwDQo+IFsgMTAwMi4y
-ODIwMDJdIGJueDJ4OiBbYm54MnhfZ2V0X3NldHRpbmdzOjI1MShldGgxKV1ldGh0b29sX2NtZDog
-Y21kIDENCj4gWyAxMDAyLjI4MjAwM10gICBzdXBwb3J0ZWQgMHg3NDYwICBhZHZlcnRpc2luZyAw
-eDc0NjAgIHNwZWVkIDgwMDANCj4gWyAxMDAyLjI4MjAwM10gICBkdXBsZXggMSAgcG9ydCAzICBw
-aHlfYWRkcmVzcyAxICB0cmFuc2NlaXZlciAwDQo+IFsgMTAwMi4yODIwMDRdICAgYXV0b25lZyAx
-ICBtYXh0eHBrdCAwICBtYXhyeHBrdCAwDQo+IFsgMTAwMi4yODIyOTRdIGJueDJ4OiBbYm54Mnhf
-Z2V0X3NldHRpbmdzOjI1MShldGgyKV1ldGh0b29sX2NtZDogY21kIDENCj4gWyAxMDAyLjI4MjI5
-NV0gICBzdXBwb3J0ZWQgMHg3NDYwICBhZHZlcnRpc2luZyAweDc0NjAgIHNwZWVkIDI1MDANCj4g
-WyAxMDAyLjI4MjI5Nl0gICBkdXBsZXggMSAgcG9ydCAzICBwaHlfYWRkcmVzcyAxICB0cmFuc2Nl
-aXZlciAwDQo+IFsgMTAwMi4yODIyOTZdICAgYXV0b25lZyAxICBtYXh0eHBrdCAwICBtYXhyeHBr
-dCAwDQo+IFsgMTAwMi4yODI1ODNdIGJueDJ4OiBbYm54MnhfZ2V0X3NldHRpbmdzOjI1MShldGgz
-KV1ldGh0b29sX2NtZDogY21kIDENCj4gWyAxMDAyLjI4MjU4NF0gICBzdXBwb3J0ZWQgMHg3NDYw
-ICBhZHZlcnRpc2luZyAweDc0NjAgIHNwZWVkIDEwMDANCj4gWyAxMDAyLjI4MjU4NF0gICBkdXBs
-ZXggMSAgcG9ydCAzICBwaHlfYWRkcmVzcyAxICB0cmFuc2NlaXZlciAwDQo+IFsgMTAwMi4yODI1
-ODVdICAgYXV0b25lZyAxICBtYXh0eHBrdCAwICBtYXhyeHBrdCAwDQo+IFsgMTAwMi42NDg5MTRd
-IGJueDJ4OiBbYm54Mnhfc2V0X2Flcl9tbWQ6MzM0MihldGgxKV1TZXQgQUVSIHRvIDB4Mg0KPiBb
-IDEwMDIuNzI4ODUyXSBibngyeDogW2JueDJ4X3NldF9hZXJfbW1kOjMzNDIoZXRoMCldU2V0IEFF
-UiB0byAweDANCj4gWyAxMDAyLjc0MTA3Nl0gYm54Mng6IFtibngyeF9zZXRfYWVyX21tZDozMzQy
-KGV0aDIpXVNldCBBRVIgdG8gMHgwDQo+IFsgMTAwMy4yNjI2NTBdIGJueDJ4OiBbYm54Mnhfc2V0
-X2Flcl9tbWQ6MzM0MihldGgzKV1TZXQgQUVSIHRvIDB4Mg0KPiBbIDEwMDMuMjkwNTgyXSBibngy
-eDogW2JueDJ4X2dldF9zZXR0aW5nczoyNTEoZXRoMCldZXRodG9vbF9jbWQ6IGNtZCAxDQo+IFsg
-MTAwMy4yOTA1ODNdICAgc3VwcG9ydGVkIDB4NzQ2MCAgYWR2ZXJ0aXNpbmcgMHg3NDYwICBzcGVl
-ZCAyNTAwDQo+IFsgMTAwMy4yOTA1ODRdICAgZHVwbGV4IDEgIHBvcnQgMyAgcGh5X2FkZHJlc3Mg
-MSAgdHJhbnNjZWl2ZXIgMA0KPiBbIDEwMDMuMjkwNTg0XSAgIGF1dG9uZWcgMSAgbWF4dHhwa3Qg
-MCAgbWF4cnhwa3QgMA0KPiBbIDEwMDMuMjkwODg2XSBibngyeDogW2JueDJ4X2dldF9zZXR0aW5n
-czoyNTEoZXRoMSldZXRodG9vbF9jbWQ6IGNtZCAxDQo+IFsgMTAwMy4yOTA4ODddICAgc3VwcG9y
-dGVkIDB4NzQ2MCAgYWR2ZXJ0aXNpbmcgMHg3NDYwICBzcGVlZCA4MDAwDQo+IFsgMTAwMy4yOTA4
-ODddICAgZHVwbGV4IDEgIHBvcnQgMyAgcGh5X2FkZHJlc3MgMSAgdHJhbnNjZWl2ZXIgMA0KPiBb
-IDEwMDMuMjkwODg4XSAgIGF1dG9uZWcgMSAgbWF4dHhwa3QgMCAgbWF4cnhwa3QgMA0KPiBbIDEw
-MDMuMjkxMTg4XSBibngyeDogW2JueDJ4X2dldF9zZXR0aW5nczoyNTEoZXRoMildZXRodG9vbF9j
-bWQ6IGNtZCAxDQo+IFsgMTAwMy4yOTExODhdICAgc3VwcG9ydGVkIDB4NzQ2MCAgYWR2ZXJ0aXNp
-bmcgMHg3NDYwICBzcGVlZCAyNTAwDQo+IFsgMTAwMy4yOTExODldICAgZHVwbGV4IDEgIHBvcnQg
-MyAgcGh5X2FkZHJlc3MgMSAgdHJhbnNjZWl2ZXIgMA0KPiBbIDEwMDMuMjkxMTkwXSAgIGF1dG9u
-ZWcgMSAgbWF4dHhwa3QgMCAgbWF4cnhwa3QgMA0KPiBbIDEwMDMuMjkxNDkzXSBibngyeDogW2Ju
-eDJ4X2dldF9zZXR0aW5nczoyNTEoZXRoMyldZXRodG9vbF9jbWQ6IGNtZCAxDQo+IFsgMTAwMy4y
-OTE0OTRdICAgc3VwcG9ydGVkIDB4NzQ2MCAgYWR2ZXJ0aXNpbmcgMHg3NDYwICBzcGVlZCAxMDAw
-DQo+IFsgMTAwMy4yOTE0OTRdICAgZHVwbGV4IDEgIHBvcnQgMyAgcGh5X2FkZHJlc3MgMSAgdHJh
-bnNjZWl2ZXIgMA0KPiBbIDEwMDMuMjkxNDk1XSAgIGF1dG9uZWcgMSAgbWF4dHhwa3QgMCAgbWF4
-cnhwa3QgMA0KPiBbIDEwMDMuNjUwMjI5XSBibngyeDogW2JueDJ4X3NldF9hZXJfbW1kOjMzNDIo
-ZXRoMSldU2V0IEFFUiB0byAweDINCj4gWyAxMDAzLjczMDE2N10gYm54Mng6IFtibngyeF9zZXRf
-YWVyX21tZDozMzQyKGV0aDApXVNldCBBRVIgdG8gMHgwDQo+IFsgMTAwMy43NDIzOTFdIGJueDJ4
-OiBbYm54Mnhfc2V0X2Flcl9tbWQ6MzM0MihldGgyKV1TZXQgQUVSIHRvIDB4MA0KPiBbIDEwMDQu
-MjYzODk1XSBibngyeDogW2JueDJ4X3NldF9hZXJfbW1kOjMzNDIoZXRoMyldU2V0IEFFUiB0byAw
-eDINCj4gWyAxMDA0LjI5OTY3MF0gYm54Mng6IFtibngyeF9nZXRfc2V0dGluZ3M6MjUxKGV0aDAp
-XWV0aHRvb2xfY21kOiBjbWQgMQ0KPiBbIDEwMDQuMjk5NjcxXSAgIHN1cHBvcnRlZCAweDc0NjAg
-IGFkdmVydGlzaW5nIDB4NzQ2MCAgc3BlZWQgMjUwMA0KPiBbIDEwMDQuMjk5NjcyXSAgIGR1cGxl
-eCAxICBwb3J0IDMgIHBoeV9hZGRyZXNzIDEgIHRyYW5zY2VpdmVyIDANCj4gWyAxMDA0LjI5OTY3
-M10gICBhdXRvbmVnIDEgIG1heHR4cGt0IDAgIG1heHJ4cGt0IDANCj4gWyAxMDA0LjI5OTk4Nl0g
-Ym54Mng6IFtibngyeF9nZXRfc2V0dGluZ3M6MjUxKGV0aDEpXWV0aHRvb2xfY21kOiBjbWQgMQ0K
-PiBbIDEwMDQuMjk5OTg3XSAgIHN1cHBvcnRlZCAweDc0NjAgIGFkdmVydGlzaW5nIDB4NzQ2MCAg
-c3BlZWQgODAwMA0KPiBbIDEwMDQuMjk5OTg3XSAgIGR1cGxleCAxICBwb3J0IDMgIHBoeV9hZGRy
-ZXNzIDEgIHRyYW5zY2VpdmVyIDANCj4gWyAxMDA0LjI5OTk4OF0gICBhdXRvbmVnIDEgIG1heHR4
-cGt0IDAgIG1heHJ4cGt0IDANCj4gWyAxMDA0LjMwMDI5M10gYm54Mng6IFtibngyeF9nZXRfc2V0
-dGluZ3M6MjUxKGV0aDIpXWV0aHRvb2xfY21kOiBjbWQgMQ0KPiBbIDEwMDQuMzAwMjkzXSAgIHN1
-cHBvcnRlZCAweDc0NjAgIGFkdmVydGlzaW5nIDB4NzQ2MCAgc3BlZWQgMjUwMA0KPiBbIDEwMDQu
-MzAwMjk0XSAgIGR1cGxleCAxICBwb3J0IDMgIHBoeV9hZGRyZXNzIDEgIHRyYW5zY2VpdmVyIDAN
-Cj4gWyAxMDA0LjMwMDI5NV0gICBhdXRvbmVnIDEgIG1heHR4cGt0IDAgIG1heHJ4cGt0IDANCj4g
-WyAxMDA0LjMwMDYwMF0gYm54Mng6IFtibngyeF9nZXRfc2V0dGluZ3M6MjUxKGV0aDMpXWV0aHRv
-b2xfY21kOiBjbWQgMQ0KPiBbIDEwMDQuMzAwNjAwXSAgIHN1cHBvcnRlZCAweDc0NjAgIGFkdmVy
-dGlzaW5nIDB4NzQ2MCAgc3BlZWQgMTAwMA0KPiBbIDEwMDQuMzAwNjAxXSAgIGR1cGxleCAxICBw
-b3J0IDMgIHBoeV9hZGRyZXNzIDEgIHRyYW5zY2VpdmVyIDANCj4gWyAxMDA0LjMwMDYwMV0gICBh
-dXRvbmVnIDEgIG1heHR4cGt0IDAgIG1heHJ4cGt0IDANCj4gWyAxMDA0LjY1MTU4N10gYm54Mng6
-IFtibngyeF9zZXRfYWVyX21tZDozMzQyKGV0aDEpXVNldCBBRVIgdG8gMHgyDQo+IFsgMTAwNC43
-MzE0ODFdIGJueDJ4OiBbYm54Mnhfc2V0X2Flcl9tbWQ6MzM0MihldGgwKV1TZXQgQUVSIHRvIDB4
-MA0KPiBbIDEwMDQuNzQzNzA1XSBibngyeDogW2JueDJ4X3NldF9hZXJfbW1kOjMzNDIoZXRoMild
-U2V0IEFFUiB0byAweDANCj4gWyAxMDA1LjI2NTI4NV0gYm54Mng6IFtibngyeF9zZXRfYWVyX21t
-ZDozMzQyKGV0aDMpXVNldCBBRVIgdG8gMHgyDQo+IFsgMTAwNS4zMDg1MzddIGJueDJ4OiBbYm54
-MnhfZ2V0X3NldHRpbmdzOjI1MShldGgwKV1ldGh0b29sX2NtZDogY21kIDENCj4gWyAxMDA1LjMw
-ODUzOF0gICBzdXBwb3J0ZWQgMHg3NDYwICBhZHZlcnRpc2luZyAweDc0NjAgIHNwZWVkIDI1MDAN
-Cj4gWyAxMDA1LjMwODUzOF0gICBkdXBsZXggMSAgcG9ydCAzICBwaHlfYWRkcmVzcyAxICB0cmFu
-c2NlaXZlciAwDQo+IFsgMTAwNS4zMDg1MzldICAgYXV0b25lZyAxICBtYXh0eHBrdCAwICBtYXhy
-eHBrdCAwDQo+IFsgMTAwNS4zMDg4NDBdIGJueDJ4OiBbYm54MnhfZ2V0X3NldHRpbmdzOjI1MShl
-dGgxKV1ldGh0b29sX2NtZDogY21kIDENCj4gWyAxMDA1LjMwODg0MV0gICBzdXBwb3J0ZWQgMHg3
-NDYwICBhZHZlcnRpc2luZyAweDc0NjAgIHNwZWVkIDgwMDANCj4gWyAxMDA1LjMwODg0MV0gICBk
-dXBsZXggMSAgcG9ydCAzICBwaHlfYWRkcmVzcyAxICB0cmFuc2NlaXZlciAwDQo+IFsgMTAwNS4z
-MDg4NDJdICAgYXV0b25lZyAxICBtYXh0eHBrdCAwICBtYXhyeHBrdCAwDQo+IFsgMTAwNS4zMDkx
-NDddIGJueDJ4OiBbYm54MnhfZ2V0X3NldHRpbmdzOjI1MShldGgyKV1ldGh0b29sX2NtZDogY21k
-IDENCj4gWyAxMDA1LjMwOTE0N10gICBzdXBwb3J0ZWQgMHg3NDYwICBhZHZlcnRpc2luZyAweDc0
-NjAgIHNwZWVkIDI1MDANCj4gWyAxMDA1LjMwOTE0OF0gICBkdXBsZXggMSAgcG9ydCAzICBwaHlf
-YWRkcmVzcyAxICB0cmFuc2NlaXZlciAwDQo+IFsgMTAwNS4zMDkxNDldICAgYXV0b25lZyAxICBt
-YXh0eHBrdCAwICBtYXhyeHBrdCAwDQo+IFsgMTAwNS4zMDk0NDhdIGJueDJ4OiBbYm54MnhfZ2V0
-X3NldHRpbmdzOjI1MShldGgzKV1ldGh0b29sX2NtZDogY21kIDENCj4gWyAxMDA1LjMwOTQ0OF0g
-ICBzdXBwb3J0ZWQgMHg3NDYwICBhZHZlcnRpc2luZyAweDc0NjAgIHNwZWVkIDEwMDANCj4gWyAx
-MDA1LjMwOTQ0OV0gICBkdXBsZXggMSAgcG9ydCAzICBwaHlfYWRkcmVzcyAxICB0cmFuc2NlaXZl
-ciAwDQo+IFsgMTAwNS4zMDk0NTBdICAgYXV0b25lZyAxICBtYXh0eHBrdCAwICBtYXhyeHBrdCAw
-DQo+IFsgMTAwNS42NTI5MDZdIGJueDJ4OiBbYm54Mnhfc2V0X2Flcl9tbWQ6MzM0MihldGgxKV1T
-ZXQgQUVSIHRvIDB4Mg0KPiBbIDEwMDUuNzMyNzk4XSBibngyeDogW2JueDJ4X3NldF9hZXJfbW1k
-OjMzNDIoZXRoMCldU2V0IEFFUiB0byAweDANCj4gWyAxMDA1Ljc0NTAyMF0gYm54Mng6IFtibngy
-eF9zZXRfYWVyX21tZDozMzQyKGV0aDIpXVNldCBBRVIgdG8gMHgwDQo+IFsgMTAwNi4yNjY1NDNd
-IGJueDJ4OiBbYm54Mnhfc2V0X2Flcl9tbWQ6MzM0MihldGgzKV1TZXQgQUVSIHRvIDB4Mg0KPiBb
-IDEwMDYuMzE3NDI4XSBibngyeDogW2JueDJ4X2dldF9zZXR0aW5nczoyNTEoZXRoMCldZXRodG9v
-bF9jbWQ6IGNtZCAxDQo+IFsgMTAwNi4zMTc0MjldICAgc3VwcG9ydGVkIDB4NzQ2MCAgYWR2ZXJ0
-aXNpbmcgMHg3NDYwICBzcGVlZCAyNTAwDQo+IFsgMTAwNi4zMTc0MzBdICAgZHVwbGV4IDEgIHBv
-cnQgMyAgcGh5X2FkZHJlc3MgMSAgdHJhbnNjZWl2ZXIgMA0KPiBbIDEwMDYuMzE3NDMxXSAgIGF1
-dG9uZWcgMSAgbWF4dHhwa3QgMCAgbWF4cnhwa3QgMA0KPiBbIDEwMDYuMzE3NzMxXSBibngyeDog
-W2JueDJ4X2dldF9zZXR0aW5nczoyNTEoZXRoMSldZXRodG9vbF9jbWQ6IGNtZCAxDQo+IFsgMTAw
-Ni4zMTc3MzJdICAgc3VwcG9ydGVkIDB4NzQ2MCAgYWR2ZXJ0aXNpbmcgMHg3NDYwICBzcGVlZCA4
-MDAwDQo+IFsgMTAwNi4zMTc3MzNdICAgZHVwbGV4IDEgIHBvcnQgMyAgcGh5X2FkZHJlc3MgMSAg
-dHJhbnNjZWl2ZXIgMA0KPiBbIDEwMDYuMzE3NzMzXSAgIGF1dG9uZWcgMSAgbWF4dHhwa3QgMCAg
-bWF4cnhwa3QgMA0KPiBbIDEwMDYuMzE4MDMxXSBibngyeDogW2JueDJ4X2dldF9zZXR0aW5nczoy
-NTEoZXRoMildZXRodG9vbF9jbWQ6IGNtZCAxDQo+IFsgMTAwNi4zMTgwMzFdICAgc3VwcG9ydGVk
-IDB4NzQ2MCAgYWR2ZXJ0aXNpbmcgMHg3NDYwICBzcGVlZCAyNTAwDQo+IFsgMTAwNi4zMTgwMzJd
-ICAgZHVwbGV4IDEgIHBvcnQgMyAgcGh5X2FkZHJlc3MgMSAgdHJhbnNjZWl2ZXIgMA0KPiBbIDEw
-MDYuMzE4MDMzXSAgIGF1dG9uZWcgMSAgbWF4dHhwa3QgMCAgbWF4cnhwa3QgMA0KPiBbIDEwMDYu
-MzE4MzI5XSBibngyeDogW2JueDJ4X2dldF9zZXR0aW5nczoyNTEoZXRoMyldZXRodG9vbF9jbWQ6
-IGNtZCAxDQo+IFsgMTAwNi4zMTgzMzBdICAgc3VwcG9ydGVkIDB4NzQ2MCAgYWR2ZXJ0aXNpbmcg
-MHg3NDYwICBzcGVlZCAxMDAwDQo+IFsgMTAwNi4zMTgzMzFdICAgZHVwbGV4IDEgIHBvcnQgMyAg
-cGh5X2FkZHJlc3MgMSAgdHJhbnNjZWl2ZXIgMA0KPiBbIDEwMDYuMzE4MzMxXSAgIGF1dG9uZWcg
-MSAgbWF4dHhwa3QgMCAgbWF4cnhwa3QgMA0KPiBbIDEwMDYuNjU0MTcyXSBibngyeDogW2JueDJ4
-X3NldF9hZXJfbW1kOjMzNDIoZXRoMSldU2V0IEFFUiB0byAweDINCj4gWyAxMDA2LjczNDEwOV0g
-Ym54Mng6IFtibngyeF9zZXRfYWVyX21tZDozMzQyKGV0aDApXVNldCBBRVIgdG8gMHgwDQo+IFsg
-MTAwNi43NDYzMzFdIGJueDJ4OiBbYm54Mnhfc2V0X2Flcl9tbWQ6MzM0MihldGgyKV1TZXQgQUVS
-IHRvIDB4MA0KDQo=
+On Thu, 2012-09-13 at 01:57 +0300, Julian Anastasov wrote:
+> 	Hello,
+> 
+> On Tue, 11 Sep 2012, Jesper Dangaard Brouer wrote:
+> 
+> > The following patchset implement IPv6 fragment handling for IPVS.
+> > 
+> > This work is based upon patches from Hans Schillstrom.  I have taken
+> > over the patchset, in close agreement with Hans, because he don't have
+> > (gotten allocated) time to complete his work.
+> > 
+> > I have cleaned up the patchset significantly, and split the patchset
+> > up into eight patches.
+> > 
+> > The first 4 patches, are ready to be merged
+> > 
+> >  Patch01: Trivial changes, use compressed IPv6 address in output
+> >  Patch02: IPv6 extend ICMPv6 handling for future types
+> >  Patch03: Use config macro IS_ENABLED()
+> >  Patch04: Fix bug in IPVS IPv6 NAT mangling of ports inside ICMPv6 packets
+> > 
+> > The next 4 patches, I consider V3 of the patches I have submitted
+> > earlier, where I have incorporated all of Julian's feedback.  I have
+> > also tried to make the patches easier to review, by reorganizing the
+> > changes, to be more strictly split (exthdr vs. fragment handling).
+> > 
+> > I have also removed the API changes, and moved those to patch07.  This
+> > is done, (1) to make it easier to review the patches, and (2) to allow
+> > easier integration of Patricks idea and my RFC patch of caching exthdr
+> > info in skb->cb[].  Thus, we can get these patches applied (and later
+> > go back and apply the caching scheme easier).
+> > 
+> >  Patch05: Fix faulty IPv6 extension header handling in IPVS
+> >  Patch06: Complete IPv6 fragment handling for IPVS
+> >  Patch07: IPVS API change to avoid rescan of IPv6 exthdr
+> >  Patch08: IPVS SIP fragment handling
+> > 
+> > The SIP frag handling have been split into its own patch, as I have
+> > not been able to test this part my self.
+> > 
+> > This patchset is based upon:
+> >   Pablo's nf-next tree:  git://1984.lsi.us.es/nf-next
+> >   On top of commit 0edd94887d19ad73539477395c17ea0d6898947a
+> > 
+> > ---
+> > 
+> > Jesper Dangaard Brouer (8):
+> >       ipvs: SIP fragment handling
+> >       ipvs: API change to avoid rescan of IPv6 exthdr
+> >       ipvs: Complete IPv6 fragment handling for IPVS
+> >       ipvs: Fix faulty IPv6 extension header handling in IPVS
+> >       ipvs: Fix bug in IPv6 NAT mangling of ports inside ICMPv6 packets
+> >       ipvs: Use config macro IS_ENABLED()
+> >       ipvs: IPv6 extend ICMPv6 handling for future types
+> >       ipvs: Trivial changes, use compressed IPv6 address in output
+> 
+> 	Some comments:
+> 
+> - About patch 4: ip_vs_icmp_xmit_v6 already calls skb_make_writable
+> before ip_vs_nat_icmp_v6, that is why we provide 'offset'.
+
+I see, that call path is correct, BUT I was talking about another call
+path of ip_vs_nat_icmp_v6(), via handle_response_icmp() (which also
+calls skb_make_writable).  That call path is triggered, if the
+real-server, have shutdown its service and send back an ICMPv6 packet.
+
+Hmm, testing it again, I cannot trigger this issue.  Perhaps I was
+confusing my self and were using my test script that added IPv6 exthdrs
+to the packet.  Adding print statements to the code, also show the
+correct offset now.
+I'm dropping this patch-4, and I'll adjust/fix patch-5 ("ipvs: fix
+faulty IPv6 extension header handling in IPVS") accordingly.  And I'll
+double check patch-5, that exthdr have been accounted for (in the offset
+used by skb_make_writable() before calling ip_vs_nat_icmp_v6()).
+
+
+
+> - May be we can provide the offset of ICMPv6 header
+> from ip_vs_in_icmp_v6 to ip_vs_icmp_xmit_v6 as additional
+> argument (icmp_offset) and then to ip_vs_nat_icmp_v6. By this
+> way we can avoid the two ipv6_find_hdr calls if we also provide
+> the iph argument from ip_vs_icmp_xmit_v6 to ip_vs_nat_icmp_v6,
+> its ->len points to the ports. ip_vs_in_icmp_v6 provides
+> also protocol in this ciph, so may be we have everything.
+
+Is this comment for the API patch-7 ("ipvs: API change to avoid rescan
+of IPv6 exthdr") ?
+The API patch is going to save 19 calls to ipv6_find_hdr ().
+
+
+> - in ip_vs_in_icmp_v6 there must be 'offs_ciph = ciph.len;'
+> just before this line:
+> 
+> if (IPPROTO_TCP == ciph.protocol || IPPROTO_UDP == ciph.protocol ||
+> 
+
+It would be a lot easier for me, if you commented directly on the
+patches.
+
+I can see that 'offs_ciph = ciph.len;' is set earlier in this patch, but
+that value is primarily used by IP_VS_DBG_PKT.  And offs_ciph, needs to
+be updated, again, with the value of ciph.len after the call to
+ipv6_find_hdr().  So, yes you are right ;-)
+
+I'll rename offs_ciph to "writable" to emphasize what we are using this
+value for.
+
+> 	The idea is that we linearize for writing the inner
+> IP header and optionally the 2 ports. That is why old
+> logic was 'offset += 2 * sizeof(__u16);'
+
+The port logic was kept.  But I'll make it more clear whats happening,
+and keep the "+=" coding style.
+
+
+> - initially, ip_vs_fill_iph_skb fills iphdr->flags from
+> current fragment, later ip_vs_out_icmp_v6 uses the same
+> ipvsh when calling ipv6_find_hdr. Should we initialize
+> ipvsh->flags to 0 before calling ipv6_find_hdr because
+> it is I/O argument?
+
+As we don't use the flag, after this point, we can just give
+ipv6_find_hdr() a NULL value instead.
+
+But I must give you, that it's a little confusing the way we reuse the
+ipvsh variable (in ip_vs_out_icmp_v6()).  Think, this needs to be
+rewritten to use a separate variable, like in ip_vs_in_icmp_v6().
+
+
+> - in patch 5: in ip_vs_nat_icmp_v6 skb_make_writable can
+> move data to other addresses on linearization. Any pointers
+> like 'ciph' should be recalculated based on offsets. But
+> it does not matter because we should not call skb_make_writable
+> here.
+
+Yes, as mentioned earlier, I'll fix up patch-5 and remove the
+skb_make_writable call.
+
+
+> 	I also see that we should not send ICMP
+> errors (FRAG NEEDED/TOO BIG) in response to large
+> ICMP error packets but it is not related to your changes,
+> it needs separate change to all transmitters.
+
+Yes, its unrelated, lets fix that in another patchset.
+
+I'll hopefully soon have a patchset ready with these changes/updates...
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+
