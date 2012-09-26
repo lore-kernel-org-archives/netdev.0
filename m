@@ -1,40 +1,139 @@
-From: Steve Glendinning <steve@shawell.net>
-Subject: Re: [PATCH 5/5] smsc95xx: enable power saving mode during system suspend
-Date: Wed, 26 Sep 2012 16:58:13 +0100
-Message-ID: <CAKh2mn4XLCPfTFySEvtZc56J+WM863JtnsjF2D-RyDJatoyAww@mail.gmail.com>
-References: <1348663224-30403-1-git-send-email-steve.glendinning@shawell.net>
-	<1348663224-30403-6-git-send-email-steve.glendinning@shawell.net>
-	<87y5jw982o.fsf@nemi.mork.no>
-	<CAKh2mn5tKowqjbvgWDSz52UF9qY9_ysAb23Pb-M_3wvCG=_R6w@mail.gmail.com>
-	<87txuk9453.fsf@nemi.mork.no>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH net-next] net: use bigger pages in __netdev_alloc_frag
+Date: Wed, 26 Sep 2012 09:00:01 -0700
+Message-ID: <50632681.40208@intel.com>
+References: <1348650402.5093.176.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:41234 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752137Ab2IZP6O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2012 11:58:14 -0400
-Received: by obbuo13 with SMTP id uo13so717733obb.19
-        for <netdev@vger.kernel.org>; Wed, 26 Sep 2012 08:58:13 -0700 (PDT)
-In-Reply-To: <87txuk9453.fsf@nemi.mork.no>
+Received: from mga11.intel.com ([192.55.52.93]:42846 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752137Ab2IZQAI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Sep 2012 12:00:08 -0400
+In-Reply-To: <1348650402.5093.176.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> I hadn't thought that was a situation that could arise, is it?  Would
->> this happen if the USB device was removed during suspend?
+On 09/26/2012 02:06 AM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
-> No, it should not happen.  But then, why test at all?
+> We currently use percpu order-0 pages in __netdev_alloc_frag
+> to deliver fragments used by __netdev_alloc_skb()
+>
+> Depending on NIC driver and arch being 32 or 64 bit, it allows a page to
+> be split in several fragments (between 1 and 8), assuming PAGE_SIZE=4096
+>
+> Switching to bigger pages (32768 bytes for PAGE_SIZE=4096 case) allows :
+>
+> - Better filling of space (the ending hole overhead is less an issue)
+>
+> - Less calls to page allocator or accesses to page->_count
+>
+> - Could allow struct skb_shared_info futures changes without major
+>   performance impact.
+>
+> This patch implements a transparent fallback to smaller
+> pages in case of memory pressure.
+>
+> It also uses a standard "struct page_frag" instead of a custom one.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+> ---
+>  net/core/skbuff.c |   46 ++++++++++++++++++++++++++++----------------
+>  1 file changed, 30 insertions(+), 16 deletions(-)
+>
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 2ede3cf..4ab83ce 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -340,43 +340,57 @@ struct sk_buff *build_skb(void *data, unsigned int frag_size)
+>  EXPORT_SYMBOL(build_skb);
+>  
+>  struct netdev_alloc_cache {
+> -	struct page *page;
+> -	unsigned int offset;
+> -	unsigned int pagecnt_bias;
+> +	struct page_frag	frag;
+> +	/* we maintain a pagecount bias, so that we dont dirty cache line
+> +	 * containing page->_count every time we allocate a fragment.
+> +	 */
+> +	unsigned int		pagecnt_bias;
+>  };
+>  static DEFINE_PER_CPU(struct netdev_alloc_cache, netdev_alloc_cache);
+>  
+> -#define NETDEV_PAGECNT_BIAS (PAGE_SIZE / SMP_CACHE_BYTES)
+> +#define NETDEV_FRAG_PAGE_MAX_ORDER get_order(32768)
+> +#define NETDEV_FRAG_PAGE_MAX_SIZE  (PAGE_SIZE << NETDEV_FRAG_PAGE_MAX_ORDER)
+> +#define NETDEV_PAGECNT_MAX_BIAS	   NETDEV_FRAG_PAGE_MAX_SIZE
+>  
+>  static void *__netdev_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
+>  {
+>  	struct netdev_alloc_cache *nc;
+>  	void *data = NULL;
+> +	int order;
+>  	unsigned long flags;
+>  
+>  	local_irq_save(flags);
+>  	nc = &__get_cpu_var(netdev_alloc_cache);
+> -	if (unlikely(!nc->page)) {
+> +	if (unlikely(!nc->frag.page)) {
+>  refill:
+> -		nc->page = alloc_page(gfp_mask);
+> -		if (unlikely(!nc->page))
+> -			goto end;
+> +		for (order = NETDEV_FRAG_PAGE_MAX_ORDER; ;) {
+> +			gfp_t gfp = gfp_mask;
+> +
+> +			if (order)
+> +				gfp |= __GFP_COMP | __GFP_NOWARN;
+> +			nc->frag.page = alloc_pages(gfp, order);
+> +			if (likely(nc->frag.page))
+> +				break;
+> +			if (--order <= 0)
+> +				goto end;
+> +		}
+> +		nc->frag.size = PAGE_SIZE << order;
+>  recycle:
+> -		atomic_set(&nc->page->_count, NETDEV_PAGECNT_BIAS);
+> -		nc->pagecnt_bias = NETDEV_PAGECNT_BIAS;
+> -		nc->offset = 0;
+> +		atomic_set(&nc->frag.page->_count, NETDEV_PAGECNT_MAX_BIAS);
+> +		nc->pagecnt_bias = NETDEV_PAGECNT_MAX_BIAS;
+> +		nc->frag.offset = 0;
+>  	}
+>  
+> -	if (nc->offset + fragsz > PAGE_SIZE) {
+> +	if (nc->frag.offset + fragsz > nc->frag.size) {
+>  		/* avoid unnecessary locked operations if possible */
+> -		if ((atomic_read(&nc->page->_count) == nc->pagecnt_bias) ||
+> -		    atomic_sub_and_test(nc->pagecnt_bias, &nc->page->_count))
+> +		if ((atomic_read(&nc->frag.page->_count) == nc->pagecnt_bias) ||
+> +		    atomic_sub_and_test(nc->pagecnt_bias, &nc->frag.page->_count))
+>  			goto recycle;
+>  		goto refill;
+>  	}
+>  
+> -	data = page_address(nc->page) + nc->offset;
+> -	nc->offset += fragsz;
+> +	data = page_address(nc->frag.page) + nc->frag.offset;
+> +	nc->frag.offset += fragsz;
+>  	nc->pagecnt_bias--;
+>  end:
+>  	local_irq_restore(flags);
+>
+>
 
-I thought it was common practice to add these tests to document an
-assumption the developer made that later code relies on?  I had
-assumed that the !dev condition should not be possible, hence the
-simple BUG test.  If it is possible then I agree - I definitely need
-to handle this more gracefully.
+One minor thought.  Instead of tracking offset and size why not just
+work from the top down instead of the bottom up?
 
-In this case, asserting that dev is not NULL will make the code fail
-loudly there instead of a few lines down when the netdev_info call
-dereferences dev->net.  Either way something bad will happen!
+So instead of starting with the frag offset at 0, why not start it at
+PAGE_SIZE << order, and then work your way down to 0.  That way you
+don't need to track both size and offset.
 
--Steve
+Thanks,
+
+Alex
