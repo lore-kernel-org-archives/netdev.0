@@ -1,41 +1,38 @@
-From: barbosao@uenf.br
-Subject: Security Webmail Alert,
-Date: Wed, 26 Sep 2012 05:34:19 -0300
-Message-ID: <20120926053419.y1bniztzk88o0ocg@zappa.uenf.br>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zappa.uenf.br ([200.20.228.33]:40759 "EHLO zappa.uenf.br"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752398Ab2IZIj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Sep 2012 04:39:27 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [patch v2 05/11] nfnetlink_acct: pass nfnetlink_acct module to netlink_dump_start
+Date: Wed, 26 Sep 2012 16:41:22 +0800
+Message-ID: <1348648888-24943-5-git-send-email-gaofeng@cn.fujitsu.com>
+References: <1348648888-24943-1-git-send-email-gaofeng@cn.fujitsu.com>
+Cc: netfilter-devel@vger.kernel.org, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
+	pablo@netfilter.org, stephen.hemminger@vyatta.com, jengelh@inai.de,
+	Gao feng <gaofeng@cn.fujitsu.com>
+To: davem@davemloft.net, eric.dumazet@gmail.com,
+	steffen.klassert@secunet.com
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1348648888-24943-1-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Warning last warning
+use proper netlink_dump_control.done and .module to avoid panic.
 
-I tell you that your email account has exceeded its
-storage limit. You will not be able to send and receive e-mails
-email account will be deleted from our server. To avoid this problem,
-recommend that you update your mailbox for more space.
-Click the link below to update and complete the information below.
-and click send
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ net/netfilter/nfnetlink_acct.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-http://capeziodance.com.ve/contacto/use/l/form1.html
-
-If we have not received an update from you, we will destroy your mailbox
-
-Thank you.
-The system administrator, the management team
-
-
-
--------------------------------------------------------------------------
-"O usuario e integralmente responsavel por todo conteudo enviado
-de sua conta de e-mail. Sua senha e pessoal e intransferivel."
+diff --git a/net/netfilter/nfnetlink_acct.c b/net/netfilter/nfnetlink_acct.c
+index b2e7310..1e9cb0f 100644
+--- a/net/netfilter/nfnetlink_acct.c
++++ b/net/netfilter/nfnetlink_acct.c
+@@ -175,6 +175,8 @@ nfnl_acct_get(struct sock *nfnl, struct sk_buff *skb,
+ 	if (nlh->nlmsg_flags & NLM_F_DUMP) {
+ 		struct netlink_dump_control c = {
+ 			.dump = nfnl_acct_dump,
++			.done = netlink_dump_done,
++			.module = THIS_MODULE,
+ 		};
+ 		return netlink_dump_start(nfnl, skb, nlh, &c);
+ 	}
+-- 
+1.7.7.6
