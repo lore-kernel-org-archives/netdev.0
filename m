@@ -1,45 +1,49 @@
-From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Subject: Re: [PATCH 02/11] inet_diag: pass inet_diag module to
- netlink_dump_start
-Date: Wed, 26 Sep 2012 19:26:14 +0200
-Message-ID: <20120926172614.GA22353@1984>
-References: <1348635140-20225-1-git-send-email-gaofeng@cn.fujitsu.com>
- <1348635140-20225-2-git-send-email-gaofeng@cn.fujitsu.com>
- <20120926090714.618a4b39@nehalam.linuxnetplumber.net>
+From: Serge Hallyn <serge.hallyn@canonical.com>
+Subject: Re: [PATCH v5 01/10] ipc: remove forced assignment of selected
+ message
+Date: Wed, 26 Sep 2012 12:37:18 -0500
+Message-ID: <20120926173718.GA30620@sergelap>
+References: <20120919160430.11254.86848.stgit@localhost6.localdomain6>
+ <20120919160531.11254.48182.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jengelh-9+2X+4sQBs8@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
-To: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: akpm@linux-foundation.org, manfred@colorfullife.com,
+	a.p.zijlstra@chello.nl, netdev@vger.kernel.org,
+	will.deacon@arm.com, linux-kernel@vger.kernel.org,
+	cmetcalf@tilera.com, jmorris@namei.org, linux-driver@qlogic.com,
+	linux-security-module@vger.kernel.org, hughd@google.com,
+	ron.mercer@qlogic.com, viro@zeniv.linux.org.uk,
+	james.l.morris@oracle.com, catalin.marinas@arm.com,
+	casey@schaufler-ca.com, eparis@parisplace.org, sds@tycho.nsa.gov,
+	jitendra.kalsaria@qlogic.com, devel@openvz.org
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20120926090714.618a4b39-We1ePj4FEcvRI77zikRAJc56i+j3xesD0e7PPNI6Mm0@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20120919160531.11254.48182.stgit@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 26, 2012 at 09:07:14AM -0700, Stephen Hemminger wrote:
-> On Wed, 26 Sep 2012 12:52:11 +0800
-> Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org> wrote:
+Quoting Stanislav Kinsbursky (skinsbursky@parallels.com):
+> This is a cleanup patch. The assignment is redundant.
 > 
-> >  			struct netlink_dump_control c = {
-> >  				.dump = inet_diag_dump_compat,
-> > +				.done = netlink_dump_done,
-> > +				.module = THIS_MODULE,
-> >  			};
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+> ---
+>  ipc/msg.c |    1 -
+>  1 files changed, 0 insertions(+), 1 deletions(-)
 > 
-> Since these are immutable, why the netlink_dump_control structures
-> on the stack (which requires code to generate at runtime), and instead
-> make them global
-> 
-> static const struct netlink_dump_control unix_diag_ctrl = {
-> ...
+> diff --git a/ipc/msg.c b/ipc/msg.c
+> index 7385de2..f3bfbb8 100644
+> --- a/ipc/msg.c
+> +++ b/ipc/msg.c
+> @@ -787,7 +787,6 @@ long do_msgrcv(int msqid, long *pmtype, void __user *mtext,
+>  			    !security_msg_queue_msgrcv(msq, walk_msg, current,
+>  						       msgtyp, mode)) {
+>  
+> -				msg = walk_msg;
+>  				if (mode == SEARCH_LESSEQUAL &&
+>  						walk_msg->m_type != 1) {
+>  					msg = walk_msg;
 
-I made that code. I can send a patch to statify those
-netlink_dump_control structures.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Perhaps your tree is different from mine, but it looks to me like it would
+be simpler to remove the 'msg = walk_msg' from both the 'if' and 'else',
+and keep them above the if/else?
