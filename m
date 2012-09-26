@@ -1,47 +1,53 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 01/11] netlink: add reference of module in
- netlink_dump_start
-Date: Wed, 26 Sep 2012 09:07:27 +0200
-Message-ID: <1348643247.5093.32.camel@edumazet-glaptop>
-References: <1348635140-20225-1-git-send-email-gaofeng@cn.fujitsu.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH 08/11] crypto: pass crypto_user module to netlink_dump_start
+Date: Wed, 26 Sep 2012 15:21:54 +0800
+Message-ID: <5062AD12.2000303@cn.fujitsu.com>
+References: <1348635140-20225-1-git-send-email-gaofeng@cn.fujitsu.com> <1348635140-20225-8-git-send-email-gaofeng@cn.fujitsu.com> <20120926054945.GE4221@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
-	linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jengelh-9+2X+4sQBs8@public.gmane.org,
-	stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
-To: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1348635140-20225-1-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, pablo@netfilter.org,
+	linux-crypto@vger.kernel.org, jengelh@inai.de,
+	stephen.hemminger@vyatta.com,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:27550 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752575Ab2IZHWH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2012 03:22:07 -0400
+In-Reply-To: <20120926054945.GE4221@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-09-26 at 12:52 +0800, Gao feng wrote:
+=E4=BA=8E 2012=E5=B9=B409=E6=9C=8826=E6=97=A5 13:49, Steffen Klassert =E5=
+=86=99=E9=81=93:
+> On Wed, Sep 26, 2012 at 12:52:17PM +0800, Gao feng wrote:
+>> use proper netlink_dump_control.done and .module to avoid panic.
+>>
+>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+>> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+>> ---
+>>  crypto/crypto_user.c |    6 +++++-
+>>  1 files changed, 5 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/crypto/crypto_user.c b/crypto/crypto_user.c
+>> index ba2c611..b5cb32b 100644
+>> --- a/crypto/crypto_user.c
+>> +++ b/crypto/crypto_user.c
+>> @@ -249,6 +249,7 @@ out_err:
+>> =20
+>>  static int crypto_dump_report_done(struct netlink_callback *cb)
+>>  {
+>> +	netlink_dump_done(cb);
+>>  	return 0;
+>=20
+> It's probaply better to return the return value of netlink_dump_done(=
+)
+> instead. Right now, netlink_dump_done() returns 0 in any case,
+> but this might change over time.
+>=20
 
-> +int netlink_dump_done(struct netlink_callback *cb)
-> +{
-> +	if (cb->module)
-> +		module_put(cb->module);
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL(netlink_dump_done);
-> +
-
-No need to test cb->module being not NULL
-
-
-int netlink_dump_done(struct netlink_callback *cb)
-{
-	module_put(cb->module);
-	return 0;
-}
-
-Same remark for try_module_get() call
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Get it, will fix, thanks!
