@@ -1,38 +1,43 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [patch v2 05/11] nfnetlink_acct: pass nfnetlink_acct module to netlink_dump_start
-Date: Wed, 26 Sep 2012 16:41:22 +0800
-Message-ID: <1348648888-24943-5-git-send-email-gaofeng@cn.fujitsu.com>
+From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Subject: [patch v2 07/11] nfnetlink_cttimeout: pass nfnetlink_cttimeout module to netlink_dump_start
+Date: Wed, 26 Sep 2012 16:41:24 +0800
+Message-ID: <1348648888-24943-7-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1348648888-24943-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: netfilter-devel@vger.kernel.org, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
-	pablo@netfilter.org, stephen.hemminger@vyatta.com, jengelh@inai.de,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: davem@davemloft.net, eric.dumazet@gmail.com,
-	steffen.klassert@secunet.com
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1348648888-24943-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Cc: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, jengelh-9+2X+4sQBs8@public.gmane.org,
+	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1348648888-24943-1-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 use proper netlink_dump_control.done and .module to avoid panic.
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 ---
- net/netfilter/nfnetlink_acct.c |    2 ++
+ net/netfilter/nfnetlink_cttimeout.c |    2 ++
  1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink_acct.c b/net/netfilter/nfnetlink_acct.c
-index b2e7310..1e9cb0f 100644
---- a/net/netfilter/nfnetlink_acct.c
-+++ b/net/netfilter/nfnetlink_acct.c
-@@ -175,6 +175,8 @@ nfnl_acct_get(struct sock *nfnl, struct sk_buff *skb,
+diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
+index cdecbc8..bc3e730 100644
+--- a/net/netfilter/nfnetlink_cttimeout.c
++++ b/net/netfilter/nfnetlink_cttimeout.c
+@@ -248,6 +248,8 @@ cttimeout_get_timeout(struct sock *ctnl, struct sk_buff *skb,
  	if (nlh->nlmsg_flags & NLM_F_DUMP) {
  		struct netlink_dump_control c = {
- 			.dump = nfnl_acct_dump,
+ 			.dump = ctnl_timeout_dump,
 +			.done = netlink_dump_done,
 +			.module = THIS_MODULE,
  		};
- 		return netlink_dump_start(nfnl, skb, nlh, &c);
+ 		return netlink_dump_start(ctnl, skb, nlh, &c);
  	}
 -- 
 1.7.7.6
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
