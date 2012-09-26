@@ -1,14 +1,16 @@
 From: Steve Glendinning <steve.glendinning@shawell.net>
-Subject: [PATCH 1/2] smsc95xx: add wol magic packet support
-Date: Wed, 26 Sep 2012 16:13:13 +0100
-Message-ID: <1348672394-15191-1-git-send-email-steve.glendinning@shawell.net>
+Subject: [PATCH 2/2] smsc75xx: add wol magic packet support
+Date: Wed, 26 Sep 2012 16:13:14 +0100
+Message-ID: <1348672394-15191-2-git-send-email-steve.glendinning@shawell.net>
+References: <1348672394-15191-1-git-send-email-steve.glendinning@shawell.net>
 Cc: Steve Glendinning <steve.glendinning@shawell.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:57591 "EHLO
+Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:57593 "EHLO
 	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756757Ab2IZPNX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2012 11:13:23 -0400
+	with ESMTP id S1756757Ab2IZPNY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2012 11:13:24 -0400
+In-Reply-To: <1348672394-15191-1-git-send-email-steve.glendinning@shawell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -16,35 +18,34 @@ This patch enables wake from system suspend on magic packet.
 
 Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
 ---
- drivers/net/usb/smsc95xx.c |  182 ++++++++++++++++++++++++++++++++++++++++++--
- drivers/net/usb/smsc95xx.h |    5 ++
- 2 files changed, 180 insertions(+), 7 deletions(-)
+ drivers/net/usb/smsc75xx.c |  184 +++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 172 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 6c89a08..c04ba76 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -46,6 +46,7 @@
- #define SMSC95XX_INTERNAL_PHY_ID	(1)
- #define SMSC95XX_TX_OVERHEAD		(8)
- #define SMSC95XX_TX_OVERHEAD_CSUM	(12)
+diff --git a/drivers/net/usb/smsc75xx.c b/drivers/net/usb/smsc75xx.c
+index 83b9927..a480c46 100644
+--- a/drivers/net/usb/smsc75xx.c
++++ b/drivers/net/usb/smsc75xx.c
+@@ -52,6 +52,7 @@
+ #define USB_PRODUCT_ID_LAN7500		(0x7500)
+ #define USB_PRODUCT_ID_LAN7505		(0x7505)
+ #define RXW_PADDING			2
 +#define SUPPORTED_WAKE			(WAKE_MAGIC)
  
  #define check_warn(ret, fmt, args...) \
  	({ if (ret < 0) netdev_warn(dev->net, fmt, ##args); })
-@@ -60,6 +61,7 @@ struct smsc95xx_priv {
- 	u32 mac_cr;
- 	u32 hash_hi;
- 	u32 hash_lo;
+@@ -65,6 +66,7 @@
+ struct smsc75xx_priv {
+ 	struct usbnet *dev;
+ 	u32 rfe_ctl;
 +	u32 wolopts;
- 	spinlock_t mac_cr_lock;
- };
- 
-@@ -125,6 +127,28 @@ static int __must_check smsc95xx_write_reg(struct usbnet *dev, u32 index,
+ 	u32 multicast_hash_table[DP_SEL_VHF_HASH_LEN];
+ 	struct mutex dataport_mutex;
+ 	spinlock_t rfe_ctl_lock;
+@@ -135,6 +137,28 @@ static int __must_check smsc75xx_write_reg(struct usbnet *dev, u32 index,
  	return ret;
  }
  
-+static int smsc95xx_set_feature(struct usbnet *dev, u32 feature)
++static int smsc75xx_set_feature(struct usbnet *dev, u32 feature)
 +{
 +	BUG_ON(!dev);
 +
@@ -55,7 +56,7 @@ index 6c89a08..c04ba76 100644
 +		USB_CTRL_SET_TIMEOUT);
 +}
 +
-+static int smsc95xx_clear_feature(struct usbnet *dev, u32 feature)
++static int smsc75xx_clear_feature(struct usbnet *dev, u32 feature)
 +{
 +	BUG_ON(!dev);
 +
@@ -68,48 +69,48 @@ index 6c89a08..c04ba76 100644
 +
  /* Loop until the read is completed with timeout
   * called with phy_mutex held */
- static int __must_check smsc95xx_phy_wait_not_busy(struct usbnet *dev)
-@@ -636,6 +660,26 @@ smsc95xx_ethtool_getregs(struct net_device *netdev, struct ethtool_regs *regs,
- 	}
+ static int smsc75xx_phy_wait_not_busy(struct usbnet *dev)
+@@ -578,6 +602,26 @@ static int smsc75xx_ethtool_set_eeprom(struct net_device *netdev,
+ 	return smsc75xx_write_eeprom(dev, ee->offset, ee->len, data);
  }
  
-+static void smsc95xx_ethtool_get_wol(struct net_device *net,
++static void smsc75xx_ethtool_get_wol(struct net_device *net,
 +				     struct ethtool_wolinfo *wolinfo)
 +{
 +	struct usbnet *dev = netdev_priv(net);
-+	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
++	struct smsc75xx_priv *pdata = (struct smsc75xx_priv *)(dev->data[0]);
 +
 +	wolinfo->supported = SUPPORTED_WAKE;
 +	wolinfo->wolopts = pdata->wolopts;
 +}
 +
-+static int smsc95xx_ethtool_set_wol(struct net_device *net,
++static int smsc75xx_ethtool_set_wol(struct net_device *net,
 +				    struct ethtool_wolinfo *wolinfo)
 +{
 +	struct usbnet *dev = netdev_priv(net);
-+	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
++	struct smsc75xx_priv *pdata = (struct smsc75xx_priv *)(dev->data[0]);
 +
 +	pdata->wolopts = wolinfo->wolopts & SUPPORTED_WAKE;
 +	return 0;
 +}
 +
- static const struct ethtool_ops smsc95xx_ethtool_ops = {
+ static const struct ethtool_ops smsc75xx_ethtool_ops = {
  	.get_link	= usbnet_get_link,
  	.nway_reset	= usbnet_nway_reset,
-@@ -649,6 +693,8 @@ static const struct ethtool_ops smsc95xx_ethtool_ops = {
- 	.set_eeprom	= smsc95xx_ethtool_set_eeprom,
- 	.get_regs_len	= smsc95xx_ethtool_getregslen,
- 	.get_regs	= smsc95xx_ethtool_getregs,
-+	.get_wol	= smsc95xx_ethtool_get_wol,
-+	.set_wol	= smsc95xx_ethtool_set_wol,
+@@ -589,6 +633,8 @@ static const struct ethtool_ops smsc75xx_ethtool_ops = {
+ 	.get_eeprom_len	= smsc75xx_ethtool_get_eeprom_len,
+ 	.get_eeprom	= smsc75xx_ethtool_get_eeprom,
+ 	.set_eeprom	= smsc75xx_ethtool_set_eeprom,
++	.get_wol	= smsc75xx_ethtool_get_wol,
++	.set_wol	= smsc75xx_ethtool_set_wol,
  };
  
- static int smsc95xx_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
-@@ -1021,25 +1067,147 @@ static void smsc95xx_unbind(struct usbnet *dev, struct usb_interface *intf)
- static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ static int smsc75xx_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
+@@ -1109,45 +1155,159 @@ static void smsc75xx_unbind(struct usbnet *dev, struct usb_interface *intf)
+ static int smsc75xx_suspend(struct usb_interface *intf, pm_message_t message)
  {
  	struct usbnet *dev = usb_get_intfdata(intf);
-+	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
++	struct smsc75xx_priv *pdata = (struct smsc75xx_priv *)(dev->data[0]);
  	int ret;
  	u32 val;
  
@@ -124,166 +125,158 @@ index 6c89a08..c04ba76 100644
 +		netdev_info(dev->net, "entering SUSPEND2 mode");
 +
 +		/* disable energy detect (link up) & wake up events */
-+		ret = smsc95xx_read_reg(dev, WUCSR, &val);
++		ret = smsc75xx_read_reg(dev, WUCSR, &val);
 +		check_warn_return(ret, "Error reading WUCSR");
 +
-+		val &= ~(WUCSR_MPEN_ | WUCSR_WAKE_EN_);
++		val &= ~(WUCSR_MPEN | WUCSR_WUEN);
 +
-+		ret = smsc95xx_write_reg(dev, WUCSR, val);
++		ret = smsc75xx_write_reg(dev, WUCSR, val);
 +		check_warn_return(ret, "Error writing WUCSR");
 +
-+		ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
-+		check_warn_return(ret, "Error reading PM_CTRL");
++		ret = smsc75xx_read_reg(dev, PMT_CTL, &val);
++		check_warn_return(ret, "Error reading PMT_CTL");
 +
-+		val &= ~(PM_CTL_ED_EN_ | PM_CTL_WOL_EN_);
++		val &= ~(PMT_CTL_ED_EN | PMT_CTL_WOL_EN);
 +
-+		ret = smsc95xx_write_reg(dev, PM_CTRL, val);
-+		check_warn_return(ret, "Error writing PM_CTRL");
++		ret = smsc75xx_write_reg(dev, PMT_CTL, val);
++		check_warn_return(ret, "Error writing PMT_CTL");
 +
 +		/* enter suspend2 mode */
-+		ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
-+		check_warn_return(ret, "Error reading PM_CTRL");
++		ret = smsc75xx_read_reg(dev, PMT_CTL, &val);
++		check_warn_return(ret, "Error reading PMT_CTL");
 +
-+		val &= ~(PM_CTL_SUS_MODE_ | PM_CTL_WUPS_ | PM_CTL_PHY_RST_);
-+		val |= PM_CTL_SUS_MODE_2;
++		val &= ~(PMT_CTL_SUS_MODE | PMT_CTL_WUPS | PMT_CTL_PHY_RST);
++		val |= PMT_CTL_SUS_MODE_2;
 +
-+		ret = smsc95xx_write_reg(dev, PM_CTRL, val);
-+		check_warn_return(ret, "Error writing PM_CTRL");
++		ret = smsc75xx_write_reg(dev, PMT_CTL, val);
++		check_warn_return(ret, "Error writing PMT_CTL");
 +
 +		return 0;
 +	}
 +
 +	if (pdata->wolopts & WAKE_MAGIC) {
 +		/* clear any pending magic packet status */
-+		ret = smsc95xx_read_reg(dev, WUCSR, &val);
++		ret = smsc75xx_read_reg(dev, WUCSR, &val);
 +		check_warn_return(ret, "Error reading WUCSR");
 +
-+		val |= WUCSR_MPR_;
++		val |= WUCSR_MPR;
 +
-+		ret = smsc95xx_write_reg(dev, WUCSR, val);
++		ret = smsc75xx_write_reg(dev, WUCSR, val);
 +		check_warn_return(ret, "Error writing WUCSR");
 +	}
- 
++
 +	/* enable/disable magic packup wake */
-+	ret = smsc95xx_read_reg(dev, WUCSR, &val);
++	ret = smsc75xx_read_reg(dev, WUCSR, &val);
 +	check_warn_return(ret, "Error reading WUCSR");
 +
 +	if (pdata->wolopts & WAKE_MAGIC) {
 +		netdev_info(dev->net, "enabling magic packet wakeup");
-+		val |= WUCSR_MPEN_;
++		val |= WUCSR_MPEN;
 +	} else {
 +		netdev_info(dev->net, "disabling magic packet wakeup");
-+		val &= ~WUCSR_MPEN_;
++		val &= ~WUCSR_MPEN;
 +	}
 +
-+	ret = smsc95xx_write_reg(dev, WUCSR, val);
++	ret = smsc75xx_write_reg(dev, WUCSR, val);
 +	check_warn_return(ret, "Error writing WUCSR");
 +
 +	/* enable wol wakeup source */
- 	ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
- 	check_warn_return(ret, "Error reading PM_CTRL");
- 
--	val &= ~(PM_CTL_SUS_MODE_ | PM_CTL_WUPS_ | PM_CTL_PHY_RST_);
--	val |= PM_CTL_SUS_MODE_2;
-+	val |= PM_CTL_WOL_EN_;
- 
- 	ret = smsc95xx_write_reg(dev, PM_CTRL, val);
- 	check_warn_return(ret, "Error writing PM_CTRL");
- 
++	ret = smsc75xx_read_reg(dev, PMT_CTL, &val);
++	check_warn_return(ret, "Error reading PMT_CTL");
++
++	val |= PMT_CTL_WOL_EN;
++
++	ret = smsc75xx_write_reg(dev, PMT_CTL, val);
++	check_warn_return(ret, "Error writing PMT_CTL");
++
 +	/* enable receiver */
-+	smsc95xx_start_rx_path(dev);
++	ret = smsc75xx_read_reg(dev, MAC_RX, &val);
++	check_warn_return(ret, "Failed to read MAC_RX: %d", ret);
++
++	val |= MAC_RX_RXEN;
++
++	ret = smsc75xx_write_reg(dev, MAC_RX, val);
++	check_warn_return(ret, "Failed to write MAC_RX: %d", ret);
 +
 +	/* some wol options are enabled, so enter SUSPEND0 */
 +	netdev_info(dev->net, "entering SUSPEND0 mode");
+ 
+ 	ret = smsc75xx_read_reg(dev, PMT_CTL, &val);
+ 	check_warn_return(ret, "Error reading PMT_CTL");
+ 
+-	val &= ~(PMT_CTL_SUS_MODE | PMT_CTL_WUPS | PMT_CTL_PHY_RST);
+-	val |= PMT_CTL_SUS_MODE_2;
++	val &= (~(PMT_CTL_SUS_MODE | PMT_CTL_WUPS | PMT_CTL_PHY_RST));
++	val |= PMT_CTL_SUS_MODE_0;
 +
-+	ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
-+	check_warn_return(ret, "Error reading PM_CTRL");
-+
-+	val &= (~(PM_CTL_SUS_MODE_ | PM_CTL_WUPS_ | PM_CTL_PHY_RST_));
-+	val |= PM_CTL_SUS_MODE_0;
-+
-+	ret = smsc95xx_write_reg(dev, PM_CTRL, val);
-+	check_warn_return(ret, "Error writing PM_CTRL");
-+
++	ret = smsc75xx_write_reg(dev, PMT_CTL, val);
++	check_warn_return(ret, "Error writing PMT_CTL");
+ 
 +	/* clear wol status */
-+	val &= ~PM_CTL_WUPS_;
-+	val |= PM_CTL_WUPS_WOL_;
-+	ret = smsc95xx_write_reg(dev, PM_CTRL, val);
-+	check_warn_return(ret, "Error writing PM_CTRL");
++	val &= ~PMT_CTL_WUPS;
++	val |= PMT_CTL_WUPS_WOL;
+ 	ret = smsc75xx_write_reg(dev, PMT_CTL, val);
+ 	check_warn_return(ret, "Error writing PMT_CTL");
+ 
++	/* read back PMT_CTL */
++	ret = smsc75xx_read_reg(dev, PMT_CTL, &val);
++	check_warn_return(ret, "Error reading PMT_CTL");
 +
-+	/* read back PM_CTRL */
-+	ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
-+	check_warn_return(ret, "Error reading PM_CTRL");
-+
-+	smsc95xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
-+
-+	return 0;
-+}
-+
-+static int smsc95xx_resume(struct usb_interface *intf)
-+{
-+	struct usbnet *dev = usb_get_intfdata(intf);
-+	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
-+	int ret;
-+	u32 val;
-+
-+	BUG_ON(!dev);
-+
-+	if (pdata->wolopts & WAKE_MAGIC) {
-+		smsc95xx_clear_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
-+
-+		/* Disable magic packup wake */
-+		ret = smsc95xx_read_reg(dev, WUCSR, &val);
-+		check_warn_return(ret, "Error reading WUCSR");
-+
-+		val &= ~WUCSR_MPEN_;
-+
-+		ret = smsc95xx_write_reg(dev, WUCSR, val);
-+		check_warn_return(ret, "Error writing WUCSR");
-+
-+		/* clear wake-up status */
-+		ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
-+		check_warn_return(ret, "Error reading PM_CTRL");
-+
-+		val &= ~PM_CTL_WOL_EN_;
-+		val |= PM_CTL_WUPS_;
-+
-+		ret = smsc95xx_write_reg(dev, PM_CTRL, val);
-+		check_warn_return(ret, "Error writing PM_CTRL");
-+	}
-+
-+	return usbnet_resume(intf);
-+	check_warn_return(ret, "usbnet_resume error");
++	smsc75xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
 +
  	return 0;
  }
  
-@@ -1306,8 +1474,8 @@ static struct usb_driver smsc95xx_driver = {
- 	.id_table	= products,
- 	.probe		= usbnet_probe,
- 	.suspend	= smsc95xx_suspend,
--	.resume		= usbnet_resume,
--	.reset_resume	= usbnet_resume,
-+	.resume		= smsc95xx_resume,
-+	.reset_resume	= smsc95xx_resume,
- 	.disconnect	= usbnet_disconnect,
- 	.disable_hub_initiated_lpm = 1,
- };
-diff --git a/drivers/net/usb/smsc95xx.h b/drivers/net/usb/smsc95xx.h
-index 89ad925..2ff9815 100644
---- a/drivers/net/usb/smsc95xx.h
-+++ b/drivers/net/usb/smsc95xx.h
-@@ -205,6 +205,11 @@
- #define WUFF				(0x128)
+ static int smsc75xx_resume(struct usb_interface *intf)
+ {
+ 	struct usbnet *dev = usb_get_intfdata(intf);
++	struct smsc75xx_priv *pdata = (struct smsc75xx_priv *)(dev->data[0]);
+ 	int ret;
+ 	u32 val;
  
- #define WUCSR				(0x12C)
-+#define WUCSR_GUE_			(0x00000200)
-+#define WUCSR_WUFR_			(0x00000040)
-+#define WUCSR_MPR_			(0x00000020)
-+#define WUCSR_WAKE_EN_			(0x00000004)
-+#define WUCSR_MPEN_			(0x00000002)
+-	BUG_ON(!dev);
++	if (pdata->wolopts & WAKE_MAGIC) {
++		netdev_info(dev->net, "resuming from SUSPEND0");
  
- #define COE_CR				(0x130)
- #define Tx_COE_EN_			(0x00010000)
+-	netdev_info(dev->net, "resuming from SUSPEND2");
++		smsc75xx_clear_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
+ 
+-	ret = smsc75xx_read_reg(dev, PMT_CTL, &val);
+-	check_warn_return(ret, "Error reading PMT_CTL");
++		/* Disable magic packup wake */
++		ret = smsc75xx_read_reg(dev, WUCSR, &val);
++		check_warn_return(ret, "Error reading WUCSR");
+ 
+-	val |= PMT_CTL_PHY_PWRUP;
++		val &= ~WUCSR_MPEN;
+ 
+-	ret = smsc75xx_write_reg(dev, PMT_CTL, val);
+-	check_warn_return(ret, "Error writing PMT_CTL");
++		ret = smsc75xx_write_reg(dev, WUCSR, val);
++		check_warn_return(ret, "Error writing WUCSR");
++
++		/* clear wake-up status */
++		ret = smsc75xx_read_reg(dev, PMT_CTL, &val);
++		check_warn_return(ret, "Error reading PMT_CTL");
++
++		val &= ~PMT_CTL_WOL_EN;
++		val |= PMT_CTL_WUPS;
++
++		ret = smsc75xx_write_reg(dev, PMT_CTL, val);
++		check_warn_return(ret, "Error writing PMT_CTL");
++	} else {
++		netdev_info(dev->net, "resuming from SUSPEND2");
++
++		ret = smsc75xx_read_reg(dev, PMT_CTL, &val);
++		check_warn_return(ret, "Error reading PMT_CTL");
++
++		val |= PMT_CTL_PHY_PWRUP;
++
++		ret = smsc75xx_write_reg(dev, PMT_CTL, val);
++		check_warn_return(ret, "Error writing PMT_CTL");
++	}
+ 
+ 	ret = smsc75xx_wait_ready(dev);
+ 	check_warn_return(ret, "device not ready in smsc75xx_resume");
 -- 
 1.7.9.5
