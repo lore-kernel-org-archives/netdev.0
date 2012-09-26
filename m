@@ -1,8 +1,7 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 03/11] unix_diag: pass unix_diag module to netlink_dump_start
-Date: Wed, 26 Sep 2012 12:52:12 +0800
-Message-ID: <1348635140-20225-3-git-send-email-gaofeng@cn.fujitsu.com>
-References: <1348635140-20225-1-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH 01/11] netlink: add reference of module in netlink_dump_start
+Date: Wed, 26 Sep 2012 12:52:10 +0800
+Message-ID: <1348635140-20225-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netfilter-devel@vger.kernel.org, linux-rdma@vger.kernel.org,
 	netdev@vger.kernel.org, eric.dumazet@gmail.com,
 	pablo@netfilter.org, steffen.klassert@secunet.com,
@@ -10,29 +9,113 @@ Cc: netfilter-devel@vger.kernel.org, linux-rdma@vger.kernel.org,
 	stephen.hemminger@vyatta.com, Gao feng <gaofeng@cn.fujitsu.com>
 To: davem@davemloft.net
 Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1348635140-20225-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-use proper netlink_dump_control.done and .module to avoid panic.
+I get a panic when I use ss -a and rmmod inet_diag at the
+same time.
+
+it's because netlink_dump use inet_diag_dump witch function
+belongs to module inet_diag.
+
+I search the codes and find many modules have the same problem.
+We need add reference of the module witch the cb->dump belongs
+to.
+
+since CONFIG_NET is bool,so netlink_dump_start in rtnetlink.c
+and genetlink.c will never trigger this problem.
+
+Thanks for all help from Stephen,Jan and Eric.
 
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- net/unix/diag.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ include/linux/netlink.h  |    4 ++++
+ net/netlink/af_netlink.c |   25 +++++++++++++++++++++----
+ 2 files changed, 25 insertions(+), 4 deletions(-)
 
-diff --git a/net/unix/diag.c b/net/unix/diag.c
-index 750b134..5e09553 100644
---- a/net/unix/diag.c
-+++ b/net/unix/diag.c
-@@ -299,6 +299,8 @@ static int unix_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
- 	if (h->nlmsg_flags & NLM_F_DUMP) {
- 		struct netlink_dump_control c = {
- 			.dump = unix_diag_dump,
-+			.done = netlink_dump_done,
-+			.module = THIS_MODULE,
- 		};
- 		return netlink_dump_start(net->diag_nlsk, skb, h, &c);
- 	} else
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index f74dd13..a3641e3 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -232,6 +232,8 @@ struct netlink_callback {
+ 					struct netlink_callback *cb);
+ 	int			(*done)(struct netlink_callback *cb);
+ 	void			*data;
++	/* the module that dump function belong to */
++	struct module		*module;
+ 	u16			family;
+ 	u16			min_dump_alloc;
+ 	unsigned int		prev_seq, seq;
+@@ -251,9 +253,11 @@ struct netlink_dump_control {
+ 	int (*dump)(struct sk_buff *skb, struct netlink_callback *);
+ 	int (*done)(struct netlink_callback*);
+ 	void *data;
++	struct module *module;
+ 	u16 min_dump_alloc;
+ };
+ 
++extern int netlink_dump_done(struct netlink_callback *cb);
+ extern int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
+ 			      const struct nlmsghdr *nlh,
+ 			      struct netlink_dump_control *control);
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 5270238..011091c 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1769,6 +1769,14 @@ errout_skb:
+ 	return err;
+ }
+ 
++int netlink_dump_done(struct netlink_callback *cb)
++{
++	if (cb->module)
++		module_put(cb->module);
++	return 0;
++}
++EXPORT_SYMBOL(netlink_dump_done);
++
+ int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
+ 		       const struct nlmsghdr *nlh,
+ 		       struct netlink_dump_control *control)
+@@ -1786,6 +1794,7 @@ int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
+ 	cb->done = control->done;
+ 	cb->nlh = nlh;
+ 	cb->data = control->data;
++	cb->module = control->module;
+ 	cb->min_dump_alloc = control->min_dump_alloc;
+ 	atomic_inc(&skb->users);
+ 	cb->skb = skb;
+@@ -1796,19 +1805,27 @@ int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
+ 		return -ECONNREFUSED;
+ 	}
+ 	nlk = nlk_sk(sk);
+-	/* A dump is in progress... */
++
+ 	mutex_lock(nlk->cb_mutex);
++	/* A dump is in progress... */
+ 	if (nlk->cb) {
+ 		mutex_unlock(nlk->cb_mutex);
+ 		netlink_destroy_callback(cb);
+-		sock_put(sk);
+-		return -EBUSY;
++		ret = -EBUSY;
++		goto out;
++	}
++	/* add reference of module witch cb->dump belone to */
++	if (cb->module && !try_module_get(cb->module)) {
++		mutex_unlock(nlk->cb_mutex);
++		ret = -EPROTONOSUPPORT;
++		goto out;
+ 	}
++
+ 	nlk->cb = cb;
+ 	mutex_unlock(nlk->cb_mutex);
+ 
+ 	ret = netlink_dump(sk);
+-
++out:
+ 	sock_put(sk);
+ 
+ 	if (ret)
 -- 
 1.7.7.6
