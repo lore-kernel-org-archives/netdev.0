@@ -1,72 +1,43 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [RFC PATCH] ipv6: don't add link local route when there is no link local address
-Date: Wed, 26 Sep 2012 15:09:22 +0200
-Message-ID: <1348664962-4018-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: [PATCH net-next] net: use bigger pages in __netdev_alloc_frag
+Date: Wed, 26 Sep 2012 09:11:10 -0400
+Message-ID: <20120926131110.GL10611@kvack.org>
+References: <1348650402.5093.176.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:32893 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753619Ab2IZNGb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2012 09:06:31 -0400
+Received: from kanga.kvack.org ([205.233.56.17]:50635 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753619Ab2IZNLL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Sep 2012 09:11:11 -0400
+Content-Disposition: inline
+In-Reply-To: <1348650402.5093.176.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When an address is added on loopback (ip -6 a a 2002::1/128 dev lo), a route
-to fe80::/64 is added in the main table:
-  unreachable fe80::/64 dev lo  proto kernel  metric 256  error -101
+Hello Eric,
 
-This route does not match any prefix (no fe80:: address on lo). In fact,
-addrconf_dev_config() will not add link local address because this function
-filters interfaces by type. If the link local address is added manually, the
-route to the link local prefix will be automatically added by
-addrconf_add_linklocal().
-Note also, that this route is not deleted when the address is removed.
+On Wed, Sep 26, 2012 at 11:06:42AM +0200, Eric Dumazet wrote:
+> +	int order;
+...
+> +		for (order = NETDEV_FRAG_PAGE_MAX_ORDER; ;) {
+> +			gfp_t gfp = gfp_mask;
+> +
+> +			if (order)
+> +				gfp |= __GFP_COMP | __GFP_NOWARN;
+> +			nc->frag.page = alloc_pages(gfp, order);
+> +			if (likely(nc->frag.page))
+> +				break;
+> +			if (--order <= 0)
+> +				goto end;
+> +		}
 
-After looking at the code, it seems that addrconf_add_lroute() is redundant with
-addrconf_add_linklocal(), because this function will add the link local route
-when the link local address is configured.
+I think you probably intended the last if to be "if (--order < 0)", as 
+otherwise the alloc will never be attempted with an order 0 page, which 
+could harm systems suffering from extreme memory fragmentation.  Cheers,
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/addrconf.c | 11 -----------
- 1 file changed, 11 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index ea3e9af..041664b 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1782,14 +1782,6 @@ static void sit_route_add(struct net_device *dev)
- }
- #endif
- 
--static void addrconf_add_lroute(struct net_device *dev)
--{
--	struct in6_addr addr;
--
--	ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
--	addrconf_prefix_route(&addr, 64, dev, 0, 0);
--}
--
- static struct inet6_dev *addrconf_add_dev(struct net_device *dev)
- {
- 	struct inet6_dev *idev;
-@@ -1807,8 +1799,6 @@ static struct inet6_dev *addrconf_add_dev(struct net_device *dev)
- 	if (!(dev->flags & IFF_LOOPBACK))
- 		addrconf_add_mroute(dev);
- 
--	/* Add link local route */
--	addrconf_add_lroute(dev);
- 	return idev;
- }
- 
-@@ -2489,7 +2479,6 @@ static void addrconf_sit_config(struct net_device *dev)
- 
- 	if (dev->flags&IFF_POINTOPOINT) {
- 		addrconf_add_mroute(dev);
--		addrconf_add_lroute(dev);
- 	} else
- 		sit_route_add(dev);
- }
--- 
-1.7.12
+		-ben
