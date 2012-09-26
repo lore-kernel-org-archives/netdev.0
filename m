@@ -1,65 +1,80 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH -next] device.h: Add missing inline to #ifndef CONFIG_PRINTK
- dev_vprintk_emit
-Date: Tue, 25 Sep 2012 18:19:57 -0700
-Message-ID: <1348622397.2648.13.camel@joe-AO722>
-References: <cover.1345978012.git.joe@perches.com>
-	 <7cfb202968f0928bba66965146a828a1cff87950.1345978012.git.joe@perches.com>
-	 <CAMuHMdVH-ni1NhbTDXgh82WUSAV85fahUjp1BoizVy6D2Xyvaw@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Wed, 26 Sep 2012 11:46:21 +1000
+Message-ID: <20120926114621.a512573023db025b3746a7e0@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jason Baron <jbaron@redhat.com>,
-	Jim Cromie <jim.cromie@gmail.com>, Kay Sievers <kay@vrfy.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__26_Sep_2012_11_46_21_+1000_DXbEt2jh7v6r/wCb"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	=?UTF-8?B?IkxpbnVzIEzDvHNzaW5nIg==?= <linus.luessing@web.de>,
+	Antonio Quartulli <ordex@autistici.org>,
+	Sven Eckelmann <sven@narfation.org>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:54936 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753007Ab2IZBUB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Sep 2012 21:20:01 -0400
-In-Reply-To: <CAMuHMdVH-ni1NhbTDXgh82WUSAV85fahUjp1BoizVy6D2Xyvaw@mail.gmail.com>
+Received: from haggis.pcug.org.au ([203.10.76.10]:36886 "EHLO
+	members.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750824Ab2IZBqf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2012 21:46:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also add __printf() verification for format string.
+--Signature=_Wed__26_Sep_2012_11_46_21_+1000_DXbEt2jh7v6r/wCb
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Signed-off-by: Joe Perches <joe@perches.com>
+Hi all,
 
----
+Today's linux-next merge of the net-next tree got a conflict in
+net/batman-adv/bat_iv_ogm.c between commit 7caf69fb9c50 ("batman-adv: Fix
+symmetry check / route flapping in multi interface setups") from Linus'
+tree and commit bbb1f90efba8 ("batman-adv: Don't break statements after
+assignment operator") from the net-next tree.
 
- include/linux/device.h |   10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
-diff --git a/include/linux/device.h b/include/linux/device.h
-index 8873603..86ef6ab 100644
---- a/include/linux/device.h
-+++ b/include/linux/device.h
-@@ -902,8 +902,9 @@ extern const char *dev_driver_string(const struct device *dev);
- 
- #ifdef CONFIG_PRINTK
- 
--extern int dev_vprintk_emit(int level, const struct device *dev,
--			    const char *fmt, va_list args);
-+extern __printf(3, 0)
-+int dev_vprintk_emit(int level, const struct device *dev,
-+		     const char *fmt, va_list args);
- extern __printf(3, 4)
- int dev_printk_emit(int level, const struct device *dev, const char *fmt, ...);
- 
-@@ -927,8 +928,9 @@ int _dev_info(const struct device *dev, const char *fmt, ...);
- 
- #else
- 
--static int dev_vprintk_emit(int level, const struct device *dev,
--			    const char *fmt, va_list args)
-+static inline __printf(3, 0)
-+int dev_vprintk_emit(int level, const struct device *dev,
-+		     const char *fmt, va_list args)
- { return 0; }
- static inline __printf(3, 4)
- int dev_printk_emit(int level, const struct device *dev, const char *fmt, ...)
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc net/batman-adv/bat_iv_ogm.c
+index 469daab,df79300..0000000
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@@ -642,9 -652,9 +652,10 @@@ batadv_iv_ogm_orig_update(struct batadv
+  	struct batadv_neigh_node *router =3D NULL;
+  	struct batadv_orig_node *orig_node_tmp;
+  	struct hlist_node *node;
+ +	int if_num;
+  	uint8_t sum_orig, sum_neigh;
+  	uint8_t *neigh_addr;
++ 	uint8_t tq_avg;
+ =20
+  	batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
+  		   "update_originator(): Searching and updating originator entry of rec=
+eived packet\n");
+
+--Signature=_Wed__26_Sep_2012_11_46_21_+1000_DXbEt2jh7v6r/wCb
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIbBAEBCAAGBQJQYl5tAAoJEECxmPOUX5FENH4P+IYb4SuWD2H1L3ee8vUCeZKK
+TdDMugWQtNd+1INDva7Xj9AhUAgdiG6HFUCXvmKkVHIXqVych0f3EpdQE9B56x6F
+ad0jPJYg8DosGCvm2SuLQEftdDNy/MIERiwqZpbLcQAEmN++3igB8ko/n5/CJSgK
+O7Fhb0uhEBb4s3rjxdP+1o1jzoxo1VJSMBBeUguSFreR45ZBFuKXLdCfqrDqp9vr
+e9VhmUJRDp8m07SiJs2twjPfPFsSb7pE7PtGGZaZg6lq1EKIF0/17w/VrQwoPgP1
+whViSxYskYSgEZz4z8VxfZVlCbPLOAFpnq+FGD8Fzn581pdM3ipS6+sXpvT8IFZ/
+UdlXJuEBnNLDk2jwfqxJs0KmcOMvGVkl7WLYS4WuFj/O0fUc2DFej9Gon9ZbP2ow
+b43W9JL9sTBgNsv+TXMqAWdS/XxoqpvSzeohn2MC7fOydFyBPQLZEIjJ+i0ZOuPr
+p+ZyHuUwc/yXUh2yKXo945Z4QHHz2FejyMmnZq4FCIZa6gVM0a2r9qP1kTWuXhaf
+g1RkW1K2rAawBVIcphwdWPfjtoz5psQ7CRXQPmLx//DR0TBgaK4P2Xsa/KpiTWe6
+VOuHxn/X/iJlMGjjfkXY19wmzvKbqfmSk5S/ug4qNJcgzE/5uPeY2vXNtaNQ20lC
+ScLHN5Oly8BpF54eVA0=
+=DNXs
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__26_Sep_2012_11_46_21_+1000_DXbEt2jh7v6r/wCb--
