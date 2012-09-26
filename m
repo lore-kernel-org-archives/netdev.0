@@ -1,115 +1,101 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH V4 0/7] ipvs: IPv6 fragment handling for IPVS
-Date: Wed, 26 Sep 2012 23:50:02 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1209262347280.2156@ja.ssi.bg>
-References: <20120926120534.24804.78415.stgit@dragon>
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: Re: Problems with tg3 on BCM5720
+Date: Wed, 26 Sep 2012 14:13:14 -0700
+Message-ID: <50636FEA.7080509@broadcom.com>
+References: <CAKmKYaCBG5hURNomffgp9gRhS7g2BYsNG-LTmBrKsX-iyVzVxg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Hans Schillstrom <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	netdev@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>,
-	lvs-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	netfilter-devel@vger.kernel.org, Simon Horman <horms@verge.net.au>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20120926120534.24804.78415.stgit@dragon>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=utf-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Dirkjan Ochtman" <dirkjan@ochtman.nl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:1379 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752333Ab2IZVNX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Sep 2012 17:13:23 -0400
+In-Reply-To: <CAKmKYaCBG5hURNomffgp9gRhS7g2BYsNG-LTmBrKsX-iyVzVxg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Hi Dirkjan,
+A few questions -
+1. Can you tell me the last patch that is included in the tg3 driver in 3.4.9 on your distro?
+2. Can you give more info about the working setup?
+3. Was there any system reset or driver reload between the working and not working setups? Or was it 
+just a cable switch?
+
+4. Please give the output of
+ethtool eth0
+ethtool -i eth0
+ethtool -k eth0
+
+5. Can you run ethtool --test in the working setup?
+
+6. I noticed in the syslog, the link is coming up at 100 Mbps. Is this expected?
+7. Does it fail immediately on connect to the data center switch? Or is it after some traffic goes 
+through?
+
+Thanks,
+Nithin.
 
 
-	Hello,
-
-On Wed, 26 Sep 2012, Jesper Dangaard Brouer wrote:
-
-> The following patchset implement IPv6 fragment handling for IPVS.
-> 
-> This work is based upon patches from Hans Schillstrom.  I have taken
-> over the patchset, in close agreement with Hans, because he don't have
-> (gotten allocated) time to complete his work.
-> 
-> I have cleaned up the patchset significantly, and split the patchset
-> up into seven patches.
-> 
-> The first 3 patches, are ready to be merged
-> 
->  Patch01: Trivial changes, use compressed IPv6 address in output
->  Patch02: IPv6 extend ICMPv6 handling for future types
->  Patch03: Use config macro IS_ENABLED()
-> 
-> The next 4 patches, is V4 of the patches I have submitted earlier.
-> Where I have incorporated Julian's recent feedback.
-> 
-> - Notice that patch04 of patchset V3, have been dropped.
-> 
-> I have also tried to make the patches easier to review, by
-> reorganizing the changes, to be more strictly split (exthdr
-> vs. fragment handling).
-> 
-> I have also removed the API changes, and moved those to patch06.  This
-> is done, (1) to make it easier to review the patches, and (2) to allow
-> easier integration of Patricks idea and my RFC patch of caching exthdr
-> info in skb->cb[].  Thus, we can get these patches applied (and later
-> go back and apply the caching scheme easier).
-> 
->  Patch04: Fix faulty IPv6 extension header handling in IPVS
->  Patch05: Complete IPv6 fragment handling for IPVS
->  Patch06: IPVS API change to avoid rescan of IPv6 exthdr
->  Patch07: IPVS SIP fragment handling
-> 
-> The SIP frag handling have been split into its own patch, as I have
-> not been able to test this part my self.
-> 
-> This patchset is based upon:
->   Pablo's nf-next tree:  git://1984.lsi.us.es/nf-next
->   On top of:
->     commit 2cbc78a29e76a2e92c172651204f3117491877d2
->     (netfilter: combine ipt_REDIRECT and ip6t_REDIRECT)
-> 
-> ---
-> 
-> Jesper Dangaard Brouer (7):
->       ipvs: SIP fragment handling
->       ipvs: API change to avoid rescan of IPv6 exthdr
->       ipvs: Complete IPv6 fragment handling for IPVS
->       ipvs: Fix faulty IPv6 extension header handling in IPVS
->       ipvs: Use config macro IS_ENABLED()
->       ipvs: IPv6 extend ICMPv6 handling for future types
->       ipvs: Trivial changes, use compressed IPv6 address in output
-
-	All 7 patches look good to me. Thanks!
-
-Acked-by: Julian Anastasov <ja@ssi.bg>
-
->  include/net/ip_vs.h                     |  194 +++++++++++----
->  net/netfilter/ipvs/Kconfig              |    7 -
->  net/netfilter/ipvs/ip_vs_conn.c         |   15 -
->  net/netfilter/ipvs/ip_vs_core.c         |  404 +++++++++++++++++--------------
->  net/netfilter/ipvs/ip_vs_dh.c           |    2 
->  net/netfilter/ipvs/ip_vs_lblc.c         |    2 
->  net/netfilter/ipvs/ip_vs_lblcr.c        |    2 
->  net/netfilter/ipvs/ip_vs_pe_sip.c       |   21 +-
->  net/netfilter/ipvs/ip_vs_proto.c        |    6 
->  net/netfilter/ipvs/ip_vs_proto_ah_esp.c |    9 -
->  net/netfilter/ipvs/ip_vs_proto_sctp.c   |   42 +--
->  net/netfilter/ipvs/ip_vs_proto_tcp.c    |   40 +--
->  net/netfilter/ipvs/ip_vs_proto_udp.c    |   41 +--
->  net/netfilter/ipvs/ip_vs_sched.c        |    2 
->  net/netfilter/ipvs/ip_vs_sh.c           |    2 
->  net/netfilter/ipvs/ip_vs_xmit.c         |   73 +++---
->  net/netfilter/xt_ipvs.c                 |    4 
->  17 files changed, 504 insertions(+), 362 deletions(-)
-> 
-> 
+On 09/26/2012 06:48 AM, Dirkjan Ochtman wrote:
+> Hi,
+>
+> I hope this is the right list for this; please let me know if there is
+> some more appropriate venue for this kind of problem.
+>
+> We have bought a Dell PowerEdge server recently with Broadcom ethernet
+> controllers:
+>
+> 01:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5720
+> Gigabit Ethernet PCIe
+> 01:00.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5720
+> Gigabit Ethernet PCIe
+> 02:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5720
+> Gigabit Ethernet PCIe
+> 02:00.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5720
+> Gigabit Ethernet PCIe
+>
+> Using the tg3 driver as provided by the 3.4.9 kernel (it's a distro
+> kernel, but I verified that there are no relevant patches on top of
+> the vanilla 3.4.9), networking works fine on a small VLAN. However,
+> we've run into trouble connecting one of the interfaces to switch run
+> by our data center vendor (the switch side works fine when connecting
+> with a laptop). The driver keeps erroring out with "transmit timed
+> out, resetting" (full syslog output is at [1]). This also keeps
+> happening when I use the latest tg3.{c,h} from torvalds/linux-2.6
+> (though I've had to revert a few things to make it compile inside the
+> 3.4.9 kernel).
+>
+> I've also run some tests with ethtool:
+>
+> djc@jansky ~ $ sudo ethtool --test eth0
+> The test result is FAIL
+> The test extra info:
+> nvram test        (online)       0
+> link test         (online)       1
+> register test     (offline)      0
+> memory test       (offline)      0
+> mac loopback test (offline)      7
+> phy loopback test (offline)      7
+> ext loopback test (offline)      0
+> interrupt test    (offline)      1
+>
+> While I'd be happy to do more digging, at this point I'm out of ideas
+> on how to go about that.
+>
+> Again, sorry if this is off-topic for this list, any help would be appreciated.
+>
+> Cheers,
+>
+> Dirkjan
+>
+> [1] http://dirkjan.ochtman.nl/files/tg3-fail.txt
 > --
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Sr. Network Kernel Developer at Red Hat
->   Author of http://www.iptv-analyzer.org
->   LinkedIn: http://www.linkedin.com/in/brouer
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
