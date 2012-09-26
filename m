@@ -1,48 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: use bigger pages in __netdev_alloc_frag
-Date: Wed, 26 Sep 2012 15:57:31 +0200
-Message-ID: <1348667851.5093.355.camel@edumazet-glaptop>
-References: <1348650402.5093.176.camel@edumazet-glaptop>
-	 <20120926131110.GL10611@kvack.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: Benjamin LaHaise <bcrl@kvack.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:58322 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752879Ab2IZN5g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2012 09:57:36 -0400
-Received: by bkcjk13 with SMTP id jk13so341125bkc.19
-        for <netdev@vger.kernel.org>; Wed, 26 Sep 2012 06:57:35 -0700 (PDT)
-In-Reply-To: <20120926131110.GL10611@kvack.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: [PATCH] rtlwifi: use %*ph[C] to dump small buffers
+Date: Wed, 26 Sep 2012 16:57:32 +0300
+Message-ID: <1348667852-5957-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-09-26 at 09:11 -0400, Benjamin LaHaise wrote:
-> Hello Eric,
-> 
-> On Wed, Sep 26, 2012 at 11:06:42AM +0200, Eric Dumazet wrote:
-> > +	int order;
-> ...
-> > +		for (order = NETDEV_FRAG_PAGE_MAX_ORDER; ;) {
-> > +			gfp_t gfp = gfp_mask;
-> > +
-> > +			if (order)
-> > +				gfp |= __GFP_COMP | __GFP_NOWARN;
-> > +			nc->frag.page = alloc_pages(gfp, order);
-> > +			if (likely(nc->frag.page))
-> > +				break;
-> > +			if (--order <= 0)
-> > +				goto end;
-> > +		}
-> 
-> I think you probably intended the last if to be "if (--order < 0)", as 
-> otherwise the alloc will never be attempted with an order 0 page, which 
-> could harm systems suffering from extreme memory fragmentation.  Cheers,
-> 
+Signed-off-by: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+---
+ drivers/net/wireless/rtlwifi/cam.c          |    7 ++-----
+ drivers/net/wireless/rtlwifi/rtl8192ce/hw.c |    6 ++----
+ drivers/net/wireless/rtlwifi/rtl8192cu/hw.c |    6 ++----
+ 3 files changed, 6 insertions(+), 13 deletions(-)
 
-Indeed, thanks Ben !
+diff --git a/drivers/net/wireless/rtlwifi/cam.c b/drivers/net/wireless/rtlwifi/cam.c
+index 5b4b4d4..6ba9f80 100644
+--- a/drivers/net/wireless/rtlwifi/cam.c
++++ b/drivers/net/wireless/rtlwifi/cam.c
+@@ -52,11 +52,8 @@ static void rtl_cam_program_entry(struct ieee80211_hw *hw, u32 entry_no,
+ 	u32 target_content = 0;
+ 	u8 entry_i;
+ 
+-	RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD,
+-		 "key_cont_128:\n %x:%x:%x:%x:%x:%x\n",
+-		 key_cont_128[0], key_cont_128[1],
+-		 key_cont_128[2], key_cont_128[3],
+-		 key_cont_128[4], key_cont_128[5]);
++	RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD, "key_cont_128: %*ph\n",
++			6, key_cont_128);
+ 
+ 	for (entry_i = 0; entry_i < CAM_CONTENT_COUNT; entry_i++) {
+ 		target_command = entry_i + CAM_CONTENT_COUNT * entry_no;
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+index 86d73b3..932780d 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+@@ -1918,10 +1918,8 @@ static void rtl92ce_update_hal_rate_mask(struct ieee80211_hw *hw,
+ 				     (ratr_index << 28);
+ 	rate_mask[4] = macid | (shortgi ? 0x20 : 0x00) | 0x80;
+ 	RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG,
+-		 "Rate_index:%x, ratr_val:%x, %x:%x:%x:%x:%x\n",
+-		 ratr_index, ratr_bitmap,
+-		 rate_mask[0], rate_mask[1], rate_mask[2], rate_mask[3],
+-		 rate_mask[4]);
++		 "Rate_index:%x, ratr_val:%x, %*phC\n",
++		 ratr_index, ratr_bitmap, 5, rate_mask);
+ 	rtl92c_fill_h2c_cmd(hw, H2C_RA_MASK, 5, rate_mask);
+ 
+ 	if (macid != 0)
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c b/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
+index 4bbb711..7554501 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
+@@ -2169,10 +2169,8 @@ void rtl92cu_update_hal_rate_mask(struct ieee80211_hw *hw, u8 rssi_level)
+ 				      ratr_index << 28);
+ 	rate_mask[4] = macid | (shortgi ? 0x20 : 0x00) | 0x80;
+ 	RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG,
+-		 "Rate_index:%x, ratr_val:%x, %x:%x:%x:%x:%x\n",
+-		 ratr_index, ratr_bitmap,
+-		 rate_mask[0], rate_mask[1], rate_mask[2], rate_mask[3],
+-		 rate_mask[4]);
++		 "Rate_index:%x, ratr_val:%x, %*phC\n",
++		 ratr_index, ratr_bitmap, 5, rate_mask);
+ 	rtl92c_fill_h2c_cmd(hw, H2C_RA_MASK, 5, rate_mask);
+ }
+ 
+-- 
+1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
