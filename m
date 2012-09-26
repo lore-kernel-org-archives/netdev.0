@@ -1,48 +1,73 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: Re: [PATCH net-next] net: remove sk_init() helper
-Date: Wed, 26 Sep 2012 11:51:31 +0800
-Message-ID: <50627BC3.7030107@gmail.com>
-References: <1348608733.26828.3492.camel@edumazet-glaptop>  <5062636E.2060200@gmail.com> <1348626205.26828.3563.camel@edumazet-glaptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCHv4 net-next] vxlan: virtual extensible lan
+Date: Tue, 25 Sep 2012 21:36:23 -0700
+Message-ID: <20120925213623.39ee67d1@nehalam.linuxnetplumber.net>
+References: <20120924184304.727711327@vyatta.com>
+	<20120924185050.162920909@vyatta.com>
+	<20120924205822.GI26494@x200.localdomain>
+	<20120924145031.3b0122e6@nehalam.linuxnetplumber.net>
+	<CAEP_g=_PQSx_OVcU47OJFKgO_MpWSKStmGnVB76vSm=Z7r6mvg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Chris Wright <chrisw@redhat.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:37505 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751107Ab2IZDvk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2012 23:51:40 -0400
-Received: by pbbrr4 with SMTP id rr4so1195309pbb.19
-        for <netdev@vger.kernel.org>; Tue, 25 Sep 2012 20:51:39 -0700 (PDT)
-In-Reply-To: <1348626205.26828.3563.camel@edumazet-glaptop>
+Received: from mail.vyatta.com ([76.74.103.46]:45591 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750772Ab2IZEg6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Sep 2012 00:36:58 -0400
+In-Reply-To: <CAEP_g=_PQSx_OVcU47OJFKgO_MpWSKStmGnVB76vSm=Z7r6mvg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet said, at 2012/9/26 10:23:
-> On Wed, 2012-09-26 at 10:07 +0800, Shan Wei wrote:
->> Eric Dumazet said, at 2012/9/26 5:32:
->>> From: Eric Dumazet <edumazet@google.com>
->>>
->>> It seems sk_init() has no value today and even does strange things :
->>>
->>> # grep . /proc/sys/net/core/?mem_*
->>> /proc/sys/net/core/rmem_default:212992
->>> /proc/sys/net/core/rmem_max:131071
->>> /proc/sys/net/core/wmem_default:212992
->>> /proc/sys/net/core/wmem_max:131071
->>>
->>> We can remove it completely.
->>
->> Ye, I have reported this problem.
->> http://lists.openwall.net/netdev/2012/04/27/49
->>
->> How about for small RAM ~16M?
+On Tue, 25 Sep 2012 14:55:13 -0700
+Jesse Gross <jesse@nicira.com> wrote:
+
+> On Mon, Sep 24, 2012 at 2:50 PM, Stephen Hemminger
+> <shemminger@vyatta.com> wrote:
+> > +static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+> [...]
+> > +       /* Do PMTU */
+> > +       if (skb->protocol == htons(ETH_P_IP)) {
+> > +               df |= old_iph->frag_off & htons(IP_DF);
+> > +               if (df && mtu < pkt_len) {
+> > +                       icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
+> > +                                 htonl(mtu));
+> > +                       ip_rt_put(rt);
+> > +                       goto tx_error;
+> > +               }
+> > +       }
+> > +#if IS_ENABLED(CONFIG_IPV6)
+> > +       else if (skb->protocol == htons(ETH_P_IPV6)) {
+> > +               if (mtu >= IPV6_MIN_MTU && mtu < pkt_len) {
+> > +                       icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+> > +                       ip_rt_put(rt);
+> > +                       goto tx_error;
+> > +               }
+> > +       }
+> > +#endif
 > 
-> It was maybe a concern 20 years ago, ( I ran linux on [34]86 computers
-> with 12 or 16 MB of memory) but this makes no sense today with linux-3.7
+> Won't this black hole packets if we need to generate ICMP messages?
+> Since we're doing switching and not routing here icmp_send() doesn't
+> necessarily have a route to the relevant endpoint.  It looks like
+> Ethernet over GRE has this issue as well.
 
-I never play so lower memory computer. :-(
-And now so lower memory device die out.
+It is an interesting question about what is the correct way to handle packets
+where the inner header is IPv6 or IPv4 with Don't Fragment set. As you mention
+sending an ICMP response won't work because the tunnel endpoint is not part
+of that IP network.
 
-Reviewed-by: Shan Wei <davidshan@tencent.com>
+The simple option is to fragment it in the tunnel and since the fragmentation
+is not visible to the overlay network, that is okay. But for PMTU discovery
+it might be better to just drop the packet and not send a fragmented payload.
+
+Some backbone networks don't allow fragmentation at all (in a futile attempt
+to block DoS attacks and protect fragile Windows hosts). Fragmentation
+brings all sorts of evil problems like the potential of corrupted assembly
+because of sequence wrap; the checksum in the inner packet will defend against
+that but tunnels are not supposed to rely on inner protocol data protection.
+
+Or you can just do what Cisco and Microsoft do and just tell everyone
+to set larger MTU on the backbone.
