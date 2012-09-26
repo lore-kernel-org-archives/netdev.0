@@ -1,133 +1,289 @@
-From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Subject: Re: [patch v2 04/11] nf_conntrack_netlink: pass
- nf_conntrack_netlink module to netlink_dump_start
-Date: Wed, 26 Sep 2012 17:04:30 +0200
-Message-ID: <20120926150430.GA12438@1984>
-References: <1348648888-24943-1-git-send-email-gaofeng@cn.fujitsu.com>
- <1348648888-24943-4-git-send-email-gaofeng@cn.fujitsu.com>
- <20120926092632.GA21589@1984>
- <5062CE07.1080704@cn.fujitsu.com>
- <20120926095837.GA23815@1984>
- <5062F6A9.7020309@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
-	jengelh-9+2X+4sQBs8@public.gmane.org
-To: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <5062F6A9.7020309-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Subject: [PATCH 1/2] smsc95xx: add wol magic packet support
+Date: Wed, 26 Sep 2012 16:13:13 +0100
+Message-ID: <1348672394-15191-1-git-send-email-steve.glendinning@shawell.net>
+Cc: Steve Glendinning <steve.glendinning@shawell.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:57591 "EHLO
+	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756757Ab2IZPNX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2012 11:13:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 26, 2012 at 08:35:53PM +0800, Gao feng wrote:
-> =E4=BA=8E 2012=E5=B9=B409=E6=9C=8826=E6=97=A5 17:58, Pablo Neira Ayus=
-o =E5=86=99=E9=81=93:
-> > On Wed, Sep 26, 2012 at 05:42:31PM +0800, Gao feng wrote:
-> >> Hi Pablo:
-> >>
-> >> =E4=BA=8E 2012=E5=B9=B409=E6=9C=8826=E6=97=A5 17:26, Pablo Neira A=
-yuso =E5=86=99=E9=81=93:
-> >>> On Wed, Sep 26, 2012 at 04:41:21PM +0800, Gao feng wrote:
-> >>>> use proper netlink_dump_control.done and .module to avoid panic.
-> >>>>
-> >>>> Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-> >>>> ---
-> >>>>  net/netfilter/nf_conntrack_netlink.c |    8 ++++++++
-> >>>>  1 files changed, 8 insertions(+), 0 deletions(-)
-> >>>>
-> >>>> diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilte=
-r/nf_conntrack_netlink.c
-> >>>> index 9807f32..509a257 100644
-> >>>> --- a/net/netfilter/nf_conntrack_netlink.c
-> >>>> +++ b/net/netfilter/nf_conntrack_netlink.c
-> >>>> @@ -706,6 +706,7 @@ static int ctnetlink_done(struct netlink_cal=
-lback *cb)
-> >>>>  		nf_ct_put((struct nf_conn *)cb->args[1]);
-> >>>>  	if (cb->data)
-> >>>>  		kfree(cb->data);
-> >>>> +	netlink_dump_done(cb);
-> >>>
-> >>> I think you can call netlink_dump_done from af_netlink.c:
-> >>>
-> >>> static int netlink_dump(struct sock *sk)=20
-> >>>         ...
-> >>>         if (cb->done) {
-> >>>                 cb->done(cb);
-> >>>                 netlink_dump_done(...);
-> >>>         }
-> >>>
-> >>> Thus, you don't need to change netlink_dump_control in every netl=
-ink
-> >>> subsystem.
-> >>
-> >> because cb->done is called by netlink_sock_destruct too,it's very =
-usefully
-> >> when userspace program only send dump request to kernel without re=
-ading
-> >> data from kernel.
-> >=20
-> > Then add that to netlink_sock_destruct as well. If possible, I pref=
-er
-> > if this remains in the netlink core to avoid leaking module refcoun=
-t
-> > if you forget to call netlink_dump_done.
->=20
-> make sense, I will update it in next version.
-> Thanks!
+This patch enables wake from system suspend on magic packet.
 
-Great. Remove also netlink_dump_done and just use module_put instead
-after cb->done. That new function you added is so small that there is
-no way to justify its addition.
+Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
+---
+ drivers/net/usb/smsc95xx.c |  182 ++++++++++++++++++++++++++++++++++++++++++--
+ drivers/net/usb/smsc95xx.h |    5 ++
+ 2 files changed, 180 insertions(+), 7 deletions(-)
 
-> >=20
-> >>>
-> >>>>  	return 0;
-> >>>>  }
-> >>>> =20
-> >>>> @@ -1022,6 +1023,7 @@ ctnetlink_get_conntrack(struct sock *ctnl,=
- struct sk_buff *skb,
-> >>>>  		struct netlink_dump_control c =3D {
-> >>>>  			.dump =3D ctnetlink_dump_table,
-> >>>>  			.done =3D ctnetlink_done,
-> >>>> +			.module =3D THIS_MODULE,
-> >>>
-> >>> You can do something similar to:
-> >>>
-> >>> 9f00d97 netlink: hide struct module parameter in netlink_kernel_c=
-reate
-> >>>
-> >>> by definiting netlink_dump_start as static inline and using
-> >>> THIS_MODULE from there.
-> >>>
-> >>> If I'm not missing anything, with those two changes, you will not=
- need
-> >>> to modify any caller and it will result one single patch.
-> >>>
-> >>
-> >> You can see the patch [11/11], THIS_MODULE in infiniband/core/cma.=
-c
-> >> means module rdma_cm,but we call netlink_dump_start in infiniband/=
-core/netlink.c
-> >=20
-> > You can still use __netlink_dump_start for that case, which allows =
-you
-> > to specify a custom struct module * parameter. But for most cases,
-> > netlink_dump_start (which hides THIS_MODULE) should be fine.
->=20
-> I don't know how to deal with module_put in this way.
-> and I think my  way is simple enough.
-
-Not sure what problem with module_put you're refering to.
-
-I think you can make this patchset way smaller with the change I'm
-proposing.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 6c89a08..c04ba76 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -46,6 +46,7 @@
+ #define SMSC95XX_INTERNAL_PHY_ID	(1)
+ #define SMSC95XX_TX_OVERHEAD		(8)
+ #define SMSC95XX_TX_OVERHEAD_CSUM	(12)
++#define SUPPORTED_WAKE			(WAKE_MAGIC)
+ 
+ #define check_warn(ret, fmt, args...) \
+ 	({ if (ret < 0) netdev_warn(dev->net, fmt, ##args); })
+@@ -60,6 +61,7 @@ struct smsc95xx_priv {
+ 	u32 mac_cr;
+ 	u32 hash_hi;
+ 	u32 hash_lo;
++	u32 wolopts;
+ 	spinlock_t mac_cr_lock;
+ };
+ 
+@@ -125,6 +127,28 @@ static int __must_check smsc95xx_write_reg(struct usbnet *dev, u32 index,
+ 	return ret;
+ }
+ 
++static int smsc95xx_set_feature(struct usbnet *dev, u32 feature)
++{
++	BUG_ON(!dev);
++
++	cpu_to_le32s(&feature);
++
++	return usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
++		USB_REQ_SET_FEATURE, USB_RECIP_DEVICE, feature, 0, NULL, 0,
++		USB_CTRL_SET_TIMEOUT);
++}
++
++static int smsc95xx_clear_feature(struct usbnet *dev, u32 feature)
++{
++	BUG_ON(!dev);
++
++	cpu_to_le32s(&feature);
++
++	return usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
++		USB_REQ_CLEAR_FEATURE, USB_RECIP_DEVICE, feature, 0, NULL, 0,
++		USB_CTRL_SET_TIMEOUT);
++}
++
+ /* Loop until the read is completed with timeout
+  * called with phy_mutex held */
+ static int __must_check smsc95xx_phy_wait_not_busy(struct usbnet *dev)
+@@ -636,6 +660,26 @@ smsc95xx_ethtool_getregs(struct net_device *netdev, struct ethtool_regs *regs,
+ 	}
+ }
+ 
++static void smsc95xx_ethtool_get_wol(struct net_device *net,
++				     struct ethtool_wolinfo *wolinfo)
++{
++	struct usbnet *dev = netdev_priv(net);
++	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
++
++	wolinfo->supported = SUPPORTED_WAKE;
++	wolinfo->wolopts = pdata->wolopts;
++}
++
++static int smsc95xx_ethtool_set_wol(struct net_device *net,
++				    struct ethtool_wolinfo *wolinfo)
++{
++	struct usbnet *dev = netdev_priv(net);
++	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
++
++	pdata->wolopts = wolinfo->wolopts & SUPPORTED_WAKE;
++	return 0;
++}
++
+ static const struct ethtool_ops smsc95xx_ethtool_ops = {
+ 	.get_link	= usbnet_get_link,
+ 	.nway_reset	= usbnet_nway_reset,
+@@ -649,6 +693,8 @@ static const struct ethtool_ops smsc95xx_ethtool_ops = {
+ 	.set_eeprom	= smsc95xx_ethtool_set_eeprom,
+ 	.get_regs_len	= smsc95xx_ethtool_getregslen,
+ 	.get_regs	= smsc95xx_ethtool_getregs,
++	.get_wol	= smsc95xx_ethtool_get_wol,
++	.set_wol	= smsc95xx_ethtool_set_wol,
+ };
+ 
+ static int smsc95xx_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
+@@ -1021,25 +1067,147 @@ static void smsc95xx_unbind(struct usbnet *dev, struct usb_interface *intf)
+ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ {
+ 	struct usbnet *dev = usb_get_intfdata(intf);
++	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
+ 	int ret;
+ 	u32 val;
+ 
+-	BUG_ON(!dev);
+-
+ 	ret = usbnet_suspend(intf, message);
+ 	check_warn_return(ret, "usbnet_suspend error");
+ 
+-	netdev_info(dev->net, "entering SUSPEND2 mode");
++	/* if no wol options set, enter lowest power SUSPEND2 mode */
++	if (!(pdata->wolopts & SUPPORTED_WAKE)) {
++		netdev_info(dev->net, "entering SUSPEND2 mode");
++
++		/* disable energy detect (link up) & wake up events */
++		ret = smsc95xx_read_reg(dev, WUCSR, &val);
++		check_warn_return(ret, "Error reading WUCSR");
++
++		val &= ~(WUCSR_MPEN_ | WUCSR_WAKE_EN_);
++
++		ret = smsc95xx_write_reg(dev, WUCSR, val);
++		check_warn_return(ret, "Error writing WUCSR");
++
++		ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
++		check_warn_return(ret, "Error reading PM_CTRL");
++
++		val &= ~(PM_CTL_ED_EN_ | PM_CTL_WOL_EN_);
++
++		ret = smsc95xx_write_reg(dev, PM_CTRL, val);
++		check_warn_return(ret, "Error writing PM_CTRL");
++
++		/* enter suspend2 mode */
++		ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
++		check_warn_return(ret, "Error reading PM_CTRL");
++
++		val &= ~(PM_CTL_SUS_MODE_ | PM_CTL_WUPS_ | PM_CTL_PHY_RST_);
++		val |= PM_CTL_SUS_MODE_2;
++
++		ret = smsc95xx_write_reg(dev, PM_CTRL, val);
++		check_warn_return(ret, "Error writing PM_CTRL");
++
++		return 0;
++	}
++
++	if (pdata->wolopts & WAKE_MAGIC) {
++		/* clear any pending magic packet status */
++		ret = smsc95xx_read_reg(dev, WUCSR, &val);
++		check_warn_return(ret, "Error reading WUCSR");
++
++		val |= WUCSR_MPR_;
++
++		ret = smsc95xx_write_reg(dev, WUCSR, val);
++		check_warn_return(ret, "Error writing WUCSR");
++	}
+ 
++	/* enable/disable magic packup wake */
++	ret = smsc95xx_read_reg(dev, WUCSR, &val);
++	check_warn_return(ret, "Error reading WUCSR");
++
++	if (pdata->wolopts & WAKE_MAGIC) {
++		netdev_info(dev->net, "enabling magic packet wakeup");
++		val |= WUCSR_MPEN_;
++	} else {
++		netdev_info(dev->net, "disabling magic packet wakeup");
++		val &= ~WUCSR_MPEN_;
++	}
++
++	ret = smsc95xx_write_reg(dev, WUCSR, val);
++	check_warn_return(ret, "Error writing WUCSR");
++
++	/* enable wol wakeup source */
+ 	ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
+ 	check_warn_return(ret, "Error reading PM_CTRL");
+ 
+-	val &= ~(PM_CTL_SUS_MODE_ | PM_CTL_WUPS_ | PM_CTL_PHY_RST_);
+-	val |= PM_CTL_SUS_MODE_2;
++	val |= PM_CTL_WOL_EN_;
+ 
+ 	ret = smsc95xx_write_reg(dev, PM_CTRL, val);
+ 	check_warn_return(ret, "Error writing PM_CTRL");
+ 
++	/* enable receiver */
++	smsc95xx_start_rx_path(dev);
++
++	/* some wol options are enabled, so enter SUSPEND0 */
++	netdev_info(dev->net, "entering SUSPEND0 mode");
++
++	ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
++	check_warn_return(ret, "Error reading PM_CTRL");
++
++	val &= (~(PM_CTL_SUS_MODE_ | PM_CTL_WUPS_ | PM_CTL_PHY_RST_));
++	val |= PM_CTL_SUS_MODE_0;
++
++	ret = smsc95xx_write_reg(dev, PM_CTRL, val);
++	check_warn_return(ret, "Error writing PM_CTRL");
++
++	/* clear wol status */
++	val &= ~PM_CTL_WUPS_;
++	val |= PM_CTL_WUPS_WOL_;
++	ret = smsc95xx_write_reg(dev, PM_CTRL, val);
++	check_warn_return(ret, "Error writing PM_CTRL");
++
++	/* read back PM_CTRL */
++	ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
++	check_warn_return(ret, "Error reading PM_CTRL");
++
++	smsc95xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
++
++	return 0;
++}
++
++static int smsc95xx_resume(struct usb_interface *intf)
++{
++	struct usbnet *dev = usb_get_intfdata(intf);
++	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
++	int ret;
++	u32 val;
++
++	BUG_ON(!dev);
++
++	if (pdata->wolopts & WAKE_MAGIC) {
++		smsc95xx_clear_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
++
++		/* Disable magic packup wake */
++		ret = smsc95xx_read_reg(dev, WUCSR, &val);
++		check_warn_return(ret, "Error reading WUCSR");
++
++		val &= ~WUCSR_MPEN_;
++
++		ret = smsc95xx_write_reg(dev, WUCSR, val);
++		check_warn_return(ret, "Error writing WUCSR");
++
++		/* clear wake-up status */
++		ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
++		check_warn_return(ret, "Error reading PM_CTRL");
++
++		val &= ~PM_CTL_WOL_EN_;
++		val |= PM_CTL_WUPS_;
++
++		ret = smsc95xx_write_reg(dev, PM_CTRL, val);
++		check_warn_return(ret, "Error writing PM_CTRL");
++	}
++
++	return usbnet_resume(intf);
++	check_warn_return(ret, "usbnet_resume error");
++
+ 	return 0;
+ }
+ 
+@@ -1306,8 +1474,8 @@ static struct usb_driver smsc95xx_driver = {
+ 	.id_table	= products,
+ 	.probe		= usbnet_probe,
+ 	.suspend	= smsc95xx_suspend,
+-	.resume		= usbnet_resume,
+-	.reset_resume	= usbnet_resume,
++	.resume		= smsc95xx_resume,
++	.reset_resume	= smsc95xx_resume,
+ 	.disconnect	= usbnet_disconnect,
+ 	.disable_hub_initiated_lpm = 1,
+ };
+diff --git a/drivers/net/usb/smsc95xx.h b/drivers/net/usb/smsc95xx.h
+index 89ad925..2ff9815 100644
+--- a/drivers/net/usb/smsc95xx.h
++++ b/drivers/net/usb/smsc95xx.h
+@@ -205,6 +205,11 @@
+ #define WUFF				(0x128)
+ 
+ #define WUCSR				(0x12C)
++#define WUCSR_GUE_			(0x00000200)
++#define WUCSR_WUFR_			(0x00000040)
++#define WUCSR_MPR_			(0x00000020)
++#define WUCSR_WAKE_EN_			(0x00000004)
++#define WUCSR_MPEN_			(0x00000002)
+ 
+ #define COE_CR				(0x130)
+ #define Tx_COE_EN_			(0x00010000)
+-- 
+1.7.9.5
