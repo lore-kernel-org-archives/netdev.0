@@ -1,82 +1,39 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [PATCH V4 7/7] ipvs: SIP fragment handling
-Date: Wed, 26 Sep 2012 14:07:33 +0200
-Message-ID: <20120926120722.24804.28000.stgit@dragon>
-References: <20120926120534.24804.78415.stgit@dragon>
+From: Steve Glendinning <steve@shawell.net>
+Subject: Re: [PATCH 5/5] smsc95xx: enable power saving mode during system suspend
+Date: Wed, 26 Sep 2012 13:25:34 +0100
+Message-ID: <CAKh2mn473azekf6WWrP4mb0yMwYgurksiJYAVG7DNjikJydffQ@mail.gmail.com>
+References: <1348497654-9915-1-git-send-email-steve.glendinning@shawell.net>
+	<1348497654-9915-6-git-send-email-steve.glendinning@shawell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	"Patrick McHardy" <kaber@trash.net>, Thomas Graf <tgraf@suug.ch>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	netfilter-devel@vger.kernel.org, Simon Horman <horms@verge.net.au>
-To: Hans Schillstrom <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	netdev@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>,
-	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48095 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753328Ab2IZL7x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Sep 2012 07:59:53 -0400
-In-Reply-To: <20120926120534.24804.78415.stgit@dragon>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:44259 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753669Ab2IZMZf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2012 08:25:35 -0400
+Received: by obbuo13 with SMTP id uo13so460285obb.19
+        for <netdev@vger.kernel.org>; Wed, 26 Sep 2012 05:25:34 -0700 (PDT)
+In-Reply-To: <1348497654-9915-6-git-send-email-steve.glendinning@shawell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the nfct_reasm SKB if available.
-
-Based on part of a patch from: Hans Schillstrom
-I have left Hans'es comment in the patch (marked /HS)
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-
----
-V3:
- - I have split out the SIP fragment handling into a seperate patch.
-   As I have not been able to test this part.
- - Change the strange SKB swapping reasm = skb, reverse logic to minimize patch
+Oops, just spotted this error:
 
 
- net/netfilter/ipvs/ip_vs_pe_sip.c |   19 +++++++++++++++----
- 1 files changed, 15 insertions(+), 4 deletions(-)
+On 24 September 2012 15:40, Steve Glendinning
+<steve.glendinning@shawell.net> wrote:
+> @@ -1283,6 +1308,9 @@ static struct usb_driver smsc95xx_driver = {
+>         .suspend        = usbnet_suspend,
+>         .resume         = usbnet_resume,
+>         .reset_resume   = usbnet_resume,
+> +       .suspend        = smsc95xx_suspend,
+> +       .resume         = usbnet_resume,
+> +       .reset_resume   = usbnet_resume,
+>         .disconnect     = usbnet_disconnect,
+>         .disable_hub_initiated_lpm = 1,
+>  };
 
-diff --git a/net/netfilter/ipvs/ip_vs_pe_sip.c b/net/netfilter/ipvs/ip_vs_pe_sip.c
-index ee4e2e3..43acba6 100644
---- a/net/netfilter/ipvs/ip_vs_pe_sip.c
-+++ b/net/netfilter/ipvs/ip_vs_pe_sip.c
-@@ -68,6 +68,7 @@ static int get_callid(const char *dptr, unsigned int dataoff,
- static int
- ip_vs_sip_fill_param(struct ip_vs_conn_param *p, struct sk_buff *skb)
- {
-+	struct sk_buff *reasm = skb_nfct_reasm(skb);
- 	struct ip_vs_iphdr iph;
- 	unsigned int dataoff, datalen, matchoff, matchlen;
- 	const char *dptr;
-@@ -78,13 +79,23 @@ ip_vs_sip_fill_param(struct ip_vs_conn_param *p, struct sk_buff *skb)
- 	/* Only useful with UDP */
- 	if (iph.protocol != IPPROTO_UDP)
- 		return -EINVAL;
-+	/*
-+	 * todo: IPv6 fragments:
-+	 *       I think this only should be done for the first fragment. /HS
-+	 */
-+	if (reasm) {
-+		skb = reasm;
-+		dataoff = iph.thoff_reasm + sizeof(struct udphdr);
-+	} else
-+		dataoff = iph.len + sizeof(struct udphdr);
- 
--	/* No Data ? */
--	dataoff = iph.len + sizeof(struct udphdr);
- 	if (dataoff >= skb->len)
- 		return -EINVAL;
--
--	if ((retc=skb_linearize(skb)) < 0)
-+	/*
-+	 * todo: Check if this will mess-up the reasm skb !!! /HS
-+	 */
-+	retc = skb_linearize(skb);
-+	if (retc < 0)
- 		return retc;
- 	dptr = skb->data + dataoff;
- 	datalen = skb->len - dataoff;
+I'm sure we don't need those in there twice, I'll re-submit this patch.
+
+-Steve
