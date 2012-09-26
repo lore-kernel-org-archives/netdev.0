@@ -1,53 +1,41 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH 01/11] netlink: add reference of module in netlink_dump_start
-Date: Wed, 26 Sep 2012 15:24:03 +0800
-Message-ID: <5062AD93.9080206@cn.fujitsu.com>
-References: <1348635140-20225-1-git-send-email-gaofeng@cn.fujitsu.com> <1348643247.5093.32.camel@edumazet-glaptop>
+From: barbosao@uenf.br
+Subject: Security Webmail Alert,
+Date: Wed, 26 Sep 2012 05:34:19 -0300
+Message-ID: <20120926053419.y1bniztzk88o0ocg@zappa.uenf.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
-	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	pablo@netfilter.org, steffen.klassert@secunet.com,
-	linux-crypto@vger.kernel.org, jengelh@inai.de,
-	stephen.hemminger@vyatta.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1348643247.5093.32.camel@edumazet-glaptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset=ISO-8859-1;
+	DelSp="Yes";
+	format="flowed"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zappa.uenf.br ([200.20.228.33]:40759 "EHLO zappa.uenf.br"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752398Ab2IZIj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Sep 2012 04:39:27 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012=E5=B9=B409=E6=9C=8826=E6=97=A5 15:07, Eric Dumazet =E5=86=
-=99=E9=81=93:
-> On Wed, 2012-09-26 at 12:52 +0800, Gao feng wrote:
->=20
->> +int netlink_dump_done(struct netlink_callback *cb)
->> +{
->> +	if (cb->module)
->> +		module_put(cb->module);
->> +	return 0;
->> +}
->> +EXPORT_SYMBOL(netlink_dump_done);
->> +
->=20
-> No need to test cb->module being not NULL
->=20
->=20
-> int netlink_dump_done(struct netlink_callback *cb)
-> {
-> 	module_put(cb->module);
-> 	return 0;
-> }
->=20
-> Same remark for try_module_get() call
->=20
+Warning last warning
 
-will fix it in v2 patchset.
+I tell you that your email account has exceeded its
+storage limit. You will not be able to send and receive e-mails
+email account will be deleted from our server. To avoid this problem,
+recommend that you update your mailbox for more space.
+Click the link below to update and complete the information below.
+and click send
 
-thanks Eric.
+http://capeziodance.com.ve/contacto/use/l/form1.html
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If we have not received an update from you, we will destroy your mailbox
+
+Thank you.
+The system administrator, the management team
+
+
+
+-------------------------------------------------------------------------
+"O usuario e integralmente responsavel por todo conteudo enviado
+de sua conta de e-mail. Sua senha e pessoal e intransferivel."
