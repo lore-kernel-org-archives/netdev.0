@@ -1,49 +1,49 @@
-From: Serge Hallyn <serge.hallyn@canonical.com>
-Subject: Re: [PATCH v5 01/10] ipc: remove forced assignment of selected
- message
-Date: Wed, 26 Sep 2012 12:37:18 -0500
-Message-ID: <20120926173718.GA30620@sergelap>
-References: <20120919160430.11254.86848.stgit@localhost6.localdomain6>
- <20120919160531.11254.48182.stgit@localhost6.localdomain6>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH] bnx2: Clean up remaining iounmap
+Date: Wed, 26 Sep 2012 11:33:53 -0700
+Message-ID: <1348684433.7220.78.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1348680122-9711-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, manfred@colorfullife.com,
-	a.p.zijlstra@chello.nl, netdev@vger.kernel.org,
-	will.deacon@arm.com, linux-kernel@vger.kernel.org,
-	cmetcalf@tilera.com, jmorris@namei.org, linux-driver@qlogic.com,
-	linux-security-module@vger.kernel.org, hughd@google.com,
-	ron.mercer@qlogic.com, viro@zeniv.linux.org.uk,
-	james.l.morris@oracle.com, catalin.marinas@arm.com,
-	casey@schaufler-ca.com, eparis@parisplace.org, sds@tycho.nsa.gov,
-	jitendra.kalsaria@qlogic.com, devel@openvz.org
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120919160531.11254.48182.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=cp1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Michael Chan" <mcan@broadcom.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: "Neil Horman" <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:2176 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755515Ab2IZSd6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Sep 2012 14:33:58 -0400
+In-Reply-To: <1348680122-9711-1-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Stanislav Kinsbursky (skinsbursky@parallels.com):
-> This is a cleanup patch. The assignment is redundant.
+On Wed, 2012-09-26 at 13:22 -0400, Neil Horman wrote: 
+> commit c0357e975afdbbedab5c662d19bef865f02adc17 modified bnx2 to switch from
+> using ioremap/iounmap to pci_iomap/pci_iounmap.  They missed a spot in the error
+> path of bnx2_init_one though.  This patch just cleans that up.
 > 
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> CC: Michael Chan <mcan@broadcom.com>
+> CC: "David S. Miller" <davem@davemloft.net>
+
+Acked-by: Michael Chan <mchan@broadcom.com>
+
 > ---
->  ipc/msg.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
+>  drivers/net/ethernet/broadcom/bnx2.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> diff --git a/ipc/msg.c b/ipc/msg.c
-> index 7385de2..f3bfbb8 100644
-> --- a/ipc/msg.c
-> +++ b/ipc/msg.c
-> @@ -787,7 +787,6 @@ long do_msgrcv(int msqid, long *pmtype, void __user *mtext,
->  			    !security_msg_queue_msgrcv(msq, walk_msg, current,
->  						       msgtyp, mode)) {
+> diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+> index 79cebd8..e48312f 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2.c
+> @@ -8564,7 +8564,7 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  	return 0;
 >  
-> -				msg = walk_msg;
->  				if (mode == SEARCH_LESSEQUAL &&
->  						walk_msg->m_type != 1) {
->  					msg = walk_msg;
-
-Perhaps your tree is different from mine, but it looks to me like it would
-be simpler to remove the 'msg = walk_msg' from both the 'if' and 'else',
-and keep them above the if/else?
+>  error:
+> -	iounmap(bp->regview);
+> +	pci_iounmap(pdev, bp->regview);
+>  	pci_release_regions(pdev);
+>  	pci_disable_device(pdev);
+>  	pci_set_drvdata(pdev, NULL);
