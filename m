@@ -1,53 +1,49 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 5/5] smsc95xx: enable power saving mode during system suspend
-Date: Wed, 26 Sep 2012 18:17:51 +0200
-Message-ID: <87mx0c92s0.fsf@nemi.mork.no>
-References: <1348663224-30403-1-git-send-email-steve.glendinning@shawell.net>
-	<1348663224-30403-6-git-send-email-steve.glendinning@shawell.net>
-	<87y5jw982o.fsf@nemi.mork.no>
-	<CAKh2mn5tKowqjbvgWDSz52UF9qY9_ysAb23Pb-M_3wvCG=_R6w@mail.gmail.com>
-	<87txuk9453.fsf@nemi.mork.no>
-	<CAKh2mn4XLCPfTFySEvtZc56J+WM863JtnsjF2D-RyDJatoyAww@mail.gmail.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH net-next] net: use bigger pages in __netdev_alloc_frag
+Date: Wed, 26 Sep 2012 09:36:22 -0700
+Message-ID: <50632F06.1040306@intel.com>
+References: <1348650402.5093.176.camel@edumazet-glaptop>  <50632681.40208@intel.com> <1348676085.5093.361.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Steve Glendinning <steve@shawell.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:46350 "EHLO canardo.mork.no"
+Received: from mga09.intel.com ([134.134.136.24]:56960 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755926Ab2IZQRy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2012 12:17:54 -0400
-In-Reply-To: <CAKh2mn4XLCPfTFySEvtZc56J+WM863JtnsjF2D-RyDJatoyAww@mail.gmail.com>
-	(Steve Glendinning's message of "Wed, 26 Sep 2012 16:58:13 +0100")
+	id S1752137Ab2IZQgP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Sep 2012 12:36:15 -0400
+In-Reply-To: <1348676085.5093.361.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Steve Glendinning <steve@shawell.net> writes:
-
->>> I hadn't thought that was a situation that could arise, is it?  Wou=
-ld
->>> this happen if the USB device was removed during suspend?
+On 09/26/2012 09:14 AM, Eric Dumazet wrote:
+> On Wed, 2012-09-26 at 09:00 -0700, Alexander Duyck wrote:
+>
+>> One minor thought.  Instead of tracking offset and size why not just
+>> work from the top down instead of the bottom up?
 >>
->> No, it should not happen.  But then, why test at all?
+>> So instead of starting with the frag offset at 0, why not start it at
+>> PAGE_SIZE << order, and then work your way down to 0.  That way you
+>> don't need to track both size and offset.
+>>
+> How do you refill then ? 
 >
-> I thought it was common practice to add these tests to document an
-> assumption the developer made that later code relies on?  I had
-> assumed that the !dev condition should not be possible, hence the
-> simple BUG test.  If it is possible then I agree - I definitely need
-> to handle this more gracefully.
+> (ie setting xxx->offset back to PAGE_SIZE << order)
 >
-> In this case, asserting that dev is not NULL will make the code fail
-> loudly there instead of a few lines down when the netdev_info call
-> dereferences dev->net.  Either way something bad will happen!
+> I am not sure we have direct access to a page order given a struct page
+> pointer.
+>
+> I also like struct page_frag abstraction, because it might allow us
+> better code factorization with other frag allocators.
+>
+> ( skb_append_datato_frags(), sk_page_frag_refill(), ...)
 
-Yes, but you are a lot less likely to know about it if you BUG out.  Th=
-e
-user will be left with no other choice than hitting reset or poweroff.
-What's the point of that?
+I forgot about the page recycling portion of it.  I was still thinking
+of the original implementation that had a fixed page order.  You are
+correct, with the page order being dynamic you will have to store size
+somewhere.
 
-If your driver crashes but the machine is left running, then the user
-may forward the Oops to you.  That's much more useful.
+Thanks,
 
-
-Bj=C3=B8rn
+Alex
