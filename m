@@ -1,108 +1,90 @@
-From: Alexandre Bounine <alexandre.bounine@idt.com>
-Subject: [PATCH] rapidio/rionet: fix multicast packet transmit logic
-Date: Wed, 26 Sep 2012 15:14:27 -0400
-Message-ID: <1348686867-28842-1-git-send-email-alexandre.bounine@idt.com>
-Cc: Alexandre Bounine <alexandre.bounine@idt.com>,
-	Matt Porter <mporter@kernel.crashing.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: ixgbe unstable performance at 1Gb/s
+Date: Wed, 26 Sep 2012 20:22:04 +0000
+Message-ID: <87618083B2453E4A8714035B62D6799216E25F9C@FMSMSX102.amr.corp.intel.com>
+References: <loom.20120924T193212-646@post.gmane.org>
+ <87618083B2453E4A8714035B62D6799216E25153@FMSMSX102.amr.corp.intel.com>
+ <50634A60.40609@unige.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Charles Vejnar <Charles.Vejnar@unige.ch>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:28357 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750945Ab2IZUWG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2012 16:22:06 -0400
+In-Reply-To: <50634A60.40609@unige.ch>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix multicast packet transmit logic to account for repetitive transmission
-of single skb:
-- correct check for available buffers (this bug may produce NULL pointer
-  crash dump in case of heavy traffic);
-- update skb user count (incorrect user counter causes a warning dump from
-  net_tx_action routine during multicast transfers in systems with three or
-  more rionet participants).
+>-----Original Message-----
+>From: Charles Vejnar [mailto:Charles.Vejnar@unige.ch]
+>Sent: Wednesday, September 26, 2012 11:33 AM
+>To: Tantilov, Emil S; netdev@vger.kernel.org
+>Subject: Re: ixgbe unstable performance at 1Gb/s
+>
+>Le 25/09/2012 19:58, Tantilov, Emil S a =E9crit :
+>>> -----Original Message-----
+>>> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel=
+=2Eorg]
+>On
+>>> Behalf Of Charles
+>>> Sent: Monday, September 24, 2012 10:47 AM
+>>> To: netdev@vger.kernel.org
+>>> Subject: ixgbe unstable performance at 1Gb/s
+>>>
+>>> Hi,
+>>>
+>>> I hope I am posting on the right mailing-list. If not, sorry; pleas=
+e
+>>> redirect me
+>>> to the right place. Thanks.
+>>>
+>>> I have a new motherboard with integrated Intel X540 10GBase-T. For =
+now,
+>I
+>>> want
+>>> to use it at 1Gb/s.
+>>>
+>>> The bandwidth is only of ~300 Mbit/s (with Iperf). It's actually ve=
+ry
+>>> unstable
+>>> (always varies between 100 to 800 Mbit/s during the transfer).
+>> Do you by any chance have CONFIG_IXGBE_PTP set in your kernel config=
+?
+>>
+>> If so, try disabling it and see if it fixes your performance.
+>>
+>> Thanks,
+>> Emil
+>>
+>Hi,
+>
+>Thanks for your reply.
+>
+>I compiled manually the ixgbe module with the default options of my
+>distribution (Archlinux). I had the same problem.
+>
+>I then changed the CONFIG_IXGBE_PTP to no (default is yes) as you
+>suggested, and recompiled. The problem disappeared; normal transfer.
+>
+>Could you please explain why this PTP is causing a problem? How can th=
+is
+>be fixed without having to recompile the module (ethtool, /sys, bios..=
+=2E
+>)? Thanks
 
-Signed-off-by: Alexandre Bounine <alexandre.bounine@idt.com>
-Cc: Matt Porter <mporter@kernel.crashing.org>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
----
- drivers/net/rionet.c |   20 +++++++++++++++++---
- 1 files changed, 17 insertions(+), 3 deletions(-)
+This is actually a bug in the driver. We should have a patch out very s=
+oon to address it.
 
-diff --git a/drivers/net/rionet.c b/drivers/net/rionet.c
-index 91d2588..1470d3e 100644
---- a/drivers/net/rionet.c
-+++ b/drivers/net/rionet.c
-@@ -79,6 +79,7 @@ static int rionet_capable = 1;
-  * on system trade-offs.
-  */
- static struct rio_dev **rionet_active;
-+static int nact;	/* total number of active rionet peers */
- 
- #define is_rionet_capable(src_ops, dst_ops)			\
- 			((src_ops & RIO_SRC_OPS_DATA_MSG) &&	\
-@@ -175,6 +176,7 @@ static int rionet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	struct ethhdr *eth = (struct ethhdr *)skb->data;
- 	u16 destid;
- 	unsigned long flags;
-+	int add_num = 1;
- 
- 	local_irq_save(flags);
- 	if (!spin_trylock(&rnet->tx_lock)) {
-@@ -182,7 +184,10 @@ static int rionet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 		return NETDEV_TX_LOCKED;
- 	}
- 
--	if ((rnet->tx_cnt + 1) > RIONET_TX_RING_SIZE) {
-+	if (is_multicast_ether_addr(eth->h_dest))
-+		add_num = nact;
-+
-+	if ((rnet->tx_cnt + add_num) > RIONET_TX_RING_SIZE) {
- 		netif_stop_queue(ndev);
- 		spin_unlock_irqrestore(&rnet->tx_lock, flags);
- 		printk(KERN_ERR "%s: BUG! Tx Ring full when queue awake!\n",
-@@ -191,11 +196,16 @@ static int rionet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	}
- 
- 	if (is_multicast_ether_addr(eth->h_dest)) {
-+		int count = 0;
- 		for (i = 0; i < RIO_MAX_ROUTE_ENTRIES(rnet->mport->sys_size);
- 				i++)
--			if (rionet_active[i])
-+			if (rionet_active[i]) {
- 				rionet_queue_tx_msg(skb, ndev,
- 						    rionet_active[i]);
-+				if (count)
-+					atomic_inc(&skb->users);
-+				count++;
-+			}
- 	} else if (RIONET_MAC_MATCH(eth->h_dest)) {
- 		destid = RIONET_GET_DESTID(eth->h_dest);
- 		if (rionet_active[destid])
-@@ -220,14 +230,17 @@ static void rionet_dbell_event(struct rio_mport *mport, void *dev_id, u16 sid, u
- 	if (info == RIONET_DOORBELL_JOIN) {
- 		if (!rionet_active[sid]) {
- 			list_for_each_entry(peer, &rionet_peers, node) {
--				if (peer->rdev->destid == sid)
-+				if (peer->rdev->destid == sid) {
- 					rionet_active[sid] = peer->rdev;
-+					nact++;
-+				}
- 			}
- 			rio_mport_send_doorbell(mport, sid,
- 						RIONET_DOORBELL_JOIN);
- 		}
- 	} else if (info == RIONET_DOORBELL_LEAVE) {
- 		rionet_active[sid] = NULL;
-+		nact--;
- 	} else {
- 		if (netif_msg_intr(rnet))
- 			printk(KERN_WARNING "%s: unhandled doorbell\n",
-@@ -523,6 +536,7 @@ static int rionet_probe(struct rio_dev *rdev, const struct rio_device_id *id)
- 
- 		rc = rionet_setup_netdev(rdev->net->hport, ndev);
- 		rionet_check = 1;
-+		nact = 0;
- 	}
- 
- 	/*
--- 
-1.7.8.4
+>
+>Regards,
+>
+>Charles
+
+Thanks,
+Emil
