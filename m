@@ -1,101 +1,65 @@
-From: Lin Ming <mlin@ss.pku.edu.cn>
-Subject: [PATCH net] ipv6: return errno pointers consistently for
- fib6_add_1()
-Date: Wed, 26 Sep 2012 09:17:07 +0800
-Message-ID: <1348622227.4935.1.camel@minggr>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH -next] device.h: Add missing inline to #ifndef CONFIG_PRINTK
+ dev_vprintk_emit
+Date: Tue, 25 Sep 2012 18:19:57 -0700
+Message-ID: <1348622397.2648.13.camel@joe-AO722>
+References: <cover.1345978012.git.joe@perches.com>
+	 <7cfb202968f0928bba66965146a828a1cff87950.1345978012.git.joe@perches.com>
+	 <CAMuHMdVH-ni1NhbTDXgh82WUSAV85fahUjp1BoizVy6D2Xyvaw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jason Baron <jbaron@redhat.com>,
+	Jim Cromie <jim.cromie@gmail.com>, Kay Sievers <kay@vrfy.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [124.207.24.138] ([124.207.24.138]:55800 "EHLO
-	mail.ss.pku.edu.cn" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1753967Ab2IZBTF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2012 21:19:05 -0400
+Received: from perches-mx.perches.com ([206.117.179.246]:54936 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753007Ab2IZBUB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Sep 2012 21:20:01 -0400
+In-Reply-To: <CAMuHMdVH-ni1NhbTDXgh82WUSAV85fahUjp1BoizVy6D2Xyvaw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fib6_add_1() should consistently return errno pointers,
-rather than a mixture of NULL and errno pointers.
+Also add __printf() verification for format string.
 
-Signed-off-by: Lin Ming <mlin@ss.pku.edu.cn>
+Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Signed-off-by: Joe Perches <joe@perches.com>
+
 ---
- net/ipv6/ip6_fib.c |   20 ++++++--------------
- 1 files changed, 6 insertions(+), 14 deletions(-)
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 286acfc..24995a9 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -514,7 +514,7 @@ static struct fib6_node * fib6_add_1(struct fib6_node *root, void *addr,
- 	ln = node_alloc();
+ include/linux/device.h |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/device.h b/include/linux/device.h
+index 8873603..86ef6ab 100644
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -902,8 +902,9 @@ extern const char *dev_driver_string(const struct device *dev);
  
- 	if (!ln)
--		return NULL;
-+		return ERR_PTR(-ENOMEM);
- 	ln->fn_bit = plen;
+ #ifdef CONFIG_PRINTK
  
- 	ln->parent = pn;
-@@ -561,7 +561,7 @@ static struct fib6_node * fib6_add_1(struct fib6_node *root, void *addr,
- 				node_free(in);
- 			if (ln)
- 				node_free(ln);
--			return NULL;
-+			return ERR_PTR(-ENOMEM);
- 		}
+-extern int dev_vprintk_emit(int level, const struct device *dev,
+-			    const char *fmt, va_list args);
++extern __printf(3, 0)
++int dev_vprintk_emit(int level, const struct device *dev,
++		     const char *fmt, va_list args);
+ extern __printf(3, 4)
+ int dev_printk_emit(int level, const struct device *dev, const char *fmt, ...);
  
- 		/*
-@@ -611,7 +611,7 @@ static struct fib6_node * fib6_add_1(struct fib6_node *root, void *addr,
- 		ln = node_alloc();
+@@ -927,8 +928,9 @@ int _dev_info(const struct device *dev, const char *fmt, ...);
  
- 		if (!ln)
--			return NULL;
-+			return ERR_PTR(-ENOMEM);
+ #else
  
- 		ln->fn_bit = plen;
- 
-@@ -777,11 +777,8 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info)
- 
- 	if (IS_ERR(fn)) {
- 		err = PTR_ERR(fn);
--		fn = NULL;
--	}
--
--	if (!fn)
- 		goto out;
-+	}
- 
- 	pn = fn;
- 
-@@ -820,15 +817,12 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info)
- 					allow_create, replace_required);
- 
- 			if (IS_ERR(sn)) {
--				err = PTR_ERR(sn);
--				sn = NULL;
--			}
--			if (!sn) {
- 				/* If it is failed, discard just allocated
- 				   root, and then (in st_failure) stale node
- 				   in main tree.
- 				 */
- 				node_free(sfn);
-+				err = PTR_ERR(sn);
- 				goto st_failure;
- 			}
- 
-@@ -843,10 +837,8 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info)
- 
- 			if (IS_ERR(sn)) {
- 				err = PTR_ERR(sn);
--				sn = NULL;
--			}
--			if (!sn)
- 				goto st_failure;
-+			}
- 		}
- 
- 		if (!fn->leaf) {
--- 
-1.7.2.5
+-static int dev_vprintk_emit(int level, const struct device *dev,
+-			    const char *fmt, va_list args)
++static inline __printf(3, 0)
++int dev_vprintk_emit(int level, const struct device *dev,
++		     const char *fmt, va_list args)
+ { return 0; }
+ static inline __printf(3, 4)
+ int dev_printk_emit(int level, const struct device *dev, const char *fmt, ...)
