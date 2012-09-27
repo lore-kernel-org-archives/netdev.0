@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: gre: Support GRE over IPv6
-Date: Thu, 27 Sep 2012 19:07:23 -0400 (EDT)
-Message-ID: <20120927.190723.573272964541704268.davem@davemloft.net>
-References: <20120913160105.GA29205@elgon.mountain>
-	<20120926110258.GP13767@mwanda>
-	<1348659560.5093.337.camel@edumazet-glaptop>
+Subject: Re: [PATCHv5 net-next] vxlan: virtual extensible lan
+Date: Thu, 27 Sep 2012 19:12:00 -0400 (EDT)
+Message-ID: <20120927.191200.1483743406607177228.davem@davemloft.net>
+References: <20120925150957.78591205@nehalam.linuxnetplumber.net>
+	<20120927.184740.975766966558033959.davem@davemloft.net>
+	<20120927160054.105f4711@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dan.carpenter@oracle.com, xeb@mail.ru, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: jesse@nicira.com, chrisw@redhat.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59405 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59443 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754952Ab2I0XHZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 19:07:25 -0400
-In-Reply-To: <1348659560.5093.337.camel@edumazet-glaptop>
+	with ESMTP id S1754595Ab2I0XMC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 19:12:02 -0400
+In-Reply-To: <20120927160054.105f4711@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 26 Sep 2012 13:39:20 +0200
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Thu, 27 Sep 2012 16:00:54 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
- ...
-> [PATCH net-next] ipv6: gre: remove ip6gre_header_parse()
+> On Thu, 27 Sep 2012 18:47:40 -0400 (EDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> dev_parse_header() callers provide 8 bytes of storage,
-> so it's not possible to store an IPv6 address.
+>> But I wonder if this matters at all, the administrator controls
+>> the contents of this table, rather than external entitites.
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> The table includes values learned from packets received. Like a bridge,
+> a malicious attacker who can forge MAC sourc addresses can overload one
+> chain by swamping the table with bogus values.  Probably needs a table limit.
 
-Applied, thanks Eric.
+Ok.
