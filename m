@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] be2net: fix vfs enumeration
-Date: Thu, 27 Sep 2012 18:14:26 -0400 (EDT)
-Message-ID: <20120927.181426.2201976430519806547.davem@davemloft.net>
-References: <1348577442-7720-1-git-send-email-ivecera@redhat.com>
+Subject: Re: [PATCH linux-next] nf_defrag_ipv6: fix oops on module unloading
+Date: Thu, 27 Sep 2012 18:18:25 -0400 (EDT)
+Message-ID: <20120927.181825.2284387959562808924.davem@davemloft.net>
+References: <20120925160750.30475.77562.stgit@zurg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sathya.perla@emulex.com,
-	ajit.khaparde@emulex.com
-To: ivecera@redhat.com
+Cc: netdev@vger.kernel.org, amwang@redhat.com
+To: khlebnikov@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58852 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58892 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754476Ab2I0WO1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 18:14:27 -0400
-In-Reply-To: <1348577442-7720-1-git-send-email-ivecera@redhat.com>
+	with ESMTP id S1753287Ab2I0WS0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 18:18:26 -0400
+In-Reply-To: <20120925160750.30475.77562.stgit@zurg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Vecera <ivecera@redhat.com>
-Date: Tue, 25 Sep 2012 14:50:42 +0200
+From: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Date: Tue, 25 Sep 2012 20:07:50 +0400
 
-> Current VFs enumeration algorithm used in be_find_vfs does not take domain
-> number into the match. The match found in igb/ixgbe is more elegant and
-> safe.
+> fix copy-paste error introduced in linux-next commit
+> "ipv6: add a new namespace for nf_conntrack_reasm"
 > 
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
 
-Applied, thanks Ivan.
+Applied to net-next, thanks.
