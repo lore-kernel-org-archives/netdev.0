@@ -1,52 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: use bigger pages in
- __netdev_alloc_frag
-Date: Thu, 27 Sep 2012 19:30:28 -0400 (EDT)
-Message-ID: <20120927.193028.2013768669601059052.davem@davemloft.net>
-References: <1348676085.5093.361.camel@edumazet-glaptop>
-	<50632F06.1040306@intel.com>
-	<1348678017.5093.371.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Netfilter lacks ability to filter packets via Application-origin
+Date: Fri, 28 Sep 2012 01:36:29 +0200
+Message-ID: <1348788989.10741.43.camel@deadeye.wl.decadent.org.uk>
+References: <COL002-W8067088C0C0B4682A10A0F39B0@phx.gbl>
+	 <COL002-W881A56C786C9972B7654E3F3830@phx.gbl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org, bcrl@kvack.org
-To: eric.dumazet@gmail.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Chad Gray <chad938@hotmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59642 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756160Ab2I0Xaa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 19:30:30 -0400
-In-Reply-To: <1348678017.5093.371.camel@edumazet-glaptop>
+Received: from webmail.solarflare.com ([12.187.104.25]:60666 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756359Ab2I0Xgh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 19:36:37 -0400
+In-Reply-To: <COL002-W881A56C786C9972B7654E3F3830@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 26 Sep 2012 18:46:57 +0200
+On Thu, 2012-09-27 at 17:04 -0400, Chad Gray wrote:
+> Users need the ability for Linux firewall to filter packets based on what 
+> Application they are originating from. This ability is present in Mac and 
+> Windows firewalls, but not Linux. 
+[...]
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> We currently use percpu order-0 pages in __netdev_alloc_frag
-> to deliver fragments used by __netdev_alloc_skb()
-> 
-> Depending on NIC driver and arch being 32 or 64 bit, it allows a page to
-> be split in several fragments (between 1 and 8), assuming PAGE_SIZE=4096
-> 
-> Switching to bigger pages (32768 bytes for PAGE_SIZE=4096 case) allows :
-> 
-> - Better filling of space (the ending hole overhead is less an issue)
-> 
-> - Less calls to page allocator or accesses to page->_count
-> 
-> - Could allow struct skb_shared_info futures changes without major
->   performance impact.
-> 
-> This patch implements a transparent fallback to smaller
-> pages in case of memory pressure.
-> 
-> It also uses a standard "struct page_frag" instead of a custom one.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
-> Cc: Benjamin LaHaise <bcrl@kvack.org>
+So you have said before.  But you have been given some suggestions of
+facilities that are available to do this, so you should either go ahead
+and use them or else explain why they are insufficient or unsuitable.
+In any case, please stop repeating yourself.
 
-Applied.
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
