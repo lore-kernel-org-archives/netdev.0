@@ -1,45 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Possible bug with r8169 driver
-Date: Fri, 28 Sep 2012 00:21:47 +0200
-Message-ID: <20120927222147.GA29047@electric-eye.fr.zoreil.com>
-References: <2197741.c8FeV4Xbis@bureau>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: remove sk_init() helper
+Date: Thu, 27 Sep 2012 18:42:30 -0400 (EDT)
+Message-ID: <20120927.184230.1860684890668420276.davem@davemloft.net>
+References: <1348608733.26828.3492.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hayeswang <hayeswang@realtek.com>, netdev@vger.kernel.org
-To: Nolwenn <donolwenn@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:45125 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755394Ab2I0Wkt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 18:40:49 -0400
-Content-Disposition: inline
-In-Reply-To: <2197741.c8FeV4Xbis@bureau>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59100 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754891Ab2I0Wmb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 18:42:31 -0400
+In-Reply-To: <1348608733.26828.3492.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nolwenn <donolwenn@gmail.com> :
-[...]
-> I'm on Archlinux (kernel 3.5.4), I need to set eth0 to promiscuous to get a 
-> stable IPv6 connectivity. My internet access provider is Free (France) and 
-> IPv6 is enable on the box. 
-> If eth0 is not set to promiscuous, I need to intercep packets with 
-> "tcpdump -nvvv ip6" to get an IPv6 connectivity and it's lost, a few later, 
-> when interception is stopped. 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 25 Sep 2012 23:32:13 +0200
 
-Can you send an 'ip -s link' before any ipv6 traffic flows, then
-after ?
-
-> % dmesg | grep r8169 
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> [    1.810423] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> [    1.810548] r8169 0000:03:00.0: irq 44 for MSI/MSI-X
-> [    1.810671] r8169 0000:03:00.0: eth0: RTL8168f/8111f at 0xffffc900057ae000, 30:85:a9:ee:43:fa, XID 08000800 IRQ 44
-> [    1.810672] r8169 0000:03:00.0: eth0: jumbo features [frames: 9200 bytes, tx checksumming: ko]
+> It seems sk_init() has no value today and even does strange things :
+> 
+> # grep . /proc/sys/net/core/?mem_*
+> /proc/sys/net/core/rmem_default:212992
+> /proc/sys/net/core/rmem_max:131071
+> /proc/sys/net/core/wmem_default:212992
+> /proc/sys/net/core/wmem_max:131071
+> 
+> We can remove it completely.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Hayes, is there by any luck something different for the 8168f regarding
-the layout of the multicast filtering registers ?
-
-Thanks.
-
--- 
-Ueimor
+Applied, thanks Eric.
