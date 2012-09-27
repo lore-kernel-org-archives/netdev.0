@@ -1,76 +1,91 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2012-09-27
-Date: Thu, 27 Sep 2012 16:43:42 +0200
-Message-ID: <5064661E.1000000@pengutronix.de>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] rtlwifi: use %*ph[C] to dump small buffers
+Date: Thu, 27 Sep 2012 10:10:08 -0500
+Message-ID: <50646C50.70703@lwfinger.net>
+References: <1348667852-5957-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig7E93F69A2BFD0B887EE5D1E2"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:43309 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754480Ab2I0PKM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 11:10:12 -0400
+In-Reply-To: <1348667852-5957-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig7E93F69A2BFD0B887EE5D1E2
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On 09/26/2012 08:57 AM, Andy Shevchenko wrote:
+> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> ---
+>   drivers/net/wireless/rtlwifi/cam.c          |    7 ++-----
+>   drivers/net/wireless/rtlwifi/rtl8192ce/hw.c |    6 ++----
+>   drivers/net/wireless/rtlwifi/rtl8192cu/hw.c |    6 ++----
+>   3 files changed, 6 insertions(+), 13 deletions(-)
 
-Hello David,
+Andy,
 
-this pull request is for net-next, for the v3.7 release cycle.
-AnilKumar Ch contributed a fix for a segfault in the c_can driver,
-which is triggered by an earlier commit [1] in net-next (so no backport
-is needed).
+Thanks for this. I have only one suggestion. I try to include all the drivers 
+affected in the subject line. As this one changes rtl8192ce, and rtl8192cu, I 
+would like to see "rtlwifi: rtl8192ce: rtl8192cu: use ..." as the subject. Other 
+than that, ACKed-by: Larry Finger <Larry.Finger@lwfinger.net>
 
-Marc
+Larry
 
-[1] 4cdd34b can: c_can: Add runtime PM support to Bosch C_CAN/D_CAN contr=
-oller
-
----
-
-The following changes since commit 842b08bbee448b2069aaebb7f18b40942ad2a1=
-bd:
-
-  ipconfig: fix trivial build error (2012-09-25 13:22:30 -0400)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can-next.git for-davem
-
-for you to fetch changes up to c523530ce17defe6b28ccfe622c506488f430866:
-
-  can: c_can: fix segfault during rmmod (2012-09-27 16:34:02 +0200)
-
-----------------------------------------------------------------
-AnilKumar Ch (1):
-      can: c_can: fix segfault during rmmod
-
- drivers/net/can/c_can/c_can.c |    3 ---
- 1 file changed, 3 deletions(-)
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig7E93F69A2BFD0B887EE5D1E2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://www.enigmail.net/
-
-iEYEARECAAYFAlBkZh4ACgkQjTAFq1RaXHO3DACfUeHAPzlRsBwg/rW7TSIXvSsO
-GuQAnRJkUHo7JQAYvvXfaI9bfW5Wkw40
-=tGE2
------END PGP SIGNATURE-----
-
---------------enig7E93F69A2BFD0B887EE5D1E2--
+>
+> diff --git a/drivers/net/wireless/rtlwifi/cam.c b/drivers/net/wireless/rtlwifi/cam.c
+> index 5b4b4d4..6ba9f80 100644
+> --- a/drivers/net/wireless/rtlwifi/cam.c
+> +++ b/drivers/net/wireless/rtlwifi/cam.c
+> @@ -52,11 +52,8 @@ static void rtl_cam_program_entry(struct ieee80211_hw *hw, u32 entry_no,
+>   	u32 target_content = 0;
+>   	u8 entry_i;
+>
+> -	RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD,
+> -		 "key_cont_128:\n %x:%x:%x:%x:%x:%x\n",
+> -		 key_cont_128[0], key_cont_128[1],
+> -		 key_cont_128[2], key_cont_128[3],
+> -		 key_cont_128[4], key_cont_128[5]);
+> +	RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD, "key_cont_128: %*ph\n",
+> +			6, key_cont_128);
+>
+>   	for (entry_i = 0; entry_i < CAM_CONTENT_COUNT; entry_i++) {
+>   		target_command = entry_i + CAM_CONTENT_COUNT * entry_no;
+> diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+> index 86d73b3..932780d 100644
+> --- a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+> +++ b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+> @@ -1918,10 +1918,8 @@ static void rtl92ce_update_hal_rate_mask(struct ieee80211_hw *hw,
+>   				     (ratr_index << 28);
+>   	rate_mask[4] = macid | (shortgi ? 0x20 : 0x00) | 0x80;
+>   	RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG,
+> -		 "Rate_index:%x, ratr_val:%x, %x:%x:%x:%x:%x\n",
+> -		 ratr_index, ratr_bitmap,
+> -		 rate_mask[0], rate_mask[1], rate_mask[2], rate_mask[3],
+> -		 rate_mask[4]);
+> +		 "Rate_index:%x, ratr_val:%x, %*phC\n",
+> +		 ratr_index, ratr_bitmap, 5, rate_mask);
+>   	rtl92c_fill_h2c_cmd(hw, H2C_RA_MASK, 5, rate_mask);
+>
+>   	if (macid != 0)
+> diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c b/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
+> index 4bbb711..7554501 100644
+> --- a/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
+> +++ b/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
+> @@ -2169,10 +2169,8 @@ void rtl92cu_update_hal_rate_mask(struct ieee80211_hw *hw, u8 rssi_level)
+>   				      ratr_index << 28);
+>   	rate_mask[4] = macid | (shortgi ? 0x20 : 0x00) | 0x80;
+>   	RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG,
+> -		 "Rate_index:%x, ratr_val:%x, %x:%x:%x:%x:%x\n",
+> -		 ratr_index, ratr_bitmap,
+> -		 rate_mask[0], rate_mask[1], rate_mask[2], rate_mask[3],
+> -		 rate_mask[4]);
+> +		 "Rate_index:%x, ratr_val:%x, %*phC\n",
+> +		 ratr_index, ratr_bitmap, 5, rate_mask);
+>   	rtl92c_fill_h2c_cmd(hw, H2C_RA_MASK, 5, rate_mask);
+>   }
+>
+>
