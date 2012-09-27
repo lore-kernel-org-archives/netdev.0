@@ -1,115 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next 1/3] tcp: gro: add checksuming helpers
-Date: Thu, 27 Sep 2012 14:14:53 +0200
-Message-ID: <1348748093.5093.1171.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH] inetpeer: ensure to set the maximum tokens the first time
+Date: Thu, 27 Sep 2012 14:33:57 +0200
+Message-ID: <1348749237-3919-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:59061 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752418Ab2I0MO5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 08:14:57 -0400
-Received: by bkcjk13 with SMTP id jk13so1651458bkc.19
-        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 05:14:56 -0700 (PDT)
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:34841 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751192Ab2I0Maj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 08:30:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+When jiffies wraps around (for example, 5 minutes after the boot, see
+INITIAL_JIFFIES) and peer has just been created, now - peer->rate_last can be
+< XRLIM_BURST_FACTOR * timeout, so token is not set to the maximum value, thus
+some icmp packets can be unexpectedly dropped.
 
-skb with CHECKSUM_NONE cant currently be handled by GRO, and
-we notice this deep in GRO stack in tcp[46]_gro_receive()
+With this patch, it's still possible that last_rate and rate_tokens are 0 at the
+same time after jiffies wraps round, but the probability is very low and the
+only consequence is to let some ICMP packets bypass the filter.
 
-But there are cases where GRO can be a benefit, even with a lack
-of checksums.
-
-This preliminary work is needed to add GRO support
-to tunnels.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- net/ipv4/tcp_ipv4.c |   19 ++++++++++++++++---
- net/ipv6/tcp_ipv6.c |   20 +++++++++++++++++---
- 2 files changed, 33 insertions(+), 6 deletions(-)
+ net/ipv4/inetpeer.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 93406c5..27a235c 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2804,6 +2804,8 @@ void tcp4_proc_exit(void)
- struct sk_buff **tcp4_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- {
- 	const struct iphdr *iph = skb_gro_network_header(skb);
-+	__wsum wsum;
-+	__sum16 sum;
+diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+index e1e0a4e..92fec02 100644
+--- a/net/ipv4/inetpeer.c
++++ b/net/ipv4/inetpeer.c
+@@ -559,10 +559,14 @@ bool inet_peer_xrlim_allow(struct inet_peer *peer, int timeout)
  
- 	switch (skb->ip_summed) {
- 	case CHECKSUM_COMPLETE:
-@@ -2812,11 +2814,22 @@ struct sk_buff **tcp4_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 			break;
- 		}
--
--		/* fall through */
--	case CHECKSUM_NONE:
-+flush:
- 		NAPI_GRO_CB(skb)->flush = 1;
- 		return NULL;
-+
-+	case CHECKSUM_NONE:
-+		wsum = csum_tcpudp_nofold(iph->saddr, iph->daddr,
-+					  skb_gro_len(skb), IPPROTO_TCP, 0);
-+		sum = csum_fold(skb_checksum(skb,
-+					     skb_gro_offset(skb),
-+					     skb_gro_len(skb),
-+					     wsum));
-+		if (sum)
-+			goto flush;
-+
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		break;
- 	}
- 
- 	return tcp_gro_receive(head, skb);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index d6212d6..49c8903 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -763,6 +763,8 @@ static struct sk_buff **tcp6_gro_receive(struct sk_buff **head,
- 					 struct sk_buff *skb)
- {
- 	const struct ipv6hdr *iph = skb_gro_network_header(skb);
-+	__wsum wsum;
-+	__sum16 sum;
- 
- 	switch (skb->ip_summed) {
- 	case CHECKSUM_COMPLETE:
-@@ -771,11 +773,23 @@ static struct sk_buff **tcp6_gro_receive(struct sk_buff **head,
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 			break;
- 		}
--
--		/* fall through */
--	case CHECKSUM_NONE:
-+flush:
- 		NAPI_GRO_CB(skb)->flush = 1;
- 		return NULL;
-+
-+	case CHECKSUM_NONE:
-+		wsum = ~csum_unfold(csum_ipv6_magic(&iph->saddr, &iph->daddr,
-+						    skb_gro_len(skb),
-+						    IPPROTO_TCP, 0));
-+		sum = csum_fold(skb_checksum(skb,
-+					     skb_gro_offset(skb),
-+					     skb_gro_len(skb),
-+					     wsum));
-+		if (sum)
-+			goto flush;
-+
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		break;
- 	}
- 
- 	return tcp_gro_receive(head, skb);
+ 	token = peer->rate_tokens;
+ 	now = jiffies;
+-	token += now - peer->rate_last;
+-	peer->rate_last = now;
+-	if (token > XRLIM_BURST_FACTOR * timeout)
++	if (!peer->rate_last && !token)
+ 		token = XRLIM_BURST_FACTOR * timeout;
++	else {
++		token += now - peer->rate_last;
++		if (token > XRLIM_BURST_FACTOR * timeout)
++			token = XRLIM_BURST_FACTOR * timeout;
++	}
++	peer->rate_last = now;
+ 	if (token >= timeout) {
+ 		token -= timeout;
+ 		rc = true;
+-- 
+1.7.12
