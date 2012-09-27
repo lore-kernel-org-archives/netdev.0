@@ -1,26 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: You have to fix this
-Date: Thu, 27 Sep 2012 18:34:06 -0400 (EDT)
-Message-ID: <20120927.183406.962014014858457666.davem@davemloft.net>
+Subject: [PATCH] pkt_sched: Fix warning false positives.
+Date: Thu, 27 Sep 2012 18:36:10 -0400 (EDT)
+Message-ID: <20120927.183610.856094988680936386.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-7
 Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: vipul@chelsio.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59034 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59058 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753287Ab2I0WeH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 18:34:07 -0400
+	with ESMTP id S1755546Ab2I0WgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 18:36:11 -0400
+Received: from localhost (cpe-66-108-116-58.nyc.res.rr.com [66.108.116.58])
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 47F6C5864F3
+	for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 15:36:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpZb3UgY2Fubm90IHB1dCBzdWNoIG1vbnN0ZXIgc2l6ZWQgbG9jYWwgZGF0YSBvYmplY3RzIG9u
-IHRoZSBzdGFjazoNCg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvY2hlbHNpby9jeGdiNC90NF9ody5j
-OiBJbiBmdW5jdGlvbiChdDRfbWVtb3J5X3J3LmNvbnN0cHJvcC42ojoNCmRyaXZlcnMvbmV0L2V0
-aGVybmV0L2NoZWxzaW8vY3hnYjQvdDRfaHcuYzo0ODQ6MTogd2FybmluZzogdGhlIGZyYW1lIHNp
-emUgb2YgMjA1NiBieXRlcyBpcyBsYXJnZXIgdGhhbiAyMDQ4IGJ5dGVzIFstV2ZyYW1lLWxhcmdl
-ci10aGFuPV0NCg0KVGhhdCdzIGJlY2F1c2Ugb2YgdGhpcyB0aGluZzoNCg0KCQlfX2JlMzIgZGF0
-YVtNRU1XSU4wX0FQRVJUVVJFL3NpemVvZihfX2JlMzIpXTsNCg0KSSdtIHJlYWxseSBzdXJwcmlz
-ZWQgdGhpcyBkaWRuJ3Qgc2hvdyB1cCBpbiBhbnkgb2YgeW91ciB0ZXN0IGJ1aWxkcy4NCk9yIGFy
-ZSB5b3UgaWdub3Jpbmcgd2FybmluZ3MgdGhhdCB5b3VyIGNoYW5nZXMgYWRkPw0K
+DQpHQ0MgcmVmdXNlcyB0byByZWNvZ25pemUgdGhhdCBhbGwgZXJyb3IgY29udHJvbCBmbG93cyBk
+byBpbiBmYWN0DQpzZXQgZXJyIHRvIHNvbWV0aGluZy4NCg0KQWRkIGFuIGV4cGxpY2l0IGluaXRp
+YWxpemF0aW9uIHRvIHNodXQgaXQgdXAuDQoNCm5ldC9zY2hlZC9zY2hfZHJyLmM6IEluIGZ1bmN0
+aW9uIKFkcnJfZW5xdWV1ZaI6DQpuZXQvc2NoZWQvc2NoX2Ryci5jOjM1OToxMTogd2FybmluZzog
+oWVycqIgbWF5IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uIFstV21heWJl
+LXVuaW5pdGlhbGl6ZWRdDQpuZXQvc2NoZWQvc2NoX3FmcS5jOiBJbiBmdW5jdGlvbiChcWZxX2Vu
+cXVldWWiOg0KbmV0L3NjaGVkL3NjaF9xZnEuYzo4ODU6MTE6IHdhcm5pbmc6IKFlcnKiIG1heSBi
+ZSB1c2VkIHVuaW5pdGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlvbiBbLVdtYXliZS11bmluaXRpYWxp
+emVkXQ0KDQpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5u
+ZXQ+DQotLS0NCiBuZXQvc2NoZWQvc2NoX2Ryci5jIHwgMiArLQ0KIG5ldC9zY2hlZC9zY2hfcWZx
+LmMgfCAyICstDQogMiBmaWxlcyBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25z
+KC0pDQoNCmRpZmYgLS1naXQgYS9uZXQvc2NoZWQvc2NoX2Ryci5jIGIvbmV0L3NjaGVkL3NjaF9k
+cnIuYw0KaW5kZXggOWNlMGI0Zi4uNzFlNTBjOCAxMDA2NDQNCi0tLSBhL25ldC9zY2hlZC9zY2hf
+ZHJyLmMNCisrKyBiL25ldC9zY2hlZC9zY2hfZHJyLmMNCkBAIC0zNTIsNyArMzUyLDcgQEAgc3Rh
+dGljIGludCBkcnJfZW5xdWV1ZShzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgUWRpc2MgKnNj
+aCkNCiB7DQogCXN0cnVjdCBkcnJfc2NoZWQgKnEgPSBxZGlzY19wcml2KHNjaCk7DQogCXN0cnVj
+dCBkcnJfY2xhc3MgKmNsOw0KLQlpbnQgZXJyOw0KKwlpbnQgZXJyID0gMDsNCiANCiAJY2wgPSBk
+cnJfY2xhc3NpZnkoc2tiLCBzY2gsICZlcnIpOw0KIAlpZiAoY2wgPT0gTlVMTCkgew0KZGlmZiAt
+LWdpdCBhL25ldC9zY2hlZC9zY2hfcWZxLmMgYi9uZXQvc2NoZWQvc2NoX3FmcS5jDQppbmRleCBl
+NDcyM2QzLi4yNTU2NjIwIDEwMDY0NA0KLS0tIGEvbmV0L3NjaGVkL3NjaF9xZnEuYw0KKysrIGIv
+bmV0L3NjaGVkL3NjaF9xZnEuYw0KQEAgLTg3OCw3ICs4NzgsNyBAQCBzdGF0aWMgaW50IHFmcV9l
+bnF1ZXVlKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBRZGlzYyAqc2NoKQ0KIHsNCiAJc3Ry
+dWN0IHFmcV9zY2hlZCAqcSA9IHFkaXNjX3ByaXYoc2NoKTsNCiAJc3RydWN0IHFmcV9jbGFzcyAq
+Y2w7DQotCWludCBlcnI7DQorCWludCBlcnIgPSAwOw0KIA0KIAljbCA9IHFmcV9jbGFzc2lmeShz
+a2IsIHNjaCwgJmVycik7DQogCWlmIChjbCA9PSBOVUxMKSB7DQotLSANCjEuNy4xMS40DQoNCg==
