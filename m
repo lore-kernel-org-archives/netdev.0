@@ -1,44 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/3] ipv4: gre: add GRO capability
-Date: Thu, 27 Sep 2012 20:19:50 +0200
-Message-ID: <1348769990.5093.1584.camel@edumazet-glaptop>
-References: <1348750130.5093.1227.camel@edumazet-glaptop>
-	 <CAEP_g=-JAYHXM86AYNp7BhDV+eqfkKVgC+SJS1MVdo0K8fRLSQ@mail.gmail.com>
-	 <1348769294.5093.1566.camel@edumazet-glaptop>
+From: Otavio Salvador <otavio@ossystems.com.br>
+Subject: Re: [PATCH] net: phy: smsc: Implement PHY config_init for LAN87xx
+Date: Thu, 27 Sep 2012 15:21:37 -0300
+Message-ID: <CAP9ODKqC5PhkWxuMsFgA019-wZuygr_hhEme_xyP9dy4C6bLmw@mail.gmail.com>
+References: <1348604262-21522-1-git-send-email-marex@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org,
+	Christian Hohnstaedt <chohnstaedt@innominate.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: Marek Vasut <marex@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:48410 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754180Ab2I0STz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 14:19:55 -0400
-Received: by bkcjk13 with SMTP id jk13so2305815bkc.19
-        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 11:19:54 -0700 (PDT)
-In-Reply-To: <1348769294.5093.1566.camel@edumazet-glaptop>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:40301 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754498Ab2I0SVi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 14:21:38 -0400
+Received: by pbbrr4 with SMTP id rr4so3968341pbb.19
+        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 11:21:37 -0700 (PDT)
+In-Reply-To: <1348604262-21522-1-git-send-email-marex@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-09-27 at 20:08 +0200, Eric Dumazet wrote:
+On Tue, Sep 25, 2012 at 5:17 PM, Marek Vasut <marex@denx.de> wrote:
+> The LAN8710/LAN8720 chips do have broken the "FlexPWR" smart power-saving
+> capability. Enabling it leads to the PHY not being able to detect Link when
+> cold-started without cable connected. Thus, make sure this is disabled.
+>
+> Signed-off-by: Marek Vasut <marex@denx.de>
 
-> 
-> This sounds not feasible with all kind of tunnels, for example IPIP
-> tunnels, or UDP encapsulation, at least with current stack (not OVS)
-> 
-> Also note that pushing earlier means forcing the checksumming earlier
-> and it consumes a lot of cpu cycles. Hopefully NIC will help us in the
-> future.
-> 
-> Using a napi_struct permits to eventually have separate cpus, and things
-> like RPS/RSS to split the load.
+Acked-by: Otavio Salvador <otavio@ossystems.com.br>
 
-Also please note that my implementation doesnt bypass first IP stack
-traversal (and firewalling if any), so its changing nothing in term
-of existing setups.
-
-So packets that should be forwarded will stay as they are (no tunnels
-decapsulation/recapsulation)
-
-Doing this in the generic GRO layer sounds a bit difficult.
+-- 
+Otavio Salvador                             O.S. Systems
+E-mail: otavio@ossystems.com.br  http://www.ossystems.com.br
+Mobile: +55 53 9981-7854              http://projetos.ossystems.com.br
