@@ -1,173 +1,89 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [RFC PATCH net-next] tcp: introduce tcp_tw_interval to specifiy the time of TIME-WAIT
-Date: Thu, 27 Sep 2012 16:41:01 +0800
-Message-ID: <1348735261-29225-1-git-send-email-amwang@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53418 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751725Ab2I0Imh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Sep 2012 04:42:37 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH V4 0/7] ipvs: IPv6 fragment handling for IPVS
+Date: Thu, 27 Sep 2012 17:46:43 +0900
+Message-ID: <20120927084643.GB16643@verge.net.au>
+References: <20120926120534.24804.78415.stgit@dragon>
+ <alpine.LFD.2.00.1209262347280.2156@ja.ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	netdev@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>,
+	lvs-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	netfilter-devel@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1209262347280.2156@ja.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Some customer requests this feature, as they stated:
+On Wed, Sep 26, 2012 at 11:50:02PM +0300, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Wed, 26 Sep 2012, Jesper Dangaard Brouer wrote:
+> 
+> > The following patchset implement IPv6 fragment handling for IPVS.
+> > 
+> > This work is based upon patches from Hans Schillstrom.  I have taken
+> > over the patchset, in close agreement with Hans, because he don't have
+> > (gotten allocated) time to complete his work.
+> > 
+> > I have cleaned up the patchset significantly, and split the patchset
+> > up into seven patches.
+> > 
+> > The first 3 patches, are ready to be merged
+> > 
+> >  Patch01: Trivial changes, use compressed IPv6 address in output
+> >  Patch02: IPv6 extend ICMPv6 handling for future types
+> >  Patch03: Use config macro IS_ENABLED()
+> > 
+> > The next 4 patches, is V4 of the patches I have submitted earlier.
+> > Where I have incorporated Julian's recent feedback.
+> > 
+> > - Notice that patch04 of patchset V3, have been dropped.
+> > 
+> > I have also tried to make the patches easier to review, by
+> > reorganizing the changes, to be more strictly split (exthdr
+> > vs. fragment handling).
+> > 
+> > I have also removed the API changes, and moved those to patch06.  This
+> > is done, (1) to make it easier to review the patches, and (2) to allow
+> > easier integration of Patricks idea and my RFC patch of caching exthdr
+> > info in skb->cb[].  Thus, we can get these patches applied (and later
+> > go back and apply the caching scheme easier).
+> > 
+> >  Patch04: Fix faulty IPv6 extension header handling in IPVS
+> >  Patch05: Complete IPv6 fragment handling for IPVS
+> >  Patch06: IPVS API change to avoid rescan of IPv6 exthdr
+> >  Patch07: IPVS SIP fragment handling
+> > 
+> > The SIP frag handling have been split into its own patch, as I have
+> > not been able to test this part my self.
+> > 
+> > This patchset is based upon:
+> >   Pablo's nf-next tree:  git://1984.lsi.us.es/nf-next
+> >   On top of:
+> >     commit 2cbc78a29e76a2e92c172651204f3117491877d2
+> >     (netfilter: combine ipt_REDIRECT and ip6t_REDIRECT)
+> > 
+> > ---
+> > 
+> > Jesper Dangaard Brouer (7):
+> >       ipvs: SIP fragment handling
+> >       ipvs: API change to avoid rescan of IPv6 exthdr
+> >       ipvs: Complete IPv6 fragment handling for IPVS
+> >       ipvs: Fix faulty IPv6 extension header handling in IPVS
+> >       ipvs: Use config macro IS_ENABLED()
+> >       ipvs: IPv6 extend ICMPv6 handling for future types
+> >       ipvs: Trivial changes, use compressed IPv6 address in output
+> 
+> 	All 7 patches look good to me. Thanks!
+> 
+> Acked-by: Julian Anastasov <ja@ssi.bg>
 
-	"This parameter is necessary, especially for software that continually 
-        creates many ephemeral processes which open sockets, to avoid socket 
-        exhaustion. In many cases, the risk of the exhaustion can be reduced by 
-        tuning reuse interval to allow sockets to be reusable earlier.
-
-        In commercial Unix systems, this kind of parameters, such as 
-        tcp_timewait in AIX and tcp_time_wait_interval in HP-UX, have 
-        already been available. Their implementations allow users to tune 
-        how long they keep TCP connection as TIME-WAIT state on the 
-        millisecond time scale."
-
-We indeed have "tcp_tw_reuse" and "tcp_tw_recycle", but these tunings
-are not equivalent in that they cannot be tuned directly on the time
-scale nor in a safe way, as some combinations of tunings could still
-cause some problem in NAT. And, I think second scale is enough, we don't
-have to make it in millisecond time scale.
-
-See also: https://lkml.org/lkml/2008/11/15/80
-
-Any comments?
-
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
----
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index c7fc107..4b24398 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -520,6 +520,12 @@ tcp_tw_reuse - BOOLEAN
- 	It should not be changed without advice/request of technical
- 	experts.
- 
-+tcp_tw_interval - INTEGER
-+	Specify the timeout, in seconds, of TIME-WAIT sockets.
-+	It should not be changed without advice/request of technical
-+	experts.
-+	Default: 60
-+
- tcp_window_scaling - BOOLEAN
- 	Enable window scaling as defined in RFC1323.
- 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 6feeccd..72f92a1 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -114,9 +114,10 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
- 				 * initial RTO.
- 				 */
- 
--#define TCP_TIMEWAIT_LEN (60*HZ) /* how long to wait to destroy TIME-WAIT
--				  * state, about 60 seconds	*/
--#define TCP_FIN_TIMEOUT	TCP_TIMEWAIT_LEN
-+#define TCP_TIMEWAIT_LEN (sysctl_tcp_tw_interval * HZ)
-+				 /* how long to wait to destroy TIME-WAIT
-+				  * state, default 60 seconds	*/
-+#define TCP_FIN_TIMEOUT	(60*HZ)
-                                  /* BSD style FIN_WAIT2 deadlock breaker.
- 				  * It used to be 3min, new value is 60sec,
- 				  * to combine FIN-WAIT-2 timeout with
-@@ -292,6 +293,7 @@ extern int sysctl_tcp_thin_dupack;
- extern int sysctl_tcp_early_retrans;
- extern int sysctl_tcp_limit_output_bytes;
- extern int sysctl_tcp_challenge_ack_limit;
-+extern int sysctl_tcp_tw_interval;
- 
- extern atomic_long_t tcp_memory_allocated;
- extern struct percpu_counter tcp_sockets_allocated;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 9205e49..f99cacf 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -27,6 +27,7 @@
- #include <net/tcp_memcontrol.h>
- 
- static int zero;
-+static int one = 1;
- static int two = 2;
- static int tcp_retr1_max = 255;
- static int ip_local_port_range_min[] = { 1, 1 };
-@@ -271,6 +272,28 @@ bad_key:
- 	return ret;
- }
- 
-+static int proc_tcp_tw_interval(ctl_table *ctl, int write,
-+				void __user *buffer, size_t *lenp,
-+				loff_t *ppos)
-+{
-+	int ret;
-+	ctl_table tmp = {
-+		.data = &sysctl_tcp_tw_interval,
-+		.maxlen = sizeof(int),
-+		.mode = ctl->mode,
-+		.extra1 = &one,
-+	};
-+
-+	ret = proc_dointvec_minmax(&tmp, write, buffer, lenp, ppos);
-+	if (ret)
-+		return ret;
-+	if (write)
-+		tcp_death_row.period = (HZ / INET_TWDR_TWKILL_SLOTS)
-+				       * sysctl_tcp_tw_interval;
-+
-+	return 0;
-+}
-+
- static struct ctl_table ipv4_table[] = {
- 	{
- 		.procname	= "tcp_timestamps",
-@@ -794,6 +817,13 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= proc_dointvec_minmax,
- 		.extra1		= &zero
- 	},
-+	{
-+		.procname	= "tcp_tw_interval",
-+		.data		= &sysctl_tcp_tw_interval,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_tcp_tw_interval,
-+	},
- 	{ }
- };
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 93406c5..64af0b6 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -86,6 +86,7 @@
- #include <linux/scatterlist.h>
- 
- int sysctl_tcp_tw_reuse __read_mostly;
-+int sysctl_tcp_tw_interval __read_mostly = 60;
- int sysctl_tcp_low_latency __read_mostly;
- EXPORT_SYMBOL(sysctl_tcp_low_latency);
- 
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 27536ba..e16f524 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -34,7 +34,7 @@ int sysctl_tcp_abort_on_overflow __read_mostly;
- 
- struct inet_timewait_death_row tcp_death_row = {
- 	.sysctl_max_tw_buckets = NR_FILE * 2,
--	.period		= TCP_TIMEWAIT_LEN / INET_TWDR_TWKILL_SLOTS,
-+	.period		= (60 * HZ) / INET_TWDR_TWKILL_SLOTS,
- 	.death_lock	= __SPIN_LOCK_UNLOCKED(tcp_death_row.death_lock),
- 	.hashinfo	= &tcp_hashinfo,
- 	.tw_timer	= TIMER_INITIALIZER(inet_twdr_hangman, 0,
+Thanks, I aim to review these tomorrow.
