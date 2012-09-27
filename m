@@ -1,51 +1,28 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH] rtlwifi: use %*ph[C] to dump small buffers
-Date: Thu, 27 Sep 2012 10:16:59 -0500
-Message-ID: <50646DEB.8020400@lwfinger.net>
-References: <1348667852-5957-1-git-send-email-andriy.shevchenko@linux.intel.com> <1348677946.15175.8.camel@joe-AO722>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [PATCH net-next 0/2] bnx2x: net-next FW upgrade
+Date: Thu, 27 Sep 2012 16:58:54 +0200
+Message-ID: <1348757936-10262-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1348677946.15175.8.camel@joe-AO722>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: eilong@broadcom.com, ariele@broadcom.com,
+	"Yuval Mintz" <yuvalmin@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2496 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754940Ab2I0P03 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Sep 2012 11:26:29 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/26/2012 11:45 AM, Joe Perches wrote:
->
-> rate_mask uses:
->
-> 	u32 ratr_bitmap = (u32) mac->basic_rates;
-> ...
-> 	u8 rate_mask[5];
-> ...
-> 	[sets ratr_bitmap as u32]
-> ...
-> 	*(u32 *)&rate_mask = ((ratr_bitmap & 0x0fffffff) |
-> 				      ratr_index << 28);
-> ...
-> 	rtl92c_fill_h2c_cmd(hw, H2C_RA_MASK, 5, rate_mask);
->
-> Looks like a possible endian misuse to me.
+Hi Dave,
 
-Joe,
+This series contains 2 patches - the first allows the bnx2x driver to
+utilize the recently submitted bnx2x FW 7.8.2, while the second advances
+the bnx2x version to 1.78.00-0.
 
-I had to track the flow through two more routines, but I think your analysis is 
-correct. The only BE platform I have does not have any PCIe hardware, thus I can 
-only test the USB version. It does not show a major problem, but this one with 
-the rate masks would be subtle.
+Please consider applying these patches to 'net-next'.
 
 Thanks,
-
-Larry
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yuval Mintz
