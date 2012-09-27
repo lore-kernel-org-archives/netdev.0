@@ -1,44 +1,40 @@
-From: Steve Glendinning <steve@shawell.net>
-Subject: Re: [PATCH 5/5] smsc95xx: enable power saving mode during system suspend
-Date: Thu, 27 Sep 2012 09:04:51 +0100
-Message-ID: <CAKh2mn5shRWNXzj0BotxqfM2EJUM9UBQfUsXVqdd63eiWo0S-Q@mail.gmail.com>
-References: <1348663224-30403-1-git-send-email-steve.glendinning@shawell.net>
-	<1348663224-30403-6-git-send-email-steve.glendinning@shawell.net>
-	<87y5jw982o.fsf@nemi.mork.no>
-	<CAKh2mn5tKowqjbvgWDSz52UF9qY9_ysAb23Pb-M_3wvCG=_R6w@mail.gmail.com>
-	<87txuk9453.fsf@nemi.mork.no>
-	<CAKh2mn4XLCPfTFySEvtZc56J+WM863JtnsjF2D-RyDJatoyAww@mail.gmail.com>
-	<87mx0c92s0.fsf@nemi.mork.no>
+From: alan <alan@whstv.com.cn>
+Subject: Offer weight loss and sex product from China
+Date: Thu, 27 Sep 2012 15:56:11 +0800
+Message-ID: <20120927155610734577141@whstv.com.cn>
+Reply-To: sales <sales@my-lifestar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Content-Type: text/plain;
+	charset="gb2312"
+Content-Transfer-Encoding: base64
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:50764 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754515Ab2I0IE4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 04:04:56 -0400
-Received: by oagh16 with SMTP id h16so1497845oag.19
-        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 01:04:51 -0700 (PDT)
-In-Reply-To: <87mx0c92s0.fsf@nemi.mork.no>
+Received: from smtpcom.263xmail.com ([211.150.64.23]:64452 "EHLO
+	smtpcom.263xmail.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756409Ab2I0IPH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 04:15:07 -0400
+Received: from smtpcom.263xmail.com (localhost.localdomain [127.0.0.1])
+	by smtpcom.263xmail.com (Postfix) with ESMTP id 84C907C6BD
+	for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 15:57:07 +0800 (CST)
+Received: from gzsmtpcom.263xmail.com (unknown [61.146.178.233])
+	by smtpcom.263xmail.com (Postfix) with ESMTP id 6A810611B
+	for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 15:57:07 +0800 (CST)
+Received: from Foxmail (localhost.localdomain [127.0.0.1])
+	by gzsmtpcom.263xmail.com (Postfix) with ESMTP id D94CD9D9E
+	for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 15:57:01 +0800 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26 September 2012 17:17, Bj=F8rn Mork <bjorn@mork.no> wrote:
-> Yes, but you are a lot less likely to know about it if you BUG out.  =
-The
-> user will be left with no other choice than hitting reset or poweroff=
-=2E
-> What's the point of that?
->
-> If your driver crashes but the machine is left running, then the user
-> may forward the Oops to you.  That's much more useful.
-
-Good point, I hadn't considered that.
-
-So for user reportability am I better off to use WARN_ON in this case,
-or simply remove the check and let the null pointer dereference
-happen?
-
--Steve
+RGVhciBmcmllbmQsDQogDQpIYXZlIGEgbmljZSBkYXkgLHRoaXMgaXMgQW5keSBmcm9tIG15LWxp
+ZmVzdGFyIFNoZW56aGVuIENoaW5hDQogDQp3ZSBnb3Qgc29tZSBuZXcgcHJvZHVjdCBpbiBvdXIg
+d2Vic2l0ZSx5b3Ugd291bGQgYmUgaW50ZXJlc3RlZCANCiANCkFueSBwcm9ibGVtcyBhYm91dCBv
+dXIgcHJvZHVjdCBmcmVlIHRvIGNvbnRhY3QgbWUgDQogDQpCZXN0IHJlZ2FyZHMNCiANCg0KLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0NCg0KRW1haWw6IHNhbGVzQG15LWxpZmVzdGFyLmNvbSANCk1T
+TjogbGlmZXN0YXJzYWxlc0BnbWFpbC5jb20NClNreXBlOiBsaWZlc3RhcnNhbGVzDQp0cmFkZSBt
+YW5hZ2VyOiBjbm15bGlmZXN0YXINCldlYnNpdGU6IHd3dy5teS1saWZlc3Rhci5jb20gaHR0cDov
+L3d3dy5hbGlleHByZXNzLmNvbS9zdG9yZS83MDY0NzcNCg0KU2luY2VyZWx5IHlvdXJzDQpBbmR5
+DQoNCkxpZmVzdGFyIEJpb3RlY2hub2xvZ3kgQ28uLEx0ZC4gDQpBZGQ6IFJvb20gNTEyLFNoYW5n
+dGFuZyBDb21tZXJjaWFsIEJ1aWxkaW5nLEluZHVzdHJpYWwgUm9hZCxMb25naHVhIFRvd24sQmFv
+J2FuIERpc3RyaWN0LFNoZW56aGVuLENoaW5hICANClRlbDogICs4Ni03NTUtODE0NzU4NjItODA1
+DQpGYXg6ICArODYtNzU1LTgxNDc1ODYyLTgwOA==
