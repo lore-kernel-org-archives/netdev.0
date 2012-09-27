@@ -1,37 +1,69 @@
-From: Otavio Salvador <otavio@ossystems.com.br>
-Subject: Re: [PATCH] net: phy: smsc: Implement PHY config_init for LAN87xx
-Date: Thu, 27 Sep 2012 15:21:37 -0300
-Message-ID: <CAP9ODKqC5PhkWxuMsFgA019-wZuygr_hhEme_xyP9dy4C6bLmw@mail.gmail.com>
-References: <1348604262-21522-1-git-send-email-marex@denx.de>
+From: "N, Mugunthan V" <mugunthanvnm@ti.com>
+Subject: RE: [PATCH] net: ti cpsw ethernet: set IFCTL_A bit in MACCONTROL
+Date: Thu, 27 Sep 2012 18:40:13 +0000
+Message-ID: <EB1619762EAF8B4E97A227FB77B7E0293E9EC49D@DBDE01.ent.ti.com>
+References: <1348746636-24156-1-git-send-email-zonque@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org,
-	Christian Hohnstaedt <chohnstaedt@innominate.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: Marek Vasut <marex@denx.de>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Hiremath, Vaibhav" <hvaibhav@ti.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Daniel Mack <zonque@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:40301 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754498Ab2I0SVi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 14:21:38 -0400
-Received: by pbbrr4 with SMTP id rr4so3968341pbb.19
-        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 11:21:37 -0700 (PDT)
-In-Reply-To: <1348604262-21522-1-git-send-email-marex@denx.de>
+Received: from devils.ext.ti.com ([198.47.26.153]:37945 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751704Ab2I0SkV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 14:40:21 -0400
+In-Reply-To: <1348746636-24156-1-git-send-email-zonque@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 25, 2012 at 5:17 PM, Marek Vasut <marex@denx.de> wrote:
-> The LAN8710/LAN8720 chips do have broken the "FlexPWR" smart power-saving
-> capability. Enabling it leads to the PHY not being able to detect Link when
-> cold-started without cable connected. Thus, make sure this is disabled.
->
-> Signed-off-by: Marek Vasut <marex@denx.de>
+> -----Original Message-----
+> From: Daniel Mack [mailto:zonque@gmail.com]
+> Sent: Thursday, September 27, 2012 5:21 PM
+> To: netdev@vger.kernel.org
+> Cc: Daniel Mack; N, Mugunthan V; Hiremath, Vaibhav; David S. Miller
+> Subject: [PATCH] net: ti cpsw ethernet: set IFCTL_A bit in MACCONTROL
+> 
+> For RMII/RGMII mode operation in 100Mbps, the CPSW needs to set the
+> IFCTL_A bits in the MACCONTROL register. For all other PHY modes, this
+> bit is unused, so setting it unconditionally shouldn't cause any
+> trouble.
+> 
+> Signed-off-by: Daniel Mack <zonque@gmail.com>
+> Cc: Mugunthan V N <mugunthanvnm@ti.com>
+> Cc: Vaibhav Hiremath <hvaibhav@ti.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/ethernet/ti/cpsw.c | 5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/ti/cpsw.c
+> b/drivers/net/ethernet/ti/cpsw.c
+> index aa78168..b764f75 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -386,6 +386,11 @@ static void _cpsw_adjust_link(struct cpsw_slave
+> *slave,
+>  			mac_control |= BIT(7);	/* GIGABITEN	*/
+>  		if (phy->duplex)
+>  			mac_control |= BIT(0);	/* FULLDUPLEXEN	*/
+> +
+> +		/* set speed_in input in case RMII mode is used in >10Mbps
+> */
+> +		if (phy->speed > 10)
 
-Acked-by: Otavio Salvador <otavio@ossystems.com.br>
+Please change the speed check as == 100 as it is required only for 100Mbps link
 
--- 
-Otavio Salvador                             O.S. Systems
-E-mail: otavio@ossystems.com.br  http://www.ossystems.com.br
-Mobile: +55 53 9981-7854              http://projetos.ossystems.com.br
+Regards
+Mugunthan V N
+
+> +			mac_control |= BIT(15);
+> +
+>  		*link = true;
+>  	} else {
+>  		mac_control = 0;
+> --
+> 1.7.11.4
