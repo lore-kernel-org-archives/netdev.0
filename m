@@ -1,200 +1,119 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [RFC PATCH net-next] tcp: introduce tcp_tw_interval to specifiy
- the time of TIME-WAIT
-Date: Thu, 27 Sep 2012 10:23:35 -0400
-Message-ID: <20120927142334.GA3194@neilslaptop.think-freely.org>
-References: <1348735261-29225-1-git-send-email-amwang@redhat.com>
+From: Nolwenn <donolwenn@gmail.com>
+Subject: Possible bug with r8169 driver
+Date: Thu, 27 Sep 2012 14:24:47 +0000
+Message-ID: <2197741.c8FeV4Xbis@bureau>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7Bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38345 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751534Ab2I0OXw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 10:23:52 -0400
-Content-Disposition: inline
-In-Reply-To: <1348735261-29225-1-git-send-email-amwang@redhat.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:50133 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753228Ab2I0OYv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 10:24:51 -0400
+Received: by eaac13 with SMTP id c13so648271eaa.19
+        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 07:24:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 27, 2012 at 04:41:01PM +0800, Cong Wang wrote:
-> Some customer requests this feature, as they stated:
-> 
-> 	"This parameter is necessary, especially for software that continually 
->         creates many ephemeral processes which open sockets, to avoid socket 
->         exhaustion. In many cases, the risk of the exhaustion can be reduced by 
->         tuning reuse interval to allow sockets to be reusable earlier.
-> 
->         In commercial Unix systems, this kind of parameters, such as 
->         tcp_timewait in AIX and tcp_time_wait_interval in HP-UX, have 
->         already been available. Their implementations allow users to tune 
->         how long they keep TCP connection as TIME-WAIT state on the 
->         millisecond time scale."
-> 
-> We indeed have "tcp_tw_reuse" and "tcp_tw_recycle", but these tunings
-> are not equivalent in that they cannot be tuned directly on the time
-> scale nor in a safe way, as some combinations of tunings could still
-> cause some problem in NAT. And, I think second scale is enough, we don't
-> have to make it in millisecond time scale.
-> 
-I think I have a little difficultly seeing how this does anything other than
-pay lip service to actually having sockets spend time in TIME_WAIT state.  That
-is to say, while I see users using this to just make the pain stop.  If we wait
-less time than it takes to be sure that a connection isn't being reused (either
-by waiting two segment lifetimes, or by checking timestamps), then you might as
-well not wait at all.  I see how its tempting to be able to say "Just don't wait
-as long", but it seems that theres no difference between waiting half as long as
-the RFC mandates, and waiting no time at all.  Neither is a good idea.
+Hello,
 
-Given the problem you're trying to solve here, I'll ask the standard question in
-response: How does using SO_REUSEADDR not solve the problem?  Alternatively, in
-a pinch, why not reduce the tcp_max_tw_buckets sufficiently to start forcing
-TIME_WAIT sockets back into CLOSED state?
-
-The code looks fine, but the idea really doesn't seem like a good plan to me.
-I'm sure HPUX/Solaris/AIX/etc have done this in response to customer demand, but
-that doesn't make it the right solution.
+I'm on Archlinux (kernel 3.5.4), I need to set eth0 to promiscuous to get a 
+stable IPv6 connectivity. My internet access provider is Free (France) and 
+IPv6 is enable on the box. 
+If eth0 is not set to promiscuous, I need to intercep packets with 
+"tcpdump -nvvv ip6" to get an IPv6 connectivity and it's lost, a few later, 
+when interception is stopped. 
 
 Regards
-Neil
 
-> See also: https://lkml.org/lkml/2008/11/15/80
-> 
-> Any comments?
-> 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> 
-> ---
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> index c7fc107..4b24398 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -520,6 +520,12 @@ tcp_tw_reuse - BOOLEAN
->  	It should not be changed without advice/request of technical
->  	experts.
->  
-> +tcp_tw_interval - INTEGER
-> +	Specify the timeout, in seconds, of TIME-WAIT sockets.
-> +	It should not be changed without advice/request of technical
-> +	experts.
-> +	Default: 60
-> +
->  tcp_window_scaling - BOOLEAN
->  	Enable window scaling as defined in RFC1323.
->  
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 6feeccd..72f92a1 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -114,9 +114,10 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
->  				 * initial RTO.
->  				 */
->  
-> -#define TCP_TIMEWAIT_LEN (60*HZ) /* how long to wait to destroy TIME-WAIT
-> -				  * state, about 60 seconds	*/
-> -#define TCP_FIN_TIMEOUT	TCP_TIMEWAIT_LEN
-> +#define TCP_TIMEWAIT_LEN (sysctl_tcp_tw_interval * HZ)
-> +				 /* how long to wait to destroy TIME-WAIT
-> +				  * state, default 60 seconds	*/
-> +#define TCP_FIN_TIMEOUT	(60*HZ)
->                                   /* BSD style FIN_WAIT2 deadlock breaker.
->  				  * It used to be 3min, new value is 60sec,
->  				  * to combine FIN-WAIT-2 timeout with
-> @@ -292,6 +293,7 @@ extern int sysctl_tcp_thin_dupack;
->  extern int sysctl_tcp_early_retrans;
->  extern int sysctl_tcp_limit_output_bytes;
->  extern int sysctl_tcp_challenge_ack_limit;
-> +extern int sysctl_tcp_tw_interval;
->  
->  extern atomic_long_t tcp_memory_allocated;
->  extern struct percpu_counter tcp_sockets_allocated;
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index 9205e49..f99cacf 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -27,6 +27,7 @@
->  #include <net/tcp_memcontrol.h>
->  
->  static int zero;
-> +static int one = 1;
->  static int two = 2;
->  static int tcp_retr1_max = 255;
->  static int ip_local_port_range_min[] = { 1, 1 };
-> @@ -271,6 +272,28 @@ bad_key:
->  	return ret;
->  }
->  
-> +static int proc_tcp_tw_interval(ctl_table *ctl, int write,
-> +				void __user *buffer, size_t *lenp,
-> +				loff_t *ppos)
-> +{
-> +	int ret;
-> +	ctl_table tmp = {
-> +		.data = &sysctl_tcp_tw_interval,
-> +		.maxlen = sizeof(int),
-> +		.mode = ctl->mode,
-> +		.extra1 = &one,
-> +	};
-> +
-> +	ret = proc_dointvec_minmax(&tmp, write, buffer, lenp, ppos);
-> +	if (ret)
-> +		return ret;
-> +	if (write)
-> +		tcp_death_row.period = (HZ / INET_TWDR_TWKILL_SLOTS)
-> +				       * sysctl_tcp_tw_interval;
-> +
-> +	return 0;
-> +}
-> +
->  static struct ctl_table ipv4_table[] = {
->  	{
->  		.procname	= "tcp_timestamps",
-> @@ -794,6 +817,13 @@ static struct ctl_table ipv4_table[] = {
->  		.proc_handler	= proc_dointvec_minmax,
->  		.extra1		= &zero
->  	},
-> +	{
-> +		.procname	= "tcp_tw_interval",
-> +		.data		= &sysctl_tcp_tw_interval,
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_tcp_tw_interval,
-> +	},
->  	{ }
->  };
->  
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index 93406c5..64af0b6 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -86,6 +86,7 @@
->  #include <linux/scatterlist.h>
->  
->  int sysctl_tcp_tw_reuse __read_mostly;
-> +int sysctl_tcp_tw_interval __read_mostly = 60;
->  int sysctl_tcp_low_latency __read_mostly;
->  EXPORT_SYMBOL(sysctl_tcp_low_latency);
->  
-> diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-> index 27536ba..e16f524 100644
-> --- a/net/ipv4/tcp_minisocks.c
-> +++ b/net/ipv4/tcp_minisocks.c
-> @@ -34,7 +34,7 @@ int sysctl_tcp_abort_on_overflow __read_mostly;
->  
->  struct inet_timewait_death_row tcp_death_row = {
->  	.sysctl_max_tw_buckets = NR_FILE * 2,
-> -	.period		= TCP_TIMEWAIT_LEN / INET_TWDR_TWKILL_SLOTS,
-> +	.period		= (60 * HZ) / INET_TWDR_TWKILL_SLOTS,
->  	.death_lock	= __SPIN_LOCK_UNLOCKED(tcp_death_row.death_lock),
->  	.hashinfo	= &tcp_hashinfo,
->  	.tw_timer	= TIMER_INITIALIZER(inet_twdr_hangman, 0,
-> 
+Nolwenn
+
+PS : sorry for my bad english
+
+Some information on hardware and settings
+
+03:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI 
+Express Gigabit Ethernet controller (rev 09)
+        Subsystem: ASUSTeK Computer Inc. Device 8505
+        Flags: bus master, fast devsel, latency 0, IRQ 44
+        I/O ports at e000 [size=256]
+        Memory at f0004000 (64-bit, prefetchable) [size=4K]
+        Memory at f0000000 (64-bit, prefetchable) [size=16K]
+        Capabilities: <access denied>
+        Kernel driver in use: r8169
+
+
+sysctl.conf (nothing in /etc/sysctl.d directory)
+=======
+
+# Configuration file for runtime kernel parameters.
+# See sysctl.conf(5) for more information.
+
+# Have the CD-ROM close when you use it, and open when you are done.
+#dev.cdrom.autoclose = 1
+#dev.cdrom.autoeject = 1
+
+# Protection from the SYN flood attack.
+net.ipv4.tcp_syncookies = 1
+
+# See evil packets in your logs.
+#net.ipv4.conf.all.log_martians = 1
+
+# Never accept redirects or source routes (these are only useful for routers).
+#net.ipv4.conf.all.accept_redirects = 0
+#net.ipv4.conf.all.accept_source_route = 0
+#net.ipv6.conf.all.accept_redirects = 0
+#net.ipv6.conf.all.accept_source_route = 0
+
+# Disable packet forwarding.
+net.ipv4.ip_forward = 0
+net.ipv6.conf.all.forwarding = 0
+
+# Tweak the port range used for outgoing connections.
+#net.ipv4.ip_local_port_range = 32768 61000
+
+# Tweak those values to alter disk syncing and swap behavior.
+#vm.vfs_cache_pressure = 100
+#vm.laptop_mode = 0
+#vm.swappiness = 60
+
+# Tweak how the flow of kernel messages is throttled.
+#kernel.printk_ratelimit_burst = 10
+#kernel.printk_ratelimit = 5
+
+# Reboot 600 seconds after kernel panic or oops.
+#kernel.panic_on_oops = 1
+#kernel.panic = 600
+
+# Disable SysRq key to avoid console security issues.
+kernel.sysrq = 0
+
+
+
+% dmesg | grep r8169 
+
+[    1.810423] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+[    1.810548] r8169 0000:03:00.0: irq 44 for MSI/MSI-X
+[    1.810671] r8169 0000:03:00.0: eth0: RTL8168f/8111f at 0xffffc900057ae000, 
+30:85:a9:ee:43:fa, XID 08000800 IRQ 44
+[    1.810672] r8169 0000:03:00.0: eth0: jumbo features [frames: 9200 bytes, 
+tx checksumming: ko]
+[    3.061527] r8169 0000:03:00.0: eth0: link down
+[    3.062343] r8169 0000:03:00.0: eth0: link down
+[    4.690703] r8169 0000:03:00.0: eth0: link up
+
+% ip addr 
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> mtu 1500 qdisc 
+pfifo_fast state UP qlen 1000
+    link/ether 30:85:a9:ee:43:fa brd ff:ff:ff:ff:ff:ff
+    inet 192.168.0.11/24 brd 192.168.0.255 scope global eth0
+    inet6 XXXX:XXXX:XXXX:2720:3285:a9ff:feee:43fa/64 scope global dynamic 
+       valid_lft 85897sec preferred_lft 85897sec
+    inet6 fe80::3285:a9ff:feee:43fa/64 scope link 
+       valid_lft forever preferred_lft forever
