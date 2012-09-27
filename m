@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] lxt PHY: Support for the buggy LXT973 rev A2
-Date: Thu, 27 Sep 2012 17:58:28 -0400 (EDT)
-Message-ID: <20120927.175828.1507389182330392541.davem@davemloft.net>
-References: <20120924183035.GA2252@netboy.at.omicron.at>
-	<50614DEE.9050400@c-s.fr>
-	<20120925074736.GB2169@netboy.at.omicron.at>
+Subject: Re: [PATCH] smsc75xx: fix resume after device reset
+Date: Thu, 27 Sep 2012 18:00:12 -0400 (EDT)
+Message-ID: <20120927.180012.1412086025696296605.davem@davemloft.net>
+References: <1348497779-10042-1-git-send-email-steve.glendinning@shawell.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: christophe.leroy@c-s.fr, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: richardcochran@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120925074736.GB2169@netboy.at.omicron.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: steve.glendinning@shawell.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58639 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754140Ab2I0WAN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 18:00:13 -0400
+In-Reply-To: <1348497779-10042-1-git-send-email-steve.glendinning@shawell.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Tue, 25 Sep 2012 09:47:36 +0200
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Date: Mon, 24 Sep 2012 15:42:59 +0100
 
-> On Tue, Sep 25, 2012 at 08:23:42AM +0200, leroy christophe wrote:
->> 
->> A2 chip has phy_id 0x00137a10
->> A3 chip has phy_id 0x00137a11
+> On some systems this device fails to properly resume after suspend,
+> this patch fixes it by running the usbnet_resume handler.
 > 
-> Okay then, thanks.
+> I suspect this also fixes this bug:
 > 
-> Acked-by: Richard Cochran <richardcochran@gmail.com>
+> http://code.google.com/p/chromium-os/issues/detail?id=31871
 
-Applied to net-next, thanks.
+Applied, thanks.
