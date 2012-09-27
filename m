@@ -1,47 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/3] ipv4: gre: add GRO capability
-Date: Thu, 27 Sep 2012 20:08:14 +0200
-Message-ID: <1348769294.5093.1566.camel@edumazet-glaptop>
-References: <1348750130.5093.1227.camel@edumazet-glaptop>
-	 <CAEP_g=-JAYHXM86AYNp7BhDV+eqfkKVgC+SJS1MVdo0K8fRLSQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH RFC net-next 0/1] ptp: add pseudo pps ioctl
+Date: Thu, 27 Sep 2012 20:12:15 +0200
+Message-ID: <cover.1348768886.git.richardcochran@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Miroslav Lichvar <mlichvar@redhat.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:39885 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751013Ab2I0SIT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 14:08:19 -0400
-Received: by bkcjk13 with SMTP id jk13so2288576bkc.19
-        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 11:08:17 -0700 (PDT)
-In-Reply-To: <CAEP_g=-JAYHXM86AYNp7BhDV+eqfkKVgC+SJS1MVdo0K8fRLSQ@mail.gmail.com>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:56405 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753276Ab2I0SM2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 14:12:28 -0400
+Received: by wibhr7 with SMTP id hr7so2384082wib.1
+        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 11:12:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-09-27 at 10:52 -0700, Jesse Gross wrote:
+This patch adds a kind of "poor man's PPS" for use with those PHC
+drivers which do not support a true PPS. Using this ioctl, user space
+can estimate the system-phc offset and tune one of the clocks as
+desired.
 
-> When I was thinking about doing this, my original plan was to handle
-> GRO/GSO by extending the current handlers to be able to look inside
-> GRE and then loop around to process the inner packet (similar to what
-> is done today with skb_flow_dissect() for RPS).  Is there a reason to
-> do it in the device?
-> 
-> Pushing it earlier/later in the stack obviously increases the benefit
-> and it will also be more compatible with the forthcoming OVS tunneling
-> hooks, which will be flow based and therefore won't have a device.
-> 
-> Also, the next generation of NICs will support this type of thing in
-> hardware so putting the software versions very close to the NIC will
-> give us a more similar abstraction.
+This patch has been tested on both the Intel igb (PCIe card) and the
+National Semiconductor phyter (PHY via MDIO bus), and the results seem
+quite promising.
 
-This sounds not feasible with all kind of tunnels, for example IPIP
-tunnels, or UDP encapsulation, at least with current stack (not OVS)
+This patch avoids the "timecompare" code on purpose, since experiments
+have shown that code to be quite brittle, having been tuned to only
+one specific kind of hardware.
 
-Also note that pushing earlier means forcing the checksumming earlier
-and it consumes a lot of cpu cycles. Hopefully NIC will help us in the
-future.
+Thanks,
+Richard
 
-Using a napi_struct permits to eventually have separate cpus, and things
-like RPS/RSS to split the load.
+
+Richard Cochran (1):
+  ptp: add an ioctl to compare PHC time with system time
+
+ drivers/ptp/ptp_chardev.c |   32 ++++++++++++++++++++++++++++++++
+ include/linux/ptp_clock.h |   14 ++++++++++++++
+ 2 files changed, 46 insertions(+), 0 deletions(-)
+
+-- 
+1.7.2.5
