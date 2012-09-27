@@ -1,36 +1,129 @@
-From: Chad Gray <chad938@hotmail.com>
-Subject: Netfilter lacks ability to filter packets via Application-origin
-Date: Thu, 27 Sep 2012 17:04:56 -0400
-Message-ID: <COL002-W881A56C786C9972B7654E3F3830@phx.gbl>
-References: <COL002-W8067088C0C0B4682A10A0F39B0@phx.gbl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Possible networking regression in 3.6.0
+Date: Thu, 27 Sep 2012 23:17:04 +0200
+Message-ID: <1348780624.5093.1767.camel@edumazet-glaptop>
+References: <5057455A.7050108@googlemail.com>
+	 <50588371.40103@googlemail.com>  <505885DC.1060006@googlemail.com>
+	 <1347979239.26523.267.camel@edumazet-glaptop>
+	 <5059E40C.4070607@googlemail.com> <505D5A18.2080507@googlemail.com>
+	 <50643DA1.7070306@googlemail.com>
+	 <1348748042.5093.1168.camel@edumazet-glaptop>
+	 <50649567.2010704@googlemail.com>
+	 <1348779826.5093.1750.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gpiez@web.de
+To: Chris Clayton <chris2553@googlemail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [65.55.34.24] ([65.55.34.24]:13425 "EHLO
-	col0-omc1-s14.col0.hotmail.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755230Ab2I0VFR convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Sep 2012 17:05:17 -0400
-In-Reply-To: <COL002-W8067088C0C0B4682A10A0F39B0@phx.gbl>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:41304 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752697Ab2I0VRL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 17:17:11 -0400
+Received: by bkcjk13 with SMTP id jk13so2555003bkc.19
+        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 14:17:10 -0700 (PDT)
+In-Reply-To: <1348779826.5093.1750.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Users need the ability for Linux firewall to filter packets based on wh=
-at=20
-Application they are originating from. This ability is present in Mac a=
-nd=20
-Windows firewalls, but not Linux.=20
-=A0
-=46or example, users would like ability to open Port 80 for Firefox, bu=
-t keep=20
-Port 80 closed for other applications.=20
-=A0
-This ability enhances Privacy & Security of the user but also helps to =
-better=20
-inform the user about the comings and goings of internet traffic and wh=
-at=20
-application/s are causing the traffic.=20
+On Thu, 2012-09-27 at 23:03 +0200, Eric Dumazet wrote:
+> On Thu, 2012-09-27 at 19:05 +0100, Chris Clayton wrote:
+> > On 09/27/12 13:14, Eric Dumazet wrote:
+> > > On Thu, 2012-09-27 at 12:50 +0100, Chris Clayton wrote:
+> > >> Just for information - I've pulled Linus' tree this morning and the
+> > >> problem is still present. Also, Gunther Piaz has reported, via the
+> > >> bugzilla entry, that he too has hit this regression.
+> > >
+> > > I tried to reproduce the bug, and my kvm guests have no problem.
+> > >
+> > > I guess you need to precisely describe how you setup your network, so
+> > > that I can reproduce the problem and eventually fix it.
+> > >
+> > 
+> > You've seen the bits from my firewall setup script that relate to this 
+> > issue. I start the WinXP client with another script:
+> > 
+> > #!/bin/sh
+> > if [ -e $HOME/kvm/var/run/kvm-winxp.pid ]; then
+> >      echo "winxp is already running ..." > /dev/stderr
+> >      exit 1
+> > fi
+> > 
+> > # make sure the kvm modules are loaded
+> > if test -z "$(grep '\<kvm\>' /proc/misc)"; then
+> >      sudo modprobe kvm-intel
+> >      while test -z "$(grep '\<kvm\>' /proc/misc)"; do
+> >          true
+> >      done
+> > fi
+> > 
+> > # make sure tun module is loaded
+> > if test ! -e /dev/net/tun; then
+> >      sudo modprobe tun
+> > fi
+> > 
+> > # figure out the cpu to use
+> > QVER=$(qemu-kvm --version | cut -d' ' -f 4 | sed 's/,/./')
+> > # assumes major version is 1
+> > MINORVER=$(echo $QVER | cut -d'.' -f 2)
+> > if [ $MINORVER -ge 1 ]; then
+> >      CPU="host"
+> > else
+> >      CPU="qemu64"
+> > fi
+> > 
+> > # set up the network interface
+> > TAPDEV=$(sudo tunctl -b -u $(whoami))
+> > sudo ifconfig $TAPDEV 192.168.200.254 netmask 255.255.255.0 broadcast 
+> > 192.168.200.255
+> > 
+> > # start Windows XP
+> > qemu-kvm -drive file=$HOME/kvm/winxp.qcow2,index=0,cache=none,if=virtio 
+> > -cpu $CPU -smp cores=1,threads=2 -soundhw es1370 \
+> >      -m 768 -net nic,model=virtio,macaddr=$(getmacaddr) -net 
+> > tap,ifname=$TAPDEV -startdate $(date +%Y-%m-%dT%H:%M:%S) \
+> >      -name kxplaptop -pidfile $HOME/kvm/var/run/kvm-winxp.pid $*
+> > 
+> > # stop the network interface
+> > sudo ifconfig $TAPDEV down
+> > sudo tunctl -d $TAPDEV &>/dev/null
+> > 
+> > # tidy up
+> > rm -f $HOME/kvm/var/run/kvm-winxp.pid
+> > 
+> > 
+> > The call to getmacaddr just returns the next in a sequence of mac 
+> > addresses. qemu-kvm is a symlink to /usr/bin/qemu-system-i386. I first 
+> > found the problem whilst running qemu-kvm version 1.1.1 although I've 
+> > since updated to 1.2.0.
+> > 
+> > By the way, I doubt it will make a difference, but, although my laptop 
+> > has a 64bit CPU, I am running a 32 bit kernel and, obviously, user space.
+> > 
+> > Let me know if you need anything else.
+> 
+> It works for me.
+> 
+> Hmm, maybe your guest is using DHCP and DHCP fails ?
 
-https://bugzilla.kernel.org/show_bug.cgi?id=3D47531 		 	   		  
+Yes it seems the problem. On the host I tried :
+
+# ip ro get 8.8.8.8 from 192.168.200.1 iif tap1
+8.8.8.8 from 192.168.200.1 via 172.30.42.1 dev eth0 
+    cache  iif *
+
+So if the guest tries to send a frame to 8.8.8.8 we are going to forward
+the packet to eth0
+
+But if the guest tries to send to 255.255.255.255, we try to deliver the
+packet to the host itself, instead of broadcasting to eth0
+
+# ip ro get 255.255.255.255 from 192.168.200.1 iif tap1
+broadcast 255.255.255.255 from 192.168.200.1 dev lo 
+    cache <local,brd>  iif *
+
+
+David, maybe you'll have an idea ?
+
+Thanks
