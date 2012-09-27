@@ -1,41 +1,35 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: RE: [PATCH] qlcnic - Fix scheduling while atomic bug
-Date: Thu, 27 Sep 2012 16:13:49 -0700
-Message-ID: <5E4F49720D0BAD499EE1F01232234BA877447F451C@AVEXMB1.qlogic.org>
-References: <20120925175212.GA1324@fedora-17-guest.blr.amer.dell.com>
- <20120927.182133.1396850191643578552.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bnx2: Clean up remaining iounmap
+Date: Thu, 27 Sep 2012 19:19:18 -0400 (EDT)
+Message-ID: <20120927.191918.866136563370603675.davem@davemloft.net>
+References: <1348680122-9711-1-git-send-email-nhorman@tuxdriver.com>
+	<1348684433.7220.78.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>
-To: David Miller <davem@davemloft.net>,
-	"Narendra_K@Dell.com" <Narendra_K@Dell.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org, mcan@broadcom.com
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [213.199.154.207] ([213.199.154.207]:32299 "EHLO
-	am1outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754952Ab2I0XRq convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Sep 2012 19:17:46 -0400
-In-Reply-To: <20120927.182133.1396850191643578552.davem@davemloft.net>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:59525 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754952Ab2I0XTU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 19:19:20 -0400
+In-Reply-To: <1348684433.7220.78.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 26 Sep 2012 11:33:53 -0700
 
------Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of David Miller
->Sent: Thursday, September 27, 2012 3:22 PM
->To: Narendra_K@Dell.com
->Cc: netdev; Sony Chacko; Jitendra Kalsaria; john.r.fastabend@intel.com
->Subject: Re: [PATCH] qlcnic - Fix scheduling while atomic bug
->
->
->Is it really the case that not one Qlogic person feels like ACK'ing
->this patch that fixes an obvious bug in their driver for 2 full days?
->
->For real?
+> On Wed, 2012-09-26 at 13:22 -0400, Neil Horman wrote: 
+>> commit c0357e975afdbbedab5c662d19bef865f02adc17 modified bnx2 to switch from
+>> using ioremap/iounmap to pci_iomap/pci_iounmap.  They missed a spot in the error
+>> path of bnx2_init_one though.  This patch just cleans that up.
+>> 
+>> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+>> CC: Michael Chan <mcan@broadcom.com>
+>> CC: "David S. Miller" <davem@davemloft.net>
+> 
+> Acked-by: Michael Chan <mchan@broadcom.com>
 
-Definitely it fixes an obvious bug and also an good patch but it took little longer to test it before I ack back.
-
+Applied, thanks.
