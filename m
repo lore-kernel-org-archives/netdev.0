@@ -1,37 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netdev: pasemi: fix return value check in
- pasemi_mac_phy_init()
-Date: Thu, 27 Sep 2012 13:21:15 -0400 (EDT)
-Message-ID: <20120927.132115.2182914790094588188.davem@davemloft.net>
-References: <CAPgLHd8hJjj1HkV7gc8QH2p9rDJQedkc+vCUpFJMgyXQua4LGg@mail.gmail.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [3.5 regression / mcs7830 / bisected] bridge constantly
+ toggeling between disabled and forwarding
+Date: Thu, 27 Sep 2012 10:39:05 -0700
+Message-ID: <20120927173905.GC21025@kroah.com>
+References: <20120723091504.2d035d28@xenia.leun.net>
+ <20120724013634.11bf1360@xenia.leun.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: olof@lixom.net, grant.likely@secretlab.ca, rob.herring@calxeda.com,
-	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org
-To: weiyj.lk@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55475 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751977Ab2I0RVR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 13:21:17 -0400
-In-Reply-To: <CAPgLHd8hJjj1HkV7gc8QH2p9rDJQedkc+vCUpFJMgyXQua4LGg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux@rainbow-software.org, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Michael Leun <lkml20120218@newton.leun.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120724013634.11bf1360@xenia.leun.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Thu, 27 Sep 2012 13:51:58 +0800
+On Tue, Jul 24, 2012 at 01:36:34AM +0200, Michael Leun wrote:
+> On Mon, 23 Jul 2012 09:15:04 +0200
+> Michael Leun <lkml20120218@newton.leun.net> wrote:
+> 
+> [see issue description below]
+> 
+> Bisecting yielded
+> 
+> b1ff4f96fd1c63890d78d8939c6e0f2b44ce3113 is the first bad commit
+> commit b1ff4f96fd1c63890d78d8939c6e0f2b44ce3113
+> Author: Ondrej Zary <linux@rainbow-software.org>
+> Date:   Fri Jun 1 10:29:08 2012 +0000
+> 
+>     mcs7830: Implement link state detection
+> 
+>     Add .status callback that detects link state changes.
+>     Tested with MCS7832CV-AA chip (9710:7830, identified as rev.C by the driver).
+>     Fixes https://bugzilla.kernel.org/show_bug.cgi?id=28532
+> 
+>     Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> :040000 040000 5480780cb5e75c57122a621fc3bab0108c16be27 d97efd9cc0a465dff76bcd3a3c547f718f2a5345 M    drivers
+> 
+> 
+> Reverting that from 3.5 makes the issue go away.
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> 
-> In case of error, the function of_phy_connect() returns NULL
-> pointer not ERR_PTR(). The IS_ERR() test in the return value
-> check should be replaced with NULL test.
-> 
-> dpatch engine is used to auto generate this patch.
-> (https://github.com/weiyj/dpatch)
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Did this ever get resolved in 3.6-rc7 or any older kernel?  I can't
+revert the patch from 3.5.y unless it's also fixed in Linus's tree.
 
-Applied, thanks.
+thanks,
+
+greg k-h
