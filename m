@@ -1,161 +1,99 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next 2/3] net: add gro_cells infrastructure
-Date: Thu, 27 Sep 2012 14:47:57 +0200
-Message-ID: <1348750077.5093.1224.camel@edumazet-glaptop>
+Subject: [PATCH net-next 3/3] ipv4: gre: add GRO capability
+Date: Thu, 27 Sep 2012 14:48:50 +0200
+Message-ID: <1348750130.5093.1227.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:50275 "EHLO
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:40650 "EHLO
 	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751071Ab2I0MsD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 08:48:03 -0400
-Received: by bkcjk13 with SMTP id jk13so1705081bkc.19
-        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 05:48:01 -0700 (PDT)
+	with ESMTP id S1751355Ab2I0Msy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 08:48:54 -0400
+Received: by bkcjk13 with SMTP id jk13so1706677bkc.19
+        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 05:48:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-This adds a new include file (include/net/gro_cells.h), to bring GRO
-(Generic Receive Offload) capability to tunnels, in a modular way.
+Add GRO capability to IPv4 GRE tunnels, using the gro_cells
+infrastructure.
 
-Because tunnels receive path is lockless, and GRO adds a serialization
-using a napi_struct, I chose to add an array of up to 8 cells,
-so that multi queue devices wont be slowed down because of GRO layer.
-
-skb_get_rx_queue() is used as selector.
-
-In the future, we might add optional fanout capabilities, using rxhash
-for example.
+Tested using IPv4 and IPv6 TCP traffic inside this tunnel, and
+checking GRO is building large packets.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/gro_cells.h |  103 ++++++++++++++++++++++++++++++++++++++
- net/core/dev.c          |    2 
- 2 files changed, 105 insertions(+)
+ include/net/ipip.h |    3 +++
+ net/ipv4/ip_gre.c  |   13 +++++++++++--
+ 2 files changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/gro_cells.h b/include/net/gro_cells.h
-new file mode 100644
-index 0000000..ba93b1b
---- /dev/null
-+++ b/include/net/gro_cells.h
-@@ -0,0 +1,103 @@
-+#ifndef _NET_GRO_CELLS_H
-+#define _NET_GRO_CELLS_H
-+
-+#include <linux/skbuff.h>
-+#include <linux/slab.h>
-+#include <linux/netdevice.h>
-+
-+struct gro_cell {
-+	struct sk_buff_head	napi_skbs;
-+	struct napi_struct	napi;
-+} ____cacheline_aligned_in_smp;
-+
-+struct gro_cells {
-+	unsigned int		gro_cells_mask;
-+	struct gro_cell		*cells;
-+};
-+
-+static inline void gro_cells_receive(struct gro_cells *gcells, struct sk_buff *skb)
-+{
-+	unsigned long flags;
-+	struct gro_cell *cell = gcells->cells;
-+	struct net_device *dev = skb->dev;
-+
-+	if (!cell || skb_cloned(skb) || !(dev->features & NETIF_F_GRO)) {
-+		netif_rx(skb);
-+		return;
-+	}
-+
-+	if (skb_rx_queue_recorded(skb))
-+		cell += skb_get_rx_queue(skb) & gcells->gro_cells_mask;
-+
-+	if (skb_queue_len(&cell->napi_skbs) > netdev_max_backlog) {
-+		atomic_long_inc(&dev->rx_dropped);
-+		kfree_skb(skb);
-+		return;
-+	}
-+
-+	spin_lock_irqsave(&cell->napi_skbs.lock, flags);
-+
-+	__skb_queue_tail(&cell->napi_skbs, skb);
-+	if (skb_queue_len(&cell->napi_skbs) == 1)
-+		napi_schedule(&cell->napi);
-+
-+	spin_unlock_irqrestore(&cell->napi_skbs.lock, flags);
-+}
-+
-+static inline int gro_cell_poll(struct napi_struct *napi, int budget)
-+{
-+	struct gro_cell *cell = container_of(napi, struct gro_cell, napi);
-+	struct sk_buff *skb;
-+	int work_done = 0;
-+
-+	while (work_done < budget) {
-+		skb = skb_dequeue(&cell->napi_skbs);
-+		if (!skb)
-+			break;
-+
-+		napi_gro_receive(napi, skb);
-+		work_done++;
-+	}
-+
-+	if (work_done < budget)
-+		napi_complete(napi);
-+	return work_done;
-+}
-+
-+static inline int gro_cells_init(struct gro_cells *gcells, struct net_device *dev)
-+{
-+	int i;
-+
-+	gcells->gro_cells_mask = roundup_pow_of_two(min_t(unsigned int, 8, nr_cpu_ids)) - 1;
-+	gcells->cells = kcalloc(sizeof(struct gro_cell),
-+				gcells->gro_cells_mask + 1,
-+				GFP_KERNEL);
-+	if (!gcells->cells)
-+		return -ENOMEM;
-+
-+	for (i = 0; i <= gcells->gro_cells_mask; i++) {
-+		struct gro_cell *cell = gcells->cells + i;
-+
-+		skb_queue_head_init(&cell->napi_skbs);
-+		netif_napi_add(dev, &cell->napi, gro_cell_poll, 64);
-+		napi_enable(&cell->napi);
-+	}
-+	return 0;
-+}
-+
-+static inline void gro_cells_destroy(struct gro_cells *gcells)
-+{
-+	struct gro_cell *cell = gcells->cells;
-+	int i;
-+
-+	if (!cell)
-+		return;
-+	for (i = 0; i <= gcells->gro_cells_mask; i++,cell++) {
-+		netif_napi_del(&cell->napi);	
-+		skb_queue_purge(&cell->napi_skbs);
-+	}
-+	kfree(gcells->cells);
-+	gcells->cells = NULL;
-+}
-+
-+#endif
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 707b124..9f63660 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2644,6 +2644,8 @@ EXPORT_SYMBOL(dev_queue_xmit);
-   =======================================================================*/
+diff --git a/include/net/ipip.h b/include/net/ipip.h
+index a93cf6d..ddc077c 100644
+--- a/include/net/ipip.h
++++ b/include/net/ipip.h
+@@ -2,6 +2,7 @@
+ #define __NET_IPIP_H 1
  
- int netdev_max_backlog __read_mostly = 1000;
-+EXPORT_SYMBOL(netdev_max_backlog);
+ #include <linux/if_tunnel.h>
++#include <net/gro_cells.h>
+ #include <net/ip.h>
+ 
+ /* Keep error state on tunnel for 30 sec */
+@@ -36,6 +37,8 @@ struct ip_tunnel {
+ #endif
+ 	struct ip_tunnel_prl_entry __rcu *prl;		/* potential router list */
+ 	unsigned int			prl_count;	/* # of entries in PRL */
 +
- int netdev_tstamp_prequeue __read_mostly = 1;
- int netdev_budget __read_mostly = 300;
- int weight_p __read_mostly = 64;            /* old backlog weight */
++	struct gro_cells		gro_cells;
+ };
+ 
+ struct ip_tunnel_prl_entry {
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index f233c1d..1f00b30 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -714,8 +714,7 @@ static int ipgre_rcv(struct sk_buff *skb)
+ 		skb_reset_network_header(skb);
+ 		ipgre_ecn_decapsulate(iph, skb);
+ 
+-		netif_rx(skb);
+-
++		gro_cells_receive(&tunnel->gro_cells, skb);
+ 		rcu_read_unlock();
+ 		return 0;
+ 	}
+@@ -1296,6 +1295,9 @@ static const struct net_device_ops ipgre_netdev_ops = {
+ 
+ static void ipgre_dev_free(struct net_device *dev)
+ {
++	struct ip_tunnel *tunnel = netdev_priv(dev);
++
++	gro_cells_destroy(&tunnel->gro_cells);
+ 	free_percpu(dev->tstats);
+ 	free_netdev(dev);
+ }
+@@ -1327,6 +1329,7 @@ static int ipgre_tunnel_init(struct net_device *dev)
+ {
+ 	struct ip_tunnel *tunnel;
+ 	struct iphdr *iph;
++	int err;
+ 
+ 	tunnel = netdev_priv(dev);
+ 	iph = &tunnel->parms.iph;
+@@ -1353,6 +1356,12 @@ static int ipgre_tunnel_init(struct net_device *dev)
+ 	if (!dev->tstats)
+ 		return -ENOMEM;
+ 
++	err = gro_cells_init(&tunnel->gro_cells, dev);
++	if (err) {
++		free_percpu(dev->tstats);
++		return err;
++	}
++
+ 	return 0;
+ }
+ 
