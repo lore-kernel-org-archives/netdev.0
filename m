@@ -1,44 +1,100 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next 3/3] ipv4: gre: add GRO capability
-Date: Thu, 27 Sep 2012 10:52:12 -0700
-Message-ID: <CAEP_g=-JAYHXM86AYNp7BhDV+eqfkKVgC+SJS1MVdo0K8fRLSQ@mail.gmail.com>
-References: <1348750130.5093.1227.camel@edumazet-glaptop>
+From: Chris Clayton <chris2553@googlemail.com>
+Subject: Re: Possible networking regression in 3.6.0
+Date: Thu, 27 Sep 2012 19:05:27 +0100
+Message-ID: <50649567.2010704@googlemail.com>
+References: <5057455A.7050108@googlemail.com>  <50588371.40103@googlemail.com>  <505885DC.1060006@googlemail.com>  <1347979239.26523.267.camel@edumazet-glaptop>  <5059E40C.4070607@googlemail.com> <505D5A18.2080507@googlemail.com>  <50643DA1.7070306@googlemail.com> <1348748042.5093.1168.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gpiez@web.de
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog103.obsmtp.com ([74.125.149.71]:41355 "HELO
-	na3sys009aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752861Ab2I0Rwe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 13:52:34 -0400
-Received: by obbuo13 with SMTP id uo13so2046825obb.19
-        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 10:52:33 -0700 (PDT)
-In-Reply-To: <1348750130.5093.1227.camel@edumazet-glaptop>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:37456 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752712Ab2I0SF2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 14:05:28 -0400
+Received: by eekb15 with SMTP id b15so1081745eek.19
+        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 11:05:27 -0700 (PDT)
+In-Reply-To: <1348748042.5093.1168.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 27, 2012 at 5:48 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On 09/27/12 13:14, Eric Dumazet wrote:
+> On Thu, 2012-09-27 at 12:50 +0100, Chris Clayton wrote:
+>> Just for information - I've pulled Linus' tree this morning and the
+>> problem is still present. Also, Gunther Piaz has reported, via the
+>> bugzilla entry, that he too has hit this regression.
 >
-> Add GRO capability to IPv4 GRE tunnels, using the gro_cells
-> infrastructure.
+> I tried to reproduce the bug, and my kvm guests have no problem.
 >
-> Tested using IPv4 and IPv6 TCP traffic inside this tunnel, and
-> checking GRO is building large packets.
+> I guess you need to precisely describe how you setup your network, so
+> that I can reproduce the problem and eventually fix it.
 >
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-When I was thinking about doing this, my original plan was to handle
-GRO/GSO by extending the current handlers to be able to look inside
-GRE and then loop around to process the inner packet (similar to what
-is done today with skb_flow_dissect() for RPS).  Is there a reason to
-do it in the device?
+You've seen the bits from my firewall setup script that relate to this 
+issue. I start the WinXP client with another script:
 
-Pushing it earlier/later in the stack obviously increases the benefit
-and it will also be more compatible with the forthcoming OVS tunneling
-hooks, which will be flow based and therefore won't have a device.
+#!/bin/sh
+if [ -e $HOME/kvm/var/run/kvm-winxp.pid ]; then
+     echo "winxp is already running ..." > /dev/stderr
+     exit 1
+fi
 
-Also, the next generation of NICs will support this type of thing in
-hardware so putting the software versions very close to the NIC will
-give us a more similar abstraction.
+# make sure the kvm modules are loaded
+if test -z "$(grep '\<kvm\>' /proc/misc)"; then
+     sudo modprobe kvm-intel
+     while test -z "$(grep '\<kvm\>' /proc/misc)"; do
+         true
+     done
+fi
+
+# make sure tun module is loaded
+if test ! -e /dev/net/tun; then
+     sudo modprobe tun
+fi
+
+# figure out the cpu to use
+QVER=$(qemu-kvm --version | cut -d' ' -f 4 | sed 's/,/./')
+# assumes major version is 1
+MINORVER=$(echo $QVER | cut -d'.' -f 2)
+if [ $MINORVER -ge 1 ]; then
+     CPU="host"
+else
+     CPU="qemu64"
+fi
+
+# set up the network interface
+TAPDEV=$(sudo tunctl -b -u $(whoami))
+sudo ifconfig $TAPDEV 192.168.200.254 netmask 255.255.255.0 broadcast 
+192.168.200.255
+
+# start Windows XP
+qemu-kvm -drive file=$HOME/kvm/winxp.qcow2,index=0,cache=none,if=virtio 
+-cpu $CPU -smp cores=1,threads=2 -soundhw es1370 \
+     -m 768 -net nic,model=virtio,macaddr=$(getmacaddr) -net 
+tap,ifname=$TAPDEV -startdate $(date +%Y-%m-%dT%H:%M:%S) \
+     -name kxplaptop -pidfile $HOME/kvm/var/run/kvm-winxp.pid $*
+
+# stop the network interface
+sudo ifconfig $TAPDEV down
+sudo tunctl -d $TAPDEV &>/dev/null
+
+# tidy up
+rm -f $HOME/kvm/var/run/kvm-winxp.pid
+
+
+The call to getmacaddr just returns the next in a sequence of mac 
+addresses. qemu-kvm is a symlink to /usr/bin/qemu-system-i386. I first 
+found the problem whilst running qemu-kvm version 1.1.1 although I've 
+since updated to 1.2.0.
+
+By the way, I doubt it will make a difference, but, although my laptop 
+has a 64bit CPU, I am running a 32 bit kernel and, obviously, user space.
+
+Let me know if you need anything else.
+
+Thanks
+
+> Thanks
+>
+>
