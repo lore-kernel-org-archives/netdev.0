@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] Add Chelsio T4 firmware configuration file support
-Date: Thu, 27 Sep 2012 17:56:52 -0400 (EDT)
-Message-ID: <20120927.175652.826147107679630598.davem@davemloft.net>
-References: <1348663182-20190-1-git-send-email-vipul@chelsio.com>
+Subject: Re: [PATCH v4] lxt PHY: Support for the buggy LXT973 rev A2
+Date: Thu, 27 Sep 2012 17:58:28 -0400 (EDT)
+Message-ID: <20120927.175828.1507389182330392541.davem@davemloft.net>
+References: <20120924183035.GA2252@netboy.at.omicron.at>
+	<50614DEE.9050400@c-s.fr>
+	<20120925074736.GB2169@netboy.at.omicron.at>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, divy@chelsio.com, dm@chelsio.com,
-	swise@opengridcomputing.com, leedom@chelsio.com, felix@chelsio.com
-To: vipul@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58599 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755434Ab2I0V44 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 17:56:56 -0400
-In-Reply-To: <1348663182-20190-1-git-send-email-vipul@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: christophe.leroy@c-s.fr, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: richardcochran@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120925074736.GB2169@netboy.at.omicron.at>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vipul Pandya <vipul@chelsio.com>
-Date: Wed, 26 Sep 2012 18:09:35 +0530
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Tue, 25 Sep 2012 09:47:36 +0200
 
-> This patch series adds aupport for firmware configuration file for Chelsio T4
-> adapters.
+> On Tue, Sep 25, 2012 at 08:23:42AM +0200, leroy christophe wrote:
+>> 
+>> A2 chip has phy_id 0x00137a10
+>> A3 chip has phy_id 0x00137a11
 > 
-> The Firmware Configuration file was primarily developed in order to centralize
-> all of the configuration, resource allocation, etc. for Unified Wire operation
-> where multiple Physical / Virtual Function Drivers would be using a T4 adapter
-> simultaneously.
+> Okay then, thanks.
 > 
-> The patch series also has bug fixes which can occur while upgrading the T4
-> firmware.
-> 
-> The patch series is built against David Miller's net-next tree.
+> Acked-by: Richard Cochran <richardcochran@gmail.com>
 
-Series applied.
+Applied to net-next, thanks.
