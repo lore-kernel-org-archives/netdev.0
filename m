@@ -1,49 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/7 net-next] tg3: Change default number of tx rings to
- 1.
-Date: Thu, 27 Sep 2012 19:23:45 -0400 (EDT)
-Message-ID: <20120927.192345.2124577537241070059.davem@davemloft.net>
-References: <1348698769-760-5-git-send-email-mchan@broadcom.com>
-	<1348698769-760-6-git-send-email-mchan@broadcom.com>
-	<1348698769-760-7-git-send-email-mchan@broadcom.com>
+Subject: Re: [PATCH] qlcnic - Fix scheduling while atomic bug
+Date: Thu, 27 Sep 2012 19:26:02 -0400 (EDT)
+Message-ID: <20120927.192602.1354851114513597606.davem@davemloft.net>
+References: <20120925175212.GA1324@fedora-17-guest.blr.amer.dell.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
+	jitendra.kalsaria@qlogic.com, john.r.fastabend@intel.com
+To: Narendra_K@Dell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59572 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59604 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755299Ab2I0XXq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 19:23:46 -0400
-In-Reply-To: <1348698769-760-7-git-send-email-mchan@broadcom.com>
+	with ESMTP id S1754952Ab2I0X0J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 19:26:09 -0400
+In-Reply-To: <20120925175212.GA1324@fedora-17-guest.blr.amer.dell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 26 Sep 2012 15:32:49 -0700
+From: <Narendra_K@Dell.com>
+Date: Tue, 25 Sep 2012 10:53:19 -0700
 
-> Hardware tx scheduling can cause some starvation of a tx ring with small
-> packets if other tx rings have jumbo or TSO packets.  The default setting
-> of 1 TX ring gives the best overall performance in many common traffic
-> scenarios.  The user can change it using ethttol -L if desired.
+> From: Narendra K <narendra_k@dell.com>
 > 
-> Update version to 3.125.
+> In the device close path, 'qlcnic_fw_destroy_ctx' and
+> 'qlcnic_poll_rsp' call msleep. But  'qlcnic_fw_destroy_ctx' and
+> 'qlcnic_poll_rsp' are called with 'adapter->tx_clean_lock' spin lock
+> held resulting in scheduling while atomic bug causing the following
+> trace.
 > 
-> Reviewed-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-> Reviewed-by: Benjamin Li <benli@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> I observed that the commit 012dc19a45b2b9cc2ebd14aaa401cf782c2abba4
+> from John Fastabend addresses a similar issue in ixgbevf driver.
+> Adopting the same approach used in the commit, this patch uses mdelay
+> to address the issue.
+ ...
+> Signed-off-by: Narendra K <narendra_k@dell.com>
 
-This gets into an area I don't like.
+Applied, thanks.
 
-Individual drivers making decisions about defaults that sound like
-system wide ones.
+In the future please format your Subject lines for patches as
+"subsytem: Description."  instead of this "subsystem - Description."
+layout.
 
-What makes tg3 so special that only it should have this default
-setting?
-
-I also can't see how this "one guy spamming small packets while
-another generates TSO frames" completely nullifies the SMP gains
-from using multiple TX rings and distributing traffic.
-
-I'm not applying this patch set.
+Thanks.
