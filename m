@@ -1,45 +1,39 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC PATCH net-next] tcp: introduce tcp_tw_interval to specifiy
- the time of TIME-WAIT
-Date: Thu, 27 Sep 2012 10:02:22 -0700
-Message-ID: <5064869E.9060503@hp.com>
-References: <1348735261-29225-1-git-send-email-amwang@redhat.com> <20120927142334.GA3194@neilslaptop.think-freely.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH net-next] tcp: introduce tcp_tw_interval to
+ specifiy the time of TIME-WAIT
+Date: Thu, 27 Sep 2012 13:05:29 -0400 (EDT)
+Message-ID: <20120927.130529.620560818048014548.davem@davemloft.net>
+References: <1348735261-29225-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>
-To: Cong Wang <amwang@redhat.com>
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, kaber@trash.net,
+	edumazet@google.com, nhorman@tuxdriver.com
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:23874 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753011Ab2I0RC2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 13:02:28 -0400
-In-Reply-To: <20120927142334.GA3194@neilslaptop.think-freely.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55292 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751134Ab2I0RFd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 13:05:33 -0400
+In-Reply-To: <1348735261-29225-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/27/2012 07:23 AM, Neil Horman wrote:
-> The code looks fine, but the idea really doesn't seem like a good plan to me.
-> I'm sure HPUX/Solaris/AIX/etc have done this in response to customer demand, but
-> that doesn't make it the right solution.
+From: Cong Wang <amwang@redhat.com>
+Date: Thu, 27 Sep 2012 16:41:01 +0800
 
-In the case of HP-UX at least, while the rope is indeed there, the 
-advice is to not wrap it around one's neck unless one *really* has a 
-handle on the environment.  Instead things suggested, in no particular 
-order:
+>         In commercial Unix systems, this kind of parameters, such as 
+>         tcp_timewait in AIX and tcp_time_wait_interval in HP-UX, have 
+>         already been available. Their implementations allow users to tune 
+>         how long they keep TCP connection as TIME-WAIT state on the 
+>         millisecond time scale."
 
-*) The aforementioned SO_REUSEADDR to address the "I can't restart the 
-server quickly enough." issue
+This statement only makes me happy that these systems are not as
+widely deployed as Linux is.
 
-*) Tuning the size of the anonymous/ephemeral port range.
+Furthermore, the mere existence of a facility in another system
+is never an argument for why we should have it too.  Often it's
+instead a huge reason for us not to add it.
 
-*) Making explicit bind() calls using the entire non-privileged port range
-
-*) Making the connections longer-lived.  Especially if the comms are 
-between a fixed set of IP addresses.
-
-rick jones
+Without appropriate confirmation that an early time-wait reuse is
+valid, decreasing this interval can only be dangerous.
