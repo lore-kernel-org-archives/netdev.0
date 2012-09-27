@@ -1,7 +1,7 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [net-next PATCH 3/5] be2net: cleanup code related to be_link_status_query()
-Date: Thu, 27 Sep 2012 12:02:46 +0530
-Message-ID: <2dd9f958-4bbb-4964-b8e9-18b653167662@CMEXHTCAS2.ad.emulex.com>
+Subject: [net-next PATCH 4/5] be2net: get rid of AMAP_SET/GET macros in TX path
+Date: Thu, 27 Sep 2012 12:02:47 +0530
+Message-ID: <92de1988-73db-4864-bf19-10ed11dac557@CMEXHTCAS2.ad.emulex.com>
 References: <1348727568-2011-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,247 +10,209 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:17101 "EHLO
 	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755242Ab2I0G43 (ORCPT
+	with ESMTP id S1755305Ab2I0G43 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 02:56:29 -0400
 In-Reply-To: <1348727568-2011-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) link_status_query() is always called to query the link-speed (speed
-after applying qos). When there is no qos setting, link-speed is derived from
-port-speed. Do all this inside this routine and hide this from the callers.
-
-2) adpater->phy.forced_port_speed is not being set anywhere after being
-initialized. Get rid of this variable.
-
-3) Ignore async link_speed notifications till the initial value has been
-fetched from FW.
+The AMAP macros are used in be2net for setting and parsing bits in HW
+descriptors. The macros do this by calculating the mask & offset of each
+field from the AMAP structure definition.
+In the TX patch, replace the usage of these macros with code to explicitly
+shift & mask each field. Doing this reduces instructions and improves
+readability.
 
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h         |    1 -
- drivers/net/ethernet/emulex/benet/be_cmds.c    |   46 ++++++++++++++-----
- drivers/net/ethernet/emulex/benet/be_cmds.h    |    4 +-
- drivers/net/ethernet/emulex/benet/be_ethtool.c |   57 +++++-------------------
- drivers/net/ethernet/emulex/benet/be_main.c    |    4 +-
- 5 files changed, 48 insertions(+), 64 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_hw.h   |   62 ++++++++-------------------
+ drivers/net/ethernet/emulex/benet/be_main.c |   58 ++++++++++---------------
+ 2 files changed, 41 insertions(+), 79 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 5b622993..cf4c05b 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -337,7 +337,6 @@ struct phy_info {
- 	u16 auto_speeds_supported;
- 	u16 fixed_speeds_supported;
- 	int link_speed;
--	int forced_port_speed;
- 	u32 dac_cable_len;
- 	u32 advertising;
- 	u32 supported;
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 6fbfb20..46a19af 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -165,14 +165,13 @@ static void be_async_grp5_cos_priority_process(struct be_adapter *adapter,
- 	}
- }
+diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
+index b755f70..32a84ab 100644
+--- a/drivers/net/ethernet/emulex/benet/be_hw.h
++++ b/drivers/net/ethernet/emulex/benet/be_hw.h
+@@ -273,56 +273,30 @@ struct be_eth_wrb {
+ 	u32 frag_len;		/* dword 3: bits 0 - 15 */
+ } __packed;
  
--/* Grp5 QOS Speed evt */
-+/* Grp5 QOS Speed evt: qos_link_speed is in units of 10 Mbps */
- static void be_async_grp5_qos_speed_process(struct be_adapter *adapter,
- 		struct be_async_event_grp5_qos_link_speed *evt)
- {
--	if (evt->physical_port == adapter->port_num) {
--		/* qos_link_speed is in units of 10 Mbps */
--		adapter->phy.link_speed = evt->qos_link_speed * 10;
--	}
-+	if (adapter->phy.link_speed >= 0 &&
-+	    evt->physical_port == adapter->port_num)
-+		adapter->phy.link_speed = le16_to_cpu(evt->qos_link_speed) * 10;
- }
+-/* Pseudo amap definition for eth_hdr_wrb in which each bit of the
+- * actual structure is defined as a byte : used to calculate
+- * offset/shift/mask of each field */
+-struct amap_eth_hdr_wrb {
+-	u8 rsvd0[32];		/* dword 0 */
+-	u8 rsvd1[32];		/* dword 1 */
+-	u8 complete;		/* dword 2 */
+-	u8 event;
+-	u8 crc;
+-	u8 forward;
+-	u8 lso6;
+-	u8 mgmt;
+-	u8 ipcs;
+-	u8 udpcs;
+-	u8 tcpcs;
+-	u8 lso;
+-	u8 vlan;
+-	u8 gso[2];
+-	u8 num_wrb[5];
+-	u8 lso_mss[14];
+-	u8 len[16];		/* dword 3 */
+-	u8 vlan_tag[16];
+-} __packed;
++#define TX_HDR_WRB_COMPL		1		/* word 2 */
++#define TX_HDR_WRB_EVT			(1 << 1)	/* word 2 */
++#define TX_HDR_WRB_CRC			(1 << 2)	/* word 2 */
++#define TX_HDR_WRB_LSO6			(1 << 4)	/* word 2 */
++#define TX_HDR_WRB_IPCS			(1 << 6)	/* word 2 */
++#define TX_HDR_WRB_UDPCS		(1 << 7)	/* word 2 */
++#define TX_HDR_WRB_TCPCS		(1 << 8)	/* word 2 */
++#define TX_HDR_WRB_LSO			(1 << 9)	/* word 2 */
++#define TX_HDR_WRB_VLAN			(1 << 10)	/* word 2 */
++#define TX_HDR_WRB_NUM_SHIFT		13		/* word 2: bits 13:17 */
++#define TX_HDR_WRB_NUM_MASK		0x1F		/* word 2: bits 13:17 */
++#define TX_HDR_WRB_MSS_SHIFT		18		/* word 2: bits 18:31 */
++#define TX_HDR_WRB_MSS_MASK		0x3FFF		/* word 2: bits 18:31 */
++#define TX_HDR_WRB_LEN_MASK		0xFFFF		/* word 3: bits 0:15 */
++#define TX_HDR_WRB_VLAN_TCI_SHIFT	16		/* word 3: bits 16:31 */
++#define TX_HDR_WRB_VLAN_TCI_MASK	0xFFFF		/* word 3: bits 16:31 */
  
- /*Grp5 PVID evt*/
-@@ -1326,9 +1325,28 @@ err:
- 	return status;
- }
+ struct be_eth_hdr_wrb {
+ 	u32 dw[4];
+ };
  
--/* Uses synchronous mcc */
--int be_cmd_link_status_query(struct be_adapter *adapter, u8 *mac_speed,
--			     u16 *link_speed, u8 *link_status, u32 dom)
-+static int be_mac_to_link_speed(int mac_speed)
-+{
-+	switch (mac_speed) {
-+	case PHY_LINK_SPEED_ZERO:
-+		return 0;
-+	case PHY_LINK_SPEED_10MBPS:
-+		return 10;
-+	case PHY_LINK_SPEED_100MBPS:
-+		return 100;
-+	case PHY_LINK_SPEED_1GBPS:
-+		return 1000;
-+	case PHY_LINK_SPEED_10GBPS:
-+		return 10000;
-+	}
-+	return 0;
-+}
-+
-+/* Uses synchronous mcc
-+ * Returns link_speed in Mbps
-+ */
-+int be_cmd_link_status_query(struct be_adapter *adapter, u16 *link_speed,
-+			     u8 *link_status, u32 dom)
- {
- 	struct be_mcc_wrb *wrb;
- 	struct be_cmd_req_link_status *req;
-@@ -1357,11 +1375,13 @@ int be_cmd_link_status_query(struct be_adapter *adapter, u8 *mac_speed,
- 	status = be_mcc_notify_wait(adapter);
- 	if (!status) {
- 		struct be_cmd_resp_link_status *resp = embedded_payload(wrb);
--		if (resp->mac_speed != PHY_LINK_SPEED_ZERO) {
--			if (link_speed)
--				*link_speed = le16_to_cpu(resp->link_speed);
--			if (mac_speed)
--				*mac_speed = resp->mac_speed;
-+		if (link_speed) {
-+			*link_speed = resp->link_speed ?
-+				      le16_to_cpu(resp->link_speed) * 10 :
-+				      be_mac_to_link_speed(resp->mac_speed);
-+
-+			if (!resp->logical_link_status)
-+				*link_speed = 0;
- 		}
- 		if (link_status)
- 			*link_status = resp->logical_link_status;
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 1f5b839..0936e21 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1714,8 +1714,8 @@ extern int be_cmd_q_destroy(struct be_adapter *adapter, struct be_queue_info *q,
- 			int type);
- extern int be_cmd_rxq_destroy(struct be_adapter *adapter,
- 			struct be_queue_info *q);
--extern int be_cmd_link_status_query(struct be_adapter *adapter, u8 *mac_speed,
--				    u16 *link_speed, u8 *link_status, u32 dom);
-+extern int be_cmd_link_status_query(struct be_adapter *adapter, u16 *link_speed,
-+				    u8 *link_status, u32 dom);
- extern int be_cmd_reset(struct be_adapter *adapter);
- extern int be_cmd_get_stats(struct be_adapter *adapter,
- 			struct be_dma_mem *nonemb_cmd);
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index c0e7006..8e6fb0b 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -512,28 +512,6 @@ static u32 convert_to_et_setting(u32 if_type, u32 if_speeds)
- 	return val;
- }
- 
--static int convert_to_et_speed(u32 be_speed)
--{
--	int et_speed = SPEED_10000;
+ /* TX Compl Queue Descriptor */
 -
--	switch (be_speed) {
--	case PHY_LINK_SPEED_10MBPS:
--		et_speed = SPEED_10;
--		break;
--	case PHY_LINK_SPEED_100MBPS:
--		et_speed = SPEED_100;
--		break;
--	case PHY_LINK_SPEED_1GBPS:
--		et_speed = SPEED_1000;
--		break;
--	case PHY_LINK_SPEED_10GBPS:
--		et_speed = SPEED_10000;
--		break;
--	}
--
--	return et_speed;
--}
--
- bool be_pause_supported(struct be_adapter *adapter)
- {
- 	return (adapter->phy.interface_type == PHY_TYPE_SFP_PLUS_10GB ||
-@@ -544,27 +522,16 @@ bool be_pause_supported(struct be_adapter *adapter)
- static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
--	u8 port_speed = 0;
--	u16 link_speed = 0;
- 	u8 link_status;
--	u32 et_speed = 0;
-+	u16 link_speed = 0;
- 	int status;
+-/* Pseudo amap definition for eth_tx_compl in which each bit of the
+- * actual structure is defined as a byte: used to calculate
+- * offset/shift/mask of each field */
+-struct amap_eth_tx_compl {
+-	u8 wrb_index[16];	/* dword 0 */
+-	u8 ct[2]; 		/* dword 0 */
+-	u8 port[2];		/* dword 0 */
+-	u8 rsvd0[8];		/* dword 0 */
+-	u8 status[4];		/* dword 0 */
+-	u8 user_bytes[16];	/* dword 1 */
+-	u8 nwh_bytes[8];	/* dword 1 */
+-	u8 lso;			/* dword 1 */
+-	u8 cast_enc[2];		/* dword 1 */
+-	u8 rsvd1[5];		/* dword 1 */
+-	u8 rsvd2[32];		/* dword 2 */
+-	u8 pkts[16];		/* dword 3 */
+-	u8 ringid[11];		/* dword 3 */
+-	u8 hash_val[4];		/* dword 3 */
+-	u8 valid;		/* dword 3 */
+-} __packed;
++#define TX_COMPL_WRB_IDX_MASK		0xFFFF		/* word 0: bits 0:15 */
++#define TX_COMPL_VALID			(1 << 31)	/* word 3 */
  
--	if (adapter->phy.link_speed < 0 || !(netdev->flags & IFF_UP)) {
--		if (adapter->phy.forced_port_speed < 0) {
--			status = be_cmd_link_status_query(adapter, &port_speed,
--						&link_speed, &link_status, 0);
--			if (!status)
--				be_link_status_update(adapter, link_status);
--			if (link_speed)
--				et_speed = link_speed * 10;
--			else if (link_status)
--				et_speed = convert_to_et_speed(port_speed);
--		} else {
--			et_speed = adapter->phy.forced_port_speed;
--		}
--
--		ethtool_cmd_speed_set(ecmd, et_speed);
-+	if (adapter->phy.link_speed < 0) {
-+		status = be_cmd_link_status_query(adapter, &link_speed,
-+						  &link_status, 0);
-+		if (!status)
-+			be_link_status_update(adapter, link_status);
-+		ethtool_cmd_speed_set(ecmd, link_speed);
- 
- 		status = be_cmd_get_phy_info(adapter);
- 		if (status)
-@@ -773,8 +740,8 @@ static void
- be_self_test(struct net_device *netdev, struct ethtool_test *test, u64 *data)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
--	u8 mac_speed = 0;
--	u16 qos_link_speed = 0;
-+	int status;
-+	u8 link_status = 0;
- 
- 	memset(data, 0, sizeof(u64) * ETHTOOL_TESTS_NUM);
- 
-@@ -798,11 +765,11 @@ be_self_test(struct net_device *netdev, struct ethtool_test *test, u64 *data)
- 		test->flags |= ETH_TEST_FL_FAILED;
- 	}
- 
--	if (be_cmd_link_status_query(adapter, &mac_speed,
--				     &qos_link_speed, NULL, 0) != 0) {
-+	status = be_cmd_link_status_query(adapter, NULL, &link_status, 0);
-+	if (status) {
- 		test->flags |= ETH_TEST_FL_FAILED;
- 		data[4] = -1;
--	} else if (!mac_speed) {
-+	} else if (!link_status) {
- 		test->flags |= ETH_TEST_FL_FAILED;
- 		data[4] = 1;
- 	}
+ struct be_eth_tx_compl {
+ 	u32 dw[4];
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index b712091..4855dd6 100644
+index 4855dd6..c74906d 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2440,8 +2440,7 @@ static int be_open(struct net_device *netdev)
- 		be_eq_notify(adapter, eqo->q.id, true, false, 0);
+@@ -585,45 +585,34 @@ static int be_vlan_tag_chk(struct be_adapter *adapter, struct sk_buff *skb)
+ static void wrb_fill_hdr(struct be_adapter *adapter, struct be_eth_hdr_wrb *hdr,
+ 		struct sk_buff *skb, u32 wrb_cnt, u32 len)
+ {
+-	u16 vlan_tag;
+-
+-	memset(hdr, 0, sizeof(*hdr));
+-
+-	AMAP_SET_BITS(struct amap_eth_hdr_wrb, crc, hdr, 1);
++	u32 dw2 = 0, dw3 = 0;
+ 
+ 	if (skb_is_gso(skb)) {
+-		AMAP_SET_BITS(struct amap_eth_hdr_wrb, lso, hdr, 1);
+-		AMAP_SET_BITS(struct amap_eth_hdr_wrb, lso_mss,
+-			hdr, skb_shinfo(skb)->gso_size);
++		dw2 |= TX_HDR_WRB_LSO;
++		dw2 |= (skb_shinfo(skb)->gso_size & TX_HDR_WRB_MSS_MASK) <<
++			TX_HDR_WRB_MSS_SHIFT;
+ 		if (skb_is_gso_v6(skb) && !lancer_chip(adapter))
+-			AMAP_SET_BITS(struct amap_eth_hdr_wrb, lso6, hdr, 1);
+-		if (lancer_chip(adapter) && adapter->sli_family  ==
+-							LANCER_A0_SLI_FAMILY) {
+-			AMAP_SET_BITS(struct amap_eth_hdr_wrb, ipcs, hdr, 1);
+-			if (is_tcp_pkt(skb))
+-				AMAP_SET_BITS(struct amap_eth_hdr_wrb,
+-								tcpcs, hdr, 1);
+-			else if (is_udp_pkt(skb))
+-				AMAP_SET_BITS(struct amap_eth_hdr_wrb,
+-								udpcs, hdr, 1);
+-		}
++			dw2 |= TX_HDR_WRB_LSO6;
+ 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		if (is_tcp_pkt(skb))
+-			AMAP_SET_BITS(struct amap_eth_hdr_wrb, tcpcs, hdr, 1);
++			dw2 |= TX_HDR_WRB_TCPCS;
+ 		else if (is_udp_pkt(skb))
+-			AMAP_SET_BITS(struct amap_eth_hdr_wrb, udpcs, hdr, 1);
++			dw2 |= TX_HDR_WRB_UDPCS;
  	}
  
--	status = be_cmd_link_status_query(adapter, NULL, NULL,
--					  &link_status, 0);
-+	status = be_cmd_link_status_query(adapter, NULL, &link_status, 0);
- 	if (!status)
- 		be_link_status_update(adapter, link_status);
+ 	if (vlan_tx_tag_present(skb)) {
+-		AMAP_SET_BITS(struct amap_eth_hdr_wrb, vlan, hdr, 1);
+-		vlan_tag = be_get_tx_vlan_tag(adapter, skb);
+-		AMAP_SET_BITS(struct amap_eth_hdr_wrb, vlan_tag, hdr, vlan_tag);
++		dw2 |= TX_HDR_WRB_VLAN;
++		dw3 = (be_get_tx_vlan_tag(adapter, skb) & 0xFFFF) <<
++				TX_HDR_WRB_VLAN_TCI_SHIFT;
+ 	}
++	dw2 |= TX_HDR_WRB_CRC | TX_HDR_WRB_EVT | TX_HDR_WRB_COMPL |
++		(wrb_cnt & TX_HDR_WRB_NUM_MASK) << TX_HDR_WRB_NUM_SHIFT;
++	dw3 |= len & TX_HDR_WRB_LEN_MASK;
  
-@@ -2670,7 +2669,6 @@ static void be_setup_init(struct be_adapter *adapter)
- 	adapter->be3_native = false;
- 	adapter->promiscuous = false;
- 	adapter->eq_next_idx = 0;
--	adapter->phy.forced_port_speed = -1;
+-	AMAP_SET_BITS(struct amap_eth_hdr_wrb, event, hdr, 1);
+-	AMAP_SET_BITS(struct amap_eth_hdr_wrb, complete, hdr, 1);
+-	AMAP_SET_BITS(struct amap_eth_hdr_wrb, num_wrb, hdr, wrb_cnt);
+-	AMAP_SET_BITS(struct amap_eth_hdr_wrb, len, hdr, len);
++	hdr->dw[2] = dw2;
++	hdr->dw[3] = dw3;
++	hdr->dw[0] = 0;
++	hdr->dw[1] = 0;
  }
  
- static int be_get_mac_addr(struct be_adapter *adapter, u8 *mac, u32 if_handle,
+ static void unmap_tx_frag(struct device *dev, struct be_eth_wrb *wrb,
+@@ -1554,13 +1543,14 @@ static struct be_eth_tx_compl *be_tx_compl_get(struct be_queue_info *tx_cq)
+ {
+ 	struct be_eth_tx_compl *txcp = queue_tail_node(tx_cq);
+ 
+-	if (txcp->dw[offsetof(struct amap_eth_tx_compl, valid) / 32] == 0)
++	/* valid bit is bit 31 of dw[3] */
++	if (!txcp->dw[3])
+ 		return NULL;
+ 
+ 	rmb();
+ 	be_dws_le_to_cpu(txcp, sizeof(*txcp));
+ 
+-	txcp->dw[offsetof(struct amap_eth_tx_compl, valid) / 32] = 0;
++	txcp->dw[3] = 0;
+ 
+ 	queue_tail_inc(tx_cq);
+ 	return txcp;
+@@ -1686,9 +1676,7 @@ static void be_tx_compl_clean(struct be_adapter *adapter)
+ 		for_all_tx_queues(adapter, txo, i) {
+ 			txq = &txo->q;
+ 			while ((txcp = be_tx_compl_get(&txo->cq))) {
+-				end_idx =
+-					AMAP_GET_BITS(struct amap_eth_tx_compl,
+-						      wrb_index, txcp);
++				end_idx = txcp->dw[0] & TX_COMPL_WRB_IDX_MASK;
+ 				num_wrbs += be_tx_compl_process(adapter, txo,
+ 								end_idx);
+ 				cmpl++;
+@@ -2040,8 +2028,8 @@ static bool be_process_tx(struct be_adapter *adapter, struct be_tx_obj *txo,
+ 		if (!txcp)
+ 			break;
+ 		num_wrbs += be_tx_compl_process(adapter, txo,
+-				AMAP_GET_BITS(struct amap_eth_tx_compl,
+-					wrb_index, txcp));
++						txcp->dw[0] &
++						TX_COMPL_WRB_IDX_MASK);
+ 	}
+ 
+ 	if (work_done) {
 -- 
 1.7.4
