@@ -1,129 +1,44 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [net-next PATCH 5/5] be2net: fixup log messages
-Date: Thu, 27 Sep 2012 12:02:48 +0530
-Message-ID: <d5972f44-6d23-4530-a631-cd3a8a8f5c7d@CMEXHTCAS2.ad.emulex.com>
-References: <1348727568-2011-1-git-send-email-sathya.perla@emulex.com>
+From: Steve Glendinning <steve@shawell.net>
+Subject: Re: [PATCH 5/5] smsc95xx: enable power saving mode during system suspend
+Date: Thu, 27 Sep 2012 09:04:51 +0100
+Message-ID: <CAKh2mn5shRWNXzj0BotxqfM2EJUM9UBQfUsXVqdd63eiWo0S-Q@mail.gmail.com>
+References: <1348663224-30403-1-git-send-email-steve.glendinning@shawell.net>
+	<1348663224-30403-6-git-send-email-steve.glendinning@shawell.net>
+	<87y5jw982o.fsf@nemi.mork.no>
+	<CAKh2mn5tKowqjbvgWDSz52UF9qY9_ysAb23Pb-M_3wvCG=_R6w@mail.gmail.com>
+	<87txuk9453.fsf@nemi.mork.no>
+	<CAKh2mn4XLCPfTFySEvtZc56J+WM863JtnsjF2D-RyDJatoyAww@mail.gmail.com>
+	<87mx0c92s0.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Sathya Perla <sathya.perla@emulex.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:52734 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755653Ab2I0G4e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 02:56:34 -0400
-In-Reply-To: <1348727568-2011-1-git-send-email-sathya.perla@emulex.com>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:50764 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754515Ab2I0IE4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 04:04:56 -0400
+Received: by oagh16 with SMTP id h16so1497845oag.19
+        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 01:04:51 -0700 (PDT)
+In-Reply-To: <87mx0c92s0.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added and modified a few log messages mostly in probe path.
+On 26 September 2012 17:17, Bj=F8rn Mork <bjorn@mork.no> wrote:
+> Yes, but you are a lot less likely to know about it if you BUG out.  =
+The
+> user will be left with no other choice than hitting reset or poweroff=
+=2E
+> What's the point of that?
+>
+> If your driver crashes but the machine is left running, then the user
+> may forward the Oops to you.  That's much more useful.
 
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_cmds.c |    3 ++
- drivers/net/ethernet/emulex/benet/be_main.c |   34 ++++++++++++++++++++++----
- 2 files changed, 31 insertions(+), 6 deletions(-)
+Good point, I hadn't considered that.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 46a19af..af60bb2 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -2425,6 +2425,9 @@ int be_cmd_req_native_mode(struct be_adapter *adapter)
- 		struct be_cmd_resp_set_func_cap *resp = embedded_payload(wrb);
- 		adapter->be3_native = le32_to_cpu(resp->cap_flags) &
- 					CAPABILITY_BE3_NATIVE_ERX_API;
-+		if (!adapter->be3_native)
-+			dev_warn(&adapter->pdev->dev,
-+				 "adapter not in advanced mode\n");
- 	}
- err:
- 	mutex_unlock(&adapter->mbox_lock);
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index c74906d..b7f9bf7 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1884,6 +1884,8 @@ static int be_tx_qs_create(struct be_adapter *adapter)
- 			return status;
- 	}
- 
-+	dev_info(&adapter->pdev->dev, "created %d TX queue(s)\n",
-+		 adapter->num_tx_qs);
- 	return 0;
- }
- 
-@@ -1934,10 +1936,9 @@ static int be_rx_cqs_create(struct be_adapter *adapter)
- 			return rc;
- 	}
- 
--	if (adapter->num_rx_qs != MAX_RX_QS)
--		dev_info(&adapter->pdev->dev,
--			"Created only %d receive queues\n", adapter->num_rx_qs);
--
-+	dev_info(&adapter->pdev->dev,
-+		 "created %d RSS queue(s) and 1 default RX queue\n",
-+		 adapter->num_rx_qs - 1);
- 	return 0;
- }
- 
-@@ -2175,6 +2176,7 @@ static void be_msix_enable(struct be_adapter *adapter)
- {
- #define BE_MIN_MSIX_VECTORS		1
- 	int i, status, num_vec, num_roce_vec = 0;
-+	struct device *dev = &adapter->pdev->dev;
- 
- 	/* If RSS queues are not used, need a vec for default RX Q */
- 	num_vec = min(be_num_rss_want(adapter), num_online_cpus());
-@@ -2199,6 +2201,8 @@ static void be_msix_enable(struct be_adapter *adapter)
- 				num_vec) == 0)
- 			goto done;
- 	}
-+
-+	dev_warn(dev, "MSIx enable failed\n");
- 	return;
- done:
- 	if (be_roce_supported(adapter)) {
-@@ -2212,6 +2216,7 @@ done:
- 		}
- 	} else
- 		adapter->num_msix_vec = num_vec;
-+	dev_info(dev, "enabled %d MSI-x vector(s)\n", adapter->num_msix_vec);
- 	return;
- }
- 
-@@ -3785,6 +3790,23 @@ static bool be_reset_required(struct be_adapter *adapter)
- 	return be_find_vfs(adapter, ENABLED) > 0 ? false : true;
- }
- 
-+static char *mc_name(struct be_adapter *adapter)
-+{
-+	if (adapter->function_mode & FLEX10_MODE)
-+		return "FLEX10";
-+	else if (adapter->function_mode & VNIC_MODE)
-+		return "vNIC";
-+	else if (adapter->function_mode & UMC_ENABLED)
-+		return "UMC";
-+	else
-+		return "";
-+}
-+
-+static inline char *func_name(struct be_adapter *adapter)
-+{
-+	return be_physfn(adapter) ? "PF" : "VF";
-+}
-+
- static int __devinit be_probe(struct pci_dev *pdev,
- 			const struct pci_device_id *pdev_id)
- {
-@@ -3889,8 +3911,8 @@ static int __devinit be_probe(struct pci_dev *pdev,
- 
- 	be_cmd_query_port_name(adapter, &port_name);
- 
--	dev_info(&pdev->dev, "%s: %s port %c\n", netdev->name, nic_name(pdev),
--		 port_name);
-+	dev_info(&pdev->dev, "%s: %s %s port %c\n", nic_name(pdev),
-+		 func_name(adapter), mc_name(adapter), port_name);
- 
- 	return 0;
- 
--- 
-1.7.4
+So for user reportability am I better off to use WARN_ON in this case,
+or simply remove the check and let the null pointer dereference
+happen?
+
+-Steve
