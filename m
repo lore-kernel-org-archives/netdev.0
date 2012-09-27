@@ -1,51 +1,44 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [3.5 regression / mcs7830 / bisected] bridge constantly
- toggeling between disabled and forwarding
-Date: Thu, 27 Sep 2012 10:39:05 -0700
-Message-ID: <20120927173905.GC21025@kroah.com>
-References: <20120723091504.2d035d28@xenia.leun.net>
- <20120724013634.11bf1360@xenia.leun.net>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next 3/3] ipv4: gre: add GRO capability
+Date: Thu, 27 Sep 2012 10:52:12 -0700
+Message-ID: <CAEP_g=-JAYHXM86AYNp7BhDV+eqfkKVgC+SJS1MVdo0K8fRLSQ@mail.gmail.com>
+References: <1348750130.5093.1227.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux@rainbow-software.org, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Michael Leun <lkml20120218@newton.leun.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120724013634.11bf1360@xenia.leun.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog103.obsmtp.com ([74.125.149.71]:41355 "HELO
+	na3sys009aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752861Ab2I0Rwe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 13:52:34 -0400
+Received: by obbuo13 with SMTP id uo13so2046825obb.19
+        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 10:52:33 -0700 (PDT)
+In-Reply-To: <1348750130.5093.1227.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 24, 2012 at 01:36:34AM +0200, Michael Leun wrote:
-> On Mon, 23 Jul 2012 09:15:04 +0200
-> Michael Leun <lkml20120218@newton.leun.net> wrote:
-> 
-> [see issue description below]
-> 
-> Bisecting yielded
-> 
-> b1ff4f96fd1c63890d78d8939c6e0f2b44ce3113 is the first bad commit
-> commit b1ff4f96fd1c63890d78d8939c6e0f2b44ce3113
-> Author: Ondrej Zary <linux@rainbow-software.org>
-> Date:   Fri Jun 1 10:29:08 2012 +0000
-> 
->     mcs7830: Implement link state detection
-> 
->     Add .status callback that detects link state changes.
->     Tested with MCS7832CV-AA chip (9710:7830, identified as rev.C by the driver).
->     Fixes https://bugzilla.kernel.org/show_bug.cgi?id=28532
-> 
->     Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> :040000 040000 5480780cb5e75c57122a621fc3bab0108c16be27 d97efd9cc0a465dff76bcd3a3c547f718f2a5345 M    drivers
-> 
-> 
-> Reverting that from 3.5 makes the issue go away.
+On Thu, Sep 27, 2012 at 5:48 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Add GRO capability to IPv4 GRE tunnels, using the gro_cells
+> infrastructure.
+>
+> Tested using IPv4 and IPv6 TCP traffic inside this tunnel, and
+> checking GRO is building large packets.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Did this ever get resolved in 3.6-rc7 or any older kernel?  I can't
-revert the patch from 3.5.y unless it's also fixed in Linus's tree.
+When I was thinking about doing this, my original plan was to handle
+GRO/GSO by extending the current handlers to be able to look inside
+GRE and then loop around to process the inner packet (similar to what
+is done today with skb_flow_dissect() for RPS).  Is there a reason to
+do it in the device?
 
-thanks,
+Pushing it earlier/later in the stack obviously increases the benefit
+and it will also be more compatible with the forthcoming OVS tunneling
+hooks, which will be flow based and therefore won't have a device.
 
-greg k-h
+Also, the next generation of NICs will support this type of thing in
+hardware so putting the software versions very close to the NIC will
+give us a more similar abstraction.
