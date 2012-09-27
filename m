@@ -1,30 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] smsc95xx enhancements
-Date: Thu, 27 Sep 2012 19:17:12 -0400 (EDT)
-Message-ID: <20120927.191712.1411340612224969616.davem@davemloft.net>
-References: <1348497654-9915-1-git-send-email-steve.glendinning@shawell.net>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: RE: [PATCH] qlcnic - Fix scheduling while atomic bug
+Date: Thu, 27 Sep 2012 16:13:49 -0700
+Message-ID: <5E4F49720D0BAD499EE1F01232234BA877447F451C@AVEXMB1.qlogic.org>
+References: <20120925175212.GA1324@fedora-17-guest.blr.amer.dell.com>
+ <20120927.182133.1396850191643578552.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: steve.glendinning@shawell.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>
+To: David Miller <davem@davemloft.net>,
+	"Narendra_K@Dell.com" <Narendra_K@Dell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59493 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754595Ab2I0XRN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 19:17:13 -0400
-In-Reply-To: <1348497654-9915-1-git-send-email-steve.glendinning@shawell.net>
+Received: from [213.199.154.207] ([213.199.154.207]:32299 "EHLO
+	am1outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754952Ab2I0XRq convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Sep 2012 19:17:46 -0400
+In-Reply-To: <20120927.182133.1396850191643578552.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-You've made a series of terrible patch submissions.
+-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of David Miller
+>Sent: Thursday, September 27, 2012 3:22 PM
+>To: Narendra_K@Dell.com
+>Cc: netdev; Sony Chacko; Jitendra Kalsaria; john.r.fastabend@intel.com
+>Subject: Re: [PATCH] qlcnic - Fix scheduling while atomic bug
+>
+>
+>Is it really the case that not one Qlogic person feels like ACK'ing
+>this patch that fixes an obvious bug in their driver for 2 full days?
+>
+>For real?
 
-You posted independent sets of changes to the same driver,
-without giving any indication whatsoever if there are
-dependencies between them.
+Definitely it fixes an obvious bug and also an good patch but it took little longer to test it before I ack back.
 
-I'm tossing all of your smsc patches, please resubmit them
-in a more reasonable manner.
-
-Thanks.
