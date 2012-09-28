@@ -1,53 +1,43 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: Re: You have to fix this
-Date: Fri, 28 Sep 2012 17:29:22 +0530
-Message-ID: <5065911A.3000509@chelsio.com>
-References: <20120927.183406.962014014858457666.davem@davemloft.net>
+From: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+Subject: [PATCH] vlan: Make it possible to add vlan with id 4095
+Date: Fri, 28 Sep 2012 15:32:58 +0300
+Message-ID: <20120928123258.9454.95197.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: kaber@trash.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:23947 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751222Ab2I1L71 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 07:59:27 -0400
-In-Reply-To: <20120927.183406.962014014858457666.davem@davemloft.net>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:54298 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755400Ab2I1MdC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 08:33:02 -0400
+Received: by wibhq12 with SMTP id hq12so7809390wib.1
+        for <netdev@vger.kernel.org>; Fri, 28 Sep 2012 05:33:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+vconfig help tells that vlan_id should be 0-4095, but fails
+with 4095.
 
+There is an off-by-one bug while evaluating vlan_id.
+Fix it by evaluating against count(4096), not mask(0x0fff = 4095).
 
-On 28-09-2012 04:04, David Miller wrote:
->=20
-> You cannot put such monster sized local data objects on the stack:
->=20
-> drivers/net/ethernet/chelsio/cxgb4/t4_hw.c: In function =91t4_memory_=
-rw.constprop.6=92:
-> drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:484:1: warning: the frame =
-size of 2056 bytes is larger than 2048 bytes [-Wframe-larger-than=3D]
->=20
-> That's because of this thing:
->=20
-> 		__be32 data[MEMWIN0_APERTURE/sizeof(__be32)];
->=20
-> I'm really surprised this didn't show up in any of your test builds.
-> Or are you ignoring warnings that your changes add?
->=20
+Signed-off-by: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+---
 
-Thanks for pointing this out. We will send a patch for this soon.
-I am not ignoring any warnings. I did build my tree different way as
-shown below but did not get above warning message.
-#> make
-#> make allmodconfig
-#> make allnoconfig
+ net/8021q/vlan.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Please let me know how else would I get above warning message?
-
-I missed doing make checkstack which doesn't display warning message bu=
-t
-lists the function names.
-
-Thanks,
-Vipul Pandya
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 9096bcb..9e528bf 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -199,7 +199,7 @@ static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
+ 	char name[IFNAMSIZ];
+ 	int err;
+ 
+-	if (vlan_id >= VLAN_VID_MASK)
++	if (vlan_id >= VLAN_N_VID)
+ 		return -ERANGE;
+ 
+ 	err = vlan_check_real_dev(real_dev, vlan_id);
