@@ -1,37 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next] tcp: introduce tcp_tw_interval to
- specifiy the time of TIME-WAIT
-Date: Fri, 28 Sep 2012 02:44:16 -0400 (EDT)
-Message-ID: <20120928.024416.1606551804314602583.davem@davemloft.net>
-References: <1348735261-29225-1-git-send-email-amwang@redhat.com>
-	<20120927.130529.620560818048014548.davem@davemloft.net>
-	<1348814399.7264.44.camel@cr0>
+Subject: Re: [PATCH 1/2] Fix build error caused by broken PCH_PTP module
+ dependency.
+Date: Fri, 28 Sep 2012 02:46:21 -0400 (EDT)
+Message-ID: <20120928.024621.1635385815700269914.davem@davemloft.net>
+References: <5060F97F.3040809@linux.intel.com>
+	<20120927.180942.969924012897168294.davem@davemloft.net>
+	<506546A7.7030500@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, kaber@trash.net,
-	edumazet@google.com, nhorman@tuxdriver.com
-To: amwang@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34711 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751950Ab2I1GoR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 02:44:17 -0400
-In-Reply-To: <1348814399.7264.44.camel@cr0>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, tshimizu818@gmail.com,
+	linux-kernel@vger.kernel.org, haicheng.lee@gmail.com
+To: haicheng.li@linux.intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <506546A7.7030500@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
-Date: Fri, 28 Sep 2012 14:39:59 +0800
+From: Haicheng Li <haicheng.li@linux.intel.com>
+Date: Fri, 28 Sep 2012 14:41:43 +0800
 
-> On Thu, 2012-09-27 at 13:05 -0400, David Miller wrote:
->> 
->> Without appropriate confirmation that an early time-wait reuse is
->> valid, decreasing this interval can only be dangerous.
+> On 09/28/2012 06:09 AM, David Miller wrote:
+>> Look at how other people submit patches, do any other patch
+>> submissions
+>> look like your's having all of this metadata in the message body:
+> I'm sorry for it.
 > 
-> Yeah, would a proper documentation cure this? Something like we did for
-> other tuning:
+>> As for this specific patch:
+>>
+>>> -	depends on PTP_1588_CLOCK_PCH
+>>> +	depends on PTP_1588_CLOCK_PCH = PCH_GBE
+>>
+>> This is not the correct way to ensure that the module'ness of one
+>> config option meets the module'ness requirements of another.
+>> The correct way is to say something like "&&  (PCH_GBE || PCH_GBE=n)"
 > 
-> "It should not be changed without advice/request of technical experts."
+> This case is a little bit tricky than usual, with PCH_PTP selected,
+> the valid config would be either "PTP_1588_CLOCK_PCH=PCH_GBE=m" or
+> "PTP_1588_CLOCK_PCH=PCH_GBE=y", and PTP_1588_CLOCK_PCH depends on
+> PCH_GBE.
 
-No, we're not adding this facility.
+And a simple "&& PCH_GBE" should accomplish this, no?
