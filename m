@@ -1,147 +1,147 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 6/7 net-next v2] tg3: Add support for ethtool -L|-l to
- get/set the number of rings.
-Date: Fri, 28 Sep 2012 10:12:42 -0700
-Message-ID: <1348852363-8582-6-git-send-email-mchan@broadcom.com>
+Subject: [PATCH 4/7 net-next v2] tg3: Refactor tg3_open()
+Date: Fri, 28 Sep 2012 10:12:40 -0700
+Message-ID: <1348852363-8582-4-git-send-email-mchan@broadcom.com>
 References: <1348852363-8582-1-git-send-email-mchan@broadcom.com>
  <1348852363-8582-2-git-send-email-mchan@broadcom.com>
  <1348852363-8582-3-git-send-email-mchan@broadcom.com>
- <1348852363-8582-4-git-send-email-mchan@broadcom.com>
- <1348852363-8582-5-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3223 "EHLO mms3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3224 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030499Ab2I2Bhg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Sep 2012 21:37:36 -0400
-In-Reply-To: <1348852363-8582-5-git-send-email-mchan@broadcom.com>
+	id S1757761Ab2I2BiG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Sep 2012 21:38:06 -0400
+In-Reply-To: <1348852363-8582-3-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Default remains the same.
+by introducing tg3_start() that handles all initialization steps from
+IRQ allocation.  This function will be needed when adding support for
+changing the number of rx and tx rings.
 
 Reviewed-by: Nithin Nayak Sujir <nsujir@broadcom.com>
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |   64 +++++++++++++++++++++++++++++++++--
- drivers/net/ethernet/broadcom/tg3.h |    2 +
- 2 files changed, 63 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |   78 ++++++++++++++++++++---------------
+ 1 files changed, 45 insertions(+), 33 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 3f2197e..74eea2f 100644
+index ddf260c..9bd99ce 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -10239,11 +10239,15 @@ static bool tg3_enable_msix(struct tg3 *tp)
- 	int i, rc;
- 	struct msix_entry msix_ent[tp->irq_max];
- 
--	tp->rxq_cnt = netif_get_num_default_rss_queues();
-+	tp->txq_cnt = tp->txq_req;
-+	tp->rxq_cnt = tp->rxq_req;
-+	if (!tp->rxq_cnt)
-+		tp->rxq_cnt = netif_get_num_default_rss_queues();
- 	if (tp->rxq_cnt > tp->rxq_max)
- 		tp->rxq_cnt = tp->rxq_max;
--	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
--	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720)
-+	if ((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
-+	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720) &&
-+	    !tp->txq_req)
- 		tp->txq_cnt = min(tp->rxq_cnt, tp->txq_max);
- 
- 	tp->irq_cnt = tg3_irq_count(tp);
-@@ -11384,6 +11388,58 @@ static int tg3_set_rxfh_indir(struct net_device *dev, const u32 *indir)
- 	return 0;
+@@ -10339,38 +10339,11 @@ static void tg3_ints_fini(struct tg3 *tp)
+ 	tg3_flag_clear(tp, ENABLE_TSS);
  }
  
-+static void tg3_get_channels(struct net_device *dev,
-+			     struct ethtool_channels *channel)
-+{
-+	struct tg3 *tp = netdev_priv(dev);
-+	u32 deflt_qs = netif_get_num_default_rss_queues();
-+
-+	channel->max_rx = tp->rxq_max;
-+	channel->max_tx = tp->txq_max;
-+
-+	if (netif_running(dev)) {
-+		channel->rx_count = tp->rxq_cnt;
-+		channel->tx_count = tp->txq_cnt;
-+	} else {
-+		if (tp->rxq_req)
-+			channel->rx_count = tp->rxq_req;
-+		else
-+			channel->rx_count = min(deflt_qs, tp->rxq_max);
-+
-+		if (tp->txq_req)
-+			channel->tx_count = tp->txq_req;
-+		else
-+			channel->tx_count = min(deflt_qs, tp->txq_max);
-+	}
-+}
-+
-+static int tg3_set_channels(struct net_device *dev,
-+			    struct ethtool_channels *channel)
-+{
-+	struct tg3 *tp = netdev_priv(dev);
-+
-+	if (!tg3_flag(tp, SUPPORT_MSIX))
-+		return -EOPNOTSUPP;
-+
-+	if (channel->rx_count > tp->rxq_max ||
-+	    channel->tx_count > tp->txq_max)
-+		return -EINVAL;
-+
-+	tp->rxq_req = channel->rx_count;
-+	tp->txq_req = channel->tx_count;
-+
-+	if (!netif_running(dev))
-+		return 0;
-+
-+	tg3_stop(tp);
-+
-+	netif_carrier_off(dev);
-+
-+	tg3_start(tp, true, false);
-+
-+	return 0;
-+}
-+
- static void tg3_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+-static int tg3_open(struct net_device *dev)
++static int tg3_start(struct tg3 *tp, bool reset_phy, bool test_irq)
  {
- 	switch (stringset) {
-@@ -12632,6 +12688,8 @@ static const struct ethtool_ops tg3_ethtool_ops = {
- 	.get_rxfh_indir_size    = tg3_get_rxfh_indir_size,
- 	.get_rxfh_indir		= tg3_get_rxfh_indir,
- 	.set_rxfh_indir		= tg3_set_rxfh_indir,
-+	.get_channels		= tg3_get_channels,
-+	.set_channels		= tg3_set_channels,
- 	.get_ts_info		= ethtool_op_get_ts_info,
- };
+-	struct tg3 *tp = netdev_priv(dev);
++	struct net_device *dev = tp->dev;
+ 	int i, err;
  
-diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index 2abe94c..d9308c3 100644
---- a/drivers/net/ethernet/broadcom/tg3.h
-+++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -3038,6 +3038,7 @@ struct tg3 {
- 	void				(*write32_tx_mbox) (struct tg3 *, u32,
- 							    u32);
- 	u32				dma_limit;
-+	u32				txq_req;
- 	u32				txq_cnt;
- 	u32				txq_max;
+-	if (tp->fw_needed) {
+-		err = tg3_request_firmware(tp);
+-		if (tp->pci_chip_rev_id == CHIPREV_ID_5701_A0) {
+-			if (err)
+-				return err;
+-		} else if (err) {
+-			netdev_warn(tp->dev, "TSO capability disabled\n");
+-			tg3_flag_clear(tp, TSO_CAPABLE);
+-		} else if (!tg3_flag(tp, TSO_CAPABLE)) {
+-			netdev_notice(tp->dev, "TSO capability restored\n");
+-			tg3_flag_set(tp, TSO_CAPABLE);
+-		}
+-	}
+-
+-	netif_carrier_off(tp->dev);
+-
+-	err = tg3_power_up(tp);
+-	if (err)
+-		return err;
+-
+-	tg3_full_lock(tp, 0);
+-
+-	tg3_disable_ints(tp);
+-	tg3_flag_clear(tp, INIT_COMPLETE);
+-
+-	tg3_full_unlock(tp);
+-
+ 	/*
+ 	 * Setup interrupts first so we know how
+ 	 * many NAPI resources to allocate
+@@ -10404,7 +10377,7 @@ static int tg3_open(struct net_device *dev)
  
-@@ -3054,6 +3055,7 @@ struct tg3 {
- 	u32				rx_std_max_post;
- 	u32				rx_offset;
- 	u32				rx_pkt_map_sz;
-+	u32				rxq_req;
- 	u32				rxq_cnt;
- 	u32				rxq_max;
- 	bool				rx_refill;
+ 	tg3_full_lock(tp, 0);
+ 
+-	err = tg3_init_hw(tp, 1);
++	err = tg3_init_hw(tp, reset_phy);
+ 	if (err) {
+ 		tg3_halt(tp, RESET_KIND_SHUTDOWN, 1);
+ 		tg3_free_rings(tp);
+@@ -10415,7 +10388,7 @@ static int tg3_open(struct net_device *dev)
+ 	if (err)
+ 		goto err_out3;
+ 
+-	if (tg3_flag(tp, USING_MSI)) {
++	if (test_irq && tg3_flag(tp, USING_MSI)) {
+ 		err = tg3_test_msi(tp);
+ 
+ 		if (err) {
+@@ -10471,8 +10444,47 @@ err_out2:
+ 
+ err_out1:
+ 	tg3_ints_fini(tp);
+-	tg3_frob_aux_power(tp, false);
+-	pci_set_power_state(tp->pdev, PCI_D3hot);
++
++	return err;
++}
++
++static int tg3_open(struct net_device *dev)
++{
++	struct tg3 *tp = netdev_priv(dev);
++	int err;
++
++	if (tp->fw_needed) {
++		err = tg3_request_firmware(tp);
++		if (tp->pci_chip_rev_id == CHIPREV_ID_5701_A0) {
++			if (err)
++				return err;
++		} else if (err) {
++			netdev_warn(tp->dev, "TSO capability disabled\n");
++			tg3_flag_clear(tp, TSO_CAPABLE);
++		} else if (!tg3_flag(tp, TSO_CAPABLE)) {
++			netdev_notice(tp->dev, "TSO capability restored\n");
++			tg3_flag_set(tp, TSO_CAPABLE);
++		}
++	}
++
++	netif_carrier_off(tp->dev);
++
++	err = tg3_power_up(tp);
++	if (err)
++		return err;
++
++	tg3_full_lock(tp, 0);
++
++	tg3_disable_ints(tp);
++	tg3_flag_clear(tp, INIT_COMPLETE);
++
++	tg3_full_unlock(tp);
++
++	err = tg3_start(tp, true, true);
++	if (err) {
++		tg3_frob_aux_power(tp, false);
++		pci_set_power_state(tp->pdev, PCI_D3hot);
++	}
+ 	return err;
+ }
+ 
 -- 
 1.7.1
