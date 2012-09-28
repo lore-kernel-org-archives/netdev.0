@@ -1,218 +1,91 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: [PATCH] scsi: move scsi_netlink code out of SCSI core
-Date: Fri, 28 Sep 2012 20:47:57 +0200
-Message-ID: <1348858077-17935-1-git-send-email-jengelh@inai.de>
-Cc: linux-scsi@vger.kernel.org, James.Smart@emulex.com,
-	James.Bottomley@parallels.com, ebiederm@xmission.com,
-	davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: network-namespace and unix-domain-sockets
+Date: Fri, 28 Sep 2012 12:29:06 -0700
+Message-ID: <87ehlmkku5.fsf@xmission.com>
+References: <1348841564.32187.7.camel@pro6455b.example.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: dilip.daya@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:47889 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030292Ab2I1T3O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 15:29:14 -0400
+In-Reply-To: <1348841564.32187.7.camel@pro6455b.example.com> (Dilip Daya's
+	message of "Fri, 28 Sep 2012 10:12:44 -0400")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Only scsi_transport_fc needs scsi_netlink, so recombine the logic such
-that scsi_netlink is bundled with scsi_transport_fc instead of scsi_mod.
+Dilip Daya <dilip.daya@hp.com> writes:
 
-Cc: James Smart <James.Smart@emulex.com>
-Cc: James Bottomley <James.Bottomley@parallels.com>
-Cc: Eric W. Biederman <ebiederm@xmission.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Jan Engelhardt <jengelh@inai.de>
----
+> Hi Eric,
+>
+> => kernel 3.6.0-rc6 + network-namespace + unix-domain-sockets
+>
+> srv/cli sample programs at:
+> <http://tkhanson.net/cgit.cgi/misc.git/plain/unixdomain/Unix_domain_sockets.html>
+> Executing UNIX domain sockets between two network-namespaces fails but
+> successful if both srv and cli are executed within a network-namespace.
+>
+> Test results:
+>
+> (1) Executing both srv and cli within default/host network-namespace:
+>
+> On host/default netns:
+> # ./cli 
+> testing...
+> ^C
+>
+> On host/default netns:
+> # ./srv 
+> read 11 bytes: testing...
+>
+> EOF
+>
+>
+> (2) Executing srv in default/host netns and cli within netns named
+> netns0:
+>
+> On host/default netns:
+> # ip netns
+> netns1
+> netns0
+>
+> On host/default netns:
+> # ./srv 
+>
+> Within netns name netns0:
+> # ip netns exec netns0 ./cli
+> connect error: Connection refused
 
-(What's with the 2001-09-17 date git is emitting in the From line?!
- "From be20b2... Mon Sep 17 00:00:00 2001" while git send-email --annotate)
+Yes that is correct behavior.
 
+> => I find difference between __unix_find_socket_byname()  and
+>                               *unix_find_socket_byinode()
+>
+> 	---
+> 		if (!net_eq(sock_net(s), net))
+> 			continue;
+> 	---
+>
+> => Is there an explanation for why __unix_find_socket_byname() was left
+>    netns aware and *unix_find_socket_byinode() is not netns aware ?
 
-Roughly two years ago, I had a patch which turned scsi_netlink.c into
-its own .ko module (this was not applied). The recent submission of
-8289bab1daf9768c20114051a99c1bd5f48d4420 has made me look into
-scsi_netlinkage again. scsi_netlink.c is too small to warrant a
-separate module, so instead I thought it could be moved into fc.c.
-And that's what I am loosely proposing here...
+The abstract namespace will cause two sockets with the same name
+in different network namespaces to conflict.
 
+The network namespace a socket is in is irrelevant for purposes of
+conflicts on the filesystem.
 
+There is also a detailed commit message that was written at the time
+the per network namespace restrictions were relaxed on
+unix_find_socket_byinode if you would like to read it.
 
- drivers/scsi/Kconfig             |    6 ------
- drivers/scsi/Makefile            |    4 ++--
- drivers/scsi/scsi.c              |    3 ---
- drivers/scsi/scsi_netlink.c      |   12 +++++-------
- drivers/scsi/scsi_priv.h         |    7 ++-----
- drivers/scsi/scsi_transport_fc.c |    8 +++++++-
- 6 files changed, 16 insertions(+), 24 deletions(-)
+> => Please see attached patch. Is this valid? or will it break something?
+>    I've tested network namespaces with this patch applied and I did not 
+>    find any issues.
 
-diff --git a/drivers/scsi/Kconfig b/drivers/scsi/Kconfig
-index 74bf1aa..52993ae 100644
---- a/drivers/scsi/Kconfig
-+++ b/drivers/scsi/Kconfig
-@@ -47,11 +47,6 @@ config SCSI_TGT
- 	  If you want to use SCSI target mode drivers enable this option.
- 	  If you choose M, the module will be called scsi_tgt.
- 
--config SCSI_NETLINK
--	bool
--	default	n
--	select NET
--
- config SCSI_PROC_FS
- 	bool "legacy /proc/scsi/ support"
- 	depends on SCSI && PROC_FS
-@@ -276,7 +271,6 @@ config SCSI_SPI_ATTRS
- config SCSI_FC_ATTRS
- 	tristate "FiberChannel Transport Attributes"
- 	depends on SCSI
--	select SCSI_NETLINK
- 	help
- 	  If you wish to export transport-specific information about
- 	  each attached FiberChannel device to sysfs, say Y.
-diff --git a/drivers/scsi/Makefile b/drivers/scsi/Makefile
-index 888f73a..32bcb3d 100644
---- a/drivers/scsi/Makefile
-+++ b/drivers/scsi/Makefile
-@@ -29,7 +29,8 @@ obj-$(CONFIG_RAID_ATTRS)	+= raid_class.o
- # be initialised before drivers
- # --------------------------
- obj-$(CONFIG_SCSI_SPI_ATTRS)	+= scsi_transport_spi.o
--obj-$(CONFIG_SCSI_FC_ATTRS) 	+= scsi_transport_fc.o
-+obj-$(CONFIG_SCSI_FC_ATTRS) 	+= scsi_transport_fcattr.o
-+scsi_transport_fcattr-y		:= scsi_transport_fc.o scsi_netlink.o
- obj-$(CONFIG_SCSI_ISCSI_ATTRS)	+= scsi_transport_iscsi.o
- obj-$(CONFIG_SCSI_SAS_ATTRS)	+= scsi_transport_sas.o
- obj-$(CONFIG_SCSI_SAS_LIBSAS)	+= libsas/
-@@ -163,7 +164,6 @@ scsi_mod-y			+= scsi.o hosts.o scsi_ioctl.o constants.o \
- 				   scsicam.o scsi_error.o scsi_lib.o
- scsi_mod-$(CONFIG_SCSI_DMA)	+= scsi_lib_dma.o
- scsi_mod-y			+= scsi_scan.o scsi_sysfs.o scsi_devinfo.o
--scsi_mod-$(CONFIG_SCSI_NETLINK)	+= scsi_netlink.o
- scsi_mod-$(CONFIG_SYSCTL)	+= scsi_sysctl.o
- scsi_mod-$(CONFIG_SCSI_PROC_FS)	+= scsi_proc.o
- scsi_mod-y			+= scsi_trace.o
-diff --git a/drivers/scsi/scsi.c b/drivers/scsi/scsi.c
-index 2936b44..f5dedc7 100644
---- a/drivers/scsi/scsi.c
-+++ b/drivers/scsi/scsi.c
-@@ -1326,8 +1326,6 @@ static int __init init_scsi(void)
- 	if (error)
- 		goto cleanup_sysctl;
- 
--	scsi_netlink_init();
--
- 	printk(KERN_NOTICE "SCSI subsystem initialized\n");
- 	return 0;
- 
-@@ -1348,7 +1346,6 @@ cleanup_queue:
- 
- static void __exit exit_scsi(void)
- {
--	scsi_netlink_exit();
- 	scsi_sysfs_unregister();
- 	scsi_exit_sysctl();
- 	scsi_exit_hosts();
-diff --git a/drivers/scsi/scsi_netlink.c b/drivers/scsi/scsi_netlink.c
-index 65123a2..20ca4b8 100644
---- a/drivers/scsi/scsi_netlink.c
-+++ b/drivers/scsi/scsi_netlink.c
-@@ -18,6 +18,7 @@
-  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-  *
-  */
-+#include <linux/module.h>
- #include <linux/time.h>
- #include <linux/jiffies.h>
- #include <linux/security.h>
-@@ -122,8 +123,7 @@ next_msg:
-  * 	the SCSI transport netlink interface
-  *
-  **/
--void
--scsi_netlink_init(void)
-+int __init scsi_netlink_init(void)
- {
- 	struct netlink_kernel_cfg cfg = {
- 		.input	= scsi_nl_rcv_msg,
-@@ -135,10 +135,10 @@ scsi_netlink_init(void)
- 	if (!scsi_nl_sock) {
- 		printk(KERN_ERR "%s: register of receive handler failed\n",
- 				__func__);
--		return;
-+		return -ENOMEM;
- 	}
- 
--	return;
-+	return 0;
- }
- 
- 
-@@ -146,8 +146,7 @@ scsi_netlink_init(void)
-  * scsi_netlink_exit - Called by SCSI subsystem to disable the SCSI transport netlink interface
-  *
-  **/
--void
--scsi_netlink_exit(void)
-+void scsi_netlink_exit(void)
- {
- 	if (scsi_nl_sock) {
- 		netlink_kernel_release(scsi_nl_sock);
-@@ -155,4 +154,3 @@ scsi_netlink_exit(void)
- 
- 	return;
- }
--
-diff --git a/drivers/scsi/scsi_priv.h b/drivers/scsi/scsi_priv.h
-index 8f9a0ca..f875844 100644
---- a/drivers/scsi/scsi_priv.h
-+++ b/drivers/scsi/scsi_priv.h
-@@ -139,13 +139,10 @@ extern struct bus_type scsi_bus_type;
- extern const struct attribute_group *scsi_sysfs_shost_attr_groups[];
- 
- /* scsi_netlink.c */
--#ifdef CONFIG_SCSI_NETLINK
--extern void scsi_netlink_init(void);
-+#if IS_ENABLED(CONFIG_SCSI_FC_ATTRS)
-+extern int scsi_netlink_init(void);
- extern void scsi_netlink_exit(void);
- extern struct sock *scsi_nl_sock;
--#else
--static inline void scsi_netlink_init(void) {}
--static inline void scsi_netlink_exit(void) {}
- #endif
- 
- /* scsi_pm.c */
-diff --git a/drivers/scsi/scsi_transport_fc.c b/drivers/scsi/scsi_transport_fc.c
-index e894ca7..3716ce2 100644
---- a/drivers/scsi/scsi_transport_fc.c
-+++ b/drivers/scsi/scsi_transport_fc.c
-@@ -661,9 +661,12 @@ static __init int fc_transport_init(void)
- 
- 	atomic_set(&fc_event_seq, 0);
- 
-+	error = scsi_netlink_init();
-+	if (error < 0)
-+		return error;
- 	error = transport_class_register(&fc_host_class);
- 	if (error)
--		return error;
-+		goto unreg_netlink;
- 	error = transport_class_register(&fc_vport_class);
- 	if (error)
- 		goto unreg_host_class;
-@@ -681,6 +684,8 @@ unreg_vport_class:
- 	transport_class_unregister(&fc_vport_class);
- unreg_host_class:
- 	transport_class_unregister(&fc_host_class);
-+unreg_netlink:
-+	scsi_netlink_exit();
- 	return error;
- }
- 
-@@ -690,6 +695,7 @@ static void __exit fc_transport_exit(void)
- 	transport_class_unregister(&fc_rport_class);
- 	transport_class_unregister(&fc_host_class);
- 	transport_class_unregister(&fc_vport_class);
-+	scsi_netlink_exit();
- }
- 
- /*
--- 
-1.7.10.4
+Totally invalid.
 
+Eric
