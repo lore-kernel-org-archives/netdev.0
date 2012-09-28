@@ -1,52 +1,112 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/3] ipv4: gre: add GRO capability
-Date: Fri, 28 Sep 2012 16:04:01 +0200
-Message-ID: <1348841041.5093.2477.camel@edumazet-glaptop>
-References: <1348750130.5093.1227.camel@edumazet-glaptop>
-	 <CAEP_g=-JAYHXM86AYNp7BhDV+eqfkKVgC+SJS1MVdo0K8fRLSQ@mail.gmail.com>
-	 <1348769294.5093.1566.camel@edumazet-glaptop>
-	 <1348769990.5093.1584.camel@edumazet-glaptop>
-	 <CAEP_g=8B7xZPxye0Kuu-EVKpTDt1a3nsJKb61aaYaqOGsYGx8w@mail.gmail.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Subject: RE: [PATCH 3/3] net/mlx4_en: Add HW timestamping (TS) support
+Date: Fri, 28 Sep 2012 14:10:33 +0000
+Message-ID: <953B660C027164448AE903364AC447D287223851@MTLDAG01.mtl.com>
+References: <1348826603-17439-1-git-send-email-yevgenyp@mellanox.com>
+ <1348826603-17439-4-git-send-email-yevgenyp@mellanox.com>
+ <20120928111147.GA7474@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:64455 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756714Ab2I1OEG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 10:04:06 -0400
-Received: by bkcjk13 with SMTP id jk13so3430739bkc.19
-        for <netdev@vger.kernel.org>; Fri, 28 Sep 2012 07:04:04 -0700 (PDT)
-In-Reply-To: <CAEP_g=8B7xZPxye0Kuu-EVKpTDt1a3nsJKb61aaYaqOGsYGx8w@mail.gmail.com>
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:39464 "HELO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756714Ab2I1OKj convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Sep 2012 10:10:39 -0400
+In-Reply-To: <20120928111147.GA7474@netboy.at.omicron.at>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-09-27 at 15:03 -0700, Jesse Gross wrote:
-
-> We wouldn't actually do the decapsulation at the point of GRO.  This
-> is actually pretty similar to what we do with TCP - we merge TCP
-> payloads even though we haven't done any real IP processing yet.
-> However, we do check firewall rules later if we actually hit the IP
-> stack.  GRE would work the same way in this case.
+> > diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> > index edd9cb8..10fa453 100644
+> > --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> > +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> > @@ -1517,6 +1517,60 @@ static int mlx4_en_change_mtu(struct net_device
+> *dev, int new_mtu)
+> >  	return 0;
+> >  }
+> >
+> > +static int mlx4_en_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
+> > +{
+> > +	struct mlx4_en_priv *priv = netdev_priv(dev);
+> > +	struct mlx4_en_dev *mdev = priv->mdev;
+> > +	struct hwtstamp_config config;
+> > +
+> > +	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
+> > +		return -EFAULT;
+> > +
+> > +	/* reserved for future extensions */
+> > +	if (config.flags)
+> > +		return -EINVAL;
+> > +
+> > +	/* device doesn't support time stamping */
+> > +	if (!(mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS_EN))
+> > +		return -EINVAL;
+> > +
+> > +	/* TX HW timestamp */
+> > +	switch (config.tx_type) {
+> > +	case HWTSTAMP_TX_OFF:
+> > +	case HWTSTAMP_TX_ON:
+> > +		break;
+> > +	default:
+> > +		return -ERANGE;
+> > +	}
+> > +
+> > +	/* RX HW timestamp */
+> > +	switch (config.rx_filter) {
+> > +	case HWTSTAMP_FILTER_NONE:
+> > +	case HWTSTAMP_FILTER_ALL:
+> > +		break;
+> > +	default:
 > 
-> What I'm describing is pretty much exactly what NICs will be doing, so
-> if that doesn't work we'll have a problem...
+> Instead of rejecting the HWTSTAMP_FILTER_PTP_ codes out of hand, you
+> should just accept them, and return by promoting rx_filter to
+> HWTSTAMP_FILTER_ALL.
+> 
+> [ See Documentation/networking/timestamping.txt ]
+> 
+> > +		return -ERANGE;
+> > +	}
+> > +
+> > +	if (mlx4_en_timestamp_config(dev, config.tx_type, config.rx_filter)) {
+> > +		config.tx_type = HWTSTAMP_TX_OFF;
+> > +		config.rx_filter = HWTSTAMP_FILTER_NONE;
+> > +	}
+> > +
+> > +	return copy_to_user(ifr->ifr_data, &config,
+> > +			    sizeof(config)) ? -EFAULT : 0;
+> > +}
+> 
+> ...
+> 
+> > @@ -363,6 +368,9 @@ struct mlx4_en_dev {
+> >  	u32                     priv_pdn;
+> >  	spinlock_t              uar_lock;
+> >  	u8			mac_removed[MLX4_MAX_PORTS + 1];
+> > +	struct cyclecounter	cycles;
+> > +	struct timecounter	clock;
+> > +	struct timecompare	compare;
+> 
+> I am working on a patch to remove the timecompare stuff altogether
+> (after removing it from blackfin). It is and was a bad idea, I would
+> hate to see new drivers using it.
+> 
+> I strongly recommend just offering raw hardware time stamps in
+> nanosecond resolution. Also, why not expose your device as a PTP
+> Hardware Clock?
+> 
+> Thanks,
+> Richard
 
-GRO ability to truly aggregate data is kind of limited to some
-workloads. How NICs will handle interleaved flows I dont really know.
+Hello Richard,
+Thanks for your feedback,
+Will address all your comments in V1 of this patchset.
 
-What you describe needs a serious GRO preliminary work, because it
-depends on napi_gro_flush() being called from time to time, while we
-need something else, more fine grained.
-
-(I am pretty sure GRO needs some love from us, it looks like some
-packets can stay a long time in gro_list. It would be nice if it was
-able to reorder packets (from same flow) as well)
-
-Anyway, my changes are self-contained in a new file and non intrusive.
-
-As soon as we can provide a better alternative we can revert them ?
-
-Thanks
+Thanks,
+Yevgeny 
