@@ -1,55 +1,130 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: [wireless-next:for-davem 123/299] net/ipv4/ip_gre.c:222:29: sparse:
- restricted __be16 degrades to integer
-Date: Sat, 29 Sep 2012 09:12:10 +0800
-Message-ID: <20120929011210.GA10053@localhost>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 5/7 net-next v2] tg3: Refactor tg3_close()
+Date: Fri, 28 Sep 2012 10:12:41 -0700
+Message-ID: <1348852363-8582-5-git-send-email-mchan@broadcom.com>
+References: <1348852363-8582-1-git-send-email-mchan@broadcom.com>
+ <1348852363-8582-2-git-send-email-mchan@broadcom.com>
+ <1348852363-8582-3-git-send-email-mchan@broadcom.com>
+ <1348852363-8582-4-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org
-To: stephen hemminger <shemminger@vyatta.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:40298 "EHLO mga01.intel.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3224 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964950Ab2I2BMO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Sep 2012 21:12:14 -0400
-Content-Disposition: inline
+	id S1030494Ab2I2Bhg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Sep 2012 21:37:36 -0400
+In-Reply-To: <1348852363-8582-4-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi stephen,
+by introducing tg3_stop() that does the opposite of tg3_start().  This
+function will be useful when adding the support for changing the numbe
+of rx and tx rings.
 
-FYI, there are new sparse warnings show up in
-
-tree:   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next.git for-davem
-head:   c487606f835a93a725bac1aefd536be98f22474d
-commit: d208328765a0ab425e36b5b828285f3337a85451 [123/299] gre: fix handling of key 0
-
-+ net/ipv4/ip_gre.c:222:29: sparse: restricted __be16 degrades to integer
-  net/ipv4/ip_gre.c:227:34: sparse: restricted __be16 degrades to integer
-+ net/ipv4/ip_gre.c:562:33: sparse: incorrect type in argument 4 (different base types)
-  net/ipv4/ip_gre.c:562:33:    expected unsigned int [unsigned] [usertype] flags
-  net/ipv4/ip_gre.c:562:33:    got restricted __be16 [assigned] [usertype] flags
-  net/ipv4/ip_gre.c:669:62: sparse: incorrect type in argument 4 (different base types)
-  net/ipv4/ip_gre.c:669:62:    expected unsigned int [unsigned] [usertype] flags
-  net/ipv4/ip_gre.c:669:62:    got restricted __be16 [assigned] [usertype] flags
-
-vim +222 net/ipv4/ip_gre.c
-
-d2083287 (stephen hemminger 2012-09-24  217) /* Does key in tunnel parameters match packet */
-d2083287 (stephen hemminger 2012-09-24  218) static bool ipgre_key_match(const struct ip_tunnel_parm *p,
-d2083287 (stephen hemminger 2012-09-24  219) 			    __u32 flags, __be32 key)
-d2083287 (stephen hemminger 2012-09-24  220) {
-d2083287 (stephen hemminger 2012-09-24  221) 	if (p->i_flags & GRE_KEY) {
-d2083287 (stephen hemminger 2012-09-24 @222) 		if (flags & GRE_KEY)
-d2083287 (stephen hemminger 2012-09-24  223) 			return key == p->i_key;
-d2083287 (stephen hemminger 2012-09-24  224) 		else
-d2083287 (stephen hemminger 2012-09-24  225) 			return false;	/* key expected, none present */
-d2083287 (stephen hemminger 2012-09-24  226) 	} else
-d2083287 (stephen hemminger 2012-09-24  227) 		return !(flags & GRE_KEY);
-d2083287 (stephen hemminger 2012-09-24  228) }
-d2083287 (stephen hemminger 2012-09-24  229) 
-^1da177e (Linus Torvalds    2005-04-16  230) /* Given src, dst and key, find appropriate for input tunnel. */
-
+Reviewed-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+Reviewed-by: Benjamin Li <benli@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
-0-DAY kernel build testing backend         Open Source Technology Centre
-Fengguang Wu, Yuanhan Liu                              Intel Corporation
+ drivers/net/ethernet/broadcom/tg3.c |   70 +++++++++++++++++++----------------
+ 1 files changed, 38 insertions(+), 32 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 9bd99ce..3f2197e 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -10448,6 +10448,43 @@ err_out1:
+ 	return err;
+ }
+ 
++static void tg3_stop(struct tg3 *tp)
++{
++	int i;
++
++	tg3_napi_disable(tp);
++	tg3_reset_task_cancel(tp);
++
++	netif_tx_disable(tp->dev);
++
++	tg3_timer_stop(tp);
++
++	tg3_hwmon_close(tp);
++
++	tg3_phy_stop(tp);
++
++	tg3_full_lock(tp, 1);
++
++	tg3_disable_ints(tp);
++
++	tg3_halt(tp, RESET_KIND_SHUTDOWN, 1);
++	tg3_free_rings(tp);
++	tg3_flag_clear(tp, INIT_COMPLETE);
++
++	tg3_full_unlock(tp);
++
++	for (i = tp->irq_cnt - 1; i >= 0; i--) {
++		struct tg3_napi *tnapi = &tp->napi[i];
++		free_irq(tnapi->irq_vec, tnapi);
++	}
++
++	tg3_ints_fini(tp);
++
++	tg3_napi_fini(tp);
++
++	tg3_free_consistent(tp);
++}
++
+ static int tg3_open(struct net_device *dev)
+ {
+ 	struct tg3 *tp = netdev_priv(dev);
+@@ -10490,45 +10527,14 @@ static int tg3_open(struct net_device *dev)
+ 
+ static int tg3_close(struct net_device *dev)
+ {
+-	int i;
+ 	struct tg3 *tp = netdev_priv(dev);
+ 
+-	tg3_napi_disable(tp);
+-	tg3_reset_task_cancel(tp);
+-
+-	netif_tx_stop_all_queues(dev);
+-
+-	tg3_timer_stop(tp);
+-
+-	tg3_hwmon_close(tp);
+-
+-	tg3_phy_stop(tp);
+-
+-	tg3_full_lock(tp, 1);
+-
+-	tg3_disable_ints(tp);
+-
+-	tg3_halt(tp, RESET_KIND_SHUTDOWN, 1);
+-	tg3_free_rings(tp);
+-	tg3_flag_clear(tp, INIT_COMPLETE);
+-
+-	tg3_full_unlock(tp);
+-
+-	for (i = tp->irq_cnt - 1; i >= 0; i--) {
+-		struct tg3_napi *tnapi = &tp->napi[i];
+-		free_irq(tnapi->irq_vec, tnapi);
+-	}
+-
+-	tg3_ints_fini(tp);
++	tg3_stop(tp);
+ 
+ 	/* Clear stats across close / open calls */
+ 	memset(&tp->net_stats_prev, 0, sizeof(tp->net_stats_prev));
+ 	memset(&tp->estats_prev, 0, sizeof(tp->estats_prev));
+ 
+-	tg3_napi_fini(tp);
+-
+-	tg3_free_consistent(tp);
+-
+ 	tg3_power_down(tp);
+ 
+ 	netif_carrier_off(tp->dev);
+-- 
+1.7.1
