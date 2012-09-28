@@ -1,38 +1,29 @@
-From: Ferenc Wagner <wferi@niif.hu>
-Subject: tg3 driver upgrade (Linux 2.6.32 -> 3.2) breaks IBM Bladecenter SoL
-Date: Fri, 28 Sep 2012 22:45:28 +0200
-Message-ID: <87txuhho5z.fsf@lant.ki.iif.hu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] smsc95xx enhancements (V3)
+Date: Fri, 28 Sep 2012 18:39:25 -0400 (EDT)
+Message-ID: <20120928.183925.1287358567096887568.davem@davemloft.net>
+References: <1348826832-1986-1-git-send-email-steve.glendinning@shawell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <rob.herring@calxeda.com>,
-	linux-kernel@vger.kernel.org, wferi@niif.hu
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: steve.glendinning@shawell.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45650 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964774Ab2I1Wj3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 18:39:29 -0400
+In-Reply-To: <1348826832-1986-1-git-send-email-steve.glendinning@shawell.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Date: Fri, 28 Sep 2012 11:07:06 +0100
 
-Upgrading the kernel on our HS20 blades resulted in their SoL (serial
-over LAN) connection being broken.  The disconnection happens when eth0
-(the interface involved in SoL) is brought up during the boot sequence.
-If I later "ip link set eth0 down", then the connection is restored, but
-"ip link set eth0 up" breaks it again on 3.2.  ethtool -a, -c, -g, -k
-and -u show no difference; ethtool -i on the 2.6.32 kernel reports:
+> This patchset makes a few minor enhancements to the smsc95xx driver
+> including improved power saving during suspend and support for
+> magic packet wol.
+> 
+> Please consider all for net-next.
 
-driver: tg3
-version: 3.116
-firmware-version: 5704s-v3.38, ASFIPMIs v2.47
-bus-info: 0000:05:01.0
-
-In the 3.2 kernel the driver version is 3.121.  In the output of lspci
--vv only the Interrupt line shows variability.  I'd be grateful for any
-workaround suggestion; I understand that is't not easy given the lack of
-information about the SoL implementation, but maybe somebody can guess
-what changed in the driver which could affect it this way.
--- 
-Regards,
-Feri.
+All applied.
