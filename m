@@ -1,61 +1,41 @@
-From: <Narendra_K@Dell.com>
-Subject: RE: [PATCH] qlcnic - Fix scheduling while atomic bug
-Date: Fri, 28 Sep 2012 13:08:51 +0530
-Message-ID: <E31FB011129F30488D5861F38390491520D4F86604@BLRX7MCDC201.AMER.DELL.COM>
-References: <20120925175212.GA1324@fedora-17-guest.blr.amer.dell.com>
- <20120927.192602.1354851114513597606.davem@davemloft.net>
+From: Miroslav Lichvar <mlichvar@redhat.com>
+Subject: Re: [PATCH RFC net-next 1/1] ptp: add an ioctl to compare PHC time
+ with system time
+Date: Fri, 28 Sep 2012 09:53:03 +0200
+Message-ID: <20120928075303.GB29438@localhost>
+References: <cover.1348768886.git.richardcochran@gmail.com>
+ <f0c20e2d1a303b0247b1e0e0def19f131de162ff.1348768886.git.richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <sony.chacko@qlogic.com>,
-	<jitendra.kalsaria@qlogic.com>, <john.r.fastabend@intel.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	John Stultz <john.stultz@linaro.org>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60ps301.us.dell.com ([143.166.148.206]:17143 "EHLO
-	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754180Ab2I1HjS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 03:39:18 -0400
-In-Reply-To: <20120927.192602.1354851114513597606.davem@davemloft.net>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:48097 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752619Ab2I1Hx6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Sep 2012 03:53:58 -0400
+Content-Disposition: inline
+In-Reply-To: <f0c20e2d1a303b0247b1e0e0def19f131de162ff.1348768886.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of David Miller
-> Sent: Friday, September 28, 2012 4:56 AM
-> To: K, Narendra
-> Cc: netdev@vger.kernel.org; sony.chacko@qlogic.com;
-> jitendra.kalsaria@qlogic.com; john.r.fastabend@intel.com
-> Subject: Re: [PATCH] qlcnic - Fix scheduling while atomic bug
-> 
-> From: <Narendra_K@Dell.com>
-> Date: Tue, 25 Sep 2012 10:53:19 -0700
-> 
-> > From: Narendra K <narendra_k@dell.com>
-> >
-> > In the device close path, 'qlcnic_fw_destroy_ctx' and
-> > 'qlcnic_poll_rsp' call msleep. But  'qlcnic_fw_destroy_ctx' and
-> > 'qlcnic_poll_rsp' are called with 'adapter->tx_clean_lock' spin lock
-> > held resulting in scheduling while atomic bug causing the following
-> > trace.
-> >
-> > I observed that the commit 012dc19a45b2b9cc2ebd14aaa401cf782c2abba4
-> > from John Fastabend addresses a similar issue in ixgbevf driver.
-> > Adopting the same approach used in the commit, this patch uses mdelay
-> > to address the issue.
->  ...
-> > Signed-off-by: Narendra K <narendra_k@dell.com>
-> 
-> Applied, thanks.
-> 
-> In the future please format your Subject lines for patches as
-> "subsytem: Description."  instead of this "subsystem - Description."
-> layout.
+On Thu, Sep 27, 2012 at 08:12:16PM +0200, Richard Cochran wrote:
+> This patch adds an ioctl for PTP Hardware Clock (PHC) devices that allows
+> user space to measure the time offset between the PHC and the system
+> clock. Rather than hard coding any kind of estimation algorithm into the
+> kernel, this patch takes the more flexible approach of just delivering
+> an array of raw clock readings. In that way, the user space clock servo
+> may be adapted to new and different hardware clocks.
 
-Hi David, thank you for reviewing and applying the patch. I will follow the suggested layout for future submissions.
+Would it make sense to extend the ioctl to allow also comparing the
+PHC with another PHC or perhaps even a different system clock than
+CLOCK_REALTIME?
 
-Hi Jitendra, thank you for reviewing the patch.
- 
-With regards,
-Narendra K
+I'm thinking if someone wanted to synchronize one PHC to another, it
+should be better to work with phc1-phc2 offsets than combine phc1-sys
+and sys-phc2 offsets.
+
+-- 
+Miroslav Lichvar
