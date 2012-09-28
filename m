@@ -1,49 +1,57 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] net/key/af_key.c: add range checks on ->sadb_x_policy_len
-Date: Fri, 28 Sep 2012 11:21:19 +0300
-Message-ID: <20120928082119.GA32008@elgon.mountain>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH RFC net-next 1/1] ptp: add an ioctl to compare PHC time
+ with system time
+Date: Fri, 28 Sep 2012 10:26:38 +0200
+Message-ID: <20120928082638.GB17636@netboy.at.omicron.at>
+References: <cover.1348768886.git.richardcochran@gmail.com>
+ <f0c20e2d1a303b0247b1e0e0def19f131de162ff.1348768886.git.richardcochran@gmail.com>
+ <20120928075303.GB29438@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	John Stultz <john.stultz@linaro.org>
+To: Miroslav Lichvar <mlichvar@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:20449 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753038Ab2I1IVd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 04:21:33 -0400
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:41416 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751085Ab2I1I0u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 04:26:50 -0400
+Received: by wibhq12 with SMTP id hq12so7389237wib.1
+        for <netdev@vger.kernel.org>; Fri, 28 Sep 2012 01:26:48 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <20120928075303.GB29438@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Because sizeof() is size_t then if "len" is negative, it counts as a
-large positive value.
+On Fri, Sep 28, 2012 at 09:53:03AM +0200, Miroslav Lichvar wrote:
+> On Thu, Sep 27, 2012 at 08:12:16PM +0200, Richard Cochran wrote:
+> > This patch adds an ioctl for PTP Hardware Clock (PHC) devices that allows
+> > user space to measure the time offset between the PHC and the system
+> > clock. Rather than hard coding any kind of estimation algorithm into the
+> > kernel, this patch takes the more flexible approach of just delivering
+> > an array of raw clock readings. In that way, the user space clock servo
+> > may be adapted to new and different hardware clocks.
+> 
+> Would it make sense to extend the ioctl to allow also comparing the
+> PHC with another PHC or perhaps even a different system clock than
+> CLOCK_REALTIME?
+> 
+> I'm thinking if someone wanted to synchronize one PHC to another, it
+> should be better to work with phc1-phc2 offsets than combine phc1-sys
+> and sys-phc2 offsets.
 
-The call tree looks like:
-pfkey_sendmsg()
--> pfkey_process()
-   -> pfkey_spdadd()
-      -> parse_ipsecrequests()
+Yes, I did think of that, too. There are some reserved fields in the
+ioctl. It would be possible to use one field as a clockid_t for the
+second phc device. For the static CLOCK_XYZ clock ids we could have a
+switch/case. Then we could read any two clocks in the same way as in
+this patch.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-This is a static checker fix.  I'm not very familiar with this code.
-I think if we were to hit this then we would try to parse invalid data
-and it would return -EINVAL or similar error code pretty quickly.
+I am guessing it would be possible to synchronize two PHC devices to
+within a few microseconds this way. Probably that is not good enough
+to implement a boundary clock, for example, so I have my doubts about
+the utility of this. But in any case, it is possible, and I think that
+feature can wait for now.
 
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 2ca7d7f..7714df0 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -1923,6 +1923,9 @@ parse_ipsecrequests(struct xfrm_policy *xp, struct sadb_x_policy *pol)
- 	int len = pol->sadb_x_policy_len*8 - sizeof(struct sadb_x_policy);
- 	struct sadb_x_ipsecrequest *rq = (void*)(pol+1);
- 
-+	if (pol->sadb_x_policy_len * 8 < sizeof(struct sadb_x_policy))
-+		return -EINVAL;
-+
- 	while (len >= sizeof(struct sadb_x_ipsecrequest)) {
- 		if ((err = parse_ipsecrequest(xp, rq)) < 0)
- 			return err;
+Thanks,
+Richard
