@@ -1,45 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Possible networking regression in 3.6.0
-Date: Fri, 28 Sep 2012 13:26:32 +0200
-Message-ID: <1348831592.5093.2251.camel@edumazet-glaptop>
-References: <5057455A.7050108@googlemail.com>
-	 <50588371.40103@googlemail.com>  <505885DC.1060006@googlemail.com>
-	 <1347979239.26523.267.camel@edumazet-glaptop>
-	 <5059E40C.4070607@googlemail.com> <505D5A18.2080507@googlemail.com>
-	 <50643DA1.7070306@googlemail.com>
-	 <1348748042.5093.1168.camel@edumazet-glaptop>
-	 <50649567.2010704@googlemail.com>
-	 <1348779826.5093.1750.camel@edumazet-glaptop>
-	 <1348780624.5093.1767.camel@edumazet-glaptop>
-	 <50656C4A.8090302@googlemail.com>
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: Re: You have to fix this
+Date: Fri, 28 Sep 2012 17:29:22 +0530
+Message-ID: <5065911A.3000509@chelsio.com>
+References: <20120927.183406.962014014858457666.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	gpiez@web.de
-To: Chris Clayton <chris2553@googlemail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:37711 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756132Ab2I1L0h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 07:26:37 -0400
-Received: by bkcjk13 with SMTP id jk13so3206028bkc.19
-        for <netdev@vger.kernel.org>; Fri, 28 Sep 2012 04:26:36 -0700 (PDT)
-In-Reply-To: <50656C4A.8090302@googlemail.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:23947 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751222Ab2I1L71 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 07:59:27 -0400
+In-Reply-To: <20120927.183406.962014014858457666.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-09-28 at 10:22 +0100, Chris Clayton wrote:
 
-> No, the WinXP guest is configured with a fixed IP address 
-> (192.168.200.1). Subnet mask is 255.255.255.0, and default gateway is 
-> 192.168.200.254. DNS is 192.168.0.1.
-> 
 
-I have no problem with such a setup, with a linux guest.
+On 28-09-2012 04:04, David Miller wrote:
+>=20
+> You cannot put such monster sized local data objects on the stack:
+>=20
+> drivers/net/ethernet/chelsio/cxgb4/t4_hw.c: In function =91t4_memory_=
+rw.constprop.6=92:
+> drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:484:1: warning: the frame =
+size of 2056 bytes is larger than 2048 bytes [-Wframe-larger-than=3D]
+>=20
+> That's because of this thing:
+>=20
+> 		__be32 data[MEMWIN0_APERTURE/sizeof(__be32)];
+>=20
+> I'm really surprised this didn't show up in any of your test builds.
+> Or are you ignoring warnings that your changes add?
+>=20
 
-Could you send again a tcpdump, but including link-level header ?
-(option -e)
+Thanks for pointing this out. We will send a patch for this soon.
+I am not ignoring any warnings. I did build my tree different way as
+shown below but did not get above warning message.
+#> make
+#> make allmodconfig
+#> make allnoconfig
 
-Ideally, you could send two traces, one taken on tap0, and another taken
-on eth0.
+Please let me know how else would I get above warning message?
+
+I missed doing make checkstack which doesn't display warning message bu=
+t
+lists the function names.
+
+Thanks,
+Vipul Pandya
