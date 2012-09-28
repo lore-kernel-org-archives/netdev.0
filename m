@@ -1,41 +1,94 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 4/5] be2net: get rid of AMAP_SET/GET macros in
- TX path
-Date: Fri, 28 Sep 2012 03:10:27 -0400 (EDT)
-Message-ID: <20120928.031027.963540575540777486.davem@davemloft.net>
-References: <CF9D1877D81D214CB0CA0669EFAE020C6562EE@CMEXMB1.ad.emulex.com>
-	<20120928.024034.1426515423229309957.davem@davemloft.net>
-	<CF9D1877D81D214CB0CA0669EFAE020C65638C@CMEXMB1.ad.emulex.com>
+Subject: [GIT] Networking
+Date: Fri, 28 Sep 2012 03:31:03 -0400 (EDT)
+Message-ID: <20120928.033103.2004263257973473206.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sathya.Perla@Emulex.Com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35045 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751877Ab2I1HK3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 03:10:29 -0400
-In-Reply-To: <CF9D1877D81D214CB0CA0669EFAE020C65638C@CMEXMB1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Perla, Sathya" <Sathya.Perla@Emulex.Com>
-Date: Fri, 28 Sep 2012 07:05:27 +0000
 
->>-----Original Message-----
->>From: David Miller [mailto:davem@davemloft.net]
->>
->>> endianness is handled even in this patch. The call to wrb_fill_hdr()
->>> is followed by be_dws_cpu_to_le() to handle this.
->>
->>That swap_dws() thing is the most inefficient thing I've ever seen.
->>
->>Instead of being able to benefit from compile time optimizations
->>such as byte swaps of constants, you do everything hidden from the
->>compiler so nothing gets optimized.
-> 
-> I'd like to clarify that swap_dws() was being used/needed even in
-> the old code.
+The most important bit here is the netfilter fix:
 
-I fully understand this.
+1) Netfilter xt_limit module can use uninitialized rules, from
+   Jan Engelhardt.
+
+2) Wei Yongjun has found several more spots where error pointers
+   were treated as NULL/non-NULL and vice versa.
+
+3) bnx2x was converted to pci_io{,un}map() but one remaining plain
+   iounmap() got missed.  From Neil Horman.
+
+4) Due to a fence-post type error in initialization of inetpeer
+   entries (which is where we store the ICMP rate limiting
+   information), we can erroneously drop ICMPs if the inetpeer
+   was created right around when jiffies wraps.
+
+   Fix from Nicolas Dichtel.
+
+5) smsc75xx resume fix from Steve Glendinnig.
+
+6) LAN87xx smsc chips need an explicit hardware init, from Marek
+   Vasut.
+
+7) qlcnic uses msleep() with locks held, fix from Narendra K.
+
+Please pull, thanks a lot.
+
+The following changes since commit 5e19997a742c7c8203be628a7a69babc3bcf01a4:
+
+  Merge tag 'for-linus' of git://linux-c6x.org/git/projects/linux-c6x-upstreaming (2012-09-26 14:28:17 -0700)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+
+for you to fetch changes up to df555b665367f9de6c04826acc482096f17c243d:
+
+  netdev: octeon: fix return value check in octeon_mgmt_init_phy() (2012-09-28 01:18:32 -0400)
+
+----------------------------------------------------------------
+David S. Miller (1):
+      Merge branch 'master' of git://1984.lsi.us.es/nf
+
+Jan Engelhardt (1):
+      netfilter: xt_limit: have r->cost != 0 case work
+
+Marek Vasut (1):
+      net: phy: smsc: Implement PHY config_init for LAN87xx
+
+Narendra K (1):
+      qlcnic: Fix scheduling while atomic bug
+
+Neil Horman (1):
+      bnx2: Clean up remaining iounmap
+
+Nicolas Dichtel (1):
+      inetpeer: fix token initialization
+
+Steve Glendinning (1):
+      smsc75xx: fix resume after device reset
+
+Wei Yongjun (4):
+      l2tp: fix return value check
+      team: fix return value check
+      netdev: pasemi: fix return value check in pasemi_mac_phy_init()
+      netdev: octeon: fix return value check in octeon_mgmt_init_phy()
+
+ drivers/net/ethernet/broadcom/bnx2.c            |  2 +-
+ drivers/net/ethernet/octeon/octeon_mgmt.c       |  4 +---
+ drivers/net/ethernet/pasemi/pasemi_mac.c        |  4 ++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c |  4 ++--
+ drivers/net/phy/smsc.c                          | 28 +++++++++++++++++++++++++++-
+ drivers/net/team/team.c                         | 12 ++++++------
+ drivers/net/usb/smsc75xx.c                      |  1 +
+ net/ipv4/inetpeer.c                             |  5 ++++-
+ net/l2tp/l2tp_netlink.c                         | 12 ++++++------
+ net/netfilter/xt_limit.c                        |  8 ++++----
+ 10 files changed, 54 insertions(+), 26 deletions(-)
