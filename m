@@ -1,112 +1,132 @@
 From: Chris Clayton <chris2553@googlemail.com>
 Subject: Re: Possible networking regression in 3.6.0
-Date: Fri, 28 Sep 2012 10:14:56 +0100
-Message-ID: <50656A90.5030503@googlemail.com>
-References: <50649567.2010704@googlemail.com> <1348779826.5093.1750.camel@edumazet-glaptop> <1348780624.5093.1767.camel@edumazet-glaptop> <20120928.025351.156118608293844465.davem@davemloft.net>
+Date: Fri, 28 Sep 2012 10:22:18 +0100
+Message-ID: <50656C4A.8090302@googlemail.com>
+References: <5057455A.7050108@googlemail.com>  <50588371.40103@googlemail.com>  <505885DC.1060006@googlemail.com>  <1347979239.26523.267.camel@edumazet-glaptop>  <5059E40C.4070607@googlemail.com> <505D5A18.2080507@googlemail.com>  <50643DA1.7070306@googlemail.com>  <1348748042.5093.1168.camel@edumazet-glaptop>  <50649567.2010704@googlemail.com>  <1348779826.5093.1750.camel@edumazet-glaptop> <1348780624.5093.1767.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, gpiez@web.de
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	gpiez@web.de
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:65144 "EHLO
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:57073 "EHLO
 	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754680Ab2I1JPA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 05:15:00 -0400
-Received: by bkcjk13 with SMTP id jk13so3052416bkc.19
-        for <netdev@vger.kernel.org>; Fri, 28 Sep 2012 02:14:59 -0700 (PDT)
-In-Reply-To: <20120928.025351.156118608293844465.davem@davemloft.net>
+	with ESMTP id S1751140Ab2I1JWT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 05:22:19 -0400
+Received: by bkcjk13 with SMTP id jk13so3060809bkc.19
+        for <netdev@vger.kernel.org>; Fri, 28 Sep 2012 02:22:18 -0700 (PDT)
+In-Reply-To: <1348780624.5093.1767.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-On 09/28/12 07:53, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 27 Sep 2012 23:17:04 +0200
->
->> Yes it seems the problem. On the host I tried :
+On 09/27/12 22:17, Eric Dumazet wrote:
+> On Thu, 2012-09-27 at 23:03 +0200, Eric Dumazet wrote:
+>> On Thu, 2012-09-27 at 19:05 +0100, Chris Clayton wrote:
+>>> On 09/27/12 13:14, Eric Dumazet wrote:
+>>>> On Thu, 2012-09-27 at 12:50 +0100, Chris Clayton wrote:
+>>>>> Just for information - I've pulled Linus' tree this morning and the
+>>>>> problem is still present. Also, Gunther Piaz has reported, via the
+>>>>> bugzilla entry, that he too has hit this regression.
+>>>>
+>>>> I tried to reproduce the bug, and my kvm guests have no problem.
+>>>>
+>>>> I guess you need to precisely describe how you setup your network, so
+>>>> that I can reproduce the problem and eventually fix it.
+>>>>
+>>>
+>>> You've seen the bits from my firewall setup script that relate to this
+>>> issue. I start the WinXP client with another script:
+>>>
+>>> #!/bin/sh
+>>> if [ -e $HOME/kvm/var/run/kvm-winxp.pid ]; then
+>>>       echo "winxp is already running ..." > /dev/stderr
+>>>       exit 1
+>>> fi
+>>>
+>>> # make sure the kvm modules are loaded
+>>> if test -z "$(grep '\<kvm\>' /proc/misc)"; then
+>>>       sudo modprobe kvm-intel
+>>>       while test -z "$(grep '\<kvm\>' /proc/misc)"; do
+>>>           true
+>>>       done
+>>> fi
+>>>
+>>> # make sure tun module is loaded
+>>> if test ! -e /dev/net/tun; then
+>>>       sudo modprobe tun
+>>> fi
+>>>
+>>> # figure out the cpu to use
+>>> QVER=$(qemu-kvm --version | cut -d' ' -f 4 | sed 's/,/./')
+>>> # assumes major version is 1
+>>> MINORVER=$(echo $QVER | cut -d'.' -f 2)
+>>> if [ $MINORVER -ge 1 ]; then
+>>>       CPU="host"
+>>> else
+>>>       CPU="qemu64"
+>>> fi
+>>>
+>>> # set up the network interface
+>>> TAPDEV=$(sudo tunctl -b -u $(whoami))
+>>> sudo ifconfig $TAPDEV 192.168.200.254 netmask 255.255.255.0 broadcast
+>>> 192.168.200.255
+>>>
+>>> # start Windows XP
+>>> qemu-kvm -drive file=$HOME/kvm/winxp.qcow2,index=0,cache=none,if=virtio
+>>> -cpu $CPU -smp cores=1,threads=2 -soundhw es1370 \
+>>>       -m 768 -net nic,model=virtio,macaddr=$(getmacaddr) -net
+>>> tap,ifname=$TAPDEV -startdate $(date +%Y-%m-%dT%H:%M:%S) \
+>>>       -name kxplaptop -pidfile $HOME/kvm/var/run/kvm-winxp.pid $*
+>>>
+>>> # stop the network interface
+>>> sudo ifconfig $TAPDEV down
+>>> sudo tunctl -d $TAPDEV &>/dev/null
+>>>
+>>> # tidy up
+>>> rm -f $HOME/kvm/var/run/kvm-winxp.pid
+>>>
+>>>
+>>> The call to getmacaddr just returns the next in a sequence of mac
+>>> addresses. qemu-kvm is a symlink to /usr/bin/qemu-system-i386. I first
+>>> found the problem whilst running qemu-kvm version 1.1.1 although I've
+>>> since updated to 1.2.0.
+>>>
+>>> By the way, I doubt it will make a difference, but, although my laptop
+>>> has a 64bit CPU, I am running a 32 bit kernel and, obviously, user space.
+>>>
+>>> Let me know if you need anything else.
 >>
->> # ip ro get 8.8.8.8 from 192.168.200.1 iif tap1
->> 8.8.8.8 from 192.168.200.1 via 172.30.42.1 dev eth0
->>      cache  iif *
+>> It works for me.
 >>
->> So if the guest tries to send a frame to 8.8.8.8 we are going to forward
->> the packet to eth0
->>
->> But if the guest tries to send to 255.255.255.255, we try to deliver the
->> packet to the host itself, instead of broadcasting to eth0
->>
->> # ip ro get 255.255.255.255 from 192.168.200.1 iif tap1
->> broadcast 255.255.255.255 from 192.168.200.1 dev lo
->>      cache <local,brd>  iif *
->>
->> David, maybe you'll have an idea ?
->
-> Perhaps this was introduced by:
+>> Hmm, maybe your guest is using DHCP and DHCP fails ?
 
-Thanks, David.
-
-Unfortunately, reversing that patch does not fix the problem. The pings 
-from the KVM client to the router still time out.
-
-I have bisected this (see 
-http://marc.info/?l=linux-netdev&m=134797809611847&w=2) and that rendered:
-
-$ git bisect bad
-d2d68ba9fe8b38eb03124b3176a013bb8aa2b5e5 is the first bad commit
-commit d2d68ba9fe8b38eb03124b3176a013bb8aa2b5e5
-Author: David S. Miller <davem@davemloft.net>
-Date:   Tue Jul 17 12:58:50 2012 -0700
-
-     ipv4: Cache input routes in fib_info nexthops.
-
-     Caching input routes is slightly simpler than output routes, since we
-     don't need to be concerned with nexthop exceptions.  (locally
-     destined, and routed packets, never trigger PMTU events or redirects
-     that will be processed by us).
-
-     However, we have to elide caching for the DIRECTSRC and non-zero itag
-     cases.
-
-     Signed-off-by: David S. Miller <davem@davemloft.net>
-
-:040000 040000 6bbc75c1cbe62bf84ea412d3b98adf2b614779cd 
-3ad7256b4a71e63ca4530977c0550121ea803d35 M      include
-:040000 040000 18c2a950a53c4eec9bfa12185d1e382dfed74af8 
-a2ab6157d6cd54930da395758c6ded3a225d1f04 M      net
-
-Unfortunately, the related patches don't reverse cleanly, but a kernel 
-built from a git checkout of the parent commit ( 
-f2bb4bedf35d5167a073dcdddf16543f351ef3ae) works fine.
+No, the WinXP guest is configured with a fixed IP address 
+(192.168.200.1). Subnet mask is 255.255.255.0, and default gateway is 
+192.168.200.254. DNS is 192.168.0.1.
 
 >
-> commit 7bd86cc282a458b66c41e3f6676de6656c99b8db
-> Author: Yan, Zheng <zheng.z.yan@intel.com>
-> Date:   Sun Aug 12 20:09:59 2012 +0000
+> Yes it seems the problem. On the host I tried :
 >
->      ipv4: Cache local output routes
+> # ip ro get 8.8.8.8 from 192.168.200.1 iif tap1
+> 8.8.8.8 from 192.168.200.1 via 172.30.42.1 dev eth0
+>      cache  iif *
 >
->      Commit caacf05e5ad1abf causes big drop of UDP loop back performance.
->      The cause of the regression is that we do not cache the local output
->      routes. Each time we send a datagram from unconnected UDP socket,
->      the kernel allocates a dst_entry and adds it to the rt_uncached_list.
->      It creates lock contention on the rt_uncached_lock.
+> So if the guest tries to send a frame to 8.8.8.8 we are going to forward
+> the packet to eth0
 >
->      Reported-by: Alex Shi <alex.shi@intel.com>
->      Signed-off-by: Yan, Zheng <zheng.z.yan@intel.com>
->      Signed-off-by: David S. Miller <davem@davemloft.net>
+> But if the guest tries to send to 255.255.255.255, we try to deliver the
+> packet to the host itself, instead of broadcasting to eth0
 >
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index e4ba974..fd9ecb5 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -2028,7 +2028,6 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
->   		}
->   		dev_out = net->loopback_dev;
->   		fl4->flowi4_oif = dev_out->ifindex;
-> -		res.fi = NULL;
->   		flags |= RTCF_LOCAL;
->   		goto make_route;
->   	}
+> # ip ro get 255.255.255.255 from 192.168.200.1 iif tap1
+> broadcast 255.255.255.255 from 192.168.200.1 dev lo
+>      cache <local,brd>  iif *
+>
+>
+> David, maybe you'll have an idea ?
+>
+> Thanks
+>
 >
