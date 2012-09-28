@@ -1,350 +1,151 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 1/7 net-next v2] tg3: Introduce separate functions to
- allocate/free RX/TX rings.
-Date: Fri, 28 Sep 2012 10:12:37 -0700
-Message-ID: <1348852363-8582-1-git-send-email-mchan@broadcom.com>
+Subject: [PATCH 3/7 net-next v2] tg3: Separate coalescing setup for rx
+ and tx
+Date: Fri, 28 Sep 2012 10:12:39 -0700
+Message-ID: <1348852363-8582-3-git-send-email-mchan@broadcom.com>
+References: <1348852363-8582-1-git-send-email-mchan@broadcom.com>
+ <1348852363-8582-2-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3446 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3442 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758342Ab2I2Blp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1758343Ab2I2Blp (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 28 Sep 2012 21:41:45 -0400
+In-Reply-To: <1348852363-8582-2-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is preparation work to allow the number of RX and TX rings to be
-configured separately.
+since the number of rings can be different.
 
 Reviewed-by: Nithin Nayak Sujir <nsujir@broadcom.com>
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |  220 +++++++++++++++++++++++------------
- drivers/net/ethernet/broadcom/tg3.h |    2 +
- 2 files changed, 146 insertions(+), 76 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |   74 +++++++++++++++++++++--------------
+ 1 files changed, 45 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index bf906c5..93b8120 100644
+index 330356b..ddf260c 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -7607,15 +7607,11 @@ static int tg3_init_rings(struct tg3 *tp)
- 	return 0;
+@@ -8331,9 +8331,10 @@ static void tg3_set_bdinfo(struct tg3 *tp, u32 bdinfo_addr,
+ 			      nic_addr);
  }
  
--/*
-- * Must not be invoked with interrupt sources disabled and
-- * the hardware shutdown down.
-- */
--static void tg3_free_consistent(struct tg3 *tp)
-+static void tg3_mem_tx_release(struct tg3 *tp)
+-static void __tg3_set_coalesce(struct tg3 *tp, struct ethtool_coalesce *ec)
++
++static void tg3_coal_tx_init(struct tg3 *tp, struct ethtool_coalesce *ec)
  {
- 	int i;
+-	int i;
++	int i = 0;
  
--	for (i = 0; i < tp->irq_cnt; i++) {
-+	for (i = 0; i < tp->irq_max; i++) {
- 		struct tg3_napi *tnapi = &tp->napi[i];
- 
- 		if (tnapi->tx_ring) {
-@@ -7626,17 +7622,114 @@ static void tg3_free_consistent(struct tg3 *tp)
- 
- 		kfree(tnapi->tx_buffers);
- 		tnapi->tx_buffers = NULL;
+ 	if (!tg3_flag(tp, ENABLE_TSS)) {
+ 		tw32(HOSTCC_TXCOL_TICKS, ec->tx_coalesce_usecs);
+@@ -8343,31 +8344,43 @@ static void __tg3_set_coalesce(struct tg3 *tp, struct ethtool_coalesce *ec)
+ 		tw32(HOSTCC_TXCOL_TICKS, 0);
+ 		tw32(HOSTCC_TXMAX_FRAMES, 0);
+ 		tw32(HOSTCC_TXCOAL_MAXF_INT, 0);
++
++		for (; i < tp->txq_cnt; i++) {
++			u32 reg;
++
++			reg = HOSTCC_TXCOL_TICKS_VEC1 + i * 0x18;
++			tw32(reg, ec->tx_coalesce_usecs);
++			reg = HOSTCC_TXMAX_FRAMES_VEC1 + i * 0x18;
++			tw32(reg, ec->tx_max_coalesced_frames);
++			reg = HOSTCC_TXCOAL_MAXF_INT_VEC1 + i * 0x18;
++			tw32(reg, ec->tx_max_coalesced_frames_irq);
++		}
 +	}
++
++	for (; i < tp->irq_max - 1; i++) {
++		tw32(HOSTCC_TXCOL_TICKS_VEC1 + i * 0x18, 0);
++		tw32(HOSTCC_TXMAX_FRAMES_VEC1 + i * 0x18, 0);
++		tw32(HOSTCC_TXCOAL_MAXF_INT_VEC1 + i * 0x18, 0);
+ 	}
 +}
++
++static void tg3_coal_rx_init(struct tg3 *tp, struct ethtool_coalesce *ec)
++{
++	int i = 0;
++	u32 limit = tp->rxq_cnt;
  
--		if (tnapi->rx_rcb) {
--			dma_free_coherent(&tp->pdev->dev,
--					  TG3_RX_RCB_RING_BYTES(tp),
--					  tnapi->rx_rcb,
--					  tnapi->rx_rcb_mapping);
--			tnapi->rx_rcb = NULL;
+ 	if (!tg3_flag(tp, ENABLE_RSS)) {
+ 		tw32(HOSTCC_RXCOL_TICKS, ec->rx_coalesce_usecs);
+ 		tw32(HOSTCC_RXMAX_FRAMES, ec->rx_max_coalesced_frames);
+ 		tw32(HOSTCC_RXCOAL_MAXF_INT, ec->rx_max_coalesced_frames_irq);
++		limit--;
+ 	} else {
+ 		tw32(HOSTCC_RXCOL_TICKS, 0);
+ 		tw32(HOSTCC_RXMAX_FRAMES, 0);
+ 		tw32(HOSTCC_RXCOAL_MAXF_INT, 0);
+ 	}
+ 
+-	if (!tg3_flag(tp, 5705_PLUS)) {
+-		u32 val = ec->stats_block_coalesce_usecs;
+-
+-		tw32(HOSTCC_RXCOAL_TICK_INT, ec->rx_coalesce_usecs_irq);
+-		tw32(HOSTCC_TXCOAL_TICK_INT, ec->tx_coalesce_usecs_irq);
+-
+-		if (!netif_carrier_ok(tp->dev))
+-			val = 0;
+-
+-		tw32(HOSTCC_STAT_COAL_TICKS, val);
+-	}
+-
+-	for (i = 0; i < tp->irq_cnt - 1; i++) {
++	for (; i < limit; i++) {
+ 		u32 reg;
+ 
+ 		reg = HOSTCC_RXCOL_TICKS_VEC1 + i * 0x18;
+@@ -8376,27 +8389,30 @@ static void __tg3_set_coalesce(struct tg3 *tp, struct ethtool_coalesce *ec)
+ 		tw32(reg, ec->rx_max_coalesced_frames);
+ 		reg = HOSTCC_RXCOAL_MAXF_INT_VEC1 + i * 0x18;
+ 		tw32(reg, ec->rx_max_coalesced_frames_irq);
+-
+-		if (tg3_flag(tp, ENABLE_TSS)) {
+-			reg = HOSTCC_TXCOL_TICKS_VEC1 + i * 0x18;
+-			tw32(reg, ec->tx_coalesce_usecs);
+-			reg = HOSTCC_TXMAX_FRAMES_VEC1 + i * 0x18;
+-			tw32(reg, ec->tx_max_coalesced_frames);
+-			reg = HOSTCC_TXCOAL_MAXF_INT_VEC1 + i * 0x18;
+-			tw32(reg, ec->tx_max_coalesced_frames_irq);
 -		}
-+static int tg3_mem_tx_acquire(struct tg3 *tp)
-+{
-+	int i;
-+	struct tg3_napi *tnapi = &tp->napi[0];
-+
-+	/* If multivector TSS is enabled, vector 0 does not handle
-+	 * tx interrupts.  Don't allocate any resources for it.
-+	 */
-+	if (tg3_flag(tp, ENABLE_TSS))
-+		tnapi++;
-+
-+	for (i = 0; i < tp->txq_cnt; i++, tnapi++) {
-+		tnapi->tx_buffers = kzalloc(sizeof(struct tg3_tx_ring_info) *
-+					    TG3_TX_RING_SIZE, GFP_KERNEL);
-+		if (!tnapi->tx_buffers)
-+			goto err_out;
-+
-+		tnapi->tx_ring = dma_alloc_coherent(&tp->pdev->dev,
-+						    TG3_TX_RING_BYTES,
-+						    &tnapi->tx_desc_mapping,
-+						    GFP_KERNEL);
-+		if (!tnapi->tx_ring)
-+			goto err_out;
-+	}
-+
-+	return 0;
-+
-+err_out:
-+	tg3_mem_tx_release(tp);
-+	return -ENOMEM;
-+}
-+
-+static void tg3_mem_rx_release(struct tg3 *tp)
-+{
-+	int i;
-+
-+	for (i = 0; i < tp->irq_max; i++) {
-+		struct tg3_napi *tnapi = &tp->napi[i];
- 
- 		tg3_rx_prodring_fini(tp, &tnapi->prodring);
- 
-+		if (!tnapi->rx_rcb)
-+			continue;
-+
-+		dma_free_coherent(&tp->pdev->dev,
-+				  TG3_RX_RCB_RING_BYTES(tp),
-+				  tnapi->rx_rcb,
-+				  tnapi->rx_rcb_mapping);
-+		tnapi->rx_rcb = NULL;
-+	}
-+}
-+
-+static int tg3_mem_rx_acquire(struct tg3 *tp)
-+{
-+	unsigned int i, limit;
-+
-+	limit = tp->rxq_cnt;
-+
-+	/* If RSS is enabled, we need a (dummy) producer ring
-+	 * set on vector zero.  This is the true hw prodring.
-+	 */
-+	if (tg3_flag(tp, ENABLE_RSS))
-+		limit++;
-+
-+	for (i = 0; i < limit; i++) {
-+		struct tg3_napi *tnapi = &tp->napi[i];
-+
-+		if (tg3_rx_prodring_init(tp, &tnapi->prodring))
-+			goto err_out;
-+
-+		/* If multivector RSS is enabled, vector 0
-+		 * does not handle rx or tx interrupts.
-+		 * Don't allocate any resources for it.
-+		 */
-+		if (!i && tg3_flag(tp, ENABLE_RSS))
-+			continue;
-+
-+		tnapi->rx_rcb = dma_alloc_coherent(&tp->pdev->dev,
-+						   TG3_RX_RCB_RING_BYTES(tp),
-+						   &tnapi->rx_rcb_mapping,
-+						   GFP_KERNEL);
-+		if (!tnapi->rx_rcb)
-+			goto err_out;
-+
-+		memset(tnapi->rx_rcb, 0, TG3_RX_RCB_RING_BYTES(tp));
-+	}
-+
-+	return 0;
-+
-+err_out:
-+	tg3_mem_rx_release(tp);
-+	return -ENOMEM;
-+}
-+
-+/*
-+ * Must not be invoked with interrupt sources disabled and
-+ * the hardware shutdown down.
-+ */
-+static void tg3_free_consistent(struct tg3 *tp)
-+{
-+	int i;
-+
-+	for (i = 0; i < tp->irq_cnt; i++) {
-+		struct tg3_napi *tnapi = &tp->napi[i];
-+
- 		if (tnapi->hw_status) {
- 			dma_free_coherent(&tp->pdev->dev, TG3_HW_STATUS_SIZE,
- 					  tnapi->hw_status,
-@@ -7645,6 +7738,9 @@ static void tg3_free_consistent(struct tg3 *tp)
- 		}
  	}
  
-+	tg3_mem_rx_release(tp);
-+	tg3_mem_tx_release(tp);
-+
- 	if (tp->hw_stats) {
- 		dma_free_coherent(&tp->pdev->dev, sizeof(struct tg3_hw_stats),
- 				  tp->hw_stats, tp->stats_mapping);
-@@ -7683,72 +7779,38 @@ static int tg3_alloc_consistent(struct tg3 *tp)
- 		memset(tnapi->hw_status, 0, TG3_HW_STATUS_SIZE);
- 		sblk = tnapi->hw_status;
+ 	for (; i < tp->irq_max - 1; i++) {
+ 		tw32(HOSTCC_RXCOL_TICKS_VEC1 + i * 0x18, 0);
+ 		tw32(HOSTCC_RXMAX_FRAMES_VEC1 + i * 0x18, 0);
+ 		tw32(HOSTCC_RXCOAL_MAXF_INT_VEC1 + i * 0x18, 0);
++	}
++}
  
--		if (tg3_rx_prodring_init(tp, &tnapi->prodring))
--			goto err_out;
-+		if (tg3_flag(tp, ENABLE_RSS)) {
-+			u16 *prodptr = 0;
- 
--		/* If multivector TSS is enabled, vector 0 does not handle
--		 * tx interrupts.  Don't allocate any resources for it.
--		 */
--		if ((!i && !tg3_flag(tp, ENABLE_TSS)) ||
--		    (i && tg3_flag(tp, ENABLE_TSS))) {
--			tnapi->tx_buffers = kzalloc(
--					       sizeof(struct tg3_tx_ring_info) *
--					       TG3_TX_RING_SIZE, GFP_KERNEL);
--			if (!tnapi->tx_buffers)
--				goto err_out;
--
--			tnapi->tx_ring = dma_alloc_coherent(&tp->pdev->dev,
--							    TG3_TX_RING_BYTES,
--							&tnapi->tx_desc_mapping,
--							    GFP_KERNEL);
--			if (!tnapi->tx_ring)
--				goto err_out;
+-		if (tg3_flag(tp, ENABLE_TSS)) {
+-			tw32(HOSTCC_TXCOL_TICKS_VEC1 + i * 0x18, 0);
+-			tw32(HOSTCC_TXMAX_FRAMES_VEC1 + i * 0x18, 0);
+-			tw32(HOSTCC_TXCOAL_MAXF_INT_VEC1 + i * 0x18, 0);
 -		}
--
--		/*
--		 * When RSS is enabled, the status block format changes
--		 * slightly.  The "rx_jumbo_consumer", "reserved",
--		 * and "rx_mini_consumer" members get mapped to the
--		 * other three rx return ring producer indexes.
--		 */
--		switch (i) {
--		default:
--			if (tg3_flag(tp, ENABLE_RSS)) {
--				tnapi->rx_rcb_prod_idx = NULL;
-+			/*
-+			 * When RSS is enabled, the status block format changes
-+			 * slightly.  The "rx_jumbo_consumer", "reserved",
-+			 * and "rx_mini_consumer" members get mapped to the
-+			 * other three rx return ring producer indexes.
-+			 */
-+			switch (i) {
-+			case 1:
-+				prodptr = &sblk->idx[0].rx_producer;
-+				break;
-+			case 2:
-+				prodptr = &sblk->rx_jumbo_consumer;
-+				break;
-+			case 3:
-+				prodptr = &sblk->reserved;
-+				break;
-+			case 4:
-+				prodptr = &sblk->rx_mini_consumer;
- 				break;
- 			}
--			/* Fall through */
--		case 1:
-+			tnapi->rx_rcb_prod_idx = prodptr;
-+		} else {
- 			tnapi->rx_rcb_prod_idx = &sblk->idx[0].rx_producer;
--			break;
--		case 2:
--			tnapi->rx_rcb_prod_idx = &sblk->rx_jumbo_consumer;
--			break;
--		case 3:
--			tnapi->rx_rcb_prod_idx = &sblk->reserved;
--			break;
--		case 4:
--			tnapi->rx_rcb_prod_idx = &sblk->rx_mini_consumer;
--			break;
- 		}
--
--		/*
--		 * If multivector RSS is enabled, vector 0 does not handle
--		 * rx or tx interrupts.  Don't allocate any resources for it.
--		 */
--		if (!i && tg3_flag(tp, ENABLE_RSS))
--			continue;
--
--		tnapi->rx_rcb = dma_alloc_coherent(&tp->pdev->dev,
--						   TG3_RX_RCB_RING_BYTES(tp),
--						   &tnapi->rx_rcb_mapping,
--						   GFP_KERNEL);
--		if (!tnapi->rx_rcb)
--			goto err_out;
--
--		memset(tnapi->rx_rcb, 0, TG3_RX_RCB_RING_BYTES(tp));
- 	}
- 
-+	if (tg3_mem_tx_acquire(tp) || tg3_mem_rx_acquire(tp))
-+		goto err_out;
++static void __tg3_set_coalesce(struct tg3 *tp, struct ethtool_coalesce *ec)
++{
++	tg3_coal_tx_init(tp, ec);
++	tg3_coal_rx_init(tp, ec);
 +
- 	return 0;
- 
- err_out:
-@@ -10154,6 +10216,7 @@ static bool tg3_enable_msix(struct tg3 *tp)
- 		 * one to the number of vectors we are requesting.
- 		 */
- 		tp->irq_cnt = min_t(unsigned, tp->irq_cnt + 1, tp->irq_max);
-+		tp->rxq_cnt = tp->irq_cnt - 1;
- 	}
- 
- 	for (i = 0; i < tp->irq_max; i++) {
-@@ -10170,14 +10233,13 @@ static bool tg3_enable_msix(struct tg3 *tp)
- 		netdev_notice(tp->dev, "Requested %d MSI-X vectors, received %d\n",
- 			      tp->irq_cnt, rc);
- 		tp->irq_cnt = rc;
-+		tp->rxq_cnt = max(rc - 1, 1);
- 	}
- 
- 	for (i = 0; i < tp->irq_max; i++)
- 		tp->napi[i].irq_vec = msix_ent[i].vector;
- 
--	netif_set_real_num_tx_queues(tp->dev, 1);
--	rc = tp->irq_cnt > 1 ? tp->irq_cnt - 1 : 1;
--	if (netif_set_real_num_rx_queues(tp->dev, rc)) {
-+	if (netif_set_real_num_rx_queues(tp->dev, tp->rxq_cnt)) {
- 		pci_disable_msix(tp->pdev);
- 		return false;
- 	}
-@@ -10188,7 +10250,8 @@ static bool tg3_enable_msix(struct tg3 *tp)
- 		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
- 		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720) {
- 			tg3_flag_set(tp, ENABLE_TSS);
--			netif_set_real_num_tx_queues(tp->dev, tp->irq_cnt - 1);
-+			tp->txq_cnt = tp->rxq_cnt;
-+			netif_set_real_num_tx_queues(tp->dev, tp->txq_cnt);
- 		}
- 	}
- 
-@@ -10224,6 +10287,11 @@ defcfg:
- 	if (!tg3_flag(tp, USING_MSIX)) {
- 		tp->irq_cnt = 1;
- 		tp->napi[0].irq_vec = tp->pdev->irq;
-+	}
++	if (!tg3_flag(tp, 5705_PLUS)) {
++		u32 val = ec->stats_block_coalesce_usecs;
 +
-+	if (tp->irq_cnt == 1) {
-+		tp->txq_cnt = 1;
-+		tp->rxq_cnt = 1;
- 		netif_set_real_num_tx_queues(tp->dev, 1);
- 		netif_set_real_num_rx_queues(tp->dev, 1);
++		tw32(HOSTCC_RXCOAL_TICK_INT, ec->rx_coalesce_usecs_irq);
++		tw32(HOSTCC_TXCOAL_TICK_INT, ec->tx_coalesce_usecs_irq);
++
++		if (!netif_carrier_ok(tp->dev))
++			val = 0;
++
++		tw32(HOSTCC_STAT_COAL_TICKS, val);
  	}
-diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index 6d52cb2..5838dea 100644
---- a/drivers/net/ethernet/broadcom/tg3.h
-+++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -3037,6 +3037,7 @@ struct tg3 {
- 	void				(*write32_tx_mbox) (struct tg3 *, u32,
- 							    u32);
- 	u32				dma_limit;
-+	u32				txq_cnt;
- 
- 	/* begin "rx thread" cacheline section */
- 	struct tg3_napi			napi[TG3_IRQ_MAX_VECS];
-@@ -3051,6 +3052,7 @@ struct tg3 {
- 	u32				rx_std_max_post;
- 	u32				rx_offset;
- 	u32				rx_pkt_map_sz;
-+	u32				rxq_cnt;
- 	bool				rx_refill;
- 
+ }
  
 -- 
 1.7.1
