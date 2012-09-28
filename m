@@ -1,51 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/7 net-next] tg3: Change default number of tx rings to
- 1.
-Date: Fri, 28 Sep 2012 00:49:12 -0400 (EDT)
-Message-ID: <20120928.004912.1130579693973926556.davem@davemloft.net>
-References: <1348698769-760-7-git-send-email-mchan@broadcom.com>
-	<20120927.192345.2124577537241070059.davem@davemloft.net>
-	<1348807471.7220.138.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] netdev: octeon: fix return value check in octeon_mgmt_init_phy()
+Date: Fri, 28 Sep 2012 13:04:21 +0800
+Message-ID: <CAPgLHd-Tk9eFL2Sj-7_TZA0ngWejuL69=qzENNG_CrJpaQ_S8A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org
+To: grant.likely@secretlab.ca, rob.herring@calxeda.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33963 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751272Ab2I1EtO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 00:49:14 -0400
-In-Reply-To: <1348807471.7220.138.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:55885 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750753Ab2I1FEW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 01:04:22 -0400
+Received: by qaas11 with SMTP id s11so1465528qaa.19
+        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 22:04:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 27 Sep 2012 21:44:31 -0700
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-> In the simplest case, assume you have 2 TCP streams running in opposite
-> directions.  The TX traffic (mostly TSO) will hash to one tx ring.  The
-> ACKs for the incoming data on a different TCP connection will hash to
-> another TX ring.  The hardware fetches one complete TSO packet from the
-> first ring (up to 64K data) before servicing the other TX ring.  And
-> when it gets to the other TX ring, it will fetch only one packet (one
-> 64-byte ACK packet in this case) and then immediately switches back to
-> the 1st ring (filled with more TSO packets).  In reality, there may be
-> over 10 ACK packets waiting in the 2nd ring because a lot of incoming
-> data has been received and ACKed during this time.  Because the ACKs are
-> going out so slowly, the incoming throughput slows to a trickle.
+In case of error, the function of_phy_connect() returns NULL
+pointer not ERR_PTR(). The IS_ERR() test in the return value
+check should be replaced with NULL test.
 
-Thanks for the explanation, this is the kind of text that belongs in
-the commit message.  Otherwise the next person who reads the patch,
-like me, will ask why this is being done.
+dpatch engine is used to auto generate this patch.
+(https://github.com/weiyj/dpatch)
 
-> Our other devices don't do this simple Round-robin tx scheduling.
-> Instead, there are independent DMA channels fetching and interleaving tx
-> data from multiple rings.
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/octeon/octeon_mgmt.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-Ok.
-
-Please respin your patch set, adding the detailed explanation you gave
-me here to the TX queue change, and I will apply it.
-
-Thanks.
+diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
+index c42bbb1..a688a2d 100644
+--- a/drivers/net/ethernet/octeon/octeon_mgmt.c
++++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
+@@ -722,10 +722,8 @@ static int octeon_mgmt_init_phy(struct net_device *netdev)
+ 				   octeon_mgmt_adjust_link, 0,
+ 				   PHY_INTERFACE_MODE_MII);
+ 
+-	if (IS_ERR(p->phydev)) {
+-		p->phydev = NULL;
++	if (!p->phydev)
+ 		return -1;
+-	}
+ 
+ 	phy_start_aneg(p->phydev);
+ 
