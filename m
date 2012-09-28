@@ -1,44 +1,60 @@
-From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: Re: [PATCH RFC net-next 1/1] ptp: add an ioctl to compare PHC time
- with system time
-Date: Fri, 28 Sep 2012 10:50:31 +0200
-Message-ID: <20120928085031.GC29438@localhost>
-References: <cover.1348768886.git.richardcochran@gmail.com>
- <f0c20e2d1a303b0247b1e0e0def19f131de162ff.1348768886.git.richardcochran@gmail.com>
- <20120928075303.GB29438@localhost>
- <20120928082638.GB17636@netboy.at.omicron.at>
+From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH] rtlwifi: use %*ph[C] to dump small buffers
+Date: Fri, 28 Sep 2012 10:04:41 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B700D@saturn3.aculab.com>
+References: <1348667852-5957-1-git-send-email-andriy.shevchenko@linux.intel.com> <1348677946.15175.8.camel@joe-AO722> <5064D318.6090705@lwfinger.net> <1348802023.3030.11.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	John Stultz <john.stultz@linaro.org>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60430 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753736Ab2I1Iui (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Sep 2012 04:50:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20120928082638.GB17636@netboy.at.omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Andy Shevchenko" <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	"Chaoming Li" <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Joe Perches" <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	"Larry Finger" <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <1348802023.3030.11.camel@joe-AO722>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 28, 2012 at 10:26:38AM +0200, Richard Cochran wrote:
-> I am guessing it would be possible to synchronize two PHC devices to
-> within a few microseconds this way. Probably that is not good enough
-> to implement a boundary clock, for example, so I have my doubts about
-> the utility of this. 
+> > Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+> > ===================================================================
+> > --- wireless-testing-new.orig/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+> > +++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+> > @@ -1964,8 +1965,9 @@ static void rtl92ce_update_hal_rate_mask
+> >
+> >          RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG,
+> >                   "ratr_bitmap :%x\n", ratr_bitmap);
+> > -       *(u32 *)&rate_mask = (ratr_bitmap & 0x0fffffff) |
+> > -                                    (ratr_index << 28);
+> > +       for (i = 0; i < 3; i++)
+> > +               rate_mask[i] = ratr_bitmap & (0xff << (i * 4));
+> 
+> rate_mask is u8, doesn't this needs (calc) >> (i * 8)
+> 
+> > +       rate_mask[3] = (ratr_bitmap & 0x0f000000) | (ratr_index << 28);
+> 
+> Perhaps you meant:
+> 
+> 		((ratr_bitmap & 0x0f000000) >> 24) | (ratr_index << 4)
 
-I think with two identical PHCs the error would be much smaller, even
-if the two fastest consecutive readings took together ~5 microseconds.
-The error could be measured with a short cable connecting the two ports
-and compared the TX and RX timestamps, and compensated in the
-software if it's significant.
+I'd just do:
+	rate_mask[0] = ratr_bitmap;
+	rate_mask[1] = ratr_bitmap >>= 8;
+	rate_mask[2] = ratr_bitmap >>= 8;
+	rate_mask[3] = (ratr_bitmap >> 8) & 0xf | ratr_index << 4;
+which is, of course, little endian.
+Which means it is different from the original code on big-endian systems.
+So changing this here ought to require a change when the data is read.
+So this either fixes, or adds, an endianness bug.
 
-> But in any case, it is possible, and I think that
-> feature can wait for now.
+	David
 
-Ok, thanks.
 
--- 
-Miroslav Lichvar
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
