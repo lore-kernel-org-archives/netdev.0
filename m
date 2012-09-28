@@ -1,49 +1,43 @@
-From: Haicheng Li <haicheng.li@linux.intel.com>
-Subject: Re: [PATCH 1/2] Fix build error caused by broken PCH_PTP module dependency.
-Date: Fri, 28 Sep 2012 14:57:38 +0800
-Message-ID: <50654A62.5090003@linux.intel.com>
-References: <5060F97F.3040809@linux.intel.com>	<20120927.180942.969924012897168294.davem@davemloft.net>	<506546A7.7030500@linux.intel.com> <20120928.024621.1635385815700269914.davem@davemloft.net>
+From: "Perla, Sathya" <Sathya.Perla@Emulex.Com>
+Subject: RE: [net-next PATCH 4/5] be2net: get rid of AMAP_SET/GET macros in
+ TX path
+Date: Fri, 28 Sep 2012 07:05:27 +0000
+Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C65638C@CMEXMB1.ad.emulex.com>
+References: <92de1988-73db-4864-bf19-10ed11dac557@CMEXHTCAS2.ad.emulex.com>
+	<20120927.222900.1633352325278735069.davem@davemloft.net>
+	<CF9D1877D81D214CB0CA0669EFAE020C6562EE@CMEXMB1.ad.emulex.com>
+ <20120928.024034.1426515423229309957.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tshimizu818@gmail.com,
-	linux-kernel@vger.kernel.org, haicheng.lee@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120928.024621.1635385815700269914.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:58454 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753330Ab2I1HF2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 03:05:28 -0400
+In-Reply-To: <20120928.024034.1426515423229309957.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/28/2012 02:46 PM, David Miller wrote:
-> From: Haicheng Li<haicheng.li@linux.intel.com>
-> Date: Fri, 28 Sep 2012 14:41:43 +0800
+>-----Original Message-----
+>From: David Miller [mailto:davem@davemloft.net]
 >
->> On 09/28/2012 06:09 AM, David Miller wrote:
->>> Look at how other people submit patches, do any other patch
->>> submissions
->>> look like your's having all of this metadata in the message body:
->> I'm sorry for it.
->>
->>> As for this specific patch:
->>>
->>>> -	depends on PTP_1588_CLOCK_PCH
->>>> +	depends on PTP_1588_CLOCK_PCH = PCH_GBE
->>>
->>> This is not the correct way to ensure that the module'ness of one
->>> config option meets the module'ness requirements of another.
->>> The correct way is to say something like "&&   (PCH_GBE || PCH_GBE=n)"
->>
->> This case is a little bit tricky than usual, with PCH_PTP selected,
->> the valid config would be either "PTP_1588_CLOCK_PCH=PCH_GBE=m" or
->> "PTP_1588_CLOCK_PCH=PCH_GBE=y", and PTP_1588_CLOCK_PCH depends on
->> PCH_GBE.
+>> endianness is handled even in this patch. The call to wrb_fill_hdr()
+>> is followed by be_dws_cpu_to_le() to handle this.
 >
-> And a simple "&&  PCH_GBE" should accomplish this, no?
-No sir. it's actually same with the original Kconfig (by a if PCH_GBE"), it 
-just failed with this config:
+>That swap_dws() thing is the most inefficient thing I've ever seen.
+>
+>Instead of being able to benefit from compile time optimizations
+>such as byte swaps of constants, you do everything hidden from the
+>compiler so nothing gets optimized.
 
-         CONFIG_PCH_GBE=y
-         CONFIG_PCH_PTP=y
-         CONFIG_PTP_1588_CLOCK=m
+I'd like to clarify that swap_dws() was being used/needed even in the old code. 
+The AMAP_SET_BITS() macros (that this patch removes) did nothing to take care of endian byte-swapping.
+They are just calculating the mask/shift values of each bit-field and setting the value
+in host-endian.
 
--haicheng
+But, as you are convinced that this patch doesn't provide much value, I'll just drop it and 
+re-send the patch set....
