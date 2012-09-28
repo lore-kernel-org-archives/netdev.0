@@ -1,60 +1,44 @@
-From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Subject: RE: [PATCH] rtlwifi: use %*ph[C] to dump small buffers
-Date: Fri, 28 Sep 2012 10:04:41 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B700D@saturn3.aculab.com>
-References: <1348667852-5957-1-git-send-email-andriy.shevchenko@linux.intel.com> <1348677946.15175.8.camel@joe-AO722> <5064D318.6090705@lwfinger.net> <1348802023.3030.11.camel@joe-AO722>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 7/7 net-next] tg3: Change default number of tx rings to 1.
+Date: Fri, 28 Sep 2012 10:07:19 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B700E@saturn3.aculab.com>
+References: <1348698769-760-7-git-send-email-mchan@broadcom.com><20120927.192345.2124577537241070059.davem@davemloft.net><1348807471.7220.138.camel@LTIRV-MCHAN1.corp.ad.broadcom.com> <20120928.004912.1130579693973926556.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
-Cc: "Andy Shevchenko" <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"Chaoming Li" <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Joe Perches" <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	"Larry Finger" <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>, <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:56848 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751140Ab2I1JJu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 05:09:50 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 21535-07 for <netdev@vger.kernel.org>;
+ Fri, 28 Sep 2012 10:08:46 +0100 (BST)
 Content-class: urn:content-classes:message
-In-Reply-To: <1348802023.3030.11.camel@joe-AO722>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20120928.004912.1130579693973926556.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
-> > ===================================================================
-> > --- wireless-testing-new.orig/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
-> > +++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
-> > @@ -1964,8 +1965,9 @@ static void rtl92ce_update_hal_rate_mask
-> >
-> >          RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG,
-> >                   "ratr_bitmap :%x\n", ratr_bitmap);
-> > -       *(u32 *)&rate_mask = (ratr_bitmap & 0x0fffffff) |
-> > -                                    (ratr_index << 28);
-> > +       for (i = 0; i < 3; i++)
-> > +               rate_mask[i] = ratr_bitmap & (0xff << (i * 4));
+> > In the simplest case, assume you have 2 TCP streams running in opposite
+> > directions.  The TX traffic (mostly TSO) will hash to one tx ring.  The
+> > ACKs for the incoming data on a different TCP connection will hash to
+> > another TX ring.  The hardware fetches one complete TSO packet from the
+> > first ring (up to 64K data) before servicing the other TX ring.  And
+> > when it gets to the other TX ring, it will fetch only one packet (one
+> > 64-byte ACK packet in this case) and then immediately switches back to
+> > the 1st ring (filled with more TSO packets).  In reality, there may be
+> > over 10 ACK packets waiting in the 2nd ring because a lot of incoming
+> > data has been received and ACKed during this time.  Because the ACKs are
+> > going out so slowly, the incoming throughput slows to a trickle.
 > 
-> rate_mask is u8, doesn't this needs (calc) >> (i * 8)
-> 
-> > +       rate_mask[3] = (ratr_bitmap & 0x0f000000) | (ratr_index << 28);
-> 
-> Perhaps you meant:
-> 
-> 		((ratr_bitmap & 0x0f000000) >> 24) | (ratr_index << 4)
+> Thanks for the explanation, this is the kind of text that belongs in
+> the commit message.  Otherwise the next person who reads the patch,
+> like me, will ask why this is being done.
 
-I'd just do:
-	rate_mask[0] = ratr_bitmap;
-	rate_mask[1] = ratr_bitmap >>= 8;
-	rate_mask[2] = ratr_bitmap >>= 8;
-	rate_mask[3] = (ratr_bitmap >> 8) & 0xf | ratr_index << 4;
-which is, of course, little endian.
-Which means it is different from the original code on big-endian systems.
-So changing this here ought to require a change when the data is read.
-So this either fixes, or adds, an endianness bug.
+And also in the code somewhere.
 
 	David
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
