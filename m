@@ -1,69 +1,76 @@
-From: Mike Harris <mharris@onxis.com>
-Subject: Lab: v.1.8 + Linux 2.6.37.6+up #1 + ESXi 5.0 - VM - Slow Network Performance/Failures
-Date: Fri, 28 Sep 2012 04:56:35 +0200
-Message-ID: <CAJXRGag+VEMYUfhEaVwpVCUpjwC6Rhd0NeOrA15VAEz-5OwAMQ@mail.gmail.com>
-References: <CAJXRGaj8t5Qx_jewDfS-zYOSQL4iNx_vLM46t72=uYF1x7x=Pw@mail.gmail.com>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH] rtlwifi: use %*ph[C] to dump small buffers
+Date: Thu, 27 Sep 2012 20:13:43 -0700
+Message-ID: <1348802023.3030.11.camel@joe-AO722>
+References: <1348667852-5957-1-git-send-email-andriy.shevchenko@linux.intel.com>
+	 <1348677946.15175.8.camel@joe-AO722> <5064D318.6090705@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:64815 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756110Ab2I1C4g convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2012 22:56:36 -0400
-Received: by vcbfo13 with SMTP id fo13so2847617vcb.19
-        for <netdev@vger.kernel.org>; Thu, 27 Sep 2012 19:56:35 -0700 (PDT)
-In-Reply-To: <CAJXRGaj8t5Qx_jewDfS-zYOSQL4iNx_vLM46t72=uYF1x7x=Pw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5064D318.6090705-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, 2012-09-27 at 17:28 -0500, Larry Finger wrote:
+> On 09/26/2012 11:45 AM, Joe Perches wrote:
+> > rate_mask uses:
+> >
+> > 	u32 ratr_bitmap = (u32) mac->basic_rates;
+> > ...
+> > 	u8 rate_mask[5];
+> > ...
+> > 	[sets ratr_bitmap as u32]
+> > ...
+> > 	*(u32 *)&rate_mask = ((ratr_bitmap & 0x0fffffff) |
+> > 				      ratr_index << 28);
+> > ...
+> > 	rtl92c_fill_h2c_cmd(hw, H2C_RA_MASK, 5, rate_mask);
+> >
+> > Looks like a possible endian misuse to me.
+> 
+> After a second look at the code, I don't think this is an endian issue; however, 
+> I am proposing the following changes to remove any doubt:
 
-I hope everyone is well!
+I believe if it wasn't an endian problem, then the new
+code makes it one.
 
-Some network throughput/performance oddness with a linux based virtual =
-firewall=85
+> Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+> ===================================================================
+> --- wireless-testing-new.orig/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+> +++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+> @@ -1964,8 +1965,9 @@ static void rtl92ce_update_hal_rate_mask
+> 
+>          RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG,
+>                   "ratr_bitmap :%x\n", ratr_bitmap);
+> -       *(u32 *)&rate_mask = (ratr_bitmap & 0x0fffffff) |
+> -                                    (ratr_index << 28);
+> +       for (i = 0; i < 3; i++)
+> +               rate_mask[i] = ratr_bitmap & (0xff << (i * 4));
 
-Lab scenario;
+rate_mask is u8, doesn't this needs (calc) >> (i * 8)
 
-[Windows VM #1] --- VLAN X-----(*)Linux Firewall VM ----- VLAN Y
----[Windows VM #2]
+> +       rate_mask[3] = (ratr_bitmap & 0x0f000000) | (ratr_index << 28);
 
-A tcpdump is kicked off with the following options on the firewall
-this a 100MB file is copied between VM #1 to VM #2 (SMB).
+Perhaps you meant:
 
-tcpdump -i eth0.x -n -s0 -w file-transfer-1.pcap -c100
+		((ratr_bitmap & 0x0f000000) >> 24) | (ratr_index << 4)
 
-Notes:
+>          rate_mask[4] = macid | (shortgi ? 0x20 : 0x00) | 0x80;
+>          RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG,
+>                   "Rate_index:%x, ratr_val:%x, %*phC\n",
+> 
+> The downstream routine uses this info as an array of u8, thus it is OK. A proper 
+> patch will be sent later. At least we avoid that ugly cast.
 
-+ Physical blade run ESXi 5.0.
-+ Windows VMs run on the same vSwitch and physical blade.
-+ VLAN X and Y support up to 1500 bytes MTU.
-+ Virtual firewall is configured with the 4095 (any) VLAN (receives
-and transmits tagged frames).
-+ Virtual firewall is runs Linux 2.6.37.6+up #1
-+ Virtual and physical backbones do support up to 9k frames.
 
-Observations;
 
-1. The file copy fails=85
-2. The pcap reveals a 12,443 byte uber jumbo frame is present shortly
-after the file transfer starts.
-
-Repeated the same scenario using a test vyatta 6.4 VM and the file
-copy completes normally=85 no jumbo frames or any other oddness.
-Virtual and physical networking can not originate such a frame
-normally.
-
-Given this, I suspect there's a general framing failure of the network
-driver on the virtual linux firewall, which lead me to the dmesg
-command and this mailing list :)
-
-Has anyone else seen this behavior before on a linux VM before?
-
-Thoughts?
-
-Helpful suggestions :)
-
-Mike
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
