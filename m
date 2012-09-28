@@ -1,80 +1,82 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next PATCH 4/4] be2net: fixup log messages
-Date: Fri, 28 Sep 2012 08:39:43 -0700
-Message-ID: <1348846783.14262.10.camel@joe-AO722>
-References: <1348843184-22214-1-git-send-email-sathya.perla@emulex.com>
-	 <e698cd68-540d-4a7a-bd76-2e9c73ddf19c@CMEXHTCAS2.ad.emulex.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: mlx4_en_alloc_frag allocation failures
+Date: Fri, 28 Sep 2012 17:50:08 +0200
+Message-ID: <1348847408.5093.2548.camel@edumazet-glaptop>
+References: <20120928151429.GB2731@BohrerMBP.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sathya Perla <sathya.perla@emulex.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:40695 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757495Ab2I1Pjp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Sep 2012 11:39:45 -0400
-In-Reply-To: <e698cd68-540d-4a7a-bd76-2e9c73ddf19c@CMEXHTCAS2.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
+To: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20120928151429.GB2731@BohrerMBP.rgmadvisors.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-09-28 at 20:09 +0530, Sathya Perla wrote:
-> Added and modified a few log messages mostly in probe path.
+On Fri, 2012-09-28 at 10:14 -0500, Shawn Bohrer wrote:
+> We've got a new application that is receiving UDP multicast data using
+> AF_PACKET and writing out the packets in a custom format to disk.  The
+> packet rates are bursty, but it seems to be roughly 100 Mbps on
+> average for 1 minute periods.  With this application running all day
+> we get a lot of these messages:
+> 
+> [1298269.103034] kswapd1: page allocation failure: order:2, mode:0x4020
+> [1298269.103038] Pid: 80, comm: kswapd1 Not tainted 3.4.9-2.rgm.fc16.x86_64 #1
+> [1298269.103040] Call Trace:
+> [1298269.103041]  <IRQ>  [<ffffffff810db746>] warn_alloc_failed+0xf6/0x160
+> [1298269.103053]  [<ffffffff813c767d>] ? skb_copy_bits+0x16d/0x2c0
+> [1298269.103058]  [<ffffffff810e83a9>] ? wakeup_kswapd+0x69/0x160
+> [1298269.103060]  [<ffffffff810df188>] __alloc_pages_nodemask+0x6e8/0x930
+> [1298269.103064]  [<ffffffff81114316>] alloc_pages_current+0xb6/0x120
+> [1298269.103070]  [<ffffffffa00c142b>] mlx4_en_alloc_frag+0x16b/0x1e0 [mlx4_en]
+> [1298269.103073]  [<ffffffffa00c18a0>] mlx4_en_complete_rx_desc+0x120/0x1d0 [mlx4_en]
+> [1298269.103076]  [<ffffffffa00c27d4>] mlx4_en_process_rx_cq+0x584/0x700 [mlx4_en]
+> [1298269.103079]  [<ffffffffa00c29ef>] mlx4_en_poll_rx_cq+0x3f/0x80 [mlx4_en]
+> [1298269.103083]  [<ffffffff813d6569>] net_rx_action+0x119/0x210
+> [1298269.103086]  [<ffffffff8103c690>] __do_softirq+0xb0/0x220
+> [1298269.103090]  [<ffffffff8109911d>] ? handle_irq_event+0x4d/0x70
+> [1298269.103095]  [<ffffffff8148e30c>] call_softirq+0x1c/0x30
+> [1298269.103100]  [<ffffffff81003ef5>] do_softirq+0x55/0x90
+> [1298269.103101]  [<ffffffff8103ca65>] irq_exit+0x75/0x80
+> [1298269.103103]  [<ffffffff8148e853>] do_IRQ+0x63/0xe0
+> [1298269.103107]  [<ffffffff81485667>] common_interrupt+0x67/0x67
+> [1298269.103108]  <EOI>  [<ffffffff8148523f>] ? _raw_spin_unlock_irqrestore+0xf/0x20
+> [1298269.103113]  [<ffffffff811184b1>] compaction_alloc+0x361/0x3f0
+> [1298269.103115]  [<ffffffff810e29b7>] ? pagevec_lru_move_fn+0xd7/0xf0
+> [1298269.103118]  [<ffffffff81123d19>] migrate_pages+0xa9/0x470
+> [1298269.103120]  [<ffffffff81118150>] ? perf_trace_mm_compaction_migratepages+0xd0/0xd0
+> [1298269.103122]  [<ffffffff81118abb>] compact_zone+0x4cb/0x910
+> [1298269.103124]  [<ffffffff8111904b>] __compact_pgdat+0x14b/0x190
+> [1298269.103125]  [<ffffffff8111931d>] compact_pgdat+0x2d/0x30
+> [1298269.103129]  [<ffffffff810f32b9>] ? fragmentation_index+0x19/0x70
+> [1298269.103131]  [<ffffffff810eb15f>] balance_pgdat+0x6ef/0x710
+> [1298269.103133]  [<ffffffff810eb2ca>] kswapd+0x14a/0x390
+> [1298269.103136]  [<ffffffff810567c0>] ? add_wait_queue+0x60/0x60
+> [1298269.103138]  [<ffffffff810eb180>] ? balance_pgdat+0x710/0x710
+> [1298269.103140]  [<ffffffff81055e93>] kthread+0x93/0xa0
+> [1298269.103142]  [<ffffffff8148e214>] kernel_thread_helper+0x4/0x10
+> [1298269.103144]  [<ffffffff81055e00>] ? kthread_worker_fn+0x140/0x140
+> [1298269.103146]  [<ffffffff8148e210>] ? gs_change+0xb/0xb
+> 
+> The kernel is based on a Fedora 16 kernel and actually has the 3.4.10
+> patches applied.  I can easily test patches or different kernels.
+> 
+> I'm mostly wondering if there is anything that can be done about these
+> failures?  It appears that these failures have to do with handling
+> fragmented IP frames, but the majority of the packets this machines
+> should not be fragmented (there are probably some that are).
+> 
+> From a memory management point of view the system has 48GB of RAM, and
+> typically 44GB of that is page cache.  The dirty pages seem to hover
+> around 5-6MB and the filesystem/disks don't seem to have any problems
+> keeping up with writing out the data.
 
-Trivial comment:
+What is the value of /proc/sys/vm/min_free_kbytes ?
 
-> diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-[]
-> @@ -3797,6 +3802,23 @@ static bool be_reset_required(struct be_adapter *adapter)
->  	return be_find_vfs(adapter, ENABLED) > 0 ? false : true;
->  }
->  
-> +static char *mc_name(struct be_adapter *adapter)
-> +{
-> +	if (adapter->function_mode & FLEX10_MODE)
-> +		return "FLEX10";
-> +	else if (adapter->function_mode & VNIC_MODE)
-> +		return "vNIC";
-> +	else if (adapter->function_mode & UMC_ENABLED)
-> +		return "UMC";
-> +	else
-> +		return "";
-> +}
 
-Maybe something other than "" to identify this state
-or add a space before or after the actual uses so that
-the unprefixed state prints without 2 spaces.
 
-Perhaps if you don't want to identify the non-virtual (?)
-state:
-
-static char *mc_name(struct be_adapter *adapter)
-{
-	if (adapter->function_mode & FLEX10_MODE)
-		return " FLEX10";
-	else if (adapter->function_mode & VNIC_MODE)
-		return " vNIC";
-	else if (adapter->function_mode & UMC_ENABLED)
-		return " UMC";
-	else
-		return "";
-}
-
-[]
-
-> @@ -3901,8 +3923,8 @@ static int __devinit be_probe(struct pci_dev *pdev,
->  
->  	be_cmd_query_port_name(adapter, &port_name);
->  
-> -	dev_info(&pdev->dev, "%s: %s port %c\n", netdev->name, nic_name(pdev),
-> -		 port_name);
-> +	dev_info(&pdev->dev, "%s: %s %s port %c\n", nic_name(pdev),
-> +		 func_name(adapter), mc_name(adapter), port_name);
->  
->  	return 0;
-
-and:
-
-	dev_info(&pdev->dev, "%s: %s%s port %c\n",
-		 nic_name(pdev), func_name(adapter), mc_name(adapter),
-		 port_name);
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
