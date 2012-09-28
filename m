@@ -1,99 +1,38 @@
 From: Steve Glendinning <steve.glendinning@shawell.net>
-Subject: [PATCH 5/6] smsc95xx: enable power saving mode during system suspend
-Date: Fri, 28 Sep 2012 11:07:11 +0100
-Message-ID: <1348826832-1986-6-git-send-email-steve.glendinning@shawell.net>
+Subject: [PATCH 4/6] smsc95xx: fix resume when usb device is reset
+Date: Fri, 28 Sep 2012 11:07:10 +0100
+Message-ID: <1348826832-1986-5-git-send-email-steve.glendinning@shawell.net>
 References: <1348826832-1986-1-git-send-email-steve.glendinning@shawell.net>
 Cc: Steve Glendinning <steve.glendinning@shawell.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:45959 "EHLO
 	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757135Ab2I1KH3 (ORCPT
+	with ESMTP id S1757271Ab2I1KH3 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2012 06:07:29 -0400
 In-Reply-To: <1348826832-1986-1-git-send-email-steve.glendinning@shawell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables the device to enter its lowest power SUSPEND2
-state during system suspend, instead of staying up using full power.
-
-Patch updated to not add two pointers to .suspend & .resume.
-
-Patch updated to replace BUG_ON with WARN_ON_ONCE and return.
+This patch fixes an issue on some systems, where after suspend the
+link is re-established but the ethernet interface does not resume.
 
 Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
 ---
- drivers/net/usb/smsc95xx.c |   28 +++++++++++++++++++++++++++-
- drivers/net/usb/smsc95xx.h |    6 +++++-
- 2 files changed, 32 insertions(+), 2 deletions(-)
+ drivers/net/usb/smsc95xx.c |    1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index f29860d..ba0360f 100644
+index d0ff01e..f29860d 100644
 --- a/drivers/net/usb/smsc95xx.c
 +++ b/drivers/net/usb/smsc95xx.c
-@@ -1018,6 +1018,32 @@ static void smsc95xx_unbind(struct usbnet *dev, struct usb_interface *intf)
- 	}
- }
- 
-+static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
-+{
-+	struct usbnet *dev = usb_get_intfdata(intf);
-+	int ret;
-+	u32 val;
-+
-+	if (WARN_ON_ONCE(!dev))
-+		return -EINVAL;
-+
-+	ret = usbnet_suspend(intf, message);
-+	check_warn_return(ret, "usbnet_suspend error");
-+
-+	netdev_info(dev->net, "entering SUSPEND2 mode");
-+
-+	ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
-+	check_warn_return(ret, "Error reading PM_CTRL");
-+
-+	val &= ~(PM_CTL_SUS_MODE_ | PM_CTL_WUPS_ | PM_CTL_PHY_RST_);
-+	val |= PM_CTL_SUS_MODE_2;
-+
-+	ret = smsc95xx_write_reg(dev, PM_CTRL, val);
-+	check_warn_return(ret, "Error writing PM_CTRL");
-+
-+	return 0;
-+}
-+
- static void smsc95xx_rx_csum_offload(struct sk_buff *skb)
- {
- 	skb->csum = *(u16 *)(skb_tail_pointer(skb) - 2);
-@@ -1280,7 +1306,7 @@ static struct usb_driver smsc95xx_driver = {
- 	.name		= "smsc95xx",
- 	.id_table	= products,
+@@ -1282,6 +1282,7 @@ static struct usb_driver smsc95xx_driver = {
  	.probe		= usbnet_probe,
--	.suspend	= usbnet_suspend,
-+	.suspend	= smsc95xx_suspend,
+ 	.suspend	= usbnet_suspend,
  	.resume		= usbnet_resume,
- 	.reset_resume	= usbnet_resume,
++	.reset_resume	= usbnet_resume,
  	.disconnect	= usbnet_disconnect,
-diff --git a/drivers/net/usb/smsc95xx.h b/drivers/net/usb/smsc95xx.h
-index a275b62..89ad925 100644
---- a/drivers/net/usb/smsc95xx.h
-+++ b/drivers/net/usb/smsc95xx.h
-@@ -84,12 +84,16 @@
- #define HW_CFG_BCE_			(0x00000002)
- #define HW_CFG_SRST_			(0x00000001)
- 
-+#define RX_FIFO_INF			(0x18)
-+
- #define PM_CTRL				(0x20)
-+#define PM_CTL_RES_CLR_WKP_STS		(0x00000200)
- #define PM_CTL_DEV_RDY_			(0x00000080)
- #define PM_CTL_SUS_MODE_		(0x00000060)
- #define PM_CTL_SUS_MODE_0		(0x00000000)
- #define PM_CTL_SUS_MODE_1		(0x00000020)
--#define PM_CTL_SUS_MODE_2		(0x00000060)
-+#define PM_CTL_SUS_MODE_2		(0x00000040)
-+#define PM_CTL_SUS_MODE_3		(0x00000060)
- #define PM_CTL_PHY_RST_			(0x00000010)
- #define PM_CTL_WOL_EN_			(0x00000008)
- #define PM_CTL_ED_EN_			(0x00000004)
+ 	.disable_hub_initiated_lpm = 1,
+ };
 -- 
 1.7.9.5
