@@ -1,151 +1,215 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 3/7 net-next v2] tg3: Separate coalescing setup for rx
- and tx
-Date: Fri, 28 Sep 2012 10:12:39 -0700
-Message-ID: <1348852363-8582-3-git-send-email-mchan@broadcom.com>
+Subject: [PATCH 2/7 net-next v2] tg3: Allow number of rx and tx rings to
+ be set independently.
+Date: Fri, 28 Sep 2012 10:12:38 -0700
+Message-ID: <1348852363-8582-2-git-send-email-mchan@broadcom.com>
 References: <1348852363-8582-1-git-send-email-mchan@broadcom.com>
- <1348852363-8582-2-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3442 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3448 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758343Ab2I2Blp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1758260Ab2I2Blp (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 28 Sep 2012 21:41:45 -0400
-In-Reply-To: <1348852363-8582-2-git-send-email-mchan@broadcom.com>
+In-Reply-To: <1348852363-8582-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-since the number of rings can be different.
+irq_cnt is no longer necessarily equal to the number rx or tx rings.
 
 Reviewed-by: Nithin Nayak Sujir <nsujir@broadcom.com>
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |   74 +++++++++++++++++++++--------------
- 1 files changed, 45 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |   74 +++++++++++++++++++++++------------
+ drivers/net/ethernet/broadcom/tg3.h |    5 ++-
+ 2 files changed, 53 insertions(+), 26 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 330356b..ddf260c 100644
+index 93b8120..330356b 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -8331,9 +8331,10 @@ static void tg3_set_bdinfo(struct tg3 *tp, u32 bdinfo_addr,
- 			      nic_addr);
+@@ -6278,7 +6278,7 @@ static int tg3_poll_work(struct tg3_napi *tnapi, int work_done, int budget)
+ 		u32 jmb_prod_idx = dpr->rx_jmb_prod_idx;
+ 
+ 		tp->rx_refill = false;
+-		for (i = 1; i < tp->irq_cnt; i++)
++		for (i = 1; i <= tp->rxq_cnt; i++)
+ 			err |= tg3_rx_prodring_xfer(tp, dpr,
+ 						    &tp->napi[i].prodring);
+ 
+@@ -8654,13 +8654,12 @@ static void __tg3_set_rx_mode(struct net_device *dev)
+ 	}
  }
  
--static void __tg3_set_coalesce(struct tg3 *tp, struct ethtool_coalesce *ec)
-+
-+static void tg3_coal_tx_init(struct tg3 *tp, struct ethtool_coalesce *ec)
+-static void tg3_rss_init_dflt_indir_tbl(struct tg3 *tp)
++static void tg3_rss_init_dflt_indir_tbl(struct tg3 *tp, u32 qcnt)
  {
--	int i;
-+	int i = 0;
+ 	int i;
  
- 	if (!tg3_flag(tp, ENABLE_TSS)) {
- 		tw32(HOSTCC_TXCOL_TICKS, ec->tx_coalesce_usecs);
-@@ -8343,31 +8344,43 @@ static void __tg3_set_coalesce(struct tg3 *tp, struct ethtool_coalesce *ec)
- 		tw32(HOSTCC_TXCOL_TICKS, 0);
- 		tw32(HOSTCC_TXMAX_FRAMES, 0);
- 		tw32(HOSTCC_TXCOAL_MAXF_INT, 0);
-+
-+		for (; i < tp->txq_cnt; i++) {
-+			u32 reg;
-+
-+			reg = HOSTCC_TXCOL_TICKS_VEC1 + i * 0x18;
-+			tw32(reg, ec->tx_coalesce_usecs);
-+			reg = HOSTCC_TXMAX_FRAMES_VEC1 + i * 0x18;
-+			tw32(reg, ec->tx_max_coalesced_frames);
-+			reg = HOSTCC_TXCOAL_MAXF_INT_VEC1 + i * 0x18;
-+			tw32(reg, ec->tx_max_coalesced_frames_irq);
-+		}
-+	}
-+
-+	for (; i < tp->irq_max - 1; i++) {
-+		tw32(HOSTCC_TXCOL_TICKS_VEC1 + i * 0x18, 0);
-+		tw32(HOSTCC_TXMAX_FRAMES_VEC1 + i * 0x18, 0);
-+		tw32(HOSTCC_TXCOAL_MAXF_INT_VEC1 + i * 0x18, 0);
- 	}
-+}
-+
-+static void tg3_coal_rx_init(struct tg3 *tp, struct ethtool_coalesce *ec)
-+{
-+	int i = 0;
-+	u32 limit = tp->rxq_cnt;
- 
- 	if (!tg3_flag(tp, ENABLE_RSS)) {
- 		tw32(HOSTCC_RXCOL_TICKS, ec->rx_coalesce_usecs);
- 		tw32(HOSTCC_RXMAX_FRAMES, ec->rx_max_coalesced_frames);
- 		tw32(HOSTCC_RXCOAL_MAXF_INT, ec->rx_max_coalesced_frames_irq);
-+		limit--;
- 	} else {
- 		tw32(HOSTCC_RXCOL_TICKS, 0);
- 		tw32(HOSTCC_RXMAX_FRAMES, 0);
- 		tw32(HOSTCC_RXCOAL_MAXF_INT, 0);
- 	}
- 
--	if (!tg3_flag(tp, 5705_PLUS)) {
--		u32 val = ec->stats_block_coalesce_usecs;
--
--		tw32(HOSTCC_RXCOAL_TICK_INT, ec->rx_coalesce_usecs_irq);
--		tw32(HOSTCC_TXCOAL_TICK_INT, ec->tx_coalesce_usecs_irq);
--
--		if (!netif_carrier_ok(tp->dev))
--			val = 0;
--
--		tw32(HOSTCC_STAT_COAL_TICKS, val);
--	}
--
--	for (i = 0; i < tp->irq_cnt - 1; i++) {
-+	for (; i < limit; i++) {
- 		u32 reg;
- 
- 		reg = HOSTCC_RXCOL_TICKS_VEC1 + i * 0x18;
-@@ -8376,27 +8389,30 @@ static void __tg3_set_coalesce(struct tg3 *tp, struct ethtool_coalesce *ec)
- 		tw32(reg, ec->rx_max_coalesced_frames);
- 		reg = HOSTCC_RXCOAL_MAXF_INT_VEC1 + i * 0x18;
- 		tw32(reg, ec->rx_max_coalesced_frames_irq);
--
--		if (tg3_flag(tp, ENABLE_TSS)) {
--			reg = HOSTCC_TXCOL_TICKS_VEC1 + i * 0x18;
--			tw32(reg, ec->tx_coalesce_usecs);
--			reg = HOSTCC_TXMAX_FRAMES_VEC1 + i * 0x18;
--			tw32(reg, ec->tx_max_coalesced_frames);
--			reg = HOSTCC_TXCOAL_MAXF_INT_VEC1 + i * 0x18;
--			tw32(reg, ec->tx_max_coalesced_frames_irq);
--		}
- 	}
- 
- 	for (; i < tp->irq_max - 1; i++) {
- 		tw32(HOSTCC_RXCOL_TICKS_VEC1 + i * 0x18, 0);
- 		tw32(HOSTCC_RXMAX_FRAMES_VEC1 + i * 0x18, 0);
- 		tw32(HOSTCC_RXCOAL_MAXF_INT_VEC1 + i * 0x18, 0);
-+	}
-+}
- 
--		if (tg3_flag(tp, ENABLE_TSS)) {
--			tw32(HOSTCC_TXCOL_TICKS_VEC1 + i * 0x18, 0);
--			tw32(HOSTCC_TXMAX_FRAMES_VEC1 + i * 0x18, 0);
--			tw32(HOSTCC_TXCOAL_MAXF_INT_VEC1 + i * 0x18, 0);
--		}
-+static void __tg3_set_coalesce(struct tg3 *tp, struct ethtool_coalesce *ec)
-+{
-+	tg3_coal_tx_init(tp, ec);
-+	tg3_coal_rx_init(tp, ec);
-+
-+	if (!tg3_flag(tp, 5705_PLUS)) {
-+		u32 val = ec->stats_block_coalesce_usecs;
-+
-+		tw32(HOSTCC_RXCOAL_TICK_INT, ec->rx_coalesce_usecs_irq);
-+		tw32(HOSTCC_TXCOAL_TICK_INT, ec->tx_coalesce_usecs_irq);
-+
-+		if (!netif_carrier_ok(tp->dev))
-+			val = 0;
-+
-+		tw32(HOSTCC_STAT_COAL_TICKS, val);
- 	}
+ 	for (i = 0; i < TG3_RSS_INDIR_TBL_SIZE; i++)
+-		tp->rss_ind_tbl[i] =
+-			ethtool_rxfh_indir_default(i, tp->irq_cnt - 1);
++		tp->rss_ind_tbl[i] = ethtool_rxfh_indir_default(i, qcnt);
  }
+ 
+ static void tg3_rss_check_indir_tbl(struct tg3 *tp)
+@@ -8682,7 +8681,7 @@ static void tg3_rss_check_indir_tbl(struct tg3 *tp)
+ 	}
+ 
+ 	if (i != TG3_RSS_INDIR_TBL_SIZE)
+-		tg3_rss_init_dflt_indir_tbl(tp);
++		tg3_rss_init_dflt_indir_tbl(tp, tp->rxq_cnt);
+ }
+ 
+ static void tg3_rss_write_indir_tbl(struct tg3 *tp)
+@@ -10203,22 +10202,36 @@ static int tg3_request_firmware(struct tg3 *tp)
+ 	return 0;
+ }
+ 
+-static bool tg3_enable_msix(struct tg3 *tp)
++static u32 tg3_irq_count(struct tg3 *tp)
+ {
+-	int i, rc;
+-	struct msix_entry msix_ent[tp->irq_max];
++	u32 irq_cnt = max(tp->rxq_cnt, tp->txq_cnt);
+ 
+-	tp->irq_cnt = netif_get_num_default_rss_queues();
+-	if (tp->irq_cnt > 1) {
++	if (irq_cnt > 1) {
+ 		/* We want as many rx rings enabled as there are cpus.
+ 		 * In multiqueue MSI-X mode, the first MSI-X vector
+ 		 * only deals with link interrupts, etc, so we add
+ 		 * one to the number of vectors we are requesting.
+ 		 */
+-		tp->irq_cnt = min_t(unsigned, tp->irq_cnt + 1, tp->irq_max);
+-		tp->rxq_cnt = tp->irq_cnt - 1;
++		irq_cnt = min_t(unsigned, irq_cnt + 1, tp->irq_max);
+ 	}
+ 
++	return irq_cnt;
++}
++
++static bool tg3_enable_msix(struct tg3 *tp)
++{
++	int i, rc;
++	struct msix_entry msix_ent[tp->irq_max];
++
++	tp->rxq_cnt = netif_get_num_default_rss_queues();
++	if (tp->rxq_cnt > tp->rxq_max)
++		tp->rxq_cnt = tp->rxq_max;
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720)
++		tp->txq_cnt = min(tp->rxq_cnt, tp->txq_max);
++
++	tp->irq_cnt = tg3_irq_count(tp);
++
+ 	for (i = 0; i < tp->irq_max; i++) {
+ 		msix_ent[i].entry  = i;
+ 		msix_ent[i].vector = 0;
+@@ -10234,6 +10247,8 @@ static bool tg3_enable_msix(struct tg3 *tp)
+ 			      tp->irq_cnt, rc);
+ 		tp->irq_cnt = rc;
+ 		tp->rxq_cnt = max(rc - 1, 1);
++		if (tp->txq_cnt)
++			tp->txq_cnt = min(tp->rxq_cnt, tp->txq_max);
+ 	}
+ 
+ 	for (i = 0; i < tp->irq_max; i++)
+@@ -10244,16 +10259,15 @@ static bool tg3_enable_msix(struct tg3 *tp)
+ 		return false;
+ 	}
+ 
+-	if (tp->irq_cnt > 1) {
+-		tg3_flag_set(tp, ENABLE_RSS);
++	if (tp->irq_cnt == 1)
++		return true;
+ 
+-		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
+-		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720) {
+-			tg3_flag_set(tp, ENABLE_TSS);
+-			tp->txq_cnt = tp->rxq_cnt;
+-			netif_set_real_num_tx_queues(tp->dev, tp->txq_cnt);
+-		}
+-	}
++	tg3_flag_set(tp, ENABLE_RSS);
++
++	if (tp->txq_cnt > 1)
++		tg3_flag_set(tp, ENABLE_TSS);
++
++	netif_set_real_num_tx_queues(tp->dev, tp->txq_cnt);
+ 
+ 	return true;
+ }
+@@ -11275,11 +11289,11 @@ static int tg3_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
+ 	switch (info->cmd) {
+ 	case ETHTOOL_GRXRINGS:
+ 		if (netif_running(tp->dev))
+-			info->data = tp->irq_cnt;
++			info->data = tp->rxq_cnt;
+ 		else {
+ 			info->data = num_online_cpus();
+-			if (info->data > TG3_IRQ_MAX_VECS_RSS)
+-				info->data = TG3_IRQ_MAX_VECS_RSS;
++			if (info->data > TG3_RSS_MAX_NUM_QS)
++				info->data = TG3_RSS_MAX_NUM_QS;
+ 		}
+ 
+ 		/* The first interrupt vector only
+@@ -14600,10 +14614,20 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 		if (tg3_flag(tp, 57765_PLUS)) {
+ 			tg3_flag_set(tp, SUPPORT_MSIX);
+ 			tp->irq_max = TG3_IRQ_MAX_VECS;
+-			tg3_rss_init_dflt_indir_tbl(tp);
+ 		}
+ 	}
+ 
++	tp->txq_max = 1;
++	tp->rxq_max = 1;
++	if (tp->irq_max > 1) {
++		tp->rxq_max = TG3_RSS_MAX_NUM_QS;
++		tg3_rss_init_dflt_indir_tbl(tp, TG3_RSS_MAX_NUM_QS);
++
++		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
++		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720)
++			tp->txq_max = tp->irq_max - 1;
++	}
++
+ 	if (tg3_flag(tp, 5755_PLUS) ||
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906)
+ 		tg3_flag_set(tp, SHORT_DMA_BUG);
+diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
+index 5838dea..2abe94c 100644
+--- a/drivers/net/ethernet/broadcom/tg3.h
++++ b/drivers/net/ethernet/broadcom/tg3.h
+@@ -2860,7 +2860,8 @@ struct tg3_rx_prodring_set {
+ 	dma_addr_t			rx_jmb_mapping;
+ };
+ 
+-#define TG3_IRQ_MAX_VECS_RSS		5
++#define TG3_RSS_MAX_NUM_QS		4
++#define TG3_IRQ_MAX_VECS_RSS		(TG3_RSS_MAX_NUM_QS + 1)
+ #define TG3_IRQ_MAX_VECS		TG3_IRQ_MAX_VECS_RSS
+ 
+ struct tg3_napi {
+@@ -3038,6 +3039,7 @@ struct tg3 {
+ 							    u32);
+ 	u32				dma_limit;
+ 	u32				txq_cnt;
++	u32				txq_max;
+ 
+ 	/* begin "rx thread" cacheline section */
+ 	struct tg3_napi			napi[TG3_IRQ_MAX_VECS];
+@@ -3053,6 +3055,7 @@ struct tg3 {
+ 	u32				rx_offset;
+ 	u32				rx_pkt_map_sz;
+ 	u32				rxq_cnt;
++	u32				rxq_max;
+ 	bool				rx_refill;
+ 
  
 -- 
 1.7.1
