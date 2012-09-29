@@ -1,43 +1,57 @@
-From: Weiping Pan <wpan@redhat.com>
-Subject: [PATCH net] use skb_end_offset() in skb_try_coalesce()
-Date: Sat, 29 Sep 2012 14:15:30 +0800
-Message-ID: <6f3540c213735f009409d1cc7d3fe0dea91469d9.1348899174.git.wpan@redhat.com>
-Cc: Weiping Pan <wpan@redhat.com>
-To: netdev@vger.kernel.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Possible bug with r8169 driver
+Date: Sat, 29 Sep 2012 09:20:28 +0200
+Message-ID: <20120929072028.GA3730@electric-eye.fr.zoreil.com>
+References: <2197741.c8FeV4Xbis@bureau> <20120927222147.GA29047@electric-eye.fr.zoreil.com> <1478421.GOy9qdQlkG@bureau>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hayeswang <hayeswang@realtek.com>, netdev@vger.kernel.org
+To: Nolwenn <donolwenn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2711 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752721Ab2I2GOF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Sep 2012 02:14:05 -0400
-Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q8T6E4Kh012031
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Sat, 29 Sep 2012 02:14:05 -0400
+Received: from violet.fr.zoreil.com ([92.243.8.30]:49790 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755175Ab2I2Hjg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Sep 2012 03:39:36 -0400
+Content-Disposition: inline
+In-Reply-To: <1478421.GOy9qdQlkG@bureau>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit ec47ea824774(skb: Add inline helper for getting the skb end offset from
-head) introduces this helper function, skb_end_offset(),
-we should make use of it.
+Nolwenn <donolwenn@gmail.com> :
+> Le vendredi 28 septembre 2012 00:21:47 Francois Romieu a =C3=A9crit :
+[...]
+> > Can you send an 'ip -s link' before any ipv6 traffic flows, then
+> > after ?
+>=20
+> Before ipv6 traffic
+>=20
+> % ip -s link
 
-Signed-off-by: Weiping Pan <wpan@redhat.com>
----
- net/core/skbuff.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+/me plugs brain and realizes that the driver does not update the device
+stats multicast field.
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index e33ebae..86f040a 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3488,8 +3488,7 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
- 		    skb_shinfo(from)->nr_frags > MAX_SKB_FRAGS)
- 			return false;
- 
--		delta = from->truesize -
--			SKB_TRUESIZE(skb_end_pointer(from) - from->head);
-+		delta = from->truesize - SKB_TRUESIZE(skb_end_offset(from));
- 	}
- 
- 	WARN_ON_ONCE(delta < len);
--- 
-1.7.4.4
+The multicast stats will appear in the output of 'ethtool -S eth0'.
+
+Can you send two complete binary tcpdump captures (w/o -p option) in th=
+e
+same contexts ?
+
+Don't bother obfuscating the ipv6 address if it equals the one appearin=
+g
+in the mail headers.
+
+[RTL8168f/8111f]
+> > Hayes, is there by any luck something different for the 8168f regar=
+ding
+> > the layout of the multicast filtering registers ?
+>=20
+> I don't have sufficient skills in networks to understand what do you =
+mean,=20
+> sorry. Any command line, files comparing to get the information ?
+
+The documentation is scarce to say the least. Hayes can tell if some
+register layout change or chipset specifics has gone unnoticed.
+
+--=20
+Ueimor
