@@ -1,58 +1,42 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: [wireless-next:for-davem 115/299]
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:419 t4_memory_rw() warn: 'data'
- puts 2048 bytes on stack
-Date: Sat, 29 Sep 2012 13:50:30 +0800
-Message-ID: <20120929055030.GB24004@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	Jay Hernandez <jay@chelsio.com>
-To: Vipul Pandya <vipul@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:45454 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753948Ab2I2FvA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Sep 2012 01:51:00 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Quinlan Pfiffer <qpfiffer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/1] Adds support for Lenovo 10/100 USB dongle.
+Date: Fri, 28 Sep 2012 22:58:44 -0700
+Message-ID: <1348898324-6550-1-git-send-email-qpfiffer@gmail.com>
+Cc: Linux USB <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Networking Drivers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Quinlan Pfiffer <qpfiffer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Vipul,
+This dongle ships with the X1 Carbon, and has an AX88772B
+usb to ethernet chip in it.
 
-FYI, there are new smatch warnings show up in
-
-tree:   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next.git for-davem
-head:   c487606f835a93a725bac1aefd536be98f22474d
-commit: 5afc8b84eb7b29e4646d6e8ca7e6d7196031d6f7 [115/299] cxgb4: Add functions to read memory via PCIE memory window
-
-+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:419 t4_memory_rw() warn: 'data' puts 2048 bytes on stack
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:499 get_vpd_params() warn: 'vpd' puts 512 bytes on stack
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:518 get_vpd_params() info: why not propagate 'i' from pci_vpd_find_tag() instead of -22?
-
-vim +419 drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-
-5afc8b84 (Vipul Pandya 2012-09-26  408) 	/*
-5afc8b84 (Vipul Pandya 2012-09-26  409) 	 * The underlaying EDC/MC read routines read MEMWIN0_APERTURE bytes
-5afc8b84 (Vipul Pandya 2012-09-26  410) 	 * at a time so we need to round down the start and round up the end.
-5afc8b84 (Vipul Pandya 2012-09-26  411) 	 * We'll start copying out of the first line at (addr - start) a word
-5afc8b84 (Vipul Pandya 2012-09-26  412) 	 * at a time.
-5afc8b84 (Vipul Pandya 2012-09-26  413) 	 */
-5afc8b84 (Vipul Pandya 2012-09-26  414) 	start = addr & ~(MEMWIN0_APERTURE-1);
-5afc8b84 (Vipul Pandya 2012-09-26  415) 	end = (addr + len + MEMWIN0_APERTURE-1) & ~(MEMWIN0_APERTURE-1);
-5afc8b84 (Vipul Pandya 2012-09-26  416) 	offset = (addr - start)/sizeof(__be32);
-5afc8b84 (Vipul Pandya 2012-09-26  417) 
-5afc8b84 (Vipul Pandya 2012-09-26  418) 	for (pos = start; pos < end; pos += MEMWIN0_APERTURE, offset = 0) {
-5afc8b84 (Vipul Pandya 2012-09-26 @419) 		__be32 data[MEMWIN0_APERTURE/sizeof(__be32)];
-5afc8b84 (Vipul Pandya 2012-09-26  420) 
-5afc8b84 (Vipul Pandya 2012-09-26  421) 		/*
-5afc8b84 (Vipul Pandya 2012-09-26  422) 		 * If we're writing, copy the data from the caller's memory
-5afc8b84 (Vipul Pandya 2012-09-26  423) 		 * buffer
-5afc8b84 (Vipul Pandya 2012-09-26  424) 		 */
-5afc8b84 (Vipul Pandya 2012-09-26  425) 		if (!dir) {
-5afc8b84 (Vipul Pandya 2012-09-26  426) 			/*
-5afc8b84 (Vipul Pandya 2012-09-26  427) 			 * If we're doing a partial write, then we need to do
-
+Signed-off-by: Quinlan Pfiffer <qpfiffer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
-0-DAY kernel build testing backend         Open Source Technology Centre
-Fengguang Wu, Yuanhan Liu                              Intel Corporation
+ drivers/net/usb/asix_devices.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
+index 32e31c5..fc20e53 100644
+--- a/drivers/net/usb/asix_devices.c
++++ b/drivers/net/usb/asix_devices.c
+@@ -930,6 +930,10 @@ static const struct usb_device_id	products [] = {
+ 	USB_DEVICE (0x04f1, 0x3008),
+ 	.driver_info = (unsigned long) &ax8817x_info,
+ }, {
++	// Lenovo U2L100P 10/100
++	USB_DEVICE (0x17ef, 0x7203),
++	.driver_info = (unsigned long) &ax88772_info,
++}, {
+ 	// ASIX AX88772B 10/100
+ 	USB_DEVICE (0x0b95, 0x772b),
+ 	.driver_info = (unsigned long) &ax88772_info,
+-- 
+1.7.12.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
