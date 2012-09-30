@@ -1,32 +1,41 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next 2012-09-28
-Date: Sun, 30 Sep 2012 02:30:52 -0400 (EDT)
-Message-ID: <20120930.023052.1687282076693887441.davem@davemloft.net>
-References: <20120928173425.GA15886@tuxdriver.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: Re: [PATCH net-next 0/2] bnx2x: net-next FW upgrade
+Date: Sun, 30 Sep 2012 08:16:22 +0200
+Message-ID: <5067E3B6.8050703@broadcom.com>
+References: <1348757936-10262-1-git-send-email-yuvalmin@broadcom.com>
+ <20120930.022836.251638342830809918.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120928173425.GA15886-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-7
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, eilong@broadcom.com, ariele@broadcom.com
+To: "David Miller" <davem@davemloft.net>,
+	"Michael Chan" <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:4989 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751616Ab2I3GoY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Sep 2012 02:44:24 -0400
+In-Reply-To: <20120930.022836.251638342830809918.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 28 Sep 2012 13:34:26 -0400
+> These patches do not build.
+>=20
+> drivers/net/ethernet/broadcom/cnic.c: In function =A1cnic_init_bnx2x_=
+tx_ring=A2:
+> drivers/net/ethernet/broadcom/cnic.c:4904:4: error: =A1ETH_TX_START_B=
+D_ETH_ADDR_TYPE_SHIFT=A2 undeclared (first use in this function)
+> drivers/net/ethernet/broadcom/cnic.c:4904:4: note: each undeclared id=
+entifier is reported only once for each function it appears in
+> make[4]: *** [drivers/net/ethernet/broadcom/cnic.o] Error 1
+> make[4]: *** Waiting for unfinished jobs....
+> make[3]: *** [drivers/net/ethernet/broadcom] Error 2
+> make[2]: *** [drivers/net/ethernet] Error 2
+> make[1]: *** [drivers/net] Error 2
+> make: *** [drivers] Error 2
 
-> Here is another batch of updates intended for 3.7...
-> 
-> Highlights include an hci_connect re-write in Bluetooth, HCI/LLC
-> layer separation in NFC, removal of the raw pn544 NFC driver, NFC LLCP
-> raw sockets support, improved IBSS auth frame handling in mac80211,
-> full-MAC AP mode notification support in mac80211, a lot of attention
-> paid to brcmfmac, and the usual level of updates to iwlwifi, ath9k,
-> mwifiex, and rt2x00, and various other updates.
+Sorry about that - the HSI has changed which affects cnic as well as bn=
+x2x.
 
-Pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+A revised patch series which will advance both into the new FW will be =
+submitted soon.
