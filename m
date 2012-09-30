@@ -1,380 +1,1375 @@
-From: Chris Clayton <chris2553@googlemail.com>
-Subject: Re: Possible networking regression in 3.6.0
-Date: Sun, 30 Sep 2012 16:26:04 +0100
-Message-ID: <5068648C.7050005@googlemail.com>
-References: <5057455A.7050108@googlemail.com>  <50588371.40103@googlemail.com>  <505885DC.1060006@googlemail.com>  <1347979239.26523.267.camel@edumazet-glaptop>  <5059E40C.4070607@googlemail.com> <505D5A18.2080507@googlemail.com>  <50643DA1.7070306@googlemail.com>  <1348748042.5093.1168.camel@edumazet-glaptop>  <50649567.2010704@googlemail.com>  <1348779826.5093.1750.camel@edumazet-glaptop>  <1348780624.5093.1767.camel@edumazet-glaptop>  <50656C4A.8090302@googlemail.com> <1348831592.5093.2251.camel@edumazet-glaptop>
+From: Paolo Valente <paolo.valente@unimore.it>
+Subject: [PATCH RFC] pkt_sched: QFQ Plus: fair-queueing service at DRR cost
+Date: Sun, 30 Sep 2012 19:40:49 +0200
+Message-ID: <20120930174049.GA13793@paolo-ThinkPad-W520>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	gpiez@web.de
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:48669 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751254Ab2I3P0F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Sep 2012 11:26:05 -0400
-Received: by eekb15 with SMTP id b15so2040798eek.19
-        for <netdev@vger.kernel.org>; Sun, 30 Sep 2012 08:26:02 -0700 (PDT)
-In-Reply-To: <1348831592.5093.2251.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rizzo@iet.unipi.it, fchecconi@gmail.com, paolo.valente@unimore.it
+To: shemminger@vyatta.com, jhs@mojatatu.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+Hi,
+this patch turns QFQ into QFQ+, a faster variant of QFQ that groups
+classes into aggregates, and uses the original QFQ scheduling
+algorithm to schedule aggregates instead of single classes. An
+aggregate is made of at most M classes, all with the same weight and
+maximum packet size.  M is equal to the minimum between tx_queue_len+1
+and 8 (value chosen to get a good trade-off between execution time and
+service guarantees). QFQ+ associates each aggregate with a budget
+equal to the maximum packet size for the classes in the aggregate,
+multiplied by the number of classes of the aggregate. Once selected an
+aggregate for service, QFQ+ dequeues only the packets of its classes,
+until the aggregate finishes its budget. Finally, within an aggregate,
+classes are scheduled with DRR. In my tests, described below, the
+execution time of QFQ+ with M=8 was from 16% to 31% lower than that of
+QFQ, and close to that of DRR.
 
-On 09/28/12 12:26, Eric Dumazet wrote:
-> On Fri, 2012-09-28 at 10:22 +0100, Chris Clayton wrote:
->
->> No, the WinXP guest is configured with a fixed IP address
->> (192.168.200.1). Subnet mask is 255.255.255.0, and default gateway is
->> 192.168.200.254. DNS is 192.168.0.1.
->>
->
-> I have no problem with such a setup, with a linux guest.
->
-> Could you send again a tcpdump, but including link-level header ?
-> (option -e)
->
-> Ideally, you could send two traces, one taken on tap0, and another taken
-> on eth0.
->
-Below are two more traces that I think may well be more useful than 
-those I sent on Friday. They are taken with tcpdump directly (after some 
-reading up on that application) rather than tcpdump translations of pcap 
-files captured with netsniff-ng. Also, they are taken concurrently, so 
-they show the traffic on tap0 and eth0 at the time of an unsuccessful 
-attempt to ping the router from the WinXP KVM client. The command was: 
-sudo tcpdump -nev -i eth0 -Z chris >eth0.trace
+QFQ+ does not use packet lengths for computing aggregate timestamps,
+but budgets. Hence it does not need to modify any timestamp if the
+head packet of a class changes. As a consequence, differently from
+QFQ, which uses head-packet lengths to compute class timestamps, QFQ+
+does not need further modifications to correctly schedule also
+non-leaf classes and classes with non-FIFO qdiscs. Finally, QFQ+ is
+more robust than QFQ against corruption of the data structures
+implementing the bucket lists. A detailed description of QFQ+ can be
+found in [1].
 
-tap0:
-16:05:14.909057 52:54:0c:3b:17:39 > 62:4e:ff:6b:0d:ce, ethertype IPv4 
-(0x0800), length 64: (tos 0x0, ttl 128, id 286, offset 0, flags [none], 
-proto UDP (17), length 50)
-     192.168.200.1.49391 > 192.168.0.1.domain: 33727+ A? wpad. (22)
-16:05:21.909026 52:54:0c:3b:17:39 > Broadcast, ethertype IPv4 (0x0800), 
-length 92: (tos 0x0, ttl 128, id 287, offset 0, flags [none], proto UDP 
-(17), length 78)
-     192.168.200.1.netbios-ns > 192.168.200.255.netbios-ns: NBT UDP 
-PACKET(137): QUERY; REQUEST; BROADCAST
-16:05:21.909123 62:4e:ff:6b:0d:ce > Broadcast, ethertype IPv4 (0x0800), 
-length 264: (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto UDP 
-(17), length 250)
-     192.168.200.254.netbios-dgm > 192.168.200.255.netbios-dgm: NBT UDP 
-PACKET(138)
-16:05:21.909141 62:4e:ff:6b:0d:ce > Broadcast, ethertype IPv4 (0x0800), 
-length 249: (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto UDP 
-(17), length 235)
-     192.168.200.254.netbios-dgm > 192.168.200.255.netbios-dgm: NBT UDP 
-PACKET(138)
-16:05:22.261009 52:54:0c:3b:17:39 > 62:4e:ff:6b:0d:ce, ethertype IPv4 
-(0x0800), length 74: (tos 0x0, ttl 128, id 288, offset 0, flags [none], 
-proto ICMP (1), length 60)
-     192.168.200.1 > 192.168.0.1: ICMP echo request, id 512, seq 3840, 
-length 40
-16:05:22.704716 52:54:0c:3b:17:39 > Broadcast, ethertype IPv4 (0x0800), 
-length 92: (tos 0x0, ttl 128, id 289, offset 0, flags [none], proto UDP 
-(17), length 78)
-     192.168.200.1.netbios-ns > 192.168.200.255.netbios-ns: NBT UDP 
-PACKET(137): QUERY; REQUEST; BROADCAST
-16:05:23.457224 52:54:0c:3b:17:39 > Broadcast, ethertype IPv4 (0x0800), 
-length 92: (tos 0x0, ttl 128, id 290, offset 0, flags [none], proto UDP 
-(17), length 78)
-     192.168.200.1.netbios-ns > 192.168.200.255.netbios-ns: NBT UDP 
-PACKET(137): QUERY; REQUEST; BROADCAST
-16:05:24.208015 52:54:0c:3b:17:39 > 62:4e:ff:6b:0d:ce, ethertype IPv4 
-(0x0800), length 82: (tos 0x0, ttl 128, id 291, offset 0, flags [none], 
-proto UDP (17), length 68)
-     192.168.200.1.56551 > 192.168.0.1.domain: 63293+ A? 
-download.microsoft.com. (40)
-16:05:25.204731 52:54:0c:3b:17:39 > 62:4e:ff:6b:0d:ce, ethertype IPv4 
-(0x0800), length 82: (tos 0x0, ttl 128, id 292, offset 0, flags [none], 
-proto UDP (17), length 68)
-     192.168.200.1.56551 > 192.168.0.1.domain: 63293+ A? 
-download.microsoft.com. (40)
-16:05:26.204743 52:54:0c:3b:17:39 > 62:4e:ff:6b:0d:ce, ethertype IPv4 
-(0x0800), length 82: (tos 0x0, ttl 128, id 293, offset 0, flags [none], 
-proto UDP (17), length 68)
-     192.168.200.1.56551 > 192.168.0.1.domain: 63293+ A? 
-download.microsoft.com. (40)
-16:05:27.580723 52:54:0c:3b:17:39 > 62:4e:ff:6b:0d:ce, ethertype IPv4 
-(0x0800), length 74: (tos 0x0, ttl 128, id 294, offset 0, flags [none], 
-proto ICMP (1), length 60)
-     192.168.200.1 > 192.168.0.1: ICMP echo request, id 512, seq 4096, 
-length 40
-16:05:28.204764 52:54:0c:3b:17:39 > 62:4e:ff:6b:0d:ce, ethertype IPv4 
-(0x0800), length 82: (tos 0x0, ttl 128, id 295, offset 0, flags [none], 
-proto UDP (17), length 68)
-     192.168.200.1.56551 > 192.168.0.1.domain: 63293+ A? 
-download.microsoft.com. (40)
-16:05:32.204731 52:54:0c:3b:17:39 > 62:4e:ff:6b:0d:ce, ethertype IPv4 
-(0x0800), length 82: (tos 0x0, ttl 128, id 296, offset 0, flags [none], 
-proto UDP (17), length 68)
-     192.168.200.1.56551 > 192.168.0.1.domain: 63293+ A? 
-download.microsoft.com. (40)
-16:05:33.080759 52:54:0c:3b:17:39 > 62:4e:ff:6b:0d:ce, ethertype IPv4 
-(0x0800), length 74: (tos 0x0, ttl 128, id 297, offset 0, flags [none], 
-proto ICMP (1), length 60)
-     192.168.200.1 > 192.168.0.1: ICMP echo request, id 512, seq 4352, 
-length 40
-16:05:38.582182 52:54:0c:3b:17:39 > 62:4e:ff:6b:0d:ce, ethertype IPv4 
-(0x0800), length 74: (tos 0x0, ttl 128, id 298, offset 0, flags [none], 
-proto ICMP (1), length 60)
-     192.168.200.1 > 192.168.0.1: ICMP echo request, id 512, seq 4608, 
-length 40
-16:05:39.218737 52:54:0c:3b:17:39 > 62:4e:ff:6b:0d:ce, ethertype IPv4 
-(0x0800), length 64: (tos 0x0, ttl 128, id 299, offset 0, flags [none], 
-proto UDP (17), length 50)
-     192.168.200.1.60955 > 192.168.0.1.domain: 26953+ A? wpad. (22)
-16:05:40.204735 52:54:0c:3b:17:39 > 62:4e:ff:6b:0d:ce, ethertype IPv4 
-(0x0800), length 64: (tos 0x0, ttl 128, id 300, offset 0, flags [none], 
-proto UDP (17), length 50)
-     192.168.200.1.60955 > 192.168.0.1.domain: 26953+ A? wpad. (22)
-16:05:41.204721 52:54:0c:3b:17:39 > 62:4e:ff:6b:0d:ce, ethertype IPv4 
-(0x0800), length 64: (tos 0x0, ttl 128, id 301, offset 0, flags [none], 
-proto UDP (17), length 50)
-     192.168.200.1.60955 > 192.168.0.1.domain: 26953+ A? wpad. (22)
-16:05:43.238517 52:54:0c:3b:17:39 > 62:4e:ff:6b:0d:ce, ethertype IPv4 
-(0x0800), length 64: (tos 0x0, ttl 128, id 302, offset 0, flags [none], 
-proto UDP (17), length 50)
-     192.168.200.1.60955 > 192.168.0.1.domain: 26953+ A? wpad. (22)
-16:05:47.236721 52:54:0c:3b:17:39 > 62:4e:ff:6b:0d:ce, ethertype IPv4 
-(0x0800), length 64: (tos 0x0, ttl 128, id 303, offset 0, flags [none], 
-proto UDP (17), length 50)
-     192.168.200.1.60955 > 192.168.0.1.domain: 26953+ A? wpad. (22)
+As for service guarantees, thanks to the way how M is computed, the
+service of QFQ+ is close to the one of QFQ. For example, as proved in
+[1], under QFQ+ every packet of a given class is guaranteed the same
+worst-case completion time as under QFQ, plus an additional delay
+equal to the transmission time, at the rate reserved to the class, of
+three maximum-size packet. See [1, Section 7.1] for a numerical
+comparison among the packet delays guaranteed by QFQ+, QFQ and DRR.
 
+I measured the execution time of QFQ+, DRR and QFQ using the testing
+environment [2]. In particular, for each scheduler I measured the
+average total execution time of a packet enqueue plus a packet
+dequeue.  For practical reasons, in this testing environment each
+enqueue&dequeue is also charged for the cost of generating and
+discarding an empty, fixed-size packet (using a free list). The
+following table reports the results with an i7-2760QM, against four
+different class sets. Time is measured in nanoseconds, while each set
+or subset of classes is denoted as <num_classes>-w<weight>, where
+<num_classes> and <weight> are, respectively, the number of classes
+and the weight of every class in the set/subset (for example, 250-w1
+stands for 250 classes with weight 1). For QFQ+, the table shows the
+results for the two extremes for M: 1 and 8 (see [1, Section 7.2] for
+results with other values of M and for more information).
 
-eth0:
+ -----------------------------------------------
+| Set of  |      QFQ+ (M)     |   DRR      QFQ  |
+| classes |    1          8   |                 |
+|-----------------------------------------------|     
+| 1k-w1   |   89         63   |    56       81  |
+|-----------------------------------------------|
+| 500-w1, |                   |                 |
+| 250-w2, |  102         71   |    87      103  |
+| 250-w4  |                   |                 |
+|-----------------------------------------------|
+| 32k-w1  |  267        225   |   173      257  |
+|-----------------------------------------------|
+| 16k-w1, |                   |                 |
+| 8k-w2,  |  253        187   |   252      257  |
+| 8k-w4   |                   |                 |
+ -----------------------------------------------
 
-16:05:22.261037 5c:9a:d8:5c:63:31 > 00:1f:33:80:09:44, ethertype IPv4 
-(0x0800), length 74: (tos 0x0, ttl 127, id 288, offset 0, flags [none], 
-proto ICMP (1), length 60)
-     192.168.0.40 > 192.168.0.1: ICMP echo request, id 512, seq 3840, 
-length 40
-16:05:22.264612 00:1f:33:80:09:44 > 5c:9a:d8:5c:63:31, ethertype IPv4 
-(0x0800), length 74: (tos 0x0, ttl 255, id 53593, offset 0, flags 
-[none], proto ICMP (1), length 60)
-     192.168.0.1 > 192.168.0.40: ICMP echo reply, id 512, seq 3840, 
-length 40
-16:05:24.208041 5c:9a:d8:5c:63:31 > 00:1f:33:80:09:44, ethertype IPv4 
-(0x0800), length 82: (tos 0x0, ttl 127, id 291, offset 0, flags [none], 
-proto UDP (17), length 68)
-     192.168.0.40.56551 > 192.168.0.1.domain: 63293+ A? 
-download.microsoft.com. (40)
-16:05:24.270825 00:1f:33:80:09:44 > 5c:9a:d8:5c:63:31, ethertype IPv4 
-(0x0800), length 426: (tos 0x0, ttl 64, id 0, offset 0, flags [DF], 
-proto UDP (17), length 412)
-     192.168.0.1.domain > 192.168.0.40.56551: 63293 7/8/0 
-download.microsoft.com. CNAME download.microsoft.com.nsatc.net., 
-download.microsoft.com.nsatc.net. CNAME main.dl.ms.akadns.net., 
-main.dl.ms.akadns.net. CNAME intl.dl.ms.akadns.net., 
-intl.dl.ms.akadns.net. CNAME dl.ms.georedirector.akadns.net., 
-dl.ms.georedirector.akadns.net. CNAME a767.ms.akamai.net., 
-a767.ms.akamai.net. A 90.223.216.161, a767.ms.akamai.net. A 
-90.223.216.153 (384)
-16:05:25.204745 5c:9a:d8:5c:63:31 > 00:1f:33:80:09:44, ethertype IPv4 
-(0x0800), length 82: (tos 0x0, ttl 127, id 292, offset 0, flags [none], 
-proto UDP (17), length 68)
-     192.168.0.40.56551 > 192.168.0.1.domain: 63293+ A? 
-download.microsoft.com. (40)
-16:05:25.266414 00:1f:33:80:09:44 > 5c:9a:d8:5c:63:31, ethertype IPv4 
-(0x0800), length 442: (tos 0x0, ttl 64, id 0, offset 0, flags [DF], 
-proto UDP (17), length 428)
-     192.168.0.1.domain > 192.168.0.40.56551: 63293 7/8/1 
-download.microsoft.com. CNAME download.microsoft.com.nsatc.net., 
-download.microsoft.com.nsatc.net. CNAME main.dl.ms.akadns.net., 
-main.dl.ms.akadns.net. CNAME intl.dl.ms.akadns.net., 
-intl.dl.ms.akadns.net. CNAME dl.ms.georedirector.akadns.net., 
-dl.ms.georedirector.akadns.net. CNAME a767.ms.akamai.net., 
-a767.ms.akamai.net. A 90.223.216.153, a767.ms.akamai.net. A 
-90.223.216.161 (400)
-16:05:26.204761 5c:9a:d8:5c:63:31 > 00:1f:33:80:09:44, ethertype IPv4 
-(0x0800), length 82: (tos 0x0, ttl 127, id 293, offset 0, flags [none], 
-proto UDP (17), length 68)
-     192.168.0.40.56551 > 192.168.0.1.domain: 63293+ A? 
-download.microsoft.com. (40)
-16:05:26.237788 00:1f:33:80:09:44 > 01:00:5e:00:00:01, ethertype IPv4 
-(0x0800), length 60: (tos 0x0, ttl 1, id 0, offset 0, flags [DF], proto 
-IGMP (2), length 28)
-     192.168.0.1 > 224.0.0.1: igmp query v2
-16:05:26.266706 00:1f:33:80:09:44 > 5c:9a:d8:5c:63:31, ethertype IPv4 
-(0x0800), length 458: (tos 0x0, ttl 64, id 0, offset 0, flags [DF], 
-proto UDP (17), length 444)
-     192.168.0.1.domain > 192.168.0.40.56551: 63293 7/8/2 
-download.microsoft.com. CNAME download.microsoft.com.nsatc.net., 
-download.microsoft.com.nsatc.net. CNAME main.dl.ms.akadns.net., 
-main.dl.ms.akadns.net. CNAME intl.dl.ms.akadns.net., 
-intl.dl.ms.akadns.net. CNAME dl.ms.georedirector.akadns.net., 
-dl.ms.georedirector.akadns.net. CNAME a767.ms.akamai.net., 
-a767.ms.akamai.net. A 90.223.216.161, a767.ms.akamai.net. A 
-90.223.216.153 (416)
-16:05:27.580742 5c:9a:d8:5c:63:31 > 00:1f:33:80:09:44, ethertype IPv4 
-(0x0800), length 74: (tos 0x0, ttl 127, id 294, offset 0, flags [none], 
-proto ICMP (1), length 60)
-     192.168.0.40 > 192.168.0.1: ICMP echo request, id 512, seq 4096, 
-length 40
-16:05:27.585193 00:1f:33:80:09:44 > 5c:9a:d8:5c:63:31, ethertype IPv4 
-(0x0800), length 74: (tos 0x0, ttl 255, id 53594, offset 0, flags 
-[none], proto ICMP (1), length 60)
-     192.168.0.1 > 192.168.0.40: ICMP echo reply, id 512, seq 4096, 
-length 40
-16:05:28.204783 5c:9a:d8:5c:63:31 > 00:1f:33:80:09:44, ethertype IPv4 
-(0x0800), length 82: (tos 0x0, ttl 127, id 295, offset 0, flags [none], 
-proto UDP (17), length 68)
-     192.168.0.40.56551 > 192.168.0.1.domain: 63293+ A? 
-download.microsoft.com. (40)
-16:05:28.267047 00:1f:33:80:09:44 > 5c:9a:d8:5c:63:31, ethertype IPv4 
-(0x0800), length 442: (tos 0x0, ttl 64, id 0, offset 0, flags [DF], 
-proto UDP (17), length 428)
-     192.168.0.1.domain > 192.168.0.40.56551: 63293 7/8/1 
-download.microsoft.com. CNAME download.microsoft.com.nsatc.net., 
-download.microsoft.com.nsatc.net. CNAME main.dl.ms.akadns.net., 
-main.dl.ms.akadns.net. CNAME intl.dl.ms.akadns.net., 
-intl.dl.ms.akadns.net. CNAME dl.ms.georedirector.akadns.net., 
-dl.ms.georedirector.akadns.net. CNAME a767.ms.akamai.net., 
-a767.ms.akamai.net. A 90.223.216.161, a767.ms.akamai.net. A 
-90.223.216.153 (400)
-16:05:29.267032 00:1f:33:80:09:44 > 5c:9a:d8:5c:63:31, ethertype ARP 
-(0x0806), length 60: Ethernet (len 6), IPv4 (len 4), Request who-has 
-192.168.0.40 tell 192.168.0.1, length 46
-16:05:29.267049 5c:9a:d8:5c:63:31 > 00:1f:33:80:09:44, ethertype ARP 
-(0x0806), length 42: Ethernet (len 6), IPv4 (len 4), Reply 192.168.0.40 
-is-at 5c:9a:d8:5c:63:31, length 28
-16:05:32.204753 5c:9a:d8:5c:63:31 > 00:1f:33:80:09:44, ethertype IPv4 
-(0x0800), length 82: (tos 0x0, ttl 127, id 296, offset 0, flags [none], 
-proto UDP (17), length 68)
-     192.168.0.40.56551 > 192.168.0.1.domain: 63293+ A? 
-download.microsoft.com. (40)
-16:05:32.267308 00:1f:33:80:09:44 > 5c:9a:d8:5c:63:31, ethertype IPv4 
-(0x0800), length 458: (tos 0x0, ttl 64, id 0, offset 0, flags [DF], 
-proto UDP (17), length 444)
-     192.168.0.1.domain > 192.168.0.40.56551: 63293 7/8/2 
-download.microsoft.com. CNAME download.microsoft.com.nsatc.net., 
-download.microsoft.com.nsatc.net. CNAME main.dl.ms.akadns.net., 
-main.dl.ms.akadns.net. CNAME intl.dl.ms.akadns.net., 
-intl.dl.ms.akadns.net. CNAME dl.ms.georedirector.akadns.net., 
-dl.ms.georedirector.akadns.net. CNAME a767.ms.akamai.net., 
-a767.ms.akamai.net. A 90.223.216.161, a767.ms.akamai.net. A 
-90.223.216.153 (416)
-16:05:33.080772 5c:9a:d8:5c:63:31 > 00:1f:33:80:09:44, ethertype IPv4 
-(0x0800), length 74: (tos 0x0, ttl 127, id 297, offset 0, flags [none], 
-proto ICMP (1), length 60)
-     192.168.0.40 > 192.168.0.1: ICMP echo request, id 512, seq 4352, 
-length 40
-16:05:33.084435 00:1f:33:80:09:44 > 5c:9a:d8:5c:63:31, ethertype IPv4 
-(0x0800), length 74: (tos 0x0, ttl 255, id 53595, offset 0, flags 
-[none], proto ICMP (1), length 60)
-     192.168.0.1 > 192.168.0.40: ICMP echo reply, id 512, seq 4352, 
-length 40
-16:05:35.277471 00:1f:33:80:09:44 > 01:00:5e:00:00:02, ethertype IPv4 
-(0x0800), length 60: (tos 0x0, ttl 1, id 0, offset 0, flags [DF], proto 
-IGMP (2), length 32, options (RA))
-     192.168.0.1 > 224.0.0.2: igmp v2 report 224.0.0.2
-16:05:38.582202 5c:9a:d8:5c:63:31 > 00:1f:33:80:09:44, ethertype IPv4 
-(0x0800), length 74: (tos 0x0, ttl 127, id 298, offset 0, flags [none], 
-proto ICMP (1), length 60)
-     192.168.0.40 > 192.168.0.1: ICMP echo request, id 512, seq 4608, 
-length 40
-16:05:38.587143 00:1f:33:80:09:44 > 5c:9a:d8:5c:63:31, ethertype IPv4 
-(0x0800), length 74: (tos 0x0, ttl 255, id 53596, offset 0, flags 
-[none], proto ICMP (1), length 60)
-     192.168.0.1 > 192.168.0.40: ICMP echo reply, id 512, seq 4608, 
-length 40
-16:05:39.218763 5c:9a:d8:5c:63:31 > 00:1f:33:80:09:44, ethertype IPv4 
-(0x0800), length 64: (tos 0x0, ttl 127, id 299, offset 0, flags [none], 
-proto UDP (17), length 50)
-     192.168.0.40.60955 > 192.168.0.1.domain: 26953+ A? wpad. (22)
-16:05:39.280065 00:1f:33:80:09:44 > 5c:9a:d8:5c:63:31, ethertype IPv4 
-(0x0800), length 139: (tos 0x0, ttl 64, id 0, offset 0, flags [DF], 
-proto UDP (17), length 125)
-     192.168.0.1.domain > 192.168.0.40.60955: 26953 NXDomain 0/1/0 (97)
-16:05:40.204754 5c:9a:d8:5c:63:31 > 00:1f:33:80:09:44, ethertype IPv4 
-(0x0800), length 64: (tos 0x0, ttl 127, id 300, offset 0, flags [none], 
-proto UDP (17), length 50)
-     192.168.0.40.60955 > 192.168.0.1.domain: 26953+ A? wpad. (22)
-16:05:40.266317 00:1f:33:80:09:44 > 5c:9a:d8:5c:63:31, ethertype IPv4 
-(0x0800), length 139: (tos 0x0, ttl 64, id 0, offset 0, flags [DF], 
-proto UDP (17), length 125)
-     192.168.0.1.domain > 192.168.0.40.60955: 26953 NXDomain 0/1/0 (97)
-16:05:41.204738 5c:9a:d8:5c:63:31 > 00:1f:33:80:09:44, ethertype IPv4 
-(0x0800), length 64: (tos 0x0, ttl 127, id 301, offset 0, flags [none], 
-proto UDP (17), length 50)
-     192.168.0.40.60955 > 192.168.0.1.domain: 26953+ A? wpad. (22)
-16:05:41.266343 00:1f:33:80:09:44 > 5c:9a:d8:5c:63:31, ethertype IPv4 
-(0x0800), length 139: (tos 0x0, ttl 64, id 0, offset 0, flags [DF], 
-proto UDP (17), length 125)
-     192.168.0.1.domain > 192.168.0.40.60955: 26953 NXDomain 0/1/0 (97)
-16:05:43.238538 5c:9a:d8:5c:63:31 > 00:1f:33:80:09:44, ethertype IPv4 
-(0x0800), length 64: (tos 0x0, ttl 127, id 302, offset 0, flags [none], 
-proto UDP (17), length 50)
-     192.168.0.40.60955 > 192.168.0.1.domain: 26953+ A? wpad. (22)
-16:05:43.301692 00:1f:33:80:09:44 > 5c:9a:d8:5c:63:31, ethertype IPv4 
-(0x0800), length 139: (tos 0x0, ttl 64, id 0, offset 0, flags [DF], 
-proto UDP (17), length 125)
-     192.168.0.1.domain > 192.168.0.40.60955: 26953 NXDomain 0/1/0 (97)
-16:05:44.230290 5c:9a:d8:5c:63:31 > 00:1f:33:80:09:44, ethertype ARP 
-(0x0806), length 42: Ethernet (len 6), IPv4 (len 4), Request who-has 
-192.168.0.1 tell 192.168.0.40, length 28
-16:05:44.233532 00:1f:33:80:09:44 > 5c:9a:d8:5c:63:31, ethertype ARP 
-(0x0806), length 60: Ethernet (len 6), IPv4 (len 4), Reply 192.168.0.1 
-is-at 00:1f:33:80:09:44, length 46
-16:05:47.236740 5c:9a:d8:5c:63:31 > 00:1f:33:80:09:44, ethertype IPv4 
-(0x0800), length 64: (tos 0x0, ttl 127, id 303, offset 0, flags [none], 
-proto UDP (17), length 50)
-     192.168.0.40.60955 > 192.168.0.1.domain: 26953+ A? wpad. (22)
-16:05:47.296388 00:1f:33:80:09:44 > 5c:9a:d8:5c:63:31, ethertype IPv4 
-(0x0800), length 139: (tos 0x0, ttl 64, id 0, offset 0, flags [DF], 
-proto UDP (17), length 125)
-     192.168.0.1.domain > 192.168.0.40.60955: 26953 NXDomain 0/1/0 (97)
-16:05:48.530940 00:19:fb:be:cb:55 > 01:00:5e:7f:ff:fa, ethertype IPv4 
-(0x0800), length 446: (tos 0x0, ttl 4, id 0, offset 0, flags [DF], proto 
-UDP (17), length 432)
-     192.168.0.112.3829 > 239.255.255.250.1900: UDP, length 404
-16:05:48.531962 00:19:fb:be:cb:55 > 01:00:5e:7f:ff:fa, ethertype IPv4 
-(0x0800), length 455: (tos 0x0, ttl 4, id 0, offset 0, flags [DF], proto 
-UDP (17), length 441)
-     192.168.0.112.3829 > 239.255.255.250.1900: UDP, length 413
-16:05:48.533472 00:19:fb:be:cb:55 > 01:00:5e:7f:ff:fa, ethertype IPv4 
-(0x0800), length 494: (tos 0x0, ttl 4, id 0, offset 0, flags [DF], proto 
-UDP (17), length 480)
-     192.168.0.112.3829 > 239.255.255.250.1900: UDP, length 452
-16:05:48.534564 00:19:fb:be:cb:55 > 01:00:5e:7f:ff:fa, ethertype IPv4 
-(0x0800), length 490: (tos 0x0, ttl 4, id 0, offset 0, flags [DF], proto 
-UDP (17), length 476)
-     192.168.0.112.2600 > 239.255.255.250.1900: UDP, length 448
-16:05:48.536749 00:19:fb:be:cb:55 > 01:00:5e:7f:ff:fa, ethertype IPv4 
-(0x0800), length 486: (tos 0x0, ttl 4, id 0, offset 0, flags [DF], proto 
-UDP (17), length 472)
-     192.168.0.112.2411 > 239.255.255.250.1900: UDP, length 444
-16:05:48.537798 00:19:fb:be:cb:55 > 01:00:5e:7f:ff:fa, ethertype IPv4 
-(0x0800), length 486: (tos 0x0, ttl 4, id 0, offset 0, flags [DF], proto 
-UDP (17), length 472)
-     192.168.0.112.1205 > 239.255.255.250.1900: UDP, length 444
-16:05:48.633492 00:19:fb:be:cb:55 > 01:00:5e:7f:ff:fa, ethertype IPv4 
-(0x0800), length 446: (tos 0x0, ttl 4, id 0, offset 0, flags [DF], proto 
-UDP (17), length 432)
-     192.168.0.112.1378 > 239.255.255.250.1900: UDP, length 404
-16:05:48.634558 00:19:fb:be:cb:55 > 01:00:5e:7f:ff:fa, ethertype IPv4 
-(0x0800), length 455: (tos 0x0, ttl 4, id 0, offset 0, flags [DF], proto 
-UDP (17), length 441)
-     192.168.0.112.1378 > 239.255.255.250.1900: UDP, length 413
-16:05:48.636069 00:19:fb:be:cb:55 > 01:00:5e:7f:ff:fa, ethertype IPv4 
-(0x0800), length 494: (tos 0x0, ttl 4, id 0, offset 0, flags [DF], proto 
-UDP (17), length 480)
-     192.168.0.112.1378 > 239.255.255.250.1900: UDP, length 452
-16:05:48.637119 00:19:fb:be:cb:55 > 01:00:5e:7f:ff:fa, ethertype IPv4 
-(0x0800), length 490: (tos 0x0, ttl 4, id 0, offset 0, flags [DF], proto 
-UDP (17), length 476)
-     192.168.0.112.3487 > 239.255.255.250.1900: UDP, length 448
-16:05:48.638631 00:19:fb:be:cb:55 > 01:00:5e:7f:ff:fa, ethertype IPv4 
-(0x0800), length 486: (tos 0x0, ttl 4, id 0, offset 0, flags [DF], proto 
-UDP (17), length 472)
-     192.168.0.112.4415 > 239.255.255.250.1900: UDP, length 444
-16:05:48.639702 00:19:fb:be:cb:55 > 01:00:5e:7f:ff:fa, ethertype IPv4 
-(0x0800), length 486: (tos 0x0, ttl 4, id 0, offset 0, flags [DF], proto 
-UDP (17), length 472)
-     192.168.0.112.2700 > 239.255.255.250.1900: UDP, length 444
+About DRR, it achieves its best performance when all the classes have
+the same weight. This is fortunate, because in such scenarios it is
+actually pointless to use a fair-queueing scheduler, as the latter
+would provide the same quality of service as DRR. In contrast, when
+classes have differentiated weights and the better service properties
+of QFQ+ make a difference, QFQ+ has better performance than DRR. It
+happens mainly because QFQ+ dequeues packets in an order that causes
+about 8% less cache misses than DRR. As for the number of
+instructions, QFQ+ executes instead about 7% more instructions than
+DRR, whereas QFQ executes from 25% to 34% more instructions than DRR.
 
->
->
->
->
+Paolo
+
+[1] P. Valente, "Reducing the Execution Time of Fair-Queueing Schedulers"
+http://algo.ing.unimo.it/people/paolo/agg-sched/agg-sched.pdf
+
+[2] http://algo.ing.unimo.it/people/paolo/agg-sched/test-env.tgz
+
+Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
+---
+ net/sched/sch_qfq.c |  826 ++++++++++++++++++++++++++++++++++++---------------
+ 1 file changed, 592 insertions(+), 234 deletions(-)
+
+diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
+index 211a212..af8f2a2 100644
+--- a/net/sched/sch_qfq.c
++++ b/net/sched/sch_qfq.c
+@@ -1,7 +1,8 @@
+ /*
+- * net/sched/sch_qfq.c         Quick Fair Queueing Scheduler.
++ * net/sched/sch_qfq.c         Quick Fair Queueing Plus Scheduler.
+  *
+  * Copyright (c) 2009 Fabio Checconi, Luigi Rizzo, and Paolo Valente.
++ * Copyright (c) 2012 Paolo Valente.
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License
+@@ -19,12 +20,18 @@
+ #include <net/pkt_cls.h>
+ 
+ 
+-/*  Quick Fair Queueing
+-    ===================
++/*  Quick Fair Queueing Plus
++    ========================
+ 
+     Sources:
+ 
+-    Fabio Checconi, Luigi Rizzo, and Paolo Valente: "QFQ: Efficient
++    [1] Paolo Valente,
++    "Reducing the Execution Time of Fair-Queueing Schedulers."
++    http://algo.ing.unimo.it/people/paolo/agg-sched/agg-sched.pdf
++
++    Sources for QFQ:
++
++    [2] Fabio Checconi, Luigi Rizzo, and Paolo Valente: "QFQ: Efficient
+     Packet Scheduling with Tight Bandwidth Distribution Guarantees."
+ 
+     See also:
+@@ -33,6 +40,20 @@
+ 
+ /*
+ 
++  QFQ+ divides classes into aggregates of at most MAX_AGG_CLASSES
++  classes. Each aggregate is timestamped with a virtual start time S
++  and a virtual finish time F, and scheduled according to its
++  timestamps. S and F are computed as a function of a system virtual
++  time function V. The classes within each aggregate are instead
++  scheduled with DRR.
++
++  To speed up operations, QFQ+ divides also aggregates into a limited
++  number of groups. Which group a class belongs to depends on the
++  ratio between the maximum packet length for the class and the weight
++  of the class. Groups have their own S and F. In the end, QFQ+
++  schedules groups, then aggregates within groups, then classes within
++  aggregates. See [1] and [2] for a full description.
++
+   Virtual time computations.
+ 
+   S, F and V are all computed in fixed point arithmetic with
+@@ -76,10 +97,10 @@
+ #define QFQ_MAX_SLOTS	32
+ 
+ /*
+- * Shifts used for class<->group mapping.  We allow class weights that are
+- * in the range [1, 2^MAX_WSHIFT], and we try to map each class i to the
++ * Shifts used for aggregate<->group mapping.  We allow class weights that are
++ * in the range [1, 2^MAX_WSHIFT], and we try to map each aggregate i to the
+  * group with the smallest index that can support the L_i / r_i configured
+- * for the class.
++ * for the classes in the aggregate.
+  *
+  * grp->index is the index of the group; and grp->slot_shift
+  * is the shift for the corresponding (scaled) sigma_i.
+@@ -95,7 +116,28 @@
+ #define IWSUM			(ONE_FP/QFQ_MAX_WSUM)
+ 
+ #define QFQ_MTU_SHIFT		11
+-#define QFQ_MIN_SLOT_SHIFT	(FRAC_BITS + QFQ_MTU_SHIFT - QFQ_MAX_INDEX)
++
++
++#define QFQ_MAX_AGG_CLASSES	8 /* max num classes per aggregate allowed */
++
++/*
++ * QFQ+ guarantees the following upper bound, measured in number of
++ * slots, to the difference between the virtual start time of an
++ * aggregate and the virtual start time of the aggregate's group:
++ * 2 + QFQ_MAX_AGG_CLASSES * (mtu/lmin) * (wmax/QFQ_MAX_WSUM)
++ * where lmin and wmax are, respectively, the minimum packet size and the
++ * maximum weight accepted by qfq_change_class. This difference, say D,
++ * is used to select the bucket in which to insert the aggregate, and must
++ * not be higher than QFQ_MAX_SLOTS - 2 (there is a '-2' and not a '-1'
++ * because the start time of the group may be moved backward by one
++ * slot after the aggregate has been inserted). To make sure that this
++ * constraint is met, we set lmin to the conservative value mtu/4, which,
++ * according to the above upper bound to the difference D and to the values
++ * of the other parameters, guarantees
++ * D <= 2 + 8*4*(1/2) = 2 + 8*2 = 18 <  QFQ_MAX_SLOTS - 2.
++ */
++#define QFQ_MIN_LMAX		(QFQ_MTU_SHIFT - 2)
++#define QFQ_DELTA_S_LIMIT	(2 + QFQ_MAX_AGG_CLASSES * 2)
+ 
+ /*
+  * Possible group states.  These values are used as indexes for the bitmaps
+@@ -105,6 +147,8 @@ enum qfq_state { ER, IR, EB, IB, QFQ_MAX_STATE };
+ 
+ struct qfq_group;
+ 
++struct qfq_aggregate;
++
+ struct qfq_class {
+ 	struct Qdisc_class_common common;
+ 
+@@ -115,7 +159,15 @@ struct qfq_class {
+ 	struct gnet_stats_queue qstats;
+ 	struct gnet_stats_rate_est rate_est;
+ 	struct Qdisc *qdisc;
++	struct list_head alist;		/* Link for active-classes list. */
++	struct qfq_aggregate *agg;	/* Parent aggregate. */
++	int deficit;			/* DRR deficit counter. */
++};
+ 
++/*
++
++ */
++struct qfq_aggregate {
+ 	struct hlist_node next;	/* Link for the slot list. */
+ 	u64 S, F;		/* flow timestamps (exact) */
+ 
+@@ -126,8 +178,18 @@ struct qfq_class {
+ 	struct qfq_group *grp;
+ 
+ 	/* these are copied from the flowset. */
+-	u32	inv_w;		/* ONE_FP/weight */
+-	u32	lmax;		/* Max packet size for this flow. */
++	u32	class_weight; /* Weight of each class in this aggregate. */
++	/* Max pkt size for the classes in this aggregate, DRR quantum. */
++	int	lmax;
++
++	u32	inv_w;	    /* ONE_FP/(sum of weights of classes in aggr.). */
++	u32	budgetmax;  /* Max budget for this aggregate. */
++	u32	initial_budget, budget;     /* Initial and current budget. */
++
++	int		  num_classes;	/* Number of classes in this aggr. */
++	struct list_head  active;	/* DRR queue of active classes. */
++
++	struct hlist_node nonfull_next;	/* See nonfull_aggs in qfq_sched. */
+ };
+ 
+ struct qfq_group {
+@@ -137,7 +199,7 @@ struct qfq_group {
+ 	unsigned int front;		/* Index of the front slot. */
+ 	unsigned long full_slots;	/* non-empty slots */
+ 
+-	/* Array of RR lists of active classes. */
++	/* Array of RR lists of active aggregates. */
+ 	struct hlist_head slots[QFQ_MAX_SLOTS];
+ };
+ 
+@@ -145,13 +207,28 @@ struct qfq_sched {
+ 	struct tcf_proto *filter_list;
+ 	struct Qdisc_class_hash clhash;
+ 
+-	u64		V;		/* Precise virtual time. */
+-	u32		wsum;		/* weight sum */
++	u64			oldV, V;	/* Precise virtual times. */
++	struct qfq_aggregate	*in_serv_agg;   /* Aggregate being served. */
++	u32			num_active_agg; /* Num. of active aggregates */
++	u32			wsum;		/* weight sum */
+ 
+ 	unsigned long bitmaps[QFQ_MAX_STATE];	    /* Group bitmaps. */
+ 	struct qfq_group groups[QFQ_MAX_INDEX + 1]; /* The groups. */
++	u32 min_slot_shift;	/* Index of the group-0 bit in the bitmaps. */
++
++	u32 max_agg_classes;		/* Max number of classes per aggr. */
++	struct hlist_head nonfull_aggs; /* Aggs with room for more classes. */
+ };
+ 
++/*
++ * Possible reasons why the timestamps of an aggregate are updated
++ * enqueue: the aggregate switches from idle to active and must scheduled
++ *	    for service
++ * requeue: the aggregate finishes its budget, so it stops being served and
++ *	    must be rescheduled for service
++ */
++enum update_reason {enqueue, requeue};
++
+ static struct qfq_class *qfq_find_class(struct Qdisc *sch, u32 classid)
+ {
+ 	struct qfq_sched *q = qdisc_priv(sch);
+@@ -181,18 +258,18 @@ static const struct nla_policy qfq_policy[TCA_QFQ_MAX + 1] = {
+  * index = log_2(maxlen/weight) but we need to apply the scaling.
+  * This is used only once at flow creation.
+  */
+-static int qfq_calc_index(u32 inv_w, unsigned int maxlen)
++static int qfq_calc_index(u32 inv_w, unsigned int maxlen, u32 min_slot_shift)
+ {
+ 	u64 slot_size = (u64)maxlen * inv_w;
+ 	unsigned long size_map;
+ 	int index = 0;
+ 
+-	size_map = slot_size >> QFQ_MIN_SLOT_SHIFT;
++	size_map = slot_size >> min_slot_shift;
+ 	if (!size_map)
+ 		goto out;
+ 
+ 	index = __fls(size_map) + 1;	/* basically a log_2 */
+-	index -= !(slot_size - (1ULL << (index + QFQ_MIN_SLOT_SHIFT - 1)));
++	index -= !(slot_size - (1ULL << (index + min_slot_shift - 1)));
+ 
+ 	if (index < 0)
+ 		index = 0;
+@@ -203,32 +280,121 @@ out:
+ 	return index;
+ }
+ 
+-/* Length of the next packet (0 if the queue is empty). */
+-static unsigned int qdisc_peek_len(struct Qdisc *sch)
++static void qfq_deactivate_agg(struct qfq_sched *, struct qfq_aggregate *);
++static void qfq_activate_agg(struct qfq_sched *, struct qfq_aggregate *,
++			     enum update_reason);
++
++static void qfq_init_agg(struct qfq_sched *q, struct qfq_aggregate *agg,
++			 u32 lmax, u32 weight)
+ {
+-	struct sk_buff *skb;
++	INIT_LIST_HEAD(&agg->active);
++	hlist_add_head(&agg->nonfull_next, &q->nonfull_aggs);
+ 
+-	skb = sch->ops->peek(sch);
+-	return skb ? qdisc_pkt_len(skb) : 0;
++	agg->lmax = lmax;
++	agg->class_weight = weight;
+ }
+ 
+-static void qfq_deactivate_class(struct qfq_sched *, struct qfq_class *);
+-static void qfq_activate_class(struct qfq_sched *q, struct qfq_class *cl,
+-			       unsigned int len);
++static struct qfq_aggregate *qfq_find_agg(struct qfq_sched *q,
++					  u32 lmax, u32 weight)
++{
++	struct qfq_aggregate *agg;
++	struct hlist_node *n;
+ 
+-static void qfq_update_class_params(struct qfq_sched *q, struct qfq_class *cl,
+-				    u32 lmax, u32 inv_w, int delta_w)
++	hlist_for_each_entry(agg, n, &q->nonfull_aggs, nonfull_next)
++		if (agg->lmax == lmax && agg->class_weight == weight)
++			return agg;
++
++	return NULL;
++}
++
++
++/* Update aggregate as a function of the new number of classes. */
++static void qfq_update_agg(struct qfq_sched *q, struct qfq_aggregate *agg,
++			   int new_num_classes)
++{
++	u32 new_agg_weight;
++
++	if (new_num_classes == q->max_agg_classes)
++		hlist_del_init(&agg->nonfull_next);
++
++	if (agg->num_classes > new_num_classes &&
++	    new_num_classes == q->max_agg_classes - 1) /* agg no more full */
++		hlist_add_head(&agg->nonfull_next, &q->nonfull_aggs);
++
++	agg->budgetmax = new_num_classes * agg->lmax;
++	new_agg_weight = agg->class_weight * new_num_classes;
++	agg->inv_w = ONE_FP/new_agg_weight;
++
++	if (agg->grp == NULL) {
++		int i = qfq_calc_index(agg->inv_w, agg->budgetmax,
++				       q->min_slot_shift);
++		agg->grp = &q->groups[i];
++	}
++
++	q->wsum +=
++		(int) agg->class_weight * (new_num_classes - agg->num_classes);
++
++	agg->num_classes = new_num_classes;
++}
++
++/* Add class to aggregate. */
++static void qfq_add_to_agg(struct qfq_sched *q,
++			   struct qfq_aggregate *agg,
++			   struct qfq_class *cl)
+ {
+-	int i;
++	cl->agg = agg;
++
++	qfq_update_agg(q, agg, agg->num_classes+1);
++	if (cl->qdisc->q.qlen > 0) { /* adding an active class */
++		list_add_tail(&cl->alist, &agg->active);
++		if (list_first_entry(&agg->active, struct qfq_class, alist) ==
++		    cl && q->in_serv_agg != agg) /* agg was inactive */
++			qfq_activate_agg(q, agg, enqueue); /* schedule agg */
++	}
++}
+ 
+-	/* update qfq-specific data */
+-	cl->lmax = lmax;
+-	cl->inv_w = inv_w;
+-	i = qfq_calc_index(cl->inv_w, cl->lmax);
++static struct qfq_aggregate *qfq_choose_next_agg(struct qfq_sched *);
++
++static void qfq_destroy_agg(struct qfq_sched *q, struct qfq_aggregate *agg)
++{
++	if (!hlist_unhashed(&agg->nonfull_next))
++		hlist_del_init(&agg->nonfull_next);
++	if (q->in_serv_agg == agg)
++		q->in_serv_agg = qfq_choose_next_agg(q);
++	kfree(agg);
++}
++
++/* Deschedule class from within its parent aggregate. */
++static void qfq_deactivate_class(struct qfq_sched *q, struct qfq_class *cl)
++{
++	struct qfq_aggregate *agg = cl->agg;
++
++
++	list_del(&cl->alist); /* remove from RR queue of the aggregate */
++	if (list_empty(&agg->active)) /* agg is now inactive */
++		qfq_deactivate_agg(q, agg);
++}
++
++/* Remove class from its parent aggregate. */
++static void qfq_rm_from_agg(struct qfq_sched *q, struct qfq_class *cl)
++{
++	struct qfq_aggregate *agg = cl->agg;
++
++	cl->agg = NULL;
++	if (agg->num_classes == 1) { /* agg being emptied, destroy it */
++		qfq_destroy_agg(q, agg);
++		return;
++	}
++	qfq_update_agg(q, agg, agg->num_classes-1);
++}
+ 
+-	cl->grp = &q->groups[i];
++/* Deschedule class and remove it from its parent aggregate. */
++static void qfq_deact_rm_from_agg(struct qfq_sched *q, struct qfq_class *cl)
++{
++	if (cl->qdisc->q.qlen > 0) /* class is active */
++		qfq_deactivate_class(q, cl);
+ 
+-	q->wsum += delta_w;
++	qfq_rm_from_agg(q, cl);
+ }
+ 
+ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+@@ -236,9 +402,11 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ {
+ 	struct qfq_sched *q = qdisc_priv(sch);
+ 	struct qfq_class *cl = (struct qfq_class *)*arg;
++	struct qfq_aggregate *new_agg = NULL;
++	bool existing = false;
+ 	struct nlattr *tb[TCA_QFQ_MAX + 1];
+ 	u32 weight, lmax, inv_w;
+-	int i, err;
++	int err;
+ 	int delta_w;
+ 
+ 	if (tca[TCA_OPTIONS] == NULL) {
+@@ -259,27 +427,34 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 	} else
+ 		weight = 1;
+ 
+-	inv_w = ONE_FP / weight;
+-	weight = ONE_FP / inv_w;
+-	delta_w = weight - (cl ? ONE_FP / cl->inv_w : 0);
+-	if (q->wsum + delta_w > QFQ_MAX_WSUM) {
+-		pr_notice("qfq: total weight out of range (%u + %u)\n",
+-			  delta_w, q->wsum);
+-		return -EINVAL;
+-	}
+-
+ 	if (tb[TCA_QFQ_LMAX]) {
+ 		lmax = nla_get_u32(tb[TCA_QFQ_LMAX]);
+ 		if (!lmax || lmax > (1UL << QFQ_MTU_SHIFT)) {
+ 			pr_notice("qfq: invalid max length %u\n", lmax);
+ 			return -EINVAL;
+ 		}
++		if (lmax < QFQ_MIN_LMAX)
++			lmax = QFQ_MIN_LMAX;
+ 	} else
+ 		lmax = 1UL << QFQ_MTU_SHIFT;
+ 
+-	if (cl != NULL) {
+-		bool need_reactivation = false;
++	inv_w = ONE_FP / weight;
++	weight = ONE_FP / inv_w;
++
++	if (cl != NULL &&
++	    lmax == cl->agg->lmax &&
++	    weight == cl->agg->class_weight)
++		return 0; /* nothing to change */
++
++	delta_w = weight - (cl ? cl->agg->class_weight : 0);
++
++	if (q->wsum + delta_w > QFQ_MAX_WSUM) {
++		pr_notice("qfq: total weight out of range (%d + %u)\n",
++			  delta_w, q->wsum);
++		return -EINVAL;
++	}
+ 
++	if (cl != NULL) { /* modify existing class */
+ 		if (tca[TCA_RATE]) {
+ 			err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
+ 						    qdisc_root_sleeping_lock(sch),
+@@ -287,41 +462,18 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 			if (err)
+ 				return err;
+ 		}
+-
+-		if (lmax == cl->lmax && inv_w == cl->inv_w)
+-			return 0; /* nothing to update */
+-
+-		i = qfq_calc_index(inv_w, lmax);
+-		sch_tree_lock(sch);
+-		if (&q->groups[i] != cl->grp && cl->qdisc->q.qlen > 0) {
+-			/*
+-			 * shift cl->F back, to not charge the
+-			 * class for the not-yet-served head
+-			 * packet
+-			 */
+-			cl->F = cl->S;
+-			/* remove class from its slot in the old group */
+-			qfq_deactivate_class(q, cl);
+-			need_reactivation = true;
+-		}
+-
+-		qfq_update_class_params(q, cl, lmax, inv_w, delta_w);
+-
+-		if (need_reactivation) /* activate in new group */
+-			qfq_activate_class(q, cl, qdisc_peek_len(cl->qdisc));
+-		sch_tree_unlock(sch);
+-
+-		return 0;
++		existing = true;
++		goto update_agg;
+ 	}
+ 
++	/* create and init new class */
+ 	cl = kzalloc(sizeof(struct qfq_class), GFP_KERNEL);
+ 	if (cl == NULL)
+ 		return -ENOBUFS;
+ 
+ 	cl->refcnt = 1;
+ 	cl->common.classid = classid;
+-
+-	qfq_update_class_params(q, cl, lmax, inv_w, delta_w);
++	cl->deficit = lmax;
+ 
+ 	cl->qdisc = qdisc_create_dflt(sch->dev_queue,
+ 				      &pfifo_qdisc_ops, classid);
+@@ -332,11 +484,8 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 		err = gen_new_estimator(&cl->bstats, &cl->rate_est,
+ 					qdisc_root_sleeping_lock(sch),
+ 					tca[TCA_RATE]);
+-		if (err) {
+-			qdisc_destroy(cl->qdisc);
+-			kfree(cl);
+-			return err;
+-		}
++		if (err)
++			goto destroy_class;
+ 	}
+ 
+ 	sch_tree_lock(sch);
+@@ -345,19 +494,39 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 
+ 	qdisc_class_hash_grow(sch, &q->clhash);
+ 
++update_agg:
++	sch_tree_lock(sch);
++	new_agg = qfq_find_agg(q, lmax, weight);
++	if (new_agg == NULL) { /* create new aggregate */
++		sch_tree_unlock(sch);
++		new_agg = kzalloc(sizeof(*new_agg), GFP_KERNEL);
++		if (new_agg == NULL) {
++			err = -ENOBUFS;
++			gen_kill_estimator(&cl->bstats, &cl->rate_est);
++			goto destroy_class;
++		}
++		sch_tree_lock(sch);
++		qfq_init_agg(q, new_agg, lmax, weight);
++	}
++	if (existing)
++		qfq_deact_rm_from_agg(q, cl);
++	qfq_add_to_agg(q, new_agg, cl);
++	sch_tree_unlock(sch);
++
+ 	*arg = (unsigned long)cl;
+ 	return 0;
++
++destroy_class:
++	qdisc_destroy(cl->qdisc);
++	kfree(cl);
++	return err;
+ }
+ 
+ static void qfq_destroy_class(struct Qdisc *sch, struct qfq_class *cl)
+ {
+ 	struct qfq_sched *q = qdisc_priv(sch);
+ 
+-	if (cl->inv_w) {
+-		q->wsum -= ONE_FP / cl->inv_w;
+-		cl->inv_w = 0;
+-	}
+-
++	qfq_rm_from_agg(q, cl);
+ 	gen_kill_estimator(&cl->bstats, &cl->rate_est);
+ 	qdisc_destroy(cl->qdisc);
+ 	kfree(cl);
+@@ -472,8 +641,8 @@ static int qfq_dump_class(struct Qdisc *sch, unsigned long arg,
+ 	nest = nla_nest_start(skb, TCA_OPTIONS);
+ 	if (nest == NULL)
+ 		goto nla_put_failure;
+-	if (nla_put_u32(skb, TCA_QFQ_WEIGHT, ONE_FP/cl->inv_w) ||
+-	    nla_put_u32(skb, TCA_QFQ_LMAX, cl->lmax))
++	if (nla_put_u32(skb, TCA_QFQ_WEIGHT, cl->agg->class_weight) ||
++	    nla_put_u32(skb, TCA_QFQ_LMAX, cl->agg->lmax))
+ 		goto nla_put_failure;
+ 	return nla_nest_end(skb, nest);
+ 
+@@ -491,8 +660,8 @@ static int qfq_dump_class_stats(struct Qdisc *sch, unsigned long arg,
+ 	memset(&xstats, 0, sizeof(xstats));
+ 	cl->qdisc->qstats.qlen = cl->qdisc->q.qlen;
+ 
+-	xstats.weight = ONE_FP/cl->inv_w;
+-	xstats.lmax = cl->lmax;
++	xstats.weight = cl->agg->class_weight;
++	xstats.lmax = cl->agg->lmax;
+ 
+ 	if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
+ 	    gnet_stats_copy_rate_est(d, &cl->bstats, &cl->rate_est) < 0 ||
+@@ -643,16 +812,16 @@ static void qfq_unblock_groups(struct qfq_sched *q, int index, u64 old_F)
+  * perhaps
+  *
+ 	old_V ^= q->V;
+-	old_V >>= QFQ_MIN_SLOT_SHIFT;
++	old_V >>= q->min_slot_shift;
+ 	if (old_V) {
+ 		...
+ 	}
+  *
+  */
+-static void qfq_make_eligible(struct qfq_sched *q, u64 old_V)
++static void qfq_make_eligible(struct qfq_sched *q)
+ {
+-	unsigned long vslot = q->V >> QFQ_MIN_SLOT_SHIFT;
+-	unsigned long old_vslot = old_V >> QFQ_MIN_SLOT_SHIFT;
++	unsigned long vslot = q->V >> q->min_slot_shift;
++	unsigned long old_vslot = q->oldV >> q->min_slot_shift;
+ 
+ 	if (vslot != old_vslot) {
+ 		unsigned long mask = (1UL << fls(vslot ^ old_vslot)) - 1;
+@@ -662,26 +831,57 @@ static void qfq_make_eligible(struct qfq_sched *q, u64 old_V)
+ }
+ 
+ 
++
+ /*
+- * XXX we should make sure that slot becomes less than 32.
+- * This is guaranteed by the input values.
+- * roundedS is always cl->S rounded on grp->slot_shift bits.
++ * If the parameters of the classes do not change, then QFQ+
++ * guarantees that the slot index is never higher than
++ * QFQ_DELTA_S_LIMIT (see the comment before the definition of
++ * QFQ_DELTA_S_LIMIT). This property may instead be violated after a
++ * qfq_change_class, for the following reason.
++ *
++ * When the weight of a class is increased or the lmax of the class is
++ * decreased, a new aggregate with smaller slot size than the original
++ * parent aggregate of the class may happen to be activated. The
++ * activation of this aggregate should be properly delayed to when the
++ * service of the class has finished in the ideal system tracked by
++ * QFQ+. If the activation of the aggregate is not delayed, this
++ * aggregate may be unjustly served before other aggregates waiting
++ * for service. This may cause the bound described in the comment to
++ * QFQ_DELTA_S_LIMIT to be violated for some of these unlucky
++ * aggregates.
++ *
++ * Instead of delaying the activation of the new aggregate, which is
++ * quite complex, the following inaccurate but simple solution is used
++ * in qfq_slot_insert: if the slot index is higher than
++ * QFQ_DELTA_S_LIMIT, then the timestamps of the aggregate are shifted
++ * backward so as to let the slot index become equal to
++ * QFQ_DELTA_S_LIMIT (just to avoid corrupting the data structure).
+  */
+-static void qfq_slot_insert(struct qfq_group *grp, struct qfq_class *cl,
++static void qfq_slot_insert(struct qfq_group *grp, struct qfq_aggregate *agg,
+ 			    u64 roundedS)
+ {
+ 	u64 slot = (roundedS - grp->S) >> grp->slot_shift;
+-	unsigned int i = (grp->front + slot) % QFQ_MAX_SLOTS;
++	unsigned int i; /* slot index in the bucket list */
++
++	if (unlikely(slot > QFQ_DELTA_S_LIMIT)) {
++		u64 deltaS = roundedS - grp->S -
++			((u64)QFQ_DELTA_S_LIMIT<<grp->slot_shift);
++		agg->S -= deltaS;
++		agg->F -= deltaS;
++		slot = QFQ_DELTA_S_LIMIT;
++	}
+ 
+-	hlist_add_head(&cl->next, &grp->slots[i]);
++	i = (grp->front + slot) % QFQ_MAX_SLOTS;
++
++	hlist_add_head(&agg->next, &grp->slots[i]);
+ 	__set_bit(slot, &grp->full_slots);
+ }
+ 
+ /* Maybe introduce hlist_first_entry?? */
+-static struct qfq_class *qfq_slot_head(struct qfq_group *grp)
++static struct qfq_aggregate *qfq_slot_head(struct qfq_group *grp)
+ {
+ 	return hlist_entry(grp->slots[grp->front].first,
+-			   struct qfq_class, next);
++			   struct qfq_aggregate, next);
+ }
+ 
+ /*
+@@ -689,20 +889,20 @@ static struct qfq_class *qfq_slot_head(struct qfq_group *grp)
+  */
+ static void qfq_front_slot_remove(struct qfq_group *grp)
+ {
+-	struct qfq_class *cl = qfq_slot_head(grp);
++	struct qfq_aggregate *agg = qfq_slot_head(grp);
+ 
+-	BUG_ON(!cl);
+-	hlist_del(&cl->next);
++	BUG_ON(!agg);
++	hlist_del(&agg->next);
+ 	if (hlist_empty(&grp->slots[grp->front]))
+ 		__clear_bit(0, &grp->full_slots);
+ }
+ 
+ /*
+- * Returns the first full queue in a group. As a side effect,
+- * adjust the bucket list so the first non-empty bucket is at
+- * position 0 in full_slots.
++ * Returns the first aggregate in the first non-empty bucket of the
++ * group. As a side effect, adjusts the bucket list so the first
++ * non-empty bucket is at position 0 in full_slots.
+  */
+-static struct qfq_class *qfq_slot_scan(struct qfq_group *grp)
++static struct qfq_aggregate *qfq_slot_scan(struct qfq_group *grp)
+ {
+ 	unsigned int i;
+ 
+@@ -738,7 +938,7 @@ static void qfq_slot_rotate(struct qfq_group *grp, u64 roundedS)
+ 	grp->front = (grp->front - i) % QFQ_MAX_SLOTS;
+ }
+ 
+-static void qfq_update_eligible(struct qfq_sched *q, u64 old_V)
++static void qfq_update_eligible(struct qfq_sched *q)
+ {
+ 	struct qfq_group *grp;
+ 	unsigned long ineligible;
+@@ -750,137 +950,243 @@ static void qfq_update_eligible(struct qfq_sched *q, u64 old_V)
+ 			if (qfq_gt(grp->S, q->V))
+ 				q->V = grp->S;
+ 		}
+-		qfq_make_eligible(q, old_V);
++		qfq_make_eligible(q);
+ 	}
+ }
+ 
+-/*
+- * Updates the class, returns true if also the group needs to be updated.
+- */
+-static bool qfq_update_class(struct qfq_group *grp, struct qfq_class *cl)
++/* Dequeue head packet of the head class in the DRR queue of the aggregate. */
++static void agg_dequeue(struct qfq_aggregate *agg,
++			struct qfq_class *cl, unsigned int len)
+ {
+-	unsigned int len = qdisc_peek_len(cl->qdisc);
++	qdisc_dequeue_peeked(cl->qdisc);
+ 
+-	cl->S = cl->F;
+-	if (!len)
+-		qfq_front_slot_remove(grp);	/* queue is empty */
+-	else {
+-		u64 roundedS;
+-
+-		cl->F = cl->S + (u64)len * cl->inv_w;
+-		roundedS = qfq_round_down(cl->S, grp->slot_shift);
+-		if (roundedS == grp->S)
+-			return false;
++	cl->deficit -= (int) len;
+ 
+-		qfq_front_slot_remove(grp);
+-		qfq_slot_insert(grp, cl, roundedS);
++	if (cl->qdisc->q.qlen == 0) /* no more packets, remove from list */
++		list_del(&cl->alist);
++	else if (cl->deficit < qdisc_pkt_len(cl->qdisc->ops->peek(cl->qdisc))) {
++		cl->deficit += agg->lmax;
++		list_move_tail(&cl->alist, &agg->active);
+ 	}
++}
+ 
+-	return true;
++static inline struct sk_buff *qfq_peek_skb(struct qfq_aggregate *agg,
++					   struct qfq_class **cl,
++					   unsigned int *len)
++{
++	struct sk_buff *skb;
++
++	*cl = list_first_entry(&agg->active, struct qfq_class, alist);
++	skb = (*cl)->qdisc->ops->peek((*cl)->qdisc);
++	if (skb == NULL)
++		WARN_ONCE(1, "qfq_dequeue: non-workconserving leaf\n");
++	else
++		*len = qdisc_pkt_len(skb);
++
++	return skb;
++}
++
++/* Update F according to the actual service received by the aggregate. */
++static inline void charge_actual_service(struct qfq_aggregate *agg)
++{
++	/* compute the service received by the aggregate */
++	u32 service_received = agg->initial_budget - agg->budget;
++
++	agg->F = agg->S + (u64)service_received * agg->inv_w;
+ }
+ 
+ static struct sk_buff *qfq_dequeue(struct Qdisc *sch)
+ {
+ 	struct qfq_sched *q = qdisc_priv(sch);
+-	struct qfq_group *grp;
++	struct qfq_aggregate *in_serv_agg = q->in_serv_agg;
+ 	struct qfq_class *cl;
+ 	struct sk_buff *skb;
+ 	unsigned int len;
+-	u64 old_V;
+ 
+-	if (!q->bitmaps[ER])
++	if (in_serv_agg == NULL)
+ 		return NULL;
+ 
+-	grp = qfq_ffs(q, q->bitmaps[ER]);
++	if (!list_empty(&in_serv_agg->active)) {
++		skb = qfq_peek_skb(in_serv_agg, &cl, &len);
++		if (!skb)
++			return NULL;
++	} else
++		len = 0; /* no more active classes in the in-service agg */
+ 
+-	cl = qfq_slot_head(grp);
+-	skb = qdisc_dequeue_peeked(cl->qdisc);
+-	if (!skb) {
+-		WARN_ONCE(1, "qfq_dequeue: non-workconserving leaf\n");
+-		return NULL;
++	/*
++	 * If there are no active classes in the in-service aggregate,
++	 * or if the aggregate has not enough budget to serve its next
++	 * class, then choose the next aggregate to serve.
++	 */
++	if (len == 0 || in_serv_agg->budget < len) {
++		charge_actual_service(in_serv_agg);
++
++		/* recharge the budget of the aggregate */
++		in_serv_agg->initial_budget = in_serv_agg->budget =
++			in_serv_agg->budgetmax;
++
++		if (!list_empty(&in_serv_agg->active))
++			/*
++			 * Still active: reschedule for
++			 * service. Possible optimization: if no other
++			 * aggregate is active, then there is no point
++			 * in rescheduling this aggregate, and we can
++			 * just keep it as the in-service one. This
++			 * should be however a corner case, and to
++			 * handle it, we would need to maintain an
++			 * extra num_active_aggs field.
++			*/
++			qfq_activate_agg(q, in_serv_agg, requeue);
++		else if (sch->q.qlen == 0) { /* no aggregate to serve */
++			q->in_serv_agg = NULL;
++			return NULL;
++		}
++
++		/*
++		 * If we get here, there are other aggregates queued:
++		 * choose the new aggregate to serve.
++		 */
++		in_serv_agg = q->in_serv_agg = qfq_choose_next_agg(q);
++		skb = qfq_peek_skb(in_serv_agg, &cl, &len);
++		if (!skb)
++			return NULL;
+ 	}
+ 
+ 	sch->q.qlen--;
+ 	qdisc_bstats_update(sch, skb);
+ 
+-	old_V = q->V;
+-	len = qdisc_pkt_len(skb);
++	agg_dequeue(in_serv_agg, cl, len);
++	in_serv_agg->budget -= len;
+ 	q->V += (u64)len * IWSUM;
+ 	pr_debug("qfq dequeue: len %u F %lld now %lld\n",
+-		 len, (unsigned long long) cl->F, (unsigned long long) q->V);
++		 len, (unsigned long long) in_serv_agg->F,
++		 (unsigned long long) q->V);
+ 
+-	if (qfq_update_class(grp, cl)) {
+-		u64 old_F = grp->F;
++	return skb;
++}
+ 
+-		cl = qfq_slot_scan(grp);
+-		if (!cl)
+-			__clear_bit(grp->index, &q->bitmaps[ER]);
+-		else {
+-			u64 roundedS = qfq_round_down(cl->S, grp->slot_shift);
+-			unsigned int s;
++static struct qfq_aggregate *qfq_choose_next_agg(struct qfq_sched *q)
++{
++	struct qfq_group *grp;
++	struct qfq_aggregate *agg, *new_front_agg;
++	u64 old_F;
+ 
+-			if (grp->S == roundedS)
+-				goto skip_unblock;
+-			grp->S = roundedS;
+-			grp->F = roundedS + (2ULL << grp->slot_shift);
+-			__clear_bit(grp->index, &q->bitmaps[ER]);
+-			s = qfq_calc_state(q, grp);
+-			__set_bit(grp->index, &q->bitmaps[s]);
+-		}
++	qfq_update_eligible(q);
++	q->oldV = q->V;
+ 
+-		qfq_unblock_groups(q, grp->index, old_F);
++	if (!q->bitmaps[ER])
++		return NULL;
++
++	grp = qfq_ffs(q, q->bitmaps[ER]);
++	old_F = grp->F;
++
++	agg = qfq_slot_head(grp);
++
++	/* agg starts to be served, remove it from schedule */
++	qfq_front_slot_remove(grp);
++
++	new_front_agg = qfq_slot_scan(grp);
++
++	if (new_front_agg == NULL) /* group is now inactive, remove from ER */
++		__clear_bit(grp->index, &q->bitmaps[ER]);
++	else {
++		u64 roundedS = qfq_round_down(new_front_agg->S,
++					      grp->slot_shift);
++		unsigned int s;
++
++		if (grp->S == roundedS)
++			return agg;
++		grp->S = roundedS;
++		grp->F = roundedS + (2ULL << grp->slot_shift);
++		__clear_bit(grp->index, &q->bitmaps[ER]);
++		s = qfq_calc_state(q, grp);
++		__set_bit(grp->index, &q->bitmaps[s]);
+ 	}
+ 
+-skip_unblock:
+-	qfq_update_eligible(q, old_V);
++	qfq_unblock_groups(q, grp->index, old_F);
+ 
+-	return skb;
++	return agg;
+ }
+ 
+ /*
+- * Assign a reasonable start time for a new flow k in group i.
++ * Assign a reasonable start time for a new aggregate in group i.
+  * Admissible values for \hat(F) are multiples of \sigma_i
+  * no greater than V+\sigma_i . Larger values mean that
+  * we had a wraparound so we consider the timestamp to be stale.
+  *
+  * If F is not stale and F >= V then we set S = F.
+  * Otherwise we should assign S = V, but this may violate
+- * the ordering in ER. So, if we have groups in ER, set S to
+- * the F_j of the first group j which would be blocking us.
++ * the ordering in EB (see [2]). So, if we have groups in ER,
++ * set S to the F_j of the first group j which would be blocking us.
+  * We are guaranteed not to move S backward because
+  * otherwise our group i would still be blocked.
+  */
+-static void qfq_update_start(struct qfq_sched *q, struct qfq_class *cl)
++static void qfq_update_start(struct qfq_sched *q, struct qfq_aggregate *agg)
+ {
+ 	unsigned long mask;
+ 	u64 limit, roundedF;
+-	int slot_shift = cl->grp->slot_shift;
++	int slot_shift = agg->grp->slot_shift;
+ 
+-	roundedF = qfq_round_down(cl->F, slot_shift);
++	roundedF = qfq_round_down(agg->F, slot_shift);
+ 	limit = qfq_round_down(q->V, slot_shift) + (1ULL << slot_shift);
+ 
+-	if (!qfq_gt(cl->F, q->V) || qfq_gt(roundedF, limit)) {
++	if (!qfq_gt(agg->F, q->V) || qfq_gt(roundedF, limit)) {
+ 		/* timestamp was stale */
+-		mask = mask_from(q->bitmaps[ER], cl->grp->index);
++		mask = mask_from(q->bitmaps[ER], agg->grp->index);
+ 		if (mask) {
+ 			struct qfq_group *next = qfq_ffs(q, mask);
+ 			if (qfq_gt(roundedF, next->F)) {
+ 				if (qfq_gt(limit, next->F))
+-					cl->S = next->F;
++					agg->S = next->F;
+ 				else /* preserve timestamp correctness */
+-					cl->S = limit;
++					agg->S = limit;
+ 				return;
+ 			}
+ 		}
+-		cl->S = q->V;
++		agg->S = q->V;
+ 	} else  /* timestamp is not stale */
+-		cl->S = cl->F;
++		agg->S = agg->F;
+ }
+ 
++/*
++ * Update the timestamps of agg before scheduling/rescheduling it for
++ * service.  In particular, assign to agg->F its maximum possible
++ * value, i.e., the virtual finish time with which the aggregate
++ * should be labeled if it used all its budget once in service.
++ */
++static inline void
++qfq_update_agg_ts(struct qfq_sched *q,
++		    struct qfq_aggregate *agg, enum update_reason reason)
++{
++	if (reason != requeue)
++		qfq_update_start(q, agg);
++	else {
++		/*
++		 * If agg->S is so low that the bound
++		 * QFQ_DELTA_S_LIMIT may not be met for the group,
++		 * then forget the service lost by agg. This reduces
++		 * the maximum service that some aggregate may lose if
++		 * many other aggregates are lagging behind the
++		 * service that they should have received.
++		 */
++		u64 limit = qfq_round_down(agg->S, agg->grp->slot_shift) +
++			(QFQ_DELTA_S_LIMIT<<agg->grp->slot_shift);
++		if (unlikely(qfq_gt(q->V, limit)))
++			agg->S = q->V; /* forget lost service */
++		else /* just charge agg for the service received */
++			agg->S = agg->F;
++	}
++
++	agg->F = agg->S + (u64)agg->budgetmax * agg->inv_w;
++}
++
++static void qfq_schedule_agg(struct qfq_sched *, struct qfq_aggregate *);
++
+ static int qfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ {
+ 	struct qfq_sched *q = qdisc_priv(sch);
+ 	struct qfq_class *cl;
++	struct qfq_aggregate *agg;
+ 	int err;
+ 
+ 	cl = qfq_classify(skb, sch, &err);
+@@ -905,35 +1211,50 @@ static int qfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	bstats_update(&cl->bstats, skb);
+ 	++sch->q.qlen;
+ 
+-	/* If the new skb is not the head of queue, then done here. */
+-	if (cl->qdisc->q.qlen != 1)
++	agg = cl->agg;
++	/* if the queue was not empty, then done here */
++	if (cl->qdisc->q.qlen != 1) {
++		if (unlikely(skb == cl->qdisc->ops->peek(cl->qdisc)) &&
++		    list_first_entry(&agg->active, struct qfq_class, alist)
++		    == cl && cl->deficit < qdisc_pkt_len(skb))
++			list_move_tail(&cl->alist, &agg->active);
++
+ 		return err;
++	}
++
++	/* schedule class for service within the aggregate */
++	cl->deficit = agg->lmax;
++	list_add_tail(&cl->alist, &agg->active);
+ 
+-	/* If reach this point, queue q was idle */
+-	qfq_activate_class(q, cl, qdisc_pkt_len(skb));
++	if (list_first_entry(&agg->active, struct qfq_class, alist) != cl)
++		return err; /* aggregate was not empty, nothing else to do */
++
++	/* recharge budget */
++	agg->initial_budget = agg->budget = agg->budgetmax;
++
++	qfq_update_agg_ts(q, agg, enqueue);
++	if (q->in_serv_agg == NULL)
++		q->in_serv_agg = agg;
++	else if (agg != q->in_serv_agg)
++		qfq_schedule_agg(q, agg);
+ 
+ 	return err;
+ }
+ 
+ /*
+- * Handle class switch from idle to backlogged.
++ * Schedule aggregate according to its timestamps.
+  */
+-static void qfq_activate_class(struct qfq_sched *q, struct qfq_class *cl,
+-			       unsigned int pkt_len)
++static void qfq_schedule_agg(struct qfq_sched *q, struct qfq_aggregate *agg)
+ {
+-	struct qfq_group *grp = cl->grp;
++	struct qfq_group *grp = agg->grp;
+ 	u64 roundedS;
+ 	int s;
+ 
+-	qfq_update_start(q, cl);
+-
+-	/* compute new finish time and rounded start. */
+-	cl->F = cl->S + (u64)pkt_len * cl->inv_w;
+-	roundedS = qfq_round_down(cl->S, grp->slot_shift);
++	roundedS = qfq_round_down(agg->S, grp->slot_shift);
+ 
+ 	/*
+-	 * insert cl in the correct bucket.
+-	 * If cl->S >= grp->S we don't need to adjust the
++	 * Insert agg in the correct bucket.
++	 * If agg->S >= grp->S we don't need to adjust the
+ 	 * bucket list and simply go to the insertion phase.
+ 	 * Otherwise grp->S is decreasing, we must make room
+ 	 * in the bucket list, and also recompute the group state.
+@@ -941,10 +1262,10 @@ static void qfq_activate_class(struct qfq_sched *q, struct qfq_class *cl,
+ 	 * was in ER make sure to adjust V.
+ 	 */
+ 	if (grp->full_slots) {
+-		if (!qfq_gt(grp->S, cl->S))
++		if (!qfq_gt(grp->S, agg->S))
+ 			goto skip_update;
+ 
+-		/* create a slot for this cl->S */
++		/* create a slot for this agg->S */
+ 		qfq_slot_rotate(grp, roundedS);
+ 		/* group was surely ineligible, remove */
+ 		__clear_bit(grp->index, &q->bitmaps[IR]);
+@@ -959,46 +1280,61 @@ static void qfq_activate_class(struct qfq_sched *q, struct qfq_class *cl,
+ 
+ 	pr_debug("qfq enqueue: new state %d %#lx S %lld F %lld V %lld\n",
+ 		 s, q->bitmaps[s],
+-		 (unsigned long long) cl->S,
+-		 (unsigned long long) cl->F,
++		 (unsigned long long) agg->S,
++		 (unsigned long long) agg->F,
+ 		 (unsigned long long) q->V);
+ 
+ skip_update:
+-	qfq_slot_insert(grp, cl, roundedS);
++	qfq_slot_insert(grp, agg, roundedS);
+ }
+ 
+ 
++/* Update agg ts and schedule agg for service */
++static void qfq_activate_agg(struct qfq_sched *q, struct qfq_aggregate *agg,
++			     enum update_reason reason)
++{
++	qfq_update_agg_ts(q, agg, reason);
++	qfq_schedule_agg(q, agg);
++}
++
+ static void qfq_slot_remove(struct qfq_sched *q, struct qfq_group *grp,
+-			    struct qfq_class *cl)
++			    struct qfq_aggregate *agg)
+ {
+ 	unsigned int i, offset;
+ 	u64 roundedS;
+ 
+-	roundedS = qfq_round_down(cl->S, grp->slot_shift);
++	roundedS = qfq_round_down(agg->S, grp->slot_shift);
+ 	offset = (roundedS - grp->S) >> grp->slot_shift;
++
+ 	i = (grp->front + offset) % QFQ_MAX_SLOTS;
+ 
+-	hlist_del(&cl->next);
++	hlist_del(&agg->next);
+ 	if (hlist_empty(&grp->slots[i]))
+ 		__clear_bit(offset, &grp->full_slots);
+ }
+ 
+ /*
+- * called to forcibly destroy a queue.
+- * If the queue is not in the front bucket, or if it has
+- * other queues in the front bucket, we can simply remove
+- * the queue with no other side effects.
++ * Called to forcibly deschedule an aggregate.  If the aggregate is
++ * not in the front bucket, or if the latter has other aggregates in
++ * the front bucket, we can simply remove the aggregate with no other
++ * side effects.
+  * Otherwise we must propagate the event up.
+  */
+-static void qfq_deactivate_class(struct qfq_sched *q, struct qfq_class *cl)
++static void qfq_deactivate_agg(struct qfq_sched *q, struct qfq_aggregate *agg)
+ {
+-	struct qfq_group *grp = cl->grp;
++	struct qfq_group *grp = agg->grp;
+ 	unsigned long mask;
+ 	u64 roundedS;
+ 	int s;
+ 
+-	cl->F = cl->S;
+-	qfq_slot_remove(q, grp, cl);
++	if (agg == q->in_serv_agg) {
++		charge_actual_service(agg);
++		q->in_serv_agg = qfq_choose_next_agg(q);
++		return;
++	}
++
++	agg->F = agg->S;
++	qfq_slot_remove(q, grp, agg);
+ 
+ 	if (!grp->full_slots) {
+ 		__clear_bit(grp->index, &q->bitmaps[IR]);
+@@ -1017,8 +1353,8 @@ static void qfq_deactivate_class(struct qfq_sched *q, struct qfq_class *cl)
+ 		}
+ 		__clear_bit(grp->index, &q->bitmaps[ER]);
+ 	} else if (hlist_empty(&grp->slots[grp->front])) {
+-		cl = qfq_slot_scan(grp);
+-		roundedS = qfq_round_down(cl->S, grp->slot_shift);
++		agg = qfq_slot_scan(grp);
++		roundedS = qfq_round_down(agg->S, grp->slot_shift);
+ 		if (grp->S != roundedS) {
+ 			__clear_bit(grp->index, &q->bitmaps[ER]);
+ 			__clear_bit(grp->index, &q->bitmaps[IR]);
+@@ -1031,7 +1367,7 @@ static void qfq_deactivate_class(struct qfq_sched *q, struct qfq_class *cl)
+ 		}
+ 	}
+ 
+-	qfq_update_eligible(q, q->V);
++	qfq_update_eligible(q);
+ }
+ 
+ static void qfq_qlen_notify(struct Qdisc *sch, unsigned long arg)
+@@ -1043,6 +1379,32 @@ static void qfq_qlen_notify(struct Qdisc *sch, unsigned long arg)
+ 		qfq_deactivate_class(q, cl);
+ }
+ 
++static unsigned int qfq_drop_from_slot(struct qfq_sched *q,
++				       struct hlist_head *slot)
++{
++	struct qfq_aggregate *agg;
++	struct hlist_node *n;
++	struct qfq_class *cl;
++	unsigned int len;
++
++	hlist_for_each_entry(agg, n, slot, next) {
++		list_for_each_entry(cl, &agg->active, alist) {
++
++			if (!cl->qdisc->ops->drop)
++				continue;
++
++			len = cl->qdisc->ops->drop(cl->qdisc);
++			if (len > 0) {
++				if (cl->qdisc->q.qlen == 0)
++					qfq_deactivate_class(q, cl);
++
++				return len;
++			}
++		}
++	}
++	return 0;
++}
++
+ static unsigned int qfq_drop(struct Qdisc *sch)
+ {
+ 	struct qfq_sched *q = qdisc_priv(sch);
+@@ -1052,24 +1414,13 @@ static unsigned int qfq_drop(struct Qdisc *sch)
+ 	for (i = 0; i <= QFQ_MAX_INDEX; i++) {
+ 		grp = &q->groups[i];
+ 		for (j = 0; j < QFQ_MAX_SLOTS; j++) {
+-			struct qfq_class *cl;
+-			struct hlist_node *n;
+-
+-			hlist_for_each_entry(cl, n, &grp->slots[j], next) {
+-
+-				if (!cl->qdisc->ops->drop)
+-					continue;
+-
+-				len = cl->qdisc->ops->drop(cl->qdisc);
+-				if (len > 0) {
+-					sch->q.qlen--;
+-					if (!cl->qdisc->q.qlen)
+-						qfq_deactivate_class(q, cl);
+-
+-					return len;
+-				}
++			len = qfq_drop_from_slot(q, &grp->slots[j]);
++			if (len > 0) {
++				sch->q.qlen--;
++				return len;
+ 			}
+ 		}
++
+ 	}
+ 
+ 	return 0;
+@@ -1080,44 +1431,51 @@ static int qfq_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
+ 	struct qfq_sched *q = qdisc_priv(sch);
+ 	struct qfq_group *grp;
+ 	int i, j, err;
++	u32 max_cl_shift, maxbudg_shift, max_classes;
+ 
+ 	err = qdisc_class_hash_init(&q->clhash);
+ 	if (err < 0)
+ 		return err;
+ 
++	if (qdisc_dev(sch)->tx_queue_len + 1 > QFQ_MAX_AGG_CLASSES)
++		max_classes = QFQ_MAX_AGG_CLASSES;
++	else
++		max_classes = qdisc_dev(sch)->tx_queue_len + 1;
++	/* max_cl_shift = floor(log_2(max_classes)) */
++	max_cl_shift = __fls(max_classes);
++	q->max_agg_classes = 1<<max_cl_shift;
++
++	/* maxbudg_shift = log2(max_len * max_classes_per_agg) */
++	maxbudg_shift = QFQ_MTU_SHIFT + max_cl_shift;
++	q->min_slot_shift = FRAC_BITS + maxbudg_shift - QFQ_MAX_INDEX;
++
+ 	for (i = 0; i <= QFQ_MAX_INDEX; i++) {
+ 		grp = &q->groups[i];
+ 		grp->index = i;
+-		grp->slot_shift = QFQ_MTU_SHIFT + FRAC_BITS
+-				   - (QFQ_MAX_INDEX - i);
++		grp->slot_shift = q->min_slot_shift + i;
+ 		for (j = 0; j < QFQ_MAX_SLOTS; j++)
+ 			INIT_HLIST_HEAD(&grp->slots[j]);
+ 	}
+ 
++	INIT_HLIST_HEAD(&q->nonfull_aggs);
++
+ 	return 0;
+ }
+ 
+ static void qfq_reset_qdisc(struct Qdisc *sch)
+ {
+ 	struct qfq_sched *q = qdisc_priv(sch);
+-	struct qfq_group *grp;
+ 	struct qfq_class *cl;
+-	struct hlist_node *n, *tmp;
+-	unsigned int i, j;
++	struct hlist_node *n;
++	unsigned int i;
+ 
+-	for (i = 0; i <= QFQ_MAX_INDEX; i++) {
+-		grp = &q->groups[i];
+-		for (j = 0; j < QFQ_MAX_SLOTS; j++) {
+-			hlist_for_each_entry_safe(cl, n, tmp,
+-						  &grp->slots[j], next) {
++	for (i = 0; i < q->clhash.hashsize; i++) {
++		hlist_for_each_entry(cl, n, &q->clhash.hash[i], common.hnode) {
++			if (cl->qdisc->q.qlen > 0)
+ 				qfq_deactivate_class(q, cl);
+-			}
+-		}
+-	}
+ 
+-	for (i = 0; i < q->clhash.hashsize; i++) {
+-		hlist_for_each_entry(cl, n, &q->clhash.hash[i], common.hnode)
+ 			qdisc_reset(cl->qdisc);
++		}
+ 	}
+ 	sch->q.qlen = 0;
+ }
+-- 
+1.7.9.5
