@@ -1,41 +1,56 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: Re: [PATCH net-next 0/2] bnx2x: net-next FW upgrade
-Date: Sun, 30 Sep 2012 08:16:22 +0200
-Message-ID: <5067E3B6.8050703@broadcom.com>
-References: <1348757936-10262-1-git-send-email-yuvalmin@broadcom.com>
- <20120930.022836.251638342830809918.davem@davemloft.net>
+From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Subject: RE: [PATCH net-next] mlx4: dont orphan skbs in mlx4_en_xmit()
+Date: Sun, 30 Sep 2012 06:49:34 +0000
+Message-ID: <953B660C027164448AE903364AC447D287223CBB@MTLDAG01.mtl.com>
+References: <1347866974.26523.53.camel@edumazet-glaptop>
+	 <953B660C027164448AE903364AC447D28721B46E@MTLDAG01.mtl.com>
+	 <1348056777.26523.750.camel@edumazet-glaptop>
+ <1348854806.5093.2686.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-7
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, eilong@broadcom.com, ariele@broadcom.com
-To: "David Miller" <davem@davemloft.net>,
-	"Michael Chan" <mchan@broadcom.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Or Gerlitz" <ogerlitz@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4989 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751616Ab2I3GoY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Sep 2012 02:44:24 -0400
-In-Reply-To: <20120930.022836.251638342830809918.davem@davemloft.net>
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:41198 "HELO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751616Ab2I3G6l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Sep 2012 02:58:41 -0400
+In-Reply-To: <1348854806.5093.2686.camel@edumazet-glaptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> These patches do not build.
->=20
-> drivers/net/ethernet/broadcom/cnic.c: In function =A1cnic_init_bnx2x_=
-tx_ring=A2:
-> drivers/net/ethernet/broadcom/cnic.c:4904:4: error: =A1ETH_TX_START_B=
-D_ETH_ADDR_TYPE_SHIFT=A2 undeclared (first use in this function)
-> drivers/net/ethernet/broadcom/cnic.c:4904:4: note: each undeclared id=
-entifier is reported only once for each function it appears in
-> make[4]: *** [drivers/net/ethernet/broadcom/cnic.o] Error 1
-> make[4]: *** Waiting for unfinished jobs....
-> make[3]: *** [drivers/net/ethernet/broadcom] Error 2
-> make[2]: *** [drivers/net/ethernet] Error 2
-> make[1]: *** [drivers/net] Error 2
-> make: *** [drivers] Error 2
-
-Sorry about that - the HSI has changed which affects cnic as well as bn=
-x2x.
-
-A revised patch series which will advance both into the new FW will be =
-submitted soon.
+QWNrZWQtYnk6IFlldmdlbnkgUGV0cmlsaW4gPHlldmdlbnlwQG1lbGxhbm94LmNvbT4NCg0KPiAt
+LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0bzpl
+cmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBGcmlkYXksIFNlcHRlbWJlciAyOCwgMjAx
+MiA3OjU0IFBNDQo+IFRvOiBZZXZnZW55IFBldHJpbGluDQo+IENjOiBEYXZpZCBNaWxsZXI7IG5l
+dGRldjsgT3IgR2VybGl0eg0KPiBTdWJqZWN0OiBbUEFUQ0ggbmV0LW5leHRdIG1seDQ6IGRvbnQg
+b3JwaGFuIHNrYnMgaW4gbWx4NF9lbl94bWl0KCkNCj4gDQo+IEZyb206IEVyaWMgRHVtYXpldCA8
+ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4NCj4gDQo+IEFmdGVyIGNvbW1pdCBlMjI5NzlkOTZhNTVkICht
+bHg0X2VuOiBNb3ZpbmcgdG8gSW50ZXJydXB0cyBmb3IgVFgNCj4gY29tcGxldGlvbnMpIHdlIG5v
+IGxvbmdlciBuZWVkIHRvIG9ycGhhbiBza2JzIGluIG1seDRfZW5feG1pdCgpDQo+IHNpbmNlIHNr
+YiB3b250IHN0YXkgYSBsb25nIHRpbWUgaW4gVFggcmluZyBiZWZvcmUgdGhlaXIgcmVsZWFzZS4N
+Cj4gDQo+IE9ycGhhbmluZyBza2JzIGluIG5kb19zdGFydF94bWl0KCkgc2hvdWxkIGJlIGF2b2lk
+ZWQgYXMgbXVjaCBhcw0KPiBwb3NzaWJsZSwgc2luY2UgaXQgYnJlYWtzIFRDUCBTbWFsbCBRdWV1
+ZSBvciBvdGhlciBmbG93IGNvbnRyb2wNCj4gbWVjaGFuaXNtcyAocGVyIHNvY2tldCBsaW1pdHMp
+DQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+
+DQo+IENjOiBZZXZnZW55IFBldHJpbGluIDx5ZXZnZW55cEBtZWxsYW5veC5jb20+DQo+IENjOiBP
+ciBHZXJsaXR6IDxvZ2VybGl0ekBtZWxsYW5veC5jb20+DQo+IC0tLQ0KPiAgZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvbWVsbGFub3gvbWx4NC9lbl90eC5jIHwgICAgNCAtLS0tDQo+ICAxIGZpbGUgY2hh
+bmdlZCwgNCBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9tZWxsYW5veC9tbHg0L2VuX3R4LmMNCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxs
+YW5veC9tbHg0L2VuX3R4LmMNCj4gaW5kZXggMTBiYmEwOS4uYzEwZTNhNiAxMDA2NDQNCj4gLS0t
+IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4NC9lbl90eC5jDQo+ICsrKyBiL2Ry
+aXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seDQvZW5fdHguYw0KPiBAQCAtNzEyLDEwICs3
+MTIsNiBAQCBuZXRkZXZfdHhfdCBtbHg0X2VuX3htaXQoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3Ry
+dWN0IG5ldF9kZXZpY2UgKmRldikNCj4gIAlpZiAoYm91bmNlKQ0KPiAgCQl0eF9kZXNjID0gbWx4
+NF9lbl9ib3VuY2VfdG9fZGVzYyhwcml2LCByaW5nLCBpbmRleCwgZGVzY19zaXplKTsNCj4gDQo+
+IC0JLyogUnVuIGRlc3RydWN0b3IgYmVmb3JlIHBhc3Npbmcgc2tiIHRvIEhXICovDQo+IC0JaWYg
+KGxpa2VseSghc2tiX3NoYXJlZChza2IpKSkNCj4gLQkJc2tiX29ycGhhbihza2IpOw0KPiAtDQo+
+ICAJaWYgKHJpbmctPmJmX2VuYWJsZWQgJiYgZGVzY19zaXplIDw9IE1BWF9CRiAmJiAhYm91bmNl
+ICYmICF2bGFuX3RhZykgew0KPiAgCQkqKF9fYmUzMiAqKSAoJnR4X2Rlc2MtPmN0cmwudmxhbl90
+YWcpIHw9IGNwdV90b19iZTMyKHJpbmctPmRvb3JiZWxsX3Fwbik7DQo+ICAJCW9wX293biB8PSBo
+dG9ubCgoYmZfaW5kZXggJiAweGZmZmYpIDw8IDgpOw0KPiANCg0K
