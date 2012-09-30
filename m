@@ -1,56 +1,53 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.com>
-Subject: RE: [PATCH net-next] mlx4: dont orphan skbs in mlx4_en_xmit()
-Date: Sun, 30 Sep 2012 06:49:34 +0000
-Message-ID: <953B660C027164448AE903364AC447D287223CBB@MTLDAG01.mtl.com>
-References: <1347866974.26523.53.camel@edumazet-glaptop>
-	 <953B660C027164448AE903364AC447D28721B46E@MTLDAG01.mtl.com>
-	 <1348056777.26523.750.camel@edumazet-glaptop>
- <1348854806.5093.2686.camel@edumazet-glaptop>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: Re: New commands to configure IOV features
+Date: Sun, 30 Sep 2012 08:39:07 +0200
+Message-ID: <5067E90B.2030908@broadcom.com>
+References: <5003DC9B.8000706@broadcom.com>
+ <1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com>
+ <5009ECDF.4090305@genband.com> <500D59BF.9040006@redhat.com>
+ <500D6932.8090306@genband.com>
+ <20120723113607.56ce7aaf@nehalam.linuxnetplumber.net>
+ <C5551D9AAB213A418B7FD5E4A6F30A070C7D9DCD@ORSMSX106.amr.corp.intel.com>
+ <5059A767.2090307@broadcom.com> <20120919085306.00006af9@unknown>
+ <1348083847.2636.37.camel@bwh-desktop.uk.solarflarecom.com>
+ <CAE9FiQXQj_KdWT-mVVsptxiEgGjScgDy_Lp-aXioZ4YAQh1wWQ@mail.gmail.com>
+ <1348094773.2636.85.camel@bwh-desktop.uk.solarflarecom.com>
+ <CAE9FiQVk-uXgLK6dM8q5-Xsh8LO+c-Dd_cEpu2WzJ6Uzt6ztnA@mail.gmail.com>
+ <1348104190.4836.61.camel@deadeye.wl.decadent.org.uk>
+ <C5551D9AAB213A418B7FD5E4A6F30A07152FA5F6@ORSMSX106.amr.corp.intel.com>
+ <CAE9FiQXqFnrXT8ibD2zsmeTj-VzXb8sAOjUtryBOxEXj216pQQ@mail.gmail.com>
+ <505CAC93.8020304@redhat.com>
+ <CAE9FiQW4vY3SwAt1TGhSa=bcmKnzxS96b9HGoU5_CDb3FRvGVA@mail.gmail.com>
+ <505CC930.5070807@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Or Gerlitz" <ogerlitz@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:41198 "HELO
-	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751616Ab2I3G6l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Sep 2012 02:58:41 -0400
-In-Reply-To: <1348854806.5093.2686.camel@edumazet-glaptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Yinghai Lu" <yinghai@kernel.org>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	"Bjorn Helgaas" <bhelgaas@google.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Ariel Elior" <ariele@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	linux-pci <linux-pci@vger.kernel.org>
+To: "Don Dutile" <ddutile@redhat.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <505CC930.5070807@redhat.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-QWNrZWQtYnk6IFlldmdlbnkgUGV0cmlsaW4gPHlldmdlbnlwQG1lbGxhbm94LmNvbT4NCg0KPiAt
-LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0bzpl
-cmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBGcmlkYXksIFNlcHRlbWJlciAyOCwgMjAx
-MiA3OjU0IFBNDQo+IFRvOiBZZXZnZW55IFBldHJpbGluDQo+IENjOiBEYXZpZCBNaWxsZXI7IG5l
-dGRldjsgT3IgR2VybGl0eg0KPiBTdWJqZWN0OiBbUEFUQ0ggbmV0LW5leHRdIG1seDQ6IGRvbnQg
-b3JwaGFuIHNrYnMgaW4gbWx4NF9lbl94bWl0KCkNCj4gDQo+IEZyb206IEVyaWMgRHVtYXpldCA8
-ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4NCj4gDQo+IEFmdGVyIGNvbW1pdCBlMjI5NzlkOTZhNTVkICht
-bHg0X2VuOiBNb3ZpbmcgdG8gSW50ZXJydXB0cyBmb3IgVFgNCj4gY29tcGxldGlvbnMpIHdlIG5v
-IGxvbmdlciBuZWVkIHRvIG9ycGhhbiBza2JzIGluIG1seDRfZW5feG1pdCgpDQo+IHNpbmNlIHNr
-YiB3b250IHN0YXkgYSBsb25nIHRpbWUgaW4gVFggcmluZyBiZWZvcmUgdGhlaXIgcmVsZWFzZS4N
-Cj4gDQo+IE9ycGhhbmluZyBza2JzIGluIG5kb19zdGFydF94bWl0KCkgc2hvdWxkIGJlIGF2b2lk
-ZWQgYXMgbXVjaCBhcw0KPiBwb3NzaWJsZSwgc2luY2UgaXQgYnJlYWtzIFRDUCBTbWFsbCBRdWV1
-ZSBvciBvdGhlciBmbG93IGNvbnRyb2wNCj4gbWVjaGFuaXNtcyAocGVyIHNvY2tldCBsaW1pdHMp
-DQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+
-DQo+IENjOiBZZXZnZW55IFBldHJpbGluIDx5ZXZnZW55cEBtZWxsYW5veC5jb20+DQo+IENjOiBP
-ciBHZXJsaXR6IDxvZ2VybGl0ekBtZWxsYW5veC5jb20+DQo+IC0tLQ0KPiAgZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvbWVsbGFub3gvbWx4NC9lbl90eC5jIHwgICAgNCAtLS0tDQo+ICAxIGZpbGUgY2hh
-bmdlZCwgNCBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9tZWxsYW5veC9tbHg0L2VuX3R4LmMNCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxs
-YW5veC9tbHg0L2VuX3R4LmMNCj4gaW5kZXggMTBiYmEwOS4uYzEwZTNhNiAxMDA2NDQNCj4gLS0t
-IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4NC9lbl90eC5jDQo+ICsrKyBiL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seDQvZW5fdHguYw0KPiBAQCAtNzEyLDEwICs3
-MTIsNiBAQCBuZXRkZXZfdHhfdCBtbHg0X2VuX3htaXQoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3Ry
-dWN0IG5ldF9kZXZpY2UgKmRldikNCj4gIAlpZiAoYm91bmNlKQ0KPiAgCQl0eF9kZXNjID0gbWx4
-NF9lbl9ib3VuY2VfdG9fZGVzYyhwcml2LCByaW5nLCBpbmRleCwgZGVzY19zaXplKTsNCj4gDQo+
-IC0JLyogUnVuIGRlc3RydWN0b3IgYmVmb3JlIHBhc3Npbmcgc2tiIHRvIEhXICovDQo+IC0JaWYg
-KGxpa2VseSghc2tiX3NoYXJlZChza2IpKSkNCj4gLQkJc2tiX29ycGhhbihza2IpOw0KPiAtDQo+
-ICAJaWYgKHJpbmctPmJmX2VuYWJsZWQgJiYgZGVzY19zaXplIDw9IE1BWF9CRiAmJiAhYm91bmNl
-ICYmICF2bGFuX3RhZykgew0KPiAgCQkqKF9fYmUzMiAqKSAoJnR4X2Rlc2MtPmN0cmwudmxhbl90
-YWcpIHw9IGNwdV90b19iZTMyKHJpbmctPmRvb3JiZWxsX3Fwbik7DQo+ICAJCW9wX293biB8PSBo
-dG9ubCgoYmZfaW5kZXggJiAweGZmZmYpIDw8IDgpOw0KPiANCg0K
+>>> yuk, no.
+>>> I have a set of patches almost done.
+>>> i'm tied up until Monday on RHEL6, then I'll switch gears&  post a set of
+>>> patches.
+
+hi Don - anything new about this incoming patch-series?
+
+>>
+>> so that is your employer 'sinternal policy? for RHEL 6 kernel first,
+>> then upstream kernel?
+> No, I have deadlines for RHEL6 for *other work* until Monday.  After that,
+> I can re-focus on upstream work.  Some of us actually have other work than
+> just upstream.... crazy talk, I know! ;-)
