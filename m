@@ -1,112 +1,91 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH RFC] pkt_sched: QFQ Plus: fair-queueing service at DRR
- cost
-Date: Mon, 1 Oct 2012 08:31:00 -0700
-Message-ID: <20121001083100.13fc231c@nehalam.linuxnetplumber.net>
-References: <20120930174049.GA13793@paolo-ThinkPad-W520>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Possible networking regression in 3.6.0
+Date: Mon, 01 Oct 2012 17:31:38 +0200
+Message-ID: <1349105498.12401.706.camel@edumazet-glaptop>
+References: <5057455A.7050108@googlemail.com>
+	 <50588371.40103@googlemail.com>  <505885DC.1060006@googlemail.com>
+	 <1347979239.26523.267.camel@edumazet-glaptop>
+	 <5059E40C.4070607@googlemail.com> <505D5A18.2080507@googlemail.com>
+	 <50643DA1.7070306@googlemail.com>
+	 <1348748042.5093.1168.camel@edumazet-glaptop>
+	 <50649567.2010704@googlemail.com>
+	 <1348779826.5093.1750.camel@edumazet-glaptop>
+	 <1348780624.5093.1767.camel@edumazet-glaptop>
+	 <50656C4A.8090302@googlemail.com>
+	 <1348831592.5093.2251.camel@edumazet-glaptop>
+	 <5068648C.7050005@googlemail.com>
+	 <1349034330.12401.210.camel@edumazet-glaptop>
+	 <506955F3.8050304@googlemail.com>
+	 <1349082950.12401.669.camel@edumazet-glaptop>
+	 <5069B300.9080308@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rizzo@iet.unipi.it, fchecconi@gmail.com
-To: Paolo Valente <paolo.valente@unimore.it>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120930174049.GA13793@paolo-ThinkPad-W520>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	gpiez@web.de
+To: Chris Clayton <chris2553@googlemail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:42972 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752391Ab2JAPbn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 11:31:43 -0400
+Received: by bkcjk13 with SMTP id jk13so5036286bkc.19
+        for <netdev@vger.kernel.org>; Mon, 01 Oct 2012 08:31:42 -0700 (PDT)
+In-Reply-To: <5069B300.9080308@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 30 Sep 2012 19:40:49 +0200
-Paolo Valente <paolo.valente@unimore.it> wrote:
+On Mon, 2012-10-01 at 16:13 +0100, Chris Clayton wrote:
+> 
+> On 10/01/12 10:15, Eric Dumazet wrote:
+> > On Mon, 2012-10-01 at 09:36 +0100, Chris Clayton wrote:
+> >>
+> >
+> >>       0 ICMP messages received
+> >>       0 input ICMP message failed.
+> >>       ICMP input histogram:
+> >>       0 ICMP messages sent
+> >>       0 ICMP messages failed
+> >>       ICMP output histogram:
+> >
+> >>
+> >> After:
+> >>
+> >> $ netstat -s
+> >> Icmp:
+> >>       4 ICMP messages received
+> >>       4 input ICMP message failed.
+> >>       ICMP input histogram:
+> >>           echo replies: 4
+> >
+> > So icmp replies come back and are delivered to host instead of being
+> > forwarded.
+> >
+> > I wonder if MASQUERADE broke...
+> >
+> > Could you send
+> >
+> > iptables -t -nat -nvL
+> 
+> $ iptables -t -nat -nvL
+> iptables v1.4.15: can't initialize iptables table `-nat': Table does not 
+> exist (do you need to insmod?)
+> Perhaps iptables or your kernel needs to be upgraded.
+> 
+> > conntrack -L   # while ping is running from guest
+> 
+> $ conntrack -L
+> conntrack v1.2.2 (conntrack-tools): Operation failed: invalid parameters
+> 
 
-> Hi,
-> this patch turns QFQ into QFQ+, a faster variant of QFQ that groups
-> classes into aggregates, and uses the original QFQ scheduling
-> algorithm to schedule aggregates instead of single classes. An
-> aggregate is made of at most M classes, all with the same weight and
-> maximum packet size.  M is equal to the minimum between tx_queue_len+1
-> and 8 (value chosen to get a good trade-off between execution time and
-> service guarantees). QFQ+ associates each aggregate with a budget
-> equal to the maximum packet size for the classes in the aggregate,
-> multiplied by the number of classes of the aggregate. Once selected an
-> aggregate for service, QFQ+ dequeues only the packets of its classes,
-> until the aggregate finishes its budget. Finally, within an aggregate,
-> classes are scheduled with DRR. In my tests, described below, the
-> execution time of QFQ+ with M=8 was from 16% to 31% lower than that of
-> QFQ, and close to that of DRR.
-> 
-> QFQ+ does not use packet lengths for computing aggregate timestamps,
-> but budgets. Hence it does not need to modify any timestamp if the
-> head packet of a class changes. As a consequence, differently from
-> QFQ, which uses head-packet lengths to compute class timestamps, QFQ+
-> does not need further modifications to correctly schedule also
-> non-leaf classes and classes with non-FIFO qdiscs. Finally, QFQ+ is
-> more robust than QFQ against corruption of the data structures
-> implementing the bucket lists. A detailed description of QFQ+ can be
-> found in [1].
-> 
-> As for service guarantees, thanks to the way how M is computed, the
-> service of QFQ+ is close to the one of QFQ. For example, as proved in
-> [1], under QFQ+ every packet of a given class is guaranteed the same
-> worst-case completion time as under QFQ, plus an additional delay
-> equal to the transmission time, at the rate reserved to the class, of
-> three maximum-size packet. See [1, Section 7.1] for a numerical
-> comparison among the packet delays guaranteed by QFQ+, QFQ and DRR.
-> 
-> I measured the execution time of QFQ+, DRR and QFQ using the testing
-> environment [2]. In particular, for each scheduler I measured the
-> average total execution time of a packet enqueue plus a packet
-> dequeue.  For practical reasons, in this testing environment each
-> enqueue&dequeue is also charged for the cost of generating and
-> discarding an empty, fixed-size packet (using a free list). The
-> following table reports the results with an i7-2760QM, against four
-> different class sets. Time is measured in nanoseconds, while each set
-> or subset of classes is denoted as <num_classes>-w<weight>, where
-> <num_classes> and <weight> are, respectively, the number of classes
-> and the weight of every class in the set/subset (for example, 250-w1
-> stands for 250 classes with weight 1). For QFQ+, the table shows the
-> results for the two extremes for M: 1 and 8 (see [1, Section 7.2] for
-> results with other values of M and for more information).
-> 
->  -----------------------------------------------
-> | Set of  |      QFQ+ (M)     |   DRR      QFQ  |
-> | classes |    1          8   |                 |
-> |-----------------------------------------------|     
-> | 1k-w1   |   89         63   |    56       81  |
-> |-----------------------------------------------|
-> | 500-w1, |                   |                 |
-> | 250-w2, |  102         71   |    87      103  |
-> | 250-w4  |                   |                 |
-> |-----------------------------------------------|
-> | 32k-w1  |  267        225   |   173      257  |
-> |-----------------------------------------------|
-> | 16k-w1, |                   |                 |
-> | 8k-w2,  |  253        187   |   252      257  |
-> | 8k-w4   |                   |                 |
->  -----------------------------------------------
-> 
-> About DRR, it achieves its best performance when all the classes have
-> the same weight. This is fortunate, because in such scenarios it is
-> actually pointless to use a fair-queueing scheduler, as the latter
-> would provide the same quality of service as DRR. In contrast, when
-> classes have differentiated weights and the better service properties
-> of QFQ+ make a difference, QFQ+ has better performance than DRR. It
-> happens mainly because QFQ+ dequeues packets in an order that causes
-> about 8% less cache misses than DRR. As for the number of
-> instructions, QFQ+ executes instead about 7% more instructions than
-> DRR, whereas QFQ executes from 25% to 34% more instructions than DRR.
-> 
-> Paolo
-> 
-> [1] P. Valente, "Reducing the Execution Time of Fair-Queueing Schedulers"
-> http://algo.ing.unimo.it/people/paolo/agg-sched/agg-sched.pdf
-> 
-> [2] http://algo.ing.unimo.it/people/paolo/agg-sched/test-env.tgz
-> 
-> Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
+Thats not expected, you described you used MASQUERADE target, so
+"iptables -t nat -nvL" should display something.
 
-I like the improvement and the performance improvement.
-Is there some concern that changing the implementation this much might
-upset some people already using QFQ?
 
-What happens if an existing working QFQ config is used in QFQ+?
+> Forgive me for asking, but why is the problem not down to the change 
+> that I identified by bisecting? The title of the patch is "ipv4: Cache 
+> local output routes" and, although I'm a million miles from being an 
+> expert here, to me it does make it look a good candidate. 
+> http://marc.info/?l=linux-netdev&m=134797809611847&w=2
+
+Because I cant reproduce your problem at all, using your setup.
