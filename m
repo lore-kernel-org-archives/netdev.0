@@ -1,46 +1,52 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: Re: [PATCH 1/2] net: ti cpsw ethernet: allow reading phy interface
- mode from DT
-Date: Mon, 01 Oct 2012 23:15:38 +0200
-Message-ID: <506A07FA.5000800@gmail.com>
-References: <1348680268-8194-1-git-send-email-zonque@gmail.com> <20121001.171114.1093867649404020043.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] gre: conform to RFC6040 ECN progogation
+Date: Mon, 1 Oct 2012 14:21:35 -0700
+Message-ID: <20121001142135.6580b3eb@nehalam.linuxnetplumber.net>
+References: <20120924184304.727711327@vyatta.com>
+	<20120924185050.162920909@vyatta.com>
+	<20120924205822.GI26494@x200.localdomain>
+	<20120924141133.3c97e9de@nehalam.linuxnetplumber.net>
+	<20120924212226.GJ26494@x200.localdomain>
+	<20120924144457.0c76bce2@nehalam.linuxnetplumber.net>
+	<1349106919.2577.9.camel@bwh-desktop.uk.solarflarecom.com>
+	<20121001085606.6f828f7d@nehalam.linuxnetplumber.net>
+	<1349110181.2577.16.camel@bwh-desktop.uk.solarflarecom.com>
+	<1349111627.12401.714.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	mugunthanvnm@ti.com, hvaibhav@ti.com
-To: David Miller <davem@davemloft.net>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Chris Wright <chrisw@redhat.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:64549 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751204Ab2JAVPw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 17:15:52 -0400
-Received: by bkcjk13 with SMTP id jk13so5193535bkc.19
-        for <netdev@vger.kernel.org>; Mon, 01 Oct 2012 14:15:51 -0700 (PDT)
-In-Reply-To: <20121001.171114.1093867649404020043.davem@davemloft.net>
+Received: from mail.vyatta.com ([76.74.103.46]:58554 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751492Ab2JAVWK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Oct 2012 17:22:10 -0400
+In-Reply-To: <1349111627.12401.714.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01.10.2012 23:11, David Miller wrote:
-> From: Daniel Mack <zonque@gmail.com>
-> Date: Wed, 26 Sep 2012 19:24:27 +0200
+On Mon, 01 Oct 2012 19:13:47 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> On Mon, 2012-10-01 at 17:49 +0100, Ben Hutchings wrote:
 > 
->> Allow users to specify the phy interface of the CPSW slaves. The new
->> node parameter is called "phy_if_mode" and is optional. The original
->> behaviour of the driver is preserved when not given.
->>
->> Signed-off-by: Daniel Mack <zonque@gmail.com>
+> > I don't think rx_dropped is appropriate for counting invalid packets,
+> > but maybe actual practice is already different.
+> > 
+> > As for whether packets counted in rx_dropped should also be counted in
+> > rx_packets/rx_bytes, I really don't know.  The current comments on
+> > rtnl_link_stats (inherited from net_device_stats) are totally inadequate
+> > as a specification.
 > 
-> Applied, thanks.
+> rx_dropped is used by core network stack, not the devices themselves.
 > 
+> So a packet is first accounted in rx_bytes/rx_packets by the driver,
+> and if net/core/dev.c drops it, rx_dropped is incremented as well.
 
-Eh, no - sorry. My original understanding was that a bit in the cpsw
-registers has to be set only when a certain physical phy mode is in use.
-Hence we would have needed a way to pass that information in via DT. But
-as Mugunthan pointed out, that bit must always be set, and the cpsw
-slaves can stay agnostic to the actual phy mode.
+The tunnel drivers are consistent in putting any dropped packet because
+of protocol problem into a rx_XXX_error value and incrementing rx_errors.
 
-So that patch isn't needed. Sorry for the confusion.
-
-
-Daniel
+I just made it treat ECN bit breakage like all the other protocol errors.
