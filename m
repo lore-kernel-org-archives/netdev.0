@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] be2net: fix vfs enumeration
-Date: Mon, 01 Oct 2012 16:46:36 -0400 (EDT)
-Message-ID: <20121001.164636.2110489341405301314.davem@davemloft.net>
-References: <1349092615-31894-1-git-send-email-ivecera@redhat.com>
+Subject: Re: [PATCH net-next v2 0/2] bnx2x: net-next FW upgrade
+Date: Mon, 01 Oct 2012 16:46:01 -0400 (EDT)
+Message-ID: <20121001.164601.1829069306723982473.davem@davemloft.net>
+References: <1349099180-5606-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sathya.perla@emulex.com,
-	subbu.seetharaman@emulex.com, ajit.khaparde@emulex.com,
-	sfr@canb.auug.org.au
-To: ivecera@redhat.com
+Cc: netdev@vger.kernel.org
+To: dmitry@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40785 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40778 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755978Ab2JAUqi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 16:46:38 -0400
-In-Reply-To: <1349092615-31894-1-git-send-email-ivecera@redhat.com>
+	with ESMTP id S1755211Ab2JAUqG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 16:46:06 -0400
+In-Reply-To: <1349099180-5606-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Vecera <ivecera@redhat.com>
-Date: Mon,  1 Oct 2012 13:56:55 +0200
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Date: Mon, 1 Oct 2012 15:46:18 +0200
 
-> Current VFs enumeration algorithm used in be_find_vfs does not take domain
-> number into the match. The match found in igb/ixgbe is more elegant and
-> safe.
+> This is a respin of previous series contains 2 patches -
+> the first allows the bnx2x and cnic driver to
+> utilize the recently submitted bnx2x FW 7.8.2, while the second advances
+> the bnx2x version to 1.78.00-0.
 > 
-> This 2nd version uses pci_physfn instead of checking dev->physfn directly.
-> 
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+> Changes since V1:
+> 	Integrated changes to CNIC driver for FW 7.8.2.
 
 Applied.
