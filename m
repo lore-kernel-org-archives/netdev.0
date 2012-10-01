@@ -1,101 +1,62 @@
-From: Arun MURTHY <arun.murthy@stericsson.com>
-Subject: RE: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
-Date: Mon, 1 Oct 2012 11:12:24 +0200
-Message-ID: <F45880696056844FA6A73F415B568C695B6962C347@EXDCVYMBSTM006.EQ1STM.local>
-References: <1348819504-1303-1-git-send-email-arun.murthy@stericsson.com>
-	<1348819504-1303-2-git-send-email-arun.murthy@stericsson.com>
-	<20120928160045.GD2625@kroah.com>
-	<F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
-	<CAK7N6vpXfhb0KhMfqxbcSQqT=qPcMS06OdaG9kNsWMqiiepLTQ@mail.gmail.com>
-	<F45880696056844FA6A73F415B568C695B6962C1CD@EXDCVYMBSTM006.EQ1STM.local>
- <CAK7N6vqpokVk19-KPPggZRynKJVjoa04n_0g4nnb1CN836s5pA@mail.gmail.com>
+From: Daniel Mack <zonque@gmail.com>
+Subject: Re: [PATCH v2] net: ti cpsw ethernet: set IFCTL_A bit in MACCONTROL
+Date: Mon, 01 Oct 2012 11:25:30 +0200
+Message-ID: <5069618A.5020105@gmail.com>
+References: <1348773574-30318-1-git-send-email-zonque@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Greg KH <gregkh@linuxfoundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
-To: anish singh <anish198519851985@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Mugunthan V N <mugunthanvnm@ti.com>,
+	Vaibhav Hiremath <hvaibhav@ti.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Daniel Mack <zonque@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:58727 "EHLO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752445Ab2JAJMn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 05:12:43 -0400
-In-Reply-To: <CAK7N6vqpokVk19-KPPggZRynKJVjoa04n_0g4nnb1CN836s5pA@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:57683 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751217Ab2JAJZh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 05:25:37 -0400
+Received: by bkcjk13 with SMTP id jk13so4776482bkc.19
+        for <netdev@vger.kernel.org>; Mon, 01 Oct 2012 02:25:36 -0700 (PDT)
+In-Reply-To: <1348773574-30318-1-git-send-email-zonque@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+PiA+PiA+ICtpbnQgbW9kZW1fcmVsZWFzZShzdHJ1Y3QgbW9kZW1fZGVzYyAqbWRlc2MpIHsN
-Cj4gPj4gPj4gPiArICAgaWYgKCFtZGVzYy0+cmVsZWFzZSkNCj4gPj4gPj4gPiArICAgICAgICAg
-ICByZXR1cm4gLUVGQVVMVDsNCj4gPj4gPj4gPiArDQo+ID4+ID4+ID4gKyAgIGlmIChtb2RlbV9p
-c19yZXF1ZXN0ZWQobWRlc2MpKSB7DQo+ID4+ID4+ID4gKyAgICAgICAgICAgYXRvbWljX2RlYygm
-bWRlc2MtPm1jbGllbnRzLT5jbnQpOw0KPiA+PiA+PiA+ICsgICAgICAgICAgIGlmIChhdG9taWNf
-cmVhZCgmbWRlc2MtPnVzZV9jbnQpID09IDEpIHsNCj4gPj4gPj4gPiArICAgICAgICAgICAgICAg
-ICAgIG1kZXNjLT5yZWxlYXNlKG1kZXNjKTsNCj4gPj4gPj4gPiArICAgICAgICAgICAgICAgICAg
-IGF0b21pY19kZWMoJm1kZXNjLT51c2VfY250KTsNCj4gPj4gPj4gPiArICAgICAgICAgICB9DQo+
-ID4+ID4+DQo+ID4+ID4+IEVlZWssIHdoeSBhcmVuJ3QgeW91IHVzaW5nIHRoZSBidWlsdC1pbiBy
-ZWZlcmVuY2UgY291bnRpbmcgdGhhdA0KPiA+PiA+PiB0aGUgc3RydWN0IGRldmljZSBwcm92aWRl
-ZCB0byB5b3UsIGFuZCBpbnN0ZWFkIGFyZSByb2xsaW5nIHlvdXIgb3duPw0KPiA+PiA+PiBUaGlz
-IGhhcHBlbnMgaW4gbWFueSBwbGFjZXMsIHdoeT8NCj4gPj4gPg0KPiA+PiA+IE15IHVzYWdlIG9m
-IGNvdW50ZXJzIG92ZXIgaGVyZSBpcyBmb3IgZWFjaCBtb2RlbSB0aGVyZSBhcmUgbWFueQ0KPiBj
-bGllbnRzLg0KPiA+PiA+IEVhY2ggb2YgdGhlIGNsaWVudHMgd2lsbCBoYXZlIGEgcmVmIHRvIG1v
-ZGVtX2Rlc2MuIEVhY2ggb2YgdGhlbSB1c2UNCj4gPj4gPiB0aGlzIGZvciByZXF1ZXN0aW5nIGFu
-ZCByZWxlYXNpbmcgdGhlIG1vZGVtLiBPbmUgY291bnRlciBmb3INCj4gPj4gPiB0cmFja2luZyB0
-aGUgcmVxdWVzdCBhbmQgcmVsZWFzZSBmb3IgZWFjaCBjbGllbnQgd2hpY2ggaXMgZG9uZSBieQ0K
-PiA+PiA+IHZhcmlhYmxlICdjbnQnIGluDQo+ID4+IHN0cnVjdCBjbGllbnRzLg0KPiA+PiA+IFRo
-ZSBjb3VudGVyIHVzZV9jbnQgaXMgdXNlZCBmb3IgdHJhY2tpbmcgdGhlIG1vZGVtIHJlcXVlc3Qv
-cmVsZWFzZQ0KPiA+PiA+IGlycmVzcGVjdGl2ZSBvZiB0aGUgY2xpZW50cyBhbmQgY291bnRlciBj
-bGlfY250IGlzIHVzZWQgZm9yDQo+ID4+ID4gcmVzdHJpY3RpbmcgdGhlIG1vZGVtX2dldCB0byB0
-aGUgbm8gb2YgY2xpZW50cyBkZWZpbmVkIGluIG5vX2NsaWVudHMuDQo+ID4+ID4NCj4gPj4gPiBT
-byB0b3RhbGx5IDMgY291bnRlciBvbmUgZm9yIHJlc3RyaWN0aW5nIHRoZSB1c2FnZSBvZiBtb2Rl
-bV9nZXQgYnkNCj4gPj4gPiBjbGllbnRzLCBzZWNvbmQgZm9yIHJlc3RyaWN0aW5nIG1vZGVtIHJl
-cXVlc3QvcmVsZWFzZSBhdCB0b3AgbGV2ZWwsDQo+ID4+ID4gYW5kIDNyZCBmb3IgcmVzdHJpY3Rp
-bmcgbW9kZW0gcmVsZWFzZS9yZXF1ZXN0IGZvciBwZXIgY2xpZW50IHBlcg0KPiA+PiA+IG1vZGVt
-DQo+ID4+IGJhc2lzLg0KPiA+PiA+DQo+ID4+ID4gQ2FuIHlvdSBsZXQgbWUga25vdyBpZiB0aGUg
-c2FtZSBjYW4gYmUgYWNoaWV2ZWQgYnkgdXNpbmcgYnVpbHQtaW4NCj4gPj4gPiByZWYgY291bnRp
-bmc/DQo+ID4+IElzIHRoaXMgeW91ciBtb2RlbDoNCj4gPj4gWW91IGhhdmUgYSBtb2RlbSBkZXZp
-Y2Ugd2hpY2ggY2FuIGJlIHJlcXVlc3RlZCBieSBtYW55IGNsaWVudHMuVGhpcw0KPiA+PiBjbGll
-bnRzIGNhbiByZWdpc3RlciBmb3IgYSBwYXJ0aWN1bGFyIHNlcnZpY2Ugd2hpY2ggdGhpcyBtb2Rl
-bQ0KPiA+PiBwcm92aWRlcyBhbmQgdGhlbiBhZnRlciB0aGF0IGlmIGl0IGNsaWVudCBkb2Vzbid0
-IG5lZWQgdGhpcyBzZXJ2aWNlIHRoZW4gaXQgd2lsbA0KPiBjYWxsIHVuLXJlZ2lzdGVyLg0KPiA+
-DQo+ID4gTGV0IG1lIGNvcnJlY3QgYSBiaXQgb3ZlciBoZXJlOg0KPiA+IFRoZXJlIGFyZSBtYW55
-IGNsaWVudHMsIHllcyBjb3JyZWN0IGJ1dCB0aGUgb3BlcmF0aW9ucyBwZXJmb3JtZWQgYXJlDQo+
-ID4gb25seSB0d28sIGkuZSBtb2RlbSByZXF1ZXN0IGFuZCBtb2RlbSByZWxlYXNlLiBUaGlzIGlz
-IHNvbWV0aGluZyBsaWtlDQo+ID4gd2FraW5nIHVwIHRoZSBtb2RlbSBhbmQgbGV0IG1vZGVtIHRv
-IHNsZWVwLg0KPiA+IFRoZSB0cmFmZmljIG9mIHRoaXMgcmVxdWVzdCBhbmQgcmVsZWFzZSBpcyB0
-b28gaGlnaC4NCj4gPg0KPiA+IFNvIGlycmVzcGVjdGl2ZSBvZiB0aGUgcmVxdWVzdHMvcmVsZWFz
-ZXMgbWFkZSB0byB0aGUgTUFGIGZyYW1ld29yaywNCj4gPiB0aGUgTUFGIHNob3VsZCBwZXJmb3Jt
-IHRoZSBvcGVyYXRpb24gcmVxdWVzdC9yZWxlYXNlIG9ubHkgb25jZS4NCj4gPg0KPiA+IFNvIGVh
-Y2ggYW5kIGV2ZXJ5IHRpbWUgaGFuZGxpbmcgbGlzdCBjb25zdW1lcyB0aW1lLg0KPiA+IExldCBt
-ZSBicmllZiB0aGUgY29udGV4dCwgdGhpcyBpcyBhIHNpbmdsZSBjaGlwIG1vZGVtIGFuZCBhcGUs
-DQo+ID4gYmFzaWNhbGx5IHVzZWQgaW4gbW9iaWxlLCB0YWJsZXRzIGV0Yy4gU28gdGhlIHRyYWZm
-aWMgaW4gYXBlLW1vZGVtDQo+ID4gY29tbXVuaWNhdGlvbiBpcyB0b28gaGlnaCBhbmQgYWxzbyB0
-aW1lIGNyaXRpY2FsLiBJZiBpdCBib3VuZCB0bw0KPiA+IGV4Y2VlZCB0aGUgdGltZSwgb3IgZGVs
-YXkgbWlnaHQgZW5kIHVwIGluIGJ1ZmZlciBmdWxsLiBUaGF04oCZcyB0aGUgcmVhc29uIEkNCj4g
-aGF2ZSBtYWRlIGl0IGFzIHNpbXBsZSBhcyBwb3NzaWJsZS4NCj4gDQo+IFNvIGxldCBtZSBwdXQg
-aXQgdGhpcyB3YXk6DQo+ICAgICAgICAgICAgTW9kZW0gICAgICAgICAgICAgICAgIENsaWVudDEg
-ICAgIENsaWVudDIgICAgQ2xpZW50MyAgICBDbGllbnQ0DQo+IFN0YXRlICB0dXJuLW9uICAgICAg
-ICAgICAgICAgICAgIHJlcXVlc3QNCj4gU3RhdGUgIG5vLXN0YXRlLWNoYW5nZSAgICAgICAgICAg
-ICAgICAgICAgIHJlcXVlc3QNCj4gU3RhdGUgIG5vLXN0YXRlLWNoYW5nZSAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgcmVxdWVzdA0KPiBTdGF0ZSAgbm8tc3RhdGUtY2hhbmdlDQo+
-IHJlcXVlc3QNCj4gU3RhdGUgIG5vLXN0YXRlLWNoYW5nZSAgICAgIHJlbGVhc2UNCj4gU3RhdGUg
-IG5vLXN0YXRlLWNoYW5nZSAgICAgICAgICAgICAgICAgICAgIHJlbGVhc2UNCj4gU3RhdGUgIG5v
-LXN0YXRlLWNoYW5nZSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgcmVsZWFzZQ0K
-PiBTdGF0ZSAgIHR1cm4tb2ZmDQo+ICAgICAgIHJlbGVhc2UNCj4gDQo+IFNvIGV2ZW50aG91Z2gg
-YWxsIHRoZSBjbGllbnRzIGhhdmUgcmVxdWVzdGVkIHRoZSBtb2RlbSBpdCBpcyBiZWluZyB0dXJu
-ZWQNCj4gb24gb25seSBvbmNlIGFuZCB3aGVuIGFsbCBvZiB0aGVtIGhhdmUgcmVsZWFzZWQgdGhl
-biBpdCB3aWxsIGJlIHR1cm5lZC1vZmYuDQo+IA0KPiBJbiB0aGlzIGNhc2UgaXQgbWFrZXMgc2Vu
-c2UgdG8gdXNlIHRoZSBhdG9taWMgdmFyaWFibGVzIHRvIHRyYWNrIHRoZSByZXF1ZXN0cw0KPiBh
-bmQgcmVsZWFzZSBidXQgd2hhdCB3aWxsIGhhcHBlbiB0byBzeXNmcyBpbmNhc2UgdGhlIGRldmlj
-ZSBpcyByZWxlYXNlZCB3aGVuDQo+IHRoZSBsYXN0IGNhbGwgdG8gcmVsZWFzZSBoYXMgY29tZSBm
-cm9tIGNsaWVudDQ/V29uJ3QgaXQgbGVhZCB0byBrZXJuZWwgcGFuaWMgb3INCj4gc29tZSB1bndh
-bnRlZCBiZWhhdmlvdXI/DQo+DQoNClllcywgeW91IGFyZSByaWdodCwgc28gd2lsbCBhZGQgYSBj
-aGVjayBpbiBtb2RlbV9wdXQgYW5kIG1vZGVtX3VucmVnaXN0ZXINCnRvIGNoZWNrIGlmIG1vZGVt
-IGlzIHJlcXVlc3RlZCBhbmQgaWYgc28gd2lsbCByZWxlYXNlIGZpcnN0IGFuZCB0aGVuIGdvIGFo
-ZWFkLg0KQnV0IGFjdHVhbGx5IGNsaWVudHMgYXJlIG5vdCBzdXBwb3NlIHRvIGNhbGwgbW9kZW1f
-cHV0L21vZGVtX3VucmVnaXN0ZXINCnVubGVzcyBtb2RlbSBpcyByZWxlYXNlZCBidXQgeWVzLCBp
-biBNQUYgd2UgY2FuIHRha2UgdGhpcyBwcmVjYXV0aW9uLg0KDQpUaGFua3MgYW5kIFJlZ2FyZHMs
-DQpBcnVuIFIgTXVydGh5DQotLS0tLS0tLS0tLS0tLS0tLQ0K
+On 27.09.2012 21:19, Daniel Mack wrote:
+> For RMII/RGMII mode operation in 100Mbps, the CPSW needs to set the
+> IFCTL_A bits in the MACCONTROL register. For all other PHY modes, this
+> bit is unused, so setting it unconditionally shouldn't cause any
+> trouble.
+> 
+> Signed-off-by: Daniel Mack <zonque@gmail.com>
+> Cc: Mugunthan V N <mugunthanvnm@ti.com>
+> Cc: Vaibhav Hiremath <hvaibhav@ti.com>
+> Cc: David S. Miller <davem@davemloft.net>
+
+Mugunthan, are you ok with this version? Don't know if it's too late for
+the 3.7 spin though, given that the merge window just opened.
+
+
+Daniel
+
+
+> ---
+>  drivers/net/ethernet/ti/cpsw.c | 5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index aa78168..fb1a692 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -386,6 +386,11 @@ static void _cpsw_adjust_link(struct cpsw_slave *slave,
+>  			mac_control |= BIT(7);	/* GIGABITEN	*/
+>  		if (phy->duplex)
+>  			mac_control |= BIT(0);	/* FULLDUPLEXEN	*/
+> +
+> +		/* set speed_in input in case RMII mode is used in 100Mbps */
+> +		if (phy->speed == 100)
+> +			mac_control |= BIT(15);
+> +
+>  		*link = true;
+>  	} else {
+>  		mac_control = 0;
+> 
