@@ -1,57 +1,74 @@
-From: Don Dutile <ddutile@redhat.com>
-Subject: Re: New commands to configure IOV features
-Date: Mon, 01 Oct 2012 10:12:43 -0400
-Message-ID: <5069A4DB.3030201@redhat.com>
-References: <5003DC9B.8000706@broadcom.com> <5009ECDF.4090305@genband.com> <500D59BF.9040006@redhat.com> <500D6932.8090306@genband.com> <20120723113607.56ce7aaf@nehalam.linuxnetplumber.net> <C5551D9AAB213A418B7FD5E4A6F30A070C7D9DCD@ORSMSX106.amr.corp.intel.com> <5059A767.2090307@broadcom.com> <20120919085306.00006af9@unknown> <1348083847.2636.37.camel@bwh-desktop.uk.solarflarecom.com> <CAE9FiQXQj_KdWT-mVVsptxiEgGjScgDy_Lp-aXioZ4YAQh1wWQ@mail.gmail.com> <1348094773.2636.85.camel@bwh-desktop.uk.solarflarecom.com> <CAE9FiQVk-uXgLK6dM8q5-Xsh8LO+c-Dd_cEpu2WzJ6Uzt6ztnA@mail.gmail.com> <1348104190.4836.61.camel@deadeye.wl.decadent.org.uk> <C5551D9AAB213A418B7FD5E4A6F30A07152FA5F6@ORSMSX106.amr.corp.intel.com> <CAE9FiQXqFnrXT8ibD2zsmeTj-VzXb8sAOjUtryBOxEXj216pQQ@mail.gmail.com> <505CAC93.8020304@r
- edhat.com> <CAE9FiQW4vY3SwAt1TGhSa=bcmKnzxS96b9HGoU5_CDb3FRvGVA@mail.gmail.com> <505CC930.5070807@redhat.com> <5067E90B.2030908@broadcom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/3] net/mlx4_en: Add HW timestamping (TS) support
+Date: Mon, 1 Oct 2012 16:08:45 +0100
+Message-ID: <1349104125.2577.7.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1348826603-17439-1-git-send-email-yevgenyp@mellanox.com>
+	 <1348826603-17439-4-git-send-email-yevgenyp@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Yinghai Lu <yinghai@kernel.org>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ariel Elior <ariele@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	linux-pci <linux-pci@vger.kernel.org>
-To: Yuval Mintz <yuvalmin@broadcom.com>
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<eugenia@mellanox.co.il>
+To: Yevgeny Petrilin <yevgenyp@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51383 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753035Ab2JAOM5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Oct 2012 10:12:57 -0400
-In-Reply-To: <5067E90B.2030908@broadcom.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:21616 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751085Ab2JAPIt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 11:08:49 -0400
+In-Reply-To: <1348826603-17439-4-git-send-email-yevgenyp@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/30/2012 02:39 AM, Yuval Mintz wrote:
->>>> yuk, no.
->>>> I have a set of patches almost done.
->>>> i'm tied up until Monday on RHEL6, then I'll switch gears&   post a set of
->>>> patches.
->
-> hi Don - anything new about this incoming patch-series?
->
->>>
->>> so that is your employer 'sinternal policy? for RHEL 6 kernel first,
->>> then upstream kernel?
->> No, I have deadlines for RHEL6 for *other work* until Monday.  After that,
->> I can re-focus on upstream work.  Some of us actually have other work than
->> just upstream.... crazy talk, I know! ;-)
->
->
-I should have the sysfs-level patches done & posted today.
-Need another day or 2 to get a driver refactored to use it (ixgbe).
+On Fri, 2012-09-28 at 12:03 +0200, Yevgeny Petrilin wrote:
+> From: Eugenia Emantayev <eugenia@mellanox.co.il>
+> 
+> The patch allows to enable/disable HW timestamping for incoming and/or
+> outgoing packets. It adds and initializes all structs and callbacks
+> needed by kernel TS API.
+> To enable/disable HW timestamping appropriate ioctl should be used.
+> Currently HWTSTAMP_FILTER_ALL/NONE and HWTSAMP_TX_ON/OFF only are
+> supported.
+> When enabling TS on receive flow - VLAN stripping will be disabled.
+> Also were made all relevant changes in RX/TX flows to consider TS request
+> and plant HW timestamps into relevant structures.
+> mlx4_ib was fixed to compile with new mlx4_cq_alloc() signature.
+[...]
+> --- /dev/null
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_timestamp.c
+[...]
+> +int mlx4_en_timestamp_config(struct net_device *dev, int tx_type, int rx_filter)
+> +{
+> +	struct mlx4_en_priv *priv = netdev_priv(dev);
+> +	struct mlx4_en_dev *mdev = priv->mdev;
+> +	int port_up = 0;
+> +	int err = 0;
+> +
+> +	mutex_lock(&mdev->state_lock);
+> +	if (priv->port_up) {
+> +		port_up = 1;
+> +		mlx4_en_stop_port(dev);
+> +	}
+> +
+> +	mlx4_en_free_resources(priv);
+> +
+> +	en_err(priv, "Changing Time Stamp configuration\n");
+> +
+> +	priv->hwtstamp_config.tx_type = tx_type;
+> +	priv->hwtstamp_config.rx_filter = rx_filter;
+> +
+> +	if (rx_filter != HWTSTAMP_FILTER_NONE)
+> +		dev->features &= ~NETIF_F_HW_VLAN_RX;
+> +	else
+> +		dev->features |= NETIF_F_HW_VLAN_RX;
+[...]
 
-Although the patches will enable per-device sriov enablement/disablement,
-further thought on tools that will stack on top of it, probably will need
-to augment a new pci sysfs directory that tools can find sriov devices
-quicker/easier w/o traversing the entire /sys/bus/pci/devices tree
-searching for a 'sriov_max_vfs' file, but, I can do that as a follow-on patch.
-I'm thinking of what is done now with virtfn<X> linked files in the pf,
-but the inverse link in a directory, like /sys/bus/pci/sriov.
+If you change dev->features you should also call
+netdev_features_change(dev) (holding only the RTNL lock, so after you
+unlock mdev->state_lock).
 
-Then there's the additional patches needed to do an 'all', or <DOMAIN:B:D.F>
-qualified enable/disable from a per-sysfs-driver perspective. ... fun stuff!
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
