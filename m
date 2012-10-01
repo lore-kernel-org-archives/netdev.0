@@ -1,48 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: ti cpsw ethernet: allow reading phy interface
- mode from DT
-Date: Mon, 01 Oct 2012 17:38:13 -0400 (EDT)
-Message-ID: <20121001.173813.2159935016069621238.davem@davemloft.net>
-References: <1348680268-8194-1-git-send-email-zonque@gmail.com>
-	<20121001.171114.1093867649404020043.davem@davemloft.net>
-	<506A07FA.5000800@gmail.com>
+Subject: Re: [PATCH 2/2] tg3: fix build-time dependency with
+ IS_DEPENDENCY_SATISFIED()
+Date: Mon, 01 Oct 2012 17:45:35 -0400 (EDT)
+Message-ID: <20121001.174535.32880983714519058.davem@davemloft.net>
+References: <1349094080-769-1-git-send-email-anisse@astier.eu>
+	<1349094080-769-2-git-send-email-anisse@astier.eu>
+	<20121001161059.GA27396@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	mugunthanvnm@ti.com, hvaibhav@ti.com
-To: zonque@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41423 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752099Ab2JAViP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 17:38:15 -0400
-In-Reply-To: <506A07FA.5000800@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: anisse@astier.eu, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, mmarek@suse.cz,
+	torvalds@linux-foundation.org, mchan@broadcom.com,
+	mcarlson@broadcom.com
+To: paul.gortmaker@windriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121001161059.GA27396@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Mack <zonque@gmail.com>
-Date: Mon, 01 Oct 2012 23:15:38 +0200
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Mon, 1 Oct 2012 12:10:59 -0400
 
-> On 01.10.2012 23:11, David Miller wrote:
->> From: Daniel Mack <zonque@gmail.com>
->> Date: Wed, 26 Sep 2012 19:24:27 +0200
->> 
->>> Allow users to specify the phy interface of the CPSW slaves. The new
->>> node parameter is called "phy_if_mode" and is optional. The original
->>> behaviour of the driver is preserved when not given.
->>>
->>> Signed-off-by: Daniel Mack <zonque@gmail.com>
->> 
->> Applied, thanks.
->> 
+> From e7c432cf5eb44b188c1aa2b188877c42300de8b9 Mon Sep 17 00:00:00 2001
+> From: Paul Gortmaker <paul.gortmaker@windriver.com>
+> Date: Mon, 1 Oct 2012 11:43:49 -0400
+> Subject: [PATCH] tg3: unconditionally select HWMON support when tg3 is
+>  enabled.
 > 
-> Eh, no - sorry. My original understanding was that a bit in the cpsw
-> registers has to be set only when a certain physical phy mode is in use.
-> Hence we would have needed a way to pass that information in via DT. But
-> as Mugunthan pointed out, that bit must always be set, and the cpsw
-> slaves can stay agnostic to the actual phy mode.
+> There is the seldom used corner case where HWMON=m at the same
+> time as TIGON3=y (typically randconfigs) which will cause a link
+> fail like:
 > 
-> So that patch isn't needed. Sorry for the confusion.
+> drivers/built-in.o: In function `tg3_close':
+> tg3.c:(.text+0x16bd86): undefined reference to `hwmon_device_unregister'
+> drivers/built-in.o: In function `tg3_hwmon_open':
+> tg3.c:(.text+0x16fc4b): undefined reference to `hwmon_device_register'
+> make[1]: *** [vmlinux] Error 1
+> 
+> Fix it as suggested by DaveM[1] by having the Kconfig logic simply
+> select HWMON when TIGON3 is selected.  This gets rid of all the
+> extra IS_ENABLED ifdeffery in tg3.c as a side benefit.
+> 
+> [1] http://marc.info/?l=linux-netdev&m=134250573718151&w=2
+> 
+> Cc: Michael Chan <mchan@broadcom.com>
+> Reported-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Reported-by: Anisse Astier <anisse@astier.eu>
+> Suggested-by: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-Ok I'll revert.
+Applied, thanks.
