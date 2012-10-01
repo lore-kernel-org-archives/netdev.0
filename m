@@ -1,55 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Possible networking regression in 3.6.0
-Date: Mon, 01 Oct 2012 22:04:44 +0200
-Message-ID: <1349121884.12401.721.camel@edumazet-glaptop>
-References: <506955F3.8050304@googlemail.com>
-	 <1349082950.12401.669.camel@edumazet-glaptop>
-	 <20121001193434.GA14236@redhat.com>
-	 <20121001.160115.1816241312626722150.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] ipv6: del unreachable route when an addr is deleted
+ on lo
+Date: Mon, 01 Oct 2012 16:49:53 -0400 (EDT)
+Message-ID: <20121001.164953.2102483401886708943.davem@davemloft.net>
+References: <1348580631.26828.3047.camel@edumazet-glaptop>
+	<1348653895-4027-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, chris2553@googlemail.com, netdev@vger.kernel.org,
-	gpiez@web.de
-To: David Miller <davem@davemloft.net>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:47983 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751776Ab2JAUEt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 16:04:49 -0400
-Received: by bkcjk13 with SMTP id jk13so5178095bkc.19
-        for <netdev@vger.kernel.org>; Mon, 01 Oct 2012 13:04:48 -0700 (PDT)
-In-Reply-To: <20121001.160115.1816241312626722150.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40799 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756092Ab2JAUtz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 16:49:55 -0400
+In-Reply-To: <1348653895-4027-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-10-01 at 16:01 -0400, David Miller wrote:
-> From: Dave Jones <davej@redhat.com>
-> Date: Mon, 1 Oct 2012 15:34:34 -0400
-> 
-> > On Mon, Oct 01, 2012 at 11:15:50AM +0200, Eric Dumazet wrote:
-> >  > > 
-> >  > > $ netstat -s
-> >  > > Icmp:
-> >  > >      4 ICMP messages received
-> >  > >      4 input ICMP message failed.
-> >  > >      ICMP input histogram:
-> >  > >          echo replies: 4
-> >  > 
-> >  > So icmp replies come back and are delivered to host instead of being
-> >  > forwarded.
-> >  > 
-> >  > I wonder if MASQUERADE broke...
-> > 
-> > I hit something that sounds just like this a few months back..
-> > http://lists.openwall.net/netdev/2012/07/25/53
-> > 
-> > It "went away" a few builds later, but I've seen it happen
-> > again from time to time.
-> 
-> Yep I remembe that report.
-> 
-> If you can find a way to more reliably trigger the case, that would
-> help us immensely.
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Wed, 26 Sep 2012 12:04:55 +0200
 
-I am building a KMEMCHECK kernel, as a last try before my night ;)
+> When an address is added on loopback (ip -6 a a 2002::1/128 dev lo), two routes
+> are added:
+>  - one in the local table:
+>     local 2002::1 via :: dev lo  proto none  metric 0
+>  - one the in main table (for the prefix):
+>     unreachable 2002::1 dev lo  proto kernel  metric 256  error -101
+> 
+> When the address is deleted, the route inserted in the main table remains
+> because we use rt6_lookup(), which returns NULL when dst->error is set, which
+> is the case here! Thus, it is better to use ip6_route_lookup() to avoid this
+> kind of filter.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+> v2: rt cannot be NULL, so adjust the test after ip6_route_lookup()
+
+Applied, thanks.
