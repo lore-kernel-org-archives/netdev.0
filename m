@@ -1,164 +1,101 @@
-From: anish singh <anish198519851985@gmail.com>
-Subject: Re: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
-Date: Mon, 1 Oct 2012 14:27:21 +0530
-Message-ID: <CAK7N6vqpokVk19-KPPggZRynKJVjoa04n_0g4nnb1CN836s5pA@mail.gmail.com>
+From: Arun MURTHY <arun.murthy@stericsson.com>
+Subject: RE: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
+Date: Mon, 1 Oct 2012 11:12:24 +0200
+Message-ID: <F45880696056844FA6A73F415B568C695B6962C347@EXDCVYMBSTM006.EQ1STM.local>
 References: <1348819504-1303-1-git-send-email-arun.murthy@stericsson.com>
 	<1348819504-1303-2-git-send-email-arun.murthy@stericsson.com>
 	<20120928160045.GD2625@kroah.com>
 	<F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
 	<CAK7N6vpXfhb0KhMfqxbcSQqT=qPcMS06OdaG9kNsWMqiiepLTQ@mail.gmail.com>
 	<F45880696056844FA6A73F415B568C695B6962C1CD@EXDCVYMBSTM006.EQ1STM.local>
+ <CAK7N6vqpokVk19-KPPggZRynKJVjoa04n_0g4nnb1CN836s5pA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Greg KH <gregkh@linuxfoundation.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
 	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
-To: Arun MURTHY <arun.murthy@stericsson.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <F45880696056844FA6A73F415B568C695B6962C1CD@EXDCVYMBSTM006.EQ1STM.local>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: anish singh <anish198519851985@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:58727 "EHLO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752445Ab2JAJMn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 05:12:43 -0400
+In-Reply-To: <CAK7N6vqpokVk19-KPPggZRynKJVjoa04n_0g4nnb1CN836s5pA@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 1, 2012 at 12:27 PM, Arun MURTHY <arun.murthy@stericsson.co=
-m> wrote:
->> On Mon, Oct 1, 2012 at 11:00 AM, Arun MURTHY
->> <arun.murthy@stericsson.com> wrote:
->> >> On Fri, Sep 28, 2012 at 01:35:01PM +0530, Arun Murthy wrote:
->> >> > +#include <linux/module.h>
->> >> > +#include <linux/slab.h>
->> >> > +#include <linux/err.h>
->> >> > +#include <linux/printk.h>
->> >> > +#include <linux/modem_shm/modem.h>
->> >> > +
->> >> > +static struct class *modem_class;
->> >>
->> >> What's wrong with a bus_type instead?
->> >
->> > Can I know the advantage of using bus_type over class?
->> >
->> >>
->> >> > +static int __modem_is_requested(struct device *dev, void *data=
-) {
->> >> > +   struct modem_desc *mdesc =3D (struct modem_desc *)data;
->> >> > +
->> >> > +   if (!mdesc->mclients) {
->> >> > +           printk(KERN_ERR "modem_access: modem description is
->> >> NULL\n");
->> >> > +           return 0;
->> >> > +   }
->> >> > +   return atomic_read(&mdesc->mclients->cnt);
->> >> > +}
->> >> > +
->> >> > +int modem_is_requested(struct modem_desc *mdesc) {
->> >> > +   return class_for_each_device(modem_class, NULL, (void *)mde=
-sc,
->> >> > +__modem_is_requested); }
->> >>
->> >> Where is the documentation for your public api functions like thi=
-s?
->> >
->> > Sure will include this in the next patchset.
->> >
->> >>
->> >> > +
->> >> > +int modem_release(struct modem_desc *mdesc) {
->> >> > +   if (!mdesc->release)
->> >> > +           return -EFAULT;
->> >> > +
->> >> > +   if (modem_is_requested(mdesc)) {
->> >> > +           atomic_dec(&mdesc->mclients->cnt);
->> >> > +           if (atomic_read(&mdesc->use_cnt) =3D=3D 1) {
->> >> > +                   mdesc->release(mdesc);
->> >> > +                   atomic_dec(&mdesc->use_cnt);
->> >> > +           }
->> >>
->> >> Eeek, why aren't you using the built-in reference counting that t=
-he
->> >> struct device provided to you, and instead are rolling your own?
->> >> This happens in many places, why?
->> >
->> > My usage of counters over here is for each modem there are many cl=
-ients.
->> > Each of the clients will have a ref to modem_desc. Each of them us=
-e
->> > this for requesting and releasing the modem. One counter for track=
-ing
->> > the request and release for each client which is done by variable =
-'cnt' in
->> struct clients.
->> > The counter use_cnt is used for tracking the modem request/release
->> > irrespective of the clients and counter cli_cnt is used for
->> > restricting the modem_get to the no of clients defined in no_clien=
-ts.
->> >
->> > So totally 3 counter one for restricting the usage of modem_get by
->> > clients, second for restricting modem request/release at top level=
-,
->> > and 3rd for restricting modem release/request for per client per m=
-odem
->> basis.
->> >
->> > Can you let me know if the same can be achieved by using built-in =
-ref
->> > counting?
->> Is this your model:
->> You have a modem device which can be requested by many clients.This
->> clients can register for a particular service which this modem provi=
-des and
->> then after that if it client doesn't need this service then it will =
-call un-register.
->
-> Let me correct a bit over here:
-> There are many clients, yes correct but the operations performed are =
-only two,
-> i.e modem request and modem release. This is something like waking up=
- the
-> modem and let modem to sleep.
-> The traffic of this request and release is too high.
->
-> So irrespective of the requests/releases made to the MAF framework, t=
-he MAF
-> should perform the operation request/release only once.
->
-> So each and every time handling list consumes time.
-> Let me brief the context, this is a single chip modem and ape, basica=
-lly used in
-> mobile, tablets etc. So the traffic in ape-modem communication is too=
- high and
-> also time critical. If it bound to exceed the time, or delay might en=
-d up in buffer
-> full. That=E2=80=99s the reason I have made it as simple as possible.
-
-So let me put it this way:
-           Modem                 Client1     Client2    Client3    Clie=
-nt4
-State  turn-on                   request
-State  no-state-change                     request
-State  no-state-change                                   request
-State  no-state-change
-request
-State  no-state-change      release
-State  no-state-change                     release
-State  no-state-change                                   release
-State   turn-off
-      release
-
-So eventhough all the clients have requested the modem it is being
-turned on only once and when all of them have released then it will be
-turned-off.
-
-In this case it makes sense to use the atomic variables to track the re=
-quests
-and release but what will happen to sysfs incase the device is released=
- when the
-last call to release has come from client4?Won't it lead to kernel pani=
-c or some
-unwanted behaviour?
-
->
-> Thanks and Regards,
-> Arun R Murthy
-> ------------------
+PiA+PiA+PiA+ICtpbnQgbW9kZW1fcmVsZWFzZShzdHJ1Y3QgbW9kZW1fZGVzYyAqbWRlc2MpIHsN
+Cj4gPj4gPj4gPiArICAgaWYgKCFtZGVzYy0+cmVsZWFzZSkNCj4gPj4gPj4gPiArICAgICAgICAg
+ICByZXR1cm4gLUVGQVVMVDsNCj4gPj4gPj4gPiArDQo+ID4+ID4+ID4gKyAgIGlmIChtb2RlbV9p
+c19yZXF1ZXN0ZWQobWRlc2MpKSB7DQo+ID4+ID4+ID4gKyAgICAgICAgICAgYXRvbWljX2RlYygm
+bWRlc2MtPm1jbGllbnRzLT5jbnQpOw0KPiA+PiA+PiA+ICsgICAgICAgICAgIGlmIChhdG9taWNf
+cmVhZCgmbWRlc2MtPnVzZV9jbnQpID09IDEpIHsNCj4gPj4gPj4gPiArICAgICAgICAgICAgICAg
+ICAgIG1kZXNjLT5yZWxlYXNlKG1kZXNjKTsNCj4gPj4gPj4gPiArICAgICAgICAgICAgICAgICAg
+IGF0b21pY19kZWMoJm1kZXNjLT51c2VfY250KTsNCj4gPj4gPj4gPiArICAgICAgICAgICB9DQo+
+ID4+ID4+DQo+ID4+ID4+IEVlZWssIHdoeSBhcmVuJ3QgeW91IHVzaW5nIHRoZSBidWlsdC1pbiBy
+ZWZlcmVuY2UgY291bnRpbmcgdGhhdA0KPiA+PiA+PiB0aGUgc3RydWN0IGRldmljZSBwcm92aWRl
+ZCB0byB5b3UsIGFuZCBpbnN0ZWFkIGFyZSByb2xsaW5nIHlvdXIgb3duPw0KPiA+PiA+PiBUaGlz
+IGhhcHBlbnMgaW4gbWFueSBwbGFjZXMsIHdoeT8NCj4gPj4gPg0KPiA+PiA+IE15IHVzYWdlIG9m
+IGNvdW50ZXJzIG92ZXIgaGVyZSBpcyBmb3IgZWFjaCBtb2RlbSB0aGVyZSBhcmUgbWFueQ0KPiBj
+bGllbnRzLg0KPiA+PiA+IEVhY2ggb2YgdGhlIGNsaWVudHMgd2lsbCBoYXZlIGEgcmVmIHRvIG1v
+ZGVtX2Rlc2MuIEVhY2ggb2YgdGhlbSB1c2UNCj4gPj4gPiB0aGlzIGZvciByZXF1ZXN0aW5nIGFu
+ZCByZWxlYXNpbmcgdGhlIG1vZGVtLiBPbmUgY291bnRlciBmb3INCj4gPj4gPiB0cmFja2luZyB0
+aGUgcmVxdWVzdCBhbmQgcmVsZWFzZSBmb3IgZWFjaCBjbGllbnQgd2hpY2ggaXMgZG9uZSBieQ0K
+PiA+PiA+IHZhcmlhYmxlICdjbnQnIGluDQo+ID4+IHN0cnVjdCBjbGllbnRzLg0KPiA+PiA+IFRo
+ZSBjb3VudGVyIHVzZV9jbnQgaXMgdXNlZCBmb3IgdHJhY2tpbmcgdGhlIG1vZGVtIHJlcXVlc3Qv
+cmVsZWFzZQ0KPiA+PiA+IGlycmVzcGVjdGl2ZSBvZiB0aGUgY2xpZW50cyBhbmQgY291bnRlciBj
+bGlfY250IGlzIHVzZWQgZm9yDQo+ID4+ID4gcmVzdHJpY3RpbmcgdGhlIG1vZGVtX2dldCB0byB0
+aGUgbm8gb2YgY2xpZW50cyBkZWZpbmVkIGluIG5vX2NsaWVudHMuDQo+ID4+ID4NCj4gPj4gPiBT
+byB0b3RhbGx5IDMgY291bnRlciBvbmUgZm9yIHJlc3RyaWN0aW5nIHRoZSB1c2FnZSBvZiBtb2Rl
+bV9nZXQgYnkNCj4gPj4gPiBjbGllbnRzLCBzZWNvbmQgZm9yIHJlc3RyaWN0aW5nIG1vZGVtIHJl
+cXVlc3QvcmVsZWFzZSBhdCB0b3AgbGV2ZWwsDQo+ID4+ID4gYW5kIDNyZCBmb3IgcmVzdHJpY3Rp
+bmcgbW9kZW0gcmVsZWFzZS9yZXF1ZXN0IGZvciBwZXIgY2xpZW50IHBlcg0KPiA+PiA+IG1vZGVt
+DQo+ID4+IGJhc2lzLg0KPiA+PiA+DQo+ID4+ID4gQ2FuIHlvdSBsZXQgbWUga25vdyBpZiB0aGUg
+c2FtZSBjYW4gYmUgYWNoaWV2ZWQgYnkgdXNpbmcgYnVpbHQtaW4NCj4gPj4gPiByZWYgY291bnRp
+bmc/DQo+ID4+IElzIHRoaXMgeW91ciBtb2RlbDoNCj4gPj4gWW91IGhhdmUgYSBtb2RlbSBkZXZp
+Y2Ugd2hpY2ggY2FuIGJlIHJlcXVlc3RlZCBieSBtYW55IGNsaWVudHMuVGhpcw0KPiA+PiBjbGll
+bnRzIGNhbiByZWdpc3RlciBmb3IgYSBwYXJ0aWN1bGFyIHNlcnZpY2Ugd2hpY2ggdGhpcyBtb2Rl
+bQ0KPiA+PiBwcm92aWRlcyBhbmQgdGhlbiBhZnRlciB0aGF0IGlmIGl0IGNsaWVudCBkb2Vzbid0
+IG5lZWQgdGhpcyBzZXJ2aWNlIHRoZW4gaXQgd2lsbA0KPiBjYWxsIHVuLXJlZ2lzdGVyLg0KPiA+
+DQo+ID4gTGV0IG1lIGNvcnJlY3QgYSBiaXQgb3ZlciBoZXJlOg0KPiA+IFRoZXJlIGFyZSBtYW55
+IGNsaWVudHMsIHllcyBjb3JyZWN0IGJ1dCB0aGUgb3BlcmF0aW9ucyBwZXJmb3JtZWQgYXJlDQo+
+ID4gb25seSB0d28sIGkuZSBtb2RlbSByZXF1ZXN0IGFuZCBtb2RlbSByZWxlYXNlLiBUaGlzIGlz
+IHNvbWV0aGluZyBsaWtlDQo+ID4gd2FraW5nIHVwIHRoZSBtb2RlbSBhbmQgbGV0IG1vZGVtIHRv
+IHNsZWVwLg0KPiA+IFRoZSB0cmFmZmljIG9mIHRoaXMgcmVxdWVzdCBhbmQgcmVsZWFzZSBpcyB0
+b28gaGlnaC4NCj4gPg0KPiA+IFNvIGlycmVzcGVjdGl2ZSBvZiB0aGUgcmVxdWVzdHMvcmVsZWFz
+ZXMgbWFkZSB0byB0aGUgTUFGIGZyYW1ld29yaywNCj4gPiB0aGUgTUFGIHNob3VsZCBwZXJmb3Jt
+IHRoZSBvcGVyYXRpb24gcmVxdWVzdC9yZWxlYXNlIG9ubHkgb25jZS4NCj4gPg0KPiA+IFNvIGVh
+Y2ggYW5kIGV2ZXJ5IHRpbWUgaGFuZGxpbmcgbGlzdCBjb25zdW1lcyB0aW1lLg0KPiA+IExldCBt
+ZSBicmllZiB0aGUgY29udGV4dCwgdGhpcyBpcyBhIHNpbmdsZSBjaGlwIG1vZGVtIGFuZCBhcGUs
+DQo+ID4gYmFzaWNhbGx5IHVzZWQgaW4gbW9iaWxlLCB0YWJsZXRzIGV0Yy4gU28gdGhlIHRyYWZm
+aWMgaW4gYXBlLW1vZGVtDQo+ID4gY29tbXVuaWNhdGlvbiBpcyB0b28gaGlnaCBhbmQgYWxzbyB0
+aW1lIGNyaXRpY2FsLiBJZiBpdCBib3VuZCB0bw0KPiA+IGV4Y2VlZCB0aGUgdGltZSwgb3IgZGVs
+YXkgbWlnaHQgZW5kIHVwIGluIGJ1ZmZlciBmdWxsLiBUaGF04oCZcyB0aGUgcmVhc29uIEkNCj4g
+aGF2ZSBtYWRlIGl0IGFzIHNpbXBsZSBhcyBwb3NzaWJsZS4NCj4gDQo+IFNvIGxldCBtZSBwdXQg
+aXQgdGhpcyB3YXk6DQo+ICAgICAgICAgICAgTW9kZW0gICAgICAgICAgICAgICAgIENsaWVudDEg
+ICAgIENsaWVudDIgICAgQ2xpZW50MyAgICBDbGllbnQ0DQo+IFN0YXRlICB0dXJuLW9uICAgICAg
+ICAgICAgICAgICAgIHJlcXVlc3QNCj4gU3RhdGUgIG5vLXN0YXRlLWNoYW5nZSAgICAgICAgICAg
+ICAgICAgICAgIHJlcXVlc3QNCj4gU3RhdGUgIG5vLXN0YXRlLWNoYW5nZSAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgcmVxdWVzdA0KPiBTdGF0ZSAgbm8tc3RhdGUtY2hhbmdlDQo+
+IHJlcXVlc3QNCj4gU3RhdGUgIG5vLXN0YXRlLWNoYW5nZSAgICAgIHJlbGVhc2UNCj4gU3RhdGUg
+IG5vLXN0YXRlLWNoYW5nZSAgICAgICAgICAgICAgICAgICAgIHJlbGVhc2UNCj4gU3RhdGUgIG5v
+LXN0YXRlLWNoYW5nZSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgcmVsZWFzZQ0K
+PiBTdGF0ZSAgIHR1cm4tb2ZmDQo+ICAgICAgIHJlbGVhc2UNCj4gDQo+IFNvIGV2ZW50aG91Z2gg
+YWxsIHRoZSBjbGllbnRzIGhhdmUgcmVxdWVzdGVkIHRoZSBtb2RlbSBpdCBpcyBiZWluZyB0dXJu
+ZWQNCj4gb24gb25seSBvbmNlIGFuZCB3aGVuIGFsbCBvZiB0aGVtIGhhdmUgcmVsZWFzZWQgdGhl
+biBpdCB3aWxsIGJlIHR1cm5lZC1vZmYuDQo+IA0KPiBJbiB0aGlzIGNhc2UgaXQgbWFrZXMgc2Vu
+c2UgdG8gdXNlIHRoZSBhdG9taWMgdmFyaWFibGVzIHRvIHRyYWNrIHRoZSByZXF1ZXN0cw0KPiBh
+bmQgcmVsZWFzZSBidXQgd2hhdCB3aWxsIGhhcHBlbiB0byBzeXNmcyBpbmNhc2UgdGhlIGRldmlj
+ZSBpcyByZWxlYXNlZCB3aGVuDQo+IHRoZSBsYXN0IGNhbGwgdG8gcmVsZWFzZSBoYXMgY29tZSBm
+cm9tIGNsaWVudDQ/V29uJ3QgaXQgbGVhZCB0byBrZXJuZWwgcGFuaWMgb3INCj4gc29tZSB1bndh
+bnRlZCBiZWhhdmlvdXI/DQo+DQoNClllcywgeW91IGFyZSByaWdodCwgc28gd2lsbCBhZGQgYSBj
+aGVjayBpbiBtb2RlbV9wdXQgYW5kIG1vZGVtX3VucmVnaXN0ZXINCnRvIGNoZWNrIGlmIG1vZGVt
+IGlzIHJlcXVlc3RlZCBhbmQgaWYgc28gd2lsbCByZWxlYXNlIGZpcnN0IGFuZCB0aGVuIGdvIGFo
+ZWFkLg0KQnV0IGFjdHVhbGx5IGNsaWVudHMgYXJlIG5vdCBzdXBwb3NlIHRvIGNhbGwgbW9kZW1f
+cHV0L21vZGVtX3VucmVnaXN0ZXINCnVubGVzcyBtb2RlbSBpcyByZWxlYXNlZCBidXQgeWVzLCBp
+biBNQUYgd2UgY2FuIHRha2UgdGhpcyBwcmVjYXV0aW9uLg0KDQpUaGFua3MgYW5kIFJlZ2FyZHMs
+DQpBcnVuIFIgTXVydGh5DQotLS0tLS0tLS0tLS0tLS0tLQ0K
