@@ -1,36 +1,41 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/2] net: ti cpsw ethernet: allow reading phy interface
- mode from DT
-Date: Mon, 01 Oct 2012 17:11:14 -0400 (EDT)
-Message-ID: <20121001.171114.1093867649404020043.davem@davemloft.net>
-References: <1348680268-8194-1-git-send-email-zonque@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] net/key/af_key.c: add range checks on
+ ->sadb_x_policy_len
+Date: Mon, 01 Oct 2012 17:15:31 -0400 (EDT)
+Message-ID: <20121001.171531.1225138780751285845.davem@davemloft.net>
+References: <20120928082119.GA32008@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- mugunthanvnm-l0cyMroinI0@public.gmane.org
-To: zonque-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1348680268-8194-1-git-send-email-zonque-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: ebiederm@xmission.com, eric.dumazet@gmail.com,
+	shemminger@vyatta.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41220 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752612Ab2JAVPd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 17:15:33 -0400
+In-Reply-To: <20120928082119.GA32008@elgon.mountain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Mack <zonque-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Wed, 26 Sep 2012 19:24:27 +0200
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Fri, 28 Sep 2012 11:21:19 +0300
 
-> Allow users to specify the phy interface of the CPSW slaves. The new
-> node parameter is called "phy_if_mode" and is optional. The original
-> behaviour of the driver is preserved when not given.
+> Because sizeof() is size_t then if "len" is negative, it counts as a
+> large positive value.
 > 
-> Signed-off-by: Daniel Mack <zonque-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> The call tree looks like:
+> pfkey_sendmsg()
+> -> pfkey_process()
+>    -> pfkey_spdadd()
+>       -> parse_ipsecrequests()
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+> This is a static checker fix.  I'm not very familiar with this code.
+> I think if we were to hit this then we would try to parse invalid data
+> and it would return -EINVAL or similar error code pretty quickly.
 
-Applied, thanks.
+Applied and queued up for -stable, thanks Dan.
