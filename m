@@ -1,117 +1,77 @@
-From: Paolo Valente <paolo.valente@unimore.it>
-Subject: Re: [PATCH RFC] pkt_sched: QFQ Plus: fair-queueing service at DRR
- cost
-Date: Mon, 01 Oct 2012 17:50:58 +0200
-Message-ID: <5069BBE2.1060707@unimore.it>
-References: <20120930174049.GA13793@paolo-ThinkPad-W520> <20121001083100.13fc231c@nehalam.linuxnetplumber.net>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
+Date: Mon, 1 Oct 2012 08:59:40 -0700
+Message-ID: <20121001155940.GA1957@kroah.com>
+References: <1348819504-1303-1-git-send-email-arun.murthy@stericsson.com>
+ <1348819504-1303-2-git-send-email-arun.murthy@stericsson.com>
+ <20120928160045.GD2625@kroah.com>
+ <F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rizzo@iet.unipi.it, fchecconi@gmail.com
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
+To: Arun MURTHY <arun.murthy@stericsson.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121001083100.13fc231c@nehalam.linuxnetplumber.net>
+Content-Disposition: inline
+In-Reply-To: <F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Il 01/10/2012 17:31, Stephen Hemminger ha scritto:
-> On Sun, 30 Sep 2012 19:40:49 +0200
-> Paolo Valente <paolo.valente@unimore.it> wrote:
->
->> Hi,
->> this patch turns QFQ into QFQ+, a faster variant of QFQ that groups
->> classes into aggregates, and uses the original QFQ scheduling
->> algorithm to schedule aggregates instead of single classes. An
->> aggregate is made of at most M classes, all with the same weight and
->> maximum packet size.  M is equal to the minimum between tx_queue_len+1
->> and 8 (value chosen to get a good trade-off between execution time and
->> service guarantees). QFQ+ associates each aggregate with a budget
->> equal to the maximum packet size for the classes in the aggregate,
->> multiplied by the number of classes of the aggregate. Once selected an
->> aggregate for service, QFQ+ dequeues only the packets of its classes,
->> until the aggregate finishes its budget. Finally, within an aggregate,
->> classes are scheduled with DRR. In my tests, described below, the
->> execution time of QFQ+ with M=8 was from 16% to 31% lower than that of
->> QFQ, and close to that of DRR.
->>
->> QFQ+ does not use packet lengths for computing aggregate timestamps,
->> but budgets. Hence it does not need to modify any timestamp if the
->> head packet of a class changes. As a consequence, differently from
->> QFQ, which uses head-packet lengths to compute class timestamps, QFQ+
->> does not need further modifications to correctly schedule also
->> non-leaf classes and classes with non-FIFO qdiscs. Finally, QFQ+ is
->> more robust than QFQ against corruption of the data structures
->> implementing the bucket lists. A detailed description of QFQ+ can be
->> found in [1].
->>
->> As for service guarantees, thanks to the way how M is computed, the
->> service of QFQ+ is close to the one of QFQ. For example, as proved in
->> [1], under QFQ+ every packet of a given class is guaranteed the same
->> worst-case completion time as under QFQ, plus an additional delay
->> equal to the transmission time, at the rate reserved to the class, of
->> three maximum-size packet. See [1, Section 7.1] for a numerical
->> comparison among the packet delays guaranteed by QFQ+, QFQ and DRR.
->>
->> I measured the execution time of QFQ+, DRR and QFQ using the testing
->> environment [2]. In particular, for each scheduler I measured the
->> average total execution time of a packet enqueue plus a packet
->> dequeue.  For practical reasons, in this testing environment each
->> enqueue&dequeue is also charged for the cost of generating and
->> discarding an empty, fixed-size packet (using a free list). The
->> following table reports the results with an i7-2760QM, against four
->> different class sets. Time is measured in nanoseconds, while each set
->> or subset of classes is denoted as <num_classes>-w<weight>, where
->> <num_classes> and <weight> are, respectively, the number of classes
->> and the weight of every class in the set/subset (for example, 250-w1
->> stands for 250 classes with weight 1). For QFQ+, the table shows the
->> results for the two extremes for M: 1 and 8 (see [1, Section 7.2] for
->> results with other values of M and for more information).
->>
->>   -----------------------------------------------
->> | Set of  |      QFQ+ (M)     |   DRR      QFQ  |
->> | classes |    1          8   |                 |
->> |-----------------------------------------------|
->> | 1k-w1   |   89         63   |    56       81  |
->> |-----------------------------------------------|
->> | 500-w1, |                   |                 |
->> | 250-w2, |  102         71   |    87      103  |
->> | 250-w4  |                   |                 |
->> |-----------------------------------------------|
->> | 32k-w1  |  267        225   |   173      257  |
->> |-----------------------------------------------|
->> | 16k-w1, |                   |                 |
->> | 8k-w2,  |  253        187   |   252      257  |
->> | 8k-w4   |                   |                 |
->>   -----------------------------------------------
->>
->> About DRR, it achieves its best performance when all the classes have
->> the same weight. This is fortunate, because in such scenarios it is
->> actually pointless to use a fair-queueing scheduler, as the latter
->> would provide the same quality of service as DRR. In contrast, when
->> classes have differentiated weights and the better service properties
->> of QFQ+ make a difference, QFQ+ has better performance than DRR. It
->> happens mainly because QFQ+ dequeues packets in an order that causes
->> about 8% less cache misses than DRR. As for the number of
->> instructions, QFQ+ executes instead about 7% more instructions than
->> DRR, whereas QFQ executes from 25% to 34% more instructions than DRR.
->>
->> Paolo
->>
->> [1] P. Valente, "Reducing the Execution Time of Fair-Queueing Schedulers"
->> http://algo.ing.unimo.it/people/paolo/agg-sched/agg-sched.pdf
->>
->> [2] http://algo.ing.unimo.it/people/paolo/agg-sched/test-env.tgz
->>
->> Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
-> I like the improvement and the performance improvement.
-> Is there some concern that changing the implementation this much might
-> upset some people already using QFQ?
->
-> What happens if an existing working QFQ config is used in QFQ+?
->
->
->
-QFQ+ has the same interface as QFQ, so existing QFQ configs should work 
-without problems (if i am not missing anything)
+On Mon, Oct 01, 2012 at 07:30:38AM +0200, Arun MURTHY wrote:
+> > On Fri, Sep 28, 2012 at 01:35:01PM +0530, Arun Murthy wrote:
+> > > +#include <linux/module.h>
+> > > +#include <linux/slab.h>
+> > > +#include <linux/err.h>
+> > > +#include <linux/printk.h>
+> > > +#include <linux/modem_shm/modem.h>
+> > > +
+> > > +static struct class *modem_class;
+> > 
+> > What's wrong with a bus_type instead?
+> 
+> Can I know the advantage of using bus_type over class?
+
+You have devices living on a bus, and it's much more descriptive than a
+class (which we are going to eventually get rid of one of these
+days...).
+
+Might I ask why you choose a class over a bus_type?
+
+> > > +int modem_release(struct modem_desc *mdesc) {
+> > > +	if (!mdesc->release)
+> > > +		return -EFAULT;
+> > > +
+> > > +	if (modem_is_requested(mdesc)) {
+> > > +		atomic_dec(&mdesc->mclients->cnt);
+> > > +		if (atomic_read(&mdesc->use_cnt) == 1) {
+> > > +			mdesc->release(mdesc);
+> > > +			atomic_dec(&mdesc->use_cnt);
+> > > +		}
+> > 
+> > Eeek, why aren't you using the built-in reference counting that the struct
+> > device provided to you, and instead are rolling your own?  This happens in
+> > many places, why?
+> 
+> My usage of counters over here is for each modem there are many clients.
+> Each of the clients will have a ref to modem_desc. Each of them use this for
+> requesting and releasing the modem. One counter for tracking the request
+> and release for each client which is done by variable 'cnt' in struct clients.
+> The counter use_cnt is used for tracking the modem request/release irrespective
+> of the clients and counter cli_cnt is used for restricting the modem_get to
+> the no of clients defined in no_clients.
+> 
+> So totally 3 counter one for restricting the usage of modem_get by clients,
+> second for restricting modem request/release at top level, and 3rd for
+> restricting modem release/request for per client per modem basis.
+> 
+> Can you let me know if the same can be achieved by using built-in ref
+> counting?
+
+Yes, because you don't need all of those different levels, just stick
+with one and you should be fine. :)
+
+thanks,
+
+greg k-h
