@@ -1,33 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next 2012-10-01
-Date: Mon, 01 Oct 2012 16:00:42 -0400 (EDT)
-Message-ID: <20121001.160042.2132360219816463227.davem@davemloft.net>
-References: <20121001192448.GA1944@tuxdriver.com>
+Subject: Re: Possible networking regression in 3.6.0
+Date: Mon, 01 Oct 2012 16:01:15 -0400 (EDT)
+Message-ID: <20121001.160115.1816241312626722150.davem@davemloft.net>
+References: <506955F3.8050304@googlemail.com>
+	<1349082950.12401.669.camel@edumazet-glaptop>
+	<20121001193434.GA14236@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: eric.dumazet@gmail.com, chris2553@googlemail.com,
+	netdev@vger.kernel.org, gpiez@web.de
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40537 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40524 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752628Ab2JAUBf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 16:01:35 -0400
-In-Reply-To: <20121001192448.GA1944@tuxdriver.com>
+	with ESMTP id S1752168Ab2JAUBW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 16:01:22 -0400
+In-Reply-To: <20121001193434.GA14236@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Mon, 1 Oct 2012 15:24:49 -0400
+From: Dave Jones <davej@redhat.com>
+Date: Mon, 1 Oct 2012 15:34:34 -0400
 
-> commit e4d680c706284ca0413a84bd2a28fda76b360904
+> On Mon, Oct 01, 2012 at 11:15:50AM +0200, Eric Dumazet wrote:
+>  > > 
+>  > > $ netstat -s
+>  > > Icmp:
+>  > >      4 ICMP messages received
+>  > >      4 input ICMP message failed.
+>  > >      ICMP input histogram:
+>  > >          echo replies: 4
+>  > 
+>  > So icmp replies come back and are delivered to host instead of being
+>  > forwarded.
+>  > 
+>  > I wonder if MASQUERADE broke...
 > 
-> In my previous pull request, I mentioned that I had a few stragglers.
-> They are all driver updates: ti, brcmfmac, ath9k, one for bcma and
-> one for b43legacy.  I merged them late last week and was letting them
-> soak in linux-next.  I hope they can still make 3.7.
+> I hit something that sounds just like this a few months back..
+> http://lists.openwall.net/netdev/2012/07/25/53
 > 
-> Please let me know if there are problems!
+> It "went away" a few builds later, but I've seen it happen
+> again from time to time.
 
-Pulled, thanks John.
+Yep I remembe that report.
+
+If you can find a way to more reliably trigger the case, that would
+help us immensely.
