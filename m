@@ -1,43 +1,52 @@
 From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Mon, 01 Oct 2012 13:53:56 +0200
-Message-ID: <50698454.6000601@redhat.com>
-References: <20120928114335.e05b34a5cfe716df86364ccf@canb.auug.org.au> <20120927.221943.19056434713380159.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Subject: [PATCH net-next v2] be2net: fix vfs enumeration
+Date: Mon,  1 Oct 2012 13:56:55 +0200
+Message-ID: <1349092615-31894-1-git-send-email-ivecera@redhat.com>
+Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
+	ajit.khaparde@emulex.com, sfr@canb.auug.org.au, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54784 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:3186 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752483Ab2JALyH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Oct 2012 07:54:07 -0400
-In-Reply-To: <20120927.221943.19056434713380159.davem@davemloft.net>
+	id S1752188Ab2JAL5D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Oct 2012 07:57:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/28/2012 04:19 AM, David Miller wrote:
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Fri, 28 Sep 2012 11:43:35 +1000
-> 
->> Hi all,
->>
->> After merging the net-next tree, today's linux-next build (powerpc
->> ppc64_defconfig) failed like this:
->>
->> drivers/net/ethernet/emulex/benet/be_main.c: In function 'be_find_vfs':
->> drivers/net/ethernet/emulex/benet/be_main.c:1090:28: error: 'struct pci_dev' has no member named 'physfn'
->>
->> Caused by commit 51af6d7c1f31 ("be2net: fix vfs enumeration").  physfn is
->> only defined if CONFIG_PCI_ATS is set.
->>
->> I have reverted that commit for today.
-> 
-> I'm reverting it too, thanks for reporting Stephen.
-> 
-Sorry for that, it will be better to use pci_physfn to access this
-member. I'll repost the patch.
+Current VFs enumeration algorithm used in be_find_vfs does not take domain
+number into the match. The match found in igb/ixgbe is more elegant and
+safe.
 
-Ivan
+This 2nd version uses pci_physfn instead of checking dev->physfn directly.
+
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 6accb0c..8dd42b3 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1075,7 +1075,7 @@ static int be_set_vf_tx_rate(struct net_device *netdev,
+ static int be_find_vfs(struct be_adapter *adapter, int vf_state)
+ {
+ 	struct pci_dev *dev, *pdev = adapter->pdev;
+-	int vfs = 0, assigned_vfs = 0, pos, vf_fn;
++	int vfs = 0, assigned_vfs = 0, pos;
+ 	u16 offset, stride;
+ 
+ 	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_SRIOV);
+@@ -1086,9 +1086,7 @@ static int be_find_vfs(struct be_adapter *adapter, int vf_state)
+ 
+ 	dev = pci_get_device(pdev->vendor, PCI_ANY_ID, NULL);
+ 	while (dev) {
+-		vf_fn = (pdev->devfn + offset + stride * vfs) & 0xFFFF;
+-		if (dev->is_virtfn && dev->devfn == vf_fn &&
+-			dev->bus->number == pdev->bus->number) {
++		if (dev->is_virtfn && pci_physfn(dev) == pdev) {
+ 			vfs++;
+ 			if (dev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
+ 				assigned_vfs++;
+-- 
+1.7.8.6
