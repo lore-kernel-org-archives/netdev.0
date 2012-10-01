@@ -1,47 +1,60 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net-next v2 2/2] bnx2x: update version to 1.78.00-0.
-Date: Mon, 1 Oct 2012 15:46:20 +0200
-Message-ID: <1349099180-5606-3-git-send-email-dmitry@broadcom.com>
-References: <1349099180-5606-1-git-send-email-dmitry@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Yuval Mintz" <yuvalmin@broadcom.com>,
-	"Ariel Elior" <ariele@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v5 0/1] Add support of ECMPv6
+Date: Mon,  1 Oct 2012 15:56:46 +0200
+Message-ID: <1349099807-3907-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <20120921.134833.1294721941180523200.davem@davemloft.net>
+Cc: bernat@luffy.cx, netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3178 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751777Ab2JANqU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Oct 2012 09:46:20 -0400
-In-Reply-To: <1349099180-5606-1-git-send-email-dmitry@broadcom.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:38185 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752022Ab2JANwl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 09:52:41 -0400
+In-Reply-To: <20120921.134833.1294721941180523200.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <yuvalmin@broadcom.com>
+Here is a proposal to add the support of ECMPv6. The previous patch
+from Vincent against iproute2 can be used, but a little other patch is needed
+too, see http://patchwork.ozlabs.org/patch/183277/
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+If the kernel patch is approved, I can submit formally the patch for
+iproute2.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 6d1a24a..3865084 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -23,8 +23,8 @@
-  * (you will need to reboot afterwards) */
- /* #define BNX2X_STOP_ON_ERROR */
- 
--#define DRV_MODULE_VERSION      "1.72.51-0"
--#define DRV_MODULE_RELDATE      "2012/06/18"
-+#define DRV_MODULE_VERSION      "1.78.00-0"
-+#define DRV_MODULE_RELDATE      "2012/09/27"
- #define BNX2X_BC_VER            0x040200
- 
- #if defined(CONFIG_DCB)
--- 
-1.7.1
+Here is an example of a command to add an ECMP route:
+$ ip -6 route add 3ffe:304:124:2306::/64 \
+	nexthop via fe80::230:1bff:feb4:e05c dev eth0 \
+	nexthop via fe80::230:1bff:feb4:dd4f dev eth0
+
+But note that this command is a shortcut and previous patches are not
+mandatory to set ECMP routes. The following commands can be used too:
+$ ip -6 route add 3ffe:304:124:2306::/64 via fe80::230:1bff:feb4:dd4f dev
+eth0
+$ ip -6 route append 3ffe:304:124:2306::/64 via fe80::230:1bff:feb4:e05c dev
+eth0
+
+Here is an example of a dump:
+$ ip -6 route | grep 3ffe:304:124:2306::/64
+3ffe:304:124:2306::/64 via fe80::230:1bff:feb4:dd4f dev eth0  metric 1024
+3ffe:304:124:2306::/64 via fe80::230:1bff:feb4:e05c dev eth0  metric 1024
+
+v5: to minimize the patch and ease its integration, remove roundrobin and random
+    algorithms for route selection. It will be possible to add new algorithms
+    through rt6_info_hashfn() when the basic support of ECMP is integrated.
+
+v4: remove compilation options to choose multipath algorithm for next hop
+    selection. Now the choice can be done at run time via
+    /proc/sys/net/ipv6/route/multipath_algorithm
+
+v3: rebase after updating net-next
+
+v2: rename CONFIG_IPV6_MULTIPATH_ROUTE to CONFIG_IPV6_MULTIPATH_HASH
+    use flowlabel in the hash function
+    add reference to RFC
+    fix a small identation issue
+    remove "If unsure, say N." from the help of CONFIG_IPV6_MULTIPATH
+
+Comments are welcome.
+
+Regards,
+Nicolas
