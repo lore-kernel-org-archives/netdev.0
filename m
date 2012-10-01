@@ -1,147 +1,92 @@
-From: anish singh <anish198519851985@gmail.com>
-Subject: Re: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
-Date: Mon, 1 Oct 2012 12:03:37 +0530
-Message-ID: <CAK7N6vpXfhb0KhMfqxbcSQqT=qPcMS06OdaG9kNsWMqiiepLTQ@mail.gmail.com>
+From: Arun MURTHY <arun.murthy@stericsson.com>
+Subject: RE: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
+Date: Mon, 1 Oct 2012 08:57:04 +0200
+Message-ID: <F45880696056844FA6A73F415B568C695B6962C1CD@EXDCVYMBSTM006.EQ1STM.local>
 References: <1348819504-1303-1-git-send-email-arun.murthy@stericsson.com>
 	<1348819504-1303-2-git-send-email-arun.murthy@stericsson.com>
 	<20120928160045.GD2625@kroah.com>
 	<F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
+ <CAK7N6vpXfhb0KhMfqxbcSQqT=qPcMS06OdaG9kNsWMqiiepLTQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Greg KH <gregkh@linuxfoundation.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
 	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
-To: Arun MURTHY <arun.murthy@stericsson.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
-Sender: linux-doc-owner@vger.kernel.org
+To: anish singh <anish198519851985@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAK7N6vpXfhb0KhMfqxbcSQqT=qPcMS06OdaG9kNsWMqiiepLTQ@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 1, 2012 at 11:00 AM, Arun MURTHY <arun.murthy@stericsson.com> wrote:
->> On Fri, Sep 28, 2012 at 01:35:01PM +0530, Arun Murthy wrote:
->> > +#include <linux/module.h>
->> > +#include <linux/slab.h>
->> > +#include <linux/err.h>
->> > +#include <linux/printk.h>
->> > +#include <linux/modem_shm/modem.h>
->> > +
->> > +static struct class *modem_class;
->>
->> What's wrong with a bus_type instead?
->
-> Can I know the advantage of using bus_type over class?
->
->>
->> > +static int __modem_is_requested(struct device *dev, void *data) {
->> > +   struct modem_desc *mdesc = (struct modem_desc *)data;
->> > +
->> > +   if (!mdesc->mclients) {
->> > +           printk(KERN_ERR "modem_access: modem description is
->> NULL\n");
->> > +           return 0;
->> > +   }
->> > +   return atomic_read(&mdesc->mclients->cnt);
->> > +}
->> > +
->> > +int modem_is_requested(struct modem_desc *mdesc) {
->> > +   return class_for_each_device(modem_class, NULL, (void *)mdesc,
->> > +__modem_is_requested); }
->>
->> Where is the documentation for your public api functions like this?
->
-> Sure will include this in the next patchset.
->
->>
->> > +
->> > +int modem_release(struct modem_desc *mdesc) {
->> > +   if (!mdesc->release)
->> > +           return -EFAULT;
->> > +
->> > +   if (modem_is_requested(mdesc)) {
->> > +           atomic_dec(&mdesc->mclients->cnt);
->> > +           if (atomic_read(&mdesc->use_cnt) == 1) {
->> > +                   mdesc->release(mdesc);
->> > +                   atomic_dec(&mdesc->use_cnt);
->> > +           }
->>
->> Eeek, why aren't you using the built-in reference counting that the struct
->> device provided to you, and instead are rolling your own?  This happens in
->> many places, why?
->
-> My usage of counters over here is for each modem there are many clients.
-> Each of the clients will have a ref to modem_desc. Each of them use this for
-> requesting and releasing the modem. One counter for tracking the request
-> and release for each client which is done by variable 'cnt' in struct clients.
-> The counter use_cnt is used for tracking the modem request/release irrespective
-> of the clients and counter cli_cnt is used for restricting the modem_get to
-> the no of clients defined in no_clients.
->
-> So totally 3 counter one for restricting the usage of modem_get by clients,
-> second for restricting modem request/release at top level, and 3rd for
-> restricting modem release/request for per client per modem basis.
->
-> Can you let me know if the same can be achieved by using built-in ref
-> counting?
-Is this your model:
-You have a modem device which can be requested by many clients.This clients
-can register for a particular service which this modem provides and then after
-that if it client doesn't need this service then it will call un-register.
-This can happen for many clients.
-So what you need is a way to track clients and once no client is in picture, you
-want to de-allocate all the memory and resource associated with modem device.
-
-If this is your model then read on otherwise please skip.
-What you can do is this:
-On each modem_register
- list_add(&modm_dev->entry, &modm_dev_list);
-and once you de-register, remove the device from the modem_dev_list.
-
-Have this in your modem_register function
-modem->dev->release = modem_dev_release;
-This will be called once all the device references have been released
-and you need to remove all the memory/resources associated with your
-modem device.So you will do the final cleanup
-modem_cleanup(edev, true); //this will be "false" when the client just does
-the modem_unregister.
-
-Something as below:
-void modem_dev_unregister(struct modem_dev *edev)
-{
-    modem_cleanup(edev, false);
-}
-
-static void modem_dev_release(struct device *dev)
-{
-    struct modem_dev *edev = (struct modem_dev *) dev_get_drvdata(dev);
-
-    modem_cleanup(edev, true);
-}
-
-static void modem_cleanup(struct modem_dev *edev, bool skip)
-{
-    mutex_lock(&modem_dev_list_lock);
-    list_del(&modem->entry);
-    mutex_unlock(&modem_dev_list_lock);
-
-    if (!skip && get_device(modem->dev)) {
-//do the cleanup here
-        }
-
-        device_unregister(modem->dev);
-        put_device(modem->dev);
-    }
-
-    kfree(modem->dev);
-}
-
->
-> Thanks and Regards,
-> Arun R Murthy
-> ------------------
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+PiBPbiBNb24sIE9jdCAxLCAyMDEyIGF0IDExOjAwIEFNLCBBcnVuIE1VUlRIWQ0KPiA8YXJ1bi5t
+dXJ0aHlAc3Rlcmljc3Nvbi5jb20+IHdyb3RlOg0KPiA+PiBPbiBGcmksIFNlcCAyOCwgMjAxMiBh
+dCAwMTozNTowMVBNICswNTMwLCBBcnVuIE11cnRoeSB3cm90ZToNCj4gPj4gPiArI2luY2x1ZGUg
+PGxpbnV4L21vZHVsZS5oPg0KPiA+PiA+ICsjaW5jbHVkZSA8bGludXgvc2xhYi5oPg0KPiA+PiA+
+ICsjaW5jbHVkZSA8bGludXgvZXJyLmg+DQo+ID4+ID4gKyNpbmNsdWRlIDxsaW51eC9wcmludGsu
+aD4NCj4gPj4gPiArI2luY2x1ZGUgPGxpbnV4L21vZGVtX3NobS9tb2RlbS5oPg0KPiA+PiA+ICsN
+Cj4gPj4gPiArc3RhdGljIHN0cnVjdCBjbGFzcyAqbW9kZW1fY2xhc3M7DQo+ID4+DQo+ID4+IFdo
+YXQncyB3cm9uZyB3aXRoIGEgYnVzX3R5cGUgaW5zdGVhZD8NCj4gPg0KPiA+IENhbiBJIGtub3cg
+dGhlIGFkdmFudGFnZSBvZiB1c2luZyBidXNfdHlwZSBvdmVyIGNsYXNzPw0KPiA+DQo+ID4+DQo+
+ID4+ID4gK3N0YXRpYyBpbnQgX19tb2RlbV9pc19yZXF1ZXN0ZWQoc3RydWN0IGRldmljZSAqZGV2
+LCB2b2lkICpkYXRhKSB7DQo+ID4+ID4gKyAgIHN0cnVjdCBtb2RlbV9kZXNjICptZGVzYyA9IChz
+dHJ1Y3QgbW9kZW1fZGVzYyAqKWRhdGE7DQo+ID4+ID4gKw0KPiA+PiA+ICsgICBpZiAoIW1kZXNj
+LT5tY2xpZW50cykgew0KPiA+PiA+ICsgICAgICAgICAgIHByaW50ayhLRVJOX0VSUiAibW9kZW1f
+YWNjZXNzOiBtb2RlbSBkZXNjcmlwdGlvbiBpcw0KPiA+PiBOVUxMXG4iKTsNCj4gPj4gPiArICAg
+ICAgICAgICByZXR1cm4gMDsNCj4gPj4gPiArICAgfQ0KPiA+PiA+ICsgICByZXR1cm4gYXRvbWlj
+X3JlYWQoJm1kZXNjLT5tY2xpZW50cy0+Y250KTsNCj4gPj4gPiArfQ0KPiA+PiA+ICsNCj4gPj4g
+PiAraW50IG1vZGVtX2lzX3JlcXVlc3RlZChzdHJ1Y3QgbW9kZW1fZGVzYyAqbWRlc2MpIHsNCj4g
+Pj4gPiArICAgcmV0dXJuIGNsYXNzX2Zvcl9lYWNoX2RldmljZShtb2RlbV9jbGFzcywgTlVMTCwg
+KHZvaWQgKiltZGVzYywNCj4gPj4gPiArX19tb2RlbV9pc19yZXF1ZXN0ZWQpOyB9DQo+ID4+DQo+
+ID4+IFdoZXJlIGlzIHRoZSBkb2N1bWVudGF0aW9uIGZvciB5b3VyIHB1YmxpYyBhcGkgZnVuY3Rp
+b25zIGxpa2UgdGhpcz8NCj4gPg0KPiA+IFN1cmUgd2lsbCBpbmNsdWRlIHRoaXMgaW4gdGhlIG5l
+eHQgcGF0Y2hzZXQuDQo+ID4NCj4gPj4NCj4gPj4gPiArDQo+ID4+ID4gK2ludCBtb2RlbV9yZWxl
+YXNlKHN0cnVjdCBtb2RlbV9kZXNjICptZGVzYykgew0KPiA+PiA+ICsgICBpZiAoIW1kZXNjLT5y
+ZWxlYXNlKQ0KPiA+PiA+ICsgICAgICAgICAgIHJldHVybiAtRUZBVUxUOw0KPiA+PiA+ICsNCj4g
+Pj4gPiArICAgaWYgKG1vZGVtX2lzX3JlcXVlc3RlZChtZGVzYykpIHsNCj4gPj4gPiArICAgICAg
+ICAgICBhdG9taWNfZGVjKCZtZGVzYy0+bWNsaWVudHMtPmNudCk7DQo+ID4+ID4gKyAgICAgICAg
+ICAgaWYgKGF0b21pY19yZWFkKCZtZGVzYy0+dXNlX2NudCkgPT0gMSkgew0KPiA+PiA+ICsgICAg
+ICAgICAgICAgICAgICAgbWRlc2MtPnJlbGVhc2UobWRlc2MpOw0KPiA+PiA+ICsgICAgICAgICAg
+ICAgICAgICAgYXRvbWljX2RlYygmbWRlc2MtPnVzZV9jbnQpOw0KPiA+PiA+ICsgICAgICAgICAg
+IH0NCj4gPj4NCj4gPj4gRWVlaywgd2h5IGFyZW4ndCB5b3UgdXNpbmcgdGhlIGJ1aWx0LWluIHJl
+ZmVyZW5jZSBjb3VudGluZyB0aGF0IHRoZQ0KPiA+PiBzdHJ1Y3QgZGV2aWNlIHByb3ZpZGVkIHRv
+IHlvdSwgYW5kIGluc3RlYWQgYXJlIHJvbGxpbmcgeW91ciBvd24/DQo+ID4+IFRoaXMgaGFwcGVu
+cyBpbiBtYW55IHBsYWNlcywgd2h5Pw0KPiA+DQo+ID4gTXkgdXNhZ2Ugb2YgY291bnRlcnMgb3Zl
+ciBoZXJlIGlzIGZvciBlYWNoIG1vZGVtIHRoZXJlIGFyZSBtYW55IGNsaWVudHMuDQo+ID4gRWFj
+aCBvZiB0aGUgY2xpZW50cyB3aWxsIGhhdmUgYSByZWYgdG8gbW9kZW1fZGVzYy4gRWFjaCBvZiB0
+aGVtIHVzZQ0KPiA+IHRoaXMgZm9yIHJlcXVlc3RpbmcgYW5kIHJlbGVhc2luZyB0aGUgbW9kZW0u
+IE9uZSBjb3VudGVyIGZvciB0cmFja2luZw0KPiA+IHRoZSByZXF1ZXN0IGFuZCByZWxlYXNlIGZv
+ciBlYWNoIGNsaWVudCB3aGljaCBpcyBkb25lIGJ5IHZhcmlhYmxlICdjbnQnIGluDQo+IHN0cnVj
+dCBjbGllbnRzLg0KPiA+IFRoZSBjb3VudGVyIHVzZV9jbnQgaXMgdXNlZCBmb3IgdHJhY2tpbmcg
+dGhlIG1vZGVtIHJlcXVlc3QvcmVsZWFzZQ0KPiA+IGlycmVzcGVjdGl2ZSBvZiB0aGUgY2xpZW50
+cyBhbmQgY291bnRlciBjbGlfY250IGlzIHVzZWQgZm9yDQo+ID4gcmVzdHJpY3RpbmcgdGhlIG1v
+ZGVtX2dldCB0byB0aGUgbm8gb2YgY2xpZW50cyBkZWZpbmVkIGluIG5vX2NsaWVudHMuDQo+ID4N
+Cj4gPiBTbyB0b3RhbGx5IDMgY291bnRlciBvbmUgZm9yIHJlc3RyaWN0aW5nIHRoZSB1c2FnZSBv
+ZiBtb2RlbV9nZXQgYnkNCj4gPiBjbGllbnRzLCBzZWNvbmQgZm9yIHJlc3RyaWN0aW5nIG1vZGVt
+IHJlcXVlc3QvcmVsZWFzZSBhdCB0b3AgbGV2ZWwsDQo+ID4gYW5kIDNyZCBmb3IgcmVzdHJpY3Rp
+bmcgbW9kZW0gcmVsZWFzZS9yZXF1ZXN0IGZvciBwZXIgY2xpZW50IHBlciBtb2RlbQ0KPiBiYXNp
+cy4NCj4gPg0KPiA+IENhbiB5b3UgbGV0IG1lIGtub3cgaWYgdGhlIHNhbWUgY2FuIGJlIGFjaGll
+dmVkIGJ5IHVzaW5nIGJ1aWx0LWluIHJlZg0KPiA+IGNvdW50aW5nPw0KPiBJcyB0aGlzIHlvdXIg
+bW9kZWw6DQo+IFlvdSBoYXZlIGEgbW9kZW0gZGV2aWNlIHdoaWNoIGNhbiBiZSByZXF1ZXN0ZWQg
+YnkgbWFueSBjbGllbnRzLlRoaXMNCj4gY2xpZW50cyBjYW4gcmVnaXN0ZXIgZm9yIGEgcGFydGlj
+dWxhciBzZXJ2aWNlIHdoaWNoIHRoaXMgbW9kZW0gcHJvdmlkZXMgYW5kDQo+IHRoZW4gYWZ0ZXIg
+dGhhdCBpZiBpdCBjbGllbnQgZG9lc24ndCBuZWVkIHRoaXMgc2VydmljZSB0aGVuIGl0IHdpbGwg
+Y2FsbCB1bi1yZWdpc3Rlci4NCg0KTGV0IG1lIGNvcnJlY3QgYSBiaXQgb3ZlciBoZXJlOg0KVGhl
+cmUgYXJlIG1hbnkgY2xpZW50cywgeWVzIGNvcnJlY3QgYnV0IHRoZSBvcGVyYXRpb25zIHBlcmZv
+cm1lZCBhcmUgb25seSB0d28sDQppLmUgbW9kZW0gcmVxdWVzdCBhbmQgbW9kZW0gcmVsZWFzZS4g
+VGhpcyBpcyBzb21ldGhpbmcgbGlrZSB3YWtpbmcgdXAgdGhlDQptb2RlbSBhbmQgbGV0IG1vZGVt
+IHRvIHNsZWVwLg0KVGhlIHRyYWZmaWMgb2YgdGhpcyByZXF1ZXN0IGFuZCByZWxlYXNlIGlzIHRv
+byBoaWdoLg0KDQpTbyBpcnJlc3BlY3RpdmUgb2YgdGhlIHJlcXVlc3RzL3JlbGVhc2VzIG1hZGUg
+dG8gdGhlIE1BRiBmcmFtZXdvcmssIHRoZSBNQUYNCnNob3VsZCBwZXJmb3JtIHRoZSBvcGVyYXRp
+b24gcmVxdWVzdC9yZWxlYXNlIG9ubHkgb25jZS4NCg0KU28gZWFjaCBhbmQgZXZlcnkgdGltZSBo
+YW5kbGluZyBsaXN0IGNvbnN1bWVzIHRpbWUuIA0KTGV0IG1lIGJyaWVmIHRoZSBjb250ZXh0LCB0
+aGlzIGlzIGEgc2luZ2xlIGNoaXAgbW9kZW0gYW5kIGFwZSwgYmFzaWNhbGx5IHVzZWQgaW4NCm1v
+YmlsZSwgdGFibGV0cyBldGMuIFNvIHRoZSB0cmFmZmljIGluIGFwZS1tb2RlbSBjb21tdW5pY2F0
+aW9uIGlzIHRvbyBoaWdoIGFuZA0KYWxzbyB0aW1lIGNyaXRpY2FsLiBJZiBpdCBib3VuZCB0byBl
+eGNlZWQgdGhlIHRpbWUsIG9yIGRlbGF5IG1pZ2h0IGVuZCB1cCBpbiBidWZmZXINCmZ1bGwuIFRo
+YXTigJlzIHRoZSByZWFzb24gSSBoYXZlIG1hZGUgaXQgYXMgc2ltcGxlIGFzIHBvc3NpYmxlLg0K
+DQpUaGFua3MgYW5kIFJlZ2FyZHMsDQpBcnVuIFIgTXVydGh5DQotLS0tLS0tLS0tLS0tLS0tLS0N
+Cg==
