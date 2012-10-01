@@ -1,24 +1,31 @@
-From: Ruth Yoda <ruth_y2@qq.com>
-Subject: Re:Very Urgent!!!
-Date: Tue, 2 Oct 2012 07:16:36 +0800 (SGT)
-Message-ID: <1349133396.91106.YahooMailClassic@web193106.mail.sg3.yahoo.com>
-Reply-To: ruth_y1@qq.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: network namespace and kernel bind issue
+Date: Mon, 1 Oct 2012 16:32:26 -0700
+Message-ID: <20121001163226.3873ca58@nehalam.linuxnetplumber.net>
+References: <20121001141609.14639bc0@nehalam.linuxnetplumber.net>
+	<20121001145838.5eafef4c@nehalam.linuxnetplumber.net>
+	<87fw5xeryf.fsf@xmission.com>
+	<20121001155702.5b5e2188@nehalam.linuxnetplumber.net>
+	<87y5jpdbzo.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: undisclosed recipients:;
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ebiederm@xmission.com (Eric W. Biederman)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm29-vm9.bullet.mail.sg3.yahoo.com ([106.10.151.168]:46368 "HELO
-	nm29-vm9.bullet.mail.sg3.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753651Ab2JAXST convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Oct 2012 19:18:19 -0400
+Received: from mail.vyatta.com ([76.74.103.46]:42086 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753558Ab2JAXdC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Oct 2012 19:33:02 -0400
+In-Reply-To: <87y5jpdbzo.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 01 Oct 2012 16:11:07 -0700
+ebiederm@xmission.com (Eric W. Biederman) wrote:
 
-Greetings from BURKINA FASO:
-Let me start by introduce myself,I am Mrs Ruth Yoda, BILL AND EXCHANGE MANAGER (Bank of Africa) Ouagadougou, Burkina Faso.I am writting you this letter based on the latest development at our bank which I will like to bring to your personal edification.($12,250million transfer claims).This is a legitimate transaction and I agreed to offer you 30% of this money as my foreign partner after confirmation of the fund in your bank account,If you are interested,get back to me.
- 
-Yours faithful,
-Mrs Ruth Yoda.
+> Then my guess is that you have an ordering problem.  Attempting
+> to initialize a vxlan before ipv4 is initialized or some such.
+
+Isn't there a gurantee that init operations are called in the order
+they registered?
