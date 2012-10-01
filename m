@@ -1,39 +1,54 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: tg3 driver upgrade (Linux 2.6.32 -> 3.2) breaks IBM
- Bladecenter SoL
-Date: Mon, 1 Oct 2012 02:33:02 -0700
-Message-ID: <1349083982.5420.16.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <87txuhho5z.fsf@lant.ki.iif.hu>
+From: "N, Mugunthan V" <mugunthanvnm@ti.com>
+Subject: RE: [PATCH v2] net: ti cpsw ethernet: set IFCTL_A bit in MACCONTROL
+Date: Mon, 1 Oct 2012 10:52:01 +0000
+Message-ID: <EB1619762EAF8B4E97A227FB77B7E0293E9EDA73@DBDE01.ent.ti.com>
+References: <1348773574-30318-1-git-send-email-zonque@gmail.com>
+ <5069618A.5020105@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Matt Carlson" <mcarlson@broadcom.com>,
-	"Grant Likely" <grant.likely@secretlab.ca>,
-	"Rob Herring" <rob.herring@calxeda.com>,
-	linux-kernel@vger.kernel.org
-To: "Ferenc Wagner" <wferi@niif.hu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87txuhho5z.fsf@lant.ki.iif.hu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Hiremath, Vaibhav" <hvaibhav@ti.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Daniel Mack <zonque@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:34970 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088Ab2JAKwH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 06:52:07 -0400
+In-Reply-To: <5069618A.5020105@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-09-28 at 22:45 +0200, Ferenc Wagner wrote: 
-> Hi,
-> 
-> Upgrading the kernel on our HS20 blades resulted in their SoL (serial
-> over LAN) connection being broken.  The disconnection happens when eth0
-> (the interface involved in SoL) is brought up during the boot sequence.
-> If I later "ip link set eth0 down", then the connection is restored, but
-> "ip link set eth0 up" breaks it again on 3.2.  ethtool -a, -c, -g, -k
-> and -u show no difference; ethtool -i on the 2.6.32 kernel reports:
-> 
-> driver: tg3
-> version: 3.116
-> firmware-version: 5704s-v3.38, ASFIPMIs v2.47
-> bus-info: 0000:05:01.0
-> 
-> In the 3.2 kernel the driver version is 3.121.
-
-2.6.32 to 3.2 is a big jump.  Can you narrow this down further?  It will
-be hard for us to find a HS20 with 5704 to test this.  Thanks.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBEYW5pZWwgTWFjayBbbWFpbHRv
+OnpvbnF1ZUBnbWFpbC5jb21dDQo+IFNlbnQ6IE1vbmRheSwgT2N0b2JlciAwMSwgMjAxMiAyOjU1
+IFBNDQo+IFRvOiBEYW5pZWwgTWFjaw0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgTiwg
+TXVndW50aGFuIFY7IEhpcmVtYXRoLCBWYWliaGF2OyBEYXZpZCBTLg0KPiBNaWxsZXINCj4gU3Vi
+amVjdDogUmU6IFtQQVRDSCB2Ml0gbmV0OiB0aSBjcHN3IGV0aGVybmV0OiBzZXQgSUZDVExfQSBi
+aXQgaW4NCj4gTUFDQ09OVFJPTA0KPiANCj4gT24gMjcuMDkuMjAxMiAyMToxOSwgRGFuaWVsIE1h
+Y2sgd3JvdGU6DQo+ID4gRm9yIFJNSUkvUkdNSUkgbW9kZSBvcGVyYXRpb24gaW4gMTAwTWJwcywg
+dGhlIENQU1cgbmVlZHMgdG8gc2V0IHRoZQ0KPiA+IElGQ1RMX0EgYml0cyBpbiB0aGUgTUFDQ09O
+VFJPTCByZWdpc3Rlci4gRm9yIGFsbCBvdGhlciBQSFkgbW9kZXMsDQo+IHRoaXMNCj4gPiBiaXQg
+aXMgdW51c2VkLCBzbyBzZXR0aW5nIGl0IHVuY29uZGl0aW9uYWxseSBzaG91bGRuJ3QgY2F1c2Ug
+YW55DQo+ID4gdHJvdWJsZS4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IERhbmllbCBNYWNrIDx6
+b25xdWVAZ21haWwuY29tPg0KPiA+IENjOiBNdWd1bnRoYW4gViBOIDxtdWd1bnRoYW52bm1AdGku
+Y29tPg0KPiA+IENjOiBWYWliaGF2IEhpcmVtYXRoIDxodmFpYmhhdkB0aS5jb20+DQo+ID4gQ2M6
+IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCj4gDQo+IE11Z3VudGhhbiwg
+YXJlIHlvdSBvayB3aXRoIHRoaXMgdmVyc2lvbj8gRG9uJ3Qga25vdyBpZiBpdCdzIHRvbyBsYXRl
+DQo+IGZvcg0KPiB0aGUgMy43IHNwaW4gdGhvdWdoLCBnaXZlbiB0aGF0IHRoZSBtZXJnZSB3aW5k
+b3cganVzdCBvcGVuZWQuDQo+IA0KPiANCj4gRGFuaWVsDQoNCkkgYW0gb2sgd2l0aCB0aGUgcGF0
+Y2gNCg0KUmVnYXJkcw0KTXVndW50aGFuIFYgTg0KDQo+IA0KPiANCj4gPiAtLS0NCj4gPiAgZHJp
+dmVycy9uZXQvZXRoZXJuZXQvdGkvY3Bzdy5jIHwgNSArKysrKw0KPiA+ICAxIGZpbGUgY2hhbmdl
+ZCwgNSBpbnNlcnRpb25zKCspDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvdGkvY3Bzdy5jDQo+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvdGkvY3Bzdy5jDQo+ID4g
+aW5kZXggYWE3ODE2OC4uZmIxYTY5MiAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhl
+cm5ldC90aS9jcHN3LmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC90aS9jcHN3LmMN
+Cj4gPiBAQCAtMzg2LDYgKzM4NiwxMSBAQCBzdGF0aWMgdm9pZCBfY3Bzd19hZGp1c3RfbGluayhz
+dHJ1Y3QgY3Bzd19zbGF2ZQ0KPiAqc2xhdmUsDQo+ID4gIAkJCW1hY19jb250cm9sIHw9IEJJVCg3
+KTsJLyogR0lHQUJJVEVOCSovDQo+ID4gIAkJaWYgKHBoeS0+ZHVwbGV4KQ0KPiA+ICAJCQltYWNf
+Y29udHJvbCB8PSBCSVQoMCk7CS8qIEZVTExEVVBMRVhFTgkqLw0KPiA+ICsNCj4gPiArCQkvKiBz
+ZXQgc3BlZWRfaW4gaW5wdXQgaW4gY2FzZSBSTUlJIG1vZGUgaXMgdXNlZCBpbiAxMDBNYnBzDQo+
+ICovDQo+ID4gKwkJaWYgKHBoeS0+c3BlZWQgPT0gMTAwKQ0KPiA+ICsJCQltYWNfY29udHJvbCB8
+PSBCSVQoMTUpOw0KPiA+ICsNCj4gPiAgCQkqbGluayA9IHRydWU7DQo+ID4gIAl9IGVsc2Ugew0K
+PiA+ICAJCW1hY19jb250cm9sID0gMDsNCj4gPg0KDQo=
