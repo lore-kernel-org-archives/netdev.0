@@ -1,54 +1,80 @@
-From: "N, Mugunthan V" <mugunthanvnm@ti.com>
-Subject: RE: [PATCH v2] net: ti cpsw ethernet: set IFCTL_A bit in MACCONTROL
-Date: Mon, 1 Oct 2012 10:52:01 +0000
-Message-ID: <EB1619762EAF8B4E97A227FB77B7E0293E9EDA73@DBDE01.ent.ti.com>
-References: <1348773574-30318-1-git-send-email-zonque@gmail.com>
- <5069618A.5020105@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Hiremath, Vaibhav" <hvaibhav@ti.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Daniel Mack <zonque@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:34970 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752088Ab2JAKwH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 06:52:07 -0400
-In-Reply-To: <5069618A.5020105@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: [PATCHv2] rtlwifi: rtl8192ce: rtl8192cu: use %*ph[C] to dump small buffers
+Date: Mon,  1 Oct 2012 13:54:59 +0300
+Message-ID: <1349088899-15863-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBEYW5pZWwgTWFjayBbbWFpbHRv
-OnpvbnF1ZUBnbWFpbC5jb21dDQo+IFNlbnQ6IE1vbmRheSwgT2N0b2JlciAwMSwgMjAxMiAyOjU1
-IFBNDQo+IFRvOiBEYW5pZWwgTWFjaw0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgTiwg
-TXVndW50aGFuIFY7IEhpcmVtYXRoLCBWYWliaGF2OyBEYXZpZCBTLg0KPiBNaWxsZXINCj4gU3Vi
-amVjdDogUmU6IFtQQVRDSCB2Ml0gbmV0OiB0aSBjcHN3IGV0aGVybmV0OiBzZXQgSUZDVExfQSBi
-aXQgaW4NCj4gTUFDQ09OVFJPTA0KPiANCj4gT24gMjcuMDkuMjAxMiAyMToxOSwgRGFuaWVsIE1h
-Y2sgd3JvdGU6DQo+ID4gRm9yIFJNSUkvUkdNSUkgbW9kZSBvcGVyYXRpb24gaW4gMTAwTWJwcywg
-dGhlIENQU1cgbmVlZHMgdG8gc2V0IHRoZQ0KPiA+IElGQ1RMX0EgYml0cyBpbiB0aGUgTUFDQ09O
-VFJPTCByZWdpc3Rlci4gRm9yIGFsbCBvdGhlciBQSFkgbW9kZXMsDQo+IHRoaXMNCj4gPiBiaXQg
-aXMgdW51c2VkLCBzbyBzZXR0aW5nIGl0IHVuY29uZGl0aW9uYWxseSBzaG91bGRuJ3QgY2F1c2Ug
-YW55DQo+ID4gdHJvdWJsZS4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IERhbmllbCBNYWNrIDx6
-b25xdWVAZ21haWwuY29tPg0KPiA+IENjOiBNdWd1bnRoYW4gViBOIDxtdWd1bnRoYW52bm1AdGku
-Y29tPg0KPiA+IENjOiBWYWliaGF2IEhpcmVtYXRoIDxodmFpYmhhdkB0aS5jb20+DQo+ID4gQ2M6
-IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCj4gDQo+IE11Z3VudGhhbiwg
-YXJlIHlvdSBvayB3aXRoIHRoaXMgdmVyc2lvbj8gRG9uJ3Qga25vdyBpZiBpdCdzIHRvbyBsYXRl
-DQo+IGZvcg0KPiB0aGUgMy43IHNwaW4gdGhvdWdoLCBnaXZlbiB0aGF0IHRoZSBtZXJnZSB3aW5k
-b3cganVzdCBvcGVuZWQuDQo+IA0KPiANCj4gRGFuaWVsDQoNCkkgYW0gb2sgd2l0aCB0aGUgcGF0
-Y2gNCg0KUmVnYXJkcw0KTXVndW50aGFuIFYgTg0KDQo+IA0KPiANCj4gPiAtLS0NCj4gPiAgZHJp
-dmVycy9uZXQvZXRoZXJuZXQvdGkvY3Bzdy5jIHwgNSArKysrKw0KPiA+ICAxIGZpbGUgY2hhbmdl
-ZCwgNSBpbnNlcnRpb25zKCspDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvdGkvY3Bzdy5jDQo+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvdGkvY3Bzdy5jDQo+ID4g
-aW5kZXggYWE3ODE2OC4uZmIxYTY5MiAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhl
-cm5ldC90aS9jcHN3LmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC90aS9jcHN3LmMN
-Cj4gPiBAQCAtMzg2LDYgKzM4NiwxMSBAQCBzdGF0aWMgdm9pZCBfY3Bzd19hZGp1c3RfbGluayhz
-dHJ1Y3QgY3Bzd19zbGF2ZQ0KPiAqc2xhdmUsDQo+ID4gIAkJCW1hY19jb250cm9sIHw9IEJJVCg3
-KTsJLyogR0lHQUJJVEVOCSovDQo+ID4gIAkJaWYgKHBoeS0+ZHVwbGV4KQ0KPiA+ICAJCQltYWNf
-Y29udHJvbCB8PSBCSVQoMCk7CS8qIEZVTExEVVBMRVhFTgkqLw0KPiA+ICsNCj4gPiArCQkvKiBz
-ZXQgc3BlZWRfaW4gaW5wdXQgaW4gY2FzZSBSTUlJIG1vZGUgaXMgdXNlZCBpbiAxMDBNYnBzDQo+
-ICovDQo+ID4gKwkJaWYgKHBoeS0+c3BlZWQgPT0gMTAwKQ0KPiA+ICsJCQltYWNfY29udHJvbCB8
-PSBCSVQoMTUpOw0KPiA+ICsNCj4gPiAgCQkqbGluayA9IHRydWU7DQo+ID4gIAl9IGVsc2Ugew0K
-PiA+ICAJCW1hY19jb250cm9sID0gMDsNCj4gPg0KDQo=
+Signed-off-by: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+ACKed-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+---
+ drivers/net/wireless/rtlwifi/cam.c          |    7 ++-----
+ drivers/net/wireless/rtlwifi/rtl8192ce/hw.c |    6 ++----
+ drivers/net/wireless/rtlwifi/rtl8192cu/hw.c |    6 ++----
+ 3 files changed, 6 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/cam.c b/drivers/net/wireless/rtlwifi/cam.c
+index 5b4b4d4..6ba9f80 100644
+--- a/drivers/net/wireless/rtlwifi/cam.c
++++ b/drivers/net/wireless/rtlwifi/cam.c
+@@ -52,11 +52,8 @@ static void rtl_cam_program_entry(struct ieee80211_hw *hw, u32 entry_no,
+ 	u32 target_content = 0;
+ 	u8 entry_i;
+ 
+-	RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD,
+-		 "key_cont_128:\n %x:%x:%x:%x:%x:%x\n",
+-		 key_cont_128[0], key_cont_128[1],
+-		 key_cont_128[2], key_cont_128[3],
+-		 key_cont_128[4], key_cont_128[5]);
++	RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD, "key_cont_128: %*ph\n",
++			6, key_cont_128);
+ 
+ 	for (entry_i = 0; entry_i < CAM_CONTENT_COUNT; entry_i++) {
+ 		target_command = entry_i + CAM_CONTENT_COUNT * entry_no;
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+index 86d73b3..932780d 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+@@ -1918,10 +1918,8 @@ static void rtl92ce_update_hal_rate_mask(struct ieee80211_hw *hw,
+ 				     (ratr_index << 28);
+ 	rate_mask[4] = macid | (shortgi ? 0x20 : 0x00) | 0x80;
+ 	RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG,
+-		 "Rate_index:%x, ratr_val:%x, %x:%x:%x:%x:%x\n",
+-		 ratr_index, ratr_bitmap,
+-		 rate_mask[0], rate_mask[1], rate_mask[2], rate_mask[3],
+-		 rate_mask[4]);
++		 "Rate_index:%x, ratr_val:%x, %*phC\n",
++		 ratr_index, ratr_bitmap, 5, rate_mask);
+ 	rtl92c_fill_h2c_cmd(hw, H2C_RA_MASK, 5, rate_mask);
+ 
+ 	if (macid != 0)
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c b/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
+index 4bbb711..7554501 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
+@@ -2169,10 +2169,8 @@ void rtl92cu_update_hal_rate_mask(struct ieee80211_hw *hw, u8 rssi_level)
+ 				      ratr_index << 28);
+ 	rate_mask[4] = macid | (shortgi ? 0x20 : 0x00) | 0x80;
+ 	RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG,
+-		 "Rate_index:%x, ratr_val:%x, %x:%x:%x:%x:%x\n",
+-		 ratr_index, ratr_bitmap,
+-		 rate_mask[0], rate_mask[1], rate_mask[2], rate_mask[3],
+-		 rate_mask[4]);
++		 "Rate_index:%x, ratr_val:%x, %*phC\n",
++		 ratr_index, ratr_bitmap, 5, rate_mask);
+ 	rtl92c_fill_h2c_cmd(hw, H2C_RA_MASK, 5, rate_mask);
+ }
+ 
+-- 
+1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
