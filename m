@@ -1,27 +1,28 @@
-From: "Mrs. Maria Bristow" <no-reply@mx2.4shared.com>
-Subject: RE: Please am dying of breast cancer !!!
-Date: Mon, 01 Oct 2012 14:36:25 +0200
-Message-ID: <201210011240.q91CdxN7016055@srv1.iexpress.com.br>
-Reply-To: maria.bristow@1email.eu
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH net-next v2 0/2] bnx2x: net-next FW upgrade
+Date: Mon, 1 Oct 2012 15:46:18 +0200
+Message-ID: <1349099180-5606-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <no-reply@mx2.4shared.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c906f44f.static.virtua.com.br ([201.6.244.79]:54132 "EHLO
-	srv1.iexpress.com.br" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752881Ab2JAMkx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 08:40:53 -0400
-Content-Description: Mail message body
+Received: from mms1.broadcom.com ([216.31.210.17]:3171 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751896Ab2JANqR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Oct 2012 09:46:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hi Dave,
 
-Am dying of breast cancer and I need your assistance to help me carry o=
-ut my dream charity work with my funds =E2=82=AC2.8M Euros with a Secur=
-ity firm, if you are interested please reach me for more details on thi=
-s email: maria.bristow@1email.eu
+This is a respin of previous series contains 2 patches -
+the first allows the bnx2x and cnic driver to
+utilize the recently submitted bnx2x FW 7.8.2, while the second advances
+the bnx2x version to 1.78.00-0.
 
-Yours Sincerely,
-Mrs. Maria Bristow
+Changes since V1:
+	Integrated changes to CNIC driver for FW 7.8.2.
+
+Thanks,
+Dmitry
