@@ -1,54 +1,127 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: [PATCH] Fix userspace compilation of ip_tables.h/ip6_tables.h in
- C++ mode
-Date: Sun, 30 Sep 2012 17:17:37 -0600
-Message-ID: <20120930231737.GA30637@obsidianresearch.com>
+From: Naresh Kumar Inna <naresh@chelsio.com>
+Subject: Re: [V5 PATCH 0/8] csiostor: Chelsio FCoE offload driver submission
+Date: Mon, 1 Oct 2012 09:44:13 +0530
+Message-ID: <50691895.8030506@chelsio.com>
+References: <1348507072-25625-1-git-send-email-naresh@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Naresh Kumar Inna <naresh@chelsio.com>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	Dimitrios Michailidis <dm@chelsio.com>,
+	"Casey Leedom" <leedom@chelsio.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Chethan Seshadri <chethan@chelsio.com>
+To: "JBottomley@parallels.com" <JBottomley@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:26854 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750707Ab2JAEOY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 00:14:24 -0400
+In-Reply-To: <1348507072-25625-1-git-send-email-naresh@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The implicit cast from void * is not allowed for C++ compilers, and the
-arithmetic on void * generates warnings in C++ mode.
+Hi James,
 
-$ g++ -c t.cc
-ip_tables.h:221:24: warning: pointer of type 'void *' used in arithmetic
-ip_tables.h:221:24: error: invalid conversion from 'void*' to 'xt_entry_target*'
+Do you have any update with regards to the review of this driver? You
+were mentioning about getting FC folks to take a look at it.
 
-Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
----
- include/linux/netfilter_ipv4/ip_tables.h  |    2 +-
- include/linux/netfilter_ipv6/ip6_tables.h |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+Thanks,
+Naresh.
 
-diff --git a/include/linux/netfilter_ipv4/ip_tables.h b/include/linux/netfilter_ipv4/ip_tables.h
-index db79231..050ad8a 100644
---- a/include/linux/netfilter_ipv4/ip_tables.h
-+++ b/include/linux/netfilter_ipv4/ip_tables.h
-@@ -226,7 +226,7 @@ struct ipt_get_entries {
- static __inline__ struct xt_entry_target *
- ipt_get_target(struct ipt_entry *e)
- {
--	return (void *)e + e->target_offset;
-+	return (struct xt_entry_target *)((__u8 *)e + e->target_offset);
- }
- 
- /*
-diff --git a/include/linux/netfilter_ipv6/ip6_tables.h b/include/linux/netfilter_ipv6/ip6_tables.h
-index 08c2cbb..3349bf1 100644
---- a/include/linux/netfilter_ipv6/ip6_tables.h
-+++ b/include/linux/netfilter_ipv6/ip6_tables.h
-@@ -263,7 +263,7 @@ struct ip6t_get_entries {
- static __inline__ struct xt_entry_target *
- ip6t_get_target(struct ip6t_entry *e)
- {
--	return (void *)e + e->target_offset;
-+	return (struct xt_entry_target *)((__u8 *)e + e->target_offset);
- }
- 
- /*
--- 
-1.7.4.1
+On 9/24/2012 10:47 PM, Naresh Kumar Inna wrote:
+> This is the initial submission of the Chelsio FCoE offload driver (csiostor)
+> to the upstream kernel. This driver currently supports FCoE offload
+> functionality over Chelsio T4-based 10Gb Converged Network Adapters.
+> 
+> The following patches contain the driver sources for csiostor driver and
+> updates to firmware/hardware header files shared between csiostor,
+> cxgb4 (Chelsio T4-based NIC driver) and cxgb4vf (Chelsio T4-based Virtual
+> Function NIC driver). The csiostor driver is dependent on these
+> header updates. These patches have been generated against scsi 'misc' branch.
+> 
+> csiostor is a low level SCSI driver that interfaces with PCI, SCSI midlayer and
+> FC transport subsystems. This driver claims the FCoE PCIe function on
+> Chelsio Converged Network Adapters. It relies on firmware events for slow path
+> operations like discovery, thereby offloading session management. The driver
+> programs firmware via Work Request interfaces for fast path I/O offload
+> features.
+> 
+> Version V5 of the patches addresses James's comment, primary among them being
+> moving to the lockless version of queuecommand(). Rest of the V5 changes are
+> listed in the individual patches.
+> 
+> Here is the brief description of patches:
+> [V5 PATCH 1/8]: Updates to header files shared between cxgb4, cxgb4vf and
+>                 csiostor.
+> [V5 PATCH 2/8]: Header files part 1.
+> [V5 PATCH 3/8]: Header files part 2.
+> [V5 PATCH 4/8]: Driver initialization and Work Request services.
+> [V5 PATCH 5/8]: FC transport interfaces and mailbox services.
+> [V5 PATCH 6/8]: Local and remote port state tracking functionality.
+> [V5 PATCH 7/8]: Interrupt handling and fast path I/O functionality.
+> [V5 PATCH 8/8]: Hardware interface, Makefile and Kconfig changes.
+> 
+> Naresh Kumar Inna (8):
+>   cxgb4/cxgb4vf: Chelsio FCoE offload driver submission (common header
+>     updates).
+>   csiostor: Chelsio FCoE offload driver submission (headers part 1).
+>   csiostor: Chelsio FCoE offload driver submission (headers part 2).
+>   csiostor: Chelsio FCoE offload driver submission (sources part 1).
+>   csiostor: Chelsio FCoE offload driver submission (sources part 2).
+>   csiostor: Chelsio FCoE offload driver submission (sources part 3).
+>   csiostor: Chelsio FCoE offload driver submission (sources part 4).
+>   csiostor: Chelsio FCoE offload driver submission (sources part 5).
+> 
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    2 +-
+>  drivers/net/ethernet/chelsio/cxgb4/sge.c        |   10 +-
+>  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   16 +-
+>  drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |    1 +
+>  drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   69 +-
+>  drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  104 +-
+>  drivers/net/ethernet/chelsio/cxgb4vf/sge.c      |   11 +-
+>  drivers/scsi/Kconfig                            |    1 +
+>  drivers/scsi/Makefile                           |    1 +
+>  drivers/scsi/csiostor/Kconfig                   |   19 +
+>  drivers/scsi/csiostor/Makefile                  |   11 +
+>  drivers/scsi/csiostor/csio_attr.c               |  804 +++++
+>  drivers/scsi/csiostor/csio_defs.h               |  121 +
+>  drivers/scsi/csiostor/csio_hw.c                 | 4395 +++++++++++++++++++++++
+>  drivers/scsi/csiostor/csio_hw.h                 |  666 ++++
+>  drivers/scsi/csiostor/csio_init.c               | 1274 +++++++
+>  drivers/scsi/csiostor/csio_init.h               |  158 +
+>  drivers/scsi/csiostor/csio_isr.c                |  624 ++++
+>  drivers/scsi/csiostor/csio_lnode.c              | 2133 +++++++++++
+>  drivers/scsi/csiostor/csio_lnode.h              |  255 ++
+>  drivers/scsi/csiostor/csio_mb.c                 | 1769 +++++++++
+>  drivers/scsi/csiostor/csio_mb.h                 |  278 ++
+>  drivers/scsi/csiostor/csio_rnode.c              |  889 +++++
+>  drivers/scsi/csiostor/csio_rnode.h              |  141 +
+>  drivers/scsi/csiostor/csio_scsi.c               | 2554 +++++++++++++
+>  drivers/scsi/csiostor/csio_scsi.h               |  342 ++
+>  drivers/scsi/csiostor/csio_wr.c                 | 1632 +++++++++
+>  drivers/scsi/csiostor/csio_wr.h                 |  512 +++
+>  drivers/scsi/csiostor/t4fw_api_stor.h           |  578 +++
+>  29 files changed, 19333 insertions(+), 37 deletions(-)
+>  create mode 100644 drivers/scsi/csiostor/Kconfig
+>  create mode 100644 drivers/scsi/csiostor/Makefile
+>  create mode 100644 drivers/scsi/csiostor/csio_attr.c
+>  create mode 100644 drivers/scsi/csiostor/csio_defs.h
+>  create mode 100644 drivers/scsi/csiostor/csio_hw.c
+>  create mode 100644 drivers/scsi/csiostor/csio_hw.h
+>  create mode 100644 drivers/scsi/csiostor/csio_init.c
+>  create mode 100644 drivers/scsi/csiostor/csio_init.h
+>  create mode 100644 drivers/scsi/csiostor/csio_isr.c
+>  create mode 100644 drivers/scsi/csiostor/csio_lnode.c
+>  create mode 100644 drivers/scsi/csiostor/csio_lnode.h
+>  create mode 100644 drivers/scsi/csiostor/csio_mb.c
+>  create mode 100644 drivers/scsi/csiostor/csio_mb.h
+>  create mode 100644 drivers/scsi/csiostor/csio_rnode.c
+>  create mode 100644 drivers/scsi/csiostor/csio_rnode.h
+>  create mode 100644 drivers/scsi/csiostor/csio_scsi.c
+>  create mode 100644 drivers/scsi/csiostor/csio_scsi.h
+>  create mode 100644 drivers/scsi/csiostor/csio_wr.c
+>  create mode 100644 drivers/scsi/csiostor/csio_wr.h
+>  create mode 100644 drivers/scsi/csiostor/t4fw_api_stor.h
+> 
