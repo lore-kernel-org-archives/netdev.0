@@ -1,92 +1,146 @@
-From: Arun MURTHY <arun.murthy@stericsson.com>
-Subject: RE: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
-Date: Mon, 1 Oct 2012 08:57:04 +0200
-Message-ID: <F45880696056844FA6A73F415B568C695B6962C1CD@EXDCVYMBSTM006.EQ1STM.local>
-References: <1348819504-1303-1-git-send-email-arun.murthy@stericsson.com>
-	<1348819504-1303-2-git-send-email-arun.murthy@stericsson.com>
-	<20120928160045.GD2625@kroah.com>
-	<F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
- <CAK7N6vpXfhb0KhMfqxbcSQqT=qPcMS06OdaG9kNsWMqiiepLTQ@mail.gmail.com>
+From: Chris Clayton <chris2553@googlemail.com>
+Subject: Re: Possible networking regression in 3.6.0
+Date: Mon, 01 Oct 2012 09:36:03 +0100
+Message-ID: <506955F3.8050304@googlemail.com>
+References: <5057455A.7050108@googlemail.com>  <50588371.40103@googlemail.com>  <505885DC.1060006@googlemail.com>  <1347979239.26523.267.camel@edumazet-glaptop>  <5059E40C.4070607@googlemail.com> <505D5A18.2080507@googlemail.com>  <50643DA1.7070306@googlemail.com>  <1348748042.5093.1168.camel@edumazet-glaptop>  <50649567.2010704@googlemail.com>  <1348779826.5093.1750.camel@edumazet-glaptop>  <1348780624.5093.1767.camel@edumazet-glaptop>  <50656C4A.8090302@googlemail.com>  <1348831592.5093.2251.camel@edumazet-glaptop>  <5068648C.7050005@googlemail.com> <1349034330.12401.210.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Greg KH <gregkh@linuxfoundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
-To: anish singh <anish198519851985@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAK7N6vpXfhb0KhMfqxbcSQqT=qPcMS06OdaG9kNsWMqiiepLTQ@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	gpiez@web.de
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:37487 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751829Ab2JAIgD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 04:36:03 -0400
+Received: by bkcjk13 with SMTP id jk13so4744066bkc.19
+        for <netdev@vger.kernel.org>; Mon, 01 Oct 2012 01:36:01 -0700 (PDT)
+In-Reply-To: <1349034330.12401.210.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBPbiBNb24sIE9jdCAxLCAyMDEyIGF0IDExOjAwIEFNLCBBcnVuIE1VUlRIWQ0KPiA8YXJ1bi5t
-dXJ0aHlAc3Rlcmljc3Nvbi5jb20+IHdyb3RlOg0KPiA+PiBPbiBGcmksIFNlcCAyOCwgMjAxMiBh
-dCAwMTozNTowMVBNICswNTMwLCBBcnVuIE11cnRoeSB3cm90ZToNCj4gPj4gPiArI2luY2x1ZGUg
-PGxpbnV4L21vZHVsZS5oPg0KPiA+PiA+ICsjaW5jbHVkZSA8bGludXgvc2xhYi5oPg0KPiA+PiA+
-ICsjaW5jbHVkZSA8bGludXgvZXJyLmg+DQo+ID4+ID4gKyNpbmNsdWRlIDxsaW51eC9wcmludGsu
-aD4NCj4gPj4gPiArI2luY2x1ZGUgPGxpbnV4L21vZGVtX3NobS9tb2RlbS5oPg0KPiA+PiA+ICsN
-Cj4gPj4gPiArc3RhdGljIHN0cnVjdCBjbGFzcyAqbW9kZW1fY2xhc3M7DQo+ID4+DQo+ID4+IFdo
-YXQncyB3cm9uZyB3aXRoIGEgYnVzX3R5cGUgaW5zdGVhZD8NCj4gPg0KPiA+IENhbiBJIGtub3cg
-dGhlIGFkdmFudGFnZSBvZiB1c2luZyBidXNfdHlwZSBvdmVyIGNsYXNzPw0KPiA+DQo+ID4+DQo+
-ID4+ID4gK3N0YXRpYyBpbnQgX19tb2RlbV9pc19yZXF1ZXN0ZWQoc3RydWN0IGRldmljZSAqZGV2
-LCB2b2lkICpkYXRhKSB7DQo+ID4+ID4gKyAgIHN0cnVjdCBtb2RlbV9kZXNjICptZGVzYyA9IChz
-dHJ1Y3QgbW9kZW1fZGVzYyAqKWRhdGE7DQo+ID4+ID4gKw0KPiA+PiA+ICsgICBpZiAoIW1kZXNj
-LT5tY2xpZW50cykgew0KPiA+PiA+ICsgICAgICAgICAgIHByaW50ayhLRVJOX0VSUiAibW9kZW1f
-YWNjZXNzOiBtb2RlbSBkZXNjcmlwdGlvbiBpcw0KPiA+PiBOVUxMXG4iKTsNCj4gPj4gPiArICAg
-ICAgICAgICByZXR1cm4gMDsNCj4gPj4gPiArICAgfQ0KPiA+PiA+ICsgICByZXR1cm4gYXRvbWlj
-X3JlYWQoJm1kZXNjLT5tY2xpZW50cy0+Y250KTsNCj4gPj4gPiArfQ0KPiA+PiA+ICsNCj4gPj4g
-PiAraW50IG1vZGVtX2lzX3JlcXVlc3RlZChzdHJ1Y3QgbW9kZW1fZGVzYyAqbWRlc2MpIHsNCj4g
-Pj4gPiArICAgcmV0dXJuIGNsYXNzX2Zvcl9lYWNoX2RldmljZShtb2RlbV9jbGFzcywgTlVMTCwg
-KHZvaWQgKiltZGVzYywNCj4gPj4gPiArX19tb2RlbV9pc19yZXF1ZXN0ZWQpOyB9DQo+ID4+DQo+
-ID4+IFdoZXJlIGlzIHRoZSBkb2N1bWVudGF0aW9uIGZvciB5b3VyIHB1YmxpYyBhcGkgZnVuY3Rp
-b25zIGxpa2UgdGhpcz8NCj4gPg0KPiA+IFN1cmUgd2lsbCBpbmNsdWRlIHRoaXMgaW4gdGhlIG5l
-eHQgcGF0Y2hzZXQuDQo+ID4NCj4gPj4NCj4gPj4gPiArDQo+ID4+ID4gK2ludCBtb2RlbV9yZWxl
-YXNlKHN0cnVjdCBtb2RlbV9kZXNjICptZGVzYykgew0KPiA+PiA+ICsgICBpZiAoIW1kZXNjLT5y
-ZWxlYXNlKQ0KPiA+PiA+ICsgICAgICAgICAgIHJldHVybiAtRUZBVUxUOw0KPiA+PiA+ICsNCj4g
-Pj4gPiArICAgaWYgKG1vZGVtX2lzX3JlcXVlc3RlZChtZGVzYykpIHsNCj4gPj4gPiArICAgICAg
-ICAgICBhdG9taWNfZGVjKCZtZGVzYy0+bWNsaWVudHMtPmNudCk7DQo+ID4+ID4gKyAgICAgICAg
-ICAgaWYgKGF0b21pY19yZWFkKCZtZGVzYy0+dXNlX2NudCkgPT0gMSkgew0KPiA+PiA+ICsgICAg
-ICAgICAgICAgICAgICAgbWRlc2MtPnJlbGVhc2UobWRlc2MpOw0KPiA+PiA+ICsgICAgICAgICAg
-ICAgICAgICAgYXRvbWljX2RlYygmbWRlc2MtPnVzZV9jbnQpOw0KPiA+PiA+ICsgICAgICAgICAg
-IH0NCj4gPj4NCj4gPj4gRWVlaywgd2h5IGFyZW4ndCB5b3UgdXNpbmcgdGhlIGJ1aWx0LWluIHJl
-ZmVyZW5jZSBjb3VudGluZyB0aGF0IHRoZQ0KPiA+PiBzdHJ1Y3QgZGV2aWNlIHByb3ZpZGVkIHRv
-IHlvdSwgYW5kIGluc3RlYWQgYXJlIHJvbGxpbmcgeW91ciBvd24/DQo+ID4+IFRoaXMgaGFwcGVu
-cyBpbiBtYW55IHBsYWNlcywgd2h5Pw0KPiA+DQo+ID4gTXkgdXNhZ2Ugb2YgY291bnRlcnMgb3Zl
-ciBoZXJlIGlzIGZvciBlYWNoIG1vZGVtIHRoZXJlIGFyZSBtYW55IGNsaWVudHMuDQo+ID4gRWFj
-aCBvZiB0aGUgY2xpZW50cyB3aWxsIGhhdmUgYSByZWYgdG8gbW9kZW1fZGVzYy4gRWFjaCBvZiB0
-aGVtIHVzZQ0KPiA+IHRoaXMgZm9yIHJlcXVlc3RpbmcgYW5kIHJlbGVhc2luZyB0aGUgbW9kZW0u
-IE9uZSBjb3VudGVyIGZvciB0cmFja2luZw0KPiA+IHRoZSByZXF1ZXN0IGFuZCByZWxlYXNlIGZv
-ciBlYWNoIGNsaWVudCB3aGljaCBpcyBkb25lIGJ5IHZhcmlhYmxlICdjbnQnIGluDQo+IHN0cnVj
-dCBjbGllbnRzLg0KPiA+IFRoZSBjb3VudGVyIHVzZV9jbnQgaXMgdXNlZCBmb3IgdHJhY2tpbmcg
-dGhlIG1vZGVtIHJlcXVlc3QvcmVsZWFzZQ0KPiA+IGlycmVzcGVjdGl2ZSBvZiB0aGUgY2xpZW50
-cyBhbmQgY291bnRlciBjbGlfY250IGlzIHVzZWQgZm9yDQo+ID4gcmVzdHJpY3RpbmcgdGhlIG1v
-ZGVtX2dldCB0byB0aGUgbm8gb2YgY2xpZW50cyBkZWZpbmVkIGluIG5vX2NsaWVudHMuDQo+ID4N
-Cj4gPiBTbyB0b3RhbGx5IDMgY291bnRlciBvbmUgZm9yIHJlc3RyaWN0aW5nIHRoZSB1c2FnZSBv
-ZiBtb2RlbV9nZXQgYnkNCj4gPiBjbGllbnRzLCBzZWNvbmQgZm9yIHJlc3RyaWN0aW5nIG1vZGVt
-IHJlcXVlc3QvcmVsZWFzZSBhdCB0b3AgbGV2ZWwsDQo+ID4gYW5kIDNyZCBmb3IgcmVzdHJpY3Rp
-bmcgbW9kZW0gcmVsZWFzZS9yZXF1ZXN0IGZvciBwZXIgY2xpZW50IHBlciBtb2RlbQ0KPiBiYXNp
-cy4NCj4gPg0KPiA+IENhbiB5b3UgbGV0IG1lIGtub3cgaWYgdGhlIHNhbWUgY2FuIGJlIGFjaGll
-dmVkIGJ5IHVzaW5nIGJ1aWx0LWluIHJlZg0KPiA+IGNvdW50aW5nPw0KPiBJcyB0aGlzIHlvdXIg
-bW9kZWw6DQo+IFlvdSBoYXZlIGEgbW9kZW0gZGV2aWNlIHdoaWNoIGNhbiBiZSByZXF1ZXN0ZWQg
-YnkgbWFueSBjbGllbnRzLlRoaXMNCj4gY2xpZW50cyBjYW4gcmVnaXN0ZXIgZm9yIGEgcGFydGlj
-dWxhciBzZXJ2aWNlIHdoaWNoIHRoaXMgbW9kZW0gcHJvdmlkZXMgYW5kDQo+IHRoZW4gYWZ0ZXIg
-dGhhdCBpZiBpdCBjbGllbnQgZG9lc24ndCBuZWVkIHRoaXMgc2VydmljZSB0aGVuIGl0IHdpbGwg
-Y2FsbCB1bi1yZWdpc3Rlci4NCg0KTGV0IG1lIGNvcnJlY3QgYSBiaXQgb3ZlciBoZXJlOg0KVGhl
-cmUgYXJlIG1hbnkgY2xpZW50cywgeWVzIGNvcnJlY3QgYnV0IHRoZSBvcGVyYXRpb25zIHBlcmZv
-cm1lZCBhcmUgb25seSB0d28sDQppLmUgbW9kZW0gcmVxdWVzdCBhbmQgbW9kZW0gcmVsZWFzZS4g
-VGhpcyBpcyBzb21ldGhpbmcgbGlrZSB3YWtpbmcgdXAgdGhlDQptb2RlbSBhbmQgbGV0IG1vZGVt
-IHRvIHNsZWVwLg0KVGhlIHRyYWZmaWMgb2YgdGhpcyByZXF1ZXN0IGFuZCByZWxlYXNlIGlzIHRv
-byBoaWdoLg0KDQpTbyBpcnJlc3BlY3RpdmUgb2YgdGhlIHJlcXVlc3RzL3JlbGVhc2VzIG1hZGUg
-dG8gdGhlIE1BRiBmcmFtZXdvcmssIHRoZSBNQUYNCnNob3VsZCBwZXJmb3JtIHRoZSBvcGVyYXRp
-b24gcmVxdWVzdC9yZWxlYXNlIG9ubHkgb25jZS4NCg0KU28gZWFjaCBhbmQgZXZlcnkgdGltZSBo
-YW5kbGluZyBsaXN0IGNvbnN1bWVzIHRpbWUuIA0KTGV0IG1lIGJyaWVmIHRoZSBjb250ZXh0LCB0
-aGlzIGlzIGEgc2luZ2xlIGNoaXAgbW9kZW0gYW5kIGFwZSwgYmFzaWNhbGx5IHVzZWQgaW4NCm1v
-YmlsZSwgdGFibGV0cyBldGMuIFNvIHRoZSB0cmFmZmljIGluIGFwZS1tb2RlbSBjb21tdW5pY2F0
-aW9uIGlzIHRvbyBoaWdoIGFuZA0KYWxzbyB0aW1lIGNyaXRpY2FsLiBJZiBpdCBib3VuZCB0byBl
-eGNlZWQgdGhlIHRpbWUsIG9yIGRlbGF5IG1pZ2h0IGVuZCB1cCBpbiBidWZmZXINCmZ1bGwuIFRo
-YXTigJlzIHRoZSByZWFzb24gSSBoYXZlIG1hZGUgaXQgYXMgc2ltcGxlIGFzIHBvc3NpYmxlLg0K
-DQpUaGFua3MgYW5kIFJlZ2FyZHMsDQpBcnVuIFIgTXVydGh5DQotLS0tLS0tLS0tLS0tLS0tLS0N
-Cg==
+
+
+On 09/30/12 20:45, Eric Dumazet wrote:
+> On Sun, 2012-09-30 at 16:26 +0100, Chris Clayton wrote:
+>> Hi Eric,
+>>
+>> On 09/28/12 12:26, Eric Dumazet wrote:
+>>> On Fri, 2012-09-28 at 10:22 +0100, Chris Clayton wrote:
+>>>
+>>>> No, the WinXP guest is configured with a fixed IP address
+>>>> (192.168.200.1). Subnet mask is 255.255.255.0, and default gateway is
+>>>> 192.168.200.254. DNS is 192.168.0.1.
+>>>>
+>>>
+>>> I have no problem with such a setup, with a linux guest.
+>>>
+>>> Could you send again a tcpdump, but including link-level header ?
+>>> (option -e)
+>>>
+>>> Ideally, you could send two traces, one taken on tap0, and another taken
+>>> on eth0.
+>>>
+>> Below are two more traces that I think may well be more useful than
+>> those I sent on Friday. They are taken with tcpdump directly (after some
+>> reading up on that application) rather than tcpdump translations of pcap
+>> files captured with netsniff-ng. Also, they are taken concurrently, so
+>> they show the traffic on tap0 and eth0 at the time of an unsuccessful
+>> attempt to ping the router from the WinXP KVM client. The command was:
+>> sudo tcpdump -nev -i eth0 -Z chris >eth0.trace
+>
+>
+> Could you send "netstat -s" before/after your tests ?
+>
+Before:
+
+$ netstat -s
+Ip:
+     485 total packets received
+     10 forwarded
+     0 incoming packets discarded
+     473 incoming packets delivered
+     383 requests sent out
+Icmp:
+     0 ICMP messages received
+     0 input ICMP message failed.
+     ICMP input histogram:
+     0 ICMP messages sent
+     0 ICMP messages failed
+     ICMP output histogram:
+Tcp:
+     12 active connections openings
+     0 passive connection openings
+     6 failed connection attempts
+     0 connection resets received
+     5 connections established
+     374 segments received
+     306 segments send out
+     0 segments retransmited
+     0 bad segments received.
+     6 resets sent
+Udp:
+     164 packets received
+     0 packets to unknown port received.
+     0 packet receive errors
+     67 packets sent
+     RcvbufErrors: 0
+     SndbufErrors: 0
+UdpLite:
+     InDatagrams: 0
+     NoPorts: 0
+     InErrors: 0
+     OutDatagrams: 0
+     RcvbufErrors: 0
+     SndbufErrors: 0
+error parsing /proc/net/snmp: Success
+
+After:
+
+$ netstat -s
+Ip:
+     519 total packets received
+     21 forwarded
+     0 incoming packets discarded
+     496 incoming packets delivered
+     406 requests sent out
+Icmp:
+     4 ICMP messages received
+     4 input ICMP message failed.
+     ICMP input histogram:
+         echo replies: 4
+     0 ICMP messages sent
+     0 ICMP messages failed
+     ICMP output histogram:
+IcmpMsg:
+         InType0: 4
+Tcp:
+     13 active connections openings
+     0 passive connection openings
+     6 failed connection attempts
+     0 connection resets received
+     5 connections established
+     381 segments received
+     316 segments send out
+     0 segments retransmited
+     0 bad segments received.
+     6 resets sent
+Udp:
+     173 packets received
+     0 packets to unknown port received.
+     0 packet receive errors
+     69 packets sent
+     RcvbufErrors: 0
+     SndbufErrors: 0
+UdpLite:
+     InDatagrams: 0
+     NoPorts: 0
+     InErrors: 0
+     OutDatagrams: 0
+     RcvbufErrors: 0
+     SndbufErrors: 0
+error parsing /proc/net/snmp: Success
+
+>
+>
