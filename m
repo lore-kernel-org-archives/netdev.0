@@ -1,64 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Possible networking regression in 3.6.0
-Date: Mon, 01 Oct 2012 11:15:50 +0200
-Message-ID: <1349082950.12401.669.camel@edumazet-glaptop>
-References: <5057455A.7050108@googlemail.com>
-	 <50588371.40103@googlemail.com>  <505885DC.1060006@googlemail.com>
-	 <1347979239.26523.267.camel@edumazet-glaptop>
-	 <5059E40C.4070607@googlemail.com> <505D5A18.2080507@googlemail.com>
-	 <50643DA1.7070306@googlemail.com>
-	 <1348748042.5093.1168.camel@edumazet-glaptop>
-	 <50649567.2010704@googlemail.com>
-	 <1348779826.5093.1750.camel@edumazet-glaptop>
-	 <1348780624.5093.1767.camel@edumazet-glaptop>
-	 <50656C4A.8090302@googlemail.com>
-	 <1348831592.5093.2251.camel@edumazet-glaptop>
-	 <5068648C.7050005@googlemail.com>
-	 <1349034330.12401.210.camel@edumazet-glaptop>
-	 <506955F3.8050304@googlemail.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: tg3 driver upgrade (Linux 2.6.32 -> 3.2) breaks IBM
+ Bladecenter SoL
+Date: Mon, 1 Oct 2012 02:33:02 -0700
+Message-ID: <1349083982.5420.16.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <87txuhho5z.fsf@lant.ki.iif.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=cp1252
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	gpiez@web.de
-To: Chris Clayton <chris2553@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:35005 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752538Ab2JAJdA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 05:33:00 -0400
-Received: by bkcjk13 with SMTP id jk13so4781160bkc.19
-        for <netdev@vger.kernel.org>; Mon, 01 Oct 2012 02:32:59 -0700 (PDT)
-In-Reply-To: <506955F3.8050304@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, "Matt Carlson" <mcarlson@broadcom.com>,
+	"Grant Likely" <grant.likely@secretlab.ca>,
+	"Rob Herring" <rob.herring@calxeda.com>,
+	linux-kernel@vger.kernel.org
+To: "Ferenc Wagner" <wferi@niif.hu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87txuhho5z.fsf@lant.ki.iif.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-10-01 at 09:36 +0100, Chris Clayton wrote:
+On Fri, 2012-09-28 at 22:45 +0200, Ferenc Wagner wrote: 
+> Hi,
 > 
-
->      0 ICMP messages received
->      0 input ICMP message failed.
->      ICMP input histogram:
->      0 ICMP messages sent
->      0 ICMP messages failed
->      ICMP output histogram:
-
+> Upgrading the kernel on our HS20 blades resulted in their SoL (serial
+> over LAN) connection being broken.  The disconnection happens when eth0
+> (the interface involved in SoL) is brought up during the boot sequence.
+> If I later "ip link set eth0 down", then the connection is restored, but
+> "ip link set eth0 up" breaks it again on 3.2.  ethtool -a, -c, -g, -k
+> and -u show no difference; ethtool -i on the 2.6.32 kernel reports:
 > 
-> After:
+> driver: tg3
+> version: 3.116
+> firmware-version: 5704s-v3.38, ASFIPMIs v2.47
+> bus-info: 0000:05:01.0
 > 
-> $ netstat -s
-> Icmp:
->      4 ICMP messages received
->      4 input ICMP message failed.
->      ICMP input histogram:
->          echo replies: 4
+> In the 3.2 kernel the driver version is 3.121.
 
-So icmp replies come back and are delivered to host instead of being
-forwarded.
-
-I wonder if MASQUERADE broke...
-
-Could you send
-
-iptables -t -nat -nvL
-conntrack -L   # while ping is running from guest
+2.6.32 to 3.2 is a big jump.  Can you narrow this down further?  It will
+be hard for us to find a HS20 with 5704 to test this.  Thanks.
