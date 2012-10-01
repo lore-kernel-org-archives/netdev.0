@@ -1,77 +1,106 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
-Date: Mon, 1 Oct 2012 08:59:40 -0700
-Message-ID: <20121001155940.GA1957@kroah.com>
-References: <1348819504-1303-1-git-send-email-arun.murthy@stericsson.com>
- <1348819504-1303-2-git-send-email-arun.murthy@stericsson.com>
- <20120928160045.GD2625@kroah.com>
- <F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [ANNOUNCE] iproute2 v3.6.0
+Date: Mon, 1 Oct 2012 09:01:24 -0700
+Message-ID: <20121001090124.2f8ce0f7@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
-To: Arun MURTHY <arun.murthy@stericsson.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 01, 2012 at 07:30:38AM +0200, Arun MURTHY wrote:
-> > On Fri, Sep 28, 2012 at 01:35:01PM +0530, Arun Murthy wrote:
-> > > +#include <linux/module.h>
-> > > +#include <linux/slab.h>
-> > > +#include <linux/err.h>
-> > > +#include <linux/printk.h>
-> > > +#include <linux/modem_shm/modem.h>
-> > > +
-> > > +static struct class *modem_class;
-> > 
-> > What's wrong with a bus_type instead?
-> 
-> Can I know the advantage of using bus_type over class?
+I am happy to announce the update to iproute2 for v3.6 kernel.
+In addition to lots of documentation and minor bugfixes,
+this version contains support for controlling the forwarding
+tables of software and external device bridges.
 
-You have devices living on a bus, and it's much more descriptive than a
-class (which we are going to eventually get rid of one of these
-days...).
+This also means that if there are changes to iproute2 to support
+features added to 3.7 merge window, please submit them now.
 
-Might I ask why you choose a class over a bus_type?
 
-> > > +int modem_release(struct modem_desc *mdesc) {
-> > > +	if (!mdesc->release)
-> > > +		return -EFAULT;
-> > > +
-> > > +	if (modem_is_requested(mdesc)) {
-> > > +		atomic_dec(&mdesc->mclients->cnt);
-> > > +		if (atomic_read(&mdesc->use_cnt) == 1) {
-> > > +			mdesc->release(mdesc);
-> > > +			atomic_dec(&mdesc->use_cnt);
-> > > +		}
-> > 
-> > Eeek, why aren't you using the built-in reference counting that the struct
-> > device provided to you, and instead are rolling your own?  This happens in
-> > many places, why?
-> 
-> My usage of counters over here is for each modem there are many clients.
-> Each of the clients will have a ref to modem_desc. Each of them use this for
-> requesting and releasing the modem. One counter for tracking the request
-> and release for each client which is done by variable 'cnt' in struct clients.
-> The counter use_cnt is used for tracking the modem request/release irrespective
-> of the clients and counter cli_cnt is used for restricting the modem_get to
-> the no of clients defined in no_clients.
-> 
-> So totally 3 counter one for restricting the usage of modem_get by clients,
-> second for restricting modem request/release at top level, and 3rd for
-> restricting modem release/request for per client per modem basis.
-> 
-> Can you let me know if the same can be achieved by using built-in ref
-> counting?
+Iproute2 package is available at:
+  http://kernel.org/pub/linux/utils/net/iproute2/iproute2-3.6.0.tar.gz
 
-Yes, because you don't need all of those different levels, just stick
-with one and you should be fine. :)
+You can download the source from:
+  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
 
-thanks,
+---
 
-greg k-h
+Andreas Schwab (1):
+      iproute2: Fix various manpage formatting nits
+
+Chris Webb (1):
+      Correct the bridge command name in help messages
+
+Dan Kenigsberg (1):
+      utils: invarg: msg precedes the faulty arg
+
+Eric Dumazet (1):
+      ss: report SK_MEMINFO_BACKLOG
+
+Florian Westphal (2):
+      tc: add ipset ematch
+      add ematch man page
+
+Jiri Pirko (1):
+      iplink: add support for num[tr]xqueues
+
+John Fastabend (4):
+      iproute2: Add FDB print and update cmds for self and master
+      iproute2: build failure due to missing '\' in Makefile
+      iproute2: bridge: remove replace and change options
+      iproute2: bridge: finish removing replace option in man pages
+
+Julian Anastasov (3):
+      iproute2: add libgenl files
+      iproute2: use libgenl in ipl2tp
+      iproute2: GENL: merge GENL_REQUEST and GENL_INITIALIZER
+
+Li Wei (3):
+      iproute2: fix typo in help message.
+      iproute2: configure: Add search path for 64bit library.
+      iproute2: tc.8: update UNITS section.
+
+Mathias Krause (1):
+      configure: remove TMPDIR on exit
+
+Mike Frysinger (1):
+      Fix regression with 'ip address show'
+
+Oliver Hartkopp (1):
+      iproute2: Add missing tc-ematch.8 for man page installation
+
+Pavel Emelyanov (4):
+      iproute: Fix errno propagation from rtnl_talk
+      iproute: Add magic cookie to route dump file
+      iproute: Add route showdump command (v2)
+      iproute: Add ability to save, restore and show the interfaces' addresses (resend)
+
+Rostislav Lisovy (2):
+      add can.h
+      Ematch used to classify CAN frames according to their identifiers
+
+Saurabh (1):
+      iproute2: VTI support for ip link command.
+
+Saurabh Mohan (1):
+      VTI support for ip tunnel
+
+Stephen Hemminger (9):
+      Update to 3.6.0-pre headers
+      Fix formatting of ip.8 family man page
+      Explain TC class id limits
+      Update can.h to 3.6-rc2
+      Install all tc and ip sub pages
+      man: make sure tc man page gets installed
+      Add support for AF_BRIDGE
+      update header files to 3.6
+      v3.6.0
+
+Werner Fink (1):
+      Change how pdf doc's are created
+
+Xose Vazquez Perez (1):
+      Fix Makefile's
