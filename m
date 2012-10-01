@@ -1,51 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] use skb_end_offset() in skb_try_coalesce()
-Date: Mon, 01 Oct 2012 16:46:16 -0400 (EDT)
-Message-ID: <20121001.164616.1621118658519526629.davem@davemloft.net>
-References: <6f3540c213735f009409d1cc7d3fe0dea91469d9.1348899174.git.wpan@redhat.com>
-	<1349112517.12401.715.camel@edumazet-glaptop>
+Subject: Re: [RFC PATCH] ipv6: don't add link local route when there is no
+ link local address
+Date: Mon, 01 Oct 2012 16:55:27 -0400 (EDT)
+Message-ID: <20121001.165527.1025640918619977740.davem@davemloft.net>
+References: <1348664962-4018-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wpan@redhat.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40780 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40884 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756587Ab2JAUqS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 16:46:18 -0400
-In-Reply-To: <1349112517.12401.715.camel@edumazet-glaptop>
+	with ESMTP id S1755154Ab2JAUz3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 16:55:29 -0400
+In-Reply-To: <1348664962-4018-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 01 Oct 2012 19:28:37 +0200
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Wed, 26 Sep 2012 15:09:22 +0200
 
-> On Sat, 2012-09-29 at 14:15 +0800, Weiping Pan wrote:
->> Commit ec47ea824774(skb: Add inline helper for getting the skb end offset from
->> head) introduces this helper function, skb_end_offset(),
->> we should make use of it.
->> 
->> Signed-off-by: Weiping Pan <wpan@redhat.com>
->> ---
->>  net/core/skbuff.c |    3 +--
->>  1 files changed, 1 insertions(+), 2 deletions(-)
->> 
->> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->> index e33ebae..86f040a 100644
->> --- a/net/core/skbuff.c
->> +++ b/net/core/skbuff.c
->> @@ -3488,8 +3488,7 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
->>  		    skb_shinfo(from)->nr_frags > MAX_SKB_FRAGS)
->>  			return false;
->>  
->> -		delta = from->truesize -
->> -			SKB_TRUESIZE(skb_end_pointer(from) - from->head);
->> +		delta = from->truesize - SKB_TRUESIZE(skb_end_offset(from));
->>  	}
->>  
->>  	WARN_ON_ONCE(delta < len);
+> When an address is added on loopback (ip -6 a a 2002::1/128 dev lo), a route
+> to fe80::/64 is added in the main table:
+>   unreachable fe80::/64 dev lo  proto kernel  metric 256  error -101
 > 
-> Acked-by: Eric Dumazet <edumazet@google.com>
+> This route does not match any prefix (no fe80:: address on lo). In fact,
+> addrconf_dev_config() will not add link local address because this function
+> filters interfaces by type. If the link local address is added manually, the
+> route to the link local prefix will be automatically added by
+> addrconf_add_linklocal().
+> Note also, that this route is not deleted when the address is removed.
+> 
+> After looking at the code, it seems that addrconf_add_lroute() is redundant with
+> addrconf_add_linklocal(), because this function will add the link local route
+> when the link local address is configured.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Applied.
+This change looks correct, however:
+
+> @@ -2489,7 +2479,6 @@ static void addrconf_sit_config(struct net_device *dev)
+>  
+>  	if (dev->flags&IFF_POINTOPOINT) {
+>  		addrconf_add_mroute(dev);
+> -		addrconf_add_lroute(dev);
+>  	} else
+>  		sit_route_add(dev);
+
+now that the if() branch is a single statement, please remove the
+curly braces.
+
+Thanks.
