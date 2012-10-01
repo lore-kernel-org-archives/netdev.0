@@ -1,146 +1,164 @@
-From: Chris Clayton <chris2553@googlemail.com>
-Subject: Re: Possible networking regression in 3.6.0
-Date: Mon, 01 Oct 2012 09:36:03 +0100
-Message-ID: <506955F3.8050304@googlemail.com>
-References: <5057455A.7050108@googlemail.com>  <50588371.40103@googlemail.com>  <505885DC.1060006@googlemail.com>  <1347979239.26523.267.camel@edumazet-glaptop>  <5059E40C.4070607@googlemail.com> <505D5A18.2080507@googlemail.com>  <50643DA1.7070306@googlemail.com>  <1348748042.5093.1168.camel@edumazet-glaptop>  <50649567.2010704@googlemail.com>  <1348779826.5093.1750.camel@edumazet-glaptop>  <1348780624.5093.1767.camel@edumazet-glaptop>  <50656C4A.8090302@googlemail.com>  <1348831592.5093.2251.camel@edumazet-glaptop>  <5068648C.7050005@googlemail.com> <1349034330.12401.210.camel@edumazet-glaptop>
+From: anish singh <anish198519851985@gmail.com>
+Subject: Re: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
+Date: Mon, 1 Oct 2012 14:27:21 +0530
+Message-ID: <CAK7N6vqpokVk19-KPPggZRynKJVjoa04n_0g4nnb1CN836s5pA@mail.gmail.com>
+References: <1348819504-1303-1-git-send-email-arun.murthy@stericsson.com>
+	<1348819504-1303-2-git-send-email-arun.murthy@stericsson.com>
+	<20120928160045.GD2625@kroah.com>
+	<F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
+	<CAK7N6vpXfhb0KhMfqxbcSQqT=qPcMS06OdaG9kNsWMqiiepLTQ@mail.gmail.com>
+	<F45880696056844FA6A73F415B568C695B6962C1CD@EXDCVYMBSTM006.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	gpiez@web.de
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:37487 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751829Ab2JAIgD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 04:36:03 -0400
-Received: by bkcjk13 with SMTP id jk13so4744066bkc.19
-        for <netdev@vger.kernel.org>; Mon, 01 Oct 2012 01:36:01 -0700 (PDT)
-In-Reply-To: <1349034330.12401.210.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg KH <gregkh@linuxfoundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
+To: Arun MURTHY <arun.murthy@stericsson.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <F45880696056844FA6A73F415B568C695B6962C1CD@EXDCVYMBSTM006.EQ1STM.local>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 09/30/12 20:45, Eric Dumazet wrote:
-> On Sun, 2012-09-30 at 16:26 +0100, Chris Clayton wrote:
->> Hi Eric,
->>
->> On 09/28/12 12:26, Eric Dumazet wrote:
->>> On Fri, 2012-09-28 at 10:22 +0100, Chris Clayton wrote:
->>>
->>>> No, the WinXP guest is configured with a fixed IP address
->>>> (192.168.200.1). Subnet mask is 255.255.255.0, and default gateway is
->>>> 192.168.200.254. DNS is 192.168.0.1.
->>>>
->>>
->>> I have no problem with such a setup, with a linux guest.
->>>
->>> Could you send again a tcpdump, but including link-level header ?
->>> (option -e)
->>>
->>> Ideally, you could send two traces, one taken on tap0, and another taken
->>> on eth0.
->>>
->> Below are two more traces that I think may well be more useful than
->> those I sent on Friday. They are taken with tcpdump directly (after some
->> reading up on that application) rather than tcpdump translations of pcap
->> files captured with netsniff-ng. Also, they are taken concurrently, so
->> they show the traffic on tap0 and eth0 at the time of an unsuccessful
->> attempt to ping the router from the WinXP KVM client. The command was:
->> sudo tcpdump -nev -i eth0 -Z chris >eth0.trace
+On Mon, Oct 1, 2012 at 12:27 PM, Arun MURTHY <arun.murthy@stericsson.co=
+m> wrote:
+>> On Mon, Oct 1, 2012 at 11:00 AM, Arun MURTHY
+>> <arun.murthy@stericsson.com> wrote:
+>> >> On Fri, Sep 28, 2012 at 01:35:01PM +0530, Arun Murthy wrote:
+>> >> > +#include <linux/module.h>
+>> >> > +#include <linux/slab.h>
+>> >> > +#include <linux/err.h>
+>> >> > +#include <linux/printk.h>
+>> >> > +#include <linux/modem_shm/modem.h>
+>> >> > +
+>> >> > +static struct class *modem_class;
+>> >>
+>> >> What's wrong with a bus_type instead?
+>> >
+>> > Can I know the advantage of using bus_type over class?
+>> >
+>> >>
+>> >> > +static int __modem_is_requested(struct device *dev, void *data=
+) {
+>> >> > +   struct modem_desc *mdesc =3D (struct modem_desc *)data;
+>> >> > +
+>> >> > +   if (!mdesc->mclients) {
+>> >> > +           printk(KERN_ERR "modem_access: modem description is
+>> >> NULL\n");
+>> >> > +           return 0;
+>> >> > +   }
+>> >> > +   return atomic_read(&mdesc->mclients->cnt);
+>> >> > +}
+>> >> > +
+>> >> > +int modem_is_requested(struct modem_desc *mdesc) {
+>> >> > +   return class_for_each_device(modem_class, NULL, (void *)mde=
+sc,
+>> >> > +__modem_is_requested); }
+>> >>
+>> >> Where is the documentation for your public api functions like thi=
+s?
+>> >
+>> > Sure will include this in the next patchset.
+>> >
+>> >>
+>> >> > +
+>> >> > +int modem_release(struct modem_desc *mdesc) {
+>> >> > +   if (!mdesc->release)
+>> >> > +           return -EFAULT;
+>> >> > +
+>> >> > +   if (modem_is_requested(mdesc)) {
+>> >> > +           atomic_dec(&mdesc->mclients->cnt);
+>> >> > +           if (atomic_read(&mdesc->use_cnt) =3D=3D 1) {
+>> >> > +                   mdesc->release(mdesc);
+>> >> > +                   atomic_dec(&mdesc->use_cnt);
+>> >> > +           }
+>> >>
+>> >> Eeek, why aren't you using the built-in reference counting that t=
+he
+>> >> struct device provided to you, and instead are rolling your own?
+>> >> This happens in many places, why?
+>> >
+>> > My usage of counters over here is for each modem there are many cl=
+ients.
+>> > Each of the clients will have a ref to modem_desc. Each of them us=
+e
+>> > this for requesting and releasing the modem. One counter for track=
+ing
+>> > the request and release for each client which is done by variable =
+'cnt' in
+>> struct clients.
+>> > The counter use_cnt is used for tracking the modem request/release
+>> > irrespective of the clients and counter cli_cnt is used for
+>> > restricting the modem_get to the no of clients defined in no_clien=
+ts.
+>> >
+>> > So totally 3 counter one for restricting the usage of modem_get by
+>> > clients, second for restricting modem request/release at top level=
+,
+>> > and 3rd for restricting modem release/request for per client per m=
+odem
+>> basis.
+>> >
+>> > Can you let me know if the same can be achieved by using built-in =
+ref
+>> > counting?
+>> Is this your model:
+>> You have a modem device which can be requested by many clients.This
+>> clients can register for a particular service which this modem provi=
+des and
+>> then after that if it client doesn't need this service then it will =
+call un-register.
 >
+> Let me correct a bit over here:
+> There are many clients, yes correct but the operations performed are =
+only two,
+> i.e modem request and modem release. This is something like waking up=
+ the
+> modem and let modem to sleep.
+> The traffic of this request and release is too high.
 >
-> Could you send "netstat -s" before/after your tests ?
+> So irrespective of the requests/releases made to the MAF framework, t=
+he MAF
+> should perform the operation request/release only once.
 >
-Before:
+> So each and every time handling list consumes time.
+> Let me brief the context, this is a single chip modem and ape, basica=
+lly used in
+> mobile, tablets etc. So the traffic in ape-modem communication is too=
+ high and
+> also time critical. If it bound to exceed the time, or delay might en=
+d up in buffer
+> full. That=E2=80=99s the reason I have made it as simple as possible.
 
-$ netstat -s
-Ip:
-     485 total packets received
-     10 forwarded
-     0 incoming packets discarded
-     473 incoming packets delivered
-     383 requests sent out
-Icmp:
-     0 ICMP messages received
-     0 input ICMP message failed.
-     ICMP input histogram:
-     0 ICMP messages sent
-     0 ICMP messages failed
-     ICMP output histogram:
-Tcp:
-     12 active connections openings
-     0 passive connection openings
-     6 failed connection attempts
-     0 connection resets received
-     5 connections established
-     374 segments received
-     306 segments send out
-     0 segments retransmited
-     0 bad segments received.
-     6 resets sent
-Udp:
-     164 packets received
-     0 packets to unknown port received.
-     0 packet receive errors
-     67 packets sent
-     RcvbufErrors: 0
-     SndbufErrors: 0
-UdpLite:
-     InDatagrams: 0
-     NoPorts: 0
-     InErrors: 0
-     OutDatagrams: 0
-     RcvbufErrors: 0
-     SndbufErrors: 0
-error parsing /proc/net/snmp: Success
+So let me put it this way:
+           Modem                 Client1     Client2    Client3    Clie=
+nt4
+State  turn-on                   request
+State  no-state-change                     request
+State  no-state-change                                   request
+State  no-state-change
+request
+State  no-state-change      release
+State  no-state-change                     release
+State  no-state-change                                   release
+State   turn-off
+      release
 
-After:
+So eventhough all the clients have requested the modem it is being
+turned on only once and when all of them have released then it will be
+turned-off.
 
-$ netstat -s
-Ip:
-     519 total packets received
-     21 forwarded
-     0 incoming packets discarded
-     496 incoming packets delivered
-     406 requests sent out
-Icmp:
-     4 ICMP messages received
-     4 input ICMP message failed.
-     ICMP input histogram:
-         echo replies: 4
-     0 ICMP messages sent
-     0 ICMP messages failed
-     ICMP output histogram:
-IcmpMsg:
-         InType0: 4
-Tcp:
-     13 active connections openings
-     0 passive connection openings
-     6 failed connection attempts
-     0 connection resets received
-     5 connections established
-     381 segments received
-     316 segments send out
-     0 segments retransmited
-     0 bad segments received.
-     6 resets sent
-Udp:
-     173 packets received
-     0 packets to unknown port received.
-     0 packet receive errors
-     69 packets sent
-     RcvbufErrors: 0
-     SndbufErrors: 0
-UdpLite:
-     InDatagrams: 0
-     NoPorts: 0
-     InErrors: 0
-     OutDatagrams: 0
-     RcvbufErrors: 0
-     SndbufErrors: 0
-error parsing /proc/net/snmp: Success
+In this case it makes sense to use the atomic variables to track the re=
+quests
+and release but what will happen to sysfs incase the device is released=
+ when the
+last call to release has come from client4?Won't it lead to kernel pani=
+c or some
+unwanted behaviour?
 
 >
->
+> Thanks and Regards,
+> Arun R Murthy
+> ------------------
