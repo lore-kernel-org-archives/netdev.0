@@ -1,165 +1,64 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 6/6] sfc: Fix the reported priorities of different
- filter types
-Date: Tue, 2 Oct 2012 02:28:47 +0100
-Message-ID: <1349141327.2577.79.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: Pull request: sfc-next 2012-10-02
+Date: Tue, 2 Oct 2012 02:30:46 +0100
+Message-ID: <1349141446.2577.81.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1349141144.2577.73.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="=-V/9P8XyvmoDi31mdAvr5"
+Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
+	netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17217 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:17246 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750897Ab2JBB2u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 21:28:50 -0400
+	by vger.kernel.org with ESMTP id S1751416Ab2JBBbA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 21:31:00 -0400
 In-Reply-To: <1349141144.2577.73.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Each RX filter table contains filters with two different levels of
-specificity: TCP/IPv4 and UDP/IPv4 filters match the local address and
-port and optionally the remote address and port; Ethernet filters
-match the local address and optionally the VID.  The more specific
-filters always override less specific filters within the same table,
-and should be numbered accordingly.
+--=-V/9P8XyvmoDi31mdAvr5
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/filter.c |   69 ++++++++++++++++++++++++++++--------
- 1 files changed, 53 insertions(+), 16 deletions(-)
+On Tue, 2012-10-02 at 02:25 +0100, Ben Hutchings wrote:
+> The following changes since commit abb17e6c0c7b27693201dc85f75dbb184279fd=
+10:
+>=20
+>   netlink: use <linux/export.h> instead of <linux/module.h> (2012-09-21 1=
+5:43:58 -0400)
+>=20
+> are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-dave=
+m
+>=20
+> (commit 6ac7ef1487a040483d89a95045efc5185a71268f)
 
-diff --git a/drivers/net/ethernet/sfc/filter.c b/drivers/net/ethernet/sfc/filter.c
-index e89bad7..8af42cd 100644
---- a/drivers/net/ethernet/sfc/filter.c
-+++ b/drivers/net/ethernet/sfc/filter.c
-@@ -557,26 +557,62 @@ static int efx_filter_search(struct efx_filter_table *table,
- }
- 
- /*
-- * Construct/deconstruct external filter IDs.  These must be ordered
-- * by matching priority, for RX NFC semantics.
-+ * Construct/deconstruct external filter IDs.  At least the RX filter
-+ * IDs must be ordered by matching priority, for RX NFC semantics.
-+ *
-+ * Deconstruction needs to be robust against invalid IDs so that
-+ * efx_filter_remove_id_safe() and efx_filter_get_filter_safe() can
-+ * accept user-provided IDs.
-  */
- 
-+#define EFX_FILTER_MATCH_PRI_COUNT	5
-+
-+static const u8 efx_filter_type_match_pri[EFX_FILTER_TYPE_COUNT] = {
-+	[EFX_FILTER_TCP_FULL]	= 0,
-+	[EFX_FILTER_UDP_FULL]	= 0,
-+	[EFX_FILTER_TCP_WILD]	= 1,
-+	[EFX_FILTER_UDP_WILD]	= 1,
-+	[EFX_FILTER_MAC_FULL]	= 2,
-+	[EFX_FILTER_MAC_WILD]	= 3,
-+	[EFX_FILTER_UC_DEF]	= 4,
-+	[EFX_FILTER_MC_DEF]	= 4,
-+};
-+
-+static const enum efx_filter_table_id efx_filter_range_table[] = {
-+	EFX_FILTER_TABLE_RX_IP,		/* RX match pri 0 */
-+	EFX_FILTER_TABLE_RX_IP,
-+	EFX_FILTER_TABLE_RX_MAC,
-+	EFX_FILTER_TABLE_RX_MAC,
-+	EFX_FILTER_TABLE_RX_DEF,	/* RX match pri 4 */
-+	EFX_FILTER_TABLE_COUNT,		/* TX match pri 0; invalid */
-+	EFX_FILTER_TABLE_COUNT,		/* invalid */
-+	EFX_FILTER_TABLE_TX_MAC,
-+	EFX_FILTER_TABLE_TX_MAC,	/* TX match pri 3 */
-+};
-+
- #define EFX_FILTER_INDEX_WIDTH	13
- #define EFX_FILTER_INDEX_MASK	((1 << EFX_FILTER_INDEX_WIDTH) - 1)
- 
--static inline u32 efx_filter_make_id(enum efx_filter_table_id table_id,
--				     unsigned int index, u8 flags)
-+static inline u32
-+efx_filter_make_id(const struct efx_filter_spec *spec, unsigned int index)
- {
--	unsigned int match_pri = table_id;
-+	unsigned int range;
-+
-+	range = efx_filter_type_match_pri[spec->type];
-+	if (!(spec->flags & EFX_FILTER_FLAG_RX))
-+		range += EFX_FILTER_MATCH_PRI_COUNT;
- 
--	return match_pri << EFX_FILTER_INDEX_WIDTH | index;
-+	return range << EFX_FILTER_INDEX_WIDTH | index;
- }
- 
- static inline enum efx_filter_table_id efx_filter_id_table_id(u32 id)
- {
--	unsigned int match_pri = id >> EFX_FILTER_INDEX_WIDTH;
-+	unsigned int range = id >> EFX_FILTER_INDEX_WIDTH;
- 
--	return match_pri;
-+	if (range < ARRAY_SIZE(efx_filter_range_table))
-+		return efx_filter_range_table[range];
-+	else
-+		return EFX_FILTER_TABLE_COUNT; /* invalid */
- }
- 
- static inline unsigned int efx_filter_id_index(u32 id)
-@@ -586,9 +622,9 @@ static inline unsigned int efx_filter_id_index(u32 id)
- 
- static inline u8 efx_filter_id_flags(u32 id)
- {
--	unsigned int match_pri = id >> EFX_FILTER_INDEX_WIDTH;
-+	unsigned int range = id >> EFX_FILTER_INDEX_WIDTH;
- 
--	if (match_pri <= EFX_FILTER_TABLE_RX_DEF)
-+	if (range < EFX_FILTER_MATCH_PRI_COUNT)
- 		return EFX_FILTER_FLAG_RX;
- 	else
- 		return EFX_FILTER_FLAG_TX;
-@@ -597,13 +633,15 @@ static inline u8 efx_filter_id_flags(u32 id)
- u32 efx_filter_get_rx_id_limit(struct efx_nic *efx)
- {
- 	struct efx_filter_state *state = efx->filter_state;
--	unsigned int table_id = EFX_FILTER_TABLE_RX_DEF;
-+	unsigned int range = EFX_FILTER_MATCH_PRI_COUNT - 1;
-+	enum efx_filter_table_id table_id;
- 
- 	do {
-+		table_id = efx_filter_range_table[range];
- 		if (state->table[table_id].size != 0)
--			return (table_id << EFX_FILTER_INDEX_WIDTH) +
-+			return range << EFX_FILTER_INDEX_WIDTH |
- 				state->table[table_id].size;
--	} while (table_id--);
-+	} while (range--);
- 
- 	return 0;
- }
-@@ -681,7 +719,7 @@ s32 efx_filter_insert_filter(struct efx_nic *efx, struct efx_filter_spec *spec,
- 	netif_vdbg(efx, hw, efx->net_dev,
- 		   "%s: filter type %d index %d rxq %u set",
- 		   __func__, spec->type, filter_idx, spec->dmaq_id);
--	rc = efx_filter_make_id(table->id, filter_idx, spec->flags);
-+	rc = efx_filter_make_id(spec, filter_idx);
- 
- out:
- 	spin_unlock_bh(&state->lock);
-@@ -888,8 +926,7 @@ s32 efx_filter_get_rx_ids(struct efx_nic *efx,
- 					goto out;
- 				}
- 				buf[count++] = efx_filter_make_id(
--					table_id, filter_idx,
--					table->spec[filter_idx].flags);
-+					&table->spec[filter_idx], filter_idx);
- 			}
- 		}
- 	}
--- 
-1.7.7.6
+...following up to confirm that commit hash with a signature.
 
+Ben.
 
--- 
+--=20
 Ben Hutchings, Staff Engineer, Solarflare
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
+
+--=-V/9P8XyvmoDi31mdAvr5
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQEcBAABCAAGBQJQakPGAAoJEGkILBsOca60rmYIAIxGMLf1+ORwvGfaZ6gskIf9
+zp4Qx3CV28Q0HNuY6b3aoLH0R8a9D/bhwy0H0MhzPkmItKVCPpRh9uUh4rAeQS+B
+txg1OzJVe5VlTOk4Kd7f0WLRhjNs9CNb0t81ual0V6e2e7I+RbUJMU2qJbbgpNrP
+vrOZTpSRhdU+mCraKVSXabK4tLDNENvyqJKINPVKRy+WNmbWw2CF47x2y3Zp1MXL
+5IyPJ9ZdmHwSQMC1KDGF07BesRdPQujtOH2IUdbvjM+rU/KlyPYtazaYqeN7GohC
+8DhSrQ60K+vzGql71PVv82Ddt/8js6xJLzFZNo+FGGIWRSPq/Sj91PmuslrBzuw=
+=kXVg
+-----END PGP SIGNATURE-----
+
+--=-V/9P8XyvmoDi31mdAvr5--
