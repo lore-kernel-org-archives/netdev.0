@@ -1,41 +1,82 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: network namespace and kernel bind issue
-Date: Tue, 2 Oct 2012 09:15:46 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1210020910010.1642@ja.ssi.bg>
-References: <20121001141609.14639bc0@nehalam.linuxnetplumber.net> <20121001145838.5eafef4c@nehalam.linuxnetplumber.net> <87fw5xeryf.fsf@xmission.com> <20121001155702.5b5e2188@nehalam.linuxnetplumber.net> <87y5jpdbzo.fsf@xmission.com>
- <20121001163226.3873ca58@nehalam.linuxnetplumber.net> <871uhhd82p.fsf@xmission.com> <20121001174841.41fcd637@s6510.linuxnetplumber.net>
+From: Rami Rosen <roszenrami@gmail.com>
+Subject: Re: net/ipv4/ipconfig.c:1590:2: error: implicit declaration of
+ function 'ic_nameservers_predef'
+Date: Tue, 2 Oct 2012 08:24:05 +0200
+Message-ID: <CAKoUArkDK8sQ=DRgrPhEnnWPsdMkgNtZE6S2o5rx6tXhfB3SsA@mail.gmail.com>
+References: <20121002032744.GA11811@localhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Christoph Fritz <chf.fritz@googlemail.com>,
+	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	andriy.shevchenko@linux.intel.com
+To: Fengguang Wu <fengguang.wu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:43229 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753222Ab2JBGKn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Oct 2012 02:10:43 -0400
-In-Reply-To: <20121001174841.41fcd637@s6510.linuxnetplumber.net>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:62778 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753195Ab2JBGYH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 02:24:07 -0400
+In-Reply-To: <20121002032744.GA11811@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
+commit 842b08bbee448b2069aaebb7f18b40942ad2a1bd
+fixes it.
 
-	Hello,
+git show 842b08bbee448b2069aaebb7f18b40942ad2a1bd
 
-On Mon, 1 Oct 2012, Stephen Hemminger wrote:
+commit 842b08bbee448b2069aaebb7f18b40942ad2a1bd
 
-> The problem was vxlan wasn't doing sk_change_net on the created socket.
-> 
-> I'm testing that fix.
-> 
-> The long term fix is to change sock_create_kern() to take a 'struct net'
-> argument. This would avoid the trap of having to change the namespace.
-> Also several places using __sock_create() could use it.
-> 
-> L2TP still looks to have several namespace related issues.
+Author: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Date:   Mon Sep 24 22:09:58 2012 +0000
 
-	There should be also .netnsok = true in l2tp_nl_family
-as final step.
+    ipconfig: fix trivial build error
 
-Regards
+    The commit 5e953778a2aab04929a5e7b69f53dc26e39b079e ("ipconfig: add nameserv
+    IPs to kernel-parameter ip=") introduces ic_nameservers_predef() that define
+    only for BOOTP. However it is used by ip_auto_config_setup() as well. This
+    patch moves it outside of #ifdef BOOTP.
 
---
-Julian Anastasov <ja@ssi.bg>
+Regards,
+Rami Rosen
+
+
+On Tue, Oct 2, 2012 at 5:27 AM, Fengguang Wu <fengguang.wu@intel.com> wrote:
+> Hi Christoph,
+>
+> FYI, kernel build failed on
+>
+> commit: 5e953778a2aab04929a5e7b69f53dc26e39b079e ipconfig: add nameserver IPs to kernel-parameter ip=
+> config: i386-randconfig-b106 (attached as .config)
+>
+> All error/warnings:
+>
+> net/ipv4/ipconfig.c: In function 'ip_auto_config_setup':
+> net/ipv4/ipconfig.c:1590:2: error: implicit declaration of function 'ic_nameservers_predef' [-Werror=implicit-function-declaration]
+> cc1: some warnings being treated as errors
+>
+> vim +1590 net/ipv4/ipconfig.c
+>
+> 92ffb85d (Amos Waterland  2008-01-05  1578)      */
+> ^1da177e (Linus Torvalds  2005-04-16  1579)     if (ic_proto_name(addrs))
+> ^1da177e (Linus Torvalds  2005-04-16  1580)             return 1;
+> ^1da177e (Linus Torvalds  2005-04-16  1581)
+> 92ffb85d (Amos Waterland  2008-01-05  1582)     /* If no static IP is given, turn off autoconfig and bail.  */
+> 92ffb85d (Amos Waterland  2008-01-05  1583)     if (*addrs == 0 ||
+> 92ffb85d (Amos Waterland  2008-01-05  1584)         strcmp(addrs, "off") == 0 ||
+> 92ffb85d (Amos Waterland  2008-01-05  1585)         strcmp(addrs, "none") == 0) {
+> 92ffb85d (Amos Waterland  2008-01-05  1586)             ic_enable = 0;
+> 92ffb85d (Amos Waterland  2008-01-05  1587)             return 1;
+> 92ffb85d (Amos Waterland  2008-01-05  1588)     }
+> 92ffb85d (Amos Waterland  2008-01-05  1589)
+> 5e953778 (Christoph Fritz 2012-09-21 @1590)     ic_nameservers_predef();
+> 5e953778 (Christoph Fritz 2012-09-21  1591)
+> 92ffb85d (Amos Waterland  2008-01-05  1592)     /* Parse string for static IP assignment.  */
+> ^1da177e (Linus Torvalds  2005-04-16  1593)     ip = addrs;
+> ^1da177e (Linus Torvalds  2005-04-16  1594)     while (ip && *ip) {
+> ^1da177e (Linus Torvalds  2005-04-16  1595)             if ((cp = strchr(ip, ':')))
+> ^1da177e (Linus Torvalds  2005-04-16  1596)                     *cp++ = '\0';
+>
+> ---
+> 0-DAY kernel build testing backend         Open Source Technology Centre
+> Fengguang Wu, Yuanhan Liu                              Intel Corporation
