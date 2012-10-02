@@ -1,81 +1,42 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCHv2 net-next] vxlan: put UDP socket in correct namespace
-Date: Tue, 02 Oct 2012 08:18:13 -0700
-Message-ID: <87haqc7vii.fsf@xmission.com>
-References: <20121001141609.14639bc0@nehalam.linuxnetplumber.net>
-	<20121001145838.5eafef4c@nehalam.linuxnetplumber.net>
-	<87fw5xeryf.fsf@xmission.com>
-	<20121001155702.5b5e2188@nehalam.linuxnetplumber.net>
-	<87y5jpdbzo.fsf@xmission.com>
-	<20121001163226.3873ca58@nehalam.linuxnetplumber.net>
-	<871uhhd82p.fsf@xmission.com>
-	<20121001175107.0ec2931c@nehalam.linuxnetplumber.net>
-	<87626tbsgq.fsf@xmission.com>
-	<20121001214921.78d9ed72@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Possible networking regression in 3.6.0
+Date: Tue, 02 Oct 2012 17:35:33 +0200
+Message-ID: <1349192133.12401.768.camel@edumazet-glaptop>
+References: <506955F3.8050304@googlemail.com>
+	 <1349082950.12401.669.camel@edumazet-glaptop>
+	 <20121001193434.GA14236@redhat.com>
+	 <20121001.160115.1816241312626722150.davem@davemloft.net>
+	 <1349121884.12401.721.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davej@redhat.com, chris2553@googlemail.com, netdev@vger.kernel.org,
+	gpiez@web.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:53826 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751562Ab2JBPSX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 11:18:23 -0400
-In-Reply-To: <20121001214921.78d9ed72@nehalam.linuxnetplumber.net> (Stephen
-	Hemminger's message of "Mon, 1 Oct 2012 21:49:21 -0700")
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:60197 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753545Ab2JBPfj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 11:35:39 -0400
+Received: by bkcjk13 with SMTP id jk13so5589113bkc.19
+        for <netdev@vger.kernel.org>; Tue, 02 Oct 2012 08:35:37 -0700 (PDT)
+In-Reply-To: <1349121884.12401.721.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@vyatta.com> writes:
+On Mon, 2012-10-01 at 22:04 +0200, Eric Dumazet wrote:
+> On Mon, 2012-10-01 at 16:01 -0400, David Miller wrote:
 
-> Move vxlan UDP socket to correct network namespace
->
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> > If you can find a way to more reliably trigger the case, that would
+> > help us immensely.
+> 
+> I am building a KMEMCHECK kernel, as a last try before my night ;)
 
-Looks good from here.
+This was a total disaster. KMEMCHECK dies horribly on my machine
 
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+David, shouldnt we use a nh_rth_forward instead of a nh_rth_input in
+__mkroute_input() ?
 
-> ---
-> v2 need to change sock_release to sk_release_kernel
->
-> --- a/drivers/net/vxlan.c	2012-10-01 17:18:30.776513263 -0700
-> +++ b/drivers/net/vxlan.c	2012-10-01 21:47:40.435979178 -0700
-> @@ -1136,6 +1136,9 @@ static __net_init int vxlan_init_net(str
->  		pr_debug("UDP socket create failed\n");
->  		return rc;
->  	}
-> +	/* Put in proper namespace */
-> +	sk = vn->sock->sk;
-> +	sk_change_net(sk, net);
->  
->  	vxlan_addr.sin_port = htons(vxlan_port);
->  
-> @@ -1144,13 +1147,12 @@ static __net_init int vxlan_init_net(str
->  	if (rc < 0) {
->  		pr_debug("bind for UDP socket %pI4:%u (%d)\n",
->  			 &vxlan_addr.sin_addr, ntohs(vxlan_addr.sin_port), rc);
-> -		sock_release(vn->sock);
-> +		sk_release_kernel(sk);
->  		vn->sock = NULL;
->  		return rc;
->  	}
->  
->  	/* Disable multicast loopback */
-> -	sk = vn->sock->sk;
->  	inet_sk(sk)->mc_loop = 0;
->  
->  	/* Mark socket as an encapsulation socket. */
-> @@ -1169,7 +1171,7 @@ static __net_exit void vxlan_exit_net(st
->  	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
->  
->  	if (vn->sock) {
-> -		sock_release(vn->sock);
-> +		sk_release_kernel(vn->sock->sk);
->  		vn->sock = NULL;
->  	}
->  }
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+(And change rt_cache_route() as well ?)
+
+I am testing a patch right now.
