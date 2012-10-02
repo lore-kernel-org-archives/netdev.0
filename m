@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: Tree for Oct 2 (vxlan.c)
-Date: Tue, 02 Oct 2012 14:36:27 -0400 (EDT)
-Message-ID: <20121002.143627.1565408497543880722.davem@davemloft.net>
-References: <20121002163229.d377074dc8f6c029428faeaa@canb.auug.org.au>
-	<506B3317.5090006@xenotime.net>
+Subject: Re: [PATCHv2 net-next] vxlan: put UDP socket in correct namespace
+Date: Tue, 02 Oct 2012 14:39:06 -0400 (EDT)
+Message-ID: <20121002.143906.1620687170208944394.davem@davemloft.net>
+References: <87626tbsgq.fsf@xmission.com>
+	<20121001214921.78d9ed72@nehalam.linuxnetplumber.net>
+	<87haqc7vii.fsf@xmission.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	shemminger@vyatta.com
-To: rdunlap@xenotime.net
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49780 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49800 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751524Ab2JBSga (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 14:36:30 -0400
-In-Reply-To: <506B3317.5090006@xenotime.net>
+	with ESMTP id S1752264Ab2JBSjI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 14:39:08 -0400
+In-Reply-To: <87haqc7vii.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@xenotime.net>
-Date: Tue, 02 Oct 2012 11:31:51 -0700
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 02 Oct 2012 08:18:13 -0700
 
-> on x86_64:
+> Stephen Hemminger <shemminger@vyatta.com> writes:
 > 
-> drivers/net/vxlan.c: In function 'vxlan_xmit':
-> drivers/net/vxlan.c:725:2: error: implicit declaration of function 'ip_select_ident'
+>> Move vxlan UDP socket to correct network namespace
+>>
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> That function is only defined when CONFIG_INET is enabled,
-> but it is disabled in this config.
+> Looks good from here.
+> 
+> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-This definitely depends upon INET, I'll add the Kconfig change
-to net-next, thanks.
+Applied, thanks.
