@@ -1,59 +1,53 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Pull request: sfc-next 2012-10-02
-Date: Tue, 2 Oct 2012 02:25:44 +0100
-Message-ID: <1349141144.2577.73.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 1/6] sfc: Fix null function pointer in
+ efx_sriov_channel_type
+Date: Tue, 2 Oct 2012 02:27:15 +0100
+Message-ID: <1349141235.2577.74.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1349141144.2577.73.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
-	netdev <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17087 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:17159 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752282Ab2JBBZs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 21:25:48 -0400
+	by vger.kernel.org with ESMTP id S1752282Ab2JBB1S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 21:27:18 -0400
+In-Reply-To: <1349141144.2577.73.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit abb17e6c0c7b27693201dc85f75dbb184279fd10:
+Commit c31e5f9 ('sfc: Add channel specific receive_skb handler and
+post_remove callback') added the function pointer field
+efx_channel_type::post_remove and an unconditional call through it.
 
-  netlink: use <linux/export.h> instead of <linux/module.h> (2012-09-21 15:43:58 -0400)
+This field should have been initialised to efx_channel_dummy_op_void
+in the existing instances of efx_channel_type, but this was only done
+in efx_default_channel_type.  Consequently, if a device has SR-IOV
+enabled then removing the driver or device will result in an oops.
 
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
-
-(commit 6ac7ef1487a040483d89a95045efc5185a71268f)
-
-Some bug fixes that should go into 3.7:
-
-1. Fix oops when removing device with SR-IOV enabled.  (This regression
-was introduced by the last set of changes, so the fix does not need to
-be applied to any earlier kernel versions.)
-2. Fix firmware structure field lookup bug that resulted in missing
-sensor information.
-3. Fix bug that makes self-test do very little in some configurations.
-4. Fix the numbering of ethtool RX flow steering filters to reflect the
-real hardware priorities.
-
-Ben.
-
-Ben Hutchings (6):
-      sfc: Fix null function pointer in efx_sriov_channel_type
-      sfc: Add parentheses around use of bitfield macro arguments
-      sfc: Fix MCDI structure field lookup
-      sfc: Fix loopback self-test with separate_tx_channels=1
-      sfc: Remove EFX_FILTER_FLAG_RX_OVERRIDE_IP
-      sfc: Fix the reported priorities of different filter types
-
- drivers/net/ethernet/sfc/bitfield.h    |   22 +++---
- drivers/net/ethernet/sfc/ethtool.c     |   11 +--
- drivers/net/ethernet/sfc/filter.c      |  108 ++++++++++++++++----------------
- drivers/net/ethernet/sfc/filter.h      |    7 +--
- drivers/net/ethernet/sfc/mcdi.h        |    6 +-
- drivers/net/ethernet/sfc/selftest.c    |    3 +-
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
  drivers/net/ethernet/sfc/siena_sriov.c |    1 +
- 7 files changed, 76 insertions(+), 82 deletions(-)
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/siena_sriov.c b/drivers/net/ethernet/sfc/siena_sriov.c
+index a8f48a4..d49b53d 100644
+--- a/drivers/net/ethernet/sfc/siena_sriov.c
++++ b/drivers/net/ethernet/sfc/siena_sriov.c
+@@ -1035,6 +1035,7 @@ efx_sriov_get_channel_name(struct efx_channel *channel, char *buf, size_t len)
+ static const struct efx_channel_type efx_sriov_channel_type = {
+ 	.handle_no_channel	= efx_sriov_handle_no_channel,
+ 	.pre_probe		= efx_sriov_probe_channel,
++	.post_remove		= efx_channel_dummy_op_void,
+ 	.get_name		= efx_sriov_get_channel_name,
+ 	/* no copy operation; channel must not be reallocated */
+ 	.keep_eventq		= true,
+-- 
+1.7.7.6
+
+
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
