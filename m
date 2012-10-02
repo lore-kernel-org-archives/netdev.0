@@ -1,114 +1,96 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [RFC PATCH net-next] tcp: introduce tcp_tw_interval to specifiy
- the time of TIME-WAIT
-Date: Tue, 2 Oct 2012 08:09:27 -0400
-Message-ID: <20121002120927.GA691@hmsreliant.think-freely.org>
-References: <1348735261-29225-1-git-send-email-amwang@redhat.com>
- <20120927142334.GA3194@neilslaptop.think-freely.org>
- <1348813987.7264.41.camel@cr0>
- <20120928131642.GA31568@hmsreliant.think-freely.org>
- <1349161479.22107.17.camel@cr0>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: GPF in ip6_dst_lookup_tail
+Date: Tue, 2 Oct 2012 09:59:04 -0400
+Message-ID: <20121002135904.GA15283@redhat.com>
+References: <20120927140323.GA1459@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>
-To: Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46483 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751016Ab2JBMJk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 08:09:40 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:30700 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751591Ab2JBN7H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2012 09:59:07 -0400
+Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q92Dx6UF010303
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 2 Oct 2012 09:59:06 -0400
+Received: from gelk.kernelslacker.org (ovpn-113-158.phx2.redhat.com [10.3.113.158])
+	by int-mx01.intmail.prod.int.phx2.redhat.com (8.13.8/8.13.8) with ESMTP id q92Dx535024979
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 2 Oct 2012 09:59:06 -0400
+Received: from gelk.kernelslacker.org (localhost [127.0.0.1])
+	by gelk.kernelslacker.org (8.14.5/8.14.5) with ESMTP id q92Dx4RC022402
+	for <netdev@vger.kernel.org>; Tue, 2 Oct 2012 09:59:04 -0400
+Received: (from davej@localhost)
+	by gelk.kernelslacker.org (8.14.5/8.14.5/Submit) id q92Dx47Y022354
+	for netdev@vger.kernel.org; Tue, 2 Oct 2012 09:59:04 -0400
 Content-Disposition: inline
-In-Reply-To: <1349161479.22107.17.camel@cr0>
+In-Reply-To: <20120927140323.GA1459@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 02, 2012 at 03:04:39PM +0800, Cong Wang wrote:
-> On Fri, 2012-09-28 at 09:16 -0400, Neil Horman wrote:
-> > On Fri, Sep 28, 2012 at 02:33:07PM +0800, Cong Wang wrote:
-> > > On Thu, 2012-09-27 at 10:23 -0400, Neil Horman wrote:
-> > > > On Thu, Sep 27, 2012 at 04:41:01PM +0800, Cong Wang wrote:
-> > > > > Some customer requests this feature, as they stated:
-> > > > > 
-> > > > > 	"This parameter is necessary, especially for software that continually 
-> > > > >         creates many ephemeral processes which open sockets, to avoid socket 
-> > > > >         exhaustion. In many cases, the risk of the exhaustion can be reduced by 
-> > > > >         tuning reuse interval to allow sockets to be reusable earlier.
-> > > > > 
-> > > > >         In commercial Unix systems, this kind of parameters, such as 
-> > > > >         tcp_timewait in AIX and tcp_time_wait_interval in HP-UX, have 
-> > > > >         already been available. Their implementations allow users to tune 
-> > > > >         how long they keep TCP connection as TIME-WAIT state on the 
-> > > > >         millisecond time scale."
-> > > > > 
-> > > > > We indeed have "tcp_tw_reuse" and "tcp_tw_recycle", but these tunings
-> > > > > are not equivalent in that they cannot be tuned directly on the time
-> > > > > scale nor in a safe way, as some combinations of tunings could still
-> > > > > cause some problem in NAT. And, I think second scale is enough, we don't
-> > > > > have to make it in millisecond time scale.
-> > > > > 
-> > > > I think I have a little difficultly seeing how this does anything other than
-> > > > pay lip service to actually having sockets spend time in TIME_WAIT state.  That
-> > > > is to say, while I see users using this to just make the pain stop.  If we wait
-> > > > less time than it takes to be sure that a connection isn't being reused (either
-> > > > by waiting two segment lifetimes, or by checking timestamps), then you might as
-> > > > well not wait at all.  I see how its tempting to be able to say "Just don't wait
-> > > > as long", but it seems that theres no difference between waiting half as long as
-> > > > the RFC mandates, and waiting no time at all.  Neither is a good idea.
-> > > 
-> > > I don't think reducing TIME_WAIT is a good idea either, but there must
-> > > be some reason behind as several UNIX provides a microsecond-scale
-> > > tuning interface, or maybe in non-recycle mode, their RTO is much less
-> > > than 2*MSL?
-> > > 
-> > My guess?  Cash was the reason.  I certainly wasn't there for any of those
-> > developments, but a setting like this just smells to me like some customer waved
-> > some cash under IBM's/HP's/Sun's nose and said, "We'd like to get our tcp
-> > sockets back to CLOSED state faster, what can you do for us?"
-> 
-> Yeah, maybe. But it still doesn't make sense even if they are sure their
-> packets are impossible to linger in their high-speed LAN for 2*MSL?
-> 
-No it doesn't make sense, but the universal rule is that the business people
-will focus more on revenue recognition than on sound design pracice.
+On Thu, Sep 27, 2012 at 10:03:23AM -0400, Dave Jones wrote:
 
-> > 
-> > > > 
-> > > > Given the problem you're trying to solve here, I'll ask the standard question in
-> > > > response: How does using SO_REUSEADDR not solve the problem?  Alternatively, in
-> > > > a pinch, why not reduce the tcp_max_tw_buckets sufficiently to start forcing
-> > > > TIME_WAIT sockets back into CLOSED state?
-> > > > 
-> > > > The code looks fine, but the idea really doesn't seem like a good plan to me.
-> > > > I'm sure HPUX/Solaris/AIX/etc have done this in response to customer demand, but
-> > > > that doesn't make it the right solution.
-> > > > 
-> > > 
-> > > *I think* the customer doesn't want to modify their applications, so
-> > > that is why they don't use SO_REUSERADDR.
-> > > 
-> > Well, ok, thats a legitimate distro problem.  What its not is an upstream
-> > problem.  Fixing the appilcation is the right thing to do, wether or not they
-> > want to. 
-> > 
-> > > I didn't know tcp_max_tw_buckets can do the trick, nor the customer, so
-> > > this is a side effect of tcp_max_tw_buckets? Is it documented?
-> > man 7 tcp:
-> > tcp_max_tw_buckets (integer; default: see below; since Linux 2.4)
-> > 	The maximum number of sockets in TIME_WAIT state allowed in the
-> > 	system.  This limit exists only  to  prevent  simple
-> > 	denial-of-service attacks.   The  default  value of NR_FILE*2 is
-> >         adjusted depending on the memory in the system.  If this number
-> > 	is exceeded, the socket is closed and a warning is printed.
-> > 
-> 
-> Hey, "a warning is printed" seems not very friendly. ;)
-> 
-No, its not very friendly, but the people using this are violating the RFC,
-which isn't very friendly. :)
+ > general protection fault: 0000 [#1] SMP 
+ > Modules linked in: ipt_ULOG tun fuse binfmt_misc nfnetlink nfc caif_socket caif phonet can llc2 pppoe pppox ppp_generic slhc irda crc_ccitt rds af_key decnet rose x25 atm netrom appletalk ipx p8023 psnap p8022 llc ax25 lockd sunrpc bluetooth rfkill ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_filter ip6_tables nf_conntrack_ipv4 nf_defrag_ipv4 xt_state nf_conntrack kvm_intel kvm usb_debug crc32c_intel ghash_clmulni_intel microcode pcspkr i2c_i801 e1000e uinput i915 video i2c_algo_bit drm_kms_helper drm i2c_core
+ > CPU 4 
+ > Pid: 21651, comm: trinity-child4 Not tainted 3.6.0-rc7+ #55
+ > RIP: 0010:[<ffffffff81628797>]  [<ffffffff81628797>] ip6_dst_lookup_tail+0x147/0x380
+ > RSP: 0018:ffff8800144c3a48  EFLAGS: 00010286
+ > RAX: 8000000000000011 RBX: ffff8800144c3b00 RCX: 0000000000000001
+ > RDX: ffff8800144c2000 RSI: 0000000000000000 RDI: 0000000000000282
+ > RBP: ffff8800144c3ae8 R08: 0000000000000014 R09: ffff8800034708c0
+ > R10: ffffffff81c34a60 R11: 0000000000000000 R12: 0000000000000000
+ > R13: ffff8800144c3bf0 R14: ffffffff81cd9580 R15: ffff8801052e4200
+ > FS:  00007f74949af740(0000) GS:ffff880148400000(0000) knlGS:0000000000000000
+ > CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+ > CR2: 00000000051f7000 CR3: 00000000a8f72000 CR4: 00000000001407e0
+ > DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+ > DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+ > Process trinity-child4 (pid: 21651, threadinfo ffff8800144c2000, task ffff880003470000)
+ > Stack:
+ >  ffffffff81628730 ffffffff810dafbf ffff880003470000 0000000000000000
+ >  ffff8800144c3aa8 0000000000000282 ffff8800144c3aa8 ffff88013d79dd40
+ >  ffff8801052e4200 0000000000000003 0000000000000001 0000000000000000
+ > Call Trace:
+ >  [<ffffffff81628730>] ? ip6_dst_lookup_tail+0xe0/0x380
+ >  [<ffffffff810dafbf>] ? lock_release_holdtime.part.26+0xf/0x180
+ >  [<ffffffff81556b20>] ? sock_def_wakeup+0x1b0/0x1b0
+ >  [<ffffffff81628a9b>] ip6_sk_dst_lookup_flow+0xcb/0x1b0
+ >  [<ffffffff81649d8d>] udpv6_sendmsg+0x6ad/0xc40
+ >  [<ffffffff81023af9>] ? native_sched_clock+0x19/0x80
+ >  [<ffffffff810db438>] ? trace_hardirqs_off_caller+0x28/0xd0
+ >  [<ffffffff810db4ed>] ? trace_hardirqs_off+0xd/0x10
+ >  [<ffffffff815e613a>] inet_sendmsg+0x12a/0x240
+ >  [<ffffffff815e6010>] ? inet_create+0x6f0/0x6f0
+ >  [<ffffffff815562a1>] ? sock_update_classid+0xb1/0x390
+ >  [<ffffffff81556340>] ? sock_update_classid+0x150/0x390
+ >  [<ffffffff8155115c>] sock_sendmsg+0xbc/0xf0
+ >  [<ffffffff810b46c9>] ? local_clock+0x99/0xc0
+ >  [<ffffffff810dff4f>] ? lock_release_non_nested+0x2df/0x320
+ >  [<ffffffff810dafbf>] ? lock_release_holdtime.part.26+0xf/0x180
+ >  [<ffffffff81553740>] sys_sendto+0x130/0x180
+ >  [<ffffffff816af8ad>] system_call_fastpath+0x1a/0x1f
+ > Code: c0 74 19 80 3d 0e 4d 6d 00 00 75 10 e8 73 cb af ff 85 c0 0f 85 e3 01 00 00 0f 1f 00 48 8b 03 48 8b 80 98 00 00 00 48 85 c0 74 09 <f6> 80 6d 01 00 00 de 74 48 e8 3b db a6 ff 85 c0 74 0d 80 3d d5 
+ > 
+ > The disassembly points here..
+ > 
+ >  983         rcu_read_lock();
+ >  984         rt = (struct rt6_info *) *dst;
+ >  985         n = rt->n;
+ >  986         if (n && !(n->nud_state & NUD_VALID)) {
+ >      db2:       48 85 c0                test   %rax,%rax
+ >      db5:       74 09                   je     dc0 <ip6_dst_lookup_tail+0x150>
+ >      db7:       f6 80 6d 01 00 00 de    testb  $0xde,0x16d(%rax)
+ >      dbe:       74 48                   je     e08 <ip6_dst_lookup_tail+0x198>
+ > 
+ > 'rt->n' is 0x8000000000000011, which looks like one of the garbage values trinity generates
 
-> Thanks!
-> 
-> 
+I hit this a few more times last night.  I'm starting to doubt my theory of where
+that value came from, as every instance is always 0x8000000000000011, which seems
+a little too lucky.  Anyone have any idea what that number resembles ?
+
+Working on some code to make this (and other bugs) more reproducable today..
+
+	Dave
