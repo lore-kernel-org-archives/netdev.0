@@ -1,28 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: ethernet: Remove obsolete comment
-Date: Tue, 02 Oct 2012 14:46:25 -0400 (EDT)
-Message-ID: <20121002.144625.459623580785711088.davem@davemloft.net>
-References: <1349178105-28269-1-git-send-email-matthew@walster.org>
-	<1349178105-28269-3-git-send-email-matthew@walster.org>
+From: Ferenc Wagner <wferi@niif.hu>
+Subject: Re: tg3 driver upgrade (Linux 2.6.32 -> 3.2) breaks IBM Bladecenter SoL
+Date: Tue, 02 Oct 2012 20:49:15 +0200
+Message-ID: <87626sd80j.fsf@lant.ki.iif.hu>
+References: <87txuhho5z.fsf@lant.ki.iif.hu>
+	<1349083982.5420.16.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	<87a9w5dqle.fsf@lant.ki.iif.hu>
+	<1349190185.5420.21.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	<87haqcddks.fsf@lant.ki.iif.hu>
+	<1349197607.5420.25.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: matthew@walster.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "Matt Carlson" <mcarlson@broadcom.com>,
+	"Grant Likely" <grant.likely@secretlab.ca>,
+	"Rob Herring" <rob.herring@calxeda.com>,
+	linux-kernel@vger.kernel.org, wferi@niif.hu
+To: "Michael Chan" <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49925 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752983Ab2JBSq1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 14:46:27 -0400
-In-Reply-To: <1349178105-28269-3-git-send-email-matthew@walster.org>
+Received: from listserv2.niif.hu ([193.225.14.155]:36253 "EHLO
+	listserv2.niif.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752294Ab2JBSt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 14:49:27 -0400
+In-Reply-To: <1349197607.5420.25.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	(Michael Chan's message of "Tue, 2 Oct 2012 10:06:47 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: matthew@walster.org
-Date: Tue,  2 Oct 2012 12:41:45 +0100
+"Michael Chan" <mchan@broadcom.com> writes:
 
-> From: Matthew Walster <matthew@walster.org>
-> 
-> The deleted comment was related to code I've just removed in the previous patch.
+> On Tue, 2012-10-02 at 18:49 +0200, Ferenc Wagner wrote:
+>
+>> Going into the opposite direction: I found that Linux 3.6 does not
+>> permanently break the SoL console on upping eth0!  I'll try to find
+>> the commit which (sort of) fixed it.
+>
+> These are the likely fixes:
+>
+> commit cf9ecf4b631f649a964fa611f1a5e8874f2a76db 
+> Author: Matt Carlson <mcarlson@broadcom.com>
+> Date: Mon Nov 28 09:41:03 2011 +0000
+>
+> tg3: Fix TSO CAP for 5704 devs w / ASF enabled
 
-The first change was wrong and therefore this change is also useless.
+You are exactly right: cf9ecf4b fixed the premanent SoL breakage
+introduced by dabc5c67.  Looks like ASF utilizes similar technology to
+that of the HS20 BMC.  Thanks for the tip, it greatly reduced our CPU
+wear. :)  It's a pity ethtool -k did not give a hint.  Do you think it's
+possible to work around in 3.2 by eg. fiddling some ethtool setting?
+-- 
+Thanks,
+Feri.
