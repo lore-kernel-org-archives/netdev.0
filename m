@@ -1,45 +1,39 @@
-From: matthew@walster.org
-Subject: [PATCH 2/2] net: ethernet: Remove obsolete comment
-Date: Tue,  2 Oct 2012 12:41:45 +0100
-Message-ID: <1349178105-28269-3-git-send-email-matthew@walster.org>
-References: <1349178105-28269-1-git-send-email-matthew@walster.org>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Matthew Walster <matthew@walster.org>
-To: linux-kernel@vger.kernel.org
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] bnx2x: use strlcpy() to copy a string
+Date: Tue, 2 Oct 2012 14:47:46 +0300
+Message-ID: <20121002114746.GB1413@elgon.mountain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Eilon Greenstein <eilong@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:54854 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752514Ab2JBLmF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 07:42:05 -0400
-In-Reply-To: <1349178105-28269-1-git-send-email-matthew@walster.org>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:21484 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751285Ab2JBLr4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 07:47:56 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Walster <matthew@walster.org>
+DRV_MODULE_VERSION is smaller than the ->version buffer so the memcpy()
+copies 1 byte past the end of the string.  It's not super harmful, but
+it makes the static checkers complain.
 
-The deleted comment was related to code I've just removed in the previous patch.
----
- net/ethernet/eth.c |    8 --------
- 1 file changed, 8 deletions(-)
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index a9f8531..7d72108 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -170,14 +170,6 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
- 			skb->pkt_type = PACKET_MULTICAST;
- 	}
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index f7ed122..d5648fc 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -3052,9 +3052,8 @@ static void bnx2x_drv_info_ether_stat(struct bnx2x *bp)
+ 	struct eth_stats_info *ether_stat =
+ 		&bp->slowpath->drv_info_to_mcp.ether_stat;
  
--	/*
--	 *      This ALLMULTI check should be redundant by 1.4
--	 *      so don't forget to remove it.
--	 *
--	 *      Seems, you forgot to remove it. All silly devices
--	 *      seems to set IFF_PROMISC.
--	 */
--
- 	else if (unlikely(!ether_addr_equal_64bits(eth->h_dest, dev->dev_addr)))
- 		skb->pkt_type = PACKET_OTHERHOST;
+-	/* leave last char as NULL */
+-	memcpy(ether_stat->version, DRV_MODULE_VERSION,
+-	       ETH_STAT_INFO_VERSION_LEN - 1);
++	strlcpy(ether_stat->version, DRV_MODULE_VERSION,
++		ETH_STAT_INFO_VERSION_LEN);
  
--- 
-1.7.10.4
+ 	bp->sp_objs[0].mac_obj.get_n_elements(bp, &bp->sp_objs[0].mac_obj,
+ 					DRV_INFO_ETH_STAT_NUM_MACS_REQUIRED,
