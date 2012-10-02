@@ -1,31 +1,37 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.com>
-Subject: RE: [PATCH 3/3] net/mlx4_en: Add HW timestamping (TS) support
-Date: Tue, 2 Oct 2012 07:32:17 +0000
-Message-ID: <953B660C027164448AE903364AC447D287224734@MTLDAG01.mtl.com>
-References: <1348826603-17439-1-git-send-email-yevgenyp@mellanox.com>
-	 <1348826603-17439-4-git-send-email-yevgenyp@mellanox.com>
- <1349104125.2577.7.camel@bwh-desktop.uk.solarflarecom.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH net, 3/3] hyperv: Fix page buffer handling in
+ rndis_filter_send_request()
+Date: Tue, 2 Oct 2012 11:38:47 +0300
+Message-ID: <20121002083847.GR4587@mwanda>
+References: <1349130657-7987-1-git-send-email-haiyangz@microsoft.com>
+ <1349130657-7987-3-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:38404 "HELO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753113Ab2JBHqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 03:46:08 -0400
-In-Reply-To: <1349104125.2577.7.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+ davem@davemloft.net
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <1349130657-7987-3-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel/>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: "devel" <devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-PiA+ICsNCj4gPiArCWlmIChyeF9maWx0ZXIgIT0gSFdUU1RBTVBfRklMVEVSX05PTkUpDQo+ID4g
-KwkJZGV2LT5mZWF0dXJlcyAmPSB+TkVUSUZfRl9IV19WTEFOX1JYOw0KPiA+ICsJZWxzZQ0KPiA+
-ICsJCWRldi0+ZmVhdHVyZXMgfD0gTkVUSUZfRl9IV19WTEFOX1JYOw0KPiBbLi4uXQ0KPiANCj4g
-SWYgeW91IGNoYW5nZSBkZXYtPmZlYXR1cmVzIHlvdSBzaG91bGQgYWxzbyBjYWxsDQo+IG5ldGRl
-dl9mZWF0dXJlc19jaGFuZ2UoZGV2KSAoaG9sZGluZyBvbmx5IHRoZSBSVE5MIGxvY2ssIHNvIGFm
-dGVyIHlvdQ0KPiB1bmxvY2sgbWRldi0+c3RhdGVfbG9jaykuDQo+IA0KPiBCZW4uDQo+IA0KVGhh
-bmtzIEJlbiwNCldpbGwgZml4Lg0KDQpZZXZnZW55DQo=
+On Mon, Oct 01, 2012 at 03:30:57PM -0700, Haiyang Zhang wrote:
+> Add another page buffer if the request message crossed page boundary.
+> 
+
+What are the user visible effects of this bug fix?  Please put that
+in the commit message.
+
+regards,
+dan carpenter
