@@ -1,7 +1,7 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: network namespace and kernel bind issue
-Date: Mon, 1 Oct 2012 17:48:41 -0700
-Message-ID: <20121001174841.41fcd637@s6510.linuxnetplumber.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next] vxlan: put UDP socket in correct namespace
+Date: Mon, 01 Oct 2012 17:58:13 -0700
+Message-ID: <87626tbsgq.fsf@xmission.com>
 References: <20121001141609.14639bc0@nehalam.linuxnetplumber.net>
 	<20121001145838.5eafef4c@nehalam.linuxnetplumber.net>
 	<87fw5xeryf.fsf@xmission.com>
@@ -9,26 +9,52 @@ References: <20121001141609.14639bc0@nehalam.linuxnetplumber.net>
 	<87y5jpdbzo.fsf@xmission.com>
 	<20121001163226.3873ca58@nehalam.linuxnetplumber.net>
 	<871uhhd82p.fsf@xmission.com>
+	<20121001175107.0ec2931c@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain
 Cc: netdev@vger.kernel.org
-To: ebiederm@xmission.com (Eric W. Biederman)
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49955 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752350Ab2JBAso (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Oct 2012 20:48:44 -0400
-In-Reply-To: <871uhhd82p.fsf@xmission.com>
+Received: from out03.mta.xmission.com ([166.70.13.233]:60950 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753300Ab2JBA6T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 20:58:19 -0400
+In-Reply-To: <20121001175107.0ec2931c@nehalam.linuxnetplumber.net> (Stephen
+	Hemminger's message of "Mon, 1 Oct 2012 17:51:07 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The problem was vxlan wasn't doing sk_change_net on the created socket.
+Stephen Hemminger <shemminger@vyatta.com> writes:
 
-I'm testing that fix.
+> Move vxlan UDP socket to correct network namespace
 
-The long term fix is to change sock_create_kern() to take a 'struct net'
-argument. This would avoid the trap of having to change the namespace.
-Also several places using __sock_create() could use it.
+You also need to replease sock_release with
+sk_release_kernel.
 
-L2TP still looks to have several namespace related issues.
+Otherwise you will decrement the network namespace count
+below zero, when sock_release is called.
+
+Eric
+
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>
+> --- a/drivers/net/vxlan.c	2012-10-01 17:18:30.776513263 -0700
+> +++ b/drivers/net/vxlan.c	2012-10-01 17:42:28.340411631 -0700
+> @@ -1136,6 +1136,9 @@ static __net_init int vxlan_init_net(str
+>  		pr_debug("UDP socket create failed\n");
+>  		return rc;
+>  	}
+> +	/* Put in proper namespace */
+> +	sk = vn->sock->sk;
+> +	sk_change_net(sk, net);
+>  
+>  	vxlan_addr.sin_port = htons(vxlan_port);
+>  
+> @@ -1150,7 +1153,6 @@ static __net_init int vxlan_init_net(str
+>  	}
+>  
+>  	/* Disable multicast loopback */
+> -	sk = vn->sock->sk;
+>  	inet_sk(sk)->mc_loop = 0;
+>  
+>  	/* Mark socket as an encapsulation socket. */
