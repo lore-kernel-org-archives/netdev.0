@@ -1,61 +1,44 @@
-From: Matt Burgess <matthew@linuxfromscratch.org>
-Subject: iproute2-3.6.0 assumes presence of iptables
-Date: Tue, 02 Oct 2012 19:01:32 +0100
-Message-ID: <1349200892.11088.4.camel@kyoto.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Possible networking regression in 3.6.0
+Date: Tue, 02 Oct 2012 14:25:02 -0400 (EDT)
+Message-ID: <20121002.142502.1702895723099297167.davem@davemloft.net>
+References: <1349121884.12401.721.camel@edumazet-glaptop>
+	<1349192133.12401.768.camel@edumazet-glaptop>
+	<1349192919.12401.778.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-8xov9mtYo1+PjJw3y2En"
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: chris2553@googlemail.com, netdev@vger.kernel.org, gpiez@web.de,
+	davej@redhat.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from quantum.linuxfromscratch.org ([216.171.237.234]:60235 "EHLO
-	quantum.linuxfromscratch.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751691Ab2JBSKc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 14:10:32 -0400
-Received: from [192.168.0.5] (5ad574d1.bb.sky.com [90.213.116.209])
-	by quantum.linuxfromscratch.org (Postfix) with ESMTPA id D95A4140F0
-	for <netdev@vger.kernel.org>; Tue,  2 Oct 2012 12:01:33 -0600 (MDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:49696 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751691Ab2JBSZI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 14:25:08 -0400
+In-Reply-To: <1349192919.12401.778.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 02 Oct 2012 17:48:39 +0200
 
---=-8xov9mtYo1+PjJw3y2En
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+> [PATCH] ipv4: properly cache forward routes
+> 
+> commit d2d68ba9fe8 (ipv4: Cache input routes in fib_info nexthops.)
+> introduced a regression for forwarding.
+> 
+> This was hard to reproduce but the symptom was that packets were
+> delivered to local host instead of being forwarded.
+> 
+> Add a separate cache (nh_rth_forward) to solve the problem.
+> 
+> Many thanks to Chris Clayton for his patience and help.
+> 
+> Reported-by: Chris Clayton <chris2553@googlemail.com>
+> Bisected-by: Chris Clayton <chris2553@googlemail.com>
+> Reported-by: Dave Jones <davej@redhat.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Hi,
-
-When compiling iproute2-3.6.0 on a host that doesn't have iptables available, I get the following error:
-
-gcc -Wall -Wstrict-prototypes -O2 -I../include -DRESOLVE_HOSTNAMES
--DLIBDIR=\"/usr/lib\" -DCONFDIR=\"/etc/iproute2\" -D_GNU_SOURCE
--DCONFIG_GACT -DCONFIG_GACT_PROB -DYY_NO_INPUT   -c -o em_ipset.o
-em_ipset.c
-em_ipset.c:26:21: fatal error: xtables.h: No such file or directory
-
-Fixed by the following patch, which guards the building of em_ipset.o on
-the presence of suitable headers.
-
-Thanks,
-
-Matt.
-
---=-8xov9mtYo1+PjJw3y2En
-Content-Disposition: attachment; filename="iproute2-3.6.0-ipset-1.patch"
-Content-Type: text/x-patch; name="iproute2-3.6.0-ipset-1.patch"; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-
-diff -Naur iproute2-3.6.0.orig/tc/Makefile iproute2-3.6.0/tc/Makefile
---- iproute2-3.6.0.orig/tc/Makefile	2012-10-01 15:39:21.000000000 +0000
-+++ iproute2-3.6.0/tc/Makefile	2012-10-02 17:45:31.605612832 +0000
-@@ -52,7 +52,9 @@
- TCMODULES += q_fq_codel.o
- 
- ifeq ($(TC_CONFIG_IPSET), y)
--  TCMODULES += em_ipset.o
-+  ifeq ($(TC_CONFIG_XT), y)
-+    TCMODULES += em_ipset.o
-+  endif
- endif
- 
- TCSO :=
-
---=-8xov9mtYo1+PjJw3y2En--
+Thanks for figuring this out, I'll think about this more
+deeply.
