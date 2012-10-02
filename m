@@ -1,130 +1,61 @@
-From: "Jay Hernandez" <jay@chelsio.com>
-Subject: RE: drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:363:64: sparse: incorrect type in argument 3 (different base types)
-Date: Mon, 1 Oct 2012 17:48:55 -0700
-Message-ID: <8A71B368A89016469F72CD08050AD3340C527934@maui.asicdesigners.com>
-References: <20120928163653.GC5171@localhost>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Pull request: sfc-next 2012-10-02
+Date: Tue, 2 Oct 2012 02:25:44 +0100
+Message-ID: <1349141144.2577.73.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <kernel-janitors@vger.kernel.org>, <netdev@vger.kernel.org>,
-	"Jay Hernandez" <jay@chelsio.com>
-To: "Fengguang Wu" <fengguang.wu@intel.com>,
-	"Vipul Pandya" <vipul@chelsio.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:31831 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751989Ab2JBBJP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 21:09:15 -0400
-Content-class: urn:content-classes:message
+Received: from webmail.solarflare.com ([12.187.104.25]:17087 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752282Ab2JBBZs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2012 21:25:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Fengguang,
+The following changes since commit abb17e6c0c7b27693201dc85f75dbb184279fd10:
 
-Thanks for pointing this out we have a fix which addresses these issues.
-What's interesting is I did not see these warnings I tried to reproduce
-the errors on my setup. Is there a special flag we can use to reproduce
-the sparse warnings.
+  netlink: use <linux/export.h> instead of <linux/module.h> (2012-09-21 15:43:58 -0400)
 
-Thanks for your help,
-Jay-
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
 
------Original Message-----
-From: Fengguang Wu [mailto:fengguang.wu@intel.com] 
-Sent: Friday, September 28, 2012 9:37 AM
-To: Vipul Pandya
-Cc: kernel-janitors@vger.kernel.org; Jay Hernandez;
-netdev@vger.kernel.org
-Subject: drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:363:64: sparse:
-incorrect type in argument 3 (different base types)
+(commit 6ac7ef1487a040483d89a95045efc5185a71268f)
 
-Hi Vipul,
+Some bug fixes that should go into 3.7:
 
-FYI, there are new sparse warnings show up in
+1. Fix oops when removing device with SR-IOV enabled.  (This regression
+was introduced by the last set of changes, so the fix does not need to
+be applied to any earlier kernel versions.)
+2. Fix firmware structure field lookup bug that resulted in missing
+sensor information.
+3. Fix bug that makes self-test do very little in some configurations.
+4. Fix the numbering of ethtool RX flow steering filters to reflect the
+real hardware priorities.
 
-commit: 5afc8b84eb7b29e4646d6e8ca7e6d7196031d6f7  cxgb4: Add functions
-to read memory via PCIE memory window
+Ben.
 
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:361:33: sparse: incorrect
-type in assignment (different base types)
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:361:33:    expected
-restricted __be32 [usertype] <noident>
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:361:33:    got unsigned int
-+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:363:64: sparse: incorrect
-type in argument 3 (different base types)
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:363:64:    expected
-unsigned int [unsigned] [usertype] val
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:363:64:    got restricted
-__be32 [usertype] <noident>
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:694:31: sparse: incorrect
-type in assignment (different base types)
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:694:31:    expected
-unsigned int [unsigned] [usertype] <noident>
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:694:31:    got restricted
-__be32 [usertype] <noident>
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:898:25: sparse: cast to
-restricted __be32
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:898:25: sparse: cast to
-restricted __be32
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:898:25: sparse: cast to
-restricted __be32
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:898:25: sparse: cast to
-restricted __be32
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:898:25: sparse: cast to
-restricted __be32
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:898:25: sparse: cast to
-restricted __be32
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:2177:25: sparse: incorrect
-type in assignment (different base types)
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:2177:25:    expected
-restricted __be32 [usertype] <noident>
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:2177:25:    got unsigned
-int
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c: In function
-'t4_memory_rw.constprop.6':
-  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:462:1: warning: the frame
-size of 2056 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+Ben Hutchings (6):
+      sfc: Fix null function pointer in efx_sriov_channel_type
+      sfc: Add parentheses around use of bitfield macro arguments
+      sfc: Fix MCDI structure field lookup
+      sfc: Fix loopback self-test with separate_tx_channels=1
+      sfc: Remove EFX_FILTER_FLAG_RX_OVERRIDE_IP
+      sfc: Fix the reported priorities of different filter types
 
-vim +363 drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+ drivers/net/ethernet/sfc/bitfield.h    |   22 +++---
+ drivers/net/ethernet/sfc/ethtool.c     |   11 +--
+ drivers/net/ethernet/sfc/filter.c      |  108 ++++++++++++++++----------------
+ drivers/net/ethernet/sfc/filter.h      |    7 +--
+ drivers/net/ethernet/sfc/mcdi.h        |    6 +-
+ drivers/net/ethernet/sfc/selftest.c    |    3 +-
+ drivers/net/ethernet/sfc/siena_sriov.c |    1 +
+ 7 files changed, 76 insertions(+), 82 deletions(-)
 
-5afc8b84 (Vipul Pandya 2012-09-26  347) 
-5afc8b84 (Vipul Pandya 2012-09-26  348) 	/*
-5afc8b84 (Vipul Pandya 2012-09-26  349) 	 * Setup offset into
-PCIE memory window.  Address must be a
-5afc8b84 (Vipul Pandya 2012-09-26  350) 	 *
-MEMWIN0_APERTURE-byte-aligned address.  (Read back MA register to
-5afc8b84 (Vipul Pandya 2012-09-26  351) 	 * ensure that changes
-propagate before we attempt to use the new
-5afc8b84 (Vipul Pandya 2012-09-26  352) 	 * values.)
-5afc8b84 (Vipul Pandya 2012-09-26  353) 	 */
-5afc8b84 (Vipul Pandya 2012-09-26  354) 	t4_write_reg(adap,
-PCIE_MEM_ACCESS_OFFSET,
-5afc8b84 (Vipul Pandya 2012-09-26  355) 		     addr &
-~(MEMWIN0_APERTURE - 1));
-5afc8b84 (Vipul Pandya 2012-09-26  356) 	t4_read_reg(adap,
-PCIE_MEM_ACCESS_OFFSET);
-5afc8b84 (Vipul Pandya 2012-09-26  357) 
-5afc8b84 (Vipul Pandya 2012-09-26  358) 	/* Collecting data 4
-bytes at a time upto MEMWIN0_APERTURE */
-5afc8b84 (Vipul Pandya 2012-09-26  359) 	for (i = 0; i <
-MEMWIN0_APERTURE; i = i+0x4) {
-5afc8b84 (Vipul Pandya 2012-09-26  360) 		if (dir)
-5afc8b84 (Vipul Pandya 2012-09-26  361) 			*data++
-= t4_read_reg(adap, (MEMWIN0_BASE + i));
-5afc8b84 (Vipul Pandya 2012-09-26  362) 		else
-5afc8b84 (Vipul Pandya 2012-09-26 @363)
-t4_write_reg(adap, (MEMWIN0_BASE + i), *data++);
-5afc8b84 (Vipul Pandya 2012-09-26  364) 	}
-5afc8b84 (Vipul Pandya 2012-09-26  365) 
-5afc8b84 (Vipul Pandya 2012-09-26  366) 	return 0;
-5afc8b84 (Vipul Pandya 2012-09-26  367) }
-5afc8b84 (Vipul Pandya 2012-09-26  368) 
-5afc8b84 (Vipul Pandya 2012-09-26  369) /**
-5afc8b84 (Vipul Pandya 2012-09-26  370)  *	t4_memory_rw -
-read/write EDC 0, EDC 1 or MC via PCIE memory window
-5afc8b84 (Vipul Pandya 2012-09-26  371)  *	@adap: the adapter
-
----
-0-DAY kernel build testing backend         Open Source Technology Centre
-Fengguang Wu, Yuanhan Liu                              Intel Corporation
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
