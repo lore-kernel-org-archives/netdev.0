@@ -1,189 +1,104 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH 11/12] usbnet: smsc95xx: apply introduced usb command APIs
-Date: Tue,  2 Oct 2012 14:51:22 +0800
-Message-ID: <1349160684-6627-12-git-send-email-ming.lei@canonical.com>
-References: <1349160684-6627-1-git-send-email-ming.lei@canonical.com>
-Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1349160684-6627-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [RFC PATCH net-next] tcp: introduce tcp_tw_interval to specifiy
+ the time of TIME-WAIT
+Date: Tue, 02 Oct 2012 15:04:39 +0800
+Message-ID: <1349161479.22107.17.camel@cr0>
+References: <1348735261-29225-1-git-send-email-amwang@redhat.com>
+	 <20120927142334.GA3194@neilslaptop.think-freely.org>
+	 <1348813987.7264.41.camel@cr0>
+	 <20120928131642.GA31568@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <edumazet@google.com>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:5923 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751525Ab2JBHFf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2012 03:05:35 -0400
+In-Reply-To: <20120928131642.GA31568@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2012-09-28 at 09:16 -0400, Neil Horman wrote:
+> On Fri, Sep 28, 2012 at 02:33:07PM +0800, Cong Wang wrote:
+> > On Thu, 2012-09-27 at 10:23 -0400, Neil Horman wrote:
+> > > On Thu, Sep 27, 2012 at 04:41:01PM +0800, Cong Wang wrote:
+> > > > Some customer requests this feature, as they stated:
+> > > > 
+> > > > 	"This parameter is necessary, especially for software that continually 
+> > > >         creates many ephemeral processes which open sockets, to avoid socket 
+> > > >         exhaustion. In many cases, the risk of the exhaustion can be reduced by 
+> > > >         tuning reuse interval to allow sockets to be reusable earlier.
+> > > > 
+> > > >         In commercial Unix systems, this kind of parameters, such as 
+> > > >         tcp_timewait in AIX and tcp_time_wait_interval in HP-UX, have 
+> > > >         already been available. Their implementations allow users to tune 
+> > > >         how long they keep TCP connection as TIME-WAIT state on the 
+> > > >         millisecond time scale."
+> > > > 
+> > > > We indeed have "tcp_tw_reuse" and "tcp_tw_recycle", but these tunings
+> > > > are not equivalent in that they cannot be tuned directly on the time
+> > > > scale nor in a safe way, as some combinations of tunings could still
+> > > > cause some problem in NAT. And, I think second scale is enough, we don't
+> > > > have to make it in millisecond time scale.
+> > > > 
+> > > I think I have a little difficultly seeing how this does anything other than
+> > > pay lip service to actually having sockets spend time in TIME_WAIT state.  That
+> > > is to say, while I see users using this to just make the pain stop.  If we wait
+> > > less time than it takes to be sure that a connection isn't being reused (either
+> > > by waiting two segment lifetimes, or by checking timestamps), then you might as
+> > > well not wait at all.  I see how its tempting to be able to say "Just don't wait
+> > > as long", but it seems that theres no difference between waiting half as long as
+> > > the RFC mandates, and waiting no time at all.  Neither is a good idea.
+> > 
+> > I don't think reducing TIME_WAIT is a good idea either, but there must
+> > be some reason behind as several UNIX provides a microsecond-scale
+> > tuning interface, or maybe in non-recycle mode, their RTO is much less
+> > than 2*MSL?
+> > 
+> My guess?  Cash was the reason.  I certainly wasn't there for any of those
+> developments, but a setting like this just smells to me like some customer waved
+> some cash under IBM's/HP's/Sun's nose and said, "We'd like to get our tcp
+> sockets back to CLOSED state faster, what can you do for us?"
 
-Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
----
- drivers/net/usb/smsc95xx.c |  115 +++++++++++---------------------------------
- 1 file changed, 27 insertions(+), 88 deletions(-)
+Yeah, maybe. But it still doesn't make sense even if they are sure their
+packets are impossible to linger in their high-speed LAN for 2*MSL?
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 7479a57..1730f75 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -65,11 +65,6 @@ struct smsc95xx_priv {
- 	spinlock_t mac_cr_lock;
- };
- 
--struct usb_context {
--	struct usb_ctrlrequest req;
--	struct usbnet *dev;
--};
--
- static bool turbo_mode = true;
- module_param(turbo_mode, bool, 0644);
- MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
-@@ -77,25 +72,20 @@ MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
- static int __must_check smsc95xx_read_reg(struct usbnet *dev, u32 index,
- 					  u32 *data)
- {
--	u32 *buf = kmalloc(4, GFP_KERNEL);
-+	u32 buf;
- 	int ret;
- 
- 	BUG_ON(!dev);
- 
--	if (!buf)
--		return -ENOMEM;
--
--	ret = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
--		USB_VENDOR_REQUEST_READ_REGISTER,
--		USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
--		00, index, buf, 4, USB_CTRL_GET_TIMEOUT);
--
-+	ret = usbnet_read_cmd(dev, USB_VENDOR_REQUEST_READ_REGISTER,
-+			      USB_DIR_IN | USB_TYPE_VENDOR |
-+			      USB_RECIP_DEVICE,
-+			      0, index, &buf, 4);
- 	if (unlikely(ret < 0))
- 		netdev_warn(dev->net, "Failed to read register index 0x%08x\n", index);
- 
--	le32_to_cpus(buf);
--	*data = *buf;
--	kfree(buf);
-+	le32_to_cpus(&buf);
-+	*data = buf;
- 
- 	return ret;
- }
-@@ -103,27 +93,22 @@ static int __must_check smsc95xx_read_reg(struct usbnet *dev, u32 index,
- static int __must_check smsc95xx_write_reg(struct usbnet *dev, u32 index,
- 					   u32 data)
- {
--	u32 *buf = kmalloc(4, GFP_KERNEL);
-+	u32 buf;
- 	int ret;
- 
- 	BUG_ON(!dev);
- 
--	if (!buf)
--		return -ENOMEM;
--
--	*buf = data;
--	cpu_to_le32s(buf);
-+	buf = data;
-+	cpu_to_le32s(&buf);
- 
--	ret = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
--		USB_VENDOR_REQUEST_WRITE_REGISTER,
--		USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
--		00, index, buf, 4, USB_CTRL_SET_TIMEOUT);
- 
-+	ret = usbnet_write_cmd(dev, USB_VENDOR_REQUEST_WRITE_REGISTER,
-+			       USB_DIR_OUT | USB_TYPE_VENDOR |
-+			       USB_RECIP_DEVICE,
-+			       0, index, &buf, 4);
- 	if (unlikely(ret < 0))
- 		netdev_warn(dev->net, "Failed to write register index 0x%08x\n", index);
- 
--	kfree(buf);
--
- 	return ret;
- }
- 
-@@ -132,11 +117,8 @@ static int smsc95xx_set_feature(struct usbnet *dev, u32 feature)
- 	if (WARN_ON_ONCE(!dev))
- 		return -EINVAL;
- 
--	cpu_to_le32s(&feature);
--
--	return usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
--		USB_REQ_SET_FEATURE, USB_RECIP_DEVICE, feature, 0, NULL, 0,
--		USB_CTRL_SET_TIMEOUT);
-+	return usbnet_write_cmd(dev, USB_REQ_SET_FEATURE,
-+				USB_RECIP_DEVICE, feature, 0, NULL, 0);
- }
- 
- static int smsc95xx_clear_feature(struct usbnet *dev, u32 feature)
-@@ -144,11 +126,8 @@ static int smsc95xx_clear_feature(struct usbnet *dev, u32 feature)
- 	if (WARN_ON_ONCE(!dev))
- 		return -EINVAL;
- 
--	cpu_to_le32s(&feature);
--
--	return usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
--		USB_REQ_CLEAR_FEATURE, USB_RECIP_DEVICE, feature, 0, NULL, 0,
--		USB_CTRL_SET_TIMEOUT);
-+	return usbnet_write_cmd(dev, USB_REQ_CLEAR_FEATURE,
-+				USB_RECIP_DEVICE, feature, 0, NULL, 0);
- }
- 
- /* Loop until the read is completed with timeout
-@@ -350,60 +329,20 @@ static int smsc95xx_write_eeprom(struct usbnet *dev, u32 offset, u32 length,
- 	return 0;
- }
- 
--static void smsc95xx_async_cmd_callback(struct urb *urb)
--{
--	struct usb_context *usb_context = urb->context;
--	struct usbnet *dev = usb_context->dev;
--	int status = urb->status;
--
--	check_warn(status, "async callback failed with %d\n", status);
--
--	kfree(usb_context);
--	usb_free_urb(urb);
--}
--
- static int __must_check smsc95xx_write_reg_async(struct usbnet *dev, u16 index,
- 						 u32 *data)
- {
--	struct usb_context *usb_context;
--	int status;
--	struct urb *urb;
- 	const u16 size = 4;
-+	int ret;
- 
--	urb = usb_alloc_urb(0, GFP_ATOMIC);
--	if (!urb) {
--		netdev_warn(dev->net, "Error allocating URB\n");
--		return -ENOMEM;
--	}
--
--	usb_context = kmalloc(sizeof(struct usb_context), GFP_ATOMIC);
--	if (usb_context == NULL) {
--		netdev_warn(dev->net, "Error allocating control msg\n");
--		usb_free_urb(urb);
--		return -ENOMEM;
--	}
--
--	usb_context->req.bRequestType =
--		USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE;
--	usb_context->req.bRequest = USB_VENDOR_REQUEST_WRITE_REGISTER;
--	usb_context->req.wValue = 00;
--	usb_context->req.wIndex = cpu_to_le16(index);
--	usb_context->req.wLength = cpu_to_le16(size);
--
--	usb_fill_control_urb(urb, dev->udev, usb_sndctrlpipe(dev->udev, 0),
--		(void *)&usb_context->req, data, size,
--		smsc95xx_async_cmd_callback,
--		(void *)usb_context);
--
--	status = usb_submit_urb(urb, GFP_ATOMIC);
--	if (status < 0) {
--		netdev_warn(dev->net, "Error submitting control msg, sts=%d\n",
--			    status);
--		kfree(usb_context);
--		usb_free_urb(urb);
--	}
+> 
+> > > 
+> > > Given the problem you're trying to solve here, I'll ask the standard question in
+> > > response: How does using SO_REUSEADDR not solve the problem?  Alternatively, in
+> > > a pinch, why not reduce the tcp_max_tw_buckets sufficiently to start forcing
+> > > TIME_WAIT sockets back into CLOSED state?
+> > > 
+> > > The code looks fine, but the idea really doesn't seem like a good plan to me.
+> > > I'm sure HPUX/Solaris/AIX/etc have done this in response to customer demand, but
+> > > that doesn't make it the right solution.
+> > > 
+> > 
+> > *I think* the customer doesn't want to modify their applications, so
+> > that is why they don't use SO_REUSERADDR.
+> > 
+> Well, ok, thats a legitimate distro problem.  What its not is an upstream
+> problem.  Fixing the appilcation is the right thing to do, wether or not they
+> want to. 
+> 
+> > I didn't know tcp_max_tw_buckets can do the trick, nor the customer, so
+> > this is a side effect of tcp_max_tw_buckets? Is it documented?
+> man 7 tcp:
+> tcp_max_tw_buckets (integer; default: see below; since Linux 2.4)
+> 	The maximum number of sockets in TIME_WAIT state allowed in the
+> 	system.  This limit exists only  to  prevent  simple
+> 	denial-of-service attacks.   The  default  value of NR_FILE*2 is
+>         adjusted depending on the memory in the system.  If this number
+> 	is exceeded, the socket is closed and a warning is printed.
+> 
+
+Hey, "a warning is printed" seems not very friendly. ;)
+
+Thanks!
