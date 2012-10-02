@@ -1,98 +1,49 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH 05/12] usbnet: int51x1: apply introduced usb command APIs
-Date: Tue,  2 Oct 2012 14:51:16 +0800
-Message-ID: <1349160684-6627-6-git-send-email-ming.lei@canonical.com>
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: [PATCH 08/12] usbnet: plusb: apply introduced usb command APIs
+Date: Tue,  2 Oct 2012 14:51:19 +0800
+Message-ID: <1349160684-6627-9-git-send-email-ming.lei@canonical.com>
 References: <1349160684-6627-1-git-send-email-ming.lei@canonical.com>
-Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, Ming Lei <ming.lei@canonical.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:61045 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754234Ab2JBGwI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 02:52:08 -0400
-In-Reply-To: <1349160684-6627-1-git-send-email-ming.lei@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1349160684-6627-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-Signed-off-by: Ming Lei <ming.lei@canonical.com>
+Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 ---
- drivers/net/usb/int51x1.c |   52 +++------------------------------------------
- 1 file changed, 3 insertions(+), 49 deletions(-)
+ drivers/net/usb/plusb.c |   11 ++++-------
+ 1 file changed, 4 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/usb/int51x1.c b/drivers/net/usb/int51x1.c
-index 8de6417..ace9e74 100644
---- a/drivers/net/usb/int51x1.c
-+++ b/drivers/net/usb/int51x1.c
-@@ -116,23 +116,8 @@ static struct sk_buff *int51x1_tx_fixup(struct usbnet *dev,
- 	return skb;
- }
- 
--static void int51x1_async_cmd_callback(struct urb *urb)
--{
--	struct usb_ctrlrequest *req = (struct usb_ctrlrequest *)urb->context;
--	int status = urb->status;
--
--	if (status < 0)
--		dev_warn(&urb->dev->dev, "async callback failed with %d\n", status);
--
--	kfree(req);
--	usb_free_urb(urb);
--}
--
- static void int51x1_set_multicast(struct net_device *netdev)
+diff --git a/drivers/net/usb/plusb.c b/drivers/net/usb/plusb.c
+index 4584b9a..0fcc8e6 100644
+--- a/drivers/net/usb/plusb.c
++++ b/drivers/net/usb/plusb.c
+@@ -71,13 +71,10 @@
+ static inline int
+ pl_vendor_req(struct usbnet *dev, u8 req, u8 val, u8 index)
  {
--	struct usb_ctrlrequest *req;
--	int status;
--	struct urb *urb;
- 	struct usbnet *dev = netdev_priv(netdev);
- 	u16 filter = PACKET_TYPE_DIRECTED | PACKET_TYPE_BROADCAST;
- 
-@@ -149,40 +134,9 @@ static void int51x1_set_multicast(struct net_device *netdev)
- 		netdev_dbg(dev->net, "receive own packets only\n");
- 	}
- 
--	urb = usb_alloc_urb(0, GFP_ATOMIC);
--	if (!urb) {
--		netdev_warn(dev->net, "Error allocating URB\n");
--		return;
--	}
--
--	req = kmalloc(sizeof(*req), GFP_ATOMIC);
--	if (!req) {
--		netdev_warn(dev->net, "Error allocating control msg\n");
--		goto out;
--	}
--
--	req->bRequestType = USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE;
--	req->bRequest = SET_ETHERNET_PACKET_FILTER;
--	req->wValue = cpu_to_le16(filter);
--	req->wIndex = 0;
--	req->wLength = 0;
--
--	usb_fill_control_urb(urb, dev->udev, usb_sndctrlpipe(dev->udev, 0),
--		(void *)req, NULL, 0,
--		int51x1_async_cmd_callback,
--		(void *)req);
--
--	status = usb_submit_urb(urb, GFP_ATOMIC);
--	if (status < 0) {
--		netdev_warn(dev->net, "Error submitting control msg, sts=%d\n",
--			    status);
--		goto out1;
--	}
--	return;
--out1:
--	kfree(req);
--out:
--	usb_free_urb(urb);
-+	usbnet_write_cmd_async(dev, SET_ETHERNET_PACKET_FILTER,
-+			       USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE,
-+			       filter, 0, NULL, 0);
+-	return usb_control_msg(dev->udev,
+-		usb_rcvctrlpipe(dev->udev, 0),
+-		req,
+-		USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+-		val, index,
+-		NULL, 0,
+-		USB_CTRL_GET_TIMEOUT);
++	return usbnet_read_cmd(dev, req,
++				USB_DIR_IN | USB_TYPE_VENDOR |
++				USB_RECIP_DEVICE,
++				val, index, NULL, 0);
  }
  
- static const struct net_device_ops int51x1_netdev_ops = {
+ static inline int
 -- 
 1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
