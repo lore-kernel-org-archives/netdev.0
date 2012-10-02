@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next] vxlan: put UDP socket in correct namespace
-Date: Tue, 02 Oct 2012 14:39:06 -0400 (EDT)
-Message-ID: <20121002.143906.1620687170208944394.davem@davemloft.net>
-References: <87626tbsgq.fsf@xmission.com>
-	<20121001214921.78d9ed72@nehalam.linuxnetplumber.net>
-	<87haqc7vii.fsf@xmission.com>
+Subject: Re: [PATCH net-next,1/6] hyperv: Fix the max_xfer_size in RNDIS
+ initialization
+Date: Tue, 02 Oct 2012 14:40:07 -0400 (EDT)
+Message-ID: <20121002.144007.686391086427399732.davem@davemloft.net>
+References: <1349191824-14001-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: ebiederm@xmission.com
+Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
+	jasowang@redhat.com, linux-kernel@vger.kernel.org,
+	devel@linuxdriverproject.org
+To: haiyangz@microsoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49800 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49811 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752264Ab2JBSjI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 14:39:08 -0400
-In-Reply-To: <87haqc7vii.fsf@xmission.com>
+	with ESMTP id S1752191Ab2JBSkX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 14:40:23 -0400
+In-Reply-To: <1349191824-14001-1-git-send-email-haiyangz@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Tue, 02 Oct 2012 08:18:13 -0700
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Tue,  2 Oct 2012 08:30:19 -0700
 
-> Stephen Hemminger <shemminger@vyatta.com> writes:
+> According to RNDIS specs, Windows sets this size to
+> 0x4000. I use the same value here.
 > 
->> Move vxlan UDP socket to correct network namespace
->>
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> Looks good from here.
-> 
-> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Applied, thanks.
+Applied.
