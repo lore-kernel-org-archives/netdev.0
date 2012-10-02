@@ -1,85 +1,71 @@
 From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next,6/6] hyperv: Add buffer for extended info after the RNDIS response message.
-Date: Tue,  2 Oct 2012 08:30:24 -0700
-Message-ID: <1349191824-14001-6-git-send-email-haiyangz@microsoft.com>
+Subject: [PATCH net-next,
+ 3/6] hyperv: Fix page buffer handling in rndis_filter_send_request()
+Date: Tue,  2 Oct 2012 08:30:21 -0700
+Message-ID: <1349191824-14001-3-git-send-email-haiyangz@microsoft.com>
 References: <1349191824-14001-1-git-send-email-haiyangz@microsoft.com>
-Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
-	jasowang@redhat.com, linux-kernel@vger.kernel.org,
-	devel@linuxdriverproject.org
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded04.prod.phx3.secureserver.net ([208.109.80.198]:46415
-	"EHLO p3plsmtps2ded04.prod.phx3.secureserver.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754225Ab2JBPLY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Oct 2012 11:11:24 -0400
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, jasowang@redhat.com, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <devel-bounces@linuxdriverproject.org>
 In-Reply-To: <1349191824-14001-1-git-send-email-haiyangz@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel/>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: "devel" <devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-In some response messages, there may be some extended info after the
-message.
+To prevent possible data corruption in RNDIS requests, add another
+page buffer if the request message crossed page boundary.
 
 Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
 ---
- drivers/net/hyperv/rndis_filter.c |   22 ++++++++++++----------
- 1 files changed, 12 insertions(+), 10 deletions(-)
+ drivers/net/hyperv/rndis_filter.c |   15 ++++++++++++++-
+ 1 files changed, 14 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index e7e12cf..928148c 100644
+index 617eb2e..f25f41e 100644
 --- a/drivers/net/hyperv/rndis_filter.c
 +++ b/drivers/net/hyperv/rndis_filter.c
-@@ -32,16 +32,19 @@
- #include "hyperv_net.h"
- 
- 
-+#define RNDIS_EXT_LEN 100
- struct rndis_request {
- 	struct list_head list_ent;
- 	struct completion  wait_event;
- 
-+	struct rndis_message response_msg;
- 	/*
--	 * FIXME: We assumed a fixed size response here. If we do ever need to
--	 * handle a bigger response, we can either define a max response
--	 * message or add a response buffer variable above this field
-+	 * The buffer for extended info after the RNDIS response message. It's
-+	 * referenced based on the data offset in the RNDIS message. Its size
-+	 * is enough for current needs, and should be sufficient for the near
-+	 * future.
- 	 */
--	struct rndis_message response_msg;
-+	u8 response_ext[RNDIS_EXT_LEN];
+@@ -45,7 +45,8 @@ struct rndis_request {
  
  	/* Simplify allocation by having a netvsc packet inline */
  	struct hv_netvsc_packet	pkt;
-@@ -50,12 +53,10 @@ struct rndis_request {
+-	struct hv_page_buffer buf;
++	/* Set 2 pages for rndis requests crossing page boundary */
++	struct hv_page_buffer buf[2];
  
  	struct rndis_message request_msg;
  	/*
--	 * The buffer for the extended info after the RNDIS message. It's
--	 * referenced based on the data offset in the RNDIS message. Its size
--	 * is enough for current needs, and should be sufficient for the near
--	 * future.
-+	 * The buffer for the extended info after the RNDIS request message.
-+	 * It is referenced and sized in a similar way as response_ext.
- 	 */
--	u8 ext[100];
-+	u8 request_ext[RNDIS_EXT_LEN];
- };
+@@ -227,6 +228,18 @@ static int rndis_filter_send_request(struct rndis_device *dev,
+ 	packet->page_buf[0].offset =
+ 		(unsigned long)&req->request_msg & (PAGE_SIZE - 1);
  
- static void rndis_filter_send_completion(void *ctx);
-@@ -274,7 +275,8 @@ static void rndis_filter_receive_response(struct rndis_device *dev,
- 	spin_unlock_irqrestore(&dev->request_lock, flags);
- 
- 	if (found) {
--		if (resp->msg_len <= sizeof(struct rndis_message)) {
-+		if (resp->msg_len <=
-+		    sizeof(struct rndis_message) + RNDIS_EXT_LEN) {
- 			memcpy(&request->response_msg, resp,
- 			       resp->msg_len);
- 		} else {
++	/* Add one page_buf when request_msg crossing page boundary */
++	if (packet->page_buf[0].offset + packet->page_buf[0].len > PAGE_SIZE) {
++		packet->page_buf_cnt++;
++		packet->page_buf[0].len = PAGE_SIZE -
++			packet->page_buf[0].offset;
++		packet->page_buf[1].pfn = virt_to_phys((void *)&req->request_msg
++			+ packet->page_buf[0].len) >> PAGE_SHIFT;
++		packet->page_buf[1].offset = 0;
++		packet->page_buf[1].len = req->request_msg.msg_len -
++			packet->page_buf[0].len;
++	}
++
+ 	packet->completion.send.send_completion_ctx = req;/* packet; */
+ 	packet->completion.send.send_completion =
+ 		rndis_filter_send_request_completion;
 -- 
 1.7.4.1
