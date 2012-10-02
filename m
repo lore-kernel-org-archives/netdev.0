@@ -1,71 +1,81 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next,
- 3/6] hyperv: Fix page buffer handling in rndis_filter_send_request()
-Date: Tue,  2 Oct 2012 08:30:21 -0700
-Message-ID: <1349191824-14001-3-git-send-email-haiyangz@microsoft.com>
-References: <1349191824-14001-1-git-send-email-haiyangz@microsoft.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCHv2 net-next] vxlan: put UDP socket in correct namespace
+Date: Tue, 02 Oct 2012 08:18:13 -0700
+Message-ID: <87haqc7vii.fsf@xmission.com>
+References: <20121001141609.14639bc0@nehalam.linuxnetplumber.net>
+	<20121001145838.5eafef4c@nehalam.linuxnetplumber.net>
+	<87fw5xeryf.fsf@xmission.com>
+	<20121001155702.5b5e2188@nehalam.linuxnetplumber.net>
+	<87y5jpdbzo.fsf@xmission.com>
+	<20121001163226.3873ca58@nehalam.linuxnetplumber.net>
+	<871uhhd82p.fsf@xmission.com>
+	<20121001175107.0ec2931c@nehalam.linuxnetplumber.net>
+	<87626tbsgq.fsf@xmission.com>
+	<20121001214921.78d9ed72@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, haiyangz@microsoft.com
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1349191824-14001-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel/>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: "devel" <devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:53826 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751562Ab2JBPSX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 11:18:23 -0400
+In-Reply-To: <20121001214921.78d9ed72@nehalam.linuxnetplumber.net> (Stephen
+	Hemminger's message of "Mon, 1 Oct 2012 21:49:21 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-To prevent possible data corruption in RNDIS requests, add another
-page buffer if the request message crossed page boundary.
+Stephen Hemminger <shemminger@vyatta.com> writes:
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> Move vxlan UDP socket to correct network namespace
+>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
----
- drivers/net/hyperv/rndis_filter.c |   15 ++++++++++++++-
- 1 files changed, 14 insertions(+), 1 deletions(-)
+Looks good from here.
 
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 617eb2e..f25f41e 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -45,7 +45,8 @@ struct rndis_request {
- 
- 	/* Simplify allocation by having a netvsc packet inline */
- 	struct hv_netvsc_packet	pkt;
--	struct hv_page_buffer buf;
-+	/* Set 2 pages for rndis requests crossing page boundary */
-+	struct hv_page_buffer buf[2];
- 
- 	struct rndis_message request_msg;
- 	/*
-@@ -227,6 +228,18 @@ static int rndis_filter_send_request(struct rndis_device *dev,
- 	packet->page_buf[0].offset =
- 		(unsigned long)&req->request_msg & (PAGE_SIZE - 1);
- 
-+	/* Add one page_buf when request_msg crossing page boundary */
-+	if (packet->page_buf[0].offset + packet->page_buf[0].len > PAGE_SIZE) {
-+		packet->page_buf_cnt++;
-+		packet->page_buf[0].len = PAGE_SIZE -
-+			packet->page_buf[0].offset;
-+		packet->page_buf[1].pfn = virt_to_phys((void *)&req->request_msg
-+			+ packet->page_buf[0].len) >> PAGE_SHIFT;
-+		packet->page_buf[1].offset = 0;
-+		packet->page_buf[1].len = req->request_msg.msg_len -
-+			packet->page_buf[0].len;
-+	}
-+
- 	packet->completion.send.send_completion_ctx = req;/* packet; */
- 	packet->completion.send.send_completion =
- 		rndis_filter_send_request_completion;
--- 
-1.7.4.1
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+
+> ---
+> v2 need to change sock_release to sk_release_kernel
+>
+> --- a/drivers/net/vxlan.c	2012-10-01 17:18:30.776513263 -0700
+> +++ b/drivers/net/vxlan.c	2012-10-01 21:47:40.435979178 -0700
+> @@ -1136,6 +1136,9 @@ static __net_init int vxlan_init_net(str
+>  		pr_debug("UDP socket create failed\n");
+>  		return rc;
+>  	}
+> +	/* Put in proper namespace */
+> +	sk = vn->sock->sk;
+> +	sk_change_net(sk, net);
+>  
+>  	vxlan_addr.sin_port = htons(vxlan_port);
+>  
+> @@ -1144,13 +1147,12 @@ static __net_init int vxlan_init_net(str
+>  	if (rc < 0) {
+>  		pr_debug("bind for UDP socket %pI4:%u (%d)\n",
+>  			 &vxlan_addr.sin_addr, ntohs(vxlan_addr.sin_port), rc);
+> -		sock_release(vn->sock);
+> +		sk_release_kernel(sk);
+>  		vn->sock = NULL;
+>  		return rc;
+>  	}
+>  
+>  	/* Disable multicast loopback */
+> -	sk = vn->sock->sk;
+>  	inet_sk(sk)->mc_loop = 0;
+>  
+>  	/* Mark socket as an encapsulation socket. */
+> @@ -1169,7 +1171,7 @@ static __net_exit void vxlan_exit_net(st
+>  	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+>  
+>  	if (vn->sock) {
+> -		sock_release(vn->sock);
+> +		sk_release_kernel(vn->sock->sk);
+>  		vn->sock = NULL;
+>  	}
+>  }
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
