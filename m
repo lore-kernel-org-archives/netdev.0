@@ -1,55 +1,54 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: network namespace and kernel bind issue
-Date: Tue, 2 Oct 2012 08:51:28 -0700
-Message-ID: <20121002085128.53251583@nehalam.linuxnetplumber.net>
-References: <20121001141609.14639bc0@nehalam.linuxnetplumber.net>
-	<20121001145838.5eafef4c@nehalam.linuxnetplumber.net>
-	<87fw5xeryf.fsf@xmission.com>
-	<20121001155702.5b5e2188@nehalam.linuxnetplumber.net>
-	<87y5jpdbzo.fsf@xmission.com>
-	<20121001163226.3873ca58@nehalam.linuxnetplumber.net>
-	<871uhhd82p.fsf@xmission.com>
-	<20121001174841.41fcd637@s6510.linuxnetplumber.net>
-	<alpine.LFD.2.00.1210020910010.1642@ja.ssi.bg>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: Possible networking regression in 3.6.0
+Date: Tue, 2 Oct 2012 11:57:38 -0400
+Message-ID: <20121002155738.GA20331@redhat.com>
+References: <506955F3.8050304@googlemail.com>
+ <1349082950.12401.669.camel@edumazet-glaptop>
+ <20121001193434.GA14236@redhat.com>
+ <20121001.160115.1816241312626722150.davem@davemloft.net>
+ <1349121884.12401.721.camel@edumazet-glaptop>
+ <1349192133.12401.768.camel@edumazet-glaptop>
+ <1349192919.12401.778.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>, James Chapman <jchapman@katalix.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, chris2553@googlemail.com,
+	netdev@vger.kernel.org, gpiez@web.de
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34838 "EHLO mail.vyatta.com"
+Received: from mx1.redhat.com ([209.132.183.28]:19753 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754729Ab2JBPwD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Oct 2012 11:52:03 -0400
-In-Reply-To: <alpine.LFD.2.00.1210020910010.1642@ja.ssi.bg>
+	id S1754712Ab2JBP5p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2012 11:57:45 -0400
+Content-Disposition: inline
+In-Reply-To: <1349192919.12401.778.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2 Oct 2012 09:15:46 +0300 (EEST)
-Julian Anastasov <ja@ssi.bg> wrote:
+On Tue, Oct 02, 2012 at 05:48:39PM +0200, Eric Dumazet wrote:
+ > From: Eric Dumazet <edumazet@google.com>
+ > 
+ > On Tue, 2012-10-02 at 17:35 +0200, Eric Dumazet wrote:
+ > > On Mon, 2012-10-01 at 22:04 +0200, Eric Dumazet wrote:
+ > > > On Mon, 2012-10-01 at 16:01 -0400, David Miller wrote:
+ > > 
+ > > > > If you can find a way to more reliably trigger the case, that would
+ > > > > help us immensely.
+ > > > 
+ > > > I am building a KMEMCHECK kernel, as a last try before my night ;)
+ > > 
+ > > This was a total disaster. KMEMCHECK dies horribly on my machine
+ > > 
+ > > David, shouldnt we use a nh_rth_forward instead of a nh_rth_input in
+ > > __mkroute_input() ?
+ > > 
+ > > (And change rt_cache_route() as well ?)
+ > > 
+ > > I am testing a patch right now.
+ > 
+ > Yeah, this patch seems to fix the bug for me.
 
-> 
-> 	Hello,
-> 
-> On Mon, 1 Oct 2012, Stephen Hemminger wrote:
-> 
-> > The problem was vxlan wasn't doing sk_change_net on the created socket.
-> > 
-> > I'm testing that fix.
-> > 
-> > The long term fix is to change sock_create_kern() to take a 'struct net'
-> > argument. This would avoid the trap of having to change the namespace.
-> > Also several places using __sock_create() could use it.
-> > 
-> > L2TP still looks to have several namespace related issues.
-> 
-> 	There should be also .netnsok = true in l2tp_nl_family
-> as final step.
-> 
-> Regards
-> 
-> --
-> Julian Anastasov <ja@ssi.bg>
+Good work! Any idea why it didn't happen on every build for me ?
 
-There are actually lots more net namespace issues in L2TP.
-For example session and tunnel counts are global, not per namespace.
+>From your description, this should have failed every time ?
+
+	Dave
