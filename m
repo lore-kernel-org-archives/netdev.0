@@ -1,62 +1,114 @@
-From: Ferenc Wagner <wferi@niif.hu>
-Subject: Re: tg3 driver upgrade (Linux 2.6.32 -> 3.2) breaks IBM Bladecenter SoL
-Date: Tue, 02 Oct 2012 14:07:57 +0200
-Message-ID: <87a9w5dqle.fsf@lant.ki.iif.hu>
-References: <87txuhho5z.fsf@lant.ki.iif.hu>
-	<1349083982.5420.16.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC PATCH net-next] tcp: introduce tcp_tw_interval to specifiy
+ the time of TIME-WAIT
+Date: Tue, 2 Oct 2012 08:09:27 -0400
+Message-ID: <20121002120927.GA691@hmsreliant.think-freely.org>
+References: <1348735261-29225-1-git-send-email-amwang@redhat.com>
+ <20120927142334.GA3194@neilslaptop.think-freely.org>
+ <1348813987.7264.41.camel@cr0>
+ <20120928131642.GA31568@hmsreliant.think-freely.org>
+ <1349161479.22107.17.camel@cr0>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "Matt Carlson" <mcarlson@broadcom.com>,
-	"Grant Likely" <grant.likely@secretlab.ca>,
-	"Rob Herring" <rob.herring@calxeda.com>,
-	linux-kernel@vger.kernel.org, wferi@niif.hu
-To: "Michael Chan" <mchan@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1349083982.5420.16.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	(Michael Chan's message of "Mon, 1 Oct 2012 02:33:02 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <edumazet@google.com>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:46483 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751016Ab2JBMJk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 08:09:40 -0400
+Content-Disposition: inline
+In-Reply-To: <1349161479.22107.17.camel@cr0>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Michael Chan" <mchan@broadcom.com> writes:
-
-> On Fri, 2012-09-28 at 22:45 +0200, Ferenc Wagner wrote: 
+On Tue, Oct 02, 2012 at 03:04:39PM +0800, Cong Wang wrote:
+> On Fri, 2012-09-28 at 09:16 -0400, Neil Horman wrote:
+> > On Fri, Sep 28, 2012 at 02:33:07PM +0800, Cong Wang wrote:
+> > > On Thu, 2012-09-27 at 10:23 -0400, Neil Horman wrote:
+> > > > On Thu, Sep 27, 2012 at 04:41:01PM +0800, Cong Wang wrote:
+> > > > > Some customer requests this feature, as they stated:
+> > > > > 
+> > > > > 	"This parameter is necessary, especially for software that continually 
+> > > > >         creates many ephemeral processes which open sockets, to avoid socket 
+> > > > >         exhaustion. In many cases, the risk of the exhaustion can be reduced by 
+> > > > >         tuning reuse interval to allow sockets to be reusable earlier.
+> > > > > 
+> > > > >         In commercial Unix systems, this kind of parameters, such as 
+> > > > >         tcp_timewait in AIX and tcp_time_wait_interval in HP-UX, have 
+> > > > >         already been available. Their implementations allow users to tune 
+> > > > >         how long they keep TCP connection as TIME-WAIT state on the 
+> > > > >         millisecond time scale."
+> > > > > 
+> > > > > We indeed have "tcp_tw_reuse" and "tcp_tw_recycle", but these tunings
+> > > > > are not equivalent in that they cannot be tuned directly on the time
+> > > > > scale nor in a safe way, as some combinations of tunings could still
+> > > > > cause some problem in NAT. And, I think second scale is enough, we don't
+> > > > > have to make it in millisecond time scale.
+> > > > > 
+> > > > I think I have a little difficultly seeing how this does anything other than
+> > > > pay lip service to actually having sockets spend time in TIME_WAIT state.  That
+> > > > is to say, while I see users using this to just make the pain stop.  If we wait
+> > > > less time than it takes to be sure that a connection isn't being reused (either
+> > > > by waiting two segment lifetimes, or by checking timestamps), then you might as
+> > > > well not wait at all.  I see how its tempting to be able to say "Just don't wait
+> > > > as long", but it seems that theres no difference between waiting half as long as
+> > > > the RFC mandates, and waiting no time at all.  Neither is a good idea.
+> > > 
+> > > I don't think reducing TIME_WAIT is a good idea either, but there must
+> > > be some reason behind as several UNIX provides a microsecond-scale
+> > > tuning interface, or maybe in non-recycle mode, their RTO is much less
+> > > than 2*MSL?
+> > > 
+> > My guess?  Cash was the reason.  I certainly wasn't there for any of those
+> > developments, but a setting like this just smells to me like some customer waved
+> > some cash under IBM's/HP's/Sun's nose and said, "We'd like to get our tcp
+> > sockets back to CLOSED state faster, what can you do for us?"
 > 
->> Upgrading the kernel on our HS20 blades resulted in their SoL (serial
->> over LAN) connection being broken.  The disconnection happens when eth0
->> (the interface involved in SoL) is brought up during the boot sequence.
->> If I later "ip link set eth0 down", then the connection is restored, but
->> "ip link set eth0 up" breaks it again on 3.2.  ethtool -a, -c, -g, -k
->> and -u show no difference; ethtool -i on the 2.6.32 kernel reports:
->> 
->> driver: tg3
->> version: 3.116
->> firmware-version: 5704s-v3.38, ASFIPMIs v2.47
->> bus-info: 0000:05:01.0
->> 
->> In the 3.2 kernel the driver version is 3.121.
->
-> 2.6.32 to 3.2 is a big jump.  Can you narrow this down further?  It will
-> be hard for us to find a HS20 with 5704 to test this.  Thanks.
+> Yeah, maybe. But it still doesn't make sense even if they are sure their
+> packets are impossible to linger in their high-speed LAN for 2*MSL?
+> 
+No it doesn't make sense, but the universal rule is that the business people
+will focus more on revenue recognition than on sound design pracice.
 
-I'm done with bisecting it: the first bad commit is:
+> > 
+> > > > 
+> > > > Given the problem you're trying to solve here, I'll ask the standard question in
+> > > > response: How does using SO_REUSEADDR not solve the problem?  Alternatively, in
+> > > > a pinch, why not reduce the tcp_max_tw_buckets sufficiently to start forcing
+> > > > TIME_WAIT sockets back into CLOSED state?
+> > > > 
+> > > > The code looks fine, but the idea really doesn't seem like a good plan to me.
+> > > > I'm sure HPUX/Solaris/AIX/etc have done this in response to customer demand, but
+> > > > that doesn't make it the right solution.
+> > > > 
+> > > 
+> > > *I think* the customer doesn't want to modify their applications, so
+> > > that is why they don't use SO_REUSERADDR.
+> > > 
+> > Well, ok, thats a legitimate distro problem.  What its not is an upstream
+> > problem.  Fixing the appilcation is the right thing to do, wether or not they
+> > want to. 
+> > 
+> > > I didn't know tcp_max_tw_buckets can do the trick, nor the customer, so
+> > > this is a side effect of tcp_max_tw_buckets? Is it documented?
+> > man 7 tcp:
+> > tcp_max_tw_buckets (integer; default: see below; since Linux 2.4)
+> > 	The maximum number of sockets in TIME_WAIT state allowed in the
+> > 	system.  This limit exists only  to  prevent  simple
+> > 	denial-of-service attacks.   The  default  value of NR_FILE*2 is
+> >         adjusted depending on the memory in the system.  If this number
+> > 	is exceeded, the socket is closed and a warning is printed.
+> > 
+> 
+> Hey, "a warning is printed" seems not very friendly. ;)
+> 
+No, its not very friendly, but the people using this are violating the RFC,
+which isn't very friendly. :)
 
-commit dabc5c670d3f86d15ee4f42ab38ec5bd2682487d
-Author: Matt Carlson <mcarlson@broadcom.com>
-Date:   Thu May 19 12:12:52 2011 +0000
-
-    tg3: Move TSO_CAPABLE assignment
-    
-    This patch moves the code that asserts the TSO_CAPABLE flag closer to
-    where the TSO capabilities flags are set.  There isn't a good enough
-    reason for the code to be separated.
-    
-    Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-    Reviewed-by: Michael Chan <mchan@broadcom.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-On the other hand, losing the SoL console even temporarily during boot
-(as it happens with a minimal kernel before this commit) isn't nice
-either.  I'll try to look after that, too, just mentioning it here...
--- 
-Regards,
-Feri.
+> Thanks!
+> 
+> 
