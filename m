@@ -1,60 +1,205 @@
 From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next,4/6] hyperv: Remove extra allocated space for recv_pkt_list elements
-Date: Tue,  2 Oct 2012 08:30:22 -0700
-Message-ID: <1349191824-14001-4-git-send-email-haiyangz@microsoft.com>
+Subject: [PATCH net-next,5/6] hyperv: Report actual status in receive completion packet
+Date: Tue,  2 Oct 2012 08:30:23 -0700
+Message-ID: <1349191824-14001-5-git-send-email-haiyangz@microsoft.com>
 References: <1349191824-14001-1-git-send-email-haiyangz@microsoft.com>
 Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
 	jasowang@redhat.com, linux-kernel@vger.kernel.org,
 	devel@linuxdriverproject.org
 To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded04.prod.phx3.secureserver.net ([208.109.80.198]:46415
-	"EHLO p3plsmtps2ded04.prod.phx3.secureserver.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754068Ab2JBPLW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Oct 2012 11:11:22 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1349191824-14001-1-git-send-email-haiyangz@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The receive code path doesn't use the page buffer, so remove the
-extra allocated space here.
+The existing code always reports NVSP_STAT_SUCCESS. This patch adds the
+mechanism to report failure when it happens.
 
 Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
 ---
- drivers/net/hyperv/hyperv_net.h |    2 --
- drivers/net/hyperv/netvsc.c     |    4 +---
- 2 files changed, 1 insertions(+), 5 deletions(-)
+ drivers/net/hyperv/hyperv_net.h   |    2 ++
+ drivers/net/hyperv/netvsc.c       |   18 ++++++++++++------
+ drivers/net/hyperv/netvsc_drv.c   |    2 ++
+ drivers/net/hyperv/rndis_filter.c |   19 ++++++++++++++-----
+ 4 files changed, 30 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 95ceb35..d58f28c 100644
+index d58f28c..5fd6f46 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -465,8 +465,6 @@ struct nvsp_message {
+@@ -35,6 +35,7 @@ struct hv_netvsc_packet;
+ /* Represent the xfer page packet which contains 1 or more netvsc packet */
+ struct xferpage_packet {
+ 	struct list_head list_ent;
++	u32 status;
  
- #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
+ 	/* # of netvsc packets this xfer packet contains */
+ 	u32 count;
+@@ -47,6 +48,7 @@ struct xferpage_packet {
+ struct hv_netvsc_packet {
+ 	/* Bookkeeping stuff */
+ 	struct list_head list_ent;
++	u32 status;
  
--#define NETVSC_RECEIVE_SG_COUNT			1
--
- /* Preallocated receive packets */
- #define NETVSC_RECEIVE_PACKETLIST_COUNT		256
- 
+ 	struct hv_device *device;
+ 	bool is_data_pkt;
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 4a1a5f5..d9c4c03 100644
+index d9c4c03..1cd7748 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
-@@ -904,9 +904,7 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
- 	INIT_LIST_HEAD(&net_device->recv_pkt_list);
+@@ -558,7 +558,7 @@ int netvsc_send(struct hv_device *device,
+ }
  
- 	for (i = 0; i < NETVSC_RECEIVE_PACKETLIST_COUNT; i++) {
--		packet = kzalloc(sizeof(struct hv_netvsc_packet) +
--				 (NETVSC_RECEIVE_SG_COUNT *
--				  sizeof(struct hv_page_buffer)), GFP_KERNEL);
-+		packet = kzalloc(sizeof(struct hv_netvsc_packet), GFP_KERNEL);
- 		if (!packet)
- 			break;
+ static void netvsc_send_recv_completion(struct hv_device *device,
+-					u64 transaction_id)
++					u64 transaction_id, u32 status)
+ {
+ 	struct nvsp_message recvcompMessage;
+ 	int retries = 0;
+@@ -571,9 +571,7 @@ static void netvsc_send_recv_completion(struct hv_device *device,
+ 	recvcompMessage.hdr.msg_type =
+ 				NVSP_MSG1_TYPE_SEND_RNDIS_PKT_COMPLETE;
  
+-	/* FIXME: Pass in the status */
+-	recvcompMessage.msg.v1_msg.send_rndis_pkt_complete.status =
+-		NVSP_STAT_SUCCESS;
++	recvcompMessage.msg.v1_msg.send_rndis_pkt_complete.status = status;
+ 
+ retry_send_cmplt:
+ 	/* Send the completion */
+@@ -613,6 +611,7 @@ static void netvsc_receive_completion(void *context)
+ 	bool fsend_receive_comp = false;
+ 	unsigned long flags;
+ 	struct net_device *ndev;
++	u32 status = NVSP_STAT_NONE;
+ 
+ 	/*
+ 	 * Even though it seems logical to do a GetOutboundNetDevice() here to
+@@ -627,6 +626,9 @@ static void netvsc_receive_completion(void *context)
+ 	/* Overloading use of the lock. */
+ 	spin_lock_irqsave(&net_device->recv_pkt_list_lock, flags);
+ 
++	if (packet->status != NVSP_STAT_SUCCESS)
++		packet->xfer_page_pkt->status = NVSP_STAT_FAIL;
++
+ 	packet->xfer_page_pkt->count--;
+ 
+ 	/*
+@@ -636,6 +638,7 @@ static void netvsc_receive_completion(void *context)
+ 	if (packet->xfer_page_pkt->count == 0) {
+ 		fsend_receive_comp = true;
+ 		transaction_id = packet->completion.recv.recv_completion_tid;
++		status = packet->xfer_page_pkt->status;
+ 		list_add_tail(&packet->xfer_page_pkt->list_ent,
+ 			      &net_device->recv_pkt_list);
+ 
+@@ -647,7 +650,7 @@ static void netvsc_receive_completion(void *context)
+ 
+ 	/* Send a receive completion for the xfer page packet */
+ 	if (fsend_receive_comp)
+-		netvsc_send_recv_completion(device, transaction_id);
++		netvsc_send_recv_completion(device, transaction_id, status);
+ 
+ }
+ 
+@@ -736,7 +739,8 @@ static void netvsc_receive(struct hv_device *device,
+ 				       flags);
+ 
+ 		netvsc_send_recv_completion(device,
+-					    vmxferpage_packet->d.trans_id);
++					    vmxferpage_packet->d.trans_id,
++					    NVSP_STAT_FAIL);
+ 
+ 		return;
+ 	}
+@@ -744,6 +748,7 @@ static void netvsc_receive(struct hv_device *device,
+ 	/* Remove the 1st packet to represent the xfer page packet itself */
+ 	xferpage_packet = (struct xferpage_packet *)listHead.next;
+ 	list_del(&xferpage_packet->list_ent);
++	xferpage_packet->status = NVSP_STAT_SUCCESS;
+ 
+ 	/* This is how much we can satisfy */
+ 	xferpage_packet->count = count - 1;
+@@ -760,6 +765,7 @@ static void netvsc_receive(struct hv_device *device,
+ 		list_del(&netvsc_packet->list_ent);
+ 
+ 		/* Initialize the netvsc packet */
++		netvsc_packet->status = NVSP_STAT_SUCCESS;
+ 		netvsc_packet->xfer_page_pkt = xferpage_packet;
+ 		netvsc_packet->completion.recv.recv_completion =
+ 					netvsc_receive_completion;
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index e91111a..f825a62 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -265,6 +265,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 	if (!net) {
+ 		netdev_err(net, "got receive callback but net device"
+ 			" not initialized yet\n");
++		packet->status = NVSP_STAT_FAIL;
+ 		return 0;
+ 	}
+ 
+@@ -272,6 +273,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 	skb = netdev_alloc_skb_ip_align(net, packet->total_data_buflen);
+ 	if (unlikely(!skb)) {
+ 		++net->stats.rx_dropped;
++		packet->status = NVSP_STAT_FAIL;
+ 		return 0;
+ 	}
+ 
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index f25f41e..e7e12cf 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -411,9 +411,12 @@ int rndis_filter_receive(struct hv_device *dev,
+ 	struct rndis_device *rndis_dev;
+ 	struct rndis_message *rndis_msg;
+ 	struct net_device *ndev;
++	int ret = 0;
+ 
+-	if (!net_dev)
+-		return -EINVAL;
++	if (!net_dev) {
++		ret = -EINVAL;
++		goto exit;
++	}
+ 
+ 	ndev = net_dev->ndev;
+ 
+@@ -421,14 +424,16 @@ int rndis_filter_receive(struct hv_device *dev,
+ 	if (!net_dev->extension) {
+ 		netdev_err(ndev, "got rndis message but no rndis device - "
+ 			  "dropping this message!\n");
+-		return -ENODEV;
++		ret = -ENODEV;
++		goto exit;
+ 	}
+ 
+ 	rndis_dev = (struct rndis_device *)net_dev->extension;
+ 	if (rndis_dev->state == RNDIS_DEV_UNINITIALIZED) {
+ 		netdev_err(ndev, "got rndis message but rndis device "
+ 			   "uninitialized...dropping this message!\n");
+-		return -ENODEV;
++		ret = -ENODEV;
++		goto exit;
+ 	}
+ 
+ 	rndis_msg = pkt->data;
+@@ -460,7 +465,11 @@ int rndis_filter_receive(struct hv_device *dev,
+ 		break;
+ 	}
+ 
+-	return 0;
++exit:
++	if (ret != 0)
++		pkt->status = NVSP_STAT_FAIL;
++
++	return ret;
+ }
+ 
+ static int rndis_filter_query_device(struct rndis_device *dev, u32 oid,
 -- 
 1.7.4.1
