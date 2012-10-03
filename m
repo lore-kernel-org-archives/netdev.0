@@ -1,45 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] netxen: write IP address to firmware when
- using bonding
-Date: Wed, 03 Oct 2012 14:38:55 -0400 (EDT)
-Message-ID: <20121003.143855.520640065174429479.davem@davemloft.net>
-References: <1348562883-14780-1-git-send-email-nikolay@redhat.com>
-	<1349169386-18391-1-git-send-email-nikolay@redhat.com>
-	<506C0346.8010708@redhat.com>
+Subject: Re: [Patch net-next] netpoll: call ->ndo_select_queue() in tx path
+Date: Wed, 03 Oct 2012 14:39:21 -0400 (EDT)
+Message-ID: <20121003.143921.697266851720404652.davem@davemloft.net>
+References: <1347948991-20860-1-git-send-email-amwang@redhat.com>
+	<20120919.172108.1539457128236567338.davem@davemloft.net>
+	<CAF6-1L5Gp9kpV+Koru6uAmYxQg_WQav9RVD4MVBDa2UGSoPOCA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sony.chacko@qlogic.com, agospoda@redhat.com,
-	rajesh.borundia@qlogic.com, netdev@vger.kernel.org
-To: nikolay@redhat.com
+Cc: amwang@redhat.com, netdev@vger.kernel.org, edumazet@google.com
+To: s.munaut@whatever-company.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59672 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59695 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753310Ab2JCSi5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 14:38:57 -0400
-In-Reply-To: <506C0346.8010708@redhat.com>
+	with ESMTP id S1754940Ab2JCSjY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 14:39:24 -0400
+In-Reply-To: <CAF6-1L5Gp9kpV+Koru6uAmYxQg_WQav9RVD4MVBDa2UGSoPOCA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Wed, 03 Oct 2012 11:20:06 +0200
+From: Sylvain Munaut <s.munaut@whatever-company.com>
+Date: Wed, 3 Oct 2012 11:33:22 +0200
 
-> I just synced with upstream, I've missed a few patches and it seems
-> that it doesn't apply cleanly because my previous patch was
-> changed before it was applied. There is one character missing from
-> a comment - "/* root bus? */", in upstream it was changed to
-> /* root bus */.
-> ("netxen: check for root bus in netxen_mask_aer_correctable")
+> Hi,
 > 
-> About the rest, after QLogic test the functionality I'll clean-up the
-> empty lines and re-send it.
+>>> In netpoll tx path, we miss the chance of calling ->ndo_select_queue(),
+>>> thus could cause problems when bonding is involved.
+>>>
+>>> This patch makes dev_pick_tx() extern (and rename it to netdev_pick_tx())
+>>> to let netpoll call it in netpoll_send_skb_on_dev().
+>>>
+>>> Reported-by: Sylvain Munaut <s.munaut@whatever-company.com>
+>>> Cc: "David S. Miller" <davem@davemloft.net>
+>>> Cc: Eric Dumazet <edumazet@google.com>
+>>> Signed-off-by: Cong Wang <amwang@redhat.com>
+>>> Tested-by: Sylvain Munaut <s.munaut@whatever-company.com>
+>>
+>> Applied, thanks.
+> 
+> Huh, I don't see it in the final 3.6 ?
+> That's rather inconvenient :(
 
-Can you please not quote an entire patch just to make a small series
-of comments?
-
-Just quote the exact relevant portions of the patch if you want to
-specifically make comments about something.
-
-Quoting the entire patch is extremely bad netiquette, wastes
-bandwidth, and everyone on the list has to receive a whole new copy of
-the entire patch again for no good reason.
+What part of "net-next" in the subject line do you not understand?
