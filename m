@@ -1,54 +1,41 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH v2] iproute2: add support for tcp_metrics
-Date: Tue, 2 Oct 2012 17:26:33 -0700
-Message-ID: <20121002172633.2be06886@nehalam.linuxnetplumber.net>
-References: <1349210716-25509-1-git-send-email-ja@ssi.bg>
-	<1349211876.12401.1101.camel@edumazet-glaptop>
-	<1349213229.12401.1130.camel@edumazet-glaptop>
-	<alpine.LFD.2.00.1210030302320.25856@ja.ssi.bg>
+From: David Miller <davem@davemloft.net>
+Subject: Re: tg3 driver upgrade (Linux 2.6.32 -> 3.2) breaks IBM
+ Bladecenter SoL
+Date: Tue, 02 Oct 2012 20:47:07 -0400 (EDT)
+Message-ID: <20121002.204707.1362047307474271560.davem@davemloft.net>
+References: <87626sd80j.fsf@lant.ki.iif.hu>
+	<506B3B52.7080001@msgid.tls.msk.ru>
+	<1349223432.16173.10.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:41259 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932930Ab2JCA1J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Oct 2012 20:27:09 -0400
-In-Reply-To: <alpine.LFD.2.00.1210030302320.25856@ja.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mjt@tls.msk.ru, wferi@niif.hu, mchan@broadcom.com,
+	netdev@vger.kernel.org, mcarlson@broadcom.com,
+	grant.likely@secretlab.ca, rob.herring@calxeda.com,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org
+To: ben@decadent.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349223432.16173.10.camel@deadeye.wl.decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 3 Oct 2012 03:21:08 +0300 (EEST)
-Julian Anastasov <ja@ssi.bg> wrote:
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Wed, 03 Oct 2012 01:17:12 +0100
 
-> 	Something like this in process_msg?:
+> On Tue, 2012-10-02 at 23:06 +0400, Michael Tokarev wrote:
+>> On 02.10.2012 22:49, Ferenc Wagner wrote:
+>> > "Michael Chan" <mchan@broadcom.com> writes:
+>> >> These are the likely fixes:
+>> >>
+>> >> commit cf9ecf4b631f649a964fa611f1a5e8874f2a76db 
+>> >> Author: Matt Carlson <mcarlson@broadcom.com>
+>> >> Date: Mon Nov 28 09:41:03 2011 +0000
+>> >>
+>> >> tg3: Fix TSO CAP for 5704 devs w / ASF enabled
+ ...
+> The fix went into 3.3, so only 3.0 and 3.2 need it.
 > 
-> case TCP_METRIC_RTT:
-> 	fprintf(fp, "%lluus",
-> 		((__u64) val * 1000) >> 3);
-> 	break;
-> case TCP_METRIC_RTTVAR:
-> 	fprintf(fp, "%lluus",
-> 		((__u64) val * 1000) >> 2);
-> 	break;
-> 
-> 	And may be variant without __u64 should be fine?
+> David, please can you include the above commit in your next batches for
+> these stable series?
 
-Remember u64 is not always same as unsigned long long.
-One safe way of handling this is:
-
-#include <inttypes.h>
-...
- 
- case TCP_METRIC_RTT:
-	fprintf(fp, "%"PRIu64"us",
- 		((__u64) val * 1000) >> 3);
- 	break;
- case TCP_METRIC_RTTVAR:
- 	fprintf(fp, "%"PRIu64"us",
- 		((__u64) val * 1000) >> 2);
- 	break;
-
-Also make sure metrics work independent of kernel HZ.
+Done.
