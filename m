@@ -1,56 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] netxen: write IP address to firmware when
- using bonding
-Date: Tue, 02 Oct 2012 22:40:35 -0400 (EDT)
-Message-ID: <20121002.224035.1104522257834310906.davem@davemloft.net>
-References: <1348562883-14780-1-git-send-email-nikolay@redhat.com>
-	<1349169386-18391-1-git-send-email-nikolay@redhat.com>
+Subject: Re: [patch] bnx2x: use strlcpy() to copy a string
+Date: Tue, 02 Oct 2012 22:41:42 -0400 (EDT)
+Message-ID: <20121002.224142.1359092826405265517.davem@davemloft.net>
+References: <20121002114746.GB1413@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sony.chacko@qlogic.com, agospoda@redhat.com,
-	rajesh.borundia@qlogic.com, netdev@vger.kernel.org
-To: nikolay@redhat.com
+Cc: eilong@broadcom.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53140 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53143 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751264Ab2JCCkg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 22:40:36 -0400
-In-Reply-To: <1349169386-18391-1-git-send-email-nikolay@redhat.com>
+	with ESMTP id S1751264Ab2JCCln (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 22:41:43 -0400
+In-Reply-To: <20121002114746.GB1413@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Tue,  2 Oct 2012 11:16:26 +0200
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Tue, 2 Oct 2012 14:47:46 +0300
 
-> This patch allows LRO aggregation on bonded devices that contain an NX3031
-> device. It also adds a for_each_netdev_in_bond_rcu(bond, slave) macro
-> which executes for each slave that has bond as master.
+> DRV_MODULE_VERSION is smaller than the ->version buffer so the memcpy()
+> copies 1 byte past the end of the string.  It's not super harmful, but
+> it makes the static checkers complain.
 > 
-> V2: Remove local ip caching, retrieve addresses dynamically and
->     restore them if necessary.
-> 
-> Note: Tested with NX3031 adapter.
-> 
-> Signed-off-by: Andy Gospodarek <agospoda@redhat.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-This doesn't apply cleanly to the current tree.
-
-It is also poorly styled, for example:
-
-> +				if (addr) {
-> +					netxen_config_ipaddr(adapter, addr,
-> +							     ip_event);
-> +				}
-
-No curley braces for a single statement.
-
-There are also a lot of extransoue empty lines added to the
-code which do not enhance readability in any way and just take
-up valuable vertical screen realestate.
-
-You've also missed the net-next merge window cutoff, so you'll
-need to wait until after the merge window to send this in again.
-
-Thanks.
+Applied, thanks Dan.
