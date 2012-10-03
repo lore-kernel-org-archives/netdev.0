@@ -1,46 +1,43 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: Possible bug with r8169 driver
-Date: Thu, 4 Oct 2012 10:09:22 +0800
-Message-ID: <2B85B2AE7F334F8CBC4C4A084CA849FB@realtek.com.tw>
-References: <2197741.c8FeV4Xbis@bureau> <20120927222147.GA29047@electric-eye.fr.zoreil.com> <1478421.GOy9qdQlkG@bureau> <20120929072028.GA3730@electric-eye.fr.zoreil.com> <262549102A0343EDA34AA0A41217180C@realtek.com.tw> <20121001185629.GA4922@electric-eye.fr.zoreil.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 0/3] virtio-net: inline header support
+Date: Wed, 03 Oct 2012 16:40:06 +0930
+Message-ID: <87sj9w2fqp.fsf@rustcorp.com.au>
+References: <cover.1348824232.git.mst@redhat.com> <87vces2gxq.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: 'Nolwenn' <donolwenn@gmail.com>, <netdev@vger.kernel.org>,
-	'nic_swsd' <nic_swsd@realtek.com>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:50150 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755563Ab2JDCJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 22:09:34 -0400
-In-Reply-To: <20121001185629.GA4922@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sasha Levin <levinsasha928@gmail.com>,
+	virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, avi@redhat.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	Thomas Lendacky <tahm@linux.vnet.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <87vces2gxq.fsf@rustcorp.com.au>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Francois Romieu [mailto:romieu@fr.zoreil.com] 
-[...]
-> diff --git a/drivers/net/ethernet/realtek/r8169.c 
-> b/drivers/net/ethernet/realtek/r8169.c
-> index eb81da4..e0f1b8d 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -4271,8 +4271,8 @@ static void rtl_set_rx_mode(struct 
-> net_device *dev)
->  		mc_filter[1] = swab32(data);
->  	}
->  
-> -	RTL_W32(MAR0 + 4, mc_filter[1]);
-> -	RTL_W32(MAR0 + 0, mc_filter[0]);
-> +	RTL_W32(MAR0 + 4, 0xffffffff);
-> +	RTL_W32(MAR0 + 0, 0xffffffff);
->  
->  	RTL_W32(RxConfig, tmp);
->  }
+Rusty Russell <rusty@rustcorp.com.au> writes:
 
-The RTL_GIGA_MAC_VER_35 is designed without multicast hardware filter, so you
-should set IO 0x08 ~ 0x0f to 0xff for receiving all multicast packets without
-filtering them.
+> "Michael S. Tsirkin" <mst@redhat.com> writes:
+>
+>> Thinking about Sasha's patches, we can reduce ring usage
+>> for virtio net small packets dramatically if we put
+>> virtio net header inline with the data.
+>> This can be done for free in case guest net stack allocated
+>> extra head room for the packet, and I don't see
+>> why would this have any downsides.
+>
+> I've been wanting to do this for the longest time... but...
+>
+>> Even though with my recent patches qemu
+>> no longer requires header to be the first s/g element,
 
-Best Regards,
-Hayes
+Breaks for me; see why I hate bug features?  Now we'd need another
+one...
+
+qemu-system-i386: virtio: trying to map MMIO memory
+
+Please try my patch.
+
+Cheers,
+Rusty.
