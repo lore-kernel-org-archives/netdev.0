@@ -1,14 +1,18 @@
 From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: [PATCH 14/20] drivers/net/ethernet/amd/au1000_eth.c: fix error return code
-Date: Wed,  3 Oct 2012 18:18:07 +0200
-Message-ID: <1349281090-10013-17-git-send-email-peter.senna@gmail.com>
-Cc: kernel-janitors@vger.kernel.org, danny.kukawka@bisect.de,
-	mcuos.com@gmail.com, joe@perches.com, florian@openwrt.org,
+Subject: [PATCH 4/20] drivers/net/can/sja1000/peak_pcmcia.c: fix error return code
+Date: Wed,  3 Oct 2012 18:17:53 +0200
+Message-ID: <1349281090-10013-3-git-send-email-peter.senna@gmail.com>
+Cc: kernel-janitors@vger.kernel.org, mkl@pengutronix.de,
+	linux@dominikbrodowski.net, linux-can@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: wg@grandegger.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:39029 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933019Ab2JCQS0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 12:18:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Peter Senna Tschudin <peter.senna@gmail.com>
 
@@ -38,49 +42,22 @@ ret@p1 = 0
 Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
 
 ---
- drivers/net/ethernet/amd/au1000_eth.c |   10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/can/sja1000/peak_pcmcia.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/amd/au1000_eth.c b/drivers/net/ethernet/amd/au1000_eth.c
-index 397596b..f195acf 100644
---- a/drivers/net/ethernet/amd/au1000_eth.c
-+++ b/drivers/net/ethernet/amd/au1000_eth.c
-@@ -1174,8 +1174,10 @@ static int __devinit au1000_probe(struct platform_device *pdev)
- 	snprintf(aup->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
- 		pdev->name, aup->mac_id);
- 	aup->mii_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
--	if (aup->mii_bus->irq == NULL)
-+	if (aup->mii_bus->irq == NULL) {
+diff --git a/drivers/net/can/sja1000/peak_pcmcia.c b/drivers/net/can/sja1000/peak_pcmcia.c
+index ec6bd9d..272a85f 100644
+--- a/drivers/net/can/sja1000/peak_pcmcia.c
++++ b/drivers/net/can/sja1000/peak_pcmcia.c
+@@ -686,8 +686,10 @@ static int __devinit pcan_probe(struct pcmcia_device *pdev)
+ 
+ 	/* detect available channels */
+ 	pcan_add_channels(card);
+-	if (!card->chan_count)
++	if (!card->chan_count) {
 +		err = -ENOMEM;
- 		goto err_out;
+ 		goto probe_err_4;
 +	}
  
- 	for (i = 0; i < PHY_MAX_ADDR; ++i)
- 		aup->mii_bus->irq[i] = PHY_POLL;
-@@ -1190,7 +1192,8 @@ static int __devinit au1000_probe(struct platform_device *pdev)
- 		goto err_mdiobus_reg;
- 	}
- 
--	if (au1000_mii_probe(dev) != 0)
-+	err = au1000_mii_probe(dev);
-+	if (err != 0)
- 		goto err_out;
- 
- 	pDBfree = NULL;
-@@ -1205,6 +1208,7 @@ static int __devinit au1000_probe(struct platform_device *pdev)
- 	}
- 	aup->pDBfree = pDBfree;
- 
-+	err = -ENODEV;
- 	for (i = 0; i < NUM_RX_DMA; i++) {
- 		pDB = au1000_GetFreeDB(aup);
- 		if (!pDB)
-@@ -1213,6 +1217,8 @@ static int __devinit au1000_probe(struct platform_device *pdev)
- 		aup->rx_dma_ring[i]->buff_stat = (unsigned)pDB->dma_addr;
- 		aup->rx_db_inuse[i] = pDB;
- 	}
-+
-+	err = -ENODEV;
- 	for (i = 0; i < NUM_TX_DMA; i++) {
- 		pDB = au1000_GetFreeDB(aup);
- 		if (!pDB)
+ 	/* init the timer which controls the leds */
+ 	init_timer(&card->led_timer);
