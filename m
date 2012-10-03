@@ -1,30 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: davinci_cpdma: decrease the desc count
- when cleaning up the remaining packets
-Date: Tue, 02 Oct 2012 22:35:17 -0400 (EDT)
-Message-ID: <20121002.223517.307096403144373535.davem@davemloft.net>
-References: <1349145763-6292-1-git-send-email-hotforest@gmail.com>
+Subject: 'net-net' is CLOSED
+Date: Tue, 02 Oct 2012 22:36:00 -0400 (EDT)
+Message-ID: <20121002.223600.2237587451014418428.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: hotforest@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53106 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53124 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751264Ab2JCCfS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 22:35:18 -0400
-In-Reply-To: <1349145763-6292-1-git-send-email-hotforest@gmail.com>
+	with ESMTP id S1751410Ab2JCCgC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 22:36:02 -0400
+Received: from localhost (cpe-66-108-116-58.nyc.res.rr.com [66.108.116.58])
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id DE974588674
+	for <netdev@vger.kernel.org>; Tue,  2 Oct 2012 19:36:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tao Hou <hotforest@gmail.com>
-Date: Tue,  2 Oct 2012 10:42:43 +0800
 
-> chan->count is used by rx channel. If the desc count is not updated by
-> the clean up loop in cpdma_chan_stop, the value written to the rxfree
-> register in cpdma_chan_start will be incorrect.
-> 
-> Signed-off-by: Tao Hou <hotforest@gmail.com>
+All changes are now going into the 'net' tree.
 
-Applied, thanks.
+The 'net-next' tree will open up shortly after the
+merge window close.
+
+Do not submit net-next patches at this time, thanks.
