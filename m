@@ -1,108 +1,258 @@
-From: Arun MURTHY <arun.murthy@stericsson.com>
-Subject: RE: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
-Date: Wed, 3 Oct 2012 06:31:44 +0200
-Message-ID: <F45880696056844FA6A73F415B568C695B6962CC98@EXDCVYMBSTM006.EQ1STM.local>
-References: <1348819504-1303-1-git-send-email-arun.murthy@stericsson.com>
-	<1348819504-1303-2-git-send-email-arun.murthy@stericsson.com>
-	<20120928160045.GD2625@kroah.com>
-	<F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
-	<20121001155940.GA1957@kroah.com>
-	<F45880696056844FA6A73F415B568C695B6962CC8C@EXDCVYMBSTM006.EQ1STM.local>
- <CAK7N6vqpHvi0R4eY0NPJ90Yu1_sVXOri-qOU5FPhp_5XcY3z0w@mail.gmail.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 0/3] virtio-net: inline header support
+Date: Wed, 03 Oct 2012 16:14:17 +0930
+Message-ID: <87vces2gxq.fsf@rustcorp.com.au>
+References: <cover.1348824232.git.mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Greg KH <gregkh@linuxfoundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
-To: anish singh <anish198519851985@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sasha Levin <levinsasha928@gmail.com>,
+	virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, avi@redhat.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	Thomas Lendacky <tahm@linux.vnet.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAK7N6vqpHvi0R4eY0NPJ90Yu1_sVXOri-qOU5FPhp_5XcY3z0w@mail.gmail.com>
-Content-Language: en-US
+In-Reply-To: <cover.1348824232.git.mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiBPbiBXZWQsIE9jdCAzLCAyMDEyIGF0IDk6MjQgQU0sIEFydW4gTVVSVEhZDQo+IDxhcnVuLm11
-cnRoeUBzdGVyaWNzc29uLmNvbT4gd3JvdGU6DQo+ID4+IE9uIE1vbiwgT2N0IDAxLCAyMDEyIGF0
-IDA3OjMwOjM4QU0gKzAyMDAsIEFydW4gTVVSVEhZIHdyb3RlOg0KPiA+PiA+ID4gT24gRnJpLCBT
-ZXAgMjgsIDIwMTIgYXQgMDE6MzU6MDFQTSArMDUzMCwgQXJ1biBNdXJ0aHkgd3JvdGU6DQo+ID4+
-ID4gPiA+ICsjaW5jbHVkZSA8bGludXgvbW9kdWxlLmg+DQo+ID4+ID4gPiA+ICsjaW5jbHVkZSA8
-bGludXgvc2xhYi5oPg0KPiA+PiA+ID4gPiArI2luY2x1ZGUgPGxpbnV4L2Vyci5oPg0KPiA+PiA+
-ID4gPiArI2luY2x1ZGUgPGxpbnV4L3ByaW50ay5oPg0KPiA+PiA+ID4gPiArI2luY2x1ZGUgPGxp
-bnV4L21vZGVtX3NobS9tb2RlbS5oPg0KPiA+PiA+ID4gPiArDQo+ID4+ID4gPiA+ICtzdGF0aWMg
-c3RydWN0IGNsYXNzICptb2RlbV9jbGFzczsNCj4gPj4gPiA+DQo+ID4+ID4gPiBXaGF0J3Mgd3Jv
-bmcgd2l0aCBhIGJ1c190eXBlIGluc3RlYWQ/DQo+ID4+ID4NCj4gPj4gPiBDYW4gSSBrbm93IHRo
-ZSBhZHZhbnRhZ2Ugb2YgdXNpbmcgYnVzX3R5cGUgb3ZlciBjbGFzcz8NCj4gPj4NCj4gPj4gWW91
-IGhhdmUgZGV2aWNlcyBsaXZpbmcgb24gYSBidXMsIGFuZCBpdCdzIG11Y2ggbW9yZSBkZXNjcmlw
-dGl2ZSB0aGFuDQo+ID4+IGEgY2xhc3MgKHdoaWNoIHdlIGFyZSBnb2luZyB0byBldmVudHVhbGx5
-IGdldCByaWQgb2Ygb25lIG9mIHRoZXNlIGRheXMuLi4pLg0KPiA+Pg0KPiA+PiBNaWdodCBJIGFz
-ayB3aHkgeW91IGNob29zZSBhIGNsYXNzIG92ZXIgYSBidXNfdHlwZT8NCj4gPg0KPiA+IEJhc2lj
-YWxseSBteSByZXF1aXJlbWVudCBpcyB0byBjcmVhdGUgYSBjZW50cmFsIGVudGl0eSBmb3IgYWNj
-ZXNzaW5nDQo+ID4gYW5kIHJlbGVhc2luZyBtb2RlbSBmcm9tIEFQRS4gU2luY2UgdGhpcyBpcyBk
-b25lIGJ5IGRpZmZlcmVudCBjbGllbnRzDQo+ID4gdGhlIGNlbnRyYWwgZW50aXR5IHNob3VsZCBi
-ZSBhYmxlIHRvIGhhbmRsZSB0aGUgcmVxdWVzdCBhbmQgcGxheQ0KPiA+IHNhZmVseSwgc2luY2Ug
-dGhpcyBoYXMgbW9yZSBhZmZlY3QgaW4gc3lzdGVtIHN1c3BlbmQgYW5kIGRlZXAgc2xlZXAuDQo+
-ID4gVXNpbmcgY2xhc3MgaGVscHMgbWUgaW4gYWNoaWV2aW5nIHRoaXMgYW5kIGFsc28gY3JlYXRl
-IGFuIGVudHJ5IHRvDQo+ID4gdXNlciBzcGFjZSB3aGljaCBjYW4gYmUgdXNlZCBpbiB0aGUgbGF0
-ZXIgcGFydHMuIE1vcmVvdmVyDQo+IFlvdSBjYW4gaGF2ZSB0aGF0IHNhbWUgbWVjaGFuaXNtIHdv
-cmsgZm9yIGJ1c190eXBlIGFzIHdlbGwuDQo+ID4gdGhpcyBub3Qgc29tZXRoaW5nIGxpa2UgYSBi
-dXMgb3Igc28sIHNvIEkgZGlkbid0IHVzZSBidXMgaW5zdGVhZCB3ZW50DQo+ID4gd2l0aCBhIHNp
-bXBsZSBjbGFzcyBhcHByb2FjaC4NCj4gPg0KPiA+Pg0KPiA+PiA+ID4gPiAraW50IG1vZGVtX3Jl
-bGVhc2Uoc3RydWN0IG1vZGVtX2Rlc2MgKm1kZXNjKSB7DQo+ID4+ID4gPiA+ICsgICAgICAgaWYg
-KCFtZGVzYy0+cmVsZWFzZSkNCj4gPj4gPiA+ID4gKyAgICAgICAgICAgICAgIHJldHVybiAtRUZB
-VUxUOw0KPiA+PiA+ID4gPiArDQo+ID4+ID4gPiA+ICsgICAgICAgaWYgKG1vZGVtX2lzX3JlcXVl
-c3RlZChtZGVzYykpIHsNCj4gPj4gPiA+ID4gKyAgICAgICAgICAgICAgIGF0b21pY19kZWMoJm1k
-ZXNjLT5tY2xpZW50cy0+Y250KTsNCj4gPj4gPiA+ID4gKyAgICAgICAgICAgICAgIGlmIChhdG9t
-aWNfcmVhZCgmbWRlc2MtPnVzZV9jbnQpID09IDEpIHsNCj4gPj4gPiA+ID4gKyAgICAgICAgICAg
-ICAgICAgICAgICAgbWRlc2MtPnJlbGVhc2UobWRlc2MpOw0KPiA+PiA+ID4gPiArICAgICAgICAg
-ICAgICAgICAgICAgICBhdG9taWNfZGVjKCZtZGVzYy0+dXNlX2NudCk7DQo+ID4+ID4gPiA+ICsg
-ICAgICAgICAgICAgICB9DQo+ID4+ID4gPg0KPiA+PiA+ID4gRWVlaywgd2h5IGFyZW4ndCB5b3Ug
-dXNpbmcgdGhlIGJ1aWx0LWluIHJlZmVyZW5jZSBjb3VudGluZyB0aGF0DQo+ID4+ID4gPiB0aGUg
-c3RydWN0IGRldmljZSBwcm92aWRlZCB0byB5b3UsIGFuZCBpbnN0ZWFkIGFyZSByb2xsaW5nIHlv
-dXIgb3duPw0KPiA+PiA+ID4gVGhpcyBoYXBwZW5zIGluIG1hbnkgcGxhY2VzLCB3aHk/DQo+ID4+
-ID4NCj4gPj4gPiBNeSB1c2FnZSBvZiBjb3VudGVycyBvdmVyIGhlcmUgaXMgZm9yIGVhY2ggbW9k
-ZW0gdGhlcmUgYXJlIG1hbnkNCj4gY2xpZW50cy4NCj4gPj4gPiBFYWNoIG9mIHRoZSBjbGllbnRz
-IHdpbGwgaGF2ZSBhIHJlZiB0byBtb2RlbV9kZXNjLiBFYWNoIG9mIHRoZW0gdXNlDQo+ID4+ID4g
-dGhpcyBmb3IgcmVxdWVzdGluZyBhbmQgcmVsZWFzaW5nIHRoZSBtb2RlbS4gT25lIGNvdW50ZXIg
-Zm9yDQo+ID4+ID4gdHJhY2tpbmcgdGhlIHJlcXVlc3QgYW5kIHJlbGVhc2UgZm9yIGVhY2ggY2xp
-ZW50IHdoaWNoIGlzIGRvbmUgYnkNCj4gPj4gPiB2YXJpYWJsZSAnY250JyBpbg0KPiA+PiBzdHJ1
-Y3QgY2xpZW50cy4NCj4gPj4gPiBUaGUgY291bnRlciB1c2VfY250IGlzIHVzZWQgZm9yIHRyYWNr
-aW5nIHRoZSBtb2RlbSByZXF1ZXN0L3JlbGVhc2UNCj4gPj4gPiBpcnJlc3BlY3RpdmUgb2YgdGhl
-IGNsaWVudHMgYW5kIGNvdW50ZXIgY2xpX2NudCBpcyB1c2VkIGZvcg0KPiA+PiA+IHJlc3RyaWN0
-aW5nIHRoZSBtb2RlbV9nZXQgdG8gdGhlIG5vIG9mIGNsaWVudHMgZGVmaW5lZCBpbiBub19jbGll
-bnRzLg0KPiA+PiA+DQo+ID4+ID4gU28gdG90YWxseSAzIGNvdW50ZXIgb25lIGZvciByZXN0cmlj
-dGluZyB0aGUgdXNhZ2Ugb2YgbW9kZW1fZ2V0IGJ5DQo+ID4+ID4gY2xpZW50cywgc2Vjb25kIGZv
-ciByZXN0cmljdGluZyBtb2RlbSByZXF1ZXN0L3JlbGVhc2UgYXQgdG9wIGxldmVsLA0KPiA+PiA+
-IGFuZCAzcmQgZm9yIHJlc3RyaWN0aW5nIG1vZGVtIHJlbGVhc2UvcmVxdWVzdCBmb3IgcGVyIGNs
-aWVudCBwZXINCj4gPj4gPiBtb2RlbQ0KPiA+PiBiYXNpcy4NCj4gPj4gPg0KPiA+PiA+IENhbiB5
-b3UgbGV0IG1lIGtub3cgaWYgdGhlIHNhbWUgY2FuIGJlIGFjaGlldmVkIGJ5IHVzaW5nIGJ1aWx0
-LWluDQo+ID4+ID4gcmVmIGNvdW50aW5nPw0KPiA+Pg0KPiA+PiBZZXMsIGJlY2F1c2UgeW91IGRv
-bid0IG5lZWQgYWxsIG9mIHRob3NlIGRpZmZlcmVudCBsZXZlbHMsIGp1c3Qgc3RpY2sNCj4gPj4g
-d2l0aCBvbmUgYW5kIHlvdSBzaG91bGQgYmUgZmluZS4gOikNCj4gPj4NCj4gPg0KPiA+IE5vLCBj
-aGVja3MgYXQgYWxsIHRoZXNlIGxldmVscyBhcmUgcmVxdWlyZWQsIEkgaGF2ZSBicmllZmVkIG91
-dCB0aGUgbmVlZCBhbHNvLg0KPiA+IFRoaXMgd2lsbCBoYXZlIGVmZmVjdCBvbiBzeXN0ZW0gcG93
-ZXIgbWFuYWdlbWVudCwgaS5lIHN1c3BlbmQgYW5kIGRlZXANCj4gPiBzbGVlcC4NCj4gPiBXZSBy
-ZXN0cmljdCB0aGF0IHRoZSBkcml2ZXJzIHNob3VsZCByZXF1ZXN0IG1vZGVtIG9ubHkgb25jZSBh
-bmQNCj4gPiByZWxlYXNlIG9ubHkgb25jZSwgYnV0IHdlIGNhbm5vdCByZWx5IG9uIHRoZSBjbGll
-bnRzIGhlbmNlIGEgY2hlY2sgZm9yDQo+ID4gdGhlIHNhbWUgaGFzIHRvIGJlIGRvbmUgaW4gdGhl
-IE1BRi4gQWxzbyB0aGUgbm8gb2YgY2xpZW50cyBzaG91bGQgYmUNCj4gPiBkZWZpbmVkIGFuZCBo
-ZW5jZSBhIGNoZWNrIGZvciB0aGUgc2FtZSBpcyBkb25lIGluIE1BRi4gQXBhcnQgZnJvbSBhbGwN
-Cj4gPiB0aGVzZSB0aGUgcmVxdWVzdHMgY29taW5nIGZyb20gYWxsIHRoZSBjbGllbnRzIGlzIHRv
-IGJlIGFjY3VtdWxhdGVkDQo+ID4gYW5kIGJhc2VkIG9uIHRoYXQgbW9kZW0gcmVsZWFzZSBvciBh
-Y2Nlc3Mgc2hvdWxkIGJlIHBlcmZvcm1lZCwgaGVuY2UNCj4gc28uDQo+IEkgdGhpbmsgYmVzdCB3
-YXkgdG8gZGVhbCB3aXRoIHRoaXMgaXM6DQo+IERlZmluZSBhIG5ldyBidXMgdHlwZSBhbmQgaGF2
-ZSB5b3VyIGNsaWVudHMgY2FsbCB0aGUgYnVzIGV4cG9zZWQNCj4gZnVuY3Rpb25hbGl0eSB3aGVu
-IGV2ZXIgdGhleSBuZWVkIGEgc2VydmljZS5TbyBpbiB5b3VyIGNhc2UgaXQgd291bGQgYmUNCj4g
-cmVxdWVzdCBhbmQgcmVsZWFzZSBvbmx5IEFORCB3aGVuIGFsbCBvZiB5b3VyIGNsaWVudHMgaGF2
-ZSByZWxlYXNlZCB0aGUgYnVzDQo+IHRoZW4geW91IGNhbiBkbyB0aGUgY2xlYW51cCBpLmUuIHN3
-aXRjaCBvZmYgdGhlIG1vZGVtIGFuZCBvbiBhZGRlZA0KPiBhZHZhbnRhZ2Ugb2YgbWFraW5nIGl0
-IGEgYnVzX3R5cGUgd291bGQgYmUgdGhhdCB5b3UgY2FuIGRvIHRoZSByZWZlcmVuY2UNCj4gY291
-bnRpbmcgaW4geW91ciBidXMgZHJpdmVyLg0KPiANCj4gRGVzaWduaW5nIGlzIG5vdCBteSBmb3J0
-ZSBidXQgSSBmZWVsIHRoaXMgd2F5IHlvdSBjYW4gc29sdmUgdGhlIHByb2JsZW0gYXQNCj4gaGFu
-ZC4NCj4gUGxlYXNlIGZlZWwgZnJlZSB0byBjb3JyZWN0IG1lLkkgd291bGQgcmVhbGx5IGFwcHJl
-Y2lhdGUgaXQuDQoNCkF0IHRoZSB2ZXJ5IGZpcnN0IGxvb2sgaXRzZWxmIHRoaXMgTUFGIGlzIG5v
-dCBhIGJ1cyBieSBpdHMgdGVjaG5pY2FsIG1lYW5pbmcsIHNvDQp3aHkgdG8gdXNlIGJ1c190eXBl
-IGlzIHRoZSBwb2ludCB0aGF0IEkgaGF2ZS4NCg0KVGhhbmtzIGFuZCBSZWdhcmRzLA0KQXJ1biBS
-IE11cnRoeQ0KLS0tLS0tLS0tLS0tLS0tLS0tDQo=
+"Michael S. Tsirkin" <mst@redhat.com> writes:
+
+> Thinking about Sasha's patches, we can reduce ring usage
+> for virtio net small packets dramatically if we put
+> virtio net header inline with the data.
+> This can be done for free in case guest net stack allocated
+> extra head room for the packet, and I don't see
+> why would this have any downsides.
+
+I've been wanting to do this for the longest time... but...
+
+> Even though with my recent patches qemu
+> no longer requires header to be the first s/g element,
+> we need a new feature bit to detect this.
+> A trivial qemu patch will be sent separately.
+
+There's a reason I haven't done this.  I really, really dislike "my
+implemention isn't broken" feature bits.  We could have an infinite
+number of them, for each bug in each device.
+
+So my plan was to tie this assumption to the new PCI layout.  And have a
+stress-testing patch like the one below in the kernel (see my virtio-wip
+branch for stuff like this).  Turn it on at boot with
+"virtio_ring.torture" on the kernel commandline.
+
+BTW, I've fixed lguest, but my kvm here (Ubuntu precise, kvm-qemu 1.0)
+is too old.  Building the latest git now...
+
+Cheers,
+Rusty.
+
+Subject: virtio: CONFIG_VIRTIO_DEVICE_TORTURE
+
+Virtio devices are not supposed to depend on the framing of the scatter-gather
+lists, but various implementations did.  Safeguard this in future by adding
+an option to deliberately create perverse descriptors.
+
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+
+diff --git a/drivers/virtio/Kconfig b/drivers/virtio/Kconfig
+index 8d5bddb..930a4ea 100644
+--- a/drivers/virtio/Kconfig
++++ b/drivers/virtio/Kconfig
+@@ -5,6 +5,15 @@ config VIRTIO
+ 	  bus, such as CONFIG_VIRTIO_PCI, CONFIG_VIRTIO_MMIO, CONFIG_LGUEST,
+ 	  CONFIG_RPMSG or CONFIG_S390_GUEST.
+ 
++config VIRTIO_DEVICE_TORTURE
++	bool "Virtio device torture tests"
++	depends on VIRTIO && DEBUG_KERNEL
++	help
++	  This makes the virtio_ring implementation creatively change
++	  the format of requests to make sure that devices are
++	  properly implemented.  This will make your virtual machine
++	  slow *and* unreliable!  Say N.
++
+ menu "Virtio drivers"
+ 
+ config VIRTIO_PCI
+diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
+index e639584..8893753 100644
+--- a/drivers/virtio/virtio_ring.c
++++ b/drivers/virtio/virtio_ring.c
+@@ -124,6 +124,149 @@ struct vring_virtqueue
+ 
+ #define to_vvq(_vq) container_of(_vq, struct vring_virtqueue, vq)
+ 
++#ifdef CONFIG_VIRTIO_DEVICE_TORTURE
++static bool torture;
++module_param(torture, bool, 0644);
++
++struct torture {
++	unsigned int orig_out, orig_in;
++	void *orig_data;
++	struct scatterlist sg[4];
++	struct scatterlist orig_sg[];
++};
++
++static size_t tot_len(struct scatterlist sg[], unsigned num)
++{
++	size_t len, i;
++
++	for (len = 0, i = 0; i < num; i++)
++		len += sg[i].length;
++
++	return len;
++}
++
++static void copy_sg_data(const struct scatterlist *dst, unsigned dnum,
++			 const struct scatterlist *src, unsigned snum)
++{
++	unsigned len;
++	struct scatterlist s, d;
++
++	s = *src;
++	d = *dst;
++
++	while (snum && dnum) {
++		len = min(s.length, d.length);
++		memcpy(sg_virt(&d), sg_virt(&s), len);
++		d.offset += len;
++		d.length -= len;
++		s.offset += len;
++		s.length -= len;
++		if (!s.length) {
++			BUG_ON(snum == 0);
++			src++;
++			snum--;
++			s = *src;
++		}
++		if (!d.length) {
++			BUG_ON(dnum == 0);
++			dst++;
++			dnum--;
++			d = *dst;
++		}
++	}
++}
++
++static bool torture_replace(struct scatterlist **sg,
++			     unsigned int *out,
++			     unsigned int *in,
++			     void **data,
++			     gfp_t gfp)
++{
++	static size_t seed;
++	struct torture *t;
++	size_t outlen, inlen, ourseed, len1;
++	void *buf;
++
++	if (!torture)
++		return true;
++
++	outlen = tot_len(*sg, *out);
++	inlen = tot_len(*sg + *out, *in);
++
++	/* This will break horribly on large block requests. */
++	t = kmalloc(sizeof(*t) + (*out + *in) * sizeof(t->orig_sg[1])
++		    + outlen + 1 + inlen + 1, gfp);
++	if (!t)
++		return false;
++
++	sg_init_table(t->sg, 4);
++	buf = &t->orig_sg[*out + *in];
++
++	memcpy(t->orig_sg, *sg, sizeof(**sg) * (*out + *in));
++	t->orig_out = *out;
++	t->orig_in = *in;
++	t->orig_data = *data;
++	*data = t;
++
++	ourseed = ACCESS_ONCE(seed);
++	seed++;
++
++	*sg = t->sg;
++	if (outlen) {
++		/* Split outbuf into two parts, one byte apart. */
++		*out = 2;
++		len1 = ourseed % (outlen + 1);
++		sg_set_buf(&t->sg[0], buf, len1);
++		buf += len1 + 1;
++		sg_set_buf(&t->sg[1], buf, outlen - len1);
++		buf += outlen - len1;
++		copy_sg_data(t->sg, *out, t->orig_sg, t->orig_out);
++	}
++
++	if (inlen) {
++		/* Split inbuf into two parts, one byte apart. */
++		*in = 2;
++		len1 = ourseed % (inlen + 1);
++		sg_set_buf(&t->sg[*out], buf, len1);
++		buf += len1 + 1;
++		sg_set_buf(&t->sg[*out + 1], buf, inlen - len1);
++		buf += inlen - len1;
++	}
++	return true;
++}
++
++static void *torture_done(struct torture *t)
++{
++	void *data;
++
++	if (!torture)
++		return t;
++
++	if (t->orig_in)
++		copy_sg_data(t->orig_sg + t->orig_out, t->orig_in,
++			     t->sg + (t->orig_out ? 2 : 0), 2);
++
++	data = t->orig_data;
++	kfree(t);
++	return data;
++}
++
++#else
++static bool torture_replace(struct scatterlist **sg,
++			     unsigned int *out,
++			     unsigned int *in,
++			     void **data,
++			     gfp_t gfp)
++{
++	return true;
++}
++
++static void *torture_done(void *data)
++{
++	return data;
++}
++#endif /* CONFIG_VIRTIO_DEVICE_TORTURE */
++
+ /* Set up an indirect table of descriptors and add it to the queue. */
+ static int vring_add_indirect(struct vring_virtqueue *vq,
+ 			      struct scatterlist sg[],
+@@ -213,6 +356,9 @@ int virtqueue_add_buf(struct virtqueue *_vq,
+ 
+ 	BUG_ON(data == NULL);
+ 
++	if (!torture_replace(&sg, &out, &in, &data, gfp))
++		return -ENOMEM;
++
+ #ifdef DEBUG
+ 	{
+ 		ktime_t now = ktime_get();
+@@ -246,6 +392,7 @@ int virtqueue_add_buf(struct virtqueue *_vq,
+ 		if (out)
+ 			vq->notify(&vq->vq);
+ 		END_USE(vq);
++		torture_done(data);
+ 		return -ENOSPC;
+ 	}
+ 
+@@ -476,7 +623,7 @@ void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)
+ #endif
+ 
+ 	END_USE(vq);
+-	return ret;
++	return torture_done(ret);
+ }
+ EXPORT_SYMBOL_GPL(virtqueue_get_buf);
+ 
