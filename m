@@ -1,67 +1,142 @@
-From: Chris Clayton <chris2553@googlemail.com>
-Subject: Re: Possible networking regression in 3.6.0
-Date: Wed, 03 Oct 2012 16:01:02 +0100
-Message-ID: <506C532E.9070001@googlemail.com>
-References: <1349192133.12401.768.camel@edumazet-glaptop> <1349192919.12401.778.camel@edumazet-glaptop> <alpine.LFD.2.00.1210030032430.25856@ja.ssi.bg> <20121002.231037.581571797430134988.davem@davemloft.net>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
+Date: Wed, 3 Oct 2012 08:17:48 -0700
+Message-ID: <20121003151748.GA5745@kroah.com>
+References: <1348819504-1303-1-git-send-email-arun.murthy@stericsson.com>
+ <1348819504-1303-2-git-send-email-arun.murthy@stericsson.com>
+ <20120928160045.GD2625@kroah.com>
+ <F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
+ <20121001155940.GA1957@kroah.com>
+ <F45880696056844FA6A73F415B568C695B6962CC8C@EXDCVYMBSTM006.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	gpiez@web.de, davej@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:39672 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756274Ab2JCPBD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 11:01:03 -0400
-Received: by lbon3 with SMTP id n3so6282866lbo.19
-        for <netdev@vger.kernel.org>; Wed, 03 Oct 2012 08:01:01 -0700 (PDT)
-In-Reply-To: <20121002.231037.581571797430134988.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
+To: Arun MURTHY <arun.murthy@stericsson.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <F45880696056844FA6A73F415B568C695B6962CC8C@EXDCVYMBSTM006.EQ1STM.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Oct 03, 2012 at 05:54:08AM +0200, Arun MURTHY wrote:
+> > On Mon, Oct 01, 2012 at 07:30:38AM +0200, Arun MURTHY wrote:
+> > > > On Fri, Sep 28, 2012 at 01:35:01PM +0530, Arun Murthy wrote:
+> > > > > +#include <linux/module.h>
+> > > > > +#include <linux/slab.h>
+> > > > > +#include <linux/err.h>
+> > > > > +#include <linux/printk.h>
+> > > > > +#include <linux/modem_shm/modem.h>
+> > > > > +
+> > > > > +static struct class *modem_class;
+> > > >
+> > > > What's wrong with a bus_type instead?
+> > >
+> > > Can I know the advantage of using bus_type over class?
+> > 
+> > You have devices living on a bus, and it's much more descriptive than a class
+> > (which we are going to eventually get rid of one of these days...).
+> > 
+> > Might I ask why you choose a class over a bus_type?
+> 
+> Basically my requirement is to create a central entity for accessing and releasing
+> modem from APE.
 
+What is an "APE"?
 
-On 10/03/12 04:10, David Miller wrote:
-> From: Julian Anastasov <ja@ssi.bg>
-> Date: Wed, 3 Oct 2012 02:24:53 +0300 (EEST)
->
->> 	Can it be a problem related to fib_info reuse
->> from different routes. For example, when local IP address
->> is created for subnet we have:
->>
->> broadcast 192.168.0.255 dev DEV  proto kernel  scope link  src 192.168.0.1
->> 192.168.0.0/24 dev DEV  proto kernel  scope link  src 192.168.0.1
->> local 192.168.0.1 dev DEV  proto kernel  scope host  src 192.168.0.1
->>
->> 	The "dev DEV  proto kernel  scope link  src 192.168.0.1" is
->> a reused fib_info structure where we put cached routes.
->> The result can be same fib_info for 192.168.0.255 and
->> 192.168.0.0/24. RTN_BROADCAST is cached only for input
->> routes. Incoming broadcast to 192.168.0.255 can be cached
->> and can cause problems for traffic forwarded to 192.168.0.0/24.
->> So, this patch should solve the problem because it
->> separates the broadcast from unicast traffic.
->
-> Now I understand the problem.
->
-> I think the way to fix this is to add cfg->fc_type as another
-> thing that fib_info objects are key'd by.
->
-> I think it also would fix your obscure output multicast case too.
->
->
+And what do you mean by "accessing" and "releasing"?
 
-I've seen the discussion about whether Eric's patch is OK or not, but 
-thought I'd give it a spin anyway. It applies to 3.6.0 with some fuzz, 
-but I can confirm that with the patch applied I can now ping my router 
-and browse the internet from a KVM client, so the Eric's diagnosis 
-matches the problem I reported.
+> Since this is done by different clients the central entity should
+> be able to handle the request and play safely, since this has more affect in
+> system suspend and deep sleep. Using class helps me in achieving this
+> and also create an entry to user space which can be used in the later
+> parts. Moreover this not something like a bus or so, so I didn't use
+> bus instead went with a simple class approach.
 
-However, after closing the client, I got an oops. I've taken a 
-photograph of the screen and uploaded it to 
-http://i714.photobucket.com/albums/ww149/chris2553/IMAG0059.jpg. As it's 
-not the final patch, this may be a red herring, but I thought I'd better 
-give a heads up anyway.
+But as you have devices that are "binding" to this "controller", a bus
+might make more sense, right?
 
-Chris
+I don't see how a class helps out for you here more than anything else,
+what are you expecting from the class interface?  You aren't using the
+reference counting logic it provides, so why use it at all?
+
+Actually, why use the driver core at all in the first place if you
+aren't needing the devices to show up in sysfs (as you don't have a
+device, you are just a mediator)?
+
+> > > > > +int modem_release(struct modem_desc *mdesc) {
+> > > > > +	if (!mdesc->release)
+> > > > > +		return -EFAULT;
+> > > > > +
+> > > > > +	if (modem_is_requested(mdesc)) {
+> > > > > +		atomic_dec(&mdesc->mclients->cnt);
+> > > > > +		if (atomic_read(&mdesc->use_cnt) == 1) {
+> > > > > +			mdesc->release(mdesc);
+> > > > > +			atomic_dec(&mdesc->use_cnt);
+> > > > > +		}
+> > > >
+> > > > Eeek, why aren't you using the built-in reference counting that the
+> > > > struct device provided to you, and instead are rolling your own?
+> > > > This happens in many places, why?
+> > >
+> > > My usage of counters over here is for each modem there are many clients.
+> > > Each of the clients will have a ref to modem_desc. Each of them use
+> > > this for requesting and releasing the modem. One counter for tracking
+> > > the request and release for each client which is done by variable 'cnt' in
+> > struct clients.
+> > > The counter use_cnt is used for tracking the modem request/release
+> > > irrespective of the clients and counter cli_cnt is used for
+> > > restricting the modem_get to the no of clients defined in no_clients.
+> > >
+> > > So totally 3 counter one for restricting the usage of modem_get by
+> > > clients, second for restricting modem request/release at top level,
+> > > and 3rd for restricting modem release/request for per client per modem
+> > basis.
+> > >
+> > > Can you let me know if the same can be achieved by using built-in ref
+> > > counting?
+> > 
+> > Yes, because you don't need all of those different levels, just stick with one
+> > and you should be fine. :)
+> > 
+> 
+> No, checks at all these levels are required, I have briefed out the need also.
+
+I still don't understand, sorry.
+
+> This will have effect on system power management, i.e suspend and deep
+> sleep.
+
+How does power management matter?  If you tie into the driver model
+properly, power management comes "for free" so you don't have to do
+anything special about it.  Why not use that logic instead of trying to
+roll your own?
+
+> We restrict that the drivers should request modem only once and release
+> only once, but we cannot rely on the clients hence a check for the same has
+> to be done in the MAF.
+
+You can't rely on the clients to do what?  And why can't you rely on
+them?  What is going to happen?  Who is a "client" here?  Other kernel
+code?
+
+I really don't understand your model at all as to what you are trying to
+mediate and manage here, sorry.  I suggest writing it all up as your
+first patch (documentation is good), so that we can properly review your
+implementation and not argue about how to implement something that I
+honestly don't understand.
+
+> Also the no of clients should be defined and hence a
+> check for the same is done in MAF.
+
+Defined where?  What is "MAF"?
+
+> Apart from all these the requests coming from all the clients is to be
+> accumulated and based on that modem release or access should be
+> performed, hence so.
+
+That sentance makes no sense to me, it must be too early for me here...
+
+greg k-h
