@@ -1,47 +1,140 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] udp: increment UDP_MIB_NOPORTS in mcast receive
-Date: Wed, 03 Oct 2012 10:39:53 -0700
-Message-ID: <506C7869.8030308@hp.com>
-References: <506955F3.8050304@googlemail.com>	 <1349082950.12401.669.camel@edumazet-glaptop> <20121001193434.GA14236@redhat.com>	 <20121001.160115.1816241312626722150.davem@davemloft.net> <1349121884.12401.721.camel@edumazet-glaptop>	 <1349192133.12401.768.camel@edumazet-glaptop> <1349192919.12401.778.camel@edumazet-glaptop>	 <alpine.LFD.2.00.1210030032430.25856@ja.ssi.bg> <1349249328.12401.1364.camel@edumazet-glaptop>	 <OFA39D9FC0.CDC6EE41-ON85257A8C.00458030-85257A8C.00461EF4@us.ibm.com> <1349270151.12401.2372.camel@edumazet-glaptop> <OF8CC7A8E7.DA3B059E-ON85257A8C.004C258C-85257A8C.004DCE49@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, chris2553@googlemail.com,
-	Dave Jones <davej@redhat.com>,
-	David Miller <davem@davemloft.net>, gpiez@web.de,
-	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: [PATCH 5/5] ixgbe: add driver set_max_vfs support
+Date: Wed,  3 Oct 2012 10:51:35 -0700
+Message-ID: <1349286695-26713-6-git-send-email-yinghai@kernel.org>
+References: <506C3B11.9010009@redhat.com>
+ <1349286695-26713-1-git-send-email-yinghai@kernel.org>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Don Dutile <ddutile@redhat.com>, yuvalmin@broadcom.com,
+	bhutchings@solarflare.com, gregory.v.rose@intel.com,
+	davem@davemloft.net--no-chain-reply-to,
+	Yinghai Lu <yinghai@kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:37858 "EHLO
-	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753879Ab2JCRj5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 13:39:57 -0400
-In-Reply-To: <OF8CC7A8E7.DA3B059E-ON85257A8C.004C258C-85257A8C.004DCE49@us.ibm.com>
+Received: from acsinet15.oracle.com ([141.146.126.227]:34534 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965462Ab2JCRwY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 13:52:24 -0400
+In-Reply-To: <1349286695-26713-1-git-send-email-yinghai@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/03/2012 07:09 AM, David Stevens wrote:
-> Of course. I think our difference is on the definition of
-> "receives". I don't think a packet delivered locally due to
-> promiscuous mode, broadcast or an imperfect multicast address filter
-> match is a host UDP datagram receive. These packets really shouldn't
-> be delivered to UDP at all; they are not addressed to this host (at
-> least the non-broadcast, no-membership ones). A unicast UDP packet
-> that doesn't match a local IP address does not increment this
-> counter. A promiscuous mode multicast delivery is no different,
-> except that the destination alone doesn't tell us if it is for us.
->
-> I think counting these will primarily lead to administrators seeing
-> non-zero drops and wasting their time trying to track them down.
+Need ixgbe guys to close the loop to use set_max_vfs instead
+kernel parameters.
 
-I would tend to agree with David on this one. Or they might cease trying 
-to track them down because they've gotten so many "false positives."
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: John Fastabend <john.r.fastabend@intel.com>
+Cc: e1000-devel@lists.sourceforge.net
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   44 +++++++++++++++++++-----
+ 2 files changed, 37 insertions(+), 9 deletions(-)
 
-Isn't "meant for me" vs "not meant for me" at the heard of "drops" 
-versus "discards?"
-
-Once the packet is in the host, is it tagged in some way with "this was 
-received as promiscuous/whatnot?"
-
-rick
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index b9623e9..d39d975 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -558,6 +558,8 @@ struct ixgbe_adapter {
+ 	u32 interrupt_event;
+ 	u32 led_reg;
+ 
++	struct ixgbe_info *ixgbe_info;
++
+ #ifdef CONFIG_IXGBE_PTP
+ 	struct ptp_clock *ptp_clock;
+ 	struct ptp_clock_info ptp_caps;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index ee61819..1c097c7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -129,13 +129,6 @@ static struct notifier_block dca_notifier = {
+ };
+ #endif
+ 
+-#ifdef CONFIG_PCI_IOV
+-static unsigned int max_vfs;
+-module_param(max_vfs, uint, 0);
+-MODULE_PARM_DESC(max_vfs,
+-		 "Maximum number of virtual functions to allocate per physical function - default is zero and maximum value is 63");
+-#endif /* CONFIG_PCI_IOV */
+-
+ static unsigned int allow_unsupported_sfp;
+ module_param(allow_unsupported_sfp, uint, 0);
+ MODULE_PARM_DESC(allow_unsupported_sfp,
+@@ -4496,7 +4489,7 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ #ifdef CONFIG_PCI_IOV
+ 	/* assign number of SR-IOV VFs */
+ 	if (hw->mac.type != ixgbe_mac_82598EB)
+-		adapter->num_vfs = (max_vfs > 63) ? 0 : max_vfs;
++		adapter->num_vfs = min_t(int, pdev->max_vfs, 63);
+ 
+ #endif
+ 	/* enable itr by default in dynamic mode */
+@@ -7220,8 +7213,9 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 
+ #ifdef CONFIG_PCI_IOV
+ 	ixgbe_enable_sriov(adapter, ii);
+-
+ #endif
++	adapter->ixgbe_info = ii;
++
+ 	netdev->features = NETIF_F_SG |
+ 			   NETIF_F_IP_CSUM |
+ 			   NETIF_F_IPV6_CSUM |
+@@ -7683,11 +7677,43 @@ static const struct pci_error_handlers ixgbe_err_handler = {
+ 	.resume = ixgbe_io_resume,
+ };
+ 
++static void ixgbe_set_max_vfs(struct pci_dev *pdev)
++{
++#ifdef CONFIG_PCI_IOV
++	struct ixgbe_adapter *adapter = pci_get_drvdata(pdev);
++	struct ixgbe_hw *hw = &adapter->hw;
++	int num_vfs = 0;
++
++	/* assign number of SR-IOV VFs */
++	if (hw->mac.type != ixgbe_mac_82598EB)
++		num_vfs = min_t(int, pdev->max_vfs, 63);
++
++	/* no change */
++	if (adapter->num_vfs == num_vfs)
++		return;
++
++	if (!num_vfs) {
++		/* disable sriov */
++		ixgbe_disable_sriov(adapter);
++		adapter->num_vfs = 0;
++	} else if (!adapter->num_vfs && num_vfs) {
++		/* enable sriov */
++		adapter->num_vfs = num_vfs;
++		ixgbe_enable_sriov(adapter, adapter->ixgbe_info);
++	} else {
++		/* increase or decrease */
++	}
++
++	pdev->max_vfs = adapter->num_vfs;
++#endif
++}
++
+ static struct pci_driver ixgbe_driver = {
+ 	.name     = ixgbe_driver_name,
+ 	.id_table = ixgbe_pci_tbl,
+ 	.probe    = ixgbe_probe,
+ 	.remove   = __devexit_p(ixgbe_remove),
++	.set_max_vfs = ixgbe_set_max_vfs,
+ #ifdef CONFIG_PM
+ 	.suspend  = ixgbe_suspend,
+ 	.resume   = ixgbe_resume,
+-- 
+1.7.7
