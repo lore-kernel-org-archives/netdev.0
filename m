@@ -1,65 +1,95 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: [PATCH 4/5] ucc_geth: Increase RX ring buffer from 32 to 64
-Date: Wed, 3 Oct 2012 22:13:36 +0200
-Message-ID: <OFA3DBC011.F1E51FFB-ONC1257A8C.006E2EE6-C1257A8C.006F1C0A@transmode.se>
-References: <1347987385-19071-1-git-send-email-Joakim.Tjernlund@transmode.se>	<1347987385-19071-4-git-send-email-Joakim.Tjernlund@transmode.se>
-	<OF4BE93D25.4AE817F3-ONC1257A8C.004909F7-C1257A8C.00490EAC@transmode.se> <20121003.153855.325707079634367524.davem@davemloft.net>
+From: Grant Grundler <grantgrundler@gmail.com>
+Subject: Re: [PATCH 1/20] drivers/net/ethernet/dec/tulip/dmfe.c: fix error
+ return code
+Date: Wed, 3 Oct 2012 13:16:45 -0700
+Message-ID: <CAP6odjgz_pspe-P-cp08XhV-7=Ubvsg6=wQXMODRJZWgK15ksw@mail.gmail.com>
+References: <1349281090-10013-1-git-send-email-peter.senna@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([195.58.98.146]:52849 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753098Ab2JCUNk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Oct 2012 16:13:40 -0400
-In-Reply-To: <20121003.153855.325707079634367524.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Peter Senna Tschudin <peter.senna@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349281090-10013-1-git-send-email-peter.senna@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote on 2012/10/03 21:38:55:
+On Wed, Oct 3, 2012 at 9:17 AM, Peter Senna Tschudin
+<peter.senna@gmail.com> wrote:
+> From: Peter Senna Tschudin <peter.senna@gmail.com>
 >
-> From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-> Date: Wed, 3 Oct 2012 15:17:58 +0200
+> Convert a nonnegative error return code to a negative one, as returned
+> elsewhere in the function.
 >
-> > Ping? Got no comments and I can see it in net or net-next trees either.
+> A simplified version of the semantic match that finds this problem is as
+> follows: (http://coccinelle.lip6.fr/)
 >
-> No patch will be applied to the tree when one of the indiviual patches
-> get feedback and request changes from you.
+> // <smpl>
+> (
+> if@p1 (\(ret < 0\|ret != 0\))
+>  { ... return ret; }
+> |
+> ret@p1 = 0
+> )
+> ... when != ret = e1
+>     when != &ret
+> *if(...)
+> {
+>   ... when != ret = e2
+>       when forall
+>  return ret;
+> }
+> // </smpl>
 >
-> When an individual patch must be redone, you must resend the entire
-> series not just the individual patch which changed.
+> Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
 
-oh, I see what I did wrong. I sent them as series which may have internal dependencies.
-However, each patch can be applied on its own.
+Thanks! Looks good to me.
 
->
-> You also never need to ask the kind of question you are asking here,
-> you simply need to look into patch work to see what the state of
-> your patches is:
->
-> I maintain this state exactly so people don't need to waste precious
-> developer time asking "what is the state of my patch" like you are
-> making me do right here.
->
-> See:
->
-> http://patchwork.ozlabs.org/project/netdev/list/?state=*&q=ucc_geth
+Acked-by: Grant Grundler <grundler@parisc-linux.org>
 
-Ahh, better bookmark this page for future use.
-
->
-> And as you can see this entire series is marked as either "RFC"
-> or "Changes Requested"
-
-Yes, I see that now.
-I guess I should resend each patch separately then?
-(Possibly wait until I have figured out the lockless TX stuff)
+cheers,
+grant
 
 >
-> Even worse, you did this for not one but several of the patches you
-> posted.
-
-Sorry about that.
-
- Jocke
+> ---
+>  drivers/net/ethernet/dec/tulip/dmfe.c |   12 +++++++++---
+>  1 file changed, 9 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/dec/tulip/dmfe.c b/drivers/net/ethernet/dec/tulip/dmfe.c
+> index 4d6fe60..d23755e 100644
+> --- a/drivers/net/ethernet/dec/tulip/dmfe.c
+> +++ b/drivers/net/ethernet/dec/tulip/dmfe.c
+> @@ -446,13 +446,17 @@ static int __devinit dmfe_init_one (struct pci_dev *pdev,
+>         /* Allocate Tx/Rx descriptor memory */
+>         db->desc_pool_ptr = pci_alloc_consistent(pdev, sizeof(struct tx_desc) *
+>                         DESC_ALL_CNT + 0x20, &db->desc_pool_dma_ptr);
+> -       if (!db->desc_pool_ptr)
+> +       if (!db->desc_pool_ptr) {
+> +               err = -ENOMEM;
+>                 goto err_out_res;
+> +       }
+>
+>         db->buf_pool_ptr = pci_alloc_consistent(pdev, TX_BUF_ALLOC *
+>                         TX_DESC_CNT + 4, &db->buf_pool_dma_ptr);
+> -       if (!db->buf_pool_ptr)
+> +       if (!db->buf_pool_ptr) {
+> +               err = -ENOMEM;
+>                 goto err_out_free_desc;
+> +       }
+>
+>         db->first_tx_desc = (struct tx_desc *) db->desc_pool_ptr;
+>         db->first_tx_desc_dma = db->desc_pool_dma_ptr;
+> @@ -462,8 +466,10 @@ static int __devinit dmfe_init_one (struct pci_dev *pdev,
+>         db->chip_id = ent->driver_data;
+>         /* IO type range. */
+>         db->ioaddr = pci_iomap(pdev, 0, 0);
+> -       if (!db->ioaddr)
+> +       if (!db->ioaddr) {
+> +               err = -ENOMEM;
+>                 goto err_out_free_buf;
+> +       }
+>
+>         db->chip_revision = pdev->revision;
+>         db->wol_mode = 0;
+>
