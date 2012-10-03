@@ -1,187 +1,141 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] udp: increment UDP_MIB_NOPORTS in mcast receive
-Date: Wed, 03 Oct 2012 17:29:13 +0200
-Message-ID: <1349278153.12401.2811.camel@edumazet-glaptop>
-References: <506955F3.8050304@googlemail.com>
-	 <1349082950.12401.669.camel@edumazet-glaptop>
-	 <20121001193434.GA14236@redhat.com>
-	 <20121001.160115.1816241312626722150.davem@davemloft.net>
-	 <1349121884.12401.721.camel@edumazet-glaptop>
-	 <1349192133.12401.768.camel@edumazet-glaptop>
-	 <1349192919.12401.778.camel@edumazet-glaptop>
-	 <alpine.LFD.2.00.1210030032430.25856@ja.ssi.bg>
-	 <1349249328.12401.1364.camel@edumazet-glaptop>
-	 <OFA39D9FC0.CDC6EE41-ON85257A8C.00458030-85257A8C.00461EF4@us.ibm.com>
-	 <1349270151.12401.2372.camel@edumazet-glaptop>
-	 <OF8CC7A8E7.DA3B059E-ON85257A8C.004C258C-85257A8C.004DCE49@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: chris2553@googlemail.com, Dave Jones <davej@redhat.com>,
-	David Miller <davem@davemloft.net>, gpiez@web.de,
-	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH 2/2] sctp: check src addr when processing SACK to update transport state
+Date: Wed,  3 Oct 2012 17:43:22 +0200
+Message-ID: <1349279002-4008-2-git-send-email-nicolas.dichtel@6wind.com>
+References: <1349279002-4008-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: linux-sctp@vger.kernel.org, vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:35427 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964792Ab2JCP3T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 11:29:19 -0400
-In-Reply-To: <OF8CC7A8E7.DA3B059E-ON85257A8C.004C258C-85257A8C.004DCE49@us.ibm.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:40497 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964811Ab2JCPjJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 11:39:09 -0400
+In-Reply-To: <1349279002-4008-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-10-03 at 10:09 -0400, David Stevens wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> wrote on 10/03/2012 09:15:51 AM:
->  
-> > So when a host receives an UDP datagram but there was no application
-> > at the destination port we should increment udpNoPorts, and its not
-> > an error but just a fact.
-> 
->         Of course. I think our difference is on the definition of 
-> "receives".
+Suppose we have an SCTP connection with two paths. After connection is
+established, path1 is not available, thus this path is marked as inactive. Then
+traffic goes through path2, but for some reasons packets are delayed (after
+rto.max). Because packets are delayed, the retransmit mechanism will switch
+again to path1. At this time, we receive a delayed SACK from path2. When we
+update the state of the path in sctp_check_transmitted(), we do not take into
+account the source address of the SACK, hence we update the wrong path.
 
-A receive is a packet delivered to this host.
-Interface being promiscuous or not doesnt really matter.
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/net/sctp/structs.h |  2 +-
+ net/sctp/outqueue.c        | 15 ++++++++++-----
+ net/sctp/sm_sideeffect.c   |  4 ++--
+ net/sctp/sm_statefuns.c    |  2 +-
+ 4 files changed, 14 insertions(+), 9 deletions(-)
 
-> I don't think a packet delivered locally due to promiscuous mode, 
-> broadcast
-> or an imperfect multicast address filter match is a host UDP datagram 
-> receive.
-> These packets really shouldn't be delivered to UDP at all; they are not
-> addressed to this host (at least the non-broadcast, no-membership ones).
-
-Thats the bug we currently are tracking. If some error is happening and
-packet is delivered instead of being forwarded or dropped, we need a
-counter being incremented to catch the bug.
-
->         A unicast UDP packet that doesn't match a local IP address does 
-> not
-> increment this counter. 
-
-It _does_ increment this counter right now, not sure what you mean.
-
-We currently correctly increment udpNoPorts if we receive an unicast UDP
-packet that doesnt find a matching socket (because socket(s) are bound
-to specific addresses instead of ANY_ADDR)
-
-This is an extension of the "there was no application at the destination
-port" to "there was no application at the destination port and
-destination address"
-
-> A promiscuous mode multicast delivery is no 
-> different,
-> except that the destination alone doesn't tell us if it is for us.
-> 
->         I think counting these will primarily lead to administrators 
-> seeing
-> non-zero drops and wasting their time trying to track them down.
-
-Well, as I said, seeing increments of this counter is perfectly fine and
-matches RFC. It permits better diagnostics. Hiding bugs is not very
-helpful.
-
-Most of the time I am trying to track a bug in linux network stack, the
-very first thing I ask to reporters is to post "netstat -s" before/after
-their tests exactly because I want to see _some_ counters be incremented
-and catch obvious problems.
-
-And alas, many drops in our stack are not correctly reported because we
-forgot to increment a counter at the right place.
-
-I am fine adding a new SNMP McastDrops counter if you feel its better.
-
-# grep Udp: /proc/net/snmp
-Udp: InDatagrams NoPorts InErrors OutDatagrams RcvbufErrors SndbufErrors McastDrops
-Udp: 11449164 15473 514616 290821178 0 184352 134
-
-"netstat -s -u" would display :
-
-Udp:
-    11449164 packets received
-    15473 packets to unknown port received.
-    514616 packet receive errors
-    290821178 packets sent
-    SndbufErrors: 184352
-    McastDrops: 134
-
-
-Non official patch since net-next is not open :
-
- include/linux/snmp.h |    1 +
- net/ipv4/proc.c      |    1 +
- net/ipv4/udp.c       |    2 ++
- net/ipv6/proc.c      |    2 ++
- net/ipv6/udp.c       |    2 ++
- 5 files changed, 8 insertions(+)
-
-diff --git a/include/linux/snmp.h b/include/linux/snmp.h
-index 00bc189..321d643 100644
---- a/include/linux/snmp.h
-+++ b/include/linux/snmp.h
-@@ -145,6 +145,7 @@ enum
- 	UDP_MIB_OUTDATAGRAMS,			/* OutDatagrams */
- 	UDP_MIB_RCVBUFERRORS,			/* RcvbufErrors */
- 	UDP_MIB_SNDBUFERRORS,			/* SndbufErrors */
-+	UDP_MIB_MCASTDROPS,			/* McastDrops (linux extension) */
- 	__UDP_MIB_MAX
- };
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 0fef00f..64158aa 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -1068,7 +1068,7 @@ void sctp_outq_init(struct sctp_association *, struct sctp_outq *);
+ void sctp_outq_teardown(struct sctp_outq *);
+ void sctp_outq_free(struct sctp_outq*);
+ int sctp_outq_tail(struct sctp_outq *, struct sctp_chunk *chunk);
+-int sctp_outq_sack(struct sctp_outq *, struct sctp_sackhdr *);
++int sctp_outq_sack(struct sctp_outq *, struct sctp_chunk *);
+ int sctp_outq_is_empty(const struct sctp_outq *);
+ void sctp_outq_restart(struct sctp_outq *);
  
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 957acd1..1e932ee 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -172,6 +172,7 @@ static const struct snmp_mib snmp4_udp_list[] = {
- 	SNMP_MIB_ITEM("OutDatagrams", UDP_MIB_OUTDATAGRAMS),
- 	SNMP_MIB_ITEM("RcvbufErrors", UDP_MIB_RCVBUFERRORS),
- 	SNMP_MIB_ITEM("SndbufErrors", UDP_MIB_SNDBUFERRORS),
-+	SNMP_MIB_ITEM("McastDrops", UDP_MIB_MCASTDROPS),
- 	SNMP_MIB_SENTINEL
- };
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index d16632e..1b4a7f8 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -63,6 +63,7 @@ static int sctp_acked(struct sctp_sackhdr *sack, __u32 tsn);
+ static void sctp_check_transmitted(struct sctp_outq *q,
+ 				   struct list_head *transmitted_queue,
+ 				   struct sctp_transport *transport,
++				   union sctp_addr *saddr,
+ 				   struct sctp_sackhdr *sack,
+ 				   __u32 *highest_new_tsn);
  
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 2814f66..4e2a4f7 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1591,6 +1591,8 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 			sock_put(stack[i]);
- 	} else {
- 		kfree_skb(skb);
-+		UDP_INC_STATS_BH(net, UDP_MIB_MCASTDROPS,
-+				 udptable != &udp_table);
- 	}
- 	return 0;
- }
-diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
-index 745a320..f2c12ea 100644
---- a/net/ipv6/proc.c
-+++ b/net/ipv6/proc.c
-@@ -129,6 +129,7 @@ static const struct snmp_mib snmp6_udp6_list[] = {
- 	SNMP_MIB_ITEM("Udp6OutDatagrams", UDP_MIB_OUTDATAGRAMS),
- 	SNMP_MIB_ITEM("Udp6RcvbufErrors", UDP_MIB_RCVBUFERRORS),
- 	SNMP_MIB_ITEM("Udp6SndbufErrors", UDP_MIB_SNDBUFERRORS),
-+	SNMP_MIB_ITEM("Udp6McastDrops", UDP_MIB_MCASTDROPS),
- 	SNMP_MIB_SENTINEL
- };
+@@ -1139,9 +1140,10 @@ static void sctp_sack_update_unack_data(struct sctp_association *assoc,
+  * Process the SACK against the outqueue.  Mostly, this just frees
+  * things off the transmitted queue.
+  */
+-int sctp_outq_sack(struct sctp_outq *q, struct sctp_sackhdr *sack)
++int sctp_outq_sack(struct sctp_outq *q, struct sctp_chunk *chunk)
+ {
+ 	struct sctp_association *asoc = q->asoc;
++	struct sctp_sackhdr *sack = chunk->subh.sack_hdr;
+ 	struct sctp_transport *transport;
+ 	struct sctp_chunk *tchunk = NULL;
+ 	struct list_head *lchunk, *transport_list, *temp;
+@@ -1210,7 +1212,7 @@ int sctp_outq_sack(struct sctp_outq *q, struct sctp_sackhdr *sack)
+ 	/* Run through the retransmit queue.  Credit bytes received
+ 	 * and free those chunks that we can.
+ 	 */
+-	sctp_check_transmitted(q, &q->retransmit, NULL, sack, &highest_new_tsn);
++	sctp_check_transmitted(q, &q->retransmit, NULL, NULL, sack, &highest_new_tsn);
  
-@@ -139,6 +140,7 @@ static const struct snmp_mib snmp6_udplite6_list[] = {
- 	SNMP_MIB_ITEM("UdpLite6OutDatagrams", UDP_MIB_OUTDATAGRAMS),
- 	SNMP_MIB_ITEM("UdpLite6RcvbufErrors", UDP_MIB_RCVBUFERRORS),
- 	SNMP_MIB_ITEM("UdpLite6SndbufErrors", UDP_MIB_SNDBUFERRORS),
-+	SNMP_MIB_ITEM("UdpLite6McastDrops", UDP_MIB_MCASTDROPS);
- 	SNMP_MIB_SENTINEL
- };
+ 	/* Run through the transmitted queue.
+ 	 * Credit bytes received and free those chunks which we can.
+@@ -1219,7 +1221,8 @@ int sctp_outq_sack(struct sctp_outq *q, struct sctp_sackhdr *sack)
+ 	 */
+ 	list_for_each_entry(transport, transport_list, transports) {
+ 		sctp_check_transmitted(q, &transport->transmitted,
+-				       transport, sack, &highest_new_tsn);
++				       transport, &chunk->source, sack,
++				       &highest_new_tsn);
+ 		/*
+ 		 * SFR-CACC algorithm:
+ 		 * C) Let count_of_newacks be the number of
+@@ -1326,6 +1329,7 @@ int sctp_outq_is_empty(const struct sctp_outq *q)
+ static void sctp_check_transmitted(struct sctp_outq *q,
+ 				   struct list_head *transmitted_queue,
+ 				   struct sctp_transport *transport,
++				   union sctp_addr *saddr,
+ 				   struct sctp_sackhdr *sack,
+ 				   __u32 *highest_new_tsn_in_sack)
+ {
+@@ -1633,8 +1637,9 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+ 			/* Mark the destination transport address as
+ 			 * active if it is not so marked.
+ 			 */
+-			if ((transport->state == SCTP_INACTIVE) ||
+-			    (transport->state == SCTP_UNCONFIRMED)) {
++			if ((transport->state == SCTP_INACTIVE ||
++			     transport->state == SCTP_UNCONFIRMED) &&
++			    sctp_cmp_addr_exact(&transport->ipaddr, saddr)) {
+ 				sctp_assoc_control_transport(
+ 					transport->asoc,
+ 					transport,
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index bcfebb9..57f7de8 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -752,11 +752,11 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
+ /* Helper function to process the process SACK command.  */
+ static int sctp_cmd_process_sack(sctp_cmd_seq_t *cmds,
+ 				 struct sctp_association *asoc,
+-				 struct sctp_sackhdr *sackh)
++				 struct sctp_chunk *chunk)
+ {
+ 	int err = 0;
  
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 07e2bfe..c8caf1b 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -748,6 +748,8 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 			sock_put(stack[i]);
- 	} else {
- 		kfree_skb(skb);
-+		UDP6_INC_STATS_BH(net, UDP_MIB_MCASTDROPS,
-+				  udptable != &udp_table);
- 	}
- 	return 0;
- }
+-	if (sctp_outq_sack(&asoc->outqueue, sackh)) {
++	if (sctp_outq_sack(&asoc->outqueue, chunk)) {
+ 		struct net *net = sock_net(asoc->base.sk);
+ 
+ 		/* There are no more TSNs awaiting SACK.  */
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 094813b..b6adef8 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -3179,7 +3179,7 @@ sctp_disposition_t sctp_sf_eat_sack_6_2(struct net *net,
+ 		return sctp_sf_violation_ctsn(net, ep, asoc, type, arg, commands);
+ 
+ 	/* Return this SACK for further processing.  */
+-	sctp_add_cmd_sf(commands, SCTP_CMD_PROCESS_SACK, SCTP_SACKH(sackh));
++	sctp_add_cmd_sf(commands, SCTP_CMD_PROCESS_SACK, SCTP_CHUNK(chunk));
+ 
+ 	/* Note: We do the rest of the work on the PROCESS_SACK
+ 	 * sideeffect.
+-- 
+1.7.12
