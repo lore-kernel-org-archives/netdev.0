@@ -1,162 +1,54 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH] cxgb4: Dynamically allocate memory in t4_memory_rw() and get_vpd_params()
-Date: Wed,  3 Oct 2012 18:52:32 +0530
-Message-ID: <1349270552-6678-1-git-send-email-vipul@chelsio.com>
-Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
-	leedom@chelsio.com, felix@chelsio.com,
-	Vipul Pandya <vipul@chelsio.com>,
-	Jay Hernandez <jay@chelsio.com>
-To: netdev@vger.kernel.org
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] udp: increment UDP_MIB_NOPORTS in mcast receive
+Date: Wed, 3 Oct 2012 10:09:51 -0400
+Message-ID: <OF8CC7A8E7.DA3B059E-ON85257A8C.004C258C-85257A8C.004DCE49@us.ibm.com>
+References: <506955F3.8050304@googlemail.com>	 <1349082950.12401.669.camel@edumazet-glaptop>
+	 <20121001193434.GA14236@redhat.com>	 <20121001.160115.1816241312626722150.davem@davemloft.net>
+	 <1349121884.12401.721.camel@edumazet-glaptop>	 <1349192133.12401.768.camel@edumazet-glaptop>
+	 <1349192919.12401.778.camel@edumazet-glaptop>	 <alpine.LFD.2.00.1210030032430.25856@ja.ssi.bg>
+	 <1349249328.12401.1364.camel@edumazet-glaptop>	 <OFA39D9FC0.CDC6EE41-ON85257A8C.00458030-85257A8C.00461EF4@us.ibm.com> <1349270151.12401.2372.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Cc: chris2553@googlemail.com, Dave Jones <davej@redhat.com>,
+	David Miller <davem@davemloft.net>, gpiez@web.de,
+	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:4409 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932221Ab2JCNZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 09:25:57 -0400
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:59605 "EHLO e8.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751068Ab2JCOZh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Oct 2012 10:25:37 -0400
+Received: from /spool/local
+	by e8.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Wed, 3 Oct 2012 10:25:33 -0400
+In-Reply-To: <1349270151.12401.2372.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes memory allocation to reduce stack footprint
+Eric Dumazet <eric.dumazet@gmail.com> wrote on 10/03/2012 09:15:51 AM:
+ 
+> So when a host receives an UDP datagram but there was no application
+> at the destination port we should increment udpNoPorts, and its not
+> an error but just a fact.
 
-Signed-off-by: Jay Hernandez <jay@chelsio.com>
-Signed-off-by: Vipul Pandya <vipul@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |   43 +++++++++++++++++++--------
- 1 files changed, 30 insertions(+), 13 deletions(-)
+        Of course. I think our difference is on the definition of 
+"receives".
+I don't think a packet delivered locally due to promiscuous mode, 
+broadcast
+or an imperfect multicast address filter match is a host UDP datagram 
+receive.
+These packets really shouldn't be delivered to UDP at all; they are not
+addressed to this host (at least the non-broadcast, no-membership ones).
+        A unicast UDP packet that doesn't match a local IP address does 
+not
+increment this counter. A promiscuous mode multicast delivery is no 
+different,
+except that the destination alone doesn't tell us if it is for us.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 35b81d8..137a244 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -408,7 +408,8 @@ static int t4_memory_rw(struct adapter *adap, int mtype, u32 addr, u32 len,
- 			__be32 *buf, int dir)
- {
- 	u32 pos, start, end, offset, memoffset;
--	int ret;
-+	int ret = 0;
-+	__be32 *data;
- 
- 	/*
- 	 * Argument sanity checks ...
-@@ -416,6 +417,10 @@ static int t4_memory_rw(struct adapter *adap, int mtype, u32 addr, u32 len,
- 	if ((addr & 0x3) || (len & 0x3))
- 		return -EINVAL;
- 
-+	data = vmalloc(MEMWIN0_APERTURE/sizeof(__be32));
-+	if (!data)
-+		return -ENOMEM;
-+
- 	/*
- 	 * Offset into the region of memory which is being accessed
- 	 * MEM_EDC0 = 0
-@@ -438,7 +443,6 @@ static int t4_memory_rw(struct adapter *adap, int mtype, u32 addr, u32 len,
- 	offset = (addr - start)/sizeof(__be32);
- 
- 	for (pos = start; pos < end; pos += MEMWIN0_APERTURE, offset = 0) {
--		__be32 data[MEMWIN0_APERTURE/sizeof(__be32)];
- 
- 		/*
- 		 * If we're writing, copy the data from the caller's memory
-@@ -452,7 +456,7 @@ static int t4_memory_rw(struct adapter *adap, int mtype, u32 addr, u32 len,
- 			if (offset || len < MEMWIN0_APERTURE) {
- 				ret = t4_mem_win_rw(adap, pos, data, 1);
- 				if (ret)
--					return ret;
-+					break;
- 			}
- 			while (offset < (MEMWIN0_APERTURE/sizeof(__be32)) &&
- 			       len > 0) {
-@@ -466,7 +470,7 @@ static int t4_memory_rw(struct adapter *adap, int mtype, u32 addr, u32 len,
- 		 */
- 		ret = t4_mem_win_rw(adap, pos, data, dir);
- 		if (ret)
--			return ret;
-+			break;
- 
- 		/*
- 		 * If we're reading, copy the data into the caller's memory
-@@ -480,7 +484,8 @@ static int t4_memory_rw(struct adapter *adap, int mtype, u32 addr, u32 len,
- 			}
- 	}
- 
--	return 0;
-+	vfree(data);
-+	return ret;
- }
- 
- int t4_memory_write(struct adapter *adap, int mtype, u32 addr, u32 len,
-@@ -519,16 +524,21 @@ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
- 	u32 cclk_param, cclk_val;
- 	int i, ret;
- 	int ec, sn;
--	u8 vpd[VPD_LEN], csum;
-+	u8 *vpd, csum;
- 	unsigned int vpdr_len, kw_offset, id_len;
- 
--	ret = pci_read_vpd(adapter->pdev, VPD_BASE, sizeof(vpd), vpd);
-+	vpd = vmalloc(VPD_LEN);
-+	if (!vpd)
-+		return -ENOMEM;
-+
-+	ret = pci_read_vpd(adapter->pdev, VPD_BASE, VPD_LEN, vpd);
- 	if (ret < 0)
--		return ret;
-+		goto out;
- 
- 	if (vpd[0] != PCI_VPD_LRDT_ID_STRING) {
- 		dev_err(adapter->pdev_dev, "missing VPD ID string\n");
--		return -EINVAL;
-+		ret = -EINVAL;
-+		goto out;
- 	}
- 
- 	id_len = pci_vpd_lrdt_size(vpd);
-@@ -538,21 +548,24 @@ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
- 	i = pci_vpd_find_tag(vpd, 0, VPD_LEN, PCI_VPD_LRDT_RO_DATA);
- 	if (i < 0) {
- 		dev_err(adapter->pdev_dev, "missing VPD-R section\n");
--		return -EINVAL;
-+		ret = -EINVAL;
-+		goto out;
- 	}
- 
- 	vpdr_len = pci_vpd_lrdt_size(&vpd[i]);
- 	kw_offset = i + PCI_VPD_LRDT_TAG_SIZE;
- 	if (vpdr_len + kw_offset > VPD_LEN) {
- 		dev_err(adapter->pdev_dev, "bad VPD-R length %u\n", vpdr_len);
--		return -EINVAL;
-+		ret = -EINVAL;
-+		goto out;
- 	}
- 
- #define FIND_VPD_KW(var, name) do { \
- 	var = pci_vpd_find_info_keyword(vpd, kw_offset, vpdr_len, name); \
- 	if (var < 0) { \
- 		dev_err(adapter->pdev_dev, "missing VPD keyword " name "\n"); \
--		return -EINVAL; \
-+		ret = -EINVAL; \
-+		goto out; \
- 	} \
- 	var += PCI_VPD_INFO_FLD_HDR_SIZE; \
- } while (0)
-@@ -564,7 +577,8 @@ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
- 	if (csum) {
- 		dev_err(adapter->pdev_dev,
- 			"corrupted VPD EEPROM, actual csum %u\n", csum);
--		return -EINVAL;
-+		ret = -EINVAL;
-+		goto out;
- 	}
- 
- 	FIND_VPD_KW(ec, "EC");
-@@ -587,6 +601,9 @@ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
- 		      FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_CCLK));
- 	ret = t4_query_params(adapter, adapter->mbox, 0, 0,
- 			      1, &cclk_param, &cclk_val);
-+
-+out:
-+	vfree(vpd);
- 	if (ret)
- 		return ret;
- 	p->cclk = cclk_val;
--- 
-1.7.1
+        I think counting these will primarily lead to administrators 
+seeing
+non-zero drops and wasting their time trying to track them down.
+
+                                                                +-DLS
