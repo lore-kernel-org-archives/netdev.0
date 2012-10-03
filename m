@@ -1,54 +1,162 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: [PATCH 4/5] ucc_geth: Increase RX ring buffer from 32 to 64
-Date: Wed, 3 Oct 2012 15:17:58 +0200
-Message-ID: <OF4BE93D25.4AE817F3-ONC1257A8C.004909F7-C1257A8C.00490EAC@transmode.se>
-References: <1347987385-19071-1-git-send-email-Joakim.Tjernlund@transmode.se> <1347987385-19071-4-git-send-email-Joakim.Tjernlund@transmode.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH] cxgb4: Dynamically allocate memory in t4_memory_rw() and get_vpd_params()
+Date: Wed,  3 Oct 2012 18:52:32 +0530
+Message-ID: <1349270552-6678-1-git-send-email-vipul@chelsio.com>
+Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
+	leedom@chelsio.com, felix@chelsio.com,
+	Vipul Pandya <vipul@chelsio.com>,
+	Jay Hernandez <jay@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([195.58.98.146]:58601 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755014Ab2JCNSB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Oct 2012 09:18:01 -0400
-Received: from mail1.transmode.se (mail1.transmode.se [192.168.201.18])
-	by gw1.transmode.se (Postfix) with ESMTP id 4DD6A2581D4
-	for <netdev@vger.kernel.org>; Wed,  3 Oct 2012 15:18:00 +0200 (CEST)
-In-Reply-To: <1347987385-19071-4-git-send-email-Joakim.Tjernlund@transmode.se>
+Received: from stargate.chelsio.com ([67.207.112.58]:4409 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932221Ab2JCNZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 09:25:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ping? Got no comments and I can see it in net or net-next trees either.
+This patch changes memory allocation to reduce stack footprint
 
-Joakim Tjernlund <Joakim.Tjernlund@transmode.se> wrote on 2012/09/18 18:56:24:
+Signed-off-by: Jay Hernandez <jay@chelsio.com>
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |   43 +++++++++++++++++++--------
+ 1 files changed, 30 insertions(+), 13 deletions(-)
 
-> From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> To: netdev@vger.kernel.org,
-> Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> Date: 2012/09/18 18:56
-> Subject: [PATCH 4/5] ucc_geth: Increase RX ring buffer from 32 to 64
->
-> We still see dropped pkgs in a busy network, this makes it better.
->
-> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> ---
->  drivers/net/ethernet/freescale/ucc_geth.h |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/ethernet/freescale/ucc_geth.h b/drivers/net/ethernet/freescale/ucc_geth.h
-> index aeb743c..b68637e 100644
-> --- a/drivers/net/ethernet/freescale/ucc_geth.h
-> +++ b/drivers/net/ethernet/freescale/ucc_geth.h
-> @@ -878,7 +878,7 @@ struct ucc_geth_hardware_statistics {
->
->  /* Driver definitions */
->  #define TX_BD_RING_LEN                          0x10
-> -#define RX_BD_RING_LEN                          0x20
-> +#define RX_BD_RING_LEN                          0x40
->
->  #define TX_RING_MOD_MASK(size)                  (size-1)
->  #define RX_RING_MOD_MASK(size)                  (size-1)
-> --
-> 1.7.8.6
->
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 35b81d8..137a244 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -408,7 +408,8 @@ static int t4_memory_rw(struct adapter *adap, int mtype, u32 addr, u32 len,
+ 			__be32 *buf, int dir)
+ {
+ 	u32 pos, start, end, offset, memoffset;
+-	int ret;
++	int ret = 0;
++	__be32 *data;
+ 
+ 	/*
+ 	 * Argument sanity checks ...
+@@ -416,6 +417,10 @@ static int t4_memory_rw(struct adapter *adap, int mtype, u32 addr, u32 len,
+ 	if ((addr & 0x3) || (len & 0x3))
+ 		return -EINVAL;
+ 
++	data = vmalloc(MEMWIN0_APERTURE/sizeof(__be32));
++	if (!data)
++		return -ENOMEM;
++
+ 	/*
+ 	 * Offset into the region of memory which is being accessed
+ 	 * MEM_EDC0 = 0
+@@ -438,7 +443,6 @@ static int t4_memory_rw(struct adapter *adap, int mtype, u32 addr, u32 len,
+ 	offset = (addr - start)/sizeof(__be32);
+ 
+ 	for (pos = start; pos < end; pos += MEMWIN0_APERTURE, offset = 0) {
+-		__be32 data[MEMWIN0_APERTURE/sizeof(__be32)];
+ 
+ 		/*
+ 		 * If we're writing, copy the data from the caller's memory
+@@ -452,7 +456,7 @@ static int t4_memory_rw(struct adapter *adap, int mtype, u32 addr, u32 len,
+ 			if (offset || len < MEMWIN0_APERTURE) {
+ 				ret = t4_mem_win_rw(adap, pos, data, 1);
+ 				if (ret)
+-					return ret;
++					break;
+ 			}
+ 			while (offset < (MEMWIN0_APERTURE/sizeof(__be32)) &&
+ 			       len > 0) {
+@@ -466,7 +470,7 @@ static int t4_memory_rw(struct adapter *adap, int mtype, u32 addr, u32 len,
+ 		 */
+ 		ret = t4_mem_win_rw(adap, pos, data, dir);
+ 		if (ret)
+-			return ret;
++			break;
+ 
+ 		/*
+ 		 * If we're reading, copy the data into the caller's memory
+@@ -480,7 +484,8 @@ static int t4_memory_rw(struct adapter *adap, int mtype, u32 addr, u32 len,
+ 			}
+ 	}
+ 
+-	return 0;
++	vfree(data);
++	return ret;
+ }
+ 
+ int t4_memory_write(struct adapter *adap, int mtype, u32 addr, u32 len,
+@@ -519,16 +524,21 @@ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ 	u32 cclk_param, cclk_val;
+ 	int i, ret;
+ 	int ec, sn;
+-	u8 vpd[VPD_LEN], csum;
++	u8 *vpd, csum;
+ 	unsigned int vpdr_len, kw_offset, id_len;
+ 
+-	ret = pci_read_vpd(adapter->pdev, VPD_BASE, sizeof(vpd), vpd);
++	vpd = vmalloc(VPD_LEN);
++	if (!vpd)
++		return -ENOMEM;
++
++	ret = pci_read_vpd(adapter->pdev, VPD_BASE, VPD_LEN, vpd);
+ 	if (ret < 0)
+-		return ret;
++		goto out;
+ 
+ 	if (vpd[0] != PCI_VPD_LRDT_ID_STRING) {
+ 		dev_err(adapter->pdev_dev, "missing VPD ID string\n");
+-		return -EINVAL;
++		ret = -EINVAL;
++		goto out;
+ 	}
+ 
+ 	id_len = pci_vpd_lrdt_size(vpd);
+@@ -538,21 +548,24 @@ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ 	i = pci_vpd_find_tag(vpd, 0, VPD_LEN, PCI_VPD_LRDT_RO_DATA);
+ 	if (i < 0) {
+ 		dev_err(adapter->pdev_dev, "missing VPD-R section\n");
+-		return -EINVAL;
++		ret = -EINVAL;
++		goto out;
+ 	}
+ 
+ 	vpdr_len = pci_vpd_lrdt_size(&vpd[i]);
+ 	kw_offset = i + PCI_VPD_LRDT_TAG_SIZE;
+ 	if (vpdr_len + kw_offset > VPD_LEN) {
+ 		dev_err(adapter->pdev_dev, "bad VPD-R length %u\n", vpdr_len);
+-		return -EINVAL;
++		ret = -EINVAL;
++		goto out;
+ 	}
+ 
+ #define FIND_VPD_KW(var, name) do { \
+ 	var = pci_vpd_find_info_keyword(vpd, kw_offset, vpdr_len, name); \
+ 	if (var < 0) { \
+ 		dev_err(adapter->pdev_dev, "missing VPD keyword " name "\n"); \
+-		return -EINVAL; \
++		ret = -EINVAL; \
++		goto out; \
+ 	} \
+ 	var += PCI_VPD_INFO_FLD_HDR_SIZE; \
+ } while (0)
+@@ -564,7 +577,8 @@ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ 	if (csum) {
+ 		dev_err(adapter->pdev_dev,
+ 			"corrupted VPD EEPROM, actual csum %u\n", csum);
+-		return -EINVAL;
++		ret = -EINVAL;
++		goto out;
+ 	}
+ 
+ 	FIND_VPD_KW(ec, "EC");
+@@ -587,6 +601,9 @@ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ 		      FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_CCLK));
+ 	ret = t4_query_params(adapter, adapter->mbox, 0, 0,
+ 			      1, &cclk_param, &cclk_val);
++
++out:
++	vfree(vpd);
+ 	if (ret)
+ 		return ret;
+ 	p->cclk = cclk_val;
+-- 
+1.7.1
