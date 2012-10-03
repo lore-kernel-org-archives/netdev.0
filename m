@@ -1,10 +1,11 @@
 From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: [PATCH 5/20] drivers/net/ethernet/sis/sis900.c: fix error return code
-Date: Wed,  3 Oct 2012 18:17:55 +0200
-Message-ID: <1349281090-10013-5-git-send-email-peter.senna@gmail.com>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: venza@brownhat.org
+Subject: [PATCH 17/20] drivers/net/ethernet/sun/niu.c: fix error return code
+Date: Wed,  3 Oct 2012 18:18:04 +0200
+Message-ID: <1349281090-10013-14-git-send-email-peter.senna@gmail.com>
+Cc: kernel-janitors@vger.kernel.org, mcarlson@broadcom.com,
+	eric.dumazet@gmail.com, mchan@broadcom.com, shuah.khan@hp.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -37,22 +38,18 @@ ret@p1 = 0
 Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
 
 ---
- drivers/net/ethernet/sis/sis900.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/sun/niu.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/sis/sis900.c b/drivers/net/ethernet/sis/sis900.c
-index 203d9c6..fb9f6b3 100644
---- a/drivers/net/ethernet/sis/sis900.c
-+++ b/drivers/net/ethernet/sis/sis900.c
-@@ -478,8 +478,10 @@ static int __devinit sis900_probe(struct pci_dev *pci_dev,
+diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
+index 8419bf3..275b430 100644
+--- a/drivers/net/ethernet/sun/niu.c
++++ b/drivers/net/ethernet/sun/niu.c
+@@ -9788,6 +9788,7 @@ static int __devinit niu_pci_init_one(struct pci_dev *pdev,
  
- 	/* IO region. */
- 	ioaddr = pci_iomap(pci_dev, 0, 0);
--	if (!ioaddr)
-+	if (!ioaddr) {
-+		ret = -ENOMEM;
- 		goto err_out_cleardev;
-+	}
+ 	if (!pci_is_pcie(pdev)) {
+ 		dev_err(&pdev->dev, "Cannot find PCI Express capability, aborting\n");
++		err = -ENODEV;
+ 		goto err_out_free_res;
+ 	}
  
- 	sis_priv = netdev_priv(net_dev);
- 	sis_priv->ioaddr = ioaddr;
