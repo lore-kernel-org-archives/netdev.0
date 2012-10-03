@@ -1,41 +1,69 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: tg3 driver upgrade (Linux 2.6.32 -> 3.2) breaks IBM
- Bladecenter SoL
-Date: Tue, 02 Oct 2012 20:47:07 -0400 (EDT)
-Message-ID: <20121002.204707.1362047307474271560.davem@davemloft.net>
-References: <87626sd80j.fsf@lant.ki.iif.hu>
-	<506B3B52.7080001@msgid.tls.msk.ru>
-	<1349223432.16173.10.camel@deadeye.wl.decadent.org.uk>
+Subject: Re: [PATCH 1/2] Fix build error caused by broken PCH_PTP module
+ dependency.
+Date: Tue, 02 Oct 2012 22:22:38 -0400 (EDT)
+Message-ID: <20121002.222238.1580734803370802133.davem@davemloft.net>
+References: <506546A7.7030500@linux.intel.com>
+	<20120928.024621.1635385815700269914.davem@davemloft.net>
+	<50654A62.5090003@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mjt@tls.msk.ru, wferi@niif.hu, mchan@broadcom.com,
-	netdev@vger.kernel.org, mcarlson@broadcom.com,
-	grant.likely@secretlab.ca, rob.herring@calxeda.com,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org
-To: ben@decadent.org.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1349223432.16173.10.camel@deadeye.wl.decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, tshimizu818@gmail.com,
+	linux-kernel@vger.kernel.org, haicheng.lee@gmail.com
+To: haicheng.li@linux.intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53043 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751187Ab2JCCXz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 22:23:55 -0400
+In-Reply-To: <50654A62.5090003@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Wed, 03 Oct 2012 01:17:12 +0100
+From: Haicheng Li <haicheng.li@linux.intel.com>
+Date: Fri, 28 Sep 2012 14:57:38 +0800
 
-> On Tue, 2012-10-02 at 23:06 +0400, Michael Tokarev wrote:
->> On 02.10.2012 22:49, Ferenc Wagner wrote:
->> > "Michael Chan" <mchan@broadcom.com> writes:
->> >> These are the likely fixes:
->> >>
->> >> commit cf9ecf4b631f649a964fa611f1a5e8874f2a76db 
->> >> Author: Matt Carlson <mcarlson@broadcom.com>
->> >> Date: Mon Nov 28 09:41:03 2011 +0000
->> >>
->> >> tg3: Fix TSO CAP for 5704 devs w / ASF enabled
- ...
-> The fix went into 3.3, so only 3.0 and 3.2 need it.
+> On 09/28/2012 02:46 PM, David Miller wrote:
+>> From: Haicheng Li<haicheng.li@linux.intel.com>
+>> Date: Fri, 28 Sep 2012 14:41:43 +0800
+>>
+>>> On 09/28/2012 06:09 AM, David Miller wrote:
+>>>> Look at how other people submit patches, do any other patch
+>>>> submissions
+>>>> look like your's having all of this metadata in the message body:
+>>> I'm sorry for it.
+>>>
+>>>> As for this specific patch:
+>>>>
+>>>>> -	depends on PTP_1588_CLOCK_PCH
+>>>>> +	depends on PTP_1588_CLOCK_PCH = PCH_GBE
+>>>>
+>>>> This is not the correct way to ensure that the module'ness of one
+>>>> config option meets the module'ness requirements of another.
+>>>> The correct way is to say something like "&&   (PCH_GBE || PCH_GBE=n)"
+>>>
+>>> This case is a little bit tricky than usual, with PCH_PTP selected,
+>>> the valid config would be either "PTP_1588_CLOCK_PCH=PCH_GBE=m" or
+>>> "PTP_1588_CLOCK_PCH=PCH_GBE=y", and PTP_1588_CLOCK_PCH depends on
+>>> PCH_GBE.
+>>
+>> And a simple "&&  PCH_GBE" should accomplish this, no?
+> No sir. it's actually same with the original Kconfig (by a if
+> PCH_GBE"), it just failed with this config:
 > 
-> David, please can you include the above commit in your next batches for
-> these stable series?
+>         CONFIG_PCH_GBE=y
+>         CONFIG_PCH_PTP=y
+>         CONFIG_PTP_1588_CLOCK=m
 
-Done.
+The correct fix is to make the Kconfig entry for PCH_PTP use
+a "select PTP_1588_CLOCK" instead of "depends PTP_1588_CLOCK"
+
+I'll apply this fix.
+
+The is another, extremely convoluted, way to do this, which is
+what the SFC driver does which is:
+
+depends on SFC && PTP_1588_CLOCK && !(SFC=y && PTP_1588_CLOCK=m)
+
+but that looks horrible to me.
