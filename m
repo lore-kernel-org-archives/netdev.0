@@ -1,142 +1,187 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
-Date: Wed, 3 Oct 2012 08:17:48 -0700
-Message-ID: <20121003151748.GA5745@kroah.com>
-References: <1348819504-1303-1-git-send-email-arun.murthy@stericsson.com>
- <1348819504-1303-2-git-send-email-arun.murthy@stericsson.com>
- <20120928160045.GD2625@kroah.com>
- <F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
- <20121001155940.GA1957@kroah.com>
- <F45880696056844FA6A73F415B568C695B6962CC8C@EXDCVYMBSTM006.EQ1STM.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] udp: increment UDP_MIB_NOPORTS in mcast receive
+Date: Wed, 03 Oct 2012 17:29:13 +0200
+Message-ID: <1349278153.12401.2811.camel@edumazet-glaptop>
+References: <506955F3.8050304@googlemail.com>
+	 <1349082950.12401.669.camel@edumazet-glaptop>
+	 <20121001193434.GA14236@redhat.com>
+	 <20121001.160115.1816241312626722150.davem@davemloft.net>
+	 <1349121884.12401.721.camel@edumazet-glaptop>
+	 <1349192133.12401.768.camel@edumazet-glaptop>
+	 <1349192919.12401.778.camel@edumazet-glaptop>
+	 <alpine.LFD.2.00.1210030032430.25856@ja.ssi.bg>
+	 <1349249328.12401.1364.camel@edumazet-glaptop>
+	 <OFA39D9FC0.CDC6EE41-ON85257A8C.00458030-85257A8C.00461EF4@us.ibm.com>
+	 <1349270151.12401.2372.camel@edumazet-glaptop>
+	 <OF8CC7A8E7.DA3B059E-ON85257A8C.004C258C-85257A8C.004DCE49@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
-To: Arun MURTHY <arun.murthy@stericsson.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <F45880696056844FA6A73F415B568C695B6962CC8C@EXDCVYMBSTM006.EQ1STM.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: chris2553@googlemail.com, Dave Jones <davej@redhat.com>,
+	David Miller <davem@davemloft.net>, gpiez@web.de,
+	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:35427 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964792Ab2JCP3T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 11:29:19 -0400
+In-Reply-To: <OF8CC7A8E7.DA3B059E-ON85257A8C.004C258C-85257A8C.004DCE49@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 03, 2012 at 05:54:08AM +0200, Arun MURTHY wrote:
-> > On Mon, Oct 01, 2012 at 07:30:38AM +0200, Arun MURTHY wrote:
-> > > > On Fri, Sep 28, 2012 at 01:35:01PM +0530, Arun Murthy wrote:
-> > > > > +#include <linux/module.h>
-> > > > > +#include <linux/slab.h>
-> > > > > +#include <linux/err.h>
-> > > > > +#include <linux/printk.h>
-> > > > > +#include <linux/modem_shm/modem.h>
-> > > > > +
-> > > > > +static struct class *modem_class;
-> > > >
-> > > > What's wrong with a bus_type instead?
-> > >
-> > > Can I know the advantage of using bus_type over class?
-> > 
-> > You have devices living on a bus, and it's much more descriptive than a class
-> > (which we are going to eventually get rid of one of these days...).
-> > 
-> > Might I ask why you choose a class over a bus_type?
+On Wed, 2012-10-03 at 10:09 -0400, David Stevens wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> wrote on 10/03/2012 09:15:51 AM:
+>  
+> > So when a host receives an UDP datagram but there was no application
+> > at the destination port we should increment udpNoPorts, and its not
+> > an error but just a fact.
 > 
-> Basically my requirement is to create a central entity for accessing and releasing
-> modem from APE.
+>         Of course. I think our difference is on the definition of 
+> "receives".
 
-What is an "APE"?
+A receive is a packet delivered to this host.
+Interface being promiscuous or not doesnt really matter.
 
-And what do you mean by "accessing" and "releasing"?
+> I don't think a packet delivered locally due to promiscuous mode, 
+> broadcast
+> or an imperfect multicast address filter match is a host UDP datagram 
+> receive.
+> These packets really shouldn't be delivered to UDP at all; they are not
+> addressed to this host (at least the non-broadcast, no-membership ones).
 
-> Since this is done by different clients the central entity should
-> be able to handle the request and play safely, since this has more affect in
-> system suspend and deep sleep. Using class helps me in achieving this
-> and also create an entry to user space which can be used in the later
-> parts. Moreover this not something like a bus or so, so I didn't use
-> bus instead went with a simple class approach.
+Thats the bug we currently are tracking. If some error is happening and
+packet is delivered instead of being forwarded or dropped, we need a
+counter being incremented to catch the bug.
 
-But as you have devices that are "binding" to this "controller", a bus
-might make more sense, right?
+>         A unicast UDP packet that doesn't match a local IP address does 
+> not
+> increment this counter. 
 
-I don't see how a class helps out for you here more than anything else,
-what are you expecting from the class interface?  You aren't using the
-reference counting logic it provides, so why use it at all?
+It _does_ increment this counter right now, not sure what you mean.
 
-Actually, why use the driver core at all in the first place if you
-aren't needing the devices to show up in sysfs (as you don't have a
-device, you are just a mediator)?
+We currently correctly increment udpNoPorts if we receive an unicast UDP
+packet that doesnt find a matching socket (because socket(s) are bound
+to specific addresses instead of ANY_ADDR)
 
-> > > > > +int modem_release(struct modem_desc *mdesc) {
-> > > > > +	if (!mdesc->release)
-> > > > > +		return -EFAULT;
-> > > > > +
-> > > > > +	if (modem_is_requested(mdesc)) {
-> > > > > +		atomic_dec(&mdesc->mclients->cnt);
-> > > > > +		if (atomic_read(&mdesc->use_cnt) == 1) {
-> > > > > +			mdesc->release(mdesc);
-> > > > > +			atomic_dec(&mdesc->use_cnt);
-> > > > > +		}
-> > > >
-> > > > Eeek, why aren't you using the built-in reference counting that the
-> > > > struct device provided to you, and instead are rolling your own?
-> > > > This happens in many places, why?
-> > >
-> > > My usage of counters over here is for each modem there are many clients.
-> > > Each of the clients will have a ref to modem_desc. Each of them use
-> > > this for requesting and releasing the modem. One counter for tracking
-> > > the request and release for each client which is done by variable 'cnt' in
-> > struct clients.
-> > > The counter use_cnt is used for tracking the modem request/release
-> > > irrespective of the clients and counter cli_cnt is used for
-> > > restricting the modem_get to the no of clients defined in no_clients.
-> > >
-> > > So totally 3 counter one for restricting the usage of modem_get by
-> > > clients, second for restricting modem request/release at top level,
-> > > and 3rd for restricting modem release/request for per client per modem
-> > basis.
-> > >
-> > > Can you let me know if the same can be achieved by using built-in ref
-> > > counting?
-> > 
-> > Yes, because you don't need all of those different levels, just stick with one
-> > and you should be fine. :)
-> > 
+This is an extension of the "there was no application at the destination
+port" to "there was no application at the destination port and
+destination address"
+
+> A promiscuous mode multicast delivery is no 
+> different,
+> except that the destination alone doesn't tell us if it is for us.
 > 
-> No, checks at all these levels are required, I have briefed out the need also.
+>         I think counting these will primarily lead to administrators 
+> seeing
+> non-zero drops and wasting their time trying to track them down.
 
-I still don't understand, sorry.
+Well, as I said, seeing increments of this counter is perfectly fine and
+matches RFC. It permits better diagnostics. Hiding bugs is not very
+helpful.
 
-> This will have effect on system power management, i.e suspend and deep
-> sleep.
+Most of the time I am trying to track a bug in linux network stack, the
+very first thing I ask to reporters is to post "netstat -s" before/after
+their tests exactly because I want to see _some_ counters be incremented
+and catch obvious problems.
 
-How does power management matter?  If you tie into the driver model
-properly, power management comes "for free" so you don't have to do
-anything special about it.  Why not use that logic instead of trying to
-roll your own?
+And alas, many drops in our stack are not correctly reported because we
+forgot to increment a counter at the right place.
 
-> We restrict that the drivers should request modem only once and release
-> only once, but we cannot rely on the clients hence a check for the same has
-> to be done in the MAF.
+I am fine adding a new SNMP McastDrops counter if you feel its better.
 
-You can't rely on the clients to do what?  And why can't you rely on
-them?  What is going to happen?  Who is a "client" here?  Other kernel
-code?
+# grep Udp: /proc/net/snmp
+Udp: InDatagrams NoPorts InErrors OutDatagrams RcvbufErrors SndbufErrors McastDrops
+Udp: 11449164 15473 514616 290821178 0 184352 134
 
-I really don't understand your model at all as to what you are trying to
-mediate and manage here, sorry.  I suggest writing it all up as your
-first patch (documentation is good), so that we can properly review your
-implementation and not argue about how to implement something that I
-honestly don't understand.
+"netstat -s -u" would display :
 
-> Also the no of clients should be defined and hence a
-> check for the same is done in MAF.
+Udp:
+    11449164 packets received
+    15473 packets to unknown port received.
+    514616 packet receive errors
+    290821178 packets sent
+    SndbufErrors: 184352
+    McastDrops: 134
 
-Defined where?  What is "MAF"?
 
-> Apart from all these the requests coming from all the clients is to be
-> accumulated and based on that modem release or access should be
-> performed, hence so.
+Non official patch since net-next is not open :
 
-That sentance makes no sense to me, it must be too early for me here...
+ include/linux/snmp.h |    1 +
+ net/ipv4/proc.c      |    1 +
+ net/ipv4/udp.c       |    2 ++
+ net/ipv6/proc.c      |    2 ++
+ net/ipv6/udp.c       |    2 ++
+ 5 files changed, 8 insertions(+)
 
-greg k-h
+diff --git a/include/linux/snmp.h b/include/linux/snmp.h
+index 00bc189..321d643 100644
+--- a/include/linux/snmp.h
++++ b/include/linux/snmp.h
+@@ -145,6 +145,7 @@ enum
+ 	UDP_MIB_OUTDATAGRAMS,			/* OutDatagrams */
+ 	UDP_MIB_RCVBUFERRORS,			/* RcvbufErrors */
+ 	UDP_MIB_SNDBUFERRORS,			/* SndbufErrors */
++	UDP_MIB_MCASTDROPS,			/* McastDrops (linux extension) */
+ 	__UDP_MIB_MAX
+ };
+ 
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 957acd1..1e932ee 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -172,6 +172,7 @@ static const struct snmp_mib snmp4_udp_list[] = {
+ 	SNMP_MIB_ITEM("OutDatagrams", UDP_MIB_OUTDATAGRAMS),
+ 	SNMP_MIB_ITEM("RcvbufErrors", UDP_MIB_RCVBUFERRORS),
+ 	SNMP_MIB_ITEM("SndbufErrors", UDP_MIB_SNDBUFERRORS),
++	SNMP_MIB_ITEM("McastDrops", UDP_MIB_MCASTDROPS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 2814f66..4e2a4f7 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1591,6 +1591,8 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 			sock_put(stack[i]);
+ 	} else {
+ 		kfree_skb(skb);
++		UDP_INC_STATS_BH(net, UDP_MIB_MCASTDROPS,
++				 udptable != &udp_table);
+ 	}
+ 	return 0;
+ }
+diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
+index 745a320..f2c12ea 100644
+--- a/net/ipv6/proc.c
++++ b/net/ipv6/proc.c
+@@ -129,6 +129,7 @@ static const struct snmp_mib snmp6_udp6_list[] = {
+ 	SNMP_MIB_ITEM("Udp6OutDatagrams", UDP_MIB_OUTDATAGRAMS),
+ 	SNMP_MIB_ITEM("Udp6RcvbufErrors", UDP_MIB_RCVBUFERRORS),
+ 	SNMP_MIB_ITEM("Udp6SndbufErrors", UDP_MIB_SNDBUFERRORS),
++	SNMP_MIB_ITEM("Udp6McastDrops", UDP_MIB_MCASTDROPS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+@@ -139,6 +140,7 @@ static const struct snmp_mib snmp6_udplite6_list[] = {
+ 	SNMP_MIB_ITEM("UdpLite6OutDatagrams", UDP_MIB_OUTDATAGRAMS),
+ 	SNMP_MIB_ITEM("UdpLite6RcvbufErrors", UDP_MIB_RCVBUFERRORS),
+ 	SNMP_MIB_ITEM("UdpLite6SndbufErrors", UDP_MIB_SNDBUFERRORS),
++	SNMP_MIB_ITEM("UdpLite6McastDrops", UDP_MIB_MCASTDROPS);
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 07e2bfe..c8caf1b 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -748,6 +748,8 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 			sock_put(stack[i]);
+ 	} else {
+ 		kfree_skb(skb);
++		UDP6_INC_STATS_BH(net, UDP_MIB_MCASTDROPS,
++				  udptable != &udp_table);
+ 	}
+ 	return 0;
+ }
