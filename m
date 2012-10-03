@@ -1,100 +1,32 @@
-From: Arun MURTHY <arun.murthy@stericsson.com>
-Subject: RE: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
-Date: Wed, 3 Oct 2012 05:54:08 +0200
-Message-ID: <F45880696056844FA6A73F415B568C695B6962CC8C@EXDCVYMBSTM006.EQ1STM.local>
-References: <1348819504-1303-1-git-send-email-arun.murthy@stericsson.com>
- <1348819504-1303-2-git-send-email-arun.murthy@stericsson.com>
- <20120928160045.GD2625@kroah.com>
- <F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
- <20121001155940.GA1957@kroah.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tg3: Fix sparse warnings.
+Date: Tue, 02 Oct 2012 23:22:09 -0400 (EDT)
+Message-ID: <20121002.232209.521171138659193934.davem@davemloft.net>
+References: <1349235074-18927-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121001155940.GA1957@kroah.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fengguang.wu@intel.com
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53429 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751112Ab2JCDWK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 23:22:10 -0400
+In-Reply-To: <1349235074-18927-1-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Mon, Oct 01, 2012 at 07:30:38AM +0200, Arun MURTHY wrote:
-> > > On Fri, Sep 28, 2012 at 01:35:01PM +0530, Arun Murthy wrote:
-> > > > +#include <linux/module.h>
-> > > > +#include <linux/slab.h>
-> > > > +#include <linux/err.h>
-> > > > +#include <linux/printk.h>
-> > > > +#include <linux/modem_shm/modem.h>
-> > > > +
-> > > > +static struct class *modem_class;
-> > >
-> > > What's wrong with a bus_type instead?
-> >
-> > Can I know the advantage of using bus_type over class?
-> 
-> You have devices living on a bus, and it's much more descriptive than a class
-> (which we are going to eventually get rid of one of these days...).
-> 
-> Might I ask why you choose a class over a bus_type?
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Tue, 2 Oct 2012 20:31:14 -0700
 
-Basically my requirement is to create a central entity for accessing and releasing
-modem from APE. Since this is done by different clients the central entity should
-be able to handle the request and play safely, since this has more affect in
-system suspend and deep sleep. Using class helps me in achieving this and
-also create an entry to user space which can be used in the later parts. Moreover
-this not something like a bus or so, so I didn't use bus instead went with a 
-simple class approach.
-
+> drivers/net/ethernet/broadcom/tg3.c:8121:8: warning: symbol 'i' shadows an earlier one
+> drivers/net/ethernet/broadcom/tg3.c:8003:6: originally declared here
+> drivers/net/ethernet/broadcom/tg3.c:785:5: warning: symbol 'tg3_ape_scratchpad_read' was not declared. Should it be static?
+> drivers/net/ethernet/broadcom/tg3.c:7781:19: warning: Using plain integer as NULL pointer
+> drivers/net/ethernet/broadcom/tg3.c:10231:31: error: bad constant expression
 > 
-> > > > +int modem_release(struct modem_desc *mdesc) {
-> > > > +	if (!mdesc->release)
-> > > > +		return -EFAULT;
-> > > > +
-> > > > +	if (modem_is_requested(mdesc)) {
-> > > > +		atomic_dec(&mdesc->mclients->cnt);
-> > > > +		if (atomic_read(&mdesc->use_cnt) == 1) {
-> > > > +			mdesc->release(mdesc);
-> > > > +			atomic_dec(&mdesc->use_cnt);
-> > > > +		}
-> > >
-> > > Eeek, why aren't you using the built-in reference counting that the
-> > > struct device provided to you, and instead are rolling your own?
-> > > This happens in many places, why?
-> >
-> > My usage of counters over here is for each modem there are many clients.
-> > Each of the clients will have a ref to modem_desc. Each of them use
-> > this for requesting and releasing the modem. One counter for tracking
-> > the request and release for each client which is done by variable 'cnt' in
-> struct clients.
-> > The counter use_cnt is used for tracking the modem request/release
-> > irrespective of the clients and counter cli_cnt is used for
-> > restricting the modem_get to the no of clients defined in no_clients.
-> >
-> > So totally 3 counter one for restricting the usage of modem_get by
-> > clients, second for restricting modem request/release at top level,
-> > and 3rd for restricting modem release/request for per client per modem
-> basis.
-> >
-> > Can you let me know if the same can be achieved by using built-in ref
-> > counting?
-> 
-> Yes, because you don't need all of those different levels, just stick with one
-> and you should be fine. :)
-> 
+> Reported-by: Fengguang Wu <fenguang.wu@intel.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-No, checks at all these levels are required, I have briefed out the need also.
-This will have effect on system power management, i.e suspend and deep
-sleep.
-We restrict that the drivers should request modem only once and release
-only once, but we cannot rely on the clients hence a check for the same has
-to be done in the MAF. Also the no of clients should be defined and hence a
-check for the same is done in MAF. Apart from all these the requests coming
-from all the clients is to be accumulated and based on that modem release
-or access should be performed, hence so.
-
-Thanks and Regards,
-Arun R Murthy
--------------------
+Applied, thanks.
