@@ -1,65 +1,56 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 19/20] drivers/net/ethernet/marvell/skge.c: fix error
- return code
-Date: Wed, 3 Oct 2012 09:25:08 -0700
-Message-ID: <20121003092508.6a7da662@nehalam.linuxnetplumber.net>
-References: <1349281090-10013-20-git-send-email-peter.senna@gmail.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] udp: increment UDP_MIB_NOPORTS in mcast receive
+Date: Wed, 3 Oct 2012 13:31:30 -0400
+Message-ID: <OFFFC99DDA.1BD04FA3-ON85257A8C.005A8E9B-85257A8C.00604444@us.ibm.com>
+References: <506955F3.8050304@googlemail.com>	 <1349082950.12401.669.camel@edumazet-glaptop>
+	 <20121001193434.GA14236@redhat.com>	 <20121001.160115.1816241312626722150.davem@davemloft.net>
+	 <1349121884.12401.721.camel@edumazet-glaptop>	 <1349192133.12401.768.camel@edumazet-glaptop>
+	 <1349192919.12401.778.camel@edumazet-glaptop>	 <alpine.LFD.2.00.1210030032430.25856@ja.ssi.bg>
+	 <1349249328.12401.1364.camel@edumazet-glaptop>	 <OFA39D9FC0.CDC6EE41-ON85257A8C.00458030-85257A8C.00461EF4@us.ibm.com>
+	 <1349270151.12401.2372.camel@edumazet-glaptop>	 <OF8CC7A8E7.DA3B059E-ON85257A8C.004C258C-85257A8C.004DCE49@us.ibm.com> <1349278153.12401.2811.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mlindner@marvell.com, kernel-janitors@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Peter Senna Tschudin <peter.senna@gmail.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: chris2553@googlemail.com, Dave Jones <davej@redhat.com>,
+	David Miller <davem@davemloft.net>, gpiez@web.de,
+	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35525 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964943Ab2JCQZp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Oct 2012 12:25:45 -0400
-In-Reply-To: <1349281090-10013-20-git-send-email-peter.senna@gmail.com>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:59658 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752368Ab2JCRbk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 13:31:40 -0400
+Received: from /spool/local
+	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Wed, 3 Oct 2012 11:31:39 -0600
+In-Reply-To: <1349278153.12401.2811.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed,  3 Oct 2012 18:18:10 +0200
-Peter Senna Tschudin <peter.senna@gmail.com> wrote:
+Eric Dumazet <eric.dumazet@gmail.com> wrote on 10/03/2012 11:29:13 AM:
 
-> From: Peter Senna Tschudin <peter.senna@gmail.com>
+> >         Of course. I think our difference is on the definition of 
+> > "receives".
 > 
-> Convert a nonnegative error return code to a negative one, as returned
-> elsewhere in the function.
-> 
-> A simplified version of the semantic match that finds this problem is as
-> follows: (http://coccinelle.lip6.fr/)
-> 
-> // <smpl>
-> (
-> if@p1 (\(ret < 0\|ret != 0\))
->  { ... return ret; }
-> |
-> ret@p1 = 0
-> )
-> ... when != ret = e1
->     when != &ret
-> *if(...)
-> {
->   ... when != ret = e2
->       when forall
->  return ret;
-> }
-> // </smpl>
-> 
-> Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
-> 
+> A receive is a packet delivered to this host.
+> Interface being promiscuous or not doesnt really matter.
 
-Thanks for looking into these kind of problems. The contents
-of the patch are correct, but the automated commit message is useless.
-You shouldn't just blindly say what the automated
-script was looking for, you should describe what the bug is so that evaluators
-can decide what the impact is and if it should be backported to stable
-and vendor kernels.
+        A receive is a packet *addressed* to this host. My point was
+that running tcpdump/wireshark to look at other hosts' traffic
+shouldn't affect any UDP MIB (these are ordinarily filtered by IP),
+but I forgot that we are checking in software, as well as the HW multicast
+address filter, for multicast group membership. So promiscuous mode and
+imperfect NIC MAF hashes shouldn't actually result in local delivery
+and that problem isn't there at all.
 
-Please resubmit the patchs with a reasonable analysis in the commit message.
-Something like:
+        I do think, still, that it is common to have broadcasts and
+multicasts (for joined groups, even) with traffic completely uninteresting
+to this host and that having a drop counter going up for those will
+appear to be losses and errors when they are completely harmless and
+irrelevant.
+        But since it can't be incremented for items that are not actually
+addressed to the local host, as I originally thought, I don't object
+anymore. Sorry for the sidetrack -- I should've verified that originally.
 
-  There is a bug in skge driver. If alloc_etherdev() fails, then
-  skge_devinit() will return NULL, and the skge_probe function incorrectly
-  returns success 0. It should return -ENOMEM instead.
+                                                        +-DLS
