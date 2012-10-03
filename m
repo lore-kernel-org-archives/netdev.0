@@ -1,43 +1,54 @@
-From: Sylvain Munaut <s.munaut@whatever-company.com>
-Subject: Re: [Patch net-next] netpoll: call ->ndo_select_queue() in tx path
-Date: Wed, 3 Oct 2012 11:33:22 +0200
-Message-ID: <CAF6-1L5Gp9kpV+Koru6uAmYxQg_WQav9RVD4MVBDa2UGSoPOCA@mail.gmail.com>
-References: <1347948991-20860-1-git-send-email-amwang@redhat.com>
-	<20120919.172108.1539457128236567338.davem@davemloft.net>
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: Re: You have to fix this
+Date: Wed, 03 Oct 2012 15:42:05 +0530
+Message-ID: <506C0F75.4080309@chelsio.com>
+References: <20120927.183406.962014014858457666.davem@davemloft.net> <5065911A.3000509@chelsio.com> <20120928.134313.2263654281720915031.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: amwang@redhat.com, netdev@vger.kernel.org, edumazet@google.com
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:40939 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754048Ab2JCJdX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 05:33:23 -0400
-Received: by vcbfo13 with SMTP id fo13so7995074vcb.19
-        for <netdev@vger.kernel.org>; Wed, 03 Oct 2012 02:33:22 -0700 (PDT)
-In-Reply-To: <20120919.172108.1539457128236567338.davem@davemloft.net>
+Received: from stargate.chelsio.com ([67.207.112.58]:13688 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755051Ab2JCKMK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 06:12:10 -0400
+In-Reply-To: <20120928.134313.2263654281720915031.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
->> In netpoll tx path, we miss the chance of calling ->ndo_select_queue(),
->> thus could cause problems when bonding is involved.
->>
->> This patch makes dev_pick_tx() extern (and rename it to netdev_pick_tx())
->> to let netpoll call it in netpoll_send_skb_on_dev().
->>
->> Reported-by: Sylvain Munaut <s.munaut@whatever-company.com>
->> Cc: "David S. Miller" <davem@davemloft.net>
->> Cc: Eric Dumazet <edumazet@google.com>
->> Signed-off-by: Cong Wang <amwang@redhat.com>
->> Tested-by: Sylvain Munaut <s.munaut@whatever-company.com>
->
-> Applied, thanks.
 
-Huh, I don't see it in the final 3.6 ?
-That's rather inconvenient :(
+On 28-09-2012 23:13, David Miller wrote:
+> From: Vipul Pandya <vipul@chelsio.com>
+> Date: Fri, 28 Sep 2012 17:29:22 +0530
+> 
+>> Please let me know how else would I get above warning message?
+> 
+> Maybe your compiler is too old.  Does -Wframe-larger-than= show up in your
+> build logs with "make V=1"?
+> 
 
-Cheers,
-
-    Sylvain
+I am using gcc version 4.4.4 20100726. Yes -Wframe-larger-than=2048 does
+show up in my build logs as shown below:
+===
+gcc -Wp,-MD,arch/x86/kernel/.hw_breakpoint.o.d  -nostdinc -isystem
+/usr/lib/gcc/x86_64-redhat-linux/4.4.4/include
+-I/root/git_kernel_tree/net-next/arch/x86/include
+-Iarch/x86/include/generated -Iinclude  -include
+/root/git_kernel_tree/net-next/include/linux/kconfig.h -D__KERNEL__
+-Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing
+-fno-common -Werror-implicit-function-declaration -Wno-format-security
+-fno-delete-null-pointer-checks -O2 -m64 -mtune=generic -mno-red-zone
+-mcmodel=kernel -funit-at-a-time -maccumulate-outgoing-args
+-DCONFIG_AS_CFI=1 -DCONFIG_AS_CFI_SIGNAL_FRAME=1
+-DCONFIG_AS_CFI_SECTIONS=1 -DCONFIG_AS_FXSAVEQ=1 -DCONFIG_AS_AVX=1 -pipe
+-Wno-sign-compare -fno-asynchronous-unwind-tables -mno-sse -mno-mmx
+-mno-sse2 -mno-3dnow -mno-avx -Wframe-larger-than=2048
+-fno-stack-protector -Wno-unused-but-set-variable -fomit-frame-pointer
+-Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow
+-fconserve-stack -DCC_HAVE_ASM_GOTO    -D"KBUILD_STR(s)=#s"
+-D"KBUILD_BASENAME=KBUILD_STR(hw_breakpoint)"
+-D"KBUILD_MODNAME=KBUILD_STR(hw_breakpoint)" -c -o
+arch/x86/kernel/hw_breakpoint.o arch/x86/kernel/hw_breakpoint.c
+===
