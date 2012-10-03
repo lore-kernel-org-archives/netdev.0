@@ -1,105 +1,77 @@
-From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
-Subject: [PATCH] iproute2: List interfaces without net address by default
-Date: Wed,  3 Oct 2012 16:42:41 +0200
-Message-ID: <1349275361-9271-1-git-send-email-ppisar@redhat.com>
-References: <1348565799-20080-1-git-send-email-ppisar@redhat.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [PATCH net 1/1] bnx2x: fix ring size for 10G functions
+Date: Wed, 3 Oct 2012 16:22:59 +0200
+Message-ID: <1349274179-18827-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>,
-	=?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
-To: <shemminger@vyatta.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Yuval Mintz" <yuvalmin@broadcom.com>,
+	"Ariel Elior" <ariele@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48965 "EHLO mx1.redhat.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2759 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750991Ab2JCOnA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Oct 2012 10:43:00 -0400
-In-Reply-To: <1348565799-20080-1-git-send-email-ppisar@redhat.com>
+	id S1756260Ab2JCOvp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Oct 2012 10:51:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes regression in iproute2-3.5.1 when `ip addr show' skipped
-interfaces without network layer address.
+Commit d760fc37b0f74502b3f748951f22c6683b079a8e caused 
+1G functions to allocate rx rings which were 1/10 of the 
+size of 10G functions' rx rings.
 
-Wrong output:
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-    inet6 ::1/128 scope host
-       valid_lft forever preferred_lft forever
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast st=
-ate UP qlen 1000
-    link/ether 00:50:54:00:0f:03 brd ff:ff:ff:ff:ff:ff
-    inet 10.34.25.198/23 brd 10.34.25.255 scope global eth0
-    inet6 2620:52:0:2219:250:54ff:fe00:f03/64 scope global dynamic
-       valid_lft 2591919sec preferred_lft 604719sec
-    inet6 fe80::250:54ff:fe00:f03/64 scope link
-       valid_lft forever preferred_lft forever
+However, it also caused 10G functions on 5771x boards to 
+allocate small rings, which limits their possible (default) 
+rx throughput. This patch causes all 10G functions to use 
+rings of intended length by default.
 
-Expected output:
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-    inet6 ::1/128 scope host
-       valid_lft forever preferred_lft forever
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast st=
-ate UP qlen 1000
-    link/ether 00:50:54:00:0f:03 brd ff:ff:ff:ff:ff:ff
-    inet 10.34.25.198/23 brd 10.34.25.255 scope global eth0
-    inet6 2620:52:0:2219:250:54ff:fe00:f03/64 scope global dynamic
-       valid_lft 2591896sec preferred_lft 604696sec
-    inet6 fe80::250:54ff:fe00:f03/64 scope link
-       valid_lft forever preferred_lft forever
-5: veth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 100=
-0
-    link/ether 8a:ec:35:34:1f:a8 brd ff:ff:ff:ff:ff:ff
-6: veth0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 100=
-0
-    link/ether 2e:97:ef:77:40:82 brd ff:ff:ff:ff:ff:ff
-
-Signed-off-by: Petr P=C3=ADsa=C5=99 <ppisar@redhat.com>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- ip/ipaddress.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+Hi Dave,
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 6c11ce4..5498f46 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -884,6 +884,7 @@ static void ipaddr_filter(struct nlmsg_chain *linfo=
-, struct nlmsg_chain *ainfo)
- 	lp =3D &linfo->head;
- 	while ( (l =3D *lp) !=3D NULL) {
- 		int ok =3D 0;
-+		int missing_net_address =3D 1;
- 		struct ifinfomsg *ifi =3D NLMSG_DATA(&l->h);
- 		struct nlmsg_list *a;
-=20
-@@ -891,8 +892,10 @@ static void ipaddr_filter(struct nlmsg_chain *linf=
-o, struct nlmsg_chain *ainfo)
- 			struct nlmsghdr *n =3D &a->h;
- 			struct ifaddrmsg *ifa =3D NLMSG_DATA(n);
-=20
--			if (ifa->ifa_index !=3D ifi->ifi_index ||
--			    (filter.family && filter.family !=3D ifa->ifa_family))
-+			if (ifa->ifa_index !=3D ifi->ifi_index)
-+				continue;
-+			missing_net_address =3D 0;
-+			if (filter.family && filter.family !=3D ifa->ifa_family)
- 				continue;
- 			if ((filter.scope^ifa->ifa_scope)&filter.scopemask)
- 				continue;
-@@ -927,6 +930,9 @@ static void ipaddr_filter(struct nlmsg_chain *linfo=
-, struct nlmsg_chain *ainfo)
- 			ok =3D 1;
- 			break;
- 		}
-+		if (missing_net_address &&
-+		    (filter.family =3D=3D AF_UNSPEC || filter.family =3D=3D AF_PACKE=
-T))
-+			ok =3D 1;
- 		if (!ok) {
- 			*lp =3D l->next;
- 			free(l);
---=20
-1.7.11.7
+This is a bug fix which corrects the default rx ring size of
+10G functions on 5771x boards.
+
+Please consider applying it to 'net'.
+
+Thanks,
+Yuval
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   17 ++++++++++-------
+ 1 files changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 30f04a3..2422099 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -3523,15 +3523,18 @@ static int bnx2x_alloc_fp_mem_at(struct bnx2x *bp, int index)
+ 	} else
+ #endif
+ 	if (!bp->rx_ring_size) {
+-		u32 cfg = SHMEM_RD(bp,
+-			     dev_info.port_hw_config[BP_PORT(bp)].default_cfg);
+-
+ 		rx_ring_size = MAX_RX_AVAIL/BNX2X_NUM_RX_QUEUES(bp);
+ 
+-		/* Dercease ring size for 1G functions */
+-		if ((cfg & PORT_HW_CFG_NET_SERDES_IF_MASK) ==
+-		    PORT_HW_CFG_NET_SERDES_IF_SGMII)
+-			rx_ring_size /= 10;
++		if (CHIP_IS_E3(bp)) {
++			u32 cfg = SHMEM_RD(bp,
++					   dev_info.port_hw_config[BP_PORT(bp)].
++					   default_cfg);
++
++			/* Decrease ring size for 1G functions */
++			if ((cfg & PORT_HW_CFG_NET_SERDES_IF_MASK) ==
++			    PORT_HW_CFG_NET_SERDES_IF_SGMII)
++				rx_ring_size /= 10;
++		}
+ 
+ 		/* allocate at least number of buffers required by FW */
+ 		rx_ring_size = max_t(int, bp->disable_tpa ? MIN_RX_SIZE_NONTPA :
+-- 
+1.7.9.rc2
