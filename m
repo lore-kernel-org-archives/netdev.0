@@ -1,77 +1,108 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH] tg3: Fix sparse warnings.
-Date: Tue, 2 Oct 2012 20:31:14 -0700
-Message-ID: <1349235074-18927-1-git-send-email-mchan@broadcom.com>
+From: Arun MURTHY <arun.murthy@stericsson.com>
+Subject: RE: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
+Date: Wed, 3 Oct 2012 06:31:44 +0200
+Message-ID: <F45880696056844FA6A73F415B568C695B6962CC98@EXDCVYMBSTM006.EQ1STM.local>
+References: <1348819504-1303-1-git-send-email-arun.murthy@stericsson.com>
+	<1348819504-1303-2-git-send-email-arun.murthy@stericsson.com>
+	<20120928160045.GD2625@kroah.com>
+	<F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
+	<20121001155940.GA1957@kroah.com>
+	<F45880696056844FA6A73F415B568C695B6962CC8C@EXDCVYMBSTM006.EQ1STM.local>
+ <CAK7N6vqpHvi0R4eY0NPJ90Yu1_sVXOri-qOU5FPhp_5XcY3z0w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1911 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751904Ab2JCDRt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Oct 2012 23:17:49 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Greg KH <gregkh@linuxfoundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
+To: anish singh <anish198519851985@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAK7N6vqpHvi0R4eY0NPJ90Yu1_sVXOri-qOU5FPhp_5XcY3z0w@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-drivers/net/ethernet/broadcom/tg3.c:8121:8: warning: symbol 'i' shadows an earlier one
-drivers/net/ethernet/broadcom/tg3.c:8003:6: originally declared here
-drivers/net/ethernet/broadcom/tg3.c:785:5: warning: symbol 'tg3_ape_scratchpad_read' was not declared. Should it be static?
-drivers/net/ethernet/broadcom/tg3.c:7781:19: warning: Using plain integer as NULL pointer
-drivers/net/ethernet/broadcom/tg3.c:10231:31: error: bad constant expression
-
-Reported-by: Fengguang Wu <fenguang.wu@intel.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c |   11 ++++++-----
- 1 files changed, 6 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 008ea14..b0624c2 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -782,7 +782,8 @@ static int tg3_ape_wait_for_event(struct tg3 *tp, u32 timeout_us)
- 	return i == timeout_us / 10;
- }
- 
--int tg3_ape_scratchpad_read(struct tg3 *tp, u32 *data, u32 base_off, u32 len)
-+static int tg3_ape_scratchpad_read(struct tg3 *tp, u32 *data, u32 base_off,
-+				   u32 len)
- {
- 	int err;
- 	u32 i, bufoff, msgoff, maxlen, apedata;
-@@ -7778,7 +7779,7 @@ static int tg3_alloc_consistent(struct tg3 *tp)
- 		sblk = tnapi->hw_status;
- 
- 		if (tg3_flag(tp, ENABLE_RSS)) {
--			u16 *prodptr = 0;
-+			u16 *prodptr = NULL;
- 
- 			/*
- 			 * When RSS is enabled, the status block format changes
-@@ -8118,11 +8119,11 @@ static int tg3_chip_reset(struct tg3 *tp)
- 		u16 val16;
- 
- 		if (tp->pci_chip_rev_id == CHIPREV_ID_5750_A0) {
--			int i;
-+			int j;
- 			u32 cfg_val;
- 
- 			/* Wait for link training to complete.  */
--			for (i = 0; i < 5000; i++)
-+			for (j = 0; j < 5000; j++)
- 				udelay(100);
- 
- 			pci_read_config_dword(tp->pdev, 0xc4, &cfg_val);
-@@ -10228,7 +10229,7 @@ static u32 tg3_irq_count(struct tg3 *tp)
- static bool tg3_enable_msix(struct tg3 *tp)
- {
- 	int i, rc;
--	struct msix_entry msix_ent[tp->irq_max];
-+	struct msix_entry msix_ent[TG3_IRQ_MAX_VECS];
- 
- 	tp->txq_cnt = tp->txq_req;
- 	tp->rxq_cnt = tp->rxq_req;
--- 
-1.6.4.GIT
+PiBPbiBXZWQsIE9jdCAzLCAyMDEyIGF0IDk6MjQgQU0sIEFydW4gTVVSVEhZDQo+IDxhcnVuLm11
+cnRoeUBzdGVyaWNzc29uLmNvbT4gd3JvdGU6DQo+ID4+IE9uIE1vbiwgT2N0IDAxLCAyMDEyIGF0
+IDA3OjMwOjM4QU0gKzAyMDAsIEFydW4gTVVSVEhZIHdyb3RlOg0KPiA+PiA+ID4gT24gRnJpLCBT
+ZXAgMjgsIDIwMTIgYXQgMDE6MzU6MDFQTSArMDUzMCwgQXJ1biBNdXJ0aHkgd3JvdGU6DQo+ID4+
+ID4gPiA+ICsjaW5jbHVkZSA8bGludXgvbW9kdWxlLmg+DQo+ID4+ID4gPiA+ICsjaW5jbHVkZSA8
+bGludXgvc2xhYi5oPg0KPiA+PiA+ID4gPiArI2luY2x1ZGUgPGxpbnV4L2Vyci5oPg0KPiA+PiA+
+ID4gPiArI2luY2x1ZGUgPGxpbnV4L3ByaW50ay5oPg0KPiA+PiA+ID4gPiArI2luY2x1ZGUgPGxp
+bnV4L21vZGVtX3NobS9tb2RlbS5oPg0KPiA+PiA+ID4gPiArDQo+ID4+ID4gPiA+ICtzdGF0aWMg
+c3RydWN0IGNsYXNzICptb2RlbV9jbGFzczsNCj4gPj4gPiA+DQo+ID4+ID4gPiBXaGF0J3Mgd3Jv
+bmcgd2l0aCBhIGJ1c190eXBlIGluc3RlYWQ/DQo+ID4+ID4NCj4gPj4gPiBDYW4gSSBrbm93IHRo
+ZSBhZHZhbnRhZ2Ugb2YgdXNpbmcgYnVzX3R5cGUgb3ZlciBjbGFzcz8NCj4gPj4NCj4gPj4gWW91
+IGhhdmUgZGV2aWNlcyBsaXZpbmcgb24gYSBidXMsIGFuZCBpdCdzIG11Y2ggbW9yZSBkZXNjcmlw
+dGl2ZSB0aGFuDQo+ID4+IGEgY2xhc3MgKHdoaWNoIHdlIGFyZSBnb2luZyB0byBldmVudHVhbGx5
+IGdldCByaWQgb2Ygb25lIG9mIHRoZXNlIGRheXMuLi4pLg0KPiA+Pg0KPiA+PiBNaWdodCBJIGFz
+ayB3aHkgeW91IGNob29zZSBhIGNsYXNzIG92ZXIgYSBidXNfdHlwZT8NCj4gPg0KPiA+IEJhc2lj
+YWxseSBteSByZXF1aXJlbWVudCBpcyB0byBjcmVhdGUgYSBjZW50cmFsIGVudGl0eSBmb3IgYWNj
+ZXNzaW5nDQo+ID4gYW5kIHJlbGVhc2luZyBtb2RlbSBmcm9tIEFQRS4gU2luY2UgdGhpcyBpcyBk
+b25lIGJ5IGRpZmZlcmVudCBjbGllbnRzDQo+ID4gdGhlIGNlbnRyYWwgZW50aXR5IHNob3VsZCBi
+ZSBhYmxlIHRvIGhhbmRsZSB0aGUgcmVxdWVzdCBhbmQgcGxheQ0KPiA+IHNhZmVseSwgc2luY2Ug
+dGhpcyBoYXMgbW9yZSBhZmZlY3QgaW4gc3lzdGVtIHN1c3BlbmQgYW5kIGRlZXAgc2xlZXAuDQo+
+ID4gVXNpbmcgY2xhc3MgaGVscHMgbWUgaW4gYWNoaWV2aW5nIHRoaXMgYW5kIGFsc28gY3JlYXRl
+IGFuIGVudHJ5IHRvDQo+ID4gdXNlciBzcGFjZSB3aGljaCBjYW4gYmUgdXNlZCBpbiB0aGUgbGF0
+ZXIgcGFydHMuIE1vcmVvdmVyDQo+IFlvdSBjYW4gaGF2ZSB0aGF0IHNhbWUgbWVjaGFuaXNtIHdv
+cmsgZm9yIGJ1c190eXBlIGFzIHdlbGwuDQo+ID4gdGhpcyBub3Qgc29tZXRoaW5nIGxpa2UgYSBi
+dXMgb3Igc28sIHNvIEkgZGlkbid0IHVzZSBidXMgaW5zdGVhZCB3ZW50DQo+ID4gd2l0aCBhIHNp
+bXBsZSBjbGFzcyBhcHByb2FjaC4NCj4gPg0KPiA+Pg0KPiA+PiA+ID4gPiAraW50IG1vZGVtX3Jl
+bGVhc2Uoc3RydWN0IG1vZGVtX2Rlc2MgKm1kZXNjKSB7DQo+ID4+ID4gPiA+ICsgICAgICAgaWYg
+KCFtZGVzYy0+cmVsZWFzZSkNCj4gPj4gPiA+ID4gKyAgICAgICAgICAgICAgIHJldHVybiAtRUZB
+VUxUOw0KPiA+PiA+ID4gPiArDQo+ID4+ID4gPiA+ICsgICAgICAgaWYgKG1vZGVtX2lzX3JlcXVl
+c3RlZChtZGVzYykpIHsNCj4gPj4gPiA+ID4gKyAgICAgICAgICAgICAgIGF0b21pY19kZWMoJm1k
+ZXNjLT5tY2xpZW50cy0+Y250KTsNCj4gPj4gPiA+ID4gKyAgICAgICAgICAgICAgIGlmIChhdG9t
+aWNfcmVhZCgmbWRlc2MtPnVzZV9jbnQpID09IDEpIHsNCj4gPj4gPiA+ID4gKyAgICAgICAgICAg
+ICAgICAgICAgICAgbWRlc2MtPnJlbGVhc2UobWRlc2MpOw0KPiA+PiA+ID4gPiArICAgICAgICAg
+ICAgICAgICAgICAgICBhdG9taWNfZGVjKCZtZGVzYy0+dXNlX2NudCk7DQo+ID4+ID4gPiA+ICsg
+ICAgICAgICAgICAgICB9DQo+ID4+ID4gPg0KPiA+PiA+ID4gRWVlaywgd2h5IGFyZW4ndCB5b3Ug
+dXNpbmcgdGhlIGJ1aWx0LWluIHJlZmVyZW5jZSBjb3VudGluZyB0aGF0DQo+ID4+ID4gPiB0aGUg
+c3RydWN0IGRldmljZSBwcm92aWRlZCB0byB5b3UsIGFuZCBpbnN0ZWFkIGFyZSByb2xsaW5nIHlv
+dXIgb3duPw0KPiA+PiA+ID4gVGhpcyBoYXBwZW5zIGluIG1hbnkgcGxhY2VzLCB3aHk/DQo+ID4+
+ID4NCj4gPj4gPiBNeSB1c2FnZSBvZiBjb3VudGVycyBvdmVyIGhlcmUgaXMgZm9yIGVhY2ggbW9k
+ZW0gdGhlcmUgYXJlIG1hbnkNCj4gY2xpZW50cy4NCj4gPj4gPiBFYWNoIG9mIHRoZSBjbGllbnRz
+IHdpbGwgaGF2ZSBhIHJlZiB0byBtb2RlbV9kZXNjLiBFYWNoIG9mIHRoZW0gdXNlDQo+ID4+ID4g
+dGhpcyBmb3IgcmVxdWVzdGluZyBhbmQgcmVsZWFzaW5nIHRoZSBtb2RlbS4gT25lIGNvdW50ZXIg
+Zm9yDQo+ID4+ID4gdHJhY2tpbmcgdGhlIHJlcXVlc3QgYW5kIHJlbGVhc2UgZm9yIGVhY2ggY2xp
+ZW50IHdoaWNoIGlzIGRvbmUgYnkNCj4gPj4gPiB2YXJpYWJsZSAnY250JyBpbg0KPiA+PiBzdHJ1
+Y3QgY2xpZW50cy4NCj4gPj4gPiBUaGUgY291bnRlciB1c2VfY250IGlzIHVzZWQgZm9yIHRyYWNr
+aW5nIHRoZSBtb2RlbSByZXF1ZXN0L3JlbGVhc2UNCj4gPj4gPiBpcnJlc3BlY3RpdmUgb2YgdGhl
+IGNsaWVudHMgYW5kIGNvdW50ZXIgY2xpX2NudCBpcyB1c2VkIGZvcg0KPiA+PiA+IHJlc3RyaWN0
+aW5nIHRoZSBtb2RlbV9nZXQgdG8gdGhlIG5vIG9mIGNsaWVudHMgZGVmaW5lZCBpbiBub19jbGll
+bnRzLg0KPiA+PiA+DQo+ID4+ID4gU28gdG90YWxseSAzIGNvdW50ZXIgb25lIGZvciByZXN0cmlj
+dGluZyB0aGUgdXNhZ2Ugb2YgbW9kZW1fZ2V0IGJ5DQo+ID4+ID4gY2xpZW50cywgc2Vjb25kIGZv
+ciByZXN0cmljdGluZyBtb2RlbSByZXF1ZXN0L3JlbGVhc2UgYXQgdG9wIGxldmVsLA0KPiA+PiA+
+IGFuZCAzcmQgZm9yIHJlc3RyaWN0aW5nIG1vZGVtIHJlbGVhc2UvcmVxdWVzdCBmb3IgcGVyIGNs
+aWVudCBwZXINCj4gPj4gPiBtb2RlbQ0KPiA+PiBiYXNpcy4NCj4gPj4gPg0KPiA+PiA+IENhbiB5
+b3UgbGV0IG1lIGtub3cgaWYgdGhlIHNhbWUgY2FuIGJlIGFjaGlldmVkIGJ5IHVzaW5nIGJ1aWx0
+LWluDQo+ID4+ID4gcmVmIGNvdW50aW5nPw0KPiA+Pg0KPiA+PiBZZXMsIGJlY2F1c2UgeW91IGRv
+bid0IG5lZWQgYWxsIG9mIHRob3NlIGRpZmZlcmVudCBsZXZlbHMsIGp1c3Qgc3RpY2sNCj4gPj4g
+d2l0aCBvbmUgYW5kIHlvdSBzaG91bGQgYmUgZmluZS4gOikNCj4gPj4NCj4gPg0KPiA+IE5vLCBj
+aGVja3MgYXQgYWxsIHRoZXNlIGxldmVscyBhcmUgcmVxdWlyZWQsIEkgaGF2ZSBicmllZmVkIG91
+dCB0aGUgbmVlZCBhbHNvLg0KPiA+IFRoaXMgd2lsbCBoYXZlIGVmZmVjdCBvbiBzeXN0ZW0gcG93
+ZXIgbWFuYWdlbWVudCwgaS5lIHN1c3BlbmQgYW5kIGRlZXANCj4gPiBzbGVlcC4NCj4gPiBXZSBy
+ZXN0cmljdCB0aGF0IHRoZSBkcml2ZXJzIHNob3VsZCByZXF1ZXN0IG1vZGVtIG9ubHkgb25jZSBh
+bmQNCj4gPiByZWxlYXNlIG9ubHkgb25jZSwgYnV0IHdlIGNhbm5vdCByZWx5IG9uIHRoZSBjbGll
+bnRzIGhlbmNlIGEgY2hlY2sgZm9yDQo+ID4gdGhlIHNhbWUgaGFzIHRvIGJlIGRvbmUgaW4gdGhl
+IE1BRi4gQWxzbyB0aGUgbm8gb2YgY2xpZW50cyBzaG91bGQgYmUNCj4gPiBkZWZpbmVkIGFuZCBo
+ZW5jZSBhIGNoZWNrIGZvciB0aGUgc2FtZSBpcyBkb25lIGluIE1BRi4gQXBhcnQgZnJvbSBhbGwN
+Cj4gPiB0aGVzZSB0aGUgcmVxdWVzdHMgY29taW5nIGZyb20gYWxsIHRoZSBjbGllbnRzIGlzIHRv
+IGJlIGFjY3VtdWxhdGVkDQo+ID4gYW5kIGJhc2VkIG9uIHRoYXQgbW9kZW0gcmVsZWFzZSBvciBh
+Y2Nlc3Mgc2hvdWxkIGJlIHBlcmZvcm1lZCwgaGVuY2UNCj4gc28uDQo+IEkgdGhpbmsgYmVzdCB3
+YXkgdG8gZGVhbCB3aXRoIHRoaXMgaXM6DQo+IERlZmluZSBhIG5ldyBidXMgdHlwZSBhbmQgaGF2
+ZSB5b3VyIGNsaWVudHMgY2FsbCB0aGUgYnVzIGV4cG9zZWQNCj4gZnVuY3Rpb25hbGl0eSB3aGVu
+IGV2ZXIgdGhleSBuZWVkIGEgc2VydmljZS5TbyBpbiB5b3VyIGNhc2UgaXQgd291bGQgYmUNCj4g
+cmVxdWVzdCBhbmQgcmVsZWFzZSBvbmx5IEFORCB3aGVuIGFsbCBvZiB5b3VyIGNsaWVudHMgaGF2
+ZSByZWxlYXNlZCB0aGUgYnVzDQo+IHRoZW4geW91IGNhbiBkbyB0aGUgY2xlYW51cCBpLmUuIHN3
+aXRjaCBvZmYgdGhlIG1vZGVtIGFuZCBvbiBhZGRlZA0KPiBhZHZhbnRhZ2Ugb2YgbWFraW5nIGl0
+IGEgYnVzX3R5cGUgd291bGQgYmUgdGhhdCB5b3UgY2FuIGRvIHRoZSByZWZlcmVuY2UNCj4gY291
+bnRpbmcgaW4geW91ciBidXMgZHJpdmVyLg0KPiANCj4gRGVzaWduaW5nIGlzIG5vdCBteSBmb3J0
+ZSBidXQgSSBmZWVsIHRoaXMgd2F5IHlvdSBjYW4gc29sdmUgdGhlIHByb2JsZW0gYXQNCj4gaGFu
+ZC4NCj4gUGxlYXNlIGZlZWwgZnJlZSB0byBjb3JyZWN0IG1lLkkgd291bGQgcmVhbGx5IGFwcHJl
+Y2lhdGUgaXQuDQoNCkF0IHRoZSB2ZXJ5IGZpcnN0IGxvb2sgaXRzZWxmIHRoaXMgTUFGIGlzIG5v
+dCBhIGJ1cyBieSBpdHMgdGVjaG5pY2FsIG1lYW5pbmcsIHNvDQp3aHkgdG8gdXNlIGJ1c190eXBl
+IGlzIHRoZSBwb2ludCB0aGF0IEkgaGF2ZS4NCg0KVGhhbmtzIGFuZCBSZWdhcmRzLA0KQXJ1biBS
+IE11cnRoeQ0KLS0tLS0tLS0tLS0tLS0tLS0tDQo=
