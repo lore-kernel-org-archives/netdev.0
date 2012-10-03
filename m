@@ -1,58 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: RED tc qdisc not dropping?
-Date: Wed, 03 Oct 2012 23:12:46 +0200
-Message-ID: <1349298766.10199.5.camel@edumazet-glaptop>
-References: <986427880.11879793.1349295290592.JavaMail.root@cds046>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/2] Fix build error caused by broken PCH_PTP module
+ dependency.
+Date: Wed, 3 Oct 2012 22:45:10 +0100
+Message-ID: <1349300710.2763.8.camel@bwh-desktop.uk.solarflarecom.com>
+References: <506546A7.7030500@linux.intel.com>
+	 <20120928.024621.1635385815700269914.davem@davemloft.net>
+	 <50654A62.5090003@linux.intel.com>
+	 <20121002.222238.1580734803370802133.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ken Savage <kens1835@shaw.ca>
+Cc: <haicheng.li@linux.intel.com>, <netdev@vger.kernel.org>,
+	<tshimizu818@gmail.com>, <linux-kernel@vger.kernel.org>,
+	<haicheng.lee@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:48272 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755369Ab2JCVMv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 17:12:51 -0400
-Received: by bkcjk13 with SMTP id jk13so6397673bkc.19
-        for <netdev@vger.kernel.org>; Wed, 03 Oct 2012 14:12:50 -0700 (PDT)
-In-Reply-To: <986427880.11879793.1349295290592.JavaMail.root@cds046>
+Received: from webmail.solarflare.com ([12.187.104.25]:56558 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756347Ab2JCVpO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 17:45:14 -0400
+In-Reply-To: <20121002.222238.1580734803370802133.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-10-03 at 14:14 -0600, Ken Savage wrote:
-> Hi there,
+On Tue, 2012-10-02 at 22:22 -0400, David Miller wrote:
+> From: Haicheng Li <haicheng.li@linux.intel.com>
+> Date: Fri, 28 Sep 2012 14:57:38 +0800
 > 
-> I'm running openSUSE 12.2, using the machine as a router/WANsim device.
+> > On 09/28/2012 02:46 PM, David Miller wrote:
+> >> From: Haicheng Li<haicheng.li@linux.intel.com>
+> >> Date: Fri, 28 Sep 2012 14:41:43 +0800
+> >>
+> >>> On 09/28/2012 06:09 AM, David Miller wrote:
+> >>>> Look at how other people submit patches, do any other patch
+> >>>> submissions
+> >>>> look like your's having all of this metadata in the message body:
+> >>> I'm sorry for it.
+> >>>
+> >>>> As for this specific patch:
+> >>>>
+> >>>>> -	depends on PTP_1588_CLOCK_PCH
+> >>>>> +	depends on PTP_1588_CLOCK_PCH = PCH_GBE
+> >>>>
+> >>>> This is not the correct way to ensure that the module'ness of one
+> >>>> config option meets the module'ness requirements of another.
+> >>>> The correct way is to say something like "&&   (PCH_GBE || PCH_GBE=n)"
+> >>>
+> >>> This case is a little bit tricky than usual, with PCH_PTP selected,
+> >>> the valid config would be either "PTP_1588_CLOCK_PCH=PCH_GBE=m" or
+> >>> "PTP_1588_CLOCK_PCH=PCH_GBE=y", and PTP_1588_CLOCK_PCH depends on
+> >>> PCH_GBE.
+> >>
+> >> And a simple "&&  PCH_GBE" should accomplish this, no?
+> > No sir. it's actually same with the original Kconfig (by a if
+> > PCH_GBE"), it just failed with this config:
+> > 
+> >         CONFIG_PCH_GBE=y
+> >         CONFIG_PCH_PTP=y
+> >         CONFIG_PTP_1588_CLOCK=m
 > 
-> Previously, I was running an older CentOS installation with a 2.6 kernel,
-> and my tc-red commands ran just fine, and imposed some bandwidth constraint
-> to the packets upon egress.  In 3.4.6, this doesn't seem to be the case
-> any longer.
+> The correct fix is to make the Kconfig entry for PCH_PTP use
+> a "select PTP_1588_CLOCK" instead of "depends PTP_1588_CLOCK"
 > 
-> Without any restrictions, there would be 25-30Mbps of traffic flowing out
-> the interface -- this is to give you a sense of the data rate.
+> I'll apply this fix.
 > 
+> The is another, extremely convoluted, way to do this, which is
+> what the SFC driver does which is:
 > 
-> Now, this said, I did notice that the latest RED code has the 'harddrop'
-> option that I didn't have under CentOS with kernel 2.6.  So in my attempt
-> to see ANYTHING happening with 3.4.6, I entered:
+> depends on SFC && PTP_1588_CLOCK && !(SFC=y && PTP_1588_CLOCK=m)
 > 
-> tc qdisc add dev eth0 root red limit 40000 min 3000 max 9000 avpkt 1000 burst 5 harddrop probability 1
-> 
-> 
-> Issuing 'tc -s -d qdisc show dev eth0', I obtain:
-> 
-> qdisc red 8006: root refcnt 2 limit 40000b min 3000b max 9000b harddrop ewma 2 probability 0.73242 Scell_log 12
->  Sent 254028472 bytes 207494 pkt (dropped 0, overlimits 0 requeues 0)
->  backlog 0b 0p requeues 0
->   marked 0 early 0 pdrop 0 other 0
-> 
-> 
-> All those zeroes seem a little amiss to me  ;)
-> 
+> but that looks horrible to me.
 
-Not sure I understand...
+I thought of it as being a peripheral feature (which most Solarflare
+hardware doesn't implement) so it made sense for SFC_PTP to be optional
+like SFC_MTD and so on.  But I'm quite happy to use a select instead, if
+you want that to be the convention for all drivers implementing PHC.
 
-Why RED should drop a packet if there is no backlog ?
+Ben.
 
-if you NIC has Gigabit speed, RED will allow Gigabit speed as well.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
