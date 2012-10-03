@@ -1,38 +1,62 @@
-From: Paolo Bonzini <pbonzini@redhat.com>
-Subject: Re: [PATCH 0/3] virtio-net: inline header support
-Date: Wed, 03 Oct 2012 12:53:34 +0200
-Message-ID: <506C192E.5060700@redhat.com>
-References: <cover.1348824232.git.mst@redhat.com>
-	<87vces2gxq.fsf__45058.6618776017$1349247807$gmane$org@rustcorp.com.au>
+From: Jesper Nilsson <jesper.nilsson@axis.com>
+Subject: Re: drivers/net/cris/eth_v10.c:1715:2: error: too many arguments
+ to function 'e100rxtx_interrupt'
+Date: Wed, 3 Oct 2012 12:46:52 +0200
+Message-ID: <20121003104652.GK1390@axis.com>
+References: <20120928130608.GA5158@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sasha Levin <levinsasha928@gmail.com>,
-	virtualization@lists.linux-foundation.org,
-	Thomas Lendacky <tahm@linux.vnet.ibm.com>, avi@redhat.com
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87vces2gxq.fsf__45058.6618776017$1349247807$gmane$org@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Fengguang Wu <fengguang.wu@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from anubis.se.axis.com ([195.60.68.12]:60429 "EHLO
+	anubis.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754750Ab2JCKzL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 06:55:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20120928130608.GA5158@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Il 03/10/2012 08:44, Rusty Russell ha scritto:
-> There's a reason I haven't done this.  I really, really dislike "my
-> implemention isn't broken" feature bits.  We could have an infinite
-> number of them, for each bug in each device.
+On Fri, Sep 28, 2012 at 03:06:08PM +0200, Fengguang Wu wrote:
+> Hi Jesper,
 
-However, this bug affects (almost) all implementations and (almost) all
-devices.  It even makes sense to reserve a transport feature bit for it
-instead of a device feature bit.
+Hi!
 
-Paolo
+> FYI, a rather old build bug that's introduced by
+> 
+> bafef0a cris build fixes: update eth_v10.c ethernet driver
+> 
+> All error/warnings:
+> 
+> drivers/net/cris/eth_v10.c: In function 'e100_netpoll':
+> drivers/net/cris/eth_v10.c:1715:2: error: too many arguments to function 'e100rxtx_interrupt'
+> drivers/net/cris/eth_v10.c:1131:1: note: declared here
+
+Yep, I can't figure out why the followup patches never reached mainline,
+but we have fixes for exactly that in our in-house tree.
+I'll push some move patches after this merge window.
+
+> vim +1715 drivers/net/cris/eth_v10.c
+> 
+> ^1da177e (Linus Torvalds 2005-04-16  1710) 
+> bafef0ae (Jesper Nilsson 2007-11-14  1711) #ifdef CONFIG_NET_POLL_CONTROLLER
+> bafef0ae (Jesper Nilsson 2007-11-14  1712) static void
+> bafef0ae (Jesper Nilsson 2007-11-14  1713) e100_netpoll(struct net_device* netdev)
+> bafef0ae (Jesper Nilsson 2007-11-14  1714) {
+> bafef0ae (Jesper Nilsson 2007-11-14 @1715) 	e100rxtx_interrupt(NETWORK_DMA_TX_IRQ_NBR, netdev, NULL);
+> bafef0ae (Jesper Nilsson 2007-11-14  1716) }
+> bafef0ae (Jesper Nilsson 2007-11-14  1717) #endif
+> bafef0ae (Jesper Nilsson 2007-11-14  1718) 
+> ^1da177e (Linus Torvalds 2005-04-16  1719) static int
+> ^1da177e (Linus Torvalds 2005-04-16  1720) etrax_init_module(void)
+> ^1da177e (Linus Torvalds 2005-04-16  1721) {
+> ^1da177e (Linus Torvalds 2005-04-16  1722) 	return etrax_ethernet_init();
+> ^1da177e (Linus Torvalds 2005-04-16  1723) }
+
+Thanks!
+
+/^JN - Jesper Nilsson
+-- 
+               Jesper Nilsson -- jesper.nilsson@axis.com
