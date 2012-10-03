@@ -1,42 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipv6: don't add link local route when there is no
- link local address
-Date: Tue, 02 Oct 2012 22:38:41 -0400 (EDT)
-Message-ID: <20121002.223841.1202289353286506341.davem@davemloft.net>
-References: <20121001.165527.1025640918619977740.davem@davemloft.net>
-	<1349169554-3774-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v2] netxen: write IP address to firmware when
+ using bonding
+Date: Tue, 02 Oct 2012 22:40:35 -0400 (EDT)
+Message-ID: <20121002.224035.1104522257834310906.davem@davemloft.net>
+References: <1348562883-14780-1-git-send-email-nikolay@redhat.com>
+	<1349169386-18391-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: nicolas.dichtel@6wind.com
+Cc: sony.chacko@qlogic.com, agospoda@redhat.com,
+	rajesh.borundia@qlogic.com, netdev@vger.kernel.org
+To: nikolay@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53130 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53140 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751695Ab2JCCin (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 22:38:43 -0400
-In-Reply-To: <1349169554-3774-1-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S1751264Ab2JCCkg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2012 22:40:36 -0400
+In-Reply-To: <1349169386-18391-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Tue,  2 Oct 2012 11:19:14 +0200
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Date: Tue,  2 Oct 2012 11:16:26 +0200
 
-> When an address is added on loopback (ip -6 a a 2002::1/128 dev lo), a route
-> to fe80::/64 is added in the main table:
->   unreachable fe80::/64 dev lo  proto kernel  metric 256  error -101
+> This patch allows LRO aggregation on bonded devices that contain an NX3031
+> device. It also adds a for_each_netdev_in_bond_rcu(bond, slave) macro
+> which executes for each slave that has bond as master.
 > 
-> This route does not match any prefix (no fe80:: address on lo). In fact,
-> addrconf_dev_config() will not add link local address because this function
-> filters interfaces by type. If the link local address is added manually, the
-> route to the link local prefix will be automatically added by
-> addrconf_add_linklocal().
-> Note also, that this route is not deleted when the address is removed.
+> V2: Remove local ip caching, retrieve addresses dynamically and
+>     restore them if necessary.
 > 
-> After looking at the code, it seems that addrconf_add_lroute() is redundant with
-> addrconf_add_linklocal(), because this function will add the link local route
-> when the link local address is configured.
+> Note: Tested with NX3031 adapter.
 > 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Andy Gospodarek <agospoda@redhat.com>
+> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 
-Applied.
+This doesn't apply cleanly to the current tree.
+
+It is also poorly styled, for example:
+
+> +				if (addr) {
+> +					netxen_config_ipaddr(adapter, addr,
+> +							     ip_event);
+> +				}
+
+No curley braces for a single statement.
+
+There are also a lot of extransoue empty lines added to the
+code which do not enhance readability in any way and just take
+up valuable vertical screen realestate.
+
+You've also missed the net-next merge window cutoff, so you'll
+need to wait until after the merge window to send this in again.
+
+Thanks.
