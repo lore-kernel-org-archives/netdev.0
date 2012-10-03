@@ -1,62 +1,41 @@
-From: Jesper Nilsson <jesper.nilsson@axis.com>
-Subject: Re: drivers/net/cris/eth_v10.c:1715:2: error: too many arguments
- to function 'e100rxtx_interrupt'
-Date: Wed, 3 Oct 2012 12:46:52 +0200
-Message-ID: <20121003104652.GK1390@axis.com>
-References: <20120928130608.GA5158@localhost>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] udp: increment UDP_MIB_NOPORTS in mcast receive
+Date: Wed, 3 Oct 2012 08:45:55 -0400
+Message-ID: <OFA39D9FC0.CDC6EE41-ON85257A8C.00458030-85257A8C.00461EF4@us.ibm.com>
+References: <506955F3.8050304@googlemail.com>	 <1349082950.12401.669.camel@edumazet-glaptop>
+	 <20121001193434.GA14236@redhat.com>	 <20121001.160115.1816241312626722150.davem@davemloft.net>
+	 <1349121884.12401.721.camel@edumazet-glaptop>	 <1349192133.12401.768.camel@edumazet-glaptop>
+	 <1349192919.12401.778.camel@edumazet-glaptop>	 <alpine.LFD.2.00.1210030032430.25856@ja.ssi.bg> <1349249328.12401.1364.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Fengguang Wu <fengguang.wu@intel.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: chris2553@googlemail.com, Dave Jones <davej@redhat.com>,
+	David Miller <davem@davemloft.net>, gpiez@web.de,
+	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from anubis.se.axis.com ([195.60.68.12]:60429 "EHLO
-	anubis.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754750Ab2JCKzL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 06:55:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20120928130608.GA5158@localhost>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:45528 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754203Ab2JCMqD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 08:46:03 -0400
+Received: from /spool/local
+	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Wed, 3 Oct 2012 06:46:02 -0600
+In-Reply-To: <1349249328.12401.1364.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 28, 2012 at 03:06:08PM +0200, Fengguang Wu wrote:
-> Hi Jesper,
+netdev-owner@vger.kernel.org wrote on 10/03/2012 03:28:48 AM:
+ 
+> BTW, it seems we dont properly increase UDP MIB counters when a
+> multicast message is not delivered to at least one socket.
 
-Hi!
+If an interface is in promiscuous mode or there are false
+positives in a multicast address filter, wouldn't this count as
+"drops" packets that were never intended for this machine?
 
-> FYI, a rather old build bug that's introduced by
-> 
-> bafef0a cris build fixes: update eth_v10.c ethernet driver
-> 
-> All error/warnings:
-> 
-> drivers/net/cris/eth_v10.c: In function 'e100_netpoll':
-> drivers/net/cris/eth_v10.c:1715:2: error: too many arguments to function 'e100rxtx_interrupt'
-> drivers/net/cris/eth_v10.c:1131:1: note: declared here
+I think an otherwise valid multicast or broadcast packet that doesn't
+have a local receiver is not an error and shouldn't be counted.
 
-Yep, I can't figure out why the followup patches never reached mainline,
-but we have fixes for exactly that in our in-house tree.
-I'll push some move patches after this merge window.
-
-> vim +1715 drivers/net/cris/eth_v10.c
-> 
-> ^1da177e (Linus Torvalds 2005-04-16  1710) 
-> bafef0ae (Jesper Nilsson 2007-11-14  1711) #ifdef CONFIG_NET_POLL_CONTROLLER
-> bafef0ae (Jesper Nilsson 2007-11-14  1712) static void
-> bafef0ae (Jesper Nilsson 2007-11-14  1713) e100_netpoll(struct net_device* netdev)
-> bafef0ae (Jesper Nilsson 2007-11-14  1714) {
-> bafef0ae (Jesper Nilsson 2007-11-14 @1715) 	e100rxtx_interrupt(NETWORK_DMA_TX_IRQ_NBR, netdev, NULL);
-> bafef0ae (Jesper Nilsson 2007-11-14  1716) }
-> bafef0ae (Jesper Nilsson 2007-11-14  1717) #endif
-> bafef0ae (Jesper Nilsson 2007-11-14  1718) 
-> ^1da177e (Linus Torvalds 2005-04-16  1719) static int
-> ^1da177e (Linus Torvalds 2005-04-16  1720) etrax_init_module(void)
-> ^1da177e (Linus Torvalds 2005-04-16  1721) {
-> ^1da177e (Linus Torvalds 2005-04-16  1722) 	return etrax_ethernet_init();
-> ^1da177e (Linus Torvalds 2005-04-16  1723) }
-
-Thanks!
-
-/^JN - Jesper Nilsson
--- 
-               Jesper Nilsson -- jesper.nilsson@axis.com
+                                                        +-DLS
