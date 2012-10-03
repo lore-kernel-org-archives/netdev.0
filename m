@@ -1,99 +1,55 @@
-From: Andrew Savchenko <bircoph@gmail.com>
-Subject: Kernel recieves DNS reply, but doesn't deliver it to a waiting
- application
-Date: Wed, 3 Oct 2012 23:25:48 +0400
-Message-ID: <20121003232548.eb6b6b22.bircoph@gmail.com>
+From: Ken Savage <kens1835@shaw.ca>
+Subject: RED tc qdisc not dropping?
+Date: Wed, 3 Oct 2012 14:14:50 -0600 (MDT)
+Message-ID: <986427880.11879793.1349295290592.JavaMail.root@cds046>
+References: <1643425136.11868012.1349294650298.JavaMail.root@cds046>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__3_Oct_2012_23_25_48_+0400_7AG+reyv7Fg1U.=o"
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:47490 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751116Ab2JCT0B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 15:26:01 -0400
-Received: by lagh6 with SMTP id h6so3171023lag.19
-        for <netdev@vger.kernel.org>; Wed, 03 Oct 2012 12:26:00 -0700 (PDT)
+Received: from idcmail-mo1so.shaw.ca ([24.71.223.10]:50849 "EHLO
+	idcmail-mo1so.shaw.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752934Ab2JCUPG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 16:15:06 -0400
+In-Reply-To: <1643425136.11868012.1349294650298.JavaMail.root@cds046>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__3_Oct_2012_23_25_48_+0400_7AG+reyv7Fg1U.=o
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hi there,
 
-Hello,
+I'm running openSUSE 12.2, using the machine as a router/WANsim device.
 
-I encountered a very weird bug: after a while of uptime kernel stops to del=
-iver
-DNS reply to applications. Tcpdump shows that correct reply is recieved, bu=
-t=20
-strace shows inquiring application never recieves it and ends with timeout,
-epoll_wait() always returns 0:
-a slice from: $ host kernel.org 8.8.8.8:
+Previously, I was running an older CentOS installation with a 2.6 kernel,
+and my tc-red commands ran just fine, and imposed some bandwidth constraint
+to the packets upon egress.  In 3.4.6, this doesn't seem to be the case
+any longer.
 
-sendmsg(20, {msg_name(16)=3D{sa_family=3DAF_INET, sin_port=3Dhtons(53),
-sin_addr=3Dinet_addr("8.8.8.8")}, msg_iov(1)=3D[{"\266\344\1\0\0\1\0\0\0\0\=
-0\0\6k
-ernel\3org\0\0\1\0\1", 28}], msg_controllen=3D0, msg_flags=3D0}, 0) =3D 28 =
-          =20
-epoll_wait(3, {}, 64, 0)                =3D 0                              =
-      =20
-epoll_wait(3, {}, 64, 4999)             =3D 0
+Without any restrictions, there would be 25-30Mbps of traffic flowing out
+the interface -- this is to give you a sense of the data rate.
 
-Though tcpdump shows a normal reply:
 
-20:28:44.162897 IP 10.7.74.7.43167 > 8.8.8.8.domain: 46820+ A? kernel.org. =
-(28)=20
-20:28:44.221308 IP 8.8.8.8.domain > 10.7.74.7.43167: 46820 1/0/0 A 149.20.4=
-.69
-(44)
+Now, this said, I did notice that the latest RED code has the 'harddrop'
+option that I didn't have under CentOS with kernel 2.6.  So in my attempt
+to see ANYTHING happening with 3.4.6, I entered:
 
-After this bug has occured, it is no longer possible to perform DNS request=
- on
-the crippled system. I tried to stop/restart all network-related daemons, to
-recreate network interfaces whenever possible (e.g. pppX devices), but with=
- no
-help. I use iptables and ebtables on this host, but reseting them (flushing=
- all
-chains, removing user chains, setting all policies to ACCEPT) doesn't help.=
- The
-only worknig solution is to reboot the system.
+tc qdisc add dev eth0 root red limit 40000 min 3000 max 9000 avpkt 1000 burst 5 harddrop probability 1
 
-This bug happens rarely and randomly (about once in 7-12 days on 24x7 avail=
-able
-production system), but I had it 5 times already. Due to rare and random na=
-ture
-of the bug I can't bisect it.
 
-This problem occured after I updated vanilla kernel from 2.6.39.4 to 3.4.6.
-Afterward I updated kernel to 3.4.10 in the hope that this will fix the
-problem, but with no result. (I updated kernel due to commit
-2ce42ec4ef551b08d2e5d26775d838ac640f82ad, which describes somewhat similar
-issue, though I don't use I/OAT engine due to lack of hardware support.)
+Issuing 'tc -s -d qdisc show dev eth0', I obtain:
 
-More details, attached trace files and kernel configs are available at bugz=
-illa:
-https://bugzilla.kernel.org/show_bug.cgi?id=3D48081
+qdisc red 8006: root refcnt 2 limit 40000b min 3000b max 9000b harddrop ewma 2 probability 0.73242 Scell_log 12
+ Sent 254028472 bytes 207494 pkt (dropped 0, overlimits 0 requeues 0)
+ backlog 0b 0p requeues 0
+  marked 0 early 0 pdrop 0 other 0
 
-In a few days I'll try 3.4.12 (I need to rebuild kernel anyway due to unrel=
-ated
-issue) and will report if this bug will occur again. But please note it may
-take several weeks to check this.
 
-Best regards,
-Andrew Savchenko
+All those zeroes seem a little amiss to me  ;)
 
---Signature=_Wed__3_Oct_2012_23_25_48_+0400_7AG+reyv7Fg1U.=o
-Content-Type: application/pgp-signature
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
+Any ideas?
 
-iEYEARECAAYFAlBskUUACgkQ2anJBBcsZw0IyACeOyGzFHV80ukyeh5J/myFtsQN
-7AgAn1G09F3qDwAEdbw13WXoe9M0SILw
-=gT3O
------END PGP SIGNATURE-----
+Thanks,
 
---Signature=_Wed__3_Oct_2012_23_25_48_+0400_7AG+reyv7Fg1U.=o--
+Ken Savage
+kens1835@shaw.ca
