@@ -1,116 +1,77 @@
-From: anish singh <anish198519851985@gmail.com>
-Subject: Re: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
-Date: Wed, 3 Oct 2012 09:47:07 +0530
-Message-ID: <CAK7N6vqpHvi0R4eY0NPJ90Yu1_sVXOri-qOU5FPhp_5XcY3z0w@mail.gmail.com>
-References: <1348819504-1303-1-git-send-email-arun.murthy@stericsson.com>
-	<1348819504-1303-2-git-send-email-arun.murthy@stericsson.com>
-	<20120928160045.GD2625@kroah.com>
-	<F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
-	<20121001155940.GA1957@kroah.com>
-	<F45880696056844FA6A73F415B568C695B6962CC8C@EXDCVYMBSTM006.EQ1STM.local>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH] tg3: Fix sparse warnings.
+Date: Tue, 2 Oct 2012 20:31:14 -0700
+Message-ID: <1349235074-18927-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Greg KH <gregkh@linuxfoundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
-To: Arun MURTHY <arun.murthy@stericsson.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <F45880696056844FA6A73F415B568C695B6962CC8C@EXDCVYMBSTM006.EQ1STM.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fengguang.wu@intel.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:1911 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751904Ab2JCDRt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2012 23:17:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 3, 2012 at 9:24 AM, Arun MURTHY <arun.murthy@stericsson.com> wrote:
->> On Mon, Oct 01, 2012 at 07:30:38AM +0200, Arun MURTHY wrote:
->> > > On Fri, Sep 28, 2012 at 01:35:01PM +0530, Arun Murthy wrote:
->> > > > +#include <linux/module.h>
->> > > > +#include <linux/slab.h>
->> > > > +#include <linux/err.h>
->> > > > +#include <linux/printk.h>
->> > > > +#include <linux/modem_shm/modem.h>
->> > > > +
->> > > > +static struct class *modem_class;
->> > >
->> > > What's wrong with a bus_type instead?
->> >
->> > Can I know the advantage of using bus_type over class?
->>
->> You have devices living on a bus, and it's much more descriptive than a class
->> (which we are going to eventually get rid of one of these days...).
->>
->> Might I ask why you choose a class over a bus_type?
->
-> Basically my requirement is to create a central entity for accessing and releasing
-> modem from APE. Since this is done by different clients the central entity should
-> be able to handle the request and play safely, since this has more affect in
-> system suspend and deep sleep. Using class helps me in achieving this and
-> also create an entry to user space which can be used in the later parts. Moreover
-You can have that same mechanism work for bus_type as well.
-> this not something like a bus or so, so I didn't use bus instead went with a
-> simple class approach.
->
->>
->> > > > +int modem_release(struct modem_desc *mdesc) {
->> > > > +       if (!mdesc->release)
->> > > > +               return -EFAULT;
->> > > > +
->> > > > +       if (modem_is_requested(mdesc)) {
->> > > > +               atomic_dec(&mdesc->mclients->cnt);
->> > > > +               if (atomic_read(&mdesc->use_cnt) == 1) {
->> > > > +                       mdesc->release(mdesc);
->> > > > +                       atomic_dec(&mdesc->use_cnt);
->> > > > +               }
->> > >
->> > > Eeek, why aren't you using the built-in reference counting that the
->> > > struct device provided to you, and instead are rolling your own?
->> > > This happens in many places, why?
->> >
->> > My usage of counters over here is for each modem there are many clients.
->> > Each of the clients will have a ref to modem_desc. Each of them use
->> > this for requesting and releasing the modem. One counter for tracking
->> > the request and release for each client which is done by variable 'cnt' in
->> struct clients.
->> > The counter use_cnt is used for tracking the modem request/release
->> > irrespective of the clients and counter cli_cnt is used for
->> > restricting the modem_get to the no of clients defined in no_clients.
->> >
->> > So totally 3 counter one for restricting the usage of modem_get by
->> > clients, second for restricting modem request/release at top level,
->> > and 3rd for restricting modem release/request for per client per modem
->> basis.
->> >
->> > Can you let me know if the same can be achieved by using built-in ref
->> > counting?
->>
->> Yes, because you don't need all of those different levels, just stick with one
->> and you should be fine. :)
->>
->
-> No, checks at all these levels are required, I have briefed out the need also.
-> This will have effect on system power management, i.e suspend and deep
-> sleep.
-> We restrict that the drivers should request modem only once and release
-> only once, but we cannot rely on the clients hence a check for the same has
-> to be done in the MAF. Also the no of clients should be defined and hence a
-> check for the same is done in MAF. Apart from all these the requests coming
-> from all the clients is to be accumulated and based on that modem release
-> or access should be performed, hence so.
-I think best way to deal with this is:
-Define a new bus type and have your clients call the bus exposed functionality
-when ever they need a service.So in your case it would be request and release
-only AND when all of your clients have released the bus then you can do the
-cleanup i.e. switch off the modem and on added advantage of making it a bus_type
-would be that you can do the reference counting in your bus driver.
+drivers/net/ethernet/broadcom/tg3.c:8121:8: warning: symbol 'i' shadows an earlier one
+drivers/net/ethernet/broadcom/tg3.c:8003:6: originally declared here
+drivers/net/ethernet/broadcom/tg3.c:785:5: warning: symbol 'tg3_ape_scratchpad_read' was not declared. Should it be static?
+drivers/net/ethernet/broadcom/tg3.c:7781:19: warning: Using plain integer as NULL pointer
+drivers/net/ethernet/broadcom/tg3.c:10231:31: error: bad constant expression
 
-Designing is not my forte but I feel this way you can solve the problem at hand.
-Please feel free to correct me.I would really appreciate it.
->
-> Thanks and Regards,
-> Arun R Murthy
-> -------------------
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Reported-by: Fengguang Wu <fenguang.wu@intel.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 008ea14..b0624c2 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -782,7 +782,8 @@ static int tg3_ape_wait_for_event(struct tg3 *tp, u32 timeout_us)
+ 	return i == timeout_us / 10;
+ }
+ 
+-int tg3_ape_scratchpad_read(struct tg3 *tp, u32 *data, u32 base_off, u32 len)
++static int tg3_ape_scratchpad_read(struct tg3 *tp, u32 *data, u32 base_off,
++				   u32 len)
+ {
+ 	int err;
+ 	u32 i, bufoff, msgoff, maxlen, apedata;
+@@ -7778,7 +7779,7 @@ static int tg3_alloc_consistent(struct tg3 *tp)
+ 		sblk = tnapi->hw_status;
+ 
+ 		if (tg3_flag(tp, ENABLE_RSS)) {
+-			u16 *prodptr = 0;
++			u16 *prodptr = NULL;
+ 
+ 			/*
+ 			 * When RSS is enabled, the status block format changes
+@@ -8118,11 +8119,11 @@ static int tg3_chip_reset(struct tg3 *tp)
+ 		u16 val16;
+ 
+ 		if (tp->pci_chip_rev_id == CHIPREV_ID_5750_A0) {
+-			int i;
++			int j;
+ 			u32 cfg_val;
+ 
+ 			/* Wait for link training to complete.  */
+-			for (i = 0; i < 5000; i++)
++			for (j = 0; j < 5000; j++)
+ 				udelay(100);
+ 
+ 			pci_read_config_dword(tp->pdev, 0xc4, &cfg_val);
+@@ -10228,7 +10229,7 @@ static u32 tg3_irq_count(struct tg3 *tp)
+ static bool tg3_enable_msix(struct tg3 *tp)
+ {
+ 	int i, rc;
+-	struct msix_entry msix_ent[tp->irq_max];
++	struct msix_entry msix_ent[TG3_IRQ_MAX_VECS];
+ 
+ 	tp->txq_cnt = tp->txq_req;
+ 	tp->rxq_cnt = tp->rxq_req;
+-- 
+1.6.4.GIT
