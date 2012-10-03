@@ -1,77 +1,117 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] udp: increment UDP_MIB_NOPORTS in mcast receive
-Date: Wed, 03 Oct 2012 15:15:51 +0200
-Message-ID: <1349270151.12401.2372.camel@edumazet-glaptop>
-References: <506955F3.8050304@googlemail.com>
-	 <1349082950.12401.669.camel@edumazet-glaptop>
-	 <20121001193434.GA14236@redhat.com>
-	 <20121001.160115.1816241312626722150.davem@davemloft.net>
-	 <1349121884.12401.721.camel@edumazet-glaptop>
-	 <1349192133.12401.768.camel@edumazet-glaptop>
-	 <1349192919.12401.778.camel@edumazet-glaptop>
-	 <alpine.LFD.2.00.1210030032430.25856@ja.ssi.bg>
-	 <1349249328.12401.1364.camel@edumazet-glaptop>
-	 <OFA39D9FC0.CDC6EE41-ON85257A8C.00458030-85257A8C.00461EF4@us.ibm.com>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: [PATCH 2/5] ucc_geth: Word align Ethernet RX data
+Date: Wed, 3 Oct 2012 15:17:18 +0200
+Message-ID: <OF86F9FDCF.E9F66423-ONC1257A8C.0048DEBC-C1257A8C.0048FEC5@transmode.se>
+References: <1347987385-19071-1-git-send-email-Joakim.Tjernlund@transmode.se> <1347987385-19071-2-git-send-email-Joakim.Tjernlund@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: chris2553@googlemail.com, Dave Jones <davej@redhat.com>,
-	David Miller <davem@davemloft.net>, gpiez@web.de,
-	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:36563 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755027Ab2JCNP5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 09:15:57 -0400
-In-Reply-To: <OFA39D9FC0.CDC6EE41-ON85257A8C.00458030-85257A8C.00461EF4@us.ibm.com>
+Received: from gw1.transmode.se ([195.58.98.146]:52961 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750734Ab2JCNRW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Oct 2012 09:17:22 -0400
+Received: from mail1.transmode.se (mail1.transmode.se [192.168.201.18])
+	by gw1.transmode.se (Postfix) with ESMTP id 5B44F2581D4
+	for <netdev@vger.kernel.org>; Wed,  3 Oct 2012 15:17:19 +0200 (CEST)
+In-Reply-To: <1347987385-19071-2-git-send-email-Joakim.Tjernlund@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-10-03 at 08:45 -0400, David Stevens wrote:
-> netdev-owner@vger.kernel.org wrote on 10/03/2012 03:28:48 AM:
->  
-> > BTW, it seems we dont properly increase UDP MIB counters when a
-> > multicast message is not delivered to at least one socket.
-> 
-> If an interface is in promiscuous mode or there are false
-> positives in a multicast address filter, wouldn't this count as
-> "drops" packets that were never intended for this machine?
-> 
+Ping? Got no comments and I can see it in net or net-next trees either.
 
-Yes, probably. So we drop them and its expected.
+Joakim Tjernlund <Joakim.Tjernlund@transmode.se> wrote on 2012/09/18 18:56:22:
 
-> I think an otherwise valid multicast or broadcast packet that doesn't
-> have a local receiver is not an error and shouldn't be counted.
-
-Hmmm
-
-This counter is not an "error counter", just a "counter".
-
-RFC definitions are exactly :
-
-udpNoPorts OBJECT-TYPE
-       SYNTAX     Counter32
-       MAX-ACCESS read-only
-       STATUS     current
-       DESCRIPTION
-              "The total number of received UDP datagrams for which
-               there was no application at the destination port.
-
-udpInErrors OBJECT-TYPE
-       SYNTAX     Counter32
-       MAX-ACCESS read-only
-       STATUS     current
-       DESCRIPTION
-              "The number of received UDP datagrams that could not be
-               delivered for reasons other than the lack of an
-               application at the destination port.
-
-
-So when a host receives an UDP datagram but there was no application
-at the destination port we should increment udpNoPorts, and its not
-an error but just a fact.
-
-Now _if_ some reader interprets udpNoPorts increases as an indication
-of errors, this reader is wrong.
+> From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> To: netdev@vger.kernel.org,
+> Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> Date: 2012/09/18 18:56
+> Subject: [PATCH 2/5] ucc_geth: Word align Ethernet RX data
+>
+> UCC controller can shift received Ethernet frames 2 bytes into the buffer,
+> making IP data word aligned, this patch enables that feature.
+>
+> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> ---
+>  drivers/net/ethernet/freescale/ucc_geth.c |   19 +++++++++++--------
+>  drivers/net/ethernet/freescale/ucc_geth.h |    1 +
+>  2 files changed, 12 insertions(+), 8 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
+> index e609c93..5f1460a 100644
+> --- a/drivers/net/ethernet/freescale/ucc_geth.c
+> +++ b/drivers/net/ethernet/freescale/ucc_geth.c
+> @@ -160,6 +160,7 @@ static struct ucc_geth_info ugeth_primary_info = {
+>     .numThreadsRx = UCC_GETH_NUM_OF_THREADS_1,
+>     .riscTx = QE_RISC_ALLOCATION_RISC1_AND_RISC2,
+>     .riscRx = QE_RISC_ALLOCATION_RISC1_AND_RISC2,
+> +   .ipAddressAlignment = 1,
+>  };
+>
+>  static struct ucc_geth_info ugeth_info[8];
+> @@ -211,12 +212,13 @@ static struct sk_buff *get_new_skb(struct ucc_geth_private *ugeth,
+>        u8 __iomem *bd)
+>  {
+>     struct sk_buff *skb = NULL;
+> +   u16 buf_len = ugeth->ug_info->uf_info.max_rx_buf_length +
+> +      UCC_GETH_RX_DATA_BUF_ALIGNMENT +
+> +      UCC_GETH_RX_IP_ALIGNMENT;
+>
+>     skb = __skb_dequeue(&ugeth->rx_recycle);
+>     if (!skb)
+> -      skb = netdev_alloc_skb(ugeth->ndev,
+> -                  ugeth->ug_info->uf_info.max_rx_buf_length +
+> -                  UCC_GETH_RX_DATA_BUF_ALIGNMENT);
+> +      skb = netdev_alloc_skb(ugeth->ndev, buf_len);
+>     if (skb == NULL)
+>        return NULL;
+>
+> @@ -231,10 +233,9 @@ static struct sk_buff *get_new_skb(struct ucc_geth_private *ugeth,
+>     out_be32(&((struct qe_bd __iomem *)bd)->buf,
+>              dma_map_single(ugeth->dev,
+>                   skb->data,
+> -                 ugeth->ug_info->uf_info.max_rx_buf_length +
+> -                 UCC_GETH_RX_DATA_BUF_ALIGNMENT,
+> +                 buf_len,
+>                   DMA_FROM_DEVICE));
+> -
+> +   skb_reserve(skb, UCC_GETH_RX_IP_ALIGNMENT);
+>     out_be32((u32 __iomem *)bd,
+>           (R_E | R_I | (in_be32((u32 __iomem*)bd) & R_W)));
+>
+> @@ -1877,7 +1878,8 @@ static void ucc_geth_free_rx(struct ucc_geth_private *ugeth)
+>                    in_be32(&((struct qe_bd __iomem *)bd)->buf),
+>                    ugeth->ug_info->
+>                    uf_info.max_rx_buf_length +
+> -                  UCC_GETH_RX_DATA_BUF_ALIGNMENT,
+> +                  UCC_GETH_RX_DATA_BUF_ALIGNMENT +
+> +                  UCC_GETH_RX_IP_ALIGNMENT,
+>                    DMA_FROM_DEVICE);
+>                 dev_kfree_skb_any(
+>                    ugeth->rx_skbuff[i][j]);
+> @@ -3352,7 +3354,8 @@ static int ucc_geth_tx(struct net_device *dev, u8 txQ)
+>        if (skb_queue_len(&ugeth->rx_recycle) < RX_BD_RING_LEN &&
+>                skb_recycle_check(skb,
+>                  ugeth->ug_info->uf_info.max_rx_buf_length +
+> -                UCC_GETH_RX_DATA_BUF_ALIGNMENT))
+> +                UCC_GETH_RX_DATA_BUF_ALIGNMENT +
+> +                UCC_GETH_RX_IP_ALIGNMENT))
+>           __skb_queue_head(&ugeth->rx_recycle, skb);
+>        else
+>           dev_kfree_skb(skb);
+> diff --git a/drivers/net/ethernet/freescale/ucc_geth.h b/drivers/net/ethernet/freescale/ucc_geth.h
+> index f71b3e7..aeb743c 100644
+> --- a/drivers/net/ethernet/freescale/ucc_geth.h
+> +++ b/drivers/net/ethernet/freescale/ucc_geth.h
+> @@ -855,6 +855,7 @@ struct ucc_geth_hardware_statistics {
+>  #define UCC_GETH_RX_BD_RING_SIZE_ALIGNMENT   4
+>  #define UCC_GETH_TX_BD_RING_SIZE_MEMORY_ALIGNMENT   32
+>  #define UCC_GETH_RX_DATA_BUF_ALIGNMENT      64
+> +#define UCC_GETH_RX_IP_ALIGNMENT      2 /* IP word alignment */
+>
+>  #define UCC_GETH_TAD_EF                         0x80
+>  #define UCC_GETH_TAD_V                          0x40
+> --
+> 1.7.8.6
+>
