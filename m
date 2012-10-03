@@ -1,54 +1,38 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: Re: You have to fix this
-Date: Wed, 03 Oct 2012 15:42:05 +0530
-Message-ID: <506C0F75.4080309@chelsio.com>
-References: <20120927.183406.962014014858457666.davem@davemloft.net> <5065911A.3000509@chelsio.com> <20120928.134313.2263654281720915031.davem@davemloft.net>
+From: Paolo Bonzini <pbonzini@redhat.com>
+Subject: Re: [PATCH 0/3] virtio-net: inline header support
+Date: Wed, 03 Oct 2012 12:53:34 +0200
+Message-ID: <506C192E.5060700@redhat.com>
+References: <cover.1348824232.git.mst@redhat.com>
+	<87vces2gxq.fsf__45058.6618776017$1349247807$gmane$org@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:13688 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755051Ab2JCKMK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 06:12:10 -0400
-In-Reply-To: <20120928.134313.2263654281720915031.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sasha Levin <levinsasha928@gmail.com>,
+	virtualization@lists.linux-foundation.org,
+	Thomas Lendacky <tahm@linux.vnet.ibm.com>, avi@redhat.com
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <87vces2gxq.fsf__45058.6618776017$1349247807$gmane$org@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+Il 03/10/2012 08:44, Rusty Russell ha scritto:
+> There's a reason I haven't done this.  I really, really dislike "my
+> implemention isn't broken" feature bits.  We could have an infinite
+> number of them, for each bug in each device.
 
+However, this bug affects (almost) all implementations and (almost) all
+devices.  It even makes sense to reserve a transport feature bit for it
+instead of a device feature bit.
 
-On 28-09-2012 23:13, David Miller wrote:
-> From: Vipul Pandya <vipul@chelsio.com>
-> Date: Fri, 28 Sep 2012 17:29:22 +0530
-> 
->> Please let me know how else would I get above warning message?
-> 
-> Maybe your compiler is too old.  Does -Wframe-larger-than= show up in your
-> build logs with "make V=1"?
-> 
-
-I am using gcc version 4.4.4 20100726. Yes -Wframe-larger-than=2048 does
-show up in my build logs as shown below:
-===
-gcc -Wp,-MD,arch/x86/kernel/.hw_breakpoint.o.d  -nostdinc -isystem
-/usr/lib/gcc/x86_64-redhat-linux/4.4.4/include
--I/root/git_kernel_tree/net-next/arch/x86/include
--Iarch/x86/include/generated -Iinclude  -include
-/root/git_kernel_tree/net-next/include/linux/kconfig.h -D__KERNEL__
--Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing
--fno-common -Werror-implicit-function-declaration -Wno-format-security
--fno-delete-null-pointer-checks -O2 -m64 -mtune=generic -mno-red-zone
--mcmodel=kernel -funit-at-a-time -maccumulate-outgoing-args
--DCONFIG_AS_CFI=1 -DCONFIG_AS_CFI_SIGNAL_FRAME=1
--DCONFIG_AS_CFI_SECTIONS=1 -DCONFIG_AS_FXSAVEQ=1 -DCONFIG_AS_AVX=1 -pipe
--Wno-sign-compare -fno-asynchronous-unwind-tables -mno-sse -mno-mmx
--mno-sse2 -mno-3dnow -mno-avx -Wframe-larger-than=2048
--fno-stack-protector -Wno-unused-but-set-variable -fomit-frame-pointer
--Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow
--fconserve-stack -DCC_HAVE_ASM_GOTO    -D"KBUILD_STR(s)=#s"
--D"KBUILD_BASENAME=KBUILD_STR(hw_breakpoint)"
--D"KBUILD_MODNAME=KBUILD_STR(hw_breakpoint)" -c -o
-arch/x86/kernel/hw_breakpoint.o arch/x86/kernel/hw_breakpoint.c
-===
+Paolo
