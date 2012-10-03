@@ -1,54 +1,105 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] udp: increment UDP_MIB_NOPORTS in mcast receive
-Date: Wed, 3 Oct 2012 10:09:51 -0400
-Message-ID: <OF8CC7A8E7.DA3B059E-ON85257A8C.004C258C-85257A8C.004DCE49@us.ibm.com>
-References: <506955F3.8050304@googlemail.com>	 <1349082950.12401.669.camel@edumazet-glaptop>
-	 <20121001193434.GA14236@redhat.com>	 <20121001.160115.1816241312626722150.davem@davemloft.net>
-	 <1349121884.12401.721.camel@edumazet-glaptop>	 <1349192133.12401.768.camel@edumazet-glaptop>
-	 <1349192919.12401.778.camel@edumazet-glaptop>	 <alpine.LFD.2.00.1210030032430.25856@ja.ssi.bg>
-	 <1349249328.12401.1364.camel@edumazet-glaptop>	 <OFA39D9FC0.CDC6EE41-ON85257A8C.00458030-85257A8C.00461EF4@us.ibm.com> <1349270151.12401.2372.camel@edumazet-glaptop>
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Subject: [PATCH] iproute2: List interfaces without net address by default
+Date: Wed,  3 Oct 2012 16:42:41 +0200
+Message-ID: <1349275361-9271-1-git-send-email-ppisar@redhat.com>
+References: <1348565799-20080-1-git-send-email-ppisar@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: chris2553@googlemail.com, Dave Jones <davej@redhat.com>,
-	David Miller <davem@davemloft.net>, gpiez@web.de,
-	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>,
+	=?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+To: <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:59605 "EHLO e8.ny.us.ibm.com"
+Received: from mx1.redhat.com ([209.132.183.28]:48965 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751068Ab2JCOZh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Oct 2012 10:25:37 -0400
-Received: from /spool/local
-	by e8.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Wed, 3 Oct 2012 10:25:33 -0400
-In-Reply-To: <1349270151.12401.2372.camel@edumazet-glaptop>
+	id S1750991Ab2JCOnA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Oct 2012 10:43:00 -0400
+In-Reply-To: <1348565799-20080-1-git-send-email-ppisar@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote on 10/03/2012 09:15:51 AM:
- 
-> So when a host receives an UDP datagram but there was no application
-> at the destination port we should increment udpNoPorts, and its not
-> an error but just a fact.
+This fixes regression in iproute2-3.5.1 when `ip addr show' skipped
+interfaces without network layer address.
 
-        Of course. I think our difference is on the definition of 
-"receives".
-I don't think a packet delivered locally due to promiscuous mode, 
-broadcast
-or an imperfect multicast address filter match is a host UDP datagram 
-receive.
-These packets really shouldn't be delivered to UDP at all; they are not
-addressed to this host (at least the non-broadcast, no-membership ones).
-        A unicast UDP packet that doesn't match a local IP address does 
-not
-increment this counter. A promiscuous mode multicast delivery is no 
-different,
-except that the destination alone doesn't tell us if it is for us.
+Wrong output:
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast st=
+ate UP qlen 1000
+    link/ether 00:50:54:00:0f:03 brd ff:ff:ff:ff:ff:ff
+    inet 10.34.25.198/23 brd 10.34.25.255 scope global eth0
+    inet6 2620:52:0:2219:250:54ff:fe00:f03/64 scope global dynamic
+       valid_lft 2591919sec preferred_lft 604719sec
+    inet6 fe80::250:54ff:fe00:f03/64 scope link
+       valid_lft forever preferred_lft forever
 
-        I think counting these will primarily lead to administrators 
-seeing
-non-zero drops and wasting their time trying to track them down.
+Expected output:
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast st=
+ate UP qlen 1000
+    link/ether 00:50:54:00:0f:03 brd ff:ff:ff:ff:ff:ff
+    inet 10.34.25.198/23 brd 10.34.25.255 scope global eth0
+    inet6 2620:52:0:2219:250:54ff:fe00:f03/64 scope global dynamic
+       valid_lft 2591896sec preferred_lft 604696sec
+    inet6 fe80::250:54ff:fe00:f03/64 scope link
+       valid_lft forever preferred_lft forever
+5: veth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 100=
+0
+    link/ether 8a:ec:35:34:1f:a8 brd ff:ff:ff:ff:ff:ff
+6: veth0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 100=
+0
+    link/ether 2e:97:ef:77:40:82 brd ff:ff:ff:ff:ff:ff
 
-                                                                +-DLS
+Signed-off-by: Petr P=C3=ADsa=C5=99 <ppisar@redhat.com>
+---
+ ip/ipaddress.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 6c11ce4..5498f46 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -884,6 +884,7 @@ static void ipaddr_filter(struct nlmsg_chain *linfo=
+, struct nlmsg_chain *ainfo)
+ 	lp =3D &linfo->head;
+ 	while ( (l =3D *lp) !=3D NULL) {
+ 		int ok =3D 0;
++		int missing_net_address =3D 1;
+ 		struct ifinfomsg *ifi =3D NLMSG_DATA(&l->h);
+ 		struct nlmsg_list *a;
+=20
+@@ -891,8 +892,10 @@ static void ipaddr_filter(struct nlmsg_chain *linf=
+o, struct nlmsg_chain *ainfo)
+ 			struct nlmsghdr *n =3D &a->h;
+ 			struct ifaddrmsg *ifa =3D NLMSG_DATA(n);
+=20
+-			if (ifa->ifa_index !=3D ifi->ifi_index ||
+-			    (filter.family && filter.family !=3D ifa->ifa_family))
++			if (ifa->ifa_index !=3D ifi->ifi_index)
++				continue;
++			missing_net_address =3D 0;
++			if (filter.family && filter.family !=3D ifa->ifa_family)
+ 				continue;
+ 			if ((filter.scope^ifa->ifa_scope)&filter.scopemask)
+ 				continue;
+@@ -927,6 +930,9 @@ static void ipaddr_filter(struct nlmsg_chain *linfo=
+, struct nlmsg_chain *ainfo)
+ 			ok =3D 1;
+ 			break;
+ 		}
++		if (missing_net_address &&
++		    (filter.family =3D=3D AF_UNSPEC || filter.family =3D=3D AF_PACKE=
+T))
++			ok =3D 1;
+ 		if (!ok) {
+ 			*lp =3D l->next;
+ 			free(l);
+--=20
+1.7.11.7
