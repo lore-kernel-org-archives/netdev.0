@@ -1,14 +1,14 @@
 From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: [PATCH 7/20] drivers/net/irda/mcs7780.c: fix error return code
-Date: Wed,  3 Oct 2012 18:18:00 +0200
-Message-ID: <1349281090-10013-10-git-send-email-peter.senna@gmail.com>
+Subject: [PATCH 6/20] drivers/net/irda/irtty-sir.c: fix error return code
+Date: Wed,  3 Oct 2012 18:18:01 +0200
+Message-ID: <1349281090-10013-11-git-send-email-peter.senna@gmail.com>
 Cc: kernel-janitors@vger.kernel.org, irda-users@lists.sourceforge.net,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:42254 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965044Ab2JCQSb (ORCPT
+Received: from mail-we0-f174.google.com ([74.125.82.174]:39624 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965046Ab2JCQSb (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 12:18:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -41,22 +41,22 @@ ret@p1 = 0
 Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
 
 ---
- drivers/net/irda/mcs7780.c |    4 +++-
+ drivers/net/irda/irtty-sir.c |    4 +++-
  1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
-index 1a00b59..f07c340 100644
---- a/drivers/net/irda/mcs7780.c
-+++ b/drivers/net/irda/mcs7780.c
-@@ -920,8 +920,10 @@ static int mcs_probe(struct usb_interface *intf,
+diff --git a/drivers/net/irda/irtty-sir.c b/drivers/net/irda/irtty-sir.c
+index 30087ca..6e4d4b6 100644
+--- a/drivers/net/irda/irtty-sir.c
++++ b/drivers/net/irda/irtty-sir.c
+@@ -459,8 +459,10 @@ static int irtty_open(struct tty_struct *tty)
  
- 	ndev->netdev_ops = &mcs_netdev_ops;
- 
--	if (!intf->cur_altsetting)
-+	if (!intf->cur_altsetting) {
+ 	/* allocate private device info block */
+ 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+-	if (!priv)
++	if (!priv) {
 +		ret = -ENOMEM;
- 		goto error2;
+ 		goto out_put;
 +	}
  
- 	ret = mcs_find_endpoints(mcs, intf->cur_altsetting->endpoint,
- 				 intf->cur_altsetting->desc.bNumEndpoints);
+ 	priv->magic = IRTTY_MAGIC;
+ 	priv->tty = tty;
