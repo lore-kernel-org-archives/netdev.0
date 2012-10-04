@@ -1,72 +1,54 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: policy routing vs dnat replies
-Date: Wed, 3 Oct 2012 17:44:56 -0700
-Message-ID: <CALCETrWs4NDb_4KzJqnQVAkWHuaUS3Xrguuk2wwZGGKo8TqSLA@mail.gmail.com>
+From: "Jay Hernandez" <jay@chelsio.com>
+Subject: RE: linux-next: build failure after merge of the net tree
+Date: Wed, 3 Oct 2012 19:12:38 -0700
+Message-ID: <8A71B368A89016469F72CD08050AD3340C527BB9@maui.asicdesigners.com>
+References: <20121004101833.019598b7e474c7b74e67ff20@canb.auug.org.au><20121003.205053.1711360628623711137.davem@davemloft.net><20121004110615.3fda3c25735284c776106d7d@canb.auug.org.au> <20121003.214750.2022020970468412510.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Network Development <netdev@vger.kernel.org>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-next@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, "Vipul Pandya" <vipul@chelsio.com>,
+	"Jay Hernandez" <jay@chelsio.com>
+To: "David Miller" <davem@davemloft.net>, <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:35958 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964805Ab2JDApT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 20:45:19 -0400
-Received: by lagh6 with SMTP id h6so3249453lag.19
-        for <netdev@vger.kernel.org>; Wed, 03 Oct 2012 17:45:18 -0700 (PDT)
+Received: from stargate.chelsio.com ([67.207.112.58]:27426 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753871Ab2JDCMn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 22:12:43 -0400
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I hit an annoying policy routing corner case today.  I have a router
-with two WAN interfaces (and no BGP).  I have policy routing set up so
-that, if a source address matches either of my public networks, then
-outgoing packets use the correct interface.  If neither rule matches
-(e.g. the source is 0.0.0.0 for source address selection), then the
-default route is whichever one I prefer at the moment.  It looks like
-this:
+David and Stephen,
 
-$ ip rule
-0:	from all lookup local
-32766:	from all lookup main
-32767:	from all lookup default
-40000:	from <net2> lookup isp2
-40001:	from <net1> lookup isp1
-40010:	from all lookup real_default
+I apologize for not taking the necessary steps to verify our patches
+before submission. Ignorance is not an excuse... Anyways David thank you
+for fixing the issue for us.
 
-The relevant routes are:
+Jay-
 
-default via <gw1> dev eth0.2  table isp1  src <src1>
-default via <gw2> dev eth0.3  table isp2  src <src2>
-default via <gw2> dev eth0.3  table real_default  src <src2>  metric 101
-default via <gw1> dev eth0.2  table real_default  src <src1>  metric 102
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Wednesday, October 03, 2012 6:48 PM
+To: sfr@canb.auug.org.au
+Cc: netdev@vger.kernel.org; linux-next@vger.kernel.org;
+linux-kernel@vger.kernel.org; Vipul Pandya; Jay Hernandez
+Subject: Re: linux-next: build failure after merge of the net tree
 
-(Yes, this is a bit verbose, but I don't know a more concise way to do this.)
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 4 Oct 2012 11:06:15 +1000
 
-This works nicely: if I specifically bind to one of my public
-addresses, the corresponding WAN link is used, and if not or if I'm
-coming from a private address, then the metrics determine which link
-to use.
+> Actually, for me it is.  I have a script that does the "use 
+> yesterday's version" for me.  To fix (even a one liner) means bringing
 
-DNAT breaks it.  I have a rule:
--A PREROUTING -i eth0.2 -d <ip1> -p tcp --dport <port> -j DNAT --to
-<internal host>
+> up an editor, commiting, creating the patch and then recommiting it 
+> (an implementation
+> detail) and recording that I need to keep (automatically) applying the
 
-<ip1> lives on isp1.  Someone sends a SYN.  It gets routed to the
-internal host, and that host sends a SYN/ACK back.  The SYN/ACK has a
-source ip that isn't on net1 or net2, so it matches the 'lookup
-real_default' rule and gets routed to *gw2*.  iptables rewrites the
-source address after the routing decision, and my router sends a
-packet with a source address belonging to isp1 to isp2's gateway.  The
-packet is then dropped.
+> patch in case the maintainer doesn't react quickly.
 
-Is there any way I can either convince iptables to rewrite the source
-address in the prerouting hook or to query the conntrack source
-address from the policy rule?  Is there a better solution?  I'm
-currently using a somewhat gross combination of MARK and fwmark
-matches to work around this problem.  One possibility would be:
+Ok, fair enough.
 
-Thanks,
-Andy
-
-P.S.  Linux 3.2 (at least) appears to have a bug: the SYN/ACK has
-ctdir ORIGINAL as seen from the the mangle PREROUTING chain.  I'll
-send a real bug report for that if I can reproduce it cleanly on a
-newer kernel.
+I'll try to look into making x86 barf when a vmalloc.h include is
+missing.
