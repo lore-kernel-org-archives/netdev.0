@@ -1,60 +1,69 @@
-From: <erik.hugne@ericsson.com>
-Subject: [PATCH v2] tipc: prevent dropped connections due to rcvbuf overflow
-Date: Thu, 4 Oct 2012 17:00:43 +0200
-Message-ID: <1349362843-25826-1-git-send-email-erik.hugne@ericsson.com>
-References: <1349358913.16011.59.camel@edumazet-glaptop>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] team: set qdisc_tx_busylock to avoid LOCKDEP splat
+Date: Thu, 4 Oct 2012 11:22:55 +0200
+Message-ID: <20121004092255.GB6620@minipsycho.orion>
+References: <1349342319.16011.30.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ying.xue@windriver.com>, <paul.gortmaker@windriver.com>,
-	<tipc-discussion@lists.sourceforge.net>,
-	Erik Hugne <erik.hugne@ericsson.com>
-To: <netdev@vger.kernel.org>, <jon.maloy@ericsson.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jiri Pirko <jpirko@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.ericsson.se ([193.180.251.45]:48070 "EHLO
-	mailgw1.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965200Ab2JDPAu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 11:00:50 -0400
-In-Reply-To: <1349358913.16011.59.camel@edumazet-glaptop>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:37855 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750936Ab2JDJXA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 05:23:00 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so149538bkc.19
+        for <netdev@vger.kernel.org>; Thu, 04 Oct 2012 02:22:59 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1349342319.16011.30.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+Thu, Oct 04, 2012 at 11:18:39AM CEST, eric.dumazet@gmail.com wrote:
+>From: Eric Dumazet <edumazet@google.com>
+>
+>If a qdisc is installed on a team device, its possible to get
+>a lockdep splat under stress, because nested dev_queue_xmit() can
+>lock busylock a second time (on a different device, so its a false
+>positive)
+>
+>Avoid this problem using a distinct lock_class_key for team
+>devices.
+>
+>Signed-off-by: Eric Dumazet <edumazet@google.com>
+>Cc: Jiri Pirko <jpirko@redhat.com>
+>---
+> drivers/net/team/team.c |    2 ++
+> 1 file changed, 2 insertions(+)
+>
+>diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+>index 5c7547c..d44cca3 100644
+>--- a/drivers/net/team/team.c
+>+++ b/drivers/net/team/team.c
+>@@ -1315,6 +1315,7 @@ static const struct team_option team_options[] = {
+> 
+> static struct lock_class_key team_netdev_xmit_lock_key;
+> static struct lock_class_key team_netdev_addr_lock_key;
+>+static struct lock_class_key team_tx_busylock_key;
+> 
+> static void team_set_lockdep_class_one(struct net_device *dev,
+> 				       struct netdev_queue *txq,
+>@@ -1327,6 +1328,7 @@ static void team_set_lockdep_class(struct net_device *dev)
+> {
+> 	lockdep_set_class(&dev->addr_list_lock, &team_netdev_addr_lock_key);
+> 	netdev_for_each_tx_queue(dev, team_set_lockdep_class_one, NULL);
+>+	dev->qdisc_tx_busylock = &team_tx_busylock_key;
+> }
+> 
+> static int team_init(struct net_device *dev)
+>
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-When large buffers are sent over connected TIPC sockets, it
-is likely that the sk_backlog will be filled up on the
-receiver side, but the TIPC flow control mechanism is happily
-unaware of this since that is based on message count.
+Thanks Eric.
 
-The sender will receive a TIPC_ERR_OVERLOAD message when this occurs
-and drop it's side of the connection, leaving it stale on
-the receiver end.
-
-By increasing the sk_rcvbuf to a 'worst case' value, we avoid the
-overload caused by a full backlog queue and the flow control
-will work properly.
-
-This worst case value is the max TIPC message size times
-the flow control window, multiplied by two because a sender
-will transmit up to double the window size before a port is marked
-congested.
-We multiply this by 2 to account for the sk_buff and other overheads.
-
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
----
- net/tipc/socket.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 09dc5b9..fd5f042 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -220,6 +220,7 @@ static int tipc_create(struct net *net, struct socket *sock, int protocol,
- 
- 	sock_init_data(sock, sk);
- 	sk->sk_backlog_rcv = backlog_rcv;
-+	sk->sk_rcvbuf = TIPC_FLOW_CONTROL_WIN * 2 * TIPC_MAX_USER_MSG_SIZE * 2;
- 	tipc_sk(sk)->p = tp_ptr;
- 	tipc_sk(sk)->conn_timeout = CONN_TIMEOUT_DEFAULT;
- 
--- 
-1.7.5.4
+Acked-by: Jiri Pirko <jiri@resnulli.us>
