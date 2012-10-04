@@ -1,42 +1,61 @@
-From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: [patch v3 03/11] unix_diag: pass unix_diag module to netlink_dump_start
-Date: Thu, 4 Oct 2012 12:41:21 +0800
-Message-ID: <1349325689-16104-3-git-send-email-gaofeng@cn.fujitsu.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [patch v3 09/11] xfrm: pass xfrm_user module to netlink_dump_start
+Date: Thu, 4 Oct 2012 12:41:27 +0800
+Message-ID: <1349325689-16104-9-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1349325689-16104-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, jengelh-9+2X+4sQBs8@public.gmane.org,
-	Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1349325689-16104-1-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netfilter-devel@vger.kernel.org, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
+	pablo@netfilter.org, stephen.hemminger@vyatta.com, jengelh@inai.de,
+	Gao feng <gaofeng@cn.fujitsu.com>
+To: davem@davemloft.net, eric.dumazet@gmail.com,
+	steffen.klassert@secunet.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1349325689-16104-1-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 set netlink_dump_control.module to avoid panic.
 
-Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- net/unix/diag.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/xfrm/xfrm_user.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/net/unix/diag.c b/net/unix/diag.c
-index 06748f1..e1cd31f 100644
---- a/net/unix/diag.c
-+++ b/net/unix/diag.c
-@@ -299,6 +299,7 @@ static int unix_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
- 	if (h->nlmsg_flags & NLM_F_DUMP) {
- 		struct netlink_dump_control c = {
- 			.dump = unix_diag_dump,
-+			.module = THIS_MODULE,
- 		};
- 		return netlink_dump_start(net->diag_nlsk, skb, h, &c);
- 	} else
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 421f984..3d909f7 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2308,17 +2308,20 @@ static struct xfrm_link {
+ 	int (*doit)(struct sk_buff *, struct nlmsghdr *, struct nlattr **);
+ 	int (*dump)(struct sk_buff *, struct netlink_callback *);
+ 	int (*done)(struct netlink_callback *);
++	struct module *module;
+ } xfrm_dispatch[XFRM_NR_MSGTYPES] = {
+ 	[XFRM_MSG_NEWSA       - XFRM_MSG_BASE] = { .doit = xfrm_add_sa        },
+ 	[XFRM_MSG_DELSA       - XFRM_MSG_BASE] = { .doit = xfrm_del_sa        },
+ 	[XFRM_MSG_GETSA       - XFRM_MSG_BASE] = { .doit = xfrm_get_sa,
+ 						   .dump = xfrm_dump_sa,
+-						   .done = xfrm_dump_sa_done  },
++						   .done = xfrm_dump_sa_done,
++						   .module = THIS_MODULE      },
+ 	[XFRM_MSG_NEWPOLICY   - XFRM_MSG_BASE] = { .doit = xfrm_add_policy    },
+ 	[XFRM_MSG_DELPOLICY   - XFRM_MSG_BASE] = { .doit = xfrm_get_policy    },
+ 	[XFRM_MSG_GETPOLICY   - XFRM_MSG_BASE] = { .doit = xfrm_get_policy,
+ 						   .dump = xfrm_dump_policy,
+-						   .done = xfrm_dump_policy_done },
++						   .done = xfrm_dump_policy_done,
++						   .module = THIS_MODULE      },
+ 	[XFRM_MSG_ALLOCSPI    - XFRM_MSG_BASE] = { .doit = xfrm_alloc_userspi },
+ 	[XFRM_MSG_ACQUIRE     - XFRM_MSG_BASE] = { .doit = xfrm_add_acquire   },
+ 	[XFRM_MSG_EXPIRE      - XFRM_MSG_BASE] = { .doit = xfrm_add_sa_expire },
+@@ -2362,6 +2365,7 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 			struct netlink_dump_control c = {
+ 				.dump = link->dump,
+ 				.done = link->done,
++				.module = link->module,
+ 			};
+ 			return netlink_dump_start(net->xfrm.nlsk, skb, nlh, &c);
+ 		}
 -- 
 1.7.7.6
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
