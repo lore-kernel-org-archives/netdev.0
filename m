@@ -1,101 +1,54 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: [PATCH 06/11] net: ll_temac: Fix mdio initialization
-Date: Thu,  4 Oct 2012 20:14:52 +0200
-Message-ID: <1349374497-9540-6-git-send-email-monstr@monstr.eu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 11/11] net: xilinx: Show csum in bootlog
+Date: Thu, 4 Oct 2012 20:15:44 +0100
+Message-ID: <1349378144.2817.23.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
-Cc: linux-kernel@vger.kernel.org, Michal Simek <monstr@monstr.eu>,
+	 <1349374497-9540-11-git-send-email-monstr@monstr.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	Anirudha Sarangi <anirudh@xilinx.com>,
 	John Linn <John.Linn@xilinx.com>,
 	Grant Likely <grant.likely@secretlab.ca>,
 	Rob Herring <rob.herring@calxeda.com>,
 	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Michal Simek <monstr@monstr.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:15981 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751816Ab2JDTPs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 15:15:48 -0400
+In-Reply-To: <1349374497-9540-11-git-send-email-monstr@monstr.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Current driver required to have phy-node directly in
-the driver. After this fixed we can use standard structure.
+On Thu, 2012-10-04 at 20:14 +0200, Michal Simek wrote:
+> Just show current setting in bootlog.
+[...]
+> --- a/drivers/net/ethernet/xilinx/ll_temac_main.c
+> +++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
+> @@ -1052,12 +1052,14 @@ static int __devinit temac_of_probe(struct platform_device *op)
+>  	/* Setup checksum offload, but default to off if not specified */
+>  	lp->temac_features = 0;
+>  	p = (__be32 *)of_get_property(op->dev.of_node, "xlnx,txcsum", NULL);
+> +	dev_info(&op->dev, "TX_CSUM %d\n", be32_to_cpup(p));
+>  	if (p && be32_to_cpu(*p)) {
+>  		lp->temac_features |= TEMAC_FEATURE_TX_CSUM;
+>  		/* Can checksum TCP/UDP over IPv4. */
+>  		ndev->features |= NETIF_F_IP_CSUM;
+>  	}
+>  	p = (__be32 *)of_get_property(op->dev.of_node, "xlnx,rxcsum", NULL);
+> +	dev_info(&op->dev, "RX_CSUM %d\n", be32_to_cpup(p));
+[...]
 
-DTS fragment:
+Is there any particular reason you think this needs to be logged by
+default, rather than letting users run ethtool -k?  I suggest using
+dev_dbg() instead.
 
-phy-handle = <&phy0>;
-mdio {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	phy0: phy@7 {
-		compatible = "marvell,88e1111";
-		device_type = "ethernet-phy";
-		reg = <7>;
-	} ;
-} ;
+Ben.
 
-Signed-off-by: Michal Simek <monstr@monstr.eu>
-CC: Anirudha Sarangi <anirudh@xilinx.com>
-CC: John Linn <John.Linn@xilinx.com>
-CC: Grant Likely <grant.likely@secretlab.ca>
-CC: Rob Herring <rob.herring@calxeda.com>
-CC: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/xilinx/ll_temac_main.c |   11 ++++++-----
- drivers/net/ethernet/xilinx/ll_temac_mdio.c |    5 +++--
- 2 files changed, 9 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index f8e3518..482b572 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -1108,14 +1108,15 @@ static int __devinit temac_of_probe(struct platform_device *op)
- 	}
- 	temac_set_mac_address(ndev, (void *)addr);
- 
--	rc = temac_mdio_setup(lp, op->dev.of_node);
--	if (rc)
--		dev_warn(&op->dev, "error registering MDIO bus\n");
--
- 	lp->phy_node = of_parse_phandle(op->dev.of_node, "phy-handle", 0);
--	if (lp->phy_node)
-+	if (lp->phy_node) {
- 		dev_dbg(lp->dev, "using PHY node %s (%p)\n", np->full_name, np);
- 
-+		rc = temac_mdio_setup(lp, op->dev.of_node);
-+		if (rc)
-+			dev_warn(&op->dev, "error registering MDIO bus\n");
-+	}
-+
- 	/* Add the device attributes */
- 	rc = sysfs_create_group(&lp->dev->kobj, &temac_attr_group);
- 	if (rc) {
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_mdio.c b/drivers/net/ethernet/xilinx/ll_temac_mdio.c
-index 8cf9d4f..634d898 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_mdio.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_mdio.c
-@@ -63,6 +63,7 @@ int temac_mdio_setup(struct temac_local *lp, struct device_node *np)
- 	int clk_div;
- 	int rc, size;
- 	struct resource res;
-+	struct device_node *np1 = of_get_parent(lp->phy_node);
- 
- 	/* Calculate a reasonable divisor for the clock rate */
- 	clk_div = 0x3f; /* worst-case default setting */
-@@ -85,7 +86,7 @@ int temac_mdio_setup(struct temac_local *lp, struct device_node *np)
- 	if (!bus)
- 		return -ENOMEM;
- 
--	of_address_to_resource(np, 0, &res);
-+	of_address_to_resource(np1, 0, &res);
- 	snprintf(bus->id, MII_BUS_ID_SIZE, "%.8llx",
- 		 (unsigned long long)res.start);
- 	bus->priv = lp;
-@@ -97,7 +98,7 @@ int temac_mdio_setup(struct temac_local *lp, struct device_node *np)
- 
- 	lp->mii_bus = bus;
- 
--	rc = of_mdiobus_register(bus, np);
-+	rc = of_mdiobus_register(bus, np1);
- 	if (rc)
- 		goto err_register;
- 
 -- 
-1.7.0.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
