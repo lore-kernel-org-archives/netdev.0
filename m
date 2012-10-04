@@ -1,66 +1,45 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch v3 01/11] netlink: add reference of module in
- netlink_dump_start
-Date: Thu, 4 Oct 2012 16:41:42 +0100
-Message-ID: <1349365302.2817.1.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1349325689-16104-1-git-send-email-gaofeng@cn.fujitsu.com>
+From: Fabio Estevam <fabio.estevam@freescale.com>
+Subject: [PATCH] net: sunrpc: xdr: Change message to pr_debug level
+Date: Thu, 4 Oct 2012 11:21:35 -0300
+Message-ID: <1349360495-29325-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>,
-	<steffen.klassert@secunet.com>, <netfilter-devel@vger.kernel.org>,
-	<linux-rdma@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-crypto@vger.kernel.org>, <pablo@netfilter.org>,
-	<stephen.hemminger@vyatta.com>, <jengelh@inai.de>
-To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1349325689-16104-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <Trond.Myklebust@netapp.com>, <marex@denx.de>,
+	<netdev@vger.kernel.org>, <linux-nfs@vger.kernel.org>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from db3ehsobe001.messaging.microsoft.com ([213.199.154.139]:25908
+	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S964793Ab2JDOWA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 10:22:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-10-04 at 12:41 +0800, Gao feng wrote:
-> I get a panic when I use ss -a and rmmod inet_diag at the
-> same time.
-> 
-> it's because netlink_dump use inet_diag_dump witch function
-> belongs to module inet_diag.
-> 
-> I search the codes and find many modules have the same problem.
-> We need add reference of the module witch the cb->dump belongs
-> to.
-> 
-> Thanks for all help from Stephen,Jan,Eric,Steffen and Pablo.
-> 
-> Change From v2:
-> 
-> delete netlink_dump_done,and call module_put in netlink_dump
-> and netlink_sock_destruct.
-[...]
-> @@ -1794,19 +1798,28 @@ int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
->  		return -ECONNREFUSED;
->  	}
->  	nlk = nlk_sk(sk);
-> -	/* A dump is in progress... */
-> +
->  	mutex_lock(nlk->cb_mutex);
-> +	/* A dump is in progress... */
->  	if (nlk->cb) {
->  		mutex_unlock(nlk->cb_mutex);
->  		netlink_destroy_callback(cb);
-> -		sock_put(sk);
-> -		return -EBUSY;
-> +		ret = -EBUSY;
-> +		goto out;
->  	}
-> +	/* add reference of module witch cb->dump belong to */
-[...]
+commit 49f6189 (SUNRPC: Optimise away unnecessary data moves in xdr_align_pages)
+has added a pr_info that floods dmesg when booting via NFS.
 
-'which' not 'witch' :-)
+There is also a note in the commit log: "Warning! Contains debugging printks!"
 
-Ben.
+,so change it to pr_debug instead.
 
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+---
+ net/sunrpc/xdr.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sunrpc/xdr.c b/net/sunrpc/xdr.c
+index e30842b..6983efc 100644
+--- a/net/sunrpc/xdr.c
++++ b/net/sunrpc/xdr.c
+@@ -749,7 +749,7 @@ static unsigned int xdr_align_pages(struct xdr_stream *xdr, unsigned int len)
+ 		xdr_shrink_pagelen(buf, buf->page_len - len);
+ 		xdr->nwords = XDR_QUADLEN(buf->len - cur);
+ 	} else
+-		pr_info("%s: Optimised away a data move!\n", __func__);
++		pr_debug("%s: Optimised away a data move!\n", __func__);
+ 	return len;
+ }
+ 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+1.7.9.5
