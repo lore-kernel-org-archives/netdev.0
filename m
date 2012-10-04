@@ -1,70 +1,51 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 1/3] can: peak_pci: fix error return code
-Date: Thu,  4 Oct 2012 19:57:20 +0200
-Message-ID: <1349373442-11128-2-git-send-email-mkl@pengutronix.de>
-References: <1349373442-11128-1-git-send-email-mkl@pengutronix.de>
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	Peter Senna Tschudin <peter.senna@gmail.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-To: davem@davemloft.net
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 3/3] vxlan: virtual extensible lan
+Date: Thu, 4 Oct 2012 08:12:14 -0700
+Message-ID: <20121004081214.7f5a48fe@nehalam.linuxnetplumber.net>
+References: <20121001223232.566037595@vyatta.com>
+	<20121001223254.349753999@vyatta.com>
+	<CAEP_g=9Y3MmsABQJyi508FEgs4635tnaVqk4Ncwbpm41bLskhg@mail.gmail.com>
+	<20121003210220.5e74aa5d@nehalam.linuxnetplumber.net>
+	<1349332490.16011.16.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Gross <jesse@nicira.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:51911 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751322Ab2JDR52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 13:57:28 -0400
-In-Reply-To: <1349373442-11128-1-git-send-email-mkl@pengutronix.de>
+Received: from mail.vyatta.com ([76.74.103.46]:55674 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965590Ab2JDPMw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Oct 2012 11:12:52 -0400
+In-Reply-To: <1349332490.16011.16.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Senna Tschudin <peter.senna@gmail.com>
+On Thu, 04 Oct 2012 08:34:50 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Convert a nonnegative error return code to a negative one, as returned
-elsewhere in the function.
+> On Wed, 2012-10-03 at 21:02 -0700, Stephen Hemminger wrote:
+> 
+> >
+> > Since port is always a pair, there is no need to restrict range, unless
+> > there was a broken firewall in the way. One bug there is that random32()
+> > can return 0 which is not a valid port number.  A better fallback
+> > would be a hash of the MAC header.
+> 
+> But using up to 65536 values for the port means that if vxlan traffic
+> crosses a statefull firewall (eg netfilter with conntrack), this might
+> need 65536 contexts/sessions.
 
-A simplified version of the semantic match that finds this problem is as
-follows: (http://coccinelle.lip6.fr/)
+This is UDP, there is no usable state to be found.
+But as a practical matter it only needs to be wide enough to hit the
+number of receive channels. Therefore even 64 is probably enough for
+most people.
 
-// <smpl>
-(
-if@p1 (\(ret < 0\|ret != 0\))
- { ... return ret; }
-|
-ret@p1 = 0
-)
-... when != ret = e1
-    when != &ret
-*if(...)
-{
-  ... when != ret = e2
-      when forall
- return ret;
-}
-// </smpl>
+> So random32() is not needed.
+> 
+> What might be needed is additional parameters for a vxlan tunnel, to
+> give an optional range for the source port.
 
-Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/sja1000/peak_pci.c |    2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/can/sja1000/peak_pci.c b/drivers/net/can/sja1000/peak_pci.c
-index f0a1296..f5b82ae 100644
---- a/drivers/net/can/sja1000/peak_pci.c
-+++ b/drivers/net/can/sja1000/peak_pci.c
-@@ -583,12 +583,14 @@ static int __devinit peak_pci_probe(struct pci_dev *pdev,
- 	cfg_base = pci_iomap(pdev, 0, PEAK_PCI_CFG_SIZE);
- 	if (!cfg_base) {
- 		dev_err(&pdev->dev, "failed to map PCI resource #0\n");
-+		err = -ENOMEM;
- 		goto failure_release_regions;
- 	}
- 
- 	reg_base = pci_iomap(pdev, 1, PEAK_PCI_CHAN_SIZE * channels);
- 	if (!reg_base) {
- 		dev_err(&pdev->dev, "failed to map PCI resource #1\n");
-+		err = -ENOMEM;
- 		goto failure_unmap_cfg_base;
- 	}
- 
--- 
-1.7.10
+It could be per vxlan without a lot of pain. or just derive it value
+from existing ephermeral port range.
