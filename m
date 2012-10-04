@@ -1,46 +1,56 @@
-From: Eugenia Emantayev <eugenia@mellanox.com>
-Subject: RE: [PATCH 3/3] net/mlx4_en: Add HW timestamping (TS) support
-Date: Thu, 4 Oct 2012 20:58:59 +0000
-Message-ID: <74A0102445410646AFACC089FD94803A95ED9341@MTLDAG01.mtl.com>
-References: <1348826603-17439-1-git-send-email-yevgenyp@mellanox.com>
- <1348826603-17439-4-git-send-email-yevgenyp@mellanox.com>
- <20120928111147.GA7474@netboy.at.omicron.at>
- <74A0102445410646AFACC089FD94803A95ED92DD@MTLDAG01.mtl.com>
- <20121004142734.GA2810@netboy.at.omicron.at>
+From: Peter Senna Tschudin <peter.senna@gmail.com>
+Subject: Re: [PATCH 19/20] drivers/net/ethernet/marvell/skge.c: fix error
+ return code
+Date: Thu, 4 Oct 2012 20:13:49 +0200
+Message-ID: <CA+MoWDoOKF1NHmDbaGwpRCpHLpnHfjHngR2HrV-tWLj+8pFV7g@mail.gmail.com>
+References: <1349281090-10013-20-git-send-email-peter.senna@gmail.com>
+	<20121003092508.6a7da662@nehalam.linuxnetplumber.net>
+	<CA+MoWDp4W5BCA1t_HgEtLhMs1btVTOkbtBytOVtAzJriEZ-16A@mail.gmail.com>
+	<20121004074442.180d8f01@nehalam.linuxnetplumber.net>
+	<CA+MoWDp=_F9opJbVkv9sDsmoykm7MTUZwRVumKCB0ZqDwD6NoQ@mail.gmail.com>
+	<20121004104045.4fa02775@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Or Gerlitz" <ogerlitz@mellanox.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: mlindner@marvell.com, kernel-janitors@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:47614 "HELO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1757319Ab2JDU7I convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Oct 2012 16:59:08 -0400
-In-Reply-To: <20121004142734.GA2810@netboy.at.omicron.at>
-Content-Language: en-US
+Received: from mail-we0-f174.google.com ([74.125.82.174]:39475 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753480Ab2JDSNv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 14:13:51 -0400
+In-Reply-To: <20121004104045.4fa02775@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> You could register the driver as PHC class device, described in
->
->   Documentation/ptp/ptp.txt
->
-> and then you device will work together along with a user space PTP stack, like the one I wrote at
->
->   http://linuxptp.sourceforge.net
+Hello Stephen,
 
+Thanks for the patience.
 
-Richard,
+> The purpose of the commit message is not only so other developers understand
+> the patch. It is also so that the consumers (distro's and maintainers)
+> understand the scope of the impact.  It maybe that your effort uncovers
 
-Thanks for the explanation.
-At this stage we prefer to submit the initial patch set (V1) and then, at the next phase,
-extend it as you suggested above, after learning and better understanding the requirements
-and effects.
+I was not considering the scope of the impact. I'm fixing bugs found
+by Coccinelle meaning that my bug hunting is based on static program
+analysis. My evaluation of what to do is simpler: Can my change make
+the code better? If I believe that yes, I make the patch.
 
-Regards,
-Eugenia
+> a really bad security hole that requires a CVE and a re-release of a
+> major enterprise product like RHEL, or it could just be a minor corner
+> case that can never realistically happen. Unless you give a more complete
+> description, someone else will have to do it for each case.
+
+This is a mix between what I do not want and what I can't do. I can't
+give that complete description for consumers and distro maintainers
+for drivers that I do not know completely. I do not know how critical
+those bugs are in real life. I was expecting that the maintainer, who
+knows the drivers details, would do that sort of things when needed.
+
+Isn't enough fixing bugs and describing it correctly in a technical perspective?
+
+Thanks,
+
+Peter
+-- 
+Peter
