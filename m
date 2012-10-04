@@ -1,56 +1,62 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [patch v3 08/11] crypto: pass crypto_user module to netlink_dump_start
-Date: Thu, 4 Oct 2012 12:41:26 +0800
-Message-ID: <1349325689-16104-8-git-send-email-gaofeng@cn.fujitsu.com>
-References: <1349325689-16104-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: netfilter-devel@vger.kernel.org, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
-	pablo@netfilter.org, stephen.hemminger@vyatta.com, jengelh@inai.de,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: davem@davemloft.net, eric.dumazet@gmail.com,
-	steffen.klassert@secunet.com
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1349325689-16104-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [PATCH 0/3] virtio-net: inline header support
+Date: Wed, 03 Oct 2012 20:24:47 -0500
+Message-ID: <87mx033u74.fsf@codemonkey.ws>
+References: <cover.1348824232.git.mst@redhat.com> <87vces2gxq.fsf@rustcorp.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Sasha Levin <levinsasha928@gmail.com>,
+	virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, avi@redhat.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Thomas Lendacky <tahm@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:34626 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754798Ab2JDBYv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 21:24:51 -0400
+Received: by obbuo13 with SMTP id uo13so7969003obb.19
+        for <netdev@vger.kernel.org>; Wed, 03 Oct 2012 18:24:51 -0700 (PDT)
+In-Reply-To: <87vces2gxq.fsf@rustcorp.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-set netlink_dump_control.done to avoid panic.
+Rusty Russell <rusty@rustcorp.com.au> writes:
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
----
- crypto/crypto_user.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+> "Michael S. Tsirkin" <mst@redhat.com> writes:
+>
+>> Thinking about Sasha's patches, we can reduce ring usage
+>> for virtio net small packets dramatically if we put
+>> virtio net header inline with the data.
+>> This can be done for free in case guest net stack allocated
+>> extra head room for the packet, and I don't see
+>> why would this have any downsides.
+>
+> I've been wanting to do this for the longest time... but...
+>
+>> Even though with my recent patches qemu
+>> no longer requires header to be the first s/g element,
+>> we need a new feature bit to detect this.
+>> A trivial qemu patch will be sent separately.
+>
+> There's a reason I haven't done this.  I really, really dislike "my
+> implemention isn't broken" feature bits.  We could have an infinite
+> number of them, for each bug in each device.
 
-diff --git a/crypto/crypto_user.c b/crypto/crypto_user.c
-index 6bba414..f08297b 100644
---- a/crypto/crypto_user.c
-+++ b/crypto/crypto_user.c
-@@ -430,13 +430,15 @@ static struct crypto_link {
- 	int (*doit)(struct sk_buff *, struct nlmsghdr *, struct nlattr **);
- 	int (*dump)(struct sk_buff *, struct netlink_callback *);
- 	int (*done)(struct netlink_callback *);
-+	struct module *module;
- } crypto_dispatch[CRYPTO_NR_MSGTYPES] = {
- 	[CRYPTO_MSG_NEWALG	- CRYPTO_MSG_BASE] = { .doit = crypto_add_alg},
- 	[CRYPTO_MSG_DELALG	- CRYPTO_MSG_BASE] = { .doit = crypto_del_alg},
- 	[CRYPTO_MSG_UPDATEALG	- CRYPTO_MSG_BASE] = { .doit = crypto_update_alg},
- 	[CRYPTO_MSG_GETALG	- CRYPTO_MSG_BASE] = { .doit = crypto_report,
- 						       .dump = crypto_dump_report,
--						       .done = crypto_dump_report_done},
-+						       .done = crypto_dump_report_done,
-+						       .module = THIS_MODULE},
- };
- 
- static int crypto_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
-@@ -471,6 +473,7 @@ static int crypto_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 				.dump = link->dump,
- 				.done = link->done,
- 				.min_dump_alloc = dump_alloc,
-+				.module = link->module,
- 			};
- 			return netlink_dump_start(crypto_nlsk, skb, nlh, &c);
- 		}
--- 
-1.7.7.6
+This is a bug in the specification.
+
+The QEMU implementation pre-dates the specification.  All of the actual
+implementations of virtio relied on the semantics of s/g elements and
+still do.
+
+What's in the specification really doesn't matter when it doesn't agree
+with all of the existing implementations.
+
+Users use implementations, not specifications.  The specification really
+ought to be changed here.
+
+Regards,
+
+Anthony Liguori
