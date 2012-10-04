@@ -1,74 +1,76 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: IPVS-DR problem with neigh lookup in 3.6
-Date: Thu, 4 Oct 2012 12:11:08 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1210041107020.2039@ja.ssi.bg>
-References: <alpine.LFD.2.00.1210040923010.1618@ja.ssi.bg> <20121004.025808.2302904472507419433.davem@davemloft.net>
+From: Peter Senna Tschudin <peter.senna@gmail.com>
+Subject: Re: [PATCH 19/20] drivers/net/ethernet/marvell/skge.c: fix error
+ return code
+Date: Thu, 4 Oct 2012 11:05:55 +0200
+Message-ID: <CA+MoWDp4W5BCA1t_HgEtLhMs1btVTOkbtBytOVtAzJriEZ-16A@mail.gmail.com>
+References: <1349281090-10013-20-git-send-email-peter.senna@gmail.com>
+	<20121003092508.6a7da662@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: mlindner@marvell.com, kernel-janitors@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:39790 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755733Ab2JDJGF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Oct 2012 05:06:05 -0400
-In-Reply-To: <20121004.025808.2302904472507419433.davem@davemloft.net>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:37061 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751526Ab2JDJF5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 05:05:57 -0400
+In-Reply-To: <20121003092508.6a7da662@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+>
+> Thanks for looking into these kind of problems. The contents
+> of the patch are correct, but the automated commit message is useless.
+> You shouldn't just blindly say what the automated
+> script was looking for, you should describe what the bug is so that evaluators
+> can decide what the impact is and if it should be backported to stable
+> and vendor kernels.
+>
+> Please resubmit the patchs with a reasonable analysis in the commit message.
+> Something like:
+>
+>   There is a bug in skge driver. If alloc_etherdev() fails, then
+>   skge_devinit() will return NULL, and the skge_probe function incorrectly
+>   returns success 0. It should return -ENOMEM instead.
+>
+>
 
-	Hello,
+Stephen, I do not want to include function names on the commit
+message. What do you think about this updated message, is it
+acceptable?
 
-On Thu, 4 Oct 2012, David Miller wrote:
+--- --- ---
+This patch fixes a bug related to the return value of the function. In some
+error cases, the function return non-negative SUCCESS values, when the
+correct would be a negative ERROR value.
 
-> From: Julian Anastasov <ja@ssi.bg>
-> Date: Thu, 4 Oct 2012 09:52:47 +0300 (EEST)
-> 
-> > 	Is it a good idea to keep rt_gateway always
-> > valid and to check RTCF_REDIRECTED where needed?
-> 
-> What exactly do you mean by this?  rt_gateway can only
-> be explicit nexthop or zero for local subnet.
-> 
-> It cannot take on any other value, otherwise routes are
-> not properly sharable.
+A simplified version of the semantic match that finds this problem is as
+follows: (http://coccinelle.lip6.fr/)
 
-	Oh, yes, that was the reason for value 0.
+// <smpl>
+(
+if@p1 (\(ret < 0\|ret != 0\))
+ { ... return ret; }
+|
+ret@p1 = 0
+)
+... when != ret = e1
+    when != &ret
+*if(...)
+{
+  ... when != ret = e2
+      when forall
+ return ret;
+}
 
-> > Because adding rt_dst does not look good, it will not
-> > help to callforward_do_filter too.
-> 
-> Adding rt_dst is not to be seriously considered.
+// </smpl>
+--- --- ---
 
-	OK, I'll think more for alternatives. May be
-if there is a way to request output route that should
-not be cached. Then we can set valid rt_gateway for
-such private routes, fnhe can be used for info too
-but this route should not be cached there. Or we
-should cache the entry in fnhe, so that we can detect
-that fnhe is reclaimed.
 
-	Currently, we handle NETDEV_UNREGISTER
-both for cached and uncached routes, so users like IPVS
-can safely request such special routes. IPVS does the
-rt caching itself.
+Thanks,
 
-	Now the question is how to request such host routes
-via flowi. Archives remember for FLOWI_FLAG_RT_NOCACHE, may be
-we can port it to the new caching as FLOWI_FLAG_RT_HOST?
-FLOWI_FLAG_RT_HOST will mean: can cache in fnhe if present
-or return uncached result as second option.
+Peter
 
-	BTW, I see another place with problem, ip_forward():
-
-if (opt->is_strictroute && opt->nexthop != rt->rt_gateway)
-
-	may be should be
-
-if (opt->is_strictroute && opt->nexthop != rt->rt_gateway &&
-    rt->rt_gateway)
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+-- 
+Peter
