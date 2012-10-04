@@ -1,61 +1,38 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 19/20] drivers/net/ethernet/marvell/skge.c: fix error
- return code
-Date: Thu, 4 Oct 2012 10:40:45 -0700
-Message-ID: <20121004104045.4fa02775@nehalam.linuxnetplumber.net>
-References: <1349281090-10013-20-git-send-email-peter.senna@gmail.com>
-	<20121003092508.6a7da662@nehalam.linuxnetplumber.net>
-	<CA+MoWDp4W5BCA1t_HgEtLhMs1btVTOkbtBytOVtAzJriEZ-16A@mail.gmail.com>
-	<20121004074442.180d8f01@nehalam.linuxnetplumber.net>
-	<CA+MoWDp=_F9opJbVkv9sDsmoykm7MTUZwRVumKCB0ZqDwD6NoQ@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 08/11] net: ll_temac: Do not use fixed mtu size
+Date: Thu, 4 Oct 2012 20:22:43 +0100
+Message-ID: <1349378563.2817.27.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
+	 <1349374497-9540-8-git-send-email-monstr@monstr.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: mlindner@marvell.com, kernel-janitors@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Peter Senna Tschudin <peter.senna@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+MoWDp=_F9opJbVkv9sDsmoykm7MTUZwRVumKCB0ZqDwD6NoQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	John Linn <John.Linn@xilinx.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Michal Simek <monstr@monstr.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:16140 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756188Ab2JDTWr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 15:22:47 -0400
+In-Reply-To: <1349374497-9540-8-git-send-email-monstr@monstr.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 4 Oct 2012 19:32:12 +0200
-Peter Senna Tschudin <peter.senna@gmail.com> wrote:
+On Thu, 2012-10-04 at 20:14 +0200, Michal Simek wrote:
+> Use max mtu instead.
+[...]
 
-> >> Stephen, I do not want to include function names on the commit
-> >> message. What do you think about this updated message, is it
-> >> acceptable?
-> >>
-> >
-> > No still to generic, it needs to be written by a human examining
-> > the file and understanding what the cause and effect of the bug
-> > is.
-> 
-> Stephen I've understood what you want. But it is not clear to me why
-> you want. Let me show what Coccinelle produces as output:
-> 
-> [peter@ace linux-next]$ spatch ../../cocci/ret4.cocci -dir .
-> ...
-> * TODO [[view:./drivers/net/ethernet/sun/sungem.c::face=ovl-face1::linb=2894::colb=1::cole=3][./drivers/net/ethernet/sun/sungem.c::2894]]
-> [[view:./drivers/net/ethernet/sun/sungem.c::face=ovl-face2::linb=2966::colb=1::cole=3][./drivers/net/ethernet/sun/sungem.c::2966]]
-> [[view:./drivers/net/ethernet/sun/sungem.c::face=ovl-face2::linb=3015::colb=1::cole=7][./drivers/net/ethernet/sun/sungem.c::3015]]
-> ...
-> 
-> There is "no" automatic code transformation. The semantic patch I'm
-> using only points out where to investigate to change, or not, the
-> code. The output is in Emcas org-mode format. So I can tell you that
-> the patches are not being robot generated. I'm making the patches, one
-> by one, with great help of Coccinelle, but I'm making the code changes
-> by hand.
-> 
-> I can't understand the advantages of describing each patch as you are
-> asking. "For me" the generic commit message together with the patch
-> makes sense.  Can you please help me on that?
+MTU does not include the Ethernet header so I have no idea how this is
+expected to work...
 
-The purpose of the commit message is not only so other developers understand
-the patch. It is also so that the consumers (distro's and maintainers)
-understand the scope of the impact.  It maybe that your effort uncovers
-a really bad security hole that requires a CVE and a re-release of a 
-major enterprise product like RHEL, or it could just be a minor corner
-case that can never realistically happen. Unless you give a more complete
-description, someone else will have to do it for each case.
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
