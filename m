@@ -1,45 +1,33 @@
-From: Fabio Estevam <fabio.estevam@freescale.com>
-Subject: [PATCH] net: sunrpc: xdr: Change message to pr_debug level
-Date: Thu, 4 Oct 2012 11:21:35 -0300
-Message-ID: <1349360495-29325-1-git-send-email-fabio.estevam@freescale.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [patch v3 02/11] inet_diag: pass inet_diag module to netlink_dump_start
+Date: Thu, 04 Oct 2012 16:03:51 +0800
+Message-ID: <506D42E7.1000203@cn.fujitsu.com>
+References: <1349325689-16104-1-git-send-email-gaofeng@cn.fujitsu.com>  <1349325689-16104-2-git-send-email-gaofeng@cn.fujitsu.com> <1349327316.16011.11.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Trond.Myklebust@netapp.com>, <marex@denx.de>,
-	<netdev@vger.kernel.org>, <linux-nfs@vger.kernel.org>,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, steffen.klassert@secunet.com,
+	netfilter-devel@vger.kernel.org, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
+	pablo@netfilter.org, stephen.hemminger@vyatta.com, jengelh@inai.de
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe001.messaging.microsoft.com ([213.199.154.139]:25908
-	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S964793Ab2JDOWA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 10:22:00 -0400
+Received: from cn.fujitsu.com ([222.73.24.84]:36503 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S932089Ab2JDIDx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 04:03:53 -0400
+In-Reply-To: <1349327316.16011.11.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 49f6189 (SUNRPC: Optimise away unnecessary data moves in xdr_align_pages)
-has added a pr_info that floods dmesg when booting via NFS.
+=E4=BA=8E 2012=E5=B9=B410=E6=9C=8804=E6=97=A5 13:08, Eric Dumazet =E5=86=
+=99=E9=81=93:
+> I believe Pablo suggestion was to make netlink_dump_start()
+> automatically pass THIS_MODULE so that we dont need to change all cal=
+l
+> sites ?
 
-There is also a note in the commit log: "Warning! Contains debugging printks!"
+Yes, since you and Pablo both think this should be better,
+I will resend this patchset.
 
-,so change it to pr_debug instead.
-
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
----
- net/sunrpc/xdr.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/sunrpc/xdr.c b/net/sunrpc/xdr.c
-index e30842b..6983efc 100644
---- a/net/sunrpc/xdr.c
-+++ b/net/sunrpc/xdr.c
-@@ -749,7 +749,7 @@ static unsigned int xdr_align_pages(struct xdr_stream *xdr, unsigned int len)
- 		xdr_shrink_pagelen(buf, buf->page_len - len);
- 		xdr->nwords = XDR_QUADLEN(buf->len - cur);
- 	} else
--		pr_info("%s: Optimised away a data move!\n", __func__);
-+		pr_debug("%s: Optimised away a data move!\n", __func__);
- 	return len;
- }
- 
--- 
-1.7.9.5
+Thanks!
