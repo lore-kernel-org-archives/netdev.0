@@ -1,105 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel 3.2.27 on arm: WARNING: at mm/page_alloc.c:2109
- __alloc_pages_nodemask+0x1d4/0x68c()
-Date: Thu, 04 Oct 2012 23:27:38 +0200
-Message-ID: <1349386058.16011.118.camel@edumazet-glaptop>
-References: <20120829002548.GA7063@aldebaran.gro-tsen.net>
-	 <alpine.LSU.2.00.1208311900330.1936@eggly.anvils>
-	 <1349366521.2532.12.camel@sakura.staff.proxad.net>
-	 <1349369406.16011.82.camel@edumazet-glaptop>
-	 <1349370573.2532.25.camel@sakura.staff.proxad.net>
-	 <1349371049.16011.90.camel@edumazet-glaptop>
-	 <1349372079.16710.15.camel@sakura.staff.proxad.net>
+From: Peter Senna Tschudin <peter.senna@gmail.com>
+Subject: Re: [PATCH 19/20] drivers/net/ethernet/marvell/skge.c: fix error
+ return code
+Date: Thu, 4 Oct 2012 19:32:12 +0200
+Message-ID: <CA+MoWDp=_F9opJbVkv9sDsmoykm7MTUZwRVumKCB0ZqDwD6NoQ@mail.gmail.com>
+References: <1349281090-10013-20-git-send-email-peter.senna@gmail.com>
+	<20121003092508.6a7da662@nehalam.linuxnetplumber.net>
+	<CA+MoWDp4W5BCA1t_HgEtLhMs1btVTOkbtBytOVtAzJriEZ-16A@mail.gmail.com>
+	<20121004074442.180d8f01@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Madore <david+ml@madore.org>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Hugh Dickins <hughd@google.com>
-To: mbizon@freebox.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:41792 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946385Ab2JDV1o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 17:27:44 -0400
-In-Reply-To: <1349372079.16710.15.camel@sakura.staff.proxad.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: mlindner@marvell.com, kernel-janitors@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121004074442.180d8f01@nehalam.linuxnetplumber.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-10-04 at 19:34 +0200, Maxime Bizon wrote:
-> On Thu, 2012-10-04 at 19:17 +0200, Eric Dumazet wrote:
-> 
-> > > yes, on ipv6 forward path the default NET_SKB_PAD is too small, so each
-> > > packet forwarded has its headroom expanded, it is then recycled and gets
-> > > its original default headroom back, then it gets forwarded,
-> > > expanded, ...
-> > 
-> > Hmm, this sounds bad (especially without recycle)
-> > 
-> > Might I assume NET_SKB_PAD is 32 on this arch ?
-> 
-> It is, I have a setup with 6to4 tunneling, so needed headroom on tx is
-> quite big.
-> 
+>> Stephen, I do not want to include function names on the commit
+>> message. What do you think about this updated message, is it
+>> acceptable?
+>>
+>
+> No still to generic, it needs to be written by a human examining
+> the file and understanding what the cause and effect of the bug
+> is.
 
-If we change NET_SKB_PAD minimum to be 64 (as it is on x86), it should
-be enough for the added tunnel encapsulation or not ?
+Stephen I've understood what you want. But it is not clear to me why
+you want. Let me show what Coccinelle produces as output:
 
+[peter@ace linux-next]$ spatch ../../cocci/ret4.cocci -dir .
+...
+* TODO [[view:./drivers/net/ethernet/sun/sungem.c::face=ovl-face1::linb=2894::colb=1::cole=3][./drivers/net/ethernet/sun/sungem.c::2894]]
+[[view:./drivers/net/ethernet/sun/sungem.c::face=ovl-face2::linb=2966::colb=1::cole=3][./drivers/net/ethernet/sun/sungem.c::2966]]
+[[view:./drivers/net/ethernet/sun/sungem.c::face=ovl-face2::linb=3015::colb=1::cole=7][./drivers/net/ethernet/sun/sungem.c::3015]]
+...
 
-> I used to be careful about raising this value to avoid drivers using
-> slab-4096 instead of slab-2048, but since our boards no longer have 16MB
-> of RAM and with the recent changes in mainline it doesn't seem to be an
-> issue anymore.
+There is "no" automatic code transformation. The semantic patch I'm
+using only points out where to investigate to change, or not, the
+code. The output is in Emcas org-mode format. So I can tell you that
+the patches are not being robot generated. I'm making the patches, one
+by one, with great help of Coccinelle, but I'm making the code changes
+by hand.
 
-Yes, granted we can allocate order-3 pages for delivering skb->head
-fragments, adding 32 bytes doesnt switch to slab-4096 since we dont use
-it anymore.
+I can't understand the advantages of describing each patch as you are
+asking. "For me" the generic commit message together with the patch
+makes sense.  Can you please help me on that?
 
-> 
-> It's not a that big issue in the non recycle case, just lower
-> performance if the tunable is not set correctly. Though it would be nice
-> to have a stat/counter so you know when you hit this kind of slow path.
-> 
-
-Yeah, we already mentioned this idea in the past. We are lazy now we
-have good performance tools (perf)
-
-> But on the recycle case, skb->head is reallocated to twice the size each
-> time the packet is recycled and takes the same path again. This stresses
-> the VM and you eventually get packet loss (and scary printk)
-> 
-
-OK, so to fix this on stable trees, skb_recycle() should not recycle skb
-if skb->head is too big.
-
-By the way, another problem with skb_recycle() is that skb->truesize can
-be wrong as well. (One skb might had one frag, with a truesize of
-2048/4096 bytes, and this frag was pulled in skb->head, so skb->truesize
-is slightly wrong.
-
-So we also must check if skb->truesize is equal to
-SKB_TRUESIZE(skb_end_offset(skb)), or reset it in skb_recycle(),
-I have no strong opinion.
-
-Something like this (untested) patch :
-
-But I really think we should remove skb_recycle() when net-next is
-opened again.
+>
 
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index b33a3a1..13ca215 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2659,7 +2659,10 @@ static inline bool skb_is_recycleable(const struct sk_buff *skb, int skb_size)
- 	skb_size = SKB_DATA_ALIGN(skb_size + NET_SKB_PAD);
- 	if (skb_end_offset(skb) < skb_size)
- 		return false;
--
-+	if (skb_end_offset(skb) > 2 * skb_size)
-+		return false;
-+	if (skb->truesize != SKB_TRUESIZE(skb_end_offset(skb)))
-+		return false;
- 	if (skb_shared(skb) || skb_cloned(skb))
- 		return false;
- 
+
+-- 
+Peter
