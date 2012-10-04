@@ -1,77 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel 3.2.27 on arm: WARNING: at mm/page_alloc.c:2109
- __alloc_pages_nodemask+0x1d4/0x68c()
-Date: Thu, 04 Oct 2012 18:29:31 +0200
-Message-ID: <1349368171.16011.79.camel@edumazet-glaptop>
-References: <20120829002548.GA7063@aldebaran.gro-tsen.net>
-	 <alpine.LSU.2.00.1208311900330.1936@eggly.anvils>
-	 <1349366521.2532.12.camel@sakura.staff.proxad.net>
+From: Stephen Clark <sclark46@earthlink.net>
+Subject: Re: policy routing vs dnat replies
+Date: Thu, 04 Oct 2012 08:39:41 -0400
+Message-ID: <506D838D.1060004@earthlink.net>
+References: <CALCETrWs4NDb_4KzJqnQVAkWHuaUS3Xrguuk2wwZGGKo8TqSLA@mail.gmail.com>
+Reply-To: sclark46@earthlink.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Madore <david+ml@madore.org>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Hugh Dickins <hughd@google.com>
-To: mbizon@freebox.fr
+Cc: Network Development <netdev@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:37659 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932177Ab2JDQ3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 12:29:36 -0400
-In-Reply-To: <1349366521.2532.12.camel@sakura.staff.proxad.net>
+Received: from elasmtp-kukur.atl.sa.earthlink.net ([209.86.89.65]:37886 "EHLO
+	elasmtp-kukur.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756200Ab2JDMjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 08:39:43 -0400
+In-Reply-To: <CALCETrWs4NDb_4KzJqnQVAkWHuaUS3Xrguuk2wwZGGKo8TqSLA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-10-04 at 18:02 +0200, Maxime Bizon wrote:
-> On Fri, 2012-08-31 at 19:21 -0700, Hugh Dickins wrote:
-> 
-> Hi,
-> 
-> > Francois is right that a GFP_ATOMIC allocation from pskb_expand_head()
-> > is failing, which can easily happen, and cause your "failed to reallocate
-> > TX buffer" errors; but it's well worth looking up what's actually on
-> > lines 2108 and 2109 of mm/page_alloc.c in 3.2.27:
-> > 
-> > 	if (order >= MAX_ORDER) {
-> > 		WARN_ON_ONCE(!(gfp_mask & __GFP_NOWARN));
-> > 
-> > That was probably not a sane allocation request, it has gone out of range:
-> > maybe the skb header is even corrupted.  If you're lucky, it might be
-> > something that netdev will recognize as already fixed.
-> 
-> I have the same problem on the exact same hardware and found the cause:
-> 
-> Author: Eric Dumazet <eric.dumazet@gmail.com>
-> Date:   Tue Apr 10 20:08:39 2012 +0000
-> 
->     net: allow pskb_expand_head() to get maximum tailroom
->     
->     [ Upstream commit 87151b8689d890dfb495081f7be9b9e257f7a2df ]
->     
-> 
-> It turns out this change has a bad side effect on drivers that uses
-> skb_recycle(), in that case mv643xx_eth.c
-> 
-> Since skb_recycle() resets skb->data using (skb->head + NET_SKB_PAD), a
-> recycled skb going multiple times through a path that needs to expand
-> skb head will get bigger and bigger each time, and you eventually end up
-> with an allocation failure.
-> 
-> An idea to fix this would be to pass needed skb size to skb_resize() and
-> set skb->data to MIN(NET_SKB_PAD, (skb->end - skb->head - skb_size) / 2)
-> 
-> skb recycling gives a small speed boost, but does not get a lot of test
-> coverage since only 3 drivers uses it
-> 
+On 10/03/2012 08:44 PM, Andy Lutomirski wrote:
+> I hit an annoying policy routing corner case today.  I have a router
+> with two WAN interfaces (and no BGP).  I have policy routing set up so
+> that, if a source address matches either of my public networks, then
+> outgoing packets use the correct interface.  If neither rule matches
+> (e.g. the source is 0.0.0.0 for source address selection), then the
+> default route is whichever one I prefer at the moment.  It looks like
+> this:
+>
+> $ ip rule
+> 0:	from all lookup local
+> 32766:	from all lookup main
+> 32767:	from all lookup default
+> 40000:	from<net2>  lookup isp2
+> 40001:	from<net1>  lookup isp1
+> 40010:	from all lookup real_default
+>
+> The relevant routes are:
+>
+> default via<gw1>  dev eth0.2  table isp1  src<src1>
+> default via<gw2>  dev eth0.3  table isp2  src<src2>
+> default via<gw2>  dev eth0.3  table real_default  src<src2>   metric 101
+> default via<gw1>  dev eth0.2  table real_default  src<src1>   metric 102
+>
+> (Yes, this is a bit verbose, but I don't know a more concise way to do this.)
+>
+> This works nicely: if I specifically bind to one of my public
+> addresses, the corresponding WAN link is used, and if not or if I'm
+> coming from a private address, then the metrics determine which link
+> to use.
+>
+> DNAT breaks it.  I have a rule:
+> -A PREROUTING -i eth0.2 -d<ip1>  -p tcp --dport<port>  -j DNAT --to
+> <internal host>
+>
+> <ip1>  lives on isp1.  Someone sends a SYN.  It gets routed to the
+> internal host, and that host sends a SYN/ACK back.  The SYN/ACK has a
+> source ip that isn't on net1 or net2, so it matches the 'lookup
+> real_default' rule and gets routed to *gw2*.  iptables rewrites the
+> source address after the routing decision, and my router sends a
+> packet with a source address belonging to isp1 to isp2's gateway.  The
+> packet is then dropped.
+>
+> Is there any way I can either convince iptables to rewrite the source
+> address in the prerouting hook or to query the conntrack source
+> address from the policy rule?  Is there a better solution?  I'm
+> currently using a somewhat gross combination of MARK and fwmark
+> matches to work around this problem.  One possibility would be:
+>
+> Thanks,
+> Andy
+>
+> P.S.  Linux 3.2 (at least) appears to have a bug: the SYN/ACK has
+> ctdir ORIGINAL as seen from the the mangle PREROUTING chain.  I'll
+> send a real bug report for that if I can reproduce it cleanly on a
+> newer kernel.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>    
+Well what I did faced with a similar problem was add a higher prio rule
+that said if from ip1 lookup isp1.
 
-Thanks Maxime
+-- 
 
-Sure we can probably fix this issue, but its really not worth the pain.
+"They that give up essential liberty to obtain temporary safety,
+deserve neither liberty nor safety."  (Ben Franklin)
 
-I would get rid of it, its superseded by build_skb() to get cache hot
-skbs anyway, and more over, rx path now uses skb->head allocated from a
-page fragment for optimal GRO/TCP coalescing behavior.
-
-skb_recycle() assumes skb allocation is slow, but its not per se.
-
-Cache line misses are expensive, thats the real issue.
+"The course of history shows that as a government grows, liberty
+decreases."  (Thomas Jefferson)
