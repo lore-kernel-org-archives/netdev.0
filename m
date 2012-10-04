@@ -1,77 +1,48 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 4/20] drivers/net/can/sja1000/peak_pcmcia.c: fix error
- return code
-Date: Thu, 04 Oct 2012 11:30:30 +0200
-Message-ID: <506D5736.7040402@pengutronix.de>
-References: <1349281090-10013-3-git-send-email-peter.senna@gmail.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 0/3] virtio-net: inline header support
+Date: Thu, 04 Oct 2012 22:21:42 +0930
+Message-ID: <87ipaq1jtt.fsf@rustcorp.com.au>
+References: <cover.1348824232.git.mst@redhat.com> <87vces2gxq.fsf__45058.6618776017$1349247807$gmane$org@rustcorp.com.au> <506C192E.5060700@redhat.com> <87bogj2j1b.fsf@rustcorp.com.au> <506D3610.7000103@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig7B4637FB16C5DFEA20C6B149"
-Cc: wg@grandegger.com, kernel-janitors@vger.kernel.org,
-	linux@dominikbrodowski.net, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Peter Senna Tschudin <peter.senna@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1349281090-10013-3-git-send-email-peter.senna@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Thomas Lendacky <tahm@linux.vnet.ibm.com>, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, avi@redhat.com,
+	Sasha Levin <levinsasha928@gmail.com>
+To: Paolo Bonzini <pbonzini@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:46577 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756113Ab2JDMyc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Oct 2012 08:54:32 -0400
+In-Reply-To: <506D3610.7000103@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig7B4637FB16C5DFEA20C6B149
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Paolo Bonzini <pbonzini@redhat.com> writes:
 
-On 10/03/2012 06:17 PM, Peter Senna Tschudin wrote:
-> From: Peter Senna Tschudin <peter.senna@gmail.com>
->=20
-> Convert a nonnegative error return code to a negative one, as returned
-> elsewhere in the function.
->=20
-> A simplified version of the semantic match that finds this problem is a=
-s
-> follows: (http://coccinelle.lip6.fr/)
->=20
-> // <smpl>
-> (
-> if@p1 (\(ret < 0\|ret !=3D 0\))
->  { ... return ret; }
-> |
-> ret@p1 =3D 0
-> )
-> ... when !=3D ret =3D e1
->     when !=3D &ret
-> *if(...)
-> {
->   ... when !=3D ret =3D e2
->       when forall
->  return ret;
-> }
-> // </smpl>
->=20
-> Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
+> Il 04/10/2012 02:11, Rusty Russell ha scritto:
+>> > > There's a reason I haven't done this.  I really, really dislike "my
+>> > > implemention isn't broken" feature bits.  We could have an infinite
+>> > > number of them, for each bug in each device.
+>> >
+>> > However, this bug affects (almost) all implementations and (almost) all
+>> > devices.  It even makes sense to reserve a transport feature bit for it
+>> > instead of a device feature bit.
+>>
+>> Perhaps, but we have to fix the bugs first!
+>
+> Yes. :)  Isn't that what mst's patch does?
+>
+>> As I said, my torture patch broke qemu immediately.  Since noone has
+>> leapt onto fixing that, I'll take a look now...
+>
+> I can look at virtio-scsi.
 
-Applied to can.
-tnx, Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Actually, you can't, see my reply to Anthony...
 
+Message-ID: <87lifm1y1n.fsf@rustcorp.com.au>
 
---------------enig7B4637FB16C5DFEA20C6B149
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://www.enigmail.net/
-
-iEYEARECAAYFAlBtVzsACgkQjTAFq1RaXHNpJQCfWJ+um+x/TY9S8z6q2C6BJxfk
-0D0AnRZe4rev5vLW10iV5qO4WQc+Iwlw
-=KBwg
------END PGP SIGNATURE-----
-
---------------enig7B4637FB16C5DFEA20C6B149--
+Cheers,
+Rusty.
