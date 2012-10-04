@@ -1,76 +1,35 @@
-From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: Re: [PATCH 19/20] drivers/net/ethernet/marvell/skge.c: fix error
- return code
-Date: Thu, 4 Oct 2012 11:05:55 +0200
-Message-ID: <CA+MoWDp4W5BCA1t_HgEtLhMs1btVTOkbtBytOVtAzJriEZ-16A@mail.gmail.com>
-References: <1349281090-10013-20-git-send-email-peter.senna@gmail.com>
-	<20121003092508.6a7da662@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: IPVS-DR problem with neigh lookup in 3.6
+Date: Thu, 04 Oct 2012 02:58:08 -0400 (EDT)
+Message-ID: <20121004.025808.2302904472507419433.davem@davemloft.net>
+References: <alpine.LFD.2.00.1210040923010.1618@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: mlindner@marvell.com, kernel-janitors@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:37061 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751526Ab2JDJF5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 05:05:57 -0400
-In-Reply-To: <20121003092508.6a7da662@nehalam.linuxnetplumber.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38159 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755585Ab2JDG6M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 02:58:12 -0400
+In-Reply-To: <alpine.LFD.2.00.1210040923010.1618@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->
-> Thanks for looking into these kind of problems. The contents
-> of the patch are correct, but the automated commit message is useless.
-> You shouldn't just blindly say what the automated
-> script was looking for, you should describe what the bug is so that evaluators
-> can decide what the impact is and if it should be backported to stable
-> and vendor kernels.
->
-> Please resubmit the patchs with a reasonable analysis in the commit message.
-> Something like:
->
->   There is a bug in skge driver. If alloc_etherdev() fails, then
->   skge_devinit() will return NULL, and the skge_probe function incorrectly
->   returns success 0. It should return -ENOMEM instead.
->
->
+From: Julian Anastasov <ja@ssi.bg>
+Date: Thu, 4 Oct 2012 09:52:47 +0300 (EEST)
 
-Stephen, I do not want to include function names on the commit
-message. What do you think about this updated message, is it
-acceptable?
+> 	Is it a good idea to keep rt_gateway always
+> valid and to check RTCF_REDIRECTED where needed?
 
---- --- ---
-This patch fixes a bug related to the return value of the function. In some
-error cases, the function return non-negative SUCCESS values, when the
-correct would be a negative ERROR value.
+What exactly do you mean by this?  rt_gateway can only
+be explicit nexthop or zero for local subnet.
 
-A simplified version of the semantic match that finds this problem is as
-follows: (http://coccinelle.lip6.fr/)
+It cannot take on any other value, otherwise routes are
+not properly sharable.
 
-// <smpl>
-(
-if@p1 (\(ret < 0\|ret != 0\))
- { ... return ret; }
-|
-ret@p1 = 0
-)
-... when != ret = e1
-    when != &ret
-*if(...)
-{
-  ... when != ret = e2
-      when forall
- return ret;
-}
+> Because adding rt_dst does not look good, it will not
+> help to callforward_do_filter too.
 
-// </smpl>
---- --- ---
-
-
-Thanks,
-
-Peter
-
--- 
-Peter
+Adding rt_dst is not to be seriously considered.
