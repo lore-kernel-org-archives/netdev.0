@@ -1,43 +1,44 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: [PATCH] udp: port starting location not random
-Date: Thu, 04 Oct 2012 15:06:34 -0700 (PDT)
-Message-ID: <0a842600-9707-4465-a5ea-6acfb38a9a70@tahiti.vyatta.com>
-References: <1349387874.21172.5.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:40171 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753557Ab2JDWGf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Oct 2012 18:06:35 -0400
-In-Reply-To: <1349387874.21172.5.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Simek <monstr@monstr.eu>
+Subject: [PATCH 05/11] net: axienet: Enable VLAN support by default
+Date: Thu,  4 Oct 2012 20:14:51 +0200
+Message-ID: <1349374497-9540-5-git-send-email-monstr@monstr.eu>
+References: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
+Cc: linux-kernel@vger.kernel.org, Michal Simek <monstr@monstr.eu>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	John Linn <John.Linn@xilinx.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Nevermind, it depends on random being big enough. This shows that it
-works with large enough random(). The hash I was getting from VXLAN
-was too small...
+The driver is using frame size for VLAN packets
+but does not enable VLAN IP option.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
+Signed-off-by: Michal Simek <monstr@monstr.eu>
+CC: Anirudha Sarangi <anirudh@xilinx.com>
+CC: John Linn <John.Linn@xilinx.com>
+CC: Grant Likely <grant.likely@secretlab.ca>
+CC: Rob Herring <rob.herring@calxeda.com>
+CC: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-int main(int ac, char **av) {
-	int low, high, remaining;
-	unsigned int rand;
-	unsigned short first;
-	
-	low = atoi(av[1]);
-	high = atoi(av[2]);
-	remaining = (high - low) + 1;
-	srandom(getpid());
-	rand = (uint32_t) random();
-	
-	first = (((uint64_t)rand * remaining) >> 32) + low;
-
-	printf("%d %d %u => %u\n", low, high, rand, first);
-	return 0;
-}
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+index 8d1db13..4ef148f 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+@@ -483,6 +483,7 @@ static void axienet_device_reset(struct net_device *ndev)
+ 	__axienet_device_reset(lp, &ndev->dev, XAXIDMA_RX_CR_OFFSET);
+ 
+ 	lp->max_frm_size = XAE_MAX_VLAN_FRAME_SIZE;
++	lp->options |= XAE_OPTION_VLAN;
+ 	lp->options &= (~XAE_OPTION_JUMBO);
+ 
+ 	if ((ndev->mtu > XAE_MTU) &&
+-- 
+1.7.0.4
