@@ -1,52 +1,48 @@
-From: <erik.hugne@ericsson.com>
-Subject: [PATCH] tipc: flow control should not account for sk_rcvbuf
-Date: Thu, 4 Oct 2012 11:14:27 +0200
-Message-ID: <1349342067-27586-1-git-send-email-erik.hugne@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ying.xue@windriver.com>, <paul.gortmaker@windriver.com>,
-	Erik Hugne <erik.hugne@ericsson.com>
-To: <netdev@vger.kernel.org>, <jon.maloy@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.ericsson.se ([193.180.251.45]:56214 "EHLO
-	mailgw1.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752486Ab2JDJOd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 05:14:33 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Simek <monstr@monstr.eu>
+Subject: [PATCH 07/11] net: ll_temac: Fix DMA map size bug
+Date: Thu,  4 Oct 2012 20:14:53 +0200
+Message-ID: <1349374497-9540-7-git-send-email-monstr@monstr.eu>
+References: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
+Cc: linux-kernel@vger.kernel.org, Michal Simek <monstr@monstr.eu>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	John Linn <John.Linn@xilinx.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+DMA allocates skb->len instead of headlen
+which is used for DMA.
+The same fix was applied to the axienet driver.
 
-The TIPC flow control is design around message count, and it should not
-account for the sk_rcvbuf when enqueueing messages to the socket
-receive queue.
-
-This fixes a problem when the sk_add_backlog fails due to this check
-and TIPC_ERR_OVERLOAD is reported back to the sender.
-The sender would then drop it's side of the connection only, leaving
-a stale connection on the other end.
-
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Signed-off-by: Michal Simek <monstr@monstr.eu>
+CC: Anirudha Sarangi <anirudh@xilinx.com>
+CC: John Linn <John.Linn@xilinx.com>
+CC: Grant Likely <grant.likely@secretlab.ca>
+CC: Rob Herring <rob.herring@calxeda.com>
+CC: David S. Miller <davem@davemloft.net>
 ---
- net/tipc/socket.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/xilinx/ll_temac_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 09dc5b9..02fed90 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -1269,10 +1269,8 @@ static u32 dispatch(struct tipc_port *tport, struct sk_buff *buf)
- 	if (!sock_owned_by_user(sk)) {
- 		res = filter_rcv(sk, buf);
- 	} else {
--		if (sk_add_backlog(sk, buf, sk->sk_rcvbuf))
--			res = TIPC_ERR_OVERLOAD;
--		else
--			res = TIPC_OK;
-+		__sk_add_backlog(sk, buf);
-+		res = TIPC_OK;
- 	}
- 	bh_unlock_sock(sk);
+diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
+index 482b572..8786d92 100644
+--- a/drivers/net/ethernet/xilinx/ll_temac_main.c
++++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
+@@ -710,8 +710,8 @@ static int temac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
  
+ 	cur_p->app0 |= STS_CTRL_APP0_SOP;
+ 	cur_p->len = skb_headlen(skb);
+-	cur_p->phys = dma_map_single(ndev->dev.parent, skb->data, skb->len,
+-				     DMA_TO_DEVICE);
++	cur_p->phys = dma_map_single(ndev->dev.parent, skb->data,
++				skb_headlen(skb), DMA_TO_DEVICE);
+ 	cur_p->app4 = (unsigned long)skb;
+ 
+ 	for (ii = 0; ii < num_frag; ii++) {
 -- 
-1.7.5.4
+1.7.0.4
