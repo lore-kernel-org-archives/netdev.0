@@ -1,38 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel 3.2.27 on arm: WARNING: at mm/page_alloc.c:2109
- __alloc_pages_nodemask+0x1d4/0x68c()
-Date: Thu, 04 Oct 2012 19:17:29 +0200
-Message-ID: <1349371049.16011.90.camel@edumazet-glaptop>
-References: <20120829002548.GA7063@aldebaran.gro-tsen.net>
-	 <alpine.LSU.2.00.1208311900330.1936@eggly.anvils>
-	 <1349366521.2532.12.camel@sakura.staff.proxad.net>
-	 <1349369406.16011.82.camel@edumazet-glaptop>
-	 <1349370573.2532.25.camel@sakura.staff.proxad.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Madore <david+ml@madore.org>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Hugh Dickins <hughd@google.com>
-To: mbizon@freebox.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:52510 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755680Ab2JDRRf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 13:17:35 -0400
-In-Reply-To: <1349370573.2532.25.camel@sakura.staff.proxad.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Simek <monstr@monstr.eu>
+Subject: [PATCH 02/11] net: axienet: Add ioctl support
+Date: Thu,  4 Oct 2012 20:14:48 +0200
+Message-ID: <1349374497-9540-2-git-send-email-monstr@monstr.eu>
+References: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
+Cc: linux-kernel@vger.kernel.org, Michal Simek <monstr@monstr.eu>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	John Linn <John.Linn@xilinx.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-10-04 at 19:09 +0200, Maxime Bizon wrote:
+Allow user to access the MDIO from userspace.
 
-> yes, on ipv6 forward path the default NET_SKB_PAD is too small, so each
-> packet forwarded has its headroom expanded, it is then recycled and gets
-> its original default headroom back, then it gets forwarded,
-> expanded, ...
+Signed-off-by: Michal Simek <monstr@monstr.eu>
+CC: Anirudha Sarangi <anirudh@xilinx.com>
+CC: John Linn <John.Linn@xilinx.com>
+CC: Grant Likely <grant.likely@secretlab.ca>
+CC: Rob Herring <rob.herring@calxeda.com>
+CC: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c |   15 +++++++++++++++
+ 1 files changed, 15 insertions(+), 0 deletions(-)
 
-Hmm, this sounds bad (especially without recycle)
-
-Might I assume NET_SKB_PAD is 32 on this arch ?
-
-We might adjust NET_SKB_PAD to avoid all these memory copies...
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+index 50167ab..a5b41cd 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+@@ -1053,6 +1053,20 @@ static void axienet_poll_controller(struct net_device *ndev)
+ }
+ #endif
+ 
++/* Ioctl MII Interface */
++static int axienet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
++{
++	struct axienet_local *priv = netdev_priv(dev);
++
++	if (!netif_running(dev))
++		return -EINVAL;
++
++	if (!priv->phy_dev)
++		return -ENODEV;
++
++	return phy_mii_ioctl(priv->phy_dev, rq, cmd);
++}
++
+ static const struct net_device_ops axienet_netdev_ops = {
+ 	.ndo_open = axienet_open,
+ 	.ndo_stop = axienet_stop,
+@@ -1061,6 +1075,7 @@ static const struct net_device_ops axienet_netdev_ops = {
+ 	.ndo_set_mac_address = netdev_set_mac_address,
+ 	.ndo_validate_addr = eth_validate_addr,
+ 	.ndo_set_rx_mode = axienet_set_multicast_list,
++	.ndo_do_ioctl = axienet_ioctl,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller = axienet_poll_controller,
+ #endif
+-- 
+1.7.0.4
