@@ -1,94 +1,101 @@
-From: Anthony Liguori <anthony@codemonkey.ws>
-Subject: Re: [PATCH 0/3] virtio-net: inline header support
-Date: Wed, 03 Oct 2012 23:29:47 -0500
-Message-ID: <87wqz6kgg4.fsf@codemonkey.ws>
-References: <cover.1348824232.git.mst@redhat.com> <87vces2gxq.fsf@rustcorp.com.au> <87mx033u74.fsf@codemonkey.ws> <87391u3o67.fsf@rustcorp.com.au>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [RFC] vxlan: use ether header as fallback hash
+Date: Wed, 3 Oct 2012 21:39:06 -0700
+Message-ID: <20121003213906.09b57539@nehalam.linuxnetplumber.net>
+References: <20121001223232.566037595@vyatta.com>
+	<20121001223254.349753999@vyatta.com>
+	<CAEP_g=9Y3MmsABQJyi508FEgs4635tnaVqk4Ncwbpm41bLskhg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sasha Levin <levinsasha928@gmail.com>,
-	virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, avi@redhat.com, kvm@vger.kernel.org,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: Jesse Gross <jesse@nicira.com>, davem@davemloft.net,
 	netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Thomas Lendacky <tahm@linux.vnet.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <87391u3o67.fsf@rustcorp.com.au>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:41972 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751406Ab2JDEjn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Oct 2012 00:39:43 -0400
+In-Reply-To: <CAEP_g=9Y3MmsABQJyi508FEgs4635tnaVqk4Ncwbpm41bLskhg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rusty Russell <rusty@rustcorp.com.au> writes:
+VXLAN bases source UDP port based on flow to help the
+receiver to be able to load balance based on outer header
+contents.
 
-> Anthony Liguori <anthony@codemonkey.ws> writes:
->> Rusty Russell <rusty@rustcorp.com.au> writes:
->>
->>> "Michael S. Tsirkin" <mst@redhat.com> writes:
->>>
->>>> Thinking about Sasha's patches, we can reduce ring usage
->>>> for virtio net small packets dramatically if we put
->>>> virtio net header inline with the data.
->>>> This can be done for free in case guest net stack allocated
->>>> extra head room for the packet, and I don't see
->>>> why would this have any downsides.
->>>
->>> I've been wanting to do this for the longest time... but...
->>>
->>>> Even though with my recent patches qemu
->>>> no longer requires header to be the first s/g element,
->>>> we need a new feature bit to detect this.
->>>> A trivial qemu patch will be sent separately.
->>>
->>> There's a reason I haven't done this.  I really, really dislike "my
->>> implemention isn't broken" feature bits.  We could have an infinite
->>> number of them, for each bug in each device.
->>
->> This is a bug in the specification.
->>
->> The QEMU implementation pre-dates the specification.  All of the actual
->> implementations of virtio relied on the semantics of s/g elements and
->> still do.
->
-> lguest fix is pending in my queue.  lkvm and qemu are broken; lkvm isn't
-> ever going to be merged, so I'm not sure what its status is?  But I'm
-> determined to fix qemu, and hence my torture patch to make sure this
-> doesn't creep in again.
+This patches changes the algorithm to better handle packets
+that can not be categorized by the rxhash() function.
+It adds a fallback to use jhash on the Ether header.
 
-There are even more implementations out there and I'd wager they all
-rely on framing.
+It also fixes a bug where the old code could assign 0 as a port
+value.
 
->> What's in the specification really doesn't matter when it doesn't agree
->> with all of the existing implementations.
->>
->> Users use implementations, not specifications.  The specification really
->> ought to be changed here.
->
-> I'm sorely tempted, except that we're losing a real optimization because
-> of this :(
 
-What optimizations?  What Michael is proposing is still achievable with
-a device feature.  Are there other optimizations that can be achieved by
-changing framing that we can't achieve with feature bits?
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-As I mentioned in another note, bad framing decisions can cause
-performance issues too...
+---
+RFC for now, compile tested only
 
-> The specification has long contained the footnote:
->
->         The current qemu device implementations mistakenly insist that
->         the first descriptor cover the header in these cases exactly, so
->         a cautious driver should arrange it so.
-
-I seem to recall this being a compromise between you and I..  I think
-I objected strongly to this back when you first wrote the spec and you
-added this to appease me ;-)
-
-Regards,
-
-Anthony Liguori
-
->
-> I'd like to tie this caveat to the PCI capability change, so this note
-> will move to the appendix with the old PCI layout.
->
-> Cheers,
-> Rusty.
+--- a/drivers/net/vxlan.c	2012-10-03 21:25:43.747968165 -0700
++++ b/drivers/net/vxlan.c	2012-10-03 21:36:10.213805422 -0700
+@@ -622,12 +622,30 @@ static inline u8 vxlan_ecn_encap(u8 tos,
+ 	return INET_ECN_encapsulate(tos, inner);
+ }
+ 
++/* Compute hash to use for source port
++ *   first choice to use L4 flow hash since it will spread
++ *     better and maybe available from hardware
++ *   secondary choice is to use jhash on the Ethernet header
++ * Always returns non-zero value
++ */
++static u16 vxlan_flow_hash(struct sk_buff *skb)
++{
++	u16 hash = skb_get_rxhash(skb);
++
++	if (!hash)
++		hash = jhash(skb->data, 3, skb->protocol);
++
++	if (!hash)
++		hash = 1;
++
++	return hash;
++}
++
+ /* Transmit local packets over Vxlan
+  *
+  * Outer IP header inherits ECN and DF from inner header.
+  * Outer UDP destination is the VXLAN assigned port.
+- *           source port is based on hash of flow if available
+- *                       otherwise use a random value
++ *           source port is based on hash of flow
+  */
+ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+@@ -641,8 +659,8 @@ static netdev_tx_t vxlan_xmit(struct sk_
+ 	struct flowi4 fl4;
+ 	struct vxlan_fdb *f;
+ 	unsigned int pkt_len = skb->len;
+-	u32 hash;
+ 	__be32 dst;
++	__be16 src_port;
+ 	__be16 df = 0;
+ 	__u8 tos, ttl;
+ 	int err;
+@@ -670,7 +688,7 @@ static netdev_tx_t vxlan_xmit(struct sk_
+ 	if (tos == 1)
+ 		tos = vxlan_get_dsfield(old_iph, skb);
+ 
+-	hash = skb_get_rxhash(skb);
++	src_port = (__force __be16) vxlan_flow_hash(skb);
+ 
+ 	rt = ip_route_output_gre(dev_net(dev), &fl4, dst,
+ 				 vxlan->saddr, vxlan->vni,
+@@ -703,7 +721,7 @@ static netdev_tx_t vxlan_xmit(struct sk_
+ 	uh = udp_hdr(skb);
+ 
+ 	uh->dest = htons(vxlan_port);
+-	uh->source = hash ? :random32();
++	uh->source = src_port;
+ 
+ 	uh->len = htons(skb->len);
+ 	uh->check = 0;
