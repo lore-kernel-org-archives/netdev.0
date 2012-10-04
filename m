@@ -1,52 +1,41 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH 3/3] vxlan: virtual extensible lan
-Date: Wed, 3 Oct 2012 21:02:20 -0700
-Message-ID: <20121003210220.5e74aa5d@nehalam.linuxnetplumber.net>
+Date: Thu, 04 Oct 2012 08:34:50 +0200
+Message-ID: <1349332490.16011.16.camel@edumazet-glaptop>
 References: <20121001223232.566037595@vyatta.com>
-	<20121001223254.349753999@vyatta.com>
-	<CAEP_g=9Y3MmsABQJyi508FEgs4635tnaVqk4Ncwbpm41bLskhg@mail.gmail.com>
+	 <20121001223254.349753999@vyatta.com>
+	 <CAEP_g=9Y3MmsABQJyi508FEgs4635tnaVqk4Ncwbpm41bLskhg@mail.gmail.com>
+	 <20121003210220.5e74aa5d@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Jesse Gross <jesse@nicira.com>
+Cc: Jesse Gross <jesse@nicira.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50547 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750726Ab2JDEDB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Oct 2012 00:03:01 -0400
-In-Reply-To: <CAEP_g=9Y3MmsABQJyi508FEgs4635tnaVqk4Ncwbpm41bLskhg@mail.gmail.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:59785 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756747Ab2JDGe4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 02:34:56 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so61191bkc.19
+        for <netdev@vger.kernel.org>; Wed, 03 Oct 2012 23:34:54 -0700 (PDT)
+In-Reply-To: <20121003210220.5e74aa5d@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 3 Oct 2012 18:54:46 -0700
-Jesse Gross <jesse@nicira.com> wrote:
+On Wed, 2012-10-03 at 21:02 -0700, Stephen Hemminger wrote:
 
-> On Mon, Oct 1, 2012 at 3:32 PM, Stephen Hemminger <shemminger@vyatta.com> wrote:
-> > --- /dev/null   1970-01-01 00:00:00.000000000 +0000
-> > +++ b/drivers/net/vxlan.c       2012-10-01 15:08:38.024499080 -0700
-> > +/* Transmit local packets over Vxlan
-> > + *
-> > + * Outer IP header inherits ECN and DF from inner header.
-> > + * Outer UDP destination is the VXLAN assigned port.
-> > + *           source port is based on hash of flow if available
-> > + *                       otherwise use a random value
-> > + */
-> > +static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
-> [...]
-> > +       hash = skb_get_rxhash(skb);
-> [...]
-> > +       uh->dest = htons(vxlan_port);
-> > +       uh->source = hash ? :random32();
-> 
-> I think this may lead to packet reordering in some cases.  If the
-> protocol is unknown then it may still represent part of a flow and
-> random source ports could lead to taking different paths.
-> 
-> Also, does it make sense to restrict the range of ports to, say, the
-> upper half of the range?
+>
+> Since port is always a pair, there is no need to restrict range, unless
+> there was a broken firewall in the way. One bug there is that random32()
+> can return 0 which is not a valid port number.  A better fallback
+> would be a hash of the MAC header.
 
-Since port is always a pair, there is no need to restrict range, unless
-there was a broken firewall in the way. One bug there is that random32()
-can return 0 which is not a valid port number.  A better fallback
-would be a hash of the MAC header.
+But using up to 65536 values for the port means that if vxlan traffic
+crosses a statefull firewall (eg netfilter with conntrack), this might
+need 65536 contexts/sessions.
+
+So random32() is not needed.
+
+What might be needed is additional parameters for a vxlan tunnel, to
+give an optional range for the source port.
