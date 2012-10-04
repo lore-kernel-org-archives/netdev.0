@@ -1,43 +1,58 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH 3/3] vxlan: virtual extensible lan
-Date: Wed, 3 Oct 2012 18:54:46 -0700
-Message-ID: <CAEP_g=9Y3MmsABQJyi508FEgs4635tnaVqk4Ncwbpm41bLskhg@mail.gmail.com>
-References: <20121001223232.566037595@vyatta.com> <20121001223254.349753999@vyatta.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] ipv6: release referenct of ip6_null_entry's dst entry
+ in __ip6_del_rt
+Date: Thu, 04 Oct 2012 10:55:18 +0800
+Message-ID: <506CFA96.4050207@cn.fujitsu.com>
+References: <1348118734-2967-1-git-send-email-gaofeng@cn.fujitsu.com> <20120921.131652.353726055575103840.davem@davemloft.net> <505FE24E.4030204@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog116.obsmtp.com ([74.125.149.240]:46164 "HELO
-	na3sys009aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753871Ab2JDBzI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 21:55:08 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rr4so73358pbb.19
-        for <netdev@vger.kernel.org>; Wed, 03 Oct 2012 18:55:06 -0700 (PDT)
-In-Reply-To: <20121001223254.349753999@vyatta.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:50948 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754946Ab2JDCzT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2012 22:55:19 -0400
+In-Reply-To: <505FE24E.4030204@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 1, 2012 at 3:32 PM, Stephen Hemminger <shemminger@vyatta.com> wrote:
-> --- /dev/null   1970-01-01 00:00:00.000000000 +0000
-> +++ b/drivers/net/vxlan.c       2012-10-01 15:08:38.024499080 -0700
-> +/* Transmit local packets over Vxlan
-> + *
-> + * Outer IP header inherits ECN and DF from inner header.
-> + * Outer UDP destination is the VXLAN assigned port.
-> + *           source port is based on hash of flow if available
-> + *                       otherwise use a random value
-> + */
-> +static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
-[...]
-> +       hash = skb_get_rxhash(skb);
-[...]
-> +       uh->dest = htons(vxlan_port);
-> +       uh->source = hash ? :random32();
+=E4=BA=8E 2012=E5=B9=B409=E6=9C=8824=E6=97=A5 12:32, Gao feng =E5=86=99=
+=E9=81=93:
+> =E4=BA=8E 2012=E5=B9=B409=E6=9C=8822=E6=97=A5 01:16, David Miller =E5=
+=86=99=E9=81=93:
+>> From: Gao feng <gaofeng@cn.fujitsu.com>
+>> Date: Thu, 20 Sep 2012 13:25:34 +0800
+>>
+>>> as we hold dst_entry before we call __ip6_del_rt,
+>>> so we should alse call dst_release not only return
+>>> -ENOENT when the rt6_info is ip6_null_entry.
+>>>
+>>> and we already hold the dst entry, so I think it's
+>>> safe to call dst_release out of the write-read lock.
+>>>
+>>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+>>
+>> I cannot find a code path where we can actually end up
+>> with an ip6_null_entry here and I'd much rather declare
+>> this condition as a bug.
+>>
+>> Patrick McHardy added this check back in 2006:
+>>
+>> 	commit 6c813a7297e3af4cd7c3458e09e9ee3d161c6830
+>> 	Author: Patrick McHardy <kaber@trash.net>
+>> 	Date:   Sun Aug 6 22:22:47 2006 -0700
+>>
+>> 	    [IPV6]: Fix crash in ip6_del_rt
+>>
+>> But the ipv6 code has changed substantially since then.
+>=20
+> ip -6 route del ::/0 will end up with an ip6_null_entry.
+> so I think this checking and this patch is needed .
+>=20
 
-I think this may lead to packet reordering in some cases.  If the
-protocol is unknown then it may still represent part of a flow and
-random source ports could lead to taking different paths.
+Hi David
 
-Also, does it make sense to restrict the range of ports to, say, the
-upper half of the range?
+Can you apply this patch?
+thanks!
