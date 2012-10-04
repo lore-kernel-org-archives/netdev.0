@@ -1,55 +1,33 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] udp: port starting location not random
-Date: Thu, 4 Oct 2012 14:08:28 -0700
-Message-ID: <20121004140828.2d6f7bf9@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bonding: set qdisc_tx_busylock to avoid LOCKDEP splat
+Date: Thu, 04 Oct 2012 15:54:23 -0400 (EDT)
+Message-ID: <20121004.155423.1912786546830082596.davem@davemloft.net>
+References: <1349341526.16011.25.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>,
-	David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:41942 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757562Ab2JDVJF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Oct 2012 17:09:05 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:45400 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757249Ab2JDTyZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 15:54:25 -0400
+In-Reply-To: <1349341526.16011.25.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While working on VXLAN, noticed a bug in UDP introduced by:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 04 Oct 2012 11:05:26 +0200
 
-commit 9088c5609584684149f3fb5b065aa7f18dcb03ff
-Author: Eric Dumazet <dada1@cosmosbay.com>
-Date:   Wed Oct 8 11:44:17 2008 -0700
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> If a qdisc is installed on a bonding device, its possible to get
+> following lockdep splat under stress :
+ ...
+> Avoid this problem using a distinct lock_class_key for bonding
+> devices.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-    udp: Improve port randomization
-    
-
-The logic for choosing where to start for port randomization incorrectly
-calculates the starting port number. It is always ends up using
-the low end of the range independent of the value of random.
-This causes all UDP port searches to start at the same port.
-
-Doing the following fixes it but at the cost of doing a real divide.
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
----
-Resend, previous send was not going to netdev.
-
-Not sure if worth fixing for stable, because only has performance impact
-and some application might be depending on current broken behaviour.
-
-
-
---- a/net/ipv4/udp.c	2012-10-01 17:06:53.107427436 -0700
-+++ b/net/ipv4/udp.c	2012-10-04 13:43:21.278960379 -0700
-@@ -216,7 +216,7 @@ int udp_lib_get_port(struct sock *sk, un
- 		remaining = (high - low) + 1;
- 
- 		rand = net_random();
--		first = (((u64)rand * remaining) >> 32) + low;
-+		first = rand % remaining + low;
- 		/*
- 		 * force rand to be an odd multiple of UDP_HTABLE_SIZE
- 		 */
+Applied.
