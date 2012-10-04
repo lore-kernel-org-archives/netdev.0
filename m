@@ -1,65 +1,34 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH 3/3] vxlan: virtual extensible lan
-Date: Thu, 4 Oct 2012 09:25:48 -0700
-Message-ID: <CAEP_g=8rTugVHVjWH+KRS3kMTV1rHgA1GKVmNXsM7r1uKLbV9A@mail.gmail.com>
-References: <20121001223232.566037595@vyatta.com> <20121001223254.349753999@vyatta.com>
- <CAEP_g=9Y3MmsABQJyi508FEgs4635tnaVqk4Ncwbpm41bLskhg@mail.gmail.com>
- <20121003210220.5e74aa5d@nehalam.linuxnetplumber.net> <1349332490.16011.16.camel@edumazet-glaptop>
- <20121004081214.7f5a48fe@nehalam.linuxnetplumber.net>
+From: Eugenia Emantayev <eugenia@mellanox.com>
+Subject: RE: [PATCH 3/3] net/mlx4_en: Add HW timestamping (TS) support
+Date: Thu, 4 Oct 2012 14:08:29 +0000
+Message-ID: <74A0102445410646AFACC089FD94803A95ED92DD@MTLDAG01.mtl.com>
+References: <1348826603-17439-1-git-send-email-yevgenyp@mellanox.com>
+ <1348826603-17439-4-git-send-email-yevgenyp@mellanox.com>
+ <20120928111147.GA7474@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: Richard Cochran <richardcochran@gmail.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:35028 "HELO
-	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S933406Ab2JDQ0L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 12:26:11 -0400
-Received: by mail-ob0-f174.google.com with SMTP id uo13so645400obb.19
-        for <netdev@vger.kernel.org>; Thu, 04 Oct 2012 09:26:09 -0700 (PDT)
-In-Reply-To: <20121004081214.7f5a48fe@nehalam.linuxnetplumber.net>
+Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:53799 "HELO
+	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S964834Ab2JDONo convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Oct 2012 10:13:44 -0400
+In-Reply-To: <20120928111147.GA7474@netboy.at.omicron.at>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 4, 2012 at 8:12 AM, Stephen Hemminger <shemminger@vyatta.com> wrote:
-> On Thu, 04 Oct 2012 08:34:50 +0200
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
->> On Wed, 2012-10-03 at 21:02 -0700, Stephen Hemminger wrote:
->>
->> >
->> > Since port is always a pair, there is no need to restrict range, unless
->> > there was a broken firewall in the way. One bug there is that random32()
->> > can return 0 which is not a valid port number.  A better fallback
->> > would be a hash of the MAC header.
->>
->> But using up to 65536 values for the port means that if vxlan traffic
->> crosses a statefull firewall (eg netfilter with conntrack), this might
->> need 65536 contexts/sessions.
->
-> This is UDP, there is no usable state to be found.
-> But as a practical matter it only needs to be wide enough to hit the
-> number of receive channels. Therefore even 64 is probably enough for
-> most people.
+> Also, why not expose your device as a PTP Hardware Clock?
 
-I don't think it actually matters all that much either way because
-there will be one vxlan flow for each encapsulated flow.  If you're
-running iptables on a hypervisor, for example, you probably end up
-seeing the same number of flows as you do today.
+Hello Richard,
+Could you please clarify the above?
+What do you mean by expose your device as a PTP Hardware Clock?
 
-There is some benefit to using a slightly wider range than the number
-of paths you can take because devices in the path will do their own
-hash.  Having a larger range on the vxlan side will reduce the impact
-of collisions in the second hash.
-
->> So random32() is not needed.
->>
->> What might be needed is additional parameters for a vxlan tunnel, to
->> give an optional range for the source port.
->
-> It could be per vxlan without a lot of pain. or just derive it value
-> from existing ephermeral port range.
-
-In the STT draft we recommended using the ephemeral range.  It seemed
-like a good balance.
+Thanks,
+Eugenia
