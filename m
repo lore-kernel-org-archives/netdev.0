@@ -1,44 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tipc: flow control should not account for sk_rcvbuf
-Date: Thu, 04 Oct 2012 12:26:00 +0200
-Message-ID: <1349346360.16011.36.camel@edumazet-glaptop>
-References: <1349342067-27586-1-git-send-email-erik.hugne@ericsson.com>
-	 <1349342493.16011.32.camel@edumazet-glaptop>
-	 <506D5DEF.9050700@ericsson.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: release referenct of ip6_null_entry's dst entry
+ in __ip6_del_rt
+Date: Thu, 04 Oct 2012 16:00:55 -0400 (EDT)
+Message-ID: <20121004.160055.886750901157348519.davem@davemloft.net>
+References: <20120921.131652.353726055575103840.davem@davemloft.net>
+	<505FE24E.4030204@cn.fujitsu.com>
+	<506CFA96.4050207@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jon Maloy <jon.maloy@ericsson.com>,
-	"ying.xue@windriver.com" <ying.xue@windriver.com>,
-	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>
-To: Erik Hugne <erik.hugne@ericsson.com>
+Cc: netdev@vger.kernel.org
+To: gaofeng@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:44674 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753001Ab2JDK0G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 06:26:06 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so188489bkc.19
-        for <netdev@vger.kernel.org>; Thu, 04 Oct 2012 03:26:04 -0700 (PDT)
-In-Reply-To: <506D5DEF.9050700@ericsson.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45560 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751162Ab2JDUA5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 16:00:57 -0400
+In-Reply-To: <506CFA96.4050207@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-10-04 at 11:59 +0200, Erik Hugne wrote:
-> > What guarantee do we have this cannot use all kernel memory ?
-> >
-> > If sk->sk_rcvbuf is not an acceptable limit here, you must use a
-> > different limit, but not infinity.
-> >
-> There is an implicit limit on how much data that can be buffered on each 
-> socket, controlled by TIPC_FLOW_CONTROL_WIN.
-> 
-> This limit is:
-> TIPC_FLOW_CONTROL_WIN * 2 * TIPC_MAX_USER_MSG_SIZE
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Date: Thu, 04 Oct 2012 10:55:18 +0800
 
-And this limit is tested _before_ queueing to backlog if socket is owned
-by the user ?
+> 于 2012年09月24日 12:32, Gao feng 写道:
+>> 于 2012年09月22日 01:16, David Miller 写道:
+>>> From: Gao feng <gaofeng@cn.fujitsu.com>
+>>> Date: Thu, 20 Sep 2012 13:25:34 +0800
+>>>
+>>>> as we hold dst_entry before we call __ip6_del_rt,
+>>>> so we should alse call dst_release not only return
+>>>> -ENOENT when the rt6_info is ip6_null_entry.
+>>>>
+>>>> and we already hold the dst entry, so I think it's
+>>>> safe to call dst_release out of the write-read lock.
+>>>>
+>>>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+ ...
+> Can you apply this patch?
 
-You'll have to demonstrate this in the changelog.
-
-Again, I dont think this patch is safe, we need an explicit limit.
+Applied and queued up for -stable, thanks.
