@@ -1,40 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: add a fib_type to fib_info
-Date: Thu, 04 Oct 2012 15:32:08 +0200
-Message-ID: <1349357528.16011.55.camel@edumazet-glaptop>
-References: <506955F3.8050304@googlemail.com>
-	 <1349082950.12401.669.camel@edumazet-glaptop>
-	 <20121001193434.GA14236@redhat.com>
-	 <20121001.160115.1816241312626722150.davem@davemloft.net>
-	 <1349121884.12401.721.camel@edumazet-glaptop>
-	 <1349192133.12401.768.camel@edumazet-glaptop>
-	 <1349192919.12401.778.camel@edumazet-glaptop>
-	 <1349349926.16011.48.camel@edumazet-glaptop>
-	 <506D8A4F.3020008@googlemail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [RFC PATCH 1/2] sctp: fix a typo in prototype of __sctp_rcv_lookup()
+Date: Thu, 04 Oct 2012 09:17:04 +0200
+Message-ID: <506D37F0.5000804@6wind.com>
+References: <1349279002-4008-1-git-send-email-nicolas.dichtel@6wind.com> <20121003.162847.312544751568068374.davem@davemloft.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	gpiez@web.de, Dave Jones <davej@redhat.com>,
-	Julian Anastasov <ja@ssi.bg>
-To: Chris Clayton <chris2553@googlemail.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-sctp@vger.kernel.org, vyasevich@gmail.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:56285 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755020Ab2JDNcN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 09:32:13 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so307755bkc.19
-        for <netdev@vger.kernel.org>; Thu, 04 Oct 2012 06:32:12 -0700 (PDT)
-In-Reply-To: <506D8A4F.3020008@googlemail.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:42714 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751290Ab2JDHRK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 03:17:10 -0400
+Received: by mail-ee0-f46.google.com with SMTP id b15so107684eek.19
+        for <netdev@vger.kernel.org>; Thu, 04 Oct 2012 00:17:09 -0700 (PDT)
+In-Reply-To: <20121003.162847.312544751568068374.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-10-04 at 14:08 +0100, Chris Clayton wrote:
-
-> I've tested 3.6.0 with this patch applied and networking in a WinXP KVM 
-> client is now working fine. The patch applies cleanly to 3.6.0, so I 
-> assume the patch will be forwarded to stable in due course.
-> 
-> Tested-by: Chris Clayton <chris2553@googlemail.com>
-
-Thanks for testing.
+Le 03/10/2012 22:28, David Miller a =E9crit :
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Date: Wed,  3 Oct 2012 17:43:21 +0200
+>
+>> Just to avoid confusion when people only reads this prototype.
+>>
+>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>
+> I think we should apply this one, regardless of what happens
+> to patch #2 in this series.
+>
+Yes, I catch it when working on the second patch, but I should send two=
+ seperate=20
+patches.
