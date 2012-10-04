@@ -1,92 +1,151 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] udp: port starting location not random
-Date: Thu, 4 Oct 2012 14:59:30 -0700
-Message-ID: <20121004145930.7ca54fd5@nehalam.linuxnetplumber.net>
-References: <20121004.171246.1480276635491836767.davem@davemloft.net>
-	<20121004142859.08ab0385@nehalam.linuxnetplumber.net>
-	<1349387153.21172.1.camel@edumazet-glaptop>
-	<20121004.175009.1336502669507423764.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Thu, 04 Oct 2012 17:42:25 -0400 (EDT)
+Message-ID: <20121004.174225.33515477347980421.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, dada1@cosmosbay.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33474 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752684Ab2JDWAH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Oct 2012 18:00:07 -0400
-In-Reply-To: <20121004.175009.1336502669507423764.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46593 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946317Ab2JDVm2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 17:42:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 04 Oct 2012 17:50:09 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 04 Oct 2012 23:45:53 +0200
-> 
-> > On Thu, 2012-10-04 at 14:28 -0700, Stephen Hemminger wrote:
-> >> On Thu, 04 Oct 2012 17:12:46 -0400 (EDT)
-> >> David Miller <davem@davemloft.net> wrote:
-> >> 
-> >> > From: Stephen Hemminger <shemminger@vyatta.com>
-> >> > Date: Thu, 4 Oct 2012 14:08:28 -0700
-> >> > 
-> >> > > While working on VXLAN, noticed a bug in UDP introduced by:
-> >> > > 
-> >> > > commit 9088c5609584684149f3fb5b065aa7f18dcb03ff
-> >> > > Author: Eric Dumazet <dada1@cosmosbay.com>
-> >> > > Date:   Wed Oct 8 11:44:17 2008 -0700
-> >> > > 
-> >> > >     udp: Improve port randomization
-> >> > >     
-> >> > > 
-> >> > > The logic for choosing where to start for port randomization incorrectly
-> >> > > calculates the starting port number. It is always ends up using
-> >> > > the low end of the range independent of the value of random.
-> >> > > This causes all UDP port searches to start at the same port.
-> >> > > 
-> >> > > Doing the following fixes it but at the cost of doing a real divide.
-> >> > > 
-> >> > > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> >> > > 
-> >> > > ---
-> >> > > Resend, previous send was not going to netdev.
-> >> > > 
-> >> > > Not sure if worth fixing for stable, because only has performance impact
-> >> > > and some application might be depending on current broken behaviour.
-> >> > > 
-> >> > > 
-> >> > > 
-> >> > > --- a/net/ipv4/udp.c	2012-10-01 17:06:53.107427436 -0700
-> >> > > +++ b/net/ipv4/udp.c	2012-10-04 13:43:21.278960379 -0700
-> >> > > @@ -216,7 +216,7 @@ int udp_lib_get_port(struct sock *sk, un
-> >> > >  		remaining = (high - low) + 1;
-> >> > >  
-> >> > >  		rand = net_random();
-> >> > > -		first = (((u64)rand * remaining) >> 32) + low;
-> >> > > +		first = rand % remaining + low;
-> >> > 
-> >> > Try replacing "remaining" with "(remaining << (64 - 16))" in
-> >> > the expression instead.
-> >> 
-> >> The standalone program gets same result.
-> > 
-> > Hey, I hope you understand random32() does allocate a 32bit value, not a
-> > 15bit one...
-> > 
-> > If really we had such a bug, I am pretty sure we would have noticed.
-> 
-> But the issue is is "remaining" that's of limited range, not rand.
-> I didn't say to shift up 'rand', but rather 'remaining'.
+The most important bit in here is the fix for input route caching
+from Eric Dumazet, it's a shame we couldn't fully analyze this
+in time for 3.6 as it's a 3.6 regression introduced by the routing
+cache removal.
 
-I think the issue is the Gcc is deciding to truncate the math.
-If it is done as separate steps, then the right answer happens:
+Anyways, will send quickly to -stable after you pull this in.
 
-Good:
-	t = ((uint64_t) rand * remaining) >> 32;
-	first = t + low;
+Other changes of note:
 
-Bad:
-	first = (((uint64_t)rand * remaining) >> (64-16)) + low;
+1) Fix lockdep splats in team and bonding, from Eric Dumazet.
+
+2) IPV6 adds link local route even when there is no link local address,
+   from Nicolas Dichtel.
+
+3) Fix ixgbe PTP implementation, from Jacob Keller.
+
+4) Fix excessive stack usage in cxgb4 driver, from Vipul Pandya.
+
+5) MAC length computed improperly in VLAN demux, from Antonio
+   Quartulli.
+
+Please pull, thanks a lot!
+
+The following changes since commit 7fe0b14b725d6d09a1d9e1409bd465cb88b587f9:
+
+  Merge tag 'spi-3.7' of git://git.kernel.org/pub/scm/linux/kernel/git/broonie/misc (2012-10-02 17:26:42 -0700)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+
+for you to fetch changes up to 6825a26c2dc21eb4f8df9c06d3786ddec97cf53b:
+
+  ipv6: release reference of ip6_null_entry's dst entry in __ip6_del_rt (2012-10-04 16:00:07 -0400)
+
+----------------------------------------------------------------
+Antonio Quartulli (1):
+      8021q: fix mac_len recomputation in vlan_untag()
+
+Dan Carpenter (1):
+      bnx2x: use strlcpy() to copy a string
+
+Dave Jones (2):
+      silence some noisy printks in irda
+      Remove noisy printks from llcp_sock_connect
+
+David S. Miller (4):
+      pch_gbe: Fix PTP dependencies.
+      cxgb4: Fix build error due to missing linux/vmalloc.h include.
+      Merge branch 'master' of git://git.kernel.org/.../jkirsher/net
+      Merge branch 'fixes-for-3.7' of git://gitorious.org/linux-can/linux-can
+
+Emil Tantilov (1):
+      ixgbe: fix poll loop for FDIRCTRL.INIT_DONE bit
+
+Eric Dumazet (3):
+      ipv4: add a fib_type to fib_info
+      bonding: set qdisc_tx_busylock to avoid LOCKDEP splat
+      team: set qdisc_tx_busylock to avoid LOCKDEP splat
+
+Erik Hugne (1):
+      tipc: prevent dropped connections due to rcvbuf overflow
+
+Gao feng (1):
+      ipv6: release reference of ip6_null_entry's dst entry in __ip6_del_rt
+
+Jacob Keller (3):
+      ixgbe: Fix PTP X540 SDP alignment code for PPS signal
+      ixgbe: (PTP) Fix PPS interrupt code
+      ixgbe: fix PTP ethtool timestamping function
+
+Marc Kleine-Budde (1):
+      can: mpc5xxx_can: fix section type conflict
+
+Michael Chan (1):
+      tg3: Fix sparse warnings.
+
+Nicolas Dichtel (3):
+      ipv6: don't add link local route when there is no link local address
+      sctp: fix a typo in prototype of __sctp_rcv_lookup()
+      sctp: check src addr when processing SACK to update transport state
+
+Peter Senna Tschudin (2):
+      can: peak_pci: fix error return code
+      can: peak_pcmcia: fix error return code
+
+Vipul Pandya (1):
+      cxgb4: Dynamically allocate memory in t4_memory_rw() and get_vpd_params()
+
+Yuval Mintz (1):
+      bnx2x: fix ring size for 10G functions
+
+htbegin (1):
+      net: ethernet: davinci_cpdma: decrease the desc count when cleaning up the remaining packets
+
+joshua.a.hay@intel.com (1):
+      ixgbe: add support for X540-AT1
+
+ drivers/net/bonding/bond_main.c                  |   2 +
+ drivers/net/can/mscan/mpc5xxx_can.c              |   8 +--
+ drivers/net/can/sja1000/peak_pci.c               |   2 +
+ drivers/net/can/sja1000/peak_pcmcia.c            |   4 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |  17 ++++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   5 +-
+ drivers/net/ethernet/broadcom/tg3.c              |  11 +++--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h       |   1 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c       |  43 +++++++++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |   2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   5 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  15 +++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c     | 202 ++++++++++++++++++++++++++++++++++++----------------------------------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |   1 +
+ drivers/net/ethernet/oki-semi/pch_gbe/Kconfig    |   2 +-
+ drivers/net/ethernet/ti/davinci_cpdma.c          |   1 +
+ drivers/net/team/team.c                          |   2 +
+ include/net/ip_fib.h                             |   1 +
+ include/net/sctp/structs.h                       |   2 +-
+ net/8021q/vlan_core.c                            |   3 +-
+ net/ipv4/fib_semantics.c                         |   2 +
+ net/ipv6/addrconf.c                              |  15 +-----
+ net/ipv6/route.c                                 |  11 +++--
+ net/irda/af_irda.c                               |   2 +-
+ net/irda/irttp.c                                 |   2 +-
+ net/nfc/llcp/sock.c                              |   8 +--
+ net/sctp/input.c                                 |   2 +-
+ net/sctp/outqueue.c                              |  15 ++++--
+ net/sctp/sm_sideeffect.c                         |   4 +-
+ net/sctp/sm_statefuns.c                          |   2 +-
+ net/tipc/socket.c                                |   1 +
+ 32 files changed, 209 insertions(+), 185 deletions(-)
