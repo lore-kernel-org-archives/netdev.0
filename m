@@ -1,65 +1,101 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] udp: port starting location not random
-Date: Thu, 4 Oct 2012 14:28:59 -0700
-Message-ID: <20121004142859.08ab0385@nehalam.linuxnetplumber.net>
-References: <20121004140828.2d6f7bf9@nehalam.linuxnetplumber.net>
-	<20121004.171246.1480276635491836767.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:58655 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946556Ab2JDV3g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Oct 2012 17:29:36 -0400
-In-Reply-To: <20121004.171246.1480276635491836767.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Simek <monstr@monstr.eu>
+Subject: [PATCH 06/11] net: ll_temac: Fix mdio initialization
+Date: Thu,  4 Oct 2012 20:14:52 +0200
+Message-ID: <1349374497-9540-6-git-send-email-monstr@monstr.eu>
+References: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
+Cc: linux-kernel@vger.kernel.org, Michal Simek <monstr@monstr.eu>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	John Linn <John.Linn@xilinx.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 04 Oct 2012 17:12:46 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+Current driver required to have phy-node directly in
+the driver. After this fixed we can use standard structure.
 
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Thu, 4 Oct 2012 14:08:28 -0700
-> 
-> > While working on VXLAN, noticed a bug in UDP introduced by:
-> > 
-> > commit 9088c5609584684149f3fb5b065aa7f18dcb03ff
-> > Author: Eric Dumazet <dada1@cosmosbay.com>
-> > Date:   Wed Oct 8 11:44:17 2008 -0700
-> > 
-> >     udp: Improve port randomization
-> >     
-> > 
-> > The logic for choosing where to start for port randomization incorrectly
-> > calculates the starting port number. It is always ends up using
-> > the low end of the range independent of the value of random.
-> > This causes all UDP port searches to start at the same port.
-> > 
-> > Doing the following fixes it but at the cost of doing a real divide.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> > 
-> > ---
-> > Resend, previous send was not going to netdev.
-> > 
-> > Not sure if worth fixing for stable, because only has performance impact
-> > and some application might be depending on current broken behaviour.
-> > 
-> > 
-> > 
-> > --- a/net/ipv4/udp.c	2012-10-01 17:06:53.107427436 -0700
-> > +++ b/net/ipv4/udp.c	2012-10-04 13:43:21.278960379 -0700
-> > @@ -216,7 +216,7 @@ int udp_lib_get_port(struct sock *sk, un
-> >  		remaining = (high - low) + 1;
-> >  
-> >  		rand = net_random();
-> > -		first = (((u64)rand * remaining) >> 32) + low;
-> > +		first = rand % remaining + low;
-> 
-> Try replacing "remaining" with "(remaining << (64 - 16))" in
-> the expression instead.
+DTS fragment:
 
-The standalone program gets same result.
+phy-handle = <&phy0>;
+mdio {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	phy0: phy@7 {
+		compatible = "marvell,88e1111";
+		device_type = "ethernet-phy";
+		reg = <7>;
+	} ;
+} ;
+
+Signed-off-by: Michal Simek <monstr@monstr.eu>
+CC: Anirudha Sarangi <anirudh@xilinx.com>
+CC: John Linn <John.Linn@xilinx.com>
+CC: Grant Likely <grant.likely@secretlab.ca>
+CC: Rob Herring <rob.herring@calxeda.com>
+CC: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/xilinx/ll_temac_main.c |   11 ++++++-----
+ drivers/net/ethernet/xilinx/ll_temac_mdio.c |    5 +++--
+ 2 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
+index f8e3518..482b572 100644
+--- a/drivers/net/ethernet/xilinx/ll_temac_main.c
++++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
+@@ -1108,14 +1108,15 @@ static int __devinit temac_of_probe(struct platform_device *op)
+ 	}
+ 	temac_set_mac_address(ndev, (void *)addr);
+ 
+-	rc = temac_mdio_setup(lp, op->dev.of_node);
+-	if (rc)
+-		dev_warn(&op->dev, "error registering MDIO bus\n");
+-
+ 	lp->phy_node = of_parse_phandle(op->dev.of_node, "phy-handle", 0);
+-	if (lp->phy_node)
++	if (lp->phy_node) {
+ 		dev_dbg(lp->dev, "using PHY node %s (%p)\n", np->full_name, np);
+ 
++		rc = temac_mdio_setup(lp, op->dev.of_node);
++		if (rc)
++			dev_warn(&op->dev, "error registering MDIO bus\n");
++	}
++
+ 	/* Add the device attributes */
+ 	rc = sysfs_create_group(&lp->dev->kobj, &temac_attr_group);
+ 	if (rc) {
+diff --git a/drivers/net/ethernet/xilinx/ll_temac_mdio.c b/drivers/net/ethernet/xilinx/ll_temac_mdio.c
+index 8cf9d4f..634d898 100644
+--- a/drivers/net/ethernet/xilinx/ll_temac_mdio.c
++++ b/drivers/net/ethernet/xilinx/ll_temac_mdio.c
+@@ -63,6 +63,7 @@ int temac_mdio_setup(struct temac_local *lp, struct device_node *np)
+ 	int clk_div;
+ 	int rc, size;
+ 	struct resource res;
++	struct device_node *np1 = of_get_parent(lp->phy_node);
+ 
+ 	/* Calculate a reasonable divisor for the clock rate */
+ 	clk_div = 0x3f; /* worst-case default setting */
+@@ -85,7 +86,7 @@ int temac_mdio_setup(struct temac_local *lp, struct device_node *np)
+ 	if (!bus)
+ 		return -ENOMEM;
+ 
+-	of_address_to_resource(np, 0, &res);
++	of_address_to_resource(np1, 0, &res);
+ 	snprintf(bus->id, MII_BUS_ID_SIZE, "%.8llx",
+ 		 (unsigned long long)res.start);
+ 	bus->priv = lp;
+@@ -97,7 +98,7 @@ int temac_mdio_setup(struct temac_local *lp, struct device_node *np)
+ 
+ 	lp->mii_bus = bus;
+ 
+-	rc = of_mdiobus_register(bus, np);
++	rc = of_mdiobus_register(bus, np1);
+ 	if (rc)
+ 		goto err_register;
+ 
+-- 
+1.7.0.4
