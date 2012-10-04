@@ -1,31 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Wed, 03 Oct 2012 21:47:50 -0400 (EDT)
-Message-ID: <20121003.214750.2022020970468412510.davem@davemloft.net>
-References: <20121004101833.019598b7e474c7b74e67ff20@canb.auug.org.au>
-	<20121003.205053.1711360628623711137.davem@davemloft.net>
-	<20121004110615.3fda3c25735284c776106d7d@canb.auug.org.au>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 0/3] virtio-net: inline header support
+Date: Thu, 04 Oct 2012 09:41:12 +0930
+Message-ID: <87bogj2j1b.fsf@rustcorp.com.au>
+References: <cover.1348824232.git.mst@redhat.com> <87vces2gxq.fsf__45058.6618776017$1349247807$gmane$org@rustcorp.com.au> <506C192E.5060700@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vipul@chelsio.com, jay@chelsio.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121004110615.3fda3c25735284c776106d7d@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Thomas Lendacky <tahm@linux.vnet.ibm.com>, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, avi@redhat.com,
+	Sasha Levin <levinsasha928@gmail.com>
+To: Paolo Bonzini <pbonzini@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <506C192E.5060700@redhat.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 4 Oct 2012 11:06:15 +1000
+Paolo Bonzini <pbonzini@redhat.com> writes:
 
-> Actually, for me it is.  I have a script that does the "use yesterday's
-> version" for me.  To fix (even a one liner) means bringing up an editor,
-> commiting, creating the patch and then recommiting it (an implementation
-> detail) and recording that I need to keep (automatically) applying the
-> patch in case the maintainer doesn't react quickly.
+> Il 03/10/2012 08:44, Rusty Russell ha scritto:
+>> There's a reason I haven't done this.  I really, really dislike "my
+>> implemention isn't broken" feature bits.  We could have an infinite
+>> number of them, for each bug in each device.
+>
+> However, this bug affects (almost) all implementations and (almost) all
+> devices.  It even makes sense to reserve a transport feature bit for it
+> instead of a device feature bit.
+>
+> Paolo
 
-Ok, fair enough.
+Perhaps, but we have to fix the bugs first!
 
-I'll try to look into making x86 barf when a vmalloc.h include is
-missing.
+As I said, my torture patch broke qemu immediately.  Since noone has
+leapt onto fixing that, I'll take a look now...
+
+Cheers,
+Rusty.
