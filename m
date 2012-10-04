@@ -1,64 +1,144 @@
-From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: Re: [PATCH 19/20] drivers/net/ethernet/marvell/skge.c: fix error
- return code
-Date: Thu, 4 Oct 2012 20:49:57 +0200
-Message-ID: <CA+MoWDqBF5bdQYBaUmpB99Q=YcHYcUxi8Ffo3x4s0B+pmomb+Q@mail.gmail.com>
-References: <CA+MoWDp4W5BCA1t_HgEtLhMs1btVTOkbtBytOVtAzJriEZ-16A@mail.gmail.com>
-	<20121004074442.180d8f01@nehalam.linuxnetplumber.net>
-	<CA+MoWDp=_F9opJbVkv9sDsmoykm7MTUZwRVumKCB0ZqDwD6NoQ@mail.gmail.com>
-	<20121004.142335.1467206545795435493.davem@davemloft.net>
+From: Chris Clayton <chris2553@googlemail.com>
+Subject: Re: [PATCH] ipv4: add a fib_type to fib_info
+Date: Thu, 04 Oct 2012 14:08:31 +0100
+Message-ID: <506D8A4F.3020008@googlemail.com>
+References: <506955F3.8050304@googlemail.com>  <1349082950.12401.669.camel@edumazet-glaptop>  <20121001193434.GA14236@redhat.com>  <20121001.160115.1816241312626722150.davem@davemloft.net>  <1349121884.12401.721.camel@edumazet-glaptop>  <1349192133.12401.768.camel@edumazet-glaptop>  <1349192919.12401.778.camel@edumazet-glaptop> <1349349926.16011.48.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: shemminger@vyatta.com, mlindner@marvell.com,
-	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121004.142335.1467206545795435493.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	gpiez@web.de, Dave Jones <davej@redhat.com>,
+	Julian Anastasov <ja@ssi.bg>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:51022 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932128Ab2JDNIa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 09:08:30 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so290229bkc.19
+        for <netdev@vger.kernel.org>; Thu, 04 Oct 2012 06:08:28 -0700 (PDT)
+In-Reply-To: <1349349926.16011.48.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 4, 2012 at 8:23 PM, David Miller <davem@davemloft.net> wrote:
-> From: Peter Senna Tschudin <peter.senna@gmail.com>
-> Date: Thu, 4 Oct 2012 19:32:12 +0200
+
+
+On 10/04/12 12:25, Eric Dumazet wrote:
+> On Tue, 2012-10-02 at 17:48 +0200, Eric Dumazet wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> On Tue, 2012-10-02 at 17:35 +0200, Eric Dumazet wrote:
+>>> On Mon, 2012-10-01 at 22:04 +0200, Eric Dumazet wrote:
+>>>> On Mon, 2012-10-01 at 16:01 -0400, David Miller wrote:
+>>>
+>>>>> If you can find a way to more reliably trigger the case, that would
+>>>>> help us immensely.
+>>>>
+>>>> I am building a KMEMCHECK kernel, as a last try before my night ;)
+>>>
+>>> This was a total disaster. KMEMCHECK dies horribly on my machine
+>>>
+>>> David, shouldnt we use a nh_rth_forward instead of a nh_rth_input in
+>>> __mkroute_input() ?
+>>>
+>>> (And change rt_cache_route() as well ?)
+>>>
+>>> I am testing a patch right now.
+>>
 >
->> I can't understand the advantages of describing each patch as you are
->> asking. "For me" the generic commit message together with the patch
->> makes sense.  Can you please help me on that?
+> OK so I implemented David idea and it seems to work.
 >
-> Stop being so dense.
+> Testers are needed, thanks ! ;)
 >
-> We want to know the implications of the bug being fixed.
+
+I've tested 3.6.0 with this patch applied and networking in a WinXP KVM 
+client is now working fine. The patch applies cleanly to 3.6.0, so I 
+assume the patch will be forwarded to stable in due course.
+
+Tested-by: Chris Clayton <chris2553@googlemail.com>
+
+> [PATCH] ipv4: add a fib_type to fib_info
 >
-> Does it potentially cause an OOPS?  Bad reference counting and thus
-> potential leaks or early frees?
+> commit d2d68ba9fe8 (ipv4: Cache input routes in fib_info nexthops.)
+> introduced a regression for forwarding.
 >
-> You have to analyze the implications and ramifications of the bug
-> being fixed.  We need that information.
+> This was hard to reproduce but the symptom was that packets were
+> delivered to local host instead of being forwarded.
 >
-> Your commit messages are in fact robotic, they don't describe the
-> salient details of what kinds of problems the bug being fixed might
-> cause.
+> David suggested to add fib_type to fib_info so that we dont
+> inadvertently share same fib_info for different purposes.
 >
-> It's just "bad error code, this is the script that fixed it, kthx,
-> bye" which is pretty much useless for anaylsis.
-
-Thank you David.
-
-What about this as commit message?
---- // --
-This patch fixes bug(s) related to return value of function(s). In
-some error cases, the function is returning non-negative SUCCESS
-value, when the correct would be negative ERROR value.
-
-When on error, returning non negatives values, or SUCCESS, breaks error
-propagation, producing unpredictable behavior that are very difficult
-to debug.
---- // --
-
-
-
-
-
--- 
-Peter
+> With help from Julian Anastasov who provided very helpful
+> hints, reproduced here :
+>
+> <quote>
+>          Can it be a problem related to fib_info reuse
+> from different routes. For example, when local IP address
+> is created for subnet we have:
+>
+> broadcast 192.168.0.255 dev DEV  proto kernel  scope link  src
+> 192.168.0.1
+> 192.168.0.0/24 dev DEV  proto kernel  scope link  src 192.168.0.1
+> local 192.168.0.1 dev DEV  proto kernel  scope host  src 192.168.0.1
+>
+>          The "dev DEV  proto kernel  scope link  src 192.168.0.1" is
+> a reused fib_info structure where we put cached routes.
+> The result can be same fib_info for 192.168.0.255 and
+> 192.168.0.0/24. RTN_BROADCAST is cached only for input
+> routes. Incoming broadcast to 192.168.0.255 can be cached
+> and can cause problems for traffic forwarded to 192.168.0.0/24.
+> So, this patch should solve the problem because it
+> separates the broadcast from unicast traffic.
+>
+>          And the ip_route_input_slow caching will work for
+> local and broadcast input routes (above routes 1 and 3) just
+> because they differ in scope and use different fib_info.
+>
+> </quote>
+>
+> Many thanks to Chris Clayton for his patience and help.
+>
+> Reported-by: Chris Clayton <chris2553@googlemail.com>
+> Bisected-by: Chris Clayton <chris2553@googlemail.com>
+> Reported-by: Dave Jones <davej@redhat.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Julian Anastasov <ja@ssi.bg>
+> ---
+>   include/net/ip_fib.h     |    1 +
+>   net/ipv4/fib_semantics.c |    2 ++
+>   2 files changed, 3 insertions(+)
+>
+> diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+> index 926142e..9497be1 100644
+> --- a/include/net/ip_fib.h
+> +++ b/include/net/ip_fib.h
+> @@ -102,6 +102,7 @@ struct fib_info {
+>   	unsigned char		fib_dead;
+>   	unsigned char		fib_protocol;
+>   	unsigned char		fib_scope;
+> +	unsigned char		fib_type;
+>   	__be32			fib_prefsrc;
+>   	u32			fib_priority;
+>   	u32			*fib_metrics;
+> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+> index 3509065..2677530 100644
+> --- a/net/ipv4/fib_semantics.c
+> +++ b/net/ipv4/fib_semantics.c
+> @@ -314,6 +314,7 @@ static struct fib_info *fib_find_info(const struct fib_info *nfi)
+>   		    nfi->fib_scope == fi->fib_scope &&
+>   		    nfi->fib_prefsrc == fi->fib_prefsrc &&
+>   		    nfi->fib_priority == fi->fib_priority &&
+> +		    nfi->fib_type == fi->fib_type &&
+>   		    memcmp(nfi->fib_metrics, fi->fib_metrics,
+>   			   sizeof(u32) * RTAX_MAX) == 0 &&
+>   		    ((nfi->fib_flags ^ fi->fib_flags) & ~RTNH_F_DEAD) == 0 &&
+> @@ -833,6 +834,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+>   	fi->fib_flags = cfg->fc_flags;
+>   	fi->fib_priority = cfg->fc_priority;
+>   	fi->fib_prefsrc = cfg->fc_prefsrc;
+> +	fi->fib_type = cfg->fc_type;
+>
+>   	fi->fib_nhs = nhs;
+>   	change_nexthops(fi) {
+>
+>
