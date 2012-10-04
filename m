@@ -1,45 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] vxlan: use ether header as fallback hash
-Date: Thu, 04 Oct 2012 19:07:56 +0200
-Message-ID: <1349370476.16011.84.camel@edumazet-glaptop>
-References: <20121001223232.566037595@vyatta.com>
-	 <20121001223254.349753999@vyatta.com>
-	 <CAEP_g=9Y3MmsABQJyi508FEgs4635tnaVqk4Ncwbpm41bLskhg@mail.gmail.com>
-	 <20121003213906.09b57539@nehalam.linuxnetplumber.net>
-	 <CAEP_g=8F_s3H4MCBf=xKWdASdtpZ7V_tOSGtZpv7ONULegP4ow@mail.gmail.com>
-	 <20121004094333.748158e2@nehalam.linuxnetplumber.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] udp: port starting location not random
+Date: Thu, 4 Oct 2012 14:28:59 -0700
+Message-ID: <20121004142859.08ab0385@nehalam.linuxnetplumber.net>
+References: <20121004140828.2d6f7bf9@nehalam.linuxnetplumber.net>
+	<20121004.171246.1480276635491836767.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Gross <jesse@nicira.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:54050 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751453Ab2JDRIB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 13:08:01 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so452881bkc.19
-        for <netdev@vger.kernel.org>; Thu, 04 Oct 2012 10:08:00 -0700 (PDT)
-In-Reply-To: <20121004094333.748158e2@nehalam.linuxnetplumber.net>
+Received: from mail.vyatta.com ([76.74.103.46]:58655 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1946556Ab2JDV3g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Oct 2012 17:29:36 -0400
+In-Reply-To: <20121004.171246.1480276635491836767.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-10-04 at 09:43 -0700, Stephen Hemminger wrote:
-> On Thu, 4 Oct 2012 09:27:14 -0700
-> Jesse Gross <jesse@nicira.com> wrote:
+On Thu, 04 Oct 2012 17:12:46 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
-> > > +static u16 vxlan_flow_hash(struct sk_buff *skb)
-> > > +{
-> > > +       u16 hash = skb_get_rxhash(skb);
-> > > +
-> > > +       if (!hash)
-> > > +               hash = jhash(skb->data, 3, skb->protocol);
-> > 
-> > Shouldn't this be jhash2 for words?
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Thu, 4 Oct 2012 14:08:28 -0700
 > 
-> No. for a couple of reasons. First, the ethernet header may not be aligned.
-> Second we want to get source/destination and type.  The source/destination
-> is 12 bytes (3 words) and the ether type is already in skb->protocol.
+> > While working on VXLAN, noticed a bug in UDP introduced by:
+> > 
+> > commit 9088c5609584684149f3fb5b065aa7f18dcb03ff
+> > Author: Eric Dumazet <dada1@cosmosbay.com>
+> > Date:   Wed Oct 8 11:44:17 2008 -0700
+> > 
+> >     udp: Improve port randomization
+> >     
+> > 
+> > The logic for choosing where to start for port randomization incorrectly
+> > calculates the starting port number. It is always ends up using
+> > the low end of the range independent of the value of random.
+> > This causes all UDP port searches to start at the same port.
+> > 
+> > Doing the following fixes it but at the cost of doing a real divide.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> > 
+> > ---
+> > Resend, previous send was not going to netdev.
+> > 
+> > Not sure if worth fixing for stable, because only has performance impact
+> > and some application might be depending on current broken behaviour.
+> > 
+> > 
+> > 
+> > --- a/net/ipv4/udp.c	2012-10-01 17:06:53.107427436 -0700
+> > +++ b/net/ipv4/udp.c	2012-10-04 13:43:21.278960379 -0700
+> > @@ -216,7 +216,7 @@ int udp_lib_get_port(struct sock *sk, un
+> >  		remaining = (high - low) + 1;
+> >  
+> >  		rand = net_random();
+> > -		first = (((u64)rand * remaining) >> 32) + low;
+> > +		first = rand % remaining + low;
+> 
+> Try replacing "remaining" with "(remaining << (64 - 16))" in
+> the expression instead.
 
-jhash(skb->data, 12, initval)
+The standalone program gets same result.
