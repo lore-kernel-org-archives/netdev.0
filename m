@@ -1,92 +1,55 @@
-From: Stephen Clark <sclark46@earthlink.net>
-Subject: Re: policy routing vs dnat replies
-Date: Thu, 04 Oct 2012 08:39:41 -0400
-Message-ID: <506D838D.1060004@earthlink.net>
-References: <CALCETrWs4NDb_4KzJqnQVAkWHuaUS3Xrguuk2wwZGGKo8TqSLA@mail.gmail.com>
-Reply-To: sclark46@earthlink.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] team: set qdisc_tx_busylock to avoid LOCKDEP splat
+Date: Thu, 04 Oct 2012 11:18:39 +0200
+Message-ID: <1349342319.16011.30.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
+Cc: netdev <netdev@vger.kernel.org>, Jiri Pirko <jpirko@redhat.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-kukur.atl.sa.earthlink.net ([209.86.89.65]:37886 "EHLO
-	elasmtp-kukur.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756200Ab2JDMjn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 08:39:43 -0400
-In-Reply-To: <CALCETrWs4NDb_4KzJqnQVAkWHuaUS3Xrguuk2wwZGGKo8TqSLA@mail.gmail.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:38168 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750986Ab2JDJSr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 05:18:47 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so146882bkc.19
+        for <netdev@vger.kernel.org>; Thu, 04 Oct 2012 02:18:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/03/2012 08:44 PM, Andy Lutomirski wrote:
-> I hit an annoying policy routing corner case today.  I have a router
-> with two WAN interfaces (and no BGP).  I have policy routing set up so
-> that, if a source address matches either of my public networks, then
-> outgoing packets use the correct interface.  If neither rule matches
-> (e.g. the source is 0.0.0.0 for source address selection), then the
-> default route is whichever one I prefer at the moment.  It looks like
-> this:
->
-> $ ip rule
-> 0:	from all lookup local
-> 32766:	from all lookup main
-> 32767:	from all lookup default
-> 40000:	from<net2>  lookup isp2
-> 40001:	from<net1>  lookup isp1
-> 40010:	from all lookup real_default
->
-> The relevant routes are:
->
-> default via<gw1>  dev eth0.2  table isp1  src<src1>
-> default via<gw2>  dev eth0.3  table isp2  src<src2>
-> default via<gw2>  dev eth0.3  table real_default  src<src2>   metric 101
-> default via<gw1>  dev eth0.2  table real_default  src<src1>   metric 102
->
-> (Yes, this is a bit verbose, but I don't know a more concise way to do this.)
->
-> This works nicely: if I specifically bind to one of my public
-> addresses, the corresponding WAN link is used, and if not or if I'm
-> coming from a private address, then the metrics determine which link
-> to use.
->
-> DNAT breaks it.  I have a rule:
-> -A PREROUTING -i eth0.2 -d<ip1>  -p tcp --dport<port>  -j DNAT --to
-> <internal host>
->
-> <ip1>  lives on isp1.  Someone sends a SYN.  It gets routed to the
-> internal host, and that host sends a SYN/ACK back.  The SYN/ACK has a
-> source ip that isn't on net1 or net2, so it matches the 'lookup
-> real_default' rule and gets routed to *gw2*.  iptables rewrites the
-> source address after the routing decision, and my router sends a
-> packet with a source address belonging to isp1 to isp2's gateway.  The
-> packet is then dropped.
->
-> Is there any way I can either convince iptables to rewrite the source
-> address in the prerouting hook or to query the conntrack source
-> address from the policy rule?  Is there a better solution?  I'm
-> currently using a somewhat gross combination of MARK and fwmark
-> matches to work around this problem.  One possibility would be:
->
-> Thanks,
-> Andy
->
-> P.S.  Linux 3.2 (at least) appears to have a bug: the SYN/ACK has
-> ctdir ORIGINAL as seen from the the mangle PREROUTING chain.  I'll
-> send a real bug report for that if I can reproduce it cleanly on a
-> newer kernel.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->    
-Well what I did faced with a similar problem was add a higher prio rule
-that said if from ip1 lookup isp1.
+From: Eric Dumazet <edumazet@google.com>
 
--- 
+If a qdisc is installed on a team device, its possible to get
+a lockdep splat under stress, because nested dev_queue_xmit() can
+lock busylock a second time (on a different device, so its a false
+positive)
 
-"They that give up essential liberty to obtain temporary safety,
-deserve neither liberty nor safety."  (Ben Franklin)
+Avoid this problem using a distinct lock_class_key for team
+devices.
 
-"The course of history shows that as a government grows, liberty
-decreases."  (Thomas Jefferson)
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/team/team.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 5c7547c..d44cca3 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1315,6 +1315,7 @@ static const struct team_option team_options[] = {
+ 
+ static struct lock_class_key team_netdev_xmit_lock_key;
+ static struct lock_class_key team_netdev_addr_lock_key;
++static struct lock_class_key team_tx_busylock_key;
+ 
+ static void team_set_lockdep_class_one(struct net_device *dev,
+ 				       struct netdev_queue *txq,
+@@ -1327,6 +1328,7 @@ static void team_set_lockdep_class(struct net_device *dev)
+ {
+ 	lockdep_set_class(&dev->addr_list_lock, &team_netdev_addr_lock_key);
+ 	netdev_for_each_tx_queue(dev, team_set_lockdep_class_one, NULL);
++	dev->qdisc_tx_busylock = &team_tx_busylock_key;
+ }
+ 
+ static int team_init(struct net_device *dev)
