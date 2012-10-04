@@ -1,61 +1,46 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: Re: kernel 3.2.27 on arm: WARNING: at mm/page_alloc.c:2109
- __alloc_pages_nodemask+0x1d4/0x68c()
-Date: Thu, 04 Oct 2012 19:09:33 +0200
-Message-ID: <1349370573.2532.25.camel@sakura.staff.proxad.net>
-References: <20120829002548.GA7063@aldebaran.gro-tsen.net>
-	 <alpine.LSU.2.00.1208311900330.1936@eggly.anvils>
-	 <1349366521.2532.12.camel@sakura.staff.proxad.net>
-	 <1349369406.16011.82.camel@edumazet-glaptop>
-Reply-To: mbizon@freebox.fr
+From: Eugenia Emantayev <eugenia@mellanox.com>
+Subject: RE: [PATCH 3/3] net/mlx4_en: Add HW timestamping (TS) support
+Date: Thu, 4 Oct 2012 20:58:59 +0000
+Message-ID: <74A0102445410646AFACC089FD94803A95ED9341@MTLDAG01.mtl.com>
+References: <1348826603-17439-1-git-send-email-yevgenyp@mellanox.com>
+ <1348826603-17439-4-git-send-email-yevgenyp@mellanox.com>
+ <20120928111147.GA7474@netboy.at.omicron.at>
+ <74A0102445410646AFACC089FD94803A95ED92DD@MTLDAG01.mtl.com>
+ <20121004142734.GA2810@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ANSI_X3.4-1968"
-Content-Transfer-Encoding: 7bit
-Cc: David Madore <david+ml@madore.org>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Hugh Dickins <hughd@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1349369406.16011.82.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Or Gerlitz" <ogerlitz@mellanox.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:47614 "HELO
+	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757319Ab2JDU7I convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Oct 2012 16:59:08 -0400
+In-Reply-To: <20121004142734.GA2810@netboy.at.omicron.at>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+> You could register the driver as PHC class device, described in
+>
+>   Documentation/ptp/ptp.txt
+>
+> and then you device will work together along with a user space PTP stack, like the one I wrote at
+>
+>   http://linuxptp.sourceforge.net
 
 
-On Thu, 2012-10-04 at 18:50 +0200, Eric Dumazet wrote:
+Richard,
 
-> > Since skb_recycle() resets skb->data using (skb->head + NET_SKB_PAD), a
-> > recycled skb going multiple times through a path that needs to expand
-> > skb head will get bigger and bigger each time, and you eventually end up
-> > with an allocation failure.
-> > 
-> 
-> Because there is not enough headroom ?
+Thanks for the explanation.
+At this stage we prefer to submit the initial patch set (V1) and then, at the next phase,
+extend it as you suggested above, after learning and better understanding the requirements
+and effects.
 
-yes, on ipv6 forward path the default NET_SKB_PAD is too small, so each
-packet forwarded has its headroom expanded, it is then recycled and gets
-its original default headroom back, then it gets forwarded,
-expanded, ...
-
-> > An idea to fix this would be to pass needed skb size to skb_resize() and
-> > set skb->data to MIN(NET_SKB_PAD, (skb->end - skb->head - skb_size) / 2)
-> 
-> I am trying to decode this but I cant ;)
-> 
-> What is skb_resize() ?
-> and what do you mean setting skb->data to MIN(NET_SKB_PAD, (skb->end -
-> skb->head - skb_size) / 2)
-> 
-> Care to explain again your idea ?
-
-damn typo, I meant skb_recycle(), and my formula is probably wrong.
-
-skb_size is passed to skb_recycle_check() to ensure the skb is at least
-that big.
-
-The idea is it to pass the same value to skb_recycle(), allowing it to
-set skb->data somewhat at the middle of skb head space (after honoring
-NET_SKB_PAD), that way the recycled skb won't have its head expanded
-again if it takes the same path.
-
--- 
-Maxime
+Regards,
+Eugenia
