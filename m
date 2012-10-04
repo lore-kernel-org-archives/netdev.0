@@ -1,98 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] udp: port starting location not random
-Date: Thu, 04 Oct 2012 23:57:54 +0200
-Message-ID: <1349387874.21172.5.camel@edumazet-glaptop>
-References: <20121004.171246.1480276635491836767.davem@davemloft.net>
-	 <20121004142859.08ab0385@nehalam.linuxnetplumber.net>
-	 <1349387153.21172.1.camel@edumazet-glaptop>
-	 <20121004.175009.1336502669507423764.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, dada1@cosmosbay.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:39291 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752077Ab2JDV57 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 17:57:59 -0400
-Received: by mail-we0-f174.google.com with SMTP id t9so638184wey.19
-        for <netdev@vger.kernel.org>; Thu, 04 Oct 2012 14:57:58 -0700 (PDT)
-In-Reply-To: <20121004.175009.1336502669507423764.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Simek <monstr@monstr.eu>
+Subject: [PATCH 11/11] net: xilinx: Show csum in bootlog
+Date: Thu,  4 Oct 2012 20:14:57 +0200
+Message-ID: <1349374497-9540-11-git-send-email-monstr@monstr.eu>
+References: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
+Cc: linux-kernel@vger.kernel.org, Michal Simek <monstr@monstr.eu>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	John Linn <John.Linn@xilinx.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-10-04 at 17:50 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 04 Oct 2012 23:45:53 +0200
-> 
-> > On Thu, 2012-10-04 at 14:28 -0700, Stephen Hemminger wrote:
-> >> On Thu, 04 Oct 2012 17:12:46 -0400 (EDT)
-> >> David Miller <davem@davemloft.net> wrote:
-> >> 
-> >> > From: Stephen Hemminger <shemminger@vyatta.com>
-> >> > Date: Thu, 4 Oct 2012 14:08:28 -0700
-> >> > 
-> >> > > While working on VXLAN, noticed a bug in UDP introduced by:
-> >> > > 
-> >> > > commit 9088c5609584684149f3fb5b065aa7f18dcb03ff
-> >> > > Author: Eric Dumazet <dada1@cosmosbay.com>
-> >> > > Date:   Wed Oct 8 11:44:17 2008 -0700
-> >> > > 
-> >> > >     udp: Improve port randomization
-> >> > >     
-> >> > > 
-> >> > > The logic for choosing where to start for port randomization incorrectly
-> >> > > calculates the starting port number. It is always ends up using
-> >> > > the low end of the range independent of the value of random.
-> >> > > This causes all UDP port searches to start at the same port.
-> >> > > 
-> >> > > Doing the following fixes it but at the cost of doing a real divide.
-> >> > > 
-> >> > > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> >> > > 
-> >> > > ---
-> >> > > Resend, previous send was not going to netdev.
-> >> > > 
-> >> > > Not sure if worth fixing for stable, because only has performance impact
-> >> > > and some application might be depending on current broken behaviour.
-> >> > > 
-> >> > > 
-> >> > > 
-> >> > > --- a/net/ipv4/udp.c	2012-10-01 17:06:53.107427436 -0700
-> >> > > +++ b/net/ipv4/udp.c	2012-10-04 13:43:21.278960379 -0700
-> >> > > @@ -216,7 +216,7 @@ int udp_lib_get_port(struct sock *sk, un
-> >> > >  		remaining = (high - low) + 1;
-> >> > >  
-> >> > >  		rand = net_random();
-> >> > > -		first = (((u64)rand * remaining) >> 32) + low;
-> >> > > +		first = rand % remaining + low;
-> >> > 
-> >> > Try replacing "remaining" with "(remaining << (64 - 16))" in
-> >> > the expression instead.
-> >> 
-> >> The standalone program gets same result.
-> > 
-> > Hey, I hope you understand random32() does allocate a 32bit value, not a
-> > 15bit one...
-> > 
-> > If really we had such a bug, I am pretty sure we would have noticed.
-> 
-> But the issue is is "remaining" that's of limited range, not rand.
-> I didn't say to shift up 'rand', but rather 'remaining'.
+Just show current setting in bootlog.
 
-Sorry I see no issue.
+Signed-off-by: Michal Simek <monstr@monstr.eu>
+CC: Anirudha Sarangi <anirudh@xilinx.com>
+CC: John Linn <John.Linn@xilinx.com>
+CC: Grant Likely <grant.likely@secretlab.ca>
+CC: Rob Herring <rob.herring@calxeda.com>
+CC: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/xilinx/ll_temac_main.c       |    2 ++
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c |    2 ++
+ 2 files changed, 4 insertions(+), 0 deletions(-)
 
-remaining is the delta between high and low, and its right,
-unless your compiler or cpu has a nice bug.
-
-remaining = (high - low) + 1;
-
-And I see no bug at all here.
-
-The only assumption is that rand is a random number between 0 and
-0xFFFFFFFF
-
-$RANDOM is between 0 and 0x7FFF
-
-Thats the difference
+diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
+index 58b2869..8c31fcd 100644
+--- a/drivers/net/ethernet/xilinx/ll_temac_main.c
++++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
+@@ -1052,12 +1052,14 @@ static int __devinit temac_of_probe(struct platform_device *op)
+ 	/* Setup checksum offload, but default to off if not specified */
+ 	lp->temac_features = 0;
+ 	p = (__be32 *)of_get_property(op->dev.of_node, "xlnx,txcsum", NULL);
++	dev_info(&op->dev, "TX_CSUM %d\n", be32_to_cpup(p));
+ 	if (p && be32_to_cpu(*p)) {
+ 		lp->temac_features |= TEMAC_FEATURE_TX_CSUM;
+ 		/* Can checksum TCP/UDP over IPv4. */
+ 		ndev->features |= NETIF_F_IP_CSUM;
+ 	}
+ 	p = (__be32 *)of_get_property(op->dev.of_node, "xlnx,rxcsum", NULL);
++	dev_info(&op->dev, "RX_CSUM %d\n", be32_to_cpup(p));
+ 	if (p && be32_to_cpu(*p))
+ 		lp->temac_features |= TEMAC_FEATURE_RX_CSUM;
+ 
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+index 4ef148f..9ea5be6 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+@@ -1528,6 +1528,7 @@ static int __devinit axienet_of_probe(struct platform_device *op)
+ 	lp->features = 0;
+ 
+ 	p = (__be32 *) of_get_property(op->dev.of_node, "xlnx,txcsum", NULL);
++	dev_info(&op->dev, "TX_CSUM %d\n", be32_to_cpup(p));
+ 	if (p) {
+ 		switch (be32_to_cpup(p)) {
+ 		case 1:
+@@ -1549,6 +1550,7 @@ static int __devinit axienet_of_probe(struct platform_device *op)
+ 		}
+ 	}
+ 	p = (__be32 *) of_get_property(op->dev.of_node, "xlnx,rxcsum", NULL);
++	dev_info(&op->dev, "RX_CSUM %d\n", be32_to_cpup(p));
+ 	if (p) {
+ 		switch (be32_to_cpup(p)) {
+ 		case 1:
+-- 
+1.7.0.4
