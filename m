@@ -1,55 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] team: set qdisc_tx_busylock to avoid LOCKDEP splat
-Date: Thu, 04 Oct 2012 11:18:39 +0200
-Message-ID: <1349342319.16011.30.camel@edumazet-glaptop>
+From: Erik Hugne <erik.hugne@ericsson.com>
+Subject: Re: [PATCH] tipc: flow control should not account for sk_rcvbuf
+Date: Thu, 4 Oct 2012 14:12:20 +0200
+Message-ID: <506D7D24.3070601@ericsson.com>
+References: <1349342067-27586-1-git-send-email-erik.hugne@ericsson.com>  <1349342493.16011.32.camel@edumazet-glaptop>  <506D5DEF.9050700@ericsson.com> <1349346360.16011.36.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jiri Pirko <jpirko@redhat.com>
-To: David Miller <davem@davemloft.net>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jon Maloy <jon.maloy@ericsson.com>,
+	"ying.xue@windriver.com" <ying.xue@windriver.com>,
+	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:38168 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750986Ab2JDJSr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 05:18:47 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so146882bkc.19
-        for <netdev@vger.kernel.org>; Thu, 04 Oct 2012 02:18:46 -0700 (PDT)
+Received: from mailgw7.ericsson.se ([193.180.251.48]:54507 "EHLO
+	mailgw7.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756004Ab2JDM10 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 08:27:26 -0400
+In-Reply-To: <1349346360.16011.36.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+> And this limit is tested _before_ queueing to backlog if socket is owned
+> by the user ?
+>
+> You'll have to demonstrate this in the changelog.
+>
+> Again, I dont think this patch is safe, we need an explicit limit.
+You're right Eric..
 
-If a qdisc is installed on a team device, its possible to get
-a lockdep splat under stress, because nested dev_queue_xmit() can
-lock busylock a second time (on a different device, so its a false
-positive)
+Another way of solving it is to increase the default sk_rcvbuf size to
+(TIPC_FLOW_CONTROL_WIN * 2 * TIPC_MAX_USER_MSG_SIZE)
+at socket creation.
 
-Avoid this problem using a distinct lock_class_key for team
-devices.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Jiri Pirko <jpirko@redhat.com>
----
- drivers/net/team/team.c |    2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 5c7547c..d44cca3 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1315,6 +1315,7 @@ static const struct team_option team_options[] = {
- 
- static struct lock_class_key team_netdev_xmit_lock_key;
- static struct lock_class_key team_netdev_addr_lock_key;
-+static struct lock_class_key team_tx_busylock_key;
- 
- static void team_set_lockdep_class_one(struct net_device *dev,
- 				       struct netdev_queue *txq,
-@@ -1327,6 +1328,7 @@ static void team_set_lockdep_class(struct net_device *dev)
- {
- 	lockdep_set_class(&dev->addr_list_lock, &team_netdev_addr_lock_key);
- 	netdev_for_each_tx_queue(dev, team_set_lockdep_class_one, NULL);
-+	dev->qdisc_tx_busylock = &team_tx_busylock_key;
- }
- 
- static int team_init(struct net_device *dev)
+Do you think that would be acceptable?
