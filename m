@@ -1,48 +1,44 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: [PATCH 07/11] net: ll_temac: Fix DMA map size bug
-Date: Thu,  4 Oct 2012 20:14:53 +0200
-Message-ID: <1349374497-9540-7-git-send-email-monstr@monstr.eu>
-References: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
-Cc: linux-kernel@vger.kernel.org, Michal Simek <monstr@monstr.eu>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	John Linn <John.Linn@xilinx.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <rob.herring@calxeda.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tipc: flow control should not account for sk_rcvbuf
+Date: Thu, 04 Oct 2012 12:26:00 +0200
+Message-ID: <1349346360.16011.36.camel@edumazet-glaptop>
+References: <1349342067-27586-1-git-send-email-erik.hugne@ericsson.com>
+	 <1349342493.16011.32.camel@edumazet-glaptop>
+	 <506D5DEF.9050700@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jon Maloy <jon.maloy@ericsson.com>,
+	"ying.xue@windriver.com" <ying.xue@windriver.com>,
+	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>
+To: Erik Hugne <erik.hugne@ericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:44674 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753001Ab2JDK0G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 06:26:06 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so188489bkc.19
+        for <netdev@vger.kernel.org>; Thu, 04 Oct 2012 03:26:04 -0700 (PDT)
+In-Reply-To: <506D5DEF.9050700@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DMA allocates skb->len instead of headlen
-which is used for DMA.
-The same fix was applied to the axienet driver.
+On Thu, 2012-10-04 at 11:59 +0200, Erik Hugne wrote:
+> > What guarantee do we have this cannot use all kernel memory ?
+> >
+> > If sk->sk_rcvbuf is not an acceptable limit here, you must use a
+> > different limit, but not infinity.
+> >
+> There is an implicit limit on how much data that can be buffered on each 
+> socket, controlled by TIPC_FLOW_CONTROL_WIN.
+> 
+> This limit is:
+> TIPC_FLOW_CONTROL_WIN * 2 * TIPC_MAX_USER_MSG_SIZE
 
-Signed-off-by: Michal Simek <monstr@monstr.eu>
-CC: Anirudha Sarangi <anirudh@xilinx.com>
-CC: John Linn <John.Linn@xilinx.com>
-CC: Grant Likely <grant.likely@secretlab.ca>
-CC: Rob Herring <rob.herring@calxeda.com>
-CC: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/xilinx/ll_temac_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+And this limit is tested _before_ queueing to backlog if socket is owned
+by the user ?
 
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index 482b572..8786d92 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -710,8 +710,8 @@ static int temac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 
- 	cur_p->app0 |= STS_CTRL_APP0_SOP;
- 	cur_p->len = skb_headlen(skb);
--	cur_p->phys = dma_map_single(ndev->dev.parent, skb->data, skb->len,
--				     DMA_TO_DEVICE);
-+	cur_p->phys = dma_map_single(ndev->dev.parent, skb->data,
-+				skb_headlen(skb), DMA_TO_DEVICE);
- 	cur_p->app4 = (unsigned long)skb;
- 
- 	for (ii = 0; ii < num_frag; ii++) {
--- 
-1.7.0.4
+You'll have to demonstrate this in the changelog.
+
+Again, I dont think this patch is safe, we need an explicit limit.
