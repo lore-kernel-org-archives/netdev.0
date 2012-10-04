@@ -1,67 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 19/20] drivers/net/ethernet/marvell/skge.c: fix error
- return code
-Date: Thu, 04 Oct 2012 14:54:19 -0400 (EDT)
-Message-ID: <20121004.145419.1859367129463136197.davem@davemloft.net>
-References: <CA+MoWDp=_F9opJbVkv9sDsmoykm7MTUZwRVumKCB0ZqDwD6NoQ@mail.gmail.com>
-	<20121004.142335.1467206545795435493.davem@davemloft.net>
-	<CA+MoWDqBF5bdQYBaUmpB99Q=YcHYcUxi8Ffo3x4s0B+pmomb+Q@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 02/11] net: axienet: Add ioctl support
+Date: Thu, 4 Oct 2012 20:17:42 +0100
+Message-ID: <1349378262.2817.25.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
+	 <1349374497-9540-2-git-send-email-monstr@monstr.eu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, mlindner@marvell.com,
-	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: peter.senna@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+MoWDqBF5bdQYBaUmpB99Q=YcHYcUxi8Ffo3x4s0B+pmomb+Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	John Linn <John.Linn@xilinx.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Michal Simek <monstr@monstr.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:16023 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755821Ab2JDTRq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 15:17:46 -0400
+In-Reply-To: <1349374497-9540-2-git-send-email-monstr@monstr.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Peter Senna Tschudin <peter.senna@gmail.com>
-Date: Thu, 4 Oct 2012 20:49:57 +0200
-
-> On Thu, Oct 4, 2012 at 8:23 PM, David Miller <davem@davemloft.net> wrote:
->> From: Peter Senna Tschudin <peter.senna@gmail.com>
->> Date: Thu, 4 Oct 2012 19:32:12 +0200
->>
->>> I can't understand the advantages of describing each patch as you are
->>> asking. "For me" the generic commit message together with the patch
->>> makes sense.  Can you please help me on that?
->>
->> Stop being so dense.
->>
->> We want to know the implications of the bug being fixed.
->>
->> Does it potentially cause an OOPS?  Bad reference counting and thus
->> potential leaks or early frees?
->>
->> You have to analyze the implications and ramifications of the bug
->> being fixed.  We need that information.
->>
->> Your commit messages are in fact robotic, they don't describe the
->> salient details of what kinds of problems the bug being fixed might
->> cause.
->>
->> It's just "bad error code, this is the script that fixed it, kthx,
->> bye" which is pretty much useless for anaylsis.
+On Thu, 2012-10-04 at 20:14 +0200, Michal Simek wrote:
+> Allow user to access the MDIO from userspace.
 > 
-> Thank you David.
+> Signed-off-by: Michal Simek <monstr@monstr.eu>
+> CC: Anirudha Sarangi <anirudh@xilinx.com>
+> CC: John Linn <John.Linn@xilinx.com>
+> CC: Grant Likely <grant.likely@secretlab.ca>
+> CC: Rob Herring <rob.herring@calxeda.com>
+> CC: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/ethernet/xilinx/xilinx_axienet_main.c |   15 +++++++++++++++
+>  1 files changed, 15 insertions(+), 0 deletions(-)
 > 
-> What about this as commit message?
-> --- // --
-> This patch fixes bug(s) related to return value of function(s). In
-> some error cases, the function is returning non-negative SUCCESS
-> value, when the correct would be negative ERROR value.
-> 
-> When on error, returning non negatives values, or SUCCESS, breaks error
-> propagation, producing unpredictable behavior that are very difficult
-> to debug.
-> --- // --
+> diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+> index 50167ab..a5b41cd 100644
+> --- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+> +++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+> @@ -1053,6 +1053,20 @@ static void axienet_poll_controller(struct net_device *ndev)
+>  }
+>  #endif
+>  
+> +/* Ioctl MII Interface */
+> +static int axienet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+> +{
+> +	struct axienet_local *priv = netdev_priv(dev);
+> +
+> +	if (!netif_running(dev))
+> +		return -EINVAL;
 
-What does it potentially cause the caller to do?  Will it potentially
-treat an error as a success and as a result register an object
-illegally?
+Not sure this is the appropriate error code.
 
-Real analysis please.  The text you provided above is basically still
-robotic and could be used to describe any error code return fix.
+> +	if (!priv->phy_dev)
+> +		return -ENODEV;
+
+Error code should be EOPNOTSUPP - the device is present but just doesn't
+support MDIO.
+
+Ben.
+
+> +	return phy_mii_ioctl(priv->phy_dev, rq, cmd);
+> +}
+> +
+>  static const struct net_device_ops axienet_netdev_ops = {
+>  	.ndo_open = axienet_open,
+>  	.ndo_stop = axienet_stop,
+> @@ -1061,6 +1075,7 @@ static const struct net_device_ops axienet_netdev_ops = {
+>  	.ndo_set_mac_address = netdev_set_mac_address,
+>  	.ndo_validate_addr = eth_validate_addr,
+>  	.ndo_set_rx_mode = axienet_set_multicast_list,
+> +	.ndo_do_ioctl = axienet_ioctl,
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>  	.ndo_poll_controller = axienet_poll_controller,
+>  #endif
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
