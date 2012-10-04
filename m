@@ -1,47 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 19/20] drivers/net/ethernet/marvell/skge.c: fix error
- return code
-Date: Thu, 04 Oct 2012 14:23:35 -0400 (EDT)
-Message-ID: <20121004.142335.1467206545795435493.davem@davemloft.net>
-References: <CA+MoWDp4W5BCA1t_HgEtLhMs1btVTOkbtBytOVtAzJriEZ-16A@mail.gmail.com>
-	<20121004074442.180d8f01@nehalam.linuxnetplumber.net>
-	<CA+MoWDp=_F9opJbVkv9sDsmoykm7MTUZwRVumKCB0ZqDwD6NoQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] vxlan: use ether header as fallback hash
+Date: Thu, 04 Oct 2012 19:07:56 +0200
+Message-ID: <1349370476.16011.84.camel@edumazet-glaptop>
+References: <20121001223232.566037595@vyatta.com>
+	 <20121001223254.349753999@vyatta.com>
+	 <CAEP_g=9Y3MmsABQJyi508FEgs4635tnaVqk4Ncwbpm41bLskhg@mail.gmail.com>
+	 <20121003213906.09b57539@nehalam.linuxnetplumber.net>
+	 <CAEP_g=8F_s3H4MCBf=xKWdASdtpZ7V_tOSGtZpv7ONULegP4ow@mail.gmail.com>
+	 <20121004094333.748158e2@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, mlindner@marvell.com,
-	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: peter.senna@gmail.com
+Cc: Jesse Gross <jesse@nicira.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44527 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752476Ab2JDSXh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 14:23:37 -0400
-In-Reply-To: <CA+MoWDp=_F9opJbVkv9sDsmoykm7MTUZwRVumKCB0ZqDwD6NoQ@mail.gmail.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:54050 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751453Ab2JDRIB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 13:08:01 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so452881bkc.19
+        for <netdev@vger.kernel.org>; Thu, 04 Oct 2012 10:08:00 -0700 (PDT)
+In-Reply-To: <20121004094333.748158e2@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Senna Tschudin <peter.senna@gmail.com>
-Date: Thu, 4 Oct 2012 19:32:12 +0200
+On Thu, 2012-10-04 at 09:43 -0700, Stephen Hemminger wrote:
+> On Thu, 4 Oct 2012 09:27:14 -0700
+> Jesse Gross <jesse@nicira.com> wrote:
 
-> I can't understand the advantages of describing each patch as you are
-> asking. "For me" the generic commit message together with the patch
-> makes sense.  Can you please help me on that?
+> > > +static u16 vxlan_flow_hash(struct sk_buff *skb)
+> > > +{
+> > > +       u16 hash = skb_get_rxhash(skb);
+> > > +
+> > > +       if (!hash)
+> > > +               hash = jhash(skb->data, 3, skb->protocol);
+> > 
+> > Shouldn't this be jhash2 for words?
+> 
+> No. for a couple of reasons. First, the ethernet header may not be aligned.
+> Second we want to get source/destination and type.  The source/destination
+> is 12 bytes (3 words) and the ether type is already in skb->protocol.
 
-Stop being so dense.
-
-We want to know the implications of the bug being fixed.
-
-Does it potentially cause an OOPS?  Bad reference counting and thus
-potential leaks or early frees?
-
-You have to analyze the implications and ramifications of the bug
-being fixed.  We need that information.
-
-Your commit messages are in fact robotic, they don't describe the
-salient details of what kinds of problems the bug being fixed might
-cause.
-
-It's just "bad error code, this is the script that fixed it, kthx,
-bye" which is pretty much useless for anaylsis.
+jhash(skb->data, 12, initval)
