@@ -1,66 +1,67 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: [PATCH 01/11] net: axienet: Remove NETIF_F_SG dropping for no checksum feature
-Date: Thu,  4 Oct 2012 20:14:47 +0200
-Message-ID: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
-Cc: linux-kernel@vger.kernel.org, Michal Simek <monstr@monstr.eu>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	John Linn <John.Linn@xilinx.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <rob.herring@calxeda.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:54728 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753730Ab2JDSPE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 14:15:04 -0400
-Received: by mail-we0-f174.google.com with SMTP id t9so510525wey.19
-        for <netdev@vger.kernel.org>; Thu, 04 Oct 2012 11:15:03 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 19/20] drivers/net/ethernet/marvell/skge.c: fix error
+ return code
+Date: Thu, 04 Oct 2012 14:54:19 -0400 (EDT)
+Message-ID: <20121004.145419.1859367129463136197.davem@davemloft.net>
+References: <CA+MoWDp=_F9opJbVkv9sDsmoykm7MTUZwRVumKCB0ZqDwD6NoQ@mail.gmail.com>
+	<20121004.142335.1467206545795435493.davem@davemloft.net>
+	<CA+MoWDqBF5bdQYBaUmpB99Q=YcHYcUxi8Ffo3x4s0B+pmomb+Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, mlindner@marvell.com,
+	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: peter.senna@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+MoWDqBF5bdQYBaUmpB99Q=YcHYcUxi8Ffo3x4s0B+pmomb+Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Warning message:
-eth0: Dropping NETIF_F_SG since no checksum feature.
+From: Peter Senna Tschudin <peter.senna@gmail.com>
+Date: Thu, 4 Oct 2012 20:49:57 +0200
 
-Signed-off-by: Michal Simek <monstr@monstr.eu>
-CC: Anirudha Sarangi <anirudh@xilinx.com>
-CC: John Linn <John.Linn@xilinx.com>
-CC: Grant Likely <grant.likely@secretlab.ca>
-CC: Rob Herring <rob.herring@calxeda.com>
-CC: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+> On Thu, Oct 4, 2012 at 8:23 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Peter Senna Tschudin <peter.senna@gmail.com>
+>> Date: Thu, 4 Oct 2012 19:32:12 +0200
+>>
+>>> I can't understand the advantages of describing each patch as you are
+>>> asking. "For me" the generic commit message together with the patch
+>>> makes sense.  Can you please help me on that?
+>>
+>> Stop being so dense.
+>>
+>> We want to know the implications of the bug being fixed.
+>>
+>> Does it potentially cause an OOPS?  Bad reference counting and thus
+>> potential leaks or early frees?
+>>
+>> You have to analyze the implications and ramifications of the bug
+>> being fixed.  We need that information.
+>>
+>> Your commit messages are in fact robotic, they don't describe the
+>> salient details of what kinds of problems the bug being fixed might
+>> cause.
+>>
+>> It's just "bad error code, this is the script that fixed it, kthx,
+>> bye" which is pretty much useless for anaylsis.
+> 
+> Thank you David.
+> 
+> What about this as commit message?
+> --- // --
+> This patch fixes bug(s) related to return value of function(s). In
+> some error cases, the function is returning non-negative SUCCESS
+> value, when the correct would be negative ERROR value.
+> 
+> When on error, returning non negatives values, or SUCCESS, breaks error
+> propagation, producing unpredictable behavior that are very difficult
+> to debug.
+> --- // --
 
-diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-index 0793299..50167ab 100644
---- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-@@ -1494,7 +1494,7 @@ static int __devinit axienet_of_probe(struct platform_device *op)
- 
- 	SET_NETDEV_DEV(ndev, &op->dev);
- 	ndev->flags &= ~IFF_MULTICAST;  /* clear multicast */
--	ndev->features = NETIF_F_SG | NETIF_F_FRAGLIST;
-+	ndev->features = NETIF_F_FRAGLIST;
- 	ndev->netdev_ops = &axienet_netdev_ops;
- 	ndev->ethtool_ops = &axienet_ethtool_ops;
- 
-@@ -1519,14 +1519,14 @@ static int __devinit axienet_of_probe(struct platform_device *op)
- 				XAE_FEATURE_PARTIAL_TX_CSUM;
- 			lp->features |= XAE_FEATURE_PARTIAL_TX_CSUM;
- 			/* Can checksum TCP/UDP over IPv4. */
--			ndev->features |= NETIF_F_IP_CSUM;
-+			ndev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
- 			break;
- 		case 2:
- 			lp->csum_offload_on_tx_path =
- 				XAE_FEATURE_FULL_TX_CSUM;
- 			lp->features |= XAE_FEATURE_FULL_TX_CSUM;
- 			/* Can checksum TCP/UDP over IPv4. */
--			ndev->features |= NETIF_F_IP_CSUM;
-+			ndev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
- 			break;
- 		default:
- 			lp->csum_offload_on_tx_path = XAE_NO_CSUM_OFFLOAD;
--- 
-1.7.0.4
+What does it potentially cause the caller to do?  Will it potentially
+treat an error as a success and as a result register an object
+illegally?
+
+Real analysis please.  The text you provided above is basically still
+robotic and could be used to describe any error code return fix.
