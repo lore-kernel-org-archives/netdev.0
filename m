@@ -1,54 +1,155 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: Re: kernel 3.2.27 on arm: WARNING: at mm/page_alloc.c:2109
- __alloc_pages_nodemask+0x1d4/0x68c()
-Date: Thu, 04 Oct 2012 19:34:39 +0200
-Message-ID: <1349372079.16710.15.camel@sakura.staff.proxad.net>
-References: <20120829002548.GA7063@aldebaran.gro-tsen.net>
-	 <alpine.LSU.2.00.1208311900330.1936@eggly.anvils>
-	 <1349366521.2532.12.camel@sakura.staff.proxad.net>
-	 <1349369406.16011.82.camel@edumazet-glaptop>
-	 <1349370573.2532.25.camel@sakura.staff.proxad.net>
-	 <1349371049.16011.90.camel@edumazet-glaptop>
-Reply-To: mbizon@freebox.fr
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ANSI_X3.4-1968"
-Content-Transfer-Encoding: 7bit
-Cc: David Madore <david+ml@madore.org>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Hugh Dickins <hughd@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1349371049.16011.90.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michal Simek <monstr@monstr.eu>
+Subject: [PATCH 04/11] net: axienet: Additional MDIO clock functionality
+Date: Thu,  4 Oct 2012 20:14:50 +0200
+Message-ID: <1349374497-9540-4-git-send-email-monstr@monstr.eu>
+References: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
+Cc: linux-kernel@vger.kernel.org, Michal Simek <monstr@monstr.eu>,
+	Wendy Liang <wendy.liang@petalogix.com>,
+	Nico Augustijn <Nico.Augustijn@Adeas.nl>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	John Linn <John.Linn@xilinx.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:35439 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754761Ab2JDSPL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 14:15:11 -0400
+Received: by mail-wi0-f172.google.com with SMTP id hq12so4700923wib.1
+        for <netdev@vger.kernel.org>; Thu, 04 Oct 2012 11:15:10 -0700 (PDT)
+In-Reply-To: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+The MDIO clock was previously hard coded and it is now
+calculated thanks to a patch from the community.
 
-On Thu, 2012-10-04 at 19:17 +0200, Eric Dumazet wrote:
+Modify the Xilinx patch to get the clock frequency from
+the connected AXI bus instead of the CPU.
 
-> > yes, on ipv6 forward path the default NET_SKB_PAD is too small, so each
-> > packet forwarded has its headroom expanded, it is then recycled and gets
-> > its original default headroom back, then it gets forwarded,
-> > expanded, ...
-> 
-> Hmm, this sounds bad (especially without recycle)
-> 
-> Might I assume NET_SKB_PAD is 32 on this arch ?
+Currently, the AXI ethernet mdio bus id is set as the mdio device node start
+address, but the mdio node don't have a start address. Use the start address
+of the AXI ethernet controller which connects to the MDIO bus instead.
 
-It is, I have a setup with 6to4 tunneling, so needed headroom on tx is
-quite big.
+Signed-off-by: Wendy Liang <wendy.liang@petalogix.com>
+Signed-off-by: Nico Augustijn <Nico.Augustijn@Adeas.nl>
+CC: Anirudha Sarangi <anirudh@xilinx.com>
+CC: John Linn <John.Linn@xilinx.com>
+CC: Grant Likely <grant.likely@secretlab.ca>
+CC: Rob Herring <rob.herring@calxeda.com>
+CC: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c |   76 +++++++++++----------
+ 1 files changed, 40 insertions(+), 36 deletions(-)
 
-I used to be careful about raising this value to avoid drivers using
-slab-4096 instead of slab-2048, but since our boards no longer have 16MB
-of RAM and with the recent changes in mainline it doesn't seem to be an
-issue anymore.
-
-It's not a that big issue in the non recycle case, just lower
-performance if the tunable is not set correctly. Though it would be nice
-to have a stat/counter so you know when you hit this kind of slow path.
-
-But on the recycle case, skb->head is reallocated to twice the size each
-time the packet is recycled and takes the same path again. This stresses
-the VM and you eventually get packet loss (and scary printk)
-
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c b/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c
+index e90e1f4..49acc1e 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c
+@@ -128,11 +128,11 @@ static int axienet_mdio_write(struct mii_bus *bus, int phy_id, int reg,
+ int axienet_mdio_setup(struct axienet_local *lp, struct device_node *np)
+ {
+ 	int ret;
+-	u32 clk_div, host_clock;
+-	u32 *property_p;
++	u32 clk_div;
+ 	struct mii_bus *bus;
+ 	struct resource res;
+ 	struct device_node *np1;
++	struct device_node *npp = 0; /* the ethernet controller device node */
+ 
+ 	/* clk_div can be calculated by deriving it from the equation:
+ 	 * fMDIO = fHOST / ((1 + clk_div) * 2)
+@@ -158,41 +158,46 @@ int axienet_mdio_setup(struct axienet_local *lp, struct device_node *np)
+ 	 * fHOST can be read from the flattened device tree as property
+ 	 * "clock-frequency" from the CPU
+ 	 */
+-
+-	np1 = of_find_node_by_name(NULL, "cpu");
+-	if (!np1) {
+-		printk(KERN_WARNING "%s(): Could not find CPU device node.",
+-		       __func__);
+-		printk(KERN_WARNING "Setting MDIO clock divisor to "
+-		       "default %d\n", DEFAULT_CLOCK_DIVISOR);
+-		clk_div = DEFAULT_CLOCK_DIVISOR;
+-		goto issue;
+-	}
+-	property_p = (u32 *) of_get_property(np1, "clock-frequency", NULL);
+-	if (!property_p) {
+-		printk(KERN_WARNING "%s(): Could not find CPU property: "
+-		       "clock-frequency.", __func__);
+-		printk(KERN_WARNING "Setting MDIO clock divisor to "
+-		       "default %d\n", DEFAULT_CLOCK_DIVISOR);
++	np1 = of_get_parent(lp->phy_node);
++	if (np1)
++		npp = of_get_parent(np1);
++	if (!npp) {
++		dev_warn(lp->dev,
++			"Could not find ethernet controller device node.");
++		dev_warn(lp->dev, "Setting MDIO clock divisor to default %d\n",
++		       DEFAULT_CLOCK_DIVISOR);
+ 		clk_div = DEFAULT_CLOCK_DIVISOR;
+-		goto issue;
++	} else {
++		u32 *property_p;
++
++		property_p = (uint32_t *)of_get_property(npp,
++						"clock-frequency", NULL);
++		if (!property_p) {
++			dev_warn(lp->dev, "Could not find clock ethernet " \
++						      "controller property.");
++			dev_warn(lp->dev,
++				 "Setting MDIO clock divisor to default %d\n",
++							DEFAULT_CLOCK_DIVISOR);
++			clk_div = DEFAULT_CLOCK_DIVISOR;
++		} else {
++			u32 host_clock = be32_to_cpup(property_p);
++
++			clk_div = (host_clock / (MAX_MDIO_FREQ * 2)) - 1;
++
++			/* If there is any remainder from the division of
++			 * fHOST / (MAX_MDIO_FREQ * 2), then we need to add 1
++			 * to the clock divisor or we will surely be
++			 * above 2.5 MHz */
++			if (host_clock % (MAX_MDIO_FREQ * 2))
++				clk_div++;
++			dev_dbg(lp->dev, "Setting MDIO clock divisor to %u " \
++						"based on %u Hz host clock.\n",
++						clk_div, host_clock);
++		}
+ 	}
+ 
+-	host_clock = be32_to_cpup(property_p);
+-	clk_div = (host_clock / (MAX_MDIO_FREQ * 2)) - 1;
+-	/* If there is any remainder from the division of
+-	 * fHOST / (MAX_MDIO_FREQ * 2), then we need to add
+-	 * 1 to the clock divisor or we will surely be above 2.5 MHz */
+-	if (host_clock % (MAX_MDIO_FREQ * 2))
+-		clk_div++;
+-
+-	printk(KERN_DEBUG "%s(): Setting MDIO clock divisor to %u based "
+-	       "on %u Hz host clock.\n", __func__, clk_div, host_clock);
+-
+-	of_node_put(np1);
+-issue:
+-	axienet_iow(lp, XAE_MDIO_MC_OFFSET,
+-		    (((u32) clk_div) | XAE_MDIO_MC_MDIOEN_MASK));
++	axienet_iow(lp, XAE_MDIO_MC_OFFSET, (((u32)clk_div) |
++						XAE_MDIO_MC_MDIOEN_MASK));
+ 
+ 	ret = axienet_mdio_wait_until_ready(lp);
+ 	if (ret < 0)
+@@ -202,8 +207,7 @@ issue:
+ 	if (!bus)
+ 		return -ENOMEM;
+ 
+-	np1 = of_get_parent(lp->phy_node);
+-	of_address_to_resource(np1, 0, &res);
++	of_address_to_resource(npp, 0, &res);
+ 	snprintf(bus->id, MII_BUS_ID_SIZE, "%.8llx",
+ 		 (unsigned long long) res.start);
+ 
 -- 
-Maxime
+1.7.0.4
