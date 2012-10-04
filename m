@@ -1,52 +1,52 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 4/5] ixgbe: fix poll loop for FDIRCTRL.INIT_DONE bit
-Date: Wed,  3 Oct 2012 15:27:10 -0700
-Message-ID: <1349303231-28855-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1349303231-28855-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, shashi-sm@users.sf.net,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 3/3] vxlan: virtual extensible lan
+Date: Wed, 3 Oct 2012 21:02:20 -0700
+Message-ID: <20121003210220.5e74aa5d@nehalam.linuxnetplumber.net>
+References: <20121001223232.566037595@vyatta.com>
+	<20121001223254.349753999@vyatta.com>
+	<CAEP_g=9Y3MmsABQJyi508FEgs4635tnaVqk4Ncwbpm41bLskhg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:43800 "EHLO mga09.intel.com"
+Received: from mail.vyatta.com ([76.74.103.46]:50547 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756707Ab2JCW1S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Oct 2012 18:27:18 -0400
-In-Reply-To: <1349303231-28855-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1750726Ab2JDEDB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Oct 2012 00:03:01 -0400
+In-Reply-To: <CAEP_g=9Y3MmsABQJyi508FEgs4635tnaVqk4Ncwbpm41bLskhg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+On Wed, 3 Oct 2012 18:54:46 -0700
+Jesse Gross <jesse@nicira.com> wrote:
 
-The loop in ixgbe_reinit_fdir_tables_82599() only polls for up to 100us
-resulting in failures to update the FDIR filter table at 1Gbps and 10Gbps
-when under load.
+> On Mon, Oct 1, 2012 at 3:32 PM, Stephen Hemminger <shemminger@vyatta.com> wrote:
+> > --- /dev/null   1970-01-01 00:00:00.000000000 +0000
+> > +++ b/drivers/net/vxlan.c       2012-10-01 15:08:38.024499080 -0700
+> > +/* Transmit local packets over Vxlan
+> > + *
+> > + * Outer IP header inherits ECN and DF from inner header.
+> > + * Outer UDP destination is the VXLAN assigned port.
+> > + *           source port is based on hash of flow if available
+> > + *                       otherwise use a random value
+> > + */
+> > +static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+> [...]
+> > +       hash = skb_get_rxhash(skb);
+> [...]
+> > +       uh->dest = htons(vxlan_port);
+> > +       uh->source = hash ? :random32();
+> 
+> I think this may lead to packet reordering in some cases.  If the
+> protocol is unknown then it may still represent part of a flow and
+> random source ports could lead to taking different paths.
+> 
+> Also, does it make sense to restrict the range of ports to, say, the
+> upper half of the range?
 
-The poll times for FDIRCTRL.INIT_DONE are 55us, 550us and 5.5ms for 10Gbps,
-1Gbps and 100Mbps respectively.
-
-This patch sets the wait time to be the same as in ixgbe_fdir_enable_82599()
-
-Reported-by: Bhushan <shashi-sm@users.sf.net>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index 18bf08c..1077cb2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -1099,7 +1099,7 @@ s32 ixgbe_reinit_fdir_tables_82599(struct ixgbe_hw *hw)
- 		if (IXGBE_READ_REG(hw, IXGBE_FDIRCTRL) &
- 		                   IXGBE_FDIRCTRL_INIT_DONE)
- 			break;
--		udelay(10);
-+		usleep_range(1000, 2000);
- 	}
- 	if (i >= IXGBE_FDIR_INIT_DONE_POLL) {
- 		hw_dbg(hw, "Flow Director Signature poll time exceeded!\n");
--- 
-1.7.11.4
+Since port is always a pair, there is no need to restrict range, unless
+there was a broken firewall in the way. One bug there is that random32()
+can return 0 which is not a valid port number.  A better fallback
+would be a hash of the MAC header.
