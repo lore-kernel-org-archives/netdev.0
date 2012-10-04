@@ -1,50 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tipc: prevent dropped connections due to rcvbuf
- overflow
-Date: Thu, 04 Oct 2012 15:55:03 -0400 (EDT)
-Message-ID: <20121004.155503.97946024839188830.davem@davemloft.net>
-References: <1349358913.16011.59.camel@edumazet-glaptop>
-	<1349362843-25826-1-git-send-email-erik.hugne@ericsson.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jon.maloy@ericsson.com,
-	ying.xue@windriver.com, paul.gortmaker@windriver.com,
-	tipc-discussion@lists.sourceforge.net
-To: erik.hugne@ericsson.com
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH 2/3] can: peak_pcmcia: fix error return code
+Date: Thu,  4 Oct 2012 19:57:21 +0200
+Message-ID: <1349373442-11128-3-git-send-email-mkl@pengutronix.de>
+References: <1349373442-11128-1-git-send-email-mkl@pengutronix.de>
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	Peter Senna Tschudin <peter.senna@gmail.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45419 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757249Ab2JDTzF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 15:55:05 -0400
-In-Reply-To: <1349362843-25826-1-git-send-email-erik.hugne@ericsson.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:51912 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751355Ab2JDR53 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 13:57:29 -0400
+In-Reply-To: <1349373442-11128-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <erik.hugne@ericsson.com>
-Date: Thu, 4 Oct 2012 17:00:43 +0200
+From: Peter Senna Tschudin <peter.senna@gmail.com>
 
-> From: Erik Hugne <erik.hugne@ericsson.com>
-> 
-> When large buffers are sent over connected TIPC sockets, it
-> is likely that the sk_backlog will be filled up on the
-> receiver side, but the TIPC flow control mechanism is happily
-> unaware of this since that is based on message count.
-> 
-> The sender will receive a TIPC_ERR_OVERLOAD message when this occurs
-> and drop it's side of the connection, leaving it stale on
-> the receiver end.
-> 
-> By increasing the sk_rcvbuf to a 'worst case' value, we avoid the
-> overload caused by a full backlog queue and the flow control
-> will work properly.
-> 
-> This worst case value is the max TIPC message size times
-> the flow control window, multiplied by two because a sender
-> will transmit up to double the window size before a port is marked
-> congested.
-> We multiply this by 2 to account for the sk_buff and other overheads.
-> 
-> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Convert a nonnegative error return code to a negative one, as returned
+elsewhere in the function.
 
-Applied.
+A simplified version of the semantic match that finds this problem is as
+follows: (http://coccinelle.lip6.fr/)
+
+// <smpl>
+(
+if@p1 (\(ret < 0\|ret != 0\))
+ { ... return ret; }
+|
+ret@p1 = 0
+)
+... when != ret = e1
+    when != &ret
+*if(...)
+{
+  ... when != ret = e2
+      when forall
+ return ret;
+}
+// </smpl>
+
+Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+ drivers/net/can/sja1000/peak_pcmcia.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/can/sja1000/peak_pcmcia.c b/drivers/net/can/sja1000/peak_pcmcia.c
+index ec6bd9d..272a85f 100644
+--- a/drivers/net/can/sja1000/peak_pcmcia.c
++++ b/drivers/net/can/sja1000/peak_pcmcia.c
+@@ -686,8 +686,10 @@ static int __devinit pcan_probe(struct pcmcia_device *pdev)
+ 
+ 	/* detect available channels */
+ 	pcan_add_channels(card);
+-	if (!card->chan_count)
++	if (!card->chan_count) {
++		err = -ENOMEM;
+ 		goto probe_err_4;
++	}
+ 
+ 	/* init the timer which controls the leds */
+ 	init_timer(&card->led_timer);
+-- 
+1.7.10
