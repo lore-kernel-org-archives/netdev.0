@@ -1,55 +1,75 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: Filter matching problems
-Date: Fri, 05 Oct 2012 13:46:15 -0400
-Message-ID: <1349459175.18710.112.camel@denise.theartistscloset.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC] GRO scalability
+Date: Fri, 05 Oct 2012 11:16:22 -0700
+Message-ID: <506F23F6.1060704@hp.com>
+References: <1348750130.5093.1227.camel@edumazet-glaptop> <CAEP_g=-JAYHXM86AYNp7BhDV+eqfkKVgC+SJS1MVdo0K8fRLSQ@mail.gmail.com> <1348769294.5093.1566.camel@edumazet-glaptop> <1348769990.5093.1584.camel@edumazet-glaptop> <CAEP_g=8B7xZPxye0Kuu-EVKpTDt1a3nsJKb61aaYaqOGsYGx8w@mail.gmail.com> <1348841041.5093.2477.camel@edumazet-glaptop> <CAEP_g=_nSb-ite51PM-E8SY53yOPiZs8N3gDrYNc0L4OU2Ht=A@mail.gmail.com> <1349448747.21172.113.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.195]:52890 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756267Ab2JERqT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Oct 2012 13:46:19 -0400
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:6961 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932101Ab2JESQ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 14:16:26 -0400
+In-Reply-To: <1349448747.21172.113.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, all.  Can anyone tell me why this filter does not match anything
-when I think it should match everything:
+On 10/05/2012 07:52 AM, Eric Dumazet wrote:
+> What we could do :
+>
+> 1) Use a hash to avoid expensive gro_list management and allow
+>     much more concurrent flows.
+>
+> Use skb_get_rxhash(skb) to compute rxhash
+>
+> If l4_rxhash not set -> not a GRO candidate.
+>
+> If l4_rxhash set, use a hash lookup to immediately finds a 'same flow'
+> candidates.
+>
+> (tcp stack could eventually use rxhash instead of its custom hash
+> computation ...)
+>
+> 2) Use a LRU list to eventually be able to 'flush' too old packets,
+>     even if the napi never completes. Each time we process a new packet,
+>     being a GRO candidate or not, we increment a napi->sequence, and we
+>     flush the oldest packet in gro_lru_list if its own sequence is too
+>     old.
+>
+>    That would give a latency guarantee.
 
-tc filter replace dev bond3 parent ffff: protocol ip prio 1 u32 match u8
-0 0 action mirred egress redirect dev ifb0
+Flushing things if N packets have come though sounds like goodness, and 
+it reminds me a bit about what happens with IP fragment reassembly - 
+another area where the stack is trying to guess just how long to 
+hang-onto a packet before doing something else with it.  But the value 
+of N to get a "decent" per-flow GRO aggregation rate will depend on the 
+number of concurrent flows right?  If I want to have a good shot at 
+getting 2 segments combined for 1000 active, concurrent flows entering 
+my system via that interface, won't N have to approach 2000?
 
-I get:
-tc -s filter show dev bond3 parent ffff:
-filter protocol ip pref 1 u32
-filter protocol ip pref 1 u32 fh 800: ht divisor 1
-filter protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0
-(rule hit 1216169263 success 0)
-  match 00000000/00000000 at 0 (success 1216169263 )
-        action order 1: mirred (Egress Redirect to device ifb0) stolen
-        index 2 ref 1 bind 1 installed 11362879 sec used 11362879 sec
-        Action statistics:
-        Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-        rate 0bit 0pps backlog 0b 0p requeues 0
+GRO (and HW LRO) has a fundamental limitation/disadvantage here.  GRO 
+does provide a very nice "boost" on various situations (especially 
+numbers of concurrent netperfs that don't blow-out the tracking limits) 
+but since it won't really know anything about the flow(s) involved (*) 
+or even their number (?), it will always be guessing.  That is why it is 
+really only "poor man's JumboFrames" (or larger MTU - Sadly, the IEEE 
+keeps us all beggars here).
 
-which I think is telling me I'm not getting any matches.  Here are more
-details.
+A goodly portion of the benefit of GRO comes from the "incidental" ACK 
+avoidance it causes yes?  That being the case, might that be a 
+worthwhile avenue to explore?   It would then naturally scale as TCP et 
+al do today.
 
+When we go to 40 GbE will we have 4x as many flows, or the same number 
+of 4x faster flows?
 
-We are redirecting ingress into ifb0 and redirecting egress into ifb1
-(because several interfaces, e.g., OpenVPN tun devices) need the exact
-same traffic shaping.  We realize that we cannot place the ingress
-filter at ffff: and the egress filter at root as those appear to be
-treated as one and the same, i.e., the first match of those two filters
-will be used and the other will thus never see any packets.
+rick jones
 
-To get around that problem, we inserted a priomap on the interface and
-apply the egress redirect filter on it's child like this:
-
-tc qdisc replace dev bond3 root handle 1: prio bands 2 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-tc filter replace dev bond3 parent 1:0 protocol ip prio 1 u32 match u8 0 0 flowid 1:1 action mirred egress redirect dev ifb1
-tc qdisc replace dev bond3 ingress
-tc filter replace dev bond3 parent ffff: protocol ip prio 1 u32 match u8 0 0 action mirred egress redirect dev ifb0
-
-So what have I mangled? Thanks - John
+* for example - does this TCP segment contain the last byte(s) of a 
+pipelined http request/response and the first byte(s) of the next one 
+and so should "flush" now?
