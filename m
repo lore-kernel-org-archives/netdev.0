@@ -1,85 +1,74 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 11/11] net: xilinx: Show csum in bootlog
-Date: Fri, 5 Oct 2012 14:51:02 +0100
-Message-ID: <1349445062.16173.48.camel@deadeye.wl.decadent.org.uk>
-References: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
-	  <1349374497-9540-11-git-send-email-monstr@monstr.eu>
-	 <1349378144.2817.23.camel@bwh-desktop.uk.solarflarecom.com>
-	 <506EA9C4.2000609@monstr.eu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] ipv6: clean up tcp_v6_early_demux() icsk variable
+Date: Fri, 05 Oct 2012 15:56:05 +0200
+Message-ID: <1349445365.21172.74.camel@edumazet-glaptop>
+References: <1349443284-14640-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	John Linn <John.Linn@xilinx.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <rob.herring@calxeda.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: <monstr@monstr.eu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <506EA9C4.2000609@monstr.eu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:40032 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753535Ab2JEN4K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 09:56:10 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so944684bkc.19
+        for <netdev@vger.kernel.org>; Fri, 05 Oct 2012 06:56:08 -0700 (PDT)
+In-Reply-To: <1349443284-14640-1-git-send-email-ncardwell@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-10-05 at 11:35 +0200, Michal Simek wrote:
-> On 10/04/2012 09:15 PM, Ben Hutchings wrote:
-> > On Thu, 2012-10-04 at 20:14 +0200, Michal Simek wrote:
-> >> Just show current setting in bootlog.
-> > [...]
-> >> --- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-> >> +++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-> >> @@ -1052,12 +1052,14 @@ static int __devinit temac_of_probe(struct platform_device *op)
-> >>   	/* Setup checksum offload, but default to off if not specified */
-> >>   	lp->temac_features = 0;
-> >>   	p = (__be32 *)of_get_property(op->dev.of_node, "xlnx,txcsum", NULL);
-> >> +	dev_info(&op->dev, "TX_CSUM %d\n", be32_to_cpup(p));
-> >>   	if (p && be32_to_cpu(*p)) {
-> >>   		lp->temac_features |= TEMAC_FEATURE_TX_CSUM;
-> >>   		/* Can checksum TCP/UDP over IPv4. */
-> >>   		ndev->features |= NETIF_F_IP_CSUM;
-> >>   	}
-> >>   	p = (__be32 *)of_get_property(op->dev.of_node, "xlnx,rxcsum", NULL);
-> >> +	dev_info(&op->dev, "RX_CSUM %d\n", be32_to_cpup(p));
-> > [...]
-> >
-> > Is there any particular reason you think this needs to be logged by
-> > default, rather than letting users run ethtool -k?  I suggest using
-> > dev_dbg() instead.
+On Fri, 2012-10-05 at 09:21 -0400, Neal Cardwell wrote:
+> Remove an icsk variable, which by convention should refer to an
+> inet_connection_sock rather than an inet_sock. In the process, make
+> the tcp_v6_early_demux() code and formatting a bit more like
+> tcp_v4_early_demux(), to ease comparisons and maintenance.
 > 
-> Ok. I have looked at it and there are missing some bits in ndev->features.
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> ---
+>  net/ipv6/tcp_ipv6.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
 > 
-> Can you please check that my setting is correct?
-> 
-> It is SG DMA ip/driver.
-> ndev->features = NETIF_F_FRAGLIST | NETIF_F_SG
+> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+> index 49c8903..491c41b 100644
+> --- a/net/ipv6/tcp_ipv6.c
+> +++ b/net/ipv6/tcp_ipv6.c
+> @@ -1740,11 +1740,11 @@ static void tcp_v6_early_demux(struct sk_buff *skb)
+>  		skb->destructor = sock_edemux;
+>  		if (sk->sk_state != TCP_TIME_WAIT) {
+>  			struct dst_entry *dst = sk->sk_rx_dst;
+> -			struct inet_sock *icsk = inet_sk(sk);
+> +
+>  			if (dst)
+>  				dst = dst_check(dst, inet6_sk(sk)->rx_dst_cookie);
+>  			if (dst &&
+> -			    icsk->rx_dst_ifindex == skb->skb_iif)
+> +			    inet_sk(sk)->rx_dst_ifindex == skb->skb_iif)
+>  				skb_dst_set_noref(skb, dst);
+>  		}
+>  	}
 
-NETIF_F_SG only; NETIF_F_FRAGLIST means you can handle skbs chained
-through the frag_list pointer.
+Hi Neal
 
-> With two options for csum on RX/TX. They can be selected independently.
-> tx Partial csum over IPv4. -> NETIF_F_IP_CSUM
-> tx Full csum. -> NETIF_F_HW_CSUM
+I would wait net-next being opened, and do a full merge/cleanup
 
-NETIF_F_IP_CSUM means you have hardware checksum generation for TCP/IPv4
-and UDP/IPv4 only (XAE_FEATURE_FULL_TX_CSUM).
+For example ipv6 uses :
 
-NETIF_F_HW_CSUM means you have generic TCP-style checksum generation
-using the csum_start and csum_offset fields of the skb
-(XAE_FEATURE_PARTIAL_TX_CSUM).  By the way, you're actually testing
-XAE_FEATURE_PARTIAL_RX_CSUM in axienet_start_xmit()...
+if (!pskb_may_pull(skb, skb_transport_offset(skb) + 
+                   sizeof(struct tcphdr))) 
+th = tcp_hdr(skb);
 
-> rx Full csum -> NETIF_F_RXCSUM
->
-> Is there any option to support partial csum?
+while ipv4 uses :
 
-There is no need to differentiate these in the device features.  For TX
-the stack needs to know whether to use a software fallback before
-passing the skb to you, but on RX it looks at the ip_summed field of
-each skb you pass up.
+if (!pskb_may_pull(skb, ip_hdrlen(skb) + sizeof(struct tcphdr)))
+th = (struct tcphdr *) ((char *)iph + ip_hdrlen(skb));
 
-Ben.
+It would be good to use the ipv6 variant (its less instructions and
+cleaner)
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Same for the "struct net *net = dev_net(skb->dev);" used in ipv4, while
+ipv6 doesnt need this extra net variable.
+
+Thanks
