@@ -1,67 +1,77 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] GRO scalability
-Date: Fri, 05 Oct 2012 12:35:43 -0700
-Message-ID: <506F368F.3070403@hp.com>
-References: <1348750130.5093.1227.camel@edumazet-glaptop> <CAEP_g=-JAYHXM86AYNp7BhDV+eqfkKVgC+SJS1MVdo0K8fRLSQ@mail.gmail.com> <1348769294.5093.1566.camel@edumazet-glaptop> <1348769990.5093.1584.camel@edumazet-glaptop> <CAEP_g=8B7xZPxye0Kuu-EVKpTDt1a3nsJKb61aaYaqOGsYGx8w@mail.gmail.com> <1348841041.5093.2477.camel@edumazet-glaptop> <CAEP_g=_nSb-ite51PM-E8SY53yOPiZs8N3gDrYNc0L4OU2Ht=A@mail.gmail.com> <1349448747.21172.113.camel@edumazet-glaptop>  <506F23F6.1060704@hp.com> <1349463634.21172.152.camel@edumazet-glaptop>
+From: Daniel Borkmann <danborkmann@iogearbox.net>
+Subject: Re: [PATCH] Packet mmap : allow the user to choose the offset of the
+ tx payload.
+Date: Fri, 5 Oct 2012 21:37:58 +0200
+Message-ID: <CAD6jFURTMDL6WFGOJhMdnS3zuejYm0uaBPb1TYuNNdUS-7w89w@mail.gmail.com>
+References: <1349442629-10960-1-git-send-email-paul.chavent@onera.fr>
+	<CAD6jFUTmNiRHdAkckkwcV2rEOf_kxjHmntTO+rG6ewLs-RhFfg@mail.gmail.com>
+	<7b317aa8fa2c96f3bf7ce916d18eb550@sybille.onecert.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, edumazet@google.com, xemul@parallels.com,
+	herbert@gondor.hengli.com.au, netdev@vger.kernel.org,
+	johann.baudy@gnu-log.net, uaca@alumni.uv.es
+To: pchavent <Paul.Chavent@onera.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:42002 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751301Ab2JETfs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 15:35:48 -0400
-In-Reply-To: <1349463634.21172.152.camel@edumazet-glaptop>
+Received: from www62.your-server.de ([213.133.104.62]:48405 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751381Ab2JETiH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 15:38:07 -0400
+Received: from [78.46.5.204] (helo=sslproxy02.your-server.de)
+	by www62.your-server.de with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.74)
+	(envelope-from <danborkmann@iogearbox.net>)
+	id 1TKDin-0002RB-Lm
+	for netdev@vger.kernel.org; Fri, 05 Oct 2012 21:38:05 +0200
+Received: from [74.125.83.46] (helo=mail-ee0-f46.google.com)
+	by sslproxy02.your-server.de with esmtpsa (TLS1.0:RSA_ARCFOUR_SHA1:16)
+	(Exim 4.72)
+	(envelope-from <danborkmann@iogearbox.net>)
+	id 1TKDWC-00060n-Tp
+	for netdev@vger.kernel.org; Fri, 05 Oct 2012 21:25:04 +0200
+Received: by mail-ee0-f46.google.com with SMTP id b15so1606222eek.19
+        for <netdev@vger.kernel.org>; Fri, 05 Oct 2012 12:37:58 -0700 (PDT)
+In-Reply-To: <7b317aa8fa2c96f3bf7ce916d18eb550@sybille.onecert.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/05/2012 12:00 PM, Eric Dumazet wrote:
-> On Fri, 2012-10-05 at 11:16 -0700, Rick Jones wrote:
+On Fri, Oct 5, 2012 at 9:21 PM, pchavent <Paul.Chavent@onera.fr> wrote:
+> On Fri, 5 Oct 2012 16:17:12 +0200, Daniel Borkmann wrote:
+>> On Fri, Oct 5, 2012 at 3:10 PM, Paul Chavent <Paul.Chavent@onera.fr>
+>> wrote:
+>>>
+>>> The tx offset of packet mmap tx ring used to be :
+>>> (TPACKET2_HDRLEN - sizeof(struct sockaddr_ll))
+>>>
+>>> The problem is that depending on the usage of SOCK_DGRAM or
+>>> SOCK_RAW, the payload could be aligned or not.
+>>>
+>>> This patch allow to let the user give an offset for it's tx
+>>> payload if he desires.
+>>>
+>>> Signed-off-by: Paul Chavent <paul.chavent@onera.fr>
+>>
+>> Can you provide an example when it doesn't hit TPACKET_ALIGNMENT?
 >
-> Some remarks :
+> When we use tx ring, the user have to write at (TPACKET_HDRLEN -
+> sizeof(struct sockaddr_ll))
 >
-> 1) I use some 40Gbe links, thats probably why I try to improve things ;)
-
-Path length before workarounds :)
-
-> 2) benefit of GRO can be huge, and not only for the ACK avoidance
->     (other tricks could be done for ACK avoidance in the stack)
-
-Just how much code path is there between NAPI and the socket?? (And I 
-guess just how much combining are you hoping for?)
-
-> 3) High speeds probably need multiqueue device, and each queue has its
-> own GRO unit.
+> This adress is aligned on TPACKET_ALIGNMENT since
+> TPACKET_HDRLEN = (TPACKET_ALIGN(sizeof(struct tpacket_hdr)) + sizeof(struct
+> sockaddr_ll))
 >
->    For example on a 40Gbe, 8 queues -> 5Gbps per queue (about 400k
-> packets/sec)
->
-> Lets say we allow no more than 1ms of delay in GRO,
+> When we use the tx ring with SOCK_RAW option, the mac header is aligned on
+> TPACKET_ALIGNMENT, but not the payload (14 bytes away).
 
-OK.  That means we can ignore HPC and FSI because they wouldn't tolerate 
-that kind of added delay anyway.  I'm not sure if that also then 
-eliminates the networked storage types.
+Okay, I'm confused about your intentions, maybe I'm missing something.
+The man-page of packet(7) clearly says:
 
-> this means we could have about 400 packets in the GRO queue (assuming
-> 1500 bytes packets)
+The socket_type is either SOCK_RAW for raw packets *including* the
+link level header or SOCK_DGRAM for cooked packets with  the link
+level header *removed*.
 
-How many flows are you going to have entering via that queue?  And just 
-how well "shuffled" will the segments of those flows be?  That is what 
-it all comes down to right?  How many (active) flows and how well 
-shuffled they are.  If the flows aren't well shuffled, you can get away 
-with a smallish coalescing context.  If they are perfectly shuffled and 
-greater in number than your delay allowance you get right back to square 
-with all the overhead of GRO attempts with none of the benefit.
+So this is perfectly intended behavior of PF_PACKET.
 
-If the flow count is < 400 to allow a decent shot at a non-zero 
-combining rate on well shuffled flows with the 400 packet limit, then 
-that means each flow is >= 12.5 Mbit/s on average at 5 Gbit/s 
-aggregated.  And I think you then get two segments per flow aggregated 
-at a time.  Is that consistent with what you expect to be the 
-characteristics of the flows entering via that queue?
+Cheers,
 
-rick jones
+Daniel
