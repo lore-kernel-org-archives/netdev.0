@@ -1,75 +1,60 @@
-From: Paul Chavent <Paul.Chavent@onera.fr>
-Subject: [PATCH] Packet mmap : allow the user to choose the offset of the tx payload.
-Date: Fri,  5 Oct 2012 15:10:29 +0200
-Message-ID: <1349442629-10960-1-git-send-email-paul.chavent@onera.fr>
-Cc: Paul Chavent <Paul.Chavent@onera.fr>
-To: davem@davemloft.net, edumazet@google.com,
-	daniel.borkmann@tik.ee.ethz.ch, xemul@parallels.com,
-	herbert@gondor.hengli.com.au, netdev@vger.kernel.org,
-	johann.baudy@gnu-log.net, uaca@alumni.uv.es
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from briaree.onecert.fr ([134.212.190.4]:51386 "EHLO
-	briaree.onecert.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755927Ab2JEN0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 09:26:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 11/11] net: xilinx: Show csum in bootlog
+Date: Fri, 5 Oct 2012 14:36:52 +0100
+Message-ID: <1349444212.16173.37.camel@deadeye.wl.decadent.org.uk>
+References: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
+	  <1349374497-9540-11-git-send-email-monstr@monstr.eu>
+	 <1349378144.2817.23.camel@bwh-desktop.uk.solarflarecom.com>
+	 <506E7491.3000304@monstr.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	John Linn <John.Linn@xilinx.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: <monstr@monstr.eu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <506E7491.3000304@monstr.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The tx offset of packet mmap tx ring used to be :
-(TPACKET2_HDRLEN - sizeof(struct sockaddr_ll))
+On Fri, 2012-10-05 at 07:48 +0200, Michal Simek wrote:
+> On 10/04/2012 09:15 PM, Ben Hutchings wrote:
+> > On Thu, 2012-10-04 at 20:14 +0200, Michal Simek wrote:
+> >> Just show current setting in bootlog.
+> > [...]
+> >> --- a/drivers/net/ethernet/xilinx/ll_temac_main.c
+> >> +++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
+> >> @@ -1052,12 +1052,14 @@ static int __devinit temac_of_probe(struct platform_device *op)
+> >>   	/* Setup checksum offload, but default to off if not specified */
+> >>   	lp->temac_features = 0;
+> >>   	p = (__be32 *)of_get_property(op->dev.of_node, "xlnx,txcsum", NULL);
+> >> +	dev_info(&op->dev, "TX_CSUM %d\n", be32_to_cpup(p));
+> >>   	if (p && be32_to_cpu(*p)) {
+> >>   		lp->temac_features |= TEMAC_FEATURE_TX_CSUM;
+> >>   		/* Can checksum TCP/UDP over IPv4. */
+> >>   		ndev->features |= NETIF_F_IP_CSUM;
+> >>   	}
+> >>   	p = (__be32 *)of_get_property(op->dev.of_node, "xlnx,rxcsum", NULL);
+> >> +	dev_info(&op->dev, "RX_CSUM %d\n", be32_to_cpup(p));
+> > [...]
+> >
+> > Is there any particular reason you think this needs to be logged by
+> > default, rather than letting users run ethtool -k?  I suggest using
+> > dev_dbg() instead.
+> 
+> The reason was just to show it in the bootlog.
+> I will check ethtool support for these drivers.
 
-The problem is that depending on the usage of SOCK_DGRAM or
-SOCK_RAW, the payload could be aligned or not.
+'ethtool -k' should just work so long as the driver sets the right bits
+in ndev->features.
 
-This patch allow to let the user give an offset for it's tx
-payload if he desires.
+Ben.
 
-Signed-off-by: Paul Chavent <paul.chavent@onera.fr>
----
- net/packet/af_packet.c | 14 +++++++++++++-
- 1 file changed, 13 insertions(+), 1 deletion(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 94060ed..5bf3100 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1851,7 +1851,7 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 		struct tpacket2_hdr *h2;
- 		void *raw;
- 	} ph;
--	int to_write, offset, len, tp_len, nr_frags, len_max;
-+	int to_write, offset, len, tp_len, nr_frags, len_max, off;
- 	struct socket *sock = po->sk.sk_socket;
- 	struct page *page;
- 	void *data;
-@@ -1868,9 +1868,11 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 	switch (po->tp_version) {
- 	case TPACKET_V2:
- 		tp_len = ph.h2->tp_len;
-+		off = ph.h2->tp_net;
- 		break;
- 	default:
- 		tp_len = ph.h1->tp_len;
-+		off = ph.h1->tp_net;
- 		break;
- 	}
- 	if (unlikely(tp_len > size_max)) {
-@@ -1882,6 +1884,16 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 	skb_reset_network_header(skb);
- 
- 	data = ph.raw + po->tp_hdrlen - sizeof(struct sockaddr_ll);
-+	if (sock->type != SOCK_DGRAM)
-+		off -= dev->hard_header_len;
-+	if (likely((po->tp_hdrlen - sizeof(struct sockaddr_ll)) < off)) {
-+		if (unlikely((off + tp_len) > size_max)) {
-+			pr_err("packet size is too long (%d + %d > %d)\n",
-+				off, tp_len, size_max);
-+			return -EMSGSIZE;
-+		}
-+		data = ph.raw + off;
-+	}
- 	to_write = tp_len;
- 
- 	if (sock->type == SOCK_DGRAM) {
 -- 
-1.7.12.1
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
