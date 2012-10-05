@@ -1,26 +1,54 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [patch v3 01/11] netlink: add reference of module in netlink_dump_start
-Date: Fri, 05 Oct 2012 08:50:48 +0800
-Message-ID: <506E2EE8.4080901@cn.fujitsu.com>
-References: <1349325689-16104-1-git-send-email-gaofeng@cn.fujitsu.com> <1349365302.2817.1.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, eric.dumazet@gmail.com,
-	steffen.klassert@secunet.com, netfilter-devel@vger.kernel.org,
-	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org, pablo@netfilter.org,
-	stephen.hemminger@vyatta.com, jengelh@inai.de
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1349365302.2817.1.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: linux-crypto-owner@vger.kernel.org
+From: ramesh.nagappa@gmail.com
+Subject: [PATCH] net: Fix skb_under_panic oops in neigh_resolve_output
+Date: Thu,  4 Oct 2012 20:05:25 -0700
+Message-ID: <1349406325-3157-1-git-send-email-ramesh.nagappa@gmail.com>
+Cc: davem@davemloft.net, edumazet@google.com, ebiederm@xmission.com,
+	xemul@parallels.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Ramesh Nagappa <ramesh.nagappa@ericsson.com>
+To: bnramesh@yahoo.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2012=E5=B9=B410=E6=9C=8804=E6=97=A5 23:41, Ben Hutchings =E5=86=
-=99=E9=81=93:
-> 'which' not 'witch' :-)
->=20
-> Ben.
+From: Ramesh Nagappa <ramesh.nagappa@ericsson.com>
 
-thanks Ben,will fix it :)
+The retry loop in neigh_resolve_output() and neigh_connected_output()
+call dev_hard_header() with out reseting the skb to network_header.
+This causes the retry to fail with skb_under_panic. The fix is to
+reset the network_header within the retry loop.
+
+Signed-off-by: Ramesh Nagappa <ramesh.nagappa@ericsson.com>
+Reviewed-by: Shawn Lu <shawn.lu@ericsson.com>
+Reviewed-by: Robert Coulson <robert.coulson@ericsson.com>
+Reviewed-by: Billie Alsup <billie.alsup@ericsson.com>
+---
+ net/core/neighbour.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 117afaf..f50c542 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1313,6 +1313,7 @@ int neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb)
+ 
+ 		do {
+ 			seq = read_seqbegin(&neigh->ha_lock);
++			__skb_pull(skb, skb_network_offset(skb));
+ 			err = dev_hard_header(skb, dev, ntohs(skb->protocol),
+ 					      neigh->ha, NULL, skb->len);
+ 		} while (read_seqretry(&neigh->ha_lock, seq));
+@@ -1342,10 +1343,9 @@ int neigh_connected_output(struct neighbour *neigh, struct sk_buff *skb)
+ 	unsigned int seq;
+ 	int err;
+ 
+-	__skb_pull(skb, skb_network_offset(skb));
+-
+ 	do {
+ 		seq = read_seqbegin(&neigh->ha_lock);
++		__skb_pull(skb, skb_network_offset(skb));
+ 		err = dev_hard_header(skb, dev, ntohs(skb->protocol),
+ 				      neigh->ha, NULL, skb->len);
+ 	} while (read_seqretry(&neigh->ha_lock, seq));
+-- 
+1.7.11.4
