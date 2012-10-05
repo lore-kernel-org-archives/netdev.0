@@ -1,44 +1,38 @@
 From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH] net, bluetooth: don't attempt to free a channel that wasn't created
-Date: Thu,  4 Oct 2012 19:59:57 -0400
-Message-ID: <1349395197-12395-1-git-send-email-sasha.levin@oracle.com>
+Subject: [PATCH] net, TTY: initialize tty->driver_data before usage
+Date: Thu,  4 Oct 2012 20:01:21 -0400
+Message-ID: <1349395281-12495-1-git-send-email-sasha.levin@oracle.com>
 Cc: levinsasha928@gmail.com, davej@redhat.com,
-	linux-kernel@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>
-To: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
-	davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:24071 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753472Ab2JEAAQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2012 20:00:16 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Sasha Levin <sasha.levin@oracle.com>
+To: samuel@sortiz.org, davem@davemloft.net, gregkh@linuxfoundation.org,
+	jslaby@suse.cz, alan@linux.intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We may currently attempt to free a channel which wasn't created due to
-an error in the initialization path, this would cause a NULL ptr deref.
-
-Introduced in commit 61d6ef3e ("Bluetooth: Make better use of l2cap_chan
-reference counting").
+Commit 9c650ffc ("TTY: ircomm_tty, add tty install") split _open() to
+_install() and _open(). It also moved the initialization of driver_data
+out of open(), but never added it to install() - causing a NULL ptr
+deref whenever the driver was used.
 
 Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 ---
- net/bluetooth/l2cap_sock.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/irda/ircomm/ircomm_tty.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
-index 083f2bf..66c295a 100644
---- a/net/bluetooth/l2cap_sock.c
-+++ b/net/bluetooth/l2cap_sock.c
-@@ -1083,7 +1083,8 @@ static void l2cap_sock_destruct(struct sock *sk)
- {
- 	BT_DBG("sk %p", sk);
+diff --git a/net/irda/ircomm/ircomm_tty.c b/net/irda/ircomm/ircomm_tty.c
+index 95a3a7a..496ce2c 100644
+--- a/net/irda/ircomm/ircomm_tty.c
++++ b/net/irda/ircomm/ircomm_tty.c
+@@ -421,6 +421,8 @@ static int ircomm_tty_install(struct tty_driver *driver, struct tty_struct *tty)
+ 		hashbin_insert(ircomm_tty, (irda_queue_t *) self, line, NULL);
+ 	}
  
--	l2cap_chan_put(l2cap_pi(sk)->chan);
-+	if (l2cap_pi(sk)->chan)
-+		l2cap_chan_put(l2cap_pi(sk)->chan);
- 	if (l2cap_pi(sk)->rx_busy_skb) {
- 		kfree_skb(l2cap_pi(sk)->rx_busy_skb);
- 		l2cap_pi(sk)->rx_busy_skb = NULL;
++	tty->driver_data = self;
++
+ 	return tty_port_install(&self->port, driver, tty);
+ }
+ 
 -- 
 1.7.12
