@@ -1,75 +1,56 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] GRO scalability
-Date: Fri, 05 Oct 2012 11:16:22 -0700
-Message-ID: <506F23F6.1060704@hp.com>
-References: <1348750130.5093.1227.camel@edumazet-glaptop> <CAEP_g=-JAYHXM86AYNp7BhDV+eqfkKVgC+SJS1MVdo0K8fRLSQ@mail.gmail.com> <1348769294.5093.1566.camel@edumazet-glaptop> <1348769990.5093.1584.camel@edumazet-glaptop> <CAEP_g=8B7xZPxye0Kuu-EVKpTDt1a3nsJKb61aaYaqOGsYGx8w@mail.gmail.com> <1348841041.5093.2477.camel@edumazet-glaptop> <CAEP_g=_nSb-ite51PM-E8SY53yOPiZs8N3gDrYNc0L4OU2Ht=A@mail.gmail.com> <1349448747.21172.113.camel@edumazet-glaptop>
+From: Min Zhang <mzhang@mvista.com>
+Subject: [PATCH] mlx4: set carrier off after register netdev
+Date: Fri, 5 Oct 2012 11:28:17 -0700 (PDT)
+Message-ID: <alpine.LNX.2.00.1210051058420.16216@linux-acr3.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:6961 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932101Ab2JESQ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 14:16:26 -0400
-In-Reply-To: <1349448747.21172.113.camel@edumazet-glaptop>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:51129 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932708Ab2JES23 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 14:28:29 -0400
+Received: by mail-pa0-f46.google.com with SMTP id hz1so2072583pad.19
+        for <netdev@vger.kernel.org>; Fri, 05 Oct 2012 11:28:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/05/2012 07:52 AM, Eric Dumazet wrote:
-> What we could do :
->
-> 1) Use a hash to avoid expensive gro_list management and allow
->     much more concurrent flows.
->
-> Use skb_get_rxhash(skb) to compute rxhash
->
-> If l4_rxhash not set -> not a GRO candidate.
->
-> If l4_rxhash set, use a hash lookup to immediately finds a 'same flow'
-> candidates.
->
-> (tcp stack could eventually use rxhash instead of its custom hash
-> computation ...)
->
-> 2) Use a LRU list to eventually be able to 'flush' too old packets,
->     even if the napi never completes. Each time we process a new packet,
->     being a GRO candidate or not, we increment a napi->sequence, and we
->     flush the oldest packet in gro_lru_list if its own sequence is too
->     old.
->
->    That would give a latency guarantee.
+ifconfig mlx4_en port reported RUNNING even though the link was down.
 
-Flushing things if N packets have come though sounds like goodness, and 
-it reminds me a bit about what happens with IP fragment reassembly - 
-another area where the stack is trying to guess just how long to 
-hang-onto a packet before doing something else with it.  But the value 
-of N to get a "decent" per-flow GRO aggregation rate will depend on the 
-number of concurrent flows right?  If I want to have a good shot at 
-getting 2 segments combined for 1000 active, concurrent flows entering 
-my system via that interface, won't N have to approach 2000?
+mlx4_en_init_netdev didn't initialize the dev operstate properly so
+the operstate stayed as default IF_OPER_UNKNOWN, then ifconfig treated
+the UNKNOWN as RUNNING state for backward compatiblity per RFC2863.
 
-GRO (and HW LRO) has a fundamental limitation/disadvantage here.  GRO 
-does provide a very nice "boost" on various situations (especially 
-numbers of concurrent netperfs that don't blow-out the tracking limits) 
-but since it won't really know anything about the flow(s) involved (*) 
-or even their number (?), it will always be guessing.  That is why it is 
-really only "poor man's JumboFrames" (or larger MTU - Sadly, the IEEE 
-keeps us all beggars here).
+The fix calls netif_carrier_off which is supposed to set operstate
+after register_netdev. Calling it before register_netdev has no effect
+since the dev->state is still NETREG_UNINITIALIZED
 
-A goodly portion of the benefit of GRO comes from the "incidental" ACK 
-avoidance it causes yes?  That being the case, might that be a 
-worthwhile avenue to explore?   It would then naturally scale as TCP et 
-al do today.
+Tested by removing the physical link signal to the mellanox 10G port,
+modprobe mlx4_en, then ifconfig up. Verify there is no RUNNING status.
 
-When we go to 40 GbE will we have 4x as many flows, or the same number 
-of 4x faster flows?
+Signed-off-by: Min Zhang <mzhang@mvista.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-rick jones
-
-* for example - does this TCP segment contain the last byte(s) of a 
-pipelined http request/response and the first byte(s) of the next one 
-and so should "flush" now?
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index c96113b..8c562f7a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1306,12 +1306,12 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 
+ 	mdev->pndev[port] = dev;
+ 
+-	netif_carrier_off(dev);
+ 	err = register_netdev(dev);
+ 	if (err) {
+ 		mlx4_err(mdev, "Netdev registration failed for port %d\n", port);
+ 		goto out;
+ 	}
++	netif_carrier_off(dev);
+ 
+ 	en_warn(priv, "Using %d TX rings\n", prof->tx_ring_num);
+ 	en_warn(priv, "Using %d RX rings\n", prof->rx_ring_num);
+-- 
+1.7.7.4
