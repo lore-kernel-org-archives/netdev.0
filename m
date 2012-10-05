@@ -1,25 +1,24 @@
 From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: [PATCH 1/20 V2] drivers/net/ethernet/dec/tulip/dmfe.c: fix error return code
-Date: Fri,  5 Oct 2012 22:41:03 +0200
-Message-ID: <1349469667-6137-1-git-send-email-peter.senna@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
+Subject: [PATCH 3/20 V2] drivers/net/can/sja1000/peak_pci.c: fix error return code
+Date: Fri,  5 Oct 2012 22:41:05 +0200
+Message-ID: <1349469667-6137-3-git-send-email-peter.senna@gmail.com>
+References: <1349469667-6137-1-git-send-email-peter.senna@gmail.com>
+Cc: mkl@pengutronix.de, davem@davemloft.net, jj@chaosbits.net,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
 	Peter Senna Tschudin <peter.senna@gmail.com>
-To: grundler@parisc-linux.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:60237 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757275Ab2JEUlb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 16:41:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: wg@grandegger.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349469667-6137-1-git-send-email-peter.senna@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Peter Senna Tschudin <peter.senna@gmail.com>
 
-The function dmfe_init_one() return 0 for success and negative value
-for most of its internal tests failures. There are three exceptions
-that are error cases going to err_out_*:. Fore this three cases the
-function abort its success execution path, but returns non negative 
+The function peak_pci_probe() return 0 for success and negative value
+for most of its internal tests failures. There are two exceptions
+that are error cases going to failure_*:. Fore this two cases the
+function abort its success execution path, but returns non negative
 value, making it dificult for a caller function to notice the error.
 
 This patch fixes the error cases that do not return negative values.
@@ -50,46 +49,29 @@ ret@p1 = 0
 Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
 
 ---
-Changes from V1:
-	Updated commit message. See:
+Change from V1:
+	Updated commit message. See: 
 	http://www.kernelhub.org/?p=2&msg=139319
 
- drivers/net/ethernet/dec/tulip/dmfe.c |   12 +++++++++---
- 1 file changed, 9 insertions(+), 3 deletions(-)
+ drivers/net/can/sja1000/peak_pci.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/dec/tulip/dmfe.c b/drivers/net/ethernet/dec/tulip/dmfe.c
-index 4d6fe60..d23755e 100644
---- a/drivers/net/ethernet/dec/tulip/dmfe.c
-+++ b/drivers/net/ethernet/dec/tulip/dmfe.c
-@@ -446,13 +446,17 @@ static int __devinit dmfe_init_one (struct pci_dev *pdev,
- 	/* Allocate Tx/Rx descriptor memory */
- 	db->desc_pool_ptr = pci_alloc_consistent(pdev, sizeof(struct tx_desc) *
- 			DESC_ALL_CNT + 0x20, &db->desc_pool_dma_ptr);
--	if (!db->desc_pool_ptr)
-+	if (!db->desc_pool_ptr) {
+diff --git a/drivers/net/can/sja1000/peak_pci.c b/drivers/net/can/sja1000/peak_pci.c
+index f0a1296..f5b82ae 100644
+--- a/drivers/net/can/sja1000/peak_pci.c
++++ b/drivers/net/can/sja1000/peak_pci.c
+@@ -583,12 +583,14 @@ static int __devinit peak_pci_probe(struct pci_dev *pdev,
+ 	cfg_base = pci_iomap(pdev, 0, PEAK_PCI_CFG_SIZE);
+ 	if (!cfg_base) {
+ 		dev_err(&pdev->dev, "failed to map PCI resource #0\n");
 +		err = -ENOMEM;
- 		goto err_out_res;
-+	}
+ 		goto failure_release_regions;
+ 	}
  
- 	db->buf_pool_ptr = pci_alloc_consistent(pdev, TX_BUF_ALLOC *
- 			TX_DESC_CNT + 4, &db->buf_pool_dma_ptr);
--	if (!db->buf_pool_ptr)
-+	if (!db->buf_pool_ptr) {
+ 	reg_base = pci_iomap(pdev, 1, PEAK_PCI_CHAN_SIZE * channels);
+ 	if (!reg_base) {
+ 		dev_err(&pdev->dev, "failed to map PCI resource #1\n");
 +		err = -ENOMEM;
- 		goto err_out_free_desc;
-+	}
+ 		goto failure_unmap_cfg_base;
+ 	}
  
- 	db->first_tx_desc = (struct tx_desc *) db->desc_pool_ptr;
- 	db->first_tx_desc_dma = db->desc_pool_dma_ptr;
-@@ -462,8 +466,10 @@ static int __devinit dmfe_init_one (struct pci_dev *pdev,
- 	db->chip_id = ent->driver_data;
- 	/* IO type range. */
- 	db->ioaddr = pci_iomap(pdev, 0, 0);
--	if (!db->ioaddr)
-+	if (!db->ioaddr) {
-+		err = -ENOMEM;
- 		goto err_out_free_buf;
-+	}
- 
- 	db->chip_revision = pdev->revision;
- 	db->wol_mode = 0;
