@@ -1,72 +1,38 @@
-From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: [PATCH 19/20 V2] drivers/net/ethernet/marvell/skge.c: fix error return code
-Date: Sat,  6 Oct 2012 00:40:55 +0200
-Message-ID: <1349476856-16075-4-git-send-email-peter.senna@gmail.com>
-References: <1349476856-16075-1-git-send-email-peter.senna@gmail.com>
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Peter Senna Tschudin <peter.senna@gmail.com>
-To: mlindner@marvell.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1349476856-16075-1-git-send-email-peter.senna@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [ethtool] ethtool: --set-eee sends ETHTOOL_SEEE ioctl even if
+ nothing changed
+Date: Sat, 6 Oct 2012 00:14:27 +0100
+Message-ID: <1349478867.2819.2.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1348024819-29876-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Bruce Allan <bruce.w.allan@intel.com>, <netdev@vger.kernel.org>,
+	<gospo@redhat.com>, <sassmann@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:17615 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752554Ab2JEXOb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 19:14:31 -0400
+In-Reply-To: <1348024819-29876-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Peter Senna Tschudin <peter.senna@gmail.com>
+On Tue, 2012-09-18 at 20:20 -0700, Jeff Kirsher wrote:
+> From: Bruce Allan <bruce.w.allan@intel.com>
+> 
+> When setting EEE parameters with the --set-eee command line option,
+> ethtool will send the ETHTOOL_SEEE ioctl down to the driver even if
+> none of the provided parameters are a change from current settings.
+> Simply ignore it when that happens as done with other ethtool commands.
+[...]
 
-The function skge_probe() return 0 for success and negative value
-for most of its internal tests failures. There is one exception
-that is error case going to err_out_led_off:. For this error case, the
-function abort its success execution path, but returns non negative
-value, making it difficult for a caller function to notice the error.
+Applied, thanks.  Sorry for the slow response.
 
-This patch fixes the error case that do not return negative value.
+Ben.
 
-This was found by Coccinelle, but the code change was made by hand.
-This patch is not robot generated.
-
-A simplified version of the semantic match that finds this problem is
-as follows: (http://coccinelle.lip6.fr/)
-
-// <smpl>
-(
-if@p1 (\(ret < 0\|ret != 0\))
- { ... return ret; }
-|
-ret@p1 = 0
-)
-... when != ret = e1
-    when != &ret
-*if(...)
-{
-  ... when != ret = e2
-      when forall
- return ret;
-}
-// </smpl>
-
-Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
----
-Change from V1:
-        Updated commit message. See:
-        http://www.kernelhub.org/?p=2&msg=139319
-
- drivers/net/ethernet/marvell/skge.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
-index 5a30bf8..91836b5 100644
---- a/drivers/net/ethernet/marvell/skge.c
-+++ b/drivers/net/ethernet/marvell/skge.c
-@@ -3945,8 +3945,10 @@ static int __devinit skge_probe(struct pci_dev *pdev,
- 		skge_board_name(hw), hw->chip_rev);
- 
- 	dev = skge_devinit(hw, 0, using_dac);
--	if (!dev)
-+	if (!dev) {
-+		err = -ENOMEM;
- 		goto err_out_led_off;
-+	}
- 
- 	/* Some motherboards are broken and has zero in ROM. */
- 	if (!is_valid_ether_addr(dev->dev_addr))
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
