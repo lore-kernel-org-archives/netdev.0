@@ -1,12 +1,13 @@
 From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: [PATCH 5/20 V2] drivers/net/ethernet/sis/sis900.c: fix error return code
-Date: Fri,  5 Oct 2012 22:41:07 +0200
-Message-ID: <1349469667-6137-5-git-send-email-peter.senna@gmail.com>
+Subject: [PATCH 2/20 V2] drivers/net/ethernet/natsemi/natsemi.c: fix error return code
+Date: Fri,  5 Oct 2012 22:41:04 +0200
+Message-ID: <1349469667-6137-2-git-send-email-peter.senna@gmail.com>
 References: <1349469667-6137-1-git-send-email-peter.senna@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Cc: romieu@fr.zoreil.com, rick.jones2@hp.com, netdev@pradeepdalvi.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	kernel-janitors@vger.kernel.org,
 	Peter Senna Tschudin <peter.senna@gmail.com>
-To: venza@brownhat.org
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1349469667-6137-1-git-send-email-peter.senna@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -14,11 +15,11 @@ List-Id: netdev.vger.kernel.org
 
 From: Peter Senna Tschudin <peter.senna@gmail.com>
 
-The function sis900_probe() return 0 for success and negative value
+The function natsemi_probe1() return 0 for success and negative value
 for most of its internal tests failures. There is one exception
-that is error case going to err_out_cleardev:. Fore this error case,
-the function abort its success execution path, but returns non negative
-value, making it difficult for a caller function to notice the error.
+that is error case going to err_create_file:. Fore this error case the
+function abort its success execution path, but returns non negative value, 
+making it difficult for a caller function to notice the error.
 
 This patch fixes the error case that do not return negative value.
 
@@ -48,26 +49,25 @@ ret@p1 = 0
 Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
 
 ---
-Change from V1:
-        Updated commit message. See:
-        http://www.kernelhub.org/?p=2&msg=139319
+Changes from V1:
+	Updated commit message. See:
+	http://www.kernelhub.org/?p=2&msg=139319
 
- drivers/net/ethernet/sis/sis900.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/natsemi/natsemi.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/sis/sis900.c b/drivers/net/ethernet/sis/sis900.c
-index 203d9c6..fb9f6b3 100644
---- a/drivers/net/ethernet/sis/sis900.c
-+++ b/drivers/net/ethernet/sis/sis900.c
-@@ -478,8 +478,10 @@ static int __devinit sis900_probe(struct pci_dev *pci_dev,
+diff --git a/drivers/net/ethernet/natsemi/natsemi.c b/drivers/net/ethernet/natsemi/natsemi.c
+index 5b61d12..dbaaa99 100644
+--- a/drivers/net/ethernet/natsemi/natsemi.c
++++ b/drivers/net/ethernet/natsemi/natsemi.c
+@@ -947,8 +947,8 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
+ 	i = register_netdev(dev);
+ 	if (i)
+ 		goto err_register_netdev;
+-
+-	if (NATSEMI_CREATE_FILE(pdev, dspcfg_workaround))
++	i = NATSEMI_CREATE_FILE(pdev, dspcfg_workaround);
++	if (i)
+ 		goto err_create_file;
  
- 	/* IO region. */
- 	ioaddr = pci_iomap(pci_dev, 0, 0);
--	if (!ioaddr)
-+	if (!ioaddr) {
-+		ret = -ENOMEM;
- 		goto err_out_cleardev;
-+	}
- 
- 	sis_priv = netdev_priv(net_dev);
- 	sis_priv->ioaddr = ioaddr;
+ 	if (netif_msg_drv(np)) {
