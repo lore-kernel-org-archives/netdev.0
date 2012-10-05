@@ -1,128 +1,103 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [RFC PATCH 0/5] net: socket bind to file descriptor introduced
-Date: Fri, 5 Oct 2012 16:00:09 -0400
-Message-ID: <20121005200009.GA30139@fieldses.org>
-References: <20120815161141.7598.16682.stgit@localhost.localdomain>
- <87y5lf7d37.fsf@xmission.com>
- <50320EE5.10307@parallels.com>
- <20120904190007.GB29369@fieldses.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] GRO scalability
+Date: Fri, 05 Oct 2012 22:06:18 +0200
+Message-ID: <1349467578.21172.178.camel@edumazet-glaptop>
+References: <1348750130.5093.1227.camel@edumazet-glaptop>
+	 <CAEP_g=-JAYHXM86AYNp7BhDV+eqfkKVgC+SJS1MVdo0K8fRLSQ@mail.gmail.com>
+	 <1348769294.5093.1566.camel@edumazet-glaptop>
+	 <1348769990.5093.1584.camel@edumazet-glaptop>
+	 <CAEP_g=8B7xZPxye0Kuu-EVKpTDt1a3nsJKb61aaYaqOGsYGx8w@mail.gmail.com>
+	 <1348841041.5093.2477.camel@edumazet-glaptop>
+	 <CAEP_g=_nSb-ite51PM-E8SY53yOPiZs8N3gDrYNc0L4OU2Ht=A@mail.gmail.com>
+	 <1349448747.21172.113.camel@edumazet-glaptop>  <506F23F6.1060704@hp.com>
+	 <1349463634.21172.152.camel@edumazet-glaptop>  <506F368F.3070403@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	"tglx@linutronix.de" <tglx@linutronix.de>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"hpa@zytor.com" <hpa@zytor.com>,
-	"thierry.reding@avionic-design.de" <thierry.reding@avionic-design.de>,
-	"bfields@redhat.com" <bfields@redhat.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"x86@kernel.org" <x86@kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
-	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
-	"gorcunov@openvz.org" <gorcunov@openvz.org>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"tim.c.chen@linux.intel.com" <tim.c.chen@linux.intel.com>,
-	"devel@ope
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120904190007.GB29369@fieldses.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:61242 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754021Ab2JEUGY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 16:06:24 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so1133040bkc.19
+        for <netdev@vger.kernel.org>; Fri, 05 Oct 2012 13:06:22 -0700 (PDT)
+In-Reply-To: <506F368F.3070403@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 04, 2012 at 03:00:07PM -0400, bfields wrote:
-> On Mon, Aug 20, 2012 at 02:18:13PM +0400, Stanislav Kinsbursky wrote:
-> > 16.08.2012 07:03, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> > >Stanislav Kinsbursky <skinsbursky@parallels.com> writes:
-> > >
-> > >>This patch set introduces new socket operation and new system cal=
-l:
-> > >>sys_fbind(), which allows to bind socket to opened file.
-> > >>File to bind to can be created by sys_mknod(S_IFSOCK) and opened =
-by
-> > >>open(O_PATH).
-> > >>
-> > >>This system call is especially required for UNIX sockets, which h=
-as name
-> > >>lenght limitation.
-> > >>
-> > >>The following series implements...
-> > >
-> > >Hmm.  I just realized this patchset is even sillier than I thought=
-=2E
-> > >
-> > >Stanislav is the problem you are ultimately trying to solve nfs cl=
-ients
-> > >in a container connecting to the wrong user space rpciod?
-> > >
-> >=20
-> > Hi, Eric.
-> > The problem you mentioned was the reason why I started to think abo=
-ut this.
-> > But currently I believe, that limitations in unix sockets connect o=
-r
-> > bind should be removed, because it will be useful it least for CRIU
-> > project.
-> >=20
-> > >Aka net/sunrpc/xprtsock.c:xs_setup_local only taking an absolute p=
-ath
-> > >and then creating a delayed work item to actually open the unix do=
-main
-> > >socket?
-> > >
-> > >The straight correct and straight forward thing to do appears to b=
-e:
-> > >- Capture the root from current->fs in xs_setup_local.
-> > >- In xs_local_finish_connect change current->fs.root to the captur=
-ed
-> > >   version of root before kernel_connect, and restore current->fs.=
-root
-> > >   after kernel_connect.
-> > >
-> > >It might not be a bad idea to implement open on unix domain socket=
-s in
-> > >a filesystem as create(AF_LOCAL)+connect() which would allow you t=
-o
-> > >replace __sock_create + kernel_connect with a simple file_open_roo=
-t.
-> > >
-> >=20
-> > I like the idea of introducing new family (AF_LOCAL_AT for example)
-> > and new sockaddr for connecting or binding from specified root. The
-> > only thing I'm worrying is passing file descriptor to unix bind or
-> > connect routine. Because this approach doesn't provide easy way to
-> > use such family and sockaddr in kernel (like in NFS example).
-> >=20
-> > >But I think the simple scheme of:
-> > >struct path old_root;
-> > >old_root =3D current->fs.root;
-> > >kernel_connect(...);
-> > >current->fs.root =3D old_root;
-> > >
-> > >Is more than sufficient and will remove the need for anything
-> > >except a purely local change to get nfs clients to connect from
-> > >containers.
-> > >
-> >=20
-> > That was my first idea.
->=20
-> So is this what you're planning on doing now?
+On Fri, 2012-10-05 at 12:35 -0700, Rick Jones wrote:
 
-What ever happened to this?
+> Just how much code path is there between NAPI and the socket?? (And I 
+> guess just how much combining are you hoping for?)
+> 
 
---b.
+When GRO correctly works, you can save about 30% of cpu cycles, it
+depends...
 
->=20
-> > And probably it would be worth to change all
-> > fs_struct to support sockets with relative path.
-> > What do you think about it?
->=20
-> I didn't understand the question.  Are you suggesting that changes to
-> fs_struct would be required to make this work?  I don't see why.
->=20
-> --b.
+Doubling MAX_SKB_FRAGS (allowing 32+1 MSS per GRO skb instead of 16+1)
+gives an improvement as well...
+
+> > Lets say we allow no more than 1ms of delay in GRO,
+> 
+> OK.  That means we can ignore HPC and FSI because they wouldn't tolerate 
+> that kind of added delay anyway.  I'm not sure if that also then 
+> eliminates the networked storage types.
+> 
+
+I took this 1ms delay, but I never said it was a fixed value ;)
+
+Also remember one thing, this is the _max_ delay in case your napi
+handler is flooded. This almost never happen (tm)
+
+
+> > this means we could have about 400 packets in the GRO queue (assuming
+> > 1500 bytes packets)
+> 
+> How many flows are you going to have entering via that queue?  And just 
+> how well "shuffled" will the segments of those flows be?  That is what 
+> it all comes down to right?  How many (active) flows and how well 
+> shuffled they are.  If the flows aren't well shuffled, you can get away 
+> with a smallish coalescing context.  If they are perfectly shuffled and 
+> greater in number than your delay allowance you get right back to square 
+> with all the overhead of GRO attempts with none of the benefit.
+
+Not sure what you mean by shuffle. We use a hash table to locate a flow,
+but we also have a LRU list to get the packets ordered by their entry in
+the 'GRO unit'.
+
+If napi completes, all the LRU list content is flushed to IP stack.
+( napi_gro_flush()) 
+
+If napi doesnt complete, we would only flush 'too old' packets found in
+the LRU.
+
+Note: this selective flush can be called once per napi run from
+net_rx_action(). Extra cost to get a somewhat precise timestamp
+would be acceptable (one call to ktime_get() or get_cycles() every 64
+packets)
+
+This timestamp could be stored in napi->timestamp and done once per
+n->poll(n, weight) call.
+
+> 
+> If the flow count is < 400 to allow a decent shot at a non-zero 
+> combining rate on well shuffled flows with the 400 packet limit, then 
+> that means each flow is >= 12.5 Mbit/s on average at 5 Gbit/s 
+> aggregated.  And I think you then get two segments per flow aggregated 
+> at a time.  Is that consistent with what you expect to be the 
+> characteristics of the flows entering via that queue?
+
+If a packet cant stay more than 1ms, then a flow sending less than 1000
+packets per second wont benefit from GRO.
+
+So yes, 12.5 Mbit/s would be the threshold.
+
+By the way, when TCP timestamps are used, and hosts are linux machines
+with HZ=1000, current GRO can not coalesce packets anyway because their
+TCP options are different.
+
+(So it would be not useful trying bigger sojourn time than 1ms)
