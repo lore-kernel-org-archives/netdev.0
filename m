@@ -1,8 +1,8 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Maxime Bizon <mbizon@freebox.fr>
 Subject: Re: kernel 3.2.27 on arm: WARNING: at mm/page_alloc.c:2109
  __alloc_pages_nodemask+0x1d4/0x68c()
-Date: Fri, 05 Oct 2012 14:39:50 +0200
-Message-ID: <1349440790.21172.56.camel@edumazet-glaptop>
+Date: Fri, 05 Oct 2012 14:51:49 +0200
+Message-ID: <1349441509.28867.17.camel@sakura.staff.proxad.net>
 References: <20120829002548.GA7063@aldebaran.gro-tsen.net>
 	 <alpine.LSU.2.00.1208311900330.1936@eggly.anvils>
 	 <1349366521.2532.12.camel@sakura.staff.proxad.net>
@@ -10,49 +10,55 @@ References: <20120829002548.GA7063@aldebaran.gro-tsen.net>
 	 <1349422868.21172.38.camel@edumazet-glaptop>
 	 <1349434194.16710.44.camel@sakura.staff.proxad.net>
 	 <1349439732.21172.52.camel@edumazet-glaptop>
-	 <1349440667.21172.54.camel@edumazet-glaptop>
+Reply-To: mbizon@freebox.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ANSI_X3.4-1968"
 Content-Transfer-Encoding: 7bit
 Cc: David Madore <david+ml@madore.org>,
 	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, Hugh Dickins <hughd@google.com>
-To: mbizon@freebox.fr
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1349440667.21172.54.camel@edumazet-glaptop>
+In-Reply-To: <1349439732.21172.52.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-10-05 at 14:37 +0200, Eric Dumazet wrote:
 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index cdc2859..f6c1f52 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -1053,11 +1053,22 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
->  {
->  	int i;
->  	u8 *data;
-> -	int size = nhead + skb_end_offset(skb) + ntail;
-> +	unsigned int tail_offset = skb_tail_pointer(skb) - skb->head;
-> +	int size = nhead + ntail;
->  	long off;
->  
->  	BUG_ON(nhead < 0);
->  
-> +	/* callers using nhead == 0 and ntail == 0 wants to get a fresh copy,
-> +	 * so allocate same amount of memory (skb_end_offset)
-> +	 * For others, they want extra head or tail against the currently
-> +	 * used portion of header (skb->head -> skb_tail_pointer).
-> +	 * But we dont shrink the head.
-> +	 */
-> +	if (size)
-> +		size += tail_offset;
-> +	size = max_t(int, size, skb_end_offset(skb));
-> +
->  
+On Fri, 2012-10-05 at 14:22 +0200, Eric Dumazet wrote:
 
-This can be factorized to :
+> Yes, but the idea of the patch was to _avoid_ next pskb_expand_head()
+> calls...
 
-	size = tail_offset + nhead + ntail;
-	size = max_t(int, size, skb_end_offset(skb));
+yes but we cannot be sure of that, the caller may not have a good idea
+of the headroom needed for the whole lifetime of the skb
+
+it's better to think we will reduce number of calls, not avoid them
+
+that's why I think doubling the size each time is dangerous, since we
+silently request bigger and bigger allocations if an skb takes an
+unoptimized path
+
+> Hmm, 
+> 
+> this changes nothing assuming current_end == skb_end_offset(skb)
+> and current_head = skb->head
+
+My idea was to leave skb->end at its last position even if we grow
+skb->head.
+
+Since we have a way to know the current allocation size of skb->head,
+further pskb_expand_head() calls to request tailroom would just push
+skb->tail & skb->end together if that fits in current ksize().
+
+I've not looked at recent changes in mainline, since you changed how
+skb->head is managed, that may be totally impossible.
+
+Your proposed changed API change to expand_head will fill this anyway.
+
+> New convention would be : pass number of needed bytes after current
+> tail, not after current end.
+
+Fully agree on this
+
+-- 
+Maxime
