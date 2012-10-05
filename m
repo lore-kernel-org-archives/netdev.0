@@ -1,48 +1,37 @@
-From: Paolo Bonzini <pbonzini@redhat.com>
-Subject: Re: [PATCH 0/3] virtio-net: inline header support
-Date: Fri, 05 Oct 2012 09:47:01 +0200
-Message-ID: <506E9075.6000104@redhat.com>
-References: <cover.1348824232.git.mst@redhat.com>
-	<87vces2gxq.fsf@rustcorp.com.au> <87mx033u74.fsf@codemonkey.ws>
-	<87391u3o67.fsf@rustcorp.com.au> <87wqz6kgg4.fsf@codemonkey.ws>
-	<87lifm1y1n.fsf@rustcorp.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Sasha Levin <levinsasha928@gmail.com>,
-	Anthony Liguori <anthony@codemonkey.ws>, avi@redhat.com,
-	Thomas Lendacky <tahm@linux.vnet.ibm.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87lifm1y1n.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH] iproute2: inform user when a neighbor is removed
+Date: Fri,  5 Oct 2012 10:02:52 +0200
+Message-ID: <1349424172-5602-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:41652 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751526Ab2JEH5z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 03:57:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Il 04/10/2012 09:44, Rusty Russell ha scritto:
-> -In particular, no implementation should use the descriptor
-> -boundaries to determine the size of any header in a request.[footnote:
-> -The current qemu device implementations mistakenly insist that
-> -the first descriptor cover the header in these cases exactly, so
-> -a cautious driver should arrange it so.
-> +[footnote:
-> +It was previously asserted that framing should be independent of
-> +message contents, yet invariably drivers layed out messages in
-> +reliable ways and devices assumed it. In addition, the
-> +specifications for virtio_blk and virtio_scsi require intuiting
-> +field lengths from frame boundaries.
->  ]
+When running 'ip monitor neigh', there is no hint to tell if a neighbor is
+updated or deleted.
 
-Not true for virtio_scsi...
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ ip/ipneigh.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Paolo
+diff --git a/ip/ipneigh.c b/ip/ipneigh.c
+index 93cfba2..56e56b2 100644
+--- a/ip/ipneigh.c
++++ b/ip/ipneigh.c
+@@ -249,6 +249,8 @@ int print_neigh(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 			return 0;
+ 	}
+ 
++	if (n->nlmsg_type == RTM_DELNEIGH)
++		fprintf(fp, "delete ");
+ 	if (tb[NDA_DST]) {
+ 		fprintf(fp, "%s ",
+ 			format_host(r->ndm_family,
+-- 
+1.7.12
