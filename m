@@ -1,120 +1,84 @@
-From: Andrei Emeltchenko <andrei.emeltchenko.news-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net, bluetooth: don't attempt to free a channel that
- wasn't created
-Date: Fri, 5 Oct 2012 21:53:46 +0300
-Message-ID: <20121005185343.GA3529@aemeltch-MOBL1>
-References: <1349395197-12395-1-git-send-email-sasha.levin@oracle.com>
- <20121005102159.GF12229@aemeltch-MOBL1>
- <506EF827.3060100@oracle.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] GRO scalability
+Date: Fri, 05 Oct 2012 21:00:34 +0200
+Message-ID: <1349463634.21172.152.camel@edumazet-glaptop>
+References: <1348750130.5093.1227.camel@edumazet-glaptop>
+	 <CAEP_g=-JAYHXM86AYNp7BhDV+eqfkKVgC+SJS1MVdo0K8fRLSQ@mail.gmail.com>
+	 <1348769294.5093.1566.camel@edumazet-glaptop>
+	 <1348769990.5093.1584.camel@edumazet-glaptop>
+	 <CAEP_g=8B7xZPxye0Kuu-EVKpTDt1a3nsJKb61aaYaqOGsYGx8w@mail.gmail.com>
+	 <1348841041.5093.2477.camel@edumazet-glaptop>
+	 <CAEP_g=_nSb-ite51PM-E8SY53yOPiZs8N3gDrYNc0L4OU2Ht=A@mail.gmail.com>
+	 <1349448747.21172.113.camel@edumazet-glaptop>  <506F23F6.1060704@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <506EF827.3060100-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:56089 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750909Ab2JETAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 15:00:39 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so1106979bkc.19
+        for <netdev@vger.kernel.org>; Fri, 05 Oct 2012 12:00:38 -0700 (PDT)
+In-Reply-To: <506F23F6.1060704@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sasha,
-
-On Fri, Oct 05, 2012 at 11:09:27AM -0400, Sasha Levin wrote:
-> On 10/05/2012 06:22 AM, Andrei Emeltchenko wrote:
-> > Hi Sasha,
-> > 
-> > On Thu, Oct 04, 2012 at 07:59:57PM -0400, Sasha Levin wrote:
-> >> We may currently attempt to free a channel which wasn't created due to
-> >> an error in the initialization path, this would cause a NULL ptr deref.
-> > 
-> > Please put oops dump here.
+On Fri, 2012-10-05 at 11:16 -0700, Rick Jones wrote:
+> O
+> Flushing things if N packets have come though sounds like goodness, and 
+> it reminds me a bit about what happens with IP fragment reassembly - 
+> another area where the stack is trying to guess just how long to 
+> hang-onto a packet before doing something else with it.  But the value 
+> of N to get a "decent" per-flow GRO aggregation rate will depend on the 
+> number of concurrent flows right?  If I want to have a good shot at 
+> getting 2 segments combined for 1000 active, concurrent flows entering 
+> my system via that interface, won't N have to approach 2000?
 > 
-> [   12.919073] BUG: unable to handle kernel NULL pointer dereference at 0000000000000010
-> [   12.919131] IP: [<ffffffff836645c4>] l2cap_chan_put+0x34/0x50
-> [   12.919135] PGD 0
-> [   12.919138] Oops: 0002 [#1] PREEMPT SMP DEBUG_PAGEALLOC
-> [   12.919193] Dumping ftrace buffer:
-> [   12.919242]    (ftrace buffer empty)
-> [   12.919314] Modules linked in:
-> [   12.919318] CPU 1
-> [   12.919319] Pid: 6210, comm: krfcommd Tainted: G        W    3.6.0-next-20121004-sasha-00005-gb010653-dirty #30
-> [   12.919374] RIP: 0010:[<ffffffff836645c4>]  [<ffffffff836645c4>] l2cap_chan_put+0x34/0x50
-> [   12.919377] RSP: 0000:ffff880066933c38  EFLAGS: 00010246
-> [   12.919378] RAX: ffffffff8366c780 RBX: 0000000000000000 RCX: 6666666666666667
-> [   12.919379] RDX: 0000000000000fa0 RSI: ffffffff84d3f79e RDI: 0000000000000010
-> [   12.919381] RBP: ffff880066933c48 R08: ffffffff859989f8 R09: 0000000000000001
-> [   12.919382] R10: 0000000000000000 R11: 7fffffffffffffff R12: 0000000000000000
-> [   12.919383] R13: ffff88009b00a200 R14: ffff88009b00a200 R15: 0000000000000001
-> [   12.919385] FS:  0000000000000000(0000) GS:ffff880033600000(0000) knlGS:0000000000000000
-> [   12.919437] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [   12.919440] CR2: 0000000000000010 CR3: 0000000005026000 CR4: 00000000000406e0
-> [   12.919446] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> [   12.919451] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> [   12.919504] Process krfcommd (pid: 6210, threadinfo ffff880066932000, task ffff880065c4b000)
-> [   12.919506] Stack:
-> [   12.919510]  ffff88009b00a200 ffff880032084000 ffff880066933c68 ffffffff8366c7bc
-> [   12.919513]  7fffffffffffffff ffff880032084000 ffff880066933c98 ffffffff833ae0ae
-> [   12.919516]  ffff880066933ca8 0000000000000000 0000000000000000 ffff88009b00a200
-> [   12.919517] Call Trace:
-> [   12.919522]  [<ffffffff8366c7bc>] l2cap_sock_destruct+0x3c/0x80
-> [   12.919527]  [<ffffffff833ae0ae>] __sk_free+0x1e/0x1f0
-> [   12.919530]  [<ffffffff833ae2f7>] sk_free+0x17/0x20
-> [   12.919585]  [<ffffffff8366ca4e>] l2cap_sock_alloc.constprop.5+0x9e/0xd0
-> [   12.919591]  [<ffffffff8366cb9e>] l2cap_sock_create+0x7e/0x100
-> [   12.919652]  [<ffffffff83a4f32a>] ? _raw_read_lock+0x6a/0x80
-> [   12.919658]  [<ffffffff836402c4>] ? bt_sock_create+0x74/0x110
-> [   12.919660]  [<ffffffff83640308>] bt_sock_create+0xb8/0x110
-> [   12.919664]  [<ffffffff833aa232>] __sock_create+0x282/0x3b0
-> [   12.919720]  [<ffffffff833aa0b0>] ? __sock_create+0x100/0x3b0
-> [   12.919725]  [<ffffffff836785b0>] ? rfcomm_process_sessions+0x17e0/0x17e0
-> [   12.919779]  [<ffffffff833aa37f>] sock_create_kern+0x1f/0x30
-> [   12.919784]  [<ffffffff83675714>] rfcomm_l2sock_create+0x44/0x70
-> [   12.919787]  [<ffffffff836785b0>] ? rfcomm_process_sessions+0x17e0/0x17e0
-> [   12.919790]  [<ffffffff836785fe>] rfcomm_run+0x4e/0x1f0
-> [   12.919846]  [<ffffffff836785b0>] ? rfcomm_process_sessions+0x17e0/0x17e0
-> [   12.919852]  [<ffffffff81138ee3>] kthread+0xe3/0xf0
-> [   12.919908]  [<ffffffff8117b12e>] ? put_lock_stats.isra.14+0xe/0x40
-> [   12.919914]  [<ffffffff81138e00>] ? flush_kthread_work+0x1f0/0x1f0
-> [   12.919968]  [<ffffffff83a5077c>] ret_from_fork+0x7c/0x90
-> [   12.919973]  [<ffffffff81138e00>] ? flush_kthread_work+0x1f0/0x1f0
-> [   12.920161] Code: 83 ec 08 f6 05 ff 58 44 02 04 74 1b 8b 4f 10 48 89 fa 48 c7 c6 d9 d7 d4 84 48 c7 c7 80 9e aa 85 31 c0 e8 80
-> ac 3a fe 48 8d 7b 10 <f0> 83 6b 10 01 0f 94 c0 84 c0 74 05 e8 8b e0 ff ff 48 83 c4 08
-> [   12.920165] RIP  [<ffffffff836645c4>] l2cap_chan_put+0x34/0x50
-> [   12.920166]  RSP <ffff880066933c38>
-> [   12.920167] CR2: 0000000000000010
-> [   12.920417] ---[ end trace 5a9114e8a158ab84 ]---
-> 
-> > 
-> >> Introduced in commit 61d6ef3e ("Bluetooth: Make better use of l2cap_chan
-> >> reference counting").
-> >>
-> >> Signed-off-by: Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> >> ---
-> >>  net/bluetooth/l2cap_sock.c | 3 ++-
-> >>  1 file changed, 2 insertions(+), 1 deletion(-)
-> >>
-> >> diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
-> >> index 083f2bf..66c295a 100644
-> >> --- a/net/bluetooth/l2cap_sock.c
-> >> +++ b/net/bluetooth/l2cap_sock.c
-> >> @@ -1083,7 +1083,8 @@ static void l2cap_sock_destruct(struct sock *sk)
-> >>  {
-> >>  	BT_DBG("sk %p", sk);
-> >>  
-> >> -	l2cap_chan_put(l2cap_pi(sk)->chan);
-> >> +	if (l2cap_pi(sk)->chan)
-> >> +		l2cap_chan_put(l2cap_pi(sk)->chan);
-> > 
-> > This does not look right, I suppose you want to put somewhere missing
-> > chan_hold
-> 
-> The issue is basically kzalloc() failing in l2cap_chan_create(), this would lead to sk_free()
-> getting called with chan being NULL, which is why I don't think that chan_hold is relevant
-> at this stage.
 
-Then this looks OK. 
+It all depends on the max latency you can afford.
 
-Best regards 
-Andrei Emeltchenko 
+> GRO (and HW LRO) has a fundamental limitation/disadvantage here.  GRO 
+> does provide a very nice "boost" on various situations (especially 
+> numbers of concurrent netperfs that don't blow-out the tracking limits) 
+> but since it won't really know anything about the flow(s) involved (*) 
+> or even their number (?), it will always be guessing.  That is why it is 
+> really only "poor man's JumboFrames" (or larger MTU - Sadly, the IEEE 
+> keeps us all beggars here).
+> 
+> A goodly portion of the benefit of GRO comes from the "incidental" ACK 
+> avoidance it causes yes?  That being the case, might that be a 
+> worthwhile avenue to explore?   It would then naturally scale as TCP et 
+> al do today.
+> 
+> When we go to 40 GbE will we have 4x as many flows, or the same number 
+> of 4x faster flows?
+> 
+> rick jones
+> 
+> * for example - does this TCP segment contain the last byte(s) of a 
+> pipelined http request/response and the first byte(s) of the next one 
+> and so should "flush" now?
+
+Some remarks :
+
+1) I use some 40Gbe links, thats probably why I try to improve things ;)
+
+2) benefit of GRO can be huge, and not only for the ACK avoidance
+   (other tricks could be done for ACK avoidance in the stack)
+
+3) High speeds probably need multiqueue device, and each queue has its
+own GRO unit.
+
+  For example on a 40Gbe, 8 queues -> 5Gbps per queue (about 400k
+packets/sec)
+
+Lets say we allow no more than 1ms of delay in GRO, this means we could
+have about 400 packets in the GRO queue (assuming 1500 bytes packets)
+
+Another idea to play with would be to extend GRO to allow packet
+reorder.
