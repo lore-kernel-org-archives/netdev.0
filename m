@@ -1,8 +1,8 @@
 From: Michal Simek <monstr@monstr.eu>
-Subject: Re: [PATCH 02/11] net: axienet: Add ioctl support
-Date: Fri, 05 Oct 2012 07:54:33 +0200
-Message-ID: <506E7619.3010104@monstr.eu>
-References: <1349374497-9540-1-git-send-email-monstr@monstr.eu>  <1349374497-9540-2-git-send-email-monstr@monstr.eu> <1349378262.2817.25.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [PATCH 08/11] net: ll_temac: Do not use fixed mtu size
+Date: Fri, 05 Oct 2012 07:58:51 +0200
+Message-ID: <506E771B.2080102@monstr.eu>
+References: <1349374497-9540-1-git-send-email-monstr@monstr.eu>  <1349374497-9540-8-git-send-email-monstr@monstr.eu> <1349378563.2817.27.camel@bwh-desktop.uk.solarflarecom.com>
 Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
@@ -14,56 +14,22 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Rob Herring <rob.herring@calxeda.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:41955 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750709Ab2JEGrE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 02:47:04 -0400
-Received: by mail-wi0-f172.google.com with SMTP id hq12so190869wib.1
-        for <netdev@vger.kernel.org>; Thu, 04 Oct 2012 23:47:03 -0700 (PDT)
-In-Reply-To: <1349378262.2817.25.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349378563.2817.27.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/04/2012 09:17 PM, Ben Hutchings wrote:
+On 10/04/2012 09:22 PM, Ben Hutchings wrote:
 > On Thu, 2012-10-04 at 20:14 +0200, Michal Simek wrote:
->> Allow user to access the MDIO from userspace.
->>
->> Signed-off-by: Michal Simek <monstr@monstr.eu>
->> CC: Anirudha Sarangi <anirudh@xilinx.com>
->> CC: John Linn <John.Linn@xilinx.com>
->> CC: Grant Likely <grant.likely@secretlab.ca>
->> CC: Rob Herring <rob.herring@calxeda.com>
->> CC: David S. Miller <davem@davemloft.net>
->> ---
->>   drivers/net/ethernet/xilinx/xilinx_axienet_main.c |   15 +++++++++++++++
->>   1 files changed, 15 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
->> index 50167ab..a5b41cd 100644
->> --- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
->> +++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
->> @@ -1053,6 +1053,20 @@ static void axienet_poll_controller(struct net_device *ndev)
->>   }
->>   #endif
->>
->> +/* Ioctl MII Interface */
->> +static int axienet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
->> +{
->> +	struct axienet_local *priv = netdev_priv(dev);
->> +
->> +	if (!netif_running(dev))
->> +		return -EINVAL;
+>> Use max mtu instead.
+> [...]
 >
-> Not sure this is the appropriate error code.
->
->> +	if (!priv->phy_dev)
->> +		return -ENODEV;
->
-> Error code should be EOPNOTSUPP - the device is present but just doesn't
-> support MDIO.
+> MTU does not include the Ethernet header so I have no idea how this is
+> expected to work...
 
-ok. Thanks will fix it.
+Right. This is wrong fix. It should be the same as is in axienet.
+There is max_frm_size used which is mtu+header+tailer.
+I will fix it.
 
 Thanks,
 Michal
