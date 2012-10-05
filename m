@@ -1,42 +1,35 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: [PATCH 01/11] net: axienet: Remove NETIF_F_SG dropping for no
- checksum feature
-Date: Fri, 05 Oct 2012 07:22:59 +0200
-Message-ID: <506E6EB3.7000509@monstr.eu>
-References: <1349374497-9540-1-git-send-email-monstr@monstr.eu> <20121004.142612.1111166663063631532.davem@davemloft.net>
-Reply-To: monstr@monstr.eu
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 19/20] drivers/net/ethernet/marvell/skge.c: fix error
+ return code
+Date: Fri, 05 Oct 2012 00:36:35 -0700
+Message-ID: <1349422595.2008.55.camel@joe-AO722>
+References: <CA+MoWDp=_F9opJbVkv9sDsmoykm7MTUZwRVumKCB0ZqDwD6NoQ@mail.gmail.com>
+	 <20121004.142335.1467206545795435493.davem@davemloft.net>
+	 <CA+MoWDqBF5bdQYBaUmpB99Q=YcHYcUxi8Ffo3x4s0B+pmomb+Q@mail.gmail.com>
+	 <20121004.145419.1859367129463136197.davem@davemloft.net>
+	 <1349395795.2008.26.camel@joe-AO722>
+	 <alpine.DEB.2.02.1210050712590.1958@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	anirudh@xilinx.com, John.Linn@xilinx.com,
-	grant.likely@secretlab.ca, rob.herring@calxeda.com
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, peter.senna@gmail.com,
+	shemminger@vyatta.com, mlindner@marvell.com,
+	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Julia Lawall <julia.lawall@lip6.fr>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121004.142612.1111166663063631532.davem@davemloft.net>
+In-Reply-To: <alpine.DEB.2.02.1210050712590.1958@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+On Fri, 2012-10-05 at 07:22 +0200, Julia Lawall wrote:
+> A tool was used to find a potential problem, and then Peter
+> studied the code to see what fix was appropriate.
 
-On 10/04/2012 08:26 PM, David Miller wrote:
->
-> Sorry, no.
->
-> I've announced on netdev very clearly that net-next submissions are not
-> appropriate at this time and that only pure bug fixes should be submitted.
->
-> Watch for the announcement on netdev of net-next openning up after the
-> merge window closes, that's when you should resubmit this series.
+Hi Julia.
 
-Sorry I should label it as RFC.
+Was it true that a static analysis tool found the original
+potential issue?  If so, what tool was it?
 
-Thanks,
-Michal
-
-
--- 
-Michal Simek, Ing. (M.Eng)
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/fdt/
-Microblaze U-BOOT custodian
+But wasn't the scripted fix applied to the rest of the tree
+robotically?
