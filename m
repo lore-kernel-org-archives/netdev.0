@@ -1,73 +1,46 @@
-From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: [PATCH 2/20 V2] drivers/net/ethernet/natsemi/natsemi.c: fix error return code
-Date: Fri,  5 Oct 2012 22:41:04 +0200
-Message-ID: <1349469667-6137-2-git-send-email-peter.senna@gmail.com>
-References: <1349469667-6137-1-git-send-email-peter.senna@gmail.com>
-Cc: romieu@fr.zoreil.com, rick.jones2@hp.com, netdev@pradeepdalvi.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	Peter Senna Tschudin <peter.senna@gmail.com>
-To: davem@davemloft.net
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] mlx4: set carrier off after register netdev
+Date: Fri, 5 Oct 2012 21:53:35 +0100
+Message-ID: <1349470415.2819.1.camel@bwh-desktop.uk.solarflarecom.com>
+References: <alpine.LNX.2.00.1210051058420.16216@linux-acr3.site>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Min Zhang <mzhang@mvista.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1349469667-6137-1-git-send-email-peter.senna@gmail.com>
+In-Reply-To: <alpine.LNX.2.00.1210051058420.16216@linux-acr3.site>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Peter Senna Tschudin <peter.senna@gmail.com>
+On Fri, 2012-10-05 at 11:28 -0700, Min Zhang wrote:
+> ifconfig mlx4_en port reported RUNNING even though the link was down.
+> 
+> mlx4_en_init_netdev didn't initialize the dev operstate properly so
+> the operstate stayed as default IF_OPER_UNKNOWN, then ifconfig treated
+> the UNKNOWN as RUNNING state for backward compatiblity per RFC2863.
+> 
+> The fix calls netif_carrier_off which is supposed to set operstate
+> after register_netdev. Calling it before register_netdev has no effect
+> since the dev->state is still NETREG_UNINITIALIZED
+> 
+> Tested by removing the physical link signal to the mellanox 10G port,
+> modprobe mlx4_en, then ifconfig up. Verify there is no RUNNING status.
+[...]
 
-The function natsemi_probe1() return 0 for success and negative value
-for most of its internal tests failures. There is one exception
-that is error case going to err_create_file:. Fore this error case the
-function abort its success execution path, but returns non negative value, 
-making it difficult for a caller function to notice the error.
+This was supposed to be fixed by:
 
-This patch fixes the error case that do not return negative value.
+commit 8f4cccbbd92f2ad0ddbbc498ef7cee2a1c3defe9
+Author: Ben Hutchings <bhutchings@solarflare.com>
+Date:   Mon Aug 20 22:16:51 2012 +0100
 
-This was found by Coccinelle, but the code change was made by hand.
-This patch is not robot generated.
+    net: Set device operstate at registration time
 
-A simplified version of the semantic match that finds this problem is
-as follows: (http://coccinelle.lip6.fr/)
+Does that not work for mlx4_en, for some reason?
 
-// <smpl>
-(
-if@p1 (\(ret < 0\|ret != 0\))
- { ... return ret; }
-|
-ret@p1 = 0
-)
-... when != ret = e1
-    when != &ret
-*if(...)
-{
-  ... when != ret = e2
-      when forall
- return ret;
-}
-// </smpl>
+Ben.
 
-Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
-
----
-Changes from V1:
-	Updated commit message. See:
-	http://www.kernelhub.org/?p=2&msg=139319
-
- drivers/net/ethernet/natsemi/natsemi.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/natsemi/natsemi.c b/drivers/net/ethernet/natsemi/natsemi.c
-index 5b61d12..dbaaa99 100644
---- a/drivers/net/ethernet/natsemi/natsemi.c
-+++ b/drivers/net/ethernet/natsemi/natsemi.c
-@@ -947,8 +947,8 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
- 	i = register_netdev(dev);
- 	if (i)
- 		goto err_register_netdev;
--
--	if (NATSEMI_CREATE_FILE(pdev, dspcfg_workaround))
-+	i = NATSEMI_CREATE_FILE(pdev, dspcfg_workaround);
-+	if (i)
- 		goto err_create_file;
- 
- 	if (netif_msg_drv(np)) {
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
