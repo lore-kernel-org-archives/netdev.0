@@ -1,53 +1,75 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 3/3] net/mlx4_en: Add HW timestamping (TS) support
-Date: Fri, 5 Oct 2012 12:38:19 +0200
-Message-ID: <20121005103819.GA2555@netboy.at.omicron.at>
-References: <1348826603-17439-1-git-send-email-yevgenyp@mellanox.com>
- <1348826603-17439-4-git-send-email-yevgenyp@mellanox.com>
- <20120928111147.GA7474@netboy.at.omicron.at>
- <74A0102445410646AFACC089FD94803A95ED92DD@MTLDAG01.mtl.com>
- <20121004142734.GA2810@netboy.at.omicron.at>
- <74A0102445410646AFACC089FD94803A95ED9341@MTLDAG01.mtl.com>
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: Re: kernel 3.2.27 on arm: WARNING: at mm/page_alloc.c:2109
+ __alloc_pages_nodemask+0x1d4/0x68c()
+Date: Fri, 05 Oct 2012 12:49:54 +0200
+Message-ID: <1349434194.16710.44.camel@sakura.staff.proxad.net>
+References: <20120829002548.GA7063@aldebaran.gro-tsen.net>
+	 <alpine.LSU.2.00.1208311900330.1936@eggly.anvils>
+	 <1349366521.2532.12.camel@sakura.staff.proxad.net>
+	 <1349368171.16011.79.camel@edumazet-glaptop>
+	 <1349422868.21172.38.camel@edumazet-glaptop>
+Reply-To: mbizon@freebox.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Eugenia Emantayev <eugenia@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:37799 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932112Ab2JEKiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 06:38:24 -0400
-Received: by mail-we0-f174.google.com with SMTP id t9so953016wey.19
-        for <netdev@vger.kernel.org>; Fri, 05 Oct 2012 03:38:23 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <74A0102445410646AFACC089FD94803A95ED9341@MTLDAG01.mtl.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ANSI_X3.4-1968"
+Content-Transfer-Encoding: 7bit
+Cc: David Madore <david+ml@madore.org>,
+	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Hugh Dickins <hughd@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349422868.21172.38.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 04, 2012 at 08:58:59PM +0000, Eugenia Emantayev wrote:
-> > You could register the driver as PHC class device, described in
-> >
-> >   Documentation/ptp/ptp.txt
-> >
-> > and then you device will work together along with a user space PTP stack, like the one I wrote at
-> >
-> >   http://linuxptp.sourceforge.net
-> 
-> 
-> Richard,
-> 
-> Thanks for the explanation.
-> At this stage we prefer to submit the initial patch set (V1) and then, at the next phase,
-> extend it as you suggested above, after learning and better understanding the requirements
-> and effects.
 
-Well, if you want to provide a way to relate your hardware time stamps
-with the system time, then you need to implement the PHC.  Please do
-not make use of the timecompare code in your driver, since it is going
-to be removed soon.
+On Fri, 2012-10-05 at 09:41 +0200, Eric Dumazet wrote:
 
-Thanks,
-Richard
+> By the way, the commit you pointed has no effect on the reallocation
+> performed by pskb_expand_head() :
+
+The commit has a side effect, because the problem appeared after it was
+merged (and goes away if I revert it)
+
+> int size = nhead + skb_end_offset(skb) + ntail;
+> 
+> So pskb_expand_head() always assumed the current head is fully used, and
+> because we have some kmalloc-power-of-two contraints, each time
+> pskb_expand_head() is called with a non zero (nhead + ntail) we double
+> the skb->head ksize.
+
+That is true, but only after the commit I mentioned.
+
+Before that commit, we indeed reallocate skb->head to twice the size,
+but skb->end is *not* positioned at the end of newly allocated data. So
+on the next pskb_expand_head(), if head and tail are not big values, the
+kmalloc() will be of the same size.
+
+
+The commit adds this after allocation:
+
+size = SKB_WITH_OVERHEAD(ksize(data))
+[...]
+skb->end      = skb->head + size;
+
+so on the next pskb_expand_head, we are going to allocate twice the size
+for sure.
+
+> So why are we using skb_end_offset(skb) here is the question.
+> 
+> I guess it could be (skb_tail_pointer(skb) - skb->head) on some uses.
+
+I think your patch is wrong, ntail is not the new tailroom size, it's
+what missing to the current tailroom size, by adding ntail + nhead +
+tail_offset we are removing previous tailroom.
+
+We cannot shrink the skb that way here I guess, a caller may check
+needed headroom & tailroom, calls with nhead=1/ntail=0 because only
+headroom is missing, but after the call tailroom would be less than
+before the call.
+
+Why don't we juste reallocate to this size:
+
+MAX(current_alloc_size, nhead + ntail + current_end - current_head)
+
+-- 
+Maxime
