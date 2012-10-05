@@ -1,42 +1,47 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] pch_gbe: Fix PTP dependencies.
-Date: Fri, 5 Oct 2012 15:04:16 +0200
-Message-ID: <20121005130416.GA2088@netboy.at.omicron.at>
-References: <20121002.223504.1130795240955330652.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net] ipv6: clean up tcp_v6_early_demux() icsk variable
+Date: Fri,  5 Oct 2012 09:21:24 -0400
+Message-ID: <1349443284-14640-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:62737 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751946Ab2JENEV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 09:04:21 -0400
-Received: by mail-we0-f174.google.com with SMTP id t9so1031527wey.19
-        for <netdev@vger.kernel.org>; Fri, 05 Oct 2012 06:04:19 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20121002.223504.1130795240955330652.davem@davemloft.net>
+Received: from mail-vc0-f202.google.com ([209.85.220.202]:44347 "EHLO
+	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754776Ab2JENV1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 09:21:27 -0400
+Received: by mail-vc0-f202.google.com with SMTP id fy27so183041vcb.1
+        for <netdev@vger.kernel.org>; Fri, 05 Oct 2012 06:21:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 02, 2012 at 10:35:04PM -0400, David Miller wrote:
-> 
-> The config combination:
-> 
->         CONFIG_PCH_GBE=y
->         CONFIG_PCH_PTP=y
->         CONFIG_PTP_1588_CLOCK=m
-...
-> @@ -26,7 +26,7 @@ if PCH_GBE
->  config PCH_PTP
->  	bool "PCH PTP clock support"
->  	default n
-> -	depends on PTP_1588_CLOCK_PCH
-> +	select PTP_1588_CLOCK_PCH
+Remove an icsk variable, which by convention should refer to an
+inet_connection_sock rather than an inet_sock. In the process, make
+the tcp_v6_early_demux() code and formatting a bit more like
+tcp_v4_early_demux(), to ease comparisons and maintenance.
 
-Based on Fengguang Wu's complaint, maybe this would work better:
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv6/tcp_ipv6.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-	depends on PTP_1588_CLOCK && !(PCH_GBE=y && PTP_1588_CLOCK=m)
-
-Thanks,
-Richard
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 49c8903..491c41b 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1740,11 +1740,11 @@ static void tcp_v6_early_demux(struct sk_buff *skb)
+ 		skb->destructor = sock_edemux;
+ 		if (sk->sk_state != TCP_TIME_WAIT) {
+ 			struct dst_entry *dst = sk->sk_rx_dst;
+-			struct inet_sock *icsk = inet_sk(sk);
++
+ 			if (dst)
+ 				dst = dst_check(dst, inet6_sk(sk)->rx_dst_cookie);
+ 			if (dst &&
+-			    icsk->rx_dst_ifindex == skb->skb_iif)
++			    inet_sk(sk)->rx_dst_ifindex == skb->skb_iif)
+ 				skb_dst_set_noref(skb, dst);
+ 		}
+ 	}
+-- 
+1.7.7.3
