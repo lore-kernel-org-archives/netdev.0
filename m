@@ -1,61 +1,52 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: ethtool 3.6 released
-Date: Sat, 6 Oct 2012 00:15:31 +0100
-Message-ID: <1349478931.2819.3.camel@bwh-desktop.uk.solarflarecom.com>
+From: Min Zhang <mzhang@mvista.com>
+Subject: Re: [PATCH] mlx4: set carrier off after register netdev
+Date: Fri, 5 Oct 2012 17:02:59 -0700 (PDT)
+Message-ID: <alpine.LNX.2.00.1210051701030.17958@linux-acr3.site>
+References: <alpine.LNX.2.00.1210051058420.16216@linux-acr3.site> <1349470415.2819.1.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="=-HtyswTwo0x25rOemy0th"
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17636 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752548Ab2JEXPi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2012 19:15:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
---=-HtyswTwo0x25rOemy0th
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-ethtool version 3.6 has been released.
-
-Home page: https://ftp.kernel.org/pub/software/network/ethtool/
-Download link:
-https://ftp.kernel.org/pub/software/network/ethtool/ethtool-3.6.tar.xz
-
-Release notes:
-
-	* Feature: Allow setting MDI-X state (-s option)
-	* Fix: Preserve pause advertising bits when setting speed and
-	  duplex with autoneg on (-s option)
-	* Fix: Don't call ioctl to set EEE parameters if they are the same
-	  as the current parameters (--set-eee option)
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349470415.2819.1.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+On Fri, 5 Oct 2012, Ben Hutchings wrote:
 
---=-HtyswTwo0x25rOemy0th
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+> On Fri, 2012-10-05 at 11:28 -0700, Min Zhang wrote:
+> > ifconfig mlx4_en port reported RUNNING even though the link was down.
+> > 
+> > mlx4_en_init_netdev didn't initialize the dev operstate properly so
+> > the operstate stayed as default IF_OPER_UNKNOWN, then ifconfig treated
+> > the UNKNOWN as RUNNING state for backward compatiblity per RFC2863.
+> > 
+> > The fix calls netif_carrier_off which is supposed to set operstate
+> > after register_netdev. Calling it before register_netdev has no effect
+> > since the dev->state is still NETREG_UNINITIALIZED
+> > 
+> > Tested by removing the physical link signal to the mellanox 10G port,
+> > modprobe mlx4_en, then ifconfig up. Verify there is no RUNNING status.
+> [...]
+> 
+> This was supposed to be fixed by:
+> 
+> commit 8f4cccbbd92f2ad0ddbbc498ef7cee2a1c3defe9
+> Author: Ben Hutchings <bhutchings@solarflare.com>
+> Date:   Mon Aug 20 22:16:51 2012 +0100
+> 
+>     net: Set device operstate at registration time
+> 
+> Does that not work for mlx4_en, for some reason?
+> 
+> Ben.
+> 
+> -- 
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQEcBAABCAAGBQJQb2oTAAoJEGkILBsOca60ctAIAKEYBzswv19nIdO5+pE9aPC6
-hrEmvwTQnIisrvFAbjnHhNWZ1eyYygOfFc5aPh7YEHQR8cdNBtkFg77CEIOo3Njm
-6UsMGSHG90XMEwFd+21jINoZxmGZK/0/tV36r2nr8F2mAebpF0pVR4PElQ3umrW3
-J7Gcz4tOBi/IB6PKNmLuaANiVlu5oN9puVRe6cZgWBdGRUGPNpFmpbBZbEfnOdc7
-kdNkqM/TFvxi2qOxCemoJu2QCDvrphi8mx0pdAK/uOIx9rM+mWuqHJE4uGyRXqfO
-SlCaV4gos6Bg5hZejMe6+kiD7cBjLUV420AbAtBCFEliI8kTLPmReRgQDB+7qKw=
-=FgwZ
------END PGP SIGNATURE-----
-
---=-HtyswTwo0x25rOemy0th--
+Indeed, commit 8f4cccbbd92f2ad0ddbbc498ef7cee2a1c3defe9 does fix the issue 
+in mlx4. I didn't have the newest net/core. Therefore ignore my mlx4 fix. 
