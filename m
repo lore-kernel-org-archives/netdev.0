@@ -1,50 +1,77 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net:master 1/9] pch_gbe_main.c:(.text+0x510370): undefined
- reference to `pch_ch_control_write'
-Date: Sat, 6 Oct 2012 16:56:35 +0200
-Message-ID: <20121006145634.GA2276@netboy.at.omicron.at>
-References: <20121006075954.GA29618@localhost>
- <50701EEC.7080805@linux.intel.com>
- <20121006.092207.1280541690613202532.davem@davemloft.net>
- <50703B1B.2040705@linux.intel.com>
+From: Krzysztof Mazur <krzysiek@podlesie.net>
+Subject: Re: [PATCH] pppoatm: don't send frames to destroyed vcc
+Date: Sat, 6 Oct 2012 17:38:04 +0200
+Message-ID: <20121006153804.GA13564@shrek.podlesie.net>
+References: <1349525991-21462-1-git-send-email-krzysiek@podlesie.net>
+ <1349530370.6524.2.camel@shinybook.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, fengguang.wu@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Haicheng Li <haicheng.li@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:38476 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751260Ab2JFO4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Oct 2012 10:56:46 -0400
+Cc: mitch@sfgoth.com, netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <50703B1B.2040705@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1349530370.6524.2.camel@shinybook.infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 06, 2012 at 10:07:23PM +0800, Haicheng Li wrote:
+On Sat, Oct 06, 2012 at 02:32:50PM +0100, David Woodhouse wrote:
+> On Sat, 2012-10-06 at 14:19 +0200, Krzysztof Mazur wrote:
+> > Now pppoatm_send(), like vcc_sendmsg(), checks for vcc flags that
+> > indicate that vcc is not ready.
 > 
-> IMHO, the reason why the dependency of PCH_PTP becomes so tricky is
-> that the code of these two modules call the functions of each other
-> (bad code structure?).
+> And what locking prevents the flag from being set immediately after we
+> check it?
+> 
 
-Yes, that is the source of the problem. I don't recall how this habit
-of having the PTP option as a module got started (and I hope it wasn't
-me), but I think the right way to handle this option is with a simple
-boolean connected to ifdefs for the MAC driver.
+nothing, this patch should fix this. 
 
-Come to think of it, it may have all started with the gianfar ptp
-module. In principle, the time stamping function of a MAC driver can
-be completely separate from the clock function, and indeed that is how
-the pair of gianfar drivers work.
+The vcc_sendmsg() uses lock_sock(sk). This lock is used by
+vcc_release(), so vcc_destroy_socket() will not be called between
+check and during ->send(). The vcc_release_async() sets ATM_VF_CLOSE,
+but it should be safe to call ->send() after it, because
+vcc->dev->ops->close() is not called.
 
-But for other hardware, it might not be practical to keep the
-functions separate, and in that case I would say, just keep it as one
-driver.
+The pppoatm_send() is called with bottom halfs disabled, so
+bh_lock_sock() should be used instead of lock_sock().
 
-Thanks,
-Richard
+diff --git a/net/atm/pppoatm.c b/net/atm/pppoatm.c
+index 0dcb5dc..29afc68 100644
+--- a/net/atm/pppoatm.c
++++ b/net/atm/pppoatm.c
+@@ -270,6 +270,7 @@ static int pppoatm_send(struct ppp_channel *chan, struct sk_buff *skb)
+ {
+ 	struct pppoatm_vcc *pvcc = chan_to_pvcc(chan);
+ 	struct atm_vcc *vcc;
++	int ret;
+ 
+ 	ATM_SKB(skb)->vcc = pvcc->atmvcc;
+ 	pr_debug("(skb=0x%p, vcc=0x%p)\n", skb, pvcc->atmvcc);
+@@ -304,17 +305,22 @@ static int pppoatm_send(struct ppp_channel *chan, struct sk_buff *skb)
+ 	}
+ 
+ 	vcc = ATM_SKB(skb)->vcc;
++	bh_lock_sock(sk_atm(vcc));
+ 	if (test_bit(ATM_VF_RELEASED, &vcc->flags)
+ 			|| test_bit(ATM_VF_CLOSE, &vcc->flags)
+-			|| !test_bit(ATM_VF_READY, &vcc->flags))
++			|| !test_bit(ATM_VF_READY, &vcc->flags)) {
++		bh_unlock_sock(sk_atm(vcc));
+ 		goto nospace;
++	}
+ 
+ 	atomic_add(skb->truesize, &sk_atm(ATM_SKB(skb)->vcc)->sk_wmem_alloc);
+ 	ATM_SKB(skb)->atm_options = ATM_SKB(skb)->vcc->atm_options;
+ 	pr_debug("atm_skb(%p)->vcc(%p)->dev(%p)\n",
+ 		 skb, ATM_SKB(skb)->vcc, ATM_SKB(skb)->vcc->dev);
+-	return ATM_SKB(skb)->vcc->send(ATM_SKB(skb)->vcc, skb)
++	ret = ATM_SKB(skb)->vcc->send(ATM_SKB(skb)->vcc, skb)
+ 	    ? DROP_PACKET : 1;
++	bh_unlock_sock(sk_atm(vcc));
++	return ret;
+ nospace:
+ 	/*
+ 	 * We don't have space to send this SKB now, but we might have
 
-PS It looks like no one is really looking after this PCH thing, so
-does anyone want to send me a board so I can take care of it? Let me
-know off list.
+-- 
+Krzysiek
