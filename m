@@ -1,70 +1,182 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] GRO scalability
-Date: Sat, 6 Oct 2012 13:14:07 +0800
-Message-ID: <20121006051407.GA27390@gondor.apana.org.au>
-References: <1348750130.5093.1227.camel@edumazet-glaptop>
- <CAEP_g=-JAYHXM86AYNp7BhDV+eqfkKVgC+SJS1MVdo0K8fRLSQ@mail.gmail.com>
- <1348769294.5093.1566.camel@edumazet-glaptop>
- <1348769990.5093.1584.camel@edumazet-glaptop>
- <CAEP_g=8B7xZPxye0Kuu-EVKpTDt1a3nsJKb61aaYaqOGsYGx8w@mail.gmail.com>
- <1348841041.5093.2477.camel@edumazet-glaptop>
- <CAEP_g=_nSb-ite51PM-E8SY53yOPiZs8N3gDrYNc0L4OU2Ht=A@mail.gmail.com>
- <1349448747.21172.113.camel@edumazet-glaptop>
- <20121006041155.GA27134@gondor.apana.org.au>
- <1349500126.4883.4.camel@edumazet-laptop>
+From: Jeff Liu <jeff.liu@oracle.com>
+Subject: [PATCH] RDS: Fix spinlock recursion for rds over tcp transmit
+Date: Sat, 06 Oct 2012 13:42:37 +0800
+Message-ID: <506FC4CD.7070509@oracle.com>
+Reply-To: jeff.liu@oracle.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	Dan Carpenter <dan.carpenter@oracle.com>, davem@davemloft.net,
+	James Morris <james.l.morris@oracle.com>,
+	netdev@vger.kernel.org
+To: rds-devel@oss.oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sting.hengli.com.au ([178.18.18.71]:54643 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750835Ab2JFFON (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Oct 2012 01:14:13 -0400
-Content-Disposition: inline
-In-Reply-To: <1349500126.4883.4.camel@edumazet-laptop>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:30155 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750835Ab2JFFnt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Oct 2012 01:43:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 06, 2012 at 07:08:46AM +0200, Eric Dumazet wrote:
-> Le samedi 06 octobre 2012 =E0 12:11 +0800, Herbert Xu a =E9crit :
-> > On Fri, Oct 05, 2012 at 04:52:27PM +0200, Eric Dumazet wrote:
-> > > Current GRO cell is somewhat limited :
-> > >=20
-> > > - It uses a single list (napi->gro_list) of pending skbs
-> > >=20
-> > > - This list has a limit of 8 skbs (MAX_GRO_SKBS)
-> > >=20
-> > > - Workloads with lot of concurrent flows have small GRO hit rate =
-but
-> > >   pay high overhead (in inet_gro_receive())
-> > >=20
-> > > - Increasing MAX_GRO_SKBS is not an option, because GRO
-> > >   overhead becomes too high.
-> >=20
-> > Yeah these were all meant to be addressed at some point.
-> >=20
-> > > - Packets can stay a long time held in GRO cell (there is
-> > >   no flush if napi never completes on a stressed cpu)
-> >=20
-> > This should never happen though.  NAPI runs must always be
-> > punctuated just to guarantee one card never hogs a CPU.  Which
-> > driver causes these behaviour?
->=20
-> I believe its a generic issue, not specific to a driver.
->=20
-> napi_gro_flush() is only called from napi_complete()=20
->=20
-> Some drivers (marvell/skge.c & realtek/8139cp.c) calls it only becaus=
-e
-> they 'inline' napi_complete()
+Hello,
 
-So which driver has the potential of never doing napi_gro_flush?
+RDS ping/pong over TCP feature has broke for years(2.6.39 to 3.6.0) since we have to set TCP cork and
+call kerenel_sendmsg() to reply a ping requirement which both need to lock "struct sock *sk".
+However, this lock has already been hold before our rda_tcp_data_ready() callback is triggerred.
+As a result, we always facing spinlock recursion which would resulting in system panic...
 
-Cheers,
---=20
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Given that RDS ping is a special kind of message, we don't need to reply it as
+soon as possible, IMHO, we can schedule it to work queue as a delayed response to
+make TCP transport totally works.  Also, I think we can using the system default
+work queue to serve it to reduce the possible impact on general TCP transmit.
+
+With below patch, I have run rds-ping(run multiple ping between two hosts at the same time) and
+rds-stress(hostA listen, hostB send packets) for half day, it works to me.
+
+Thanks,
+-Jeff
+
+
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+CC: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+CC: David S. Miller <davem@davemloft.net>
+CC: James Morris <james.l.morris@oracle.com>
+Signed-off-by: Jie Liu <jeff.liu@oracle.com>
+
+---
+ net/rds/send.c |   80 ++++++++++++++++++++++++++++++++++++++++++++++++++++----
+ net/rds/tcp.h  |    7 +++++
+ 2 files changed, 82 insertions(+), 5 deletions(-)
+
+diff --git a/net/rds/send.c b/net/rds/send.c
+index 96531d4..011006e 100644
+--- a/net/rds/send.c
++++ b/net/rds/send.c
+@@ -38,8 +38,10 @@
+ #include <linux/list.h>
+ #include <linux/ratelimit.h>
+ #include <linux/export.h>
++#include <linux/workqueue.h>
+ 
+ #include "rds.h"
++#include "tcp.h"
+ 
+ /* When transmitting messages in rds_send_xmit, we need to emerge from
+  * time to time and briefly release the CPU. Otherwise the softlock watchdog
+@@ -55,6 +57,12 @@ static int send_batch_count = 64;
+ module_param(send_batch_count, int, 0444);
+ MODULE_PARM_DESC(send_batch_count, " batch factor when working the send queue");
+ 
++/* RDS over TCP ping/pong */
++static void rds_tcp_pong_worker(struct work_struct *work);
++static DEFINE_SPINLOCK(rds_tcp_pong_lock);
++static LIST_HEAD(rds_tcp_pong_list);
++static DECLARE_WORK(rds_tcp_pong_work, rds_tcp_pong_worker);
++
+ static void rds_send_remove_from_sock(struct list_head *messages, int status);
+ 
+ /*
+@@ -1082,11 +1090,7 @@ out:
+ 	return ret;
+ }
+ 
+-/*
+- * Reply to a ping packet.
+- */
+-int
+-rds_send_pong(struct rds_connection *conn, __be16 dport)
++static int rds_tcp_send_pong(struct rds_connection *conn, __be16 dport)
+ {
+ 	struct rds_message *rm;
+ 	unsigned long flags;
+@@ -1132,3 +1136,69 @@ out:
+ 		rds_message_put(rm);
+ 	return ret;
+ }
++
++static void rds_tcp_pong_worker(struct work_struct *work)
++{
++	struct rds_tcp_pong *tp;
++	struct rds_connection *conn;
++	__be16 dport;
++
++	spin_lock(&rds_tcp_pong_lock);
++	if (list_empty(&rds_tcp_pong_list))
++		goto out_unlock;
++
++	/*
++	 * Process on tcp pong once one time to reduce the possbile impact
++	 * on normal transmit.
++	 */
++	tp = list_entry(rds_tcp_pong_list.next, struct rds_tcp_pong, tp_node);
++	conn = tp->tp_conn;
++	dport = tp->tp_dport;
++	list_del(&tp->tp_node);
++	spin_unlock(&rds_tcp_pong_lock);
++
++	kfree(tp);
++	rds_tcp_send_pong(conn, dport);
++	goto out;
++
++out_unlock:
++	spin_unlock(&rds_tcp_pong_lock);
++out:
++	return;
++}
++
++/*
++ * RDS over TCP transport support ping/pong message.  However, it
++ * always resulting in sock spinlock recursion up to 3.7.0.  To solve
++ * this issue, we can shedule it to work queue as a delayed response.
++ * Here we using the system default work queue.
++ */
++int rds_tcp_pong(struct rds_connection *conn, __be16 dport)
++{
++	struct rds_tcp_pong *tp;
++	int ret = 0;
++
++	tp = kmalloc(sizeof(*tp), GFP_ATOMIC);
++	if (!tp) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	tp->tp_conn = conn;
++	tp->tp_dport = dport;
++	spin_lock(&rds_tcp_pong_lock);
++	list_add_tail(&tp->tp_node, &rds_tcp_pong_list);
++	spin_unlock(&rds_tcp_pong_lock);
++	schedule_work(&rds_tcp_pong_work);
++
++out:
++	return ret;
++}
++
++/*
++ * Reply to a ping package, TCP only.
++ */
++int rds_send_pong(struct rds_connection *conn, __be16 dport)
++{
++	return rds_tcp_pong(conn, dport);
++}
+diff --git a/net/rds/tcp.h b/net/rds/tcp.h
+index 9cf2927..c4c7e01 100644
+--- a/net/rds/tcp.h
++++ b/net/rds/tcp.h
+@@ -3,6 +3,13 @@
+ 
+ #define RDS_TCP_PORT	16385
+ 
++/* RDS over TCP ping/pong message entry */
++struct rds_tcp_pong {
++	struct list_head	tp_node;
++	struct rds_connection	*tp_conn;
++	__be16			tp_dport;
++};
++
+ struct rds_tcp_incoming {
+ 	struct rds_incoming	ti_inc;
+ 	struct sk_buff_head	ti_skb_list;
+-- 
+1.7.9.5
