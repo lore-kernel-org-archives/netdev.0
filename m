@@ -1,63 +1,50 @@
-From: David Miller <davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
 Subject: Re: [net:master 1/9] pch_gbe_main.c:(.text+0x510370): undefined
  reference to `pch_ch_control_write'
-Date: Sat, 06 Oct 2012 10:21:32 -0400 (EDT)
-Message-ID: <20121006.102132.1497404004255213029.davem@davemloft.net>
-References: <50701EEC.7080805@linux.intel.com>
-	<20121006.092207.1280541690613202532.davem@davemloft.net>
-	<50703B1B.2040705@linux.intel.com>
+Date: Sat, 6 Oct 2012 16:56:35 +0200
+Message-ID: <20121006145634.GA2276@netboy.at.omicron.at>
+References: <20121006075954.GA29618@localhost>
+ <50701EEC.7080805@linux.intel.com>
+ <20121006.092207.1280541690613202532.davem@davemloft.net>
+ <50703B1B.2040705@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fengguang.wu@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: haicheng.li@linux.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, fengguang.wu@intel.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Haicheng Li <haicheng.li@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:38476 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751260Ab2JFO4q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Oct 2012 10:56:46 -0400
+Content-Disposition: inline
 In-Reply-To: <50703B1B.2040705@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haicheng Li <haicheng.li@linux.intel.com>
-Date: Sat, 06 Oct 2012 22:07:23 +0800
-
-> On 10/06/2012 09:22 PM, David Miller wrote:
->> From: Haicheng Li<haicheng.li@linux.intel.com>
->> Date: Sat, 06 Oct 2012 20:07:08 +0800
->>
->>> The failure is due to the CONFIG_PPS is not set there, consequently
->>> CONFIG_PTP_1588_CLOCK can not be set as =y anyway.
->>>
->>> So David's patch of "da1586461e53a4dd045738cce309ab488970f0ef [1/9]
->>> pch_gbe: Fix PTP dependencies" is buggy. Furthermore, I think using
->>> "selects" to resolve such dependency issue is not good idea as it
->>> won't visit the dependencies.
->>>
->>> David, I would still suggest to take my original patch:
->>> https://lkml.org/lkml/2012/9/28/70
->>>
->>> + depends on PTP_1588_CLOCK_PCH&&  (PCH_GBE=m || PTP_1588_CLOCK_PCH=y)
->>>
->>> or simply like:
->>
->> This is all very rediculous if you ask me.
->>
->> Why should the user have to know a detail like the underlying
->> PTP chip type just to enable PTP on his networking card?
->>
->> Because that is what you are making him do with your change.
->>
->> Select removed the necessity of the user having to know these
->> things.
-> However it possibly breaks the build...
+On Sat, Oct 06, 2012 at 10:07:23PM +0800, Haicheng Li wrote:
 > 
 > IMHO, the reason why the dependency of PCH_PTP becomes so tricky is
 > that the code of these two modules call the functions of each other
-> (bad code structure?). To fix it neatly, either we restructure the
-> code or just simply make it:
-> + depends on PTP_1588_CLOCK_PCH=y
-> 
-> For PCH_GBE=m case, it does be able to pass the build test, but I'm
-> afraid it won't be smoothly workable via "insmod" due to the
-> codependency of these two when PCH_PTP is enabled.
+> (bad code structure?).
 
-Then why does it work for IXGBE and others who use select?
+Yes, that is the source of the problem. I don't recall how this habit
+of having the PTP option as a module got started (and I hope it wasn't
+me), but I think the right way to handle this option is with a simple
+boolean connected to ifdefs for the MAC driver.
+
+Come to think of it, it may have all started with the gianfar ptp
+module. In principle, the time stamping function of a MAC driver can
+be completely separate from the clock function, and indeed that is how
+the pair of gianfar drivers work.
+
+But for other hardware, it might not be practical to keep the
+functions separate, and in that case I would say, just keep it as one
+driver.
+
+Thanks,
+Richard
+
+PS It looks like no one is really looking after this PCH thing, so
+does anyone want to send me a board so I can take care of it? Let me
+know off list.
