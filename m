@@ -1,70 +1,45 @@
-From: Paolo Bonzini <pbonzini@redhat.com>
-Subject: Re: [PATCH 0/3] virtio-net: inline header support
-Date: Sat, 06 Oct 2012 14:54:03 +0200
-Message-ID: <507029EB.2050405@redhat.com>
-References: <cover.1348824232.git.mst@redhat.com>
-	<87vces2gxq.fsf__45058.6618776017$1349247807$gmane$org@rustcorp.com.au>
-	<506C192E.5060700@redhat.com> <87bogj2j1b.fsf@rustcorp.com.au>
-	<506D3610.7000103@redhat.com> <87ipaq1jtt.fsf@rustcorp.com.au>
-	<506D8DD5.20904@redhat.com>
-	<87391t1nkq.fsf__40391.6521034718$1349505001$gmane$org@rustcorp.com.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net:master 1/9] pch_gbe_main.c:(.text+0x510370): undefined
+ reference to `pch_ch_control_write'
+Date: Sat, 06 Oct 2012 09:22:07 -0400 (EDT)
+Message-ID: <20121006.092207.1280541690613202532.davem@davemloft.net>
+References: <20121006075954.GA29618@localhost>
+	<50701EEC.7080805@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Sasha Levin <levinsasha928@gmail.com>, avi@redhat.com,
-	Thomas Lendacky <tahm@linux.vnet.ibm.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87391t1nkq.fsf__40391.6521034718$1349505001$gmane$org@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: fengguang.wu@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: haicheng.li@linux.intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50701EEC.7080805@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Il 05/10/2012 07:43, Rusty Russell ha scritto:
->> >     struct virtio_scsi_req_cmd {
->> >         // Read-only
->> >         u8 lun[8];
->> >         u64 id;
->> >         u8 task_attr;
->> >         u8 prio;
->> >         u8 crn;
->> >         char cdb[cdb_size];
->> >         char dataout[];
->> >         // Write-only part
->> >         u32 sense_len;
->> >         u32 residual;
->> >         u16 status_qualifier;
->> >         u8 status;
->> >         u8 response;
->> >         u8 sense[sense_size];
->> >         char datain[];
->> >     };
->> >
->> > where cdb_size and sense_size come from configuration space.  The device
->> > right now expects everything before dataout/datain to be in a single
->> > descriptor, but that's in no way part of the spec.  Am I missing
->> > something egregious?
-> Since you wrote it, I hope not :)
+From: Haicheng Li <haicheng.li@linux.intel.com>
+Date: Sat, 06 Oct 2012 20:07:08 +0800
 
-Yeah, I guess the confusion came from cdb_size and sense_size being in
-configuration space.
+> The failure is due to the CONFIG_PPS is not set there, consequently
+> CONFIG_PTP_1588_CLOCK can not be set as =y anyway.
+> 
+> So David's patch of "da1586461e53a4dd045738cce309ab488970f0ef [1/9]
+> pch_gbe: Fix PTP dependencies" is buggy. Furthermore, I think using
+> "selects" to resolve such dependency issue is not good idea as it
+> won't visit the dependencies.
+> 
+> David, I would still suggest to take my original patch:
+> https://lkml.org/lkml/2012/9/28/70
+> 
+> + depends on PTP_1588_CLOCK_PCH && (PCH_GBE=m || PTP_1588_CLOCK_PCH=y)
+> 
+> or simply like:
 
-> That's good.  But virtio_blk's scsi command is insoluble AFAICT.  As I
-> said to Anthony, the best rules are "always" and "never", so I'd really
-> rather not have to grandfather that in.
+This is all very rediculous if you ask me.
 
-It is, but we can add a rule that if the (transport) flag
-VIRTIO_RING_F_ANY_HEADER_SG is set, the cdb field is always 32 bytes in
-virtio-blk.
+Why should the user have to know a detail like the underlying
+PTP chip type just to enable PTP on his networking card?
 
-Paolo
+Because that is what you are making him do with your change.
+
+Select removed the necessity of the user having to know these
+things.
