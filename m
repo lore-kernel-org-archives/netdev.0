@@ -1,77 +1,71 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 0/3] virtio-net: inline header support
-Date: Fri, 05 Oct 2012 15:13:01 +0930
-Message-ID: <87391t1nkq.fsf@rustcorp.com.au>
-References: <cover.1348824232.git.mst@redhat.com> <87vces2gxq.fsf__45058.6618776017$1349247807$gmane$org@rustcorp.com.au> <506C192E.5060700@redhat.com> <87bogj2j1b.fsf@rustcorp.com.au> <506D3610.7000103@redhat.com> <87ipaq1jtt.fsf@rustcorp.com.au> <506D8DD5.20904@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] ipv6: GRO should be ECN friendly
+Date: Sat, 06 Oct 2012 08:32:26 +0200
+Message-ID: <1349505146.21172.190.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Thomas Lendacky <tahm@linux.vnet.ibm.com>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, avi@redhat.com,
-	Sasha Levin <levinsasha928@gmail.com>
-To: Paolo Bonzini <pbonzini@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <506D8DD5.20904@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:49599 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750853Ab2JFGcb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Oct 2012 02:32:31 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so1265471bkc.19
+        for <netdev@vger.kernel.org>; Fri, 05 Oct 2012 23:32:29 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Paolo Bonzini <pbonzini@redhat.com> writes:
+From: Eric Dumazet <edumazet@google.com>
 
-> Il 04/10/2012 14:51, Rusty Russell ha scritto:
->> Paolo Bonzini <pbonzini@redhat.com> writes:
->> 
->>> Il 04/10/2012 02:11, Rusty Russell ha scritto:
->>>>>> There's a reason I haven't done this.  I really, really dislike "my
->>>>>> implemention isn't broken" feature bits.  We could have an infinite
->>>>>> number of them, for each bug in each device.
->>>>>
->>>>> However, this bug affects (almost) all implementations and (almost) all
->>>>> devices.  It even makes sense to reserve a transport feature bit for it
->>>>> instead of a device feature bit.
->>>>
->>>> Perhaps, but we have to fix the bugs first!
->>>
->>> Yes. :)  Isn't that what mst's patch does?
->>>
->>>> As I said, my torture patch broke qemu immediately.  Since noone has
->>>> leapt onto fixing that, I'll take a look now...
->>>
->>> I can look at virtio-scsi.
->> 
->> Actually, you can't, see my reply to Anthony...
->> 
->> Message-ID: <87lifm1y1n.fsf@rustcorp.com.au>
->
->     struct virtio_scsi_req_cmd {
->         // Read-only
->         u8 lun[8];
->         u64 id;
->         u8 task_attr;
->         u8 prio;
->         u8 crn;
->         char cdb[cdb_size];
->         char dataout[];
->         // Write-only part
->         u32 sense_len;
->         u32 residual;
->         u16 status_qualifier;
->         u8 status;
->         u8 response;
->         u8 sense[sense_size];
->         char datain[];
->     };
->
-> where cdb_size and sense_size come from configuration space.  The device
-> right now expects everything before dataout/datain to be in a single
-> descriptor, but that's in no way part of the spec.  Am I missing
-> something egregious?
+IPv4 side of the problem was addressed in commit a9e050f4e7f9d
+(net: tcp: GRO should be ECN friendly)
 
-Since you wrote it, I hope not :)
+This patch does the same, but for IPv6 : A Traffic Class mismatch
+doesnt mean flows are different, but instead should force a flush
+of previous packets.
 
-That's good.  But virtio_blk's scsi command is insoluble AFAICT.  As I
-said to Anthony, the best rules are "always" and "never", so I'd really
-rather not have to grandfather that in.
+This patch removes artificial packet reordering problem.
 
-Cheers,
-Rusty.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+---
+ net/ipv6/af_inet6.c |   11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index e22e6d8..7739d28 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -880,22 +880,25 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
+ 	nlen = skb_network_header_len(skb);
+ 
+ 	for (p = *head; p; p = p->next) {
+-		struct ipv6hdr *iph2;
++		const struct ipv6hdr *iph2;
++		u32 first_word; /* <Version:4><Traffic_Class:8><Flow_Label:20> */
+ 
+ 		if (!NAPI_GRO_CB(p)->same_flow)
+ 			continue;
+ 
+ 		iph2 = ipv6_hdr(p);
++		first_word = *(u32 *)iph ^ *(u32 *)iph2 ;
+ 
+-		/* All fields must match except length. */
++		/* All fields must match except length and Traffic Class. */
+ 		if (nlen != skb_network_header_len(p) ||
+-		    memcmp(iph, iph2, offsetof(struct ipv6hdr, payload_len)) ||
++		    (first_word & htonl(0xF00FFFFF)) ||
+ 		    memcmp(&iph->nexthdr, &iph2->nexthdr,
+ 			   nlen - offsetof(struct ipv6hdr, nexthdr))) {
+ 			NAPI_GRO_CB(p)->same_flow = 0;
+ 			continue;
+ 		}
+-
++		/* flush if Traffic Class fields are different */
++		NAPI_GRO_CB(p)->flush |= (first_word & htonl(0x0FF00000));
+ 		NAPI_GRO_CB(p)->flush |= flush;
+ 	}
+ 
