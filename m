@@ -1,102 +1,92 @@
-From: =?UTF-8?Q?Nie=C5=9Bcierowicz_Adam?= <adam.niescierowicz@justnet.pl>
-Subject: Re: 3.4.1 and 3.5-rc1 Packet lost at 250Mb/s
-Date: Sun, 07 Oct 2012 21:18:09 +0200
-Message-ID: <409ac8b30a6994028562e1a159ac60aa@justnet.pl>
-Reply-To: <adam.niescierowicz@justnet.pl>
+From: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH] net, bluetooth: don't attempt to free a channel that
+ wasn't created
+Date: Mon, 8 Oct 2012 05:41:17 +0800
+Message-ID: <20121007214117.GA13325@joana>
+References: <1349395197-12395-1-git-send-email-sasha.levin@oracle.com>
+ <20121005102159.GF12229@aemeltch-MOBL1>
+ <506EF827.3060100@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host-91.230.163.37.ltv.pl ([91.230.163.37]:56962 "EHLO
-	mail.justnet.pl" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751702Ab2JGTS1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2012 15:18:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrei Emeltchenko <andrei.emeltchenko.news-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <506EF827.3060100-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-W dniu 06.07.2012 12:13, Eric Dumazet napisa=C5=82(a):
+Hi Sasha,
 
-> On Fri, 2012-07-06 at 11:47 +0200, Nie=C5=9Bcierowicz Adam wrote:
->
->> Hello, Can I send something that will help determine the cause of=20
->> the
->> problem? W dniu 08.06.2012 11:41, Eric Dumazet napisa=C5=82(a):
->>
->>> On Fri, 2012-06-08 at 10:58 +0200, Nie=C5=9Bcierowicz Adam wrote:
->>>
->>>> Hello, recently we changed on the router kernel from 2.6.38.1 to
->>>> 3.4.1 and noticed 30% packet loss when traffic increases up to
->>>> 250MB / s. Similar is for kernel 3.5-rc1 Here a link to ifstat
->>>> http://wklej.org/id/767577/ [1] [2]
->>> You should give as much as possible delails on your setup=20
->>> (hardware,
->>> software) lspci cat /proc/cpuinfo cat /proc/interrupts ifconfig -a=20
->>> tc
->>> -s -d qdisc dmesg netstat -s
->> currently running on 2.6.38.1 and traffic is 100Mb / s lspci:
->> http://wklej.org/id/769102/ [2] /proc/cpuinfo:
->> http://wklej.org/id/769104/ [3] /proc/interrupts:
->> http://wklej.org/id/769106/ [4] ifconfig -a:
->> http://wklej.org/id/769108/ [5] tc -s -d qdisc:
->> http://wklej.org/id/769109/ [6] dmesg: here are some logs from=20
->> iptables
->> netstat -s: http://wklej.org/id/769110/ [7] lsmod:
->> http://wklej.org/id/769117/ [8] /proc/net/softnet_stat:
->> http://wklej.org/id/769116/ [9]
->
-> Same infos of 3.5-rcX kernel would be nice.
->
-> What NIC is eth0 ? (dmesg please)
->
-> It seems all network traffic on 2.6.38 is handled by a single cpu=20
-> (cpu0)
->
-> (seen in /proc/interrupts)
->
-> I suspect that with 3.4 or 3.5 kernels, traffic is handled by many=20
-> cpus
-> and they hit false sharing and contention.
->
-> You probably get better performance doing some affinity tuning :
->
-> For example,
-> eth0 serviced by cpu0
-> eth2 serviced by cpu1
-> eth3 serviced by cpu2
-> eth5 serviced by cpu3
->
-> and so on...
->
-> check and/or set /proc/irq/${NUM}/smp_affinity
+* Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org> [2012-10-05 11:09:27 -0400]:
 
-hello
-I would go back to an earlier thread.
+> On 10/05/2012 06:22 AM, Andrei Emeltchenko wrote:
+> > Hi Sasha,
+> > 
+> > On Thu, Oct 04, 2012 at 07:59:57PM -0400, Sasha Levin wrote:
+> >> We may currently attempt to free a channel which wasn't created due to
+> >> an error in the initialization path, this would cause a NULL ptr deref.
+> > 
+> > Please put oops dump here.
+> 
+> [   12.919073] BUG: unable to handle kernel NULL pointer dereference at 0000000000000010
+> [   12.919131] IP: [<ffffffff836645c4>] l2cap_chan_put+0x34/0x50
+> [   12.919135] PGD 0
+> [   12.919138] Oops: 0002 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+> [   12.919193] Dumping ftrace buffer:
+> [   12.919242]    (ftrace buffer empty)
+> [   12.919314] Modules linked in:
+> [   12.919318] CPU 1
+> [   12.919319] Pid: 6210, comm: krfcommd Tainted: G        W    3.6.0-next-20121004-sasha-00005-gb010653-dirty #30
+> [   12.919374] RIP: 0010:[<ffffffff836645c4>]  [<ffffffff836645c4>] l2cap_chan_put+0x34/0x50
+> [   12.919377] RSP: 0000:ffff880066933c38  EFLAGS: 00010246
+> [   12.919378] RAX: ffffffff8366c780 RBX: 0000000000000000 RCX: 6666666666666667
+> [   12.919379] RDX: 0000000000000fa0 RSI: ffffffff84d3f79e RDI: 0000000000000010
+> [   12.919381] RBP: ffff880066933c48 R08: ffffffff859989f8 R09: 0000000000000001
+> [   12.919382] R10: 0000000000000000 R11: 7fffffffffffffff R12: 0000000000000000
+> [   12.919383] R13: ffff88009b00a200 R14: ffff88009b00a200 R15: 0000000000000001
+> [   12.919385] FS:  0000000000000000(0000) GS:ffff880033600000(0000) knlGS:0000000000000000
+> [   12.919437] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [   12.919440] CR2: 0000000000000010 CR3: 0000000005026000 CR4: 00000000000406e0
+> [   12.919446] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> [   12.919451] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+> [   12.919504] Process krfcommd (pid: 6210, threadinfo ffff880066932000, task ffff880065c4b000)
+> [   12.919506] Stack:
+> [   12.919510]  ffff88009b00a200 ffff880032084000 ffff880066933c68 ffffffff8366c7bc
+> [   12.919513]  7fffffffffffffff ffff880032084000 ffff880066933c98 ffffffff833ae0ae
+> [   12.919516]  ffff880066933ca8 0000000000000000 0000000000000000 ffff88009b00a200
+> [   12.919517] Call Trace:
+> [   12.919522]  [<ffffffff8366c7bc>] l2cap_sock_destruct+0x3c/0x80
+> [   12.919527]  [<ffffffff833ae0ae>] __sk_free+0x1e/0x1f0
+> [   12.919530]  [<ffffffff833ae2f7>] sk_free+0x17/0x20
+> [   12.919585]  [<ffffffff8366ca4e>] l2cap_sock_alloc.constprop.5+0x9e/0xd0
+> [   12.919591]  [<ffffffff8366cb9e>] l2cap_sock_create+0x7e/0x100
+> [   12.919652]  [<ffffffff83a4f32a>] ? _raw_read_lock+0x6a/0x80
+> [   12.919658]  [<ffffffff836402c4>] ? bt_sock_create+0x74/0x110
+> [   12.919660]  [<ffffffff83640308>] bt_sock_create+0xb8/0x110
+> [   12.919664]  [<ffffffff833aa232>] __sock_create+0x282/0x3b0
+> [   12.919720]  [<ffffffff833aa0b0>] ? __sock_create+0x100/0x3b0
+> [   12.919725]  [<ffffffff836785b0>] ? rfcomm_process_sessions+0x17e0/0x17e0
+> [   12.919779]  [<ffffffff833aa37f>] sock_create_kern+0x1f/0x30
+> [   12.919784]  [<ffffffff83675714>] rfcomm_l2sock_create+0x44/0x70
+> [   12.919787]  [<ffffffff836785b0>] ? rfcomm_process_sessions+0x17e0/0x17e0
+> [   12.919790]  [<ffffffff836785fe>] rfcomm_run+0x4e/0x1f0
+> [   12.919846]  [<ffffffff836785b0>] ? rfcomm_process_sessions+0x17e0/0x17e0
+> [   12.919852]  [<ffffffff81138ee3>] kthread+0xe3/0xf0
+> [   12.919908]  [<ffffffff8117b12e>] ? put_lock_stats.isra.14+0xe/0x40
+> [   12.919914]  [<ffffffff81138e00>] ? flush_kthread_work+0x1f0/0x1f0
+> [   12.919968]  [<ffffffff83a5077c>] ret_from_fork+0x7c/0x90
+> [   12.919973]  [<ffffffff81138e00>] ? flush_kthread_work+0x1f0/0x1f0
+> [   12.920161] Code: 83 ec 08 f6 05 ff 58 44 02 04 74 1b 8b 4f 10 48 89 fa 48 c7 c6 d9 d7 d4 84 48 c7 c7 80 9e aa 85 31 c0 e8 80
+> ac 3a fe 48 8d 7b 10 <f0> 83 6b 10 01 0f 94 c0 84 c0 74 05 e8 8b e0 ff ff 48 83 c4 08
+> [   12.920165] RIP  [<ffffffff836645c4>] l2cap_chan_put+0x34/0x50
+> [   12.920166]  RSP <ffff880066933c38>
+> [   12.920167] CR2: 0000000000000010
+> [   12.920417] ---[ end trace 5a9114e8a158ab84 ]---
 
-Currently is installed kernel 3.6.0 and symptoms are the same
+Can you append the crash output to the commit message and resend this patch? 
 
-about configuration:
-
-- affinity on
-
-- lspci: http://wklej.org/id/843156/ [10]
-
-- /proc/cpuinfo: http://wklej.org/id/843158/ [11]
-
-- /proc/interrupts: http://wklej.org/id/843161/ [12]
-
-- ifconfig -a: http://wklej.org/id/843162/ [13]
-
-- tc -s -d qdisc: http://wklej.org/id/843164/ [14]
-
-- dmesg: http://wklej.org/id/843166/ [15]
-
-- lsmod: http://wklej.org/id/843167/ [16]
-
-- /proc/net/softnet_stat: /proc/net/softnet_stat
-
-attach something else?
-
-Thanks
+	Gustavo
