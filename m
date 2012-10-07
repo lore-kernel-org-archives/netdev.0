@@ -1,70 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net 3/6] ipv4: add check if nh_pcpu_rth_output is
- allocated
-Date: Sun, 07 Oct 2012 15:34:23 +0200
-Message-ID: <1349616863.21172.2376.camel@edumazet-glaptop>
-References: <1349609168-9848-1-git-send-email-ja@ssi.bg>
-	 <1349609168-9848-4-git-send-email-ja@ssi.bg>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] ptp: use list_move instead of list_del/list_add
+Date: Sun, 7 Oct 2012 21:41:50 +0800
+Message-ID: <CAPgLHd87UYDK7f=scccBq7AAO67=9pcg5CdKBG0+8i0kPFtXAw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: linux-net-drivers@solarflare.com, bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:60969 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750760Ab2JGNe3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2012 09:34:29 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so1614622bkc.19
-        for <netdev@vger.kernel.org>; Sun, 07 Oct 2012 06:34:27 -0700 (PDT)
-In-Reply-To: <1349609168-9848-4-git-send-email-ja@ssi.bg>
+Received: from mail-qc0-f180.google.com ([209.85.216.180]:43723 "EHLO
+	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753047Ab2JGNlv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2012 09:41:51 -0400
+Received: by mail-qc0-f180.google.com with SMTP id v28so2205151qcm.11
+        for <netdev@vger.kernel.org>; Sun, 07 Oct 2012 06:41:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-10-07 at 14:26 +0300, Julian Anastasov wrote:
-> 	Avoid NULL ptr dereference and caching if
-> nh_pcpu_rth_output is not allocated.
-> 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> ---
->  net/ipv4/route.c |   12 +++++++++---
->  1 files changed, 9 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 488a8bb..0a600cc 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -1798,18 +1798,24 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
->  	fnhe = NULL;
->  	if (fi) {
->  		struct rtable __rcu **prth;
-> +		struct fib_nh *nh = &FIB_RES_NH(*res);
->  
-> -		fnhe = find_exception(&FIB_RES_NH(*res), fl4->daddr);
-> +		fnhe = find_exception(nh, fl4->daddr);
->  		if (fnhe)
->  			prth = &fnhe->fnhe_rth;
-> -		else
-> -			prth = __this_cpu_ptr(FIB_RES_NH(*res).nh_pcpu_rth_output);
-> +		else {
-> +			if (!nh->nh_pcpu_rth_output)
-> +				goto add;
-> +			prth = __this_cpu_ptr(nh->nh_pcpu_rth_output);
-> +		}
->  		rth = rcu_dereference(*prth);
->  		if (rt_cache_valid(rth)) {
->  			dst_hold(&rth->dst);
->  			return rth;
->  		}
->  	}
-> +
-> +add:
->  	rth = rt_dst_alloc(dev_out,
->  			   IN_DEV_CONF_GET(in_dev, NOPOLICY),
->  			   IN_DEV_CONF_GET(in_dev, NOXFRM),
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Alternative would be to make sure the allocation succeeded in
-fib_create_info(), but I have no idea on the maximal number of fib_info
-a complex routing setup might need ?
+Using list_move() instead of list_del() + list_add().
 
-I guess a typical machine needs less than 30 fib_info...
+dpatch engine is used to auto generate this patch.
+(https://github.com/weiyj/dpatch)
+
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/sfc/ptp.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
+index 5b3dd02..0767043f 100644
+--- a/drivers/net/ethernet/sfc/ptp.c
++++ b/drivers/net/ethernet/sfc/ptp.c
+@@ -640,8 +640,7 @@ static void efx_ptp_drop_time_expired_events(struct efx_nic *efx)
+ 			evt = list_entry(cursor, struct efx_ptp_event_rx,
+ 					 link);
+ 			if (time_after(jiffies, evt->expiry)) {
+-				list_del(&evt->link);
+-				list_add(&evt->link, &ptp->evt_free_list);
++				list_move(&evt->link, &ptp->evt_free_list);
+ 				netif_warn(efx, hw, efx->net_dev,
+ 					   "PTP rx event dropped\n");
+ 			}
+@@ -684,8 +683,7 @@ static enum ptp_packet_state efx_ptp_match_rx(struct efx_nic *efx,
+ 
+ 			match->state = PTP_PACKET_STATE_MATCHED;
+ 			rc = PTP_PACKET_STATE_MATCHED;
+-			list_del(&evt->link);
+-			list_add(&evt->link, &ptp->evt_free_list);
++			list_move(&evt->link, &ptp->evt_free_list);
+ 			break;
+ 		}
+ 	}
+@@ -820,8 +818,7 @@ static int efx_ptp_stop(struct efx_nic *efx)
+ 	/* Drop any pending receive events */
+ 	spin_lock_bh(&efx->ptp_data->evt_lock);
+ 	list_for_each_safe(cursor, next, &efx->ptp_data->evt_list) {
+-		list_del(cursor);
+-		list_add(cursor, &efx->ptp_data->evt_free_list);
++		list_move(cursor, &efx->ptp_data->evt_free_list);
+ 	}
+ 	spin_unlock_bh(&efx->ptp_data->evt_lock);
+ 
