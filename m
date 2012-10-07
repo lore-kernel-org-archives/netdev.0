@@ -1,43 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix PTP dependencies: explicitly select all the
- possible dependencies.
-Date: Sun, 07 Oct 2012 14:54:32 -0400 (EDT)
-Message-ID: <20121007.145432.1141528829169465290.davem@davemloft.net>
-References: <50706885.1030908@linux.intel.com>
-	<20121006.171748.734171045678392820.davem@davemloft.net>
-	<50718E45.1070706@linux.intel.com>
+Subject: Re: [STABLE][3.0][3.2][Add PATCH] phy/fixed: use an unique MDIO
+ bus name
+Date: Sun, 07 Oct 2012 14:56:22 -0400 (EDT)
+Message-ID: <20121007.145622.83624305358947187.davem@davemloft.net>
+References: <1349441987.6755.45.camel@gandalf.local.home>
+	<1349624019.16173.113.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fengguang.wu@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: haicheng.li@linux.intel.com
+Cc: rostedt@goodmis.org, linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org, gregkh@linuxfoundation.org,
+	florian@openwrt.org, netdev@vger.kernel.org
+To: ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44934 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44983 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753814Ab2JGSyd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2012 14:54:33 -0400
-In-Reply-To: <50718E45.1070706@linux.intel.com>
+	with ESMTP id S1754061Ab2JGS4Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2012 14:56:24 -0400
+In-Reply-To: <1349624019.16173.113.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Haicheng Li <haicheng.li@linux.intel.com>
-Date: Sun, 07 Oct 2012 22:14:29 +0800
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Sun, 07 Oct 2012 16:33:39 +0100
 
+> Networking stable fixes are normally vetted, backported and bundled up
+> by David, so I'll let him decide on this.
+> 
+> There are a lot more MDIO bus drivers that don't play nicely with
+> others, most of which seem to be fixed in mainline.  If David agrees
+> that these are generally worthwhile then perhaps someone could try to
+> gather those up?
 
-Use "pch_gbe: " as the prefix in your patch Subject line,
-also:
+I very much am not inclined to backport this stuff, it impacts
+an extremely small group of people so the risk/benefit ratio is
+simply not worth it for me to do the work.
 
-> @@ -26,6 +26,9 @@ if PCH_GBE
->  config PCH_PTP
->  	bool "PCH PTP clock support"
->  	default n
-> +	depends on EXPERIMENTAL
-> +	select PPS
-> +	select PTP_1588_CLOCK
+If someone else does the work and tests it, I'm willing to ACK
+it going into -stable.
 
-This patch is corrupted by your email client.
-
-DO NOT resend this patch without first emailing it to yourself
-and verifying that you can in fact apply what you receive in
-the email cleanly.
+But this change impacted a lot of MDIO drivers and there were
+regressions that needed to be fixed up the first time this stuff
+went in.
