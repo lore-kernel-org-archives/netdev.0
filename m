@@ -1,66 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] ipv6: gro: IPV6_GRO_CB(skb)->proto problem
-Date: Sun, 7 Oct 2012 12:27:01 +0800
-Message-ID: <20121007042701.GB31839@gondor.apana.org.au>
-References: <1349550927.21172.1759.camel@edumazet-glaptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [patch v4 1/2] netlink: add reference of module in
+ netlink_dump_start
+Date: Sun, 07 Oct 2012 00:31:17 -0400 (EDT)
+Message-ID: <20121007.003117.530528242235438911.davem@davemloft.net>
+References: <1349417749-24869-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sting.hengli.com.au ([178.18.18.71]:58858 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750851Ab2JGE1I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2012 00:27:08 -0400
-Content-Disposition: inline
-In-Reply-To: <1349550927.21172.1759.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
+	pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
+	jengelh-9+2X+4sQBs8@public.gmane.org
+To: gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1349417749-24869-1-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 06, 2012 at 09:15:27PM +0200, Eric Dumazet wrote:
-> It seems IPV6_GRO_CB(skb)->proto can be destroyed in skb_gro_receive()
-> if a new skb is allocated (to serve as an anchor for frag_list)
-> 
-> At line 3049 we copy NAPI_GRO_CB() only (not the IPV6 specific part)
-> 
-> *NAPI_GRO_CB(nskb) = *NAPI_GRO_CB(p);
-> 
-> So we leave IPV6_GRO_CB(nskb)->proto to 0 (fresh skb allocation) instead
-> of PROTO_TCP
-> 
-> So ipv6_gro_complete() wont be able to call ops->gro_complete()
-> [ tcp6_gro_complete() ]
-> 
-> I would fix this by moving proto in NAPI_GRO_CB() [ ie getting rid of
-> IPV6_GRO_CB ]
-> 
-> Am I missing something ?
-> 
-> (I'll submit a proper patch once/if prior GRO ones are accepted/merged
-> by David)
+From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Date: Fri, 5 Oct 2012 14:15:48 +0800
 
-No I think you're absolutely right.
-
->  include/linux/netdevice.h |    2 ++
->  net/ipv6/af_inet6.c       |   11 ++---------
->  2 files changed, 4 insertions(+), 9 deletions(-)
+> I get a panic when I use ss -a and rmmod inet_diag at the
+> same time.
 > 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 01646aa..3f13441 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1510,6 +1510,8 @@ struct napi_gro_cb {
->  	int free;
->  #define NAPI_GRO_FREE		  1
->  #define NAPI_GRO_FREE_STOLEN_HEAD 2
-> +
-> +	u8 proto;
+> it's because netlink_dump use inet_diag_dump witch function
+> belongs to module inet_diag.
+> 
+> I search the codes and find many modules have the same problem.
+> We need add reference of the module which the cb->dump belongs
+> to.
+> 
+> Thanks for all help from Stephen,Jan,Eric,Steffen and Pablo.
+> 
+> Change From v3:
+> change netlink_dump_start to inline,suggestion from Pablo and
+> Eric.
+> 
+> Change From v2:
+> delete netlink_dump_done,and call module_put in netlink_dump
+> and netlink_sock_destruct.
+> 
+> Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 
-I'd prefer to keep it as an int since we're not really running
-short on space.
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
