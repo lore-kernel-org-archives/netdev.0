@@ -1,57 +1,141 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] net: gro: selective flush of packets
-Date: Sun, 7 Oct 2012 08:32:09 +0800
-Message-ID: <20121007003208.GA31839@gondor.apana.org.au>
-References: <1348841041.5093.2477.camel@edumazet-glaptop>
- <CAEP_g=_nSb-ite51PM-E8SY53yOPiZs8N3gDrYNc0L4OU2Ht=A@mail.gmail.com>
- <1349448747.21172.113.camel@edumazet-glaptop>
- <20121006041155.GA27134@gondor.apana.org.au>
- <1349500126.4883.4.camel@edumazet-laptop>
- <20121006051407.GA27390@gondor.apana.org.au>
- <1349504541.21172.183.camel@edumazet-glaptop>
- <1349506825.21172.241.camel@edumazet-glaptop>
- <20121006105618.GA28591@gondor.apana.org.au>
- <1349546929.21172.1598.camel@edumazet-glaptop>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: Re: [PATCH] flexcan: disable bus error interrupts for the i.MX28
+Date: Sun, 7 Oct 2012 11:09:00 +0800
+Message-ID: <20121007030858.GJ20231@S2101-09.ap.freescale.net>
+References: <5065A35B.3020702@grandegger.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>,
-	Tom Herbert <therbert@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sting.hengli.com.au ([178.18.18.71]:57228 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750954Ab2JGAcQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Oct 2012 20:32:16 -0400
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Linux-CAN <linux-can@vger.kernel.org>,
+	Hui Wang <jason77.wang@gmail.com>,
+	Dong Aisheng <b29396@freescale.com>
+To: Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1349546929.21172.1598.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <5065A35B.3020702@grandegger.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 06, 2012 at 08:08:49PM +0200, Eric Dumazet wrote:
->
-> @@ -3981,8 +3996,17 @@ static void net_rx_action(struct softirq_action *h)
->  				local_irq_enable();
->  				napi_complete(n);
->  				local_irq_disable();
-> -			} else
-> +			} else {
-> +				if (n->gro_list) {
-> +					/* flush too old packets
-> +					 * If HZ < 1000, flush all packets.
-> +					 */
-> +					local_irq_enable();
-> +					napi_gro_flush(n, HZ >= 1000);
-> +					local_irq_disable();
-> +				}
->  				list_move_tail(&n->poll_list, &sd->poll_list);
-> +			}
+On Fri, Sep 28, 2012 at 03:17:15PM +0200, Wolfgang Grandegger wrote:
+> Due to a bug in most Flexcan cores, the bus error interrupt needs
+> to be enabled. Otherwise we don't get any error warning or passive
+> interrupts. This is _not_ necessay for the i.MX28 and this patch
+> disables bus error interrupts if "berr-reporting" is not requested.
+> This avoids bus error flooding, which might harm, especially on
+> low-end systems.
+> 
+> To handle such quirks of the Flexcan cores, a hardware feature flag
+> has been introduced, also replacing the "hw_ver" variable. So far
+> nobody could tell what Flexcan core version is available on what
+> Freescale SOC, apart from the i.MX6Q and P1010, and which bugs or
+> features are present on the various "hw_rev".
+> 
+> CC: Hui Wang <jason77.wang@gmail.com>
+> CC: Shawn Guo <shawn.guo@linaro.org>
+> Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+> ---
+> 
+> Concerning the bug, I know that the i.MX35 does have it. Maybe other
+> Flexcan cores than on the i.MX28 does *not* have it either. If you
+> have a chance, please check on the P1010, i.MX6Q, i.MX51, i.MX53,
+> etc.
 
-Why don't we just always flush everything?
+>From what I can tell, i.MX35, i.MX51 and i.MX53 use the same version,
+so they should all have the bug.  And for i.MX6Q, since it uses a newer
+version even than i.MX28, I would believe it's affected by the bug.
+But I'm copying Dong who should have better knowledge about this to
+confirm. 
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Shawn
+
+> 
+> Wolfgang.
+> 
+> 
+>  drivers/net/can/flexcan.c |   29 +++++++++++++++++++----------
+>  1 files changed, 19 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
+> index c5f1431..c78ecfc 100644
+> --- a/drivers/net/can/flexcan.c
+> +++ b/drivers/net/can/flexcan.c
+> @@ -144,6 +144,10 @@
+>  
+>  #define FLEXCAN_MB_CODE_MASK		(0xf0ffffff)
+>  
+> +/* FLEXCAN hardware feature flags */
+> +#define FLEXCAN_HAS_V10_FEATURES	BIT(1) /* For core version >= 10 */
+> +#define FLEXCAN_HAS_BROKEN_ERR_STATE	BIT(2) /* Broken error state handling */
+> +
+>  /* Structure of the message buffer */
+>  struct flexcan_mb {
+>  	u32 can_ctrl;
+> @@ -178,7 +182,7 @@ struct flexcan_regs {
+>  };
+>  
+>  struct flexcan_devtype_data {
+> -	u32 hw_ver;	/* hardware controller version */
+> +	u32 features;	/* hardware controller features */
+>  };
+>  
+>  struct flexcan_priv {
+> @@ -197,11 +201,11 @@ struct flexcan_priv {
+>  };
+>  
+>  static struct flexcan_devtype_data fsl_p1010_devtype_data = {
+> -	.hw_ver = 3,
+> +	.features = FLEXCAN_HAS_BROKEN_ERR_STATE,
+>  };
+> -
+> +static struct flexcan_devtype_data fsl_imx28_devtype_data;
+>  static struct flexcan_devtype_data fsl_imx6q_devtype_data = {
+> -	.hw_ver = 10,
+> +	.features = FLEXCAN_HAS_V10_FEATURES | FLEXCAN_HAS_BROKEN_ERR_STATE,
+>  };
+>  
+>  static const struct can_bittiming_const flexcan_bittiming_const = {
+> @@ -741,15 +745,19 @@ static int flexcan_chip_start(struct net_device *dev)
+>  	 * enable tx and rx warning interrupt
+>  	 * enable bus off interrupt
+>  	 * (== FLEXCAN_CTRL_ERR_STATE)
+> -	 *
+> -	 * _note_: we enable the "error interrupt"
+> -	 * (FLEXCAN_CTRL_ERR_MSK), too. Otherwise we don't get any
+> -	 * warning or bus passive interrupts.
+>  	 */
+>  	reg_ctrl = flexcan_read(&regs->ctrl);
+>  	reg_ctrl &= ~FLEXCAN_CTRL_TSYN;
+>  	reg_ctrl |= FLEXCAN_CTRL_BOFF_REC | FLEXCAN_CTRL_LBUF |
+> -		FLEXCAN_CTRL_ERR_STATE | FLEXCAN_CTRL_ERR_MSK;
+> +		FLEXCAN_CTRL_ERR_STATE;
+> +	/*
+> +	 * enable the "error interrupt" (FLEXCAN_CTRL_ERR_MSK),
+> +	 * on most Flexcan cores, too. Otherwise we don't get
+> +	 * any error warning or passive interrupts.
+> +	 */
+> +	if (priv->devtype_data->features & FLEXCAN_HAS_BROKEN_ERR_STATE ||
+> +	    priv->can.ctrlmode & CAN_CTRLMODE_BERR_REPORTING)
+> +		reg_ctrl |= FLEXCAN_CTRL_ERR_MSK;
+>  
+>  	/* save for later use */
+>  	priv->reg_ctrl_default = reg_ctrl;
+> @@ -772,7 +780,7 @@ static int flexcan_chip_start(struct net_device *dev)
+>  	flexcan_write(0x0, &regs->rx14mask);
+>  	flexcan_write(0x0, &regs->rx15mask);
+>  
+> -	if (priv->devtype_data->hw_ver >= 10)
+> +	if (priv->devtype_data->features & FLEXCAN_HAS_V10_FEATURES)
+>  		flexcan_write(0x0, &regs->rxfgmask);
+>  
+>  	flexcan_transceiver_switch(priv, 1);
+> @@ -954,6 +962,7 @@ static void __devexit unregister_flexcandev(struct net_device *dev)
+>  
+>  static const struct of_device_id flexcan_of_match[] = {
+>  	{ .compatible = "fsl,p1010-flexcan", .data = &fsl_p1010_devtype_data, },
+> +	{ .compatible = "fsl,imx28-flexcan", .data = &fsl_imx28_devtype_data, },
+>  	{ .compatible = "fsl,imx6q-flexcan", .data = &fsl_imx6q_devtype_data, },
+>  	{ /* sentinel */ },
+>  };
+> -- 
+> 1.7.7.6
+> 
