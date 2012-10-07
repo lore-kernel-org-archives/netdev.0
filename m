@@ -1,196 +1,142 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [1/2] PCI-Express Non-Transparent Bridge Support
-Date: Sun, 7 Oct 2012 14:13:44 +0200
-Message-ID: <20121007141344.6624e873@wp.pl>
-References: <1349213177-9985-2-git-send-email-jon.mason@intel.com>
+From: Daniel Borkmann <danborkmann@iogearbox.net>
+Subject: Re: [PATCH] Packet mmap : allow the user to choose the offset of the
+ tx payload.
+Date: Sun, 7 Oct 2012 14:44:39 +0200
+Message-ID: <CAD6jFUQrtYaxxkgRtCvY3y7DpR2VQb2HH9SouWGKQbuV46x95A@mail.gmail.com>
+References: <1349442629-10960-1-git-send-email-paul.chavent@onera.fr>
+	<CAD6jFUTmNiRHdAkckkwcV2rEOf_kxjHmntTO+rG6ewLs-RhFfg@mail.gmail.com>
+	<7b317aa8fa2c96f3bf7ce916d18eb550@sybille.onecert.fr>
+	<CAD6jFURTMDL6WFGOJhMdnS3zuejYm0uaBPb1TYuNNdUS-7w89w@mail.gmail.com>
+	<0a20d3610fc578b516cad3f81d14bf50@sybille.onecert.fr>
+	<CAD6jFUS+ovW79iOZxN-ptTZiTF9VsYnoLA-aWFSBX-zUR8OKGQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>,
-	Nicholas Bellinger <nab@risingtidesystems.com>
-To: Jon Mason <jon.mason@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1349213177-9985-2-git-send-email-jon.mason@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, edumazet@google.com, xemul@parallels.com,
+	herbert@gondor.hengli.com.au, netdev@vger.kernel.org,
+	johann.baudy@gnu-log.net, uaca@alumni.uv.es
+To: pchavent <Paul.Chavent@onera.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:57874 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750754Ab2JGMov (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2012 08:44:51 -0400
+Received: from [78.46.4.229] (helo=sslproxy03.your-server.de)
+	by www62.your-server.de with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.74)
+	(envelope-from <danborkmann@iogearbox.net>)
+	id 1TKqDt-00036p-LM
+	for netdev@vger.kernel.org; Sun, 07 Oct 2012 14:44:45 +0200
+Received: from [74.125.83.46] (helo=mail-ee0-f46.google.com)
+	by sslproxy03.your-server.de with esmtpsa (TLS1.0:RSA_ARCFOUR_SHA1:16)
+	(Exim 4.72)
+	(envelope-from <danborkmann@iogearbox.net>)
+	id 1TKqA3-0001t0-Rz
+	for netdev@vger.kernel.org; Sun, 07 Oct 2012 14:40:47 +0200
+Received: by mail-ee0-f46.google.com with SMTP id b15so2240301eek.19
+        for <netdev@vger.kernel.org>; Sun, 07 Oct 2012 05:44:39 -0700 (PDT)
+In-Reply-To: <CAD6jFUS+ovW79iOZxN-ptTZiTF9VsYnoLA-aWFSBX-zUR8OKGQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Sun, Oct 7, 2012 at 12:50 PM, Daniel Borkmann
+<danborkmann@iogearbox.net> wrote:
+> On Sat, Oct 6, 2012 at 9:43 AM, pchavent <Paul.Chavent@onera.fr> wrote:
+>> On Fri, 5 Oct 2012 21:37:58 +0200, Daniel Borkmann wrote:
+>>> On Fri, Oct 5, 2012 at 9:21 PM, pchavent <Paul.Chavent@onera.fr> wrote:
+>>>> On Fri, 5 Oct 2012 16:17:12 +0200, Daniel Borkmann wrote:
+>>>>> On Fri, Oct 5, 2012 at 3:10 PM, Paul Chavent <Paul.Chavent@onera.fr>
+>>>>> wrote:
+>>>>>>
+>>>>>>
+>>>>>> The tx offset of packet mmap tx ring used to be :
+>>>>>> (TPACKET2_HDRLEN - sizeof(struct sockaddr_ll))
+>>>>>>
+>>>>>> The problem is that depending on the usage of SOCK_DGRAM or
+>>>>>> SOCK_RAW, the payload could be aligned or not.
+>>>>>>
+>>>>>> This patch allow to let the user give an offset for it's tx
+>>>>>> payload if he desires.
+>>>>>>
+>>>>>> Signed-off-by: Paul Chavent <paul.chavent@onera.fr>
+>>>>>
+>>>>>
+>>>>> Can you provide an example when it doesn't hit TPACKET_ALIGNMENT?
+>>>>
+>>>>
+>>>> When we use tx ring, the user have to write at (TPACKET_HDRLEN -
+>>>> sizeof(struct sockaddr_ll))
+>>>>
+>>>> This adress is aligned on TPACKET_ALIGNMENT since
+>>>> TPACKET_HDRLEN = (TPACKET_ALIGN(sizeof(struct tpacket_hdr)) +
+>>>> sizeof(struct
+>>>> sockaddr_ll))
+>>>>
+>>>> When we use the tx ring with SOCK_RAW option, the mac header is aligned
+>>>> on
+>>>> TPACKET_ALIGNMENT, but not the payload (14 bytes away).
+>>>
+>>>
+>>> Okay, I'm confused about your intentions, maybe I'm missing something.
+>>> The man-page of packet(7) clearly says:
+>>>
+>>> The socket_type is either SOCK_RAW for raw packets *including* the
+>>> link level header or SOCK_DGRAM for cooked packets with  the link
+>>> level header *removed*.
+>>>
+>>> So this is perfectly intended behavior of PF_PACKET.
+>>>
+>>> Cheers,
+>>>
+>>> Daniel
+>>
+>>
+>> Yes, i also expect to be able to include the link level header when i use
+>> SOCK_RAW.
+>>
+>> My intention is to send a frame with this payload (for example) :
+>> typedef struct
+>> {
+>>   double   ts;
+>>   uint64_t foo;
+>> } test_t;
+>>
+>> So i get a pointer to the raw packet :
+>> void * raw_packet = frame_base + (TPACKET_HDRLEN - sizeof(struct
+>> sockaddr_ll));
+>>
+>> I cook the header :
+>> memcpy(raw_packet +  0, dst_addr, sizeof(dst_addr));
+>> memcpy(raw_packet +  6, src_addr, sizeof(src_addr));
+>> memcpy(raw_packet + 12, type    , sizeof(type));
+>>
+>> Then i get a pointer to the beginning of payload :
+>> test_t * payload = raw_packet + 14;
+>>
+>> Here payload is at 58 bytes from the beginning of the frame.
+>>
+>> Then i fill the payload :
+>> payload->ts = 1.0;
+>> payload->foo = 2;
+>> ...
+>>
+>> These are misaligned accesses.
+>>
+>> I don't care to fill the cooked header if it's misaligned, but i would like
+>> to be able to fill the frame directly in the ring buffer being on aligned
+>> boundaries.
 
-it's good to see some NTB code getting into mainline! I have a few comments
-though.
+Just a minor remark: speaking about your patch, in the case of
+SOCK_RAW I think you rather might want to care whether your *mac
+header* starts at an aligned offset or not, since the kernel doesn't
+care about your particular payload, but about the frame as a whole
+that it needs to process.
 
-On Tue, 02 Oct 2012 21:26:16 -0000, Jon Mason <jon.mason@intel.com>
-wrote:
+> Okay.
+>
+> Maybe what you could do in a new version of your patch is to introduce
+> a TP_STATUS flag, e.g. TP_STATUS_SEND_HAS_OFF that you pass along
+> binary or'ed with the commonly used flags, and then you can fill
+> tp_mac resp. tp_net with offsets. By that, you won't break legacy
+> stuff.
 
-[...]
->+/**
->+ * ntb_write_local_spad() - write to the secondary scratchpad register
->+ * @ndev: pointer to ntb_device instance
->+ * @idx: index to the scratchpad register, 0 based
->+ * @val: the data value to put into the register
->+ *
->+ * This function allows writing of a 32bit value to the indexed scratchpad
->+ * register. The register resides on the secondary (external) side.
->+ *
->+ * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
->+ */
-[...]
->+/**
->+ * ntb_write_remote_spad() - write to the secondary scratchpad register
->+ * @ndev: pointer to ntb_device instance
->+ * @idx: index to the scratchpad register, 0 based
->+ * @val: the data value to put into the register
->+ *
->+ * This function allows writing of a 32bit value to the indexed scratchpad
->+ * register. The register resides on the secondary (external) side.
->+ *
->+ * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
->+ */
-
-Those comments look suspiciously similar. I think one of the functions
-does write to primary scratchpad?
-
-[...]
->+/**
->+ * ntb_read_local_spad() - read from the primary scratchpad register
->+ * @ndev: pointer to ntb_device instance
->+ * @idx: index to scratchpad register, 0 based
->+ * @val: pointer to 32bit integer for storing the register value
->+ *
->+ * This function allows reading of the 32bit scratchpad register on
->+ * the primary (internal) side.
->+ *
->+ * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
->+ */
-[...]
->+/**
->+ * ntb_read_remote_spad() - read from the primary scratchpad register
->+ * @ndev: pointer to ntb_device instance
->+ * @idx: index to scratchpad register, 0 based
->+ * @val: pointer to 32bit integer for storing the register value
->+ *
->+ * This function allows reading of the 32bit scratchpad register on
->+ * the primary (internal) side.
->+ *
->+ * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
->+ */
-
-Same here.
-
-[...]
->+static int ntb_setup_msix(struct ntb_device *ndev)
->+{
->+	struct pci_dev *pdev = ndev->pdev;
->+	struct msix_entry *msix;
->+	int msix_entries;
->+	int rc, i, pos;
->+	u16 val;
->+
->+	pos = pci_find_capability(pdev, PCI_CAP_ID_MSIX);
->+	if (!pos) {
->+		rc = -EIO;
->+		goto err;
->+	}
->+
->+	rc = pci_read_config_word(pdev, pos + PCI_MSIX_FLAGS, &val);
->+	if (rc)
->+		goto err;
->+
->+	msix_entries = msix_table_size(val);
->+	if (msix_entries > ndev->limits.msix_cnt) {
->+		rc = -EINVAL;
->+		goto err;
->+	}
->+
->+	ndev->msix_entries = kmalloc(sizeof(struct msix_entry) * msix_entries,
->+				     GFP_KERNEL);
->+	if (!ndev->msix_entries) {
->+		rc = -ENOMEM;
->+		goto err;
->+	}
->+
->+	for (i = 0; i < msix_entries; i++)
->+		ndev->msix_entries[i].entry = i;
->+
->+	rc = pci_enable_msix(pdev, ndev->msix_entries, msix_entries);
->+	if (rc < 0)
->+		goto err1;
->+	if (rc > 0) {
-
-rc > 0 doesn't mean that vectors were allocated. Have a look at the
-example in Documentation/PCI/MSI-HOWTO.txt.
-
->+		/* On SNB, the link interrupt is always tied to 4th vector.  If
->+		 * we can't get all 4, then we can't use MSI-X.
->+		 */
->+		if (ndev->hw_type != BWD_HW) {
->+			rc = -EIO;
->+			goto err1;
->+		}
-
-This looks fragile, what if msix_table_size(val) was < 4? 
-
->+
->+		dev_warn(&pdev->dev,
->+			 "Only %d MSI-X vectors.  Limiting the number of queues to that number.\n",
->+			 rc);
->+		msix_entries = rc;
->+	}
->+
->+	for (i = 0; i < msix_entries; i++) {
->+		msix = &ndev->msix_entries[i];
->+		WARN_ON(!msix->vector);
->+
->+		/* Use the last MSI-X vector for Link status */
->+		if (ndev->hw_type == BWD_HW) {
->+			rc = request_irq(msix->vector, bwd_callback_msix_irq, 0,
->+					 "ntb-callback-msix", &ndev->db_cb[i]);
->+			if (rc)
->+				goto err2;
->+		} else {
->+			if (i == msix_entries - 1) {
->+				rc = request_irq(msix->vector,
->+						 xeon_event_msix_irq, 0,
->+						 "ntb-event-msix", ndev);
->+				if (rc)
->+					goto err2;
->+			} else {
->+				rc = request_irq(msix->vector,
->+						 xeon_callback_msix_irq, 0,
->+						 "ntb-callback-msix",
->+						 &ndev->db_cb[i]);
->+				if (rc)
->+					goto err2;
->+			}
->+		}
->+	}
->+
->+	ndev->num_msix = msix_entries;
->+	if (ndev->hw_type == BWD_HW)
->+		ndev->max_cbs = msix_entries;
->+	else
->+		ndev->max_cbs = msix_entries - 1;
->+
->+	return 0;
->+
->+err2:
->+	while (--i >= 0) {
->+		msix = &ndev->msix_entries[i];
->+		if (ndev->hw_type != BWD_HW && i == ndev->num_msix - 1)
->+			free_irq(msix->vector, ndev);
->+		else
->+			free_irq(msix->vector, &ndev->db_cb[i]);
->+	}
->+	pci_disable_msix(pdev);
->+err1:
->+	kfree(ndev->msix_entries);
->+	dev_err(&pdev->dev, "Error allocating MSI-X interrupt\n");
->+err:
->+	ndev->num_msix = 0;
->+	return rc;
->+}
-
-Thanks for your work,
-
-  -- Kuba
+Also, note that you should wait with your submission until net-next is reopened.
