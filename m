@@ -1,148 +1,105 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH] flexcan: disable bus error interrupts for the i.MX28
-Date: Sun, 07 Oct 2012 16:48:39 +0200
-Message-ID: <50719647.4070404@grandegger.com>
-References: <5065A35B.3020702@grandegger.com> <20121007030858.GJ20231@S2101-09.ap.freescale.net>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [STABLE][3.0][3.2][Add PATCH] phy/fixed: use an unique MDIO bus
+ name
+Date: Sun, 07 Oct 2012 16:33:39 +0100
+Message-ID: <1349624019.16173.113.camel@deadeye.wl.decadent.org.uk>
+References: <1349441987.6755.45.camel@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	Hui Wang <jason77.wang@gmail.com>,
-	Dong Aisheng <b29396@freescale.com>
-To: Shawn Guo <shawn.guo@linaro.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20121007030858.GJ20231@S2101-09.ap.freescale.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-doV17NCNOcq6R/qjgEMb"
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	stable <stable@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Florian Fainelli <florian@openwrt.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:35000 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753316Ab2JGPdr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2012 11:33:47 -0400
+In-Reply-To: <1349441987.6755.45.camel@gandalf.local.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/07/2012 05:09 AM, Shawn Guo wrote:
-> On Fri, Sep 28, 2012 at 03:17:15PM +0200, Wolfgang Grandegger wrote:
->> Due to a bug in most Flexcan cores, the bus error interrupt needs
->> to be enabled. Otherwise we don't get any error warning or passive
->> interrupts. This is _not_ necessay for the i.MX28 and this patch
->> disables bus error interrupts if "berr-reporting" is not requested.
->> This avoids bus error flooding, which might harm, especially on
->> low-end systems.
->>
->> To handle such quirks of the Flexcan cores, a hardware feature flag
->> has been introduced, also replacing the "hw_ver" variable. So far
->> nobody could tell what Flexcan core version is available on what
->> Freescale SOC, apart from the i.MX6Q and P1010, and which bugs or
->> features are present on the various "hw_rev".
->>
->> CC: Hui Wang <jason77.wang@gmail.com>
->> CC: Shawn Guo <shawn.guo@linaro.org>
->> Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
->> ---
->>
->> Concerning the bug, I know that the i.MX35 does have it. Maybe other
->> Flexcan cores than on the i.MX28 does *not* have it either. If you
->> have a chance, please check on the P1010, i.MX6Q, i.MX51, i.MX53,
->> etc.
-> 
->>From what I can tell, i.MX35, i.MX51 and i.MX53 use the same version,
-> so they should all have the bug.  And for i.MX6Q, since it uses a newer
-> version even than i.MX28, I would believe it's affected by the bug.
-> But I'm copying Dong who should have better knowledge about this to
-> confirm. 
 
-Thank for clarification. I have a i.MX6Q board but without CAN adapter
-:(, unfortunately. Otherwise I would try it out myself.
+--=-doV17NCNOcq6R/qjgEMb
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Wolfgang.
+On Fri, 2012-10-05 at 08:59 -0400, Steven Rostedt wrote:
+> I started testing my 3.2-rt branch on a powerpc box and it would
+> constantly spit out the following warning causing ktest to think the
+> boot failed:
+>=20
+> sysfs: cannot create duplicate filename '/class/mdio_bus/0
+[...]
+> Doing some investigations, I found it only triggered on some configs,
+> and it was fixed by 3.3. I ran a ktest.pl reverse bisect (bad is good
+> and good is bad) and it ended on this commit:
+>=20
+> commit 9e6c643bb4502c50b6511206601b7760c610dfcc
+> Author: Florian Fainelli <florian@openwrt.org>
+> Date:   Mon Jan 9 23:59:25 2012 +0000
+>=20
+>     phy/fixed: use an unique MDIO bus name.
+>    =20
+>     Signed-off-by: Florian Fainelli <florian@openwrt.org>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
+> index 1fa4d73..633680d 100644
+> --- a/drivers/net/phy/fixed.c
+> +++ b/drivers/net/phy/fixed.c
+> @@ -220,7 +220,7 @@ static int __init fixed_mdio_bus_init(void)
+>                 goto err_mdiobus_reg;
+>         }
+> =20
+> -       snprintf(fmb->mii_bus->id, MII_BUS_ID_SIZE, "0");
+> +       snprintf(fmb->mii_bus->id, MII_BUS_ID_SIZE, "fixed-0");
+>         fmb->mii_bus->name =3D "Fixed MDIO Bus";
+>         fmb->mii_bus->priv =3D fmb;
+>         fmb->mii_bus->parent =3D &pdev->dev;
+>=20
+> Sure enough, adding this patch to both 3.2 and 3.0 fixed the bug.
+>=20
+> Please pull this patch into the 3.2 and 3.0 stable trees.
 
->>  drivers/net/can/flexcan.c |   29 +++++++++++++++++++----------
->>  1 files changed, 19 insertions(+), 10 deletions(-)
->>
->> diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
->> index c5f1431..c78ecfc 100644
->> --- a/drivers/net/can/flexcan.c
->> +++ b/drivers/net/can/flexcan.c
->> @@ -144,6 +144,10 @@
->>  
->>  #define FLEXCAN_MB_CODE_MASK		(0xf0ffffff)
->>  
->> +/* FLEXCAN hardware feature flags */
->> +#define FLEXCAN_HAS_V10_FEATURES	BIT(1) /* For core version >= 10 */
->> +#define FLEXCAN_HAS_BROKEN_ERR_STATE	BIT(2) /* Broken error state handling */
->> +
->>  /* Structure of the message buffer */
->>  struct flexcan_mb {
->>  	u32 can_ctrl;
->> @@ -178,7 +182,7 @@ struct flexcan_regs {
->>  };
->>  
->>  struct flexcan_devtype_data {
->> -	u32 hw_ver;	/* hardware controller version */
->> +	u32 features;	/* hardware controller features */
->>  };
->>  
->>  struct flexcan_priv {
->> @@ -197,11 +201,11 @@ struct flexcan_priv {
->>  };
->>  
->>  static struct flexcan_devtype_data fsl_p1010_devtype_data = {
->> -	.hw_ver = 3,
->> +	.features = FLEXCAN_HAS_BROKEN_ERR_STATE,
->>  };
->> -
->> +static struct flexcan_devtype_data fsl_imx28_devtype_data;
->>  static struct flexcan_devtype_data fsl_imx6q_devtype_data = {
->> -	.hw_ver = 10,
->> +	.features = FLEXCAN_HAS_V10_FEATURES | FLEXCAN_HAS_BROKEN_ERR_STATE,
->>  };
->>  
->>  static const struct can_bittiming_const flexcan_bittiming_const = {
->> @@ -741,15 +745,19 @@ static int flexcan_chip_start(struct net_device *dev)
->>  	 * enable tx and rx warning interrupt
->>  	 * enable bus off interrupt
->>  	 * (== FLEXCAN_CTRL_ERR_STATE)
->> -	 *
->> -	 * _note_: we enable the "error interrupt"
->> -	 * (FLEXCAN_CTRL_ERR_MSK), too. Otherwise we don't get any
->> -	 * warning or bus passive interrupts.
->>  	 */
->>  	reg_ctrl = flexcan_read(&regs->ctrl);
->>  	reg_ctrl &= ~FLEXCAN_CTRL_TSYN;
->>  	reg_ctrl |= FLEXCAN_CTRL_BOFF_REC | FLEXCAN_CTRL_LBUF |
->> -		FLEXCAN_CTRL_ERR_STATE | FLEXCAN_CTRL_ERR_MSK;
->> +		FLEXCAN_CTRL_ERR_STATE;
->> +	/*
->> +	 * enable the "error interrupt" (FLEXCAN_CTRL_ERR_MSK),
->> +	 * on most Flexcan cores, too. Otherwise we don't get
->> +	 * any error warning or passive interrupts.
->> +	 */
->> +	if (priv->devtype_data->features & FLEXCAN_HAS_BROKEN_ERR_STATE ||
->> +	    priv->can.ctrlmode & CAN_CTRLMODE_BERR_REPORTING)
->> +		reg_ctrl |= FLEXCAN_CTRL_ERR_MSK;
->>  
->>  	/* save for later use */
->>  	priv->reg_ctrl_default = reg_ctrl;
->> @@ -772,7 +780,7 @@ static int flexcan_chip_start(struct net_device *dev)
->>  	flexcan_write(0x0, &regs->rx14mask);
->>  	flexcan_write(0x0, &regs->rx15mask);
->>  
->> -	if (priv->devtype_data->hw_ver >= 10)
->> +	if (priv->devtype_data->features & FLEXCAN_HAS_V10_FEATURES)
->>  		flexcan_write(0x0, &regs->rxfgmask);
->>  
->>  	flexcan_transceiver_switch(priv, 1);
->> @@ -954,6 +962,7 @@ static void __devexit unregister_flexcandev(struct net_device *dev)
->>  
->>  static const struct of_device_id flexcan_of_match[] = {
->>  	{ .compatible = "fsl,p1010-flexcan", .data = &fsl_p1010_devtype_data, },
->> +	{ .compatible = "fsl,imx28-flexcan", .data = &fsl_imx28_devtype_data, },
->>  	{ .compatible = "fsl,imx6q-flexcan", .data = &fsl_imx6q_devtype_data, },
->>  	{ /* sentinel */ },
->>  };
->> -- 
->> 1.7.7.6
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-can" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+Networking stable fixes are normally vetted, backported and bundled up
+by David, so I'll let him decide on this.
 
+There are a lot more MDIO bus drivers that don't play nicely with
+others, most of which seem to be fixed in mainline.  If David agrees
+that these are generally worthwhile then perhaps someone could try to
+gather those up?
+
+Ben.
+
+--=20
+Ben Hutchings
+You can't have everything.  Where would you put it?
+
+--=-doV17NCNOcq6R/qjgEMb
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAUHGg0+e/yOyVhhEJAQrCsg//WyyzCYf7cBedhxDFTzulIJ1bnoP2kK6+
+VfmvVxlfrxec5f5nWfsWHlF+JYG8o/a44yWPIfMgvaUMfmGchHpvqC2a0Zih3W9z
+76kDH1wwBR9ui87IGwfFDgznaVfetONYy0U82pRldVzxHPjN4hFL+zKOoXdkMGxp
+fMqgxyEav+G1WxpNsOOwXkxPvP3IHeMafO7FxG4lxUcEtSrpJ45SFBJNbrT3vCb7
+NSgr64QLGAsCRSBlOQuh69iSa2CDiekKVqzGuW4uczhYviDgu/DtRhHLjZXFCXA6
+28JjtizuLig6ThWwteXaF/bxLFj8sZE0t0Yz3un8m1MHZK8/fyXDeQNAcaHh5fhK
+brxloxzfkZAZv8CkVwSjAoOYPTGiRD2SUNt9kDfXR3QE1gRp6hhCHvb5teZ131nH
+kV4g+FufOnciC47647687Qh5ZSurKISX5ynOyPSjrNrda8469TP67pjd05XJw7KT
+q6pkNuXogqkR5L2mvn4kJHoaa2fszY219wU3KUVxS9Z/OqwbG1cWWkFDPLKcoMea
+sDfyzon5JWC5bFdMwXOYqwD+MP6S5YEl8XLiFbIv/uaBeDKM+JjoSPksv9Lpr8wY
+bgkYpF4N7Dl7EiBFpdqSXMSbStaiSCjY4O5vJp/3dBbxMOH3+l2VKj6K5KHWZbLK
+0mW3luBYjhE=
+=0myO
+-----END PGP SIGNATURE-----
+
+--=-doV17NCNOcq6R/qjgEMb--
