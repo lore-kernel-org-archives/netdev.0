@@ -1,66 +1,196 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH net 6/6] ipvs: fix ARP resolving for direct routing mode
-Date: Sun,  7 Oct 2012 14:26:08 +0300
-Message-ID: <1349609168-9848-7-git-send-email-ja@ssi.bg>
-References: <1349609168-9848-1-git-send-email-ja@ssi.bg>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:50424 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752725Ab2JGLU6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Oct 2012 07:20:58 -0400
-Received: from ja.ssi.bg (localhost.localdomain [127.0.0.1])
-	by ja.ssi.bg (8.14.4/8.14.4) with ESMTP id q97BQJLF009900
-	for <netdev@vger.kernel.org>; Sun, 7 Oct 2012 14:26:19 +0300
-Received: (from root@localhost)
-	by ja.ssi.bg (8.14.4/8.14.4/Submit) id q97BQJ8C009899
-	for netdev@vger.kernel.org; Sun, 7 Oct 2012 14:26:19 +0300
-In-Reply-To: <1349609168-9848-1-git-send-email-ja@ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [1/2] PCI-Express Non-Transparent Bridge Support
+Date: Sun, 7 Oct 2012 14:13:44 +0200
+Message-ID: <20121007141344.6624e873@wp.pl>
+References: <1349213177-9985-2-git-send-email-jon.mason@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>,
+	Nicholas Bellinger <nab@risingtidesystems.com>
+To: Jon Mason <jon.mason@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349213177-9985-2-git-send-email-jon.mason@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-	After the change "Make neigh lookups directly in output packet path"
-(commit a263b30936) IPVS can not reach the real server for DR mode
-because we resolve the destination address from IP header, not from
-route neighbour. Use the new FLOWI_FLAG_KNOWN_NH flag to request
-output routes with known nexthop, so that it has preference
-on resolving.
+Hi,
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
- net/netfilter/ipvs/ip_vs_xmit.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+it's good to see some NTB code getting into mainline! I have a few comments
+though.
 
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 56f6d5d..cc4c809 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -50,6 +50,7 @@ enum {
- 				      * local
- 				      */
- 	IP_VS_RT_MODE_CONNECT	= 8, /* Always bind route to saddr */
-+	IP_VS_RT_MODE_KNOWN_NH	= 16,/* Route via remote addr */
- };
- 
- /*
-@@ -113,6 +114,8 @@ static struct rtable *do_output_route4(struct net *net, __be32 daddr,
- 	fl4.daddr = daddr;
- 	fl4.saddr = (rt_mode & IP_VS_RT_MODE_CONNECT) ? *saddr : 0;
- 	fl4.flowi4_tos = rtos;
-+	fl4.flowi4_flags = (rt_mode & IP_VS_RT_MODE_KNOWN_NH) ?
-+			   FLOWI_FLAG_KNOWN_NH : 0;
- 
- retry:
- 	rt = ip_route_output_key(net, &fl4);
-@@ -1061,7 +1064,8 @@ ip_vs_dr_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
- 				      RT_TOS(iph->tos),
- 				      IP_VS_RT_MODE_LOCAL |
--					IP_VS_RT_MODE_NON_LOCAL, NULL)))
-+				      IP_VS_RT_MODE_NON_LOCAL |
-+				      IP_VS_RT_MODE_KNOWN_NH, NULL)))
- 		goto tx_error_icmp;
- 	if (rt->rt_flags & RTCF_LOCAL) {
- 		ip_rt_put(rt);
--- 
-1.7.3.4
+On Tue, 02 Oct 2012 21:26:16 -0000, Jon Mason <jon.mason@intel.com>
+wrote:
+
+[...]
+>+/**
+>+ * ntb_write_local_spad() - write to the secondary scratchpad register
+>+ * @ndev: pointer to ntb_device instance
+>+ * @idx: index to the scratchpad register, 0 based
+>+ * @val: the data value to put into the register
+>+ *
+>+ * This function allows writing of a 32bit value to the indexed scratchpad
+>+ * register. The register resides on the secondary (external) side.
+>+ *
+>+ * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
+>+ */
+[...]
+>+/**
+>+ * ntb_write_remote_spad() - write to the secondary scratchpad register
+>+ * @ndev: pointer to ntb_device instance
+>+ * @idx: index to the scratchpad register, 0 based
+>+ * @val: the data value to put into the register
+>+ *
+>+ * This function allows writing of a 32bit value to the indexed scratchpad
+>+ * register. The register resides on the secondary (external) side.
+>+ *
+>+ * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
+>+ */
+
+Those comments look suspiciously similar. I think one of the functions
+does write to primary scratchpad?
+
+[...]
+>+/**
+>+ * ntb_read_local_spad() - read from the primary scratchpad register
+>+ * @ndev: pointer to ntb_device instance
+>+ * @idx: index to scratchpad register, 0 based
+>+ * @val: pointer to 32bit integer for storing the register value
+>+ *
+>+ * This function allows reading of the 32bit scratchpad register on
+>+ * the primary (internal) side.
+>+ *
+>+ * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
+>+ */
+[...]
+>+/**
+>+ * ntb_read_remote_spad() - read from the primary scratchpad register
+>+ * @ndev: pointer to ntb_device instance
+>+ * @idx: index to scratchpad register, 0 based
+>+ * @val: pointer to 32bit integer for storing the register value
+>+ *
+>+ * This function allows reading of the 32bit scratchpad register on
+>+ * the primary (internal) side.
+>+ *
+>+ * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
+>+ */
+
+Same here.
+
+[...]
+>+static int ntb_setup_msix(struct ntb_device *ndev)
+>+{
+>+	struct pci_dev *pdev = ndev->pdev;
+>+	struct msix_entry *msix;
+>+	int msix_entries;
+>+	int rc, i, pos;
+>+	u16 val;
+>+
+>+	pos = pci_find_capability(pdev, PCI_CAP_ID_MSIX);
+>+	if (!pos) {
+>+		rc = -EIO;
+>+		goto err;
+>+	}
+>+
+>+	rc = pci_read_config_word(pdev, pos + PCI_MSIX_FLAGS, &val);
+>+	if (rc)
+>+		goto err;
+>+
+>+	msix_entries = msix_table_size(val);
+>+	if (msix_entries > ndev->limits.msix_cnt) {
+>+		rc = -EINVAL;
+>+		goto err;
+>+	}
+>+
+>+	ndev->msix_entries = kmalloc(sizeof(struct msix_entry) * msix_entries,
+>+				     GFP_KERNEL);
+>+	if (!ndev->msix_entries) {
+>+		rc = -ENOMEM;
+>+		goto err;
+>+	}
+>+
+>+	for (i = 0; i < msix_entries; i++)
+>+		ndev->msix_entries[i].entry = i;
+>+
+>+	rc = pci_enable_msix(pdev, ndev->msix_entries, msix_entries);
+>+	if (rc < 0)
+>+		goto err1;
+>+	if (rc > 0) {
+
+rc > 0 doesn't mean that vectors were allocated. Have a look at the
+example in Documentation/PCI/MSI-HOWTO.txt.
+
+>+		/* On SNB, the link interrupt is always tied to 4th vector.  If
+>+		 * we can't get all 4, then we can't use MSI-X.
+>+		 */
+>+		if (ndev->hw_type != BWD_HW) {
+>+			rc = -EIO;
+>+			goto err1;
+>+		}
+
+This looks fragile, what if msix_table_size(val) was < 4? 
+
+>+
+>+		dev_warn(&pdev->dev,
+>+			 "Only %d MSI-X vectors.  Limiting the number of queues to that number.\n",
+>+			 rc);
+>+		msix_entries = rc;
+>+	}
+>+
+>+	for (i = 0; i < msix_entries; i++) {
+>+		msix = &ndev->msix_entries[i];
+>+		WARN_ON(!msix->vector);
+>+
+>+		/* Use the last MSI-X vector for Link status */
+>+		if (ndev->hw_type == BWD_HW) {
+>+			rc = request_irq(msix->vector, bwd_callback_msix_irq, 0,
+>+					 "ntb-callback-msix", &ndev->db_cb[i]);
+>+			if (rc)
+>+				goto err2;
+>+		} else {
+>+			if (i == msix_entries - 1) {
+>+				rc = request_irq(msix->vector,
+>+						 xeon_event_msix_irq, 0,
+>+						 "ntb-event-msix", ndev);
+>+				if (rc)
+>+					goto err2;
+>+			} else {
+>+				rc = request_irq(msix->vector,
+>+						 xeon_callback_msix_irq, 0,
+>+						 "ntb-callback-msix",
+>+						 &ndev->db_cb[i]);
+>+				if (rc)
+>+					goto err2;
+>+			}
+>+		}
+>+	}
+>+
+>+	ndev->num_msix = msix_entries;
+>+	if (ndev->hw_type == BWD_HW)
+>+		ndev->max_cbs = msix_entries;
+>+	else
+>+		ndev->max_cbs = msix_entries - 1;
+>+
+>+	return 0;
+>+
+>+err2:
+>+	while (--i >= 0) {
+>+		msix = &ndev->msix_entries[i];
+>+		if (ndev->hw_type != BWD_HW && i == ndev->num_msix - 1)
+>+			free_irq(msix->vector, ndev);
+>+		else
+>+			free_irq(msix->vector, &ndev->db_cb[i]);
+>+	}
+>+	pci_disable_msix(pdev);
+>+err1:
+>+	kfree(ndev->msix_entries);
+>+	dev_err(&pdev->dev, "Error allocating MSI-X interrupt\n");
+>+err:
+>+	ndev->num_msix = 0;
+>+	return rc;
+>+}
+
+Thanks for your work,
+
+  -- Kuba
