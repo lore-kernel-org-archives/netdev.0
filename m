@@ -1,21 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/20 V2] drivers/net/can/sja1000/peak_pcmcia.c: fix
- error return code
-Date: Sun, 07 Oct 2012 14:38:25 -0400 (EDT)
-Message-ID: <20121007.143825.335788084712868884.davem@davemloft.net>
-References: <1349469667-6137-1-git-send-email-peter.senna@gmail.com>
-	<1349469667-6137-4-git-send-email-peter.senna@gmail.com>
+Subject: Re: [PATCH v2] ipv6: GRO should be ECN friendly
+Date: Sun, 07 Oct 2012 14:45:31 -0400 (EDT)
+Message-ID: <20121007.144531.707087734601338126.davem@davemloft.net>
+References: <1349505810.21172.198.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wg@grandegger.com, mkl@pengutronix.de, linux@dominikbrodowski.net,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: peter.senna@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1349469667-6137-4-git-send-email-peter.senna@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44780 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752902Ab2JGSpd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2012 14:45:33 -0400
+In-Reply-To: <1349505810.21172.198.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 06 Oct 2012 08:43:30 +0200
 
-This patch was already in the tree.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> IPv4 side of the problem was addressed in commit a9e050f4e7f9d
+> (net: tcp: GRO should be ECN friendly)
+> 
+> This patch does the same, but for IPv6 : A Traffic Class mismatch
+> doesnt mean flows are different, but instead should force a flush
+> of previous packets.
+> 
+> This patch removes artificial packet reordering problem.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+
+Applied, thanks Eric.
