@@ -1,34 +1,48 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [patch v4 2/2] infiniband: pass rdma_cm module to
- netlink_dump_start
-Date: Sun, 07 Oct 2012 00:31:24 -0400 (EDT)
-Message-ID: <20121007.003124.1716437719137243178.davem@davemloft.net>
-References: <1349417749-24869-1-git-send-email-gaofeng@cn.fujitsu.com>
-	<1349417749-24869-2-git-send-email-gaofeng@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: remove skb recycling
+Date: Sun, 07 Oct 2012 00:41:09 -0400 (EDT)
+Message-ID: <20121007.004109.1308709793907808073.davem@davemloft.net>
+References: <1349450151.28867.33.camel@sakura.staff.proxad.net>
+	<1349451425.21172.119.camel@edumazet-glaptop>
+	<1349454235.21172.132.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
-	pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
-	jengelh-9+2X+4sQBs8@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1349417749-24869-2-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: mbizon@freebox.fr, david+ml@madore.org, romieu@fr.zoreil.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39697 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750851Ab2JGElL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2012 00:41:11 -0400
+In-Reply-To: <1349454235.21172.132.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Date: Fri, 5 Oct 2012 14:15:49 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 05 Oct 2012 18:23:55 +0200
 
-> set netlink_dump_control.module to avoid panic.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-> Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Over time, skb recycling infrastructure got litle interest and
+> many bugs. Generic rx path skb allocation is now using page
+> fragments for efficient GRO / TCP coalescing, and recyling
+> a tx skb for rx path is not worth the pain.
+> 
+> Last identified bug is that fat skbs can be recycled
+> and it can endup using high order pages after few iterations.
+> 
+> With help from Maxime Bizon, who pointed out that commit
+> 87151b8689d (net: allow pskb_expand_head() to get maximum tailroom)
+> introduced this regression for recycled skbs.
+> 
+> Instead of fixing this bug, lets remove skb recycling.
+> 
+> Drivers wanting really hot skbs should use build_skb() anyway,
+> to allocate/populate sk_buff right before netif_receive_skb()
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Maxime Bizon <mbizon@freebox.fr>
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks Eric.
