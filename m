@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: gro: fix a potential crash in skb_gro_reset_offset
-Date: Sun, 07 Oct 2012 14:50:10 -0400 (EDT)
-Message-ID: <20121007.145010.1082292669443081397.davem@davemloft.net>
-References: <1349598486.21172.2063.camel@edumazet-glaptop>
+Subject: Re: [PATCH] vxlan: remove unused including <linux/version.h>
+Date: Sun, 07 Oct 2012 14:51:13 -0400 (EDT)
+Message-ID: <20121007.145113.358911913612359265.davem@davemloft.net>
+References: <CAPgLHd-AeX16JeZJv6D6K_wFr2_r4Zp=Q_Hw5BK-iF+mSWRE4w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: eric.dumazet@gmail.com
+Cc: shemminger@vyatta.com, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44852 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44903 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753921Ab2JGSuM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2012 14:50:12 -0400
-In-Reply-To: <1349598486.21172.2063.camel@edumazet-glaptop>
+	with ESMTP id S1753957Ab2JGSvP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2012 14:51:15 -0400
+In-Reply-To: <CAPgLHd-AeX16JeZJv6D6K_wFr2_r4Zp=Q_Hw5BK-iF+mSWRE4w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 07 Oct 2012 10:28:06 +0200
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Sun, 7 Oct 2012 21:23:06 +0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
-> Before accessing skb first fragment, better make sure there
-> is one.
+> Remove including <linux/version.h> that don't need it.
 > 
-> This is probably not needed for old kernels, since an ethernet frame
-> cannot contain only an ethernet header, but the recent GRO addition
-> to tunnels makes this patch needed.
+> dpatch engine is used to auto generate this patch.
+> (https://github.com/weiyj/dpatch)
 > 
-> Also skb_gro_reset_offset() can be static, it actually allows
-> compiler to inline it.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Applied, thanks Eric.
+Applied, thanks.
