@@ -1,42 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net:master 1/9] pch_gbe_main.c:(.text+0x510370): undefined
- reference to `pch_ch_control_write'
-Date: Sat, 06 Oct 2012 17:17:48 -0400 (EDT)
-Message-ID: <20121006.171748.734171045678392820.davem@davemloft.net>
-References: <50703B1B.2040705@linux.intel.com>
-	<20121006.102132.1497404004255213029.davem@davemloft.net>
-	<50706885.1030908@linux.intel.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] net: gro: selective flush of packets
+Date: Sun, 7 Oct 2012 08:32:09 +0800
+Message-ID: <20121007003208.GA31839@gondor.apana.org.au>
+References: <1348841041.5093.2477.camel@edumazet-glaptop>
+ <CAEP_g=_nSb-ite51PM-E8SY53yOPiZs8N3gDrYNc0L4OU2Ht=A@mail.gmail.com>
+ <1349448747.21172.113.camel@edumazet-glaptop>
+ <20121006041155.GA27134@gondor.apana.org.au>
+ <1349500126.4883.4.camel@edumazet-laptop>
+ <20121006051407.GA27390@gondor.apana.org.au>
+ <1349504541.21172.183.camel@edumazet-glaptop>
+ <1349506825.21172.241.camel@edumazet-glaptop>
+ <20121006105618.GA28591@gondor.apana.org.au>
+ <1349546929.21172.1598.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fengguang.wu@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: haicheng.li@linux.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50706885.1030908@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>,
+	Tom Herbert <therbert@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sting.hengli.com.au ([178.18.18.71]:57228 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750954Ab2JGAcQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Oct 2012 20:32:16 -0400
+Content-Disposition: inline
+In-Reply-To: <1349546929.21172.1598.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haicheng Li <haicheng.li@linux.intel.com>
-Date: Sun, 07 Oct 2012 01:21:09 +0800
+On Sat, Oct 06, 2012 at 08:08:49PM +0200, Eric Dumazet wrote:
+>
+> @@ -3981,8 +3996,17 @@ static void net_rx_action(struct softirq_action *h)
+>  				local_irq_enable();
+>  				napi_complete(n);
+>  				local_irq_disable();
+> -			} else
+> +			} else {
+> +				if (n->gro_list) {
+> +					/* flush too old packets
+> +					 * If HZ < 1000, flush all packets.
+> +					 */
+> +					local_irq_enable();
+> +					napi_gro_flush(n, HZ >= 1000);
+> +					local_irq_disable();
+> +				}
+>  				list_move_tail(&n->poll_list, &sd->poll_list);
+> +			}
 
-> Take IXGBE_PTP as example, it explicitly selects PPS, and also depends
-> on EXPERIMENTAL:
-> config IXGBE_PTP
->         bool "PTP Clock Support"
->         default n
->         depends on IXGBE && EXPERIMENTAL
->         select PPS
->         select PTP_1588_CLOCK
-> 
-> So if you stick to use "select" as the convention of such build issue
-> fixing, fengguang's build failure would be fixed by:
-> 	+ depends on EXPERIMENTAL
-> 	+ select PPS
-> 	+ select PTP_1588_CLOCK
-> 
-> would you prefer this way?
+Why don't we just always flush everything?
 
-Yes, I would.
-
-Thanks.
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
