@@ -1,69 +1,60 @@
-From: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] openvswitch: using nla_for_each_X to simplify the
-	code
-Date: Sun, 7 Oct 2012 21:42:42 +0800
-Message-ID: <CAPgLHd8hY-nZWaG-meEk1MtY5Rj_26Lj1bxH=jtn20jxni+U8g@mail.gmail.com>
+From: Haicheng Li <haicheng.li@linux.intel.com>
+Subject: [PATCH] Fix PTP dependencies: explicitly select all the possible
+ dependencies.
+Date: Sun, 07 Oct 2012 22:14:29 +0800
+Message-ID: <50718E45.1070706@linux.intel.com>
+References: <50703B1B.2040705@linux.intel.com>	<20121006.102132.1497404004255213029.davem@davemloft.net>	<50706885.1030908@linux.intel.com> <20121006.171748.734171045678392820.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org
-To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: fengguang.wu@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:45103 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750973Ab2JGOOc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Oct 2012 10:14:32 -0400
+In-Reply-To: <20121006.171748.734171045678392820.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+Fengguang reported a kernel build failure as following:
+drivers/built-in.o: In function `pch_gbe_ioctl':
+pch_gbe_main.c:(.text+0x510370): undefined reference to `pch_ch_control_write'
+pch_gbe_main.c:(.text+0x510393): undefined reference to `pch_ch_control_write'
+pch_gbe_main.c:(.text+0x5103b3): undefined reference to `pch_ch_control_write'
+...
 
-Using nla_for_each_nested() or nla_for_each_attr()
-to simplify the code.
+It's a regression by commit da1586461. The root cause is that
+the CONFIG_PPS is not set there, consequently CONFIG_PTP_1588_CLOCK
+can not be set anyway, which finally causes ptp_pch and pch_gbe_main
+build failures.
 
-dpatch engine is used to auto generate this patch.
-(https://github.com/weiyj/dpatch)
+As David prefers to use *select* to fix such module co-dependency issues,
+this patch explicitly selects all the possible dependencies of PCH_PTP.
 
-Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Reviewed-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Haicheng Li <haicheng.lee@gmail.com>
 ---
- net/openvswitch/actions.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
+  drivers/net/ethernet/oki-semi/pch_gbe/Kconfig |    3 +++
+  1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 0811447..b67594f 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -288,8 +288,7 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
- 	upcall.userdata = NULL;
- 	upcall.portid = 0;
- 
--	for (a = nla_data(attr), rem = nla_len(attr); rem > 0;
--		 a = nla_next(a, &rem)) {
-+	nla_for_each_nested(a, attr, rem) {
- 		switch (nla_type(a)) {
- 		case OVS_USERSPACE_ATTR_USERDATA:
- 			upcall.userdata = a;
-@@ -311,8 +310,7 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
- 	const struct nlattr *a;
- 	int rem;
- 
--	for (a = nla_data(attr), rem = nla_len(attr); rem > 0;
--		 a = nla_next(a, &rem)) {
-+	nla_for_each_nested(a, attr, rem) {
- 		switch (nla_type(a)) {
- 		case OVS_SAMPLE_ATTR_PROBABILITY:
- 			if (net_random() >= nla_get_u32(a))
-@@ -371,8 +369,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 	const struct nlattr *a;
- 	int rem;
- 
--	for (a = attr, rem = len; rem > 0;
--	     a = nla_next(a, &rem)) {
-+	nla_for_each_attr(a, attr, len, rem) {
- 		int err = 0;
- 
- 		if (prev_port != -1) {
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig 
+b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
+index 9730241..5296cc8 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
+@@ -26,6 +26,9 @@ if PCH_GBE
+  config PCH_PTP
+  	bool "PCH PTP clock support"
+  	default n
++	depends on EXPERIMENTAL
++	select PPS
++	select PTP_1588_CLOCK
+  	select PTP_1588_CLOCK_PCH
+  	---help---
+  	  Say Y here if you want to use Precision Time Protocol (PTP) in the
+-- 
+1.7.1
