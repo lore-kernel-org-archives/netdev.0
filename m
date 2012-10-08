@@ -1,57 +1,34 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 0/3] virtio-net: inline header support
-Date: Mon, 8 Oct 2012 22:41:45 +0200
-Message-ID: <20121008204145.GA17820@redhat.com>
-References: <cover.1348824232.git.mst@redhat.com>
-	<87vces2gxq.fsf@rustcorp.com.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/ethernet/jme: disable ASPM
+Date: Mon, 08 Oct 2012 15:39:53 -0400 (EDT)
+Message-ID: <20121008.153953.2134806395029777705.davem@davemloft.net>
+References: <1349722956-14159-1-git-send-email-kevin.baradon@gmail.com>
+	<20121008.152426.1524908667081347879.davem@davemloft.net>
+	<20121008193316.GA13684@srcf.ucam.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sasha Levin <levinsasha928@gmail.com>,
-	virtualization@lists.linux-foundation.org, avi@redhat.com,
-	Thomas Lendacky <tahm@linux.vnet.ibm.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <87vces2gxq.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: kevin.baradon@gmail.com, cooldavid@cooldavid.org,
+	netdev@vger.kernel.org
+To: mjg59@srcf.ucam.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57331 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750965Ab2JHTj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 15:39:56 -0400
+In-Reply-To: <20121008193316.GA13684@srcf.ucam.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 03, 2012 at 04:14:17PM +0930, Rusty Russell wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> writes:
-> 
-> > Thinking about Sasha's patches, we can reduce ring usage
-> > for virtio net small packets dramatically if we put
-> > virtio net header inline with the data.
-> > This can be done for free in case guest net stack allocated
-> > extra head room for the packet, and I don't see
-> > why would this have any downsides.
-> 
-> I've been wanting to do this for the longest time... but...
-> 
-> > Even though with my recent patches qemu
-> > no longer requires header to be the first s/g element,
-> > we need a new feature bit to detect this.
-> > A trivial qemu patch will be sent separately.
-> 
-> There's a reason I haven't done this.  I really, really dislike "my
-> implemention isn't broken" feature bits.  We could have an infinite
-> number of them, for each bug in each device.
-> 
-> So my plan was to tie this assumption to the new PCI layout.
+From: Matthew Garrett <mjg59@srcf.ucam.org>
+Date: Mon, 8 Oct 2012 20:33:16 +0100
 
-I don't object but old qemu has this limitation for s390 as well,
-and that's not using PCI, right? So how do we detect
-new hypervisor there?
+> On Mon, Oct 08, 2012 at 03:24:26PM -0400, David Miller wrote:
+> 
+>> This should be a PCI quirk shouldn't it?
+> 
+> No, it's a driver-level policy decision.
 
--- 
-MST
+Then at a bare minimum this change should be using one of the ASPM
+helpers provided by drivers/pci/pcie/aspm.c such as
+pci_disable_link_state().
