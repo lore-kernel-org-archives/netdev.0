@@ -1,430 +1,58 @@
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: RE: [PATCH net-next v2] netxen: write IP address to firmware when
- using bonding
-Date: Mon, 8 Oct 2012 11:48:31 -0500
-Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA827E8294C0@MNEXMB1.qlogic.org>
-References: <1348562883-14780-1-git-send-email-nikolay@redhat.com>
- <1349169386-18391-1-git-send-email-nikolay@redhat.com>
- <506C0346.8010708@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "agospoda@redhat.com" <agospoda@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Nikolay Aleksandrov <nikolay@redhat.com>,
-	Sony Chacko <sony.chacko@qlogic.com>
+From: Jan Ceuleers <jan.ceuleers@computer.org>
+Subject: [PATCH] skge: Add DMA mask quirk for Marvell 88E8001 on ASUS P5NSLI motherboard
+Date: Mon,  8 Oct 2012 18:54:35 +0200
+Message-ID: <1349715275-12730-1-git-send-email-jan.ceuleers@computer.org>
+Cc: netdev@vger.kernel.org, Graham Gower <graham.gower@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe001.messaging.microsoft.com ([213.199.154.139]:58664
-	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753423Ab2JHQsx convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Oct 2012 12:48:53 -0400
-In-Reply-To: <506C0346.8010708@redhat.com>
-Content-Language: en-US
+Received: from mailrelay003.isp.belgacom.be ([195.238.6.53]:60497 "EHLO
+	mailrelay003.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754043Ab2JHQyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 12:54:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Nikolay Aleksandrov [mailto:nikolay@redhat.com]
->Sent: Wednesday, October 03, 2012 2:50 PM
->To: Sony Chacko
->Cc: agospoda@redhat.com; Rajesh Borundia; David Miller; netdev
->Subject: Re: [PATCH net-next v2] netxen: write IP address to firmware
->when using bonding
->
->On 10/02/2012 11:16 AM, Nikolay Aleksandrov wrote:
->> This patch allows LRO aggregation on bonded devices that contain an
->NX3031
->> device. It also adds a for_each_netdev_in_bond_rcu(bond, slave) macro
->> which executes for each slave that has bond as master.
->>
->> V2: Remove local ip caching, retrieve addresses dynamically and
->>      restore them if necessary.
->>
->> Note: Tested with NX3031 adapter.
->>
->> Signed-off-by: Andy Gospodarek <agospoda@redhat.com>
->> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
->> ---
->>   drivers/net/ethernet/qlogic/netxen/netxen_nic.h    |   6 -
->>   .../net/ethernet/qlogic/netxen/netxen_nic_main.c   | 192
->+++++++++++----------
->>   include/linux/netdevice.h                          |   3 +
->>   3 files changed, 100 insertions(+), 101 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
->b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
->> index eb3dfdb..cb4f2ce 100644
->> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
->> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
->> @@ -955,11 +955,6 @@ typedef struct nx_mac_list_s {
->>   	uint8_t mac_addr[ETH_ALEN+2];
->>   } nx_mac_list_t;
->>
->> -struct nx_vlan_ip_list {
->> -	struct list_head list;
->> -	__be32 ip_addr;
->> -};
->> -
->>   /*
->>    * Interrupt coalescing defaults. The defaults are for 1500 MTU. It
->is
->>    * adjusted based on configured MTU.
->> @@ -1605,7 +1600,6 @@ struct netxen_adapter {
->>   	struct net_device *netdev;
->>   	struct pci_dev *pdev;
->>   	struct list_head mac_list;
->> -	struct list_head vlan_ip_list;
->>
->>   	spinlock_t tx_clean_lock;
->>
->> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
->b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
->> index e2a4858..8e3eb61 100644
->> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
->> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
->> @@ -90,7 +90,6 @@ static irqreturn_t netxen_intr(int irq, void *data);
->>   static irqreturn_t netxen_msi_intr(int irq, void *data);
->>   static irqreturn_t netxen_msix_intr(int irq, void *data);
->>
->> -static void netxen_free_vlan_ip_list(struct netxen_adapter *);
->>   static void netxen_restore_indev_addr(struct net_device *dev,
->unsigned long);
->>   static struct rtnl_link_stats64 *netxen_nic_get_stats(struct
->net_device *dev,
->>   						      struct rtnl_link_stats64
->*stats);
->> @@ -1451,7 +1450,6 @@ netxen_nic_probe(struct pci_dev *pdev, const
->struct pci_device_id *ent)
->>
->>   	spin_lock_init(&adapter->tx_clean_lock);
->>   	INIT_LIST_HEAD(&adapter->mac_list);
->> -	INIT_LIST_HEAD(&adapter->vlan_ip_list);
->>
->>   	err = netxen_setup_pci_map(adapter);
->>   	if (err)
->> @@ -1586,7 +1584,7 @@ static void __devexit netxen_nic_remove(struct
->pci_dev *pdev)
->>
->>   	cancel_work_sync(&adapter->tx_timeout_task);
->>
->> -	netxen_free_vlan_ip_list(adapter);
->> +	netxen_restore_indev_addr(netdev, NETDEV_DOWN);
->>   	netxen_nic_detach(adapter);
->>
->>   	nx_decr_dev_ref_cnt(adapter);
->> @@ -3135,66 +3133,22 @@ netxen_destip_supported(struct netxen_adapter
->*adapter)
->>   	return 1;
->>   }
->>
->> -static void
->> -netxen_free_vlan_ip_list(struct netxen_adapter *adapter)
->> +static inline __be32
->> +netxen_get_addr(struct net_device *dev)
->>   {
->> -	struct nx_vlan_ip_list  *cur;
->> -	struct list_head *head = &adapter->vlan_ip_list;
->> -
->> -	while (!list_empty(head)) {
->> -		cur = list_entry(head->next, struct nx_vlan_ip_list, list);
->> -		netxen_config_ipaddr(adapter, cur->ip_addr, NX_IP_DOWN);
->> -		list_del(&cur->list);
->> -		kfree(cur);
->> -	}
->> -
->> -}
->> -static void
->> -netxen_list_config_vlan_ip(struct netxen_adapter *adapter,
->> -		struct in_ifaddr *ifa, unsigned long event)
->> -{
->> -	struct net_device *dev;
->> -	struct nx_vlan_ip_list *cur, *tmp_cur;
->> -	struct list_head *head;
->> -
->> -	dev = ifa->ifa_dev ? ifa->ifa_dev->dev : NULL;
->> -
->> -	if (dev == NULL)
->> -		return;
->> -
->> -	if (!is_vlan_dev(dev))
->> -		return;
->> +	struct in_device *in_dev;
->> +	__be32 addr = 0;
->>
->> -	switch (event) {
->> -	case NX_IP_UP:
->> -		list_for_each(head, &adapter->vlan_ip_list) {
->> -			cur = list_entry(head, struct nx_vlan_ip_list, list);
->> +	rcu_read_lock();
->> +	in_dev = __in_dev_get_rcu(dev);
->>
->> -			if (cur->ip_addr == ifa->ifa_address)
->> -				return;
->> -		}
->> +	if (in_dev)
->> +		addr = inet_confirm_addr(in_dev, 0, 0, RT_SCOPE_HOST);
->>
->> -		cur = kzalloc(sizeof(struct nx_vlan_ip_list), GFP_ATOMIC);
->> -		if (cur == NULL) {
->> -			printk(KERN_ERR "%s: failed to add vlan ip to list\n",
->> -					adapter->netdev->name);
->> -			return;
->> -		}
->> -
->> -		cur->ip_addr = ifa->ifa_address;
->> -		list_add_tail(&cur->list, &adapter->vlan_ip_list);
->> -		break;
->> -	case NX_IP_DOWN:
->> -		list_for_each_entry_safe(cur, tmp_cur,
->> -					&adapter->vlan_ip_list, list) {
->> -			if (cur->ip_addr == ifa->ifa_address) {
->> -				list_del(&cur->list);
->> -				kfree(cur);
->> -				break;
->> -			}
->> -		}
->> -	}
->> +	rcu_read_unlock();
->> +	return addr;
->>   }
->> +
->>   static void
->>   netxen_config_indev_addr(struct netxen_adapter *adapter,
->>   		struct net_device *dev, unsigned long event)
->> @@ -3213,12 +3167,10 @@ netxen_config_indev_addr(struct netxen_adapter
->*adapter,
->>   		case NETDEV_UP:
->>   			netxen_config_ipaddr(adapter,
->>   					ifa->ifa_address, NX_IP_UP);
->> -			netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
->>   			break;
->>   		case NETDEV_DOWN:
->>   			netxen_config_ipaddr(adapter,
->>   					ifa->ifa_address, NX_IP_DOWN);
->> -			netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
->>   			break;
->>   		default:
->>   			break;
->> @@ -3233,15 +3185,54 @@ netxen_restore_indev_addr(struct net_device
->*netdev, unsigned long event)
->>
->>   {
->>   	struct netxen_adapter *adapter = netdev_priv(netdev);
->> -	struct nx_vlan_ip_list *pos, *tmp_pos;
->> +	struct net_device *vlan_dev, *real_dev;
->>   	unsigned long ip_event;
->> +	__be32 addr = 0;
->>
->>   	ip_event = (event == NETDEV_UP) ? NX_IP_UP : NX_IP_DOWN;
->>   	netxen_config_indev_addr(adapter, netdev, event);
->>
->> -	list_for_each_entry_safe(pos, tmp_pos, &adapter->vlan_ip_list,
->list) {
->> -		netxen_config_ipaddr(adapter, pos->ip_addr, ip_event);
->> +	rcu_read_lock();
->> +	for_each_netdev_rcu(&init_net, vlan_dev) {
->> +		if (vlan_dev->priv_flags & IFF_802_1Q_VLAN) {
->> +			real_dev = vlan_dev_real_dev(vlan_dev);
->> +
->> +			if (real_dev == netdev) {
->> +				addr = netxen_get_addr(vlan_dev);
->> +
->> +				if (addr) {
->> +					netxen_config_ipaddr(adapter, addr,
->> +							     ip_event);
->> +				}
->> +			}
->> +		}
->>   	}
->> +
->> +	if (netdev->master) {
->> +		addr = netxen_get_addr(netdev->master);
->> +		if (addr)
->> +			netxen_config_ipaddr(adapter, addr, ip_event);
->> +	}
->> +	rcu_read_unlock();
->> +}
->> +
->> +static inline int
->> +netxen_config_checkdev(struct net_device *dev)
->> +{
->> +	struct netxen_adapter *adapter;
->> +
->> +	if (!is_netxen_netdev(dev))
->> +		return -ENODEV;
->> +
->> +	adapter = netdev_priv(dev);
->> +
->> +	if (!adapter)
->> +		return -ENODEV;
->> +
->> +	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
->> +		return -ENODEV;
->> +
->> +	return 0;
->>   }
->>
->>   static int netxen_netdev_event(struct notifier_block *this,
->> @@ -3260,18 +3251,26 @@ recheck:
->>   		goto recheck;
->>   	}
->>
->> -	if (!is_netxen_netdev(dev))
->> -		goto done;
->> +	/* If this is a bonding device, look for netxen-based slaves*/
->> +	if (dev->priv_flags & IFF_BONDING) {
->> +		struct net_device *slave;
->>
->> -	adapter = netdev_priv(dev);
->> +		rcu_read_lock();
->> +		for_each_netdev_in_bond_rcu(dev, slave) {
->> +			if (netxen_config_checkdev(slave) < 0)
->> +				continue;
->>
->> -	if (!adapter)
->> -		goto done;
->> -
->> -	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
->> -		goto done;
->> +			adapter = netdev_priv(slave);
->> +			netxen_config_indev_addr(adapter, orig_dev, event);
->> +		}
->> +		rcu_read_unlock();
->> +	} else {
->> +		if (netxen_config_checkdev(dev) < 0)
->> +			goto done;
->>
->> -	netxen_config_indev_addr(adapter, orig_dev, event);
->> +		adapter = netdev_priv(dev);
->> +		netxen_config_indev_addr(adapter, orig_dev, event);
->> +	}
->>   done:
->>   	return NOTIFY_DONE;
->>   }
->> @@ -3282,10 +3281,11 @@ netxen_inetaddr_event(struct notifier_block
->*this,
->>   {
->>   	struct netxen_adapter *adapter;
->>   	struct net_device *dev;
->> -
->> +	unsigned long ip_event;
->>   	struct in_ifaddr *ifa = (struct in_ifaddr *)ptr;
->>
->>   	dev = ifa->ifa_dev ? ifa->ifa_dev->dev : NULL;
->> +	ip_event = (event == NETDEV_UP) ? NX_IP_UP : NX_IP_DOWN;
->>
->>   recheck:
->>   	if (dev == NULL)
->> @@ -3296,30 +3296,35 @@ recheck:
->>   		goto recheck;
->>   	}
->>
->> -	if (!is_netxen_netdev(dev))
->> -		goto done;
->> +	/* If this is a bonding device, look for netxen-based slaves*/
->> +	if (dev->priv_flags & IFF_BONDING) {
->> +		struct net_device *slave;
->>
->> -	adapter = netdev_priv(dev);
->> +		rcu_read_lock();
->> +		for_each_netdev_in_bond_rcu(dev, slave) {
->> +			if (netxen_config_checkdev(slave) < 0)
->> +				continue;
->>
->> -	if (!adapter || !netxen_destip_supported(adapter))
->> -		goto done;
->> +			adapter = netdev_priv(slave);
->>
->> -	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
->> -		goto done;
->> +			if (!netxen_destip_supported(adapter))
->> +				continue;
->>
->> -	switch (event) {
->> -	case NETDEV_UP:
->> -		netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_UP);
->> -		netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
->> -		break;
->> -	case NETDEV_DOWN:
->> -		netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_DOWN);
->> -		netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
->> -		break;
->> -	default:
->> -		break;
->> -	}
->> +			netxen_config_ipaddr(adapter, ifa->ifa_address,
->> +					     ip_event);
->> +		}
->> +		rcu_read_unlock();
->> +	} else {
->> +		if (netxen_config_checkdev(dev) < 0)
->> +			goto done;
->> +
->> +		adapter = netdev_priv(dev);
->>
->> +		if (!netxen_destip_supported(adapter))
->> +			goto done;
->> +
->> +		netxen_config_ipaddr(adapter, ifa->ifa_address, ip_event);
->> +	}
->>   done:
->>   	return NOTIFY_DONE;
->>   }
->> @@ -3335,9 +3340,6 @@ static struct notifier_block netxen_inetaddr_cb
->= {
->>   static void
->>   netxen_restore_indev_addr(struct net_device *dev, unsigned long
->event)
->>   { }
->> -static void
->> -netxen_free_vlan_ip_list(struct netxen_adapter *adapter)
->> -{ }
->>   #endif
->>
->>   static struct pci_error_handlers netxen_err_handler = {
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index 59dc05f3..463bb40 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -1578,6 +1578,9 @@ extern rwlock_t
->	dev_base_lock;		/* Device list lock */
->>   		list_for_each_entry_continue(d, &(net)->dev_base_head,
->dev_list)
->>   #define for_each_netdev_continue_rcu(net, d)		\
->>   	list_for_each_entry_continue_rcu(d, &(net)->dev_base_head,
->dev_list)
->> +#define for_each_netdev_in_bond_rcu(bond, slave)	\
->> +	for_each_netdev_rcu(&init_net, slave)		\
->> +		if (slave->master == bond)
->>   #define net_device_entry(lh)	list_entry(lh, struct net_device,
->dev_list)
->>
->>   static inline struct net_device *next_net_device(struct net_device
->*dev)
->Hello Dave,
->I just synced with upstream, I've missed a few patches and it seems
->that it doesn't apply cleanly because my previous patch was
->changed before it was applied. There is one character missing from
->a comment - "/* root bus? */", in upstream it was changed to
->/* root bus */.
->("netxen: check for root bus in netxen_mask_aer_correctable")
->
->About the rest, after QLogic test the functionality I'll clean-up the
->empty lines and re-send it.
->
->Thank you,
->  Nik
->
-Hello Nikolay,
+From: Graham Gower <graham.gower@gmail.com>
 
-While testing the patch I found that mac address does not get added when
-We perform following steps.
-a. bond is created and assigned the ip address.
-b. then the slave device is enslaved.
+Marvell 88E8001 on an ASUS P5NSLI motherboard is unable to send/receive
+packets on a system with >4gb ram unless a 32bit DMA mask is used.
 
-We add ip address in case of NETDEV_UP event. But in above case after enslave is done
-we get NETDEV_FEAT_CHANGE event so ip address does not get added. 
+This issue has been around for years and a fix was sent 3.5 years ago, but
+there was some debate as to whether it should instead be fixed as a PCI quirk.
+http://www.spinics.net/lists/netdev/msg88670.html
 
-Rajesh
+However, 18 months later a similar workaround was introduced for another
+chipset exhibiting the same problem.
+http://www.spinics.net/lists/netdev/msg142287.html
+
+Signed-off-by: Graham Gower <graham.gower@gmail.com>
+Signed-off-by: Jan Ceuleers <jan.ceuleers@computer.org>
+---
+I am resubmitting Graham's v4 patch hoping that doing so will avoid further
+frustration while still getting this fix into the tree.
+I have not tested this; I don't have the hardware. It compiles though.
+
+ drivers/net/ethernet/marvell/skge.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+index 5a30bf8..05b3c83 100644
+--- a/drivers/net/ethernet/marvell/skge.c
++++ b/drivers/net/ethernet/marvell/skge.c
+@@ -4153,6 +4153,13 @@ static struct dmi_system_id skge_32bit_dma_boards[] = {
+ 			DMI_MATCH(DMI_BOARD_NAME, "nForce"),
+ 		},
+ 	},
++	{
++		.ident = "ASUS P5NSLI",
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "ASUSTeK Computer INC."),
++			DMI_MATCH(DMI_BOARD_NAME, "P5NSLI")
++		},
++	}, 
+ 	{}
+ };
+ 
+-- 
+1.7.9.5
