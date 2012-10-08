@@ -1,39 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] vlan: don't deliver frames for unknown vlans to
- protocols
-Date: Mon, 08 Oct 2012 14:42:30 -0400 (EDT)
-Message-ID: <20121008.144230.1404596032615788891.davem@davemloft.net>
-References: <20121008015158.GE25895@florz.florz.dyndns.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [GIT PULL nf-next] IPVS for 3.7 #2
+Date: Mon, 08 Oct 2012 20:44:25 +0200
+Message-ID: <1349721865.22194.53.camel@localhost>
+References: <1348800904-23902-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jpirko@redhat.com
-To: florz@florz.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121008015158.GE25895@florz.florz.dyndns.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Hans Schillstrom <hans@schillstrom.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1348800904-23902-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Zumbiehl <florz@florz.de>
-Date: Mon, 8 Oct 2012 03:51:58 +0200
+Hey Pablo,
 
-> This version completely avoids any new state that could need to be spilled
-> to RAM, and instead re-checks existence and non-zeroness of the tag. What
-> do you think?
+These changes were intended for 3.7, but just checked you git tree...
+and it looks like you didn't pull in Simon's changes, and thus they have
+not hit DaveM's tree for the merge window :-(
 
-At a high level it looks fine and doesn't have the problems mentioned
-earlier.
+--Jesper
 
-But I wonder if it breaks things, since you do the assignment so late
-we no longer handle the case where the VLAN device's MAC address
-matches the packet MAC address and the top-level device's does not.
 
-That's handled by logic in vlan_do_receive() which checks for
-PACKET_OTHERHOST.
+On Fri, 2012-09-28 at 11:54 +0900, Simon Horman wrote:
+> Hi Pablo,
+> 
+> please consider the following enhancements to IPVS for inclusion in 3.7.
+> 
+> ----------------------------------------------------------------
+> The following changes since commit 82c93fcc2e1737fede2752520f1bf8f4de6304d8:
+> 
+>   x86: bpf_jit_comp: add XOR instruction for BPF JIT (2012-09-24 16:54:35 -0400)
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git master
+> 
+> for you to fetch changes up to 92eec78d25aee6bbc9bd295f51c022ddfa80cdd9:
+> 
+>   ipvs: SIP fragment handling (2012-09-28 11:37:16 +0900)
+> 
+> ----------------------------------------------------------------
+> Jesper Dangaard Brouer (7):
+>       ipvs: Trivial changes, use compressed IPv6 address in output
+>       ipvs: IPv6 extend ICMPv6 handling for future types
+>       ipvs: Use config macro IS_ENABLED()
+>       ipvs: Fix faulty IPv6 extension header handling in IPVS
+>       ipvs: Complete IPv6 fragment handling for IPVS
+>       ipvs: API change to avoid rescan of IPv6 exthdr
+>       ipvs: SIP fragment handling
+> 
+>  include/net/ip_vs.h                     |  194 +++++++++++----
+>  net/netfilter/ipvs/Kconfig              |    7 +-
+>  net/netfilter/ipvs/ip_vs_conn.c         |   15 +-
+>  net/netfilter/ipvs/ip_vs_core.c         |  404 +++++++++++++++++--------------
+>  net/netfilter/ipvs/ip_vs_dh.c           |    2 +-
+>  net/netfilter/ipvs/ip_vs_lblc.c         |    2 +-
+>  net/netfilter/ipvs/ip_vs_lblcr.c        |    2 +-
+>  net/netfilter/ipvs/ip_vs_pe_sip.c       |   18 +-
+>  net/netfilter/ipvs/ip_vs_proto.c        |    6 +-
+>  net/netfilter/ipvs/ip_vs_proto_ah_esp.c |    9 +-
+>  net/netfilter/ipvs/ip_vs_proto_sctp.c   |   42 ++--
+>  net/netfilter/ipvs/ip_vs_proto_tcp.c    |   40 ++-
+>  net/netfilter/ipvs/ip_vs_proto_udp.c    |   41 ++--
+>  net/netfilter/ipvs/ip_vs_sched.c        |    2 +-
+>  net/netfilter/ipvs/ip_vs_sh.c           |    2 +-
+>  net/netfilter/ipvs/ip_vs_xmit.c         |   73 +++---
+>  net/netfilter/xt_ipvs.c                 |    4 +-
+>  17 files changed, 501 insertions(+), 362 deletions(-)
 
-But you're going to unconditionally set PACKET_OTHERHOST, overriding
-any decision that code makes.
 
-This turns out to be a really non-trivial area and it's going to take
-some time to get this right and audit the change appropriately.
