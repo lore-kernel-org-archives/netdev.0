@@ -1,58 +1,59 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] iptables 1.4.16.1 release
-Date: Mon, 8 Oct 2012 01:17:06 +0200
-Message-ID: <20121007231706.GA7400@1984>
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: Re: [ANNOUNCE] iptables 1.4.16.1 release
+Date: Mon, 8 Oct 2012 02:14:53 +0200 (CEST)
+Message-ID: <alpine.LNX.2.01.1210080141140.2933@nerf07.vanv.qr>
+References: <20121007231706.GA7400@1984>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="HlL+5n6rz5pIUxbD"
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-announce@lists.netfilter.org, lwn@lwn.net
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netfilter-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-announce@lists.netfilter.org,
+	lwn@lwn.net
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20121007231706.GA7400@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---HlL+5n6rz5pIUxbD
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+On Monday 2012-10-08 01:17, Pablo Neira Ayuso wrote:
+>The Netfilter project proudly presents:
+>
+>        iptables 1.4.16.1
+>
+>iptables -I INPUT -j ACCEPT
+>says:
+>iptables: No chain/target/match by that name.
+>This also breaks iptables-restore, of course. Jan, you'll have to explain
+>me how you have tested this.
 
-On Mon, Oct 08, 2012 at 12:24:41AM +0200, Pablo Neira Ayuso wrote:
-Hi!
+This was tested by adding rules with different targets that had both
+aliases defined and those without.
 
-The Netfilter project proudly presents:
+ ./iptables/xtables-multi main4 -t raw -N foo
+ ./iptables/xtables-multi main4 -t raw -A foo -j NOTRACK
+ with kernels that had xt_CT and no xt_CT at all
 
-        iptables 1.4.16.1
+ ./iptables/xtables-multi main4 -N foo
+ ./iptables/xtables-multi main4 -A foo -m state --state NEW
+ with kernels that had xt_conntrack.3, and xt_conntrack.3 removed
+ (leaving only xt_conntrack.2)
 
-This release fixes a major breakage introduced by:
+ ./iptables/xtables-multi main4 -t raw -N bar
+ ./iptables/xtables-multi main4 -t raw -A bar -j MARK --set-xmark 1
+ ./iptables/xtables-multi main4 -t raw -A foo -j bar
 
-commit cd2f9bdbb7f9b737e5d640aafeb78bcd8e3a7adf
-Author: Jan Engelhardt <jengelh@inai.de>
-Date:   Tue Sep 4 05:24:47 2012 +0200
+plus of course the "standard" (no pun intended) testsuite that we
+had so far:
 
-    iptables: support for target aliases
+ # ./iptables/xtables-multi restore6 tests/options-most.rules 
+ WARNING: --localtz is being replaced by --kerneltz, since "local" is ambiguous.
+ Note the kernel timezone has caveats - see manpage for details.
 
-This is really unfortunate, it seems this patch has been pushed
-mainstream without sufficient testing. We are really sorry for the
-inconvenience. Please, don't use 1.4.16, this bug reders it
-completely useless.
+As you spotted, options-most.rules did not include -j <verdict>.
 
-See ChangeLog that comes attached to this email for more details.
+While v1.4.16-1-g2aaa7ec fixes -j verdict, it breaks NOTRACK in all
+instances. To reuse a line, "you'll have to explain me how you have
+tested this."
 
-You can download it from:
-
-http://www.netfilter.org/projects/iptables/downloads.html
-ftp://ftp.netfilter.org/pub/iptables/
-
-Have fun!
-
---HlL+5n6rz5pIUxbD
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="changes-iptables-1.4.16.1.txt"
-
-Pablo Neira Ayuso (2):
-      iptables: fix standard target
-      bump version to 1.4.16.1
-
-
---HlL+5n6rz5pIUxbD--
+A patch to what I think should fly is posted as a reply hereto.
+Please give that a spin.
