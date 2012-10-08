@@ -1,51 +1,103 @@
-From: graham.gower@gmail.com
-Subject: Re: [PATCH v4] skge: Add DMA mask quirk for Marvell 88E8001 on ASUS P5NSLI motherboard.
-Date: Mon, 8 Oct 2012 19:38:06 +1030
-Message-ID: <A11ABB5B-9E22-4FD2-9008-BCD33E64B514@gmail.com>
-References: <5072760C.7060004@gmail.com> <20121008.030707.864754447318232909.davem@davemloft.net>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain;
-	charset=us-ascii
+From: Dong Aisheng-B29396 <B29396@freescale.com>
+Subject: RE: [PATCH] flexcan: disable bus error interrupts for the i.MX28
+Date: Mon, 8 Oct 2012 09:13:40 +0000
+Message-ID: <7FE21149F4667147B645348EC60578850B2A8D51@039-SN2MPN1-011.039d.mgd.msft.net>
+References: <5065A35B.3020702@grandegger.com>
+ <20121007030858.GJ20231@S2101-09.ap.freescale.net>
+ <50719647.4070404@grandegger.com>
+ <7FE21149F4667147B645348EC60578850B2A361F@039-SN2MPN1-011.039d.mgd.msft.net>
+ <507296F2.9010402@grandegger.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:33293 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751001Ab2JHJIH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 05:08:07 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rr4so3820690pbb.19
-        for <netdev@vger.kernel.org>; Mon, 08 Oct 2012 02:08:06 -0700 (PDT)
-In-Reply-To: <20121008.030707.864754447318232909.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Shawn Guo <shawn.guo@linaro.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux-CAN <linux-can@vger.kernel.org>,
+	Hui Wang <jason77.wang@gmail.com>
+To: Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <507296F2.9010402@grandegger.com>
+Content-Language: en-US
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Well its pretty frustrating from my end too.
+Hi Wolfgang,
 
-Fuck it, i dont care enough. I'll just keep patching kernels locally until my hardware expires.
+>Hi Dong,
+>
+>On 10/08/2012 09:59 AM, Dong Aisheng-B29396 wrote:
+>> Hi Wolfgang,
+>>
+>>> On 10/07/2012 05:09 AM, Shawn Guo wrote:
+>>>> On Fri, Sep 28, 2012 at 03:17:15PM +0200, Wolfgang Grandegger wrote:
+>>>>> Due to a bug in most Flexcan cores, the bus error interrupt needs
+>>>>> to be enabled. Otherwise we don't get any error warning or passive
+>>>>> interrupts. This is _not_ necessay for the i.MX28 and this patch
+>>>>> disables bus error interrupts if "berr-reporting" is not requested.
+>>>>> This avoids bus error flooding, which might harm, especially on
+>>>>> low-end systems.
+>>>>>
+>>>>> To handle such quirks of the Flexcan cores, a hardware feature flag
+>>>>> has been introduced, also replacing the "hw_ver" variable. So far
+>>>>> nobody could tell what Flexcan core version is available on what
+>>>>> Freescale SOC, apart from the i.MX6Q and P1010, and which bugs or
+>>>>> features are present on the various "hw_rev".
+>>>>>
+>>>>> CC: Hui Wang <jason77.wang@gmail.com>
+>>>>> CC: Shawn Guo <shawn.guo@linaro.org>
+>>>>> Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+>>>>> ---
+>>>>>
+>>>>> Concerning the bug, I know that the i.MX35 does have it. Maybe
+>>>>> other Flexcan cores than on the i.MX28 does *not* have it either.
+>>>>> If you have a chance, please check on the P1010, i.MX6Q, i.MX51,
+>>>>> i.MX53, etc.
+>>>>
+>>>> >From what I can tell, i.MX35, i.MX51 and i.MX53 use the same
+>>>> >version,
+>>>> so they should all have the bug.  And for i.MX6Q, since it uses a
+>>>> newer version even than i.MX28, I would believe it's affected by the
+>bug.
+>>>> But I'm copying Dong who should have better knowledge about this to
+>>>> confirm.
+>>>
+>>> Thank for clarification. I have a i.MX6Q board but without CAN
+>>> adapter :(, unfortunately. Otherwise I would try it out myself.
+>>>
+>> How did you verify this issue?
+>
+>I provoke state changes, e.g. by sending a message without connection to
+>the bus. On the Mx28, the TWRN_INT/RWRN_INT/(BOFF_INT?) does trigger the
+>corresponding interrupt. This does not work properly on some other cores,
+>e.g. the Mx35. Therefore we enable ERR_INT for those cores to realize
+>state changes.
+Thanks for the info.
 
-On 08/10/2012, at 5:37 PM, David Miller <davem@davemloft.net> wrote:
+>> I just checked our ic guy of flexcan, it seems he also had no sense of
+>this issue.
+>>
+>> Below is some version info what I got:
+>> Mx6s use FlexCAN3, with IP version 10.00.12.00
+>> Mx53 use FlexCAN2 (with glitch filter), with IP version 03.00.00.00
+>> Mx28 use FlexCAN2 (with glitch filter), with IP version 03.00.04.00
+>> Mx35 use FlexCAN2 (without glitch filter) , with IP version
+>> 03.00.00.00
+>> Mx25 use FlexCAN2 (without glitch filter), with IP version 03.00.00.00
+>> I'm not sure if mx6q has such issue.
+>
+>OK, we need to find that out experimentally.
+>
+Our IC owner double checked the MX35 and MX53 IP and found the RX_WARN & TX_WARN
+Interrupt source actually are not connected to ARM.
+That means flexcan will not trigger interrupt to ARM core even RX_WARN or TX_WARN
+Happens.
+This may be the root cause that why you cannot see RX_WARN interrupt if not enable
+bus error interrupt on mx35.
+He also checked that mx6q has the rx/tx warning interrupt connected to arm.
+So we guess mx6q does not have this issue.
+Anyway, we can test to confirm.
 
-> From: Graham Gower <graham.gower@gmail.com>
-> Date: Mon, 08 Oct 2012 17:13:24 +1030
-> 
->> Marvell 88E8001 on an ASUS P5NSLI motherboard is unable to
->> send/receive
->> packets on a system with >4gb ram unless a 32bit DMA mask is used.
-> 
-> Please format this ascii text properly.  WHy is there a line
-> with just two words surrounded by full nearly 80-column lines?
-> 
->> +        .matches = {
->> + DMI_MATCH(DMI_BOARD_VENDOR, "ASUSTeK Computer INC."),
-> 
-> THis is still formatted incorrectly, it's actually in the file
-> not due to your email client.
-> 
-> Can you indent the thing properly, please?
-> 
-> This is V4 of this patch, and suffering purely from first order coding
-> style and procedural stuff.  As you can imagine, it's very frustrating
-> to have to spend this much time getting such simple things taken care
-> of.
+Regards
+Dong Aisheng
+
+
