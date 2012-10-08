@@ -1,78 +1,41 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [GIT PULL nf-next] IPVS for 3.7 #2
-Date: Mon, 08 Oct 2012 20:44:25 +0200
-Message-ID: <1349721865.22194.53.camel@localhost>
-References: <1348800904-23902-1-git-send-email-horms@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] ipv4: pmtu fixes
+Date: Mon, 08 Oct 2012 14:47:13 -0400 (EDT)
+Message-ID: <20121008.144713.729746528422701623.davem@davemloft.net>
+References: <20121008084642.GB15622@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Hans Schillstrom <hans@schillstrom.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1348800904-23902-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56889 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753480Ab2JHSrP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 14:47:15 -0400
+In-Reply-To: <20121008084642.GB15622@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hey Pablo,
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Mon, 8 Oct 2012 10:46:42 +0200
 
-These changes were intended for 3.7, but just checked you git tree...
-and it looks like you didn't pull in Simon's changes, and thus they have
-not hit DaveM's tree for the merge window :-(
+> This patchset fixes some issues that came with the routing cache removal.
+> 
+> 1) IPsec and others (udp, ipvs) may cache output routes, these routes
+> need to be invalidated on pmtu events in the same way e.g. tcp socket
+> cached routes are invalidated. With this we always invalidate or update
+> (if we already use a nh exeption route) the old route on pmtu events. 
+> 
+> This has the drawback that we may needlessly invalidate an uncached route,
+> but this fixes all the users that cache routes and pmtu events are rare, so
+> this should not be a real issue.
+> 
+> 2) We create nh exeptions if a user (e.g. tracepath) tries to do pmtu
+> dicsovery with packets bigger than the output device mtu. The device mtu
+> is not learned and does not expire, so don't create an exeption route.
+> 
+> 3) We report cached pmtu values to userspace even if they are expired.
+> Fix this by checking for expiration before we report.
 
---Jesper
-
-
-On Fri, 2012-09-28 at 11:54 +0900, Simon Horman wrote:
-> Hi Pablo,
-> 
-> please consider the following enhancements to IPVS for inclusion in 3.7.
-> 
-> ----------------------------------------------------------------
-> The following changes since commit 82c93fcc2e1737fede2752520f1bf8f4de6304d8:
-> 
->   x86: bpf_jit_comp: add XOR instruction for BPF JIT (2012-09-24 16:54:35 -0400)
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git master
-> 
-> for you to fetch changes up to 92eec78d25aee6bbc9bd295f51c022ddfa80cdd9:
-> 
->   ipvs: SIP fragment handling (2012-09-28 11:37:16 +0900)
-> 
-> ----------------------------------------------------------------
-> Jesper Dangaard Brouer (7):
->       ipvs: Trivial changes, use compressed IPv6 address in output
->       ipvs: IPv6 extend ICMPv6 handling for future types
->       ipvs: Use config macro IS_ENABLED()
->       ipvs: Fix faulty IPv6 extension header handling in IPVS
->       ipvs: Complete IPv6 fragment handling for IPVS
->       ipvs: API change to avoid rescan of IPv6 exthdr
->       ipvs: SIP fragment handling
-> 
->  include/net/ip_vs.h                     |  194 +++++++++++----
->  net/netfilter/ipvs/Kconfig              |    7 +-
->  net/netfilter/ipvs/ip_vs_conn.c         |   15 +-
->  net/netfilter/ipvs/ip_vs_core.c         |  404 +++++++++++++++++--------------
->  net/netfilter/ipvs/ip_vs_dh.c           |    2 +-
->  net/netfilter/ipvs/ip_vs_lblc.c         |    2 +-
->  net/netfilter/ipvs/ip_vs_lblcr.c        |    2 +-
->  net/netfilter/ipvs/ip_vs_pe_sip.c       |   18 +-
->  net/netfilter/ipvs/ip_vs_proto.c        |    6 +-
->  net/netfilter/ipvs/ip_vs_proto_ah_esp.c |    9 +-
->  net/netfilter/ipvs/ip_vs_proto_sctp.c   |   42 ++--
->  net/netfilter/ipvs/ip_vs_proto_tcp.c    |   40 ++-
->  net/netfilter/ipvs/ip_vs_proto_udp.c    |   41 ++--
->  net/netfilter/ipvs/ip_vs_sched.c        |    2 +-
->  net/netfilter/ipvs/ip_vs_sh.c           |    2 +-
->  net/netfilter/ipvs/ip_vs_xmit.c         |   73 +++---
->  net/netfilter/xt_ipvs.c                 |    4 +-
->  17 files changed, 501 insertions(+), 362 deletions(-)
-
-
+All applied and queued up for -stable, thanks!
