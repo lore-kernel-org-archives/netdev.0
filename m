@@ -1,27 +1,26 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Fw: BUG: unable to handle kernel NULL pointer dereference in
- qfq_dequeue()
-Date: Mon, 8 Oct 2012 09:27:09 -0700
-Message-ID: <20121008092709.1b2ff7c8@nehalam.linuxnetplumber.net>
+Subject: Fw: [Bug 48601] New: Pauses while downloading
+Date: Mon, 8 Oct 2012 09:29:49 -0700
+Message-ID: <20121008092949.39d6cc4e@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60761 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:45370 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753542Ab2JHQ1s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Oct 2012 12:27:48 -0400
+	id S1753542Ab2JHQa3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2012 12:30:29 -0400
 Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.vyatta.com (Postfix) with ESMTP id 7986D1410211
-	for <netdev@vger.kernel.org>; Mon,  8 Oct 2012 09:27:48 -0700 (PDT)
+	by mail.vyatta.com (Postfix) with ESMTP id D1BB01410202
+	for <netdev@vger.kernel.org>; Mon,  8 Oct 2012 09:30:28 -0700 (PDT)
 Received: from mail.vyatta.com ([127.0.0.1])
 	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id vj5v0USQEk35 for <netdev@vger.kernel.org>;
-	Mon,  8 Oct 2012 09:27:47 -0700 (PDT)
+	with ESMTP id N-4+AobWkpT2 for <netdev@vger.kernel.org>;
+	Mon,  8 Oct 2012 09:30:27 -0700 (PDT)
 Received: from nehalam.linuxnetplumber.net (static-50-53-80-93.bvtn.or.frontiernet.net [50.53.80.93])
-	by mail.vyatta.com (Postfix) with ESMTPSA id 1667D1410202
-	for <netdev@vger.kernel.org>; Mon,  8 Oct 2012 09:27:47 -0700 (PDT)
+	by mail.vyatta.com (Postfix) with ESMTPSA id D20E61410211
+	for <netdev@vger.kernel.org>; Mon,  8 Oct 2012 09:30:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -29,102 +28,73 @@ List-ID: <netdev.vger.kernel.org>
 
 Begin forwarded message:
 
-Date: Mon, 08 Oct 2012 17:15:56 +0800
-From: Cong Wang <amwang@redhat.com>
-To: stephen hemminger <shemminger@vyatta.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,        Thomas Graf <tgraf@redhat.com>
-Subject: BUG: unable to handle kernel NULL pointer dereference in qfq_dequeue()
+Date: Mon,  8 Oct 2012 09:12:17 +0000 (UTC)
+From: bugzilla-daemon@bugzilla.kernel.org
+To: shemminger@linux-foundation.org
+Subject: [Bug 48601] New: Pauses while downloading
 
 
-Hi, all,
+https://bugzilla.kernel.org/show_bug.cgi?id=48601
 
-We got the following kernel crash on RHEL6 and I confirmed upstream has
-the same problem (I didn't save this kernel log though):
-
-BUG: unable to handle kernel NULL pointer dereference at
-0000000000000010
-IP: [<ffffffffa02c3dca>] qfq_dequeue+0x30a/0x490 [sch_qfq]
-PGD 1fbed067 PUD 1b103067 PMD 0 
-Oops: 0000 [#1] SMP 
-last sysfs
-file: /sys/devices/pci0000:00/0000:00:08.0/virtio4/net/eth2/address
-CPU 0 
-Modules linked in: cls_u32 sch_qfq sch_cbq ip6t_REJECT nf_conntrack_ipv6
-nf_defrag_ipv6 xt_state nf_conntrack ip6table_filter ip6_tables ipv6
-virtio_balloon snd_intel8x0 snd_ac97_codec ac97_bus snd_seq
-snd_seq_device
-snd_pcm snd_timer snd soundcore snd_page_alloc virtio_net i2c_piix4
-i2c_core
-ext4 mbcache jbd2 virtio_blk virtio_pci virtio_ring virtio pata_acpi
-ata_generic ata_piix dm_mirror dm_region_hash dm_log dm_mod [last
-unloaded:
-scsi_wait_scan]
-
-Pid: 0, comm: swapper Not tainted 2.6.32-259.el6.x86_64 #1 Red Hat KVM
-RIP: 0010:[<ffffffffa02c3dca>]  [<ffffffffa02c3dca>] qfq_dequeue
-+0x30a/0x490
-[sch_qfq]
-RSP: 0018:ffff880002203da0  EFLAGS: 00010287
-RAX: ffffffffffffffb0 RBX: ffff88001f45e0c0 RCX: 0000000000000029
-RDX: fffffe0000000000 RSI: 0000000000000001 RDI: ffff88001f45f718
-RBP: ffff880002203de0 R08: 0000000000000007 R09: 0000000225c602e3
-R10: 00000000ffffffff R11: dead000000200200 R12: 0000000000000013
-R13: ffff88001f124ea8 R14: ffff88001f45f6b8 R15: 0028940000000000
-FS:  0000000000000000(0000) GS:ffff880002200000(0000)
-knlGS:0000000000000000
-CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
-CR2: 0000000000000010 CR3: 000000001b277000 CR4: 00000000000006f0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process swapper (pid: 0, threadinfo ffffffff81a00000, task
-ffffffff81a8d020)
-Stack:
- ffff88001f45e000 0028900000000000 ffff880002203de0 ffff88001f4fcc00
-<d> ffff88001f4fcc00 0000000000000000 0000000000000001 ffff88001ad640c0
-<d> ffff880002203e60 ffffffffa02b9c85 ffff88001f4fcc00 ffff88001f4fcc00
-Call Trace:
- <IRQ> 
- [<ffffffffa02b9c85>] cbq_dequeue+0x365/0x730 [sch_cbq]
- [<ffffffff81456c3f>] __qdisc_run+0x3f/0xe0
- [<ffffffff81436c00>] net_tx_action+0x130/0x1c0
- [<ffffffff8102b46d>] ? lapic_next_event+0x1d/0x30
- [<ffffffff81073d81>] __do_softirq+0xc1/0x1e0
- [<ffffffff81096b10>] ? hrtimer_interrupt+0x140/0x250
- [<ffffffff8100c24c>] call_softirq+0x1c/0x30
- [<ffffffff8100de85>] do_softirq+0x65/0xa0
- [<ffffffff81073b65>] irq_exit+0x85/0x90
- [<ffffffff81502bc0>] smp_apic_timer_interrupt+0x70/0x9b
- [<ffffffff8100bc13>] apic_timer_interrupt+0x13/0x20
- <EOI> 
- [<ffffffff810387cb>] ? native_safe_halt+0xb/0x10
- [<ffffffff810149cd>] default_idle+0x4d/0xb0
- [<ffffffff81009e06>] cpu_idle+0xb6/0x110
- [<ffffffff814e137a>] rest_init+0x7a/0x80
- [<ffffffff81c21f7b>] start_kernel+0x424/0x430
- [<ffffffff81c2133a>] x86_64_start_reservations+0x125/0x129
- [<ffffffff81c21438>] x86_64_start_kernel+0xfa/0x109
-Code: 7c 03 50 4d 8b 7e 58 e8 b5 f6 ff ff 48 85 c0 0f 84 3c 01 00 00 41
-8b 4e
-60 be 01 00 00 00 49 8d 7e 60 48 89 f2 48 d3 e2 48 f7 da <48> 23 50 60
-49 39 56
-50 0f 84 d6 00 00 00 b8 02 00 00 00 49 89 
-RIP  [<ffffffffa02c3dca>] qfq_dequeue+0x30a/0x490 [sch_qfq]
- RSP <ffff880002203da0>
-CR2: 0000000000000010
+           Summary: Pauses while downloading
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.6
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: low
+          Priority: P1
+         Component: IPV4
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: colbec@start.ca
+        Regression: No
 
 
-This crash can be easily reproduced in KVM guests by the following
-steps:
+Using OpenSUSE 12.2, Gnome 3.6 with Network Manager.
+Recently upgraded from kernel 3.5 to 3.6, at which point the issue began.
 
-1. on virt-guest1 setup qdisc with qfq with this script:
-http://pastebin.com/BRaSXLzq
-2. on virt-guest2 start listening on ports 1234, 1235
-# nc -l 1234 > /dev/null 2>&1
-# nc -l 1235 > /dev/null 2>&1
-3. on virt-guest1 send traffic to virt-guest2
-# yes | nc $virt-guest2_ip_addr 1234
-# yes | nc $virt-guest2_ip_addr 1235
+Observed symptoms: while downloading, the stream will stop at random points for
+5 to 120+ seconds, and then resume the download.
+Example 1: while browsing, click on a link one time in 10 (approx) will fail to
+get the page, and a second click is successful. Sometimes it will begin to get
+the page, then stop, use back button to get previous page back, click link
+again and the page is fetched successfully.
+Example 2: try to test download speed using speedtest.net, one test in two
+shows a normal start to the download side of the test, during the test the
+process stops, then recommences after a varying period 5 to 120+ seconds.
+Pauses happen one or multiple times.
+Example 3: attempt to download a 20MB mp4 using Firefox. Process begins
+correctly, but during the download the process stops, again for 5-120 sec, and
+resumes. Downloads take a long time, but will eventually complete. If I kick it
+(pause, resume in download manager) it will complete faster.
 
-I am not familiar with qfq qdisc. Any ideas?
+I have replaced cables, NIC; return to kernel 3.5 eliminates the issue.
 
-Thanks!
+.config file was copied from a 3.4.2 kernel version, worked well for 3.5, and
+also seemed to be good for 3.6 with the exception of failed webcam which needed
+V4L reinstated.
+
+--- Comment #1 from Alan <alan@lxorguk.ukuu.org.uk>  2012-10-08 15:03:59 ---
+Please provide detailed information on the hardware or network setup. Without
+that it's hard to do anything.
+
+--- Comment #2 from colbec@start.ca  2012-10-08 15:43:58 ---
+OK, first to note is that two Windows machines on the same network using the
+same wireless route to the WAN do not show this issue. Since kernel 3.5 is
+clear and only 3.6 is the problem this seems to rule out the network
+components, but anyway I am connecting to the WAN through two Linksys WRT4GL
+running DD-WRT. Route continues to WAN through a wireless high speed connection
+via Motorola Canopy technology.
+
+I have replaced the cabling with identical results.
+I have added a PCI NIC (Realtek) which behaves the same way as the onboard NIC
+(Atheros AR8131).
+
+Memory 3.8 GiB, Intel Core 2 Quad Q8300 @ 2.5 GHz x 4
+Graphics Intel G41 64 bit OS, Disk 500 GB.
+Correction to Gnome version 3.4.2. (not stated 3.6)
+
+I have a ream of further hardware info from Yast, please specify what detail
+would be helpful.
