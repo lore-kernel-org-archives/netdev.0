@@ -1,40 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] GRO scalability
-Date: Mon, 08 Oct 2012 19:56:46 +0200
-Message-ID: <1349719006.21172.3537.camel@edumazet-glaptop>
-References: <1348750130.5093.1227.camel@edumazet-glaptop>
-	 <CAEP_g=-JAYHXM86AYNp7BhDV+eqfkKVgC+SJS1MVdo0K8fRLSQ@mail.gmail.com>
-	 <1348769294.5093.1566.camel@edumazet-glaptop>
-	 <1348769990.5093.1584.camel@edumazet-glaptop>
-	 <CAEP_g=8B7xZPxye0Kuu-EVKpTDt1a3nsJKb61aaYaqOGsYGx8w@mail.gmail.com>
-	 <1348841041.5093.2477.camel@edumazet-glaptop>
-	 <CAEP_g=_nSb-ite51PM-E8SY53yOPiZs8N3gDrYNc0L4OU2Ht=A@mail.gmail.com>
-	 <1349448747.21172.113.camel@edumazet-glaptop>  <506F23F6.1060704@hp.com>
-	 <1349463634.21172.152.camel@edumazet-glaptop>  <506F368F.3070403@hp.com>
-	 <1349467578.21172.178.camel@edumazet-glaptop>  <50730217.6020206@hp.com>
-	 <1349715561.21172.3463.camel@edumazet-glaptop>  <5073121B.2070300@hp.com>
-	 <1349718955.21172.3534.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC:PATCH 3.6.0-] net/ipconfig: Extend ipconfig retries to
+ device open
+Date: Mon, 08 Oct 2012 14:14:03 -0400 (EDT)
+Message-ID: <20121008.141403.36402742873454814.davem@davemloft.net>
+References: <1349365123-25826-1-git-send-email-srinivas.kandagatla@st.com>
+	<20121007.001156.294004123796199582.davem@davemloft.net>
+	<5072C961.3030807@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
-To: Rick Jones <rick.jones2@hp.com>
+Cc: netdev@vger.kernel.org
+To: srinivas.kandagatla@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:43322 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754068Ab2JHR4u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 13:56:50 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so2203684bkc.19
-        for <netdev@vger.kernel.org>; Mon, 08 Oct 2012 10:56:49 -0700 (PDT)
-In-Reply-To: <1349718955.21172.3534.camel@edumazet-glaptop>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56342 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751185Ab2JHSOI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 14:14:08 -0400
+In-Reply-To: <5072C961.3030807@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-10-08 at 19:55 +0200, Eric Dumazet wrote:
+From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+Date: Mon, 08 Oct 2012 13:38:57 +0100
 
-> If your hardware is capable of receiving one packet per us, this would
-> allow 50 packets in GRO queue.
+> On 07/10/12 05:11, David Miller wrote:
+>> From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+>> Date: Thu,  4 Oct 2012 16:38:43 +0100
+>>
+>>> This patch adds retries to ipconfig at device open, the reason to do
+>>> this is: Lets say If some mdio bus driver decide to use defered probe
+>>> when it does not find any phys on the bus. The same mdio-bus driver is
+>>> re-probed as part of lateinit calls. However ipconfig also fits into
+>>> lateinit calls, so if ipconfig is called before the re-probe of mdio-bus
+>>> driver, the mac driver will fail to find a valid PHY on the mdio-bus.
+>> Real device drivers for real devices should not probe using late
+>> initcalls.
+> I agree,
+> Let me summarize what I did try.
+> 
+> I wanted to use "Defered Probe Feature" which went in 3.4 kernel to
+> solve a sequencing issue.
+> So modified Mdio-driver accordingly, mdio-driver decided to defer its
+> probe for the first-time when It could not detect any PHY's on the BUS.
+> (second time) device probe is actually called in lateinit call sequence
+> by "Defered Probe Code".
 
-Sorry, I meant : 10 us per packet.
+That's not how we probe "devices on a bus" which is the model you
+should be following here to fix this bug.
+
+Just delaying is going to run into corner cases where things do not
+work.  You need cooperation between bus provider and bus consumer,
+full stop.
