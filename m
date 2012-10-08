@@ -1,84 +1,51 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] libnfnetlink 1.0.1 release
-Date: Mon, 8 Oct 2012 11:04:53 +0200
-Message-ID: <20121008090453.GA14619@1984>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="u3/rZRmxL6MmkK24"
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-announce@lists.netfilter.org, lwn@lwn.net?
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: graham.gower@gmail.com
+Subject: Re: [PATCH v4] skge: Add DMA mask quirk for Marvell 88E8001 on ASUS P5NSLI motherboard.
+Date: Mon, 8 Oct 2012 19:38:06 +1030
+Message-ID: <A11ABB5B-9E22-4FD2-9008-BCD33E64B514@gmail.com>
+References: <5072760C.7060004@gmail.com> <20121008.030707.864754447318232909.davem@davemloft.net>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:33293 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751001Ab2JHJIH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 05:08:07 -0400
+Received: by mail-pb0-f46.google.com with SMTP id rr4so3820690pbb.19
+        for <netdev@vger.kernel.org>; Mon, 08 Oct 2012 02:08:06 -0700 (PDT)
+In-Reply-To: <20121008.030707.864754447318232909.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Well its pretty frustrating from my end too.
 
---u3/rZRmxL6MmkK24
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Fuck it, i dont care enough. I'll just keep patching kernels locally until my hardware expires.
 
-Hi!
+On 08/10/2012, at 5:37 PM, David Miller <davem@davemloft.net> wrote:
 
-The Netfilter project proudly presents:
-
-        libnfnetlink 1.0.1
-
-This release contains minor fixes and updates for this library.
-
-See ChangeLog that comes attached to this email for more details.
-
-You can download it from:
-
-http://www.netfilter.org/projects/libnfnetlink/downloads.html
-ftp://ftp.netfilter.org/pub/libnfnetlink/
-
-Have fun!
-
---u3/rZRmxL6MmkK24
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="changes-libnfnetlink-1.0.1.txt"
-
-Jan Engelhardt (22):
-      build: use autoconf-suggested naming of files
-      build: use modern call syntax for AC_INIT, AM_INIT_AUTOMAKE
-      build: avoid use of deprecated INCLUDES
-      build: use simpler autoreconf in autogen
-      build: use AC_CONFIG_MACRO_DIR as directed
-      build: run AC_CANONICAL_HOST only
-      build: remove statements without effect
-      build: remove -fPIC flag
-      Add .gitignore files
-      build: use AC_OUTPUT
-      build: default to not building static libraries
-      Remove distro-specific parts
-      src: remove redundant casts
-      build: remove unused LIBTOOL_DEPS
-      build: use -Wall across the entire source
-      utils: resolve compiler warning
-      nfnl: avoid exit on large packet
-      build: fix error with automake-1.9
-      Update .gitignore
-      build: use AC_CONFIG_AUX_DIR and stash away tools
-      build: disable implicit .tar.gz archive generation and use POSIX mode
-      build: remove unnecessary AC_EXEEXT
-
-Jiri Popelka (1):
-      src: BAD_SIZEOF
-
-Pablo Neira Ayuso (13):
-      src: add COPYING file that include licensing terms
-      iftable: fix wrong handler unregistration on error
-      license: upgrade to GPLv2+
-      Merge branch 'master' of git://dev.medozas.de/libnfnetlink
-      build: kernel-like compilation messages
-      src: update copyright header
-      utils: iftest: display link state (UP/DOWN)
-      utils: iftest: pass the device name you want to obtain information for
-      utils: iftest: check return value of nlif_query
-      utils: iftest: relax check of nlif_name2index
-      iftable: fix incomplete list of interfaces via nlif_query
-      nfnl: fix compilation warning with gcc-4.7
-      bump version to 1.0.1
-
-
---u3/rZRmxL6MmkK24--
+> From: Graham Gower <graham.gower@gmail.com>
+> Date: Mon, 08 Oct 2012 17:13:24 +1030
+> 
+>> Marvell 88E8001 on an ASUS P5NSLI motherboard is unable to
+>> send/receive
+>> packets on a system with >4gb ram unless a 32bit DMA mask is used.
+> 
+> Please format this ascii text properly.  WHy is there a line
+> with just two words surrounded by full nearly 80-column lines?
+> 
+>> +        .matches = {
+>> + DMI_MATCH(DMI_BOARD_VENDOR, "ASUSTeK Computer INC."),
+> 
+> THis is still formatted incorrectly, it's actually in the file
+> not due to your email client.
+> 
+> Can you indent the thing properly, please?
+> 
+> This is V4 of this patch, and suffering purely from first order coding
+> style and procedural stuff.  As you can imagine, it's very frustrating
+> to have to spend this much time getting such simple things taken care
+> of.
