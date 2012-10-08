@@ -1,41 +1,20 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] ipv4: pmtu fixes
-Date: Mon, 08 Oct 2012 14:47:13 -0400 (EDT)
-Message-ID: <20121008.144713.729746528422701623.davem@davemloft.net>
-References: <20121008084642.GB15622@secunet.com>
+Subject: Re: [PATCH] pch_gbe: Fix build error by selecting all the possible
+ dependencies.
+Date: Mon, 08 Oct 2012 14:48:50 -0400 (EDT)
+Message-ID: <20121008.144850.921817844327447604.davem@davemloft.net>
+References: <20121006075954.GA29618@localhost>
+	<1349695107-19524-1-git-send-email-haicheng.lee@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56889 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753480Ab2JHSrP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 14:47:15 -0400
-In-Reply-To: <20121008084642.GB15622@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: haicheng.li@linux.jf.intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, fengguang.wu@intel.com
+To: haicheng.lee@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349695107-19524-1-git-send-email-haicheng.lee@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Mon, 8 Oct 2012 10:46:42 +0200
 
-> This patchset fixes some issues that came with the routing cache removal.
-> 
-> 1) IPsec and others (udp, ipvs) may cache output routes, these routes
-> need to be invalidated on pmtu events in the same way e.g. tcp socket
-> cached routes are invalidated. With this we always invalidate or update
-> (if we already use a nh exeption route) the old route on pmtu events. 
-> 
-> This has the drawback that we may needlessly invalidate an uncached route,
-> but this fixes all the users that cache routes and pmtu events are rare, so
-> this should not be a real issue.
-> 
-> 2) We create nh exeptions if a user (e.g. tracepath) tries to do pmtu
-> dicsovery with packets bigger than the output device mtu. The device mtu
-> is not learned and does not expire, so don't create an exeption route.
-> 
-> 3) We report cached pmtu values to userspace even if they are expired.
-> Fix this by checking for expiration before we report.
-
-All applied and queued up for -stable, thanks!
+This didn't make it to any mailing list, so nobody can review it.
