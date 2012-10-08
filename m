@@ -1,49 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.4.1 and 3.5-rc1 Packet lost at 250Mb/s
-Date: Mon, 08 Oct 2012 14:13:26 +0200
-Message-ID: <1349698406.21172.3168.camel@edumazet-glaptop>
-References: <409ac8b30a6994028562e1a159ac60aa@justnet.pl>
-	 <1349677373.21172.2756.camel@edumazet-glaptop>
-	 <9819d6943a7cfddfc8fa49217aa4842e@justnet.pl>
-	 <1349689640.21172.3008.camel@edumazet-glaptop>
-	 <80bb011e8f1289218087633fd7b115ea@justnet.pl>  <5072C063.6000302@tomt.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [ANNOUNCE] ulogd 2.0.1 release
+Date: Mon, 8 Oct 2012 14:15:35 +0200
+Message-ID: <20121008121535.GA27399@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: adam.niescierowicz@justnet.pl, Netdev <netdev@vger.kernel.org>
-To: Andre Tomt <andre@tomt.net>
+Content-Type: multipart/mixed; boundary="sdtB3X0nJg68CQEu"
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-announce@lists.netfilter.org, lwn@lwn.net
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:63459 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751669Ab2JHMNb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 08:13:31 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so1993458bkc.19
-        for <netdev@vger.kernel.org>; Mon, 08 Oct 2012 05:13:30 -0700 (PDT)
-In-Reply-To: <5072C063.6000302@tomt.net>
+Received: from mail.us.es ([193.147.175.20]:41685 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750845Ab2JHMPk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2012 08:15:40 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-10-08 at 14:00 +0200, Andre Tomt wrote:
-> On 08. okt. 2012 12:49, Nie=C5=9Bcierowicz Adam wrote:
-> > W dniu 08.10.2012 11:47, Eric Dumazet napisa=C5=82(a):
-> >> Anyway you dont say where are drops, (ifconfig give us very few dr=
-ops)
-> >
-> > you can see no losses(drop), but a temporary decline in traffic on =
-the
-> > interface to 0kb/s
->=20
-> This sounds very familiar, could it be something similar to:
-> http://marc.info/?l=3Dlinux-netdev&m=3D134594936016796&w=3D3
->=20
-> The chip seems to be of the same family (though not model)
 
-Yes, but Adam says 3.4.1 already has a problem, while
-commit 2cb7a9cc008c25dc03314de563c00c107b3e5432 is in 3.5 only.
+--sdtB3X0nJg68CQEu
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Since Adam uses Intel e1000e, it could be the BQL related problem.
+Hi!
 
-(Not sure if Intel guys finally fixed the problem, if not, its really
-insane)
+The Netfilter project proudly presents:
 
-http://patchwork.ozlabs.org/patch/163298/
+        ulogd 2.0.1
+
+This releases includes support for the nfacct extended iptables
+accounting infrastructure.
+
+See ChangeLog that comes attached to this email for more details.
+
+You can download it from:
+
+http://www.netfilter.org/projects/ulogd/downloads.html
+ftp://ftp.netfilter.org/pub/ulogd/
+
+Have fun!
+
+--sdtB3X0nJg68CQEu
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="changes-ulogd-2.0.1.txt"
+
+Eric Leblond (6):
+      NFCT: fix crash in polling mode if used by two stacks
+      nfacct: add variable to not zero counter after read
+      pgsql schema: add nfacct table
+      pgsql schema: fix timestamp default value
+      pgsql: only disable key if it starts with underscore
+      nfacct: add timestamp option
+
+Michael Tremer (1):
+      sqlite3: Add more logging if database initialization fails.
+
+Pablo Neira Ayuso (9):
+      src: add ULOGD_DTYPE_SUM for nfacct-based accounting
+      output: XML: support for NFACCT input plugin
+      output: XML: display time for NFACCT
+      input: NFCT: fix compilation warning with gcc-4.7
+      src: fix version that -V displays
+      ulogd.conf: slightly expand documentation on zerocounter option for nfacct
+      filter: IP2HBIN: fix compilation warning with gcc-4.7
+      src: update copyright and authors information
+      bump version to 2.0.1
+
+Thomas Jarosch (1):
+      ipfix: fix bracket imbalance if IPPROTO_SCTP is defined
+
+
+--sdtB3X0nJg68CQEu--
