@@ -1,67 +1,63 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 3/3] ipv4: Don't report stale pmtu values to userspace
-Date: Mon, 8 Oct 2012 12:38:12 +0200
-Message-ID: <20121008103812.GA21577@secunet.com>
-References: <20121008084642.GB15622@secunet.com>
- <20121008084853.GE15622@secunet.com>
- <1349690144.21172.3024.camel@edumazet-glaptop>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [ANNOUNCE] libnetfilter_queue 1.0.2 release
+Date: Mon, 8 Oct 2012 12:49:24 +0200
+Message-ID: <20121008104924.GA22039@1984>
+References: <20121008092636.GA15925@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:48676 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750833Ab2JHKiP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Oct 2012 06:38:15 -0400
+Content-Type: multipart/mixed; boundary="ew6BAiZeqk4r7MaW"
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-announce@lists.netfilter.org, lwn@lwn.net
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1349690144.21172.3024.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20121008092636.GA15925@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 08, 2012 at 11:55:44AM +0200, Eric Dumazet wrote:
-> On Mon, 2012-10-08 at 10:48 +0200, Steffen Klassert wrote:
-> > We report cached pmtu values even if they are already expired.
-> > Change this to not report these values after they are expired.
-> > 
-> > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> > ---
-> >  net/ipv4/route.c |   17 +++++++++--------
-> >  1 files changed, 9 insertions(+), 8 deletions(-)
-> > 
-> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > index 741df67..24b52dd 100644
-> > --- a/net/ipv4/route.c
-> > +++ b/net/ipv4/route.c
-> > @@ -2187,8 +2187,16 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src,
-> >  	    nla_put_be32(skb, RTA_GATEWAY, rt->rt_gateway))
-> >  		goto nla_put_failure;
-> >  
-> > +	expires = rt->dst.expires;
-> > +	if (expires) {
-> > +		if (time_before(jiffies, expires))
-> > +			expires -= jiffies;
-> 
-> Seeing this racy code, we could fix it as well.
 
-Sure, we can :)
+--ew6BAiZeqk4r7MaW
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> 
-> jiffies is volatile and can change between the test and subtraction.
-> 
-> So we could in theory get strange result.
-> 
-> I suggest using :
-> 
-> if (expires) {
-> 	unsigned long now = jiffies;
-> 
-> 	if (time_before(now, expires))
-> 		expires -= now;
-> 	else
-> 		expires = 0;
-> }
+Hi!
 
-I'll go with the version above and send an updated patch.
+The Netfilter project proudly presents:
 
-Thanks.
+        libnetfilter_queue 1.0.2
+
+This release provides new interfaces to interact with libmnl.
+
+See ChangeLog that comes attached to this email for more details.
+
+You can download it from:
+
+http://www.netfilter.org/projects/libnetfilter_queue/downloads.html
+ftp://ftp.netfilter.org/pub/libnetfilter_queue/
+
+Have fun!
+
+--ew6BAiZeqk4r7MaW
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="changes-libnetfilter_queue-1.0.2.txt"
+
+Jan Engelhardt (3):
+      build: remove unnecessary AC_EXEEXT
+      build: remove unused lines in Makefile.am
+      build: remove stray empty variable
+
+Krishna Kumar (1):
+      src: implement API to set per-queue flags
+
+Pablo Neira Ayuso (9):
+      add new libnetfilter_queue API for libmnl
+      add pkt_buff and protocol helper functions
+      add mangle functions for IPv4/TCP and IPv4/UDP
+      extra: pktbuff: pktb_expand_tail return 0 if there is no room in the tail
+      pktbuff: fix pktb_push, _pull and _put function
+      src: update doxygen documentation for new API for libmnl
+      examples: nf-queue: fix compilation warning with gcc-4.7
+      fix compilation warning in nfq_get_payload
+      bump version to 1.0.2
+
+
+--ew6BAiZeqk4r7MaW--
