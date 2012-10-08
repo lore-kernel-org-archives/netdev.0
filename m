@@ -1,34 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ethernet/jme: disable ASPM
-Date: Mon, 08 Oct 2012 15:39:53 -0400 (EDT)
-Message-ID: <20121008.153953.2134806395029777705.davem@davemloft.net>
-References: <1349722956-14159-1-git-send-email-kevin.baradon@gmail.com>
-	<20121008.152426.1524908667081347879.davem@davemloft.net>
-	<20121008193316.GA13684@srcf.ucam.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] napi: limit GRO latency
+Date: Mon, 8 Oct 2012 12:40:26 -0700
+Message-ID: <20121008124026.4057aba8@nehalam.linuxnetplumber.net>
+References: <1349718955.21172.3534.camel@edumazet-glaptop>
+	<1349719006.21172.3537.camel@edumazet-glaptop>
+	<20121008115835.3a3bfed6@nehalam.linuxnetplumber.net>
+	<20121008.151035.1665672334154033755.davem@davemloft.net>
+	<20121008121248.783e6dc4@nehalam.linuxnetplumber.net>
+	<1349724612.21172.3643.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kevin.baradon@gmail.com, cooldavid@cooldavid.org,
-	netdev@vger.kernel.org
-To: mjg59@srcf.ucam.org
+Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	jesse@nicira.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57331 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750965Ab2JHTj4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 15:39:56 -0400
-In-Reply-To: <20121008193316.GA13684@srcf.ucam.org>
+Received: from mail.vyatta.com ([76.74.103.46]:41249 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751172Ab2JHTlG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2012 15:41:06 -0400
+In-Reply-To: <1349724612.21172.3643.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Garrett <mjg59@srcf.ucam.org>
-Date: Mon, 8 Oct 2012 20:33:16 +0100
+On Mon, 08 Oct 2012 21:30:12 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> On Mon, Oct 08, 2012 at 03:24:26PM -0400, David Miller wrote:
+> System is under stress, you dont want to increase load at this point,
+> but increase bandwidth.
 > 
->> This should be a PCI quirk shouldn't it?
-> 
-> No, it's a driver-level policy decision.
+> Really try this on a 40Gbe link and see how bad it is.
 
-Then at a bare minimum this change should be using one of the ASPM
-helpers provided by drivers/pci/pcie/aspm.c such as
-pci_disable_link_state().
+Not everybody has 40Gbe hardware just lying around available for testing :-)
