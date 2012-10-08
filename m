@@ -1,48 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] napi: limit GRO latency
-Date: Mon, 08 Oct 2012 21:46:32 +0200
-Message-ID: <1349725592.21172.3685.camel@edumazet-glaptop>
-References: <1349718955.21172.3534.camel@edumazet-glaptop>
-	 <1349719006.21172.3537.camel@edumazet-glaptop>
-	 <20121008115835.3a3bfed6@nehalam.linuxnetplumber.net>
-	 <20121008.151035.1665672334154033755.davem@davemloft.net>
-	 <20121008121248.783e6dc4@nehalam.linuxnetplumber.net>
-	 <1349724612.21172.3643.camel@edumazet-glaptop>
-	 <20121008124026.4057aba8@nehalam.linuxnetplumber.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 0/3] virtio-net: inline header support
+Date: Mon, 8 Oct 2012 23:31:15 +0200
+Message-ID: <20121008213114.GB17820@redhat.com>
+References: <cover.1348824232.git.mst@redhat.com>
+	<87vces2gxq.fsf@rustcorp.com.au> <87mx033u74.fsf@codemonkey.ws>
+	<87391u3o67.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	jesse@nicira.com
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:38788 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072Ab2JHTqi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 15:46:38 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so2249644bkc.19
-        for <netdev@vger.kernel.org>; Mon, 08 Oct 2012 12:46:36 -0700 (PDT)
-In-Reply-To: <20121008124026.4057aba8@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sasha Levin <levinsasha928@gmail.com>,
+	virtualization@lists.linux-foundation.org, avi@redhat.com,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	Thomas Lendacky <tahm@linux.vnet.ibm.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <87391u3o67.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-10-08 at 12:40 -0700, Stephen Hemminger wrote:
-> On Mon, 08 Oct 2012 21:30:12 +0200
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Thu, Oct 04, 2012 at 01:04:56PM +0930, Rusty Russell wrote:
+> Anthony Liguori <anthony@codemonkey.ws> writes:
+> > Rusty Russell <rusty@rustcorp.com.au> writes:
+> >
+> >> "Michael S. Tsirkin" <mst@redhat.com> writes:
+> >>
+> >>> Thinking about Sasha's patches, we can reduce ring usage
+> >>> for virtio net small packets dramatically if we put
+> >>> virtio net header inline with the data.
+> >>> This can be done for free in case guest net stack allocated
+> >>> extra head room for the packet, and I don't see
+> >>> why would this have any downsides.
+> >>
+> >> I've been wanting to do this for the longest time... but...
+> >>
+> >>> Even though with my recent patches qemu
+> >>> no longer requires header to be the first s/g element,
+> >>> we need a new feature bit to detect this.
+> >>> A trivial qemu patch will be sent separately.
+> >>
+> >> There's a reason I haven't done this.  I really, really dislike "my
+> >> implemention isn't broken" feature bits.  We could have an infinite
+> >> number of them, for each bug in each device.
+> >
+> > This is a bug in the specification.
+> >
+> > The QEMU implementation pre-dates the specification.  All of the actual
+> > implementations of virtio relied on the semantics of s/g elements and
+> > still do.
 > 
-> > System is under stress, you dont want to increase load at this point,
-> > but increase bandwidth.
-> > 
-> > Really try this on a 40Gbe link and see how bad it is.
-> 
-> Not everybody has 40Gbe hardware just lying around available for testing :-)
+> lguest fix is pending in my queue.  lkvm and qemu are broken; lkvm isn't
+> ever going to be merged, so I'm not sure what its status is?  But I'm
+> determined to fix qemu, and hence my torture patch to make sure this
+> doesn't creep in again.
 
-;)
+If you look at my patch you'll notice there's also a
+comment in virtio_net.h that seems to be broken in this respect:
 
-In fact, the current strategy to flush napi_gro when napi completes
-might be not good for moderate traffic (thats 99% of the linux machines
-I believe). We could have a deferred flush instead...
+/* This is the first element of the scatter-gather list.  If you don't
+ * specify GSO or CSUM features, you can simply ignore the header. */
 
-I dont know what strategy is used by hardware. But surely hardware uses
-timers.
+There is a similar comment in virtio-blk.
