@@ -1,45 +1,44 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] napi: limit GRO latency
-Date: Mon, 8 Oct 2012 12:12:48 -0700
-Message-ID: <20121008121248.783e6dc4@nehalam.linuxnetplumber.net>
-References: <1349718955.21172.3534.camel@edumazet-glaptop>
-	<1349719006.21172.3537.camel@edumazet-glaptop>
-	<20121008115835.3a3bfed6@nehalam.linuxnetplumber.net>
-	<20121008.151035.1665672334154033755.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/6] ipv4: fix sending of redirects
+Date: Mon, 08 Oct 2012 15:16:33 -0400 (EDT)
+Message-ID: <20121008.151633.753185005887436197.davem@davemloft.net>
+References: <1349609168-9848-1-git-send-email-ja@ssi.bg>
+	<1349609168-9848-2-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, rick.jones2@hp.com,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	jesse@nicira.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42108 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753498Ab2JHTNb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Oct 2012 15:13:31 -0400
-In-Reply-To: <20121008.151035.1665672334154033755.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57102 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753498Ab2JHTQf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 15:16:35 -0400
+In-Reply-To: <1349609168-9848-2-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 08 Oct 2012 15:10:35 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+From: Julian Anastasov <ja@ssi.bg>
+Date: Sun,  7 Oct 2012 14:26:03 +0300
 
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Mon, 8 Oct 2012 11:58:35 -0700
-> 
-> > Limit the latency of pending GRO in NAPI processing to 2*HZ.
-> > When the system is under heavy network load, NAPI will go into
-> > poll mode via soft irq, and only stay in the loop for
-> > two jiffies. If this occurs, process the GRO pending list
-> > to make sure and not delay outstanding TCP frames for too long.
-> > 
-> > Rearrange the exit path to get rid of unnecessary goto logic.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> Did you see Eric's patch I just applied which limits it to 1ms?
+> @@ -322,7 +322,8 @@ int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
+>  {
+>  	int r = secpath_exists(skb) ? 0 : IN_DEV_RPFILTER(idev);
+>  
+> -	if (!r && !fib_num_tclassid_users(dev_net(dev))) {
+> +	if (!r && !fib_num_tclassid_users(dev_net(dev)) &&
+> +	    dev->ifindex != oif) {
+>  		*itag = 0;
+>  		return 0;
+>  	}
 
-Think this is a different problem.
-After leaving softirq, it may be a long time until
-ksoftirqd is run which is a different problem.
+Hmmm, won't this cause the slow path to be taken for locally
+destined traffic?
+
+> +			  rt->rt_gateway ? : ip_hdr(skb)->daddr);
+
+Please use the rt_nexthop() helper.
+
+> +		__be32 gw = rt->rt_gateway ? : ip_hdr(skb)->daddr;
+
+Likewise.
