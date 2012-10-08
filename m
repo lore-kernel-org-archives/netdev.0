@@ -1,97 +1,134 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH resend] net, bluetooth: don't attempt to free a channel that wasn't created
-Date: Mon,  8 Oct 2012 16:48:32 -0400
-Message-ID: <1349729312-14259-1-git-send-email-sasha.levin@oracle.com>
-Cc: linux-bluetooth@vger.kernel.org, davej@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	levinsasha928@gmail.com, Sasha Levin <sasha.levin@oracle.com>
-To: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH net v2 1/6] ipv4: fix sending of redirects
+Date: Tue,  9 Oct 2012 00:41:15 +0300
+Message-ID: <1349732480-19978-2-git-send-email-ja@ssi.bg>
+References: <1349732480-19978-1-git-send-email-ja@ssi.bg>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:44335 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751459Ab2JHVgC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2012 17:36:02 -0400
+Received: from ja.ssi.bg (localhost.localdomain [127.0.0.1])
+	by ja.ssi.bg (8.14.4/8.14.4) with ESMTP id q98LfX2d020014
+	for <netdev@vger.kernel.org>; Tue, 9 Oct 2012 00:41:33 +0300
+Received: (from root@localhost)
+	by ja.ssi.bg (8.14.4/8.14.4/Submit) id q98LfXjd020013
+	for netdev@vger.kernel.org; Tue, 9 Oct 2012 00:41:33 +0300
+In-Reply-To: <1349732480-19978-1-git-send-email-ja@ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We may currently attempt to free a channel which wasn't created due to
-an error in the initialization path, this would cause a NULL ptr deref.
+	After "Cache input routes in fib_info nexthops" (commit
+d2d68ba9fe) and "Elide fib_validate_source() completely when possible"
+(commit 7a9bc9b81a) we can not send ICMP redirects. It seems we
+should not cache the RTCF_DOREDIRECT flag in nh_rth_input because
+the same fib_info can be used for traffic that is not redirected,
+eg. from other input devices or from sources that are not in same subnet.
 
-This would cause the following oops:
+	As result, we have to disable the caching of RTCF_DOREDIRECT
+flag and to force source validation for the case when forwarding
+traffic to the input device. If traffic comes from directly connected
+source we allow redirection as it was done before both changes.
 
-[   12.919073] BUG: unable to handle kernel NULL pointer dereference at 0000000000000010
-[   12.919131] IP: [<ffffffff836645c4>] l2cap_chan_put+0x34/0x50
-[   12.919135] PGD 0
-[   12.919138] Oops: 0002 [#1] PREEMPT SMP DEBUG_PAGEALLOC
-[   12.919193] Dumping ftrace buffer:
-[   12.919242]    (ftrace buffer empty)
-[   12.919314] Modules linked in:
-[   12.919318] CPU 1
-[   12.919319] Pid: 6210, comm: krfcommd Tainted: G        W    3.6.0-next-20121004-sasha-00005-gb010653-dirty #30
-[   12.919374] RIP: 0010:[<ffffffff836645c4>]  [<ffffffff836645c4>] l2cap_chan_put+0x34/0x50
-[   12.919377] RSP: 0000:ffff880066933c38  EFLAGS: 00010246
-[   12.919378] RAX: ffffffff8366c780 RBX: 0000000000000000 RCX: 6666666666666667
-[   12.919379] RDX: 0000000000000fa0 RSI: ffffffff84d3f79e RDI: 0000000000000010
-[   12.919381] RBP: ffff880066933c48 R08: ffffffff859989f8 R09: 0000000000000001
-[   12.919382] R10: 0000000000000000 R11: 7fffffffffffffff R12: 0000000000000000
-[   12.919383] R13: ffff88009b00a200 R14: ffff88009b00a200 R15: 0000000000000001
-[   12.919385] FS:  0000000000000000(0000) GS:ffff880033600000(0000) knlGS:0000000000000000
-[   12.919437] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[   12.919440] CR2: 0000000000000010 CR3: 0000000005026000 CR4: 00000000000406e0
-[   12.919446] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[   12.919451] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-[   12.919504] Process krfcommd (pid: 6210, threadinfo ffff880066932000, task ffff880065c4b000)
-[   12.919506] Stack:
-[   12.919510]  ffff88009b00a200 ffff880032084000 ffff880066933c68 ffffffff8366c7bc
-[   12.919513]  7fffffffffffffff ffff880032084000 ffff880066933c98 ffffffff833ae0ae
-[   12.919516]  ffff880066933ca8 0000000000000000 0000000000000000 ffff88009b00a200
-[   12.919517] Call Trace:
-[   12.919522]  [<ffffffff8366c7bc>] l2cap_sock_destruct+0x3c/0x80
-[   12.919527]  [<ffffffff833ae0ae>] __sk_free+0x1e/0x1f0
-[   12.919530]  [<ffffffff833ae2f7>] sk_free+0x17/0x20
-[   12.919585]  [<ffffffff8366ca4e>] l2cap_sock_alloc.constprop.5+0x9e/0xd0
-[   12.919591]  [<ffffffff8366cb9e>] l2cap_sock_create+0x7e/0x100
-[   12.919652]  [<ffffffff83a4f32a>] ? _raw_read_lock+0x6a/0x80
-[   12.919658]  [<ffffffff836402c4>] ? bt_sock_create+0x74/0x110
-[   12.919660]  [<ffffffff83640308>] bt_sock_create+0xb8/0x110
-[   12.919664]  [<ffffffff833aa232>] __sock_create+0x282/0x3b0
-[   12.919720]  [<ffffffff833aa0b0>] ? __sock_create+0x100/0x3b0
-[   12.919725]  [<ffffffff836785b0>] ? rfcomm_process_sessions+0x17e0/0x17e0
-[   12.919779]  [<ffffffff833aa37f>] sock_create_kern+0x1f/0x30
-[   12.919784]  [<ffffffff83675714>] rfcomm_l2sock_create+0x44/0x70
-[   12.919787]  [<ffffffff836785b0>] ? rfcomm_process_sessions+0x17e0/0x17e0
-[   12.919790]  [<ffffffff836785fe>] rfcomm_run+0x4e/0x1f0
-[   12.919846]  [<ffffffff836785b0>] ? rfcomm_process_sessions+0x17e0/0x17e0
-[   12.919852]  [<ffffffff81138ee3>] kthread+0xe3/0xf0
-[   12.919908]  [<ffffffff8117b12e>] ? put_lock_stats.isra.14+0xe/0x40
-[   12.919914]  [<ffffffff81138e00>] ? flush_kthread_work+0x1f0/0x1f0
-[   12.919968]  [<ffffffff83a5077c>] ret_from_fork+0x7c/0x90
-[   12.919973]  [<ffffffff81138e00>] ? flush_kthread_work+0x1f0/0x1f0
-[   12.920161] Code: 83 ec 08 f6 05 ff 58 44 02 04 74 1b 8b 4f 10 48 89 fa 48 c7 c6 d9 d7 d4 84 48 c7 c7 80 9e aa 85 31 c0 e8 80
-ac 3a fe 48 8d 7b 10 <f0> 83 6b 10 01 0f 94 c0 84 c0 74 05 e8 8b e0 ff ff 48 83 c4 08
-[   12.920165] RIP  [<ffffffff836645c4>] l2cap_chan_put+0x34/0x50
-[   12.920166]  RSP <ffff880066933c38>
-[   12.920167] CR2: 0000000000000010
-[   12.920417] ---[ end trace 5a9114e8a158ab84 ]---
+	Avoid setting RTCF_DOREDIRECT if IN_DEV_TX_REDIRECTS
+is disabled, this can avoid source address validation and to
+help caching the routes.
 
-Introduced in commit 61d6ef3e ("Bluetooth: Make better use of l2cap_chan
-reference counting").
+	After the change "Adjust semantics of rt->rt_gateway"
+(commit f8126f1d51) we should make sure our ICMP_REDIR_HOST messages
+contain daddr instead of 0.0.0.0 when target is directly connected.
 
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
- net/bluetooth/l2cap_sock.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/ipv4/fib_frontend.c |    3 ++-
+ net/ipv4/route.c        |   30 ++++++++++++++++--------------
+ 2 files changed, 18 insertions(+), 15 deletions(-)
 
-diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
-index 083f2bf..66c295a 100644
---- a/net/bluetooth/l2cap_sock.c
-+++ b/net/bluetooth/l2cap_sock.c
-@@ -1083,7 +1083,8 @@ static void l2cap_sock_destruct(struct sock *sk)
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 68c93d1..825c608 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -322,7 +322,8 @@ int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
  {
- 	BT_DBG("sk %p", sk);
+ 	int r = secpath_exists(skb) ? 0 : IN_DEV_RPFILTER(idev);
  
--	l2cap_chan_put(l2cap_pi(sk)->chan);
-+	if (l2cap_pi(sk)->chan)
-+		l2cap_chan_put(l2cap_pi(sk)->chan);
- 	if (l2cap_pi(sk)->rx_busy_skb) {
- 		kfree_skb(l2cap_pi(sk)->rx_busy_skb);
- 		l2cap_pi(sk)->rx_busy_skb = NULL;
+-	if (!r && !fib_num_tclassid_users(dev_net(dev))) {
++	if (!r && !fib_num_tclassid_users(dev_net(dev)) &&
++	    (dev->ifindex != oif || !IN_DEV_TX_REDIRECTS(idev))) {
+ 		*itag = 0;
+ 		return 0;
+ 	}
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 132e0df..b90da1b 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -802,7 +802,8 @@ void ip_rt_send_redirect(struct sk_buff *skb)
+ 	net = dev_net(rt->dst.dev);
+ 	peer = inet_getpeer_v4(net->ipv4.peers, ip_hdr(skb)->saddr, 1);
+ 	if (!peer) {
+-		icmp_send(skb, ICMP_REDIRECT, ICMP_REDIR_HOST, rt->rt_gateway);
++		icmp_send(skb, ICMP_REDIRECT, ICMP_REDIR_HOST,
++			  rt_nexthop(rt, ip_hdr(skb)->daddr));
+ 		return;
+ 	}
+ 
+@@ -827,7 +828,9 @@ void ip_rt_send_redirect(struct sk_buff *skb)
+ 	    time_after(jiffies,
+ 		       (peer->rate_last +
+ 			(ip_rt_redirect_load << peer->rate_tokens)))) {
+-		icmp_send(skb, ICMP_REDIRECT, ICMP_REDIR_HOST, rt->rt_gateway);
++		__be32 gw = rt_nexthop(rt, ip_hdr(skb)->daddr);
++
++		icmp_send(skb, ICMP_REDIRECT, ICMP_REDIR_HOST, gw);
+ 		peer->rate_last = jiffies;
+ 		++peer->rate_tokens;
+ #ifdef CONFIG_IP_ROUTE_VERBOSE
+@@ -835,7 +838,7 @@ void ip_rt_send_redirect(struct sk_buff *skb)
+ 		    peer->rate_tokens == ip_rt_redirect_number)
+ 			net_warn_ratelimited("host %pI4/if%d ignores redirects for %pI4 to %pI4\n",
+ 					     &ip_hdr(skb)->saddr, inet_iif(skb),
+-					     &ip_hdr(skb)->daddr, &rt->rt_gateway);
++					     &ip_hdr(skb)->daddr, &gw);
+ #endif
+ 	}
+ out_put_peer:
+@@ -1442,10 +1445,13 @@ static int __mkroute_input(struct sk_buff *skb,
+ 		goto cleanup;
+ 	}
+ 
+-	if (out_dev == in_dev && err &&
++	do_cache = res->fi && !itag;
++	if (out_dev == in_dev && err && IN_DEV_TX_REDIRECTS(out_dev) &&
+ 	    (IN_DEV_SHARED_MEDIA(out_dev) ||
+-	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(*res))))
++	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(*res)))) {
+ 		flags |= RTCF_DOREDIRECT;
++		do_cache = false;
++	}
+ 
+ 	if (skb->protocol != htons(ETH_P_IP)) {
+ 		/* Not IP (i.e. ARP). Do not create route, if it is
+@@ -1462,15 +1468,11 @@ static int __mkroute_input(struct sk_buff *skb,
+ 		}
+ 	}
+ 
+-	do_cache = false;
+-	if (res->fi) {
+-		if (!itag) {
+-			rth = rcu_dereference(FIB_RES_NH(*res).nh_rth_input);
+-			if (rt_cache_valid(rth)) {
+-				skb_dst_set_noref(skb, &rth->dst);
+-				goto out;
+-			}
+-			do_cache = true;
++	if (do_cache) {
++		rth = rcu_dereference(FIB_RES_NH(*res).nh_rth_input);
++		if (rt_cache_valid(rth)) {
++			skb_dst_set_noref(skb, &rth->dst);
++			goto out;
+ 		}
+ 	}
+ 
 -- 
-1.7.12
+1.7.3.4
