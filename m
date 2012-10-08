@@ -1,216 +1,93 @@
 From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH] cxgb4: Address various sparse warnings
-Date: Mon,  8 Oct 2012 18:29:43 +0530
-Message-ID: <1349701183-25093-1-git-send-email-vipul@chelsio.com>
-Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
-	leedom@chelsio.com, felix@chelsio.com,
-	Vipul Pandya <vipul@chelsio.com>,
-	Jay Hernandez <jay@chelsio.com>
-To: netdev@vger.kernel.org
+Subject: Re: drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:363:64: sparse: incorrect
+ type in argument 3 (different base types)
+Date: Mon, 08 Oct 2012 18:38:40 +0530
+Message-ID: <5072D058.4080201@chelsio.com>
+References: <20120928163653.GC5171@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	Jay Hernandez <jay@chelsio.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Fengguang Wu <fengguang.wu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:19017 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:23016 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752569Ab2JHNDI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 09:03:08 -0400
+	with ESMTP id S1752474Ab2JHNIr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 09:08:47 -0400
+In-Reply-To: <20120928163653.GC5171@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes type assignment issues, function definition and symbol
-shadowing which triggered sparse warnings.
 
-Signed-off-by: Jay Hernandez <jay@chelsio.com>
-Signed-off-by: Vipul Pandya <vipul@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   54 +++++++++++++----------
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   13 +++--
- 3 files changed, 39 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 745a1f5..39225ab 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -695,6 +695,7 @@ int t4_seeprom_wp(struct adapter *adapter, bool enable);
- int get_vpd_params(struct adapter *adapter, struct vpd_params *p);
- int t4_load_fw(struct adapter *adapter, const u8 *fw_data, unsigned int size);
- unsigned int t4_flash_cfg_addr(struct adapter *adapter);
-+int t4_load_cfg(struct adapter *adapter, const u8 *cfg_data, unsigned int size);
- int t4_check_fw_version(struct adapter *adapter);
- int t4_prep_adapter(struct adapter *adapter);
- int t4_port_init(struct adapter *adap, int mbox, int pf, int vf);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 6b9f6bb..604f4f8 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -443,7 +443,10 @@ int dbfifo_int_thresh = 10; /* 10 == 640 entry threshold */
- module_param(dbfifo_int_thresh, int, 0644);
- MODULE_PARM_DESC(dbfifo_int_thresh, "doorbell fifo interrupt threshold");
- 
--int dbfifo_drain_delay = 1000; /* usecs to sleep while draining the dbfifo */
-+/*
-+ * usecs to sleep while draining the dbfifo
-+ */
-+static int dbfifo_drain_delay = 1000;
- module_param(dbfifo_drain_delay, int, 0644);
- MODULE_PARM_DESC(dbfifo_drain_delay,
- 		 "usecs to sleep while draining the dbfifo");
-@@ -636,7 +639,7 @@ static void name_msix_vecs(struct adapter *adap)
- static int request_msix_queue_irqs(struct adapter *adap)
- {
- 	struct sge *s = &adap->sge;
--	int err, ethqidx, ofldqidx = 0, rdmaqidx = 0, msi = 2;
-+	int err, ethqidx, ofldqidx = 0, rdmaqidx = 0, msi_index = 2;
- 
- 	err = request_irq(adap->msix_info[1].vec, t4_sge_intr_msix, 0,
- 			  adap->msix_info[1].desc, &s->fw_evtq);
-@@ -644,56 +647,60 @@ static int request_msix_queue_irqs(struct adapter *adap)
- 		return err;
- 
- 	for_each_ethrxq(s, ethqidx) {
--		err = request_irq(adap->msix_info[msi].vec, t4_sge_intr_msix, 0,
--				  adap->msix_info[msi].desc,
-+		err = request_irq(adap->msix_info[msi_index].vec,
-+				  t4_sge_intr_msix, 0,
-+				  adap->msix_info[msi_index].desc,
- 				  &s->ethrxq[ethqidx].rspq);
- 		if (err)
- 			goto unwind;
--		msi++;
-+		msi_index++;
- 	}
- 	for_each_ofldrxq(s, ofldqidx) {
--		err = request_irq(adap->msix_info[msi].vec, t4_sge_intr_msix, 0,
--				  adap->msix_info[msi].desc,
-+		err = request_irq(adap->msix_info[msi_index].vec,
-+				  t4_sge_intr_msix, 0,
-+				  adap->msix_info[msi_index].desc,
- 				  &s->ofldrxq[ofldqidx].rspq);
- 		if (err)
- 			goto unwind;
--		msi++;
-+		msi_index++;
- 	}
- 	for_each_rdmarxq(s, rdmaqidx) {
--		err = request_irq(adap->msix_info[msi].vec, t4_sge_intr_msix, 0,
--				  adap->msix_info[msi].desc,
-+		err = request_irq(adap->msix_info[msi_index].vec,
-+				  t4_sge_intr_msix, 0,
-+				  adap->msix_info[msi_index].desc,
- 				  &s->rdmarxq[rdmaqidx].rspq);
- 		if (err)
- 			goto unwind;
--		msi++;
-+		msi_index++;
- 	}
- 	return 0;
- 
- unwind:
- 	while (--rdmaqidx >= 0)
--		free_irq(adap->msix_info[--msi].vec,
-+		free_irq(adap->msix_info[--msi_index].vec,
- 			 &s->rdmarxq[rdmaqidx].rspq);
- 	while (--ofldqidx >= 0)
--		free_irq(adap->msix_info[--msi].vec,
-+		free_irq(adap->msix_info[--msi_index].vec,
- 			 &s->ofldrxq[ofldqidx].rspq);
- 	while (--ethqidx >= 0)
--		free_irq(adap->msix_info[--msi].vec, &s->ethrxq[ethqidx].rspq);
-+		free_irq(adap->msix_info[--msi_index].vec,
-+			 &s->ethrxq[ethqidx].rspq);
- 	free_irq(adap->msix_info[1].vec, &s->fw_evtq);
- 	return err;
- }
- 
- static void free_msix_queue_irqs(struct adapter *adap)
- {
--	int i, msi = 2;
-+	int i, msi_index = 2;
- 	struct sge *s = &adap->sge;
- 
- 	free_irq(adap->msix_info[1].vec, &s->fw_evtq);
- 	for_each_ethrxq(s, i)
--		free_irq(adap->msix_info[msi++].vec, &s->ethrxq[i].rspq);
-+		free_irq(adap->msix_info[msi_index++].vec, &s->ethrxq[i].rspq);
- 	for_each_ofldrxq(s, i)
--		free_irq(adap->msix_info[msi++].vec, &s->ofldrxq[i].rspq);
-+		free_irq(adap->msix_info[msi_index++].vec, &s->ofldrxq[i].rspq);
- 	for_each_rdmarxq(s, i)
--		free_irq(adap->msix_info[msi++].vec, &s->rdmarxq[i].rspq);
-+		free_irq(adap->msix_info[msi_index++].vec, &s->rdmarxq[i].rspq);
- }
- 
- /**
-@@ -2535,9 +2542,8 @@ static int read_eq_indices(struct adapter *adap, u16 qid, u16 *pidx, u16 *cidx)
- 
- 	ret = t4_mem_win_read_len(adap, addr, (__be32 *)&indices, 8);
- 	if (!ret) {
--		indices = be64_to_cpu(indices);
--		*cidx = (indices >> 25) & 0xffff;
--		*pidx = (indices >> 9) & 0xffff;
-+		*cidx = (be64_to_cpu(indices) >> 25) & 0xffff;
-+		*pidx = (be64_to_cpu(indices) >> 9) & 0xffff;
- 	}
- 	return ret;
- }
-@@ -3634,10 +3640,10 @@ static int adap_init0_no_config(struct adapter *adapter, int reset)
- 	 * field selections will fit in the 36-bit budget.
- 	 */
- 	if (tp_vlan_pri_map != TP_VLAN_PRI_MAP_DEFAULT) {
--		int i, bits = 0;
-+		int j, bits = 0;
- 
--		for (i = TP_VLAN_PRI_MAP_FIRST; i <= TP_VLAN_PRI_MAP_LAST; i++)
--			switch (tp_vlan_pri_map & (1 << i)) {
-+		for (j = TP_VLAN_PRI_MAP_FIRST; j <= TP_VLAN_PRI_MAP_LAST; j++)
-+			switch (tp_vlan_pri_map & (1 << j)) {
- 			case 0:
- 				/* compressed filter field not enabled */
- 				break;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 35b81d8..7bfd7f1 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -380,9 +380,11 @@ static int t4_mem_win_rw(struct adapter *adap, u32 addr, __be32 *data, int dir)
- 	/* Collecting data 4 bytes at a time upto MEMWIN0_APERTURE */
- 	for (i = 0; i < MEMWIN0_APERTURE; i = i+0x4) {
- 		if (dir)
--			*data++ = t4_read_reg(adap, (MEMWIN0_BASE + i));
-+			*data++ = (__force __be32) t4_read_reg(adap,
-+							(MEMWIN0_BASE + i));
- 		else
--			t4_write_reg(adap, (MEMWIN0_BASE + i), *data++);
-+			t4_write_reg(adap, (MEMWIN0_BASE + i),
-+				     (__force u32) *data++);
- 	}
- 
- 	return 0;
-@@ -727,7 +729,7 @@ static int t4_read_flash(struct adapter *adapter, unsigned int addr,
- 		if (ret)
- 			return ret;
- 		if (byte_oriented)
--			*data = htonl(*data);
-+			*data = (__force __u32) (htonl(*data));
- 	}
- 	return 0;
- }
-@@ -975,7 +977,7 @@ int t4_load_fw(struct adapter *adap, const u8 *fw_data, unsigned int size)
- 	int ret, addr;
- 	unsigned int i;
- 	u8 first_page[SF_PAGE_SIZE];
--	const u32 *p = (const u32 *)fw_data;
-+	const __be32 *p = (const __be32 *)fw_data;
- 	const struct fw_hdr *hdr = (const struct fw_hdr *)fw_data;
- 	unsigned int sf_sec_size = adap->params.sf_size / adap->params.sf_nsec;
- 	unsigned int fw_img_start = adap->params.sf_fw_start;
-@@ -2298,7 +2300,8 @@ int t4_mem_win_read_len(struct adapter *adap, u32 addr, __be32 *data, int len)
- 	t4_read_reg(adap, PCIE_MEM_ACCESS_OFFSET);
- 
- 	for (i = 0; i < len; i += 4)
--		*data++ = t4_read_reg(adap, (MEMWIN0_BASE + off + i));
-+		*data++ = (__force __be32) t4_read_reg(adap,
-+						(MEMWIN0_BASE + off + i));
- 
- 	return 0;
- }
--- 
-1.7.1
+On 28-09-2012 22:06, Fengguang Wu wrote:
+> Hi Vipul,
+> 
+> FYI, there are new sparse warnings show up in
+> 
+> commit: 5afc8b84eb7b29e4646d6e8ca7e6d7196031d6f7  cxgb4: Add functions to read memory via PCIE memory window
+> 
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:361:33: sparse: incorrect type in assignment (different base types)
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:361:33:    expected restricted __be32 [usertype] <noident>
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:361:33:    got unsigned int
+> + drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:363:64: sparse: incorrect type in argument 3 (different base types)
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:363:64:    expected unsigned int [unsigned] [usertype] val
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:363:64:    got restricted __be32 [usertype] <noident>
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:694:31: sparse: incorrect type in assignment (different base types)
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:694:31:    expected unsigned int [unsigned] [usertype] <noident>
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:694:31:    got restricted __be32 [usertype] <noident>
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:898:25: sparse: cast to restricted __be32
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:898:25: sparse: cast to restricted __be32
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:898:25: sparse: cast to restricted __be32
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:898:25: sparse: cast to restricted __be32
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:898:25: sparse: cast to restricted __be32
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:898:25: sparse: cast to restricted __be32
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:2177:25: sparse: incorrect type in assignment (different base types)
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:2177:25:    expected restricted __be32 [usertype] <noident>
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:2177:25:    got unsigned int
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c: In function 't4_memory_rw.constprop.6':
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c:462:1: warning: the frame size of 2056 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+> 
+> vim +363 drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+> 
+> 5afc8b84 (Vipul Pandya 2012-09-26  347) 
+> 5afc8b84 (Vipul Pandya 2012-09-26  348) 	/*
+> 5afc8b84 (Vipul Pandya 2012-09-26  349) 	 * Setup offset into PCIE memory window.  Address must be a
+> 5afc8b84 (Vipul Pandya 2012-09-26  350) 	 * MEMWIN0_APERTURE-byte-aligned address.  (Read back MA register to
+> 5afc8b84 (Vipul Pandya 2012-09-26  351) 	 * ensure that changes propagate before we attempt to use the new
+> 5afc8b84 (Vipul Pandya 2012-09-26  352) 	 * values.)
+> 5afc8b84 (Vipul Pandya 2012-09-26  353) 	 */
+> 5afc8b84 (Vipul Pandya 2012-09-26  354) 	t4_write_reg(adap, PCIE_MEM_ACCESS_OFFSET,
+> 5afc8b84 (Vipul Pandya 2012-09-26  355) 		     addr & ~(MEMWIN0_APERTURE - 1));
+> 5afc8b84 (Vipul Pandya 2012-09-26  356) 	t4_read_reg(adap, PCIE_MEM_ACCESS_OFFSET);
+> 5afc8b84 (Vipul Pandya 2012-09-26  357) 
+> 5afc8b84 (Vipul Pandya 2012-09-26  358) 	/* Collecting data 4 bytes at a time upto MEMWIN0_APERTURE */
+> 5afc8b84 (Vipul Pandya 2012-09-26  359) 	for (i = 0; i < MEMWIN0_APERTURE; i = i+0x4) {
+> 5afc8b84 (Vipul Pandya 2012-09-26  360) 		if (dir)
+> 5afc8b84 (Vipul Pandya 2012-09-26  361) 			*data++ = t4_read_reg(adap, (MEMWIN0_BASE + i));
+> 5afc8b84 (Vipul Pandya 2012-09-26  362) 		else
+> 5afc8b84 (Vipul Pandya 2012-09-26 @363) 			t4_write_reg(adap, (MEMWIN0_BASE + i), *data++);
+> 5afc8b84 (Vipul Pandya 2012-09-26  364) 	}
+> 5afc8b84 (Vipul Pandya 2012-09-26  365) 
+> 5afc8b84 (Vipul Pandya 2012-09-26  366) 	return 0;
+> 5afc8b84 (Vipul Pandya 2012-09-26  367) }
+> 5afc8b84 (Vipul Pandya 2012-09-26  368) 
+> 5afc8b84 (Vipul Pandya 2012-09-26  369) /**
+> 5afc8b84 (Vipul Pandya 2012-09-26  370)  *	t4_memory_rw - read/write EDC 0, EDC 1 or MC via PCIE memory window
+> 5afc8b84 (Vipul Pandya 2012-09-26  371)  *	@adap: the adapter
+> 
+> ---
+> 0-DAY kernel build testing backend         Open Source Technology Centre
+> Fengguang Wu, Yuanhan Liu                              Intel Corporation
+> 
+
+Hi Fengguang Wu,
+
+I have submitted the patch to fix this sparse warnings to David Miller's
+net-next tree. The subject of the patch is 'cxgb4: Address various
+sparse warnings'.
+
+Thanks,
+Vipul Pandya
