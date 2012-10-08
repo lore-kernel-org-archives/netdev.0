@@ -1,58 +1,76 @@
-From: Haicheng Li <haicheng.li@linux.intel.com>
-Subject: Re: [PATCH] pch_pge: Fix build error by selecting all the possible
- dependencies.
-Date: Mon, 08 Oct 2012 19:15:12 +0800
-Message-ID: <5072B5C0.4010309@linux.intel.com>
-References: <20121006075954.GA29618@localhost> <1349670580-11158-1-git-send-email-haicheng.lee@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [ANNOUNCE] conntrack-tools 1.4.0 release
+Date: Mon, 8 Oct 2012 13:50:21 +0200
+Message-ID: <20121008115021.GA26222@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, haicheng.li@linux.jf.intel.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	fengguang.wu@intel.com
-To: Haicheng Li <haicheng.lee@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1349670580-11158-1-git-send-email-haicheng.lee@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="1yeeQ81UyVL57Vl7"
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-announce@lists.netfilter.org, lwn@lwn.net
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Just realized a typo in the subject, pls. ignore this. will send a new soon. 
-sorry.
 
-On 10/08/2012 12:29 PM, Haicheng Li wrote:
-> Fengguang reported a kernel build failure as folowing:
-> drivers/built-in.o: In function `pch_gbe_ioctl':
-> pch_gbe_main.c:(.text+0x510370): undefined reference to `pch_ch_control_write'
-> pch_gbe_main.c:(.text+0x510393): undefined reference to `pch_ch_control_write'
-> pch_gbe_main.c:(.text+0x5103b3): undefined reference to `pch_ch_control_write'
-> ..
->
-> It's a regression by commit da1586461. The root cause is that
-> the CONFIG_PPS is not set there, consequently CONFIG_PTP_1588_CLOCK
-> can not be set anyway, which finally causes ptp_pch and pch_gbe_main
-> build failures.
->
-> As David prefers to use *select* to fix such module co-dependency issues,
-> this patch explicitly selects all the possible dependencies of PCH_PTP.
->
-> Reported-by: Fengguang Wu<fengguang.wu@intel.com>
-> Reviewed-by: David S. Miller<davem@davemloft.net>
-> Signed-off-by: Haicheng Li<haicheng.lee@gmail.com>
-> ---
->   drivers/net/ethernet/oki-semi/pch_gbe/Kconfig |    3 +++
->   1 files changed, 3 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-> index 9730241..5296cc8 100644
-> --- a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-> @@ -26,6 +26,9 @@ if PCH_GBE
->   config PCH_PTP
->   	bool "PCH PTP clock support"
->   	default n
-> +	depends on EXPERIMENTAL
-> +	select PPS
-> +	select PTP_1588_CLOCK
->   	select PTP_1588_CLOCK_PCH
->   	---help---
->   	  Say Y here if you want to use Precision Time Protocol (PTP) in the
+--1yeeQ81UyVL57Vl7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi!
+
+The Netfilter project proudly presents:
+
+        conntrack-tools 1.4.0
+
+This release adds the user-space helper infrastructure which includes
+the RPC portmapper (to support NFSv3) and Oracle*TNS helpers.
+
+More information available at:
+
+http://conntrack-tools.netfilter.org/manual.html
+
+See ChangeLog that comes attached to this email for more details.
+
+You can download it from:
+
+http://www.netfilter.org/projects/conntrack-tools/downloads.html
+ftp://ftp.netfilter.org/pub/conntrack-tools/
+
+Have fun!
+
+--1yeeQ81UyVL57Vl7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="changes-conntrack-tools-1.4.0.txt"
+
+Ansis Atteka (1):
+      tests: conntrackd: fix compile errors and warnings
+
+Jozsef Kadlecsik (2):
+      conntrackd: RPC helper added to cthelper
+      conntrackd: TNS helper added to cthelper
+
+Nicolas Dichtel (1):
+      build: fix libraries dependencies in Makefiles
+
+Pablo Neira Ayuso (14):
+      conntrack: add support for stats dumping via ctnetlink
+      conntrack: -C uses ctnetlink instead of /proc/sys/net/netfilter/nf_conntrack_count
+      conntrackd: generalize file descriptor infrastructure
+      conntrackd: move ctnetlink code to ctnl.c (removed from run.c)
+      conntrackd: add cthelper infrastructure (+ example FTP helper)
+      tests: conntrackd: add cthelper-test infrastructure
+      nfct: helper: use CONNTRACKD_LIB_DIR variable set during configuration
+      cthelper: disable debugging information by default
+      cthelper: ftp: fix EPRT case for IPv4
+      conntrackd: parse: fix wrong maximum length for ATTR_EXP_FN
+      conntrackd: cthelper: add QueueLen option
+      conntrackd: fix crash if ExpectationSync is enabled on old Linux kernels
+      doc: detail user-space helper support
+      bump version to 1.4.0 and update dependencies
+
+Vincent Bernat (1):
+      conntrackd: don't resync expectations if such sync has been disabled
+
+
+--1yeeQ81UyVL57Vl7--
