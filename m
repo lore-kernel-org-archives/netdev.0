@@ -1,47 +1,44 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [RFC PATCH net-next] tcp: introduce tcp_tw_interval to specifiy
- the time of TIME-WAIT
-Date: Mon, 08 Oct 2012 11:17:37 +0800
-Message-ID: <1349666257.2707.6.camel@cr0>
-References: <1348735261-29225-1-git-send-email-amwang@redhat.com>
-	 <20120927142334.GA3194@neilslaptop.think-freely.org>
-	 <1348813987.7264.41.camel@cr0>
-	 <20120928131642.GA31568@hmsreliant.think-freely.org>
-	 <1349161479.22107.17.camel@cr0>
-	 <20121002120927.GA691@hmsreliant.think-freely.org>
+From: Graham Gower <graham.gower@gmail.com>
+Subject: Re: skge: Add DMA mask quirk for Marvell 88E8001 on ASUS P5NSLI motherboard.
+Date: Mon, 08 Oct 2012 16:03:31 +1030
+Message-ID: <507265AB.5050107@gmail.com>
+References: <50711961.1010101@gmail.com> <50714C45.3080103@computer.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
+To: Jan Ceuleers <jan.ceuleers@computer.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10939 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751211Ab2JHDSt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Oct 2012 23:18:49 -0400
-In-Reply-To: <20121002120927.GA691@hmsreliant.think-freely.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35112 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750799Ab2JHFdf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 01:33:35 -0400
+Received: by mail-pa0-f46.google.com with SMTP id hz1so3609057pad.19
+        for <netdev@vger.kernel.org>; Sun, 07 Oct 2012 22:33:35 -0700 (PDT)
+In-Reply-To: <50714C45.3080103@computer.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-10-02 at 08:09 -0400, Neil Horman wrote:
-> No, its not very friendly, but the people using this are violating the RFC,
-> which isn't very friendly. :)
+On 10/07/2012 08:02 PM, Jan Ceuleers wrote:
+> On 10/07/2012 07:55 AM, Graham Gower wrote:
+>> Signed-off-by: Graham Gower <graham.gower@gmail.com>
+>>
+>> --- skge.c.bak    2012-10-07 13:00:56.000000000 +1030
+>> +++ skge.c    2012-10-07 13:26:03.000000000 +1030
+>> @@ -4143,6 +4143,13 @@
+>
+> Graham,
+>
+> Your patch should include the path to the file being patched relative to
+> the base directory. So in this case something like
+>
+> --- a/drivers/net/ethernet/marvell/skge.c ...
+> +++ b/drivers/net/ethernet/marvell/skge.c ...
+>
+> HTH, Jan
+>
 
-Could you be more specific? In RFC 793, AFAIK, it is allowed to be
-changed:
+Thanks, I should know this stuff. Just an oversight because I was
+too lazy to clone a repository and diffed against the single file.
 
-http://tools.ietf.org/html/rfc793
-
-" To be sure that a TCP does not create a segment that carries a
-  sequence number which may be duplicated by an old segment remaining in
-  the network, the TCP must keep quiet for a maximum segment lifetime
-  (MSL) before assigning any sequence numbers upon starting up or
-  recovering from a crash in which memory of sequence numbers in use was
-  lost.  For this specification the MSL is taken to be 2 minutes.  This
-  is an engineering choice, and may be changed if experience indicates
-  it is desirable to do so."
-
-or I must still be missing something here... :)
+-Graham
