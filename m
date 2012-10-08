@@ -1,54 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] GRO scalability
-Date: Mon, 08 Oct 2012 20:28:57 +0200
-Message-ID: <1349720937.21172.3573.camel@edumazet-glaptop>
-References: <1348750130.5093.1227.camel@edumazet-glaptop>
-	 <CAEP_g=-JAYHXM86AYNp7BhDV+eqfkKVgC+SJS1MVdo0K8fRLSQ@mail.gmail.com>
-	 <1348769294.5093.1566.camel@edumazet-glaptop>
-	 <1348769990.5093.1584.camel@edumazet-glaptop>
-	 <CAEP_g=8B7xZPxye0Kuu-EVKpTDt1a3nsJKb61aaYaqOGsYGx8w@mail.gmail.com>
-	 <1348841041.5093.2477.camel@edumazet-glaptop>
-	 <CAEP_g=_nSb-ite51PM-E8SY53yOPiZs8N3gDrYNc0L4OU2Ht=A@mail.gmail.com>
-	 <1349448747.21172.113.camel@edumazet-glaptop>  <506F23F6.1060704@hp.com>
-	 <1349463634.21172.152.camel@edumazet-glaptop>  <506F368F.3070403@hp.com>
-	 <1349467578.21172.178.camel@edumazet-glaptop>  <50730217.6020206@hp.com>
-	 <1349715561.21172.3463.camel@edumazet-glaptop>  <5073121B.2070300@hp.com>
-	 <1349718955.21172.3534.camel@edumazet-glaptop>  <5073199F.6040408@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
-To: Rick Jones <rick.jones2@hp.com>
+From: Jan Ceuleers <jan.ceuleers@computer.org>
+Subject: [PATCH v2] skge: Add DMA mask quirk for Marvell 88E8001 on ASUS P5NSLI motherboard
+Date: Mon,  8 Oct 2012 20:34:50 +0200
+Message-ID: <1349721290-16374-1-git-send-email-jan.ceuleers@computer.org>
+References: <1349715275-12730-1-git-send-email-jan.ceuleers@computer.org>
+Cc: netdev@vger.kernel.org, Graham Gower <graham.gower@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:33916 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752582Ab2JHS3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 14:29:03 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so2217965bkc.19
-        for <netdev@vger.kernel.org>; Mon, 08 Oct 2012 11:29:01 -0700 (PDT)
-In-Reply-To: <5073199F.6040408@hp.com>
+Received: from mailrelay012.isp.belgacom.be ([195.238.6.179]:65216 "EHLO
+	mailrelay012.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752582Ab2JHSfH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 14:35:07 -0400
+In-Reply-To: <1349715275-12730-1-git-send-email-jan.ceuleers@computer.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-10-08 at 11:21 -0700, Rick Jones wrote:
+From: Graham Gower <graham.gower@gmail.com>
 
-> Did I then mis-interpret:
-> 
-> > 2) Use a LRU list to eventually be able to 'flush' too old packets,
-> >    even if the napi never completes. Each time we process a new packet,
-> >    being a GRO candidate or not, we increment a napi->sequence, and we
-> >    flush the oldest packet in gro_lru_list if its own sequence is too
-> >    old.
-> 
-> in your initial RFC email?  Because I took that as flushing a given 
-> packet if N packets have come through since that packet was queued to 
-> await coalescing.
+Marvell 88E8001 on an ASUS P5NSLI motherboard is unable to send/receive
+packets on a system with >4gb ram unless a 32bit DMA mask is used.
 
-Yes, this was refined in the patch I sent.
+This issue has been around for years and a fix was sent 3.5 years ago, but
+there was some debate as to whether it should instead be fixed as a PCI quirk.
+http://www.spinics.net/lists/netdev/msg88670.html
 
-Currently using jiffies, but my plan is trying to use get_cycles() or
-ktime_get(), after some experiments, allowing cycles/ns resolution.
+However, 18 months later a similar workaround was introduced for another
+chipset exhibiting the same problem.
+http://www.spinics.net/lists/netdev/msg142287.html
 
-(One ktime_get() per napi batch seems OK)
+Signed-off-by: Graham Gower <graham.gower@gmail.com>
+Signed-off-by: Jan Ceuleers <jan.ceuleers@computer.org>
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+---
+I am resubmitting Graham's v4 patch hoping that doing so will avoid further
+frustration while still getting this fix into the tree.
+I have not tested this; I don't have the hardware. It compiles though.
+
+v2: Fixed whitespace error
+
+ drivers/net/ethernet/marvell/skge.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+index 5a30bf8..05b3c83 100644
+--- a/drivers/net/ethernet/marvell/skge.c
++++ b/drivers/net/ethernet/marvell/skge.c
+@@ -4153,6 +4153,13 @@ static struct dmi_system_id skge_32bit_dma_boards[] = {
+ 			DMI_MATCH(DMI_BOARD_NAME, "nForce"),
+ 		},
+ 	},
++	{
++		.ident = "ASUS P5NSLI",
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "ASUSTeK Computer INC."),
++			DMI_MATCH(DMI_BOARD_NAME, "P5NSLI")
++		},
++	},
+ 	{}
+ };
+ 
+-- 
+1.7.9.5
