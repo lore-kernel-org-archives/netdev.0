@@ -1,66 +1,108 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH net v2 3/6] ipv4: make sure nh_pcpu_rth_output is always allocated
-Date: Tue,  9 Oct 2012 00:41:17 +0300
-Message-ID: <1349732480-19978-4-git-send-email-ja@ssi.bg>
+Subject: [PATCH net v2 5/6] ipv4: Add FLOWI_FLAG_KNOWN_NH
+Date: Tue,  9 Oct 2012 00:41:19 +0300
+Message-ID: <1349732480-19978-6-git-send-email-ja@ssi.bg>
 References: <1349732480-19978-1-git-send-email-ja@ssi.bg>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:44336 "EHLO ja.ssi.bg"
+Received: from ja.ssi.bg ([178.16.129.10]:44340 "EHLO ja.ssi.bg"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751690Ab2JHVgC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Oct 2012 17:36:02 -0400
+	id S1751705Ab2JHVgD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2012 17:36:03 -0400
 Received: from ja.ssi.bg (localhost.localdomain [127.0.0.1])
-	by ja.ssi.bg (8.14.4/8.14.4) with ESMTP id q98LfYp2020022
-	for <netdev@vger.kernel.org>; Tue, 9 Oct 2012 00:41:34 +0300
+	by ja.ssi.bg (8.14.4/8.14.4) with ESMTP id q98LfZmn020030
+	for <netdev@vger.kernel.org>; Tue, 9 Oct 2012 00:41:35 +0300
 Received: (from root@localhost)
-	by ja.ssi.bg (8.14.4/8.14.4/Submit) id q98LfYpf020021
-	for netdev@vger.kernel.org; Tue, 9 Oct 2012 00:41:34 +0300
+	by ja.ssi.bg (8.14.4/8.14.4/Submit) id q98LfZBt020029
+	for netdev@vger.kernel.org; Tue, 9 Oct 2012 00:41:35 +0300
 In-Reply-To: <1349732480-19978-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Avoid checking nh_pcpu_rth_output in fast path,
-abort fib_info creation on alloc_percpu failure.
+	Add flag to request that output route should be
+returned with known rt_gateway, in case we want to use
+it as nexthop for neighbour resolving.
+
+	The returned route can be cached as follows:
+
+- in NH exception: because the cached routes are not shared
+	with other destinations
+- in FIB NH: when using gateway because all destinations for
+	NH share same gateway
+
+	As last option, to return rt_gateway!=0 we have to
+set DST_NOCACHE.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
- net/ipv4/fib_semantics.c |    2 ++
- net/ipv4/route.c         |    3 ---
- 2 files changed, 2 insertions(+), 3 deletions(-)
+ include/net/flow.h |    1 +
+ net/ipv4/route.c   |   21 +++++++++++++++++----
+ 2 files changed, 18 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 2677530..71b125c 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -840,6 +840,8 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
- 	change_nexthops(fi) {
- 		nexthop_nh->nh_parent = fi;
- 		nexthop_nh->nh_pcpu_rth_output = alloc_percpu(struct rtable __rcu *);
-+		if (!nexthop_nh->nh_pcpu_rth_output)
-+			goto failure;
- 	} endfor_nexthops(fi)
+diff --git a/include/net/flow.h b/include/net/flow.h
+index e1dd508..628e11b 100644
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -21,6 +21,7 @@ struct flowi_common {
+ 	__u8	flowic_flags;
+ #define FLOWI_FLAG_ANYSRC		0x01
+ #define FLOWI_FLAG_CAN_SLEEP		0x02
++#define FLOWI_FLAG_KNOWN_NH		0x04
+ 	__u32	flowic_secid;
+ };
  
- 	if (cfg->fc_mx) {
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index b90da1b..5b0180f 100644
+index 3a116cb..1a0da8d 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -1207,8 +1207,6 @@ static bool rt_cache_route(struct fib_nh *nh, struct rtable *rt)
- 	if (rt_is_input_route(rt)) {
- 		p = (struct rtable **)&nh->nh_rth_input;
- 	} else {
--		if (!nh->nh_pcpu_rth_output)
--			goto nocache;
- 		p = (struct rtable **)__this_cpu_ptr(nh->nh_pcpu_rth_output);
+@@ -1762,6 +1762,7 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+ 	struct in_device *in_dev;
+ 	u16 type = res->type;
+ 	struct rtable *rth;
++	bool do_cache;
+ 
+ 	in_dev = __in_dev_get_rcu(dev_out);
+ 	if (!in_dev)
+@@ -1798,24 +1799,36 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
  	}
- 	orig = *p;
-@@ -1223,7 +1221,6 @@ static bool rt_cache_route(struct fib_nh *nh, struct rtable *rt)
- 		 * unsuccessful at storing this route into the cache
- 		 * we really need to set it.
- 		 */
--nocache:
- 		rt->dst.flags |= DST_NOCACHE;
- 		ret = false;
+ 
+ 	fnhe = NULL;
++	do_cache = fi != NULL;
+ 	if (fi) {
+ 		struct rtable __rcu **prth;
++		struct fib_nh *nh = &FIB_RES_NH(*res);
+ 
+-		fnhe = find_exception(&FIB_RES_NH(*res), fl4->daddr);
++		fnhe = find_exception(nh, fl4->daddr);
+ 		if (fnhe)
+ 			prth = &fnhe->fnhe_rth;
+-		else
+-			prth = __this_cpu_ptr(FIB_RES_NH(*res).nh_pcpu_rth_output);
++		else {
++			if (unlikely(fl4->flowi4_flags &
++				     FLOWI_FLAG_KNOWN_NH &&
++				     !(nh->nh_gw &&
++				       nh->nh_scope == RT_SCOPE_LINK))) {
++				do_cache = false;
++				goto add;
++			}
++			prth = __this_cpu_ptr(nh->nh_pcpu_rth_output);
++		}
+ 		rth = rcu_dereference(*prth);
+ 		if (rt_cache_valid(rth)) {
+ 			dst_hold(&rth->dst);
+ 			return rth;
+ 		}
  	}
++
++add:
+ 	rth = rt_dst_alloc(dev_out,
+ 			   IN_DEV_CONF_GET(in_dev, NOPOLICY),
+ 			   IN_DEV_CONF_GET(in_dev, NOXFRM),
+-			   fi);
++			   do_cache);
+ 	if (!rth)
+ 		return ERR_PTR(-ENOBUFS);
+ 
 -- 
 1.7.3.4
