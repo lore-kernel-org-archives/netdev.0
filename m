@@ -1,75 +1,76 @@
-From: Dong Aisheng-B29396 <B29396@freescale.com>
-Subject: RE: [PATCH] flexcan: disable bus error interrupts for the i.MX28
-Date: Mon, 8 Oct 2012 09:42:58 +0000
-Message-ID: <7FE21149F4667147B645348EC60578850B2AA918@039-SN2MPN1-011.039d.mgd.msft.net>
-References: <5065A35B.3020702@grandegger.com>
- <20121007030858.GJ20231@S2101-09.ap.freescale.net>
- <50719647.4070404@grandegger.com>
- <7FE21149F4667147B645348EC60578850B2A361F@039-SN2MPN1-011.039d.mgd.msft.net>
- <507296F2.9010402@grandegger.com>
- <7FE21149F4667147B645348EC60578850B2A8D51@039-SN2MPN1-011.039d.mgd.msft.net>
- <50729D73.3050409@pengutronix.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.4.1 and 3.5-rc1 Packet lost at 250Mb/s
+Date: Mon, 08 Oct 2012 11:47:20 +0200
+Message-ID: <1349689640.21172.3008.camel@edumazet-glaptop>
+References: <409ac8b30a6994028562e1a159ac60aa@justnet.pl>
+	 <1349677373.21172.2756.camel@edumazet-glaptop>
+	 <9819d6943a7cfddfc8fa49217aa4842e@justnet.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	Hui Wang <jason77.wang@gmail.com>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <50729D73.3050409@pengutronix.de>
-Content-Language: en-US
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>
+To: adam.niescierowicz@justnet.pl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:33849 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751144Ab2JHJrY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 05:47:24 -0400
+Received: by mail-la0-f46.google.com with SMTP id h6so2110263lag.19
+        for <netdev@vger.kernel.org>; Mon, 08 Oct 2012 02:47:23 -0700 (PDT)
+In-Reply-To: <9819d6943a7cfddfc8fa49217aa4842e@justnet.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Marc Kleine-Budde [mailto:mkl@pengutronix.de]
->Sent: Monday, October 08, 2012 5:32 PM
->To: Dong Aisheng-B29396
->Cc: Wolfgang Grandegger; Shawn Guo; Linux Netdev List; Linux-CAN; Hui Wang
->Subject: Re: [PATCH] flexcan: disable bus error interrupts for the i.MX28
->Importance: High
->
->On 10/08/2012 11:13 AM, Dong Aisheng-B29396 wrote:
->>>> I just checked our ic guy of flexcan, it seems he also had no sense
->>>> of
->>> this issue.
->>>>
->>>> Below is some version info what I got:
->>>> Mx6s use FlexCAN3, with IP version 10.00.12.00
->>>> Mx53 use FlexCAN2 (with glitch filter), with IP version 03.00.00.00
->>>> Mx28 use FlexCAN2 (with glitch filter), with IP version 03.00.04.00
->>>> Mx35 use FlexCAN2 (without glitch filter) , with IP version
->>>> 03.00.00.00
->>>> Mx25 use FlexCAN2 (without glitch filter), with IP version
->>>> 03.00.00.00 I'm not sure if mx6q has such issue.
->>>
->>> OK, we need to find that out experimentally.
->>>
->> Our IC owner double checked the MX35 and MX53 IP and found the RX_WARN
->> & TX_WARN Interrupt source actually are not connected to ARM.
->
->Does this mean it's a SoC problem, not a problem of the ip core?
->
-It's not a problem of ip core, it's about how to use the IP.
-I do not know why some i.MX SoCs does not use rx/tx warn interrupts.
+On Mon, 2012-10-08 at 11:29 +0200, Nie=C5=9Bcierowicz Adam wrote:
+> >
+> > You should use RPS on eth2/eth3 because they are non multi queue.
+> >
+> > Documentation/networking/scaling.txt should give you all the needed=
+=20
+> > info
+>=20
+> I set processors for rps such as affinity, unfortunately it did not=20
+> help
+>=20
+> ---
+> cat /sys/class/net/eth{2,3,4,5}/queues/rx-0/rps_cpus
+> 0040
+> 0080
+> 0100
+> 0200
+> ---
+> CPU affinity http://wklej.org/id/843161/
+>=20
+>=20
 
->> That means flexcan will not trigger interrupt to ARM core even RX_WARN
->> or TX_WARN Happens.
->> This may be the root cause that why you cannot see RX_WARN interrupt
->> if not enable bus error interrupt on mx35.
->> He also checked that mx6q has the rx/tx warning interrupt connected to
->arm.
->> So we guess mx6q does not have this issue.
->> Anyway, we can test to confirm.
->
->What about mx25?
->
-For mx25 and mx28, he could not access it now.
-Will check tomorrow.
+I said eth2 and eth3
 
-Regards
-Dong Aisheng
+And you should use cpu11->cpu15 instead of cpu6->cpu9 since they are in
+use...
 
+Anyway you dont say where are drops, (ifconfig give us very few drops)
+
+Also your eth0 seems to have a strange balance :
+
+RX interrupts seems to be well balanced on 4 queues :
+
+76:        503          0  169271690          0          0          0  =
+        PCI-MSI-edge      eth0-rx-0
+77:        405          0          0  164532538          0          0  =
+        PCI-MSI-edge      eth0-rx-1
+78:        408          0          0          0  152778723          0  =
+        PCI-MSI-edge      eth0-rx-2
+79:        349          0          0          0          0  155011301  =
+        PCI-MSI-edge      eth0-rx-3
+80:        144          0  443432394          0          0          0  =
+        PCI-MSI-edge      eth0-tx-0
+81:         18          0          0    2043311          0          0  =
+        PCI-MSI-edge      eth0-tx-1
+82:         30          0          0          0    1934537          0  =
+        PCI-MSI-edge      eth0-tx-2
+83:        137          0          0          0          0    1968272  =
+        PCI-MSI-edge      eth0-tx-3
+
+But TX seems to mostly use queue 0
+
+Packets sent to eth0 are coming from where ?
