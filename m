@@ -1,43 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] skge: Add DMA mask quirk for Marvell 88E8001 on
- ASUS P5NSLI motherboard
-Date: Mon, 08 Oct 2012 14:49:19 -0400 (EDT)
-Message-ID: <20121008.144919.2143699900297423013.davem@davemloft.net>
-References: <1349715275-12730-1-git-send-email-jan.ceuleers@computer.org>
-	<1349721290-16374-1-git-send-email-jan.ceuleers@computer.org>
+Subject: Re: [PATCH] net: gro: selective flush of packets
+Date: Mon, 08 Oct 2012 14:52:16 -0400 (EDT)
+Message-ID: <20121008.145216.988125819977620502.davem@davemloft.net>
+References: <1349506825.21172.241.camel@edumazet-glaptop>
+	<20121006105618.GA28591@gondor.apana.org.au>
+	<1349546929.21172.1598.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, graham.gower@gmail.com,
-	shemminger@vyatta.com
-To: jan.ceuleers@computer.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	jesse@nicira.com, therbert@google.com, ycheng@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56920 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56934 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754642Ab2JHStW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 14:49:22 -0400
-In-Reply-To: <1349721290-16374-1-git-send-email-jan.ceuleers@computer.org>
+	with ESMTP id S1753480Ab2JHSwT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 14:52:19 -0400
+In-Reply-To: <1349546929.21172.1598.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Date: Mon,  8 Oct 2012 20:34:50 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 06 Oct 2012 20:08:49 +0200
 
-> From: Graham Gower <graham.gower@gmail.com>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Marvell 88E8001 on an ASUS P5NSLI motherboard is unable to send/receive
-> packets on a system with >4gb ram unless a 32bit DMA mask is used.
+> Current GRO can hold packets in gro_list for almost unlimited
+> time, in case napi->poll() handler consumes its budget over and over.
 > 
-> This issue has been around for years and a fix was sent 3.5 years ago, but
-> there was some debate as to whether it should instead be fixed as a PCI quirk.
-> http://www.spinics.net/lists/netdev/msg88670.html
+> In this case, napi_complete()/napi_gro_flush() are not called.
 > 
-> However, 18 months later a similar workaround was introduced for another
-> chipset exhibiting the same problem.
-> http://www.spinics.net/lists/netdev/msg142287.html
+> Another problem is that gro_list is flushed in non friendly way :
+> We scan the list and complete packets in the reverse order.
+> (youngest packets first, oldest packets last)
+> This defeats priorities that sender could have cooked.
 > 
-> Signed-off-by: Graham Gower <graham.gower@gmail.com>
-> Signed-off-by: Jan Ceuleers <jan.ceuleers@computer.org>
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> Since GRO currently only store TCP packets, we dont really notice the
+> bug because of retransmits, but this behavior can add unexpected
+> latencies, particularly on mice flows clamped by elephant flows.
+> 
+> This patch makes sure no packet can stay more than 1 ms in queue, and
+> only in stress situations.
+> 
+> It also complete packets in the right order to minimize latencies.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied and queued up for -stable.
+Applied, thanks Eric.
