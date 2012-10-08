@@ -1,76 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.4.1 and 3.5-rc1 Packet lost at 250Mb/s
-Date: Mon, 08 Oct 2012 11:47:20 +0200
-Message-ID: <1349689640.21172.3008.camel@edumazet-glaptop>
-References: <409ac8b30a6994028562e1a159ac60aa@justnet.pl>
-	 <1349677373.21172.2756.camel@edumazet-glaptop>
-	 <9819d6943a7cfddfc8fa49217aa4842e@justnet.pl>
+From: Mirko Lindner <mlindner@marvell.com>
+Subject: Re: [patch net] sky2: fix rx filter setup on link up
+Date: Mon, 08 Oct 2012 11:44:37 +0200
+Message-ID: <1349689477.28839.4.camel@mlindner-lin.skd.de>
+References: <1347894617-13614-1-git-send-email-jiri@resnulli.us>
+	 <20120917091214.5cd9b0f5@nehalam.linuxnetplumber.net>
+	 <20120917204724.GA1749@minipsycho.orion>
+	 <175CCF5F49938B4D99B2E3EF7F558EBE1B63898F0B@SC-VEXCH4.marvell.com>
+	 <20121004074004.GA6620@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>
-To: adam.niescierowicz@justnet.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:33849 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751144Ab2JHJrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 05:47:24 -0400
-Received: by mail-la0-f46.google.com with SMTP id h6so2110263lag.19
-        for <netdev@vger.kernel.org>; Mon, 08 Oct 2012 02:47:23 -0700 (PDT)
-In-Reply-To: <9819d6943a7cfddfc8fa49217aa4842e@justnet.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121004074004.GA6620@minipsycho.orion>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-10-08 at 11:29 +0200, Nie=C5=9Bcierowicz Adam wrote:
+On Thu, 2012-10-04 at 00:40 -0700, Jiri Pirko wrote:
+> Tue, Sep 18, 2012 at 02:38:52AM CEST, mlindner@marvell.com wrote:
+> >>Mon, Sep 17, 2012 at 06:12:14PM CEST, shemminger@vyatta.com wrote:
+> >>>On Mon, 17 Sep 2012 17:10:17 +0200
+> >>>Jiri Pirko <jiri@resnulli.us> wrote:
+> >>>
+> >>>> In my case I have following problem. sky2_set_multicast() sets registers
+> >>>> GM_MC_ADDR_H[1-4] correctly to:
+> >>>> 0000 0800 0001 0410
+> >>>> However, when adapter gets link and sky2_link_up() is called, the values
+> >>>> are for some reason different:
+> >>>> 0000 0800 0016 0410
+> >>>
+> >>>Rather than papering over the problem, it would be better to
+> >>>trace back what is setting those registers and fix that code.
 > >
-> > You should use RPS on eth2/eth3 because they are non multi queue.
+> >>Yes, I did that. No code at sky2.[ch] is writing to this registers other
+> >>than sky2_set_multicast() and sky2_gmac_reset() (I hooked on sky2_write*()).
+> >>So I strongly believe this is a HW issue (maybe only issue of my revision
+> >>"Yukon-2 EC chip revision 2")
 > >
-> > Documentation/networking/scaling.txt should give you all the needed=
-=20
-> > info
->=20
-> I set processors for rps such as affinity, unfortunately it did not=20
-> help
->=20
-> ---
-> cat /sys/class/net/eth{2,3,4,5}/queues/rx-0/rps_cpus
-> 0040
-> 0080
-> 0100
-> 0200
-> ---
-> CPU affinity http://wklej.org/id/843161/
->=20
->=20
+> >I would like to check the registers as soon as I'm back in my office next week and report my findings.
+> >Could you also please check the hint from Stephen?
+> 
+> Mirko, did you have a chance to look at this?
+> 
 
-I said eth2 and eth3
 
-And you should use cpu11->cpu15 instead of cpu6->cpu9 since they are in
-use...
+Sorry Jiri,
 
-Anyway you dont say where are drops, (ifconfig give us very few drops)
+I was the last three weeks at a customer's office and not in our lab.
+I'll check the issue this week.
 
-Also your eth0 seems to have a strange balance :
-
-RX interrupts seems to be well balanced on 4 queues :
-
-76:        503          0  169271690          0          0          0  =
-        PCI-MSI-edge      eth0-rx-0
-77:        405          0          0  164532538          0          0  =
-        PCI-MSI-edge      eth0-rx-1
-78:        408          0          0          0  152778723          0  =
-        PCI-MSI-edge      eth0-rx-2
-79:        349          0          0          0          0  155011301  =
-        PCI-MSI-edge      eth0-rx-3
-80:        144          0  443432394          0          0          0  =
-        PCI-MSI-edge      eth0-tx-0
-81:         18          0          0    2043311          0          0  =
-        PCI-MSI-edge      eth0-tx-1
-82:         30          0          0          0    1934537          0  =
-        PCI-MSI-edge      eth0-tx-2
-83:        137          0          0          0          0    1968272  =
-        PCI-MSI-edge      eth0-tx-3
-
-But TX seems to mostly use queue 0
-
-Packets sent to eth0 are coming from where ?
+Mirko
