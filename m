@@ -1,59 +1,51 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: [ANNOUNCE] iptables 1.4.16.1 release
-Date: Mon, 8 Oct 2012 02:14:53 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1210080141140.2933@nerf07.vanv.qr>
-References: <20121007231706.GA7400@1984>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] ath5k: fix potential NULL pointer dereference in ath5k_beacon_update()
+Date: Mon, 8 Oct 2012 08:42:58 +0800
+Message-ID: <CAPgLHd8JOwHeMPu1MfUvse1npL7QMXxgMk4xkjft-JEP_mbv4w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, netfilter-announce@lists.netfilter.org,
-	lwn@lwn.net
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20121007231706.GA7400@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, linux-wireless@vger.kernel.org,
+	ath5k-devel@lists.ath5k.org, netdev@vger.kernel.org
+To: jirislaby@gmail.com, mickflemm@gmail.com, mcgrof@qca.qualcomm.com,
+	linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f180.google.com ([209.85.216.180]:65437 "EHLO
+	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751096Ab2JHAm7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2012 20:42:59 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-On Monday 2012-10-08 01:17, Pablo Neira Ayuso wrote:
->The Netfilter project proudly presents:
->
->        iptables 1.4.16.1
->
->iptables -I INPUT -j ACCEPT
->says:
->iptables: No chain/target/match by that name.
->This also breaks iptables-restore, of course. Jan, you'll have to explain
->me how you have tested this.
+The dereference should be moved below the NULL test.
 
-This was tested by adding rules with different targets that had both
-aliases defined and those without.
+dpatch engine is used to auto generate this patch.
+(https://github.com/weiyj/dpatch)
 
- ./iptables/xtables-multi main4 -t raw -N foo
- ./iptables/xtables-multi main4 -t raw -A foo -j NOTRACK
- with kernels that had xt_CT and no xt_CT at all
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/wireless/ath/ath5k/base.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
- ./iptables/xtables-multi main4 -N foo
- ./iptables/xtables-multi main4 -A foo -m state --state NEW
- with kernels that had xt_conntrack.3, and xt_conntrack.3 removed
- (leaving only xt_conntrack.2)
-
- ./iptables/xtables-multi main4 -t raw -N bar
- ./iptables/xtables-multi main4 -t raw -A bar -j MARK --set-xmark 1
- ./iptables/xtables-multi main4 -t raw -A foo -j bar
-
-plus of course the "standard" (no pun intended) testsuite that we
-had so far:
-
- # ./iptables/xtables-multi restore6 tests/options-most.rules 
- WARNING: --localtz is being replaced by --kerneltz, since "local" is ambiguous.
- Note the kernel timezone has caveats - see manpage for details.
-
-As you spotted, options-most.rules did not include -j <verdict>.
-
-While v1.4.16-1-g2aaa7ec fixes -j verdict, it breaks NOTRACK in all
-instances. To reuse a line, "you'll have to explain me how you have
-tested this."
-
-A patch to what I think should fly is posted as a reply hereto.
-Please give that a spin.
+diff --git a/drivers/net/wireless/ath/ath5k/base.c b/drivers/net/wireless/ath/ath5k/base.c
+index 9fd6d9a..9f31cfa 100644
+--- a/drivers/net/wireless/ath/ath5k/base.c
++++ b/drivers/net/wireless/ath/ath5k/base.c
+@@ -1804,7 +1804,7 @@ ath5k_beacon_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
+ {
+ 	int ret;
+ 	struct ath5k_hw *ah = hw->priv;
+-	struct ath5k_vif *avf = (void *)vif->drv_priv;
++	struct ath5k_vif *avf;
+ 	struct sk_buff *skb;
+ 
+ 	if (WARN_ON(!vif)) {
+@@ -1819,6 +1819,7 @@ ath5k_beacon_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
+ 		goto out;
+ 	}
+ 
++	avf = (void *)vif->drv_priv;
+ 	ath5k_txbuf_free_skb(ah, avf->bbuf);
+ 	avf->bbuf->skb = skb;
+ 	ret = ath5k_beacon_setup(ah, avf->bbuf);
