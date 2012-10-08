@@ -1,72 +1,73 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 0/3] virtio-net: inline header support
-Date: Mon, 8 Oct 2012 23:31:15 +0200
-Message-ID: <20121008213114.GB17820@redhat.com>
-References: <cover.1348824232.git.mst@redhat.com>
-	<87vces2gxq.fsf@rustcorp.com.au> <87mx033u74.fsf@codemonkey.ws>
-	<87391u3o67.fsf@rustcorp.com.au>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net 1/6] ipv4: fix sending of redirects
+Date: Mon, 8 Oct 2012 23:43:45 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1210082259180.12172@ja.ssi.bg>
+References: <1349609168-9848-1-git-send-email-ja@ssi.bg> <1349609168-9848-2-git-send-email-ja@ssi.bg> <20121008.151633.753185005887436197.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sasha Levin <levinsasha928@gmail.com>,
-	virtualization@lists.linux-foundation.org, avi@redhat.com,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Thomas Lendacky <tahm@linux.vnet.ibm.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <87391u3o67.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:44325 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752144Ab2JHUiV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2012 16:38:21 -0400
+In-Reply-To: <20121008.151633.753185005887436197.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 04, 2012 at 01:04:56PM +0930, Rusty Russell wrote:
-> Anthony Liguori <anthony@codemonkey.ws> writes:
-> > Rusty Russell <rusty@rustcorp.com.au> writes:
-> >
-> >> "Michael S. Tsirkin" <mst@redhat.com> writes:
-> >>
-> >>> Thinking about Sasha's patches, we can reduce ring usage
-> >>> for virtio net small packets dramatically if we put
-> >>> virtio net header inline with the data.
-> >>> This can be done for free in case guest net stack allocated
-> >>> extra head room for the packet, and I don't see
-> >>> why would this have any downsides.
-> >>
-> >> I've been wanting to do this for the longest time... but...
-> >>
-> >>> Even though with my recent patches qemu
-> >>> no longer requires header to be the first s/g element,
-> >>> we need a new feature bit to detect this.
-> >>> A trivial qemu patch will be sent separately.
-> >>
-> >> There's a reason I haven't done this.  I really, really dislike "my
-> >> implemention isn't broken" feature bits.  We could have an infinite
-> >> number of them, for each bug in each device.
-> >
-> > This is a bug in the specification.
-> >
-> > The QEMU implementation pre-dates the specification.  All of the actual
-> > implementations of virtio relied on the semantics of s/g elements and
-> > still do.
+
+	Hello,
+
+On Mon, 8 Oct 2012, David Miller wrote:
+
+> From: Julian Anastasov <ja@ssi.bg>
+> Date: Sun,  7 Oct 2012 14:26:03 +0300
 > 
-> lguest fix is pending in my queue.  lkvm and qemu are broken; lkvm isn't
-> ever going to be merged, so I'm not sure what its status is?  But I'm
-> determined to fix qemu, and hence my torture patch to make sure this
-> doesn't creep in again.
+> > @@ -322,7 +322,8 @@ int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
+> >  {
+> >  	int r = secpath_exists(skb) ? 0 : IN_DEV_RPFILTER(idev);
+> >  
+> > -	if (!r && !fib_num_tclassid_users(dev_net(dev))) {
+> > +	if (!r && !fib_num_tclassid_users(dev_net(dev)) &&
+> > +	    dev->ifindex != oif) {
+> >  		*itag = 0;
+> >  		return 0;
+> >  	}
+> 
+> Hmmm, won't this cause the slow path to be taken for locally
+> destined traffic?
 
-If you look at my patch you'll notice there's also a
-comment in virtio_net.h that seems to be broken in this respect:
+	In this case idev=eth0 and oif=lo. The only case
+where we can see same input and output device is for
+forwarding and loopback (but only output routes where
+there is no such validation).
 
-/* This is the first element of the scatter-gather list.  If you don't
- * specify GSO or CSUM features, you can simply ignore the header. */
+	Of course, it slows down on traffic that ignores
+our redirects. We can save some cycles if IN_DEV_TX_REDIRECTS
+is checked before setting RTCF_DOREDIRECT:
 
-There is a similar comment in virtio-blk.
+	(dev->ifindex != oif || !IN_DEV_TX_REDIRECTS(idev)) {
+
+	RTCF_DOREDIRECT is used just to call ip_rt_send_redirect
+where all depends on IN_DEV_TX_REDIRECTS.
+
+	The only difference can be that user space will
+not see RTCF_DOREDIRECT flag if IN_DEV_TX_REDIRECTS is false.
+But may be it is better to show "redirect" in ip route
+only when IN_DEV_TX_REDIRECTS are enabled. The old way
+is preferred only when there is routing cache and changes
+in IN_DEV_TX_REDIRECTS do not flush cache in devinet_conf_proc().
+
+> > +			  rt->rt_gateway ? : ip_hdr(skb)->daddr);
+> 
+> Please use the rt_nexthop() helper.
+> 
+> > +		__be32 gw = rt->rt_gateway ? : ip_hdr(skb)->daddr;
+
+	Good idea.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
