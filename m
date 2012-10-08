@@ -1,56 +1,73 @@
-From: Mirko Lindner <mlindner@marvell.com>
-Subject: Re: [patch net] sky2: fix rx filter setup on link up
-Date: Mon, 08 Oct 2012 11:44:37 +0200
-Message-ID: <1349689477.28839.4.camel@mlindner-lin.skd.de>
-References: <1347894617-13614-1-git-send-email-jiri@resnulli.us>
-	 <20120917091214.5cd9b0f5@nehalam.linuxnetplumber.net>
-	 <20120917204724.GA1749@minipsycho.orion>
-	 <175CCF5F49938B4D99B2E3EF7F558EBE1B63898F0B@SC-VEXCH4.marvell.com>
-	 <20121004074004.GA6620@minipsycho.orion>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 3/3] ipv4: Don't report stale pmtu values to userspace
+Date: Mon, 08 Oct 2012 11:55:44 +0200
+Message-ID: <1349690144.21172.3024.camel@edumazet-glaptop>
+References: <20121008084642.GB15622@secunet.com>
+	 <20121008084853.GE15622@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121004074004.GA6620@minipsycho.orion>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:64439 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751172Ab2JHJzs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 05:55:48 -0400
+Received: by mail-lb0-f174.google.com with SMTP id n3so2803583lbo.19
+        for <netdev@vger.kernel.org>; Mon, 08 Oct 2012 02:55:47 -0700 (PDT)
+In-Reply-To: <20121008084853.GE15622@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-10-04 at 00:40 -0700, Jiri Pirko wrote:
-> Tue, Sep 18, 2012 at 02:38:52AM CEST, mlindner@marvell.com wrote:
-> >>Mon, Sep 17, 2012 at 06:12:14PM CEST, shemminger@vyatta.com wrote:
-> >>>On Mon, 17 Sep 2012 17:10:17 +0200
-> >>>Jiri Pirko <jiri@resnulli.us> wrote:
-> >>>
-> >>>> In my case I have following problem. sky2_set_multicast() sets registers
-> >>>> GM_MC_ADDR_H[1-4] correctly to:
-> >>>> 0000 0800 0001 0410
-> >>>> However, when adapter gets link and sky2_link_up() is called, the values
-> >>>> are for some reason different:
-> >>>> 0000 0800 0016 0410
-> >>>
-> >>>Rather than papering over the problem, it would be better to
-> >>>trace back what is setting those registers and fix that code.
-> >
-> >>Yes, I did that. No code at sky2.[ch] is writing to this registers other
-> >>than sky2_set_multicast() and sky2_gmac_reset() (I hooked on sky2_write*()).
-> >>So I strongly believe this is a HW issue (maybe only issue of my revision
-> >>"Yukon-2 EC chip revision 2")
-> >
-> >I would like to check the registers as soon as I'm back in my office next week and report my findings.
-> >Could you also please check the hint from Stephen?
+On Mon, 2012-10-08 at 10:48 +0200, Steffen Klassert wrote:
+> We report cached pmtu values even if they are already expired.
+> Change this to not report these values after they are expired.
 > 
-> Mirko, did you have a chance to look at this?
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
+>  net/ipv4/route.c |   17 +++++++++--------
+>  1 files changed, 9 insertions(+), 8 deletions(-)
 > 
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 741df67..24b52dd 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -2187,8 +2187,16 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src,
+>  	    nla_put_be32(skb, RTA_GATEWAY, rt->rt_gateway))
+>  		goto nla_put_failure;
+>  
+> +	expires = rt->dst.expires;
+> +	if (expires) {
+> +		if (time_before(jiffies, expires))
+> +			expires -= jiffies;
+
+Seeing this racy code, we could fix it as well.
+
+jiffies is volatile and can change between the test and subtraction.
+
+So we could in theory get strange result.
+
+I suggest using :
+
+if (expires) {
+	unsigned long now = jiffies;
+
+	if (time_before(now, expires))
+		expires -= now;
+	else
+		expires = 0;
+}
+
+or 
+
+if (expires)
+	expires = max_t(signed long, 0L, expires - jiffies);
 
 
-Sorry Jiri,
 
-I was the last three weeks at a customer's office and not in our lab.
-I'll check the issue this week.
 
-Mirko
+> +		else
+> +			expires = 0;
+> +	}
+> +
