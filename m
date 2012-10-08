@@ -1,108 +1,66 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH net v2 5/6] ipv4: Add FLOWI_FLAG_KNOWN_NH
-Date: Tue,  9 Oct 2012 00:41:19 +0300
-Message-ID: <1349732480-19978-6-git-send-email-ja@ssi.bg>
+Subject: [PATCH net v2 6/6] ipvs: fix ARP resolving for direct routing mode
+Date: Tue,  9 Oct 2012 00:41:20 +0300
+Message-ID: <1349732480-19978-7-git-send-email-ja@ssi.bg>
 References: <1349732480-19978-1-git-send-email-ja@ssi.bg>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:44340 "EHLO ja.ssi.bg"
+Received: from ja.ssi.bg ([178.16.129.10]:44342 "EHLO ja.ssi.bg"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751705Ab2JHVgD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751698Ab2JHVgD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 8 Oct 2012 17:36:03 -0400
 Received: from ja.ssi.bg (localhost.localdomain [127.0.0.1])
-	by ja.ssi.bg (8.14.4/8.14.4) with ESMTP id q98LfZmn020030
+	by ja.ssi.bg (8.14.4/8.14.4) with ESMTP id q98LfZ7h020034
 	for <netdev@vger.kernel.org>; Tue, 9 Oct 2012 00:41:35 +0300
 Received: (from root@localhost)
-	by ja.ssi.bg (8.14.4/8.14.4/Submit) id q98LfZBt020029
+	by ja.ssi.bg (8.14.4/8.14.4/Submit) id q98LfZm2020033
 	for netdev@vger.kernel.org; Tue, 9 Oct 2012 00:41:35 +0300
 In-Reply-To: <1349732480-19978-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Add flag to request that output route should be
-returned with known rt_gateway, in case we want to use
-it as nexthop for neighbour resolving.
-
-	The returned route can be cached as follows:
-
-- in NH exception: because the cached routes are not shared
-	with other destinations
-- in FIB NH: when using gateway because all destinations for
-	NH share same gateway
-
-	As last option, to return rt_gateway!=0 we have to
-set DST_NOCACHE.
+	After the change "Make neigh lookups directly in output packet path"
+(commit a263b30936) IPVS can not reach the real server for DR mode
+because we resolve the destination address from IP header, not from
+route neighbour. Use the new FLOWI_FLAG_KNOWN_NH flag to request
+output routes with known nexthop, so that it has preference
+on resolving.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
- include/net/flow.h |    1 +
- net/ipv4/route.c   |   21 +++++++++++++++++----
- 2 files changed, 18 insertions(+), 4 deletions(-)
+ net/netfilter/ipvs/ip_vs_xmit.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
-diff --git a/include/net/flow.h b/include/net/flow.h
-index e1dd508..628e11b 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -21,6 +21,7 @@ struct flowi_common {
- 	__u8	flowic_flags;
- #define FLOWI_FLAG_ANYSRC		0x01
- #define FLOWI_FLAG_CAN_SLEEP		0x02
-+#define FLOWI_FLAG_KNOWN_NH		0x04
- 	__u32	flowic_secid;
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 56f6d5d..cc4c809 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -50,6 +50,7 @@ enum {
+ 				      * local
+ 				      */
+ 	IP_VS_RT_MODE_CONNECT	= 8, /* Always bind route to saddr */
++	IP_VS_RT_MODE_KNOWN_NH	= 16,/* Route via remote addr */
  };
  
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 3a116cb..1a0da8d 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1762,6 +1762,7 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 	struct in_device *in_dev;
- 	u16 type = res->type;
- 	struct rtable *rth;
-+	bool do_cache;
+ /*
+@@ -113,6 +114,8 @@ static struct rtable *do_output_route4(struct net *net, __be32 daddr,
+ 	fl4.daddr = daddr;
+ 	fl4.saddr = (rt_mode & IP_VS_RT_MODE_CONNECT) ? *saddr : 0;
+ 	fl4.flowi4_tos = rtos;
++	fl4.flowi4_flags = (rt_mode & IP_VS_RT_MODE_KNOWN_NH) ?
++			   FLOWI_FLAG_KNOWN_NH : 0;
  
- 	in_dev = __in_dev_get_rcu(dev_out);
- 	if (!in_dev)
-@@ -1798,24 +1799,36 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 	}
- 
- 	fnhe = NULL;
-+	do_cache = fi != NULL;
- 	if (fi) {
- 		struct rtable __rcu **prth;
-+		struct fib_nh *nh = &FIB_RES_NH(*res);
- 
--		fnhe = find_exception(&FIB_RES_NH(*res), fl4->daddr);
-+		fnhe = find_exception(nh, fl4->daddr);
- 		if (fnhe)
- 			prth = &fnhe->fnhe_rth;
--		else
--			prth = __this_cpu_ptr(FIB_RES_NH(*res).nh_pcpu_rth_output);
-+		else {
-+			if (unlikely(fl4->flowi4_flags &
-+				     FLOWI_FLAG_KNOWN_NH &&
-+				     !(nh->nh_gw &&
-+				       nh->nh_scope == RT_SCOPE_LINK))) {
-+				do_cache = false;
-+				goto add;
-+			}
-+			prth = __this_cpu_ptr(nh->nh_pcpu_rth_output);
-+		}
- 		rth = rcu_dereference(*prth);
- 		if (rt_cache_valid(rth)) {
- 			dst_hold(&rth->dst);
- 			return rth;
- 		}
- 	}
-+
-+add:
- 	rth = rt_dst_alloc(dev_out,
- 			   IN_DEV_CONF_GET(in_dev, NOPOLICY),
- 			   IN_DEV_CONF_GET(in_dev, NOXFRM),
--			   fi);
-+			   do_cache);
- 	if (!rth)
- 		return ERR_PTR(-ENOBUFS);
- 
+ retry:
+ 	rt = ip_route_output_key(net, &fl4);
+@@ -1061,7 +1064,8 @@ ip_vs_dr_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
+ 				      RT_TOS(iph->tos),
+ 				      IP_VS_RT_MODE_LOCAL |
+-					IP_VS_RT_MODE_NON_LOCAL, NULL)))
++				      IP_VS_RT_MODE_NON_LOCAL |
++				      IP_VS_RT_MODE_KNOWN_NH, NULL)))
+ 		goto tx_error_icmp;
+ 	if (rt->rt_flags & RTCF_LOCAL) {
+ 		ip_rt_put(rt);
 -- 
 1.7.3.4
