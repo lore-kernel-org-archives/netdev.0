@@ -1,41 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ethernet/jme: disable ASPM
-Date: Mon, 08 Oct 2012 15:24:26 -0400 (EDT)
-Message-ID: <20121008.152426.1524908667081347879.davem@davemloft.net>
-References: <1349722956-14159-1-git-send-email-kevin.baradon@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] napi: limit GRO latency
+Date: Mon, 08 Oct 2012 21:30:12 +0200
+Message-ID: <1349724612.21172.3643.camel@edumazet-glaptop>
+References: <1349718955.21172.3534.camel@edumazet-glaptop>
+	 <1349719006.21172.3537.camel@edumazet-glaptop>
+	 <20121008115835.3a3bfed6@nehalam.linuxnetplumber.net>
+	 <20121008.151035.1665672334154033755.davem@davemloft.net>
+	 <20121008121248.783e6dc4@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: cooldavid@cooldavid.org, mjg@redhat.com, netdev@vger.kernel.org
-To: kevin.baradon@gmail.com
+Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	jesse@nicira.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57187 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750845Ab2JHTY3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 15:24:29 -0400
-In-Reply-To: <1349722956-14159-1-git-send-email-kevin.baradon@gmail.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:38108 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751072Ab2JHTaZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 15:30:25 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so2242869bkc.19
+        for <netdev@vger.kernel.org>; Mon, 08 Oct 2012 12:30:24 -0700 (PDT)
+In-Reply-To: <20121008121248.783e6dc4@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kevin Baradon <kevin.baradon@gmail.com>
-Date: Mon,  8 Oct 2012 21:02:36 +0200
-
-> Based on patch from Matthew Garrett <mjg@redhat.com> (https://lkml.org/lkml/2011/11/11/168).
+On Mon, 2012-10-08 at 12:12 -0700, Stephen Hemminger wrote:
+> On Mon, 08 Oct 2012 15:10:35 -0400 (EDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> http://driveragent.com/archive/30421/7-0-14 indicates that ASPM is
-> disabled on the 250 and 260. Duplicate for sanity.
+> > From: Stephen Hemminger <shemminger@vyatta.com>
+> > Date: Mon, 8 Oct 2012 11:58:35 -0700
+> > 
+> > > Limit the latency of pending GRO in NAPI processing to 2*HZ.
+> > > When the system is under heavy network load, NAPI will go into
+> > > poll mode via soft irq, and only stay in the loop for
+> > > two jiffies. If this occurs, process the GRO pending list
+> > > to make sure and not delay outstanding TCP frames for too long.
+> > > 
+> > > Rearrange the exit path to get rid of unnecessary goto logic.
+> > > 
+> > > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> > 
+> > Did you see Eric's patch I just applied which limits it to 1ms?
 > 
-> Fixes random RX engine hangs I experienced with JMC250 on Clevo W270HU.
-> 
-> Signed-off-by: Kevin Baradon <kevin.baradon@gmail.com>
+> Think this is a different problem.
+> After leaving softirq, it may be a long time until
+> ksoftirqd is run which is a different problem.
 
-This should be a PCI quirk shouldn't it?
+System is under stress, you dont want to increase load at this point,
+but increase bandwidth.
 
-Also:
+Really try this on a 40Gbe link and see how bad it is.
 
-> +	pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S | PCIE_LINK_STATE_L1 |
-> +		PCIE_LINK_STATE_CLKPM);
-
-This is terrible formatting, you must line up the "PCIE_LINK_STATE_CLKPM" on
-the second line with the very first column after the openning parenthesis
-on the first line.
+On a server, we probably dedicate one or several cpus only to run NAPI,
+so yes we hit net_rx_action() break, but we'll reenter it a few us
+later.
