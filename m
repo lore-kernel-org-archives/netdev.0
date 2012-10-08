@@ -1,101 +1,216 @@
-From: Andre Tomt <andre@tomt.net>
-Subject: Re: 3.4.1 and 3.5-rc1 Packet lost at 250Mb/s
-Date: Mon, 08 Oct 2012 14:59:21 +0200
-Message-ID: <5072CE29.5010504@tomt.net>
-References: <409ac8b30a6994028562e1a159ac60aa@justnet.pl>  <1349677373.21172.2756.camel@edumazet-glaptop>  <9819d6943a7cfddfc8fa49217aa4842e@justnet.pl>  <1349689640.21172.3008.camel@edumazet-glaptop>  <80bb011e8f1289218087633fd7b115ea@justnet.pl>  <5072C063.6000302@tomt.net> <1349698406.21172.3168.camel@edumazet-glaptop> <5072C7F4.1090002@tomt.net>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060603080206030909030501"
-Cc: adam.niescierowicz@justnet.pl, Netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH] cxgb4: Address various sparse warnings
+Date: Mon,  8 Oct 2012 18:29:43 +0530
+Message-ID: <1349701183-25093-1-git-send-email-vipul@chelsio.com>
+Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
+	leedom@chelsio.com, felix@chelsio.com,
+	Vipul Pandya <vipul@chelsio.com>,
+	Jay Hernandez <jay@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from catastrophix.ugh.no ([178.79.162.34]:36784 "EHLO
-	catastrophix.ugh.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751220Ab2JHM70 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 08:59:26 -0400
-In-Reply-To: <5072C7F4.1090002@tomt.net>
+Received: from stargate.chelsio.com ([67.207.112.58]:19017 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752569Ab2JHNDI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 09:03:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060603080206030909030501
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
+This patch fixes type assignment issues, function definition and symbol
+shadowing which triggered sparse warnings.
 
-On 08. okt. 2012 14:32, Andre Tomt wrote:
-> On 08. okt. 2012 14:13, Eric Dumazet wrote:
->> On Mon, 2012-10-08 at 14:00 +0200, Andre Tomt wrote:
->>> On 08. okt. 2012 12:49, Nieścierowicz Adam wrote:
->>>> W dniu 08.10.2012 11:47, Eric Dumazet napisał(a):
->>>>> Anyway you dont say where are drops, (ifconfig give us very few drops)
->>>>
->>>> you can see no losses(drop), but a temporary decline in traffic on the
->>>> interface to 0kb/s
->>>
->>> This sounds very familiar, could it be something similar to:
->>> http://marc.info/?l=linux-netdev&m=134594936016796&w=3
->>>
->>> The chip seems to be of the same family (though not model)
->>
->> Yes, but Adam says 3.4.1 already has a problem, while
->> commit 2cb7a9cc008c25dc03314de563c00c107b3e5432 is in 3.5 only.
->  >
->> Since Adam uses Intel e1000e, it could be the BQL related problem.
->
-> The other chips have had DMA burst flag enabled for longer, so that he
-> sees the same problem in 3.4 while I'm not makes sense. Hmm, as 3.4 is
-> when BQL went in (IIRC) it seems very likely that this BQL issue is the
-> problem for both of us.
+Signed-off-by: Jay Hernandez <jay@chelsio.com>
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   54 +++++++++++++----------
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   13 +++--
+ 3 files changed, 39 insertions(+), 29 deletions(-)
 
-To clarify; I think the DMA burst flag in the driver triggers the BQL 
-related issue. Judging by the patchwork link for wthresh=1 this seems 
-very related indeed.
-
-Removing the FLAG2_DMA_BURST flag for 82574 in the driver works for me. 
-Adam, it might be worth testing out a build on your system too with the 
-flag removed. If you try the attached patch (for 3.6, probably OK for 
-3.5) and the problem dissapears, we are probably at least talking about 
-the same bug.
-
---------------060603080206030909030501
-Content-Type: text/x-patch;
- name="e1000e-disable-dma-burst.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="e1000e-disable-dma-burst.patch"
-
-diff -Naur linux-3.6.1/drivers/net/ethernet/intel/e1000e/82571.c linux-3.6.1-2/drivers/net/ethernet/intel/e1000e/82571.c
---- linux-3.6.1/drivers/net/ethernet/intel/e1000e/82571.c	2012-10-07 17:41:28.000000000 +0200
-+++ linux-3.6.1-2/drivers/net/ethernet/intel/e1000e/82571.c	2012-10-08 14:54:08.853095363 +0200
-@@ -2031,8 +2031,7 @@
- 				  | FLAG_RESET_OVERWRITES_LAA /* errata */
- 				  | FLAG_TARC_SPEED_MODE_BIT /* errata */
- 				  | FLAG_APME_CHECK_PORT_B,
--	.flags2			= FLAG2_DISABLE_ASPM_L1 /* errata 13 */
--				  | FLAG2_DMA_BURST,
-+	.flags2			= FLAG2_DISABLE_ASPM_L1, /* errata 13 */
- 	.pba			= 38,
- 	.max_hw_frame_size	= DEFAULT_JUMBO,
- 	.get_variants		= e1000_get_variants_82571,
-@@ -2049,8 +2048,7 @@
- 				  | FLAG_APME_IN_CTRL3
- 				  | FLAG_HAS_CTRLEXT_ON_LOAD
- 				  | FLAG_TARC_SPEED_MODE_BIT, /* errata */
--	.flags2			= FLAG2_DISABLE_ASPM_L1 /* errata 13 */
--				  | FLAG2_DMA_BURST,
-+	.flags2			= FLAG2_DISABLE_ASPM_L1, /* errata 13 */
- 	.pba			= 38,
- 	.max_hw_frame_size	= DEFAULT_JUMBO,
- 	.get_variants		= e1000_get_variants_82571,
-@@ -2090,8 +2088,7 @@
- 	.flags2			 = FLAG2_CHECK_PHY_HANG
- 				  | FLAG2_DISABLE_ASPM_L0S
- 				  | FLAG2_DISABLE_ASPM_L1
--				  | FLAG2_NO_DISABLE_RX
--				  | FLAG2_DMA_BURST,
-+				  | FLAG2_NO_DISABLE_RX,
- 	.pba			= 32,
- 	.max_hw_frame_size	= DEFAULT_JUMBO,
- 	.get_variants		= e1000_get_variants_82571,
-
---------------060603080206030909030501--
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 745a1f5..39225ab 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -695,6 +695,7 @@ int t4_seeprom_wp(struct adapter *adapter, bool enable);
+ int get_vpd_params(struct adapter *adapter, struct vpd_params *p);
+ int t4_load_fw(struct adapter *adapter, const u8 *fw_data, unsigned int size);
+ unsigned int t4_flash_cfg_addr(struct adapter *adapter);
++int t4_load_cfg(struct adapter *adapter, const u8 *cfg_data, unsigned int size);
+ int t4_check_fw_version(struct adapter *adapter);
+ int t4_prep_adapter(struct adapter *adapter);
+ int t4_port_init(struct adapter *adap, int mbox, int pf, int vf);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 6b9f6bb..604f4f8 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -443,7 +443,10 @@ int dbfifo_int_thresh = 10; /* 10 == 640 entry threshold */
+ module_param(dbfifo_int_thresh, int, 0644);
+ MODULE_PARM_DESC(dbfifo_int_thresh, "doorbell fifo interrupt threshold");
+ 
+-int dbfifo_drain_delay = 1000; /* usecs to sleep while draining the dbfifo */
++/*
++ * usecs to sleep while draining the dbfifo
++ */
++static int dbfifo_drain_delay = 1000;
+ module_param(dbfifo_drain_delay, int, 0644);
+ MODULE_PARM_DESC(dbfifo_drain_delay,
+ 		 "usecs to sleep while draining the dbfifo");
+@@ -636,7 +639,7 @@ static void name_msix_vecs(struct adapter *adap)
+ static int request_msix_queue_irqs(struct adapter *adap)
+ {
+ 	struct sge *s = &adap->sge;
+-	int err, ethqidx, ofldqidx = 0, rdmaqidx = 0, msi = 2;
++	int err, ethqidx, ofldqidx = 0, rdmaqidx = 0, msi_index = 2;
+ 
+ 	err = request_irq(adap->msix_info[1].vec, t4_sge_intr_msix, 0,
+ 			  adap->msix_info[1].desc, &s->fw_evtq);
+@@ -644,56 +647,60 @@ static int request_msix_queue_irqs(struct adapter *adap)
+ 		return err;
+ 
+ 	for_each_ethrxq(s, ethqidx) {
+-		err = request_irq(adap->msix_info[msi].vec, t4_sge_intr_msix, 0,
+-				  adap->msix_info[msi].desc,
++		err = request_irq(adap->msix_info[msi_index].vec,
++				  t4_sge_intr_msix, 0,
++				  adap->msix_info[msi_index].desc,
+ 				  &s->ethrxq[ethqidx].rspq);
+ 		if (err)
+ 			goto unwind;
+-		msi++;
++		msi_index++;
+ 	}
+ 	for_each_ofldrxq(s, ofldqidx) {
+-		err = request_irq(adap->msix_info[msi].vec, t4_sge_intr_msix, 0,
+-				  adap->msix_info[msi].desc,
++		err = request_irq(adap->msix_info[msi_index].vec,
++				  t4_sge_intr_msix, 0,
++				  adap->msix_info[msi_index].desc,
+ 				  &s->ofldrxq[ofldqidx].rspq);
+ 		if (err)
+ 			goto unwind;
+-		msi++;
++		msi_index++;
+ 	}
+ 	for_each_rdmarxq(s, rdmaqidx) {
+-		err = request_irq(adap->msix_info[msi].vec, t4_sge_intr_msix, 0,
+-				  adap->msix_info[msi].desc,
++		err = request_irq(adap->msix_info[msi_index].vec,
++				  t4_sge_intr_msix, 0,
++				  adap->msix_info[msi_index].desc,
+ 				  &s->rdmarxq[rdmaqidx].rspq);
+ 		if (err)
+ 			goto unwind;
+-		msi++;
++		msi_index++;
+ 	}
+ 	return 0;
+ 
+ unwind:
+ 	while (--rdmaqidx >= 0)
+-		free_irq(adap->msix_info[--msi].vec,
++		free_irq(adap->msix_info[--msi_index].vec,
+ 			 &s->rdmarxq[rdmaqidx].rspq);
+ 	while (--ofldqidx >= 0)
+-		free_irq(adap->msix_info[--msi].vec,
++		free_irq(adap->msix_info[--msi_index].vec,
+ 			 &s->ofldrxq[ofldqidx].rspq);
+ 	while (--ethqidx >= 0)
+-		free_irq(adap->msix_info[--msi].vec, &s->ethrxq[ethqidx].rspq);
++		free_irq(adap->msix_info[--msi_index].vec,
++			 &s->ethrxq[ethqidx].rspq);
+ 	free_irq(adap->msix_info[1].vec, &s->fw_evtq);
+ 	return err;
+ }
+ 
+ static void free_msix_queue_irqs(struct adapter *adap)
+ {
+-	int i, msi = 2;
++	int i, msi_index = 2;
+ 	struct sge *s = &adap->sge;
+ 
+ 	free_irq(adap->msix_info[1].vec, &s->fw_evtq);
+ 	for_each_ethrxq(s, i)
+-		free_irq(adap->msix_info[msi++].vec, &s->ethrxq[i].rspq);
++		free_irq(adap->msix_info[msi_index++].vec, &s->ethrxq[i].rspq);
+ 	for_each_ofldrxq(s, i)
+-		free_irq(adap->msix_info[msi++].vec, &s->ofldrxq[i].rspq);
++		free_irq(adap->msix_info[msi_index++].vec, &s->ofldrxq[i].rspq);
+ 	for_each_rdmarxq(s, i)
+-		free_irq(adap->msix_info[msi++].vec, &s->rdmarxq[i].rspq);
++		free_irq(adap->msix_info[msi_index++].vec, &s->rdmarxq[i].rspq);
+ }
+ 
+ /**
+@@ -2535,9 +2542,8 @@ static int read_eq_indices(struct adapter *adap, u16 qid, u16 *pidx, u16 *cidx)
+ 
+ 	ret = t4_mem_win_read_len(adap, addr, (__be32 *)&indices, 8);
+ 	if (!ret) {
+-		indices = be64_to_cpu(indices);
+-		*cidx = (indices >> 25) & 0xffff;
+-		*pidx = (indices >> 9) & 0xffff;
++		*cidx = (be64_to_cpu(indices) >> 25) & 0xffff;
++		*pidx = (be64_to_cpu(indices) >> 9) & 0xffff;
+ 	}
+ 	return ret;
+ }
+@@ -3634,10 +3640,10 @@ static int adap_init0_no_config(struct adapter *adapter, int reset)
+ 	 * field selections will fit in the 36-bit budget.
+ 	 */
+ 	if (tp_vlan_pri_map != TP_VLAN_PRI_MAP_DEFAULT) {
+-		int i, bits = 0;
++		int j, bits = 0;
+ 
+-		for (i = TP_VLAN_PRI_MAP_FIRST; i <= TP_VLAN_PRI_MAP_LAST; i++)
+-			switch (tp_vlan_pri_map & (1 << i)) {
++		for (j = TP_VLAN_PRI_MAP_FIRST; j <= TP_VLAN_PRI_MAP_LAST; j++)
++			switch (tp_vlan_pri_map & (1 << j)) {
+ 			case 0:
+ 				/* compressed filter field not enabled */
+ 				break;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 35b81d8..7bfd7f1 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -380,9 +380,11 @@ static int t4_mem_win_rw(struct adapter *adap, u32 addr, __be32 *data, int dir)
+ 	/* Collecting data 4 bytes at a time upto MEMWIN0_APERTURE */
+ 	for (i = 0; i < MEMWIN0_APERTURE; i = i+0x4) {
+ 		if (dir)
+-			*data++ = t4_read_reg(adap, (MEMWIN0_BASE + i));
++			*data++ = (__force __be32) t4_read_reg(adap,
++							(MEMWIN0_BASE + i));
+ 		else
+-			t4_write_reg(adap, (MEMWIN0_BASE + i), *data++);
++			t4_write_reg(adap, (MEMWIN0_BASE + i),
++				     (__force u32) *data++);
+ 	}
+ 
+ 	return 0;
+@@ -727,7 +729,7 @@ static int t4_read_flash(struct adapter *adapter, unsigned int addr,
+ 		if (ret)
+ 			return ret;
+ 		if (byte_oriented)
+-			*data = htonl(*data);
++			*data = (__force __u32) (htonl(*data));
+ 	}
+ 	return 0;
+ }
+@@ -975,7 +977,7 @@ int t4_load_fw(struct adapter *adap, const u8 *fw_data, unsigned int size)
+ 	int ret, addr;
+ 	unsigned int i;
+ 	u8 first_page[SF_PAGE_SIZE];
+-	const u32 *p = (const u32 *)fw_data;
++	const __be32 *p = (const __be32 *)fw_data;
+ 	const struct fw_hdr *hdr = (const struct fw_hdr *)fw_data;
+ 	unsigned int sf_sec_size = adap->params.sf_size / adap->params.sf_nsec;
+ 	unsigned int fw_img_start = adap->params.sf_fw_start;
+@@ -2298,7 +2300,8 @@ int t4_mem_win_read_len(struct adapter *adap, u32 addr, __be32 *data, int len)
+ 	t4_read_reg(adap, PCIE_MEM_ACCESS_OFFSET);
+ 
+ 	for (i = 0; i < len; i += 4)
+-		*data++ = t4_read_reg(adap, (MEMWIN0_BASE + off + i));
++		*data++ = (__force __be32) t4_read_reg(adap,
++						(MEMWIN0_BASE + off + i));
+ 
+ 	return 0;
+ }
+-- 
+1.7.1
