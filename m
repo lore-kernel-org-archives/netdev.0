@@ -1,48 +1,55 @@
-From: Florian Zumbiehl <florz@florz.de>
-Subject: Re: [PATCH v2] vlan: don't deliver frames for unknown vlans to
- protocols
-Date: Mon, 8 Oct 2012 21:19:44 +0200
-Message-ID: <20121008191944.GD25288@florz.florz.dyndns.org>
-References: <20121008015158.GE25895@florz.florz.dyndns.org>
- <20121008.144230.1404596032615788891.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jpirko@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20121008.144230.1404596032615788891.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Kevin Baradon <kevin.baradon@gmail.com>
+Subject: [PATCH] net/ethernet/jme: disable ASPM
+Date: Mon,  8 Oct 2012 21:02:36 +0200
+Message-ID: <1349722956-14159-1-git-send-email-kevin.baradon@gmail.com>
+Cc: Kevin Baradon <kevin.baradon@gmail.com>,
+	Guo-Fu Tseng <cooldavid@cooldavid.org>,
+	Matthew Garrett <mjg@redhat.com>, netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ven69-h01-31-33-9-98.dsl.sta.abo.bbox.fr ([31.33.9.98]:50692
+	"EHLO laptop-kevin.kbaradon.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750754Ab2JHTVH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2012 15:21:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Based on patch from Matthew Garrett <mjg@redhat.com> (https://lkml.org/lkml/2011/11/11/168).
 
-> But I wonder if it breaks things, since you do the assignment so late
-> we no longer handle the case where the VLAN device's MAC address
-> matches the packet MAC address and the top-level device's does not.
-> 
-> That's handled by logic in vlan_do_receive() which checks for
-> PACKET_OTHERHOST.
-> 
-> But you're going to unconditionally set PACKET_OTHERHOST, overriding
-> any decision that code makes.
+http://driveragent.com/archive/30421/7-0-14 indicates that ASPM is
+disabled on the 250 and 260. Duplicate for sanity.
 
-I don't think that that's actually the case. If vlan_do_receive() reaches
-the MAC address check (that is, there is a vlan device for the tag), it
-will either clear skb->vlan_tci and return true (which also causes goto
-another_round), or return false with a NULL skb, which causes goto out.
+Fixes random RX engine hangs I experienced with JMC250 on Clevo W270HU.
 
-The only way to reach the new check without another_round and with a
-non-zero tag is the first return false, which happens if there is no device
-for the tag, in which case setting PACKET_OTHERHOST should be the right
-thing to do (in particular, a non-existent vlan device won't have the
-frame's MAC address). I am assuming that rx_handlers don't modify the
-frame unless they return RX_HANDLER_ANOTHER.
+Signed-off-by: Kevin Baradon <kevin.baradon@gmail.com>
+Cc: Guo-Fu Tseng <cooldavid@cooldavid.org>
+Cc: Matthew Garrett <mjg@redhat.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/ethernet/jme.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-> This turns out to be a really non-trivial area and it's going to take
-> some time to get this right and audit the change appropriately.
-
-I wouldn't want to disagree with that ;-)
-
-Florian
+diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
+index c911d88..373df5a 100644
+--- a/drivers/net/ethernet/jme.c
++++ b/drivers/net/ethernet/jme.c
+@@ -27,6 +27,7 @@
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/pci.h>
++#include <linux/pci-aspm.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/ethtool.h>
+@@ -2973,6 +2974,9 @@ jme_init_one(struct pci_dev *pdev,
+ 	/*
+ 	 * set up PCI device basics
+ 	 */
++	pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S | PCIE_LINK_STATE_L1 |
++		PCIE_LINK_STATE_CLKPM);
++
+ 	rc = pci_enable_device(pdev);
+ 	if (rc) {
+ 		pr_err("Cannot enable PCI device\n");
+-- 
+1.7.10.4
