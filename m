@@ -1,71 +1,58 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH v2 3/3] ipv4: Don't report stale pmtu values to userspace
-Date: Mon, 8 Oct 2012 12:56:54 +0200
-Message-ID: <20121008105654.GB21577@secunet.com>
-References: <20121008084642.GB15622@secunet.com>
- <20121008084853.GE15622@secunet.com>
- <1349690144.21172.3024.camel@edumazet-glaptop>
+From: Haicheng Li <haicheng.li@linux.intel.com>
+Subject: Re: [PATCH] pch_pge: Fix build error by selecting all the possible
+ dependencies.
+Date: Mon, 08 Oct 2012 19:15:12 +0800
+Message-ID: <5072B5C0.4010309@linux.intel.com>
+References: <20121006075954.GA29618@localhost> <1349670580-11158-1-git-send-email-haicheng.lee@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:49036 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752384Ab2JHK47 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Oct 2012 06:56:59 -0400
-Content-Disposition: inline
-In-Reply-To: <1349690144.21172.3024.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, haicheng.li@linux.jf.intel.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	fengguang.wu@intel.com
+To: Haicheng Li <haicheng.lee@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349670580-11158-1-git-send-email-haicheng.lee@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We report cached pmtu values even if they are already expired.
-Change this to not report these values after they are expired
-and fix a race in the expire time calculation, as suggested by
-Eric Dumazet.
+Just realized a typo in the subject, pls. ignore this. will send a new soon. 
+sorry.
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv4/route.c |   19 +++++++++++--------
- 1 files changed, 11 insertions(+), 8 deletions(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 741df67..132e0df 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2187,8 +2187,18 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src,
- 	    nla_put_be32(skb, RTA_GATEWAY, rt->rt_gateway))
- 		goto nla_put_failure;
- 
-+	expires = rt->dst.expires;
-+	if (expires) {
-+		unsigned long now = jiffies;
-+
-+		if (time_before(now, expires))
-+			expires -= now;
-+		else
-+			expires = 0;
-+	}
-+
- 	memcpy(metrics, dst_metrics_ptr(&rt->dst), sizeof(metrics));
--	if (rt->rt_pmtu)
-+	if (rt->rt_pmtu && expires)
- 		metrics[RTAX_MTU - 1] = rt->rt_pmtu;
- 	if (rtnetlink_put_metrics(skb, metrics) < 0)
- 		goto nla_put_failure;
-@@ -2198,13 +2208,6 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src,
- 		goto nla_put_failure;
- 
- 	error = rt->dst.error;
--	expires = rt->dst.expires;
--	if (expires) {
--		if (time_before(jiffies, expires))
--			expires -= jiffies;
--		else
--			expires = 0;
--	}
- 
- 	if (rt_is_input_route(rt)) {
- 		if (nla_put_u32(skb, RTA_IIF, rt->rt_iif))
--- 
-1.7.0.4
+On 10/08/2012 12:29 PM, Haicheng Li wrote:
+> Fengguang reported a kernel build failure as folowing:
+> drivers/built-in.o: In function `pch_gbe_ioctl':
+> pch_gbe_main.c:(.text+0x510370): undefined reference to `pch_ch_control_write'
+> pch_gbe_main.c:(.text+0x510393): undefined reference to `pch_ch_control_write'
+> pch_gbe_main.c:(.text+0x5103b3): undefined reference to `pch_ch_control_write'
+> ..
+>
+> It's a regression by commit da1586461. The root cause is that
+> the CONFIG_PPS is not set there, consequently CONFIG_PTP_1588_CLOCK
+> can not be set anyway, which finally causes ptp_pch and pch_gbe_main
+> build failures.
+>
+> As David prefers to use *select* to fix such module co-dependency issues,
+> this patch explicitly selects all the possible dependencies of PCH_PTP.
+>
+> Reported-by: Fengguang Wu<fengguang.wu@intel.com>
+> Reviewed-by: David S. Miller<davem@davemloft.net>
+> Signed-off-by: Haicheng Li<haicheng.lee@gmail.com>
+> ---
+>   drivers/net/ethernet/oki-semi/pch_gbe/Kconfig |    3 +++
+>   1 files changed, 3 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
+> index 9730241..5296cc8 100644
+> --- a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
+> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
+> @@ -26,6 +26,9 @@ if PCH_GBE
+>   config PCH_PTP
+>   	bool "PCH PTP clock support"
+>   	default n
+> +	depends on EXPERIMENTAL
+> +	select PPS
+> +	select PTP_1588_CLOCK
+>   	select PTP_1588_CLOCK_PCH
+>   	---help---
+>   	  Say Y here if you want to use Precision Time Protocol (PTP) in the
