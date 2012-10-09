@@ -1,94 +1,192 @@
-From: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH resend] net, bluetooth: don't attempt to free a channel
- that wasn't created
-Date: Tue, 9 Oct 2012 16:57:05 +0800
-Message-ID: <20121009085705.GA9748@joana>
-References: <1349729312-14259-1-git-send-email-sasha.levin@oracle.com>
+From: Philippe De Muyter <phdm@macqel.be>
+Subject: [m68k, powerpc, dma, ethernet,
+	freescale RFA] Coldfire m54xx FEC	ethernet driver
+Date: Tue, 9 Oct 2012 11:07:58 +0200
+Message-ID: <20121009090758.GA14142@frolo.macqel>
+References: <1348473919-30257-1-git-send-email-phdm@macqel.be>
+ <1348473919-30257-4-git-send-email-phdm@macqel.be>
+ <506D3323.4000205@snapgear.com> <20121004073448.GA4339@frolo.macqel>
+ <506D902C.30902@snapgear.com> <20121004145601.GA15358@frolo.macqel>
+ <20121004150329.GB15358@frolo.macqel> <5073C05C.2080809@snapgear.com>
+Reply-To: uClinux development list <uclinux-dev@uclinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: uClinux development list <uclinux-dev@uclinux.org>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org,
+ stany.marcel@novasys-ingenierie.com, linuxppc-dev@lists.ozlabs.org
+To: Greg Ungerer <gerg@snapgear.com>
+Return-path: <uclinux-dev-bounces@uclinux.org>
 Content-Disposition: inline
-In-Reply-To: <1349729312-14259-1-git-send-email-sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <5073C05C.2080809@snapgear.com>
+List-Unsubscribe: <http://mailman.uclinux.org/mailman/options/uclinux-dev>,
+ <mailto:uclinux-dev-request@uclinux.org?subject=unsubscribe>
+List-Archive: <http://mailman.uclinux.org/pipermail/uclinux-dev>
+List-Post: <mailto:uclinux-dev@uclinux.org>
+List-Help: <mailto:uclinux-dev-request@uclinux.org?subject=help>
+List-Subscribe: <http://mailman.uclinux.org/mailman/listinfo/uclinux-dev>,
+ <mailto:uclinux-dev-request@uclinux.org?subject=subscribe>
+Errors-To: uclinux-dev-bounces@uclinux.org
+Sender: uclinux-dev-bounces@uclinux.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sasha,
+[CCing lkml, linux-ppc, netdev, linux-m68k]
 
-* Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org> [2012-10-08 16:48:32 -0400]:
+Hello kernel sources architects
 
-> We may currently attempt to free a channel which wasn't created due to
-> an error in the initialization path, this would cause a NULL ptr deref.
-> 
-> This would cause the following oops:
-> 
-> [   12.919073] BUG: unable to handle kernel NULL pointer dereference at 0000000000000010
-> [   12.919131] IP: [<ffffffff836645c4>] l2cap_chan_put+0x34/0x50
-> [   12.919135] PGD 0
-> [   12.919138] Oops: 0002 [#1] PREEMPT SMP DEBUG_PAGEALLOC
-> [   12.919193] Dumping ftrace buffer:
-> [   12.919242]    (ftrace buffer empty)
-> [   12.919314] Modules linked in:
-> [   12.919318] CPU 1
-> [   12.919319] Pid: 6210, comm: krfcommd Tainted: G        W    3.6.0-next-20121004-sasha-00005-gb010653-dirty #30
-> [   12.919374] RIP: 0010:[<ffffffff836645c4>]  [<ffffffff836645c4>] l2cap_chan_put+0x34/0x50
-> [   12.919377] RSP: 0000:ffff880066933c38  EFLAGS: 00010246
-> [   12.919378] RAX: ffffffff8366c780 RBX: 0000000000000000 RCX: 6666666666666667
-> [   12.919379] RDX: 0000000000000fa0 RSI: ffffffff84d3f79e RDI: 0000000000000010
-> [   12.919381] RBP: ffff880066933c48 R08: ffffffff859989f8 R09: 0000000000000001
-> [   12.919382] R10: 0000000000000000 R11: 7fffffffffffffff R12: 0000000000000000
-> [   12.919383] R13: ffff88009b00a200 R14: ffff88009b00a200 R15: 0000000000000001
-> [   12.919385] FS:  0000000000000000(0000) GS:ffff880033600000(0000) knlGS:0000000000000000
-> [   12.919437] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [   12.919440] CR2: 0000000000000010 CR3: 0000000005026000 CR4: 00000000000406e0
-> [   12.919446] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> [   12.919451] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> [   12.919504] Process krfcommd (pid: 6210, threadinfo ffff880066932000, task ffff880065c4b000)
-> [   12.919506] Stack:
-> [   12.919510]  ffff88009b00a200 ffff880032084000 ffff880066933c68 ffffffff8366c7bc
-> [   12.919513]  7fffffffffffffff ffff880032084000 ffff880066933c98 ffffffff833ae0ae
-> [   12.919516]  ffff880066933ca8 0000000000000000 0000000000000000 ffff88009b00a200
-> [   12.919517] Call Trace:
-> [   12.919522]  [<ffffffff8366c7bc>] l2cap_sock_destruct+0x3c/0x80
-> [   12.919527]  [<ffffffff833ae0ae>] __sk_free+0x1e/0x1f0
-> [   12.919530]  [<ffffffff833ae2f7>] sk_free+0x17/0x20
-> [   12.919585]  [<ffffffff8366ca4e>] l2cap_sock_alloc.constprop.5+0x9e/0xd0
-> [   12.919591]  [<ffffffff8366cb9e>] l2cap_sock_create+0x7e/0x100
-> [   12.919652]  [<ffffffff83a4f32a>] ? _raw_read_lock+0x6a/0x80
-> [   12.919658]  [<ffffffff836402c4>] ? bt_sock_create+0x74/0x110
-> [   12.919660]  [<ffffffff83640308>] bt_sock_create+0xb8/0x110
-> [   12.919664]  [<ffffffff833aa232>] __sock_create+0x282/0x3b0
-> [   12.919720]  [<ffffffff833aa0b0>] ? __sock_create+0x100/0x3b0
-> [   12.919725]  [<ffffffff836785b0>] ? rfcomm_process_sessions+0x17e0/0x17e0
-> [   12.919779]  [<ffffffff833aa37f>] sock_create_kern+0x1f/0x30
-> [   12.919784]  [<ffffffff83675714>] rfcomm_l2sock_create+0x44/0x70
-> [   12.919787]  [<ffffffff836785b0>] ? rfcomm_process_sessions+0x17e0/0x17e0
-> [   12.919790]  [<ffffffff836785fe>] rfcomm_run+0x4e/0x1f0
-> [   12.919846]  [<ffffffff836785b0>] ? rfcomm_process_sessions+0x17e0/0x17e0
-> [   12.919852]  [<ffffffff81138ee3>] kthread+0xe3/0xf0
-> [   12.919908]  [<ffffffff8117b12e>] ? put_lock_stats.isra.14+0xe/0x40
-> [   12.919914]  [<ffffffff81138e00>] ? flush_kthread_work+0x1f0/0x1f0
-> [   12.919968]  [<ffffffff83a5077c>] ret_from_fork+0x7c/0x90
-> [   12.919973]  [<ffffffff81138e00>] ? flush_kthread_work+0x1f0/0x1f0
-> [   12.920161] Code: 83 ec 08 f6 05 ff 58 44 02 04 74 1b 8b 4f 10 48 89 fa 48 c7 c6 d9 d7 d4 84 48 c7 c7 80 9e aa 85 31 c0 e8 80
-> ac 3a fe 48 8d 7b 10 <f0> 83 6b 10 01 0f 94 c0 84 c0 74 05 e8 8b e0 ff ff 48 83 c4 08
-> [   12.920165] RIP  [<ffffffff836645c4>] l2cap_chan_put+0x34/0x50
-> [   12.920166]  RSP <ffff880066933c38>
-> [   12.920167] CR2: 0000000000000010
-> [   12.920417] ---[ end trace 5a9114e8a158ab84 ]---
-> 
-> Introduced in commit 61d6ef3e ("Bluetooth: Make better use of l2cap_chan
-> reference counting").
-> 
-> Signed-off-by: Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> ---
->  net/bluetooth/l2cap_sock.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
+I have a working driver for the m54xx FEC ethernet driver that I
+would like to integrate in the kernel tree.  Problems are that
+- this driver needs an associated DMA driver (provided by FreeScale)
+wich is not dma-engine enabled
+- they're are already many fec drivers in the kernel tree, and
+at least one, fec_mpc52xx.c, seems to be very similar (information
+below), to the one for the mcf54xx, except it uses a differently
+named associated DMA driver (BestComm/SmartDma/SDMA) which is also
+not dma-engine enabled, and even kept hidden in /arch/powerpc where
+it is inaccessible when compiling for m68k.  The underlying DMA part
+from Freescale however seems similar to the one used in the
+m54xx. (again, see information below)
 
-Patch has been applied to bluetooth-next. Thanks.
+So, now I am lost, what should I do ?
 
-	Gustavo
+The current state of my patches
+[http://mailman.uclinux.org/pipermail/uclinux-dev/2012-September/052147.html]
+is pushing the freescale provided MCD_DMA dma driver to /drivers/dma,
+without adding the dma-engine compatibility layer, and adding the specific
+fec_m54xx ethernet driver to /drivers/net/ethernet/freescale
+
+Best regards
+
+Philippe
+
+On Tue, Oct 09, 2012 at 04:12:44PM +1000, Greg Ungerer wrote:
+> Hi Philippe,
+>
+> On 05/10/12 01:03, Philippe De Muyter wrote:
+>> On Thu, Oct 04, 2012 at 04:56:01PM +0200, Philippe De Muyter wrote:
+>>> On Thu, Oct 04, 2012 at 11:33:32PM +1000, Greg Ungerer wrote:
+>>>>
+>>>> My biggest concern is the amount of MCD/DMA support code. And it is
+>>>> all done quite differently to everything else in the kernel. We may
+>>>> get a bit of push back from kernel folk who look after DMA.
+>>>
+>>> Actually, there is already a similar code in arch/powerpc/sysdev/bestcomm
+>>> (also from freescale, maybe an identical part, but I did not find any
+>>> usable doc), but the powerpc folks kept that hidden in the arch/powerpc
+>>> tree, instead of installing it in drivers/dma.
+>>
+>> The MCD DMA or DMA FEC code from freescale has a comment implying that 
+>> this
+>> was first used in the MPC8220 part.  And Montavista has a MPC8220 port, 
+>> but
+>> I did not find it, so I do not know where they installed the MCD DMA 
+>> driver.
+>
+> Ok, looks like there is a bit a variance in all this.
+
+I also began to read the mpc5200 user's guide parts about the fec and
+BestComm/SmartDma/SDMA (not sure which one is the official FreeScale name)
+and they look very similar, but not identical, to their m54xx counterparts.
+
+It seems possible to make the fec_mpc52xx.c driver work for the m54xx
+but that needs at least:
+- moving some files or part of them from /arch/powerpc/sysdev and
+  /arch/powerpc/include/asm to /drivers/dma and /include/linux,
+- renaming the fec_mpc52xx files to a more sensible name,
+- providing out_be32 and in_be32 in /arch/m68k/include/asm/io.h,
+- and then unifying the interface to BestComm/SmartDma/SDMA and MCD_DMA
+  in mcf_52xx.c.
+
+An additional problem is that the freescale docs for powerpcs and for
+coldfires do not use the same mnemonics for the same registers.
+
+e.g. FEC registers
+	offset	MPC5200		MCF5484
+	======	=======		=======
+	000	FEC_ID		n/a
+	004	IEVENT		EIR
+	008	IMASK		EIMR
+	010	R_DES_ACTIVE	n/a
+	014	X_DES_ACTIVE	n/a
+	024	ECNTRL		ECR
+	040	MII_DATA	MDATA
+	044	MII_SPEED	MSCR
+	064	MIB_CONTROL	MIBC
+	084	R_CNTRL		RCR
+	088	R_HASH		RHR
+	0C4	X_CNTRL		TCR
+	0E4	PADDR1		PALR
+	0E8	PADDR2		PAHR
+	0EC	OP_PAUSE	OPD
+	118	IADDR1		IAUR
+	11C	IADDR1		IALR
+	120	GADDR1		GAUR
+	124	GADDR2		GALR
+	144	X_WMRK		FECTFWR
+	184	RFIFO_DATA	FECRFDR
+	188	RFIFO_STATUS	FECRFSR
+	18C	RFIFO_CONTROL	FECRFCR
+	190	RFIFO_LRF_PTR	FECRLRFP
+	194	RFIFO_LWF_PTR	FECRLWFP
+	198	RFIFO_ALARM	FECRFAR
+	19C	RFIFO_RDPTR	FECRFRP
+	1A0	RFIFO_WRPTR	FECRFWP
+	1A4	TFIFO_DATA	FECTFDR
+	1A8	TFIFO_STATUS	FECTFSR
+	1AC	TFIFO_CONTROL	FECTFCR
+	1B0	TFIFO_LRF_PTR	FECTLRFP
+	1B4	TFIFO_LWF_PTR	FECTLWFP
+	1B8	TFIFO_ALARM	FECTFAR
+	1BC	TFIFO_RDPTR	FECTFRP
+	1C0	TFIFO_WRPTR	FECTFWP
+	1C4	RESET_CNTRL	FECFRST
+	1C8	XMIT_FSM	FECCTCWR
+
+> Probably the best thing to do is post the patches on the linux kernel
+> mailing list then, asking for direction on a dma driver.
+>
+> I have no problem with it going into the arch/m68k area. So that is
+> always an option.
+
+For the dma engines, the similarity is also obvious.  For example, find
+below side by side mpc52xx and m54xx definitions for the
+main DMA registers :
+
+from mpc52xx.h				from MCD_dma.h
+/* SDMA */				/* MCD_DMA */
+struct mpc52xx_sdma {			struct dmaRegs { 
+ u32 taskBar; /* 0x00 */		        u32 taskbar;
+ u32 currentPointer; /* 0x04 */		        u32 currPtr;
+ u32 endPointer; /* 0x08 */		        u32 endPtr;
+ u32 variablePointer; /* 0x0c */	        u32 varTablePtr;
+
+ u8 IntVect1; /* 0x10 */		        u16 dma_rsvd0;
+ u8 IntVect2; /* 0x11 */
+ u16 PtdCntrl; /* 0x12 */		        u16 ptdControl;
+
+ u32 IntPend; /* 0x14 */		        u32 intPending;
+ u32 IntMask; /* 0x18 */		        u32 intMask;
+
+ u16 tcr[16]; /* 0x1c .. 0x3a */	        u16 taskControl[16];
+
+ u8 ipr[32]; /* 0x3c .. 0x5b */		        u8  priority[32];
+
+ u32 cReqSelect; /* 0x5c */		        u32 initiatorMux;
+ u32 task_size0; /* 0x60 */		        u32 taskSize0;
+ u32 task_size1; /* 0x64 */		        u32 taskSize1;
+ u32 MDEDebug; /* 0x68 */		        u32 dma_rsvd1;
+ u32 ADSDebug; /* 0x6c */		        u32 dma_rsvd2;
+ u32 Value1; /* 0x70 */			        u32 debugComp1;
+ u32 Value2; /* 0x74 */			        u32 debugComp2;
+ u32 Control; /* 0x78 */		        u32 debugControl;
+ u32 Status; /* 0x7c */			        u32 debugStatus;
+ u32 PTDDebug; /* 0x80 */		        u32 ptdDebug;
+};					};
+
+_______________________________________________
+uClinux-dev mailing list
+uClinux-dev@uclinux.org
+http://mailman.uclinux.org/mailman/listinfo/uclinux-dev
+This message was resent by uclinux-dev@uclinux.org
+To unsubscribe see:
+http://mailman.uclinux.org/mailman/options/uclinux-dev
