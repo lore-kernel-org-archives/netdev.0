@@ -1,58 +1,60 @@
-From: Jeff Liu <jeff.liu@oracle.com>
-Subject: [PATCH v2] RDS: fix rds-ping spinlock recursion
-Date: Tue, 09 Oct 2012 12:57:27 +0800
-Message-ID: <5073AEB7.9060309@oracle.com>
-Reply-To: jeff.liu@oracle.com
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 0/3] virtio-net: inline header support
+Date: Tue, 09 Oct 2012 15:29:09 +1030
+Message-ID: <878vbg8cma.fsf@rustcorp.com.au>
+References: <cover.1348824232.git.mst@redhat.com>
+	<87vces2gxq.fsf__45058.6618776017$1349247807$gmane$org@rustcorp.com.au>
+	<506C192E.5060700@redhat.com> <87bogj2j1b.fsf@rustcorp.com.au>
+	<506D3610.7000103@redhat.com> <87ipaq1jtt.fsf@rustcorp.com.au>
+	<506D8DD5.20904@redhat.com>
+	<87391t1nkq.fsf__40391.6521034718$1349505001$gmane$org@rustcorp.com.au>
+	<507029EB.2050405@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
-	davem@davemloft.net, Dan Carpenter <dan.carpenter@oracle.com>,
-	James Morris <james.l.morris@oracle.com>,
-	netdev@vger.kernel.org
-To: rds-devel@oss.oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:22788 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750952Ab2JIE6o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 00:58:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Sasha Levin <levinsasha928@gmail.com>, avi@redhat.com,
+	Thomas Lendacky <tahm@linux.vnet.ibm.com>
+To: Paolo Bonzini <pbonzini@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <507029EB.2050405@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+Paolo Bonzini <pbonzini@redhat.com> writes:
+> Il 05/10/2012 07:43, Rusty Russell ha scritto:
+>> That's good.  But virtio_blk's scsi command is insoluble AFAICT.  As I
+>> said to Anthony, the best rules are "always" and "never", so I'd really
+>> rather not have to grandfather that in.
+>
+> It is, but we can add a rule that if the (transport) flag
+> VIRTIO_RING_F_ANY_HEADER_SG is set, the cdb field is always 32 bytes in
+> virtio-blk.
 
-This is the revised patch for fixing rds-ping spinlock recursion according to Venkat's suggestions.
+Could we do that?  It's the cmd length I'm concerned about; is it always
+32 in practice for some reason?
 
-RDS ping/pong over TCP feature has been broken for years(2.6.39 to 3.6.0) since we
-have to set TCP cork and call kernel_sendmsg() between ping/pong which both need to
-lock "struct sock *sk". However, this lock has already been hold before rds_tcp_data_ready()
-callback is triggerred. As a result, we always facing spinlock resursion which would resulting
-in system panic.
+Currently qemu does:
 
-Given that RDS ping is only used to test the connectivity and not for serious performance measurements,
-we can queue the pong transmit to rds_wq as a delayed response.
+    struct sg_io_hdr hdr;
+    memset(&hdr, 0, sizeof(struct sg_io_hdr));
+    hdr.interface_id = 'S';
+    hdr.cmd_len = req->elem.out_sg[1].iov_len;
+    hdr.cmdp = req->elem.out_sg[1].iov_base;
+    hdr.dxfer_len = 0;
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-CC: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-CC: David S. Miller <davem@davemloft.net>
-CC: James Morris <james.l.morris@oracle.com>
-Signed-off-by: Jie Liu <jeff.liu@oracle.com>
----
- net/rds/send.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+If it's a command which expects more output data, there's no way to
+guess where the boundary is between that command and the data.
 
-diff --git a/net/rds/send.c b/net/rds/send.c
-index 96531d4..88eace5 100644
---- a/net/rds/send.c
-+++ b/net/rds/send.c
-@@ -1122,7 +1122,7 @@ rds_send_pong(struct rds_connection *conn, __be16 dport)
- 	rds_stats_inc(s_send_pong);
- 
- 	if (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags))
--		rds_send_xmit(conn);
-+		queue_delayed_work(rds_wq, &conn->c_send_w, 0);
- 
- 	rds_message_put(rm);
- 	return 0;
--- 
-1.7.9.5
+Cheers,
+Rusty.
