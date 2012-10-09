@@ -1,192 +1,104 @@
-From: Philippe De Muyter <phdm@macqel.be>
-Subject: [m68k, powerpc, dma, ethernet,
-	freescale RFA] Coldfire m54xx FEC	ethernet driver
-Date: Tue, 9 Oct 2012 11:07:58 +0200
-Message-ID: <20121009090758.GA14142@frolo.macqel>
-References: <1348473919-30257-1-git-send-email-phdm@macqel.be>
- <1348473919-30257-4-git-send-email-phdm@macqel.be>
- <506D3323.4000205@snapgear.com> <20121004073448.GA4339@frolo.macqel>
- <506D902C.30902@snapgear.com> <20121004145601.GA15358@frolo.macqel>
- <20121004150329.GB15358@frolo.macqel> <5073C05C.2080809@snapgear.com>
-Reply-To: uClinux development list <uclinux-dev@uclinux.org>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: [PATCH 11/11] net: xilinx: Show csum in bootlog
+Date: Tue, 09 Oct 2012 11:08:24 +0200
+Message-ID: <5073E988.60701@monstr.eu>
+References: <1349374497-9540-1-git-send-email-monstr@monstr.eu>   <1349374497-9540-11-git-send-email-monstr@monstr.eu>  <1349378144.2817.23.camel@bwh-desktop.uk.solarflarecom.com>  <506EA9C4.2000609@monstr.eu> <1349445062.16173.48.camel@deadeye.wl.decadent.org.uk>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: uClinux development list <uclinux-dev@uclinux.org>, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org,
- stany.marcel@novasys-ingenierie.com, linuxppc-dev@lists.ozlabs.org
-To: Greg Ungerer <gerg@snapgear.com>
-Return-path: <uclinux-dev-bounces@uclinux.org>
-Content-Disposition: inline
-In-Reply-To: <5073C05C.2080809@snapgear.com>
-List-Unsubscribe: <http://mailman.uclinux.org/mailman/options/uclinux-dev>,
- <mailto:uclinux-dev-request@uclinux.org?subject=unsubscribe>
-List-Archive: <http://mailman.uclinux.org/pipermail/uclinux-dev>
-List-Post: <mailto:uclinux-dev@uclinux.org>
-List-Help: <mailto:uclinux-dev-request@uclinux.org?subject=help>
-List-Subscribe: <http://mailman.uclinux.org/mailman/listinfo/uclinux-dev>,
- <mailto:uclinux-dev-request@uclinux.org?subject=subscribe>
-Errors-To: uclinux-dev-bounces@uclinux.org
-Sender: uclinux-dev-bounces@uclinux.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	John Linn <John.Linn@xilinx.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	John Linn <linnj@xilinx.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349445062.16173.48.camel@deadeye.wl.decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[CCing lkml, linux-ppc, netdev, linux-m68k]
-
-Hello kernel sources architects
-
-I have a working driver for the m54xx FEC ethernet driver that I
-would like to integrate in the kernel tree.  Problems are that
-- this driver needs an associated DMA driver (provided by FreeScale)
-wich is not dma-engine enabled
-- they're are already many fec drivers in the kernel tree, and
-at least one, fec_mpc52xx.c, seems to be very similar (information
-below), to the one for the mcf54xx, except it uses a differently
-named associated DMA driver (BestComm/SmartDma/SDMA) which is also
-not dma-engine enabled, and even kept hidden in /arch/powerpc where
-it is inaccessible when compiling for m68k.  The underlying DMA part
-from Freescale however seems similar to the one used in the
-m54xx. (again, see information below)
-
-So, now I am lost, what should I do ?
-
-The current state of my patches
-[http://mailman.uclinux.org/pipermail/uclinux-dev/2012-September/052147.html]
-is pushing the freescale provided MCD_DMA dma driver to /drivers/dma,
-without adding the dma-engine compatibility layer, and adding the specific
-fec_m54xx ethernet driver to /drivers/net/ethernet/freescale
-
-Best regards
-
-Philippe
-
-On Tue, Oct 09, 2012 at 04:12:44PM +1000, Greg Ungerer wrote:
-> Hi Philippe,
->
-> On 05/10/12 01:03, Philippe De Muyter wrote:
->> On Thu, Oct 04, 2012 at 04:56:01PM +0200, Philippe De Muyter wrote:
->>> On Thu, Oct 04, 2012 at 11:33:32PM +1000, Greg Ungerer wrote:
->>>>
->>>> My biggest concern is the amount of MCD/DMA support code. And it is
->>>> all done quite differently to everything else in the kernel. We may
->>>> get a bit of push back from kernel folk who look after DMA.
+On 10/05/2012 03:51 PM, Ben Hutchings wrote:
+> On Fri, 2012-10-05 at 11:35 +0200, Michal Simek wrote:
+>> On 10/04/2012 09:15 PM, Ben Hutchings wrote:
+>>> On Thu, 2012-10-04 at 20:14 +0200, Michal Simek wrote:
+>>>> Just show current setting in bootlog.
+>>> [...]
+>>>> --- a/drivers/net/ethernet/xilinx/ll_temac_main.c
+>>>> +++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
+>>>> @@ -1052,12 +1052,14 @@ static int __devinit temac_of_probe(struct platform_device *op)
+>>>>    	/* Setup checksum offload, but default to off if not specified */
+>>>>    	lp->temac_features = 0;
+>>>>    	p = (__be32 *)of_get_property(op->dev.of_node, "xlnx,txcsum", NULL);
+>>>> +	dev_info(&op->dev, "TX_CSUM %d\n", be32_to_cpup(p));
+>>>>    	if (p && be32_to_cpu(*p)) {
+>>>>    		lp->temac_features |= TEMAC_FEATURE_TX_CSUM;
+>>>>    		/* Can checksum TCP/UDP over IPv4. */
+>>>>    		ndev->features |= NETIF_F_IP_CSUM;
+>>>>    	}
+>>>>    	p = (__be32 *)of_get_property(op->dev.of_node, "xlnx,rxcsum", NULL);
+>>>> +	dev_info(&op->dev, "RX_CSUM %d\n", be32_to_cpup(p));
+>>> [...]
 >>>
->>> Actually, there is already a similar code in arch/powerpc/sysdev/bestcomm
->>> (also from freescale, maybe an identical part, but I did not find any
->>> usable doc), but the powerpc folks kept that hidden in the arch/powerpc
->>> tree, instead of installing it in drivers/dma.
+>>> Is there any particular reason you think this needs to be logged by
+>>> default, rather than letting users run ethtool -k?  I suggest using
+>>> dev_dbg() instead.
 >>
->> The MCD DMA or DMA FEC code from freescale has a comment implying that 
->> this
->> was first used in the MPC8220 part.  And Montavista has a MPC8220 port, 
->> but
->> I did not find it, so I do not know where they installed the MCD DMA 
->> driver.
+>> Ok. I have looked at it and there are missing some bits in ndev->features.
+>>
+>> Can you please check that my setting is correct?
+>>
+>> It is SG DMA ip/driver.
+>> ndev->features = NETIF_F_FRAGLIST | NETIF_F_SG
 >
-> Ok, looks like there is a bit a variance in all this.
+> NETIF_F_SG only; NETIF_F_FRAGLIST means you can handle skbs chained
+> through the frag_list pointer.
 
-I also began to read the mpc5200 user's guide parts about the fec and
-BestComm/SmartDma/SDMA (not sure which one is the official FreeScale name)
-and they look very similar, but not identical, to their m54xx counterparts.
+The driver is able to handle skb fragments too. temac_start_xmit
 
-It seems possible to make the fec_mpc52xx.c driver work for the m54xx
-but that needs at least:
-- moving some files or part of them from /arch/powerpc/sysdev and
-  /arch/powerpc/include/asm to /drivers/dma and /include/linux,
-- renaming the fec_mpc52xx files to a more sensible name,
-- providing out_be32 and in_be32 in /arch/m68k/include/asm/io.h,
-- and then unifying the interface to BestComm/SmartDma/SDMA and MCD_DMA
-  in mcf_52xx.c.
 
-An additional problem is that the freescale docs for powerpcs and for
-coldfires do not use the same mnemonics for the same registers.
-
-e.g. FEC registers
-	offset	MPC5200		MCF5484
-	======	=======		=======
-	000	FEC_ID		n/a
-	004	IEVENT		EIR
-	008	IMASK		EIMR
-	010	R_DES_ACTIVE	n/a
-	014	X_DES_ACTIVE	n/a
-	024	ECNTRL		ECR
-	040	MII_DATA	MDATA
-	044	MII_SPEED	MSCR
-	064	MIB_CONTROL	MIBC
-	084	R_CNTRL		RCR
-	088	R_HASH		RHR
-	0C4	X_CNTRL		TCR
-	0E4	PADDR1		PALR
-	0E8	PADDR2		PAHR
-	0EC	OP_PAUSE	OPD
-	118	IADDR1		IAUR
-	11C	IADDR1		IALR
-	120	GADDR1		GAUR
-	124	GADDR2		GALR
-	144	X_WMRK		FECTFWR
-	184	RFIFO_DATA	FECRFDR
-	188	RFIFO_STATUS	FECRFSR
-	18C	RFIFO_CONTROL	FECRFCR
-	190	RFIFO_LRF_PTR	FECRLRFP
-	194	RFIFO_LWF_PTR	FECRLWFP
-	198	RFIFO_ALARM	FECRFAR
-	19C	RFIFO_RDPTR	FECRFRP
-	1A0	RFIFO_WRPTR	FECRFWP
-	1A4	TFIFO_DATA	FECTFDR
-	1A8	TFIFO_STATUS	FECTFSR
-	1AC	TFIFO_CONTROL	FECTFCR
-	1B0	TFIFO_LRF_PTR	FECTLRFP
-	1B4	TFIFO_LWF_PTR	FECTLWFP
-	1B8	TFIFO_ALARM	FECTFAR
-	1BC	TFIFO_RDPTR	FECTFRP
-	1C0	TFIFO_WRPTR	FECTFWP
-	1C4	RESET_CNTRL	FECFRST
-	1C8	XMIT_FSM	FECCTCWR
-
-> Probably the best thing to do is post the patches on the linux kernel
-> mailing list then, asking for direction on a dma driver.
+>> With two options for csum on RX/TX. They can be selected independently.
+>> tx Partial csum over IPv4. -> NETIF_F_IP_CSUM
+>> tx Full csum. -> NETIF_F_HW_CSUM
 >
-> I have no problem with it going into the arch/m68k area. So that is
-> always an option.
+> NETIF_F_IP_CSUM means you have hardware checksum generation for TCP/IPv4
+> and UDP/IPv4 only (XAE_FEATURE_FULL_TX_CSUM).
+>
+> NETIF_F_HW_CSUM means you have generic TCP-style checksum generation
+> using the csum_start and csum_offset fields of the skb
+> (XAE_FEATURE_PARTIAL_TX_CSUM).  By the way, you're actually testing
+> XAE_FEATURE_PARTIAL_RX_CSUM in axienet_start_xmit()...
 
-For the dma engines, the similarity is also obvious.  For example, find
-below side by side mpc52xx and m54xx definitions for the
-main DMA registers :
+We have used non mainline ll_temac driver for a long time but we will
+move to this mainline version soon. It is on my todo list to clean this
+driver and test all these options.
+Also performance tests will be necessary to do.
 
-from mpc52xx.h				from MCD_dma.h
-/* SDMA */				/* MCD_DMA */
-struct mpc52xx_sdma {			struct dmaRegs { 
- u32 taskBar; /* 0x00 */		        u32 taskbar;
- u32 currentPointer; /* 0x04 */		        u32 currPtr;
- u32 endPointer; /* 0x08 */		        u32 endPtr;
- u32 variablePointer; /* 0x0c */	        u32 varTablePtr;
 
- u8 IntVect1; /* 0x10 */		        u16 dma_rsvd0;
- u8 IntVect2; /* 0x11 */
- u16 PtdCntrl; /* 0x12 */		        u16 ptdControl;
+>> rx Full csum -> NETIF_F_RXCSUM
+>>
+>> Is there any option to support partial csum?
+>
+> There is no need to differentiate these in the device features.  For TX
+> the stack needs to know whether to use a software fallback before
+> passing the skb to you, but on RX it looks at the ip_summed field of
+> each skb you pass up.
 
- u32 IntPend; /* 0x14 */		        u32 intPending;
- u32 IntMask; /* 0x18 */		        u32 intMask;
+Hardware can be setup asymmetrically. It means enable CSUM only on RX or TX.
+All combination are valid.
+The point here is if Linux is not able to handle this then we have to
+create logic in the driver to support these options too.
 
- u16 tcr[16]; /* 0x1c .. 0x3a */	        u16 taskControl[16];
+Thanks,
+Michal
 
- u8 ipr[32]; /* 0x3c .. 0x5b */		        u8  priority[32];
 
- u32 cReqSelect; /* 0x5c */		        u32 initiatorMux;
- u32 task_size0; /* 0x60 */		        u32 taskSize0;
- u32 task_size1; /* 0x64 */		        u32 taskSize1;
- u32 MDEDebug; /* 0x68 */		        u32 dma_rsvd1;
- u32 ADSDebug; /* 0x6c */		        u32 dma_rsvd2;
- u32 Value1; /* 0x70 */			        u32 debugComp1;
- u32 Value2; /* 0x74 */			        u32 debugComp2;
- u32 Control; /* 0x78 */		        u32 debugControl;
- u32 Status; /* 0x7c */			        u32 debugStatus;
- u32 PTDDebug; /* 0x80 */		        u32 ptdDebug;
-};					};
 
-_______________________________________________
-uClinux-dev mailing list
-uClinux-dev@uclinux.org
-http://mailman.uclinux.org/mailman/listinfo/uclinux-dev
-This message was resent by uclinux-dev@uclinux.org
-To unsubscribe see:
-http://mailman.uclinux.org/mailman/options/uclinux-dev
+
+-- 
+Michal Simek, Ing. (M.Eng)
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/fdt/
+Microblaze U-BOOT custodian
