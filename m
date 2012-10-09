@@ -1,31 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/6] VXLAN bases source UDP port based on flow to help
- the receiver to be able to load balance based on outer header flow.
-Date: Tue, 09 Oct 2012 14:14:57 -0400 (EDT)
-Message-ID: <20121009.141457.2057591797207217303.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/6] vxlan: minor output refactoring
+Date: Tue, 09 Oct 2012 11:27:55 -0700
+Message-ID: <1349807275.2386.14.camel@joe-AO722>
 References: <20121009175637.048993312@vyatta.com>
-	<20121009175714.682992341@vyatta.com>
-	<20121009110754.57f229da@nehalam.linuxnetplumber.net>
+	 <20121009175714.462171246@vyatta.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39669 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756822Ab2JISO6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 14:14:58 -0400
-In-Reply-To: <20121009110754.57f229da@nehalam.linuxnetplumber.net>
+Received: from perches-mx.perches.com ([206.117.179.246]:39221 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752458Ab2JIS14 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2012 14:27:56 -0400
+In-Reply-To: <20121009175714.462171246@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 9 Oct 2012 11:07:54 -0700
+On Tue, 2012-10-09 at 10:56 -0700, Stephen Hemminger wrote:
+> +static __be32 vxlan_find_dst(struct vxlan_dev *vxlan, struct sk_buff *skb)
+> +{
+> +       const struct ethhdr *eth = (struct ethhdr *) skb->data;
+> +       struct vxlan_fdb *f;
+> +
+> +       if (is_multicast_ether_addr(eth->h_dest) ||
+> +           (f = vxlan_find_mac(vxlan, eth->h_dest)) == NULL)
+> +               return vxlan->gaddr;
+> +       else
+> +               return f->remote_ip;
+> +}
 
-> Commit message messed up by quilt on this one, do you want to fix
-> or should I resubmit?
+Bikeshedding:
 
-I can take care of it.
+This might be simpler to read with a few more lines like:
 
- 
+static __be32 vxlan_find_dst(struct vxlan_dev *vxlan, struct sk_buff *skb)
+{
+	const struct ethhdr *eth = (const struct ethhdr *)skb->data;
+	struct vxlan_fdb *f;
+
+	if (is_multicast_ether_addr(eth->h_dest))
+		return vxlan->gaddr;
+
+	f = vxlan_find_mac(vxlan, eth->h_dest);
+	if (!f)
+		return vxlan->gaddr;
+
+	return f->remote_ip;
+}
