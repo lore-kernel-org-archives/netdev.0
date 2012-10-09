@@ -1,172 +1,41 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 5/5] pktgen: replace scan_ip6() with in6_pton()
-Date: Tue,  9 Oct 2012 18:05:31 +0800
-Message-ID: <1349777131-4425-5-git-send-email-amwang@redhat.com>
-References: <1349777131-4425-1-git-send-email-amwang@redhat.com>
-Cc: Cong Wang <amwang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 0/3][pull request] Intel Wired LAN Driver Updates
+Date: Tue,  9 Oct 2012 03:13:29 -0700
+Message-ID: <1349777612-30149-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29518 "EHLO mx1.redhat.com"
+Received: from mga09.intel.com ([134.134.136.24]:57651 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755276Ab2JIKFv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Oct 2012 06:05:51 -0400
-In-Reply-To: <1349777131-4425-1-git-send-email-amwang@redhat.com>
+	id S1751089Ab2JIKNj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2012 06:13:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
----
- net/core/pktgen.c |  101 ++--------------------------------------------------
- 1 files changed, 4 insertions(+), 97 deletions(-)
+This series contains updates to ixgbe, ixgbevf and e1000e.
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 9797f26..a34cff3 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -449,8 +449,6 @@ static void pktgen_stop_all_threads_ifs(void);
- static void pktgen_stop(struct pktgen_thread *t);
- static void pktgen_clear_counters(struct pktgen_dev *pkt_dev);
- 
--static unsigned int scan_ip6(const char *s, char ip[16]);
--
- /* Module parameters, defaults. */
- static int pg_count_d __read_mostly = 1000;
- static int pg_delay_d __read_mostly;
-@@ -1299,7 +1297,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 			return -EFAULT;
- 		buf[len] = 0;
- 
--		scan_ip6(buf, pkt_dev->in6_daddr.s6_addr);
-+		in6_pton(buf, -1, pkt_dev->in6_daddr.s6_addr, -1, NULL);
- 		snprintf(buf, sizeof(buf), "%pI6c", &pkt_dev->in6_daddr);
- 
- 		pkt_dev->cur_in6_daddr = pkt_dev->in6_daddr;
-@@ -1322,7 +1320,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 			return -EFAULT;
- 		buf[len] = 0;
- 
--		scan_ip6(buf, pkt_dev->min_in6_daddr.s6_addr);
-+		in6_pton(buf, -1, pkt_dev->min_in6_daddr.s6_addr, -1, NULL);
- 		snprintf(buf, sizeof(buf), "%pI6c", &pkt_dev->min_in6_daddr);
- 
- 		pkt_dev->cur_in6_daddr = pkt_dev->min_in6_daddr;
-@@ -1344,7 +1342,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 			return -EFAULT;
- 		buf[len] = 0;
- 
--		scan_ip6(buf, pkt_dev->max_in6_daddr.s6_addr);
-+		in6_pton(buf, -1, pkt_dev->max_in6_daddr.s6_addr, -1, NULL);
- 		snprintf(buf, sizeof(buf), "%pI6c", &pkt_dev->max_in6_daddr);
- 
- 		if (debug)
-@@ -1365,7 +1363,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 			return -EFAULT;
- 		buf[len] = 0;
- 
--		scan_ip6(buf, pkt_dev->in6_saddr.s6_addr);
-+		in6_pton(buf, -1, pkt_dev->in6_saddr.s6_addr, -1, NULL);
- 		snprintf(buf, sizeof(buf), "%pI6c", &pkt_dev->in6_saddr);
- 
- 		pkt_dev->cur_in6_saddr = pkt_dev->in6_saddr;
-@@ -2764,97 +2762,6 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
- 	return skb;
- }
- 
--/*
-- * scan_ip6, fmt_ip taken from dietlibc-0.21
-- * Author Felix von Leitner <felix-dietlibc@fefe.de>
-- *
-- * Slightly modified for kernel.
-- * Should be candidate for net/ipv4/utils.c
-- * --ro
-- */
--
--static unsigned int scan_ip6(const char *s, char ip[16])
--{
--	unsigned int i;
--	unsigned int len = 0;
--	unsigned long u;
--	char suffix[16];
--	unsigned int prefixlen = 0;
--	unsigned int suffixlen = 0;
--	__be32 tmp;
--	char *pos;
--
--	for (i = 0; i < 16; i++)
--		ip[i] = 0;
--
--	for (;;) {
--		if (*s == ':') {
--			len++;
--			if (s[1] == ':') {	/* Found "::", skip to part 2 */
--				s += 2;
--				len++;
--				break;
--			}
--			s++;
--		}
--
--		u = simple_strtoul(s, &pos, 16);
--		i = pos - s;
--		if (!i)
--			return 0;
--		if (prefixlen == 12 && s[i] == '.') {
--
--			/* the last 4 bytes may be written as IPv4 address */
--
--			tmp = in_aton(s);
--			memcpy((struct in_addr *)(ip + 12), &tmp, sizeof(tmp));
--			return i + len;
--		}
--		ip[prefixlen++] = (u >> 8);
--		ip[prefixlen++] = (u & 255);
--		s += i;
--		len += i;
--		if (prefixlen == 16)
--			return len;
--	}
--
--/* part 2, after "::" */
--	for (;;) {
--		if (*s == ':') {
--			if (suffixlen == 0)
--				break;
--			s++;
--			len++;
--		} else if (suffixlen != 0)
--			break;
--
--		u = simple_strtol(s, &pos, 16);
--		i = pos - s;
--		if (!i) {
--			if (*s)
--				len--;
--			break;
--		}
--		if (suffixlen + prefixlen <= 12 && s[i] == '.') {
--			tmp = in_aton(s);
--			memcpy((struct in_addr *)(suffix + suffixlen), &tmp,
--			       sizeof(tmp));
--			suffixlen += 4;
--			len += strlen(s);
--			break;
--		}
--		suffix[suffixlen++] = (u >> 8);
--		suffix[suffixlen++] = (u & 255);
--		s += i;
--		len += i;
--		if (prefixlen + suffixlen == 16)
--			break;
--	}
--	for (i = 0; i < suffixlen; i++)
--		ip[16 - suffixlen + i] = suffix[i];
--	return len;
--}
--
- static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
- 					struct pktgen_dev *pkt_dev)
- {
+The following are changes since commit 66eef59f22275002f621ff9d951886b513d011b3:
+  net: fix typo in freescale/ucc_geth.c
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+
+Alexander Duyck (1):
+  ixgbe/ixgbevf: Limit maximum jumbo frame size to 9.5K to avoid Tx
+    hangs
+
+Bruce Allan (1):
+  e1000e: add device IDs for i218
+
+Greg Rose (1):
+  ixgbevf: Set the netdev number of Tx queues
+
+ drivers/net/ethernet/intel/e1000e/hw.h            | 2 ++
+ drivers/net/ethernet/intel/e1000e/netdev.c        | 2 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h          | 2 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      | 2 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 7 +++++++
+ 5 files changed, 13 insertions(+), 2 deletions(-)
+
 -- 
-1.7.7.6
+1.7.11.4
