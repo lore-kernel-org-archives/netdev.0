@@ -1,75 +1,213 @@
-From: Michael Leun <lkml20120218@newton.leun.net>
-Subject: Re: [3.5 regression / mcs7830 / bisected] bridge constantly
- toggeling between disabled and forwarding
-Date: Tue, 9 Oct 2012 07:15:15 +0200
-Message-ID: <20121009071515.607f85a4@xenia.leun.net>
-References: <20120723091504.2d035d28@xenia.leun.net>
-	<20120724013634.11bf1360@xenia.leun.net>
-	<20120927173905.GC21025@kroah.com>
+From: Arun MURTHY <arun.murthy@stericsson.com>
+Subject: RE: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
+Date: Tue, 9 Oct 2012 07:37:02 +0200
+Message-ID: <F45880696056844FA6A73F415B568C695B697CB0C9@EXDCVYMBSTM006.EQ1STM.local>
+References: <1348819504-1303-1-git-send-email-arun.murthy@stericsson.com>
+ <1348819504-1303-2-git-send-email-arun.murthy@stericsson.com>
+ <20120928160045.GD2625@kroah.com>
+ <F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
+ <20121001155940.GA1957@kroah.com>
+ <F45880696056844FA6A73F415B568C695B6962CC8C@EXDCVYMBSTM006.EQ1STM.local>
+ <20121003151748.GA5745@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux@rainbow-software.org, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
 To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stator.leun.net ([85.214.203.199]:42981 "EHLO stator.leun.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750999Ab2JIFb7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Oct 2012 01:31:59 -0400
-In-Reply-To: <20120927173905.GC21025@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 27 Sep 2012 10:39:05 -0700
-Greg KH <gregkh@linuxfoundation.org> wrote:
-
-> On Tue, Jul 24, 2012 at 01:36:34AM +0200, Michael Leun wrote:
-> > On Mon, 23 Jul 2012 09:15:04 +0200
-> > Michael Leun <lkml20120218@newton.leun.net> wrote:
-> > 
-> > [see issue description below]
-> > 
-> > Bisecting yielded
-> > 
-> > b1ff4f96fd1c63890d78d8939c6e0f2b44ce3113 is the first bad commit
-> > commit b1ff4f96fd1c63890d78d8939c6e0f2b44ce3113
-> > Author: Ondrej Zary <linux@rainbow-software.org>
-> > Date:   Fri Jun 1 10:29:08 2012 +0000
-> > 
-> >     mcs7830: Implement link state detection
-> > 
-> >     Add .status callback that detects link state changes.
-> >     Tested with MCS7832CV-AA chip (9710:7830, identified as rev.C
-> > by the driver). Fixes
-> > https://bugzilla.kernel.org/show_bug.cgi?id=28532
-> > 
-> >     Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
-> >     Signed-off-by: David S. Miller <davem@davemloft.net>
-> > 
-> > :040000 040000 5480780cb5e75c57122a621fc3bab0108c16be27
-> > d97efd9cc0a465dff76bcd3a3c547f718f2a5345 M    drivers
-> > 
-> > 
-> > Reverting that from 3.5 makes the issue go away.
+> > On Wed, Oct 03, 2012 at 05:54:08AM +0200, Arun MURTHY wrote:
+> > > > On Mon, Oct 01, 2012 at 07:30:38AM +0200, Arun MURTHY wrote:
+> > > > > > On Fri, Sep 28, 2012 at 01:35:01PM +0530, Arun Murthy wrote:
+> > > > > > > +#include <linux/module.h>
+> > > > > > > +#include <linux/slab.h>
+> > > > > > > +#include <linux/err.h>
+> > > > > > > +#include <linux/printk.h>
+> > > > > > > +#include <linux/modem_shm/modem.h>
+> > > > > > > +
+> > > > > > > +static struct class *modem_class;
+> > > > > >
+> > > > > > What's wrong with a bus_type instead?
+> > > > >
+> > > > > Can I know the advantage of using bus_type over class?
+> > > >
+> > > > You have devices living on a bus, and it's much more descriptive
+> > > > than a class (which we are going to eventually get rid of one of
+> > > > these
+> > days...).
+> > > >
+> > > > Might I ask why you choose a class over a bus_type?
+> > >
+> > > Basically my requirement is to create a central entity for accessing
+> > > and releasing modem from APE.
+> >
+> > What is an "APE"?
+> >
+> > And what do you mean by "accessing" and "releasing"?
 > 
-> Did this ever get resolved in 3.6-rc7 or any older kernel?  I can't
-> revert the patch from 3.5.y unless it's also fixed in Linus's tree.
+> APE - Application Processor Engine
+> There are two processors but on a single chip, one being the APE and other is
+> the modem. So 'accessing' means requesting access or waking-up the co-
+> processor and releasing means allowing the co-processor to sleep.
+> 
+> 
+> >
+> > > Since this is done by different clients the central entity should be
+> > > able to handle the request and play safely, since this has more
+> > > affect in system suspend and deep sleep. Using class helps me in
+> > > achieving this and also create an entry to user space which can be
+> > > used in the later parts. Moreover this not something like a bus or
+> > > so, so I didn't use bus instead went with a simple class approach.
+> >
+> > But as you have devices that are "binding" to this "controller", a bus
+> > might make more sense, right?
+> 
+> Have explained above regarding the platform, the concept of bus doesn't
+> come into picture at all. Here its just waking-up the modem and allowing it to
+> go to sleep.
+> 
+> >
+> > I don't see how a class helps out for you here more than anything
+> > else, what are you expecting from the class interface?  You aren't
+> > using the reference counting logic it provides, so why use it at all?
+> 
+> I am using the reference counting logic in class such as
+> class_for_each_device.
+> 
+> >
+> > Actually, why use the driver core at all in the first place if you
+> > aren't needing the devices to show up in sysfs (as you don't have a
+> > device, you are just a mediator)?
+> 
+> Yes I am something like a mediator, but since this is associated with many
+> clients, there should be some central entity to take inputs from all the clients
+> and act accordingly. This MAF does that. Sysfs will also be created for this
+> MAF in the coming versions.
+> 
+> >
+> > > > > > > +int modem_release(struct modem_desc *mdesc) {
+> > > > > > > +	if (!mdesc->release)
+> > > > > > > +		return -EFAULT;
+> > > > > > > +
+> > > > > > > +	if (modem_is_requested(mdesc)) {
+> > > > > > > +		atomic_dec(&mdesc->mclients->cnt);
+> > > > > > > +		if (atomic_read(&mdesc->use_cnt) == 1) {
+> > > > > > > +			mdesc->release(mdesc);
+> > > > > > > +			atomic_dec(&mdesc->use_cnt);
+> > > > > > > +		}
+> > > > > >
+> > > > > > Eeek, why aren't you using the built-in reference counting
+> > > > > > that the struct device provided to you, and instead are rolling your
+> own?
+> > > > > > This happens in many places, why?
+> > > > >
+> > > > > My usage of counters over here is for each modem there are many
+> > clients.
+> > > > > Each of the clients will have a ref to modem_desc. Each of them
+> > > > > use this for requesting and releasing the modem. One counter for
+> > > > > tracking the request and release for each client which is done
+> > > > > by variable 'cnt' in
+> > > > struct clients.
+> > > > > The counter use_cnt is used for tracking the modem
+> > > > > request/release irrespective of the clients and counter cli_cnt
+> > > > > is used for restricting the modem_get to the no of clients defined in
+> no_clients.
+> > > > >
+> > > > > So totally 3 counter one for restricting the usage of modem_get
+> > > > > by clients, second for restricting modem request/release at top
+> > > > > level, and 3rd for restricting modem release/request for per
+> > > > > client per modem
+> > > > basis.
+> > > > >
+> > > > > Can you let me know if the same can be achieved by using
+> > > > > built-in ref counting?
+> > > >
+> > > > Yes, because you don't need all of those different levels, just
+> > > > stick with one and you should be fine. :)
+> > > >
+> > >
+> > > No, checks at all these levels are required, I have briefed out the need
+> also.
+> >
+> > I still don't understand, sorry.
+> 
+> The pictorial view by Anish should help in understanding.
+>            Modem                 Client1     Client2    Client3    Client4
+> State  turn-on                   request
+> State  no-state-change                     request
+> State  no-state-change                                   request
+> State  no-state-change				request
+> State  no-state-change      release
+> State  no-state-change                                   release
+> State  no-state-change                     release
+> State   turn-off					release
+> 
+> This is just a simple straight forward example.
+> 
+> >
+> > > This will have effect on system power management, i.e suspend and
+> > > deep sleep.
+> >
+> > How does power management matter?  If you tie into the driver model
+> > properly, power management comes "for free" so you don't have to do
+> > anything special about it.  Why not use that logic instead of trying
+> > to roll your own?
+> 
+> As said there are two processors on a single chip playing over here. One
+> being the APE(Application Processor Engine) and other is Modem. Since they
+> are on a single chip but for APE entering into deep sleep modem should be
+> released.
+> 
+> >
+> > > We restrict that the drivers should request modem only once and
+> > > release only once, but we cannot rely on the clients hence a check
+> > > for the same has to be done in the MAF.
+> >
+> > You can't rely on the clients to do what?  And why can't you rely on them?
+> > What is going to happen?  Who is a "client" here?  Other kernel code?
+> 
+> Yes, let me take my driver itself as an example. Here the clients are the
+> shared memory driver, sim driver, security etc. Shared memory driver is the
+> communicating media between the APE and Modem and hence needs to
+> wake-up the modem and after completion should allow modem to enter
+> sleep.
+> Similarly it's the same for sim driver also.
+> We define that the clients such as shared memory driver and the sim driver
+> should request for modem only one and then release only once and also
+> since this is a MAF shouldn't it take care of checking the same?
+> 
+> >
+> > I really don't understand your model at all as to what you are trying
+> > to mediate and manage here, sorry.  I suggest writing it all up as
+> > your first patch (documentation is good), so that we can properly
+> > review your implementation and not argue about how to implement
+> > something that I honestly don't understand.
+> 
+> Sorry for that. Actually my 4th patch in this patchset includes the
+> documentation.
+> Since it's the kernel doc I have made it as the last patch in this patchset, else
+> kernel doc compilation will fail.
+> Please feel free to refer the 4th patch for the documentation part and if still
+> not clear I can provide more explanation on this.
+> 
+> >
+> > > Also the no of clients should be defined and hence a check for the
+> > > same is done in MAF.
+> >
+> > Defined where?  What is "MAF"?
+> 
+> This driver is MAF(Modem Access Framework).
+> 
 
-Please excuse me for answering a bit late.
 
-No, that never got resolved, I still have the problem with 3.6 but I'm
-not shure about the correct solution.
+Any further comments?
 
-Maybe link state detection just does not work with some of that devices
-and we should have an possibility to enable/disable it per device,
-maybe it can be handeled with an blacklist of not working devices,
-maybe it could be fixed - I do not know and also do not know how to
-find out.
-
-But I'm willing to test.
-
--- 
-MfG,
-
-Michael Leun
+Thanks and Regards,
+Arun R Murthy
+------------------
