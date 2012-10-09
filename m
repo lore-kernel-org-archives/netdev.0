@@ -1,95 +1,64 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL nf-next] IPVS for 3.7 #2
-Date: Tue, 9 Oct 2012 01:17:04 +0200
-Message-ID: <20121008231704.GA7974@1984>
-References: <1348800904-23902-1-git-send-email-horms@verge.net.au>
- <1349721865.22194.53.camel@localhost>
+From: Frank Reppin <frank@undermydesk.org>
+Subject: Re: [PATCH net] e1000e: Change wthresh to 1 to avoid possible Tx stalls.
+Date: Tue, 9 Oct 2012 00:25:35 +0000 (UTC)
+Message-ID: <loom.20121009T020718-563@post.gmane.org>
+References: <20120606174355.823e9aa7.shimoda.hiroaki@gmail.com>  <1339030752.2075.1.camel@jtkirshe-mobl>  <1339043085.26966.77.camel@edumazet-glaptop> <1339044752.2075.14.camel@jtkirshe-mobl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Hans Schillstrom <hans@schillstrom.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1349721865.22194.53.camel@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:40061 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751100Ab2JIAaB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2012 20:30:01 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1TLNhz-0004V9-VI
+	for netdev@vger.kernel.org; Tue, 09 Oct 2012 02:30:04 +0200
+Received: from p57AE7DD2.dip.t-dialin.net ([87.174.125.210])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 09 Oct 2012 02:30:03 +0200
+Received: from frank by p57AE7DD2.dip.t-dialin.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 09 Oct 2012 02:30:03 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jesper,
-
-On Mon, Oct 08, 2012 at 08:44:25PM +0200, Jesper Dangaard Brouer wrote:
-> Hey Pablo,
+Jeff Kirsher <jeffrey.t.kirsher <at> intel.com> writes:
 > 
-> These changes were intended for 3.7, but just checked you git tree...
-> and it looks like you didn't pull in Simon's changes, and thus they have
-> not hit DaveM's tree for the merge window :-(
-
-Sorry, you sent this pull request by friday 28/09. Net-next was closed
-on tuesday 02/10. That was tight. I don't like to push things too hard
-to David by last time.
-
-My intention is still to pass this to net-next once it gets opened
-again, of course. So don't worry, we still have the chance to get this
-in.
-
-I see at least one fix in this patchset, we can still pass it that to
-3.7 if you want.
-
-Let me know what you prefer.
-
-> --Jesper
+> On Thu, 2012-06-07 at 06:24 +0200, Eric Dumazet wrote:
+> > On Wed, 2012-06-06 at 17:59 -0700, Jeff Kirsher wrote:
+> > 
+> > > After further internal review, NACK.
+> > > 
+> > > This patch will cause unacceptable performance issues with non-ESB2
+> > > parts.
+> > > 
+> > > I am dropping this patch from my queue.
+> > > 
+> > 
+> > I'd like you share your performance numbers before NACKing this patch.
+> > 
+> > What is the alternative patch you guys have ?
+> > 
 > 
+> Jesse did not share any performance numbers with me, I am sure he can
+> give some background tomorrow when he is back online.
 > 
-> On Fri, 2012-09-28 at 11:54 +0900, Simon Horman wrote:
-> > Hi Pablo,
-> > 
-> > please consider the following enhancements to IPVS for inclusion in 3.7.
-> > 
-> > ----------------------------------------------------------------
-> > The following changes since commit 82c93fcc2e1737fede2752520f1bf8f4de6304d8:
-> > 
-> >   x86: bpf_jit_comp: add XOR instruction for BPF JIT (2012-09-24 16:54:35 -0400)
-> > 
-> > are available in the git repository at:
-> > 
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git master
-> > 
-> > for you to fetch changes up to 92eec78d25aee6bbc9bd295f51c022ddfa80cdd9:
-> > 
-> >   ipvs: SIP fragment handling (2012-09-28 11:37:16 +0900)
-> > 
-> > ----------------------------------------------------------------
-> > Jesper Dangaard Brouer (7):
-> >       ipvs: Trivial changes, use compressed IPv6 address in output
-> >       ipvs: IPv6 extend ICMPv6 handling for future types
-> >       ipvs: Use config macro IS_ENABLED()
-> >       ipvs: Fix faulty IPv6 extension header handling in IPVS
-> >       ipvs: Complete IPv6 fragment handling for IPVS
-> >       ipvs: API change to avoid rescan of IPv6 exthdr
-> >       ipvs: SIP fragment handling
-> > 
-> >  include/net/ip_vs.h                     |  194 +++++++++++----
-> >  net/netfilter/ipvs/Kconfig              |    7 +-
-> >  net/netfilter/ipvs/ip_vs_conn.c         |   15 +-
-> >  net/netfilter/ipvs/ip_vs_core.c         |  404 +++++++++++++++++--------------
-> >  net/netfilter/ipvs/ip_vs_dh.c           |    2 +-
-> >  net/netfilter/ipvs/ip_vs_lblc.c         |    2 +-
-> >  net/netfilter/ipvs/ip_vs_lblcr.c        |    2 +-
-> >  net/netfilter/ipvs/ip_vs_pe_sip.c       |   18 +-
-> >  net/netfilter/ipvs/ip_vs_proto.c        |    6 +-
-> >  net/netfilter/ipvs/ip_vs_proto_ah_esp.c |    9 +-
-> >  net/netfilter/ipvs/ip_vs_proto_sctp.c   |   42 ++--
-> >  net/netfilter/ipvs/ip_vs_proto_tcp.c    |   40 ++-
-> >  net/netfilter/ipvs/ip_vs_proto_udp.c    |   41 ++--
-> >  net/netfilter/ipvs/ip_vs_sched.c        |    2 +-
-> >  net/netfilter/ipvs/ip_vs_sh.c           |    2 +-
-> >  net/netfilter/ipvs/ip_vs_xmit.c         |   73 +++---
-> >  net/netfilter/xt_ipvs.c                 |    4 +-
-> >  17 files changed, 501 insertions(+), 362 deletions(-)
-> 
-> 
+> I am working on an alternative patch now and should have something to
+> share tomorrow.
+Please allow me to ask if there's any progess here?
+
+I've tried 3.5.4 a couple of days ago on a SuperMicro X8SIE-LN4 (82574L)
+and could still observe severe latency (up to 3000ms) spikes.
+
+Applying Hiroakis suggested patch did fix this for me as well.
+[please note as well that I didn't had this issue in any 3.4.x kernel
+before - so +1 for fixing the regression]
+
+Thankyou!
+Frank Reppin
+
+-- 
