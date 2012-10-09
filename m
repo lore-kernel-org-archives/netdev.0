@@ -1,93 +1,132 @@
-From: "Huang, Xiong" <xiong-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: RE: [PATCH] compat-drivers: update ethernet driver alx in crap dir
-Date: Tue, 9 Oct 2012 01:24:55 +0000
-Message-ID: <157393863283F442885425D2C45428562A50158C@nasanexd02f.na.qualcomm.com>
-References: <1349400892-25315-1-git-send-email-xiong@qca.qualcomm.com>
- <CAB=NE6VotAu-cugsn4==3TPX0OGPEFtdn1J+5+Rd_YfLcg9YDQ@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 08/16] ipvs: fix ip_vs_set_timeout debug messages
+Date: Tue, 9 Oct 2012 10:48:31 +0900
+Message-ID: <20121009014831.GI3403@verge.net.au>
+References: <1349448930-23976-1-git-send-email-arnd@arndb.de>
+ <201210060645.05225.arnd@arndb.de>
+ <alpine.LFD.2.00.1210061052170.1971@ja.ssi.bg>
+ <201210060954.15831.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "mcgrof-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <mcgrof-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"backports-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <backports-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	nic-devel <nic-devel-zC7DfRvBq/JWk0Htik3J/w@public.gmane.org>,
-	"Ren, Cloud" <cjren-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	qca_vkondrat <qca_vkondrat-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-To: "Luis R. Rodriguez" <mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAB=NE6VotAu-cugsn4==3TPX0OGPEFtdn1J+5+Rd_YfLcg9YDQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>, Krzysztof Halasa <khc@pm.waw.pl>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	arm@kernel.org, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201210060954.15831.arnd@arndb.de>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGkgTHVpcw0KDQogICAgSSdtIHJlZmluaW5nIHRoZSBjb2RlLCBJIHRyeSBteSBiZXN0IHRvIG1h
-a2UgaXQgdXBzdHJlYW0gQVNBUC4gVGhhbmtzICENCg0KLVhpb25nDQoNCj4gLS0tLS1PcmlnaW5h
-bCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbWNncm9mQGdtYWlsLmNvbSBbbWFpbHRvOm1jZ3JvZkBn
-bWFpbC5jb21dIE9uIEJlaGFsZiBPZiBMdWlzIFIuDQo+IFJvZHJpZ3Vleg0KPiBTZW50OiBUdWVz
-ZGF5LCBPY3RvYmVyIDA5LCAyMDEyIDY6MjUNCj4gVG86IEh1YW5nLCBYaW9uZw0KPiBDYzogbWNn
-cm9mQGtlcm5lbC5vcmc7IGJhY2twb3J0c0B2Z2VyLmtlcm5lbC5vcmc7IG5pYy1kZXZlbDsgUmVu
-LCBDbG91ZDsNCj4gR3JlZyBLcm9haC1IYXJ0bWFuOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwu
-b3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiBsaW51eC13aXJlbGVzczsgcWNhX3Zrb25k
-cmF0DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIGNvbXBhdC1kcml2ZXJzOiB1cGRhdGUgZXRoZXJu
-ZXQgZHJpdmVyIGFseCBpbiBjcmFwIGRpcg0KPiANCj4gT24gVGh1LCBPY3QgNCwgMjAxMiBhdCA2
-OjM0IFBNLCAgPHhpb25nQHFjYS5xdWFsY29tbS5jb20+IHdyb3RlOg0KPiA+IEZyb206IHhpb25n
-IDx4aW9uZ0BxY2EucXVhbGNvbW0uY29tPg0KPiA+DQo+ID4gMS4gc3VwcG9ydCBuZXcgZGV2aWNl
-IGlkICgweDEwQTAvMHgxMEExKS4NCj4gPiAyLiBhZGQgREVCVUdfRlMgaW50ZXJmYWNlIGZvciBk
-aWFnL3N3b2kgZnVuY3Rpb25zLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogUmVuIENsb3VkIDxj
-anJlbkBxY2EucXVhbGNvbW0uY29tPg0KPiA+IFNpZ25lZC1vZmYtYnk6IHhpb25nIDx4aW9uZ0Bx
-Y2EucXVhbGNvbW0uY29tPg0KPiANCj4gWGlvbmcsDQo+IA0KPiAgLS0gVmxhZGltaXIsIGp1c3Qg
-YSBoZWFkcyB1cCAtLSB0aGlzIGFwcGxpZXMgdG8geW91IGFzIHdlbGwgZm9yIHRoZSA4MDIuMTFh
-ZA0KPiB3aWw2MjEwIGRyaXZlcg0KPiAgLS0gR3JlZywgc29tZSByZXZpZXcgb24geW91ciBwcmVm
-ZXJlbmNlIG9uIHRoaXMgd291bGQgYmUgYXBwcmVjaWF0ZWQNCj4gDQo+IFRoZSBvcmlnaW5hbCBh
-bHggY3JhcCBwYXRjaCB3YXMgYWRkZWQgaW50byBjb21wYXQtd2lyZWxlc3Mgb24gdGhlIGxpbnV4
-LTMuNS55DQo+IGJyYW5jaC4gSXRzIGJlZW4gdHdvIGtlcm5lbCByZWxlYXNlcyBhbmQgYWx4IGlz
-IG5vdCB5ZXQgdXBzdHJlYW0gYW5kIHVzZXJzIGNhbg0KPiBvbmx5IGdldCBhbHggdmlhIGNvbXBh
-dC1kcml2ZXJzICh0ZWNobmljYWxseSBjb21wYXQtd2lyZWxlc3MgYXMgdGhhdCB3YXMgcHJlDQo+
-IHYzLjcpLiB2My43IHdvdWxkIGJlIHRoZSAqdGhpcmQqIHJlbGVhc2UgaW4gd2hpY2ggdGhpcyB3
-b3VsZCBoYXBwZW4uLi4gVGhpcyBpcw0KPiB1bmZhaXIgdG8gdXNlcnMgYW5kIGNvbnN1bWVycyBv
-ZiB0aGUgTGludXgga2VybmVsIGFuZCBkZXJhaWxzIGV4cGVjdGF0aW9ucyBhbmQNCj4gb3VyIGFy
-cmFuZ2VtZW50cyBmb3IgTGludXgga2VybmVsIGRldmVsb3BtZW50LiBJIHJlYWxpemUgdGhhdCB0
-aGUgZ29hbCB3YXMgdG8NCj4gZ2V0IGFseCB1cHN0cmVhbSBBU0FQIGJ1dCByZWdhcmRsZXNzIG9m
-IHdoYXQgdGhlIHJlYXNvbiBpcywgaXRzIG5vdCB5ZXQNCj4gdXBzdHJlYW0uIElmIHlvdSBjYW5u
-b3Qgd29yayBvbiBhbHggb24gYSB0aW1lbHkgbWFubmVyIHRvIGdldCB1cHN0cmVhbSB0aGVuDQo+
-IHBsZWFzZSBzdWJtaXQgdGhlIGRyaXZlciB0byB0aGUgc3RhZ2luZyBhcmVhIG9mIHRoZSBMaW51
-eCBrZXJuZWwgdGhhdCBHcmVnDQo+IG1haW50YWlucyBzbyB0aGF0IG90aGVyIGRldmVsb3BlcnMg
-d2hvIG1heSBiZSBhYmxlIHRvIGhlbHAgY2FuIHN1Ym1pdA0KPiBwYXRjaGVzIHRvIGhlbHAgeW91
-LiBVbmRlciBzdGFnaW5nIHlvdXIgZHJpdmVyIHNob3VsZCBiZSBhY2NlcHRlZCBzbyBsb25nIGFz
-IGl0DQo+IGNvbXBpbGVzLg0KPiANCj4gSSB3aWxsIHVwZGF0ZSB0aGUgZG9jdW1lbnRhdGlvbiBm
-b3IgY3JhcC8gcGF0Y2hlcyBmb3IgY29tcGF0LWRyaXZlcnMgdG8gbWFrZQ0KPiBpdCBjbGVhciBu
-b3cgdGhhdCBjcmFwLyBwYXRjaGVzIGNhbiBiZSB1c2VkIGZvciBhZGRpbmcgY29tcG9uZW50cyAv
-IHBpZWNlcyBvZg0KPiBjb2RlIG5vdCB5ZXQgcmVhZHkgZm9yIHVwc3RyZWFtIGJ1dCBhcyBmYXIg
-YXMgZnVsbCBuZXcgZHJpdmVycyBhcmUgY29uY2VybmVkDQo+IHlvdSBvbmx5IGdldCBvbmUga2Vy
-bmVsIHJlbGVhc2UgY3ljbGUgZm9yIGl0IHRvIGxpbmdlciBvbiBjcmFwLyB1bmRlciBjb21wYXQt
-DQo+IGRyaXZlcnMsIGlmIHlvdSBoYXZlbid0IGFkZHJlc3NlZCB1cHN0cmVhbWluZyB5ZXQgdGhl
-biBpdCBzaG91bGQgZ28gdG8NCj4gZHJpdmVycy9zdGFnaW5nLy4gVGhhdCBpcyBjcmFwLyBzaG91
-bGQgb25seSBiZSB1c2VkIGFzIGEgc2hvcnRjdXQgYmVjYXVzZSB1c2Vycw0KPiBleGlzdCB0aGF0
-IGNhbiB1c2UgdGhlIGRyaXZlciBidXQgeW91ICpkbyogaGF2ZSBhIHRlYW0gcHJvcGVybHkgcmVz
-b3VyY2VkIHRvDQo+IGFkZHJlc3MgdXBzdHJlYW1pbmcgcHJvcGVybHkgaW4gYSB0aW1lbHkgbWFu
-bmVyLg0KPiANCj4gTGludXMgc2hvdWxkIHNvb24gcmVsZWFzZSB2My43LXJjMSBhbmQgbmV3IGRy
-aXZlcnMgYXJlIGFsbG93ZWQgdG8gYmUgbWVyZ2VkDQo+IGR1cmluZyB0aGUgUkMgY3ljbGVzLCBh
-cyBzdWNoIG15IHJlY29tbWVuZGF0aW9uIGlzIGluc3RlYWQgb2YgZ2V0dGluZyB1c2VycyB0bw0K
-PiBjb25zdW1lIGFseCBvbmx5IHRocm91Z2ggY29tcGF0LWRyaXZlcnMgeW91IG5vdyBzdWJtaXQg
-YWx4IGludG8gc3RhZ2luZyB0bw0KPiBHcmVnIGluIGhvcGVzIHRoYXQgd2UgY2FuIGdldCBpdCBp
-bnRvIHYzLjctcmNYIHNvbWUgdGltZSwgYW5kIGF0IHRoYXQgdGltZSB3ZQ0KPiBjYW4gcmVtb3Zl
-IHRoZSBjcmFwLyBwYXRjaCBmcm9tIGNvbXBhdC1kcml2ZXJzLg0KPiANCj4gVXNlcnMgc2hvdWxk
-IGJlIGFibGUgdG8gY29uc3VtZSBuZXcgZHJpdmVycyB0aHJvdWdoIGtlcm5lbC5vcmcgYW5kIGNv
-bXBhdC0NCj4gZHJpdmVycyBzaG91bGQgb25seSBwcm92aWRlIHRoZSBmcmFtZXdvcmsgZm9yIGJh
-Y2twb3J0aW5nIGFuZCBhbHNvDQo+IGNhdGVnb3JpemluZyBxdWljayBmaXhlcy4gSXQgc2hvdWxk
-IG5vdCBiZSB1c2VkIGZvciBvbmdvaW5nIHVwZGF0ZXMgZm9yIG5ldw0KPiBkcml2ZXJzIHRoYXQg
-dXNlcnMgbmVlZC4NCj4gDQo+IFdlIG11c3QgZHJhdyB0aGUgbGluZSB3aXRoIGNyYXAvIHBhdGNo
-ZXMgc29tZXdoZXJlLg0KPiANCj4gSSdsbCB0aGVuIHRha2UgdGhpcyBwYXRjaCBmb3Igbm93IGJ1
-dCBkbyBleHBlY3QgeW91IHRvIGdldCBhbHggaW50byBlaXRoZXIgc3RhZ2luZw0KPiBvciBwcm9w
-ZXIgdXBzdHJlYW0gZm9yIHRoZSB2My43LXJjWC4gSSB3ZWxjb21lIGZlZWRiYWNrIGZyb20gb3Ro
-ZXIgZm9sa3Mgb24NCj4gdGhlIHByb3Bvc2VkIGFycmFuZ2VtZW50IGZvciBjcmFwLyBwYXRjaGVz
-IGZvciBjb21wYXQtZHJpdmVycy4NCj4gDQo+IGh0dHBzOi8vYmFja3BvcnRzLndpa2kua2VybmVs
-Lm9yZy9pbmRleC5waHAvRG9jdW1lbnRhdGlvbi9jb21wYXQtDQo+IGRyaXZlcnMvYWRkaXRpb25h
-bC1wYXRjaGVzI2NyYXBfcGF0Y2hlcw0KPiANCj4gICBMdWlzDQo=
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Sat, Oct 06, 2012 at 09:54:15AM +0000, Arnd Bergmann wrote:
+> On Saturday 06 October 2012, Julian Anastasov wrote:
+> > On Sat, 6 Oct 2012, Arnd Bergmann wrote:
+> > > > 	Are there any CONFIG_IP_VS_PROTO_xxx options in this
+> > > > default config? It is a waste of memory if IPVS is compiled
+> > > > without any protocols.
+> > > 
+> > > They all appear to be turned off:
+> > > 
+> > > $ grep CONFIG_IP_VS obj-tmp/.config
+> > > CONFIG_IP_VS=m
+> > > CONFIG_IP_VS_DEBUG=y
+> > > CONFIG_IP_VS_TAB_BITS=12
+> > > # CONFIG_IP_VS_PROTO_TCP is not set
+> > > # CONFIG_IP_VS_PROTO_UDP is not set
+> > > # CONFIG_IP_VS_PROTO_AH_ESP is not set
+> > > # CONFIG_IP_VS_PROTO_ESP is not set
+> > > # CONFIG_IP_VS_PROTO_AH is not set
+> > > # CONFIG_IP_VS_PROTO_SCTP is not set
+> > 
+> > 	Something should be changed here, may be at least
+> > TCP/UDP, who knows.
+> 
+> I don't try to read too much into our defconfigs. We have 140 of them
+> on ARM, and they are mainly useful to give a reasonable build coverage,
+> but I wouldn't expect them to be actually used on that hardware.
+> 
+> I'll leave it up to Krzysztof to send a patch for this if he wants.
+> 
+> > > --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> > > +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> > > @@ -2590,6 +2588,7 @@ __ip_vs_get_timeouts(struct net *net, struct ip_vs_timeout_user *u)
+> > >  #if defined(CONFIG_IP_VS_PROTO_TCP) || defined(CONFIG_IP_VS_PROTO_UDP)
+> > >  	struct ip_vs_proto_data *pd;
+> > >  #endif
+> > 
+> > 	That is what we want. If you plan another submission
+> > you can add empty line before this memset and to replace
+> > the __ip_vs_get_timeouts call in ip_vs_genl_set_config with
+> > memset but they are cosmetic changes. Or may be Simon will
+> > take care about the coding style when applying the change.
+> > 
+> > Acked-by: Julian Anastasov <ja@ssi.bg>
+> 
+> I'd prefer Simon to pick up the patch. He should also decide whether he wants
+> to add it to stable. In theory, this is a small leak of kernel stack data
+> to user space, but as you say in practice it should not happen because it
+> only exists for silly configurations that nobody should be using.
+> 
+> AFAICT, removing the call to __ip_vs_get_timeouts in do_ip_vs_get_ctl would
+> be a semantic change for the case where a user sends a IPVS_CMD_SET_CONFIG
+> message without without the complete set of attributes inside it. The current
+> behavior is to leave the timeouts alone, replacing the __ip_vs_get_timeouts
+> with a memset would zero them. I left this part alone then.
+> 
+> 	Arnd
+
+Hi,
+
+sorry for being a bit slow, it was a long weekend here.
+This patch looks reasonable and I think it is appropriate for stable.
+I'll see about getting it merged accordingly.
+
+> 
+> 8<-----
+> ipvs: initialize returned data in do_ip_vs_get_ctl
+> 
+> As reported by a gcc warning, the do_ip_vs_get_ctl does not initalize
+> all the members of the ip_vs_timeout_user structure it returns if
+> at least one of the TCP or UDP protocols is disabled for ipvs. 
+> 
+> This makes sure that the data is always initialized, before it is
+> returned as a response to IPVS_CMD_GET_CONFIG or printed as a
+> debug message in IPVS_CMD_SET_CONFIG.
+> 
+> Without this patch, building ARM ixp4xx_defconfig results in:
+> 
+> net/netfilter/ipvs/ip_vs_ctl.c: In function 'ip_vs_genl_set_cmd':
+> net/netfilter/ipvs/ip_vs_ctl.c:2238:47: warning: 't.udp_timeout' may be used uninitialized in this function [-Wuninitialized]
+> net/netfilter/ipvs/ip_vs_ctl.c:3322:28: note: 't.udp_timeout' was declared here
+> net/netfilter/ipvs/ip_vs_ctl.c:2238:47: warning: 't.tcp_fin_timeout' may be used uninitialized in this function [-Wuninitialized]
+> net/netfilter/ipvs/ip_vs_ctl.c:3322:28: note: 't.tcp_fin_timeout' was declared here
+> net/netfilter/ipvs/ip_vs_ctl.c:2238:47: warning: 't.tcp_timeout' may be used uninitialized in this function [-Wuninitialized]
+> net/netfilter/ipvs/ip_vs_ctl.c:3322:28: note: 't.tcp_timeout' was declared here
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Acked-by: Julian Anastasov <ja@ssi.bg>
+> ---
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> index 2770f85..c4ee437 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> @@ -2591,6 +2589,8 @@ __ip_vs_get_timeouts(struct net *net, struct ip_vs_timeout_user *u)
+>  	struct ip_vs_proto_data *pd;
+>  #endif
+>  
+> +	memset(u, 0, sizeof (*u));
+> +
+>  #ifdef CONFIG_IP_VS_PROTO_TCP
+>  	pd = ip_vs_proto_data_get(net, IPPROTO_TCP);
+>  	u->tcp_timeout = pd->timeout_table[IP_VS_TCP_S_ESTABLISHED] / HZ;
+> @@ -2768,7 +2768,6 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+>  	{
+>  		struct ip_vs_timeout_user t;
+>  
+> -		memset(&t, 0, sizeof(t));
+>  		__ip_vs_get_timeouts(net, &t);
+>  		if (copy_to_user(user, &t, sizeof(t)) != 0)
+>  			ret = -EFAULT;
+> 
