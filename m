@@ -1,60 +1,75 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 0/3] virtio-net: inline header support
-Date: Tue, 09 Oct 2012 15:29:09 +1030
-Message-ID: <878vbg8cma.fsf@rustcorp.com.au>
-References: <cover.1348824232.git.mst@redhat.com>
-	<87vces2gxq.fsf__45058.6618776017$1349247807$gmane$org@rustcorp.com.au>
-	<506C192E.5060700@redhat.com> <87bogj2j1b.fsf@rustcorp.com.au>
-	<506D3610.7000103@redhat.com> <87ipaq1jtt.fsf@rustcorp.com.au>
-	<506D8DD5.20904@redhat.com>
-	<87391t1nkq.fsf__40391.6521034718$1349505001$gmane$org@rustcorp.com.au>
-	<507029EB.2050405@redhat.com>
+From: Michael Leun <lkml20120218@newton.leun.net>
+Subject: Re: [3.5 regression / mcs7830 / bisected] bridge constantly
+ toggeling between disabled and forwarding
+Date: Tue, 9 Oct 2012 07:15:15 +0200
+Message-ID: <20121009071515.607f85a4@xenia.leun.net>
+References: <20120723091504.2d035d28@xenia.leun.net>
+	<20120724013634.11bf1360@xenia.leun.net>
+	<20120927173905.GC21025@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Sasha Levin <levinsasha928@gmail.com>, avi@redhat.com,
-	Thomas Lendacky <tahm@linux.vnet.ibm.com>
-To: Paolo Bonzini <pbonzini@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <507029EB.2050405@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: linux@rainbow-software.org, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stator.leun.net ([85.214.203.199]:42981 "EHLO stator.leun.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750999Ab2JIFb7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2012 01:31:59 -0400
+In-Reply-To: <20120927173905.GC21025@kroah.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Paolo Bonzini <pbonzini@redhat.com> writes:
-> Il 05/10/2012 07:43, Rusty Russell ha scritto:
->> That's good.  But virtio_blk's scsi command is insoluble AFAICT.  As I
->> said to Anthony, the best rules are "always" and "never", so I'd really
->> rather not have to grandfather that in.
->
-> It is, but we can add a rule that if the (transport) flag
-> VIRTIO_RING_F_ANY_HEADER_SG is set, the cdb field is always 32 bytes in
-> virtio-blk.
+On Thu, 27 Sep 2012 10:39:05 -0700
+Greg KH <gregkh@linuxfoundation.org> wrote:
 
-Could we do that?  It's the cmd length I'm concerned about; is it always
-32 in practice for some reason?
+> On Tue, Jul 24, 2012 at 01:36:34AM +0200, Michael Leun wrote:
+> > On Mon, 23 Jul 2012 09:15:04 +0200
+> > Michael Leun <lkml20120218@newton.leun.net> wrote:
+> > 
+> > [see issue description below]
+> > 
+> > Bisecting yielded
+> > 
+> > b1ff4f96fd1c63890d78d8939c6e0f2b44ce3113 is the first bad commit
+> > commit b1ff4f96fd1c63890d78d8939c6e0f2b44ce3113
+> > Author: Ondrej Zary <linux@rainbow-software.org>
+> > Date:   Fri Jun 1 10:29:08 2012 +0000
+> > 
+> >     mcs7830: Implement link state detection
+> > 
+> >     Add .status callback that detects link state changes.
+> >     Tested with MCS7832CV-AA chip (9710:7830, identified as rev.C
+> > by the driver). Fixes
+> > https://bugzilla.kernel.org/show_bug.cgi?id=28532
+> > 
+> >     Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+> >     Signed-off-by: David S. Miller <davem@davemloft.net>
+> > 
+> > :040000 040000 5480780cb5e75c57122a621fc3bab0108c16be27
+> > d97efd9cc0a465dff76bcd3a3c547f718f2a5345 M    drivers
+> > 
+> > 
+> > Reverting that from 3.5 makes the issue go away.
+> 
+> Did this ever get resolved in 3.6-rc7 or any older kernel?  I can't
+> revert the patch from 3.5.y unless it's also fixed in Linus's tree.
 
-Currently qemu does:
+Please excuse me for answering a bit late.
 
-    struct sg_io_hdr hdr;
-    memset(&hdr, 0, sizeof(struct sg_io_hdr));
-    hdr.interface_id = 'S';
-    hdr.cmd_len = req->elem.out_sg[1].iov_len;
-    hdr.cmdp = req->elem.out_sg[1].iov_base;
-    hdr.dxfer_len = 0;
+No, that never got resolved, I still have the problem with 3.6 but I'm
+not shure about the correct solution.
 
-If it's a command which expects more output data, there's no way to
-guess where the boundary is between that command and the data.
+Maybe link state detection just does not work with some of that devices
+and we should have an possibility to enable/disable it per device,
+maybe it can be handeled with an blacklist of not working devices,
+maybe it could be fixed - I do not know and also do not know how to
+find out.
 
-Cheers,
-Rusty.
+But I'm willing to test.
+
+-- 
+MfG,
+
+Michael Leun
