@@ -1,107 +1,48 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [GIT PULL nf-next] IPVS for 3.7 #2
-Date: Tue, 9 Oct 2012 12:52:33 +0900
-Message-ID: <20121009035233.GB26896@verge.net.au>
-References: <1348800904-23902-1-git-send-email-horms@verge.net.au>
- <1349721865.22194.53.camel@localhost>
- <20121008231704.GA7974@1984>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: [PATCH] be2net: Remove code that stops further access to BE NIC
+ based on UE bits
+Date: Mon, 8 Oct 2012 23:18:21 -0500
+Message-ID: <20121009041821.GA16595@akhaparde-VBox>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	David Miller <davem@davemloft.net>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Hans Schillstrom <hans@schillstrom.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:29375 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750981Ab2JIESW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 00:18:22 -0400
 Content-Disposition: inline
-In-Reply-To: <20121008231704.GA7974@1984>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 09, 2012 at 01:17:04AM +0200, Pablo Neira Ayuso wrote:
-> Hi Jesper,
-> 
-> On Mon, Oct 08, 2012 at 08:44:25PM +0200, Jesper Dangaard Brouer wrote:
-> > Hey Pablo,
-> > 
-> > These changes were intended for 3.7, but just checked you git tree...
-> > and it looks like you didn't pull in Simon's changes, and thus they have
-> > not hit DaveM's tree for the merge window :-(
-> 
-> Sorry, you sent this pull request by friday 28/09. Net-next was closed
-> on tuesday 02/10. That was tight. I don't like to push things too hard
-> to David by last time.
+On certain platforms, BE hardware could  falsely indicate UE.
+For BE family of NICs, do not set hw_error based on the UE bits.
+If there was a real fatal error, the corresponding h/w block will
+automatically go offline and stop traffic.
 
-I understand.
+Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-> My intention is still to pass this to net-next once it gets opened
-> again, of course. So don't worry, we still have the chance to get this
-> in.
-> 
-> I see at least one fix in this patchset, we can still pass it that to
-> 3.7 if you want.
-
-There is a fix from Arnd that I would like incorporated in 3.7.
-I will send a pull-request for that a little later.
-
-> Let me know what you prefer.
-> 
-> > --Jesper
-> > 
-> > 
-> > On Fri, 2012-09-28 at 11:54 +0900, Simon Horman wrote:
-> > > Hi Pablo,
-> > > 
-> > > please consider the following enhancements to IPVS for inclusion in 3.7.
-> > > 
-> > > ----------------------------------------------------------------
-> > > The following changes since commit 82c93fcc2e1737fede2752520f1bf8f4de6304d8:
-> > > 
-> > >   x86: bpf_jit_comp: add XOR instruction for BPF JIT (2012-09-24 16:54:35 -0400)
-> > > 
-> > > are available in the git repository at:
-> > > 
-> > >   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git master
-> > > 
-> > > for you to fetch changes up to 92eec78d25aee6bbc9bd295f51c022ddfa80cdd9:
-> > > 
-> > >   ipvs: SIP fragment handling (2012-09-28 11:37:16 +0900)
-> > > 
-> > > ----------------------------------------------------------------
-> > > Jesper Dangaard Brouer (7):
-> > >       ipvs: Trivial changes, use compressed IPv6 address in output
-> > >       ipvs: IPv6 extend ICMPv6 handling for future types
-> > >       ipvs: Use config macro IS_ENABLED()
-> > >       ipvs: Fix faulty IPv6 extension header handling in IPVS
-> > >       ipvs: Complete IPv6 fragment handling for IPVS
-> > >       ipvs: API change to avoid rescan of IPv6 exthdr
-> > >       ipvs: SIP fragment handling
-> > > 
-> > >  include/net/ip_vs.h                     |  194 +++++++++++----
-> > >  net/netfilter/ipvs/Kconfig              |    7 +-
-> > >  net/netfilter/ipvs/ip_vs_conn.c         |   15 +-
-> > >  net/netfilter/ipvs/ip_vs_core.c         |  404 +++++++++++++++++--------------
-> > >  net/netfilter/ipvs/ip_vs_dh.c           |    2 +-
-> > >  net/netfilter/ipvs/ip_vs_lblc.c         |    2 +-
-> > >  net/netfilter/ipvs/ip_vs_lblcr.c        |    2 +-
-> > >  net/netfilter/ipvs/ip_vs_pe_sip.c       |   18 +-
-> > >  net/netfilter/ipvs/ip_vs_proto.c        |    6 +-
-> > >  net/netfilter/ipvs/ip_vs_proto_ah_esp.c |    9 +-
-> > >  net/netfilter/ipvs/ip_vs_proto_sctp.c   |   42 ++--
-> > >  net/netfilter/ipvs/ip_vs_proto_tcp.c    |   40 ++-
-> > >  net/netfilter/ipvs/ip_vs_proto_udp.c    |   41 ++--
-> > >  net/netfilter/ipvs/ip_vs_sched.c        |    2 +-
-> > >  net/netfilter/ipvs/ip_vs_sh.c           |    2 +-
-> > >  net/netfilter/ipvs/ip_vs_xmit.c         |   73 +++---
-> > >  net/netfilter/xt_ipvs.c                 |    4 +-
-> > >  17 files changed, 501 insertions(+), 362 deletions(-)
-> > 
-> > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index eb3f2cb..d1b6cc5 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2129,8 +2129,11 @@ void be_detect_error(struct be_adapter *adapter)
+ 		ue_hi = (ue_hi & ~ue_hi_mask);
+ 	}
+ 
+-	if (ue_lo || ue_hi ||
+-		sliport_status & SLIPORT_STATUS_ERR_MASK) {
++	/* On certain platforms BE hardware can indicate spurious UEs.
++	 * Allow the h/w to stop working completely in case of a real UE.
++	 * Hence not setting the hw_error for UE detection.
++	 */
++	if (sliport_status & SLIPORT_STATUS_ERR_MASK) {
+ 		adapter->hw_error = true;
+ 		dev_err(&adapter->pdev->dev,
+ 			"Error detected in the card\n");
+-- 
+1.7.9.5
