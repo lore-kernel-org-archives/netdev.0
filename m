@@ -1,64 +1,82 @@
-From: Frank Reppin <frank@undermydesk.org>
-Subject: Re: [PATCH net] e1000e: Change wthresh to 1 to avoid possible Tx stalls.
-Date: Tue, 9 Oct 2012 00:25:35 +0000 (UTC)
-Message-ID: <loom.20121009T020718-563@post.gmane.org>
-References: <20120606174355.823e9aa7.shimoda.hiroaki@gmail.com>  <1339030752.2075.1.camel@jtkirshe-mobl>  <1339043085.26966.77.camel@edumazet-glaptop> <1339044752.2075.14.camel@jtkirshe-mobl>
+From: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH] compat-drivers: update ethernet driver alx in crap dir
+Date: Mon, 8 Oct 2012 17:42:09 -0700
+Message-ID: <20121009004209.GC9068@kroah.com>
+References: <1349400892-25315-1-git-send-email-xiong@qca.qualcomm.com>
+ <CAB=NE6VotAu-cugsn4==3TPX0OGPEFtdn1J+5+Rd_YfLcg9YDQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:40061 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751100Ab2JIAaB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Oct 2012 20:30:01 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1TLNhz-0004V9-VI
-	for netdev@vger.kernel.org; Tue, 09 Oct 2012 02:30:04 +0200
-Received: from p57AE7DD2.dip.t-dialin.net ([87.174.125.210])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 09 Oct 2012 02:30:03 +0200
-Received: from frank by p57AE7DD2.dip.t-dialin.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 09 Oct 2012 02:30:03 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: xiong-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org, mcgrof-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	backports-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nic-devel-zC7DfRvBq/JWk0Htik3J/w@public.gmane.org,
+	Ren Cloud <cjren-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	qca_vkondrat-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org
+To: "Luis R. Rodriguez" <mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAB=NE6VotAu-cugsn4==3TPX0OGPEFtdn1J+5+Rd_YfLcg9YDQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Jeff Kirsher <jeffrey.t.kirsher <at> intel.com> writes:
+On Mon, Oct 08, 2012 at 03:25:08PM -0700, Luis R. Rodriguez wrote:
+> On Thu, Oct 4, 2012 at 6:34 PM,  <xiong-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org> wrote:
+> > From: xiong <xiong-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+> >
+> > 1. support new device id (0x10A0/0x10A1).
+> > 2. add DEBUG_FS interface for diag/swoi functions.
+> >
+> > Signed-off-by: Ren Cloud <cjren-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+> > Signed-off-by: xiong <xiong-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
 > 
-> On Thu, 2012-06-07 at 06:24 +0200, Eric Dumazet wrote:
-> > On Wed, 2012-06-06 at 17:59 -0700, Jeff Kirsher wrote:
-> > 
-> > > After further internal review, NACK.
-> > > 
-> > > This patch will cause unacceptable performance issues with non-ESB2
-> > > parts.
-> > > 
-> > > I am dropping this patch from my queue.
-> > > 
-> > 
-> > I'd like you share your performance numbers before NACKing this patch.
-> > 
-> > What is the alternative patch you guys have ?
-> > 
+> Xiong,
 > 
-> Jesse did not share any performance numbers with me, I am sure he can
-> give some background tomorrow when he is back online.
+>  -- Vladimir, just a heads up -- this applies to you as well for the
+> 802.11ad wil6210 driver
+>  -- Greg, some review on your preference on this would be appreciated
+
+Preference on what?  I've never seen this driver before, why wasn't it
+submitted to be in the staging tree in the first place?
+
+> The original alx crap patch was added into compat-wireless on the
+> linux-3.5.y branch.
+
+What is "crap patch"?  And is this the old driver with the dubios
+history keeping it from ever being merged anywhere, or is this something
+new?
+
+> Its been two kernel releases and alx is not yet
+> upstream and users can only get alx via compat-drivers (technically
+> compat-wireless as that was pre v3.7). v3.7 would be the *third*
+> release in which this would happen... This is unfair to users and
+> consumers of the Linux kernel and derails expectations and our
+> arrangements for Linux kernel development. I realize that the goal was
+> to get alx upstream ASAP but regardless of what the reason is, its not
+> yet upstream. If you cannot work on alx on a timely manner to get
+> upstream then please submit the driver to the staging area of the
+> Linux kernel that Greg maintains so that other developers who may be
+> able to help can submit patches to help you. Under staging your driver
+> should be accepted so long as it compiles.
 > 
-> I am working on an alternative patch now and should have something to
-> share tomorrow.
-Please allow me to ask if there's any progess here?
+> I will update the documentation for crap/ patches for compat-drivers
+> to make it clear now that crap/ patches can be used for adding
+> components / pieces of code not yet ready for upstream but as far as
+> full new drivers are concerned you only get one kernel release cycle
+> for it to linger on crap/ under compat-drivers, if you haven't
+> addressed upstreaming yet then it should go to drivers/staging/. That
+> is crap/ should only be used as a shortcut because users exist that
+> can use the driver but you *do* have a team properly resourced to
+> address upstreaming properly in a timely manner.
 
-I've tried 3.5.4 a couple of days ago on a SuperMicro X8SIE-LN4 (82574L)
-and could still observe severe latency (up to 3000ms) spikes.
+Why do you even need crap/ at all?  What is keeping drivers like this
+(if it isn't the legally dubious driver) from being merged into staging
+today?  And if it is the legally dubious driver, well, you had better
+not be taking it in your tree either...
 
-Applying Hiroakis suggested patch did fix this for me as well.
-[please note as well that I didn't had this issue in any 3.4.x kernel
-before - so +1 for fixing the regression]
+confused,
 
-Thankyou!
-Frank Reppin
-
--- 
+greg k-h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
