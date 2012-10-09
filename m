@@ -1,62 +1,128 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] e1000e: Change wthresh to 1 to avoid possible Tx
- stalls.
-Date: Tue, 09 Oct 2012 08:07:43 +0200
-Message-ID: <1349762863.21172.3848.camel@edumazet-glaptop>
-References: <20120606174355.823e9aa7.shimoda.hiroaki@gmail.com>
-	 <1339030752.2075.1.camel@jtkirshe-mobl>
-	 <1339043085.26966.77.camel@edumazet-glaptop>
-	 <1339044752.2075.14.camel@jtkirshe-mobl>
-	 <loom.20121009T020718-563@post.gmane.org>
+From: Andrew May <acmay@acmay.org>
+Subject: [RFC Patch] 405gp IBM EMAC Phy probe fails with no link
+Date: Mon, 08 Oct 2012 23:23:35 -0700
+Message-ID: <5073C2E7.4050903@acmay.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Frank Reppin <frank@undermydesk.org>
+Content-Type: multipart/mixed;
+ boundary="------------080308060202010005060400"
+To: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:35986 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753030Ab2JIGHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 02:07:46 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so2393149bkc.19
-        for <netdev@vger.kernel.org>; Mon, 08 Oct 2012 23:07:45 -0700 (PDT)
-In-Reply-To: <loom.20121009T020718-563@post.gmane.org>
+Received: from biz61.inmotionhosting.com ([74.124.213.197]:57400 "EHLO
+	biz61.inmotionhosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751228Ab2JIGoO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 02:44:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-10-09 at 00:25 +0000, Frank Reppin wrote:
-> Jeff Kirsher <jeffrey.t.kirsher <at> intel.com> writes:
-> > 
-> > On Thu, 2012-06-07 at 06:24 +0200, Eric Dumazet wrote:
-> > > On Wed, 2012-06-06 at 17:59 -0700, Jeff Kirsher wrote:
-> > > 
-> > > > After further internal review, NACK.
-> > > > 
-> > > > This patch will cause unacceptable performance issues with non-ESB2
-> > > > parts.
-> > > > 
-> > > > I am dropping this patch from my queue.
-> > > > 
-> > > 
-> > > I'd like you share your performance numbers before NACKing this patch.
-> > > 
-> > > What is the alternative patch you guys have ?
-> > > 
-> > 
-> > Jesse did not share any performance numbers with me, I am sure he can
-> > give some background tomorrow when he is back online.
-> > 
-> > I am working on an alternative patch now and should have something to
-> > share tomorrow.
-> Please allow me to ask if there's any progess here?
-> 
-> I've tried 3.5.4 a couple of days ago on a SuperMicro X8SIE-LN4 (82574L)
-> and could still observe severe latency (up to 3000ms) spikes.
-> 
-> Applying Hiroakis suggested patch did fix this for me as well.
-> [please note as well that I didn't had this issue in any 3.4.x kernel
-> before - so +1 for fixing the regression]
+This is a multi-part message in MIME format.
+--------------080308060202010005060400
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Its a shame this bug is not yet fixed.
+I have an older PPC 405GP board with a 2.6.33 kernel that fails to 
+install a eth0 instance because the phy probe fails when there is no 
+good ethernet link.
+I have looked at the latest kernel code and it seems just about the same 
+in this area, but I have not tried it.
 
-I dont know what to say.
+Does anyone else still have a 405GP board to try and see if eth0 comes 
+up with not enet cable?
+
+I tried to probe the phy earlier and skip the emac_configure() call in 
+emac_init_phy() to avoid doing the MR0_SRST bit set.
+But the phy read still times out.
+
+I then went with this approach to re-call emac_init_phy() after the 
+emac_reset() finally completes when a cable is plugged in.
+Does anyone else have any ideas why the phy probe fails on the first pass?
+
+--------------080308060202010005060400
+Content-Type: text/x-patch;
+ name="ibm_phyprobe.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="ibm_phyprobe.patch"
+
+diff -ur linux.orig/drivers/net/ibm_newemac/core.c linux/drivers/net/ibm_newemac/core.c
+--- linux.orig/drivers/net/ibm_newemac/core.c	2012-10-08 12:38:33.000000000 -0700
++++ linux/drivers/net/ibm_newemac/core.c	2012-10-08 14:31:35.797089192 -0700
+@@ -106,6 +106,7 @@
+  */
+ static DECLARE_WAIT_QUEUE_HEAD(emac_probe_wait);
+ 
++static int emac_init_phy(struct emac_instance *dev);
+ /* Having stable interface names is a doomed idea. However, it would be nice
+  * if we didn't have completely random interface names at boot too :-) It's
+  * just a matter of making everybody's life easier. Since we are doing
+@@ -135,7 +136,7 @@
+ 				  EMAC_FTR_440EP_PHY_CLK_FIX))
+ 		DBG(dev, "%s" NL, error);
+ 	else if (net_ratelimit())
+-		printk(KERN_ERR "%s: %s\n", dev->ofdev->node->full_name, error);
++		printk(KERN_INFO "%s: %s\n", dev->ofdev->node->full_name, error);
+ }
+ 
+ /* EMAC PHY clock workaround:
+@@ -161,6 +162,7 @@
+ }
+ 
+ /* PHY polling intervals */
++#define PHY_POLL_NO_PHY 	(5 * HZ)
+ #define PHY_POLL_LINK_ON	HZ
+ #define PHY_POLL_LINK_OFF	(HZ / 5)
+ 
+@@ -1156,8 +1158,12 @@
+ 
+ 	/* Start PHY polling now.
+ 	 */
+-	if (dev->phy.address >= 0) {
++	if (dev->phy.address >= 0 || dev->phy.address == -2) {
+ 		int link_poll_interval;
++		if (dev->phy.address == -2) {
++			netif_carrier_off(dev->ndev);
++			link_poll_interval = PHY_POLL_NO_PHY;
++		}else 
+ 		if (dev->phy.def->ops->poll_link(&dev->phy)) {
+ 			dev->phy.def->ops->read_link(&dev->phy);
+ 			emac_rx_clk_default(dev);
+@@ -1243,7 +1249,17 @@
+ 	if (!dev->opened)
+ 		goto bail;
+ 
+-	if (dev->phy.def->ops->poll_link(&dev->phy)) {
++
++	if (!dev->phy.def) {
++		/* If the reset finally clears, because the phy now
++		 * has a link, then reprobe for the phy.
++		 */
++		if (emac_reset(dev) == 0)
++		{
++			emac_init_phy(dev);
++		}
++		link_poll_interval = PHY_POLL_NO_PHY;
++	}else if (dev->phy.def->ops->poll_link(&dev->phy)) {
+ 		if (!netif_carrier_ok(dev->ndev)) {
+ 			emac_rx_clk_default(dev);
+ 			/* Get new link parameters */
+@@ -2376,7 +2392,7 @@
+ 	return 0;
+ }
+ 
+-static int __devinit emac_init_phy(struct emac_instance *dev)
++static int emac_init_phy(struct emac_instance *dev)
+ {
+ 	struct device_node *np = dev->ofdev->node;
+ 	struct net_device *ndev = dev->ndev;
+@@ -2470,7 +2486,9 @@
+ 	mutex_unlock(&emac_phy_map_lock);
+ 	if (i == 0x20) {
+ 		printk(KERN_WARNING "%s: can't find PHY!\n", np->full_name);
+-		return -ENXIO;
++		busy_phy_map = 0;
++		dev->phy.address = -2;
++		return 0;
+ 	}
+ 
+ 	/* Init PHY */
+
+--------------080308060202010005060400--
