@@ -1,51 +1,41 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH net] e1000e: Change wthresh to 1 to avoid possible Tx
- stalls.
-Date: Tue, 9 Oct 2012 10:36:29 -0700
-Message-ID: <20121009103629.0000569a@unknown>
-References: <20120606174355.823e9aa7.shimoda.hiroaki@gmail.com>
-	<1339030752.2075.1.camel@jtkirshe-mobl>
-	<1339043085.26966.77.camel@edumazet-glaptop>
-	<1339044752.2075.14.camel@jtkirshe-mobl>
-	<loom.20121009T020718-563@post.gmane.org>
-	<1349762863.21172.3848.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pch_gbe: Fix build error by selecting all the possible
+ dependencies.
+Date: Tue, 09 Oct 2012 13:51:19 -0400 (EDT)
+Message-ID: <20121009.135119.392429282974593732.davem@davemloft.net>
+References: <20121006075954.GA29618@localhost>
+	<1349775792-12573-1-git-send-email-haicheng.lee@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Frank Reppin <frank@undermydesk.org>, <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	jesse.brandeburg@intel.com, e1000-devel@lists.sourceforge.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:2933 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754998Ab2JIRgp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Oct 2012 13:36:45 -0400
-In-Reply-To: <1349762863.21172.3848.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: haicheng.li@linux.intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, fengguang.wu@intel.com
+To: haicheng.lee@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349775792-12573-1-git-send-email-haicheng.lee@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> > > Jesse did not share any performance numbers with me, I am sure he can
-> > > give some background tomorrow when he is back online.
-> > > 
-> > > I am working on an alternative patch now and should have something to
-> > > share tomorrow.
-> > Please allow me to ask if there's any progess here?
-> > 
-> > I've tried 3.5.4 a couple of days ago on a SuperMicro X8SIE-LN4 (82574L)
-> > and could still observe severe latency (up to 3000ms) spikes.
-> > 
-> > Applying Hiroakis suggested patch did fix this for me as well.
-> > [please note as well that I didn't had this issue in any 3.4.x kernel
-> > before - so +1 for fixing the regression]
+From: Haicheng Li <haicheng.lee@gmail.com>
+Date: Tue,  9 Oct 2012 17:43:12 +0800
 
-I'm not sure what went wrong internally here that this hasn't been
-fixed, and I'm personally embarrassed.  I am working on it until I have
-a patch/solution.
+> Fengguang reported a kernel build failure as following:
+> drivers/built-in.o: In function `pch_gbe_ioctl':
+> pch_gbe_main.c:(.text+0x510370): undefined reference to `pch_ch_control_write'
+> pch_gbe_main.c:(.text+0x510393): undefined reference to `pch_ch_control_write'
+> pch_gbe_main.c:(.text+0x5103b3): undefined reference to `pch_ch_control_write'
+> ...
+> 
+> It's a regression by commit da1586461. The root cause is that
+> the CONFIG_PPS is not set there, consequently CONFIG_PTP_1588_CLOCK
+> can not be set anyway, which finally causes ptp_pch and pch_gbe_main
+> build failures.
+> 
+> As David prefers to use *select* to fix such module co-dependency issues,
+> this patch explicitly selects all the possible dependencies of PCH_PTP.
+> 
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Reviewed-by: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Haicheng Li <haicheng.lee@gmail.com>
 
-currently am trying to reproduce the issue, am in some weird how to
-use BQL limbo, the lack of documentation on user usage of BQL is slowing
-me down.
-
-Hints or clues (I'm trying to follow the repro steps mentioned in
-some related threads) are appreciated.
+Applied, thanks.
