@@ -1,111 +1,93 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [PATCH] compat-drivers: update ethernet driver alx in crap dir
-Date: Mon, 8 Oct 2012 18:14:01 -0700
-Message-ID: <CAB=NE6WL0FS+FHSZ-naHnqvO_DTRnobkX_Yp4J_rxM2Kkge7Ag@mail.gmail.com>
+From: "Huang, Xiong" <xiong-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Subject: RE: [PATCH] compat-drivers: update ethernet driver alx in crap dir
+Date: Tue, 9 Oct 2012 01:24:55 +0000
+Message-ID: <157393863283F442885425D2C45428562A50158C@nasanexd02f.na.qualcomm.com>
 References: <1349400892-25315-1-git-send-email-xiong@qca.qualcomm.com>
- <CAB=NE6VotAu-cugsn4==3TPX0OGPEFtdn1J+5+Rd_YfLcg9YDQ@mail.gmail.com> <20121009004209.GC9068@kroah.com>
+ <CAB=NE6VotAu-cugsn4==3TPX0OGPEFtdn1J+5+Rd_YfLcg9YDQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: xiong@qca.qualcomm.com, mcgrof@kernel.org,
-	backports@vger.kernel.org, nic-devel@qualcomm.com,
-	Ren Cloud <cjren@qca.qualcomm.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	qca_vkondrat@qca.qualcomm.com
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121009004209.GC9068@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "mcgrof-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <mcgrof-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"backports-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <backports-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	nic-devel <nic-devel-zC7DfRvBq/JWk0Htik3J/w@public.gmane.org>,
+	"Ren, Cloud" <cjren-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	qca_vkondrat <qca_vkondrat-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+To: "Luis R. Rodriguez" <mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAB=NE6VotAu-cugsn4==3TPX0OGPEFtdn1J+5+Rd_YfLcg9YDQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 8, 2012 at 5:42 PM, Greg Kroah-Hartman
-<gregkh@linuxfoundation.org> wrote:
-> On Mon, Oct 08, 2012 at 03:25:08PM -0700, Luis R. Rodriguez wrote:
->> On Thu, Oct 4, 2012 at 6:34 PM,  <xiong@qca.qualcomm.com> wrote:
->> > From: xiong <xiong@qca.qualcomm.com>
->> >
->> > 1. support new device id (0x10A0/0x10A1).
->> > 2. add DEBUG_FS interface for diag/swoi functions.
->> >
->> > Signed-off-by: Ren Cloud <cjren@qca.qualcomm.com>
->> > Signed-off-by: xiong <xiong@qca.qualcomm.com>
->>
->> Xiong,
->>
->>  -- Vladimir, just a heads up -- this applies to you as well for the
->> 802.11ad wil6210 driver
->>  -- Greg, some review on your preference on this would be appreciated
->
-> Preference on what?  I've never seen this driver before, why wasn't it
-> submitted to be in the staging tree in the first place?
-
-Because the goal was to jump straight to proper upstream and this was
-expected to happen rather easily.
-
->> The original alx crap patch was added into compat-wireless on the
->> linux-3.5.y branch.
->
-> What is "crap patch"?  And is this the old driver with the dubios
-> history keeping it from ever being merged anywhere, or is this something
-> new?
-
-The driver never had any legal dubious issues. The issues with the alx
-driver were purely technical.
-
->> Its been two kernel releases and alx is not yet
->> upstream and users can only get alx via compat-drivers (technically
->> compat-wireless as that was pre v3.7). v3.7 would be the *third*
->> release in which this would happen... This is unfair to users and
->> consumers of the Linux kernel and derails expectations and our
->> arrangements for Linux kernel development. I realize that the goal was
->> to get alx upstream ASAP but regardless of what the reason is, its not
->> yet upstream. If you cannot work on alx on a timely manner to get
->> upstream then please submit the driver to the staging area of the
->> Linux kernel that Greg maintains so that other developers who may be
->> able to help can submit patches to help you. Under staging your driver
->> should be accepted so long as it compiles.
->>
->> I will update the documentation for crap/ patches for compat-drivers
->> to make it clear now that crap/ patches can be used for adding
->> components / pieces of code not yet ready for upstream but as far as
->> full new drivers are concerned you only get one kernel release cycle
->> for it to linger on crap/ under compat-drivers, if you haven't
->> addressed upstreaming yet then it should go to drivers/staging/. That
->> is crap/ should only be used as a shortcut because users exist that
->> can use the driver but you *do* have a team properly resourced to
->> address upstreaming properly in a timely manner.
->
-> Why do you even need crap/ at all?  What is keeping drivers like this
-> (if it isn't the legally dubious driver) from being merged into staging
-> today?  And if it is the legally dubious driver, well, you had better
-> not be taking it in your tree either...
-
-crap/ was invented for patches to existing code that people wrote that
-they for whatever reason did not think would ever get upstream but yet
-they *needed* to support for customer deliveries. Consider a feature
-that won't be acceptable but yet a customer *needs* today. In such
-case we know the developer should post it as it will get rejected. The
-developer may also know that they have to adjust the code to meet
-upstream criteria, and they might do that in 1 or 2 future kernel
-releases. Without having a mechanism to allow these type of patches
-folks go on a forking bandwagon and at times creates a slippery slope
-to never go back upstream.
-
-crap/ then was used later for alx as a full driver rather than
-drivers/staging/ given that the developers believed they could address
-upstream concerns within a release cycle and they needed a release
-ASAP. The alx driver needed to be changed to remove atl1c device
-support as per review and only support new generation devices. It was
-a lot easier for the developers to address that internally rather than
-working on drivers/staging. In the end alx is still not upstream as
-more technical issues have have not yet been addressed.
-
-I'm considering perhaps just not allowing full drivers through crap/
-on compat-drivers and simply having developers bite the bullet and
-have to go through staging if they really need a release ASAP and are
-not yet ready for upstream.
-
-At this point I am revisiting the policy of when / if to allow drivers
-at all through crap/ and that's what I was asking for review for.
-
-  Luis
+SGkgTHVpcw0KDQogICAgSSdtIHJlZmluaW5nIHRoZSBjb2RlLCBJIHRyeSBteSBiZXN0IHRvIG1h
+a2UgaXQgdXBzdHJlYW0gQVNBUC4gVGhhbmtzICENCg0KLVhpb25nDQoNCj4gLS0tLS1PcmlnaW5h
+bCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbWNncm9mQGdtYWlsLmNvbSBbbWFpbHRvOm1jZ3JvZkBn
+bWFpbC5jb21dIE9uIEJlaGFsZiBPZiBMdWlzIFIuDQo+IFJvZHJpZ3Vleg0KPiBTZW50OiBUdWVz
+ZGF5LCBPY3RvYmVyIDA5LCAyMDEyIDY6MjUNCj4gVG86IEh1YW5nLCBYaW9uZw0KPiBDYzogbWNn
+cm9mQGtlcm5lbC5vcmc7IGJhY2twb3J0c0B2Z2VyLmtlcm5lbC5vcmc7IG5pYy1kZXZlbDsgUmVu
+LCBDbG91ZDsNCj4gR3JlZyBLcm9haC1IYXJ0bWFuOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwu
+b3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiBsaW51eC13aXJlbGVzczsgcWNhX3Zrb25k
+cmF0DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIGNvbXBhdC1kcml2ZXJzOiB1cGRhdGUgZXRoZXJu
+ZXQgZHJpdmVyIGFseCBpbiBjcmFwIGRpcg0KPiANCj4gT24gVGh1LCBPY3QgNCwgMjAxMiBhdCA2
+OjM0IFBNLCAgPHhpb25nQHFjYS5xdWFsY29tbS5jb20+IHdyb3RlOg0KPiA+IEZyb206IHhpb25n
+IDx4aW9uZ0BxY2EucXVhbGNvbW0uY29tPg0KPiA+DQo+ID4gMS4gc3VwcG9ydCBuZXcgZGV2aWNl
+IGlkICgweDEwQTAvMHgxMEExKS4NCj4gPiAyLiBhZGQgREVCVUdfRlMgaW50ZXJmYWNlIGZvciBk
+aWFnL3N3b2kgZnVuY3Rpb25zLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogUmVuIENsb3VkIDxj
+anJlbkBxY2EucXVhbGNvbW0uY29tPg0KPiA+IFNpZ25lZC1vZmYtYnk6IHhpb25nIDx4aW9uZ0Bx
+Y2EucXVhbGNvbW0uY29tPg0KPiANCj4gWGlvbmcsDQo+IA0KPiAgLS0gVmxhZGltaXIsIGp1c3Qg
+YSBoZWFkcyB1cCAtLSB0aGlzIGFwcGxpZXMgdG8geW91IGFzIHdlbGwgZm9yIHRoZSA4MDIuMTFh
+ZA0KPiB3aWw2MjEwIGRyaXZlcg0KPiAgLS0gR3JlZywgc29tZSByZXZpZXcgb24geW91ciBwcmVm
+ZXJlbmNlIG9uIHRoaXMgd291bGQgYmUgYXBwcmVjaWF0ZWQNCj4gDQo+IFRoZSBvcmlnaW5hbCBh
+bHggY3JhcCBwYXRjaCB3YXMgYWRkZWQgaW50byBjb21wYXQtd2lyZWxlc3Mgb24gdGhlIGxpbnV4
+LTMuNS55DQo+IGJyYW5jaC4gSXRzIGJlZW4gdHdvIGtlcm5lbCByZWxlYXNlcyBhbmQgYWx4IGlz
+IG5vdCB5ZXQgdXBzdHJlYW0gYW5kIHVzZXJzIGNhbg0KPiBvbmx5IGdldCBhbHggdmlhIGNvbXBh
+dC1kcml2ZXJzICh0ZWNobmljYWxseSBjb21wYXQtd2lyZWxlc3MgYXMgdGhhdCB3YXMgcHJlDQo+
+IHYzLjcpLiB2My43IHdvdWxkIGJlIHRoZSAqdGhpcmQqIHJlbGVhc2UgaW4gd2hpY2ggdGhpcyB3
+b3VsZCBoYXBwZW4uLi4gVGhpcyBpcw0KPiB1bmZhaXIgdG8gdXNlcnMgYW5kIGNvbnN1bWVycyBv
+ZiB0aGUgTGludXgga2VybmVsIGFuZCBkZXJhaWxzIGV4cGVjdGF0aW9ucyBhbmQNCj4gb3VyIGFy
+cmFuZ2VtZW50cyBmb3IgTGludXgga2VybmVsIGRldmVsb3BtZW50LiBJIHJlYWxpemUgdGhhdCB0
+aGUgZ29hbCB3YXMgdG8NCj4gZ2V0IGFseCB1cHN0cmVhbSBBU0FQIGJ1dCByZWdhcmRsZXNzIG9m
+IHdoYXQgdGhlIHJlYXNvbiBpcywgaXRzIG5vdCB5ZXQNCj4gdXBzdHJlYW0uIElmIHlvdSBjYW5u
+b3Qgd29yayBvbiBhbHggb24gYSB0aW1lbHkgbWFubmVyIHRvIGdldCB1cHN0cmVhbSB0aGVuDQo+
+IHBsZWFzZSBzdWJtaXQgdGhlIGRyaXZlciB0byB0aGUgc3RhZ2luZyBhcmVhIG9mIHRoZSBMaW51
+eCBrZXJuZWwgdGhhdCBHcmVnDQo+IG1haW50YWlucyBzbyB0aGF0IG90aGVyIGRldmVsb3BlcnMg
+d2hvIG1heSBiZSBhYmxlIHRvIGhlbHAgY2FuIHN1Ym1pdA0KPiBwYXRjaGVzIHRvIGhlbHAgeW91
+LiBVbmRlciBzdGFnaW5nIHlvdXIgZHJpdmVyIHNob3VsZCBiZSBhY2NlcHRlZCBzbyBsb25nIGFz
+IGl0DQo+IGNvbXBpbGVzLg0KPiANCj4gSSB3aWxsIHVwZGF0ZSB0aGUgZG9jdW1lbnRhdGlvbiBm
+b3IgY3JhcC8gcGF0Y2hlcyBmb3IgY29tcGF0LWRyaXZlcnMgdG8gbWFrZQ0KPiBpdCBjbGVhciBu
+b3cgdGhhdCBjcmFwLyBwYXRjaGVzIGNhbiBiZSB1c2VkIGZvciBhZGRpbmcgY29tcG9uZW50cyAv
+IHBpZWNlcyBvZg0KPiBjb2RlIG5vdCB5ZXQgcmVhZHkgZm9yIHVwc3RyZWFtIGJ1dCBhcyBmYXIg
+YXMgZnVsbCBuZXcgZHJpdmVycyBhcmUgY29uY2VybmVkDQo+IHlvdSBvbmx5IGdldCBvbmUga2Vy
+bmVsIHJlbGVhc2UgY3ljbGUgZm9yIGl0IHRvIGxpbmdlciBvbiBjcmFwLyB1bmRlciBjb21wYXQt
+DQo+IGRyaXZlcnMsIGlmIHlvdSBoYXZlbid0IGFkZHJlc3NlZCB1cHN0cmVhbWluZyB5ZXQgdGhl
+biBpdCBzaG91bGQgZ28gdG8NCj4gZHJpdmVycy9zdGFnaW5nLy4gVGhhdCBpcyBjcmFwLyBzaG91
+bGQgb25seSBiZSB1c2VkIGFzIGEgc2hvcnRjdXQgYmVjYXVzZSB1c2Vycw0KPiBleGlzdCB0aGF0
+IGNhbiB1c2UgdGhlIGRyaXZlciBidXQgeW91ICpkbyogaGF2ZSBhIHRlYW0gcHJvcGVybHkgcmVz
+b3VyY2VkIHRvDQo+IGFkZHJlc3MgdXBzdHJlYW1pbmcgcHJvcGVybHkgaW4gYSB0aW1lbHkgbWFu
+bmVyLg0KPiANCj4gTGludXMgc2hvdWxkIHNvb24gcmVsZWFzZSB2My43LXJjMSBhbmQgbmV3IGRy
+aXZlcnMgYXJlIGFsbG93ZWQgdG8gYmUgbWVyZ2VkDQo+IGR1cmluZyB0aGUgUkMgY3ljbGVzLCBh
+cyBzdWNoIG15IHJlY29tbWVuZGF0aW9uIGlzIGluc3RlYWQgb2YgZ2V0dGluZyB1c2VycyB0bw0K
+PiBjb25zdW1lIGFseCBvbmx5IHRocm91Z2ggY29tcGF0LWRyaXZlcnMgeW91IG5vdyBzdWJtaXQg
+YWx4IGludG8gc3RhZ2luZyB0bw0KPiBHcmVnIGluIGhvcGVzIHRoYXQgd2UgY2FuIGdldCBpdCBp
+bnRvIHYzLjctcmNYIHNvbWUgdGltZSwgYW5kIGF0IHRoYXQgdGltZSB3ZQ0KPiBjYW4gcmVtb3Zl
+IHRoZSBjcmFwLyBwYXRjaCBmcm9tIGNvbXBhdC1kcml2ZXJzLg0KPiANCj4gVXNlcnMgc2hvdWxk
+IGJlIGFibGUgdG8gY29uc3VtZSBuZXcgZHJpdmVycyB0aHJvdWdoIGtlcm5lbC5vcmcgYW5kIGNv
+bXBhdC0NCj4gZHJpdmVycyBzaG91bGQgb25seSBwcm92aWRlIHRoZSBmcmFtZXdvcmsgZm9yIGJh
+Y2twb3J0aW5nIGFuZCBhbHNvDQo+IGNhdGVnb3JpemluZyBxdWljayBmaXhlcy4gSXQgc2hvdWxk
+IG5vdCBiZSB1c2VkIGZvciBvbmdvaW5nIHVwZGF0ZXMgZm9yIG5ldw0KPiBkcml2ZXJzIHRoYXQg
+dXNlcnMgbmVlZC4NCj4gDQo+IFdlIG11c3QgZHJhdyB0aGUgbGluZSB3aXRoIGNyYXAvIHBhdGNo
+ZXMgc29tZXdoZXJlLg0KPiANCj4gSSdsbCB0aGVuIHRha2UgdGhpcyBwYXRjaCBmb3Igbm93IGJ1
+dCBkbyBleHBlY3QgeW91IHRvIGdldCBhbHggaW50byBlaXRoZXIgc3RhZ2luZw0KPiBvciBwcm9w
+ZXIgdXBzdHJlYW0gZm9yIHRoZSB2My43LXJjWC4gSSB3ZWxjb21lIGZlZWRiYWNrIGZyb20gb3Ro
+ZXIgZm9sa3Mgb24NCj4gdGhlIHByb3Bvc2VkIGFycmFuZ2VtZW50IGZvciBjcmFwLyBwYXRjaGVz
+IGZvciBjb21wYXQtZHJpdmVycy4NCj4gDQo+IGh0dHBzOi8vYmFja3BvcnRzLndpa2kua2VybmVs
+Lm9yZy9pbmRleC5waHAvRG9jdW1lbnRhdGlvbi9jb21wYXQtDQo+IGRyaXZlcnMvYWRkaXRpb25h
+bC1wYXRjaGVzI2NyYXBfcGF0Y2hlcw0KPiANCj4gICBMdWlzDQo=
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
