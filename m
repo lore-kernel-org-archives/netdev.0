@@ -1,52 +1,53 @@
-From: Haicheng Li <haicheng.lee@gmail.com>
-Subject: [PATCH] pch_gbe: Fix build error by selecting all the possible dependencies.
-Date: Tue,  9 Oct 2012 17:43:12 +0800
-Message-ID: <1349775792-12573-1-git-send-email-haicheng.lee@gmail.com>
-References: <20121006075954.GA29618@localhost>
-Cc: haicheng.li@linux.intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, fengguang.wu@intel.com,
-	Haicheng Li <haicheng.lee@gmail.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121006075954.GA29618@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [PATCH 1/5] pktgen: fix crash when generating IPv6 packets
+Date: Tue,  9 Oct 2012 18:05:27 +0800
+Message-ID: <1349777131-4425-1-git-send-email-amwang@redhat.com>
+Cc: Cong Wang <amwang@redhat.com>, <stable@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:30762 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755018Ab2JIKFn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2012 06:05:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fengguang reported a kernel build failure as following:
-drivers/built-in.o: In function `pch_gbe_ioctl':
-pch_gbe_main.c:(.text+0x510370): undefined reference to `pch_ch_control_write'
-pch_gbe_main.c:(.text+0x510393): undefined reference to `pch_ch_control_write'
-pch_gbe_main.c:(.text+0x5103b3): undefined reference to `pch_ch_control_write'
-...
+For IPv6, sizeof(struct ipv6hdr) = 40, thus the following
+expression will result negative:
 
-It's a regression by commit da1586461. The root cause is that
-the CONFIG_PPS is not set there, consequently CONFIG_PTP_1588_CLOCK
-can not be set anyway, which finally causes ptp_pch and pch_gbe_main
-build failures.
+        datalen = pkt_dev->cur_pkt_size - 14 -
+                  sizeof(struct ipv6hdr) - sizeof(struct udphdr) -
+                  pkt_dev->pkt_overhead;
 
-As David prefers to use *select* to fix such module co-dependency issues,
-this patch explicitly selects all the possible dependencies of PCH_PTP.
+And,  the check "if (datalen < sizeof(struct pktgen_hdr))" will be
+passed as "datalen" is promoted to unsigned, therefore will cause
+a crash later.
 
-Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-Reviewed-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Haicheng Li <haicheng.lee@gmail.com>
+This is a quick fix by checking if "datalen" is negative. The following
+patch will increase the default value of 'min_pkt_size' for IPv6.
+
+This bug should exist for a long time, so Cc -stable too.
+
+Cc: <stable@vger.kernel.org>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- drivers/net/ethernet/oki-semi/pch_gbe/Kconfig |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ net/core/pktgen.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-index 9730241..5296cc8 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-@@ -26,6 +26,9 @@ if PCH_GBE
- config PCH_PTP
- 	bool "PCH PTP clock support"
- 	default n
-+	depends on EXPERIMENTAL
-+	select PPS
-+	select PTP_1588_CLOCK
- 	select PTP_1588_CLOCK_PCH
- 	---help---
- 	  Say Y here if you want to use Precision Time Protocol (PTP) in the
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 148e73d..e356b8d 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2927,7 +2927,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ 		  sizeof(struct ipv6hdr) - sizeof(struct udphdr) -
+ 		  pkt_dev->pkt_overhead;
+ 
+-	if (datalen < sizeof(struct pktgen_hdr)) {
++	if (datalen < 0 || datalen < sizeof(struct pktgen_hdr)) {
+ 		datalen = sizeof(struct pktgen_hdr);
+ 		net_info_ratelimited("increased datalen to %d\n", datalen);
+ 	}
 -- 
-1.7.1
+1.7.7.6
