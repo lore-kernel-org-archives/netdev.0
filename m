@@ -1,63 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv6: gro: fix PV6_GRO_CB(skb)->proto problem
-Date: Tue, 09 Oct 2012 15:06:25 +0200
-Message-ID: <1349787985.21172.4305.camel@edumazet-glaptop>
-References: <1349725130.21172.3663.camel@edumazet-glaptop>
-	 <20121008.154148.2288526275691661749.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:41317 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752853Ab2JING2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 09:06:28 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so2627096bkc.19
-        for <netdev@vger.kernel.org>; Tue, 09 Oct 2012 06:06:27 -0700 (PDT)
-In-Reply-To: <20121008.154148.2288526275691661749.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Howells <dhowells@redhat.com>
+Subject: [GIT PULL] Disintegrate UAPI for isdn
+Date: Tue, 09 Oct 2012 14:30:22 +0100
+Message-ID: <30696.1349789422@warthog.procyon.org.uk>
+Cc: dhowells@redhat.com, isdn4linux@listserv.isdn4linux.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: isdn@linux-pingi.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-10-08 at 15:41 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 08 Oct 2012 21:38:50 +0200
-> 
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > It seems IPV6_GRO_CB(skb)->proto can be destroyed in skb_gro_receive()
-> > if a new skb is allocated (to serve as an anchor for frag_list)
-> > 
-> > We copy NAPI_GRO_CB() only (not the IPV6 specific part) in :
-> > 
-> > *NAPI_GRO_CB(nskb) = *NAPI_GRO_CB(p);
-> > 
-> > So we leave IPV6_GRO_CB(nskb)->proto to 0 (fresh skb allocation) instead
-> > of IPPROTO_TCP (6)
-> > 
-> > ipv6_gro_complete() isnt able to call ops->gro_complete()
-> > [ tcp6_gro_complete() ]
-> > 
-> > Fix this by moving proto in NAPI_GRO_CB() and getting rid of
-> > IPV6_GRO_CB
-> > 
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Applied and queued up for -stable, thanks Eric.
+Can you merge the following branch into the isdn tree please.
 
-Hmm, it appears its a false alarm, you can remove it from stable
-candidates.
+This is to complete part of the Userspace API (UAPI) disintegration for which
+the preparatory patches were pulled recently.  After these patches, userspace
+headers will be segregated into:
 
-*NAPI_GRO_CB(nskb) = *NAPI_GRO_CB(p);
+	include/uapi/linux/.../foo.h
 
-was in fact redundant with the 
+for the userspace interface stuff, and:
 
-memcpy(new->cb, old->cb, sizeof(old->cb)); 
+	include/linux/.../foo.h
 
-done in __copy_skb_header()
+for the strictly kernel internal stuff.
 
-I'll send a patch to remove this double copy in net-next
+---
+The following changes since commit 9e2d8656f5e8aa214e66b462680cf86b210b74a8:
 
-Thanks
+  Merge branch 'akpm' (Andrew's patch-bomb) (2012-10-09 16:23:15 +0900)
+
+are available in the git repository at:
+
+
+  git://git.infradead.org/users/dhowells/linux-headers.git tags/disintegrate-isdn-20121009
+
+for you to fetch changes up to 1855f1b1074ea8a76ced0f3ef25bbecd6b2a7222:
+
+  UAPI: (Scripted) Disintegrate include/linux/isdn (2012-10-09 09:48:45 +0100)
+
+----------------------------------------------------------------
+UAPI Disintegration 2012-10-09
+
+----------------------------------------------------------------
+David Howells (1):
+      UAPI: (Scripted) Disintegrate include/linux/isdn
+
+ include/linux/isdn/Kbuild               | 1 -
+ include/uapi/linux/isdn/Kbuild          | 1 +
+ include/{ => uapi}/linux/isdn/capicmd.h | 0
+ 3 files changed, 1 insertion(+), 1 deletion(-)
+ rename include/{ => uapi}/linux/isdn/capicmd.h (100%)
+.
