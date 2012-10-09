@@ -1,64 +1,55 @@
-From: Andre Tomt <andre@tomt.net>
-Subject: Re: [PATCH net] e1000e: Change wthresh to 1 to avoid possible Tx
- stalls.
-Date: Wed, 10 Oct 2012 00:48:42 +0200
-Message-ID: <5074A9CA.50308@tomt.net>
-References: <20120606174355.823e9aa7.shimoda.hiroaki@gmail.com> <1339030752.2075.1.camel@jtkirshe-mobl> <1339043085.26966.77.camel@edumazet-glaptop> <1339044752.2075.14.camel@jtkirshe-mobl> <loom.20121009T020718-563@post.gmane.org> <1349762863.21172.3848.camel@edumazet-glaptop> <20121009103629.0000569a@unknown>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Frank Reppin <frank@undermydesk.org>, netdev@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	e1000-devel@lists.sourceforge.net
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH net] netfilter: nf_conntrack: fix rt_gateway checks for h323
+Date: Wed, 10 Oct 2012 02:00:47 +0300
+Message-ID: <1349823647-2166-1-git-send-email-ja@ssi.bg>
+Cc: netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from catastrophix.ugh.no ([178.79.162.34]:46428 "EHLO
-	catastrophix.ugh.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755993Ab2JIWss (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 18:48:48 -0400
-In-Reply-To: <20121009103629.0000569a@unknown>
+Received: from ja.ssi.bg ([178.16.129.10]:58221 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757122Ab2JIWz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2012 18:55:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09. okt. 2012 19:36, Jesse Brandeburg wrote:
-> I'm not sure what went wrong internally here that this hasn't been
-> fixed, and I'm personally embarrassed.  I am working on it until I have
-> a patch/solution.
->
-> currently am trying to reproduce the issue, am in some weird how to
-> use BQL limbo, the lack of documentation on user usage of BQL is slowing
-> me down.
->
-> Hints or clues (I'm trying to follow the repro steps mentioned in
-> some related threads) are appreciated.
+	After the change "Adjust semantics of rt->rt_gateway"
+(commit f8126f1d51) we should properly match the nexthop when
+destinations are directly connected because rt_gateway can be 0.
 
-I found it simplest to reproduce when doing forwarding, and *not* 
-saturating the interface doing the TX. 100Mbps forwarding on gigabit 
-link triggered it in seconds. Doing gigabit forwarding speeds (~980Mbps) 
-did not trigger anything.
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
 
-Setup looked somewhat like this, GE beeing gigabit link, FE 100Mbps;
+	This patch needs a closer look from the Netfilter team.
 
-reciever PC (iperf -s)
-     |
-     GE
-     |
-    eth0   <- TX lockups
-router with 2*e1000e
-    eth1
-     |
-     GE
-     |
-switch
-     |
-     FE
-     |
-source PC (iperf -c recieverPC)
+	It restores the check as it was committed originally,
+i.e. to compare nexthops. I'm not sure what is the desired logic,
+it can depend on the following:
 
-I don't recall all the details anymore, but I'm fairly certain I didnt 
-use any non-default qdiscs to reproduce - eg just pfifo_fast (usually 
-doing fq_codel though).
+- two directly connected hosts (rt_gateway=0) can be from different
+subnets or not
 
-For the bug to manifest itself was somewhat dependent on GRO and TSO in 
-kernel 3.5, but with 3.6 it didnt matter anymore (at least the rc's).
+- one party A is the gateway (rt_gateway=0), another party uses
+this gateway (rt_gateway=A)
+
+	May be someone that knows this code better can comment
+if the check should be different.
+
+ net/netfilter/nf_conntrack_h323_main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
+index 1b30b0d..962795e 100644
+--- a/net/netfilter/nf_conntrack_h323_main.c
++++ b/net/netfilter/nf_conntrack_h323_main.c
+@@ -753,7 +753,8 @@ static int callforward_do_filter(const union nf_inet_addr *src,
+ 				   flowi4_to_flowi(&fl1), false)) {
+ 			if (!afinfo->route(&init_net, (struct dst_entry **)&rt2,
+ 					   flowi4_to_flowi(&fl2), false)) {
+-				if (rt1->rt_gateway == rt2->rt_gateway &&
++				if (rt_nexthop(rt1, fl1.daddr) ==
++				    rt_nexthop(rt2, fl2.daddr) &&
+ 				    rt1->dst.dev  == rt2->dst.dev)
+ 					ret = 1;
+ 				dst_release(&rt2->dst);
+-- 
+1.7.3.4
