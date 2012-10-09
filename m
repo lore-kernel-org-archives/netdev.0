@@ -1,45 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL] Disintegrate UAPI for net
-Date: Tue, 09 Oct 2012 13:17:04 -0400 (EDT)
-Message-ID: <20121009.131704.983863129128480075.davem@davemloft.net>
-References: <30725.1349789433@warthog.procyon.org.uk>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH net] e1000e: Change wthresh to 1 to avoid possible Tx
+ stalls.
+Date: Tue, 9 Oct 2012 10:36:29 -0700
+Message-ID: <20121009103629.0000569a@unknown>
+References: <20120606174355.823e9aa7.shimoda.hiroaki@gmail.com>
+	<1339030752.2075.1.camel@jtkirshe-mobl>
+	<1339043085.26966.77.camel@edumazet-glaptop>
+	<1339044752.2075.14.camel@jtkirshe-mobl>
+	<loom.20121009T020718-563@post.gmane.org>
+	<1349762863.21172.3848.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <30725.1349789433@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Frank Reppin <frank@undermydesk.org>, <netdev@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	jesse.brandeburg@intel.com, e1000-devel@lists.sourceforge.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:2933 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754998Ab2JIRgp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2012 13:36:45 -0400
+In-Reply-To: <1349762863.21172.3848.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Tue, 09 Oct 2012 14:30:33 +0100
+> > > Jesse did not share any performance numbers with me, I am sure he can
+> > > give some background tomorrow when he is back online.
+> > > 
+> > > I am working on an alternative patch now and should have something to
+> > > share tomorrow.
+> > Please allow me to ask if there's any progess here?
+> > 
+> > I've tried 3.5.4 a couple of days ago on a SuperMicro X8SIE-LN4 (82574L)
+> > and could still observe severe latency (up to 3000ms) spikes.
+> > 
+> > Applying Hiroakis suggested patch did fix this for me as well.
+> > [please note as well that I didn't had this issue in any 3.4.x kernel
+> > before - so +1 for fixing the regression]
 
-> Can you merge the following branch into the net tree please.
-> 
-> This is to complete part of the Userspace API (UAPI) disintegration for which
-> the preparatory patches were pulled recently.  After these patches, userspace
-> headers will be segregated into:
-> 
-> 	include/uapi/linux/.../foo.h
-> 
-> for the userspace interface stuff, and:
-> 
-> 	include/linux/.../foo.h
-> 
-> for the strictly kernel internal stuff.
-> 
-> ---
-> The following changes since commit 9e2d8656f5e8aa214e66b462680cf86b210b74a8:
-> 
->   Merge branch 'akpm' (Andrew's patch-bomb) (2012-10-09 16:23:15 +0900)
-> 
-> are available in the git repository at:
-> 
-> 
->   git://git.infradead.org/users/dhowells/linux-headers.git tags/disintegrate-net-20121009
+I'm not sure what went wrong internally here that this hasn't been
+fixed, and I'm personally embarrassed.  I am working on it until I have
+a patch/solution.
 
-Ok I pulled this and the ISDN one too.
+currently am trying to reproduce the issue, am in some weird how to
+use BQL limbo, the lack of documentation on user usage of BQL is slowing
+me down.
 
-Thanks.
+Hints or clues (I'm trying to follow the repro steps mentioned in
+some related threads) are appreciated.
