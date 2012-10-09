@@ -1,132 +1,70 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 08/16] ipvs: fix ip_vs_set_timeout debug messages
-Date: Tue, 9 Oct 2012 10:48:31 +0900
-Message-ID: <20121009014831.GI3403@verge.net.au>
-References: <1349448930-23976-1-git-send-email-arnd@arndb.de>
- <201210060645.05225.arnd@arndb.de>
- <alpine.LFD.2.00.1210061052170.1971@ja.ssi.bg>
- <201210060954.15831.arnd@arndb.de>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [RFC PATCH net-next] tcp: introduce tcp_tw_interval to specifiy
+ the time of TIME-WAIT
+Date: Tue, 09 Oct 2012 11:42:16 +0800
+Message-ID: <1349754136.2420.0.camel@cr0>
+References: <1348735261-29225-1-git-send-email-amwang@redhat.com>
+	 <20120927142334.GA3194@neilslaptop.think-freely.org>
+	 <1348813987.7264.41.camel@cr0>
+	 <20120928131642.GA31568@hmsreliant.think-freely.org>
+	 <1349161479.22107.17.camel@cr0>
+	 <20121002120927.GA691@hmsreliant.think-freely.org>
+	 <1349666257.2707.6.camel@cr0>
+	 <20121008140743.GC22939@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Anastasov <ja@ssi.bg>, Krzysztof Halasa <khc@pm.waw.pl>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	arm@kernel.org, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201210060954.15831.arnd@arndb.de>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <edumazet@google.com>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50608 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751893Ab2JIDnQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2012 23:43:16 -0400
+In-Reply-To: <20121008140743.GC22939@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 06, 2012 at 09:54:15AM +0000, Arnd Bergmann wrote:
-> On Saturday 06 October 2012, Julian Anastasov wrote:
-> > On Sat, 6 Oct 2012, Arnd Bergmann wrote:
-> > > > 	Are there any CONFIG_IP_VS_PROTO_xxx options in this
-> > > > default config? It is a waste of memory if IPVS is compiled
-> > > > without any protocols.
-> > > 
-> > > They all appear to be turned off:
-> > > 
-> > > $ grep CONFIG_IP_VS obj-tmp/.config
-> > > CONFIG_IP_VS=m
-> > > CONFIG_IP_VS_DEBUG=y
-> > > CONFIG_IP_VS_TAB_BITS=12
-> > > # CONFIG_IP_VS_PROTO_TCP is not set
-> > > # CONFIG_IP_VS_PROTO_UDP is not set
-> > > # CONFIG_IP_VS_PROTO_AH_ESP is not set
-> > > # CONFIG_IP_VS_PROTO_ESP is not set
-> > > # CONFIG_IP_VS_PROTO_AH is not set
-> > > # CONFIG_IP_VS_PROTO_SCTP is not set
+On Mon, 2012-10-08 at 10:07 -0400, Neil Horman wrote:
+> On Mon, Oct 08, 2012 at 11:17:37AM +0800, Cong Wang wrote:
+> > On Tue, 2012-10-02 at 08:09 -0400, Neil Horman wrote:
+> > > No, its not very friendly, but the people using this are violating the RFC,
+> > > which isn't very friendly. :)
 > > 
-> > 	Something should be changed here, may be at least
-> > TCP/UDP, who knows.
-> 
-> I don't try to read too much into our defconfigs. We have 140 of them
-> on ARM, and they are mainly useful to give a reasonable build coverage,
-> but I wouldn't expect them to be actually used on that hardware.
-> 
-> I'll leave it up to Krzysztof to send a patch for this if he wants.
-> 
-> > > --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> > > +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> > > @@ -2590,6 +2588,7 @@ __ip_vs_get_timeouts(struct net *net, struct ip_vs_timeout_user *u)
-> > >  #if defined(CONFIG_IP_VS_PROTO_TCP) || defined(CONFIG_IP_VS_PROTO_UDP)
-> > >  	struct ip_vs_proto_data *pd;
-> > >  #endif
+> > Could you be more specific? In RFC 793, AFAIK, it is allowed to be
+> > changed:
 > > 
-> > 	That is what we want. If you plan another submission
-> > you can add empty line before this memset and to replace
-> > the __ip_vs_get_timeouts call in ip_vs_genl_set_config with
-> > memset but they are cosmetic changes. Or may be Simon will
-> > take care about the coding style when applying the change.
+> > http://tools.ietf.org/html/rfc793
 > > 
-> > Acked-by: Julian Anastasov <ja@ssi.bg>
+> > " To be sure that a TCP does not create a segment that carries a
+> >   sequence number which may be duplicated by an old segment remaining in
+> >   the network, the TCP must keep quiet for a maximum segment lifetime
+> >   (MSL) before assigning any sequence numbers upon starting up or
+> >   recovering from a crash in which memory of sequence numbers in use was
+> >   lost.  For this specification the MSL is taken to be 2 minutes.  This
+> >   is an engineering choice, and may be changed if experience indicates
+> >   it is desirable to do so."
+> > 
+> Its the length of time that represents an MSL that was the choice, not the fact
+> that reusing a TCP before the expiration of the MSL is a bad idea.
 > 
-> I'd prefer Simon to pick up the patch. He should also decide whether he wants
-> to add it to stable. In theory, this is a small leak of kernel stack data
-> to user space, but as you say in practice it should not happen because it
-> only exists for silly configurations that nobody should be using.
+> > or I must still be missing something here... :)
+> > 
+> Next paragraph down:
+> 	This specification provides that hosts which "crash" without
+>     retaining any knowledge of the last sequence numbers transmitted on
+>     each active (i.e., not closed) connection shall delay emitting any
+>     TCP segments for at least the agreed Maximum Segment Lifetime (MSL)
+>     in the internet system of which the host is a part.  In the
+>     paragraphs below, an explanation for this specification is given.
+>     TCP implementors may violate the "quiet time" restriction, but only
+>     at the risk of causing some old data to be accepted as new or new
+>     data rejected as old duplicated by some receivers in the internet
+>     system. .... etc.
 > 
-> AFAICT, removing the call to __ip_vs_get_timeouts in do_ip_vs_get_ctl would
-> be a semantic change for the case where a user sends a IPVS_CMD_SET_CONFIG
-> message without without the complete set of attributes inside it. The current
-> behavior is to leave the timeouts alone, replacing the __ip_vs_get_timeouts
-> with a memset would zero them. I left this part alone then.
 > 
-> 	Arnd
 
-Hi,
-
-sorry for being a bit slow, it was a long weekend here.
-This patch looks reasonable and I think it is appropriate for stable.
-I'll see about getting it merged accordingly.
-
-> 
-> 8<-----
-> ipvs: initialize returned data in do_ip_vs_get_ctl
-> 
-> As reported by a gcc warning, the do_ip_vs_get_ctl does not initalize
-> all the members of the ip_vs_timeout_user structure it returns if
-> at least one of the TCP or UDP protocols is disabled for ipvs. 
-> 
-> This makes sure that the data is always initialized, before it is
-> returned as a response to IPVS_CMD_GET_CONFIG or printed as a
-> debug message in IPVS_CMD_SET_CONFIG.
-> 
-> Without this patch, building ARM ixp4xx_defconfig results in:
-> 
-> net/netfilter/ipvs/ip_vs_ctl.c: In function 'ip_vs_genl_set_cmd':
-> net/netfilter/ipvs/ip_vs_ctl.c:2238:47: warning: 't.udp_timeout' may be used uninitialized in this function [-Wuninitialized]
-> net/netfilter/ipvs/ip_vs_ctl.c:3322:28: note: 't.udp_timeout' was declared here
-> net/netfilter/ipvs/ip_vs_ctl.c:2238:47: warning: 't.tcp_fin_timeout' may be used uninitialized in this function [-Wuninitialized]
-> net/netfilter/ipvs/ip_vs_ctl.c:3322:28: note: 't.tcp_fin_timeout' was declared here
-> net/netfilter/ipvs/ip_vs_ctl.c:2238:47: warning: 't.tcp_timeout' may be used uninitialized in this function [-Wuninitialized]
-> net/netfilter/ipvs/ip_vs_ctl.c:3322:28: note: 't.tcp_timeout' was declared here
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Acked-by: Julian Anastasov <ja@ssi.bg>
-> ---
-> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> index 2770f85..c4ee437 100644
-> --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> @@ -2591,6 +2589,8 @@ __ip_vs_get_timeouts(struct net *net, struct ip_vs_timeout_user *u)
->  	struct ip_vs_proto_data *pd;
->  #endif
->  
-> +	memset(u, 0, sizeof (*u));
-> +
->  #ifdef CONFIG_IP_VS_PROTO_TCP
->  	pd = ip_vs_proto_data_get(net, IPPROTO_TCP);
->  	u->tcp_timeout = pd->timeout_table[IP_VS_TCP_S_ESTABLISHED] / HZ;
-> @@ -2768,7 +2768,6 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
->  	{
->  		struct ip_vs_timeout_user t;
->  
-> -		memset(&t, 0, sizeof(t));
->  		__ip_vs_get_timeouts(net, &t);
->  		if (copy_to_user(user, &t, sizeof(t)) != 0)
->  			ret = -EFAULT;
-> 
+Ah, ok. Thanks for the detailed answer!
