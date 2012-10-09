@@ -1,59 +1,65 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 3/3] e1000e: add device IDs for i218
-Date: Tue,  9 Oct 2012 03:13:32 -0700
-Message-ID: <1349777612-30149-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1349777612-30149-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: =?iso-8859-1?Q?Jos=E9_Alexandre_Ventura?= <jose.ventura@efacec.com>
+Subject: SMSC LAN9512 PowerPC Linux Driver Problem
+Date: Tue, 9 Oct 2012 11:01:34 +0000
+Message-ID: <4A56411E-6E5F-489A-B6DA-4A527528B785@efacec.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?iso-8859-1?Q?An=EDbal_Almeida_Pinto?= <anibal.pinto@efacec.com>,
+	=?iso-8859-1?Q?Jos=E9_Alexandre_Ventura?= <jose.ventura@efacec.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:57651 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755251Ab2JIKNv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Oct 2012 06:13:51 -0400
-In-Reply-To: <1349777612-30149-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail1.efacec.com ([213.58.212.93]:51379 "HELO mail1.efacec.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751278Ab2JILOK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 07:14:10 -0400
+Content-Language: en-US
+Content-ID: <E934F3AD114E164BBEBE64B93C61A600@efacec.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
 
-i218 is the next-generation LOM that will be available on systems with the
-Lynx Point LP Platform Controller Hub (PCH) chipset from Intel.  This patch
-provides the initial support of those devices.
+Hi,
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/hw.h     | 2 ++
- drivers/net/ethernet/intel/e1000e/netdev.c | 2 ++
- 2 files changed, 4 insertions(+)
+I'm having problems with an SMSC EVB9512, based on the LAN9512 chip, wh=
+en using with a PowerPC Chip. The Driver I'm using is the one already p=
+rovided by Linux.
+I have tested the EVB9512 in two test configurations, both using a Powe=
+rPC:
 
-diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index ed5b409..d37bfd9 100644
---- a/drivers/net/ethernet/intel/e1000e/hw.h
-+++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -412,6 +412,8 @@ enum e1e_registers {
- #define E1000_DEV_ID_PCH2_LV_V			0x1503
- #define E1000_DEV_ID_PCH_LPT_I217_LM		0x153A
- #define E1000_DEV_ID_PCH_LPT_I217_V		0x153B
-+#define E1000_DEV_ID_PCH_LPTLP_I218_LM		0x155A
-+#define E1000_DEV_ID_PCH_LPTLP_I218_V		0x1559
- 
- #define E1000_REVISION_4 4
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index fb659dd..de57a2b 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -6558,6 +6558,8 @@ static DEFINE_PCI_DEVICE_TABLE(e1000_pci_tbl) = {
- 
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_LPT_I217_LM), board_pch_lpt },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_LPT_I217_V), board_pch_lpt },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_LPTLP_I218_LM), board_pch_lpt },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_LPTLP_I218_V), board_pch_lpt },
- 
- 	{ 0, 0, 0, 0, 0, 0, 0 }	/* terminate list */
- };
--- 
-1.7.11.4
+=46irst Test Configuration:
+- Custom Board with PowerPC Fresscale MPC8378  @ 667MHz
+- Linux Kernel 3.0.0
+- EVB9512 connected via USB
+
+Problems with First Test Configuration:
+- nmap reports ports has filtered, even thought they are open
+- can't establish any connection, even a TCP socket
+- can ping the Board with other Devices without a problem
+
+I have made more tests and found out that even though I can receive and=
+ send packages, my TX packages had incorrect TCP checksum.
+I then used ethtool to disable TX Checksum offloading and all my proble=
+ms were solved. The problem with this 'fix' is that it uses more CPU an=
+d when under heavy load, I get an error and the ethernet port is shut.
+
+
+Second Configuration:
+- PowerBook G4 1.5GHz, 1.25MB DDR333
+- Ubuntu Live CD 12.04 LTS
+- EVB9512 connected via USB
+
+Problems with second Configuration:
+- TX packets appears as errors in ifconfig
+- The powerbook is pinged from another machine without a problem but th=
+e PowerBook can't ping the other device
+
+I have also tested the EVB9512 with a Custom Card with an OMAP L138 and=
+ also tested with a Toshiba Notebook with an Intel Core i5, both withou=
+t any problems. This shows that it is not a problem with the EVB9512 it=
+self because it works correctly with other architectures. I think the p=
+roblems lies in the PowerPC driver of the LAN95xx.
+
+
+Best Regards,
+Jos=E9 Ventura
