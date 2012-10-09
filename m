@@ -1,55 +1,48 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH net] netfilter: nf_conntrack: fix rt_gateway checks for h323
-Date: Wed, 10 Oct 2012 02:00:47 +0300
-Message-ID: <1349823647-2166-1-git-send-email-ja@ssi.bg>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: [net:master 6/7] mdio-gpio.c:(.text+0x58): multiple definition of
+ `of_mdiobus_register'
+Date: Wed, 10 Oct 2012 07:28:18 +0800
+Message-ID: <20121009232818.GB9331@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+To: Mark Brown <broonie@opensource.wolfsonmicro.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:58221 "EHLO ja.ssi.bg"
+Received: from mga11.intel.com ([192.55.52.93]:33696 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757122Ab2JIWz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Oct 2012 18:55:28 -0400
+	id S1754686Ab2JIX2T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2012 19:28:19 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	After the change "Adjust semantics of rt->rt_gateway"
-(commit f8126f1d51) we should properly match the nexthop when
-destinations are directly connected because rt_gateway can be 0.
+Hi Mark,
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
+FYI, kernel build failed on
+
+tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+head:   5175a5e76bbdf20a614fb47ce7a38f0f39e70226
+commit: 4085a7f0a09c73ef3e9de113c9f04d78c79be645 [6/7] netdev/phy: Prototype of_mdio_find_bus()
+config: i386-allyesconfig
+
+All error/warnings:
+
+drivers/net/phy/mdio-gpio.o: In function `of_mdiobus_register':
+mdio-gpio.c:(.text+0x58): multiple definition of `of_mdiobus_register'
+drivers/net/phy/libphy.o:(.text+0x23d7): first defined here
+drivers/net/phy/mdio-gpio.o: In function `of_phy_find_device':
+mdio-gpio.c:(.text+0x67): multiple definition of `of_phy_find_device'
+drivers/net/phy/libphy.o:(.text+0x23e6): first defined here
+drivers/net/phy/mdio-gpio.o: In function `of_phy_connect':
+mdio-gpio.c:(.text+0x73): multiple definition of `of_phy_connect'
+drivers/net/phy/libphy.o:(.text+0x23f2): first defined here
+drivers/net/phy/mdio-gpio.o: In function `of_phy_connect_fixed_link':
+mdio-gpio.c:(.text+0x7f): multiple definition of `of_phy_connect_fixed_link'
+drivers/net/phy/libphy.o:(.text+0x23fe): first defined here
+drivers/net/phy/mdio-gpio.o: In function `of_mdio_find_bus':
+mdio-gpio.c:(.text+0x8b): multiple definition of `of_mdio_find_bus'
+drivers/net/phy/libphy.o:(.text+0x240a): first defined here
+
 ---
-
-	This patch needs a closer look from the Netfilter team.
-
-	It restores the check as it was committed originally,
-i.e. to compare nexthops. I'm not sure what is the desired logic,
-it can depend on the following:
-
-- two directly connected hosts (rt_gateway=0) can be from different
-subnets or not
-
-- one party A is the gateway (rt_gateway=0), another party uses
-this gateway (rt_gateway=A)
-
-	May be someone that knows this code better can comment
-if the check should be different.
-
- net/netfilter/nf_conntrack_h323_main.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-index 1b30b0d..962795e 100644
---- a/net/netfilter/nf_conntrack_h323_main.c
-+++ b/net/netfilter/nf_conntrack_h323_main.c
-@@ -753,7 +753,8 @@ static int callforward_do_filter(const union nf_inet_addr *src,
- 				   flowi4_to_flowi(&fl1), false)) {
- 			if (!afinfo->route(&init_net, (struct dst_entry **)&rt2,
- 					   flowi4_to_flowi(&fl2), false)) {
--				if (rt1->rt_gateway == rt2->rt_gateway &&
-+				if (rt_nexthop(rt1, fl1.daddr) ==
-+				    rt_nexthop(rt2, fl2.daddr) &&
- 				    rt1->dst.dev  == rt2->dst.dev)
- 					ret = 1;
- 				dst_release(&rt2->dst);
--- 
-1.7.3.4
+0-DAY kernel build testing backend         Open Source Technology Center
+Fengguang Wu, Yuanhan Liu                              Intel Corporation
