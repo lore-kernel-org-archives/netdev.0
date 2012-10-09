@@ -1,32 +1,38 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH 12/12] usbnet: make device out of suspend before calling usbnet_read/write_cmd
-Date: Tue, 09 Oct 2012 10:50:05 +0200
-Message-ID: <2913414.gCAxlQ38lG@linux-lqwf.site>
-References: <1349160684-6627-1-git-send-email-ming.lei@canonical.com> <1349160684-6627-13-git-send-email-ming.lei@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Ming Lei <ming.lei@canonical.com>
+From: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Subject: [PATCH] netdev/phy: Prototype of_mdio_find_bus()
+Date: Tue,  9 Oct 2012 17:55:43 +0900
+Message-ID: <1349772944-14289-1-git-send-email-broonie@opensource.wolfsonmicro.com>
+Cc: netdev@vger.kernel.org,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	David Daney <david.daney@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:33369 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754115Ab2JIIvs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Oct 2012 04:51:48 -0400
-In-Reply-To: <1349160684-6627-13-git-send-email-ming.lei@canonical.com>
+Received: from opensource.wolfsonmicro.com ([80.75.67.52]:57582 "EHLO
+	opensource.wolfsonmicro.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754301Ab2JII4V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 04:56:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 02 October 2012 14:51:23 Ming Lei wrote:
-> This patche gets the runtime PM reference count before calling
-> usb_control_msg, and puts it after completion of the
-> usb_control_msg, so that the usb control message can always be
-> sent to one active device.
+Ensure that of_mdio_find_bus() matches the prototype in the header (and
+stop sparse complaining) by including the header with the prototype.
 
-This is awkward to use in suspend()/resume()
-Could you make both versions available?
+Signed-off-by: Mark Brown <broonie@opensource.wolfsonmicro.com>
+---
+ drivers/net/phy/mdio_bus.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-	Regards
-		Oliver
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 170eb41..c1ef300 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -26,6 +26,7 @@
+ #include <linux/delay.h>
+ #include <linux/device.h>
+ #include <linux/of_device.h>
++#include <linux/of_mdio.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/skbuff.h>
+-- 
+1.7.10.4
