@@ -1,70 +1,107 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [RFC PATCH net-next] tcp: introduce tcp_tw_interval to specifiy
- the time of TIME-WAIT
-Date: Tue, 09 Oct 2012 11:42:16 +0800
-Message-ID: <1349754136.2420.0.camel@cr0>
-References: <1348735261-29225-1-git-send-email-amwang@redhat.com>
-	 <20120927142334.GA3194@neilslaptop.think-freely.org>
-	 <1348813987.7264.41.camel@cr0>
-	 <20120928131642.GA31568@hmsreliant.think-freely.org>
-	 <1349161479.22107.17.camel@cr0>
-	 <20121002120927.GA691@hmsreliant.think-freely.org>
-	 <1349666257.2707.6.camel@cr0>
-	 <20121008140743.GC22939@hmsreliant.think-freely.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL nf-next] IPVS for 3.7 #2
+Date: Tue, 9 Oct 2012 12:52:33 +0900
+Message-ID: <20121009035233.GB26896@verge.net.au>
+References: <1348800904-23902-1-git-send-email-horms@verge.net.au>
+ <1349721865.22194.53.camel@localhost>
+ <20121008231704.GA7974@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50608 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751893Ab2JIDnQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Oct 2012 23:43:16 -0400
-In-Reply-To: <20121008140743.GC22939@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	David Miller <davem@davemloft.net>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Hans Schillstrom <hans@schillstrom.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20121008231704.GA7974@1984>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-10-08 at 10:07 -0400, Neil Horman wrote:
-> On Mon, Oct 08, 2012 at 11:17:37AM +0800, Cong Wang wrote:
-> > On Tue, 2012-10-02 at 08:09 -0400, Neil Horman wrote:
-> > > No, its not very friendly, but the people using this are violating the RFC,
-> > > which isn't very friendly. :)
-> > 
-> > Could you be more specific? In RFC 793, AFAIK, it is allowed to be
-> > changed:
-> > 
-> > http://tools.ietf.org/html/rfc793
-> > 
-> > " To be sure that a TCP does not create a segment that carries a
-> >   sequence number which may be duplicated by an old segment remaining in
-> >   the network, the TCP must keep quiet for a maximum segment lifetime
-> >   (MSL) before assigning any sequence numbers upon starting up or
-> >   recovering from a crash in which memory of sequence numbers in use was
-> >   lost.  For this specification the MSL is taken to be 2 minutes.  This
-> >   is an engineering choice, and may be changed if experience indicates
-> >   it is desirable to do so."
-> > 
-> Its the length of time that represents an MSL that was the choice, not the fact
-> that reusing a TCP before the expiration of the MSL is a bad idea.
+On Tue, Oct 09, 2012 at 01:17:04AM +0200, Pablo Neira Ayuso wrote:
+> Hi Jesper,
 > 
-> > or I must still be missing something here... :)
+> On Mon, Oct 08, 2012 at 08:44:25PM +0200, Jesper Dangaard Brouer wrote:
+> > Hey Pablo,
 > > 
-> Next paragraph down:
-> 	This specification provides that hosts which "crash" without
->     retaining any knowledge of the last sequence numbers transmitted on
->     each active (i.e., not closed) connection shall delay emitting any
->     TCP segments for at least the agreed Maximum Segment Lifetime (MSL)
->     in the internet system of which the host is a part.  In the
->     paragraphs below, an explanation for this specification is given.
->     TCP implementors may violate the "quiet time" restriction, but only
->     at the risk of causing some old data to be accepted as new or new
->     data rejected as old duplicated by some receivers in the internet
->     system. .... etc.
+> > These changes were intended for 3.7, but just checked you git tree...
+> > and it looks like you didn't pull in Simon's changes, and thus they have
+> > not hit DaveM's tree for the merge window :-(
 > 
-> 
+> Sorry, you sent this pull request by friday 28/09. Net-next was closed
+> on tuesday 02/10. That was tight. I don't like to push things too hard
+> to David by last time.
 
-Ah, ok. Thanks for the detailed answer!
+I understand.
+
+> My intention is still to pass this to net-next once it gets opened
+> again, of course. So don't worry, we still have the chance to get this
+> in.
+> 
+> I see at least one fix in this patchset, we can still pass it that to
+> 3.7 if you want.
+
+There is a fix from Arnd that I would like incorporated in 3.7.
+I will send a pull-request for that a little later.
+
+> Let me know what you prefer.
+> 
+> > --Jesper
+> > 
+> > 
+> > On Fri, 2012-09-28 at 11:54 +0900, Simon Horman wrote:
+> > > Hi Pablo,
+> > > 
+> > > please consider the following enhancements to IPVS for inclusion in 3.7.
+> > > 
+> > > ----------------------------------------------------------------
+> > > The following changes since commit 82c93fcc2e1737fede2752520f1bf8f4de6304d8:
+> > > 
+> > >   x86: bpf_jit_comp: add XOR instruction for BPF JIT (2012-09-24 16:54:35 -0400)
+> > > 
+> > > are available in the git repository at:
+> > > 
+> > >   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git master
+> > > 
+> > > for you to fetch changes up to 92eec78d25aee6bbc9bd295f51c022ddfa80cdd9:
+> > > 
+> > >   ipvs: SIP fragment handling (2012-09-28 11:37:16 +0900)
+> > > 
+> > > ----------------------------------------------------------------
+> > > Jesper Dangaard Brouer (7):
+> > >       ipvs: Trivial changes, use compressed IPv6 address in output
+> > >       ipvs: IPv6 extend ICMPv6 handling for future types
+> > >       ipvs: Use config macro IS_ENABLED()
+> > >       ipvs: Fix faulty IPv6 extension header handling in IPVS
+> > >       ipvs: Complete IPv6 fragment handling for IPVS
+> > >       ipvs: API change to avoid rescan of IPv6 exthdr
+> > >       ipvs: SIP fragment handling
+> > > 
+> > >  include/net/ip_vs.h                     |  194 +++++++++++----
+> > >  net/netfilter/ipvs/Kconfig              |    7 +-
+> > >  net/netfilter/ipvs/ip_vs_conn.c         |   15 +-
+> > >  net/netfilter/ipvs/ip_vs_core.c         |  404 +++++++++++++++++--------------
+> > >  net/netfilter/ipvs/ip_vs_dh.c           |    2 +-
+> > >  net/netfilter/ipvs/ip_vs_lblc.c         |    2 +-
+> > >  net/netfilter/ipvs/ip_vs_lblcr.c        |    2 +-
+> > >  net/netfilter/ipvs/ip_vs_pe_sip.c       |   18 +-
+> > >  net/netfilter/ipvs/ip_vs_proto.c        |    6 +-
+> > >  net/netfilter/ipvs/ip_vs_proto_ah_esp.c |    9 +-
+> > >  net/netfilter/ipvs/ip_vs_proto_sctp.c   |   42 ++--
+> > >  net/netfilter/ipvs/ip_vs_proto_tcp.c    |   40 ++-
+> > >  net/netfilter/ipvs/ip_vs_proto_udp.c    |   41 ++--
+> > >  net/netfilter/ipvs/ip_vs_sched.c        |    2 +-
+> > >  net/netfilter/ipvs/ip_vs_sh.c           |    2 +-
+> > >  net/netfilter/ipvs/ip_vs_xmit.c         |   73 +++---
+> > >  net/netfilter/xt_ipvs.c                 |    4 +-
+> > >  17 files changed, 501 insertions(+), 362 deletions(-)
+> > 
+> > 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
