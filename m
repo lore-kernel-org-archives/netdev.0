@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] farsync: fix support for over 30 cards
-Date: Tue, 09 Oct 2012 13:55:50 -0400 (EDT)
-Message-ID: <20121009.135550.1463309187925495248.davem@davemloft.net>
-References: <20121009072047.GB19159@elgon.mountain>
+Subject: Re: [PATCH] be2net: Remove code that stops further access to BE
+ NIC based on UE bits
+Date: Tue, 09 Oct 2012 13:55:56 -0400 (EDT)
+Message-ID: <20121009.135556.1173953819006480045.davem@davemloft.net>
+References: <20121009041821.GA16595@akhaparde-VBox>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kevin.curtis@farsite.co.uk, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org
+To: ajit.khaparde@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39466 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39472 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756617Ab2JIRzv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 13:55:51 -0400
-In-Reply-To: <20121009072047.GB19159@elgon.mountain>
+	with ESMTP id S1755054Ab2JIRz6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 13:55:58 -0400
+In-Reply-To: <20121009041821.GA16595@akhaparde-VBox>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Tue, 9 Oct 2012 10:20:48 +0300
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Date: Mon, 8 Oct 2012 23:18:21 -0500
 
-> We're trying to fill a 64 bit bitmap but only the lower 30 shifts work
-> because the shift wraps around.
+> On certain platforms, BE hardware could  falsely indicate UE.
+> For BE family of NICs, do not set hw_error based on the UE bits.
+> If there was a real fatal error, the corresponding h/w block will
+> automatically go offline and stop traffic.
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
 
 Applied.
