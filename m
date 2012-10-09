@@ -1,77 +1,55 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V1 1/3] net/mlx4_core: Add timestamping device capability
-Date: Tue,  9 Oct 2012 17:20:11 +0200
-Message-ID: <1349796013-31106-2-git-send-email-ogerlitz@mellanox.com>
-References: <1349796013-31106-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Eugenia Emantayev <eugenia@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: compound skb frag pages appearing in start_xmit
+Date: Tue, 09 Oct 2012 16:51:40 +0200
+Message-ID: <1349794300.21172.4536.camel@edumazet-glaptop>
+References: <1349790467.21847.185.camel@zakaz.uk.xensource.com>
+	 <1349790863.21172.4406.camel@edumazet-glaptop>
+	 <1349792241.21847.199.camel@zakaz.uk.xensource.com>
+	 <1349792847.21172.4479.camel@edumazet-glaptop>
+	 <1349793630.21847.208.camel@zakaz.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	xen-devel <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Konrad Rzeszutek Wilk <konrad@kernel.org>,
+	Sander Eikelenboom <linux@eikelenboom.it>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:41815 "HELO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751089Ab2JIPUn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 11:20:43 -0400
-In-Reply-To: <1349796013-31106-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:56275 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750766Ab2JIP2u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 11:28:50 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so2732744bkc.19
+        for <netdev@vger.kernel.org>; Tue, 09 Oct 2012 08:28:49 -0700 (PDT)
+In-Reply-To: <1349793630.21847.208.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugenia Emantayev <eugenia@mellanox.com>
+On Tue, 2012-10-09 at 15:40 +0100, Ian Campbell wrote:
+> On Tue, 2012-10-09 at 15:27 +0100, Eric Dumazet wrote:
+> > On Tue, 2012-10-09 at 15:17 +0100, Ian Campbell wrote:
+> > 
+> > > Does the higher order pages effectively reduce the number of frags which
+> > > are in use? e.g if MAX_SKB_FRAGS is 16, then for order-0 pages you could
+> > > have 64K worth of frag data.
+> > > 
+> > > If we switch to order-3 pages everywhere then can the skb contain 512K
+> > > of data, or does the effective maximum number of frags in an skb reduce
+> > > to 2?
+> > 
+> > effective number of frags reduce to 2 or 3
+> > 
+> > (We still limit GSO packets to ~63536 bytes)
+> 
+> Great! Then I think the fix is more/less trivial...
+> 
+> As an aside, when the skb head is < 4096 bytes is that necessarily a
+> compound page or might it just be a large kmalloc area?
+> 
 
-Add new device capability for timestamping support and query FW to retrieve it.
+skb->head can be either allocated by kmalloc() (standard alloc_skb()) or
+a page frag (if allocated in rx path)
 
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-Reviewed-by: Yevgeny Petrilin <yevgenyp@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/fw.c |    7 ++++++-
- include/linux/mlx4/device.h             |    3 ++-
- 2 files changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 4f30b99..01bc49b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -125,7 +125,8 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
- 		[0] = "RSS support",
- 		[1] = "RSS Toeplitz Hash Function support",
- 		[2] = "RSS XOR Hash Function support",
--		[3] = "Device manage flow steering support"
-+		[3] = "Device manage flow steering support",
-+		[4] = "Time stamping support"
- 	};
- 	int i;
- 
-@@ -439,6 +440,7 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- #define QUERY_DEV_CAP_MAX_MSG_SZ_OFFSET		0x38
- #define QUERY_DEV_CAP_MAX_GID_OFFSET		0x3b
- #define QUERY_DEV_CAP_RATE_SUPPORT_OFFSET	0x3c
-+#define QUERY_DEV_CAP_CQ_TS_SUPPORT_OFFSET	0x3e
- #define QUERY_DEV_CAP_MAX_PKEY_OFFSET		0x3f
- #define QUERY_DEV_CAP_EXT_FLAGS_OFFSET		0x40
- #define QUERY_DEV_CAP_FLAGS_OFFSET		0x44
-@@ -554,6 +556,9 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 	dev_cap->fs_max_num_qp_per_entry = field;
- 	MLX4_GET(stat_rate, outbox, QUERY_DEV_CAP_RATE_SUPPORT_OFFSET);
- 	dev_cap->stat_rate_support = stat_rate;
-+	MLX4_GET(field, outbox, QUERY_DEV_CAP_CQ_TS_SUPPORT_OFFSET);
-+	if (field & 0x80)
-+		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_TS;
- 	MLX4_GET(ext_flags, outbox, QUERY_DEV_CAP_EXT_FLAGS_OFFSET);
- 	MLX4_GET(flags, outbox, QUERY_DEV_CAP_FLAGS_OFFSET);
- 	dev_cap->flags = flags | (u64)ext_flags << 32;
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 6d1acb0..dbdcc64 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -148,7 +148,8 @@ enum {
- 	MLX4_DEV_CAP_FLAG2_RSS			= 1LL <<  0,
- 	MLX4_DEV_CAP_FLAG2_RSS_TOP		= 1LL <<  1,
- 	MLX4_DEV_CAP_FLAG2_RSS_XOR		= 1LL <<  2,
--	MLX4_DEV_CAP_FLAG2_FS_EN		= 1LL <<  3
-+	MLX4_DEV_CAP_FLAG2_FS_EN		= 1LL <<  3,
-+	MLX4_DEV_CAP_FLAG2_TS			= 1LL <<  4
- };
- 
- #define MLX4_ATTR_EXTENDED_PORT_INFO	cpu_to_be16(0xff90)
--- 
-1.7.1
+Not sure its related to headlen/size...
