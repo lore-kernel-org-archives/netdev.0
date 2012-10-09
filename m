@@ -1,71 +1,58 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH] ipvs: initialize returned data in do_ip_vs_get_ctl
-Date: Tue,  9 Oct 2012 13:47:17 +0900
-Message-ID: <1349758037-25317-2-git-send-email-horms@verge.net.au>
-References: <1349758037-25317-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1349758037-25317-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Liu <jeff.liu@oracle.com>
+Subject: [PATCH v2] RDS: fix rds-ping spinlock recursion
+Date: Tue, 09 Oct 2012 12:57:27 +0800
+Message-ID: <5073AEB7.9060309@oracle.com>
+Reply-To: jeff.liu@oracle.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	davem@davemloft.net, Dan Carpenter <dan.carpenter@oracle.com>,
+	James Morris <james.l.morris@oracle.com>,
+	netdev@vger.kernel.org
+To: rds-devel@oss.oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from acsinet15.oracle.com ([141.146.126.227]:22788 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750952Ab2JIE6o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 00:58:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
+Hello,
 
-As reported by a gcc warning, the do_ip_vs_get_ctl does not initalize
-all the members of the ip_vs_timeout_user structure it returns if
-at least one of the TCP or UDP protocols is disabled for ipvs.
+This is the revised patch for fixing rds-ping spinlock recursion according to Venkat's suggestions.
 
-This makes sure that the data is always initialized, before it is
-returned as a response to IPVS_CMD_GET_CONFIG or printed as a
-debug message in IPVS_CMD_SET_CONFIG.
+RDS ping/pong over TCP feature has been broken for years(2.6.39 to 3.6.0) since we
+have to set TCP cork and call kernel_sendmsg() between ping/pong which both need to
+lock "struct sock *sk". However, this lock has already been hold before rds_tcp_data_ready()
+callback is triggerred. As a result, we always facing spinlock resursion which would resulting
+in system panic.
 
-Without this patch, building ARM ixp4xx_defconfig results in:
+Given that RDS ping is only used to test the connectivity and not for serious performance measurements,
+we can queue the pong transmit to rds_wq as a delayed response.
 
-net/netfilter/ipvs/ip_vs_ctl.c: In function 'ip_vs_genl_set_cmd':
-net/netfilter/ipvs/ip_vs_ctl.c:2238:47: warning: 't.udp_timeout' may be used uninitialized in this function [-Wuninitialized]
-net/netfilter/ipvs/ip_vs_ctl.c:3322:28: note: 't.udp_timeout' was declared here
-net/netfilter/ipvs/ip_vs_ctl.c:2238:47: warning: 't.tcp_fin_timeout' may be used uninitialized in this function [-Wuninitialized]
-net/netfilter/ipvs/ip_vs_ctl.c:3322:28: note: 't.tcp_fin_timeout' was declared here
-net/netfilter/ipvs/ip_vs_ctl.c:2238:47: warning: 't.tcp_timeout' may be used uninitialized in this function [-Wuninitialized]
-net/netfilter/ipvs/ip_vs_ctl.c:3322:28: note: 't.tcp_timeout' was declared here
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+CC: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+CC: David S. Miller <davem@davemloft.net>
+CC: James Morris <james.l.morris@oracle.com>
+Signed-off-by: Jie Liu <jeff.liu@oracle.com>
 ---
- net/netfilter/ipvs/ip_vs_ctl.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/rds/send.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 7e7198b..c4ee437 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -2589,6 +2589,8 @@ __ip_vs_get_timeouts(struct net *net, struct ip_vs_timeout_user *u)
- 	struct ip_vs_proto_data *pd;
- #endif
+diff --git a/net/rds/send.c b/net/rds/send.c
+index 96531d4..88eace5 100644
+--- a/net/rds/send.c
++++ b/net/rds/send.c
+@@ -1122,7 +1122,7 @@ rds_send_pong(struct rds_connection *conn, __be16 dport)
+ 	rds_stats_inc(s_send_pong);
  
-+	memset(u, 0, sizeof (*u));
-+
- #ifdef CONFIG_IP_VS_PROTO_TCP
- 	pd = ip_vs_proto_data_get(net, IPPROTO_TCP);
- 	u->tcp_timeout = pd->timeout_table[IP_VS_TCP_S_ESTABLISHED] / HZ;
-@@ -2766,7 +2768,6 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
- 	{
- 		struct ip_vs_timeout_user t;
+ 	if (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags))
+-		rds_send_xmit(conn);
++		queue_delayed_work(rds_wq, &conn->c_send_w, 0);
  
--		memset(&t, 0, sizeof(t));
- 		__ip_vs_get_timeouts(net, &t);
- 		if (copy_to_user(user, &t, sizeof(t)) != 0)
- 			ret = -EFAULT;
+ 	rds_message_put(rm);
+ 	return 0;
 -- 
-1.7.10.4
-
+1.7.9.5
