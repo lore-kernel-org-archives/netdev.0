@@ -1,95 +1,75 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: compound skb frag pages appearing in start_xmit
-Date: Tue, 9 Oct 2012 15:54:34 +0100
-Message-ID: <1349794474.21847.215.camel@zakaz.uk.xensource.com>
-References: <1349790467.21847.185.camel@zakaz.uk.xensource.com>
-	 <1349790863.21172.4406.camel@edumazet-glaptop>
-	 <1349791305.21172.4425.camel@edumazet-glaptop>
-	 <1349792617.21847.205.camel@zakaz.uk.xensource.com>
-	 <1349793217.21172.4497.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	xen-devel <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Konrad Rzeszutek Wilk <konrad@kernel.org>,
-	Sander Eikelenboom <linux@eikelenboom.it>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH V1 0/3] net/mlx4: HW timestamping support
+Date: Tue,  9 Oct 2012 17:20:10 +0200
+Message-ID: <1349796013-31106-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:25363 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753321Ab2JIOyh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 10:54:37 -0400
-In-Reply-To: <1349793217.21172.4497.camel@edumazet-glaptop>
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:57999 "HELO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752918Ab2JIPUn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 11:20:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-10-09 at 15:33 +0100, Eric Dumazet wrote:
-> On Tue, 2012-10-09 at 15:23 +0100, Ian Campbell wrote:
-> > On Tue, 2012-10-09 at 15:01 +0100, Eric Dumazet wrote:
-> > > On Tue, 2012-10-09 at 15:54 +0200, Eric Dumazet wrote:
-> > > > On Tue, 2012-10-09 at 14:47 +0100, Ian Campbell wrote:
-> > > > > Hi Eric,
-> > > > > 
-> > > > 
-> > > > Hi Ian
-> > > > 
-> > > > > Sander has discovered an issue where xen-netback is given a compound
-> > > > > page as one of the skb frag pages to transmit. Currently netback can
-> > > > > only handle PAGE_SIZE'd frags and bugs out.
-> > > > > 
-> > > > > I suspect this is something to do with 69b08f62e174 "net: use bigger
-> > > > > pages in __netdev_alloc_frag", although perhaps not because it looks
-> > > > > like only tg3 uses it and Sander has an r8169. Also tg3 seems to only
-> > > > > call netdev_alloc_frag for sizes < PAGE_SIZE. I'm probably missing
-> > > > > something.
-> > > > 
-> > > > 
-> > > > Its not the commit you want ;)
-> > > 
-> > > Hmm, I take it back. It also can give you the same problem :
-> > > 
-> > > We use this allocator for rx path of drivers : 
-> > > 
-> > >  __netdev_alloc_skb() 
-> > > 
-> > > So its now absolutely possible that one skb->head is backed by a order-3
-> > > page.
-> > > 
-> > > Is the problem coming from xen_netbk_count_skb_slots() ?
-> > > 
-> > > Give me more information if you want me to help.
-> > 
-> > The interesting code is in netbk_gop_skb(), specifically the two calls
-> > to netbk_gop_frag_copy.
-> > 
-> > netbk_gop_frag_copy can only copy order-0 pages to the peer since they
-> > go over a shared ring transport which can only deal in order-0 pages.
-> > 
-> > For the SKB head there is a loop which handles order>0 heads, I suspect
-> > we just need something similar for the frag case.
-> > 
-> > Although see my question in the other response about the maximum number
-> > of frags we can have when order is > 0 since if using larger pages
-> > causes us to end up with a much larger number of order-0 pages once
-> > we've broken them up then we have a problem and I need to put my
-> > thinking cap on a bit (perhaps substantially) tighter.
-> > 
-> > Konrad, it looks like netfront has a similar issue in
-> > xennet_make_frags() since it doesn't shatter large order mappings
-> > either.
-> 
-> Hmm...
-> 
-> In theory, if a skb has 16+1 frags backed by compound pages, you could
-> need ~48 order-0 frags.
-> 
-> (4098 bytes could need 1-4096-1 (3 frags))
-> 
-> In practice, it should be around ~17 order-0 frags as before.
+This series of patches introduces Ethernet HW timestamping support in the mlx4 driver.
 
-Right, thanks. I think I can cope with that without needing to change
-the PV protocol in any way.
+changes from v0:
 
-Ian.
+- accept HWTSTAMP_FILTER_PTP_ and HWTSTAMP_FILTER_SOME flags but 
+  reply with HWTSTAMP_FILTER_ALL
+- remove usage of the timecompare API
+- call netdev_features_change() after changing dev->features
+
+Dave, the submission/review of this series begun before net-next
+got closed, so we continue now that for the sake of getting feedback 
+of the comments that were addressed and hopefully acceptance...
+
+When RX/TX is enabled every incoming/outgoing packet will be timestamped.
+
+The series is made of of three patches
+
+1. Add timestamping device capability
+
+2. Read HCA frequency and map internal clock
+
+3. Add HW timestamping (TS) support --  Enable/disable HW timestamping 
+for incoming and/or outgoing packets. Add and initialize all structs and 
+callbacks needed by the kernel timestamping API.
+
+The patches provide raw HW timestamps, where registeration in the 
+driver as PHC class device will be done in a 2nd step, once the basic 
+code is merged.
+
+Or.
+
+
+Eugenia Emantayev (3):
+  net/mlx4_core: Add timestamping device capability
+  net/mlx4_core: Read HCA frequency and map internal clock
+  net/mlx4_en: Add HW timestamping (TS) support
+
+ drivers/infiniband/hw/mlx4/cq.c                   |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/Makefile       |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/cq.c           |   10 +-
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c        |   10 ++-
+ drivers/net/ethernet/mellanox/mlx4/en_main.c      |    5 +
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   75 +++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_resources.c |    3 +
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c        |   28 ++++-
+ drivers/net/ethernet/mellanox/mlx4/en_timestamp.c |  136 +++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c        |   31 +++++-
+ drivers/net/ethernet/mellanox/mlx4/fw.c           |   18 +++-
+ drivers/net/ethernet/mellanox/mlx4/fw.h           |    1 +
+ drivers/net/ethernet/mellanox/mlx4/main.c         |   80 ++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h         |    6 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |   17 +++
+ include/linux/mlx4/cq.h                           |   16 +++
+ include/linux/mlx4/device.h                       |   10 ++-
+ 17 files changed, 431 insertions(+), 19 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx4/en_timestamp.c
+
+Cc: Richard Cochran <richardcochran@gmail.com>
+Cc: Eugenia Emantayev <eugenia@mellanox.com>
