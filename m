@@ -1,68 +1,33 @@
-From: Paolo Bonzini <pbonzini@redhat.com>
-Subject: Re: [PATCH 0/3] virtio-net: inline header support
-Date: Tue, 09 Oct 2012 09:27:20 +0200
-Message-ID: <5073D1D8.3060905@redhat.com>
-References: <cover.1348824232.git.mst@redhat.com>
-	<87vces2gxq.fsf__45058.6618776017$1349247807$gmane$org@rustcorp.com.au>
-	<506C192E.5060700@redhat.com> <87bogj2j1b.fsf@rustcorp.com.au>
-	<506D3610.7000103@redhat.com> <87ipaq1jtt.fsf@rustcorp.com.au>
-	<506D8DD5.20904@redhat.com>
-	<87391t1nkq.fsf__40391.6521034718$1349505001$gmane$org@rustcorp.com.au>
-	<507029EB.2050405@redhat.com> <878vbg8cma.fsf@rustcorp.com.au>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH 00/12] usbnet: usb_control_msg cleanup
+Date: Tue, 09 Oct 2012 10:42:57 +0200
+Message-ID: <1633000.1yFMFXk5sU@linux-lqwf.site>
+References: <1349160684-6627-1-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Sasha Levin <levinsasha928@gmail.com>, avi@redhat.com,
-	Thomas Lendacky <tahm@linux.vnet.ibm.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <878vbg8cma.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Transfer-Encoding: 7Bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1349160684-6627-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Il 09/10/2012 06:59, Rusty Russell ha scritto:
-> Paolo Bonzini <pbonzini@redhat.com> writes:
->> Il 05/10/2012 07:43, Rusty Russell ha scritto:
->>> That's good.  But virtio_blk's scsi command is insoluble AFAICT.  As I
->>> said to Anthony, the best rules are "always" and "never", so I'd really
->>> rather not have to grandfather that in.
->>
->> It is, but we can add a rule that if the (transport) flag
->> VIRTIO_RING_F_ANY_HEADER_SG is set, the cdb field is always 32 bytes in
->> virtio-blk.
+On Tuesday 02 October 2012 14:51:11 Ming Lei wrote:
+> Hi,
 > 
-> Could we do that?  It's the cmd length I'm concerned about; is it always
-> 32 in practice for some reason?
+> This patch set introduces 3 helpers for handling usb read, write
+> and write_async command, and replaces the low level's implemention
+> with the generic ones.
 
-It is always 32 or less except in very obscure cases that are pretty
-much confined to iSCSI.  We don't care about the obscure cases, and the
-extra bytes don't hurt.
+First, very good idea. I'll get to the individual issues in the individual patches.
 
-BTW, 32 is the default cdb_size used by virtio-scsi.
+	Regards
+		Oliver
 
-> Currently qemu does:
-> 
->     struct sg_io_hdr hdr;
->     memset(&hdr, 0, sizeof(struct sg_io_hdr));
->     hdr.interface_id = 'S';
->     hdr.cmd_len = req->elem.out_sg[1].iov_len;
->     hdr.cmdp = req->elem.out_sg[1].iov_base;
->     hdr.dxfer_len = 0;
-> 
-> If it's a command which expects more output data, there's no way to
-> guess where the boundary is between that command and the data.
-
-Yep, so I understood the problem right.
-
-Paolo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
