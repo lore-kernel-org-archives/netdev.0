@@ -1,39 +1,69 @@
-From: Andreas Schwab <schwab@linux-m68k.org>
-Subject: Re: [patch] isdn: fix a wrapping bug in isdn_ppp_ioctl()
-Date: Wed, 10 Oct 2012 15:58:38 +0200
-Message-ID: <m2sj9m5sz5.fsf@igel.home>
-References: <20121010093816.GA3669@elgon.mountain>
-	<1349864358.2386.27.camel@joe-AO722> <m21uh67csy.fsf@igel.home>
-	<1349874007.2386.42.camel@joe-AO722>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH V1 3/3] net/mlx4_en: Add HW timestamping (TS) support
+Date: Wed, 10 Oct 2012 16:06:00 +0200
+Message-ID: <507580C8.2040808@mellanox.com>
+References: <1349796013-31106-1-git-send-email-ogerlitz@mellanox.com> <1349796013-31106-4-git-send-email-ogerlitz@mellanox.com> <20121010033703.GA2304@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Masanari Iida <standby24x7@gmail.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Tzahi Oved <tzahio@mellanox.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:58668 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755954Ab2JJN6l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 09:58:41 -0400
-In-Reply-To: <1349874007.2386.42.camel@joe-AO722> (Joe Perches's message of
-	"Wed, 10 Oct 2012 06:00:07 -0700")
+Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:54040 "HELO
+	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756325Ab2JJOGR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 10:06:17 -0400
+In-Reply-To: <20121010033703.GA2304@netboy.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry, I was misremembering the history of the bit ops.  There has
-historically been issues with varying bit order, but noadays set_bit is
-always defined consistently with C shifts.
+On 10/10/2012 05:37, Richard Cochran wrote:
+> On Tue, Oct 09, 2012 at 05:20:13PM +0200, Or Gerlitz wrote:
+>
+>> @@ -1542,6 +1611,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
+>>   	.ndo_set_mac_address	= mlx4_en_set_mac,
+>>   	.ndo_validate_addr	= eth_validate_addr,
+>>   	.ndo_change_mtu		= mlx4_en_change_mtu,
+>> +	.ndo_do_ioctl		= mlx4_en_ioctl,
+>>   	.ndo_tx_timeout		= mlx4_en_tx_timeout,
+>>   	.ndo_vlan_rx_add_vid	= mlx4_en_vlan_rx_add_vid,
+>>   	.ndo_vlan_rx_kill_vid	= mlx4_en_vlan_rx_kill_vid,
+> You should also provide a get_ts_info function to let the users know
+> about the device's time stamping capabilities.
 
-But another issue, set_bit is an atomic operation which may be
-significantly more expensive than the equivalent C operation.  Better
-use __set_bit when atomicity is not needed.
+sure, will do.
 
-Andreas.
 
--- 
-Andreas Schwab, schwab@linux-m68k.org
-GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_timestamp.c b/drivers/net/ethernet/mellanox
+>> ...
+>>
+>> +void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
+>> +{
+>> +	struct mlx4_dev *dev = mdev->dev;
+>> +	u64 temp_mult;
+>> +
+>> +	memset(&mdev->cycles, 0, sizeof(mdev->cycles));
+>> +	mdev->cycles.read = mlx4_en_read_clock;
+>> +	mdev->cycles.mask = CLOCKSOURCE_MASK(48);
+>> +
+>> +	/* we have hca_core_clock in MHz, so to translate cycles to nsecs
+>> +	 * we need to divide cycles by freq and multiply by 1000;
+>> +	 * in order to get precise result we shift left the value,
+>> +	 * since we don't have floating point there;
+>> +	 * at the end shift result back
+>> +	 */
+>> +	temp_mult = ((1ull * 1000) << 29) / dev->caps.hca_core_clock;
+>> +	mdev->cycles.mult = (u32)temp_mult;
+>> +	mdev->cycles.shift = 29;
+>> +
+>> +	timecounter_init(&mdev->clock, &mdev->cycles,
+>> +			 ktime_to_ns(ktime_get_real()));
+> I didn't see any watchdog code to read this clock periodically, in order to catch overflows.
+
+Thanks for pointing this out, will look on that and see what needs to be 
+fixed for V2
+
+Or.
