@@ -1,40 +1,47 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [patch] isdn: fix a wrapping bug in isdn_ppp_ioctl()
-Date: Wed, 10 Oct 2012 04:15:16 -0700
-Message-ID: <1349867716.2386.35.camel@joe-AO722>
-References: <20121010093816.GA3669@elgon.mountain>
-	 <1349864358.2386.27.camel@joe-AO722>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B702D@saturn3.aculab.com>
+From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH 01/12] usbnet: introduce usbnet 3 command helpers
+Date: Wed, 10 Oct 2012 12:25:58 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B702F@saturn3.aculab.com>
+References: <1349160684-6627-1-git-send-email-ming.lei@canonical.com><1631246.gHVDWoZpLi@linux-lqwf.site><CACVXFVMq8-t2o5=M=3xCQEiPFXjvH14g3NtRgOTMYr542d5zXw@mail.gmail.com><1691674.ASueyuVmUn@linux-lqwf.site> <CACVXFVPDg89y7LyKLA0YUN7oA2rGfptfHLZhJrqBjTVPjsGdNg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Masanari Iida <standby24x7@gmail.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:48468 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755896Ab2JJLPQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Oct 2012 07:15:16 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B702D@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Greg Kroah-Hartman" <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Ming Lei" <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	"Oliver Neukum" <oneukum-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <CACVXFVPDg89y7LyKLA0YUN7oA2rGfptfHLZhJrqBjTVPjsGdNg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-10-10 at 11:42 +0100, David Laight wrote:
-> > -		unsigned long protos[8] = {0,};
-> > +		DECLARE_BITMAP(protos, BITS_PER_LONG * 8) = { 0, };
-> ...
-> > -		if ((r = set_arg(argp, protos, 8 * sizeof(long))))
-> > +		if ((r = set_arg(argp, protos, sizeof(protos))))
+> On Wed, Oct 10, 2012 at 6:08 PM, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> wrote:
 > 
-> That change makes a big assumption about the implementation
-> of DECLARE_BITMAP().
-> Unless it is guaranteed to be implemented as 'unsigned long[]'
-> then you've changed what the code might do.
+> > A reset always applies to the whole device. Resets are used in error
+> > handling of block devices (storage and uas). If you reset a device,
+> > pre_reset() and post_reset() of all interfaces need to be called. So they
+> > are part of the SCSI error handler. SCSI error handlers can allocate memory
+> > only with GFP_NOIO (or GFP_ATOMIC) because any IO for paging
+> > can cause the SCSI layer to wait for the error handling to finish. The error
+> > handling can only finish when pre/post_reset() have finished. Catch-22
+> 
+> IMO, it is not practical to obey the rule for drivers, because driver may
+> call many other kernel component API which may allocate memory
+> via GFP_KERNEL in the path easily.
 
-Possible, but it's hard to imagine it changing.
+What about the error handler/sleep/resume code calling into the
+memory allocator to indicate that all allocates be GFP_NOIO until
+it calls back to indicate that the restricted path is complete.
+Might be a per-cpu count?
 
-The = { 0, } should probably be bitmap_zero
+	David
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
