@@ -1,21 +1,36 @@
-From: Brian Haley <brian.haley@hp.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next?] pktgen: Use simpler test for non-zero ipv6
  address
-Date: Wed, 10 Oct 2012 14:59:30 -0400
-Message-ID: <5075C592.1070406@hp.com>
+Date: Wed, 10 Oct 2012 21:01:50 +0200
+Message-ID: <1349895710.21172.7235.camel@edumazet-glaptop>
 References: <1349894559.2035.12.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>
 To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:62518 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757028Ab2JJTBz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 15:01:55 -0400
 In-Reply-To: <1349894559.2035.12.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/10/2012 02:42 PM, Joe Perches wrote:
+On Wed, 2012-10-10 at 11:42 -0700, Joe Perches wrote:
+> Reduces object size and should be slightly faster.
+> 
+> allyesconfig:
+> 
+> $ size net/core/pktgen.o*
+>    text	   data	    bss	    dec	    hex	filename
+>   52251	   4293	  11824	  68368	  10b10	net/core/pktgen.o.new
+>   52310	   4293	  11848	  68451	  10b63	net/core/pktgen.o.old
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
 > Found by looking for if (foo) ; tests with a perl regex
 > 
 > Yes Eric, it could be 2 compares instead of 4 on 64-bit
@@ -46,8 +61,12 @@ On 10/10/2012 02:42 PM, Joe Perches wrote:
 > +		    pkt_dev->min_in6_daddr.s6_addr32[2] |
 > +		    pkt_dev->min_in6_daddr.s6_addr32[3]) {
 >  			int i;
+>  
+>  			/* Only random destinations yet */
+> 
 
-Why not just use ipv6_addr_any() ?  It has an HAS_EFFICIENT_UNALIGNED_ACCESS
-check too.
 
--Brian
+
+What about ipv6_addr_any() ?
+
+anyway net-next is not opened yet
