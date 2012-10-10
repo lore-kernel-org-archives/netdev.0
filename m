@@ -1,219 +1,320 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: compound skb frag pages appearing in start_xmit
-Date: Wed, 10 Oct 2012 14:24:28 +0200
-Message-ID: <1622789731.20121010142428@eikelenboom.it>
-References: <1349790467.21847.185.camel@zakaz.uk.xensource.com>
-	<1349790863.21172.4406.camel@edumazet-glaptop>
-	<1349792241.21847.199.camel@zakaz.uk.xensource.com>
-	<1349792847.21172.4479.camel@edumazet-glaptop>
-	<1349793630.21847.208.camel@zakaz.uk.xensource.com>
-	<1349863984.10070.26.camel@zakaz.uk.xensource.com>
+From: JAMES SCHERMAN <jamesscherm@gmail.com>
+Subject: Accounting Unit
+Date: Wed, 10 Oct 2012 05:20:27 -0700 (PDT)
+Message-ID: <1349871627.73969.YahooMailClassic@web5705.biz.mail.ne1.yahoo.com>
+Reply-To: jamesscherm@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>, xen-devel <xen-devel@lists.xen.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Konrad Rzeszutek Wilk <konrad@kernel.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1349863984.10070.26.camel@zakaz.uk.xensource.com>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="-1696256133-1546489292-1349871627=:73969"
+To: undisclosed recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm5-vm5.bullet.mail.ne1.yahoo.com ([98.138.91.227]:40588 "EHLO
+	nm5-vm5.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753706Ab2JJM1U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 08:27:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+---1696256133-1546489292-1349871627=:73969
+Content-Type: text/plain; charset=us-ascii
 
 
-Wednesday, October 10, 2012, 12:13:04 PM, you wrote:
+---1696256133-1546489292-1349871627=:73969
+Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document; name=KINDLY
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="KINDLY READ.docx"
 
-> On Tue, 2012-10-09 at 15:40 +0100, Ian Campbell wrote:
->> On Tue, 2012-10-09 at 15:27 +0100, Eric Dumazet wrote:
->> > On Tue, 2012-10-09 at 15:17 +0100, Ian Campbell wrote:
->> > 
->> > > Does the higher order pages effectively reduce the number of frags which
->> > > are in use? e.g if MAX_SKB_FRAGS is 16, then for order-0 pages you could
->> > > have 64K worth of frag data.
->> > > 
->> > > If we switch to order-3 pages everywhere then can the skb contain 512K
->> > > of data, or does the effective maximum number of frags in an skb reduce
->> > > to 2?
->> > 
->> > effective number of frags reduce to 2 or 3
->> > 
->> > (We still limit GSO packets to ~63536 bytes)
->> 
->> Great! Then I think the fix is more/less trivial...
+UEsDBBQABgAIAAAAIQDd/JU3ZgEAACAFAAATAAgCW0NvbnRlbnRfVHlwZXNd
+LnhtbCCiBAIooAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC0VMtuwjAQvFfqP0S+Vomh
+h6qqCBz6OLZIpR9g7A1Y9Uv28vr7bgJEVQtBKuUSKVnvzOzsxIPR2ppsCTFp
+70rWL3osAye90m5Wso/JS37PsoTCKWG8g5JtILHR8PpqMNkESBl1u1SyOWJ4
+4DzJOViRCh/AUaXy0Qqk1zjjQchPMQN+2+vdcekdgsMcaww2HDxBJRYGs+c1
+fd4qiWASyx63B2uukokQjJYCSSlfOvWDJd8xFNTZnElzHdINyWD8IENdOU6w
+63sja6JWkI1FxFdhSQZf+ai48nJhaYaiG+aATl9VWkLbX6OF6CWkRJ5bU7QV
+K7Tb6z+qI+HGQPp/FVvcLnrSOY4+JE57OZsf6s0rUDlZESCihnZ1x0cHRLLs
+EsPvkLvGb1KAlHfgzbN/tgcNzEnKin6JiZgaOJvvV/Ja6JMiVjB9v5j738C7
+hLT5kz7+wYz9dVF3H0gdb+634RcAAAD//wMAUEsDBBQABgAIAAAAIQAekRq3
+8wAAAE4CAAALAAgCX3JlbHMvLnJlbHMgogQCKKAAAgAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAjJLbSgNBDIbvBd9hyH032woi0tneSKF3IusDhJnsAXcOzKTavr2jILpQ
+217m9OfLT9abg5vUO6c8Bq9hWdWg2JtgR99reG23iwdQWchbmoJnDUfOsGlu
+b9YvPJGUoTyMMaui4rOGQSQ+ImYzsKNchci+VLqQHEkJU4+RzBv1jKu6vsf0
+VwOamabaWQ1pZ+9AtcdYNl/WDl03Gn4KZu/Yy4kVyAdhb9kuYipsScZyjWop
+9SwabDDPJZ2RYqwKNuBpotX1RP9fi46FLAmhCYnP83x1nANaXg902aJ5x687
+HyFZLBZ9e/tDg7MvaD4BAAD//wMAUEsDBBQABgAIAAAAIQDWZLNR+gAAADED
+AAAcAAgBd29yZC9fcmVscy9kb2N1bWVudC54bWwucmVscyCiBAEooAABAAAA
+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
+AAAAAAAAAAAAwwYAAHdvcmQvX3JlbHMvZG9jdW1lbnQueG1sLnJlbHNQSwEC
+LQAUAAYACAAAACEAMRgZbuIMAAB7XwAAEQAAAAAAAAAAAAAAAAD/CAAAd29y
+ZC9kb2N1bWVudC54bWxQSwECLQAUAAYACAAAACEAlrWt4pYGAABQGwAAFQAA
+AAAAAAAAAAAAAAAQFgAAd29yZC90aGVtZS90aGVtZTEueG1sUEsBAi0AFAAG
+AAgAAAAhAJfdEfVNAwAABAgAABEAAAAAAAAAAAAAAAAA2RwAAHdvcmQvc2V0
+dGluZ3MueG1sUEsBAi0AFAAGAAgAAAAhALt6IU+zAQAAGwUAABIAAAAAAAAA
+AAAAAAAAVSAAAHdvcmQvZm9udFRhYmxlLnhtbFBLAQItABQABgAIAAAAIQA5
+yRFRTAEAAMACAAAUAAAAAAAAAAAAAAAAADgiAAB3b3JkL3dlYlNldHRpbmdz
+LnhtbFBLAQItABQABgAIAAAAIQCWpF0B4wEAANsDAAAQAAAAAAAAAAAAAAAA
+ALYjAABkb2NQcm9wcy9hcHAueG1sUEsBAi0AFAAGAAgAAAAhAMVDHa5RAQAA
+dwIAABEAAAAAAAAAAAAAAAAAzyYAAGRvY1Byb3BzL2NvcmUueG1sUEsBAi0A
+FAAGAAgAAAAhAMynm/UZBwAA+DkAAA8AAAAAAAAAAAAAAAAAVykAAHdvcmQv
+c3R5bGVzLnhtbFBLBQYAAAAACwALAMECAACdMAAAAAA=
 
-> The following seems to work for me.
-
-But it doesn't seem to work for me ... dmesg attached.
-
-I don't know if the "mcelog:4359 map pfn expected mapping type write-back for [mem 0x0009f000-0x000a0fff], got uncached-minus"
-is related, is shows up right after the nics get initialized ?
-
-netback still fails with:
-
-[  191.777994] ------------[ cut here ]------------
-[  191.784245] kernel BUG at drivers/net/xen-netback/netback.c:481!
-[  191.790423] invalid opcode: 0000 [#1] PREEMPT SMP 
-[  191.796462] Modules linked in:
-[  191.802315] CPU 1 
-[  191.802367] Pid: 1177, comm: netback/1 Tainted: G        W    3.6.0pre-rc1-20121010 #1 MSI MS-7640/890FXA-GD70 (MS-7640)  
-[  191.814043] RIP: e030:[<ffffffff8146de61>]  [<ffffffff8146de61>] netbk_gop_frag_copy+0x3f1/0x400
-[  191.820171] RSP: e02b:ffff880037c6bb98  EFLAGS: 00010246
-[  191.826271] RAX: 0000000000000244 RBX: ffffc90010827f98 RCX: ffff880031ed9880
-[  191.832450] RDX: 00000000000000a8 RSI: ffff880037c6bd24 RDI: ffffea0000b03f80
-[  191.838581] RBP: ffff880037c6bc28 R08: ffff8800319f8100 R09: 0000000000001000
-[  191.844739] R10: 0000000000000000 R11: 0000000000000132 R12: 00000000000000a8
-[  191.850785] R13: ffff880037c6bcd8 R14: 0000000000001000 R15: ffffc9001082cf70
-[  191.856741] FS:  00007f9f3c944700(0000) GS:ffff88003f840000(0000) knlGS:0000000000000000
-[  191.862841] CS:  e033 DS: 0000 ES: 0000 CR0: 000000008005003b
-[  191.868901] CR2: 0000000001337ca0 CR3: 0000000032cec000 CR4: 0000000000000660
-[  191.875053] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[  191.881175] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-[  191.887247] Process netback/1 (pid: 1177, threadinfo ffff880037c6a000, task ffff880039984140)
-[  191.893325] Stack:
-[  191.899328]  ffff880037c6bd24 00000000000000a8 ffff8800319f8100 ffff880031ed9880
-[  191.905534]  ffffc90000000000 0000000000001000 0000000000000000 0000000000000000
-[  191.911742]  ffff880000000000 ffffffff817459f3 ffffc90010823420 ffffea0000b03f80
-[  191.917898] Call Trace:
-[  191.923939]  [<ffffffff817459f3>] ? _raw_spin_unlock_irqrestore+0x53/0xa0
-[  191.930141]  [<ffffffff8146e1cb>] xen_netbk_rx_action+0x30b/0x830
-[  191.936543]  [<ffffffff810ad22d>] ? trace_hardirqs_on+0xd/0x10
-[  191.942942]  [<ffffffff8146f6da>] xen_netbk_kthread+0xba/0xa90
-[  191.949147]  [<ffffffff81095b06>] ? try_to_wake_up+0x1b6/0x310
-[  191.955250]  [<ffffffff81086b40>] ? wake_up_bit+0x40/0x40
-[  191.961421]  [<ffffffff8146f620>] ? xen_netbk_tx_build_gops+0xa70/0xa70
-[  191.967660]  [<ffffffff810864d6>] kthread+0xd6/0xe0
-[  191.973834]  [<ffffffff81086400>] ? __init_kthread_worker+0x70/0x70
-[  191.979953]  [<ffffffff8174677c>] ret_from_fork+0x7c/0x90
-[  191.986107]  [<ffffffff81086400>] ? __init_kthread_worker+0x70/0x70
-[  191.992174] Code: b8 b3 00 00 48 8d 8c f1 60 01 00 00 48 3b 14 01 0f 85 72 fc ff ff e9 7a fc ff ff 0f 0b eb fe 0f 0b eb fe 0f 0b eb fe 0f 0b eb fe <0f> 0b eb fe 66 66 2e 0f 1f 84 00 00 00 00 00 55 48 89 e5 48 83 
-[  192.005230] RIP  [<ffffffff8146de61>] netbk_gop_frag_copy+0x3f1/0x400
-[  192.011786]  RSP <ffff880037c6bb98>
-[  192.018402] ---[ end trace c51ab5e2c2c918fc ]---
-
-
---
-
-Sander
-
-> I haven't tackled netfront yet.
-
-> 8<--------------------------------------------------------------
-
-> From 551e42e3dd203f2eb97cb082985013bb33b8f020 Mon Sep 17 00:00:00 2001
-> From: Ian Campbell <ian.campbell@citrix.com>
-> Date: Tue, 9 Oct 2012 15:51:20 +0100
-> Subject: [PATCH] xen: netback: handle compound page fragments on transmit.
-
-> An SKB paged fragment can consist of a compound page with order > 0.
-> However the netchannel protocol deals only in PAGE_SIZE frames.
-
-> Handle this in netbk_gop_frag_copy and xen_netbk_count_skb_slots by
-> iterating over the frames which make up the page.
-
-> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Konrad Rzeszutek Wilk <konrad@kernel.org>
-> Cc: Sander Eikelenboom <linux@eikelenboom.it>
-> ---
->  drivers/net/xen-netback/netback.c |   40 ++++++++++++++++++++++++++++++++----
->  1 files changed, 35 insertions(+), 5 deletions(-)
-
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 4ebfcf3..d747e30 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -335,21 +335,35 @@ unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
->  
->         for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
->                 unsigned long size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
-> +               unsigned long offset = skb_shinfo(skb)->frags[i].page_offset;
->                 unsigned long bytes;
-> +
-> +               offset &= ~PAGE_MASK;
-> +
->                 while (size > 0) {
-> +                       BUG_ON(offset >= PAGE_SIZE);
->                         BUG_ON(copy_off > MAX_BUFFER_OFFSET);
->  
-> -                       if (start_new_rx_buffer(copy_off, size, 0)) {
-> +                       bytes = PAGE_SIZE - offset;
-> +
-> +                       if (bytes > size)
-> +                               bytes = size;
-> +
-> +                       if (start_new_rx_buffer(copy_off, bytes, 0)) {
->                                 count++;
->                                 copy_off = 0;
->                         }
->  
-> -                       bytes = size;
->                         if (copy_off + bytes > MAX_BUFFER_OFFSET)
->                                 bytes = MAX_BUFFER_OFFSET - copy_off;
->  
->                         copy_off += bytes;
-> +
-> +                       offset += bytes;
->                         size -= bytes;
-> +
-> +                       if (offset == PAGE_SIZE)
-> +                               offset = 0;
->                 }
->         }
->         return count;
-> @@ -403,14 +417,24 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
->         unsigned long bytes;
->  
->         /* Data must not cross a page boundary. */
-> -       BUG_ON(size + offset > PAGE_SIZE);
-> +       BUG_ON(size + offset > PAGE_SIZE<<compound_order(page));
->  
->         meta = npo->meta + npo->meta_prod - 1;
->  
-> +       /* Skip unused frames from start of page */
-> +       page += offset >> PAGE_SHIFT;
-> +       offset &= ~PAGE_MASK;
-> +
->         while (size > 0) {
-> +               BUG_ON(offset >= PAGE_SIZE);
->                 BUG_ON(npo->copy_off > MAX_BUFFER_OFFSET);
->  
-> -               if (start_new_rx_buffer(npo->copy_off, size, *head)) {
-> +               bytes = PAGE_SIZE - offset;
-> +
-> +               if (bytes > size)
-> +                       bytes = size;
-> +
-> +               if (start_new_rx_buffer(npo->copy_off, bytes, *head)) {
->                         /*
->                          * Netfront requires there to be some data in the head
->                          * buffer.
-> @@ -420,7 +444,6 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
->                         meta = get_next_rx_buffer(vif, npo);
->                 }
->  
-> -               bytes = size;
->                 if (npo->copy_off + bytes > MAX_BUFFER_OFFSET)
->                         bytes = MAX_BUFFER_OFFSET - npo->copy_off;
->  
-> @@ -453,6 +476,13 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
->                 offset += bytes;
->                 size -= bytes;
->  
-> +               /* Next frame */
-> +               if (offset == PAGE_SIZE) {
-> +                       BUG_ON(!PageCompound(page));
-> +                       page++;
-> +                       offset = 0;
-> +               }
-> +
->                 /* Leave a gap for the GSO descriptor. */
->                 if (*head && skb_shinfo(skb)->gso_size && !vif->gso_prefix)
->                         vif->rx.req_cons++;
+---1696256133-1546489292-1349871627=:73969--
