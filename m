@@ -1,56 +1,41 @@
-From: Frank Reppin <frank@undermydesk.org>
-Subject: Re: [PATCH net] e1000e: Change wthresh to 1 to avoid possible Tx
- stalls.
-Date: Wed, 10 Oct 2012 03:25:54 +0200
-Message-ID: <5074CEA2.6010504@undermydesk.org>
-References: <20120606174355.823e9aa7.shimoda.hiroaki@gmail.com> <1339030752.2075.1.camel@jtkirshe-mobl> <1339043085.26966.77.camel@edumazet-glaptop> <1339044752.2075.14.camel@jtkirshe-mobl> <loom.20121009T020718-563@post.gmane.org> <1349762863.21172.3848.camel@edumazet-glaptop> <20121009103629.0000569a@unknown> <5074A9CA.50308@tomt.net>
+From: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Subject: Re: [net:master 6/7] mdio-gpio.c:(.text+0x58): multiple definition
+ of `of_mdiobus_register'
+Date: Wed, 10 Oct 2012 10:36:10 +0900
+Message-ID: <20121010013608.GA17288@opensource.wolfsonmicro.com>
+References: <20121009232818.GB9331@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	e1000-devel@lists.sourceforge.net
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Fengguang Wu <fengguang.wu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amazone.undermydesk.org ([213.211.198.100]:47834 "EHLO
-	amazone.undermydesk.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757274Ab2JJBcv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 21:32:51 -0400
-In-Reply-To: <5074A9CA.50308@tomt.net>
+Received: from opensource.wolfsonmicro.com ([80.75.67.52]:57791 "EHLO
+	opensource.wolfsonmicro.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755238Ab2JJBg3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 21:36:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20121009232818.GB9331@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10.10.2012 00:48, Andre Tomt wrote:
-> On 09. okt. 2012 19:36, Jesse Brandeburg wrote:
-[...]
->> Hints or clues (I'm trying to follow the repro steps mentioned in
->> some related threads) are appreciated.
-In our scenario - the SuperMicro X8SIE-LN4 acts
-as a router.
+On Wed, Oct 10, 2012 at 07:28:18AM +0800, Fengguang Wu wrote:
+> Hi Mark,
+> 
+> FYI, kernel build failed on
+> 
+> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+> head:   5175a5e76bbdf20a614fb47ce7a38f0f39e70226
+> commit: 4085a7f0a09c73ef3e9de113c9f04d78c79be645 [6/7] netdev/phy: Prototype of_mdio_find_bus()
+> config: i386-allyesconfig
+> 
+> All error/warnings:
+> 
+> drivers/net/phy/mdio-gpio.o: In function `of_mdiobus_register':
+> mdio-gpio.c:(.text+0x58): multiple definition of `of_mdiobus_register'
+> drivers/net/phy/libphy.o:(.text+0x23d7): first defined here
+> drivers/net/phy/mdio-gpio.o: In function `of_phy_find_device':
 
-eth0 -> uplink
-eth1 -> core servers network 192.168.a.b/24
-eth2 -> developer employees network 192.168.c.d/24
-
-eth1 and eth2 are hooked into (two different) HP2510-24G
-switches (they both show no errors at all).
-
-The switch connected to eth2 connects a bunch of
-developers doing day-2-day stuff (commits/checkouts/documentation/
-listening to stream music/surfing/email) and the such.
-
-Continously running a ping from ie. 192.168.c.d/24 to
-192.168.a.b/24 visualizes those spikes (mostly triplets, where
-the first echo reply is quite high and the two following replies
-are each around 50 percent faster - but mostly still >500ms) - whenever 
-these spikes happen, it feels like the whole net 'stalls'.
-Just like Denys Fedoryshchenko stated in
-
-http://www.mail-archive.com/e1000-devel@lists.sourceforge.net/msg05517.html
-
-HTH,
-Frank Reppin
-
--- 
-43rd Law of Computing:
-         Anything that can go wr
-fortune: Segmentation violation -- Core dumped
+Hrm, I can't see how that would occur due to this patch unless
+!CONFIG_OF is selected which I wouldn't expect from allyesconfig, the
+!CONFIG_OF stubs in the header are buggy as they aren't static.  There
+is a bug there, though - I'll send a patch for that.
