@@ -1,52 +1,56 @@
-From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
-Subject: [PATCH 3.6.0- 3/3] wireless/ath5k: use module_platform_driver macro
-Date: Wed, 10 Oct 2012 19:29:16 +0100
-Message-ID: <1349893756-6900-1-git-send-email-srinivas.kandagatla@st.com>
-Cc: srinivas.kandagatla@st.com, bordug@ru.mvista.com,
-	netdev@vger.kernel.org, david.daney@cavium.com,
-	linville@tuxdriver.com, kaloz@openwrt.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:51540 "EHLO
-	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751497Ab2JJSau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 14:30:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next?] pktgen: Use simpler test for non-zero ipv6 address
+Date: Wed, 10 Oct 2012 11:42:39 -0700
+Message-ID: <1349894559.2035.12.camel@joe-AO722>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+Reduces object size and should be slightly faster.
 
-This patch removes some code duplication by using
-module_platform_driver.
+allyesconfig:
 
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+$ size net/core/pktgen.o*
+   text	   data	    bss	    dec	    hex	filename
+  52251	   4293	  11824	  68368	  10b10	net/core/pktgen.o.new
+  52310	   4293	  11848	  68451	  10b63	net/core/pktgen.o.old
+
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/wireless/ath/ath5k/ahb.c |   16 +---------------
- 1 files changed, 1 insertions(+), 15 deletions(-)
+Found by looking for if (foo) ; tests with a perl regex
 
-diff --git a/drivers/net/wireless/ath/ath5k/ahb.c b/drivers/net/wireless/ath/ath5k/ahb.c
-index aec33cc..3f9036f 100644
---- a/drivers/net/wireless/ath/ath5k/ahb.c
-+++ b/drivers/net/wireless/ath/ath5k/ahb.c
-@@ -235,18 +235,4 @@ static struct platform_driver ath_ahb_driver = {
- 		.owner	= THIS_MODULE,
- 	},
- };
--
--static int __init
--ath5k_ahb_init(void)
--{
--	return platform_driver_register(&ath_ahb_driver);
--}
--
--static void __exit
--ath5k_ahb_exit(void)
--{
--	platform_driver_unregister(&ath_ahb_driver);
--}
--
--module_init(ath5k_ahb_init);
--module_exit(ath5k_ahb_exit);
-+module_platform_driver(ath_ahb_driver);
--- 
-1.7.0.4
+Yes Eric, it could be 2 compares instead of 4 on 64-bit
+systems with HAS_EFFICIENT_UNALIGNED_ACCESS.  Maybe later
+or if there are other tests that could become something
+like ipv6_is_zeronet.
+
+cheers, Joe
+
+ net/core/pktgen.c |    9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 148e73d..3aa8417 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2422,11 +2422,10 @@ static void mod_cur_headers(struct pktgen_dev *pkt_dev)
+ 		}
+ 	} else {		/* IPV6 * */
+ 
+-		if (pkt_dev->min_in6_daddr.s6_addr32[0] == 0 &&
+-		    pkt_dev->min_in6_daddr.s6_addr32[1] == 0 &&
+-		    pkt_dev->min_in6_daddr.s6_addr32[2] == 0 &&
+-		    pkt_dev->min_in6_daddr.s6_addr32[3] == 0) ;
+-		else {
++		if (pkt_dev->min_in6_daddr.s6_addr32[0] |
++		    pkt_dev->min_in6_daddr.s6_addr32[1] |
++		    pkt_dev->min_in6_daddr.s6_addr32[2] |
++		    pkt_dev->min_in6_daddr.s6_addr32[3]) {
+ 			int i;
+ 
+ 			/* Only random destinations yet */
