@@ -1,39 +1,38 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH V3] ath/ath9k/ar9003_eeprom.c: Remove semicolon after if
-Date: Wed, 10 Oct 2012 11:22:00 -0700
-Message-ID: <1349893320.2035.4.camel@joe-AO722>
-References: <1349038599-22026-1-git-send-email-peter.senna@gmail.com>
-	 <1349887097-24980-1-git-send-email-peter.senna@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] ipv4: fix route mark sparse warning
+Date: Wed, 10 Oct 2012 11:27:25 -0700
+Message-ID: <20121010112725.57a6f4a6@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mcgrof@qca.qualcomm.com, jouni@qca.qualcomm.com,
-	vthiagar@qca.qualcomm.com, senthilb@qca.qualcomm.com,
-	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	ath9k-devel@lists.ath9k.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Peter Senna Tschudin <peter.senna@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1349887097-24980-1-git-send-email-peter.senna@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:47550 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756941Ab2JJS2G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Oct 2012 14:28:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-10-10 at 18:38 +0200, Peter Senna Tschudin wrote:
-> This patch remove a semicolon after if(...) that is preventing the
-> error check to work correctly. Removing this semicolon will change the
-> code behavior, but this is intended.
-> 
-> The semantic patch that finds this problem is as follows:
-> (http://coccinelle.lip6.fr/)
-> 
-> // <smpl>
-> @r1@
-> position p;
-> @@
-> if (...);@p
+Sparse complains about RTA_MARK which is should be host order according
+to include file and usage in iproute.
 
-this semantic patch would be a lot less tedious to
-inspect the results if it excluded else after the
-semicolon.
+net/ipv4/route.c:2223:46: warning: incorrect type in argument 3 (different base types)
+net/ipv4/route.c:2223:46:    expected restricted __be32 [usertype] value
+net/ipv4/route.c:2223:46:    got unsigned int [unsigned] [usertype] flowic_mark
 
-I've used perl for more or less the same output.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+
+--- a/net/ipv4/route.c	2012-10-09 10:35:03.323140263 -0700
++++ b/net/ipv4/route.c	2012-10-10 10:59:08.774798362 -0700
+@@ -2220,7 +2220,7 @@ static int rt_fill_info(struct net *net,
+ 		goto nla_put_failure;
+ 
+ 	if (fl4->flowi4_mark &&
+-	    nla_put_be32(skb, RTA_MARK, fl4->flowi4_mark))
++	    nla_put_u32(skb, RTA_MARK, fl4->flowi4_mark))
+ 		goto nla_put_failure;
+ 
+ 	error = rt->dst.error;
