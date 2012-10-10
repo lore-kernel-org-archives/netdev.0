@@ -1,80 +1,53 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/6] vxlan: minor output refactoring
-Date: Wed, 10 Oct 2012 09:08:27 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B702A@saturn3.aculab.com>
-References: <20121009175637.048993312@vyatta.com> <20121009175714.462171246@vyatta.com> <1349807275.2386.14.camel@joe-AO722>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH 01/12] usbnet: introduce usbnet 3 command helpers
+Date: Wed, 10 Oct 2012 10:24:31 +0200
+Message-ID: <3796645.0tlat2gorQ@linux-lqwf.site>
+References: <1349160684-6627-1-git-send-email-ming.lei@canonical.com> <CACVXFVOPc0gG3UdWqJ0E+6wiwdPv5EoEgbJ0cvJ4oD4602Yp3A@mail.gmail.com> <CACVXFVM7CrxXPYzr+dfWhbbmbF+3sXq4C1q2OauvP6x_jebbYQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Joe Perches" <joe@perches.com>,
-	"Stephen Hemminger" <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:49425 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752292Ab2JJITH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 04:19:07 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 29369-08 for <netdev@vger.kernel.org>;
- Wed, 10 Oct 2012 09:19:01 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1349807275.2386.14.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rjw-KKrjLPT3xs0@public.gmane.org
+To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CACVXFVM7CrxXPYzr+dfWhbbmbF+3sXq4C1q2OauvP6x_jebbYQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Wednesday 10 October 2012 13:56:16 Ming Lei wrote:
+> On Wed, Oct 10, 2012 at 11:19 AM, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
+> > On Tue, Oct 9, 2012 at 4:47 PM, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> wrote:
+> >>
+> >> Using GFP_KERNEL you preclude using those in resume() and error handling.
+> >> Please pass a gfp_t parameter.
+> >
+> > IMO, it is not a big deal because generally only several bytes are to be
+> > allocated inside these helpers.
+> 
+> Also pm_restrict_gfp_mask()/pm_restore_gfp_mask() have been introduced
+> to address the problem for 2 years, looks the gfp_t isn't needed, doesn't it?
 
+No, absolutely not. Introducing them was a mistake and is hiding errors.
+Those helpers solve the problem only for the case of _system_ suspend/resume.
+However the runtime case has the same problem. So in addition to not solving
+the problem, we now have two code paths.
+Frankly, those functions should be removed.
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Joe Perches
-> Sent: 09 October 2012 19:28
-> To: Stephen Hemminger
-> Cc: David Miller; netdev@vger.kernel.org
-> Subject: Re: [PATCH 1/6] vxlan: minor output refactoring
-> 
-> On Tue, 2012-10-09 at 10:56 -0700, Stephen Hemminger wrote:
-> > +static __be32 vxlan_find_dst(struct vxlan_dev *vxlan, struct sk_buff *skb)
-> > +{
-> > +       const struct ethhdr *eth = (struct ethhdr *) skb->data;
-> > +       struct vxlan_fdb *f;
-> > +
-> > +       if (is_multicast_ether_addr(eth->h_dest) ||
-> > +           (f = vxlan_find_mac(vxlan, eth->h_dest)) == NULL)
-> > +               return vxlan->gaddr;
-> > +       else
-> > +               return f->remote_ip;
-> > +}
-> 
-> Bikeshedding:
-> 
-> This might be simpler to read with a few more lines like:
-> 
-> static __be32 vxlan_find_dst(struct vxlan_dev *vxlan, struct sk_buff *skb)
-> {
-> 	const struct ethhdr *eth = (const struct ethhdr *)skb->data;
-> 	struct vxlan_fdb *f;
-> 
-> 	if (is_multicast_ether_addr(eth->h_dest))
-> 		return vxlan->gaddr;
-> 
-> 	f = vxlan_find_mac(vxlan, eth->h_dest);
-> 	if (!f)
-> 		return vxlan->gaddr;
-> 
-> 	return f->remote_ip;
-> }
+Secondly, in this case a similar deadlock exists with error handling.
+Again take a device with network and storage functions (a.k.a. cell phone).
+The storage function does a reset. And the deadlock happens like this:
 
-or, painting it green:
-static __be32 vxlan_find_dst(struct vxlan_dev *vxlan, struct sk_buff *skb)
-{
-       const struct ethhdr *eth = (struct ethhdr *)skb->data;
-       struct vxlan_fdb *f;
+reset storage -> pre_reset() -> physical reset -> post_reset() -> net interface
+does a control message -> kmalloc(..., GFP_KERNEL) -> VM layer decide
+to page out -> IO to storage function -> SCSI layer waits for error handler --> DEADLOCK
 
-       if (!is_multicast_ether_addr(eth->h_dest) &&
-           (f = vxlan_find_mac(vxlan, eth->h_dest)) != NULL)
-               return f->remote_ip;
-       return vxlan->gaddr;
-}
+Believe me, you won't find a fancy solution for this. Just pass the gfp_t.
 
-	David
+	Regards
+		Oliver
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
