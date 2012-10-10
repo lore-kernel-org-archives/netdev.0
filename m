@@ -1,114 +1,76 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [RFC PATCH] net/core: support runtime PM on net_device
-Date: Wed, 10 Oct 2012 15:17:30 +0200
-Message-ID: <1661593.Shb8QLRF9A@linux-lqwf.site>
-References: <1349873913-10701-1-git-send-email-ming.lei@canonical.com>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [Xen-devel] compound skb frag pages appearing in start_xmit
+Date: Wed, 10 Oct 2012 15:31:16 +0200
+Message-ID: <1709861450.20121010153116@eikelenboom.it>
+References: <1349790467.21847.185.camel@zakaz.uk.xensource.com> <1349790863.21172.4406.camel@edumazet-glaptop> <1349792241.21847.199.camel@zakaz.uk.xensource.com> <1349792847.21172.4479.camel@edumazet-glaptop> <1349793630.21847.208.camel@zakaz.uk.xensource.com> <1349863984.10070.26.camel@zakaz.uk.xensource.com> <1622789731.20121010142428@eikelenboom.it> <1349872149.10070.31.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Alan Stern <stern@rowland.harvard.edu>, netdev@vger.kernel.org,
-	linux-pm@vger.kernel.org
-To: Ming Lei <ming.lei@canonical.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"Konrad Rzeszutek Wilk" <konrad@kernel.org>,
+	xen-devel <xen-devel@lists.xen.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:38090 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756025Ab2JJNTP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Oct 2012 09:19:15 -0400
-In-Reply-To: <1349873913-10701-1-git-send-email-ming.lei@canonical.com>
+Received: from static.121.164.40.188.clients.your-server.de ([188.40.164.121]:43643
+	"EHLO smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751228Ab2JJNbY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 09:31:24 -0400
+In-Reply-To: <1349872149.10070.31.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 10 October 2012 20:58:33 Ming Lei wrote:
-> In ioctl path on net_device, the physical deivce is often
-> touched, but the physical device may have been put into runtime
-> suspend state already, so cause some utilitis(ifconfig, ethtool,
-> ...) to return failure in this situation.
-> 
-> This patch enables runtime PM on net_device and mark it as
-> no_callbacks, and resumes the net_device if physical device
-> is to be accessed, then suspends it after completion of the
-> access.
-> 
-> This patch fixes the problem above.
-> 
 
-[..]
-> +	if (pm_runtime_get_sync(&dev->dev) < 0)
-> +		return -ENODEV;
+Wednesday, October 10, 2012, 2:29:09 PM, you wrote:
 
--EIO would be appropriate.
+> On Wed, 2012-10-10 at 13:24 +0100, Sander Eikelenboom wrote:
+>> Wednesday, October 10, 2012, 12:13:04 PM, you wrote:
+>> 
+>> > On Tue, 2012-10-09 at 15:40 +0100, Ian Campbell wrote:
+>> >> On Tue, 2012-10-09 at 15:27 +0100, Eric Dumazet wrote:
+>> >> > On Tue, 2012-10-09 at 15:17 +0100, Ian Campbell wrote:
+>> >> > 
+>> >> > > Does the higher order pages effectively reduce the number of frags which
+>> >> > > are in use? e.g if MAX_SKB_FRAGS is 16, then for order-0 pages you could
+>> >> > > have 64K worth of frag data.
+>> >> > > 
+>> >> > > If we switch to order-3 pages everywhere then can the skb contain 512K
+>> >> > > of data, or does the effective maximum number of frags in an skb reduce
+>> >> > > to 2?
+>> >> > 
+>> >> > effective number of frags reduce to 2 or 3
+>> >> > 
+>> >> > (We still limit GSO packets to ~63536 bytes)
+>> >> 
+>> >> Great! Then I think the fix is more/less trivial...
+>> 
+>> > The following seems to work for me.
+>> 
+>> But it doesn't seem to work for me ... dmesg attached.
 
-> +	err = __dev_ifsioc(net, ifr, cmd);
-> +
-> +	pm_runtime_put(&dev->dev);
-> +
-> +	return err;
-> +}
-> +
->  /*
->   *	This function handles all "interface"-type I/O control requests. The actual
->   *	'doing' part of this is dev_ifsioc above.
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index 4d64cc2..2dc43da 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -25,6 +25,7 @@
->  #include <linux/slab.h>
->  #include <linux/rtnetlink.h>
->  #include <linux/sched.h>
-> +#include <linux/pm_runtime.h>
->  
->  /*
->   * Some useful ethtool_ops methods that're device independent.
-> @@ -1464,10 +1465,13 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
->  			return -EPERM;
->  	}
->  
-> +	if ((ret = pm_runtime_get_sync(&dev->dev)) < 0)
-> +		return -ENODEV;
-> +
->  	if (dev->ethtool_ops->begin) {
+>> [  191.777994] ------------[ cut here ]------------
+>> [  191.784245] kernel BUG at drivers/net/xen-netback/netback.c:481!
 
-Perhaps you should check that first.
+> Looks like that BUG_ON is a little aggressive. It'll trigger if the data
+> happens to end on a frame boundary. Hopefully this will fix it for you:
 
->  		rc = dev->ethtool_ops->begin(dev);
->  		if (rc  < 0)
-> -			return rc;
-> +			goto exit;
->  	}
->  	old_features = dev->features;
->  
-> @@ -1648,6 +1652,7 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
->  
->  	if (old_features != dev->features)
->  		netdev_features_change(dev);
-> -
-> +exit:
-> +	pm_runtime_put(&dev->dev);
->  	return rc;
->  }
-> diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-> index bcf02f6..c9adb89 100644
-> --- a/net/core/net-sysfs.c
-> +++ b/net/core/net-sysfs.c
-> @@ -23,6 +23,7 @@
->  #include <linux/export.h>
->  #include <linux/jiffies.h>
->  #include <net/wext.h>
-> +#include <linux/pm_runtime.h>
->  
->  #include "net-sysfs.h"
->  
-> @@ -1415,6 +1416,9 @@ int netdev_register_kobject(struct net_device *net)
->  	if (error)
->  		return error;
->  
-> +	pm_runtime_no_callbacks(dev);
-> +	pm_runtime_enable(dev);
+Yes it does !
+Thanks .. will recompile and test the netfront case as well
 
-Why?
+--
+Sander
 
-	Regards
-		Oliver
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index d747e30..f2d6b78 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -477,7 +477,7 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+>                 size -= bytes;
+>  
+>                 /* Next frame */
+> -               if (offset == PAGE_SIZE) {
+> +               if (offset == PAGE_SIZE && size) {
+>                         BUG_ON(!PageCompound(page));
+>                         page++;
+>                         offset = 0;
