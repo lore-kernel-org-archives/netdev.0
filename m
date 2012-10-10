@@ -1,210 +1,98 @@
-From: Jon Mason <jon.mason@intel.com>
-Subject: Re: [1/2] PCI-Express Non-Transparent Bridge Support
-Date: Wed, 10 Oct 2012 10:06:32 -0700
-Message-ID: <20121010170631.GE22838@jonmason-lab>
-References: <1349213177-9985-2-git-send-email-jon.mason@intel.com>
- <20121007141344.6624e873@wp.pl>
+From: Peter Senna Tschudin <peter.senna@gmail.com>
+Subject: Re: [PATCH 19/20] drivers/net/ethernet/marvell/skge.c: fix error
+ return code
+Date: Wed, 10 Oct 2012 19:08:02 +0200
+Message-ID: <CA+MoWDp8Y0tJoBbz0nxH3Y7J0ur3TJm-dO9OM5BZVBKcbS9TpA@mail.gmail.com>
+References: <CA+MoWDp=_F9opJbVkv9sDsmoykm7MTUZwRVumKCB0ZqDwD6NoQ@mail.gmail.com>
+	<20121004.142335.1467206545795435493.davem@davemloft.net>
+	<CA+MoWDqBF5bdQYBaUmpB99Q=YcHYcUxi8Ffo3x4s0B+pmomb+Q@mail.gmail.com>
+	<20121004.145419.1859367129463136197.davem@davemloft.net>
+	<1349395795.2008.26.camel@joe-AO722>
+	<alpine.DEB.2.02.1210050712590.1958@localhost6.localdomain6>
+	<1349422595.2008.55.camel@joe-AO722>
+	<alpine.DEB.2.02.1210051003120.1958@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>,
-	Nicholas Bellinger <nab@risingtidesystems.com>
-To: Jakub Kicinski <kubakici@wp.pl>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20121007141344.6624e873@wp.pl>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
+	shemminger@vyatta.com, mlindner@marvell.com,
+	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1210051003120.1958@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 07, 2012 at 02:13:44PM +0200, Jakub Kicinski wrote:
-> Hi,
-> 
-> it's good to see some NTB code getting into mainline! I have a few comments
-> though.
-> 
-> On Tue, 02 Oct 2012 21:26:16 -0000, Jon Mason <jon.mason@intel.com>
-> wrote:
-> 
-> [...]
-> >+/**
-> >+ * ntb_write_local_spad() - write to the secondary scratchpad register
-> >+ * @ndev: pointer to ntb_device instance
-> >+ * @idx: index to the scratchpad register, 0 based
-> >+ * @val: the data value to put into the register
-> >+ *
-> >+ * This function allows writing of a 32bit value to the indexed scratchpad
-> >+ * register. The register resides on the secondary (external) side.
-> >+ *
-> >+ * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
-> >+ */
-> [...]
-> >+/**
-> >+ * ntb_write_remote_spad() - write to the secondary scratchpad register
-> >+ * @ndev: pointer to ntb_device instance
-> >+ * @idx: index to the scratchpad register, 0 based
-> >+ * @val: the data value to put into the register
-> >+ *
-> >+ * This function allows writing of a 32bit value to the indexed scratchpad
-> >+ * register. The register resides on the secondary (external) side.
-> >+ *
-> >+ * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
-> >+ */
-> 
-> Those comments look suspiciously similar. I think one of the functions
-> does write to primary scratchpad?
+Stephen and David,
 
-Yes, the comments can be improved.
+I've sent V2 of the patches and they were all accepted. Thank you.
 
-> 
-> [...]
-> >+/**
-> >+ * ntb_read_local_spad() - read from the primary scratchpad register
-> >+ * @ndev: pointer to ntb_device instance
-> >+ * @idx: index to scratchpad register, 0 based
-> >+ * @val: pointer to 32bit integer for storing the register value
-> >+ *
-> >+ * This function allows reading of the 32bit scratchpad register on
-> >+ * the primary (internal) side.
-> >+ *
-> >+ * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
-> >+ */
-> [...]
-> >+/**
-> >+ * ntb_read_remote_spad() - read from the primary scratchpad register
-> >+ * @ndev: pointer to ntb_device instance
-> >+ * @idx: index to scratchpad register, 0 based
-> >+ * @val: pointer to 32bit integer for storing the register value
-> >+ *
-> >+ * This function allows reading of the 32bit scratchpad register on
-> >+ * the primary (internal) side.
-> >+ *
-> >+ * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
-> >+ */
-> 
-> Same here.
-> 
-> [...]
-> >+static int ntb_setup_msix(struct ntb_device *ndev)
-> >+{
-> >+	struct pci_dev *pdev = ndev->pdev;
-> >+	struct msix_entry *msix;
-> >+	int msix_entries;
-> >+	int rc, i, pos;
-> >+	u16 val;
-> >+
-> >+	pos = pci_find_capability(pdev, PCI_CAP_ID_MSIX);
-> >+	if (!pos) {
-> >+		rc = -EIO;
-> >+		goto err;
-> >+	}
-> >+
-> >+	rc = pci_read_config_word(pdev, pos + PCI_MSIX_FLAGS, &val);
-> >+	if (rc)
-> >+		goto err;
-> >+
-> >+	msix_entries = msix_table_size(val);
-> >+	if (msix_entries > ndev->limits.msix_cnt) {
-> >+		rc = -EINVAL;
-> >+		goto err;
-> >+	}
-> >+
-> >+	ndev->msix_entries = kmalloc(sizeof(struct msix_entry) * msix_entries,
-> >+				     GFP_KERNEL);
-> >+	if (!ndev->msix_entries) {
-> >+		rc = -ENOMEM;
-> >+		goto err;
-> >+	}
-> >+
-> >+	for (i = 0; i < msix_entries; i++)
-> >+		ndev->msix_entries[i].entry = i;
-> >+
-> >+	rc = pci_enable_msix(pdev, ndev->msix_entries, msix_entries);
-> >+	if (rc < 0)
-> >+		goto err1;
-> >+	if (rc > 0) {
-> 
-> rc > 0 doesn't mean that vectors were allocated. Have a look at the
-> example in Documentation/PCI/MSI-HOWTO.txt.
+I've made a template for the commit message, and then copy and paste
+function names from the code. Something like:
 
-Thank you, I will correct this.
+-- // --
+The function sky2_probe() return 0 for success and negative value
+for most of its internal tests failures. There are two exceptions
+that are error cases going to err_out*:. For this two cases, the
+function abort its success execution path, but returns non negative
+value, making it dificult for a caller function to notice the error.
 
-> 
-> >+		/* On SNB, the link interrupt is always tied to 4th vector.  If
-> >+		 * we can't get all 4, then we can't use MSI-X.
-> >+		 */
-> >+		if (ndev->hw_type != BWD_HW) {
-> >+			rc = -EIO;
-> >+			goto err1;
-> >+		}
-> 
-> This looks fragile, what if msix_table_size(val) was < 4? 
+This patch fixes the error cases that do not return negative values.
 
-If there are not at least 4 vectors, then we shouldn't use MSI-X.
+This was found by Coccinelle, but the code change was made by hand.
+This patch is not robot generated.
+...
+--//--
 
-> 
-> >+
-> >+		dev_warn(&pdev->dev,
-> >+			 "Only %d MSI-X vectors.  Limiting the number of queues to that number.\n",
-> >+			 rc);
-> >+		msix_entries = rc;
-> >+	}
-> >+
-> >+	for (i = 0; i < msix_entries; i++) {
-> >+		msix = &ndev->msix_entries[i];
-> >+		WARN_ON(!msix->vector);
-> >+
-> >+		/* Use the last MSI-X vector for Link status */
-> >+		if (ndev->hw_type == BWD_HW) {
-> >+			rc = request_irq(msix->vector, bwd_callback_msix_irq, 0,
-> >+					 "ntb-callback-msix", &ndev->db_cb[i]);
-> >+			if (rc)
-> >+				goto err2;
-> >+		} else {
-> >+			if (i == msix_entries - 1) {
-> >+				rc = request_irq(msix->vector,
-> >+						 xeon_event_msix_irq, 0,
-> >+						 "ntb-event-msix", ndev);
-> >+				if (rc)
-> >+					goto err2;
-> >+			} else {
-> >+				rc = request_irq(msix->vector,
-> >+						 xeon_callback_msix_irq, 0,
-> >+						 "ntb-callback-msix",
-> >+						 &ndev->db_cb[i]);
-> >+				if (rc)
-> >+					goto err2;
-> >+			}
-> >+		}
-> >+	}
-> >+
-> >+	ndev->num_msix = msix_entries;
-> >+	if (ndev->hw_type == BWD_HW)
-> >+		ndev->max_cbs = msix_entries;
-> >+	else
-> >+		ndev->max_cbs = msix_entries - 1;
-> >+
-> >+	return 0;
-> >+
-> >+err2:
-> >+	while (--i >= 0) {
-> >+		msix = &ndev->msix_entries[i];
-> >+		if (ndev->hw_type != BWD_HW && i == ndev->num_msix - 1)
-> >+			free_irq(msix->vector, ndev);
-> >+		else
-> >+			free_irq(msix->vector, &ndev->db_cb[i]);
-> >+	}
-> >+	pci_disable_msix(pdev);
-> >+err1:
-> >+	kfree(ndev->msix_entries);
-> >+	dev_err(&pdev->dev, "Error allocating MSI-X interrupt\n");
-> >+err:
-> >+	ndev->num_msix = 0;
-> >+	return rc;
-> >+}
-> 
-> Thanks for your work,
+How useful it was to have the function names when you were analyzing
+the patches? It took me a lot of time to modify the template by copy
+and paste, check if it is correct, then commit. I have some other
+similar patches to submit and I wonder if having the function names in
+the commit message helped you.
 
-Thanks for the review.
+Thank you,
 
-> 
->   -- Kuba
+Peter
+
+
+On Fri, Oct 5, 2012 at 10:08 AM, Julia Lawall <julia.lawall@lip6.fr> wrote:
+> On Fri, 5 Oct 2012, Joe Perches wrote:
+>
+>> On Fri, 2012-10-05 at 07:22 +0200, Julia Lawall wrote:
+>>>
+>>> A tool was used to find a potential problem, and then Peter
+>>> studied the code to see what fix was appropriate.
+>>
+>>
+>> Hi Julia.
+>>
+>> Was it true that a static analysis tool found the original
+>> potential issue?  If so, what tool was it?
+>
+>
+> In the very beginning, I think that I found the problem in a patch when
+> looking at patches that contain oopses.
+>
+> From that I wrote a Coccinelle rule.  As Peter showed, the rule just
+> produces a list of line numbers.  The fix cannot easily be automated,
+> because there are many cases where 0 is a valid error value.  Some
+> functions, for example, have their error value as a nonpositive integer.
+>
+>
+>> But wasn't the scripted fix applied to the rest of the tree
+>> robotically?
+>
+>
+> No.  Peter studied each case and considered what should be done, and then
+> did that.  I guess a potentially bad fix could have been applied
+> automatically and then cleaned up manually, but considering the number of
+> cases where the fix would be wrong, that seem like a bad idea.  Also one
+> might want to adapt a bit to local conventions about where the
+> initialization should be added.
+>
+> julia
+
+
+
+-- 
+Peter
