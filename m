@@ -1,56 +1,67 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next?] pktgen: Use simpler test for non-zero ipv6 address
-Date: Wed, 10 Oct 2012 11:42:39 -0700
-Message-ID: <1349894559.2035.12.camel@joe-AO722>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: Re: [PATCH 3.6.0- 2/3] net/mdio-octeon: use module_platform_driver
+ macro
+Date: Wed, 10 Oct 2012 11:46:14 -0700
+Message-ID: <5075C276.2040103@gmail.com>
+References: <1349893751-6867-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bordug@ru.mvista.com, netdev@vger.kernel.org,
+	david.daney@cavium.com, linville@tuxdriver.com, kaloz@openwrt.org
+To: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:41918 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755372Ab2JJSqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 14:46:16 -0400
+Received: by mail-pb0-f46.google.com with SMTP id rr4so1014272pbb.19
+        for <netdev@vger.kernel.org>; Wed, 10 Oct 2012 11:46:16 -0700 (PDT)
+In-Reply-To: <1349893751-6867-1-git-send-email-srinivas.kandagatla@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Reduces object size and should be slightly faster.
+On 10/10/2012 11:29 AM, Srinivas KANDAGATLA wrote:
+> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+>
+> This patch removes some code duplication by using
+> module_platform_driver.
+>
+> Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-allyesconfig:
+Acked-by: David Daney <david.daney@cavium.com>
 
-$ size net/core/pktgen.o*
-   text	   data	    bss	    dec	    hex	filename
-  52251	   4293	  11824	  68368	  10b10	net/core/pktgen.o.new
-  52310	   4293	  11848	  68451	  10b63	net/core/pktgen.o.old
+I have the same thing locally, but you beat me to sending it in.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
-Found by looking for if (foo) ; tests with a perl regex
 
-Yes Eric, it could be 2 compares instead of 4 on 64-bit
-systems with HAS_EFFICIENT_UNALIGNED_ACCESS.  Maybe later
-or if there are other tests that could become something
-like ipv6_is_zeronet.
-
-cheers, Joe
-
- net/core/pktgen.c |    9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
-
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 148e73d..3aa8417 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2422,11 +2422,10 @@ static void mod_cur_headers(struct pktgen_dev *pkt_dev)
- 		}
- 	} else {		/* IPV6 * */
- 
--		if (pkt_dev->min_in6_daddr.s6_addr32[0] == 0 &&
--		    pkt_dev->min_in6_daddr.s6_addr32[1] == 0 &&
--		    pkt_dev->min_in6_daddr.s6_addr32[2] == 0 &&
--		    pkt_dev->min_in6_daddr.s6_addr32[3] == 0) ;
--		else {
-+		if (pkt_dev->min_in6_daddr.s6_addr32[0] |
-+		    pkt_dev->min_in6_daddr.s6_addr32[1] |
-+		    pkt_dev->min_in6_daddr.s6_addr32[2] |
-+		    pkt_dev->min_in6_daddr.s6_addr32[3]) {
- 			int i;
- 
- 			/* Only random destinations yet */
+> ---
+>   drivers/net/phy/mdio-octeon.c |   14 +-------------
+>   1 files changed, 1 insertions(+), 13 deletions(-)
+>
+> diff --git a/drivers/net/phy/mdio-octeon.c b/drivers/net/phy/mdio-octeon.c
+> index d4015aa..84f7c47 100644
+> --- a/drivers/net/phy/mdio-octeon.c
+> +++ b/drivers/net/phy/mdio-octeon.c
+> @@ -196,19 +196,7 @@ void octeon_mdiobus_force_mod_depencency(void)
+>   	/* Let ethernet drivers force us to be loaded.  */
+>   }
+>   EXPORT_SYMBOL(octeon_mdiobus_force_mod_depencency);
+> -
+> -static int __init octeon_mdiobus_mod_init(void)
+> -{
+> -	return platform_driver_register(&octeon_mdiobus_driver);
+> -}
+> -
+> -static void __exit octeon_mdiobus_mod_exit(void)
+> -{
+> -	platform_driver_unregister(&octeon_mdiobus_driver);
+> -}
+> -
+> -module_init(octeon_mdiobus_mod_init);
+> -module_exit(octeon_mdiobus_mod_exit);
+> +module_platform_driver(octeon_mdiobus_driver);
+>
+>   MODULE_DESCRIPTION(DRV_DESCRIPTION);
+>   MODULE_VERSION(DRV_VERSION);
+>
