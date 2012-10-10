@@ -1,56 +1,44 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH 01/12] usbnet: introduce usbnet 3 command helpers
-Date: Wed, 10 Oct 2012 19:02:02 +0800
-Message-ID: <CACVXFVPDg89y7LyKLA0YUN7oA2rGfptfHLZhJrqBjTVPjsGdNg@mail.gmail.com>
-References: <1349160684-6627-1-git-send-email-ming.lei@canonical.com>
-	<1631246.gHVDWoZpLi@linux-lqwf.site>
-	<CACVXFVMq8-t2o5=M=3xCQEiPFXjvH14g3NtRgOTMYr542d5zXw@mail.gmail.com>
-	<1691674.ASueyuVmUn@linux-lqwf.site>
+From: <sarveshwar.bandi@emulex.com>
+Subject: [PATCH] bridge: Pull ip header into skb->data before looking into ip header.
+Date: Wed, 10 Oct 2012 16:45:01 +0530
+Message-ID: <6f6f2599-15e5-49a7-973c-d2c36483427d@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.de>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:48099 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751292Ab2JJLCF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 07:02:05 -0400
-In-Reply-To: <1691674.ASueyuVmUn@linux-lqwf.site>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:16586 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755896Ab2JJLPH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 07:15:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 10, 2012 at 6:08 PM, Oliver Neukum <oneukum@suse.de> wrote:
+From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 
->
-> A reset always applies to the whole device. Resets are used in error
-> handling of block devices (storage and uas). If you reset a device,
-> pre_reset() and post_reset() of all interfaces need to be called. So they
-> are part of the SCSI error handler. SCSI error handlers can allocate memory
-> only with GFP_NOIO (or GFP_ATOMIC) because any IO for paging
-> can cause the SCSI layer to wait for the error handling to finish. The error
-> handling can only finish when pre/post_reset() have finished. Catch-22
+If lower layer driver leaves the ip header in the skb fragment, it needs to
+be first pulled into skb->data before inspecting ip header length or ip version
+number.
 
-IMO, it is not practical to obey the rule for drivers, because driver may
-call many other kernel component API which may allocate memory
-via GFP_KERNEL in the path easily.
+Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+---
+ net/bridge/br_netfilter.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-Same with runtime PM case.
-
->
-> So any control messages in block error handling need to use GFP_NOIO.
-> If you look at the control message helpers in usbcore you will find a lot
-> of GFP_NOIO. That is the reason.
-
-If one driver has no .pre_reset or .post_reset, usb_reset_device() will
-try to unbind&bind the interface, so you mean these usb drivers have
-to use GFP_NOIO to allocate memory in its probe() and disconnect()?
-Unfortunately, that is not true, and no way to make sure all memory
-allocations in the path via GFP_NOIO, IMO.
-
-Also, only very few drivers have implemented .pre_reset and .post_reset.
-
-Thanks,
---
-Ming Lei
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 68e8f36..fe43bc7 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -265,6 +265,9 @@ static int br_parse_ip_options(struct sk_buff *skb)
+ 	struct net_device *dev = skb->dev;
+ 	u32 len;
+ 
++	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
++		goto inhdr_error;
++
+ 	iph = ip_hdr(skb);
+ 	opt = &(IPCB(skb)->opt);
+ 
+-- 
+1.7.9.5
