@@ -1,39 +1,40 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: setting flow spec rules under vswitch configuration
-Date: Wed, 10 Oct 2012 16:31:21 +0200
-Message-ID: <507586B9.6080505@mellanox.com>
-References: <5073F073.3060403@mellanox.com>  <1349801311.2800.17.camel@bwh-desktop.uk.solarflarecom.com>  <50758353.6050309@mellanox.com> <1349879306.6336.40.camel@deadeye.wl.decadent.org.uk>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [patch] isdn: fix a wrapping bug in isdn_ppp_ioctl()
+Date: Wed, 10 Oct 2012 07:41:59 -0700
+Message-ID: <1349880119.2386.46.camel@joe-AO722>
+References: <20121010093816.GA3669@elgon.mountain>
+	 <1349864358.2386.27.camel@joe-AO722> <m21uh67csy.fsf@igel.home>
+	 <1349874007.2386.42.camel@joe-AO722> <m2sj9m5sz5.fsf@igel.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Rony Efraim <ronye@mellanox.com>, netdev <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Masanari Iida <standby24x7@gmail.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Andreas Schwab <schwab@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:43413 "HELO
-	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932252Ab2JJOeH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 10:34:07 -0400
-In-Reply-To: <1349879306.6336.40.camel@deadeye.wl.decadent.org.uk>
+Received: from perches-mx.perches.com ([206.117.179.246]:48660 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932217Ab2JJOmA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Oct 2012 10:42:00 -0400
+In-Reply-To: <m2sj9m5sz5.fsf@igel.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/10/2012 16:28, Ben Hutchings wrote:
-> On Wed, 2012-10-10 at 16:16 +0200, Or Gerlitz wrote:
-> [...]
->> >Thanks for setting the sketch of a plan here... so if we go little bit
->> >into details, we can safely move 20 bytes from the hadata[60] field into
->> >the beginning of struct ethtool_flow_ext, which will still allow old
->> >user space to work with newer kernels. As for newer uses space that
->> >would like to set mac addresses within
->> >ethtool_flow_ext, how are they supposed to identify if the kernel
->> >supports this extension (of the extension...)?
-> Well they can't tell in advance, but we can define another flag in
-> flow_type like FLOW_EXT and existing drivers will reject flow specs with
-> that flag set.
-I understand what we can add a flag which will be rejected by driver's 
-that don't support this ext,
-can the same/similar flag be used for newer user space code to mark they 
-want this ext?
+On Wed, 2012-10-10 at 15:58 +0200, Andreas Schwab wrote:
+> Sorry, I was misremembering the history of the bit ops.  There has
+> historically been issues with varying bit order, but noadays set_bit is
+> always defined consistently with C shifts.
 
-Or.
+No worries.  Anyway, the change was suggested to aid
+reader comprehension.  If it doesn't (and it seems not)
+then it's not worth it.
+
+Anyway, there is still the open question of an overrun/info
+leak.
+
+> > -           if ((r = set_arg(argp, protos, 8 * sizeof(long))))
+
+set_arg's 2nd arg is bytes not bits.
