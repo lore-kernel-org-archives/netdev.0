@@ -1,38 +1,52 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] ipv4: fix route mark sparse warning
-Date: Wed, 10 Oct 2012 11:27:25 -0700
-Message-ID: <20121010112725.57a6f4a6@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+Subject: [PATCH 3.6.0- 1/3] net/mdio-gpio: use module_platform_driver macro
+Date: Wed, 10 Oct 2012 19:29:02 +0100
+Message-ID: <1349893742-6833-1-git-send-email-srinivas.kandagatla@st.com>
+Cc: srinivas.kandagatla@st.com, bordug@ru.mvista.com,
+	netdev@vger.kernel.org, david.daney@cavium.com,
+	linville@tuxdriver.com, kaloz@openwrt.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:47550 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756941Ab2JJS2G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Oct 2012 14:28:06 -0400
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:41618 "EHLO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751539Ab2JJSaZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 14:30:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sparse complains about RTA_MARK which is should be host order according
-to include file and usage in iproute.
+From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-net/ipv4/route.c:2223:46: warning: incorrect type in argument 3 (different base types)
-net/ipv4/route.c:2223:46:    expected restricted __be32 [usertype] value
-net/ipv4/route.c:2223:46:    got unsigned int [unsigned] [usertype] flowic_mark
+This patch removes some code duplication by using
+module_platform_driver.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+---
+ drivers/net/phy/mdio-gpio.c |   13 +------------
+ 1 files changed, 1 insertions(+), 12 deletions(-)
 
-
---- a/net/ipv4/route.c	2012-10-09 10:35:03.323140263 -0700
-+++ b/net/ipv4/route.c	2012-10-10 10:59:08.774798362 -0700
-@@ -2220,7 +2220,7 @@ static int rt_fill_info(struct net *net,
- 		goto nla_put_failure;
+diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+index 899274f..d5d1624 100644
+--- a/drivers/net/phy/mdio-gpio.c
++++ b/drivers/net/phy/mdio-gpio.c
+@@ -231,18 +231,7 @@ static struct platform_driver mdio_gpio_driver = {
+ 		.of_match_table = mdio_gpio_of_match,
+ 	},
+ };
+-
+-static int __init mdio_gpio_init(void)
+-{
+-	return platform_driver_register(&mdio_gpio_driver);
+-}
+-module_init(mdio_gpio_init);
+-
+-static void __exit mdio_gpio_exit(void)
+-{
+-	platform_driver_unregister(&mdio_gpio_driver);
+-}
+-module_exit(mdio_gpio_exit);
++module_platform_driver(mdio_gpio_driver);
  
- 	if (fl4->flowi4_mark &&
--	    nla_put_be32(skb, RTA_MARK, fl4->flowi4_mark))
-+	    nla_put_u32(skb, RTA_MARK, fl4->flowi4_mark))
- 		goto nla_put_failure;
- 
- 	error = rt->dst.error;
+ MODULE_ALIAS("platform:mdio-gpio");
+ MODULE_AUTHOR("Laurent Pinchart, Paulius Zaleckas");
+-- 
+1.7.0.4
