@@ -1,53 +1,32 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH 01/12] usbnet: introduce usbnet 3 command helpers
-Date: Wed, 10 Oct 2012 17:48:54 +0800
-Message-ID: <CACVXFVMq8-t2o5=M=3xCQEiPFXjvH14g3NtRgOTMYr542d5zXw@mail.gmail.com>
-References: <1349160684-6627-1-git-send-email-ming.lei@canonical.com>
-	<4085386.s0fOKMaRDP@linux-lqwf.site>
-	<CACVXFVM7wPLXy0JL7QDnCaZFidwucTFf3t_38DuwukxWtOESHQ@mail.gmail.com>
-	<1631246.gHVDWoZpLi@linux-lqwf.site>
+From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+Subject: Re: [PATCH] of/mdio: Staticise !CONFIG_OF stubs
+Date: Wed, 10 Oct 2012 10:56:40 +0100
+Message-ID: <50754658.2020903@st.com>
+References: <1349843618-11209-1-git-send-email-broonie@opensource.wolfsonmicro.com>
+Reply-To: srinivas.kandagatla@st.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1631246.gHVDWoZpLi-ugxBuEnWX9yG/4A2pS7c2Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Fengguang Wu <fengguang.wu@intel.com>, netdev@vger.kernel.org
+To: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:54717 "EHLO
+	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752716Ab2JJJ65 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 05:58:57 -0400
+In-Reply-To: <1349843618-11209-1-git-send-email-broonie@opensource.wolfsonmicro.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 10, 2012 at 4:39 PM, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> wrote:
-> On Wednesday 10 October 2012 16:17:25 Ming Lei wrote:
->> On Wed, Oct 10, 2012 at 1:51 PM, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> wrote:
+On 10/10/12 05:33, Mark Brown wrote:
+> The !CONFIG_OF stubs aren't static so if multiple files include the
+> header with this configuration then the linker will see multiple
+> definitions of the stubs.
 >
->> > We need to use GFP_NOIO in situations the helper cannot know about.
->> > Please add a gfp_t parameter. Then the caller will solve that.
->>
->> Considered that most of drivers call the helpers in different context, I think
->> it is better to switch the gpf_t flag runtime inside helpers, like below:
->>
->>            if (dev->power.runtime_status == RPM_RESUMING)
->>                    gfp = GFP_NOIO;
->>           else
->>                    gfp = GFP_KERNEL;
->
-> You are admirably persistent ;-)
-
-I am only trying to solve the problem more generally, :-)
-
-> If you extended the check to RPM_SUSPENDING it might work,
-> but still the problem with error handling exists.
-
-Could you describe the error handling case in a bit detail so
-that callers of these helpers can know when GFP_KERNEL
-is to be passed and when GFP_NOIO is taken if the gfp
-patamerer has to be added?
-
-Thanks,
---
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Signed-off-by: Mark Brown <broonie@opensource.wolfsonmicro.com>
+> ---
+>  include/linux/of_mdio.h |   10 +++++-----
+>  1 file changed, 5 insertions(+), 5 deletions(-)
+Acked-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
