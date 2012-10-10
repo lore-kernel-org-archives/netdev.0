@@ -1,39 +1,51 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH 12/12] usbnet: make device out of suspend before calling usbnet_read/write_cmd
-Date: Wed, 10 Oct 2012 14:00:38 +0800
-Message-ID: <CACVXFVNFKq04bZG1fghy6mtiFmPDkVRrh7zw093xnWfayoXvYQ@mail.gmail.com>
-References: <1349160684-6627-1-git-send-email-ming.lei@canonical.com>
-	<1349160684-6627-13-git-send-email-ming.lei@canonical.com>
-	<2913414.gCAxlQ38lG@linux-lqwf.site>
-	<CACVXFVNb-APsJG=ejW+2jqxTfAFsGhHovpgpsyvk6wUoKn5TzA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACVXFVNb-APsJG=ejW+2jqxTfAFsGhHovpgpsyvk6wUoKn5TzA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCHv2 3/8] vxlan: use ip_route_output
+Date: Tue, 09 Oct 2012 23:35:48 -0700
+Message-ID: <20121010063623.533119759@vyatta.com>
+References: <20121010063545.453368147@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fiji.vyatta.com ([76.74.103.50]:52280 "EHLO fiji.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751148Ab2JJGjX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Oct 2012 02:39:23 -0400
+Content-Disposition: inline; filename=vxlan-route-output.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 10, 2012 at 10:33 AM, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
-> Good catch, thanks for your review.
->
-> As far as I can think of, the mutex_is_locked() trick can solve the problem.
->
-> How about the attached patch?
+Select source address for VXLAN packet based on route destination
+and don't lie to route code. VXLAN is not GRE.
 
-This one is still not good.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+---
+v2 - zero flow structure
 
-After further thought, it may be better to fix the problem in net
-core(dev_ioctl)
-because the problem happens on other net devices too.
-
-Thanks,
---
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--- a/drivers/net/vxlan.c	2012-10-09 18:08:32.630456072 -0700
++++ b/drivers/net/vxlan.c	2012-10-09 18:08:33.466447793 -0700
+@@ -680,9 +680,13 @@ static netdev_tx_t vxlan_xmit(struct sk_
+ 
+ 	hash = skb_get_rxhash(skb);
+ 
+-	rt = ip_route_output_gre(dev_net(dev), &fl4, dst,
+-				 vxlan->saddr, vxlan->vni,
+-				 RT_TOS(tos), vxlan->link);
++	memset(&fl4, 0, sizeof(fl4));
++	fl4.flowi4_oif = vxlan->link;
++	fl4.flowi4_tos = RT_TOS(tos);
++	fl4.daddr = dst;
++	fl4.saddr = vxlan->saddr;
++
++	rt = ip_route_output_key(dev_net(dev), &fl4);
+ 	if (IS_ERR(rt)) {
+ 		netdev_dbg(dev, "no route to %pI4\n", &dst);
+ 		dev->stats.tx_carrier_errors++;
+@@ -724,7 +728,7 @@ static netdev_tx_t vxlan_xmit(struct sk_
+ 	iph->frag_off	= df;
+ 	iph->protocol	= IPPROTO_UDP;
+ 	iph->tos	= vxlan_ecn_encap(tos, old_iph, skb);
+-	iph->daddr	= fl4.daddr;
++	iph->daddr	= dst;
+ 	iph->saddr	= fl4.saddr;
+ 	iph->ttl	= ttl ? : ip4_dst_hoplimit(&rt->dst);
+ 
