@@ -1,41 +1,39 @@
-From: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Subject: Re: [net:master 6/7] mdio-gpio.c:(.text+0x58): multiple definition
- of `of_mdiobus_register'
-Date: Wed, 10 Oct 2012 10:36:10 +0900
-Message-ID: <20121010013608.GA17288@opensource.wolfsonmicro.com>
-References: <20121009232818.GB9331@localhost>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH 2/5] pktgen: set different default min_pkt_size for
+ different protocols
+Date: Wed, 10 Oct 2012 10:19:47 +0800
+Message-ID: <1349835587.2864.5.camel@cr0>
+References: <1349777131-4425-1-git-send-email-amwang@redhat.com>
+	 <1349777131-4425-2-git-send-email-amwang@redhat.com>
+	 <20121009.135531.554326230925730938.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Fengguang Wu <fengguang.wu@intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from opensource.wolfsonmicro.com ([80.75.67.52]:57791 "EHLO
-	opensource.wolfsonmicro.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755238Ab2JJBg3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2012 21:36:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20121009232818.GB9331@localhost>
+Received: from mx1.redhat.com ([209.132.183.28]:31083 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751607Ab2JJCTw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2012 22:19:52 -0400
+In-Reply-To: <20121009.135531.554326230925730938.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 10, 2012 at 07:28:18AM +0800, Fengguang Wu wrote:
-> Hi Mark,
+On Tue, 2012-10-09 at 13:55 -0400, David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Tue,  9 Oct 2012 18:05:28 +0800
 > 
-> FYI, kernel build failed on
+> > ETH_ZLEN is too small for IPv6, so this default value is not
+> > suitable.
+> > 
+> > Cc: David S. Miller <davem@davemloft.net>
+> > Signed-off-by: Cong Wang <amwang@redhat.com>
 > 
-> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-> head:   5175a5e76bbdf20a614fb47ce7a38f0f39e70226
-> commit: 4085a7f0a09c73ef3e9de113c9f04d78c79be645 [6/7] netdev/phy: Prototype of_mdio_find_bus()
-> config: i386-allyesconfig
+> pkt_dev->max_pkt_size is no longer being initialized.
 > 
-> All error/warnings:
-> 
-> drivers/net/phy/mdio-gpio.o: In function `of_mdiobus_register':
-> mdio-gpio.c:(.text+0x58): multiple definition of `of_mdiobus_register'
-> drivers/net/phy/libphy.o:(.text+0x23d7): first defined here
-> drivers/net/phy/mdio-gpio.o: In function `of_phy_find_device':
+> At least set it to whatever you compute in pkt_dev->min_pkt_size
 
-Hrm, I can't see how that would occur due to this patch unless
-!CONFIG_OF is selected which I wouldn't expect from allyesconfig, the
-!CONFIG_OF stubs in the header are buggy as they aren't static.  There
-is a bug there, though - I'll send a patch for that.
+Oops, I forgot it. Will send an updated version.
+
+Thanks!
