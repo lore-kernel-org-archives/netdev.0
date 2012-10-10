@@ -1,50 +1,42 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: unresponsive vlan on top of bond with fail_over_mac=active
-Date: Thu, 11 Oct 2012 01:11:22 +0200
-Message-ID: <20121010231122.GB28935@unicorn.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: netdev@vger.kernel.org
+From: Jean-Christian de Rivaz <jc@eclis.ch>
+Subject: [PATCH] Add CDC-ACM support for the CX93010-2x UCMxx USB Modem
+Date: Thu, 11 Oct 2012 00:49:02 +0200
+Message-ID: <1349909342-13379-1-git-send-email-jc@eclis.ch>
+Cc: netdev@vger.kernel.org, oneukum@suse.de
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:59142 "EHLO mx2.suse.de"
+Received: from www.eclis.ch ([217.162.2.166]:48576 "EHLO mail.eclis.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932301Ab2JJXLY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Oct 2012 19:11:24 -0400
-Content-Disposition: inline
+	id S932445Ab2JJXQx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Oct 2012 19:16:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+This USB V.92/V.32bis Controllered Modem have the USB vendor ID 0x0572
+and device ID 0x1340. It need the NO_UNION_NORMAL quirk to be recognized.
 
-a customer of ours has the following problem:
+Reference:
+http://www.conexant.com/servlets/DownloadServlet/DSH-201723-005.pdf?docid=1725&revid=5
+See idVendor and idProduct in table 6-1. Device Descriptors
 
-A bond is set up in active-backup mode with fail_over_mac=1 (active). On
-top of it, a VLAN is created so that it inherits MAC address of the bond
-which is the same as address of its active slave.
+Signed-off-by: Jean-Christian de Rivaz <jc@eclis.ch>
+---
+ drivers/usb/class/cdc-acm.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-When failover occurs, the bond switches its MAC address to address of
-the new active slave but VLAN interface keeps the old address and it
-stops receiving packets from outside.
-
-The customer suggested that upon failover, not only bond should switch
-its MAC address to the new active slave but also all VLAN interfaces on
-top of it. I don't like this approach too much as there is already a
-different mechanism for the problem: network device's uc list. Since
-commits
-
-  7d26bb10  bonding: emit event when bonding changes MAC
-  2af73d4b  net/bonding: emit address change event also in bond_release
-
-VLAN device's MAC address is copied into bond's uc list. Unfortunately
-there is no code taking care of syncing the bond's uc list to its
-slaves (so that the slave drops the packets for the VLAN). My idea is to
-do this either via ndo_set_rx_mode method or in response to an event.
-
-But before proposing a patch, I would like to ask: which approach is
-preferrable: copying active slave's hw address to all VLAN devices
-defined on top of the bond or syncing bond's uc list to its slaves?
-
-Thanks in advance,
-                                                         Michal Kubecek
+diff --git a/drivers/usb/class/cdc-acm.c b/drivers/usb/class/cdc-acm.c
+index 36f2be4..981f213 100644
+--- a/drivers/usb/class/cdc-acm.c
++++ b/drivers/usb/class/cdc-acm.c
+@@ -1551,6 +1551,9 @@ static const struct usb_device_id acm_ids[] = {
+ 					   Maybe we should define a new
+ 					   quirk for this. */
+ 	},
++	{ USB_DEVICE(0x0572, 0x1340), /* Conexant CX93010-2x UCMxx */
++	.driver_info = NO_UNION_NORMAL,
++	},
+ 	{ USB_DEVICE(0x1bbb, 0x0003), /* Alcatel OT-I650 */
+ 	.driver_info = NO_UNION_NORMAL, /* reports zero length descriptor */
+ 	},
+-- 
+1.7.2.5
