@@ -1,128 +1,39 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH V2] xen: netback: handle compound page fragments on transmit.
-Date: Wed, 10 Oct 2012 14:48:42 +0100
-Message-ID: <1349876922-11907-1-git-send-email-ian.campbell@citrix.com>
+From: Andreas Schwab <schwab@linux-m68k.org>
+Subject: Re: [patch] isdn: fix a wrapping bug in isdn_ppp_ioctl()
+Date: Wed, 10 Oct 2012 15:58:38 +0200
+Message-ID: <m2sj9m5sz5.fsf@igel.home>
+References: <20121010093816.GA3669@elgon.mountain>
+	<1349864358.2386.27.camel@joe-AO722> <m21uh67csy.fsf@igel.home>
+	<1349874007.2386.42.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Ian Campbell <ian.campbell@citrix.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Konrad Rzeszutek Wilk <konrad@kernel.org>,
-	Sander Eikelenboom <linux@eikelenboom.it>
-To: netdev@vger.kernel.org, xen-devel@lists.xen.org
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Masanari Iida <standby24x7@gmail.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:57157 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754659Ab2JJNso (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 09:48:44 -0400
+Received: from mail-out.m-online.net ([212.18.0.9]:58668 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755954Ab2JJN6l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 09:58:41 -0400
+In-Reply-To: <1349874007.2386.42.camel@joe-AO722> (Joe Perches's message of
+	"Wed, 10 Oct 2012 06:00:07 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-An SKB paged fragment can consist of a compound page with order > 0.
-However the netchannel protocol deals only in PAGE_SIZE frames.
+Sorry, I was misremembering the history of the bit ops.  There has
+historically been issues with varying bit order, but noadays set_bit is
+always defined consistently with C shifts.
 
-Handle this in netbk_gop_frag_copy and xen_netbk_count_skb_slots by
-iterating over the frames which make up the page.
+But another issue, set_bit is an atomic operation which may be
+significantly more expensive than the equivalent C operation.  Better
+use __set_bit when atomicity is not needed.
 
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Konrad Rzeszutek Wilk <konrad@kernel.org>
-Cc: Sander Eikelenboom <linux@eikelenboom.it>
----
-v2: Only move to next frame if there is data remaining.
----
- drivers/net/xen-netback/netback.c |   40 ++++++++++++++++++++++++++++++++----
- 1 files changed, 35 insertions(+), 5 deletions(-)
+Andreas.
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 4ebfcf3..f2d6b78 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -335,21 +335,35 @@ unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
- 
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
- 		unsigned long size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
-+		unsigned long offset = skb_shinfo(skb)->frags[i].page_offset;
- 		unsigned long bytes;
-+
-+		offset &= ~PAGE_MASK;
-+
- 		while (size > 0) {
-+			BUG_ON(offset >= PAGE_SIZE);
- 			BUG_ON(copy_off > MAX_BUFFER_OFFSET);
- 
--			if (start_new_rx_buffer(copy_off, size, 0)) {
-+			bytes = PAGE_SIZE - offset;
-+
-+			if (bytes > size)
-+				bytes = size;
-+
-+			if (start_new_rx_buffer(copy_off, bytes, 0)) {
- 				count++;
- 				copy_off = 0;
- 			}
- 
--			bytes = size;
- 			if (copy_off + bytes > MAX_BUFFER_OFFSET)
- 				bytes = MAX_BUFFER_OFFSET - copy_off;
- 
- 			copy_off += bytes;
-+
-+			offset += bytes;
- 			size -= bytes;
-+
-+			if (offset == PAGE_SIZE)
-+				offset = 0;
- 		}
- 	}
- 	return count;
-@@ -403,14 +417,24 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
- 	unsigned long bytes;
- 
- 	/* Data must not cross a page boundary. */
--	BUG_ON(size + offset > PAGE_SIZE);
-+	BUG_ON(size + offset > PAGE_SIZE<<compound_order(page));
- 
- 	meta = npo->meta + npo->meta_prod - 1;
- 
-+	/* Skip unused frames from start of page */
-+	page += offset >> PAGE_SHIFT;
-+	offset &= ~PAGE_MASK;
-+
- 	while (size > 0) {
-+		BUG_ON(offset >= PAGE_SIZE);
- 		BUG_ON(npo->copy_off > MAX_BUFFER_OFFSET);
- 
--		if (start_new_rx_buffer(npo->copy_off, size, *head)) {
-+		bytes = PAGE_SIZE - offset;
-+
-+		if (bytes > size)
-+			bytes = size;
-+
-+		if (start_new_rx_buffer(npo->copy_off, bytes, *head)) {
- 			/*
- 			 * Netfront requires there to be some data in the head
- 			 * buffer.
-@@ -420,7 +444,6 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
- 			meta = get_next_rx_buffer(vif, npo);
- 		}
- 
--		bytes = size;
- 		if (npo->copy_off + bytes > MAX_BUFFER_OFFSET)
- 			bytes = MAX_BUFFER_OFFSET - npo->copy_off;
- 
-@@ -453,6 +476,13 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
- 		offset += bytes;
- 		size -= bytes;
- 
-+		/* Next frame */
-+		if (offset == PAGE_SIZE && size) {
-+			BUG_ON(!PageCompound(page));
-+			page++;
-+			offset = 0;
-+		}
-+
- 		/* Leave a gap for the GSO descriptor. */
- 		if (*head && skb_shinfo(skb)->gso_size && !vif->gso_prefix)
- 			vif->rx.req_cons++;
 -- 
-1.7.2.5
+Andreas Schwab, schwab@linux-m68k.org
+GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
