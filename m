@@ -1,92 +1,60 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: [Xen-devel] compound skb frag pages appearing in start_xmit
-Date: Wed, 10 Oct 2012 16:49:49 +0200
-Message-ID: <748966751.20121010164949@eikelenboom.it>
-References: <1349790467.21847.185.camel@zakaz.uk.xensource.com> <1349790863.21172.4406.camel@edumazet-glaptop> <1349792241.21847.199.camel@zakaz.uk.xensource.com> <1349792847.21172.4479.camel@edumazet-glaptop> <1349793630.21847.208.camel@zakaz.uk.xensource.com> <1349863984.10070.26.camel@zakaz.uk.xensource.com> <1349874598.10070.39.camel@zakaz.uk.xensource.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [patch] isdn: fix a wrapping bug in isdn_ppp_ioctl()
+Date: Wed, 10 Oct 2012 15:59:00 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7033@saturn3.aculab.com>
+References: <20121010093816.GA3669@elgon.mountain> <1349864358.2386.27.camel@joe-AO722> <m21uh67csy.fsf@igel.home> <1349874007.2386.42.camel@joe-AO722> <m2sj9m5sz5.fsf@igel.home> <1349880119.2386.46.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	xen-devel <xen-devel@lists.xen.org>,
-	"Konrad Rzeszutek Wilk" <konrad@kernel.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Dan Carpenter" <dan.carpenter@oracle.com>,
+	"Karsten Keil" <isdn@linux-pingi.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Masanari Iida" <standby24x7@gmail.com>, <netdev@vger.kernel.org>,
+	<kernel-janitors@vger.kernel.org>
+To: "Joe Perches" <joe@perches.com>,
+	"Andreas Schwab" <schwab@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.121.164.40.188.clients.your-server.de ([188.40.164.121]:43829
-	"EHLO smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932217Ab2JJOt6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 10:49:58 -0400
-In-Reply-To: <1349874598.10070.39.camel@zakaz.uk.xensource.com>
+Received: from mx0.aculab.com ([213.249.233.131]:56608 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S932302Ab2JJPJk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 11:09:40 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 19656-05 for <netdev@vger.kernel.org>;
+ Wed, 10 Oct 2012 16:09:36 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1349880119.2386.46.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Wednesday, October 10, 2012, 3:09:58 PM, you wrote:
 
-> On Wed, 2012-10-10 at 11:13 +0100, Ian Campbell wrote:
->> I haven't tackled netfront yet. 
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Joe Perches
+> Sent: 10 October 2012 15:42
+> To: Andreas Schwab
+> Cc: Dan Carpenter; Karsten Keil; David S. Miller; Masanari Iida; netdev@vger.kernel.org; kernel-
+> janitors@vger.kernel.org
+> Subject: Re: [patch] isdn: fix a wrapping bug in isdn_ppp_ioctl()
+> 
+> On Wed, 2012-10-10 at 15:58 +0200, Andreas Schwab wrote:
+> > Sorry, I was misremembering the history of the bit ops.  There has
+> > historically been issues with varying bit order, but noadays set_bit is
+> > always defined consistently with C shifts.
+> 
+> No worries.  Anyway, the change was suggested to aid
+> reader comprehension.  If it doesn't (and it seems not)
+> then it's not worth it.
+> 
+> Anyway, there is still the open question of an overrun/info
+> leak.
+> 
+> > > -           if ((r = set_arg(argp, protos, 8 * sizeof(long))))
+> 
+> set_arg's 2nd arg is bytes not bits.
 
-> I seem to be totally unable to reproduce the equivalent issue on the
-> netfront xmit side, even though it seems like the loop in
-> xennet_make_frags ought to be obviously susceptible to it.
+Seems to me the code is expecting 256 bits of data, not any multiple of int,
+long or anything else.
 
-> Konrad, Sander, are either of you able to repro, e.g. with:
-
-
-Hmrrrmm i don't see any traces, only strange behaviour ..
-
-- i can connect to guests by ssh, but it's sluggish, and sometimes stops working
-- The guest seem to keep trying to connect to netback:
-
-[  658.276719] xen_bridge: port 2(vif40.0) entered forwarding state
-[  658.282258] xen_bridge: port 2(vif40.0) entered forwarding state
-[  663.945964] xen_bridge: port 7(vif39.0) entered forwarding state
-[  669.674277] xen_bridge: port 2(vif40.0) entered disabled state
-[  669.680290] device vif40.0 left promiscuous mode
-[  669.685464] xen_bridge: port 2(vif40.0) entered disabled state
-[  672.857222] device vif41.0 entered promiscuous mode
-[  673.166254] xen-blkback:ring-ref 8, event-channel 9, protocol 1 (x86_64-abi)
-[  673.176368] xen_bridge: port 2(vif41.0) entered forwarding state
-[  673.182042] xen_bridge: port 2(vif41.0) entered forwarding state
-[  674.439725] xen_bridge: port 7(vif39.0) entered disabled state
-[  674.445708] device vif39.0 left promiscuous mode
-[  674.450955] xen_bridge: port 7(vif39.0) entered disabled state
-[  677.726040] device vif42.0 entered promiscuous mode
-[  678.053381] xen-blkback:ring-ref 8, event-channel 9, protocol 1 (x86_64-abi)
-[  678.062804] xen_bridge: port 7(vif42.0) entered forwarding state
-[  678.068433] xen_bridge: port 7(vif42.0) entered forwarding state
-[  688.224736] xen_bridge: port 2(vif41.0) entered forwarding state
-[  693.080557] xen_bridge: port 7(vif42.0) entered forwarding state
-[  700.786276] xen_bridge: port 7(vif42.0) entered disabled state
-[  700.792484] device vif42.0 left promiscuous mode
-[  700.802409] xen_bridge: port 7(vif42.0) entered disabled state
-[  704.133606] device vif43.0 entered promiscuous mode
-[  704.460160] xen-blkback:ring-ref 8, event-channel 9, protocol 1 (x86_64-abi)
-[  704.469800] xen_bridge: port 7(vif43.0) entered forwarding state
-[  704.475303] xen_bridge: port 7(vif43.0) entered forwarding state
-[  719.493788] xen_bridge: port 7(vif43.0) entered forwarding state
-[  726.302456] xen_bridge: port 7(vif43.0) entered disabled state
-[  726.308898] device vif43.0 left promiscuous mode
-[  726.314029] xen_bridge: port 7(vif43.0) entered disabled state
-
-All the guests are already up, but this keeps on going and going and going ....
-
-
-
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index b06ef81..8a3f770 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -462,6 +462,8 @@ static void xennet_make_frags(struct sk_buff *skb, struct net_device *dev,
->                 ref = gnttab_claim_grant_reference(&np->gref_tx_head);
->                 BUG_ON((signed short)ref < 0);
->  
-> +               BUG_ON(PageCompound(skb_frag_page(frag)));
-> +
->                 mfn = pfn_to_mfn(page_to_pfn(skb_frag_page(frag)));
->                 gnttab_grant_foreign_access_ref(ref, np->xbdev->otherend_id,
->                                                 mfn, GNTMAP_readonly);
-
-> My repro for netback was just to netcat a wodge of data from dom0->domU
-> but going the other way doesn't seem to trigger.
+	David
