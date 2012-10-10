@@ -1,53 +1,108 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [patch] isdn: fix a wrapping bug in isdn_ppp_ioctl()
-Date: Wed, 10 Oct 2012 08:52:22 -0700
-Message-ID: <1349884342.2035.1.camel@joe-AO722>
-References: <20121010093816.GA3669@elgon.mountain>
-	 <1349864358.2386.27.camel@joe-AO722> <m21uh67csy.fsf@igel.home>
-	 <1349874007.2386.42.camel@joe-AO722> <m2sj9m5sz5.fsf@igel.home>
-	 <1349880119.2386.46.camel@joe-AO722>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7033@saturn3.aculab.com>
-	 <1349882347.2386.47.camel@joe-AO722>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7034@saturn3.aculab.com>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: [PATCH 11/11] net: xilinx: Show csum in bootlog
+Date: Wed, 10 Oct 2012 18:06:05 +0200
+Message-ID: <CAHTX3dJuHxAqZOkkSymPz5ots1Edq4ty3o1rGAuhnpWrUwtWZQ@mail.gmail.com>
+References: <1349374497-9540-1-git-send-email-monstr@monstr.eu>
+	<1349374497-9540-11-git-send-email-monstr@monstr.eu>
+	<1349378144.2817.23.camel@bwh-desktop.uk.solarflarecom.com>
+	<506EA9C4.2000609@monstr.eu>
+	<1349445062.16173.48.camel@deadeye.wl.decadent.org.uk>
+	<5073E988.60701@monstr.eu>
+	<1349801800.2800.21.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andreas Schwab <schwab@linux-m68k.org>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	Karsten Keil <isdn@linux-pingi.de>,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	John Linn <John.Linn@xilinx.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Masanari Iida <standby24x7@gmail.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:40563 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752426Ab2JJPwY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Oct 2012 11:52:24 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7034@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	John Linn <linnj@xilinx.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349801800.2800.21.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-10-10 at 16:44 +0100, David Laight wrote:
-> > On Wed, 2012-10-10 at 15:59 +0100, David Laight wrote:
-> > > Seems to me the code is expecting 256 bits of data, not any multiple of int,
-> > > long or anything else.
-> > 
-> > include/linux/isdn_ppp.h:#define PPPIOCGCOMPRESSORS _IOR('t',134,unsigned long [8])
-> 
-> That doesn't mean the whole thing makes any sense on 64bit systems.
-> A whole load of historic code used 'long' to ensure 32bit.
-> Some of that might have crept into Linux sources.
+2012/10/9 Ben Hutchings <bhutchings@solarflare.com>:
+> On Tue, 2012-10-09 at 11:08 +0200, Michal Simek wrote:
+>> On 10/05/2012 03:51 PM, Ben Hutchings wrote:
+>> > On Fri, 2012-10-05 at 11:35 +0200, Michal Simek wrote:
+>> >> On 10/04/2012 09:15 PM, Ben Hutchings wrote:
+>> >>> On Thu, 2012-10-04 at 20:14 +0200, Michal Simek wrote:
+>> >>>> Just show current setting in bootlog.
+>> >>> [...]
+>> >>>> --- a/drivers/net/ethernet/xilinx/ll_temac_main.c
+>> >>>> +++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
+>> >>>> @@ -1052,12 +1052,14 @@ static int __devinit temac_of_probe(struct platform_device *op)
+>> >>>>          /* Setup checksum offload, but default to off if not specified */
+>> >>>>          lp->temac_features = 0;
+>> >>>>          p = (__be32 *)of_get_property(op->dev.of_node, "xlnx,txcsum", NULL);
+>> >>>> +        dev_info(&op->dev, "TX_CSUM %d\n", be32_to_cpup(p));
+>> >>>>          if (p && be32_to_cpu(*p)) {
+>> >>>>                  lp->temac_features |= TEMAC_FEATURE_TX_CSUM;
+>> >>>>                  /* Can checksum TCP/UDP over IPv4. */
+>> >>>>                  ndev->features |= NETIF_F_IP_CSUM;
+>> >>>>          }
+>> >>>>          p = (__be32 *)of_get_property(op->dev.of_node, "xlnx,rxcsum", NULL);
+>> >>>> +        dev_info(&op->dev, "RX_CSUM %d\n", be32_to_cpup(p));
+>> >>> [...]
+>> >>>
+>> >>> Is there any particular reason you think this needs to be logged by
+>> >>> default, rather than letting users run ethtool -k?  I suggest using
+>> >>> dev_dbg() instead.
+>> >>
+>> >> Ok. I have looked at it and there are missing some bits in ndev->features.
+>> >>
+>> >> Can you please check that my setting is correct?
+>> >>
+>> >> It is SG DMA ip/driver.
+>> >> ndev->features = NETIF_F_FRAGLIST | NETIF_F_SG
+>> >
+>> > NETIF_F_SG only; NETIF_F_FRAGLIST means you can handle skbs chained
+>> > through the frag_list pointer.
+>>
+>> The driver is able to handle skb fragments too. temac_start_xmit
+>
+> "git grep -w -E 'frag_list|skb_walk_frags|skb_to_sgvec' drivers/net/ethernet/xilinx"
+> returns nothing in net-next.
 
-Very true, but it's exported via copy_to_user.
+What about this? Maybe it is different fragmentation.
+drivers/net/ethernet/xilinx/ll_temac_main.c
+ 688         num_frag = skb_shinfo(skb)->nr_frags;
+ 689         frag = &skb_shinfo(skb)->frags[0];
 
-> Since I suspect there are a maximum of 256 bits on both 32 and 64bit
-> systems, I wouldn't like to guess exactly how any particular 64bit
-> application chooses to check the bitmap.
-> 
-> The ioctl constant may be wrong on 64 bit systems.
 
-shrug.  Not much to do about it now.
-isdn isn't very active.
+>
+> [...]
+>> >> rx Full csum -> NETIF_F_RXCSUM
+>> >>
+>> >> Is there any option to support partial csum?
+>> >
+>> > There is no need to differentiate these in the device features.  For TX
+>> > the stack needs to know whether to use a software fallback before
+>> > passing the skb to you, but on RX it looks at the ip_summed field of
+>> > each skb you pass up.
+>>
+>> Hardware can be setup asymmetrically. It means enable CSUM only on RX or TX.
+>> All combination are valid.
+>> The point here is if Linux is not able to handle this then we have to
+>> create logic in the driver to support these options too.
+>
+> Linux handles this just fine.  The point is you don't have to tell the
+> stack in advance whether or what kind of RX checksum validation your
+> devices will do.  (In fact the only reason that feature flag exists at
+> all is so that it can be generically exposed through the ethtool API.)
 
-Karsten?  What do you think?
+Ok.
+
+Thanks,
+Michal
+
+
+
+-- 
+Michal Simek, Ing. (M.Eng)
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/fdt/
+Microblaze U-BOOT custodian
