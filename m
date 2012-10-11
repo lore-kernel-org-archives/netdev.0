@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: Pull ip header into skb->data before looking
- into ip header.
-Date: Wed, 10 Oct 2012 22:53:58 -0400 (EDT)
-Message-ID: <20121010.225358.819989131525970516.davem@davemloft.net>
-References: <6f6f2599-15e5-49a7-973c-d2c36483427d@CMEXHTCAS1.ad.emulex.com>
+Subject: Re: [PATCH V2] xen: netback: handle compound page fragments on
+ transmit.
+Date: Wed, 10 Oct 2012 22:54:05 -0400 (EDT)
+Message-ID: <20121010.225405.819531775702809174.davem@davemloft.net>
+References: <1349876922-11907-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sarveshwar.bandi@emulex.com
+Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
+	eric.dumazet@gmail.com, konrad@kernel.org, linux@eikelenboom.it
+To: ian.campbell@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58905 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58909 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753599Ab2JKCx7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 22:53:59 -0400
-In-Reply-To: <6f6f2599-15e5-49a7-973c-d2c36483427d@CMEXHTCAS1.ad.emulex.com>
+	with ESMTP id S1754809Ab2JKCyH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 22:54:07 -0400
+In-Reply-To: <1349876922-11907-1-git-send-email-ian.campbell@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <sarveshwar.bandi@emulex.com>
-Date: Wed, 10 Oct 2012 16:45:01 +0530
+From: Ian Campbell <ian.campbell@citrix.com>
+Date: Wed, 10 Oct 2012 14:48:42 +0100
 
-> From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+> An SKB paged fragment can consist of a compound page with order > 0.
+> However the netchannel protocol deals only in PAGE_SIZE frames.
 > 
-> If lower layer driver leaves the ip header in the skb fragment, it needs to
-> be first pulled into skb->data before inspecting ip header length or ip version
-> number.
+> Handle this in netbk_gop_frag_copy and xen_netbk_count_skb_slots by
+> iterating over the frames which make up the page.
 > 
-> Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
 
 Applied.
