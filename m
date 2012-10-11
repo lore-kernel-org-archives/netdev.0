@@ -1,33 +1,80 @@
-From: Joe Perches <joe@perches.com>
-Subject: [RFC net-next] treewide: s/is_<foo>_ether_addr/eth_addr_<foo>
-Date: Wed, 10 Oct 2012 17:56:19 -0700
-Message-ID: <1349916979.2243.13.camel@joe-AO722>
-References: <1349894559.2035.12.camel@joe-AO722>
-	 <1349895710.21172.7235.camel@edumazet-glaptop>
-	 <1349897005.2035.24.camel@joe-AO722> <1349897923.2035.31.camel@joe-AO722>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 0/3] virtio-net: inline header support
+Date: Thu, 11 Oct 2012 10:33:31 +1030
+Message-ID: <87k3ux98oc.fsf@rustcorp.com.au>
+References: <cover.1348824232.git.mst@redhat.com>
+	<87vces2gxq.fsf__45058.6618776017$1349247807$gmane$org@rustcorp.com.au>
+	<506C192E.5060700@redhat.com> <87bogj2j1b.fsf@rustcorp.com.au>
+	<506D3610.7000103@redhat.com> <87ipaq1jtt.fsf@rustcorp.com.au>
+	<506D8DD5.20904@redhat.com>
+	<87391t1nkq.fsf__40391.6521034718$1349505001$gmane$org@rustcorp.com.au>
+	<507029EB.2050405@redhat.com> <878vbg8cma.fsf@rustcorp.com.au>
+	<5073D1D8.3060905@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Brian Haley <brian.haley@hp.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:36705 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757440Ab2JKA4U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Oct 2012 20:56:20 -0400
-In-Reply-To: <1349897923.2035.31.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Sasha Levin <levinsasha928@gmail.com>, avi@redhat.com,
+	Thomas Lendacky <tahm@linux.vnet.ibm.com>
+To: Paolo Bonzini <pbonzini@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <5073D1D8.3060905@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Maybe all the is_<foo>_ether_addr  functions should be renamed
-to eth_addr_<foo> for more api/style symmetry.
+Paolo Bonzini <pbonzini@redhat.com> writes:
+> Il 09/10/2012 06:59, Rusty Russell ha scritto:
+>> Paolo Bonzini <pbonzini@redhat.com> writes:
+>>> Il 05/10/2012 07:43, Rusty Russell ha scritto:
+>>>> That's good.  But virtio_blk's scsi command is insoluble AFAICT.  As I
+>>>> said to Anthony, the best rules are "always" and "never", so I'd really
+>>>> rather not have to grandfather that in.
+>>>
+>>> It is, but we can add a rule that if the (transport) flag
+>>> VIRTIO_RING_F_ANY_HEADER_SG is set, the cdb field is always 32 bytes in
+>>> virtio-blk.
+>> 
+>> Could we do that?  It's the cmd length I'm concerned about; is it always
+>> 32 in practice for some reason?
+>
+> It is always 32 or less except in very obscure cases that are pretty
+> much confined to iSCSI.  We don't care about the obscure cases, and the
+> extra bytes don't hurt.
+>
+> BTW, 32 is the default cdb_size used by virtio-scsi.
+>
+>> Currently qemu does:
+>> 
+>>     struct sg_io_hdr hdr;
+>>     memset(&hdr, 0, sizeof(struct sg_io_hdr));
+>>     hdr.interface_id = 'S';
+>>     hdr.cmd_len = req->elem.out_sg[1].iov_len;
+>>     hdr.cmdp = req->elem.out_sg[1].iov_base;
+>>     hdr.dxfer_len = 0;
+>> 
+>> If it's a command which expects more output data, there's no way to
+>> guess where the boundary is between that command and the data.
+>
+> Yep, so I understood the problem right.
 
-$ git grep --name-only -E "\bis_\w+_ether_addr" | \
-  xargs sed -r -i -e 's/\bis_(\w+)_ether_addr\b/eth_addr_\1/g'
-$ git diff --shortstat
- 304 files changed, 690 insertions(+), 690 deletions(-)
+OK.  Well, Anthony wants qemu to be robust in this regard, so I am
+tempted to rework all the qemu drivers to handle arbitrary layouts.
+They could use a good audit anyway.
 
-Maybe add #defines of the old names for a few releases.
+This would become a glaring exception, but I'm tempted to fix it to 32
+bytes at the same time as we get the new pci layout (ie. for the virtio
+1.0 spec).  The Linux driver would carefully be backwards compatible, of
+course, and the spec would document why.
+
+Cheers,
+Rusty.
