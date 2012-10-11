@@ -1,101 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Rob Herring <robherring2@gmail.com>
 Subject: Re: alignment faults in 3.6
-Date: Thu, 11 Oct 2012 14:59:12 +0200
-Message-ID: <1349960352.21172.9033.camel@edumazet-glaptop>
-References: <20121005082439.GF4625@n2100.arm.linux.org.uk>
-	 <506ED18C.3010009@gmail.com> <20121005140556.GQ4625@n2100.arm.linux.org.uk>
-	 <506EEFBB.3060705@gmail.com> <507619FA.6080001@jonmasters.org>
-	 <yw1xtxu1pwtv.fsf@unicorn.mansr.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7038@saturn3.aculab.com>
-	 <yw1xpq4ppcju.fsf@unicorn.mansr.com>
-	 <1349949638.21172.8445.camel@edumazet-glaptop>
-	 <1349950926.21172.8521.camel@edumazet-glaptop>
-	 <20121011103257.GO4625@n2100.arm.linux.org.uk>
-	 <1349952574.21172.8604.camel@edumazet-glaptop>
-	 <1349952970.1232.5.camel@sakura.staff.proxad.net>
-	 <1349954899.21172.8728.camel@edumazet-glaptop>
-	 <1349956055.1232.9.camel@sakura.staff.proxad.net>
-	 <1349956456.21172.8820.camel@edumazet-glaptop>
-	 <1349959881.1232.44.camel@sakura.staff.proxad.net>
+Date: Thu, 11 Oct 2012 08:20:14 -0500
+Message-ID: <5076C78E.1020408@gmail.com>
+References: <20121005082439.GF4625@n2100.arm.linux.org.uk>  <20121011103257.GO4625@n2100.arm.linux.org.uk>  <1349952574.21172.8604.camel@edumazet-glaptop>  <201210111228.25995.arnd@arndb.de> <1349959248.21172.8970.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>,
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	linux-arm-kernel@lists.infradead.org,
 	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	netdev@vger.kernel.org, David Laight <David.Laight@ACULAB.COM>,
-	Jon Masters <jonathan@jonmasters.org>,
-	linux-arm-kernel@lists.infradead.org
-To: mbizon@freebox.fr
+	Jon Masters <jonathan@jonmasters.org>, netdev@vger.kernel.org,
+	=?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>,
+	David Laight <David.Laight@aculab.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:34618 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755968Ab2JKM7R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 08:59:17 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so959670bkc.19
-        for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 05:59:15 -0700 (PDT)
-In-Reply-To: <1349959881.1232.44.camel@sakura.staff.proxad.net>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:64914 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758633Ab2JKNUU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 09:20:20 -0400
+Received: by mail-oa0-f46.google.com with SMTP id h16so1668384oag.19
+        for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 06:20:19 -0700 (PDT)
+In-Reply-To: <1349959248.21172.8970.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-10-11 at 14:51 +0200, Maxime Bizon wrote:
+On 10/11/2012 07:40 AM, Eric Dumazet wrote:
+> On Thu, 2012-10-11 at 12:28 +0000, Arnd Bergmann wrote:
+> 
+>>
+>> Rob Herring as the original reporter has dropped off the Cc list, adding
+>> him back.
+>>
+>> I assume that the calxeda xgmac driver is the culprit then. It uses
+>> netdev_alloc_skb() rather than netdev_alloc_skb_ip_align() in
+>> xgmac_rx_refill but it is not clear whether it does so intentionally
+>> or by accident.
 
-> Hey I cannot go back in time, when that hardware was built in 2004 (mips
-> @250Mhz), it was considered good, and we did manufacture a lot of it, so
-> it's still maintained.
-> 
-> People run recent kernels on older hardware because they are *encouraged
-> to do so*.
-> 
-> I fought inside my company to be good kernel citizen, not using
-> proprietary BSP, rewrite & mainline the drivers, because that was the
-> community promise: mainline it, we will support it for you, you will get
-> the latest kernel features for free.
-> 
-> 
-> That worked, but with some drawbacks:
-> 
->  - kernel footprint grew that much (we started from 2.4) that it does
-> not fit in device flash anymore
-> 
->  - performance took a hit each time we upgrade, mostly because of cache
-> footprint growth.
-> 
->  - as kernel footprint grew, available RAM for conntrack & route cache
-> entries was smaller each time
-> 
-> 
-> But I had to stop upgrading after 2.6.20. Everything below is not
-> anybody's fault. Bloat is unavoidable for software project that big.
-> 
-> I'm perfectly ok with that, but I don't want to be ridiculed for running
-> mainline kernel on old hardware.
-
-Hmm, I am sorry if you felt that, it was not my intent.
+This in fact does work and eliminates the unaligned traps. However, not
+all h/w can do IP aligned DMA (i.MX FEC for example), so I still think
+this is a questionable optimization by the compiler. We're saving 1 load
+instruction here for data that is likely already in the cache. It may be
+legal per the ABI, but the downside of this optimization is much greater
+than the upside.
 
 > 
+> Thanks Arnd
 > 
-> > Adding get_unaligned() everywhere in linux network stacks is not an
-> > option.
-> > 
-> > We actually want to be able to read the code and fix the bugs, not only
-> > run it on a cheap low end router.
+> It seems an accident, since driver doesnt check skb->data alignment at
+> all (this can change with SLAB debug on/off)
 > 
-> That was not a request, I just needed a clarification. 
-> 
-> Documentation/unaligned-memory-access.txt does not say it's a big no-no,
-> it says you can give unaligned pointers to the networking stack if you
-> arch can do unaligned access (with an "efficiency" notion).
-> 
-> MIPS and ARM have a software handler for this, and performance wise in
-> my case it's better to take the faults, a driver writer may think a
-> benchmark will dictate what to do.
-> 
+> It also incorrectly adds 64 bytes to bfsize, there is no need for this.
 
-Sure, but all this discussion started because one arch apparently did
-not like these mis alignments, and some people complained that network
-guys would not add _needed_ get_unaligned_xxx() wrappers ...
+I'm pretty sure this was needed as the h/w writes out full bursts of
+data, but I'll go back and check.
 
-So far, linux is 20 years old, I dont think we are going to add wrappers
-right now. Machines that could have cared are dying anyway.
+Rob
 
-Please note we still support NET_IP_ALIGN, even if its 0 on x86.
+> (or if its needed, a comment would be nice, because on prior kernels,
+> this makes skb->head allocations uses kmalloc-4096 instead of
+> kmalloc-2048 slab cache... With 3.7 its less an issue now we use order-3
+> pages to deliver fragments for rx skbs
+>
+> So the following patch should fix the alignment, and makes driver uses
+> half memory than before for stable kernels
+> 
+> diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+> index 16814b3..a895e18 100644
+> --- a/drivers/net/ethernet/calxeda/xgmac.c
+> +++ b/drivers/net/ethernet/calxeda/xgmac.c
+> @@ -671,7 +671,8 @@ static void xgmac_rx_refill(struct xgmac_priv *priv)
+>  		p = priv->dma_rx + entry;
+>  
+>  		if (priv->rx_skbuff[entry] == NULL) {
+> -			skb = netdev_alloc_skb(priv->dev, priv->dma_buf_sz);
+> +			skb = netdev_alloc_skb_ip_align(priv->dev,
+> +							priv->dma_buf_sz);
+>  			if (unlikely(skb == NULL))
+>  				break;
+>  
+> @@ -703,7 +704,7 @@ static int xgmac_dma_desc_rings_init(struct net_device *dev)
+>  	/* Set the Buffer size according to the MTU;
+>  	 * indeed, in case of jumbo we need to bump-up the buffer sizes.
+>  	 */
+> -	bfsize = ALIGN(dev->mtu + ETH_HLEN + ETH_FCS_LEN + NET_IP_ALIGN + 64,
+> +	bfsize = ALIGN(dev->mtu + ETH_HLEN + ETH_FCS_LEN,
+>  		       64);
+>  
+>  	netdev_dbg(priv->dev, "mtu [%d] bfsize [%d]\n", dev->mtu, bfsize);
+> 
+> 
