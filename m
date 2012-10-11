@@ -1,53 +1,52 @@
-From: Jon Masters <jonathan@jonmasters.org>
-Subject: Re: alignment faults in 3.6
-Date: Wed, 10 Oct 2012 22:34:48 -0400
-Message-ID: <50763048.6020502@jonmasters.org>
-References: <506E1762.3010601@gmail.com>
- <CANLjY-no-L9=LRCvCetC5XCHicOoSWOfRZmUd7itAiUHWBhAyw@mail.gmail.com>
- <CAG5Tg6Wuybruc31x1eh6mFafsg=7cOgYLgpZUBuJUo75ap3osQ@mail.gmail.com>
- <506E3E58.80703@gmail.com>
- <CAG5Tg6V0Vj9HTy3=AU-q+Qa3DuJs6R1Kw+3uOWU_jOGfkgyXzw@mail.gmail.com>
- <20121005071216.GD4625@n2100.arm.linux.org.uk>
- <CAG5Tg6VciuxJ=k+fatzLugcehF54mGNOLHpUwdMX99oCnAVg8Q@mail.gmail.com>
- <20121005082439.GF4625@n2100.arm.linux.org.uk> <506ED18C.3010009@gmail.com>
- <20121005140556.GQ4625@n2100.arm.linux.org.uk> <506EEFBB.3060705@gmail.com>
- <507619FA.6080001@jonmasters.org> <yw1xtxu1pwtv.fsf@unicorn.mansr.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] of/mdio: Staticise !CONFIG_OF stubs
+Date: Wed, 10 Oct 2012 22:38:50 -0400 (EDT)
+Message-ID: <20121010.223850.1856019052308947278.davem@davemloft.net>
+References: <1349843618-11209-1-git-send-email-broonie@opensource.wolfsonmicro.com>
+	<20121010.223427.1187011104173761756.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=iso-8859-7
 Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <yw1xtxu1pwtv.fsf@unicorn.mansr.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: srinivas.kandagatla@st.com, fengguang.wu@intel.com,
+	netdev@vger.kernel.org
+To: broonie@opensource.wolfsonmicro.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58794 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932159Ab2JKCiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 22:38:52 -0400
+In-Reply-To: <20121010.223427.1187011104173761756.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMTAvMTAvMjAxMiAxMDoyNyBQTSwgTcOlbnMgUnVsbGfDpXJkIHdyb3RlOgoKPiBUaGVyZSBh
-cmUgZXhhY3RseSB0d28gcG9zc2libGUgc29sdXRpb25zOgo+IAo+IDEuIENoYW5nZSB0aGUgbmV0
-d29ya2luZyBjb2RlIHNvIHRob3NlIHN0cnVjdHMgYXJlIGFsd2F5cyBhbGlnbmVkLiAgVGhpcwo+
-ICAgIG1pZ2h0IG5vdCBiZSAoZWFzaWx5KSBwb3NzaWJsZS4KPiAyLiBNYXJrIHRoZSBzdHJ1Y3Rz
-IF9fcGFja2VkIGFuZCBmaXggYW55IHR5cGVjYXN0cyBsaWtlIHRoZSBvbmVzIHNlZW4gaW4KPiAg
-ICB0aGlzIHRocmVhZC4gIFRoaXMgd2lsbCBoYXZlIGFuIGFkdmVyc2UgZWZmZWN0IGluIGNhc2Vz
-IHdoZXJlIHRoZQo+ICAgIHN0cnVjdHMgYXJlIGluIGZhY3QgYWxpZ25lZC4KPiAKPiBCb3RoIHNv
-bHV0aW9ucyBsaWUgc3F1YXJlbHkgaW4gdGhlIG5ldHdvcmtpbmcgY29kZS4gIEl0J3MgdGltZSB0
-bwo+IGludm9sdmUgdGhhdCBsaXN0LCBvciB3ZSdsbCBuZXZlciBnZXQgYW55d2hlcmUuCgpTdXJl
-LCBwbGVhc2UgZG8gbGV0J3MgZmlndXJlIG91dCB0aGUgcGxhbi4gQnV0IG15IHF1ZXN0aW9uIGlz
-IHRhbmdlbnRpYWwKLSBJIGFtIGFmdGVyIGlucHV0IGZyb20gcm1rIG9uIHdoZXRoZXIgdGhhdCBw
-YXRjaCBoZSBwb3N0ZWQgdG8gZml4IHRoZQphdG9taWNpdHkgb2YgbWlzc2FsaWduZWQgZmF1bHRz
-IGlzIGdvaW5nIHRvIGJlIHNvbWV0aGluZyB3ZSBzaG91bGQgcGxhbgp0byBiZSBwdWxsaW5nIGlu
-dG8gMy42IGZvciBGZWRvcmEgKGFmdGVyIHRoZXJlJ3MgYW4gb2ZmaWNpYWwgdmVyc2lvbikgdG8K
-Y29ycmVjdCB0aGUgbWlnaHRfZmF1bHQgd2FybmluZ3MsIGV0Yy4KCk1lYW53aGlsZSwgYSBzZXBh
-cmF0ZSBmaXggb2Ygc29tZSBraW5kIGlzIHN0aWxsIGxpa2VseSB0byBiZSBuZWVkZWQKYmVjYXVz
-ZSB3ZSBkb24ndCB3YW50IHRvIHRha2UgYSBsYXJnZSBudW1iZXIgb2YgYWxpZ25tZW50IHRyYXBz
-LgoKSm9uLgoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-CmxpbnV4LWFybS1rZXJuZWwgbWFpbGluZyBsaXN0CmxpbnV4LWFybS1rZXJuZWxAbGlzdHMuaW5m
-cmFkZWFkLm9yZwpodHRwOi8vbGlzdHMuaW5mcmFkZWFkLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xp
-bnV4LWFybS1rZXJuZWwK
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogV2VkLCAxMCBP
+Y3QgMjAxMiAyMjozNDoyNyAtMDQwMCAoRURUKQ0KDQo+IEZyb206IE1hcmsgQnJvd24gPGJyb29u
+aWVAb3BlbnNvdXJjZS53b2xmc29ubWljcm8uY29tPg0KPiBEYXRlOiBXZWQsIDEwIE9jdCAyMDEy
+IDEzOjMzOjM4ICswOTAwDQo+IA0KPj4gVGhlICFDT05GSUdfT0Ygc3R1YnMgYXJlbid0IHN0YXRp
+YyBzbyBpZiBtdWx0aXBsZSBmaWxlcyBpbmNsdWRlIHRoZQ0KPj4gaGVhZGVyIHdpdGggdGhpcyBj
+b25maWd1cmF0aW9uIHRoZW4gdGhlIGxpbmtlciB3aWxsIHNlZSBtdWx0aXBsZQ0KPj4gZGVmaW5p
+dGlvbnMgb2YgdGhlIHN0dWJzLg0KPj4gDQo+PiBSZXBvcnRlZC1ieTogRmVuZ2d1YW5nIFd1IDxm
+ZW5nZ3Vhbmcud3VAaW50ZWwuY29tPg0KPj4gU2lnbmVkLW9mZi1ieTogTWFyayBCcm93biA8YnJv
+b25pZUBvcGVuc291cmNlLndvbGZzb25taWNyby5jb20+DQo+IA0KPiBBcHBsaWVkLg0KDQpEaWQg
+eW91IGFjdHVhbGx5IHRyeSB0byBjb21waWxlIHRoaXM/DQoNCkluIGZpbGUgaW5jbHVkZWQgZnJv
+bSBkcml2ZXJzL25ldC9waHkvbWRpb19idXMuYzoyOTowOg0KaW5jbHVkZS9saW51eC9vZl9tZGlv
+Lmg6Mjk6MTI6IHdhcm5pbmc6IKFvZl9tZGlvYnVzX3JlZ2lzdGVyoiBkZWZpbmVkIGJ1dCBub3Qg
+dXNlZCBbLVd1bnVzZWQtZnVuY3Rpb25dDQppbmNsdWRlL2xpbnV4L29mX21kaW8uaDozNDoyNzog
+d2FybmluZzogoW9mX3BoeV9maW5kX2RldmljZaIgZGVmaW5lZCBidXQgbm90IHVzZWQgWy1XdW51
+c2VkLWZ1bmN0aW9uXQ0KaW5jbHVkZS9saW51eC9vZl9tZGlvLmg6Mzk6Mjc6IHdhcm5pbmc6IKFv
+Zl9waHlfY29ubmVjdKIgZGVmaW5lZCBidXQgbm90IHVzZWQgWy1XdW51c2VkLWZ1bmN0aW9uXQ0K
+aW5jbHVkZS9saW51eC9vZl9tZGlvLmg6NDc6Mjc6IHdhcm5pbmc6IKFvZl9waHlfY29ubmVjdF9m
+aXhlZF9saW5roiBkZWZpbmVkIGJ1dCBub3QgdXNlZCBbLVd1bnVzZWQtZnVuY3Rpb25dDQppbmNs
+dWRlL2xpbnV4L29mX21kaW8uaDo1NDoyNDogd2FybmluZzogoW9mX21kaW9fZmluZF9idXOiIGRl
+ZmluZWQgYnV0IG5vdCB1c2VkIFstV3VudXNlZC1mdW5jdGlvbl0NCkluIGZpbGUgaW5jbHVkZWQg
+ZnJvbSBkcml2ZXJzL25ldC9waHkvbWRpby1ncGlvLmM6MzI6MDoNCmluY2x1ZGUvbGludXgvb2Zf
+bWRpby5oOjM0OjI3OiB3YXJuaW5nOiChb2ZfcGh5X2ZpbmRfZGV2aWNloiBkZWZpbmVkIGJ1dCBu
+b3QgdXNlZCBbLVd1bnVzZWQtZnVuY3Rpb25dDQppbmNsdWRlL2xpbnV4L29mX21kaW8uaDozOToy
+Nzogd2FybmluZzogoW9mX3BoeV9jb25uZWN0oiBkZWZpbmVkIGJ1dCBub3QgdXNlZCBbLVd1bnVz
+ZWQtZnVuY3Rpb25dDQppbmNsdWRlL2xpbnV4L29mX21kaW8uaDo0NzoyNzogd2FybmluZzogoW9m
+X3BoeV9jb25uZWN0X2ZpeGVkX2xpbmuiIGRlZmluZWQgYnV0IG5vdCB1c2VkIFstV3VudXNlZC1m
+dW5jdGlvbl0NCmluY2x1ZGUvbGludXgvb2ZfbWRpby5oOjU0OjI0OiB3YXJuaW5nOiChb2ZfbWRp
+b19maW5kX2J1c6IgZGVmaW5lZCBidXQgbm90IHVzZWQgWy1XdW51c2VkLWZ1bmN0aW9uXQ0KDQpJ
+ZiB5b3UncmUgZ29pbmcgdG8gbWFyayB0aGlzIHN0dWZmIHN0YXRpYywgeW91IGdvdHRhIG1hcmsg
+dGhhdA0Kc2hpdCBpbmxpbmUgdG9vLg0KDQpJJ2xsIGZpeCB0aGlzIHVwLCBidXQgdGVzdCB5b3Vy
+IGNoYW5nZXMgcGxlYXNlLg0K
