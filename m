@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH RFC 6/7] cpsw: add a DT field for the cpts offset
-Date: Thu, 11 Oct 2012 22:27:21 +0200
-Message-ID: <f6f5b3a81b0f63c7f6aab3ff6efbf6152ca68405.1349985570.git.richardcochran@gmail.com>
+Subject: [PATCH RFC 4/7] cpsw: add a common header file for regsiter declarations
+Date: Thu, 11 Oct 2012 22:27:19 +0200
+Message-ID: <9aec28c3e4021147e74b653e80208230a4700e2c.1349985570.git.richardcochran@gmail.com>
 References: <cover.1349985570.git.richardcochran@gmail.com>
 Cc: <linux-arm-kernel@lists.infradead.org>,
 	David Miller <davem@davemloft.net>,
@@ -10,12 +10,12 @@ Cc: <linux-arm-kernel@lists.infradead.org>,
 	Sriramakrishnan A G <srk@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:34144 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759278Ab2JKU1u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 16:27:50 -0400
-Received: by mail-we0-f174.google.com with SMTP id t9so1264022wey.19
-        for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 13:27:49 -0700 (PDT)
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:43269 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755249Ab2JKU1o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 16:27:44 -0400
+Received: by mail-wi0-f172.google.com with SMTP id hq12so9320955wib.1
+        for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 13:27:42 -0700 (PDT)
 In-Reply-To: <cover.1349985570.git.richardcochran@gmail.com>
 In-Reply-To: <cover.1349985570.git.richardcochran@gmail.com>
 References: <cover.1349985570.git.richardcochran@gmail.com>
@@ -24,68 +24,96 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- Documentation/devicetree/bindings/net/cpsw.txt |    3 +++
- drivers/net/ethernet/ti/cpsw.c                 |    7 +++++++
- include/linux/platform_data/cpsw.h             |    1 +
- 3 files changed, 11 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/ti/cpsw_reg.h |   81 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 81 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/ethernet/ti/cpsw_reg.h
 
-diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-index 3af47b7..dba014f 100644
---- a/Documentation/devicetree/bindings/net/cpsw.txt
-+++ b/Documentation/devicetree/bindings/net/cpsw.txt
-@@ -16,6 +16,7 @@ Required properties:
- - ale_entries		: Specifies No of entries ALE can hold
- - host_port_reg_ofs	: Specifies host port register offset
- - hw_stats_reg_ofs	: Specifies hardware statistics register offset
-+- cpts_reg_ofs		: Specifies the offset of the CPTS registers
- - bd_ram_ofs		: Specifies internal desciptor RAM offset
- - bd_ram_size		: Specifies internal descriptor RAM size
- - rx_descs		: Specifies number of Rx descriptors
-@@ -52,6 +53,7 @@ Examples:
- 		ale_entries = <1024>;
- 		host_port_reg_ofs = <0x108>;
- 		hw_stats_reg_ofs = <0x900>;
-+		cpts_reg_ofs = <0xc00>;
- 		bd_ram_ofs = <0x2000>;
- 		bd_ram_size = <0x2000>;
- 		no_bd_ram = <0>;
-@@ -86,6 +88,7 @@ Examples:
- 		ale_entries = <1024>;
- 		host_port_reg_ofs = <0x108>;
- 		hw_stats_reg_ofs = <0x900>;
-+		cpts_reg_ofs = <0xc00>;
- 		bd_ram_ofs = <0x2000>;
- 		bd_ram_size = <0x2000>;
- 		no_bd_ram = <0>;
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 600699e..5a7ed50 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -819,6 +819,13 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 	}
- 	data->hw_stats_reg_ofs = prop;
- 
-+	if (of_property_read_u32(node, "cpts_reg_ofs", &prop)) {
-+		pr_err("Missing cpts_reg_ofs property in the DT.\n");
-+		ret = -EINVAL;
-+		goto error_ret;
-+	}
-+	data->cpts_reg_ofs = prop;
+diff --git a/drivers/net/ethernet/ti/cpsw_reg.h b/drivers/net/ethernet/ti/cpsw_reg.h
+new file mode 100644
+index 0000000..88fb15f
+--- /dev/null
++++ b/drivers/net/ethernet/ti/cpsw_reg.h
+@@ -0,0 +1,81 @@
++/*
++ * Common CPSW register declarations
++ *
++ * Copyright (C) 2012 Richard Cochran <richardcochran@gmail.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
++ */
++#ifndef _TI_CPSW_REG_H_
++#define _TI_CPSW_REG_H_
 +
- 	if (of_property_read_u32(node, "bd_ram_ofs", &prop)) {
- 		pr_err("Missing bd_ram_ofs property in the DT.\n");
- 		ret = -EINVAL;
-diff --git a/include/linux/platform_data/cpsw.h b/include/linux/platform_data/cpsw.h
-index c4e23d0..a052b1d 100644
---- a/include/linux/platform_data/cpsw.h
-+++ b/include/linux/platform_data/cpsw.h
-@@ -41,6 +41,7 @@ struct cpsw_platform_data {
- 	u32     host_port_num; /* The port number for the host port */
- 
- 	u32	hw_stats_reg_ofs;  /* cpsw hardware statistics counters */
-+	u32	cpts_reg_ofs;      /* cpts registers */
- 
- 	u32	bd_ram_ofs;   /* embedded buffer descriptor RAM offset*/
- 	u32	bd_ram_size;  /*buffer descriptor ram size */
++struct cpsw_port {
++	u32 control;                /* Control Register */
++	u32 res1;
++	u32 max_blks;               /* Maximum FIFO Blocks */
++	u32 blk_cnt;                /* FIFO Block Usage Count (Read Only) */
++	u32 tx_in_ctl;              /* Transmit FIFO Control */
++	u32 port_vlan;              /* VLAN Register */
++	u32 tx_pri_map;             /* Tx Header Priority to Switch Pri Map */
++	u32 ts_seq_mtype;           /* Time Sync Seq ID Offset and Msg Type */
++	u32 sa_lo;                  /* CPGMAC_SL Source Address Low */
++	u32 sa_hi;                  /* CPGMAC_SL Source Address High */
++	u32 send_percent;           /* Transmit Queue Send Percentages */
++	u32 res2;
++	u32 rx_dscp_pri_map0;       /* Rx DSCP Priority to Rx Packet Mapping */
++	u32 rx_dscp_pri_map1;       /* Rx DSCP Priority to Rx Packet Mapping */
++	u32 rx_dscp_pri_map2;       /* Rx DSCP Priority to Rx Packet Mapping */
++	u32 rx_dscp_pri_map3;       /* Rx DSCP Priority to Rx Packet Mapping */
++	u32 rx_dscp_pri_map4;       /* Rx DSCP Priority to Rx Packet Mapping */
++	u32 rx_dscp_pri_map5;       /* Rx DSCP Priority to Rx Packet Mapping */
++	u32 rx_dscp_pri_map6;       /* Rx DSCP Priority to Rx Packet Mapping */
++	u32 rx_dscp_pri_map7;       /* Rx DSCP Priority to Rx Packet Mapping */
++};
++
++/* Bit definitions for the CONTROL register */
++#define PASS_PRI_TAGGED        (1<<24) /* Pass Priority Tagged */
++#define VLAN_LTYPE2_EN         (1<<21) /* VLAN LTYPE 2 enable */
++#define VLAN_LTYPE1_EN         (1<<20) /* VLAN LTYPE 1 enable */
++#define DSCP_PRI_EN            (1<<16) /* DSCP Priority Enable */
++#define TS_320                 (1<<14) /* Time Sync Dest Port 320 enable */
++#define TS_319                 (1<<13) /* Time Sync Dest Port 319 enable */
++#define TS_132                 (1<<12) /* Time Sync Dest IP Addr 132 enable */
++#define TS_131                 (1<<11) /* Time Sync Dest IP Addr 131 enable */
++#define TS_130                 (1<<10) /* Time Sync Dest IP Addr 130 enable */
++#define TS_129                 (1<<9)  /* Time Sync Dest IP Addr 129 enable */
++#define TS_BIT8                (1<<8)  /* ts_ttl_nonzero? */
++#define TS_ANNEX_D_EN          (1<<4)  /* Time Sync Annex D enable */
++#define TS_LTYPE2_EN           (1<<3)  /* Time Sync LTYPE 2 enable */
++#define TS_LTYPE1_EN           (1<<2)  /* Time Sync LTYPE 1 enable */
++#define TS_TX_EN               (1<<1)  /* Time Sync Transmit Enable */
++#define TS_RX_EN               (1<<0)  /* Time Sync Receive Enable */
++
++#define CTRL_TS_BITS \
++	(TS_320 | TS_319 | TS_132 | TS_131 | TS_130 | TS_129 | TS_BIT8 | \
++	 TS_ANNEX_D_EN | TS_LTYPE2_EN | TS_LTYPE1_EN)
++
++#define CTRL_ALL_TS_MASK (CTRL_TS_BITS | TS_TX_EN | TS_RX_EN)
++#define CTRL_TX_TS_BITS  (CTRL_TS_BITS | TS_TX_EN)
++#define CTRL_RX_TS_BITS  (CTRL_TS_BITS | TS_RX_EN)
++
++/* Bit definitions for the TS_SEQ_MTYPE register */
++#define TS_SEQ_ID_OFFSET_SHIFT (16)    /* Time Sync Sequence ID Offset */
++#define TS_SEQ_ID_OFFSET_MASK  (0x3f)
++#define TS_MSG_TYPE_EN_SHIFT   (0)     /* Time Sync Message Type Enable */
++#define TS_MSG_TYPE_EN_MASK    (0xffff)
++
++/* The PTP event messages - Sync, Delay_Req, Pdelay_Req, and Pdelay_Resp. */
++#define EVENT_MSG_BITS ((1<<0) | (1<<1) | (1<<2) | (1<<3))
++
++#endif
 -- 
 1.7.2.5
