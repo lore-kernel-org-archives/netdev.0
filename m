@@ -1,54 +1,30 @@
-From: Andreas Mohr <andi@lisas.de>
-Subject: Re: [PATCH] mcs7830: Fix link state detection
-Date: Thu, 11 Oct 2012 20:37:04 +0200
-Message-ID: <20121011183704.GA8636@rhlx01.hs-esslingen.de>
-References: <201210111233.28652.linux@rainbow-software.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: sysctl interface leaks 16 bytes of kernel memory
+Date: Thu, 11 Oct 2012 15:13:44 -0400 (EDT)
+Message-ID: <20121011.151344.618364814979945725.davem@davemloft.net>
+References: <20121011162407.2590.40301.stgit@bob.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andreas Mohr <andi@lisas.de>, Greg KH <gregkh@linuxfoundation.org>,
-	davem@davemloft.net, Michael Leun <lkml20120218@newton.leun.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ondrej Zary <linux@rainbow-software.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201210111233.28652.linux@rainbow-software.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: alan@lxorguk.ukuu.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38763 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932667Ab2JKTNq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 15:13:46 -0400
+In-Reply-To: <20121011162407.2590.40301.stgit@bob.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Date: Thu, 11 Oct 2012 17:24:14 +0100
 
-On Thu, Oct 11, 2012 at 12:33:28PM +0200, Ondrej Zary wrote:
->  	u8 *buf = urb->transfer_buffer;
->  	bool link;
-> +	struct mcs7830_data *data = mcs7830_get_data(dev);
->  
->  	if (urb->actual_length < 16)
->  		return;
+> From: Alan Cox <alan@linux.intel.com>
+> 
+> If the rc_dereference of tcp_fastopen_ctx ever fails then we copy 16 bytes
+> of kernel stack into the proc result.
+> 
+> Signed-off-by: Alan Cox <alan@linux.intel.com>
 
-Alternatively could do *data = NULL; and then actually assign after the conditional.
-But since the conditional most likely is coldpath
-I think your chosen implementation is best.
-
-
->  
->  	link = !(buf[1] & 0x20);
->  	if (netif_carrier_ok(dev->net) != link) {
-
-I usually like to introduce helper bools to clearly express the intention
-behind things (source code should be readable like a book, yet it all
-too often is everything but...).
-I.e.
-bool link_state_change_detected = (netif_carrier_ok......);
-if (bool)
-
-Might be an idea here, too.
-
-
-The logic behind your counter implementation seems solid to me
-(short explanatory comment "track link state several times, to guard against
-transient erroneous link state of (some versions of?) this chip"
-might have been useful though).
-
-Thank you very much for your patch!
-
-Andreas Mohr
+Applied and queued up for -stable.
