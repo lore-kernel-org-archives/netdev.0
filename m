@@ -1,42 +1,94 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
-Date: Thu, 11 Oct 2012 20:01:35 +0900
-Message-ID: <20121011110135.GE28546@kroah.com>
-References: <1348819504-1303-1-git-send-email-arun.murthy@stericsson.com>
- <1348819504-1303-2-git-send-email-arun.murthy@stericsson.com>
- <20120928160045.GD2625@kroah.com>
- <F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
- <20121001155940.GA1957@kroah.com>
- <F45880696056844FA6A73F415B568C695B6962CC8C@EXDCVYMBSTM006.EQ1STM.local>
- <20121003151748.GA5745@kroah.com>
- <F45880696056844FA6A73F415B568C695B697CB0C9@EXDCVYMBSTM006.EQ1STM.local>
- <20121009135918.GC5583@kroah.com>
- <F45880696056844FA6A73F415B568C695B9B3E3D8A@EXDCVYMBSTM006.EQ1STM.local>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 0/3] virtio-net: inline header support
+Date: Thu, 11 Oct 2012 13:04:31 +0200
+Message-ID: <20121011110430.GF5552@redhat.com>
+References: <506C192E.5060700@redhat.com> <87bogj2j1b.fsf@rustcorp.com.au>
+	<506D3610.7000103@redhat.com> <87ipaq1jtt.fsf@rustcorp.com.au>
+	<506D8DD5.20904@redhat.com>
+	<87391t1nkq.fsf__40391.6521034718$1349505001$gmane$org@rustcorp.com.au>
+	<507029EB.2050405@redhat.com> <878vbg8cma.fsf@rustcorp.com.au>
+	<5073D1D8.3060905@redhat.com> <87k3ux98oc.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
-To: Arun MURTHY <arun.murthy@stericsson.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Sasha Levin <levinsasha928@gmail.com>,
+	Paolo Bonzini <pbonzini@redhat.com>, avi@redhat.com,
+	Thomas Lendacky <tahm@linux.vnet.ibm.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <F45880696056844FA6A73F415B568C695B9B3E3D8A@EXDCVYMBSTM006.EQ1STM.local>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <87k3ux98oc.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 11, 2012 at 11:37:20AM +0200, Arun MURTHY wrote:
-> > On Tue, Oct 09, 2012 at 07:37:02AM +0200, Arun MURTHY wrote:
-> > > Any further comments?
-> > 
-> > I was waiting for you to address all of the previous ones with a new set of
-> > patches before burdening you with anything new :)
+On Thu, Oct 11, 2012 at 10:33:31AM +1030, Rusty Russell wrote:
+> Paolo Bonzini <pbonzini@redhat.com> writes:
+> > Il 09/10/2012 06:59, Rusty Russell ha scritto:
+> >> Paolo Bonzini <pbonzini@redhat.com> writes:
+> >>> Il 05/10/2012 07:43, Rusty Russell ha scritto:
+> >>>> That's good.  But virtio_blk's scsi command is insoluble AFAICT.  As I
+> >>>> said to Anthony, the best rules are "always" and "never", so I'd really
+> >>>> rather not have to grandfather that in.
+> >>>
+> >>> It is, but we can add a rule that if the (transport) flag
+> >>> VIRTIO_RING_F_ANY_HEADER_SG is set, the cdb field is always 32 bytes in
+> >>> virtio-blk.
+> >> 
+> >> Could we do that?  It's the cmd length I'm concerned about; is it always
+> >> 32 in practice for some reason?
+> >
+> > It is always 32 or less except in very obscure cases that are pretty
+> > much confined to iSCSI.  We don't care about the obscure cases, and the
+> > extra bytes don't hurt.
+> >
+> > BTW, 32 is the default cdb_size used by virtio-scsi.
+> >
+> >> Currently qemu does:
+> >> 
+> >>     struct sg_io_hdr hdr;
+> >>     memset(&hdr, 0, sizeof(struct sg_io_hdr));
+> >>     hdr.interface_id = 'S';
+> >>     hdr.cmd_len = req->elem.out_sg[1].iov_len;
+> >>     hdr.cmdp = req->elem.out_sg[1].iov_base;
+> >>     hdr.dxfer_len = 0;
+> >> 
+> >> If it's a command which expects more output data, there's no way to
+> >> guess where the boundary is between that command and the data.
+> >
+> > Yep, so I understood the problem right.
 > 
-> There are not any changes in the code, this review was more like just
-> explaining our platform, protocol, few terminology and design approach.
+> OK.  Well, Anthony wants qemu to be robust in this regard, so I am
+> tempted to rework all the qemu drivers to handle arbitrary layouts.
+> They could use a good audit anyway.
 
-That all needs to go into the patches you send next time around :)
+I agree here. Still trying to understand whether we can agree to use
+a feature bit for this, or not.
 
-And I thought I did have some actual code comments in there somewhere...
+> This would become a glaring exception, but I'm tempted to fix it to 32
+> bytes at the same time as we get the new pci layout (ie. for the virtio
+> 1.0 spec).
 
-greg k-h
+But this isn't a virtio-pci only issue, is it?
+qemu has s390 bus with same limmitation.
+How can we tie it to pci layout?
+
+Maybe what you mean is to use a transport feature for this
+and tie *that* to new layout in case of pci?
+
+
+
+> The Linux driver would carefully be backwards compatible, of
+> course, and the spec would document why.
+> 
+> Cheers,
+> Rusty.
