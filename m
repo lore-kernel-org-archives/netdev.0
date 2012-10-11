@@ -1,32 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Add CDC-ACM support for the CX93010-2x UCMxx USB Modem
-Date: Thu, 11 Oct 2012 15:20:30 -0400 (EDT)
-Message-ID: <20121011.152030.1152791142314922132.davem@davemloft.net>
-References: <1349909342-13379-1-git-send-email-jc@eclis.ch>
+Subject: Re: [PATCH] net/ethernet/jme: disable ASPM
+Date: Thu, 11 Oct 2012 15:20:41 -0400 (EDT)
+Message-ID: <20121011.152041.387981239688261603.davem@davemloft.net>
+References: <20121008193316.GA13684@srcf.ucam.org>
+	<20121008.153953.2134806395029777705.davem@davemloft.net>
+	<20121010225049.024c94cb@laptop-kevin.kbaradon.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oneukum@suse.de
-To: jc@eclis.ch
+Cc: mjg59@srcf.ucam.org, cooldavid@cooldavid.org,
+	netdev@vger.kernel.org
+To: kevin.baradon@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38836 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38845 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756163Ab2JKTUc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 15:20:32 -0400
-In-Reply-To: <1349909342-13379-1-git-send-email-jc@eclis.ch>
+	with ESMTP id S1757953Ab2JKTUn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 15:20:43 -0400
+In-Reply-To: <20121010225049.024c94cb@laptop-kevin.kbaradon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean-Christian de Rivaz <jc@eclis.ch>
-Date: Thu, 11 Oct 2012 00:49:02 +0200
+From: Kevin Baradon <kevin.baradon@gmail.com>
+Date: Wed, 10 Oct 2012 22:50:49 +0200
 
-> This USB V.92/V.32bis Controllered Modem have the USB vendor ID 0x0572
-> and device ID 0x1340. It need the NO_UNION_NORMAL quirk to be recognized.
+> Subject: [PATCH] net/ethernet/jme: disable ASPM
 > 
-> Reference:
-> http://www.conexant.com/servlets/DownloadServlet/DSH-201723-005.pdf?docid=1725&revid=5
-> See idVendor and idProduct in table 6-1. Device Descriptors
+> Based on patch from Matthew Garrett <mjg@redhat.com> (https://lkml.org/lkml/2011/11/11/168).
 > 
-> Signed-off-by: Jean-Christian de Rivaz <jc@eclis.ch>
+> http://driveragent.com/archive/30421/7-0-14 indicates that ASPM is
+> disabled on the 250 and 260. Duplicate for sanity.
+> 
+> Fixes random RX engine hangs I experienced with JMC250 on Clevo W270HU.
+> 
+> Signed-off-by: Kevin Baradon <kevin.baradon@gmail.com>
 
 Applied.
