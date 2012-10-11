@@ -1,69 +1,53 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: Re: [PATCH v2 1/4] net: mvneta: driver for Marvell Armada 370/XP
- network unit
-Date: Thu, 11 Oct 2012 10:46:57 -0500
-Message-ID: <5076E9F1.60200@gmail.com>
-References: <1349969282-12676-1-git-send-email-thomas.petazzoni@free-electrons.com> <1349969282-12676-2-git-send-email-thomas.petazzoni@free-electrons.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: alignment faults in 3.6
+Date: Thu, 11 Oct 2012 16:39:38 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B703E@saturn3.aculab.com>
+References: <20121005082439.GF4625@n2100.arm.linux.org.uk>  <20121011103257.GO4625@n2100.arm.linux.org.uk>  <1349952574.21172.8604.camel@edumazet-glaptop>  <201210111228.25995.arnd@arndb.de>  <1349959248.21172.8970.camel@edumazet-glaptop> <5076C78E.1020408@gmail.com> <1349963227.21172.9188.camel@edumazet-glaptop> <5076E472.8030703@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Lennert Buytenhek <kernel@wantstofly.org>,
-	Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Rami Rosen <rosenr@marvell.com>, netdev@vger.kernel.org,
-	Maen Suleiman <maen@marvell.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Arnd Bergmann" <arnd@arndb.de>,
+	<linux-arm-kernel@lists.infradead.org>,
+	"Russell King - ARM Linux" <linux@arm.linux.org.uk>,
+	"Jon Masters" <jonathan@jonmasters.org>, <netdev@vger.kernel.org>,
+	=?utf-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>
+To: "Rob Herring" <robherring2@gmail.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:40456 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754241Ab2JKPrA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 11:47:00 -0400
-Received: by mail-ob0-f174.google.com with SMTP id uo13so1835913obb.19
-        for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 08:47:00 -0700 (PDT)
-In-Reply-To: <1349969282-12676-2-git-send-email-thomas.petazzoni@free-electrons.com>
+Received: from mx0.aculab.com ([213.249.233.131]:45356 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1758770Ab2JKPtv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Oct 2012 11:49:51 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 05787-02 for <netdev@vger.kernel.org>;
+ Thu, 11 Oct 2012 16:49:47 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <5076E472.8030703@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/11/2012 10:27 AM, Thomas Petazzoni wrote:
-> This patch contains a new network driver for the network unit of the
-> ARM Marvell Armada 370 and the Armada XP. Both SoCs use the PJ4B
-> processor, a Marvell-developed ARM core that implements the ARMv7
-> instruction set.
-
-
-> diff --git a/Documentation/devicetree/bindings/net/marvell-neta.txt b/Documentation/devicetree/bindings/net/marvell-neta.txt
-> new file mode 100644
-> index 0000000..a031978
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/marvell-neta.txt
-> @@ -0,0 +1,24 @@
-> +* Marvell Armada 370 / Armada XP Ethernet Controller (NETA)
-> +
-> +Required properties:
-> +- compatible: should be "marvell,neta".
-
-This should be more specific such as "marvell,armada-xp-neta".
-
-Or use 370 instead of xp. It should be which ever chip came first.
-
-> +- reg: address and length of the register set for the device.
-> +- interrupts: interrupt for the device
-> +- phy-mode: String, operation mode of the PHY interface. Supported
-> +  values are "sgmii" and "rmii".
-> +- phy-addr: Integer, address of the PHY.
-> +- device_type: should be "network".
-
-Drop this. device_type is not used for FDT.
-
-> +- clock-frequency: frequency of the peripheral clock of the SoC.
-> +
-> +Example:
-> +
-> +eth@d0070000 {
-
-Should be ethernet@...
-
-Rob
+IA0KPiBOb3QgZXhhY3RseS4gSXQgaXMgYXNrZWQgdG8gdG8gcGVyZm9ybSAyIDMyLWJpdCBsb2Fk
+cyB3aGljaCBhcmUgY29tYmluZWQNCj4gaW50byBhIHNpbmdsZSBsZG0gKGxvYWQgbXVsdGlwbGUp
+IHdoaWNoIGNhbm5vdCBoYW5kbGUgdW5hbGlnbmVkDQo+IGFjY2Vzc2VzLiBIZXJlJ3MgYSBzaW1w
+bGUgZXhhbXBsZSB0aGF0IGRvZXMgdGhlIHNhbWUgdGhpbmc6DQo+IA0KPiB2b2lkIHRlc3QoY2hh
+ciAqIGJ1ZikNCj4gew0KPiAJcHJpbnRmKCIlZCwgJWRcbiIsICooKHVuc2lnbmVkIGludCAqKSZi
+dWZbMF0pLCAqKCh1bnNpZ25lZCBpbnQgKikmYnVmWzRdKSk7DQo+IH0NCg0KSGF2ZSB5b3UgYWN0
+dWFsbHkgbG9va2VkIGF0IHdoYXQgYW4gQVJNIHByb2Nlc3NvciB0cmFkaXRpb25hbGx5IGRpZA0K
+d2l0aCBtaXNhbGlnbmVkIG1lbW9yeSByZWFkcz8NCldoaWxlIHVzZWZ1bCwgaXQgcHJvYmFibHkg
+d2Fzbid0IHdoYXQgd2FzIGludGVuZGVkLg0KDQpBY3R1YWxseSwgYW5kIElJUkMsIHNvbWUgdmVy
+eSByZWNlbnQgQVJNIGNwdXMgd2lsbCBkbyB0aGUgJ2V4cGVjdGVkJw0KdGhpbmcgZm9yIHNpbmds
+ZS13b3JkIGxvYWRzIGZyb20gbWlzYWxpZ25lZCBhZGRlc3Nlcy4NCkhvd2V2ZXIgdGhleSBhbG1v
+c3QgY2VydGFpbmx5IHdvbid0IGZvciBsZG0vc3RtLg0KDQpUaGUgJ2xkbScgb3B0aW1pc2F0aW9u
+IGZvciBhZGphY2VudCBtZW1vcnkgbG9hZHMgaXMgYWxzbyBkdWJpb3VzLg0KT24gYXQgbGVhc3Qg
+c29tZSBBUk1zIGl0IGlzIHZlcnkgc2xvdyAobWlnaHQgb25seSBiZSBzdHJvbmdhcm1zKS4NCg0K
+PiBTbyBJIGd1ZXNzIHRoZSBvbmx5IEFCSSBsZWdhbCB1bmFsaWduZWQgYWNjZXNzIGlzIGluIGEg
+cGFja2VkIHN0cnVjdC4NCg0KQ29ycmVjdC4gQW5kIHlvdSBtdXN0bid0IHRyeSBjYXN0aW5nIHRo
+ZSBhZGRyZXNzLCB0aGUgY29tcGlsZXIgaXMNCmFsbG93ZWQgdG8gcmVtZW1iZXIgd2hlcmUgaXQg
+Y2FtZSBmcm9tLg0KKFRoaXMgY2F1c2VzIGEgbG90IG9mIGdyaWVmLi4uKQ0KDQpJZiB5b3UgYXJl
+IHRhcmdldGluZyB0aGUgQVJNIGNwdSB0aGF0IGNhbiBkbyBtaXNhbGlnbmVkIHRyYW5zZmVycywN
+CnRoZW4gZ2NjIHNob3VsZCBnZW5lcmF0ZSBzaW5nbGUgaW5zdHJ1Y3Rpb25zIGZvciBtaXNhbGln
+bmVkIHN0cnVjdHVyZQ0KbWVtYmVycywgYW5kIG5ldmVyIGRvIHRoZSAnbGRtJyBvcHRpbWlzYXRp
+b25zLg0KDQpCdXQsIHRoZSBJUCBoZWFkZXIgaXMgZXhwZWN0ZWQgdG8gYmUgYWxpZ25lZC4NCg0K
+CURhdmlkDQoNCg==
