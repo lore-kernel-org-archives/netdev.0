@@ -1,141 +1,242 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: amd64, v3.6.0: Kernel panic + BUG at
- net/netfilter/nf_conntrack_core.c:220!
-Date: Fri, 12 Oct 2012 01:32:06 +0200
-Message-ID: <20121011233206.GA10370@1984>
-References: <CAEcaRjj-xBqEAz_6UHbTZWrvjHB7QUvUUmEvmtuyPJU+iudxkQ@mail.gmail.com>
- <20121011212733.GB26025@liondog.tnic>
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: Re: Fwd: [Bug 1063038] Re: Broadcom BCM57780 Cannot Connect at
+ Gigabit Speed using tg3 module.
+Date: Thu, 11 Oct 2012 13:25:50 -0700
+Message-ID: <50772B4E.6050209@broadcom.com>
+References: <20121009143846.2196.28573.malone@chaenomeles.canonical.com>
+ <50756903.1030709@justinzane.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Borislav Petkov <bp@alien8.de>, Ian Applegate <ia@cloudflare.com>,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20121011212733.GB26025@liondog.tnic>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=utf-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, 1063038@bugs.launchpad.net
+To: "Justin Chudgar" <justin@justinzane.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:2287 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755828Ab2JKX66 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Oct 2012 19:58:58 -0400
+In-Reply-To: <50756903.1030709@justinzane.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 11, 2012 at 11:27:33PM +0200, Borislav Petkov wrote:
-> On Thu, Oct 11, 2012 at 12:13:33PM -0700, Ian Applegate wrote:
-> > On machines serving mainly http traffic we are seeing the following
-> > panic, which is not yet reproducible.
-> 
-> Must be this BUG_ON:
-> 
-> 	if (!nf_ct_is_confirmed(ct)) {
-> 		BUG_ON(hlist_nulls_unhashed(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode));
-> 		hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
-> 	}
 
-At quick glance, I think we're hitting a memory corruption, I don't
-see by now any sane code path to reach that bugtrap.
+On 10/10/2012 05:24 AM, Justin Chudgar wrote:
+> I've got a device with a Broadcom 57780 ethernet NIC. It uses the tg3.ko
+> driver module. The problem is that this NIC cannot connect at gigabit
+> (1000MBps) speed. In all cases connection works well at 100MBps. I
+> reported this to Ubuntu as noted below and was directed here.
+> [https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1063038] Following
+> are the tests I've completed:
 
-More comments below:
 
-> Spamming some more lists and leaving the rest for reference.
-> 
-> > 
-> > 
-> > [180926.566743] ------------[ cut here ]------------
-> > [180926.572034] kernel BUG at net/netfilter/nf_conntrack_core.c:220!
-> > [180926.578873] invalid opcode: 0000 [#1] SMP
-> > [180926.583594] Modules linked in: xfs exportfs ipmi_devintf ipmi_si
-> > ipmi_msghandler dm_mod md_mod nf_conntr
-> > ack_ipv6 nf_defrag_ipv6 ip6table_filter ip6table_raw ip6_tables
-> > nf_conntrack_ipv4 nf_defrag_ipv4 xt_tcpudp x
-> > t_conntrack xt_multiport iptable_filter xt_NOTRACK nf_conntrack
-> > iptable_raw ip_tables x_tables nfsv4 auth_rp
-> > cgss fuse nfsv3 nfs_acl nfs fscache lockd sunrpc sfc mtd i2c_algo_bit
-> > i2c_core mdio igb dca uhci_hcd coretem
-> > p acpi_cpufreq kvm_intel kvm crc32c_intel aesni_intel ablk_helper
-> > cryptd aes_x86_64 aes_generic evdev sd_mod
-> >  crc_t10dif mperf snd_pcm ahci snd_timer tpm_tis microcode snd tpm
-> > libahci tpm_bios soundcore libata snd_pag
-> > e_alloc pcspkr ehci_hcd lpc_ich usbcore mfd_core hpsa scsi_mod
-> > usb_common button processor thermal_sys
-> > [180926.657762] CPU 12
-> > [180926.660008] Pid: 5948, comm: nginx-fl Not tainted 3.6.0-cloudflare
-> > #1 HP ProLiant DL180 G6
-> > [180926.669820] RIP: 0010:[<ffffffffa02ccdd1>]  [<ffffffffa02ccdd1>]
-> > destroy_conntrack+0x55/0xa9 [nf_conntrack]
-> > [180926.680871] RSP: 0018:ffff8805bd73fbb8  EFLAGS: 00010246
-> > [180926.686930] RAX: 0000000000000000 RBX: ffff8806b6f56c30 RCX:
-> > ffff8805bd73fc48
-> > [180926.695055] RDX: 0000000000000000 RSI: 0000000000000006 RDI:
-> > ffff8806b6f56c30
-> > [180926.703179] RBP: ffffffff81651780 R08: 00000000000172e0 R09:
-> > ffffffff812cef91
-> > [180926.711304] R10: dead000000200200 R11: dead000000100100 R12:
-> > ffff8806b6f56c30
-> > [180926.727451] R13: 0000000000000000 R14: ffffffffa02d6030 R15:
-> > 0000000000000000
-> > [180926.735575] FS:  00007f382cdb2710(0000) GS:ffff880627cc0000(0000)
-> > knlGS:0000000000000000
-> > [180926.744766] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> > [180926.751312] CR2: ffffffffff600400 CR3: 00000005bd8d3000 CR4:
-> > 00000000000007e0
-> > [180926.759436] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
-> > 0000000000000000
-> > [180926.767560] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
-> > 0000000000000400
-> > [180926.775686] Process nginx-fl (pid: 5948, threadinfo
-> > ffff8805bd73e000, task ffff8805c9755960)
-> > [180926.785265] Stack:
-> > [180926.787634]  0000000000000000 ffffffff81651780 ffff8802720c2900
-> > ffffffffa02cde78
-> > [180926.796087]  ffffffff81651ec0 ffffffffa02d6030 00000000bff0efab
-> > ffff8805ffffffff
-> > [180926.804532]  0002880500000002 0000000300000014 0000001400000003
-> > 06ff880600000002
-> > [180926.812985] Call Trace:
-> > [180926.815845]  [<ffffffffa02cde78>] ? nf_conntrack_in+0x4ed/0x5bc
-> > [nf_conntrack]
+I don't see a problem linking up with 57780 at gigabit. I tested the latest net kernel (3.6.0) and 
+to make sure it's not ubuntu specific, tested ubuntu 12.04 as well (3.2.0.23-generic). Everything 
+works fine here on my setup.
 
-Here below the trace shows the output path to close a tcp socket. But
-the line above refers to a conntrack function that is called in the
-input path.
 
-If this process is just acting as plain http server, this backtrace
-doesn't seem consistent to me.
+ > sudo ethtool -i eth7
+driver: tg3
+version: 3.121
+firmware-version: 57780-v3.15
+bus-info: 0000:43:00.0
+supports-statistics: yes
+supports-test: yes
+supports-eeprom-access: yes
+supports-register-dump: yes
 
-> > [180926.824069]  [<ffffffff812ac195>] ? nf_iterate+0x41/0x77
-> > [180926.830131]  [<ffffffff812b3820>] ? ip_options_echo+0x2ed/0x2ed
-> > [180926.836873]  [<ffffffff812ac2ee>] ? nf_hook_slow+0x68/0xfd
-> > [180926.843127]  [<ffffffff812b3820>] ? ip_options_echo+0x2ed/0x2ed
-> > [180926.849866]  [<ffffffff812b55a8>] ? __ip_local_out+0x98/0x9d
-> > [180926.856315]  [<ffffffff812b55b6>] ? ip_local_out+0x9/0x19
-> > [180926.862465]  [<ffffffff812c7582>] ? tcp_transmit_skb+0x7ae/0x7f1
-> > [180926.869305]  [<ffffffff810fff4c>] ? virt_to_head_page+0x9/0x2c
-> > [180926.875949]  [<ffffffff812c78a6>] ? tcp_send_active_reset+0xd5/0x101
-> > [180926.883175]  [<ffffffff812bc38f>] ? tcp_close+0x118/0x354
-> > [180926.889334]  [<ffffffff812dbdc2>] ? inet_release+0x75/0x7b
-> > [180926.895591]  [<ffffffff81278bff>] ? sock_release+0x19/0x73
-> > [180926.901845]  [<ffffffff81278c7b>] ? sock_close+0x22/0x27
-> > [180926.907906]  [<ffffffff81109de8>] ? __fput+0xe9/0x1ae
-> > [180926.913677]  [<ffffffff81057157>] ? task_work_run+0x53/0x67
-> > [180926.920031]  [<ffffffff8100e50c>] ? do_notify_resume+0x79/0x8d
-> > [180926.926673]  [<ffffffff8134e5b2>] ? int_signal+0x12/0x17
-> > [180926.932732] Code: 05 48 89 df ff d0 48 c7 c7 30 66 2d a0 e8 11 b0
-> > 07 e1 48 89 df e8 72 25 00 00 48 8b 43
-> >  78 a8 08 75 2a 48 8b 53 10 48 85 d2 75 04 <0f> 0b eb fe 48 8b 43 08
-> > 48 89 02 a8 01 75 04 48 89 50 08 48 be
-> > [180926.954788] RIP  [<ffffffffa02ccdd1>] destroy_conntrack+0x55/0xa9
-> > [nf_conntrack]
-> > [180926.963217]  RSP <ffff8805bd73fbb8>
-> > [180926.967700] ---[ end trace 54a660a52afd5820 ]---
-> > [180926.973038] Kernel panic - not syncing: Fatal exception in interrupt
-> > 
-> > ---
-> > Ian Applegate
-> > CloudFlare
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > Please read the FAQ at  http://www.tux.org/lkml/
-> 
-> -- 
-> Regards/Gruss,
->     Boris.
+
+ > sudo ethtool eth7
+     Settings for eth7:
+     Supported ports: [ TP MII ]
+     Supported link modes: 10baseT/Half 10baseT/Full
+                           100baseT/Half 100baseT/Full
+                           1000baseT/Half 1000baseT/Full
+     Supported pause frame use: Symmetric Receive-only
+     Supports auto-negotiation: Yes
+     Advertised link modes: 10baseT/Half 10baseT/Full
+                            100baseT/Half 100baseT/Full
+                            1000baseT/Half 1000baseT/Full
+     Advertised pause frame use: Symmetric Receive-only
+     Advertised auto-negotiation: Yes
+     Speed: 1000Mb/s
+     Duplex: Full
+     Port: MII
+     PHYAD: 1
+     Transceiver: external
+     Auto-negotiation: on
+     Supports Wake-on: g
+     Wake-on: d
+     Current message level: 0x000000ff (255)
+     drv probe link timer ifdown ifup rx_err tx_err
+     Link detected: yes
+
+
+ > ifconfig eth7
+eth7 Link encap:Ethernet HWaddr 00:10:18:2a:18:cd
+inet addr:3.3.3.1 Bcast:3.3.3.255 Mask:255.255.255.0
+inet6 addr: fe80::210:18ff:fe2a:18cd/64 Scope:Link
+UP BROADCAST RUNNING MULTICAST MTU:1500 Metric:1
+RX packets:1224 errors:0 dropped:0 overruns:0 frame:0
+TX packets:1114 errors:0 dropped:0 overruns:0 carrier:0
+collisions:0 txqueuelen:1000
+RX bytes:115500 (115.5 KB) TX bytes:146587 (146.5 KB)
+Interrupt:80
+
+ > ping 3.3.3.2 -c 1
+PING 3.3.3.2 (3.3.3.2) 56(84) bytes of data.
+64 bytes from 3.3.3.2: icmp_req=1 ttl=64 time=0.185 ms
+
+--- 3.3.3.2 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.185/0.185/0.185/0.000 ms
+
+
+Nithin.
+
+> - Cables tested with cable tester
+> - Cables tested to work at gigabit speed with Realtek and Intel gigabit
+> NICs.
+> - All unmanaged switch ports tested at gigabit speed with other NICs.
+> - Tried to connect with NetworkManager enabled and disabled.
+> - Tried both dhcp and static connections.
+> - Tried to renegotiate connection with `ethtool -r` both with TSO
+> enabled and disabled.
+> - Tried 3.2.0-23-generic 3.5.0-15-generic3.5.0-17-generic
+> 3.6.0-999-generic kernels from main, xorg-edgers and mainline repos.
+> - Used 'tg3_debug=1' kernel option in grub with the following output:
+>
+>      [ 0.000000] Command line: BOOT_IMAGE=/vmlinuz-3.5.0-17-generic
+> root=UUID=eccabacd-efb2-45b4-b7a6-2f530d50afd3 ro rootflags=subvol=@
+> tg3_debug=1 i915_enable_rc6=7 i915_enable_fbc=1 lvds_downclock=1
+>      [ 0.000000] Kernel command line:
+> BOOT_IMAGE=/vmlinuz-3.5.0-17-generic
+> root=UUID=eccabacd-efb2-45b4-b7a6-2f530d50afd3 ro rootflags=subvol=@
+> tg3_debug=1 i915_enable_rc6=7 i915_enable_fbc=1 lvds_downclock=1
+>      [ 5.963136] tg3.c:v3.123 (March 21, 2012)
+>      [ 5.995781] tg3 mdio bus: probed
+>      [ 6.005583] tg3 0000:01:00.0: >eth0: Tigon3 [partno(BCM57780) rev
+> 57780001] (PCI Express) MAC address dc:0e:a1:ac:38:d5
+>      [ 6.005687] tg3 0000:01:00.0: >eth0: attached PHY driver [Broadcom
+> BCM57780] (mii_bus:phy_addr=100:01)
+>      [ 6.005790] tg3 0000:01:00.0: >eth0: RXcsums[1] LinkChgREG[0]
+> MIirq[0] ASF[0] TSOcap[1]
+>      [ 6.005887] tg3 0000:01:00.0: >eth0: dma_rwctrl[76180000]
+> dma_mask[64-bit]
+>      [ 294.987653] tg3 0000:01:00.0: >irq 44 for MSI/MSI-X
+>      [ 295.893224] tg3 0000:01:00.0: >eth0: Link is down
+>      [ 309.887879] tg3 0000:01:00.0: >eth0: Link is up at 100 Mbps, full
+> duplex
+>      [ 309.887886] tg3 0000:01:00.0: >eth0: Flow control is on for TX and
+> on for RX
+>
+> Other distros' forums suggest loading broadcom.ko first; however, this
+> module is no present. Any suggestions would be much appreciated.
+>
+> lspci -vv:
+>      01:00.0 Ethernet controller: Broadcom Corporation NetLink BCM57780
+> Gigabit Ethernet PCIe (rev 01)
+>          Subsystem: Acer Incorporated [ALI] Device 0601
+>          Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+> ParErr- Stepping- SERR- FastB2B- DisINTx+
+>          Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>          Latency: 0, Cache Line Size: 64 bytes
+>          Interrupt: pin A routed to IRQ 44
+>          Region 0: Memory at d3400000 (64-bit, non-prefetchable) [size=64K]
+>          Capabilities: [48] Power Management version 3
+>                  Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA
+> PME(D0-,D1-,D2-,D3hot+,D3cold+)
+>
+>                  Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=1 PME-
+>          Capabilities: [60] Vendor Specific Information: Len=6c <?>
+>          Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
+>                  Address: 00000000fee0100c Data: 4189
+>          Capabilities: [cc] Express (v2) Endpoint, MSI 00
+>                  DevCap: MaxPayload 128 bytes, PhantFunc 0, Latency L0s
+> <4us, L1 unlimited
+>                          ExtTag+ AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
+>                  DevCtl: Report errors: Correctable- Non-Fatal- Fatal-
+> Unsupported-
+>                          RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
+>                          MaxPayload 128 bytes, MaxReadReq 512 bytes
+>                  DevSta: CorrErr+ UncorrErr- FatalErr- UnsuppReq- AuxPwr+
+> TransPend+
+>                  LnkCap: Port #0, Speed 2.5GT/s, Width x1, ASPM L0s L1,
+> Latency L0 <1us, L1 <32us
+>                          ClockPM+ Surprise- LLActRep- BwNot-
+>                  LnkCtl: ASPM L0s L1 Enabled; RCB 64 bytes Disabled-
+> Retrain- CommClk+
+>                          ExtSynch- ClockPM+ AutWidDis- BWInt- AutBWInt-
+>                  LnkSta: Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+
+> DLActive- BWMgmt- ABWMgmt-
+>                  DevCap2: Completion Timeout: Range ABCD, TimeoutDis+
+>                  DevCtl2: Completion Timeout: 50us to 50ms, TimeoutDis-
+>                  LnkCtl2: Target Link Speed: 2.5GT/s, EnterCompliance-
+> SpeedDis-, Selectable De-emphasis: -6dB
+>                           Transmit Margin: Normal Operating Range,
+> EnterModifiedCompliance- ComplianceSOS-
+>                           Compliance De-emphasis: -6dB
+>                  LnkSta2: Current De-emphasis Level: -6dB
+>          Capabilities: [100 v1] Advanced Error Reporting
+>                  UESta: DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt-
+> UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+>                  UEMsk: DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt-
+> UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+>                  UESvrt: DLP+ SDES+ TLP- FCP+ CmpltTO- CmpltAbrt-
+> UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
+>                  CESta: RxErr+ BadTLP- BadDLLP- Rollover- Timeout-
+> NonFatalErr-
+>                  CEMsk: RxErr- BadTLP- BadDLLP- Rollover- Timeout-
+> NonFatalErr+
+>                  AERCap: First Error Pointer: 00, GenCap+ CGenEn- ChkCap+
+> ChkEn-
+>          Capabilities: [13c v1] Virtual Channel
+>                  Caps: LPEVC=0 RefClk=100ns PATEntryBits=1
+>                  Arb: Fixed- WRR32- WRR64- WRR128-
+>                  Ctrl: ArbSelect=Fixed
+>                  Status: InProgress-
+>                  VC0: Caps: PATOffset=00 MaxTimeSlots=1 RejSnoopTrans-
+>                          Arb: Fixed- WRR32- WRR64- WRR128- TWRR128- WRR256-
+>                          Ctrl: Enable+ ID=0 ArbSelect=Fixed TC/VC=ff
+>                          Status: NegoPending- InProgress-
+>          Capabilities: [160 v1] Device Serial Number dc-0e-a1-ff-fe-ac-38-d5
+>          Capabilities: [16c v1] Power Budgeting <?>
+>          Kernel driver in use: tg3
+>          Kernel modules: tg3
+> ---
+>
+>
+> Justin Chudgar  |  Weed, CA 96094  |  530 921 0738 | http://www.justinzane.com/
+>
+> -------- Original Message --------
+> Subject: 	[Bug 1063038] Re: Broadcom BCM57780 Cannot Connect at Gigabit
+> Speed using tg3 module.
+> Date: 	Tue, 09 Oct 2012 14:38:45 -0000
+> From: 	Joseph Salisbury <joseph.salisbury@canonical.com>
+> Reply-To: 	Bug 1063038 <1063038@bugs.launchpad.net>
+> To: 	justin@justinzane.com
+>
+>
+>
+> This issue appears to be an upstream bug, since you tested the latest
+> upstream kernel.  Would it be possible for you to open an upstream bug
+> report[0]?  That will allow the upstream Developers to examine the
+> issue, and may provide a quicker resolution to the bug.
+>
+> Please follow the instructions on the wiki page[0].  The first step is
+> to email the appropriate mailing list.  If no response is received, then
+> a bug may be opened on bugzilla.kernel.org.
+>
+> [0] https://wiki.ubuntu.com/Bugs/Upstream/kernel
+>
+>
+> ** Changed in: linux (Ubuntu)
+>         Status: Confirmed => Triaged
+>
+> ** Changed in: linux (Ubuntu)
+>     Importance: Undecided => Medium
+>
+> ** Tags added: kernel-bug-exists-upstream
+>
