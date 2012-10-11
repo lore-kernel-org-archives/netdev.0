@@ -1,50 +1,275 @@
-From: Jay Purohit <jspurohit@velocitylimitless.com>
-Subject: [PATCH] iPhone 5 support for ipheth.
-Date: Thu, 11 Oct 2012 16:08:09 -0500
-Message-ID: <CADx9NEdOWe1m2PnUcnr6VD7d-Cohr2mNu1FMih80hDD5Lic2BQ@mail.gmail.com>
-References: <CADx9NEeyPUNrOiWHn97eOTp5skBqa7D9t8m_90QDAgs+kKtybg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH] ipv6: Enable enough of the code to handle GOS when disabled.
+Date: Thu, 11 Oct 2012 17:15:03 -0400
+Message-ID: <1349990103-29689-1-git-send-email-vyasevic@redhat.com>
+Cc: davem@davemloft.net, Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:56126 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759057Ab2JKVIK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 17:08:10 -0400
-Received: by mail-vb0-f46.google.com with SMTP id ff1so2312903vbb.19
-        for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 14:08:09 -0700 (PDT)
-In-Reply-To: <CADx9NEeyPUNrOiWHn97eOTp5skBqa7D9t8m_90QDAgs+kKtybg@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:29567 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754856Ab2JKVPI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Oct 2012 17:15:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I noticed that the iPhone ethernet driver did not support
-iPhone 5. I quickly added support to it in my kernel, here's
-a patch.
+When a guest using virtio is attempting to use IPv6 on a host where
+IPv6 module is administratively disabled, the tcp bulk thransfer rate
+drops down to 10kbps.  The problem is that when IPv6 is disabled,
+none of the protocol handlers are registered.  When the guest
+attempts to send an IPv6 packet with GSO (which is the default), this
+packet is dropped by the host stack because there are no gso handlers
+registered.  Thus a retransmit is triggerd for ever GSO packet, reducing
+the transfer rate.
 
-Signed-off-by: Jay Purohit <jspurohit@velocitylimitless.com>
-Acked-by: Valdis Kletnieks <valdis.kletnieks@vt.edu>
+This patch attempts to solve this by enabling just enough code that GSO
+is correctly processed.  However, I should point out that if IPv6 is
+simply blacklisted or not build for the kernel, this problem will
+still persist.
 
---- linux-3.6.1/drivers/net/usb/ipheth.c        2012-10-07
-10:41:28.000000000 -0500
-+++ new/linux-3.6.1/drivers/net/usb/ipheth.c    2012-10-11
-11:38:17.242000596 -0500
-@@ -62,6 +62,8 @@
- #define USB_PRODUCT_IPAD 0x129a
- #define USB_PRODUCT_IPHONE_4_VZW 0x129c
- #define USB_PRODUCT_IPHONE_4S  0x12a0
-+#define USB_PRODUCT_IPHONE_5   0x12a8
-+
+This problem also exists for AF_PACKET sockets, so it is not limited
+to guests using virtio.
 
- #define IPHETH_USBINTF_CLASS    255
- #define IPHETH_USBINTF_SUBCLASS 253
-@@ -113,6 +115,10 @@
-                USB_VENDOR_APPLE, USB_PRODUCT_IPHONE_4S,
-                IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
-                IPHETH_USBINTF_PROTO) },
-+       { USB_DEVICE_AND_INTERFACE_INFO(
-+               USB_VENDOR_APPLE, USB_PRODUCT_IPHONE_5,
-+               IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
-+               IPHETH_USBINTF_PROTO) },
-        { }
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ include/linux/ipv6.h  |    1 +
+ include/net/ipv6.h    |    5 +++
+ net/ipv6/af_inet6.c   |   69 +++++++++++++++++++++++++++++++++++++++++++++---
+ net/ipv6/ip6_input.c  |    5 +++
+ net/ipv6/reassembly.c |   11 +++++--
+ net/ipv6/tcp_ipv6.c   |    9 +++++-
+ net/ipv6/udp.c        |    6 +++-
+ 7 files changed, 95 insertions(+), 11 deletions(-)
+
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 0b94e91..1d5e061 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -176,6 +176,7 @@ struct ipv6_devconf {
  };
- MODULE_DEVICE_TABLE(usb, ipheth_table);
+ 
+ struct ipv6_params {
++	__s32 disable_ipv6_mod;
+ 	__s32 disable_ipv6;
+ 	__s32 autoconf;
+ };
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 979bf6c..cda75b4 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -550,6 +550,11 @@ extern int			ipv6_rcv(struct sk_buff *skb,
+ 					 struct packet_type *pt,
+ 					 struct net_device *orig_dev);
+ 
++extern int			ipv6_rcv_stub(struct sk_buff *skb, 
++					 struct net_device *dev, 
++					 struct packet_type *pt,
++					 struct net_device *orig_dev);
++
+ extern int			ip6_rcv_finish(struct sk_buff *skb);
+ 
+ /*
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index a974247..1fd0d73 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -74,13 +74,13 @@ static struct list_head inetsw6[SOCK_MAX];
+ static DEFINE_SPINLOCK(inetsw6_lock);
+ 
+ struct ipv6_params ipv6_defaults = {
++	.disable_ipv6_mod = 0,
+ 	.disable_ipv6 = 0,
+ 	.autoconf = 1,
+ };
+ 
+-static int disable_ipv6_mod;
+ 
+-module_param_named(disable, disable_ipv6_mod, int, 0444);
++module_param_named(disable, ipv6_defaults.disable_ipv6_mod, int, 0444);
+ MODULE_PARM_DESC(disable, "Disable IPv6 module such that it is non-functional");
+ 
+ module_param_named(disable_ipv6, ipv6_defaults.disable_ipv6, int, 0444);
+@@ -1048,6 +1048,53 @@ static struct pernet_operations inet6_net_ops = {
+ 	.exit = inet6_net_exit,
+ };
+ 
++/* This function is called when IPv6 is administratively disabled.
++ * Its sole purpose is to set up enough of IPv6 that GSO/TSO will work
++ * for any outgoing IPv6 packets that may have been generated by
++ * guest or AF_PACKET sockets.
++ */
++static int inet6_init_disabled(void)
++{
++	int err = 0;
++
++	/* Init v6 extension headers. */
++	err = ipv6_exthdrs_init();
++	if (err)
++		goto out;
++
++	err = ipv6_frag_init();
++	if (err)
++		goto ipv6_frag_fail;
++
++	/* Init v6 transport protocols. UDP-light doesn't support GSO so
++	 * it is omitted
++	 */
++	err = udpv6_init();
++	if (err)
++		goto udpv6_fail;
++
++	err = tcpv6_init();
++	if (err)
++		goto tcpv6_fail;
++
++	err = ipv6_packet_init();
++	if (err)
++		goto ipv6_packet_fail;
++
++	return 0;
++
++ipv6_packet_fail:
++	tcpv6_exit();
++tcpv6_fail:
++	udpv6_exit();
++udpv6_fail:
++	ipv6_frag_exit();
++ipv6_frag_fail:
++	ipv6_exthdrs_exit();
++out:
++	return err;
++}
++	
+ static int __init inet6_init(void)
+ {
+ 	struct sk_buff *dummy_skb;
+@@ -1060,8 +1107,9 @@ static int __init inet6_init(void)
+ 	for (r = &inetsw6[0]; r < &inetsw6[SOCK_MAX]; ++r)
+ 		INIT_LIST_HEAD(r);
+ 
+-	if (disable_ipv6_mod) {
++	if (ipv6_defaults.disable_ipv6_mod) {
+ 		pr_info("Loaded, but administratively disabled, reboot required to enable\n");
++		err = inet6_init_disabled();
+ 		goto out;
+ 	}
+ 
+@@ -1238,11 +1286,22 @@ out_unregister_tcp_proto:
+ }
+ module_init(inet6_init);
+ 
++static void __exit inet6_exit_disabled(void)
++{
++	ipv6_packet_cleanup();
++	ipv6_frag_exit();
++	ipv6_exthdrs_exit();
++	udpv6_exit();
++	tcpv6_exit();
++}
++
+ static void __exit inet6_exit(void)
+ {
+-	if (disable_ipv6_mod)
++	if (ipv6_defaults.disable_ipv6_mod) {
++		inet6_exit_disabled();
+ 		return;
+-
++	}
++		
+ 	/* First of all disallow new sockets creation. */
+ 	sock_unregister(PF_INET6);
+ 	/* Disallow any further netlink messages */
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index a52d864..3e86ec3 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -74,6 +74,11 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+ 		return NET_RX_DROP;
+ 	}
+ 
++	if (ipv6_defaults.disable_ipv6_mod) {
++		kfree_skb(skb);
++		return NET_RX_DROP;
++	}
++
+ 	rcu_read_lock();
+ 
+ 	idev = __in6_dev_get(skb->dev);
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index da8a4e3..71a0e61 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -705,6 +705,9 @@ int __init ipv6_frag_init(void)
+ 	if (ret)
+ 		goto out;
+ 
++	if (ipv6_defaults.disable_ipv6_mod)
++		goto out;
++
+ 	ret = ip6_frags_sysctl_register();
+ 	if (ret)
+ 		goto err_sysctl;
+@@ -734,8 +737,10 @@ err_sysctl:
+ 
+ void ipv6_frag_exit(void)
+ {
+-	inet_frags_fini(&ip6_frags);
+-	ip6_frags_sysctl_unregister();
+-	unregister_pernet_subsys(&ip6_frags_ops);
++	if (!ipv6_defaults.disable_ipv6_mod) {
++		inet_frags_fini(&ip6_frags);
++		ip6_frags_sysctl_unregister();
++		unregister_pernet_subsys(&ip6_frags_ops);
++	}
+ 	inet6_del_protocol(&frag_protocol, IPPROTO_FRAGMENT);
+ }
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 49c8903..ebb297c 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -2109,6 +2109,9 @@ int __init tcpv6_init(void)
+ 	if (ret)
+ 		goto out;
+ 
++	if (ipv6_defaults.disable_ipv6_mod)
++		goto out;
++
+ 	/* register inet6 protocol */
+ 	ret = inet6_register_protosw(&tcpv6_protosw);
+ 	if (ret)
+@@ -2129,7 +2132,9 @@ out_tcpv6_protosw:
+ 
+ void tcpv6_exit(void)
+ {
+-	unregister_pernet_subsys(&tcpv6_net_ops);
+-	inet6_unregister_protosw(&tcpv6_protosw);
++	if (!ipv6_defaults.disable_ipv6_mod) {
++		unregister_pernet_subsys(&tcpv6_net_ops);
++		inet6_unregister_protosw(&tcpv6_protosw);
++	}
+ 	inet6_del_protocol(&tcpv6_protocol, IPPROTO_TCP);
+ }
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index fc99972..2e8dddb 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1569,6 +1569,9 @@ int __init udpv6_init(void)
+ 	if (ret)
+ 		goto out;
+ 
++	if (ipv6_defaults.disable_ipv6_mod)
++		goto out;
++
+ 	ret = inet6_register_protosw(&udpv6_protosw);
+ 	if (ret)
+ 		goto out_udpv6_protocol;
+@@ -1582,6 +1585,7 @@ out_udpv6_protocol:
+ 
+ void udpv6_exit(void)
+ {
+-	inet6_unregister_protosw(&udpv6_protosw);
++	if (!ipv6_defaults.disable_ipv6_mod)
++		inet6_unregister_protosw(&udpv6_protosw);
+ 	inet6_del_protocol(&udpv6_protocol, IPPROTO_UDP);
+ }
+-- 
+1.7.7.6
