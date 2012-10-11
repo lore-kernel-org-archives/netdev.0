@@ -1,34 +1,31 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: iputils-s20121011
-Date: Thu, 11 Oct 2012 16:01:19 +0900
-Message-ID: <50766EBF.3080505@linux-ipv6.org>
+From: Lin Ming <minggr@gmail.com>
+Subject: IGMP fast leave
+Date: Thu, 11 Oct 2012 15:16:30 +0800
+Message-ID: <CAF1ivSZjCKVgjvg46a98SmbXPGk_ofPKR_mjdMJKZQ0Rf2GYdg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-To: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: networking <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:42791 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751351Ab2JKHBW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 03:01:22 -0400
+Received: from mail-la0-f46.google.com ([209.85.215.46]:43523 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755628Ab2JKHQc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 03:16:32 -0400
+Received: by mail-la0-f46.google.com with SMTP id h6so991201lag.19
+        for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 00:16:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi,
 
-I have just released new snapshot of iputils (iputils-s20121011).
-It comes with new ninfod (an RFC4620 (Node Information Query)
-responder daemon) and other bug fixes, improvements and code
-clean-ups.
+I'm testing multicast on a router running 2.6.32 kernel.
 
-Release note:
- https://sourceforge.net/p/iputils/code/ci/s20121011/tree/RELNOTES
+For fast leave support, I expect that the router should stop sending
+immediately the multicast stream when receiving an IGMP leave for the
+last member.
 
-Download:
- https://sourceforge.net/projects/iputils/files/
- https://www.skbuff.net/iputils/
+2.6.32 kernel does not support this kind of fast leave.
+Does latest kernel support it?
 
-Regards,
-
---yoshfuji
+Thanks,
+Lin Ming
