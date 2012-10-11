@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ethernet/jme: disable ASPM
-Date: Thu, 11 Oct 2012 15:20:41 -0400 (EDT)
-Message-ID: <20121011.152041.387981239688261603.davem@davemloft.net>
-References: <20121008193316.GA13684@srcf.ucam.org>
-	<20121008.153953.2134806395029777705.davem@davemloft.net>
-	<20121010225049.024c94cb@laptop-kevin.kbaradon.com>
+Subject: Re: [PATCH net-next? V2] pktgen: Use simpler test for non-zero
+ ipv6 address
+Date: Thu, 11 Oct 2012 15:20:57 -0400 (EDT)
+Message-ID: <20121011.152057.418629873945363485.davem@davemloft.net>
+References: <1349894559.2035.12.camel@joe-AO722>
+	<1349895710.21172.7235.camel@edumazet-glaptop>
+	<1349897005.2035.24.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mjg59@srcf.ucam.org, cooldavid@cooldavid.org,
-	netdev@vger.kernel.org
-To: kevin.baradon@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38845 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757953Ab2JKTUn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 15:20:43 -0400
-In-Reply-To: <20121010225049.024c94cb@laptop-kevin.kbaradon.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, brian.haley@hp.com
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349897005.2035.24.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kevin Baradon <kevin.baradon@gmail.com>
-Date: Wed, 10 Oct 2012 22:50:49 +0200
+From: Joe Perches <joe@perches.com>
+Date: Wed, 10 Oct 2012 12:23:25 -0700
 
-> Subject: [PATCH] net/ethernet/jme: disable ASPM
+> Reduces object size and should be slightly faster.
 > 
-> Based on patch from Matthew Garrett <mjg@redhat.com> (https://lkml.org/lkml/2011/11/11/168).
-> 
-> http://driveragent.com/archive/30421/7-0-14 indicates that ASPM is
-> disabled on the 250 and 260. Duplicate for sanity.
-> 
-> Fixes random RX engine hangs I experienced with JMC250 on Clevo W270HU.
-> 
-> Signed-off-by: Kevin Baradon <kevin.baradon@gmail.com>
+> allyesconfig: 
+> $ size net/core/pktgen.o*
+>    text	   data	    bss	    dec	    hex	filename
+>   52284	   4321	  11840	  68445	  10b5d	net/core/pktgen.o.new
+>   52310	   4293	  11848	  68451	  10b63	net/core/pktgen.o.old
+>  
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Applied.
+Please resubmit when net-next opens.
