@@ -1,52 +1,133 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] of/mdio: Staticise !CONFIG_OF stubs
-Date: Wed, 10 Oct 2012 22:38:50 -0400 (EDT)
-Message-ID: <20121010.223850.1856019052308947278.davem@davemloft.net>
-References: <1349843618-11209-1-git-send-email-broonie@opensource.wolfsonmicro.com>
-	<20121010.223427.1187011104173761756.davem@davemloft.net>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [RFC PATCH] net/core: support runtime PM on net_device
+Date: Thu, 11 Oct 2012 10:41:12 +0800
+Message-ID: <CACVXFVP-JQPbBGrPTMWLG-YknLh-vhsuGwqkYHY49r1-VO0xYg@mail.gmail.com>
+References: <1349873913-10701-1-git-send-email-ming.lei@canonical.com>
+	<1661593.Shb8QLRF9A@linux-lqwf.site>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: srinivas.kandagatla@st.com, fengguang.wu@intel.com,
-	netdev@vger.kernel.org
-To: broonie@opensource.wolfsonmicro.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Alan Stern <stern@rowland.harvard.edu>, netdev@vger.kernel.org,
+	linux-pm@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58794 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932159Ab2JKCiw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 22:38:52 -0400
-In-Reply-To: <20121010.223427.1187011104173761756.davem@davemloft.net>
+Received: from youngberry.canonical.com ([91.189.89.112]:51971 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933061Ab2JKClO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 22:41:14 -0400
+In-Reply-To: <1661593.Shb8QLRF9A@linux-lqwf.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogV2VkLCAxMCBP
-Y3QgMjAxMiAyMjozNDoyNyAtMDQwMCAoRURUKQ0KDQo+IEZyb206IE1hcmsgQnJvd24gPGJyb29u
-aWVAb3BlbnNvdXJjZS53b2xmc29ubWljcm8uY29tPg0KPiBEYXRlOiBXZWQsIDEwIE9jdCAyMDEy
-IDEzOjMzOjM4ICswOTAwDQo+IA0KPj4gVGhlICFDT05GSUdfT0Ygc3R1YnMgYXJlbid0IHN0YXRp
-YyBzbyBpZiBtdWx0aXBsZSBmaWxlcyBpbmNsdWRlIHRoZQ0KPj4gaGVhZGVyIHdpdGggdGhpcyBj
-b25maWd1cmF0aW9uIHRoZW4gdGhlIGxpbmtlciB3aWxsIHNlZSBtdWx0aXBsZQ0KPj4gZGVmaW5p
-dGlvbnMgb2YgdGhlIHN0dWJzLg0KPj4gDQo+PiBSZXBvcnRlZC1ieTogRmVuZ2d1YW5nIFd1IDxm
-ZW5nZ3Vhbmcud3VAaW50ZWwuY29tPg0KPj4gU2lnbmVkLW9mZi1ieTogTWFyayBCcm93biA8YnJv
-b25pZUBvcGVuc291cmNlLndvbGZzb25taWNyby5jb20+DQo+IA0KPiBBcHBsaWVkLg0KDQpEaWQg
-eW91IGFjdHVhbGx5IHRyeSB0byBjb21waWxlIHRoaXM/DQoNCkluIGZpbGUgaW5jbHVkZWQgZnJv
-bSBkcml2ZXJzL25ldC9waHkvbWRpb19idXMuYzoyOTowOg0KaW5jbHVkZS9saW51eC9vZl9tZGlv
-Lmg6Mjk6MTI6IHdhcm5pbmc6IKFvZl9tZGlvYnVzX3JlZ2lzdGVyoiBkZWZpbmVkIGJ1dCBub3Qg
-dXNlZCBbLVd1bnVzZWQtZnVuY3Rpb25dDQppbmNsdWRlL2xpbnV4L29mX21kaW8uaDozNDoyNzog
-d2FybmluZzogoW9mX3BoeV9maW5kX2RldmljZaIgZGVmaW5lZCBidXQgbm90IHVzZWQgWy1XdW51
-c2VkLWZ1bmN0aW9uXQ0KaW5jbHVkZS9saW51eC9vZl9tZGlvLmg6Mzk6Mjc6IHdhcm5pbmc6IKFv
-Zl9waHlfY29ubmVjdKIgZGVmaW5lZCBidXQgbm90IHVzZWQgWy1XdW51c2VkLWZ1bmN0aW9uXQ0K
-aW5jbHVkZS9saW51eC9vZl9tZGlvLmg6NDc6Mjc6IHdhcm5pbmc6IKFvZl9waHlfY29ubmVjdF9m
-aXhlZF9saW5roiBkZWZpbmVkIGJ1dCBub3QgdXNlZCBbLVd1bnVzZWQtZnVuY3Rpb25dDQppbmNs
-dWRlL2xpbnV4L29mX21kaW8uaDo1NDoyNDogd2FybmluZzogoW9mX21kaW9fZmluZF9idXOiIGRl
-ZmluZWQgYnV0IG5vdCB1c2VkIFstV3VudXNlZC1mdW5jdGlvbl0NCkluIGZpbGUgaW5jbHVkZWQg
-ZnJvbSBkcml2ZXJzL25ldC9waHkvbWRpby1ncGlvLmM6MzI6MDoNCmluY2x1ZGUvbGludXgvb2Zf
-bWRpby5oOjM0OjI3OiB3YXJuaW5nOiChb2ZfcGh5X2ZpbmRfZGV2aWNloiBkZWZpbmVkIGJ1dCBu
-b3QgdXNlZCBbLVd1bnVzZWQtZnVuY3Rpb25dDQppbmNsdWRlL2xpbnV4L29mX21kaW8uaDozOToy
-Nzogd2FybmluZzogoW9mX3BoeV9jb25uZWN0oiBkZWZpbmVkIGJ1dCBub3QgdXNlZCBbLVd1bnVz
-ZWQtZnVuY3Rpb25dDQppbmNsdWRlL2xpbnV4L29mX21kaW8uaDo0NzoyNzogd2FybmluZzogoW9m
-X3BoeV9jb25uZWN0X2ZpeGVkX2xpbmuiIGRlZmluZWQgYnV0IG5vdCB1c2VkIFstV3VudXNlZC1m
-dW5jdGlvbl0NCmluY2x1ZGUvbGludXgvb2ZfbWRpby5oOjU0OjI0OiB3YXJuaW5nOiChb2ZfbWRp
-b19maW5kX2J1c6IgZGVmaW5lZCBidXQgbm90IHVzZWQgWy1XdW51c2VkLWZ1bmN0aW9uXQ0KDQpJ
-ZiB5b3UncmUgZ29pbmcgdG8gbWFyayB0aGlzIHN0dWZmIHN0YXRpYywgeW91IGdvdHRhIG1hcmsg
-dGhhdA0Kc2hpdCBpbmxpbmUgdG9vLg0KDQpJJ2xsIGZpeCB0aGlzIHVwLCBidXQgdGVzdCB5b3Vy
-IGNoYW5nZXMgcGxlYXNlLg0K
+Oliver, sorry for not CC list.
+
+On Wed, Oct 10, 2012 at 9:17 PM, Oliver Neukum <oneukum@suse.de> wrote:
+> On Wednesday 10 October 2012 20:58:33 Ming Lei wrote:
+>> In ioctl path on net_device, the physical deivce is often
+>> touched, but the physical device may have been put into runtime
+>> suspend state already, so cause some utilitis(ifconfig, ethtool,
+>> ...) to return failure in this situation.
+>>
+>> This patch enables runtime PM on net_device and mark it as
+>> no_callbacks, and resumes the net_device if physical device
+>> is to be accessed, then suspends it after completion of the
+>> access.
+>>
+>> This patch fixes the problem above.
+>>
+>
+> [..]
+>> +     if (pm_runtime_get_sync(&dev->dev) < 0)
+>> +             return -ENODEV;
+>
+> -EIO would be appropriate.
+
+-ENODEV should be fine, at least some current drivers
+return it in this situation.
+
+>
+>> +     err = __dev_ifsioc(net, ifr, cmd);
+>> +
+>> +     pm_runtime_put(&dev->dev);
+>> +
+>> +     return err;
+>> +}
+>> +
+>>  /*
+>>   *   This function handles all "interface"-type I/O control requests. The actual
+>>   *   'doing' part of this is dev_ifsioc above.
+>> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+>> index 4d64cc2..2dc43da 100644
+>> --- a/net/core/ethtool.c
+>> +++ b/net/core/ethtool.c
+>> @@ -25,6 +25,7 @@
+>>  #include <linux/slab.h>
+>>  #include <linux/rtnetlink.h>
+>>  #include <linux/sched.h>
+>> +#include <linux/pm_runtime.h>
+>>
+>>  /*
+>>   * Some useful ethtool_ops methods that're device independent.
+>> @@ -1464,10 +1465,13 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+>>                       return -EPERM;
+>>       }
+>>
+>> +     if ((ret = pm_runtime_get_sync(&dev->dev)) < 0)
+>> +             return -ENODEV;
+>> +
+>>       if (dev->ethtool_ops->begin) {
+>
+> Perhaps you should check that first.
+
+No, ->begin() may access physical device too, also no matter
+->begin is defined or not, the 'cmd' will be sent to device driver.
+
+>
+>>               rc = dev->ethtool_ops->begin(dev);
+>>               if (rc  < 0)
+>> -                     return rc;
+>> +                     goto exit;
+>>       }
+>>       old_features = dev->features;
+>>
+>> @@ -1648,6 +1652,7 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+>>
+>>       if (old_features != dev->features)
+>>               netdev_features_change(dev);
+>> -
+>> +exit:
+>> +     pm_runtime_put(&dev->dev);
+>>       return rc;
+>>  }
+>> diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+>> index bcf02f6..c9adb89 100644
+>> --- a/net/core/net-sysfs.c
+>> +++ b/net/core/net-sysfs.c
+>> @@ -23,6 +23,7 @@
+>>  #include <linux/export.h>
+>>  #include <linux/jiffies.h>
+>>  #include <net/wext.h>
+>> +#include <linux/pm_runtime.h>
+>>
+>>  #include "net-sysfs.h"
+>>
+>> @@ -1415,6 +1416,9 @@ int netdev_register_kobject(struct net_device *net)
+>>       if (error)
+>>               return error;
+>>
+>> +     pm_runtime_no_callbacks(dev);
+>> +     pm_runtime_enable(dev);
+
+> Why?
+
+Firstly, 'net_device' is a 'class' device, and its class of 'net_class' doesn't
+define runtime pm callback. Also no drivers define its runtime pm callback
+in its device_type, so I mark it as no_callback.
+
+Also if not enabling runtime pm for net_device, pm_runtime_get_sync()
+will return -EACCESS.
+
+Thanks,
+--
+Ming Lei
