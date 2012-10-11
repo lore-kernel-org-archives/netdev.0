@@ -1,94 +1,82 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 0/3] virtio-net: inline header support
-Date: Thu, 11 Oct 2012 13:04:31 +0200
-Message-ID: <20121011110430.GF5552@redhat.com>
-References: <506C192E.5060700@redhat.com> <87bogj2j1b.fsf@rustcorp.com.au>
-	<506D3610.7000103@redhat.com> <87ipaq1jtt.fsf@rustcorp.com.au>
-	<506D8DD5.20904@redhat.com>
-	<87391t1nkq.fsf__40391.6521034718$1349505001$gmane$org@rustcorp.com.au>
-	<507029EB.2050405@redhat.com> <878vbg8cma.fsf@rustcorp.com.au>
-	<5073D1D8.3060905@redhat.com> <87k3ux98oc.fsf@rustcorp.com.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: alignment faults in 3.6
+Date: Thu, 11 Oct 2012 13:28:19 +0200
+Message-ID: <1349954899.21172.8728.camel@edumazet-glaptop>
+References: <20121005082439.GF4625@n2100.arm.linux.org.uk>
+	 <506ED18C.3010009@gmail.com> <20121005140556.GQ4625@n2100.arm.linux.org.uk>
+	 <506EEFBB.3060705@gmail.com> <507619FA.6080001@jonmasters.org>
+	 <yw1xtxu1pwtv.fsf@unicorn.mansr.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B7038@saturn3.aculab.com>
+	 <yw1xpq4ppcju.fsf@unicorn.mansr.com>
+	 <1349949638.21172.8445.camel@edumazet-glaptop>
+	 <1349950926.21172.8521.camel@edumazet-glaptop>
+	 <20121011103257.GO4625@n2100.arm.linux.org.uk>
+	 <1349952574.21172.8604.camel@edumazet-glaptop>
+	 <1349952970.1232.5.camel@sakura.staff.proxad.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Sasha Levin <levinsasha928@gmail.com>,
-	Paolo Bonzini <pbonzini@redhat.com>, avi@redhat.com,
-	Thomas Lendacky <tahm@linux.vnet.ibm.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <87k3ux98oc.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	=?ISO-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>,
+	Jon Masters <jonathan@jonmasters.org>, netdev@vger.kernel.org,
+	David Laight <David.Laight@ACULAB.COM>,
+	linux-arm-kernel@lists.infradead.org
+To: mbizon@freebox.fr
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:41098 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758461Ab2JKL2X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 07:28:23 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so902319bkc.19
+        for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 04:28:22 -0700 (PDT)
+In-Reply-To: <1349952970.1232.5.camel@sakura.staff.proxad.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 11, 2012 at 10:33:31AM +1030, Rusty Russell wrote:
-> Paolo Bonzini <pbonzini@redhat.com> writes:
-> > Il 09/10/2012 06:59, Rusty Russell ha scritto:
-> >> Paolo Bonzini <pbonzini@redhat.com> writes:
-> >>> Il 05/10/2012 07:43, Rusty Russell ha scritto:
-> >>>> That's good.  But virtio_blk's scsi command is insoluble AFAICT.  As I
-> >>>> said to Anthony, the best rules are "always" and "never", so I'd really
-> >>>> rather not have to grandfather that in.
-> >>>
-> >>> It is, but we can add a rule that if the (transport) flag
-> >>> VIRTIO_RING_F_ANY_HEADER_SG is set, the cdb field is always 32 bytes in
-> >>> virtio-blk.
-> >> 
-> >> Could we do that?  It's the cmd length I'm concerned about; is it always
-> >> 32 in practice for some reason?
-> >
-> > It is always 32 or less except in very obscure cases that are pretty
-> > much confined to iSCSI.  We don't care about the obscure cases, and the
-> > extra bytes don't hurt.
-> >
-> > BTW, 32 is the default cdb_size used by virtio-scsi.
-> >
-> >> Currently qemu does:
-> >> 
-> >>     struct sg_io_hdr hdr;
-> >>     memset(&hdr, 0, sizeof(struct sg_io_hdr));
-> >>     hdr.interface_id = 'S';
-> >>     hdr.cmd_len = req->elem.out_sg[1].iov_len;
-> >>     hdr.cmdp = req->elem.out_sg[1].iov_base;
-> >>     hdr.dxfer_len = 0;
-> >> 
-> >> If it's a command which expects more output data, there's no way to
-> >> guess where the boundary is between that command and the data.
-> >
-> > Yep, so I understood the problem right.
+On Thu, 2012-10-11 at 12:56 +0200, Maxime Bizon wrote:
+> On Thu, 2012-10-11 at 12:49 +0200, Eric Dumazet wrote:
 > 
-> OK.  Well, Anthony wants qemu to be robust in this regard, so I am
-> tempted to rework all the qemu drivers to handle arbitrary layouts.
-> They could use a good audit anyway.
-
-I agree here. Still trying to understand whether we can agree to use
-a feature bit for this, or not.
-
-> This would become a glaring exception, but I'm tempted to fix it to 32
-> bytes at the same time as we get the new pci layout (ie. for the virtio
-> 1.0 spec).
-
-But this isn't a virtio-pci only issue, is it?
-qemu has s390 bus with same limmitation.
-How can we tie it to pci layout?
-
-Maybe what you mean is to use a transport feature for this
-and tie *that* to new layout in case of pci?
-
-
-
-> The Linux driver would carefully be backwards compatible, of
-> course, and the spec would document why.
 > 
-> Cheers,
-> Rusty.
+> > So if you have an alignment fault, thats because IP header is not
+> > aligned on 4 bytes ?
+> > 
+> > If so a driver is buggy and must be fixed.
+> 
+> So a driver that does not align the ip header is buggy ?
+> 
+
+exactly.
+
+> I always thought it was ok not to do so (with a potential performance
+> penalty).
+> 
+
+Apparently not for some arches.
+
+> I have some MIPS hardware that is not able to DMA on anything but 32bits
+> aligned addresses (bcm63xx). I tried once to add a memcpy instead of
+> taking unaligned faults and the result was *much slower* on a ipv4
+> forwarding test (which is what the hardware is used for).
+> 
+
+You probably are aware that a driver can use : 
+
+- a fragment to hold the frame given by the hardware, with whatever
+alignment is needed by the hardware.
+
+Then allocate an skb with enough room (128 bytes) to pull the headers as
+needed later.
+
+skb = netdev_alloc_skb_ip_align(dev, 128);
+
+Attach the fragment to the skb, and feed stack with this skb.
+(pull the ethernet header before calling eth_type_trans()
+
+Most modern drivers exactly use this strategy and get nice performance.
+
+Of course, if hardware doesnt need a strange alignment, we can avoid the
+fragment and directly use 
+
+skb = netdev_alloc_skb_ip_align(dev, 1536);
+
+So all drivers can be fixed if needed.
