@@ -1,96 +1,101 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: [PATCH] usbnet: Support devices reporting idleness
-Date: Thu, 11 Oct 2012 14:50:10 +0200
-Message-ID: <1349959810-16607-1-git-send-email-oliver@neukum.org>
-Cc: Oliver Neukum <oliver@neukum.org>, Oliver Neukum <oneukum@suse.de>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: alignment faults in 3.6
+Date: Thu, 11 Oct 2012 14:59:12 +0200
+Message-ID: <1349960352.21172.9033.camel@edumazet-glaptop>
+References: <20121005082439.GF4625@n2100.arm.linux.org.uk>
+	 <506ED18C.3010009@gmail.com> <20121005140556.GQ4625@n2100.arm.linux.org.uk>
+	 <506EEFBB.3060705@gmail.com> <507619FA.6080001@jonmasters.org>
+	 <yw1xtxu1pwtv.fsf@unicorn.mansr.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B7038@saturn3.aculab.com>
+	 <yw1xpq4ppcju.fsf@unicorn.mansr.com>
+	 <1349949638.21172.8445.camel@edumazet-glaptop>
+	 <1349950926.21172.8521.camel@edumazet-glaptop>
+	 <20121011103257.GO4625@n2100.arm.linux.org.uk>
+	 <1349952574.21172.8604.camel@edumazet-glaptop>
+	 <1349952970.1232.5.camel@sakura.staff.proxad.net>
+	 <1349954899.21172.8728.camel@edumazet-glaptop>
+	 <1349956055.1232.9.camel@sakura.staff.proxad.net>
+	 <1349956456.21172.8820.camel@edumazet-glaptop>
+	 <1349959881.1232.44.camel@sakura.staff.proxad.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	netdev@vger.kernel.org, David Laight <David.Laight@ACULAB.COM>,
+	Jon Masters <jonathan@jonmasters.org>,
+	linux-arm-kernel@lists.infradead.org
+To: mbizon@freebox.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out003.kontent.com ([81.88.40.217]:42947 "EHLO
-	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758357Ab2JKMwD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 08:52:03 -0400
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:34618 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755968Ab2JKM7R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 08:59:17 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so959670bkc.19
+        for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 05:59:15 -0700 (PDT)
+In-Reply-To: <1349959881.1232.44.camel@sakura.staff.proxad.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some device types support a form of power management in which
-the device suggests to the host that the device may be suspended
-now. Support for that is best located in usbnet.
+On Thu, 2012-10-11 at 14:51 +0200, Maxime Bizon wrote:
 
-Signed-off-by: Oliver Neukum <oneukum@suse.de>
----
- drivers/net/usb/cdc_eem.c  |    4 ++++
- drivers/net/usb/usbnet.c   |   17 +++++++++++++++++
- include/linux/usb/usbnet.h |    2 ++
- 3 files changed, 23 insertions(+), 0 deletions(-)
+> Hey I cannot go back in time, when that hardware was built in 2004 (mips
+> @250Mhz), it was considered good, and we did manufacture a lot of it, so
+> it's still maintained.
+> 
+> People run recent kernels on older hardware because they are *encouraged
+> to do so*.
+> 
+> I fought inside my company to be good kernel citizen, not using
+> proprietary BSP, rewrite & mainline the drivers, because that was the
+> community promise: mainline it, we will support it for you, you will get
+> the latest kernel features for free.
+> 
+> 
+> That worked, but with some drawbacks:
+> 
+>  - kernel footprint grew that much (we started from 2.4) that it does
+> not fit in device flash anymore
+> 
+>  - performance took a hit each time we upgrade, mostly because of cache
+> footprint growth.
+> 
+>  - as kernel footprint grew, available RAM for conntrack & route cache
+> entries was smaller each time
+> 
+> 
+> But I had to stop upgrading after 2.6.20. Everything below is not
+> anybody's fault. Bloat is unavoidable for software project that big.
+> 
+> I'm perfectly ok with that, but I don't want to be ridiculed for running
+> mainline kernel on old hardware.
 
-diff --git a/drivers/net/usb/cdc_eem.c b/drivers/net/usb/cdc_eem.c
-index 434d5af..c81e278 100644
---- a/drivers/net/usb/cdc_eem.c
-+++ b/drivers/net/usb/cdc_eem.c
-@@ -244,8 +244,12 @@ static int eem_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 			 *  - suspend: peripheral ready to suspend
- 			 *  - response: suggest N millisec polling
- 			 *  - response complete: suggest N sec polling
-+			 *
-+			 * Suspend is reported and maybe heeded.
- 			 */
- 			case 2:		/* Suspend hint */
-+				usbnet_device_suggests_idle(dev);
-+				continue;
- 			case 3:		/* Response hint */
- 			case 4:		/* Response complete hint */
- 				continue;
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index fd4b26d..38c534a 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1580,10 +1580,27 @@ int usbnet_resume (struct usb_interface *intf)
- 			tasklet_schedule (&dev->bh);
- 		}
- 	}
-+
-+	if (test_and_clear_bit(EVENT_DEVICE_REPORT_IDLE, &dev->flags))
-+		usb_autopm_get_interface_no_resume(intf);
-+
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(usbnet_resume);
- 
-+/*
-+ * Either a subdriver implements manage_power, then it is assumed to always
-+ * be ready to be suspended or it reports the readiness to be suspended
-+ * explicitly
-+ */
-+void usbnet_device_suggests_idle(struct usbnet *dev)
-+{
-+	if (!test_and_set_bit(EVENT_DEVICE_REPORT_IDLE, &dev->flags)) {
-+		dev->intf->needs_remote_wakeup = 1;
-+		usb_autopm_put_interface_async(dev->intf);
-+	}		
-+}
-+EXPORT_SYMBOL(usbnet_device_suggests_idle);
- 
- /*-------------------------------------------------------------------------*/
- 
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index f87cf62..ddbbb7d 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -68,6 +68,7 @@ struct usbnet {
- #		define EVENT_RX_PAUSED	5
- #		define EVENT_DEV_ASLEEP 6
- #		define EVENT_DEV_OPEN	7
-+#		define EVENT_DEVICE_REPORT_IDLE	8
- };
- 
- static inline struct usb_driver *driver_of(struct usb_interface *intf)
-@@ -160,6 +161,7 @@ extern int usbnet_probe(struct usb_interface *, const struct usb_device_id *);
- extern int usbnet_suspend(struct usb_interface *, pm_message_t);
- extern int usbnet_resume(struct usb_interface *);
- extern void usbnet_disconnect(struct usb_interface *);
-+extern void usbnet_device_suggests_idle(struct usbnet *dev);
- 
- 
- /* Drivers that reuse some of the standard USB CDC infrastructure
--- 
-1.7.7
+Hmm, I am sorry if you felt that, it was not my intent.
+
+> 
+> 
+> > Adding get_unaligned() everywhere in linux network stacks is not an
+> > option.
+> > 
+> > We actually want to be able to read the code and fix the bugs, not only
+> > run it on a cheap low end router.
+> 
+> That was not a request, I just needed a clarification. 
+> 
+> Documentation/unaligned-memory-access.txt does not say it's a big no-no,
+> it says you can give unaligned pointers to the networking stack if you
+> arch can do unaligned access (with an "efficiency" notion).
+> 
+> MIPS and ARM have a software handler for this, and performance wise in
+> my case it's better to take the faults, a driver writer may think a
+> benchmark will dictate what to do.
+> 
+
+Sure, but all this discussion started because one arch apparently did
+not like these mis alignments, and some people complained that network
+guys would not add _needed_ get_unaligned_xxx() wrappers ...
+
+So far, linux is 20 years old, I dont think we are going to add wrappers
+right now. Machines that could have cared are dying anyway.
+
+Please note we still support NET_IP_ALIGN, even if its 0 on x86.
