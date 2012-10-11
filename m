@@ -1,23 +1,62 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2012-10-10
-Date: Wed, 10 Oct 2012 22:58:18 -0400 (EDT)
-Message-ID: <20121010.225818.1701328514835551681.davem@davemloft.net>
-References: <1349901576-30774-1-git-send-email-mkl@pengutronix.de>
+Subject: Re: [PATCH NET] e1000e: Change wthresh to 1 to avoid possible Tx
+ stalls
+Date: Wed, 10 Oct 2012 23:00:00 -0400 (EDT)
+Message-ID: <20121010.230000.1520707219906312743.davem@davemloft.net>
+References: <20121011013420.30383.27700.stgit@jbrandeb-snb.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-can@vger.kernel.org, socketcan@hartkopp.net,
-	netdev@vger.kernel.org, dhowells@redhat.com
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1349901576-30774-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, shimoda.hiroaki@gmail.com,
+	eric.dumazet@gmail.com, therbert@google.com
+To: jesse.brandeburg@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58972 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750952Ab2JKDAC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 23:00:02 -0400
+In-Reply-To: <20121011013420.30383.27700.stgit@jbrandeb-snb.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Wed, 10 Oct 2012 22:39:35 +0200
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Date: Wed, 10 Oct 2012 18:34:20 -0700
 
-> this pull request for net, i.e. the v3.7 release cycle, contains the patch by
-> David Howells to move the UAPI related headers for the CAN subsystem.
+> From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+> 
+> This patch originated from Hiroaki SHIMODA but has been modified
+> by Intel with some minor cleanups and additional commit log text.
+> 
+> Denys Fedoryshchenko and others reported Tx stalls on e1000e with
+> BQL enabled.  Issue was root caused to hardware delays. They were
+> introduced because some of the e1000e hardware with transmit
+> writeback bursting enabled, waits until the driver does an
+> explict flush OR there are WTHRESH descriptors to write back.
+> 
+> Sometimes the delays in question were on the order of seconds,
+> causing visible lag for ssh sessions and unacceptable tx
+> completion latency, especially for BQL enabled kernels.
+> 
+> To avoid possible Tx stalls, change WTHRESH back to 1.
+> 
+> The current plan is to investigate a method for re-enabling
+> WTHRESH while not harming BQL, but those patches will be later
+> for net-next if they work.
+> 
+> please enqueue for stable since v3.3 as this bug was introduced in
+> commit 3f0cfa3bc11e7f00c9994e0f469cbc0e7da7b00c
+> Author: Tom Herbert <therbert@google.com>
+> Date:   Mon Nov 28 16:33:16 2011 +0000
+> 
+>     e1000e: Support for byte queue limits
+> 
+>     Changes to e1000e to use byte queue limits.
+> 
+> Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
+> Tested-by: Denys Fedoryshchenko <denys@visp.net.lb>
+> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+> CC: eric.dumazet@gmail.com
+> CC: therbert@google.com
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Pulled, thanks.
+Applied and queued up for -stable, thanks.
