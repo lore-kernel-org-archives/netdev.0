@@ -1,188 +1,97 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH v1 11/11] usbnet: smsc95xx: apply introduced usb command APIs
-Date: Thu, 11 Oct 2012 20:39:29 +0800
-Message-ID: <1349959169-9432-12-git-send-email-ming.lei@canonical.com>
-References: <1349959169-9432-1-git-send-email-ming.lei@canonical.com>
-Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1349959169-9432-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: Re: alignment faults in 3.6
+Date: Thu, 11 Oct 2012 14:51:21 +0200
+Message-ID: <1349959881.1232.44.camel@sakura.staff.proxad.net>
+References: <20121005082439.GF4625@n2100.arm.linux.org.uk>
+	 <506ED18C.3010009@gmail.com> <20121005140556.GQ4625@n2100.arm.linux.org.uk>
+	 <506EEFBB.3060705@gmail.com> <507619FA.6080001@jonmasters.org>
+	 <yw1xtxu1pwtv.fsf@unicorn.mansr.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B7038@saturn3.aculab.com>
+	 <yw1xpq4ppcju.fsf@unicorn.mansr.com>
+	 <1349949638.21172.8445.camel@edumazet-glaptop>
+	 <1349950926.21172.8521.camel@edumazet-glaptop>
+	 <20121011103257.GO4625@n2100.arm.linux.org.uk>
+	 <1349952574.21172.8604.camel@edumazet-glaptop>
+	 <1349952970.1232.5.camel@sakura.staff.proxad.net>
+	 <1349954899.21172.8728.camel@edumazet-glaptop>
+	 <1349956055.1232.9.camel@sakura.staff.proxad.net>
+	 <1349956456.21172.8820.camel@edumazet-glaptop>
+Reply-To: mbizon@freebox.fr
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ANSI_X3.4-1968"
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	netdev@vger.kernel.org, David Laight <David.Laight@ACULAB.COM>,
+	Jon Masters <jonathan@jonmasters.org>,
+	linux-arm-kernel@lists.infradead.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.iliad.fr ([212.27.33.1]:50787 "EHLO ns.iliad.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756712Ab2JKMvX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Oct 2012 08:51:23 -0400
+In-Reply-To: <1349956456.21172.8820.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
----
- drivers/net/usb/smsc95xx.c |  115 +++++++++++---------------------------------
- 1 file changed, 27 insertions(+), 88 deletions(-)
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 7479a57..1730f75 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -65,11 +65,6 @@ struct smsc95xx_priv {
- 	spinlock_t mac_cr_lock;
- };
- 
--struct usb_context {
--	struct usb_ctrlrequest req;
--	struct usbnet *dev;
--};
--
- static bool turbo_mode = true;
- module_param(turbo_mode, bool, 0644);
- MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
-@@ -77,25 +72,20 @@ MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
- static int __must_check smsc95xx_read_reg(struct usbnet *dev, u32 index,
- 					  u32 *data)
- {
--	u32 *buf = kmalloc(4, GFP_KERNEL);
-+	u32 buf;
- 	int ret;
- 
- 	BUG_ON(!dev);
- 
--	if (!buf)
--		return -ENOMEM;
--
--	ret = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
--		USB_VENDOR_REQUEST_READ_REGISTER,
--		USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
--		00, index, buf, 4, USB_CTRL_GET_TIMEOUT);
--
-+	ret = usbnet_read_cmd(dev, USB_VENDOR_REQUEST_READ_REGISTER,
-+			      USB_DIR_IN | USB_TYPE_VENDOR |
-+			      USB_RECIP_DEVICE,
-+			      0, index, &buf, 4);
- 	if (unlikely(ret < 0))
- 		netdev_warn(dev->net, "Failed to read register index 0x%08x\n", index);
- 
--	le32_to_cpus(buf);
--	*data = *buf;
--	kfree(buf);
-+	le32_to_cpus(&buf);
-+	*data = buf;
- 
- 	return ret;
- }
-@@ -103,27 +93,22 @@ static int __must_check smsc95xx_read_reg(struct usbnet *dev, u32 index,
- static int __must_check smsc95xx_write_reg(struct usbnet *dev, u32 index,
- 					   u32 data)
- {
--	u32 *buf = kmalloc(4, GFP_KERNEL);
-+	u32 buf;
- 	int ret;
- 
- 	BUG_ON(!dev);
- 
--	if (!buf)
--		return -ENOMEM;
--
--	*buf = data;
--	cpu_to_le32s(buf);
-+	buf = data;
-+	cpu_to_le32s(&buf);
- 
--	ret = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
--		USB_VENDOR_REQUEST_WRITE_REGISTER,
--		USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
--		00, index, buf, 4, USB_CTRL_SET_TIMEOUT);
- 
-+	ret = usbnet_write_cmd(dev, USB_VENDOR_REQUEST_WRITE_REGISTER,
-+			       USB_DIR_OUT | USB_TYPE_VENDOR |
-+			       USB_RECIP_DEVICE,
-+			       0, index, &buf, 4);
- 	if (unlikely(ret < 0))
- 		netdev_warn(dev->net, "Failed to write register index 0x%08x\n", index);
- 
--	kfree(buf);
--
- 	return ret;
- }
- 
-@@ -132,11 +117,8 @@ static int smsc95xx_set_feature(struct usbnet *dev, u32 feature)
- 	if (WARN_ON_ONCE(!dev))
- 		return -EINVAL;
- 
--	cpu_to_le32s(&feature);
--
--	return usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
--		USB_REQ_SET_FEATURE, USB_RECIP_DEVICE, feature, 0, NULL, 0,
--		USB_CTRL_SET_TIMEOUT);
-+	return usbnet_write_cmd(dev, USB_REQ_SET_FEATURE,
-+				USB_RECIP_DEVICE, feature, 0, NULL, 0);
- }
- 
- static int smsc95xx_clear_feature(struct usbnet *dev, u32 feature)
-@@ -144,11 +126,8 @@ static int smsc95xx_clear_feature(struct usbnet *dev, u32 feature)
- 	if (WARN_ON_ONCE(!dev))
- 		return -EINVAL;
- 
--	cpu_to_le32s(&feature);
--
--	return usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
--		USB_REQ_CLEAR_FEATURE, USB_RECIP_DEVICE, feature, 0, NULL, 0,
--		USB_CTRL_SET_TIMEOUT);
-+	return usbnet_write_cmd(dev, USB_REQ_CLEAR_FEATURE,
-+				USB_RECIP_DEVICE, feature, 0, NULL, 0);
- }
- 
- /* Loop until the read is completed with timeout
-@@ -350,60 +329,20 @@ static int smsc95xx_write_eeprom(struct usbnet *dev, u32 offset, u32 length,
- 	return 0;
- }
- 
--static void smsc95xx_async_cmd_callback(struct urb *urb)
--{
--	struct usb_context *usb_context = urb->context;
--	struct usbnet *dev = usb_context->dev;
--	int status = urb->status;
--
--	check_warn(status, "async callback failed with %d\n", status);
--
--	kfree(usb_context);
--	usb_free_urb(urb);
--}
--
- static int __must_check smsc95xx_write_reg_async(struct usbnet *dev, u16 index,
- 						 u32 *data)
- {
--	struct usb_context *usb_context;
--	int status;
--	struct urb *urb;
- 	const u16 size = 4;
-+	int ret;
- 
--	urb = usb_alloc_urb(0, GFP_ATOMIC);
--	if (!urb) {
--		netdev_warn(dev->net, "Error allocating URB\n");
--		return -ENOMEM;
--	}
--
--	usb_context = kmalloc(sizeof(struct usb_context), GFP_ATOMIC);
--	if (usb_context == NULL) {
--		netdev_warn(dev->net, "Error allocating control msg\n");
--		usb_free_urb(urb);
--		return -ENOMEM;
--	}
--
--	usb_context->req.bRequestType =
--		USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE;
--	usb_context->req.bRequest = USB_VENDOR_REQUEST_WRITE_REGISTER;
--	usb_context->req.wValue = 00;
--	usb_context->req.wIndex = cpu_to_le16(index);
--	usb_context->req.wLength = cpu_to_le16(size);
--
--	usb_fill_control_urb(urb, dev->udev, usb_sndctrlpipe(dev->udev, 0),
--		(void *)&usb_context->req, data, size,
--		smsc95xx_async_cmd_callback,
--		(void *)usb_context);
--
--	status = usb_submit_urb(urb, GFP_ATOMIC);
--	if (status < 0) {
--		netdev_warn(dev->net, "Error submitting control msg, sts=%d\n",
--			    status);
--		kfree(usb_context);
--		usb_free_urb(urb);
--	}
+On Thu, 2012-10-11 at 13:54 +0200, Eric Dumazet wrote:
+
+> Of course, if you use a forwarding setup, and the tx driver is not SG
+> capable, performance will be bad (You have to copy the data into a
+> single skb (linearize the skb)) 
+> 
+> But in 2012, having to use hardware without SG for a router sounds a bad
+> joke (if cpu speed is _also_ too low)
+
+Hey I cannot go back in time, when that hardware was built in 2004 (mips
+@250Mhz), it was considered good, and we did manufacture a lot of it, so
+it's still maintained.
+
+People run recent kernels on older hardware because they are *encouraged
+to do so*.
+
+I fought inside my company to be good kernel citizen, not using
+proprietary BSP, rewrite & mainline the drivers, because that was the
+community promise: mainline it, we will support it for you, you will get
+the latest kernel features for free.
+
+
+That worked, but with some drawbacks:
+
+ - kernel footprint grew that much (we started from 2.4) that it does
+not fit in device flash anymore
+
+ - performance took a hit each time we upgrade, mostly because of cache
+footprint growth.
+
+ - as kernel footprint grew, available RAM for conntrack & route cache
+entries was smaller each time
+
+
+But I had to stop upgrading after 2.6.20. Everything below is not
+anybody's fault. Bloat is unavoidable for software project that big.
+
+I'm perfectly ok with that, but I don't want to be ridiculed for running
+mainline kernel on old hardware.
+
+
+> Adding get_unaligned() everywhere in linux network stacks is not an
+> option.
+> 
+> We actually want to be able to read the code and fix the bugs, not only
+> run it on a cheap low end router.
+
+That was not a request, I just needed a clarification. 
+
+Documentation/unaligned-memory-access.txt does not say it's a big no-no,
+it says you can give unaligned pointers to the networking stack if you
+arch can do unaligned access (with an "efficiency" notion).
+
+MIPS and ARM have a software handler for this, and performance wise in
+my case it's better to take the faults, a driver writer may think a
+benchmark will dictate what to do.
+
+-- 
+Maxime
