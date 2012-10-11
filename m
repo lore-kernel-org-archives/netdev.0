@@ -1,83 +1,52 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH] mcs7830: Fix link state detection
-Date: Thu, 11 Oct 2012 12:33:28 +0200
-Message-ID: <201210111233.28652.linux@rainbow-software.org>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: unresponsive vlan on top of bond with fail_over_mac=active
+Date: Thu, 11 Oct 2012 12:37:58 +0200
+Message-ID: <20121011103757.GA13873@unicorn.suse.cz>
+References: <20121010231122.GB28935@unicorn.suse.cz>
+ <8588.1349926471@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Greg KH" <gregkh@linuxfoundation.org>, davem@davemloft.net,
-	Michael Leun <lkml20120218@newton.leun.net>,
-	netdev@vger.kernel.org,
-	Michael Leun <lkml20120218@newton.leun.net>,
-	linux-kernel@vger.kernel.org
-To: "Andreas Mohr" <andi@lisas.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-1-out2.atlantis.sk ([80.94.52.71]:57374 "EHLO
-	mail.atlantis.sk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758576Ab2JKKeM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 06:34:12 -0400
+Received: from cantor2.suse.de ([195.135.220.15]:51031 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750801Ab2JKKh7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Oct 2012 06:37:59 -0400
 Content-Disposition: inline
+In-Reply-To: <8588.1349926471@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The device had an undocumented "feature": it can provide a sequence of
-spurious link-down status data even if the link is up all the time.
-A sequence of 10 was seen so update the link state only after the device
-reports the same link state 20 times.
+On Wed, Oct 10, 2012 at 08:34:31PM -0700, Jay Vosburgh wrote:
+> Michal Kubecek <mkubecek@suse.cz> wrote:
+> 	What network device are they using that requires fail_over_mac
+> to be set to active?
 
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
-Reported-by: Michael Leun <lkml20120218@newton.leun.net>
-Tested-by: Michael Leun <lkml20120218@newton.leun.net>
----
- drivers/net/usb/mcs7830.c |   21 ++++++++++++++-------
- 1 files changed, 14 insertions(+), 7 deletions(-)
+I would have to ask for exact configuration, all I know for sure is that
+the problem was reported for s390x (S390-64) architecture. I reproduced
+it with VMware Workstation virtual devices which emulate Intel e1000.
 
-diff --git a/drivers/net/usb/mcs7830.c b/drivers/net/usb/mcs7830.c
-index 03c2d8d..3a02a5d 100644
---- a/drivers/net/usb/mcs7830.c
-+++ b/drivers/net/usb/mcs7830.c
-@@ -117,6 +117,7 @@ enum {
- struct mcs7830_data {
- 	u8 multi_filter[8];
- 	u8 config;
-+	u8 link_counter;
- };
- 
- static const char driver_name[] = "MOSCHIP usb-ethernet driver";
-@@ -633,19 +634,25 @@ static void mcs7830_status(struct usbnet *dev, struct 
-urb *urb)
- {
- 	u8 *buf = urb->transfer_buffer;
- 	bool link;
-+	struct mcs7830_data *data = mcs7830_get_data(dev);
- 
- 	if (urb->actual_length < 16)
- 		return;
- 
- 	link = !(buf[1] & 0x20);
- 	if (netif_carrier_ok(dev->net) != link) {
--		if (link) {
--			netif_carrier_on(dev->net);
--			usbnet_defer_kevent(dev, EVENT_LINK_RESET);
--		} else
--			netif_carrier_off(dev->net);
--		netdev_dbg(dev->net, "Link Status is: %d\n", link);
--	}
-+		data->link_counter++;
-+		if (data->link_counter > 20) {
-+			data->link_counter = 0;
-+			if (link) {
-+				netif_carrier_on(dev->net);
-+				usbnet_defer_kevent(dev, EVENT_LINK_RESET);
-+			} else
-+				netif_carrier_off(dev->net);
-+			netdev_dbg(dev->net, "Link Status is: %d\n", link);
-+		}
-+	} else
-+		data->link_counter = 0;
- }
- 
- static const struct driver_info moschip_info = {
--- 
-Ondrej Zary
+> 	I tested some of this out earlier this year, and I don't recall
+> having problems (although I'm not sure I did this exact test).  The
+> dev_uc_add() logic (in __dev_set_rx_mode) would put the underlying
+> device into promiscuous mode if the hardware didn't support multiple
+> unicast MAC addresses. dev_uc_add() was invoked by vlan_sync_address(),
+> which is called by the vlan NETDEV_CHANGEADDR notifier callback.
+
+Yes, this part works fine, I checked uc list with live crash session.
+But as bonding driver doesn't set its ndo_set_rx_mode method, the
+iformation about second MAC address doesn't propagate down to the
+slaves.
+
+> 	Bonding does propagate promisc to its slaves, but (as you point
+> out) not the uc lists; is the hardware in question something that
+> supports multiple unicast addresses (IFF_UNICAST_FLT)?  The device I
+> tested with does not support IFF_UNICAST_FLT, and (as I recall) would
+> end up in promisc mode.
+
+My tests were done with (emulated) e1000 which supports unicast
+filtering (up to 14 addresses, according to what I've seen in the
+driver). I'm not sure about the devices on s390x.
+
+                                                      Michal Kubecek
