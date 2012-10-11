@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2] xen: netback: handle compound page fragments on
- transmit.
-Date: Wed, 10 Oct 2012 22:54:05 -0400 (EDT)
-Message-ID: <20121010.225405.819531775702809174.davem@davemloft.net>
-References: <1349876922-11907-1-git-send-email-ian.campbell@citrix.com>
+Subject: Re: [PATCH] ipv4: fix route mark sparse warning
+Date: Wed, 10 Oct 2012 22:55:19 -0400 (EDT)
+Message-ID: <20121010.225519.1146598383921356809.davem@davemloft.net>
+References: <20121010112725.57a6f4a6@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	eric.dumazet@gmail.com, konrad@kernel.org, linux@eikelenboom.it
-To: ian.campbell@citrix.com
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58909 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58930 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754809Ab2JKCyH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 22:54:07 -0400
-In-Reply-To: <1349876922-11907-1-git-send-email-ian.campbell@citrix.com>
+	with ESMTP id S1752956Ab2JKCzV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 22:55:21 -0400
+In-Reply-To: <20121010112725.57a6f4a6@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <ian.campbell@citrix.com>
-Date: Wed, 10 Oct 2012 14:48:42 +0100
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 10 Oct 2012 11:27:25 -0700
 
-> An SKB paged fragment can consist of a compound page with order > 0.
-> However the netchannel protocol deals only in PAGE_SIZE frames.
+> Sparse complains about RTA_MARK which is should be host order according
+> to include file and usage in iproute.
 > 
-> Handle this in netbk_gop_frag_copy and xen_netbk_count_skb_slots by
-> iterating over the frames which make up the page.
+> net/ipv4/route.c:2223:46: warning: incorrect type in argument 3 (different base types)
+> net/ipv4/route.c:2223:46:    expected restricted __be32 [usertype] value
+> net/ipv4/route.c:2223:46:    got unsigned int [unsigned] [usertype] flowic_mark
 > 
-> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 Applied.
