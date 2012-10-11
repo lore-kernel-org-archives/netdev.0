@@ -1,89 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
 Subject: Re: alignment faults in 3.6
-Date: Thu, 11 Oct 2012 18:15:45 +0200
-Message-ID: <1349972145.21172.9685.camel@edumazet-glaptop>
+Date: Thu, 11 Oct 2012 17:18:16 +0100
+Message-ID: <yw1xtxu1nfsn.fsf@unicorn.mansr.com>
 References: <20121005082439.GF4625@n2100.arm.linux.org.uk>
-	 <20121011103257.GO4625@n2100.arm.linux.org.uk>
-	 <1349952574.21172.8604.camel@edumazet-glaptop>
-	 <201210111228.25995.arnd@arndb.de>
-	 <1349959248.21172.8970.camel@edumazet-glaptop> <5076C78E.1020408@gmail.com>
-	 <1349963227.21172.9188.camel@edumazet-glaptop> <5076E472.8030703@gmail.com>
+	<20121011103257.GO4625@n2100.arm.linux.org.uk>
+	<1349952574.21172.8604.camel@edumazet-glaptop>
+	<201210111228.25995.arnd@arndb.de>
+	<1349959248.21172.8970.camel@edumazet-glaptop>
+	<5076C78E.1020408@gmail.com>
+	<1349963227.21172.9188.camel@edumazet-glaptop>
+	<5076E472.8030703@gmail.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B703E@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	linux-arm-kernel@lists.infradead.org,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Jon Masters <jonathan@jonmasters.org>, netdev@vger.kernel.org,
-	=?ISO-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>,
-	David Laight <David.Laight@aculab.com>
-To: Rob Herring <robherring2@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Rob Herring" <robherring2@gmail.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Arnd Bergmann" <arnd@arndb.de>,
+	<linux-arm-kernel@lists.infradead.org>,
+	"Russell King - ARM Linux" <linux@arm.linux.org.uk>,
+	"Jon Masters" <jonathan@jonmasters.org>, <netdev@vger.kernel.org>,
+	=?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+To: "David Laight" <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:34900 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758542Ab2JKQPt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 12:15:49 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so1096520bkc.19
-        for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 09:15:48 -0700 (PDT)
-In-Reply-To: <5076E472.8030703@gmail.com>
+Received: from unicorn.mansr.com ([78.86.181.103]:43106 "EHLO
+	unicorn.mansr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756632Ab2JKQSS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 12:18:18 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B703E@saturn3.aculab.com>
+	(David Laight's message of "Thu, 11 Oct 2012 16:39:38 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-10-11 at 10:23 -0500, Rob Herring wrote:
-> On 10/11/2012 08:47 AM, Eric Dumazet wrote:
+"David Laight" <David.Laight@ACULAB.COM> writes:
 
-> > Compiler is asked to perform a 32bit load, it does it.
-> 
-> Not exactly. It is asked to to perform 2 32-bit loads which are combined
-> into a single ldm (load multiple) which cannot handle unaligned
-> accesses. Here's a simple example that does the same thing:
+>> Not exactly. It is asked to to perform 2 32-bit loads which are comb=
+ined
+>> into a single ldm (load multiple) which cannot handle unaligned
+>> accesses. Here's a simple example that does the same thing:
+>>=20
+>> void test(char * buf)
+>> {
+>> 	printf("%d, %d\n", *((unsigned int *)&buf[0]), *((unsigned int *)&b=
+uf[4]));
+>> }
+>
+> Have you actually looked at what an ARM processor traditionally did
+> with misaligned memory reads?
+> While useful, it probably wasn't what was intended.
+>
+> Actually, and IIRC, some very recent ARM cpus will do the 'expected'
+> thing for single-word loads from misaligned addesses.
 
+What various CPUs do with unaligned accesses is not the issue here.  Th=
+e
+casts in the code above act as a promise to the compiler that the
+address is in fact properly align for the pointer type.
 
-Thats simply not true. You are severely mistaken.
+> However they almost certainly won't for ldm/stm.
+>
+> The 'ldm' optimisation for adjacent memory loads is also dubious.
 
-ldm does a load of seeral 32bit words.
+There is nothing whatsoever dubious about the compiler using the most
+efficient instruction sequence to accomplish what the code asks for.
 
-And the compiler would not use it if the alignment was not matching the
-prereq (alignment >= 4)
+> On at least some ARMs it is very slow (might only be strongarms).
 
+The compiler will pick instructions suitable for the CPU you specify.
 
+>> So I guess the only ABI legal unaligned access is in a packed struct=
+=2E
+>
+> Correct. And you mustn't try casting the address, the compiler is
+> allowed to remember where it came from.
+> (This causes a lot of grief...)
 
-> 
-> void test(char * buf)
-> {
-> 	printf("%d, %d\n", *((unsigned int *)&buf[0]), *((unsigned int *)&buf[4]));
-> }
+It is only a problem when you try to outsmart the compiler.
 
-But you completely miss the fact that network doesnt pass a "char *buf"
-but a "be32 *buf". Your example is not relevant at all.
+> If you are targeting the ARM cpu that can do misaligned transfers,
+> then gcc should generate single instructions for misaligned structure
+> members, and never do the 'ldm' optimisations.
 
-So the compiler is absolutely right, and network stack is _right_ too.
+That is exactly how gcc works.
 
-The prereq is that IP header are aligned to 4 bytes boundary.
+> But, the IP header is expected to be aligned.
 
-Denying this fact is not going to help you
+Everything tells the compiler the struct is perfectly aligned.  When th=
+e
+buggy driver passes a misaligned pointer, bad things happen.
 
-
-> 
-> So I guess the only ABI legal unaligned access is in a packed struct.
-> 
-> > There is no questionable optimization here. Really.
-> > Please stop pretending this, this makes no sense.
-> 
-> I'm not the one calling the networking stack bad code.
-
-Once you understand the issues, you can explain us where is the bad
-code. But given you say "Bug is in compiler, and/or network stack, but
-my driver is fine", its not very wise.
-
-For the moment, the bug is in your driver.
-
-> 
-> I can fix my h/w, so I'll stop caring about this. Others can all get
-> bitten by this new behavior in gcc 4.7.
-
-Again compiler is fine. How should we say that so that you stop your
-rants ?
-
-Stop trying to find an excuse, dont try to fool us, this is really
-embarrassing. Just fix the driver, there is no shame to fix an error.
+--=20
+M=E5ns Rullg=E5rd
+mans@mansr.com
