@@ -1,31 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mcs7830: Fix link state detection
-Date: Thu, 11 Oct 2012 15:20:00 -0400 (EDT)
-Message-ID: <20121011.152000.1869700919732028911.davem@davemloft.net>
-References: <201210111233.28652.linux@rainbow-software.org>
+Subject: Re: [PATCH] usbnet: Support devices reporting idleness
+Date: Thu, 11 Oct 2012 15:20:23 -0400 (EDT)
+Message-ID: <20121011.152023.1518627353741520073.davem@davemloft.net>
+References: <1349959810-16607-1-git-send-email-oliver@neukum.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andi@lisas.de, gregkh@linuxfoundation.org,
-	lkml20120218@newton.leun.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linux@rainbow-software.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201210111233.28652.linux@rainbow-software.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, oneukum@suse.de
+To: oliver@neukum.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38823 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756163Ab2JKTU2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 15:20:28 -0400
+In-Reply-To: <1349959810-16607-1-git-send-email-oliver@neukum.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ondrej Zary <linux@rainbow-software.org>
-Date: Thu, 11 Oct 2012 12:33:28 +0200
+From: Oliver Neukum <oliver@neukum.org>
+Date: Thu, 11 Oct 2012 14:50:10 +0200
 
-> The device had an undocumented "feature": it can provide a sequence of
-> spurious link-down status data even if the link is up all the time.
-> A sequence of 10 was seen so update the link state only after the device
-> reports the same link state 20 times.
+> Some device types support a form of power management in which
+> the device suggests to the host that the device may be suspended
+> now. Support for that is best located in usbnet.
 > 
-> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
-> Reported-by: Michael Leun <lkml20120218@newton.leun.net>
-> Tested-by: Michael Leun <lkml20120218@newton.leun.net>
+> Signed-off-by: Oliver Neukum <oneukum@suse.de>
 
-You've been given feedback on this patch, and also it doesn't apply
-cleanly.  Perhaps it was corrupted by your email client.
+Applied, but:
+
+> +void usbnet_device_suggests_idle(struct usbnet *dev)
+> +{
+> +	if (!test_and_set_bit(EVENT_DEVICE_REPORT_IDLE, &dev->flags)) {
+> +		dev->intf->needs_remote_wakeup = 1;
+> +		usb_autopm_put_interface_async(dev->intf);
+> +	}		
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Trailing whitespace.
