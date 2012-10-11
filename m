@@ -1,7 +1,7 @@
 From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH v1 09/11] usbnet: sierra_net: apply introduced usb command APIs
-Date: Thu, 11 Oct 2012 20:39:27 +0800
-Message-ID: <1349959169-9432-10-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH v1 10/11] usbnet: smsc75xx: apply introduced usb command APIs
+Date: Thu, 11 Oct 2012 20:39:28 +0800
+Message-ID: <1349959169-9432-11-git-send-email-ming.lei@canonical.com>
 References: <1349959169-9432-1-git-send-email-ming.lei@canonical.com>
 Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
 	linux-usb@vger.kernel.org, Ming Lei <ming.lei@canonical.com>
@@ -10,81 +10,89 @@ To: "David S. Miller" <davem@davemloft.net>,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-pa0-f46.google.com ([209.85.220.46]:54337 "EHLO
 	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753743Ab2JKMmB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 08:42:01 -0400
+	with ESMTP id S1753743Ab2JKMmQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 08:42:16 -0400
 In-Reply-To: <1349959169-9432-1-git-send-email-ming.lei@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
 Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- drivers/net/usb/sierra_net.c |   45 ++++++++++++++++--------------------------
- 1 file changed, 17 insertions(+), 28 deletions(-)
+ drivers/net/usb/smsc75xx.c |   39 ++++++++++++++-------------------------
+ 1 file changed, 14 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/usb/sierra_net.c b/drivers/net/usb/sierra_net.c
-index c27d277..eb5c7a8 100644
---- a/drivers/net/usb/sierra_net.c
-+++ b/drivers/net/usb/sierra_net.c
-@@ -311,10 +311,9 @@ static int sierra_net_send_cmd(struct usbnet *dev,
- 	struct sierra_net_data *priv = sierra_net_get_private(dev);
- 	int  status;
- 
--	status = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
--			USB_CDC_SEND_ENCAPSULATED_COMMAND,
--			USB_DIR_OUT|USB_TYPE_CLASS|USB_RECIP_INTERFACE,	0,
--			priv->ifnum, cmd, cmdlen, USB_CTRL_SET_TIMEOUT);
-+	status = usbnet_write_cmd(dev, USB_CDC_SEND_ENCAPSULATED_COMMAND,
-+				  USB_DIR_OUT|USB_TYPE_CLASS|USB_RECIP_INTERFACE,
-+				  0, priv->ifnum, cmd, cmdlen);
- 
- 	if (status != cmdlen && status != -ENODEV)
- 		netdev_err(dev->net, "Submit %s failed %d\n", cmd_name, status);
-@@ -632,32 +631,22 @@ static int sierra_net_change_mtu(struct net_device *net, int new_mtu)
- static int sierra_net_get_fw_attr(struct usbnet *dev, u16 *datap)
+diff --git a/drivers/net/usb/smsc75xx.c b/drivers/net/usb/smsc75xx.c
+index b77ae76..1baa53a 100644
+--- a/drivers/net/usb/smsc75xx.c
++++ b/drivers/net/usb/smsc75xx.c
+@@ -85,26 +85,21 @@ MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
+ static int __must_check smsc75xx_read_reg(struct usbnet *dev, u32 index,
+ 					  u32 *data)
  {
- 	int result = 0;
--	u16 *attrdata;
--
--	attrdata = kmalloc(sizeof(*attrdata), GFP_KERNEL);
--	if (!attrdata)
+-	u32 *buf = kmalloc(4, GFP_KERNEL);
++	u32 buf;
+ 	int ret;
+ 
+ 	BUG_ON(!dev);
+ 
+-	if (!buf)
 -		return -ENOMEM;
 -
--	result = usb_control_msg(
--			dev->udev,
--			usb_rcvctrlpipe(dev->udev, 0),
--			/* _u8 vendor specific request */
--			SWI_USB_REQUEST_GET_FW_ATTR,
--			USB_DIR_IN | USB_TYPE_VENDOR,	/* __u8 request type */
--			0x0000,		/* __u16 value not used */
--			0x0000,		/* __u16 index  not used */
--			attrdata,	/* char *data */
--			sizeof(*attrdata),		/* __u16 size */
--			USB_CTRL_SET_TIMEOUT);	/* int timeout */
+-	ret = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
+-		USB_VENDOR_REQUEST_READ_REGISTER,
+-		USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+-		00, index, buf, 4, USB_CTRL_GET_TIMEOUT);
 -
--	if (result < 0) {
--		kfree(attrdata);
-+	u16 attrdata;
-+
-+	result = usbnet_read_cmd(dev,
-+				/* _u8 vendor specific request */
-+				SWI_USB_REQUEST_GET_FW_ATTR,
-+				USB_DIR_IN | USB_TYPE_VENDOR,	/* __u8 request type */
-+				0x0000,		/* __u16 value not used */
-+				0x0000,		/* __u16 index  not used */
-+				&attrdata,	/* char *data */
-+				sizeof(attrdata)	/* __u16 size */
-+				);
-+
-+	if (result < 0)
- 		return -EIO;
--	}
--
--	*datap = le16_to_cpu(*attrdata);
++	ret = usbnet_read_cmd(dev, USB_VENDOR_REQUEST_READ_REGISTER,
++			      USB_DIR_IN | USB_TYPE_VENDOR |
++			      USB_RECIP_DEVICE,
++			      0, index, &buf, 4);
+ 	if (unlikely(ret < 0))
+ 		netdev_warn(dev->net,
+ 			"Failed to read reg index 0x%08x: %d", index, ret);
  
--	kfree(attrdata);
-+	*datap = le16_to_cpu(attrdata);
- 	return result;
+-	le32_to_cpus(buf);
+-	*data = *buf;
+-	kfree(buf);
++	le32_to_cpus(&buf);
++	*data = buf;
+ 
+ 	return ret;
+ }
+@@ -112,28 +107,22 @@ static int __must_check smsc75xx_read_reg(struct usbnet *dev, u32 index,
+ static int __must_check smsc75xx_write_reg(struct usbnet *dev, u32 index,
+ 					   u32 data)
+ {
+-	u32 *buf = kmalloc(4, GFP_KERNEL);
++	u32 buf;
+ 	int ret;
+ 
+ 	BUG_ON(!dev);
+ 
+-	if (!buf)
+-		return -ENOMEM;
+-
+-	*buf = data;
+-	cpu_to_le32s(buf);
+-
+-	ret = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
+-		USB_VENDOR_REQUEST_WRITE_REGISTER,
+-		USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+-		00, index, buf, 4, USB_CTRL_SET_TIMEOUT);
++	buf = data;
++	cpu_to_le32s(&buf);
+ 
++	ret = usbnet_write_cmd(dev, USB_VENDOR_REQUEST_WRITE_REGISTER,
++			       USB_DIR_OUT | USB_TYPE_VENDOR |
++			       USB_RECIP_DEVICE,
++			       0, index, &buf, 4);
+ 	if (unlikely(ret < 0))
+ 		netdev_warn(dev->net,
+ 			"Failed to write reg index 0x%08x: %d", index, ret);
+ 
+-	kfree(buf);
+-
+ 	return ret;
  }
  
 -- 
