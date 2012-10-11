@@ -1,82 +1,96 @@
-From: Dong Aisheng <b29396@freescale.com>
-Subject: Re: [PATCH] flexcan: disable bus error interrupts for the i.MX28
-Date: Thu, 11 Oct 2012 09:41:38 +0800
-Message-ID: <20121011014135.GA7374@shlinux2.ap.freescale.net>
-References: <5065A35B.3020702@grandegger.com>
- <20121007030858.GJ20231@S2101-09.ap.freescale.net>
- <50719647.4070404@grandegger.com>
- <7FE21149F4667147B645348EC60578850B2A361F@039-SN2MPN1-011.039d.mgd.msft.net>
- <5075D4DA.7010407@pengutronix.de>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: alignment faults in 3.6
+Date: Thu, 11 Oct 2012 03:27:24 +0100
+Message-ID: <yw1xtxu1pwtv.fsf@unicorn.mansr.com>
+References: <506E1762.3010601@gmail.com>
+ <CANLjY-no-L9=LRCvCetC5XCHicOoSWOfRZmUd7itAiUHWBhAyw@mail.gmail.com>
+ <CAG5Tg6Wuybruc31x1eh6mFafsg=7cOgYLgpZUBuJUo75ap3osQ@mail.gmail.com>
+ <506E3E58.80703@gmail.com>
+ <CAG5Tg6V0Vj9HTy3=AU-q+Qa3DuJs6R1Kw+3uOWU_jOGfkgyXzw@mail.gmail.com>
+ <20121005071216.GD4625@n2100.arm.linux.org.uk>
+ <CAG5Tg6VciuxJ=k+fatzLugcehF54mGNOLHpUwdMX99oCnAVg8Q@mail.gmail.com>
+ <20121005082439.GF4625@n2100.arm.linux.org.uk>
+ <506ED18C.3010009@gmail.com>
+ <20121005140556.GQ4625@n2100.arm.linux.org.uk>
+ <506EEFBB.3060705@gmail.com> <507619FA.6080001@jonmasters.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	Hui Wang <jason77.wang@gmail.com>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5075D4DA.7010407@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Jon Masters <jonathan@jonmasters.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <507619FA.6080001@jonmasters.org> (Jon Masters's message of "Wed,
+ 10 Oct 2012 20:59:38 -0400")
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 10, 2012 at 10:04:42PM +0200, Marc Kleine-Budde wrote:
-> On 10/08/2012 09:59 AM, Dong Aisheng-B29396 wrote:
-> [...]
-> 
-> >>>> Concerning the bug, I know that the i.MX35 does have it. Maybe other
-> >>>> Flexcan cores than on the i.MX28 does *not* have it either. If you
-> >>>> have a chance, please check on the P1010, i.MX6Q, i.MX51, i.MX53,
-> >>>> etc.
-> >>>
-> >>> >From what I can tell, i.MX35, i.MX51 and i.MX53 use the same version,
-> >>> so they should all have the bug.  And for i.MX6Q, since it uses a
-> >>> newer version even than i.MX28, I would believe it's affected by the bug.
-> >>> But I'm copying Dong who should have better knowledge about this to
-> >>> confirm.
-> >>
-> >> Thank for clarification. I have a i.MX6Q board but without CAN adapter :(,
-> >> unfortunately. Otherwise I would try it out myself.
-> >>
-> > How did you verify this issue?
-> > I just checked our ic guy of flexcan, it seems he also had no sense of this issue.
-> 
-> Wolfgang added this table to the driver code, which is a very good idea.
-> I've some (nitpicky) questions :)
-> 
-> > Below is some version info what I got:
-> > Mx6s use FlexCAN3, with IP version 10.00.12.00
->     ^^^
-> Is this core different from the mx6q?
-Yes, it's a single core named i.MX6 Solo.
-For details, please see:
-http://www.freescale.com/webapp/sps/site/taxonomy.jsp?code=IMX6X_SERIES
+Jon Masters <jonathan@jonmasters.org> writes:
 
-> Has the flexcan on mx6 a glitch filter?
-> 
-Yes.
+> Hi everyone,
+>
+> On 10/05/2012 10:33 AM, Rob Herring wrote:
+>> On 10/05/2012 09:05 AM, Russell King - ARM Linux wrote:
+>>> On Fri, Oct 05, 2012 at 07:24:44AM -0500, Rob Herring wrote:
+>>>> On 10/05/2012 03:24 AM, Russell King - ARM Linux wrote:
+>>>>> Does it matter?  I'm just relaying the argument against adding __pack=
+ed
+>>>>> which was used before we were forced (by the networking folk) to impl=
+ement
+>>>>> the alignment fault handler.
+>>>>
+>>>> It doesn't really matter what will be accepted or not as adding __pack=
+ed
+>>>> to struct iphdr doesn't fix the problem anyway. gcc still emits a ldm.
+>>>> The only way I've found to eliminate the alignment fault is adding a
+>>>> barrier between the 2 loads. That seems like a compiler issue to me if
+>>>> there is not a better fix.
 
-> > Mx53 use FlexCAN2 (with glitch filter), with IP version 03.00.00.00
-> > Mx28 use FlexCAN2 (with glitch filter), with IP version 03.00.04.00
-> > Mx35 use FlexCAN2 (without glitch filter) , with IP version 03.00.00.00
-> > Mx25 use FlexCAN2 (without glitch filter), with IP version 03.00.00.00
-> 
-> Do you have access to the powerpc designs which have a flexcan core,
-> too? I'm interested to complete the above table with powerpcs cores
-> (p1010 and similar).
-Sorry, we don't have access.
+This turns out to be caused by pointers being typecast to normal
+(aligned) types.
 
-Regards
-Dong Aisheng
-> 
-> Marc
-> -- 
-> Pengutronix e.K.                  | Marc Kleine-Budde           |
-> Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-> Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-> Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-> 
+>>> Even so, please test the patch I've sent you in the sub-thread - that
+>>> needs testing whether or not GCC is at fault.  Will's patch to add the
+>>> warnings _has_ uncovered a potential issue with the use of __get_user()
+>>> in some parts of the ARM specific kernel, and I really need you to test
+>>> that while you're experiencing this problem.
+>> =
 
+>> I've tested your patch and it appears to fix things. Thanks!
 
+[...]
 
+>> Now on to getting rid of faults on practically every single received IP
+>> packet:
+>> =
+
+>> Multi:          9871002
+>> =
+
+>> RX packets:9872010 errors:0 dropped:0 overruns:0 frame:0
+>
+> This will still be a problem, indeed. At least we can be aware we're
+> taking a large number of faults and hope for a netdev solution.
+
+There are exactly two possible solutions:
+
+1. Change the networking code so those structs are always aligned.  This
+   might not be (easily) possible.
+2. Mark the structs __packed and fix any typecasts like the ones seen in
+   this thread.  This will have an adverse effect in cases where the
+   structs are in fact aligned.
+
+Both solutions lie squarely in the networking code.  It's time to
+involve that list, or we'll never get anywhere.
+
+-- =
+
+M=E5ns Rullg=E5rd
+mans@mansr.com
