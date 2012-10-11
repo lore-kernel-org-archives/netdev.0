@@ -1,62 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH NET] e1000e: Change wthresh to 1 to avoid possible Tx
- stalls
-Date: Wed, 10 Oct 2012 23:00:00 -0400 (EDT)
-Message-ID: <20121010.230000.1520707219906312743.davem@davemloft.net>
-References: <20121011013420.30383.27700.stgit@jbrandeb-snb.jf.intel.com>
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH 01/12] usbnet: introduce usbnet 3 command helpers
+Date: Thu, 11 Oct 2012 11:18:22 +0800
+Message-ID: <CACVXFVMynoPm6_wYj2MD-5SvMpB7e1Wk94=XMp588rD8hU=eew@mail.gmail.com>
+References: <1349160684-6627-1-git-send-email-ming.lei@canonical.com>
+	<1765908.3QOFSVW2eC@linux-lqwf.site>
+	<CACVXFVOPc0gG3UdWqJ0E+6wiwdPv5EoEgbJ0cvJ4oD4602Yp3A@mail.gmail.com>
+	<4085386.s0fOKMaRDP@linux-lqwf.site>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shimoda.hiroaki@gmail.com,
-	eric.dumazet@gmail.com, therbert@google.com
-To: jesse.brandeburg@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58972 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750952Ab2JKDAC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 23:00:02 -0400
-In-Reply-To: <20121011013420.30383.27700.stgit@jbrandeb-snb.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4085386.s0fOKMaRDP-ugxBuEnWX9yG/4A2pS7c2Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Date: Wed, 10 Oct 2012 18:34:20 -0700
+On Wed, Oct 10, 2012 at 1:51 PM, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> wrote:
+>
+> No, the problem is autoresume.
+>
+> Suppose we have a device with two interface. Interface A be usbnet; interface B
+> something you page on. Now consider that you can only resume both interfaces
+> and this is (and needs to be) done synchronously.
+>
+> Now we can have this code path:
+>
+> autoresume of device -> resume() -> kmalloc(..., GFP_KERNEL) ->
+> VM layer decides to start paging out -> IO to interface B -> autoresume of device
+> --> DEADLOCK
 
-> From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-> 
-> This patch originated from Hiroaki SHIMODA but has been modified
-> by Intel with some minor cleanups and additional commit log text.
-> 
-> Denys Fedoryshchenko and others reported Tx stalls on e1000e with
-> BQL enabled.  Issue was root caused to hardware delays. They were
-> introduced because some of the e1000e hardware with transmit
-> writeback bursting enabled, waits until the driver does an
-> explict flush OR there are WTHRESH descriptors to write back.
-> 
-> Sometimes the delays in question were on the order of seconds,
-> causing visible lag for ssh sessions and unacceptable tx
-> completion latency, especially for BQL enabled kernels.
-> 
-> To avoid possible Tx stalls, change WTHRESH back to 1.
-> 
-> The current plan is to investigate a method for re-enabling
-> WTHRESH while not harming BQL, but those patches will be later
-> for net-next if they work.
-> 
-> please enqueue for stable since v3.3 as this bug was introduced in
-> commit 3f0cfa3bc11e7f00c9994e0f469cbc0e7da7b00c
-> Author: Tom Herbert <therbert@google.com>
-> Date:   Mon Nov 28 16:33:16 2011 +0000
-> 
->     e1000e: Support for byte queue limits
-> 
->     Changes to e1000e to use byte queue limits.
-> 
-> Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
-> Tested-by: Denys Fedoryshchenko <denys@visp.net.lb>
-> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-> CC: eric.dumazet@gmail.com
-> CC: therbert@google.com
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Currently scsi disk can only be runtime suspended when the device is not
+opened, so are you sure that the paging out above can cause IO on a suspend
+usb mass storage disk which is not mounted or opened by utility now?
 
-Applied and queued up for -stable, thanks.
+
+Thanks,
+--
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
