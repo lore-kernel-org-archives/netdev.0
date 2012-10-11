@@ -1,54 +1,42 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: Re: alignment faults in 3.6
-Date: Thu, 11 Oct 2012 12:56:10 +0200
-Message-ID: <1349952970.1232.5.camel@sakura.staff.proxad.net>
-References: <20121005082439.GF4625@n2100.arm.linux.org.uk>
-	 <506ED18C.3010009@gmail.com> <20121005140556.GQ4625@n2100.arm.linux.org.uk>
-	 <506EEFBB.3060705@gmail.com> <507619FA.6080001@jonmasters.org>
-	 <yw1xtxu1pwtv.fsf@unicorn.mansr.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7038@saturn3.aculab.com>
-	 <yw1xpq4ppcju.fsf@unicorn.mansr.com>
-	 <1349949638.21172.8445.camel@edumazet-glaptop>
-	 <1349950926.21172.8521.camel@edumazet-glaptop>
-	 <20121011103257.GO4625@n2100.arm.linux.org.uk>
-	 <1349952574.21172.8604.camel@edumazet-glaptop>
-Reply-To: mbizon@freebox.fr
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCHv4 1/4] modem_shm: Add Modem Access Framework
+Date: Thu, 11 Oct 2012 20:01:35 +0900
+Message-ID: <20121011110135.GE28546@kroah.com>
+References: <1348819504-1303-1-git-send-email-arun.murthy@stericsson.com>
+ <1348819504-1303-2-git-send-email-arun.murthy@stericsson.com>
+ <20120928160045.GD2625@kroah.com>
+ <F45880696056844FA6A73F415B568C695B6962C153@EXDCVYMBSTM006.EQ1STM.local>
+ <20121001155940.GA1957@kroah.com>
+ <F45880696056844FA6A73F415B568C695B6962CC8C@EXDCVYMBSTM006.EQ1STM.local>
+ <20121003151748.GA5745@kroah.com>
+ <F45880696056844FA6A73F415B568C695B697CB0C9@EXDCVYMBSTM006.EQ1STM.local>
+ <20121009135918.GC5583@kroah.com>
+ <F45880696056844FA6A73F415B568C695B9B3E3D8A@EXDCVYMBSTM006.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ANSI_X3.4-1968"
-Content-Transfer-Encoding: 7bit
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	=?ISO-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>,
-	Jon Masters <jonathan@jonmasters.org>, netdev@vger.kernel.org,
-	David Laight <David.Laight@ACULAB.COM>,
-	linux-arm-kernel@lists.infradead.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.iliad.fr ([212.27.33.1]:45250 "EHLO ns.iliad.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754536Ab2JKK4M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Oct 2012 06:56:12 -0400
-In-Reply-To: <1349952574.21172.8604.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
+To: Arun MURTHY <arun.murthy@stericsson.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <F45880696056844FA6A73F415B568C695B9B3E3D8A@EXDCVYMBSTM006.EQ1STM.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-On Thu, 2012-10-11 at 12:49 +0200, Eric Dumazet wrote:
-
-
-> So if you have an alignment fault, thats because IP header is not
-> aligned on 4 bytes ?
+On Thu, Oct 11, 2012 at 11:37:20AM +0200, Arun MURTHY wrote:
+> > On Tue, Oct 09, 2012 at 07:37:02AM +0200, Arun MURTHY wrote:
+> > > Any further comments?
+> > 
+> > I was waiting for you to address all of the previous ones with a new set of
+> > patches before burdening you with anything new :)
 > 
-> If so a driver is buggy and must be fixed.
+> There are not any changes in the code, this review was more like just
+> explaining our platform, protocol, few terminology and design approach.
 
-So a driver that does not align the ip header is buggy ?
+That all needs to go into the patches you send next time around :)
 
-I always thought it was ok not to do so (with a potential performance
-penalty).
+And I thought I did have some actual code comments in there somewhere...
 
-I have some MIPS hardware that is not able to DMA on anything but 32bits
-aligned addresses (bcm63xx). I tried once to add a memcpy instead of
-taking unaligned faults and the result was *much slower* on a ipv4
-forwarding test (which is what the hardware is used for).
-
--- 
-Maxime
+greg k-h
