@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] isdn: fix a wrapping bug in isdn_ppp_ioctl()
-Date: Wed, 10 Oct 2012 22:46:14 -0400 (EDT)
-Message-ID: <20121010.224614.1474455483126634181.davem@davemloft.net>
-References: <20121010093816.GA3669@elgon.mountain>
+Subject: Re: [PATCH] bridge: Pull ip header into skb->data before looking
+ into ip header.
+Date: Wed, 10 Oct 2012 22:53:58 -0400 (EDT)
+Message-ID: <20121010.225358.819989131525970516.davem@davemloft.net>
+References: <6f6f2599-15e5-49a7-973c-d2c36483427d@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, standby24x7@gmail.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org
+To: sarveshwar.bandi@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58849 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58905 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933061Ab2JKCqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 22:46:16 -0400
-In-Reply-To: <20121010093816.GA3669@elgon.mountain>
+	with ESMTP id S1753599Ab2JKCx7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2012 22:53:59 -0400
+In-Reply-To: <6f6f2599-15e5-49a7-973c-d2c36483427d@CMEXHTCAS1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Wed, 10 Oct 2012 12:42:18 +0300
+From: <sarveshwar.bandi@emulex.com>
+Date: Wed, 10 Oct 2012 16:45:01 +0530
 
-> "protos" is an array of unsigned longs and "i" is the number of bits in
-> an unsigned long so we need to use 1UL as well to prevent the shift
-> from wrapping around.
+> From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> If lower layer driver leaves the ip header in the skb fragment, it needs to
+> be first pulled into skb->data before inspecting ip header length or ip version
+> number.
+> 
+> Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 
-I'll apply this, thanks.
+Applied.
