@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL] Disintegrate UAPI for wimax
-Date: Thu, 11 Oct 2012 15:15:51 -0400 (EDT)
-Message-ID: <20121011.151551.173550848561141031.davem@davemloft.net>
-References: <3A78FAA0EC814D4B8ECC99B3AB32B33208612DA4@fmsmsx110.amr.corp.intel.com>
-	<30770.1349789450@warthog.procyon.org.uk>
-	<11849.1349942872@warthog.procyon.org.uk>
+Subject: Re: [PATCH] mcs7830: Fix link state detection
+Date: Thu, 11 Oct 2012 15:20:00 -0400 (EDT)
+Message-ID: <20121011.152000.1869700919732028911.davem@davemloft.net>
+References: <201210111233.28652.linux@rainbow-software.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wimax@intel.com, linux-kernel@vger.kernel.org,
-	inaky.perez-gonzalez@intel.com, netdev@vger.kernel.org
-To: dhowells@redhat.com
+Cc: andi@lisas.de, gregkh@linuxfoundation.org,
+	lkml20120218@newton.leun.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linux@rainbow-software.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <11849.1349942872@warthog.procyon.org.uk>
+In-Reply-To: <201210111233.28652.linux@rainbow-software.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Howells <dhowells@redhat.com>
-Date: Thu, 11 Oct 2012 09:07:52 +0100
+From: Ondrej Zary <linux@rainbow-software.org>
+Date: Thu, 11 Oct 2012 12:33:28 +0200
 
-> Can you pull wimax as well?
+> The device had an undocumented "feature": it can provide a sequence of
+> spurious link-down status data even if the link is up all the time.
+> A sequence of 10 was seen so update the link state only after the device
+> reports the same link state 20 times.
 > 
-> Sorry about this, but it seems like the majority of the non-arch trees need to
-> go through the networking tree.
+> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+> Reported-by: Michael Leun <lkml20120218@newton.leun.net>
+> Tested-by: Michael Leun <lkml20120218@newton.leun.net>
 
-Done.
+You've been given feedback on this patch, and also it doesn't apply
+cleanly.  Perhaps it was corrupted by your email client.
