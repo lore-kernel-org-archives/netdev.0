@@ -1,95 +1,35 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: [PATCH NET] e1000e: Change wthresh to 1 to avoid possible Tx stalls
-Date: Wed, 10 Oct 2012 18:34:20 -0700
-Message-ID: <20121011013420.30383.27700.stgit@jbrandeb-snb.jf.intel.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next? V2] pktgen: Use simpler test for non-zero ipv6 address
+Date: Thu, 11 Oct 2012 10:15:51 +0800
+Message-ID: <CAM_iQpWn8XHZ8VwRGFPjcAvPRAPy82eFT=5tqVzWHq5iXff_wA@mail.gmail.com>
+References: <1349894559.2035.12.camel@joe-AO722>
+	<1349895710.21172.7235.camel@edumazet-glaptop>
+	<1349897005.2035.24.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>,
-	eric.dumazet@gmail.com, therbert@google.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:65453 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933793Ab2JKBeV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Oct 2012 21:34:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Brian Haley <brian.haley@hp.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349897005.2035.24.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+On Thu, Oct 11, 2012 at 3:23 AM, Joe Perches <joe@perches.com> wrote:
+> Reduces object size and should be slightly faster.
+>
+> allyesconfig:
+> $ size net/core/pktgen.o*
+>    text    data     bss     dec     hex filename
+>   52284    4321   11840   68445   10b5d net/core/pktgen.o.new
+>   52310    4293   11848   68451   10b63 net/core/pktgen.o.old
+>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-This patch originated from Hiroaki SHIMODA but has been modified
-by Intel with some minor cleanups and additional commit log text.
+Looks good.
 
-Denys Fedoryshchenko and others reported Tx stalls on e1000e with
-BQL enabled.  Issue was root caused to hardware delays. They were
-introduced because some of the e1000e hardware with transmit
-writeback bursting enabled, waits until the driver does an
-explict flush OR there are WTHRESH descriptors to write back.
+This should go to -net, net-next is not open currently.
 
-Sometimes the delays in question were on the order of seconds,
-causing visible lag for ssh sessions and unacceptable tx
-completion latency, especially for BQL enabled kernels.
-
-To avoid possible Tx stalls, change WTHRESH back to 1.
-
-The current plan is to investigate a method for re-enabling
-WTHRESH while not harming BQL, but those patches will be later
-for net-next if they work.
-
-please enqueue for stable since v3.3 as this bug was introduced in
-commit 3f0cfa3bc11e7f00c9994e0f469cbc0e7da7b00c
-Author: Tom Herbert <therbert@google.com>
-Date:   Mon Nov 28 16:33:16 2011 +0000
-
-    e1000e: Support for byte queue limits
-
-    Changes to e1000e to use byte queue limits.
-
-Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
-Tested-by: Denys Fedoryshchenko <denys@visp.net.lb>
-Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-CC: eric.dumazet@gmail.com
-CC: therbert@google.com
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
----
-
- drivers/net/ethernet/intel/e1000e/e1000.h  |    6 +++---
- drivers/net/ethernet/intel/e1000e/netdev.c |    2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index cb3356c..04668b4 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -175,13 +175,13 @@ struct e1000_info;
- /*
-  * in the case of WTHRESH, it appears at least the 82571/2 hardware
-  * writes back 4 descriptors when WTHRESH=5, and 3 descriptors when
-- * WTHRESH=4, and since we want 64 bytes at a time written back, set
-- * it to 5
-+ * WTHRESH=4, so a setting of 5 gives the most efficient bus
-+ * utilization but to avoid possible Tx stalls, set it to 1
-  */
- #define E1000_TXDCTL_DMA_BURST_ENABLE                          \
- 	(E1000_TXDCTL_GRAN | /* set descriptor granularity */  \
- 	 E1000_TXDCTL_COUNT_DESC |                             \
--	 (5 << 16) | /* wthresh must be +1 more than desired */\
-+	 (1 << 16) | /* wthresh must be +1 more than desired */\
- 	 (1 << 8)  | /* hthresh */                             \
- 	 0x1f)       /* pthresh */
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index de57a2b..f444eb0 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -2831,7 +2831,7 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 		 * set up some performance related parameters to encourage the
- 		 * hardware to use the bus more efficiently in bursts, depends
- 		 * on the tx_int_delay to be enabled,
--		 * wthresh = 5 ==> burst write a cacheline (64 bytes) at a time
-+		 * wthresh = 1 ==> burst write is disabled to avoid Tx stalls
- 		 * hthresh = 1 ==> prefetch when one or more available
- 		 * pthresh = 0x1f ==> prefetch if internal cache 31 or less
- 		 * BEWARE: this seems to work but should be considered first if
+Thanks.
