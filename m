@@ -1,7 +1,8 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH v2] Network driver for the Armada 370 and Armada XP ARM Marvell SoCs
-Date: Thu, 11 Oct 2012 17:27:58 +0200
-Message-ID: <1349969282-12676-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH v2 2/4] net: mvneta: update MAINTAINERS file for the mvneta maintainers
+Date: Thu, 11 Oct 2012 17:28:00 +0200
+Message-ID: <1349969282-12676-3-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <1349969282-12676-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Jason Cooper <jason@lakedaemon.net>,
 	Andrew Lunn <andrew@lunn.ch>,
@@ -11,56 +12,35 @@ Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 To: "David S. Miller" <davem@davemloft.net>,
 	Lennert Buytenhek <kernel@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([88.190.12.23]:35206 "EHLO
+Received: from mail.free-electrons.com ([88.190.12.23]:35236 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755455Ab2JKP2W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 11:28:22 -0400
+	with ESMTP id S1754776Ab2JKP2j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 11:28:39 -0400
+In-Reply-To: <1349969282-12676-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David, Lennert,
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+ MAINTAINERS |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-This patch set adds a new network driver for the network unit
-available in the newest Marvell ARM SoCs Armada 370 and Armada XP, as
-well as the necessary Device Tree information to use this driver in
-the two evaluation platforms of those SoCs.
-
-In details:
-
- * Patch 1 contains the driver itself. The commit log contains a
-   detailed explanation about why a new driver is needed for this new
-   Marvell SoC, compared to older Marvell SoCs (Orion, Kirkwood, Dove)
-   that use the mv643xx_eth driver.
-
- * Patch 2 adds the necessary entry to the MAINTAINERS file.
-
- * Patch 3 adds the SoC-level Device Tree information for Armada 370
-   and Armada XP.
-
- * Patch 4 adds the board-level Device Tree information for the
-   Marvell evaluation boards of Armada 370 and Armada XP.
-
-Changes since v1:
- * Reduced the Cc: list in order to make the patch set acceptable for
-   the netdev@ mailing list.
- * Merge the mvneta.h contents into mvneta.c, since the header was
-   only used by the driver. Requested by Arnd Bergmann.
- * Completely reorganize the organization of the register list and
-   register values, in order to make it more consistent, and hopefully
-   easier to read (especially easier to match register values with the
-   corresponding register).
- * Integrate with the phylib, as suggested by Florian Fainelli, and
-   remove the link management code that has become useless as the
-   result of this integration
- * Fix many small details suggested by Florian Fainelli in his review
-   of the first driver
- * Simplify various parts of the driver (descriptors array allocation,
-   data structures, etc.)
-
-Note that version 1 never made it to the netdev@ mailing list, due to
-a too long list of Cc's, so this version 2 is the first version that
-netdev@ readers will actually see.
-
-Thanks,
-
-Thomas Petazzoni
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 9a6c4da..163533c 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4438,6 +4438,12 @@ S:	Maintained
+ F:	drivers/net/ethernet/marvell/mv643xx_eth.*
+ F:	include/linux/mv643xx.h
+ 
++MARVELL MVNETA ETHERNET DRIVER
++M:	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
++L:	netdev@vger.kernel.org
++S:	Maintained
++F:	drivers/net/ethernet/marvell/mvneta.*
++
+ MARVELL MWIFIEX WIRELESS DRIVER
+ M:	Bing Zhao <bzhao@marvell.com>
+ L:	linux-wireless@vger.kernel.org
+-- 
+1.7.9.5
