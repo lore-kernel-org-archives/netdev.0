@@ -1,53 +1,89 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: alignment faults in 3.6
-Date: Thu, 11 Oct 2012 16:39:38 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B703E@saturn3.aculab.com>
-References: <20121005082439.GF4625@n2100.arm.linux.org.uk>  <20121011103257.GO4625@n2100.arm.linux.org.uk>  <1349952574.21172.8604.camel@edumazet-glaptop>  <201210111228.25995.arnd@arndb.de>  <1349959248.21172.8970.camel@edumazet-glaptop> <5076C78E.1020408@gmail.com> <1349963227.21172.9188.camel@edumazet-glaptop> <5076E472.8030703@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: alignment faults in 3.6
+Date: Thu, 11 Oct 2012 18:15:45 +0200
+Message-ID: <1349972145.21172.9685.camel@edumazet-glaptop>
+References: <20121005082439.GF4625@n2100.arm.linux.org.uk>
+	 <20121011103257.GO4625@n2100.arm.linux.org.uk>
+	 <1349952574.21172.8604.camel@edumazet-glaptop>
+	 <201210111228.25995.arnd@arndb.de>
+	 <1349959248.21172.8970.camel@edumazet-glaptop> <5076C78E.1020408@gmail.com>
+	 <1349963227.21172.9188.camel@edumazet-glaptop> <5076E472.8030703@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Arnd Bergmann" <arnd@arndb.de>,
-	<linux-arm-kernel@lists.infradead.org>,
-	"Russell King - ARM Linux" <linux@arm.linux.org.uk>,
-	"Jon Masters" <jonathan@jonmasters.org>, <netdev@vger.kernel.org>,
-	=?utf-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>
-To: "Rob Herring" <robherring2@gmail.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	linux-arm-kernel@lists.infradead.org,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Jon Masters <jonathan@jonmasters.org>, netdev@vger.kernel.org,
+	=?ISO-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>,
+	David Laight <David.Laight@aculab.com>
+To: Rob Herring <robherring2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:45356 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1758770Ab2JKPtv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Oct 2012 11:49:51 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 05787-02 for <netdev@vger.kernel.org>;
- Thu, 11 Oct 2012 16:49:47 +0100 (BST)
-Content-class: urn:content-classes:message
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:34900 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758542Ab2JKQPt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 12:15:49 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so1096520bkc.19
+        for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 09:15:48 -0700 (PDT)
 In-Reply-To: <5076E472.8030703@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IA0KPiBOb3QgZXhhY3RseS4gSXQgaXMgYXNrZWQgdG8gdG8gcGVyZm9ybSAyIDMyLWJpdCBsb2Fk
-cyB3aGljaCBhcmUgY29tYmluZWQNCj4gaW50byBhIHNpbmdsZSBsZG0gKGxvYWQgbXVsdGlwbGUp
-IHdoaWNoIGNhbm5vdCBoYW5kbGUgdW5hbGlnbmVkDQo+IGFjY2Vzc2VzLiBIZXJlJ3MgYSBzaW1w
-bGUgZXhhbXBsZSB0aGF0IGRvZXMgdGhlIHNhbWUgdGhpbmc6DQo+IA0KPiB2b2lkIHRlc3QoY2hh
-ciAqIGJ1ZikNCj4gew0KPiAJcHJpbnRmKCIlZCwgJWRcbiIsICooKHVuc2lnbmVkIGludCAqKSZi
-dWZbMF0pLCAqKCh1bnNpZ25lZCBpbnQgKikmYnVmWzRdKSk7DQo+IH0NCg0KSGF2ZSB5b3UgYWN0
-dWFsbHkgbG9va2VkIGF0IHdoYXQgYW4gQVJNIHByb2Nlc3NvciB0cmFkaXRpb25hbGx5IGRpZA0K
-d2l0aCBtaXNhbGlnbmVkIG1lbW9yeSByZWFkcz8NCldoaWxlIHVzZWZ1bCwgaXQgcHJvYmFibHkg
-d2Fzbid0IHdoYXQgd2FzIGludGVuZGVkLg0KDQpBY3R1YWxseSwgYW5kIElJUkMsIHNvbWUgdmVy
-eSByZWNlbnQgQVJNIGNwdXMgd2lsbCBkbyB0aGUgJ2V4cGVjdGVkJw0KdGhpbmcgZm9yIHNpbmds
-ZS13b3JkIGxvYWRzIGZyb20gbWlzYWxpZ25lZCBhZGRlc3Nlcy4NCkhvd2V2ZXIgdGhleSBhbG1v
-c3QgY2VydGFpbmx5IHdvbid0IGZvciBsZG0vc3RtLg0KDQpUaGUgJ2xkbScgb3B0aW1pc2F0aW9u
-IGZvciBhZGphY2VudCBtZW1vcnkgbG9hZHMgaXMgYWxzbyBkdWJpb3VzLg0KT24gYXQgbGVhc3Qg
-c29tZSBBUk1zIGl0IGlzIHZlcnkgc2xvdyAobWlnaHQgb25seSBiZSBzdHJvbmdhcm1zKS4NCg0K
-PiBTbyBJIGd1ZXNzIHRoZSBvbmx5IEFCSSBsZWdhbCB1bmFsaWduZWQgYWNjZXNzIGlzIGluIGEg
-cGFja2VkIHN0cnVjdC4NCg0KQ29ycmVjdC4gQW5kIHlvdSBtdXN0bid0IHRyeSBjYXN0aW5nIHRo
-ZSBhZGRyZXNzLCB0aGUgY29tcGlsZXIgaXMNCmFsbG93ZWQgdG8gcmVtZW1iZXIgd2hlcmUgaXQg
-Y2FtZSBmcm9tLg0KKFRoaXMgY2F1c2VzIGEgbG90IG9mIGdyaWVmLi4uKQ0KDQpJZiB5b3UgYXJl
-IHRhcmdldGluZyB0aGUgQVJNIGNwdSB0aGF0IGNhbiBkbyBtaXNhbGlnbmVkIHRyYW5zZmVycywN
-CnRoZW4gZ2NjIHNob3VsZCBnZW5lcmF0ZSBzaW5nbGUgaW5zdHJ1Y3Rpb25zIGZvciBtaXNhbGln
-bmVkIHN0cnVjdHVyZQ0KbWVtYmVycywgYW5kIG5ldmVyIGRvIHRoZSAnbGRtJyBvcHRpbWlzYXRp
-b25zLg0KDQpCdXQsIHRoZSBJUCBoZWFkZXIgaXMgZXhwZWN0ZWQgdG8gYmUgYWxpZ25lZC4NCg0K
-CURhdmlkDQoNCg==
+On Thu, 2012-10-11 at 10:23 -0500, Rob Herring wrote:
+> On 10/11/2012 08:47 AM, Eric Dumazet wrote:
+
+> > Compiler is asked to perform a 32bit load, it does it.
+> 
+> Not exactly. It is asked to to perform 2 32-bit loads which are combined
+> into a single ldm (load multiple) which cannot handle unaligned
+> accesses. Here's a simple example that does the same thing:
+
+
+Thats simply not true. You are severely mistaken.
+
+ldm does a load of seeral 32bit words.
+
+And the compiler would not use it if the alignment was not matching the
+prereq (alignment >= 4)
+
+
+
+> 
+> void test(char * buf)
+> {
+> 	printf("%d, %d\n", *((unsigned int *)&buf[0]), *((unsigned int *)&buf[4]));
+> }
+
+But you completely miss the fact that network doesnt pass a "char *buf"
+but a "be32 *buf". Your example is not relevant at all.
+
+So the compiler is absolutely right, and network stack is _right_ too.
+
+The prereq is that IP header are aligned to 4 bytes boundary.
+
+Denying this fact is not going to help you
+
+
+> 
+> So I guess the only ABI legal unaligned access is in a packed struct.
+> 
+> > There is no questionable optimization here. Really.
+> > Please stop pretending this, this makes no sense.
+> 
+> I'm not the one calling the networking stack bad code.
+
+Once you understand the issues, you can explain us where is the bad
+code. But given you say "Bug is in compiler, and/or network stack, but
+my driver is fine", its not very wise.
+
+For the moment, the bug is in your driver.
+
+> 
+> I can fix my h/w, so I'll stop caring about this. Others can all get
+> bitten by this new behavior in gcc 4.7.
+
+Again compiler is fine. How should we say that so that you stop your
+rants ?
+
+Stop trying to find an excuse, dont try to fool us, this is really
+embarrassing. Just fix the driver, there is no shame to fix an error.
