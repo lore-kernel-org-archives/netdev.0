@@ -1,35 +1,83 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: alignment faults in 3.6
-Date: Thu, 11 Oct 2012 11:32:57 +0100
-Message-ID: <20121011103257.GO4625@n2100.arm.linux.org.uk>
-References: <20121005082439.GF4625@n2100.arm.linux.org.uk> <506ED18C.3010009@gmail.com> <20121005140556.GQ4625@n2100.arm.linux.org.uk> <506EEFBB.3060705@gmail.com> <507619FA.6080001@jonmasters.org> <yw1xtxu1pwtv.fsf@unicorn.mansr.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7038@saturn3.aculab.com> <yw1xpq4ppcju.fsf@unicorn.mansr.com> <1349949638.21172.8445.camel@edumazet-glaptop> <1349950926.21172.8521.camel@edumazet-glaptop>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: [PATCH] mcs7830: Fix link state detection
+Date: Thu, 11 Oct 2012 12:33:28 +0200
+Message-ID: <201210111233.28652.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>,
-	Jon Masters <jonathan@jonmasters.org>, netdev@vger.kernel.org,
-	David Laight <David.Laight@ACULAB.COM>,
-	linux-arm-kernel@lists.infradead.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Greg KH" <gregkh@linuxfoundation.org>, davem@davemloft.net,
+	Michael Leun <lkml20120218@newton.leun.net>,
+	netdev@vger.kernel.org,
+	Michael Leun <lkml20120218@newton.leun.net>,
+	linux-kernel@vger.kernel.org
+To: "Andreas Mohr" <andi@lisas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:50262 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758496Ab2JKKdL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 06:33:11 -0400
+Received: from mail-1-out2.atlantis.sk ([80.94.52.71]:57374 "EHLO
+	mail.atlantis.sk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758576Ab2JKKeM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 06:34:12 -0400
 Content-Disposition: inline
-In-Reply-To: <1349950926.21172.8521.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 11, 2012 at 12:22:06PM +0200, Eric Dumazet wrote:
-> I took a look, and I dont see why/how gcc could use a ldm instruction
-> 
-> Doing so assumed the alignment of the structure was 8 bytes, but its
-> not.
-> 
-> Networking stack mandates that IP headers are aligned on 4 bytes
-> boundaries, not 8 bytes.
+The device had an undocumented "feature": it can provide a sequence of
+spurious link-down status data even if the link is up all the time.
+A sequence of 10 was seen so update the link state only after the device
+reports the same link state 20 times.
 
-Err, no.  ldm is "load multiple" not "load double".  It loads multiple
-32-bit registers, and its requirement for non-faulting behaviour is for
-the pointer to be 4 byte aligned.  However, "load double" requires 8
-byte alignment.
+Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+Reported-by: Michael Leun <lkml20120218@newton.leun.net>
+Tested-by: Michael Leun <lkml20120218@newton.leun.net>
+---
+ drivers/net/usb/mcs7830.c |   21 ++++++++++++++-------
+ 1 files changed, 14 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/usb/mcs7830.c b/drivers/net/usb/mcs7830.c
+index 03c2d8d..3a02a5d 100644
+--- a/drivers/net/usb/mcs7830.c
++++ b/drivers/net/usb/mcs7830.c
+@@ -117,6 +117,7 @@ enum {
+ struct mcs7830_data {
+ 	u8 multi_filter[8];
+ 	u8 config;
++	u8 link_counter;
+ };
+ 
+ static const char driver_name[] = "MOSCHIP usb-ethernet driver";
+@@ -633,19 +634,25 @@ static void mcs7830_status(struct usbnet *dev, struct 
+urb *urb)
+ {
+ 	u8 *buf = urb->transfer_buffer;
+ 	bool link;
++	struct mcs7830_data *data = mcs7830_get_data(dev);
+ 
+ 	if (urb->actual_length < 16)
+ 		return;
+ 
+ 	link = !(buf[1] & 0x20);
+ 	if (netif_carrier_ok(dev->net) != link) {
+-		if (link) {
+-			netif_carrier_on(dev->net);
+-			usbnet_defer_kevent(dev, EVENT_LINK_RESET);
+-		} else
+-			netif_carrier_off(dev->net);
+-		netdev_dbg(dev->net, "Link Status is: %d\n", link);
+-	}
++		data->link_counter++;
++		if (data->link_counter > 20) {
++			data->link_counter = 0;
++			if (link) {
++				netif_carrier_on(dev->net);
++				usbnet_defer_kevent(dev, EVENT_LINK_RESET);
++			} else
++				netif_carrier_off(dev->net);
++			netdev_dbg(dev->net, "Link Status is: %d\n", link);
++		}
++	} else
++		data->link_counter = 0;
+ }
+ 
+ static const struct driver_info moschip_info = {
+-- 
+Ondrej Zary
