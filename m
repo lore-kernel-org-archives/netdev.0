@@ -1,48 +1,194 @@
 From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH v1 00/11] usbnet: usb_control_msg cleanup
-Date: Thu, 11 Oct 2012 20:39:18 +0800
-Message-ID: <1349959169-9432-1-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH v1 01/11] usbnet: introduce usbnet 3 command helpers
+Date: Thu, 11 Oct 2012 20:39:19 +0800
+Message-ID: <1349959169-9432-2-git-send-email-ming.lei@canonical.com>
+References: <1349959169-9432-1-git-send-email-ming.lei@canonical.com>
 Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1349959169-9432-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+This patch introduces the below 3 usb command helpers:
 
-This patch set introduces 3 helpers for handling usb read, write
-and write_async command, and replaces the low level's implemention
-with the generic ones.
+	usbnet_read_cmd / usbnet_write_cmd / usbnet_write_cmd_async
 
-This patchset is a cleanup and about 300 lines code can be saved.
+so that each low level driver doesn't need to implement them
+by itself, and the dma buffer allocation for usb transfer and
+runtime PM things can be handled just in one place.
 
-Also, the patchset fixes problem of DMA on buffer embedded inside
-one dynamic allocated buffer, and such usages can be found
-in cdc-ncm, sierra_net, mcs7830 and asix drivers.
+Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+---
+ drivers/net/usb/usbnet.c   |  133 ++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/usb/usbnet.h |    6 ++
+ 2 files changed, 139 insertions(+)
 
-v1:
-	- drop previous patch 12, and let net/core handle
-	runtime PM in ioctl path
-
- drivers/net/usb/asix_common.c |  117 ++++--------------------------------
- drivers/net/usb/cdc_ncm.c     |   73 +++++++---------------
- drivers/net/usb/dm9601.c      |  107 +++++----------------------------
- drivers/net/usb/int51x1.c     |   52 +---------------
- drivers/net/usb/mcs7830.c     |   85 ++------------------------
- drivers/net/usb/net1080.c     |  110 ++++++++++------------------------
- drivers/net/usb/plusb.c       |   11 ++--
- drivers/net/usb/sierra_net.c  |   45 ++++++--------
- drivers/net/usb/smsc75xx.c    |   39 +++++-------
- drivers/net/usb/smsc95xx.c    |  115 +++++++++--------------------------
- drivers/net/usb/usbnet.c      |  133 +++++++++++++++++++++++++++++++++++++++++
- include/linux/usb/usbnet.h    |    6 ++
- 12 files changed, 291 insertions(+), 602 deletions(-)
-
-Thanks,
---
-Ming Lei
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index fc9f578..3b51554 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1592,6 +1592,139 @@ int usbnet_resume (struct usb_interface *intf)
+ }
+ EXPORT_SYMBOL_GPL(usbnet_resume);
+ 
++/*-------------------------------------------------------------------------*/
++int usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
++		    u16 value, u16 index, void *data, u16 size)
++{
++	void *buf = NULL;
++	int err = -ENOMEM;
++
++	netdev_dbg(dev->net, "usbnet_read_cmd cmd=0x%02x reqtype=%02x"
++		   " value=0x%04x index=0x%04x size=%d\n",
++		   cmd, reqtype, value, index, size);
++
++	if (data) {
++		buf = kmalloc(size, GFP_KERNEL);
++		if (!buf)
++			goto out;
++	}
++
++	err = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
++			      cmd, reqtype, value, index, buf, size,
++			      USB_CTRL_GET_TIMEOUT);
++	if (err > 0 && err <= size)
++		memcpy(data, buf, err);
++	kfree(buf);
++out:
++	return err;
++}
++EXPORT_SYMBOL_GPL(usbnet_read_cmd);
++
++int usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
++		     u16 value, u16 index, const void *data, u16 size)
++{
++	void *buf = NULL;
++	int err = -ENOMEM;
++
++	netdev_dbg(dev->net, "usbnet_write_cmd cmd=0x%02x reqtype=%02x"
++		   " value=0x%04x index=0x%04x size=%d\n",
++		   cmd, reqtype, value, index, size);
++
++	if (data) {
++		buf = kmemdup(data, size, GFP_KERNEL);
++		if (!buf)
++			goto out;
++	}
++
++	err = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
++			      cmd, reqtype, value, index, buf, size,
++			      USB_CTRL_SET_TIMEOUT);
++	kfree(buf);
++
++out:
++	return err;
++}
++EXPORT_SYMBOL_GPL(usbnet_write_cmd);
++
++static void usbnet_async_cmd_cb(struct urb *urb)
++{
++	struct usb_ctrlrequest *req = (struct usb_ctrlrequest *)urb->context;
++	int status = urb->status;
++
++	if (status < 0)
++		dev_dbg(&urb->dev->dev, "%s failed with %d",
++			__func__, status);
++
++	kfree(req);
++	usb_free_urb(urb);
++}
++
++int usbnet_write_cmd_async(struct usbnet *dev, u8 cmd, u8 reqtype,
++			   u16 value, u16 index, const void *data, u16 size)
++{
++	struct usb_ctrlrequest *req = NULL;
++	struct urb *urb;
++	int err = -ENOMEM;
++	void *buf = NULL;
++
++	netdev_dbg(dev->net, "usbnet_write_cmd cmd=0x%02x reqtype=%02x"
++		   " value=0x%04x index=0x%04x size=%d\n",
++		   cmd, reqtype, value, index, size);
++
++	urb = usb_alloc_urb(0, GFP_ATOMIC);
++	if (!urb) {
++		netdev_err(dev->net, "Error allocating URB in"
++			   " %s!\n", __func__);
++		goto fail;
++	}
++
++	if (data) {
++		buf = kmemdup(data, size, GFP_ATOMIC);
++		if (!buf) {
++			netdev_err(dev->net, "Error allocating buffer"
++				   " in %s!\n", __func__);
++			goto fail_free;
++		}
++	}
++
++	req = kmalloc(sizeof(struct usb_ctrlrequest), GFP_ATOMIC);
++	if (!req) {
++		netdev_err(dev->net, "Failed to allocate memory for %s\n",
++			   __func__);
++		goto fail_free_buf;
++	}
++
++	req->bRequestType = reqtype;
++	req->bRequest = cmd;
++	req->wValue = cpu_to_le16(value);
++	req->wIndex = cpu_to_le16(index);
++	req->wLength = cpu_to_le16(size);
++
++	usb_fill_control_urb(urb, dev->udev,
++			     usb_sndctrlpipe(dev->udev, 0),
++			     (void *)req, buf, size,
++			     usbnet_async_cmd_cb, req);
++	urb->transfer_flags |= URB_FREE_BUFFER;
++
++	err = usb_submit_urb(urb, GFP_ATOMIC);
++	if (err < 0) {
++		netdev_err(dev->net, "Error submitting the control"
++			   " message: status=%d\n", err);
++		goto fail_free;
++	}
++	return 0;
++
++fail_free_buf:
++	kfree(buf);
++fail_free:
++	kfree(req);
++	usb_free_urb(urb);
++fail:
++	return err;
++
++}
++EXPORT_SYMBOL_GPL(usbnet_write_cmd_async);
++
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index f87cf62..32a57dd 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -161,6 +161,12 @@ extern int usbnet_suspend(struct usb_interface *, pm_message_t);
+ extern int usbnet_resume(struct usb_interface *);
+ extern void usbnet_disconnect(struct usb_interface *);
+ 
++extern int usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
++		    u16 value, u16 index, void *data, u16 size);
++extern int usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
++		    u16 value, u16 index, const void *data, u16 size);
++extern int usbnet_write_cmd_async(struct usbnet *dev, u8 cmd, u8 reqtype,
++		    u16 value, u16 index, const void *data, u16 size);
+ 
+ /* Drivers that reuse some of the standard USB CDC infrastructure
+  * (notably, using multiple interfaces according to the CDC
+-- 
+1.7.9.5
 
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
