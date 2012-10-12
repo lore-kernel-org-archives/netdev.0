@@ -1,84 +1,60 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: unresponsive vlan on top of bond with fail_over_mac=active
-Date: Thu, 11 Oct 2012 17:33:48 -0700
-Message-ID: <29107.1350002028@death.nxdomain>
-References: <20121010231122.GB28935@unicorn.suse.cz> <8588.1349926471@death.nxdomain> <20121011103757.GA13873@unicorn.suse.cz>
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
-To: Michal Kubecek <mkubecek@suse.cz>
+From: Lin Ming <minggr@gmail.com>
+Subject: [PATCH] bridge: don't flood multicast packets if no snooping entry
+Date: Fri, 12 Oct 2012 09:17:23 +0800
+Message-ID: <1350004643-3786-1-git-send-email-minggr@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:52961 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757379Ab2JLAdz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 20:33:55 -0400
-Received: from /spool/local
-	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Thu, 11 Oct 2012 18:33:54 -0600
-Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
-	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 04CCC1FF003F
-	for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 18:33:46 -0600 (MDT)
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q9C0XpUg217994
-	for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 18:33:51 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q9C0XoNc002365
-	for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 18:33:51 -0600
-In-reply-to: <20121011103757.GA13873@unicorn.suse.cz>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:48052 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752197Ab2JLBSj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 21:18:39 -0400
+Received: by mail-pa0-f46.google.com with SMTP id hz1so2321126pad.19
+        for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 18:18:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michal Kubecek <mkubecek@suse.cz> wrote:
+From: Lin Ming <mlin@ss.pku.edu.cn>
 
->On Wed, Oct 10, 2012 at 08:34:31PM -0700, Jay Vosburgh wrote:
->> Michal Kubecek <mkubecek@suse.cz> wrote:
->> 	What network device are they using that requires fail_over_mac
->> to be set to active?
->
->I would have to ask for exact configuration, all I know for sure is that
->the problem was reported for s390x (S390-64) architecture. I reproduced
->it with VMware Workstation virtual devices which emulate Intel e1000.
+Currently, multicast packets will be flood even if there is no
+mutlicast snooping entry attached to port.
 
-	Have you tried the "follow" setting to fail_over_mac?
+With IGMP snooping enabled, we should stop sending multicast packets
+if there is no member joined.
 
-	I looked into this very topic (VLAN address propagation on s390)
-earlier this year.  The eventual solution for that case was to use the
-"follow" fail_over_mac option, which resolved the problem for the OSA
-device (qeth).
-
-	I did submit a patch to do MAC address propagation to VLANs, but
-then withdrew it after I figured out that "follow" would also resolve
-the problem without code changes.
-
-http://patchwork.ozlabs.org/patch/153551/
-
->> 	I tested some of this out earlier this year, and I don't recall
->> having problems (although I'm not sure I did this exact test).  The
->> dev_uc_add() logic (in __dev_set_rx_mode) would put the underlying
->> device into promiscuous mode if the hardware didn't support multiple
->> unicast MAC addresses. dev_uc_add() was invoked by vlan_sync_address(),
->> which is called by the vlan NETDEV_CHANGEADDR notifier callback.
->
->Yes, this part works fine, I checked uc list with live crash session.
->But as bonding driver doesn't set its ndo_set_rx_mode method, the
->iformation about second MAC address doesn't propagate down to the
->slaves.
-
-	What kernel are you looking at?  In current mainline, bonding
-does have bond_set_multicast_list as ndo_set_rx_mode, although it
-doesn't propagate unicast address information, only multicast.  I
-believe this has been the case for a long time.
-
->> 	Bonding does propagate promisc to its slaves, but (as you point
->> out) not the uc lists; is the hardware in question something that
->> supports multiple unicast addresses (IFF_UNICAST_FLT)?  The device I
->> tested with does not support IFF_UNICAST_FLT, and (as I recall) would
->> end up in promisc mode.
->
->My tests were done with (emulated) e1000 which supports unicast
->filtering (up to 14 addresses, according to what I've seen in the
->driver). I'm not sure about the devices on s390x.
-
-	-J
-
+Signed-off-by: Lin Ming <mlin@ss.pku.edu.cn>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ net/bridge/br_input.c   |    2 ++
+ net/bridge/br_private.h |    2 ++
+ 2 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 76f15fd..2821085 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -90,6 +90,8 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 			skb = NULL;
+ 			if (!skb2)
+ 				goto out;
++		} else if (!mdst && BR_INPUT_SKB_CB_NOT_IGMP(skb)) {
++			skb = NULL;
+ 		} else
+ 			skb2 = skb;
+ 
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 9b278c4..e2c894d 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -268,8 +268,10 @@ struct br_input_skb_cb {
+ 
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ # define BR_INPUT_SKB_CB_MROUTERS_ONLY(__skb)	(BR_INPUT_SKB_CB(__skb)->mrouters_only)
++# define BR_INPUT_SKB_CB_NOT_IGMP(__skb)	(!BR_INPUT_SKB_CB(__skb)->igmp)
+ #else
+ # define BR_INPUT_SKB_CB_MROUTERS_ONLY(__skb)	(0)
++# define BR_INPUT_SKB_CB_NOT_IGMP(__skb)	(0)
+ #endif
+ 
+ #define br_printk(level, br, format, args...)	\
+-- 
+1.7.2.5
