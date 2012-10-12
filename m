@@ -1,7 +1,7 @@
 From: Rob Herring <robherring2@gmail.com>
-Subject: [PATCH 3/6] net: calxedaxgmac: use relaxed i/o accessors in rx and tx paths
-Date: Fri, 12 Oct 2012 10:15:05 -0500
-Message-ID: <1350054908-30646-4-git-send-email-robherring2@gmail.com>
+Subject: [PATCH 1/6] net: calxedaxgmac: enable operate on 2nd frame mode
+Date: Fri, 12 Oct 2012 10:15:03 -0500
+Message-ID: <1350054908-30646-2-git-send-email-robherring2@gmail.com>
 References: <1350054908-30646-1-git-send-email-robherring2@gmail.com>
 Cc: jonathan@jonmasters.org, eric.dumazet@gmail.com,
 	Mark Langsdorf <mark.langsdorf@calxeda.com>,
@@ -14,71 +14,35 @@ List-Id: netdev.vger.kernel.org
 
 From: Rob Herring <rob.herring@calxeda.com>
 
-The standard readl/writel accessors involve a spinlock and cache sync
-operation on ARM platforms with an outer cache. Only DMA triggering
-accesses need this, so use the relaxed variants instead.
+Enable the tx dma to start reading the next frame while sending the current
+frame.
 
 Signed-off-by: Rob Herring <rob.herring@calxeda.com>
 ---
- drivers/net/ethernet/calxeda/Kconfig |    2 +-
- drivers/net/ethernet/calxeda/xgmac.c |   12 ++++++------
- 2 files changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/calxeda/xgmac.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/calxeda/Kconfig b/drivers/net/ethernet/calxeda/Kconfig
-index aba435c..6a4ddf6 100644
---- a/drivers/net/ethernet/calxeda/Kconfig
-+++ b/drivers/net/ethernet/calxeda/Kconfig
-@@ -1,6 +1,6 @@
- config NET_CALXEDA_XGMAC
- 	tristate "Calxeda 1G/10G XGMAC Ethernet driver"
--	depends on HAS_IOMEM
-+	depends on HAS_IOMEM && ARM
- 	select CRC32
- 	help
- 	  This is the driver for the XGMAC Ethernet IP block found on Calxeda
 diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
-index 728fcef..117839e 100644
+index 16814b3..7f5fd17 100644
 --- a/drivers/net/ethernet/calxeda/xgmac.c
 +++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -1203,7 +1203,7 @@ static int xgmac_poll(struct napi_struct *napi, int budget)
+@@ -191,6 +191,7 @@
+ #define DMA_CONTROL_ST		0x00002000	/* Start/Stop Transmission */
+ #define DMA_CONTROL_SR		0x00000002	/* Start/Stop Receive */
+ #define DMA_CONTROL_DFF		0x01000000	/* Disable flush of rx frames */
++#define DMA_CONTROL_OSF		0x00000004	/* Operate on 2nd tx frame */
  
- 	if (work_done < budget) {
- 		napi_complete(napi);
--		writel(DMA_INTR_DEFAULT_MASK, priv->base + XGMAC_DMA_INTR_ENA);
-+		writel_relaxed(DMA_INTR_DEFAULT_MASK, priv->base + XGMAC_DMA_INTR_ENA);
- 	}
- 	return work_done;
- }
-@@ -1348,7 +1348,7 @@ static irqreturn_t xgmac_pmt_interrupt(int irq, void *dev_id)
- 	struct xgmac_priv *priv = netdev_priv(dev);
- 	void __iomem *ioaddr = priv->base;
+ /* DMA Normal interrupt */
+ #define DMA_INTR_ENA_NIE	0x00010000	/* Normal Summary */
+@@ -965,8 +966,7 @@ static int xgmac_hw_init(struct net_device *dev)
+ 		ctrl |= XGMAC_CONTROL_IPC;
+ 	writel(ctrl, ioaddr + XGMAC_CONTROL);
  
--	intr_status = readl(ioaddr + XGMAC_INT_STAT);
-+	intr_status = readl_relaxed(ioaddr + XGMAC_INT_STAT);
- 	if (intr_status & XGMAC_INT_STAT_PMT) {
- 		netdev_dbg(priv->dev, "received Magic frame\n");
- 		/* clear the PMT bits 5 and 6 by reading the PMT */
-@@ -1366,9 +1366,9 @@ static irqreturn_t xgmac_interrupt(int irq, void *dev_id)
- 	struct xgmac_extra_stats *x = &priv->xstats;
+-	value = DMA_CONTROL_DFF;
+-	writel(value, ioaddr + XGMAC_DMA_CONTROL);
++	writel(DMA_CONTROL_DFF | DMA_CONTROL_OSF, ioaddr + XGMAC_DMA_CONTROL);
  
- 	/* read the status register (CSR5) */
--	intr_status = readl(priv->base + XGMAC_DMA_STATUS);
--	intr_status &= readl(priv->base + XGMAC_DMA_INTR_ENA);
--	writel(intr_status, priv->base + XGMAC_DMA_STATUS);
-+	intr_status = readl_relaxed(priv->base + XGMAC_DMA_STATUS);
-+	intr_status &= readl_relaxed(priv->base + XGMAC_DMA_INTR_ENA);
-+	writel_relaxed(intr_status, priv->base + XGMAC_DMA_STATUS);
- 
- 	/* It displays the DMA process states (CSR5 register) */
- 	/* ABNORMAL interrupts */
-@@ -1404,7 +1404,7 @@ static irqreturn_t xgmac_interrupt(int irq, void *dev_id)
- 
- 	/* TX/RX NORMAL interrupts */
- 	if (intr_status & (DMA_STATUS_RI | DMA_STATUS_TU)) {
--		writel(DMA_INTR_ABNORMAL, priv->base + XGMAC_DMA_INTR_ENA);
-+		writel_relaxed(DMA_INTR_ABNORMAL, priv->base + XGMAC_DMA_INTR_ENA);
- 		napi_schedule(&priv->napi);
- 	}
- 
+ 	/* Set the HW DMA mode and the COE */
+ 	writel(XGMAC_OMR_TSF | XGMAC_OMR_RFD | XGMAC_OMR_RFA |
 -- 
 1.7.9.5
