@@ -1,66 +1,58 @@
-From: Roland Stigge <stigge@antcom.de>
-Subject: Re: r8169 delay / segfault
-Date: Sat, 13 Oct 2012 00:14:33 +0200
-Message-ID: <50789649.3080202@antcom.de>
-References: <50787109.7080605@antcom.de> <20121012210503.GA2054@electric-eye.fr.zoreil.com>
+From: enh <enh@google.com>
+Subject: listen(2) backlog changes in or around Linux 3.1?
+Date: Fri, 12 Oct 2012 16:40:40 -0700
+Message-ID: <CAJgzZorigejCuFweNrvmkEJts3Um7exh1fYTH=4KrEcB=v=2SA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: nic_swsd@realtek.com, netdev@vger.kernel.org,
-	hayeswang <hayeswang@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from antcom.de ([188.40.178.216]:56107 "EHLO chuck.antcom.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752666Ab2JLWOw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Oct 2012 18:14:52 -0400
-In-Reply-To: <20121012210503.GA2054@electric-eye.fr.zoreil.com>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:33163 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752150Ab2JLXlF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 19:41:05 -0400
+Received: by mail-qc0-f174.google.com with SMTP id d3so2660119qch.19
+        for <netdev@vger.kernel.org>; Fri, 12 Oct 2012 16:41:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+i used to use the following hack to unit test connect timeouts: i'd
+call listen(2) on a socket and then deliberately connect (backlog + 3)
+sockets without accept(2)ing any of the connections. (why 3? because
+Stevens told me so, and experiment backed him up. see figure 4.10 in
+his UNIX Network Programming.)
 
-On 12/10/12 23:05, Francois Romieu wrote:
-> Roland Stigge <stigge@antcom.de> :
-> [...]
->> on a Samsung laptop (x86_64, kernel 3.6.0), I get the following messages in the kernel
->> log after a suspend/resume cycle (doesn't happen after every suspend/resume but sometimes):
->>
->> Oct 12 21:02:27 darwin kernel: [ 4289.829755] r8169 0000:02:00.0: wake-up capability disabled by ACPI
->> Oct 12 21:02:27 darwin kernel: [ 4289.830351] r8169 0000:02:00.0: eth0: rtl_phyar_cond == 1 (loop: 20, delay: 25).
-> [...]
->> Oct 12 21:02:27 darwin kernel: [ 4289.858920] r8169 0000:02:00.0: eth0: rtl_phyar_cond == 1 (loop: 20, delay: 25).
-> [...]
->> Oct 12 21:04:56 darwin kernel: [ 4441.330385] r8169 0000:02:00.0: eth0: rtl_chipcmd_cond == 1 (loop: 100, delay: 100).
->> Oct 12 21:04:56 darwin kernel: [ 4441.331592] r8169 0000:02:00.0: eth0: rtl_csiar_cond == 1 (loop: 100, delay: 10).
->> Oct 12 21:04:56 darwin kernel: [ 4441.332727] r8169 0000:02:00.0: eth0: rtl_ephyar_cond == 1 (loop: 100, delay: 10).
-> [...]
->> Oct 12 21:04:56 darwin kernel: [ 4441.343912] r8169 0000:02:00.0: eth0: rtl_eriar_cond == 1 (loop: 100, delay: 100).
-> 
-> The device seems completely unresponsive :o/
-> 
->> Oct 12 21:04:56 darwin kernel: [ 4441.454689] r8169 0000:02:00.0: eth0: link up
->>
->> I copied a bigger part of the kernel log at http://antcom.de/kernel/dmesg.
->>
->> Please tell me how I can help debugging or what else information you need.
-> 
-> The device does not recover despite the "link up" message, right ?
+with "old" kernels, 2.6.35-ish to 3.0-ish, this worked great. my next
+connect(2) to the same loopback port would hang indefinitely. i could
+even unblock the connect by calling accept(2) in another thread. this
+was awesome for testing.
 
-Right.
+in 3.1 on ARM, 3.2 on x86 (Ubuntu desktop), and 3.4 on ARM, this no
+longer works. it doesn't seem to be as simple as "the constant is no
+longer 3". my tests are now flaky. sometimes they work like they used
+to, and sometimes an extra connect(2) will succeed. (or, if i'm in
+non-blocking mode, my poll(2) will return with the non-blocking socket
+that's trying to connect now ready.)
 
-> Can you send the XID line from the r8169 driver ? It should be in the
-> upper part of the dmesg log.
+i'm guessing if this changed in 3.1 and is still changed in 3.4,
+whatever's changed wasn't an accident. but i haven't been able to find
+the right search terms to RTFM. i also finally got around to grepping
+the kernel for the "+ 3", but wasn't able to find that. (so i'd be
+interested to know where the old behavior came from too.)
 
-Oct 12 23:46:45 darwin kernel: [    1.562479] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-Oct 12 23:46:45 darwin kernel: [    1.562728] r8169 0000:02:00.0: irq 40 for MSI/MSI-X
-Oct 12 23:46:45 darwin kernel: [    1.562968] r8169 0000:02:00.0: eth0: RTL8168evl/8111evl at 0xffffc9000066c000, e8:03:9a:dc:e7:57, XID 0c900800 IRQ 40
-Oct 12 23:46:45 darwin kernel: [    1.562972] r8169 0000:02:00.0: eth0: jumbo features [frames: 9200 bytes, tx checksumming: ko]
+my least worst workaround at the moment is to use one of RFC5737's
+test networks, but that requires that the device have a network
+connection, otherwise my connect(2)s fail immediately with
+ENETUNREACH, which is no use to me. also, unlike my old trick, i've
+got no way to suddenly "unblock" a slow connect(2) (this is useful for
+unit testing the code that does the poll(2) part of the usual
+connect-with-timeout implementation).
+https://android-review.googlesource.com/#/c/44563/
 
-> Which kernel version did you previously use ?
+hopefully someone here can shed some light on this? ideally someone
+will have a workaround as good as my old trick. i realize i was
+relying on undocumented behavior, and i'm happy to have to check
+/proc/version and behave appropriately, but i'd really like a way to
+keep my unit tests!
 
-I used the Debian standard kernel 3.2 but had several spontaneous crashes. Memtests
-and everything work fine. After upgrading, everything works but network sometimes
-breaks after suspend/resume (although "link up" is reported). Seems quite reproducible.
-
-Roland
+thanks,
+ elliott
