@@ -1,78 +1,40 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH v2 1/4] net: mvneta: driver for Marvell Armada 370/XP
- network unit
-Date: Fri, 12 Oct 2012 10:31:31 -0400
-Message-ID: <20121012143131.GP12330@titan.lakedaemon.net>
-References: <1349969282-12676-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1349969282-12676-2-git-send-email-thomas.petazzoni@free-electrons.com>
- <20121011212629.GA14171@electric-eye.fr.zoreil.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: alignment faults in 3.6
+Date: Fri, 12 Oct 2012 15:36:13 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B703F@saturn3.aculab.com>
+References: <20121005082439.GF4625@n2100.arm.linux.org.uk> <AE90C24D6B3A694183C094C60CF0A2F6026B703E@saturn3.aculab.com> <yw1xtxu1nfsn.fsf@unicorn.mansr.com> <201210120811.43290.arnd@arndb.de> <20121012090321.GA21164@n2100.arm.linux.org.uk> <yw1xhaq0nefg.fsf@unicorn.mansr.com> <20121012110750.GE21164@n2100.arm.linux.org.uk> <yw1x8vbcndlb.fsf@unicorn.mansr.com> <20121012114443.GG21164@n2100.arm.linux.org.uk> <1350043692.21172.11815.camel@edumazet-glaptop> <20121012142254.GG5453@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Lennert Buytenhek <kernel@wantstofly.org>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Andrew Lunn <andrew@lunn.ch>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Maen Suleiman <maen@marvell.com>,
-	Rami Rosen <rosenr@marvell.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Russell King - ARM Linux" <linux@arm.linux.org.uk>,
+	=?Windows-1252?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>,
+	"Arnd Bergmann" <arnd@arndb.de>,
+	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	"Jon Masters" <jonathan@jonmasters.org>
+To: "Benjamin LaHaise" <bcrl@kvack.org>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mho-04-ewr.mailhop.org ([204.13.248.74]:35627 "EHLO
-	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1422686Ab2JLObl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 10:31:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20121011212629.GA14171@electric-eye.fr.zoreil.com>
+Received: from mx0.aculab.com ([213.249.233.131]:59615 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751516Ab2JLOmD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 10:42:03 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 16520-04 for <netdev@vger.kernel.org>;
+ Fri, 12 Oct 2012 15:41:58 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <20121012142254.GG5453@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 11, 2012 at 11:26:29PM +0200, Francois Romieu wrote:
-> Thomas Petazzoni <thomas.petazzoni@free-electrons.com> :
-> [...]
-> > diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> > new file mode 100644
-> > index 0000000..4f7fe08
-> > --- /dev/null
-> > +++ b/drivers/net/ethernet/marvell/mvneta.c
-> [...]
-> > +static void mvneta_rxq_desc_num_update(struct mvneta_port *pp,
-> > +				       struct mvneta_rx_queue *rxq,
-> > +				       int rx_done, int rx_filled)
-> > +{
-> > +	u32 val;
-> > +
-> > +	if ((rx_done <= 0xff) && (rx_filled <= 0xff)) {
-> > +		val = rx_done |
-> > +		  (rx_filled << MVNETA_RXQ_ADD_NON_OCCUPIED_SHIFT);
-> > +		mvreg_write(pp, MVNETA_RXQ_STATUS_UPDATE_REG(rxq->id), val);
-> > +		return;
-> > +	}
-> > +
-> > +	/* Only 255 descriptors can be added at once */
-> > +	while ((rx_done > 0) || (rx_filled > 0)) {
-> > +		if (rx_done <= 0xff) {
-> > +			val = rx_done;
-> > +			rx_done = 0;
-> > +		} else {
-> > +			val = 0xff;
-> > +			rx_done -= 0xff;
-> > +		}
-> > +		if (rx_filled <= 0xff) {
-> > +			val |= rx_filled
-> > +				<< MVNETA_RXQ_ADD_NON_OCCUPIED_SHIFT;
-> 
-> 			val |= rx_filled << MVNETA_RXQ_ADD_NON_OCCUPIED_SHIFT;
+> x86 does have an alignment check flag that can be set in the flags register.
+> Somehow, I doubt anyone would be willing to walk through all the noise the
+> faults would likely trigger.
 
-I agree with Francois on most of these.  I prefer readability over hard
-80 column limits.  Although, 80 columns is still sound guidance.  For
-example, a majority of the broken lines are due to long macro and
-constant names.  I did a 'git grep NETA' and didn't see anything
-alarming.  So, above could become
+Someone has tried to set that (in userspace) on NetBSD.
+The fault reporting has been fixed, but really nothing
+works since optimised parts of libc deliberately do
+misaligned transfers.
 
-			val |= rx_filled << NETA_RXQ_ADD_NONOCC_SHIFT;
-
-thx,
-
-Jason.
+	David
