@@ -1,87 +1,47 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH v2] mcs7830: Fix link state detection
-Date: Fri, 12 Oct 2012 10:51:41 +0200
-Message-ID: <201210121051.42359.linux@rainbow-software.org>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: alignment faults in 3.6
+Date: Fri, 12 Oct 2012 10:03:21 +0100
+Message-ID: <20121012090321.GA21164@n2100.arm.linux.org.uk>
+References: <20121005082439.GF4625@n2100.arm.linux.org.uk> <AE90C24D6B3A694183C094C60CF0A2F6026B703E@saturn3.aculab.com> <yw1xtxu1nfsn.fsf@unicorn.mansr.com> <201210120811.43290.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Greg KH" <gregkh@linuxfoundation.org>, davem@davemloft.net,
-	Michael Leun <lkml20120218@newton.leun.net>,
-	netdev@vger.kernel.org,
-	Michael Leun <lkml20120218@newton.leun.net>,
-	linux-kernel@vger.kernel.org
-To: "Andreas Mohr" <andi@lisas.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-arm-kernel@lists.infradead.org,
+	=?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>,
+	David Laight <David.Laight@aculab.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Jon Masters <jonathan@jonmasters.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:50925 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756902Ab2JLJDm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 05:03:42 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <201210120811.43290.arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The device had an undocumented "feature": it can provide a sequence of
-spurious link-down status data even if the link is up all the time.
-A sequence of 10 was seen so update the link state only after the device
-reports the same link state 20 times.
+On Fri, Oct 12, 2012 at 08:11:42AM +0000, Arnd Bergmann wrote:
+> On Thursday 11 October 2012, M=E5ns Rullg=E5rd wrote:
+> > > But, the IP header is expected to be aligned.
+> >=20
+> > Everything tells the compiler the struct is perfectly aligned.  Whe=
+n the
+> > buggy driver passes a misaligned pointer, bad things happen.
+>=20
+> Would it be appropriate to add a WARN_ON_ONCE() in the alignment faul=
+t path
+> then? If all alignment faults in the kernel are caused by broken driv=
+ers,
+> that would at least give us some hope of finding those drivers while =
+at the
+> same time not causing much overhead in the case where we need to do t=
+he
+> fixup in the meantime.
 
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
-Reported-by: Michael Leun <lkml20120218@newton.leun.net>
-Tested-by: Michael Leun <lkml20120218@newton.leun.net>
----
- drivers/net/usb/mcs7830.c |   30 +++++++++++++++++++++---------
- 1 files changed, 21 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/usb/mcs7830.c b/drivers/net/usb/mcs7830.c
-index 03c2d8d..cc7e720 100644
---- a/drivers/net/usb/mcs7830.c
-+++ b/drivers/net/usb/mcs7830.c
-@@ -117,6 +117,7 @@ enum {
- struct mcs7830_data {
- 	u8 multi_filter[8];
- 	u8 config;
-+	u8 link_counter;
- };
- 
- static const char driver_name[] = "MOSCHIP usb-ethernet driver";
-@@ -632,20 +633,31 @@ static int mcs7830_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- static void mcs7830_status(struct usbnet *dev, struct urb *urb)
- {
- 	u8 *buf = urb->transfer_buffer;
--	bool link;
-+	bool link, link_changed;
-+	struct mcs7830_data *data = mcs7830_get_data(dev);
- 
- 	if (urb->actual_length < 16)
- 		return;
- 
- 	link = !(buf[1] & 0x20);
--	if (netif_carrier_ok(dev->net) != link) {
--		if (link) {
--			netif_carrier_on(dev->net);
--			usbnet_defer_kevent(dev, EVENT_LINK_RESET);
--		} else
--			netif_carrier_off(dev->net);
--		netdev_dbg(dev->net, "Link Status is: %d\n", link);
--	}
-+	link_changed = netif_carrier_ok(dev->net) != link;
-+	if (link_changed) {
-+		data->link_counter++;
-+		/*
-+		   track link state 20 times to guard against erroneous
-+		   link state changes reported sometimes by the chip
-+		 */
-+		if (data->link_counter > 20) {
-+			data->link_counter = 0;
-+			if (link) {
-+				netif_carrier_on(dev->net);
-+				usbnet_defer_kevent(dev, EVENT_LINK_RESET);
-+			} else
-+				netif_carrier_off(dev->net);
-+			netdev_dbg(dev->net, "Link Status is: %d\n", link);
-+		}
-+	} else
-+		data->link_counter = 0;
- }
- 
- static const struct driver_info moschip_info = {
-
--- 
-Ondrej Zary
+No.  It is my understanding that various IP option processing can also
+cause the alignment fault handler to be invoked, even when the packet i=
+s
+properly aligned, and then there's jffs2/mtd which also relies upon
+alignment faults being fixed up.
