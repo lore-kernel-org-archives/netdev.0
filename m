@@ -1,115 +1,41 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: [PATCH v2] net: calxedaxgmac: rework transmit ring handling
-Date: Fri, 12 Oct 2012 13:04:59 -0500
-Message-ID: <1350065099-32649-1-git-send-email-robherring2@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] net: calxedaxgmac: rework transmit ring handling
+Date: Fri, 12 Oct 2012 20:30:20 +0200
+Message-ID: <1350066620.21172.12996.camel@edumazet-glaptop>
 References: <1350054908-30646-6-git-send-email-robherring2@gmail.com>
-Cc: jonathan@jonmasters.org, eric.dumazet@gmail.com,
+	 <1350065099-32649-1-git-send-email-robherring2@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jonathan@jonmasters.org,
 	Mark Langsdorf <mark.langsdorf@calxeda.com>,
 	Rob Herring <rob.herring@calxeda.com>,
 	Ben Hutchings <bhutchings@solarflare.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Rob Herring <robherring2@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1350054908-30646-6-git-send-email-robherring2@gmail.com>
+In-Reply-To: <1350065099-32649-1-git-send-email-robherring2@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rob Herring <rob.herring@calxeda.com>
+On Fri, 2012-10-12 at 13:04 -0500, Rob Herring wrote:
+> From: Rob Herring <rob.herring@calxeda.com>
+> 
+> Only generate tx interrupts on every ring size / 4 descriptors. Move the
+> netif_stop_queue call to the end of the xmit function rather than
+> checking at the beginning.
+> 
+> Signed-off-by: Rob Herring <rob.herring@calxeda.com>
+> ---
+> v2:
+> - Add missed enabling of the descriptor tx interrupt
 
-Only generate tx interrupts on every ring size / 4 descriptors. Move the
-netif_stop_queue call to the end of the xmit function rather than
-checking at the beginning.
+Seems to be net-next material to me.
 
-Signed-off-by: Rob Herring <rob.herring@calxeda.com>
----
-v2:
-- Add missed enabling of the descriptor tx interrupt
+Furthermore, your changelog is a bit terse for such a patch, that could
+easily break upper layers.
 
- drivers/net/ethernet/calxeda/xgmac.c |   24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
+You need to tell us how long TX completion for a packet might be
+deferred.
 
-diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
-index 4a1a06a..38eb1b2 100644
---- a/drivers/net/ethernet/calxeda/xgmac.c
-+++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -211,7 +211,7 @@
- #define DMA_INTR_ENA_TIE	0x00000001	/* Transmit Interrupt */
- 
- #define DMA_INTR_NORMAL		(DMA_INTR_ENA_NIE | DMA_INTR_ENA_RIE | \
--				 DMA_INTR_ENA_TUE)
-+				 DMA_INTR_ENA_TUE | DMA_INTR_ENA_TIE)
- 
- #define DMA_INTR_ABNORMAL	(DMA_INTR_ENA_AIE | DMA_INTR_ENA_FBE | \
- 				 DMA_INTR_ENA_RWE | DMA_INTR_ENA_RSE | \
-@@ -374,6 +374,7 @@ struct xgmac_priv {
- 	struct sk_buff **tx_skbuff;
- 	unsigned int tx_head;
- 	unsigned int tx_tail;
-+	int tx_irq_cnt;
- 
- 	void __iomem *base;
- 	unsigned int dma_buf_sz;
-@@ -886,7 +887,7 @@ static void xgmac_tx_complete(struct xgmac_priv *priv)
- 	}
- 
- 	if (dma_ring_space(priv->tx_head, priv->tx_tail, DMA_TX_RING_SZ) >
--	    TX_THRESH)
-+	    MAX_SKB_FRAGS)
- 		netif_wake_queue(priv->dev);
- }
- 
-@@ -1057,19 +1058,15 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct xgmac_priv *priv = netdev_priv(dev);
- 	unsigned int entry;
- 	int i;
-+	u32 irq_flag;
- 	int nfrags = skb_shinfo(skb)->nr_frags;
- 	struct xgmac_dma_desc *desc, *first;
- 	unsigned int desc_flags;
- 	unsigned int len;
- 	dma_addr_t paddr;
- 
--	if (dma_ring_space(priv->tx_head, priv->tx_tail, DMA_TX_RING_SZ) <
--	    (nfrags + 1)) {
--		writel(DMA_INTR_DEFAULT_MASK | DMA_INTR_ENA_TIE,
--			priv->base + XGMAC_DMA_INTR_ENA);
--		netif_stop_queue(dev);
--		return NETDEV_TX_BUSY;
--	}
-+	priv->tx_irq_cnt = (priv->tx_irq_cnt + 1) & (DMA_TX_RING_SZ/4 - 1);
-+	irq_flag = priv->tx_irq_cnt ? 0 : TXDESC_INTERRUPT;
- 
- 	desc_flags = (skb->ip_summed == CHECKSUM_PARTIAL) ?
- 		TXDESC_CSUM_ALL : 0;
-@@ -1110,9 +1107,9 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	/* Interrupt on completition only for the latest segment */
- 	if (desc != first)
- 		desc_set_tx_owner(desc, desc_flags |
--			TXDESC_LAST_SEG | TXDESC_INTERRUPT);
-+			TXDESC_LAST_SEG | irq_flag);
- 	else
--		desc_flags |= TXDESC_LAST_SEG | TXDESC_INTERRUPT;
-+		desc_flags |= TXDESC_LAST_SEG | irq_flag;
- 
- 	/* Set owner on first desc last to avoid race condition */
- 	wmb();
-@@ -1121,6 +1118,9 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	priv->tx_head = dma_ring_incr(entry, DMA_TX_RING_SZ);
- 
- 	writel(1, priv->base + XGMAC_DMA_TX_POLL);
-+	if (dma_ring_space(priv->tx_head, priv->tx_tail, DMA_TX_RING_SZ) <
-+	    MAX_SKB_FRAGS)
-+		netif_stop_queue(dev);
- 
- 	return NETDEV_TX_OK;
- }
-@@ -1397,7 +1397,7 @@ static irqreturn_t xgmac_interrupt(int irq, void *dev_id)
- 	}
- 
- 	/* TX/RX NORMAL interrupts */
--	if (intr_status & (DMA_STATUS_RI | DMA_STATUS_TU)) {
-+	if (intr_status & (DMA_STATUS_RI | DMA_STATUS_TU | DMA_STATUS_TI)) {
- 		writel_relaxed(DMA_INTR_ABNORMAL, priv->base + XGMAC_DMA_INTR_ENA);
- 		napi_schedule(&priv->napi);
- 	}
--- 
-1.7.9.5
+Thanks
