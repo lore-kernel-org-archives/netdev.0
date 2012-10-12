@@ -1,67 +1,49 @@
-From: "Banerjee, Debabrata" <dbanerje@akamai.com>
-Subject: Re: [PATCH] tcp resets are misrouted
-Date: Fri, 12 Oct 2012 13:47:56 -0400
-Message-ID: <CC9DCD9C.B68D%dbanerje@akamai.com>
-References: <62162DF05402B341B3DB59932A1FA992BB7FD4730D@EUSAACMS0702.eamcs.ericsson.se>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] phy: add AT803x driver
+Date: Fri, 12 Oct 2012 13:56:02 -0400 (EDT)
+Message-ID: <20121012.135602.2001617705161327585.davem@davemloft.net>
+References: <1350049656-22766-1-git-send-email-ujhelyi.m@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"sol@eqv.ru" <sol@eqv.ru>
-To: Shawn Lu <shawn.lu@ericsson.com>,
-	Debabrata Banerjee <dbavatar@gmail.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel@zonque.org, rd@radekdostal.com
+To: ujhelyi.m@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay02.akamai.com ([72.246.2.14]:42186 "EHLO
-	prod-mail-xrelay02.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757703Ab2JLRzC convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Oct 2012 13:55:02 -0400
-In-Reply-To: <62162DF05402B341B3DB59932A1FA992BB7FD4730D@EUSAACMS0702.eamcs.ericsson.se>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:49404 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759921Ab2JLR4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 13:56:05 -0400
+In-Reply-To: <1350049656-22766-1-git-send-email-ujhelyi.m@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I was trying to think of the scenario you were running into, since it
-falls back to using a route lookup. You do not have routes on your machine
-that would correctly send the packet, I assume? Then it simply comes down
-to the kernel doesn't have enough information to know where to send the
-packet.
+From: ujhelyi.m@gmail.com
+Date: Fri, 12 Oct 2012 15:47:36 +0200
 
-Debabrata
+> From: Matus Ujhelyi <ujhelyi.m@gmail.com>
+> 
+> This driver add support for wake over lan on AT803x phys.
+> 
+> Signed-off-by: Matus Ujhelyi <ujhelyi.m@gmail.com>
+> ---
+>  drivers/net/phy/Kconfig  |    5 ++
+>  drivers/net/phy/Makefile |    1 +
+>  drivers/net/phy/at803x.c |  176 ++++++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 182 insertions(+)
+>  create mode 100644 drivers/net/phy/at803x.c
+> 
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index 3090dc6..e69d74e 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -15,6 +15,11 @@ if PHYLIB
+>  
+>  comment "MII PHY device drivers"
+>  
+> +config AT803X_PHY
+> +	tristate "Drivers for Atheros PHYs"
+> +	---help---
+> +	  Currently supports the AT8030 and AT8035 model
 
-On 10/12/12 1:31 PM, "Shawn Lu" <shawn.lu@ericsson.com> wrote:
-
->I admit the commit e2446eaa did break the reset in asymmetric case.
->There are also many use cases in interface binding, we don't want to
->break it too... I am ok with your patch, if asymmetric route take higher
->priority. Somehow, we need  come up with another one to resolve RST lost
->in binding interface case, otherwise, people using interface binding will
->find later on that RST break again...
->
->thanks!
->
->Shawn Lu <shawn.lu@ericsson.com>
->
->> -----Original Message-----
->> From: Debabrata Banerjee [mailto:dbavatar@gmail.com]
->> Sent: Friday, October 12, 2012 8:57 AM
->> To: Alexey Kuznetsov; Banerjee, Debabrata
->> Cc: netdev@vger.kernel.org; davem@davemloft.net; Shawn Lu;
->> eric.dumazet@gmail.com; sol@eqv.ru
->> Subject: Re: [PATCH] tcp resets are misrouted
->> 
->> On Fri, Oct 12, 2012 at 10:34 AM, Alexey Kuznetsov
->> <kuznet@ms2.inr.ac.ru> wrote:
->>
->> 
->> We ran into this as well and pulled that commit from our
->> tree, it was causing serious problems. Sending the RST back
->> on the iif was definitely the wrong thing to do. Patch looks
->> good to me.
->> 
->> Thanks,
->> Debabrata
->> 
+You should just put the model number into the tristate string.
+Like: "Drivers for Atheros AT803X PHYs"
