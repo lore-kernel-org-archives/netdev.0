@@ -1,110 +1,241 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: conntrack, NAT and icmp echo reply
-Date: Fri, 12 Oct 2012 14:41:02 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1210121436030.27997@blackhole.kfki.hu>
-References: <e457eb3b6f3e357c3681c7af5f504161@visp.net.lb> <1349949430.21172.8435.camel@edumazet-glaptop> <10293136eb284457b47cbffd6c91d1ef@visp.net.lb> <5077A707.1030709@atc.tcs.com> <4c082d4e3afe8226cb07baeeb550712d@visp.net.lb>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Vigneswaran R <vignesh@atc.tcs.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <4c082d4e3afe8226cb07baeeb550712d@visp.net.lb>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: ujhelyi.m@gmail.com
+Subject: [PATCH] phy: add AT803x driver
+Date: Fri, 12 Oct 2012 15:47:36 +0200
+Message-ID: <1350049656-22766-1-git-send-email-ujhelyi.m@gmail.com>
+Cc: davem@davemloft.net, daniel@zonque.org, rd@radekdostal.com,
+	Matus Ujhelyi <ujhelyi.m@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:37202 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757848Ab2JLNsR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 09:48:17 -0400
+Received: by mail-we0-f174.google.com with SMTP id t9so1683767wey.19
+        for <netdev@vger.kernel.org>; Fri, 12 Oct 2012 06:48:16 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 12 Oct 2012, Denys Fedoryshchenko wrote:
+From: Matus Ujhelyi <ujhelyi.m@gmail.com>
 
-> On 2012-10-12 09:13, Vigneswaran R wrote:
-> > On Thursday 11 October 2012 03:32 PM, Denys Fedoryshchenko wrote:
-> > > On 2012-10-11 12:57, Eric Dumazet wrote:
-> > > > On Thu, 2012-10-11 at 12:41 +0300, Denys Fedoryshchenko wrote:
-> > > > > 
-> > > > > I have NAT box, with very simple rule
-> > > > > iptables -t nat -I POSTROUTING -s 10.0.0.0/8 -j MASQUERADE
-> > > > > It can be SNAT also, and it works fine, as NAT.
-> > > > > 
-> > > > > When i generate icmp _reply_ packet, to some host
-> > > > > hping -I ppp0 -1 --icmptype 0 8.8.8.8
-> > > > > 
-> > > > > It will pass the box, and will exit it without NAT, e.g. with original
-> > > > > IP 10.x.x.x
-> > > > > on outgoing interface, which is not expected behavior IMHO.
-> > > > > Is it a bug or feature?
-> > > > > 
-> > > > 
-> > > > It depends, -s 10.0.0.0/8 wont match the rule if the source address
-> > > > should be 198.23.44.55 I guess ?
-> > > > 
-> > > > I would try the more obvious
-> > > > 
-> > > > iptables -t nat -I POSTROUTING -o device -j MASQUERADE
-> > > Source is correct, it is 10.0.0.0/8 range. I tested also ICMP code 3, it
-> > > wont be NATed also.
-> > > But ICMP echo passing OK.
-> > > Also TCP RST generated same way, (i guess that don't have any match in
-> > > conntrack table), won't be NATed too.
-> > > hping -I ppp0 -R 8.8.8.8
-> > > 13:01:07.074134 IP 10.0.0.142.2106 > 8.8.8.8.0: Flags [R], seq 510333079,
-> > > win 512, length 0
-> > > 13:01:08.074239 IP 10.0.0.142.2107 > 8.8.8.8.0: Flags [R], seq 1169580528,
-> > > win 512, length 0
-> > > 13:01:09.074253 IP 10.0.0.142.2108 > 8.8.8.8.0: Flags [R], seq 186548661,
-> > > win 512, length 0
-> > > 13:01:10.074376 IP 10.0.0.142.2109 > 8.8.8.8.0: Flags [R], seq 2135508128,
-> > > win 512, length 0
-> > > 13:01:11.074553 IP 10.0.0.142.2110 > 8.8.8.8.0: Flags [R], seq 1507433100,
-> > > win 512, length 0
-> > > 
-> > > And ICMP here you can see correct behavior with icmp echo request:
-> > > 
-> > > 12:58:22.917458 IP 10.0.0.142 > 8.8.8.8: ICMP echo reply, id 62548, seq 0,
-> > > length 8
-> > > 12:58:23.917543 IP 10.0.0.142 > 8.8.8.8: ICMP echo reply, id 62548, seq
-> > > 256, length 8
-> > > 12:58:24.917657 IP 10.0.0.142 > 8.8.8.8: ICMP echo reply, id 62548, seq
-> > > 512, length 8
-> > > 12:58:31.047475 IP 10.0.0.142 > 8.8.8.8: ICMP net 5.6.7.8 unreachable,
-> > > length 36
-> > > 12:58:32.047562 IP 10.0.0.142 > 8.8.8.8: ICMP net 5.6.7.8 unreachable,
-> > > length 36
-> > > 12:58:33.047734 IP 10.0.0.142 > 8.8.8.8: ICMP net 5.6.7.8 unreachable,
-> > > length 36
-> > > 12:58:54.014601 IP X.146.153.X > 8.8.8.8: ICMP echo request, id 10462, seq
-> > > 0, length 8
-> > > 12:58:54.081897 IP 8.8.8.8 > X.146.153.X: ICMP echo reply, id 10462, seq
-> > > 0, length 8
-> > 
-> > I think, the following may be the reason for the behaviour you
-> > observed. (I may be wrong, I am not an expert in iptables.)
-> > 
-> > "nat" table only consulted for "NEW" connections. ref:
-> > <http://inai.de/images/nf-packet-flow.svg>
-> > 
-> > The ICMP echo _reply_ may not be considered as part of a "NEW"
-> > connection, as it must be a _reply_ to some already received
-> > _request_. So _request_ is new and _reply_ is not.
-> > 
-> Yes, they are not related to existing and it is not new connection, but 
-> there is similar issues related to TCP, and it is handled differently. 
-> For example if nf_conntrack_tcp_loose is set to 0 - it will not pickup 
-> already established connections, and just they will have INVALID state. 
-> If set to 1 (and it is default value) - it will pickup the connection, 
-> even it is established state. I was expecting ICMP and especially RST 
-> can be consistent with that.
+This driver add support for wake over lan on AT803x phys.
 
-TCP is a connection-oriented procol while ICMP isn't. There is no point
-in creating a connection entry from a bogus-looking ICMP reply packet.
+Signed-off-by: Matus Ujhelyi <ujhelyi.m@gmail.com>
+---
+ drivers/net/phy/Kconfig  |    5 ++
+ drivers/net/phy/Makefile |    1 +
+ drivers/net/phy/at803x.c |  176 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 182 insertions(+)
+ create mode 100644 drivers/net/phy/at803x.c
 
-The packets you generated neither belong nor related to an existing 
-connection, thus are marked as INVALID. INVALID packets are not NAT-ed and 
-if not dropped explicitely, will be sent out without natted.
-
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 3090dc6..e69d74e 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -15,6 +15,11 @@ if PHYLIB
+ 
+ comment "MII PHY device drivers"
+ 
++config AT803X_PHY
++	tristate "Drivers for Atheros PHYs"
++	---help---
++	  Currently supports the AT8030 and AT8035 model
++
+ config AMD_PHY
+ 	tristate "Drivers for the AMD PHYs"
+ 	---help---
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 6d2dc6c..66720a5 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -25,6 +25,7 @@ obj-$(CONFIG_STE10XP)		+= ste10Xp.o
+ obj-$(CONFIG_MICREL_PHY)	+= micrel.o
+ obj-$(CONFIG_MDIO_OCTEON)	+= mdio-octeon.o
+ obj-$(CONFIG_MICREL_KS8995MA)	+= spi_ks8995.o
++obj-$(CONFIG_AT803X_PHY)	+= at803x.o
+ obj-$(CONFIG_AMD_PHY)		+= amd.o
+ obj-$(CONFIG_MDIO_BUS_MUX)	+= mdio-mux.o
+ obj-$(CONFIG_MDIO_BUS_MUX_GPIO)	+= mdio-mux-gpio.o
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+new file mode 100644
+index 0000000..45cbc10
+--- /dev/null
++++ b/drivers/net/phy/at803x.c
+@@ -0,0 +1,176 @@
++/*
++ * drivers/net/phy/at803x.c
++ *
++ * Driver for Atheros 803x PHY
++ *
++ * Author: Matus Ujhelyi <ujhelyi.m@gmail.com>
++ *
++ * This program is free software; you can redistribute  it and/or modify it
++ * under  the terms of  the GNU General  Public License as published by the
++ * Free Software Foundation;  either version 2 of the  License, or (at your
++ * option) any later version.
++ */
++
++#include <linux/phy.h>
++#include <linux/module.h>
++#include <linux/string.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++
++#define AT803X_INTR_ENABLE			0x12
++#define AT803X_INTR_STATUS			0x13
++#define AT803X_WOL_ENABLE			0x01
++#define AT803X_DEVICE_ADDR			0x03
++#define AT803X_LOC_MAC_ADDR_0_15_OFFSET		0x804C
++#define AT803X_LOC_MAC_ADDR_16_31_OFFSET	0x804B
++#define AT803X_LOC_MAC_ADDR_32_47_OFFSET	0x804A
++#define AT803X_MMD_ACCESS_CONTROL		0x0D
++#define AT803X_MMD_ACCESS_CONTROL_DATA		0x0E
++#define AT803X_FUNC_DATA			0x4003
++
++MODULE_DESCRIPTION("Atheros 803x PHY driver");
++MODULE_AUTHOR("Matus Ujhelyi");
++MODULE_LICENSE("GPL");
++
++static void at803x_set_wol_mac_addr(struct phy_device *phydev)
++{
++	struct net_device *ndev = phydev->attached_dev;
++	const u8 *mac;
++	unsigned int i, offsets[] = {
++		AT803X_LOC_MAC_ADDR_32_47_OFFSET,
++		AT803X_LOC_MAC_ADDR_16_31_OFFSET,
++		AT803X_LOC_MAC_ADDR_0_15_OFFSET,
++	};
++
++	if (!ndev)
++		return;
++
++	mac = (const u8 *) ndev->dev_addr;
++
++	if (!is_valid_ether_addr(mac))
++		return;
++
++	for (i = 0; i < 3; i++) {
++		phy_write(phydev, AT803X_MMD_ACCESS_CONTROL,
++				  AT803X_DEVICE_ADDR);
++		phy_write(phydev, AT803X_MMD_ACCESS_CONTROL_DATA,
++				  offsets[i]);
++		phy_write(phydev, AT803X_MMD_ACCESS_CONTROL,
++				  AT803X_FUNC_DATA);
++		phy_write(phydev, AT803X_MMD_ACCESS_CONTROL_DATA,
++				  mac[(i * 2) + 1] | (mac[(i * 2)] << 8));
++	}
++}
++
++static int at803x_config_init(struct phy_device *phydev)
++{
++	int val;
++	u32 features;
++	int status;
++
++	features = SUPPORTED_TP | SUPPORTED_MII | SUPPORTED_AUI |
++		   SUPPORTED_FIBRE | SUPPORTED_BNC;
++
++	val = phy_read(phydev, MII_BMSR);
++	if (val < 0)
++		return val;
++
++	if (val & BMSR_ANEGCAPABLE)
++		features |= SUPPORTED_Autoneg;
++	if (val & BMSR_100FULL)
++		features |= SUPPORTED_100baseT_Full;
++	if (val & BMSR_100HALF)
++		features |= SUPPORTED_100baseT_Half;
++	if (val & BMSR_10FULL)
++		features |= SUPPORTED_10baseT_Full;
++	if (val & BMSR_10HALF)
++		features |= SUPPORTED_10baseT_Half;
++
++	if (val & BMSR_ESTATEN) {
++		val = phy_read(phydev, MII_ESTATUS);
++		if (val < 0)
++			return val;
++
++		if (val & ESTATUS_1000_TFULL)
++			features |= SUPPORTED_1000baseT_Full;
++		if (val & ESTATUS_1000_THALF)
++			features |= SUPPORTED_1000baseT_Half;
++	}
++
++	phydev->supported = features;
++	phydev->advertising = features;
++
++	/* enable WOL */
++	at803x_set_wol_mac_addr(phydev);
++	status = phy_write(phydev, AT803X_INTR_ENABLE, AT803X_WOL_ENABLE);
++	status = phy_read(phydev, AT803X_INTR_STATUS);
++
++	return 0;
++}
++
++/* ATHEROS 8035 */
++static struct phy_driver at8035_driver = {
++	.phy_id		= 0x004dd072,
++	.name		= "Atheros 8035 ethernet",
++	.phy_id_mask	= 0xffffffef,
++	.config_init	= at803x_config_init,
++	.features	= PHY_GBIT_FEATURES,
++	.flags		= PHY_HAS_INTERRUPT,
++	.config_aneg	= &genphy_config_aneg,
++	.read_status	= &genphy_read_status,
++	.driver		= {
++		.owner = THIS_MODULE,
++	},
++};
++
++/* ATHEROS 8030 */
++static struct phy_driver at8030_driver = {
++	.phy_id		= 0x004dd076,
++	.name		= "Atheros 8030 ethernet",
++	.phy_id_mask	= 0xffffffef,
++	.config_init	= at803x_config_init,
++	.features	= PHY_GBIT_FEATURES,
++	.flags		= PHY_HAS_INTERRUPT,
++	.config_aneg	= &genphy_config_aneg,
++	.read_status	= &genphy_read_status,
++	.driver		= {
++		.owner = THIS_MODULE,
++	},
++};
++
++static int __init atheros_init(void)
++{
++	int ret;
++
++	ret = phy_driver_register(&at8035_driver);
++	if (ret)
++		goto err1;
++
++	ret = phy_driver_register(&at8030_driver);
++	if (ret)
++		goto err2;
++
++	return 0;
++
++err2:
++	phy_driver_unregister(&at8035_driver);
++err1:
++	return ret;
++}
++
++static void __exit atheros_exit(void)
++{
++	phy_driver_unregister(&at8035_driver);
++	phy_driver_unregister(&at8030_driver);
++}
++
++module_init(atheros_init);
++module_exit(atheros_exit);
++
++static struct mdio_device_id __maybe_unused atheros_tbl[] = {
++	{ 0x004dd076, 0xffffffef },
++	{ 0x004dd072, 0xffffffef },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(mdio, atheros_tbl);
+-- 
+1.7.9.5
