@@ -1,77 +1,62 @@
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Subject: Re: [PATCH 0/3] virtio-net: inline header support
-Date: Fri, 12 Oct 2012 13:52:58 +0200
-Message-ID: <20121012135258.75ca3310@BR9GNB5Z>
-References: <506C192E.5060700@redhat.com> <87bogj2j1b.fsf@rustcorp.com.au>
-	<506D3610.7000103@redhat.com> <87ipaq1jtt.fsf@rustcorp.com.au>
-	<506D8DD5.20904@redhat.com>
-	<87391t1nkq.fsf__40391.6521034718$1349505001$gmane$org@rustcorp.com.au>
-	<507029EB.2050405@redhat.com> <878vbg8cma.fsf@rustcorp.com.au>
-	<5073D1D8.3060905@redhat.com> <87k3ux98oc.fsf@rustcorp.com.au>
-	<20121011110430.GF5552@redhat.com> <87wqyw63et.fsf@rustcorp.com.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: alignment faults in 3.6
+Date: Fri, 12 Oct 2012 14:08:12 +0200
+Message-ID: <1350043692.21172.11815.camel@edumazet-glaptop>
+References: <20121005082439.GF4625@n2100.arm.linux.org.uk>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B703E@saturn3.aculab.com>
+	 <yw1xtxu1nfsn.fsf@unicorn.mansr.com> <201210120811.43290.arnd@arndb.de>
+	 <20121012090321.GA21164@n2100.arm.linux.org.uk>
+	 <yw1xhaq0nefg.fsf@unicorn.mansr.com>
+	 <20121012110750.GE21164@n2100.arm.linux.org.uk>
+	 <yw1x8vbcndlb.fsf@unicorn.mansr.com>
+	 <20121012114443.GG21164@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Sasha Levin <levinsasha928@gmail.com>,
-	Paolo Bonzini <pbonzini@redhat.com>, avi@redhat.com,
-	Thomas Lendacky <tahm@linux.vnet.ibm.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87wqyw63et.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: =?ISO-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	linux-arm-kernel@lists.infradead.org,
+	David Laight <David.Laight@aculab.com>, netdev@vger.kernel.org,
+	Jon Masters <jonathan@jonmasters.org>
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:60201 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756117Ab2JLMIP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 08:08:15 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so1514053bkc.19
+        for <netdev@vger.kernel.org>; Fri, 12 Oct 2012 05:08:14 -0700 (PDT)
+In-Reply-To: <20121012114443.GG21164@n2100.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 12 Oct 2012 09:07:46 +1030
-Rusty Russell <rusty@rustcorp.com.au> wrote:
+On Fri, 2012-10-12 at 12:44 +0100, Russell King - ARM Linux wrote:
 
-> "Michael S. Tsirkin" <mst@redhat.com> writes:
-> > On Thu, Oct 11, 2012 at 10:33:31AM +1030, Rusty Russell wrote:
-> >> OK.  Well, Anthony wants qemu to be robust in this regard, so I am
-> >> tempted to rework all the qemu drivers to handle arbitrary layouts.
-> >> They could use a good audit anyway.
-> >
-> > I agree here. Still trying to understand whether we can agree to use
-> > a feature bit for this, or not.
+> - You were demanding that the ipv4 header structure should be packed.
+>   I said that wasn't going to happen because the networking people
+>   wouldn't allow it, and it seems that's been proven correct.
+> - You were demanding that the ipv4 code used the unaligned accessors.
+>   I said that networking people wouldn't allow it either, and that's
+>   also been proven correct.
 > 
-> I'd *like* to imply it by the new PCI layout, but if it doesn't work
-> we'll add a new feature bit.
+> Both these points have been proven correct because Eric has said that the
+> core networking code is _not_ going to be changed to suit this.
 > 
-> I'm resisting a feature bit, since it constrains future implementations
-> which could otherwise assume it.
+> What Eric _has_ said is that networking people consider packets supplied
+> to the networking layer where the IPv4 header is not aligned on architectures
+> where misaligned accesses are a problem to be a bug in the network driver,
+> not the network code, and proposed a solution.
 > 
-> >> This would become a glaring exception, but I'm tempted to fix it to 32
-> >> bytes at the same time as we get the new pci layout (ie. for the virtio
-> >> 1.0 spec).
-> >
-> > But this isn't a virtio-pci only issue, is it?
-> > qemu has s390 bus with same limmitation.
-> > How can we tie it to pci layout?
-> 
-> They can use a transport feature if they need to, of course.  But
-> perhaps the timing with ccw will coincide with the fix, in which they
-> don't need to, but it might be a bit late.
-> 
-> Cornelia?
+> That's entirely different from all your claims that the core networking
+> code needs fixing to avoid these misaligned accesses.
 
-My virtio-ccw host code is still going through a bit of rework, so it
-might well go in after the fix.
+It seems we agree then, but your words were a bit misleading (at least
+for me)
 
-There's also the existing (non-spec'ed) s390-virtio transport. While it
-will likely be deprecated sometime in the future, it should probably
-get a feature bit for consistency's sake.
+So yes, we built network stack with the prereq that IP headers are
+aligned, but unfortunately many developers use x86 which doesnt care, so
+its possible some bugs are added.
 
-> 
-> Cheers,
-> Rusty.
-> 
+But its not by intent, only by accident.
+
+Thanks
