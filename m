@@ -1,28 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vti: fix sparse bit endian warnings
-Date: Fri, 12 Oct 2012 13:57:31 -0400 (EDT)
-Message-ID: <20121012.135731.1351722594734413056.davem@davemloft.net>
-References: <20121011155128.64774827@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH 1/2] net: add doc for in6_pton()
+Date: Fri, 12 Oct 2012 13:58:31 -0400 (EDT)
+Message-ID: <20121012.135831.971718285184392410.davem@davemloft.net>
+References: <1350025577-792-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: saurabh.mohan@vyatta.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49428 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49446 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759921Ab2JLR5f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 13:57:35 -0400
-In-Reply-To: <20121011155128.64774827@nehalam.linuxnetplumber.net>
+	with ESMTP id S1759921Ab2JLR6w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 13:58:52 -0400
+In-Reply-To: <1350025577-792-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 11 Oct 2012 15:51:28 -0700
+From: Cong Wang <amwang@redhat.com>
+Date: Fri, 12 Oct 2012 15:06:16 +0800
 
-> Use be32_to_cpu instead of htonl to keep sparse happy.
+> It is not easy to use in6_pton() correctly without reading
+> its definition, so add some doc for it.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.org>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Using ntohl() would have been just as appropriate a fix, but
-whatever, applied.  Thanks.
+Applied.
