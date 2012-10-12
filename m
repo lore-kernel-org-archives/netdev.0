@@ -1,53 +1,38 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH 01/12] usbnet: introduce usbnet 3 command helpers
-Date: Fri, 12 Oct 2012 09:43:56 +0800
-Message-ID: <CACVXFVPdOkvKBBrshnmQv5cYVdDhi8j0V_WxNwBU9VuDsCLkXA@mail.gmail.com>
-References: <1588459.VLxBbnNMlP@linux-lqwf.site>
-	<Pine.LNX.4.44L0.1210111030570.1170-100000@iolanthe.rowland.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] bridge: don't flood multicast packets if no snooping
+ entry
+Date: Fri, 12 Oct 2012 09:48:52 +0800
+Message-ID: <20121012014852.GA17025@gondor.apana.org.au>
+References: <1350004643-3786-1-git-send-email-minggr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Oliver Neukum <oneukum@suse.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Alan Stern <stern@rowland.harvard.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Lin Ming <minggr@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:57298 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754400Ab2JLBn6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 21:43:58 -0400
-In-Reply-To: <Pine.LNX.4.44L0.1210111030570.1170-100000@iolanthe.rowland.org>
+Received: from sting.hengli.com.au ([178.18.18.71]:42493 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755457Ab2JLBsy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 21:48:54 -0400
+Content-Disposition: inline
+In-Reply-To: <1350004643-3786-1-git-send-email-minggr@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 11, 2012 at 10:36 PM, Alan Stern <stern@rowland.harvard.edu> wrote:
+On Fri, Oct 12, 2012 at 09:17:23AM +0800, Lin Ming wrote:
+> From: Lin Ming <mlin@ss.pku.edu.cn>
+> 
+> Currently, multicast packets will be flood even if there is no
+> mutlicast snooping entry attached to port.
+> 
+> With IGMP snooping enabled, we should stop sending multicast packets
+> if there is no member joined.
 
->
-> It's worse than you may realize.  When a SCSI disk is suspended, all of
-> its ancestor devices may be suspended too.  Pages can't be read in from
-> the drive until all those ancestors are resumed.  This means that all
-> runtime resume code paths for all drivers that could be bound to an
-> ancestor of a block device must avoid GFP_KERNEL.  In practice it's
+Hmm, the default is deliberately this way so that we don't disrupt
+traffic when we boot up.  If you want to stop flooding unknown groups
+by default you have to make it an option.
 
-Exactly, so several subsystems(for example, pci, usb, scsi) will be involved,
-and converting GFP_KERNEL in runtime PM path to GFP_NOIO becomes
-more difficult.
-
-> probably easiest for the runtime PM core to use tsk_set_allowd_gfp()
-> before calling any runtime_resume method.
-
-Yes, it might be done in usb runtime resume context because all
-usb device might include a mass storage interface. But, in fact,
-we can find if there is one mass storage interface on the current
-configuration easily inside usb_runtime_resume().
-
-Also, we can loose the constraint in runtime PM core, before calling
-runtime_resume callback for one device, the current context is marked
-as ~GFP_IOFS only if it is a block device or there is one block device
-descendant. But the approach becomes a bit complicated because
-device tree traversing is involved.
-
-
-Thanks,
---
-Ming Lei
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
