@@ -1,58 +1,87 @@
-From: enh <enh@google.com>
-Subject: listen(2) backlog changes in or around Linux 3.1?
-Date: Fri, 12 Oct 2012 16:40:40 -0700
-Message-ID: <CAJgzZorigejCuFweNrvmkEJts3Um7exh1fYTH=4KrEcB=v=2SA@mail.gmail.com>
+From: Fernando Gont <fernando@gont.com.ar>
+Subject: IPv6 stable privacy addresses (Fwd: I-D Action: draft-ietf-6man-stable-privacy-addresses-01.txt)
+Date: Fri, 12 Oct 2012 17:58:44 -0300
+Message-ID: <50788484.9070301@gont.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:33163 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752150Ab2JLXlF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 19:41:05 -0400
-Received: by mail-qc0-f174.google.com with SMTP id d3so2660119qch.19
-        for <netdev@vger.kernel.org>; Fri, 12 Oct 2012 16:41:01 -0700 (PDT)
+Received: from mail-yh0-f46.google.com ([209.85.213.46]:62748 "EHLO
+	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750947Ab2JMCLL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 22:11:11 -0400
+Received: by mail-yh0-f46.google.com with SMTP id m54so948118yhm.19
+        for <netdev@vger.kernel.org>; Fri, 12 Oct 2012 19:11:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-i used to use the following hack to unit test connect timeouts: i'd
-call listen(2) on a socket and then deliberately connect (backlog + 3)
-sockets without accept(2)ing any of the connections. (why 3? because
-Stevens told me so, and experiment backed him up. see figure 4.10 in
-his UNIX Network Programming.)
+Folks,
 
-with "old" kernels, 2.6.35-ish to 3.0-ish, this worked great. my next
-connect(2) to the same loopback port would hang indefinitely. i could
-even unblock the connect by calling accept(2) in another thread. this
-was awesome for testing.
+FYI. This is meant to solve the problems of IPv6 address
+scanning and IPv6 host tracking:
+<http://tools.ietf.org/html/draft-ietf-6man-stable-privacy-addresses-01>
 
-in 3.1 on ARM, 3.2 on x86 (Ubuntu desktop), and 3.4 on ARM, this no
-longer works. it doesn't seem to be as simple as "the constant is no
-longer 3". my tests are now flaky. sometimes they work like they used
-to, and sometimes an extra connect(2) will succeed. (or, if i'm in
-non-blocking mode, my poll(2) will return with the non-blocking socket
-that's trying to connect now ready.)
+Thanks,
+Fernando
 
-i'm guessing if this changed in 3.1 and is still changed in 3.4,
-whatever's changed wasn't an accident. but i haven't been able to find
-the right search terms to RTFM. i also finally got around to grepping
-the kernel for the "+ 3", but wasn't able to find that. (so i'd be
-interested to know where the old behavior came from too.)
 
-my least worst workaround at the moment is to use one of RFC5737's
-test networks, but that requires that the device have a network
-connection, otherwise my connect(2)s fail immediately with
-ENETUNREACH, which is no use to me. also, unlike my old trick, i've
-got no way to suddenly "unblock" a slow connect(2) (this is useful for
-unit testing the code that does the poll(2) part of the usual
-connect-with-timeout implementation).
-https://android-review.googlesource.com/#/c/44563/
 
-hopefully someone here can shed some light on this? ideally someone
-will have a workaround as good as my old trick. i realize i was
-relying on undocumented behavior, and i'm happy to have to check
-/proc/version and behave appropriately, but i'd really like a way to
-keep my unit tests!
 
-thanks,
- elliott
+-------- Original Message --------
+Subject: I-D Action: draft-ietf-6man-stable-privacy-addresses-01.txt
+Date: Sun, 07 Oct 2012 16:50:49 -0700
+From: internet-drafts@ietf.org
+To: i-d-announce@ietf.org
+CC: ipv6@ietf.org
+
+
+A New Internet-Draft is available from the on-line Internet-Drafts
+directories.
+ This draft is a work item of the IPv6 Maintenance Working Group of the
+IETF.
+
+	Title           : A method for Generating Stable Privacy-Enhanced
+Addresses with IPv6 Stateless Address Autoconfiguration (SLAAC)
+	Author(s)       : Fernando Gont
+	Filename        : draft-ietf-6man-stable-privacy-addresses-01.txt
+	Pages           : 17
+	Date            : 2012-10-07
+
+Abstract:
+   This document specifies a method for generating IPv6 Interface
+   Identifiers to be used with IPv6 Stateless Address Autoconfiguration
+   (SLAAC), such that addresses configured using this method are stable
+   within each subnet, but the Interface Identifier changes when hosts
+   move from one network to another.  The aforementioned method is meant
+   to be an alternative to generating Interface Identifiers based on
+   IEEE identifiers, such that the benefits of stable addresses can be
+   achieved without sacrificing the privacy of users.
+
+
+The IETF datatracker status page for this draft is:
+https://datatracker.ietf.org/doc/draft-ietf-6man-stable-privacy-addresses
+
+There's also a htmlized version available at:
+http://tools.ietf.org/html/draft-ietf-6man-stable-privacy-addresses-01
+
+A diff from the previous version is available at:
+http://www.ietf.org/rfcdiff?url2=draft-ietf-6man-stable-privacy-addresses-01
+
+
+Internet-Drafts are also available by anonymous FTP at:
+ftp://ftp.ietf.org/internet-drafts/
+
+--------------------------------------------------------------------
+IETF IPv6 working group mailing list
+ipv6@ietf.org
+Administrative Requests: https://www.ietf.org/mailman/listinfo/ipv6
+--------------------------------------------------------------------
+
+
+
+
+-- 
+Fernando Gont
+e-mail: fernando@gont.com.ar || fgont@si6networks.com
+PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
