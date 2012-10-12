@@ -1,36 +1,66 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: alignment faults in 3.6
-Date: Fri, 12 Oct 2012 10:22:54 -0400
-Message-ID: <20121012142254.GG5453@kvack.org>
-References: <20121005082439.GF4625@n2100.arm.linux.org.uk> <AE90C24D6B3A694183C094C60CF0A2F6026B703E@saturn3.aculab.com> <yw1xtxu1nfsn.fsf@unicorn.mansr.com> <201210120811.43290.arnd@arndb.de> <20121012090321.GA21164@n2100.arm.linux.org.uk> <yw1xhaq0nefg.fsf@unicorn.mansr.com> <20121012110750.GE21164@n2100.arm.linux.org.uk> <yw1x8vbcndlb.fsf@unicorn.mansr.com> <20121012114443.GG21164@n2100.arm.linux.org.uk> <1350043692.21172.11815.camel@edumazet-glaptop>
+From: Animesh K Trivedi1 <ZRLATR@ch.ibm.com>
+Subject: performance regression with skb_add_data_nocache
+Date: Fri, 12 Oct 2012 16:29:17 +0200
+Message-ID: <OF2F004787.31D0FC5A-ONC1257A95.004517AF-C1257A95.004F9973@ch.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	=?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	linux-arm-kernel@lists.infradead.org,
-	David Laight <David.Laight@aculab.com>, netdev@vger.kernel.org,
-	Jon Masters <jonathan@jonmasters.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Bernard Metzler <BMT@zurich.ibm.com>,
+	Animesh K Trivedi1 <ZRLATR@ch.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:53554 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932762Ab2JLOW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Oct 2012 10:22:56 -0400
-Content-Disposition: inline
-In-Reply-To: <1350043692.21172.11815.camel@edumazet-glaptop>
+Received: from e06smtp17.uk.ibm.com ([195.75.94.113]:42669 "EHLO
+	e06smtp17.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932973Ab2JLO3a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 10:29:30 -0400
+Received: from /spool/local
+	by e06smtp17.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <zrlatr@ch.ibm.com>;
+	Fri, 12 Oct 2012 15:29:28 +0100
+Received: from d06av07.portsmouth.uk.ibm.com (d06av07.portsmouth.uk.ibm.com [9.149.37.248])
+	by b06cxnps3075.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q9CETIQF61079572
+	for <netdev@vger.kernel.org>; Fri, 12 Oct 2012 14:29:18 GMT
+Received: from d06av07.portsmouth.uk.ibm.com (d06av07.portsmouth.uk.ibm.com [127.0.0.1])
+	by d06av07.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q9CDqdod004588
+	for <netdev@vger.kernel.org>; Fri, 12 Oct 2012 09:52:39 -0400
+Received: from d06ml359.portsmouth.uk.ibm.com (d06ml359.portsmouth.uk.ibm.com [9.149.76.147])
+	by d06av07.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVin) with ESMTP id q9CDqdqO004585
+	for <netdev@vger.kernel.org>; Fri, 12 Oct 2012 09:52:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 12, 2012 at 02:08:12PM +0200, Eric Dumazet wrote:
-> So yes, we built network stack with the prereq that IP headers are
-> aligned, but unfortunately many developers use x86 which doesnt care, so
-> its possible some bugs are added.
 
-x86 does have an alignment check flag that can be set in the flags register.  
-Somehow, I doubt anyone would be willing to walk through all the noise the 
-faults would likely trigger.
+Hi all,
 
-		-ben
--- 
-"Thought is the essence of where you are now."
+I recently upgraded from 2.6.36 to 3.2.28 and saw performance regression
+for
+TCP performance. Upon further investigation it looked that
+skb_add_data_nocache()
+was the culprit.
+
+I am getting following performance numbers on my Nehalem (Xeon E7520) box
+connected using 10GbE cards (transmit side, and netperf client). Server is
+a another
+box with E5540 CPU (receiver of the request) . For my netperf TCP_RR tests:
+
+-  1,400 bytes request, 1 byte response:
+No cache copy (enabled)  : 26,623 tps, 22.72% utilization
+No cache copy (disabled) : 26,710 tps, 21.76% utilization
+
+- 14,000 bytes request, 1 byte response:
+No cache copy (enabled)  : 14,245 tps, 23.04% utilization
+No cache copy (disabled) : 14,850 tps, 21.6% utilization
+
+and for even larger buffer the performance lag is increases with
+significant CPU load
+
+- 1 MBytes request, 1 byte response:
+No cache copy (enabled)  : 1,032 tps, 98.96% utilization
+No cache copy (disabled) : 1,081 tps, 74.86% utilization
+
+Though there isn't a lot performance difference, but notice the significant
+CPU
+utilization in case of nocache copy for 1MB buffer size. Thoughts?
+
+Thanks,
+--
+Animesh
