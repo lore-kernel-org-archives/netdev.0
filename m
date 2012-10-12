@@ -1,58 +1,75 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: alignment faults in 3.6
-Date: Fri, 12 Oct 2012 16:04:14 +0100
-Message-ID: <1350054254.2819.3.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20121005082439.GF4625@n2100.arm.linux.org.uk>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B703E@saturn3.aculab.com>
-	 <yw1xtxu1nfsn.fsf@unicorn.mansr.com> <201210120811.43290.arnd@arndb.de>
-	 <20121012090321.GA21164@n2100.arm.linux.org.uk>
-	 <yw1xhaq0nefg.fsf@unicorn.mansr.com>
-	 <20121012110750.GE21164@n2100.arm.linux.org.uk>
-	 <yw1x8vbcndlb.fsf@unicorn.mansr.com>
-	 <20121012114443.GG21164@n2100.arm.linux.org.uk>
-	 <1350043692.21172.11815.camel@edumazet-glaptop>
-	 <20121012142254.GG5453@kvack.org>
-	 <1350053300.21172.12319.camel@edumazet-glaptop>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: [PATCH] tcp resets are misrouted
+Date: Fri, 12 Oct 2012 18:34:17 +0400
+Message-ID: <20121012143417.GA8481@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Benjamin LaHaise <bcrl@kvack.org>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	=?ISO-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	<linux-arm-kernel@lists.infradead.org>,
-	David Laight <David.Laight@aculab.com>,
-	<netdev@vger.kernel.org>, Jon Masters <jonathan@jonmasters.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, davem@davemloft.net, shawn.lu@ericsson.com,
+	eric.dumazet@gmail.com, sol@eqv.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:21872 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756522Ab2JLPES (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 11:04:18 -0400
-In-Reply-To: <1350053300.21172.12319.camel@edumazet-glaptop>
+Received: from minus.inr.ac.ru ([194.67.69.97]:42071 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1755474Ab2JLPOX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Oct 2012 11:14:23 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-10-12 at 16:48 +0200, Eric Dumazet wrote:
-> On Fri, 2012-10-12 at 10:22 -0400, Benjamin LaHaise wrote:
-> > On Fri, Oct 12, 2012 at 02:08:12PM +0200, Eric Dumazet wrote:
-> > > So yes, we built network stack with the prereq that IP headers are
-> > > aligned, but unfortunately many developers use x86 which doesnt care, so
-> > > its possible some bugs are added.
-> > 
-> > x86 does have an alignment check flag that can be set in the flags register.  
-> > Somehow, I doubt anyone would be willing to walk through all the noise the 
-> > faults would likely trigger.
-> 
-> If this can be mapped to an event that can be used by perf tool, that
-> might be useful ?
+After commit e2446eaa.. tcp resets are always lost, when routing is asymmetric.
+Yes, backing out that patch will result in misrouting of resets for dead connections
+which used interface binding when were alive, but we actually cannot do anything here.
+What's died that's died and correct handling normal unbound connections is obviously a priority.
 
-AC was so useless that it has now been reallocated to use by SMAP
-<https://lwn.net/Articles/517251/>.
+Comment to comment:
+> This has few benefits:
+>   1. tcp_v6_send_reset already did that.
 
-Ben.
+It was done to route resets for IPv6 link local addresses. It was a mistake to
+do so for global addresses. The patch fixes this as well.
 
+Actually, the problem appears to be even more serious than guaranteed loss of resets.
+As reported by Sergey Soloviev <sol@eqv.ru>, those misrouted resets create a lot of
+arp traffic and huge amount of unresolved arp entires putting down to knees NAT firewalls
+which use asymmetric routing.
+
+Signed-off-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+---
+ net/ipv4/tcp_ipv4.c |    7 ++++---
+ net/ipv6/tcp_ipv6.c |    3 ++-
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 75735c9..ef998b0 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -708,10 +708,11 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+ 	arg.csumoffset = offsetof(struct tcphdr, check) / 2;
+ 	arg.flags = (sk && inet_sk(sk)->transparent) ? IP_REPLY_ARG_NOSRCCHECK : 0;
+ 	/* When socket is gone, all binding information is lost.
+-	 * routing might fail in this case. using iif for oif to
+-	 * make sure we can deliver it
++	 * routing might fail in this case. No choice here, if we choose to force
++	 * input interface, we will misroute in case of asymmetric route.
+ 	 */
+-	arg.bound_dev_if = sk ? sk->sk_bound_dev_if : inet_iif(skb);
++	if (sk)
++		arg.bound_dev_if = sk->sk_bound_dev_if;
+ 
+ 	net = dev_net(skb_dst(skb)->dev);
+ 	arg.tos = ip_hdr(skb)->tos;
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 49c8903..26175bf 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -877,7 +877,8 @@ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
+ 	__tcp_v6_send_check(buff, &fl6.saddr, &fl6.daddr);
+ 
+ 	fl6.flowi6_proto = IPPROTO_TCP;
+-	fl6.flowi6_oif = inet6_iif(skb);
++	if (ipv6_addr_type(&fl6.daddr) & IPV6_ADDR_LINKLOCAL)
++		fl6.flowi6_oif = inet6_iif(skb);
+ 	fl6.fl6_dport = t1->dest;
+ 	fl6.fl6_sport = t1->source;
+ 	security_skb_classify_flow(skb, flowi6_to_flowi(&fl6));
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.2.3
