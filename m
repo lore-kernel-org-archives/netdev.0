@@ -1,242 +1,84 @@
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: Re: Fwd: [Bug 1063038] Re: Broadcom BCM57780 Cannot Connect at
- Gigabit Speed using tg3 module.
-Date: Thu, 11 Oct 2012 13:25:50 -0700
-Message-ID: <50772B4E.6050209@broadcom.com>
-References: <20121009143846.2196.28573.malone@chaenomeles.canonical.com>
- <50756903.1030709@justinzane.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 1063038@bugs.launchpad.net
-To: "Justin Chudgar" <justin@justinzane.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: unresponsive vlan on top of bond with fail_over_mac=active
+Date: Thu, 11 Oct 2012 17:33:48 -0700
+Message-ID: <29107.1350002028@death.nxdomain>
+References: <20121010231122.GB28935@unicorn.suse.cz> <8588.1349926471@death.nxdomain> <20121011103757.GA13873@unicorn.suse.cz>
+Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
+To: Michal Kubecek <mkubecek@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2287 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755828Ab2JKX66 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Oct 2012 19:58:58 -0400
-In-Reply-To: <50756903.1030709@justinzane.com>
+Received: from e38.co.us.ibm.com ([32.97.110.159]:52961 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757379Ab2JLAdz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2012 20:33:55 -0400
+Received: from /spool/local
+	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Thu, 11 Oct 2012 18:33:54 -0600
+Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
+	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 04CCC1FF003F
+	for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 18:33:46 -0600 (MDT)
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q9C0XpUg217994
+	for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 18:33:51 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q9C0XoNc002365
+	for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 18:33:51 -0600
+In-reply-to: <20121011103757.GA13873@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Michal Kubecek <mkubecek@suse.cz> wrote:
 
-On 10/10/2012 05:24 AM, Justin Chudgar wrote:
-> I've got a device with a Broadcom 57780 ethernet NIC. It uses the tg3.ko
-> driver module. The problem is that this NIC cannot connect at gigabit
-> (1000MBps) speed. In all cases connection works well at 100MBps. I
-> reported this to Ubuntu as noted below and was directed here.
-> [https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1063038] Following
-> are the tests I've completed:
+>On Wed, Oct 10, 2012 at 08:34:31PM -0700, Jay Vosburgh wrote:
+>> Michal Kubecek <mkubecek@suse.cz> wrote:
+>> 	What network device are they using that requires fail_over_mac
+>> to be set to active?
+>
+>I would have to ask for exact configuration, all I know for sure is that
+>the problem was reported for s390x (S390-64) architecture. I reproduced
+>it with VMware Workstation virtual devices which emulate Intel e1000.
 
+	Have you tried the "follow" setting to fail_over_mac?
 
-I don't see a problem linking up with 57780 at gigabit. I tested the latest net kernel (3.6.0) and 
-to make sure it's not ubuntu specific, tested ubuntu 12.04 as well (3.2.0.23-generic). Everything 
-works fine here on my setup.
+	I looked into this very topic (VLAN address propagation on s390)
+earlier this year.  The eventual solution for that case was to use the
+"follow" fail_over_mac option, which resolved the problem for the OSA
+device (qeth).
 
+	I did submit a patch to do MAC address propagation to VLANs, but
+then withdrew it after I figured out that "follow" would also resolve
+the problem without code changes.
 
- > sudo ethtool -i eth7
-driver: tg3
-version: 3.121
-firmware-version: 57780-v3.15
-bus-info: 0000:43:00.0
-supports-statistics: yes
-supports-test: yes
-supports-eeprom-access: yes
-supports-register-dump: yes
+http://patchwork.ozlabs.org/patch/153551/
 
+>> 	I tested some of this out earlier this year, and I don't recall
+>> having problems (although I'm not sure I did this exact test).  The
+>> dev_uc_add() logic (in __dev_set_rx_mode) would put the underlying
+>> device into promiscuous mode if the hardware didn't support multiple
+>> unicast MAC addresses. dev_uc_add() was invoked by vlan_sync_address(),
+>> which is called by the vlan NETDEV_CHANGEADDR notifier callback.
+>
+>Yes, this part works fine, I checked uc list with live crash session.
+>But as bonding driver doesn't set its ndo_set_rx_mode method, the
+>iformation about second MAC address doesn't propagate down to the
+>slaves.
 
- > sudo ethtool eth7
-     Settings for eth7:
-     Supported ports: [ TP MII ]
-     Supported link modes: 10baseT/Half 10baseT/Full
-                           100baseT/Half 100baseT/Full
-                           1000baseT/Half 1000baseT/Full
-     Supported pause frame use: Symmetric Receive-only
-     Supports auto-negotiation: Yes
-     Advertised link modes: 10baseT/Half 10baseT/Full
-                            100baseT/Half 100baseT/Full
-                            1000baseT/Half 1000baseT/Full
-     Advertised pause frame use: Symmetric Receive-only
-     Advertised auto-negotiation: Yes
-     Speed: 1000Mb/s
-     Duplex: Full
-     Port: MII
-     PHYAD: 1
-     Transceiver: external
-     Auto-negotiation: on
-     Supports Wake-on: g
-     Wake-on: d
-     Current message level: 0x000000ff (255)
-     drv probe link timer ifdown ifup rx_err tx_err
-     Link detected: yes
+	What kernel are you looking at?  In current mainline, bonding
+does have bond_set_multicast_list as ndo_set_rx_mode, although it
+doesn't propagate unicast address information, only multicast.  I
+believe this has been the case for a long time.
 
+>> 	Bonding does propagate promisc to its slaves, but (as you point
+>> out) not the uc lists; is the hardware in question something that
+>> supports multiple unicast addresses (IFF_UNICAST_FLT)?  The device I
+>> tested with does not support IFF_UNICAST_FLT, and (as I recall) would
+>> end up in promisc mode.
+>
+>My tests were done with (emulated) e1000 which supports unicast
+>filtering (up to 14 addresses, according to what I've seen in the
+>driver). I'm not sure about the devices on s390x.
 
- > ifconfig eth7
-eth7 Link encap:Ethernet HWaddr 00:10:18:2a:18:cd
-inet addr:3.3.3.1 Bcast:3.3.3.255 Mask:255.255.255.0
-inet6 addr: fe80::210:18ff:fe2a:18cd/64 Scope:Link
-UP BROADCAST RUNNING MULTICAST MTU:1500 Metric:1
-RX packets:1224 errors:0 dropped:0 overruns:0 frame:0
-TX packets:1114 errors:0 dropped:0 overruns:0 carrier:0
-collisions:0 txqueuelen:1000
-RX bytes:115500 (115.5 KB) TX bytes:146587 (146.5 KB)
-Interrupt:80
+	-J
 
- > ping 3.3.3.2 -c 1
-PING 3.3.3.2 (3.3.3.2) 56(84) bytes of data.
-64 bytes from 3.3.3.2: icmp_req=1 ttl=64 time=0.185 ms
-
---- 3.3.3.2 ping statistics ---
-1 packets transmitted, 1 received, 0% packet loss, time 0ms
-rtt min/avg/max/mdev = 0.185/0.185/0.185/0.000 ms
-
-
-Nithin.
-
-> - Cables tested with cable tester
-> - Cables tested to work at gigabit speed with Realtek and Intel gigabit
-> NICs.
-> - All unmanaged switch ports tested at gigabit speed with other NICs.
-> - Tried to connect with NetworkManager enabled and disabled.
-> - Tried both dhcp and static connections.
-> - Tried to renegotiate connection with `ethtool -r` both with TSO
-> enabled and disabled.
-> - Tried 3.2.0-23-generic 3.5.0-15-generic3.5.0-17-generic
-> 3.6.0-999-generic kernels from main, xorg-edgers and mainline repos.
-> - Used 'tg3_debug=1' kernel option in grub with the following output:
->
->      [ 0.000000] Command line: BOOT_IMAGE=/vmlinuz-3.5.0-17-generic
-> root=UUID=eccabacd-efb2-45b4-b7a6-2f530d50afd3 ro rootflags=subvol=@
-> tg3_debug=1 i915_enable_rc6=7 i915_enable_fbc=1 lvds_downclock=1
->      [ 0.000000] Kernel command line:
-> BOOT_IMAGE=/vmlinuz-3.5.0-17-generic
-> root=UUID=eccabacd-efb2-45b4-b7a6-2f530d50afd3 ro rootflags=subvol=@
-> tg3_debug=1 i915_enable_rc6=7 i915_enable_fbc=1 lvds_downclock=1
->      [ 5.963136] tg3.c:v3.123 (March 21, 2012)
->      [ 5.995781] tg3 mdio bus: probed
->      [ 6.005583] tg3 0000:01:00.0: >eth0: Tigon3 [partno(BCM57780) rev
-> 57780001] (PCI Express) MAC address dc:0e:a1:ac:38:d5
->      [ 6.005687] tg3 0000:01:00.0: >eth0: attached PHY driver [Broadcom
-> BCM57780] (mii_bus:phy_addr=100:01)
->      [ 6.005790] tg3 0000:01:00.0: >eth0: RXcsums[1] LinkChgREG[0]
-> MIirq[0] ASF[0] TSOcap[1]
->      [ 6.005887] tg3 0000:01:00.0: >eth0: dma_rwctrl[76180000]
-> dma_mask[64-bit]
->      [ 294.987653] tg3 0000:01:00.0: >irq 44 for MSI/MSI-X
->      [ 295.893224] tg3 0000:01:00.0: >eth0: Link is down
->      [ 309.887879] tg3 0000:01:00.0: >eth0: Link is up at 100 Mbps, full
-> duplex
->      [ 309.887886] tg3 0000:01:00.0: >eth0: Flow control is on for TX and
-> on for RX
->
-> Other distros' forums suggest loading broadcom.ko first; however, this
-> module is no present. Any suggestions would be much appreciated.
->
-> lspci -vv:
->      01:00.0 Ethernet controller: Broadcom Corporation NetLink BCM57780
-> Gigabit Ethernet PCIe (rev 01)
->          Subsystem: Acer Incorporated [ALI] Device 0601
->          Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
-> ParErr- Stepping- SERR- FastB2B- DisINTx+
->          Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
-> <TAbort- <MAbort- >SERR- <PERR- INTx-
->          Latency: 0, Cache Line Size: 64 bytes
->          Interrupt: pin A routed to IRQ 44
->          Region 0: Memory at d3400000 (64-bit, non-prefetchable) [size=64K]
->          Capabilities: [48] Power Management version 3
->                  Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA
-> PME(D0-,D1-,D2-,D3hot+,D3cold+)
->
->                  Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=1 PME-
->          Capabilities: [60] Vendor Specific Information: Len=6c <?>
->          Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
->                  Address: 00000000fee0100c Data: 4189
->          Capabilities: [cc] Express (v2) Endpoint, MSI 00
->                  DevCap: MaxPayload 128 bytes, PhantFunc 0, Latency L0s
-> <4us, L1 unlimited
->                          ExtTag+ AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
->                  DevCtl: Report errors: Correctable- Non-Fatal- Fatal-
-> Unsupported-
->                          RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
->                          MaxPayload 128 bytes, MaxReadReq 512 bytes
->                  DevSta: CorrErr+ UncorrErr- FatalErr- UnsuppReq- AuxPwr+
-> TransPend+
->                  LnkCap: Port #0, Speed 2.5GT/s, Width x1, ASPM L0s L1,
-> Latency L0 <1us, L1 <32us
->                          ClockPM+ Surprise- LLActRep- BwNot-
->                  LnkCtl: ASPM L0s L1 Enabled; RCB 64 bytes Disabled-
-> Retrain- CommClk+
->                          ExtSynch- ClockPM+ AutWidDis- BWInt- AutBWInt-
->                  LnkSta: Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+
-> DLActive- BWMgmt- ABWMgmt-
->                  DevCap2: Completion Timeout: Range ABCD, TimeoutDis+
->                  DevCtl2: Completion Timeout: 50us to 50ms, TimeoutDis-
->                  LnkCtl2: Target Link Speed: 2.5GT/s, EnterCompliance-
-> SpeedDis-, Selectable De-emphasis: -6dB
->                           Transmit Margin: Normal Operating Range,
-> EnterModifiedCompliance- ComplianceSOS-
->                           Compliance De-emphasis: -6dB
->                  LnkSta2: Current De-emphasis Level: -6dB
->          Capabilities: [100 v1] Advanced Error Reporting
->                  UESta: DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt-
-> UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
->                  UEMsk: DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt-
-> UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
->                  UESvrt: DLP+ SDES+ TLP- FCP+ CmpltTO- CmpltAbrt-
-> UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
->                  CESta: RxErr+ BadTLP- BadDLLP- Rollover- Timeout-
-> NonFatalErr-
->                  CEMsk: RxErr- BadTLP- BadDLLP- Rollover- Timeout-
-> NonFatalErr+
->                  AERCap: First Error Pointer: 00, GenCap+ CGenEn- ChkCap+
-> ChkEn-
->          Capabilities: [13c v1] Virtual Channel
->                  Caps: LPEVC=0 RefClk=100ns PATEntryBits=1
->                  Arb: Fixed- WRR32- WRR64- WRR128-
->                  Ctrl: ArbSelect=Fixed
->                  Status: InProgress-
->                  VC0: Caps: PATOffset=00 MaxTimeSlots=1 RejSnoopTrans-
->                          Arb: Fixed- WRR32- WRR64- WRR128- TWRR128- WRR256-
->                          Ctrl: Enable+ ID=0 ArbSelect=Fixed TC/VC=ff
->                          Status: NegoPending- InProgress-
->          Capabilities: [160 v1] Device Serial Number dc-0e-a1-ff-fe-ac-38-d5
->          Capabilities: [16c v1] Power Budgeting <?>
->          Kernel driver in use: tg3
->          Kernel modules: tg3
-> ---
->
->
-> Justin Chudgar  |  Weed, CA 96094  |  530 921 0738 | http://www.justinzane.com/
->
-> -------- Original Message --------
-> Subject: 	[Bug 1063038] Re: Broadcom BCM57780 Cannot Connect at Gigabit
-> Speed using tg3 module.
-> Date: 	Tue, 09 Oct 2012 14:38:45 -0000
-> From: 	Joseph Salisbury <joseph.salisbury@canonical.com>
-> Reply-To: 	Bug 1063038 <1063038@bugs.launchpad.net>
-> To: 	justin@justinzane.com
->
->
->
-> This issue appears to be an upstream bug, since you tested the latest
-> upstream kernel.  Would it be possible for you to open an upstream bug
-> report[0]?  That will allow the upstream Developers to examine the
-> issue, and may provide a quicker resolution to the bug.
->
-> Please follow the instructions on the wiki page[0].  The first step is
-> to email the appropriate mailing list.  If no response is received, then
-> a bug may be opened on bugzilla.kernel.org.
->
-> [0] https://wiki.ubuntu.com/Bugs/Upstream/kernel
->
->
-> ** Changed in: linux (Ubuntu)
->         Status: Confirmed => Triaged
->
-> ** Changed in: linux (Ubuntu)
->     Importance: Undecided => Medium
->
-> ** Tags added: kernel-bug-exists-upstream
->
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
