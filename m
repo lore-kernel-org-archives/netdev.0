@@ -1,149 +1,77 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: alignment faults in 3.6
-Date: Fri, 12 Oct 2012 12:44:43 +0100
-Message-ID: <20121012114443.GG21164@n2100.arm.linux.org.uk>
-References: <20121005082439.GF4625@n2100.arm.linux.org.uk> <AE90C24D6B3A694183C094C60CF0A2F6026B703E@saturn3.aculab.com> <yw1xtxu1nfsn.fsf@unicorn.mansr.com> <201210120811.43290.arnd@arndb.de> <20121012090321.GA21164@n2100.arm.linux.org.uk> <yw1xhaq0nefg.fsf@unicorn.mansr.com> <20121012110750.GE21164@n2100.arm.linux.org.uk> <yw1x8vbcndlb.fsf@unicorn.mansr.com>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH 0/3] virtio-net: inline header support
+Date: Fri, 12 Oct 2012 13:52:58 +0200
+Message-ID: <20121012135258.75ca3310@BR9GNB5Z>
+References: <506C192E.5060700@redhat.com> <87bogj2j1b.fsf@rustcorp.com.au>
+	<506D3610.7000103@redhat.com> <87ipaq1jtt.fsf@rustcorp.com.au>
+	<506D8DD5.20904@redhat.com>
+	<87391t1nkq.fsf__40391.6521034718$1349505001$gmane$org@rustcorp.com.au>
+	<507029EB.2050405@redhat.com> <878vbg8cma.fsf@rustcorp.com.au>
+	<5073D1D8.3060905@redhat.com> <87k3ux98oc.fsf@rustcorp.com.au>
+	<20121011110430.GF5552@redhat.com> <87wqyw63et.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	linux-arm-kernel@lists.infradead.org,
-	David Laight <David.Laight@aculab.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Jon Masters <jonathan@jonmasters.org>
-To: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:51066 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758980Ab2JLLpF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 07:45:05 -0400
-Content-Disposition: inline
-In-Reply-To: <yw1x8vbcndlb.fsf@unicorn.mansr.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Sasha Levin <levinsasha928@gmail.com>,
+	Paolo Bonzini <pbonzini@redhat.com>, avi@redhat.com,
+	Thomas Lendacky <tahm@linux.vnet.ibm.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <87wqyw63et.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 12, 2012 at 12:18:08PM +0100, M=E5ns Rullg=E5rd wrote:
-> Russell King - ARM Linux <linux@arm.linux.org.uk> writes:
-> > Well, I get the last word here and it's no.
->=20
-> Sadly, yes.
+On Fri, 12 Oct 2012 09:07:46 +1030
+Rusty Russell <rusty@rustcorp.com.au> wrote:
 
-It's not "sadly" - it's a matter of fact that the kernel does from time
-to time generate misaligned accesses and they are _not_ bugs.  If they
-were bugs, then the code to fix up misaligned accesses would not have
-been developed, and we'd instead take the fault and panic or something
-like that.
-
-> >> >> If all alignment faults in the kernel are caused by broken driv=
-ers,
-> >> >> that would at least give us some hope of finding those drivers =
-while
-> >> >> at the same time not causing much overhead in the case where we=
- need
-> >> >> to do the fixup in the meantime.
-> >> >
-> >> > No.  It is my understanding that various IP option processing ca=
-n also
-> >> > cause the alignment fault handler to be invoked, even when the p=
-acket is
-> >> > properly aligned, and then there's jffs2/mtd which also relies u=
-pon
-> >> > alignment faults being fixed up.
-> >>=20
-> >> As far as I'm concerned, this is all hearsay, and I've only ever h=
-eard
-> >> it from you.  Why can't you let those who care fix these bugs inst=
-ead?
+> "Michael S. Tsirkin" <mst@redhat.com> writes:
+> > On Thu, Oct 11, 2012 at 10:33:31AM +1030, Rusty Russell wrote:
+> >> OK.  Well, Anthony wants qemu to be robust in this regard, so I am
+> >> tempted to rework all the qemu drivers to handle arbitrary layouts.
+> >> They could use a good audit anyway.
 > >
-> > You know, I'm giving you the benefit of my _knowledge_ which has be=
-en
-> > built over the course of the last 20 years.
->=20
-> How proud you sound.  Now could you say something of substance instea=
-d?
+> > I agree here. Still trying to understand whether we can agree to use
+> > a feature bit for this, or not.
+> 
+> I'd *like* to imply it by the new PCI layout, but if it doesn't work
+> we'll add a new feature bit.
+> 
+> I'm resisting a feature bit, since it constrains future implementations
+> which could otherwise assume it.
+> 
+> >> This would become a glaring exception, but I'm tempted to fix it to 32
+> >> bytes at the same time as we get the new pci layout (ie. for the virtio
+> >> 1.0 spec).
+> >
+> > But this isn't a virtio-pci only issue, is it?
+> > qemu has s390 bus with same limmitation.
+> > How can we tie it to pci layout?
+> 
+> They can use a transport feature if they need to, of course.  But
+> perhaps the timing with ccw will coincide with the fix, in which they
+> don't need to, but it might be a bit late.
+> 
+> Cornelia?
 
-You're proving yourself to be idiot?  There, that's substance.
+My virtio-ccw host code is still going through a bit of rework, so it
+might well go in after the fix.
 
-> > I've been in these discussions with networking people before.  I en=
-ded
-> > up having to develop the alignment fault handler because of those
-> > discussions.  And oh look, Eric confirmed that the networking code
-> > isn't going to get "fixed" as you were demanding, which is exactly
-> > what I said.
->=20
-> Funny, I saw him say the exact opposite:
->=20
->   So if you find an offender, please report a bug, because I can
->   guarantee you we will _fix_ it.
+There's also the existing (non-spec'ed) s390-virtio transport. While it
+will likely be deprecated sometime in the future, it should probably
+get a feature bit for consistency's sake.
 
-No, let's go back.
-
-- You were demanding that the ipv4 header structure should be packed.
-  I said that wasn't going to happen because the networking people
-  wouldn't allow it, and it seems that's been proven correct.
-- You were demanding that the ipv4 code used the unaligned accessors.
-  I said that networking people wouldn't allow it either, and that's
-  also been proven correct.
-
-Both these points have been proven correct because Eric has said that t=
-he
-core networking code is _not_ going to be changed to suit this.
-
-What Eric _has_ said is that networking people consider packets supplie=
-d
-to the networking layer where the IPv4 header is not aligned on archite=
-ctures
-where misaligned accesses are a problem to be a bug in the network driv=
-er,
-not the network code, and proposed a solution.
-
-That's entirely different from all your claims that the core networking
-code needs fixing to avoid these misaligned accesses.
-
-> > I've been in discussions with MTD people over these issues before, =
-I've
-> > discussed this with David Woodhouse when it came up in JFFS2.  I *K=
-NOW*
-> > these things.
->=20
-> In the same way you "know" the networking people won't fix their code=
-,
-> despite them _clearly_ stating the opposite?
-
-I'll tell you exactly how I *KNOW* this.  The issue came up because of
-noMMU, which does not have any way to fix up alignment faults.  JFFS2
-passes randomly aligned buffers to the MTD drivers, and the MTD drivers
-assume that they're aligned and they do word accesses on them.
-
-See the thread http://lists.arm.linux.org.uk/lurker/thread/20021204.191=
-632.4473796b.en.html
-
-See: http://lists.arm.linux.org.uk/lurker/message/20020225.195925.02bdb=
-d47.en.html
-and: http://lists.arm.linux.org.uk/lurker/message/20020313.150932.081a7=
-592.en.html
-
-There's several other threads where it's also discussed.
-
-And while you're there, note the date.  There is nothing recent about t=
-his
-issue.  It's well known, and well understood by those who have a grasp =
-of
-the issues that alignment faults are a part of normal operation by the
-ARM kernel - and is one of the penalties of being tied into architectur=
-e
-independent code.
-
-Compromises have to be sought, and that's the compromise we get to live
-with.
-
-> > You can call it hearsay if you wish, but it seems to be more accura=
-te
-> > than your wild outlandish and pathetic statements.
->=20
-> So you're resorting to name-calling.  Not taking that bait.
-
-Sorry?  So what you're saying is that it's fine for you to call my
-comments hearsay, but I'm not allowed to express a view on your comment=
-s.
-How arrogant of you.
+> 
+> Cheers,
+> Rusty.
+> 
