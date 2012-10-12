@@ -1,90 +1,55 @@
-From: Vigneswaran R <vignesh@atc.tcs.com>
-Subject: Re: conntrack, NAT and icmp echo reply
-Date: Fri, 12 Oct 2012 10:43:43 +0530
-Message-ID: <5077A707.1030709@atc.tcs.com>
-References: <e457eb3b6f3e357c3681c7af5f504161@visp.net.lb> <1349949430.21172.8435.camel@edumazet-glaptop> <10293136eb284457b47cbffd6c91d1ef@visp.net.lb>
+From: Lin Ming <minggr@gmail.com>
+Subject: Re: [PATCH] bridge: don't flood multicast packets if no snooping entry
+Date: Fri, 12 Oct 2012 13:19:07 +0800
+Message-ID: <CAF1ivSZL_dP-7f48Qp+rbR4JypT0z3NeChegjhyJg44VRr5cTg@mail.gmail.com>
+References: <1350004643-3786-1-git-send-email-minggr@gmail.com>
+	<20121012014852.GA17025@gondor.apana.org.au>
+	<CAF1ivSbpwJqauL+S7FeozrkjkMcUyuOivv_Qk68Hme4uipq-yw@mail.gmail.com>
+	<20121012022708.GA17230@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <10293136eb284457b47cbffd6c91d1ef@visp.net.lb>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:61798 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755744Ab2JLFTJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 01:19:09 -0400
+Received: by mail-la0-f46.google.com with SMTP id h6so1755490lag.19
+        for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 22:19:07 -0700 (PDT)
+In-Reply-To: <20121012022708.GA17230@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 11 October 2012 03:32 PM, Denys Fedoryshchenko wrote:
-> On 2012-10-11 12:57, Eric Dumazet wrote:
->> On Thu, 2012-10-11 at 12:41 +0300, Denys Fedoryshchenko wrote:
->>> Hi all
->>>
->>> I have NAT box, with very simple rule
->>> iptables -t nat -I POSTROUTING -s 10.0.0.0/8 -j MASQUERADE
->>> It can be SNAT also, and it works fine, as NAT.
->>>
->>> When i generate icmp _reply_ packet, to some host
->>> hping -I ppp0 -1 --icmptype 0 8.8.8.8
->>>
->>> It will pass the box, and will exit it without NAT, e.g. with original
->>> IP 10.x.x.x
->>> on outgoing interface, which is not expected behavior IMHO.
->>> Is it a bug or feature?
->>>
+On Fri, Oct 12, 2012 at 10:27 AM, Herbert Xu
+<herbert@gondor.apana.org.au> wrote:
+> On Fri, Oct 12, 2012 at 10:14:00AM +0800, Lin Ming wrote:
 >>
->> It depends, -s 10.0.0.0/8 wont match the rule if the source address
->> should be 198.23.44.55 I guess ?
->>
->> I would try the more obvious
->>
->> iptables -t nat -I POSTROUTING -o device -j MASQUERADE
-> Source is correct, it is 10.0.0.0/8 range. I tested also ICMP code 3, 
-> it wont be NATed also.
-> But ICMP echo passing OK.
-> Also TCP RST generated same way, (i guess that don't have any match in 
-> conntrack table), won't be NATed too.
-> hping -I ppp0 -R 8.8.8.8
-> 13:01:07.074134 IP 10.0.0.142.2106 > 8.8.8.8.0: Flags [R], seq 
-> 510333079, win 512, length 0
-> 13:01:08.074239 IP 10.0.0.142.2107 > 8.8.8.8.0: Flags [R], seq 
-> 1169580528, win 512, length 0
-> 13:01:09.074253 IP 10.0.0.142.2108 > 8.8.8.8.0: Flags [R], seq 
-> 186548661, win 512, length 0
-> 13:01:10.074376 IP 10.0.0.142.2109 > 8.8.8.8.0: Flags [R], seq 
-> 2135508128, win 512, length 0
-> 13:01:11.074553 IP 10.0.0.142.2110 > 8.8.8.8.0: Flags [R], seq 
-> 1507433100, win 512, length 0
+>> Do you mean adding a sysfs entry, for example
+>> /sys/class/net/br0/bridge/multicast_no_flood ?
 >
-> And ICMP here you can see correct behavior with icmp echo request:
+> Yes something like that.
+
+Or a better name: multicast_fast_leave
+
+Quote from Internet:
+"
+IGMP Fast Leave enhances your control over router or switch bandwidth.
+Enabling Fast Leave tells IGMP snooping to stop the transmission of a
+group multicast stream to a port as soon as it receives a Leave message
+on that port. No timeouts are observed.
+
+Ordinarily, when IGMP snooping sees a Leave message, it waits for a
+Membership Query message before setting the entry timeout to 2 seconds.
+Fast Leave tells IGMP to drop the entry from the port as soon as the
+Leave message is seen. For this reason, Fast Leave should only be
+configured on interfaces that have one client per port.
+"
+
+I'm going to add fast leave support. It would need other changes in
+addition to this patch.
+
+Thanks.
+
 >
-> 12:58:22.917458 IP 10.0.0.142 > 8.8.8.8: ICMP echo reply, id 62548, 
-> seq 0, length 8
-> 12:58:23.917543 IP 10.0.0.142 > 8.8.8.8: ICMP echo reply, id 62548, 
-> seq 256, length 8
-> 12:58:24.917657 IP 10.0.0.142 > 8.8.8.8: ICMP echo reply, id 62548, 
-> seq 512, length 8
-> 12:58:31.047475 IP 10.0.0.142 > 8.8.8.8: ICMP net 5.6.7.8 unreachable, 
-> length 36
-> 12:58:32.047562 IP 10.0.0.142 > 8.8.8.8: ICMP net 5.6.7.8 unreachable, 
-> length 36
-> 12:58:33.047734 IP 10.0.0.142 > 8.8.8.8: ICMP net 5.6.7.8 unreachable, 
-> length 36
-> 12:58:54.014601 IP X.146.153.X > 8.8.8.8: ICMP echo request, id 10462, 
-> seq 0, length 8
-> 12:58:54.081897 IP 8.8.8.8 > X.146.153.X: ICMP echo reply, id 10462, 
-> seq 0, length 8
-
-I think, the following may be the reason for the behaviour you observed. 
-(I may be wrong, I am not an expert in iptables.)
-
-"nat" table only consulted for "NEW" connections. ref: 
-<http://inai.de/images/nf-packet-flow.svg>
-
-The ICMP echo _reply_ may not be considered as part of a "NEW" 
-connection, as it must be a _reply_ to some already received _request_. 
-So _request_ is new and _reply_ is not.
-
-
-Regards,
-Vignesh
-
+> Cheers,
