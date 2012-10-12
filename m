@@ -1,31 +1,48 @@
-From: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] Ip6{In,Out}BcastPkts statistics missing from
  /proc/net/snmp6
-Date: Fri, 12 Oct 2012 02:26:40 -0400 (EDT)
-Message-ID: <20121012.022640.2210706327076916625.davem@davemloft.net>
-References: <S1754219Ab2JLF5l/20121012055742Z+351@vger.kernel.org>
+Date: Fri, 12 Oct 2012 08:30:02 +0200
+Message-ID: <1350023402.21172.10776.camel@edumazet-glaptop>
+References: <S1754091Ab2JLF5l/20121012055741Z+350@vger.kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: nba@users.sourceforge.net
+To: Niels Baggesen <nba@users.sourceforge.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43384 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753024Ab2JLG0n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 02:26:43 -0400
-In-Reply-To: <S1754219Ab2JLF5l/20121012055742Z+351@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:55396 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754531Ab2JLGaG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2012 02:30:06 -0400
+Received: by mail-ee0-f46.google.com with SMTP id b15so1612662eek.19
+        for <netdev@vger.kernel.org>; Thu, 11 Oct 2012 23:30:04 -0700 (PDT)
+In-Reply-To: <S1754091Ab2JLF5l/20121012055741Z+350@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Niels Baggesen <nba@users.sourceforge.net>
-Date: Fri, 12 Oct 2012 01:57:41 -0400
-
+On Fri, 2012-10-12 at 01:57 -0400, Niels Baggesen wrote:
 > The subject line says it all:
+> 
+> Ip6{In,Out}BcastPkts statistics missing from /proc/net/snmp6
+> 
+> Signed-off-by: Niels Baggesen <nba@users.sourceforge.net>
+> 
+> 
+> --- net/ipv6/proc.c.orig    2012-10-01 12:52:09.452543199 +0200
+> +++ net/ipv6/proc.c    2012-10-01 12:53:19.794660628 +0200
+> @@ -90,6 +90,8 @@
+>       SNMP_MIB_ITEM("Ip6OutMcastOctets", IPSTATS_MIB_OUTMCASTOCTETS),
+>       SNMP_MIB_ITEM("Ip6InBcastOctets", IPSTATS_MIB_INBCASTOCTETS),
+>       SNMP_MIB_ITEM("Ip6OutBcastOctets", IPSTATS_MIB_OUTBCASTOCTETS),
+> +     SNMP_MIB_ITEM("Ip6InBcastPkts", IPSTATS_MIB_INBCASTPKTS),
+> +     SNMP_MIB_ITEM("Ip6OutBcastPkts", IPSTATS_MIB_OUTBCASTPKTS),
+>       SNMP_MIB_SENTINEL
+>   };
+> 
+> /Niels
+> 
 
-Your email client corrupted your patch.
+And does it give useful information ?
 
-Fix this, and email yourself the patch validating that what you
-receive you can apply successfully.
-
-Only after you can do this should you resubmit your patch here.
+As far as I know, IPv6 doesnt increment these counters, but I might be
+wrong.
