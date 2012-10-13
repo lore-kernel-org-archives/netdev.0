@@ -1,73 +1,56 @@
-From: Jeff Liu <jeff.liu@oracle.com>
-Subject: Re: [rds-devel] [patch] RDS: fix an integer overflow check
-Date: Sat, 13 Oct 2012 21:45:53 +0800
-Message-ID: <50797091.800@oracle.com>
-References: <20121012073146.GA9543@elgon.mountain> <50796BD4.4000608@oracle.com>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: [net: stable request] dst->obsolete handling in 2.6.32-stable kernels - invalid cached routes never invalidated
+Date: Sat, 13 Oct 2012 13:52:40 -0400
+Message-ID: <20121013175240.GK5453@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
-	kernel-janitors@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:31276 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752818Ab2JMNqH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2012 09:46:07 -0400
-In-Reply-To: <50796BD4.4000608@oracle.com>
+Received: from kanga.kvack.org ([205.233.56.17]:57151 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753929Ab2JMRwl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Oct 2012 13:52:41 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/13/2012 09:25 PM, Jeff Liu wrote:
-> On 10/12/2012 03:31 PM, Dan Carpenter wrote:
->> "len" is an int.  We verified that len was postive already.  Since
->> PAGE_SIZE is specified as an unsigned long, the type it promoted to
->> unsigned and the condition is never true.
->>
->> I'm not sure this check is actually needed.  It might be that we could
->> just remove it?
->>
->> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->>
->> diff --git a/net/rds/info.c b/net/rds/info.c
->> index 9a6b4f6..4d62618 100644
->> --- a/net/rds/info.c
->> +++ b/net/rds/info.c
->> @@ -176,7 +176,7 @@ int rds_info_getsockopt(struct socket *sock, int optname, char __user *optval,
->>    
->>    	/* check for all kinds of wrapping and the like */
->>    	start = (unsigned long)optval;
->> -	if (len < 0 || len + PAGE_SIZE - 1 < len || start + len < start) {
-> Looks the original thought is to check up len + (PAGE_SIZE - 1) < len to
-> avoid integer overflow, but lack of a "()".
->
-> However, we only have one add operation in this function which were
-> shown as following:
->           nr_pages = (PAGE_ALIGN(start + len) - (start & PAGE_MASK))
->                           >> PAGE_SHIFT;
->
-> I also gone through the call chains, there is no other (start + len)
-Sorry, here is a typo.  "start + len" is already well-checked.
-Actually, I means there is no other "len + (PAGE_SIZE - 1)" operations.
+Hello David et al,
 
-Thanks,
--Jeff
-> operations for all transport, I think it's safe to remove this check up
-> if so.
->
-> Thanks,
-> -Jeff
->> +	if (len < 0 || len > INT_MAX - (PAGE_SIZE - 1) || start + len < start) {
->>    		ret = -EINVAL;
->>    		goto out;
->>    	}
->> --
->> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-> _______________________________________________
-> rds-devel mailing list
-> rds-devel@oss.oracle.com
-> https://oss.oracle.com/mailman/listinfo/rds-devel
+While investigating a problem on a 2.6.32 kernels (still present in 2.6.32.60) 
+where a change to an ipv4 route was not taking effect, I came across the 
+"dst->obsolete has become pointless" thread from November 2011 which is 
+related, eventually finding the problem fixed (or at least worked around) in 
+2.6.34 by "ipv4: check rt_genid in dst_check" aka 
+d11a4dc18bf41719c9f0d7ed494d295dd2973b92.  
+
+What I am seeing is that dst->obsolete is never being set for a cached 
+output route that becomes obsolete.  For example, a cached route for 
+10.0.0.3 is never marked obsolete when the route for 10.0.0.3 is removed 
+from the routing table -- dst_check() and sk_dst_check() never invalidate 
+the cached dst because of the test for dst->obsolete (which remains 0).
+
+Reproducing the issue is easily done:
+
+	# assuming eth0 has some ip and default route
+	ifconfig eth1 9.0.0.1/8
+	route add -host 10.0.0.3 gw 9.0.0.2	# assuming there is a 9.0.0.2
+	nc -u 10.0.0.3 1234
+	# <enter a few lines and note the packets sent to eth1 via 9.0.0.2>
+
+	# On another terminal, without exiting nc, delete the route to 10.0.0.3
+	route del -host 10.0.0.3 gw 9.0.0.2
+
+	# Go back to the first terminal and send a few more packets by
+	# entering another line or two to nc.  Note the packets still go via
+	# eth1, even though they should now be transmitted via the default
+	# route on eth0.
+
+To fix this bug, would it be possible to get commit 
+d11a4dc18bf41719c9f0d7ed494d295dd2973b92 queued up for 2.6.32-stable?  
+Setting dst.obsolete to -1 seems to be the least invasive way of fixing 
+this bug.  Thanks a bunch,
+
+		-ben
+-- 
+"Thought is the essence of where you are now."
