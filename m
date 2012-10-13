@@ -1,62 +1,37 @@
-From: Jeff Liu <jeff.liu@oracle.com>
-Subject: Re: [patch] RDS: fix an integer overflow check
-Date: Sat, 13 Oct 2012 21:25:40 +0800
-Message-ID: <50796BD4.4000608@oracle.com>
-References: <20121012073146.GA9543@elgon.mountain>
+From: info@usarmy.com
+Subject: Dear Friend ,
+Date: Sat, 13 Oct 2012 19:10:34 +0530
+Message-ID: <201210131340.q9DDdn5E005939@mailchk-m05.uwaterloo.ca>
+Reply-To: jason.kane1010@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <info@usarmy.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:45840 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753471Ab2JMNZ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2012 09:25:58 -0400
-In-Reply-To: <20121012073146.GA9543@elgon.mountain>
+Received: from mailservices.uwaterloo.ca ([129.97.128.141]:38082 "EHLO
+	mailchk-m05.uwaterloo.ca" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750925Ab2JMNlH convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Oct 2012 09:41:07 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/12/2012 03:31 PM, Dan Carpenter wrote:
-> "len" is an int.  We verified that len was postive already.  Since
-> PAGE_SIZE is specified as an unsigned long, the type it promoted to
-> unsigned and the condition is never true.
->
-> I'm not sure this check is actually needed.  It might be that we could
-> just remove it?
->
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->
-> diff --git a/net/rds/info.c b/net/rds/info.c
-> index 9a6b4f6..4d62618 100644
-> --- a/net/rds/info.c
-> +++ b/net/rds/info.c
-> @@ -176,7 +176,7 @@ int rds_info_getsockopt(struct socket *sock, int optname, char __user *optval,
->   
->   	/* check for all kinds of wrapping and the like */
->   	start = (unsigned long)optval;
-> -	if (len < 0 || len + PAGE_SIZE - 1 < len || start + len < start) {
-Looks the original thought is to check up len + (PAGE_SIZE - 1) < len to 
-avoid integer overflow, but lack of a "()".
+I am Sgt Jason H .Kane , A US Army serving in the 3rd Infantry Division in Iraq. Now in Afghanistan I want you to read this mail carefully and understand it.
 
-However, we only have one add operation in this function which were 
-shown as following:
-         nr_pages = (PAGE_ALIGN(start + len) - (start & PAGE_MASK))
-                         >> PAGE_SHIFT;
+In 2003, my men and I found over $900 million in Saddam Hussein's hideout in Baghdad, we sent some back to the Iraq government after counting it in a classified location, but we also kept some behind for ourselves. Some of the money we shared among ourselves worth over $200 million, I kept my own share for a while in a secured place.
 
-I also gone through the call chains, there is no other (start + len) 
-operations for all transport, I think it's safe to remove this check up 
-if so.
+I need someone to help me receive it , since i have found a secured way of getting the package out of Iraq for you to pick up through the help of a Red Cross Society or pilots that enjoy some immunities with us while in Iraq  .
 
-Thanks,
--Jeff
-> +	if (len < 0 || len > INT_MAX - (PAGE_SIZE - 1) || start + len < start) {
->   		ret = -EINVAL;
->   		goto out;
->   	}
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I do not know for how long I will remain here as I have been lucky to survive 3 suicide bomb attacks by Afghanistan Militant which one of my leg was amputed , i know my survival was an act of God and Pure Divine intervention from God .
+
+I need someone I can trust, since i have already lost a box of gold to someone that said he will help me, I won't like to make the same mistake. The total amount of money is $7.5 million.
+
+View the below link to verify/confirm my statement.
+
+http://news.bbc.co.uk/2/hi/middle_east/2988455.stm
+
+If you can handle this deal let me know immediately, you will receive 20% of the money , all you need to do is to find a safe place where you can keep the box till i leave Afghanistan .
+
+Regards,
+Sgt Jason H .Kane
