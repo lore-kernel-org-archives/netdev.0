@@ -1,18 +1,18 @@
 From: Ronny Meeus <ronny.meeus@gmail.com>
-Subject: (unknown)
-Date: Sat, 13 Oct 2012 09:12:03 +0200
-Message-ID: <CAMJ=MEeO15EvCBW8FKtjfDj8a6ZPau8W7TmDo=8+1sQQJoqY7g@mail.gmail.com>
+Subject: Question: How to configure the Ethernet receive buffer allocation
+ (was: (no subject)).
+Date: Sat, 13 Oct 2012 10:39:27 +0200
+Message-ID: <CAMJ=MEd89zzLhxt7FYOVCbh5OzW+8jAsx38uV53zCodXvVtfMQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:62663 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751211Ab2JMHMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2012 03:12:05 -0400
-Received: by mail-ob0-f174.google.com with SMTP id uo13so3531805obb.19
-        for <netdev@vger.kernel.org>; Sat, 13 Oct 2012 00:12:03 -0700 (PDT)
-Subject: 
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:42307 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751355Ab2JMIj2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2012 04:39:28 -0400
+Received: by mail-oa0-f46.google.com with SMTP id h16so3593455oag.19
+        for <netdev@vger.kernel.org>; Sat, 13 Oct 2012 01:39:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
