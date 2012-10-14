@@ -1,58 +1,119 @@
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Subject: [PATCH] usb/ipheth: Add iPhone 5 support
-Date: Sun, 14 Oct 2012 19:07:21 +0200
-Message-ID: <1350234441-6262-1-git-send-email-jan.ceuleers@computer.org>
-References: <20121011.171540.781078040657458587.davem@davemloft.net>
-Cc: netdev@vger.kernel.org,
-	Jay Purohit <jspurohit@velocitylimitless.com>,
-	Valdis Kletnieks <valdis.kletnieks@vt.edu>
-To: "David S. Miller" <davem@davemloft.net>
+From: =?ISO-8859-1?Q?Cl=E9ment_Lecigne?= <clemun@gmail.com>
+Subject: [PATCH] netrom: fix info leak via getsockname()
+Date: Sun, 14 Oct 2012 20:23:36 +0200
+Message-ID: <CAKSJdACRs5r9bbr=VS25YoQGYyhZDCyejftC+tg6yeeaNMnErg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary=f46d0444ec99f82c0304cc090427
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay001.isp.belgacom.be ([195.238.6.51]:33616 "EHLO
-	mailrelay001.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754510Ab2JNRKK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2012 13:10:10 -0400
-In-Reply-To: <20121011.171540.781078040657458587.davem@davemloft.net>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:43275 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752659Ab2JNSXi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2012 14:23:38 -0400
+Received: by mail-we0-f174.google.com with SMTP id t9so2645578wey.19
+        for <netdev@vger.kernel.org>; Sun, 14 Oct 2012 11:23:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jay Purohit <jspurohit@velocitylimitless.com>
+--f46d0444ec99f82c0304cc090427
+Content-Type: text/plain; charset=ISO-8859-1
 
-I noticed that the iPhone ethernet driver did not support
-iPhone 5. I quickly added support to it in my kernel, here's
-a patch.
+The following patch fixes a 3 bytes info leak via getsockname() on
+AF_NETROM socket.
 
-Signed-off-by: Jay Purohit <jspurohit@velocitylimitless.com>
-Acked-by: Valdis Kletnieks <valdis.kletnieks@vt.edu>
-Signed-off-by: Jan Ceuleers <jan.ceuleers@computer.org>
----
-Resubmitting on behalf of Jay, as he may have toolchain issues.
+Details:
 
- drivers/net/usb/ipheth.c |    5 +++++
- 1 file changed, 5 insertions(+)
+typedef struct {
+	char		ax25_call[7];	/* 6 call + SSID (shifted ascii!) */
+} ax25_address;
 
-diff --git a/drivers/net/usb/ipheth.c b/drivers/net/usb/ipheth.c
-index a28a983..534d8be 100644
---- a/drivers/net/usb/ipheth.c
-+++ b/drivers/net/usb/ipheth.c
-@@ -62,6 +62,7 @@
- #define USB_PRODUCT_IPAD 0x129a
- #define USB_PRODUCT_IPHONE_4_VZW 0x129c
- #define USB_PRODUCT_IPHONE_4S	0x12a0
-+#define USB_PRODUCT_IPHONE_5	0x12a8
- 
- #define IPHETH_USBINTF_CLASS    255
- #define IPHETH_USBINTF_SUBCLASS 253
-@@ -113,6 +114,10 @@ static struct usb_device_id ipheth_table[] = {
- 		USB_VENDOR_APPLE, USB_PRODUCT_IPHONE_4S,
- 		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
- 		IPHETH_USBINTF_PROTO) },
-+	{ USB_DEVICE_AND_INTERFACE_INFO(
-+		USB_VENDOR_APPLE, USB_PRODUCT_IPHONE_5,
-+		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
-+		IPHETH_USBINTF_PROTO) },
- 	{ }
- };
- MODULE_DEVICE_TABLE(usb, ipheth_table);
--- 
-1.7.9.5
+struct sockaddr_ax25 {
+	__kernel_sa_family_t sax25_family;
+	ax25_address	sax25_call;
+	int		sax25_ndigis;
+	/* Digipeater ax25_address sets follow */
+};
+
+After compilation, gcc will add 3 padding bytes after sax25_call to
+align sax25_ndigis and nr_getname does not clear these padding bytes
+before returning to userland, poc attached.
+
+Signed-off-by: Clement Lecigne <clemun@gmail.com>
+
+--- a/net/netrom/af_netrom.c
++++ b/net/netrom/af_netrom.c
+@@ -838,6 +838,8 @@ static int nr_getname(struct socket *sock, struct
+sockaddr *uaddr,
+        struct sock *sk = sock->sk;
+        struct nr_sock *nr = nr_sk(sk);
+
++    memset(sax, 0, sizeof(struct sockaddr_ax25));
++
+        lock_sock(sk);
+        if (peer != 0) {
+                if (sk->sk_state != TCP_ESTABLISHED) {
+
+--f46d0444ec99f82c0304cc090427
+Content-Type: text/x-csrc; charset=US-ASCII; name="netrom.c"
+Content-Disposition: attachment; filename="netrom.c"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_h8ahbixe0
+
+LyogbmV0cm9tLmMgLSBnZXRzb2NrbmFtZSgpIDMgYnl0ZXMgaW5mb2xlYWsuCiAqCiAqIChjKSBj
+bGVtMS5iZSAtIDJvMTIKICovCiNpbmNsdWRlIDxzdGRsaWIuaD4KI2luY2x1ZGUgPHN0cmluZy5o
+PgojaW5jbHVkZSA8c3RkaW8uaD4KI2luY2x1ZGUgPGVycm5vLmg+CiNpbmNsdWRlIDx1bmlzdGQu
+aD4KI2luY2x1ZGUgPHRpbWUuaD4KI2luY2x1ZGUgPHN5cy90eXBlcy5oPgojaW5jbHVkZSA8c3lz
+L3NvY2tldC5oPgojaW5jbHVkZSA8c3lzL3N5c2NhbGwuaD4KI2luY2x1ZGUgPGxpbnV4L25ldHJv
+bS5oPgoKLyogZnJvbSBKb24gT2JlcmhlaWRlIHNwbG9pdAogKi8Kdm9pZCBrZXJub3AoaW50IGZk
+KQp7CiAgICBjb25zdCBpbnQgICByYW5kY2FsbHNbXSA9IHsKICAgICAgICBfX05SX3JlYWQsIF9f
+TlJfd3JpdGUsIF9fTlJfb3BlbiwgX19OUl9jbG9zZSwgX19OUl9zdGF0LCBfX05SX2xzdGF0LAog
+ICAgICAgIF9fTlJfbHNlZWssIF9fTlJfcnRfc2lnYWN0aW9uLCBfX05SX3J0X3NpZ3Byb2NtYXNr
+LCBfX05SX2lvY3RsLCAKICAgICAgICBfX05SX2FjY2VzcywgX19OUl9waXBlLCBfX05SX3NjaGVk
+X3lpZWxkLCBfX05SX21yZW1hcCwgX19OUl9kdXAsIAogICAgICAgIF9fTlJfZHVwMiwgX19OUl9n
+ZXRpdGltZXIsIF9fTlJfc2V0aXRpbWVyLCBfX05SX2dldHBpZCwgX19OUl9mY250bCwgCiAgICAg
+ICAgX19OUl9mbG9jaywgX19OUl9nZXRkZW50cywgX19OUl9nZXRjd2QsIF9fTlJfZ2V0dGltZW9m
+ZGF5LCAKICAgICAgICBfX05SX2dldHJsaW1pdCwgX19OUl9nZXR1aWQsIF9fTlJfZ2V0Z2lkLCBf
+X05SX2dldGV1aWQsIF9fTlJfZ2V0ZWdpZCwKICAgICAgICBfX05SX2dldHBwaWQsIF9fTlJfZ2V0
+cGdycCwgX19OUl9nZXRncm91cHMsIF9fTlJfZ2V0cmVzdWlkLCAKICAgICAgICBfX05SX2dldHJl
+c2dpZCwgX19OUl9nZXRwZ2lkLCBfX05SX2dldHNpZCxfX05SX2dldHByaW9yaXR5LCAKICAgICAg
+ICBfX05SX3NjaGVkX2dldHBhcmFtLCBfX05SX3NjaGVkX2dldF9wcmlvcml0eV9tYXgKICAgIH07
+CiAgICBjb25zdCBpbnQgICByYW5kc29wdHNbXSA9IHsgU09MX1NPQ0tFVCwgQUZfQVBQTEVUQUxL
+IH07CiAgICBpbnQgICAgICAgICByZXQsIGxlbjsKICAgIGNoYXIgICAgICAgIGJ1ZlsxMDI0XTsK
+CiAgICBkbwogICAgewogICAgICAgIHN3aXRjaCAocmFuZCgpICUgMykKICAgICAgICB7CiAgICAg
+ICAgICAgIGNhc2UgMDoKICAgICAgICAgICAgICAgIHJldCA9IHN5c2NhbGwocmFuZGNhbGxzW3Jh
+bmQoKSAlIHNpemVvZihyYW5kY2FsbHMpL3NpemVvZihyYW5kY2FsbHNbMF0pXSk7CiAgICAgICAg
+ICAgICAgICBicmVhazsKICAgICAgICAgICAgY2FzZSAxOgogICAgICAgICAgICAgICAgbGVuID0g
+KHJhbmQoKSAlIDIpID8gc2l6ZW9mKGludCkgOiBzaXplb2YoYnVmKTsKICAgICAgICAgICAgICAg
+IHJldCA9IGdldHNvY2tvcHQoZmQsIHJhbmRzb3B0c1tyYW5kKCkgJSBzaXplb2YocmFuZHNvcHRz
+KS9zaXplb2YocmFuZHNvcHRzWzBdKV0sIHJhbmQoKSAlIDEzMCwgJmJ1ZiwgJmxlbik7CiAgICAg
+ICAgICAgICAgICBicmVhazsKICAgICAgICAgICAgY2FzZSAyOgogICAgICAgICAgICAgICAgbGVu
+ID0gKHJhbmQoKSAlIDIpID8gc2l6ZW9mKGludCkgOiBzaXplb2YoYnVmKTsKICAgICAgICAgICAg
+ICAgIHJldCA9IHNldHNvY2tvcHQoZmQsIHJhbmRzb3B0c1tyYW5kKCkgJSBzaXplb2YocmFuZHNv
+cHRzKS9zaXplb2YocmFuZHNvcHRzWzBdKV0sIHJhbmQoKSAlIDEzMCwgJmJ1ZiwgbGVuKTsKICAg
+ICAgICAgICAgICAgIGJyZWFrOwogICAgICAgIH0KICAgIH0KICAgIHdoaWxlIChyZXQgPCAwKTsK
+fQoKdm9pZCBkdW1wKHVuc2lnbmVkIGNoYXIgKiBkYXRhLCB1bnNpZ25lZCBpbnQgbGVuKQp7CiAg
+ICB1bnNpZ25lZCBpbnQgZHAsIHA7CiAgICBjb25zdCBjaGFyIHRyYW5zW10gPQogICAgIi4uLi4u
+Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uICFcIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Igog
+ICAgIjo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXF1eX2BhYmNkZWZnaGlqa2xt
+IgogICAgIm5vcHFyc3R1dnd4eXp7fH1+Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
+Li4uIgogICAgIi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
+Li4uLi4uIgogICAgIi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4iOwoK
+ICAgIGZvciAoZHAgPSAxOyBkcCA8PSBsZW47IGRwKyspCiAgICB7CiAgICAgICAgcHJpbnRmKCIl
+MDJ4ICIsIGRhdGFbZHAtMV0pOwogICAgICAgIGlmICggKGRwICUgOCkgPT0gMCApCiAgICAgICAg
+ewogICAgICAgICAgICBwcmludGYoInwgIik7CiAgICAgICAgICAgIHAgPSBkcDsKICAgICAgICAg
+ICAgZm9yICggZHAgLT0gODsgZHAgPCBwOyBkcCsrICkgewogICAgICAgICAgICAgICAgcHJpbnRm
+KCIlYyIsIHRyYW5zW2RhdGFbZHBdXSk7CiAgICAgICAgICAgIH0KICAgICAgICAgICAgcHJpbnRm
+KCJcbiIpOwogICAgICAgIH0KICAgIH0KCiAgICByZXR1cm47Cn0KCmludCBtYWluKHZvaWQpCnsK
+ICAgIHN0cnVjdCBzb2NrYWRkcl9heDI1ICAgIHNhOwogICAgaW50ICAgICAgICAgICAgICAgICAg
+ICAgcywgc2FsZW47CiAgICBjaGFyICAgICAgICAgICAgICAgICAgICBwcmV2W3NpemVvZiBzYV07
+CgogICAgcyA9IHNvY2tldChBRl9ORVRST00sIFNPQ0tfU0VRUEFDS0VULCAwKTsKICAgIGlmIChz
+IDwgMCkKICAgICAgICByZXR1cm4gLTE7CgogICAgc3JhbmQodGltZShOVUxMKSBeIGdldHBpZCgp
+KTsKCiAgICB3aGlsZSAoMSkKICAgIHsKICAgICAgICBrZXJub3Aocyk7CiAgICAgICAgbWVtc2V0
+KCZzYSwgMCwgc2l6ZW9mIHNhKTsKICAgICAgICBzYWxlbiA9IHNpemVvZiBzYTsKICAgICAgICBp
+ZiAoZ2V0c29ja25hbWUocywgKHN0cnVjdCBzb2NrYWRkciAqKSAmc2EsICZzYWxlbikgPT0gMCkK
+ICAgICAgICB7CiAgICAgICAgICAgIGlmIChtZW1jbXAoJnNhLCBwcmV2LCBzYWxlbikgIT0gMCkK
+ICAgICAgICAgICAgewogICAgICAgICAgICAgICAgZHVtcCgodW5zaWduZWQgY2hhciAqKSAmc2Es
+IHNhbGVuKTsKICAgICAgICAgICAgICAgIG1lbWNweSgmcHJldiwgJnNhLCBzYWxlbik7CiAgICAg
+ICAgICAgICAgICBzbGVlcCgyKTsKICAgICAgICAgICAgfQogICAgICAgIH0KICAgIH0KCiAgICBj
+bG9zZShzKTsKICAgIHJldHVybiAwOwp9Cg==
+--f46d0444ec99f82c0304cc090427--
