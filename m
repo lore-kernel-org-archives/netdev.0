@@ -1,119 +1,53 @@
-From: =?ISO-8859-1?Q?Cl=E9ment_Lecigne?= <clemun@gmail.com>
-Subject: [PATCH] netrom: fix info leak via getsockname()
-Date: Sun, 14 Oct 2012 20:23:36 +0200
-Message-ID: <CAKSJdACRs5r9bbr=VS25YoQGYyhZDCyejftC+tg6yeeaNMnErg@mail.gmail.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [STABLE REQUEST] add: e1000: fix lockdep splat in shutdown
+ handler
+Date: Sun, 14 Oct 2012 21:24:46 +0200 (CEST)
+Message-ID: <alpine.LFD.2.02.1210142102300.2868@ionos>
+References: <1349993385.24256.79.camel@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=f46d0444ec99f82c0304cc090427
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:43275 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752659Ab2JNSXi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2012 14:23:38 -0400
-Received: by mail-we0-f174.google.com with SMTP id t9so2645578wey.19
-        for <netdev@vger.kernel.org>; Sun, 14 Oct 2012 11:23:37 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	stable <stable@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1349993385.24256.79.camel@gandalf.local.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---f46d0444ec99f82c0304cc090427
-Content-Type: text/plain; charset=ISO-8859-1
+On Thu, 11 Oct 2012, Steven Rostedt wrote:
+> commit 3a3847e007aae732d64d8fd1374126393e9879a3
+> Author: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Date:   Wed Jan 4 20:23:33 2012 +0000
+> 
+>     e1000: fix lockdep splat in shutdown handler
 
-The following patch fixes a 3 bytes info leak via getsockname() on
-AF_NETROM socket.
+as I discussed with Jesse on IRC, there is another possible deadlock
+lurking in the e1000 code.
 
-Details:
+static void e1000_reinit_safe(struct e1000_adapter *adapter)
+{
+	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
+		msleep(1);
+	mutex_lock(&adapter->mutex);
+	e1000_down(adapter);
 
-typedef struct {
-	char		ax25_call[7];	/* 6 call + SSID (shifted ascii!) */
-} ax25_address;
+e1000_down() waits on the various work tasks to shut down, but those
+work functions might be blocked on the adapter mutex.
 
-struct sockaddr_ax25 {
-	__kernel_sa_family_t sax25_family;
-	ax25_address	sax25_call;
-	int		sax25_ndigis;
-	/* Digipeater ax25_address sets follow */
-};
+I have no idea how I managed to trigger that one, but it's real. The
+task dump I got out of the machine shows stuff waiting on each other
+forever.
 
-After compilation, gcc will add 3 padding bytes after sax25_call to
-align sax25_ndigis and nr_getname does not clear these padding bytes
-before returning to userland, poc attached.
+I can't give you a receipe to reprodruce. Looking at the code this is
+not very surprising. It takes quite some coincidence of having
+e1000_reinit_safe() being invoked and the delayed work timer bringing
+the work on right after e1000_reinit_safe() took the adapter mutex.
 
-Signed-off-by: Clement Lecigne <clemun@gmail.com>
+Thanks,
 
---- a/net/netrom/af_netrom.c
-+++ b/net/netrom/af_netrom.c
-@@ -838,6 +838,8 @@ static int nr_getname(struct socket *sock, struct
-sockaddr *uaddr,
-        struct sock *sk = sock->sk;
-        struct nr_sock *nr = nr_sk(sk);
-
-+    memset(sax, 0, sizeof(struct sockaddr_ax25));
-+
-        lock_sock(sk);
-        if (peer != 0) {
-                if (sk->sk_state != TCP_ESTABLISHED) {
-
---f46d0444ec99f82c0304cc090427
-Content-Type: text/x-csrc; charset=US-ASCII; name="netrom.c"
-Content-Disposition: attachment; filename="netrom.c"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_h8ahbixe0
-
-LyogbmV0cm9tLmMgLSBnZXRzb2NrbmFtZSgpIDMgYnl0ZXMgaW5mb2xlYWsuCiAqCiAqIChjKSBj
-bGVtMS5iZSAtIDJvMTIKICovCiNpbmNsdWRlIDxzdGRsaWIuaD4KI2luY2x1ZGUgPHN0cmluZy5o
-PgojaW5jbHVkZSA8c3RkaW8uaD4KI2luY2x1ZGUgPGVycm5vLmg+CiNpbmNsdWRlIDx1bmlzdGQu
-aD4KI2luY2x1ZGUgPHRpbWUuaD4KI2luY2x1ZGUgPHN5cy90eXBlcy5oPgojaW5jbHVkZSA8c3lz
-L3NvY2tldC5oPgojaW5jbHVkZSA8c3lzL3N5c2NhbGwuaD4KI2luY2x1ZGUgPGxpbnV4L25ldHJv
-bS5oPgoKLyogZnJvbSBKb24gT2JlcmhlaWRlIHNwbG9pdAogKi8Kdm9pZCBrZXJub3AoaW50IGZk
-KQp7CiAgICBjb25zdCBpbnQgICByYW5kY2FsbHNbXSA9IHsKICAgICAgICBfX05SX3JlYWQsIF9f
-TlJfd3JpdGUsIF9fTlJfb3BlbiwgX19OUl9jbG9zZSwgX19OUl9zdGF0LCBfX05SX2xzdGF0LAog
-ICAgICAgIF9fTlJfbHNlZWssIF9fTlJfcnRfc2lnYWN0aW9uLCBfX05SX3J0X3NpZ3Byb2NtYXNr
-LCBfX05SX2lvY3RsLCAKICAgICAgICBfX05SX2FjY2VzcywgX19OUl9waXBlLCBfX05SX3NjaGVk
-X3lpZWxkLCBfX05SX21yZW1hcCwgX19OUl9kdXAsIAogICAgICAgIF9fTlJfZHVwMiwgX19OUl9n
-ZXRpdGltZXIsIF9fTlJfc2V0aXRpbWVyLCBfX05SX2dldHBpZCwgX19OUl9mY250bCwgCiAgICAg
-ICAgX19OUl9mbG9jaywgX19OUl9nZXRkZW50cywgX19OUl9nZXRjd2QsIF9fTlJfZ2V0dGltZW9m
-ZGF5LCAKICAgICAgICBfX05SX2dldHJsaW1pdCwgX19OUl9nZXR1aWQsIF9fTlJfZ2V0Z2lkLCBf
-X05SX2dldGV1aWQsIF9fTlJfZ2V0ZWdpZCwKICAgICAgICBfX05SX2dldHBwaWQsIF9fTlJfZ2V0
-cGdycCwgX19OUl9nZXRncm91cHMsIF9fTlJfZ2V0cmVzdWlkLCAKICAgICAgICBfX05SX2dldHJl
-c2dpZCwgX19OUl9nZXRwZ2lkLCBfX05SX2dldHNpZCxfX05SX2dldHByaW9yaXR5LCAKICAgICAg
-ICBfX05SX3NjaGVkX2dldHBhcmFtLCBfX05SX3NjaGVkX2dldF9wcmlvcml0eV9tYXgKICAgIH07
-CiAgICBjb25zdCBpbnQgICByYW5kc29wdHNbXSA9IHsgU09MX1NPQ0tFVCwgQUZfQVBQTEVUQUxL
-IH07CiAgICBpbnQgICAgICAgICByZXQsIGxlbjsKICAgIGNoYXIgICAgICAgIGJ1ZlsxMDI0XTsK
-CiAgICBkbwogICAgewogICAgICAgIHN3aXRjaCAocmFuZCgpICUgMykKICAgICAgICB7CiAgICAg
-ICAgICAgIGNhc2UgMDoKICAgICAgICAgICAgICAgIHJldCA9IHN5c2NhbGwocmFuZGNhbGxzW3Jh
-bmQoKSAlIHNpemVvZihyYW5kY2FsbHMpL3NpemVvZihyYW5kY2FsbHNbMF0pXSk7CiAgICAgICAg
-ICAgICAgICBicmVhazsKICAgICAgICAgICAgY2FzZSAxOgogICAgICAgICAgICAgICAgbGVuID0g
-KHJhbmQoKSAlIDIpID8gc2l6ZW9mKGludCkgOiBzaXplb2YoYnVmKTsKICAgICAgICAgICAgICAg
-IHJldCA9IGdldHNvY2tvcHQoZmQsIHJhbmRzb3B0c1tyYW5kKCkgJSBzaXplb2YocmFuZHNvcHRz
-KS9zaXplb2YocmFuZHNvcHRzWzBdKV0sIHJhbmQoKSAlIDEzMCwgJmJ1ZiwgJmxlbik7CiAgICAg
-ICAgICAgICAgICBicmVhazsKICAgICAgICAgICAgY2FzZSAyOgogICAgICAgICAgICAgICAgbGVu
-ID0gKHJhbmQoKSAlIDIpID8gc2l6ZW9mKGludCkgOiBzaXplb2YoYnVmKTsKICAgICAgICAgICAg
-ICAgIHJldCA9IHNldHNvY2tvcHQoZmQsIHJhbmRzb3B0c1tyYW5kKCkgJSBzaXplb2YocmFuZHNv
-cHRzKS9zaXplb2YocmFuZHNvcHRzWzBdKV0sIHJhbmQoKSAlIDEzMCwgJmJ1ZiwgbGVuKTsKICAg
-ICAgICAgICAgICAgIGJyZWFrOwogICAgICAgIH0KICAgIH0KICAgIHdoaWxlIChyZXQgPCAwKTsK
-fQoKdm9pZCBkdW1wKHVuc2lnbmVkIGNoYXIgKiBkYXRhLCB1bnNpZ25lZCBpbnQgbGVuKQp7CiAg
-ICB1bnNpZ25lZCBpbnQgZHAsIHA7CiAgICBjb25zdCBjaGFyIHRyYW5zW10gPQogICAgIi4uLi4u
-Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uICFcIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Igog
-ICAgIjo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXF1eX2BhYmNkZWZnaGlqa2xt
-IgogICAgIm5vcHFyc3R1dnd4eXp7fH1+Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
-Li4uIgogICAgIi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
-Li4uLi4uIgogICAgIi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4iOwoK
-ICAgIGZvciAoZHAgPSAxOyBkcCA8PSBsZW47IGRwKyspCiAgICB7CiAgICAgICAgcHJpbnRmKCIl
-MDJ4ICIsIGRhdGFbZHAtMV0pOwogICAgICAgIGlmICggKGRwICUgOCkgPT0gMCApCiAgICAgICAg
-ewogICAgICAgICAgICBwcmludGYoInwgIik7CiAgICAgICAgICAgIHAgPSBkcDsKICAgICAgICAg
-ICAgZm9yICggZHAgLT0gODsgZHAgPCBwOyBkcCsrICkgewogICAgICAgICAgICAgICAgcHJpbnRm
-KCIlYyIsIHRyYW5zW2RhdGFbZHBdXSk7CiAgICAgICAgICAgIH0KICAgICAgICAgICAgcHJpbnRm
-KCJcbiIpOwogICAgICAgIH0KICAgIH0KCiAgICByZXR1cm47Cn0KCmludCBtYWluKHZvaWQpCnsK
-ICAgIHN0cnVjdCBzb2NrYWRkcl9heDI1ICAgIHNhOwogICAgaW50ICAgICAgICAgICAgICAgICAg
-ICAgcywgc2FsZW47CiAgICBjaGFyICAgICAgICAgICAgICAgICAgICBwcmV2W3NpemVvZiBzYV07
-CgogICAgcyA9IHNvY2tldChBRl9ORVRST00sIFNPQ0tfU0VRUEFDS0VULCAwKTsKICAgIGlmIChz
-IDwgMCkKICAgICAgICByZXR1cm4gLTE7CgogICAgc3JhbmQodGltZShOVUxMKSBeIGdldHBpZCgp
-KTsKCiAgICB3aGlsZSAoMSkKICAgIHsKICAgICAgICBrZXJub3Aocyk7CiAgICAgICAgbWVtc2V0
-KCZzYSwgMCwgc2l6ZW9mIHNhKTsKICAgICAgICBzYWxlbiA9IHNpemVvZiBzYTsKICAgICAgICBp
-ZiAoZ2V0c29ja25hbWUocywgKHN0cnVjdCBzb2NrYWRkciAqKSAmc2EsICZzYWxlbikgPT0gMCkK
-ICAgICAgICB7CiAgICAgICAgICAgIGlmIChtZW1jbXAoJnNhLCBwcmV2LCBzYWxlbikgIT0gMCkK
-ICAgICAgICAgICAgewogICAgICAgICAgICAgICAgZHVtcCgodW5zaWduZWQgY2hhciAqKSAmc2Es
-IHNhbGVuKTsKICAgICAgICAgICAgICAgIG1lbWNweSgmcHJldiwgJnNhLCBzYWxlbik7CiAgICAg
-ICAgICAgICAgICBzbGVlcCgyKTsKICAgICAgICAgICAgfQogICAgICAgIH0KICAgIH0KCiAgICBj
-bG9zZShzKTsKICAgIHJldHVybiAwOwp9Cg==
---f46d0444ec99f82c0304cc090427--
+	tglx
