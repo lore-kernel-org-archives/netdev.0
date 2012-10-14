@@ -1,53 +1,46 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [STABLE REQUEST] add: e1000: fix lockdep splat in shutdown
- handler
-Date: Sun, 14 Oct 2012 21:24:46 +0200 (CEST)
-Message-ID: <alpine.LFD.2.02.1210142102300.2868@ionos>
-References: <1349993385.24256.79.camel@gandalf.local.home>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: regression when connecting to ipv6 localhost
+Date: Sun, 14 Oct 2012 21:29:01 +0200
+Message-ID: <1350242941.21172.17023.camel@edumazet-glaptop>
+References: <CAO_aot5U16KLjqtXp2ZS7d+T0WvVY7OXPaA3t2bbN=uvboVV3Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	stable <stable@vger.kernel.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1349993385.24256.79.camel@gandalf.local.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jan Hinnerk Stosch <janhinnerk.stosch@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:41384 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751414Ab2JNT3H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2012 15:29:07 -0400
+Received: by mail-wg0-f44.google.com with SMTP id dr13so3888212wgb.1
+        for <netdev@vger.kernel.org>; Sun, 14 Oct 2012 12:29:06 -0700 (PDT)
+In-Reply-To: <CAO_aot5U16KLjqtXp2ZS7d+T0WvVY7OXPaA3t2bbN=uvboVV3Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 11 Oct 2012, Steven Rostedt wrote:
-> commit 3a3847e007aae732d64d8fd1374126393e9879a3
-> Author: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Date:   Wed Jan 4 20:23:33 2012 +0000
-> 
->     e1000: fix lockdep splat in shutdown handler
+On Sun, 2012-10-14 at 17:38 +0200, Jan Hinnerk Stosch wrote:
+> Hi,
+> I detected a small regression since linux 3.6.0:
+> When I run "ntpq -p" to query the status of my ntp-daemon I receive a
+> timeout (localhost.localdomain: timed out, nothing received
+> ***Request timed out). Strace shows that connecting to the ipv6
+> loopback interface times out. If I explicitly use ipv4 (ntpq -4 -p)
+> everything works as intended. Downgrading to linux 3.5.6 solves that
+> issue.
+> I reported a bug both to my distribution
+> (https://bugs.archlinux.org/task/31775) and to the kernel bugtracker
+> (https://bugzilla.kernel.org/show_bug.cgi?id=48741) not knowing
+> exactly which component caused the regression, so I was told to ask
+> this here. At the kernel-report you find an strace and tcpdump output.
+> If you need any further information just tell me, but be patient as me
+> kernel knowledge tends to zero.
+> Thanks in advance, Jan Hinnerk
+> --
 
-as I discussed with Jesse on IRC, there is another possible deadlock
-lurking in the e1000 code.
 
-static void e1000_reinit_safe(struct e1000_adapter *adapter)
-{
-	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
-		msleep(1);
-	mutex_lock(&adapter->mutex);
-	e1000_down(adapter);
+What gives :
 
-e1000_down() waits on the various work tasks to shut down, but those
-work functions might be blocked on the adapter mutex.
-
-I have no idea how I managed to trigger that one, but it's real. The
-task dump I got out of the machine shows stuff waiting on each other
-forever.
-
-I can't give you a receipe to reprodruce. Looking at the code this is
-not very surprising. It takes quite some coincidence of having
-e1000_reinit_safe() being invoked and the delayed work timer bringing
-the work on right after e1000_reinit_safe() took the adapter mutex.
-
-Thanks,
-
-	tglx
+cat /etc/ntp.conf
+lsof -p `pidof ntpd`
+ntpq -p ::1
