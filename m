@@ -1,33 +1,33 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: regression in bonding driver with VLAN challenged interfaces
- when 8021q module is loaded
-Date: Sun, 14 Oct 2012 16:32:37 +0200
-Message-ID: <20121014143237.GA2556@minipsycho.orion>
-References: <CAJtaB1v95Z2b78cKUPYrZtriF6BuHwD2=StyhV3gGOOquNt7fw@mail.gmail.com>
+From: Jan Hinnerk Stosch <janhinnerk.stosch@gmail.com>
+Subject: regression when connecting to ipv6 localhost
+Date: Sun, 14 Oct 2012 17:38:21 +0200
+Message-ID: <CAO_aot5U16KLjqtXp2ZS7d+T0WvVY7OXPaA3t2bbN=uvboVV3Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fubar@us.ibm.com, andy@greyhouse.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jpirko@redhat.com
-To: Jon Stanley <jstanley@rmrf.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAJtaB1v95Z2b78cKUPYrZtriF6BuHwD2=StyhV3gGOOquNt7fw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:58094 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752472Ab2JNPiV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2012 11:38:21 -0400
+Received: by mail-ie0-f174.google.com with SMTP id k13so6742671iea.19
+        for <netdev@vger.kernel.org>; Sun, 14 Oct 2012 08:38:21 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thu, Oct 11, 2012 at 04:28:40PM CEST, jstanley@rmrf.net wrote:
->Since commit cc0e40700656b09d93b062ef6c818aa45429d09a, there is a
->problem if you have the 8021q module loaded and you then attempt to
->enslave a VLAN challenged interface. This is because VLAN 0 is
->automatically added to the bond, and the new bond_vlan_used() function
->simply checks for an empty list in bond->vlan_list without taking into
->account that VLAN0 might be on the interface.
->
->This specifically affects IPoIB interfaces in a bond if you do a
->down/up cycle on the bond post-boot (during boot, the bonding module
->is loaded prior to the 8021q module, so everything is fine).
->
->Let me know if further information or testing is needed.
-
-Thanks for the report. I just fixed this by following patch:
-http://patchwork.ozlabs.org/patch/191363/
+Hi,
+I detected a small regression since linux 3.6.0:
+When I run "ntpq -p" to query the status of my ntp-daemon I receive a
+timeout (localhost.localdomain: timed out, nothing received
+***Request timed out). Strace shows that connecting to the ipv6
+loopback interface times out. If I explicitly use ipv4 (ntpq -4 -p)
+everything works as intended. Downgrading to linux 3.5.6 solves that
+issue.
+I reported a bug both to my distribution
+(https://bugs.archlinux.org/task/31775) and to the kernel bugtracker
+(https://bugzilla.kernel.org/show_bug.cgi?id=48741) not knowing
+exactly which component caused the regression, so I was told to ask
+this here. At the kernel-report you find an strace and tcpdump output.
+If you need any further information just tell me, but be patient as me
+kernel knowledge tends to zero.
+Thanks in advance, Jan Hinnerk
