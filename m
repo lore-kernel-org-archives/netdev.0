@@ -1,73 +1,70 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH v6 02/10] ipc: "use key as id" functionality for resource get system call introduced
-Date: Mon, 15 Oct 2012 12:47:40 -0700
-Message-ID: <87r4ozecv7.fsf@xmission.com>
-References: <20121015155800.28348.23561.stgit@localhost.localdomain>
-	<20121015155946.28348.47885.stgit@localhost.localdomain>
-	<87lif7frt8.fsf@xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: akpm@linux-foundation.org, catalin.marinas@arm.com,
-	will.deacon@arm.com, dhowells@redhat.com, manfred@colorfullife.com,
-	hughd@google.com, jmorris@namei.org, mtk.manpages@gmail.com,
-	kosaki.motohiro@jp.fujitsu.com, paulmck@linux.vnet.ibm.com,
-	sds@tycho.nsa.gov, devel@openvz.org, a.p.zijlstra@chello.nl,
-	cmetcalf@tilera.com, linux-driver@qlogic.com,
-	ron.mercer@qlogic.com, viro@zeniv.linux.org.uk,
-	eparis@parisplace.org, tglx@linutronix.de,
-	jitendra.kalsaria@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org, casey@schaufler-ca.com
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <87lif7frt8.fsf@xmission.com> (Eric W. Biederman's message of
-	"Mon, 15 Oct 2012 12:39:31 -0700")
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH V2 0/7] support the cpts found on am335x devices
+Date: Mon, 15 Oct 2012 21:48:06 +0200
+Message-ID: <cover.1350329726.git.richardcochran@gmail.com>
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	David Miller <davem@davemloft.net>,
+	Cyril Chemparathy <cyril@ti.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Sriramakrishnan A G <srk@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:48587 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753893Ab2JOTsj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 15:48:39 -0400
+Received: by mail-wg0-f44.google.com with SMTP id dr13so4753829wgb.1
+        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 12:48:38 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ebiederm@xmission.com (Eric W. Biederman) writes:
+This patch series, based on linux-3.7-rc1 plus the fixes I posted
+today, adds support for the Common Platform Time Sync (CPTS) found on
+the popular BeagleBone. The code enables hardware time stamping and a
+PTP Hardware Clock.
 
-> Stanislav Kinsbursky <skinsbursky@parallels.com> writes:
->
->> This patch introduces new IPC resource get request flag IPC_PRESET, which
->> should be interpreted as a request to try to allocate IPC slot with number,
->> starting from value resented by key. IOW, kernel will try
->> allocate new segment in specified slot.
->>
->> Note: if desired slot is not emply, then next free slot will be used.
->
-> This way of handling things is pretty nasty.
->
-> - You don't fail if the requested id is not available.
-> - You don't allow assigning the key (which leads to the need to change
->   the key in later patches).  Changing the creator uid and creator
->   gid and key is semantically ugly.
->
-> It would be much cleaner if you could instead add IPC_PRESET and then
-> extend the definition of the creation functions all by one argument.
->
-> aka
-> int msgget(key_t key, int msgflg, int id);
-> int semget(key_t key, int nsems, int semflg, int id);
-> int shmget(key_t key, size_t size, int shmflg, int id);
->
-> Where the extra id argument is ignored unless IPC_PRESET is specified.
->
-> Also msgget, semget, and shmget should fail if unregconized flags are
-> passed in.  That ipcget doesn't do that today is bizarre.
+Changes in V2
+   - Now uses device tree
+   - Actually works with vanilla kernel
 
-Hmm.  Come to think of it I don't see why you need to set the id at all.
-We are using an idr allocator which effectively offers the semantics
-that the lowest available id will be allocated.  The same semantics we
-have for file descriptors.
+This work has been tested using the linuxptp PTP stack, and it seems
+to be working quite well. One limitation of the hardware is that not
+possible to adjust the clock frequency. Even without with this
+capability, the driver will be still be useful for 802.1AS
+applications, since they typically use a free running clock.
 
-So it should be possible at least for the first pass at
-checkpoint/restart to implement the restoration of sysv ipc without
-IPC_PRESET at all.
+There is one open issue with this driver which will hopefully soon be
+resolved. Time stamping only works on UDP packets. Although Layer 2 is
+supposed to work according to the TRM, I have not yet figured out
+how. The UDP only works when setting an undocumented bit, so maybe
+someone from TI can fill me in on this.
 
-So IPC_PRESET should just be an optimization, not a necessary feature.
+Thanks,
+Richard
 
-That makes all of your code go away except the message queue
-peeking, which seems much less intrusive for the first pass.
 
-Eric
+Richard Cochran (7):
+  cpsw: rename register banks to match the reference manual
+  cpsw: add missing fields to the CPSW_SS register bank.
+  cpsw: correct the CPSW_PORT register bank declaration
+  cpsw: add a common header file for regsiter declarations
+  cpts: introduce time stamping code and a PTP hardware clock.
+  cpsw: add a DT field for the cpts offset
+  cpsw: use the time stamping capabilities of the cpts
+
+ Documentation/devicetree/bindings/net/cpsw.txt |   11 +-
+ arch/arm/boot/dts/am33xx.dtsi                  |    5 +-
+ drivers/net/ethernet/ti/Kconfig                |    8 +
+ drivers/net/ethernet/ti/Makefile               |    2 +-
+ drivers/net/ethernet/ti/cpsw.c                 |   84 ++++-
+ drivers/net/ethernet/ti/cpsw_reg.h             |   81 ++++
+ drivers/net/ethernet/ti/cpts.c                 |  468 ++++++++++++++++++++++++
+ drivers/net/ethernet/ti/cpts.h                 |  148 ++++++++
+ include/linux/platform_data/cpsw.h             |    1 +
+ 9 files changed, 788 insertions(+), 20 deletions(-)
+ create mode 100644 drivers/net/ethernet/ti/cpsw_reg.h
+ create mode 100644 drivers/net/ethernet/ti/cpts.c
+ create mode 100644 drivers/net/ethernet/ti/cpts.h
+
+-- 
+1.7.2.5
