@@ -1,43 +1,80 @@
-From: Vincent Bernat <bernat@luffy.cx>
-Subject: Re: [RFC PATCH net-next v2 0/1] Add support of ECMPv6
-Date: Mon, 15 Oct 2012 21:54:48 +0200
-Message-ID: <m3y5j7lddj.fsf@neo.luffy.cx>
-References: <505058F5.9020707@linux-ipv6.org>
-	<1347609548-14494-1-git-send-email-nicolas.dichtel@6wind.com>
-	<87392l7xjc.fsf@guybrush.luffy.cx> <5053329F.6030109@6wind.com>
-	<c6a5aae8c773f78aaa1c59cfb68a3d52@luffy.cx>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v6 08/10] IPC: message queue receive cleanup
+Date: Mon, 15 Oct 2012 21:03:23 +0100
+Message-ID: <1350331403.2819.25.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20121015155800.28348.23561.stgit@localhost.localdomain>
+	 <20121015160017.28348.44238.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <yoshfuji@linux-ipv6.org>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>
-To: <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:46325 "EHLO bart.luffy.cx"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754377Ab2JOTyw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 15:54:52 -0400
-In-Reply-To: <c6a5aae8c773f78aaa1c59cfb68a3d52@luffy.cx> (Vincent Bernat's
-	message of "Mon, 15 Oct 2012 14:36:08 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <akpm@linux-foundation.org>, <catalin.marinas@arm.com>,
+	<will.deacon@arm.com>, <dhowells@redhat.com>,
+	<manfred@colorfullife.com>, <hughd@google.com>,
+	<jmorris@namei.org>, <mtk.manpages@gmail.com>,
+	<kosaki.motohiro@jp.fujitsu.com>, <paulmck@linux.vnet.ibm.com>,
+	<sds@tycho.nsa.gov>, <devel@openvz.org>, <a.p.zijlstra@chello.nl>,
+	<cmetcalf@tilera.com>, <linux-driver@qlogic.com>,
+	<ron.mercer@qlogic.com>, <viro@zeniv.linux.org.uk>,
+	<eparis@parisplace.org>, <tglx@linutronix.de>,
+	<jitendra.kalsaria@qlogic.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-security-module@vger.kernel.org>, <ebiederm@xmission.com>,
+	<casey@schaufler-ca.com>
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20121015160017.28348.44238.stgit@localhost.localdomain>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- =E2=9D=A6 15 octobre 2012 14:36 CEST, Vincent Bernat <bernat@luffy.cx>=
-=C2=A0:
+On Mon, 2012-10-15 at 20:00 +0400, Stanislav Kinsbursky wrote:
+> This patch moves all message related manipulation into one function msg_fill().
+> Actually, two functions because of the compat one.
+> 
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+> ---
+>  include/linux/msg.h |    5 +++--
+>  ipc/compat.c        |   36 +++++++++++++++++++-----------------
+>  ipc/msg.c           |   44 +++++++++++++++++++++++---------------------
+>  3 files changed, 45 insertions(+), 40 deletions(-)
+> 
+> diff --git a/include/linux/msg.h b/include/linux/msg.h
+> index 7a4b9e9..f38edba 100644
+> --- a/include/linux/msg.h
+> +++ b/include/linux/msg.h
+> @@ -34,7 +34,8 @@ struct msg_queue {
+>  /* Helper routines for sys_msgsnd and sys_msgrcv */
+>  extern long do_msgsnd(int msqid, long mtype, void __user *mtext,
+>  			size_t msgsz, int msgflg);
+> -extern long do_msgrcv(int msqid, long *pmtype, void __user *mtext,
+> -			size_t msgsz, long msgtyp, int msgflg);
+> +extern long do_msgrcv(int msqid, void __user *buf, size_t bufsz, long msgtyp,
+> +		      int msgflg,
+> +		      long (*msg_fill)(void __user *, struct msg_msg *, size_t ));
+>  
+>  #endif /* _LINUX_MSG_H */
+> diff --git a/ipc/compat.c b/ipc/compat.c
+> index 84d8efd..b879d50 100644
+> --- a/ipc/compat.c
+> +++ b/ipc/compat.c
+[...]
+> @@ -394,7 +395,8 @@ long compat_sys_msgrcv(int msqid, struct compat_msgbuf __user *msgp,
+>  {
+>  	long err, mtype;
+>  
+> -	err =  do_msgrcv(msqid, &mtype, msgp->mtext, (ssize_t)msgsz, msgtyp, msgflg);
+> +	err =  do_msgrcv(msqid, &mtype, msgp->mtext, (ssize_t)msgsz, msgtyp,
+> +			 msgflg, compat_do_msg_fill);
+>  	if (err < 0)
+>  		goto out;
+>  
+[...]
 
-> The problem is the same with BIRD. The difference with IPv4 makes it
-> difficult to factor the code between IPv4 and IPv6. What do you think=
-?
+That isn't even the right number of arguments now...
 
-I am in the process of creating the appropriate patches for Quagga and
-it is less difficult that I thought. It is possible to plug the
-difference between IPv4 and IPv6 for multipath routes right into the
-difference between IPv4 single hop and IPv4 multi hop routes that are
-also handled differently.
+Ben.
 
-I am still thinking that the approach is confusing for the userland but
-it is not really cumbersome from the implementor point of view and it
-has also some advantages.
---=20
-Make it clear before you make it faster.
-            - The Elements of Programming Style (Kernighan & Plauger)
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
