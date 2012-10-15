@@ -1,7 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v6 00/10] IPC: checkpoint/restore in userspace enhancements
-Date: Mon, 15 Oct 2012 19:59:27 +0400
-Message-ID: <20121015155800.28348.23561.stgit@localhost.localdomain>
+Subject: [PATCH v6 08/10] IPC: message queue receive cleanup
+Date: Mon, 15 Oct 2012 20:00:17 +0400
+Message-ID: <20121015160017.28348.44238.stgit@localhost.localdomain>
+References: <20121015155800.28348.23561.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -18,81 +19,190 @@ Cc: catalin.marinas@arm.com, will.deacon@arm.com, dhowells@redhat.com,
 	casey@schaufler-ca.com
 To: akpm@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121015155800.28348.23561.stgit@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-v6:
-1) rebased on 3.7-rc1
+This patch moves all message related manipulation into one function msg_fill().
+Actually, two functions because of the compat one.
 
-v5:
-1) Several define-dependent compile bugs fixed
-2) IPC message copy test updated
-3) A couple of minor fixes.
-4) Qlogic driver update: rename of its internal SEM_SET define into SEM_INIT
-(compile error).
-
-v4:
-1) If MSG_COPY flag is specified, then "mtype" is not a type, but message
-number to copy.
-2) MSG_SET_COPY logic for sys_msgctl() was removed.
-
-v3:
-1) Copy messages to user-space under spinlock was replaced by allocation of
-dummy message before queue lock and then copy of desired message to the dummy
-one instead of unlinking it from queue list.
-I.e. the message queue copy logic was changed: messages can be retrived one by
-one (instead of receiving of the whole list at once).
-
-This patch set is aimed to provide additional functionality for all IPC
-objects,
-which is required for migration of these objects by user-space
-checkpoint/restore utils (CRIU).
-
-The main problem here was impossibility to set up object id. This patch set
-solves the problem in two steps:
-1) Makes it possible to create new object (shared memory, semaphores set or
-messages queue) with ID, equal to passed key.
-2) Makes it possible to change existent object key.
-
-Another problem was to peek messages from queues without deleting them.
-This was achived by introducing of new MSG_COPY flag for sys_msgrcv(). If
-MSG_COPY flag is set, then msgtyp is interpreted as message number.
-
-The following series implements...
-
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 ---
+ include/linux/msg.h |    5 +++--
+ ipc/compat.c        |   36 +++++++++++++++++++-----------------
+ ipc/msg.c           |   44 +++++++++++++++++++++++---------------------
+ 3 files changed, 45 insertions(+), 40 deletions(-)
 
-Stanislav Kinsbursky (10):
-      ipc: remove forced assignment of selected message
-      ipc: "use key as id" functionality for resource get system call introduced
-      ipc: segment key change helper introduced
-      ipc: add new SHM_SET command for sys_shmctl() call
-      ipc: add new MSG_SET command for sys_msgctl() call
-      glge driver: rename internal SEM_SET macro to SEM_INIT
-      ipc: add new SEM_SET command for sys_semctl() call
-      IPC: message queue receive cleanup
-      IPC: message queue copy feature introduced
-      test: IPC message queue copy feture test
-
-
- drivers/net/ethernet/qlogic/qlge/qlge.h      |    4 
- drivers/net/ethernet/qlogic/qlge/qlge_main.c |   16 +-
- include/linux/msg.h                          |    5 -
- include/uapi/linux/ipc.h                     |    1 
- include/uapi/linux/msg.h                     |    2 
- include/uapi/linux/sem.h                     |    1 
- include/uapi/linux/shm.h                     |    1 
- ipc/compat.c                                 |   45 +++--
- ipc/msg.c                                    |  116 +++++++++---
- ipc/msgutil.c                                |   38 ++++
- ipc/sem.c                                    |   14 +
- ipc/shm.c                                    |   17 +-
- ipc/util.c                                   |   69 +++++++
- ipc/util.h                                   |    6 +
- security/selinux/hooks.c                     |    3 
- security/smack/smack_lsm.c                   |    3 
- tools/testing/selftests/ipc/Makefile         |   28 +++
- tools/testing/selftests/ipc/msgque.c         |  251 ++++++++++++++++++++++++++
- 18 files changed, 548 insertions(+), 72 deletions(-)
- create mode 100644 tools/testing/selftests/ipc/Makefile
- create mode 100644 tools/testing/selftests/ipc/msgque.c
+diff --git a/include/linux/msg.h b/include/linux/msg.h
+index 7a4b9e9..f38edba 100644
+--- a/include/linux/msg.h
++++ b/include/linux/msg.h
+@@ -34,7 +34,8 @@ struct msg_queue {
+ /* Helper routines for sys_msgsnd and sys_msgrcv */
+ extern long do_msgsnd(int msqid, long mtype, void __user *mtext,
+ 			size_t msgsz, int msgflg);
+-extern long do_msgrcv(int msqid, long *pmtype, void __user *mtext,
+-			size_t msgsz, long msgtyp, int msgflg);
++extern long do_msgrcv(int msqid, void __user *buf, size_t bufsz, long msgtyp,
++		      int msgflg,
++		      long (*msg_fill)(void __user *, struct msg_msg *, size_t ));
+ 
+ #endif /* _LINUX_MSG_H */
+diff --git a/ipc/compat.c b/ipc/compat.c
+index 84d8efd..b879d50 100644
+--- a/ipc/compat.c
++++ b/ipc/compat.c
+@@ -341,13 +341,23 @@ long compat_sys_msgsnd(int first, int second, int third, void __user *uptr)
+ 	return do_msgsnd(first, type, up->mtext, second, third);
+ }
+ 
++long compat_do_msg_fill(void __user *dest, struct msg_msg *msg, size_t bufsz)
++{
++	struct compat_msgbuf __user *msgp = dest;
++	size_t msgsz;
++
++	if (put_user(msg->m_type, &msgp->mtype))
++		return -EFAULT;
++
++	msgsz = (bufsz > msg->m_ts) ? msg->m_ts : bufsz;
++	if (store_msg(msgp->mtext, msg, msgsz))
++		return -EFAULT;
++	return msgsz;
++}
++
+ long compat_sys_msgrcv(int first, int second, int msgtyp, int third,
+ 			   int version, void __user *uptr)
+ {
+-	struct compat_msgbuf __user *up;
+-	long type;
+-	int err;
+-
+ 	if (first < 0)
+ 		return -EINVAL;
+ 	if (second < 0)
+@@ -355,23 +365,14 @@ long compat_sys_msgrcv(int first, int second, int msgtyp, int third,
+ 
+ 	if (!version) {
+ 		struct compat_ipc_kludge ipck;
+-		err = -EINVAL;
+ 		if (!uptr)
+-			goto out;
+-		err = -EFAULT;
++			return -EINVAL;
+ 		if (copy_from_user (&ipck, uptr, sizeof(ipck)))
+-			goto out;
++			return -EFAULT;
+ 		uptr = compat_ptr(ipck.msgp);
+ 		msgtyp = ipck.msgtyp;
+ 	}
+-	up = uptr;
+-	err = do_msgrcv(first, &type, up->mtext, second, msgtyp, third);
+-	if (err < 0)
+-		goto out;
+-	if (put_user(type, &up->mtype))
+-		err = -EFAULT;
+-out:
+-	return err;
++	return do_msgrcv(first, uptr, second, msgtyp, third, compat_do_msg_fill);
+ }
+ #else
+ long compat_sys_semctl(int semid, int semnum, int cmd, int arg)
+@@ -394,7 +395,8 @@ long compat_sys_msgrcv(int msqid, struct compat_msgbuf __user *msgp,
+ {
+ 	long err, mtype;
+ 
+-	err =  do_msgrcv(msqid, &mtype, msgp->mtext, (ssize_t)msgsz, msgtyp, msgflg);
++	err =  do_msgrcv(msqid, &mtype, msgp->mtext, (ssize_t)msgsz, msgtyp,
++			 msgflg, compat_do_msg_fill);
+ 	if (err < 0)
+ 		goto out;
+ 
+diff --git a/ipc/msg.c b/ipc/msg.c
+index 68515dc..9808da8 100644
+--- a/ipc/msg.c
++++ b/ipc/msg.c
+@@ -766,15 +766,30 @@ static inline int convert_mode(long *msgtyp, int msgflg)
+ 	return SEARCH_EQUAL;
+ }
+ 
+-long do_msgrcv(int msqid, long *pmtype, void __user *mtext,
+-		size_t msgsz, long msgtyp, int msgflg)
++static long do_msg_fill(void __user *dest, struct msg_msg *msg, size_t bufsz)
++{
++	struct msgbuf __user *msgp = dest;
++	size_t msgsz;
++
++	if (put_user(msg->m_type, &msgp->mtype))
++		return -EFAULT;
++
++	msgsz = (bufsz > msg->m_ts) ? msg->m_ts : bufsz;
++	if (store_msg(msgp->mtext, msg, msgsz))
++		return -EFAULT;
++	return msgsz;
++}
++
++long do_msgrcv(int msqid, void __user *buf, size_t bufsz, long msgtyp,
++	       int msgflg,
++	       long (*msg_handler)(void __user *, struct msg_msg *, size_t ))
+ {
+ 	struct msg_queue *msq;
+ 	struct msg_msg *msg;
+ 	int mode;
+ 	struct ipc_namespace *ns;
+ 
+-	if (msqid < 0 || (long) msgsz < 0)
++	if (msqid < 0 || (long) bufsz < 0)
+ 		return -EINVAL;
+ 	mode = convert_mode(&msgtyp, msgflg);
+ 	ns = current->nsproxy->ipc_ns;
+@@ -815,7 +830,7 @@ long do_msgrcv(int msqid, long *pmtype, void __user *mtext,
+ 			 * Found a suitable message.
+ 			 * Unlink it from the queue.
+ 			 */
+-			if ((msgsz < msg->m_ts) && !(msgflg & MSG_NOERROR)) {
++			if ((bufsz < msg->m_ts) && !(msgflg & MSG_NOERROR)) {
+ 				msg = ERR_PTR(-E2BIG);
+ 				goto out_unlock;
+ 			}
+@@ -842,7 +857,7 @@ long do_msgrcv(int msqid, long *pmtype, void __user *mtext,
+ 		if (msgflg & MSG_NOERROR)
+ 			msr_d.r_maxsize = INT_MAX;
+ 		else
+-			msr_d.r_maxsize = msgsz;
++			msr_d.r_maxsize = bufsz;
+ 		msr_d.r_msg = ERR_PTR(-EAGAIN);
+ 		current->state = TASK_INTERRUPTIBLE;
+ 		msg_unlock(msq);
+@@ -905,29 +920,16 @@ out_unlock:
+ 	if (IS_ERR(msg))
+ 		return PTR_ERR(msg);
+ 
+-	msgsz = (msgsz > msg->m_ts) ? msg->m_ts : msgsz;
+-	*pmtype = msg->m_type;
+-	if (store_msg(mtext, msg, msgsz))
+-		msgsz = -EFAULT;
+-
++	bufsz = msg_handler(buf, msg, bufsz);
+ 	free_msg(msg);
+ 
+-	return msgsz;
++	return bufsz;
+ }
+ 
+ SYSCALL_DEFINE5(msgrcv, int, msqid, struct msgbuf __user *, msgp, size_t, msgsz,
+ 		long, msgtyp, int, msgflg)
+ {
+-	long err, mtype;
+-
+-	err =  do_msgrcv(msqid, &mtype, msgp->mtext, msgsz, msgtyp, msgflg);
+-	if (err < 0)
+-		goto out;
+-
+-	if (put_user(mtype, &msgp->mtype))
+-		err = -EFAULT;
+-out:
+-	return err;
++	return do_msgrcv(msqid, msgp, msgsz, msgtyp, msgflg, do_msg_fill);
+ }
+ 
+ #ifdef CONFIG_PROC_FS
