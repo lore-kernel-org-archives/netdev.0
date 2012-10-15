@@ -1,39 +1,51 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] sock filter: fix copy of filter from userspace
-Date: Mon, 15 Oct 2012 08:57:12 -0700
-Message-ID: <20121015085712.5a70a4d0@nehalam.linuxnetplumber.net>
-References: <20121013114032.2d1c1434@nehalam.linuxnetplumber.net>
-	<20121013191949.GA16286@minipsycho.orion>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH v6 01/10] ipc: remove forced assignment of selected message
+Date: Mon, 15 Oct 2012 19:59:41 +0400
+Message-ID: <20121015155941.28348.88481.stgit@localhost.localdomain>
+References: <20121015155800.28348.23561.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jpirko@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34585 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751184Ab2JOP5y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2012 11:57:54 -0400
-In-Reply-To: <20121013191949.GA16286@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: catalin.marinas@arm.com, will.deacon@arm.com, dhowells@redhat.com,
+	manfred@colorfullife.com, hughd@google.com, jmorris@namei.org,
+	mtk.manpages@gmail.com, kosaki.motohiro@jp.fujitsu.com,
+	paulmck@linux.vnet.ibm.com, sds@tycho.nsa.gov, devel@openvz.org,
+	a.p.zijlstra@chello.nl, cmetcalf@tilera.com,
+	linux-driver@qlogic.com, ron.mercer@qlogic.com,
+	viro@zeniv.linux.org.uk, eparis@parisplace.org, tglx@linutronix.de,
+	jitendra.kalsaria@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org, ebiederm@xmission.com,
+	casey@schaufler-ca.com
+To: akpm@linux-foundation.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20121015155800.28348.23561.stgit@localhost.localdomain>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 13 Oct 2012 21:19:49 +0200
-Jiri Pirko <jiri@resnulli.us> wrote:
+This is a cleanup patch. The assignment is redundant.
 
-> Sat, Oct 13, 2012 at 08:40:32PM CEST, shemminger@vyatta.com wrote:
-> >The sk_unattached_filter_create function is passed a socket
-> >filter structure and the copies the contents of the filter from
-> >userspace. Sparse detected that this code was incorrectly using
-> >memcpy when it needed to use copy_from_user instead.
-> 
-> Hmm. fprog->filter is in this case allocated and filled in kernel.
-> So memcpy is good.
-> 
-> Not sure how to handle this correctly. Either we remove "__user" or we
-> redefine "struct sock_fprog" for sk_unattached_filter_create() use.
-> 
-> Any thoughts?
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+---
+ ipc/msg.c |    5 +----
+ 1 files changed, 1 insertions(+), 4 deletions(-)
 
-Or define a different structure for kernel usage versus userspace API.
+diff --git a/ipc/msg.c b/ipc/msg.c
+index a71af5a..2f272fa 100644
+--- a/ipc/msg.c
++++ b/ipc/msg.c
+@@ -793,12 +793,9 @@ long do_msgrcv(int msqid, long *pmtype, void __user *mtext,
+ 				msg = walk_msg;
+ 				if (mode == SEARCH_LESSEQUAL &&
+ 						walk_msg->m_type != 1) {
+-					msg = walk_msg;
+ 					msgtyp = walk_msg->m_type - 1;
+-				} else {
+-					msg = walk_msg;
++				} else
+ 					break;
+-				}
+ 			}
+ 			tmp = tmp->next;
+ 		}
+
