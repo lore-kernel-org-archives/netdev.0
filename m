@@ -1,47 +1,241 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: [PATCH] docbook: networking: fix file paths for uapi headers
-Date: Sun, 14 Oct 2012 18:50:05 -0700
-Message-ID: <507B6BCD.3040708@xenotime.net>
-References: <CA+55aFyt0KFNp5Binu-c3-XzF=MG+23EDOk1R6t4qqgW58ksAw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	David Howells <dhowells@redhat.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFyt0KFNp5Binu-c3-XzF=MG+23EDOk1R6t4qqgW58ksAw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: ujhelyi.m@gmail.com
+Subject: [PATCH v2] phy: add AT803x driver
+Date: Mon, 15 Oct 2012 07:07:16 +0200
+Message-ID: <1350277636-2551-1-git-send-email-ujhelyi.m@gmail.com>
+Cc: davem@davemloft.net, daniel@zonque.org, rd@radekdostal.com,
+	Matus Ujhelyi <ujhelyi.m@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:50828 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751534Ab2JOFHk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 01:07:40 -0400
+Received: by mail-we0-f174.google.com with SMTP id t9so2822416wey.19
+        for <netdev@vger.kernel.org>; Sun, 14 Oct 2012 22:07:38 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@xenotime.net>
+From: Matus Ujhelyi <ujhelyi.m@gmail.com>
 
-Update file paths in Documentation/DocBook/networking.tmpl for uapi headers.
+This driver add support for wake over lan on AT803x phys.
 
-Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+Signed-off-by: Matus Ujhelyi <ujhelyi.m@gmail.com>
 ---
- Documentation/DocBook/networking.tmpl |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/phy/Kconfig  |    5 ++
+ drivers/net/phy/Makefile |    1 +
+ drivers/net/phy/at803x.c |  176 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 182 insertions(+)
+ create mode 100644 drivers/net/phy/at803x.c
 
---- lnx-37-rc1.orig/Documentation/DocBook/networking.tmpl
-+++ lnx-37-rc1/Documentation/DocBook/networking.tmpl
-@@ -56,7 +56,7 @@
- !Enet/core/filter.c
-      </sect1>
-      <sect1><title>Generic Network Statistics</title>
--!Iinclude/linux/gen_stats.h
-+!Iinclude/uapi/linux/gen_stats.h
- !Enet/core/gen_stats.c
- !Enet/core/gen_estimator.c
-      </sect1>
-@@ -80,7 +80,7 @@
- !Enet/wimax/op-rfkill.c
- !Enet/wimax/stack.c
- !Iinclude/net/wimax.h
--!Iinclude/linux/wimax.h
-+!Iinclude/uapi/linux/wimax.h
-      </sect1>
-   </chapter>
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 3090dc6..e69d74e 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -15,6 +15,11 @@ if PHYLIB
  
+ comment "MII PHY device drivers"
+ 
++config AT803X_PHY
++	tristate "Drivers for Atheros AT803X PHYs"
++	---help---
++	  Currently supports the AT8030 and AT8035 model
++
+ config AMD_PHY
+ 	tristate "Drivers for the AMD PHYs"
+ 	---help---
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 6d2dc6c..66720a5 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -25,6 +25,7 @@ obj-$(CONFIG_STE10XP)		+= ste10Xp.o
+ obj-$(CONFIG_MICREL_PHY)	+= micrel.o
+ obj-$(CONFIG_MDIO_OCTEON)	+= mdio-octeon.o
+ obj-$(CONFIG_MICREL_KS8995MA)	+= spi_ks8995.o
++obj-$(CONFIG_AT803X_PHY)	+= at803x.o
+ obj-$(CONFIG_AMD_PHY)		+= amd.o
+ obj-$(CONFIG_MDIO_BUS_MUX)	+= mdio-mux.o
+ obj-$(CONFIG_MDIO_BUS_MUX_GPIO)	+= mdio-mux-gpio.o
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+new file mode 100644
+index 0000000..45cbc10
+--- /dev/null
++++ b/drivers/net/phy/at803x.c
+@@ -0,0 +1,176 @@
++/*
++ * drivers/net/phy/at803x.c
++ *
++ * Driver for Atheros 803x PHY
++ *
++ * Author: Matus Ujhelyi <ujhelyi.m@gmail.com>
++ *
++ * This program is free software; you can redistribute  it and/or modify it
++ * under  the terms of  the GNU General  Public License as published by the
++ * Free Software Foundation;  either version 2 of the  License, or (at your
++ * option) any later version.
++ */
++
++#include <linux/phy.h>
++#include <linux/module.h>
++#include <linux/string.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++
++#define AT803X_INTR_ENABLE			0x12
++#define AT803X_INTR_STATUS			0x13
++#define AT803X_WOL_ENABLE			0x01
++#define AT803X_DEVICE_ADDR			0x03
++#define AT803X_LOC_MAC_ADDR_0_15_OFFSET		0x804C
++#define AT803X_LOC_MAC_ADDR_16_31_OFFSET	0x804B
++#define AT803X_LOC_MAC_ADDR_32_47_OFFSET	0x804A
++#define AT803X_MMD_ACCESS_CONTROL		0x0D
++#define AT803X_MMD_ACCESS_CONTROL_DATA		0x0E
++#define AT803X_FUNC_DATA			0x4003
++
++MODULE_DESCRIPTION("Atheros 803x PHY driver");
++MODULE_AUTHOR("Matus Ujhelyi");
++MODULE_LICENSE("GPL");
++
++static void at803x_set_wol_mac_addr(struct phy_device *phydev)
++{
++	struct net_device *ndev = phydev->attached_dev;
++	const u8 *mac;
++	unsigned int i, offsets[] = {
++		AT803X_LOC_MAC_ADDR_32_47_OFFSET,
++		AT803X_LOC_MAC_ADDR_16_31_OFFSET,
++		AT803X_LOC_MAC_ADDR_0_15_OFFSET,
++	};
++
++	if (!ndev)
++		return;
++
++	mac = (const u8 *) ndev->dev_addr;
++
++	if (!is_valid_ether_addr(mac))
++		return;
++
++	for (i = 0; i < 3; i++) {
++		phy_write(phydev, AT803X_MMD_ACCESS_CONTROL,
++				  AT803X_DEVICE_ADDR);
++		phy_write(phydev, AT803X_MMD_ACCESS_CONTROL_DATA,
++				  offsets[i]);
++		phy_write(phydev, AT803X_MMD_ACCESS_CONTROL,
++				  AT803X_FUNC_DATA);
++		phy_write(phydev, AT803X_MMD_ACCESS_CONTROL_DATA,
++				  mac[(i * 2) + 1] | (mac[(i * 2)] << 8));
++	}
++}
++
++static int at803x_config_init(struct phy_device *phydev)
++{
++	int val;
++	u32 features;
++	int status;
++
++	features = SUPPORTED_TP | SUPPORTED_MII | SUPPORTED_AUI |
++		   SUPPORTED_FIBRE | SUPPORTED_BNC;
++
++	val = phy_read(phydev, MII_BMSR);
++	if (val < 0)
++		return val;
++
++	if (val & BMSR_ANEGCAPABLE)
++		features |= SUPPORTED_Autoneg;
++	if (val & BMSR_100FULL)
++		features |= SUPPORTED_100baseT_Full;
++	if (val & BMSR_100HALF)
++		features |= SUPPORTED_100baseT_Half;
++	if (val & BMSR_10FULL)
++		features |= SUPPORTED_10baseT_Full;
++	if (val & BMSR_10HALF)
++		features |= SUPPORTED_10baseT_Half;
++
++	if (val & BMSR_ESTATEN) {
++		val = phy_read(phydev, MII_ESTATUS);
++		if (val < 0)
++			return val;
++
++		if (val & ESTATUS_1000_TFULL)
++			features |= SUPPORTED_1000baseT_Full;
++		if (val & ESTATUS_1000_THALF)
++			features |= SUPPORTED_1000baseT_Half;
++	}
++
++	phydev->supported = features;
++	phydev->advertising = features;
++
++	/* enable WOL */
++	at803x_set_wol_mac_addr(phydev);
++	status = phy_write(phydev, AT803X_INTR_ENABLE, AT803X_WOL_ENABLE);
++	status = phy_read(phydev, AT803X_INTR_STATUS);
++
++	return 0;
++}
++
++/* ATHEROS 8035 */
++static struct phy_driver at8035_driver = {
++	.phy_id		= 0x004dd072,
++	.name		= "Atheros 8035 ethernet",
++	.phy_id_mask	= 0xffffffef,
++	.config_init	= at803x_config_init,
++	.features	= PHY_GBIT_FEATURES,
++	.flags		= PHY_HAS_INTERRUPT,
++	.config_aneg	= &genphy_config_aneg,
++	.read_status	= &genphy_read_status,
++	.driver		= {
++		.owner = THIS_MODULE,
++	},
++};
++
++/* ATHEROS 8030 */
++static struct phy_driver at8030_driver = {
++	.phy_id		= 0x004dd076,
++	.name		= "Atheros 8030 ethernet",
++	.phy_id_mask	= 0xffffffef,
++	.config_init	= at803x_config_init,
++	.features	= PHY_GBIT_FEATURES,
++	.flags		= PHY_HAS_INTERRUPT,
++	.config_aneg	= &genphy_config_aneg,
++	.read_status	= &genphy_read_status,
++	.driver		= {
++		.owner = THIS_MODULE,
++	},
++};
++
++static int __init atheros_init(void)
++{
++	int ret;
++
++	ret = phy_driver_register(&at8035_driver);
++	if (ret)
++		goto err1;
++
++	ret = phy_driver_register(&at8030_driver);
++	if (ret)
++		goto err2;
++
++	return 0;
++
++err2:
++	phy_driver_unregister(&at8035_driver);
++err1:
++	return ret;
++}
++
++static void __exit atheros_exit(void)
++{
++	phy_driver_unregister(&at8035_driver);
++	phy_driver_unregister(&at8030_driver);
++}
++
++module_init(atheros_init);
++module_exit(atheros_exit);
++
++static struct mdio_device_id __maybe_unused atheros_tbl[] = {
++	{ 0x004dd076, 0xffffffef },
++	{ 0x004dd072, 0xffffffef },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(mdio, atheros_tbl);
+-- 
+1.7.9.5
