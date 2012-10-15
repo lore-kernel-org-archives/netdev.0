@@ -1,81 +1,61 @@
-From: Arun Murthy <arun.murthy@stericsson.com>
-Subject: [PATCHv5 0/4] modem_shm: U8500 SHaRed Memory driver(SHRM)
-Date: Mon, 15 Oct 2012 10:58:36 +0530
-Message-ID: <1350278920-25510-1-git-send-email-arun.murthy@stericsson.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: regression when connecting to ipv6 localhost
+Date: Mon, 15 Oct 2012 07:42:33 +0200
+Message-ID: <1350279753.21172.17290.camel@edumazet-glaptop>
+References: <CAO_aot5U16KLjqtXp2ZS7d+T0WvVY7OXPaA3t2bbN=uvboVV3Q@mail.gmail.com>
+	 <1350242941.21172.17023.camel@edumazet-glaptop>
+	 <CAO_aot7BQqob=V9MEDSFnmCCNsxgjghC5e3NuQonqY8GCkV1Og@mail.gmail.com>
+	 <1350244485.21172.17077.camel@edumazet-glaptop>
+	 <CAO_aot7wZAqqQForAe-9aLnALqm1LdeaEv+ZKqiw3V_DCfqjRw@mail.gmail.com>
+	 <1350246314.21172.17139.camel@edumazet-glaptop>
+	 <1350246414.21172.17144.camel@edumazet-glaptop>
+	 <1350246481.21172.17147.camel@edumazet-glaptop>
+	 <CAO_aot5xZevtZcCS37h9HR4Zkj_Q4ny_sj+NX7oYEvazAQjxLQ@mail.gmail.com>
+	 <1350248858.21172.17197.camel@edumazet-glaptop>
+	 <CAO_aot6w9yaWacK9kE66m+Lv0LWXY9hKzLH8b=1dp=23fo_W2A@mail.gmail.com>
+	 <1350250542.21172.17229.camel@edumazet-glaptop>
+	 <CAO_aot4RiTbUd=7L5e4btLEeJvgy0B3iswaXo8m3AP2qp9Z0TQ@mail.gmail.com>
+	 <1350252091.21172.17257.camel@edumazet-glaptop>
+	 <CAO_aot6j2TPe9yxnA1ktMQsfnnWF1XwmCrQUmCcfOqCqbc6dZA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Arun Murthy <arun.murthy@stericsson.com>
-To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-doc@vger.kernel.org>, <gregkh@linuxfoundation.org>,
-	<alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jan Hinnerk Stosch <janhinnerk.stosch@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:50913 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752281Ab2JOFmh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 01:42:37 -0400
+Received: by mail-wi0-f178.google.com with SMTP id hr7so1599410wib.1
+        for <netdev@vger.kernel.org>; Sun, 14 Oct 2012 22:42:35 -0700 (PDT)
+In-Reply-To: <CAO_aot6j2TPe9yxnA1ktMQsfnnWF1XwmCrQUmCcfOqCqbc6dZA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In u8500 platform the communication between the APE(Application Processor) and
-the modem subsystem(CMT) is by means of a shared DDR. The series of patches
-include a protocol called ShaRed Memory(SHRM) protocol for communicating
-between the APE and the CMT.
-Interrupt generation registers in CMT and PRCMU on APE side are used to support
-the shrm protocol.
+On Mon, 2012-10-15 at 00:11 +0200, Jan Hinnerk Stosch wrote:
+> 2012/10/15 Eric Dumazet <eric.dumazet@gmail.com>:
+> > Please add -f to follow children
+> >
+> > strace -o /tmp/STRACE -f /usr/bin/ntpd -g -u ntp:ntp
+> >
+> >
+> 
+> Ok, done.
 
-v2 - Included netdev mailing list
-v3 - Implemented comments from Alan Cox and Greg KH
-v4 - Re-worked on the ModemAccessFramework(MAF) part
-v5 - Added kernel doc for exported functions in MAF.
+# grep bind STRACE
 
-Arun Murthy (4):
-  modem_shm: Add Modem Access Framework
-  modem_shm: Register u8500 client for MAF
-  modem_shm: u8500-shm: U8500 Shared Memory Driver
-  Doc: Add u8500_shrm document
 
- Documentation/DocBook/Makefile              |    2 +-
- Documentation/DocBook/shrm.tmpl             |  125 +++
- Documentation/modem_shm/u8500_shrm.txt      |  254 +++++
- drivers/Kconfig                             |    2 +
- drivers/Makefile                            |    1 +
- drivers/modem_shm/Kconfig                   |   22 +
- drivers/modem_shm/Makefile                  |    3 +
- drivers/modem_shm/modem_access.c            |  413 +++++++
- drivers/modem_shm/modem_u8500.c             |   96 ++
- drivers/modem_shm/u8500_shm/Kconfig         |   43 +
- drivers/modem_shm/u8500_shm/Makefile        |    7 +
- drivers/modem_shm/u8500_shm/shrm.h          |   23 +
- drivers/modem_shm/u8500_shm/shrm_char.c     |  816 ++++++++++++++
- drivers/modem_shm/u8500_shm/shrm_config.h   |  114 ++
- drivers/modem_shm/u8500_shm/shrm_driver.c   |  733 ++++++++++++
- drivers/modem_shm/u8500_shm/shrm_driver.h   |  226 ++++
- drivers/modem_shm/u8500_shm/shrm_fifo.c     |  838 ++++++++++++++
- drivers/modem_shm/u8500_shm/shrm_ioctl.h    |   43 +
- drivers/modem_shm/u8500_shm/shrm_net.c      |  313 ++++++
- drivers/modem_shm/u8500_shm/shrm_net.h      |   46 +
- drivers/modem_shm/u8500_shm/shrm_private.h  |  184 +++
- drivers/modem_shm/u8500_shm/shrm_protocol.c | 1591 +++++++++++++++++++++++++++
- include/linux/modem_shm/modem.h             |   64 ++
- include/linux/modem_shm/modem_client.h      |   55 +
- 24 files changed, 6013 insertions(+), 1 deletions(-)
- create mode 100644 Documentation/DocBook/shrm.tmpl
- create mode 100644 Documentation/modem_shm/u8500_shrm.txt
- create mode 100644 drivers/modem_shm/Kconfig
- create mode 100644 drivers/modem_shm/Makefile
- create mode 100644 drivers/modem_shm/modem_access.c
- create mode 100644 drivers/modem_shm/modem_u8500.c
- create mode 100644 drivers/modem_shm/u8500_shm/Kconfig
- create mode 100644 drivers/modem_shm/u8500_shm/Makefile
- create mode 100644 drivers/modem_shm/u8500_shm/shrm.h
- create mode 100644 drivers/modem_shm/u8500_shm/shrm_char.c
- create mode 100644 drivers/modem_shm/u8500_shm/shrm_config.h
- create mode 100644 drivers/modem_shm/u8500_shm/shrm_driver.c
- create mode 100644 drivers/modem_shm/u8500_shm/shrm_driver.h
- create mode 100644 drivers/modem_shm/u8500_shm/shrm_fifo.c
- create mode 100644 drivers/modem_shm/u8500_shm/shrm_ioctl.h
- create mode 100644 drivers/modem_shm/u8500_shm/shrm_net.c
- create mode 100644 drivers/modem_shm/u8500_shm/shrm_net.h
- create mode 100644 drivers/modem_shm/u8500_shm/shrm_private.h
- create mode 100644 drivers/modem_shm/u8500_shm/shrm_protocol.c
- create mode 100644 include/linux/modem_shm/modem.h
- create mode 100644 include/linux/modem_shm/modem_client.h
 
--- 
-1.7.4.3
+12928 bind(16, {sa_family=AF_INET, sin_port=htons(123), sin_addr=inet_addr("0.0.0.0")}, 16) = 0
+12928 bind(17, {sa_family=AF_INET6, sin6_port=htons(123), inet_pton(AF_INET6, "::", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, 28) = 0
+
+(These two binds are the wildcards to drop ipv4/ipv6 packets sent on other addresses than
+ the following :)
+
+12928 bind(18, {sa_family=AF_INET, sin_port=htons(123), sin_addr=inet_addr("127.0.0.1")}, 16) = 0
+12928 bind(19, {sa_family=AF_INET, sin_port=htons(123), sin_addr=inet_addr("192.168.178.27")}, 16) = 0
+12928 bind(20, {sa_family=AF_INET6, sin6_port=htons(123), inet_pton(AF_INET6, "fe80::922b:34ff:fe33:c292", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=if_nametoindex("eth0")}, 28) = 0
+12928 bind(21, {sa_family=AF_NETLINK, pid=0, groups=00000771}, 12) = 0
+
+So ntpd doesnt listen on ntp messages sent on ::1
