@@ -1,80 +1,84 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v6 08/10] IPC: message queue receive cleanup
-Date: Mon, 15 Oct 2012 21:03:23 +0100
-Message-ID: <1350331403.2819.25.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20121015155800.28348.23561.stgit@localhost.localdomain>
-	 <20121015160017.28348.44238.stgit@localhost.localdomain>
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: Re: [PATCH 1/1] dev_change_net_namespace: send a KOBJ_REMOVED/KOBJ_ADD
+Date: Mon, 15 Oct 2012 22:14:17 +0200
+Message-ID: <507C6E99.7090906@free.fr>
+References: <20121015174726.GA15435@sergelap>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: <akpm@linux-foundation.org>, <catalin.marinas@arm.com>,
-	<will.deacon@arm.com>, <dhowells@redhat.com>,
-	<manfred@colorfullife.com>, <hughd@google.com>,
-	<jmorris@namei.org>, <mtk.manpages@gmail.com>,
-	<kosaki.motohiro@jp.fujitsu.com>, <paulmck@linux.vnet.ibm.com>,
-	<sds@tycho.nsa.gov>, <devel@openvz.org>, <a.p.zijlstra@chello.nl>,
-	<cmetcalf@tilera.com>, <linux-driver@qlogic.com>,
-	<ron.mercer@qlogic.com>, <viro@zeniv.linux.org.uk>,
-	<eparis@parisplace.org>, <tglx@linutronix.de>,
-	<jitendra.kalsaria@qlogic.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	<linux-security-module@vger.kernel.org>, <ebiederm@xmission.com>,
-	<casey@schaufler-ca.com>
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20121015160017.28348.44238.stgit@localhost.localdomain>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Daniel Lezcano <dlezcano@free.fr>,
+	containers@lists.linux-foundation.org,
+	Stefan Bader <stefan.bader@canonical.com>,
+	=?ISO-8859-1?Q?St=E9phane_Graber?= <stephane.graber@canonical.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Dan Kegel <dank@kegel.com>, lxc-users@lists.sourceforge.net
+To: Serge Hallyn <serge.hallyn@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1-g21.free.fr ([212.27.42.1]:48770 "EHLO smtp1-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932092Ab2JOUOh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2012 16:14:37 -0400
+In-Reply-To: <20121015174726.GA15435@sergelap>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-10-15 at 20:00 +0400, Stanislav Kinsbursky wrote:
-> This patch moves all message related manipulation into one function msg_fill().
-> Actually, two functions because of the compat one.
-> 
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+On 10/15/2012 07:47 PM, Serge Hallyn wrote:
+> When a new nic is created in namespace ns1, the kernel sends a KOBJ_ADD uevent
+> to ns1.  When the nic is moved to ns2, we only send a KOBJ_MOVE to ns2, and
+> nothing to ns1.
+>
+> This patch changes that behavior so that when moving a nic from ns1 to ns2, we
+> send a KOBJ_REMOVED to ns1 and KOBJ_ADD to ns2.  (The KOBJ_MOVE is still
+> sent to ns2).
+>
+> The effects of this can be seen when starting and stopping containers in
+> an upstart based host.  Lxc will create a pair of veth nics, the kernel
+> sends KOBJ_ADD, and upstart starts network-instance jobs for each.  When
+> one nic is moved to the container, because no KOBJ_REMOVED event is
+> received, the network-instance job for that veth never goes away.  This
+> was reported at https://bugs.launchpad.net/ubuntu/+source/lxc/+bug/1065589
+> With this patch the networ-instance jobs properly go away.
+>
+> The other oddness solved here is that if a nic is passed into a running
+> upstart-based container, without this patch no network-instance job is
+> started in the container.  But when the container creates a new nic
+> itself (ip link add new type veth) then network-interface jobs are
+> created.  With this patch, behavior comes in line with a regular host.
+>
+> v2: also send KOBJ_ADD to new netns.  There will then be a
+> _MOVE event from the device_rename() call, but that should
+> be innocuous.
+>
+> Signed-off-by: Serge Hallyn <serge.hallyn@canonical.com>
+> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+
+Acked-by: Daniel Lezcano <daniel.lezcano@free.fr>
+
 > ---
->  include/linux/msg.h |    5 +++--
->  ipc/compat.c        |   36 +++++++++++++++++++-----------------
->  ipc/msg.c           |   44 +++++++++++++++++++++++---------------------
->  3 files changed, 45 insertions(+), 40 deletions(-)
-> 
-> diff --git a/include/linux/msg.h b/include/linux/msg.h
-> index 7a4b9e9..f38edba 100644
-> --- a/include/linux/msg.h
-> +++ b/include/linux/msg.h
-> @@ -34,7 +34,8 @@ struct msg_queue {
->  /* Helper routines for sys_msgsnd and sys_msgrcv */
->  extern long do_msgsnd(int msqid, long mtype, void __user *mtext,
->  			size_t msgsz, int msgflg);
-> -extern long do_msgrcv(int msqid, long *pmtype, void __user *mtext,
-> -			size_t msgsz, long msgtyp, int msgflg);
-> +extern long do_msgrcv(int msqid, void __user *buf, size_t bufsz, long msgtyp,
-> +		      int msgflg,
-> +		      long (*msg_fill)(void __user *, struct msg_msg *, size_t ));
+>  net/core/dev.c |    6 ++++++
+>  1 file changed, 6 insertions(+)
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index e2215ee..2c43aaf 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -6172,6 +6172,9 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+>  	dev_uc_flush(dev);
+>  	dev_mc_flush(dev);
 >  
->  #endif /* _LINUX_MSG_H */
-> diff --git a/ipc/compat.c b/ipc/compat.c
-> index 84d8efd..b879d50 100644
-> --- a/ipc/compat.c
-> +++ b/ipc/compat.c
-[...]
-> @@ -394,7 +395,8 @@ long compat_sys_msgrcv(int msqid, struct compat_msgbuf __user *msgp,
->  {
->  	long err, mtype;
+> +	/* Send a netdev-removed uevent to the old namespace */
+> +	kobject_uevent(&dev->dev.kobj, KOBJ_REMOVE);
+> +
+>  	/* Actually switch the network namespace */
+>  	dev_net_set(dev, net);
 >  
-> -	err =  do_msgrcv(msqid, &mtype, msgp->mtext, (ssize_t)msgsz, msgtyp, msgflg);
-> +	err =  do_msgrcv(msqid, &mtype, msgp->mtext, (ssize_t)msgsz, msgtyp,
-> +			 msgflg, compat_do_msg_fill);
->  	if (err < 0)
->  		goto out;
+> @@ -6183,6 +6186,9 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+>  			dev->iflink = dev->ifindex;
+>  	}
 >  
-[...]
-
-That isn't even the right number of arguments now...
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+> +	/* Send a netdev-add uevent to the new namespace */
+> +	kobject_uevent(&dev->dev.kobj, KOBJ_ADD);
+> +
+>  	/* Fixup kobjects */
+>  	err = device_rename(&dev->dev, dev->name);
+>  	WARN_ON(err);
