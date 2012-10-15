@@ -1,48 +1,54 @@
-From: Jon Stanley <jstanley@rmrf.net>
-Subject: Re: [patch net] vlan: fix bond/team enslave of vlan challenged slave/port
-Date: Mon, 15 Oct 2012 10:53:30 -0400
-Message-ID: <CAJtaB1ugcEp13LYX6yJL0DX4EVX53h7MyumzRGDLZ_u8fyu_WA@mail.gmail.com>
-References: <1350225056-14144-1-git-send-email-jiri@resnulli.us>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] sctp: fix call to SCTP_CMD_PROCESS_SACK in sctp_cmd_interpreter()
+Date: Mon, 15 Oct 2012 11:40:38 -0400
+Message-ID: <507C2E76.3030801@gmail.com>
+References: <1350309399-23422-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, davem@davemloft.net, fubar@us.ibm.com,
-	andy@greyhouse.net, kaber@trash.net
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	Zijie Pan <zijie.pan@6wind.com>
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:58062 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750872Ab2JOOxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 10:53:31 -0400
-Received: by mail-qa0-f46.google.com with SMTP id c26so1340710qad.19
-        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 07:53:30 -0700 (PDT)
-In-Reply-To: <1350225056-14144-1-git-send-email-jiri@resnulli.us>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:43264 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750872Ab2JOPkm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 11:40:42 -0400
+In-Reply-To: <1350309399-23422-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 14, 2012 at 10:30 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+On 10/15/2012 09:56 AM, nicolas.dichtel@6wind.com wrote:
+> From: Zijie Pan <zijie.pan@6wind.com>
+>
+> Bug introduced by commit edfee0339e681a784ebacec7e8c2dc97dc6d2839
+> (sctp: check src addr when processing SACK to update transport state)
+>
+> Signed-off-by: Zijie Pan <zijie.pan@6wind.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-> In vlan_uses_dev() check for number of vlan devs rather than existence
-> of vlan_info. The reason is that vlan id 0 is there without appropriate
-> vlan dev on it by default which prevented from enslaving vlan challenged
-> dev.
+Shutdown case..  ACK.
 
-Thanks for the patch!
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-However, I'm now running into a new issue. Note that I've backported
-this to an older kernel (3.3.2, eww), but I don't *think* that matters
-for this. Now I'm getting a "refused to change device type" which
-looks like it comes from around here:
 
-                        res = netdev_bonding_change(bond_dev,
-                                                    NETDEV_PRE_TYPE_CHANGE);
-                        res = notifier_to_errno(res);
-                        if (res) {
-                                pr_err("%s: refused to change device type\n",
-                                       bond_dev->name);
-
-I'm not quite smart enough to figure out what's going on here. FWIW,
-looking back in history it looks like the only relevant change from
-here to mainline is the replacement of netdev_bonding_change() with
-direct calls to call_netdevice_notifiers().
-
-Again, .let me know if more info is needed, and thanks for the quick response!
+> ---
+>   net/sctp/sm_sideeffect.c | 3 ++-
+>   1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> index 57f7de8..6773d78 100644
+> --- a/net/sctp/sm_sideeffect.c
+> +++ b/net/sctp/sm_sideeffect.c
+> @@ -1642,8 +1642,9 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
+>   					asoc->outqueue.outstanding_bytes;
+>   			sackh.num_gap_ack_blocks = 0;
+>   			sackh.num_dup_tsns = 0;
+> +			chunk->subh.sack_hdr = &sackh;
+>   			sctp_add_cmd_sf(commands, SCTP_CMD_PROCESS_SACK,
+> -					SCTP_SACKH(&sackh));
+> +					SCTP_CHUNK(chunk));
+>   			break;
+>
+>   		case SCTP_CMD_DISCARD_PACKET:
+>
