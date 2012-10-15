@@ -1,7 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 0/7] support the cpts found on am335x devices
-Date: Mon, 15 Oct 2012 21:48:06 +0200
-Message-ID: <cover.1350329726.git.richardcochran@gmail.com>
+Subject: [PATCH V2 1/7] cpsw: rename register banks to match the reference manual
+Date: Mon, 15 Oct 2012 21:48:07 +0200
+Message-ID: <7202ed077758e53bd49d818a3b90755a0db752c8.1350329726.git.richardcochran@gmail.com>
+References: <cover.1350329726.git.richardcochran@gmail.com>
 Cc: <linux-arm-kernel@lists.infradead.org>,
 	David Miller <davem@davemloft.net>,
 	Cyril Chemparathy <cyril@ti.com>,
@@ -9,62 +10,90 @@ Cc: <linux-arm-kernel@lists.infradead.org>,
 	Sriramakrishnan A G <srk@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:48587 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753893Ab2JOTsj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 15:48:39 -0400
-Received: by mail-wg0-f44.google.com with SMTP id dr13so4753829wgb.1
-        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 12:48:38 -0700 (PDT)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:64148 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753893Ab2JOTst (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 15:48:49 -0400
+Received: by mail-wi0-f178.google.com with SMTP id hr7so2548396wib.1
+        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 12:48:48 -0700 (PDT)
+In-Reply-To: <cover.1350329726.git.richardcochran@gmail.com>
+In-Reply-To: <cover.1350329726.git.richardcochran@gmail.com>
+References: <cover.1350329726.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series, based on linux-3.7-rc1 plus the fixes I posted
-today, adds support for the Common Platform Time Sync (CPTS) found on
-the popular BeagleBone. The code enables hardware time stamping and a
-PTP Hardware Clock.
+The code mixes up the CPSW_SS and the CPSW_WR register naming. This patch
+changes the names to conform to the published Technical Reference Manual
+from TI, in order to make working on the code less confusing.
 
-Changes in V2
-   - Now uses device tree
-   - Actually works with vanilla kernel
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+---
+ drivers/net/ethernet/ti/cpsw.c |   18 +++++++++---------
+ 1 files changed, 9 insertions(+), 9 deletions(-)
 
-This work has been tested using the linuxptp PTP stack, and it seems
-to be working quite well. One limitation of the hardware is that not
-possible to adjust the clock frequency. Even without with this
-capability, the driver will be still be useful for 802.1AS
-applications, since they typically use a free running clock.
-
-There is one open issue with this driver which will hopefully soon be
-resolved. Time stamping only works on UDP packets. Although Layer 2 is
-supposed to work according to the TRM, I have not yet figured out
-how. The UDP only works when setting an undocumented bit, so maybe
-someone from TI can fill me in on this.
-
-Thanks,
-Richard
-
-
-Richard Cochran (7):
-  cpsw: rename register banks to match the reference manual
-  cpsw: add missing fields to the CPSW_SS register bank.
-  cpsw: correct the CPSW_PORT register bank declaration
-  cpsw: add a common header file for regsiter declarations
-  cpts: introduce time stamping code and a PTP hardware clock.
-  cpsw: add a DT field for the cpts offset
-  cpsw: use the time stamping capabilities of the cpts
-
- Documentation/devicetree/bindings/net/cpsw.txt |   11 +-
- arch/arm/boot/dts/am33xx.dtsi                  |    5 +-
- drivers/net/ethernet/ti/Kconfig                |    8 +
- drivers/net/ethernet/ti/Makefile               |    2 +-
- drivers/net/ethernet/ti/cpsw.c                 |   84 ++++-
- drivers/net/ethernet/ti/cpsw_reg.h             |   81 ++++
- drivers/net/ethernet/ti/cpts.c                 |  468 ++++++++++++++++++++++++
- drivers/net/ethernet/ti/cpts.h                 |  148 ++++++++
- include/linux/platform_data/cpsw.h             |    1 +
- 9 files changed, 788 insertions(+), 20 deletions(-)
- create mode 100644 drivers/net/ethernet/ti/cpsw_reg.h
- create mode 100644 drivers/net/ethernet/ti/cpts.c
- create mode 100644 drivers/net/ethernet/ti/cpts.h
-
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index fb1a692..3568b46 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -129,7 +129,7 @@ static int rx_packet_max = CPSW_MAX_PACKET_SIZE;
+ module_param(rx_packet_max, int, 0);
+ MODULE_PARM_DESC(rx_packet_max, "maximum receive packet size (bytes)");
+ 
+-struct cpsw_ss_regs {
++struct cpsw_wr_regs {
+ 	u32	id_ver;
+ 	u32	soft_reset;
+ 	u32	control;
+@@ -140,7 +140,7 @@ struct cpsw_ss_regs {
+ 	u32	misc_en;
+ };
+ 
+-struct cpsw_regs {
++struct cpsw_ss_regs {
+ 	u32	id_ver;
+ 	u32	control;
+ 	u32	soft_reset;
+@@ -202,8 +202,8 @@ struct cpsw_priv {
+ 	struct napi_struct		napi;
+ 	struct device			*dev;
+ 	struct cpsw_platform_data	data;
+-	struct cpsw_regs __iomem	*regs;
+-	struct cpsw_ss_regs __iomem	*ss_regs;
++	struct cpsw_ss_regs __iomem	*regs;
++	struct cpsw_wr_regs __iomem	*wr_regs;
+ 	struct cpsw_host_regs __iomem	*host_port_regs;
+ 	u32				msg_enable;
+ 	struct net_device_stats		stats;
+@@ -230,8 +230,8 @@ struct cpsw_priv {
+ 
+ static void cpsw_intr_enable(struct cpsw_priv *priv)
+ {
+-	__raw_writel(0xFF, &priv->ss_regs->tx_en);
+-	__raw_writel(0xFF, &priv->ss_regs->rx_en);
++	__raw_writel(0xFF, &priv->wr_regs->tx_en);
++	__raw_writel(0xFF, &priv->wr_regs->rx_en);
+ 
+ 	cpdma_ctlr_int_ctrl(priv->dma, true);
+ 	return;
+@@ -239,8 +239,8 @@ static void cpsw_intr_enable(struct cpsw_priv *priv)
+ 
+ static void cpsw_intr_disable(struct cpsw_priv *priv)
+ {
+-	__raw_writel(0, &priv->ss_regs->tx_en);
+-	__raw_writel(0, &priv->ss_regs->rx_en);
++	__raw_writel(0, &priv->wr_regs->tx_en);
++	__raw_writel(0, &priv->wr_regs->rx_en);
+ 
+ 	cpdma_ctlr_int_ctrl(priv->dma, false);
+ 	return;
+@@ -984,7 +984,7 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
+ 		dev_err(priv->dev, "unable to map i/o region\n");
+ 		goto clean_cpsw_ss_iores_ret;
+ 	}
+-	priv->ss_regs = regs;
++	priv->wr_regs = regs;
+ 
+ 	for_each_slave(priv, cpsw_slave_init, priv);
+ 
 -- 
 1.7.2.5
