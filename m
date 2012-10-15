@@ -1,103 +1,58 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH 2/5] ARM: OMAP3+: hwmod: Add AM33XX HWMOD data for davinci_mdio
-Date: Mon, 15 Oct 2012 21:16:32 +0200
-Message-ID: <c048044c10b5712e25d190a0ae1dfee3155f81f7.1350327325.git.richardcochran@gmail.com>
+Subject: [PATCH 3/5] net: davinci_mdio: Fix type mistake in calling runtime-pm api
+Date: Mon, 15 Oct 2012 21:16:33 +0200
+Message-ID: <62191bdcb85ab48f5ea16fe69c2f92aa9e9a0a8b.1350327325.git.richardcochran@gmail.com>
 References: <cover.1350327320.git.richardcochran@gmail.com>
 Cc: <linux-arm-kernel@lists.infradead.org>,
 	Arnd Bergmann <arnd@arndb.de>,
 	David Miller <davem@davemloft.net>,
 	Russell King <linux@arm.linux.org.uk>,
+	Vaibhav Hiremath <hvaibhav@ti.com>,
 	Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:60571 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754488Ab2JOTQ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 15:16:56 -0400
-Received: by mail-wi0-f172.google.com with SMTP id hq12so2528454wib.1
-        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 12:16:55 -0700 (PDT)
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:38472 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754488Ab2JOTQ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 15:16:59 -0400
+Received: by mail-wi0-f170.google.com with SMTP id hm2so447495wib.1
+        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 12:16:58 -0700 (PDT)
 In-Reply-To: <cover.1350327320.git.richardcochran@gmail.com>
 In-Reply-To: <cover.1350327320.git.richardcochran@gmail.com>
 References: <cover.1350327320.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
+From: Vaibhav Hiremath <hvaibhav@ti.com>
 
-This patch adds minimal hwmod support for davinci mdio driver. This patch
-requires rework on parent child relation between cpsw and davinci mdio
-hwmod data to support runtime PM.
+By mistake (most likely a copy-paste), instead of pm_runtime_get_sync()
+api, driver is calling pm_runtime_put_sync() api in resume callback
+function. The bug was introduced by commit id (ae2c07aaf74:
+davinci_mdio: runtime PM support).
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+Now, the reason why it didn't impact functionality is, the patch has
+been tested on AM335x-EVM and BeagleBone platform while submitting;
+and in case of AM335x the MDIO driver doesn't control the module
+enable/disable part, which is handled by CPSW driver.
+
+Signed-off-by: Vaibhav Hiremath <hvaibhav@ti.com>
+Cc: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- arch/arm/mach-omap2/omap_hwmod_33xx_data.c |   34 ++++++++++++++++++++++++++-
- 1 files changed, 32 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/ti/davinci_mdio.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/arch/arm/mach-omap2/omap_hwmod_33xx_data.c b/arch/arm/mach-omap2/omap_hwmod_33xx_data.c
-index 59d5c1c..f96bbc0 100644
---- a/arch/arm/mach-omap2/omap_hwmod_33xx_data.c
-+++ b/arch/arm/mach-omap2/omap_hwmod_33xx_data.c
-@@ -650,8 +650,7 @@ static struct omap_hwmod_class_sysconfig am33xx_cpgmac_sysc = {
- 	.rev_offs	= 0x0,
- 	.sysc_offs	= 0x8,
- 	.syss_offs	= 0x4,
--	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_MIDLEMODE |
--			   SYSS_HAS_RESET_STATUS),
-+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_MIDLEMODE),
- 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | MSTANDBY_FORCE |
- 			   MSTANDBY_NO),
- 	.sysc_fields	= &omap_hwmod_sysc_type3,
-@@ -682,6 +681,8 @@ static struct omap_hwmod am33xx_cpgmac0_hwmod = {
- 			.modulemode	= MODULEMODE_SWCTRL,
- 		},
- 	},
-+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY |
-+			   HWMOD_INIT_NO_RESET | HWMOD_INIT_NO_IDLE),
- };
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index 51a96db..ae74280 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -465,7 +465,7 @@ static int davinci_mdio_resume(struct device *dev)
+ 	u32 ctrl;
  
- /*
-@@ -2510,6 +2511,34 @@ static struct omap_hwmod_addr_space am33xx_elm_addr_space[] = {
- 	{ }
- };
+ 	spin_lock(&data->lock);
+-	pm_runtime_put_sync(data->dev);
++	pm_runtime_get_sync(data->dev);
  
-+/* mdio class */
-+static struct omap_hwmod_class am33xx_mdio_hwmod_class = {
-+	.name		= "davinci_mdio",
-+};
-+
-+struct omap_hwmod_addr_space am33xx_mdio_addr_space[] = {
-+	{
-+		.pa_start	= 0x4A101000,
-+		.pa_end		= 0x4A101000 + SZ_256 - 1,
-+		.flags		= ADDR_MAP_ON_INIT,
-+	},
-+	{ }
-+};
-+
-+static struct omap_hwmod am33xx_mdio_hwmod = {
-+	.name		= "davinci_mdio",
-+	.class		= &am33xx_mdio_hwmod_class,
-+	.clkdm_name	= "cpsw_125mhz_clkdm",
-+	.main_clk	= "cpsw_125mhz_gclk",
-+};
-+
-+struct omap_hwmod_ocp_if am33xx_cpgmac0__mdio = {
-+	.master		= &am33xx_cpgmac0_hwmod,
-+	.slave		= &am33xx_mdio_hwmod,
-+	.addr		= am33xx_mdio_addr_space,
-+	.user		= OCP_USER_MPU,
-+};
-+
- static struct omap_hwmod_ocp_if am33xx_l4_ls__elm = {
- 	.master		= &am33xx_l4_ls_hwmod,
- 	.slave		= &am33xx_elm_hwmod,
-@@ -3371,6 +3400,7 @@ static struct omap_hwmod_ocp_if *am33xx_hwmod_ocp_ifs[] __initdata = {
- 	&am33xx_l3_main__tptc2,
- 	&am33xx_l3_s__usbss,
- 	&am33xx_l4_hs__cpgmac0,
-+	&am33xx_cpgmac0__mdio,
- 	NULL,
- };
- 
+ 	/* restart the scan state machine */
+ 	ctrl = __raw_readl(&data->regs->control);
 -- 
 1.7.2.5
