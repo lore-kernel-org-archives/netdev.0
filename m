@@ -1,51 +1,43 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH for-3.7] vhost: fix mergeable bufs on BE hosts
-Date: Mon, 15 Oct 2012 19:55:34 +0200
-Message-ID: <20121015175534.GA19489@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v6 06/10] glge driver: rename internal SEM_SET macro to
+ SEM_INIT
+Date: Mon, 15 Oct 2012 19:28:13 +0100
+Message-ID: <1350325693.2819.19.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20121015155800.28348.23561.stgit@localhost.localdomain>
+	 <20121015160006.28348.79520.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Alexander Graf <agraf@suse.de>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: <akpm@linux-foundation.org>, <catalin.marinas@arm.com>,
+	<will.deacon@arm.com>, <dhowells@redhat.com>,
+	<manfred@colorfullife.com>, <hughd@google.com>,
+	<jmorris@namei.org>, <mtk.manpages@gmail.com>,
+	<kosaki.motohiro@jp.fujitsu.com>, <paulmck@linux.vnet.ibm.com>,
+	<sds@tycho.nsa.gov>, <devel@openvz.org>, <a.p.zijlstra@chello.nl>,
+	<cmetcalf@tilera.com>, <linux-driver@qlogic.com>,
+	<ron.mercer@qlogic.com>, <viro@zeniv.linux.org.uk>,
+	<eparis@parisplace.org>, <tglx@linutronix.de>,
+	<jitendra.kalsaria@qlogic.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-security-module@vger.kernel.org>, <ebiederm@xmission.com>,
+	<casey@schaufler-ca.com>
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20121015160006.28348.79520.stgit@localhost.localdomain>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We copy head count to a 16 bit field,
-this works by chance on LE but on BE
-guest gets 0. Fix it up.
+On Mon, 2012-10-15 at 20:00 +0400, Stanislav Kinsbursky wrote:
+> The reason for shit patch is that SET_SET is desired to be a part of new part
+> of API of IPC sys_semctl() system call.
+[...]
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Tested-by: Alexander Graf <agraf@suse.de>
-Cc: stable@kernel.org
+Two spelling errors above. :-)
 
----
- drivers/vhost/net.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Ben.
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 9ab6d47..2bb463c 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -448,7 +448,8 @@ static void handle_rx(struct vhost_net *net)
- 		.hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE
- 	};
- 	size_t total_len = 0;
--	int err, headcount, mergeable;
-+	int err, mergeable;
-+	s16 headcount;
- 	size_t vhost_hlen, sock_hlen;
- 	size_t vhost_len, sock_len;
- 	/* TODO: check that we are running from vhost_worker? */
 -- 
-MST
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
