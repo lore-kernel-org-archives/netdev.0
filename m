@@ -1,83 +1,62 @@
-From: Rodolfo Giometti <giometti@linux.it>
-Subject: [PATCH] net dsa: add TX timestamping support
-Date: Mon, 15 Oct 2012 15:33:27 +0200
-Message-ID: <1350308008-17189-3-git-send-email-giometti@linux.it>
-References: <1350308008-17189-1-git-send-email-giometti@linux.it>
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
-	Rodolfo Giometti <giometti@linux.it>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip-196-116.sn1.eutelia.it ([62.94.196.116]:13955 "EHLO
-	goldrake.enneenne.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753577Ab2JONyq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 09:54:46 -0400
-In-Reply-To: <1350308008-17189-1-git-send-email-giometti@linux.it>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Subject: Re: [PATCH 01/12] usbnet: introduce usbnet 3 command helpers
+Date: Mon, 15 Oct 2012 10:27:19 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1210151018260.1702-100000@iolanthe.rowland.org>
+References: <15188898.QK0YCDZ0MW@linux-lqwf.site>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<jkosina-IBi9RG/b67k@public.gmane.org>
+To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <15188898.QK0YCDZ0MW-ugxBuEnWX9yG/4A2pS7c2Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Rodolfo Giometti <giometti@linux.it>
----
- net/dsa/tag_dsa.c     |    8 ++++++++
- net/dsa/tag_edsa.c    |    8 ++++++++
- net/dsa/tag_trailer.c |    8 ++++++++
- 3 files changed, 24 insertions(+)
+On Mon, 15 Oct 2012, Oliver Neukum wrote:
 
-diff --git a/net/dsa/tag_dsa.c b/net/dsa/tag_dsa.c
-index cacce1e..20c2959 100644
---- a/net/dsa/tag_dsa.c
-+++ b/net/dsa/tag_dsa.c
-@@ -24,6 +24,14 @@ netdev_tx_t dsa_xmit(struct sk_buff *skb, struct net_device *dev)
- 	dev->stats.tx_packets++;
- 	dev->stats.tx_bytes += skb->len;
- 
-+	/* We should call skb_tx_timestamp() at bottom of this function,
-+	 * just before dev_queue_xmit(), but the skb is going to be
-+	 * modified by DSA stack so it is going to be NOT recognized
-+	 * by the ptp_filter called into function skb_clone_tx_timestamp()
-+	 * [see file linux/net/core/timestamping.c].
-+	 */
-+	skb_tx_timestamp(skb);
-+
- 	/*
- 	 * Convert the outermost 802.1q tag to a DSA tag for tagged
- 	 * packets, or insert a DSA tag between the addresses and
-diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
-index e70c43c..9138bda 100644
---- a/net/dsa/tag_edsa.c
-+++ b/net/dsa/tag_edsa.c
-@@ -25,6 +25,14 @@ netdev_tx_t edsa_xmit(struct sk_buff *skb, struct net_device *dev)
- 	dev->stats.tx_packets++;
- 	dev->stats.tx_bytes += skb->len;
- 
-+	/* We should call skb_tx_timestamp() at bottom of this function,
-+	 * just before dev_queue_xmit(), but the skb is going to be
-+	 * modified by DSA stack so it is going to be NOT recognized
-+	 * by the ptp_filter called into function skb_clone_tx_timestamp()
-+	 * [see file linux/net/core/timestamping.c].
-+	 */
-+	skb_tx_timestamp(skb);
-+
- 	/*
- 	 * Convert the outermost 802.1q tag to a DSA tag and prepend
- 	 * a DSA ethertype field is the packet is tagged, or insert
-diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
-index 94bc260..b92cad2 100644
---- a/net/dsa/tag_trailer.c
-+++ b/net/dsa/tag_trailer.c
-@@ -24,6 +24,14 @@ netdev_tx_t trailer_xmit(struct sk_buff *skb, struct net_device *dev)
- 	dev->stats.tx_packets++;
- 	dev->stats.tx_bytes += skb->len;
- 
-+	/* We should call skb_tx_timestamp() at bottom of this function,
-+	 * just before dev_queue_xmit(), but the skb is going to be
-+	 * modified by DSA stack so it is going to be NOT recognized
-+	 * by the ptp_filter called into function skb_clone_tx_timestamp()
-+	 * [see file linux/net/core/timestamping.c].
-+	 */
-+	skb_tx_timestamp(skb);
-+
- 	/*
- 	 * We have to make sure that the trailer ends up as the very
- 	 * last 4 bytes of the packet.  This means that we have to pad
--- 
-1.7.9.5
+> On Friday 12 October 2012 11:29:49 Alan Stern wrote:
+> > On Fri, 12 Oct 2012, Oliver Neukum wrote:
+> 
+> > > First we have workqueues. bas-gigaset is a good example.
+> > > The driver kills a scheduled work in pre_reset(). If this is done synchronously
+> > > the driver may need to wait for a memory allocation inside the work.
+> > > In principle we could provide a workqueue limited to GFP_NOIO. Is that worth
+> > > it, or do we just check?
+> > 
+> > The work routine could set the GFP mask upon entry and exit.  Then a 
+> > separate workqueue wouldn't be needed.
+> 
+> Well, yes. But if we have to touch the code we might just as well use GFP-NOIO
+
+Depends on what the code does.  If it does very little requiring memory 
+allocation then yes, you could simply use GFP_NOIO.  But if it calls 
+lots of other routines that all do their own allocation, setting the 
+mask will be better.
+
+> > > I am afraid there is no generic solution in the last two cases. What do you think?
+> > 
+> > The other contexts must also set the GFP mask.  Unfortunately, this has 
+> > to be done case-by-case.
+> 
+> This raises a question. If we do the port-power-off stuff, does reset_resume() of every
+> device under the depowered port have to be called?
+
+Certainly.
+
+>  If so, we cannot exclude vendor
+> specific drivers from the audit, can we?
+
+True.  But hasn't that always been the case?  A device could need a 
+vendor-specific driver for one interface while another interface uses a 
+standard mass-storage protocol.
+
+Alan Stern
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
