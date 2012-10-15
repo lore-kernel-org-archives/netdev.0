@@ -1,110 +1,133 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH 4/5] net: cpsw: Add parent<->child relation support between cpsw and mdio
-Date: Mon, 15 Oct 2012 21:16:34 +0200
-Message-ID: <9a4368fa1264f573072544a34169a3f0f8797989.1350327325.git.richardcochran@gmail.com>
+Subject: [PATCH 5/5] arm/dts: am33xx: Add cpsw and mdio module nodes for AM33XX
+Date: Mon, 15 Oct 2012 21:16:35 +0200
+Message-ID: <b4d88ef79fb0dec95bb598aaf1f15f0a7344c435.1350327325.git.richardcochran@gmail.com>
 References: <cover.1350327320.git.richardcochran@gmail.com>
 Cc: <linux-arm-kernel@lists.infradead.org>,
 	Arnd Bergmann <arnd@arndb.de>,
 	David Miller <davem@davemloft.net>,
 	Russell King <linux@arm.linux.org.uk>,
-	Vaibhav Hiremath <hvaibhav@ti.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Vaibhav Hiremath <hvaibhav@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:55767 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754488Ab2JOTRG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 15:17:06 -0400
-Received: by mail-wi0-f178.google.com with SMTP id hr7so2514895wib.1
-        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 12:17:05 -0700 (PDT)
+Received: from mail-we0-f174.google.com ([74.125.82.174]:35115 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754488Ab2JOTRT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 15:17:19 -0400
+Received: by mail-we0-f174.google.com with SMTP id t9so3253058wey.19
+        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 12:17:18 -0700 (PDT)
 In-Reply-To: <cover.1350327320.git.richardcochran@gmail.com>
 In-Reply-To: <cover.1350327320.git.richardcochran@gmail.com>
 References: <cover.1350327320.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vaibhav Hiremath <hvaibhav@ti.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
 
-CPGMAC SubSystem consist of various sub-modules, like, mdio, cpdma,
-cpsw, etc... These sub-modules are also used in some of Davinci family
-of devices. Now based on requirement, use-case and available technology
-nodes the integration of these sub-modules varies across devices.
+Add CPSW and MDIO related device tree data for AM33XX.
+Also enable them into board/evm dts files by providing
+respective phy-id.
 
-So coming back to Linux net driver, currently separate and independent
-platform devices & drivers for CPSW and MDIO is implemented. In case of
-Davinci they both has separate control, from resources perspective,
-like clock.
-
-In case of AM33XX, the resources are shared and only one register
-bit-field is provided to control module/clock enable/disable, makes it
-difficult to handle common resource.
-
-So the solution here implemented in this patch is,
-
-Create parent<->child relationship between both the drivers, making
-CPSW as a parent and MDIO as its child and enumerate all the child nodes
-under cpsw module.
-Both the drivers will function exactly the way it was operating before,
-including runtime-pm functionality. No change is required in MDIO driver
-(for that matter to any child driver).
-
-As this is only supported during DT boot, the parent<->child relationship
-is created and populated in DT execution flow. The only required change
-is inside DTS file, making MDIO as a child to CPSW node.
-
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 Signed-off-by: Vaibhav Hiremath <hvaibhav@ti.com>
-Cc: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- drivers/net/ethernet/ti/cpsw.c |   16 ++++++++++++++--
- 1 files changed, 14 insertions(+), 2 deletions(-)
+ arch/arm/boot/dts/am335x-bone.dts |    8 ++++++
+ arch/arm/boot/dts/am335x-evm.dts  |    8 ++++++
+ arch/arm/boot/dts/am33xx.dtsi     |   50 +++++++++++++++++++++++++++++++++++++
+ 3 files changed, 66 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index df55e24..fb1a692 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -827,7 +827,7 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 	}
- 	data->mac_control = prop;
- 
--	for_each_child_of_node(node, slave_node) {
-+	for_each_node_by_name(slave_node, "slave") {
- 		struct cpsw_slave_data *slave_data = data->slave_data + i;
- 		const char *phy_id = NULL;
- 		const void *mac_addr = NULL;
-@@ -862,6 +862,14 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 		i++;
- 	}
- 
-+	/*
-+	 * Populate all the child nodes here...
-+	 */
-+	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
-+	/* We do not want to force this, as in some cases may not have child */
-+	if (ret)
-+		pr_warn("Doesn't have any child node\n");
+diff --git a/arch/arm/boot/dts/am335x-bone.dts b/arch/arm/boot/dts/am335x-bone.dts
+index c634f87..e233cfa 100644
+--- a/arch/arm/boot/dts/am335x-bone.dts
++++ b/arch/arm/boot/dts/am335x-bone.dts
+@@ -78,3 +78,11 @@
+ 		};
+ 	};
+ };
 +
- 	return 0;
- 
- error_ret:
-@@ -895,6 +903,11 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
- 	priv->msg_enable = netif_msg_init(debug_level, CPSW_DEBUG);
- 	priv->rx_packet_max = max(rx_packet_max, 128);
- 
-+	/*
-+	 * This may be required here for child devices.
-+	 */
-+	pm_runtime_enable(&pdev->dev);
++&cpsw_emac0 {
++	phy_id = "4a101000.mdio:00";
++};
 +
- 	if (cpsw_probe_dt(&priv->data, pdev)) {
- 		pr_err("cpsw: platform data missing\n");
- 		ret = -ENODEV;
-@@ -921,7 +934,6 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
- 	for (i = 0; i < data->slaves; i++)
- 		priv->slaves[i].slave_num = i;
- 
--	pm_runtime_enable(&pdev->dev);
- 	priv->clk = clk_get(&pdev->dev, "fck");
- 	if (IS_ERR(priv->clk)) {
- 		dev_err(&pdev->dev, "fck is not found\n");
++&cpsw_emac1 {
++	phy_id = "4a101000.mdio:01";
++};
+diff --git a/arch/arm/boot/dts/am335x-evm.dts b/arch/arm/boot/dts/am335x-evm.dts
+index 185d632..415c3b3 100644
+--- a/arch/arm/boot/dts/am335x-evm.dts
++++ b/arch/arm/boot/dts/am335x-evm.dts
+@@ -118,3 +118,11 @@
+ 		};
+ 	};
+ };
++
++&cpsw_emac0 {
++	phy_id = "4a101000.mdio:00";
++};
++
++&cpsw_emac1 {
++	phy_id = "4a101000.mdio:01";
++};
+diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
+index bb31bff..f6bea04 100644
+--- a/arch/arm/boot/dts/am33xx.dtsi
++++ b/arch/arm/boot/dts/am33xx.dtsi
+@@ -210,5 +210,55 @@
+ 			interrupt-parent = <&intc>;
+ 			interrupts = <91>;
+ 		};
++
++		mac: ethernet@4A100000 {
++			compatible = "ti,cpsw";
++			ti,hwmods = "cpgmac0";
++			cpdma_channels = <8>;
++			host_port_no = <0>;
++			cpdma_reg_ofs = <0x800>;
++			cpdma_sram_ofs = <0xa00>;
++			ale_reg_ofs = <0xd00>;
++			ale_entries = <1024>;
++			host_port_reg_ofs = <0x108>;
++			hw_stats_reg_ofs = <0x900>;
++			bd_ram_ofs = <0x2000>;
++			bd_ram_size = <0x2000>;
++			no_bd_ram = <0>;
++			rx_descs = <64>;
++			mac_control = <0x20>;
++			slaves = <2>;
++			reg = <0x4a100000 0x800
++				0x4a101200 0x100
++				0x4a101000 0x100>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++			interrupt-parent = <&intc>;
++			/* c0_rx_thresh_pend c0_rx_pend c0_tx_pend c0_misc_pend*/
++			interrupts = <40 41 42 43>;
++			ranges;
++			cpsw_emac0: slave@0 {
++				slave_reg_ofs = <0x208>;
++				sliver_reg_ofs = <0xd80>;
++				/* Filled in by U-Boot */
++				mac-address = [ 00 00 00 00 00 00 ];
++			};
++			cpsw_emac1: slave@1 {
++				slave_reg_ofs = <0x308>;
++				sliver_reg_ofs = <0xdc0>;
++				/* Filled in by U-Boot */
++				mac-address = [ 00 00 00 00 00 00 ];
++			};
++
++			davinci_mdio: mdio@4a101000 {
++				compatible = "ti,davinci_mdio";
++				#address-cells = <1>;
++				#size-cells = <0>;
++				ti,hwmods = "davinci_mdio";
++				bus_freq = <1000000>;
++				reg = <0x4a101000 0x100>;
++			};
++
++		};
+ 	};
+ };
 -- 
 1.7.2.5
