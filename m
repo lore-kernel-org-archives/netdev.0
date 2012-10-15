@@ -1,47 +1,59 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH 01/12] usbnet: introduce usbnet 3 command helpers
-Date: Mon, 15 Oct 2012 12:04 +0200
-Message-ID: <15188898.QK0YCDZ0MW@linux-lqwf.site>
-References: <Pine.LNX.4.44L0.1210121126330.1605-100000@iolanthe.rowland.org>
+From: Jan Hinnerk Stosch <janhinnerk.stosch@gmail.com>
+Subject: Re: regression when connecting to ipv6 localhost
+Date: Mon, 15 Oct 2012 12:32:31 +0200
+Message-ID: <CAO_aot5PesW1VsnUdRpBpiRJ_awDVZN6WoN=8q7JKSb3+=R0-g@mail.gmail.com>
+References: <CAO_aot5U16KLjqtXp2ZS7d+T0WvVY7OXPaA3t2bbN=uvboVV3Q@mail.gmail.com>
+	<1350242941.21172.17023.camel@edumazet-glaptop>
+	<CAO_aot7BQqob=V9MEDSFnmCCNsxgjghC5e3NuQonqY8GCkV1Og@mail.gmail.com>
+	<1350244485.21172.17077.camel@edumazet-glaptop>
+	<CAO_aot7wZAqqQForAe-9aLnALqm1LdeaEv+ZKqiw3V_DCfqjRw@mail.gmail.com>
+	<1350246314.21172.17139.camel@edumazet-glaptop>
+	<1350246414.21172.17144.camel@edumazet-glaptop>
+	<1350246481.21172.17147.camel@edumazet-glaptop>
+	<CAO_aot5xZevtZcCS37h9HR4Zkj_Q4ny_sj+NX7oYEvazAQjxLQ@mail.gmail.com>
+	<1350248858.21172.17197.camel@edumazet-glaptop>
+	<CAO_aot6w9yaWacK9kE66m+Lv0LWXY9hKzLH8b=1dp=23fo_W2A@mail.gmail.com>
+	<1350250542.21172.17229.camel@edumazet-glaptop>
+	<CAO_aot4RiTbUd=7L5e4btLEeJvgy0B3iswaXo8m3AP2qp9Z0TQ@mail.gmail.com>
+	<1350252091.21172.17257.camel@edumazet-glaptop>
+	<CAO_aot6j2TPe9yxnA1ktMQsfnnWF1XwmCrQUmCcfOqCqbc6dZA@mail.gmail.com>
+	<1350279753.21172.17290.camel@edumazet-glaptop>
+	<1350293136.21172.17527.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Ming Lei <ming.lei@canonical.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org, jkosina@suse.com
-To: Alan Stern <stern@rowland.harvard.edu>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:57494 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751727Ab2JOKFs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2012 06:05:48 -0400
-In-Reply-To: <Pine.LNX.4.44L0.1210121126330.1605-100000@iolanthe.rowland.org>
+Received: from mail-ia0-f174.google.com ([209.85.210.174]:64549 "EHLO
+	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751670Ab2JOKcb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 06:32:31 -0400
+Received: by mail-ia0-f174.google.com with SMTP id y32so3549535iag.19
+        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 03:32:31 -0700 (PDT)
+In-Reply-To: <1350293136.21172.17527.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 12 October 2012 11:29:49 Alan Stern wrote:
-> On Fri, 12 Oct 2012, Oliver Neukum wrote:
+> Hmm, another strange thing in your STRACE file is :
+>
+>
+> 12928 open("/proc/net/if_inet6", O_RDONLY) = 6
+> 12928 fstat(6, {st_mode=S_IFREG|0444, st_size=0, ...}) = 0
+> 12928 mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS,
+> -1, 0) = 0x7fc54a719000
+> 12928 lseek(6, 0, SEEK_SET)             = 0
+> 12928 read(6, "fe80000000000000922b34fffe33c292"..., 1024) = 54
+>
+>
+> So /proc/net/if_inet6 doesnt include lo device on your machine ?
+>
+>
+>
 
-> > First we have workqueues. bas-gigaset is a good example.
-> > The driver kills a scheduled work in pre_reset(). If this is done synchronously
-> > the driver may need to wait for a memory allocation inside the work.
-> > In principle we could provide a workqueue limited to GFP_NOIO. Is that worth
-> > it, or do we just check?
-> 
-> The work routine could set the GFP mask upon entry and exit.  Then a 
-> separate workqueue wouldn't be needed.
+@Jan Ceuleers: Thank you, for your explanation!
 
-Well, yes. But if we have to touch the code we might just as well use GFP-NOIO
-
-> > I am afraid there is no generic solution in the last two cases. What do you think?
-> 
-> The other contexts must also set the GFP mask.  Unfortunately, this has 
-> to be done case-by-case.
-
-This raises a question. If we do the port-power-off stuff, does reset_resume() of every
-device under the depowered port have to be called? If so, we cannot exclude vendor
-specific drivers from the audit, can we?
-
-	Regards
-		Oliver
+@Eric Dumazet: I will be at home in some hours and will check the
+/proc/net/if_inet6 file.
+I can offer you to compile some code reversions. I even looked at the
+changes at kernelnewbies.org/LinuxChanges but did not know where to
+start.
