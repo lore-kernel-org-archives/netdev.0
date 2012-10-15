@@ -1,133 +1,43 @@
-From: Jan Hinnerk Stosch <janhinnerk.stosch@gmail.com>
-Subject: Re: regression when connecting to ipv6 localhost
-Date: Mon, 15 Oct 2012 15:28:47 +0200
-Message-ID: <CAO_aot44shT8CKtCi8Zv0GWN7wjybHX+d5SFQ1daVOh84v+L1g@mail.gmail.com>
-References: <CAO_aot5U16KLjqtXp2ZS7d+T0WvVY7OXPaA3t2bbN=uvboVV3Q@mail.gmail.com>
-	<1350242941.21172.17023.camel@edumazet-glaptop>
-	<CAO_aot7BQqob=V9MEDSFnmCCNsxgjghC5e3NuQonqY8GCkV1Og@mail.gmail.com>
-	<1350244485.21172.17077.camel@edumazet-glaptop>
-	<CAO_aot7wZAqqQForAe-9aLnALqm1LdeaEv+ZKqiw3V_DCfqjRw@mail.gmail.com>
-	<1350246314.21172.17139.camel@edumazet-glaptop>
-	<1350246414.21172.17144.camel@edumazet-glaptop>
-	<1350246481.21172.17147.camel@edumazet-glaptop>
-	<CAO_aot5xZevtZcCS37h9HR4Zkj_Q4ny_sj+NX7oYEvazAQjxLQ@mail.gmail.com>
-	<1350248858.21172.17197.camel@edumazet-glaptop>
-	<CAO_aot6w9yaWacK9kE66m+Lv0LWXY9hKzLH8b=1dp=23fo_W2A@mail.gmail.com>
-	<1350250542.21172.17229.camel@edumazet-glaptop>
-	<CAO_aot4RiTbUd=7L5e4btLEeJvgy0B3iswaXo8m3AP2qp9Z0TQ@mail.gmail.com>
-	<1350252091.21172.17257.camel@edumazet-glaptop>
-	<CAO_aot6j2TPe9yxnA1ktMQsfnnWF1XwmCrQUmCcfOqCqbc6dZA@mail.gmail.com>
-	<1350279753.21172.17290.camel@edumazet-glaptop>
-	<1350285275.22442.17.camel@joe-AO722>
-	<1350286790.21172.17414.camel@edumazet-glaptop>
-	<1350300302.22442.25.camel@joe-AO722>
-	<1350304308.3954.66.camel@edumazet-glaptop>
-	<CAO_aot59XNERsb7q9pZSpSzyFLv=pKEk6wb82PE-sNMf4TDXow@mail.gmail.com>
-	<1350307293.3954.119.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=f46d04462cb673aa8604cc190413
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: nicolas.dichtel@6wind.com
+Subject: [PATCH] sctp: fix call to SCTP_CMD_PROCESS_SACK in sctp_cmd_interpreter()
+Date: Mon, 15 Oct 2012 15:56:39 +0200
+Message-ID: <1350309399-23422-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Zijie Pan <zijie.pan@6wind.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: linux-sctp@vger.kernel.org, vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:42728 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753575Ab2JON2s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 09:28:48 -0400
-Received: by mail-ie0-f174.google.com with SMTP id k13so7745236iea.19
-        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 06:28:47 -0700 (PDT)
-In-Reply-To: <1350307293.3954.119.camel@edumazet-glaptop>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:49811 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752219Ab2JONuP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 09:50:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---f46d04462cb673aa8604cc190413
-Content-Type: text/plain; charset=ISO-8859-1
+From: Zijie Pan <zijie.pan@6wind.com>
 
-2012/10/15 Eric Dumazet <eric.dumazet@gmail.com>:
->
-> OK thanks
->
-> Now we have to find why ::1 is missing.
->
-> Can you send :
->
-> lsmod
->
->
+Bug introduced by commit edfee0339e681a784ebacec7e8c2dc97dc6d2839
+(sctp: check src addr when processing SACK to update transport state)
 
-Yes. Attached..
+Signed-off-by: Zijie Pan <zijie.pan@6wind.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/sctp/sm_sideeffect.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
---f46d04462cb673aa8604cc190413
-Content-Type: application/octet-stream; name=lsmod
-Content-Disposition: attachment; filename=lsmod
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_h8bmbz430
-
-TW9kdWxlICAgICAgICAgICAgICAgICAgU2l6ZSAgVXNlZCBieQpmdXNlICAgICAgICAgICAgICAg
-ICAgIDY5MTczICAzIApzYWE3MTM0X2Fsc2EgICAgICAgICAgIDEwODc4ICAwIAp0ZGExMDA0eCAg
-ICAgICAgICAgICAgIDE1NDg1ICAxIApzYWE3MTM0X2R2YiAgICAgICAgICAgIDI1OTY0ICAwIAp2
-aWRlb2J1Zl9kdmIgICAgICAgICAgICA0ODkwICAxIHNhYTcxMzRfZHZiCmR2Yl9jb3JlICAgICAg
-ICAgICAgICAgOTYxNjggIDEgdmlkZW9idWZfZHZiCmxtNzUgICAgICAgICAgICAgICAgICAgIDQz
-MTIgIDAgCml0ODcgICAgICAgICAgICAgICAgICAgMjk4MTkgIDAgCmh3bW9uX3ZpZCAgICAgICAg
-ICAgICAgIDMxOTYgIDEgaXQ4NwppVENPX3dkdCAgICAgICAgICAgICAgICA1MjU1ICAwIAppVENP
-X3ZlbmRvcl9zdXBwb3J0ICAgICAxOTI5ICAxIGlUQ09fd2R0CnNuZF9oZGFfY29kZWNfaGRtaSAg
-ICAgMjQ0ODcgIDEgCnNuZF9oZGFfY29kZWNfcmVhbHRlayAgICA2MTAzMyAgMSAKaGlkX2xvZ2l0
-ZWNoX2RqICAgICAgICAxMDE4OSAgMCAKam95ZGV2ICAgICAgICAgICAgICAgICAgOTk5MSAgMCAK
-dGRhODI3eCAgICAgICAgICAgICAgICAgOTU1OCAgMiAKaGlkX2NoZXJyeSAgICAgICAgICAgICAg
-MTU3NyAgMCAKdXNiaGlkICAgICAgICAgICAgICAgICAzNjk5NiAgMSBoaWRfbG9naXRlY2hfZGoK
-aGlkICAgICAgICAgICAgICAgICAgICA4NTkyOSAgMyBoaWRfY2hlcnJ5LHVzYmhpZCxoaWRfbG9n
-aXRlY2hfZGoKdGRhODI5MCAgICAgICAgICAgICAgICAxMjY4MiAgMSAKdHVuZXIgICAgICAgICAg
-ICAgICAgICAxNjg0MyAgMSAKdXNiX3N0b3JhZ2UgICAgICAgICAgICA0NzMyMCAgMSAKdWFzICAg
-ICAgICAgICAgICAgICAgICAxMTExOSAgMCAKbWljcm9jb2RlICAgICAgICAgICAgICAxMjM3NyAg
-MCAKYWVzbmlfaW50ZWwgICAgICAgICAgICA0MjA4MSAgMCAKYWVzX3g4Nl82NCAgICAgICAgICAg
-ICAgNzUwOCAgMSBhZXNuaV9pbnRlbAphZXNfZ2VuZXJpYyAgICAgICAgICAgIDI2MTM4ICAyIGFl
-c25pX2ludGVsLGFlc194ODZfNjQKYWJsa19oZWxwZXIgICAgICAgICAgICAgMTk3MiAgMSBhZXNu
-aV9pbnRlbApnaGFzaF9jbG11bG5pX2ludGVsICAgICA0MjM3ICAwIApjcnlwdGQgICAgICAgICAg
-ICAgICAgICA4NzQxICAzIGdoYXNoX2NsbXVsbmlfaW50ZWwsYWVzbmlfaW50ZWwsYWJsa19oZWxw
-ZXIKa3ZtX2ludGVsICAgICAgICAgICAgIDEyNDc0OSAgMCAKa3ZtICAgICAgICAgICAgICAgICAg
-IDM3Mzk0OSAgMSBrdm1faW50ZWwKY29yZXRlbXAgICAgICAgICAgICAgICAgNTk3NCAgMCAKY3Jj
-MzJjX2ludGVsICAgICAgICAgICAgMTk4NyAgMCAKc2FhNzEzNCAgICAgICAgICAgICAgIDE2ODk3
-NiAgMiBzYWE3MTM0X2R2YixzYWE3MTM0X2Fsc2EKdHZlZXByb20gICAgICAgICAgICAgICAxMzc3
-NyAgMSBzYWE3MTM0CnZpZGVvYnVmX2RtYV9zZyAgICAgICAgIDc4NzIgIDMgc2FhNzEzNF9kdmIs
-c2FhNzEzNCxzYWE3MTM0X2Fsc2EKcHNtb3VzZSAgICAgICAgICAgICAgICA3MTkwOSAgMCAKdmlk
-ZW9idWZfY29yZSAgICAgICAgICAxNjAwNyAgMyB2aWRlb2J1Zl9kbWFfc2csc2FhNzEzNCx2aWRl
-b2J1Zl9kdmIKdjRsMl9jb21tb24gICAgICAgICAgICAgNTM3MCAgMiB0dW5lcixzYWE3MTM0CnZp
-ZGVvZGV2ICAgICAgICAgICAgICAxMDA4NTkgIDMgdHVuZXIsc2FhNzEzNCx2NGwyX2NvbW1vbgpz
-ZXJpb19yYXcgICAgICAgICAgICAgICA0Njg5ICAwIAptZWRpYSAgICAgICAgICAgICAgICAgIDEw
-NDA1ICAxIHZpZGVvZGV2CnJjX2NvcmUgICAgICAgICAgICAgICAgMTMwODggIDEgc2FhNzEzNApp
-MmNfaTgwMSAgICAgICAgICAgICAgICA5NTcxICAwIApwY3Nwa3IgICAgICAgICAgICAgICAgICAx
-ODk5ICAwIApscGNfaWNoICAgICAgICAgICAgICAgIDEwNjA5ICAwIApzbmRfaGRhX2ludGVsICAg
-ICAgICAgIDI2MTgwICAxIApzbmRfaGRhX2NvZGVjICAgICAgICAgIDk4MDMzICAzIHNuZF9oZGFf
-Y29kZWNfcmVhbHRlayxzbmRfaGRhX2NvZGVjX2hkbWksc25kX2hkYV9pbnRlbAphdGwxYyAgICAg
-ICAgICAgICAgICAgIDMzNjQ2ICAwIApzbmRfaHdkZXAgICAgICAgICAgICAgICA2MzAwICAxIHNu
-ZF9oZGFfY29kZWMKc25kX3BjbSAgICAgICAgICAgICAgICA3NTE2NyAgNCBzbmRfaGRhX2NvZGVj
-X2hkbWksc25kX2hkYV9jb2RlYyxzbmRfaGRhX2ludGVsLHNhYTcxMzRfYWxzYQpzbmRfcGFnZV9h
-bGxvYyAgICAgICAgICA3MjE3ICAyIHNuZF9wY20sc25kX2hkYV9pbnRlbApzbmRfdGltZXIgICAg
-ICAgICAgICAgIDE4OTM0ICAxIHNuZF9wY20Kc25kICAgICAgICAgICAgICAgICAgICA1OTk4OSAg
-MTAgc25kX2hkYV9jb2RlY19yZWFsdGVrLHNuZF9od2RlcCxzbmRfdGltZXIsc25kX2hkYV9jb2Rl
-Y19oZG1pLHNuZF9wY20sc25kX2hkYV9jb2RlYyxzbmRfaGRhX2ludGVsLHNhYTcxMzRfYWxzYQpz
-b3VuZGNvcmUgICAgICAgICAgICAgICA1NDQyICAxIHNuZAptZWkgICAgICAgICAgICAgICAgICAg
-IDMyNjY1ICAwIAphY3BpX2NwdWZyZXEgICAgICAgICAgICA1OTMzICAwIAptcGVyZiAgICAgICAg
-ICAgICAgICAgICAxMjY3ICAxIGFjcGlfY3B1ZnJlcQpldmRldiAgICAgICAgICAgICAgICAgIDEw
-MjY2ICA5IApmYW4gICAgICAgICAgICAgICAgICAgICAyNjE4ICAwIApwcm9jZXNzb3IgICAgICAg
-ICAgICAgIDI2ODU1ICAxIGFjcGlfY3B1ZnJlcQp0aGVybWFsICAgICAgICAgICAgICAgICA4MTE5
-ICAwIApleHQ0ICAgICAgICAgICAgICAgICAgNDQwMDkzICAzIApjcmMxNiAgICAgICAgICAgICAg
-ICAgICAxMzU5ICAxIGV4dDQKamJkMiAgICAgICAgICAgICAgICAgICA3ODc1MSAgMSBleHQ0Cm1i
-Y2FjaGUgICAgICAgICAgICAgICAgIDU5NzcgIDEgZXh0NApzcl9tb2QgICAgICAgICAgICAgICAg
-IDE0ODIzICAwIApzZF9tb2QgICAgICAgICAgICAgICAgIDI5NTU5ICA2IApjZHJvbSAgICAgICAg
-ICAgICAgICAgIDM1NTIwICAxIHNyX21vZAphaGNpICAgICAgICAgICAgICAgICAgIDIxMzYwICAz
-IApsaWJhaGNpICAgICAgICAgICAgICAgIDIwMDIzICAxIGFoY2kKeGhjaV9oY2QgICAgICAgICAg
-ICAgICA4NjkyMiAgMCAKbGliYXRhICAgICAgICAgICAgICAgIDE2NzY4MyAgMiBhaGNpLGxpYmFo
-Y2kKZWhjaV9oY2QgICAgICAgICAgICAgICA0MTgxNiAgMCAKc2NzaV9tb2QgICAgICAgICAgICAg
-IDEzMzM4NiAgNSB1YXMsdXNiX3N0b3JhZ2UsbGliYXRhLHNkX21vZCxzcl9tb2QKdXNiY29yZSAg
-ICAgICAgICAgICAgIDE1MDMzNCAgNSB1YXMsdXNiX3N0b3JhZ2UsZWhjaV9oY2QsdXNiaGlkLHho
-Y2lfaGNkCnVzYl9jb21tb24gICAgICAgICAgICAgICA5NTQgIDEgdXNiY29yZQppOTE1ICAgICAg
-ICAgICAgICAgICAgNDk1MTA1ICAyIAp2aWRlbyAgICAgICAgICAgICAgICAgIDExMjc2ICAxIGk5
-MTUKYnV0dG9uICAgICAgICAgICAgICAgICAgNDY2MiAgMSBpOTE1CmkyY19hbGdvX2JpdCAgICAg
-ICAgICAgIDUzOTEgIDEgaTkxNQppbnRlbF9hZ3AgICAgICAgICAgICAgIDEwNzQ0ICAxIGk5MTUK
-aW50ZWxfZ3R0ICAgICAgICAgICAgICAxNTY1OSAgMiBpOTE1LGludGVsX2FncApkcm1fa21zX2hl
-bHBlciAgICAgICAgIDMyODc3ICAxIGk5MTUKZHJtICAgICAgICAgICAgICAgICAgIDIxODcyNCAg
-MyBpOTE1LGRybV9rbXNfaGVscGVyCmkyY19jb3JlICAgICAgICAgICAgICAgMjA3MDcgIDE1IGRy
-bSxpOTE1LGxtNzUsaTJjX2k4MDEsdHVuZXIsc2FhNzEzNF9kdmIsc2FhNzEzNCxkcm1fa21zX2hl
-bHBlcix0ZGE4MjkwLHRkYTgyN3gsaTJjX2FsZ29fYml0LHY0bDJfY29tbW9uLHR2ZWVwcm9tLHRk
-YTEwMDR4LHZpZGVvZGV2Cg==
---f46d04462cb673aa8604cc190413--
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 57f7de8..6773d78 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -1642,8 +1642,9 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
+ 					asoc->outqueue.outstanding_bytes;
+ 			sackh.num_gap_ack_blocks = 0;
+ 			sackh.num_dup_tsns = 0;
++			chunk->subh.sack_hdr = &sackh;
+ 			sctp_add_cmd_sf(commands, SCTP_CMD_PROCESS_SACK,
+-					SCTP_SACKH(&sackh));
++					SCTP_CHUNK(chunk));
+ 			break;
+ 
+ 		case SCTP_CMD_DISCARD_PACKET:
+-- 
+1.7.12
