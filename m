@@ -1,96 +1,36 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v6 06/10] glge driver: rename internal SEM_SET macro to
-	SEM_INIT
-Date: Mon, 15 Oct 2012 20:00:06 +0400
-Message-ID: <20121015160006.28348.79520.stgit@localhost.localdomain>
-References: <20121015155800.28348.23561.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: catalin.marinas@arm.com, will.deacon@arm.com, dhowells@redhat.com,
-	manfred@colorfullife.com, hughd@google.com, jmorris@namei.org,
-	mtk.manpages@gmail.com, kosaki.motohiro@jp.fujitsu.com,
-	paulmck@linux.vnet.ibm.com, sds@tycho.nsa.gov, devel@openvz.org,
-	a.p.zijlstra@chello.nl, cmetcalf@tilera.com,
-	linux-driver@qlogic.com, ron.mercer@qlogic.com,
-	viro@zeniv.linux.org.uk, eparis@parisplace.org, tglx@linutronix.de,
-	jitendra.kalsaria@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org, ebiederm@xmission.com,
-	casey@schaufler-ca.com
-To: akpm@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121015155800.28348.23561.stgit@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Kirill Smelkov <kirr@mns.spb.ru>
+Subject: [PATCH] r8169: Kill SafeMtu macro
+Date: Mon, 15 Oct 2012 20:16:33 +0400
+Message-ID: <1350317793-14424-1-git-send-email-kirr@mns.spb.ru>
+Cc: netdev@vger.kernel.org, Kirill Smelkov <kirr@mns.spb.ru>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.mnsspb.ru ([84.204.75.2]:50355 "EHLO mail.mnsspb.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753385Ab2JOQ1z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2012 12:27:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The reason for shit patch is that SET_SET is desired to be a part of new part
-of API of IPC sys_semctl() system call.
-The name itself for IPC is quite natural, because all linux-specific commands
-names for IPC system calls are originally created by replacing "IPC_" part by
-"SEM_"("MSG_", "SHM_") part.
-So, I'm hoping, that this change doesn't really matters for "QLogic qlge NIC
-HBA Driver" developers, since it's just an internal define.
+After d58d46b5 (r8169: jumbo fixes.) max frame len is stored in
+rtl_chip_infos[].jumbo_max for each chip and SafeMtu should be gone.
+
+Signed-off-by: Kirill Smelkov <kirr@mns.spb.ru>
 ---
- drivers/net/ethernet/qlogic/qlge/qlge.h      |    4 ++--
- drivers/net/ethernet/qlogic/qlge/qlge_main.c |   16 ++++++++--------
- 2 files changed, 10 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge.h b/drivers/net/ethernet/qlogic/qlge/qlge.h
-index a131d7b..6f46ea5 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge.h
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge.h
-@@ -347,10 +347,10 @@ enum {
- enum {
- 	/*
- 	 * Example:
--	 * reg = SEM_XGMAC0_MASK | (SEM_SET << SEM_XGMAC0_SHIFT)
-+	 * reg = SEM_XGMAC0_MASK | (SEM_INIT << SEM_XGMAC0_SHIFT)
- 	 */
- 	SEM_CLEAR = 0,
--	SEM_SET = 1,
-+	SEM_INIT = 1,
- 	SEM_FORCE = 3,
- 	SEM_XGMAC0_SHIFT = 0,
- 	SEM_XGMAC1_SHIFT = 2,
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-index b262d61..cfb0f62 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-@@ -109,28 +109,28 @@ static int ql_sem_trylock(struct ql_adapter *qdev, u32 sem_mask)
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index e7ff886..7ca6618 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -78,7 +78,6 @@ static const int multicast_filter_limit = 32;
  
- 	switch (sem_mask) {
- 	case SEM_XGMAC0_MASK:
--		sem_bits = SEM_SET << SEM_XGMAC0_SHIFT;
-+		sem_bits = SEM_INIT << SEM_XGMAC0_SHIFT;
- 		break;
- 	case SEM_XGMAC1_MASK:
--		sem_bits = SEM_SET << SEM_XGMAC1_SHIFT;
-+		sem_bits = SEM_INIT << SEM_XGMAC1_SHIFT;
- 		break;
- 	case SEM_ICB_MASK:
--		sem_bits = SEM_SET << SEM_ICB_SHIFT;
-+		sem_bits = SEM_INIT << SEM_ICB_SHIFT;
- 		break;
- 	case SEM_MAC_ADDR_MASK:
--		sem_bits = SEM_SET << SEM_MAC_ADDR_SHIFT;
-+		sem_bits = SEM_INIT << SEM_MAC_ADDR_SHIFT;
- 		break;
- 	case SEM_FLASH_MASK:
--		sem_bits = SEM_SET << SEM_FLASH_SHIFT;
-+		sem_bits = SEM_INIT << SEM_FLASH_SHIFT;
- 		break;
- 	case SEM_PROBE_MASK:
--		sem_bits = SEM_SET << SEM_PROBE_SHIFT;
-+		sem_bits = SEM_INIT << SEM_PROBE_SHIFT;
- 		break;
- 	case SEM_RT_IDX_MASK:
--		sem_bits = SEM_SET << SEM_RT_IDX_SHIFT;
-+		sem_bits = SEM_INIT << SEM_RT_IDX_SHIFT;
- 		break;
- 	case SEM_PROC_REG_MASK:
--		sem_bits = SEM_SET << SEM_PROC_REG_SHIFT;
-+		sem_bits = SEM_INIT << SEM_PROC_REG_SHIFT;
- 		break;
- 	default:
- 		netif_alert(qdev, probe, qdev->ndev, "bad Semaphore mask!.\n");
+ #define MAX_READ_REQUEST_SHIFT	12
+ #define TX_DMA_BURST	7	/* Maximum PCI burst, '7' is unlimited */
+-#define SafeMtu		0x1c20	/* ... actually life sucks beyond ~7k */
+ #define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
+ 
+ #define R8169_REGS_SIZE		256
+-- 
+1.8.0.rc1.231.g17358b9
