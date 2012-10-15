@@ -1,8 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v6 04/10] ipc: add new SHM_SET command for sys_shmctl() call
-Date: Mon, 15 Oct 2012 19:59:56 +0400
-Message-ID: <20121015155956.28348.36765.stgit@localhost.localdomain>
-References: <20121015155800.28348.23561.stgit@localhost.localdomain>
+Subject: [PATCH v6 00/10] IPC: checkpoint/restore in userspace enhancements
+Date: Mon, 15 Oct 2012 19:59:27 +0400
+Message-ID: <20121015155800.28348.23561.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -18,120 +17,82 @@ Cc: catalin.marinas@arm.com, will.deacon@arm.com, dhowells@redhat.com,
 	linux-security-module@vger.kernel.org, ebiederm@xmission.com,
 	casey@schaufler-ca.com
 To: akpm@linux-foundation.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20121015155800.28348.23561.stgit@localhost.localdomain>
-Sender: linux-security-module-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-New SHM_SET command will be interpreted exactly as IPC_SET, but also will
-update key, cuid and cgid values. IOW, it allows to change existent key value.
-The fact, that key is not used is checked before update. Otherwise -EEXIST is
-returned.
+v6:
+1) rebased on 3.7-rc1
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+v5:
+1) Several define-dependent compile bugs fixed
+2) IPC message copy test updated
+3) A couple of minor fixes.
+4) Qlogic driver update: rename of its internal SEM_SET define into SEM_INIT
+(compile error).
+
+v4:
+1) If MSG_COPY flag is specified, then "mtype" is not a type, but message
+number to copy.
+2) MSG_SET_COPY logic for sys_msgctl() was removed.
+
+v3:
+1) Copy messages to user-space under spinlock was replaced by allocation of
+dummy message before queue lock and then copy of desired message to the dummy
+one instead of unlinking it from queue list.
+I.e. the message queue copy logic was changed: messages can be retrived one by
+one (instead of receiving of the whole list at once).
+
+This patch set is aimed to provide additional functionality for all IPC
+objects,
+which is required for migration of these objects by user-space
+checkpoint/restore utils (CRIU).
+
+The main problem here was impossibility to set up object id. This patch set
+solves the problem in two steps:
+1) Makes it possible to create new object (shared memory, semaphores set or
+messages queue) with ID, equal to passed key.
+2) Makes it possible to change existent object key.
+
+Another problem was to peek messages from queues without deleting them.
+This was achived by introducing of new MSG_COPY flag for sys_msgrcv(). If
+MSG_COPY flag is set, then msgtyp is interpreted as message number.
+
+The following series implements...
+
 ---
- include/uapi/linux/shm.h   |    1 +
- ipc/compat.c               |    1 +
- ipc/shm.c                  |   13 +++++++++++--
- security/selinux/hooks.c   |    1 +
- security/smack/smack_lsm.c |    1 +
- 5 files changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/include/uapi/linux/shm.h b/include/uapi/linux/shm.h
-index ec36fa1..d7413fd 100644
---- a/include/uapi/linux/shm.h
-+++ b/include/uapi/linux/shm.h
-@@ -56,6 +56,7 @@ struct shmid_ds {
- /* ipcs ctl commands */
- #define SHM_STAT 	13
- #define SHM_INFO 	14
-+#define SHM_SET		15
- 
- /* Obsolete, used only for backwards compatibility */
- struct	shminfo {
-diff --git a/ipc/compat.c b/ipc/compat.c
-index af30d13..35c750d 100644
---- a/ipc/compat.c
-+++ b/ipc/compat.c
-@@ -692,6 +692,7 @@ long compat_sys_shmctl(int first, int second, void __user *uptr)
- 
- 
- 	case IPC_SET:
-+	case SHM_SET:
- 		if (version == IPC_64) {
- 			err = get_compat_shmid64_ds(&s64, uptr);
- 		} else {
-diff --git a/ipc/shm.c b/ipc/shm.c
-index 80b0046..aebc50d 100644
---- a/ipc/shm.c
-+++ b/ipc/shm.c
-@@ -636,6 +636,9 @@ copy_shmid_from_user(struct shmid64_ds *out, void __user *buf, int version)
- 		out->shm_perm.uid	= tbuf_old.shm_perm.uid;
- 		out->shm_perm.gid	= tbuf_old.shm_perm.gid;
- 		out->shm_perm.mode	= tbuf_old.shm_perm.mode;
-+		out->shm_perm.cuid	= tbuf_old.shm_perm.cuid;
-+		out->shm_perm.cgid	= tbuf_old.shm_perm.cgid;
-+		out->shm_perm.key	= tbuf_old.shm_perm.key;
- 
- 		return 0;
- 	    }
-@@ -740,12 +743,13 @@ static int shmctl_down(struct ipc_namespace *ns, int shmid, int cmd,
- 	struct shmid_kernel *shp;
- 	int err;
- 
--	if (cmd == IPC_SET) {
-+	if (cmd == IPC_SET || cmd == SHM_SET) {
- 		if (copy_shmid_from_user(&shmid64, buf, version))
- 			return -EFAULT;
- 	}
- 
--	ipcp = ipcctl_pre_down(ns, &shm_ids(ns), shmid, cmd,
-+	ipcp = ipcctl_pre_down(ns, &shm_ids(ns), shmid,
-+			       (cmd != SHM_SET) ? cmd : IPC_SET,
- 			       &shmid64.shm_perm, 0);
- 	if (IS_ERR(ipcp))
- 		return PTR_ERR(ipcp);
-@@ -759,6 +763,10 @@ static int shmctl_down(struct ipc_namespace *ns, int shmid, int cmd,
- 	case IPC_RMID:
- 		do_shm_rmid(ns, ipcp);
- 		goto out_up;
-+	case SHM_SET:
-+		err = ipc_update_key(&shm_ids(ns), &shmid64.shm_perm, ipcp);
-+		if (err)
-+			break;
- 	case IPC_SET:
- 		err = ipc_update_perm(&shmid64.shm_perm, ipcp);
- 		if (err)
-@@ -938,6 +946,7 @@ SYSCALL_DEFINE3(shmctl, int, shmid, int, cmd, struct shmid_ds __user *, buf)
- 	}
- 	case IPC_RMID:
- 	case IPC_SET:
-+	case SHM_SET:
- 		err = shmctl_down(ns, shmid, cmd, buf, version);
- 		return err;
- 	default:
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 24ab414..62b2447 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -5027,6 +5027,7 @@ static int selinux_shm_shmctl(struct shmid_kernel *shp, int cmd)
- 		perms = SHM__GETATTR | SHM__ASSOCIATE;
- 		break;
- 	case IPC_SET:
-+	case SHM_SET:
- 		perms = SHM__SETATTR;
- 		break;
- 	case SHM_LOCK:
-diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
-index 38be92c..c7eabc9 100644
---- a/security/smack/smack_lsm.c
-+++ b/security/smack/smack_lsm.c
-@@ -2121,6 +2121,7 @@ static int smack_shm_shmctl(struct shmid_kernel *shp, int cmd)
- 		may = MAY_READ;
- 		break;
- 	case IPC_SET:
-+	case SHM_SET:
- 	case SHM_LOCK:
- 	case SHM_UNLOCK:
- 	case IPC_RMID:
+Stanislav Kinsbursky (10):
+      ipc: remove forced assignment of selected message
+      ipc: "use key as id" functionality for resource get system call introduced
+      ipc: segment key change helper introduced
+      ipc: add new SHM_SET command for sys_shmctl() call
+      ipc: add new MSG_SET command for sys_msgctl() call
+      glge driver: rename internal SEM_SET macro to SEM_INIT
+      ipc: add new SEM_SET command for sys_semctl() call
+      IPC: message queue receive cleanup
+      IPC: message queue copy feature introduced
+      test: IPC message queue copy feture test
 
+
+ drivers/net/ethernet/qlogic/qlge/qlge.h      |    4 
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c |   16 +-
+ include/linux/msg.h                          |    5 -
+ include/uapi/linux/ipc.h                     |    1 
+ include/uapi/linux/msg.h                     |    2 
+ include/uapi/linux/sem.h                     |    1 
+ include/uapi/linux/shm.h                     |    1 
+ ipc/compat.c                                 |   45 +++--
+ ipc/msg.c                                    |  116 +++++++++---
+ ipc/msgutil.c                                |   38 ++++
+ ipc/sem.c                                    |   14 +
+ ipc/shm.c                                    |   17 +-
+ ipc/util.c                                   |   69 +++++++
+ ipc/util.h                                   |    6 +
+ security/selinux/hooks.c                     |    3 
+ security/smack/smack_lsm.c                   |    3 
+ tools/testing/selftests/ipc/Makefile         |   28 +++
+ tools/testing/selftests/ipc/msgque.c         |  251 ++++++++++++++++++++++++++
+ 18 files changed, 548 insertions(+), 72 deletions(-)
+ create mode 100644 tools/testing/selftests/ipc/Makefile
+ create mode 100644 tools/testing/selftests/ipc/msgque.c
