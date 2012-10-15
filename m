@@ -1,30 +1,91 @@
-From: Jon Stanley <jstanley@rmrf.net>
-Subject: Re: [patch net] vlan: fix bond/team enslave of vlan challenged slave/port
-Date: Mon, 15 Oct 2012 16:38:44 -0400
-Message-ID: <CAJtaB1vRoArmDe_FB_dF-oQUcSsHPbTQ31wzPJLPtLKsq0k53Q@mail.gmail.com>
-References: <1350225056-14144-1-git-send-email-jiri@resnulli.us>
-	<CAJtaB1ugcEp13LYX6yJL0DX4EVX53h7MyumzRGDLZ_u8fyu_WA@mail.gmail.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCHv5 1/4] modem_shm: Add Modem Access Framework
+Date: Mon, 15 Oct 2012 14:29:43 -0700
+Message-ID: <20121015212943.GA12540@kroah.com>
+References: <1350278920-25510-1-git-send-email-arun.murthy@stericsson.com>
+ <1350278920-25510-2-git-send-email-arun.murthy@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, davem@davemloft.net, fubar@us.ibm.com,
-	andy@greyhouse.net, kaber@trash.net
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:63387 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754583Ab2JOUip (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 16:38:45 -0400
-Received: by mail-qc0-f174.google.com with SMTP id o22so436399qcr.19
-        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 13:38:44 -0700 (PDT)
-In-Reply-To: <CAJtaB1ugcEp13LYX6yJL0DX4EVX53h7MyumzRGDLZ_u8fyu_WA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, alan@lxorguk.ukuu.org.uk
+To: Arun Murthy <arun.murthy@stericsson.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1350278920-25510-2-git-send-email-arun.murthy@stericsson.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 15, 2012 at 10:53 AM, Jon Stanley <jstanley@rmrf.net> wrote:
+On Mon, Oct 15, 2012 at 10:58:37AM +0530, Arun Murthy wrote:
 
-> However, I'm now running into a new issue. Note that I've backported
-> this to an older kernel (3.3.2, eww)
+I'm going to ignore your .c logic, as there are things in it that I
+don't think is correct.  But it all comes down to your data structures,
+if you fix them, then the .c logic will become correct:
 
-My bad, I tried this on mainline and it works fine. Any pointers on
-what needs to get backported into 3.3 before I go pulling my hair out
-over it? :)
+> --- /dev/null
+> +++ b/include/linux/modem_shm/modem.h
+> @@ -0,0 +1,59 @@
+> +/*
+> + * Copyright (C) ST-Ericsson SA 2011
+> + *
+> + * License Terms: GNU General Public License v2
+> + * Author: Kumar Sanghvi
+> + *	Arun Murthy <arun.murthy@stericsson.com>
+> + *
+> + * Heavily adapted from Regulator framework
+> + */
+> +#ifndef __MODEM_H__
+> +#define __MODEM_H__
+
+__MODEM_SHM_MODEM_H__, right?
+
+> +
+> +#include <linux/device.h>
+> +
+> +struct clients {
+> +	struct device *dev;
+
+Why is this a pointer?  It should be embedded in the structure.
+
+> +	const char *name;
+
+Why is this needed?  It should be the same as the device, right?
+
+> +	atomic_t cnt;
+
+Why is this needed at all?  And if it's needed, why is it an atomic?
+(hint, your use of atomic_t really isn't correct at all in this patch,
+it's not doing what you think it is doing...)
+
+> +};
+
+Also, the name of the structure here is _VERY_ generic, that's not
+acceptable in the global kernel namespace.  Hint, it probably isn't even
+needed to be defined in this .h file at all, right?
+
+> +
+> +struct modem_desc {
+> +	int (*request)(struct modem_desc *);
+> +	void (*release)(struct modem_desc *);
+> +	int (*is_requested)(struct modem_desc *);
+> +	struct clients *mclients;
+
+Why do you have a pointer to a device, and yet:
+
+> +	struct device *dev;
+
+have a device here?
+
+> +	char *name;
+
+Same *dev and name comment as above.
+
+> +	u8 no_clients;
+> +	atomic_t use_cnt;
+> +	atomic_t cli_cnt;
+
+Same question about these atomic_t variables, why are they here, and
+most importantly, why are they an atomic variable?
+
+thanks,
+
+greg k-h
