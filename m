@@ -1,57 +1,58 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v6 04/10] ipc: add new SHM_SET command for sys_shmctl()
- call
-Date: Mon, 15 Oct 2012 20:00:28 +0100
-Message-ID: <1350327628.2819.21.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20121015155800.28348.23561.stgit@localhost.localdomain>
-	 <20121015155956.28348.36765.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <akpm@linux-foundation.org>, <catalin.marinas@arm.com>,
-	<will.deacon@arm.com>, <dhowells@redhat.com>,
-	<manfred@colorfullife.com>, <hughd@google.com>,
-	<jmorris@namei.org>, <mtk.manpages@gmail.com>,
-	<kosaki.motohiro@jp.fujitsu.com>, <paulmck@linux.vnet.ibm.com>,
-	<sds@tycho.nsa.gov>, <devel@openvz.org>, <a.p.zijlstra@chello.nl>,
-	<cmetcalf@tilera.com>, <linux-driver@qlogic.com>,
-	<ron.mercer@qlogic.com>, <viro@zeniv.linux.org.uk>,
-	<eparis@parisplace.org>, <tglx@linutronix.de>,
-	<jitendra.kalsaria@qlogic.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	<linux-security-module@vger.kernel.org>, <ebiederm@xmission.com>,
-	<casey@schaufler-ca.com>
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121015155956.28348.36765.stgit@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH 0/5] am335x fixes for 3.7-rc2
+Date: Mon, 15 Oct 2012 21:16:30 +0200
+Message-ID: <cover.1350327320.git.richardcochran@gmail.com>
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	Arnd Bergmann <arnd@arndb.de>,
+	David Miller <davem@davemloft.net>,
+	Russell King <linux@arm.linux.org.uk>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:60571 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751827Ab2JOTQs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 15:16:48 -0400
+Received: by mail-wi0-f172.google.com with SMTP id hq12so2528454wib.1
+        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 12:16:47 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-10-15 at 19:59 +0400, Stanislav Kinsbursky wrote:
-> New SHM_SET command will be interpreted exactly as IPC_SET, but also will
-> update key, cuid and cgid values. IOW, it allows to change existent key value.
-> The fact, that key is not used is checked before update. Otherwise -EEXIST is
-> returned.
-[...]
-> --- a/ipc/shm.c
-> +++ b/ipc/shm.c
-[...]
-> @@ -759,6 +763,10 @@ static int shmctl_down(struct ipc_namespace *ns, int shmid, int cmd,
->  	case IPC_RMID:
->  		do_shm_rmid(ns, ipcp);
->  		goto out_up;
-> +	case SHM_SET:
-> +		err = ipc_update_key(&shm_ids(ns), &shmid64.shm_perm, ipcp);
-> +		if (err)
-> +			break;
-[...]
+This series contains patches required to let the kernel run on a TI
+am335x, like the popular BeagleBone. None of these patches are from
+me, yet all of them are essential fixes. For net-next I have prepared
+a cpsw driver extension that enables time stamping and a PTP clock,
+but in order to be useful, the kernel must boot and the MAC driver
+must be working.
 
-Please add /* fall through */ here, and in the similar cases in patches
-5 and 7, to make clear that it's deliberate.
+The first patch was supposed to have made -rc1, but it seems to have
+been forgotten. The other four patches are for the cpsw MAC driver,
+which has not worked since the migration to device tree. Actually, I
+am not sure if the cpsw ever did work, but in any case these patches
+let the driver work (again), rather than being a lifeless derelict.
 
-Ben.
+Thanks,
+Richard
+
+
+Mugunthan V N (2):
+  ARM: OMAP3+: hwmod: Add AM33XX HWMOD data for davinci_mdio
+  arm/dts: am33xx: Add cpsw and mdio module nodes for AM33XX
+
+Vaibhav Hiremath (2):
+  net: davinci_mdio: Fix type mistake in calling runtime-pm api
+  net: cpsw: Add parent<->child relation support between cpsw and mdio
+
+hvaibhav@ti.com (1):
+  ARM: OMAP2+: gpmc: Fix kernel BUG for DT boot mode
+
+ arch/arm/boot/dts/am335x-bone.dts          |    8 ++++
+ arch/arm/boot/dts/am335x-evm.dts           |    8 ++++
+ arch/arm/boot/dts/am33xx.dtsi              |   50 ++++++++++++++++++++++++++++
+ arch/arm/mach-omap2/gpmc.c                 |    4 ++
+ arch/arm/mach-omap2/omap_hwmod_33xx_data.c |   34 ++++++++++++++++++-
+ drivers/net/ethernet/ti/cpsw.c             |   16 ++++++++-
+ drivers/net/ethernet/ti/davinci_mdio.c     |    2 +-
+ 7 files changed, 117 insertions(+), 5 deletions(-)
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.2.5
