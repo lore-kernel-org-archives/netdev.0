@@ -1,8 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v6 02/10] ipc: "use key as id" functionality for resource get
-	system call introduced
-Date: Mon, 15 Oct 2012 19:59:46 +0400
-Message-ID: <20121015155946.28348.47885.stgit@localhost.localdomain>
+Subject: [PATCH v6 07/10] ipc: add new SEM_SET command for sys_semctl() call
+Date: Mon, 15 Oct 2012 20:00:12 +0400
+Message-ID: <20121015160011.28348.39915.stgit@localhost.localdomain>
 References: <20121015155800.28348.23561.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -24,174 +23,105 @@ In-Reply-To: <20121015155800.28348.23561.stgit@localhost.localdomain>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces new IPC resource get request flag IPC_PRESET, which
-should be interpreted as a request to try to allocate IPC slot with number,
-starting from value resented by key. IOW, kernel will try
-allocate new segment in specified slot.
-
-Note: if desired slot is not emply, then next free slot will be used.
+New SEM_SET command will be interpreted exactly as IPC_SET, but also will
+update key, cuid and cgid values. IOW, it allows to change existent key value.
+The fact, that key is not used is checked before update. Otherwise -EEXIST is
+returned.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 ---
- include/uapi/linux/ipc.h |    1 +
- ipc/msg.c                |    4 +++-
- ipc/sem.c                |    4 +++-
- ipc/shm.c                |    4 +++-
- ipc/util.c               |   18 +++++++++++++++---
- ipc/util.h               |    3 ++-
- 6 files changed, 27 insertions(+), 7 deletions(-)
+ include/uapi/linux/sem.h   |    1 +
+ ipc/compat.c               |    1 +
+ ipc/sem.c                  |   10 ++++++++--
+ security/selinux/hooks.c   |    1 +
+ security/smack/smack_lsm.c |    1 +
+ 5 files changed, 12 insertions(+), 2 deletions(-)
 
-diff --git a/include/uapi/linux/ipc.h b/include/uapi/linux/ipc.h
-index de08dd4..f5f52b6 100644
---- a/include/uapi/linux/ipc.h
-+++ b/include/uapi/linux/ipc.h
-@@ -24,6 +24,7 @@ struct ipc_perm
- #define IPC_CREAT  00001000   /* create if key is nonexistent */
- #define IPC_EXCL   00002000   /* fail if key exists */
- #define IPC_NOWAIT 00004000   /* return error on wait */
-+#define IPC_PRESET 00040000   /* use key as id */
+diff --git a/include/uapi/linux/sem.h b/include/uapi/linux/sem.h
+index 541fce0..b6ae374 100644
+--- a/include/uapi/linux/sem.h
++++ b/include/uapi/linux/sem.h
+@@ -18,6 +18,7 @@
+ /* ipcs ctl cmds */
+ #define SEM_STAT 18
+ #define SEM_INFO 19
++#define SEM_SET  20
  
- /* these fields are used by the DIPC package so the kernel as standard
-    should avoid using them if possible */
-diff --git a/ipc/msg.c b/ipc/msg.c
-index 2f272fa..2f44946 100644
---- a/ipc/msg.c
-+++ b/ipc/msg.c
-@@ -190,6 +190,7 @@ static int newque(struct ipc_namespace *ns, struct ipc_params *params)
+ /* Obsolete, used only for backwards compatibility and libc5 compiles */
+ struct semid_ds {
+diff --git a/ipc/compat.c b/ipc/compat.c
+index 9c70f9a..84d8efd 100644
+--- a/ipc/compat.c
++++ b/ipc/compat.c
+@@ -290,6 +290,7 @@ static long do_compat_semctl(int first, int second, int third, u32 pad)
+ 		break;
  
- 	msq->q_perm.mode = msgflg & S_IRWXUGO;
- 	msq->q_perm.key = key;
-+	msq->q_perm.id = (msgflg & IPC_PRESET) ? key : 0;
- 
- 	msq->q_perm.security = NULL;
- 	retval = security_msg_queue_alloc(msq);
-@@ -201,7 +202,8 @@ static int newque(struct ipc_namespace *ns, struct ipc_params *params)
- 	/*
- 	 * ipc_addid() locks msq
- 	 */
--	id = ipc_addid(&msg_ids(ns), &msq->q_perm, ns->msg_ctlmni);
-+	id = ipc_addid(&msg_ids(ns), &msq->q_perm, ns->msg_ctlmni,
-+		       msgflg & IPC_PRESET);
- 	if (id < 0) {
- 		security_msg_queue_free(msq);
- 		ipc_rcu_putref(msq);
+ 	case IPC_SET:
++	case SEM_SET:
+ 		if (version == IPC_64) {
+ 			err = get_compat_semid64_ds(&s64, compat_ptr(pad));
+ 		} else {
 diff --git a/ipc/sem.c b/ipc/sem.c
-index 58d31f1..10e9085 100644
+index 10e9085..3eac885 100644
 --- a/ipc/sem.c
 +++ b/ipc/sem.c
-@@ -306,6 +306,7 @@ static int newary(struct ipc_namespace *ns, struct ipc_params *params)
+@@ -1085,12 +1085,13 @@ static int semctl_down(struct ipc_namespace *ns, int semid,
+ 	struct semid64_ds semid64;
+ 	struct kern_ipc_perm *ipcp;
  
- 	sma->sem_perm.mode = (semflg & S_IRWXUGO);
- 	sma->sem_perm.key = key;
-+	sma->sem_perm.id = (semflg & IPC_PRESET) ? key : 0;
- 
- 	sma->sem_perm.security = NULL;
- 	retval = security_sem_alloc(sma);
-@@ -314,7 +315,8 @@ static int newary(struct ipc_namespace *ns, struct ipc_params *params)
- 		return retval;
+-	if(cmd == IPC_SET) {
++	if (cmd == IPC_SET || cmd == SEM_SET) {
+ 		if (copy_semid_from_user(&semid64, arg.buf, version))
+ 			return -EFAULT;
  	}
  
--	id = ipc_addid(&sem_ids(ns), &sma->sem_perm, ns->sc_semmni);
-+	id = ipc_addid(&sem_ids(ns), &sma->sem_perm, ns->sc_semmni,
-+		       semflg & IPC_PRESET);
- 	if (id < 0) {
- 		security_sem_free(sma);
- 		ipc_rcu_putref(sma);
-diff --git a/ipc/shm.c b/ipc/shm.c
-index dff40c9..80b0046 100644
---- a/ipc/shm.c
-+++ b/ipc/shm.c
-@@ -480,6 +480,7 @@ static int newseg(struct ipc_namespace *ns, struct ipc_params *params)
- 
- 	shp->shm_perm.key = key;
- 	shp->shm_perm.mode = (shmflg & S_IRWXUGO);
-+	shp->shm_perm.id = (shmflg & IPC_PRESET) ? key : 0;
- 	shp->mlock_user = NULL;
- 
- 	shp->shm_perm.security = NULL;
-@@ -510,7 +511,8 @@ static int newseg(struct ipc_namespace *ns, struct ipc_params *params)
- 	if (IS_ERR(file))
- 		goto no_file;
- 
--	id = ipc_addid(&shm_ids(ns), &shp->shm_perm, ns->shm_ctlmni);
-+	id = ipc_addid(&shm_ids(ns), &shp->shm_perm, ns->shm_ctlmni,
-+		       shmflg & IPC_PRESET);
- 	if (id < 0) {
- 		error = id;
- 		goto no_id;
-diff --git a/ipc/util.c b/ipc/util.c
-index 72fd078..503946e 100644
---- a/ipc/util.c
-+++ b/ipc/util.c
-@@ -238,16 +238,22 @@ int ipc_get_maxid(struct ipc_ids *ids)
-  *	@ids: IPC identifier set
-  *	@new: new IPC permission set
-  *	@size: limit for the number of used ids
-+ *	@preset: use passed new->id value as desired id
-  *
-  *	Add an entry 'new' to the IPC ids idr. The permissions object is
-  *	initialised and the first free entry is set up and the id assigned
-  *	is returned. The 'new' entry is returned in a locked state on success.
-  *	On failure the entry is not locked and a negative err-code is returned.
-  *
-+ *	If 'preset' is set, then passed new->id is desired to be set for new
-+ *	segment. And allocated id is equal to passed value, then ipc ids will
-+ *	left unchanged and new->seq will be updated to correspond specified id value.
-+ *
-  *	Called with ipc_ids.rw_mutex held as a writer.
-  */
-  
--int ipc_addid(struct ipc_ids* ids, struct kern_ipc_perm* new, int size)
-+int ipc_addid(struct ipc_ids* ids, struct kern_ipc_perm* new, int size,
-+	      int preset)
- {
- 	kuid_t euid;
- 	kgid_t egid;
-@@ -264,7 +270,8 @@ int ipc_addid(struct ipc_ids* ids, struct kern_ipc_perm* new, int size)
- 	rcu_read_lock();
- 	spin_lock(&new->lock);
- 
--	err = idr_get_new(&ids->ipcs_idr, new, &id);
-+	err = idr_get_new_above(&ids->ipcs_idr, new,
-+				ipcid_to_idx(new->id), &id);
- 	if (err) {
- 		spin_unlock(&new->lock);
- 		rcu_read_unlock();
-@@ -277,6 +284,11 @@ int ipc_addid(struct ipc_ids* ids, struct kern_ipc_perm* new, int size)
- 	new->cuid = new->uid = euid;
- 	new->gid = new->cgid = egid;
- 
-+	if (preset && ipcid_to_idx(new->id) == id) {
-+		new->seq = ipcid_to_seq(new->id);
-+		return id;
-+	}
-+
- 	new->seq = ids->seq++;
- 	if(ids->seq > ids->seq_max)
- 		ids->seq = 0;
-@@ -736,7 +748,7 @@ struct kern_ipc_perm *ipc_lock_check(struct ipc_ids *ids, int id)
- int ipcget(struct ipc_namespace *ns, struct ipc_ids *ids,
- 			struct ipc_ops *ops, struct ipc_params *params)
- {
--	if (params->key == IPC_PRIVATE)
-+	if (params->key == IPC_PRIVATE && ((params->flg & IPC_PRESET) == 0))
- 		return ipcget_new(ns, ids, ops, params);
- 	else
- 		return ipcget_public(ns, ids, ops, params);
-diff --git a/ipc/util.h b/ipc/util.h
-index c8fe2f7..3a9e558 100644
---- a/ipc/util.h
-+++ b/ipc/util.h
-@@ -92,9 +92,10 @@ void __init ipc_init_proc_interface(const char *path, const char *header,
- #define IPC_SHM_IDS	2
- 
- #define ipcid_to_idx(id) ((id) % SEQ_MULTIPLIER)
-+#define ipcid_to_seq(id) ((id) / SEQ_MULTIPLIER)
- 
- /* must be called with ids->rw_mutex acquired for writing */
--int ipc_addid(struct ipc_ids *, struct kern_ipc_perm *, int);
-+int ipc_addid(struct ipc_ids *, struct kern_ipc_perm *, int, int);
- 
- /* must be called with ids->rw_mutex acquired for reading */
- int ipc_get_maxid(struct ipc_ids *);
+-	ipcp = ipcctl_pre_down(ns, &sem_ids(ns), semid, cmd,
++	ipcp = ipcctl_pre_down(ns, &sem_ids(ns), semid,
++			       (cmd != SEM_SET) ? cmd : IPC_SET,
+ 			       &semid64.sem_perm, 0);
+ 	if (IS_ERR(ipcp))
+ 		return PTR_ERR(ipcp);
+@@ -1105,6 +1106,10 @@ static int semctl_down(struct ipc_namespace *ns, int semid,
+ 	case IPC_RMID:
+ 		freeary(ns, ipcp);
+ 		goto out_up;
++	case SEM_SET:
++		err = ipc_update_key(&sem_ids(ns), &semid64.sem_perm, ipcp);
++		if (err)
++			break;
+ 	case IPC_SET:
+ 		err = ipc_update_perm(&semid64.sem_perm, ipcp);
+ 		if (err)
+@@ -1152,6 +1157,7 @@ SYSCALL_DEFINE(semctl)(int semid, int semnum, int cmd, union semun arg)
+ 		return err;
+ 	case IPC_RMID:
+ 	case IPC_SET:
++	case SEM_SET:
+ 		err = semctl_down(ns, semid, cmd, version, arg);
+ 		return err;
+ 	default:
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 78b77ac..02b037d 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -5133,6 +5133,7 @@ static int selinux_sem_semctl(struct sem_array *sma, int cmd)
+ 		perms = SEM__DESTROY;
+ 		break;
+ 	case IPC_SET:
++	case SEM_SET:
+ 		perms = SEM__SETATTR;
+ 		break;
+ 	case IPC_STAT:
+diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
+index d51a8da..b4135ed 100644
+--- a/security/smack/smack_lsm.c
++++ b/security/smack/smack_lsm.c
+@@ -2253,6 +2253,7 @@ static int smack_sem_semctl(struct sem_array *sma, int cmd)
+ 	case SETALL:
+ 	case IPC_RMID:
+ 	case IPC_SET:
++	case SEM_SET:
+ 		may = MAY_READWRITE;
+ 		break;
+ 	case IPC_INFO:
 
