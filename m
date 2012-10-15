@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 6/7] cpsw: add a DT field for the cpts offset
-Date: Mon, 15 Oct 2012 21:48:12 +0200
-Message-ID: <16b8977cddffb24436144d8053c1376653ccf109.1350329726.git.richardcochran@gmail.com>
+Subject: [PATCH V2 7/7] cpsw: use the time stamping capabilities of the cpts
+Date: Mon, 15 Oct 2012 21:48:13 +0200
+Message-ID: <9291e80fa37f8e05d5dea211d80b53cb66f8d1de.1350329726.git.richardcochran@gmail.com>
 References: <cover.1350329726.git.richardcochran@gmail.com>
 Cc: <linux-arm-kernel@lists.infradead.org>,
 	David Miller <davem@davemloft.net>,
@@ -10,12 +10,12 @@ Cc: <linux-arm-kernel@lists.infradead.org>,
 	Sriramakrishnan A G <srk@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:48587 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753893Ab2JOTtU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 15:49:20 -0400
-Received: by mail-wg0-f44.google.com with SMTP id dr13so4753829wgb.1
-        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 12:49:19 -0700 (PDT)
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:51747 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753893Ab2JOTt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 15:49:27 -0400
+Received: by mail-wg0-f42.google.com with SMTP id fm10so14715wgb.1
+        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 12:49:25 -0700 (PDT)
 In-Reply-To: <cover.1350329726.git.richardcochran@gmail.com>
 In-Reply-To: <cover.1350329726.git.richardcochran@gmail.com>
 References: <cover.1350329726.git.richardcochran@gmail.com>
@@ -24,81 +24,115 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- Documentation/devicetree/bindings/net/cpsw.txt |    3 +++
- arch/arm/boot/dts/am33xx.dtsi                  |    1 +
- drivers/net/ethernet/ti/cpsw.c                 |    7 +++++++
- include/linux/platform_data/cpsw.h             |    1 +
- 4 files changed, 12 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c |   33 +++++++++++++++++++++++++++++++++
+ 1 files changed, 33 insertions(+), 0 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-index 3af47b7..dba014f 100644
---- a/Documentation/devicetree/bindings/net/cpsw.txt
-+++ b/Documentation/devicetree/bindings/net/cpsw.txt
-@@ -16,6 +16,7 @@ Required properties:
- - ale_entries		: Specifies No of entries ALE can hold
- - host_port_reg_ofs	: Specifies host port register offset
- - hw_stats_reg_ofs	: Specifies hardware statistics register offset
-+- cpts_reg_ofs		: Specifies the offset of the CPTS registers
- - bd_ram_ofs		: Specifies internal desciptor RAM offset
- - bd_ram_size		: Specifies internal descriptor RAM size
- - rx_descs		: Specifies number of Rx descriptors
-@@ -52,6 +53,7 @@ Examples:
- 		ale_entries = <1024>;
- 		host_port_reg_ofs = <0x108>;
- 		hw_stats_reg_ofs = <0x900>;
-+		cpts_reg_ofs = <0xc00>;
- 		bd_ram_ofs = <0x2000>;
- 		bd_ram_size = <0x2000>;
- 		no_bd_ram = <0>;
-@@ -86,6 +88,7 @@ Examples:
- 		ale_entries = <1024>;
- 		host_port_reg_ofs = <0x108>;
- 		hw_stats_reg_ofs = <0x900>;
-+		cpts_reg_ofs = <0xc00>;
- 		bd_ram_ofs = <0x2000>;
- 		bd_ram_size = <0x2000>;
- 		no_bd_ram = <0>;
-diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
-index cd9b3b4..c981753 100644
---- a/arch/arm/boot/dts/am33xx.dtsi
-+++ b/arch/arm/boot/dts/am33xx.dtsi
-@@ -222,6 +222,7 @@
- 			ale_entries = <1024>;
- 			host_port_reg_ofs = <0x108>;
- 			hw_stats_reg_ofs = <0x900>;
-+			cpts_reg_ofs = <0xc00>;
- 			bd_ram_ofs = <0x2000>;
- 			bd_ram_size = <0x2000>;
- 			no_bd_ram = <0>;
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index e29bb8f..aeaa3bb 100644
+index aeaa3bb..06a134f 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -817,6 +817,13 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+@@ -35,6 +35,7 @@
+ #include <linux/platform_data/cpsw.h>
+ 
+ #include "cpsw_ale.h"
++#include "cpts.h"
+ #include "davinci_cpdma.h"
+ 
+ #define CPSW_DEBUG	(NETIF_MSG_HW		| NETIF_MSG_WOL		| \
+@@ -236,6 +237,7 @@ struct cpsw_priv {
+ 	/* snapshot of IRQ numbers */
+ 	u32 irqs_table[4];
+ 	u32 num_irqs;
++	struct cpts cpts;
+ };
+ 
+ #define napi_to_priv(napi)	container_of(napi, struct cpsw_priv, napi)
+@@ -272,6 +274,7 @@ void cpsw_tx_handler(void *token, int len, int status)
+ 
+ 	if (unlikely(netif_queue_stopped(ndev)))
+ 		netif_start_queue(ndev);
++	cpts_tx_timestamp(&priv->cpts, skb);
+ 	priv->stats.tx_packets++;
+ 	priv->stats.tx_bytes += len;
+ 	dev_kfree_skb_any(skb);
+@@ -292,6 +295,7 @@ void cpsw_rx_handler(void *token, int len, int status)
  	}
- 	data->hw_stats_reg_ofs = prop;
+ 	if (likely(status >= 0)) {
+ 		skb_put(skb, len);
++		cpts_rx_timestamp(&priv->cpts, skb);
+ 		skb->protocol = eth_type_trans(skb, ndev);
+ 		netif_receive_skb(skb);
+ 		priv->stats.rx_bytes += len;
+@@ -610,6 +614,11 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
+ 		return NETDEV_TX_OK;
+ 	}
  
-+	if (of_property_read_u32(node, "cpts_reg_ofs", &prop)) {
-+		pr_err("Missing cpts_reg_ofs property in the DT.\n");
-+		ret = -EINVAL;
-+		goto error_ret;
-+	}
-+	data->cpts_reg_ofs = prop;
++	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP && priv->cpts.tx_enable)
++		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
 +
- 	if (of_property_read_u32(node, "bd_ram_ofs", &prop)) {
- 		pr_err("Missing bd_ram_ofs property in the DT.\n");
- 		ret = -EINVAL;
-diff --git a/include/linux/platform_data/cpsw.h b/include/linux/platform_data/cpsw.h
-index c4e23d0..a052b1d 100644
---- a/include/linux/platform_data/cpsw.h
-+++ b/include/linux/platform_data/cpsw.h
-@@ -41,6 +41,7 @@ struct cpsw_platform_data {
- 	u32     host_port_num; /* The port number for the host port */
++	skb_tx_timestamp(skb);
++
+ 	ret = cpdma_chan_submit(priv->txch, skb, skb->data,
+ 				skb->len, GFP_KERNEL);
+ 	if (unlikely(ret != 0)) {
+@@ -647,6 +656,21 @@ static void cpsw_ndo_change_rx_flags(struct net_device *ndev, int flags)
+ 		dev_err(&ndev->dev, "multicast traffic cannot be filtered!\n");
+ }
  
- 	u32	hw_stats_reg_ofs;  /* cpsw hardware statistics counters */
-+	u32	cpts_reg_ofs;      /* cpts registers */
++static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
++{
++	struct cpsw_priv *priv = netdev_priv(dev);
++
++	if (!netif_running(dev))
++		return -EINVAL;
++
++	switch (cmd) {
++	case SIOCSHWTSTAMP:
++		return cpts_hwtstamp_ioctl(&priv->cpts, req);
++	}
++
++	return -ENOTSUPP;
++}
++
+ static void cpsw_ndo_tx_timeout(struct net_device *ndev)
+ {
+ 	struct cpsw_priv *priv = netdev_priv(ndev);
+@@ -687,6 +711,7 @@ static const struct net_device_ops cpsw_netdev_ops = {
+ 	.ndo_stop		= cpsw_ndo_stop,
+ 	.ndo_start_xmit		= cpsw_ndo_start_xmit,
+ 	.ndo_change_rx_flags	= cpsw_ndo_change_rx_flags,
++	.ndo_do_ioctl		= cpsw_ndo_ioctl,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_change_mtu		= eth_change_mtu,
+ 	.ndo_tx_timeout		= cpsw_ndo_tx_timeout,
+@@ -988,6 +1013,8 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
+ 	priv->regs = regs;
+ 	priv->host_port = data->host_port_num;
+ 	priv->host_port_regs = regs + data->host_port_reg_ofs;
++	priv->cpts.reg = regs + data->cpts_reg_ofs;
++	priv->cpts.tsp = regs + priv->data.slave_data[0].slave_reg_ofs;
  
- 	u32	bd_ram_ofs;   /* embedded buffer descriptor RAM offset*/
- 	u32	bd_ram_size;  /*buffer descriptor ram size */
+ 	priv->cpsw_ss_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+ 	if (!priv->cpsw_ss_res) {
+@@ -1109,6 +1136,11 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
+ 		goto clean_irq_ret;
+ 	}
+ 
++	if (cpts_register(&pdev->dev, &priv->cpts))
++		dev_err(priv->dev, "error registering cpts device\n");
++
++	__raw_writel(ETH_P_1588, &priv->regs->ts_ltype);
++
+ 	cpsw_notice(priv, probe, "initialized device (regs %x, irq %d)\n",
+ 		  priv->cpsw_res->start, ndev->irq);
+ 
+@@ -1148,6 +1180,7 @@ static int __devexit cpsw_remove(struct platform_device *pdev)
+ 	pr_info("removing device");
+ 	platform_set_drvdata(pdev, NULL);
+ 
++	cpts_unregister(&priv->cpts);
+ 	free_irq(ndev->irq, priv);
+ 	cpsw_ale_destroy(priv->ale);
+ 	cpdma_chan_destroy(priv->txch);
 -- 
 1.7.2.5
