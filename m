@@ -1,58 +1,66 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH 0/5] am335x fixes for 3.7-rc2
-Date: Mon, 15 Oct 2012 21:16:30 +0200
-Message-ID: <cover.1350327320.git.richardcochran@gmail.com>
+Subject: [PATCH 1/5] ARM: OMAP2+: gpmc: Fix kernel BUG for DT boot mode
+Date: Mon, 15 Oct 2012 21:16:31 +0200
+Message-ID: <41d66042625157d089e9c9532030a6831e79c641.1350327324.git.richardcochran@gmail.com>
+References: <cover.1350327320.git.richardcochran@gmail.com>
 Cc: <linux-arm-kernel@lists.infradead.org>,
 	Arnd Bergmann <arnd@arndb.de>,
 	David Miller <davem@davemloft.net>,
-	Russell King <linux@arm.linux.org.uk>
+	Russell King <linux@arm.linux.org.uk>,
+	"hvaibhav@ti.com" <hvaibhav@ti.com>, Afzal Mohammed <afzal@ti.com>,
+	Tony Lindgren <tony@atomide.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-wi0-f172.google.com ([209.85.212.172]:60571 "EHLO
 	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751827Ab2JOTQs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 15:16:48 -0400
+	with ESMTP id S1754488Ab2JOTQu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 15:16:50 -0400
 Received: by mail-wi0-f172.google.com with SMTP id hq12so2528454wib.1
-        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 12:16:47 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 12:16:50 -0700 (PDT)
+In-Reply-To: <cover.1350327320.git.richardcochran@gmail.com>
+In-Reply-To: <cover.1350327320.git.richardcochran@gmail.com>
+References: <cover.1350327320.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains patches required to let the kernel run on a TI
-am335x, like the popular BeagleBone. None of these patches are from
-me, yet all of them are essential fixes. For net-next I have prepared
-a cpsw driver extension that enables time stamping and a PTP clock,
-but in order to be useful, the kernel must boot and the MAC driver
-must be working.
+From: hvaibhav@ti.com <hvaibhav@ti.com>
 
-The first patch was supposed to have made -rc1, but it seems to have
-been forgotten. The other four patches are for the cpsw MAC driver,
-which has not worked since the migration to device tree. Actually, I
-am not sure if the cpsw ever did work, but in any case these patches
-let the driver work (again), rather than being a lifeless derelict.
+With recent changes in omap gpmc driver code, in case of DT
+boot mode, where bootloader does not configure gpmc cs space
+will result into kernel BUG() inside gpmc_mem_init() function,
+as gpmc cs0 gpmc_config7[0].csvalid bit is set to '1' and
+gpmc_config7[0].baseaddress is set to '0' on reset.
 
-Thanks,
-Richard
+This use-case is applicable for any board/EVM which doesn't have
+any peripheral connected to gpmc cs0, for example BeagleXM and
+BeagleBone, so DT boot mode fails.
 
+This patch adds of_have_populated_dt() check before creating
+device, so that for DT boot mode, gpmc probe will not be called
+which is expected behavior, as gpmc is not supported yet from DT.
 
-Mugunthan V N (2):
-  ARM: OMAP3+: hwmod: Add AM33XX HWMOD data for davinci_mdio
-  arm/dts: am33xx: Add cpsw and mdio module nodes for AM33XX
+Signed-off-by: Vaibhav Hiremath <hvaibhav@ti.com>
+Cc: Afzal Mohammed <afzal@ti.com>
+Cc: Tony Lindgren <tony@atomide.com>
+Cc Paul Walmsley <paul@pwsan.com>
+---
+ arch/arm/mach-omap2/gpmc.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-Vaibhav Hiremath (2):
-  net: davinci_mdio: Fix type mistake in calling runtime-pm api
-  net: cpsw: Add parent<->child relation support between cpsw and mdio
-
-hvaibhav@ti.com (1):
-  ARM: OMAP2+: gpmc: Fix kernel BUG for DT boot mode
-
- arch/arm/boot/dts/am335x-bone.dts          |    8 ++++
- arch/arm/boot/dts/am335x-evm.dts           |    8 ++++
- arch/arm/boot/dts/am33xx.dtsi              |   50 ++++++++++++++++++++++++++++
- arch/arm/mach-omap2/gpmc.c                 |    4 ++
- arch/arm/mach-omap2/omap_hwmod_33xx_data.c |   34 ++++++++++++++++++-
- drivers/net/ethernet/ti/cpsw.c             |   16 ++++++++-
- drivers/net/ethernet/ti/davinci_mdio.c     |    2 +-
- 7 files changed, 117 insertions(+), 5 deletions(-)
-
+diff --git a/arch/arm/mach-omap2/gpmc.c b/arch/arm/mach-omap2/gpmc.c
+index 5ac5cf3..90b033e 100644
+--- a/arch/arm/mach-omap2/gpmc.c
++++ b/arch/arm/mach-omap2/gpmc.c
+@@ -981,6 +981,10 @@ static int __init omap_gpmc_init(void)
+ 	struct platform_device *pdev;
+ 	char *oh_name = "gpmc";
+ 
++	/* If dtb is there, the devices will be created dynamically */
++	if (of_have_populated_dt())
++		return -ENODEV;
++
+ 	oh = omap_hwmod_lookup(oh_name);
+ 	if (!oh) {
+ 		pr_err("Could not look up %s\n", oh_name);
 -- 
 1.7.2.5
