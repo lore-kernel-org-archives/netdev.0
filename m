@@ -1,74 +1,47 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] netrom: fix info leak via getsockname()
-Date: Mon, 15 Oct 2012 00:11:33 +0100
-Message-ID: <1350256293.26833.28.camel@deadeye.wl.decadent.org.uk>
-References: <CAKSJdACRs5r9bbr=VS25YoQGYyhZDCyejftC+tg6yeeaNMnErg@mail.gmail.com>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: [PATCH] docbook: networking: fix file paths for uapi headers
+Date: Sun, 14 Oct 2012 18:50:05 -0700
+Message-ID: <507B6BCD.3040708@xenotime.net>
+References: <CA+55aFyt0KFNp5Binu-c3-XzF=MG+23EDOk1R6t4qqgW58ksAw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Cl=E9ment?= Lecigne <clemun@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:22978 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751409Ab2JNXLk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2012 19:11:40 -0400
-In-Reply-To: <CAKSJdACRs5r9bbr=VS25YoQGYyhZDCyejftC+tg6yeeaNMnErg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	David Howells <dhowells@redhat.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFyt0KFNp5Binu-c3-XzF=MG+23EDOk1R6t4qqgW58ksAw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2012-10-14 at 20:23 +0200, Cl=C3=A9ment Lecigne wrote:
-> The following patch fixes a 3 bytes info leak via getsockname() on
-> AF_NETROM socket.
->=20
-> Details:
->=20
-> typedef struct {
-> 	char		ax25_call[7];	/* 6 call + SSID (shifted ascii!) */
-> } ax25_address;
->=20
-> struct sockaddr_ax25 {
-> 	__kernel_sa_family_t sax25_family;
-> 	ax25_address	sax25_call;
-> 	int		sax25_ndigis;
-> 	/* Digipeater ax25_address sets follow */
-> };
->=20
-> After compilation, gcc will add 3 padding bytes after sax25_call to
-> align sax25_ndigis and nr_getname does not clear these padding bytes
-> before returning to userland, poc attached.
->=20
-> Signed-off-by: Clement Lecigne <clemun@gmail.com>
->=20
-> --- a/net/netrom/af_netrom.c
-> +++ b/net/netrom/af_netrom.c
-> @@ -838,6 +838,8 @@ static int nr_getname(struct socket *sock, struct
-> sockaddr *uaddr,
->         struct sock *sk =3D sock->sk;
->         struct nr_sock *nr =3D nr_sk(sk);
->=20
-> +    memset(sax, 0, sizeof(struct sockaddr_ax25));
+From: Randy Dunlap <rdunlap@xenotime.net>
 
-This is not indented correctly.
+Update file paths in Documentation/DocBook/networking.tmpl for uapi headers.
 
->         lock_sock(sk);
->         if (peer !=3D 0) {
->                 if (sk->sk_state !=3D TCP_ESTABLISHED) {
+Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+---
+ Documentation/DocBook/networking.tmpl |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-On some architectures, structures have a minimum alignment of 4, so
-there are 2 bytes of padding before sax25_call and 1 byte within it.
-nr_getname() copies complete ax25_address structures, but nr_listen()
-does not initialise the 1 byte of padding in user_addr:
-
-		memset(&nr_sk(sk)->user_addr, 0, AX25_ADDR_LEN);
-
-So I think you should address that too.  It appears that other
-ax25_address structures are originally copied from userland and
-therefore don't leak information, but I'm not sure.
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--- lnx-37-rc1.orig/Documentation/DocBook/networking.tmpl
++++ lnx-37-rc1/Documentation/DocBook/networking.tmpl
+@@ -56,7 +56,7 @@
+ !Enet/core/filter.c
+      </sect1>
+      <sect1><title>Generic Network Statistics</title>
+-!Iinclude/linux/gen_stats.h
++!Iinclude/uapi/linux/gen_stats.h
+ !Enet/core/gen_stats.c
+ !Enet/core/gen_estimator.c
+      </sect1>
+@@ -80,7 +80,7 @@
+ !Enet/wimax/op-rfkill.c
+ !Enet/wimax/stack.c
+ !Iinclude/net/wimax.h
+-!Iinclude/linux/wimax.h
++!Iinclude/uapi/linux/wimax.h
+      </sect1>
+   </chapter>
+ 
