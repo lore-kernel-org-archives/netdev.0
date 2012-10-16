@@ -1,31 +1,119 @@
-From: Fernando Gont <fernando@gont.com.ar>
-Subject: Bringing some sanity to IPv6 traffic (IETF Internet-Drafts)
-Date: Mon, 15 Oct 2012 18:57:04 -0300
-Message-ID: <507C86B0.1080409@gont.com.ar>
+From: George Zhang <georgezhang@vmware.com>
+Subject: [PATCH 0/6] VSOCK for Linux upstreaming
+Date: Mon, 15 Oct 2012 17:31:56 -0700
+Message-ID: <20121016003033.27018.90426.stgit@promb-2n-dhcp175.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web01.jbserver.net ([93.186.182.34]:36595 "EHLO
-	web01.jbserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752190Ab2JOWWS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 18:22:18 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pv-drivers@vmware.com, vm-crosstalk@vmware.com, davem@davemloft.net,
+	gregkh@linuxfoundation.org
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	georgezhang@vmware.com, virtualization@lists.linux-foundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Folks,
 
-FYI:
+* * *
 
-* <http://tools.ietf.org/id/draft-ietf-6man-oversized-header-chain-01.txt>
-* <http://tools.ietf.org/id/draft-ietf-6man-nd-extension-headers-00.txt>
+In an effort to improve the out-of-the-box experience with Linux
+kernels for VMware users, VMware is working on readying the Virtual
+Machine Communication Interface (vmw_vmci) and VMCI Sockets (VSOCK)
+(vmw_vsock) kernel modules for inclusion in the Linux kernel. The
+purpose of this post is to acquire feedback on the vmw_vsock kernel
+module. The vmw_vmci kernel module has been presented in an early post.
 
-P.S.: These two have already been adopted by the 6man wg, and are close
-to be published as RFCs.
 
-Cheers,
+* * *
+
+VMCI Sockets allows virtual machines to communicate with host kernel
+modules and the VMware hypervisors. VMCI Sockets kernel module has
+dependency on VMCI kernel module. User level applications both in
+a virtual machine and on the host can use vmw_vmci through VMCI
+Sockets API which facilitates fast and efficient communication
+between guest virtual machines and their host. A socket
+address family designed to be compatible with UDP and TCP at the
+interface level. Today, VMCI and VMCI Sockets are used by the VMware
+shared folders (HGFS) and various VMware Tools components inside the
+guest for zero-config, network-less access to VMware host services. In
+addition to this, VMware's users are using VMCI Sockets for various
+applications, where network access of the virtual machine is
+restricted or non-existent. Examples of this are VMs communicating
+with device proxies for proprietary hardware running as host
+applications and automated testing of applications running within
+virtual machines.
+
+The VMware VMCI Sockets are similar to other socket types, like
+Berkeley UNIX socket interface. The VMCI sockets module supports
+both connection-oriented stream sockets like TCP, and connectionless
+datagram sockets like UDP. The VSOCK protocol family is defined as
+"AF_VSOCK" and the socket operations split for SOCK_DGRAM and
+SOCK_STREAM.
+
+For additional information about the use of VMCI and in particular
+VMCI Sockets, please refer to the VMCI Socket Programming Guide
+available at https://www.vmware.com/support/developer/vmci-sdk/.
+
+
+
+---
+
+George Zhang (6):
+      VSOCK: vsock protocol implementation.
+      VSOCK: vsock address implementaion.
+      VSOCK: notification implementation.
+      VSOCK: statistics implementation.
+      VSOCK: utility functions.
+      VSOCK: header and config files.
+
+
+ net/Kconfig                         |    1 
+ net/Makefile                        |    1 
+ net/vmw_vsock/Kconfig               |   14 
+ net/vmw_vsock/Makefile              |    8 
+ net/vmw_vsock/af_vsock.c            | 4259 +++++++++++++++++++++++++++++++++++
+ net/vmw_vsock/af_vsock.h            |  179 +
+ net/vmw_vsock/notify.c              | 1041 +++++++++
+ net/vmw_vsock/notify.h              |  130 +
+ net/vmw_vsock/notify_qstate.c       |  670 ++++++
+ net/vmw_vsock/stats.c               |   37 
+ net/vmw_vsock/stats.h               |  222 ++
+ net/vmw_vsock/util.c                |  694 ++++++
+ net/vmw_vsock/util.h                |  331 +++
+ net/vmw_vsock/vmci_sockets.h        |  517 ++++
+ net/vmw_vsock/vmci_sockets_packet.h |  107 +
+ net/vmw_vsock/vsock_addr.c          |  264 ++
+ net/vmw_vsock/vsock_addr.h          |   40 
+ net/vmw_vsock/vsock_common.h        |  130 +
+ net/vmw_vsock/vsock_packet.h        |  131 +
+ net/vmw_vsock/vsock_version.h       |   29 
+ 20 files changed, 8805 insertions(+), 0 deletions(-)
+ create mode 100644 net/vmw_vsock/Kconfig
+ create mode 100644 net/vmw_vsock/Makefile
+ create mode 100644 net/vmw_vsock/af_vsock.c
+ create mode 100644 net/vmw_vsock/af_vsock.h
+ create mode 100644 net/vmw_vsock/notify.c
+ create mode 100644 net/vmw_vsock/notify.h
+ create mode 100644 net/vmw_vsock/notify_qstate.c
+ create mode 100644 net/vmw_vsock/stats.c
+ create mode 100644 net/vmw_vsock/stats.h
+ create mode 100644 net/vmw_vsock/util.c
+ create mode 100644 net/vmw_vsock/util.h
+ create mode 100644 net/vmw_vsock/vmci_sockets.h
+ create mode 100644 net/vmw_vsock/vmci_sockets_packet.h
+ create mode 100644 net/vmw_vsock/vsock_addr.c
+ create mode 100644 net/vmw_vsock/vsock_addr.h
+ create mode 100644 net/vmw_vsock/vsock_common.h
+ create mode 100644 net/vmw_vsock/vsock_packet.h
+ create mode 100644 net/vmw_vsock/vsock_version.h
+
 -- 
-Fernando Gont
-e-mail: fernando@gont.com.ar || fgont@si6networks.com
-PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
+Signature
