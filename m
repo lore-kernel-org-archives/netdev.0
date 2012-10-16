@@ -1,67 +1,54 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH V2 0/7] support the cpts found on am335x devices
-Date: Tue, 16 Oct 2012 19:14:08 +0200
-Message-ID: <20121016171407.GA2176@netboy.at.omicron.at>
-References: <cover.1350329726.git.richardcochran@gmail.com>
- <EB1619762EAF8B4E97A227FB77B7E0293E9F82F0@DBDE01.ent.ti.com>
+From: James Kosin <jkosin@intcomgrp.com>
+Subject: Re: EG20T and Micrel KSZ9021 Gigabit Ethernet
+Date: Tue, 16 Oct 2012 13:21:59 -0400
+Message-ID: <507D97B7.5090002@intcomgrp.com>
+References: <506F30A2.500@intcomgrp.com> <20121005195343.GA7083@electric-eye.fr.zoreil.com> <506F41FC.7080108@intcomgrp.com> <20121005210910.GA10931@electric-eye.fr.zoreil.com> <507D95A2.9090206@intcomgrp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	David Miller <davem@davemloft.net>,
-	"Chemparathy, Cyril" <cyril@ti.com>,
-	"Govindarajan, Sriramakrishnan" <srk@ti.com>
-To: "N, Mugunthan V" <mugunthanvnm@ti.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:44796 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754084Ab2JPROW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2012 13:14:22 -0400
-Received: by mail-we0-f174.google.com with SMTP id t9so3870391wey.19
-        for <netdev@vger.kernel.org>; Tue, 16 Oct 2012 10:14:21 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <EB1619762EAF8B4E97A227FB77B7E0293E9F82F0@DBDE01.ent.ti.com>
+Received: from server104.appriver.com ([207.97.242.188]:2123 "EHLO
+	server104.appriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755098Ab2JPRWB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2012 13:22:01 -0400
+Received: from [216.54.13.100] (HELO MAILSRV2010.intcomgrp.com)
+  by server104.appriver.com (CommuniGate Pro SMTP 5.4.4)
+  with ESMTPS id 8851791 for netdev@vger.kernel.org; Tue, 16 Oct 2012 13:22:00 -0400
+In-Reply-To: <507D95A2.9090206@intcomgrp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 16, 2012 at 04:33:55PM +0000, N, Mugunthan V wrote:
-> I had seen some issues with the patch series.
+I have to remember to use plain text only....
 
-Please take another look. Excepting the last, none of your points
-holds water.
- 
-> * CPTS will hold only LSB 32 bits of 64 bit Timer and the upper 32 bit
->   time value has to be taken care by the software, but the time stamp
->   which is passed to skb or PTP clock consist of only 32 bit time value
-
-The driver handles this already.
-
-> * CPTS interrupts should be utilized to service Half and Full roll over
->   events as it is non sync events with respect to get/set time and PTP
->   pkt Tx/Rx
-
-Nope, no need for interrupts, since we already have a better way to
-handle this.
-
-> * CPTS Time which is obtained from hardware is not actually a nano
->   seconds as the CPTS ref clock is tied to 250MHz for AM335x.
-
-Did you even look at the code in my patch?
-
-> * CPSW register mapping done in this patch series removes the CPSW
->   driver support for previous version found in TI814x
-
-In which Linux version (or commit) did this driver appear?
-I never saw it.
-
-> * CPSW Time stamping is done only for port 0 and port 1 is not done
-
-Yes, you are right, and it is strange that the hardware time stamps on
-the external ports of the switch, and not at the host port as it
-should. Of course it does present us with a problem, since we cannot
-reasonably have both ports time stamping at the same time. I propose
-simply using a device tree attribute to tell which port to activate.
-
-Thanks,
-Richard
+On 10/16/2012 1:13 PM, James Kosin wrote:
+> Hmmm... interesting turn of events.
+>
+> The problem seems to be in 10 speed support.  I hooked the Ethernet
+> PHY to a100TX port and don't get these errors.
+>
+> James
+>
+> On 10/5/2012 5:09 PM, Francois Romieu wrote:
+>> (please don't top post)
+>>
+>> James Kosin <jkosin@intcomgrp.com> :
+>>> The driver is always reporting:
+>>>     [...] pch_gbe: Transfer Carrier Sense Error
+>> You should send more information. Say dmesg, link stats (ip link),
+>> ethtool information, stats and offload settings.
+>>
+>> We have a small Micrel ksz9021 phy driver that the pch_gbe driver does
+>> not use and the latter pokes into some phy specific register (0x10) that
+>> the Micrel document does not include in its list of vendor registers...
+>>
+>> Does your motherboard vendor offer some linux driver ?
+>>
+>> /note to myself: pch_gbe should use standard mii.h registers instead
+>> of defining its own redundant set of registers.
+>>
+>> --
+>> Ueimor
+>>
+>
