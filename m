@@ -1,90 +1,109 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 4/6] ptp: add api to get ptp seq id and event type from
- skb
-Date: Wed, 17 Oct 2012 00:10:30 +0100
-Message-ID: <1350429030.2649.49.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1350427518-7230-1-git-send-email-mugunthanvnm@ti.com>
-	 <1350427518-7230-5-git-send-email-mugunthanvnm@ti.com>
+From: "N, Mugunthan V" <mugunthanvnm@ti.com>
+Subject: RE: [PATCH V2 0/7] support the cpts found on am335x devices
+Date: Tue, 16 Oct 2012 23:11:29 +0000
+Message-ID: <EB1619762EAF8B4E97A227FB77B7E0293E9F86E9@DBDE01.ent.ti.com>
+References: <cover.1350329726.git.richardcochran@gmail.com>
+ <EB1619762EAF8B4E97A227FB77B7E0293E9F82F0@DBDE01.ent.ti.com>
+ <20121016171407.GA2176@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	Richard Cochran <richardcochran@gmail.com>
-To: Mugunthan V N <mugunthanvnm@ti.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	David Miller <davem@davemloft.net>,
+	"Chemparathy, Cyril" <cyril@ti.com>,
+	"Govindarajan, Sriramakrishnan" <srk@ti.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:31457 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754864Ab2JPXKe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2012 19:10:34 -0400
-In-Reply-To: <1350427518-7230-5-git-send-email-mugunthanvnm@ti.com>
+Received: from bear.ext.ti.com ([192.94.94.41]:54874 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754864Ab2JPXLp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2012 19:11:45 -0400
+In-Reply-To: <20121016171407.GA2176@netboy.at.omicron.at>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-10-17 at 04:15 +0530, Mugunthan V N wrote:
-> Cc: Richard Cochran <richardcochran@gmail.com>
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-> ---
->  include/linux/ptp_classify.h |   42 ++++++++++++++++++++++++++++++++++++++++++
->  1 files changed, 42 insertions(+), 0 deletions(-)
+> -----Original Message-----
+> From: Richard Cochran [mailto:richardcochran@gmail.com]
+> Sent: Tuesday, October 16, 2012 10:44 PM
+> To: N, Mugunthan V
+> Cc: netdev@vger.kernel.org; linux-arm-kernel@lists.infradead.org; David
+> Miller; Chemparathy, Cyril; Govindarajan, Sriramakrishnan
+> Subject: Re: [PATCH V2 0/7] support the cpts found on am335x devices
 > 
-> diff --git a/include/linux/ptp_classify.h b/include/linux/ptp_classify.h
-> index 1dc420b..9b3b55b 100644
-> --- a/include/linux/ptp_classify.h
-> +++ b/include/linux/ptp_classify.h
-> @@ -137,4 +137,46 @@ static inline int ptp_filter_init(struct sock_filter *f, int len)
->  	{OP_RETA,	0,   0, 0			}, /*              */ \
->  /*L6x*/	{OP_RETK,	0,   0, PTP_CLASS_NONE		},
->  
-> +static inline int ptp_get_skb_event(struct sk_buff *skb, u32 ptp_class,
-> +				    u16 *evt_seqid, u8 *evt_msgtype)
-> +{
-> +	u16 *seqid;
-> +	unsigned int offset;
-> +	u8 *msgtype, *data = skb->data;
-> +
-> +	switch (ptp_class) {
-> +	case PTP_CLASS_V1_IPV4:
-> +	case PTP_CLASS_V2_IPV4:
-> +		offset = ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
-> +		break;
-> +	case PTP_CLASS_V1_IPV6:
-> +	case PTP_CLASS_V2_IPV6:
-> +		offset = OFF_PTP6;
-> +		break;
-> +	case PTP_CLASS_V2_L2:
-> +		offset = ETH_HLEN;
-> +		break;
-> +	case PTP_CLASS_V2_VLAN:
-> +		offset = ETH_HLEN + VLAN_HLEN;
-> +		break;
-> +	default:
-> +		return 0;
-> +	}
-> +
-> +	if (skb->len + ETH_HLEN < offset + OFF_PTP_SEQUENCE_ID + sizeof(*seqid))
-> +		return 0;
-> +
-> +	if (unlikely(ptp_class & PTP_CLASS_V1))
-> +		msgtype = data + offset + OFF_PTP_CONTROL;
-> +	else
-> +		msgtype = data + offset;
-> +
-> +	seqid = (u16 *)(data + offset + OFF_PTP_SEQUENCE_ID);
+> On Tue, Oct 16, 2012 at 04:33:55PM +0000, N, Mugunthan V wrote:
+> > I had seen some issues with the patch series.
+> 
+> Please take another look. Excepting the last, none of your points
+> holds water.
+> 
+> > * CPTS will hold only LSB 32 bits of 64 bit Timer and the upper 32
+> bit
+> >   time value has to be taken care by the software, but the time stamp
+> >   which is passed to skb or PTP clock consist of only 32 bit time
+> value
+> 
+> The driver handles this already.
 
-This assumes the skb is linear.  Use skb_header_pointer() to allow for
-fragmented skbs.
+Yes, I do agree that driver handles it. As Half roll over and Full roll
+over events are not handled in the driver, I am just curious how will
+the misaligned TS would be handled and also in cpts set time, the Lower
+32 bit time is written to CPTS counter
 
-Ben.
+> 
+> > * CPTS interrupts should be utilized to service Half and Full roll
+> over
+> >   events as it is non sync events with respect to get/set time and
+> PTP
+> >   pkt Tx/Rx
+> 
+> Nope, no need for interrupts, since we already have a better way to
+> handle this.
 
-> +	*evt_seqid = ntohs(*seqid);
-> +	*evt_msgtype = *msgtype & 0xf;
-> +
-> +	return 0;
-> +}
-> +
->  #endif
+Since we poll for the 32bit over flow for every HZ * 8 cycle, won't
+there be a system overhead. If the CPTS ref clock is changed according
+to the ptp freq adjust api, how will the timecounter take care of change
+in frequency
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> 
+> > * CPTS Time which is obtained from hardware is not actually a nano
+> >   seconds as the CPTS ref clock is tied to 250MHz for AM335x.
+> 
+> Did you even look at the code in my patch?
+
+I had gone through the patch, but the same driver can be used in TI814x
+where the user has the option to change the frequency from 250MHz may to
+1GHz also, I thought of how it will be handled if we fix the multiplication
+factor
+
+> 
+> > * CPSW register mapping done in this patch series removes the CPSW
+> >   driver support for previous version found in TI814x
+> 
+> In which Linux version (or commit) did this driver appear?
+> I never saw it.
+
+The current driver which is in vanilla kernel doesn't use extended slave
+address which are conflict between TI814x CPSW IP version and AM335x CPSW
+IP version. I have just posted my version of CPTS implementation. May be
+we can work together make the driver compatible with both CPSW versions
+
+> 
+> > * CPSW Time stamping is done only for port 0 and port 1 is not done
+> 
+> Yes, you are right, and it is strange that the hardware time stamps on
+> the external ports of the switch, and not at the host port as it
+> should. Of course it does present us with a problem, since we cannot
+> reasonably have both ports time stamping at the same time. I propose
+> simply using a device tree attribute to tell which port to activate.
+
+Since CPSW is a 3port Switch we should not fix time stamping will be enabled
+only for slave 0 or passing slave number through DT. Its better if we
+can configure both the slaves. This can be tested with EVM-sk which has
+both the slave ports pinned out.
+
+> 
+> Thanks,
+> Richard
