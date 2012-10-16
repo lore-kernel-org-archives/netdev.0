@@ -1,47 +1,29 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: [PATCH 2/2] net: sh-eth: Use pr_err instead of printk
-Date: Tue, 16 Oct 2012 10:17:59 +0900
-Message-ID: <1350350279-8693-2-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-References: <1350350279-8693-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+From: Ani Sinha <ani@aristanetworks.com>
+Subject: bpf filter : support for vlan tag
+Date: Mon, 15 Oct 2012 19:10:15 -0700
+Message-ID: <CAOxq_8MqMatY2+GA6+mHjj5V=Xe7Y8BmuX4r6cz5nChU5C1Vzw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:55119 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754074Ab2JPBSM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 21:18:12 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rr4so5465643pbb.19
-        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 18:18:12 -0700 (PDT)
-In-Reply-To: <1350350279-8693-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Received: from mail-ia0-f174.google.com ([209.85.210.174]:35256 "EHLO
+	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753855Ab2JPCKP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2012 22:10:15 -0400
+Received: by mail-ia0-f174.google.com with SMTP id y32so4182092iag.19
+        for <netdev@vger.kernel.org>; Mon, 15 Oct 2012 19:10:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
----
- drivers/net/ethernet/renesas/sh_eth.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Hi :
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 756d87e..ba97a45 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -598,7 +598,7 @@ static int sh_eth_check_reset(struct net_device *ndev)
- 		cnt--;
- 	}
- 	if (cnt < 0) {
--		printk(KERN_ERR "Device reset fail\n");
-+		pr_err("Device reset fail\n");
- 		ret = -ETIMEDOUT;
- 	}
- 	return ret;
-@@ -2329,7 +2329,7 @@ static const u16 *sh_eth_get_register_offset(int register_type)
- 		reg_offset = sh_eth_offset_fast_sh3_sh2;
- 		break;
- 	default:
--		printk(KERN_ERR "Unknown register type (%d)\n", register_type);
-+		pr_err("Unknown register type (%d)\n", register_type);
- 		break;
- 	}
- 
--- 
-1.7.10.4
+I was looking at the kernel side implementation of the BPF filter. I
+do not see any code that supports filtering of packets based on
+provided vlan tag information from the skbuff. This will make it
+impossible to provide any filter to tcpdump that will filter packets
+based on the tag information if libpcap uses the kernel filter.
+
+Any help will be much appreciated.
+
+Cheers,
+ani
