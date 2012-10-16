@@ -1,47 +1,43 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 1/2] [PATCH] smsgiucv: reestablish IUCV path after resume
-Date: Tue, 16 Oct 2012 07:21:17 +0200
-Message-ID: <20121016052331.713229633@de.ibm.com>
-References: <20121016052116.210859505@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Ursula Braun <ursula.braun@de.ibm.com>
-To: davem@davemloft.net
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: IPSEC maintainership...
+Date: Tue, 16 Oct 2012 08:11:54 +0200
+Message-ID: <20121016061154.GF21577@secunet.com>
+References: <20121015.133833.2211899390966002142.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp13.uk.ibm.com ([195.75.94.109]:50769 "EHLO
-	e06smtp13.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751491Ab2JPFXh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2012 01:23:37 -0400
-Received: from /spool/local
-	by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
-	Tue, 16 Oct 2012 06:23:35 +0100
-Content-Disposition: inline; filename=600-smsg-path-resume.diff
+Received: from a.mx.secunet.com ([195.81.216.161]:33279 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751880Ab2JPGL5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2012 02:11:57 -0400
+Content-Disposition: inline
+In-Reply-To: <20121015.133833.2211899390966002142.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hendrik Brueckner <brueckner@linux.vnet.ibm.com>
+On Mon, Oct 15, 2012 at 01:38:33PM -0400, David Miller wrote:
+> 
+> Steffen, after some discussions with Herbert we'd like to formally
+> recognize your outstanding contributions to the IPSEC stack over
+> the past few years by listing you explicitly as a maintainer as
+> per the patch below.
+> 
+> Let us know if you are OK with this.
 
-smsg_pm_restore_thaw() uses wrong checking before reconnecting
-the IUCV path to *MSG. It is corrected with this patch.
+I'm absolutely OK with this, of course :)
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
----
- drivers/s390/net/smsgiucv.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Being one of the maintainers, I'd like to run our automated IPsec
+tests on incomming paches before they get applied. So I'd think
+about a workflow and propose something if you are OK with that.
 
-diff --git a/drivers/s390/net/smsgiucv.c b/drivers/s390/net/smsgiucv.c
-index 207b7d7..d8f990b 100644
---- a/drivers/s390/net/smsgiucv.c
-+++ b/drivers/s390/net/smsgiucv.c
-@@ -157,7 +157,7 @@ static int smsg_pm_restore_thaw(struct device *dev)
- #ifdef CONFIG_PM_DEBUG
- 	printk(KERN_WARNING "smsg_pm_restore_thaw\n");
- #endif
--	if (smsg_path && iucv_path_connected) {
-+	if (smsg_path && !iucv_path_connected) {
- 		memset(smsg_path, 0, sizeof(*smsg_path));
- 		smsg_path->msglim = 255;
- 		smsg_path->flags = 0;
--- 
-1.7.11.7
+> 
+> Thanks!
+> 
+> --------------------
+> MAINTAINERS: Add explicit section for IPSEC networking.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
