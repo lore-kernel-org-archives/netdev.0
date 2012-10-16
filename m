@@ -1,45 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: addrconf: fix /proc/net/if_inet6
-Date: Tue, 16 Oct 2012 14:55:51 -0400 (EDT)
-Message-ID: <20121016.145551.1060498449362372128.davem@davemloft.net>
-References: <1350405787.3954.1229.camel@edumazet-glaptop>
-	<1350406522.3954.1242.camel@edumazet-glaptop>
-	<1350409047.3954.1295.camel@edumazet-glaptop>
+Subject: Re: [PATCH] sctp: fix call to SCTP_CMD_PROCESS_SACK in
+ sctp_cmd_interpreter()
+Date: Tue, 16 Oct 2012 14:56:11 -0400 (EDT)
+Message-ID: <20121016.145611.1344400917557072925.davem@davemloft.net>
+References: <1350309399-23422-1-git-send-email-nicolas.dichtel@6wind.com>
+	<507C2E76.3030801@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: janhinnerk.stosch@gmail.com, netdev@vger.kernel.org,
-	mihai.maruseac@gmail.com
-To: eric.dumazet@gmail.com
+Cc: nicolas.dichtel@6wind.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, zijie.pan@6wind.com
+To: vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60803 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60810 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755681Ab2JPSzx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2012 14:55:53 -0400
-In-Reply-To: <1350409047.3954.1295.camel@edumazet-glaptop>
+	with ESMTP id S1755681Ab2JPS4O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2012 14:56:14 -0400
+In-Reply-To: <507C2E76.3030801@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 16 Oct 2012 19:37:27 +0200
+From: Vlad Yasevich <vyasevich@gmail.com>
+Date: Mon, 15 Oct 2012 11:40:38 -0400
 
-> From: Eric Dumazet <edumazet@google.com>
+> On 10/15/2012 09:56 AM, nicolas.dichtel@6wind.com wrote:
+>> From: Zijie Pan <zijie.pan@6wind.com>
+>>
+>> Bug introduced by commit edfee0339e681a784ebacec7e8c2dc97dc6d2839
+>> (sctp: check src addr when processing SACK to update transport state)
+>>
+>> Signed-off-by: Zijie Pan <zijie.pan@6wind.com>
+>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 > 
-> Commit 1d5783030a1 (ipv6/addrconf: speedup /proc/net/if_inet6 filling)
-> added bugs hiding some devices from if_inet6 and breaking applications.
+> Shutdown case..  ACK.
 > 
-> "ip -6 addr" could still display all IPv6 addresses, while "ifconfig -a"
-> couldnt.
-> 
-> One way to reproduce the bug is by starting in a shell :
-> 
-> unshare -n /bin/bash
-> ifconfig lo up
-> 
-> And in original net namespace, lo device disappeared from if_inet6
-> 
-> Reported-by: Jan Hinnerk Stosch <janhinnerk.stosch@gmail.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Mihai Maruseac <mihai.maruseac@gmail.com>
+> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-Applied and queued up for -stable, thanks.
+Applied.
