@@ -1,59 +1,78 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] ipv6: addrconf: fix /proc/net/if_inet6
-Date: Tue, 16 Oct 2012 15:01:21 -0700
-Message-ID: <1350424881.3072.17.camel@joe-AO722>
-References: <CAO_aot5U16KLjqtXp2ZS7d+T0WvVY7OXPaA3t2bbN=uvboVV3Q@mail.gmail.com>
-	 <1350242941.21172.17023.camel@edumazet-glaptop>
-	 <CAO_aot7BQqob=V9MEDSFnmCCNsxgjghC5e3NuQonqY8GCkV1Og@mail.gmail.com>
-	 <1350244485.21172.17077.camel@edumazet-glaptop>
-	 <CAO_aot7wZAqqQForAe-9aLnALqm1LdeaEv+ZKqiw3V_DCfqjRw@mail.gmail.com>
-	 <1350246314.21172.17139.camel@edumazet-glaptop>
-	 <1350246414.21172.17144.camel@edumazet-glaptop>
-	 <1350246481.21172.17147.camel@edumazet-glaptop>
-	 <CAO_aot5xZevtZcCS37h9HR4Zkj_Q4ny_sj+NX7oYEvazAQjxLQ@mail.gmail.com>
-	 <1350248858.21172.17197.camel@edumazet-glaptop>
-	 <CAO_aot6w9yaWacK9kE66m+Lv0LWXY9hKzLH8b=1dp=23fo_W2A@mail.gmail.com>
-	 <1350250542.21172.17229.camel@edumazet-glaptop>
-	 <CAO_aot4RiTbUd=7L5e4btLEeJvgy0B3iswaXo8m3AP2qp9Z0TQ@mail.gmail.com>
-	 <1350252091.21172.17257.camel@edumazet-glaptop>
-	 <CAO_aot6j2TPe9yxnA1ktMQsfnnWF1XwmCrQUmCcfOqCqbc6dZA@mail.gmail.com>
-	 <1350279753.21172.17290.camel@edumazet-glaptop>
-	 <1350285275.22442.17.camel@joe-AO722>
-	 <1350286790.21172.17414.camel@edumazet-glaptop>
-	 <1350300302.22442.25.camel@joe-AO722>
-	 <1350304308.3954.66.camel@edumazet-glaptop>
-	 <CAO_aot59XNERsb7q9pZSpSzyFLv=pKEk6wb82PE-sNMf4TDXow@mail.gmail.com>
-	 <1350307293.3954.119.camel@edumazet-glaptop>
-	 <CAO_aot44shT8CKtCi8Zv0GWN7wjybHX+d5SFQ1daVOh84v+L1g@mail.gmail.com>
-	 <CAO_aot66K-7Je8dSnYTxxkoaDgQ3JpG7t=MdTK0A0ixPX_AP-A@mail.gmail.com>
-	 <1350405787.3954.1229.camel@edumazet-glaptop>
-	 <1350406522.3954.1242.camel@edumazet-glaptop>
-	 <1350409047.3954.1295.camel@edumazet-glaptop>
-	 <CAO_aot45DY4A-uM-O1udZUh9XDKJxszgD7w+iVpJw_qcivEeMw@mail.gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [PATCH 4/6] ptp: add api to get ptp seq id and event type from skb
+Date: Wed, 17 Oct 2012 04:15:16 +0530
+Message-ID: <1350427518-7230-5-git-send-email-mugunthanvnm@ti.com>
+References: <1350427518-7230-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mihai Maruseac <mihai.maruseac@gmail.com>
-To: Jan Hinnerk Stosch <janhinnerk.stosch@gmail.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Richard Cochran <richardcochran@gmail.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:35804 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753938Ab2JPWBW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Oct 2012 18:01:22 -0400
-In-Reply-To: <CAO_aot45DY4A-uM-O1udZUh9XDKJxszgD7w+iVpJw_qcivEeMw@mail.gmail.com>
+Received: from comal.ext.ti.com ([198.47.26.152]:53360 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755358Ab2JPWpb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2012 18:45:31 -0400
+In-Reply-To: <1350427518-7230-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-10-16 at 20:30 +0200, Jan Hinnerk Stosch wrote:
-> 2012/10/16 Eric Dumazet <eric.dumazet@gmail.com>:
-> > From: Eric Dumazet <edumazet@google.com>
-> >
-> > Commit 1d5783030a1 (ipv6/addrconf: speedup /proc/net/if_inet6 filling)
-> > added bugs hiding some devices from if_inet6 and breaking applications.
-> >
-> > "ip -6 addr" could still display all IPv6 addresses, while "ifconfig -a"
-> > couldnt.
+Cc: Richard Cochran <richardcochran@gmail.com>
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ include/linux/ptp_classify.h |   42 ++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 42 insertions(+), 0 deletions(-)
 
-Thanks Eric and Jan.  Well done.
+diff --git a/include/linux/ptp_classify.h b/include/linux/ptp_classify.h
+index 1dc420b..9b3b55b 100644
+--- a/include/linux/ptp_classify.h
++++ b/include/linux/ptp_classify.h
+@@ -137,4 +137,46 @@ static inline int ptp_filter_init(struct sock_filter *f, int len)
+ 	{OP_RETA,	0,   0, 0			}, /*              */ \
+ /*L6x*/	{OP_RETK,	0,   0, PTP_CLASS_NONE		},
+ 
++static inline int ptp_get_skb_event(struct sk_buff *skb, u32 ptp_class,
++				    u16 *evt_seqid, u8 *evt_msgtype)
++{
++	u16 *seqid;
++	unsigned int offset;
++	u8 *msgtype, *data = skb->data;
++
++	switch (ptp_class) {
++	case PTP_CLASS_V1_IPV4:
++	case PTP_CLASS_V2_IPV4:
++		offset = ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
++		break;
++	case PTP_CLASS_V1_IPV6:
++	case PTP_CLASS_V2_IPV6:
++		offset = OFF_PTP6;
++		break;
++	case PTP_CLASS_V2_L2:
++		offset = ETH_HLEN;
++		break;
++	case PTP_CLASS_V2_VLAN:
++		offset = ETH_HLEN + VLAN_HLEN;
++		break;
++	default:
++		return 0;
++	}
++
++	if (skb->len + ETH_HLEN < offset + OFF_PTP_SEQUENCE_ID + sizeof(*seqid))
++		return 0;
++
++	if (unlikely(ptp_class & PTP_CLASS_V1))
++		msgtype = data + offset + OFF_PTP_CONTROL;
++	else
++		msgtype = data + offset;
++
++	seqid = (u16 *)(data + offset + OFF_PTP_SEQUENCE_ID);
++
++	*evt_seqid = ntohs(*seqid);
++	*evt_msgtype = *msgtype & 0xf;
++
++	return 0;
++}
++
+ #endif
+-- 
+1.7.0.4
