@@ -1,595 +1,1741 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH 5/6] drivers: net: ethernet: cpts: implement cpts hardware clock
-Date: Wed, 17 Oct 2012 04:15:17 +0530
-Message-ID: <1350427518-7230-6-git-send-email-mugunthanvnm@ti.com>
-References: <1350427518-7230-1-git-send-email-mugunthanvnm@ti.com>
+From: Justin Chudgar <justin@justinzane.com>
+Subject: Re: [Bug 1063038] Re: Broadcom BCM57780 Cannot Connect at Gigabit
+ Speed using tg3 module.
+Date: Tue, 16 Oct 2012 16:08:31 -0700
+Message-ID: <507DE8EF.4090807@justinzane.com>
+References: <50756903.1030709@justinzane.com> <50774C61.9050207@justinzane.com> <0E685F8B314BFB42AE2422915B7BDCC30FDCEF86@IRVEXCHMB07.corp.ad.broadcom.com> <DAAFBCC105999F468732FA900576CB450FFA61A5@IRVEXCHMB08.corp.ad.broadcom.com> <5077BAAA.3070208@justinzane.com> <DAAFBCC105999F468732FA900576CB450FFAB4AF@IRVEXCHMB08.corp.ad.broadcom.com> <5078B151.9000607@justinzane.com> <5078B1EF.6090401@broadcom.com> <5078E7B8.20903@justinzane.com> <DAAFBCC105999F468732FA900576CB450FFBB033@IRVEXCHMB08.corp.ad.broadcom.com> <507CD7E6.7070102@justinzane.com> <507D66A3.1050703@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Richard Cochran <richardcochran@gmail.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------060502010708040109090604"
+Cc: Michael Chan <mchan@broadcom.com>,
+	"1063038@bugs.launchpad.net" <1063038@bugs.launchpad.net>,
+	netdev@vger.kernel.org
+To: Nithin Sujir <nsujir@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:53363 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755609Ab2JPWpb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Oct 2012 18:45:31 -0400
-In-Reply-To: <1350427518-7230-1-git-send-email-mugunthanvnm@ti.com>
+Received: from tiny.justinzane.com ([216.7.117.181]:36045 "EHLO
+	happy.justinzane.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754864Ab2JPXIo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2012 19:08:44 -0400
+Received: from happy.justinzane.com (media01 [192.168.0.50])
+	by happy.justinzane.com (Postfix) with ESMTP id EA075180195B1
+	for <netdev@vger.kernel.org>; Tue, 16 Oct 2012 16:08:35 -0700 (PDT)
+In-Reply-To: <507D66A3.1050703@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement of hardware clock and network packet time stamping
-using CPTS module.
+This is a multi-part message in MIME format.
+--------------060502010708040109090604
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-Cc: Richard Cochran <richardcochran@gmail.com>
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- drivers/net/ethernet/ti/Kconfig  |   10 +
- drivers/net/ethernet/ti/Makefile |    2 +-
- drivers/net/ethernet/ti/cpts.c   |  399 ++++++++++++++++++++++++++++++++++++++
- drivers/net/ethernet/ti/cpts.h   |  118 +++++++++++
- 4 files changed, 528 insertions(+), 1 deletions(-)
- create mode 100644 drivers/net/ethernet/ti/cpts.c
- create mode 100644 drivers/net/ethernet/ti/cpts.h
+Well, first off, let me thank you for your efforts up 'til now. I
+appreciate it. You, Nithin and Michael were both quick to respond and
+very helpful. I understand that you, working for Broadcom, must work
+within the parameters of the business agreements they make.
 
-diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
-index b26cbda..6db7e6c 100644
---- a/drivers/net/ethernet/ti/Kconfig
-+++ b/drivers/net/ethernet/ti/Kconfig
-@@ -60,6 +60,16 @@ config TI_CPSW
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called cpsw.
- 
-+config TI_CPTS
-+	boolean "TI Common Platform Time Sync (CPTS) Support"
-+	depends on TI_CPSW && (PTP_1588_CLOCK=y)
-+	---help---
-+	  This driver supports the Common Platform Time Sync unit of
-+	  the CPSW Ethernet Switch.
-+
-+	  The unit can time stamp PTP UDP/IPv4
-+	  and Layer 2 packets, and the driver offers a PTP Hardware Clock.
-+
- config TLAN
- 	tristate "TI ThunderLAN support"
- 	depends on (PCI || EISA)
-diff --git a/drivers/net/ethernet/ti/Makefile b/drivers/net/ethernet/ti/Makefile
-index 91bd8bb..c65148e 100644
---- a/drivers/net/ethernet/ti/Makefile
-+++ b/drivers/net/ethernet/ti/Makefile
-@@ -8,4 +8,4 @@ obj-$(CONFIG_TI_DAVINCI_EMAC) += davinci_emac.o
- obj-$(CONFIG_TI_DAVINCI_MDIO) += davinci_mdio.o
- obj-$(CONFIG_TI_DAVINCI_CPDMA) += davinci_cpdma.o
- obj-$(CONFIG_TI_CPSW) += ti_cpsw.o
--ti_cpsw-y := cpsw_ale.o cpsw.o
-+ti_cpsw-y := cpsw_ale.o cpsw.o cpts.o
-diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-new file mode 100644
-index 0000000..dd2b37b
---- /dev/null
-+++ b/drivers/net/ethernet/ti/cpts.c
-@@ -0,0 +1,399 @@
-+/*
-+ * Texas Instruments Common Platform Time Sync PTP Clock Driver
-+ *
-+ * Copyright (C) 2012 Texas Instruments
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation version 2.
-+ *
-+ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
-+ * kind, whether express or implied; without even the implied warranty
-+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+/*
-+ * PTP 1588 clock using the CPTS
-+ */
-+#include <linux/module.h>
-+#include <linux/device.h>
-+#include <linux/ptp_classify.h>
-+#include <linux/ptp_clock_kernel.h>
-+#include <plat/clock.h>
-+#include <linux/clk.h>
-+#include <linux/skbuff.h>
-+
-+#include "cpts.h"
-+
-+#ifdef CONFIG_TI_CPTS
-+
-+#define nanosec_to_cptscount(cpts, ns)	(div_u64((ns),			\
-+					(cpts)->time_offs_correction))
-+#define cptscount_to_nanosec(cpts, ns)	((ns) * (cpts)->time_offs_correction)
-+
-+static struct sock_filter ptp_filter[] = {
-+	PTP_FILTER
-+};
-+
-+void cpts_systime_write(struct cpts_priv *cpts, u64 ns)
-+{
-+	ns = nanosec_to_cptscount(cpts, ns);
-+	writel((u32)(ns & 0xffffffff), &cpts->reg->ts_load_val);
-+	writel(CPTS_TS_LOAD_CMD, &cpts->reg->ts_load_en);
-+	cpts->tshi = (u32)(ns >> 32);
-+}
-+
-+int cpts_systime_read(struct cpts_priv *cpts, u64 *ns)
-+{
-+	int ret = 0;
-+	int i;
-+
-+	cpts->time_push = 0;
-+	writel(CPTS_TS_PUSH_CMD, &cpts->reg->ts_push);
-+	for (i = 0; i < CPTS_EVT_RETRY_COUNT; i++) {
-+		cpts_event_fifo_read(cpts);
-+		if (cpts->time_push)
-+			break;
-+	}
-+	if (i >= CPTS_EVT_RETRY_COUNT) {
-+		*ns = 0;
-+		return -EBUSY;
-+	}
-+
-+	*ns = cpts->time_push;
-+	return ret;
-+}
-+
-+static int cpts_evt_expired(struct cpts_evts *evt)
-+{
-+	return time_after(jiffies, evt->timeout);
-+}
-+
-+static void cpts_rx_timestamp_pop(struct cpts_priv *cpts,
-+			      struct sk_buff *skb, u32 evt_high)
-+{
-+	struct skb_shared_hwtstamps *shhwtstamps;
-+	struct list_head *this, *next;
-+	struct cpts_evts *evt;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&cpts->lock, flags);
-+	list_for_each_safe(this, next, &cpts->ts_list) {
-+		evt = list_entry(this, struct cpts_evts, list);
-+		if (evt_high == evt->event_high) {
-+			shhwtstamps = skb_hwtstamps(skb);
-+			memset(shhwtstamps, 0, sizeof(*shhwtstamps));
-+			shhwtstamps->hwtstamp = ns_to_ktime(evt->ts);
-+			list_del_init(&evt->list);
-+			list_add(&evt->list, &cpts->ts_pool);
-+			break;
-+		} else if (cpts_evt_expired(evt)) {
-+			list_del_init(&evt->list);
-+			list_add(&evt->list, &cpts->ts_pool);
-+		}
-+	}
-+	spin_unlock_irqrestore(&cpts->lock, flags);
-+}
-+
-+static void cpts_tx_timestamp_pop(struct cpts_priv *cpts,
-+			      struct sk_buff *skb, u32 evt_high)
-+{
-+	struct skb_shared_hwtstamps shhwtstamps;
-+	struct list_head *this, *next;
-+	struct cpts_evts *evt;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&cpts->lock, flags);
-+	list_for_each_safe(this, next, &cpts->ts_list) {
-+		evt = list_entry(this, struct cpts_evts, list);
-+		if (evt_high == evt->event_high) {
-+			memset(&shhwtstamps, 0,
-+				sizeof(struct skb_shared_hwtstamps));
-+			shhwtstamps.hwtstamp = ns_to_ktime(evt->ts);
-+			skb_tstamp_tx(skb, &shhwtstamps);
-+			list_del_init(&evt->list);
-+			list_add(&evt->list, &cpts->ts_pool);
-+			break;
-+		}
-+	}
-+	spin_unlock_irqrestore(&cpts->lock, flags);
-+}
-+
-+/*
-+ * PTP clock operations
-+ */
-+
-+static int ptp_cpts_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
-+{
-+	unsigned long freq, target_freq, current_freq;
-+	int diff;
-+	int neg_adj = 0;
-+	u64 adj;
-+	struct cpts_priv *cpts = container_of(ptp, struct cpts_priv,
-+			caps);
-+
-+	if (IS_ERR(cpts->refclk)) {
-+		/* No clock to adjust frequency */
-+		return 0;
-+	}
-+	current_freq = cpts->refclk->recalc(
-+			cpts->refclk);
-+	freq = cpts->initial_freq;
-+
-+	if (ppb < 0) {
-+		neg_adj = 1;
-+		ppb = -ppb;
-+	}
-+
-+	adj = freq;
-+	adj *= ppb;
-+	diff = div_u64(adj, GHZ_COUNTS_PER_SEC);
-+	target_freq = (neg_adj ? freq - diff : freq + diff);
-+
-+	clk_set_rate(cpts->refclk, target_freq);
-+
-+	return 0;
-+}
-+
-+static int ptp_cpts_adjtime(struct ptp_clock_info *ptp, s64 delta)
-+{
-+	s64 now;
-+	unsigned long flags;
-+	struct cpts_priv *cpts = container_of(ptp,
-+			struct cpts_priv, caps);
-+
-+	spin_lock_irqsave(&cpts->lock, flags);
-+
-+	cpts_systime_read(cpts, &now);
-+	now += delta;
-+	cpts_systime_write(cpts, now);
-+
-+	spin_unlock_irqrestore(&cpts->lock, flags);
-+
-+	return 0;
-+}
-+
-+static int ptp_cpts_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-+{
-+	u64 ns;
-+	unsigned long flags;
-+	struct cpts_priv *cpts = container_of(ptp,
-+			struct cpts_priv, caps);
-+
-+	spin_lock_irqsave(&cpts->lock, flags);
-+
-+	cpts_systime_read(cpts, &ns);
-+
-+	spin_unlock_irqrestore(&cpts->lock, flags);
-+
-+	*ts = ns_to_timespec(ns);
-+	return 0;
-+}
-+
-+static int ptp_cpts_settime(struct ptp_clock_info *ptp,
-+			   const struct timespec *ts)
-+{
-+	u64 ns;
-+	unsigned long flags;
-+	struct cpts_priv *cpts = container_of(ptp,
-+			struct cpts_priv, caps);
-+
-+	ns = timespec_to_ns(ts);
-+
-+	spin_lock_irqsave(&cpts->lock, flags);
-+
-+	cpts_systime_write(cpts, ns);
-+
-+	spin_unlock_irqrestore(&cpts->lock, flags);
-+
-+	return 0;
-+}
-+
-+static int ptp_cpts_enable(struct ptp_clock_info *ptp,
-+			  struct ptp_clock_request *rq, int on)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static struct ptp_clock_info ptp_cpts_caps = {
-+	.owner		= THIS_MODULE,
-+	.name		= "CTPS timer",
-+	.n_ext_ts	= EXT_TS_INSTANCE_CNT,
-+	.pps		= 0,
-+	.adjfreq	= ptp_cpts_adjfreq,
-+	.adjtime	= ptp_cpts_adjtime,
-+	.gettime	= ptp_cpts_gettime,
-+	.settime	= ptp_cpts_settime,
-+	.enable		= ptp_cpts_enable,
-+};
-+
-+void cpts_event_fifo_read(struct cpts_priv *cpts)
-+{
-+	while (readl(&cpts->reg->intstat_raw) & 0x01) {
-+		u64 ts;
-+		u32 event_high;
-+		u32 event_tslo;
-+		u32 evt_type;
-+		struct cpts_evts *evt;
-+
-+		event_high = readl(&cpts->reg->event_high);
-+		event_tslo = readl(&cpts->reg->event_low);
-+		writel(CPTS_EVT_POP, &cpts->reg->event_pop);
-+
-+		if (cpts->first_half && event_tslo & CPTS_CNT_FIRST_HALF)
-+			ts = (u64)(cpts->tshi - 1); /* this is misaligned ts */
-+		else
-+			ts = (u64)(cpts->tshi);
-+		ts = (ts << 32) | event_tslo;
-+		ts = cptscount_to_nanosec(cpts, ts);
-+
-+		evt_type = event_high & CPTS_EVT_MASK;
-+
-+		switch (evt_type) {
-+		case CPTS_TS_PUSH:
-+			/*Push TS to Read */
-+			cpts->time_push = ts;
-+			break;
-+
-+		case CPTS_TS_ROLLOVER:
-+			/* Roll over */
-+			cpts->tshi++;
-+			cpts->first_half = true;
-+			break;
-+
-+		case CPTS_TS_HROLLOVER:
-+			/* Half Roll Over */
-+			cpts->first_half = false;
-+			break;
-+
-+		case CPTS_TS_HW_PUSH:
-+			/* HW TS Push */
-+			pr_err("CPTS hwts are not utilized\n");
-+			/* TBD */
-+			break;
-+
-+		case CPTS_TS_ETH_RX:
-+			/* Ethernet Rx Ts */
-+			if (!cpts->enable_rxts)
-+				break;
-+			evt = list_first_entry(&cpts->ts_pool,
-+					       struct cpts_evts, list);
-+			list_del_init(&evt->list);
-+			evt->event_high = event_high & CPTS_EVT_TS_MASK;
-+			evt->ts = ts;
-+			list_add_tail(&evt->list, &cpts->ts_list);
-+			break;
-+
-+		case CPTS_TS_ETH_TX:
-+			/* Ethernet Tx Ts */
-+			if (!cpts->enable_txts)
-+				break;
-+			evt = list_first_entry(&cpts->ts_pool,
-+					       struct cpts_evts, list);
-+			list_del_init(&evt->list);
-+			evt->event_high = event_high & CPTS_EVT_TS_MASK;
-+			evt->ts = ts;
-+			list_add_tail(&evt->list, &cpts->ts_list);
-+			break;
-+		}
-+	}
-+}
-+
-+void cpts_rx_timestamp(struct cpts_priv *cpts, struct sk_buff *skb)
-+{
-+	u32 evt_high = 0;
-+	u16 seq_id = 0;
-+	u8 evt_type = 0;
-+	u32 ptp_class = 0;
-+
-+	if (!cpts->enable_rxts)
-+		return;
-+
-+	ptp_class = sk_run_filter(skb, ptp_filter);
-+	if (ptp_class == PTP_CLASS_NONE)
-+		return;
-+
-+	ptp_get_skb_event(skb, ptp_class, &seq_id, &evt_type);
-+	evt_high = seq_id | (evt_type << 16) | CPTS_TS_ETH_RX;
-+	cpts_rx_timestamp_pop(cpts, skb, evt_high);
-+}
-+
-+void cpts_tx_timestamp(struct cpts_priv *cpts, struct sk_buff *skb)
-+{
-+	u32 evt_high = 0;
-+	u16 seq_id = 0;
-+	u8 evt_type = 0;
-+	u32 ptp_class = 0;
-+
-+	if (!cpts->enable_txts)
-+		return;
-+
-+	ptp_class = sk_run_filter(skb, ptp_filter);
-+	if (ptp_class == PTP_CLASS_NONE)
-+		return;
-+
-+	ptp_get_skb_event(skb, ptp_class, &seq_id, &evt_type);
-+	evt_high = seq_id | (evt_type << 16) | CPTS_TS_ETH_TX;
-+	cpts_tx_timestamp_pop(cpts, skb, evt_high);
-+}
-+
-+void cpts_unregister(struct cpts_priv *cpts)
-+{
-+	if (!IS_ERR(cpts->refclk)) {
-+		clk_disable(cpts->refclk);
-+		clk_put(cpts->refclk);
-+	}
-+	if (!IS_ERR(cpts->ptp_clock))
-+		ptp_clock_unregister(cpts->ptp_clock);
-+}
-+
-+int cpts_register(struct device *dev, struct cpts_priv *cpts)
-+{
-+	int i;
-+	u32 reg;
-+
-+	reg = readl(&cpts->reg->id_ver);
-+	if (reg != CPTS_VERSION) {
-+		pr_err("cpts: Cannot find CPTS\n");
-+		return -ENODEV;
-+	}
-+
-+	if (ptp_filter_init(ptp_filter, ARRAY_SIZE(ptp_filter))) {
-+		pr_err("cpts: bad ptp filter\n");
-+		return -EINVAL;
-+	}
-+
-+	cpts->refclk = clk_get(NULL, CPTS_REF_CLOCK_NAME);
-+	if (IS_ERR(cpts->refclk)) {
-+		pr_err("cpts: Could not get %s clk\n", CPTS_REF_CLOCK_NAME);
-+		return PTR_ERR(cpts->ptp_clock);
-+	}
-+	clk_enable(cpts->refclk);
-+	spin_lock_init(&cpts->lock);
-+
-+	INIT_LIST_HEAD(&cpts->ts_list);
-+	INIT_LIST_HEAD(&cpts->ts_pool);
-+	for (i = 0; i < CPTS_TS_POOL_SIZE; i++)
-+		list_add(&cpts->ts_pool_data[i].list, &cpts->ts_pool);
-+
-+	cpts->initial_freq = cpts->refclk->recalc(cpts->refclk);
-+	cpts->time_offs_correction = GHZ_COUNTS_PER_SEC/cpts->initial_freq;
-+	cpts->caps = ptp_cpts_caps;
-+
-+	cpts->ptp_clock = ptp_clock_register(&cpts->caps, dev);
-+	if (IS_ERR(cpts->ptp_clock)) {
-+		clk_disable(cpts->refclk);
-+		clk_put(cpts->refclk);
-+		return PTR_ERR(cpts->ptp_clock);
-+	}
-+
-+	pr_info("Found CPTS and initializing...\n");
-+	/* Enable CPTS */
-+	writel(CPTS_CTRL_EN, &cpts->reg->control);
-+	/* Enable CPTS Interrupt */
-+	writel(CPTS_INTR_EN, &cpts->reg->int_enable);
-+
-+	return 0;
-+}
-+
-+#endif
-diff --git a/drivers/net/ethernet/ti/cpts.h b/drivers/net/ethernet/ti/cpts.h
-new file mode 100644
-index 0000000..bc48dc4
---- /dev/null
-+++ b/drivers/net/ethernet/ti/cpts.h
-@@ -0,0 +1,118 @@
-+/*
-+ * Texas Instruments Common Platform Time Sync Header
-+ *
-+ * Copyright (C) 2012 Texas Instruments
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation version 2.
-+ *
-+ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
-+ * kind, whether express or implied; without even the implied warranty
-+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#ifndef __TI_CPTS_H__
-+#define __TI_CPTS_H__
-+
-+#include <linux/ptp_clock_kernel.h>
-+#include <linux/device.h>
-+#include <linux/skbuff.h>
-+
-+#define CPTS_VERSION			0x4e8a0101
-+#define CPTS_CTRL_EN			BIT(0)
-+#define CPTS_INTR_EN			BIT(0)
-+#define CPTS_EVT_POP			BIT(0)
-+#define CPTS_TS_PUSH_CMD		BIT(0)
-+#define CPTS_TS_LOAD_CMD		BIT(0)
-+#define CPTS_TS_PUSH			0x0
-+#define CPTS_TS_ROLLOVER		(0x1 << 20)
-+#define CPTS_TS_HROLLOVER		(0x2 << 20)
-+#define CPTS_TS_HW_PUSH			(0x3 << 20)
-+#define CPTS_TS_ETH_RX			(0x4 << 20)
-+#define CPTS_TS_ETH_TX			(0x5 << 20)
-+#define CPSW_801_1Q_LTYPE		0x88f7
-+#define CPSW_SEQ_ID_OFS			0x1e
-+#define CPTS_CNT_FIRST_HALF		BIT(31)
-+#define CPTS_EVT_MASK			0xf00000
-+#define CPTS_EVT_RETRY_COUNT		20
-+#define CPTS_INT_MASK			BIT(0)
-+#define CPTS_EVT_TS_MASK		0xffffff
-+#define GHZ_COUNTS_PER_SEC		1000000000ULL
-+
-+#define CPTS_TS_POOL_SIZE		32
-+
-+#define CPTS_READ_TS_MAX_TRY		20
-+#define CPTS_REF_CLOCK_NAME		"cpsw_cpts_rft_clk"
-+#define EXT_TS_INSTANCE_CNT		4
-+/*
-+ * CPTS Regs
-+ */
-+struct cpts_regs {
-+	u32	id_ver;
-+	u32	control;
-+	u32	rftclk_sel;
-+	u32	ts_push;
-+	u32	ts_load_val;
-+	u32	ts_load_en;
-+	u32	mem_allign1[2];
-+	u32	intstat_raw;
-+	u32	intstat_masked;
-+	u32	int_enable;
-+	u32	mem_allign2;
-+	u32	event_pop;
-+	u32	event_low;
-+	u32	event_high;
-+};
-+
-+/*
-+ * CPTS Events
-+ */
-+struct cpts_evts {
-+	struct list_head	list;
-+	u32			event_high;
-+	u64			ts;
-+	unsigned long		timeout;
-+};
-+
-+/*
-+ * Time Handle
-+ */
-+struct cpts_priv {
-+	spinlock_t			lock;
-+	struct ptp_clock		*ptp_clock;
-+	struct ptp_clock_info		caps;
-+	struct cpts_regs __iomem	*reg;
-+	struct list_head		ts_list;
-+	struct list_head		ts_pool;
-+	struct cpts_evts		ts_pool_data[CPTS_TS_POOL_SIZE];
-+	struct clk			*refclk;
-+	u64				time_push;
-+	bool				enable_txts;
-+	bool				enable_rxts;
-+	u32				tshi;
-+	bool				first_half;
-+	u32				initial_freq;
-+	u32				time_offs_correction;
-+};
-+
-+#ifdef CONFIG_TI_CPTS
-+
-+void cpts_rx_timestamp(struct cpts_priv *cpts, struct sk_buff *skb);
-+void cpts_tx_timestamp(struct cpts_priv *cpts, struct sk_buff *skb);
-+int cpts_register(struct device *dev, struct cpts_priv *cpts);
-+void cpts_unregister(struct cpts_priv *cpts);
-+void cpts_event_fifo_read(struct cpts_priv *cpts);
-+
-+#else
-+
-+#define cpts_rx_timestamp(cpts, skb)
-+#define cpts_tx_timestamp(cpts, skb)
-+#define cpts_register(dev, cpts) (-ENODEV)
-+#define cpts_unregister(cpts)
-+#define cpts_event_fifo_read(cpts)
-+
-+#endif
-+
-+#endif
--- 
-1.7.0.4
+With that said, though, I wish to express my displeasure with this
+practice artificially limiting the performance and/or capabilities of
+hardware via hidden firmware settings. It seems to be thoroughly
+contrary to both the liberty intended by Free Software and to the
+liberty to use purchased goods in any legal manner.
+
+The end result that since Acer decided to deceptively limit hardware
+function via firmware, presumably to generate artificial pricepoint
+differentiation, Broadcom (not you guys) will agree not to fully support
+their hardware reflects poorly on Broadcom as well as Acer. I know that
+this will make me hesitant to buy devices from Acer or those
+incorporating Broadcom hardware.
+
+I hope that Broadcom rethinks this business practice and that they
+continue to support that great work that the two of you do.
+
+Justin Chudgar  |  Weed, CA 96094  |  530 921 0738 | http://www.justinzane.com/
+
+On 10/16/2012 06:52 AM, Nithin Sujir wrote:
+> Justin,
+> I guess you didn't see my mail to you yesterday. This is as designed
+> as per our hardware team. This what they had to say.
+>
+> "Per our record, this Acer system with BCM57780 and SSID:0601 was
+> intended by Acer to be a 10/100 system. The system is able to connect
+> at 10/100Mbps and therefore it is working as designed. Broadcom cannot
+> support any software/hardware request to override this built in design."
+>
+>
+> Thanks,
+> Nithin.
+>
+> On 10/15/2012 08:43 PM, Justin Chudgar wrote:
+>> First set of output is with ethtool -s advertise 0x03f [Which only works
+>> at 100Mbps]. Second set is with ethtool -s advertise 0x020 [which fails
+>> to link].
+>> --------------------------------
+>> Settings for eth0:
+>>          Supported ports: [ TP MII ]
+>>          Supported link modes:   10baseT/Half 10baseT/Full
+>>                                  100baseT/Half 100baseT/Full
+>>                                  1000baseT/Half 1000baseT/Full
+>>          Supported pause frame use: Symmetric Receive-only
+>>          Supports auto-negotiation: Yes
+>>          Advertised link modes:  10baseT/Half 10baseT/Full
+>>                                  100baseT/Half 100baseT/Full
+>>                                  1000baseT/Half 1000baseT/Full
+>>          Advertised pause frame use: Symmetric Receive-only
+>>          Advertised auto-negotiation: Yes
+>>          Speed: 10Mb/s
+>>          Duplex: Half
+>>          Port: MII
+>>          PHYAD: 1
+>>          Transceiver: external
+>>          Auto-negotiation: on
+>>          Supports Wake-on: g
+>>          Wake-on: g
+>>          Current message level: 0x000000ff (255)
+>>                                 drv probe link timer ifdown ifup rx_err
+>> tx_err
+>>          Link detected: no
+>> --------------------------------
+>> 400
+>> 0000:01:00.0 @80 = 00e04808
+>> 404
+>> 0000:01:00.0 @80 = 00400000
+>> 408
+>> 0000:01:00.0 @80 = 00000000
+>> 45c
+>> 0000:01:00.0 @80 = 00000102
+>> 460
+>> 0000:01:00.0 @80 = 00000000
+>> 3600
+>> 0000:01:00.0 @80 = e0236600
+>> 3601
+>> 0000:01:00.0 @80 = e0236600
+>> 3602
+>> 0000:01:00.0 @80 = e0236600
+>> 3603
+>> 0000:01:00.0 @80 = e0236600
+>> 3604
+>> 0000:01:00.0 @80 = 00170000
+>> 3605
+>> 0000:01:00.0 @80 = 00170000
+>> 3606
+>> 0000:01:00.0 @80 = 00170000
+>> 3607
+>> 0000:01:00.0 @80 = 00170000
+>> 3608
+>> 0000:01:00.0 @80 = 00110000
+>> 3609
+>> 0000:01:00.0 @80 = 00110000
+>> 3610
+>> 0000:01:00.0 @80 = 00170000
+>> 362c
+>> 0000:01:00.0 @80 = 00182036
+>> 3630
+>> 0000:01:00.0 @80 = 00170000
+>> --------------------------------
+>> Settings for eth0:
+>>          Supported ports: [ TP MII ]
+>>          Supported link modes:   10baseT/Half 10baseT/Full
+>>                                  100baseT/Half 100baseT/Full
+>>                                  1000baseT/Half 1000baseT/Full
+>>          Supported pause frame use: Symmetric Receive-only
+>>          Supports auto-negotiation: Yes
+>>          Advertised link modes:  1000baseT/Full
+>>          Advertised pause frame use: No
+>>          Advertised auto-negotiation: Yes
+>>          Speed: 10Mb/s
+>>          Duplex: Half
+>>          Port: MII
+>>          PHYAD: 1
+>>          Transceiver: external
+>>          Auto-negotiation: on
+>>          Supports Wake-on: g
+>>          Wake-on: g
+>>          Current message level: 0x000000ff (255)
+>>                                 drv probe link timer ifdown ifup rx_err
+>> tx_err
+>>          Link detected: no
+>> --------------------------------
+>> 400
+>> 0000:01:00.0 @80 = 00e04808
+>> 404
+>> 0000:01:00.0 @80 = 00400000
+>> 408
+>> 0000:01:00.0 @80 = 00000000
+>> 45c
+>> 0000:01:00.0 @80 = 00000102
+>> 460
+>> 0000:01:00.0 @80 = 00000000
+>> 3600
+>> 0000:01:00.0 @80 = e0236600
+>> 3601
+>> 0000:01:00.0 @80 = e0236600
+>> 3602
+>> 0000:01:00.0 @80 = e0236600
+>> 3603
+>> 0000:01:00.0 @80 = e0236600
+>> 3604
+>> 0000:01:00.0 @80 = 00170000
+>> 3605
+>> 0000:01:00.0 @80 = 00170000
+>> 3606
+>> 0000:01:00.0 @80 = 00170000
+>> 3607
+>> 0000:01:00.0 @80 = 00170000
+>> 3608
+>> 0000:01:00.0 @80 = 00110000
+>> 3609
+>> 0000:01:00.0 @80 = 00110000
+>> 3610
+>> 0000:01:00.0 @80 = 00170000
+>> 362c
+>> 0000:01:00.0 @80 = 00182036
+>> 3630
+>> 0000:01:00.0 @80 = 00170000
+>> --------------------------------
+>>
+>> Justin Chudgar  |  Weed, CA 96094  |  530 921 0738 |
+>> http://www.justinzane.com/
+>>
+>> On 10/15/2012 08:41 AM, Nithin Sujir wrote:
+>>> This is an indirect read method. You write the register address in
+>>> 78 and read back from 80.
+>>> Note - there is no "= <value>" for the 80 line.
+>>>
+>>> What you've done is write to 80, which means you've overwritten
+>>> every register with its address.
+>>>
+>>> You may have to power cycle the system to make sure the card is in
+>>> an ok state.
+>>> And then redo the register reads. Don't write to register 80, only
+>>> read. Also redo the mii-tool experiments.
+>>>
+>>> I think we can ignore the dmesg because I suspect writing to these
+>>> register may have triggered it.
+>>>
+>>> Nithin.
+>>>
+>>>
+>>>> -----Original Message-----
+>>>> From: Justin Chudgar [mailto:justin@justinzane.com]
+>>>> Sent: Friday, October 12, 2012 9:02 PM
+>>>> To: Nithin Sujir
+>>>> Cc: 1063038@bugs.launchpad.net
+>>>> Subject: Re: [Bug 1063038] Re: Broadcom BCM57780 Cannot Connect at
+>>>> Gigabit
+>>>> Speed using tg3 module.
+>>>>
+>>>> Well, there is no output on stdout or stderr from any of these
+>>>> commands:
+>>>>
+>>>>      setpci -s 01:00.0 78.l=400
+>>>>      setpci -s 01:00.0 80.l=400
+>>>>      setpci -s 01:00.0 78.l=404
+>>>>      setpci -s 01:00.0 80.l=404
+>>>>      setpci -s 01:00.0 78.l=408
+>>>>      setpci -s 01:00.0 80.l=408
+>>>>      setpci -s 01:00.0 78.l=45c
+>>>>      setpci -s 01:00.0 80.l=45c
+>>>>      setpci -s 01:00.0 78.l=460
+>>>>      setpci -s 01:00.0 80.l=460
+>>>>
+>>>> There is, however, a bunch of output via dmesg:
+>>>> [ 5752.372423] ------------[ cut here ]------------
+>>>> [ 5752.372436] WARNING: at
+>>>> /build/buildd/linux-3.5.0/net/sched/sch_generic.c:255
+>>>> dev_watchdog+0x272/0x280()
+>>>> [ 5752.372439] Hardware name: Aspire 5733
+>>>> [ 5752.372441] NETDEV WATCHDOG: eth0 (tg3): transmit queue 0 timed out
+>>>> [ 5752.372443] Modules linked in: ip6table_filter ip6_tables
+>>>> ebtable_nat
+>>>> ebtables snd_hrtimer ipt_MASQUERADE iptable_nat nf_nat
+>>>> nf_conntrack_ipv4
+>>>> nf_defrag_ipv4 xt_state nf_conntrack ipt_REJECT xt_CHECKSUM
+>>>> iptable_mangle xt_tcpudp iptable_filter ip_tables x_tables bridge stp
+>>>> llc dm_crypt des_generic md4 nls_utf8 cifs fscache rfcomm parport_pc
+>>>> bnep bluetooth ppdev joydev acer_wmi sparse_keymap
+>>>> snd_hda_codec_realtek
+>>>> kvm_intel snd_hda_intel snd_hda_codec kvm snd_hwdep snd_pcm
+>>>> snd_seq_midi
+>>>> microcode snd_rawmidi snd_seq_midi_event snd_seq arc4 snd_timer
+>>>> snd_seq_device ath9k uvcvideo videobuf2_core intel_ips mac80211
+>>>> videodev
+>>>> videobuf2_vmalloc snd videobuf2_memops psmouse serio_raw ath9k_common
+>>>> ath9k_hw lpc_ich ath soundcore snd_page_alloc cfg80211 mei mac_hid
+>>>> coretemp lp parport btrfs zlib_deflate libcrc32c i915
+>>>> drm_kms_helper drm
+>>>> tg3 i2c_algo_bit mxm_wmi wmi video
+>>>> [ 5752.372528] Pid: 0, comm: swapper/1 Not tainted 3.5.0-17-generic
+>>>> #26-Ubuntu
+>>>> [ 5752.372530] Call Trace:
+>>>> [ 5752.372533]  <IRQ>  [<ffffffff81052cdf>]
+>>>> warn_slowpath_common+0x7f/0xc0
+>>>> [ 5752.372543]  [<ffffffff81052dd6>] warn_slowpath_fmt+0x46/0x50
+>>>> [ 5752.372550]  [<ffffffff8159e862>] dev_watchdog+0x272/0x280
+>>>> [ 5752.372556]  [<ffffffff81070240>] ? __queue_work+0x330/0x330
+>>>> [ 5752.372560]  [<ffffffff8159e5f0>] ? pfifo_fast_dequeue+0xe0/0xe0
+>>>> [ 5752.372563]  [<ffffffff8159e5f0>] ? pfifo_fast_dequeue+0xe0/0xe0
+>>>> [ 5752.372569]  [<ffffffff81062d26>] call_timer_fn+0x46/0x160
+>>>> [ 5752.372572]  [<ffffffff8159e5f0>] ? pfifo_fast_dequeue+0xe0/0xe0
+>>>> [ 5752.372577]  [<ffffffff81064672>] run_timer_softirq+0x132/0x2a0
+>>>> [ 5752.372583]  [<ffffffff810a4035>] ? ktime_get+0x65/0xe0
+>>>> [ 5752.372588]  [<ffffffff8105bac8>] __do_softirq+0xa8/0x210
+>>>> [ 5752.372593]  [<ffffffff810ab194>] ? tick_program_event+0x24/0x30
+>>>> [ 5752.372598]  [<ffffffff816a665c>] call_softirq+0x1c/0x30
+>>>> [ 5752.372604]  [<ffffffff81016245>] do_softirq+0x65/0xa0
+>>>> [ 5752.372608]  [<ffffffff8105beae>] irq_exit+0x8e/0xb0
+>>>> [ 5752.372612]  [<ffffffff816a6f9e>]
+>>>> smp_apic_timer_interrupt+0x6e/0x99
+>>>> [ 5752.372617]  [<ffffffff816a5d0a>] apic_timer_interrupt+0x6a/0x70
+>>>> [ 5752.372619]  <EOI>  [<ffffffff81398b0a>] ? intel_idle+0xea/0x150
+>>>> [ 5752.372628]  [<ffffffff81398aec>] ? intel_idle+0xcc/0x150
+>>>> [ 5752.372633]  [<ffffffff815346f9>] cpuidle_enter+0x19/0x20
+>>>> [ 5752.372637]  [<ffffffff81534d1c>] cpuidle_idle_call+0xac/0x2a0
+>>>> [ 5752.372642]  [<ffffffff8101d89f>] cpu_idle+0xcf/0x120
+>>>> [ 5752.372647]  [<ffffffff8167950d>] start_secondary+0xc3/0xc5
+>>>> [ 5752.372650] ---[ end trace 2a2ef50d1a96a258 ]---
+>>>> [ 5752.372656] tg3 0000:01:00.0: >eth0: transmit timed out, resetting
+>>>> [ 5754.363636] tg3 0000:01:00.0: >eth0: 0x00000000: 0x169214e4,
+>>>> 0x00100406, 0x02000001, 0x00000010
+>>>> [ 5754.363647] tg3 0000:01:00.0: >eth0: 0x00000010: 0xd3400004,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.363653] tg3 0000:01:00.0: >eth0: 0x00000020: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x06011025
+>>>> [ 5754.363659] tg3 0000:01:00.0: >eth0: 0x00000030: 0x00000000,
+>>>> 0x00000048, 0x00000000, 0x0000010a
+>>>> [ 5754.363665] tg3 0000:01:00.0: >eth0: 0x00000040: 0x00000000,
+>>>> 0x00000000, 0xc0036001, 0x08002008
+>>>> [ 5754.363671] tg3 0000:01:00.0: >eth0: 0x00000050: 0x0081cc05,
+>>>> 0xfee0100c, 0x00000000, 0x00004189
+>>>> [ 5754.363677] tg3 0000:01:00.0: >eth0: 0x00000060: 0x006c5009,
+>>>> 0xffa85ef5, 0xf0010298, 0x76180000
+>>>> [ 5754.363683] tg3 0000:01:00.0: >eth0: 0x00000070: 0x000010f2,
+>>>> 0x00000000, 0x00000460, 0x00000000
+>>>> [ 5754.363689] tg3 0000:01:00.0: >eth0: 0x00000080: 0x00000000,
+>>>> 0x40000040, 0x00000000, 0x00000000
+>>>> [ 5754.363695] tg3 0000:01:00.0: >eth0: 0x000000b0: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x57780001
+>>>> [ 5754.363701] tg3 0000:01:00.0: >eth0: 0x000000c0: 0x00000000,
+>>>> 0x00000000, 0x0000000e, 0x00020010
+>>>> [ 5754.363706] tg3 0000:01:00.0: >eth0: 0x000000d0: 0x05908fa0,
+>>>> 0x00112000, 0x0006cc11, 0x10110143
+>>>> [ 5754.363712] tg3 0000:01:00.0: >eth0: 0x000000f0: 0x0000001f,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.363718] tg3 0000:01:00.0: >eth0: 0x00000100: 0x13c10001,
+>>>> 0x00100000, 0x00000000, 0x00062031
+>>>> [ 5754.363724] tg3 0000:01:00.0: >eth0: 0x00000110: 0x00000001,
+>>>> 0x00002000, 0x000000b4, 0x40000001
+>>>> [ 5754.363729] tg3 0000:01:00.0: >eth0: 0x00000120: 0x0000000f,
+>>>> 0xd3400400, 0x00000080, 0x00000000
+>>>> [ 5754.363735] tg3 0000:01:00.0: >eth0: 0x00000130: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x16010002
+>>>> [ 5754.363741] tg3 0000:01:00.0: >eth0: 0x00000150: 0x800000ff,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.363747] tg3 0000:01:00.0: >eth0: 0x00000160: 0x16c10003,
+>>>> 0xfeac38d5, 0xdc0ea1ff, 0x00010004
+>>>> [ 5754.363752] tg3 0000:01:00.0: >eth0: 0x00000170: 0x00000000,
+>>>> 0x00078116, 0x00000001, 0x00000000
+>>>> [ 5754.363758] tg3 0000:01:00.0: >eth0: 0x00000180: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0xffffffff
+>>>> [ 5754.363764] tg3 0000:01:00.0: >eth0: 0x00000200: 0x00000000,
+>>>> 0x3d000000, 0x00000000, 0x00000000
+>>>> [ 5754.363770] tg3 0000:01:00.0: >eth0: 0x00000260: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x000000b5
+>>>> [ 5754.363775] tg3 0000:01:00.0: >eth0: 0x00000280: 0x00000000,
+>>>> 0x000001ed, 0x00000000, 0x00000000
+>>>> [ 5754.363781] tg3 0000:01:00.0: >eth0: 0x00000300: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000050
+>>>> [ 5754.363787] tg3 0000:01:00.0: >eth0: 0x00000310: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000050
+>>>> [ 5754.363792] tg3 0000:01:00.0: >eth0: 0x00000320: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000050
+>>>> [ 5754.363798] tg3 0000:01:00.0: >eth0: 0x00000330: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000050
+>>>> [ 5754.363804] tg3 0000:01:00.0: >eth0: 0x00000340: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000050
+>>>> [ 5754.363809] tg3 0000:01:00.0: >eth0: 0x00000350: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000050
+>>>> [ 5754.363815] tg3 0000:01:00.0: >eth0: 0x00000360: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000050
+>>>> [ 5754.363821] tg3 0000:01:00.0: >eth0: 0x00000370: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000050
+>>>> [ 5754.363826] tg3 0000:01:00.0: >eth0: 0x00000380: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000050
+>>>> [ 5754.363832] tg3 0000:01:00.0: >eth0: 0x00000390: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000050
+>>>> [ 5754.363838] tg3 0000:01:00.0: >eth0: 0x000003a0: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000050
+>>>> [ 5754.363843] tg3 0000:01:00.0: >eth0: 0x000003b0: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000050
+>>>> [ 5754.363849] tg3 0000:01:00.0: >eth0: 0x000003c0: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000050
+>>>> [ 5754.363855] tg3 0000:01:00.0: >eth0: 0x000003d0: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000050
+>>>> [ 5754.363860] tg3 0000:01:00.0: >eth0: 0x000003e0: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000050
+>>>> [ 5754.363866] tg3 0000:01:00.0: >eth0: 0x000003f0: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000050
+>>>> [ 5754.363872] tg3 0000:01:00.0: >eth0: 0x00000400: 0x00000000,
+>>>> 0x00400000, 0x00000000, 0x00009900
+>>>> [ 5754.363878] tg3 0000:01:00.0: >eth0: 0x00000410: 0x0000dc0e,
+>>>> 0xa1ac38d5, 0x0000dc0e, 0xa1ac38d5
+>>>> [ 5754.363883] tg3 0000:01:00.0: >eth0: 0x00000420: 0x0000dc0e,
+>>>> 0xa1ac38d5, 0x0000dc0e, 0xa1ac38d5
+>>>> [ 5754.363889] tg3 0000:01:00.0: >eth0: 0x00000430: 0x00000000,
+>>>> 0x00000000, 0x0000029d, 0x000005f2
+>>>> [ 5754.363895] tg3 0000:01:00.0: >eth0: 0x00000440: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x08240de1
+>>>> [ 5754.363901] tg3 0000:01:00.0: >eth0: 0x00000450: 0x00000001,
+>>>> 0x00008000, 0x00000000, 0x00000050
+>>>> [ 5754.363906] tg3 0000:01:00.0: >eth0: 0x00000460: 0x00000000,
+>>>> 0x00002620, 0x01000006, 0x00000000
+>>>> [ 5754.363912] tg3 0000:01:00.0: >eth0: 0x00000470: 0xa0000000,
+>>>> 0x00000020, 0x10000000, 0x51000000
+>>>> [ 5754.363918] tg3 0000:01:00.0: >eth0: 0x00000480: 0x42000000,
+>>>> 0x7fffffff, 0x06000004, 0x7fffffff
+>>>> [ 5754.363924] tg3 0000:01:00.0: >eth0: 0x00000500: 0x00000008,
+>>>> 0x00000002, 0x00000000, 0x00000000
+>>>> [ 5754.363930] tg3 0000:01:00.0: >eth0: 0x00000590: 0x00900001,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.363936] tg3 0000:01:00.0: >eth0: 0x00000600: 0xffffffff,
+>>>> 0x00f80010, 0x00000000, 0x00001f04
+>>>> [ 5754.363941] tg3 0000:01:00.0: >eth0: 0x00000610: 0xffffffff,
+>>>> 0x00000000, 0x07c00004, 0x30407000
+>>>> [ 5754.363947] tg3 0000:01:00.0: >eth0: 0x00000620: 0x00000040,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.363953] tg3 0000:01:00.0: >eth0: 0x00000800: 0x00000000,
+>>>> 0xffffffff, 0x00000000, 0x00000000
+>>>> [ 5754.363959] tg3 0000:01:00.0: >eth0: 0x00000810: 0x00000000,
+>>>> 0xffffffff, 0x00000000, 0x00000000
+>>>> [ 5754.363964] tg3 0000:01:00.0: >eth0: 0x00000820: 0x00000000,
+>>>> 0x00000000, 0xffffffff, 0x00000000
+>>>> [ 5754.363970] tg3 0000:01:00.0: >eth0: 0x00000830: 0x00000000,
+>>>> 0xffffffff, 0xffffffff, 0xffffffff
+>>>> [ 5754.363976] tg3 0000:01:00.0: >eth0: 0x00000840: 0xffffffff,
+>>>> 0xffffffff, 0xffffffff, 0xffffffff
+>>>> [ 5754.363982] tg3 0000:01:00.0: >eth0: 0x00000850: 0xffffffff,
+>>>> 0xffffffff, 0xffffffff, 0xffffffff
+>>>> [ 5754.363987] tg3 0000:01:00.0: >eth0: 0x00000860: 0xffffffff,
+>>>> 0xffffffff, 0xffffffff, 0x00000000
+>>>> [ 5754.363993] tg3 0000:01:00.0: >eth0: 0x00000880: 0x00000000,
+>>>> 0x0008b598, 0x00000000, 0x00000000
+>>>> [ 5754.363999] tg3 0000:01:00.0: >eth0: 0x00000c00: 0x0000000a,
+>>>> 0x00000000, 0x00000003, 0x00000001
+>>>> [ 5754.364005] tg3 0000:01:00.0: >eth0: 0x00000c10: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x01560000
+>>>> [ 5754.364010] tg3 0000:01:00.0: >eth0: 0x00000c80: 0x00000050,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364016] tg3 0000:01:00.0: >eth0: 0x00000ce0: 0xb1f88802,
+>>>> 0x00000001, 0x00000156, 0x00040028
+>>>> [ 5754.364022] tg3 0000:01:00.0: >eth0: 0x00000cf0: 0x00000000,
+>>>> 0x50000050, 0x00000000, 0x00000000
+>>>> [ 5754.364028] tg3 0000:01:00.0: >eth0: 0x00001000: 0x00000002,
+>>>> 0x00000000, 0xa0000558, 0x00000000
+>>>> [ 5754.364034] tg3 0000:01:00.0: >eth0: 0x00001010: 0x504d04e0,
+>>>> 0x00000558, 0x00000000, 0x00000000
+>>>> [ 5754.364040] tg3 0000:01:00.0: >eth0: 0x00001400: 0x00000006,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364046] tg3 0000:01:00.0: >eth0: 0x00001440: 0x00000050,
+>>>> 0x00000050, 0x00000050, 0x00000050
+>>>> [ 5754.364052] tg3 0000:01:00.0: >eth0: 0x00001450: 0x00000050,
+>>>> 0x00000050, 0x00000050, 0x00000050
+>>>> [ 5754.364057] tg3 0000:01:00.0: >eth0: 0x00001460: 0x00000050,
+>>>> 0x00000050, 0x00000050, 0x00000050
+>>>> [ 5754.364063] tg3 0000:01:00.0: >eth0: 0x00001470: 0x00000050,
+>>>> 0x00000050, 0x00000050, 0x00000050
+>>>> [ 5754.364069] tg3 0000:01:00.0: >eth0: 0x00001480: 0x00000001,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364075] tg3 0000:01:00.0: >eth0: 0x00001800: 0x00000016,
+>>>> 0x00000000, 0x00000050, 0x00000000
+>>>> [ 5754.364080] tg3 0000:01:00.0: >eth0: 0x00001840: 0x00000000,
+>>>> 0x00000000, 0x00000200, 0x00000010
+>>>> [ 5754.364086] tg3 0000:01:00.0: >eth0: 0x00001850: 0xb09824f0,
+>>>> 0x00000001, 0x000040f0, 0x00500050
+>>>> [ 5754.364092] tg3 0000:01:00.0: >eth0: 0x00001860: 0x01000000,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364098] tg3 0000:01:00.0: >eth0: 0x00001c00: 0x00000002,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364104] tg3 0000:01:00.0: >eth0: 0x00002000: 0x00000002,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364110] tg3 0000:01:00.0: >eth0: 0x00002010: 0x00000181,
+>>>> 0x00000001, 0x007bfffd, 0x00000000
+>>>> [ 5754.364116] tg3 0000:01:00.0: >eth0: 0x00002100: 0x000cce67,
+>>>> 0x000cce67, 0x00000000, 0x00000000
+>>>> [ 5754.364122] tg3 0000:01:00.0: >eth0: 0x00002110: 0x000cce67,
+>>>> 0x000cce67, 0x00000000, 0x00000000
+>>>> [ 5754.364127] tg3 0000:01:00.0: >eth0: 0x00002120: 0x000cce67,
+>>>> 0x000cce67, 0x00000000, 0x00000000
+>>>> [ 5754.364133] tg3 0000:01:00.0: >eth0: 0x00002130: 0x000cce67,
+>>>> 0x000cce67, 0x00000000, 0x00000000
+>>>> [ 5754.364138] tg3 0000:01:00.0: >eth0: 0x00002140: 0x000cce67,
+>>>> 0x000cce67, 0x00000000, 0x00000000
+>>>> [ 5754.364144] tg3 0000:01:00.0: >eth0: 0x00002150: 0x000cce67,
+>>>> 0x000cce67, 0x00000000, 0x00000000
+>>>> [ 5754.364150] tg3 0000:01:00.0: >eth0: 0x00002160: 0x000cce67,
+>>>> 0x000cce67, 0x00000000, 0x00000000
+>>>> [ 5754.364155] tg3 0000:01:00.0: >eth0: 0x00002170: 0x000cce67,
+>>>> 0x000cce67, 0x00000000, 0x00000000
+>>>> [ 5754.364161] tg3 0000:01:00.0: >eth0: 0x00002180: 0x000cce67,
+>>>> 0x000cce67, 0x00000000, 0x00000000
+>>>> [ 5754.364167] tg3 0000:01:00.0: >eth0: 0x00002190: 0x000cce67,
+>>>> 0x000cce67, 0x00000000, 0x00000000
+>>>> [ 5754.364172] tg3 0000:01:00.0: >eth0: 0x000021a0: 0x000cce67,
+>>>> 0x000cce67, 0x00000000, 0x00000000
+>>>> [ 5754.364178] tg3 0000:01:00.0: >eth0: 0x000021b0: 0x000cce67,
+>>>> 0x000cce67, 0x00000000, 0x00000000
+>>>> [ 5754.364184] tg3 0000:01:00.0: >eth0: 0x000021c0: 0x000cce67,
+>>>> 0x000cce67, 0x00000000, 0x00000000
+>>>> [ 5754.364189] tg3 0000:01:00.0: >eth0: 0x000021d0: 0x000cce67,
+>>>> 0x000cce67, 0x00000000, 0x00000000
+>>>> [ 5754.364195] tg3 0000:01:00.0: >eth0: 0x000021e0: 0x000cce67,
+>>>> 0x000cce67, 0x00000000, 0x00000000
+>>>> [ 5754.364201] tg3 0000:01:00.0: >eth0: 0x000021f0: 0x000cce67,
+>>>> 0x000cce67, 0x00000000, 0x00000000
+>>>> [ 5754.364207] tg3 0000:01:00.0: >eth0: 0x00002200: 0x00002909,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364213] tg3 0000:01:00.0: >eth0: 0x00002400: 0x00000012,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364219] tg3 0000:01:00.0: >eth0: 0x00002450: 0x00000001,
+>>>> 0xb0994000, 0x02000000, 0x00006000
+>>>> [ 5754.364225] tg3 0000:01:00.0: >eth0: 0x00002470: 0x00000000,
+>>>> 0x000001ed, 0x00000000, 0x00000000
+>>>> [ 5754.364230] tg3 0000:01:00.0: >eth0: 0x000024c0: 0x08000001,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364236] tg3 0000:01:00.0: >eth0: 0x00002800: 0x00000006,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364242] tg3 0000:01:00.0: >eth0: 0x00002c00: 0x00000006,
+>>>> 0x00000000, 0x00000000, 0x00000020
+>>>> [ 5754.364248] tg3 0000:01:00.0: >eth0: 0x00002c10: 0x00000000,
+>>>> 0x00000000, 0x00000010, 0x00000000
+>>>> [ 5754.364254] tg3 0000:01:00.0: >eth0: 0x00002c20: 0x00000001,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364260] tg3 0000:01:00.0: >eth0: 0x00003000: 0x00000006,
+>>>> 0x00000000, 0x00000000, 0x00000020
+>>>> [ 5754.364266] tg3 0000:01:00.0: >eth0: 0x00003600: 0xe0236600,
+>>>> 0x00170000, 0x00110000, 0x00000000
+>>>> [ 5754.364272] tg3 0000:01:00.0: >eth0: 0x00003610: 0x00170000,
+>>>> 0x00130000, 0x00150000, 0x00000000
+>>>> [ 5754.364278] tg3 0000:01:00.0: >eth0: 0x00003620: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x00082080
+>>>> [ 5754.364283] tg3 0000:01:00.0: >eth0: 0x00003630: 0x00110000,
+>>>> 0x30020000, 0x00001000, 0x00000000
+>>>> [ 5754.364289] tg3 0000:01:00.0: >eth0: 0x00003640: 0x00000000,
+>>>> 0x00000000, 0x00000020, 0x0000004b
+>>>> [ 5754.364295] tg3 0000:01:00.0: >eth0: 0x00003650: 0x00000171,
+>>>> 0x00000bff, 0x57780001, 0x00000000
+>>>> [ 5754.364301] tg3 0000:01:00.0: >eth0: 0x00003660: 0x00000000,
+>>>> 0x00000000, 0x000000af, 0x00000000
+>>>> [ 5754.364306] tg3 0000:01:00.0: >eth0: 0x00003670: 0x0000002a,
+>>>> 0xfeffffe3, 0x00000000, 0x00000000
+>>>> [ 5754.364312] tg3 0000:01:00.0: >eth0: 0x000036a0: 0x00000000,
+>>>> 0x42000000, 0x00000000, 0x00000041
+>>>> [ 5754.364318] tg3 0000:01:00.0: >eth0: 0x00003c00: 0x00000302,
+>>>> 0x00000000, 0x00000014, 0x00000048
+>>>> [ 5754.364324] tg3 0000:01:00.0: >eth0: 0x00003c10: 0x00000005,
+>>>> 0x00000035, 0x00000000, 0x00000000
+>>>> [ 5754.364330] tg3 0000:01:00.0: >eth0: 0x00003c20: 0x00000005,
+>>>> 0x00000005, 0x00000000, 0x00000000
+>>>> [ 5754.364335] tg3 0000:01:00.0: >eth0: 0x00003c30: 0x00000000,
+>>>> 0x00000000, 0x00000001, 0xaf244000
+>>>> [ 5754.364341] tg3 0000:01:00.0: >eth0: 0x00003c40: 0x00000000,
+>>>> 0x00000b00, 0x00000000, 0x00000000
+>>>> [ 5754.364347] tg3 0000:01:00.0: >eth0: 0x00003c50: 0x00000000,
+>>>> 0x000001ed, 0x00000000, 0x00000000
+>>>> [ 5754.364353] tg3 0000:01:00.0: >eth0: 0x00003c80: 0x000001ed,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364358] tg3 0000:01:00.0: >eth0: 0x00003cc0: 0x0000004d,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364364] tg3 0000:01:00.0: >eth0: 0x00004000: 0x00000002,
+>>>> 0x00000000, 0x001a1bd1, 0x001a5ebe
+>>>> [ 5754.364370] tg3 0000:01:00.0: >eth0: 0x00004010: 0x0040c670,
+>>>> 0x00267012, 0x00800440, 0x0041d062
+>>>> [ 5754.364376] tg3 0000:01:00.0: >eth0: 0x00004020: 0x00000000,
+>>>> 0x00000000, 0x00000010, 0x00000000
+>>>> [ 5754.364382] tg3 0000:01:00.0: >eth0: 0x00004030: 0x00000010,
+>>>> 0x00000030, 0x00000000, 0x00000000
+>>>> [ 5754.364387] tg3 0000:01:00.0: >eth0: 0x00004040: 0x00000000,
+>>>> 0x00000000, 0x01081e20, 0x00000000
+>>>> [ 5754.364393] tg3 0000:01:00.0: >eth0: 0x00004050: 0x00000000,
+>>>> 0x00000000, 0x00267010, 0x0041a002
+>>>> [ 5754.364399] tg3 0000:01:00.0: >eth0: 0x00004060: 0x0041d000,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364405] tg3 0000:01:00.0: >eth0: 0x00004400: 0x00000006,
+>>>> 0x00000000, 0x00010000, 0x00004000
+>>>> [ 5754.364411] tg3 0000:01:00.0: >eth0: 0x00004410: 0x00000000,
+>>>> 0x00000010, 0x00000060, 0x00000000
+>>>> [ 5754.364416] tg3 0000:01:00.0: >eth0: 0x00004420: 0x0000003d,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364422] tg3 0000:01:00.0: >eth0: 0x00004440: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x00c03022
+>>>> [ 5754.364428] tg3 0000:01:00.0: >eth0: 0x00004450: 0x00012a7f,
+>>>> 0x00680069, 0x00000000, 0x00000000
+>>>> [ 5754.364434] tg3 0000:01:00.0: >eth0: 0x00004800: 0x18033bfe,
+>>>> 0x00000000, 0x00000000, 0x00000020
+>>>> [ 5754.364440] tg3 0000:01:00.0: >eth0: 0x00004810: 0x00000000,
+>>>> 0x00000003, 0x0156028c, 0x00000000
+>>>> [ 5754.364446] tg3 0000:01:00.0: >eth0: 0x00004820: 0x00000021,
+>>>> 0x00000000, 0xf03b0000, 0xb1f88958
+>>>> [ 5754.364451] tg3 0000:01:00.0: >eth0: 0x00004830: 0x00000000,
+>>>> 0x000000df, 0x000000df, 0x00000000
+>>>> [ 5754.364457] tg3 0000:01:00.0: >eth0: 0x00004840: 0x00000050,
+>>>> 0x0000004e, 0x030e2202, 0x1d2a3d51
+>>>> [ 5754.364463] tg3 0000:01:00.0: >eth0: 0x00004850: 0xffffbb40,
+>>>> 0xc2ae0156, 0x1a191a19, 0x00000000
+>>>> [ 5754.364469] tg3 0000:01:00.0: >eth0: 0x00004860: 0x03000021,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364474] tg3 0000:01:00.0: >eth0: 0x00004900: 0x00028207,
+>>>> 0x50200e08, 0x00000000, 0x00000000
+>>>> [ 5754.364480] tg3 0000:01:00.0: >eth0: 0x00004910: 0x00000018,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364486] tg3 0000:01:00.0: >eth0: 0x00004c00: 0x200003fe,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364492] tg3 0000:01:00.0: >eth0: 0x00004c10: 0x0000003f,
+>>>> 0x00000000, 0x00000006, 0x00000000
+>>>> [ 5754.364498] tg3 0000:01:00.0: >eth0: 0x00004c20: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x00000006
+>>>> [ 5754.364503] tg3 0000:01:00.0: >eth0: 0x00004c30: 0x00000000,
+>>>> 0x00000000, 0x0000001e, 0x0000001e
+>>>> [ 5754.364509] tg3 0000:01:00.0: >eth0: 0x00004c40: 0x00000000,
+>>>> 0xaf244000, 0x00010020, 0x00000020
+>>>> [ 5754.364515] tg3 0000:01:00.0: >eth0: 0x00004c50: 0x07ffffec,
+>>>> 0x07b7d9ff, 0x00000000, 0xf6ad3d3d
+>>>> [ 5754.364521] tg3 0000:01:00.0: >eth0: 0x00005000: 0x00009800,
+>>>> 0x80008000, 0x00000000, 0x00000000
+>>>> [ 5754.364527] tg3 0000:01:00.0: >eth0: 0x00005010: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x40003544
+>>>> [ 5754.364533] tg3 0000:01:00.0: >eth0: 0x00005020: 0x8fbf001c,
+>>>> 0x00000000, 0x00000000, 0x40000020
+>>>> [ 5754.364538] tg3 0000:01:00.0: >eth0: 0x00005030: 0x00000000,
+>>>> 0x00000051, 0x00000000, 0x00000000
+>>>> [ 5754.364544] tg3 0000:01:00.0: >eth0: 0x00005040: 0x00000000,
+>>>> 0x00000000, 0x400036b0, 0x00000000
+>>>> [ 5754.364550] tg3 0000:01:00.0: >eth0: 0x00005080: 0x00009800,
+>>>> 0x80000000, 0x00000000, 0x00000000
+>>>> [ 5754.364555] tg3 0000:01:00.0: >eth0: 0x00005090: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x40003550
+>>>> [ 5754.364561] tg3 0000:01:00.0: >eth0: 0x000050a0: 0x8fb00010,
+>>>> 0x00000000, 0x00000000, 0x40000020
+>>>> [ 5754.364567] tg3 0000:01:00.0: >eth0: 0x000050b0: 0x00000000,
+>>>> 0x00000051, 0x00000000, 0x00000000
+>>>> [ 5754.364573] tg3 0000:01:00.0: >eth0: 0x000050c0: 0x00000000,
+>>>> 0x00000000, 0x40002ccc, 0x00000000
+>>>> [ 5754.364578] tg3 0000:01:00.0: >eth0: 0x00005100: 0x00009800,
+>>>> 0x80008000, 0x00000000, 0x00000000
+>>>> [ 5754.364584] tg3 0000:01:00.0: >eth0: 0x00005110: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x40003568
+>>>> [ 5754.364590] tg3 0000:01:00.0: >eth0: 0x00005120: 0x3c030008,
+>>>> 0x00000000, 0x00000000, 0x40000020
+>>>> [ 5754.364595] tg3 0000:01:00.0: >eth0: 0x00005130: 0x00000000,
+>>>> 0x00000051, 0x00000000, 0x00000000
+>>>> [ 5754.364601] tg3 0000:01:00.0: >eth0: 0x00005140: 0x00000000,
+>>>> 0x00000000, 0x40002e28, 0x00000000
+>>>> [ 5754.364607] tg3 0000:01:00.0: >eth0: 0x00005180: 0x00009800,
+>>>> 0x80000000, 0x00000000, 0x00000000
+>>>> [ 5754.364613] tg3 0000:01:00.0: >eth0: 0x00005190: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x40001d2c
+>>>> [ 5754.364618] tg3 0000:01:00.0: >eth0: 0x000051a0: 0x3c054000,
+>>>> 0x00000000, 0x00000000, 0x40000020
+>>>> [ 5754.364624] tg3 0000:01:00.0: >eth0: 0x000051b0: 0x00000000,
+>>>> 0x00000051, 0x00000000, 0x00000000
+>>>> [ 5754.364630] tg3 0000:01:00.0: >eth0: 0x000051c0: 0x00000000,
+>>>> 0x00000000, 0x40002cc4, 0x00000000
+>>>> [ 5754.364635] tg3 0000:01:00.0: >eth0: 0x00005200: 0xa1020000,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364641] tg3 0000:01:00.0: >eth0: 0x00005210: 0x00000000,
+>>>> 0x400036b4, 0x40001d2c, 0x40001d2c
+>>>> [ 5754.364647] tg3 0000:01:00.0: >eth0: 0x00005220: 0x40001d2c,
+>>>> 0x400036b4, 0x08004c80, 0x08005fc8
+>>>> [ 5754.364653] tg3 0000:01:00.0: >eth0: 0x00005230: 0x08005fc8,
+>>>> 0x08005fc8, 0x08004c80, 0xc0000000
+>>>> [ 5754.364659] tg3 0000:01:00.0: >eth0: 0x00005240: 0x00000000,
+>>>> 0xa1020000, 0x00000000, 0x00000000
+>>>> [ 5754.364664] tg3 0000:01:00.0: >eth0: 0x00005260: 0x40001d2c,
+>>>> 0x00000000, 0x400036b4, 0x08004c80
+>>>> [ 5754.364670] tg3 0000:01:00.0: >eth0: 0x00005270: 0x08005fc8,
+>>>> 0x08005fc8, 0x08005fc8, 0x08004c80
+>>>> [ 5754.364676] tg3 0000:01:00.0: >eth0: 0x00005280: 0x00009800,
+>>>> 0x80000000, 0x00000000, 0x00000000
+>>>> [ 5754.364682] tg3 0000:01:00.0: >eth0: 0x00005290: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x40003688
+>>>> [ 5754.364688] tg3 0000:01:00.0: >eth0: 0x000052a0: 0x27bd0020,
+>>>> 0x00000000, 0x00000000, 0x40000020
+>>>> [ 5754.364693] tg3 0000:01:00.0: >eth0: 0x000052b0: 0x00000000,
+>>>> 0x00000051, 0x00000000, 0x00000000
+>>>> [ 5754.364699] tg3 0000:01:00.0: >eth0: 0x000052c0: 0x00000000,
+>>>> 0x00000000, 0x40003696, 0x00000000
+>>>> [ 5754.364705] tg3 0000:01:00.0: >eth0: 0x00005300: 0x00009800,
+>>>> 0x80000000, 0x00000000, 0x00000000
+>>>> [ 5754.364710] tg3 0000:01:00.0: >eth0: 0x00005310: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x40003548
+>>>> [ 5754.364716] tg3 0000:01:00.0: >eth0: 0x00005320: 0x8fb20018,
+>>>> 0x00000000, 0x00000000, 0x40000020
+>>>> [ 5754.364722] tg3 0000:01:00.0: >eth0: 0x00005330: 0x00000000,
+>>>> 0x00000051, 0x00000000, 0x00000000
+>>>> [ 5754.364727] tg3 0000:01:00.0: >eth0: 0x00005340: 0x00000000,
+>>>> 0x00000000, 0x40001d30, 0x00000000
+>>>> [ 5754.364733] tg3 0000:01:00.0: >eth0: 0x00005380: 0x00009800,
+>>>> 0x80000000, 0x00000000, 0x00000000
+>>>> [ 5754.364739] tg3 0000:01:00.0: >eth0: 0x00005390: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x40003544
+>>>> [ 5754.364744] tg3 0000:01:00.0: >eth0: 0x000053a0: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x40000020
+>>>> [ 5754.364750] tg3 0000:01:00.0: >eth0: 0x000053b0: 0x00000000,
+>>>> 0x00000051, 0x00000000, 0x00000000
+>>>> [ 5754.364756] tg3 0000:01:00.0: >eth0: 0x000053c0: 0x00000000,
+>>>> 0x00000000, 0x40001d30, 0x00000000
+>>>> [ 5754.364762] tg3 0000:01:00.0: >eth0: 0x00005600: 0x169214e4,
+>>>> 0x00100406, 0x02000001, 0x00000010
+>>>> [ 5754.364768] tg3 0000:01:00.0: >eth0: 0x00005610: 0xd3400004,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364773] tg3 0000:01:00.0: >eth0: 0x00005620: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x06011025
+>>>> [ 5754.364779] tg3 0000:01:00.0: >eth0: 0x00005630: 0x00000000,
+>>>> 0x00000048, 0x00000000, 0x0000010a
+>>>> [ 5754.364785] tg3 0000:01:00.0: >eth0: 0x00005640: 0x00000000,
+>>>> 0x00000000, 0xc0036001, 0x08002008
+>>>> [ 5754.364791] tg3 0000:01:00.0: >eth0: 0x00005650: 0x0081cc05,
+>>>> 0xfee0100c, 0x00000000, 0x00004189
+>>>> [ 5754.364796] tg3 0000:01:00.0: >eth0: 0x00005660: 0x006c5009,
+>>>> 0xffa85ef5, 0xf0010298, 0x76180000
+>>>> [ 5754.364802] tg3 0000:01:00.0: >eth0: 0x00005670: 0x000010f2,
+>>>> 0x00000000, 0x00000460, 0x00000000
+>>>> [ 5754.364808] tg3 0000:01:00.0: >eth0: 0x00005680: 0x40000008,
+>>>> 0x40000008, 0x00000000, 0x00000000
+>>>> [ 5754.364814] tg3 0000:01:00.0: >eth0: 0x000056b0: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x57780001
+>>>> [ 5754.364819] tg3 0000:01:00.0: >eth0: 0x000056c0: 0x00000000,
+>>>> 0x00000000, 0x0000000e, 0x00020010
+>>>> [ 5754.364825] tg3 0000:01:00.0: >eth0: 0x000056d0: 0x05908fa0,
+>>>> 0x00112000, 0x0006cc11, 0x10110143
+>>>> [ 5754.364831] tg3 0000:01:00.0: >eth0: 0x000056f0: 0x0000001f,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364837] tg3 0000:01:00.0: >eth0: 0x00005700: 0x13c10001,
+>>>> 0x00100000, 0x00000000, 0x00062031
+>>>> [ 5754.364842] tg3 0000:01:00.0: >eth0: 0x00005710: 0x00000001,
+>>>> 0x00002000, 0x000000b4, 0x40000001
+>>>> [ 5754.364848] tg3 0000:01:00.0: >eth0: 0x00005720: 0x0000000f,
+>>>> 0xd3400400, 0x00000080, 0x00000000
+>>>> [ 5754.364854] tg3 0000:01:00.0: >eth0: 0x00005730: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x16010002
+>>>> [ 5754.364859] tg3 0000:01:00.0: >eth0: 0x00005750: 0x800000ff,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364865] tg3 0000:01:00.0: >eth0: 0x00005760: 0x16c10003,
+>>>> 0xfeac38d5, 0xdc0ea1ff, 0x00010004
+>>>> [ 5754.364871] tg3 0000:01:00.0: >eth0: 0x00005770: 0x00000000,
+>>>> 0x00078116, 0x00000001, 0x00000000
+>>>> [ 5754.364877] tg3 0000:01:00.0: >eth0: 0x00005780: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0xffffffff
+>>>> [ 5754.364882] tg3 0000:01:00.0: >eth0: 0x00005800: 0x00000000,
+>>>> 0x3d000000, 0x00000000, 0x00000000
+>>>> [ 5754.364888] tg3 0000:01:00.0: >eth0: 0x00005860: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x000000b5
+>>>> [ 5754.364894] tg3 0000:01:00.0: >eth0: 0x00005880: 0x00000000,
+>>>> 0x000001ed, 0x00000000, 0x00000000
+>>>> [ 5754.364899] tg3 0000:01:00.0: >eth0: 0x00005900: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000000
+>>>> [ 5754.364905] tg3 0000:01:00.0: >eth0: 0x00005980: 0x00000000,
+>>>> 0x00000050, 0x00000000, 0x00000000
+>>>> [ 5754.364911] tg3 0000:01:00.0: >eth0: 0x00005a00: 0x00012001,
+>>>> 0x00000000, 0x00010000, 0x00000000
+>>>> [ 5754.364917] tg3 0000:01:00.0: >eth0: 0x00006000: 0x00000002,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364924] tg3 0000:01:00.0: >eth0: 0x00006800: 0x04130034,
+>>>> 0x20085082, 0x01009219, 0x54f00671
+>>>> [ 5754.364929] tg3 0000:01:00.0: >eth0: 0x00006810: 0xa1020000,
+>>>> 0xffffffff, 0x00000000, 0x00000000
+>>>> [ 5754.364935] tg3 0000:01:00.0: >eth0: 0x000068a0: 0x00000000,
+>>>> 0x20010001, 0x00000000, 0x00000000
+>>>> [ 5754.364941] tg3 0000:01:00.0: >eth0: 0x000068b0: 0x00040000,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364947] tg3 0000:01:00.0: >eth0: 0x00006c20: 0x00000000,
+>>>> 0x00100000, 0x00000000, 0x00000000
+>>>> [ 5754.364953] tg3 0000:01:00.0: >eth0: 0x00007000: 0x08000188,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5754.364959] tg3 0000:01:00.0: >eth0: 0x00007010: 0xffffffff,
+>>>> 0x00008200, 0x000500db, 0x03000a00
+>>>> [ 5754.364965] tg3 0000:01:00.0: >eth0: 0x00007020: 0x00000000,
+>>>> 0x00000000, 0x00000406, 0x10004000
+>>>> [ 5754.364970] tg3 0000:01:00.0: >eth0: 0x00007030: 0x00020000,
+>>>> 0x00000004, 0x001f0010, 0x00000000
+>>>> [ 5754.364977] tg3 0000:01:00.0: >eth0: 0x00007500: 0x00000000,
+>>>> 0x00000000, 0x0000008b, 0x00000240
+>>>> [ 5754.364987] tg3 0000:01:00.0: >eth0: 0: Host status block
+>>>> [00000001:0000003d:(0000:01ed:0000):(01ed:004d)]
+>>>> [ 5754.364994] tg3 0000:01:00.0: >eth0: 0: NAPI info
+>>>> [0000003d:0000003d:(0050:004d:01ff):01ed:(00b5:0000:0000:0000)]
+>>>> [ 5754.371432] tg3 0000:01:00.0: >eth0: Link is down
+>>>> [ 5754.382537] tg3 0000:01:00.0: >eth0: Link is down
+>>>> [ 5768.375375] tg3 0000:01:00.0: >eth0: Link is up at 100 Mbps,
+>>>> full duplex
+>>>> [ 5768.375381] tg3 0000:01:00.0: >eth0: Flow control is on for TX
+>>>> and on
+>>>> for RX
+>>>> [ 5858.332265] tg3 0000:01:00.0: >eth0: transmit timed out, resetting
+>>>> [ 5860.322807] tg3 0000:01:00.0: >eth0: 0x00000000: 0x169214e4,
+>>>> 0x00100406, 0x02000001, 0x00000010
+>>>> [ 5860.322811] tg3 0000:01:00.0: >eth0: 0x00000010: 0xd3400004,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.322813] tg3 0000:01:00.0: >eth0: 0x00000020: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x06011025
+>>>> [ 5860.322821] tg3 0000:01:00.0: >eth0: 0x00000030: 0x00000000,
+>>>> 0x00000048, 0x00000000, 0x0000010a
+>>>> [ 5860.322827] tg3 0000:01:00.0: >eth0: 0x00000040: 0x00000000,
+>>>> 0x00000000, 0xc0036001, 0x08002008
+>>>> [ 5860.322833] tg3 0000:01:00.0: >eth0: 0x00000050: 0x0081cc05,
+>>>> 0xfee0100c, 0x00000000, 0x00004189
+>>>> [ 5860.322839] tg3 0000:01:00.0: >eth0: 0x00000060: 0x006c5009,
+>>>> 0xffa85ef5, 0xf0010298, 0x76180000
+>>>> [ 5860.322844] tg3 0000:01:00.0: >eth0: 0x00000070: 0x000010f2,
+>>>> 0x00000000, 0x00000460, 0x00000000
+>>>> [ 5860.322850] tg3 0000:01:00.0: >eth0: 0x00000080: 0x00000000,
+>>>> 0x40000040, 0x00000000, 0x00000000
+>>>> [ 5860.322855] tg3 0000:01:00.0: >eth0: 0x000000b0: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x57780001
+>>>> [ 5860.322861] tg3 0000:01:00.0: >eth0: 0x000000c0: 0x00000000,
+>>>> 0x00000000, 0x0000000e, 0x00020010
+>>>> [ 5860.322867] tg3 0000:01:00.0: >eth0: 0x000000d0: 0x05908fa0,
+>>>> 0x00112000, 0x0006cc11, 0x10110143
+>>>> [ 5860.322872] tg3 0000:01:00.0: >eth0: 0x000000f0: 0x0000001f,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.322878] tg3 0000:01:00.0: >eth0: 0x00000100: 0x13c10001,
+>>>> 0x00100000, 0x00000000, 0x00062031
+>>>> [ 5860.322883] tg3 0000:01:00.0: >eth0: 0x00000110: 0x00000001,
+>>>> 0x00002000, 0x000000b4, 0x40000001
+>>>> [ 5860.322889] tg3 0000:01:00.0: >eth0: 0x00000120: 0x0000000f,
+>>>> 0xd3400400, 0x00000080, 0x00000000
+>>>> [ 5860.322894] tg3 0000:01:00.0: >eth0: 0x00000130: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x16010002
+>>>> [ 5860.322900] tg3 0000:01:00.0: >eth0: 0x00000150: 0x800000ff,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.322906] tg3 0000:01:00.0: >eth0: 0x00000160: 0x16c10003,
+>>>> 0xfeac38d5, 0xdc0ea1ff, 0x00010004
+>>>> [ 5860.322911] tg3 0000:01:00.0: >eth0: 0x00000170: 0x00000000,
+>>>> 0x00078116, 0x00000001, 0x00000000
+>>>> [ 5860.322917] tg3 0000:01:00.0: >eth0: 0x00000180: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0xffffffff
+>>>> [ 5860.322922] tg3 0000:01:00.0: >eth0: 0x00000200: 0x00000000,
+>>>> 0x44000000, 0x00000000, 0x00000000
+>>>> [ 5860.322928] tg3 0000:01:00.0: >eth0: 0x00000260: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x00000106
+>>>> [ 5860.322933] tg3 0000:01:00.0: >eth0: 0x00000280: 0x00000000,
+>>>> 0x0000003e, 0x00000000, 0x00000000
+>>>> [ 5860.322939] tg3 0000:01:00.0: >eth0: 0x00000300: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000007
+>>>> [ 5860.322944] tg3 0000:01:00.0: >eth0: 0x00000310: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000007
+>>>> [ 5860.322949] tg3 0000:01:00.0: >eth0: 0x00000320: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000007
+>>>> [ 5860.322955] tg3 0000:01:00.0: >eth0: 0x00000330: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000007
+>>>> [ 5860.322960] tg3 0000:01:00.0: >eth0: 0x00000340: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000007
+>>>> [ 5860.322965] tg3 0000:01:00.0: >eth0: 0x00000350: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000007
+>>>> [ 5860.322971] tg3 0000:01:00.0: >eth0: 0x00000360: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000007
+>>>> [ 5860.322976] tg3 0000:01:00.0: >eth0: 0x00000370: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000007
+>>>> [ 5860.322981] tg3 0000:01:00.0: >eth0: 0x00000380: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000007
+>>>> [ 5860.322987] tg3 0000:01:00.0: >eth0: 0x00000390: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000007
+>>>> [ 5860.322992] tg3 0000:01:00.0: >eth0: 0x000003a0: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000007
+>>>> [ 5860.322998] tg3 0000:01:00.0: >eth0: 0x000003b0: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000007
+>>>> [ 5860.323003] tg3 0000:01:00.0: >eth0: 0x000003c0: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000007
+>>>> [ 5860.323008] tg3 0000:01:00.0: >eth0: 0x000003d0: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000007
+>>>> [ 5860.323014] tg3 0000:01:00.0: >eth0: 0x000003e0: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000007
+>>>> [ 5860.323019] tg3 0000:01:00.0: >eth0: 0x000003f0: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000007
+>>>> [ 5860.323025] tg3 0000:01:00.0: >eth0: 0x00000400: 0x00000000,
+>>>> 0x00400000, 0x00000000, 0x00009d00
+>>>> [ 5860.323030] tg3 0000:01:00.0: >eth0: 0x00000410: 0x0000dc0e,
+>>>> 0xa1ac38d5, 0x0000dc0e, 0xa1ac38d5
+>>>> [ 5860.323036] tg3 0000:01:00.0: >eth0: 0x00000420: 0x0000dc0e,
+>>>> 0xa1ac38d5, 0x0000dc0e, 0xa1ac38d5
+>>>> [ 5860.323041] tg3 0000:01:00.0: >eth0: 0x00000430: 0x00000000,
+>>>> 0x00000000, 0x000000ab, 0x000005f2
+>>>> [ 5860.323047] tg3 0000:01:00.0: >eth0: 0x00000440: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x08240de1
+>>>> [ 5860.323052] tg3 0000:01:00.0: >eth0: 0x00000450: 0x00000001,
+>>>> 0x00008000, 0x00000000, 0x00000050
+>>>> [ 5860.323058] tg3 0000:01:00.0: >eth0: 0x00000460: 0x00000000,
+>>>> 0x00002620, 0x01000006, 0x00000000
+>>>> [ 5860.323064] tg3 0000:01:00.0: >eth0: 0x00000470: 0xa0000000,
+>>>> 0x00000020, 0x10000000, 0x51000000
+>>>> [ 5860.323069] tg3 0000:01:00.0: >eth0: 0x00000480: 0x42000000,
+>>>> 0x7fffffff, 0x06000004, 0x7fffffff
+>>>> [ 5860.323075] tg3 0000:01:00.0: >eth0: 0x00000500: 0x00000008,
+>>>> 0x00000002, 0x00000000, 0x00000000
+>>>> [ 5860.323080] tg3 0000:01:00.0: >eth0: 0x00000590: 0x00900000,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323086] tg3 0000:01:00.0: >eth0: 0x00000600: 0xffffffff,
+>>>> 0x00f80010, 0x00000000, 0x00001f04
+>>>> [ 5860.323092] tg3 0000:01:00.0: >eth0: 0x00000610: 0xffffffff,
+>>>> 0x00000000, 0x07c00004, 0x30407000
+>>>> [ 5860.323097] tg3 0000:01:00.0: >eth0: 0x00000620: 0x00000040,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323103] tg3 0000:01:00.0: >eth0: 0x00000800: 0x00000000,
+>>>> 0xffffffff, 0x00000000, 0x00000000
+>>>> [ 5860.323108] tg3 0000:01:00.0: >eth0: 0x00000810: 0x00000000,
+>>>> 0xffffffff, 0x00000000, 0x00000000
+>>>> [ 5860.323114] tg3 0000:01:00.0: >eth0: 0x00000820: 0x00000000,
+>>>> 0x00000000, 0xffffffff, 0x00000000
+>>>> [ 5860.323119] tg3 0000:01:00.0: >eth0: 0x00000830: 0x00000000,
+>>>> 0xffffffff, 0xffffffff, 0xffffffff
+>>>> [ 5860.323125] tg3 0000:01:00.0: >eth0: 0x00000840: 0xffffffff,
+>>>> 0xffffffff, 0xffffffff, 0xffffffff
+>>>> [ 5860.323130] tg3 0000:01:00.0: >eth0: 0x00000850: 0xffffffff,
+>>>> 0xffffffff, 0xffffffff, 0xffffffff
+>>>> [ 5860.323136] tg3 0000:01:00.0: >eth0: 0x00000860: 0xffffffff,
+>>>> 0xffffffff, 0xffffffff, 0x00000000
+>>>> [ 5860.323141] tg3 0000:01:00.0: >eth0: 0x00000880: 0x00000000,
+>>>> 0x00000fdc, 0x00000000, 0x00000000
+>>>> [ 5860.323147] tg3 0000:01:00.0: >eth0: 0x00000c00: 0x0000000a,
+>>>> 0x00000000, 0x00000003, 0x00000001
+>>>> [ 5860.323153] tg3 0000:01:00.0: >eth0: 0x00000c10: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x01560000
+>>>> [ 5860.323158] tg3 0000:01:00.0: >eth0: 0x00000c80: 0x00000007,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323164] tg3 0000:01:00.0: >eth0: 0x00000ce0: 0xb1f88802,
+>>>> 0x00000001, 0x00000156, 0x00040028
+>>>> [ 5860.323169] tg3 0000:01:00.0: >eth0: 0x00000cf0: 0x00000000,
+>>>> 0x50000007, 0x00000000, 0x00000000
+>>>> [ 5860.323175] tg3 0000:01:00.0: >eth0: 0x00001000: 0x00000002,
+>>>> 0x00000000, 0xa0000517, 0x00000000
+>>>> [ 5860.323180] tg3 0000:01:00.0: >eth0: 0x00001010: 0x50050060,
+>>>> 0x00000517, 0x00000000, 0x00000000
+>>>> [ 5860.323186] tg3 0000:01:00.0: >eth0: 0x00001400: 0x00000006,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323192] tg3 0000:01:00.0: >eth0: 0x00001440: 0x00000007,
+>>>> 0x00000007, 0x00000007, 0x00000007
+>>>> [ 5860.323197] tg3 0000:01:00.0: >eth0: 0x00001450: 0x00000007,
+>>>> 0x00000007, 0x00000007, 0x00000007
+>>>> [ 5860.323202] tg3 0000:01:00.0: >eth0: 0x00001460: 0x00000007,
+>>>> 0x00000007, 0x00000007, 0x00000007
+>>>> [ 5860.323208] tg3 0000:01:00.0: >eth0: 0x00001470: 0x00000007,
+>>>> 0x00000007, 0x00000007, 0x00000007
+>>>> [ 5860.323213] tg3 0000:01:00.0: >eth0: 0x00001480: 0x00000001,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323219] tg3 0000:01:00.0: >eth0: 0x00001800: 0x00000016,
+>>>> 0x00000000, 0x00000007, 0x00000000
+>>>> [ 5860.323225] tg3 0000:01:00.0: >eth0: 0x00001840: 0x00000000,
+>>>> 0x00000000, 0x00000200, 0x00000010
+>>>> [ 5860.323230] tg3 0000:01:00.0: >eth0: 0x00001850: 0xb0982060,
+>>>> 0x00000001, 0x00004060, 0x00070007
+>>>> [ 5860.323236] tg3 0000:01:00.0: >eth0: 0x00001860: 0x01000000,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323241] tg3 0000:01:00.0: >eth0: 0x00001c00: 0x00000002,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323247] tg3 0000:01:00.0: >eth0: 0x00002000: 0x00000002,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323253] tg3 0000:01:00.0: >eth0: 0x00002010: 0x00000181,
+>>>> 0x00000001, 0x007bfffd, 0x00000000
+>>>> [ 5860.323258] tg3 0000:01:00.0: >eth0: 0x00002100: 0x000c9249,
+>>>> 0x000c9249, 0x00000000, 0x00000000
+>>>> [ 5860.323264] tg3 0000:01:00.0: >eth0: 0x00002110: 0x000c9249,
+>>>> 0x000c9249, 0x00000000, 0x00000000
+>>>> [ 5860.323269] tg3 0000:01:00.0: >eth0: 0x00002120: 0x000c9249,
+>>>> 0x000c9249, 0x00000000, 0x00000000
+>>>> [ 5860.323275] tg3 0000:01:00.0: >eth0: 0x00002130: 0x000c9249,
+>>>> 0x000c9249, 0x00000000, 0x00000000
+>>>> [ 5860.323280] tg3 0000:01:00.0: >eth0: 0x00002140: 0x000c9249,
+>>>> 0x000c9249, 0x00000000, 0x00000000
+>>>> [ 5860.323286] tg3 0000:01:00.0: >eth0: 0x00002150: 0x000c9249,
+>>>> 0x000c9249, 0x00000000, 0x00000000
+>>>> [ 5860.323291] tg3 0000:01:00.0: >eth0: 0x00002160: 0x000c9249,
+>>>> 0x000c9249, 0x00000000, 0x00000000
+>>>> [ 5860.323297] tg3 0000:01:00.0: >eth0: 0x00002170: 0x000c9249,
+>>>> 0x000c9249, 0x00000000, 0x00000000
+>>>> [ 5860.323302] tg3 0000:01:00.0: >eth0: 0x00002180: 0x000c9249,
+>>>> 0x000c9249, 0x00000000, 0x00000000
+>>>> [ 5860.323308] tg3 0000:01:00.0: >eth0: 0x00002190: 0x000c9249,
+>>>> 0x000c9249, 0x00000000, 0x00000000
+>>>> [ 5860.323313] tg3 0000:01:00.0: >eth0: 0x000021a0: 0x000c9249,
+>>>> 0x000c9249, 0x00000000, 0x00000000
+>>>> [ 5860.323319] tg3 0000:01:00.0: >eth0: 0x000021b0: 0x000c9249,
+>>>> 0x000c9249, 0x00000000, 0x00000000
+>>>> [ 5860.323324] tg3 0000:01:00.0: >eth0: 0x000021c0: 0x000c9249,
+>>>> 0x000c9249, 0x00000000, 0x00000000
+>>>> [ 5860.323329] tg3 0000:01:00.0: >eth0: 0x000021d0: 0x000c9249,
+>>>> 0x000c9249, 0x00000000, 0x00000000
+>>>> [ 5860.323335] tg3 0000:01:00.0: >eth0: 0x000021e0: 0x000c9249,
+>>>> 0x000c9249, 0x00000000, 0x00000000
+>>>> [ 5860.323340] tg3 0000:01:00.0: >eth0: 0x000021f0: 0x000c9249,
+>>>> 0x000c9249, 0x00000000, 0x00000000
+>>>> [ 5860.323346] tg3 0000:01:00.0: >eth0: 0x00002200: 0x0000004a,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323352] tg3 0000:01:00.0: >eth0: 0x00002400: 0x00000012,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323357] tg3 0000:01:00.0: >eth0: 0x00002450: 0x00000001,
+>>>> 0xb0994000, 0x02000000, 0x00006000
+>>>> [ 5860.323363] tg3 0000:01:00.0: >eth0: 0x00002470: 0x00000000,
+>>>> 0x0000003e, 0x00000000, 0x00000000
+>>>> [ 5860.323369] tg3 0000:01:00.0: >eth0: 0x000024c0: 0x08000001,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323375] tg3 0000:01:00.0: >eth0: 0x00002800: 0x00000006,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323380] tg3 0000:01:00.0: >eth0: 0x00002c00: 0x00000006,
+>>>> 0x00000000, 0x00000000, 0x00000070
+>>>> [ 5860.323386] tg3 0000:01:00.0: >eth0: 0x00002c10: 0x00000000,
+>>>> 0x00000000, 0x00000010, 0x00000000
+>>>> [ 5860.323391] tg3 0000:01:00.0: >eth0: 0x00002c20: 0x00000002,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323397] tg3 0000:01:00.0: >eth0: 0x00003000: 0x00000006,
+>>>> 0x00000000, 0x00000000, 0x00000070
+>>>> [ 5860.323403] tg3 0000:01:00.0: >eth0: 0x00003600: 0xe0236600,
+>>>> 0x00170000, 0x00110000, 0x00000000
+>>>> [ 5860.323409] tg3 0000:01:00.0: >eth0: 0x00003610: 0x00170000,
+>>>> 0x00130000, 0x00150000, 0x00000000
+>>>> [ 5860.323414] tg3 0000:01:00.0: >eth0: 0x00003620: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x00082080
+>>>> [ 5860.323420] tg3 0000:01:00.0: >eth0: 0x00003630: 0x00110000,
+>>>> 0x30020000, 0x00001000, 0x00000000
+>>>> [ 5860.323425] tg3 0000:01:00.0: >eth0: 0x00003640: 0x00000000,
+>>>> 0x00000000, 0x00000020, 0x0000004b
+>>>> [ 5860.323431] tg3 0000:01:00.0: >eth0: 0x00003650: 0x00000171,
+>>>> 0x00000bff, 0x57780001, 0x00000000
+>>>> [ 5860.323436] tg3 0000:01:00.0: >eth0: 0x00003660: 0x00000000,
+>>>> 0x00000000, 0x000000af, 0x00000000
+>>>> [ 5860.323465] tg3 0000:01:00.0: >eth0: 0x00003670: 0x0000002a,
+>>>> 0xfeffffe3, 0x00000000, 0x00000000
+>>>> [ 5860.323474] tg3 0000:01:00.0: >eth0: 0x000036a0: 0x00000000,
+>>>> 0x42000000, 0x00000000, 0x00000041
+>>>> [ 5860.323480] tg3 0000:01:00.0: >eth0: 0x00003c00: 0x00000302,
+>>>> 0x00000000, 0x00000014, 0x00000048
+>>>> [ 5860.323486] tg3 0000:01:00.0: >eth0: 0x00003c10: 0x00000005,
+>>>> 0x00000035, 0x00000000, 0x00000000
+>>>> [ 5860.323491] tg3 0000:01:00.0: >eth0: 0x00003c20: 0x00000005,
+>>>> 0x00000005, 0x00000000, 0x00000000
+>>>> [ 5860.323497] tg3 0000:01:00.0: >eth0: 0x00003c30: 0x00000000,
+>>>> 0x00000000, 0x00000001, 0xaf244000
+>>>> [ 5860.323502] tg3 0000:01:00.0: >eth0: 0x00003c40: 0x00000000,
+>>>> 0x00000b00, 0x00000000, 0x00000000
+>>>> [ 5860.323508] tg3 0000:01:00.0: >eth0: 0x00003c50: 0x00000000,
+>>>> 0x0000003e, 0x00000000, 0x00000000
+>>>> [ 5860.323513] tg3 0000:01:00.0: >eth0: 0x00003c80: 0x0000003e,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323519] tg3 0000:01:00.0: >eth0: 0x00003cc0: 0x00000005,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323524] tg3 0000:01:00.0: >eth0: 0x00004000: 0x00000002,
+>>>> 0x00000000, 0x001a1bd1, 0x001a5ebe
+>>>> [ 5860.323530] tg3 0000:01:00.0: >eth0: 0x00004010: 0x0040b040,
+>>>> 0x00249012, 0x00800440, 0x00418062
+>>>> [ 5860.323536] tg3 0000:01:00.0: >eth0: 0x00004020: 0x00000000,
+>>>> 0x00000000, 0x00000010, 0x00000000
+>>>> [ 5860.323541] tg3 0000:01:00.0: >eth0: 0x00004030: 0x00000010,
+>>>> 0x00000030, 0x00000000, 0x00000000
+>>>> [ 5860.323547] tg3 0000:01:00.0: >eth0: 0x00004040: 0x00000000,
+>>>> 0x00000000, 0x01080c20, 0x00000000
+>>>> [ 5860.323552] tg3 0000:01:00.0: >eth0: 0x00004050: 0x00000000,
+>>>> 0x00000000, 0x00249010, 0x00419002
+>>>> [ 5860.323558] tg3 0000:01:00.0: >eth0: 0x00004060: 0x0041c000,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323564] tg3 0000:01:00.0: >eth0: 0x00004400: 0x00000006,
+>>>> 0x00000000, 0x00010000, 0x00004000
+>>>> [ 5860.323569] tg3 0000:01:00.0: >eth0: 0x00004410: 0x00000000,
+>>>> 0x00000010, 0x00000060, 0x00000000
+>>>> [ 5860.323575] tg3 0000:01:00.0: >eth0: 0x00004420: 0x0000003d,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323580] tg3 0000:01:00.0: >eth0: 0x00004440: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x00802c1d
+>>>> [ 5860.323586] tg3 0000:01:00.0: >eth0: 0x00004450: 0x0001227f,
+>>>> 0x004a004b, 0x00000000, 0x00000000
+>>>> [ 5860.323592] tg3 0000:01:00.0: >eth0: 0x00004800: 0x18033bfe,
+>>>> 0x00000000, 0x00000000, 0x00000020
+>>>> [ 5860.323597] tg3 0000:01:00.0: >eth0: 0x00004810: 0x00000000,
+>>>> 0x00000003, 0x015602ca, 0x00000000
+>>>> [ 5860.323603] tg3 0000:01:00.0: >eth0: 0x00004820: 0x0000001c,
+>>>> 0x00000000, 0xf03b0000, 0xb1f88958
+>>>> [ 5860.323608] tg3 0000:01:00.0: >eth0: 0x00004830: 0x00000000,
+>>>> 0x000000fb, 0x000000fb, 0x00000000
+>>>> [ 5860.323614] tg3 0000:01:00.0: >eth0: 0x00004840: 0x00000007,
+>>>> 0x00000006, 0x030e2201, 0x1c2a3d51
+>>>> [ 5860.323619] tg3 0000:01:00.0: >eth0: 0x00004850: 0xffffbb40,
+>>>> 0xc2ae0156, 0x19181918, 0x00000000
+>>>> [ 5860.323625] tg3 0000:01:00.0: >eth0: 0x00004860: 0x0300001c,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323630] tg3 0000:01:00.0: >eth0: 0x00004900: 0x00028207,
+>>>> 0x50200e08, 0x00000000, 0x00000000
+>>>> [ 5860.323636] tg3 0000:01:00.0: >eth0: 0x00004910: 0x00000018,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323642] tg3 0000:01:00.0: >eth0: 0x00004c00: 0x200003fe,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323647] tg3 0000:01:00.0: >eth0: 0x00004c10: 0x00000000,
+>>>> 0x00000000, 0x00000006, 0x00000000
+>>>> [ 5860.323652] tg3 0000:01:00.0: >eth0: 0x00004c20: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x00000006
+>>>> [ 5860.323658] tg3 0000:01:00.0: >eth0: 0x00004c30: 0x00000000,
+>>>> 0x00000000, 0x00000078, 0x00000078
+>>>> [ 5860.323664] tg3 0000:01:00.0: >eth0: 0x00004c40: 0x00000000,
+>>>> 0xaf244000, 0x00010020, 0x00000020
+>>>> [ 5860.323669] tg3 0000:01:00.0: >eth0: 0x00004c50: 0x07fffe3d,
+>>>> 0x00f87bff, 0x00000000, 0x1f3e4444
+>>>> [ 5860.323675] tg3 0000:01:00.0: >eth0: 0x00005000: 0x00009800,
+>>>> 0x80000000, 0x00000000, 0x00000000
+>>>> [ 5860.323681] tg3 0000:01:00.0: >eth0: 0x00005010: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x40003544
+>>>> [ 5860.323686] tg3 0000:01:00.0: >eth0: 0x00005020: 0x8fbf001c,
+>>>> 0x00000000, 0x00000000, 0x40000020
+>>>> [ 5860.323692] tg3 0000:01:00.0: >eth0: 0x00005030: 0x00000000,
+>>>> 0x00000051, 0x00000000, 0x00000000
+>>>> [ 5860.323697] tg3 0000:01:00.0: >eth0: 0x00005040: 0x00000000,
+>>>> 0x00000000, 0x40003696, 0x00000000
+>>>> [ 5860.323703] tg3 0000:01:00.0: >eth0: 0x00005080: 0x00009800,
+>>>> 0x80008000, 0x00000000, 0x00000000
+>>>> [ 5860.323708] tg3 0000:01:00.0: >eth0: 0x00005090: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x40001d40
+>>>> [ 5860.323714] tg3 0000:01:00.0: >eth0: 0x000050a0: 0x24020001,
+>>>> 0x00000000, 0x00000000, 0x40000020
+>>>> [ 5860.323719] tg3 0000:01:00.0: >eth0: 0x000050b0: 0x00000000,
+>>>> 0x00000051, 0x00000000, 0x00000000
+>>>> [ 5860.323725] tg3 0000:01:00.0: >eth0: 0x000050c0: 0x00000000,
+>>>> 0x00000000, 0x40003696, 0x00000000
+>>>> [ 5860.323730] tg3 0000:01:00.0: >eth0: 0x00005100: 0x00009800,
+>>>> 0x80008000, 0x00000000, 0x00000000
+>>>> [ 5860.323735] tg3 0000:01:00.0: >eth0: 0x00005110: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x400036c0
+>>>> [ 5860.323741] tg3 0000:01:00.0: >eth0: 0x00005120: 0xafb10014,
+>>>> 0x00000000, 0x00000000, 0x40000020
+>>>> [ 5860.323746] tg3 0000:01:00.0: >eth0: 0x00005130: 0x00000000,
+>>>> 0x00000051, 0x00000000, 0x00000000
+>>>> [ 5860.323752] tg3 0000:01:00.0: >eth0: 0x00005140: 0x00000000,
+>>>> 0x00000000, 0x40002e20, 0x00000000
+>>>> [ 5860.323757] tg3 0000:01:00.0: >eth0: 0x00005180: 0x00009800,
+>>>> 0x80008000, 0x00000000, 0x00000000
+>>>> [ 5860.323763] tg3 0000:01:00.0: >eth0: 0x00005190: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x400036a8
+>>>> [ 5860.323768] tg3 0000:01:00.0: >eth0: 0x000051a0: 0xafb20018,
+>>>> 0x00000000, 0x00000000, 0x40000020
+>>>> [ 5860.323774] tg3 0000:01:00.0: >eth0: 0x000051b0: 0x00000000,
+>>>> 0x00000051, 0x00000000, 0x00000000
+>>>> [ 5860.323779] tg3 0000:01:00.0: >eth0: 0x000051c0: 0x00000000,
+>>>> 0x00000000, 0x40002c92, 0x00000000
+>>>> [ 5860.323785] tg3 0000:01:00.0: >eth0: 0x00005200: 0x08005fe8,
+>>>> 0x00000000, 0x00000000, 0x400036b4
+>>>> [ 5860.323790] tg3 0000:01:00.0: >eth0: 0x00005210: 0x08005fe8,
+>>>> 0x00000000, 0x08004c80, 0x08005fc8
+>>>> [ 5860.323796] tg3 0000:01:00.0: >eth0: 0x00005220: 0x00000000,
+>>>> 0x400036b4, 0x08005fe8, 0x08005fc8
+>>>> [ 5860.323802] tg3 0000:01:00.0: >eth0: 0x00005230: 0x00000000,
+>>>> 0x00000000, 0x08004c80, 0x00000000
+>>>> [ 5860.323807] tg3 0000:01:00.0: >eth0: 0x00005240: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x81020000
+>>>> [ 5860.323813] tg3 0000:01:00.0: >eth0: 0x00005260: 0x00000000,
+>>>> 0x81020000, 0x00000000, 0x00000000
+>>>> [ 5860.323818] tg3 0000:01:00.0: >eth0: 0x00005270: 0x00000000,
+>>>> 0x00000000, 0x400036b4, 0x40001d2c
+>>>> [ 5860.323824] tg3 0000:01:00.0: >eth0: 0x00005280: 0x00009800,
+>>>> 0x80000000, 0x00000000, 0x00000000
+>>>> [ 5860.323829] tg3 0000:01:00.0: >eth0: 0x00005290: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x40002c80
+>>>> [ 5860.323835] tg3 0000:01:00.0: >eth0: 0x000052a0: 0x16220003,
+>>>> 0x00000000, 0x00000000, 0x40000020
+>>>> [ 5860.323840] tg3 0000:01:00.0: >eth0: 0x000052b0: 0x00000000,
+>>>> 0x00000051, 0x00000000, 0x00000000
+>>>> [ 5860.323846] tg3 0000:01:00.0: >eth0: 0x000052c0: 0x00000000,
+>>>> 0x00000000, 0x40003696, 0x00000000
+>>>> [ 5860.323851] tg3 0000:01:00.0: >eth0: 0x00005300: 0x00009800,
+>>>> 0x80008000, 0x00000000, 0x00000000
+>>>> [ 5860.323857] tg3 0000:01:00.0: >eth0: 0x00005310: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x40002cac
+>>>> [ 5860.323862] tg3 0000:01:00.0: >eth0: 0x00005320: 0x24020001,
+>>>> 0x00000000, 0x00000000, 0x40000020
+>>>> [ 5860.323868] tg3 0000:01:00.0: >eth0: 0x00005330: 0x00000000,
+>>>> 0x00000051, 0x00000000, 0x00000000
+>>>> [ 5860.323873] tg3 0000:01:00.0: >eth0: 0x00005340: 0x00000000,
+>>>> 0x00000000, 0x40002ca8, 0x00000000
+>>>> [ 5860.323879] tg3 0000:01:00.0: >eth0: 0x00005380: 0x00009800,
+>>>> 0x80008000, 0x00000000, 0x00000000
+>>>> [ 5860.323884] tg3 0000:01:00.0: >eth0: 0x00005390: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x400036bc
+>>>> [ 5860.323890] tg3 0000:01:00.0: >eth0: 0x000053a0: 0x27bdffe0,
+>>>> 0x00000000, 0x00000000, 0x40000020
+>>>> [ 5860.323895] tg3 0000:01:00.0: >eth0: 0x000053b0: 0x00000000,
+>>>> 0x00000051, 0x00000000, 0x00000000
+>>>> [ 5860.323901] tg3 0000:01:00.0: >eth0: 0x000053c0: 0x00000000,
+>>>> 0x00000000, 0x40002cc4, 0x00000000
+>>>> [ 5860.323906] tg3 0000:01:00.0: >eth0: 0x00005600: 0x169214e4,
+>>>> 0x00100406, 0x02000001, 0x00000010
+>>>> [ 5860.323912] tg3 0000:01:00.0: >eth0: 0x00005610: 0xd3400004,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323918] tg3 0000:01:00.0: >eth0: 0x00005620: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x06011025
+>>>> [ 5860.323923] tg3 0000:01:00.0: >eth0: 0x00005630: 0x00000000,
+>>>> 0x00000048, 0x00000000, 0x0000010a
+>>>> [ 5860.323929] tg3 0000:01:00.0: >eth0: 0x00005640: 0x00000000,
+>>>> 0x00000000, 0xc0036001, 0x08002008
+>>>> [ 5860.323934] tg3 0000:01:00.0: >eth0: 0x00005650: 0x0081cc05,
+>>>> 0xfee0100c, 0x00000000, 0x00004189
+>>>> [ 5860.323940] tg3 0000:01:00.0: >eth0: 0x00005660: 0x006c5009,
+>>>> 0xffa85ef5, 0xf0010298, 0x76180000
+>>>> [ 5860.323945] tg3 0000:01:00.0: >eth0: 0x00005670: 0x000010f2,
+>>>> 0x00000000, 0x00000460, 0x00000000
+>>>> [ 5860.323951] tg3 0000:01:00.0: >eth0: 0x00005680: 0x40000008,
+>>>> 0x40000008, 0x00000000, 0x00000000
+>>>> [ 5860.323956] tg3 0000:01:00.0: >eth0: 0x000056b0: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x57780001
+>>>> [ 5860.323962] tg3 0000:01:00.0: >eth0: 0x000056c0: 0x00000000,
+>>>> 0x00000000, 0x0000000e, 0x00020010
+>>>> [ 5860.323968] tg3 0000:01:00.0: >eth0: 0x000056d0: 0x05908fa0,
+>>>> 0x00112000, 0x0006cc11, 0x10110143
+>>>> [ 5860.323973] tg3 0000:01:00.0: >eth0: 0x000056f0: 0x0000001f,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.323979] tg3 0000:01:00.0: >eth0: 0x00005700: 0x13c10001,
+>>>> 0x00100000, 0x00000000, 0x00062031
+>>>> [ 5860.323984] tg3 0000:01:00.0: >eth0: 0x00005710: 0x00000001,
+>>>> 0x00002000, 0x000000b4, 0x40000001
+>>>> [ 5860.323990] tg3 0000:01:00.0: >eth0: 0x00005720: 0x0000000f,
+>>>> 0xd3400400, 0x00000080, 0x00000000
+>>>> [ 5860.323995] tg3 0000:01:00.0: >eth0: 0x00005730: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x16010002
+>>>> [ 5860.324001] tg3 0000:01:00.0: >eth0: 0x00005750: 0x800000ff,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.324006] tg3 0000:01:00.0: >eth0: 0x00005760: 0x16c10003,
+>>>> 0xfeac38d5, 0xdc0ea1ff, 0x00010004
+>>>> [ 5860.324012] tg3 0000:01:00.0: >eth0: 0x00005770: 0x00000000,
+>>>> 0x00078116, 0x00000001, 0x00000000
+>>>> [ 5860.324017] tg3 0000:01:00.0: >eth0: 0x00005780: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0xffffffff
+>>>> [ 5860.324023] tg3 0000:01:00.0: >eth0: 0x00005800: 0x00000000,
+>>>> 0x44000000, 0x00000000, 0x00000000
+>>>> [ 5860.324028] tg3 0000:01:00.0: >eth0: 0x00005860: 0x00000000,
+>>>> 0x00000000, 0x00000000, 0x00000106
+>>>> [ 5860.324034] tg3 0000:01:00.0: >eth0: 0x00005880: 0x00000000,
+>>>> 0x0000003e, 0x00000000, 0x00000000
+>>>> [ 5860.324039] tg3 0000:01:00.0: >eth0: 0x00005900: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000000
+>>>> [ 5860.324045] tg3 0000:01:00.0: >eth0: 0x00005980: 0x00000000,
+>>>> 0x00000007, 0x00000000, 0x00000000
+>>>> [ 5860.324050] tg3 0000:01:00.0: >eth0: 0x00005a00: 0x00012001,
+>>>> 0x00000000, 0x00010000, 0x00000000
+>>>> [ 5860.324056] tg3 0000:01:00.0: >eth0: 0x00006000: 0x00000002,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.324063] tg3 0000:01:00.0: >eth0: 0x00006800: 0x04130034,
+>>>> 0x20085082, 0x01009219, 0x064451b3
+>>>> [ 5860.324068] tg3 0000:01:00.0: >eth0: 0x00006810: 0x81020000,
+>>>> 0xffffffff, 0x00000000, 0x00000000
+>>>> [ 5860.324074] tg3 0000:01:00.0: >eth0: 0x000068a0: 0x00000000,
+>>>> 0x20010001, 0x00000000, 0x00000000
+>>>> [ 5860.324079] tg3 0000:01:00.0: >eth0: 0x000068b0: 0x00040000,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.324085] tg3 0000:01:00.0: >eth0: 0x00006c20: 0x00000000,
+>>>> 0x00100000, 0x00000000, 0x00000000
+>>>> [ 5860.324091] tg3 0000:01:00.0: >eth0: 0x00007000: 0x08000188,
+>>>> 0x00000000, 0x00000000, 0x00000000
+>>>> [ 5860.324097] tg3 0000:01:00.0: >eth0: 0x00007010: 0xffffffff,
+>>>> 0x00008200, 0x000500db, 0x03000a00
+>>>> [ 5860.324102] tg3 0000:01:00.0: >eth0: 0x00007020: 0x00000000,
+>>>> 0x00000000, 0x00000406, 0x10004000
+>>>> [ 5860.324108] tg3 0000:01:00.0: >eth0: 0x00007030: 0x00020000,
+>>>> 0x00000004, 0x001f0010, 0x00000000
+>>>> [ 5860.324114] tg3 0000:01:00.0: >eth0: 0x00007500: 0x00000000,
+>>>> 0x00000000, 0x0000008b, 0x00000240
+>>>> [ 5860.324124] tg3 0000:01:00.0: >eth0: 0: Host status block
+>>>> [00000001:00000044:(0000:003e:0000):(003e:0005)]
+>>>> [ 5860.324131] tg3 0000:01:00.0: >eth0: 0: NAPI info
+>>>> [00000044:00000044:(0007:0005:01ff):003e:(0106:0000:0000:0000)]
+>>>> [ 5860.330543] tg3 0000:01:00.0: >eth0: Link is down
+>>>> [ 5860.341734] tg3 0000:01:00.0: >eth0: Link is down
+>>>> [ 5874.335216] tg3 0000:01:00.0: >eth0: Link is up at 100 Mbps,
+>>>> full duplex
+>>>> [ 5874.335222] tg3 0000:01:00.0: >eth0: Flow control is on for TX
+>>>> and on
+>>>> for RX
+>>>>
+>>>> Justin Chudgar  |  Weed, CA 96094  |  530 921 0738 |
+>>>> http://www.justinzane.com/
+>>>>
+>>>> On 10/12/2012 05:12 PM, Nithin Nayak Sujir wrote:
+>>>>>> lspci | grep 57780
+>>>>> 43:00.0 Ethernet controller: Broadcom Corporation NetLink BCM57780
+>>>>> Gigabit Ethernet PCIe (rev 01)
+>>>>>
+>>>>>
+>>>>> To read register 0x400
+>>>>>
+>>>>>> sudo setpci -s 43:00.0 78.l=400
+>>>>>> sudo setpci -s 43:00.0 80.l
+>>>>> 00e04806
+>>>>>
+>>>>>
+>>>>>
+>>>>> Nithin.
+>>>>>
+>>>>>
+>>>>> On 10/12/2012 05:09 PM, Justin Chudgar wrote:
+>>>>>> # ethtool eth0
+>>>>>> I'm sorry, but I'm not quite understanding item #2. Could you
+>>>>>> send me an
+>>>>>> actual example with lspci and the setpci commands. Thanks.
+>>>>>>
+>>>>>> Justin Chudgar  |  Weed, CA 96094  |  530 921 0738 |
+>>>>>> http://www.justinzane.com/
+>>>>>>
+>>>>>> On 10/12/2012 01:24 PM, Nithin Sujir wrote:
+>>>>>>> Justin,
+>>>>>>> I'm checking with the hardware team to see what info they need to
+>>>>>>> diagnose. In the meantime can you send me the output of
+>>>>>>>
+>>>>>>> 1. ethtool <iface>
+>>>>>>> 2. Reg read of the following registers. You can do this by indirect
+>>>>>>> access for e.g. to read register 0x400. Everything is in hex so
+>>>>>>> don't add a 0x to any number.
+>>>>>>>          setpci -s <pci bus>:<pci dev>.<pci fn> 78.l=400
+>>>>>>>          setpci -s <pci bus>:<pci dev>.<pci fn> 80.l
+>>>>>>>
+>>>>>>>      Give me the readings for 0x400, 0x404, 0x408, 0x45c, 0x460,
+>>>>>>> all
+>>>>>>> from 0x3600-0x3610, 0x362c, 0x3630.
+>>>>>>>
+>>>>>>> Can you do this for both when it links up in 100Mbit and when you
+>>>>>>> force it to 0x20 and it doesn't link up.
+>>>>>>>
+>>>>>>> Thanks,
+>>>>>>> Nithin.
+>>>>>>>
+>>>>>>>
+>>>>>>>
+>>>>>>>> -----Original Message-----
+>>>>>>>> From: Justin Chudgar [mailto:justin@justinzane.com]
+>>>>>>>> Sent: Thursday, October 11, 2012 11:38 PM
+>>>>>>>> To: Nithin Sujir
+>>>>>>>> Cc: 1063038@bugs.launchpad.net
+>>>>>>>> Subject: Re: [Bug 1063038] Re: Broadcom BCM57780 Cannot Connect at
+>>>>>>>> Gigabit
+>>>>>>>> Speed using tg3 module.
+>>>>>>>>
+>>>>>>>> One thing I noticed is that my `ethtool -i eth0` output is
+>>>>>>>> different. I've
+>>>>>>>> listed your values to the right where the seem to be significant.
+>>>>>>>> I'm a little in the dark as to why my `firmware-version` string
+>>>>>>>> and
+>>>>>>>> `eeprom-
+>>>>>>>> access` bool values are different and whether that has any import.
+>>>>>>>>
+>>>>>>>>       # ethtool -i eth0
+>>>>>>>>       driver: tg3
+>>>>>>>>>>    version: 3.123                << 3.121
+>>>>>>>>>>    firmware-version: sb          << 57780-v3.15
+>>>>>>>>       bus-info: 0000:01:00.0
+>>>>>>>>       supports-statistics: yes
+>>>>>>>>       supports-test: yes
+>>>>>>>>>>    supports-eeprom-access: no      << yes
+>>>>>>>>       supports-register-dump: yes
+>>>>>>>>
+>>>>>>>> Another interesting observation is that `ethtool -s eth0 advertise
+>>>>>>>> 0x020`
+>>>>>>>> forcing autoneg to select 1000Mbps/Full kills the connection. Do
+>>>>>>>> you have any suggestions as to how to debug the rate/duplex
+>>>>>>>> autonegotiation?
+>>>>>>>> I'm unsure how to proceed to further diagnose this problem.
+>>>>>>>>
+>>>>>>>> [BTW, I just changed DNS servers and am still ironing out side
+>>>>>>>> effects. If
+>>>>>>>> I've duplicated mail to you, I'm sorry.]
+>>>>>>>>
+>>>>>>>> Justin Chudgar  |  Weed, CA 96094  |  530 921 0738 |
+>>>>>>>> http://www.justinzane.com/
+>>>>>>>>
+>>>>>>>> On 10/11/2012 04:23 PM, Nithin Sujir wrote:
+>>>>>>>>
+>>>>>>>>> Justin,
+>>>>>>>>> Sorry, I'd already replied to netdev but found out later it
+>>>>>>>>> didn't
+>>>>>>>>> make it.
+>>>>>>>> Resending what I sent netdev but did not reach there.
+>>>>>>>>> Basically I'm not seeing a problem with the 57780 with either
+>>>>>>>>> RedHat or
+>>>>>>>> Ubuntu.
+>>>>>>>>> So I'm not sure what it could be the problem in your case.
+>>>>>>>>>
+>>>>>>>>> Thanks,
+>>>>>>>>> Nithin.
+>>>>>>>>>
+>>>>>>>>> --- Quote ---
+>>>>>>>>> I don't see a problem linking up with 57780 at gigabit. I tested
+>>>>>>>>> the latest
+>>>>>>>> net kernel (3.6.0) and
+>>>>>>>>> to make sure it's not ubuntu specific, tested ubuntu 12.04 as
+>>>>>>>>> well
+>>>>>>>> (3.2.0.23-generic). Everything
+>>>>>>>>> works fine here on my setup. As you can see below, link is up at
+>>>>>>>>> gigabit and
+>>>>>>>> I'm able to send/receive.
+>>>>>>>>>    > sudo ethtool -i eth7
+>>>>>>>>> driver: tg3
+>>>>>>>>> version: 3.121
+>>>>>>>>> firmware-version: 57780-v3.15
+>>>>>>>>> bus-info: 0000:43:00.0
+>>>>>>>>> supports-statistics: yes
+>>>>>>>>> supports-test: yes
+>>>>>>>>> supports-eeprom-access: yes
+>>>>>>>>> supports-register-dump: yes
+>>>>>>>>>
+>>>>>>>>>
+>>>>>>>>>    > sudo ethtool eth7
+>>>>>>>>>        Settings for eth7:
+>>>>>>>>>        Supported ports: [ TP MII ]
+>>>>>>>>>        Supported link modes: 10baseT/Half 10baseT/Full
+>>>>>>>>>                              100baseT/Half 100baseT/Full
+>>>>>>>>>                              1000baseT/Half 1000baseT/Full
+>>>>>>>>>        Supported pause frame use: Symmetric Receive-only
+>>>>>>>>>        Supports auto-negotiation: Yes
+>>>>>>>>>        Advertised link modes: 10baseT/Half 10baseT/Full
+>>>>>>>>>                               100baseT/Half 100baseT/Full
+>>>>>>>>>                               1000baseT/Half 1000baseT/Full
+>>>>>>>>>        Advertised pause frame use: Symmetric Receive-only
+>>>>>>>>>        Advertised auto-negotiation: Yes
+>>>>>>>>>        Speed: 1000Mb/s
+>>>>>>>>>        Duplex: Full
+>>>>>>>>>        Port: MII
+>>>>>>>>>        PHYAD: 1
+>>>>>>>>>        Transceiver: external
+>>>>>>>>>        Auto-negotiation: on
+>>>>>>>>>        Supports Wake-on: g
+>>>>>>>>>        Wake-on: d
+>>>>>>>>>        Current message level: 0x000000ff (255)
+>>>>>>>>>        drv probe link timer ifdown ifup rx_err tx_err
+>>>>>>>>>        Link detected: yes
+>>>>>>>>>
+>>>>>>>>>
+>>>>>>>>>    > ifconfig eth7
+>>>>>>>>> eth7 Link encap:Ethernet HWaddr 00:10:18:2a:18:cd
+>>>>>>>>> inet addr:3.3.3.1 Bcast:3.3.3.255 Mask:255.255.255.0
+>>>>>>>>> inet6 addr: fe80::210:18ff:fe2a:18cd/64 Scope:Link
+>>>>>>>>> UP BROADCAST RUNNING MULTICAST MTU:1500 Metric:1
+>>>>>>>>> RX packets:1224 errors:0 dropped:0 overruns:0 frame:0
+>>>>>>>>> TX packets:1114 errors:0 dropped:0 overruns:0 carrier:0
+>>>>>>>>> collisions:0 txqueuelen:1000
+>>>>>>>>> RX bytes:115500 (115.5 KB) TX bytes:146587 (146.5 KB)
+>>>>>>>>> Interrupt:80
+>>>>>>>>>
+>>>>>>>>>    > ping 3.3.3.2 -c 1
+>>>>>>>>> PING 3.3.3.2 (3.3.3.2) 56(84) bytes of data.
+>>>>>>>>> 64 bytes from 3.3.3.2: icmp_req=1 ttl=64 time=0.185 ms
+>>>>>>>>>
+>>>>>>>>> --- 3.3.3.2 ping statistics ---
+>>>>>>>>> 1 packets transmitted, 1 received, 0% packet loss, time 0ms
+>>>>>>>>> rtt min/avg/max/mdev = 0.185/0.185/0.185/0.000 ms
+>>>>>>>>>
+>>>>>>>>>
+>>>>>>>>> Thanks,
+>>>>>>>>> Nithin.
+>>>>>>>>>
+>>>>>>>>>
+>>>>>>>>>
+>>>>>>>>>> -----Original Message-----
+>>>>>>>>>> From: Michael Chan
+>>>>>>>>>> Sent: Thursday, October 11, 2012 4:16 PM
+>>>>>>>>>> To: Justin Chudgar; Nithin Sujir
+>>>>>>>>>> Cc: 1063038@bugs.launchpad.net
+>>>>>>>>>> Subject: RE: [Bug 1063038] Re: Broadcom BCM57780 Cannot Connect
+>>>>>>>>>> at Gigabit
+>>>>>>>>>> Speed using tg3 module.
+>>>>>>>>>>
+>>>>>>>>>> We saw this post on netdev a few days ago.  Nithin, who is now
+>>>>>>>>>> working with
+>>>>>>>> me
+>>>>>>>>>> on the tg3 driver has looked into it.  I think he is having some
+>>>>>>>>>> email
+>>>>>>>>>> problems and will reply to you soon.  Thanks.
+>>>>>>>>>>
+>>>>>>>>>> -----Original Message-----
+>>>>>>>>>> From: Justin Chudgar [mailto:justin@justinzane.com]
+>>>>>>>>>> Sent: Thursday, October 11, 2012 3:47 PM
+>>>>>>>>>> To: Matthew Carlson; Michael Chan
+>>>>>>>>>> Cc: 1063038@bugs.launchpad.net
+>>>>>>>>>> Subject: Fwd: [Bug 1063038] Re: Broadcom BCM57780 Cannot Connect
+>>>>>>>>>> at Gigabit
+>>>>>>>>>> Speed using tg3 module.
+>>>>>>>>>>
+>>>>>>>>>> Matt & Michael:
+>>>>>>>>>>
+>>>>>>>>>> I apologize if this is an inappropriate way to deal with a bug;
+>>>>>>>>>> please
+>>>>>>>>>> instruct me if it is. I initially made the below-listed
+>>>>>>>>>> report to
+>>>>>>>>>> Ubuntu
+>>>>>>>>>> and was directed upstream. I posted to the netdev list, but it
+>>>>>>>>>> seems to
+>>>>>>>>>> have been buried there. I just want to make sure that whomever
+>>>>>>>>>> needs to
+>>>>>>>>>> know does.
+>>>>>>>>>>
+>>>>>>>>>> Thanks.
+>>>>>>>>>>
+>>>>>>>>>> Justin Chudgar  |  Weed, CA 96094  |  530 921 0738 |
+>>>>>>>>>> http://www.justinzane.com/
+>>>>>>>>>>
+>>>>>>>>>>
+>>>>>>>>>>
+>>>>>>>>>> -------- Original Message --------
+>>>>>>>>>> Subject:     Fwd: [Bug 1063038] Re: Broadcom BCM57780 Cannot
+>>>>>>>>>> Connect at
+>>>>>>>>>> Gigabit Speed using tg3 module.
+>>>>>>>>>> Date:     Wed, 10 Oct 2012 05:24:35 -0700
+>>>>>>>>>> From:     Justin Chudgar <justin@justinzane.com>
+>>>>>>>>>> To:     netdev@vger.kernel.org
+>>>>>>>>>> CC:     1063038@bugs.launchpad.net
+>>>>>>>>>>
+>>>>>>>>>>
+>>>>>>>>>>
+>>>>>>>>>> I've got a device with a Broadcom 57780 ethernet NIC. It uses
+>>>>>>>>>> the
+>>>>>>>>>> tg3.ko
+>>>>>>>>>> driver module. The problem is that this NIC cannot connect at
+>>>>>>>>>> gigabit
+>>>>>>>>>> (1000MBps) speed. In all cases connection works well at
+>>>>>>>>>> 100MBps. I
+>>>>>>>>>> reported this to Ubuntu as noted below and was directed here.
+>>>>>>>>>> [https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1063038]
+>>>>>>>>>> Following
+>>>>>>>>>> are the tests I've completed:
+>>>>>>>>>>
+>>>>>>>>>> - Cables tested with cable tester
+>>>>>>>>>> - Cables tested to work at gigabit speed with Realtek and Intel
+>>>>>>>>>> gigabit
+>>>>>>>>>> NICs.
+>>>>>>>>>> - All unmanaged switch ports tested at gigabit speed with other
+>>>>>>>>>> NICs.
+>>>>>>>>>> - Tried to connect with NetworkManager enabled and disabled.
+>>>>>>>>>> - Tried both dhcp and static connections.
+>>>>>>>>>> - Tried to renegotiate connection with `ethtool -r` both with
+>>>>>>>>>> TSO
+>>>>>>>>>> enabled and disabled.
+>>>>>>>>>> - Tried 3.2.0-23-generic 3.5.0-15-generic3.5.0-17-generic
+>>>>>>>>>> 3.6.0-999-generic kernels from main, xorg-edgers and mainline
+>>>>>>>>>> repos.
+>>>>>>>>>> - Used 'tg3_debug=1' kernel option in grub with the following
+>>>>>>>>>> output:
+>>>>>>>>>>
+>>>>>>>>>>       [ 0.000000] Command line:
+>>>>>>>>>> BOOT_IMAGE=/vmlinuz-3.5.0-17-generic
+>>>>>>>>>> root=UUID=eccabacd-efb2-45b4-b7a6-2f530d50afd3 ro
+>>>>>>>>>> rootflags=subvol=@
+>>>>>>>>>> tg3_debug=1 i915_enable_rc6=7 i915_enable_fbc=1 lvds_downclock=1
+>>>>>>>>>>       [ 0.000000] Kernel command line:
+>>>>>>>>>> BOOT_IMAGE=/vmlinuz-3.5.0-17-generic
+>>>>>>>>>> root=UUID=eccabacd-efb2-45b4-b7a6-2f530d50afd3 ro
+>>>>>>>>>> rootflags=subvol=@
+>>>>>>>>>> tg3_debug=1 i915_enable_rc6=7 i915_enable_fbc=1 lvds_downclock=1
+>>>>>>>>>>       [ 5.963136] tg3.c:v3.123 (March 21, 2012)
+>>>>>>>>>>       [ 5.995781] tg3 mdio bus: probed
+>>>>>>>>>>       [ 6.005583] tg3 0000:01:00.0: >eth0: Tigon3
+>>>>>>>>>> [partno(BCM57780) rev
+>>>>>>>>>> 57780001] (PCI Express) MAC address dc:0e:a1:ac:38:d5
+>>>>>>>>>>       [ 6.005687] tg3 0000:01:00.0: >eth0: attached PHY driver
+>>>>>>>>>> [Broadcom
+>>>>>>>>>> BCM57780] (mii_bus:phy_addr=100:01)
+>>>>>>>>>>       [ 6.005790] tg3 0000:01:00.0: >eth0: RXcsums[1]
+>>>>>>>>>> LinkChgREG[0]
+>>>>>>>>>> MIirq[0] ASF[0] TSOcap[1]
+>>>>>>>>>>       [ 6.005887] tg3 0000:01:00.0: >eth0: dma_rwctrl[76180000]
+>>>>>>>>>> dma_mask[64-bit]
+>>>>>>>>>>       [ 294.987653] tg3 0000:01:00.0: >irq 44 for MSI/MSI-X
+>>>>>>>>>>       [ 295.893224] tg3 0000:01:00.0: >eth0: Link is down
+>>>>>>>>>>       [ 309.887879] tg3 0000:01:00.0: >eth0: Link is up at 100
+>>>>>>>>>> Mbps, full
+>>>>>>>>>> duplex
+>>>>>>>>>>       [ 309.887886] tg3 0000:01:00.0: >eth0: Flow control is on
+>>>>>>>>>> for TX and
+>>>>>>>>>> on for RX
+>>>>>>>>>>
+>>>>>>>>>> Other distros' forums suggest loading broadcom.ko first;
+>>>>>>>>>> however,
+>>>>>>>>>> this
+>>>>>>>>>> module is no present. Any suggestions would be much appreciated.
+>>>>>>>>>>
+>>>>>>>>>> lspci -vv:
+>>>>>>>>>>       01:00.0 Ethernet controller: Broadcom Corporation NetLink
+>>>>>>>>>> BCM57780
+>>>>>>>>>> Gigabit Ethernet PCIe (rev 01)
+>>>>>>>>>>           Subsystem: Acer Incorporated [ALI] Device 0601
+>>>>>>>>>>           Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV-
+>>>>>>>>>> VGASnoop-
+>>>>>>>>>> ParErr- Stepping- SERR- FastB2B- DisINTx+
+>>>>>>>>>>           Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast
+>>>>>>>>>>> TAbort-
+>>>>>>>>>> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>>>>>>>>>>           Latency: 0, Cache Line Size: 64 bytes
+>>>>>>>>>>           Interrupt: pin A routed to IRQ 44
+>>>>>>>>>>           Region 0: Memory at d3400000 (64-bit,
+>>>>>>>>>> non-prefetchable)
+>>>>>>>>>> [size=64K]
+>>>>>>>>>>           Capabilities: [48] Power Management version 3
+>>>>>>>>>>                   Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA
+>>>>>>>>>> PME(D0-,D1-,D2-,D3hot+,D3cold+)
+>>>>>>>>>>
+>>>>>>>>>>                   Status: D0 NoSoftRst+ PME-Enable- DSel=0
+>>>>>>>>>> DScale=1 PME-
+>>>>>>>>>>           Capabilities: [60] Vendor Specific Information:
+>>>>>>>>>> Len=6c <?>
+>>>>>>>>>>           Capabilities: [50] MSI: Enable+ Count=1/1 Maskable-
+>>>>>>>>>> 64bit+
+>>>>>>>>>>                   Address: 00000000fee0100c Data: 4189
+>>>>>>>>>>           Capabilities: [cc] Express (v2) Endpoint, MSI 00
+>>>>>>>>>>                   DevCap: MaxPayload 128 bytes, PhantFunc 0,
+>>>>>>>>>> Latency L0s
+>>>>>>>>>> <4us, L1 unlimited
+>>>>>>>>>>                           ExtTag+ AttnBtn- AttnInd- PwrInd- RBE+
+>>>>>>>>>> FLReset-
+>>>>>>>>>>                   DevCtl: Report errors: Correctable- Non-Fatal-
+>>>>>>>>>> Fatal-
+>>>>>>>>>> Unsupported-
+>>>>>>>>>>                           RlxdOrd- ExtTag- PhantFunc- AuxPwr-
+>>>>>>>>>> NoSnoop-
+>>>>>>>>>>                           MaxPayload 128 bytes, MaxReadReq
+>>>>>>>>>> 512 bytes
+>>>>>>>>>>                   DevSta: CorrErr+ UncorrErr- FatalErr-
+>>>>>>>>>> UnsuppReq-
+>>>>>>>>>> AuxPwr+
+>>>>>>>>>> TransPend+
+>>>>>>>>>>                   LnkCap: Port #0, Speed 2.5GT/s, Width x1, ASPM
+>>>>>>>>>> L0s L1,
+>>>>>>>>>> Latency L0 <1us, L1 <32us
+>>>>>>>>>>                           ClockPM+ Surprise- LLActRep- BwNot-
+>>>>>>>>>>                   LnkCtl: ASPM L0s L1 Enabled; RCB 64 bytes
+>>>>>>>>>> Disabled-
+>>>>>>>>>> Retrain- CommClk+
+>>>>>>>>>>                           ExtSynch- ClockPM+ AutWidDis- BWInt-
+>>>>>>>>>> AutBWInt-
+>>>>>>>>>>                   LnkSta: Speed 2.5GT/s, Width x1, TrErr- Train-
+>>>>>>>>>> SlotClk+
+>>>>>>>>>> DLActive- BWMgmt- ABWMgmt-
+>>>>>>>>>>                   DevCap2: Completion Timeout: Range ABCD,
+>>>>>>>>>> TimeoutDis+
+>>>>>>>>>>                   DevCtl2: Completion Timeout: 50us to 50ms,
+>>>>>>>>>> TimeoutDis-
+>>>>>>>>>>                   LnkCtl2: Target Link Speed: 2.5GT/s,
+>>>>>>>>>> EnterCompliance-
+>>>>>>>>>> SpeedDis-, Selectable De-emphasis: -6dB
+>>>>>>>>>>                            Transmit Margin: Normal Operating
+>>>>>>>>>> Range,
+>>>>>>>>>> EnterModifiedCompliance- ComplianceSOS-
+>>>>>>>>>>                            Compliance De-emphasis: -6dB
+>>>>>>>>>>                   LnkSta2: Current De-emphasis Level: -6dB
+>>>>>>>>>>           Capabilities: [100 v1] Advanced Error Reporting
+>>>>>>>>>>                   UESta: DLP- SDES- TLP- FCP- CmpltTO-
+>>>>>>>>>> CmpltAbrt-
+>>>>>>>>>> UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+>>>>>>>>>>                   UEMsk: DLP- SDES- TLP- FCP- CmpltTO-
+>>>>>>>>>> CmpltAbrt-
+>>>>>>>>>> UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+>>>>>>>>>>                   UESvrt: DLP+ SDES+ TLP- FCP+ CmpltTO-
+>>>>>>>>>> CmpltAbrt-
+>>>>>>>>>> UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
+>>>>>>>>>>                   CESta: RxErr+ BadTLP- BadDLLP- Rollover-
+>>>>>>>>>> Timeout-
+>>>>>>>>>> NonFatalErr-
+>>>>>>>>>>                   CEMsk: RxErr- BadTLP- BadDLLP- Rollover-
+>>>>>>>>>> Timeout-
+>>>>>>>>>> NonFatalErr+
+>>>>>>>>>>                   AERCap: First Error Pointer: 00, GenCap+
+>>>>>>>>>> CGenEn-
+>>>>>>>>>> ChkCap+
+>>>>>>>>>> ChkEn-
+>>>>>>>>>>           Capabilities: [13c v1] Virtual Channel
+>>>>>>>>>>                   Caps: LPEVC=0 RefClk=100ns PATEntryBits=1
+>>>>>>>>>>                   Arb: Fixed- WRR32- WRR64- WRR128-
+>>>>>>>>>>                   Ctrl: ArbSelect=Fixed
+>>>>>>>>>>                   Status: InProgress-
+>>>>>>>>>>                   VC0: Caps: PATOffset=00 MaxTimeSlots=1
+>>>>>>>>>> RejSnoopTrans-
+>>>>>>>>>>                           Arb: Fixed- WRR32- WRR64- WRR128-
+>>>>>>>>>> TWRR128- WRR256-
+>>>>>>>>>>                           Ctrl: Enable+ ID=0 ArbSelect=Fixed
+>>>>>>>>>> TC/VC=ff
+>>>>>>>>>>                           Status: NegoPending- InProgress-
+>>>>>>>>>>           Capabilities: [160 v1] Device Serial Number
+>>>>>>>>>> dc-0e-a1-ff-fe-ac-38-d5
+>>>>>>>>>>           Capabilities: [16c v1] Power Budgeting <?>
+>>>>>>>>>>           Kernel driver in use: tg3
+>>>>>>>>>>           Kernel modules: tg3
+>>>>>>>>>> ---
+>>>>>>>>>>
+>>>>>>>>>>
+>>>>>>>>>> Justin Chudgar  |  Weed, CA 96094  |  530 921 0738 |
+>>>>>>>>>> http://www.justinzane.com/
+>>>>>>>>>>
+>>>>>>>>>> -------- Original Message --------
+>>>>>>>>>> Subject:     [Bug 1063038] Re: Broadcom BCM57780 Cannot
+>>>>>>>>>> Connect at
+>>>>>>>> Gigabit
+>>>>>>>>>> Speed using tg3 module.
+>>>>>>>>>> Date:     Tue, 09 Oct 2012 14:38:45 -0000
+>>>>>>>>>> From:     Joseph Salisbury <joseph.salisbury@canonical.com>
+>>>>>>>>>> Reply-To:     Bug 1063038 <1063038@bugs.launchpad.net>
+>>>>>>>>>> To:     justin@justinzane.com
+>>>>>>>>>>
+>>>>>>>>>>
+>>>>>>>>>>
+>>>>>>>>>> This issue appears to be an upstream bug, since you tested the
+>>>>>>>>>> latest
+>>>>>>>>>> upstream kernel.  Would it be possible for you to open an
+>>>>>>>>>> upstream bug
+>>>>>>>>>> report[0]?  That will allow the upstream Developers to
+>>>>>>>>>> examine the
+>>>>>>>>>> issue, and may provide a quicker resolution to the bug.
+>>>>>>>>>>
+>>>>>>>>>> Please follow the instructions on the wiki page[0].  The first
+>>>>>>>>>> step is
+>>>>>>>>>> to email the appropriate mailing list.  If no response is
+>>>>>>>>>> received, then
+>>>>>>>>>> a bug may be opened on bugzilla.kernel.org.
+>>>>>>>>>>
+>>>>>>>>>> [0] https://wiki.ubuntu.com/Bugs/Upstream/kernel
+>>>>>>>>>>
+>>>>>>>>>>
+>>>>>>>>>> ** Changed in: linux (Ubuntu)
+>>>>>>>>>>          Status: Confirmed => Triaged
+>>>>>>>>>>
+>>>>>>>>>> ** Changed in: linux (Ubuntu)
+>>>>>>>>>>      Importance: Undecided => Medium
+>>>>>>>>>>
+>>>>>>>>>> ** Tags added: kernel-bug-exists-upstream
+>>>>>>>>>>
+>>>>>>>>>> -- 
+>>>>>>>>>> You received this bug notification because you are subscribed to
+>>>>>>>>>> the bug
+>>>>>>>>>> report.
+>>>>>>>>>> https://bugs.launchpad.net/bugs/1063038
+>>>>>>>>>>
+>>>>>>>>>> Title:
+>>>>>>>>>>     Broadcom BCM57780 Cannot Connect at Gigabit Speed using tg3
+>>>>>>>>>> module.
+>>>>>>>>>>
+>>>>>>>>>> To manage notifications about this bug go to:
+>>>>>>>>>>
+>>>> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1063038/+subscriptions
+>>>>
+>>>>>>>>>>
+>>>>>>>>>>
+>>>>>>>>>>
+>>>>>>>>>>
+>>>>>>>>>>
+>>>>>>>>>>
+>
+>
+
+
+--------------060502010708040109090604
+Content-Type: text/x-vcard; charset=utf-8;
+ name="justin.vcf"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="justin.vcf"
+
+begin:vcard
+fn:Justin Chudgar
+n:Chudgar;Justin
+email;internet:justin@justinzane.com
+tel;cell:530-921-0738
+x-mozilla-html:FALSE
+version:2.1
+end:vcard
+
+
+--------------060502010708040109090604--
