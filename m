@@ -1,41 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: bpf filter : support for vlan tag
-Date: Tue, 16 Oct 2012 19:06:32 +0200
-Message-ID: <1350407192.3954.1254.camel@edumazet-glaptop>
-References: <CAOxq_8MqMatY2+GA6+mHjj5V=Xe7Y8BmuX4r6cz5nChU5C1Vzw@mail.gmail.com>
-	 <1350369998.3954.563.camel@edumazet-glaptop>
-	 <CAD6jFUTn98+i_0eh6gc-CYgVXHNLbZdZmV6==mL+duFM-oNRmg@mail.gmail.com>
-	 <1350386917.3954.890.camel@edumazet-glaptop>
-	 <CAOxq_8NKn96RPE327L54c0zozdksT5dEhaKGMP+7rV4VMMbT+g@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH V2 0/7] support the cpts found on am335x devices
+Date: Tue, 16 Oct 2012 19:14:08 +0200
+Message-ID: <20121016171407.GA2176@netboy.at.omicron.at>
+References: <cover.1350329726.git.richardcochran@gmail.com>
+ <EB1619762EAF8B4E97A227FB77B7E0293E9F82F0@DBDE01.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <danborkmann@iogearbox.net>, netdev@vger.kernel.org
-To: Ani Sinha <ani@aristanetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	David Miller <davem@davemloft.net>,
+	"Chemparathy, Cyril" <cyril@ti.com>,
+	"Govindarajan, Sriramakrishnan" <srk@ti.com>
+To: "N, Mugunthan V" <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:57192 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755098Ab2JPRGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2012 13:06:37 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so3140719bkc.19
-        for <netdev@vger.kernel.org>; Tue, 16 Oct 2012 10:06:36 -0700 (PDT)
-In-Reply-To: <CAOxq_8NKn96RPE327L54c0zozdksT5dEhaKGMP+7rV4VMMbT+g@mail.gmail.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:44796 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754084Ab2JPROW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2012 13:14:22 -0400
+Received: by mail-we0-f174.google.com with SMTP id t9so3870391wey.19
+        for <netdev@vger.kernel.org>; Tue, 16 Oct 2012 10:14:21 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <EB1619762EAF8B4E97A227FB77B7E0293E9F82F0@DBDE01.ent.ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-10-16 at 09:54 -0700, Ani Sinha wrote:
-> On Tue, Oct 16, 2012 at 4:28 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> 
-> >
-> > Note that if speed is needed, we also want to update various JIT
-> > implementations.
-> >
-> 
-> Thanks Eric for the patch. I will take a look at it. We also need the
-> JIT module support as well (for x86 and x86_64) since we use the JIT
-> filter. I have been studying the various instructions and how other
-> filter operations have been implemented using them but it will take me
-> a little bit more time to understand the code.
+On Tue, Oct 16, 2012 at 04:33:55PM +0000, N, Mugunthan V wrote:
+> I had seen some issues with the patch series.
 
-Dont worry, I'll do the JIT part (but only for x86_64, we dont support
-i386)
+Please take another look. Excepting the last, none of your points
+holds water.
+ 
+> * CPTS will hold only LSB 32 bits of 64 bit Timer and the upper 32 bit
+>   time value has to be taken care by the software, but the time stamp
+>   which is passed to skb or PTP clock consist of only 32 bit time value
+
+The driver handles this already.
+
+> * CPTS interrupts should be utilized to service Half and Full roll over
+>   events as it is non sync events with respect to get/set time and PTP
+>   pkt Tx/Rx
+
+Nope, no need for interrupts, since we already have a better way to
+handle this.
+
+> * CPTS Time which is obtained from hardware is not actually a nano
+>   seconds as the CPTS ref clock is tied to 250MHz for AM335x.
+
+Did you even look at the code in my patch?
+
+> * CPSW register mapping done in this patch series removes the CPSW
+>   driver support for previous version found in TI814x
+
+In which Linux version (or commit) did this driver appear?
+I never saw it.
+
+> * CPSW Time stamping is done only for port 0 and port 1 is not done
+
+Yes, you are right, and it is strange that the hardware time stamps on
+the external ports of the switch, and not at the host port as it
+should. Of course it does present us with a problem, since we cannot
+reasonably have both ports time stamping at the same time. I propose
+simply using a device tree attribute to tell which port to activate.
+
+Thanks,
+Richard
