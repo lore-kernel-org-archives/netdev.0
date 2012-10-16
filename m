@@ -1,122 +1,65 @@
-From: Jon Hunter <jon-hunter@ti.com>
-Subject: Re: [PATCH 1/5] ARM: OMAP2+: gpmc: Fix kernel BUG for DT boot mode
-Date: Tue, 16 Oct 2012 15:58:53 -0500
-Message-ID: <507DCA8D.7060309@ti.com>
-References: <cover.1350327320.git.richardcochran@gmail.com> <41d66042625157d089e9c9532030a6831e79c641.1350327324.git.richardcochran@gmail.com> <20121016174835.GV15569@atomide.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [PATCH 1/2] Fix build error caused by broken PCH_PTP module
+ dependency.
+Date: Tue, 16 Oct 2012 21:08:20 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB5830C157F1@ORSMSX105.amr.corp.intel.com>
+References: <1349300710.2763.8.camel@bwh-desktop.uk.solarflarecom.com>
+	<20121003.204336.1981040659629176119.davem@davemloft.net>
+	<1350418167.2649.47.camel@bwh-desktop.uk.solarflarecom.com>
+ <20121016.161721.460693104731176775.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	Afzal Mohammed <afzal@ti.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>, <netdev@vger.kernel.org>,
-	"hvaibhav@ti.com" <hvaibhav@ti.com>,
-	David Miller <davem@davemloft.net>,
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
-To: Tony Lindgren <tony@atomide.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <20121016174835.GV15569@atomide.com>
-Sender: linux-omap-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "richardcochran@gmail.com" <richardcochran@gmail.com>,
+	"haicheng.li@linux.intel.com" <haicheng.li@linux.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tshimizu818@gmail.com" <tshimizu818@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"haicheng.lee@gmail.com" <haicheng.lee@gmail.com>
+To: David Miller <davem@davemloft.net>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121016.161721.460693104731176775.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Tony,
-
-On 10/16/2012 12:48 PM, Tony Lindgren wrote:
-> * Richard Cochran <richardcochran@gmail.com> [121015 12:18]:
->> From: hvaibhav@ti.com <hvaibhav@ti.com>
->>
->> With recent changes in omap gpmc driver code, in case of DT
->> boot mode, where bootloader does not configure gpmc cs space
->> will result into kernel BUG() inside gpmc_mem_init() function,
->> as gpmc cs0 gpmc_config7[0].csvalid bit is set to '1' and
->> gpmc_config7[0].baseaddress is set to '0' on reset.
->>
->> This use-case is applicable for any board/EVM which doesn't have
->> any peripheral connected to gpmc cs0, for example BeagleXM and
->> BeagleBone, so DT boot mode fails.
->>
->> This patch adds of_have_populated_dt() check before creating
->> device, so that for DT boot mode, gpmc probe will not be called
->> which is expected behavior, as gpmc is not supported yet from DT.
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of David Miller
+> Sent: Tuesday, October 16, 2012 1:17 PM
+> To: bhutchings@solarflare.com
+> Cc: richardcochran@gmail.com; haicheng.li@linux.intel.com;
+> netdev@vger.kernel.org; tshimizu818@gmail.com; linux-
+> kernel@vger.kernel.org; haicheng.lee@gmail.com
+> Subject: Re: [PATCH 1/2] Fix build error caused by broken PCH_PTP module
+> dependency.
 > 
-> I'm applying this one into omap-for-v3.7-rc1/fixes-part2.
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Tue, 16 Oct 2012 21:09:27 +0100
 > 
-> Next time, please also cc linux-omap@vger.kernel.org for series
-> like this. I'm sure the people reading the omap list are interested
-> in these.
+> > I think the various kconfig options should be changed as follows:
+> >
+> > 1. Only PTP_1588_CLOCK selects PPS.
+> > 2. Nothing depends on EXPERIMENTAL.  (This stuff has been in for 18
+> >    months and it's even being backported to RHEL 6 now.)
+> > 3. Either:
+> >    (a) The per-driver PHC options select nothing, and the driver options
+> >        do e.g.:
+> > 	select PTP_1588_CLOCK if IGB_PTP
+> >    (b) The per-driver PHC options are removed and the driver options do:
+> > 	select PTP_1588_CLOCK
+> >        (i.e. PHC support is unconditional)
+> >
+> > Any objections to this, or preference for (a) vs (b)?
+> 
+> No objections, prefer (b).
 
-This patch appears to be masking an underlying issue. How about 
-something like the following ...
+No objections here, I also prefer (b). The feature shouldn't have much impact unless enabled via hwtstamp_ioctl, and it drastically reduces requirement on end-user needing to enable PHC support.
 
-Cheers
-Jon
+- Jake
 
->From 753a4928bf6f7baa4c001bdca3d15a85e999db4c Mon Sep 17 00:00:00 2001
-From: Jon Hunter <jon-hunter@ti.com>
-Date: Tue, 16 Oct 2012 15:22:58 -0500
-Subject: [PATCH] ARM: OMAP2+: Allow kernel to boot even if GPMC fails to
- reserve memory
-
-Currently, if the GPMC driver fails to reserve memory when probed we will
-call BUG() and the kernel will not boot. Instead of calling BUG(), return
-an error from probe and allow kernel to boot.
-
-Tested on AM335x beagle bone board.
-
-Signed-off-by: Jon Hunter <jon-hunter@ti.com>
----
- arch/arm/mach-omap2/gpmc.c |   18 +++++++++++++-----
- 1 file changed, 13 insertions(+), 5 deletions(-)
-
-diff --git a/arch/arm/mach-omap2/gpmc.c b/arch/arm/mach-omap2/gpmc.c
-index 5ac5cf3..8f0d3c8 100644
---- a/arch/arm/mach-omap2/gpmc.c
-+++ b/arch/arm/mach-omap2/gpmc.c
-@@ -868,9 +868,9 @@ static void __devexit gpmc_mem_exit(void)
- 
- }
- 
--static void __devinit gpmc_mem_init(void)
-+static int __devinit gpmc_mem_init(void)
- {
--	int cs;
-+	int cs, rc;
- 	unsigned long boot_rom_space = 0;
- 
- 	/* never allocate the first page, to facilitate bug detection;
-@@ -890,13 +890,17 @@ static void __devinit gpmc_mem_init(void)
- 		if (!gpmc_cs_mem_enabled(cs))
- 			continue;
- 		gpmc_cs_get_memconf(cs, &base, &size);
--		if (gpmc_cs_insert_mem(cs, base, size) < 0)
--			BUG();
-+		rc = gpmc_cs_insert_mem(cs, base, size);
-+		if (IS_ERR_VALUE(rc))
-+			return rc;
- 	}
-+
-+	return 0;
- }
- 
- static __devinit int gpmc_probe(struct platform_device *pdev)
- {
-+	int rc;
- 	u32 l;
- 	struct resource *res;
- 
-@@ -936,7 +940,11 @@ static __devinit int gpmc_probe(struct platform_device *pdev)
- 	dev_info(gpmc_dev, "GPMC revision %d.%d\n", GPMC_REVISION_MAJOR(l),
- 		 GPMC_REVISION_MINOR(l));
- 
--	gpmc_mem_init();
-+	rc = gpmc_mem_init();
-+	if (IS_ERR_VALUE(rc)) {
-+		dev_err(gpmc_dev, "failed to reserve memory\n");
-+		return rc;
-+	}
- 
- 	if (IS_ERR_VALUE(gpmc_setup_irq()))
- 		dev_warn(gpmc_dev, "gpmc_setup_irq failed\n");
--- 
-1.7.9.5
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
