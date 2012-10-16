@@ -1,7 +1,8 @@
 From: George Zhang <georgezhang@vmware.com>
-Subject: [PATCH 0/6] VSOCK for Linux upstreaming
-Date: Mon, 15 Oct 2012 17:31:56 -0700
-Message-ID: <20121016003033.27018.90426.stgit@promb-2n-dhcp175.eng.vmware.com>
+Subject: [PATCH 2/6] VSOCK: vsock address implementaion.
+Date: Mon, 15 Oct 2012 17:32:25 -0700
+Message-ID: <20121016003216.27018.41643.stgit@promb-2n-dhcp175.eng.vmware.com>
+References: <20121016003033.27018.90426.stgit@promb-2n-dhcp175.eng.vmware.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,6 +11,7 @@ Cc: pv-drivers@vmware.com, vm-crosstalk@vmware.com, davem@davemloft.net,
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	georgezhang@vmware.com, virtualization@lists.linux-foundation.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20121016003033.27018.90426.stgit@promb-2n-dhcp175.eng.vmware.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -21,99 +23,330 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-
-* * *
-
-In an effort to improve the out-of-the-box experience with Linux
-kernels for VMware users, VMware is working on readying the Virtual
-Machine Communication Interface (vmw_vmci) and VMCI Sockets (VSOCK)
-(vmw_vsock) kernel modules for inclusion in the Linux kernel. The
-purpose of this post is to acquire feedback on the vmw_vsock kernel
-module. The vmw_vmci kernel module has been presented in an early post.
+VSOCK linux address code implementation.
 
 
-* * *
-
-VMCI Sockets allows virtual machines to communicate with host kernel
-modules and the VMware hypervisors. VMCI Sockets kernel module has
-dependency on VMCI kernel module. User level applications both in
-a virtual machine and on the host can use vmw_vmci through VMCI
-Sockets API which facilitates fast and efficient communication
-between guest virtual machines and their host. A socket
-address family designed to be compatible with UDP and TCP at the
-interface level. Today, VMCI and VMCI Sockets are used by the VMware
-shared folders (HGFS) and various VMware Tools components inside the
-guest for zero-config, network-less access to VMware host services. In
-addition to this, VMware's users are using VMCI Sockets for various
-applications, where network access of the virtual machine is
-restricted or non-existent. Examples of this are VMs communicating
-with device proxies for proprietary hardware running as host
-applications and automated testing of applications running within
-virtual machines.
-
-The VMware VMCI Sockets are similar to other socket types, like
-Berkeley UNIX socket interface. The VMCI sockets module supports
-both connection-oriented stream sockets like TCP, and connectionless
-datagram sockets like UDP. The VSOCK protocol family is defined as
-"AF_VSOCK" and the socket operations split for SOCK_DGRAM and
-SOCK_STREAM.
-
-For additional information about the use of VMCI and in particular
-VMCI Sockets, please refer to the VMCI Socket Programming Guide
-available at https://www.vmware.com/support/developer/vmci-sdk/.
-
-
-
+Signed-off-by: George Zhang <georgezhang@vmware.com>
 ---
-
-George Zhang (6):
-      VSOCK: vsock protocol implementation.
-      VSOCK: vsock address implementaion.
-      VSOCK: notification implementation.
-      VSOCK: statistics implementation.
-      VSOCK: utility functions.
-      VSOCK: header and config files.
-
-
- net/Kconfig                         |    1 
- net/Makefile                        |    1 
- net/vmw_vsock/Kconfig               |   14 
- net/vmw_vsock/Makefile              |    8 
- net/vmw_vsock/af_vsock.c            | 4259 +++++++++++++++++++++++++++++++++++
- net/vmw_vsock/af_vsock.h            |  179 +
- net/vmw_vsock/notify.c              | 1041 +++++++++
- net/vmw_vsock/notify.h              |  130 +
- net/vmw_vsock/notify_qstate.c       |  670 ++++++
- net/vmw_vsock/stats.c               |   37 
- net/vmw_vsock/stats.h               |  222 ++
- net/vmw_vsock/util.c                |  694 ++++++
- net/vmw_vsock/util.h                |  331 +++
- net/vmw_vsock/vmci_sockets.h        |  517 ++++
- net/vmw_vsock/vmci_sockets_packet.h |  107 +
- net/vmw_vsock/vsock_addr.c          |  264 ++
- net/vmw_vsock/vsock_addr.h          |   40 
- net/vmw_vsock/vsock_common.h        |  130 +
- net/vmw_vsock/vsock_packet.h        |  131 +
- net/vmw_vsock/vsock_version.h       |   29 
- 20 files changed, 8805 insertions(+), 0 deletions(-)
- create mode 100644 net/vmw_vsock/Kconfig
- create mode 100644 net/vmw_vsock/Makefile
- create mode 100644 net/vmw_vsock/af_vsock.c
- create mode 100644 net/vmw_vsock/af_vsock.h
- create mode 100644 net/vmw_vsock/notify.c
- create mode 100644 net/vmw_vsock/notify.h
- create mode 100644 net/vmw_vsock/notify_qstate.c
- create mode 100644 net/vmw_vsock/stats.c
- create mode 100644 net/vmw_vsock/stats.h
- create mode 100644 net/vmw_vsock/util.c
- create mode 100644 net/vmw_vsock/util.h
- create mode 100644 net/vmw_vsock/vmci_sockets.h
- create mode 100644 net/vmw_vsock/vmci_sockets_packet.h
+ net/vmw_vsock/vsock_addr.c |  264 ++++++++++++++++++++++++++++++++++++++++++++
+ net/vmw_vsock/vsock_addr.h |   40 +++++++
+ 2 files changed, 304 insertions(+), 0 deletions(-)
  create mode 100644 net/vmw_vsock/vsock_addr.c
  create mode 100644 net/vmw_vsock/vsock_addr.h
- create mode 100644 net/vmw_vsock/vsock_common.h
- create mode 100644 net/vmw_vsock/vsock_packet.h
- create mode 100644 net/vmw_vsock/vsock_version.h
 
--- 
-Signature
+diff --git a/net/vmw_vsock/vsock_addr.c b/net/vmw_vsock/vsock_addr.c
+new file mode 100644
+index 0000000..c93a174
+--- /dev/null
++++ b/net/vmw_vsock/vsock_addr.c
+@@ -0,0 +1,264 @@
++/*
++ * VMware vSockets Driver
++ *
++ * Copyright (C) 2007-2012 VMware, Inc. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the Free
++ * Software Foundation version 2 and no later version.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ */
++
++/*
++ * vsockAddr.c --
++ *
++ * VSockets address implementation.
++ */
++
++/*
++ * These includes come before vsockCommon.h to ensure that VMware's ASSERT
++ * macro is used instead of Linux's irda.h definition.
++ */
++#include <linux/types.h>
++#include <linux/socket.h>
++#include <linux/stddef.h>	/* for NULL */
++#include <net/sock.h>
++
++#include "vsock_common.h"
++
++/*
++ *
++ * vsock_addr_init --
++ *
++ * Initialize the given address with the given context id and port. This will
++ * clear the address, set the correct family, and add the given values.
++ *
++ * Results: None.
++ *
++ * Side effects: None.
++ */
++
++void vsock_addr_init(struct sockaddr_vm *addr, u32 cid, u32 port)
++{
++	memset(addr, 0, sizeof *addr);
++
++	addr->svm_family = AF_VSOCK;
++	addr->svm_cid = cid;
++	addr->svm_port = port;
++
++	BUG_ON(vsock_addr_validate(addr) != 0);
++}
++
++/*
++ *
++ * vsock_addr_validate --
++ *
++ * Try to validate the given address.  The address must not be null and must
++ * have the correct address family.  Any reserved fields must be zero.
++ *
++ * Results: 0 on success, EFAULT if the address is null, EAFNOSUPPORT if the
++ * address is of the wrong family, and EINVAL if the reserved fields are not
++ * zero.
++ *
++ * Side effects: None.
++ */
++
++int vsock_addr_validate(const struct sockaddr_vm *addr)
++{
++	if (!addr)
++		return -EFAULT;
++
++	if (addr->svm_family != AF_VSOCK)
++		return -EAFNOSUPPORT;
++
++	if (addr->svm_zero[0] != 0)
++		return -EINVAL;
++
++	return 0;
++}
++
++/*
++ *
++ * vsock_addr_bound --
++ *
++ * Determines whether the provided address is bound.
++ *
++ * Results: TRUE if the address structure is bound, FALSE otherwise.
++ *
++ * Side effects: None.
++ */
++
++bool vsock_addr_bound(const struct sockaddr_vm *addr)
++{
++	BUG_ON(!addr);
++
++	return addr->svm_port != VMADDR_PORT_ANY;
++}
++
++/*
++ *
++ * vsock_addr_unbind --
++ *
++ * Unbind the given addresss.
++ *
++ * Results: None.
++ *
++ * Side effects: None.
++ */
++
++void vsock_addr_unbind(struct sockaddr_vm *addr)
++{
++	vsock_addr_init(addr, VMADDR_CID_ANY, VMADDR_PORT_ANY);
++}
++
++/*
++ *
++ * vsock_addr_equals_addr --
++ *
++ * Determine if the given addresses are equal.
++ *
++ * Results: TRUE if the addresses are equal, FALSE otherwise.
++ *
++ * Side effects: None.
++ */
++
++bool vsock_addr_equals_addr(const struct sockaddr_vm *addr,
++			    const struct sockaddr_vm *other)
++{
++	BUG_ON(vsock_addr_validate(addr) != 0);
++	BUG_ON(vsock_addr_validate(other) != 0);
++
++	return addr->svm_cid == other->svm_cid &&
++		addr->svm_port == other->svm_port;
++}
++
++/*
++ *
++ * vsock_addr_equals_addr_any --
++ *
++ * Determine if the given addresses are equal. Will accept either an exact
++ * match or one where the rids match and that either the cids match or are set
++ * to VMADDR_CID_ANY.
++ *
++ * Results: TRUE if the addresses are equal, FALSE otherwise.
++ *
++ * Side effects: None.
++ */
++
++bool vsock_addr_equals_addr_any(const struct sockaddr_vm *addr,
++				const struct sockaddr_vm *other)
++{
++	BUG_ON(vsock_addr_validate(addr) != 0);
++	BUG_ON(vsock_addr_validate(other) != 0);
++
++	return (addr->svm_cid == VMADDR_CID_ANY ||
++		other->svm_cid == VMADDR_CID_ANY ||
++		addr->svm_cid == other->svm_cid) &&
++	       addr->svm_port == other->svm_port;
++}
++
++/*
++ *
++ * vsock_addr_equals_handle_port --
++ *
++ * Determines if the given address matches the given handle and port.
++ *
++ * Results: TRUE if the address matches the handle and port, FALSE otherwise.
++ *
++ * Side effects: None.
++ */
++
++bool vsock_addr_equals_handle_port(const struct sockaddr_vm *addr,
++				   struct vmci_handle handle, u32 port)
++{
++	BUG_ON(vsock_addr_validate(addr) != 0);
++
++	return addr->svm_cid == VMCI_HANDLE_TO_CONTEXT_ID(handle) &&
++		addr->svm_port == port;
++}
++
++/*
++ *
++ * vsock_addr_cast --
++ *
++ * Try to cast the given generic address to a VM address.  The given length
++ * must match that of a VM address and the address must be valid. The
++ * "out_addr" parameter contains the address if successful.
++ *
++ * Results: 0 on success, EFAULT if the length is too small.  See
++ * vsock_addr_validate() for other possible return codes.
++ *
++ * Side effects: None.
++ */
++
++int vsock_addr_cast(const struct sockaddr *addr,
++		    size_t len, struct sockaddr_vm **out_addr)
++{
++	BUG_ON(!out_addr);
++
++	if (len < sizeof **out_addr)
++		return -EFAULT;
++
++	*out_addr = (struct sockaddr_vm *)addr;
++	return vsock_addr_validate(*out_addr);
++}
++
++/*
++ *
++ * vsock_addr_socket_context_stream --
++ *
++ * Determines whether the provided context id represents a context that
++ * contains a stream socket endpoints.
++ *
++ * Results: TRUE if the context does have socket endpoints, FALSE otherwise.
++ *
++ * Side effects: None.
++ */
++
++bool vsock_addr_socket_context_stream(u32 cid)
++{
++	static const vmci_id non_socket_contexts[] = {
++		VMCI_HYPERVISOR_CONTEXT_ID,
++		VMCI_WELL_KNOWN_CONTEXT_ID,
++	};
++	int i;
++
++	BUILD_BUG_ON(sizeof cid != sizeof *non_socket_contexts);
++
++	for (i = 0; i < ARRAY_SIZE(non_socket_contexts); i++) {
++		if (cid == non_socket_contexts[i])
++			return false;
++
++	}
++
++	return true;
++}
++
++/*
++ *
++ * vsock_addr_socket_context_dgram --
++ *
++ * Determines whether the provided <context id, resource id> represent a
++ * protected datagram endpoint.
++ *
++ * Results: TRUE if the context does have socket endpoints, FALSE otherwise.
++ *
++ * Side effects: None.
++ */
++
++bool vsock_addr_socket_context_dgram(u32 cid, u32 rid)
++{
++	if (cid == VMCI_HYPERVISOR_CONTEXT_ID) {
++		/*
++		 * Registrations of PBRPC Servers do not modify VMX/Hypervisor
++		 * state and are allowed.
++		 */
++		return rid == VMCI_UNITY_PBRPC_REGISTER;
++	}
++
++	return true;
++}
+diff --git a/net/vmw_vsock/vsock_addr.h b/net/vmw_vsock/vsock_addr.h
+new file mode 100644
+index 0000000..18f023d
+--- /dev/null
++++ b/net/vmw_vsock/vsock_addr.h
+@@ -0,0 +1,40 @@
++/*
++ * VMware vSockets Driver
++ *
++ * Copyright (C) 2007-2012 VMware, Inc. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the Free
++ * Software Foundation version 2 and no later version.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ */
++
++/*
++ * vsockAddr.h --
++ *
++ * VSockets address constants, types and functions.
++ */
++
++#ifndef _VSOCK_ADDR_H_
++#define _VSOCK_ADDR_H_
++
++void vsock_addr_init(struct sockaddr_vm *addr, u32 cid, u32 port);
++int vsock_addr_validate(const struct sockaddr_vm *addr);
++bool vsock_addr_bound(const struct sockaddr_vm *addr);
++void vsock_addr_unbind(struct sockaddr_vm *addr);
++bool vsock_addr_equals_addr(const struct sockaddr_vm *addr,
++			    const struct sockaddr_vm *other);
++bool vsock_addr_equals_addr_any(const struct sockaddr_vm *addr,
++				const struct sockaddr_vm *other);
++bool vsock_addr_equals_handle_port(const struct sockaddr_vm *addr,
++				   struct vmci_handle handle, u32 port);
++int vsock_addr_cast(const struct sockaddr *addr, size_t len,
++		    struct sockaddr_vm **out_addr);
++bool vsock_addr_socket_context_stream(u32 cid);
++bool vsock_addr_socket_context_dgram(u32 cid, u32 rid);
++
++#endif
