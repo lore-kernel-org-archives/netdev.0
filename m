@@ -1,103 +1,79 @@
-From: "N, Mugunthan V" <mugunthanvnm@ti.com>
-Subject: RE: [PATCH V2 0/7] support the cpts found on am335x devices
-Date: Tue, 16 Oct 2012 16:33:55 +0000
-Message-ID: <EB1619762EAF8B4E97A227FB77B7E0293E9F82F0@DBDE01.ent.ti.com>
-References: <cover.1350329726.git.richardcochran@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: regression when connecting to ipv6 localhost
+Date: Tue, 16 Oct 2012 18:43:07 +0200
+Message-ID: <1350405787.3954.1229.camel@edumazet-glaptop>
+References: <CAO_aot5U16KLjqtXp2ZS7d+T0WvVY7OXPaA3t2bbN=uvboVV3Q@mail.gmail.com>
+	 <1350242941.21172.17023.camel@edumazet-glaptop>
+	 <CAO_aot7BQqob=V9MEDSFnmCCNsxgjghC5e3NuQonqY8GCkV1Og@mail.gmail.com>
+	 <1350244485.21172.17077.camel@edumazet-glaptop>
+	 <CAO_aot7wZAqqQForAe-9aLnALqm1LdeaEv+ZKqiw3V_DCfqjRw@mail.gmail.com>
+	 <1350246314.21172.17139.camel@edumazet-glaptop>
+	 <1350246414.21172.17144.camel@edumazet-glaptop>
+	 <1350246481.21172.17147.camel@edumazet-glaptop>
+	 <CAO_aot5xZevtZcCS37h9HR4Zkj_Q4ny_sj+NX7oYEvazAQjxLQ@mail.gmail.com>
+	 <1350248858.21172.17197.camel@edumazet-glaptop>
+	 <CAO_aot6w9yaWacK9kE66m+Lv0LWXY9hKzLH8b=1dp=23fo_W2A@mail.gmail.com>
+	 <1350250542.21172.17229.camel@edumazet-glaptop>
+	 <CAO_aot4RiTbUd=7L5e4btLEeJvgy0B3iswaXo8m3AP2qp9Z0TQ@mail.gmail.com>
+	 <1350252091.21172.17257.camel@edumazet-glaptop>
+	 <CAO_aot6j2TPe9yxnA1ktMQsfnnWF1XwmCrQUmCcfOqCqbc6dZA@mail.gmail.com>
+	 <1350279753.21172.17290.camel@edumazet-glaptop>
+	 <1350285275.22442.17.camel@joe-AO722>
+	 <1350286790.21172.17414.camel@edumazet-glaptop>
+	 <1350300302.22442.25.camel@joe-AO722>
+	 <1350304308.3954.66.camel@edumazet-glaptop>
+	 <CAO_aot59XNERsb7q9pZSpSzyFLv=pKEk6wb82PE-sNMf4TDXow@mail.gmail.com>
+	 <1350307293.3954.119.camel@edumazet-glaptop>
+	 <CAO_aot44shT8CKtCi8Zv0GWN7wjybHX+d5SFQ1daVOh84v+L1g@mail.gmail.com>
+	 <CAO_aot66K-7Je8dSnYTxxkoaDgQ3JpG7t=MdTK0A0ixPX_AP-A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	David Miller <davem@davemloft.net>,
-	"Chemparathy, Cyril" <cyril@ti.com>,
-	"Govindarajan, Sriramakrishnan" <srk@ti.com>
-To: Richard Cochran <richardcochran@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jan Hinnerk Stosch <janhinnerk.stosch@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:55023 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754848Ab2JPQeL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2012 12:34:11 -0400
-In-Reply-To: <cover.1350329726.git.richardcochran@gmail.com>
-Content-Language: en-US
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:33627 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755016Ab2JPQnM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2012 12:43:12 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so3128338bkc.19
+        for <netdev@vger.kernel.org>; Tue, 16 Oct 2012 09:43:11 -0700 (PDT)
+In-Reply-To: <CAO_aot66K-7Je8dSnYTxxkoaDgQ3JpG7t=MdTK0A0ixPX_AP-A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Richard Cochran [mailto:richardcochran@gmail.com]
-> Sent: Tuesday, October 16, 2012 1:18 AM
-> To: netdev@vger.kernel.org
-> Cc: linux-arm-kernel@lists.infradead.org; David Miller; Chemparathy,
-> Cyril; N, Mugunthan V; Govindarajan, Sriramakrishnan
-> Subject: [PATCH V2 0/7] support the cpts found on am335x devices
+On Tue, 2012-10-16 at 18:07 +0200, Jan Hinnerk Stosch wrote:
+> 2012/10/15 Jan Hinnerk Stosch <janhinnerk.stosch@gmail.com>:
+> >
+> > Yes. Attached..
 > 
-> This patch series, based on linux-3.7-rc1 plus the fixes I posted
-> today, adds support for the Common Platform Time Sync (CPTS) found on
-> the popular BeagleBone. The code enables hardware time stamping and a
-> PTP Hardware Clock.
-> 
-> Changes in V2
->    - Now uses device tree
->    - Actually works with vanilla kernel
-> 
-> This work has been tested using the linuxptp PTP stack, and it seems
-> to be working quite well. One limitation of the hardware is that not
-> possible to adjust the clock frequency. Even without with this
-> capability, the driver will be still be useful for 802.1AS
-> applications, since they typically use a free running clock.
-> 
-> There is one open issue with this driver which will hopefully soon be
-> resolved. Time stamping only works on UDP packets. Although Layer 2 is
-> supposed to work according to the TRM, I have not yet figured out
-> how. The UDP only works when setting an undocumented bit, so maybe
-> someone from TI can fill me in on this.
-> 
-> Thanks,
-> Richard
-> 
-> 
-> Richard Cochran (7):
->   cpsw: rename register banks to match the reference manual
->   cpsw: add missing fields to the CPSW_SS register bank.
->   cpsw: correct the CPSW_PORT register bank declaration
->   cpsw: add a common header file for regsiter declarations
->   cpts: introduce time stamping code and a PTP hardware clock.
->   cpsw: add a DT field for the cpts offset
->   cpsw: use the time stamping capabilities of the cpts
-> 
->  Documentation/devicetree/bindings/net/cpsw.txt |   11 +-
->  arch/arm/boot/dts/am33xx.dtsi                  |    5 +-
->  drivers/net/ethernet/ti/Kconfig                |    8 +
->  drivers/net/ethernet/ti/Makefile               |    2 +-
->  drivers/net/ethernet/ti/cpsw.c                 |   84 ++++-
->  drivers/net/ethernet/ti/cpsw_reg.h             |   81 ++++
->  drivers/net/ethernet/ti/cpts.c                 |  468
-> ++++++++++++++++++++++++
->  drivers/net/ethernet/ti/cpts.h                 |  148 ++++++++
->  include/linux/platform_data/cpsw.h             |    1 +
->  9 files changed, 788 insertions(+), 20 deletions(-)
->  create mode 100644 drivers/net/ethernet/ti/cpsw_reg.h
->  create mode 100644 drivers/net/ethernet/ti/cpts.c
->  create mode 100644 drivers/net/ethernet/ti/cpts.h
-> 
-> --
-> 1.7.2.5
+> Today I read about the existence of the "git bisect" function and if I
+> have not done anything wrong the "bad commit" which lead to this
+> regression is ddbe503203855939946430e39bae58de11b70b69.
+> Perhaps this can help you.
 
-Richard
+Interesting, I was about to ask you to do a bisection ;)
 
-I had seen some issues with the patch series.
+So the hash value of ::1 was changed, and it has bad effect on your
+machine...
 
-* CPTS will hold only LSB 32 bits of 64 bit Timer and the upper 32 bit
-  time value has to be taken care by the software, but the time stamp
-  which is passed to skb or PTP clock consist of only 32 bit time value
-* CPTS interrupts should be utilized to service Half and Full roll over
-  events as it is non sync events with respect to get/set time and PTP
-  pkt Tx/Rx
-* CPTS Time which is obtained from hardware is not actually a nano
-  seconds as the CPTS ref clock is tied to 250MHz for AM335x.
-* CPSW register mapping done in this patch series removes the CPSW
-  driver support for previous version found in TI814x
-* CPSW Time stamping is done only for port 0 and port 1 is not done
+Could it be hash collision and an old bug being uncovered ?
 
-Regards
-Mugunthan V N
+Could you trace inet6_addr_hash() a bit ?
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index d7c56f8..096c04c 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -580,7 +580,10 @@ ipv6_link_dev_addr(struct inet6_dev *idev, struct inet6_ifaddr *ifp)
+ 
+ static u32 inet6_addr_hash(const struct in6_addr *addr)
+ {
+-	return hash_32(ipv6_addr_hash(addr), IN6_ADDR_HSIZE_SHIFT);
++	u32 res = hash_32(ipv6_addr_hash(addr), IN6_ADDR_HSIZE_SHIFT);
++
++	pr_err("inet6_addr_hash(%pi6) %u\n", addr, res);
++	return res;
+ }
+ 
+ /* On success it returns ifp with increased reference count */
