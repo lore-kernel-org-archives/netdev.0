@@ -1,52 +1,34 @@
-From: Chris Friesen <cbf123@mail.usask.ca>
-Subject: unexpected TCP behaviour when deleting local IP addresses
-Date: Tue, 16 Oct 2012 15:12:13 -0600
-Message-ID: <507DCDAD.7030209@mail.usask.ca>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [stable 2.6.32.y] net/ipv4: fix cached ipv4 dsts never invalidated
+Date: Tue, 16 Oct 2012 23:22:15 +0200
+Message-ID: <20121016212215.GJ31152@1wt.eu>
+References: <20121016203449.GA25889@kvack.org> <20121016.164539.753785374589743655.davem@davemloft.net> <20121016204955.GA25971@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, stable@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Benjamin LaHaise <bcrl@kvack.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from idcmail-mo2no.shaw.ca ([64.59.134.9]:20775 "EHLO
-	idcmail-mo2no.shaw.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753890Ab2JPVVv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2012 17:21:51 -0400
+Received: from 1wt.eu ([62.212.114.60]:32909 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752918Ab2JPVYL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2012 17:24:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20121016204955.GA25971@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Oct 16, 2012 at 04:49:55PM -0400, Benjamin LaHaise wrote:
+> On Tue, Oct 16, 2012 at 04:45:39PM -0400, David Miller wrote:
+> > This is only a partial fix.
+> > 
+> > Only recently did this issue get resolved completely.
+> > 
+> > See commits surrounding:
+> 
+> Thanks for the pointers David.  I'll cherry pick / backport the relevant 
+> changes for Willy as well.
 
-I'm seeing some strange behaviour with local TCP connections.  The 
-scenario goes as follows:
+They will be much welcome, thank you guys !
 
-1) create new IP address and assign to eth device
-2) TCP server starts listening on that IP address
-3) TCP client connects to server
-4) remove new IP address
-5) kill server with ctrl-C.  At this point it appears that because the 
-address was removed the shutdown message isn't processed properly. 
-netstat shows the server socket as FIN_WAIT1, but the client socket is 
-still ESTABLISHED.
-6) client writes to the connected socket (this passes with no error)
-7) client waits for response from server, and waits forever or until 
-keepalive expires
-
-This was originally seen on 2.6.27, but I've verified it on 2.6.35. 
-I'll see about trying it on current git.
-
-Is the waiting forever in step 7 a bug, or is this legitimate TCP 
-behaviour since the server was basically shut down uncleanly?
-
-If we don't remove the address in step 4, then step 5 results in the 
-server socket going to FIN_WAIT2 and the client socket going to 
-CLOSE_WAIT and step 7 returns right away with zero bytes.
-
-In the "remove IP address" case I would expect step 6 to cause some sort 
-of error since the IP address no longer exists.
-
-The interesting thing is that if you do this sort of scenario with the 
-client and server on different hosts then you get a "no route to host" 
-error at step 6.
-
-Curious how this is supposed to work...
-
-Chris
+Willy
