@@ -1,67 +1,78 @@
-From: Jon Hunter <jon-hunter@ti.com>
-Subject: Re: [PATCH 1/5] ARM: OMAP2+: gpmc: Fix kernel BUG for DT boot mode
-Date: Tue, 16 Oct 2012 14:47:56 -0500
-Message-ID: <507DB9EC.9060407@ti.com>
-References: <cover.1350327320.git.richardcochran@gmail.com> <41d66042625157d089e9c9532030a6831e79c641.1350327324.git.richardcochran@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/2] Fix build error caused by broken PCH_PTP module
+ dependency.
+Date: Tue, 16 Oct 2012 21:09:27 +0100
+Message-ID: <1350418167.2649.47.camel@bwh-desktop.uk.solarflarecom.com>
+References: <50654A62.5090003@linux.intel.com>
+	 <20121002.222238.1580734803370802133.davem@davemloft.net>
+	 <1349300710.2763.8.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20121003.204336.1981040659629176119.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Afzal Mohammed <afzal@ti.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Tony Lindgren <tony@atomide.com>,
-	"hvaibhav@ti.com" <hvaibhav@ti.com>,
-	David Miller <davem@davemloft.net>,
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <41d66042625157d089e9c9532030a6831e79c641.1350327324.git.richardcochran@gmail.com>
-Sender: linux-omap-owner@vger.kernel.org
+Cc: <haicheng.li@linux.intel.com>, <netdev@vger.kernel.org>,
+	<tshimizu818@gmail.com>, <linux-kernel@vger.kernel.org>,
+	<haicheng.lee@gmail.com>
+To: David Miller <davem@davemloft.net>,
+	Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121003.204336.1981040659629176119.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-On 10/15/2012 02:16 PM, Richard Cochran wrote:
-> From: hvaibhav@ti.com <hvaibhav@ti.com>
+On Wed, 2012-10-03 at 20:43 -0400, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Wed, 3 Oct 2012 22:45:10 +0100
 > 
-> With recent changes in omap gpmc driver code, in case of DT
-> boot mode, where bootloader does not configure gpmc cs space
-> will result into kernel BUG() inside gpmc_mem_init() function,
-> as gpmc cs0 gpmc_config7[0].csvalid bit is set to '1' and
-> gpmc_config7[0].baseaddress is set to '0' on reset.
-
-I am not sure I completely follow the logic here.
-
-Won't this problem occur if the bootloader does not configure the gpmc
-cs space AND we are not using DT?
-
-Is the csvalid bit set because we are booting from the internal ROM?
-
-I guess I don't see why csvalid bit being set and a base-address of 0x0
-should not be allowed. That should be a valid combination.
-
-One problem I see with gpmc_mem_init() is that it assumes that
-BOOT_ROM_SPACE is 1MB for all devices starting at 0x0 apart from the
-apollon board. For newer devices such as OMAP4, there is only 48KB of
-internal ROM and only mapped to 0x0 when booting from internal ROM. So
-this needs to be fixed.
-
-How much internal ROM does the AM335x have and where is it mapped?
-
-> This use-case is applicable for any board/EVM which doesn't have
-> any peripheral connected to gpmc cs0, for example BeagleXM and
-> BeagleBone, so DT boot mode fails.
+> > I thought of it as being a peripheral feature (which most Solarflare
+> > hardware doesn't implement) so it made sense for SFC_PTP to be optional
+> > like SFC_MTD and so on.  But I'm quite happy to use a select instead, if
+> > you want that to be the convention for all drivers implementing PHC.
 > 
-> This patch adds of_have_populated_dt() check before creating
-> device, so that for DT boot mode, gpmc probe will not be called
-> which is expected behavior, as gpmc is not supported yet from DT.
+> I think that consistency might trump those conerns you mentioned, at
+> least in this case.
 
-Yes, but we do actually still allow some platform devices to be probed
-(such as dmtimers) when booting with DT that don't support DT yet. So
-this change prevents us from using the gpmc on boards when booting with DT.
+Currently such kconfig options look like, for example:
 
-I am not convinced that this is addressing the underlying problem with
-gpmc_mem_init().
+config IGB_PTP
+        bool "PTP Hardware Clock (PHC)"
+        default n
+        depends on IGB && EXPERIMENTAL
+        select PPS
+        select PTP_1588_CLOCK
+        ---help---
+          Say Y here if you want to use PTP Hardware Clock (PHC) in the
+          driver.  Only the basic clock operations have been implemented.
 
-Cheers
-Jon
+          Every timestamp and clock read operations must consult the
+          overflow counter to form a correct time value.
+
+There are a number of problems with this:
+
+1. PTP_1588_CLOCK depends on PPS, so this has to select it as well.
+2. PPS and PTP_1588_CLOCK depend on EXPERIMENTAL, so this has to as
+   well.
+3. It's a boolean, so whatever it selects is built-in, even though the
+   driver it relates to may be a module.
+
+I think the various kconfig options should be changed as follows:
+
+1. Only PTP_1588_CLOCK selects PPS.
+2. Nothing depends on EXPERIMENTAL.  (This stuff has been in for 18
+   months and it's even being backported to RHEL 6 now.)
+3. Either:
+   (a) The per-driver PHC options select nothing, and the driver options
+       do e.g.:
+	select PTP_1588_CLOCK if IGB_PTP
+   (b) The per-driver PHC options are removed and the driver options do:
+	select PTP_1588_CLOCK
+       (i.e. PHC support is unconditional)
+
+Any objections to this, or preference for (a) vs (b)?
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
