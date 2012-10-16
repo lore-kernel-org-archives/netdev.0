@@ -1,200 +1,115 @@
-From: enh <enh@google.com>
-Subject: Re: listen(2) backlog changes in or around Linux 3.1?
-Date: Tue, 16 Oct 2012 16:31:14 -0700
-Message-ID: <CAJgzZoq9+KZpQ1tVQJUK++VVk4JfY9u8timaJ5q6wSYoF+_tog@mail.gmail.com>
-References: <CAJgzZorigejCuFweNrvmkEJts3Um7exh1fYTH=4KrEcB=v=2SA@mail.gmail.com>
- <507C4401.7050500@oracle.com> <CAJgzZoqhw6HJxa6uRbekLMaVTDVOo92YDtzqHnZoRiQ8tq6G2g@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net] netfilter: nf_conntrack: fix rt_gateway checks for
+ h323
+Date: Wed, 17 Oct 2012 01:55:34 +0200
+Message-ID: <20121016235534.GA2805@1984>
+References: <1349823647-2166-1-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gh0-f174.google.com ([209.85.160.174]:61425 "EHLO
-	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755714Ab2JPXbf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2012 19:31:35 -0400
-Received: by mail-gh0-f174.google.com with SMTP id g15so1915474ghb.19
-        for <netdev@vger.kernel.org>; Tue, 16 Oct 2012 16:31:35 -0700 (PDT)
-In-Reply-To: <CAJgzZoqhw6HJxa6uRbekLMaVTDVOo92YDtzqHnZoRiQ8tq6G2g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1349823647-2166-1-git-send-email-ja@ssi.bg>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-boiling things down to a short C++ program, i see that i can reproduce
-the behavior even on 2.6 kernels. if i run this, i see 4 connections
-immediately (3 + 1, as i'd expect)... but then about 10s later i see
-another 2. and every few seconds after that, i see another 2. i've let
-this run until i have hundreds of connect(2) calls that have returned,
-despite my small listen(2) backlog and the fact that i'm not
-accept(2)ing.
+Hi Julian,
 
-so i guess the only thing that's changed with newer kernels is timing
-(hell, since i only see newer kernels on newer hardware, it might just
-be a hardware thing).
+On Wed, Oct 10, 2012 at 02:00:47AM +0300, Julian Anastasov wrote:
+> 	After the change "Adjust semantics of rt->rt_gateway"
+> (commit f8126f1d51) we should properly match the nexthop when
+> destinations are directly connected because rt_gateway can be 0.
+> 
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> ---
+> 
+> 	This patch needs a closer look from the Netfilter team.
+> 
+> 	It restores the check as it was committed originally,
+> i.e. to compare nexthops. I'm not sure what is the desired logic,
+> it can depend on the following:
+> 
+> - two directly connected hosts (rt_gateway=0) can be from different
+> subnets or not
+> 
+> - one party A is the gateway (rt_gateway=0), another party uses
+> this gateway (rt_gateway=A)
+> 
+> 	May be someone that knows this code better can comment
+> if the check should be different.
 
-and clearly i don't understand what the listen(2) backlog means any more.
+Your patch gets it working like before David's change in the
+rt_gateway semantics.
 
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <iostream>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
+I think the H.323 helper is doing "its best" to handle the following
+call-forwarding scenario:
 
-void dump_ti(int fd) {
- tcp_info ti;
- socklen_t tcp_info_length = sizeof(tcp_info);
- int rc = getsockopt(fd, SOL_IP, TCP_INFO, &ti, &tcp_info_length);
- if (rc == -1) {
-   std::cout << "getsockopt rc " << rc << ": " << strerror(errno) << "\n";
-   return;
- }
+1) A calls B.
+2) B replies to A that the alternate address is C.
+3) A calls C.
 
- std::cout << "ti.tcpi_unacked=" << ti.tcpi_unacked << "\n";
- std::cout << "ti.tcpi_sacked=" << ti.tcpi_sacked << "\n";
-}
+Now assume that:
 
-void connect_to(sockaddr_in& sa) {
- int s = socket(AF_INET, SOCK_STREAM, 0);
- if (s == -1) {
-   abort();
- }
+1) all traffic between A and B goes through the firewall.
 
- int rc = connect(s, (sockaddr*) &sa, sizeof(sockaddr_in));
- std::cout << "connect = " << rc << "\n";
-}
+and
 
-int main() {
- int ss = socket(AF_INET, SOCK_STREAM, 0);
- std::cout << "socket fd " << ss << "\n";
+2) all traffic between A and C don't go through the firewall.
 
- sockaddr_in sa;
- memset(&sa, 0, sizeof(sa));
- sa.sin_family = AF_INET;
- sa.sin_addr.s_addr = htonl(INADDR_ANY);
- sa.sin_port = htons(9877);
- int rc = bind(ss, (sockaddr*) &sa, sizeof(sa));
- std::cout << "bind rc " << rc << ": " << strerror(errno) << "\n";
- std::cout << "bind port " << sa.sin_port << "\n";
+If you want a picture, see section 5.2 of this site:
 
- rc = listen(ss, 1);
- std::cout << "listen rc " << rc << ": " << strerror(errno) << "\n";
- dump_ti(ss);
+http://people.netfilter.org/zhaojingmin/h323_conntrack_nat_helper/#_Toc133598073
 
- while (true) {
-  connect_to(sa);
-  dump_ti(ss);
- }
+That code below is trying to detect if A and C don't go through the
+firewall, just to skip the creation of one useless expectation (since
+they can communicate without going through the firewall).
 
- return 0;
-}
+With the code below (function callforward_do_filter):
 
+a) if A and C are on-link, then:
+rt_nexthop(rt1, fl1.daddr) != rt_nexthop(rt2, fl2.daddr)
 
-On Mon, Oct 15, 2012 at 10:26 AM, enh <enh@google.com> wrote:
-> On Mon, Oct 15, 2012 at 10:12 AM, Venkat Venkatsubra
-> <venkat.x.venkatsubra@oracle.com> wrote:
->> On 10/12/2012 6:40 PM, enh wrote:
->>>
->>> i used to use the following hack to unit test connect timeouts: i'd
->>> call listen(2) on a socket and then deliberately connect (backlog + 3)
->>> sockets without accept(2)ing any of the connections. (why 3? because
->>> Stevens told me so, and experiment backed him up. see figure 4.10 in
->>> his UNIX Network Programming.)
->>>
->>> with "old" kernels, 2.6.35-ish to 3.0-ish, this worked great. my next
->>> connect(2) to the same loopback port would hang indefinitely. i could
->>> even unblock the connect by calling accept(2) in another thread. this
->>> was awesome for testing.
->>>
->>> in 3.1 on ARM, 3.2 on x86 (Ubuntu desktop), and 3.4 on ARM, this no
->>> longer works. it doesn't seem to be as simple as "the constant is no
->>> longer 3". my tests are now flaky. sometimes they work like they used
->>> to, and sometimes an extra connect(2) will succeed. (or, if i'm in
->>> non-blocking mode, my poll(2) will return with the non-blocking socket
->>> that's trying to connect now ready.)
->>>
->>> i'm guessing if this changed in 3.1 and is still changed in 3.4,
->>> whatever's changed wasn't an accident. but i haven't been able to find
->>> the right search terms to RTFM. i also finally got around to grepping
->>> the kernel for the "+ 3", but wasn't able to find that. (so i'd be
->>> interested to know where the old behavior came from too.)
->>>
->>> my least worst workaround at the moment is to use one of RFC5737's
->>> test networks, but that requires that the device have a network
->>> connection, otherwise my connect(2)s fail immediately with
->>> ENETUNREACH, which is no use to me. also, unlike my old trick, i've
->>> got no way to suddenly "unblock" a slow connect(2) (this is useful for
->>> unit testing the code that does the poll(2) part of the usual
->>> connect-with-timeout implementation).
->>> https://android-review.googlesource.com/#/c/44563/
->>>
->>> hopefully someone here can shed some light on this? ideally someone
->>> will have a workaround as good as my old trick. i realize i was
->>> relying on undocumented behavior, and i'm happy to have to check
->>> /proc/version and behave appropriately, but i'd really like a way to
->>> keep my unit tests!
->>>
->>> thanks,
->>>   elliott
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->> Hi Elliott,
->>
->> In BSD I think the backlog used to be reset to 3/2 times that passed by the
->> user. So, 2 becomes 3.
->> Probably the 1/2 times increase was to accommodate the ones in
->> partial/incomplete queue.
->> In Linux is it possible you were getting the same behavior before the below
->> commit ?
->> Since the check used to be "backlog+1" a 2 will behave as 3 ?
->
-> i don't think so, because with <= 3.0 kernels i used to have a backlog
-> of 1 and be able to make _4_ connections before my next connect would
-> hang. but this > to >= change is at least something for me to
-> investigate...
->
->> commit 8488df894d05d6fa41c2bd298c335f944bb0e401
->> Author: Wei Dong <weid@np.css.fujitsu.com>
->> Date:   Fri Mar 2 12:37:26 2007 -0800
->>
->>     [NET]: Fix bugs in "Whether sock accept queue is full" checking
->>
->>         when I use linux TCP socket, and find there is a bug in function
->> sk_acceptq_is_full().
->>
->>         When a new SYN comes, TCP module first checks its validation. If
->> valid,
->>     send SYN,ACK to the client and add the sock to the syn hash table. Next
->>     time if received the valid ACK for SYN,ACK from the client. server will
->>     accept this connection and increase the sk->sk_ack_backlog -- which is
->>     done in function tcp_check_req().We check wether acceptq is full in
->>     function tcp_v4_syn_recv_sock().
->>
->>     Consider an example:
->>
->>      After listen(sockfd, 1) system call, sk->sk_max_ack_backlog is set to
->>     1. As we know, sk->sk_ack_backlog is initialized to 0. Assuming accept()
->>     system call is not invoked now.
->>
->>     1. 1st connection comes. invoke sk_acceptq_is_full().
->>      sk->sk_ack_backlog=0 sk->sk_max_ack_backlog=1, function return 0 accept
->> this connection.
->>      Increase the sk->sk_ack_backlog
->>     2. 2nd connection comes. invoke sk_acceptq_is_full().
->>      sk->sk_ack_backlog=1 sk->sk_max_ack_backlog=1, function return 0 accept
->> this connection.
->>      Increase the sk->sk_ack_backlog
->>     3. 3rd connection comes. invoke sk_acceptq_is_full().
->>      sk->sk_ack_backlog=2 sk->sk_max_ack_backlog=1, function return 1.
->> Refuse this connection.
->>
->>     I think it has bugs. after listen system call. sk->sk_max_ack_backlog=1
->>     but now it can accept 2 connections.
->>
->>     Signed-off-by: Wei Dong <weid@np.css.fujitsu.com>
->>     Signed-off-by: David S. Miller <davem@davemloft.net>
->>
->> Venkat
+Bad luck, we create the expectation even if we don't need it.
+
+b) if A and C are behind the same next hop:
+rt_nexthop(rt1, fl1.daddr) == rt_nexthop(rt2, fl2.daddr)
+We don't create the expectation.
+
+c) if A is on-link and C is behind next hop:
+rt_nexthop(rt1, fl1.daddr) != rt_nexthop(rt2, fl2.daddr)
+
+Bad luck again, we create the expectation again.
+
+This seems documented. We could make it better if we would have a way
+to guess that A and C do not need to communicate through the firewall.
+
+I'll take your patch, it leaves things just like it was before (which
+was not really good).
+
+Please, let me know if I'm missing anything. Thanks.
+
+>  net/netfilter/nf_conntrack_h323_main.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
+> index 1b30b0d..962795e 100644
+> --- a/net/netfilter/nf_conntrack_h323_main.c
+> +++ b/net/netfilter/nf_conntrack_h323_main.c
+> @@ -753,7 +753,8 @@ static int callforward_do_filter(const union nf_inet_addr *src,
+>  				   flowi4_to_flowi(&fl1), false)) {
+>  			if (!afinfo->route(&init_net, (struct dst_entry **)&rt2,
+>  					   flowi4_to_flowi(&fl2), false)) {
+> -				if (rt1->rt_gateway == rt2->rt_gateway &&
+> +				if (rt_nexthop(rt1, fl1.daddr) ==
+> +				    rt_nexthop(rt2, fl2.daddr) &&
+>  				    rt1->dst.dev  == rt2->dst.dev)
+>  					ret = 1;
+>  				dst_release(&rt2->dst);
+> -- 
+> 1.7.3.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
