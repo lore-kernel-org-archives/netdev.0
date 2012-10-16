@@ -1,71 +1,42 @@
-From: nicolas.dichtel@6wind.com
-Subject: [PATCH] xfrm: use ISO C standard for array in linux/xfrm.h
-Date: Tue, 16 Oct 2012 17:42:33 +0200
-Message-ID: <1350402153-3889-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: herbert@gondor.apana.org.au, steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:51422 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754895Ab2JPPfv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2012 11:35:51 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [PATCH] compat-drivers: update ethernet driver alx in crap dir
+Date: Tue, 16 Oct 2012 08:37:26 -0700
+Message-ID: <CAB=NE6UoJBuLboW0=CVc5o3yj_SZOKehCc8QWP5e+zfEJBF2ug@mail.gmail.com>
+References: <1349400892-25315-1-git-send-email-xiong@qca.qualcomm.com>
+ <CAB=NE6VotAu-cugsn4==3TPX0OGPEFtdn1J+5+Rd_YfLcg9YDQ@mail.gmail.com> <157393863283F442885425D2C45428562A50158C@nasanexd02f.na.qualcomm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "mcgrof@kernel.org" <mcgrof@kernel.org>,
+	"backports@vger.kernel.org" <backports@vger.kernel.org>,
+	nic-devel <nic-devel@qualcomm.com>,
+	"Ren, Cloud" <cjren@qca.qualcomm.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	qca_vkondrat <qca_vkondrat@qca.qualcomm.com>
+To: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <157393863283F442885425D2C45428562A50158C@nasanexd02f.na.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+On Mon, Oct 8, 2012 at 6:24 PM, Huang, Xiong <xiong@qca.qualcomm.com> wrote:
+> Hi Luis
+>
+>     I'm refining the code, I try my best to make it upstream ASAP. Thanks !
 
-Use the ISO C standard compliant form instead of the gcc extension.
+Ok great thanks, in that case I'm going to make it policy moving
+forward to simply not take in full drivers at all into compat-drivers
+regardless of the situation. If  a driver is desired to be made
+available, whatever the situation may be, it must now go upstream
+directly onto drivers/staging or drivers/ proper somewhere.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- include/uapi/linux/xfrm.h | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+Xiong, Vlad, I'm going to then nuke the current drivers there from the
+v3.7-rc1 release, if you want those drivers to be part of the
+compat-drivers-3.7 releases you will have to submit your driver
+upstream into proper or staging.
 
-diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
-index 28e493b..6a6a605 100644
---- a/include/uapi/linux/xfrm.h
-+++ b/include/uapi/linux/xfrm.h
-@@ -30,7 +30,7 @@ struct xfrm_sec_ctx {
- 	__u8	ctx_alg;
- 	__u16	ctx_len;
- 	__u32	ctx_sid;
--	char	ctx_str[0];
-+	char	ctx_str[];
- };
- 
- /* Security Context Domains of Interpretation */
-@@ -93,27 +93,27 @@ struct xfrm_replay_state_esn {
- 	__u32		oseq_hi;
- 	__u32		seq_hi;
- 	__u32		replay_window;
--	__u32		bmp[0];
-+	__u32		bmp[];
- };
- 
- struct xfrm_algo {
- 	char		alg_name[64];
- 	unsigned int	alg_key_len;    /* in bits */
--	char		alg_key[0];
-+	char		alg_key[];
- };
- 
- struct xfrm_algo_auth {
- 	char		alg_name[64];
- 	unsigned int	alg_key_len;    /* in bits */
- 	unsigned int	alg_trunc_len;  /* in bits */
--	char		alg_key[0];
-+	char		alg_key[];
- };
- 
- struct xfrm_algo_aead {
- 	char		alg_name[64];
- 	unsigned int	alg_key_len;	/* in bits */
- 	unsigned int	alg_icv_len;	/* in bits */
--	char		alg_key[0];
-+	char		alg_key[];
- };
- 
- struct xfrm_stats {
--- 
-1.7.12
+The additional patches then will be for components already upstream.
+
+  Luis
