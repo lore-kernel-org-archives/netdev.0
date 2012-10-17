@@ -1,50 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xfrm: use ISO C standard for array in linux/xfrm.h
-Date: Wed, 17 Oct 2012 02:16:15 -0400 (EDT)
-Message-ID: <20121017.021615.926368154563205088.davem@davemloft.net>
-References: <1350402153-3889-1-git-send-email-nicolas.dichtel@6wind.com>
-	<20121017054343.GA12671@secunet.com>
+From: Joe Jin <joe.jin@oracle.com>
+Subject: [PATCH] qla3xxx: Ensure req_q_phy_addr writes to the register
+Date: Wed, 17 Oct 2012 14:32:05 +0800
+Message-ID: <507E50E5.5040201@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/mixed;
+ boundary="------------000705040308040202030600"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Greg Marsden <greg.marsden@oracle.com>
+To: Ron Mercer <ron.mercer@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	linux-driver@qlogic.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------000705040308040202030600
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36771 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751294Ab2JQGQT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2012 02:16:19 -0400
-In-Reply-To: <20121017054343.GA12671@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Wed, 17 Oct 2012 07:43:43 +0200
+Make sure req_q_phy_addr write to the register.
 
-> On Tue, Oct 16, 2012 at 05:42:33PM +0200, nicolas.dichtel@6wind.com wrote:
->> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->> 
->> Use the ISO C standard compliant form instead of the gcc extension.
->> 
->> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->> ---
->>  include/uapi/linux/xfrm.h | 10 +++++-----
->>  1 file changed, 5 insertions(+), 5 deletions(-)
->> 
->> diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
->> index 28e493b..6a6a605 100644
->> --- a/include/uapi/linux/xfrm.h
->> +++ b/include/uapi/linux/xfrm.h
->> @@ -30,7 +30,7 @@ struct xfrm_sec_ctx {
->>  	__u8	ctx_alg;
->>  	__u16	ctx_len;
->>  	__u32	ctx_sid;
->> -	char	ctx_str[0];
->> +	char	ctx_str[];
-> 
-> Hm, what's the benefit of such a change? The kernel source is full
-> of these foo[0] type arrays. I don't see a reason to change this
-> just for xfrm.
+Signed-off-by: Joe Jin <joe.jin@oracle.com>
+Cc: Ron Mercer <ron.mercer@qlogic.com>
+Cc: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qla3xxx.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-Agreed.
+diff --git a/drivers/net/ethernet/qlogic/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
+index df09b1c..78b4cba 100644
+--- a/drivers/net/ethernet/qlogic/qla3xxx.c
++++ b/drivers/net/ethernet/qlogic/qla3xxx.c
+@@ -2525,6 +2525,12 @@ static int ql_alloc_net_req_rsp_queues(struct ql3_adapter *qdev)
+ 	qdev->req_q_size =
+ 	    (u32) (NUM_REQ_Q_ENTRIES * sizeof(struct ob_mac_iocb_req));
+ 
++	/*
++	 * The barrier is required to ensure that req_q_phy_addr writes to
++	 * the memory.
++	 */
++	wmb();
++
+ 	qdev->req_q_virt_addr =
+ 	    pci_alloc_consistent(qdev->pdev,
+ 				 (size_t) qdev->req_q_size,
+-- 
+1.7.11.7
+
+
+--------------000705040308040202030600
+Content-Type: text/plain; charset=us-ascii;
+ name="Attached Message Part"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="Attached Message Part"
+
+
+--------------000705040308040202030600--
