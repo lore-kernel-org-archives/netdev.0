@@ -1,44 +1,45 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: unresponsive vlan on top of bond with fail_over_mac=active
-Date: Wed, 17 Oct 2012 13:08:52 +0200
-Message-ID: <20121017110852.GA14967@unicorn.suse.cz>
-References: <20121010231122.GB28935@unicorn.suse.cz>
- <8588.1349926471@death.nxdomain>
- <20121011103757.GA13873@unicorn.suse.cz>
- <29107.1350002028@death.nxdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] vlan: allow to change type when no vlan device is hooked on netdev
+Date: Wed, 17 Oct 2012 13:37:36 +0200
+Message-ID: <1350473856-29380-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, fubar@us.ibm.com, andy@greyhouse.net,
+	kaber@trash.net, jstanley@rmrf.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:41209 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753010Ab2JQLIz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2012 07:08:55 -0400
-Content-Disposition: inline
-In-Reply-To: <29107.1350002028@death.nxdomain>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:55685 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754373Ab2JQLho (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2012 07:37:44 -0400
+Received: by mail-wi0-f170.google.com with SMTP id hm2so476483wib.1
+        for <netdev@vger.kernel.org>; Wed, 17 Oct 2012 04:37:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 11, 2012 at 05:33:48PM -0700, Jay Vosburgh wrote:
->=20
-> 	Have you tried the "follow" setting to fail_over_mac?
+vlan_info might be present but still no vlan devices might be there.
+That is in case of vlan0 automatically added.
 
-Yes, it works both for me and for the customer. They actually tried it
-themselves before reporting the bug. I explained that "follow" is more
-suitable also for other reasons and I hope they will accept it.
+So in that case, allow to change netdev type.
 
-> 	What kernel are you looking at?  In current mainline, bonding
-> does have bond_set_multicast_list as ndo_set_rx_mode, although it
-> doesn't propagate unicast address information, only multicast.  I
-> believe this has been the case for a long time.
+Reported-by: Jon Stanley <jstanley@rmrf.net>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/8021q/vlan.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-I'm sorry, you are right. What I was looking at was actually 3.0 where
-=2Endo_set_multicast_list is used rather than .ndo_set_rx_mode (changed=
- by
-commit afc4b13d in v3.2-rc1).
-
-Thank you for your help,
-                                                        Michal Kube=E8e=
-k
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 9096bcb..ee07072 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -463,7 +463,9 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 
+ 	case NETDEV_PRE_TYPE_CHANGE:
+ 		/* Forbid underlaying device to change its type. */
+-		return NOTIFY_BAD;
++		if (vlan_uses_dev(dev))
++			return NOTIFY_BAD;
++		break;
+ 
+ 	case NETDEV_NOTIFY_PEERS:
+ 	case NETDEV_BONDING_FAILOVER:
+-- 
+1.7.11.4
