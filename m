@@ -1,49 +1,44 @@
-From: pablo@netfilter.org
-Subject: [PATCH 4/4] netfilter: xt_TEE: don't use destination address found in header
-Date: Wed, 17 Oct 2012 12:40:11 +0200
-Message-ID: <1350470411-5793-4-git-send-email-pablo@netfilter.org>
-References: <1350470411-5793-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1350470411-5793-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: unresponsive vlan on top of bond with fail_over_mac=active
+Date: Wed, 17 Oct 2012 13:08:52 +0200
+Message-ID: <20121017110852.GA14967@unicorn.suse.cz>
+References: <20121010231122.GB28935@unicorn.suse.cz>
+ <8588.1349926471@death.nxdomain>
+ <20121011103757.GA13873@unicorn.suse.cz>
+ <29107.1350002028@death.nxdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:41209 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753010Ab2JQLIz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2012 07:08:55 -0400
+Content-Disposition: inline
+In-Reply-To: <29107.1350002028@death.nxdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+On Thu, Oct 11, 2012 at 05:33:48PM -0700, Jay Vosburgh wrote:
+>=20
+> 	Have you tried the "follow" setting to fail_over_mac?
 
-Torsten Luettgert bisected TEE regression starting with commit
-f8126f1d5136be1 (ipv4: Adjust semantics of rt->rt_gateway.)
+Yes, it works both for me and for the customer. They actually tried it
+themselves before reporting the bug. I explained that "follow" is more
+suitable also for other reasons and I hope they will accept it.
 
-The problem is that it tries to ARP-lookup the original destination
-address of the forwarded packet, not the address of the gateway.
+> 	What kernel are you looking at?  In current mainline, bonding
+> does have bond_set_multicast_list as ndo_set_rx_mode, although it
+> doesn't propagate unicast address information, only multicast.  I
+> believe this has been the case for a long time.
 
-Fix this using FLOWI_FLAG_KNOWN_NH Julian added in commit
-c92b96553a80c1 (ipv4: Add FLOWI_FLAG_KNOWN_NH), so that known
-nexthop (info->gw.ip) has preference on resolving.
+I'm sorry, you are right. What I was looking at was actually 3.0 where
+=2Endo_set_multicast_list is used rather than .ndo_set_rx_mode (changed=
+ by
+commit afc4b13d in v3.2-rc1).
 
-Reported-by: Torsten Luettgert <ml-netfilter@enda.eu>
-Bisected-by: Torsten Luettgert <ml-netfilter@enda.eu>
-Tested-by: Torsten Luettgert <ml-netfilter@enda.eu>
-Cc: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/xt_TEE.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/netfilter/xt_TEE.c b/net/netfilter/xt_TEE.c
-index ee2e5bc..bd93e51 100644
---- a/net/netfilter/xt_TEE.c
-+++ b/net/netfilter/xt_TEE.c
-@@ -70,6 +70,7 @@ tee_tg_route4(struct sk_buff *skb, const struct xt_tee_tginfo *info)
- 	fl4.daddr = info->gw.ip;
- 	fl4.flowi4_tos = RT_TOS(iph->tos);
- 	fl4.flowi4_scope = RT_SCOPE_UNIVERSE;
-+	fl4.flowi4_flags = FLOWI_FLAG_KNOWN_NH;
- 	rt = ip_route_output_key(net, &fl4);
- 	if (IS_ERR(rt))
- 		return false;
--- 
-1.7.10.4
-
+Thank you for your help,
+                                                        Michal Kube=E8e=
+k
