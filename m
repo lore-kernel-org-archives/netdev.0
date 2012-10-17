@@ -1,32 +1,56 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] xfrm: use ISO C standard for array in linux/xfrm.h
-Date: Wed, 17 Oct 2012 10:27:31 +0200
-Message-ID: <20121017082731.GB12671@secunet.com>
-References: <1350402153-3889-1-git-send-email-nicolas.dichtel@6wind.com>
- <20121017054343.GA12671@secunet.com>
- <507E6362.1080009@6wind.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] netfilter: xt_TEE: dont use destination address found in
+ header
+Date: Wed, 17 Oct 2012 10:33:29 +0200
+Message-ID: <1350462809.26103.124.camel@edumazet-glaptop>
+References: <20121016211319.3f07a7e3@goldlack.enda.eu>
+	 <1350417618.3954.1494.camel@edumazet-glaptop>
+	 <20121017094543.2ddb0397@goldlack.enda.eu>
+	 <1350460131.26103.68.camel@edumazet-glaptop>  <20121017081551.GA12998@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:51822 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753267Ab2JQI1i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2012 04:27:38 -0400
-Content-Disposition: inline
-In-Reply-To: <507E6362.1080009@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Torsten Luettgert <ml-netfilter@enda.eu>,
+	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20121017081551.GA12998@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 17, 2012 at 09:50:58AM +0200, Nicolas Dichtel wrote:
-> We got a problem with "ip xfrm state add" when compiled with gcc 4.4.6.
-> Error was "*** buffer overflow detected ***: ip terminated", because
-> when we try to copy the key in struct xfrm_algo, the function
-> strncpy() calls some builtin checks about the size of the
-> destination buffer, which is 0. With the standard notation, there is
-> no problem.
+From-off-by: Eric Dumazet <edumazet@google.com>
 
-This is likely to be a gcc FORITFY bug. Try to build iproute2 with
-the -D_FORTIFY_SOURCE=0 flag.
+Torsten Luettgert bisected TEE regression starting with commit
+f8126f1d5136be1 (ipv4: Adjust semantics of rt->rt_gateway.)
+
+The problem is that it tries to ARP-lookup the original destination
+address of the forwarded packet, not the address of the gateway.
+
+Fix this using FLOWI_FLAG_KNOWN_NH Julian added in commit
+c92b96553a80c1 (ipv4: Add FLOWI_FLAG_KNOWN_NH), so that known
+nexthop (info->gw.ip) has preference on resolving.
+
+Reported-by: Torsten Luettgert <ml-netfilter@enda.eu>
+Bisected-by: Torsten Luettgert <ml-netfilter@enda.eu>
+Tested-by: Torsten Luettgert <ml-netfilter@enda.eu>
+Cc: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/netfilter/xt_TEE.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/netfilter/xt_TEE.c b/net/netfilter/xt_TEE.c
+index ee2e5bc..bd93e51 100644
+--- a/net/netfilter/xt_TEE.c
++++ b/net/netfilter/xt_TEE.c
+@@ -70,6 +70,7 @@ tee_tg_route4(struct sk_buff *skb, const struct xt_tee_tginfo *info)
+ 	fl4.daddr = info->gw.ip;
+ 	fl4.flowi4_tos = RT_TOS(iph->tos);
+ 	fl4.flowi4_scope = RT_SCOPE_UNIVERSE;
++	fl4.flowi4_flags = FLOWI_FLAG_KNOWN_NH;
+ 	rt = ip_route_output_key(net, &fl4);
+ 	if (IS_ERR(rt))
+ 		return false;
+
+
