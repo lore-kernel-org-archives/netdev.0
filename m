@@ -1,65 +1,77 @@
-From: "N, Mugunthan V" <mugunthanvnm@ti.com>
-Subject: RE: [PATCH 4/6] ptp: add api to get ptp seq id and event type from
- skb
-Date: Wed, 17 Oct 2012 13:48:57 +0000
-Message-ID: <EB1619762EAF8B4E97A227FB77B7E0293E9F960E@DBDE01.ent.ti.com>
-References: <1350427518-7230-1-git-send-email-mugunthanvnm@ti.com>
-	 <1350427518-7230-5-git-send-email-mugunthanvnm@ti.com>
- <1350429030.2649.49.camel@bwh-desktop.uk.solarflarecom.com>
+From: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v0 4/4] cgroup: net_cls: Rework update socket logic
+Date: Wed, 17 Oct 2012 07:02:01 -0700
+Message-ID: <507EBA59.9080307@intel.com>
+References: <1350479078-29361-1-git-send-email-wagi@monom.org> <1350479078-29361-5-git-send-email-wagi@monom.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Richard Cochran <richardcochran@gmail.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:53567 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756209Ab2JQNtH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2012 09:49:07 -0400
-In-Reply-To: <1350429030.2649.49.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1350479078-29361-5-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
-dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBPY3RvYmVy
-IDE3LCAyMDEyIDQ6NDEgQU0NCj4gVG86IE4sIE11Z3VudGhhbiBWDQo+IENjOiBuZXRkZXZAdmdl
-ci5rZXJuZWwub3JnOyBkYXZlbUBkYXZlbWxvZnQubmV0OyBSaWNoYXJkIENvY2hyYW4NCj4gU3Vi
-amVjdDogUmU6IFtQQVRDSCA0LzZdIHB0cDogYWRkIGFwaSB0byBnZXQgcHRwIHNlcSBpZCBhbmQg
-ZXZlbnQgdHlwZQ0KPiBmcm9tIHNrYg0KPiANCj4gT24gV2VkLCAyMDEyLTEwLTE3IGF0IDA0OjE1
-ICswNTMwLCBNdWd1bnRoYW4gViBOIHdyb3RlOg0KPiA+IENjOiBSaWNoYXJkIENvY2hyYW4gPHJp
-Y2hhcmRjb2NocmFuQGdtYWlsLmNvbT4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBNdWd1bnRoYW4gViBO
-IDxtdWd1bnRoYW52bm1AdGkuY29tPg0KPiA+IC0tLQ0KPiA+ICBpbmNsdWRlL2xpbnV4L3B0cF9j
-bGFzc2lmeS5oIHwgICA0Mg0KPiArKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
-KysrKysNCj4gPiAgMSBmaWxlcyBjaGFuZ2VkLCA0MiBpbnNlcnRpb25zKCspLCAwIGRlbGV0aW9u
-cygtKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvcHRwX2NsYXNzaWZ5LmgN
-Cj4gYi9pbmNsdWRlL2xpbnV4L3B0cF9jbGFzc2lmeS5oDQo+ID4gaW5kZXggMWRjNDIwYi4uOWIz
-YjU1YiAxMDA2NDQNCj4gPiAtLS0gYS9pbmNsdWRlL2xpbnV4L3B0cF9jbGFzc2lmeS5oDQo+ID4g
-KysrIGIvaW5jbHVkZS9saW51eC9wdHBfY2xhc3NpZnkuaA0KPiA+IEBAIC0xMzcsNCArMTM3LDQ2
-IEBAIHN0YXRpYyBpbmxpbmUgaW50IHB0cF9maWx0ZXJfaW5pdChzdHJ1Y3QNCj4gc29ja19maWx0
-ZXIgKmYsIGludCBsZW4pDQo+ID4gIAl7T1BfUkVUQSwJMCwgICAwLCAwCQkJfSwgLyogICAgICAg
-ICAgICAgICovIFwNCj4gPiAgLypMNngqLwl7T1BfUkVUSywJMCwgICAwLCBQVFBfQ0xBU1NfTk9O
-RQkJfSwNCj4gPg0KPiA+ICtzdGF0aWMgaW5saW5lIGludCBwdHBfZ2V0X3NrYl9ldmVudChzdHJ1
-Y3Qgc2tfYnVmZiAqc2tiLCB1MzINCj4gcHRwX2NsYXNzLA0KPiA+ICsJCQkJICAgIHUxNiAqZXZ0
-X3NlcWlkLCB1OCAqZXZ0X21zZ3R5cGUpDQo+ID4gK3sNCj4gPiArCXUxNiAqc2VxaWQ7DQo+ID4g
-Kwl1bnNpZ25lZCBpbnQgb2Zmc2V0Ow0KPiA+ICsJdTggKm1zZ3R5cGUsICpkYXRhID0gc2tiLT5k
-YXRhOw0KPiA+ICsNCj4gPiArCXN3aXRjaCAocHRwX2NsYXNzKSB7DQo+ID4gKwljYXNlIFBUUF9D
-TEFTU19WMV9JUFY0Og0KPiA+ICsJY2FzZSBQVFBfQ0xBU1NfVjJfSVBWNDoNCj4gPiArCQlvZmZz
-ZXQgPSBFVEhfSExFTiArIElQVjRfSExFTihkYXRhKSArIFVEUF9ITEVOOw0KPiA+ICsJCWJyZWFr
-Ow0KPiA+ICsJY2FzZSBQVFBfQ0xBU1NfVjFfSVBWNjoNCj4gPiArCWNhc2UgUFRQX0NMQVNTX1Yy
-X0lQVjY6DQo+ID4gKwkJb2Zmc2V0ID0gT0ZGX1BUUDY7DQo+ID4gKwkJYnJlYWs7DQo+ID4gKwlj
-YXNlIFBUUF9DTEFTU19WMl9MMjoNCj4gPiArCQlvZmZzZXQgPSBFVEhfSExFTjsNCj4gPiArCQli
-cmVhazsNCj4gPiArCWNhc2UgUFRQX0NMQVNTX1YyX1ZMQU46DQo+ID4gKwkJb2Zmc2V0ID0gRVRI
-X0hMRU4gKyBWTEFOX0hMRU47DQo+ID4gKwkJYnJlYWs7DQo+ID4gKwlkZWZhdWx0Og0KPiA+ICsJ
-CXJldHVybiAwOw0KPiA+ICsJfQ0KPiA+ICsNCj4gPiArCWlmIChza2ItPmxlbiArIEVUSF9ITEVO
-IDwgb2Zmc2V0ICsgT0ZGX1BUUF9TRVFVRU5DRV9JRCArDQo+IHNpemVvZigqc2VxaWQpKQ0KPiA+
-ICsJCXJldHVybiAwOw0KPiA+ICsNCj4gPiArCWlmICh1bmxpa2VseShwdHBfY2xhc3MgJiBQVFBf
-Q0xBU1NfVjEpKQ0KPiA+ICsJCW1zZ3R5cGUgPSBkYXRhICsgb2Zmc2V0ICsgT0ZGX1BUUF9DT05U
-Uk9MOw0KPiA+ICsJZWxzZQ0KPiA+ICsJCW1zZ3R5cGUgPSBkYXRhICsgb2Zmc2V0Ow0KPiA+ICsN
-Cj4gPiArCXNlcWlkID0gKHUxNiAqKShkYXRhICsgb2Zmc2V0ICsgT0ZGX1BUUF9TRVFVRU5DRV9J
-RCk7DQo+IA0KPiBUaGlzIGFzc3VtZXMgdGhlIHNrYiBpcyBsaW5lYXIuICBVc2Ugc2tiX2hlYWRl
-cl9wb2ludGVyKCkgdG8gYWxsb3cgZm9yDQo+IGZyYWdtZW50ZWQgc2ticy4NCg0KV2lsbCBmaXgg
-dGhpcyBpbiBuZXh0IHZlcnNpb24gcGF0Y2ggc2VyaWVzDQoNClJlZ2FyZHMNCk11Z3VudGhhbiBW
-IE4NCg0K
+On 10/17/2012 6:04 AM, Daniel Wagner wrote:
+> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+>
+> The cgroup logic part of net_cls is very similar as the one in
+> net_prio. Let's stream line the net_cls logic with the net_prio one.
+>
+
+[...]
+
+
+>
+> +static void cgrp_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
+> +{
+> +	struct task_struct *p;
+> +
+> +	cgroup_taskset_for_each(p, cgrp, tset) {
+> +		unsigned int fd;
+> +		struct fdtable *fdt;
+> +		struct files_struct *files;
+> +
+> +		task_lock(p);
+> +		files = p->files;
+> +		if (!files) {
+> +			task_unlock(p);
+> +			continue;
+> +		}
+> +
+> +		spin_lock(&files->file_lock);
+> +		fdt = files_fdtable(files);
+> +		for (fd = 0; fd < fdt->max_fds; fd++) {
+> +			struct file *file;
+> +			struct socket *sock;
+> +			int err;
+> +
+> +			file = fcheck_files(files, fd);
+> +			if (!file)
+> +				continue;
+> +
+> +			sock = sock_from_file(file, &err);
+> +			if (sock)
+> +				sock_update_classid(sock->sk, p);
+> +		}
+> +		spin_unlock(&files->file_lock);
+
+This block should probably use iterate_fd() instead of open coding
+this. See the latest net_prio_attach().
+
+.John
+
+> +		task_unlock(p);
+> +	}
+> +}
+> +
