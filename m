@@ -1,36 +1,44 @@
-From: Grzegorz Chmurzynski <chmurzynski@kei.pl>
-Subject: Missing or wrong firmware file bnx2 driver
-Date: Wed, 17 Oct 2012 07:34:53 +0200
-Message-ID: <507E437D.5010408@kei.pl>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] xfrm: use ISO C standard for array in linux/xfrm.h
+Date: Wed, 17 Oct 2012 07:43:43 +0200
+Message-ID: <20121017054343.GA12671@secunet.com>
+References: <1350402153-3889-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poczta.kei.pl ([195.149.224.45]:50232 "EHLO smtp.kei.pl"
+Received: from a.mx.secunet.com ([195.81.216.161]:49001 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751974Ab2JQFlg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2012 01:41:36 -0400
+	id S1751974Ab2JQFnq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2012 01:43:46 -0400
+Content-Disposition: inline
+In-Reply-To: <1350402153-3889-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I noticed that for a long time no valid driver file in the 3.x branch of kernel.
+On Tue, Oct 16, 2012 at 05:42:33PM +0200, nicolas.dichtel@6wind.com wrote:
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> 
+> Use the ISO C standard compliant form instead of the gcc extension.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>  include/uapi/linux/xfrm.h | 10 +++++-----
+>  1 file changed, 5 insertions(+), 5 deletions(-)
+> 
+> diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
+> index 28e493b..6a6a605 100644
+> --- a/include/uapi/linux/xfrm.h
+> +++ b/include/uapi/linux/xfrm.h
+> @@ -30,7 +30,7 @@ struct xfrm_sec_ctx {
+>  	__u8	ctx_alg;
+>  	__u16	ctx_len;
+>  	__u32	ctx_sid;
+> -	char	ctx_str[0];
+> +	char	ctx_str[];
 
-Patch:
-
-diff -ruNp linux-3.4/drivers/net/ethernet/broadcom/bnx2.c linux-3.4p/drivers/net/ethernet/broadcom/bnx2.c
---- linux-3.4/drivers/net/ethernet/broadcom/bnx2.c 2012-09-12 19:08:37.000000000 +0200
-+++ linux-3.4p/drivers/net/ethernet/broadcom/bnx2.c 2012-09-17 09:34:16.000000000 +0200
-@@ -59,7 +59,7 @@
-#define DRV_MODULE_NAME "bnx2"
-#define DRV_MODULE_VERSION "2.2.1"
-#define DRV_MODULE_RELDATE "Dec 18, 2011"
--#define FW_MIPS_FILE_06 "bnx2/bnx2-mips-06-6.2.3.fw"
-+#define FW_MIPS_FILE_06 "bnx2/bnx2-mips-06-6.2.1.fw"
-#define FW_RV2P_FILE_06 "bnx2/bnx2-rv2p-06-6.0.15.fw"
-#define FW_MIPS_FILE_09 "bnx2/bnx2-mips-09-6.2.1b.fw"
-#define FW_RV2P_FILE_09_Ax "bnx2/bnx2-rv2p-09ax-6.0.17.fw"
-
--- 
-Pozdrawiam
-Grzegorz Chmurzynski
+Hm, what's the benefit of such a change? The kernel source is full
+of these foo[0] type arrays. I don't see a reason to change this
+just for xfrm.
