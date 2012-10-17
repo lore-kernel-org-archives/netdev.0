@@ -1,46 +1,53 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH] SUNRPC: Prevent kernel stack corruption on long values
- of flush
-Date: Wed, 17 Oct 2012 15:02:33 -0400
-Message-ID: <20121017190233.GA8630@fieldses.org>
-References: <1342476086-21638-1-git-send-email-levinsasha928@gmail.com>
- <20120718173913.GA1298@fieldses.org>
- <CA+1xoqcgWTP8pAY3Ok2R0JM-ZXSkGroEvAFcqP0KaK=dABiTXA@mail.gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCHv3] ipv6: Enable enough of the code to handle GSO when
+ disabled.
+Date: Wed, 17 Oct 2012 15:03:15 -0400
+Message-ID: <507F00F3.4000305@redhat.com>
+References: <1350488802-24071-1-git-send-email-vyasevic@redhat.com>  <1350490397.26103.647.camel@edumazet-glaptop> <1350492636.2884.5.camel@bwh-desktop.uk.solarflarecom.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CA+1xoqcgWTP8pAY3Ok2R0JM-ZXSkGroEvAFcqP0KaK=dABiTXA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:4590 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757732Ab2JQTDW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2012 15:03:22 -0400
+In-Reply-To: <1350492636.2884.5.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 17, 2012 at 01:59:39PM -0400, Sasha Levin wrote:
-> On Wed, Jul 18, 2012 at 1:39 PM, J. Bruce Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org> wrote:
-> > On Tue, Jul 17, 2012 at 12:01:26AM +0200, Sasha Levin wrote:
-> >> The buffer size in read_flush() is too small for the longest possible values
-> >> for it. This can lead to a kernel stack corruption:
-> >
-> > Thanks!
-> 
-> I've just stumbled on this crash again, and noticed that this patch
-> never made it in.
-> 
-> Was it just a mixup, or is something still missing?
+On 10/17/2012 12:50 PM, Ben Hutchings wrote:
+> On Wed, 2012-10-17 at 18:13 +0200, Eric Dumazet wrote:
+>> On Wed, 2012-10-17 at 11:46 -0400, Vlad Yasevich wrote:
+>>
+>>> This patch attempts to solve this by enabling just enough code so GSO
+>>> is correctly processed.  However, I should point out that if IPv6 is
+>>> simply blacklisted or not built for the kernel, this problem will
+>>> still persist.
+>>
+>> So I guess this should be done in a different way ?
+>>
+>> We currently use a single structure (struct packet_type) to hold
+>> pointers to different methods. (The .func() field, and the gso/gro
+>> stuff)
+>>
+>> We probably need to split it in two parts, and make one part linked into
+>> kernel, even if CONFIG_IPV6=n, so that GRO/GSO is fully IPv4/IPv6
+>> functional.
+> [...]
+>
+> Either that or make sure that we don't advertise IPv6 GSO when IPv6 is
+> disabled.
+>
+> Ben.
+>
 
-Oh, man, I guess I got distracted by the subsequent base10len()
-discussion.
+this becomes a problem when migration or save/restore is used.  since 
+offload features may be different between systesm, we may not be able to 
+migrate.
 
-Added to my for-3.7 branch, I'll push that out after some tests and
-hopefully send in a pull request tomorrow.
-
-Thanks for noticing the ommission.
-
---b.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-vlad
