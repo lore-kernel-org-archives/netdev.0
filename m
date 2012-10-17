@@ -1,50 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCHv3] ipv6: Enable enough of the code to handle GSO when
- disabled.
-Date: Wed, 17 Oct 2012 17:50:36 +0100
-Message-ID: <1350492636.2884.5.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1350488802-24071-1-git-send-email-vyasevic@redhat.com>
-	 <1350490397.26103.647.camel@edumazet-glaptop>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: RE: [PATCH] qla3xxx: Ensure req_q_phy_addr writes to the register
+Date: Wed, 17 Oct 2012 10:45:45 -0700
+Message-ID: <5E4F49720D0BAD499EE1F01232234BA87744A93B8E@AVEXMB1.qlogic.org>
+References: <507E50E5.5040201@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevic@redhat.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:26386 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756468Ab2JQQuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2012 12:50:40 -0400
-In-Reply-To: <1350490397.26103.647.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Greg Marsden <greg.marsden@oracle.com>
+To: Joe Jin <joe.jin@oracle.com>, Ron Mercer <ron.mercer@qlogic.com>,
+	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <507E50E5.5040201@oracle.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-10-17 at 18:13 +0200, Eric Dumazet wrote:
-> On Wed, 2012-10-17 at 11:46 -0400, Vlad Yasevich wrote:
-> 
-> > This patch attempts to solve this by enabling just enough code so GSO
-> > is correctly processed.  However, I should point out that if IPv6 is
-> > simply blacklisted or not built for the kernel, this problem will
-> > still persist.
-> 
-> So I guess this should be done in a different way ?
-> 
-> We currently use a single structure (struct packet_type) to hold 
-> pointers to different methods. (The .func() field, and the gso/gro
-> stuff)
-> 
-> We probably need to split it in two parts, and make one part linked into
-> kernel, even if CONFIG_IPV6=n, so that GRO/GSO is fully IPv4/IPv6
-> functional.
-[...]
-
-Either that or make sure that we don't advertise IPv6 GSO when IPv6 is
-disabled.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IEpvZSBKaW4gW21haWx0bzpq
+b2UuamluQG9yYWNsZS5jb21dIA0KPlNlbnQ6IFR1ZXNkYXksIE9jdG9iZXIgMTYsIDIwMTIgMTE6
+MzIgUE0NCj5UbzogUm9uIE1lcmNlcjsgSml0ZW5kcmEgS2Fsc2FyaWE7IERlcHQtRW5nIExpbnV4
+IERyaXZlcg0KPkNjOiBuZXRkZXY7IGxpbnV4LWtlcm5lbDsgR3JlZyBNYXJzZGVuDQo+U3ViamVj
+dDogW1BBVENIXSBxbGEzeHh4OiBFbnN1cmUgcmVxX3FfcGh5X2FkZHIgd3JpdGVzIHRvIHRoZSBy
+ZWdpc3Rlcg0KPg0KPk1ha2Ugc3VyZSByZXFfcV9waHlfYWRkciB3cml0ZSB0byB0aGUgcmVnaXN0
+ZXIuDQo+DQo+U2lnbmVkLW9mZi1ieTogSm9lIEppbiA8am9lLmppbkBvcmFjbGUuY29tPg0KPkNj
+OiBSb24gTWVyY2VyIDxyb24ubWVyY2VyQHFsb2dpYy5jb20+DQo+Q2M6IEppdGVuZHJhIEthbHNh
+cmlhIDxqaXRlbmRyYS5rYWxzYXJpYUBxbG9naWMuY29tPg0KPi0tLQ0KPiBkcml2ZXJzL25ldC9l
+dGhlcm5ldC9xbG9naWMvcWxhM3h4eC5jIHwgNiArKysrKysNCj4gMSBmaWxlIGNoYW5nZWQsIDYg
+aW5zZXJ0aW9ucygrKQ0KPg0KPmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9n
+aWMvcWxhM3h4eC5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsYTN4eHguYw0KPmlu
+ZGV4IGRmMDliMWMuLjc4YjRjYmEgMTAwNjQ0DQo+LS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+cWxvZ2ljL3FsYTN4eHguYw0KPisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGEz
+eHh4LmMNCj5AQCAtMjUyNSw2ICsyNTI1LDEyIEBAIHN0YXRpYyBpbnQgcWxfYWxsb2NfbmV0X3Jl
+cV9yc3BfcXVldWVzKHN0cnVjdCBxbDNfYWRhcHRlciAqcWRldikNCj4gCXFkZXYtPnJlcV9xX3Np
+emUgPQ0KPiAJICAgICh1MzIpIChOVU1fUkVRX1FfRU5UUklFUyAqIHNpemVvZihzdHJ1Y3Qgb2Jf
+bWFjX2lvY2JfcmVxKSk7DQo+IA0KPisJLyoNCj4rCSAqIFRoZSBiYXJyaWVyIGlzIHJlcXVpcmVk
+IHRvIGVuc3VyZSB0aGF0IHJlcV9xX3BoeV9hZGRyIHdyaXRlcyB0bw0KPisJICogdGhlIG1lbW9y
+eS4NCj4rCSAqLw0KPisJd21iKCk7DQo+Kw0KPiAJcWRldi0+cmVxX3FfdmlydF9hZGRyID0NCj4g
+CSAgICBwY2lfYWxsb2NfY29uc2lzdGVudChxZGV2LT5wZGV2LA0KPiAJCQkJIChzaXplX3QpIHFk
+ZXYtPnJlcV9xX3NpemUsDQoNCllvdXIgY2hhbmdlcyBvbmx5IHRha2UgY2FyZSBvZiByZXF1ZXN0
+IHF1ZXVlIGJ1dCBub3QgcmVzcG9uc2UgcXVldWUgd2hpY2ggYWxzbyBuZWVkIGJhcnJpZXIuDQoN
+CglxZGV2LT5yZXFfcV9zaXplID0NCgkJKHUzMikgKE5VTV9SRVFfUV9FTlRSSUVTICogc2l6ZW9m
+KHN0cnVjdCBvYl9tYWNfaW9jYl9yZXEpKTsNCg0KCXFkZXYtPnJzcF9xX3NpemUgPSBOVU1fUlNQ
+X1FfRU5UUklFUyAqIHNpemVvZihzdHJ1Y3QgbmV0X3JzcF9pb2NiKTsNCg0KCXdtYigpOw0KDQp0
+aGFua3MsDQoJSml0ZW4NCi0tIA0KMS43LjExLjcNCg0K
