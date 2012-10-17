@@ -1,55 +1,52 @@
-From: Jon Stanley <jstanley@rmrf.net>
-Subject: regression between v3.0 and v3.3 in bringing up IPoIB devices in a
- bond at boot
-Date: Tue, 16 Oct 2012 21:16:25 -0400
-Message-ID: <CAJtaB1vQymkE7ebTj6QRJ-+mfirpTjh=j6vxTdXQFqwtKrKQVg@mail.gmail.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [Bug 1063038] Re: Broadcom BCM57780 Cannot Connect at
+ Gigabit Speed using tg3 module.
+Date: Tue, 16 Oct 2012 19:17:19 -0700
+Message-ID: <1350440239.8764.34.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <50756903.1030709@justinzane.com>
+ <50774C61.9050207@justinzane.com>
+ <0E685F8B314BFB42AE2422915B7BDCC30FDCEF86@IRVEXCHMB07.corp.ad.broadcom.com>
+ <DAAFBCC105999F468732FA900576CB450FFA61A5@IRVEXCHMB08.corp.ad.broadcom.com>
+ <5077BAAA.3070208@justinzane.com>
+ <DAAFBCC105999F468732FA900576CB450FFAB4AF@IRVEXCHMB08.corp.ad.broadcom.com>
+ <5078B151.9000607@justinzane.com> <5078B1EF.6090401@broadcom.com>
+ <5078E7B8.20903@justinzane.com>
+ <DAAFBCC105999F468732FA900576CB450FFBB033@IRVEXCHMB08.corp.ad.broadcom.com>
+ <507CD7E6.7070102@justinzane.com> <507D66A3.1050703@broadcom.com>
+ <507DE8EF.4090807@justinzane.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org, Jiri Pirko <jiri@resnulli.us>,
-	Andy Gospodarek <andy@greyhouse.net>, davem@davemloft.net,
-	fubar@us.ibm.com, kaber@trash.net
+Content-Type: text/plain;
+ charset=cp1252
+Content-Transfer-Encoding: 7bit
+Cc: "Nithin Sujir" <nsujir@broadcom.com>,
+	"1063038@bugs.launchpad.net" <1063038@bugs.launchpad.net>,
+	netdev@vger.kernel.org
+To: "Justin Chudgar" <justin@justinzane.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:58281 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755824Ab2JQBQZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2012 21:16:25 -0400
-Received: by mail-qa0-f53.google.com with SMTP id s11so49610qaa.19
-        for <netdev@vger.kernel.org>; Tue, 16 Oct 2012 18:16:25 -0700 (PDT)
+Received: from mms1.broadcom.com ([216.31.210.17]:4710 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755930Ab2JQCR5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2012 22:17:57 -0400
+In-Reply-To: <507DE8EF.4090807@justinzane.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Firstly, I apologize that this report isn't as well-formed as it
-should be (i.e. I can't point to a specific commit that broke it), but
-I'll do my best failing that. The reason I can't be as specific as I'd
-like is that starting at 3.1-rc1, I'd run into the original VLAN
-problem that I was having, and the patchset required to fix it (the
-patch just submitted, efc73f4b, and 9b361c1) won't apply cleanly to
-older kernels and I'm not sure it's worth the (seemingly massive)
-effort required to backport them to something I don't plan to use :)
+On Tue, 2012-10-16 at 16:08 -0700, Justin Chudgar wrote: 
+> With that said, though, I wish to express my displeasure with this
+> practice artificially limiting the performance and/or capabilities of
+> hardware via hidden firmware settings. It seems to be thoroughly
+> contrary to both the liberty intended by Free Software and to the
+> liberty to use purchased goods in any legal manner.
+> 
+> The end result that since Acer decided to deceptively limit hardware
+> function via firmware, presumably to generate artificial pricepoint
+> differentiation, Broadcom (not you guys) will agree not to fully support
+> their hardware reflects poorly on Broadcom as well as Acer. I know that
+> this will make me hesitant to buy devices from Acer or those
+> incorporating Broadcom hardware. 
 
-First, let me explain the configuration a little:
-
-bond0 -> eth0, eth1.100
-bond1 -> ib0, ib1
-
-The first problem, which is now resolved, was that ib0 and ib1
-wouldn't enslave at all because of the presence of VLAN0. I can now
-get them to enslave manually (echo +ib0 > /sys/.../slaves) *if* the
-bond is down. If the bond is up, I still get the "refused to change
-device type", which is fairly expected (I think, but that could be the
-problem here).
-
-However, if I leave the distro (stock RHEL except the kernel) to it's
-own devices to bring it up at boot, I get the same symptoms as though
-the master (bond1 in this case) isn't down ("refused to change device
-type"). If  I go back to v3.0, everything works fine. I've also
-verified that it doesn't work on current mainline, and that it works
-fine without any VLAN devices configured on bond0.
-
-Like I said, the only reason that I haven't already bisected this is
-that I know that intermediate points are broken in a possibly
-unrelated, but fatal, way. I'm more than willing to try things out to
-figure this one out, it's got me stumped!
-
-Thanks!
--Jon
+Firmware plays no role here.  It is their hardware design on the board
+or on the RJ45 connector that makes 1Gbps not possible.  I wasn't aware
+of this until now because Acer did not even require Linux support on
+these systems.  So the right thing to do for these systems is to
+recognize them as 10/100Mbps capable devices in the tg3 driver.
