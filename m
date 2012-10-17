@@ -1,8 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
 Subject: Re: regression between v3.0 and v3.3 in bringing up IPoIB devices in
  a bond at boot
-Date: Wed, 17 Oct 2012 12:13:25 +0200
-Message-ID: <20121017101325.GA6204@minipsycho.orion>
+Date: Wed, 17 Oct 2012 12:29:48 +0200
+Message-ID: <20121017102948.GB6204@minipsycho.orion>
 References: <CAJtaB1vQymkE7ebTj6QRJ-+mfirpTjh=j6vxTdXQFqwtKrKQVg@mail.gmail.com>
  <1143.1350449897@death.nxdomain>
 Mime-Version: 1.0
@@ -12,12 +12,12 @@ Cc: Jon Stanley <jstanley@rmrf.net>, netdev@vger.kernel.org,
 	kaber@trash.net
 To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:49679 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756089Ab2JQKNb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2012 06:13:31 -0400
-Received: by mail-wi0-f178.google.com with SMTP id hr7so478240wib.1
-        for <netdev@vger.kernel.org>; Wed, 17 Oct 2012 03:13:29 -0700 (PDT)
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:41845 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756022Ab2JQK35 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2012 06:29:57 -0400
+Received: by mail-wg0-f44.google.com with SMTP id dr13so6214702wgb.1
+        for <netdev@vger.kernel.org>; Wed, 17 Oct 2012 03:29:55 -0700 (PDT)
 Content-Disposition: inline
 In-Reply-To: <1143.1350449897@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
@@ -82,14 +82,6 @@ Wed, Oct 17, 2012 at 06:58:17AM CEST, fubar@us.ibm.com wrote:
 >tested at all, but may fix things.  I'm not 100% sure this is the right
 >thing to do, as it may result in IPoIB interfaces with VID 0 configured
 >on them.
-
-
-I strongly believe you are right Jay. I will look at this and fix it.
-
-Thanks
-
-Jiri
-
 >
 >diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
 >index 9096bcb..57170fa 100644
@@ -101,6 +93,12 @@ Jiri
 > 	vlan_info = rtnl_dereference(dev->vlan_info);
 >-	if (!vlan_info)
 >+	if (!vlan_info || !vlan_info->grp.nr_vlan_devs)
+
+
+
+This patch would prevent implicit vlan0 from removal. I'll rather put
+vlan_uses_dev() check into NETDEV_PRE_TYPE_CHANGE case.
+
 > 		goto out;
 > 	grp = &vlan_info->grp;
 > 
