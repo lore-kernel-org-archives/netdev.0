@@ -1,72 +1,75 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] ixgbe: convert to use simple_open()
-Date: Wed, 17 Oct 2012 15:31:44 -0700
-Message-ID: <1350513104.2139.20.camel@jtkirshe-mobl>
-References: <CAPgLHd9sFav1MKPCdHNjXM37ZEitiJJYFkH_Kv-8LsSr2t4TYA@mail.gmail.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Bug?  TCP shutdown behaviour when deleting local IP addresses
+Date: Wed, 17 Oct 2012 17:01:40 -0600
+Message-ID: <507F38D4.102@genband.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-XJf76FoUqddvh88wk0wx"
-Cc: jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
-	alexander.h.duyck@intel.com, john.ronciak@intel.com,
-	yongjun_wei@trendmicro.com.cn, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: Wei Yongjun <weiyj.lk@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:27359 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751980Ab2JQWbq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2012 18:31:46 -0400
-In-Reply-To: <CAPgLHd9sFav1MKPCdHNjXM37ZEitiJJYFkH_Kv-8LsSr2t4TYA@mail.gmail.com>
+Received: from exprod7og108.obsmtp.com ([64.18.2.169]:44278 "EHLO
+	exprod7og108.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752562Ab2JQXHi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2012 19:07:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi all,
 
---=-XJf76FoUqddvh88wk0wx
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I sent this to the list yesterday (from another address) but didn't get 
+any responses.  Accordingly I'm expanding the receiver list to the 
+listed maintainers for IPv4/IPv6.
 
-On Wed, 2012-10-17 at 16:26 +0800, Wei Yongjun wrote:
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->=20
-> This removes an open coded simple_open() function and
-> replaces file operations references to the function
-> with simple_open() instead.
->=20
-> dpatch engine is used to auto generate this patch.
-> (https://github.com/weiyj/dpatch)
->=20
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c | 32
-> ++----------------------
->  1 file changed, 2 insertions(+), 30 deletions(-)=20
+I'm seeing some unexpected (to me, at least) behaviour with local TCP 
+connections.  The scenario goes as follows:
 
-Thanks, I will add the patch to my queue.
+1) create new IP address and assign to eth device
+2) TCP server starts listening on that IP address
+3) TCP client connects to server
+4) remove new IP address
+5) kill server with ctrl-C.  At this point it appears that because the 
+address was removed the shutdown message isn't processed properly. 
+netstat shows the server socket as FIN_WAIT1, but the client socket is 
+still ESTABLISHED.
+6) client writes to the connected socket (this passes with no error)
+7) client waits for response from server, and waits forever or until 
+keepalive expires
 
---=-XJf76FoUqddvh88wk0wx
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAABCgAGBQJQfzHQAAoJEOVv75VaS+3Og1sQAI02I99OETXjLS4CA9frESZy
-mlcv6gMpTCIBTlNIlqM13YBrAJfLwVEuFyq8Iv2pv9Ko5O45AUbFzRqDNwEJedIF
-ymNoemIRlVGkE7jOofnkUm9WwaXW+fFl/Zt37+A1n1YFWkaOzsda+h2TzFeHI9A5
-fycmht1D0Am2NzwqzBXP0p17b773K9DRhu1YF0/tX7c+jQhuFZ2C6Aw5o8nazMH7
-LGl5Isg7j+5Gj2ssrKZ1/Z4DW0+dZXVYz8mRXZl3fPshRWfSveEl5zcqNhuBEQgp
-srby0wPjYzHZA5hsSqlR3UwS352nYNRD4xNbusTRP+Co+D2naKF2THq8WYTS2ZW7
-DGSjqueD4qEqQJ5AvoYQb0OWNVe5qZM+xgbRdEKTMyYn6PD9zwuVrB4K1qCt8S4Q
-uhVOijgGU78Z2ai+hysAPlqmTmruau/tLwTraPzJo/7avuhh2CJwFvTgQJCmB0zw
-jP+DPN8zugT6oUFFeCLo/2CmYm03CDlDhoTBWPBXfof10KXoMnjGOu8LyNjNt2Jv
-vNLKRkcpCOLdRTC/hiGiOiNvi353C3ry13LUl6C3nMjDHrajYyCJy/KrsAY9/JL9
-zSRtLdr7zrgtqZulbjPc0Bn/6yUvycyLyiCF+PB8euF3+QzERSxUt9Sk8EWbA0VL
-9thXdaUnwng1qKVhJ7l3
-=WGEa
------END PGP SIGNATURE-----
+A few points:
 
---=-XJf76FoUqddvh88wk0wx--
+This was originally seen on 2.6.27, but I've verified it on 2.6.35. I'll 
+see about trying it on current git.  I've got really simple 
+client/server code if anyone wants to try reproducing.
+
+If we don't remove the address in step 4, then step 5 results in the 
+server socket going to FIN_WAIT2 and the client socket going to 
+CLOSE_WAIT and step 7 returns right away with zero bytes.
+
+It seems like the waiting forever behaviour in step 7 might be 
+legitimate since the address was removed before shutting down the 
+server, but it also seems like we should be able to do better given that 
+everything is local.  In the "remove IP address" case maybe step 6 
+should cause some sort of error since the IP address no longer exists?
+
+Incidentally, if we do this sort of scenario with the client and server 
+on different hosts then we get a "no route to host" error at step 6.
+
+Curious how this is supposed to work...
+
+Chris
+
+
+
+-- 
+
+Chris Friesen
+Software Designer
+GENBAND
+www.genband.com
