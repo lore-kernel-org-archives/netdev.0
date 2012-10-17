@@ -1,45 +1,60 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] vlan: allow to change type when no vlan device is hooked on netdev
-Date: Wed, 17 Oct 2012 13:37:36 +0200
-Message-ID: <1350473856-29380-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, fubar@us.ibm.com, andy@greyhouse.net,
-	kaber@trash.net, jstanley@rmrf.net
+From: "Kamlakant Patel" <kamlakant.patel@broadcom.com>
+Subject: Resending patch: [PATCH] net/smsc911x: check chip ready bit
+ with swapped data
+Date: Wed, 17 Oct 2012 17:10:15 +0530
+Message-ID: <1350474015-28832-1-git-send-email-kamlakant.patel@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Kamlakant Patel" <kamlakant.patel@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:55685 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754373Ab2JQLho (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2012 07:37:44 -0400
-Received: by mail-wi0-f170.google.com with SMTP id hm2so476483wib.1
-        for <netdev@vger.kernel.org>; Wed, 17 Oct 2012 04:37:43 -0700 (PDT)
+Received: from mms2.broadcom.com ([216.31.210.18]:4071 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754373Ab2JQLk2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2012 07:40:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-vlan_info might be present but still no vlan devices might be there.
-That is in case of vlan0 automatically added.
+The chip ready check added by the commit 3ac3546e [Always wait for
+the chip to be ready] does not work when the registers are swapped.
+Since we have not programmed WORD_SWAP register before chip ready
+bit check, we need to check for swapped register value as well.
 
-So in that case, allow to change netdev type.
-
-Reported-by: Jon Stanley <jstanley@rmrf.net>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Signed-off-by: Kamlakant Patel <kamlakant.patel@broadcom.com>
 ---
- net/8021q/vlan.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/smsc/smsc911x.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 9096bcb..ee07072 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -463,7 +463,9 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index 62d1baf..419bfb9 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -2110,7 +2110,7 @@ static void __devinit smsc911x_read_mac_address(struct net_device *dev)
+ static int __devinit smsc911x_init(struct net_device *dev)
+ {
+ 	struct smsc911x_data *pdata = netdev_priv(dev);
+-	unsigned int byte_test;
++	unsigned int byte_test, mask;
+ 	unsigned int to = 100;
  
- 	case NETDEV_PRE_TYPE_CHANGE:
- 		/* Forbid underlaying device to change its type. */
--		return NOTIFY_BAD;
-+		if (vlan_uses_dev(dev))
-+			return NOTIFY_BAD;
-+		break;
- 
- 	case NETDEV_NOTIFY_PEERS:
- 	case NETDEV_BONDING_FAILOVER:
+ 	SMSC_TRACE(pdata, probe, "Driver Parameters:");
+@@ -2130,9 +2130,15 @@ static int __devinit smsc911x_init(struct net_device *dev)
+ 	/*
+ 	 * poll the READY bit in PMT_CTRL. Any other access to the device is
+ 	 * forbidden while this bit isn't set. Try for 100ms
++	 *
++	 * The register read may be swapped, since we have not programmed
++	 * WORD_SWAP register, check for swapped register value as well
+ 	 */
+-	while (!(smsc911x_reg_read(pdata, PMT_CTRL) & PMT_CTRL_READY_) && --to)
++
++	mask = PMT_CTRL_READY_ | swahw32(PMT_CTRL_READY_);
++	while (!(smsc911x_reg_read(pdata, PMT_CTRL) & mask) && --to)
+ 		udelay(1000);
++
+ 	if (to == 0) {
+ 		pr_err("Device not READY in 100ms aborting\n");
+ 		return -ENODEV;
 -- 
-1.7.11.4
+1.7.6
