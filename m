@@ -1,77 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v0 3/4] cgroup: net_cls: Pass in task to
- sock_update_classid()
-Date: Wed, 17 Oct 2012 15:37:21 +0200
-Message-ID: <1350481041.26103.454.camel@edumazet-glaptop>
-References: <1350479078-29361-1-git-send-email-wagi@monom.org>
-	 <1350479078-29361-4-git-send-email-wagi@monom.org>
+From: "N, Mugunthan V" <mugunthanvnm@ti.com>
+Subject: RE: [PATCH 4/6] ptp: add api to get ptp seq id and event type from
+ skb
+Date: Wed, 17 Oct 2012 13:48:57 +0000
+Message-ID: <EB1619762EAF8B4E97A227FB77B7E0293E9F960E@DBDE01.ent.ti.com>
+References: <1350427518-7230-1-git-send-email-mugunthanvnm@ti.com>
+	 <1350427518-7230-5-git-send-email-mugunthanvnm@ti.com>
+ <1350429030.2649.49.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cgroups@vger.kernel.org,
-	Daniel Wagner <daniel.wagner@bmw-carit.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Glauber Costa <glommer@parallels.com>,
-	Joe Perches <joe@perches.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Stanislav Kinsbursky <skinsbursky@parallels.com>,
-	Tejun Heo <tj@kernel.org>
-To: Daniel Wagner <wagi@monom.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Richard Cochran <richardcochran@gmail.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:45608 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756824Ab2JQNh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2012 09:37:27 -0400
-In-Reply-To: <1350479078-29361-4-git-send-email-wagi@monom.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:53567 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756209Ab2JQNtH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2012 09:49:07 -0400
+In-Reply-To: <1350429030.2649.49.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-10-17 at 15:04 +0200, Daniel Wagner wrote:
-> From: Daniel Wagner <daniel.wagner@bmw-carit.de>
-> 
-> sock_update_classid() assumes that the update operation always are
-> applied on the current task. sock_update_classid() needs to know on
-> which tasks to work on in order to be able to migrate task between
-> cgroups using the struct cgroup_subsys attach() callback.
-> 
-...
-
->  
-> -extern void sock_update_classid(struct sock *sk);
-> +extern void sock_update_classid(struct sock *sk, struct task_struct *task);
->  
->  #if IS_BUILTIN(CONFIG_NET_CLS_CGROUP)
->  static inline u32 task_cls_classid(struct task_struct *p)
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 8a146cf..68c2f3b 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1214,12 +1214,12 @@ static void sk_prot_free(struct proto *prot, struct sock *sk)
->  
->  #ifdef CONFIG_CGROUPS
->  #if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
-> -void sock_update_classid(struct sock *sk)
-> +void sock_update_classid(struct sock *sk, struct task_struct *task)
->  {
->  	u32 classid;
->  
->  	rcu_read_lock();  /* doing current task, which cannot vanish. */
-> -	classid = task_cls_classid(current);
-> +	classid = task_cls_classid(task);
->  	rcu_read_unlock();
-
-
-Comment is now misleading (since task might not be current) and
-rcu_read_lock()/rcu_read_unlock() protects nothing here, but avoid a
-lockdep splat...
-
-Hey task_cls_classid() has its own rcu protection since commit
-3fb5a991916091a908d (cls_cgroup: Fix rcu lockdep warning)
-
-So we can safely revert Paul commit (1144182a8757f2a1)
-(We no longer need rcu_read_lock/unlock here)
-
-(BTW net-next is not opened yet, its content outdated, although I like
-your patch series !)
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
+dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBPY3RvYmVy
+IDE3LCAyMDEyIDQ6NDEgQU0NCj4gVG86IE4sIE11Z3VudGhhbiBWDQo+IENjOiBuZXRkZXZAdmdl
+ci5rZXJuZWwub3JnOyBkYXZlbUBkYXZlbWxvZnQubmV0OyBSaWNoYXJkIENvY2hyYW4NCj4gU3Vi
+amVjdDogUmU6IFtQQVRDSCA0LzZdIHB0cDogYWRkIGFwaSB0byBnZXQgcHRwIHNlcSBpZCBhbmQg
+ZXZlbnQgdHlwZQ0KPiBmcm9tIHNrYg0KPiANCj4gT24gV2VkLCAyMDEyLTEwLTE3IGF0IDA0OjE1
+ICswNTMwLCBNdWd1bnRoYW4gViBOIHdyb3RlOg0KPiA+IENjOiBSaWNoYXJkIENvY2hyYW4gPHJp
+Y2hhcmRjb2NocmFuQGdtYWlsLmNvbT4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBNdWd1bnRoYW4gViBO
+IDxtdWd1bnRoYW52bm1AdGkuY29tPg0KPiA+IC0tLQ0KPiA+ICBpbmNsdWRlL2xpbnV4L3B0cF9j
+bGFzc2lmeS5oIHwgICA0Mg0KPiArKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
+KysrKysNCj4gPiAgMSBmaWxlcyBjaGFuZ2VkLCA0MiBpbnNlcnRpb25zKCspLCAwIGRlbGV0aW9u
+cygtKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvcHRwX2NsYXNzaWZ5LmgN
+Cj4gYi9pbmNsdWRlL2xpbnV4L3B0cF9jbGFzc2lmeS5oDQo+ID4gaW5kZXggMWRjNDIwYi4uOWIz
+YjU1YiAxMDA2NDQNCj4gPiAtLS0gYS9pbmNsdWRlL2xpbnV4L3B0cF9jbGFzc2lmeS5oDQo+ID4g
+KysrIGIvaW5jbHVkZS9saW51eC9wdHBfY2xhc3NpZnkuaA0KPiA+IEBAIC0xMzcsNCArMTM3LDQ2
+IEBAIHN0YXRpYyBpbmxpbmUgaW50IHB0cF9maWx0ZXJfaW5pdChzdHJ1Y3QNCj4gc29ja19maWx0
+ZXIgKmYsIGludCBsZW4pDQo+ID4gIAl7T1BfUkVUQSwJMCwgICAwLCAwCQkJfSwgLyogICAgICAg
+ICAgICAgICovIFwNCj4gPiAgLypMNngqLwl7T1BfUkVUSywJMCwgICAwLCBQVFBfQ0xBU1NfTk9O
+RQkJfSwNCj4gPg0KPiA+ICtzdGF0aWMgaW5saW5lIGludCBwdHBfZ2V0X3NrYl9ldmVudChzdHJ1
+Y3Qgc2tfYnVmZiAqc2tiLCB1MzINCj4gcHRwX2NsYXNzLA0KPiA+ICsJCQkJICAgIHUxNiAqZXZ0
+X3NlcWlkLCB1OCAqZXZ0X21zZ3R5cGUpDQo+ID4gK3sNCj4gPiArCXUxNiAqc2VxaWQ7DQo+ID4g
+Kwl1bnNpZ25lZCBpbnQgb2Zmc2V0Ow0KPiA+ICsJdTggKm1zZ3R5cGUsICpkYXRhID0gc2tiLT5k
+YXRhOw0KPiA+ICsNCj4gPiArCXN3aXRjaCAocHRwX2NsYXNzKSB7DQo+ID4gKwljYXNlIFBUUF9D
+TEFTU19WMV9JUFY0Og0KPiA+ICsJY2FzZSBQVFBfQ0xBU1NfVjJfSVBWNDoNCj4gPiArCQlvZmZz
+ZXQgPSBFVEhfSExFTiArIElQVjRfSExFTihkYXRhKSArIFVEUF9ITEVOOw0KPiA+ICsJCWJyZWFr
+Ow0KPiA+ICsJY2FzZSBQVFBfQ0xBU1NfVjFfSVBWNjoNCj4gPiArCWNhc2UgUFRQX0NMQVNTX1Yy
+X0lQVjY6DQo+ID4gKwkJb2Zmc2V0ID0gT0ZGX1BUUDY7DQo+ID4gKwkJYnJlYWs7DQo+ID4gKwlj
+YXNlIFBUUF9DTEFTU19WMl9MMjoNCj4gPiArCQlvZmZzZXQgPSBFVEhfSExFTjsNCj4gPiArCQli
+cmVhazsNCj4gPiArCWNhc2UgUFRQX0NMQVNTX1YyX1ZMQU46DQo+ID4gKwkJb2Zmc2V0ID0gRVRI
+X0hMRU4gKyBWTEFOX0hMRU47DQo+ID4gKwkJYnJlYWs7DQo+ID4gKwlkZWZhdWx0Og0KPiA+ICsJ
+CXJldHVybiAwOw0KPiA+ICsJfQ0KPiA+ICsNCj4gPiArCWlmIChza2ItPmxlbiArIEVUSF9ITEVO
+IDwgb2Zmc2V0ICsgT0ZGX1BUUF9TRVFVRU5DRV9JRCArDQo+IHNpemVvZigqc2VxaWQpKQ0KPiA+
+ICsJCXJldHVybiAwOw0KPiA+ICsNCj4gPiArCWlmICh1bmxpa2VseShwdHBfY2xhc3MgJiBQVFBf
+Q0xBU1NfVjEpKQ0KPiA+ICsJCW1zZ3R5cGUgPSBkYXRhICsgb2Zmc2V0ICsgT0ZGX1BUUF9DT05U
+Uk9MOw0KPiA+ICsJZWxzZQ0KPiA+ICsJCW1zZ3R5cGUgPSBkYXRhICsgb2Zmc2V0Ow0KPiA+ICsN
+Cj4gPiArCXNlcWlkID0gKHUxNiAqKShkYXRhICsgb2Zmc2V0ICsgT0ZGX1BUUF9TRVFVRU5DRV9J
+RCk7DQo+IA0KPiBUaGlzIGFzc3VtZXMgdGhlIHNrYiBpcyBsaW5lYXIuICBVc2Ugc2tiX2hlYWRl
+cl9wb2ludGVyKCkgdG8gYWxsb3cgZm9yDQo+IGZyYWdtZW50ZWQgc2ticy4NCg0KV2lsbCBmaXgg
+dGhpcyBpbiBuZXh0IHZlcnNpb24gcGF0Y2ggc2VyaWVzDQoNClJlZ2FyZHMNCk11Z3VudGhhbiBW
+IE4NCg0K
