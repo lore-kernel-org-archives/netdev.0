@@ -1,63 +1,45 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net] netfilter: nf_conntrack: fix rt_gateway checks for
- h323
-Date: Wed, 17 Oct 2012 22:44:19 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1210172240160.1654@ja.ssi.bg>
-References: <1349823647-2166-1-git-send-email-ja@ssi.bg> <20121016235534.GA2805@1984> <alpine.LFD.2.00.1210171111150.1679@ja.ssi.bg> <20121017123957.GA31202@1984>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: Question about Mellanox FW reporting (incorrect) port types
+Date: Wed, 17 Oct 2012 16:49:41 -0300
+Message-ID: <507F0BD5.7080005@redhat.com>
+References: <507EDC5D.4070602@redhat.com> <CAJZOPZ+T7paqVe12n+sBw4ra8AEWCZ+W2GZ52iJY=9Hrgoxuaw@mail.gmail.com>
+Reply-To: mleitner@redhat.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	zhaojingmin@users.sourceforge.net
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20121017123957.GA31202@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
+	netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Doug Ledford <dledford@redhat.com>,
+	Yishai Hadas <yishaih@dev.mellanox.co.il>
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:39109 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754986Ab2JQTt5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2012 15:49:57 -0400
+In-Reply-To: <CAJZOPZ+T7paqVe12n+sBw4ra8AEWCZ+W2GZ52iJY=9Hrgoxuaw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 10/17/2012 04:22 PM, Or Gerlitz wrote:
+> Marcelo Ricardo Leitner <mleitner@redhat.com> wrote:
+>>
+>> [...] So my questions are: is it possible to the firmware report a wrong port type like
+>> that? Is it somehow configurable by sysadmin (via fw update, ..), can we flip that byte
+>> or is it a manufacturing issue?
+>
+>
+> I'm not sure, Yevgeny/Yishai do you have any insights here?
+>
+>> I can't try upstream driver
+>
+> why?! netdev is dealing with upstream, isn't it?
 
-	Hello,
+Yes, it is. By upstream I actually mean a non-RHEL kernel/driver. I 
+tried but so far couldn't reproduce this issue in-house, sorry. My ports 
+always answer ETH :) So I have to ask for customer to test and then 
+unfortunately things get complicated..
 
-On Wed, 17 Oct 2012, Pablo Neira Ayuso wrote:
-
-> > 	But if creating expectation is considered harmless
-> > then better to use just the rt_nexthop check because
-> > checking for subnets is too risky, hosts can use different
-> > subnet masks. By this way we reduce the risk to connect
-> > internal hosts without expectation.
-> 
-> It creates an expection for the IP parsed as result of the call
-> forwarding that will expire after 240 seconds. So it consumes memory
-> but it will expire after that time.
-> 
-> I prefer not to modify this code unless someone using the H.323 helper
-> reports a problem.
-
-	Agreed
-
-> Thanks for your comments. I'll take your patch and extend the
-> description a bit to explain the current situation of that chunk of
-> code for the history.
-
-	Yes, it needs better description. Thanks!
-
-> > > > diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-> > > > index 1b30b0d..962795e 100644
-> > > > --- a/net/netfilter/nf_conntrack_h323_main.c
-> > > > +++ b/net/netfilter/nf_conntrack_h323_main.c
-> > > > @@ -753,7 +753,8 @@ static int callforward_do_filter(const union nf_inet_addr *src,
-> > > >  				   flowi4_to_flowi(&fl1), false)) {
-> > > >  			if (!afinfo->route(&init_net, (struct dst_entry **)&rt2,
-> > > >  					   flowi4_to_flowi(&fl2), false)) {
-> > > > -				if (rt1->rt_gateway == rt2->rt_gateway &&
-> > > > +				if (rt_nexthop(rt1, fl1.daddr) ==
-> > > > +				    rt_nexthop(rt2, fl2.daddr) &&
-> > > >  				    rt1->dst.dev  == rt2->dst.dev)
-> > > >  					ret = 1;
-> > > >  				dst_release(&rt2->dst);
-> > > > -- 
-> > > > 1.7.3.4
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Thanks,
+Marcelo
