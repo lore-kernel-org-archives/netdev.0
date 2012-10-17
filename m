@@ -1,77 +1,49 @@
-From: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v0 4/4] cgroup: net_cls: Rework update socket logic
-Date: Wed, 17 Oct 2012 07:02:01 -0700
-Message-ID: <507EBA59.9080307@intel.com>
-References: <1350479078-29361-1-git-send-email-wagi@monom.org> <1350479078-29361-5-git-send-email-wagi@monom.org>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [RFC PATCH] net/core: support runtime PM on net_device
+Date: Wed, 17 Oct 2012 22:17:48 +0800
+Message-ID: <CACVXFVOJVVe+PGVBeBaHA1XcJ2s5p3jeqg6=3-6c3ouH70xG0A@mail.gmail.com>
+References: <1349873913-10701-1-git-send-email-ming.lei@canonical.com>
+	<6849166.biYgaI8vyA@vostro.rjw.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1350479078-29361-5-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Oliver Neukum <oneukum@suse.de>,
+	Alan Stern <stern@rowland.harvard.edu>, netdev@vger.kernel.org,
+	linux-pm@vger.kernel.org
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:51277 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932203Ab2JQORu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2012 10:17:50 -0400
+In-Reply-To: <6849166.biYgaI8vyA@vostro.rjw.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/17/2012 6:04 AM, Daniel Wagner wrote:
-> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+On Wed, Oct 17, 2012 at 1:07 AM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
+> On Wednesday 10 of October 2012 20:58:33 Ming Lei wrote:
+>> In ioctl path on net_device, the physical deivce is often
+>> touched, but the physical device may have been put into runtime
+>> suspend state already, so cause some utilitis(ifconfig, ethtool,
+>> ...) to return failure in this situation.
+>>
+>> This patch enables runtime PM on net_device and mark it as
+>> no_callbacks, and resumes the net_device if physical device
+>> is to be accessed, then suspends it after completion of the
+>> access.
+>>
+>> This patch fixes the problem above.
+>>
+>> Signed-off-by: Ming Lei <ming.lei@canonical.com>
 >
-> The cgroup logic part of net_cls is very similar as the one in
-> net_prio. Let's stream line the net_cls logic with the net_prio one.
+> Well, it looks good in principle.
 >
+> Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
 
-[...]
+OK, I will prepare -v1 for merge later if no one has objection on
+the patch, which has a compile error.('ret' is not defined in
+dev_ethtool)
 
-
->
-> +static void cgrp_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
-> +{
-> +	struct task_struct *p;
-> +
-> +	cgroup_taskset_for_each(p, cgrp, tset) {
-> +		unsigned int fd;
-> +		struct fdtable *fdt;
-> +		struct files_struct *files;
-> +
-> +		task_lock(p);
-> +		files = p->files;
-> +		if (!files) {
-> +			task_unlock(p);
-> +			continue;
-> +		}
-> +
-> +		spin_lock(&files->file_lock);
-> +		fdt = files_fdtable(files);
-> +		for (fd = 0; fd < fdt->max_fds; fd++) {
-> +			struct file *file;
-> +			struct socket *sock;
-> +			int err;
-> +
-> +			file = fcheck_files(files, fd);
-> +			if (!file)
-> +				continue;
-> +
-> +			sock = sock_from_file(file, &err);
-> +			if (sock)
-> +				sock_update_classid(sock->sk, p);
-> +		}
-> +		spin_unlock(&files->file_lock);
-
-This block should probably use iterate_fd() instead of open coding
-this. See the latest net_prio_attach().
-
-.John
-
-> +		task_unlock(p);
-> +	}
-> +}
-> +
+Thanks,
+--
+Ming Lei
