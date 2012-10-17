@@ -1,128 +1,101 @@
-From: Arun MURTHY <arun.murthy@stericsson.com>
-Subject: RE: [PATCHv5 1/4] modem_shm: Add Modem Access Framework
-Date: Wed, 17 Oct 2012 10:00:10 +0200
-Message-ID: <F45880696056844FA6A73F415B568C695B9C5CECE3@EXDCVYMBSTM006.EQ1STM.local>
-References: <1350278920-25510-1-git-send-email-arun.murthy@stericsson.com>
- <1350278920-25510-2-git-send-email-arun.murthy@stericsson.com>
- <20121015212943.GA12540@kroah.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] ixgbe: convert to use simple_open()
+Date: Wed, 17 Oct 2012 16:26:46 +0800
+Message-ID: <CAPgLHd9sFav1MKPCdHNjXM37ZEitiJJYFkH_Kv-8LsSr2t4TYA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121015212943.GA12540@kroah.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
+	peter.p.waskiewicz.jr@intel.com, alexander.h.duyck@intel.com,
+	john.ronciak@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:33576 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751871Ab2JQI0r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2012 04:26:47 -0400
+Received: by mail-qc0-f174.google.com with SMTP id o22so1861295qcr.19
+        for <netdev@vger.kernel.org>; Wed, 17 Oct 2012 01:26:46 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Mon, Oct 15, 2012 at 10:58:37AM +0530, Arun Murthy wrote:
-> 
-> I'm going to ignore your .c logic, as there are things in it that I don't think is
-> correct.  But it all comes down to your data structures, if you fix them, then
-> the .c logic will become correct:
-> 
-> > --- /dev/null
-> > +++ b/include/linux/modem_shm/modem.h
-> > @@ -0,0 +1,59 @@
-> > +/*
-> > + * Copyright (C) ST-Ericsson SA 2011
-> > + *
-> > + * License Terms: GNU General Public License v2
-> > + * Author: Kumar Sanghvi
-> > + *	Arun Murthy <arun.murthy@stericsson.com>
-> > + *
-> > + * Heavily adapted from Regulator framework  */ #ifndef __MODEM_H__
-> > +#define __MODEM_H__
-> 
-> __MODEM_SHM_MODEM_H__, right?
-> 
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Done!
+This removes an open coded simple_open() function and
+replaces file operations references to the function
+with simple_open() instead.
 
-> > +
-> > +#include <linux/device.h>
-> > +
-> > +struct clients {
-> > +	struct device *dev;
-> 
-> Why is this a pointer?  It should be embedded in the structure.
+dpatch engine is used to auto generate this patch.
+(https://github.com/weiyj/dpatch)
 
-This is the pointer to the clients's device structure. There will be a
-single entity for a modem but multiple clients. Hence this struct is 
-specific for each client.
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c | 32 ++----------------------
+ 1 file changed, 2 insertions(+), 30 deletions(-)
 
-> 
-> > +	const char *name;
-> 
-> Why is this needed?  It should be the same as the device, right?
-
-Ok, will remove this.
-
-> 
-> > +	atomic_t cnt;
-> 
-> Why is this needed at all?  And if it's needed, why is it an atomic?
-> (hint, your use of atomic_t really isn't correct at all in this patch, it's not doing
-> what you think it is doing...)
-
-Basically the operation done by this, i.e modem access/release has a lot of
-affect on the clients. Since we are accesing some modem registers without
-this modem request it might lead to system freeze. Hence such cross over
-scenarios are considered and the counter is increased/decreased after the
-operation(modem access/release). And reading of these variable are done
-especially during system suspend, where decision is taken based on the value
-of the counter read, hence any modification done should preside over read.
-Moreover since there are multiple clients, using atomic for a simple locking
-mechanism.
-
-> 
-> > +};
-> 
-> Also, the name of the structure here is _VERY_ generic, that's not acceptable
-> in the global kernel namespace.  Hint, it probably isn't even needed to be
-> defined in this .h file at all, right?
-
-Yes, even I felt so yest while reviewing, will change it accordingly.
-
-> 
-> > +
-> > +struct modem_desc {
-> > +	int (*request)(struct modem_desc *);
-> > +	void (*release)(struct modem_desc *);
-> > +	int (*is_requested)(struct modem_desc *);
-> > +	struct clients *mclients;
-> 
-> Why do you have a pointer to a device, and yet:
-
-This pointer to device is for the clients device.
-
-> 
-> > +	struct device *dev;
-> 
-> have a device here?
-This pointer to device is the modem's device struct.
-
-> 
-> > +	char *name;
-> 
-> Same *dev and name comment as above.
-
-Ok will remove this.
-
-> 
-> > +	u8 no_clients;
-> > +	atomic_t use_cnt;
-> > +	atomic_t cli_cnt;
-> 
-> Same question about these atomic_t variables, why are they here, and most
-> importantly, why are they an atomic variable?
-
-Explained above.
-
-Thanks and Regards,
-Arun R Murthy
-------------------
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c
+index 8d3a218..efaf9a7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c
+@@ -37,20 +37,6 @@ static struct dentry *ixgbe_dbg_root;
+ static char ixgbe_dbg_reg_ops_buf[256] = "";
+ 
+ /**
+- * ixgbe_dbg_reg_ops_open - prep the debugfs pokee data item when opened
+- * @inode: inode that was opened
+- * @filp:  file info
+- *
+- * Stash the adapter pointer hiding in the inode into the file pointer where
+- * we can find it later in the read and write calls
+- **/
+-static int ixgbe_dbg_reg_ops_open(struct inode *inode, struct file *filp)
+-{
+-	filp->private_data = inode->i_private;
+-	return 0;
+-}
+-
+-/**
+  * ixgbe_dbg_reg_ops_read - read for reg_ops datum
+  * @filp: the opened file
+  * @buffer: where to write the data for the user to read
+@@ -142,7 +128,7 @@ static ssize_t ixgbe_dbg_reg_ops_write(struct file *filp,
+ 
+ static const struct file_operations ixgbe_dbg_reg_ops_fops = {
+ 	.owner = THIS_MODULE,
+-	.open =  ixgbe_dbg_reg_ops_open,
++	.open = simple_open,
+ 	.read =  ixgbe_dbg_reg_ops_read,
+ 	.write = ixgbe_dbg_reg_ops_write,
+ };
+@@ -150,20 +136,6 @@ static const struct file_operations ixgbe_dbg_reg_ops_fops = {
+ static char ixgbe_dbg_netdev_ops_buf[256] = "";
+ 
+ /**
+- * ixgbe_dbg_netdev_ops_open - prep the debugfs netdev_ops data item
+- * @inode: inode that was opened
+- * @filp: file info
+- *
+- * Stash the adapter pointer hiding in the inode into the file pointer
+- * where we can find it later in the read and write calls
+- **/
+-static int ixgbe_dbg_netdev_ops_open(struct inode *inode, struct file *filp)
+-{
+-	filp->private_data = inode->i_private;
+-	return 0;
+-}
+-
+-/**
+  * ixgbe_dbg_netdev_ops_read - read for netdev_ops datum
+  * @filp: the opened file
+  * @buffer: where to write the data for the user to read
+@@ -238,7 +210,7 @@ static ssize_t ixgbe_dbg_netdev_ops_write(struct file *filp,
+ 
+ static const struct file_operations ixgbe_dbg_netdev_ops_fops = {
+ 	.owner = THIS_MODULE,
+-	.open = ixgbe_dbg_netdev_ops_open,
++	.open = simple_open,
+ 	.read = ixgbe_dbg_netdev_ops_read,
+ 	.write = ixgbe_dbg_netdev_ops_write,
+ };
