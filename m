@@ -1,49 +1,37 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [RFC PATCH] net/core: support runtime PM on net_device
-Date: Wed, 17 Oct 2012 22:17:48 +0800
-Message-ID: <CACVXFVOJVVe+PGVBeBaHA1XcJ2s5p3jeqg6=3-6c3ouH70xG0A@mail.gmail.com>
-References: <1349873913-10701-1-git-send-email-ming.lei@canonical.com>
-	<6849166.biYgaI8vyA@vostro.rjw.lan>
+From: ratheesh kannoth <ratheesh.ksz@gmail.com>
+Subject: igb mtu change
+Date: Wed, 17 Oct 2012 20:11:09 +0530
+Message-ID: <CAGZFCEHACn8e99vL3hA_ErvmQ=5E4dfEbO7TjEU=92eeUUT7UQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Oliver Neukum <oneukum@suse.de>,
-	Alan Stern <stern@rowland.harvard.edu>, netdev@vger.kernel.org,
-	linux-pm@vger.kernel.org
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+To: e1000-devel@lists.sourceforge.net, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:51277 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932203Ab2JQORu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2012 10:17:50 -0400
-In-Reply-To: <6849166.biYgaI8vyA@vostro.rjw.lan>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:47656 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757287Ab2JQOlK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2012 10:41:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 17, 2012 at 1:07 AM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
-> On Wednesday 10 of October 2012 20:58:33 Ming Lei wrote:
->> In ioctl path on net_device, the physical deivce is often
->> touched, but the physical device may have been put into runtime
->> suspend state already, so cause some utilitis(ifconfig, ethtool,
->> ...) to return failure in this situation.
->>
->> This patch enables runtime PM on net_device and mark it as
->> no_callbacks, and resumes the net_device if physical device
->> is to be accessed, then suspends it after completion of the
->> access.
->>
->> This patch fixes the problem above.
->>
->> Signed-off-by: Ming Lei <ming.lei@canonical.com>
->
-> Well, it looks good in principle.
->
-> Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+igb_change_mtu change is only changing adapter->rx_ring[0]->rx_buffer_len.
 
-OK, I will prepare -v1 for merge later if no one has objection on
-the patch, which has a compile error.('ret' is not defined in
-dev_ethtool)
+1)  we dont have to change adapter->tx_ring[0]->rx_buffer_len ?
+2) Is there any way to set different values to
+adapter->tx_ring[0]->rx_buffer_len and
+adapter->rx_ring[0]->rx_buffer_len ?
+
+I am facing a problem because i have a strange requirement....i have
+2KB  bufffer pools ( GFP_DMA ) in kernel.
+When i receive a jumbo pkt of size 9126,     five rx_desc should be
+used to recieve paket. So the first rx_desc will have a status error
+bit indicating that it is not
+EOP ( eop ) ....I could easily keep track of my 2KB buffer pools.
+
+But when sending ...i wll collect all  2KB buffers of same jumbo frame
+and dma to tx_ring....
+So i need  1500  on rx_ring[0]->rx_buffer_len and  9126 on
+adapter->tx_ring[0]->rx_buffer_len. .Is there any way ?
 
 Thanks,
---
-Ming Lei
+Ratheesh
