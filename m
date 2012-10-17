@@ -1,65 +1,73 @@
 From: pablo@netfilter.org
-Subject: [PATCH 2/4] netfilter: xt_CT: fix timeout setting with IPv6
-Date: Wed, 17 Oct 2012 12:40:09 +0200
-Message-ID: <1350470411-5793-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/4] netfilter: xt_nat: fix incorrect hooks for SNAT and DNAT targets
+Date: Wed, 17 Oct 2012 12:40:10 +0200
+Message-ID: <1350470411-5793-3-git-send-email-pablo@netfilter.org>
 References: <1350470411-5793-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:46880 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756525Ab2JQKk0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2012 06:40:26 -0400
 In-Reply-To: <1350470411-5793-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Elison Niven <elison.niven@cyberoam.com>
 
-This patch fixes ip6tables and the CT target if it is used to set
-some custom conntrack timeout policy for IPv6.
+In (c7232c9 netfilter: add protocol independent NAT core), the
+hooks were accidentally modified:
 
-Use xt_ct_find_proto which already handles the ip6tables case for us.
+SNAT hooks are POST_ROUTING and LOCAL_IN (before it was LOCAL_OUT).
+DNAT hooks are PRE_ROUTING and LOCAL_OUT (before it was LOCAL_IN).
 
+Signed-off-by: Elison Niven <elison.niven@cyberoam.com>
+Signed-off-by: Sanket Shah <sanket.shah@cyberoam.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_CT.c |   10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ net/netfilter/xt_nat.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
-index 16c7125..ae7f5da 100644
---- a/net/netfilter/xt_CT.c
-+++ b/net/netfilter/xt_CT.c
-@@ -180,9 +180,9 @@ xt_ct_set_timeout(struct nf_conn *ct, const struct xt_tgchk_param *par,
- 	typeof(nf_ct_timeout_find_get_hook) timeout_find_get;
- 	struct ctnl_timeout *timeout;
- 	struct nf_conn_timeout *timeout_ext;
--	const struct ipt_entry *e = par->entryinfo;
- 	struct nf_conntrack_l4proto *l4proto;
- 	int ret = 0;
-+	u8 proto;
- 
- 	rcu_read_lock();
- 	timeout_find_get = rcu_dereference(nf_ct_timeout_find_get_hook);
-@@ -192,9 +192,11 @@ xt_ct_set_timeout(struct nf_conn *ct, const struct xt_tgchk_param *par,
- 		goto out;
- 	}
- 
--	if (e->ip.invflags & IPT_INV_PROTO) {
-+	proto = xt_ct_find_proto(par);
-+	if (!proto) {
- 		ret = -EINVAL;
--		pr_info("You cannot use inversion on L4 protocol\n");
-+		pr_info("You must specify a L4 protocol, and not use "
-+			"inversions on it.\n");
- 		goto out;
- 	}
- 
-@@ -214,7 +216,7 @@ xt_ct_set_timeout(struct nf_conn *ct, const struct xt_tgchk_param *par,
- 	/* Make sure the timeout policy matches any existing protocol tracker,
- 	 * otherwise default to generic.
- 	 */
--	l4proto = __nf_ct_l4proto_find(par->family, e->ip.proto);
-+	l4proto = __nf_ct_l4proto_find(par->family, proto);
- 	if (timeout->l4proto->l4proto != l4proto->l4proto) {
- 		ret = -EINVAL;
- 		pr_info("Timeout policy `%s' can only be used by L4 protocol "
+diff --git a/net/netfilter/xt_nat.c b/net/netfilter/xt_nat.c
+index 81aafa8..bea7464 100644
+--- a/net/netfilter/xt_nat.c
++++ b/net/netfilter/xt_nat.c
+@@ -111,7 +111,7 @@ static struct xt_target xt_nat_target_reg[] __read_mostly = {
+ 		.family		= NFPROTO_IPV4,
+ 		.table		= "nat",
+ 		.hooks		= (1 << NF_INET_POST_ROUTING) |
+-				  (1 << NF_INET_LOCAL_OUT),
++				  (1 << NF_INET_LOCAL_IN),
+ 		.me		= THIS_MODULE,
+ 	},
+ 	{
+@@ -123,7 +123,7 @@ static struct xt_target xt_nat_target_reg[] __read_mostly = {
+ 		.family		= NFPROTO_IPV4,
+ 		.table		= "nat",
+ 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
+-				  (1 << NF_INET_LOCAL_IN),
++				  (1 << NF_INET_LOCAL_OUT),
+ 		.me		= THIS_MODULE,
+ 	},
+ 	{
+@@ -133,7 +133,7 @@ static struct xt_target xt_nat_target_reg[] __read_mostly = {
+ 		.targetsize	= sizeof(struct nf_nat_range),
+ 		.table		= "nat",
+ 		.hooks		= (1 << NF_INET_POST_ROUTING) |
+-				  (1 << NF_INET_LOCAL_OUT),
++				  (1 << NF_INET_LOCAL_IN),
+ 		.me		= THIS_MODULE,
+ 	},
+ 	{
+@@ -143,7 +143,7 @@ static struct xt_target xt_nat_target_reg[] __read_mostly = {
+ 		.targetsize	= sizeof(struct nf_nat_range),
+ 		.table		= "nat",
+ 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
+-				  (1 << NF_INET_LOCAL_IN),
++				  (1 << NF_INET_LOCAL_OUT),
+ 		.me		= THIS_MODULE,
+ 	},
+ };
 -- 
 1.7.10.4
-
