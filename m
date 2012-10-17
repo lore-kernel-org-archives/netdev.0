@@ -1,262 +1,78 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCHv3] ipv6: Enable enough of the code to handle GSO when disabled.
-Date: Wed, 17 Oct 2012 11:46:42 -0400
-Message-ID: <1350488802-24071-1-git-send-email-vyasevic@redhat.com>
-Cc: davem@davemloft.net, Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2242 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757363Ab2JQPqt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2012 11:46:49 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: Re: [PATCH v0 3/4] cgroup: net_cls: Pass in task to sock_update_classid()
+Date: Wed, 17 Oct 2012 17:54:40 +0200
+Message-ID: <507ED4C0.7070408@monom.org>
+References: <1350479078-29361-1-git-send-email-wagi@monom.org>  <1350479078-29361-4-git-send-email-wagi@monom.org> <1350481041.26103.454.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1350481041.26103.454.camel@edumazet-glaptop>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Changes:
-  - Fix spelling in description
-  - Removed obsolete stub definition from ipv.h
+On 17.10.2012 15:37, Eric Dumazet wrote:
+> On Wed, 2012-10-17 at 15:04 +0200, Daniel Wagner wrote:
+>> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+>>
+>> sock_update_classid() assumes that the update operation always are
+>> applied on the current task. sock_update_classid() needs to know on
+>> which tasks to work on in order to be able to migrate task between
+>> cgroups using the struct cgroup_subsys attach() callback.
+>>
+> ...
+>
+>>
+>> -extern void sock_update_classid(struct sock *sk);
+>> +extern void sock_update_classid(struct sock *sk, struct task_struct *task);
+>>
+>>   #if IS_BUILTIN(CONFIG_NET_CLS_CGROUP)
+>>   static inline u32 task_cls_classid(struct task_struct *p)
+>> diff --git a/net/core/sock.c b/net/core/sock.c
+>> index 8a146cf..68c2f3b 100644
+>> --- a/net/core/sock.c
+>> +++ b/net/core/sock.c
+>> @@ -1214,12 +1214,12 @@ static void sk_prot_free(struct proto *prot, struct sock *sk)
+>>
+>>   #ifdef CONFIG_CGROUPS
+>>   #if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
+>> -void sock_update_classid(struct sock *sk)
+>> +void sock_update_classid(struct sock *sk, struct task_struct *task)
+>>   {
+>>   	u32 classid;
+>>
+>>   	rcu_read_lock();  /* doing current task, which cannot vanish. */
+>> -	classid = task_cls_classid(current);
+>> +	classid = task_cls_classid(task);
+>>   	rcu_read_unlock();
+>
+>
+> Comment is now misleading (since task might not be current) and
+> rcu_read_lock()/rcu_read_unlock() protects nothing here, but avoid a
+> lockdep splat...
+>
+> Hey task_cls_classid() has its own rcu protection since commit
+> 3fb5a991916091a908d (cls_cgroup: Fix rcu lockdep warning)
+>
+> So we can safely revert Paul commit (1144182a8757f2a1)
+> (We no longer need rcu_read_lock/unlock here)
 
-When a guest using virtio is attempting to use IPv6 on a host where
-the IPv6 module is administratively disabled, the tcp bulk transfer
-rate drops down to 10kbps.  The problem is that when IPv6 is disabled,
-none of the protocol handlers are registered.  When a guest attempts
-to send an IPv6 packet with GSO (which is the default), this packet
-is dropped by the host stack because there are no gso handlers
-registered.  A retransmit is triggered for every GSO packet thus
-reducing the transfer rate.
+Good point. Will update the series accordingly.
 
-This patch attempts to solve this by enabling just enough code so GSO
-is correctly processed.  However, I should point out that if IPv6 is
-simply blacklisted or not built for the kernel, this problem will
-still persist.
+> (BTW net-next is not opened yet, its content outdated, although I like
+> your patch series !)
 
-This problem also exists for AF_PACKET sockets, so it is not limited
-to guests using virtio.
-
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- include/linux/ipv6.h  |    1 +
- net/ipv6/af_inet6.c   |   69 +++++++++++++++++++++++++++++++++++++++++++++---
- net/ipv6/ip6_input.c  |    5 +++
- net/ipv6/reassembly.c |   11 +++++--
- net/ipv6/tcp_ipv6.c   |    9 +++++-
- net/ipv6/udp.c        |    6 +++-
- 6 files changed, 90 insertions(+), 11 deletions(-)
-
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 0b94e91..1d5e061 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -176,6 +176,7 @@ struct ipv6_devconf {
- };
- 
- struct ipv6_params {
-+	__s32 disable_ipv6_mod;
- 	__s32 disable_ipv6;
- 	__s32 autoconf;
- };
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index a974247..1fd0d73 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -74,13 +74,13 @@ static struct list_head inetsw6[SOCK_MAX];
- static DEFINE_SPINLOCK(inetsw6_lock);
- 
- struct ipv6_params ipv6_defaults = {
-+	.disable_ipv6_mod = 0,
- 	.disable_ipv6 = 0,
- 	.autoconf = 1,
- };
- 
--static int disable_ipv6_mod;
- 
--module_param_named(disable, disable_ipv6_mod, int, 0444);
-+module_param_named(disable, ipv6_defaults.disable_ipv6_mod, int, 0444);
- MODULE_PARM_DESC(disable, "Disable IPv6 module such that it is non-functional");
- 
- module_param_named(disable_ipv6, ipv6_defaults.disable_ipv6, int, 0444);
-@@ -1048,6 +1048,53 @@ static struct pernet_operations inet6_net_ops = {
- 	.exit = inet6_net_exit,
- };
- 
-+/* This function is called when IPv6 is administratively disabled.
-+ * Its sole purpose is to set up enough of IPv6 that GSO/TSO will work
-+ * for any outgoing IPv6 packets that may have been generated by
-+ * guest or AF_PACKET sockets.
-+ */
-+static int inet6_init_disabled(void)
-+{
-+	int err = 0;
-+
-+	/* Init v6 extension headers. */
-+	err = ipv6_exthdrs_init();
-+	if (err)
-+		goto out;
-+
-+	err = ipv6_frag_init();
-+	if (err)
-+		goto ipv6_frag_fail;
-+
-+	/* Init v6 transport protocols. UDP-light doesn't support GSO so
-+	 * it is omitted
-+	 */
-+	err = udpv6_init();
-+	if (err)
-+		goto udpv6_fail;
-+
-+	err = tcpv6_init();
-+	if (err)
-+		goto tcpv6_fail;
-+
-+	err = ipv6_packet_init();
-+	if (err)
-+		goto ipv6_packet_fail;
-+
-+	return 0;
-+
-+ipv6_packet_fail:
-+	tcpv6_exit();
-+tcpv6_fail:
-+	udpv6_exit();
-+udpv6_fail:
-+	ipv6_frag_exit();
-+ipv6_frag_fail:
-+	ipv6_exthdrs_exit();
-+out:
-+	return err;
-+}
-+	
- static int __init inet6_init(void)
- {
- 	struct sk_buff *dummy_skb;
-@@ -1060,8 +1107,9 @@ static int __init inet6_init(void)
- 	for (r = &inetsw6[0]; r < &inetsw6[SOCK_MAX]; ++r)
- 		INIT_LIST_HEAD(r);
- 
--	if (disable_ipv6_mod) {
-+	if (ipv6_defaults.disable_ipv6_mod) {
- 		pr_info("Loaded, but administratively disabled, reboot required to enable\n");
-+		err = inet6_init_disabled();
- 		goto out;
- 	}
- 
-@@ -1238,11 +1286,22 @@ out_unregister_tcp_proto:
- }
- module_init(inet6_init);
- 
-+static void __exit inet6_exit_disabled(void)
-+{
-+	ipv6_packet_cleanup();
-+	ipv6_frag_exit();
-+	ipv6_exthdrs_exit();
-+	udpv6_exit();
-+	tcpv6_exit();
-+}
-+
- static void __exit inet6_exit(void)
- {
--	if (disable_ipv6_mod)
-+	if (ipv6_defaults.disable_ipv6_mod) {
-+		inet6_exit_disabled();
- 		return;
--
-+	}
-+		
- 	/* First of all disallow new sockets creation. */
- 	sock_unregister(PF_INET6);
- 	/* Disallow any further netlink messages */
-diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index a52d864..3e86ec3 100644
---- a/net/ipv6/ip6_input.c
-+++ b/net/ipv6/ip6_input.c
-@@ -74,6 +74,11 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
- 		return NET_RX_DROP;
- 	}
- 
-+	if (ipv6_defaults.disable_ipv6_mod) {
-+		kfree_skb(skb);
-+		return NET_RX_DROP;
-+	}
-+
- 	rcu_read_lock();
- 
- 	idev = __in6_dev_get(skb->dev);
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index da8a4e3..71a0e61 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -705,6 +705,9 @@ int __init ipv6_frag_init(void)
- 	if (ret)
- 		goto out;
- 
-+	if (ipv6_defaults.disable_ipv6_mod)
-+		goto out;
-+
- 	ret = ip6_frags_sysctl_register();
- 	if (ret)
- 		goto err_sysctl;
-@@ -734,8 +737,10 @@ err_sysctl:
- 
- void ipv6_frag_exit(void)
- {
--	inet_frags_fini(&ip6_frags);
--	ip6_frags_sysctl_unregister();
--	unregister_pernet_subsys(&ip6_frags_ops);
-+	if (!ipv6_defaults.disable_ipv6_mod) {
-+		inet_frags_fini(&ip6_frags);
-+		ip6_frags_sysctl_unregister();
-+		unregister_pernet_subsys(&ip6_frags_ops);
-+	}
- 	inet6_del_protocol(&frag_protocol, IPPROTO_FRAGMENT);
- }
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 49c8903..ebb297c 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -2109,6 +2109,9 @@ int __init tcpv6_init(void)
- 	if (ret)
- 		goto out;
- 
-+	if (ipv6_defaults.disable_ipv6_mod)
-+		goto out;
-+
- 	/* register inet6 protocol */
- 	ret = inet6_register_protosw(&tcpv6_protosw);
- 	if (ret)
-@@ -2129,7 +2132,9 @@ out_tcpv6_protosw:
- 
- void tcpv6_exit(void)
- {
--	unregister_pernet_subsys(&tcpv6_net_ops);
--	inet6_unregister_protosw(&tcpv6_protosw);
-+	if (!ipv6_defaults.disable_ipv6_mod) {
-+		unregister_pernet_subsys(&tcpv6_net_ops);
-+		inet6_unregister_protosw(&tcpv6_protosw);
-+	}
- 	inet6_del_protocol(&tcpv6_protocol, IPPROTO_TCP);
- }
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index fc99972..2e8dddb 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1569,6 +1569,9 @@ int __init udpv6_init(void)
- 	if (ret)
- 		goto out;
- 
-+	if (ipv6_defaults.disable_ipv6_mod)
-+		goto out;
-+
- 	ret = inet6_register_protosw(&udpv6_protosw);
- 	if (ret)
- 		goto out_udpv6_protocol;
-@@ -1582,6 +1585,7 @@ out_udpv6_protocol:
- 
- void udpv6_exit(void)
- {
--	inet6_unregister_protosw(&udpv6_protosw);
-+	if (!ipv6_defaults.disable_ipv6_mod)
-+		inet6_unregister_protosw(&udpv6_protosw);
- 	inet6_del_protocol(&udpv6_protocol, IPPROTO_UDP);
- }
--- 
-1.7.7.6
+I still have not figured all details on the patch submission procedure. 
+Sorry about that. The time to send patches for net-next will be annonced 
+by David, is this correct?
