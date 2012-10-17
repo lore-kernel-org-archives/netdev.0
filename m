@@ -1,63 +1,128 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] xfrm: use ISO C standard for array in linux/xfrm.h
-Date: Wed, 17 Oct 2012 09:50:58 +0200
-Message-ID: <507E6362.1080009@6wind.com>
-References: <1350402153-3889-1-git-send-email-nicolas.dichtel@6wind.com> <20121017054343.GA12671@secunet.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Arun MURTHY <arun.murthy@stericsson.com>
+Subject: RE: [PATCHv5 1/4] modem_shm: Add Modem Access Framework
+Date: Wed, 17 Oct 2012 10:00:10 +0200
+Message-ID: <F45880696056844FA6A73F415B568C695B9C5CECE3@EXDCVYMBSTM006.EQ1STM.local>
+References: <1350278920-25510-1-git-send-email-arun.murthy@stericsson.com>
+ <1350278920-25510-2-git-send-email-arun.murthy@stericsson.com>
+ <20121015212943.GA12540@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:38632 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751403Ab2JQHvC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2012 03:51:02 -0400
-Received: by mail-ee0-f46.google.com with SMTP id b15so3876621eek.19
-        for <netdev@vger.kernel.org>; Wed, 17 Oct 2012 00:51:01 -0700 (PDT)
-In-Reply-To: <20121017054343.GA12671@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121015212943.GA12540@kroah.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 17/10/2012 07:43, Steffen Klassert a =E9crit :
-> On Tue, Oct 16, 2012 at 05:42:33PM +0200, nicolas.dichtel@6wind.com w=
-rote:
->> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->>
->> Use the ISO C standard compliant form instead of the gcc extension.
->>
->> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->> ---
->>   include/uapi/linux/xfrm.h | 10 +++++-----
->>   1 file changed, 5 insertions(+), 5 deletions(-)
->>
->> diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
->> index 28e493b..6a6a605 100644
->> --- a/include/uapi/linux/xfrm.h
->> +++ b/include/uapi/linux/xfrm.h
->> @@ -30,7 +30,7 @@ struct xfrm_sec_ctx {
->>   	__u8	ctx_alg;
->>   	__u16	ctx_len;
->>   	__u32	ctx_sid;
->> -	char	ctx_str[0];
->> +	char	ctx_str[];
->
-> Hm, what's the benefit of such a change? The kernel source is full
-> of these foo[0] type arrays. I don't see a reason to change this
-> just for xfrm.
->
-We got a problem with "ip xfrm state add" when compiled with gcc 4.4.6.
-Error was "*** buffer overflow detected ***: ip terminated", because wh=
-en we try=20
-to copy the key in struct xfrm_algo, the function strncpy() calls some =
-builtin=20
-checks about the size of the destination buffer, which is 0. With the s=
-tandard=20
-notation, there is no problem.
+> On Mon, Oct 15, 2012 at 10:58:37AM +0530, Arun Murthy wrote:
+> 
+> I'm going to ignore your .c logic, as there are things in it that I don't think is
+> correct.  But it all comes down to your data structures, if you fix them, then
+> the .c logic will become correct:
+> 
+> > --- /dev/null
+> > +++ b/include/linux/modem_shm/modem.h
+> > @@ -0,0 +1,59 @@
+> > +/*
+> > + * Copyright (C) ST-Ericsson SA 2011
+> > + *
+> > + * License Terms: GNU General Public License v2
+> > + * Author: Kumar Sanghvi
+> > + *	Arun Murthy <arun.murthy@stericsson.com>
+> > + *
+> > + * Heavily adapted from Regulator framework  */ #ifndef __MODEM_H__
+> > +#define __MODEM_H__
+> 
+> __MODEM_SHM_MODEM_H__, right?
+> 
 
-With gcc 4.7.0, there is no problem, I don't know exactly which version=
- of gcc=20
-triggers the problem.
+Done!
+
+> > +
+> > +#include <linux/device.h>
+> > +
+> > +struct clients {
+> > +	struct device *dev;
+> 
+> Why is this a pointer?  It should be embedded in the structure.
+
+This is the pointer to the clients's device structure. There will be a
+single entity for a modem but multiple clients. Hence this struct is 
+specific for each client.
+
+> 
+> > +	const char *name;
+> 
+> Why is this needed?  It should be the same as the device, right?
+
+Ok, will remove this.
+
+> 
+> > +	atomic_t cnt;
+> 
+> Why is this needed at all?  And if it's needed, why is it an atomic?
+> (hint, your use of atomic_t really isn't correct at all in this patch, it's not doing
+> what you think it is doing...)
+
+Basically the operation done by this, i.e modem access/release has a lot of
+affect on the clients. Since we are accesing some modem registers without
+this modem request it might lead to system freeze. Hence such cross over
+scenarios are considered and the counter is increased/decreased after the
+operation(modem access/release). And reading of these variable are done
+especially during system suspend, where decision is taken based on the value
+of the counter read, hence any modification done should preside over read.
+Moreover since there are multiple clients, using atomic for a simple locking
+mechanism.
+
+> 
+> > +};
+> 
+> Also, the name of the structure here is _VERY_ generic, that's not acceptable
+> in the global kernel namespace.  Hint, it probably isn't even needed to be
+> defined in this .h file at all, right?
+
+Yes, even I felt so yest while reviewing, will change it accordingly.
+
+> 
+> > +
+> > +struct modem_desc {
+> > +	int (*request)(struct modem_desc *);
+> > +	void (*release)(struct modem_desc *);
+> > +	int (*is_requested)(struct modem_desc *);
+> > +	struct clients *mclients;
+> 
+> Why do you have a pointer to a device, and yet:
+
+This pointer to device is for the clients device.
+
+> 
+> > +	struct device *dev;
+> 
+> have a device here?
+This pointer to device is the modem's device struct.
+
+> 
+> > +	char *name;
+> 
+> Same *dev and name comment as above.
+
+Ok will remove this.
+
+> 
+> > +	u8 no_clients;
+> > +	atomic_t use_cnt;
+> > +	atomic_t cli_cnt;
+> 
+> Same question about these atomic_t variables, why are they here, and most
+> importantly, why are they an atomic variable?
+
+Explained above.
+
+Thanks and Regards,
+Arun R Murthy
+------------------
