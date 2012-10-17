@@ -1,73 +1,49 @@
 From: pablo@netfilter.org
-Subject: [PATCH 3/4] netfilter: xt_nat: fix incorrect hooks for SNAT and DNAT targets
-Date: Wed, 17 Oct 2012 12:40:10 +0200
-Message-ID: <1350470411-5793-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/4] netfilter: xt_TEE: don't use destination address found in header
+Date: Wed, 17 Oct 2012 12:40:11 +0200
+Message-ID: <1350470411-5793-4-git-send-email-pablo@netfilter.org>
 References: <1350470411-5793-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:46880 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756525Ab2JQKk0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2012 06:40:26 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1350470411-5793-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Elison Niven <elison.niven@cyberoam.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 
-In (c7232c9 netfilter: add protocol independent NAT core), the
-hooks were accidentally modified:
+Torsten Luettgert bisected TEE regression starting with commit
+f8126f1d5136be1 (ipv4: Adjust semantics of rt->rt_gateway.)
 
-SNAT hooks are POST_ROUTING and LOCAL_IN (before it was LOCAL_OUT).
-DNAT hooks are PRE_ROUTING and LOCAL_OUT (before it was LOCAL_IN).
+The problem is that it tries to ARP-lookup the original destination
+address of the forwarded packet, not the address of the gateway.
 
-Signed-off-by: Elison Niven <elison.niven@cyberoam.com>
-Signed-off-by: Sanket Shah <sanket.shah@cyberoam.com>
+Fix this using FLOWI_FLAG_KNOWN_NH Julian added in commit
+c92b96553a80c1 (ipv4: Add FLOWI_FLAG_KNOWN_NH), so that known
+nexthop (info->gw.ip) has preference on resolving.
+
+Reported-by: Torsten Luettgert <ml-netfilter@enda.eu>
+Bisected-by: Torsten Luettgert <ml-netfilter@enda.eu>
+Tested-by: Torsten Luettgert <ml-netfilter@enda.eu>
+Cc: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_nat.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/netfilter/xt_TEE.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/netfilter/xt_nat.c b/net/netfilter/xt_nat.c
-index 81aafa8..bea7464 100644
---- a/net/netfilter/xt_nat.c
-+++ b/net/netfilter/xt_nat.c
-@@ -111,7 +111,7 @@ static struct xt_target xt_nat_target_reg[] __read_mostly = {
- 		.family		= NFPROTO_IPV4,
- 		.table		= "nat",
- 		.hooks		= (1 << NF_INET_POST_ROUTING) |
--				  (1 << NF_INET_LOCAL_OUT),
-+				  (1 << NF_INET_LOCAL_IN),
- 		.me		= THIS_MODULE,
- 	},
- 	{
-@@ -123,7 +123,7 @@ static struct xt_target xt_nat_target_reg[] __read_mostly = {
- 		.family		= NFPROTO_IPV4,
- 		.table		= "nat",
- 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
--				  (1 << NF_INET_LOCAL_IN),
-+				  (1 << NF_INET_LOCAL_OUT),
- 		.me		= THIS_MODULE,
- 	},
- 	{
-@@ -133,7 +133,7 @@ static struct xt_target xt_nat_target_reg[] __read_mostly = {
- 		.targetsize	= sizeof(struct nf_nat_range),
- 		.table		= "nat",
- 		.hooks		= (1 << NF_INET_POST_ROUTING) |
--				  (1 << NF_INET_LOCAL_OUT),
-+				  (1 << NF_INET_LOCAL_IN),
- 		.me		= THIS_MODULE,
- 	},
- 	{
-@@ -143,7 +143,7 @@ static struct xt_target xt_nat_target_reg[] __read_mostly = {
- 		.targetsize	= sizeof(struct nf_nat_range),
- 		.table		= "nat",
- 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
--				  (1 << NF_INET_LOCAL_IN),
-+				  (1 << NF_INET_LOCAL_OUT),
- 		.me		= THIS_MODULE,
- 	},
- };
+diff --git a/net/netfilter/xt_TEE.c b/net/netfilter/xt_TEE.c
+index ee2e5bc..bd93e51 100644
+--- a/net/netfilter/xt_TEE.c
++++ b/net/netfilter/xt_TEE.c
+@@ -70,6 +70,7 @@ tee_tg_route4(struct sk_buff *skb, const struct xt_tee_tginfo *info)
+ 	fl4.daddr = info->gw.ip;
+ 	fl4.flowi4_tos = RT_TOS(iph->tos);
+ 	fl4.flowi4_scope = RT_SCOPE_UNIVERSE;
++	fl4.flowi4_flags = FLOWI_FLAG_KNOWN_NH;
+ 	rt = ip_route_output_key(net, &fl4);
+ 	if (IS_ERR(rt))
+ 		return false;
 -- 
 1.7.10.4
+
