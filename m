@@ -1,76 +1,106 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCHv3] ipv6: Enable enough of the code to handle GSO when
- disabled.
-Date: Wed, 17 Oct 2012 15:11:45 -0400
-Message-ID: <507F02F1.5010501@redhat.com>
-References: <1350488802-24071-1-git-send-email-vyasevic@redhat.com> <1350490397.26103.647.camel@edumazet-glaptop>
-Reply-To: vyasevic@redhat.com
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCHv5 1/4] modem_shm: Add Modem Access Framework
+Date: Wed, 17 Oct 2012 12:15:49 -0700
+Message-ID: <20121017191549.GA18374@kroah.com>
+References: <1350278920-25510-1-git-send-email-arun.murthy@stericsson.com>
+ <1350278920-25510-2-git-send-email-arun.murthy@stericsson.com>
+ <20121015212943.GA12540@kroah.com>
+ <F45880696056844FA6A73F415B568C695B9C5CECE3@EXDCVYMBSTM006.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24373 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755898Ab2JQTLs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2012 15:11:48 -0400
-In-Reply-To: <1350490397.26103.647.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
+To: Arun MURTHY <arun.murthy@stericsson.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <F45880696056844FA6A73F415B568C695B9C5CECE3@EXDCVYMBSTM006.EQ1STM.local>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/17/2012 12:13 PM, Eric Dumazet wrote:
-> On Wed, 2012-10-17 at 11:46 -0400, Vlad Yasevich wrote:
->
->> This patch attempts to solve this by enabling just enough code so GSO
->> is correctly processed.  However, I should point out that if IPv6 is
->> simply blacklisted or not built for the kernel, this problem will
->> still persist.
->
-> So I guess this should be done in a different way ?
->
-> We currently use a single structure (struct packet_type) to hold
-> pointers to different methods. (The .func() field, and the gso/gro
-> stuff)
->
-> We probably need to split it in two parts, and make one part linked into
-> kernel, even if CONFIG_IPV6=n, so that GRO/GSO is fully IPv4/IPv6
-> functional.
+On Wed, Oct 17, 2012 at 10:00:10AM +0200, Arun MURTHY wrote:
+> > On Mon, Oct 15, 2012 at 10:58:37AM +0530, Arun Murthy wrote:
+> > 
+> > I'm going to ignore your .c logic, as there are things in it that I don't think is
+> > correct.  But it all comes down to your data structures, if you fix them, then
+> > the .c logic will become correct:
 
-The thing about this approach is that if there are any other protocols 
-that could have to provide their own segmentation functionality, such 
-functionality would always have to be part of the kernel.  I wasn't sure 
-how much I liked that.
+You still aren't understanding what I am trying to say here.
 
->
-> By the way, do we really need a hash table for this ?
-> It seems we only have IPv4 (ETH_P_IP) and IPv6 (ETH_P_IPV6) to take care
-> of ?
+So, one final try...
 
-Which hash are you talking about?  I didn't add any hashes.
+> > > +
+> > > +#include <linux/device.h>
+> > > +
+> > > +struct clients {
+> > > +	struct device *dev;
+> > 
+> > Why is this a pointer?  It should be embedded in the structure.
+> 
+> This is the pointer to the clients's device structure. There will be a
+> single entity for a modem but multiple clients. Hence this struct is 
+> specific for each client.
 
->
-> This would remove some tests we currently have in GRO stack, and some
-> RCU stuff as well.
-> (GRO is slower if we have many af_packet sockets)
->
-> list_for_each_entry_rcu(ptype, head, list) {
->      if (ptype->type != type || ptype->dev || !ptype->gro_receive)
->          continue;
-> ...
->
-> Adding a hook/test in ipv6_rcv() is ugly.
->
+But each "client" should be a device, so embed it in the structure.
 
-There already is one for device.  I original had a stub ipv6_rcv that 
-just dropped the packet.  I could resurrect that if that's better...
+> > > +	atomic_t cnt;
+> > 
+> > Why is this needed at all?  And if it's needed, why is it an atomic?
+> > (hint, your use of atomic_t really isn't correct at all in this patch, it's not doing
+> > what you think it is doing...)
+> 
+> Basically the operation done by this, i.e modem access/release has a lot of
+> affect on the clients. Since we are accesing some modem registers without
+> this modem request it might lead to system freeze. Hence such cross over
+> scenarios are considered and the counter is increased/decreased after the
+> operation(modem access/release). And reading of these variable are done
+> especially during system suspend, where decision is taken based on the value
+> of the counter read, hence any modification done should preside over read.
+> Moreover since there are multiple clients, using atomic for a simple locking
+> mechanism.
 
--vlad
+Hint, if you _ever_ say, "I'll use an atomic_t as a simple lock", you
+are usually wrong.  But sometimes it can be done right.  So I went and
+re-read your implementation.
 
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+You got it wrong.
+
+So don't do this.
+
+Seriously, an atomic value is not a lock, and, as you used it, it
+doesn't even work properly.  So don't try to roll your own lock, either
+use a lock, or use the built-in-reference-counting of the driver core,
+which is what I keep saying here.
+
+I'll say it again, don't do this.  Use the build-in reference count of
+the struct device, that the kernel can manage for you, to handle this.
+It will do it correctly, simply, and make your life a whole lot easier,
+and better yet, will allow me to accept this code.
+
+As it is, it is broken and wrong and quite buggy.
+
+Please use the driver core properly.  I know it can be difficult, and
+isn't the best documented body of code.  But it works, and works well,
+and when people try to work around it thinking they don't need it, or
+will just roll their own logic instead, they get it wrong and it causes
+problems.  Just like this implementation shows.
+
+So please, go back, consult with others on your team about how to do
+this right.
+
+If you have specific questions about the driver core that I can answer,
+after you have read a few users of it (look at the bus code from
+something "simple" for how to do this, don't look at USB) I will be glad
+to help out.  But I feel that the previous review comments I have made
+in this area, have been totally ignored, so I'm loath to try to do the
+design work for you here.  You need to work it out so you feel
+comfortable with it, not me.
+
+good luck,
+
+greg k-h
+
+p.s. I'm sure your company/team/coworkers can help review your patches,
+right?  Please run them by someone else first, that would have caught
+the locking/atomic_t issue immediately.
