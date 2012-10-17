@@ -1,73 +1,44 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH 1/5] ARM: OMAP2+: gpmc: Fix kernel BUG for DT boot mode
-Date: Wed, 17 Oct 2012 09:13:48 -0700
-Message-ID: <20121017161348.GT15569@atomide.com>
-References: <cover.1350327320.git.richardcochran@gmail.com>
- <41d66042625157d089e9c9532030a6831e79c641.1350327324.git.richardcochran@gmail.com>
- <20121016174835.GV15569@atomide.com>
- <507DCA8D.7060309@ti.com>
- <20121016212647.GM15569@atomide.com>
- <507EC395.7060409@ti.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v0 3/4] cgroup: net_cls: Pass in task to
+ sock_update_classid()
+Date: Wed, 17 Oct 2012 18:15:13 +0200
+Message-ID: <1350490513.26103.650.camel@edumazet-glaptop>
+References: <1350479078-29361-1-git-send-email-wagi@monom.org>
+	 <1350479078-29361-4-git-send-email-wagi@monom.org>
+	 <1350481041.26103.454.camel@edumazet-glaptop>  <507ED4C0.7070408@monom.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	Afzal Mohammed <afzal@ti.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-	"hvaibhav@ti.com" <hvaibhav@ti.com>,
-	David Miller <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
-To: Jon Hunter <jon-hunter@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <507EC395.7060409@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <507ED4C0.7070408-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-* Jon Hunter <jon-hunter@ti.com> [121017 07:43]:
+On Wed, 2012-10-17 at 17:54 +0200, Daniel Wagner wrote:
+
+> I still have not figured all details on the patch submission procedure. 
+> Sorry about that. The time to send patches for net-next will be annonced 
+> by David, is this correct?
 > 
-> On 10/16/2012 04:26 PM, Tony Lindgren wrote:
-> > * Jon Hunter <jon-hunter@ti.com> [121016 14:00]:
-> >> Hi Tony,
-> >>
-> >> On 10/16/2012 12:48 PM, Tony Lindgren wrote:
-> >>> * Richard Cochran <richardcochran@gmail.com> [121015 12:18]:
-> >>>> From: hvaibhav@ti.com <hvaibhav@ti.com>
-> >>>>
-> >>>> With recent changes in omap gpmc driver code, in case of DT
-> >>>> boot mode, where bootloader does not configure gpmc cs space
-> >>>> will result into kernel BUG() inside gpmc_mem_init() function,
-> >>>> as gpmc cs0 gpmc_config7[0].csvalid bit is set to '1' and
-> >>>> gpmc_config7[0].baseaddress is set to '0' on reset.
-> >>>>
-> >>>> This use-case is applicable for any board/EVM which doesn't have
-> >>>> any peripheral connected to gpmc cs0, for example BeagleXM and
-> >>>> BeagleBone, so DT boot mode fails.
-> >>>>
-> >>>> This patch adds of_have_populated_dt() check before creating
-> >>>> device, so that for DT boot mode, gpmc probe will not be called
-> >>>> which is expected behavior, as gpmc is not supported yet from DT.
-> >>>
-> >>> I'm applying this one into omap-for-v3.7-rc1/fixes-part2.
-> >>>
-> >>> Next time, please also cc linux-omap@vger.kernel.org for series
-> >>> like this. I'm sure the people reading the omap list are interested
-> >>> in these.
-> >>
-> >> This patch appears to be masking an underlying issue. How about 
-> >> something like the following ...
-> > 
-> > OK that looks good to me. I'll drop the earlier fix and use
-> > yours instead.
+
+Exactly. David sent a mail yesterday :
+
+On Mon, 2012-10-15 at 23:19 -0400, David Miller wrote:
+> Please stop sending feature patches and cleanups.
 > 
-> Hi Tony, sorry but I realised now that in my patch that I need to
-> take care of releasing and memory and clocks that were acquired 
-> during the probe. Here is a V2. If you prefer I can create a delta
-> patch also with the previous. 
-
-OK thanks I'll update it.
-
-Regards,
-
-Tony
+> I'll be sure to let the list know when net-next is
+> ready for submissions again, thanks.
+> 
+> Thank you.
+> -- 
