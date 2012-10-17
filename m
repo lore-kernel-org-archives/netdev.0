@@ -1,46 +1,35 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: RE: [PATCH] qla3xxx: Ensure req_q_phy_addr writes to the register
-Date: Wed, 17 Oct 2012 10:45:45 -0700
-Message-ID: <5E4F49720D0BAD499EE1F01232234BA87744A93B8E@AVEXMB1.qlogic.org>
-References: <507E50E5.5040201@oracle.com>
+From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] SUNRPC: Prevent kernel stack corruption on long values of flush
+Date: Wed, 17 Oct 2012 13:59:39 -0400
+Message-ID: <CA+1xoqcgWTP8pAY3Ok2R0JM-ZXSkGroEvAFcqP0KaK=dABiTXA@mail.gmail.com>
+References: <1342476086-21638-1-git-send-email-levinsasha928@gmail.com> <20120718173913.GA1298@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Greg Marsden <greg.marsden@oracle.com>
-To: Joe Jin <joe.jin@oracle.com>, Ron Mercer <ron.mercer@qlogic.com>,
-	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <507E50E5.5040201@oracle.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120718173913.GA1298-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IEpvZSBKaW4gW21haWx0bzpq
-b2UuamluQG9yYWNsZS5jb21dIA0KPlNlbnQ6IFR1ZXNkYXksIE9jdG9iZXIgMTYsIDIwMTIgMTE6
-MzIgUE0NCj5UbzogUm9uIE1lcmNlcjsgSml0ZW5kcmEgS2Fsc2FyaWE7IERlcHQtRW5nIExpbnV4
-IERyaXZlcg0KPkNjOiBuZXRkZXY7IGxpbnV4LWtlcm5lbDsgR3JlZyBNYXJzZGVuDQo+U3ViamVj
-dDogW1BBVENIXSBxbGEzeHh4OiBFbnN1cmUgcmVxX3FfcGh5X2FkZHIgd3JpdGVzIHRvIHRoZSBy
-ZWdpc3Rlcg0KPg0KPk1ha2Ugc3VyZSByZXFfcV9waHlfYWRkciB3cml0ZSB0byB0aGUgcmVnaXN0
-ZXIuDQo+DQo+U2lnbmVkLW9mZi1ieTogSm9lIEppbiA8am9lLmppbkBvcmFjbGUuY29tPg0KPkNj
-OiBSb24gTWVyY2VyIDxyb24ubWVyY2VyQHFsb2dpYy5jb20+DQo+Q2M6IEppdGVuZHJhIEthbHNh
-cmlhIDxqaXRlbmRyYS5rYWxzYXJpYUBxbG9naWMuY29tPg0KPi0tLQ0KPiBkcml2ZXJzL25ldC9l
-dGhlcm5ldC9xbG9naWMvcWxhM3h4eC5jIHwgNiArKysrKysNCj4gMSBmaWxlIGNoYW5nZWQsIDYg
-aW5zZXJ0aW9ucygrKQ0KPg0KPmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9n
-aWMvcWxhM3h4eC5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsYTN4eHguYw0KPmlu
-ZGV4IGRmMDliMWMuLjc4YjRjYmEgMTAwNjQ0DQo+LS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
-cWxvZ2ljL3FsYTN4eHguYw0KPisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGEz
-eHh4LmMNCj5AQCAtMjUyNSw2ICsyNTI1LDEyIEBAIHN0YXRpYyBpbnQgcWxfYWxsb2NfbmV0X3Jl
-cV9yc3BfcXVldWVzKHN0cnVjdCBxbDNfYWRhcHRlciAqcWRldikNCj4gCXFkZXYtPnJlcV9xX3Np
-emUgPQ0KPiAJICAgICh1MzIpIChOVU1fUkVRX1FfRU5UUklFUyAqIHNpemVvZihzdHJ1Y3Qgb2Jf
-bWFjX2lvY2JfcmVxKSk7DQo+IA0KPisJLyoNCj4rCSAqIFRoZSBiYXJyaWVyIGlzIHJlcXVpcmVk
-IHRvIGVuc3VyZSB0aGF0IHJlcV9xX3BoeV9hZGRyIHdyaXRlcyB0bw0KPisJICogdGhlIG1lbW9y
-eS4NCj4rCSAqLw0KPisJd21iKCk7DQo+Kw0KPiAJcWRldi0+cmVxX3FfdmlydF9hZGRyID0NCj4g
-CSAgICBwY2lfYWxsb2NfY29uc2lzdGVudChxZGV2LT5wZGV2LA0KPiAJCQkJIChzaXplX3QpIHFk
-ZXYtPnJlcV9xX3NpemUsDQoNCllvdXIgY2hhbmdlcyBvbmx5IHRha2UgY2FyZSBvZiByZXF1ZXN0
-IHF1ZXVlIGJ1dCBub3QgcmVzcG9uc2UgcXVldWUgd2hpY2ggYWxzbyBuZWVkIGJhcnJpZXIuDQoN
-CglxZGV2LT5yZXFfcV9zaXplID0NCgkJKHUzMikgKE5VTV9SRVFfUV9FTlRSSUVTICogc2l6ZW9m
-KHN0cnVjdCBvYl9tYWNfaW9jYl9yZXEpKTsNCg0KCXFkZXYtPnJzcF9xX3NpemUgPSBOVU1fUlNQ
-X1FfRU5UUklFUyAqIHNpemVvZihzdHJ1Y3QgbmV0X3JzcF9pb2NiKTsNCg0KCXdtYigpOw0KDQp0
-aGFua3MsDQoJSml0ZW4NCi0tIA0KMS43LjExLjcNCg0K
+On Wed, Jul 18, 2012 at 1:39 PM, J. Bruce Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org> wrote:
+> On Tue, Jul 17, 2012 at 12:01:26AM +0200, Sasha Levin wrote:
+>> The buffer size in read_flush() is too small for the longest possible values
+>> for it. This can lead to a kernel stack corruption:
+>
+> Thanks!
+
+I've just stumbled on this crash again, and noticed that this patch
+never made it in.
+
+Was it just a mixup, or is something still missing?
+
+
+Thanks,
+Sasha
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
