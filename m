@@ -1,37 +1,30 @@
-From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Subject: Re: [PATCH v0 4/4] cgroup: net_cls: Rework update socket logic
-Date: Wed, 17 Oct 2012 17:56:05 +0200
-Message-ID: <507ED515.4050603@monom.org>
-References: <1350479078-29361-1-git-send-email-wagi@monom.org> <1350479078-29361-5-git-send-email-wagi@monom.org> <507EBA59.9080307@intel.com>
+From: Jon Stanley <jstanley@rmrf.net>
+Subject: Re: [patch net] vlan: allow to change type when no vlan device is
+ hooked on netdev
+Date: Wed, 17 Oct 2012 12:06:33 -0400
+Message-ID: <CAJtaB1v-rpvi62nL+65ZP6M0siVSeidskZLSSPuuTJz96JoZxA@mail.gmail.com>
+References: <1350473856-29380-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <507EBA59.9080307-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, davem@davemloft.net, fubar@us.ibm.com,
+	andy@greyhouse.net, kaber@trash.net
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:47388 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755212Ab2JQQGe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2012 12:06:34 -0400
+Received: by mail-qa0-f53.google.com with SMTP id s11so605783qaa.19
+        for <netdev@vger.kernel.org>; Wed, 17 Oct 2012 09:06:33 -0700 (PDT)
+In-Reply-To: <1350473856-29380-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 17.10.2012 16:02, John Fastabend wrote:
-> On 10/17/2012 6:04 AM, Daniel Wagner wrote:
->> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
->>
->> The cgroup logic part of net_cls is very similar as the one in
->> net_prio. Let's stream line the net_cls logic with the net_prio one.
+On Wed, Oct 17, 2012 at 7:37 AM, Jiri Pirko <jiri@resnulli.us> wrote:
 
-[...]
+> vlan_info might be present but still no vlan devices might be there.
+> That is in case of vlan0 automatically added.
+>
+> So in that case, allow to change netdev type.
 
-> This block should probably use iterate_fd() instead of open coding
-> this. See the latest net_prio_attach().
-
-Thanks for the heads up. Will update the patch accordingly.
+Confirmed to work, thanks!
