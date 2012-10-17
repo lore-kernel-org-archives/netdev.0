@@ -1,64 +1,65 @@
 From: pablo@netfilter.org
-Subject: [PATCH 1/4] ipvs: initialize returned data in do_ip_vs_get_ctl
-Date: Wed, 17 Oct 2012 12:40:08 +0200
-Message-ID: <1350470411-5793-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/4] netfilter: xt_CT: fix timeout setting with IPv6
+Date: Wed, 17 Oct 2012 12:40:09 +0200
+Message-ID: <1350470411-5793-2-git-send-email-pablo@netfilter.org>
+References: <1350470411-5793-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:46816 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756525Ab2JQKkS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2012 06:40:18 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1350470411-5793-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-As reported by a gcc warning, the do_ip_vs_get_ctl does not initalize
-all the members of the ip_vs_timeout_user structure it returns if
-at least one of the TCP or UDP protocols is disabled for ipvs.
+This patch fixes ip6tables and the CT target if it is used to set
+some custom conntrack timeout policy for IPv6.
 
-This makes sure that the data is always initialized, before it is
-returned as a response to IPVS_CMD_GET_CONFIG or printed as a
-debug message in IPVS_CMD_SET_CONFIG.
+Use xt_ct_find_proto which already handles the ip6tables case for us.
 
-Without this patch, building ARM ixp4xx_defconfig results in:
-
-net/netfilter/ipvs/ip_vs_ctl.c: In function 'ip_vs_genl_set_cmd':
-net/netfilter/ipvs/ip_vs_ctl.c:2238:47: warning: 't.udp_timeout' may be used uninitialized in this function [-Wuninitialized]
-net/netfilter/ipvs/ip_vs_ctl.c:3322:28: note: 't.udp_timeout' was declared here
-net/netfilter/ipvs/ip_vs_ctl.c:2238:47: warning: 't.tcp_fin_timeout' may be used uninitialized in this function [-Wuninitialized]
-net/netfilter/ipvs/ip_vs_ctl.c:3322:28: note: 't.tcp_fin_timeout' was declared here
-net/netfilter/ipvs/ip_vs_ctl.c:2238:47: warning: 't.tcp_timeout' may be used uninitialized in this function [-Wuninitialized]
-net/netfilter/ipvs/ip_vs_ctl.c:3322:28: note: 't.tcp_timeout' was declared here
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_ctl.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/netfilter/xt_CT.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 7e7198b..c4ee437 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -2589,6 +2589,8 @@ __ip_vs_get_timeouts(struct net *net, struct ip_vs_timeout_user *u)
- 	struct ip_vs_proto_data *pd;
- #endif
+diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
+index 16c7125..ae7f5da 100644
+--- a/net/netfilter/xt_CT.c
++++ b/net/netfilter/xt_CT.c
+@@ -180,9 +180,9 @@ xt_ct_set_timeout(struct nf_conn *ct, const struct xt_tgchk_param *par,
+ 	typeof(nf_ct_timeout_find_get_hook) timeout_find_get;
+ 	struct ctnl_timeout *timeout;
+ 	struct nf_conn_timeout *timeout_ext;
+-	const struct ipt_entry *e = par->entryinfo;
+ 	struct nf_conntrack_l4proto *l4proto;
+ 	int ret = 0;
++	u8 proto;
  
-+	memset(u, 0, sizeof (*u));
-+
- #ifdef CONFIG_IP_VS_PROTO_TCP
- 	pd = ip_vs_proto_data_get(net, IPPROTO_TCP);
- 	u->tcp_timeout = pd->timeout_table[IP_VS_TCP_S_ESTABLISHED] / HZ;
-@@ -2766,7 +2768,6 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
- 	{
- 		struct ip_vs_timeout_user t;
+ 	rcu_read_lock();
+ 	timeout_find_get = rcu_dereference(nf_ct_timeout_find_get_hook);
+@@ -192,9 +192,11 @@ xt_ct_set_timeout(struct nf_conn *ct, const struct xt_tgchk_param *par,
+ 		goto out;
+ 	}
  
--		memset(&t, 0, sizeof(t));
- 		__ip_vs_get_timeouts(net, &t);
- 		if (copy_to_user(user, &t, sizeof(t)) != 0)
- 			ret = -EFAULT;
+-	if (e->ip.invflags & IPT_INV_PROTO) {
++	proto = xt_ct_find_proto(par);
++	if (!proto) {
+ 		ret = -EINVAL;
+-		pr_info("You cannot use inversion on L4 protocol\n");
++		pr_info("You must specify a L4 protocol, and not use "
++			"inversions on it.\n");
+ 		goto out;
+ 	}
+ 
+@@ -214,7 +216,7 @@ xt_ct_set_timeout(struct nf_conn *ct, const struct xt_tgchk_param *par,
+ 	/* Make sure the timeout policy matches any existing protocol tracker,
+ 	 * otherwise default to generic.
+ 	 */
+-	l4proto = __nf_ct_l4proto_find(par->family, e->ip.proto);
++	l4proto = __nf_ct_l4proto_find(par->family, proto);
+ 	if (timeout->l4proto->l4proto != l4proto->l4proto) {
+ 		ret = -EINVAL;
+ 		pr_info("Timeout policy `%s' can only be used by L4 protocol "
 -- 
 1.7.10.4
+
