@@ -1,69 +1,48 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH v1] net/core: support runtime PM on net_device
-Date: Thu, 18 Oct 2012 13:40:27 +0200
-Message-ID: <87obk080us.fsf@nemi.mork.no>
-References: <1350548469-1267-1-git-send-email-ming.lei@canonical.com>
-	<8762689o9u.fsf@nemi.mork.no>
-	<CACVXFVPu1m3CJaFavW9eaU3Z850q+x1N_Yo7tri1UTFpgfYVXQ@mail.gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: sock_getsockopt() not exported
+Date: Thu, 18 Oct 2012 13:03:55 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7053@saturn3.aculab.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B7052@saturn3.aculab.com> <1350552612.26103.1281.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Oliver Neukum <oneukum@suse.de>,
-	Alan Stern <stern@rowland.harvard.edu>, netdev@vger.kernel.org,
-	linux-pm@vger.kernel.org
-To: Ming Lei <ming.lei@canonical.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:51048 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750717Ab2JRLkp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 07:40:45 -0400
-In-Reply-To: <CACVXFVPu1m3CJaFavW9eaU3Z850q+x1N_Yo7tri1UTFpgfYVXQ@mail.gmail.com>
-	(Ming Lei's message of "Thu, 18 Oct 2012 19:01:06 +0800")
+Received: from mx0.aculab.com ([213.249.233.131]:43530 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752359Ab2JRMJL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2012 08:09:11 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 22977-06 for <netdev@vger.kernel.org>;
+ Thu, 18 Oct 2012 13:09:05 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1350552612.26103.1281.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ming Lei <ming.lei@canonical.com> writes:
-> On Thu, Oct 18, 2012 at 4:29 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wrot=
-e:
->> Ming Lei <ming.lei@canonical.com> writes:
->>
->>> In ioctl path on net_device, the physical deivce is often
->>> touched, but the physical device may have been put into runtime
->>> suspend state already, so cause some utilitis(ifconfig, ethtool,
->>> ...) to return failure in this situation.
->>
->> I have to as the stupid questions again, sorry...
->>
->> Just wondering, isn't that really a driver problem?  The driver will
->
-> It is or not, :-)
->
->> know whether or not hardware access is required, and should wake up =
-the
->
-> The netcore knows that first,  doesn't it=EF=BC=9F
-
-Really? Does netcore know which ioctls the driver can handle without
-waking the device?  You can of course do an educated guess, but I reall=
-y
-hate guesswork if there is a real answer somewhere else...
-
->> device if necessary.  Unless I misunderstand something here, this se=
-ems
->> like papering over driver bugs?
->
-> Suppose it is driver bug, and basically most network drivers don't co=
-nsider
-> that, and we can fix that in netcore generally, so why bother all dri=
-vers to do
-> that?
-
-Because bugs are supposed to be fixed and not hidden?
-
-Note that I am not claiming this is a bug.  That is still an open
-question as far as I can see.
-
-
-
-Bj=C3=B8rn
+PiBPbiBUaHUsIDIwMTItMTAtMTggYXQgMTA6MTEgKzAxMDAsIERhdmlkIExhaWdodCB3cm90ZToN
+Cj4gPiBJJ3ZlIG5vdGljZWQgdGhhdCBuZXQvY29yZS9zb2NrLmMgY29udGFpbnMgYW4NCj4gPiAg
+ICAgRVhQT1JUX1NZTUJPTChzb2NrX3NldHNvY2tvcHQpDQo+ID4gYnV0IGlzIG1pc3NpbmcgdGhl
+IGNvcnJlc3BvbmRpbmcNCj4gPiAgICAgRVhQT1JUX1NZTUJPTChzb2NrX2dldHNvY2tvcHQpDQo+
+ID4NCj4gPiBJbi1rZXJuZWwgdXNlcnMgb2Ygc29ja2V0cyBwcm9iYWJseSBtYW5hZ2Ugd2l0aG91
+dA0KPiA+IG5lZWRpbmcgdG8gcmVhZCBTT0xfU09DS0VUIG9wdGlvbnMuDQo+ID4gKFRoZXkgZG8g
+bmVlZCB0byBzZXQgU09fUkVVU0FERFIgYW5kIFNPX0tFRVBBTElWRS4pDQo+IA0KPiBzb2NrX3Nl
+dHNvY2tvcHQoKSBpcyBleHBvcnRlZCBiZWNhdXNlIHN1bnJwYyBuZWVkcyBpdCwgYW5kIHN1bnJw
+YyBjYW4gYmUNCj4gYSBtb2R1bGUNCj4gDQo+IHNvY2tfZ2V0c29ja29wdCgpIGlzIG5vdCBleHBv
+cnRlZCBiZWNhdXNlIG5vIG1vZHVsZSBuZWVkcyBpdCB5ZXQuDQo+IA0KPiBUaGUgZGF5IG9uZSB1
+c2VyIG5lZWRzIGl0LCB3ZSdsbCBhZGQgdGhlIEVYUE9SVF9TWU1CT0woKQ0KDQpUaGUgcHJvYmxl
+bSBpcyB0aGF0IGl0IG1pZ2h0IGJlIG5lZWRlZCBieSBhbiAnb3V0IG9mIHRyZWUnIGRyaXZlci4N
+CldlIGFscmVhZHkgaGF2ZSB0aGUgZnVuY3Rpb246DQoNCnN0YXRpYyBpbnQNCmRvX2dldHNvY2tv
+cHQoc3RydWN0IHNvY2tldCAqc29jaywgaW50IGxldmVsLCBpbnQgbmFtZSwgdm9pZCAqdmFsLCBp
+bnQgbGVuKQ0Kew0KICAgIG1tX3NlZ21lbnRfdCBwcmV2ZnMgPSBnZXRfZnMoKTsNCiAgICBpbnQg
+cnZhbDsNCg0KICAgIHNldF9mcyhLRVJORUxfRFMpOw0KDQogICAgaWYgKGxldmVsID09IFNPTF9T
+T0NLRVQpIHsNCiAgICAgICAgLyogVGhlcmUgaXMgbm8gRVhQT1JUX1NZTUJPTChzb2NrX2dldHNv
+Y2tvcHQpIGluIG5ldC9jb3JlL3NvY2suYyAqLw0KICAgICAgICBydmFsID0gLUVJTlZBTDsgLy8g
+c29ja19nZXRzb2Nrb3B0KHNvY2ssIGxldmVsLCBuYW1lLCB2YWwsICZsZW4pOw0KICAgIH0gZWxz
+ZSB7DQogICAgICAgIHJ2YWwgPSBzb2NrLT5vcHMtPmdldHNvY2tvcHQoc29jaywgbGV2ZWwsIG5h
+bWUsIHZhbCwgJmxlbik7DQogICAgfQ0KDQogICAgc2V0X2ZzKHByZXZmcyk7DQogICAgcmV0dXJu
+IHJ2YWw7DQp9DQoNCldlIG5lZWQgdG8gZ2V0IG9wdGlvbnMgKGZvciBTQ1RQKSBmb3J0dW5hdGVs
+eSB0aGV5IGFyZW4ndA0KU09MX1NPQ0tFVCBvbmVzLg0KDQoJRGF2aWQNCg0K
