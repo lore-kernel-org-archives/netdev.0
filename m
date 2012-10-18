@@ -1,7 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v7 09/10] IPC: message queue copy feature introduced
-Date: Thu, 18 Oct 2012 14:23:22 +0400
-Message-ID: <20121018102322.16036.86866.stgit@localhost.localdomain>
+Subject: [PATCH v7 10/10] test: IPC message queue copy feture test
+Date: Thu, 18 Oct 2012 14:23:27 +0400
+Message-ID: <20121018102327.16036.82797.stgit@localhost.localdomain>
 References: <20121018101543.16036.12221.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -23,197 +23,282 @@ In-Reply-To: <20121018101543.16036.12221.stgit@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch is required for checkpoint/restore in userspace.
-IOW, c/r requires some way to get all pending IPC messages without deleting
-them from the queue (checkpoint can fail and in this case tasks will be resumed,
-so queue have to be valid).
-To achive this, new operation flag MSG_COPY for sys_msgrcv() system call was
-introduced. If this flag was specified, then mtype is interpreted as number of
-the message to copy.
-If MSG_COPY is set, then kernel will allocate dummy message with passed size,
-and then use new copy_msg() helper function to copy desired message (instead of
-unlinking it from the queue).
-
-Notes:
-1) Return -ENOSYS if MSG_COPY is specified, but CONFIG_CHECKPOINT_RESTORE is
-not set.
+This test can be used to check wheither kernel supports IPC message queue copy
+and restore features (required by CRIU project).
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 ---
- include/uapi/linux/msg.h |    1 +
- ipc/msg.c                |   50 ++++++++++++++++++++++++++++++++++++++++++++--
- ipc/msgutil.c            |   38 +++++++++++++++++++++++++++++++++++
- ipc/util.h               |    1 +
- 4 files changed, 88 insertions(+), 2 deletions(-)
+ tools/testing/selftests/ipc/Makefile |   25 ++++
+ tools/testing/selftests/ipc/msgque.c |  231 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 256 insertions(+), 0 deletions(-)
+ create mode 100644 tools/testing/selftests/ipc/Makefile
+ create mode 100644 tools/testing/selftests/ipc/msgque.c
 
-diff --git a/include/uapi/linux/msg.h b/include/uapi/linux/msg.h
-index 76999c9..c1af84a 100644
---- a/include/uapi/linux/msg.h
-+++ b/include/uapi/linux/msg.h
-@@ -11,6 +11,7 @@
- /* msgrcv options */
- #define MSG_NOERROR     010000  /* no error if message is too big */
- #define MSG_EXCEPT      020000  /* recv any msg except of specified type.*/
-+#define MSG_COPY        040000  /* copy (not remove) all queue messages */
- 
- /* Obsolete, used only for backwards compatibility and libc5 compiles */
- struct msqid_ds {
-diff --git a/ipc/msg.c b/ipc/msg.c
-index 028ab87..a908529 100644
---- a/ipc/msg.c
-+++ b/ipc/msg.c
-@@ -789,19 +789,48 @@ long do_msgrcv(int msqid, void __user *buf, size_t bufsz, long msgtyp,
- 	struct msg_msg *msg;
- 	int mode;
- 	struct ipc_namespace *ns;
-+#ifdef CONFIG_CHECKPOINT_RESTORE
-+	struct msg_msg *copy = NULL;
-+	unsigned long copy_number = 0;
-+#endif
- 
- 	if (msqid < 0 || (long) bufsz < 0)
- 		return -EINVAL;
-+	if (msgflg & MSG_COPY) {
-+#ifdef CONFIG_CHECKPOINT_RESTORE
+diff --git a/tools/testing/selftests/ipc/Makefile b/tools/testing/selftests/ipc/Makefile
+new file mode 100644
+index 0000000..5386fd7
+--- /dev/null
++++ b/tools/testing/selftests/ipc/Makefile
+@@ -0,0 +1,25 @@
++uname_M := $(shell uname -m 2>/dev/null || echo not)
++ARCH ?= $(shell echo $(uname_M) | sed -e s/i.86/i386/)
++ifeq ($(ARCH),i386)
++        ARCH := X86
++	CFLAGS := -DCONFIG_X86_32 -D__i386__
++endif
++ifeq ($(ARCH),x86_64)
++	ARCH := X86
++	CFLAGS := -DCONFIG_X86_64 -D__x86_64__
++endif
 +
-+		if (msgflg & MSG_COPY) {
-+			copy_number = msgtyp;
-+			msgtyp = 0;
++CFLAGS += -I../../../../usr/include/
++
++all:
++ifeq ($(ARCH),X86)
++	gcc $(CFLAGS) msgque.c -o msgque_test
++else
++	echo "Not an x86 target, can't build msgque selftest"
++endif
++
++run_tests: all
++	./msgque_test
++
++clean:
++	rm -fr ./msgque_test
+diff --git a/tools/testing/selftests/ipc/msgque.c b/tools/testing/selftests/ipc/msgque.c
+new file mode 100644
+index 0000000..e2d6a64
+--- /dev/null
++++ b/tools/testing/selftests/ipc/msgque.c
+@@ -0,0 +1,231 @@
++#include <stdlib.h>
++#include <stdio.h>
++#include <string.h>
++#include <errno.h>
++#include <linux/msg.h>
++
++#define MAX_MSG_SIZE		32
++
++struct msg1 {
++	int msize;
++	long mtype;
++	char mtext[MAX_MSG_SIZE];
++};
++
++#define TEST_STRING "Test sysv5 msg"
++#define MSG_TYPE 1
++
++#define ANOTHER_TEST_STRING "Yet another test sysv5 msg"
++#define ANOTHER_MSG_TYPE 26538
++
++struct msgque_data {
++	int msq_id;
++	int qbytes;
++	int kern_id;
++	int qnum;
++	int mode;
++	struct msg1 *messages;
++};
++
++int restore_queue(struct msgque_data *msgque)
++{
++	struct msqid_ds ds;
++	int id, i;
++
++	id = msgget(msgque->msq_id,
++		     msgque->mode | IPC_CREAT | IPC_EXCL | IPC_PRESET);
++	if (id == -1) {
++		printf("Failed to create queue\n");
++		return -errno;
++	}
++
++	if (id != msgque->msq_id) {
++		printf("Failed to preset id (%d instead of %d)\n",
++							id, msgque->msq_id);
++		return -EFAULT;
++	}
++
++	if (msgctl(id, MSG_STAT, &ds) < 0) {
++		printf("Failed to stat queue\n");
++		return -errno;
++	}
++
++	ds.msg_perm.key = msgque->msq_id;
++	ds.msg_qbytes = msgque->qbytes;
++	if (msgctl(id, MSG_SET, &ds) < 0) {
++		printf("Failed to update message key\n");
++		return -errno;
++	}
++
++	for (i = 0; i < msgque->qnum; i++) {
++		if (msgsnd(msgque->msq_id, &msgque->messages[i].mtype, msgque->messages[i].msize, IPC_NOWAIT) != 0) {
++			printf("msgsnd failed (%m)\n");
++			return -errno;
++		};
++	}
++	return 0;
++}
++
++int check_and_destroy_queue(struct msgque_data *msgque)
++{
++	struct msg1 message;
++	int cnt = 0, ret;
++
++	while (1) {
++		ret = msgrcv(msgque->msq_id, &message.mtype, MAX_MSG_SIZE, 0, IPC_NOWAIT);
++		if (ret < 0) {
++			if (errno == ENOMSG)
++				break;
++			printf("Failed to read IPC message: %m\n");
++			ret = -errno;
++			goto err;
++		}
++		if (ret != msgque->messages[cnt].msize) {
++			printf("Wrong message size: %d (expected %d)\n", ret, msgque->messages[cnt].msize);
++			ret = -EINVAL;
++			goto err;
++		}
++		if (message.mtype != msgque->messages[cnt].mtype) {
++			printf("Wrong message type\n");
++			ret = -EINVAL;
++			goto err;
++		}
++		if (memcmp(message.mtext, msgque->messages[cnt].mtext, ret)) {
++			printf("Wrong message content\n");
++			ret = -EINVAL;
++			goto err;
++		}
++		cnt++;
++	}
++
++	if (cnt != msgque->qnum) {
++		printf("Wrong message number\n");
++		ret = -EINVAL;
++		goto err;
++	}
++
++	ret = 0;
++err:
++	if (msgctl(msgque->msq_id, IPC_RMID, 0)) {
++		printf("Failed to destroy queue: %d\n", -errno);
++		return -errno;
++	}
++	return ret;
++}
++
++int dump_queue(struct msgque_data *msgque)
++{
++	struct msqid_ds ds;
++	int i, ret;
++
++	for (msgque->kern_id = 0; msgque->kern_id < 256; msgque->kern_id++) {
++		ret = msgctl(msgque->kern_id, MSG_STAT, &ds);
++		if (ret < 0) {
++			if (errno == -EINVAL)
++				continue;
++			printf("Failed to get stats for IPC queue with id %d\n", msgque->kern_id);
++			return -errno;
 +		}
 +
-+		/*
-+		 * Create dummy message to copy real message to.
-+		 */
-+		copy = load_msg(buf, bufsz);
-+		if (IS_ERR(copy))
-+			return PTR_ERR(copy);
-+		copy->m_ts = bufsz;
-+#else
-+		return -ENOSYS;
-+#endif
-+	}
- 	mode = convert_mode(&msgtyp, msgflg);
- 	ns = current->nsproxy->ipc_ns;
- 
- 	msq = msg_lock_check(ns, msqid);
--	if (IS_ERR(msq))
-+	if (IS_ERR(msq)) {
-+#ifdef CONFIG_CHECKPOINT_RESTORE
-+		if (msgflg & MSG_COPY)
-+			free_msg(copy);
-+#endif
- 		return PTR_ERR(msq);
-+	}
- 
- 	for (;;) {
- 		struct msg_receiver msr_d;
- 		struct list_head *tmp;
-+		long msg_counter = 0;
- 
- 		msg = ERR_PTR(-EACCES);
- 		if (ipcperms(ns, &msq->q_perm, S_IRUGO))
-@@ -821,8 +850,16 @@ long do_msgrcv(int msqid, void __user *buf, size_t bufsz, long msgtyp,
- 				if (mode == SEARCH_LESSEQUAL &&
- 						walk_msg->m_type != 1) {
- 					msgtyp = walk_msg->m_type - 1;
-+#ifdef CONFIG_CHECKPOINT_RESTORE
-+				} else if (msgflg & MSG_COPY) {
-+					if (copy_number == msg_counter) {
-+						msg = copy_msg(walk_msg, copy);
-+						break;
-+					}
-+#endif
- 				} else
- 					break;
-+				msg_counter++;
- 			}
- 			tmp = tmp->next;
- 		}
-@@ -835,6 +872,10 @@ long do_msgrcv(int msqid, void __user *buf, size_t bufsz, long msgtyp,
- 				msg = ERR_PTR(-E2BIG);
- 				goto out_unlock;
- 			}
-+#ifdef CONFIG_CHECKPOINT_RESTORE
-+			if (msgflg & MSG_COPY)
-+				goto out_unlock;
-+#endif
- 			list_del(&msg->m_list);
- 			msq->q_qnum--;
- 			msq->q_rtime = get_seconds();
-@@ -918,8 +959,13 @@ out_unlock:
- 			break;
- 		}
- 	}
--	if (IS_ERR(msg))
-+	if (IS_ERR(msg)) {
-+#ifdef CONFIG_CHECKPOINT_RESTORE
-+		if (msgflg & MSG_COPY)
-+			free_msg(copy);
-+#endif
- 		return PTR_ERR(msg);
-+	}
- 
- 	bufsz = msg_handler(buf, msg, bufsz);
- 	free_msg(msg);
-diff --git a/ipc/msgutil.c b/ipc/msgutil.c
-index 26143d3..b281f5c 100644
---- a/ipc/msgutil.c
-+++ b/ipc/msgutil.c
-@@ -100,7 +100,45 @@ out_err:
- 	free_msg(msg);
- 	return ERR_PTR(err);
- }
-+#ifdef CONFIG_CHECKPOINT_RESTORE
-+struct msg_msg *copy_msg(struct msg_msg *src, struct msg_msg *dst)
-+{
-+	struct msg_msgseg *dst_pseg, *src_pseg;
-+	int len = src->m_ts;
-+	int alen;
-+
-+	BUG_ON(dst == NULL);
-+	if (src->m_ts > dst->m_ts)
-+		return ERR_PTR(-EINVAL);
-+
-+	alen = len;
-+	if (alen > DATALEN_MSG)
-+		alen = DATALEN_MSG;
-+
-+	dst->next = NULL;
-+	dst->security = NULL;
- 
-+	memcpy(dst + 1, src + 1, alen);
-+
-+	len -= alen;
-+	dst_pseg = dst->next;
-+	src_pseg = src->next;
-+	while (len > 0) {
-+		alen = len;
-+		if (alen > DATALEN_SEG)
-+			alen = DATALEN_SEG;
-+		memcpy(dst_pseg + 1, src_pseg + 1, alen);
-+		dst_pseg = dst_pseg->next;
-+		len -= alen;
-+		src_pseg = src_pseg->next;
++		if (ret == msgque->msq_id)
++			break;
 +	}
 +
-+	dst->m_type = src->m_type;
-+	dst->m_ts = src->m_ts;
++	msgque->messages = malloc(sizeof(struct msg1) * ds.msg_qnum);
++	if (msgque->messages == NULL) {
++		printf("Failed to get stats for IPC queue\n");
++		return -ENOMEM;
++	}
 +
-+	return dst;
++	msgque->qnum = ds.msg_qnum;
++	msgque->mode = ds.msg_perm.mode;
++	msgque->qbytes = ds.msg_qbytes;
++
++	for (i = 0; i < msgque->qnum; i++) {
++		ret = msgrcv(msgque->msq_id, &msgque->messages[i].mtype, MAX_MSG_SIZE, i, IPC_NOWAIT | MSG_COPY);
++		if (ret < 0) {
++			printf("Failed to copy IPC message: %m (%d)\n", errno);
++			return -errno;
++		}
++		msgque->messages[i].msize = ret;
++	}
++	return 0;
 +}
-+#endif
- int store_msg(void __user *dest, struct msg_msg *msg, int len)
- {
- 	int alen;
-diff --git a/ipc/util.h b/ipc/util.h
-index 271bded..027f507 100644
---- a/ipc/util.h
-+++ b/ipc/util.h
-@@ -142,6 +142,7 @@ int ipc_parse_version (int *cmd);
- 
- extern void free_msg(struct msg_msg *msg);
- extern struct msg_msg *load_msg(const void __user *src, int len);
-+extern struct msg_msg *copy_msg(struct msg_msg *src, struct msg_msg *dst);
- extern int store_msg(void __user *dest, struct msg_msg *msg, int len);
- 
- extern void recompute_msgmni(struct ipc_namespace *);
++
++int fill_msgque(struct msgque_data *msgque)
++{
++	struct msg1 msgbuf;
++
++	msgbuf.mtype = MSG_TYPE;
++	memcpy(msgbuf.mtext, TEST_STRING, sizeof(TEST_STRING));
++	if (msgsnd(msgque->msq_id, &msgbuf.mtype, sizeof(TEST_STRING), IPC_NOWAIT) != 0) {
++		printf("First message send failed (%m)\n");
++		return -errno;
++	};
++
++	msgbuf.mtype = ANOTHER_MSG_TYPE;
++	memcpy(msgbuf.mtext, ANOTHER_TEST_STRING, sizeof(ANOTHER_TEST_STRING));
++	if (msgsnd(msgque->msq_id, &msgbuf.mtype, sizeof(ANOTHER_TEST_STRING), IPC_NOWAIT) != 0) {
++		printf("Second message send failed (%m)\n");
++		return -errno;
++	};
++	return 0;
++}
++
++int main (int argc, char **argv)
++{
++	key_t key;
++	int msg, pid, err;
++	struct msgque_data msgque;
++
++	key = ftok(argv[0], 822155650);
++	if (key == -1) {
++		printf("Can't make key\n");
++		return -errno;
++	}
++
++	msgque.msq_id = msgget(key, IPC_CREAT | IPC_EXCL | 0666);
++	if (msgque.msq_id == -1) {
++		printf("Can't create queue\n");
++		goto err_out;
++	}
++
++	err = fill_msgque(&msgque);
++	if (err) {
++		printf("Failed to fill queue\n");
++		goto err_destroy;
++	}
++
++	err = dump_queue(&msgque);
++	if (err) {
++		printf("Failed to dump queue\n");
++		goto err_destroy;
++	}
++
++	err = check_and_destroy_queue(&msgque);
++	if (err) {
++		printf("Failed to check and destroy queue\n");
++		goto err_out;
++	}
++
++	err = restore_queue(&msgque);
++	if (err) {
++		printf("Failed to restore queue\n");
++		goto err_destroy;
++	}
++
++	err = check_and_destroy_queue(&msgque);
++	if (err) {
++		printf("Failed to test queue\n");
++		goto err_out;
++	}
++	return 0;
++
++err_destroy:
++	if (msgctl(msgque.msq_id, IPC_RMID, 0)) {
++		printf("Failed to destroy queue: %d\n", -errno);
++		return -errno;
++	}
++err_out:
++	return err;
++}
