@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net-next 07/14] net: cdc_ncm: splitting rx_fixup for code reuse
-Date: Thu, 18 Oct 2012 22:41:00 +0200
-Message-ID: <1350592867-25651-8-git-send-email-bjorn@mork.no>
+Subject: [PATCH net-next 13/14] net: cdc_ncm: map MBIM IPS SessionID to VLAN ID
+Date: Thu, 18 Oct 2012 22:41:06 +0200
+Message-ID: <1350592867-25651-14-git-send-email-bjorn@mork.no>
 References: <1350592867-25651-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -20,152 +20,174 @@ In-Reply-To: <1350592867-25651-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.o
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Verifying and handling received MBIM and NCM frames will need
-to be different in three areas:
- - verifying the NDP signature
- - checking valid datagram length
- - datagram header manipulation
-
-This makes it inconvenient to share rx_fixup in whole.  But
-some verification parts are common.  Split these out in separate
-functions.
+MBIM devices can support up to 256 independent IP Streams.
+The main network device will only handle SessionID 0. Mapping
+SessionIDs 1 to 255 to VLANs using the SessionID as VLAN ID
+allow userspace to use these streams with traditional tools
+like vconfig.
 
 Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 ---
- drivers/net/usb/cdc_ncm.c |   83 ++++++++++++++++++++++++++++++-------=
---------
- 1 file changed, 55 insertions(+), 28 deletions(-)
+ drivers/net/usb/cdc_mbim.c |   51 ++++++++++++++++++++++++++++++++++++=
++-------
+ 1 file changed, 43 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 889969d..07d199a 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -990,19 +990,12 @@ error:
+diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
+index 2f21139..45f5f50 100644
+--- a/drivers/net/usb/cdc_mbim.c
++++ b/drivers/net/usb/cdc_mbim.c
+@@ -13,6 +13,7 @@
+ #include <linux/module.h>
+ #include <linux/netdevice.h>
+ #include <linux/ethtool.h>
++#include <linux/if_vlan.h>
+ #include <linux/ip.h>
+ #include <linux/mii.h>
+ #include <linux/usb.h>
+@@ -107,6 +108,9 @@ static int cdc_mbim_bind(struct usbnet *dev, struct=
+ usb_interface *intf)
+=20
+ 	/* MBIM cannot do ARP */
+ 	dev->net->flags |=3D IFF_NOARP;
++
++	/* no need to put the VLAN tci in the packet headers */
++	dev->net->features |=3D NETIF_F_HW_VLAN_TX;
+ err:
+ 	return ret;
+ }
+@@ -131,6 +135,9 @@ static struct sk_buff *cdc_mbim_tx_fixup(struct usb=
+net *dev, struct sk_buff *skb
+ 	struct sk_buff *skb_out;
+ 	struct cdc_mbim_state *info =3D (void *)&dev->data;
+ 	struct cdc_ncm_ctx *ctx =3D info->ctx;
++	__le32 sign =3D cpu_to_le32(USB_CDC_MBIM_NDP16_IPS_SIGN);
++	u16 tci =3D 0;
++	u8 *c;
+=20
+ 	if (!ctx)
+ 		goto error;
+@@ -139,6 +146,24 @@ static struct sk_buff *cdc_mbim_tx_fixup(struct us=
+bnet *dev, struct sk_buff *skb
+ 		if (skb->len <=3D sizeof(ETH_HLEN))
+ 			goto error;
+=20
++		/* mapping VLANs to MBIM sessions:
++		 *   no tag     =3D> IPS session <0>
++		 *   1 - 255    =3D> IPS session <vlanid>
++		 *   256 - 4095 =3D> unsupported, drop
++		 */
++		vlan_get_tag(skb, &tci);
++
++		switch (tci & 0x0f00) {
++		case 0x0000: /* VLAN ID 0 - 255 */
++			c =3D (u8 *)&sign;
++			c[3] =3D tci;
++			break;
++		default:
++			netif_err(dev, tx_err, dev->net,
++				  "unsupported tci=3D0x%04x\n", tci);
++			goto error;
++		}
++
+ 		skb_reset_mac_header(skb);
+ 		switch (eth_hdr(skb)->h_proto) {
+ 		case htons(ETH_P_IP):
+@@ -151,7 +176,7 @@ static struct sk_buff *cdc_mbim_tx_fixup(struct usb=
+net *dev, struct sk_buff *skb
+ 	}
+=20
+ 	spin_lock_bh(&ctx->mtx);
+-	skb_out =3D cdc_ncm_fill_tx_frame(ctx, skb, cpu_to_le32(USB_CDC_MBIM_=
+NDP16_IPS_SIGN));
++	skb_out =3D cdc_ncm_fill_tx_frame(ctx, skb, sign);
+ 	spin_unlock_bh(&ctx->mtx);
+ 	return skb_out;
+=20
+@@ -162,11 +187,14 @@ error:
  	return NULL;
  }
 =20
--static int cdc_ncm_rx_fixup(struct usbnet *dev, struct sk_buff *skb_in=
-)
-+/* verify NTB header and return offset of first NDP, or negative error=
- */
-+static int cdc_ncm_rx_verify_nth16(struct cdc_ncm_ctx *ctx, struct sk_=
-buff *skb_in)
+-static struct sk_buff *cdc_mbim_process_dgram(struct usbnet *dev, u8 *=
+buf, size_t len)
++static struct sk_buff *cdc_mbim_process_dgram(struct usbnet *dev, u8 *=
+buf, size_t len, u16 tci)
  {
--	struct sk_buff *skb;
+ 	__be16 proto;
+ 	struct sk_buff *skb =3D NULL;
+=20
++	if (len < sizeof(struct iphdr))
++		goto err;
++
+ 	switch (*buf & 0xf0) {
+ 	case 0x40:
+ 		proto =3D htons(ETH_P_IP);
+@@ -191,6 +219,10 @@ static struct sk_buff *cdc_mbim_process_dgram(stru=
+ct usbnet *dev, u8 *buf, size_
+=20
+ 	/* add datagram */
+ 	memcpy(skb_put(skb, len), buf, len);
++
++	/* map MBIM session to VLAN */
++	if (tci)
++		vlan_put_tag(skb, tci);
+ err:
+ 	return skb;
+ }
+@@ -198,7 +230,8 @@ err:
+ static int cdc_mbim_rx_fixup(struct usbnet *dev, struct sk_buff *skb_i=
+n)
+ {
+ 	struct sk_buff *skb;
 -	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
--	int len;
--	int nframes;
--	int x;
--	int offset;
- 	struct usb_cdc_ncm_nth16 *nth16;
--	struct usb_cdc_ncm_ndp16 *ndp16;
--	struct usb_cdc_ncm_dpe16 *dpe16;
--	int ndpoffset;
--	int loopcount =3D 50; /* arbitrary max preventing infinite loop */
-+	int len;
-+	int ret =3D -EINVAL;
++	struct cdc_mbim_state *info =3D (void *)&dev->data;
++	struct cdc_ncm_ctx *ctx =3D info->ctx;
+ 	int len;
+ 	int nframes;
+ 	int x;
+@@ -207,6 +240,8 @@ static int cdc_mbim_rx_fixup(struct usbnet *dev, st=
+ruct sk_buff *skb_in)
+ 	struct usb_cdc_ncm_dpe16 *dpe16;
+ 	int ndpoffset;
+ 	int loopcount =3D 50; /* arbitrary max preventing infinite loop */
++	u8 *c;
++	u16 tci;
 =20
- 	if (ctx =3D=3D NULL)
- 		goto error;
-@@ -1036,40 +1029,74 @@ static int cdc_ncm_rx_fixup(struct usbnet *dev,=
- struct sk_buff *skb_in)
- 	}
- 	ctx->rx_seq =3D le16_to_cpu(nth16->wSequence);
+ 	ndpoffset =3D cdc_ncm_rx_verify_nth16(ctx, skb_in);
+ 	if (ndpoffset < 0)
+@@ -219,9 +254,10 @@ next_ndp:
 =20
--	ndpoffset =3D le16_to_cpu(nth16->wNdpIndex);
--next_ndp:
-+	ret =3D le16_to_cpu(nth16->wNdpIndex);
-+error:
-+	return ret;
-+}
-+
-+/* verify NDP header and return number of datagrams, or negative error=
- */
-+static int cdc_ncm_rx_verify_ndp16(struct sk_buff *skb_in, int ndpoffs=
-et)
-+{
-+	struct usb_cdc_ncm_ndp16 *ndp16;
-+	int ret =3D -EINVAL;
-+
- 	if ((ndpoffset + sizeof(struct usb_cdc_ncm_ndp16)) > skb_in->len) {
- 		pr_debug("invalid NDP offset  <%u>\n", ndpoffset);
- 		goto error;
- 	}
  	ndp16 =3D (struct usb_cdc_ncm_ndp16 *)(skb_in->data + ndpoffset);
 =20
--	if (le32_to_cpu(ndp16->dwSignature) !=3D USB_CDC_NCM_NDP16_NOCRC_SIGN=
-) {
--		pr_debug("invalid DPT16 signature <%u>\n",
--					le32_to_cpu(ndp16->dwSignature));
--		goto err_ndp;
--	}
--
- 	if (le16_to_cpu(ndp16->wLength) < USB_CDC_NCM_NDP16_LENGTH_MIN) {
- 		pr_debug("invalid DPT16 length <%u>\n",
- 					le32_to_cpu(ndp16->dwSignature));
--		goto err_ndp;
-+		goto error;
- 	}
+-	/* only supporting IPS Session #0 for now */
+-	switch (ndp16->dwSignature) {
++	switch (ndp16->dwSignature & cpu_to_le32(0x00ffffff)) {
+ 	case cpu_to_le32(USB_CDC_MBIM_NDP16_IPS_SIGN):
++		c =3D (u8 *)&ndp16->dwSignature;
++		tci =3D c[3];
+ 		break;
+ 	default:
+ 		netif_dbg(dev, rx_err, dev->net,
+@@ -247,8 +283,7 @@ next_ndp:
+ 		}
 =20
--	nframes =3D ((le16_to_cpu(ndp16->wLength) -
-+	ret =3D ((le16_to_cpu(ndp16->wLength) -
- 					sizeof(struct usb_cdc_ncm_ndp16)) /
- 					sizeof(struct usb_cdc_ncm_dpe16));
--	nframes--; /* we process NDP entries except for the last one */
--
--	ndpoffset +=3D sizeof(struct usb_cdc_ncm_ndp16);
-+	ret--; /* we process NDP entries except for the last one */
-=20
--	if ((ndpoffset + nframes * (sizeof(struct usb_cdc_ncm_dpe16))) >
-+	if ((sizeof(struct usb_cdc_ncm_ndp16) + ret * (sizeof(struct usb_cdc_=
-ncm_dpe16))) >
- 								skb_in->len) {
--		pr_debug("Invalid nframes =3D %d\n", nframes);
--		goto err_ndp;
-+		pr_debug("Invalid nframes =3D %d\n", ret);
-+		ret =3D -EINVAL;
- 	}
-=20
--	dpe16 =3D (struct usb_cdc_ncm_dpe16 *)(skb_in->data + ndpoffset);
-+error:
-+	return ret;
-+}
-+
-+static int cdc_ncm_rx_fixup(struct usbnet *dev, struct sk_buff *skb_in=
-)
-+{
-+	struct sk_buff *skb;
-+	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
-+	int len;
-+	int nframes;
-+	int x;
-+	int offset;
-+	struct usb_cdc_ncm_ndp16 *ndp16;
-+	struct usb_cdc_ncm_dpe16 *dpe16;
-+	int ndpoffset;
-+	int loopcount =3D 50; /* arbitrary max preventing infinite loop */
-+
-+	ndpoffset =3D cdc_ncm_rx_verify_nth16(ctx, skb_in);
-+	if (ndpoffset < 0)
-+		goto error;
-+
-+next_ndp:
-+	nframes =3D cdc_ncm_rx_verify_ndp16(skb_in, ndpoffset);
-+	if (nframes < 0)
-+		goto error;
-+
-+	ndp16 =3D (struct usb_cdc_ncm_ndp16 *)(skb_in->data + ndpoffset);
-+
-+	if (le32_to_cpu(ndp16->dwSignature) !=3D USB_CDC_NCM_NDP16_NOCRC_SIGN=
-) {
-+		pr_debug("invalid DPT16 signature <%u>\n",
-+			 le32_to_cpu(ndp16->dwSignature));
-+		goto err_ndp;
-+	}
-+	dpe16 =3D ndp16->dpe16;
-=20
- 	for (x =3D 0; x < nframes; x++, dpe16++) {
- 		offset =3D le16_to_cpu(dpe16->wDatagramIndex);
+ 		/* sanity checking */
+-		if (((offset + len) > skb_in->len) || (len > ctx->rx_max) ||
+-		    (len < sizeof(struct iphdr))) {
++		if (((offset + len) > skb_in->len) || (len > ctx->rx_max)) {
+ 			netif_dbg(dev, rx_err, dev->net,
+ 				  "invalid frame detected (ignored) offset[%u]=3D%u, length=3D%u, =
+skb=3D%p\n",
+ 				  x, offset, len, skb_in);
+@@ -256,7 +291,7 @@ next_ndp:
+ 				goto err_ndp;
+ 			break;
+ 		} else {
+-			skb =3D cdc_mbim_process_dgram(dev, skb_in->data + offset, len);
++			skb =3D cdc_mbim_process_dgram(dev, skb_in->data + offset, len, tci=
+);
+ 			if (!skb)
+ 				goto error;
+ 			usbnet_skb_return(dev, skb);
 --=20
 1.7.10.4
 
