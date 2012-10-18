@@ -1,33 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Bug? TCP shutdown behaviour when deleting local IP addresses
-Date: Wed, 17 Oct 2012 19:27:53 -0400 (EDT)
-Message-ID: <20121017.192753.1673804218598802357.davem@davemloft.net>
-References: <507F38D4.102@genband.com>
+From: ratheesh kannoth <ratheesh.ksz@gmail.com>
+Subject: Re: igb mtu change
+Date: Thu, 18 Oct 2012 05:40:32 +0530
+Message-ID: <CAGZFCEFyoUrKKQ-fDhrpH-BAjtby9GAq2uy5uQ816fsDMvbtew@mail.gmail.com>
+References: <CAGZFCEHACn8e99vL3hA_ErvmQ=5E4dfEbO7TjEU=92eeUUT7UQ@mail.gmail.com>
+	<507F108A.3080308@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	kaber@trash.net, yoshfuji@linux-ipv6.org
-To: chris.friesen@genband.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: e1000-devel@lists.sourceforge.net, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44761 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752086Ab2JQX16 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2012 19:27:58 -0400
-In-Reply-To: <507F38D4.102@genband.com>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:45114 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752612Ab2JRAKd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2012 20:10:33 -0400
+In-Reply-To: <507F108A.3080308@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Friesen <chris.friesen@genband.com>
-Date: Wed, 17 Oct 2012 17:01:40 -0600
+On Thu, Oct 18, 2012 at 1:39 AM, Alexander Duyck
+<alexander.h.duyck@intel.com> wrote:
+> The current igb driver does receive the frame data into 2K buffers, and
+> transmits up to MTU size.  The only limitation on the size of the frame
+> you can transmit is the netdev->mtu which the driver doesn't evaluate.
+> It is evaluated at the network stack level.  The igb driver can send up
+> to 9K frames, in addition it can TSO up to 64K frames and send them in
+> 9K chunks so I am not sure what you are asking.
+>
+> Thanks,
+>
+> Alex
 
-> I sent this to the list yesterday (from another address) but didn't
-> get any responses.  Accordingly I'm expanding the receiver list to the
-> listed maintainers for IPv4/IPv6.
+Thanks a lot.
+I am using igb-3.3.6  for hardware   - vendor=0x8086, device=0x10e6
+only CONFIG_IGB_DISABLE_PACKET_SPLIT defined.
 
-It can take more than 24 hours to get a response from people who are
-volunteers, and who will reply to your report because they want to
-rather than because they are obligated.
 
-Posting it again just irritates such people, and will place your
-report at a much lower priority, just FYI.
+I will explain my question in detail.
+
+
+int  i = 0 ;
+rx_desc = IGB_RX_DESC(rx_ring, i);
+
+if(!(igb_test_staterr(rx_desc, E1000_RXD_STAT_EOP) ) {
+     printk ( "part of Jumbo frame ...Not the last junk ");
+}
+
+
+If mtu is 1500,  and jumbo frame size is 9200.   I get the printk  -
+part of Jumbo frame ...Not the last junk .
+
+But if i change mtu to 9216,  the condition ,
+!(igb_test_staterr(rx_desc, E1000_RXD_STAT_EOP) , looks like
+never satisfied .
+
+Thanks,
+Ratheesh
