@@ -1,49 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: sock_getsockopt() not exported
-Date: Thu, 18 Oct 2012 14:27:55 +0200
-Message-ID: <1350563275.26103.1465.camel@edumazet-glaptop>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B7052@saturn3.aculab.com>
-	 <1350552612.26103.1281.camel@edumazet-glaptop>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7053@saturn3.aculab.com>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH v1] net/core: support runtime PM on net_device
+Date: Thu, 18 Oct 2012 20:55:58 +0800
+Message-ID: <CACVXFVMmSFHYU-sNHRM7g_8U6mjbdbE+bNPxM-F8iAB=4WudRA@mail.gmail.com>
+References: <1350548469-1267-1-git-send-email-ming.lei@canonical.com>
+	<8762689o9u.fsf@nemi.mork.no>
+	<CACVXFVPu1m3CJaFavW9eaU3Z850q+x1N_Yo7tri1UTFpgfYVXQ@mail.gmail.com>
+	<87obk080us.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Oliver Neukum <oneukum@suse.de>,
+	Alan Stern <stern@rowland.harvard.edu>, netdev@vger.kernel.org,
+	linux-pm@vger.kernel.org
+To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:59787 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754350Ab2JRM2B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 08:28:01 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so4117083bkc.19
-        for <netdev@vger.kernel.org>; Thu, 18 Oct 2012 05:28:00 -0700 (PDT)
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7053@saturn3.aculab.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:56033 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755067Ab2JRM4A convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 08:56:00 -0400
+In-Reply-To: <87obk080us.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-10-18 at 13:03 +0100, David Laight wrote:
-> > On Thu, 2012-10-18 at 10:11 +0100, David Laight wrote:
-> > > I've noticed that net/core/sock.c contains an
-> > >     EXPORT_SYMBOL(sock_setsockopt)
-> > > but is missing the corresponding
-> > >     EXPORT_SYMBOL(sock_getsockopt)
-> > >
-> > > In-kernel users of sockets probably manage without
-> > > needing to read SOL_SOCKET options.
-> > > (They do need to set SO_REUSADDR and SO_KEEPALIVE.)
-> > 
-> > sock_setsockopt() is exported because sunrpc needs it, and sunrpc can be
-> > a module
-> > 
-> > sock_getsockopt() is not exported because no module needs it yet.
-> > 
-> > The day one user needs it, we'll add the EXPORT_SYMBOL()
-> 
-> The problem is that it might be needed by an 'out of tree' driver.
-> We already have the function:
+On Thu, Oct 18, 2012 at 7:40 PM, Bj=F8rn Mork <bjorn@mork.no> wrote:
+>
+> Because bugs are supposed to be fixed and not hidden?
 
-We dont care of out of tree drivers.
+OK, now let's discuss solution for the problem which should be
+clear and be solved.
 
-Thats really simple.
+The 1st one is to do it by this patch, or rule out some ioctl cmd
+which needn't wakeup device.
 
-Submit this driver, and add the EXPORT_SYMBOL() you need at that time.
+The second one is to fix ioctl one by one in each driver.
+
+Any other solution?
+
+>
+> Note that I am not claiming this is a bug.  That is still an open
+> question as far as I can see.
+
+
+Thanks,
+--
+Ming Lei
