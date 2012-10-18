@@ -1,48 +1,41 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: Bug?  TCP shutdown behaviour when deleting local IP addresses
-Date: Thu, 18 Oct 2012 14:01:49 +0400
-Message-ID: <20121018100149.GA5176@ms2.inr.ac.ru>
-References: <507F38D4.102@genband.com> <alpine.DEB.2.00.1210180946020.21297@uplift.swm.pp.se> <1350551609.26103.1261.camel@edumazet-glaptop>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: [PATCH 0/5] drivers: xen frontend devices should handle missed backend
+ CLOSING
+Date: Thu, 18 Oct 2012 11:02:07 +0100
+Message-ID: <507FD39F.4060601@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mikael Abrahamsson <swmike@swm.pp.se>,
-	Chris Friesen <chris.friesen@genband.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	James Morris <jmorris@namei.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:60792 "HELO ms2.inr.ac.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752350Ab2JRKCG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Oct 2012 06:02:06 -0400
-Content-Disposition: inline
-In-Reply-To: <1350551609.26103.1261.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Vrabel <david.vrabel@citrix.com>
+To: "xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jens Axboe <axboe@kernel.dk>, <linux-pci@vger.kernel.org>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	<linux-fbdev@vger.kernel.org>,
+	Florian Tobias Schandinat <FlorianSchandinat@gmx.de>,
+	<linux-input@vger.kernel.org>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 18, 2012 at 11:13:29AM +0200, Eric Dumazet wrote:
-> > c) tell the kernel to kill all TCP sessions bound to a certain IP, because 
-> > the connection manager is going to remove it shortly. Send TCP RSTs or 
-> > whatever and close the TCP session, so both ends know that network 
-> > connectivity is going down.
-> > 
-> 
-> Yes, why not.
+Subsystem maintainers, you can either pick up the relevant driver patch
+or ack it to go via Konrad's Xen tree.
 
-FYI the idea was by Andi Kleen back in 2003. If was flag IFF_DYNAMIC
-on device (apparently, it should be per-interface sysctl instead
-or even a flag on specific address).
+The series makes all the Xen frontend drivers handle the backend
+transitioning to CLOSED without the frontend having previously seen
+the backend in the CLOSING state.
 
-Andi suggested to hook netdev notifier and to reset tcp connections
-bound to addresses on this interface. He did not go so far to send
-resets before address is actually disabled (it was not a goal, normally
-address is already dead to the time when it is deleted),
-but techically it is the same.
+Backends shouldn't do this but some do.  e.g., if the host is
+XenServer and the toolstack decides to do a forced shutdown of a VBD,
+then the blkfront may miss the CLOSING transition and the /dev/xvdX
+device will not be destroyed which prevents it being reused.
 
-The problem with this was purely technical, the code has to scan through
-all the tcp hash table to search for connections to this address (grrr already :-))
-and to take socket lock before making any actions. It is doable, but quite chumbersome
-and nobody was interested enough to finish the job.
+I have seen systems that ended up in this state but it's not clear if
+this was the actual cause.  However, I think in general it's a good
+thing to thing to improve the handling of unexpected state
+transitions.
+
+David
