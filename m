@@ -1,7 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v7 07/10] ipc: add new SEM_SET command for sys_semctl() call
-Date: Thu, 18 Oct 2012 14:23:11 +0400
-Message-ID: <20121018102311.16036.96891.stgit@localhost.localdomain>
+Subject: [PATCH v7 09/10] IPC: message queue copy feature introduced
+Date: Thu, 18 Oct 2012 14:23:22 +0400
+Message-ID: <20121018102322.16036.86866.stgit@localhost.localdomain>
 References: <20121018101543.16036.12221.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -23,105 +23,197 @@ In-Reply-To: <20121018101543.16036.12221.stgit@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-New SEM_SET command will be interpreted exactly as IPC_SET, but also will
-update key, cuid and cgid values. IOW, it allows to change existent key value.
-The fact, that key is not used is checked before update. Otherwise -EEXIST is
-returned.
+This patch is required for checkpoint/restore in userspace.
+IOW, c/r requires some way to get all pending IPC messages without deleting
+them from the queue (checkpoint can fail and in this case tasks will be resumed,
+so queue have to be valid).
+To achive this, new operation flag MSG_COPY for sys_msgrcv() system call was
+introduced. If this flag was specified, then mtype is interpreted as number of
+the message to copy.
+If MSG_COPY is set, then kernel will allocate dummy message with passed size,
+and then use new copy_msg() helper function to copy desired message (instead of
+unlinking it from the queue).
+
+Notes:
+1) Return -ENOSYS if MSG_COPY is specified, but CONFIG_CHECKPOINT_RESTORE is
+not set.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 ---
- include/uapi/linux/sem.h   |    1 +
- ipc/compat.c               |    1 +
- ipc/sem.c                  |   11 +++++++++--
- security/selinux/hooks.c   |    1 +
- security/smack/smack_lsm.c |    1 +
- 5 files changed, 13 insertions(+), 2 deletions(-)
+ include/uapi/linux/msg.h |    1 +
+ ipc/msg.c                |   50 ++++++++++++++++++++++++++++++++++++++++++++--
+ ipc/msgutil.c            |   38 +++++++++++++++++++++++++++++++++++
+ ipc/util.h               |    1 +
+ 4 files changed, 88 insertions(+), 2 deletions(-)
 
-diff --git a/include/uapi/linux/sem.h b/include/uapi/linux/sem.h
-index 541fce0..b6ae374 100644
---- a/include/uapi/linux/sem.h
-+++ b/include/uapi/linux/sem.h
-@@ -18,6 +18,7 @@
- /* ipcs ctl cmds */
- #define SEM_STAT 18
- #define SEM_INFO 19
-+#define SEM_SET  20
+diff --git a/include/uapi/linux/msg.h b/include/uapi/linux/msg.h
+index 76999c9..c1af84a 100644
+--- a/include/uapi/linux/msg.h
++++ b/include/uapi/linux/msg.h
+@@ -11,6 +11,7 @@
+ /* msgrcv options */
+ #define MSG_NOERROR     010000  /* no error if message is too big */
+ #define MSG_EXCEPT      020000  /* recv any msg except of specified type.*/
++#define MSG_COPY        040000  /* copy (not remove) all queue messages */
  
  /* Obsolete, used only for backwards compatibility and libc5 compiles */
- struct semid_ds {
-diff --git a/ipc/compat.c b/ipc/compat.c
-index 9c70f9a..84d8efd 100644
---- a/ipc/compat.c
-+++ b/ipc/compat.c
-@@ -290,6 +290,7 @@ static long do_compat_semctl(int first, int second, int third, u32 pad)
- 		break;
+ struct msqid_ds {
+diff --git a/ipc/msg.c b/ipc/msg.c
+index 028ab87..a908529 100644
+--- a/ipc/msg.c
++++ b/ipc/msg.c
+@@ -789,19 +789,48 @@ long do_msgrcv(int msqid, void __user *buf, size_t bufsz, long msgtyp,
+ 	struct msg_msg *msg;
+ 	int mode;
+ 	struct ipc_namespace *ns;
++#ifdef CONFIG_CHECKPOINT_RESTORE
++	struct msg_msg *copy = NULL;
++	unsigned long copy_number = 0;
++#endif
  
- 	case IPC_SET:
-+	case SEM_SET:
- 		if (version == IPC_64) {
- 			err = get_compat_semid64_ds(&s64, compat_ptr(pad));
- 		} else {
-diff --git a/ipc/sem.c b/ipc/sem.c
-index 10e9085..13b480a 100644
---- a/ipc/sem.c
-+++ b/ipc/sem.c
-@@ -1085,12 +1085,13 @@ static int semctl_down(struct ipc_namespace *ns, int semid,
- 	struct semid64_ds semid64;
- 	struct kern_ipc_perm *ipcp;
+ 	if (msqid < 0 || (long) bufsz < 0)
+ 		return -EINVAL;
++	if (msgflg & MSG_COPY) {
++#ifdef CONFIG_CHECKPOINT_RESTORE
++
++		if (msgflg & MSG_COPY) {
++			copy_number = msgtyp;
++			msgtyp = 0;
++		}
++
++		/*
++		 * Create dummy message to copy real message to.
++		 */
++		copy = load_msg(buf, bufsz);
++		if (IS_ERR(copy))
++			return PTR_ERR(copy);
++		copy->m_ts = bufsz;
++#else
++		return -ENOSYS;
++#endif
++	}
+ 	mode = convert_mode(&msgtyp, msgflg);
+ 	ns = current->nsproxy->ipc_ns;
  
--	if(cmd == IPC_SET) {
-+	if (cmd == IPC_SET || cmd == SEM_SET) {
- 		if (copy_semid_from_user(&semid64, arg.buf, version))
- 			return -EFAULT;
+ 	msq = msg_lock_check(ns, msqid);
+-	if (IS_ERR(msq))
++	if (IS_ERR(msq)) {
++#ifdef CONFIG_CHECKPOINT_RESTORE
++		if (msgflg & MSG_COPY)
++			free_msg(copy);
++#endif
+ 		return PTR_ERR(msq);
++	}
+ 
+ 	for (;;) {
+ 		struct msg_receiver msr_d;
+ 		struct list_head *tmp;
++		long msg_counter = 0;
+ 
+ 		msg = ERR_PTR(-EACCES);
+ 		if (ipcperms(ns, &msq->q_perm, S_IRUGO))
+@@ -821,8 +850,16 @@ long do_msgrcv(int msqid, void __user *buf, size_t bufsz, long msgtyp,
+ 				if (mode == SEARCH_LESSEQUAL &&
+ 						walk_msg->m_type != 1) {
+ 					msgtyp = walk_msg->m_type - 1;
++#ifdef CONFIG_CHECKPOINT_RESTORE
++				} else if (msgflg & MSG_COPY) {
++					if (copy_number == msg_counter) {
++						msg = copy_msg(walk_msg, copy);
++						break;
++					}
++#endif
+ 				} else
+ 					break;
++				msg_counter++;
+ 			}
+ 			tmp = tmp->next;
+ 		}
+@@ -835,6 +872,10 @@ long do_msgrcv(int msqid, void __user *buf, size_t bufsz, long msgtyp,
+ 				msg = ERR_PTR(-E2BIG);
+ 				goto out_unlock;
+ 			}
++#ifdef CONFIG_CHECKPOINT_RESTORE
++			if (msgflg & MSG_COPY)
++				goto out_unlock;
++#endif
+ 			list_del(&msg->m_list);
+ 			msq->q_qnum--;
+ 			msq->q_rtime = get_seconds();
+@@ -918,8 +959,13 @@ out_unlock:
+ 			break;
+ 		}
  	}
+-	if (IS_ERR(msg))
++	if (IS_ERR(msg)) {
++#ifdef CONFIG_CHECKPOINT_RESTORE
++		if (msgflg & MSG_COPY)
++			free_msg(copy);
++#endif
+ 		return PTR_ERR(msg);
++	}
  
--	ipcp = ipcctl_pre_down(ns, &sem_ids(ns), semid, cmd,
-+	ipcp = ipcctl_pre_down(ns, &sem_ids(ns), semid,
-+			       (cmd != SEM_SET) ? cmd : IPC_SET,
- 			       &semid64.sem_perm, 0);
- 	if (IS_ERR(ipcp))
- 		return PTR_ERR(ipcp);
-@@ -1105,6 +1106,11 @@ static int semctl_down(struct ipc_namespace *ns, int semid,
- 	case IPC_RMID:
- 		freeary(ns, ipcp);
- 		goto out_up;
-+	case SEM_SET:
-+		err = ipc_update_key(&sem_ids(ns), &semid64.sem_perm, ipcp);
-+		if (err)
-+			break;
-+		 /* fall through */
- 	case IPC_SET:
- 		err = ipc_update_perm(&semid64.sem_perm, ipcp);
- 		if (err)
-@@ -1152,6 +1158,7 @@ SYSCALL_DEFINE(semctl)(int semid, int semnum, int cmd, union semun arg)
- 		return err;
- 	case IPC_RMID:
- 	case IPC_SET:
-+	case SEM_SET:
- 		err = semctl_down(ns, semid, cmd, version, arg);
- 		return err;
- 	default:
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 78b77ac..02b037d 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -5133,6 +5133,7 @@ static int selinux_sem_semctl(struct sem_array *sma, int cmd)
- 		perms = SEM__DESTROY;
- 		break;
- 	case IPC_SET:
-+	case SEM_SET:
- 		perms = SEM__SETATTR;
- 		break;
- 	case IPC_STAT:
-diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
-index d51a8da..b4135ed 100644
---- a/security/smack/smack_lsm.c
-+++ b/security/smack/smack_lsm.c
-@@ -2253,6 +2253,7 @@ static int smack_sem_semctl(struct sem_array *sma, int cmd)
- 	case SETALL:
- 	case IPC_RMID:
- 	case IPC_SET:
-+	case SEM_SET:
- 		may = MAY_READWRITE;
- 		break;
- 	case IPC_INFO:
+ 	bufsz = msg_handler(buf, msg, bufsz);
+ 	free_msg(msg);
+diff --git a/ipc/msgutil.c b/ipc/msgutil.c
+index 26143d3..b281f5c 100644
+--- a/ipc/msgutil.c
++++ b/ipc/msgutil.c
+@@ -100,7 +100,45 @@ out_err:
+ 	free_msg(msg);
+ 	return ERR_PTR(err);
+ }
++#ifdef CONFIG_CHECKPOINT_RESTORE
++struct msg_msg *copy_msg(struct msg_msg *src, struct msg_msg *dst)
++{
++	struct msg_msgseg *dst_pseg, *src_pseg;
++	int len = src->m_ts;
++	int alen;
++
++	BUG_ON(dst == NULL);
++	if (src->m_ts > dst->m_ts)
++		return ERR_PTR(-EINVAL);
++
++	alen = len;
++	if (alen > DATALEN_MSG)
++		alen = DATALEN_MSG;
++
++	dst->next = NULL;
++	dst->security = NULL;
+ 
++	memcpy(dst + 1, src + 1, alen);
++
++	len -= alen;
++	dst_pseg = dst->next;
++	src_pseg = src->next;
++	while (len > 0) {
++		alen = len;
++		if (alen > DATALEN_SEG)
++			alen = DATALEN_SEG;
++		memcpy(dst_pseg + 1, src_pseg + 1, alen);
++		dst_pseg = dst_pseg->next;
++		len -= alen;
++		src_pseg = src_pseg->next;
++	}
++
++	dst->m_type = src->m_type;
++	dst->m_ts = src->m_ts;
++
++	return dst;
++}
++#endif
+ int store_msg(void __user *dest, struct msg_msg *msg, int len)
+ {
+ 	int alen;
+diff --git a/ipc/util.h b/ipc/util.h
+index 271bded..027f507 100644
+--- a/ipc/util.h
++++ b/ipc/util.h
+@@ -142,6 +142,7 @@ int ipc_parse_version (int *cmd);
+ 
+ extern void free_msg(struct msg_msg *msg);
+ extern struct msg_msg *load_msg(const void __user *src, int len);
++extern struct msg_msg *copy_msg(struct msg_msg *src, struct msg_msg *dst);
+ extern int store_msg(void __user *dest, struct msg_msg *msg, int len);
+ 
+ extern void recompute_msgmni(struct ipc_namespace *);
