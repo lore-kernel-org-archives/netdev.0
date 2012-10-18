@@ -1,59 +1,47 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH v2] ipv4: Fix flushing of cached routing informations
-Date: Thu, 18 Oct 2012 09:17:44 +0200
-Message-ID: <20121018071744.GD27385@secunet.com>
-References: <20121018052730.GB27385@secunet.com>
- <alpine.LFD.2.00.1210180927230.1572@ja.ssi.bg>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bug?  TCP shutdown behaviour when deleting local IP addresses
+Date: Thu, 18 Oct 2012 09:29:42 +0200
+Message-ID: <1350545382.26103.1103.camel@edumazet-glaptop>
+References: <507F38D4.102@genband.com>
+	 <1350540348.26103.1015.camel@edumazet-glaptop>
+	 <507FAAE1.6000903@genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: Chris Friesen <chris.friesen@genband.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:38443 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751259Ab2JRHRv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Oct 2012 03:17:51 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1210180927230.1572@ja.ssi.bg>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:35915 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751468Ab2JRH3s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 03:29:48 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so3958027bkc.19
+        for <netdev@vger.kernel.org>; Thu, 18 Oct 2012 00:29:47 -0700 (PDT)
+In-Reply-To: <507FAAE1.6000903@genband.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we can not flush cached pmtu/redirect informations via
-the ipv4_sysctl_rtcache_flush sysctl. We need to check the rt_genid
-of the old route and reset the nh exeption if the old route is
-expired when we bind a new route to a nh exeption.
+On Thu, 2012-10-18 at 01:08 -0600, Chris Friesen wrote:
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv4/route.c |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
+> 
+> While I agree generally, it's a bit unfortunate that we can't (as a 
+> quality of implementation thing) give an earlier notice of failure since 
+> the kernel knows about both ends of the connection even though the IP 
+> address is gone.  On the other hand, I imagine that would mean 
+> special-casing things and presumably that would open a whole can of worms.
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 432f4bb..a8c6512 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1163,8 +1163,12 @@ static bool rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
- 	spin_lock_bh(&fnhe_lock);
- 
- 	if (daddr == fnhe->fnhe_daddr) {
--		struct rtable *orig;
--
-+		struct rtable *orig = rcu_dereference(fnhe->fnhe_rth);
-+		if (orig && rt_is_expired(orig)) {
-+			fnhe->fnhe_gw = 0;
-+			fnhe->fnhe_pmtu = 0;
-+			fnhe->fnhe_expires = 0;
-+		}
- 		if (fnhe->fnhe_pmtu) {
- 			unsigned long expires = fnhe->fnhe_expires;
- 			unsigned long diff = expires - jiffies;
-@@ -1181,7 +1185,6 @@ static bool rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
- 		} else if (!rt->rt_gateway)
- 			rt->rt_gateway = daddr;
- 
--		orig = rcu_dereference(fnhe->fnhe_rth);
- 		rcu_assign_pointer(fnhe->fnhe_rth, rt);
- 		if (orig)
- 			rt_free(orig);
--- 
-1.7.0.4
+Really what is the difference between a cable cut and what you are
+doing ?
+
+Some frames are lost (Dropped), and sender doesnt 'know' that is
+definitive or temporary failure.
+
+If you want faster response, you need to send RST messages, not dropping
+frames.
+
+So change your strategy, and add an iptables rule for example ?
