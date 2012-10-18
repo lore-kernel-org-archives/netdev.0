@@ -1,47 +1,44 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH v1] net/core: support runtime PM on net_device
-Date: Thu, 18 Oct 2012 20:55:58 +0800
-Message-ID: <CACVXFVMmSFHYU-sNHRM7g_8U6mjbdbE+bNPxM-F8iAB=4WudRA@mail.gmail.com>
-References: <1350548469-1267-1-git-send-email-ming.lei@canonical.com>
-	<8762689o9u.fsf@nemi.mork.no>
-	<CACVXFVPu1m3CJaFavW9eaU3Z850q+x1N_Yo7tri1UTFpgfYVXQ@mail.gmail.com>
-	<87obk080us.fsf@nemi.mork.no>
+From: Mikael Abrahamsson <swmike@swm.pp.se>
+Subject: Re: Bug?  TCP shutdown behaviour when deleting local IP addresses
+Date: Thu, 18 Oct 2012 15:00:01 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.1210181458560.21297@uplift.swm.pp.se>
+References: <507F38D4.102@genband.com> <m3vce83w1y.fsf@ursa.amorsen.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Oliver Neukum <oneukum@suse.de>,
-	Alan Stern <stern@rowland.harvard.edu>, netdev@vger.kernel.org,
-	linux-pm@vger.kernel.org
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Chris Friesen <chris.friesen@genband.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: Benny Amorsen <benny+usenet@amorsen.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:56033 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755067Ab2JRM4A convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 08:56:00 -0400
-In-Reply-To: <87obk080us.fsf@nemi.mork.no>
+Received: from swm.pp.se ([212.247.200.143]:60053 "EHLO uplift.swm.pp.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755068Ab2JRNAE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2012 09:00:04 -0400
+In-Reply-To: <m3vce83w1y.fsf@ursa.amorsen.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 18, 2012 at 7:40 PM, Bj=F8rn Mork <bjorn@mork.no> wrote:
+On Thu, 18 Oct 2012, Benny Amorsen wrote:
+
+> Chris Friesen <chris.friesen@genband.com> writes:
 >
-> Because bugs are supposed to be fixed and not hidden?
-
-OK, now let's discuss solution for the problem which should be
-clear and be solved.
-
-The 1st one is to do it by this patch, or rule out some ioctl cmd
-which needn't wakeup device.
-
-The second one is to fix ioctl one by one in each driver.
-
-Any other solution?
-
+>> 7) client waits for response from server, and waits forever or until
+>> keepalive expires
 >
-> Note that I am not claiming this is a bug.  That is still an open
-> question as far as I can see.
+> Please don't fix that. I sometimes move my laptop from one ethernet
+> socket to another. During the move I lose my DHCP-assigned IP address.
 
+Would you mind if it was user configurable?
 
-Thanks,
---
-Ming Lei
+> I do not want to lose my SSH sessions too.
+
+Would you mind if the TCP retransmit timers were severely lowered upon 
+reconnection so your TCP sessions started working quicker? Or you don't 
+see this problem at all?
+
+-- 
+Mikael Abrahamsson    email: swmike@swm.pp.se
