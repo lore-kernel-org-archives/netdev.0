@@ -1,8 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v7 01/10] ipc: remove forced assignment of selected message
-Date: Thu, 18 Oct 2012 14:22:41 +0400
-Message-ID: <20121018102241.16036.30820.stgit@localhost.localdomain>
-References: <20121018101543.16036.12221.stgit@localhost.localdomain>
+Subject: [PATCH v7 00/10] IPC: checkpoint/restore in userspace enhancements
+Date: Thu, 18 Oct 2012 14:22:21 +0400
+Message-ID: <20121018101543.16036.12221.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -19,32 +18,88 @@ Cc: catalin.marinas@arm.com, will.deacon@arm.com, dhowells@redhat.com,
 	casey@schaufler-ca.com
 To: akpm@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121018101543.16036.12221.stgit@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a cleanup patch. The assignment is redundant.
+v7:
+1) Added comments in places, when behiviour is not obvious.
+2) Compilation fixed for compat layer
+3) test updated to use existent header files (instead of hard-coding new
+defines in case of absence).
+4) comment fixed in qlge driver
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+v6:
+1) rebased on 3.7-rc1
+
+v5:
+1) Several define-dependent compile bugs fixed
+2) IPC message copy test updated
+3) A couple of minor fixes.
+4) Qlogic driver update: rename of its internal SEM_SET define into SEM_INIT
+(compile error).
+
+v4:
+1) If MSG_COPY flag is specified, then "mtype" is not a type, but message
+number to copy.
+2) MSG_SET_COPY logic for sys_msgctl() was removed.
+
+v3:
+1) Copy messages to user-space under spinlock was replaced by allocation of
+dummy message before queue lock and then copy of desired message to the dummy
+one instead of unlinking it from queue list.
+I.e. the message queue copy logic was changed: messages can be retrived one by
+one (instead of receiving of the whole list at once).
+
+This patch set is aimed to provide additional functionality for all IPC
+objects,
+which is required for migration of these objects by user-space
+checkpoint/restore utils (CRIU).
+
+The main problem here was impossibility to set up object id. This patch set
+solves the problem in two steps:
+1) Makes it possible to create new object (shared memory, semaphores set or
+messages queue) with ID, equal to passed key.
+2) Makes it possible to change existent object key.
+
+Another problem was to peek messages from queues without deleting them.
+This was achived by introducing of new MSG_COPY flag for sys_msgrcv(). If
+MSG_COPY flag is set, then msgtyp is interpreted as message number.
+
+The following series implements...
+
 ---
- ipc/msg.c |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
 
-diff --git a/ipc/msg.c b/ipc/msg.c
-index a71af5a..2f272fa 100644
---- a/ipc/msg.c
-+++ b/ipc/msg.c
-@@ -793,12 +793,9 @@ long do_msgrcv(int msqid, long *pmtype, void __user *mtext,
- 				msg = walk_msg;
- 				if (mode == SEARCH_LESSEQUAL &&
- 						walk_msg->m_type != 1) {
--					msg = walk_msg;
- 					msgtyp = walk_msg->m_type - 1;
--				} else {
--					msg = walk_msg;
-+				} else
- 					break;
--				}
- 			}
- 			tmp = tmp->next;
- 		}
+Stanislav Kinsbursky (10):
+      ipc: remove forced assignment of selected message
+      ipc: "use key as id" functionality for resource get system call introduced
+      ipc: segment key change helper introduced
+      ipc: add new SHM_SET command for sys_shmctl() call
+      ipc: add new MSG_SET command for sys_msgctl() call
+      qlge driver: rename internal SEM_SET macro to SEM_INIT
+      ipc: add new SEM_SET command for sys_semctl() call
+      IPC: message queue receive cleanup
+      IPC: message queue copy feature introduced
+      test: IPC message queue copy feture test
+
+
+ drivers/net/ethernet/qlogic/qlge/qlge.h      |    4 
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c |   16 +-
+ include/linux/msg.h                          |    5 -
+ include/uapi/linux/ipc.h                     |    1 
+ include/uapi/linux/msg.h                     |    2 
+ include/uapi/linux/sem.h                     |    1 
+ include/uapi/linux/shm.h                     |    1 
+ ipc/compat.c                                 |   54 +++---
+ ipc/msg.c                                    |  117 ++++++++++---
+ ipc/msgutil.c                                |   38 ++++
+ ipc/sem.c                                    |   15 +-
+ ipc/shm.c                                    |   18 ++
+ ipc/util.c                                   |   67 +++++++-
+ ipc/util.h                                   |    6 +
+ security/selinux/hooks.c                     |    3 
+ security/smack/smack_lsm.c                   |    3 
+ tools/testing/selftests/ipc/Makefile         |   25 +++
+ tools/testing/selftests/ipc/msgque.c         |  231 ++++++++++++++++++++++++++
+ 18 files changed, 526 insertions(+), 81 deletions(-)
+ create mode 100644 tools/testing/selftests/ipc/Makefile
+ create mode 100644 tools/testing/selftests/ipc/msgque.c
