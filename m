@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net-next 06/14] net: cdc_ncm: process chained NDPs
-Date: Thu, 18 Oct 2012 22:40:59 +0200
-Message-ID: <1350592867-25651-7-git-send-email-bjorn@mork.no>
+Subject: [PATCH net-next 12/14] net: cdc_ncm: do not bind to NCM compatible MBIM devices
+Date: Thu, 18 Oct 2012 22:41:05 +0200
+Message-ID: <1350592867-25651-13-git-send-email-bjorn@mork.no>
 References: <1350592867-25651-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -13,133 +13,90 @@ Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
 	"Fangxiaozhi (Franko)" <fangxiaozhi@huawei.com>,
 	Dan Williams <dcbw@redhat.com>,
 	Aleksander Morgado <aleksander@lanedo.com>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+	Greg Suarez <gsuarez@smithmicro.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:60318 "EHLO canardo.mork.no"
+Received: from canardo.mork.no ([148.122.252.1]:60323 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932288Ab2JRUm1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Oct 2012 16:42:27 -0400
+	id S932288Ab2JRUma (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2012 16:42:30 -0400
 In-Reply-To: <1350592867-25651-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The NCM 1.0 spefication makes provisions for linking more than
-one NDP into a single NTB. This is important for MBIM support,
-where these NDPs might be of different types.
+The MBIM specification allows a MBIM device to disguise
+itself as NCM for backwards compatibility, using additional
+altsettings with different subclass (control) or protocol
+(data):
 
-=46ollowing the chain of NDPs is also correct for NCM, and will
-not change anything in the common case where there is only
-one NDP
+C:* #Ifs=3D 2 Cfg#=3D 1 Atr=3D80 MxPwr=3D100mA
+I:  If#=3D 0 Alt=3D 0 #EPs=3D 1 Cls=3D02(comm.) Sub=3D0d Prot=3D00 Driv=
+er=3Dcdc_mbim
+E:  Ad=3D81(I) Atr=3D03(Int.) MxPS=3D  64 Ivl=3D7ms
+I:* If#=3D 0 Alt=3D 1 #EPs=3D 1 Cls=3D02(comm.) Sub=3D0e Prot=3D00 Driv=
+er=3Dcdc_mbim
+E:  Ad=3D81(I) Atr=3D03(Int.) MxPS=3D  64 Ivl=3D7ms
+I:  If#=3D 1 Alt=3D 0 #EPs=3D 0 Cls=3D0a(data ) Sub=3D00 Prot=3D01 Driv=
+er=3Dcdc_mbim
+I:  If#=3D 1 Alt=3D 1 #EPs=3D 2 Cls=3D0a(data ) Sub=3D00 Prot=3D01 Driv=
+er=3Dcdc_mbim
+E:  Ad=3D81(I) Atr=3D02(Bulk) MxPS=3D  64 Ivl=3D0ms
+E:  Ad=3D02(O) Atr=3D02(Bulk) MxPS=3D  64 Ivl=3D0ms
+I:* If#=3D 1 Alt=3D 2 #EPs=3D 2 Cls=3D0a(data ) Sub=3D00 Prot=3D02 Driv=
+er=3Dcdc_mbim
+E:  Ad=3D81(I) Atr=3D02(Bulk) MxPS=3D  64 Ivl=3D0ms
+E:  Ad=3D02(O) Atr=3D02(Bulk) MxPS=3D  64 Ivl=3D0ms
+
+If the MBIM driver is enabled then that should have priority
+for devices providing such a NCM 1.0 backward compatibility
+mode.
 
 Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+Signed-off-by: Greg Suarez <gsuarez@smithmicro.com>
 ---
- drivers/net/usb/cdc_ncm.c |   35 +++++++++++++++++++++--------------
- 1 file changed, 21 insertions(+), 14 deletions(-)
+ drivers/net/usb/cdc_ncm.c |   27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
 
 diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 9d2e344..889969d 100644
+index 0c941ef..a4d61a3 100644
 --- a/drivers/net/usb/cdc_ncm.c
 +++ b/drivers/net/usb/cdc_ncm.c
-@@ -1001,6 +1001,8 @@ static int cdc_ncm_rx_fixup(struct usbnet *dev, s=
-truct sk_buff *skb_in)
- 	struct usb_cdc_ncm_nth16 *nth16;
- 	struct usb_cdc_ncm_ndp16 *ndp16;
- 	struct usb_cdc_ncm_dpe16 *dpe16;
-+	int ndpoffset;
-+	int loopcount =3D 50; /* arbitrary max preventing infinite loop */
+@@ -587,6 +587,33 @@ static int cdc_ncm_bind(struct usbnet *dev, struct=
+ usb_interface *intf)
+ {
+ 	int ret;
 =20
- 	if (ctx =3D=3D NULL)
- 		goto error;
-@@ -1034,25 +1036,24 @@ static int cdc_ncm_rx_fixup(struct usbnet *dev,=
- struct sk_buff *skb_in)
- 	}
- 	ctx->rx_seq =3D le16_to_cpu(nth16->wSequence);
-=20
--	len =3D le16_to_cpu(nth16->wNdpIndex);
--	if ((len + sizeof(struct usb_cdc_ncm_ndp16)) > skb_in->len) {
--		pr_debug("invalid DPT16 index <%u>\n",
--					le16_to_cpu(nth16->wNdpIndex));
-+	ndpoffset =3D le16_to_cpu(nth16->wNdpIndex);
-+next_ndp:
-+	if ((ndpoffset + sizeof(struct usb_cdc_ncm_ndp16)) > skb_in->len) {
-+		pr_debug("invalid NDP offset  <%u>\n", ndpoffset);
- 		goto error;
- 	}
--
--	ndp16 =3D (struct usb_cdc_ncm_ndp16 *)(((u8 *)skb_in->data) + len);
-+	ndp16 =3D (struct usb_cdc_ncm_ndp16 *)(skb_in->data + ndpoffset);
-=20
- 	if (le32_to_cpu(ndp16->dwSignature) !=3D USB_CDC_NCM_NDP16_NOCRC_SIGN=
-) {
- 		pr_debug("invalid DPT16 signature <%u>\n",
- 					le32_to_cpu(ndp16->dwSignature));
--		goto error;
-+		goto err_ndp;
- 	}
-=20
- 	if (le16_to_cpu(ndp16->wLength) < USB_CDC_NCM_NDP16_LENGTH_MIN) {
- 		pr_debug("invalid DPT16 length <%u>\n",
- 					le32_to_cpu(ndp16->dwSignature));
--		goto error;
-+		goto err_ndp;
- 	}
-=20
- 	nframes =3D ((le16_to_cpu(ndp16->wLength) -
-@@ -1060,15 +1061,15 @@ static int cdc_ncm_rx_fixup(struct usbnet *dev,=
- struct sk_buff *skb_in)
- 					sizeof(struct usb_cdc_ncm_dpe16));
- 	nframes--; /* we process NDP entries except for the last one */
-=20
--	len +=3D sizeof(struct usb_cdc_ncm_ndp16);
-+	ndpoffset +=3D sizeof(struct usb_cdc_ncm_ndp16);
-=20
--	if ((len + nframes * (sizeof(struct usb_cdc_ncm_dpe16))) >
-+	if ((ndpoffset + nframes * (sizeof(struct usb_cdc_ncm_dpe16))) >
- 								skb_in->len) {
- 		pr_debug("Invalid nframes =3D %d\n", nframes);
--		goto error;
-+		goto err_ndp;
- 	}
-=20
--	dpe16 =3D (struct usb_cdc_ncm_dpe16 *)(((u8 *)skb_in->data) + len);
-+	dpe16 =3D (struct usb_cdc_ncm_dpe16 *)(skb_in->data + ndpoffset);
-=20
- 	for (x =3D 0; x < nframes; x++, dpe16++) {
- 		offset =3D le16_to_cpu(dpe16->wDatagramIndex);
-@@ -1080,7 +1081,7 @@ static int cdc_ncm_rx_fixup(struct usbnet *dev, s=
-truct sk_buff *skb_in)
- 		 */
- 		if ((offset =3D=3D 0) || (len =3D=3D 0)) {
- 			if (!x)
--				goto error; /* empty NTB */
-+				goto err_ndp; /* empty NTB */
- 			break;
- 		}
-=20
-@@ -1091,7 +1092,7 @@ static int cdc_ncm_rx_fixup(struct usbnet *dev, s=
-truct sk_buff *skb_in)
- 					"offset[%u]=3D%u, length=3D%u, skb=3D%p\n",
- 					x, offset, len, skb_in);
- 			if (!x)
--				goto error;
-+				goto err_ndp;
- 			break;
-=20
- 		} else {
-@@ -1104,6 +1105,12 @@ static int cdc_ncm_rx_fixup(struct usbnet *dev, =
-struct sk_buff *skb_in)
- 			usbnet_skb_return(dev, skb);
- 		}
- 	}
-+err_ndp:
-+	/* are there more NDPs to process? */
-+	ndpoffset =3D le16_to_cpu(ndp16->wNextNdpIndex);
-+	if (ndpoffset && loopcount--)
-+		goto next_ndp;
++	/* The MBIM spec defines a NCM compatible default altsetting,
++	 * which we may have matched:
++	 *
++	 *  "Functions that implement both NCM 1.0 and MBIM (an
++	 *   =E2=80=9CNCM/MBIM function=E2=80=9D) according to this recommend=
+ation
++	 *   shall provide two alternate settings for the
++	 *   Communication Interface.  Alternate setting 0, and the
++	 *   associated class and endpoint descriptors, shall be
++	 *   constructed according to the rules given for the
++	 *   Communication Interface in section 5 of [USBNCM10].
++	 *   Alternate setting 1, and the associated class and
++	 *   endpoint descriptors, shall be constructed according to
++	 *   the rules given in section 6 (USB Device Model) of this
++	 *   specification."
++	 *
++	 * Do not bind to such interfaces, allowing cdc_mbim to handle
++	 * them
++	 */
++#if IS_ENABLED(CONFIG_USB_NET_CDC_MBIM)
++	if ((intf->num_altsetting =3D=3D 2) &&
++	    !usb_set_interface(dev->udev,
++			       intf->cur_altsetting->desc.bInterfaceNumber,
++			       CDC_NCM_COMM_ALTSETTING_MBIM) &&
++	    cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
++		return -ENODEV;
++#endif
 +
- 	return 1;
- error:
- 	return 0;
+ 	/* NCM data altsetting is always 1 */
+ 	ret =3D cdc_ncm_bind_common(dev, intf, 1);
+=20
 --=20
 1.7.10.4
