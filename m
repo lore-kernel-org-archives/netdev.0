@@ -1,50 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlink: use kfree_rcu() in netlink_release()
-Date: Thu, 18 Oct 2012 15:36:16 -0400 (EDT)
-Message-ID: <20121018.153616.732430567959014097.davem@davemloft.net>
-References: <1350566515.26103.1549.camel@edumazet-glaptop>
+Subject: Re: [PATCH net] net: qmi_wwan: adding more ZTE devices
+Date: Thu, 18 Oct 2012 15:36:30 -0400 (EDT)
+Message-ID: <20121018.153630.1807854089761455105.davem@davemloft.net>
+References: <1350573090-9345-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, marcheu@google.com, kliegs@google.com,
-	sleffler@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53648 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53654 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752533Ab2JRTgT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 15:36:19 -0400
-In-Reply-To: <1350566515.26103.1549.camel@edumazet-glaptop>
+	with ESMTP id S1752533Ab2JRTgc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 15:36:32 -0400
+In-Reply-To: <1350573090-9345-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 18 Oct 2012 15:21:55 +0200
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Thu, 18 Oct 2012 17:11:29 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> Analyzed a few Windows driver description files, supporting
+> this long list of devices:
+ ...
+> Adding the ones we were missing.
 >=20
-> On some suspend/resume operations involving wimax device, we have
-> noticed some intermittent memory corruptions in netlink code.
->=20
-> St=E9phane Marchesin tracked this corruption in netlink_update_listen=
-ers()
-> and suggested a patch.
->=20
-> It appears netlink_release() should use kfree_rcu() instead of kfree(=
-)
-> for the listeners structure as it may be used by other cpus using RCU
-> protection.
->=20
-> netlink_release() must set to NULL the listeners pointer when
-> it is about to be freed.
->=20
-> Also have to protect netlink_update_listeners() and
-> netlink_has_listeners() if listeners is NULL.
->=20
-> Add a nl_deref_protected() lockdep helper to properly document which
-> locks protects us.
->=20
-> Reported-by: Jonathan Kliegman <kliegs@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
 
-Applied and queued up for -stable.
+Applied.
