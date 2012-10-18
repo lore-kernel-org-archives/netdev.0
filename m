@@ -1,185 +1,410 @@
 From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH 10/14] net/at91_ether: share macb_set_rx_mode with macb
-Date: Thu, 18 Oct 2012 23:01:15 +0200
-Message-ID: <1350594079-4337-11-git-send-email-manabian@gmail.com>
+Subject: [PATCH 02/14] net/at91_ether: use macb register definitions
+Date: Thu, 18 Oct 2012 23:01:07 +0200
+Message-ID: <1350594079-4337-3-git-send-email-manabian@gmail.com>
 References: <1350594079-4337-1-git-send-email-manabian@gmail.com>
 Cc: netdev@vger.kernel.org, Joachim Eastwood <manabian@gmail.com>
 To: nicolas.ferre@atmel.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:38719 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932566Ab2JRVBo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 17:01:44 -0400
-Received: by mail-lb0-f174.google.com with SMTP id n3so6209971lbo.19
-        for <netdev@vger.kernel.org>; Thu, 18 Oct 2012 14:01:42 -0700 (PDT)
+Received: from mail-la0-f46.google.com ([209.85.215.46]:56423 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932110Ab2JRVBg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 17:01:36 -0400
+Received: by mail-la0-f46.google.com with SMTP id h6so6136414lag.19
+        for <netdev@vger.kernel.org>; Thu, 18 Oct 2012 14:01:34 -0700 (PDT)
 In-Reply-To: <1350594079-4337-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Use register and bits definitions from the macb header. This makes it
+possible to have one header file for this hardware.
+
+Process was scripted and the resulting object file has the same checksum.
+
 Signed-off-by: Joachim Eastwood <manabian@gmail.com>
 ---
- drivers/net/ethernet/cadence/at91_ether.c | 107 +-----------------------------
- drivers/net/ethernet/cadence/macb.c       |   3 +-
- drivers/net/ethernet/cadence/macb.h       |   1 +
- 3 files changed, 4 insertions(+), 107 deletions(-)
+ drivers/net/ethernet/cadence/at91_ether.c | 164 +++++++++++++++---------------
+ 1 file changed, 84 insertions(+), 80 deletions(-)
 
 diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-index a1e0949..f340d24 100644
+index 4e980a7..201d01d 100644
 --- a/drivers/net/ethernet/cadence/at91_ether.c
 +++ b/drivers/net/ethernet/cadence/at91_ether.c
-@@ -140,111 +140,6 @@ static int set_mac_address(struct net_device *dev, void* addr)
- 	return 0;
+@@ -36,11 +36,11 @@
+ #include <asm/uaccess.h>
+ #include <asm/mach-types.h>
+ 
+-#include <mach/at91rm9200_emac.h>
+ #include <asm/gpio.h>
+ #include <mach/board.h>
+ 
+ #include "at91_ether.h"
++#include "macb.h"
+ 
+ #define DRV_NAME	"at91_ether"
+ #define DRV_VERSION	"1.0"
+@@ -76,8 +76,8 @@ static void enable_mdi(struct at91_private *lp)
+ {
+ 	unsigned long ctl;
+ 
+-	ctl = at91_emac_read(lp, AT91_EMAC_CTL);
+-	at91_emac_write(lp, AT91_EMAC_CTL, ctl | AT91_EMAC_MPE);	/* enable management port */
++	ctl = at91_emac_read(lp, MACB_NCR);
++	at91_emac_write(lp, MACB_NCR, ctl | MACB_BIT(MPE));	/* enable management port */
  }
  
--static int inline hash_bit_value(int bitnr, __u8 *addr)
--{
--	if (addr[bitnr / 8] & (1 << (bitnr % 8)))
--		return 1;
--	return 0;
--}
--
--/*
-- * The hash address register is 64 bits long and takes up two locations in the memory map.
-- * The least significant bits are stored in EMAC_HSL and the most significant
-- * bits in EMAC_HSH.
-- *
-- * The unicast hash enable and the multicast hash enable bits in the network configuration
-- *  register enable the reception of hash matched frames. The destination address is
-- *  reduced to a 6 bit index into the 64 bit hash register using the following hash function.
-- * The hash function is an exclusive or of every sixth bit of the destination address.
-- *   hash_index[5] = da[5] ^ da[11] ^ da[17] ^ da[23] ^ da[29] ^ da[35] ^ da[41] ^ da[47]
-- *   hash_index[4] = da[4] ^ da[10] ^ da[16] ^ da[22] ^ da[28] ^ da[34] ^ da[40] ^ da[46]
-- *   hash_index[3] = da[3] ^ da[09] ^ da[15] ^ da[21] ^ da[27] ^ da[33] ^ da[39] ^ da[45]
-- *   hash_index[2] = da[2] ^ da[08] ^ da[14] ^ da[20] ^ da[26] ^ da[32] ^ da[38] ^ da[44]
-- *   hash_index[1] = da[1] ^ da[07] ^ da[13] ^ da[19] ^ da[25] ^ da[31] ^ da[37] ^ da[43]
-- *   hash_index[0] = da[0] ^ da[06] ^ da[12] ^ da[18] ^ da[24] ^ da[30] ^ da[36] ^ da[42]
-- * da[0] represents the least significant bit of the first byte received, that is, the multicast/
-- *  unicast indicator, and da[47] represents the most significant bit of the last byte
-- *  received.
-- * If the hash index points to a bit that is set in the hash register then the frame will be
-- *  matched according to whether the frame is multicast or unicast.
-- * A multicast match will be signalled if the multicast hash enable bit is set, da[0] is 1 and
-- *  the hash index points to a bit set in the hash register.
-- * A unicast match will be signalled if the unicast hash enable bit is set, da[0] is 0 and the
-- *  hash index points to a bit set in the hash register.
-- * To receive all multicast frames, the hash register should be set with all ones and the
-- *  multicast hash enable bit should be set in the network configuration register.
-- */
--
--/*
-- * Return the hash index value for the specified address.
-- */
--static int hash_get_index(__u8 *addr)
--{
--	int i, j, bitval;
--	int hash_index = 0;
--
--	for (j = 0; j < 6; j++) {
--		for (i = 0, bitval = 0; i < 8; i++)
--			bitval ^= hash_bit_value(i*6 + j, addr);
--
--		hash_index |= (bitval << j);
--	}
--
--	return hash_index;
--}
--
--/*
-- * Add multicast addresses to the internal multicast-hash table.
-- */
--static void at91ether_sethashtable(struct net_device *dev)
--{
--	struct macb *lp = netdev_priv(dev);
--	struct netdev_hw_addr *ha;
--	unsigned long mc_filter[2];
--	unsigned int bitnr;
--
--	mc_filter[0] = mc_filter[1] = 0;
--
--	netdev_for_each_mc_addr(ha, dev) {
--		bitnr = hash_get_index(ha->addr);
--		mc_filter[bitnr >> 5] |= 1 << (bitnr & 31);
--	}
--
--	macb_writel(lp, HRB, mc_filter[0]);
--	macb_writel(lp, HRT, mc_filter[1]);
--}
--
--/*
-- * Enable/Disable promiscuous and multicast modes.
-- */
--static void at91ether_set_multicast_list(struct net_device *dev)
--{
--	struct macb *lp = netdev_priv(dev);
--	unsigned long cfg;
--
--	cfg = macb_readl(lp, NCFGR);
--
--	if (dev->flags & IFF_PROMISC)			/* Enable promiscuous mode */
--		cfg |= MACB_BIT(CAF);
--	else if (dev->flags & (~IFF_PROMISC))		/* Disable promiscuous mode */
--		cfg &= ~MACB_BIT(CAF);
--
--	if (dev->flags & IFF_ALLMULTI) {		/* Enable all multicast mode */
--		macb_writel(lp, HRT, -1);
--		macb_writel(lp, HRB, -1);
--		cfg |= MACB_BIT(NCFGR_MTI);
--	} else if (!netdev_mc_empty(dev)) { /* Enable specific multicasts */
--		at91ether_sethashtable(dev);
--		cfg |= MACB_BIT(NCFGR_MTI);
--	} else if (dev->flags & (~IFF_ALLMULTI)) {	/* Disable all multicast mode */
--		macb_writel(lp, HRT, 0);
--		macb_writel(lp, HRB, 0);
--		cfg &= ~MACB_BIT(NCFGR_MTI);
--	}
--
--	macb_writel(lp, NCFGR, cfg);
--}
--
- /* ................................ MAC ................................ */
+ /*
+@@ -87,8 +87,8 @@ static void disable_mdi(struct at91_private *lp)
+ {
+ 	unsigned long ctl;
+ 
+-	ctl = at91_emac_read(lp, AT91_EMAC_CTL);
+-	at91_emac_write(lp, AT91_EMAC_CTL, ctl & ~AT91_EMAC_MPE);	/* disable management port */
++	ctl = at91_emac_read(lp, MACB_NCR);
++	at91_emac_write(lp, MACB_NCR, ctl & ~MACB_BIT(MPE));	/* disable management port */
+ }
  
  /*
-@@ -500,7 +395,7 @@ static const struct net_device_ops at91ether_netdev_ops = {
- 	.ndo_stop		= at91ether_close,
- 	.ndo_start_xmit		= at91ether_start_xmit,
- 	.ndo_get_stats		= at91ether_stats,
--	.ndo_set_rx_mode	= at91ether_set_multicast_list,
-+	.ndo_set_rx_mode	= macb_set_rx_mode,
- 	.ndo_set_mac_address	= set_mac_address,
- 	.ndo_do_ioctl		= macb_ioctl,
- 	.ndo_validate_addr	= eth_validate_addr,
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 8ee6de5..6c84a11 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -997,7 +997,7 @@ static void macb_sethashtable(struct net_device *dev)
- /*
-  * Enable/Disable promiscuous and multicast modes.
+@@ -98,7 +98,7 @@ static inline void at91_phy_wait(struct at91_private *lp)
+ {
+ 	unsigned long timeout = jiffies + 2;
+ 
+-	while (!(at91_emac_read(lp, AT91_EMAC_SR) & AT91_EMAC_SR_IDLE)) {
++	while (!(at91_emac_read(lp, MACB_NSR) & MACB_BIT(IDLE))) {
+ 		if (time_after(jiffies, timeout)) {
+ 			printk("at91_ether: MIO timeout\n");
+ 			break;
+@@ -113,8 +113,9 @@ static inline void at91_phy_wait(struct at91_private *lp)
   */
--static void macb_set_rx_mode(struct net_device *dev)
-+void macb_set_rx_mode(struct net_device *dev)
+ static void write_phy(struct at91_private *lp, unsigned char phy_addr, unsigned char address, unsigned int value)
  {
- 	unsigned long cfg;
- 	struct macb *bp = netdev_priv(dev);
-@@ -1029,6 +1029,7 @@ static void macb_set_rx_mode(struct net_device *dev)
+-	at91_emac_write(lp, AT91_EMAC_MAN, AT91_EMAC_MAN_802_3 | AT91_EMAC_RW_W
+-		| ((phy_addr & 0x1f) << 23) | (address << 18) | (value & AT91_EMAC_DATA));
++	at91_emac_write(lp, MACB_MAN, MACB_BF(SOF, MACB_MAN_SOF) | MACB_BF(CODE, MACB_MAN_CODE)
++					| MACB_BF(RW, MACB_MAN_WRITE) | ((phy_addr & 0x1f) << 23)
++					| (address << 18) | (value & ((1<<MACB_DATA_SIZE) - 1)));
  
- 	macb_writel(bp, NCFGR, cfg);
+ 	/* Wait until IDLE bit in Network Status register is cleared */
+ 	at91_phy_wait(lp);
+@@ -126,13 +127,14 @@ static void write_phy(struct at91_private *lp, unsigned char phy_addr, unsigned
+  */
+ static void read_phy(struct at91_private *lp, unsigned char phy_addr, unsigned char address, unsigned int *value)
+ {
+-	at91_emac_write(lp, AT91_EMAC_MAN, AT91_EMAC_MAN_802_3 | AT91_EMAC_RW_R
+-		| ((phy_addr & 0x1f) << 23) | (address << 18));
++	at91_emac_write(lp, MACB_MAN, MACB_BF(SOF, MACB_MAN_SOF) | MACB_BF(CODE, MACB_MAN_CODE)
++					| MACB_BF(RW, MACB_MAN_READ) | ((phy_addr & 0x1f) << 23)
++					| (address << 18));
+ 
+ 	/* Wait until IDLE bit in Network Status register is cleared */
+ 	at91_phy_wait(lp);
+ 
+-	*value = at91_emac_read(lp, AT91_EMAC_MAN) & AT91_EMAC_DATA;
++	*value = at91_emac_read(lp, MACB_MAN) & ((1<<MACB_DATA_SIZE) - 1);
  }
-+EXPORT_SYMBOL_GPL(macb_set_rx_mode);
  
- static int macb_open(struct net_device *dev)
+ /* ........................... PHY MANAGEMENT .......................... */
+@@ -173,18 +175,18 @@ static void update_linkspeed(struct net_device *dev, int silent)
+ 	}
+ 
+ 	/* Update the MAC */
+-	mac_cfg = at91_emac_read(lp, AT91_EMAC_CFG) & ~(AT91_EMAC_SPD | AT91_EMAC_FD);
++	mac_cfg = at91_emac_read(lp, MACB_NCFGR) & ~(MACB_BIT(SPD) | MACB_BIT(FD));
+ 	if (speed == SPEED_100) {
+ 		if (duplex == DUPLEX_FULL)		/* 100 Full Duplex */
+-			mac_cfg |= AT91_EMAC_SPD | AT91_EMAC_FD;
++			mac_cfg |= MACB_BIT(SPD) | MACB_BIT(FD);
+ 		else					/* 100 Half Duplex */
+-			mac_cfg |= AT91_EMAC_SPD;
++			mac_cfg |= MACB_BIT(SPD);
+ 	} else {
+ 		if (duplex == DUPLEX_FULL)		/* 10 Full Duplex */
+-			mac_cfg |= AT91_EMAC_FD;
++			mac_cfg |= MACB_BIT(FD);
+ 		else {}					/* 10 Half Duplex */
+ 	}
+-	at91_emac_write(lp, AT91_EMAC_CFG, mac_cfg);
++	at91_emac_write(lp, MACB_NCFGR, mac_cfg);
+ 
+ 	if (!silent)
+ 		printk(KERN_INFO "%s: Link now %i-%s\n", dev->name, speed, (duplex == DUPLEX_FULL) ? "FullDuplex" : "HalfDuplex");
+@@ -479,16 +481,16 @@ static void __init get_mac_address(struct net_device *dev)
+ 	struct at91_private *lp = netdev_priv(dev);
+ 
+ 	/* Check Specific-Address 1 */
+-	if (unpack_mac_address(dev, at91_emac_read(lp, AT91_EMAC_SA1H), at91_emac_read(lp, AT91_EMAC_SA1L)))
++	if (unpack_mac_address(dev, at91_emac_read(lp, MACB_SA1T), at91_emac_read(lp, MACB_SA1B)))
+ 		return;
+ 	/* Check Specific-Address 2 */
+-	if (unpack_mac_address(dev, at91_emac_read(lp, AT91_EMAC_SA2H), at91_emac_read(lp, AT91_EMAC_SA2L)))
++	if (unpack_mac_address(dev, at91_emac_read(lp, MACB_SA2T), at91_emac_read(lp, MACB_SA2B)))
+ 		return;
+ 	/* Check Specific-Address 3 */
+-	if (unpack_mac_address(dev, at91_emac_read(lp, AT91_EMAC_SA3H), at91_emac_read(lp, AT91_EMAC_SA3L)))
++	if (unpack_mac_address(dev, at91_emac_read(lp, MACB_SA3T), at91_emac_read(lp, MACB_SA3B)))
+ 		return;
+ 	/* Check Specific-Address 4 */
+-	if (unpack_mac_address(dev, at91_emac_read(lp, AT91_EMAC_SA4H), at91_emac_read(lp, AT91_EMAC_SA4L)))
++	if (unpack_mac_address(dev, at91_emac_read(lp, MACB_SA4T), at91_emac_read(lp, MACB_SA4B)))
+ 		return;
+ 
+ 	printk(KERN_ERR "at91_ether: Your bootloader did not configure a MAC address.\n");
+@@ -501,11 +503,12 @@ static void update_mac_address(struct net_device *dev)
  {
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index fd2961a..2710562 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -574,6 +574,7 @@ extern const struct ethtool_ops macb_ethtool_ops;
+ 	struct at91_private *lp = netdev_priv(dev);
  
- int macb_mii_init(struct macb *bp);
- int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
-+void macb_set_rx_mode(struct net_device *dev);
+-	at91_emac_write(lp, AT91_EMAC_SA1L, (dev->dev_addr[3] << 24) | (dev->dev_addr[2] << 16) | (dev->dev_addr[1] << 8) | (dev->dev_addr[0]));
+-	at91_emac_write(lp, AT91_EMAC_SA1H, (dev->dev_addr[5] << 8) | (dev->dev_addr[4]));
++	at91_emac_write(lp, MACB_SA1B, (dev->dev_addr[3] << 24) | (dev->dev_addr[2] << 16)
++					| (dev->dev_addr[1] << 8) | (dev->dev_addr[0]));
++	at91_emac_write(lp, MACB_SA1T, (dev->dev_addr[5] << 8) | (dev->dev_addr[4]));
  
- static inline bool macb_is_gem(struct macb *bp)
+-	at91_emac_write(lp, AT91_EMAC_SA2L, 0);
+-	at91_emac_write(lp, AT91_EMAC_SA2H, 0);
++	at91_emac_write(lp, MACB_SA2B, 0);
++	at91_emac_write(lp, MACB_SA2T, 0);
+ }
+ 
+ /*
+@@ -597,8 +600,8 @@ static void at91ether_sethashtable(struct net_device *dev)
+ 		mc_filter[bitnr >> 5] |= 1 << (bitnr & 31);
+ 	}
+ 
+-	at91_emac_write(lp, AT91_EMAC_HSL, mc_filter[0]);
+-	at91_emac_write(lp, AT91_EMAC_HSH, mc_filter[1]);
++	at91_emac_write(lp, MACB_HRB, mc_filter[0]);
++	at91_emac_write(lp, MACB_HRT, mc_filter[1]);
+ }
+ 
+ /*
+@@ -609,27 +612,27 @@ static void at91ether_set_multicast_list(struct net_device *dev)
+ 	struct at91_private *lp = netdev_priv(dev);
+ 	unsigned long cfg;
+ 
+-	cfg = at91_emac_read(lp, AT91_EMAC_CFG);
++	cfg = at91_emac_read(lp, MACB_NCFGR);
+ 
+ 	if (dev->flags & IFF_PROMISC)			/* Enable promiscuous mode */
+-		cfg |= AT91_EMAC_CAF;
++		cfg |= MACB_BIT(CAF);
+ 	else if (dev->flags & (~IFF_PROMISC))		/* Disable promiscuous mode */
+-		cfg &= ~AT91_EMAC_CAF;
++		cfg &= ~MACB_BIT(CAF);
+ 
+ 	if (dev->flags & IFF_ALLMULTI) {		/* Enable all multicast mode */
+-		at91_emac_write(lp, AT91_EMAC_HSH, -1);
+-		at91_emac_write(lp, AT91_EMAC_HSL, -1);
+-		cfg |= AT91_EMAC_MTI;
++		at91_emac_write(lp, MACB_HRT, -1);
++		at91_emac_write(lp, MACB_HRB, -1);
++		cfg |= MACB_BIT(NCFGR_MTI);
+ 	} else if (!netdev_mc_empty(dev)) { /* Enable specific multicasts */
+ 		at91ether_sethashtable(dev);
+-		cfg |= AT91_EMAC_MTI;
++		cfg |= MACB_BIT(NCFGR_MTI);
+ 	} else if (dev->flags & (~IFF_ALLMULTI)) {	/* Disable all multicast mode */
+-		at91_emac_write(lp, AT91_EMAC_HSH, 0);
+-		at91_emac_write(lp, AT91_EMAC_HSL, 0);
+-		cfg &= ~AT91_EMAC_MTI;
++		at91_emac_write(lp, MACB_HRT, 0);
++		at91_emac_write(lp, MACB_HRB, 0);
++		cfg &= ~MACB_BIT(NCFGR_MTI);
+ 	}
+ 
+-	at91_emac_write(lp, AT91_EMAC_CFG, cfg);
++	at91_emac_write(lp, MACB_NCFGR, cfg);
+ }
+ 
+ /* ......................... ETHTOOL SUPPORT ........................... */
+@@ -762,11 +765,11 @@ static void at91ether_start(struct net_device *dev)
+ 	lp->rxBuffIndex = 0;
+ 
+ 	/* Program address of descriptor list in Rx Buffer Queue register */
+-	at91_emac_write(lp, AT91_EMAC_RBQP, (unsigned long) dlist_phys);
++	at91_emac_write(lp, MACB_RBQP, (unsigned long) dlist_phys);
+ 
+ 	/* Enable Receive and Transmit */
+-	ctl = at91_emac_read(lp, AT91_EMAC_CTL);
+-	at91_emac_write(lp, AT91_EMAC_CTL, ctl | AT91_EMAC_RE | AT91_EMAC_TE);
++	ctl = at91_emac_read(lp, MACB_NCR);
++	at91_emac_write(lp, MACB_NCR, ctl | MACB_BIT(RE) | MACB_BIT(TE));
+ }
+ 
+ /*
+@@ -783,8 +786,8 @@ static int at91ether_open(struct net_device *dev)
+ 	clk_enable(lp->ether_clk);		/* Re-enable Peripheral clock */
+ 
+ 	/* Clear internal statistics */
+-	ctl = at91_emac_read(lp, AT91_EMAC_CTL);
+-	at91_emac_write(lp, AT91_EMAC_CTL, ctl | AT91_EMAC_CSR);
++	ctl = at91_emac_read(lp, MACB_NCR);
++	at91_emac_write(lp, MACB_NCR, ctl | MACB_BIT(CLRSTAT));
+ 
+ 	/* Update the MAC address (incase user has changed it) */
+ 	update_mac_address(dev);
+@@ -793,9 +796,9 @@ static int at91ether_open(struct net_device *dev)
+ 	enable_phyirq(dev);
+ 
+ 	/* Enable MAC interrupts */
+-	at91_emac_write(lp, AT91_EMAC_IER, AT91_EMAC_RCOM | AT91_EMAC_RBNA
+-				| AT91_EMAC_TUND | AT91_EMAC_RTRY | AT91_EMAC_TCOM
+-				| AT91_EMAC_ROVR | AT91_EMAC_ABT);
++	at91_emac_write(lp, MACB_IER, MACB_BIT(RCOMP) | MACB_BIT(RXUBR)
++				| MACB_BIT(ISR_TUND) | MACB_BIT(ISR_RLE) | MACB_BIT(TCOMP)
++				| MACB_BIT(ISR_ROVR) | MACB_BIT(HRESP));
+ 
+ 	/* Determine current link speed */
+ 	spin_lock_irq(&lp->lock);
+@@ -818,16 +821,17 @@ static int at91ether_close(struct net_device *dev)
+ 	unsigned long ctl;
+ 
+ 	/* Disable Receiver and Transmitter */
+-	ctl = at91_emac_read(lp, AT91_EMAC_CTL);
+-	at91_emac_write(lp, AT91_EMAC_CTL, ctl & ~(AT91_EMAC_TE | AT91_EMAC_RE));
++	ctl = at91_emac_read(lp, MACB_NCR);
++	at91_emac_write(lp, MACB_NCR, ctl & ~(MACB_BIT(TE) | MACB_BIT(RE)));
+ 
+ 	/* Disable PHY interrupt */
+ 	disable_phyirq(dev);
+ 
+ 	/* Disable MAC interrupts */
+-	at91_emac_write(lp, AT91_EMAC_IDR, AT91_EMAC_RCOM | AT91_EMAC_RBNA
+-				| AT91_EMAC_TUND | AT91_EMAC_RTRY | AT91_EMAC_TCOM
+-				| AT91_EMAC_ROVR | AT91_EMAC_ABT);
++	at91_emac_write(lp, MACB_IDR, MACB_BIT(RCOMP) | MACB_BIT(RXUBR)
++				| MACB_BIT(ISR_TUND) | MACB_BIT(ISR_RLE)
++				| MACB_BIT(TCOMP) | MACB_BIT(ISR_ROVR)
++				| MACB_BIT(HRESP));
+ 
+ 	netif_stop_queue(dev);
+ 
+@@ -843,7 +847,7 @@ static int at91ether_start_xmit(struct sk_buff *skb, struct net_device *dev)
  {
+ 	struct at91_private *lp = netdev_priv(dev);
+ 
+-	if (at91_emac_read(lp, AT91_EMAC_TSR) & AT91_EMAC_TSR_BNQ) {
++	if (at91_emac_read(lp, MACB_TSR) & MACB_BIT(RM9200_BNQ)) {
+ 		netif_stop_queue(dev);
+ 
+ 		/* Store packet information (to free when Tx completed) */
+@@ -853,9 +857,9 @@ static int at91ether_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		dev->stats.tx_bytes += skb->len;
+ 
+ 		/* Set address of the data in the Transmit Address register */
+-		at91_emac_write(lp, AT91_EMAC_TAR, lp->skb_physaddr);
++		at91_emac_write(lp, MACB_TAR, lp->skb_physaddr);
+ 		/* Set length of the packet in the Transmit Control register */
+-		at91_emac_write(lp, AT91_EMAC_TCR, skb->len);
++		at91_emac_write(lp, MACB_TCR, skb->len);
+ 
+ 	} else {
+ 		printk(KERN_ERR "at91_ether.c: at91ether_start_xmit() called, but device is busy!\n");
+@@ -876,28 +880,28 @@ static struct net_device_stats *at91ether_stats(struct net_device *dev)
+ 	int ale, lenerr, seqe, lcol, ecol;
+ 
+ 	if (netif_running(dev)) {
+-		dev->stats.rx_packets += at91_emac_read(lp, AT91_EMAC_OK);	/* Good frames received */
+-		ale = at91_emac_read(lp, AT91_EMAC_ALE);
++		dev->stats.rx_packets += at91_emac_read(lp, MACB_FRO);	/* Good frames received */
++		ale = at91_emac_read(lp, MACB_ALE);
+ 		dev->stats.rx_frame_errors += ale;				/* Alignment errors */
+-		lenerr = at91_emac_read(lp, AT91_EMAC_ELR) + at91_emac_read(lp, AT91_EMAC_USF);
++		lenerr = at91_emac_read(lp, MACB_ELE) + at91_emac_read(lp, MACB_USF);
+ 		dev->stats.rx_length_errors += lenerr;				/* Excessive Length or Undersize Frame error */
+-		seqe = at91_emac_read(lp, AT91_EMAC_SEQE);
++		seqe = at91_emac_read(lp, MACB_FCSE);
+ 		dev->stats.rx_crc_errors += seqe;				/* CRC error */
+-		dev->stats.rx_fifo_errors += at91_emac_read(lp, AT91_EMAC_DRFC);/* Receive buffer not available */
++		dev->stats.rx_fifo_errors += at91_emac_read(lp, MACB_RRE);/* Receive buffer not available */
+ 		dev->stats.rx_errors += (ale + lenerr + seqe
+-			+ at91_emac_read(lp, AT91_EMAC_CDE) + at91_emac_read(lp, AT91_EMAC_RJB));
++			+ at91_emac_read(lp, MACB_RSE) + at91_emac_read(lp, MACB_RJA));
+ 
+-		dev->stats.tx_packets += at91_emac_read(lp, AT91_EMAC_FRA);	/* Frames successfully transmitted */
+-		dev->stats.tx_fifo_errors += at91_emac_read(lp, AT91_EMAC_TUE);	/* Transmit FIFO underruns */
+-		dev->stats.tx_carrier_errors += at91_emac_read(lp, AT91_EMAC_CSE);	/* Carrier Sense errors */
+-		dev->stats.tx_heartbeat_errors += at91_emac_read(lp, AT91_EMAC_SQEE);/* Heartbeat error */
++		dev->stats.tx_packets += at91_emac_read(lp, MACB_FTO);	/* Frames successfully transmitted */
++		dev->stats.tx_fifo_errors += at91_emac_read(lp, MACB_TUND);	/* Transmit FIFO underruns */
++		dev->stats.tx_carrier_errors += at91_emac_read(lp, MACB_CSE);	/* Carrier Sense errors */
++		dev->stats.tx_heartbeat_errors += at91_emac_read(lp, MACB_STE);/* Heartbeat error */
+ 
+-		lcol = at91_emac_read(lp, AT91_EMAC_LCOL);
+-		ecol = at91_emac_read(lp, AT91_EMAC_ECOL);
++		lcol = at91_emac_read(lp, MACB_LCOL);
++		ecol = at91_emac_read(lp, MACB_EXCOL);
+ 		dev->stats.tx_window_errors += lcol;			/* Late collisions */
+ 		dev->stats.tx_aborted_errors += ecol;			/* 16 collisions */
+ 
+-		dev->stats.collisions += (at91_emac_read(lp, AT91_EMAC_SCOL) + at91_emac_read(lp, AT91_EMAC_MCOL) + lcol + ecol);
++		dev->stats.collisions += (at91_emac_read(lp, MACB_SCF) + at91_emac_read(lp, MACB_MCF) + lcol + ecol);
+ 	}
+ 	return &dev->stats;
+ }
+@@ -954,14 +958,14 @@ static irqreturn_t at91ether_interrupt(int irq, void *dev_id)
+ 
+ 	/* MAC Interrupt Status register indicates what interrupts are pending.
+ 	   It is automatically cleared once read. */
+-	intstatus = at91_emac_read(lp, AT91_EMAC_ISR);
++	intstatus = at91_emac_read(lp, MACB_ISR);
+ 
+-	if (intstatus & AT91_EMAC_RCOM)		/* Receive complete */
++	if (intstatus & MACB_BIT(RCOMP))		/* Receive complete */
+ 		at91ether_rx(dev);
+ 
+-	if (intstatus & AT91_EMAC_TCOM) {	/* Transmit complete */
++	if (intstatus & MACB_BIT(TCOMP)) {	/* Transmit complete */
+ 		/* The TCOM bit is set even if the transmission failed. */
+-		if (intstatus & (AT91_EMAC_TUND | AT91_EMAC_RTRY))
++		if (intstatus & (MACB_BIT(ISR_TUND) | MACB_BIT(ISR_RLE)))
+ 			dev->stats.tx_errors += 1;
+ 
+ 		if (lp->skb) {
+@@ -973,13 +977,13 @@ static irqreturn_t at91ether_interrupt(int irq, void *dev_id)
+ 	}
+ 
+ 	/* Work-around for Errata #11 */
+-	if (intstatus & AT91_EMAC_RBNA) {
+-		ctl = at91_emac_read(lp, AT91_EMAC_CTL);
+-		at91_emac_write(lp, AT91_EMAC_CTL, ctl & ~AT91_EMAC_RE);
+-		at91_emac_write(lp, AT91_EMAC_CTL, ctl | AT91_EMAC_RE);
++	if (intstatus & MACB_BIT(RXUBR)) {
++		ctl = at91_emac_read(lp, MACB_NCR);
++		at91_emac_write(lp, MACB_NCR, ctl & ~MACB_BIT(RE));
++		at91_emac_write(lp, MACB_NCR, ctl | MACB_BIT(RE));
+ 	}
+ 
+-	if (intstatus & AT91_EMAC_ROVR)
++	if (intstatus & MACB_BIT(ISR_ROVR))
+ 		printk("%s: ROVR error\n", dev->name);
+ 
+ 	return IRQ_HANDLED;
+@@ -1114,12 +1118,12 @@ static int __init at91ether_probe(struct platform_device *pdev)
+ 	get_mac_address(dev);		/* Get ethernet address and store it in dev->dev_addr */
+ 	update_mac_address(dev);	/* Program ethernet address into MAC */
+ 
+-	at91_emac_write(lp, AT91_EMAC_CTL, 0);
++	at91_emac_write(lp, MACB_NCR, 0);
+ 
+ 	if (board_data->is_rmii)
+-		at91_emac_write(lp, AT91_EMAC_CFG, AT91_EMAC_CLK_DIV32 | AT91_EMAC_BIG | AT91_EMAC_RMII);
++		at91_emac_write(lp, MACB_NCFGR, MACB_BF(CLK, MACB_CLK_DIV32) | MACB_BIT(BIG) | MACB_BIT(RM9200_RMII));
+ 	else
+-		at91_emac_write(lp, AT91_EMAC_CFG, AT91_EMAC_CLK_DIV32 | AT91_EMAC_BIG);
++		at91_emac_write(lp, MACB_NCFGR, MACB_BF(CLK, MACB_CLK_DIV32) | MACB_BIT(BIG));
+ 
+ 	/* Detect PHY */
+ 	if (!at91ether_phy_detect(lp)) {
+@@ -1163,8 +1167,8 @@ static int __init at91ether_probe(struct platform_device *pdev)
+ 	/* Display ethernet banner */
+ 	printk(KERN_INFO "%s: AT91 ethernet at 0x%08x int=%d %s%s (%pM)\n",
+ 	       dev->name, (uint) dev->base_addr, dev->irq,
+-	       at91_emac_read(lp, AT91_EMAC_CFG) & AT91_EMAC_SPD ? "100-" : "10-",
+-	       at91_emac_read(lp, AT91_EMAC_CFG) & AT91_EMAC_FD ? "FullDuplex" : "HalfDuplex",
++	       at91_emac_read(lp, MACB_NCFGR) & MACB_BIT(SPD) ? "100-" : "10-",
++	       at91_emac_read(lp, MACB_NCFGR) & MACB_BIT(FD) ? "FullDuplex" : "HalfDuplex",
+ 	       dev->dev_addr);
+ 	if ((lp->phy_type == MII_DM9161_ID) || (lp->phy_type == MII_DM9161A_ID))
+ 		printk(KERN_INFO "%s: Davicom 9161 PHY %s\n", dev->name, (lp->phy_media == PORT_FIBRE) ? "(Fiber)" : "(Copper)");
 -- 
 1.7.12.3
