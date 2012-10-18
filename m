@@ -1,7 +1,8 @@
 From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net-next 00/14] Adding a USB CDC MBIM driver
-Date: Thu, 18 Oct 2012 22:40:53 +0200
-Message-ID: <1350592867-25651-1-git-send-email-bjorn@mork.no>
+Subject: [PATCH net-next 09/14] net: cdc_ncm: export shared symbols and definitions
+Date: Thu, 18 Oct 2012 22:41:02 +0200
+Message-ID: <1350592867-25651-10-git-send-email-bjorn@mork.no>
+References: <1350592867-25651-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -15,88 +16,365 @@ Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-Gvh
 	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
 To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1350592867-25651-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The USB Communications Device Class "Mobile Broadband Interface Model"
-(MBIM) is the USB-IFs alternative to the current chipset/vendor
-specific solutions to "Mobile Broadband" device management. The
-specification, including the management protocol description, can be
-downloaded from http://www.usb.org/developers/devclass_docs#approved
+Move symbols and definitons which can be shared with a
+MBIM driver in a new header.
 
-This driver implementing most MBIM features with the exception of
-32bit NTB and NDP headers.
-
-An important design principle has been reusing as much as possible of
-existing kernel code, in particular the cdc_ncm and cdc_wdm drivers.
-The CDC MBIM protocol is based on CDC NCM, and much of the setup and
-framing logic is very similar.
-
-One important addition in MBIM compared to NCM is the new control
-protocol embedded in CDC commands.  This protocol is comprehensive and
-support a number of policy decisions necessary for modern mobile
-broadband devices often having multiple radio interfaces.  Based on
-early comments and the experiences with the qmi_wwan driver, knowledge
-of the control protocol has been kept completely out of the driver.
-This is userspace material.  Like with qmi_wwan, a control protocol
-interface is exported to userspace using the cdc_wdm subdriver API,
-associating a /dev/cdc-wdmX character device with the network device
-for the management application.
-
-Patch 1 and 2 are independent of the rest and only required to make
-test devices with very large buffers work.
-
-Patch 3 adds new MBIM definitions to the cdc.h header file
-
-Patches 4 to 9 refactor the cdc_ncm driver to enable reusing common
-parts for MBIM.
-
-Patches 10 and 11 add the new cdc_mbim driver
-
-Patch 12 prevents cdc_ncm from binding to backward compatible MBIM
-devices
-
-Patches 13 and 14 extend the MBIM driver to support multiplexed
-sessions
-
-The changes to the cdc_ncm driver has been tested and verified to work
-with an Ericsson F5521gw device.  The new cdc_mbim driver has been
-tested with a Huawei E367u-2 device with MBIM firmware, and other
-currently undisclosed devices.
-
-Enjoy!
-
-
-Bj=C3=B8rn Mork (10):
-  net: usbnet: make sure the queue lenght is at least 1
-  net: cdc_ncm: use device rx_max value if update failed
-  net: cdc_ncm: process chained NDPs
-  net: cdc_ncm: splitting rx_fixup for code reuse
-  net: cdc_ncm: refactoring for tx multiplexing
-  net: cdc_ncm: export shared symbols and definitions
-  net: cdc_mbim: build the MBIM driver
-  net: cdc_ncm: do not bind to NCM compatible MBIM devices
-  net: cdc_ncm: map MBIM IPS SessionID to VLAN ID
-  net: cdc_mbim: Device Service Stream support
-
-Greg Suarez (4):
-  USB: cdc: add MBIM constants and structures
-  net: cdc_ncm: adding MBIM support to ncm_setup
-  net: cdc_ncm: refactor bind preparing for MBIM support
-  net: cdc_mbim: adding MBIM driver
-
- drivers/net/usb/Kconfig     |   18 ++
- drivers/net/usb/Makefile    |    1 +
- drivers/net/usb/cdc_mbim.c  |  412 ++++++++++++++++++++++++++++++++
- drivers/net/usb/cdc_ncm.c   |  546 +++++++++++++++++++++--------------=
---------
- drivers/net/usb/usbnet.c    |    4 +-
- include/linux/usb/cdc.h     |   23 ++
- include/linux/usb/cdc_ncm.h |  134 +++++++++++
- 7 files changed, 856 insertions(+), 282 deletions(-)
- create mode 100644 drivers/net/usb/cdc_mbim.c
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+ drivers/net/usb/cdc_ncm.c   |   97 ++++-----------------------------
+ include/linux/usb/cdc_ncm.h |  124 +++++++++++++++++++++++++++++++++++=
+++++++++
+ 2 files changed, 135 insertions(+), 86 deletions(-)
  create mode 100644 include/linux/usb/cdc_ncm.h
 
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index aeebf7c..0c941ef 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -51,90 +51,10 @@
+ #include <linux/atomic.h>
+ #include <linux/usb/usbnet.h>
+ #include <linux/usb/cdc.h>
++#include <linux/usb/cdc_ncm.h>
+=20
+ #define	DRIVER_VERSION				"14-Mar-2012"
+=20
+-/* CDC NCM subclass 3.2.1 */
+-#define USB_CDC_NCM_NDP16_LENGTH_MIN		0x10
+-
+-/* Maximum NTB length */
+-#define	CDC_NCM_NTB_MAX_SIZE_TX			32768	/* bytes */
+-#define	CDC_NCM_NTB_MAX_SIZE_RX			32768	/* bytes */
+-
+-/* Minimum value for MaxDatagramSize, ch. 6.2.9 */
+-#define	CDC_NCM_MIN_DATAGRAM_SIZE		1514	/* bytes */
+-
+-/* Minimum value for MaxDatagramSize, ch. 8.1.3 */
+-#define CDC_MBIM_MIN_DATAGRAM_SIZE              2048    /* bytes */
+-
+-#define	CDC_NCM_MIN_TX_PKT			512	/* bytes */
+-
+-/* Default value for MaxDatagramSize */
+-#define	CDC_NCM_MAX_DATAGRAM_SIZE		8192	/* bytes */
+-
+-/*
+- * Maximum amount of datagrams in NCM Datagram Pointer Table, not coun=
+ting
+- * the last NULL entry.
+- */
+-#define	CDC_NCM_DPT_DATAGRAMS_MAX		40
+-
+-/* Restart the timer, if amount of datagrams is less than given value =
+*/
+-#define	CDC_NCM_RESTART_TIMER_DATAGRAM_CNT	3
+-#define	CDC_NCM_TIMER_PENDING_CNT		2
+-#define CDC_NCM_TIMER_INTERVAL			(400UL * NSEC_PER_USEC)
+-
+-/* The following macro defines the minimum header space */
+-#define	CDC_NCM_MIN_HDR_SIZE \
+-	(sizeof(struct usb_cdc_ncm_nth16) + sizeof(struct usb_cdc_ncm_ndp16) =
++ \
+-	(CDC_NCM_DPT_DATAGRAMS_MAX + 1) * sizeof(struct usb_cdc_ncm_dpe16))
+-
+-#define CDC_NCM_NDP_SIZE \
+-	(sizeof(struct usb_cdc_ncm_ndp16) +				\
+-	      (CDC_NCM_DPT_DATAGRAMS_MAX + 1) * sizeof(struct usb_cdc_ncm_dpe=
+16))
+-
+-struct cdc_ncm_ctx {
+-	struct usb_cdc_ncm_ntb_parameters ncm_parm;
+-	struct hrtimer tx_timer;
+-	struct tasklet_struct bh;
+-
+-	const struct usb_cdc_ncm_desc *func_desc;
+-	const struct usb_cdc_mbim_desc *mbim_desc;
+-	const struct usb_cdc_header_desc *header_desc;
+-	const struct usb_cdc_union_desc *union_desc;
+-	const struct usb_cdc_ether_desc *ether_desc;
+-
+-	struct net_device *netdev;
+-	struct usb_device *udev;
+-	struct usb_host_endpoint *in_ep;
+-	struct usb_host_endpoint *out_ep;
+-	struct usb_host_endpoint *status_ep;
+-	struct usb_interface *intf;
+-	struct usb_interface *control;
+-	struct usb_interface *data;
+-
+-	struct sk_buff *tx_curr_skb;
+-	struct sk_buff *tx_rem_skb;
+-	__le32 tx_rem_sign;
+-
+-	spinlock_t mtx;
+-	atomic_t stop;
+-
+-	u32 tx_timer_pending;
+-	u32 tx_curr_frame_num;
+-	u32 rx_speed;
+-	u32 tx_speed;
+-	u32 rx_max;
+-	u32 tx_max;
+-	u32 max_datagram_size;
+-	u16 tx_max_datagrams;
+-	u16 tx_remainder;
+-	u16 tx_modulus;
+-	u16 tx_ndp_modulus;
+-	u16 tx_seq;
+-	u16 rx_seq;
+-	u16 connected;
+-};
+-
+ static void cdc_ncm_txpath_bh(unsigned long param);
+ static void cdc_ncm_tx_timeout_start(struct cdc_ncm_ctx *ctx);
+ static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *hr_tim=
+er);
+@@ -471,7 +391,7 @@ static const struct ethtool_ops cdc_ncm_ethtool_ops=
+ =3D {
+ 	.nway_reset =3D usbnet_nway_reset,
+ };
+=20
+-static int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interfac=
+e *intf, u8 data_altsetting)
++int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf=
+, u8 data_altsetting)
+ {
+ 	struct cdc_ncm_ctx *ctx;
+ 	struct usb_driver *driver;
+@@ -629,8 +549,9 @@ error:
+ 	dev_info(&dev->udev->dev, "bind() failure\n");
+ 	return -ENODEV;
+ }
++EXPORT_SYMBOL_GPL(cdc_ncm_bind_common);
+=20
+-static void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *i=
+ntf)
++void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *intf)
+ {
+ 	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
+ 	struct usb_driver *driver =3D driver_of(intf);
+@@ -660,6 +581,7 @@ static void cdc_ncm_unbind(struct usbnet *dev, stru=
+ct usb_interface *intf)
+ 	usb_set_intfdata(ctx->intf, NULL);
+ 	cdc_ncm_free(ctx);
+ }
++EXPORT_SYMBOL_GPL(cdc_ncm_unbind);
+=20
+ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf=
+)
+ {
+@@ -725,7 +647,7 @@ static struct usb_cdc_ncm_ndp16 *cdc_ncm_ndp(struct=
+ cdc_ncm_ctx *ctx, struct sk_
+ 	return ndp16;
+ }
+=20
+-static struct sk_buff *
++struct sk_buff *
+ cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, struct sk_buff *skb, __=
+le32 sign)
+ {
+ 	struct usb_cdc_ncm_nth16 *nth16;
+@@ -882,6 +804,7 @@ exit_no_skb:
+ 		cdc_ncm_tx_timeout_start(ctx);
+ 	return NULL;
+ }
++EXPORT_SYMBOL_GPL(cdc_ncm_fill_tx_frame);
+=20
+ static void cdc_ncm_tx_timeout_start(struct cdc_ncm_ctx *ctx)
+ {
+@@ -948,7 +871,7 @@ error:
+ }
+=20
+ /* verify NTB header and return offset of first NDP, or negative error=
+ */
+-static int cdc_ncm_rx_verify_nth16(struct cdc_ncm_ctx *ctx, struct sk_=
+buff *skb_in)
++int cdc_ncm_rx_verify_nth16(struct cdc_ncm_ctx *ctx, struct sk_buff *s=
+kb_in)
+ {
+ 	struct usb_cdc_ncm_nth16 *nth16;
+ 	int len;
+@@ -990,9 +913,10 @@ static int cdc_ncm_rx_verify_nth16(struct cdc_ncm_=
+ctx *ctx, struct sk_buff *skb_
+ error:
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(cdc_ncm_rx_verify_nth16);
+=20
+ /* verify NDP header and return number of datagrams, or negative error=
+ */
+-static int cdc_ncm_rx_verify_ndp16(struct sk_buff *skb_in, int ndpoffs=
+et)
++int cdc_ncm_rx_verify_ndp16(struct sk_buff *skb_in, int ndpoffset)
+ {
+ 	struct usb_cdc_ncm_ndp16 *ndp16;
+ 	int ret =3D -EINVAL;
+@@ -1023,6 +947,7 @@ static int cdc_ncm_rx_verify_ndp16(struct sk_buff =
+*skb_in, int ndpoffset)
+ error:
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(cdc_ncm_rx_verify_ndp16);
+=20
+ static int cdc_ncm_rx_fixup(struct usbnet *dev, struct sk_buff *skb_in=
+)
+ {
+diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
+new file mode 100644
+index 0000000..d1719a7
+--- /dev/null
++++ b/include/linux/usb/cdc_ncm.h
+@@ -0,0 +1,124 @@
++/*
++ * Copyright (C) ST-Ericsson 2010-2012
++ * Contact: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
++ * Original author: Hans Petter Selasky <hans.petter.selasky@stericsso=
+n.com>
++ *
++ * USB Host Driver for Network Control Model (NCM)
++ * http://www.usb.org/developers/devclass_docs/NCM10.zip
++ *
++ * The NCM encoding, decoding and initialization logic
++ * derives from FreeBSD 8.x. if_cdce.c and if_cdcereg.h
++ *
++ * This software is available to you under a choice of one of two
++ * licenses. You may choose this file to be licensed under the terms
++ * of the GNU General Public License (GPL) Version 2 or the 2-clause
++ * BSD license listed below:
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyrigh=
+t
++ *    notice, this list of conditions and the following disclaimer in =
+the
++ *    documentation and/or other materials provided with the distribut=
+ion.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' =
+AND
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, T=
+HE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR =
+PURPOSE
++ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LI=
+ABLE
++ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQ=
+UENTIAL
++ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE G=
+OODS
++ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTIO=
+N)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,=
+ STRICT
++ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN A=
+NY WAY
++ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY=
+ OF
++ * SUCH DAMAGE.
++ */
++
++/* CDC NCM subclass 3.2.1 */
++#define USB_CDC_NCM_NDP16_LENGTH_MIN		0x10
++
++/* Maximum NTB length */
++#define	CDC_NCM_NTB_MAX_SIZE_TX			32768	/* bytes */
++#define	CDC_NCM_NTB_MAX_SIZE_RX			32768	/* bytes */
++
++/* Minimum value for MaxDatagramSize, ch. 6.2.9 */
++#define	CDC_NCM_MIN_DATAGRAM_SIZE		1514	/* bytes */
++
++/* Minimum value for MaxDatagramSize, ch. 8.1.3 */
++#define CDC_MBIM_MIN_DATAGRAM_SIZE		2048	/* bytes */
++
++#define	CDC_NCM_MIN_TX_PKT			512	/* bytes */
++
++/* Default value for MaxDatagramSize */
++#define	CDC_NCM_MAX_DATAGRAM_SIZE		8192	/* bytes */
++
++/*
++ * Maximum amount of datagrams in NCM Datagram Pointer Table, not coun=
+ting
++ * the last NULL entry.
++ */
++#define	CDC_NCM_DPT_DATAGRAMS_MAX		40
++
++/* Restart the timer, if amount of datagrams is less than given value =
+*/
++#define	CDC_NCM_RESTART_TIMER_DATAGRAM_CNT	3
++#define	CDC_NCM_TIMER_PENDING_CNT		2
++#define CDC_NCM_TIMER_INTERVAL			(400UL * NSEC_PER_USEC)
++
++/* The following macro defines the minimum header space */
++#define	CDC_NCM_MIN_HDR_SIZE \
++	(sizeof(struct usb_cdc_ncm_nth16) + sizeof(struct usb_cdc_ncm_ndp16) =
++ \
++	(CDC_NCM_DPT_DATAGRAMS_MAX + 1) * sizeof(struct usb_cdc_ncm_dpe16))
++
++#define CDC_NCM_NDP_SIZE \
++	(sizeof(struct usb_cdc_ncm_ndp16) +				\
++	      (CDC_NCM_DPT_DATAGRAMS_MAX + 1) * sizeof(struct usb_cdc_ncm_dpe=
+16))
++
++struct cdc_ncm_ctx {
++	struct usb_cdc_ncm_ntb_parameters ncm_parm;
++	struct hrtimer tx_timer;
++	struct tasklet_struct bh;
++
++	const struct usb_cdc_ncm_desc *func_desc;
++	const struct usb_cdc_mbim_desc   *mbim_desc;
++	const struct usb_cdc_header_desc *header_desc;
++	const struct usb_cdc_union_desc *union_desc;
++	const struct usb_cdc_ether_desc *ether_desc;
++
++	struct net_device *netdev;
++	struct usb_device *udev;
++	struct usb_host_endpoint *in_ep;
++	struct usb_host_endpoint *out_ep;
++	struct usb_host_endpoint *status_ep;
++	struct usb_interface *intf;
++	struct usb_interface *control;
++	struct usb_interface *data;
++
++	struct sk_buff *tx_curr_skb;
++	struct sk_buff *tx_rem_skb;
++	__le32 tx_rem_sign;
++
++	spinlock_t mtx;
++	atomic_t stop;
++
++	u32 tx_timer_pending;
++	u32 tx_curr_frame_num;
++	u32 rx_speed;
++	u32 tx_speed;
++	u32 rx_max;
++	u32 tx_max;
++	u32 max_datagram_size;
++	u16 tx_max_datagrams;
++	u16 tx_remainder;
++	u16 tx_modulus;
++	u16 tx_ndp_modulus;
++	u16 tx_seq;
++	u16 rx_seq;
++	u16 connected;
++};
++
++extern int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interfac=
+e *intf, u8 data_altsetting);
++extern void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *i=
+ntf);
++extern struct sk_buff *cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, =
+struct sk_buff *skb, __le32 sign);
++extern int cdc_ncm_rx_verify_nth16(struct cdc_ncm_ctx *ctx, struct sk_=
+buff *skb_in);
++extern int cdc_ncm_rx_verify_ndp16(struct sk_buff *skb_in, int ndpoffs=
+et);
 --=20
 1.7.10.4
 
