@@ -1,280 +1,187 @@
-From: enh <enh@google.com>
-Subject: Re: listen(2) backlog changes in or around Linux 3.1?
-Date: Thu, 18 Oct 2012 10:20:17 -0700
-Message-ID: <CAJgzZooJM7aj=K-idvdbwUOOmtDM6u-=gsVOs2OFZjiZwQP0zw@mail.gmail.com>
-References: <CAJgzZorigejCuFweNrvmkEJts3Um7exh1fYTH=4KrEcB=v=2SA@mail.gmail.com>
- <507C4401.7050500@oracle.com> <CAJgzZoqhw6HJxa6uRbekLMaVTDVOo92YDtzqHnZoRiQ8tq6G2g@mail.gmail.com>
- <CAJgzZoq9+KZpQ1tVQJUK++VVk4JfY9u8timaJ5q6wSYoF+_tog@mail.gmail.com>
- <5080279F.80008@oracle.com> <5080340F.3050207@oracle.com>
+From: "Hiremath, Vaibhav" <hvaibhav@ti.com>
+Subject: RE: [PATCH 1/5] ARM: OMAP2+: gpmc: Fix kernel BUG for DT boot mode
+Date: Thu, 18 Oct 2012 18:04:29 +0000
+Message-ID: <79CD15C6BA57404B839C016229A409A83EB43D0F@DBDE01.ent.ti.com>
+References: <cover.1350327320.git.richardcochran@gmail.com>
+ <41d66042625157d089e9c9532030a6831e79c641.1350327324.git.richardcochran@gmail.com>
+ <507DB9EC.9060407@ti.com>
+ <79CD15C6BA57404B839C016229A409A83EB43B17@DBDE01.ent.ti.com>
+ <5080315F.8090802@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:41265 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932119Ab2JRRUj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 13:20:39 -0400
-Received: by mail-vc0-f174.google.com with SMTP id fk26so5743053vcb.19
-        for <netdev@vger.kernel.org>; Thu, 18 Oct 2012 10:20:38 -0700 (PDT)
-In-Reply-To: <5080340F.3050207@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Mohammed, Afzal" <afzal@ti.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Tony Lindgren <tony@atomide.com>,
+	David Miller <davem@davemloft.net>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
+To: "Hunter, Jon" <jon-hunter@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <5080315F.8090802@ti.com>
+Content-Language: en-US
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 18, 2012 at 9:53 AM, Venkat Venkatsubra
-<venkat.x.venkatsubra@oracle.com> wrote:
-> Correction. I don't see the client side receiving any abort/termination
-> notification.
-> They all remain on ESTABLISHED state on the client side.
+On Thu, Oct 18, 2012 at 22:12:07, Hunter, Jon wrote:
+> 
+> On 10/18/2012 11:16 AM, Hiremath, Vaibhav wrote:
+> > On Wed, Oct 17, 2012 at 01:17:56, Hunter, Jon wrote:
+> >>
+> >> On 10/15/2012 02:16 PM, Richard Cochran wrote:
+> >>> From: hvaibhav@ti.com <hvaibhav@ti.com>
+> >>>
+> >>> With recent changes in omap gpmc driver code, in case of DT
+> >>> boot mode, where bootloader does not configure gpmc cs space
+> >>> will result into kernel BUG() inside gpmc_mem_init() function,
+> >>> as gpmc cs0 gpmc_config7[0].csvalid bit is set to '1' and
+> >>> gpmc_config7[0].baseaddress is set to '0' on reset.
+> >>
+> >> I am not sure I completely follow the logic here.
+> >>
+> >> Won't this problem occur if the bootloader does not configure the gpmc
+> >> cs space AND we are not using DT?
+> >>
+> > 
+> > That's what exactly the above comment describes.
+> 
+> Hmm ... you said "in the case of DT", but I am saying even "in the case
+> WITHOUT DT" this can happen. So I think the subject is mis-leading.
+> 
 
-yeah, that's what i see with netstat -t too.
-
-in the meantime i'm working around this by connecting to one of
-RFC5737's test networks
-(https://android-review.googlesource.com/#/c/44563/), but i'd love to
-at least understand what's going on here, even if it's just that i
-have a fundamental misunderstanding of what the listen backlog is
-supposed to mean.
-
-> In tcpdump I don't see a FIN or RST coming from the server for the aborted
-> connections.
->
-> Venkat
->
->
-> On 10/18/2012 11:00 AM, Venkat Venkatsubra wrote:
->>
->> Hi Elliott,
->>
->> I see the same behavior with your test program.
->> The connect() keeps succeeding even though accept() is not performed.
->> It pauses after 4 connections for a while and then periodically keeps
->> adding few (2 I think).
->>
->> But the server side end points are terminated too. You will see only the
->> first 2 sessions on the server side.
->> If you modify your test program to say read or poll the sockets you should
->> get a termination notification on them I think .
->>
->> The behavior overall looks fine in my opinion.  But it could be a change
->> of behavior for your test program.
->>
->> Venkat
->>
->> On 10/16/2012 6:31 PM, enh wrote:
->>>
->>> boiling things down to a short C++ program, i see that i can reproduce
->>> the behavior even on 2.6 kernels. if i run this, i see 4 connections
->>> immediately (3 + 1, as i'd expect)... but then about 10s later i see
->>> another 2. and every few seconds after that, i see another 2. i've let
->>> this run until i have hundreds of connect(2) calls that have returned,
->>> despite my small listen(2) backlog and the fact that i'm not
->>> accept(2)ing.
->>>
->>> so i guess the only thing that's changed with newer kernels is timing
->>> (hell, since i only see newer kernels on newer hardware, it might just
->>> be a hardware thing).
->>>
->>> and clearly i don't understand what the listen(2) backlog means any more.
->>>
->>> #include<netinet/ip.h>
->>> #include<netinet/tcp.h>
->>> #include<sys/types.h>
->>> #include<sys/socket.h>
->>> #include<iostream>
->>> #include<stdlib.h>
->>> #include<string.h>
->>> #include<errno.h>
->>>
->>> void dump_ti(int fd) {
->>>   tcp_info ti;
->>>   socklen_t tcp_info_length = sizeof(tcp_info);
->>>   int rc = getsockopt(fd, SOL_IP, TCP_INFO,&ti,&tcp_info_length);
->>>   if (rc == -1) {
->>>     std::cout<<  "getsockopt rc "<<  rc<<  ": "<<  strerror(errno)<<
->>> "\n";
->>>     return;
->>>   }
->>>
->>>   std::cout<<  "ti.tcpi_unacked="<<  ti.tcpi_unacked<<  "\n";
->>>   std::cout<<  "ti.tcpi_sacked="<<  ti.tcpi_sacked<<  "\n";
->>> }
->>>
->>> void connect_to(sockaddr_in&  sa) {
->>>   int s = socket(AF_INET, SOCK_STREAM, 0);
->>>   if (s == -1) {
->>>     abort();
->>>   }
->>>
->>>   int rc = connect(s, (sockaddr*)&sa, sizeof(sockaddr_in));
->>>   std::cout<<  "connect = "<<  rc<<  "\n";
->>> }
->>>
->>> int main() {
->>>   int ss = socket(AF_INET, SOCK_STREAM, 0);
->>>   std::cout<<  "socket fd "<<  ss<<  "\n";
->>>
->>>   sockaddr_in sa;
->>>   memset(&sa, 0, sizeof(sa));
->>>   sa.sin_family = AF_INET;
->>>   sa.sin_addr.s_addr = htonl(INADDR_ANY);
->>>   sa.sin_port = htons(9877);
->>>   int rc = bind(ss, (sockaddr*)&sa, sizeof(sa));
->>>   std::cout<<  "bind rc "<<  rc<<  ": "<<  strerror(errno)<<  "\n";
->>>   std::cout<<  "bind port "<<  sa.sin_port<<  "\n";
->>>
->>>   rc = listen(ss, 1);
->>>   std::cout<<  "listen rc "<<  rc<<  ": "<<  strerror(errno)<<  "\n";
->>>   dump_ti(ss);
->>>
->>>   while (true) {
->>>    connect_to(sa);
->>>    dump_ti(ss);
->>>   }
->>>
->>>   return 0;
->>> }
->>>
->>>
->>> On Mon, Oct 15, 2012 at 10:26 AM, enh<enh@google.com>  wrote:
->>>>
->>>> On Mon, Oct 15, 2012 at 10:12 AM, Venkat Venkatsubra
->>>> <venkat.x.venkatsubra@oracle.com>  wrote:
->>>>>
->>>>> On 10/12/2012 6:40 PM, enh wrote:
->>>>>>
->>>>>> i used to use the following hack to unit test connect timeouts: i'd
->>>>>> call listen(2) on a socket and then deliberately connect (backlog + 3)
->>>>>> sockets without accept(2)ing any of the connections. (why 3? because
->>>>>> Stevens told me so, and experiment backed him up. see figure 4.10 in
->>>>>> his UNIX Network Programming.)
->>>>>>
->>>>>> with "old" kernels, 2.6.35-ish to 3.0-ish, this worked great. my next
->>>>>> connect(2) to the same loopback port would hang indefinitely. i could
->>>>>> even unblock the connect by calling accept(2) in another thread. this
->>>>>> was awesome for testing.
->>>>>>
->>>>>> in 3.1 on ARM, 3.2 on x86 (Ubuntu desktop), and 3.4 on ARM, this no
->>>>>> longer works. it doesn't seem to be as simple as "the constant is no
->>>>>> longer 3". my tests are now flaky. sometimes they work like they used
->>>>>> to, and sometimes an extra connect(2) will succeed. (or, if i'm in
->>>>>> non-blocking mode, my poll(2) will return with the non-blocking socket
->>>>>> that's trying to connect now ready.)
->>>>>>
->>>>>> i'm guessing if this changed in 3.1 and is still changed in 3.4,
->>>>>> whatever's changed wasn't an accident. but i haven't been able to find
->>>>>> the right search terms to RTFM. i also finally got around to grepping
->>>>>> the kernel for the "+ 3", but wasn't able to find that. (so i'd be
->>>>>> interested to know where the old behavior came from too.)
->>>>>>
->>>>>> my least worst workaround at the moment is to use one of RFC5737's
->>>>>> test networks, but that requires that the device have a network
->>>>>> connection, otherwise my connect(2)s fail immediately with
->>>>>> ENETUNREACH, which is no use to me. also, unlike my old trick, i've
->>>>>> got no way to suddenly "unblock" a slow connect(2) (this is useful for
->>>>>> unit testing the code that does the poll(2) part of the usual
->>>>>> connect-with-timeout implementation).
->>>>>> https://android-review.googlesource.com/#/c/44563/
->>>>>>
->>>>>> hopefully someone here can shed some light on this? ideally someone
->>>>>> will have a workaround as good as my old trick. i realize i was
->>>>>> relying on undocumented behavior, and i'm happy to have to check
->>>>>> /proc/version and behave appropriately, but i'd really like a way to
->>>>>> keep my unit tests!
->>>>>>
->>>>>> thanks,
->>>>>>    elliott
->>>>>> --
->>>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>>>> the body of a message to majordomo@vger.kernel.org
->>>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>>>
->>>>> Hi Elliott,
->>>>>
->>>>> In BSD I think the backlog used to be reset to 3/2 times that passed by
->>>>> the
->>>>> user. So, 2 becomes 3.
->>>>> Probably the 1/2 times increase was to accommodate the ones in
->>>>> partial/incomplete queue.
->>>>> In Linux is it possible you were getting the same behavior before the
->>>>> below
->>>>> commit ?
->>>>> Since the check used to be "backlog+1" a 2 will behave as 3 ?
->>>>
->>>> i don't think so, because with<= 3.0 kernels i used to have a backlog
->>>> of 1 and be able to make _4_ connections before my next connect would
->>>> hang. but this>  to>= change is at least something for me to
->>>> investigate...
->>>>
->>>>> commit 8488df894d05d6fa41c2bd298c335f944bb0e401
->>>>> Author: Wei Dong<weid@np.css.fujitsu.com>
->>>>> Date:   Fri Mar 2 12:37:26 2007 -0800
->>>>>
->>>>>      [NET]: Fix bugs in "Whether sock accept queue is full" checking
->>>>>
->>>>>          when I use linux TCP socket, and find there is a bug in
->>>>> function
->>>>> sk_acceptq_is_full().
->>>>>
->>>>>          When a new SYN comes, TCP module first checks its validation.
->>>>> If
->>>>> valid,
->>>>>      send SYN,ACK to the client and add the sock to the syn hash table.
->>>>> Next
->>>>>      time if received the valid ACK for SYN,ACK from the client. server
->>>>> will
->>>>>      accept this connection and increase the sk->sk_ack_backlog --
->>>>> which is
->>>>>      done in function tcp_check_req().We check wether acceptq is full
->>>>> in
->>>>>      function tcp_v4_syn_recv_sock().
->>>>>
->>>>>      Consider an example:
->>>>>
->>>>>       After listen(sockfd, 1) system call, sk->sk_max_ack_backlog is
->>>>> set to
->>>>>      1. As we know, sk->sk_ack_backlog is initialized to 0. Assuming
->>>>> accept()
->>>>>      system call is not invoked now.
->>>>>
->>>>>      1. 1st connection comes. invoke sk_acceptq_is_full().
->>>>>       sk->sk_ack_backlog=0 sk->sk_max_ack_backlog=1, function return 0
->>>>> accept
->>>>> this connection.
->>>>>       Increase the sk->sk_ack_backlog
->>>>>      2. 2nd connection comes. invoke sk_acceptq_is_full().
->>>>>       sk->sk_ack_backlog=1 sk->sk_max_ack_backlog=1, function return 0
->>>>> accept
->>>>> this connection.
->>>>>       Increase the sk->sk_ack_backlog
->>>>>      3. 3rd connection comes. invoke sk_acceptq_is_full().
->>>>>       sk->sk_ack_backlog=2 sk->sk_max_ack_backlog=1, function return 1.
->>>>> Refuse this connection.
->>>>>
->>>>>      I think it has bugs. after listen system call.
->>>>> sk->sk_max_ack_backlog=1
->>>>>      but now it can accept 2 connections.
->>>>>
->>>>>      Signed-off-by: Wei Dong<weid@np.css.fujitsu.com>
->>>>>      Signed-off-by: David S. Miller<davem@davemloft.net>
->>>>>
->>>>> Venkat
->>>
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+Ok, may be my above statement was confusing. But the bottom line is,
+We should GPMC without any pre-configuration (either at u-boot or ROM) will 
+have this issue.
 
 
+> >> Is the csvalid bit set because we are booting from the internal ROM?
+> >>
+> > 
+> > As per TRM, the reset value of the CS0_valis bit is set to 0. I have pasted 
+> > TRM statement below -
+> > 
+> > "Chip-select enable (reset value is 1 for CS[0] and 0 for CS[1-5])."
+> 
+> The above two sentences don't see to agree ...
 
--- 
-Elliott Hughes - http://who/enh - http://jessies.org/~enh/
-NIO, JNI, or bionic questions? Mail me/drop by/add me as a reviewer.
+Oops, it was typo mistake. I meant "is set to '1'"
+
+> 
+> > And same applies to OMAP3 family of devices.
+> 
+> For which boot-modes? All or just the gpmc boot-modes?
+> 
+
+That's reset value, and I believe it is applicable for all boot modes.
+
+> My omap3430 beagle has been booting with DT fine for some time and I
+> have not encountered this problem even on the latest kernel with the
+> gpmc driver present.
+> 
+
+OMAp3430 beagle board has NAND flash available over GPMC-CS0 interface.
+
+> >> I guess I don't see why csvalid bit being set and a base-address of 0x0
+> >> should not be allowed. That should be a valid combination.
+> >>
+> > 
+> > Yes, agreed.
+> > 
+> >> One problem I see with gpmc_mem_init() is that it assumes that
+> >> BOOT_ROM_SPACE is 1MB for all devices starting at 0x0 apart from the
+> >> apollon board. For newer devices such as OMAP4, there is only 48KB of
+> >> internal ROM and only mapped to 0x0 when booting from internal ROM. So
+> >> this needs to be fixed.
+> >>
+> >> How much internal ROM does the AM335x have and where is it mapped?
+> >>
+> > 
+> > AM33xx memory map is something like,
+> > 
+> > Boot ROM  0x4000_0000 0x4001_FFFF 128KB
+> >           0x4002_0000 0x4002_BFFF 48KB    32-bit Ex/R(1) - Public
+> > Reserved  0x4002_C000 0x400F_FFFF 848KB   Reserved
+> > Reserved  0x4010_0000 0x401F_FFFF 1MB     Reserved
+> > Reserved  0x4020_0000 0x402E_FFFF 960KB   Reserved
+> > Reserved  0x402f_0000 0x4020_03FF 64KB    Reserved
+> > SRAM internal 0x402F_0400 0x402F_FFFF    32-bit Ex/R/W(1)
+> 
+> Does the boot ROM get mapped to 0x0, when booting from ROM?
+> 
+
+I expect, it should be same as OMAP4.
+
+> >>> This use-case is applicable for any board/EVM which doesn't have
+> >>> any peripheral connected to gpmc cs0, for example BeagleXM and
+> >>> BeagleBone, so DT boot mode fails.
+> >>>
+> >>> This patch adds of_have_populated_dt() check before creating
+> >>> device, so that for DT boot mode, gpmc probe will not be called
+> >>> which is expected behavior, as gpmc is not supported yet from DT.
+> >>
+> >> Yes, but we do actually still allow some platform devices to be probed
+> >> (such as dmtimers) when booting with DT that don't support DT yet. So
+> >> this change prevents us from using the gpmc on boards when booting with DT.
+> >>
+> > 
+> > The idea here was,
+> > 
+> > In order to use GPMC in meaningful way, where some peripheral is connected 
+> > to the GPMC, you must create platform_device for the probe to happen 
+> > properly. Now all the devices I know so far, we have gpmc_smsc911x_init(), 
+> > omap_nand_flash_init(), etc...
+> > These api's are getting called only through machine_desc.init_xxx callbacks,
+> > And in case of DT, we have centralized machine_desc definition for all 
+> > platforms (board-generic.c). So even though you want to use GPMC for DT boot
+> > mode, you can not make use of peripheral without changing board-files to 
+> > change to create platform_device.
+> > 
+> > Does it make sense?
+> 
+> Sure, if you are using one of the generic machine configurations for DT.
+> However, while this migration happens people may create their own custom
+> machine configurations for DT for testing things like smsc911x.
+> 
+
+If we want to think about all such use-cases, then yes, this patch is not 
+required.
+
+> >> I am not convinced that this is addressing the underlying problem with
+> >> gpmc_mem_init().
+> >>
+> > 
+> > The patch you submitted is cleanup patch and is required irrespective of 
+> > this patch. I believe this patch is just makes sure that, if you are booting 
+> > from DT and you do not have meaningful DT node for GPMC and peripheral 
+> > interfaced to it, no point in probing it. 
+> > 
+> > Does it make any sense???
+> 
+> Yes, but do you also see the bug that is hiding in gpmc_mem_init()?
+> 
+> My point is to highlight this and not hide it, so that we can fix it
+> now. Otherwise if we wait until we enable the gpmc driver with DT and
+> this could hinder the DT migration later.
+> 
+
+As I already mentioned in my previous response, your patch is required 
+irrespective of this patch. I would consider your patch as a cleanup patch.
+
+
+Both the patches are independent, your patch is handling the error path 
+properly, whereas, my patch makes sure that you don't unnecessarily probe 
+GPMC if you are booting from DT and GPMC node is not present, as described 
+above.
+
+
+Thanks,
+Vaibhav
+
+> Jon
+> 
+> 
+
