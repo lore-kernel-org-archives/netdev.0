@@ -1,126 +1,281 @@
 From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH 06/14] net/at91_ether: use pclk member instead of ether_clk
-Date: Thu, 18 Oct 2012 23:01:11 +0200
-Message-ID: <1350594079-4337-7-git-send-email-manabian@gmail.com>
+Subject: [PATCH 12/14] net/at91_ether: clean up rx buffer handling
+Date: Thu, 18 Oct 2012 23:01:17 +0200
+Message-ID: <1350594079-4337-13-git-send-email-manabian@gmail.com>
 References: <1350594079-4337-1-git-send-email-manabian@gmail.com>
 Cc: netdev@vger.kernel.org, Joachim Eastwood <manabian@gmail.com>
 To: nicolas.ferre@atmel.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:59632 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756319Ab2JRVBj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 17:01:39 -0400
-Received: by mail-lb0-f174.google.com with SMTP id n3so6209827lbo.19
-        for <netdev@vger.kernel.org>; Thu, 18 Oct 2012 14:01:38 -0700 (PDT)
+Received: from mail-la0-f46.google.com ([209.85.215.46]:56423 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932135Ab2JRVBp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 17:01:45 -0400
+Received: by mail-la0-f46.google.com with SMTP id h6so6136414lag.19
+        for <netdev@vger.kernel.org>; Thu, 18 Oct 2012 14:01:45 -0700 (PDT)
 In-Reply-To: <1350594079-4337-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove old at91_priv member and use pclk member from macb.
+This patch does two things:
+* Use macb struct members and remove at91_ether ones
+* Alloc DMA buffers on netdev start and dealloc on stop
 
 Signed-off-by: Joachim Eastwood <manabian@gmail.com>
 ---
- drivers/net/ethernet/cadence/at91_ether.c | 24 ++++++++++++------------
- drivers/net/ethernet/cadence/macb.h       |  1 -
- 2 files changed, 12 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/cadence/at91_ether.c | 106 +++++++++++++++++++-----------
+ drivers/net/ethernet/cadence/macb.h       |  13 ----
+ 2 files changed, 68 insertions(+), 51 deletions(-)
 
 diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-index 09f3746..4da36b8 100644
+index 8204b8a..68b7e2a 100644
 --- a/drivers/net/ethernet/cadence/at91_ether.c
 +++ b/drivers/net/ethernet/cadence/at91_ether.c
-@@ -765,7 +765,7 @@ static int at91ether_open(struct net_device *dev)
+@@ -40,6 +40,11 @@
+ #define DRV_NAME	"at91_ether"
+ #define DRV_VERSION	"1.0"
+ 
++/* 1518 rounded up */
++#define MAX_RBUFF_SZ	0x600
++/* max number of receive buffers */
++#define MAX_RX_DESCR	9
++
+ /* ......................... ADDRESS MANAGEMENT ........................ */
+ 
+ /*
+@@ -145,33 +150,55 @@ static int set_mac_address(struct net_device *dev, void* addr)
+ /*
+  * Initialize and start the Receiver and Transmit subsystems
+  */
+-static void at91ether_start(struct net_device *dev)
++static int at91ether_start(struct net_device *dev)
+ {
+ 	struct macb *lp = netdev_priv(dev);
+-	struct recv_desc_bufs *dlist, *dlist_phys;
+-	int i;
+ 	unsigned long ctl;
++	dma_addr_t addr;
++	int i;
++
++	lp->rx_ring = dma_alloc_coherent(&lp->pdev->dev,
++					MAX_RX_DESCR * sizeof(struct dma_desc),
++					&lp->rx_ring_dma, GFP_KERNEL);
++	if (!lp->rx_ring) {
++		netdev_err(lp->dev, "unable to alloc rx ring DMA buffer\n");
++		return -ENOMEM;
++	}
+ 
+-	dlist = lp->dlist;
+-	dlist_phys = lp->dlist_phys;
++	lp->rx_buffers = dma_alloc_coherent(&lp->pdev->dev,
++					MAX_RX_DESCR * MAX_RBUFF_SZ,
++					&lp->rx_buffers_dma, GFP_KERNEL);
++	if (!lp->rx_buffers) {
++		netdev_err(lp->dev, "unable to alloc rx data DMA buffer\n");
+ 
++		dma_free_coherent(&lp->pdev->dev,
++					MAX_RX_DESCR * sizeof(struct dma_desc),
++					lp->rx_ring, lp->rx_ring_dma);
++		lp->rx_ring = NULL;
++		return -ENOMEM;
++	}
++
++	addr = lp->rx_buffers_dma;
+ 	for (i = 0; i < MAX_RX_DESCR; i++) {
+-		dlist->descriptors[i].addr = (unsigned int) &dlist_phys->recv_buf[i][0];
+-		dlist->descriptors[i].ctrl = 0;
++		lp->rx_ring[i].addr = addr;
++		lp->rx_ring[i].ctrl = 0;
++		addr += MAX_RBUFF_SZ;
+ 	}
+ 
+ 	/* Set the Wrap bit on the last descriptor */
+-	dlist->descriptors[i-1].addr |= MACB_BIT(RX_WRAP);
++	lp->rx_ring[MAX_RX_DESCR - 1].addr |= MACB_BIT(RX_WRAP);
+ 
+ 	/* Reset buffer index */
+-	lp->rxBuffIndex = 0;
++	lp->rx_tail = 0;
+ 
+ 	/* Program address of descriptor list in Rx Buffer Queue register */
+-	macb_writel(lp, RBQP, (unsigned long) dlist_phys);
++	macb_writel(lp, RBQP, lp->rx_ring_dma);
+ 
+ 	/* Enable Receive and Transmit */
+ 	ctl = macb_readl(lp, NCR);
+ 	macb_writel(lp, NCR, ctl | MACB_BIT(RE) | MACB_BIT(TE));
++
++	return 0;
+ }
+ 
+ /*
+@@ -181,6 +208,7 @@ static int at91ether_open(struct net_device *dev)
+ {
+ 	struct macb *lp = netdev_priv(dev);
+ 	unsigned long ctl;
++	int ret;
+ 
  	if (!is_valid_ether_addr(dev->dev_addr))
  		return -EADDRNOTAVAIL;
+@@ -192,13 +220,15 @@ static int at91ether_open(struct net_device *dev)
+ 	/* Update the MAC address (incase user has changed it) */
+ 	update_mac_address(dev);
  
--	clk_enable(lp->ether_clk);		/* Re-enable Peripheral clock */
-+	clk_enable(lp->pclk);		/* Re-enable Peripheral clock */
++	ret = at91ether_start(dev);
++	if (ret)
++		return ret;
++
+ 	/* Enable MAC interrupts */
+ 	macb_writel(lp, IER, MACB_BIT(RCOMP) | MACB_BIT(RXUBR)
+ 				| MACB_BIT(ISR_TUND) | MACB_BIT(ISR_RLE) | MACB_BIT(TCOMP)
+ 				| MACB_BIT(ISR_ROVR) | MACB_BIT(HRESP));
  
- 	/* Clear internal statistics */
- 	ctl = macb_readl(lp, NCR);
-@@ -817,7 +817,7 @@ static int at91ether_close(struct net_device *dev)
+-	at91ether_start(dev);
+-
+ 	/* schedule a link state check */
+ 	phy_start(lp->phy_dev);
+ 
+@@ -227,6 +257,16 @@ static int at91ether_close(struct net_device *dev)
  
  	netif_stop_queue(dev);
  
--	clk_disable(lp->ether_clk);		/* Disable Peripheral clock */
-+	clk_disable(lp->pclk);		/* Disable Peripheral clock */
- 
++	dma_free_coherent(&lp->pdev->dev,
++				MAX_RX_DESCR * sizeof(struct dma_desc),
++				lp->rx_ring, lp->rx_ring_dma);
++	lp->rx_ring = NULL;
++
++	dma_free_coherent(&lp->pdev->dev,
++				MAX_RX_DESCR * MAX_RBUFF_SZ,
++				lp->rx_buffers, lp->rx_buffers_dma);
++	lp->rx_buffers = NULL;
++
  	return 0;
  }
-@@ -1070,12 +1070,12 @@ static int __init at91ether_probe(struct platform_device *pdev)
+ 
+@@ -303,37 +343,37 @@ static struct net_device_stats *at91ether_stats(struct net_device *dev)
+ static void at91ether_rx(struct net_device *dev)
+ {
+ 	struct macb *lp = netdev_priv(dev);
+-	struct recv_desc_bufs *dlist;
+ 	unsigned char *p_recv;
+ 	struct sk_buff *skb;
+ 	unsigned int pktlen;
+ 
+-	dlist = lp->dlist;
+-	while (dlist->descriptors[lp->rxBuffIndex].addr & MACB_BIT(RX_USED)) {
+-		p_recv = dlist->recv_buf[lp->rxBuffIndex];
+-		pktlen = dlist->descriptors[lp->rxBuffIndex].ctrl & 0x7ff;	/* Length of frame including FCS */
++	while (lp->rx_ring[lp->rx_tail].addr & MACB_BIT(RX_USED)) {
++		p_recv = lp->rx_buffers + lp->rx_tail * MAX_RBUFF_SZ;
++		pktlen = MACB_BF(RX_FRMLEN, lp->rx_ring[lp->rx_tail].ctrl);
+ 		skb = netdev_alloc_skb(dev, pktlen + 2);
+-		if (skb != NULL) {
++		if (skb) {
+ 			skb_reserve(skb, 2);
+ 			memcpy(skb_put(skb, pktlen), p_recv, pktlen);
+ 
+ 			skb->protocol = eth_type_trans(skb, dev);
+ 			dev->stats.rx_bytes += pktlen;
+ 			netif_rx(skb);
+-		}
+-		else {
++		} else {
+ 			dev->stats.rx_dropped += 1;
+-			printk(KERN_NOTICE "%s: Memory squeeze, dropping packet.\n", dev->name);
++			netdev_notice(dev, "Memory squeeze, dropping packet.\n");
+ 		}
+ 
+-		if (dlist->descriptors[lp->rxBuffIndex].ctrl & MACB_BIT(RX_MHASH_MATCH))
++		if (lp->rx_ring[lp->rx_tail].ctrl & MACB_BIT(RX_MHASH_MATCH))
+ 			dev->stats.multicast++;
+ 
+-		dlist->descriptors[lp->rxBuffIndex].addr &= ~MACB_BIT(RX_USED);	/* reset ownership bit */
+-		if (lp->rxBuffIndex == MAX_RX_DESCR-1)				/* wrap after last buffer */
+-			lp->rxBuffIndex = 0;
++		/* reset ownership bit */
++		lp->rx_ring[lp->rx_tail].addr &= ~MACB_BIT(RX_USED);
++
++		/* wrap after last buffer */
++		if (lp->rx_tail == MAX_RX_DESCR - 1)
++			lp->rx_tail = 0;
+ 		else
+-			lp->rxBuffIndex++;
++			lp->rx_tail++;
+ 	}
+ }
+ 
+@@ -453,13 +493,6 @@ static int __init at91ether_probe(struct platform_device *pdev)
+ 		goto err_disable_clock;
  	}
  
- 	/* Clock */
--	lp->ether_clk = clk_get(&pdev->dev, "ether_clk");
--	if (IS_ERR(lp->ether_clk)) {
--		res = PTR_ERR(lp->ether_clk);
-+	lp->pclk = clk_get(&pdev->dev, "ether_clk");
-+	if (IS_ERR(lp->pclk)) {
-+		res = PTR_ERR(lp->pclk);
- 		goto err_ioumap;
- 	}
--	clk_enable(lp->ether_clk);
-+	clk_enable(lp->pclk);
+-	/* Allocate memory for DMA Receive descriptors */
+-	lp->dlist = (struct recv_desc_bufs *) dma_alloc_coherent(NULL, sizeof(struct recv_desc_bufs), (dma_addr_t *) &lp->dlist_phys, GFP_KERNEL);
+-	if (lp->dlist == NULL) {
+-		res = -ENOMEM;
+-		goto err_free_irq;
+-	}
+-
+ 	ether_setup(dev);
+ 	dev->netdev_ops = &at91ether_netdev_ops;
+ 	dev->ethtool_ops = &macb_ethtool_ops;
+@@ -482,7 +515,7 @@ static int __init at91ether_probe(struct platform_device *pdev)
+ 	/* Register the network interface */
+ 	res = register_netdev(dev);
+ 	if (res)
+-		goto err_free_dmamem;
++		goto err_free_irq;
  
- 	/* Install the interrupt handler */
- 	dev->irq = platform_get_irq(pdev, 0);
-@@ -1173,7 +1173,7 @@ static int __init at91ether_probe(struct platform_device *pdev)
- 	else if (lp->phy_type == MII_LAN83C185_ID)
- 		printk(KERN_INFO "%s: SMSC LAN83C185 PHY\n", dev->name);
+ 	if (macb_mii_init(lp) != 0)
+ 		goto err_out_unregister_netdev;
+@@ -504,10 +537,8 @@ static int __init at91ether_probe(struct platform_device *pdev)
  
--	clk_disable(lp->ether_clk);					/* Disable Peripheral clock */
-+	clk_disable(lp->pclk);					/* Disable Peripheral clock */
- 
- 	return 0;
- 
-@@ -1184,8 +1184,8 @@ err_free_dmamem:
+ err_out_unregister_netdev:
+ 	unregister_netdev(dev);
+-err_free_dmamem:
+-	platform_set_drvdata(pdev, NULL);
+-	dma_free_coherent(NULL, sizeof(struct recv_desc_bufs), lp->dlist, (dma_addr_t)lp->dlist_phys);
  err_free_irq:
++	platform_set_drvdata(pdev, NULL);
  	free_irq(dev->irq, dev);
  err_disable_clock:
--	clk_disable(lp->ether_clk);
--	clk_put(lp->ether_clk);
-+	clk_disable(lp->pclk);
-+	clk_put(lp->pclk);
- err_ioumap:
- 	iounmap(lp->regs);
- err_free_dev:
-@@ -1204,7 +1204,7 @@ static int __devexit at91ether_remove(struct platform_device *pdev)
+ 	clk_disable(lp->pclk);
+@@ -532,7 +563,6 @@ static int __devexit at91ether_remove(struct platform_device *pdev)
+ 	mdiobus_free(lp->mii_bus);
  	unregister_netdev(dev);
  	free_irq(dev->irq, dev);
- 	dma_free_coherent(NULL, sizeof(struct recv_desc_bufs), lp->dlist, (dma_addr_t)lp->dlist_phys);
--	clk_put(lp->ether_clk);
-+	clk_put(lp->pclk);
- 
- 	platform_set_drvdata(pdev, NULL);
- 	free_netdev(dev);
-@@ -1227,7 +1227,7 @@ static int at91ether_suspend(struct platform_device *pdev, pm_message_t mesg)
- 		netif_stop_queue(net_dev);
- 		netif_device_detach(net_dev);
- 
--		clk_disable(lp->ether_clk);
-+		clk_disable(lp->pclk);
- 	}
- 	return 0;
- }
-@@ -1238,7 +1238,7 @@ static int at91ether_resume(struct platform_device *pdev)
- 	struct macb *lp = netdev_priv(net_dev);
- 
- 	if (netif_running(net_dev)) {
--		clk_enable(lp->ether_clk);
-+		clk_enable(lp->pclk);
- 
- 		netif_device_attach(net_dev);
- 		netif_start_queue(net_dev);
+-	dma_free_coherent(NULL, sizeof(struct recv_desc_bufs), lp->dlist, (dma_addr_t)lp->dlist_phys);
+ 	iounmap(lp->regs);
+ 	clk_disable(lp->pclk);
+ 	clk_put(lp->pclk);
 diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 5661094..138311f 100644
+index 31a877a..a362751 100644
 --- a/drivers/net/ethernet/cadence/macb.h
 +++ b/drivers/net/ethernet/cadence/macb.h
-@@ -559,7 +559,6 @@ struct macb {
- 	struct macb_platform_data board_data;	/* board-specific
- 						 * configuration (shared with
- 						 * macb for common data */
--	struct clk *ether_clk;			/* clock */
+@@ -504,14 +504,6 @@ struct gem_stats {
+ 	u32	rx_udp_checksum_errors;
+ };
  
- 	/* PHY */
- 	unsigned long phy_type;			/* type of PHY (PHY_ID) */
+-#define MAX_RBUFF_SZ	0x600		/* 1518 rounded up */
+-#define MAX_RX_DESCR	9		/* max number of receive buffers */
+-
+-struct recv_desc_bufs {
+-	struct dma_desc descriptors[MAX_RX_DESCR];	/* must be on sizeof (dma_desc) boundary */
+-	char recv_buf[MAX_RX_DESCR][MAX_RBUFF_SZ];	/* must be on long boundary */
+-};
+-
+ struct macb {
+ 	void __iomem		*regs;
+ 
+@@ -558,11 +550,6 @@ struct macb {
+ 	struct sk_buff *skb;			/* holds skb until xmit interrupt completes */
+ 	dma_addr_t skb_physaddr;		/* phys addr from pci_map_single */
+ 	int skb_length;				/* saved skb length for pci_unmap_single */
+-
+-	/* Receive */
+-	int rxBuffIndex;			/* index into receive descriptor list */
+-	struct recv_desc_bufs *dlist;		/* descriptor list address */
+-	struct recv_desc_bufs *dlist_phys;	/* descriptor list physical address */
+ };
+ 
+ extern const struct ethtool_ops macb_ethtool_ops;
 -- 
 1.7.12.3
