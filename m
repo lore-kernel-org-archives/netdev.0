@@ -1,53 +1,280 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: RE: [PATCH] qla3xxx: Ensure req_q_phy_addr writes to the register
-Date: Thu, 18 Oct 2012 10:10:42 -0700
-Message-ID: <5E4F49720D0BAD499EE1F01232234BA87744A93DE8@AVEXMB1.qlogic.org>
-References: <507E50E5.5040201@oracle.com>
- <5E4F49720D0BAD499EE1F01232234BA87744A93B8E@AVEXMB1.qlogic.org>
- <507F66DF.4080606@oracle.com>
+From: enh <enh@google.com>
+Subject: Re: listen(2) backlog changes in or around Linux 3.1?
+Date: Thu, 18 Oct 2012 10:20:17 -0700
+Message-ID: <CAJgzZooJM7aj=K-idvdbwUOOmtDM6u-=gsVOs2OFZjiZwQP0zw@mail.gmail.com>
+References: <CAJgzZorigejCuFweNrvmkEJts3Um7exh1fYTH=4KrEcB=v=2SA@mail.gmail.com>
+ <507C4401.7050500@oracle.com> <CAJgzZoqhw6HJxa6uRbekLMaVTDVOo92YDtzqHnZoRiQ8tq6G2g@mail.gmail.com>
+ <CAJgzZoq9+KZpQ1tVQJUK++VVk4JfY9u8timaJ5q6wSYoF+_tog@mail.gmail.com>
+ <5080279F.80008@oracle.com> <5080340F.3050207@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Ron Mercer <ron.mercer@qlogic.com>,
-	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Greg Marsden <greg.marsden@oracle.com>
-To: Joe Jin <joe.jin@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <507F66DF.4080606@oracle.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:41265 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932119Ab2JRRUj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 13:20:39 -0400
+Received: by mail-vc0-f174.google.com with SMTP id fk26so5743053vcb.19
+        for <netdev@vger.kernel.org>; Thu, 18 Oct 2012 10:20:38 -0700 (PDT)
+In-Reply-To: <5080340F.3050207@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPj4+IEZyb206IEpvZSBKaW4gW21h
-aWx0bzpqb2UuamluQG9yYWNsZS5jb21dIA0KPj4+IFNlbnQ6IFR1ZXNkYXksIE9jdG9iZXIgMTYs
-IDIwMTIgMTE6MzIgUE0NCj4+PiBUbzogUm9uIE1lcmNlcjsgSml0ZW5kcmEgS2Fsc2FyaWE7IERl
-cHQtRW5nIExpbnV4IERyaXZlcg0KPj4+IENjOiBuZXRkZXY7IGxpbnV4LWtlcm5lbDsgR3JlZyBN
-YXJzZGVuDQo+Pj4gU3ViamVjdDogW1BBVENIXSBxbGEzeHh4OiBFbnN1cmUgcmVxX3FfcGh5X2Fk
-ZHIgd3JpdGVzIHRvIHRoZSByZWdpc3Rlcg0KPj4+DQo+Pj4gTWFrZSBzdXJlIHJlcV9xX3BoeV9h
-ZGRyIHdyaXRlIHRvIHRoZSByZWdpc3Rlci4NCj4+Pg0KPj4+IFNpZ25lZC1vZmYtYnk6IEpvZSBK
-aW4gPGpvZS5qaW5Ab3JhY2xlLmNvbT4NCj4+PiBDYzogUm9uIE1lcmNlciA8cm9uLm1lcmNlckBx
-bG9naWMuY29tPg0KPj4+IENjOiBKaXRlbmRyYSBLYWxzYXJpYSA8aml0ZW5kcmEua2Fsc2FyaWFA
-cWxvZ2ljLmNvbT4NCj4+PiAtLS0NCj4+PiBkcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxh
-M3h4eC5jIHwgNiArKysrKysNCj4+PiAxIGZpbGUgY2hhbmdlZCwgNiBpbnNlcnRpb25zKCspDQo+
-Pj4NCj4+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsYTN4eHgu
-YyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGEzeHh4LmMNCj4+PiBpbmRleCBkZjA5
-YjFjLi43OGI0Y2JhIDEwMDY0NA0KPj4+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dp
-Yy9xbGEzeHh4LmMNCj4+PiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxhM3h4
-eC5jDQo+Pj4gQEAgLTI1MjUsNiArMjUyNSwxMiBAQCBzdGF0aWMgaW50IHFsX2FsbG9jX25ldF9y
-ZXFfcnNwX3F1ZXVlcyhzdHJ1Y3QgcWwzX2FkYXB0ZXIgKnFkZXYpDQo+Pj4gCXFkZXYtPnJlcV9x
-X3NpemUgPQ0KPj4+IAkgICAgKHUzMikgKE5VTV9SRVFfUV9FTlRSSUVTICogc2l6ZW9mKHN0cnVj
-dCBvYl9tYWNfaW9jYl9yZXEpKTsNCj4+Pg0KPj4+ICsJLyoNCj4+PiArCSAqIFRoZSBiYXJyaWVy
-IGlzIHJlcXVpcmVkIHRvIGVuc3VyZSB0aGF0IHJlcV9xX3BoeV9hZGRyIHdyaXRlcyB0bw0KPj4+
-ICsJICogdGhlIG1lbW9yeS4NCj4+PiArCSAqLw0KPj4+ICsJd21iKCk7DQo+Pj4gKw0KPj4+IAlx
-ZGV2LT5yZXFfcV92aXJ0X2FkZHIgPQ0KPj4+IAkgICAgcGNpX2FsbG9jX2NvbnNpc3RlbnQocWRl
-di0+cGRldiwNCj4+PiAJCQkJIChzaXplX3QpIHFkZXYtPnJlcV9xX3NpemUsDQo+PiANCj4+IFlv
-dXIgY2hhbmdlcyBvbmx5IHRha2UgY2FyZSBvZiByZXF1ZXN0IHF1ZXVlIGJ1dCBub3QgcmVzcG9u
-c2UgcXVldWUgd2hpY2ggYWxzbyBuZWVkIGJhcnJpZXIuDQo+DQo+Sml0ZW4sDQo+DQo+VGhhbmtz
-IGZvciByZXZpZXchDQo+VGhlIGJhcnJpZXIgdG8gbWFrZSBzdXJlIHdyaXRlbCgpIGNhbGwgZm9y
-IHJlcV9xX3BoeV9hZGRyIGFuZCByc3BfcV9waHlfYWRkciBpbiANCj5xbF9hZGFwdGVyX2luaXRp
-YWxpemUoKSwgc28gSSB0aGluayBjYWxsIG9uY2Ugd21iKCkgaXMgZW5vdWdoIGJ1dCBJIG5lZWQg
-dG8gdXBkYXRlDQo+dGhlIGNvbW1lbnQsIGFueSBpZGVhPw0KDQpZZXMgYW5kIHNvbWV0aGluZyBs
-aWtlICJlbnN1cmUgcmVxdWVzdC9yZXNwb25zZSBxdWV1ZSBhZGRyIHdyaXRlcyB0byB0aGUgcmVn
-aXN0ZXIiDQoNCg==
+On Thu, Oct 18, 2012 at 9:53 AM, Venkat Venkatsubra
+<venkat.x.venkatsubra@oracle.com> wrote:
+> Correction. I don't see the client side receiving any abort/termination
+> notification.
+> They all remain on ESTABLISHED state on the client side.
+
+yeah, that's what i see with netstat -t too.
+
+in the meantime i'm working around this by connecting to one of
+RFC5737's test networks
+(https://android-review.googlesource.com/#/c/44563/), but i'd love to
+at least understand what's going on here, even if it's just that i
+have a fundamental misunderstanding of what the listen backlog is
+supposed to mean.
+
+> In tcpdump I don't see a FIN or RST coming from the server for the aborted
+> connections.
+>
+> Venkat
+>
+>
+> On 10/18/2012 11:00 AM, Venkat Venkatsubra wrote:
+>>
+>> Hi Elliott,
+>>
+>> I see the same behavior with your test program.
+>> The connect() keeps succeeding even though accept() is not performed.
+>> It pauses after 4 connections for a while and then periodically keeps
+>> adding few (2 I think).
+>>
+>> But the server side end points are terminated too. You will see only the
+>> first 2 sessions on the server side.
+>> If you modify your test program to say read or poll the sockets you should
+>> get a termination notification on them I think .
+>>
+>> The behavior overall looks fine in my opinion.  But it could be a change
+>> of behavior for your test program.
+>>
+>> Venkat
+>>
+>> On 10/16/2012 6:31 PM, enh wrote:
+>>>
+>>> boiling things down to a short C++ program, i see that i can reproduce
+>>> the behavior even on 2.6 kernels. if i run this, i see 4 connections
+>>> immediately (3 + 1, as i'd expect)... but then about 10s later i see
+>>> another 2. and every few seconds after that, i see another 2. i've let
+>>> this run until i have hundreds of connect(2) calls that have returned,
+>>> despite my small listen(2) backlog and the fact that i'm not
+>>> accept(2)ing.
+>>>
+>>> so i guess the only thing that's changed with newer kernels is timing
+>>> (hell, since i only see newer kernels on newer hardware, it might just
+>>> be a hardware thing).
+>>>
+>>> and clearly i don't understand what the listen(2) backlog means any more.
+>>>
+>>> #include<netinet/ip.h>
+>>> #include<netinet/tcp.h>
+>>> #include<sys/types.h>
+>>> #include<sys/socket.h>
+>>> #include<iostream>
+>>> #include<stdlib.h>
+>>> #include<string.h>
+>>> #include<errno.h>
+>>>
+>>> void dump_ti(int fd) {
+>>>   tcp_info ti;
+>>>   socklen_t tcp_info_length = sizeof(tcp_info);
+>>>   int rc = getsockopt(fd, SOL_IP, TCP_INFO,&ti,&tcp_info_length);
+>>>   if (rc == -1) {
+>>>     std::cout<<  "getsockopt rc "<<  rc<<  ": "<<  strerror(errno)<<
+>>> "\n";
+>>>     return;
+>>>   }
+>>>
+>>>   std::cout<<  "ti.tcpi_unacked="<<  ti.tcpi_unacked<<  "\n";
+>>>   std::cout<<  "ti.tcpi_sacked="<<  ti.tcpi_sacked<<  "\n";
+>>> }
+>>>
+>>> void connect_to(sockaddr_in&  sa) {
+>>>   int s = socket(AF_INET, SOCK_STREAM, 0);
+>>>   if (s == -1) {
+>>>     abort();
+>>>   }
+>>>
+>>>   int rc = connect(s, (sockaddr*)&sa, sizeof(sockaddr_in));
+>>>   std::cout<<  "connect = "<<  rc<<  "\n";
+>>> }
+>>>
+>>> int main() {
+>>>   int ss = socket(AF_INET, SOCK_STREAM, 0);
+>>>   std::cout<<  "socket fd "<<  ss<<  "\n";
+>>>
+>>>   sockaddr_in sa;
+>>>   memset(&sa, 0, sizeof(sa));
+>>>   sa.sin_family = AF_INET;
+>>>   sa.sin_addr.s_addr = htonl(INADDR_ANY);
+>>>   sa.sin_port = htons(9877);
+>>>   int rc = bind(ss, (sockaddr*)&sa, sizeof(sa));
+>>>   std::cout<<  "bind rc "<<  rc<<  ": "<<  strerror(errno)<<  "\n";
+>>>   std::cout<<  "bind port "<<  sa.sin_port<<  "\n";
+>>>
+>>>   rc = listen(ss, 1);
+>>>   std::cout<<  "listen rc "<<  rc<<  ": "<<  strerror(errno)<<  "\n";
+>>>   dump_ti(ss);
+>>>
+>>>   while (true) {
+>>>    connect_to(sa);
+>>>    dump_ti(ss);
+>>>   }
+>>>
+>>>   return 0;
+>>> }
+>>>
+>>>
+>>> On Mon, Oct 15, 2012 at 10:26 AM, enh<enh@google.com>  wrote:
+>>>>
+>>>> On Mon, Oct 15, 2012 at 10:12 AM, Venkat Venkatsubra
+>>>> <venkat.x.venkatsubra@oracle.com>  wrote:
+>>>>>
+>>>>> On 10/12/2012 6:40 PM, enh wrote:
+>>>>>>
+>>>>>> i used to use the following hack to unit test connect timeouts: i'd
+>>>>>> call listen(2) on a socket and then deliberately connect (backlog + 3)
+>>>>>> sockets without accept(2)ing any of the connections. (why 3? because
+>>>>>> Stevens told me so, and experiment backed him up. see figure 4.10 in
+>>>>>> his UNIX Network Programming.)
+>>>>>>
+>>>>>> with "old" kernels, 2.6.35-ish to 3.0-ish, this worked great. my next
+>>>>>> connect(2) to the same loopback port would hang indefinitely. i could
+>>>>>> even unblock the connect by calling accept(2) in another thread. this
+>>>>>> was awesome for testing.
+>>>>>>
+>>>>>> in 3.1 on ARM, 3.2 on x86 (Ubuntu desktop), and 3.4 on ARM, this no
+>>>>>> longer works. it doesn't seem to be as simple as "the constant is no
+>>>>>> longer 3". my tests are now flaky. sometimes they work like they used
+>>>>>> to, and sometimes an extra connect(2) will succeed. (or, if i'm in
+>>>>>> non-blocking mode, my poll(2) will return with the non-blocking socket
+>>>>>> that's trying to connect now ready.)
+>>>>>>
+>>>>>> i'm guessing if this changed in 3.1 and is still changed in 3.4,
+>>>>>> whatever's changed wasn't an accident. but i haven't been able to find
+>>>>>> the right search terms to RTFM. i also finally got around to grepping
+>>>>>> the kernel for the "+ 3", but wasn't able to find that. (so i'd be
+>>>>>> interested to know where the old behavior came from too.)
+>>>>>>
+>>>>>> my least worst workaround at the moment is to use one of RFC5737's
+>>>>>> test networks, but that requires that the device have a network
+>>>>>> connection, otherwise my connect(2)s fail immediately with
+>>>>>> ENETUNREACH, which is no use to me. also, unlike my old trick, i've
+>>>>>> got no way to suddenly "unblock" a slow connect(2) (this is useful for
+>>>>>> unit testing the code that does the poll(2) part of the usual
+>>>>>> connect-with-timeout implementation).
+>>>>>> https://android-review.googlesource.com/#/c/44563/
+>>>>>>
+>>>>>> hopefully someone here can shed some light on this? ideally someone
+>>>>>> will have a workaround as good as my old trick. i realize i was
+>>>>>> relying on undocumented behavior, and i'm happy to have to check
+>>>>>> /proc/version and behave appropriately, but i'd really like a way to
+>>>>>> keep my unit tests!
+>>>>>>
+>>>>>> thanks,
+>>>>>>    elliott
+>>>>>> --
+>>>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>>>>> the body of a message to majordomo@vger.kernel.org
+>>>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>>>
+>>>>> Hi Elliott,
+>>>>>
+>>>>> In BSD I think the backlog used to be reset to 3/2 times that passed by
+>>>>> the
+>>>>> user. So, 2 becomes 3.
+>>>>> Probably the 1/2 times increase was to accommodate the ones in
+>>>>> partial/incomplete queue.
+>>>>> In Linux is it possible you were getting the same behavior before the
+>>>>> below
+>>>>> commit ?
+>>>>> Since the check used to be "backlog+1" a 2 will behave as 3 ?
+>>>>
+>>>> i don't think so, because with<= 3.0 kernels i used to have a backlog
+>>>> of 1 and be able to make _4_ connections before my next connect would
+>>>> hang. but this>  to>= change is at least something for me to
+>>>> investigate...
+>>>>
+>>>>> commit 8488df894d05d6fa41c2bd298c335f944bb0e401
+>>>>> Author: Wei Dong<weid@np.css.fujitsu.com>
+>>>>> Date:   Fri Mar 2 12:37:26 2007 -0800
+>>>>>
+>>>>>      [NET]: Fix bugs in "Whether sock accept queue is full" checking
+>>>>>
+>>>>>          when I use linux TCP socket, and find there is a bug in
+>>>>> function
+>>>>> sk_acceptq_is_full().
+>>>>>
+>>>>>          When a new SYN comes, TCP module first checks its validation.
+>>>>> If
+>>>>> valid,
+>>>>>      send SYN,ACK to the client and add the sock to the syn hash table.
+>>>>> Next
+>>>>>      time if received the valid ACK for SYN,ACK from the client. server
+>>>>> will
+>>>>>      accept this connection and increase the sk->sk_ack_backlog --
+>>>>> which is
+>>>>>      done in function tcp_check_req().We check wether acceptq is full
+>>>>> in
+>>>>>      function tcp_v4_syn_recv_sock().
+>>>>>
+>>>>>      Consider an example:
+>>>>>
+>>>>>       After listen(sockfd, 1) system call, sk->sk_max_ack_backlog is
+>>>>> set to
+>>>>>      1. As we know, sk->sk_ack_backlog is initialized to 0. Assuming
+>>>>> accept()
+>>>>>      system call is not invoked now.
+>>>>>
+>>>>>      1. 1st connection comes. invoke sk_acceptq_is_full().
+>>>>>       sk->sk_ack_backlog=0 sk->sk_max_ack_backlog=1, function return 0
+>>>>> accept
+>>>>> this connection.
+>>>>>       Increase the sk->sk_ack_backlog
+>>>>>      2. 2nd connection comes. invoke sk_acceptq_is_full().
+>>>>>       sk->sk_ack_backlog=1 sk->sk_max_ack_backlog=1, function return 0
+>>>>> accept
+>>>>> this connection.
+>>>>>       Increase the sk->sk_ack_backlog
+>>>>>      3. 3rd connection comes. invoke sk_acceptq_is_full().
+>>>>>       sk->sk_ack_backlog=2 sk->sk_max_ack_backlog=1, function return 1.
+>>>>> Refuse this connection.
+>>>>>
+>>>>>      I think it has bugs. after listen system call.
+>>>>> sk->sk_max_ack_backlog=1
+>>>>>      but now it can accept 2 connections.
+>>>>>
+>>>>>      Signed-off-by: Wei Dong<weid@np.css.fujitsu.com>
+>>>>>      Signed-off-by: David S. Miller<davem@davemloft.net>
+>>>>>
+>>>>> Venkat
+>>>
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
+
+
+
+-- 
+Elliott Hughes - http://who/enh - http://jessies.org/~enh/
+NIO, JNI, or bionic questions? Mail me/drop by/add me as a reviewer.
