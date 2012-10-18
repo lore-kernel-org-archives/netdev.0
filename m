@@ -1,454 +1,93 @@
 From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH 05/14] net/at91_ether/macb: absorb at91_private in to macb private struct
-Date: Thu, 18 Oct 2012 23:01:10 +0200
-Message-ID: <1350594079-4337-6-git-send-email-manabian@gmail.com>
+Subject: [PATCH 07/14] net/macb: export some symbols for at91_ether
+Date: Thu, 18 Oct 2012 23:01:12 +0200
+Message-ID: <1350594079-4337-8-git-send-email-manabian@gmail.com>
 References: <1350594079-4337-1-git-send-email-manabian@gmail.com>
 Cc: netdev@vger.kernel.org, Joachim Eastwood <manabian@gmail.com>
 To: nicolas.ferre@atmel.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:56423 "EHLO
+Received: from mail-la0-f46.google.com ([209.85.215.46]:52354 "EHLO
 	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932261Ab2JRVBi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 17:01:38 -0400
-Received: by mail-la0-f46.google.com with SMTP id h6so6136414lag.19
-        for <netdev@vger.kernel.org>; Thu, 18 Oct 2012 14:01:37 -0700 (PDT)
+	with ESMTP id S1756553Ab2JRVBk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 17:01:40 -0400
+Received: by mail-la0-f46.google.com with SMTP id h6so6136401lag.19
+        for <netdev@vger.kernel.org>; Thu, 18 Oct 2012 14:01:39 -0700 (PDT)
 In-Reply-To: <1350594079-4337-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This will make it easier to share code between the drivers and
-eventually merge them into one driver.
+Export some symbols to start sharing code between
+macb and at91_ether drivers.
 
 Signed-off-by: Joachim Eastwood <manabian@gmail.com>
 ---
- drivers/net/ethernet/cadence/at91_ether.c | 70 +++++++++++++++----------------
- drivers/net/ethernet/cadence/at91_ether.h | 44 -------------------
- drivers/net/ethernet/cadence/macb.h       | 36 ++++++++++++++++
- 3 files changed, 71 insertions(+), 79 deletions(-)
+ drivers/net/ethernet/cadence/macb.c | 9 ++++++---
+ drivers/net/ethernet/cadence/macb.h | 5 +++++
+ 2 files changed, 11 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-index c76b2c4..09f3746 100644
---- a/drivers/net/ethernet/cadence/at91_ether.c
-+++ b/drivers/net/ethernet/cadence/at91_ether.c
-@@ -54,7 +54,7 @@
-  * When not called from an interrupt-handler, access to the PHY must be
-  *  protected by a spinlock.
-  */
--static void enable_mdi(struct at91_private *lp)
-+static void enable_mdi(struct macb *lp)
- {
- 	unsigned long ctl;
- 
-@@ -65,7 +65,7 @@ static void enable_mdi(struct at91_private *lp)
- /*
-  * Disable the MDIO bit in the MAC control register
-  */
--static void disable_mdi(struct at91_private *lp)
-+static void disable_mdi(struct macb *lp)
- {
- 	unsigned long ctl;
- 
-@@ -76,7 +76,7 @@ static void disable_mdi(struct at91_private *lp)
- /*
-  * Wait until the PHY operation is complete.
-  */
--static inline void at91_phy_wait(struct at91_private *lp)
-+static inline void at91_phy_wait(struct macb *lp)
- {
- 	unsigned long timeout = jiffies + 2;
- 
-@@ -93,7 +93,7 @@ static inline void at91_phy_wait(struct at91_private *lp)
-  * Write value to the a PHY register
-  * Note: MDI interface is assumed to already have been enabled.
-  */
--static void write_phy(struct at91_private *lp, unsigned char phy_addr, unsigned char address, unsigned int value)
-+static void write_phy(struct macb *lp, unsigned char phy_addr, unsigned char address, unsigned int value)
- {
- 	macb_writel(lp, MAN, MACB_BF(SOF, MACB_MAN_SOF) | MACB_BF(CODE, MACB_MAN_CODE)
- 					| MACB_BF(RW, MACB_MAN_WRITE) | ((phy_addr & 0x1f) << 23)
-@@ -107,7 +107,7 @@ static void write_phy(struct at91_private *lp, unsigned char phy_addr, unsigned
-  * Read value stored in a PHY register.
-  * Note: MDI interface is assumed to already have been enabled.
-  */
--static void read_phy(struct at91_private *lp, unsigned char phy_addr, unsigned char address, unsigned int *value)
-+static void read_phy(struct macb *lp, unsigned char phy_addr, unsigned char address, unsigned int *value)
- {
- 	macb_writel(lp, MAN, MACB_BF(SOF, MACB_MAN_SOF) | MACB_BF(CODE, MACB_MAN_CODE)
- 					| MACB_BF(RW, MACB_MAN_READ) | ((phy_addr & 0x1f) << 23)
-@@ -128,7 +128,7 @@ static void read_phy(struct at91_private *lp, unsigned char phy_addr, unsigned c
-  */
- static void update_linkspeed(struct net_device *dev, int silent)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	unsigned int bmsr, bmcr, lpa, mac_cfg;
- 	unsigned int speed, duplex;
- 
-@@ -181,7 +181,7 @@ static void update_linkspeed(struct net_device *dev, int silent)
- static irqreturn_t at91ether_phy_interrupt(int irq, void *dev_id)
- {
- 	struct net_device *dev = (struct net_device *) dev_id;
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	unsigned int phy;
- 
- 	/*
-@@ -234,7 +234,7 @@ done:
-  */
- static void enable_phyirq(struct net_device *dev)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	unsigned int dsintr, irq_number;
- 	int status;
- 
-@@ -298,7 +298,7 @@ static void enable_phyirq(struct net_device *dev)
-  */
- static void disable_phyirq(struct net_device *dev)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	unsigned int dsintr;
- 	unsigned int irq_number;
- 
-@@ -357,7 +357,7 @@ static void disable_phyirq(struct net_device *dev)
- #if 0
- static void reset_phy(struct net_device *dev)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	unsigned int bmcr;
- 
- 	spin_lock_irq(&lp->lock);
-@@ -379,7 +379,7 @@ static void reset_phy(struct net_device *dev)
- static void at91ether_check_link(unsigned long dev_id)
- {
- 	struct net_device *dev = (struct net_device *) dev_id;
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 
- 	enable_mdi(lp);
- 	update_linkspeed(dev, 1);
-@@ -391,7 +391,7 @@ static void at91ether_check_link(unsigned long dev_id)
- /*
-  * Perform any PHY-specific initialization.
-  */
--static void __init initialize_phy(struct at91_private *lp)
-+static void __init initialize_phy(struct macb *lp)
- {
- 	unsigned int val;
- 
-@@ -460,7 +460,7 @@ static short __init unpack_mac_address(struct net_device *dev, unsigned int hi,
-  */
- static void __init get_mac_address(struct net_device *dev)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 
- 	/* Check Specific-Address 1 */
- 	if (unpack_mac_address(dev, macb_readl(lp, SA1T), macb_readl(lp, SA1B)))
-@@ -483,7 +483,7 @@ static void __init get_mac_address(struct net_device *dev)
-  */
- static void update_mac_address(struct net_device *dev)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 
- 	macb_writel(lp, SA1B, (dev->dev_addr[3] << 24) | (dev->dev_addr[2] << 16)
- 					| (dev->dev_addr[1] << 8) | (dev->dev_addr[0]));
-@@ -570,7 +570,7 @@ static int hash_get_index(__u8 *addr)
-  */
- static void at91ether_sethashtable(struct net_device *dev)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	struct netdev_hw_addr *ha;
- 	unsigned long mc_filter[2];
- 	unsigned int bitnr;
-@@ -591,7 +591,7 @@ static void at91ether_sethashtable(struct net_device *dev)
-  */
- static void at91ether_set_multicast_list(struct net_device *dev)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	unsigned long cfg;
- 
- 	cfg = macb_readl(lp, NCFGR);
-@@ -621,7 +621,7 @@ static void at91ether_set_multicast_list(struct net_device *dev)
- 
- static int mdio_read(struct net_device *dev, int phy_id, int location)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	unsigned int value;
- 
- 	read_phy(lp, phy_id, location, &value);
-@@ -630,14 +630,14 @@ static int mdio_read(struct net_device *dev, int phy_id, int location)
- 
- static void mdio_write(struct net_device *dev, int phy_id, int location, int value)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 
- 	write_phy(lp, phy_id, location, value);
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 033064b..8ee6de5 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -228,7 +228,7 @@ static int macb_mii_probe(struct net_device *dev)
+ 	return 0;
  }
  
- static int at91ether_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-static int macb_mii_init(struct macb *bp)
++int macb_mii_init(struct macb *bp)
  {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	int ret;
+ 	struct macb_platform_data *pdata;
+ 	int err = -ENXIO, i;
+@@ -284,6 +284,7 @@ err_out_free_mdiobus:
+ err_out:
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(macb_mii_init);
  
- 	spin_lock_irq(&lp->lock);
-@@ -658,7 +658,7 @@ static int at91ether_get_settings(struct net_device *dev, struct ethtool_cmd *cm
- 
- static int at91ether_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ static void macb_update_stats(struct macb *bp)
  {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	int ret;
+@@ -1214,15 +1215,16 @@ static void macb_get_drvinfo(struct net_device *dev,
+ 	strcpy(info->bus_info, dev_name(&bp->pdev->dev));
+ }
  
- 	spin_lock_irq(&lp->lock);
-@@ -674,7 +674,7 @@ static int at91ether_set_settings(struct net_device *dev, struct ethtool_cmd *cm
+-static const struct ethtool_ops macb_ethtool_ops = {
++const struct ethtool_ops macb_ethtool_ops = {
+ 	.get_settings		= macb_get_settings,
+ 	.set_settings		= macb_set_settings,
+ 	.get_drvinfo		= macb_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_ts_info		= ethtool_op_get_ts_info,
+ };
++EXPORT_SYMBOL_GPL(macb_ethtool_ops);
  
- static int at91ether_nwayreset(struct net_device *dev)
+-static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
++int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
  {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	int ret;
+ 	struct macb *bp = netdev_priv(dev);
+ 	struct phy_device *phydev = bp->phy_dev;
+@@ -1235,6 +1237,7 @@ static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
  
- 	spin_lock_irq(&lp->lock);
-@@ -705,7 +705,7 @@ static const struct ethtool_ops at91ether_ethtool_ops = {
+ 	return phy_mii_ioctl(phydev, rq, cmd);
+ }
++EXPORT_SYMBOL_GPL(macb_ioctl);
  
- static int at91ether_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	int res;
- 
- 	if (!netif_running(dev))
-@@ -727,7 +727,7 @@ static int at91ether_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
-  */
- static void at91ether_start(struct net_device *dev)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	struct recv_desc_bufs *dlist, *dlist_phys;
- 	int i;
- 	unsigned long ctl;
-@@ -759,7 +759,7 @@ static void at91ether_start(struct net_device *dev)
-  */
- static int at91ether_open(struct net_device *dev)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	unsigned long ctl;
- 
- 	if (!is_valid_ether_addr(dev->dev_addr))
-@@ -799,7 +799,7 @@ static int at91ether_open(struct net_device *dev)
-  */
- static int at91ether_close(struct net_device *dev)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	unsigned long ctl;
- 
- 	/* Disable Receiver and Transmitter */
-@@ -827,7 +827,7 @@ static int at91ether_close(struct net_device *dev)
-  */
- static int at91ether_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 
- 	if (macb_readl(lp, TSR) & MACB_BIT(RM9200_BNQ)) {
- 		netif_stop_queue(dev);
-@@ -858,7 +858,7 @@ static int at91ether_start_xmit(struct sk_buff *skb, struct net_device *dev)
-  */
- static struct net_device_stats *at91ether_stats(struct net_device *dev)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	int ale, lenerr, seqe, lcol, ecol;
- 
- 	if (netif_running(dev)) {
-@@ -894,7 +894,7 @@ static struct net_device_stats *at91ether_stats(struct net_device *dev)
-  */
- static void at91ether_rx(struct net_device *dev)
- {
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	struct recv_desc_bufs *dlist;
- 	unsigned char *p_recv;
- 	struct sk_buff *skb;
-@@ -935,7 +935,7 @@ static void at91ether_rx(struct net_device *dev)
- static irqreturn_t at91ether_interrupt(int irq, void *dev_id)
- {
- 	struct net_device *dev = (struct net_device *) dev_id;
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 	unsigned long intstatus, ctl;
- 
- 	/* MAC Interrupt Status register indicates what interrupts are pending.
-@@ -1000,7 +1000,7 @@ static const struct net_device_ops at91ether_netdev_ops = {
- /*
-  * Detect the PHY type, and its address.
-  */
--static int __init at91ether_phy_detect(struct at91_private *lp)
-+static int __init at91ether_phy_detect(struct macb *lp)
- {
- 	unsigned int phyid1, phyid2;
- 	unsigned long phy_id;
-@@ -1047,14 +1047,14 @@ static int __init at91ether_probe(struct platform_device *pdev)
- 	struct macb_platform_data *board_data = pdev->dev.platform_data;
- 	struct resource *regs;
- 	struct net_device *dev;
--	struct at91_private *lp;
-+	struct macb *lp;
- 	int res;
- 
- 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	if (!regs)
- 		return -ENOENT;
- 
--	dev = alloc_etherdev(sizeof(struct at91_private));
-+	dev = alloc_etherdev(sizeof(struct macb));
- 	if (!dev)
- 		return -ENOMEM;
- 
-@@ -1196,7 +1196,7 @@ err_free_dev:
- static int __devexit at91ether_remove(struct platform_device *pdev)
- {
- 	struct net_device *dev = platform_get_drvdata(pdev);
--	struct at91_private *lp = netdev_priv(dev);
-+	struct macb *lp = netdev_priv(dev);
- 
- 	if (gpio_is_valid(lp->board_data.phy_irq_pin))
- 		gpio_free(lp->board_data.phy_irq_pin);
-@@ -1216,7 +1216,7 @@ static int __devexit at91ether_remove(struct platform_device *pdev)
- static int at91ether_suspend(struct platform_device *pdev, pm_message_t mesg)
- {
- 	struct net_device *net_dev = platform_get_drvdata(pdev);
--	struct at91_private *lp = netdev_priv(net_dev);
-+	struct macb *lp = netdev_priv(net_dev);
- 
- 	if (netif_running(net_dev)) {
- 		if (gpio_is_valid(lp->board_data.phy_irq_pin)) {
-@@ -1235,7 +1235,7 @@ static int at91ether_suspend(struct platform_device *pdev, pm_message_t mesg)
- static int at91ether_resume(struct platform_device *pdev)
- {
- 	struct net_device *net_dev = platform_get_drvdata(pdev);
--	struct at91_private *lp = netdev_priv(net_dev);
-+	struct macb *lp = netdev_priv(net_dev);
- 
- 	if (netif_running(net_dev)) {
- 		clk_enable(lp->ether_clk);
-diff --git a/drivers/net/ethernet/cadence/at91_ether.h b/drivers/net/ethernet/cadence/at91_ether.h
-index 263954b..4bc74a3 100644
---- a/drivers/net/ethernet/cadence/at91_ether.h
-+++ b/drivers/net/ethernet/cadence/at91_ether.h
-@@ -58,48 +58,4 @@
- /* SMSC LAN83C185 */
- #define MII_LAN83C185_ID	0x0007C0A0
- 
--/* ........................................................................ */
--
--#define MAX_RBUFF_SZ	0x600		/* 1518 rounded up */
--#define MAX_RX_DESCR	9		/* max number of receive buffers */
--
--struct rbf_t
--{
--	unsigned int addr;
--	unsigned long size;
--};
--
--struct recv_desc_bufs
--{
--	struct rbf_t descriptors[MAX_RX_DESCR];		/* must be on sizeof (rbf_t) boundary */
--	char recv_buf[MAX_RX_DESCR][MAX_RBUFF_SZ];	/* must be on long boundary */
--};
--
--struct at91_private
--{
--	struct mii_if_info mii;			/* ethtool support */
--	struct macb_platform_data board_data;	/* board-specific
--						 * configuration (shared with
--						 * macb for common data */
--	void __iomem *regs;			/* base register address */
--	struct clk *ether_clk;			/* clock */
--
--	/* PHY */
--	unsigned long phy_type;			/* type of PHY (PHY_ID) */
--	spinlock_t lock;			/* lock for MDI interface */
--	short phy_media;			/* media interface type */
--	unsigned short phy_address;		/* 5-bit MDI address of PHY (0..31) */
--	struct timer_list check_timer;		/* Poll link status */
--
--	/* Transmit */
--	struct sk_buff *skb;			/* holds skb until xmit interrupt completes */
--	dma_addr_t skb_physaddr;		/* phys addr from pci_map_single */
--	int skb_length;				/* saved skb length for pci_unmap_single */
--
--	/* Receive */
--	int rxBuffIndex;			/* index into receive descriptor list */
--	struct recv_desc_bufs *dlist;		/* descriptor list address */
--	struct recv_desc_bufs *dlist_phys;	/* descriptor list physical address */
--};
--
- #endif
+ static const struct net_device_ops macb_netdev_ops = {
+ 	.ndo_open		= macb_open,
 diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 0e5d55b..5661094 100644
+index 138311f..335d111 100644
 --- a/drivers/net/ethernet/cadence/macb.h
 +++ b/drivers/net/ethernet/cadence/macb.h
-@@ -504,6 +504,19 @@ struct gem_stats {
- 	u32	rx_udp_checksum_errors;
+@@ -577,6 +577,11 @@ struct macb {
+ 	struct recv_desc_bufs *dlist_phys;	/* descriptor list physical address */
  };
  
-+struct rbf_t {
-+	unsigned int addr;
-+	unsigned long size;
-+};
++extern const struct ethtool_ops macb_ethtool_ops;
 +
-+#define MAX_RBUFF_SZ	0x600		/* 1518 rounded up */
-+#define MAX_RX_DESCR	9		/* max number of receive buffers */
++int macb_mii_init(struct macb *bp);
++int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
 +
-+struct recv_desc_bufs {
-+	struct rbf_t descriptors[MAX_RX_DESCR];		/* must be on sizeof (rbf_t) boundary */
-+	char recv_buf[MAX_RX_DESCR][MAX_RBUFF_SZ];	/* must be on long boundary */
-+};
-+
- struct macb {
- 	void __iomem		*regs;
- 
-@@ -540,6 +553,29 @@ struct macb {
- 	unsigned int 		duplex;
- 
- 	phy_interface_t		phy_interface;
-+
-+	/* at91_private */
-+	struct mii_if_info mii;			/* ethtool support */
-+	struct macb_platform_data board_data;	/* board-specific
-+						 * configuration (shared with
-+						 * macb for common data */
-+	struct clk *ether_clk;			/* clock */
-+
-+	/* PHY */
-+	unsigned long phy_type;			/* type of PHY (PHY_ID) */
-+	short phy_media;			/* media interface type */
-+	unsigned short phy_address;		/* 5-bit MDI address of PHY (0..31) */
-+	struct timer_list check_timer;		/* Poll link status */
-+
-+	/* Transmit */
-+	struct sk_buff *skb;			/* holds skb until xmit interrupt completes */
-+	dma_addr_t skb_physaddr;		/* phys addr from pci_map_single */
-+	int skb_length;				/* saved skb length for pci_unmap_single */
-+
-+	/* Receive */
-+	int rxBuffIndex;			/* index into receive descriptor list */
-+	struct recv_desc_bufs *dlist;		/* descriptor list address */
-+	struct recv_desc_bufs *dlist_phys;	/* descriptor list physical address */
- };
- 
  static inline bool macb_is_gem(struct macb *bp)
+ {
+ 	return MACB_BFEXT(IDNUM, macb_readl(bp, MID)) == 0x2;
 -- 
 1.7.12.3
