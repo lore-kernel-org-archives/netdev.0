@@ -1,35 +1,53 @@
-From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Subject: RE: [PATCH] SUNRPC: Prevent kernel stack corruption on long values of flush
-Date: Thu, 18 Oct 2012 09:34:57 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7050@saturn3.aculab.com>
-References: <1342476086-21638-1-git-send-email-levinsasha928@gmail.com> <20120718173913.GA1298@fieldses.org> <20120718200049.GA17964@umich.edu> <20120718203304.GA18540@redhat.com> <20120718205510.GA18374@umich.edu> <507EF918.5030004@panasas.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: Bug?  TCP shutdown behaviour when deleting local IP addresses
+Date: Thu, 18 Oct 2012 10:00:44 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7051@saturn3.aculab.com>
+References: <507F38D4.102@genband.com> <alpine.DEB.2.00.1210180946020.21297@uplift.swm.pp.se>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Dave Jones" <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"Sasha Levin" <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	<Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Boaz Harrosh" <bharrosh-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org>, "Jim Rees" <rees-63aXycvo3TyHXe+LvDLADg@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev" <netdev@vger.kernel.org>,
+	"David Miller" <davem@davemloft.net>,
+	"Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>,
+	"James Morris" <jmorris@namei.org>,
+	"Patrick McHardy" <kaber@trash.net>,
+	"Hideaki YOSHIFUJI" <yoshfuji@linux-ipv6.org>
+To: "Mikael Abrahamsson" <swmike@swm.pp.se>,
+	"Chris Friesen" <chris.friesen@genband.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:40208 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754594Ab2JRJBh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 05:01:37 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 17666-04 for <netdev@vger.kernel.org>;
+ Thu, 18 Oct 2012 10:01:34 +0100 (BST)
 Content-class: urn:content-classes:message
-In-Reply-To: <507EF918.5030004-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <alpine.DEB.2.00.1210180946020.21297@uplift.swm.pp.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAuLi4NCj4gbG9uZyBpcyBhbHdheXMgdGhlIHNhbWUgb3IgYmlnZ2VyIHRoZW4gYSBwb2ludGVy
-DQo+IChBIHBvaW50ZXIgbXVzdCBhbHdheXMgZml0IGluIGEgbG9uZykNCj4gLi4uDQoNCkxpbnV4
-IG1heSBtYWtlIHRoYXQgYXNzdW1wdGlvbiwgYnV0IGl0IGRvZXNuJ3QgaGF2ZQ0KdG8gYmUgdHJ1
-ZS4gNjRiaXQgd2luZG93cyBzdGlsbCBoYXMgMzJiaXQgbG9uZy4NCkM5OSBpbnR0eXBlcy5oIGRl
-ZmluZXMgW3VdaW50cHRyX3QgdG8gYmUgYW4gaW50ZWdyYWwgdHlwZQ0KdGhhdCBpcyBsYXJnZSBl
-bm91Z2ggdG8gaG9sZCBhIHBvaW50ZXIgdG8gYW55IGRhdGEgaXRlbS4NCihUaGF0IGluIGl0c2Vs
-ZiBpcyBwcm9ibGVtYXRpYyBmb3IgaW1wbGVtZW50YXRpb25zIHRoYXQNCmVuY29kZSBtdWx0aXBs
-ZSBjaGFyYWN0ZXJzIGludG8gYSBtYWNoaW5lIHdvcmQgYW5kIG5lZWQNCnRvIHVzZSAnZmF0JyBw
-b2ludGVycyBpbiBvcmRlciB0byBlbmNvZGUgdGhlIG9mZnNldC4pDQoNCglEYXZpZA0KDQo=
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 2. When a network connection (physical interface) goes down, wait a few
+> seconds, give up, reset all connectivity related to that connection,
+> basically give up.
+
+Doing that is almost pointless and gives people false expectations.
+
+Consider the simple network host-hub-hub-host.
+If you disconnect the link between the two hubs then
+only timeouts can cause disconnects.
+Such a remote fault is much more likely than the local one.
+
+If the kernel takes down connections when a local interface
+goes down (as windows does) then people doing testing
+fail to test the correct scenario.
+
+You also don't want a power glitch in the wiring cupboard
+to disconnect all your connections.
+
+In the past I've also moved IP addresses between physical
+interfaces - modern HA systems might do the same.
+
+	David
