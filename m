@@ -1,42 +1,83 @@
-From: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH net-next 03/14] USB: cdc: add MBIM constants and
- structures
-Date: Thu, 18 Oct 2012 14:14:12 -0700
-Message-ID: <20121018211412.GC31658@kroah.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH net-next 00/14] Adding a USB CDC MBIM driver
+Date: Thu, 18 Oct 2012 14:16:37 -0700
+Message-ID: <20121018211637.GA31828@kroah.com>
 References: <1350592867-25651-1-git-send-email-bjorn@mork.no>
- <1350592867-25651-4-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
-	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Greg Suarez <gpsuarez2512-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Fangxiaozhi (Franko)" <fangxiaozhi-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Aleksander Morgado <aleksander-bhGbAngMcJvQT0dZR+AlfA@public.gmane.org>,
-	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>
-To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Oliver Neukum <oliver@neukum.org>,
+	Alexey Orishko <alexey.orishko@gmail.com>,
+	Greg Suarez <gpsuarez2512@gmail.com>,
+	"Fangxiaozhi (Franko)" <fangxiaozhi@huawei.com>,
+	Dan Williams <dcbw@redhat.com>,
+	Aleksander Morgado <aleksander@lanedo.com>
+To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:51472 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755977Ab2JRVQv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 17:16:51 -0400
+Received: by mail-pb0-f46.google.com with SMTP id rr4so8712456pbb.19
+        for <netdev@vger.kernel.org>; Thu, 18 Oct 2012 14:16:51 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1350592867-25651-4-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1350592867-25651-1-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 18, 2012 at 10:40:56PM +0200, Bj=F8rn Mork wrote:
-> From: Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>
+On Thu, Oct 18, 2012 at 10:40:53PM +0200, Bj=F8rn Mork wrote:
+> The USB Communications Device Class "Mobile Broadband Interface Model=
+"
+> (MBIM) is the USB-IFs alternative to the current chipset/vendor
+> specific solutions to "Mobile Broadband" device management. The
+> specification, including the management protocol description, can be
+> downloaded from http://www.usb.org/developers/devclass_docs#approved
 >=20
-> Based on revision 1.0 of "Universal Serial Bus Communications
-> Class Subclass Specification for Mobile Broadband Interface
-> Model" available from www.usb.org
+> This driver implementing most MBIM features with the exception of
+> 32bit NTB and NDP headers.
 >=20
-> Signed-off-by: Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>
-> [bmork: added DSS defines]
-> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-> ---
+> An important design principle has been reusing as much as possible of
+> existing kernel code, in particular the cdc_ncm and cdc_wdm drivers.
+> The CDC MBIM protocol is based on CDC NCM, and much of the setup and
+> framing logic is very similar.
+>=20
+> One important addition in MBIM compared to NCM is the new control
+> protocol embedded in CDC commands.  This protocol is comprehensive an=
+d
+> support a number of policy decisions necessary for modern mobile
+> broadband devices often having multiple radio interfaces.  Based on
+> early comments and the experiences with the qmi_wwan driver, knowledg=
+e
+> of the control protocol has been kept completely out of the driver.
+> This is userspace material.  Like with qmi_wwan, a control protocol
+> interface is exported to userspace using the cdc_wdm subdriver API,
+> associating a /dev/cdc-wdmX character device with the network device
+> for the management application.
+>=20
+> Patch 1 and 2 are independent of the rest and only required to make
+> test devices with very large buffers work.
+>=20
+> Patch 3 adds new MBIM definitions to the cdc.h header file
+>=20
+> Patches 4 to 9 refactor the cdc_ncm driver to enable reusing common
+> parts for MBIM.
+>=20
+> Patches 10 and 11 add the new cdc_mbim driver
+>=20
+> Patch 12 prevents cdc_ncm from binding to backward compatible MBIM
+> devices
+>=20
+> Patches 13 and 14 extend the MBIM driver to support multiplexed
+> sessions
+>=20
+> The changes to the cdc_ncm driver has been tested and verified to wor=
+k
+> with an Ericsson F5521gw device.  The new cdc_mbim driver has been
+> tested with a Huawei E367u-2 device with MBIM firmware, and other
+> currently undisclosed devices.
 
-Acked-by: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Very nice work, I don't have any objections to any of this, but I just
+did a very high-level code review:
+
+Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
