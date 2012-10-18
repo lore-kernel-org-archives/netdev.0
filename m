@@ -1,67 +1,59 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: Bug?  TCP shutdown behaviour when deleting local IP addresses
-Date: Thu, 18 Oct 2012 01:08:17 -0600
-Message-ID: <507FAAE1.6000903@genband.com>
-References: <507F38D4.102@genband.com> <1350540348.26103.1015.camel@edumazet-glaptop>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH v2] ipv4: Fix flushing of cached routing informations
+Date: Thu, 18 Oct 2012 09:17:44 +0200
+Message-ID: <20121018071744.GD27385@secunet.com>
+References: <20121018052730.GB27385@secunet.com>
+ <alpine.LFD.2.00.1210180927230.1572@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og121.obsmtp.com ([64.18.2.20]:44896 "EHLO
-	exprod7og121.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751168Ab2JRHJJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 03:09:09 -0400
-In-Reply-To: <1350540348.26103.1015.camel@edumazet-glaptop>
+Received: from a.mx.secunet.com ([195.81.216.161]:38443 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751259Ab2JRHRv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2012 03:17:51 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1210180927230.1572@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/18/2012 12:05 AM, Eric Dumazet wrote:
-> On Wed, 2012-10-17 at 17:01 -0600, Chris Friesen wrote:
+Currently we can not flush cached pmtu/redirect informations via
+the ipv4_sysctl_rtcache_flush sysctl. We need to check the rt_genid
+of the old route and reset the nh exeption if the old route is
+expired when we bind a new route to a nh exeption.
 
->> I'm seeing some unexpected (to me, at least) behaviour with local TCP
->> connections.  The scenario goes as follows:
->>
->> 1) create new IP address and assign to eth device
->> 2) TCP server starts listening on that IP address
->> 3) TCP client connects to server
->> 4) remove new IP address
->> 5) kill server with ctrl-C.  At this point it appears that because the
->> address was removed the shutdown message isn't processed properly.
->> netstat shows the server socket as FIN_WAIT1, but the client socket is
->> still ESTABLISHED.
->> 6) client writes to the connected socket (this passes with no error)
->> 7) client waits for response from server, and waits forever or until
->> keepalive expires
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv4/route.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
->> It seems like the waiting forever behaviour in step 7 might be
->> legitimate since the address was removed before shutting down the
->> server, but it also seems like we should be able to do better given that
->> everything is local.  In the "remove IP address" case maybe step 6
->> should cause some sort of error since the IP address no longer exists?
->>
->> Incidentally, if we do this sort of scenario with the client and server
->> on different hosts then we get a "no route to host" error at step 6.
-
->
-> I see no real problem here.
->
-> Its like you cut the cable somewhere in the path.
->
-> Only timeouts will apply.
-
-While I agree generally, it's a bit unfortunate that we can't (as a 
-quality of implementation thing) give an earlier notice of failure since 
-the kernel knows about both ends of the connection even though the IP 
-address is gone.  On the other hand, I imagine that would mean 
-special-casing things and presumably that would open a whole can of worms.
-
-Thanks for the reply,
-
-Chris
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 432f4bb..a8c6512 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1163,8 +1163,12 @@ static bool rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
+ 	spin_lock_bh(&fnhe_lock);
+ 
+ 	if (daddr == fnhe->fnhe_daddr) {
+-		struct rtable *orig;
+-
++		struct rtable *orig = rcu_dereference(fnhe->fnhe_rth);
++		if (orig && rt_is_expired(orig)) {
++			fnhe->fnhe_gw = 0;
++			fnhe->fnhe_pmtu = 0;
++			fnhe->fnhe_expires = 0;
++		}
+ 		if (fnhe->fnhe_pmtu) {
+ 			unsigned long expires = fnhe->fnhe_expires;
+ 			unsigned long diff = expires - jiffies;
+@@ -1181,7 +1185,6 @@ static bool rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
+ 		} else if (!rt->rt_gateway)
+ 			rt->rt_gateway = daddr;
+ 
+-		orig = rcu_dereference(fnhe->fnhe_rth);
+ 		rcu_assign_pointer(fnhe->fnhe_rth, rt);
+ 		if (orig)
+ 			rt_free(orig);
+-- 
+1.7.0.4
