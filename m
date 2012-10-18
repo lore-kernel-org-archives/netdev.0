@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: qmi_wwan: adding more ZTE devices
-Date: Thu, 18 Oct 2012 15:36:30 -0400 (EDT)
-Message-ID: <20121018.153630.1807854089761455105.davem@davemloft.net>
-References: <1350573090-9345-1-git-send-email-bjorn@mork.no>
+Subject: Re: [PATCH] tcp: fix FIONREAD/SIOCINQ
+Date: Thu, 18 Oct 2012 15:36:39 -0400 (EDT)
+Message-ID: <20121018.153639.105102863572041684.davem@davemloft.net>
+References: <1350587652.32642.215.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: bjorn@mork.no
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, enh@google.com, ncardwell@google.com,
+	therbert@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53654 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53660 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752533Ab2JRTgc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 15:36:32 -0400
-In-Reply-To: <1350573090-9345-1-git-send-email-bjorn@mork.no>
+	with ESMTP id S1753074Ab2JRTgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 15:36:42 -0400
+In-Reply-To: <1350587652.32642.215.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Thu, 18 Oct 2012 17:11:29 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 18 Oct 2012 21:14:12 +0200
 
-> Analyzed a few Windows driver description files, supporting
-> this long list of devices:
- ...
-> Adding the ones we were missing.
->=20
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> tcp_ioctl() tries to take into account if tcp socket received a FIN
+> to report correct number bytes in receive queue.
+> 
+> But its flaky because if the application ate the last skb,
+> we return 1 instead of 0.
+> 
+> Correct way to detect that FIN was received is to test SOCK_DONE.
+> 
+> Reported-by: Elliot Hughes <enh@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied.
+Applied and queued up for -stable.
