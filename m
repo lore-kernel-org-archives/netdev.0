@@ -1,8 +1,8 @@
 From: Mikael Abrahamsson <swmike@swm.pp.se>
-Subject: Re: Bug?  TCP shutdown behaviour when deleting local IP addresses
-Date: Thu, 18 Oct 2012 11:58:01 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1210181151040.21297@uplift.swm.pp.se>
-References: <507F38D4.102@genband.com>  <alpine.DEB.2.00.1210180946020.21297@uplift.swm.pp.se> <1350551609.26103.1261.camel@edumazet-glaptop>
+Subject: RE: Bug?  TCP shutdown behaviour when deleting local IP addresses
+Date: Thu, 18 Oct 2012 12:00:23 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.1210181158190.21297@uplift.swm.pp.se>
+References: <507F38D4.102@genband.com> <alpine.DEB.2.00.1210180946020.21297@uplift.swm.pp.se> <AE90C24D6B3A694183C094C60CF0A2F6026B7051@saturn3.aculab.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Cc: Chris Friesen <chris.friesen@genband.com>,
@@ -12,59 +12,46 @@ Cc: Chris Friesen <chris.friesen@genband.com>,
 	James Morris <jmorris@namei.org>,
 	Patrick McHardy <kaber@trash.net>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swm.pp.se ([212.247.200.143]:37332 "EHLO uplift.swm.pp.se"
+Received: from swm.pp.se ([212.247.200.143]:54499 "EHLO uplift.swm.pp.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932070Ab2JRJ6D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Oct 2012 05:58:03 -0400
-In-Reply-To: <1350551609.26103.1261.camel@edumazet-glaptop>
+	id S932118Ab2JRKAY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2012 06:00:24 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7051@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 18 Oct 2012, Eric Dumazet wrote:
+On Thu, 18 Oct 2012, David Laight wrote:
 
->> After resume (or otherwise network connectivity re-established),
->> connection manager should be able to tell the kernel to:
->>
->> a) kill all TCP/UDP/other sessions existing which doesn't currently have
->> an active IP address on the machine. This is for the sake of local
->> clients.
+> Doing that is almost pointless and gives people false expectations.
 >
-> You do realize kernel has no idea that the loss of IP address is
-> temporary or not ?
+> Consider the simple network host-hub-hub-host.
+> If you disconnect the link between the two hubs then
+> only timeouts can cause disconnects.
+> Such a remote fault is much more likely than the local one.
 
-Indeed, that's why I wrote "connection manager tell the kernel to..", and 
-didn't write "the kernel should do".
+My doing suspect/resume on my laptop causes more network interruptions 
+than any link going down in the network outside my home.
 
-> Some links can be slow to setup after a resume.
+> If the kernel takes down connections when a local interface
+> goes down (as windows does) then people doing testing
+> fail to test the correct scenario.
 
-Absolutely.
+I never asked for the kernel to take down connections, I asked for the 
+connection manager to be able to do it.
 
->> b) the TCP/SCTP sessions that *do* have an IP, should have their
->> retransmit timers "reset", so that whatever needs to be sent, should be
->> sent immediately (or shortly, within a few seconds).
->
-> So they are going to force a close, even if the link becomes alive after
-> 15 seconds. Too bad for some wireless setups, or tunnels.
+> You also don't want a power glitch in the wiring cupboard to disconnect 
+> all your connections.
 
-I don't get what you're saying. I'm saying reset the retransmit timers, if 
-there is no response, exponential backoff applies again. The reset of the 
-timers is to avoid that the exponential backoff timer is now in "wait for 
-several minutes to send the next packet" due to no connectivity during the 
-first 10-20 seconds after coming out of resume.
+In a server environment, most likely you're right. In some other 
+environment, the opposite probably applies.
 
-On my Ubuntu 12.04 system, when I bring it out of resume and press enter 
-in the terminal with an established ssh session, it takes minutes to 
-discover that this session doesn't work and close it (it seems the TCP RST 
-from the server isn't triggered for a long time). I usually end up killing 
-the ssh process on the laptop and logging in again. What I want to happen 
-is that within a few seconds of network connectivity being established, 
-TCP should try to communicate and discover that the other end already 
-closed the connection and close the local socket call so ssh quits and I 
-can re-login again. One way of doing this would be for the connection 
-manager to ask the kernel to reset (or severely lower) the retransmit 
-timers on all established TCP connections.
+> In the past I've also moved IP addresses between physical
+> interfaces - modern HA systems might do the same.
+
+Yes, in your described scenario you're right, in my scenario (laptop 
+suspend/resume) I don't agree with your view.
 
 -- 
 Mikael Abrahamsson    email: swmike@swm.pp.se
