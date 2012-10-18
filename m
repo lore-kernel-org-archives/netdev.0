@@ -1,83 +1,168 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH net-next 00/14] Adding a USB CDC MBIM driver
-Date: Thu, 18 Oct 2012 14:16:37 -0700
-Message-ID: <20121018211637.GA31828@kroah.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net-next 14/14] net: cdc_mbim: Device Service Stream support
+Date: Thu, 18 Oct 2012 22:41:07 +0200
+Message-ID: <1350592867-25651-15-git-send-email-bjorn@mork.no>
 References: <1350592867-25651-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Oliver Neukum <oliver@neukum.org>,
+Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	Alexey Orishko <alexey.orishko@gmail.com>,
 	Greg Suarez <gpsuarez2512@gmail.com>,
 	"Fangxiaozhi (Franko)" <fangxiaozhi@huawei.com>,
 	Dan Williams <dcbw@redhat.com>,
-	Aleksander Morgado <aleksander@lanedo.com>
-To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+	Aleksander Morgado <aleksander@lanedo.com>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:51472 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755977Ab2JRVQv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 17:16:51 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rr4so8712456pbb.19
-        for <netdev@vger.kernel.org>; Thu, 18 Oct 2012 14:16:51 -0700 (PDT)
-Content-Disposition: inline
+Received: from canardo.mork.no ([148.122.252.1]:33096 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755821Ab2JRVWJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2012 17:22:09 -0400
 In-Reply-To: <1350592867-25651-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 18, 2012 at 10:40:53PM +0200, Bj=F8rn Mork wrote:
-> The USB Communications Device Class "Mobile Broadband Interface Model=
-"
-> (MBIM) is the USB-IFs alternative to the current chipset/vendor
-> specific solutions to "Mobile Broadband" device management. The
-> specification, including the management protocol description, can be
-> downloaded from http://www.usb.org/developers/devclass_docs#approved
->=20
-> This driver implementing most MBIM features with the exception of
-> 32bit NTB and NDP headers.
->=20
-> An important design principle has been reusing as much as possible of
-> existing kernel code, in particular the cdc_ncm and cdc_wdm drivers.
-> The CDC MBIM protocol is based on CDC NCM, and much of the setup and
-> framing logic is very similar.
->=20
-> One important addition in MBIM compared to NCM is the new control
-> protocol embedded in CDC commands.  This protocol is comprehensive an=
-d
-> support a number of policy decisions necessary for modern mobile
-> broadband devices often having multiple radio interfaces.  Based on
-> early comments and the experiences with the qmi_wwan driver, knowledg=
-e
-> of the control protocol has been kept completely out of the driver.
-> This is userspace material.  Like with qmi_wwan, a control protocol
-> interface is exported to userspace using the cdc_wdm subdriver API,
-> associating a /dev/cdc-wdmX character device with the network device
-> for the management application.
->=20
-> Patch 1 and 2 are independent of the rest and only required to make
-> test devices with very large buffers work.
->=20
-> Patch 3 adds new MBIM definitions to the cdc.h header file
->=20
-> Patches 4 to 9 refactor the cdc_ncm driver to enable reusing common
-> parts for MBIM.
->=20
-> Patches 10 and 11 add the new cdc_mbim driver
->=20
-> Patch 12 prevents cdc_ncm from binding to backward compatible MBIM
-> devices
->=20
-> Patches 13 and 14 extend the MBIM driver to support multiplexed
-> sessions
->=20
-> The changes to the cdc_ncm driver has been tested and verified to wor=
-k
-> with an Ericsson F5521gw device.  The new cdc_mbim driver has been
-> tested with a Huawei E367u-2 device with MBIM firmware, and other
-> currently undisclosed devices.
+MBIM devices can support up to 256 generic streams called
+Device Service Streams (DSS). The MBIM spec says
 
-Very nice work, I don't have any objections to any of this, but I just
-did a very high-level code review:
+   The format of the Device Service Stream payload depends
+   on the device service (as identified by the corresponding
+   UUID) that is used when opening the data stream.
 
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Example use cases are serial AT command interfaces and NMEA
+data streams. We cannot make any assumptions about these
+device services.
+
+Adding support for Device Service Stream by extending
+the MBIM session to VLAN mapping scheme, allocating
+VLAN IDs 256 to 511 for DSS, using the DSS SessionID
+as the lower 8bit of the VLAN ID.
+
+Using a netdev for DSS keeps the device framing intact and
+allows userspace to do whatever it want with the streams.
+=46or example, exporting an AT command interface using DSS
+session #0 to a PTY for use with a terminal application like
+minicom:
+
+  vconfig add wwan0 256
+  ip link set dev wwan0 up
+  ip link set dev wwan0.256 up
+  socat INTERFACE:wwan0.256,type=3D2 PTY:,echo=3D0,link=3D/tmp/modem
+
+Device configuration must be done using MBIM control commands
+over the /dev/cdc-wdmx device. The userspace management
+application should coordinate host VLAN configuration and the
+device MBIM configuration using the device capabilities to
+find out if it needs to set up PTY mappings etc.
+
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+ drivers/net/usb/cdc_mbim.c |   58 ++++++++++++++++++++++++++----------=
+--------
+ 1 file changed, 35 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
+index 45f5f50..42f51c7 100644
+--- a/drivers/net/usb/cdc_mbim.c
++++ b/drivers/net/usb/cdc_mbim.c
+@@ -149,12 +149,27 @@ static struct sk_buff *cdc_mbim_tx_fixup(struct u=
+sbnet *dev, struct sk_buff *skb
+ 		/* mapping VLANs to MBIM sessions:
+ 		 *   no tag     =3D> IPS session <0>
+ 		 *   1 - 255    =3D> IPS session <vlanid>
+-		 *   256 - 4095 =3D> unsupported, drop
++		 *   256 - 511  =3D> DSS session <vlanid - 256>
++		 *   512 - 4095 =3D> unsupported, drop
+ 		 */
+ 		vlan_get_tag(skb, &tci);
+=20
+ 		switch (tci & 0x0f00) {
+ 		case 0x0000: /* VLAN ID 0 - 255 */
++			/* verify that datagram is IPv4 or IPv6 */
++			skb_reset_mac_header(skb);
++			switch (eth_hdr(skb)->h_proto) {
++			case htons(ETH_P_IP):
++			case htons(ETH_P_IPV6):
++				break;
++			default:
++				goto error;
++			}
++			c =3D (u8 *)&sign;
++			c[3] =3D tci;
++			break;
++		case 0x0100: /* VLAN ID 256 - 511 */
++			sign =3D cpu_to_le32(USB_CDC_MBIM_NDP16_DSS_SIGN);
+ 			c =3D (u8 *)&sign;
+ 			c[3] =3D tci;
+ 			break;
+@@ -163,16 +178,7 @@ static struct sk_buff *cdc_mbim_tx_fixup(struct us=
+bnet *dev, struct sk_buff *skb
+ 				  "unsupported tci=3D0x%04x\n", tci);
+ 			goto error;
+ 		}
+-
+-		skb_reset_mac_header(skb);
+-		switch (eth_hdr(skb)->h_proto) {
+-		case htons(ETH_P_IP):
+-		case htons(ETH_P_IPV6):
+-			skb_pull(skb, ETH_HLEN);
+-			break;
+-		default:
+-			goto error;
+-		}
++		skb_pull(skb, ETH_HLEN);
+ 	}
+=20
+ 	spin_lock_bh(&ctx->mtx);
+@@ -189,21 +195,23 @@ error:
+=20
+ static struct sk_buff *cdc_mbim_process_dgram(struct usbnet *dev, u8 *=
+buf, size_t len, u16 tci)
+ {
+-	__be16 proto;
++	__be16 proto =3D htons(ETH_P_802_3);
+ 	struct sk_buff *skb =3D NULL;
+=20
+-	if (len < sizeof(struct iphdr))
+-		goto err;
++	if (tci < 256) { /* IPS session? */
++		if (len < sizeof(struct iphdr))
++			goto err;
+=20
+-	switch (*buf & 0xf0) {
+-	case 0x40:
+-		proto =3D htons(ETH_P_IP);
+-		break;
+-	case 0x60:
+-		proto =3D htons(ETH_P_IPV6);
+-		break;
+-	default:
+-		goto err;
++		switch (*buf & 0xf0) {
++		case 0x40:
++			proto =3D htons(ETH_P_IP);
++			break;
++		case 0x60:
++			proto =3D htons(ETH_P_IPV6);
++			break;
++		default:
++			goto err;
++		}
+ 	}
+=20
+ 	skb =3D netdev_alloc_skb_ip_align(dev->net,  len + ETH_HLEN);
+@@ -259,6 +267,10 @@ next_ndp:
+ 		c =3D (u8 *)&ndp16->dwSignature;
+ 		tci =3D c[3];
+ 		break;
++	case cpu_to_le32(USB_CDC_MBIM_NDP16_DSS_SIGN):
++		c =3D (u8 *)&ndp16->dwSignature;
++		tci =3D c[3] + 256;
++		break;
+ 	default:
+ 		netif_dbg(dev, rx_err, dev->net,
+ 			  "unsupported NDP signature <0x%08x>\n",
+--=20
+1.7.10.4
