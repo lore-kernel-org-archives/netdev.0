@@ -1,40 +1,85 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: Bug? TCP shutdown behaviour when deleting local IP addresses
-Date: Thu, 18 Oct 2012 00:33:18 -0600
-Message-ID: <507FA2AE.1080509@genband.com>
-References: <507F38D4.102@genband.com> <20121017.192753.1673804218598802357.davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipv4: Fix flushing of cached routing informations
+Date: Thu, 18 Oct 2012 09:52:37 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1210180927230.1572@ja.ssi.bg>
+References: <20121018052730.GB27385@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	kaber@trash.net, yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og109.obsmtp.com ([64.18.2.171]:37962 "EHLO
-	exprod7og109.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751981Ab2JRGe1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 02:34:27 -0400
-In-Reply-To: <20121017.192753.1673804218598802357.davem@davemloft.net>
+Received: from ja.ssi.bg ([178.16.129.10]:47595 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751981Ab2JRGqs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2012 02:46:48 -0400
+In-Reply-To: <20121018052730.GB27385@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/17/2012 05:27 PM, David Miller wrote:
-> From: Chris Friesen<chris.friesen@genband.com>
-> Date: Wed, 17 Oct 2012 17:01:40 -0600
->
->> I sent this to the list yesterday (from another address) but didn't
->> get any responses.  Accordingly I'm expanding the receiver list to the
->> listed maintainers for IPv4/IPv6.
->
-> It can take more than 24 hours to get a response from people who are
-> volunteers, and who will reply to your report because they want to
-> rather than because they are obligated.
->
-> Posting it again just irritates such people, and will place your
-> report at a much lower priority, just FYI.
 
-Thanks for the pointers.  I was worried that it had gone unnoticed, but 
-I guess the level of traffic on netdev is small enough (compared to 
-something like lkml) that that's generally not an issue.
+	Hello,
 
-Chris
+On Thu, 18 Oct 2012, Steffen Klassert wrote:
+
+> Currently we can not flush cached pmtu/redirect informations via
+> the ipv4_sysctl_rtcache_flush sysctl. We need to check the rt_genid
+> of the old route and reset the nh exeption if the old route is
+> expired when we bind a new route to a nh exeption.
+> 
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
+>  net/ipv4/route.c |   16 ++++++++++------
+>  1 files changed, 10 insertions(+), 6 deletions(-)
+> 
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 432f4bb..defb98d 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -1163,8 +1163,17 @@ static bool rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
+>  	spin_lock_bh(&fnhe_lock);
+>  
+>  	if (daddr == fnhe->fnhe_daddr) {
+> -		struct rtable *orig;
+> +		struct rtable *orig = rcu_dereference(fnhe->fnhe_rth);
+> +		rcu_assign_pointer(fnhe->fnhe_rth, rt);
+
+	May be the above rcu_assign_pointer should be after
+
+	... if (!rt->rt_gateway)
+		rt->rt_gateway = daddr;
+
+	part. It is possible another __mkroute_output
+caller to get the cached fnhe->fnhe_rth without valid
+rt->rt_gateway. rcu_assign_pointer should be after all
+writes to rt.
+
+> +		if (orig) {
+> +			if (rt_is_expired(orig)) {
+> +				fnhe->fnhe_gw = 0;
+> +				fnhe->fnhe_pmtu = 0;
+> +				fnhe->fnhe_expires = 0;
+> +			}
+> +			rt_free(orig);
+> +		}
+>  		if (fnhe->fnhe_pmtu) {
+>  			unsigned long expires = fnhe->fnhe_expires;
+>  			unsigned long diff = expires - jiffies;
+> @@ -1181,11 +1190,6 @@ static bool rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
+>  		} else if (!rt->rt_gateway)
+>  			rt->rt_gateway = daddr;
+>  
+> -		orig = rcu_dereference(fnhe->fnhe_rth);
+> -		rcu_assign_pointer(fnhe->fnhe_rth, rt);
+> -		if (orig)
+> -			rt_free(orig);
+> -
+>  		fnhe->fnhe_stamp = jiffies;
+>  		ret = true;
+>  	}
+> -- 
+> 1.7.0.4
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
