@@ -1,63 +1,63 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/14] ixgbe: Initialize q_vector cpu and affinity masks correctly
-Date: Fri, 19 Oct 2012 04:45:01 -0700
-Message-ID: <1350647114-6768-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1350647114-6768-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: David L Stevens <dlstevens@us.ibm.com>
+Subject: [PATCH] vxlan nits
+Date: Fri, 19 Oct 2012 07:46:48 -0400
+Message-ID: <201210191148.q9JBkm0v018443@lab1.dls>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:36113 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758628Ab2JSLpm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2012 07:45:42 -0400
-In-Reply-To: <1350647114-6768-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:47491 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751920Ab2JSLty (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 07:49:54 -0400
+Received: from /spool/local
+	by e36.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Fri, 19 Oct 2012 05:49:51 -0600
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 69E993E4003D
+	for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 05:49:21 -0600 (MDT)
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q9JBnLqr257860
+	for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 05:49:21 -0600
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q9JBnKd7009772
+	for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 05:49:21 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-When enabling DCB the rings belonging to a q_vector on CPU 0 were not
-reinitializing their DCA registers.  Upon closer inspection the issue was
-that the q_vector CPU variable was left at 0 resulting in the driver not
-updating the DCA registers.
+This patch fixes a couple problems with vxlan.
 
-In order to guarantee the DCA registers will be updated I am adding a
-couple line change so that we initialize the CPU variable to -1 which will
-force a DCA update the first time an interrupt fires on that q_vector.
+1) Improper check of NUD_PERMANENT makes permanent forwarding table
+	entries timeout too.
 
-In addition we were setting the CPU affinity hint to all CPUs when we were
-not specifying a CPU.  Instead we should leave it as all zeros to avoid any
-possible confusion about the fact that we shouldn't be giving a hint.
+2) Check for "0.0.0.0" as gaddr and allow to mean "no group". The
+	iproute2 patch sends gaddr even if not specified, which
+	fails the IN_MULTICAST() test. This patch allows static-only
+	forwarding and dropping everything else.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-index 17ecbce..5e508b6 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-@@ -802,10 +802,13 @@ static int ixgbe_alloc_q_vector(struct ixgbe_adapter *adapter,
- 	/* setup affinity mask and node */
- 	if (cpu != -1)
- 		cpumask_set_cpu(cpu, &q_vector->affinity_mask);
--	else
--		cpumask_copy(&q_vector->affinity_mask, cpu_online_mask);
- 	q_vector->numa_node = node;
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 607976c..3fac9f3 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -816,7 +816,7 @@ static void vxlan_cleanup(unsigned long arg)
+ 				= container_of(p, struct vxlan_fdb, hlist);
+ 			unsigned long timeout;
  
-+#ifdef CONFIG_IXGBE_DCA
-+	/* initialize CPU for DCA */
-+	q_vector->cpu = -1;
-+
-+#endif
- 	/* initialize NAPI */
- 	netif_napi_add(adapter->netdev, &q_vector->napi,
- 		       ixgbe_poll, 64);
--- 
-1.7.11.7
+-			if (f->state == NUD_PERMANENT)
++			if (f->state & NUD_PERMANENT)
+ 				continue;
+ 
+ 			timeout = f->used + vxlan->age_interval * HZ;
+@@ -1047,7 +1047,7 @@ static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
+ 
+ 	if (data[IFLA_VXLAN_GROUP]) {
+ 		__be32 gaddr = nla_get_be32(data[IFLA_VXLAN_GROUP]);
+-		if (!IN_MULTICAST(ntohl(gaddr))) {
++		if (gaddr && !IN_MULTICAST(ntohl(gaddr))) {
+ 			pr_debug("group address is not IPv4 multicast\n");
+ 			return -EADDRNOTAVAIL;
+ 		}
