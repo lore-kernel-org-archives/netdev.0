@@ -1,113 +1,57 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH net-next 02/14] net: cdc_ncm: use device rx_max value if update failed
-Date: Fri, 19 Oct 2012 12:30:31 +0200
-Message-ID: <87vce6u52w.fsf@nemi.mork.no>
-References: <1350592867-25651-1-git-send-email-bjorn@mork.no>
-	<1350592867-25651-3-git-send-email-bjorn@mork.no>
-	<3426241.1WN6uXHlgW@linux-lqwf.site> <87ehkvv3ej.fsf@nemi.mork.no>
-	<CAL_Kpj0j9umyQBFFDVqWqEjH1057EjR0cZRcScdZG30E54=M0w@mail.gmail.com>
-	<878vb3ufnx.fsf@nemi.mork.no> <871uguvmfy.fsf@nemi.mork.no>
-	<CAL_Kpj3QX_bpLh5yX5VXKaqq+TSO9+aVxt+1TrU9e1BamKdFkA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] sockopt: Make SO_BINDTODEVICE readable
+Date: Fri, 19 Oct 2012 12:34:49 +0200
+Message-ID: <1350642889.2293.419.camel@edumazet-glaptop>
+References: <508123AC.5080208@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Greg Suarez <gpsuarez2512-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Fangxiaozhi \(Franko\)" <fangxiaozhi-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Aleksander Morgado <aleksander-bhGbAngMcJvQT0dZR+AlfA@public.gmane.org>
-To: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAL_Kpj3QX_bpLh5yX5VXKaqq+TSO9+aVxt+1TrU9e1BamKdFkA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-	(Alexey Orishko's message of "Fri, 19 Oct 2012 12:01:39 +0200")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Pavel Emelyanov <xemul@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:57626 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757157Ab2JSKex (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 06:34:53 -0400
+Received: by mail-ee0-f46.google.com with SMTP id b15so124027eek.19
+        for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 03:34:52 -0700 (PDT)
+In-Reply-To: <508123AC.5080208@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
-> On Fri, Oct 19, 2012 at 11:30 AM, Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wro=
-te:
->> Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> writes:
->>> Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
->>>
->> OK, I did some more experiments, and I am wondering if the real firm=
-ware
->> problem is in the MBIM descriptor.  It is
->>
->>       CDC MBIM:
->>         bcdMBIMVersion       1.00
->>         wMaxControlMessage   1536
->>         bNumberFilters       16
->>         bMaxFilterSize       40
->>         wMaxSegmentSize      4096
->>         bmNetworkCapabilities 0x20
->>           8-byte ntb input size
->>
->>
->> so we use the 8-byte version of USB_CDC_SET_NTB_INPUT_SIZE, which fa=
-ils
->> with -EPIPE.  But forcing the 4-byte version seems to work. Hmm, I a=
-lso
->> see that the device returns 4 bytes in response to at
->> USB_CDC_GET_NTB_INPUT_SIZE with an 8-byte buffer.  Maybe we can
->> auto-quirk based on that?  I.e., if USB_CDC_GET_NTB_INPUT_SIZE retur=
-ns
->> only 4 bytes then we assume that the bmNetworkCapabilities flag is
->> wrong.
->>
->> Is that acceptable?  Then it seems we are able to inform this device=
- of
->> the reduced buffer, and the other problems can be ignored.
->>
->
-> Based on NCM errata, NCM functional descriptor: if Bit 5 is set, then
-> device can (must) handle 8-byte form of Set/GetNtbInputSize.
+On Fri, 2012-10-19 at 13:55 +0400, Pavel Emelyanov wrote:
+> The SO_BINDTODEVICE option is the only SOL_SOCKET one that can be set, but
+> cannot be get via sockopt API. The only way we can find the device id a
+> socket is bound to is via sock-diag interface. But the diag works only on
+> hashed sockets, while the opt in question can be set for yet unhashed one.
+> 
+> That said, in order to know what device a socket is bound to (we do want
+> to know this in checkpoint-restore project) I propose to make this option
+> getsockopt-able and report the respective device index.
+> 
+> Another solution to the problem might be to teach the sock-diag reporting
+> info on unhashed sockets. Should I go this way instead?
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> 
+> ---
+> 
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index 8a146cf..c49412c 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -1074,6 +1074,9 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+>  	case SO_NOFCS:
+>  		v.val = sock_flag(sk, SOCK_NOFCS);
+>  		break;
+> +	case SO_BINDTODEVICE:
+> +		v.val = sk->sk_bound_dev_if;
+> +		break;
+>  	default:
+>  		return -ENOPROTOOPT;
+>  	}
 
-Yes, and this flag is copied with the same requirements in MBIM.  So it
-is definitely a firmware bug.
+This looks quite reasonable to me.
 
-> If they set a flag, but don't support the feature, hm.. is it a
-> prototype device or
-> commercially available one?
-
-The firmware is not commercially availabe AFAIK, but based on experienc=
-e
-I believe we should assume that any firmware bug ever seen will live
-forever.  There are likely other devices with the same bug even if this
-firmware and this device, and all other devices from the same vendor,
-are fixed.
-
-I believe the problem here is that the USB descriptors are somewhat
-decoupled from the firmware functions.  The firmware functions are
-usually implemented in firmware originating from the chipset vendor,
-while the descriptors are up to the device vendor. This has led to
-interesting situations before.  But for us, I believe it means that we
-should put more trust in the responses to control messages than in
-functional descriptors.  So if we can detect a mismatch like this one,
-then we do that and use the control message.
-
-> At least device must support Set request, but for GetNtbInputSize we
-> could happily
-> live without wNtbInMaxDatagrams (i.e. use 4 byte variant) on Linux.
-> Since we must anyway receive a complete NTB and making any number of =
-skb
-> buffers from received NTB is not a problem at all.
-
-Yes, it doesn't matter to us whether we get the 8 byte variant or
-not. We are prepared to handle the 4 byte variant in any case, if the
-functional descriptor flag is not set.  So I believe a fallback to 4
-byte should not pose any problem.  The only difference will be that we
-need to do the USB_CDC_GET_NTB_INPUT_SIZE to detect the bug in the firs=
-t
-place.
-
-I'll cook up an alternative patch implementing this so you can evaluate
-the impact.
-
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Eric Dumazet <edumazet@google.com>
