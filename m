@@ -1,67 +1,42 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: [PATCH 6/6] xfrm: invalidate dst on policy insertion/deletion
-Date: Fri, 19 Oct 2012 15:22:29 -0400
-Message-ID: <20121019192229.GF8315@kvack.org>
-References: <20121019191347.GD13515@kvack.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: Bug#690845: ethtool: incorrect WoL detection on Broadcom NX
+ II rev < 12
+Date: Fri, 19 Oct 2012 12:38:50 -0700
+Message-ID: <1350675530.8764.131.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <20121018134717.9579.22997.reportbug@palomino.museglobal.com>
+ <1350570748.26833.102.camel@deadeye.wl.decadent.org.uk>
+ <CAG2Wgfee=qsiUhAk5reYTypcOZL0kM5A58J+LjB1wuQ_k9FrfA@mail.gmail.com>
+ <1350610209.22276.6.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, stable@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: text/plain;
+ charset=cp1252
+Content-Transfer-Encoding: 7bit
+Cc: 690845@bugs.debian.org, "Teodor MICU" <mteodor@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: "Ben Hutchings" <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:43187 "EHLO kanga.kvack.org"
+Received: from mms2.broadcom.com ([216.31.210.18]:1481 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757715Ab2JSTW3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2012 15:22:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20121019191347.GD13515@kvack.org>
+	id S1757094Ab2JSTi7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2012 15:38:59 -0400
+In-Reply-To: <1350610209.22276.6.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit ee8372dd1989287c5eedb69d44bac43f69e496f1
-Author: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date:   Mon Sep 10 22:09:45 2012 +0000
-
-    xfrm: invalidate dst on policy insertion/deletion
-
-    When a policy is inserted or deleted, all dst should be recalculated.
-
-    Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
----
- net/xfrm/xfrm_policy.c          |    1 +
- security/selinux/include/xfrm.h |    1 +
- 2 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 1ae61bd..3aa00e1 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -587,6 +587,7 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
- 	xfrm_pol_hold(policy);
- 	net->xfrm.policy_count[dir]++;
- 	atomic_inc(&flow_cache_genid);
-+	rt_genid_bump(net);
- 	if (delpol)
- 		__xfrm_policy_unlink(delpol, dir);
- 	policy->index = delpol ? delpol->index : xfrm_gen_index(net, dir);
-diff --git a/security/selinux/include/xfrm.h b/security/selinux/include/xfrm.h
-index 13128f9..9acf6fa 100644
---- a/security/selinux/include/xfrm.h
-+++ b/security/selinux/include/xfrm.h
-@@ -49,6 +49,7 @@ int selinux_xfrm_decode_session(struct sk_buff *skb, u32 *sid, int ckall);
- static inline void selinux_xfrm_notify_policyload(void)
- {
- 	atomic_inc(&flow_cache_genid);
-+	rt_genid_bump(&init_net);
- }
- #else
- static inline int selinux_xfrm_enabled(void)
--- 
-1.7.1
-
-
--- 
-"Thought is the essence of where you are now."
+On Fri, 2012-10-19 at 02:30 +0100, Ben Hutchings wrote: 
+> Teodor MICU reported that:
+> > On Broadcom NX II rev < 12 network interfaces it's not possible to activate
+> > WoL using 'ethtool' (it can only be done from the MBA Configuration Menu).
+> > 
+> > However, even if "Pre-boot Wake On LAN" was enabled 'ethtool' doesn't
+> > see this change:
+> > 	Supports Wake-on: d
+> > 	Wake-on: d
+> > 
+> > I've just tested that WoL works for this system.
+> 
+> He's been using Linux 2.6.32 and Linux 3.2, but there don't seem to have
+> been any later changes to WoL support in bnx2.
+> 
+Teodor MICU, please provide lspci -vvv and ethtool -i eth? on the
+Broadcom bnx2 device.  Thanks.
