@@ -1,81 +1,74 @@
-From: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next 02/14] net: cdc_ncm: use device rx_max value if
- update failed
-Date: Fri, 19 Oct 2012 12:01:39 +0200
-Message-ID: <CAL_Kpj3QX_bpLh5yX5VXKaqq+TSO9+aVxt+1TrU9e1BamKdFkA@mail.gmail.com>
-References: <1350592867-25651-1-git-send-email-bjorn@mork.no>
-	<1350592867-25651-3-git-send-email-bjorn@mork.no>
-	<3426241.1WN6uXHlgW@linux-lqwf.site>
-	<87ehkvv3ej.fsf@nemi.mork.no>
-	<CAL_Kpj0j9umyQBFFDVqWqEjH1057EjR0cZRcScdZG30E54=M0w@mail.gmail.com>
-	<878vb3ufnx.fsf@nemi.mork.no>
-	<871uguvmfy.fsf@nemi.mork.no>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: listen(2) backlog changes in or around Linux 3.1?
+Date: Fri, 19 Oct 2012 12:29:22 +0200
+Message-ID: <1350642562.2293.411.camel@edumazet-glaptop>
+References: <CAJgzZorigejCuFweNrvmkEJts3Um7exh1fYTH=4KrEcB=v=2SA@mail.gmail.com>
+	 <507C4401.7050500@oracle.com>
+	 <CAJgzZoqhw6HJxa6uRbekLMaVTDVOo92YDtzqHnZoRiQ8tq6G2g@mail.gmail.com>
+	 <CAJgzZoq9+KZpQ1tVQJUK++VVk4JfY9u8timaJ5q6wSYoF+_tog@mail.gmail.com>
+	 <5080279F.80008@oracle.com> <5080340F.3050207@oracle.com>
+	 <CAJgzZooJM7aj=K-idvdbwUOOmtDM6u-=gsVOs2OFZjiZwQP0zw@mail.gmail.com>
+	 <CAGK4HS-tOE1uZR2PE+_DShEb3y5ZAn=dtECY1AmmyO2AmTVzTA@mail.gmail.com>
+	 <1350629413.2293.157.camel@edumazet-glaptop>
+	 <1350634013.2293.262.camel@edumazet-glaptop>
+	 <CAGK4HS_9mLzL9ESm=n5hvO0cw1hkHFMCSmBiYTBnqEMqQOvPvQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Greg Suarez <gpsuarez2512-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Fangxiaozhi (Franko)" <fangxiaozhi-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Aleksander Morgado <aleksander-bhGbAngMcJvQT0dZR+AlfA@public.gmane.org>
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <871uguvmfy.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: enh <enh@google.com>,
+	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	netdev@vger.kernel.org
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:36304 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753419Ab2JSK33 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 06:29:29 -0400
+Received: by mail-ea0-f174.google.com with SMTP id c13so98162eaa.19
+        for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 03:29:25 -0700 (PDT)
+In-Reply-To: <CAGK4HS_9mLzL9ESm=n5hvO0cw1hkHFMCSmBiYTBnqEMqQOvPvQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 19, 2012 at 11:30 AM, Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
-> Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> writes:
->> Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
->>
-> OK, I did some more experiments, and I am wondering if the real firmw=
-are
-> problem is in the MBIM descriptor.  It is
->
->       CDC MBIM:
->         bcdMBIMVersion       1.00
->         wMaxControlMessage   1536
->         bNumberFilters       16
->         bMaxFilterSize       40
->         wMaxSegmentSize      4096
->         bmNetworkCapabilities 0x20
->           8-byte ntb input size
->
->
-> so we use the 8-byte version of USB_CDC_SET_NTB_INPUT_SIZE, which fai=
-ls
-> with -EPIPE.  But forcing the 4-byte version seems to work. Hmm, I al=
-so
-> see that the device returns 4 bytes in response to at
-> USB_CDC_GET_NTB_INPUT_SIZE with an 8-byte buffer.  Maybe we can
-> auto-quirk based on that?  I.e., if USB_CDC_GET_NTB_INPUT_SIZE return=
-s
-> only 4 bytes then we assume that the bmNetworkCapabilities flag is
-> wrong.
->
-> Is that acceptable?  Then it seems we are able to inform this device =
-of
-> the reduced buffer, and the other problems can be ignored.
->
+On Fri, 2012-10-19 at 02:14 -0700, Vijay Subramanian wrote:
+> > diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> > index ef998b0..0404926 100644
+> > --- a/net/ipv4/tcp_ipv4.c
+> > +++ b/net/ipv4/tcp_ipv4.c
+> > @@ -1507,7 +1507,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+> >          * clogging syn queue with openreqs with exponentially increasing
+> >          * timeout.
+> >          */
+> > -       if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1)
+> > +       if (__sk_acceptq_is_full(sk, inet_csk_reqsk_queue_young(sk)))
+> >                 goto drop;
+> >
+> 
+> For what its worth, I think the changes make sense. But is there any
+> reason to exclude old request_socks in the  call to
+> __sk_acceptq_is_full().?
+> as in
+>       if (__sk_acceptq_is_full(sk, inet_csk_reqsk_queue_len(sk)))
+>                goto drop;
+> 
+> I am not sure why the current code looks only at young request_socks.
+> Thanks,
+> Vijay
 
-Based on NCM errata, NCM functional descriptor: if Bit 5 is set, then
-device can (must) handle 8-byte form of Set/GetNtbInputSize.
-If they set a flag, but don't support the feature, hm.. is it a
-prototype device or
-commercially available one?
+Old requests are assumed to be unlikely to complete (SYN attack).
 
-At least device must support Set request, but for GetNtbInputSize we
-could happily
-live without wNtbInMaxDatagrams (i.e. use 4 byte variant) on Linux.
-Since we must anyway receive a complete NTB and making any number of sk=
-b
-buffers from received NTB is not a problem at all.
+young requests are assumed to have a reasonable chance to complete.
 
-regards,
-alexey
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Note that we drop the SYN packet, so its not a 'final' decision.
+
+Some other OSes send RST in case the listener queue is full
+(I tested FreeBSD 9.0 this morning.)
+
+Note also we probably have a bug elsewhere :
+
+If we send a SYNACK, then receive the ACK from client, and the acceptq
+is full, we should reset the connexion. Right now we have kind of stupid
+situation, were we drop the ACK, and leave the REQ in the SYN_RECV
+state, so we retransmit SYNACKS.
+
+I am working on this part as well.
