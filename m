@@ -1,36 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/12] at91_ether cleanup
-Date: Fri, 19 Oct 2012 13:48:32 -0400 (EDT)
-Message-ID: <20121019.134832.1221504804550166119.davem@davemloft.net>
-References: <1350594079-4337-1-git-send-email-manabian@gmail.com>
+Subject: Re: [PATCH V2 12/20] qlcnic: 83xx base driver
+Date: Fri, 19 Oct 2012 13:49:58 -0400 (EDT)
+Message-ID: <20121019.134958.1268809524576406136.davem@davemloft.net>
+References: <1350635858-27549-1-git-send-email-sony.chacko@qlogic.com>
+	<1350635858-27549-13-git-send-email-sony.chacko@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org
-To: manabian@gmail.com
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: sony.chacko@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37132 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37139 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758807Ab2JSRse (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 13:48:34 -0400
-In-Reply-To: <1350594079-4337-1-git-send-email-manabian@gmail.com>
+	with ESMTP id S1758713Ab2JSRt7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 13:49:59 -0400
+In-Reply-To: <1350635858-27549-13-git-send-email-sony.chacko@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joachim Eastwood <manabian@gmail.com>
-Date: Thu, 18 Oct 2012 23:01:05 +0200
 
-> This patch series prepares the old at91_ether driver for code
-> sharing with the macb driver. The hardware is similar except for DMA
-> TX/RX, so its not quite clear if it is practical to support both in
-> one driver. But stuff like MDIO and statistics should be possible to
-> share.
+Patch is way too large and therefore didn't make it to the mailing
+list.
 
-All applied, thanks.
+Nobody can review your patch if it doesn't make the list.
 
-Can you get rid of that HAVE_NET_MACB thing?  It's completely
-pointless.  This is a platform driver for crying out loud,
-therefore it can successfully build on any architecture.  And
-we want this exposed for build testing as far as we can.
-
-Thanks.
+So I'm tossing this entire series, please correct this and
+repost.
