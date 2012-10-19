@@ -1,28 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/21] treewide: Use consistent api style for
- address testing
-Date: Fri, 19 Oct 2012 03:36:12 -0400 (EDT)
-Message-ID: <20121019.033612.1675650655648502777.davem@davemloft.net>
-References: <cover.1350618006.git.joe@perches.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/3] skbtrace v2: core feature and common events
+Date: Fri, 19 Oct 2012 10:01:44 +0200
+Message-ID: <1350633704.2293.252.camel@edumazet-glaptop>
+References: <5080F031.5040804@gmail.com>
+	 <1350630647.2293.194.camel@edumazet-glaptop>  <50810269.2090504@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: joe@perches.com
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Li Yu <raise.sail@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59376 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751548Ab2JSHgO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 03:36:14 -0400
-In-Reply-To: <cover.1350618006.git.joe@perches.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:44847 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750916Ab2JSIBs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 04:01:48 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so65449bkc.19
+        for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 01:01:47 -0700 (PDT)
+In-Reply-To: <50810269.2090504@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2012-10-19 at 15:34 +0800, Li Yu wrote:
 
-CC list too large, so this didn't make it to any of the vger lists.
+> Sorry for confused, so far it only has some Chinese documents here, 
+> http://rover-yu.github.com/skbtrace-kernel/using/index.html
+> 
+> I will supply the English version, add more documents on usage and changes.
+> 
 
-And therefore nobody on the vger lists saw Eric Dumazet's reply
-either.
+This sounds a wise idea indeed.
 
-But anyways, like him I think this is useless churn and it's
-largest side effect will be making backports harder.
+Alternatively, I can read French too.
+
+Thanks
