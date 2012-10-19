@@ -1,159 +1,211 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [RFC] net: cdc_ncm: workaround NTB input size firmware bug
-Date: Fri, 19 Oct 2012 13:36:15 +0200
-Message-ID: <87mwziu21c.fsf_-_@nemi.mork.no>
-References: <1350592867-25651-1-git-send-email-bjorn@mork.no>
-	<1350592867-25651-3-git-send-email-bjorn@mork.no>
-	<3426241.1WN6uXHlgW@linux-lqwf.site> <87ehkvv3ej.fsf@nemi.mork.no>
-	<CAL_Kpj0j9umyQBFFDVqWqEjH1057EjR0cZRcScdZG30E54=M0w@mail.gmail.com>
-	<878vb3ufnx.fsf@nemi.mork.no> <871uguvmfy.fsf@nemi.mork.no>
-	<CAL_Kpj3QX_bpLh5yX5VXKaqq+TSO9+aVxt+1TrU9e1BamKdFkA@mail.gmail.com>
-	<87vce6u52w.fsf@nemi.mork.no>
+From: Daniel Borkmann <danborkmann@iogearbox.net>
+Subject: Re: [PATCH net-next] packet mmap : allow the user to choose tx data offset.
+Date: Fri, 19 Oct 2012 13:36:37 +0200
+Message-ID: <CAD6jFURov5oB+ck33JzCYQoBo9mYsEM9c0rHz9gmcgdMKgmwCg@mail.gmail.com>
+References: <1350631302-16280-1-git-send-email-paul.chavent@onera.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Greg Suarez <gpsuarez2512-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Fangxiaozhi \(Franko\)" <fangxiaozhi-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Aleksander Morgado <aleksander-bhGbAngMcJvQT0dZR+AlfA@public.gmane.org>
-To: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87vce6u52w.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org> (=?utf-8?Q?=22Bj=C3=B8rn?=
- Mork"'s message of "Fri, 19
-	Oct 2012 12:30:31 +0200")
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Paul Chavent <Paul.Chavent@onera.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:56200 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753992Ab2JSLgp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 07:36:45 -0400
+Received: from [78.46.5.203] (helo=sslproxy01.your-server.de)
+	by www62.your-server.de with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.74)
+	(envelope-from <danborkmann@iogearbox.net>)
+	id 1TPAsd-0000Qr-SD
+	for netdev@vger.kernel.org; Fri, 19 Oct 2012 13:36:43 +0200
+Received: from [209.85.215.174] (helo=mail-ea0-f174.google.com)
+	by sslproxy01.your-server.de with esmtpsa (TLSv1:RC4-SHA:128)
+	(Exim 4.72)
+	(envelope-from <danborkmann@iogearbox.net>)
+	id 1TPAse-0007Ii-6z
+	for netdev@vger.kernel.org; Fri, 19 Oct 2012 13:36:44 +0200
+Received: by mail-ea0-f174.google.com with SMTP id c13so116641eaa.19
+        for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 04:36:37 -0700 (PDT)
+In-Reply-To: <1350631302-16280-1-git-send-email-paul.chavent@onera.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some devices do not support the 8 byte variants of
-the NTB input size control messages despite announcing
-such support in the functional descriptor. This can be
-detected by reading the current input size, looking
-at how many bytes the device returns.
+On Fri, Oct 19, 2012 at 9:21 AM, Paul Chavent <Paul.Chavent@onera.fr> wrote:
+> The tx data offset of packet mmap tx ring used to be :
+> (TPACKET2_HDRLEN - sizeof(struct sockaddr_ll))
+>
+> The problem is that, with SOCK_RAW socket, the payload
+> (14 bytes after the begening of the user data) is misaligned.
+>
+> This patch allow to let the user give an offset for it's tx
+> data if he desires.
+>
+> Set sock option PACKET_TX_HAS_OFF to 1, then specify in each
+> frame of your tx ring tp_net for SOCK_DGRAM, or tp_mac for
+> SOCK_RAW.
+>
+> Signed-off-by: Paul Chavent <paul.chavent@onera.fr>
+> ---
+>  Documentation/networking/packet_mmap.txt | 13 +++++++++
+>  include/uapi/linux/if_packet.h           |  1 +
+>  net/packet/af_packet.c                   | 48 +++++++++++++++++++++++++++++++-
+>  net/packet/internal.h                    |  1 +
+>  4 files changed, 62 insertions(+), 1 deletion(-)
+>
+> diff --git a/Documentation/networking/packet_mmap.txt b/Documentation/networking/packet_mmap.txt
+> index 1c08a4b..c805e5f 100644
+> --- a/Documentation/networking/packet_mmap.txt
+> +++ b/Documentation/networking/packet_mmap.txt
+> @@ -163,6 +163,19 @@ As capture, each frame contains two parts:
+>
+>   A complete tutorial is available at: http://wiki.gnu-log.net/
+>
+> +By default, the user should put data at :
+> + frame base + TPACKET_HDRLEN - sizeof(struct sockaddr_ll)
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
----
-Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> writes:
+TPACKET_HDRLEN is only for tpacket, version 1. Maybe you should mention that.
 
-> I'll cook up an alternative patch implementing this so you can evalua=
-te
-> the impact.
+> +So, whatever you choose for the socket mode (SOCK_DGRAM or SOCK_RAW),
+> +the begening of the user data will be at :
 
-So how about something like this?
+Typo in "begening".
 
-I couldn't help myself not combining the two paths here while at it.
-But I have intentionally not done the other obvious cleanups, like usin=
-g
-the standard timeout constants and using dev_xxx for instead of pr_xxx,
-because they must and should be done separately over the whole driver.
+> + frame base + TPACKET_ALIGN(sizeof(struct tpacket_hdr))
 
-This works for me:
+See above, tpacket, version 1.
 
-Oct 19 13:19:43 nemi kernel: [304987.350138] dwNtbInMaxSize=3D131072 dw=
-NtbOutMaxSize=3D32768 wNdpOutPayloadRemainder=3D0 wNdpOutDivisor=3D4 wN=
-dpOutAlignment=3D4 wNtbOutMaxDatagrams=3D0 flags=3D0x20
-Oct 19 13:19:43 nemi kernel: [304987.350144] Using default maximum rece=
-ive length=3D32768
-Oct 19 13:19:43 nemi kernel: [304987.350507] firmware bug: flags=3D0x20=
-, but USB_CDC_GET_NTB_INPUT_SIZE returned 4 bytes
+> +If you whish to put user data at a custom offset from the begenning of
 
+Typo in "whish" and "begenning".
 
-Bj=C3=B8rn
+> +the frame (for payload alignment with SOCK_RAW mode for instance) you
+> +can set tp_net (with SOCK_DGRAM) or tp_mac (with SOCK_RAW). In order
+> +to make this work it must be enabled previously with setsockopt()
+> +and the PACKET_TX_HAS_OFF option.
+> +
+>  --------------------------------------------------------------------------------
+>  + PACKET_MMAP settings
+>  --------------------------------------------------------------------------------
+> diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
+> index f379929..f9a6037 100644
+> --- a/include/uapi/linux/if_packet.h
+> +++ b/include/uapi/linux/if_packet.h
+> @@ -50,6 +50,7 @@ struct sockaddr_ll {
+>  #define PACKET_TX_TIMESTAMP            16
+>  #define PACKET_TIMESTAMP               17
+>  #define PACKET_FANOUT                  18
+> +#define PACKET_TX_HAS_OFF              19
+>
+>  #define PACKET_FANOUT_HASH             0
+>  #define PACKET_FANOUT_LB               1
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index 94060ed..b6df577 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -1881,7 +1881,37 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+>         skb_reserve(skb, hlen);
+>         skb_reset_network_header(skb);
+>
+> -       data = ph.raw + po->tp_hdrlen - sizeof(struct sockaddr_ll);
+> +       if (po->tp_tx_has_off) {
+> +               int off_min = po->tp_hdrlen - sizeof(struct sockaddr_ll);
+> +               int off_max = po->tx_ring.frame_size - tp_len;
 
- drivers/net/usb/cdc_ncm.c |   64 +++++++++++++++++++++++--------------=
---------
- 1 file changed, 33 insertions(+), 31 deletions(-)
+I think here, the header length is missing as well. Have you tested
+this with min/max offsets?
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 4cd582a..26d31d7 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -215,44 +215,46 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
-=20
- 	/* inform device about NTB input size changes */
- 	if (ctx->rx_max !=3D le32_to_cpu(ctx->ncm_parm.dwNtbInMaxSize)) {
-+		struct usb_cdc_ncm_ndp_input_size *ndp_in_sz;
-+		size_t request_len =3D 4;
-=20
-+		ndp_in_sz =3D kzalloc(sizeof(*ndp_in_sz), GFP_KERNEL);
-+		if (!ndp_in_sz) {
-+			err =3D -ENOMEM;
-+			goto size_err;
-+		}
- 		if (flags & USB_CDC_NCM_NCAP_NTB_INPUT_SIZE) {
--			struct usb_cdc_ncm_ndp_input_size *ndp_in_sz;
--
--			ndp_in_sz =3D kzalloc(sizeof(*ndp_in_sz), GFP_KERNEL);
--			if (!ndp_in_sz) {
--				err =3D -ENOMEM;
--				goto size_err;
--			}
--
- 			err =3D usb_control_msg(ctx->udev,
--					usb_sndctrlpipe(ctx->udev, 0),
--					USB_CDC_SET_NTB_INPUT_SIZE,
--					USB_TYPE_CLASS | USB_DIR_OUT
--					 | USB_RECIP_INTERFACE,
--					0, iface_no, ndp_in_sz, 8, 1000);
--			kfree(ndp_in_sz);
--		} else {
--			__le32 *dwNtbInMaxSize;
--			dwNtbInMaxSize =3D kzalloc(sizeof(*dwNtbInMaxSize),
--					GFP_KERNEL);
--			if (!dwNtbInMaxSize) {
--				err =3D -ENOMEM;
--				goto size_err;
-+					      usb_rcvctrlpipe(ctx->udev, 0),
-+					      USB_CDC_GET_NTB_INPUT_SIZE,
-+					      USB_TYPE_CLASS | USB_DIR_OUT
-+					      | USB_RECIP_INTERFACE,
-+					      0, iface_no, ndp_in_sz, 8, 1000);
-+			switch (err) {
-+			case 4:
-+				pr_debug("firmware bug: flags=3D0x%02x, but USB_CDC_GET_NTB_INPUT_=
-SIZE returned 4 bytes\n", flags);
-+				break;
-+			case 8:
-+				/* bmNetworkCapabilities is correct */
-+				request_len =3D 8;
-+				break;
-+			default:
-+				goto size_err_free;
- 			}
--			*dwNtbInMaxSize =3D cpu_to_le32(ctx->rx_max);
--
--			err =3D usb_control_msg(ctx->udev,
--					usb_sndctrlpipe(ctx->udev, 0),
--					USB_CDC_SET_NTB_INPUT_SIZE,
--					USB_TYPE_CLASS | USB_DIR_OUT
--					 | USB_RECIP_INTERFACE,
--					0, iface_no, dwNtbInMaxSize, 4, 1000);
--			kfree(dwNtbInMaxSize);
- 		}
-+		ndp_in_sz->dwNtbInMaxSize =3D cpu_to_le32(ctx->rx_max);
-+		ndp_in_sz->wNtbInMaxDatagrams =3D 0;	/* unlimited */
-+		err =3D usb_control_msg(ctx->udev,
-+				      usb_sndctrlpipe(ctx->udev, 0),
-+				      USB_CDC_SET_NTB_INPUT_SIZE,
-+				      USB_TYPE_CLASS | USB_DIR_OUT
-+				      | USB_RECIP_INTERFACE,
-+				      0, iface_no, ndp_in_sz, request_len, 1000);
-+size_err_free:
-+		kfree(ndp_in_sz);
- size_err:
- 		if (err < 0)
--			pr_debug("Setting NTB Input Size failed\n");
-+			pr_debug("Setting NTB Input Size failed: %d\n", err);
- 	}
-=20
- 	/* verify maximum size of transmitted NTB in bytes */
---=20
-1.7.10.4
+Maybe it is more reasonable to put off = off_min at the beginning and
+then add tp_mac to it. Thus, tp_mac can also be 0 with
+PACKET_TX_HAS_OFF.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +               int off;
+
+For offsets, better use off_t, or here u32. Also, add a newline after
+variable declaration.
+
+> +               if (sock->type != SOCK_DGRAM)
+
+Why not test for == SOCK_RAW? This makes it more readable.
+
+> +                       switch (po->tp_version) {
+> +                       case TPACKET_V2:
+> +                               off = ph.h2->tp_mac;
+> +                               break;
+> +                       default:
+> +                               off = ph.h1->tp_mac;
+
+TPACKET_V1 as default is wrong since there's also TPACKET_V3. What
+about TPACKET_V3 in general in your patch? You simply ignore it.
+
+> +                               break;
+> +                       }
+> +               else
+> +                       switch (po->tp_version) {
+> +                       case TPACKET_V2:
+> +                               off = ph.h2->tp_net;
+> +                               break;
+> +                       default:
+> +                               off = ph.h1->tp_net;
+> +                               break;
+> +                       }
+
+Same as above. You should also put braces around the if-else
+construct. Sure, it's only one statement after that, but this spans
+across multiple lines and can make it error-prone in future changes.
+
+> +               if (unlikely((off < off_min) || (off_max < off))) {
+> +                       pr_err("payload offset (%d) out of range [%d;%d]\n",
+> +                               off, off_min, off_max);
+> +                       return -EINVAL;
+> +               }
+
+if you set off initially to off_min, you could drop the check for off < off_min.
+
+> +               data = ph.raw + off;
+> +       } else {
+> +               data = ph.raw + po->tp_hdrlen - sizeof(struct sockaddr_ll);
+> +       }
+>         to_write = tp_len;
+>
+>         if (sock->type == SOCK_DGRAM) {
+> @@ -3111,6 +3141,19 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
+>
+>                 return fanout_add(sk, val & 0xffff, val >> 16);
+>         }
+> +       case PACKET_TX_HAS_OFF:
+> +       {
+> +               unsigned int val;
+> +
+> +               if (optlen != sizeof(val))
+> +                       return -EINVAL;
+> +               if (po->rx_ring.pg_vec || po->tx_ring.pg_vec)
+> +                       return -EBUSY;
+> +               if (copy_from_user(&val, optval, sizeof(val)))
+> +                       return -EFAULT;
+> +               po->tp_tx_has_off = !!val;
+> +               return 0;
+> +       }
+>         default:
+>                 return -ENOPROTOOPT;
+>         }
+> @@ -3202,6 +3245,9 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
+>                         ((u32)po->fanout->type << 16)) :
+>                        0);
+>                 break;
+> +       case PACKET_TX_HAS_OFF:
+> +               val = po->tp_tx_has_off;
+> +               break;
+>         default:
+>                 return -ENOPROTOOPT;
+>         }
+> diff --git a/net/packet/internal.h b/net/packet/internal.h
+> index 44945f6..169e60d 100644
+> --- a/net/packet/internal.h
+> +++ b/net/packet/internal.h
+> @@ -110,6 +110,7 @@ struct packet_sock {
+>         unsigned int            tp_reserve;
+>         unsigned int            tp_loss:1;
+>         unsigned int            tp_tstamp;
+> +       unsigned int            tp_tx_has_off:1;
+>         struct packet_type      prot_hook ____cacheline_aligned_in_smp;
+>  };
