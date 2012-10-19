@@ -1,427 +1,130 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/14] igb: Map entire page and sync half instead of mapping and unmapping half pages
-Date: Fri, 19 Oct 2012 04:45:09 -0700
-Message-ID: <1350647114-6768-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/14] igb: Combine post-processing of skb into a single function
+Date: Fri, 19 Oct 2012 04:45:08 -0700
+Message-ID: <1350647114-6768-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1350647114-6768-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:64516 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:31782 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932284Ab2JSLpq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2012 07:45:46 -0400
+	id S932189Ab2JSLpp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2012 07:45:45 -0400
 In-Reply-To: <1350647114-6768-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change makes it so that we map the entire page and just sync half of
-it for the device at a time.  The advantage to this approach is that we can
-avoid the locking on map/unmap seen in many IOMMU implementations.
+This change is meant to just clean-up a number of function calls that were
+made at the end of the Rx clean-up path by combining them into a single
+function call.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h         |   1 +
- drivers/net/ethernet/intel/igb/igb_ethtool.c |  26 ++--
- drivers/net/ethernet/intel/igb/igb_main.c    | 211 +++++++++++++++++++++------
- 3 files changed, 181 insertions(+), 57 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 69 ++++++++++++++++++++-----------
+ 1 file changed, 44 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 72ab9ac..1d15bb0 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -239,6 +239,7 @@ struct igb_ring {
- 	/* everything past this point are written often */
- 	u16 next_to_clean ____cacheline_aligned_in_smp;
- 	u16 next_to_use;
-+	u16 next_to_alloc;
- 
- 	union {
- 		/* TX */
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 0faac42..96c6df6 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -1694,7 +1694,7 @@ static int igb_check_lbtest_frame(struct igb_rx_buffer *rx_buffer,
- 
- 	frame_size >>= 1;
- 
--	data = kmap(rx_buffer->page) + rx_buffer->page_offset;
-+	data = kmap(rx_buffer->page);
- 
- 	if (data[3] != 0xFF ||
- 	    data[frame_size + 10] != 0xBE ||
-@@ -1713,9 +1713,7 @@ static int igb_clean_test_rings(struct igb_ring *rx_ring,
- 	union e1000_adv_rx_desc *rx_desc;
- 	struct igb_rx_buffer *rx_buffer_info;
- 	struct igb_tx_buffer *tx_buffer_info;
--	struct netdev_queue *txq;
- 	u16 rx_ntc, tx_ntc, count = 0;
--	unsigned int total_bytes = 0, total_packets = 0;
- 
- 	/* initialize next to clean and descriptor values */
- 	rx_ntc = rx_ring->next_to_clean;
-@@ -1726,21 +1724,24 @@ static int igb_clean_test_rings(struct igb_ring *rx_ring,
- 		/* check rx buffer */
- 		rx_buffer_info = &rx_ring->rx_buffer_info[rx_ntc];
- 
--		/* unmap rx buffer, will be remapped by alloc_rx_buffers */
--		dma_unmap_single(rx_ring->dev,
--				 rx_buffer_info->dma,
--				 PAGE_SIZE / 2,
--				 DMA_FROM_DEVICE);
--		rx_buffer_info->dma = 0;
-+		/* sync Rx buffer for CPU read */
-+		dma_sync_single_for_cpu(rx_ring->dev,
-+					rx_buffer_info->dma,
-+					PAGE_SIZE / 2,
-+					DMA_FROM_DEVICE);
- 
- 		/* verify contents of skb */
- 		if (igb_check_lbtest_frame(rx_buffer_info, size))
- 			count++;
- 
-+		/* sync Rx buffer for device write */
-+		dma_sync_single_for_device(rx_ring->dev,
-+					   rx_buffer_info->dma,
-+					   PAGE_SIZE / 2,
-+					   DMA_FROM_DEVICE);
-+
- 		/* unmap buffer on tx side */
- 		tx_buffer_info = &tx_ring->tx_buffer_info[tx_ntc];
--		total_bytes += tx_buffer_info->bytecount;
--		total_packets += tx_buffer_info->gso_segs;
- 		igb_unmap_and_free_tx_resource(tx_ring, tx_buffer_info);
- 
- 		/* increment rx/tx next to clean counters */
-@@ -1755,8 +1756,7 @@ static int igb_clean_test_rings(struct igb_ring *rx_ring,
- 		rx_desc = IGB_RX_DESC(rx_ring, rx_ntc);
- 	}
- 
--	txq = netdev_get_tx_queue(tx_ring->netdev, tx_ring->queue_index);
--	netdev_tx_completed_queue(txq, total_packets, total_bytes);
-+	netdev_tx_reset_queue(txring_txq(tx_ring));
- 
- 	/* re-map buffers to ring, store next to clean values */
- 	igb_alloc_rx_buffers(rx_ring, count);
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 9e38f14..18ad18f 100644
+index 665eafa..9e38f14 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2785,6 +2785,7 @@ int igb_setup_rx_resources(struct igb_ring *rx_ring)
- 	if (!rx_ring->desc)
- 		goto err;
- 
-+	rx_ring->next_to_alloc = 0;
- 	rx_ring->next_to_clean = 0;
- 	rx_ring->next_to_use = 0;
- 
-@@ -3312,16 +3313,16 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
- 	for (i = 0; i < rx_ring->count; i++) {
- 		struct igb_rx_buffer *buffer_info = &rx_ring->rx_buffer_info[i];
- 
--		if (buffer_info->dma)
--			dma_unmap_page(rx_ring->dev,
--				       buffer_info->dma,
--				       PAGE_SIZE / 2,
--				       DMA_FROM_DEVICE);
--		buffer_info->dma = 0;
--		if (buffer_info->page)
--			__free_page(buffer_info->page);
-+		if (!buffer_info->page)
-+			continue;
-+
-+		dma_unmap_page(rx_ring->dev,
-+			       buffer_info->dma,
-+			       PAGE_SIZE,
-+			       DMA_FROM_DEVICE);
-+		__free_page(buffer_info->page);
-+
- 		buffer_info->page = NULL;
--		buffer_info->page_offset = 0;
- 	}
- 
- 	size = sizeof(struct igb_rx_buffer) * rx_ring->count;
-@@ -3330,6 +3331,7 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
- 	/* Zero out the descriptor ring */
- 	memset(rx_ring->desc, 0, rx_ring->size);
- 
-+	rx_ring->next_to_alloc = 0;
- 	rx_ring->next_to_clean = 0;
- 	rx_ring->next_to_use = 0;
+@@ -5877,22 +5877,6 @@ static inline void igb_rx_hash(struct igb_ring *ring,
+ 		skb->rxhash = le32_to_cpu(rx_desc->wb.lower.hi_dword.rss);
  }
-@@ -5828,6 +5830,104 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
- 	return !!budget;
+ 
+-static void igb_rx_vlan(struct igb_ring *ring,
+-			union e1000_adv_rx_desc *rx_desc,
+-			struct sk_buff *skb)
+-{
+-	if (igb_test_staterr(rx_desc, E1000_RXD_STAT_VP)) {
+-		u16 vid;
+-		if (igb_test_staterr(rx_desc, E1000_RXDEXT_STATERR_LB) &&
+-		    test_bit(IGB_RING_FLAG_RX_LB_VLAN_BSWAP, &ring->flags))
+-			vid = be16_to_cpu(rx_desc->wb.upper.vlan);
+-		else
+-			vid = le16_to_cpu(rx_desc->wb.upper.vlan);
+-
+-		__vlan_hwaccel_put_tag(skb, vid);
+-	}
+-}
+-
+ /**
+  * igb_get_headlen - determine size of header for LRO/GRO
+  * @data: pointer to the start of the headers
+@@ -6101,6 +6085,47 @@ static bool igb_cleanup_headers(struct igb_ring *rx_ring,
+ 	return false;
  }
  
 +/**
-+ * igb_reuse_rx_page - page flip buffer and store it back on the ring
-+ * @rx_ring: rx descriptor ring to store buffers on
-+ * @old_buff: donor buffer to have page reused
++ * igb_process_skb_fields - Populate skb header fields from Rx descriptor
++ * @rx_ring: rx descriptor ring packet is being transacted on
++ * @rx_desc: pointer to the EOP Rx descriptor
++ * @skb: pointer to current skb being populated
 + *
-+ * Synchronizes page for reuse by the adapter
++ * This function checks the ring, descriptor, and packet information in
++ * order to populate the hash, checksum, VLAN, timestamp, protocol, and
++ * other fields within the skb.
 + **/
-+static void igb_reuse_rx_page(struct igb_ring *rx_ring,
-+			      struct igb_rx_buffer *old_buff)
++static void igb_process_skb_fields(struct igb_ring *rx_ring,
++				   union e1000_adv_rx_desc *rx_desc,
++				   struct sk_buff *skb)
 +{
-+	struct igb_rx_buffer *new_buff;
-+	u16 nta = rx_ring->next_to_alloc;
++	struct net_device *dev = rx_ring->netdev;
 +
-+	new_buff = &rx_ring->rx_buffer_info[nta];
++	igb_rx_hash(rx_ring, rx_desc, skb);
 +
-+	/* update, and store next to alloc */
-+	nta++;
-+	rx_ring->next_to_alloc = (nta < rx_ring->count) ? nta : 0;
-+
-+	/* transfer page from old buffer to new buffer */
-+	memcpy(new_buff, old_buff, sizeof(struct igb_rx_buffer));
-+
-+	/* sync the buffer for use by the device */
-+	dma_sync_single_range_for_device(rx_ring->dev, old_buff->dma,
-+					 old_buff->page_offset,
-+					 PAGE_SIZE / 2,
-+					 DMA_FROM_DEVICE);
-+}
-+
-+/**
-+ * igb_add_rx_frag - Add contents of Rx buffer to sk_buff
-+ * @rx_ring: rx descriptor ring to transact packets on
-+ * @rx_buffer: buffer containing page to add
-+ * @rx_desc: descriptor containing length of buffer written by hardware
-+ * @skb: sk_buff to place the data into
-+ *
-+ * This function will add the data contained in rx_buffer->page to the skb.
-+ * This is done either through a direct copy if the data in the buffer is
-+ * less than the skb header size, otherwise it will just attach the page as
-+ * a frag to the skb.
-+ *
-+ * The function will then update the page offset if necessary and return
-+ * true if the buffer can be reused by the adapter.
-+ **/
-+static bool igb_add_rx_frag(struct igb_ring *rx_ring,
-+			    struct igb_rx_buffer *rx_buffer,
-+			    union e1000_adv_rx_desc *rx_desc,
-+			    struct sk_buff *skb)
-+{
-+	struct page *page = rx_buffer->page;
-+	unsigned int size = le16_to_cpu(rx_desc->wb.upper.length);
-+
-+	if ((size <= IGB_RX_HDR_LEN) && !skb_is_nonlinear(skb)) {
-+		unsigned char *va = page_address(page) + rx_buffer->page_offset;
++	igb_rx_checksum(rx_ring, rx_desc, skb);
 +
 +#ifdef CONFIG_IGB_PTP
-+		if (igb_test_staterr(rx_desc, E1000_RXDADV_STAT_TSIP)) {
-+			igb_ptp_rx_pktstamp(rx_ring->q_vector, va, skb);
-+			va += IGB_TS_HDR_LEN;
-+			size -= IGB_TS_HDR_LEN;
-+		}
++	igb_ptp_rx_hwtstamp(rx_ring->q_vector, rx_desc, skb);
++#endif /* CONFIG_IGB_PTP */
 +
-+#endif
-+		memcpy(__skb_put(skb, size), va, ALIGN(size, sizeof(long)));
++	if ((dev->features & NETIF_F_HW_VLAN_RX) &&
++	    igb_test_staterr(rx_desc, E1000_RXD_STAT_VP)) {
++		u16 vid;
++		if (igb_test_staterr(rx_desc, E1000_RXDEXT_STATERR_LB) &&
++		    test_bit(IGB_RING_FLAG_RX_LB_VLAN_BSWAP, &rx_ring->flags))
++			vid = be16_to_cpu(rx_desc->wb.upper.vlan);
++		else
++			vid = le16_to_cpu(rx_desc->wb.upper.vlan);
 +
-+		/* we can reuse buffer as-is, just make sure it is local */
-+		if (likely(page_to_nid(page) == numa_node_id()))
-+			return true;
-+
-+		/* this page cannot be reused so discard it */
-+		put_page(page);
-+		return false;
++		__vlan_hwaccel_put_tag(skb, vid);
 +	}
 +
-+	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
-+			rx_buffer->page_offset, size, PAGE_SIZE / 2);
++	skb_record_rx_queue(skb, rx_ring->queue_index);
 +
-+	/* avoid re-using remote pages */
-+	if (unlikely(page_to_nid(page) != numa_node_id()))
-+		return false;
-+
-+	/* if we are only owner of page we can reuse it */
-+	if (unlikely(page_count(page) != 1))
-+		return false;
-+
-+	/* flip page offset to other buffer */
-+	rx_buffer->page_offset ^= PAGE_SIZE / 2;
-+
-+	/*
-+	 * since we are the only owner of the page and we need to
-+	 * increment it, just set the value to 2 in order to avoid
-+	 * an unnecessary locked operation
-+	 */
-+	atomic_set(&page->_count, 2);
-+
-+	return true;
++	skb->protocol = eth_type_trans(skb, rx_ring->netdev);
 +}
 +
- static inline void igb_rx_checksum(struct igb_ring *ring,
- 				   union e1000_adv_rx_desc *rx_desc,
- 				   struct sk_buff *skb)
-@@ -5985,6 +6085,7 @@ static unsigned int igb_get_headlen(unsigned char *data,
- /**
-  * igb_pull_tail - igb specific version of skb_pull_tail
-  * @rx_ring: rx descriptor ring packet is being transacted on
-+ * @rx_desc: pointer to the EOP Rx descriptor
-  * @skb: pointer to current skb being adjusted
-  *
-  * This function is an igb specific version of __pskb_pull_tail.  The
-@@ -6131,7 +6232,6 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, int budget)
+ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, int budget)
+ {
  	struct igb_ring *rx_ring = q_vector->rx.ring;
- 	union e1000_adv_rx_desc *rx_desc;
- 	struct sk_buff *skb = rx_ring->skb;
--	const int current_node = numa_node_id();
- 	unsigned int total_bytes = 0, total_packets = 0;
- 	u16 cleaned_count = igb_desc_unused(rx_ring);
- 	u16 i = rx_ring->next_to_clean;
-@@ -6186,20 +6286,25 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, int budget)
- 			prefetchw(skb->data);
+@@ -6185,18 +6210,12 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, int budget)
+ 			continue;
  		}
  
--		skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
--				buffer_info->page_offset,
--				le16_to_cpu(rx_desc->wb.upper.length),
--				PAGE_SIZE / 2);
+-#ifdef CONFIG_IGB_PTP
+-		igb_ptp_rx_hwtstamp(q_vector, rx_desc, skb);
+-#endif /* CONFIG_IGB_PTP */
+-		igb_rx_hash(rx_ring, rx_desc, skb);
+-		igb_rx_checksum(rx_ring, rx_desc, skb);
+-		igb_rx_vlan(rx_ring, rx_desc, skb);
 -
--		if ((page_count(buffer_info->page) != 1) ||
--		    (page_to_nid(buffer_info->page) != current_node))
--			buffer_info->page = NULL;
--		else
--			get_page(buffer_info->page);
-+		/* we are reusing so sync this buffer for CPU use */
-+		dma_sync_single_range_for_cpu(rx_ring->dev,
-+					      buffer_info->dma,
-+					      buffer_info->page_offset,
-+					      PAGE_SIZE / 2,
-+					      DMA_FROM_DEVICE);
-+
-+		/* pull page into skb */
-+		if (igb_add_rx_frag(rx_ring, buffer_info, rx_desc, skb)) {
-+			/* hand second half of page back to the ring */
-+			igb_reuse_rx_page(rx_ring, buffer_info);
-+		} else {
-+			/* we are not reusing the buffer so unmap it */
-+			dma_unmap_page(rx_ring->dev, buffer_info->dma,
-+				       PAGE_SIZE, DMA_FROM_DEVICE);
-+		}
++		/* probably a little skewed due to removing CRC */
+ 		total_bytes += skb->len;
+ 		total_packets++;
  
--		dma_unmap_page(rx_ring->dev, buffer_info->dma,
--			       PAGE_SIZE / 2, DMA_FROM_DEVICE);
--		buffer_info->dma = 0;
-+		/* clear contents of buffer_info */
-+		buffer_info->page = NULL;
+-		skb_record_rx_queue(skb, rx_ring->queue_index);
+-		skb->protocol = eth_type_trans(skb, rx_ring->netdev);
++		/* populate checksum, timestamp, VLAN, and protocol */
++		igb_process_skb_fields(rx_ring, rx_desc, skb);
  
- 		if (!igb_test_staterr(rx_desc, E1000_RXD_STAT_EOP))
- 			goto next_desc;
-@@ -6259,32 +6364,36 @@ static bool igb_alloc_mapped_page(struct igb_ring *rx_ring,
- 				  struct igb_rx_buffer *bi)
- {
- 	struct page *page = bi->page;
--	dma_addr_t dma = bi->dma;
--	unsigned int page_offset = bi->page_offset ^ (PAGE_SIZE / 2);
-+	dma_addr_t dma;
+ 		napi_gro_receive(&q_vector->napi, skb);
  
--	if (dma)
-+	/* since we are recycling buffers we should seldom need to alloc */
-+	if (likely(page))
- 		return true;
- 
--	if (!page) {
--		page = __skb_alloc_page(GFP_ATOMIC | __GFP_COLD, NULL);
--		if (unlikely(!page)) {
--			rx_ring->rx_stats.alloc_failed++;
--			return false;
--		}
--		bi->page = page;
-+	/* alloc new page for storage */
-+	page = __skb_alloc_page(GFP_ATOMIC | __GFP_COLD, NULL);
-+	if (unlikely(!page)) {
-+		rx_ring->rx_stats.alloc_failed++;
-+		return false;
- 	}
- 
--	dma = dma_map_page(rx_ring->dev, page,
--			   page_offset, PAGE_SIZE / 2,
--			   DMA_FROM_DEVICE);
-+	/* map page for use */
-+	dma = dma_map_page(rx_ring->dev, page, 0, PAGE_SIZE, DMA_FROM_DEVICE);
- 
-+	/*
-+	 * if mapping failed free memory back to system since
-+	 * there isn't much point in holding memory we can't use
-+	 */
- 	if (dma_mapping_error(rx_ring->dev, dma)) {
-+		__free_page(page);
-+
- 		rx_ring->rx_stats.alloc_failed++;
- 		return false;
- 	}
- 
- 	bi->dma = dma;
--	bi->page_offset = page_offset;
-+	bi->page = page;
-+	bi->page_offset = 0;
- 
- 	return true;
- }
-@@ -6299,17 +6408,23 @@ void igb_alloc_rx_buffers(struct igb_ring *rx_ring, u16 cleaned_count)
- 	struct igb_rx_buffer *bi;
- 	u16 i = rx_ring->next_to_use;
- 
-+	/* nothing to do */
-+	if (!cleaned_count)
-+		return;
-+
- 	rx_desc = IGB_RX_DESC(rx_ring, i);
- 	bi = &rx_ring->rx_buffer_info[i];
- 	i -= rx_ring->count;
- 
--	while (cleaned_count--) {
-+	do {
- 		if (!igb_alloc_mapped_page(rx_ring, bi))
- 			break;
- 
--		/* Refresh the desc even if buffer_addrs didn't change
--		 * because each write-back erases this info. */
--		rx_desc->read.pkt_addr = cpu_to_le64(bi->dma);
-+		/*
-+		 * Refresh the desc even if buffer_addrs didn't change
-+		 * because each write-back erases this info.
-+		 */
-+		rx_desc->read.pkt_addr = cpu_to_le64(bi->dma + bi->page_offset);
- 
- 		rx_desc++;
- 		bi++;
-@@ -6322,17 +6437,25 @@ void igb_alloc_rx_buffers(struct igb_ring *rx_ring, u16 cleaned_count)
- 
- 		/* clear the hdr_addr for the next_to_use descriptor */
- 		rx_desc->read.hdr_addr = 0;
--	}
-+
-+		cleaned_count--;
-+	} while (cleaned_count);
- 
- 	i += rx_ring->count;
- 
- 	if (rx_ring->next_to_use != i) {
-+		/* record the next descriptor to use */
- 		rx_ring->next_to_use = i;
- 
--		/* Force memory writes to complete before letting h/w
-+		/* update next to alloc since we have filled the ring */
-+		rx_ring->next_to_alloc = i;
-+
-+		/*
-+		 * Force memory writes to complete before letting h/w
- 		 * know there are new descriptors to fetch.  (Only
- 		 * applicable for weak-ordered memory model archs,
--		 * such as IA-64). */
-+		 * such as IA-64).
-+		 */
- 		wmb();
- 		writel(i, rx_ring->tail);
- 	}
 -- 
 1.7.11.7
