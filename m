@@ -1,643 +1,479 @@
-From: Sony Chacko <sony.chacko@qlogic.com>
-Subject: [PATCH V2 06/20] qlcnic: macros for common register access
-Date: Fri, 19 Oct 2012 04:37:24 -0400
-Message-ID: <1350635858-27549-7-git-send-email-sony.chacko@qlogic.com>
-References: <1350635858-27549-1-git-send-email-sony.chacko@qlogic.com>
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>
-To: davem@davemloft.net
+From: nicolas.dichtel@6wind.com
+Subject: [PATCH net-next v7 1/1] ipv6: add support of equal cost multipath (ECMP)
+Date: Fri, 19 Oct 2012 11:13:26 +0200
+Message-ID: <1350638006-4213-2-git-send-email-nicolas.dichtel@6wind.com>
+References: <1349194467.12401.810.camel@edumazet-glaptop>
+ <1350638006-4213-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: joe@perches.com, bernat@luffy.cx, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, davem@davemloft.net,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:60026 "HELO linux-zupk.site"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1757985Ab2JSI4Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2012 04:56:24 -0400
-In-Reply-To: <1350635858-27549-1-git-send-email-sony.chacko@qlogic.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56806 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753531Ab2JSJFy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 05:05:54 -0400
+In-Reply-To: <1350638006-4213-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Refactor 82xx driver to support new adapter - Qlogic 83XX CNA
-Use QLCRD and QLCWR macros for 82xx and 83xx common register
-access.
+Each nexthop is added like a single route in the routing table. All routes
+that have the same metric/weight and destination but not the same gateway
+are considering as ECMP routes. They are linked together, through a list called
+rt6i_siblings.
 
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
+ECMP routes can be added in one shot, with RTA_MULTIPATH attribute or one after
+the other (in both case, the flag NLM_F_EXCL should not be set).
+
+The patch is based on a previous work from
+Luc Saillard <luc.saillard@6wind.com>.
+
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h   |    8 ++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c |   33 +++---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |  146 ++++++++++++----------
- 3 files changed, 101 insertions(+), 86 deletions(-)
+ include/net/ip6_fib.h |  52 ++++++++++++++++
+ net/ipv6/Kconfig      |  10 +++
+ net/ipv6/ip6_fib.c    |  72 ++++++++++++++++++++++
+ net/ipv6/route.c      | 167 +++++++++++++++++++++++++++++++++++++++++++++++++-
+ 4 files changed, 298 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-index 2b37630..d88baed 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-@@ -28,6 +28,14 @@ enum qlcnic_regs {
- 	QLCNIC_FLASH_UNLOCK,
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index 8a2a203..7c666c8 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -47,6 +47,8 @@ struct fib6_config {
+ 	unsigned long	fc_expires;
+ 	struct nlattr	*fc_mx;
+ 	int		fc_mx_len;
++	int		fc_mp_len;
++	struct nlattr	*fc_mp;
+ 
+ 	struct nl_info	fc_nlinfo;
  };
+@@ -98,6 +100,15 @@ struct rt6_info {
+ 	struct fib6_node		*rt6i_node;
  
-+/* Read from an address offset from BAR0, existing registers */
-+#define QLCRD(a, addr)			\
-+	readl(((a)->ahw->pci_base0) + ((a)->ahw->reg_tbl[addr]))
+ 	struct in6_addr			rt6i_gateway;
++#ifdef CONFIG_IPV6_MULTIPATH
++	/*
++	 * siblings is a list of rt6_info that have the the same metric/weight,
++	 * destination, but not the same gateway. nsiblings is just a cache
++	 * to speed up lookup.
++	 */
++	struct list_head		rt6i_siblings;
++	unsigned int			rt6i_nsiblings;
++#endif
+ 
+ 	atomic_t			rt6i_ref;
+ 
+@@ -318,4 +329,45 @@ static inline void              fib6_rules_cleanup(void)
+ 	return ;
+ }
+ #endif
 +
-+/* Write to an address offset from BAR0, existing registers */
-+#define QLCWR(a, addr, value)		\
-+	writel(value, ((a)->ahw->pci_base0) + ((a)->ahw->reg_tbl[addr]))
++#ifdef CONFIG_IPV6_MULTIPATH
++static inline unsigned int
++ipv6_multipath_get_nsiblings(const struct rt6_info *rt)
++{
++	return rt->rt6i_nsiblings;
++}
++static inline void ipv6_multipath_reset_nsiblings(struct rt6_info *rt)
++{
++	rt->rt6i_nsiblings = 0;
++}
++static inline void ipv6_multipath_inc_nsiblings(struct rt6_info *rt)
++{
++	rt->rt6i_nsiblings++;
++}
++static inline void ipv6_multipath_dec_nsiblings(struct rt6_info *rt)
++{
++	rt->rt6i_nsiblings--;
++}
++#else
++static inline unsigned int
++ipv6_multipath_get_nsiblings(const struct rt6_info *rt)
++{
++	return 0;
++}
++static inline void ipv6_multipath_reset_nsiblings(struct rt6_info *rt)
++{
++}
++static inline void ipv6_multipath_inc_nsiblings(struct rt6_info *rt)
++{
++}
++static inline void ipv6_multipath_dec_nsiblings(struct rt6_info *rt)
++{
++}
++static inline struct rt6_info *rt6_multipath_select(struct net *net,
++						    struct rt6_info *rt,
++						    struct flowi6 *fl6)
++{
++	return rt;
++}
++#endif
+ #endif
+diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+index 4f7fe72..fc2f3cb 100644
+--- a/net/ipv6/Kconfig
++++ b/net/ipv6/Kconfig
+@@ -266,4 +266,14 @@ config IPV6_PIMSM_V2
+ 	  Support for IPv6 PIM multicast routing protocol PIM-SMv2.
+ 	  If unsure, say N.
+ 
++config IPV6_MULTIPATH
++	bool "IPv6: equal cost multipath for IPv6 routing"
++	depends on IPV6
++	default y
++	---help---
++	  Enable this option to support ECMP for IPv6.
 +
- #define QLCNIC_CMD_CONFIGURE_IP_ADDR		0x1
- #define QLCNIC_CMD_CONFIG_INTRPT		0x2
- #define QLCNIC_CMD_CREATE_RX_CTX		0x7
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
-index cd7a1fe..b498160 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
-@@ -5,11 +5,8 @@
-  * See LICENSE.qlcnic for copyright and licensing details.
-  */
- 
--#include <linux/netdevice.h>
--#include <linux/delay.h>
--#include <linux/slab.h>
--#include <linux/if_vlan.h>
- #include "qlcnic.h"
-+#include "qlcnic_hw.h"
- 
- struct crb_addr_pair {
- 	u32 addr;
-@@ -327,7 +324,6 @@ static int qlcnic_wait_rom_done(struct qlcnic_adapter *adapter)
- 	long done = 0;
- 
- 	cond_resched();
--
- 	while (done == 0) {
- 		done = QLCRD32(adapter, QLCNIC_ROMUSB_GLB_STATUS);
- 		done &= 2;
-@@ -416,8 +412,8 @@ int qlcnic_pinit_from_rom(struct qlcnic_adapter *adapter)
- 	u32 off;
- 	struct pci_dev *pdev = adapter->pdev;
- 
--	QLCWR32(adapter, CRB_CMDPEG_STATE, 0);
--	QLCWR32(adapter, CRB_RCVPEG_STATE, 0);
-+	QLCWR(adapter, QLCNIC_CMDPEG_STATE, 0);
-+	QLCWR(adapter, QLCNIC_RCVPEG_STATE, 0);
- 
- 	/* Halt all the indiviual PEGs and other blocks */
- 	/* disable all I2Q */
-@@ -564,8 +560,8 @@ int qlcnic_pinit_from_rom(struct qlcnic_adapter *adapter)
- 	QLCWR32(adapter, QLCNIC_CRB_PEG_NET_4 + 0xc, 0);
- 	msleep(1);
- 
--	QLCWR32(adapter, QLCNIC_PEG_HALT_STATUS1, 0);
--	QLCWR32(adapter, QLCNIC_PEG_HALT_STATUS2, 0);
-+	QLCWR(adapter, QLCNIC_PEG_HALT_STATUS1, 0);
-+	QLCWR(adapter, QLCNIC_PEG_HALT_STATUS2, 0);
- 
- 	return 0;
- }
-@@ -576,7 +572,7 @@ static int qlcnic_cmd_peg_ready(struct qlcnic_adapter *adapter)
- 	int retries = QLCNIC_CMDPEG_CHECK_RETRY_COUNT;
- 
- 	do {
--		val = QLCRD32(adapter, CRB_CMDPEG_STATE);
-+		val = QLCRD(adapter, QLCNIC_CMDPEG_STATE);
- 
- 		switch (val) {
- 		case PHAN_INITIALIZE_COMPLETE:
-@@ -592,7 +588,7 @@ static int qlcnic_cmd_peg_ready(struct qlcnic_adapter *adapter)
- 
- 	} while (--retries);
- 
--	QLCWR32(adapter, CRB_CMDPEG_STATE, PHAN_INITIALIZE_FAILED);
-+	QLCWR(adapter, QLCNIC_CMDPEG_STATE, PHAN_INITIALIZE_FAILED);
- 
- out_err:
- 	dev_err(&adapter->pdev->dev, "Command Peg initialization not "
-@@ -607,7 +603,7 @@ qlcnic_receive_peg_ready(struct qlcnic_adapter *adapter)
- 	int retries = QLCNIC_RCVPEG_CHECK_RETRY_COUNT;
- 
- 	do {
--		val = QLCRD32(adapter, CRB_RCVPEG_STATE);
-+		val = QLCRD(adapter, QLCNIC_RCVPEG_STATE);
- 
- 		if (val == PHAN_PEG_RCV_INITIALIZED)
- 			return 0;
-@@ -638,7 +634,7 @@ qlcnic_check_fw_status(struct qlcnic_adapter *adapter)
- 	if (err)
- 		return err;
- 
--	QLCWR32(adapter, CRB_CMDPEG_STATE, PHAN_INITIALIZE_ACK);
-+	QLCWR(adapter, QLCNIC_CMDPEG_STATE, PHAN_INITIALIZE_ACK);
- 
- 	return err;
- }
-@@ -649,7 +645,7 @@ qlcnic_setup_idc_param(struct qlcnic_adapter *adapter) {
- 	int timeo;
- 	u32 val;
- 
--	val = QLCRD32(adapter, QLCNIC_CRB_DEV_PARTITION_INFO);
-+	val = QLCRD(adapter, QLCNIC_CRB_DEV_PARTITION_INFO);
- 	val = QLC_DEV_GET_DRV(val, adapter->portnum);
- 	if ((val & 0x3) != QLCNIC_TYPE_NIC) {
- 		dev_err(&adapter->pdev->dev,
-@@ -689,7 +685,7 @@ static int qlcnic_get_flt_entry(struct qlcnic_adapter *adapter, u8 region,
- 	}
- 
- 	entry_size = flt_hdr.len - sizeof(struct qlcnic_flt_header);
--	flt_entry = (struct qlcnic_flt_entry *)vzalloc(entry_size);
-+	flt_entry = vzalloc(entry_size);
- 	if (flt_entry == NULL) {
- 		dev_warn(&adapter->pdev->dev, "error allocating memory\n");
- 		return -EIO;
-@@ -1088,11 +1084,11 @@ qlcnic_check_fw_hearbeat(struct qlcnic_adapter *adapter)
- 	u32 heartbeat, ret = -EIO;
- 	int retries = QLCNIC_HEARTBEAT_CHECK_RETRY_COUNT;
- 
--	adapter->heartbeat = QLCRD32(adapter, QLCNIC_PEG_ALIVE_COUNTER);
-+	adapter->heartbeat = QLCRD(adapter, QLCNIC_PEG_ALIVE_COUNTER);
- 
- 	do {
- 		msleep(QLCNIC_HEARTBEAT_PERIOD_MSECS);
--		heartbeat = QLCRD32(adapter, QLCNIC_PEG_ALIVE_COUNTER);
-+		heartbeat = QLCRD(adapter, QLCNIC_PEG_ALIVE_COUNTER);
- 		if (heartbeat != adapter->heartbeat) {
- 			ret = QLCNIC_RCODE_SUCCESS;
- 			break;
-@@ -1262,7 +1258,7 @@ qlcnic_validate_firmware(struct qlcnic_adapter *adapter)
- 		return -EINVAL;
- 	}
- 
--	QLCWR32(adapter, QLCNIC_CAM_RAM(0x1fc), QLCNIC_BDINFO_MAGIC);
-+	QLCWR(adapter, QLCNIC_FW_IMG_VALID, QLCNIC_BDINFO_MAGIC);
- 	return 0;
- }
- 
-@@ -1315,6 +1311,7 @@ next:
- 	}
- }
- 
++	  The algorithm used for route selection is based on a hash of packet
++	  header (recommanded by RFC4311) and flowlabel (RFC6438).
 +
- void
- qlcnic_release_firmware(struct qlcnic_adapter *adapter)
- {
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index c2493be..28e03c5 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -10,6 +10,7 @@
- #include <linux/interrupt.h>
- 
- #include "qlcnic.h"
-+#include "qlcnic_hw.h"
- 
- #include <linux/swab.h>
- #include <linux/dma-mapping.h>
-@@ -114,7 +115,6 @@ static DEFINE_PCI_DEVICE_TABLE(qlcnic_pci_tbl) = {
- 
- MODULE_DEVICE_TABLE(pci, qlcnic_pci_tbl);
- 
--
- inline void
- qlcnic_update_cmd_producer(struct qlcnic_adapter *adapter,
- 		struct qlcnic_host_tx_ring *tx_ring)
-@@ -460,7 +460,6 @@ int qlcnic_82xx_setup_intr(struct qlcnic_adapter *adapter, u8 num_intr)
- 	qlcnic_enable_msi_legacy(adapter);
- 	return 0;
- }
--
- static void
- qlcnic_teardown_intr(struct qlcnic_adapter *adapter)
- {
-@@ -579,14 +578,14 @@ static void qlcnic_check_vf(struct qlcnic_adapter *adapter,
- 	u32 op_mode, priv_level;
- 
- 	/* Determine FW API version */
--	adapter->ahw->fw_hal_version = QLCRD32(adapter, QLCNIC_FW_API);
-+	adapter->ahw->fw_hal_version = QLCRD(adapter, QLCNIC_FW_API);
- 
- 	/* Find PCI function number */
- 	qlcnic_get_func_no(adapter);
- 
- 	/* Determine function privilege level */
- 	priv_op = adapter->ahw->pci_base0 + QLCNIC_DRV_OP_MODE;
--	op_mode = QLCRD32(adapter, QLCNIC_DRV_OP_MODE);
-+	op_mode = QLCRD(adapter, QLCNIC_DRV_OP_MODE);
- 	if (op_mode == QLC_DEV_DRV_DEFAULT)
- 		priv_level = QLCNIC_MGMT_FUNC;
- 	else
-@@ -675,19 +674,26 @@ static void get_brd_name(struct qlcnic_adapter *adapter, char *name)
- static void
- qlcnic_check_options(struct qlcnic_adapter *adapter)
- {
-+	int err;
- 	u32 fw_major, fw_minor, fw_build, prev_fw_version;
- 	struct pci_dev *pdev = adapter->pdev;
--	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+	struct qlcnic_fw_dump *fw_dump = &ahw->fw_dump;
- 
- 	prev_fw_version = adapter->fw_version;
- 
--	fw_major = QLCRD32(adapter, QLCNIC_FW_VERSION_MAJOR);
--	fw_minor = QLCRD32(adapter, QLCNIC_FW_VERSION_MINOR);
--	fw_build = QLCRD32(adapter, QLCNIC_FW_VERSION_SUB);
-+	fw_major = QLCRD(adapter, QLCNIC_FW_VERSION_MAJOR);
-+	fw_minor = QLCRD(adapter, QLCNIC_FW_VERSION_MINOR);
-+	fw_build = QLCRD(adapter, QLCNIC_FW_VERSION_SUB);
- 
- 	adapter->fw_version = QLCNIC_VERSION_CODE(fw_major, fw_minor, fw_build);
- 
--	if (adapter->ahw->op_mode != QLCNIC_NON_PRIV_FUNC) {
-+	err = qlcnic_get_board_info(adapter);
-+	if (err) {
-+		dev_err(&pdev->dev, "Error getting board config info.\n");
-+		return;
-+	}
-+	if (ahw->op_mode != QLCNIC_NON_PRIV_FUNC) {
- 		if (fw_dump->tmpl_hdr == NULL ||
- 				adapter->fw_version > prev_fw_version) {
- 			if (fw_dump->tmpl_hdr)
-@@ -1000,10 +1006,10 @@ static int qlcnic_check_npar_opertional(struct qlcnic_adapter *adapter)
- 	if (adapter->ahw->op_mode == QLCNIC_MGMT_FUNC)
- 		return 0;
- 
--	npar_state = QLCRD32(adapter, QLCNIC_CRB_DEV_NPAR_STATE);
-+	npar_state = QLCRD(adapter, QLCNIC_CRB_DEV_NPAR_STATE);
- 	while (npar_state != QLCNIC_DEV_NPAR_OPER && --npar_opt_timeo) {
- 		msleep(1000);
--		npar_state = QLCRD32(adapter, QLCNIC_CRB_DEV_NPAR_STATE);
-+		npar_state = QLCRD(adapter, QLCNIC_CRB_DEV_NPAR_STATE);
- 	}
- 	if (!npar_opt_timeo) {
- 		dev_err(&adapter->pdev->dev,
-@@ -1068,16 +1074,15 @@ int qlcnic_82xx_start_firmware(struct qlcnic_adapter *adapter)
- 		goto err_out;
- 
- 	qlcnic_release_firmware(adapter);
--	QLCWR32(adapter, CRB_DRIVER_VERSION, QLCNIC_DRIVER_VERSION);
-+	QLCWR(adapter, CRB_DRIVER_VERSION, QLCNIC_DRIVER_VERSION);
- 
- check_fw_status:
- 	err = qlcnic_check_fw_status(adapter);
- 	if (err)
- 		goto err_out;
- 
--	QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_READY);
-+	QLCWR(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_READY);
- 	qlcnic_idc_debug_info(adapter, 1);
--
- 	err = qlcnic_check_eswitch_mode(adapter);
- 	if (err) {
- 		dev_err(&adapter->pdev->dev,
-@@ -1095,7 +1100,7 @@ check_fw_status:
- 	return 0;
- 
- err_out:
--	QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_FAILED);
-+	QLCWR(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_FAILED);
- 	dev_err(&adapter->pdev->dev, "Device state set to failed\n");
- 
- 	qlcnic_release_firmware(adapter);
-@@ -1935,7 +1940,10 @@ int qlcnic_check_temp(struct qlcnic_adapter *adapter)
- 	u32 temp, temp_state, temp_val;
- 	int rv = 0;
- 
--	temp = QLCRD32(adapter, CRB_TEMP_STATE);
-+	temp = 0;
-+
-+	if (qlcnic_82xx_check(adapter))
-+		temp = QLCRD(adapter, QLCNIC_ASIC_TEMP);
- 
- 	temp_state = qlcnic_get_temp_state(temp);
- 	temp_val = qlcnic_get_temp_val(temp);
-@@ -2097,7 +2105,7 @@ qlcnic_idc_debug_info(struct qlcnic_adapter *adapter, u8 encoding)
- 	val |= encoding << 7;
- 	val |= (jiffies - adapter->dev_rst_time) << 8;
- 
--	QLCWR32(adapter, QLCNIC_CRB_DRV_SCRATCH, val);
-+	QLCWR(adapter, QLCNIC_CRB_DRV_SCRATCH, val);
- 	adapter->dev_rst_time = jiffies;
- }
- 
-@@ -2112,14 +2120,14 @@ qlcnic_set_drv_state(struct qlcnic_adapter *adapter, u8 state)
- 	if (qlcnic_api_lock(adapter))
- 		return -EIO;
- 
--	val = QLCRD32(adapter, QLCNIC_CRB_DRV_STATE);
-+	val = QLCRD(adapter, QLCNIC_CRB_DRV_STATE);
- 
- 	if (state == QLCNIC_DEV_NEED_RESET)
- 		QLC_DEV_SET_RST_RDY(val, adapter->portnum);
- 	else if (state == QLCNIC_DEV_NEED_QUISCENT)
- 		QLC_DEV_SET_QSCNT_RDY(val, adapter->portnum);
- 
--	QLCWR32(adapter, QLCNIC_CRB_DRV_STATE, val);
-+	QLCWR(adapter, QLCNIC_CRB_DRV_STATE, val);
- 
- 	qlcnic_api_unlock(adapter);
- 
-@@ -2134,9 +2142,9 @@ qlcnic_clr_drv_state(struct qlcnic_adapter *adapter)
- 	if (qlcnic_api_lock(adapter))
- 		return -EBUSY;
- 
--	val = QLCRD32(adapter, QLCNIC_CRB_DRV_STATE);
-+	val = QLCRD(adapter, QLCNIC_CRB_DRV_STATE);
- 	QLC_DEV_CLR_RST_QSCNT(val, adapter->portnum);
--	QLCWR32(adapter, QLCNIC_CRB_DRV_STATE, val);
-+	QLCWR(adapter, QLCNIC_CRB_DRV_STATE, val);
- 
- 	qlcnic_api_unlock(adapter);
- 
-@@ -2151,20 +2159,20 @@ qlcnic_clr_all_drv_state(struct qlcnic_adapter *adapter, u8 failed)
- 	if (qlcnic_api_lock(adapter))
- 		goto err;
- 
--	val = QLCRD32(adapter, QLCNIC_CRB_DRV_ACTIVE);
-+	val = QLCRD(adapter, QLCNIC_CRB_DRV_ACTIVE);
- 	QLC_DEV_CLR_REF_CNT(val, adapter->portnum);
--	QLCWR32(adapter, QLCNIC_CRB_DRV_ACTIVE, val);
-+	QLCWR(adapter, QLCNIC_CRB_DRV_ACTIVE, val);
- 
- 	if (failed) {
--		QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_FAILED);
-+		QLCWR(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_FAILED);
- 		dev_info(&adapter->pdev->dev,
- 				"Device state set to Failed. Please Reboot\n");
- 	} else if (!(val & 0x11111111))
--		QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_COLD);
-+		QLCWR(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_COLD);
- 
--	val = QLCRD32(adapter, QLCNIC_CRB_DRV_STATE);
-+	val = QLCRD(adapter, QLCNIC_CRB_DRV_STATE);
- 	QLC_DEV_CLR_RST_QSCNT(val, adapter->portnum);
--	QLCWR32(adapter, QLCNIC_CRB_DRV_STATE, val);
-+	QLCWR(adapter, QLCNIC_CRB_DRV_STATE, val);
- 
- 	qlcnic_api_unlock(adapter);
- err:
-@@ -2179,12 +2187,13 @@ static int
- qlcnic_check_drv_state(struct qlcnic_adapter *adapter)
- {
- 	int act, state, active_mask;
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
- 
--	state = QLCRD32(adapter, QLCNIC_CRB_DRV_STATE);
--	act = QLCRD32(adapter, QLCNIC_CRB_DRV_ACTIVE);
-+	state = QLCRD(adapter, QLCNIC_CRB_DRV_STATE);
-+	act = QLCRD(adapter, QLCNIC_CRB_DRV_ACTIVE);
- 
- 	if (adapter->flags & QLCNIC_FW_RESET_OWNER) {
--		active_mask = (~(1 << (adapter->ahw->pci_func * 4)));
-+		active_mask = (~(1 << (ahw->pci_func * 4)));
- 		act = act & active_mask;
- 	}
- 
-@@ -2197,7 +2206,7 @@ qlcnic_check_drv_state(struct qlcnic_adapter *adapter)
- 
- static int qlcnic_check_idc_ver(struct qlcnic_adapter *adapter)
- {
--	u32 val = QLCRD32(adapter, QLCNIC_CRB_DRV_IDC_VER);
-+	u32 val = QLCRD(adapter, QLCNIC_CRB_DRV_IDC_VER);
- 
- 	if (val != QLCNIC_DRV_IDC_VER) {
- 		dev_warn(&adapter->pdev->dev, "IDC Version mismatch, driver's"
-@@ -2221,19 +2230,19 @@ qlcnic_can_start_firmware(struct qlcnic_adapter *adapter)
- 	if (qlcnic_api_lock(adapter))
- 		return -1;
- 
--	val = QLCRD32(adapter, QLCNIC_CRB_DRV_ACTIVE);
-+	val = QLCRD(adapter, QLCNIC_CRB_DRV_ACTIVE);
- 	if (!(val & (1 << (portnum * 4)))) {
- 		QLC_DEV_SET_REF_CNT(val, portnum);
--		QLCWR32(adapter, QLCNIC_CRB_DRV_ACTIVE, val);
-+		QLCWR(adapter, QLCNIC_CRB_DRV_ACTIVE, val);
- 	}
- 
--	prev_state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
-+	prev_state = QLCRD(adapter, QLCNIC_CRB_DEV_STATE);
- 	QLCDB(adapter, HW, "Device state = %u\n", prev_state);
- 
- 	switch (prev_state) {
- 	case QLCNIC_DEV_COLD:
--		QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_INITIALIZING);
--		QLCWR32(adapter, QLCNIC_CRB_DRV_IDC_VER, QLCNIC_DRV_IDC_VER);
-+		QLCWR(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_INITIALIZING);
-+		QLCWR(adapter, QLCNIC_CRB_DRV_IDC_VER, QLCNIC_DRV_IDC_VER);
- 		qlcnic_idc_debug_info(adapter, 0);
- 		qlcnic_api_unlock(adapter);
- 		return 1;
-@@ -2244,15 +2253,15 @@ qlcnic_can_start_firmware(struct qlcnic_adapter *adapter)
- 		return ret;
- 
- 	case QLCNIC_DEV_NEED_RESET:
--		val = QLCRD32(adapter, QLCNIC_CRB_DRV_STATE);
-+		val = QLCRD(adapter, QLCNIC_CRB_DRV_STATE);
- 		QLC_DEV_SET_RST_RDY(val, portnum);
--		QLCWR32(adapter, QLCNIC_CRB_DRV_STATE, val);
-+		QLCWR(adapter, QLCNIC_CRB_DRV_STATE, val);
- 		break;
- 
- 	case QLCNIC_DEV_NEED_QUISCENT:
--		val = QLCRD32(adapter, QLCNIC_CRB_DRV_STATE);
-+		val = QLCRD(adapter, QLCNIC_CRB_DRV_STATE);
- 		QLC_DEV_SET_QSCNT_RDY(val, portnum);
--		QLCWR32(adapter, QLCNIC_CRB_DRV_STATE, val);
-+		QLCWR(adapter, QLCNIC_CRB_DRV_STATE, val);
- 		break;
- 
- 	case QLCNIC_DEV_FAILED:
-@@ -2269,7 +2278,7 @@ qlcnic_can_start_firmware(struct qlcnic_adapter *adapter)
- 
- 	do {
- 		msleep(1000);
--		prev_state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
-+		prev_state = QLCRD(adapter, QLCNIC_CRB_DEV_STATE);
- 
- 		if (prev_state == QLCNIC_DEV_QUISCENT)
- 			continue;
-@@ -2284,9 +2293,9 @@ qlcnic_can_start_firmware(struct qlcnic_adapter *adapter)
- 	if (qlcnic_api_lock(adapter))
- 		return -1;
- 
--	val = QLCRD32(adapter, QLCNIC_CRB_DRV_STATE);
-+	val = QLCRD(adapter, QLCNIC_CRB_DRV_STATE);
- 	QLC_DEV_CLR_RST_QSCNT(val, portnum);
--	QLCWR32(adapter, QLCNIC_CRB_DRV_STATE, val);
-+	QLCWR(adapter, QLCNIC_CRB_DRV_STATE, val);
- 
- 	ret = qlcnic_check_idc_ver(adapter);
- 	qlcnic_api_unlock(adapter);
-@@ -2305,7 +2314,7 @@ qlcnic_fwinit_work(struct work_struct *work)
- 	if (qlcnic_api_lock(adapter))
- 		goto err_ret;
- 
--	dev_state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
-+	dev_state = QLCRD(adapter, QLCNIC_CRB_DEV_STATE);
- 	if (dev_state == QLCNIC_DEV_QUISCENT ||
- 	    dev_state == QLCNIC_DEV_NEED_QUISCENT) {
- 		qlcnic_api_unlock(adapter);
-@@ -2334,17 +2343,17 @@ qlcnic_fwinit_work(struct work_struct *work)
- 
- 	if (!qlcnic_check_drv_state(adapter)) {
- skip_ack_check:
--		dev_state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
-+		dev_state = QLCRD(adapter, QLCNIC_CRB_DEV_STATE);
- 
- 		if (dev_state == QLCNIC_DEV_NEED_RESET) {
--			QLCWR32(adapter, QLCNIC_CRB_DEV_STATE,
--						QLCNIC_DEV_INITIALIZING);
-+			QLCWR(adapter, QLCNIC_CRB_DEV_STATE,
-+			      QLCNIC_DEV_INITIALIZING);
- 			set_bit(__QLCNIC_START_FW, &adapter->state);
- 			QLCDB(adapter, DRV, "Restarting fw\n");
- 			qlcnic_idc_debug_info(adapter, 0);
--			val = QLCRD32(adapter, QLCNIC_CRB_DRV_STATE);
-+			val = QLCRD(adapter, QLCNIC_CRB_DRV_STATE);
- 			QLC_DEV_SET_RST_RDY(val, adapter->portnum);
--			QLCWR32(adapter, QLCNIC_CRB_DRV_STATE, val);
-+			QLCWR(adapter, QLCNIC_CRB_DRV_STATE, val);
+ endif # IPV6
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 24995a9..6b923d6 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -672,6 +672,8 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
+ 			    iter->rt6i_idev == rt->rt6i_idev &&
+ 			    ipv6_addr_equal(&iter->rt6i_gateway,
+ 					    &rt->rt6i_gateway)) {
++				if (ipv6_multipath_get_nsiblings(rt))
++					ipv6_multipath_reset_nsiblings(rt);
+ 				if (!(iter->rt6i_flags & RTF_EXPIRES))
+ 					return -EEXIST;
+ 				if (!(rt->rt6i_flags & RTF_EXPIRES))
+@@ -680,6 +682,21 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
+ 					rt6_set_expires(iter, rt->dst.expires);
+ 				return -EEXIST;
+ 			}
++			/* If we have the same destination and the same metric,
++			 * but not the same gateway, then the route we try to
++			 * add is sibling to this route, increment our counter
++			 * of siblings, and later we will add our route to the
++			 * list.
++			 * Only static routes (which don't have flag
++			 * RTF_EXPIRES) are used for ECMPv6.
++			 *
++			 * To avoid long list, we only had siblings if the
++			 * route have a gateway.
++			 */
++			if (rt->rt6i_flags & RTF_GATEWAY &&
++			    !(rt->rt6i_flags & RTF_EXPIRES) &&
++			    !(iter->rt6i_flags & RTF_EXPIRES))
++				ipv6_multipath_inc_nsiblings(rt);
  		}
  
- 		qlcnic_api_unlock(adapter);
-@@ -2361,7 +2370,7 @@ skip_ack_check:
- 	qlcnic_api_unlock(adapter);
+ 		if (iter->rt6i_metric > rt->rt6i_metric)
+@@ -692,6 +709,46 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
+ 	if (ins == &fn->leaf)
+ 		fn->rr_ptr = NULL;
  
- wait_npar:
--	dev_state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
-+	dev_state = QLCRD(adapter, QLCNIC_CRB_DEV_STATE);
- 	QLCDB(adapter, HW, "Func waiting: Device state=%u\n", dev_state);
++#ifdef CONFIG_IPV6_MULTIPATH
++	/* Link this route to others same route. */
++	if (ipv6_multipath_get_nsiblings(rt)) {
++		unsigned int rt6i_nsiblings;
++		struct rt6_info *sibling, *temp_sibling;
++
++		/* Find the first route that have the same metric */
++		sibling = fn->leaf;
++		while (sibling) {
++			if (sibling->rt6i_metric == rt->rt6i_metric) {
++				list_add_tail(&rt->rt6i_siblings,
++					      &sibling->rt6i_siblings);
++				break;
++			}
++			sibling = sibling->dst.rt6_next;
++		}
++		/* For each sibling in the list, increment the counter of
++		 * siblings. We can check if all the counter are equal.
++		 */
++		rt6i_nsiblings = 0;
++		list_for_each_entry_safe(sibling, temp_sibling,
++					 &rt->rt6i_siblings,
++					 rt6i_siblings) {
++			ipv6_multipath_inc_nsiblings(sibling);
++			if (unlikely(ipv6_multipath_get_nsiblings(sibling) !=
++				     ipv6_multipath_get_nsiblings(rt))) {
++				pr_err("Wrong number of siblings for route %p (%d)\n",
++				       sibling,
++				       ipv6_multipath_get_nsiblings(sibling));
++			}
++			rt6i_nsiblings++;
++		}
++		if (unlikely(rt6i_nsiblings !=
++			     ipv6_multipath_get_nsiblings(rt))) {
++			pr_err("Wrong number of siblings for route %p. I have %d routes, but count %d siblings\n",
++			       rt, rt6i_nsiblings,
++			       ipv6_multipath_get_nsiblings(rt));
++		}
++	}
++#endif
+ 	/*
+ 	 *	insert node
+ 	 */
+@@ -1193,6 +1250,21 @@ static void fib6_del_route(struct fib6_node *fn, struct rt6_info **rtp,
+ 	if (fn->rr_ptr == rt)
+ 		fn->rr_ptr = NULL;
  
- 	switch (dev_state) {
-@@ -2403,7 +2412,7 @@ qlcnic_detach_work(struct work_struct *work)
- 	} else
- 		qlcnic_down(adapter, netdev);
++#ifdef CONFIG_IPV6_MULTIPATH
++	/* Remove this entry from other siblings */
++	if (ipv6_multipath_get_nsiblings(rt)) {
++		struct rt6_info *sibling, *next_sibling;
++
++		/* For each siblings, decrement the counter of siblings */
++		list_for_each_entry_safe(sibling, next_sibling,
++					 &rt->rt6i_siblings, rt6i_siblings) {
++			ipv6_multipath_dec_nsiblings(sibling);
++		}
++		ipv6_multipath_reset_nsiblings(rt);
++		list_del_init(&rt->rt6i_siblings);
++	}
++#endif
++
+ 	/* Adjust walkers */
+ 	read_lock(&fib6_walker_lock);
+ 	FOR_WALKERS(w) {
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 7c7e963..b339f5b 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -57,6 +57,9 @@
+ #include <net/xfrm.h>
+ #include <net/netevent.h>
+ #include <net/netlink.h>
++#ifdef CONFIG_IPV6_MULTIPATH
++#include <net/nexthop.h>
++#endif
  
--	status = QLCRD32(adapter, QLCNIC_PEG_HALT_STATUS1);
-+	status = QLCRD(adapter, QLCNIC_PEG_HALT_STATUS1);
+ #include <asm/uaccess.h>
  
- 	if (status & QLCNIC_RCODE_FATAL_ERROR) {
- 		dev_err(&adapter->pdev->dev,
-@@ -2454,13 +2463,13 @@ qlcnic_set_npar_non_operational(struct qlcnic_adapter *adapter)
- {
- 	u32 state;
- 
--	state = QLCRD32(adapter, QLCNIC_CRB_DEV_NPAR_STATE);
-+	state = QLCRD(adapter, QLCNIC_CRB_DEV_NPAR_STATE);
- 	if (state == QLCNIC_DEV_NPAR_NON_OPER)
- 		return;
- 
- 	if (qlcnic_api_lock(adapter))
- 		return;
--	QLCWR32(adapter, QLCNIC_CRB_DEV_NPAR_STATE, QLCNIC_DEV_NPAR_NON_OPER);
-+	QLCWR(adapter, QLCNIC_CRB_DEV_NPAR_STATE, QLCNIC_DEV_NPAR_NON_OPER);
- 	qlcnic_api_unlock(adapter);
+@@ -289,6 +292,10 @@ static inline struct rt6_info *ip6_dst_alloc(struct net *net,
+ 		memset(dst + 1, 0, sizeof(*rt) - sizeof(*dst));
+ 		rt6_init_peer(rt, table ? &table->tb6_peers : net->ipv6.peers);
+ 		rt->rt6i_genid = rt_genid(net);
++#ifdef CONFIG_IPV6_MULTIPATH
++		INIT_LIST_HEAD(&rt->rt6i_siblings);
++#endif
++		ipv6_multipath_reset_nsiblings(rt);
+ 	}
+ 	return rt;
+ }
+@@ -385,6 +392,90 @@ static bool rt6_need_strict(const struct in6_addr *daddr)
+ 		(IPV6_ADDR_MULTICAST | IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK);
  }
  
-@@ -2483,17 +2492,17 @@ void qlcnic_82xx_dev_request_reset(struct qlcnic_adapter *adapter, u32 key)
- 	if (qlcnic_api_lock(adapter))
- 		return;
++#ifdef CONFIG_IPV6_MULTIPATH
++/*
++ *	Multipath route selection.
++ */
++
++/* Hash based function using packet header and flowlabel.
++ * Adapted from fib_info_hashfn()
++ */
++static int rt6_info_hash_nhsfn(unsigned int candidate_count,
++			       const struct flowi6 *fl6)
++{
++	unsigned int val = fl6->flowi6_proto;
++
++	val ^= fl6->daddr.s6_addr32[0];
++	val ^= fl6->daddr.s6_addr32[1];
++	val ^= fl6->daddr.s6_addr32[2];
++	val ^= fl6->daddr.s6_addr32[3];
++
++	val ^= fl6->saddr.s6_addr32[0];
++	val ^= fl6->saddr.s6_addr32[1];
++	val ^= fl6->saddr.s6_addr32[2];
++	val ^= fl6->saddr.s6_addr32[3];
++
++	/* Work only if this not encapsulated */
++	switch (fl6->flowi6_proto) {
++	case IPPROTO_UDP:
++	case IPPROTO_TCP:
++	case IPPROTO_SCTP:
++		val ^= fl6->fl6_sport;
++		val ^= fl6->fl6_dport;
++		break;
++
++	case IPPROTO_ICMPV6:
++		val ^= fl6->fl6_icmp_type;
++		val ^= fl6->fl6_icmp_code;
++		break;
++	}
++	/* RFC6438 recommands to use flowlabel */
++	val ^= fl6->flowlabel;
++
++	/* Perhaps, we need to tune, this function? */
++	val = val ^ (val >> 7) ^ (val >> 12);
++	return val % candidate_count;
++}
++
++/* This function returns an index used to select a route between any siblings.
++ *
++ * Note: fl6 can be NULL
++ */
++static unsigned int rt6_info_hashfn(struct net *net,
++				    const struct rt6_info *rt,
++				    const struct flowi6 *fl6)
++{
++	int candidate_count = ipv6_multipath_get_nsiblings(rt) + 1;
++
++	if (fl6 == NULL)
++		return 0;
++	return rt6_info_hash_nhsfn(candidate_count, fl6);
++}
++
++static struct rt6_info *rt6_multipath_select(struct net *net,
++					     struct rt6_info *match,
++					     struct flowi6 *fl6)
++{
++	struct rt6_info *sibling, *next_sibling;
++	int route_choosen;
++
++	route_choosen = rt6_info_hashfn(net, match, fl6);
++	/* Don't change the route, if route_choosen == 0
++	 * (siblings does not include ourself)
++	 */
++	if (route_choosen)
++		list_for_each_entry_safe(sibling, next_sibling,
++				&match->rt6i_siblings, rt6i_siblings) {
++			route_choosen--;
++			if (route_choosen == 0) {
++				match = sibling;
++				break;
++			}
++		}
++	return match;
++}
++#endif /* CONFIG_IPV6_MULTIPATH */
++
+ /*
+  *	Route lookup. Any table->tb6_lock is implied.
+  */
+@@ -702,6 +793,8 @@ static struct rt6_info *ip6_pol_route_lookup(struct net *net,
+ restart:
+ 	rt = fn->leaf;
+ 	rt = rt6_device_match(net, rt, &fl6->saddr, fl6->flowi6_oif, flags);
++	if (ipv6_multipath_get_nsiblings(rt) && fl6->flowi6_oif == 0)
++		rt = rt6_multipath_select(net, rt, fl6);
+ 	BACKTRACK(net, &fl6->saddr);
+ out:
+ 	dst_use(&rt->dst, jiffies);
+@@ -863,7 +956,8 @@ restart_2:
  
--	state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
-+	state = QLCRD(adapter, QLCNIC_CRB_DEV_STATE);
- 
- 	if (state == QLCNIC_DEV_READY) {
--		QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_NEED_RESET);
-+		QLCWR(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_NEED_RESET);
- 		adapter->flags |= QLCNIC_FW_RESET_OWNER;
- 		QLCDB(adapter, DRV, "NEED_RESET state set\n");
- 		qlcnic_idc_debug_info(adapter, 0);
- 	}
- 
--	QLCWR32(adapter, QLCNIC_CRB_DEV_NPAR_STATE,
--		QLCNIC_DEV_NPAR_NON_OPER);
-+	QLCWR(adapter, QLCNIC_CRB_DEV_NPAR_STATE,
-+	      QLCNIC_DEV_NPAR_NON_OPER);
- 	qlcnic_api_unlock(adapter);
- }
- 
-@@ -2504,7 +2513,7 @@ qlcnic_dev_set_npar_ready(struct qlcnic_adapter *adapter)
- 	if (qlcnic_api_lock(adapter))
- 		return;
- 
--	QLCWR32(adapter, QLCNIC_CRB_DEV_NPAR_STATE, QLCNIC_DEV_NPAR_OPER);
-+	QLCWR(adapter, QLCNIC_CRB_DEV_NPAR_STATE, QLCNIC_DEV_NPAR_OPER);
- 	QLCDB(adapter, DRV, "NPAR operational state set\n");
- 
- 	qlcnic_api_unlock(adapter);
-@@ -2543,7 +2552,7 @@ qlcnic_attach_work(struct work_struct *work)
- 	u32 npar_state;
- 
- 	if (adapter->ahw->op_mode != QLCNIC_MGMT_FUNC) {
--		npar_state = QLCRD32(adapter, QLCNIC_CRB_DEV_NPAR_STATE);
-+		npar_state = QLCRD(adapter, QLCNIC_CRB_DEV_NPAR_STATE);
- 		if (adapter->fw_wait_cnt++ > QLCNIC_DEV_NPAR_OPER_TIMEO)
- 			qlcnic_clr_all_drv_state(adapter, 0);
- 		else if (npar_state != QLCNIC_DEV_NPAR_OPER)
-@@ -2585,14 +2594,14 @@ qlcnic_check_health(struct qlcnic_adapter *adapter)
- 	if (adapter->need_fw_reset)
- 		qlcnic_dev_request_reset(adapter, 0);
- 
--	state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
-+	state = QLCRD(adapter, QLCNIC_CRB_DEV_STATE);
- 	if (state == QLCNIC_DEV_NEED_RESET) {
- 		qlcnic_set_npar_non_operational(adapter);
- 		adapter->need_fw_reset = 1;
- 	} else if (state == QLCNIC_DEV_NEED_QUISCENT)
- 		goto detach;
- 
--	heartbeat = QLCRD32(adapter, QLCNIC_PEG_ALIVE_COUNTER);
-+	heartbeat = QLCRD(adapter, QLCNIC_PEG_ALIVE_COUNTER);
- 	if (heartbeat != adapter->heartbeat) {
- 		adapter->heartbeat = heartbeat;
- 		adapter->fw_fail_cnt = 0;
-@@ -2618,19 +2627,19 @@ qlcnic_check_health(struct qlcnic_adapter *adapter)
- 		clear_bit(__QLCNIC_FW_ATTACHED, &adapter->state);
- 
- 	dev_err(&adapter->pdev->dev, "firmware hang detected\n");
-+	peg_status = QLCRD(adapter, QLCNIC_PEG_HALT_STATUS1);
- 	dev_err(&adapter->pdev->dev, "Dumping hw/fw registers\n"
- 			"PEG_HALT_STATUS1: 0x%x, PEG_HALT_STATUS2: 0x%x,\n"
- 			"PEG_NET_0_PC: 0x%x, PEG_NET_1_PC: 0x%x,\n"
- 			"PEG_NET_2_PC: 0x%x, PEG_NET_3_PC: 0x%x,\n"
- 			"PEG_NET_4_PC: 0x%x\n",
--			QLCRD32(adapter, QLCNIC_PEG_HALT_STATUS1),
--			QLCRD32(adapter, QLCNIC_PEG_HALT_STATUS2),
-+			peg_status,
-+			QLCRD(adapter, QLCNIC_PEG_HALT_STATUS2),
- 			QLCRD32(adapter, QLCNIC_CRB_PEG_NET_0 + 0x3c),
- 			QLCRD32(adapter, QLCNIC_CRB_PEG_NET_1 + 0x3c),
- 			QLCRD32(adapter, QLCNIC_CRB_PEG_NET_2 + 0x3c),
- 			QLCRD32(adapter, QLCNIC_CRB_PEG_NET_3 + 0x3c),
- 			QLCRD32(adapter, QLCNIC_CRB_PEG_NET_4 + 0x3c));
--	peg_status = QLCRD32(adapter, QLCNIC_PEG_HALT_STATUS1);
- 	if (QLCNIC_FWERROR_CODE(peg_status) == 0x67)
- 		dev_err(&adapter->pdev->dev,
- 			"Firmware aborted with error code 0x00006700. "
-@@ -2714,7 +2723,7 @@ static int qlcnic_attach_func(struct pci_dev *pdev)
- 	if (adapter->ahw->op_mode != QLCNIC_NON_PRIV_FUNC && first_func) {
- 		adapter->need_fw_reset = 1;
- 		set_bit(__QLCNIC_START_FW, &adapter->state);
--		QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_INITIALIZING);
-+		QLCWR(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_INITIALIZING);
- 		QLCDB(adapter, DRV, "Restarting fw\n");
- 	}
- 	qlcnic_api_unlock(adapter);
-@@ -2787,12 +2796,13 @@ static pci_ers_result_t qlcnic_io_slot_reset(struct pci_dev *pdev)
- 
- static void qlcnic_io_resume(struct pci_dev *pdev)
- {
-+	u32 state;
- 	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
- 
- 	pci_cleanup_aer_uncorrect_error_status(pdev);
+ restart:
+ 	rt = rt6_select(fn, oif, strict | reachable);
 -
--	if (QLCRD32(adapter, QLCNIC_CRB_DEV_STATE) == QLCNIC_DEV_READY &&
--	    test_and_clear_bit(__QLCNIC_AER, &adapter->state))
-+	state = QLCRD(adapter, QLCNIC_CRB_DEV_STATE);
-+	if (state == QLCNIC_DEV_READY && test_and_clear_bit(__QLCNIC_AER,
-+							    &adapter->state))
- 		qlcnic_schedule_work(adapter, qlcnic_fw_poll_work,
- 						FW_POLL_DELAY);
++	if (ipv6_multipath_get_nsiblings(rt) && oif == 0)
++		rt = rt6_multipath_select(net, rt, fl6);
+ 	BACKTRACK(net, &fl6->saddr);
+ 	if (rt == net->ipv6.ip6_null_entry ||
+ 	    rt->rt6i_flags & RTF_CACHE)
+@@ -2249,6 +2343,9 @@ static const struct nla_policy rtm_ipv6_policy[RTA_MAX+1] = {
+ 	[RTA_IIF]		= { .type = NLA_U32 },
+ 	[RTA_PRIORITY]          = { .type = NLA_U32 },
+ 	[RTA_METRICS]           = { .type = NLA_NESTED },
++#ifdef CONFIG_IPV6_MULTIPATH
++	[RTA_MULTIPATH]		= { .len = sizeof(struct rtnexthop) },
++#endif
+ };
+ 
+ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+@@ -2326,11 +2423,69 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (tb[RTA_TABLE])
+ 		cfg->fc_table = nla_get_u32(tb[RTA_TABLE]);
+ 
++	if (tb[RTA_MULTIPATH]) {
++		cfg->fc_mp = nla_data(tb[RTA_MULTIPATH]);
++		cfg->fc_mp_len = nla_len(tb[RTA_MULTIPATH]);
++	}
++
+ 	err = 0;
+ errout:
+ 	return err;
  }
+ 
++static int ip6_route_multipath(struct fib6_config *cfg, int add)
++{
++#ifdef CONFIG_IPV6_MULTIPATH
++	struct fib6_config r_cfg;
++	struct rtnexthop *rtnh;
++	int remaining;
++	int attrlen;
++	int err = 0, last_err = 0;
++
++beginning:
++	rtnh = (struct rtnexthop *)cfg->fc_mp;
++	remaining = cfg->fc_mp_len;
++
++	/* Parse a Multipath Entry */
++	while (rtnh_ok(rtnh, remaining)) {
++		memcpy(&r_cfg, cfg, sizeof(*cfg));
++		if (rtnh->rtnh_ifindex)
++			r_cfg.fc_ifindex = rtnh->rtnh_ifindex;
++
++		attrlen = rtnh_attrlen(rtnh);
++		if (attrlen > 0) {
++			struct nlattr *nla, *attrs = rtnh_attrs(rtnh);
++
++			nla = nla_find(attrs, attrlen, RTA_GATEWAY);
++			if (nla) {
++				nla_memcpy(&r_cfg.fc_gateway, nla, 16);
++				r_cfg.fc_flags |= RTF_GATEWAY;
++			}
++		}
++		err = add ? ip6_route_add(&r_cfg) : ip6_route_del(&r_cfg);
++		if (err) {
++			last_err = err;
++			/* If we are trying to remove a route, do not stop the
++			 * loop when ip6_route_del() fails (because next hop is
++			 * already gone), we should try to remove all next hops.
++			 */
++			if (add) {
++				/* If add fails, we should try to delete all
++				 * next hops that have been already added.
++				 */
++				add = 0;
++				goto beginning;
++			}
++		}
++		rtnh = rtnh_next(rtnh, &remaining);
++	}
++
++	return last_err;
++#else
++	return -ENOSYS;
++#endif /* CONFIG_IPV6_MULTIPATH */
++}
++
+ static int inet6_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ {
+ 	struct fib6_config cfg;
+@@ -2340,7 +2495,10 @@ static int inet6_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *a
+ 	if (err < 0)
+ 		return err;
+ 
+-	return ip6_route_del(&cfg);
++	if (cfg.fc_mp)
++		return ip6_route_multipath(&cfg, 0);
++	else
++		return ip6_route_del(&cfg);
+ }
+ 
+ static int inet6_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+@@ -2352,7 +2510,10 @@ static int inet6_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *a
+ 	if (err < 0)
+ 		return err;
+ 
+-	return ip6_route_add(&cfg);
++	if (cfg.fc_mp)
++		return ip6_route_multipath(&cfg, 1);
++	else
++		return ip6_route_add(&cfg);
+ }
+ 
+ static inline size_t rt6_nlmsg_size(void)
 -- 
-1.7.1
+1.7.12
