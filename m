@@ -1,63 +1,158 @@
-From: David L Stevens <dlstevens@us.ibm.com>
-Subject: [PATCH] vxlan nits
-Date: Fri, 19 Oct 2012 07:46:48 -0400
-Message-ID: <201210191148.q9JBkm0v018443@lab1.dls>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH] cxgb4: Remove unnecessary #ifdef condition
+Date: Fri, 19 Oct 2012 17:39:53 +0530
+Message-ID: <1350648593-16370-1-git-send-email-vipul@chelsio.com>
+Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
+	Vipul Pandya <vipul@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:47491 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751920Ab2JSLty (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 07:49:54 -0400
-Received: from /spool/local
-	by e36.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Fri, 19 Oct 2012 05:49:51 -0600
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 69E993E4003D
-	for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 05:49:21 -0600 (MDT)
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q9JBnLqr257860
-	for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 05:49:21 -0600
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q9JBnKd7009772
-	for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 05:49:21 -0600
+Received: from stargate.chelsio.com ([67.207.112.58]:9643 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751444Ab2JSMNa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 08:13:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch also fixes the build failure caused due to removal of #ifdef
+CONFIG_CHELSIO_T4_OFFLOAD condition
 
-This patch fixes a couple problems with vxlan.
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   19 +++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   29 ++++-------------------
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    3 ++
+ 3 files changed, 27 insertions(+), 24 deletions(-)
 
-1) Improper check of NUD_PERMANENT makes permanent forwarding table
-	entries timeout too.
-
-2) Check for "0.0.0.0" as gaddr and allow to mean "no group". The
-	iproute2 patch sends gaddr even if not specified, which
-	fails the IN_MULTICAST() test. This patch allows static-only
-	forwarding and dropping everything else.
-
-Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 607976c..3fac9f3 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -816,7 +816,7 @@ static void vxlan_cleanup(unsigned long arg)
- 				= container_of(p, struct vxlan_fdb, hlist);
- 			unsigned long timeout;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index a4da893..378988b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -251,6 +251,8 @@ struct adapter_params {
+ 	unsigned char rev;                /* chip revision */
+ 	unsigned char offload;
  
--			if (f->state == NUD_PERMANENT)
-+			if (f->state & NUD_PERMANENT)
- 				continue;
++	unsigned char bypass;
++
+ 	unsigned int ofldq_wr_cred;
+ };
  
- 			timeout = f->used + vxlan->age_interval * HZ;
-@@ -1047,7 +1047,7 @@ static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
+@@ -642,6 +644,23 @@ extern int dbfifo_int_thresh;
+ #define for_each_port(adapter, iter) \
+ 	for (iter = 0; iter < (adapter)->params.nports; ++iter)
  
- 	if (data[IFLA_VXLAN_GROUP]) {
- 		__be32 gaddr = nla_get_be32(data[IFLA_VXLAN_GROUP]);
--		if (!IN_MULTICAST(ntohl(gaddr))) {
-+		if (gaddr && !IN_MULTICAST(ntohl(gaddr))) {
- 			pr_debug("group address is not IPv4 multicast\n");
- 			return -EADDRNOTAVAIL;
- 		}
++static inline int is_bypass(struct adapter *adap)
++{
++	return adap->params.bypass;
++}
++
++static inline int is_bypass_device(int device)
++{
++	/* this should be set based upon device capabilities */
++	switch (device) {
++	case 0x440b:
++	case 0x440c:
++		return 1;
++	default:
++		return 0;
++	}
++}
++
+ static inline unsigned int core_ticks_per_usec(const struct adapter *adap)
+ {
+ 	return adap->params.vpd.cclk / 1000;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 604f4f8..c1cde11 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -3513,18 +3513,6 @@ static int adap_init0_no_config(struct adapter *adapter, int reset)
+ 	if (ret < 0)
+ 		goto bye;
+ 
+-#ifndef CONFIG_CHELSIO_T4_OFFLOAD
+-	/*
+-	 * If we're a pure NIC driver then disable all offloading facilities.
+-	 * This will allow the firmware to optimize aspects of the hardware
+-	 * configuration which will result in improved performance.
+-	 */
+-	caps_cmd.ofldcaps = 0;
+-	caps_cmd.iscsicaps = 0;
+-	caps_cmd.rdmacaps = 0;
+-	caps_cmd.fcoecaps = 0;
+-#endif
+-
+ 	if (caps_cmd.niccaps & htons(FW_CAPS_CONFIG_NIC_VM)) {
+ 		if (!vf_acls)
+ 			caps_cmd.niccaps ^= htons(FW_CAPS_CONFIG_NIC_VM);
+@@ -3745,6 +3733,7 @@ static int adap_init0(struct adapter *adap)
+ 	u32 v, port_vec;
+ 	enum dev_state state;
+ 	u32 params[7], val[7];
++	struct fw_caps_config_cmd caps_cmd;
+ 	int reset = 1, j;
+ 
+ 	/*
+@@ -3898,6 +3887,9 @@ static int adap_init0(struct adapter *adap)
+ 			goto bye;
+ 	}
+ 
++	if (is_bypass_device(adap->pdev->device))
++		adap->params.bypass = 1;
++
+ 	/*
+ 	 * Grab some of our basic fundamental operating parameters.
+ 	 */
+@@ -3940,13 +3932,12 @@ static int adap_init0(struct adapter *adap)
+ 		adap->tids.aftid_end = val[1];
+ 	}
+ 
+-#ifdef CONFIG_CHELSIO_T4_OFFLOAD
+ 	/*
+ 	 * Get device capabilities so we can determine what resources we need
+ 	 * to manage.
+ 	 */
+ 	memset(&caps_cmd, 0, sizeof(caps_cmd));
+-	caps_cmd.op_to_write = htonl(V_FW_CMD_OP(FW_CAPS_CONFIG_CMD) |
++	caps_cmd.op_to_write = htonl(FW_CMD_OP(FW_CAPS_CONFIG_CMD) |
+ 				     FW_CMD_REQUEST | FW_CMD_READ);
+ 	caps_cmd.retval_len16 = htonl(FW_LEN16(caps_cmd));
+ 	ret = t4_wr_mbox(adap, adap->mbox, &caps_cmd, sizeof(caps_cmd),
+@@ -3991,15 +3982,6 @@ static int adap_init0(struct adapter *adap)
+ 		adap->vres.ddp.size = val[4] - val[3] + 1;
+ 		adap->params.ofldq_wr_cred = val[5];
+ 
+-		params[0] = FW_PARAM_PFVF(ETHOFLD_START);
+-		params[1] = FW_PARAM_PFVF(ETHOFLD_END);
+-		ret = t4_query_params(adap, adap->mbox, adap->fn, 0, 2,
+-				      params, val);
+-		if ((val[0] != val[1]) && (ret >= 0)) {
+-			adap->tids.uotid_base = val[0];
+-			adap->tids.nuotids = val[1] - val[0] + 1;
+-		}
+-
+ 		adap->params.offload = 1;
+ 	}
+ 	if (caps_cmd.rdmacaps) {
+@@ -4048,7 +4030,6 @@ static int adap_init0(struct adapter *adap)
+ 	}
+ #undef FW_PARAM_PFVF
+ #undef FW_PARAM_DEV
+-#endif /* CONFIG_CHELSIO_T4_OFFLOAD */
+ 
+ 	/*
+ 	 * These are finalized by FW initialization, load their values now.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+index 1b899fe..39bec73 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+@@ -102,6 +102,9 @@ struct tid_info {
+ 	unsigned int ftid_base;
+ 	unsigned int aftid_base;
+ 	unsigned int aftid_end;
++	/* Server filter region */
++	unsigned int sftid_base;
++	unsigned int nsftids;
+ 
+ 	spinlock_t atid_lock ____cacheline_aligned_in_smp;
+ 	union aopen_entry *afree;
+-- 
+1.7.1
