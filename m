@@ -1,58 +1,302 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/14][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 19 Oct 2012 04:45:00 -0700
-Message-ID: <1350647114-6768-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 10/14] igb: Move rx_buffer related code in Rx cleanup path into separate function
+Date: Fri, 19 Oct 2012 04:45:10 -0700
+Message-ID: <1350647114-6768-11-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1350647114-6768-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:36113 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758626Ab2JSLpl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2012 07:45:41 -0400
+	id S932207Ab2JSLpq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2012 07:45:46 -0400
+In-Reply-To: <1350647114-6768-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe and igb.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The following are changes since commit db0fe0b2f6bba2fda939737d063db2ae14c58d71:
-  Merge tag 'batman-adv-fix-for-davem' of git://git.open-mesh.org/linux-merge
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+In order to try and isolate things a bit further I am moving the code
+related to retrieving data from the rx_buffer_info structure into a
+separate function.
 
-Alexander Duyck (13):
-  ixgbe: Initialize q_vector cpu and affinity masks correctly
-  ixgbe: Enable jumbo frames support w/ SR-IOV
-  ixgbe: Move message handling routines into their own functions
-  ixgbe: Add mailbox API version negotiation support to ixgbe PF
-  igb: Split Rx timestamping into two separate functions
-  igb: Do not use header split, instead receive all frames into a
-    single buffer
-  igb: Combine post-processing of skb into a single function
-  igb: Map entire page and sync half instead of mapping and unmapping
-    half pages
-  igb: Move rx_buffer related code in Rx cleanup path into separate
-    function
-  igb: Lock buffer size at 2K even on systems with larger pages
-  igb: Combine q_vector and ring allocation into a single function
-  igb: Move the calls to set the Tx and Rx queues into igb_open
-  igb: Split igb_update_dca into separate Tx and Rx functions
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/igb_main.c | 206 +++++++++++++++++-------------
+ 1 file changed, 120 insertions(+), 86 deletions(-)
 
-Tushar Dave (1):
-  igb: Correcting and improving small packet check and padding
-
- drivers/net/ethernet/intel/igb/e1000_82575.h   |    3 +
- drivers/net/ethernet/intel/igb/igb.h           |   70 +-
- drivers/net/ethernet/intel/igb/igb_ethtool.c   |   53 +-
- drivers/net/ethernet/intel/igb/igb_main.c      | 1242 +++++++++++++++---------
- drivers/net/ethernet/intel/igb/igb_ptp.c       |   55 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h       |    1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c  |    4 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c   |    7 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |   13 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |   21 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |  359 ++++---
- 11 files changed, 1195 insertions(+), 633 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 18ad18f..fa7ddec 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -5928,6 +5928,74 @@ static bool igb_add_rx_frag(struct igb_ring *rx_ring,
+ 	return true;
+ }
+ 
++static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
++					   union e1000_adv_rx_desc *rx_desc,
++					   struct sk_buff *skb)
++{
++	struct igb_rx_buffer *rx_buffer;
++	struct page *page;
++
++	rx_buffer = &rx_ring->rx_buffer_info[rx_ring->next_to_clean];
++
++	/*
++	 * This memory barrier is needed to keep us from reading
++	 * any other fields out of the rx_desc until we know the
++	 * RXD_STAT_DD bit is set
++	 */
++	rmb();
++
++	page = rx_buffer->page;
++	prefetchw(page);
++
++	if (likely(!skb)) {
++		void *page_addr = page_address(page) +
++				  rx_buffer->page_offset;
++
++		/* prefetch first cache line of first page */
++		prefetch(page_addr);
++#if L1_CACHE_BYTES < 128
++		prefetch(page_addr + L1_CACHE_BYTES);
++#endif
++
++		/* allocate a skb to store the frags */
++		skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
++						IGB_RX_HDR_LEN);
++		if (unlikely(!skb)) {
++			rx_ring->rx_stats.alloc_failed++;
++			return NULL;
++		}
++
++		/*
++		 * we will be copying header into skb->data in
++		 * pskb_may_pull so it is in our interest to prefetch
++		 * it now to avoid a possible cache miss
++		 */
++		prefetchw(skb->data);
++	}
++
++	/* we are reusing so sync this buffer for CPU use */
++	dma_sync_single_range_for_cpu(rx_ring->dev,
++				      rx_buffer->dma,
++				      rx_buffer->page_offset,
++				      PAGE_SIZE / 2,
++				      DMA_FROM_DEVICE);
++
++	/* pull page into skb */
++	if (igb_add_rx_frag(rx_ring, rx_buffer, rx_desc, skb)) {
++		/* hand second half of page back to the ring */
++		igb_reuse_rx_page(rx_ring, rx_buffer);
++	} else {
++		/* we are not reusing the buffer so unmap it */
++		dma_unmap_page(rx_ring->dev, rx_buffer->dma,
++			       PAGE_SIZE, DMA_FROM_DEVICE);
++	}
++
++	/* clear contents of rx_buffer */
++	rx_buffer->page = NULL;
++
++	return skb;
++}
++
+ static inline void igb_rx_checksum(struct igb_ring *ring,
+ 				   union e1000_adv_rx_desc *rx_desc,
+ 				   struct sk_buff *skb)
+@@ -5978,6 +6046,34 @@ static inline void igb_rx_hash(struct igb_ring *ring,
+ }
+ 
+ /**
++ * igb_is_non_eop - process handling of non-EOP buffers
++ * @rx_ring: Rx ring being processed
++ * @rx_desc: Rx descriptor for current buffer
++ * @skb: current socket buffer containing buffer in progress
++ *
++ * This function updates next to clean.  If the buffer is an EOP buffer
++ * this function exits returning false, otherwise it will place the
++ * sk_buff in the next buffer to be chained and return true indicating
++ * that this is in fact a non-EOP buffer.
++ **/
++static bool igb_is_non_eop(struct igb_ring *rx_ring,
++			   union e1000_adv_rx_desc *rx_desc)
++{
++	u32 ntc = rx_ring->next_to_clean + 1;
++
++	/* fetch, update, and store next to clean */
++	ntc = (ntc < rx_ring->count) ? ntc : 0;
++	rx_ring->next_to_clean = ntc;
++
++	prefetch(IGB_RX_DESC(rx_ring, ntc));
++
++	if (likely(igb_test_staterr(rx_desc, E1000_RXD_STAT_EOP)))
++		return false;
++
++	return true;
++}
++
++/**
+  * igb_get_headlen - determine size of header for LRO/GRO
+  * @data: pointer to the start of the headers
+  * @max_len: total length of section to find headers in
+@@ -6227,87 +6323,39 @@ static void igb_process_skb_fields(struct igb_ring *rx_ring,
+ 	skb->protocol = eth_type_trans(skb, rx_ring->netdev);
+ }
+ 
+-static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, int budget)
++static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, const int budget)
+ {
+ 	struct igb_ring *rx_ring = q_vector->rx.ring;
+-	union e1000_adv_rx_desc *rx_desc;
+ 	struct sk_buff *skb = rx_ring->skb;
+ 	unsigned int total_bytes = 0, total_packets = 0;
+ 	u16 cleaned_count = igb_desc_unused(rx_ring);
+-	u16 i = rx_ring->next_to_clean;
+-
+-	rx_desc = IGB_RX_DESC(rx_ring, i);
+-
+-	while (igb_test_staterr(rx_desc, E1000_RXD_STAT_DD)) {
+-		struct igb_rx_buffer *buffer_info = &rx_ring->rx_buffer_info[i];
+-		struct page *page;
+-		union e1000_adv_rx_desc *next_rxd;
+-
+-		i++;
+-		if (i == rx_ring->count)
+-			i = 0;
+-
+-		next_rxd = IGB_RX_DESC(rx_ring, i);
+-		prefetch(next_rxd);
+ 
+-		/*
+-		 * This memory barrier is needed to keep us from reading
+-		 * any other fields out of the rx_desc until we know the
+-		 * RXD_STAT_DD bit is set
+-		 */
+-		rmb();
+-
+-		page = buffer_info->page;
+-		prefetchw(page);
++	do {
++		union e1000_adv_rx_desc *rx_desc;
+ 
+-		if (likely(!skb)) {
+-			void *page_addr = page_address(page) +
+-					  buffer_info->page_offset;
++		/* return some buffers to hardware, one at a time is too slow */
++		if (cleaned_count >= IGB_RX_BUFFER_WRITE) {
++			igb_alloc_rx_buffers(rx_ring, cleaned_count);
++			cleaned_count = 0;
++		}
+ 
+-			/* prefetch first cache line of first page */
+-			prefetch(page_addr);
+-#if L1_CACHE_BYTES < 128
+-			prefetch(page_addr + L1_CACHE_BYTES);
+-#endif
++		rx_desc = IGB_RX_DESC(rx_ring, rx_ring->next_to_clean);
+ 
+-			/* allocate a skb to store the frags */
+-			skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
+-							IGB_RX_HDR_LEN);
+-			if (unlikely(!skb)) {
+-				rx_ring->rx_stats.alloc_failed++;
+-				break;
+-			}
++		if (!igb_test_staterr(rx_desc, E1000_RXD_STAT_DD))
++			break;
+ 
+-			/*
+-			 * we will be copying header into skb->data in
+-			 * pskb_may_pull so it is in our interest to prefetch
+-			 * it now to avoid a possible cache miss
+-			 */
+-			prefetchw(skb->data);
+-		}
++		/* retrieve a buffer from the ring */
++		skb = igb_fetch_rx_buffer(rx_ring, rx_desc, skb);
+ 
+-		/* we are reusing so sync this buffer for CPU use */
+-		dma_sync_single_range_for_cpu(rx_ring->dev,
+-					      buffer_info->dma,
+-					      buffer_info->page_offset,
+-					      PAGE_SIZE / 2,
+-					      DMA_FROM_DEVICE);
+-
+-		/* pull page into skb */
+-		if (igb_add_rx_frag(rx_ring, buffer_info, rx_desc, skb)) {
+-			/* hand second half of page back to the ring */
+-			igb_reuse_rx_page(rx_ring, buffer_info);
+-		} else {
+-			/* we are not reusing the buffer so unmap it */
+-			dma_unmap_page(rx_ring->dev, buffer_info->dma,
+-				       PAGE_SIZE, DMA_FROM_DEVICE);
+-		}
++		/* exit if we failed to retrieve a buffer */
++		if (!skb)
++			break;
+ 
+-		/* clear contents of buffer_info */
+-		buffer_info->page = NULL;
++		cleaned_count++;
+ 
+-		if (!igb_test_staterr(rx_desc, E1000_RXD_STAT_EOP))
+-			goto next_desc;
++		/* fetch next buffer in frame if non-eop */
++		if (igb_is_non_eop(rx_ring, rx_desc))
++			continue;
+ 
+ 		/* verify the packet layout is correct */
+ 		if (igb_cleanup_headers(rx_ring, rx_desc, skb)) {
+@@ -6317,7 +6365,6 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, int budget)
+ 
+ 		/* probably a little skewed due to removing CRC */
+ 		total_bytes += skb->len;
+-		total_packets++;
+ 
+ 		/* populate checksum, timestamp, VLAN, and protocol */
+ 		igb_process_skb_fields(rx_ring, rx_desc, skb);
+@@ -6327,26 +6374,13 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, int budget)
+ 		/* reset skb pointer */
+ 		skb = NULL;
+ 
+-		budget--;
+-next_desc:
+-		if (!budget)
+-			break;
+-
+-		cleaned_count++;
+-		/* return some buffers to hardware, one at a time is too slow */
+-		if (cleaned_count >= IGB_RX_BUFFER_WRITE) {
+-			igb_alloc_rx_buffers(rx_ring, cleaned_count);
+-			cleaned_count = 0;
+-		}
+-
+-		/* use prefetched values */
+-		rx_desc = next_rxd;
+-	}
++		/* update budget accounting */
++		total_packets++;
++	} while (likely(total_packets < budget));
+ 
+ 	/* place incomplete frames back on ring for completion */
+ 	rx_ring->skb = skb;
+ 
+-	rx_ring->next_to_clean = i;
+ 	u64_stats_update_begin(&rx_ring->rx_syncp);
+ 	rx_ring->rx_stats.packets += total_packets;
+ 	rx_ring->rx_stats.bytes += total_bytes;
+@@ -6357,7 +6391,7 @@ next_desc:
+ 	if (cleaned_count)
+ 		igb_alloc_rx_buffers(rx_ring, cleaned_count);
+ 
+-	return !!budget;
++	return (total_packets < budget);
+ }
+ 
+ static bool igb_alloc_mapped_page(struct igb_ring *rx_ring,
 -- 
 1.7.11.7
