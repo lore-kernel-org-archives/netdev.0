@@ -1,211 +1,87 @@
-From: Daniel Borkmann <danborkmann@iogearbox.net>
-Subject: Re: [PATCH net-next] packet mmap : allow the user to choose tx data offset.
-Date: Fri, 19 Oct 2012 13:36:37 +0200
-Message-ID: <CAD6jFURov5oB+ck33JzCYQoBo9mYsEM9c0rHz9gmcgdMKgmwCg@mail.gmail.com>
-References: <1350631302-16280-1-git-send-email-paul.chavent@onera.fr>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: listen(2) backlog changes in or around Linux 3.1?
+Date: Fri, 19 Oct 2012 13:39:35 +0200
+Message-ID: <1350646775.2293.497.camel@edumazet-glaptop>
+References: <CAJgzZorigejCuFweNrvmkEJts3Um7exh1fYTH=4KrEcB=v=2SA@mail.gmail.com>
+	 <507C4401.7050500@oracle.com>
+	 <CAJgzZoqhw6HJxa6uRbekLMaVTDVOo92YDtzqHnZoRiQ8tq6G2g@mail.gmail.com>
+	 <CAJgzZoq9+KZpQ1tVQJUK++VVk4JfY9u8timaJ5q6wSYoF+_tog@mail.gmail.com>
+	 <5080279F.80008@oracle.com> <5080340F.3050207@oracle.com>
+	 <CAJgzZooJM7aj=K-idvdbwUOOmtDM6u-=gsVOs2OFZjiZwQP0zw@mail.gmail.com>
+	 <CAGK4HS-tOE1uZR2PE+_DShEb3y5ZAn=dtECY1AmmyO2AmTVzTA@mail.gmail.com>
+	 <1350629413.2293.157.camel@edumazet-glaptop>
+	 <1350634013.2293.262.camel@edumazet-glaptop>
+	 <CAGK4HS_9mLzL9ESm=n5hvO0cw1hkHFMCSmBiYTBnqEMqQOvPvQ@mail.gmail.com>
+	 <1350642562.2293.411.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Paul Chavent <Paul.Chavent@onera.fr>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: enh <enh@google.com>,
+	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	netdev@vger.kernel.org
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56200 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753992Ab2JSLgp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 07:36:45 -0400
-Received: from [78.46.5.203] (helo=sslproxy01.your-server.de)
-	by www62.your-server.de with esmtpsa (TLSv1:AES256-SHA:256)
-	(Exim 4.74)
-	(envelope-from <danborkmann@iogearbox.net>)
-	id 1TPAsd-0000Qr-SD
-	for netdev@vger.kernel.org; Fri, 19 Oct 2012 13:36:43 +0200
-Received: from [209.85.215.174] (helo=mail-ea0-f174.google.com)
-	by sslproxy01.your-server.de with esmtpsa (TLSv1:RC4-SHA:128)
-	(Exim 4.72)
-	(envelope-from <danborkmann@iogearbox.net>)
-	id 1TPAse-0007Ii-6z
-	for netdev@vger.kernel.org; Fri, 19 Oct 2012 13:36:44 +0200
-Received: by mail-ea0-f174.google.com with SMTP id c13so116641eaa.19
-        for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 04:36:37 -0700 (PDT)
-In-Reply-To: <1350631302-16280-1-git-send-email-paul.chavent@onera.fr>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:42560 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751765Ab2JSLjl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 07:39:41 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so173936bkc.19
+        for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 04:39:39 -0700 (PDT)
+In-Reply-To: <1350642562.2293.411.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 19, 2012 at 9:21 AM, Paul Chavent <Paul.Chavent@onera.fr> wrote:
-> The tx data offset of packet mmap tx ring used to be :
-> (TPACKET2_HDRLEN - sizeof(struct sockaddr_ll))
->
-> The problem is that, with SOCK_RAW socket, the payload
-> (14 bytes after the begening of the user data) is misaligned.
->
-> This patch allow to let the user give an offset for it's tx
-> data if he desires.
->
-> Set sock option PACKET_TX_HAS_OFF to 1, then specify in each
-> frame of your tx ring tp_net for SOCK_DGRAM, or tp_mac for
-> SOCK_RAW.
->
-> Signed-off-by: Paul Chavent <paul.chavent@onera.fr>
-> ---
->  Documentation/networking/packet_mmap.txt | 13 +++++++++
->  include/uapi/linux/if_packet.h           |  1 +
->  net/packet/af_packet.c                   | 48 +++++++++++++++++++++++++++++++-
->  net/packet/internal.h                    |  1 +
->  4 files changed, 62 insertions(+), 1 deletion(-)
->
-> diff --git a/Documentation/networking/packet_mmap.txt b/Documentation/networking/packet_mmap.txt
-> index 1c08a4b..c805e5f 100644
-> --- a/Documentation/networking/packet_mmap.txt
-> +++ b/Documentation/networking/packet_mmap.txt
-> @@ -163,6 +163,19 @@ As capture, each frame contains two parts:
->
->   A complete tutorial is available at: http://wiki.gnu-log.net/
->
-> +By default, the user should put data at :
-> + frame base + TPACKET_HDRLEN - sizeof(struct sockaddr_ll)
+On Fri, 2012-10-19 at 12:29 +0200, Eric Dumazet wrote:
+> On Fri, 2012-10-19 at 02:14 -0700, Vijay Subramanian wrote:
+> > > diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> > > index ef998b0..0404926 100644
+> > > --- a/net/ipv4/tcp_ipv4.c
+> > > +++ b/net/ipv4/tcp_ipv4.c
+> > > @@ -1507,7 +1507,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+> > >          * clogging syn queue with openreqs with exponentially increasing
+> > >          * timeout.
+> > >          */
+> > > -       if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1)
+> > > +       if (__sk_acceptq_is_full(sk, inet_csk_reqsk_queue_young(sk)))
+> > >                 goto drop;
+> > >
+> > 
+> > For what its worth, I think the changes make sense. But is there any
+> > reason to exclude old request_socks in the  call to
+> > __sk_acceptq_is_full().?
+> > as in
+> >       if (__sk_acceptq_is_full(sk, inet_csk_reqsk_queue_len(sk)))
+> >                goto drop;
+> > 
+> > I am not sure why the current code looks only at young request_socks.
+> > Thanks,
+> > Vijay
+> 
+> Old requests are assumed to be unlikely to complete (SYN attack).
+> 
+> young requests are assumed to have a reasonable chance to complete.
+> 
+> Note that we drop the SYN packet, so its not a 'final' decision.
+> 
+> Some other OSes send RST in case the listener queue is full
+> (I tested FreeBSD 9.0 this morning.)
+> 
+> Note also we probably have a bug elsewhere :
+> 
+> If we send a SYNACK, then receive the ACK from client, and the acceptq
+> is full, we should reset the connexion. Right now we have kind of stupid
+> situation, were we drop the ACK, and leave the REQ in the SYN_RECV
+> state, so we retransmit SYNACKS.
+> 
+> I am working on this part as well.
+> 
 
-TPACKET_HDRLEN is only for tpacket, version 1. Maybe you should mention that.
+Well, it seems a documented feature :
 
-> +So, whatever you choose for the socket mode (SOCK_DGRAM or SOCK_RAW),
-> +the begening of the user data will be at :
-
-Typo in "begening".
-
-> + frame base + TPACKET_ALIGN(sizeof(struct tpacket_hdr))
-
-See above, tpacket, version 1.
-
-> +If you whish to put user data at a custom offset from the begenning of
-
-Typo in "whish" and "begenning".
-
-> +the frame (for payload alignment with SOCK_RAW mode for instance) you
-> +can set tp_net (with SOCK_DGRAM) or tp_mac (with SOCK_RAW). In order
-> +to make this work it must be enabled previously with setsockopt()
-> +and the PACKET_TX_HAS_OFF option.
-> +
->  --------------------------------------------------------------------------------
->  + PACKET_MMAP settings
->  --------------------------------------------------------------------------------
-> diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
-> index f379929..f9a6037 100644
-> --- a/include/uapi/linux/if_packet.h
-> +++ b/include/uapi/linux/if_packet.h
-> @@ -50,6 +50,7 @@ struct sockaddr_ll {
->  #define PACKET_TX_TIMESTAMP            16
->  #define PACKET_TIMESTAMP               17
->  #define PACKET_FANOUT                  18
-> +#define PACKET_TX_HAS_OFF              19
->
->  #define PACKET_FANOUT_HASH             0
->  #define PACKET_FANOUT_LB               1
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 94060ed..b6df577 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -1881,7 +1881,37 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
->         skb_reserve(skb, hlen);
->         skb_reset_network_header(skb);
->
-> -       data = ph.raw + po->tp_hdrlen - sizeof(struct sockaddr_ll);
-> +       if (po->tp_tx_has_off) {
-> +               int off_min = po->tp_hdrlen - sizeof(struct sockaddr_ll);
-> +               int off_max = po->tx_ring.frame_size - tp_len;
-
-I think here, the header length is missing as well. Have you tested
-this with min/max offsets?
-
-Maybe it is more reasonable to put off = off_min at the beginning and
-then add tp_mac to it. Thus, tp_mac can also be 0 with
-PACKET_TX_HAS_OFF.
-
-> +               int off;
-
-For offsets, better use off_t, or here u32. Also, add a newline after
-variable declaration.
-
-> +               if (sock->type != SOCK_DGRAM)
-
-Why not test for == SOCK_RAW? This makes it more readable.
-
-> +                       switch (po->tp_version) {
-> +                       case TPACKET_V2:
-> +                               off = ph.h2->tp_mac;
-> +                               break;
-> +                       default:
-> +                               off = ph.h1->tp_mac;
-
-TPACKET_V1 as default is wrong since there's also TPACKET_V3. What
-about TPACKET_V3 in general in your patch? You simply ignore it.
-
-> +                               break;
-> +                       }
-> +               else
-> +                       switch (po->tp_version) {
-> +                       case TPACKET_V2:
-> +                               off = ph.h2->tp_net;
-> +                               break;
-> +                       default:
-> +                               off = ph.h1->tp_net;
-> +                               break;
-> +                       }
-
-Same as above. You should also put braces around the if-else
-construct. Sure, it's only one statement after that, but this spans
-across multiple lines and can make it error-prone in future changes.
-
-> +               if (unlikely((off < off_min) || (off_max < off))) {
-> +                       pr_err("payload offset (%d) out of range [%d;%d]\n",
-> +                               off, off_min, off_max);
-> +                       return -EINVAL;
-> +               }
-
-if you set off initially to off_min, you could drop the check for off < off_min.
-
-> +               data = ph.raw + off;
-> +       } else {
-> +               data = ph.raw + po->tp_hdrlen - sizeof(struct sockaddr_ll);
-> +       }
->         to_write = tp_len;
->
->         if (sock->type == SOCK_DGRAM) {
-> @@ -3111,6 +3141,19 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
->
->                 return fanout_add(sk, val & 0xffff, val >> 16);
->         }
-> +       case PACKET_TX_HAS_OFF:
-> +       {
-> +               unsigned int val;
-> +
-> +               if (optlen != sizeof(val))
-> +                       return -EINVAL;
-> +               if (po->rx_ring.pg_vec || po->tx_ring.pg_vec)
-> +                       return -EBUSY;
-> +               if (copy_from_user(&val, optval, sizeof(val)))
-> +                       return -EFAULT;
-> +               po->tp_tx_has_off = !!val;
-> +               return 0;
-> +       }
->         default:
->                 return -ENOPROTOOPT;
->         }
-> @@ -3202,6 +3245,9 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
->                         ((u32)po->fanout->type << 16)) :
->                        0);
->                 break;
-> +       case PACKET_TX_HAS_OFF:
-> +               val = po->tp_tx_has_off;
-> +               break;
->         default:
->                 return -ENOPROTOOPT;
->         }
-> diff --git a/net/packet/internal.h b/net/packet/internal.h
-> index 44945f6..169e60d 100644
-> --- a/net/packet/internal.h
-> +++ b/net/packet/internal.h
-> @@ -110,6 +110,7 @@ struct packet_sock {
->         unsigned int            tp_reserve;
->         unsigned int            tp_loss:1;
->         unsigned int            tp_tstamp;
-> +       unsigned int            tp_tx_has_off:1;
->         struct packet_type      prot_hook ____cacheline_aligned_in_smp;
->  };
+tcp_abort_on_overflow - BOOLEAN
+        If listening service is too slow to accept new connections,
+        reset them. Default state is FALSE. It means that if overflow
+        occurred due to a burst, connection will recover. Enable this
+        option _only_ if you are really sure that listening daemon
+        cannot be tuned to accept connections faster. Enabling this
+        option can harm clients of your server.
