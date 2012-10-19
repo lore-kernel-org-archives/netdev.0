@@ -1,244 +1,125 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/14] ixgbe: Enable jumbo frames support w/ SR-IOV
-Date: Fri, 19 Oct 2012 04:45:02 -0700
-Message-ID: <1350647114-6768-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/14] igb: Move the calls to set the Tx and Rx queues into igb_open
+Date: Fri, 19 Oct 2012 04:45:13 -0700
+Message-ID: <1350647114-6768-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1350647114-6768-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:36113 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:64516 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758642Ab2JSLpn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2012 07:45:43 -0400
+	id S932526Ab2JSLpt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2012 07:45:49 -0400
 In-Reply-To: <1350647114-6768-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change makes it so that we can have limited support for jumbo frames
-when SR-IOV is enabled.  In order to accomplish this it is necessary to
-disable all VFs when the PF has jumbo frames enabled.  If the VFs then
-request the same maximum frame size as the PF they will be re-enabled.  A
-follow on patch will add a means of identifying when a VF can support
-spanning buffers and does not need to be worried about the actual supported
-max frame size.
+This change helps to address locking issues seen with
+netif_set_real_num_tx_queues and netif_set_real_num_rx_queues when used in
+the igb_set_interrupt_capability function.  To resolve these locking issues
+I have moved the two function calls into __igb_open so that they can be
+called while the RTNL lock is held.
+
+An added advantage to this is that the number of queues is not updated
+until the last possible moment so if there are any issues in allocating
+MSI-X interrupts or resources for the rings we have time to change the
+values prior to updating the netdev.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
-Tested-by: Robert Garrett <robertx.e.garrett@intel.com>
-Tested-by: Sibai Li <Sibai.li@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c  |   4 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  13 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 107 ++++++++++++++++++-------
- 3 files changed, 93 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 31 ++++++++++++++++++-------------
+ 1 file changed, 18 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-index ae73ef1..252850d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-@@ -800,6 +800,10 @@ int ixgbe_fcoe_enable(struct net_device *netdev)
- 		return -EINVAL;
- 
- 	e_info(drv, "Enabling FCoE offload features.\n");
-+
-+	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
-+		e_warn(probe, "Enabling FCoE on PF will disable legacy VFs\n");
-+
- 	if (netif_running(netdev))
- 		netdev->netdev_ops->ndo_stop(netdev);
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index fa3d552..e2a6691 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3263,6 +3263,11 @@ static void ixgbe_set_rx_buffer_len(struct ixgbe_adapter *adapter)
- 		max_frame = IXGBE_FCOE_JUMBO_FRAME_SIZE;
- 
- #endif /* IXGBE_FCOE */
-+
-+	/* adjust max frame to be at least the size of a standard frame */
-+	if (max_frame < (ETH_FRAME_LEN + ETH_FCS_LEN))
-+		max_frame = (ETH_FRAME_LEN + ETH_FCS_LEN);
-+
- 	mhadd = IXGBE_READ_REG(hw, IXGBE_MHADD);
- 	if (max_frame != (mhadd >> IXGBE_MHADD_MFS_SHIFT)) {
- 		mhadd &= ~IXGBE_MHADD_MFS_MASK;
-@@ -4828,14 +4833,14 @@ static int ixgbe_change_mtu(struct net_device *netdev, int new_mtu)
- 		return -EINVAL;
- 
- 	/*
--	 * For 82599EB we cannot allow PF to change MTU greater than 1500
--	 * in SR-IOV mode as it may cause buffer overruns in guest VFs that
--	 * don't allocate and chain buffers correctly.
-+	 * For 82599EB we cannot allow legacy VFs to enable their receive
-+	 * paths when MTU greater than 1500 is configured.  So display a
-+	 * warning that legacy VFs will be disabled.
- 	 */
- 	if ((adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) &&
- 	    (adapter->hw.mac.type == ixgbe_mac_82599EB) &&
- 	    (max_frame > MAXIMUM_ETHERNET_VLAN_SIZE))
--			return -EINVAL;
-+		e_warn(probe, "Setting MTU > 1500 will disable legacy VFs\n");
- 
- 	e_info(probe, "changing MTU from %d to %d\n", netdev->mtu, new_mtu);
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index dce48bf..420766e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -150,16 +150,6 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter,
- 		adapter->flags2 &= ~(IXGBE_FLAG2_RSC_CAPABLE |
- 				     IXGBE_FLAG2_RSC_ENABLED);
- 
--#ifdef IXGBE_FCOE
--		/*
--		 * When SR-IOV is enabled 82599 cannot support jumbo frames
--		 * so we must disable FCoE because we cannot support FCoE MTU.
--		 */
--		if (adapter->hw.mac.type == ixgbe_mac_82599EB)
--			adapter->flags &= ~(IXGBE_FLAG_FCOE_ENABLED |
--					    IXGBE_FLAG_FCOE_CAPABLE);
--#endif
--
- 		/* enable spoof checking for all VFs */
- 		for (i = 0; i < adapter->num_vfs; i++)
- 			adapter->vfinfo[i].spoofchk_enabled = true;
-@@ -353,31 +343,77 @@ static int ixgbe_set_vf_vlan(struct ixgbe_adapter *adapter, int add, int vid,
- 	return adapter->hw.mac.ops.set_vfta(&adapter->hw, vid, vf, (bool)add);
- }
- 
--static void ixgbe_set_vf_lpe(struct ixgbe_adapter *adapter, u32 *msgbuf)
-+static s32 ixgbe_set_vf_lpe(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 4a25b8f..e7b1027 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -948,7 +948,7 @@ static void igb_clear_interrupt_scheme(struct igb_adapter *adapter)
+  * Attempt to configure interrupts using the best available
+  * capabilities of the hardware and kernel.
+  **/
+-static int igb_set_interrupt_capability(struct igb_adapter *adapter)
++static void igb_set_interrupt_capability(struct igb_adapter *adapter)
  {
- 	struct ixgbe_hw *hw = &adapter->hw;
--	int new_mtu = msgbuf[1];
-+	int max_frame = msgbuf[1];
- 	u32 max_frs;
--	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
+ 	int err;
+ 	int numvecs, i;
+@@ -985,7 +985,7 @@ static int igb_set_interrupt_capability(struct igb_adapter *adapter)
+ 			      adapter->msix_entries,
+ 			      numvecs);
+ 	if (err == 0)
+-		goto out;
++		return;
  
--	/* Only X540 supports jumbo frames in IOV mode */
--	if (adapter->hw.mac.type != ixgbe_mac_X540)
--		return;
-+	/*
-+	 * For 82599EB we have to keep all PFs and VFs operating with
-+	 * the same max_frame value in order to avoid sending an oversize
-+	 * frame to a VF.  In order to guarantee this is handled correctly
-+	 * for all cases we have several special exceptions to take into
-+	 * account before we can enable the VF for receive
-+	 */
-+	if (adapter->hw.mac.type == ixgbe_mac_82599EB) {
-+		struct net_device *dev = adapter->netdev;
-+		int pf_max_frame = dev->mtu + ETH_HLEN;
-+		u32 reg_offset, vf_shift, vfre;
-+		s32 err = 0;
-+
-+#ifdef CONFIG_FCOE
-+		if (dev->features & NETIF_F_FCOE_MTU)
-+			pf_max_frame = max_t(int, pf_max_frame,
-+					     IXGBE_FCOE_JUMBO_FRAME_SIZE);
-+
-+#endif /* CONFIG_FCOE */
-+		/*
-+		 * If the PF or VF are running w/ jumbo frames enabled we
-+		 * need to shut down the VF Rx path as we cannot support
-+		 * jumbo frames on legacy VFs
-+		 */
-+		if ((pf_max_frame > ETH_FRAME_LEN) ||
-+		    (max_frame > (ETH_FRAME_LEN + ETH_FCS_LEN)))
-+			err = -EINVAL;
-+
-+		/* determine VF receive enable location */
-+		vf_shift = vf % 32;
-+		reg_offset = vf / 32;
-+
-+		/* enable or disable receive depending on error */
-+		vfre = IXGBE_READ_REG(hw, IXGBE_VFRE(reg_offset));
-+		if (err)
-+			vfre &= ~(1 << vf_shift);
-+		else
-+			vfre |= 1 << vf_shift;
-+		IXGBE_WRITE_REG(hw, IXGBE_VFRE(reg_offset), vfre);
-+
-+		if (err) {
-+			e_err(drv, "VF max_frame %d out of range\n", max_frame);
-+			return err;
-+		}
-+	}
+ 	igb_reset_interrupt_capability(adapter);
  
- 	/* MTU < 68 is an error and causes problems on some kernels */
--	if ((new_mtu < 68) || (max_frame > IXGBE_MAX_JUMBO_FRAME_SIZE)) {
--		e_err(drv, "VF mtu %d out of range\n", new_mtu);
--		return;
-+	if (max_frame > IXGBE_MAX_JUMBO_FRAME_SIZE) {
-+		e_err(drv, "VF max_frame %d out of range\n", max_frame);
-+		return -EINVAL;
- 	}
- 
--	max_frs = (IXGBE_READ_REG(hw, IXGBE_MAXFRS) &
--		   IXGBE_MHADD_MFS_MASK) >> IXGBE_MHADD_MFS_SHIFT;
--	if (max_frs < new_mtu) {
--		max_frs = new_mtu << IXGBE_MHADD_MFS_SHIFT;
-+	/* pull current max frame size from hardware */
-+	max_frs = IXGBE_READ_REG(hw, IXGBE_MAXFRS);
-+	max_frs &= IXGBE_MHADD_MFS_MASK;
-+	max_frs >>= IXGBE_MHADD_MFS_SHIFT;
-+
-+	if (max_frs < max_frame) {
-+		max_frs = max_frame << IXGBE_MHADD_MFS_SHIFT;
- 		IXGBE_WRITE_REG(hw, IXGBE_MAXFRS, max_frs);
- 	}
- 
--	e_info(hw, "VF requests change max MTU to %d\n", new_mtu);
-+	e_info(hw, "VF requests change max MTU to %d\n", max_frame);
-+
-+	return 0;
+@@ -1015,14 +1015,6 @@ msi_only:
+ 	adapter->num_q_vectors = 1;
+ 	if (!pci_enable_msi(adapter->pdev))
+ 		adapter->flags |= IGB_FLAG_HAS_MSI;
+-out:
+-	/* Notify the stack of the (possibly) reduced queue counts. */
+-	rtnl_lock();
+-	netif_set_real_num_tx_queues(adapter->netdev, adapter->num_tx_queues);
+-	err = netif_set_real_num_rx_queues(adapter->netdev,
+-		adapter->num_rx_queues);
+-	rtnl_unlock();
+-	return err;
  }
  
- static void ixgbe_set_vmolr(struct ixgbe_hw *hw, u32 vf, bool aupe)
-@@ -532,11 +568,28 @@ static inline void ixgbe_vf_reset_msg(struct ixgbe_adapter *adapter, u32 vf)
+ static void igb_add_ring(struct igb_ring *ring,
+@@ -1212,9 +1204,7 @@ static int igb_init_interrupt_scheme(struct igb_adapter *adapter)
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	int err;
  
- 	/* enable transmit and receive for vf */
- 	reg = IXGBE_READ_REG(hw, IXGBE_VFTE(reg_offset));
--	reg |= (reg | (1 << vf_shift));
-+	reg |= 1 << vf_shift;
- 	IXGBE_WRITE_REG(hw, IXGBE_VFTE(reg_offset), reg);
+-	err = igb_set_interrupt_capability(adapter);
+-	if (err)
+-		return err;
++	igb_set_interrupt_capability(adapter);
  
- 	reg = IXGBE_READ_REG(hw, IXGBE_VFRE(reg_offset));
--	reg |= (reg | (1 << vf_shift));
-+	reg |= 1 << vf_shift;
-+	/*
-+	 * The 82599 cannot support a mix of jumbo and non-jumbo PF/VFs.
-+	 * For more info take a look at ixgbe_set_vf_lpe
-+	 */
-+	if (adapter->hw.mac.type == ixgbe_mac_82599EB) {
-+		struct net_device *dev = adapter->netdev;
-+		int pf_max_frame = dev->mtu + ETH_HLEN;
+ 	err = igb_alloc_q_vectors(adapter);
+ 	if (err) {
+@@ -2543,6 +2533,17 @@ static int __igb_open(struct net_device *netdev, bool resuming)
+ 	if (err)
+ 		goto err_req_irq;
+ 
++	/* Notify the stack of the actual queue counts. */
++	err = netif_set_real_num_tx_queues(adapter->netdev,
++					   adapter->num_tx_queues);
++	if (err)
++		goto err_set_queues;
 +
-+#ifdef CONFIG_FCOE
-+		if (dev->features & NETIF_F_FCOE_MTU)
-+			pf_max_frame = max_t(int, pf_max_frame,
-+					     IXGBE_FCOE_JUMBO_FRAME_SIZE);
++	err = netif_set_real_num_rx_queues(adapter->netdev,
++					   adapter->num_rx_queues);
++	if (err)
++		goto err_set_queues;
 +
-+#endif /* CONFIG_FCOE */
-+		if (pf_max_frame > ETH_FRAME_LEN)
-+			reg &= ~(1 << vf_shift);
-+	}
- 	IXGBE_WRITE_REG(hw, IXGBE_VFRE(reg_offset), reg);
+ 	/* From here on the code is the same as igb_up() */
+ 	clear_bit(__IGB_DOWN, &adapter->state);
  
- 	/* Enable counting of spoofed packets in the SSVPC register */
-@@ -633,7 +686,7 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- 		                                 hash_list, vf);
- 		break;
- 	case IXGBE_VF_SET_LPE:
--		ixgbe_set_vf_lpe(adapter, msgbuf);
-+		retval = ixgbe_set_vf_lpe(adapter, msgbuf, vf);
- 		break;
- 	case IXGBE_VF_SET_VLAN:
- 		add = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK)
+@@ -2572,6 +2573,8 @@ static int __igb_open(struct net_device *netdev, bool resuming)
+ 
+ 	return 0;
+ 
++err_set_queues:
++	igb_free_irq(adapter);
+ err_req_irq:
+ 	igb_release_hw_control(adapter);
+ 	igb_power_down_link(adapter);
+@@ -6841,7 +6844,9 @@ static int igb_resume(struct device *dev)
+ 	wr32(E1000_WUS, ~0);
+ 
+ 	if (netdev->flags & IFF_UP) {
++		rtnl_lock();
+ 		err = __igb_open(netdev, true);
++		rtnl_unlock();
+ 		if (err)
+ 			return err;
+ 	}
 -- 
 1.7.11.7
