@@ -1,159 +1,40 @@
-From: Paul Chavent <Paul.Chavent@onera.fr>
-Subject: [PATCH net-next] packet mmap : allow the user to choose tx data offset.
-Date: Fri, 19 Oct 2012 09:21:42 +0200
-Message-ID: <1350631302-16280-1-git-send-email-paul.chavent@onera.fr>
-Cc: daniel.borkmann@tik.ee.ethz.ch,
-	Paul Chavent <Paul.Chavent@onera.fr>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH 1/3] skbtrace v2: core feature and common events
+Date: Fri, 19 Oct 2012 07:30:59 +0000 (UTC)
+Message-ID: <k5qvji$v6v$1@ger.gmane.org>
+References: <5080F031.5040804@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from briaree.onecert.fr ([134.212.190.4]:60319 "EHLO
-	briaree.onecert.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751811Ab2JSHZ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 03:25:56 -0400
+Received: from plane.gmane.org ([80.91.229.3]:40506 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751701Ab2JSHbQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2012 03:31:16 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1TP739-000143-H4
+	for netdev@vger.kernel.org; Fri, 19 Oct 2012 09:31:19 +0200
+Received: from 112.122.181.103 ([112.122.181.103])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 09:31:19 +0200
+Received: from xiyou.wangcong by 112.122.181.103 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 09:31:19 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The tx data offset of packet mmap tx ring used to be :
-(TPACKET2_HDRLEN - sizeof(struct sockaddr_ll))
+On Fri, 19 Oct 2012 at 06:16 GMT, Li Yu <raise.sail@gmail.com> wrote:
+> From: Li Yu <bingtian.ly@taobao.com>
+>
+> This patch contains:
+>
+> 1. The glue code of tracepoints subsystem and relay file system.
+> 2. API for particular networking trace points.
+> 3. The skb_rps_info trace point.
+>
 
-The problem is that, with SOCK_RAW socket, the payload
-(14 bytes after the begening of the user data) is misaligned.
 
-This patch allow to let the user give an offset for it's tx
-data if he desires.
-
-Set sock option PACKET_TX_HAS_OFF to 1, then specify in each
-frame of your tx ring tp_net for SOCK_DGRAM, or tp_mac for
-SOCK_RAW.
-
-Signed-off-by: Paul Chavent <paul.chavent@onera.fr>
----
- Documentation/networking/packet_mmap.txt | 13 +++++++++
- include/uapi/linux/if_packet.h           |  1 +
- net/packet/af_packet.c                   | 48 +++++++++++++++++++++++++++++++-
- net/packet/internal.h                    |  1 +
- 4 files changed, 62 insertions(+), 1 deletion(-)
-
-diff --git a/Documentation/networking/packet_mmap.txt b/Documentation/networking/packet_mmap.txt
-index 1c08a4b..c805e5f 100644
---- a/Documentation/networking/packet_mmap.txt
-+++ b/Documentation/networking/packet_mmap.txt
-@@ -163,6 +163,19 @@ As capture, each frame contains two parts:
- 
-  A complete tutorial is available at: http://wiki.gnu-log.net/
- 
-+By default, the user should put data at :
-+ frame base + TPACKET_HDRLEN - sizeof(struct sockaddr_ll)
-+
-+So, whatever you choose for the socket mode (SOCK_DGRAM or SOCK_RAW),
-+the begening of the user data will be at :
-+ frame base + TPACKET_ALIGN(sizeof(struct tpacket_hdr))
-+
-+If you whish to put user data at a custom offset from the begenning of
-+the frame (for payload alignment with SOCK_RAW mode for instance) you
-+can set tp_net (with SOCK_DGRAM) or tp_mac (with SOCK_RAW). In order
-+to make this work it must be enabled previously with setsockopt()
-+and the PACKET_TX_HAS_OFF option.
-+
- --------------------------------------------------------------------------------
- + PACKET_MMAP settings
- --------------------------------------------------------------------------------
-diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
-index f379929..f9a6037 100644
---- a/include/uapi/linux/if_packet.h
-+++ b/include/uapi/linux/if_packet.h
-@@ -50,6 +50,7 @@ struct sockaddr_ll {
- #define PACKET_TX_TIMESTAMP		16
- #define PACKET_TIMESTAMP		17
- #define PACKET_FANOUT			18
-+#define PACKET_TX_HAS_OFF		19
- 
- #define PACKET_FANOUT_HASH		0
- #define PACKET_FANOUT_LB		1
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 94060ed..b6df577 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1881,7 +1881,37 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 	skb_reserve(skb, hlen);
- 	skb_reset_network_header(skb);
- 
--	data = ph.raw + po->tp_hdrlen - sizeof(struct sockaddr_ll);
-+	if (po->tp_tx_has_off) {
-+		int off_min = po->tp_hdrlen - sizeof(struct sockaddr_ll);
-+		int off_max = po->tx_ring.frame_size - tp_len;
-+		int off;
-+		if (sock->type != SOCK_DGRAM)
-+			switch (po->tp_version) {
-+			case TPACKET_V2:
-+				off = ph.h2->tp_mac;
-+				break;
-+			default:
-+				off = ph.h1->tp_mac;
-+				break;
-+			}
-+		else
-+			switch (po->tp_version) {
-+			case TPACKET_V2:
-+				off = ph.h2->tp_net;
-+				break;
-+			default:
-+				off = ph.h1->tp_net;
-+				break;
-+			}
-+		if (unlikely((off < off_min) || (off_max < off))) {
-+			pr_err("payload offset (%d) out of range [%d;%d]\n",
-+				off, off_min, off_max);
-+			return -EINVAL;
-+		}
-+		data = ph.raw + off;
-+	} else {
-+		data = ph.raw + po->tp_hdrlen - sizeof(struct sockaddr_ll);
-+	}
- 	to_write = tp_len;
- 
- 	if (sock->type == SOCK_DGRAM) {
-@@ -3111,6 +3141,19 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
- 
- 		return fanout_add(sk, val & 0xffff, val >> 16);
- 	}
-+	case PACKET_TX_HAS_OFF:
-+	{
-+		unsigned int val;
-+
-+		if (optlen != sizeof(val))
-+			return -EINVAL;
-+		if (po->rx_ring.pg_vec || po->tx_ring.pg_vec)
-+			return -EBUSY;
-+		if (copy_from_user(&val, optval, sizeof(val)))
-+			return -EFAULT;
-+		po->tp_tx_has_off = !!val;
-+		return 0;
-+	}
- 	default:
- 		return -ENOPROTOOPT;
- 	}
-@@ -3202,6 +3245,9 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
- 			((u32)po->fanout->type << 16)) :
- 		       0);
- 		break;
-+	case PACKET_TX_HAS_OFF:
-+		val = po->tp_tx_has_off;
-+		break;
- 	default:
- 		return -ENOPROTOOPT;
- 	}
-diff --git a/net/packet/internal.h b/net/packet/internal.h
-index 44945f6..169e60d 100644
---- a/net/packet/internal.h
-+++ b/net/packet/internal.h
-@@ -110,6 +110,7 @@ struct packet_sock {
- 	unsigned int		tp_reserve;
- 	unsigned int		tp_loss:1;
- 	unsigned int		tp_tstamp;
-+	unsigned int		tp_tx_has_off:1;
- 	struct packet_type	prot_hook ____cacheline_aligned_in_smp;
- };
- 
--- 
-1.7.12.1
+Any reason why not split it into three patches?
