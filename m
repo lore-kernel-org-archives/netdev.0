@@ -1,75 +1,49 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: Bug#690845: ethtool: incorrect WoL detection on Broadcom NX II
- rev < 12
-Date: Fri, 19 Oct 2012 02:30:09 +0100
-Message-ID: <1350610209.22276.6.camel@deadeye.wl.decadent.org.uk>
-References: <20121018134717.9579.22997.reportbug@palomino.museglobal.com>
-	 <1350570748.26833.102.camel@deadeye.wl.decadent.org.uk>
-	 <CAG2Wgfee=qsiUhAk5reYTypcOZL0kM5A58J+LjB1wuQ_k9FrfA@mail.gmail.com>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH v1] net/core: support runtime PM on net_device
+Date: Fri, 19 Oct 2012 09:45:04 +0800
+Message-ID: <CACVXFVNXFEg0kiFb6RGfS9grYvyuRL-=jiqEdxDEnn0Avwpw9Q@mail.gmail.com>
+References: <1350548469-1267-1-git-send-email-ming.lei@canonical.com>
+	<8762689o9u.fsf@nemi.mork.no>
+	<CACVXFVPu1m3CJaFavW9eaU3Z850q+x1N_Yo7tri1UTFpgfYVXQ@mail.gmail.com>
+	<87obk080us.fsf@nemi.mork.no>
+	<CACVXFVMmSFHYU-sNHRM7g_8U6mjbdbE+bNPxM-F8iAB=4WudRA@mail.gmail.com>
+	<50802F8A.6090205@linaro.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-9tLu57m2uO2MG2bYneGT"
-Cc: 690845@bugs.debian.org, Teodor MICU <mteodor@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Oliver Neukum <oneukum@suse.de>,
+	Alan Stern <stern@rowland.harvard.edu>, netdev@vger.kernel.org,
+	linux-pm@vger.kernel.org
+To: Daniel Lezcano <daniel.lezcano@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:32935 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751791Ab2JSBaY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 21:30:24 -0400
-In-Reply-To: <CAG2Wgfee=qsiUhAk5reYTypcOZL0kM5A58J+LjB1wuQ_k9FrfA@mail.gmail.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:58900 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756991Ab2JSBpG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2012 21:45:06 -0400
+In-Reply-To: <50802F8A.6090205@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Oct 19, 2012 at 12:34 AM, Daniel Lezcano
+<daniel.lezcano@linaro.org> wrote:
+> Hi Ming,
+>
+> IIUC, the pm_runtime is related to the device drivers, so at the first
+> glance, we should see invocation of the runtime's functions in drivers/*
+> and arch/*. Adding these calls in the net core, which makes sense at a
+> certain point, is a bit weird for me.
+>
+> From my POV, if the drivers have been modified to support the pm_runtime
+> and this new functionality brought a regression with the ioctl, that
+> should be fixed in the drivers and not in the core code.
+>
+> What happens with your patch if we use ethtool on a virtual device like
+> veth, macvlan, bridge, ... ?
 
---=-9tLu57m2uO2MG2bYneGT
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+No any effect no matter if these drivers implement runtime PM or not.
 
-Teodor MICU reported that:
-> On Broadcom NX II rev < 12 network interfaces it's not possible to activa=
-te
-> WoL using 'ethtool' (it can only be done from the MBA Configuration Menu)=
-.
->=20
-> However, even if "Pre-boot Wake On LAN" was enabled 'ethtool' doesn't
-> see this change:
-> 	Supports Wake-on: d
-> 	Wake-on: d
->=20
-> I've just tested that WoL works for this system.
 
-He's been using Linux 2.6.32 and Linux 3.2, but there don't seem to have
-been any later changes to WoL support in bnx2.
-
-Is there any possibility that this could be fixed?
-
-Ben.
-
---=20
-Ben Hutchings
-Anthony's Law of Force: Don't force it, get a larger hammer.
-
---=-9tLu57m2uO2MG2bYneGT
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIVAwUAUICtIee/yOyVhhEJAQpHWRAAorAtMm6e3XMWj1QLvEfcolbPNnr3B1id
-limeu4eX813WpxkAXVC8+aHQk9OYRbpbj5vOa81cRp4ldADg1D2PRrRFHSHA0kYe
-EfHTfD9rOwUQnyQP7XGr9Y6UREAxIm65MCRykn2fVHCFy25q3sAvXaed70Lqnilg
-m6zkFEhGavXO5n0ciR0Z0FbGOdLzo/AlTXOUPGmF1Qd+MHc+UtgSFVx37zoRNRl/
-GXOSG947PgQkM3ZtpXLS9649nPvEtt0PcJXFyu+DXf6aQObn01hw23EwZ2czcTuW
-XUCxD+e+IVIQ9BiE7DUN4X2LakMSmepVamIpLEcTeVHqVkscI+VeS38cZ4Rt6Spl
-TzRLrEfgszHvfCitkj1dI+wmxHsnl1oY3e+lBjqNs7i4t9hwOJof3h1BskGYdfRQ
-obNPLmkoYnZ+l77AxtI2IyqM+Z4tO+wNV/C+gpMZHO58oBtLw/9hMKxqjaNt/wTB
-VATvEN+BX7MzmFpGKWMx5SGDGgWoYPhY/1ZGpp6py5MpEiVrj8Nm95oQ3cCry2Gj
-tdO2DRRGJeTO7lw97ea07UkksT7LJqFgvbROZArVWZK2ZjvRcCP0vcg1MWxf30lQ
-F2s0nOLDyZ4ng0vQpHc+iaPbbJM7YJMnb9socNJ4FL3cWEYBJxliEIDYcKz0XPPw
-iXgNKqQ2VGY=
-=x5Wo
------END PGP SIGNATURE-----
-
---=-9tLu57m2uO2MG2bYneGT--
+Thanks,
+--
+Ming Lei
