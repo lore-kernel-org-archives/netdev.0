@@ -1,592 +1,327 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/14] igb: Combine q_vector and ring allocation into a single function
-Date: Fri, 19 Oct 2012 04:45:12 -0700
-Message-ID: <1350647114-6768-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/14] ixgbe: Move message handling routines into their own functions
+Date: Fri, 19 Oct 2012 04:45:03 -0700
+Message-ID: <1350647114-6768-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1350647114-6768-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:31782 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:64516 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932404Ab2JSLps (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2012 07:45:48 -0400
+	id S1758626Ab2JSLpo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2012 07:45:44 -0400
 In-Reply-To: <1350647114-6768-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change combines the the allocation of q_vectors and rings into a single
-function.  The advantage of this is that we are guaranteed we will avoid
-overlap in the L1 cache sets.
+Instead of trying to maintain one large monolithic function that handles
+most of the different messages from the VF it makes sense to break the
+message handling function up so that we can just go through one switch
+statement and call the correct routine for a given message.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      |  42 ++--
- drivers/net/ethernet/intel/igb/igb_main.c | 375 +++++++++++++++---------------
- 2 files changed, 215 insertions(+), 202 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 223 ++++++++++++++-----------
+ 1 file changed, 130 insertions(+), 93 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index d3fd012..be1971b 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -204,22 +204,6 @@ struct igb_ring_container {
- 	u8 itr;				/* current ITR setting for ring */
- };
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 420766e..d641c04 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -255,8 +255,11 @@ void ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
+ }
  
--struct igb_q_vector {
--	struct igb_adapter *adapter;	/* backlink */
--	int cpu;			/* CPU for DCA */
--	u32 eims_value;			/* EIMS mask value */
--
--	struct igb_ring_container rx, tx;
--
--	struct napi_struct napi;
--
--	u16 itr_val;
--	u8 set_itr;
--	void __iomem *itr_register;
--
--	char name[IFNAMSIZ + 9];
--};
--
- struct igb_ring {
- 	struct igb_q_vector *q_vector;	/* backlink to q_vector */
- 	struct net_device *netdev;	/* back pointer to net_device */
-@@ -231,14 +215,15 @@ struct igb_ring {
- 	void *desc;			/* descriptor ring memory */
- 	unsigned long flags;		/* ring specific flags */
- 	void __iomem *tail;		/* pointer to ring tail register */
-+	dma_addr_t dma;			/* phys address of the ring */
-+	unsigned int  size;		/* length of desc. ring in bytes */
+ static int ixgbe_set_vf_multicasts(struct ixgbe_adapter *adapter,
+-				   int entries, u16 *hash_list, u32 vf)
++				   u32 *msgbuf, u32 vf)
+ {
++	int entries = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK)
++		       >> IXGBE_VT_MSGINFO_SHIFT;
++	u16 *hash_list = (u16 *)&msgbuf[1];
+ 	struct vf_data_storage *vfinfo = &adapter->vfinfo[vf];
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	int i;
+@@ -557,20 +560,31 @@ int ixgbe_vf_configuration(struct pci_dev *pdev, unsigned int event_mask)
+ 	return 0;
+ }
  
- 	u16 count;			/* number of desc. in the ring */
- 	u8 queue_index;			/* logical index of the ring*/
- 	u8 reg_idx;			/* physical index of the ring */
--	u32 size;			/* length of desc. ring in bytes */
+-static inline void ixgbe_vf_reset_msg(struct ixgbe_adapter *adapter, u32 vf)
++static int ixgbe_vf_reset_msg(struct ixgbe_adapter *adapter, u32 vf)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 reg;
++	unsigned char *vf_mac = adapter->vfinfo[vf].vf_mac_addresses;
++	u32 reg, msgbuf[4];
+ 	u32 reg_offset, vf_shift;
++	u8 *addr = (u8 *)(&msgbuf[1]);
++
++	e_info(probe, "VF Reset msg received from vf %d\n", vf);
++
++	/* reset the filters for the device */
++	ixgbe_vf_reset_event(adapter, vf);
++
++	/* set vf mac address */
++	ixgbe_set_vf_mac(adapter, vf, vf_mac);
  
- 	/* everything past this point are written often */
--	u16 next_to_clean ____cacheline_aligned_in_smp;
-+	u16 next_to_clean;
- 	u16 next_to_use;
- 	u16 next_to_alloc;
+ 	vf_shift = vf % 32;
+ 	reg_offset = vf / 32;
  
-@@ -256,8 +241,25 @@ struct igb_ring {
- 			struct u64_stats_sync rx_syncp;
- 		};
- 	};
--	/* Items past this point are only used during ring alloc / free */
--	dma_addr_t dma;                /* phys address of the ring */
-+} ____cacheline_internodealigned_in_smp;
-+
-+struct igb_q_vector {
-+	struct igb_adapter *adapter;	/* backlink */
-+	int cpu;			/* CPU for DCA */
-+	u32 eims_value;			/* EIMS mask value */
-+
-+	u16 itr_val;
-+	u8 set_itr;
-+	void __iomem *itr_register;
-+
-+	struct igb_ring_container rx, tx;
-+
-+	struct napi_struct napi;
-+	struct rcu_head rcu;	/* to avoid race with update stats on free */
-+	char name[IFNAMSIZ + 9];
-+
-+	/* for dynamic allocation of rings associated with this q_vector */
-+	struct igb_ring ring[0] ____cacheline_internodealigned_in_smp;
- };
+-	/* enable transmit and receive for vf */
++	/* enable transmit for vf */
+ 	reg = IXGBE_READ_REG(hw, IXGBE_VFTE(reg_offset));
+ 	reg |= 1 << vf_shift;
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFTE(reg_offset), reg);
  
- enum e1000_ring_flags_t {
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 0141ef3..4a25b8f 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -652,80 +652,6 @@ static void igb_cache_ring_register(struct igb_adapter *adapter)
++	/* enable receive for vf */
+ 	reg = IXGBE_READ_REG(hw, IXGBE_VFRE(reg_offset));
+ 	reg |= 1 << vf_shift;
+ 	/*
+@@ -592,12 +606,115 @@ static inline void ixgbe_vf_reset_msg(struct ixgbe_adapter *adapter, u32 vf)
  	}
- }
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFRE(reg_offset), reg);
  
--static void igb_free_queues(struct igb_adapter *adapter)
--{
--	int i;
--
--	for (i = 0; i < adapter->num_tx_queues; i++) {
--		kfree(adapter->tx_ring[i]);
--		adapter->tx_ring[i] = NULL;
--	}
--	for (i = 0; i < adapter->num_rx_queues; i++) {
--		kfree(adapter->rx_ring[i]);
--		adapter->rx_ring[i] = NULL;
--	}
--	adapter->num_rx_queues = 0;
--	adapter->num_tx_queues = 0;
--}
--
--/**
-- * igb_alloc_queues - Allocate memory for all rings
-- * @adapter: board private structure to initialize
-- *
-- * We allocate one ring per queue at run-time since we don't know the
-- * number of queues at compile-time.
-- **/
--static int igb_alloc_queues(struct igb_adapter *adapter)
--{
--	struct igb_ring *ring;
--	int i;
--
--	for (i = 0; i < adapter->num_tx_queues; i++) {
--		ring = kzalloc(sizeof(struct igb_ring), GFP_KERNEL);
--		if (!ring)
--			goto err;
--		ring->count = adapter->tx_ring_count;
--		ring->queue_index = i;
--		ring->dev = &adapter->pdev->dev;
--		ring->netdev = adapter->netdev;
--		/* For 82575, context index must be unique per ring. */
--		if (adapter->hw.mac.type == e1000_82575)
--			set_bit(IGB_RING_FLAG_TX_CTX_IDX, &ring->flags);
--		adapter->tx_ring[i] = ring;
--	}
--
--	for (i = 0; i < adapter->num_rx_queues; i++) {
--		ring = kzalloc(sizeof(struct igb_ring), GFP_KERNEL);
--		if (!ring)
--			goto err;
--		ring->count = adapter->rx_ring_count;
--		ring->queue_index = i;
--		ring->dev = &adapter->pdev->dev;
--		ring->netdev = adapter->netdev;
--		/* set flag indicating ring supports SCTP checksum offload */
--		if (adapter->hw.mac.type >= e1000_82576)
--			set_bit(IGB_RING_FLAG_RX_SCTP_CSUM, &ring->flags);
--
--		/*
--		 * On i350, i210, and i211, loopback VLAN packets
--		 * have the tag byte-swapped.
--		 * */
--		if (adapter->hw.mac.type >= e1000_i350)
--			set_bit(IGB_RING_FLAG_RX_LB_VLAN_BSWAP, &ring->flags);
--
--		adapter->rx_ring[i] = ring;
--	}
--
--	igb_cache_ring_register(adapter);
--
--	return 0;
--
--err:
--	igb_free_queues(adapter);
--
--	return -ENOMEM;
--}
--
- /**
-  *  igb_write_ivar - configure ivar for given MSI-X vector
-  *  @hw: pointer to the HW structure
-@@ -956,6 +882,35 @@ static void igb_reset_interrupt_capability(struct igb_adapter *adapter)
- }
++	/* enable VF mailbox for further messages */
++	adapter->vfinfo[vf].clear_to_send = true;
++
+ 	/* Enable counting of spoofed packets in the SSVPC register */
+ 	reg = IXGBE_READ_REG(hw, IXGBE_VMECM(reg_offset));
+ 	reg |= (1 << vf_shift);
+ 	IXGBE_WRITE_REG(hw, IXGBE_VMECM(reg_offset), reg);
  
- /**
-+ * igb_free_q_vector - Free memory allocated for specific interrupt vector
-+ * @adapter: board private structure to initialize
-+ * @v_idx: Index of vector to be freed
-+ *
-+ * This function frees the memory allocated to the q_vector.  In addition if
-+ * NAPI is enabled it will delete any references to the NAPI struct prior
-+ * to freeing the q_vector.
-+ **/
-+static void igb_free_q_vector(struct igb_adapter *adapter, int v_idx)
-+{
-+	struct igb_q_vector *q_vector = adapter->q_vector[v_idx];
-+
-+	if (q_vector->tx.ring)
-+		adapter->tx_ring[q_vector->tx.ring->queue_index] = NULL;
-+
-+	if (q_vector->rx.ring)
-+		adapter->tx_ring[q_vector->rx.ring->queue_index] = NULL;
-+
-+	adapter->q_vector[v_idx] = NULL;
-+	netif_napi_del(&q_vector->napi);
+-	ixgbe_vf_reset_event(adapter, vf);
++	/* reply to reset with ack and vf mac address */
++	msgbuf[0] = IXGBE_VF_RESET | IXGBE_VT_MSGTYPE_ACK;
++	memcpy(addr, vf_mac, ETH_ALEN);
 +
 +	/*
-+	 * ixgbe_get_stats64() might access the rings on this vector,
-+	 * we must wait a grace period before freeing it.
++	 * Piggyback the multicast filter type so VF can compute the
++	 * correct vectors
 +	 */
-+	kfree_rcu(q_vector, rcu);
-+}
-+
-+/**
-  * igb_free_q_vectors - Free memory allocated for interrupt vectors
-  * @adapter: board private structure to initialize
-  *
-@@ -965,17 +920,14 @@ static void igb_reset_interrupt_capability(struct igb_adapter *adapter)
-  **/
- static void igb_free_q_vectors(struct igb_adapter *adapter)
- {
--	int v_idx;
-+	int v_idx = adapter->num_q_vectors;
- 
--	for (v_idx = 0; v_idx < adapter->num_q_vectors; v_idx++) {
--		struct igb_q_vector *q_vector = adapter->q_vector[v_idx];
--		adapter->q_vector[v_idx] = NULL;
--		if (!q_vector)
--			continue;
--		netif_napi_del(&q_vector->napi);
--		kfree(q_vector);
--	}
-+	adapter->num_tx_queues = 0;
-+	adapter->num_rx_queues = 0;
- 	adapter->num_q_vectors = 0;
-+
-+	while (v_idx--)
-+		igb_free_q_vector(adapter, v_idx);
- }
- 
- /**
-@@ -986,7 +938,6 @@ static void igb_free_q_vectors(struct igb_adapter *adapter)
-  */
- static void igb_clear_interrupt_scheme(struct igb_adapter *adapter)
- {
--	igb_free_queues(adapter);
- 	igb_free_q_vectors(adapter);
- 	igb_reset_interrupt_capability(adapter);
- }
-@@ -1074,95 +1025,181 @@ out:
- 	return err;
- }
- 
-+static void igb_add_ring(struct igb_ring *ring,
-+			 struct igb_ring_container *head)
-+{
-+	head->ring = ring;
-+	head->count++;
-+}
-+
- /**
-- * igb_alloc_q_vectors - Allocate memory for interrupt vectors
-+ * igb_alloc_q_vector - Allocate memory for a single interrupt vector
-  * @adapter: board private structure to initialize
-+ * @v_count: q_vectors allocated on adapter, used for ring interleaving
-+ * @v_idx: index of vector in adapter struct
-+ * @txr_count: total number of Tx rings to allocate
-+ * @txr_idx: index of first Tx ring to allocate
-+ * @rxr_count: total number of Rx rings to allocate
-+ * @rxr_idx: index of first Rx ring to allocate
-  *
-- * We allocate one q_vector per queue interrupt.  If allocation fails we
-- * return -ENOMEM.
-+ * We allocate one q_vector.  If allocation fails we return -ENOMEM.
-  **/
--static int igb_alloc_q_vectors(struct igb_adapter *adapter)
-+static int igb_alloc_q_vector(struct igb_adapter *adapter,
-+			      int v_count, int v_idx,
-+			      int txr_count, int txr_idx,
-+			      int rxr_count, int rxr_idx)
- {
- 	struct igb_q_vector *q_vector;
--	struct e1000_hw *hw = &adapter->hw;
--	int v_idx;
-+	struct igb_ring *ring;
-+	int ring_count, size;
- 
--	for (v_idx = 0; v_idx < adapter->num_q_vectors; v_idx++) {
--		q_vector = kzalloc(sizeof(struct igb_q_vector),
--				   GFP_KERNEL);
--		if (!q_vector)
--			goto err_out;
--		q_vector->adapter = adapter;
--		q_vector->itr_register = hw->hw_addr + E1000_EITR(0);
--		q_vector->itr_val = IGB_START_ITR;
--		netif_napi_add(adapter->netdev, &q_vector->napi, igb_poll, 64);
--		adapter->q_vector[v_idx] = q_vector;
-+	/* igb only supports 1 Tx and/or 1 Rx queue per vector */
-+	if (txr_count > 1 || rxr_count > 1)
-+		return -ENOMEM;
-+
-+	ring_count = txr_count + rxr_count;
-+	size = sizeof(struct igb_q_vector) +
-+	       (sizeof(struct igb_ring) * ring_count);
-+
-+	/* allocate q_vector and rings */
-+	q_vector = kzalloc(size, GFP_KERNEL);
-+	if (!q_vector)
-+		return -ENOMEM;
-+
-+	/* initialize NAPI */
-+	netif_napi_add(adapter->netdev, &q_vector->napi,
-+		       igb_poll, 64);
-+
-+	/* tie q_vector and adapter together */
-+	adapter->q_vector[v_idx] = q_vector;
-+	q_vector->adapter = adapter;
-+
-+	/* initialize work limits */
-+	q_vector->tx.work_limit = adapter->tx_work_limit;
-+
-+	/* initialize ITR configuration */
-+	q_vector->itr_register = adapter->hw.hw_addr + E1000_EITR(0);
-+	q_vector->itr_val = IGB_START_ITR;
-+
-+	/* initialize pointer to rings */
-+	ring = q_vector->ring;
-+
-+	if (txr_count) {
-+		/* assign generic ring traits */
-+		ring->dev = &adapter->pdev->dev;
-+		ring->netdev = adapter->netdev;
-+
-+		/* configure backlink on ring */
-+		ring->q_vector = q_vector;
-+
-+		/* update q_vector Tx values */
-+		igb_add_ring(ring, &q_vector->tx);
-+
-+		/* For 82575, context index must be unique per ring. */
-+		if (adapter->hw.mac.type == e1000_82575)
-+			set_bit(IGB_RING_FLAG_TX_CTX_IDX, &ring->flags);
-+
-+		/* apply Tx specific ring traits */
-+		ring->count = adapter->tx_ring_count;
-+		ring->queue_index = txr_idx;
-+
-+		/* assign ring to adapter */
-+		adapter->tx_ring[txr_idx] = ring;
-+
-+		/* push pointer to next ring */
-+		ring++;
- 	}
- 
--	return 0;
-+	if (rxr_count) {
-+		/* assign generic ring traits */
-+		ring->dev = &adapter->pdev->dev;
-+		ring->netdev = adapter->netdev;
- 
--err_out:
--	igb_free_q_vectors(adapter);
--	return -ENOMEM;
--}
-+		/* configure backlink on ring */
-+		ring->q_vector = q_vector;
- 
--static void igb_map_rx_ring_to_vector(struct igb_adapter *adapter,
--                                      int ring_idx, int v_idx)
--{
--	struct igb_q_vector *q_vector = adapter->q_vector[v_idx];
-+		/* update q_vector Rx values */
-+		igb_add_ring(ring, &q_vector->rx);
- 
--	q_vector->rx.ring = adapter->rx_ring[ring_idx];
--	q_vector->rx.ring->q_vector = q_vector;
--	q_vector->rx.count++;
--	q_vector->itr_val = adapter->rx_itr_setting;
--	if (q_vector->itr_val && q_vector->itr_val <= 3)
--		q_vector->itr_val = IGB_START_ITR;
--}
-+		/* set flag indicating ring supports SCTP checksum offload */
-+		if (adapter->hw.mac.type >= e1000_82576)
-+			set_bit(IGB_RING_FLAG_RX_SCTP_CSUM, &ring->flags);
- 
--static void igb_map_tx_ring_to_vector(struct igb_adapter *adapter,
--                                      int ring_idx, int v_idx)
--{
--	struct igb_q_vector *q_vector = adapter->q_vector[v_idx];
-+		/*
-+		 * On i350, i210, and i211, loopback VLAN packets
-+		 * have the tag byte-swapped.
-+		 * */
-+		if (adapter->hw.mac.type >= e1000_i350)
-+			set_bit(IGB_RING_FLAG_RX_LB_VLAN_BSWAP, &ring->flags);
- 
--	q_vector->tx.ring = adapter->tx_ring[ring_idx];
--	q_vector->tx.ring->q_vector = q_vector;
--	q_vector->tx.count++;
--	q_vector->itr_val = adapter->tx_itr_setting;
--	q_vector->tx.work_limit = adapter->tx_work_limit;
--	if (q_vector->itr_val && q_vector->itr_val <= 3)
--		q_vector->itr_val = IGB_START_ITR;
-+		/* apply Rx specific ring traits */
-+		ring->count = adapter->rx_ring_count;
-+		ring->queue_index = rxr_idx;
-+
-+		/* assign ring to adapter */
-+		adapter->rx_ring[rxr_idx] = ring;
-+	}
++	msgbuf[3] = hw->mac.mc_filter_type;
++	ixgbe_write_mbx(hw, msgbuf, IXGBE_VF_PERMADDR_MSG_LEN, vf);
 +
 +	return 0;
- }
- 
++}
 +
- /**
-- * igb_map_ring_to_vector - maps allocated queues to vectors
-+ * igb_alloc_q_vectors - Allocate memory for interrupt vectors
-+ * @adapter: board private structure to initialize
-  *
-- * This function maps the recently allocated queues to vectors.
-+ * We allocate one q_vector per queue interrupt.  If allocation fails we
-+ * return -ENOMEM.
-  **/
--static int igb_map_ring_to_vector(struct igb_adapter *adapter)
-+static int igb_alloc_q_vectors(struct igb_adapter *adapter)
- {
--	int i;
--	int v_idx = 0;
-+	int q_vectors = adapter->num_q_vectors;
-+	int rxr_remaining = adapter->num_rx_queues;
-+	int txr_remaining = adapter->num_tx_queues;
-+	int rxr_idx = 0, txr_idx = 0, v_idx = 0;
-+	int err;
- 
--	if ((adapter->num_q_vectors < adapter->num_rx_queues) ||
--	    (adapter->num_q_vectors < adapter->num_tx_queues))
--		return -ENOMEM;
-+	if (q_vectors >= (rxr_remaining + txr_remaining)) {
-+		for (; rxr_remaining; v_idx++) {
-+			err = igb_alloc_q_vector(adapter, q_vectors, v_idx,
-+						 0, 0, 1, rxr_idx);
- 
--	if (adapter->num_q_vectors >=
--	    (adapter->num_rx_queues + adapter->num_tx_queues)) {
--		for (i = 0; i < adapter->num_rx_queues; i++)
--			igb_map_rx_ring_to_vector(adapter, i, v_idx++);
--		for (i = 0; i < adapter->num_tx_queues; i++)
--			igb_map_tx_ring_to_vector(adapter, i, v_idx++);
--	} else {
--		for (i = 0; i < adapter->num_rx_queues; i++) {
--			if (i < adapter->num_tx_queues)
--				igb_map_tx_ring_to_vector(adapter, i, v_idx);
--			igb_map_rx_ring_to_vector(adapter, i, v_idx++);
-+			if (err)
-+				goto err_out;
++static int ixgbe_set_vf_mac_addr(struct ixgbe_adapter *adapter,
++				 u32 *msgbuf, u32 vf)
++{
++	u8 *new_mac = ((u8 *)(&msgbuf[1]));
 +
-+			/* update counts and index */
-+			rxr_remaining--;
-+			rxr_idx++;
- 		}
--		for (; i < adapter->num_tx_queues; i++)
--			igb_map_tx_ring_to_vector(adapter, i, v_idx++);
- 	}
-+
-+	for (; v_idx < q_vectors; v_idx++) {
-+		int rqpv = DIV_ROUND_UP(rxr_remaining, q_vectors - v_idx);
-+		int tqpv = DIV_ROUND_UP(txr_remaining, q_vectors - v_idx);
-+		err = igb_alloc_q_vector(adapter, q_vectors, v_idx,
-+					 tqpv, txr_idx, rqpv, rxr_idx);
-+
-+		if (err)
-+			goto err_out;
-+
-+		/* update counts and index */
-+		rxr_remaining -= rqpv;
-+		txr_remaining -= tqpv;
-+		rxr_idx++;
-+		txr_idx++;
++	if (!is_valid_ether_addr(new_mac)) {
++		e_warn(drv, "VF %d attempted to set invalid mac\n", vf);
++		return -1;
 +	}
 +
- 	return 0;
++	if (adapter->vfinfo[vf].pf_set_mac &&
++	    memcmp(adapter->vfinfo[vf].vf_mac_addresses, new_mac,
++		   ETH_ALEN)) {
++		e_warn(drv,
++		       "VF %d attempted to override administratively set MAC address\n"
++		       "Reload the VF driver to resume operations\n",
++		       vf);
++		return -1;
++	}
 +
-+err_out:
-+	adapter->num_tx_queues = 0;
-+	adapter->num_rx_queues = 0;
-+	adapter->num_q_vectors = 0;
++	return ixgbe_set_vf_mac(adapter, vf, new_mac);
++}
 +
-+	while (v_idx--)
-+		igb_free_q_vector(adapter, v_idx);
++static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
++				 u32 *msgbuf, u32 vf)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	int add = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK) >> IXGBE_VT_MSGINFO_SHIFT;
++	int vid = (msgbuf[1] & IXGBE_VLVF_VLANID_MASK);
++	int err;
 +
-+	return -ENOMEM;
++	if (adapter->vfinfo[vf].pf_vlan) {
++		e_warn(drv,
++		       "VF %d attempted to override administratively set VLAN configuration\n"
++		       "Reload the VF driver to resume operations\n",
++		       vf);
++		return -1;
++	}
++
++	if (add)
++		adapter->vfinfo[vf].vlan_count++;
++	else if (adapter->vfinfo[vf].vlan_count)
++		adapter->vfinfo[vf].vlan_count--;
++
++	err = ixgbe_set_vf_vlan(adapter, add, vid, vf);
++	if (!err && adapter->vfinfo[vf].spoofchk_enabled)
++		hw->mac.ops.set_vlan_anti_spoofing(hw, true, vf);
++
++	return err;
++}
++
++static int ixgbe_set_vf_macvlan_msg(struct ixgbe_adapter *adapter,
++				    u32 *msgbuf, u32 vf)
++{
++	u8 *new_mac = ((u8 *)(&msgbuf[1]));
++	int index = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK) >>
++		    IXGBE_VT_MSGINFO_SHIFT;
++	int err;
++
++	if (adapter->vfinfo[vf].pf_set_mac && index > 0) {
++		e_warn(drv,
++		       "VF %d requested MACVLAN filter but is administratively denied\n",
++		       vf);
++		return -1;
++	}
++
++	/* An non-zero index indicates the VF is setting a filter */
++	if (index) {
++		if (!is_valid_ether_addr(new_mac)) {
++			e_warn(drv, "VF %d attempted to set invalid mac\n", vf);
++			return -1;
++		}
++
++		/*
++		 * If the VF is allowed to set MAC filters then turn off
++		 * anti-spoofing to avoid false positives.
++		 */
++		if (adapter->vfinfo[vf].spoofchk_enabled)
++			ixgbe_ndo_set_vf_spoofchk(adapter->netdev, vf, false);
++	}
++
++	err = ixgbe_set_vf_macvlan(adapter, vf, index, new_mac);
++	if (err == -ENOSPC)
++		e_warn(drv,
++		       "VF %d has requested a MACVLAN filter but there is no space for it\n",
++		       vf);
++	return err;
  }
  
- /**
-@@ -1185,24 +1222,10 @@ static int igb_init_interrupt_scheme(struct igb_adapter *adapter)
- 		goto err_alloc_q_vectors;
- 	}
+ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+@@ -606,10 +723,6 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ 	u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	s32 retval;
+-	int entries;
+-	u16 *hash_list;
+-	int add, vid, index;
+-	u8 *new_mac;
  
--	err = igb_alloc_queues(adapter);
--	if (err) {
--		dev_err(&pdev->dev, "Unable to allocate memory for queues\n");
--		goto err_alloc_queues;
--	}
--
--	err = igb_map_ring_to_vector(adapter);
--	if (err) {
--		dev_err(&pdev->dev, "Invalid q_vector to ring mapping\n");
--		goto err_map_queues;
--	}
--
-+	igb_cache_ring_register(adapter);
+ 	retval = ixgbe_read_mbx(hw, msgbuf, mbx_size, vf);
  
- 	return 0;
--err_map_queues:
--	igb_free_queues(adapter);
--err_alloc_queues:
--	igb_free_q_vectors(adapter);
-+
- err_alloc_q_vectors:
- 	igb_reset_interrupt_capability(adapter);
- 	return err;
-@@ -1225,11 +1248,11 @@ static int igb_request_irq(struct igb_adapter *adapter)
- 		if (!err)
- 			goto request_done;
- 		/* fall back to MSI */
-+		igb_free_all_tx_resources(adapter);
-+		igb_free_all_rx_resources(adapter);
- 		igb_clear_interrupt_scheme(adapter);
- 		if (!pci_enable_msi(pdev))
- 			adapter->flags |= IGB_FLAG_HAS_MSI;
--		igb_free_all_tx_resources(adapter);
--		igb_free_all_rx_resources(adapter);
- 		adapter->num_tx_queues = 1;
- 		adapter->num_rx_queues = 1;
- 		adapter->num_q_vectors = 1;
-@@ -1239,13 +1262,6 @@ static int igb_request_irq(struct igb_adapter *adapter)
- 			        "Unable to allocate memory for vectors\n");
- 			goto request_done;
- 		}
--		err = igb_alloc_queues(adapter);
--		if (err) {
--			dev_err(&pdev->dev,
--			        "Unable to allocate memory for queues\n");
--			igb_free_q_vectors(adapter);
--			goto request_done;
+@@ -630,33 +743,8 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ 	 * allowed to start any configuration.
+ 	 */
+ 
+-	if (msgbuf[0] == IXGBE_VF_RESET) {
+-		unsigned char *vf_mac = adapter->vfinfo[vf].vf_mac_addresses;
+-		new_mac = (u8 *)(&msgbuf[1]);
+-		e_info(probe, "VF Reset msg received from vf %d\n", vf);
+-		adapter->vfinfo[vf].clear_to_send = false;
+-		ixgbe_vf_reset_msg(adapter, vf);
+-		adapter->vfinfo[vf].clear_to_send = true;
+-
+-		if (is_valid_ether_addr(new_mac) &&
+-		    !adapter->vfinfo[vf].pf_set_mac)
+-			ixgbe_set_vf_mac(adapter, vf, vf_mac);
+-		else
+-			ixgbe_set_vf_mac(adapter,
+-				 vf, adapter->vfinfo[vf].vf_mac_addresses);
+-
+-		/* reply to reset with ack and vf mac address */
+-		msgbuf[0] = IXGBE_VF_RESET | IXGBE_VT_MSGTYPE_ACK;
+-		memcpy(new_mac, vf_mac, ETH_ALEN);
+-		/*
+-		 * Piggyback the multicast filter type so VF can compute the
+-		 * correct vectors
+-		 */
+-		msgbuf[3] = hw->mac.mc_filter_type;
+-		ixgbe_write_mbx(hw, msgbuf, IXGBE_VF_PERMADDR_MSG_LEN, vf);
+-
+-		return retval;
+-	}
++	if (msgbuf[0] == IXGBE_VF_RESET)
++		return ixgbe_vf_reset_msg(adapter, vf);
+ 
+ 	if (!adapter->vfinfo[vf].clear_to_send) {
+ 		msgbuf[0] |= IXGBE_VT_MSGTYPE_NACK;
+@@ -666,70 +754,19 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ 
+ 	switch ((msgbuf[0] & 0xFFFF)) {
+ 	case IXGBE_VF_SET_MAC_ADDR:
+-		new_mac = ((u8 *)(&msgbuf[1]));
+-		if (is_valid_ether_addr(new_mac) &&
+-		    !adapter->vfinfo[vf].pf_set_mac) {
+-			ixgbe_set_vf_mac(adapter, vf, new_mac);
+-		} else if (memcmp(adapter->vfinfo[vf].vf_mac_addresses,
+-				  new_mac, ETH_ALEN)) {
+-			e_warn(drv, "VF %d attempted to override "
+-			       "administratively set MAC address\nReload "
+-			       "the VF driver to resume operations\n", vf);
+-			retval = -1;
 -		}
- 		igb_setup_all_tx_resources(adapter);
- 		igb_setup_all_rx_resources(adapter);
- 	}
-@@ -2633,10 +2649,8 @@ int igb_setup_tx_resources(struct igb_ring *tx_ring)
- 	tx_ring->size = tx_ring->count * sizeof(union e1000_adv_tx_desc);
- 	tx_ring->size = ALIGN(tx_ring->size, 4096);
- 
--	tx_ring->desc = dma_alloc_coherent(dev,
--					   tx_ring->size,
--					   &tx_ring->dma,
--					   GFP_KERNEL);
-+	tx_ring->desc = dma_alloc_coherent(dev, tx_ring->size,
-+					   &tx_ring->dma, GFP_KERNEL);
- 	if (!tx_ring->desc)
- 		goto err;
- 
-@@ -2773,15 +2787,12 @@ int igb_setup_rx_resources(struct igb_ring *rx_ring)
- 	if (!rx_ring->rx_buffer_info)
- 		goto err;
- 
--
- 	/* Round up to nearest 4K */
- 	rx_ring->size = rx_ring->count * sizeof(union e1000_adv_rx_desc);
- 	rx_ring->size = ALIGN(rx_ring->size, 4096);
- 
--	rx_ring->desc = dma_alloc_coherent(dev,
--					   rx_ring->size,
--					   &rx_ring->dma,
--					   GFP_KERNEL);
-+	rx_ring->desc = dma_alloc_coherent(dev, rx_ring->size,
-+					   &rx_ring->dma, GFP_KERNEL);
- 	if (!rx_ring->desc)
- 		goto err;
- 
++		retval = ixgbe_set_vf_mac_addr(adapter, msgbuf, vf);
+ 		break;
+ 	case IXGBE_VF_SET_MULTICAST:
+-		entries = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK)
+-		          >> IXGBE_VT_MSGINFO_SHIFT;
+-		hash_list = (u16 *)&msgbuf[1];
+-		retval = ixgbe_set_vf_multicasts(adapter, entries,
+-		                                 hash_list, vf);
++		retval = ixgbe_set_vf_multicasts(adapter, msgbuf, vf);
++		break;
++	case IXGBE_VF_SET_VLAN:
++		retval = ixgbe_set_vf_vlan_msg(adapter, msgbuf, vf);
+ 		break;
+ 	case IXGBE_VF_SET_LPE:
+ 		retval = ixgbe_set_vf_lpe(adapter, msgbuf, vf);
+ 		break;
+-	case IXGBE_VF_SET_VLAN:
+-		add = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK)
+-		      >> IXGBE_VT_MSGINFO_SHIFT;
+-		vid = (msgbuf[1] & IXGBE_VLVF_VLANID_MASK);
+-		if (adapter->vfinfo[vf].pf_vlan) {
+-			e_warn(drv, "VF %d attempted to override "
+-			       "administratively set VLAN configuration\n"
+-			       "Reload the VF driver to resume operations\n",
+-			       vf);
+-			retval = -1;
+-		} else {
+-			if (add)
+-				adapter->vfinfo[vf].vlan_count++;
+-			else if (adapter->vfinfo[vf].vlan_count)
+-				adapter->vfinfo[vf].vlan_count--;
+-			retval = ixgbe_set_vf_vlan(adapter, add, vid, vf);
+-			if (!retval && adapter->vfinfo[vf].spoofchk_enabled)
+-				hw->mac.ops.set_vlan_anti_spoofing(hw, true, vf);
+-		}
+-		break;
+ 	case IXGBE_VF_SET_MACVLAN:
+-		index = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK) >>
+-			IXGBE_VT_MSGINFO_SHIFT;
+-		if (adapter->vfinfo[vf].pf_set_mac && index > 0) {
+-			e_warn(drv, "VF %d requested MACVLAN filter but is "
+-				    "administratively denied\n", vf);
+-			retval = -1;
+-			break;
+-		}
+-		/*
+-		 * If the VF is allowed to set MAC filters then turn off
+-		 * anti-spoofing to avoid false positives.  An index
+-		 * greater than 0 will indicate the VF is setting a
+-		 * macvlan MAC filter.
+-		 */
+-		if (index > 0 && adapter->vfinfo[vf].spoofchk_enabled)
+-			ixgbe_ndo_set_vf_spoofchk(adapter->netdev, vf, false);
+-		retval = ixgbe_set_vf_macvlan(adapter, vf, index,
+-					      (unsigned char *)(&msgbuf[1]));
+-		if (retval == -ENOSPC)
+-			e_warn(drv, "VF %d has requested a MACVLAN filter "
+-				    "but there is no space for it\n", vf);
++		retval = ixgbe_set_vf_macvlan_msg(adapter, msgbuf, vf);
+ 		break;
+ 	default:
+ 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
 -- 
 1.7.11.7
