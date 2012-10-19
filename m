@@ -1,158 +1,70 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH] cxgb4: Remove unnecessary #ifdef condition
-Date: Fri, 19 Oct 2012 17:39:53 +0530
-Message-ID: <1350648593-16370-1-git-send-email-vipul@chelsio.com>
-Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
-	Vipul Pandya <vipul@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:9643 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751444Ab2JSMNa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 08:13:30 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH net-next 02/14] net: cdc_ncm: use device rx_max value if update failed
+Date: Fri, 19 Oct 2012 14:18:11 +0200
+Message-ID: <878vb2u03g.fsf@nemi.mork.no>
+References: <1350592867-25651-1-git-send-email-bjorn@mork.no>
+	<1350592867-25651-3-git-send-email-bjorn@mork.no>
+	<3426241.1WN6uXHlgW@linux-lqwf.site> <87ehkvv3ej.fsf@nemi.mork.no>
+	<CAL_Kpj0j9umyQBFFDVqWqEjH1057EjR0cZRcScdZG30E54=M0w@mail.gmail.com>
+	<878vb3ufnx.fsf@nemi.mork.no> <871uguvmfy.fsf@nemi.mork.no>
+	<CAL_Kpj3QX_bpLh5yX5VXKaqq+TSO9+aVxt+1TrU9e1BamKdFkA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Greg Suarez <gpsuarez2512-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Fangxiaozhi \(Franko\)" <fangxiaozhi-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Aleksander Morgado <aleksander-bhGbAngMcJvQT0dZR+AlfA@public.gmane.org>
+To: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAL_Kpj3QX_bpLh5yX5VXKaqq+TSO9+aVxt+1TrU9e1BamKdFkA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+	(Alexey Orishko's message of "Fri, 19 Oct 2012 12:01:39 +0200")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch also fixes the build failure caused due to removal of #ifdef
-CONFIG_CHELSIO_T4_OFFLOAD condition
+Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-Signed-off-by: Vipul Pandya <vipul@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   19 +++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   29 ++++-------------------
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    3 ++
- 3 files changed, 27 insertions(+), 24 deletions(-)
+> Based on NCM errata, NCM functional descriptor: if Bit 5 is set, then
+> device can (must) handle 8-byte form of Set/GetNtbInputSize.
+> If they set a flag, but don't support the feature, hm.. is it a
+> prototype device or
+> commercially available one?
+>
+> At least device must support Set request, but for GetNtbInputSize we
+> could happily
+> live without wNtbInMaxDatagrams (i.e. use 4 byte variant) on Linux.
+> Since we must anyway receive a complete NTB and making any number of =
+skb
+> buffers from received NTB is not a problem at all.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index a4da893..378988b 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -251,6 +251,8 @@ struct adapter_params {
- 	unsigned char rev;                /* chip revision */
- 	unsigned char offload;
- 
-+	unsigned char bypass;
-+
- 	unsigned int ofldq_wr_cred;
- };
- 
-@@ -642,6 +644,23 @@ extern int dbfifo_int_thresh;
- #define for_each_port(adapter, iter) \
- 	for (iter = 0; iter < (adapter)->params.nports; ++iter)
- 
-+static inline int is_bypass(struct adapter *adap)
-+{
-+	return adap->params.bypass;
-+}
-+
-+static inline int is_bypass_device(int device)
-+{
-+	/* this should be set based upon device capabilities */
-+	switch (device) {
-+	case 0x440b:
-+	case 0x440c:
-+		return 1;
-+	default:
-+		return 0;
-+	}
-+}
-+
- static inline unsigned int core_ticks_per_usec(const struct adapter *adap)
- {
- 	return adap->params.vpd.cclk / 1000;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 604f4f8..c1cde11 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3513,18 +3513,6 @@ static int adap_init0_no_config(struct adapter *adapter, int reset)
- 	if (ret < 0)
- 		goto bye;
- 
--#ifndef CONFIG_CHELSIO_T4_OFFLOAD
--	/*
--	 * If we're a pure NIC driver then disable all offloading facilities.
--	 * This will allow the firmware to optimize aspects of the hardware
--	 * configuration which will result in improved performance.
--	 */
--	caps_cmd.ofldcaps = 0;
--	caps_cmd.iscsicaps = 0;
--	caps_cmd.rdmacaps = 0;
--	caps_cmd.fcoecaps = 0;
--#endif
--
- 	if (caps_cmd.niccaps & htons(FW_CAPS_CONFIG_NIC_VM)) {
- 		if (!vf_acls)
- 			caps_cmd.niccaps ^= htons(FW_CAPS_CONFIG_NIC_VM);
-@@ -3745,6 +3733,7 @@ static int adap_init0(struct adapter *adap)
- 	u32 v, port_vec;
- 	enum dev_state state;
- 	u32 params[7], val[7];
-+	struct fw_caps_config_cmd caps_cmd;
- 	int reset = 1, j;
- 
- 	/*
-@@ -3898,6 +3887,9 @@ static int adap_init0(struct adapter *adap)
- 			goto bye;
- 	}
- 
-+	if (is_bypass_device(adap->pdev->device))
-+		adap->params.bypass = 1;
-+
- 	/*
- 	 * Grab some of our basic fundamental operating parameters.
- 	 */
-@@ -3940,13 +3932,12 @@ static int adap_init0(struct adapter *adap)
- 		adap->tids.aftid_end = val[1];
- 	}
- 
--#ifdef CONFIG_CHELSIO_T4_OFFLOAD
- 	/*
- 	 * Get device capabilities so we can determine what resources we need
- 	 * to manage.
- 	 */
- 	memset(&caps_cmd, 0, sizeof(caps_cmd));
--	caps_cmd.op_to_write = htonl(V_FW_CMD_OP(FW_CAPS_CONFIG_CMD) |
-+	caps_cmd.op_to_write = htonl(FW_CMD_OP(FW_CAPS_CONFIG_CMD) |
- 				     FW_CMD_REQUEST | FW_CMD_READ);
- 	caps_cmd.retval_len16 = htonl(FW_LEN16(caps_cmd));
- 	ret = t4_wr_mbox(adap, adap->mbox, &caps_cmd, sizeof(caps_cmd),
-@@ -3991,15 +3982,6 @@ static int adap_init0(struct adapter *adap)
- 		adap->vres.ddp.size = val[4] - val[3] + 1;
- 		adap->params.ofldq_wr_cred = val[5];
- 
--		params[0] = FW_PARAM_PFVF(ETHOFLD_START);
--		params[1] = FW_PARAM_PFVF(ETHOFLD_END);
--		ret = t4_query_params(adap, adap->mbox, adap->fn, 0, 2,
--				      params, val);
--		if ((val[0] != val[1]) && (ret >= 0)) {
--			adap->tids.uotid_base = val[0];
--			adap->tids.nuotids = val[1] - val[0] + 1;
--		}
--
- 		adap->params.offload = 1;
- 	}
- 	if (caps_cmd.rdmacaps) {
-@@ -4048,7 +4030,6 @@ static int adap_init0(struct adapter *adap)
- 	}
- #undef FW_PARAM_PFVF
- #undef FW_PARAM_DEV
--#endif /* CONFIG_CHELSIO_T4_OFFLOAD */
- 
- 	/*
- 	 * These are finalized by FW initialization, load their values now.
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index 1b899fe..39bec73 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -102,6 +102,9 @@ struct tid_info {
- 	unsigned int ftid_base;
- 	unsigned int aftid_base;
- 	unsigned int aftid_end;
-+	/* Server filter region */
-+	unsigned int sftid_base;
-+	unsigned int nsftids;
- 
- 	spinlock_t atid_lock ____cacheline_aligned_in_smp;
- 	union aopen_entry *afree;
--- 
-1.7.1
+OK, I may have misunderstood you here.  Quoting the errata text:
+
+<quote>
+  If bit D5 is set in the bmNetworkCapabilities field of function=E2=80=
+=99s NCM
+  Functional Descriptor, the host may set wLength either to 4 or to
+  8. If wLength is 4, the function shall assume that wNtbInMaxDatagrams
+  is to be set to zero. If wLength is 8, then the function shall use th=
+e
+  provided value as the limit. The function shall return an error
+  response (a STALL PID) if wLength is set to any other value.
+</quote>
+
+So the 4 byte variant is always supported and we might as well just use
+it unconditionally because we don't set, or need to set, the
+wNtbInMaxDatagrams.
+
+Is that right?  It will simplify the code even more without any loss of
+functionality, except for the possibility of failing on some other bugg=
+y
+device not supporting the 4 byte variant...
+
+
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
