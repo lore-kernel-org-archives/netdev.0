@@ -1,71 +1,36 @@
-From: Ani Sinha <ani@aristanetworks.com>
-Subject: Re: bpf filter : support for vlan tag
-Date: Fri, 19 Oct 2012 14:02:55 -0700
-Message-ID: <CAOxq_8NyGqtWzM4xQVXkLDijJ1ijGc0txQkhHA6JC63pXXgyvw@mail.gmail.com>
-References: <CAOxq_8MqMatY2+GA6+mHjj5V=Xe7Y8BmuX4r6cz5nChU5C1Vzw@mail.gmail.com>
-	<1350369998.3954.563.camel@edumazet-glaptop>
-	<CAD6jFUTn98+i_0eh6gc-CYgVXHNLbZdZmV6==mL+duFM-oNRmg@mail.gmail.com>
-	<1350386917.3954.890.camel@edumazet-glaptop>
-	<CAOxq_8NWMy2gL4QQv_e2hjHZZnFyFghmXzN5EnrXz3SRULxR6A@mail.gmail.com>
-	<CAD6jFURcGt-xwE7WGXPvfGZ1JXAWC+sVNnN+gbpEyQSJYvxDnQ@mail.gmail.com>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: [stable 2.6.32.y PATCH 0/6] net: fixes for cached dsts are never invalidated
+Date: Fri, 19 Oct 2012 17:03:33 -0400
+Message-ID: <20121019210333.GI8315@kvack.org>
+References: <20121019195557.GG17417@1wt.eu> <20121019.160104.115897882147794932.davem@davemloft.net> <20121019200318.GH17417@1wt.eu> <20121019.160711.1159467896676133280.davem@davemloft.net> <20121019201430.GI17417@1wt.eu> <20121019202244.GH8315@kvack.org> <20121019205300.GJ17417@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Daniel Borkmann <danborkmann@iogearbox.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, stable@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f174.google.com ([209.85.210.174]:44523 "EHLO
-	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754195Ab2JSVC4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 17:02:56 -0400
-Received: by mail-ia0-f174.google.com with SMTP id y32so637402iag.19
-        for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 14:02:55 -0700 (PDT)
-In-Reply-To: <CAD6jFURcGt-xwE7WGXPvfGZ1JXAWC+sVNnN+gbpEyQSJYvxDnQ@mail.gmail.com>
+Received: from kanga.kvack.org ([205.233.56.17]:44836 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753526Ab2JSVDe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2012 17:03:34 -0400
+Content-Disposition: inline
+In-Reply-To: <20121019205300.GJ17417@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 19, 2012 at 1:53 PM, Daniel Borkmann
-<danborkmann@iogearbox.net> wrote:
-> On Fri, Oct 19, 2012 at 8:32 PM, Ani Sinha <ani@aristanetworks.com> wrote:
->> how about this?
->>
->> On Tue, Oct 16, 2012 at 4:28 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>
->>> @@ -341,6 +342,12 @@ load_b:
->>>                 case BPF_S_ANC_CPU:
->>>                         A = raw_smp_processor_id();
->>>                         continue;
->>> +               case BPF_S_ANC_VLAN_TAG:
->>> +                       A = vlan_tx_tag_get(skb);
->>> +                       continue;
->>> +               case BPF_S_ANC_VLAN_TAG_PRESENT:
->>> +                       A = !!vlan_tx_tag_present(skb);
->>> +                       continue;
->>>                 case BPF_S_ANC_NLATTR: {
->>>                         struct nlattr *nla;
->>
->>
->> +               case BPF_S_ANC_VLAN_TAG:
->> +                       if (!vlan_tx_tag_present(skb)) {
->> +                               return 0;
->> +                       }
->> +                       A = vlan_tx_tag_get(skb);
->> +                       continue;
->
-> I didn't look into the code, but I assume that if no vlan is present,
-> then vlan_tx_tag_get might return 0 anyway.
+On Fri, Oct 19, 2012 at 10:53:00PM +0200, Willy Tarreau wrote:
+> I see. Then users will have the same issue when upgrading from 2.6.32 to 3.0.
+> 
+> OK let's bisect the situation :
+>   - current 2.6.32 users are facing a routing bug that needs be fixed.
+> 
+>   - 2.6.34 and onwards do not have this bug but are probably affected by
+>     lower performance due to the minimal fix.
 
-This might not be true all the time. So it's always safe to do this
-check before returning the VLANID and throw some kind of error if the
-vlan ID is not set.
+Argh, sorry (too many patches in flight), it looks like just cherry picking 
+d11a4dc18bf41719c9f0d7ed494d295dd2973b92 is okay.  It does have the 
+rt_is_expired() changes, so it should not have much of a performance 
+regression.  So going with only this change is probably the way to go 
+for now.
 
-
- Also, your return is
-> simply wrong, since then after this instruction you leave the *whole*
-> BPF machine ignoring the rest of the filter program to process ...
-
-
-I had done that because I can see in other parts of that state machine
-that in error condition the code simply stops processing the packet. I
-am not sure how else to handle the error case.
-
-Ani
+		-ben
