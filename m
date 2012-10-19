@@ -1,69 +1,37 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net-next 02/14] net: cdc_ncm: use device rx_max value if update failed
-Date: Fri, 19 Oct 2012 11:30:09 +0200
-Message-ID: <871uguvmfy.fsf@nemi.mork.no>
-References: <1350592867-25651-1-git-send-email-bjorn@mork.no>
-	<1350592867-25651-3-git-send-email-bjorn@mork.no>
-	<3426241.1WN6uXHlgW@linux-lqwf.site> <87ehkvv3ej.fsf@nemi.mork.no>
-	<CAL_Kpj0j9umyQBFFDVqWqEjH1057EjR0cZRcScdZG30E54=M0w@mail.gmail.com>
-	<878vb3ufnx.fsf@nemi.mork.no>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: sock_getsockopt() not exported
+Date: Fri, 19 Oct 2012 10:26:52 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7056@saturn3.aculab.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B7052@saturn3.aculab.com> <1350552612.26103.1281.camel@edumazet-glaptop> <AE90C24D6B3A694183C094C60CF0A2F6026B7053@saturn3.aculab.com> <1350563275.26103.1465.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver@neukum.org>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Greg Suarez <gpsuarez2512@gmail.com>,
-	"Fangxiaozhi \(Franko\)" <fangxiaozhi@huawei.com>,
-	Dan Williams <dcbw@redhat.com>,
-	Aleksander Morgado <aleksander@lanedo.com>
-To: Alexey Orishko <alexey.orishko@gmail.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:42089 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753908Ab2JSJbG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 05:31:06 -0400
-In-Reply-To: <878vb3ufnx.fsf@nemi.mork.no> (=?utf-8?Q?=22Bj=C3=B8rn?=
- Mork"'s message of "Fri, 19
-	Oct 2012 08:41:54 +0200")
+Received: from mx0.aculab.com ([213.249.233.131]:36991 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753802Ab2JSJht (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2012 05:37:49 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 15370-10 for <netdev@vger.kernel.org>;
+ Fri, 19 Oct 2012 10:37:47 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1350563275.26103.1465.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bj=C3=B8rn Mork <bjorn@mork.no> writes:
-> Alexey Orishko <alexey.orishko@gmail.com> writes:
->
->> Vendor has to fix firmware.
->
-> I agree in principle, and I'll report the problem to them.  But as us=
-ual
-> I believe we have to support any weird firmware we encounter, if at a=
-ll
-> possible.
-
-OK, I did some more experiments, and I am wondering if the real firmwar=
-e
-problem is in the MBIM descriptor.  It is
-
-      CDC MBIM:
-        bcdMBIMVersion       1.00
-        wMaxControlMessage   1536
-        bNumberFilters       16
-        bMaxFilterSize       40
-        wMaxSegmentSize      4096
-        bmNetworkCapabilities 0x20
-          8-byte ntb input size
-
-
-so we use the 8-byte version of USB_CDC_SET_NTB_INPUT_SIZE, which fails
-with -EPIPE.  But forcing the 4-byte version seems to work. Hmm, I also
-see that the device returns 4 bytes in response to at
-USB_CDC_GET_NTB_INPUT_SIZE with an 8-byte buffer.  Maybe we can
-auto-quirk based on that?  I.e., if USB_CDC_GET_NTB_INPUT_SIZE returns
-only 4 bytes then we assume that the bmNetworkCapabilities flag is
-wrong.
-
-Is that acceptable?  Then it seems we are able to inform this device of
-the reduced buffer, and the other problems can be ignored.
-
-
-Bj=C3=B8rn
+PiA+IFRoZSBwcm9ibGVtIGlzIHRoYXQgaXQgbWlnaHQgYmUgbmVlZGVkIGJ5IGFuICdvdXQgb2Yg
+dHJlZScgZHJpdmVyLg0KPiA+IFdlIGFscmVhZHkgaGF2ZSB0aGUgZnVuY3Rpb246DQo+IA0KPiBX
+ZSBkb250IGNhcmUgb2Ygb3V0IG9mIHRyZWUgZHJpdmVycy4NCj4gDQo+IFRoYXRzIHJlYWxseSBz
+aW1wbGUuDQo+IA0KPiBTdWJtaXQgdGhpcyBkcml2ZXIsIGFuZCBhZGQgdGhlIEVYUE9SVF9TWU1C
+T0woKSB5b3UgbmVlZCBhdCB0aGF0IHRpbWUuDQoNCkV2ZW4gaWYgbWFuYWdlbWVudCB3b3VsZCBy
+ZWxlYXNlIHRoZSBzb3VyY2UsIHlvdSB3b3VsZG4ndA0Kd2FudCA0TUIgb2Ygc291cmNlIGZvciBh
+biBzczcgcHJvdG9jb2wgc3RhY2sgZm9yIGEgY2FyZA0KdGhhdCBpc24ndCBnZW5lcmFsbHkgYXZh
+aWxhYmxlLCBhbmQgdGhhdCBuZWVkcyBhbm90aGVyDQpzaW1pbGFyIHNpemVkIGRyaXZlciAoYW5k
+IGxpYnJhcmllcyBldGMpIHRvIGJlIHVzZWZ1bC4NCg0KVGhlIExpbnV4IGludGVyZmFjZSBpcyBh
+bGwgZG9uZSB3aXRoIHdyYXBwZXIgZnVuY3Rpb25zDQp0aGF0IGdldCBjb21waWxlZCBvbiB0aGUg
+dGFyZ2V0IHN5c3RlbSBzbyB3ZSBjYW4gc2hpcA0KYSBiaWcgYmluYXJ5ICdibG9iJy4NCg0KCURh
+dmlkDQoNCg==
