@@ -1,18 +1,18 @@
 From: Li Yu <raise.sail@gmail.com>
-Subject: [PATCH 1/3] skbtrace v2: core feature and common events
-Date: Fri, 19 Oct 2012 14:16:17 +0800
-Message-ID: <5080F031.5040804@gmail.com>
+Subject: [PATCH 2/3] skbtrace v2: TCP/IPv4 family support
+Date: Fri, 19 Oct 2012 14:16:26 +0800
+Message-ID: <5080F03A.3020005@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
 To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:56761 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752180Ab2JSGQW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 02:16:22 -0400
-Received: by mail-pa0-f46.google.com with SMTP id hz1so121597pad.19
-        for <netdev@vger.kernel.org>; Thu, 18 Oct 2012 23:16:22 -0700 (PDT)
+Received: from mail-da0-f46.google.com ([209.85.210.46]:52087 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752180Ab2JSGQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 02:16:31 -0400
+Received: by mail-da0-f46.google.com with SMTP id n41so79678dak.19
+        for <netdev@vger.kernel.org>; Thu, 18 Oct 2012 23:16:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,527 +20,97 @@ From: Li Yu <bingtian.ly@taobao.com>
 
 This patch contains:
 
-1. The glue code of tracepoints subsystem and relay file system.
-2. API for particular networking trace points.
-3. The skb_rps_info trace point.
+1. Modifications for TCP/IP protocol family.
+2. The connection based trace points for TCP:
 
-Thanks
+	tcp_congestion - trace for TCP congestion events
+	tcp_connection - trace for basic TCP connection state migration
+	icsk_connection - trace for TCP LISTEN state
+	tcp_sendlimit - trace for TCP send limit reasons
+	tcp_active_conn - trace for active TCP connections
+	tcp_rttm  - trace for TCP RTT measurement
+	tcp_ca_state - trace for TCP congestion avoid state machine
+	sk_timer - trace for all TCP timers
+
+Thanks.
 
 Sign-off-by: Li Yu <bingtian.ly@taobao.com>
+---
+ include/net/inet_common.h            |    2
+ include/net/inet_timewait_sock.h     |   12
+ include/net/skbtrace_api_ipv4.h      |  181 +++++++
+ include/net/tcp.h                    |    2
+ include/trace/events/skbtrace_ipv4.h |   59 ++
+ net/ipv4/Kconfig                     |    7
+ net/ipv4/Makefile                    |    1
+ net/ipv4/af_inet.c                   |   36 +
+ net/ipv4/inet_connection_sock.c      |   11
+ net/ipv4/inet_timewait_sock.c        |    8
+ net/ipv4/skbtrace-ipv4.c             |  797
++++++++++++++++++++++++++++++++++++
+ net/ipv4/tcp.c                       |    5
+ net/ipv4/tcp_input.c                 |   12
+ net/ipv4/tcp_ipv4.c                  |   32 +
+ net/ipv4/tcp_minisocks.c             |   35 +
+ net/ipv4/tcp_output.c                |   63 ++
+ 16 files changed, 1234 insertions(+), 29 deletions(-)
 
- include/linux/skbtrace.h               |  478 ++++++++++++
- include/linux/skbtrace_api.h           |   73 +
- include/linux/skbuff.h                 |    7
- include/net/skbtrace_api_common.h      |   84 ++
- include/net/sock.h                     |   14
- include/trace/events/skbtrace.h        |   32
- include/trace/events/skbtrace_common.h |   41 +
- kernel/trace/Kconfig                   |    8
- net/core/Makefile                      |    2
- net/core/dev.c                         |    3
- net/core/net-traces.c                  |   24
- net/core/skbtrace-core.c               | 1226
-+++++++++++++++++++++++++++++++++
- net/core/skbtrace-events-common.c      |   68 +
- net/core/skbuff.c                      |    5
- net/core/sock.c                        |    9
- 15 files changed, 2073 insertions(+), 1 deletion(-)
+diff --git a/include/net/inet_common.h b/include/net/inet_common.h
+index 2340087..cb2e357 100644
+--- a/include/net/inet_common.h
++++ b/include/net/inet_common.h
+@@ -31,6 +31,8 @@ extern int inet_shutdown(struct socket *sock, int how);
+ extern int inet_listen(struct socket *sock, int backlog);
+ extern void inet_sock_destruct(struct sock *sk);
+ extern int inet_bind(struct socket *sock, struct sockaddr *uaddr, int
+addr_len);
++extern int inet_sock_getname(struct sock *sk, struct sockaddr *uaddr,
++			int *uaddr_len, int peer);
+ extern int inet_getname(struct socket *sock, struct sockaddr *uaddr,
+ 			int *uaddr_len, int peer);
+ extern int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned
+long arg);
+diff --git a/include/net/inet_timewait_sock.h
+b/include/net/inet_timewait_sock.h
+index ba52c83..d75747d 100644
+--- a/include/net/inet_timewait_sock.h
++++ b/include/net/inet_timewait_sock.h
+@@ -89,6 +89,8 @@ extern void inet_twdr_twcal_tick(unsigned long data);
 
-============================
+ struct inet_bind_bucket;
 
-diff --git a/include/linux/skbtrace.h b/include/linux/skbtrace.h
-new file mode 100644
-index 0000000..71fbff0
---- /dev/null
-+++ b/include/linux/skbtrace.h
-@@ -0,0 +1,478 @@
-+/*
-+ *  skbtrace - sk_buff trace utilty
-+ *
-+ *	API for kernel
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
-+ *
-+ * 2012 Li Yu <bingtian.ly@taobao.com>
-+ *
-+ */
++struct skbtrace_context;
 +
-+#ifndef _LINUX_SKBTRACE_H
-+#define _LINUX_SKBTRACE_H
-+
-+#include <linux/jump_label.h>
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+#include <linux/net.h>
-+#include <linux/skbtrace_api.h>
-+#include <asm/atomic.h>
-+
-+#include <net/sock.h>
-+#include <net/inet_timewait_sock.h>
-+
+ /*
+  * This is a TIME_WAIT sock. It works around the memory consumption
+  * problems of sockets in such a state on heavily loaded servers, but
+@@ -125,10 +127,18 @@ struct inet_timewait_sock {
+ 	/* And these are ours. */
+ 	unsigned int		tw_ipv6only     : 1,
+ 				tw_transparent  : 1,
+-				tw_pad		: 6,	/* 6 bits hole */
 +#if defined(CONFIG_SKBTRACE) || defined(CONFIG_SKBTRACE_MODULE)
-+#define HAVE_SKBTRACE 1
-+#else
-+#define HAVE_SKBTRACE 0
++				tw_skbtrace_filtered : 1,
++				tw_hit_skbtrace : 1,
 +#endif
-+
-+#if HAVE_SKBTRACE
-+
-+/* The size parameters of secondary_buffer->slots */
-+#define SECONDARY_BUFFER_ORDER	0
-+#define SECONDARY_BUFFER_SIZE	(PAGE_SIZE<<SECONDARY_BUFFER_ORDER)
-+#define SECONDARY_BUFFER_UNIT	(128)
-+#define SECONDARY_BUFFER_COUNTS
-(SECONDARY_BUFFER_SIZE/SECONDARY_BUFFER_UNIT)
-+
-+struct secondary_buffer {
-+	atomic_t refcnt;
-+	struct hlist_node node;
-+	int action;	/* the action of primary event */
-+	spinlock_t lock;
-+	unsigned long session;
-+	int offset;	/* next writeable slot */
-+	int count;	/* count of current cached events in 'slots' */
-+	char *slots;	/* the cache of secondary events */
-+};
-+
-+
-+#define SECONDARY_TABLE_SHIFT	6
-+#define SECONDARY_TABLE_SIZE	(1<<SECONDARY_TABLE_SHIFT)
-+#define SECONDARY_TABLE_MASK	(SECONDARY_TABLE_SIZE - 1)
-+
-+struct secondary_table {
-+	spinlock_t lock;
-+	struct hlist_head table[SECONDARY_TABLE_SIZE];
-+};
-+
-+struct skbtrace_tracepoint {
-+	const char *trace_name;
-+	int action;
-+	int nr_secondary;
-+	size_t block_size;
-+	void *probe;
-+	int (*setup_options)(struct skbtrace_tracepoint *tp,
-+						char *options);
-+	void (*enable)(struct skbtrace_tracepoint *tp);
-+	void (*disable)(struct skbtrace_tracepoint *tp);
-+	char *(*desc)(struct skbtrace_tracepoint *tp);
-+	void *private;
-+
-+	/* Below is for internals, which is not a part of kernel API */
-+	unsigned int enabled : 1;
-+	struct skbtrace_tracepoint *primary;
-+	/* The secondary events of sk_buff based event are */
-+	/* cached here. The secondary events of socket based */
-+	/* event are cached in hash table skbtrace_context->sec_table */
-+	struct secondary_buffer sec_buffer;
-+};
-+
-+extern atomic64_t skbtrace_event_seq;
-+extern int sysctl_skbtrace_filter_default;
-+
-+#define INIT_SKBTRACE_BLOCK(blk, p, act, fl, blk_size) \
-+	do {\
-+		(blk)->magic = 0xDEADBEEF;\
-+		(blk)->len = (blk_size);\
-+		(blk)->action = (act);\
-+		(blk)->flags = (fl);\
-+		(blk)->seq = atomic64_add_return(1, &skbtrace_event_seq);\
-+		(blk)->ts = current_kernel_time();\
-+		(blk)->ptr = (p);\
-+	} while (0)
-+
-+#define EMPTY_SKBTRACE_TP	{.trace_name = NULL, }
-+
-+struct inet_timewait_sock;
-+struct skbtrace_ops {
-+	int (*tw_getname)(struct inet_timewait_sock *tw,
-+			struct sockaddr *uaddr, int peer);
-+	int (*tw_filter_skb)(struct inet_timewait_sock *tw,
-+			struct sk_buff *skb);
-+	int (*getname)(struct sock *sk, struct sockaddr *uaddr,
-+		 int *uaddr_len, int peer);
-+	int (*filter_skb)(struct sock *sk, struct sk_buff *skb);
-+};
-+
-+struct skbtrace_context {
-+	unsigned long session;
-+	struct skbtrace_ops *ops;
-+	unsigned int active_conn_hit : 1;
-+	struct secondary_table sec_table;
-+};
-+
-+extern unsigned long skbtrace_session;
-+
-+extern int skbtrace_register_proto(int af,
-+				struct skbtrace_tracepoint *tp_list,
-+				struct skbtrace_ops *ops);
-+extern void skbtrace_unregister_proto(int af);
-+extern struct skbtrace_ops* skbtrace_ops_get(int af);
-+
-+extern void __skbtrace_probe(struct skbtrace_tracepoint *tp,
-+				struct skbtrace_context *ctx,
-+				struct skbtrace_block *blk);
-+extern int skbtrace_events_common_init(void);
-+
-+extern struct static_key skbtrace_filters_enabled;
-+extern struct sk_filter *skbtrace_skb_filter;
-+extern struct sk_filter *skbtrace_sock_filter;
-+
-+extern struct sk_buff* skbtrace_get_sock_filter_skb(struct sock *sk);
-+static inline void skbtrace_put_sock_filter_skb(struct sk_buff *skb)
-+{
-+	skb->data = skb->head;
-+	skb->len = 0;
-+	skb_reset_tail_pointer(skb);
-+	skb_reset_transport_header(skb);
-+	skb_reset_network_header(skb);
-+	local_bh_enable();
-+}
-+extern struct sk_buff* skbtrace_get_twsk_filter_skb(
-+					struct inet_timewait_sock *tw);
-+#define skbtrace_put_twsk_filter_skb skbtrace_put_sock_filter_skb
-+
-+static inline void skbtrace_probe(struct skbtrace_tracepoint *t,
-+				struct skbtrace_context *ctx,
-+				struct skbtrace_block *blk)
-+{
-+	if (skbtrace_action_invalid == blk->action)
-+		return;
-+	__skbtrace_probe(t, ctx, blk);
-+}
-+
-+static inline int skbtrace_bypass_skb(struct sk_buff *skb)
-+{
-+	if (static_key_false(&skbtrace_filters_enabled)) {
-+		if (skb->skbtrace_filtered)
-+			return skb->hit_skbtrace;
-+		else if (skbtrace_skb_filter) {
-+			unsigned int pkt_len;
-+
-+			pkt_len = SK_RUN_FILTER(skbtrace_skb_filter, skb);
-+			skb->hit_skbtrace = !pkt_len;
-+			skb->skbtrace_filtered = 1;
-+			return skb->hit_skbtrace;
-+		}
-+	}
-+	return 0;
-+}
-+
-+static inline void secondary_buffer_get(struct secondary_buffer *buf)
-+{
-+	atomic_inc(&buf->refcnt);
-+}
-+
-+static inline void secondary_buffer_put(struct secondary_buffer *buf)
-+{
-+	if (buf && atomic_dec_and_test(&buf->refcnt)) {
-+		free_pages((unsigned long)buf->slots, SECONDARY_BUFFER_ORDER);
-+		buf->slots = NULL;
-+	}
-+}
-+
-+static inline void secondary_buffer_reset(struct secondary_buffer *buf)
-+{
-+	buf->offset = 0;
-+	buf->count = 0;
-+}
-+
-+static inline int secondary_buffer_init(struct secondary_buffer *buf,
-+					struct skbtrace_tracepoint *tp)
-+{
-+	buf->slots = (char *)__get_free_pages(GFP_ATOMIC,
-+						SECONDARY_BUFFER_ORDER);
-+	if (!buf->slots)
-+		return -ENOMEM;
-+
-+	INIT_HLIST_NODE(&buf->node);
-+	spin_lock_init(&buf->lock);
-+	buf->action = tp->action;
-+	buf->session = skbtrace_session;
-+	atomic_set(&buf->refcnt, 0);
-+	secondary_buffer_reset(buf);
-+	secondary_buffer_get(buf);
-+	return 0;
-+}
-+
-+static inline struct secondary_buffer* secondary_buffer_new(
-+					struct skbtrace_tracepoint *tp)
-+{
-+	struct secondary_buffer *buf;
-+
-+	buf = kmalloc(sizeof(*buf), GFP_ATOMIC);
-+	if (buf && secondary_buffer_init(buf, tp)) {
-+		kfree(buf);
-+		buf = NULL;
-+	}
-+	return buf;
-+}
-+
-+static inline void secondary_buffer_destroy(struct secondary_buffer *buf)
-+{
-+	if (buf) {
-+		secondary_buffer_put(buf);
-+		kfree(buf);
-+	}
-+}
-+
-+static inline struct secondary_buffer* secondary_table_lookup(
-+				struct secondary_table *table,
-+				struct skbtrace_tracepoint *tp)
-+{
-+	unsigned int key;
-+	struct secondary_buffer *buffer;
-+	struct hlist_node *pos;
-+
-+	key = (47 * tp->action) & SECONDARY_TABLE_MASK;
-+	spin_lock_bh(&table->lock);
-+	hlist_for_each_entry(buffer, pos, &table->table[key], node) {
-+		if (buffer->session != skbtrace_session)
-+			continue;
-+		if (buffer->action == tp->action)
-+			goto unlock;
-+	}
-+	buffer = NULL;
-+unlock:
-+	spin_unlock_bh(&table->lock);
-+
-+	return buffer;
-+}
-+
-+static inline struct secondary_buffer* secondary_table_lookup_or_create(
-+				struct secondary_table *table,
-+				struct skbtrace_tracepoint *tp)
-+{
-+	unsigned int key;
-+	struct secondary_buffer *buffer;
-+	struct hlist_node *pos;
-+
-+	key = (47 * tp->action) & SECONDARY_TABLE_MASK;
-+	spin_lock_bh(&table->lock);
-+	hlist_for_each_entry(buffer, pos, &table->table[key], node) {
-+		if (buffer->session != skbtrace_session)
-+			continue;
-+		if (buffer->action == tp->action)
-+			goto unlock;
-+	}
-+	buffer = secondary_buffer_new(tp);
-+	if (buffer)
-+		hlist_add_head(&buffer->node, &table->table[key]);
-+unlock:
-+	spin_unlock_bh(&table->lock);
-+
-+	return buffer;
-+}
-+
-+static inline void secondary_table_clean(struct secondary_table *table)
-+{
-+	unsigned int key;
-+
-+	spin_lock_bh(&table->lock);
-+	for (key = 0; key < SECONDARY_TABLE_SIZE; key++) {
-+		while (!hlist_empty(&table->table[key])) {
-+			struct secondary_buffer *buffer;
-+
-+			buffer = container_of(table->table[key].first,
-+						struct secondary_buffer, node);
-+			hlist_del(table->table[key].first);
-+			secondary_buffer_destroy(buffer);
-+		}
-+	}
-+	spin_unlock_bh(&table->lock);
-+}
-+
-+static inline void secondary_table_init(struct secondary_table *table)
-+{
-+	unsigned int key;
-+
-+	spin_lock_init(&table->lock);
-+	for (key = 0; key < SECONDARY_TABLE_SIZE; key++)
-+		INIT_HLIST_HEAD(&table->table[key]);
-+}
-+
-+extern struct skbtrace_context *skbtrace_context_get(struct sock *sk);
-+extern void skbtrace_context_setup(struct skbtrace_context *ctx,
-+					struct skbtrace_ops *ops);
-+
-+static inline void skbtrace_context_destroy(struct skbtrace_context **ctx)
-+{
-+	if (!*ctx)
-+		return;
-+	secondary_table_clean(&(*ctx)->sec_table);
-+	kfree(*ctx);
-+	*ctx = NULL;
-+}
-+
-+static inline void sock_skbtrace_reset(struct sock *sk)
-+{
-+	sk->sk_skbtrace = NULL;
-+}
-+
-+static inline void* secondary_buffer_get_block(struct secondary_buffer
-*buf,
-+					struct skbtrace_tracepoint *primary)
-+{
-+	void *ret;
-+
-+	if (!buf->slots && secondary_buffer_init(buf, primary))
-+		return NULL;
-+
-+	spin_lock_bh(&buf->lock);
-+	ret = &buf->slots[buf->offset * SECONDARY_BUFFER_UNIT];
-+	if (buf->count < SECONDARY_BUFFER_COUNTS)
-+		buf->count++;
-+	if (++buf->offset >= SECONDARY_BUFFER_COUNTS)
-+		buf->offset = 0;
-+	spin_unlock_bh(&buf->lock);
-+	return ret;
-+}
-+
-+static inline void* skbtrace_block_get(struct skbtrace_tracepoint *tp,
-+					struct skbtrace_context *ctx,
-+					void *fast)
-+{
-+	struct skbtrace_tracepoint *pri;
-+
-+	if (!tp || !tp->primary)
-+		return fast;
-+
-+	pri = tp->primary;
-+	if (ctx) {
-+		struct secondary_buffer *buf;
-+		struct secondary_table *table;
-+
-+		table = &ctx->sec_table;
-+		buf = secondary_table_lookup_or_create(table, pri);
-+		if (!buf)
-+			return fast;
-+		return secondary_buffer_get_block(buf, pri) ? : fast;
-+	}
-+	return secondary_buffer_get_block(&pri->sec_buffer, pri) ? : fast;
-+}
-+
-+static inline void* skbtrace_block_sk_get(struct skbtrace_tracepoint *tp,
-+					struct sock *sk,
-+					void *fast)
-+{
-+	return skbtrace_block_get(tp, skbtrace_context_get(sk), fast);
-+}
-+
-+#define SKBTRACE_SKB_EVENT_BEGIN \
-+{\
-+	if (skbtrace_bypass_skb(skb)) {\
-+		return;	\
-+	} else {
-+
-+#define SKBTRACE_SKB_EVENT_END \
-+	} \
-+}
-+
-+extern u32 skbtrace_sock_filter_id;
-+static inline int skbtrace_bypass_sock(struct sock *sk)
-+{
-+	if (static_key_false(&skbtrace_filters_enabled)) {
-+		if (likely(sk->sk_skbtrace_filtered &&
-+				(skbtrace_sock_filter_id == sk->sk_skbtrace_fid))) {
-+			return sk->sk_hit_skbtrace;
-+		}
-+		if (skbtrace_sock_filter) {
-+			unsigned int pkt_len;
-+			struct sk_buff *skb;
-+
-+			skb = skbtrace_get_sock_filter_skb(sk);
-+			if (skb) {
-+				pkt_len = SK_RUN_FILTER(skbtrace_sock_filter, skb);
-+				sk->sk_hit_skbtrace = !pkt_len;
-+				sk->sk_skbtrace_filtered = 1;
-+				skbtrace_put_sock_filter_skb(skb);
-+				sk->sk_skbtrace_fid = skbtrace_sock_filter_id;
-+				return sk->sk_hit_skbtrace;
-+			}
-+			return sysctl_skbtrace_filter_default;
-+		}
-+	}
-+	return 0;
-+}
-+
-+static inline int skbtrace_bypass_twsk(struct inet_timewait_sock *tw)
-+{
-+	if (static_key_false(&skbtrace_filters_enabled)) {
-+		if (likely(tw->tw_skbtrace_filtered &&
-+				(skbtrace_sock_filter_id == tw->tw_skbtrace_fid))) {
-+			return tw->tw_hit_skbtrace;
-+		}
-+		if (skbtrace_sock_filter) {
-+			unsigned int pkt_len;
-+			struct sk_buff *skb;
-+
-+			skb = skbtrace_get_twsk_filter_skb(tw);
-+			if (skb) {
-+				pkt_len = SK_RUN_FILTER(skbtrace_sock_filter, skb);
-+				tw->tw_hit_skbtrace = !pkt_len;
-+				tw->tw_skbtrace_filtered = 1;
-+				skbtrace_put_twsk_filter_skb(skb);
-+				tw->tw_skbtrace_fid = skbtrace_sock_filter_id;
-+				return tw->tw_hit_skbtrace;
-+			}
-+			return sysctl_skbtrace_filter_default;
-+		}
-+	}
-+	return 0;
-+}
-+
-+#define SKBTRACE_SOCK_EVENT_BEGIN \
-+{\
-+	if (skbtrace_bypass_sock(sk)) {\
-+		return;	\
-+	} else {
-+
-+#define SKBTRACE_SOCK_EVENT_END \
-+	} \
-+}
-+
-+extern int inet_filter_skb(struct sock *sk, struct sk_buff *skb);
-+extern int inet_tw_getname(struct inet_timewait_sock *tw,
-+				struct sockaddr *uaddr, int peer);
-+extern int inet_tw_filter_skb(struct inet_timewait_sock *tw,
-+				struct sk_buff *skb);
-+extern int tcp_tw_filter_skb(struct inet_timewait_sock *tw,
-+				struct sk_buff *skb);
-+extern int tcp_filter_skb(struct sock *sk, struct sk_buff *skb);
-+
-+#else /* HAVE_SKBTRACE */
-+
-+static inline void sock_skbtrace_reset(struct sock *sk)
-+{
-+}
-+
-+static inline void skbtrace_context_destroy(struct skbtrace_context **ctx)
-+{
-+}
-+
-+#endif /* HAVE_SKBTRACE */
-+
-+#endif /* _LINUX_SKBTRACE_H */
-diff --git a/include/linux/skbtrace_api.h b/include/linux/skbtrace_api.h
++				tw_pad		: 4,	/* 4 bits hole */
+ 				tw_tos		: 8,
+ 				tw_ipv6_offset  : 16;
+ 	kmemcheck_bitfield_end(flags);
++#if defined(CONFIG_SKBTRACE) || defined(CONFIG_SKBTRACE_MODULE)
++	unsigned int tw_skbtrace_fid;
++	struct skbtrace_context *tw_skbtrace;
++#endif
+ 	unsigned long		tw_ttd;
+ 	struct inet_bind_bucket	*tw_tb;
+ 	struct hlist_node	tw_death_node;
+diff --git a/include/net/skbtrace_api_ipv4.h
+b/include/net/skbtrace_api_ipv4.h
 new file mode 100644
-index 0000000..2d14ff6
+index 0000000..ab60df1
 --- /dev/null
-+++ b/include/linux/skbtrace_api.h
-@@ -0,0 +1,73 @@
++++ b/include/net/skbtrace_api_ipv4.h
+@@ -0,0 +1,181 @@
 +/*
 + *  skbtrace - sk_buff trace utilty
 + *
@@ -564,417 +134,449 @@ index 0000000..2d14ff6
 + * 2012 Li Yu <bingtian.ly@taobao.com>
 + *
 + */
-+#ifndef _LINUX_SKBTRACE_API_H
-+#define _LINUX_SKBTRACE_API_H
++#ifndef _NET_SKBTRACE_API_IPV4_H
++#define _NET_SKBTRACE_API_IPV4_H
 +
 +#include <linux/types.h>
 +
 +#ifdef __KERNEL__
-+#include <linux/time.h>
-+#else
-+#include <time.h>
-+#define __packed	__attribute__ ((__packed__))
++#include <linux/in.h>
++#include <linux/in6.h>
 +#endif
 +
-+#define TRACE_SPEC_MAX_LEN	256
-+
-+#define SKBTRACE_DEF_SUBBUF_SIZE	(1<<12)
-+#define SKBTRACE_DEF_SUBBUF_NR		(1<<11)
-+
-+#define SKBTRACE_MIN_SUBBUF_SIZE	SKBTRACE_DEF_SUBBUF_SIZE
-+#define SKBTRACE_MIN_SUBBUF_NR		SKBTRACE_DEF_SUBBUF_NR
-+
-+#define SKBTRACE_MAX_SUBBUF_SIZE	(1<<16)
-+#define SKBTRACE_MAX_SUBBUF_NR		(1<<20)
-+
-+#define SC	0	/* for tracepoints in process context */
-+#define SI	1	/* for tracepoints in softirq context */
-+#define HW	2	/* for tracepoints in hardirq context */
-+#define NR_CHANNELS	3
-+
-+/* struct skbtrace_block - be used in kernel/user interaction	*/
-+/* @len:	whole data structure size in bytes		*/
-+/* @action:	action of this skbtrace_block			*/
-+/* @flags:	the flags depend on above action field		*/
-+/* @ts:		the timestamp of this event.			*/
-+/* @ptr:	the major source kernel data structure		*/
-+/*		of this event, for gerneral, a sk_buff or sock	*/
-+/* PLEASE:							*/
-+/*	Keep 64 bits alignment 					*/
-+struct skbtrace_block {
-+	__u64 magic;
-+	__u16 len;
-+	__u16 action;
-+	__u32 flags;
-+	struct timespec ts;
-+	__u64 seq;
-+	void *ptr;
-+} __packed;
-+
-+#include <net/skbtrace_api_common.h>
-+#include <net/skbtrace_api_ipv4.h>
-+
-+#endif
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 7632c87..27a0fe0 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -351,6 +351,8 @@ typedef unsigned char *sk_buff_data_t;
-  *	@peeked: this packet has been seen already, so stats have been
-  *		done for it, don't do them again
-  *	@nf_trace: netfilter packet trace flag
-+ *	@hit_skbtrace: is this should be skipped by skbtrace filter?
-+ *	@skbtrace_filtered: is this already processed by skbtrace filter?
-  *	@protocol: Packet protocol from driver
-  *	@destructor: Destruct function
-  *	@nfct: Associated connection, if any
-@@ -469,7 +471,10 @@ struct sk_buff {
- 	__u8			wifi_acked:1;
- 	__u8			no_fcs:1;
- 	__u8			head_frag:1;
--	/* 8/10 bit hole (depending on ndisc_nodetype presence) */
-+#if defined(CONFIG_SKBTRACE) || defined(CONFIG_SKBTRACE_MODULE)
-+	__u8			hit_skbtrace:1;
-+	__u8			skbtrace_filtered:1;
-+#endif
- 	kmemcheck_bitfield_end(flags2);
-
- #ifdef CONFIG_NET_DMA
-diff --git a/include/net/skbtrace_api_common.h
-b/include/net/skbtrace_api_common.h
-new file mode 100644
-index 0000000..87892d6
---- /dev/null
-+++ b/include/net/skbtrace_api_common.h
-@@ -0,0 +1,84 @@
-+/*
-+ *  skbtrace - sk_buff trace utilty
-+ *
-+ *	User/Kernel Interface
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
-+ *
-+ * 2012 Li Yu <bingtian.ly@taobao.com>
-+ *
-+ */
-+#ifndef _NET_SKBTRACE_API_COMMON_H
-+#define _NET_SKBTRACE_API_COMMON_H
-+
-+#include <linux/types.h>
-+
-+/********************* Common section *********************/
++/********************* TCP section *********************/
 +
 +/* skbtrace_block->action */
 +enum {
-+	skbtrace_action_invalid		= 0,
-+	skbtrace_action_common_min	= 1,
-+	skbtrace_action_skb_rps_info	= 1,
-+	skbtrace_action_sk_timer	= 2,
-+	skbtrace_action_common_max	= 99,
++	skbtrace_action_tcp_min		= 101,
++	skbtrace_action_tcp_congestion	= 101,
++	skbtrace_action_tcp_connection	= 102,
++	skbtrace_action_tcp_sendlimit	= 103,
++	skbtrace_action_tcp_active_conn	= 104,
++	skbtrace_action_tcp_rttm	= 105,
++	skbtrace_action_tcp_ca_state	= 106,
++	skbtrace_action_tcp_max		= 199,
 +};
 +
-+/* common skbtrace_block->flags */
-+/* miss_secondary - none secondary events or no enough memory to cache
-them */
-+enum {
-+	skbtrace_flags_reserved_min = 28,
-+	skbtrace_flags_miss_secondary = 28,
-+	skbtrace_flags_reserved_max = 31,
-+};
++/* TCP congestion event (101) */
 +
-+/* it is copied from <net/flow_keys.h>, except pad fields and packed */
-+struct skbtrace_flow_keys {
-+	__u32 src;
-+	__u32 dst;
-+	union {
-+		__u32 ports;
-+		__u16 port16[2];
-+	};
-+	__u32 ip_proto;
-+} __packed;
-+
-+struct skbtrace_skb_rps_info_blk {
-+	struct skbtrace_block blk;
-+	__u16 rx_queue;
-+	__u16 pad;
-+	__u32 rx_hash;
-+	__u32 cpu;
-+	__u32 ifindex;
-+	struct skbtrace_flow_keys keys;
-+} __packed;
-+
-+
-+/* socket timers */
 +/* flags */
 +enum {
-+	skbtrace_sk_timer_setup	= 0,
-+	skbtrace_sk_timer_reset	= 1,
-+	skbtrace_sk_timer_stop	= 2,
-+	skbtrace_sk_timer_last	= 3,
++	skbtrace_tcp_cong_cwr		= 0,
++	skbtrace_tcp_cong_loss		= 1,
++	skbtrace_tcp_cong_fastrtx	= 2,
++	skbtrace_tcp_cong_frto		= 3,
++	skbtrace_tcp_cong_frto_loss	= 4,
++	skbtrace_tcp_cong_leave		= 5,
 +};
 +
-+struct skbtrace_sk_timer_blk {
++struct skbtrace_tcp_cong_blk {
 +	struct skbtrace_block blk;
-+	__s32	proto;
-+	__s32	timeout;
++	__u32	rto;
++	__u32	cwnd;
++	__u32	sndnxt;
++	__u32	snduna;
 +} __packed;
 +
-+#endif
-diff --git a/include/net/sock.h b/include/net/sock.h
-index adb7da2..7a1d861 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -190,6 +190,8 @@ struct sock_common {
- };
-
- struct cg_proto;
-+struct skbtrace_context;
++/* TCP basic connection events */
++struct skbtrace_tcp_conn_blk {
++	struct skbtrace_block blk;
++	union {
++		struct {
++			struct sockaddr local;
++			struct sockaddr peer;
++		};
++		struct {
++			struct sockaddr_in local;
++			struct sockaddr_in peer;
++		} inet;
++		struct {
++			struct sockaddr_in6 local;
++			struct sockaddr_in6 peer;
++		} inet6;
++	} addr;
++} __packed;
 +
- /**
-   *	struct sock - network layer representation of sockets
-   *	@__sk_common: shared layout with inet_timewait_sock
-@@ -332,7 +334,12 @@ struct sock {
- 				sk_userlocks : 4,
- 				sk_protocol  : 8,
- 				sk_type      : 16;
-+#if defined(CONFIG_SKBTRACE) || defined(CONFIG_SKBTRACE_MODULE)
-+	unsigned int		sk_hit_skbtrace : 1,
-+				sk_skbtrace_filtered : 1;
-+#endif
- 	kmemcheck_bitfield_end(flags);
-+	unsigned int		sk_skbtrace_fid;
- 	int			sk_wmem_queued;
- 	gfp_t			sk_allocation;
- 	netdev_features_t	sk_route_caps;
-@@ -373,6 +380,9 @@ struct sock {
- 	__u32			sk_mark;
- 	u32			sk_classid;
- 	struct cg_proto		*sk_cgrp;
-+#if defined(CONFIG_SKBTRACE) || defined(CONFIG_SKBTRACE_MODULE)
-+	struct skbtrace_context *sk_skbtrace;
-+#endif
- 	void			(*sk_state_change)(struct sock *sk);
- 	void			(*sk_data_ready)(struct sock *sk, int bytes);
- 	void			(*sk_write_space)(struct sock *sk);
-@@ -842,6 +852,10 @@ struct module;
-  * transport -> network interface is defined by struct inet_proto
-  */
- struct proto {
-+#if defined(CONFIG_SKBTRACE) || defined(CONFIG_SKBTRACE_MODULE)
-+	int			(*filter_skb)(struct sock *sk,
-+					struct sk_buff *skb);
-+#endif
- 	void			(*close)(struct sock *sk,
- 					long timeout);
- 	int			(*connect)(struct sock *sk,
-diff --git a/include/trace/events/skbtrace.h
-b/include/trace/events/skbtrace.h
-new file mode 100644
-index 0000000..91567bf
---- /dev/null
-+++ b/include/trace/events/skbtrace.h
-@@ -0,0 +1,32 @@
-+/*
-+ *  skbtrace - sk_buff trace utilty
-+ *
-+ *	Events
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
-+ *
-+ * 2012 Li Yu <bingtian.ly@taobao.com>
-+ *
++/* TCP send limit event */
++enum {
++	skbtrace_tcp_sndlim_cwnd	= 0,
++	skbtrace_tcp_sndlim_swnd	= 1,
++	skbtrace_tcp_sndlim_nagle	= 2,
++	skbtrace_tcp_sndlim_tso		= 3,
++	skbtrace_tcp_sndlim_frag	= 4,	/* most likely ENOMEM errors */
++	skbtrace_tcp_sndlim_pushone	= 5,
++	skbtrace_tcp_sndlim_other	= 6,
++	skbtrace_tcp_sndlim_ok		= 7,
++};
++
++
++/* val member:
++ *    skbtrace_tcp_sndlim_other: the return value of tcp_transmit_skb()
++ *    skbtrace_tcp_sndlim_ok: total sent pkts
++ *    other cases: send limit occurs under MTU probe if 1, otherwise,
+it is 0
 + */
++struct skbtrace_tcp_sendlim_blk {
++	struct skbtrace_block blk;
++	__u32 val;
++	__u32 count;
++	struct timespec begin;
++	__u32	snd_ssthresh;
++	__u32	snd_cwnd;
++	__u32	snd_cwnd_cnt;
++	__u32	snd_wnd;
++} __packed;
 +
-+#if !defined(_TRACE_EVENTS_SKBTRACE_H)
-+#define _TRACE_EVENTS_SKBTRACE_H
++/* TCP active connections */
++/* Use skbtrace_tcp_conn_blk */
 +
-+#include <linux/tracepoint.h>
++/* TCP RTTM */
++struct skbtrace_tcp_rttm_blk {
++	struct skbtrace_block blk;
++	__u32 pad;
++	__u32 snd_una;
++	__u32 rtt_seq;
++	__u32 rtt;
++	__u32 rttvar;
++	__u32 srtt;
++	__u32 mdev;
++	__u32 mdev_max;
++} __packed;
 +
-+#include <trace/events/skbtrace_common.h>
++/* TCP CA state */
++struct skbtrace_tcp_ca_state_blk {
++	struct skbtrace_block blk;
++
++        __u32	cwnd;
++        __u32	rto;
++        __u32	snduna;
++        __u32	sndnxt;
++
++        __u32	snd_ssthresh;
++        __u32	snd_wnd;
++        __u32	rcv_wnd;
++        __u32	high_seq;
++
++        __u32	packets_out;
++        __u32	lost_out;
++        __u32	retrans_out;
++        __u32	sacked_out;
++
++        __u32	fackets_out;
++        __u32	prior_ssthresh;
++        __u32	undo_marker;
++        __u32	undo_retrans;
++
++        __u32	total_retrans;
++        __u32	reordering;
++        __u32	prior_cwnd;
++        __u32	mss_cache;
++
++} __packed;
++
++/* TCP timer flags */
++enum {
++	skbtrace_tcp_timer_rexmit = skbtrace_sk_timer_last + 1,
++	skbtrace_tcp_timer_probe,
++	skbtrace_tcp_timer_keepalive,
++	skbtrace_tcp_timer_delack,
++};
++
++/********************* icsk section *********************/
++
++/* skbtrace_block->action */
++enum {
++	skbtrace_action_icsk_min	= 201,
++	skbtrace_action_icsk_connection	= 201,
++	skbtrace_action_icsk_max	= 299,
++};
++
++/* Use skbtrace_tcp_active_conn */
++
++#endif
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 1f000ff..cb4d896 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -46,6 +46,7 @@
+
+ #include <linux/seq_file.h>
+ #include <linux/memcontrol.h>
 +#include <trace/events/skbtrace_ipv4.h>
-+
-+#endif
-diff --git a/include/trace/events/skbtrace_common.h
-b/include/trace/events/skbtrace_common.h
-new file mode 100644
-index 0000000..4352564
---- /dev/null
-+++ b/include/trace/events/skbtrace_common.h
-@@ -0,0 +1,41 @@
-+/*
-+ *  skbtrace - sk_buff trace utilty
-+ *
-+ *	Comon events
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
-+ *
-+ * 2012 Li Yu <bingtian.ly@taobao.com>
-+ *
-+ */
-+
-+#if !defined(_TRACE_EVENTS_SKBTRACE_COMMON_H)
-+#define _TRACE_EVENTS_SKBTRACE_COMMON_H
-+
-+#include <linux/tracepoint.h>
-+
-+struct sk_buff;
-+struct net_device;
-+struct timer_list;
-+
-+DECLARE_TRACE(skb_rps_info,
-+	TP_PROTO(struct sk_buff *skb, struct net_device *dev, int cpu),
-+	TP_ARGS(skb, dev, cpu));
-+
-+DECLARE_TRACE(sk_timer,
-+	TP_PROTO(void *sk, struct timer_list *timer, int action),
-+	TP_ARGS(sk, timer, action));
-+
-+#endif
-diff --git a/kernel/trace/Kconfig b/kernel/trace/Kconfig
-index 8c4c070..cc49b26 100644
---- a/kernel/trace/Kconfig
-+++ b/kernel/trace/Kconfig
-@@ -367,6 +367,14 @@ config BLK_DEV_IO_TRACE
 
- 	  If unsure, say N.
+ extern struct inet_hashinfo tcp_hashinfo;
 
-+config SKBTRACE
-+	tristate "skbtrace : flexible networking tracing"
-+	help
-+	  A blktrace like utility for networking subsystem, you can enable
-this feature
-+	  as a kernel module.
-+
-+	  If unsure, say N.
-+
- config KPROBE_EVENT
- 	depends on KPROBES
- 	depends on HAVE_REGS_AND_STACK_ACCESS_API
-diff --git a/net/core/Makefile b/net/core/Makefile
-index 674641b..6a80a85 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -18,6 +18,8 @@ obj-$(CONFIG_NETPOLL) += netpoll.o
- obj-$(CONFIG_NET_DMA) += user_dma.o
- obj-$(CONFIG_FIB_RULES) += fib_rules.o
- obj-$(CONFIG_TRACEPOINTS) += net-traces.o
-+obj-${CONFIG_SKBTRACE} += skbtrace.o
-+skbtrace-objs := skbtrace-core.o skbtrace-events-common.o
- obj-$(CONFIG_NET_DROP_MONITOR) += drop_monitor.o
- obj-$(CONFIG_NETWORK_PHY_TIMESTAMPING) += timestamping.o
- obj-$(CONFIG_NETPRIO_CGROUP) += netprio_cgroup.o
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 89e33a5..b363716 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -129,6 +129,8 @@
- #include <trace/events/napi.h>
- #include <trace/events/net.h>
- #include <trace/events/skb.h>
-+#include <trace/events/skbtrace_common.h>
-+#include <linux/skbtrace.h>
- #include <linux/pci.h>
- #include <linux/inetdevice.h>
- #include <linux/cpu_rmap.h>
-@@ -2813,6 +2815,7 @@ static int get_rps_cpu(struct net_device *dev,
-struct sk_buff *skb,
- 	}
-
- done:
-+	trace_skb_rps_info(skb, dev, cpu);
- 	return cpu;
+@@ -805,6 +806,7 @@ static inline void tcp_set_ca_state(struct sock *sk,
+const u8 ca_state)
+ 	if (icsk->icsk_ca_ops->set_state)
+ 		icsk->icsk_ca_ops->set_state(sk, ca_state);
+ 	icsk->icsk_ca_state = ca_state;
++	trace_tcp_ca_state(sk, ca_state);
  }
 
-diff --git a/net/core/net-traces.c b/net/core/net-traces.c
-index ba3c012..41e1766 100644
---- a/net/core/net-traces.c
-+++ b/net/core/net-traces.c
-@@ -21,6 +21,7 @@
- #include <linux/netlink.h>
- #include <linux/net_dropmon.h>
- #include <linux/slab.h>
-+#include <linux/skbtrace.h>
-
- #include <asm/unaligned.h>
- #include <asm/bitops.h>
-@@ -31,7 +32,30 @@
- #include <trace/events/napi.h>
- #include <trace/events/sock.h>
- #include <trace/events/udp.h>
-+#include <trace/events/skbtrace.h>
-
- EXPORT_TRACEPOINT_SYMBOL_GPL(kfree_skb);
-
- EXPORT_TRACEPOINT_SYMBOL_GPL(napi_poll);
+ static inline void tcp_ca_event(struct sock *sk, const enum
+tcp_ca_event event)
+diff --git a/include/trace/events/skbtrace_ipv4.h
+b/include/trace/events/skbtrace_ipv4.h
+new file mode 100644
+index 0000000..b82b81f
+--- /dev/null
++++ b/include/trace/events/skbtrace_ipv4.h
+@@ -0,0 +1,59 @@
++ /*
++ *  skbtrace - sk_buff trace utilty
++ *
++ *	The IPv4 related skbtrace events
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
++ *
++ * Thanks for Web10G project here, some sources reference to it.
++ *
++ * 2012 Li Yu <bingtian.ly@taobao.com>
++ *
++ */
 +
-+#if HAVE_SKBTRACE
++#if !defined(_TRACE_EVENTS_SKBTRACE_IPV4_H)
++#define _TRACE_EVENTS_SKBTRACE_IPV4_H
 +
-+#define NEW_SKBTRACE_TP(name) \
-+	DEFINE_TRACE(name); \
-+	EXPORT_TRACEPOINT_SYMBOL_GPL(name);
++#include <linux/tracepoint.h>
 +
-+NEW_SKBTRACE_TP(skb_rps_info);
-+NEW_SKBTRACE_TP(sk_timer);
++DECLARE_TRACE(icsk_connection,
++	TP_PROTO(void *sk, __u32 state),
++	TP_ARGS(sk, state));
 +
-+NEW_SKBTRACE_TP(tcp_congestion);
-+NEW_SKBTRACE_TP(tcp_connection);
-+NEW_SKBTRACE_TP(icsk_connection);
-+NEW_SKBTRACE_TP(tcp_sendlimit);
-+NEW_SKBTRACE_TP(tcp_active_conn);
-+NEW_SKBTRACE_TP(tcp_rttm);
-+NEW_SKBTRACE_TP(tcp_ca_state);
++DECLARE_TRACE(tcp_congestion,
++	TP_PROTO(void *sk, int reason),
++	TP_ARGS(sk, reason));
 +
-+unsigned long skbtrace_session;
-+EXPORT_SYMBOL(skbtrace_session);
++DECLARE_TRACE(tcp_connection,
++	TP_PROTO(void *sk, __u32 state),
++	TP_ARGS(sk, state));
++
++DECLARE_TRACE(tcp_sendlimit,
++	TP_PROTO(void *sk, int reason, int val),
++	TP_ARGS(sk, reason, val));
++
++DECLARE_TRACE(tcp_active_conn,
++	TP_PROTO(void *sk),
++	TP_ARGS(sk));
++
++DECLARE_TRACE(tcp_rttm,
++	TP_PROTO(void *sk, __u32 seq_rtt),
++	TP_ARGS(sk, seq_rtt));
++
++DECLARE_TRACE(tcp_ca_state,
++	TP_PROTO(void *sk, __u8 state),
++	TP_ARGS(sk, state));
 +
 +#endif
-diff --git a/net/core/skbtrace-core.c b/net/core/skbtrace-core.c
-new file mode 100644
-index 0000000..2c2ac3e
---- /dev/null
-+++ b/net/core/skbtrace-core.c
-@@ -0,0 +1,1226 @@
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 5a19aeb..24dba85 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -426,6 +426,13 @@ config INET_UDP_DIAG
+ 	  Support for UDP socket monitoring interface used by the ss tool.
+ 	  If unsure, say Y.
+
++config SKBTRACE_IPV4
++	tristate "IPv4 protocol suite support for skbtrace"
++	depends on SKBTRACE
++	default m
++	---help---
++	  Support for IPv4 part of skbtrace.
++
+ menuconfig TCP_CONG_ADVANCED
+ 	bool "TCP: advanced congestion control"
+ 	---help---
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index 15ca63e..0c7b5c3 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -51,6 +51,7 @@ obj-$(CONFIG_TCP_CONG_YEAH) += tcp_yeah.o
+ obj-$(CONFIG_TCP_CONG_ILLINOIS) += tcp_illinois.o
+ obj-$(CONFIG_MEMCG_KMEM) += tcp_memcontrol.o
+ obj-$(CONFIG_NETLABEL) += cipso_ipv4.o
++obj-${CONFIG_SKBTRACE_IPV4} += skbtrace-ipv4.o
+
+ obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
+ 		      xfrm4_output.o
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index fe4582c..6781a12 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -119,6 +119,7 @@
+ #include <linux/mroute.h>
+ #endif
+
++#include <linux/skbtrace.h>
+
+ /* The inetsw table contains everything that inet_create needs to
+  * build a new socket.
+@@ -713,23 +714,14 @@ do_err:
+ }
+ EXPORT_SYMBOL(inet_accept);
+
+-
+-/*
+- *	This does both peername and sockname.
+- */
+-int inet_getname(struct socket *sock, struct sockaddr *uaddr,
++int inet_sock_getname(struct sock *sk, struct sockaddr *uaddr,
+ 			int *uaddr_len, int peer)
+ {
+-	struct sock *sk		= sock->sk;
+ 	struct inet_sock *inet	= inet_sk(sk);
+ 	DECLARE_SOCKADDR(struct sockaddr_in *, sin, uaddr);
+
+ 	sin->sin_family = AF_INET;
+ 	if (peer) {
+-		if (!inet->inet_dport ||
+-		    (((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_SYN_SENT)) &&
+-		     peer == 1))
+-			return -ENOTCONN;
+ 		sin->sin_port = inet->inet_dport;
+ 		sin->sin_addr.s_addr = inet->inet_daddr;
+ 	} else {
+@@ -740,9 +732,31 @@ int inet_getname(struct socket *sock, struct
+sockaddr *uaddr,
+ 		sin->sin_addr.s_addr = addr;
+ 	}
+ 	memset(sin->sin_zero, 0, sizeof(sin->sin_zero));
+-	*uaddr_len = sizeof(*sin);
++	if (uaddr_len)
++		*uaddr_len = sizeof(*sin);
+ 	return 0;
+ }
++EXPORT_SYMBOL(inet_sock_getname);
++
 +/*
-+ *  skbtrace - sk_buff trace utilty
++ *	This does both peername and sockname.
++ */
++int inet_getname(struct socket *sock, struct sockaddr *uaddr,
++			int *uaddr_len, int peer)
++{
++	struct sock *sk		= sock->sk;
++	struct inet_sock *inet	= inet_sk(sk);
++
++	if (peer) {
++		if (!inet->inet_dport)
++			return -ENOTCONN;
++		if (((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_SYN_SENT)) &&
++		     peer == 1)
++			return -ENOTCONN;
++	}
++
++	return inet_sock_getname(sk, uaddr, uaddr_len, peer);
++}
+ EXPORT_SYMBOL(inet_getname);
+
+ int inet_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr
+*msg,
+diff --git a/net/ipv4/inet_connection_sock.c
+b/net/ipv4/inet_connection_sock.c
+index 7f75f21..4e1c45f 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -15,6 +15,9 @@
+
+ #include <linux/module.h>
+ #include <linux/jhash.h>
++#include <linux/skbtrace.h>
++#include <trace/events/skbtrace_common.h>
++#include <trace/events/skbtrace_ipv4.h>
+
+ #include <net/inet_connection_sock.h>
+ #include <net/inet_hashtables.h>
+@@ -335,9 +338,16 @@ void inet_csk_init_xmit_timers(struct sock *sk,
+
+ 	setup_timer(&icsk->icsk_retransmit_timer, retransmit_handler,
+ 			(unsigned long)sk);
++	trace_sk_timer(sk, &icsk->icsk_retransmit_timer,
++						skbtrace_sk_timer_setup);
++
+ 	setup_timer(&icsk->icsk_delack_timer, delack_handler,
+ 			(unsigned long)sk);
++	trace_sk_timer(sk, &icsk->icsk_delack_timer, skbtrace_sk_timer_setup);
++
+ 	setup_timer(&sk->sk_timer, keepalive_handler, (unsigned long)sk);
++	trace_sk_timer(sk, &sk->sk_timer, skbtrace_sk_timer_setup);
++
+ 	icsk->icsk_pending = icsk->icsk_ack.pending = 0;
+ }
+ EXPORT_SYMBOL(inet_csk_init_xmit_timers);
+@@ -704,6 +714,7 @@ int inet_csk_listen_start(struct sock *sk, const int
+nr_table_entries)
+ 		sk_dst_reset(sk);
+ 		sk->sk_prot->hash(sk);
+
++		trace_icsk_connection(sk, TCP_LISTEN);
+ 		return 0;
+ 	}
+
+diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
+index 2784db3..c34dbbc 100644
+--- a/net/ipv4/inet_timewait_sock.c
++++ b/net/ipv4/inet_timewait_sock.c
+@@ -12,6 +12,8 @@
+ #include <linux/kmemcheck.h>
+ #include <linux/slab.h>
+ #include <linux/module.h>
++#include <linux/skbtrace.h>
++#include <trace/events/skbtrace_ipv4.h>
+ #include <net/inet_hashtables.h>
+ #include <net/inet_timewait_sock.h>
+ #include <net/ip.h>
+@@ -106,6 +108,7 @@ static noinline void inet_twsk_free(struct
+inet_timewait_sock *tw)
+ #ifdef SOCK_REFCNT_DEBUG
+ 	pr_debug("%s timewait_sock %p released\n", tw->tw_prot->name, tw);
+ #endif
++	skbtrace_context_destroy(&tw->tw_skbtrace);
+ 	release_net(twsk_net(tw));
+ 	kmem_cache_free(tw->tw_prot->twsk_prot->twsk_slab, tw);
+ 	module_put(owner);
+@@ -196,6 +199,10 @@ struct inet_timewait_sock *inet_twsk_alloc(const
+struct sock *sk, const int stat
+ 		tw->tw_ipv6only	    = 0;
+ 		tw->tw_transparent  = inet->transparent;
+ 		tw->tw_prot	    = sk->sk_prot_creator;
++		tw->tw_skbtrace_fid = 0;
++#if HAVE_SKBTRACE
++		tw->tw_skbtrace     = NULL;
++#endif
+ 		twsk_net_set(tw, hold_net(sock_net(sk)));
+ 		/*
+ 		 * Because we use RCU lookups, we should not set tw_refcnt
+@@ -205,6 +212,7 @@ struct inet_timewait_sock *inet_twsk_alloc(const
+struct sock *sk, const int stat
+ 		atomic_set(&tw->tw_refcnt, 0);
+ 		inet_twsk_dead_node_init(tw);
+ 		__module_get(tw->tw_prot->owner);
++		trace_tcp_connection(tw, state + TCP_MAX_STATES);
+ 	}
+
+ 	return tw;
+diff --git a/net/ipv4/skbtrace-ipv4.c b/net/ipv4/skbtrace-ipv4.c
+new file mode 100644
+index 0000000..28e3532
+--- /dev/null
++++ b/net/ipv4/skbtrace-ipv4.c
+@@ -0,0 +1,797 @@
++/*
++ *  skbtrace - sk_buff trace for TCP/IPv4 protocol suite support
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License as published by
@@ -1001,1374 +603,1162 @@ index 0000000..2c2ac3e
 +#include <linux/slab.h>
 +#include <linux/ctype.h>
 +#include <linux/jhash.h>
++#include <linux/inet.h>
 +
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+#include <linux/filter.h>
 +#include <linux/skbtrace.h>
-+#include <net/sock.h>
++#include <linux/tcp.h>
++#include <net/inet_common.h>
++#include <net/inet_connection_sock.h>
++#include <net/tcp.h>
 +
-+#define SKBTRACE_VERSION	"1"
-+#define SKBTRACE_DIR		"skbtrace"
++static int mask_options_setup(struct skbtrace_tracepoint *t,
++				char *names[], int masks[], int nr_masks,
++						char *option_string);
++static char* mask_options_desc(struct skbtrace_tracepoint *t,
++				char *names[], int masks[], int nr_masks);
 +
-+static unsigned long skbtrace_dropped[NR_CHANNELS][NR_CPUS];
-+/* +1 for quick indexing trick in __skbtrace_probe() */
-+static struct rchan *skbtrace_channels[NR_CHANNELS + 1];
-+
-+int sysctl_skbtrace_filter_default = 0;
-+EXPORT_SYMBOL_GPL(sysctl_skbtrace_filter_default);
-+static struct sk_buff **sock_filter_skb;
-+static struct sock_fprog skb_filter_fprog;
-+static struct sock_fprog sock_filter_fprog;
-+struct sk_filter *skbtrace_skb_filter;
-+EXPORT_SYMBOL_GPL(skbtrace_skb_filter);
-+
-+u32 skbtrace_sock_filter_id;
-+EXPORT_SYMBOL_GPL(skbtrace_sock_filter_id);
-+struct sk_filter *skbtrace_sock_filter;
-+EXPORT_SYMBOL_GPL(skbtrace_sock_filter);
-+
-+static struct dentry	*skbtrace_dentry;
-+static struct dentry	*enabled_control;
-+static struct dentry	*dropped_control;
-+static struct dentry	*version_control;
-+static struct dentry	*subbuf_nr_control;
-+static struct dentry	*subbuf_size_control;
-+static struct dentry	*filters_control;
-+static struct dentry	*sock_filters_control;
-+
-+static const struct file_operations	enabled_fops;
-+static const struct file_operations	dropped_fops;
-+static const struct file_operations	version_fops;
-+static const struct file_operations	subbuf_nr_fops;
-+static const struct file_operations	subbuf_size_fops;
-+static const struct file_operations	filters_fops;
-+static const struct file_operations	sock_filters_fops;
-+
-+static int nr_skbtrace_enabled_tp;
-+static int subbuf_nr = SKBTRACE_DEF_SUBBUF_NR;
-+static int subbuf_size = SKBTRACE_DEF_SUBBUF_SIZE;
-+
-+static bool should_load_proto;
-+
-+struct static_key skbtrace_filters_enabled = STATIC_KEY_INIT_FALSE;
-+EXPORT_SYMBOL_GPL(skbtrace_filters_enabled);
-+
-+atomic64_t skbtrace_event_seq = ATOMIC64_INIT(0);
-+EXPORT_SYMBOL_GPL(skbtrace_event_seq);
-+
-+/* protect agaist af_tp_list and skbtrace_channels */
-+static struct mutex skbtrace_lock;
-+static struct skbtrace_tracepoint *af_tp_list[AF_MAX];
-+struct skbtrace_ops* skbtrace_ops[AF_MAX];
-+
-+static int create_controls(void);
-+static void remove_controls(void);
-+static int  create_channels(void);
-+static void flush_channels(void);
-+static void destroy_channels(void);
-+static ssize_t sk_filter_read(struct sock_fprog *fprog, char __user
-*buffer,
-+							    size_t count);
-+static ssize_t sk_filter_write(struct sock_fprog *sk_fprog,
-+				struct sk_filter **sk_filter,
-+				const char __user *buffer, size_t count);
-+static void reset_filter(struct sock_fprog *fprog, struct sk_filter
-**filter);
-+static void skbtrace_filters_clean(void);
-+
-+struct skbtrace_ops* skbtrace_ops_get(int af)
-+{
-+	return skbtrace_ops[af];
-+}
-+EXPORT_SYMBOL_GPL(skbtrace_ops_get);
-+
-+static void skbtrace_proto_load(void)
-+{
-+	int af;
-+
-+	if (!should_load_proto)
-+		return;
-+
-+	should_load_proto = false;
-+
-+	for (af = AF_UNSPEC; af < AF_MAX; af++) {
-+		/* load proto-specific events */
-+		if (!af_tp_list[af])
-+			request_module("skbtrace-af-%d", af);
-+	}
-+}
-+
-+void __skbtrace_block_probe(struct skbtrace_block *blk)
-+{
-+	unsigned int chan_id;
-+	struct rchan *rchan;
-+
-+	chan_id = (!!in_irq()) << 1;
-+	chan_id |= !!in_softirq();	/* make sparse happy */
-+	rchan = skbtrace_channels[chan_id];
-+
-+	if (unlikely(chan_id >= HW))
-+		relay_write(rchan, blk, blk->len);
-+	else {
-+		local_bh_disable();
-+		__relay_write(rchan, blk, blk->len);
-+		local_bh_enable();
-+	}
-+	blk->action = skbtrace_action_invalid;
-+}
-+
-+void __skbtrace_do_probe(struct skbtrace_tracepoint *tp,
-+				struct skbtrace_context *ctx,
-+				struct skbtrace_block *blk)
-+{
-+	int i;
-+	char *sec_blk;
-+	struct secondary_buffer *buf;
-+
-+	if (ctx)
-+		buf = secondary_table_lookup(&ctx->sec_table, tp);
-+	else
-+		buf = &tp->sec_buffer;
-+
-+	if (!buf) {
-+		if (tp->nr_secondary)
-+			blk->flags |= 1<<skbtrace_flags_miss_secondary;
-+		goto quit;
-+	}
-+
-+	spin_lock_bh(&buf->lock);
-+	for (i = 0; i < buf->count; i++) {
-+		if (--buf->offset < 0)
-+			buf->offset = SECONDARY_BUFFER_COUNTS - 1;
-+		sec_blk = &buf->slots[buf->offset * SECONDARY_BUFFER_UNIT];
-+		__skbtrace_block_probe((struct skbtrace_block*)sec_blk);
-+	}
-+	secondary_buffer_reset(buf);
-+	spin_unlock_bh(&buf->lock);
-+
-+quit:
-+	__skbtrace_block_probe(blk);
-+}
-+
-+void __skbtrace_probe(struct skbtrace_tracepoint *tp,
-+				struct skbtrace_context *ctx,
-+				struct skbtrace_block *blk)
-+{
-+	if (!tp)
-+		return;
-+	if (!tp->primary)
-+		__skbtrace_do_probe(tp, ctx, blk);
-+}
-+EXPORT_SYMBOL_GPL(__skbtrace_probe);
-+
-+static void __skbtrace_setup_tracepoints(struct skbtrace_tracepoint
-*tp_list)
-+{
-+	struct skbtrace_tracepoint *tp;
-+
-+	tp = tp_list;
-+	while (tp && tp->trace_name) {
-+		secondary_buffer_init(&tp->sec_buffer, tp);
-+		tp->primary = NULL;
-+		tp->enabled = 0;
-+		tp++;
-+	}
-+}
-+
-+static int __skbtrace_register_tracepoints(int af,
-+                                struct skbtrace_tracepoint *tp_list)
-+{
-+	int ret = 0;
-+
-+	if (af_tp_list[af])
-+		ret = -EEXIST;
-+
-+	if (tp_list) {
-+		__skbtrace_setup_tracepoints(tp_list);
-+		if (tp_list[0].trace_name)
-+			af_tp_list[af] = tp_list;
-+		else
-+			ret = -EINVAL;
-+	} else
-+		af_tp_list[af] = NULL;
-+
-+	return ret;
-+}
-+
-+static void __skbtrace_unregister_tracepoints(int af)
-+{
-+	struct skbtrace_tracepoint *tp;
-+
-+	tp = af_tp_list[af];
-+	while (tp && tp->trace_name) {
-+		if (tp->enabled) {
-+			tp->enabled = 0;
-+			--nr_skbtrace_enabled_tp;
-+			tracepoint_probe_unregister(tp->trace_name,
-+							tp->probe, tp);
-+			secondary_buffer_put(&tp->sec_buffer);
-+		}
-+		tp++;
-+	}
-+	af_tp_list[af] = NULL;
-+}
-+
-+static inline int __skbtrace_register_ops(int af, struct skbtrace_ops *ops)
-+{
-+	if (skbtrace_ops[af])
-+		return -EEXIST;
-+	skbtrace_ops[af] = ops;
-+	return 0;
-+}
-+
-+static inline void __skbtrace_unregister_ops(int af)
-+{
-+	skbtrace_ops[af] = NULL;
-+}
-+
-+int skbtrace_register_proto(int af,
-+			struct skbtrace_tracepoint *tp_list,
-+			struct skbtrace_ops *ops)
-+{
-+	int ret;
-+
-+	if (af < 0 || af >= AF_MAX)
-+		return -EINVAL;
-+
-+	mutex_lock(&skbtrace_lock);
-+	ret = __skbtrace_register_tracepoints(af, tp_list);
-+	if (!ret) {
-+		ret = __skbtrace_register_ops(af, ops);
-+		if (ret)
-+			__skbtrace_unregister_tracepoints(af);
-+	}
-+	mutex_unlock(&skbtrace_lock);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(skbtrace_register_proto);
-+
-+void skbtrace_unregister_proto(int af)
-+{
-+	if (af < 0 || af >= AF_MAX)
-+		return;
-+
-+	mutex_lock(&skbtrace_lock);
-+	__skbtrace_unregister_tracepoints(af);
-+	__skbtrace_unregister_ops(af);
-+	mutex_unlock(&skbtrace_lock);
-+
-+	flush_channels();
-+	should_load_proto = true;
-+}
-+EXPORT_SYMBOL_GPL(skbtrace_unregister_proto);
-+
-+void skbtrace_context_setup(struct skbtrace_context *ctx,
-+				struct skbtrace_ops *ops)
-+{
-+	ctx->ops = ops;
-+	ctx->session = skbtrace_session;
-+	secondary_table_init(&ctx->sec_table);
-+}
-+EXPORT_SYMBOL(skbtrace_context_setup);
-+
-+struct skbtrace_context *skbtrace_context_get(struct sock *sk)
++static struct skbtrace_context *skbtrace_context_twsk_get(
++				struct inet_timewait_sock *tw)
 +{
 +	struct skbtrace_ops *ops;
 +	struct skbtrace_context *ctx;
 +
-+	ops = skbtrace_ops_get(sk->sk_family);
++	ops = skbtrace_ops_get(tw->tw_family);
 +	if (!ops)
 +		return NULL;
 +	local_bh_disable();
 +
-+	if (sk->sk_skbtrace &&
-+			(skbtrace_session != sk->sk_skbtrace->session))
-+		skbtrace_context_destroy(&sk->sk_skbtrace);
++	if (tw->tw_skbtrace &&
++			(skbtrace_session != tw->tw_skbtrace->session)) {
++		skbtrace_context_destroy(&tw->tw_skbtrace);
++	}
 +
-+	if (!sk->sk_skbtrace) {
++	if (!tw->tw_skbtrace) {
 +		ctx = kzalloc(sizeof(struct skbtrace_context), GFP_ATOMIC);
 +		if (likely(ctx)) {
 +			skbtrace_context_setup(ctx, ops);
-+			sk->sk_skbtrace = ctx;
++			tw->tw_skbtrace = ctx;
 +		}
 +	}
-+
 +	local_bh_enable();
-+	return sk->sk_skbtrace;
++	return tw->tw_skbtrace;
 +}
-+EXPORT_SYMBOL(skbtrace_context_get);
++EXPORT_SYMBOL(skbtrace_context_twsk_get);
 +
-+static int subbuf_start_handler(struct rchan_buf *buf,
-+				void *subbuf,
-+				void *prev_subbuf,
-+				size_t prev_padding)
-+{
-+	if (relay_buf_full(buf)) {
-+		long trace, cpu;
-+
-+		trace = (long)buf->chan->private_data;
-+		cpu = buf->cpu;
-+		skbtrace_dropped[trace][cpu]++;
-+		return 0;
-+	}
-+	return 1;
-+}
-+
-+static struct dentry *create_buf_file_handler(const char *filename,
-+					      struct dentry *parent,
-+					      umode_t mode,
-+					      struct rchan_buf *buf,
-+					      int *is_global)
-+{
-+	return debugfs_create_file(filename, mode, parent, buf,
-+				       &relay_file_operations);
-+}
-+
-+static int remove_buf_file_handler(struct dentry *dentry)
-+{
-+	debugfs_remove(dentry);
-+	return 0;
-+}
-+
-+static struct rchan_callbacks relayfs_callbacks = {
-+	.subbuf_start = subbuf_start_handler,
-+	.create_buf_file = create_buf_file_handler,
-+	.remove_buf_file = remove_buf_file_handler,
++static char* tcp_cong_options[] = {
++	"cwr",
++	"loss",
++	"fastrtx",
++	"frto",
++	"frto-loss",
++	"leave",
 +};
 +
-+/* caller must hold skbtrace_lock */
-+static int create_channels(void)
++static int tcp_cong_masks[] = {
++	skbtrace_tcp_cong_cwr,
++	skbtrace_tcp_cong_loss,
++	skbtrace_tcp_cong_fastrtx,
++	skbtrace_tcp_cong_frto,
++	skbtrace_tcp_cong_frto_loss,
++	skbtrace_tcp_cong_leave,
++};
++
++static int tcp_cong_setup_options(struct skbtrace_tracepoint *t,
++							char *options)
 +{
-+	unsigned long i, created;
-+	const char *skbtrace_names[NR_CHANNELS] = {    "trace.syscall.cpu",
-+							"trace.softirq.cpu",
-+							"trace.hardirq.cpu" };
-+	created = 0;
-+	for (i = 0; i < NR_CHANNELS; i++) {
-+		if (skbtrace_channels[i])
-+			continue;
-+		skbtrace_channels[i] = relay_open(skbtrace_names[i],
-+			skbtrace_dentry, subbuf_size, subbuf_nr,
-+				&relayfs_callbacks, (void *)i);
-+		if (!skbtrace_channels[i]) {
-+			destroy_channels();
-+			return -ENOMEM;
++	return mask_options_setup(t,
++			tcp_cong_options,
++			tcp_cong_masks,
++			sizeof(tcp_cong_masks)/sizeof(int),
++			options);
++}
++
++static char *tcp_cong_desc(struct skbtrace_tracepoint *t)
++{
++	return mask_options_desc(t,
++			tcp_cong_options,
++			tcp_cong_masks,
++			sizeof(tcp_cong_masks)/sizeof(int));
++}
++
++static void skbtrace_tcp_congestion(struct skbtrace_tracepoint *t,
++					struct sock *sk, int reason)
++SKBTRACE_SOCK_EVENT_BEGIN
++	struct skbtrace_tcp_cong_blk blk, *b;
++	struct tcp_sock *tp;
++	struct skbtrace_context *ctx;
++	unsigned long mask = (unsigned long)t->private;
++
++	if (mask & (1<<reason))
++		return;
++
++	tp = tcp_sk(sk);
++	ctx = skbtrace_context_get(sk);
++	b = skbtrace_block_get(t, ctx, &blk);
++	INIT_SKBTRACE_BLOCK(&b->blk, tp,
++			skbtrace_action_tcp_congestion,
++			1 << reason,
++			sizeof(*b));
++	b->cwnd = tp->snd_cwnd * tp->mss_cache;
++	b->rto = inet_csk(sk)->icsk_rto;
++	b->snduna = tp->snd_una;
++	b->sndnxt = tp->snd_nxt;
++	skbtrace_probe(t, ctx, &b->blk);
++SKBTRACE_SOCK_EVENT_END
++
++static void skbtrace_tcp_connection(struct skbtrace_tracepoint *t,
++							void *ptr, u32 state)
++{
++	struct sock *sk = ptr;
++	struct inet_timewait_sock *tw = inet_twsk(ptr);
++	struct skbtrace_context *ctx;
++
++	switch (state) {
++	case TCP_TIME_WAIT + TCP_MAX_STATES:
++	case TCP_FIN_WAIT2 + TCP_MAX_STATES:
++		{
++			struct skbtrace_tcp_conn_blk blk, *b;
++			struct skbtrace_context *ctx;
++
++			if (skbtrace_bypass_twsk(tw))
++				return;
++
++			ctx = skbtrace_context_twsk_get(tw);
++			b = skbtrace_block_get(t, ctx, &blk);
++			state -= TCP_MAX_STATES;
++			INIT_SKBTRACE_BLOCK(&b->blk, tw,
++				skbtrace_action_tcp_connection,
++				1 << state,
++				sizeof(blk));
++			b->addr.inet.local.sin_family = AF_INET;
++			b->addr.inet.local.sin_port = tw->tw_sport;
++			b->addr.inet.local.sin_addr.s_addr = tw->tw_rcv_saddr;
++			b->addr.inet.peer.sin_family = AF_INET;
++			b->addr.inet.peer.sin_port = tw->tw_dport;
++			b->addr.inet.peer.sin_addr.s_addr = tw->tw_daddr;
++			skbtrace_probe(t, ctx, &b->blk);
++			break;
 +		}
-+		created = 1;
-+	}
-+	skbtrace_channels[HW + 1] = skbtrace_channels[HW];
++	case TCP_ESTABLISHED:
++	case TCP_FIN_WAIT1:
++	case TCP_CLOSE:
++	case TCP_CLOSE_WAIT:
++	case TCP_LAST_ACK:
++	case TCP_SYN_SENT:
++	case TCP_SYN_RECV:
++	case TCP_CLOSING:
++		{
++			struct skbtrace_tcp_conn_blk blk, *b;
++			struct skbtrace_ops *ops;
 +
-+	if (created)
-+		__module_get(THIS_MODULE);
-+	return 0;
-+}
++			if (skbtrace_bypass_sock(sk))
++				return;
 +
-+static void flush_channels(void)
-+{
-+	int i;
-+	for (i = 0; i < NR_CHANNELS; i++) {
-+		if (skbtrace_channels[i])
-+			relay_flush(skbtrace_channels[i]);
-+	}
-+}
++			if (TCP_CLOSE == sk->sk_state &&
++				SHUTDOWN_MASK == sk->sk_shutdown)
++				/* for active TCP connections, we will call
++				 * tcp_set_state(sk, TCP_CLOSE) two times,
++				 * this hack help skip second one */
++				return;
 +
-+/* caller must hold skbtrace_lock */
-+static void destroy_channels(void)
-+{
-+	int i, removed;
++			ops = skbtrace_ops_get(sk->sk_family);
++			if (!ops)
++				return;
 +
-+	removed = 0;
-+	for (i = 0; i < NR_CHANNELS; i++) {
-+		if (skbtrace_channels[i]) {
-+			relay_flush(skbtrace_channels[i]);
-+			relay_close(skbtrace_channels[i]);
-+			skbtrace_channels[i] = NULL;
-+			removed = 1;
-+		}
-+	}
-+	skbtrace_channels[HW + 1] = NULL;
-+
-+	if (removed)
-+		module_put(THIS_MODULE);
-+}
-+
-+static void remove_controls(void)
-+{
-+#define REMOVE_DEBUGFS_FILE(name) \
-+	do {\
-+		if (name##_control) \
-+			debugfs_remove(name##_control); \
-+	} while(0);
-+
-+	REMOVE_DEBUGFS_FILE(enabled)
-+	REMOVE_DEBUGFS_FILE(dropped)
-+	REMOVE_DEBUGFS_FILE(version)
-+	REMOVE_DEBUGFS_FILE(subbuf_nr)
-+	REMOVE_DEBUGFS_FILE(subbuf_size)
-+	REMOVE_DEBUGFS_FILE(filters)
-+	REMOVE_DEBUGFS_FILE(sock_filters)
-+}
-+
-+static int create_controls(void)
-+{
-+#define CREATE_DEBUGFS_FILE(name)\
-+	do {\
-+		name##_control = debugfs_create_file(#name, 0,\
-+				skbtrace_dentry, NULL, &name##_fops);\
-+		if (name##_control)\
-+			break;\
-+		pr_err("skbtrace: couldn't create relayfs file '" #name "'\n");\
-+		goto fail;\
-+	} while (0);
-+
-+	CREATE_DEBUGFS_FILE(enabled)
-+	CREATE_DEBUGFS_FILE(dropped)
-+	CREATE_DEBUGFS_FILE(version)
-+	CREATE_DEBUGFS_FILE(subbuf_nr)
-+	CREATE_DEBUGFS_FILE(subbuf_size)
-+	CREATE_DEBUGFS_FILE(filters)
-+	CREATE_DEBUGFS_FILE(sock_filters)
-+
-+#undef CREATE_DEBUGFS_FILE
-+	return 0;
-+fail:
-+	remove_controls();
-+	return -1;
-+}
-+
-+static char *skbtrace_tracepoint_default_desc(struct
-skbtrace_tracepoint *t)
-+{
-+	char *desc;
-+	int n;
-+
-+	n = strlen(t->trace_name) + 64;
-+	desc = kmalloc(n, GFP_KERNEL);
-+	if (!desc)
-+		return NULL;
-+
-+	snprintf(desc, n, "%s enabled:%d\n", t->trace_name, !!t->enabled);
-+	return desc;
-+}
-+
-+static char *skbtrace_tracepoint_desc(struct skbtrace_tracepoint *tp)
-+{
-+	if (tp->desc)
-+		return tp->desc(tp);
-+	return skbtrace_tracepoint_default_desc(tp);
-+}
-+
-+static ssize_t enabled_read(struct file *filp, char __user *buffer,
-+			    size_t count, loff_t *ppos)
-+{
-+	size_t ret, offset, len;
-+	struct skbtrace_tracepoint *tp;
-+	int af;
-+	char *desc = NULL;
-+
-+	skbtrace_proto_load();
-+
-+	ret = offset = 0;
-+	mutex_lock(&skbtrace_lock);
-+	for (af = AF_UNSPEC; af < AF_MAX; af++) {
-+		tp = af_tp_list[af];
-+		while (tp && tp->trace_name) {
-+			kfree(desc);
-+			desc = skbtrace_tracepoint_desc(tp);
-+			if (!desc)
-+				return -ENOMEM;
-+			len = strlen(desc);
-+			offset += len;
-+			if (offset <= *ppos) {
-+				++tp;
-+				continue;
-+			}
-+			if (count < len) {
-+				ret = -EINVAL;
-+				goto unlock;
-+			}
-+			if (copy_to_user(buffer, desc, len)) {
-+				ret = -EFAULT;
-+				goto unlock;
-+			}
-+			*ppos += len;
-+			ret = len;
-+			goto unlock;
++			ctx = skbtrace_context_get(sk);
++			b = skbtrace_block_get(t, ctx, &blk);
++			INIT_SKBTRACE_BLOCK(&b->blk, ptr,
++				skbtrace_action_tcp_connection,
++				1 << state,
++				sizeof(blk));
++			ops->getname(sk, &b->addr.local, NULL, 0);
++			if (TCP_LISTEN != state)
++				ops->getname(sk, &b->addr.peer, NULL, 1);
++			skbtrace_probe(t, ctx, &b->blk);
++			break;
 +		}
 +	}
-+unlock:
-+	kfree(desc);
-+	mutex_unlock(&skbtrace_lock);
-+
-+	return ret;
 +}
 +
-+static struct skbtrace_tracepoint *skbtrace_lookup_tp(char *name)
-+{
-+	int af;
-+	struct skbtrace_tracepoint *tp;
-+
-+	for (af = AF_UNSPEC; af < AF_MAX; af++) {
-+		tp = af_tp_list[af];
-+		while (tp && tp->trace_name) {
-+			if (!strcmp(name, tp->trace_name))
-+				return tp;
-+			++tp;
-+		}
-+	}
-+
-+	return NULL;
-+}
-+
-+struct skbtrace_options_context {
-+	char *name;
-+	char *options;
-+	struct skbtrace_tracepoint *primary;
-+};
-+
-+struct option_handler {
-+	char *key;
-+	int (*handler)(struct skbtrace_options_context *ctx, char *val);
-+};
-+
-+static int handle_primary_option(struct skbtrace_options_context *ctx,
-char *val)
-+{
-+	ctx->primary = skbtrace_lookup_tp(val);
-+	if (!ctx->primary)
-+		return -EINVAL;
-+	return 0;
-+}
-+
-+static struct option_handler common_handlers[] = {
-+	{
-+		.key = "primary=",
-+		.handler = handle_primary_option,
-+	},
-+	{
-+		.key = NULL,
-+	},
-+};
-+
-+static int handle_options(char *event_spec, struct option_handler
-*handlers,
-+					struct skbtrace_options_context *ctx)
-+{
-+	char *option;
-+
-+	memset(ctx, 0, sizeof(*ctx));
-+	ctx->options = strchr(event_spec, ',');
-+	if (!ctx->options)
-+		return 0;
-+	*(ctx->options) = '\x0';
-+	option = ++(ctx->options);
-+
-+	while (option && *option) {
-+		char *end;
-+		struct option_handler *h;
-+
-+		end = strchr(option, ',');
-+		if (end)
-+			*end = '\x0';
-+		h = &handlers[0];
-+		while (h->key) {
-+			if (strstr(option, h->key) == option) {
-+				int ret;
-+				char *val;
-+
-+				val = option + strlen(h->key);
-+				ret = h->handler(ctx, val);
-+				if (!ret)
-+					break;
-+				else
-+					return -EINVAL;
-+			}
-+			h++;
-+		}
-+		if (!h->key) {
-+			if (end) {
-+				*end = ',';
-+				option = end + 1;
-+			} else
-+				break;
-+		} else {
-+			if (end) {
-+				memmove(option, end + 1, strlen(end + 1) + 1);
-+			} else
-+				*option = '\x0';
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static int __enable_tp(struct skbtrace_tracepoint *tp,
-+				struct skbtrace_options_context *ctx)
-+{
-+	int ret = 0;
-+
-+	if (tp->enabled)
-+		return -EBUSY;
-+
-+	if (tp->enable)
-+		tp->enable(tp);
-+	ret = tracepoint_probe_register(tp->trace_name, tp->probe, tp);
-+	if (!ret) {
-+		tp->primary = ctx->primary;
-+		if (tp->primary)
-+			tp->primary->nr_secondary++;
-+		tp->enabled = 1;
-+	} else {
-+		if (tp->disable)
-+			tp->disable(tp);
-+	}
-+
-+	return ret;
-+}
-+
-+static int __disable_tp(struct skbtrace_tracepoint *tp)
-+{
-+	int ret;
-+
-+	if (!tp->enabled)
-+		return -EINVAL;
-+
-+	ret = tracepoint_probe_unregister(tp->trace_name, tp->probe, tp);
-+	if (ret)
-+		return ret;
-+
-+	if (tp->disable)
-+		tp->disable(tp);
-+	if (tp->primary) {
-+		secondary_buffer_put(&tp->primary->sec_buffer);
-+		tp->primary->nr_secondary--;
-+	}
-+	tp->enabled = 0;
-+	return 0;
-+}
-+
-+static int skbtrace_enable_tp(char *event_spec)
-+{
-+	struct skbtrace_options_context ctx;
-+	int ret;
-+	struct skbtrace_tracepoint *tp;
-+
-+	ret = handle_options(event_spec, common_handlers, &ctx);
-+	if (ret)
-+		return ret;
-+	ctx.name = event_spec;
-+
-+	mutex_lock(&skbtrace_lock);
-+	if (!nr_skbtrace_enabled_tp) {
-+		ret = create_channels();
-+		if (ret)
-+			goto unlock;
-+	}
-+
-+	tp = skbtrace_lookup_tp(ctx.name);
-+	if (!tp || tp->enabled) {
-+		ret = -EINVAL;
-+		goto unlock;
-+	}
-+
-+	if (ctx.options && tp->setup_options) {
-+		ret = tp->setup_options(tp, ctx.options);
-+		if (ret)
-+			goto unlock;
-+	}
-+
-+	ret = __enable_tp(tp, &ctx);
-+
-+	if (ret && !nr_skbtrace_enabled_tp)
-+		destroy_channels();
-+	else if (!ret)
-+		++nr_skbtrace_enabled_tp;
-+
-+unlock:
-+	mutex_unlock(&skbtrace_lock);
-+	return ret;
-+}
-+
-+static int skbtrace_disable_all_tp(void)
-+{
-+	int ret, af;
-+	struct skbtrace_tracepoint *tp;
-+
-+	/*
-+	 * '-*' has two meanings:
-+	 *
-+	 *   (0) first time, it disables all tracepoints, and flush channels.
-+	 *   (1) second time, it removes all channels.
-+	 */
-+
-+	if (!nr_skbtrace_enabled_tp) {
-+		skbtrace_filters_clean();
-+		++skbtrace_session;
-+		destroy_channels();
-+		return 0;
-+	}
-+
-+	ret = -EINVAL;
-+	mutex_lock(&skbtrace_lock);
-+	for (af = AF_UNSPEC; af < AF_MAX; af++) {
-+		tp = af_tp_list[af];
-+		while (tp && tp->trace_name) {
-+			ret = __disable_tp(tp);
-+			if (!ret)
-+				--nr_skbtrace_enabled_tp;
-+			++tp;
-+		}
-+	}
-+	mutex_unlock(&skbtrace_lock);
-+	flush_channels();
-+
-+	return ret;
-+}
-+
-+/* The user given buffer should contains such like string:
-+ *	(0) To enable a skbtrace event:	"TRACE_NAME,opt1=val1,opt2=val2,..."
-+ *	(1) To disable all skbtrace events:"-*"
-+ */
-+static ssize_t enabled_write(struct file *filp, const char __user *buffer,
-+			     size_t count, loff_t *ppos)
-+{
-+	char kbuf[TRACE_SPEC_MAX_LEN+1];
-+	int ret;
-+
-+	skbtrace_proto_load();
-+
-+	if (count >= TRACE_SPEC_MAX_LEN)
-+		return -EINVAL;
-+	if (copy_from_user(kbuf, buffer, count))
-+		return -EFAULT;
-+	kbuf[count] = '\x0';
-+
-+	if (strcmp("-*", kbuf))
-+		ret = skbtrace_enable_tp(&kbuf[0]);
-+	else
-+		ret = skbtrace_disable_all_tp();
-+
-+	return ret ?: count;
-+}
-+
-+static int kmod_open(struct inode *inodep, struct file *filp)
-+{
-+	__module_get(THIS_MODULE);
-+	return 0;
-+}
-+
-+static int kmod_release(struct inode *inodep, struct file *filp)
-+{
-+	module_put(THIS_MODULE);
-+	return 0;
-+}
-+
-+static const struct file_operations enabled_fops = {
-+	.owner =	THIS_MODULE,
-+	.open =		kmod_open,
-+	.release =	kmod_release,
-+	.read =		enabled_read,
-+	.write =	enabled_write,
-+};
-+
-+static ssize_t dropped_read(struct file *filp, char __user *buffer,
-+			    size_t count, loff_t *ppos)
-+{
-+
-+	char buf[256];
-+	unsigned long skbtrace_total_dropped[NR_CHANNELS] = {0, 0, 0};
-+	int cpu;
-+
-+	for_each_possible_cpu(cpu) {
-+		skbtrace_total_dropped[HW] += skbtrace_dropped[HW][cpu];
-+		skbtrace_total_dropped[SI] += skbtrace_dropped[SI][cpu];
-+		skbtrace_total_dropped[SC] += skbtrace_dropped[SC][cpu];
-+	}
-+
-+	snprintf(buf, sizeof(buf), "%lu %lu %lu\n",
-+		skbtrace_total_dropped[HW],
-+		skbtrace_total_dropped[SI],
-+		skbtrace_total_dropped[SC]
-+		);
-+
-+	return simple_read_from_buffer(buffer, count, ppos,
-+				       buf, strlen(buf));
-+}
-+
-+static ssize_t dropped_write(struct file *filp, const char __user *buffer,
-+			    size_t count, loff_t *ppos)
-+{
-+	memset(skbtrace_dropped, 0, sizeof(skbtrace_dropped));
-+	return count;
-+}
-+
-+static const struct file_operations dropped_fops = {
-+	.owner =	THIS_MODULE,
-+	.open =		kmod_open,
-+	.release =	kmod_release,
-+	.read =		dropped_read,
-+	.write =	dropped_write,
-+};
-+
-+static ssize_t version_read(struct file *filp, char __user *buffer,
-+			    size_t count, loff_t *ppos)
-+{
-+	return simple_read_from_buffer(buffer, count, ppos,
-+				       SKBTRACE_VERSION "\n",
-+					strlen(SKBTRACE_VERSION "\n"));
-+}
-+
-+static const struct file_operations version_fops = {
-+	.owner =	THIS_MODULE,
-+	.open =		kmod_open,
-+	.release =	kmod_release,
-+	.read =		version_read,
-+};
-+
-+static ssize_t subbuf_x_read(struct file *filp, char __user *buffer,
-+			    size_t count, loff_t *ppos, int which)
-+{
-+	char buf[24];
-+
-+	sprintf(buf, "%d\n", which);
-+	return simple_read_from_buffer(buffer, count, ppos,
-+				       buf, strlen(buf));
-+}
-+
-+static ssize_t subbuf_x_write(struct file *filp, const char __user *buffer,
-+			    size_t count, loff_t *ppos,
-+			    int *which, int min_val, int max_val)
-+{
-+	char buf[24];
-+	int v;
-+
-+	if (nr_skbtrace_enabled_tp)
-+		return -EBUSY;
-+
-+	if (!buffer || count > sizeof(buf) - 1)
-+		return -EINVAL;
-+	memset(buf, 0, sizeof(buf));
-+	if (copy_from_user(buf, buffer, count))
-+		return -EFAULT;
-+	if (sscanf(buf, "%d", &v) != 1)
-+		return -EINVAL;
-+	if (v < min_val || v > max_val)
-+		return -EINVAL;
-+
-+	*which = v;
-+	return count;
-+}
-+
-+static ssize_t subbuf_nr_read(struct file *filp, char __user *buffer,
-+			    size_t count, loff_t *ppos)
-+{
-+	return subbuf_x_read(filp, buffer, count, ppos, subbuf_nr);
-+}
-+
-+static ssize_t subbuf_nr_write(struct file *filp, const char __user
-*buffer,
-+			    size_t count, loff_t *ppos)
-+{
-+	return subbuf_x_write(filp, buffer, count, ppos, &subbuf_nr,
-+			SKBTRACE_MIN_SUBBUF_NR, SKBTRACE_MAX_SUBBUF_NR);
-+}
-+
-+static const struct file_operations subbuf_nr_fops = {
-+	.owner =	THIS_MODULE,
-+	.open =		kmod_open,
-+	.release =	kmod_release,
-+	.read =		subbuf_nr_read,
-+	.write =	subbuf_nr_write,
-+};
-+
-+static ssize_t subbuf_size_read(struct file *filp, char __user *buffer,
-+			    size_t count, loff_t *ppos)
-+{
-+	return subbuf_x_read(filp, buffer, count, ppos, subbuf_size);
-+}
-+
-+static ssize_t subbuf_size_write(struct file *filp, const char __user
-*buffer,
-+			    size_t count, loff_t *ppos)
-+{
-+	return subbuf_x_write(filp, buffer, count, ppos, &subbuf_size,
-+			SKBTRACE_MIN_SUBBUF_SIZE, SKBTRACE_MAX_SUBBUF_SIZE);
-+}
-+
-+static const struct file_operations subbuf_size_fops = {
-+	.owner =	THIS_MODULE,
-+	.open =		kmod_open,
-+	.release =	kmod_release,
-+	.read =		subbuf_size_read,
-+	.write =	subbuf_size_write,
-+};
-+
-+struct sk_buff* skbtrace_get_twsk_filter_skb(struct inet_timewait_sock *tw)
-+{
-+	unsigned int cpu;
-+	struct sk_buff **p_skb;
-+	int ret;
++static void skbtrace_icsk_connection(struct skbtrace_tracepoint *t,
++						struct sock *sk, u32 state)
++SKBTRACE_SOCK_EVENT_BEGIN
++	struct skbtrace_tcp_conn_blk blk, *b;
 +	struct skbtrace_ops *ops;
++	struct skbtrace_context *ctx;
 +
-+	local_bh_disable();
-+
-+	ops = skbtrace_ops_get(tw->tw_family);
-+	if (!ops || !ops->filter_skb) {
-+		local_bh_enable();
-+		return NULL;
-+	}
-+
-+	cpu = smp_processor_id();
-+	p_skb = per_cpu_ptr(sock_filter_skb, cpu);
-+	if (unlikely(!*p_skb)) {
-+		*p_skb = alloc_skb(1500, GFP_ATOMIC);
-+		if (!*p_skb) {
-+			local_bh_enable();
-+			return NULL;
-+		}
-+	}
-+
-+	ret = ops->tw_filter_skb(tw, *p_skb);
-+	if (ret < 0) {
-+		skbtrace_put_twsk_filter_skb(*p_skb);
-+		return NULL;
-+	}
-+
-+	return *p_skb;
-+}
-+EXPORT_SYMBOL_GPL(skbtrace_get_twsk_filter_skb);
-+
-+struct sk_buff* skbtrace_get_sock_filter_skb(struct sock *sk)
-+{
-+	unsigned int cpu;
-+	struct sk_buff **p_skb;
-+	int ret;
-+	struct skbtrace_ops *ops;
-+
-+	local_bh_disable();
-+
++	if (TCP_LISTEN != state)
++		return;
 +	ops = skbtrace_ops_get(sk->sk_family);
-+	if (!ops || !ops->filter_skb) {
-+		local_bh_enable();
-+		return NULL;
-+	}
++	if (!ops)
++		return;
 +
-+	cpu = smp_processor_id();
-+	p_skb = per_cpu_ptr(sock_filter_skb, cpu);
-+	if (unlikely(!*p_skb)) {
-+		*p_skb = alloc_skb(1500, GFP_ATOMIC);
-+		if (!*p_skb) {
-+			local_bh_enable();
-+			return NULL;
-+		}
-+	}
++	ctx = skbtrace_context_get(sk);
++	b = skbtrace_block_get(t, ctx, &blk);
++	INIT_SKBTRACE_BLOCK(&b->blk, sk,
++				skbtrace_action_icsk_connection,
++				1 << state,
++				sizeof(blk));
++	ops->getname(sk, &b->addr.local, NULL, 0);
++	skbtrace_probe(t, ctx, &b->blk);
++SKBTRACE_SOCK_EVENT_END
 +
-+	ret = ops->filter_skb(sk, *p_skb);
-+	if (ret < 0) {
-+		skbtrace_put_sock_filter_skb(*p_skb);
-+		return NULL;
-+	}
-+
-+	return *p_skb;
-+}
-+EXPORT_SYMBOL_GPL(skbtrace_get_sock_filter_skb);
-+
-+static ssize_t sk_filter_read(struct sock_fprog *fprog, char __user
-*buffer,
-+							    size_t count)
-+{
-+	int sz_filter;
-+	struct sock_filter __user *user_filter;
-+
-+	if (!fprog || !fprog->filter)
-+		return -EINVAL;
-+	sz_filter = fprog->len * sizeof(struct sock_filter);
-+	if (count < sizeof(struct sock_fprog) + sz_filter)
-+		return -EINVAL;
-+
-+	if (copy_to_user(buffer, &fprog->len, sizeof(short)))
-+		return -EFAULT;
-+
-+	if (copy_from_user(&user_filter,
-+			buffer + sizeof(short), sizeof(user_filter)))
-+		return -EFAULT;
-+	if (copy_to_user(user_filter, fprog->filter, sz_filter))
-+		return -EFAULT;
-+
-+	return sizeof(struct sock_fprog) + sz_filter;
-+}
-+
-+static ssize_t sk_filter_write(struct sock_fprog *sk_fprog,
-+				struct sk_filter **sk_filter,
-+				const char __user *buffer, size_t count)
-+{
-+	int sz_filter, ret;
-+	struct sock_filter __user *user_filter;
-+
-+	if (count < sizeof(struct sock_fprog) || sk_fprog->filter)
-+		return -EINVAL;
-+	if (copy_from_user(sk_fprog, buffer, sizeof(struct sock_fprog)))
-+		return -EFAULT;
-+	sz_filter = sk_fprog->len * sizeof(struct sock_filter);
-+	user_filter = sk_fprog->filter;
-+
-+	sk_fprog->filter = kzalloc(sz_filter, GFP_KERNEL);
-+	if (!sk_fprog->filter)
-+		ret = -ENOMEM;
-+
-+	ret = -EFAULT;
-+	if (!copy_from_user(sk_fprog->filter, user_filter, sz_filter)) {
-+		ret = sk_unattached_filter_create(sk_filter, sk_fprog);
-+		if (ret) {
-+			reset_filter(sk_fprog, sk_filter);
-+			return ret;
-+		}
-+	}
-+	static_key_slow_inc(&skbtrace_filters_enabled);
-+	return sizeof(struct sock_fprog) + sz_filter;
-+}
-+
-+static ssize_t filters_read(struct file *filp, char __user *buffer,
-+			size_t count, loff_t *ppos, struct sock_fprog *fprog)
-+{
-+	return sk_filter_read(fprog, buffer, count);
-+}
-+
-+static ssize_t skb_filters_read(struct file *filp, char __user *buffer,
-+						size_t count, loff_t *ppos)
-+{
-+	return filters_read(filp, buffer, count, ppos, &skb_filter_fprog);
-+}
-+
-+static ssize_t sock_filters_read(struct file *filp, char __user *buffer,
-+						size_t count, loff_t *ppos)
-+{
-+	return filters_read(filp, buffer, count, ppos, &sock_filter_fprog);
-+}
-+
-+static ssize_t filters_write(struct file *filp, const char __user *buffer,
-+						size_t count, loff_t *ppos,
-+			struct sock_fprog *fprog, struct sk_filter **filter)
-+
-+{
-+	skbtrace_proto_load();
-+
-+	if (nr_skbtrace_enabled_tp)
-+		return -EBUSY;
-+	reset_filter(fprog, filter);
-+	return sk_filter_write(fprog, filter, buffer, count);
-+}
-+
-+static ssize_t skb_filters_write(struct file *filp, const char __user
-*buffer,
-+						size_t count, loff_t *ppos)
-+{
-+	return filters_write(filp, buffer, count, ppos,
-+			&skb_filter_fprog, &skbtrace_skb_filter);
-+}
-+
-+static ssize_t sock_filters_write(struct file *filp, const char __user
-*buffer,
-+						size_t count, loff_t *ppos)
-+{
-+	if (unlikely(!++skbtrace_sock_filter_id))
-+		skbtrace_sock_filter_id = 1;
-+	return filters_write(filp, buffer, count, ppos,
-+				&sock_filter_fprog, &skbtrace_sock_filter);
-+}
-+
-+static const struct file_operations filters_fops = {
-+	.owner =	THIS_MODULE,
-+	.open =		kmod_open,
-+	.release =	kmod_release,
-+	.read =		skb_filters_read,
-+	.write =	skb_filters_write,
++static char* tcp_sendlimit_options[] = {
++	"cwnd",
++	"swnd",
++	"nagle",
++	"tso",
++	"frag",
++	"pushone",
++	"other",
++	"ok",
 +};
 +
-+static const struct file_operations sock_filters_fops = {
-+	.owner =	THIS_MODULE,
-+	.open =		kmod_open,
-+	.release =	kmod_release,
-+	.read =		sock_filters_read,
-+	.write =	sock_filters_write,
++static int tcp_sendlimit_masks[] = {
++	skbtrace_tcp_sndlim_cwnd,
++	skbtrace_tcp_sndlim_swnd,
++	skbtrace_tcp_sndlim_nagle,
++	skbtrace_tcp_sndlim_tso,
++	skbtrace_tcp_sndlim_frag,
++	skbtrace_tcp_sndlim_pushone,
++	skbtrace_tcp_sndlim_other,
++	skbtrace_tcp_sndlim_ok,
 +};
 +
-+static void reset_filter(struct sock_fprog *fprog, struct sk_filter
-**filter)
++static int tcp_sendlimit_setup_options(struct skbtrace_tracepoint *t,
++							char *options)
 +{
-+	if (fprog->filter)
-+		kfree(fprog->filter);
-+	memset(fprog, 0, sizeof(struct sock_fprog));
-+
-+	if (*filter) {
-+		static_key_slow_dec(&skbtrace_filters_enabled);
-+		sk_unattached_filter_destroy(*filter);
-+		*filter = NULL;
-+	}
++	return mask_options_setup(t,
++			tcp_sendlimit_options,
++			tcp_sendlimit_masks,
++			sizeof(tcp_sendlimit_masks)/sizeof(int),
++			options);
 +}
 +
-+static void skbtrace_filters_clean(void)
++static char *tcp_sendlimit_desc(struct skbtrace_tracepoint *t)
 +{
-+	reset_filter(&sock_filter_fprog, &skbtrace_sock_filter);
-+	reset_filter(&skb_filter_fprog, &skbtrace_skb_filter);
++	return mask_options_desc(t,
++			tcp_sendlimit_options,
++			tcp_sendlimit_masks,
++			sizeof(tcp_sendlimit_masks)/sizeof(int));
 +}
 +
-+static void clean_skbtrace_filters(void)
++static void skbtrace_tcp_sendlimit(struct skbtrace_tracepoint *t,
++		struct sock *sk, int reason, int val)
++SKBTRACE_SOCK_EVENT_BEGIN
++	struct skbtrace_tcp_sendlim_blk blk, *b;
++	unsigned long mask = (unsigned long)t->private;
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct skbtrace_context *ctx;
++
++	if (mask & (1<<reason))
++		return;
++
++	if (skbtrace_tcp_sndlim_ok == reason && !val)
++		return;
++
++	ctx = skbtrace_context_get(sk);
++	b = skbtrace_block_get(t, ctx, &blk);
++	INIT_SKBTRACE_BLOCK(&b->blk, tp,
++			skbtrace_action_tcp_sendlimit,
++			1 << reason,
++			sizeof(*b));
++
++	b->val = val;
++	b->count = 1;
++	b->begin = current_kernel_time();
++
++	b->snd_ssthresh = tp->snd_ssthresh;
++	b->snd_cwnd = tp->snd_cwnd;
++	b->snd_cwnd_cnt = tp->snd_cwnd_cnt;
++	b->snd_wnd = tp->snd_wnd;
++
++	skbtrace_probe(t, ctx, &b->blk);
++SKBTRACE_SOCK_EVENT_END
++
++static void skbtrace_tcp_active_conn(struct skbtrace_tracepoint *t,
++							struct sock *sk)
++SKBTRACE_SOCK_EVENT_BEGIN
++	struct skbtrace_tcp_conn_blk blk, *b;
++	struct skbtrace_context *ctx;
++
++	ctx = skbtrace_context_get(sk);
++	if (ctx) {
++	       	if (ctx->active_conn_hit)
++			return;
++		ctx->active_conn_hit = 1;
++	}
++
++	b = skbtrace_block_get(t, ctx, &blk);
++	INIT_SKBTRACE_BLOCK(&b->blk, sk,
++			skbtrace_action_tcp_active_conn, 0, sizeof(blk));
++	if (ctx && ctx->ops) {
++		ctx->ops->getname(sk, &b->addr.local, NULL, 0);
++		ctx->ops->getname(sk, &b->addr.peer, NULL, 1);
++	} else
++		memset(&b->addr, 0, sizeof(b->addr));
++	skbtrace_probe(t, ctx, &b->blk);
++SKBTRACE_SOCK_EVENT_END
++
++static void skbtrace_tcp_rttm(struct skbtrace_tracepoint *t,
++					struct sock *sk, u32 seq_rtt)
++SKBTRACE_SOCK_EVENT_BEGIN
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct skbtrace_tcp_rttm_blk blk, *b;
++	struct skbtrace_context *ctx;
++
++	ctx = skbtrace_context_get(sk);
++	b = skbtrace_block_get(t, ctx, &blk);
++	INIT_SKBTRACE_BLOCK(&b->blk, sk,
++			skbtrace_action_tcp_rttm, 0, sizeof(blk));
++	b->rtt_seq = tp->rtt_seq;
++	b->snd_una = tp->snd_una;
++	b->rtt = seq_rtt;
++	b->srtt = tp->srtt;
++	b->rttvar = tp->rttvar;
++	b->mdev = tp->mdev;
++	b->mdev_max = tp->mdev_max;
++	skbtrace_probe(t, ctx, &b->blk);
++SKBTRACE_SOCK_EVENT_END
++
++static char* tcp_ca_state_options[] = {
++	"open",
++	"disorder",
++	"cwr",
++	"recovery",
++	"loss",
++};
++
++static int tcp_ca_state_masks[] = {
++	TCP_CA_Open,
++	TCP_CA_Disorder,
++	TCP_CA_CWR,
++	TCP_CA_Recovery,
++	TCP_CA_Loss,
++};
++
++static int tcp_ca_state_setup_options(struct skbtrace_tracepoint *t,
++							char *options)
 +{
-+	unsigned int cpu;
-+
-+	if (skb_filter_fprog.filter)
-+		kfree(skb_filter_fprog.filter);
-+	if (skbtrace_skb_filter) {
-+		static_key_slow_dec(&skbtrace_filters_enabled);
-+		sk_unattached_filter_destroy(skbtrace_skb_filter);
-+	}
-+
-+	if (sock_filter_fprog.filter)
-+		kfree(sock_filter_fprog.filter);
-+	if (skbtrace_sock_filter) {
-+		static_key_slow_dec(&skbtrace_filters_enabled);
-+		sk_unattached_filter_destroy(skbtrace_sock_filter);
-+	}
-+
-+	for_each_possible_cpu(cpu) {
-+		struct sk_buff **p_skb;
-+
-+		p_skb = per_cpu_ptr(sock_filter_skb, cpu);
-+		if (*p_skb)
-+			kfree_skb(*p_skb);
-+	}
-+	free_percpu(sock_filter_skb);
++	return mask_options_setup(t,
++			tcp_ca_state_options,
++			tcp_ca_state_masks,
++			sizeof(tcp_ca_state_masks)/sizeof(int),
++			options);
 +}
 +
-+static int setup_skbtrace_filters(void)
++static char *tcp_ca_state_desc(struct skbtrace_tracepoint *t)
 +{
-+	unsigned int cpu, err;
-+
-+	skbtrace_sock_filter_id = random32();
-+
-+	skbtrace_filters_clean();
-+
-+	sock_filter_skb = alloc_percpu(struct sk_buff*);
-+	err = 0;
-+	for_each_possible_cpu(cpu) {
-+		struct sk_buff **p_skb;
-+
-+		p_skb = per_cpu_ptr(sock_filter_skb, cpu);
-+		if (cpu_online(cpu)) {
-+			*p_skb = alloc_skb(1500, GFP_KERNEL);
-+			if (!*p_skb)
-+				err = 1;
-+		} else
-+			*p_skb = NULL;
-+	}
-+
-+	if (err) {
-+		clean_skbtrace_filters();
-+		return -ENOMEM;
-+	}
-+	return 0;
++	return mask_options_desc(t,
++			tcp_ca_state_options,
++			tcp_ca_state_masks,
++			sizeof(tcp_ca_state_masks)/sizeof(int));
 +}
 +
-+static int skbtrace_init(void)
++static void skbtrace_tcp_ca_state(struct skbtrace_tracepoint *t,
++					struct sock *sk, u8 state)
++SKBTRACE_SOCK_EVENT_BEGIN
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct skbtrace_tcp_ca_state_blk blk, *b;
++	struct skbtrace_context *ctx;
++	unsigned long mask = (unsigned long)t->private;
++
++	if (mask & (1<<state))
++		return;
++
++	ctx = skbtrace_context_get(sk);
++	b = skbtrace_block_get(t, ctx, &blk);
++	INIT_SKBTRACE_BLOCK(&b->blk, sk,
++			skbtrace_action_tcp_ca_state, 1<<state, sizeof(blk));
++
++	b->cwnd = tp->snd_cwnd;
++	b->rto = inet_csk(sk)->icsk_rto;
++	b->snduna = tp->snd_una;
++	b->sndnxt = tp->snd_nxt;
++
++	b->snd_ssthresh = tp->snd_ssthresh;
++	b->snd_wnd = tp->snd_wnd;
++	b->rcv_wnd = tp->rcv_wnd;
++	b->high_seq = tp->high_seq;
++
++	b->packets_out = tp->packets_out;
++	b->lost_out = tp->lost_out;
++	b->retrans_out = tp->retrans_out;
++	b->sacked_out = tp->sacked_out;
++
++	b->fackets_out = tp->fackets_out;
++	b->prior_ssthresh = tp->prior_ssthresh;
++	b->undo_marker = tp->undo_marker;
++	b->undo_retrans = tp->undo_retrans;
++
++	b->total_retrans =  tp->total_retrans;
++	b->reordering = tp->reordering;
++	b->prior_cwnd = tp->prior_cwnd;
++	b->mss_cache = tp->mss_cache;
++
++	skbtrace_probe(t, ctx, &b->blk);
++SKBTRACE_SOCK_EVENT_END
++
++static char* tcp_timer_options[] = {
++	"setup",
++	"reset",
++	"stop",
++
++	"rexmit",
++	"probe",
++	"keepalive",
++	"delack",
++};
++
++static int tcp_timer_masks[] = {
++	skbtrace_sk_timer_setup,
++	skbtrace_sk_timer_reset,
++	skbtrace_sk_timer_stop,
++
++	skbtrace_tcp_timer_rexmit,
++	skbtrace_tcp_timer_probe,
++	skbtrace_tcp_timer_keepalive,
++	skbtrace_tcp_timer_delack,
++};
++
++static int tcp_timer_setup_options(struct skbtrace_tracepoint *t,
++							char *options)
 +{
-+	mutex_init(&skbtrace_lock);
-+	if (!skbtrace_session)
-+		skbtrace_session = random32();
-+
-+	if (setup_skbtrace_filters() < 0)
-+		return -ENOMEM;
-+
-+	if (skbtrace_events_common_init())
-+		return -ENODEV;
-+
-+	skbtrace_dentry = debugfs_create_dir(SKBTRACE_DIR, NULL);
-+	if (!skbtrace_dentry)
-+		return -ENOMEM;
-+
-+	if (create_controls()) {
-+		debugfs_remove(skbtrace_dentry);
-+		return -ENOMEM;
-+	}
-+
-+	should_load_proto = true;
-+	return 0;
++	return mask_options_setup(t,
++			tcp_timer_options,
++			tcp_timer_masks,
++			sizeof(tcp_timer_masks)/sizeof(int),
++			options);
 +}
 +
-+static void skbtrace_exit(void)
++static char *tcp_timer_desc(struct skbtrace_tracepoint *t)
 +{
-+	skbtrace_disable_all_tp(); /* disable all enabled tracepoints */
-+	skbtrace_disable_all_tp(); /* remove channels in debugfs at 2nd time */
-+	if (unlikely(nr_skbtrace_enabled_tp))
-+		pr_err("skbtrace: failed to clean tracepoints.\n");
-+	remove_controls();
-+	debugfs_remove(skbtrace_dentry);
-+	clean_skbtrace_filters();
++	return mask_options_desc(t,
++			tcp_timer_options,
++			tcp_timer_masks,
++			sizeof(tcp_timer_masks)/sizeof(int));
 +}
 +
-+module_init(skbtrace_init);
-+module_exit(skbtrace_exit);
-+MODULE_LICENSE("GPL");
-diff --git a/net/core/skbtrace-events-common.c
-b/net/core/skbtrace-events-common.c
-new file mode 100644
-index 0000000..30a3730
---- /dev/null
-+++ b/net/core/skbtrace-events-common.c
-@@ -0,0 +1,68 @@
-+/*
-+ *  skbtrace - sk_buff trace utilty
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
-+ *
-+ * 2012 Li Yu <bingtian.ly@taobao.com>
-+ *
-+ */
++#define LONG_SIGN_MASK	(1UL<<(BITS_PER_LONG - 1))
++#define LONG_SIGN(l)	(l & LONG_SIGN_MASK)
 +
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+#include <linux/socket.h>
-+#include <linux/skbtrace_api.h>
-+#include <linux/skbtrace.h>
-+#include <net/flow_keys.h>
++static s32 timer_timeout_msecs(struct timer_list *timer, unsigned long now)
++{
++	s32 timeout;
 +
-+static void skbtrace_skb_rps_info(struct skbtrace_tracepoint *t,
-+		struct sk_buff *skb, struct net_device *dev, int cpu)
-+SKBTRACE_SKB_EVENT_BEGIN
-+	struct skbtrace_skb_rps_info_blk blk, *b;
-+	struct flow_keys keys;
++	if (unlikely(LONG_SIGN(timer->expires) != LONG_SIGN(now))) {
++		timeout = (s32)timer->expires;
++		timeout += (s32)(ULONG_MAX - now);
++	} else
++		timeout = timer->expires - now;
 +
-+	b = skbtrace_block_get(t, NULL, &blk);
-+	INIT_SKBTRACE_BLOCK(&b->blk, skb,
-+			skbtrace_action_skb_rps_info,
-+			0,
-+			sizeof(blk));
-+	b->rx_hash = skb->rxhash;
-+	if (skb_rx_queue_recorded(skb))
-+		b->rx_queue = skb_get_rx_queue(skb);
++	return jiffies_to_msecs(timeout);
++}
++
++static void skbtrace_tcp_timer(struct skbtrace_tracepoint *t,
++			struct sock *sk, struct timer_list *timer, int action)
++SKBTRACE_SOCK_EVENT_BEGIN
++	struct inet_connection_sock *icsk = inet_csk(sk);
++	struct skbtrace_sk_timer_blk blk, *b;
++	s32 f_timer, timeout;
++	u32 timer_bits;
++	struct skbtrace_context *ctx;
++	unsigned long mask = (unsigned long)t->private;
++
++	if (IPPROTO_TCP != sk->sk_protocol)
++		return;
++
++	if (mask & (1<<action))
++		return;
++
++	if (timer == &icsk->icsk_retransmit_timer) {
++		f_timer = (icsk->icsk_pending == ICSK_TIME_PROBE0 ?
++				skbtrace_tcp_timer_probe : skbtrace_tcp_timer_rexmit);
++	} else if (timer == &icsk->icsk_delack_timer)
++		f_timer = skbtrace_tcp_timer_delack;
++	else if (timer == &sk->sk_timer)
++		f_timer = skbtrace_tcp_timer_keepalive;
 +	else
-+		b->rx_queue = 0;
-+	skb_flow_dissect(skb, &keys);
-+	b->keys.src = keys.src;
-+	b->keys.dst = keys.dst;
-+	b->keys.ports = keys.ports;
-+	b->keys.ip_proto = keys.ip_proto;
-+	b->cpu = cpu;
-+	b->ifindex = dev->ifindex;
-+	skbtrace_probe(t, NULL, &b->blk);
-+SKBTRACE_SKB_EVENT_END
++		f_timer = 0;
++	timer_bits = f_timer ? (1<<f_timer) : 0;
 +
-+static struct skbtrace_tracepoint common[] = {
++	if (mask & timer_bits)
++		return;
++
++	/* TCP rexmit timer and probe0 share same timer_list  */
++	if (f_timer == skbtrace_tcp_timer_rexmit
++			&& action == skbtrace_sk_timer_setup) {
++		if (mask & (1<<skbtrace_tcp_timer_probe))
++			return;
++		timer_bits |= 1<<skbtrace_tcp_timer_probe;
++	}
++
++	ctx = skbtrace_context_get(sk);
++	b = skbtrace_block_get(t, ctx, &blk);
++	INIT_SKBTRACE_BLOCK(&b->blk, sk,
++			skbtrace_action_sk_timer, 1<<action, sizeof(blk));
++	b->proto = IPPROTO_TCP;
++
++	if (skbtrace_sk_timer_reset == action) {
++		timeout = timer_timeout_msecs(timer, jiffies);
++	} else
++		timeout = 0;
++
++	b->blk.flags |= timer_bits;
++	b->timeout = timeout;
++	skbtrace_probe(t, ctx, &b->blk);
++SKBTRACE_SOCK_EVENT_END
++
++static struct skbtrace_tracepoint tp_inet4[] = {
 +	{
-+		.trace_name = "skb_rps_info",
-+		.action = skbtrace_action_skb_rps_info,
-+		.block_size = sizeof(struct skbtrace_skb_rps_info_blk),
-+		.probe = skbtrace_skb_rps_info,
++		.trace_name = "tcp_congestion",
++		.action = skbtrace_action_tcp_congestion,
++		.block_size = sizeof(struct skbtrace_tcp_cong_blk),
++		.probe = skbtrace_tcp_congestion,
++		.setup_options = tcp_cong_setup_options,
++		.desc = tcp_cong_desc,
++	},
++	{
++		.trace_name = "tcp_connection",
++		.action = skbtrace_action_tcp_connection,
++		.block_size = sizeof(struct skbtrace_tcp_conn_blk),
++		.probe = skbtrace_tcp_connection,
++	},
++	{
++		.trace_name = "icsk_connection",
++		.action = skbtrace_action_icsk_connection,
++		.block_size = sizeof(struct skbtrace_tcp_conn_blk),
++		.probe = skbtrace_icsk_connection,
++	},
++	{
++		.trace_name = "tcp_sendlimit",
++		.action = skbtrace_action_tcp_sendlimit,
++		.block_size = sizeof(struct skbtrace_tcp_sendlim_blk),
++		.probe = skbtrace_tcp_sendlimit,
++		.setup_options = tcp_sendlimit_setup_options,
++		.desc = tcp_sendlimit_desc,
++	},
++	{
++		.trace_name = "tcp_active_conn",
++		.action = skbtrace_action_tcp_active_conn,
++		.block_size = sizeof(struct skbtrace_tcp_conn_blk),
++		.probe = skbtrace_tcp_active_conn,
++	},
++	{
++		.trace_name = "tcp_rttm",
++		.action = skbtrace_action_tcp_rttm,
++		.block_size = sizeof(struct skbtrace_tcp_rttm_blk),
++		.probe = skbtrace_tcp_rttm,
++	},
++	{
++		.trace_name = "tcp_ca_state",
++		.action = skbtrace_action_tcp_ca_state,
++		.block_size = sizeof(struct skbtrace_tcp_ca_state_blk),
++		.probe = skbtrace_tcp_ca_state,
++		.setup_options = tcp_ca_state_setup_options,
++		.desc = tcp_ca_state_desc,
++	},
++	{
++		.trace_name = "sk_timer",
++		.action = skbtrace_action_sk_timer,
++		.block_size = sizeof(struct skbtrace_sk_timer_blk),
++		.probe = skbtrace_tcp_timer,
++		.setup_options = tcp_timer_setup_options,
++		.desc = tcp_timer_desc,
 +	},
 +	EMPTY_SKBTRACE_TP
 +};
 +
-+int skbtrace_events_common_init(void)
++static int __inet_filter_skb(struct sock *sk, struct sk_buff *skb)
 +{
-+	return skbtrace_register_proto(AF_UNSPEC, common, NULL);
++	struct inet_sock *inet = inet_sk(sk);
++	struct iphdr *iph;
++
++	skb_reset_network_header(skb);
++	iph = ip_hdr(skb);
++	*((__be16 *)iph) = htons((4 << 12) | (5 << 8));
++	iph->frag_off = 0;
++	iph->ttl      = 0;
++	iph->protocol = sk->sk_protocol;
++	iph->saddr = inet->inet_saddr;
++	iph->daddr = inet->inet_daddr;
++	iph->id = 0;
++	iph->tot_len = htons(sizeof(struct iphdr) + sizeof(struct tcphdr));
++
++	return sizeof(struct iphdr);
 +}
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index e33ebae..15954ae 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -70,6 +70,7 @@
++
++int inet_filter_skb(struct sock *sk, struct sk_buff *skb)
++{
++	int size, prot_size;
++
++	if (!skb || !sk->sk_prot->filter_skb) {
++		return -EINVAL;
++	}
++
++	size = __inet_filter_skb(sk, skb);
++	if (size < 0)
++		return -EINVAL;
++	skb->len += size;
++	skb->tail += size;
++	skb->data += size;
++
++	prot_size = sk->sk_prot->filter_skb(sk, skb);
++	if (prot_size < 0)
++		return -EINVAL;
++	skb->len += prot_size;
++	skb->tail += prot_size;
++
++	skb->data -= size;
++	return 0;
++}
++EXPORT_SYMBOL_GPL(inet_filter_skb);
++
++int inet_tw_getname(struct inet_timewait_sock *tw,
++					struct sockaddr *addr, int peer)
++{
++	struct sockaddr_in *in = (struct sockaddr_in*)addr;
++
++	in->sin_family = AF_INET;
++	if (!peer) {
++		in->sin_port = tw->tw_sport;
++		in->sin_addr.s_addr = tw->tw_rcv_saddr;
++	} else {
++		in->sin_port = tw->tw_dport;
++		in->sin_addr.s_addr = tw->tw_daddr;
++	}
++	return 0;
++}
++EXPORT_SYMBOL_GPL(inet_tw_getname);
++
++static int __inet_tw_filter_skb(struct inet_timewait_sock *tw,
++						struct sk_buff *skb)
++{
++	struct iphdr *iph;
++
++	skb_reset_network_header(skb);
++	iph = ip_hdr(skb);
++	*((__be16 *)iph) = htons((4 << 12) | (5 << 8));
++	iph->frag_off = 0;
++	iph->ttl      = 0;
++	iph->protocol = IPPROTO_TCP;
++	iph->saddr = tw->tw_rcv_saddr;
++	iph->daddr = tw->tw_daddr;
++	iph->id = 0;
++	iph->tot_len = htons(sizeof(struct iphdr) + sizeof(struct tcphdr));
++
++	return sizeof(struct iphdr);
++}
++
++int inet_tw_filter_skb(struct inet_timewait_sock *tw, struct sk_buff *skb)
++{
++	int size, prot_size;
++
++	if (!skb)
++		return -EINVAL;
++
++	size = __inet_tw_filter_skb(tw, skb);
++	if (size < 0)
++		return -EINVAL;
++	skb->len += size;
++	skb->tail += size;
++	skb->data += size;
++
++	prot_size = tcp_tw_filter_skb(tw, skb);
++	if (size < 0)
++		return -EINVAL;
++	skb->len += prot_size;
++	skb->tail += prot_size;
++
++	skb->data -= size;
++	return 0;
++}
++EXPORT_SYMBOL_GPL(inet_tw_filter_skb);
++
++static int mask_options_setup(struct skbtrace_tracepoint *t,
++				char *names[], int *masks, int nr_masks,
++							char *option_string)
++{
++	unsigned long mask = 0UL;
++	char *cur, *tail = NULL;
++	int ret = 0;
++
++	option_string = strstr(option_string, "mask=");
++	if (option_string) {
++		if (strncmp(option_string, "mask=", sizeof("mask=") - 1)) {
++			option_string = NULL;
++			ret = -EINVAL;
++		} else
++			option_string += sizeof("mask=") - 1;
++	}
++
++	if (!option_string || '\x0' == *option_string)
++		goto quit;
++
++	tail = strchr(option_string, ',');
++	if (tail)
++		*tail = '\x0';
++
++	mask = 0UL;
++	cur = strsep(&option_string, ":");
++	while (cur) {
++		int i;
++
++		for (i = 0; i < nr_masks; i++) {
++			if (!strcmp(cur, names[i])) {
++				mask |= 1 << masks[i];
++				break;
++			}
++		}
++		if (i >= nr_masks) {
++			mask = 0UL;
++			ret = -EINVAL;
++		}
++		cur = strsep(&option_string, ":");
++	}
++
++quit:
++	if (tail)
++		*tail = ',';
++	t->private = (void *)(mask);
++	return ret;
++}
++
++static char* mask_options_desc(struct skbtrace_tracepoint *t,
++				char *names[],
++				int *masks, int nr_masks)
++{
++	char *desc;
++	unsigned long mask = (unsigned long)t->private;
++	int i, copied;
++
++	desc = kmalloc(strlen(t->trace_name) + 128, GFP_KERNEL);
++	if (!desc)
++		return NULL;
++
++	copied = sprintf(desc, "%s enabled:%d mask=", t->trace_name, t->enabled);
++	for (i = 0; i < nr_masks; i++) {
++		int this_m;
++		const char *this_n;
++
++		this_m = masks[i];
++		this_n = names[i];
++		if (!t->enabled || (t->enabled && (mask & (1 << this_m))))
++			copied += sprintf(desc + copied, "%s:", this_n);
++	}
++
++	sprintf(desc + copied - 1, "\n");
++	return desc;
++}
++
++
++static struct skbtrace_ops ops_inet4 = {
++	.tw_getname = inet_tw_getname,
++	.tw_filter_skb = inet_tw_filter_skb,
++	.getname = inet_sock_getname,
++	.filter_skb = inet_filter_skb,
++};
++
++static int skbtrace_ipv4_init(void)
++{
++	return skbtrace_register_proto(AF_INET, tp_inet4, &ops_inet4);
++}
++
++static void skbtrace_ipv4_cleanup(void)
++{
++	skbtrace_unregister_proto(AF_INET);
++}
++
++module_init(skbtrace_ipv4_init);
++module_exit(skbtrace_ipv4_cleanup);
++MODULE_ALIAS("skbtrace-af-" __stringify(AF_INET));
++MODULE_LICENSE("GPL");
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 5f64193..04c5113 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -280,6 +280,9 @@
  #include <asm/uaccess.h>
- #include <trace/events/skb.h>
- #include <linux/highmem.h>
+ #include <asm/ioctls.h>
+
 +#include <linux/skbtrace.h>
++#include <trace/events/skbtrace_ipv4.h>
++
+ int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
 
- struct kmem_cache *skbuff_head_cache __read_mostly;
- static struct kmem_cache *skbuff_fclone_cache __read_mostly;
-@@ -700,6 +701,10 @@ static void __copy_skb_header(struct sk_buff *new,
-const struct sk_buff *old)
- 	new->ooo_okay		= old->ooo_okay;
- 	new->l4_rxhash		= old->l4_rxhash;
- 	new->no_fcs		= old->no_fcs;
-+#if HAVE_SKBTRACE
-+	new->hit_skbtrace	= old->hit_skbtrace;
-+	new->skbtrace_filtered	= old->skbtrace_filtered;
-+#endif
- #ifdef CONFIG_XFRM
- 	new->sp			= secpath_get(old->sp);
- #endif
-diff --git a/net/core/sock.c b/net/core/sock.c
-index a6000fb..b818961 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -132,8 +132,10 @@
- #include <net/netprio_cgroup.h>
+ struct percpu_counter tcp_orphan_count;
+@@ -1989,6 +1992,8 @@ void tcp_set_state(struct sock *sk, int state)
+ 			TCP_DEC_STATS(sock_net(sk), TCP_MIB_CURRESTAB);
+ 	}
 
- #include <linux/filter.h>
++	trace_tcp_connection(sk, state);
++
+ 	/* Change state AFTER socket is unhashed to avoid closed
+ 	 * socket sitting in hash tables.
+ 	 */
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index d377f48..483ee29 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -74,6 +74,8 @@
+ #include <linux/ipsec.h>
+ #include <asm/unaligned.h>
+ #include <net/netdma.h>
 +#include <linux/skbtrace.h>
++#include <trace/events/skbtrace_ipv4.h>
 
- #include <trace/events/sock.h>
-+#include <trace/events/skbtrace_common.h>
+ int sysctl_tcp_timestamps __read_mostly = 1;
+ int sysctl_tcp_window_scaling __read_mostly = 1;
+@@ -760,6 +762,7 @@ void tcp_enter_cwr(struct sock *sk, const int
+set_ssthresh)
 
- #ifdef CONFIG_INET
- #include <net/tcp.h>
-@@ -1272,6 +1274,7 @@ struct sock *sk_alloc(struct net *net, int family,
-gfp_t priority,
-
- 		sock_update_classid(sk);
- 		sock_update_netprioidx(sk, current);
-+		sock_skbtrace_reset(sk);
+ 		tcp_set_ca_state(sk, TCP_CA_CWR);
  	}
++	trace_tcp_congestion(sk, skbtrace_tcp_cong_cwr);
+ }
 
- 	return sk;
-@@ -1292,6 +1295,8 @@ static void __sk_free(struct sock *sk)
- 		RCU_INIT_POINTER(sk->sk_filter, NULL);
- 	}
-
-+	skbtrace_context_destroy(&sk->sk_skbtrace);
+ /*
+@@ -1970,6 +1973,8 @@ void tcp_enter_frto(struct sock *sk)
+ 	tcp_set_ca_state(sk, TCP_CA_Disorder);
+ 	tp->high_seq = tp->snd_nxt;
+ 	tp->frto_counter = 1;
 +
- 	sock_disable_timestamp(sk, SK_FLAGS_TIMESTAMP);
++	trace_tcp_congestion(sk, skbtrace_tcp_cong_frto);
+ }
 
- 	if (atomic_read(&sk->sk_omem_alloc))
-@@ -1440,6 +1445,8 @@ struct sock *sk_clone_lock(const struct sock *sk,
-const gfp_t priority)
+ /* Enter Loss state after F-RTO was applied. Dupack arrived after RTO,
+@@ -2037,6 +2042,8 @@ static void tcp_enter_frto_loss(struct sock *sk,
+int allowed_segments, int flag)
+ 	TCP_ECN_queue_cwr(tp);
 
- 		if (newsk->sk_flags & SK_FLAGS_TIMESTAMP)
- 			net_enable_timestamp();
+ 	tcp_clear_all_retrans_hints(tp);
 +
-+		sock_skbtrace_reset(newsk);
++	trace_tcp_congestion(sk, skbtrace_tcp_cong_frto_loss);
+ }
+
+ static void tcp_clear_retrans_partial(struct tcp_sock *tp)
+@@ -2066,6 +2073,8 @@ void tcp_enter_loss(struct sock *sk, int how)
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct sk_buff *skb;
+
++	trace_tcp_congestion(sk, skbtrace_tcp_cong_loss);
++
+ 	/* Reduce ssthresh if it has not yet been made inside this window. */
+ 	if (icsk->icsk_ca_state <= TCP_CA_Disorder || tp->snd_una ==
+tp->high_seq ||
+ 	    (icsk->icsk_ca_state == TCP_CA_Loss && !icsk->icsk_retransmits)) {
+@@ -3039,6 +3048,7 @@ static void tcp_fastretrans_alert(struct sock *sk,
+int pkts_acked,
+ 		/* Otherwise enter Recovery state */
+ 		tcp_enter_recovery(sk, (flag & FLAG_ECE));
+ 		fast_rexmit = 1;
++		trace_tcp_congestion(sk, skbtrace_tcp_cong_fastrtx);
  	}
- out:
+
+ 	if (do_lost || (tcp_is_fack(tp) && tcp_head_timedout(sk)))
+@@ -3051,6 +3061,7 @@ static void tcp_fastretrans_alert(struct sock *sk,
+int pkts_acked,
+ void tcp_valid_rtt_meas(struct sock *sk, u32 seq_rtt)
+ {
+ 	tcp_rtt_estimator(sk, seq_rtt);
++	trace_tcp_rttm(sk, seq_rtt);
+ 	tcp_set_rto(sk);
+ 	inet_csk(sk)->icsk_backoff = 0;
+ }
+@@ -5391,6 +5402,7 @@ int tcp_rcv_established(struct sock *sk, struct
+sk_buff *skb,
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+
++	trace_tcp_active_conn(sk);
+ 	if (unlikely(sk->sk_rx_dst == NULL))
+ 		inet_csk(sk)->icsk_af_ops->sk_rx_dst_set(sk, skb);
+ 	/*
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 00a748d..77be917 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -85,6 +85,9 @@
+ #include <linux/crypto.h>
+ #include <linux/scatterlist.h>
+
++#include <linux/skbtrace.h>
++#include <trace/events/skbtrace_ipv4.h>
++
+ int sysctl_tcp_tw_reuse __read_mostly;
+ int sysctl_tcp_low_latency __read_mostly;
+ EXPORT_SYMBOL(sysctl_tcp_low_latency);
+@@ -1525,6 +1528,7 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk,
+struct sk_buff *skb,
+ 	if (__inet_inherit_port(sk, newsk) < 0)
+ 		goto put_and_exit;
+ 	__inet_hash_nolisten(newsk, NULL);
++	trace_tcp_connection(newsk, TCP_SYN_RECV);
+
  	return newsk;
-@@ -2124,6 +2131,7 @@ void sk_reset_timer(struct sock *sk, struct
-timer_list* timer,
- {
- 	if (!mod_timer(timer, expires))
- 		sock_hold(sk);
-+	trace_sk_timer(sk, timer, skbtrace_sk_timer_reset);
- }
- EXPORT_SYMBOL(sk_reset_timer);
 
-@@ -2131,6 +2139,7 @@ void sk_stop_timer(struct sock *sk, struct
-timer_list* timer)
- {
- 	if (timer_pending(timer) && del_timer(timer))
- 		__sock_put(sk);
-+	trace_sk_timer(sk, timer, skbtrace_sk_timer_stop);
+@@ -2604,9 +2608,37 @@ int tcp4_gro_complete(struct sk_buff *skb)
+ 	return tcp_gro_complete(skb);
  }
- EXPORT_SYMBOL(sk_stop_timer);
+
++#if HAVE_SKBTRACE
++int tcp_filter_skb(struct sock *sk, struct sk_buff *skb)
++{
++	struct inet_sock *inet;
++	struct tcphdr *th;
++
++	inet = inet_sk(sk);
++
++	skb_reset_transport_header(skb);
++
++	th = tcp_hdr(skb);
++	th->source              = inet->inet_sport;
++	th->dest                = inet->inet_dport;
++	th->seq                 = 0;
++	th->ack_seq             = 0;
++	th->window              = 0;
++	th->check		= 0;
++	th->urg_ptr		= 0;
++	*(((__be16 *)th) + 6)   = htons((sizeof(struct tcphdr) >> 2) << 12);
++
++	return sizeof(struct tcphdr);
++}
++EXPORT_SYMBOL_GPL(tcp_filter_skb);
++#endif
++
+ struct proto tcp_prot = {
+ 	.name			= "TCP",
+ 	.owner			= THIS_MODULE,
++#if HAVE_SKBTRACE
++	.filter_skb		= tcp_filter_skb,
++#endif
+ 	.close			= tcp_close,
+ 	.connect		= tcp_v4_connect,
+ 	.disconnect		= tcp_disconnect,
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 6ff7f10..e955132 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -23,10 +23,13 @@
+ #include <linux/slab.h>
+ #include <linux/sysctl.h>
+ #include <linux/workqueue.h>
++#include <linux/skbtrace.h>
+ #include <net/tcp.h>
+ #include <net/inet_common.h>
+ #include <net/xfrm.h>
+
++#include <trace/events/skbtrace_ipv4.h>
++
+ int sysctl_tcp_syncookies __read_mostly = 1;
+ EXPORT_SYMBOL(sysctl_tcp_syncookies);
+
+@@ -143,6 +146,7 @@ kill_with_rst:
+
+ 		/* FIN arrived, enter true time-wait state. */
+ 		tw->tw_substate	  = TCP_TIME_WAIT;
++		trace_tcp_connection(tw, TCP_TIME_WAIT + TCP_MAX_STATES);
+ 		tcptw->tw_rcv_nxt = TCP_SKB_CB(skb)->end_seq;
+ 		if (tmp_opt.saw_tstamp) {
+ 			tcptw->tw_ts_recent_stamp = get_seconds();
+@@ -258,6 +262,28 @@ kill:
+ }
+ EXPORT_SYMBOL(tcp_timewait_state_process);
+
++#if HAVE_SKBTRACE
++int tcp_tw_filter_skb(struct inet_timewait_sock *tw, struct sk_buff *skb)
++{
++	struct tcphdr *th;
++
++	skb_reset_transport_header(skb);
++
++	th = tcp_hdr(skb);
++	th->source              = tw->tw_sport;
++	th->dest                = tw->tw_dport;
++	th->seq                 = 0;
++	th->ack_seq             = 0;
++	th->window              = 0;
++	th->check		= 0;
++	th->urg_ptr		= 0;
++	*(((__be16 *)th) + 6)   = htons((sizeof(struct tcphdr) >> 2) << 12);
++
++	return sizeof(struct tcphdr);
++}
++EXPORT_SYMBOL_GPL(tcp_tw_filter_skb);
++#endif
++
+ /*
+  * Move a socket to time-wait or dead fin-wait-2 state.
+  */
+@@ -320,6 +346,15 @@ void tcp_time_wait(struct sock *sk, int state, int
+timeo)
+ 		} while (0);
+ #endif
+
++#if HAVE_SKBTRACE
++{
++		if (!tw->tw_skbtrace) {
++			tw->tw_skbtrace = sk->sk_skbtrace;
++			sock_skbtrace_reset(sk);
++		}
++}
++#endif
++
+ 		/* Linkage updates. */
+ 		__inet_twsk_hashdance(tw, sk, &tcp_hashinfo);
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index d046326..5a00d89 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -42,6 +42,9 @@
+ #include <linux/gfp.h>
+ #include <linux/module.h>
+
++#include <linux/skbtrace.h>
++#include <trace/events/skbtrace_ipv4.h>
++
+ /* People can turn this off for buggy TCP's found in printers etc. */
+ int sysctl_tcp_retrans_collapse __read_mostly = 1;
+
+@@ -996,6 +999,8 @@ static int tcp_transmit_skb(struct sock *sk, struct
+sk_buff *skb, int clone_it,
+
+ 	BUG_ON(!skb || !tcp_skb_pcount(skb));
+
++	trace_tcp_active_conn(sk);
++
+ 	/* If congestion control is doing timestamping, we must
+ 	 * take such a timestamp before we potentially clone/copy.
+ 	 */
+@@ -1853,15 +1858,18 @@ static int tcp_mtu_probe(struct sock *sk)
+
+ 	if (tp->snd_wnd < size_needed)
+ 		return -1;
+-	if (after(tp->snd_nxt + size_needed, tcp_wnd_end(tp)))
++	if (after(tp->snd_nxt + size_needed, tcp_wnd_end(tp))) {
++		trace_tcp_sendlimit(sk, skbtrace_tcp_sndlim_swnd, 1);
+ 		return 0;
+-
++	}
+ 	/* Do we need to wait to drain cwnd? With none in flight, don't stall */
+ 	if (tcp_packets_in_flight(tp) + 2 > tp->snd_cwnd) {
+ 		if (!tcp_packets_in_flight(tp))
+ 			return -1;
+-		else
++		else {
++			trace_tcp_sendlimit(sk, skbtrace_tcp_sndlim_cwnd, 1);
+ 			return 0;
++		}
+ 	}
+
+ 	/* We're allowed to probe.  Build it now. */
+@@ -1956,7 +1964,7 @@ static bool tcp_write_xmit(struct sock *sk,
+unsigned int mss_now, int nonagle,
+ 	struct sk_buff *skb;
+ 	unsigned int tso_segs, sent_pkts;
+ 	int cwnd_quota;
+-	int result;
++	int retval, result, sndlim;
+
+ 	sent_pkts = 0;
+
+@@ -1970,6 +1978,8 @@ static bool tcp_write_xmit(struct sock *sk,
+unsigned int mss_now, int nonagle,
+ 		}
+ 	}
+
++	sndlim = skbtrace_tcp_sndlim_ok;
++	result = 0;
+ 	while ((skb = tcp_send_head(sk))) {
+ 		unsigned int limit;
+
+@@ -1978,20 +1988,27 @@ static bool tcp_write_xmit(struct sock *sk,
+unsigned int mss_now, int nonagle,
+ 		BUG_ON(!tso_segs);
+
+ 		cwnd_quota = tcp_cwnd_test(tp, skb);
+-		if (!cwnd_quota)
++		if (!cwnd_quota) {
++			sndlim = skbtrace_tcp_sndlim_cwnd;
+ 			break;
++		}
+
+-		if (unlikely(!tcp_snd_wnd_test(tp, skb, mss_now)))
++		if (unlikely(!tcp_snd_wnd_test(tp, skb, mss_now))) {
++			sndlim = skbtrace_tcp_sndlim_swnd;
+ 			break;
+-
++		}
+ 		if (tso_segs == 1) {
+ 			if (unlikely(!tcp_nagle_test(tp, skb, mss_now,
+-						     (tcp_skb_is_last(sk, skb) ?
+-						      nonagle : TCP_NAGLE_PUSH))))
++					     (tcp_skb_is_last(sk, skb) ?
++					      nonagle : TCP_NAGLE_PUSH)))) {
++				sndlim = skbtrace_tcp_sndlim_nagle;
+ 				break;
++			}
+ 		} else {
+-			if (!push_one && tcp_tso_should_defer(sk, skb))
++			if (!push_one && tcp_tso_should_defer(sk, skb)) {
++				sndlim = skbtrace_tcp_sndlim_tso;
+ 				break;
++			}
+ 		}
+
+ 		/* TSQ : sk_wmem_alloc accounts skb truesize,
+@@ -2009,14 +2026,18 @@ static bool tcp_write_xmit(struct sock *sk,
+unsigned int mss_now, int nonagle,
+ 							  sk->sk_gso_max_segs));
+
+ 		if (skb->len > limit &&
+-		    unlikely(tso_fragment(sk, skb, limit, mss_now, gfp)))
++		    unlikely(tso_fragment(sk, skb, limit, mss_now, gfp))) {
++			sndlim = skbtrace_tcp_sndlim_frag;
+ 			break;
++		}
+
+ 		TCP_SKB_CB(skb)->when = tcp_time_stamp;
+
+-		if (unlikely(tcp_transmit_skb(sk, skb, 1, gfp)))
++		result = tcp_transmit_skb(sk, skb, 1, gfp);
++		if (unlikely(result)) {
++			sndlim = skbtrace_tcp_sndlim_other;
+ 			break;
+-
++		}
+ 		/* Advance the send_head.  This one is sent out.
+ 		 * This call will increment packets_out.
+ 		 */
+@@ -2025,17 +2046,25 @@ static bool tcp_write_xmit(struct sock *sk,
+unsigned int mss_now, int nonagle,
+ 		tcp_minshall_update(tp, mss_now, skb);
+ 		sent_pkts += tcp_skb_pcount(skb);
+
+-		if (push_one)
++		if (push_one) {
++			sndlim = skbtrace_tcp_sndlim_pushone;
+ 			break;
++		}
+ 	}
+ 	if (inet_csk(sk)->icsk_ca_state == TCP_CA_Recovery)
+ 		tp->prr_out += sent_pkts;
+
+ 	if (likely(sent_pkts)) {
++		trace_tcp_sendlimit(sk, skbtrace_tcp_sndlim_ok, sent_pkts);
+ 		tcp_cwnd_validate(sk);
+-		return false;
+-	}
+-	return !tp->packets_out && tcp_send_head(sk);
++		retval = false;
++	} else
++		retval = !tp->packets_out && tcp_send_head(sk);
++
++	if (skbtrace_tcp_sndlim_ok != sndlim)
++		trace_tcp_sendlimit(sk, sndlim, result);
++
++	return retval;
+ }
+
+ /* Push out any pending frames which were held back due to
