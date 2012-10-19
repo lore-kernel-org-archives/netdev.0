@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 18/21] ath6kl: Convert ipv4_is_<foo> uses to ipv4_addr_<foo>
-Date: Thu, 18 Oct 2012 21:15:02 -0700
-Message-ID: <24a0970cbeb1e5841468535182457d9586ab21a3.1350618012.git.joe@perches.com>
+Subject: [PATCH net-next 20/21] lockd: Convert ipv4_is_<foo> uses to ipv4_addr_<foo>
+Date: Thu, 18 Oct 2012 21:15:04 -0700
+Message-ID: <72f0c29d5ad9a3fcc059dbfcef073bea9d9d0de0.1350618012.git.joe@perches.com>
 References: <cover.1350618006.git.joe@perches.com>
 Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
@@ -15,23 +15,30 @@ the ipv6_addr_<foo> and eth_addr_<foo> style.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/wireless/ath/ath6kl/wmi.c |    4 ++--
+ include/linux/lockd/lockd.h |    4 ++--
  1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath6kl/wmi.c b/drivers/net/wireless/ath/ath6kl/wmi.c
-index c30ab4b..a5624f5 100644
---- a/drivers/net/wireless/ath/ath6kl/wmi.c
-+++ b/drivers/net/wireless/ath/ath6kl/wmi.c
-@@ -2547,8 +2547,8 @@ int ath6kl_wmi_set_ip_cmd(struct wmi *wmi, u8 if_idx,
- 	int ret;
+diff --git a/include/linux/lockd/lockd.h b/include/linux/lockd/lockd.h
+index f5a051a..8fa00e0 100644
+--- a/include/linux/lockd/lockd.h
++++ b/include/linux/lockd/lockd.h
+@@ -301,7 +301,7 @@ static inline int __nlm_privileged_request4(const struct sockaddr *sap)
+ 	if (ntohs(sin->sin_port) > 1023)
+ 		return 0;
  
- 	/* Multicast address are not valid */
--	if (ipv4_is_multicast(ips0) ||
--	    ipv4_is_multicast(ips1))
-+	if (ipv4_addr_multicast(ips0) ||
-+	    ipv4_addr_multicast(ips1))
- 		return -EINVAL;
+-	return ipv4_is_loopback(sin->sin_addr.s_addr);
++	return ipv4_addr_loopback(sin->sin_addr.s_addr);
+ }
  
- 	skb = ath6kl_wmi_get_new_buf(sizeof(struct wmi_set_ip_cmd));
+ #if IS_ENABLED(CONFIG_IPV6)
+@@ -313,7 +313,7 @@ static inline int __nlm_privileged_request6(const struct sockaddr *sap)
+ 		return 0;
+ 
+ 	if (ipv6_addr_type(&sin6->sin6_addr) & IPV6_ADDR_MAPPED)
+-		return ipv4_is_loopback(sin6->sin6_addr.s6_addr32[3]);
++		return ipv4_addr_loopback(sin6->sin6_addr.s6_addr32[3]);
+ 
+ 	return ipv6_addr_type(&sin6->sin6_addr) & IPV6_ADDR_LOOPBACK;
+ }
 -- 
 1.7.8.111.gad25c.dirty
