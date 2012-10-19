@@ -1,42 +1,53 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: Bug#690845: ethtool: incorrect WoL detection on Broadcom NX
- II rev < 12
-Date: Fri, 19 Oct 2012 12:38:50 -0700
-Message-ID: <1350675530.8764.131.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <20121018134717.9579.22997.reportbug@palomino.museglobal.com>
- <1350570748.26833.102.camel@deadeye.wl.decadent.org.uk>
- <CAG2Wgfee=qsiUhAk5reYTypcOZL0kM5A58J+LjB1wuQ_k9FrfA@mail.gmail.com>
- <1350610209.22276.6.camel@deadeye.wl.decadent.org.uk>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [stable 2.6.32.y PATCH 0/6] net: fixes for cached dsts are never invalidated
+Date: Fri, 19 Oct 2012 21:48:22 +0200
+Message-ID: <20121019194822.GF17417@1wt.eu>
+References: <20121019191347.GD13515@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
-Content-Transfer-Encoding: 7bit
-Cc: 690845@bugs.debian.org, "Teodor MICU" <mteodor@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: "Ben Hutchings" <ben@decadent.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, stable@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Benjamin LaHaise <bcrl@kvack.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1481 "EHLO mms2.broadcom.com"
+Received: from 1wt.eu ([62.212.114.60]:33803 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757094Ab2JSTi7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2012 15:38:59 -0400
-In-Reply-To: <1350610209.22276.6.camel@deadeye.wl.decadent.org.uk>
+	id S1758009Ab2JSTsb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2012 15:48:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20121019191347.GD13515@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-10-19 at 02:30 +0100, Ben Hutchings wrote: 
-> Teodor MICU reported that:
-> > On Broadcom NX II rev < 12 network interfaces it's not possible to activate
-> > WoL using 'ethtool' (it can only be done from the MBA Configuration Menu).
-> > 
-> > However, even if "Pre-boot Wake On LAN" was enabled 'ethtool' doesn't
-> > see this change:
-> > 	Supports Wake-on: d
-> > 	Wake-on: d
-> > 
-> > I've just tested that WoL works for this system.
+Hi Ben,
+
+On Fri, Oct 19, 2012 at 03:13:48PM -0400, Benjamin LaHaise wrote:
+> This is v2 of an attempt to pull in the relevant fixes for a problem in
+> v2.6.32 kernels where invalid cached routes are retained even after changes
+> to the routing table have been made.  A simple test case can be found at 
+> http://marc.info/?l=linux-netdev&m=135015076708950&w=2 .  Based on feedback 
+> from David Miller, additional changes have been pulled in, including fixes
+> for the same issue in IPv6.  Most of the patches required some rework owing
+> to the large differences in the networking stack between 2.6.32 and 3.6.
 > 
-> He's been using Linux 2.6.32 and Linux 3.2, but there don't seem to have
-> been any later changes to WoL support in bnx2.
-> 
-Teodor MICU, please provide lspci -vvv and ethtool -i eth? on the
-Broadcom bnx2 device.  Thanks.
+> I have performed basic tests to confirm that the cases I was hitting are
+> now fixed, including a couple of tests with IPv4 and IPv6.  Comments?  
+> Thanks again to David for the pointers to the additional fixes required in
+> this area.
+
+Looks like you've done an amazing work. I'm not the best person to judge
+if these changes are valid or not, so I'll trust you and David on this.
+
+I just have two questions: since you had to backport them from 3.6 to 2.6.32,
+I'm assuming that the equivalent was not ready in closer LTS kernels (2.6.34,
+3.0, 3.2, 3.4). Does this mean they're affected by the same issue too or are
+they immune ? And if they're affected, are you going to proceed with forward
+porting of your work for the closest ones (.34 and 3.0 come to mind) ? And if
+they aren't affected, do you think that picking some changes there would have
+been easier ?
+
+As you probably know, we want to ensure that people who upgrade from an old
+LTS to a newer one won't experience regressions due to problems which were
+fixed only in the older version.
+
+Thanks !
+Willy
