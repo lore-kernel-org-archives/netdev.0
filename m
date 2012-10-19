@@ -1,11 +1,11 @@
 From: Joe Jin <joe.jin@oracle.com>
 Subject: [PATCH] qla3xxx: Ensure request/response queue addr writes to the
  registers
-Date: Fri, 19 Oct 2012 09:22:29 +0800
-Message-ID: <5080AB55.9010609@oracle.com>
+Date: Fri, 19 Oct 2012 09:24:39 +0800
+Message-ID: <5080ABD7.90006@oracle.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080607040200060605000903"
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
 	Greg Marsden <greg.marsden@oracle.com>
 To: Ron Mercer <ron.mercer@qlogic.com>, Linux-Driver@qlogic.com,
@@ -14,11 +14,6 @@ To: Ron Mercer <ron.mercer@qlogic.com>, Linux-Driver@qlogic.com,
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------080607040200060605000903
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
 
 Before use the request and response queue addr, make sure it has wrote
 to the registers.
@@ -49,14 +44,3 @@ index df09b1c..f745ade 100644
  				 (size_t) qdev->req_q_size,
 -- 
 1.7.11.7
-
-
---------------080607040200060605000903
-Content-Type: text/plain; charset=us-ascii;
- name="Attached Message Part"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="Attached Message Part"
-
-
---------------080607040200060605000903--
