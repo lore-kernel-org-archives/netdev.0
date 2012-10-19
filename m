@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 21/21] sctp: Convert ipv4_is_<foo> uses to ipv4_addr_<foo>
-Date: Thu, 18 Oct 2012 21:15:05 -0700
-Message-ID: <1c35a1d3e2c8e20fe3dbdfa86fa156420fb3b461.1350618012.git.joe@perches.com>
+Subject: [PATCH net-next 07/21] infiniband: Convert is_<foo>_ether_addr uses to eth_addr_<foo>
+Date: Thu, 18 Oct 2012 21:14:11 -0700
+Message-ID: <edc1c1b7e0ed06854627d4f3f5bf39d8236ec296.1350618011.git.joe@perches.com>
 References: <cover.1350618006.git.joe@perches.com>
 Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
@@ -10,36 +10,40 @@ In-Reply-To: <cover.1350618006.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use the new ipv4_addr_<foo> functions to be consistent with
-the ipv6_addr_<foo> and eth_addr_<foo> style.
+Convert the old ether_addr tests to eth_addr_<foo>.
+Adds api consistency.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- include/net/sctp/constants.h |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/infiniband/hw/amso1100/c2.c |    2 +-
+ drivers/infiniband/hw/nes/nes_nic.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
-index d053d2e..31bae2f 100644
---- a/include/net/sctp/constants.h
-+++ b/include/net/sctp/constants.h
-@@ -365,12 +365,12 @@ typedef enum {
-  * Also, RFC 8.4, non-unicast addresses are not considered valid SCTP
-  * addresses.
-  */
--#define IS_IPV4_UNUSABLE_ADDRESS(a)	    \
--	((htonl(INADDR_BROADCAST) == a) ||  \
--	 ipv4_is_multicast(a) ||	    \
--	 ipv4_is_zeronet(a) ||		    \
--	 ipv4_is_test_198(a) ||		    \
--	 ipv4_is_anycast_6to4(a))
-+#define IS_IPV4_UNUSABLE_ADDRESS(a)		    \
-+	((htonl(INADDR_BROADCAST) == a) ||	    \
-+	 ipv4_addr_multicast(a) ||		    \
-+	 ipv4_addr_zeronet(a) ||		    \
-+	 ipv4_addr_test_198(a) ||		    \
-+	 ipv4_addr_anycast_6to4(a))
+diff --git a/drivers/infiniband/hw/amso1100/c2.c b/drivers/infiniband/hw/amso1100/c2.c
+index 5ce7b9e..3bb307c 100644
+--- a/drivers/infiniband/hw/amso1100/c2.c
++++ b/drivers/infiniband/hw/amso1100/c2.c
+@@ -908,7 +908,7 @@ static struct net_device *c2_devinit(struct c2_dev *c2dev,
+ 	memcpy_fromio(netdev->dev_addr, mmio_addr + C2_REGS_ENADDR, 6);
  
- /* Flags used for the bind address copy functions.  */
- #define SCTP_ADDR6_ALLOWED	0x00000001	/* IPv6 address is allowed by
+ 	/* Validate the MAC address */
+-	if (!is_valid_ether_addr(netdev->dev_addr)) {
++	if (!eth_addr_valid(netdev->dev_addr)) {
+ 		pr_debug("Invalid MAC Address\n");
+ 		c2_print_macaddr(netdev);
+ 		free_netdev(netdev);
+diff --git a/drivers/infiniband/hw/nes/nes_nic.c b/drivers/infiniband/hw/nes/nes_nic.c
+index 0564be7..3cd7d38 100644
+--- a/drivers/infiniband/hw/nes/nes_nic.c
++++ b/drivers/infiniband/hw/nes/nes_nic.c
+@@ -809,7 +809,7 @@ static int nes_netdev_set_mac_address(struct net_device *netdev, void *p)
+ 	u32 macaddr_low;
+ 	u16 macaddr_high;
+ 
+-	if (!is_valid_ether_addr(mac_addr->sa_data))
++	if (!eth_addr_valid(mac_addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 
+ 	memcpy(netdev->dev_addr, mac_addr->sa_data, netdev->addr_len);
 -- 
 1.7.8.111.gad25c.dirty
