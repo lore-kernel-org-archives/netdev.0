@@ -1,87 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: listen(2) backlog changes in or around Linux 3.1?
-Date: Fri, 19 Oct 2012 13:39:35 +0200
-Message-ID: <1350646775.2293.497.camel@edumazet-glaptop>
-References: <CAJgzZorigejCuFweNrvmkEJts3Um7exh1fYTH=4KrEcB=v=2SA@mail.gmail.com>
-	 <507C4401.7050500@oracle.com>
-	 <CAJgzZoqhw6HJxa6uRbekLMaVTDVOo92YDtzqHnZoRiQ8tq6G2g@mail.gmail.com>
-	 <CAJgzZoq9+KZpQ1tVQJUK++VVk4JfY9u8timaJ5q6wSYoF+_tog@mail.gmail.com>
-	 <5080279F.80008@oracle.com> <5080340F.3050207@oracle.com>
-	 <CAJgzZooJM7aj=K-idvdbwUOOmtDM6u-=gsVOs2OFZjiZwQP0zw@mail.gmail.com>
-	 <CAGK4HS-tOE1uZR2PE+_DShEb3y5ZAn=dtECY1AmmyO2AmTVzTA@mail.gmail.com>
-	 <1350629413.2293.157.camel@edumazet-glaptop>
-	 <1350634013.2293.262.camel@edumazet-glaptop>
-	 <CAGK4HS_9mLzL9ESm=n5hvO0cw1hkHFMCSmBiYTBnqEMqQOvPvQ@mail.gmail.com>
-	 <1350642562.2293.411.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: enh <enh@google.com>,
-	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
-	netdev@vger.kernel.org
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/14][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 19 Oct 2012 04:45:00 -0700
+Message-ID: <1350647114-6768-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:42560 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751765Ab2JSLjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 07:39:41 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so173936bkc.19
-        for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 04:39:39 -0700 (PDT)
-In-Reply-To: <1350642562.2293.411.camel@edumazet-glaptop>
+Received: from mga11.intel.com ([192.55.52.93]:36113 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758626Ab2JSLpl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2012 07:45:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-10-19 at 12:29 +0200, Eric Dumazet wrote:
-> On Fri, 2012-10-19 at 02:14 -0700, Vijay Subramanian wrote:
-> > > diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> > > index ef998b0..0404926 100644
-> > > --- a/net/ipv4/tcp_ipv4.c
-> > > +++ b/net/ipv4/tcp_ipv4.c
-> > > @@ -1507,7 +1507,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
-> > >          * clogging syn queue with openreqs with exponentially increasing
-> > >          * timeout.
-> > >          */
-> > > -       if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1)
-> > > +       if (__sk_acceptq_is_full(sk, inet_csk_reqsk_queue_young(sk)))
-> > >                 goto drop;
-> > >
-> > 
-> > For what its worth, I think the changes make sense. But is there any
-> > reason to exclude old request_socks in the  call to
-> > __sk_acceptq_is_full().?
-> > as in
-> >       if (__sk_acceptq_is_full(sk, inet_csk_reqsk_queue_len(sk)))
-> >                goto drop;
-> > 
-> > I am not sure why the current code looks only at young request_socks.
-> > Thanks,
-> > Vijay
-> 
-> Old requests are assumed to be unlikely to complete (SYN attack).
-> 
-> young requests are assumed to have a reasonable chance to complete.
-> 
-> Note that we drop the SYN packet, so its not a 'final' decision.
-> 
-> Some other OSes send RST in case the listener queue is full
-> (I tested FreeBSD 9.0 this morning.)
-> 
-> Note also we probably have a bug elsewhere :
-> 
-> If we send a SYNACK, then receive the ACK from client, and the acceptq
-> is full, we should reset the connexion. Right now we have kind of stupid
-> situation, were we drop the ACK, and leave the REQ in the SYN_RECV
-> state, so we retransmit SYNACKS.
-> 
-> I am working on this part as well.
-> 
+This series contains updates to ixgbe and igb.
 
-Well, it seems a documented feature :
+The following are changes since commit db0fe0b2f6bba2fda939737d063db2ae14c58d71:
+  Merge tag 'batman-adv-fix-for-davem' of git://git.open-mesh.org/linux-merge
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-tcp_abort_on_overflow - BOOLEAN
-        If listening service is too slow to accept new connections,
-        reset them. Default state is FALSE. It means that if overflow
-        occurred due to a burst, connection will recover. Enable this
-        option _only_ if you are really sure that listening daemon
-        cannot be tuned to accept connections faster. Enabling this
-        option can harm clients of your server.
+Alexander Duyck (13):
+  ixgbe: Initialize q_vector cpu and affinity masks correctly
+  ixgbe: Enable jumbo frames support w/ SR-IOV
+  ixgbe: Move message handling routines into their own functions
+  ixgbe: Add mailbox API version negotiation support to ixgbe PF
+  igb: Split Rx timestamping into two separate functions
+  igb: Do not use header split, instead receive all frames into a
+    single buffer
+  igb: Combine post-processing of skb into a single function
+  igb: Map entire page and sync half instead of mapping and unmapping
+    half pages
+  igb: Move rx_buffer related code in Rx cleanup path into separate
+    function
+  igb: Lock buffer size at 2K even on systems with larger pages
+  igb: Combine q_vector and ring allocation into a single function
+  igb: Move the calls to set the Tx and Rx queues into igb_open
+  igb: Split igb_update_dca into separate Tx and Rx functions
+
+Tushar Dave (1):
+  igb: Correcting and improving small packet check and padding
+
+ drivers/net/ethernet/intel/igb/e1000_82575.h   |    3 +
+ drivers/net/ethernet/intel/igb/igb.h           |   70 +-
+ drivers/net/ethernet/intel/igb/igb_ethtool.c   |   53 +-
+ drivers/net/ethernet/intel/igb/igb_main.c      | 1242 +++++++++++++++---------
+ drivers/net/ethernet/intel/igb/igb_ptp.c       |   55 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h       |    1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c  |    4 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c   |    7 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |   13 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |   21 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |  359 ++++---
+ 11 files changed, 1195 insertions(+), 633 deletions(-)
+
+-- 
+1.7.11.7
