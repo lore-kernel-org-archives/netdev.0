@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 15/21] in.h: Rename ipv4_is_<foo> functions to ipv4_addr_<foo>
-Date: Thu, 18 Oct 2012 21:14:59 -0700
-Message-ID: <e7805590abcf76d60dc0cbeff63c824419726ab4.1350618011.git.joe@perches.com>
+Subject: [PATCH net-next 17/21] infiniband: Convert ipv4_is_<foo> uses to ipv4_addr_<foo>
+Date: Thu, 18 Oct 2012 21:15:01 -0700
+Message-ID: <a7ac057bbe9925082d641fdeaece9b94ac307609.1350618012.git.joe@perches.com>
 References: <cover.1350618006.git.joe@perches.com>
 Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
@@ -10,113 +10,35 @@ In-Reply-To: <cover.1350618006.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make the ipv4_is_<foo> tests use a similar style to ipv6_<foo> tests.
-Add backward compatibility #defines to keep current ipv4_is_<foo>
-code working until completely converted.
+Use the new ipv4_addr_<foo> functions to be consistent with
+the ipv6_addr_<foo> and eth_addr_<foo> style.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- include/linux/in.h |   40 ++++++++++++++++++++++++++++------------
- 1 files changed, 28 insertions(+), 12 deletions(-)
+ drivers/infiniband/core/cma.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/in.h b/include/linux/in.h
-index 31b4937..2116ce8 100644
---- a/include/linux/in.h
-+++ b/include/linux/in.h
-@@ -39,66 +39,82 @@ static inline int proto_ports_offset(int proto)
- 	}
- }
+diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
+index a7568c3..108f96f 100644
+--- a/drivers/infiniband/core/cma.c
++++ b/drivers/infiniband/core/cma.c
+@@ -683,7 +683,7 @@ static inline int cma_zero_addr(struct sockaddr *addr)
+ 	struct in6_addr *ip6;
  
--static inline bool ipv4_is_loopback(__be32 addr)
-+static inline bool ipv4_addr_loopback(__be32 addr)
+ 	if (addr->sa_family == AF_INET)
+-		return ipv4_is_zeronet(
++		return ipv4_addr_zeronet(
+ 			((struct sockaddr_in *)addr)->sin_addr.s_addr);
+ 	else {
+ 		ip6 = &((struct sockaddr_in6 *) addr)->sin6_addr;
+@@ -695,7 +695,7 @@ static inline int cma_zero_addr(struct sockaddr *addr)
+ static inline int cma_loopback_addr(struct sockaddr *addr)
  {
- 	return (addr & htonl(0xff000000)) == htonl(0x7f000000);
- }
- 
--static inline bool ipv4_is_multicast(__be32 addr)
-+static inline bool ipv4_addr_multicast(__be32 addr)
- {
- 	return (addr & htonl(0xf0000000)) == htonl(0xe0000000);
- }
- 
--static inline bool ipv4_is_local_multicast(__be32 addr)
-+static inline bool ipv4_addr_local_multicast(__be32 addr)
- {
- 	return (addr & htonl(0xffffff00)) == htonl(0xe0000000);
- }
- 
--static inline bool ipv4_is_lbcast(__be32 addr)
-+static inline bool ipv4_addr_lbcast(__be32 addr)
- {
- 	/* limited broadcast */
- 	return addr == htonl(INADDR_BROADCAST);
- }
- 
--static inline bool ipv4_is_zeronet(__be32 addr)
-+static inline bool ipv4_addr_zeronet(__be32 addr)
- {
- 	return (addr & htonl(0xff000000)) == htonl(0x00000000);
- }
- 
- /* Special-Use IPv4 Addresses (RFC3330) */
- 
--static inline bool ipv4_is_private_10(__be32 addr)
-+static inline bool ipv4_addr_private_10(__be32 addr)
- {
- 	return (addr & htonl(0xff000000)) == htonl(0x0a000000);
- }
- 
--static inline bool ipv4_is_private_172(__be32 addr)
-+static inline bool ipv4_addr_private_172(__be32 addr)
- {
- 	return (addr & htonl(0xfff00000)) == htonl(0xac100000);
- }
- 
--static inline bool ipv4_is_private_192(__be32 addr)
-+static inline bool ipv4_addr_private_192(__be32 addr)
- {
- 	return (addr & htonl(0xffff0000)) == htonl(0xc0a80000);
- }
- 
--static inline bool ipv4_is_linklocal_169(__be32 addr)
-+static inline bool ipv4_addr_linklocal_169(__be32 addr)
- {
- 	return (addr & htonl(0xffff0000)) == htonl(0xa9fe0000);
- }
- 
--static inline bool ipv4_is_anycast_6to4(__be32 addr)
-+static inline bool ipv4_addr_anycast_6to4(__be32 addr)
- {
- 	return (addr & htonl(0xffffff00)) == htonl(0xc0586300);
- }
- 
--static inline bool ipv4_is_test_192(__be32 addr)
-+static inline bool ipv4_addr_test_192(__be32 addr)
- {
- 	return (addr & htonl(0xffffff00)) == htonl(0xc0000200);
- }
- 
--static inline bool ipv4_is_test_198(__be32 addr)
-+static inline bool ipv4_addr_test_198(__be32 addr)
- {
- 	return (addr & htonl(0xfffe0000)) == htonl(0xc6120000);
- }
-+
-+/* Some #defines to make old ipv4_is_<foo> tests work for awhile */
-+
-+#define ipv4_is_loopback(addr)		ipv4_addr_loopback(addr)
-+#define ipv4_is_multicast(addr)		ipv4_addr_multicast(addr)
-+#define ipv4_is_local_multicast(addr)	ipv4_addr_local_multicast(addr)
-+#define ipv4_is_lbcast(addr)		ipv4_addr_lbcast(addr)
-+#define ipv4_is_zeronet(addr)		ipv4_addr_zeronet(addr)
-+#define ipv4_is_private_10(addr)	ipv4_addr_private_10(addr)
-+#define ipv4_is_private_172(addr)	ipv4_addr_private_172(addr)
-+#define ipv4_is_private_192(addr)	ipv4_addr_private_192(addr)
-+#define ipv4_is_linklocal_169(addr)	ipv4_addr_linklocal_169(addr)
-+#define ipv4_is_anycast_6to4(addr)	ipv4_addr_anycast_6to4(addr)
-+#define ipv4_is_test_192(addr)		ipv4_addr_test_192(addr)
-+#define ipv4_is_test_198(addr)		ipv4_addr_test_198(addr)
-+
- #endif	/* _LINUX_IN_H */
+ 	if (addr->sa_family == AF_INET)
+-		return ipv4_is_loopback(
++		return ipv4_addr_loopback(
+ 			((struct sockaddr_in *) addr)->sin_addr.s_addr);
+ 	else
+ 		return ipv6_addr_loopback(
 -- 
 1.7.8.111.gad25c.dirty
