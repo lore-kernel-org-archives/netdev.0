@@ -1,70 +1,97 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH net-next 02/14] net: cdc_ncm: use device rx_max value if update failed
-Date: Fri, 19 Oct 2012 14:18:11 +0200
-Message-ID: <878vb2u03g.fsf@nemi.mork.no>
-References: <1350592867-25651-1-git-send-email-bjorn@mork.no>
-	<1350592867-25651-3-git-send-email-bjorn@mork.no>
-	<3426241.1WN6uXHlgW@linux-lqwf.site> <87ehkvv3ej.fsf@nemi.mork.no>
-	<CAL_Kpj0j9umyQBFFDVqWqEjH1057EjR0cZRcScdZG30E54=M0w@mail.gmail.com>
-	<878vb3ufnx.fsf@nemi.mork.no> <871uguvmfy.fsf@nemi.mork.no>
-	<CAL_Kpj3QX_bpLh5yX5VXKaqq+TSO9+aVxt+1TrU9e1BamKdFkA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Greg Suarez <gpsuarez2512-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Fangxiaozhi \(Franko\)" <fangxiaozhi-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Aleksander Morgado <aleksander-bhGbAngMcJvQT0dZR+AlfA@public.gmane.org>
-To: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAL_Kpj3QX_bpLh5yX5VXKaqq+TSO9+aVxt+1TrU9e1BamKdFkA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-	(Alexey Orishko's message of "Fri, 19 Oct 2012 12:01:39 +0200")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <ffainelli@freebox.fr>
+Subject: [PATCH] e1000: fix concurrent accesses to PHY from watchdog and ethtool
+Date: Fri, 19 Oct 2012 14:44:48 +0200
+Message-ID: <1350650688-29293-1-git-send-email-ffainelli@freebox.fr>
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	Florian Fainelli <ffainelli@freebox.fr>,
+	Maxime Bizon <mbizon@freebox.fr>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zmc.proxad.net ([212.27.53.206]:33928 "EHLO zmc.proxad.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753948Ab2JSMqT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2012 08:46:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+From: Maxime Bizon <mbizon@freebox.fr>
 
-> Based on NCM errata, NCM functional descriptor: if Bit 5 is set, then
-> device can (must) handle 8-byte form of Set/GetNtbInputSize.
-> If they set a flag, but don't support the feature, hm.. is it a
-> prototype device or
-> commercially available one?
->
-> At least device must support Set request, but for GetNtbInputSize we
-> could happily
-> live without wNtbInMaxDatagrams (i.e. use 4 byte variant) on Linux.
-> Since we must anyway receive a complete NTB and making any number of =
-skb
-> buffers from received NTB is not a problem at all.
+The e1000 driver currently does not protect concurrent accesses to the PHY
+from both the ethtool callbacks, and from the e1000_watchdog function. This
+patchs adds a new spinlock which is used by e1000_{read,write}_phy_reg in
+order to serialize concurrent accesses to the PHY.
 
-OK, I may have misunderstood you here.  Quoting the errata text:
+Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
+Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
+---
+ drivers/net/ethernet/intel/e1000/e1000_hw.c |   17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
 
-<quote>
-  If bit D5 is set in the bmNetworkCapabilities field of function=E2=80=
-=99s NCM
-  Functional Descriptor, the host may set wLength either to 4 or to
-  8. If wLength is 4, the function shall assume that wNtbInMaxDatagrams
-  is to be set to zero. If wLength is 8, then the function shall use th=
-e
-  provided value as the limit. The function shall return an error
-  response (a STALL PID) if wLength is set to any other value.
-</quote>
-
-So the 4 byte variant is always supported and we might as well just use
-it unconditionally because we don't set, or need to set, the
-wNtbInMaxDatagrams.
-
-Is that right?  It will simplify the code even more without any loss of
-functionality, except for the possibility of failing on some other bugg=
-y
-device not supporting the 4 byte variant...
-
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.c b/drivers/net/ethernet/intel/e1000/e1000_hw.c
+index 3d68395..8fedd24 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_hw.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_hw.c
+@@ -107,6 +107,7 @@ u16 e1000_igp_cable_length_table[IGP01E1000_AGC_LENGTH_TABLE_SIZE] = {
+ };
+ 
+ static DEFINE_SPINLOCK(e1000_eeprom_lock);
++static DEFINE_SPINLOCK(e1000_phy_lock);
+ 
+ /**
+  * e1000_set_phy_type - Set the phy type member in the hw struct.
+@@ -2830,19 +2831,25 @@ static u16 e1000_shift_in_mdi_bits(struct e1000_hw *hw)
+ s32 e1000_read_phy_reg(struct e1000_hw *hw, u32 reg_addr, u16 *phy_data)
+ {
+ 	u32 ret_val;
++	unsigned long flags;
+ 
+ 	e_dbg("e1000_read_phy_reg");
+ 
++	spin_lock_irqsave(&e1000_phy_lock, flags);
++
+ 	if ((hw->phy_type == e1000_phy_igp) &&
+ 	    (reg_addr > MAX_PHY_MULTI_PAGE_REG)) {
+ 		ret_val = e1000_write_phy_reg_ex(hw, IGP01E1000_PHY_PAGE_SELECT,
+ 						 (u16) reg_addr);
+-		if (ret_val)
++		if (ret_val) {
++			spin_unlock_irqrestore(&e1000_phy_lock, flags);
+ 			return ret_val;
++		}
+ 	}
+ 
+ 	ret_val = e1000_read_phy_reg_ex(hw, MAX_PHY_REG_ADDRESS & reg_addr,
+ 					phy_data);
++	spin_unlock_irqrestore(&e1000_phy_lock, flags);
+ 
+ 	return ret_val;
+ }
+@@ -2965,19 +2972,25 @@ static s32 e1000_read_phy_reg_ex(struct e1000_hw *hw, u32 reg_addr,
+ s32 e1000_write_phy_reg(struct e1000_hw *hw, u32 reg_addr, u16 phy_data)
+ {
+ 	u32 ret_val;
++	unsigned long flags;
+ 
+ 	e_dbg("e1000_write_phy_reg");
+ 
++	spin_lock_irqsave(&e1000_phy_lock, flags);
++
+ 	if ((hw->phy_type == e1000_phy_igp) &&
+ 	    (reg_addr > MAX_PHY_MULTI_PAGE_REG)) {
+ 		ret_val = e1000_write_phy_reg_ex(hw, IGP01E1000_PHY_PAGE_SELECT,
+ 						 (u16) reg_addr);
+-		if (ret_val)
++		if (ret_val) {
++			spin_unlock_irqrestore(&e1000_phy_lock, flags);
+ 			return ret_val;
++		}
+ 	}
+ 
+ 	ret_val = e1000_write_phy_reg_ex(hw, MAX_PHY_REG_ADDRESS & reg_addr,
+ 					 phy_data);
++	spin_unlock_irqrestore(&e1000_phy_lock, flags);
+ 
+ 	return ret_val;
+ }
+-- 
+1.7.9.5
