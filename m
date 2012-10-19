@@ -1,47 +1,81 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH net-next] sockopt: Make SO_BINDTODEVICE readable
-Date: Fri, 19 Oct 2012 13:55:56 +0400
-Message-ID: <508123AC.5080208@parallels.com>
+From: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next 02/14] net: cdc_ncm: use device rx_max value if
+ update failed
+Date: Fri, 19 Oct 2012 12:01:39 +0200
+Message-ID: <CAL_Kpj3QX_bpLh5yX5VXKaqq+TSO9+aVxt+1TrU9e1BamKdFkA@mail.gmail.com>
+References: <1350592867-25651-1-git-send-email-bjorn@mork.no>
+	<1350592867-25651-3-git-send-email-bjorn@mork.no>
+	<3426241.1WN6uXHlgW@linux-lqwf.site>
+	<87ehkvv3ej.fsf@nemi.mork.no>
+	<CAL_Kpj0j9umyQBFFDVqWqEjH1057EjR0cZRcScdZG30E54=M0w@mail.gmail.com>
+	<878vb3ufnx.fsf@nemi.mork.no>
+	<871uguvmfy.fsf@nemi.mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:28611 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756911Ab2JSJ4F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2012 05:56:05 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Greg Suarez <gpsuarez2512-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Fangxiaozhi (Franko)" <fangxiaozhi-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Aleksander Morgado <aleksander-bhGbAngMcJvQT0dZR+AlfA@public.gmane.org>
+To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <871uguvmfy.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The SO_BINDTODEVICE option is the only SOL_SOCKET one that can be set, but
-cannot be get via sockopt API. The only way we can find the device id a
-socket is bound to is via sock-diag interface. But the diag works only on
-hashed sockets, while the opt in question can be set for yet unhashed one.
+On Fri, Oct 19, 2012 at 11:30 AM, Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
+> Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> writes:
+>> Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+>>
+> OK, I did some more experiments, and I am wondering if the real firmw=
+are
+> problem is in the MBIM descriptor.  It is
+>
+>       CDC MBIM:
+>         bcdMBIMVersion       1.00
+>         wMaxControlMessage   1536
+>         bNumberFilters       16
+>         bMaxFilterSize       40
+>         wMaxSegmentSize      4096
+>         bmNetworkCapabilities 0x20
+>           8-byte ntb input size
+>
+>
+> so we use the 8-byte version of USB_CDC_SET_NTB_INPUT_SIZE, which fai=
+ls
+> with -EPIPE.  But forcing the 4-byte version seems to work. Hmm, I al=
+so
+> see that the device returns 4 bytes in response to at
+> USB_CDC_GET_NTB_INPUT_SIZE with an 8-byte buffer.  Maybe we can
+> auto-quirk based on that?  I.e., if USB_CDC_GET_NTB_INPUT_SIZE return=
+s
+> only 4 bytes then we assume that the bmNetworkCapabilities flag is
+> wrong.
+>
+> Is that acceptable?  Then it seems we are able to inform this device =
+of
+> the reduced buffer, and the other problems can be ignored.
+>
 
-That said, in order to know what device a socket is bound to (we do want
-to know this in checkpoint-restore project) I propose to make this option
-getsockopt-able and report the respective device index.
+Based on NCM errata, NCM functional descriptor: if Bit 5 is set, then
+device can (must) handle 8-byte form of Set/GetNtbInputSize.
+If they set a flag, but don't support the feature, hm.. is it a
+prototype device or
+commercially available one?
 
-Another solution to the problem might be to teach the sock-diag reporting
-info on unhashed sockets. Should I go this way instead?
+At least device must support Set request, but for GetNtbInputSize we
+could happily
+live without wNtbInMaxDatagrams (i.e. use 4 byte variant) on Linux.
+Since we must anyway receive a complete NTB and making any number of sk=
+b
+buffers from received NTB is not a problem at all.
 
-Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
-
----
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 8a146cf..c49412c 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1074,6 +1074,9 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
- 	case SO_NOFCS:
- 		v.val = sock_flag(sk, SOCK_NOFCS);
- 		break;
-+	case SO_BINDTODEVICE:
-+		v.val = sk->sk_bound_dev_if;
-+		break;
- 	default:
- 		return -ENOPROTOOPT;
- 	}
+regards,
+alexey
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
