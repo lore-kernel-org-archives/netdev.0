@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/14] igb: Move rx_buffer related code in Rx cleanup path into separate function
-Date: Fri, 19 Oct 2012 04:45:10 -0700
-Message-ID: <1350647114-6768-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/14] ixgbe: Enable jumbo frames support w/ SR-IOV
+Date: Fri, 19 Oct 2012 04:45:02 -0700
+Message-ID: <1350647114-6768-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1350647114-6768-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -10,293 +10,235 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:36113 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932207Ab2JSLpq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2012 07:45:46 -0400
+	id S1758642Ab2JSLpn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2012 07:45:43 -0400
 In-Reply-To: <1350647114-6768-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-In order to try and isolate things a bit further I am moving the code
-related to retrieving data from the rx_buffer_info structure into a
-separate function.
+This change makes it so that we can have limited support for jumbo frames
+when SR-IOV is enabled.  In order to accomplish this it is necessary to
+disable all VFs when the PF has jumbo frames enabled.  If the VFs then
+request the same maximum frame size as the PF they will be re-enabled.  A
+follow on patch will add a means of identifying when a VF can support
+spanning buffers and does not need to be worried about the actual supported
+max frame size.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Tested-by: Robert Garrett <robertx.e.garrett@intel.com>
+Tested-by: Sibai Li <Sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 206 +++++++++++++++++-------------
- 1 file changed, 120 insertions(+), 86 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c  |   4 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  13 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 107 ++++++++++++++++++-------
+ 3 files changed, 93 insertions(+), 31 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 18ad18f..fa7ddec 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -5928,6 +5928,74 @@ static bool igb_add_rx_frag(struct igb_ring *rx_ring,
- 	return true;
- }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+index ae73ef1..252850d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+@@ -800,6 +800,10 @@ int ixgbe_fcoe_enable(struct net_device *netdev)
+ 		return -EINVAL;
  
-+static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
-+					   union e1000_adv_rx_desc *rx_desc,
-+					   struct sk_buff *skb)
-+{
-+	struct igb_rx_buffer *rx_buffer;
-+	struct page *page;
+ 	e_info(drv, "Enabling FCoE offload features.\n");
 +
-+	rx_buffer = &rx_ring->rx_buffer_info[rx_ring->next_to_clean];
++	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
++		e_warn(probe, "Enabling FCoE on PF will disable legacy VFs\n");
 +
-+	/*
-+	 * This memory barrier is needed to keep us from reading
-+	 * any other fields out of the rx_desc until we know the
-+	 * RXD_STAT_DD bit is set
-+	 */
-+	rmb();
-+
-+	page = rx_buffer->page;
-+	prefetchw(page);
-+
-+	if (likely(!skb)) {
-+		void *page_addr = page_address(page) +
-+				  rx_buffer->page_offset;
-+
-+		/* prefetch first cache line of first page */
-+		prefetch(page_addr);
-+#if L1_CACHE_BYTES < 128
-+		prefetch(page_addr + L1_CACHE_BYTES);
-+#endif
-+
-+		/* allocate a skb to store the frags */
-+		skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
-+						IGB_RX_HDR_LEN);
-+		if (unlikely(!skb)) {
-+			rx_ring->rx_stats.alloc_failed++;
-+			return NULL;
-+		}
-+
-+		/*
-+		 * we will be copying header into skb->data in
-+		 * pskb_may_pull so it is in our interest to prefetch
-+		 * it now to avoid a possible cache miss
-+		 */
-+		prefetchw(skb->data);
-+	}
-+
-+	/* we are reusing so sync this buffer for CPU use */
-+	dma_sync_single_range_for_cpu(rx_ring->dev,
-+				      rx_buffer->dma,
-+				      rx_buffer->page_offset,
-+				      PAGE_SIZE / 2,
-+				      DMA_FROM_DEVICE);
-+
-+	/* pull page into skb */
-+	if (igb_add_rx_frag(rx_ring, rx_buffer, rx_desc, skb)) {
-+		/* hand second half of page back to the ring */
-+		igb_reuse_rx_page(rx_ring, rx_buffer);
-+	} else {
-+		/* we are not reusing the buffer so unmap it */
-+		dma_unmap_page(rx_ring->dev, rx_buffer->dma,
-+			       PAGE_SIZE, DMA_FROM_DEVICE);
-+	}
-+
-+	/* clear contents of rx_buffer */
-+	rx_buffer->page = NULL;
-+
-+	return skb;
-+}
-+
- static inline void igb_rx_checksum(struct igb_ring *ring,
- 				   union e1000_adv_rx_desc *rx_desc,
- 				   struct sk_buff *skb)
-@@ -5978,6 +6046,34 @@ static inline void igb_rx_hash(struct igb_ring *ring,
- }
+ 	if (netif_running(netdev))
+ 		netdev->netdev_ops->ndo_stop(netdev);
  
- /**
-+ * igb_is_non_eop - process handling of non-EOP buffers
-+ * @rx_ring: Rx ring being processed
-+ * @rx_desc: Rx descriptor for current buffer
-+ * @skb: current socket buffer containing buffer in progress
-+ *
-+ * This function updates next to clean.  If the buffer is an EOP buffer
-+ * this function exits returning false, otherwise it will place the
-+ * sk_buff in the next buffer to be chained and return true indicating
-+ * that this is in fact a non-EOP buffer.
-+ **/
-+static bool igb_is_non_eop(struct igb_ring *rx_ring,
-+			   union e1000_adv_rx_desc *rx_desc)
-+{
-+	u32 ntc = rx_ring->next_to_clean + 1;
-+
-+	/* fetch, update, and store next to clean */
-+	ntc = (ntc < rx_ring->count) ? ntc : 0;
-+	rx_ring->next_to_clean = ntc;
-+
-+	prefetch(IGB_RX_DESC(rx_ring, ntc));
-+
-+	if (likely(igb_test_staterr(rx_desc, E1000_RXD_STAT_EOP)))
-+		return false;
-+
-+	return true;
-+}
-+
-+/**
-  * igb_get_headlen - determine size of header for LRO/GRO
-  * @data: pointer to the start of the headers
-  * @max_len: total length of section to find headers in
-@@ -6227,87 +6323,39 @@ static void igb_process_skb_fields(struct igb_ring *rx_ring,
- 	skb->protocol = eth_type_trans(skb, rx_ring->netdev);
- }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index fa3d552..e2a6691 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3263,6 +3263,11 @@ static void ixgbe_set_rx_buffer_len(struct ixgbe_adapter *adapter)
+ 		max_frame = IXGBE_FCOE_JUMBO_FRAME_SIZE;
  
--static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, int budget)
-+static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, const int budget)
- {
- 	struct igb_ring *rx_ring = q_vector->rx.ring;
--	union e1000_adv_rx_desc *rx_desc;
- 	struct sk_buff *skb = rx_ring->skb;
- 	unsigned int total_bytes = 0, total_packets = 0;
- 	u16 cleaned_count = igb_desc_unused(rx_ring);
--	u16 i = rx_ring->next_to_clean;
--
--	rx_desc = IGB_RX_DESC(rx_ring, i);
--
--	while (igb_test_staterr(rx_desc, E1000_RXD_STAT_DD)) {
--		struct igb_rx_buffer *buffer_info = &rx_ring->rx_buffer_info[i];
--		struct page *page;
--		union e1000_adv_rx_desc *next_rxd;
--
--		i++;
--		if (i == rx_ring->count)
--			i = 0;
--
--		next_rxd = IGB_RX_DESC(rx_ring, i);
--		prefetch(next_rxd);
+ #endif /* IXGBE_FCOE */
++
++	/* adjust max frame to be at least the size of a standard frame */
++	if (max_frame < (ETH_FRAME_LEN + ETH_FCS_LEN))
++		max_frame = (ETH_FRAME_LEN + ETH_FCS_LEN);
++
+ 	mhadd = IXGBE_READ_REG(hw, IXGBE_MHADD);
+ 	if (max_frame != (mhadd >> IXGBE_MHADD_MFS_SHIFT)) {
+ 		mhadd &= ~IXGBE_MHADD_MFS_MASK;
+@@ -4828,14 +4833,14 @@ static int ixgbe_change_mtu(struct net_device *netdev, int new_mtu)
+ 		return -EINVAL;
  
+ 	/*
+-	 * For 82599EB we cannot allow PF to change MTU greater than 1500
+-	 * in SR-IOV mode as it may cause buffer overruns in guest VFs that
+-	 * don't allocate and chain buffers correctly.
++	 * For 82599EB we cannot allow legacy VFs to enable their receive
++	 * paths when MTU greater than 1500 is configured.  So display a
++	 * warning that legacy VFs will be disabled.
+ 	 */
+ 	if ((adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) &&
+ 	    (adapter->hw.mac.type == ixgbe_mac_82599EB) &&
+ 	    (max_frame > MAXIMUM_ETHERNET_VLAN_SIZE))
+-			return -EINVAL;
++		e_warn(probe, "Setting MTU > 1500 will disable legacy VFs\n");
+ 
+ 	e_info(probe, "changing MTU from %d to %d\n", netdev->mtu, new_mtu);
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index dce48bf..420766e 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -150,16 +150,6 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter,
+ 		adapter->flags2 &= ~(IXGBE_FLAG2_RSC_CAPABLE |
+ 				     IXGBE_FLAG2_RSC_ENABLED);
+ 
+-#ifdef IXGBE_FCOE
 -		/*
--		 * This memory barrier is needed to keep us from reading
--		 * any other fields out of the rx_desc until we know the
--		 * RXD_STAT_DD bit is set
+-		 * When SR-IOV is enabled 82599 cannot support jumbo frames
+-		 * so we must disable FCoE because we cannot support FCoE MTU.
 -		 */
--		rmb();
--
--		page = buffer_info->page;
--		prefetchw(page);
-+	do {
-+		union e1000_adv_rx_desc *rx_desc;
- 
--		if (likely(!skb)) {
--			void *page_addr = page_address(page) +
--					  buffer_info->page_offset;
-+		/* return some buffers to hardware, one at a time is too slow */
-+		if (cleaned_count >= IGB_RX_BUFFER_WRITE) {
-+			igb_alloc_rx_buffers(rx_ring, cleaned_count);
-+			cleaned_count = 0;
-+		}
- 
--			/* prefetch first cache line of first page */
--			prefetch(page_addr);
--#if L1_CACHE_BYTES < 128
--			prefetch(page_addr + L1_CACHE_BYTES);
+-		if (adapter->hw.mac.type == ixgbe_mac_82599EB)
+-			adapter->flags &= ~(IXGBE_FLAG_FCOE_ENABLED |
+-					    IXGBE_FLAG_FCOE_CAPABLE);
 -#endif
-+		rx_desc = IGB_RX_DESC(rx_ring, rx_ring->next_to_clean);
- 
--			/* allocate a skb to store the frags */
--			skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
--							IGB_RX_HDR_LEN);
--			if (unlikely(!skb)) {
--				rx_ring->rx_stats.alloc_failed++;
--				break;
--			}
-+		if (!igb_test_staterr(rx_desc, E1000_RXD_STAT_DD))
-+			break;
- 
--			/*
--			 * we will be copying header into skb->data in
--			 * pskb_may_pull so it is in our interest to prefetch
--			 * it now to avoid a possible cache miss
--			 */
--			prefetchw(skb->data);
--		}
-+		/* retrieve a buffer from the ring */
-+		skb = igb_fetch_rx_buffer(rx_ring, rx_desc, skb);
- 
--		/* we are reusing so sync this buffer for CPU use */
--		dma_sync_single_range_for_cpu(rx_ring->dev,
--					      buffer_info->dma,
--					      buffer_info->page_offset,
--					      PAGE_SIZE / 2,
--					      DMA_FROM_DEVICE);
 -
--		/* pull page into skb */
--		if (igb_add_rx_frag(rx_ring, buffer_info, rx_desc, skb)) {
--			/* hand second half of page back to the ring */
--			igb_reuse_rx_page(rx_ring, buffer_info);
--		} else {
--			/* we are not reusing the buffer so unmap it */
--			dma_unmap_page(rx_ring->dev, buffer_info->dma,
--				       PAGE_SIZE, DMA_FROM_DEVICE);
--		}
-+		/* exit if we failed to retrieve a buffer */
-+		if (!skb)
-+			break;
- 
--		/* clear contents of buffer_info */
--		buffer_info->page = NULL;
-+		cleaned_count++;
- 
--		if (!igb_test_staterr(rx_desc, E1000_RXD_STAT_EOP))
--			goto next_desc;
-+		/* fetch next buffer in frame if non-eop */
-+		if (igb_is_non_eop(rx_ring, rx_desc))
-+			continue;
- 
- 		/* verify the packet layout is correct */
- 		if (igb_cleanup_headers(rx_ring, rx_desc, skb)) {
-@@ -6317,7 +6365,6 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, int budget)
- 
- 		/* probably a little skewed due to removing CRC */
- 		total_bytes += skb->len;
--		total_packets++;
- 
- 		/* populate checksum, timestamp, VLAN, and protocol */
- 		igb_process_skb_fields(rx_ring, rx_desc, skb);
-@@ -6327,26 +6374,13 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, int budget)
- 		/* reset skb pointer */
- 		skb = NULL;
- 
--		budget--;
--next_desc:
--		if (!budget)
--			break;
--
--		cleaned_count++;
--		/* return some buffers to hardware, one at a time is too slow */
--		if (cleaned_count >= IGB_RX_BUFFER_WRITE) {
--			igb_alloc_rx_buffers(rx_ring, cleaned_count);
--			cleaned_count = 0;
--		}
--
--		/* use prefetched values */
--		rx_desc = next_rxd;
--	}
-+		/* update budget accounting */
-+		total_packets++;
-+	} while (likely(total_packets < budget));
- 
- 	/* place incomplete frames back on ring for completion */
- 	rx_ring->skb = skb;
- 
--	rx_ring->next_to_clean = i;
- 	u64_stats_update_begin(&rx_ring->rx_syncp);
- 	rx_ring->rx_stats.packets += total_packets;
- 	rx_ring->rx_stats.bytes += total_bytes;
-@@ -6357,7 +6391,7 @@ next_desc:
- 	if (cleaned_count)
- 		igb_alloc_rx_buffers(rx_ring, cleaned_count);
- 
--	return !!budget;
-+	return (total_packets < budget);
+ 		/* enable spoof checking for all VFs */
+ 		for (i = 0; i < adapter->num_vfs; i++)
+ 			adapter->vfinfo[i].spoofchk_enabled = true;
+@@ -353,31 +343,77 @@ static int ixgbe_set_vf_vlan(struct ixgbe_adapter *adapter, int add, int vid,
+ 	return adapter->hw.mac.ops.set_vfta(&adapter->hw, vid, vf, (bool)add);
  }
  
- static bool igb_alloc_mapped_page(struct igb_ring *rx_ring,
+-static void ixgbe_set_vf_lpe(struct ixgbe_adapter *adapter, u32 *msgbuf)
++static s32 ixgbe_set_vf_lpe(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	int new_mtu = msgbuf[1];
++	int max_frame = msgbuf[1];
+ 	u32 max_frs;
+-	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
+ 
+-	/* Only X540 supports jumbo frames in IOV mode */
+-	if (adapter->hw.mac.type != ixgbe_mac_X540)
+-		return;
++	/*
++	 * For 82599EB we have to keep all PFs and VFs operating with
++	 * the same max_frame value in order to avoid sending an oversize
++	 * frame to a VF.  In order to guarantee this is handled correctly
++	 * for all cases we have several special exceptions to take into
++	 * account before we can enable the VF for receive
++	 */
++	if (adapter->hw.mac.type == ixgbe_mac_82599EB) {
++		struct net_device *dev = adapter->netdev;
++		int pf_max_frame = dev->mtu + ETH_HLEN;
++		u32 reg_offset, vf_shift, vfre;
++		s32 err = 0;
++
++#ifdef CONFIG_FCOE
++		if (dev->features & NETIF_F_FCOE_MTU)
++			pf_max_frame = max_t(int, pf_max_frame,
++					     IXGBE_FCOE_JUMBO_FRAME_SIZE);
++
++#endif /* CONFIG_FCOE */
++		/*
++		 * If the PF or VF are running w/ jumbo frames enabled we
++		 * need to shut down the VF Rx path as we cannot support
++		 * jumbo frames on legacy VFs
++		 */
++		if ((pf_max_frame > ETH_FRAME_LEN) ||
++		    (max_frame > (ETH_FRAME_LEN + ETH_FCS_LEN)))
++			err = -EINVAL;
++
++		/* determine VF receive enable location */
++		vf_shift = vf % 32;
++		reg_offset = vf / 32;
++
++		/* enable or disable receive depending on error */
++		vfre = IXGBE_READ_REG(hw, IXGBE_VFRE(reg_offset));
++		if (err)
++			vfre &= ~(1 << vf_shift);
++		else
++			vfre |= 1 << vf_shift;
++		IXGBE_WRITE_REG(hw, IXGBE_VFRE(reg_offset), vfre);
++
++		if (err) {
++			e_err(drv, "VF max_frame %d out of range\n", max_frame);
++			return err;
++		}
++	}
+ 
+ 	/* MTU < 68 is an error and causes problems on some kernels */
+-	if ((new_mtu < 68) || (max_frame > IXGBE_MAX_JUMBO_FRAME_SIZE)) {
+-		e_err(drv, "VF mtu %d out of range\n", new_mtu);
+-		return;
++	if (max_frame > IXGBE_MAX_JUMBO_FRAME_SIZE) {
++		e_err(drv, "VF max_frame %d out of range\n", max_frame);
++		return -EINVAL;
+ 	}
+ 
+-	max_frs = (IXGBE_READ_REG(hw, IXGBE_MAXFRS) &
+-		   IXGBE_MHADD_MFS_MASK) >> IXGBE_MHADD_MFS_SHIFT;
+-	if (max_frs < new_mtu) {
+-		max_frs = new_mtu << IXGBE_MHADD_MFS_SHIFT;
++	/* pull current max frame size from hardware */
++	max_frs = IXGBE_READ_REG(hw, IXGBE_MAXFRS);
++	max_frs &= IXGBE_MHADD_MFS_MASK;
++	max_frs >>= IXGBE_MHADD_MFS_SHIFT;
++
++	if (max_frs < max_frame) {
++		max_frs = max_frame << IXGBE_MHADD_MFS_SHIFT;
+ 		IXGBE_WRITE_REG(hw, IXGBE_MAXFRS, max_frs);
+ 	}
+ 
+-	e_info(hw, "VF requests change max MTU to %d\n", new_mtu);
++	e_info(hw, "VF requests change max MTU to %d\n", max_frame);
++
++	return 0;
+ }
+ 
+ static void ixgbe_set_vmolr(struct ixgbe_hw *hw, u32 vf, bool aupe)
+@@ -532,11 +568,28 @@ static inline void ixgbe_vf_reset_msg(struct ixgbe_adapter *adapter, u32 vf)
+ 
+ 	/* enable transmit and receive for vf */
+ 	reg = IXGBE_READ_REG(hw, IXGBE_VFTE(reg_offset));
+-	reg |= (reg | (1 << vf_shift));
++	reg |= 1 << vf_shift;
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFTE(reg_offset), reg);
+ 
+ 	reg = IXGBE_READ_REG(hw, IXGBE_VFRE(reg_offset));
+-	reg |= (reg | (1 << vf_shift));
++	reg |= 1 << vf_shift;
++	/*
++	 * The 82599 cannot support a mix of jumbo and non-jumbo PF/VFs.
++	 * For more info take a look at ixgbe_set_vf_lpe
++	 */
++	if (adapter->hw.mac.type == ixgbe_mac_82599EB) {
++		struct net_device *dev = adapter->netdev;
++		int pf_max_frame = dev->mtu + ETH_HLEN;
++
++#ifdef CONFIG_FCOE
++		if (dev->features & NETIF_F_FCOE_MTU)
++			pf_max_frame = max_t(int, pf_max_frame,
++					     IXGBE_FCOE_JUMBO_FRAME_SIZE);
++
++#endif /* CONFIG_FCOE */
++		if (pf_max_frame > ETH_FRAME_LEN)
++			reg &= ~(1 << vf_shift);
++	}
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFRE(reg_offset), reg);
+ 
+ 	/* Enable counting of spoofed packets in the SSVPC register */
+@@ -633,7 +686,7 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ 		                                 hash_list, vf);
+ 		break;
+ 	case IXGBE_VF_SET_LPE:
+-		ixgbe_set_vf_lpe(adapter, msgbuf);
++		retval = ixgbe_set_vf_lpe(adapter, msgbuf, vf);
+ 		break;
+ 	case IXGBE_VF_SET_VLAN:
+ 		add = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK)
 -- 
 1.7.11.7
