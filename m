@@ -1,41 +1,68 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [stable 2.6.32.y PATCH 0/6] net: fixes for cached dsts are never invalidated
-Date: Fri, 19 Oct 2012 16:22:44 -0400
-Message-ID: <20121019202244.GH8315@kvack.org>
-References: <20121019195557.GG17417@1wt.eu> <20121019.160104.115897882147794932.davem@davemloft.net> <20121019200318.GH17417@1wt.eu> <20121019.160711.1159467896676133280.davem@davemloft.net> <20121019201430.GI17417@1wt.eu>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] vxlan nits
+Date: Fri, 19 Oct 2012 13:28:15 -0700
+Message-ID: <20121019132815.547a5bb8@nehalam.linuxnetplumber.net>
+References: <201210191148.q9JBkm0v018443@lab1.dls>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, stable@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: David L Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:44532 "EHLO kanga.kvack.org"
+Received: from mail.vyatta.com ([76.74.103.46]:46125 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754399Ab2JSUWo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2012 16:22:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20121019201430.GI17417@1wt.eu>
+	id S932743Ab2JSU3B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2012 16:29:01 -0400
+In-Reply-To: <201210191148.q9JBkm0v018443@lab1.dls>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 19, 2012 at 10:14:31PM +0200, Willy Tarreau wrote:
-...
-> So maybe in the end we should just merge d11a4dc18 that Ben found to be
-> the least invasive one fixing the issues, and we'd be in sync with the
-> rest of the stable branches, even if, as you noted a few days ago, it's
-> only a partial fix for the issue.
+On Fri, 19 Oct 2012 07:46:48 -0400
+David L Stevens <dlstevens@us.ibm.com> wrote:
+
 > 
-> Ben, what's your opinion on this ? I know it's never fun to do backports
-> and not merge them later, but I trust David more than anyone else on the
-> network part, so if he decided that while incomplete, the patch above
-> was all that was needed for other stable branches, maybe we should just
-> stay on the safe side and do the same ?
+> This patch fixes a couple problems with vxlan.
+> 
+> 1) Improper check of NUD_PERMANENT makes permanent forwarding table
+> 	entries timeout too.
+> 
+> 2) Check for "0.0.0.0" as gaddr and allow to mean "no group". The
+> 	iproute2 patch sends gaddr even if not specified, which
+> 	fails the IN_MULTICAST() test. This patch allows static-only
+> 	forwarding and dropping everything else.
+> 
+> Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
+> 
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 607976c..3fac9f3 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -816,7 +816,7 @@ static void vxlan_cleanup(unsigned long arg)
+>  				= container_of(p, struct vxlan_fdb, hlist);
+>  			unsigned long timeout;
+>  
+> -			if (f->state == NUD_PERMANENT)
+> +			if (f->state & NUD_PERMANENT)
+>  				continue;
+>  
+>  			timeout = f->used + vxlan->age_interval * HZ;
+> @@ -1047,7 +1047,7 @@ static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
+>  
+>  	if (data[IFLA_VXLAN_GROUP]) {
+>  		__be32 gaddr = nla_get_be32(data[IFLA_VXLAN_GROUP]);
+> -		if (!IN_MULTICAST(ntohl(gaddr))) {
+> +		if (gaddr && !IN_MULTICAST(ntohl(gaddr))) {
+>  			pr_debug("group address is not IPv4 multicast\n");
+>  			return -EADDRNOTAVAIL;
+>  		}
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-There is a caveat to the minimally invasive fix: doing so will result in 
-cached routes always being lookup up when the check occurs.  This could 
-potentially result in a performance regression from some users.  The 
-tradeoffs here are really murky.
+The first is a bug, the second doesn't need to be fixed in the kernel.
+I change iproute to not sent group address unless it is defined.
 
-		-ben
--- 
-"Thought is the essence of where you are now."
+The plan is to add IPV6 support, in which case group address could
+be IPV6.
