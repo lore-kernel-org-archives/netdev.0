@@ -1,1253 +1,1388 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net-next 02/21] net: Convert is_<foo>_ether_addr
-	uses to eth_addr_<foo>
-Date: Thu, 18 Oct 2012 20:55:33 -0700
-Message-ID: <668bf67af20de0e315e7ce2472d07e883cae18d6.1350618009.git.joe@perches.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next 04/21] wireless: Convert is_<foo>_ether_addr uses to eth_addr_<foo>
+Date: Thu, 18 Oct 2012 20:55:35 -0700
+Message-ID: <bb2235c257e347354d94478bd1be35b89bf90186.1350618009.git.joe@perches.com>
 References: <cover.1350618006.git.joe@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>,
-	Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>,
-	Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>,
-	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>, James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1350618006.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: Brett Rudley <brudley@broadcom.com>,
+	Roland Vossen <rvossen@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Kan Yan <kanyan@broadcom.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	Luciano Coelho <coelho@ti.com>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ath9k-devel@lists.ath9k.org, b43-dev@lists.infradead.org,
+	brcm80211-dev-list@broadcom.com, users@rt2x00.serialmonkey.com
+To: "John W. Linville" <linville@tuxdriver.com>,
+	Kalle Valo <kvalo@qca.qualcomm.com>,
+	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
+	Jouni Malinen <jouni@qca.qualcomm.com>,
+	Vasanthakumar Thiagarajan <vthiagar@qca.qualcomm.com>,
+	Senthil Balasubramanian <senthilb@qca.qualcomm.com>,
+	Stefano Brivio <stefano.brivio@polimi.it>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Stanislav Yakovlev <stas.yakovlev@gmail.com>,
+	Stanislaw Gruszka <sgruszka@redhat.com>,
+	Bing Zhao <bzhao@marvell.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Christian Lamparter <chunkeey@googlemail.com>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Ivo van Doorn <IvDoorn@gmail.com>,
+	Gertjan van Wingerde <gwingerde@gmail.com>,
+	Helmut Schaa <helmut.schaa@googlemail.com>,
+	Herton Ronaldo Krzesinski <herton@canonical.com>,
+	Hin-Tak Leung <htl10@users.sourceforge.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	A
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1350618006.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Convert the old ether_addr tests to eth_addr_<foo>.
 Adds api consistency.
 
-Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/802/stp.c                          |    4 +-
- net/8021q/vlan_dev.c                   |    6 ++--
- net/8021q/vlan_netlink.c               |    2 +-
- net/batman-adv/bat_iv_ogm.c            |    2 +-
- net/batman-adv/bridge_loop_avoidance.c |    8 ++--
- net/batman-adv/routing.c               |   20 ++++++------
- net/batman-adv/soft-interface.c        |    4 +-
- net/batman-adv/unicast.c               |    2 +-
- net/batman-adv/vis.c                   |    4 +-
- net/bridge/br_device.c                 |    6 ++--
- net/bridge/br_fdb.c                    |    2 +-
- net/bridge/br_if.c                     |    2 +-
- net/bridge/br_input.c                  |    8 ++--
- net/bridge/br_netlink.c                |    2 +-
- net/core/pktgen.c                      |    4 +-
- net/core/rtnetlink.c                   |    2 +-
- net/dsa/slave.c                        |    2 +-
- net/ethernet/eth.c                     |    6 ++--
- net/ipv4/ip_gre.c                      |    2 +-
- net/ipv6/ip6_gre.c                     |    2 +-
- net/mac80211/cfg.c                     |    2 +-
- net/mac80211/ibss.c                    |    8 ++--
- net/mac80211/ieee80211_i.h             |    2 +-
- net/mac80211/iface.c                   |   12 ++++----
- net/mac80211/mesh.c                    |    2 +-
- net/mac80211/mesh_hwmp.c               |    4 +-
- net/mac80211/mesh_pathtbl.c            |    4 +-
- net/mac80211/mesh_plink.c              |    2 +-
- net/mac80211/mlme.c                    |    4 +-
- net/mac80211/rx.c                      |   50 ++++++++++++++++----------------
- net/mac80211/sta_info.c                |    2 +-
- net/mac80211/status.c                  |    6 ++--
- net/mac80211/tx.c                      |   22 +++++++-------
- net/mac80211/wme.c                     |    4 +-
- net/openvswitch/flow.c                 |    4 +-
- net/openvswitch/vport-internal_dev.c   |    2 +-
- net/wireless/core.c                    |    2 +-
- net/wireless/ibss.c                    |    2 +-
- net/wireless/nl80211.c                 |    4 +-
- net/wireless/util.c                    |    4 +-
- net/wireless/wext-compat.c             |    2 +-
- net/wireless/wext-sme.c                |    2 +-
- 42 files changed, 118 insertions(+), 118 deletions(-)
+ drivers/net/wireless/adm8211.c                     |    2 +-
+ drivers/net/wireless/airo.c                        |    4 ++--
+ drivers/net/wireless/at76c50x-usb.c                |    8 ++++----
+ drivers/net/wireless/ath/ath6kl/cfg80211.c         |    8 ++++----
+ drivers/net/wireless/ath/ath6kl/main.c             |    8 ++++----
+ drivers/net/wireless/ath/ath6kl/txrx.c             |   10 +++++-----
+ drivers/net/wireless/ath/ath9k/recv.c              |    8 ++++----
+ drivers/net/wireless/b43/main.c                    |    2 +-
+ drivers/net/wireless/b43legacy/main.c              |    2 +-
+ .../net/wireless/brcm80211/brcmfmac/dhd_linux.c    |    4 ++--
+ .../net/wireless/brcm80211/brcmfmac/wl_cfg80211.c  |    2 +-
+ .../net/wireless/brcm80211/brcmsmac/mac80211_if.c  |    2 +-
+ drivers/net/wireless/brcm80211/brcmsmac/main.c     |   16 ++++++++--------
+ drivers/net/wireless/hostap/hostap_info.c          |    2 +-
+ drivers/net/wireless/hostap/hostap_ioctl.c         |    8 ++++----
+ drivers/net/wireless/hostap/hostap_main.c          |    2 +-
+ drivers/net/wireless/ipw2x00/ipw2100.c             |    6 +++---
+ drivers/net/wireless/ipw2x00/ipw2200.c             |   18 +++++++++---------
+ drivers/net/wireless/ipw2x00/libipw_rx.c           |   12 ++++++------
+ drivers/net/wireless/ipw2x00/libipw_tx.c           |    4 ++--
+ drivers/net/wireless/iwlegacy/3945-mac.c           |    2 +-
+ drivers/net/wireless/iwlegacy/4965-mac.c           |    2 +-
+ drivers/net/wireless/iwlegacy/common.c             |    2 +-
+ drivers/net/wireless/iwlwifi/dvm/sta.c             |    2 +-
+ drivers/net/wireless/libertas_tf/main.c            |    2 +-
+ drivers/net/wireless/mwifiex/join.c                |    2 +-
+ drivers/net/wireless/mwifiex/scan.c                |    2 +-
+ drivers/net/wireless/mwifiex/sta_cmd.c             |    2 +-
+ drivers/net/wireless/mwifiex/sta_cmdresp.c         |    2 +-
+ drivers/net/wireless/mwifiex/uap_txrx.c            |    2 +-
+ drivers/net/wireless/mwl8k.c                       |    2 +-
+ drivers/net/wireless/orinoco/wext.c                |    4 ++--
+ drivers/net/wireless/p54/eeprom.c                  |    2 +-
+ drivers/net/wireless/rndis_wlan.c                  |   18 +++++++++---------
+ drivers/net/wireless/rt2x00/rt2400pci.c            |    2 +-
+ drivers/net/wireless/rt2x00/rt2500pci.c            |    2 +-
+ drivers/net/wireless/rt2x00/rt2500usb.c            |    2 +-
+ drivers/net/wireless/rt2x00/rt2800lib.c            |    8 ++++----
+ drivers/net/wireless/rt2x00/rt61pci.c              |    2 +-
+ drivers/net/wireless/rt2x00/rt73usb.c              |    2 +-
+ drivers/net/wireless/rtl818x/rtl8180/dev.c         |    4 ++--
+ drivers/net/wireless/rtl818x/rtl8187/dev.c         |    4 ++--
+ drivers/net/wireless/rtlwifi/base.c                |    6 +++---
+ drivers/net/wireless/rtlwifi/cam.c                 |    2 +-
+ drivers/net/wireless/rtlwifi/pci.c                 |    8 ++++----
+ drivers/net/wireless/rtlwifi/rc.c                  |    4 ++--
+ drivers/net/wireless/rtlwifi/rtl8192ce/trx.c       |    4 ++--
+ drivers/net/wireless/rtlwifi/rtl8192cu/trx.c       |    4 ++--
+ drivers/net/wireless/rtlwifi/usb.c                 |   12 ++++++------
+ drivers/net/wireless/ti/wl1251/main.c              |   12 ++++++------
+ drivers/net/wireless/ti/wlcore/cmd.c               |    2 +-
+ drivers/net/wireless/ti/wlcore/main.c              |    6 +++---
+ drivers/net/wireless/ti/wlcore/tx.c                |    2 +-
+ drivers/net/wireless/wl3501_cs.c                   |    2 +-
+ drivers/net/wireless/zd1211rw/zd_mac.c             |    2 +-
+ 55 files changed, 133 insertions(+), 133 deletions(-)
 
-diff --git a/net/802/stp.c b/net/802/stp.c
-index 2c40ba0..80a253c 100644
---- a/net/802/stp.c
-+++ b/net/802/stp.c
-@@ -74,7 +74,7 @@ int stp_proto_register(const struct stp_proto *proto)
- 			goto out;
- 		}
- 	}
--	if (is_zero_ether_addr(proto->group_address))
-+	if (eth_addr_zero(proto->group_address))
- 		rcu_assign_pointer(stp_proto, proto);
- 	else
- 		rcu_assign_pointer(garp_protos[proto->group_address[5] -
-@@ -88,7 +88,7 @@ EXPORT_SYMBOL_GPL(stp_proto_register);
- void stp_proto_unregister(const struct stp_proto *proto)
- {
- 	mutex_lock(&stp_proto_mutex);
--	if (is_zero_ether_addr(proto->group_address))
-+	if (eth_addr_zero(proto->group_address))
- 		RCU_INIT_POINTER(stp_proto, NULL);
- 	else
- 		RCU_INIT_POINTER(garp_protos[proto->group_address[5] -
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 4024424..5c330c9 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -352,7 +352,7 @@ static int vlan_dev_set_mac_address(struct net_device *dev, void *p)
- 	struct sockaddr *addr = p;
- 	int err;
+diff --git a/drivers/net/wireless/adm8211.c b/drivers/net/wireless/adm8211.c
+index 154a496..2fd62a0 100644
+--- a/drivers/net/wireless/adm8211.c
++++ b/drivers/net/wireless/adm8211.c
+@@ -1853,7 +1853,7 @@ static int __devinit adm8211_probe(struct pci_dev *pdev,
+ 	*(__le16 *)&perm_addr[4] =
+ 		cpu_to_le16(ADM8211_CSR_READ(PAR1) & 0xFFFF);
  
--	if (!is_valid_ether_addr(addr->sa_data))
-+	if (!eth_addr_valid(addr->sa_data))
- 		return -EADDRNOTAVAIL;
+-	if (!is_valid_ether_addr(perm_addr)) {
++	if (!eth_addr_valid(perm_addr)) {
+ 		printk(KERN_WARNING "%s (adm8211): Invalid hwaddr in EEPROM!\n",
+ 		       pci_name(pdev));
+ 		eth_random_addr(perm_addr);
+diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
+index 3cd05a71..b0afd59 100644
+--- a/drivers/net/wireless/airo.c
++++ b/drivers/net/wireless/airo.c
+@@ -5986,8 +5986,8 @@ static int airo_set_wap(struct net_device *dev,
  
- 	if (!(dev->flags & IFF_UP))
-@@ -559,9 +559,9 @@ static int vlan_dev_init(struct net_device *dev)
- 	/* ipv6 shared card related stuff */
- 	dev->dev_id = real_dev->dev_id;
+ 	if (awrq->sa_family != ARPHRD_ETHER)
+ 		return -EINVAL;
+-	else if (is_broadcast_ether_addr(awrq->sa_data) ||
+-		 is_zero_ether_addr(awrq->sa_data)) {
++	else if (eth_addr_broadcast(awrq->sa_data) ||
++		 eth_addr_zero(awrq->sa_data)) {
+ 		memset(&cmd, 0, sizeof(cmd));
+ 		cmd.cmd=CMD_LOSE_SYNC;
+ 		if (down_interruptible(&local->sem))
+diff --git a/drivers/net/wireless/at76c50x-usb.c b/drivers/net/wireless/at76c50x-usb.c
+index 99b9ddf..3ed5523 100644
+--- a/drivers/net/wireless/at76c50x-usb.c
++++ b/drivers/net/wireless/at76c50x-usb.c
+@@ -1658,7 +1658,7 @@ static void at76_work_join_bssid(struct work_struct *work)
  
--	if (is_zero_ether_addr(dev->dev_addr))
-+	if (eth_addr_zero(dev->dev_addr))
- 		memcpy(dev->dev_addr, real_dev->dev_addr, dev->addr_len);
--	if (is_zero_ether_addr(dev->broadcast))
-+	if (eth_addr_zero(dev->broadcast))
- 		memcpy(dev->broadcast, real_dev->broadcast, dev->addr_len);
+ 	mutex_lock(&priv->mtx);
  
- #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
-diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
-index 708c80e..c79bba9 100644
---- a/net/8021q/vlan_netlink.c
-+++ b/net/8021q/vlan_netlink.c
-@@ -46,7 +46,7 @@ static int vlan_validate(struct nlattr *tb[], struct nlattr *data[])
- 	if (tb[IFLA_ADDRESS]) {
- 		if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN)
- 			return -EINVAL;
--		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
-+		if (!eth_addr_valid(nla_data(tb[IFLA_ADDRESS])))
- 			return -EADDRNOTAVAIL;
- 	}
+-	if (is_valid_ether_addr(priv->bssid))
++	if (eth_addr_valid(priv->bssid))
+ 		at76_join(priv);
  
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index b02b75d..5e07dbc 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -1056,7 +1056,7 @@ static void batadv_iv_ogm_process(const struct ethhdr *ethhdr,
- 				       hard_iface->net_dev->dev_addr))
- 			is_my_oldorig = 1;
- 
--		if (is_broadcast_ether_addr(ethhdr->h_source))
-+		if (eth_addr_broadcast(ethhdr->h_source))
- 			is_broadcast = 1;
- 	}
- 	rcu_read_unlock();
-diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
-index fd8d5af..719faa6 100644
---- a/net/batman-adv/bridge_loop_avoidance.c
-+++ b/net/batman-adv/bridge_loop_avoidance.c
-@@ -1425,7 +1425,7 @@ int batadv_bla_rx(struct batadv_priv *bat_priv, struct sk_buff *skb, short vid,
- 
- 	if (unlikely(atomic_read(&bat_priv->bla.num_requests)))
- 		/* don't allow broadcasts while requests are in flight */
--		if (is_multicast_ether_addr(ethhdr->h_dest) && is_bcast)
-+		if (eth_addr_multicast(ethhdr->h_dest) && is_bcast)
- 			goto handled;
- 
- 	memcpy(search_claim.addr, ethhdr->h_source, ETH_ALEN);
-@@ -1451,7 +1451,7 @@ int batadv_bla_rx(struct batadv_priv *bat_priv, struct sk_buff *skb, short vid,
- 	}
- 
- 	/* if it is a broadcast ... */
--	if (is_multicast_ether_addr(ethhdr->h_dest) && is_bcast) {
-+	if (eth_addr_multicast(ethhdr->h_dest) && is_bcast) {
- 		/* ... drop it. the responsible gateway is in charge.
- 		 *
- 		 * We need to check is_bcast because with the gateway
-@@ -1524,7 +1524,7 @@ int batadv_bla_tx(struct batadv_priv *bat_priv, struct sk_buff *skb, short vid)
- 
- 	if (unlikely(atomic_read(&bat_priv->bla.num_requests)))
- 		/* don't allow broadcasts while requests are in flight */
--		if (is_multicast_ether_addr(ethhdr->h_dest))
-+		if (eth_addr_multicast(ethhdr->h_dest))
- 			goto handled;
- 
- 	memcpy(search_claim.addr, ethhdr->h_source, ETH_ALEN);
-@@ -1549,7 +1549,7 @@ int batadv_bla_tx(struct batadv_priv *bat_priv, struct sk_buff *skb, short vid)
- 	}
- 
- 	/* check if it is a multicast/broadcast frame */
--	if (is_multicast_ether_addr(ethhdr->h_dest)) {
-+	if (eth_addr_multicast(ethhdr->h_dest)) {
- 		/* drop it. the responsible gateway has forwarded it into
- 		 * the backbone network.
- 		 */
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 376b4cc..69357da 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -261,11 +261,11 @@ bool batadv_check_management_packet(struct sk_buff *skb,
- 	ethhdr = (struct ethhdr *)skb_mac_header(skb);
- 
- 	/* packet with broadcast indication but unicast recipient */
--	if (!is_broadcast_ether_addr(ethhdr->h_dest))
-+	if (!eth_addr_broadcast(ethhdr->h_dest))
- 		return false;
- 
- 	/* packet with broadcast sender address */
--	if (is_broadcast_ether_addr(ethhdr->h_source))
-+	if (eth_addr_broadcast(ethhdr->h_source))
- 		return false;
- 
- 	/* create a copy of the skb, if needed, to modify it. */
-@@ -412,11 +412,11 @@ int batadv_recv_icmp_packet(struct sk_buff *skb,
- 	ethhdr = (struct ethhdr *)skb_mac_header(skb);
- 
- 	/* packet with unicast indication but broadcast recipient */
--	if (is_broadcast_ether_addr(ethhdr->h_dest))
-+	if (eth_addr_broadcast(ethhdr->h_dest))
- 		goto out;
- 
- 	/* packet with broadcast sender address */
--	if (is_broadcast_ether_addr(ethhdr->h_source))
-+	if (eth_addr_broadcast(ethhdr->h_source))
- 		goto out;
- 
- 	/* not for me */
-@@ -590,11 +590,11 @@ static int batadv_check_unicast_packet(struct sk_buff *skb, int hdr_size)
- 	ethhdr = (struct ethhdr *)skb_mac_header(skb);
- 
- 	/* packet with unicast indication but broadcast recipient */
--	if (is_broadcast_ether_addr(ethhdr->h_dest))
-+	if (eth_addr_broadcast(ethhdr->h_dest))
- 		return -1;
- 
- 	/* packet with broadcast sender address */
--	if (is_broadcast_ether_addr(ethhdr->h_source))
-+	if (eth_addr_broadcast(ethhdr->h_source))
- 		return -1;
- 
- 	/* not for me */
-@@ -697,11 +697,11 @@ int batadv_recv_roam_adv(struct sk_buff *skb, struct batadv_hard_iface *recv_if)
- 	ethhdr = (struct ethhdr *)skb_mac_header(skb);
- 
- 	/* packet with unicast indication but broadcast recipient */
--	if (is_broadcast_ether_addr(ethhdr->h_dest))
-+	if (eth_addr_broadcast(ethhdr->h_dest))
- 		goto out;
- 
- 	/* packet with broadcast sender address */
--	if (is_broadcast_ether_addr(ethhdr->h_source))
-+	if (eth_addr_broadcast(ethhdr->h_source))
- 		goto out;
- 
- 	batadv_inc_counter(bat_priv, BATADV_CNT_TT_ROAM_ADV_RX);
-@@ -1077,11 +1077,11 @@ int batadv_recv_bcast_packet(struct sk_buff *skb,
- 	ethhdr = (struct ethhdr *)skb_mac_header(skb);
- 
- 	/* packet with broadcast indication but unicast recipient */
--	if (!is_broadcast_ether_addr(ethhdr->h_dest))
-+	if (!eth_addr_broadcast(ethhdr->h_dest))
- 		goto out;
- 
- 	/* packet with broadcast sender address */
--	if (is_broadcast_ether_addr(ethhdr->h_source))
-+	if (eth_addr_broadcast(ethhdr->h_source))
- 		goto out;
- 
- 	/* ignore broadcasts sent by myself */
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index b9a28d2..a08fe2f 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -109,7 +109,7 @@ static int batadv_interface_set_mac_addr(struct net_device *dev, void *p)
- 	struct sockaddr *addr = p;
- 	uint8_t old_addr[ETH_ALEN];
- 
--	if (!is_valid_ether_addr(addr->sa_data))
-+	if (!eth_addr_valid(addr->sa_data))
- 		return -EADDRNOTAVAIL;
- 
- 	memcpy(old_addr, dev->dev_addr, ETH_ALEN);
-@@ -184,7 +184,7 @@ static int batadv_interface_tx(struct sk_buff *skb,
- 	if (batadv_compare_eth(ethhdr->h_dest, stp_addr))
- 		goto dropped;
- 
--	if (is_multicast_ether_addr(ethhdr->h_dest)) {
-+	if (eth_addr_multicast(ethhdr->h_dest)) {
- 		do_bcast = true;
- 
- 		switch (atomic_read(&bat_priv->gw_mode)) {
-diff --git a/net/batman-adv/unicast.c b/net/batman-adv/unicast.c
-index f397232..e0538e2 100644
---- a/net/batman-adv/unicast.c
-+++ b/net/batman-adv/unicast.c
-@@ -302,7 +302,7 @@ int batadv_unicast_send_skb(struct sk_buff *skb, struct batadv_priv *bat_priv)
- 	unsigned int dev_mtu;
- 
- 	/* get routing information */
--	if (is_multicast_ether_addr(ethhdr->h_dest)) {
-+	if (eth_addr_multicast(ethhdr->h_dest)) {
- 		orig_node = batadv_gw_get_selected_orig(bat_priv);
- 		if (orig_node)
- 			goto find_router;
-diff --git a/net/batman-adv/vis.c b/net/batman-adv/vis.c
-index 5abd145..55c1025 100644
---- a/net/batman-adv/vis.c
-+++ b/net/batman-adv/vis.c
-@@ -476,7 +476,7 @@ void batadv_receive_client_update_packet(struct batadv_priv *bat_priv,
- 	int are_target = 0;
- 
- 	/* clients shall not broadcast. */
--	if (is_broadcast_ether_addr(vis_packet->target_orig))
-+	if (eth_addr_broadcast(vis_packet->target_orig))
+ 	mutex_unlock(&priv->mtx);
+@@ -1874,7 +1874,7 @@ static void at76_dwork_hw_scan(struct work_struct *work)
  		return;
+ 	}
  
- 	/* Are we the target for this VIS packet? */
-@@ -800,7 +800,7 @@ static void batadv_send_vis_packet(struct batadv_priv *bat_priv,
- 	memcpy(packet->sender_orig, primary_if->net_dev->dev_addr, ETH_ALEN);
- 	packet->header.ttl--;
+-	if (is_valid_ether_addr(priv->bssid))
++	if (eth_addr_valid(priv->bssid))
+ 		at76_join(priv);
  
--	if (is_broadcast_ether_addr(packet->target_orig))
-+	if (eth_addr_broadcast(packet->target_orig))
- 		batadv_broadcast_vis_packet(bat_priv, info);
+ 	mutex_unlock(&priv->mtx);
+@@ -1952,7 +1952,7 @@ static int at76_config(struct ieee80211_hw *hw, u32 changed)
+ 
+ 	priv->channel = hw->conf.channel->hw_value;
+ 
+-	if (is_valid_ether_addr(priv->bssid))
++	if (eth_addr_valid(priv->bssid))
+ 		at76_join(priv);
  	else
- 		batadv_unicast_vis_packet(bat_priv, info);
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 070e8a6..9963b31 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -50,9 +50,9 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	skb_reset_mac_header(skb);
- 	skb_pull(skb, ETH_HLEN);
+ 		at76_start_monitor(priv);
+@@ -1980,7 +1980,7 @@ static void at76_bss_info_changed(struct ieee80211_hw *hw,
  
--	if (is_broadcast_ether_addr(dest))
-+	if (eth_addr_broadcast(dest))
- 		br_flood_deliver(br, skb);
--	else if (is_multicast_ether_addr(dest)) {
-+	else if (eth_addr_multicast(dest)) {
- 		if (unlikely(netpoll_tx_running(dev))) {
- 			br_flood_deliver(br, skb);
- 			goto out;
-@@ -167,7 +167,7 @@ static int br_set_mac_address(struct net_device *dev, void *p)
- 	struct net_bridge *br = netdev_priv(dev);
- 	struct sockaddr *addr = p;
+ 	memcpy(priv->bssid, conf->bssid, ETH_ALEN);
  
--	if (!is_valid_ether_addr(addr->sa_data))
-+	if (!eth_addr_valid(addr->sa_data))
- 		return -EADDRNOTAVAIL;
+-	if (is_valid_ether_addr(priv->bssid))
++	if (eth_addr_valid(priv->bssid))
+ 		/* mac80211 is joining a bss */
+ 		at76_join(priv);
  
- 	spin_lock_bh(&br->lock);
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index d9576e6..5519242 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -374,7 +374,7 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
- 	struct hlist_head *head = &br->hash[br_mac_hash(addr)];
- 	struct net_bridge_fdb_entry *fdb;
+diff --git a/drivers/net/wireless/ath/ath6kl/cfg80211.c b/drivers/net/wireless/ath/ath6kl/cfg80211.c
+index 7089f81..42c605a 100644
+--- a/drivers/net/wireless/ath/ath6kl/cfg80211.c
++++ b/drivers/net/wireless/ath/ath6kl/cfg80211.c
+@@ -455,7 +455,7 @@ static int ath6kl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
  
--	if (!is_valid_ether_addr(addr))
-+	if (!eth_addr_valid(addr))
- 		return -EINVAL;
- 
- 	fdb = fdb_find(head, addr);
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 1c8fdc3..b21cfc3 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -327,7 +327,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- 	/* Don't allow bridging non-ethernet like devices */
- 	if ((dev->flags & IFF_LOOPBACK) ||
- 	    dev->type != ARPHRD_ETHER || dev->addr_len != ETH_ALEN ||
--	    !is_valid_ether_addr(dev->dev_addr))
-+	    !eth_addr_valid(dev->dev_addr))
- 		return -EINVAL;
- 
- 	/* No bridging of bridges */
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 76f15fd..c084fed 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -61,7 +61,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 	br = p->br;
- 	br_fdb_update(br, p, eth_hdr(skb)->h_source);
- 
--	if (!is_broadcast_ether_addr(dest) && is_multicast_ether_addr(dest) &&
-+	if (!eth_addr_broadcast(dest) && eth_addr_multicast(dest) &&
- 	    br_multicast_rcv(br, p, skb))
- 		goto drop;
- 
-@@ -78,9 +78,9 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 
- 	dst = NULL;
- 
--	if (is_broadcast_ether_addr(dest))
-+	if (eth_addr_broadcast(dest))
- 		skb2 = skb;
--	else if (is_multicast_ether_addr(dest)) {
-+	else if (eth_addr_multicast(dest)) {
- 		mdst = br_mdb_get(br, skb);
- 		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
- 			if ((mdst && mdst->mglist) ||
-@@ -153,7 +153,7 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
- 	if (unlikely(skb->pkt_type == PACKET_LOOPBACK))
- 		return RX_HANDLER_PASS;
- 
--	if (!is_valid_ether_addr(eth_hdr(skb)->h_source))
-+	if (!eth_addr_valid(eth_hdr(skb)->h_source))
- 		goto drop;
- 
- 	skb = skb_share_check(skb, GFP_ATOMIC);
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 093f527..e6b7916 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -201,7 +201,7 @@ static int br_validate(struct nlattr *tb[], struct nlattr *data[])
- 	if (tb[IFLA_ADDRESS]) {
- 		if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN)
- 			return -EINVAL;
--		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
-+		if (!eth_addr_valid(nla_data(tb[IFLA_ADDRESS])))
- 			return -EADDRNOTAVAIL;
- 	}
- 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index d1dc14c..3422af7 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -573,7 +573,7 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
- 	seq_puts(seq, "     src_mac: ");
- 
- 	seq_printf(seq, "%pM ",
--		   is_zero_ether_addr(pkt_dev->src_mac) ?
-+		   eth_addr_zero(pkt_dev->src_mac) ?
- 			     pkt_dev->odev->dev_addr : pkt_dev->src_mac);
- 
- 	seq_printf(seq, "dst_mac: ");
-@@ -2028,7 +2028,7 @@ static void pktgen_setup_inject(struct pktgen_dev *pkt_dev)
- 
- 	/* Default to the interface's mac if not explicitly set. */
- 
--	if (is_zero_ether_addr(pkt_dev->src_mac))
-+	if (eth_addr_zero(pkt_dev->src_mac))
- 		memcpy(&(pkt_dev->hh[6]), pkt_dev->odev->dev_addr, ETH_ALEN);
- 
- 	/* Set up Dest MAC */
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 76d4c2c..5f2632f 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2079,7 +2079,7 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	}
- 
- 	addr = nla_data(tb[NDA_LLADDR]);
--	if (!is_valid_ether_addr(addr)) {
-+	if (!eth_addr_valid(addr)) {
- 		pr_info("PF_BRIDGE: RTM_NEWNEIGH with invalid ether address\n");
+ 	if (test_bit(SKIP_SCAN, &ar->flag) &&
+ 	    ((sme->channel && sme->channel->center_freq == 0) ||
+-	     (sme->bssid && is_zero_ether_addr(sme->bssid)))) {
++	     (sme->bssid && eth_addr_zero(sme->bssid)))) {
+ 		ath6kl_err("SkipScan: channel or bssid invalid\n");
  		return -EINVAL;
  	}
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index e32083d..c2eaa8e 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -140,7 +140,7 @@ static int dsa_slave_set_mac_address(struct net_device *dev, void *a)
- 	struct sockaddr *addr = a;
- 	int err;
+@@ -521,7 +521,7 @@ static int ath6kl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
+ 		vif->ch_hint = sme->channel->center_freq;
  
--	if (!is_valid_ether_addr(addr->sa_data))
-+	if (!eth_addr_valid(addr->sa_data))
- 		return -EADDRNOTAVAIL;
+ 	memset(vif->req_bssid, 0, sizeof(vif->req_bssid));
+-	if (sme->bssid && !is_broadcast_ether_addr(sme->bssid))
++	if (sme->bssid && !eth_addr_broadcast(sme->bssid))
+ 		memcpy(vif->req_bssid, sme->bssid, sizeof(vif->req_bssid));
  
- 	if (!(dev->flags & IFF_UP))
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index 4efad53..5ebd114 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -163,7 +163,7 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
- 	skb_pull_inline(skb, ETH_HLEN);
- 	eth = eth_hdr(skb);
- 
--	if (unlikely(is_multicast_ether_addr(eth->h_dest))) {
-+	if (unlikely(eth_addr_multicast(eth->h_dest))) {
- 		if (ether_addr_equal_64bits(eth->h_dest, dev->broadcast))
- 			skb->pkt_type = PACKET_BROADCAST;
- 		else
-@@ -287,7 +287,7 @@ int eth_mac_addr(struct net_device *dev, void *p)
- 
- 	if (!(dev->priv_flags & IFF_LIVE_ADDR_CHANGE) && netif_running(dev))
- 		return -EBUSY;
--	if (!is_valid_ether_addr(addr->sa_data))
-+	if (!eth_addr_valid(addr->sa_data))
- 		return -EADDRNOTAVAIL;
- 	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
- 	/* if device marked as NET_ADDR_RANDOM, reset it */
-@@ -315,7 +315,7 @@ EXPORT_SYMBOL(eth_change_mtu);
- 
- int eth_validate_addr(struct net_device *dev)
- {
--	if (!is_valid_ether_addr(dev->dev_addr))
-+	if (!eth_addr_valid(dev->dev_addr))
- 		return -EADDRNOTAVAIL;
- 
- 	return 0;
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 7240f8e..dd94879 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -1502,7 +1502,7 @@ static int ipgre_tap_validate(struct nlattr *tb[], struct nlattr *data[])
- 	if (tb[IFLA_ADDRESS]) {
- 		if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN)
- 			return -EINVAL;
--		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
-+		if (!eth_addr_valid(nla_data(tb[IFLA_ADDRESS])))
- 			return -EADDRNOTAVAIL;
+ 	ath6kl_set_wpa_version(vif, sme->crypto.wpa_versions);
+@@ -1628,7 +1628,7 @@ static int ath6kl_cfg80211_join_ibss(struct wiphy *wiphy,
  	}
  
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 0185679..7f1810d 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -1453,7 +1453,7 @@ static int ip6gre_tap_validate(struct nlattr *tb[], struct nlattr *data[])
- 	if (tb[IFLA_ADDRESS]) {
- 		if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN)
- 			return -EINVAL;
--		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
-+		if (!eth_addr_valid(nla_data(tb[IFLA_ADDRESS])))
- 			return -EADDRNOTAVAIL;
- 	}
+ 	memset(vif->req_bssid, 0, sizeof(vif->req_bssid));
+-	if (ibss_param->bssid && !is_broadcast_ether_addr(ibss_param->bssid))
++	if (ibss_param->bssid && !eth_addr_broadcast(ibss_param->bssid))
+ 		memcpy(vif->req_bssid, ibss_param->bssid,
+ 		       sizeof(vif->req_bssid));
  
-diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
-index 05f3a31..28cc1b0 100644
---- a/net/mac80211/cfg.c
-+++ b/net/mac80211/cfg.c
-@@ -1193,7 +1193,7 @@ static int ieee80211_add_station(struct wiphy *wiphy, struct net_device *dev,
- 	if (ether_addr_equal(mac, sdata->vif.addr))
- 		return -EINVAL;
+@@ -3066,7 +3066,7 @@ static bool ath6kl_mgmt_powersave_ap(struct ath6kl_vif *vif,
+ 	struct ath6kl *ar = vif->ar;
  
--	if (is_multicast_ether_addr(mac))
-+	if (eth_addr_multicast(mac))
- 		return -EINVAL;
- 
- 	sta = sta_info_alloc(sdata, mac, GFP_KERNEL);
-diff --git a/net/mac80211/ibss.c b/net/mac80211/ibss.c
-index 5f3620f..cd6c03a 100644
---- a/net/mac80211/ibss.c
-+++ b/net/mac80211/ibss.c
-@@ -747,7 +747,7 @@ static void ieee80211_sta_find_ibss(struct ieee80211_sub_if_data *sdata)
- 		bssid = ifibss->bssid;
- 	if (ifibss->fixed_channel)
- 		chan = ifibss->channel;
--	if (!is_zero_ether_addr(ifibss->bssid))
-+	if (!eth_addr_zero(ifibss->bssid))
- 		bssid = ifibss->bssid;
- 	cbss = cfg80211_get_bss(local->hw.wiphy, chan, bssid,
- 				ifibss->ssid, ifibss->ssid_len,
-@@ -829,11 +829,11 @@ static void ieee80211_rx_mgmt_probe_req(struct ieee80211_sub_if_data *sdata,
- 		 "RX ProbeReq SA=%pM DA=%pM BSSID=%pM (tx_last_beacon=%d)\n",
- 		 mgmt->sa, mgmt->da, mgmt->bssid, tx_last_beacon);
- 
--	if (!tx_last_beacon && is_multicast_ether_addr(mgmt->da))
-+	if (!tx_last_beacon && eth_addr_multicast(mgmt->da))
- 		return;
- 
- 	if (!ether_addr_equal(mgmt->bssid, ifibss->bssid) &&
--	    !is_broadcast_ether_addr(mgmt->bssid))
-+	    !eth_addr_broadcast(mgmt->bssid))
- 		return;
- 
- 	end = ((u8 *) mgmt) + len;
-@@ -1157,7 +1157,7 @@ int ieee80211_ibss_leave(struct ieee80211_sub_if_data *sdata)
- 
- 	active_ibss = ieee80211_sta_active_ibss(sdata);
- 
--	if (!active_ibss && !is_zero_ether_addr(ifibss->bssid)) {
-+	if (!active_ibss && !eth_addr_zero(ifibss->bssid)) {
- 		capability = WLAN_CAPABILITY_IBSS;
- 
- 		if (ifibss->privacy)
-diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
-index 8c80455..c218341 100644
---- a/net/mac80211/ieee80211_i.h
-+++ b/net/mac80211/ieee80211_i.h
-@@ -1185,7 +1185,7 @@ static inline struct ieee80211_local *hw_to_local(
- static inline int ieee80211_bssid_match(const u8 *raddr, const u8 *addr)
- {
- 	return ether_addr_equal(raddr, addr) ||
--	       is_broadcast_ether_addr(raddr);
-+	       eth_addr_broadcast(raddr);
- }
- 
- 
-diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
-index 6f8a73c..6292fa4 100644
---- a/net/mac80211/iface.c
-+++ b/net/mac80211/iface.c
-@@ -427,7 +427,7 @@ int ieee80211_do_open(struct wireless_dev *wdev, bool coming_up)
- 
- 	switch (sdata->vif.type) {
- 	case NL80211_IFTYPE_WDS:
--		if (!is_valid_ether_addr(sdata->u.wds.remote_addr))
-+		if (!eth_addr_valid(sdata->u.wds.remote_addr))
- 			return -ENOLINK;
- 		break;
- 	case NL80211_IFTYPE_AP_VLAN: {
-@@ -482,13 +482,13 @@ int ieee80211_do_open(struct wireless_dev *wdev, bool coming_up)
- 	 * Copy the hopefully now-present MAC address to
- 	 * this interface, if it has the special null one.
- 	 */
--	if (dev && is_zero_ether_addr(dev->dev_addr)) {
-+	if (dev && eth_addr_zero(dev->dev_addr)) {
- 		memcpy(dev->dev_addr,
- 		       local->hw.wiphy->perm_addr,
- 		       ETH_ALEN);
- 		memcpy(dev->perm_addr, dev->dev_addr, ETH_ALEN);
- 
--		if (!is_valid_ether_addr(dev->dev_addr)) {
-+		if (!eth_addr_valid(dev->dev_addr)) {
- 			res = -EADDRNOTAVAIL;
- 			goto err_stop;
- 		}
-@@ -647,7 +647,7 @@ static int ieee80211_open(struct net_device *dev)
- 	int err;
- 
- 	/* fail early if user set an invalid address */
--	if (!is_valid_ether_addr(dev->dev_addr))
-+	if (!eth_addr_valid(dev->dev_addr))
- 		return -EADDRNOTAVAIL;
- 
- 	err = ieee80211_check_concurrent_iface(sdata, sdata->vif.type);
-@@ -1320,7 +1320,7 @@ static void ieee80211_assign_perm_addr(struct ieee80211_local *local,
- 	/* default ... something at least */
- 	memcpy(perm_addr, local->hw.wiphy->perm_addr, ETH_ALEN);
- 
--	if (is_zero_ether_addr(local->hw.wiphy->addr_mask) &&
-+	if (eth_addr_zero(local->hw.wiphy->addr_mask) &&
- 	    local->hw.wiphy->n_addresses <= 1)
- 		return;
- 
-@@ -1376,7 +1376,7 @@ static void ieee80211_assign_perm_addr(struct ieee80211_local *local,
- 		}
- 
- 		/* try mask if available */
--		if (is_zero_ether_addr(local->hw.wiphy->addr_mask))
-+		if (eth_addr_zero(local->hw.wiphy->addr_mask))
- 			break;
- 
- 		m = local->hw.wiphy->addr_mask;
-diff --git a/net/mac80211/mesh.c b/net/mac80211/mesh.c
-index ff0296c..60bdef7 100644
---- a/net/mac80211/mesh.c
-+++ b/net/mac80211/mesh.c
-@@ -473,7 +473,7 @@ void ieee80211_mesh_root_setup(struct ieee80211_if_mesh *ifmsh)
- int ieee80211_fill_mesh_addresses(struct ieee80211_hdr *hdr, __le16 *fc,
- 				  const u8 *meshda, const u8 *meshsa)
- {
--	if (is_multicast_ether_addr(meshda)) {
-+	if (eth_addr_multicast(meshda)) {
- 		*fc |= cpu_to_le16(IEEE80211_FCTL_FROMDS);
- 		/* DA TA SA */
- 		memcpy(hdr->addr1, meshda, ETH_ALEN);
-diff --git a/net/mac80211/mesh_hwmp.c b/net/mac80211/mesh_hwmp.c
-index 47aeee2..46c162b 100644
---- a/net/mac80211/mesh_hwmp.c
-+++ b/net/mac80211/mesh_hwmp.c
-@@ -539,7 +539,7 @@ static void hwmp_preq_frame_process(struct ieee80211_sub_if_data *sdata,
- 			target_sn = ++ifmsh->sn;
- 			ifmsh->last_sn_update = jiffies;
- 		}
--	} else if (is_broadcast_ether_addr(target_addr) &&
-+	} else if (eth_addr_broadcast(target_addr) &&
- 		   (target_flags & IEEE80211_PREQ_TO_FLAG)) {
- 		rcu_read_lock();
- 		mpath = mesh_path_lookup(orig_addr, sdata);
-@@ -621,7 +621,7 @@ static void hwmp_preq_frame_process(struct ieee80211_sub_if_data *sdata,
- 				hopcount, ttl, cpu_to_le32(lifetime),
- 				cpu_to_le32(metric), cpu_to_le32(preq_id),
- 				sdata);
--		if (!is_multicast_ether_addr(da))
-+		if (!eth_addr_multicast(da))
- 			ifmsh->mshstats.fwded_unicast++;
- 		else
- 			ifmsh->mshstats.fwded_mcast++;
-diff --git a/net/mac80211/mesh_pathtbl.c b/net/mac80211/mesh_pathtbl.c
-index aa74981..e86a6e4 100644
---- a/net/mac80211/mesh_pathtbl.c
-+++ b/net/mac80211/mesh_pathtbl.c
-@@ -510,7 +510,7 @@ int mesh_path_add(u8 *dst, struct ieee80211_sub_if_data *sdata)
- 		/* never add ourselves as neighbours */
- 		return -ENOTSUPP;
- 
--	if (is_multicast_ether_addr(dst))
-+	if (eth_addr_multicast(dst))
- 		return -ENOTSUPP;
- 
- 	if (atomic_add_unless(&sdata->u.mesh.mpaths, 1, MESH_MAX_MPATHS) == 0)
-@@ -645,7 +645,7 @@ int mpp_path_add(u8 *dst, u8 *mpp, struct ieee80211_sub_if_data *sdata)
- 		/* never add ourselves as neighbours */
- 		return -ENOTSUPP;
- 
--	if (is_multicast_ether_addr(dst))
-+	if (eth_addr_multicast(dst))
- 		return -ENOTSUPP;
- 
- 	err = -ENOMEM;
-diff --git a/net/mac80211/mesh_plink.c b/net/mac80211/mesh_plink.c
-index 3ab34d8..3b327d6 100644
---- a/net/mac80211/mesh_plink.c
-+++ b/net/mac80211/mesh_plink.c
-@@ -594,7 +594,7 @@ void mesh_rx_plink_frame(struct ieee80211_sub_if_data *sdata, struct ieee80211_m
- 	if (len < IEEE80211_MIN_ACTION_SIZE + 3)
- 		return;
- 
--	if (is_multicast_ether_addr(mgmt->da)) {
-+	if (eth_addr_multicast(mgmt->da)) {
- 		mpl_dbg(sdata,
- 			"Mesh plink: ignore frame from multicast address\n");
- 		return;
-diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
-index e714ed8..b0f2d64 100644
---- a/net/mac80211/mlme.c
-+++ b/net/mac80211/mlme.c
-@@ -423,7 +423,7 @@ static void ieee80211_send_assoc(struct ieee80211_sub_if_data *sdata)
- 	memcpy(mgmt->sa, sdata->vif.addr, ETH_ALEN);
- 	memcpy(mgmt->bssid, assoc_data->bss->bssid, ETH_ALEN);
- 
--	if (!is_zero_ether_addr(assoc_data->prev_bssid)) {
-+	if (!eth_addr_zero(assoc_data->prev_bssid)) {
- 		skb_put(skb, 10);
- 		mgmt->frame_control = cpu_to_le16(IEEE80211_FTYPE_MGMT |
- 						  IEEE80211_STYPE_REASSOC_REQ);
-@@ -1491,7 +1491,7 @@ void ieee80211_sta_rx_notify(struct ieee80211_sub_if_data *sdata,
- 	 * data idle periods for sending the periodic probe request to the
- 	 * AP we're connected to.
- 	 */
--	if (is_multicast_ether_addr(hdr->addr1))
-+	if (eth_addr_multicast(hdr->addr1))
- 		return;
- 
- 	ieee80211_sta_reset_conn_monitor(sdata);
-diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-index 61c621e..8b79842 100644
---- a/net/mac80211/rx.c
-+++ b/net/mac80211/rx.c
-@@ -457,7 +457,7 @@ static int ieee80211_is_unicast_robust_mgmt_frame(struct sk_buff *skb)
- {
- 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
- 
--	if (skb->len < 24 || is_multicast_ether_addr(hdr->addr1))
-+	if (skb->len < 24 || eth_addr_multicast(hdr->addr1))
- 		return 0;
- 
- 	return ieee80211_is_robust_mgmt_frame(hdr);
-@@ -468,7 +468,7 @@ static int ieee80211_is_multicast_robust_mgmt_frame(struct sk_buff *skb)
- {
- 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
- 
--	if (skb->len < 24 || !is_multicast_ether_addr(hdr->addr1))
-+	if (skb->len < 24 || !eth_addr_multicast(hdr->addr1))
- 		return 0;
- 
- 	return ieee80211_is_robust_mgmt_frame(hdr);
-@@ -482,7 +482,7 @@ static int ieee80211_get_mmie_keyidx(struct sk_buff *skb)
- 	struct ieee80211_mmie *mmie;
- 
- 	if (skb->len < 24 + sizeof(*mmie) ||
--	    !is_multicast_ether_addr(hdr->da))
-+	    !eth_addr_multicast(hdr->da))
- 		return -1;
- 
- 	if (!ieee80211_is_robust_mgmt_frame((struct ieee80211_hdr *) hdr))
-@@ -505,7 +505,7 @@ ieee80211_rx_mesh_check(struct ieee80211_rx_data *rx)
- 	char *dev_addr = rx->sdata->vif.addr;
- 
- 	if (ieee80211_is_data(hdr->frame_control)) {
--		if (is_multicast_ether_addr(hdr->addr1)) {
-+		if (eth_addr_multicast(hdr->addr1)) {
- 			if (ieee80211_has_tods(hdr->frame_control) ||
- 				!ieee80211_has_fromds(hdr->frame_control))
- 				return RX_DROP_MONITOR;
-@@ -841,7 +841,7 @@ ieee80211_rx_h_check(struct ieee80211_rx_data *rx)
- 	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(rx->skb);
- 
- 	/* Drop duplicate 802.11 retransmissions (IEEE 802.11 Chap. 9.2.9) */
--	if (rx->sta && !is_multicast_ether_addr(hdr->addr1)) {
-+	if (rx->sta && !eth_addr_multicast(hdr->addr1)) {
- 		if (unlikely(ieee80211_has_retry(hdr->frame_control) &&
- 			     rx->sta->last_seq_ctrl[rx->seqno_idx] ==
- 			     hdr->seq_ctrl)) {
-@@ -965,7 +965,7 @@ ieee80211_rx_h_decrypt(struct ieee80211_rx_data *rx)
- 	if (!ieee80211_has_protected(fc))
- 		mmie_keyidx = ieee80211_get_mmie_keyidx(rx->skb);
- 
--	if (!is_multicast_ether_addr(hdr->addr1) && sta_ptk) {
-+	if (!eth_addr_multicast(hdr->addr1) && sta_ptk) {
- 		rx->key = sta_ptk;
- 		if ((status->flag & RX_FLAG_DECRYPTED) &&
- 		    (status->flag & RX_FLAG_IV_STRIPPED))
-@@ -998,7 +998,7 @@ ieee80211_rx_h_decrypt(struct ieee80211_rx_data *rx)
- 		int i;
- 
- 		if (ieee80211_is_mgmt(fc) &&
--		    is_multicast_ether_addr(hdr->addr1) &&
-+		    eth_addr_multicast(hdr->addr1) &&
- 		    (key = rcu_dereference(rx->sdata->default_mgmt_key)))
- 			rx->key = key;
- 		else {
-@@ -1048,7 +1048,7 @@ ieee80211_rx_h_decrypt(struct ieee80211_rx_data *rx)
- 		keyidx = keyid >> 6;
- 
- 		/* check per-station GTK first, if multicast packet */
--		if (is_multicast_ether_addr(hdr->addr1) && rx->sta)
-+		if (eth_addr_multicast(hdr->addr1) && rx->sta)
- 			rx->key = rcu_dereference(rx->sta->gtk[keyidx]);
- 
- 		/* if not found, try default key */
-@@ -1063,7 +1063,7 @@ ieee80211_rx_h_decrypt(struct ieee80211_rx_data *rx)
- 			if (rx->key &&
- 			    rx->key->conf.cipher != WLAN_CIPHER_SUITE_WEP40 &&
- 			    rx->key->conf.cipher != WLAN_CIPHER_SUITE_WEP104 &&
--			    !is_multicast_ether_addr(hdr->addr1))
-+			    !eth_addr_multicast(hdr->addr1))
- 				rx->key = NULL;
- 		}
- 	}
-@@ -1290,7 +1290,7 @@ ieee80211_rx_h_sta_process(struct ieee80211_rx_data *rx)
- 				sta->last_rx_rate_flag = status->flag;
- 			}
- 		}
--	} else if (!is_multicast_ether_addr(hdr->addr1)) {
-+	} else if (!eth_addr_multicast(hdr->addr1)) {
- 		/*
- 		 * Mesh beacons will update last_rx when if they are found to
- 		 * match the current local configuration when processed.
-@@ -1467,7 +1467,7 @@ ieee80211_rx_h_defragment(struct ieee80211_rx_data *rx)
- 
- 	if (likely((!ieee80211_has_morefrags(fc) && frag == 0) ||
- 		   (rx->skb)->len < 24 ||
--		   is_multicast_ether_addr(hdr->addr1))) {
-+		   eth_addr_multicast(hdr->addr1))) {
- 		/* not fragmented */
- 		goto out;
- 	}
-@@ -1563,7 +1563,7 @@ ieee80211_rx_h_defragment(struct ieee80211_rx_data *rx)
-  out:
- 	if (rx->sta)
- 		rx->sta->rx_packets++;
--	if (is_multicast_ether_addr(hdr->addr1))
-+	if (eth_addr_multicast(hdr->addr1))
- 		rx->local->dot11MulticastReceivedFrameCount++;
- 	else
- 		ieee80211_led_rx(rx->local);
-@@ -1680,7 +1680,7 @@ __ieee80211_data_to_8023(struct ieee80211_rx_data *rx, bool *port_control)
- 			check_port_control = true;
- 	}
- 
--	if (is_multicast_ether_addr(hdr->addr1) &&
-+	if (eth_addr_multicast(hdr->addr1) &&
- 	    sdata->vif.type == NL80211_IFTYPE_AP_VLAN && sdata->u.vlan.sta)
- 		return -1;
- 
-@@ -1743,7 +1743,7 @@ ieee80211_deliver_skb(struct ieee80211_rx_data *rx)
- 	    !(sdata->flags & IEEE80211_SDATA_DONT_BRIDGE_PACKETS) &&
- 	    (status->rx_flags & IEEE80211_RX_RA_MATCH) &&
- 	    (sdata->vif.type != NL80211_IFTYPE_AP_VLAN || !sdata->u.vlan.sta)) {
--		if (is_multicast_ether_addr(ehdr->h_dest)) {
-+		if (eth_addr_multicast(ehdr->h_dest)) {
- 			/*
- 			 * send multicast frames both to higher layers in
- 			 * local net stack and back to the wireless medium
-@@ -1839,7 +1839,7 @@ ieee80211_rx_h_amsdu(struct ieee80211_rx_data *rx)
- 	    !rx->sdata->u.vlan.sta)
- 		return RX_DROP_UNUSABLE;
- 
--	if (is_multicast_ether_addr(hdr->addr1) &&
-+	if (eth_addr_multicast(hdr->addr1) &&
- 	    ((rx->sdata->vif.type == NL80211_IFTYPE_AP_VLAN &&
- 	      rx->sdata->u.vlan.sta) ||
- 	     (rx->sdata->vif.type == NL80211_IFTYPE_STATION &&
-@@ -1893,7 +1893,7 @@ ieee80211_rx_h_mesh_fwding(struct ieee80211_rx_data *rx)
- 
- 	/* frame is in RMC, don't forward */
- 	if (ieee80211_is_data(hdr->frame_control) &&
--	    is_multicast_ether_addr(hdr->addr1) &&
-+	    eth_addr_multicast(hdr->addr1) &&
- 	    mesh_rmc_check(hdr->addr3, mesh_hdr, rx->sdata))
- 		return RX_DROP_MONITOR;
- 
-@@ -1908,7 +1908,7 @@ ieee80211_rx_h_mesh_fwding(struct ieee80211_rx_data *rx)
- 		char *proxied_addr;
- 		char *mpp_addr;
- 
--		if (is_multicast_ether_addr(hdr->addr1)) {
-+		if (eth_addr_multicast(hdr->addr1)) {
- 			mpp_addr = hdr->addr3;
- 			proxied_addr = mesh_hdr->eaddr1;
- 		} else {
-@@ -1930,7 +1930,7 @@ ieee80211_rx_h_mesh_fwding(struct ieee80211_rx_data *rx)
- 	}
- 
- 	/* Frame has reached destination.  Don't forward */
--	if (!is_multicast_ether_addr(hdr->addr1) &&
-+	if (!eth_addr_multicast(hdr->addr1) &&
- 	    ether_addr_equal(sdata->vif.addr, hdr->addr3))
- 		return RX_CONTINUE;
- 
-@@ -1965,7 +1965,7 @@ ieee80211_rx_h_mesh_fwding(struct ieee80211_rx_data *rx)
- 	info->flags |= IEEE80211_TX_INTFL_NEED_TXPROCESSING;
- 	info->control.vif = &rx->sdata->vif;
- 	info->control.jiffies = jiffies;
--	if (is_multicast_ether_addr(fwd_hdr->addr1)) {
-+	if (eth_addr_multicast(fwd_hdr->addr1)) {
- 		IEEE80211_IFSTA_MESH_CTR_INC(ifmsh, fwded_mcast);
- 		memcpy(fwd_hdr->addr2, sdata->vif.addr, ETH_ALEN);
- 	} else if (!mesh_nexthop_lookup(fwd_skb, sdata)) {
-@@ -1982,7 +1982,7 @@ ieee80211_rx_h_mesh_fwding(struct ieee80211_rx_data *rx)
- 	IEEE80211_IFSTA_MESH_CTR_INC(ifmsh, fwded_frames);
- 	ieee80211_add_pending_skb(local, fwd_skb);
-  out:
--	if (is_multicast_ether_addr(hdr->addr1) ||
-+	if (eth_addr_multicast(hdr->addr1) ||
- 	    sdata->dev->flags & IFF_PROMISC)
- 		return RX_CONTINUE;
- 	else
-@@ -2041,7 +2041,7 @@ ieee80211_rx_h_data(struct ieee80211_rx_data *rx)
- 	dev->stats.rx_bytes += rx->skb->len;
- 
- 	if (local->ps_sdata && local->hw.conf.dynamic_ps_timeout > 0 &&
--	    !is_multicast_ether_addr(
-+	    !eth_addr_multicast(
- 		    ((struct ethhdr *)rx->skb->data)->h_dest) &&
- 	    (!local->scanning &&
- 	     !test_bit(SDATA_STATE_OFFCHANNEL, &sdata->state))) {
-@@ -2461,7 +2461,7 @@ ieee80211_rx_h_action_return(struct ieee80211_rx_data *rx)
- 	     sdata->vif.type == NL80211_IFTYPE_AP_VLAN))
- 		return RX_DROP_MONITOR;
- 
+ 	mgmt = (struct ieee80211_mgmt *) buf;
 -	if (is_multicast_ether_addr(mgmt->da))
 +	if (eth_addr_multicast(mgmt->da))
- 		return RX_DROP_MONITOR;
+ 		return false;
  
- 	/* do not return rejected action frames */
-@@ -2509,8 +2509,8 @@ ieee80211_rx_h_mgmt(struct ieee80211_rx_data *rx)
- 	case cpu_to_le16(IEEE80211_STYPE_REASSOC_RESP):
- 	case cpu_to_le16(IEEE80211_STYPE_DEAUTH):
- 	case cpu_to_le16(IEEE80211_STYPE_DISASSOC):
--		if (is_multicast_ether_addr(mgmt->da) &&
--		    !is_broadcast_ether_addr(mgmt->da))
-+		if (eth_addr_multicast(mgmt->da) &&
-+		    !eth_addr_broadcast(mgmt->da))
- 			return RX_DROP_MONITOR;
+ 	conn = ath6kl_find_sta(vif, mgmt->da);
+diff --git a/drivers/net/wireless/ath/ath6kl/main.c b/drivers/net/wireless/ath/ath6kl/main.c
+index c189e28..c90b53b 100644
+--- a/drivers/net/wireless/ath/ath6kl/main.c
++++ b/drivers/net/wireless/ath/ath6kl/main.c
+@@ -115,14 +115,14 @@ static u8 ath6kl_remove_sta(struct ath6kl *ar, u8 *mac, u16 reason)
+ {
+ 	u8 i, removed = 0;
  
- 		/* process only for station */
-@@ -2762,7 +2762,7 @@ static int prepare_for_handlers(struct ieee80211_rx_data *rx,
- 	struct sk_buff *skb = rx->skb;
- 	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(skb);
- 	u8 *bssid = ieee80211_get_bssid(hdr, skb->len, sdata->vif.type);
--	int multicast = is_multicast_ether_addr(hdr->addr1);
-+	int multicast = eth_addr_multicast(hdr->addr1);
+-	if (is_zero_ether_addr(mac))
++	if (eth_addr_zero(mac))
+ 		return removed;
  
- 	switch (sdata->vif.type) {
- 	case NL80211_IFTYPE_STATION:
-diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
-index 797dd36..430db47 100644
---- a/net/mac80211/sta_info.c
-+++ b/net/mac80211/sta_info.c
-@@ -364,7 +364,7 @@ static int sta_info_insert_check(struct sta_info *sta)
- 		return -ENETDOWN;
+-	if (is_broadcast_ether_addr(mac)) {
++	if (eth_addr_broadcast(mac)) {
+ 		ath6kl_dbg(ATH6KL_DBG_TRC, "deleting all station\n");
  
- 	if (WARN_ON(ether_addr_equal(sta->sta.addr, sdata->vif.addr) ||
--		    is_multicast_ether_addr(sta->sta.addr)))
-+		    eth_addr_multicast(sta->sta.addr)))
+ 		for (i = 0; i < AP_MAX_NUM_STA; i++) {
+-			if (!is_zero_ether_addr(ar->sta_list[i].mac)) {
++			if (!eth_addr_zero(ar->sta_list[i].mac)) {
+ 				ath6kl_sta_cleanup(ar, i);
+ 				removed = 1;
+ 			}
+@@ -999,7 +999,7 @@ void ath6kl_disconnect_event(struct ath6kl_vif *vif, u8 reason, u8 *bssid,
+ 						       MCAST_AID, 0);
+ 		}
+ 
+-		if (!is_broadcast_ether_addr(bssid)) {
++		if (!eth_addr_broadcast(bssid)) {
+ 			/* send event to application */
+ 			cfg80211_del_sta(vif->ndev, bssid, GFP_KERNEL);
+ 		}
+diff --git a/drivers/net/wireless/ath/ath6kl/txrx.c b/drivers/net/wireless/ath/ath6kl/txrx.c
+index 7dfa0fd..159ef34 100644
+--- a/drivers/net/wireless/ath/ath6kl/txrx.c
++++ b/drivers/net/wireless/ath/ath6kl/txrx.c
+@@ -50,7 +50,7 @@ static u8 ath6kl_ibss_map_epid(struct sk_buff *skb, struct net_device *dev,
+ 	datap = skb->data;
+ 	eth_hdr = (struct ethhdr *) (datap + sizeof(struct wmi_data_hdr));
+ 
+-	if (is_multicast_ether_addr(eth_hdr->h_dest))
++	if (eth_addr_multicast(eth_hdr->h_dest))
+ 		return ENDPOINT_2;
+ 
+ 	for (i = 0; i < ar->node_num; i++) {
+@@ -212,7 +212,7 @@ static bool ath6kl_powersave_ap(struct ath6kl_vif *vif, struct sk_buff *skb,
+ 	bool ps_queued = false;
+ 	struct ath6kl *ar = vif->ar;
+ 
+-	if (is_multicast_ether_addr(datap->h_dest)) {
++	if (eth_addr_multicast(datap->h_dest)) {
+ 		u8 ctr = 0;
+ 		bool q_mcast = false;
+ 
+@@ -1544,7 +1544,7 @@ void ath6kl_rx(struct htc_target *target, struct htc_packet *packet)
+ 
+ 	if (vif->nw_type == AP_NETWORK) {
+ 		datap = (struct ethhdr *) skb->data;
+-		if (is_multicast_ether_addr(datap->h_dest))
++		if (eth_addr_multicast(datap->h_dest))
+ 			/*
+ 			 * Bcast/Mcast frames should be sent to the
+ 			 * OS stack as well as on the air.
+@@ -1578,7 +1578,7 @@ void ath6kl_rx(struct htc_target *target, struct htc_packet *packet)
+ 
+ 	datap = (struct ethhdr *) skb->data;
+ 
+-	if (is_unicast_ether_addr(datap->h_dest)) {
++	if (eth_addr_unicast(datap->h_dest)) {
+ 		if (vif->nw_type == AP_NETWORK) {
+ 			conn = ath6kl_find_sta(vif, datap->h_source);
+ 			if (!conn)
+@@ -1592,7 +1592,7 @@ void ath6kl_rx(struct htc_target *target, struct htc_packet *packet)
+ 			/* aggregation code will handle the skb */
+ 			return;
+ 		}
+-	} else if (!is_broadcast_ether_addr(datap->h_dest))
++	} else if (!eth_addr_broadcast(datap->h_dest))
+ 		vif->net_stats.multicast++;
+ 
+ 	ath6kl_deliver_frames_to_nw_stack(vif->ndev, skb);
+diff --git a/drivers/net/wireless/ath/ath9k/recv.c b/drivers/net/wireless/ath/ath9k/recv.c
+index 83d16e7..777bec9 100644
+--- a/drivers/net/wireless/ath/ath9k/recv.c
++++ b/drivers/net/wireless/ath/ath9k/recv.c
+@@ -595,7 +595,7 @@ static void ath_rx_ps(struct ath_softc *sc, struct sk_buff *skb, bool mybeacon)
+ 	} else if ((sc->ps_flags & PS_WAIT_FOR_CAB) &&
+ 		   (ieee80211_is_data(hdr->frame_control) ||
+ 		    ieee80211_is_action(hdr->frame_control)) &&
+-		   is_multicast_ether_addr(hdr->addr1) &&
++		   eth_addr_multicast(hdr->addr1) &&
+ 		   !ieee80211_has_moredata(hdr->frame_control)) {
+ 		/*
+ 		 * No more broadcast/multicast frames to be received at this
+@@ -605,7 +605,7 @@ static void ath_rx_ps(struct ath_softc *sc, struct sk_buff *skb, bool mybeacon)
+ 		ath_dbg(common, PS,
+ 			"All PS CAB frames received, back to sleep\n");
+ 	} else if ((sc->ps_flags & PS_WAIT_FOR_PSPOLL_DATA) &&
+-		   !is_multicast_ether_addr(hdr->addr1) &&
++		   !eth_addr_multicast(hdr->addr1) &&
+ 		   !ieee80211_has_morefrags(hdr->frame_control)) {
+ 		sc->ps_flags &= ~PS_WAIT_FOR_PSPOLL_DATA;
+ 		ath_dbg(common, PS,
+@@ -774,7 +774,7 @@ static bool ath9k_rx_accept(struct ath_common *common,
+ 
+ 	fc = hdr->frame_control;
+ 
+-	is_mc = !!is_multicast_ether_addr(hdr->addr1);
++	is_mc = !!eth_addr_multicast(hdr->addr1);
+ 	is_valid_tkip = rx_stats->rs_keyix != ATH9K_RXKEYIX_INVALID &&
+ 		test_bit(rx_stats->rs_keyix, common->tkip_keymap);
+ 	strip_mic = is_valid_tkip && ieee80211_is_data(fc) &&
+@@ -1096,7 +1096,7 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
+ 		rxs = IEEE80211_SKB_RXCB(hdr_skb);
+ 		if (ieee80211_is_beacon(hdr->frame_control)) {
+ 			RX_STAT_INC(rx_beacons);
+-			if (!is_zero_ether_addr(common->curbssid) &&
++			if (!eth_addr_zero(common->curbssid) &&
+ 			    ether_addr_equal(hdr->addr3, common->curbssid))
+ 				rs.is_mybeacon = true;
+ 			else
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index 73730e9..3b1aca8 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -5334,7 +5334,7 @@ static struct b43_wl *b43_wireless_init(struct b43_bus_dev *dev)
+ 	wl->hw_registred = false;
+ 	hw->max_rates = 2;
+ 	SET_IEEE80211_DEV(hw, dev->dev);
+-	if (is_valid_ether_addr(sprom->et1mac))
++	if (eth_addr_valid(sprom->et1mac))
+ 		SET_IEEE80211_PERM_ADDR(hw, sprom->et1mac);
+ 	else
+ 		SET_IEEE80211_PERM_ADDR(hw, sprom->il0mac);
+diff --git a/drivers/net/wireless/b43legacy/main.c b/drivers/net/wireless/b43legacy/main.c
+index 18e208e..9f95cd6 100644
+--- a/drivers/net/wireless/b43legacy/main.c
++++ b/drivers/net/wireless/b43legacy/main.c
+@@ -3820,7 +3820,7 @@ static int b43legacy_wireless_init(struct ssb_device *dev)
+ 	hw->queues = 1; /* FIXME: hardware has more queues */
+ 	hw->max_rates = 2;
+ 	SET_IEEE80211_DEV(hw, dev->dev);
+-	if (is_valid_ether_addr(sprom->et1mac))
++	if (eth_addr_valid(sprom->et1mac))
+ 		SET_IEEE80211_PERM_ADDR(hw, sprom->et1mac);
+ 	else
+ 		SET_IEEE80211_PERM_ADDR(hw, sprom->il0mac);
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c b/drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c
+index d7c76ce..5d6b922c 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c
+@@ -319,7 +319,7 @@ static int brcmf_netdev_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 		u8 *pktdata = (u8 *)(skb->data);
+ 		struct ethhdr *eh = (struct ethhdr *)pktdata;
+ 
+-		if (is_multicast_ether_addr(eh->h_dest))
++		if (eth_addr_multicast(eh->h_dest))
+ 			drvr->tx_multicast++;
+ 		if (ntohs(eh->h_proto) == ETH_P_PAE)
+ 			atomic_inc(&drvr->pend_8021x_cnt);
+@@ -865,7 +865,7 @@ static int brcmf_net_attach(struct brcmf_if *ifp)
+ 	/*
+ 	 * determine mac address to use
+ 	 */
+-	if (is_valid_ether_addr(ifp->mac_addr))
++	if (eth_addr_valid(ifp->mac_addr))
+ 		memcpy(temp_addr, ifp->mac_addr, ETH_ALEN);
+ 	else
+ 		memcpy(temp_addr, drvr->mac, ETH_ALEN);
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c b/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
+index c1abaa6..d773906 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
+@@ -1999,7 +1999,7 @@ brcmf_add_keyext(struct wiphy *wiphy, struct net_device *ndev,
+ 	key.index = (u32) key_idx;
+ 	/* Instead of bcast for ea address for default wep keys,
+ 		 driver needs it to be Null */
+-	if (!is_multicast_ether_addr(mac_addr))
++	if (!eth_addr_multicast(mac_addr))
+ 		memcpy((char *)&key.ea, (void *)mac_addr, ETH_ALEN);
+ 	key.len = (u32) params->key_len;
+ 	bssidx = brcmf_find_bssidx(cfg, ndev);
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c b/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
+index a744ea5..f502527 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
++++ b/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
+@@ -1062,7 +1062,7 @@ static struct brcms_info *brcms_attach(struct bcma_device *pdev)
+ 	brcms_c_regd_init(wl->wlc);
+ 
+ 	memcpy(perm, &wl->pub->cur_etheraddr, ETH_ALEN);
+-	if (WARN_ON(!is_valid_ether_addr(perm)))
++	if (WARN_ON(!eth_addr_valid(perm)))
+ 		goto fail;
+ 	SET_IEEE80211_PERM_ADDR(hw, perm);
+ 
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+index 75086b3..bbe0937 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
++++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+@@ -1902,7 +1902,7 @@ static void brcms_c_get_macaddr(struct brcms_hardware *wlc_hw, u8 etheraddr[ETH_
+ 	struct ssb_sprom *sprom = &wlc_hw->d11core->bus->sprom;
+ 
+ 	/* If macaddr exists, use it (Sromrev4, CIS, ...). */
+-	if (!is_zero_ether_addr(sprom->il0mac)) {
++	if (!eth_addr_zero(sprom->il0mac)) {
+ 		memcpy(etheraddr, sprom->il0mac, 6);
+ 		return;
+ 	}
+@@ -4707,8 +4707,8 @@ static int brcms_b_attach(struct brcms_c_info *wlc, struct bcma_device *core,
+ 	/* init etheraddr state variables */
+ 	brcms_c_get_macaddr(wlc_hw, wlc_hw->etheraddr);
+ 
+-	if (is_broadcast_ether_addr(wlc_hw->etheraddr) ||
+-	    is_zero_ether_addr(wlc_hw->etheraddr)) {
++	if (eth_addr_broadcast(wlc_hw->etheraddr) ||
++	    eth_addr_zero(wlc_hw->etheraddr)) {
+ 		wiphy_err(wiphy, "wl%d: brcms_b_attach: bad macaddr\n",
+ 			  unit);
+ 		err = 22;
+@@ -6764,7 +6764,7 @@ brcms_c_d11hdrs_mac80211(struct brcms_c_info *wlc, struct ieee80211_hw *hw,
+ 		if (!rspec_active(rspec[k])) {
+ 			rspec[k] = BRCM_RATE_1M;
+ 		} else {
+-			if (!is_multicast_ether_addr(h->addr1)) {
++			if (!eth_addr_multicast(h->addr1)) {
+ 				/* set tx antenna config */
+ 				brcms_c_antsel_antcfg_get(wlc->asi, false,
+ 					false, 0, 0, &antcfg, &fbantcfg);
+@@ -6905,7 +6905,7 @@ brcms_c_d11hdrs_mac80211(struct brcms_c_info *wlc, struct ieee80211_hw *hw,
+ 	/* (2) PROTECTION, may change rspec */
+ 	if ((ieee80211_is_data(h->frame_control) ||
+ 	    ieee80211_is_mgmt(h->frame_control)) &&
+-	    (phylen > wlc->RTSThresh) && !is_multicast_ether_addr(h->addr1))
++	    (phylen > wlc->RTSThresh) && !eth_addr_multicast(h->addr1))
+ 		use_rts = true;
+ 
+ 	/* (3) PLCP: determine PLCP header and MAC duration,
+@@ -6928,7 +6928,7 @@ brcms_c_d11hdrs_mac80211(struct brcms_c_info *wlc, struct ieee80211_hw *hw,
+ 
+ 	/* DUR field for main rate */
+ 	if (!ieee80211_is_pspoll(h->frame_control) &&
+-	    !is_multicast_ether_addr(h->addr1) && !use_rifs) {
++	    !eth_addr_multicast(h->addr1) && !use_rifs) {
+ 		durid =
+ 		    brcms_c_compute_frame_dur(wlc, rspec[0], preamble_type[0],
+ 					  next_frag_len);
+@@ -6946,7 +6946,7 @@ brcms_c_d11hdrs_mac80211(struct brcms_c_info *wlc, struct ieee80211_hw *hw,
+ 	/* DUR field for fallback rate */
+ 	if (ieee80211_is_pspoll(h->frame_control))
+ 		txh->FragDurFallback = h->duration_id;
+-	else if (is_multicast_ether_addr(h->addr1) || use_rifs)
++	else if (eth_addr_multicast(h->addr1) || use_rifs)
+ 		txh->FragDurFallback = 0;
+ 	else {
+ 		durid = brcms_c_compute_frame_dur(wlc, rspec[1],
+@@ -6958,7 +6958,7 @@ brcms_c_d11hdrs_mac80211(struct brcms_c_info *wlc, struct ieee80211_hw *hw,
+ 	if (frag == 0)
+ 		mcl |= TXC_STARTMSDU;
+ 
+-	if (!is_multicast_ether_addr(h->addr1))
++	if (!eth_addr_multicast(h->addr1))
+ 		mcl |= TXC_IMMEDACK;
+ 
+ 	if (wlc->band->bandtype == BRCM_BAND_5G)
+diff --git a/drivers/net/wireless/hostap/hostap_info.c b/drivers/net/wireless/hostap/hostap_info.c
+index 970a48b..239e213 100644
+--- a/drivers/net/wireless/hostap/hostap_info.c
++++ b/drivers/net/wireless/hostap/hostap_info.c
+@@ -464,7 +464,7 @@ static void handle_info_queue_scanresults(local_info_t *local)
+ 		prism2_host_roaming(local);
+ 
+ 	if (local->host_roaming == 2 && local->iw_mode == IW_MODE_INFRA &&
+-	    !is_zero_ether_addr(local->preferred_ap)) {
++	    !eth_addr_zero(local->preferred_ap)) {
+ 		/*
+ 		 * Firmware seems to be getting into odd state in host_roaming
+ 		 * mode 2 when hostscan is used without join command, so try
+diff --git a/drivers/net/wireless/hostap/hostap_ioctl.c b/drivers/net/wireless/hostap/hostap_ioctl.c
+index ac07473..e37beee 100644
+--- a/drivers/net/wireless/hostap/hostap_ioctl.c
++++ b/drivers/net/wireless/hostap/hostap_ioctl.c
+@@ -3222,7 +3222,7 @@ static int prism2_ioctl_siwencodeext(struct net_device *dev,
  		return -EINVAL;
  
- 	return 0;
-diff --git a/net/mac80211/status.c b/net/mac80211/status.c
-index 3af0cc4..04ba926 100644
---- a/net/mac80211/status.c
-+++ b/net/mac80211/status.c
-@@ -288,7 +288,7 @@ static void ieee80211_add_tx_radiotap_header(struct ieee80211_supported_band
- 	/* IEEE80211_RADIOTAP_TX_FLAGS */
- 	txflags = 0;
- 	if (!(info->flags & IEEE80211_TX_STAT_ACK) &&
--	    !is_multicast_ether_addr(hdr->addr1))
-+	    !eth_addr_multicast(hdr->addr1))
- 		txflags |= IEEE80211_RADIOTAP_F_TX_FAIL;
+ 	addr = ext->addr.sa_data;
+-	if (is_broadcast_ether_addr(addr)) {
++	if (eth_addr_broadcast(addr)) {
+ 		sta_ptr = NULL;
+ 		crypt = &local->crypt_info.crypt[i];
+ 	} else {
+@@ -3394,7 +3394,7 @@ static int prism2_ioctl_giwencodeext(struct net_device *dev,
+ 		i--;
  
- 	if ((info->status.rates[0].flags & IEEE80211_TX_RC_USE_RTS_CTS) ||
-@@ -482,7 +482,7 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
- 	if (info->flags & IEEE80211_TX_STAT_ACK) {
- 		if (ieee80211_is_first_frag(hdr->seq_ctrl)) {
- 			local->dot11TransmittedFrameCount++;
--			if (is_multicast_ether_addr(hdr->addr1))
-+			if (eth_addr_multicast(hdr->addr1))
- 				local->dot11MulticastTransmittedFrameCount++;
- 			if (retry_count > 0)
- 				local->dot11RetryCount++;
-@@ -494,7 +494,7 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
- 		 * with an individual address in the address 1 field or an MPDU
- 		 * with a multicast address in the address 1 field of type Data
- 		 * or Management. */
--		if (!is_multicast_ether_addr(hdr->addr1) ||
-+		if (!eth_addr_multicast(hdr->addr1) ||
- 		    ieee80211_is_data(fc) ||
- 		    ieee80211_is_mgmt(fc))
- 			local->dot11TransmittedFragmentCount++;
-diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
-index c9bf83f..c5e251d 100644
---- a/net/mac80211/tx.c
-+++ b/net/mac80211/tx.c
-@@ -532,14 +532,14 @@ ieee80211_tx_h_select_key(struct ieee80211_tx_data *tx)
- 	else if (tx->sta && (key = rcu_dereference(tx->sta->ptk)))
- 		tx->key = key;
- 	else if (ieee80211_is_mgmt(hdr->frame_control) &&
--		 is_multicast_ether_addr(hdr->addr1) &&
-+		 eth_addr_multicast(hdr->addr1) &&
- 		 ieee80211_is_robust_mgmt_frame(hdr) &&
- 		 (key = rcu_dereference(tx->sdata->default_mgmt_key)))
- 		tx->key = key;
--	else if (is_multicast_ether_addr(hdr->addr1) &&
-+	else if (eth_addr_multicast(hdr->addr1) &&
- 		 (key = rcu_dereference(tx->sdata->default_multicast_key)))
- 		tx->key = key;
--	else if (!is_multicast_ether_addr(hdr->addr1) &&
-+	else if (!eth_addr_multicast(hdr->addr1) &&
- 		 (key = rcu_dereference(tx->sdata->default_unicast_key)))
- 		tx->key = key;
- 	else if (info->flags & IEEE80211_TX_CTL_INJECTED)
-@@ -693,7 +693,7 @@ ieee80211_tx_h_rate_ctrl(struct ieee80211_tx_data *tx)
- 			 (info->flags & IEEE80211_TX_CTL_NO_ACK)))
- 		info->control.rates[0].count = 1;
+ 	addr = ext->addr.sa_data;
+-	if (is_broadcast_ether_addr(addr)) {
++	if (eth_addr_broadcast(addr)) {
+ 		sta_ptr = NULL;
+ 		crypt = &local->crypt_info.crypt[i];
+ 	} else {
+@@ -3457,7 +3457,7 @@ static int prism2_ioctl_set_encryption(local_info_t *local,
+ 	    param->u.crypt.key_len)
+ 		return -EINVAL;
  
--	if (is_multicast_ether_addr(hdr->addr1)) {
-+	if (eth_addr_multicast(hdr->addr1)) {
- 		/*
- 		 * XXX: verify the rate is in the basic rateset
- 		 */
-@@ -1036,7 +1036,7 @@ ieee80211_tx_h_calculate_duration(struct ieee80211_tx_data *tx)
- 			next_len = next->len;
- 		} else
- 			next_len = 0;
--		group_addr = is_multicast_ether_addr(hdr->addr1);
-+		group_addr = eth_addr_multicast(hdr->addr1);
+-	if (is_broadcast_ether_addr(param->sta_addr)) {
++	if (eth_addr_broadcast(param->sta_addr)) {
+ 		if (param->u.crypt.idx >= WEP_KEYS)
+ 			return -EINVAL;
+ 		sta_ptr = NULL;
+@@ -3590,7 +3590,7 @@ static int prism2_ioctl_get_encryption(local_info_t *local,
+ 	if (max_key_len < 0)
+ 		return -EINVAL;
  
- 		hdr->duration_id =
- 			ieee80211_duration(tx, skb, group_addr, next_len);
-@@ -1174,7 +1174,7 @@ ieee80211_tx_prepare(struct ieee80211_sub_if_data *sdata,
- 		}
+-	if (is_broadcast_ether_addr(param->sta_addr)) {
++	if (eth_addr_broadcast(param->sta_addr)) {
+ 		sta_ptr = NULL;
+ 		if (param->u.crypt.idx >= WEP_KEYS)
+ 			param->u.crypt.idx = local->crypt_info.tx_keyidx;
+diff --git a/drivers/net/wireless/hostap/hostap_main.c b/drivers/net/wireless/hostap/hostap_main.c
+index 15f0fad..19197ed 100644
+--- a/drivers/net/wireless/hostap/hostap_main.c
++++ b/drivers/net/wireless/hostap/hostap_main.c
+@@ -1084,7 +1084,7 @@ int prism2_sta_deauth(local_info_t *local, u16 reason)
+ 	__le16 val = cpu_to_le16(reason);
+ 
+ 	if (local->iw_mode != IW_MODE_INFRA ||
+-	    is_zero_ether_addr(local->bssid) ||
++	    eth_addr_zero(local->bssid) ||
+ 	    memcmp(local->bssid, "\x44\x44\x44\x44\x44\x44", ETH_ALEN) == 0)
+ 		return 0;
+ 
+diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
+index 29b8fa1..a67ba42 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2100.c
++++ b/drivers/net/wireless/ipw2x00/ipw2100.c
+@@ -5821,7 +5821,7 @@ static int ipw2100_set_address(struct net_device *dev, void *p)
+ 	struct sockaddr *addr = p;
+ 	int err = 0;
+ 
+-	if (!is_valid_ether_addr(addr->sa_data))
++	if (!eth_addr_valid(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 
+ 	mutex_lock(&priv->action_mutex);
+@@ -6972,8 +6972,8 @@ static int ipw2100_wx_set_wap(struct net_device *dev,
+ 		goto done;
  	}
  
--	if (is_multicast_ether_addr(hdr->addr1)) {
-+	if (eth_addr_multicast(hdr->addr1)) {
- 		tx->flags &= ~IEEE80211_TX_UNICAST;
- 		info->flags |= IEEE80211_TX_CTL_NO_ACK;
- 	} else
-@@ -1475,7 +1475,7 @@ void ieee80211_xmit(struct ieee80211_sub_if_data *sdata, struct sk_buff *skb)
+-	if (is_broadcast_ether_addr(wrqu->ap_addr.sa_data) ||
+-	    is_zero_ether_addr(wrqu->ap_addr.sa_data)) {
++	if (eth_addr_broadcast(wrqu->ap_addr.sa_data) ||
++	    eth_addr_zero(wrqu->ap_addr.sa_data)) {
+ 		/* we disable mandatory BSSID association */
+ 		IPW_DEBUG_WX("exit - disable mandatory BSSID\n");
+ 		priv->config &= ~CFG_STATIC_BSSID;
+diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
+index 935120f..cf64853 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+@@ -7277,7 +7277,7 @@ static int ipw_is_qos_active(struct net_device *dev,
+ 	struct libipw_qos_data *qos_data = NULL;
+ 	int active, supported;
+ 	u8 *daddr = skb->data + ETH_ALEN;
+-	int unicast = !is_multicast_ether_addr(daddr);
++	int unicast = !eth_addr_multicast(daddr);
  
- 	if (ieee80211_vif_is_mesh(&sdata->vif) &&
- 	    ieee80211_is_data(hdr->frame_control) &&
--	    !is_multicast_ether_addr(hdr->addr1) &&
-+	    !eth_addr_multicast(hdr->addr1) &&
- 	    mesh_nexthop_resolve(skb, sdata)) {
- 		/* skb queued: don't free */
- 		rcu_read_unlock();
-@@ -1787,7 +1787,7 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
- 			goto fail;
- 		}
- 		rcu_read_lock();
--		if (!is_multicast_ether_addr(skb->data)) {
-+		if (!eth_addr_multicast(skb->data)) {
- 			mpath = mesh_path_lookup(skb->data, sdata);
- 			if (!mpath)
- 				mppath = mpp_path_lookup(skb->data, sdata);
-@@ -1823,7 +1823,7 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
+ 	if (!(priv->status & STATUS_ASSOCIATED))
+ 		return 0;
+@@ -7836,7 +7836,7 @@ static void ipw_handle_data_packet(struct ipw_priv *priv,
+ 	/* HW decrypt will not clear the WEP bit, MIC, PN, etc. */
+ 	hdr = (struct libipw_hdr_4addr *)rxb->skb->data;
+ 	if (priv->ieee->iw_mode != IW_MODE_MONITOR &&
+-	    (is_multicast_ether_addr(hdr->addr1) ?
++	    (eth_addr_multicast(hdr->addr1) ?
+ 	     !priv->ieee->host_mc_decrypt : !priv->ieee->host_decrypt))
+ 		ipw_rebuild_decrypted_skb(priv, rxb->skb);
  
- 			hdrlen = ieee80211_fill_mesh_addresses(&hdr, &fc,
- 					mesh_da, sdata->vif.addr);
--			if (is_multicast_ether_addr(mesh_da))
-+			if (eth_addr_multicast(mesh_da))
- 				/* DA TA mSA AE:SA */
- 				meshhdrlen =
- 					ieee80211_new_mesh_header(&mesh_hdr,
-@@ -1913,7 +1913,7 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
- 	 * if it is a multicast address (which can only happen
- 	 * in AP mode)
- 	 */
--	multicast = is_multicast_ether_addr(hdr.addr1);
-+	multicast = eth_addr_multicast(hdr.addr1);
- 	if (!multicast) {
- 		rcu_read_lock();
- 		sta = sta_info_get(sdata, hdr.addr1);
-@@ -1939,7 +1939,7 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
- 	 * EAPOL frames from the local station.
- 	 */
- 	if (unlikely(!ieee80211_vif_is_mesh(&sdata->vif) &&
--		     !is_multicast_ether_addr(hdr.addr1) && !authorized &&
-+		     !eth_addr_multicast(hdr.addr1) && !authorized &&
- 		     (cpu_to_be16(ethertype) != sdata->control_port_protocol ||
- 		      !ether_addr_equal(sdata->vif.addr, skb->data + ETH_ALEN)))) {
- #ifdef CONFIG_MAC80211_VERBOSE_DEBUG
-diff --git a/net/mac80211/wme.c b/net/mac80211/wme.c
-index cea06e9..f64d446 100644
---- a/net/mac80211/wme.c
-+++ b/net/mac80211/wme.c
-@@ -141,7 +141,7 @@ u16 ieee80211_select_queue(struct ieee80211_sub_if_data *sdata,
+@@ -8222,7 +8222,7 @@ static int is_network_packet(struct ipw_priv *priv,
+ 			return 0;
+ 
+ 		/* {broad,multi}cast packets to our BSSID go through */
+-		if (is_multicast_ether_addr(header->addr1))
++		if (eth_addr_multicast(header->addr1))
+ 			return !memcmp(header->addr3, priv->bssid, ETH_ALEN);
+ 
+ 		/* packets to our adapter go through */
+@@ -8235,7 +8235,7 @@ static int is_network_packet(struct ipw_priv *priv,
+ 			return 0;
+ 
+ 		/* {broad,multi}cast packets to our BSS go through */
+-		if (is_multicast_ether_addr(header->addr1))
++		if (eth_addr_multicast(header->addr1))
+ 			return !memcmp(header->addr2, priv->bssid, ETH_ALEN);
+ 
+ 		/* packets to our adapter go through */
+@@ -9040,8 +9040,8 @@ static int ipw_wx_set_wap(struct net_device *dev,
+ 	if (wrqu->ap_addr.sa_family != ARPHRD_ETHER)
+ 		return -EINVAL;
+ 	mutex_lock(&priv->mutex);
+-	if (is_broadcast_ether_addr(wrqu->ap_addr.sa_data) ||
+-	    is_zero_ether_addr(wrqu->ap_addr.sa_data)) {
++	if (eth_addr_broadcast(wrqu->ap_addr.sa_data) ||
++	    eth_addr_zero(wrqu->ap_addr.sa_data)) {
+ 		/* we disable mandatory BSSID association */
+ 		IPW_DEBUG_WX("Setting AP BSSID to ANY\n");
+ 		priv->config &= ~CFG_STATIC_BSSID;
+@@ -10240,7 +10240,7 @@ static int ipw_tx_skb(struct ipw_priv *priv, struct libipw_txb *txb,
+ 	hdr_len = libipw_get_hdrlen(le16_to_cpu(hdr->frame_ctl));
+ 	switch (priv->ieee->iw_mode) {
+ 	case IW_MODE_ADHOC:
+-		unicast = !is_multicast_ether_addr(hdr->addr1);
++		unicast = !eth_addr_multicast(hdr->addr1);
+ 		id = ipw_find_station(priv, hdr->addr1);
+ 		if (id == IPW_INVALID_STATION) {
+ 			id = ipw_add_station(priv, hdr->addr1);
+@@ -10255,7 +10255,7 @@ static int ipw_tx_skb(struct ipw_priv *priv, struct libipw_txb *txb,
+ 
+ 	case IW_MODE_INFRA:
+ 	default:
+-		unicast = !is_multicast_ether_addr(hdr->addr3);
++		unicast = !eth_addr_multicast(hdr->addr3);
+ 		id = 0;
  		break;
  	}
- 
--	if (!sta && ra && !is_multicast_ether_addr(ra)) {
-+	if (!sta && ra && !eth_addr_multicast(ra)) {
- 		sta = sta_info_get(sdata, ra);
- 		if (sta)
- 			qos = test_sta_flag(sta, WLAN_STA_WME);
-@@ -176,7 +176,7 @@ void ieee80211_set_qos_hdr(struct ieee80211_sub_if_data *sdata,
- 		/* preserve EOSP bit */
- 		ack_policy = *p & IEEE80211_QOS_CTL_EOSP;
- 
--		if (is_multicast_ether_addr(hdr->addr1) ||
-+		if (eth_addr_multicast(hdr->addr1) ||
- 		    sdata->noack_map & BIT(tid)) {
- 			ack_policy |= IEEE80211_QOS_CTL_ACK_POLICY_NOACK;
- 			info->flags |= IEEE80211_TX_CTL_NO_ACK;
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 98c7063..70addfe 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -540,13 +540,13 @@ static int parse_icmpv6(struct sk_buff *skb, struct sw_flow_key *key,
- 			 */
- 			if (nd_opt->nd_opt_type == ND_OPT_SOURCE_LL_ADDR
- 			    && opt_len == 8) {
--				if (unlikely(!is_zero_ether_addr(key->ipv6.nd.sll)))
-+				if (unlikely(!eth_addr_zero(key->ipv6.nd.sll)))
- 					goto invalid;
- 				memcpy(key->ipv6.nd.sll,
- 				    &nd->opt[offset+sizeof(*nd_opt)], ETH_ALEN);
- 			} else if (nd_opt->nd_opt_type == ND_OPT_TARGET_LL_ADDR
- 				   && opt_len == 8) {
--				if (unlikely(!is_zero_ether_addr(key->ipv6.nd.tll)))
-+				if (unlikely(!eth_addr_zero(key->ipv6.nd.tll)))
- 					goto invalid;
- 				memcpy(key->ipv6.nd.tll,
- 				    &nd->opt[offset+sizeof(*nd_opt)], ETH_ALEN);
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 5d460c3..96a02c9 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -67,7 +67,7 @@ static int internal_dev_mac_addr(struct net_device *dev, void *p)
- {
+@@ -10541,7 +10541,7 @@ static int ipw_net_set_mac_address(struct net_device *dev, void *p)
+ 	struct ipw_priv *priv = libipw_priv(dev);
  	struct sockaddr *addr = p;
  
 -	if (!is_valid_ether_addr(addr->sa_data))
 +	if (!eth_addr_valid(addr->sa_data))
  		return -EADDRNOTAVAIL;
- 	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
- 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
-diff --git a/net/wireless/core.c b/net/wireless/core.c
-index 443d4d7..8048685 100644
---- a/net/wireless/core.c
-+++ b/net/wireless/core.c
-@@ -468,7 +468,7 @@ int wiphy_register(struct wiphy *wiphy)
- 		return -EINVAL;
- 
- 	if (WARN_ON(wiphy->addresses &&
--		    !is_zero_ether_addr(wiphy->perm_addr) &&
-+		    !eth_addr_zero(wiphy->perm_addr) &&
- 		    memcmp(wiphy->perm_addr, wiphy->addresses[0].addr,
- 			   ETH_ALEN)))
- 		return -EINVAL;
-diff --git a/net/wireless/ibss.c b/net/wireless/ibss.c
-index ca5672f..21a7dce 100644
---- a/net/wireless/ibss.c
-+++ b/net/wireless/ibss.c
-@@ -479,7 +479,7 @@ int cfg80211_ibss_wext_siwap(struct net_device *dev,
- 		return -EINVAL;
- 
- 	/* automatic mode */
--	if (is_zero_ether_addr(bssid) || is_broadcast_ether_addr(bssid))
-+	if (eth_addr_zero(bssid) || eth_addr_broadcast(bssid))
- 		bssid = NULL;
- 
- 	/* both automatic */
-diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-index 0418a6d..fe94df8 100644
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@ -4630,7 +4630,7 @@ static int nl80211_send_bss(struct sk_buff *msg, struct netlink_callback *cb,
- 	bss = nla_nest_start(msg, NL80211_ATTR_BSS);
- 	if (!bss)
- 		goto nla_put_failure;
--	if ((!is_zero_ether_addr(res->bssid) &&
-+	if ((!eth_addr_zero(res->bssid) &&
- 	     nla_put(msg, NL80211_BSS_BSSID, ETH_ALEN, res->bssid)) ||
- 	    (res->information_elements && res->len_information_elements &&
- 	     nla_put(msg, NL80211_BSS_INFORMATION_ELEMENTS,
-@@ -5275,7 +5275,7 @@ static int nl80211_join_ibss(struct sk_buff *skb, struct genl_info *info)
- 	if (info->attrs[NL80211_ATTR_MAC]) {
- 		ibss.bssid = nla_data(info->attrs[NL80211_ATTR_MAC]);
- 
--		if (!is_valid_ether_addr(ibss.bssid))
-+		if (!eth_addr_valid(ibss.bssid))
- 			return -EINVAL;
- 	}
- 	ibss.ssid = nla_data(info->attrs[NL80211_ATTR_SSID]);
-diff --git a/net/wireless/util.c b/net/wireless/util.c
-index ef35f4e..b25f934 100644
---- a/net/wireless/util.c
-+++ b/net/wireless/util.c
-@@ -388,7 +388,7 @@ int ieee80211_data_to_8023(struct sk_buff *skb, const u8 *addr,
- 		if ((iftype != NL80211_IFTYPE_STATION &&
- 		     iftype != NL80211_IFTYPE_P2P_CLIENT &&
- 		     iftype != NL80211_IFTYPE_MESH_POINT) ||
--		    (is_multicast_ether_addr(dst) &&
-+		    (eth_addr_multicast(dst) &&
- 		     ether_addr_equal(src, addr)))
- 			return -1;
- 		if (iftype == NL80211_IFTYPE_MESH_POINT) {
-@@ -739,7 +739,7 @@ void cfg80211_process_wdev_events(struct wireless_dev *wdev)
- 		wdev_lock(wdev);
- 		switch (ev->type) {
- 		case EVENT_CONNECT_RESULT:
--			if (!is_zero_ether_addr(ev->cr.bssid))
-+			if (!eth_addr_zero(ev->cr.bssid))
- 				bssid = ev->cr.bssid;
- 			__cfg80211_connect_result(
- 				wdev->netdev, bssid,
-diff --git a/net/wireless/wext-compat.c b/net/wireless/wext-compat.c
-index 494379e..dcc9501 100644
---- a/net/wireless/wext-compat.c
-+++ b/net/wireless/wext-compat.c
-@@ -724,7 +724,7 @@ static int cfg80211_wext_siwencodeext(struct net_device *dev,
+ 	mutex_lock(&priv->mutex);
+ 	priv->config |= CFG_CUSTOM_MAC;
+diff --git a/drivers/net/wireless/ipw2x00/libipw_rx.c b/drivers/net/wireless/ipw2x00/libipw_rx.c
+index 02e0579..347b88a 100644
+--- a/drivers/net/wireless/ipw2x00/libipw_rx.c
++++ b/drivers/net/wireless/ipw2x00/libipw_rx.c
+@@ -416,8 +416,8 @@ int libipw_rx(struct libipw_device *ieee, struct sk_buff *skb,
+ 		return 1;
  	}
  
- 	addr = ext->addr.sa_data;
+-	can_be_decrypted = (is_multicast_ether_addr(hdr->addr1) ||
+-			    is_broadcast_ether_addr(hdr->addr2)) ?
++	can_be_decrypted = (eth_addr_multicast(hdr->addr1) ||
++			    eth_addr_broadcast(hdr->addr2)) ?
+ 	    ieee->host_mc_decrypt : ieee->host_decrypt;
+ 
+ 	if (can_be_decrypted) {
+@@ -442,7 +442,7 @@ int libipw_rx(struct libipw_device *ieee, struct sk_buff *skb,
+ 		 * 802.11, but makes it easier to use different keys with
+ 		 * stations that do not support WEP key mapping). */
+ 
+-		if (is_unicast_ether_addr(hdr->addr1) || local->bcrx_sta_key)
++		if (eth_addr_unicast(hdr->addr1) || local->bcrx_sta_key)
+ 			(void)hostap_handle_sta_crypto(local, hdr, &crypt,
+ 						       &sta);
+ #endif
+@@ -772,7 +772,7 @@ int libipw_rx(struct libipw_device *ieee, struct sk_buff *skb,
+ 
+ #ifdef NOT_YET
+ 	if (ieee->iw_mode == IW_MODE_MASTER && !wds && ieee->ap->bridge_packets) {
+-		if (is_multicast_ether_addr(dst)) {
++		if (eth_addr_multicast(dst)) {
+ 			/* copy multicast frame both to the higher layers and
+ 			 * to the wireless media */
+ 			ieee->ap->bridged_multicast++;
+@@ -883,7 +883,7 @@ void libipw_rx_any(struct libipw_device *ieee,
+ 			else if (memcmp(hdr->addr1, ieee->dev->dev_addr, ETH_ALEN) == 0)
+ 				is_packet_for_us = 1;
+ 			/* mcast */
+-			else if (is_multicast_ether_addr(hdr->addr1))
++			else if (eth_addr_multicast(hdr->addr1))
+ 				is_packet_for_us = 1;
+ 		}
+ 		break;
+@@ -898,7 +898,7 @@ void libipw_rx_any(struct libipw_device *ieee,
+ 			else if (memcmp(hdr->addr1, ieee->dev->dev_addr, ETH_ALEN) == 0)
+ 				is_packet_for_us = 1;
+ 			/* mcast */
+-			else if (is_multicast_ether_addr(hdr->addr1)) {
++			else if (eth_addr_multicast(hdr->addr1)) {
+ 				/* not our own packet bcasted from AP */
+ 				if (memcmp(hdr->addr3, ieee->dev->dev_addr, ETH_ALEN))
+ 					is_packet_for_us = 1;
+diff --git a/drivers/net/wireless/ipw2x00/libipw_tx.c b/drivers/net/wireless/ipw2x00/libipw_tx.c
+index e8c0398..d01deb7 100644
+--- a/drivers/net/wireless/ipw2x00/libipw_tx.c
++++ b/drivers/net/wireless/ipw2x00/libipw_tx.c
+@@ -380,8 +380,8 @@ netdev_tx_t libipw_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (host_encrypt || ieee->host_open_frag) {
+ 		/* Determine fragmentation size based on destination (multicast
+ 		 * and broadcast are not fragmented) */
+-		if (is_multicast_ether_addr(dest) ||
+-		    is_broadcast_ether_addr(dest))
++		if (eth_addr_multicast(dest) ||
++		    eth_addr_broadcast(dest))
+ 			frag_size = MAX_FRAG_THRESHOLD;
+ 		else
+ 			frag_size = ieee->fts;
+diff --git a/drivers/net/wireless/iwlegacy/3945-mac.c b/drivers/net/wireless/iwlegacy/3945-mac.c
+index e252acb..ba4ff40 100644
+--- a/drivers/net/wireless/iwlegacy/3945-mac.c
++++ b/drivers/net/wireless/iwlegacy/3945-mac.c
+@@ -495,7 +495,7 @@ il3945_tx_skb(struct il_priv *il,
+ 		goto drop_unlock;
+ 	}
+ 
+-	unicast = !is_multicast_ether_addr(hdr->addr1);
++	unicast = !eth_addr_multicast(hdr->addr1);
+ 	id = 0;
+ 
+ 	fc = hdr->frame_control;
+diff --git a/drivers/net/wireless/iwlegacy/4965-mac.c b/drivers/net/wireless/iwlegacy/4965-mac.c
+index eac4dc8..101b337 100644
+--- a/drivers/net/wireless/iwlegacy/4965-mac.c
++++ b/drivers/net/wireless/iwlegacy/4965-mac.c
+@@ -2561,7 +2561,7 @@ il4965_find_station(struct il_priv *il, const u8 *addr)
+ 	if (il->iw_mode == NL80211_IFTYPE_ADHOC)
+ 		start = IL_STA_ID;
+ 
 -	if (is_broadcast_ether_addr(addr))
 +	if (eth_addr_broadcast(addr))
- 		addr = NULL;
+ 		return il->hw_params.bcast_id;
  
- 	memset(&params, 0, sizeof(params));
-diff --git a/net/wireless/wext-sme.c b/net/wireless/wext-sme.c
-index 1f773f6..4f2f6d8 100644
---- a/net/wireless/wext-sme.c
-+++ b/net/wireless/wext-sme.c
-@@ -267,7 +267,7 @@ int cfg80211_mgd_wext_siwap(struct net_device *dev,
- 		return -EINVAL;
+ 	spin_lock_irqsave(&il->sta_lock, flags);
+diff --git a/drivers/net/wireless/iwlegacy/common.c b/drivers/net/wireless/iwlegacy/common.c
+index 318ed3c..0fad82c 100644
+--- a/drivers/net/wireless/iwlegacy/common.c
++++ b/drivers/net/wireless/iwlegacy/common.c
+@@ -1892,7 +1892,7 @@ il_prep_station(struct il_priv *il, const u8 *addr, bool is_ap,
  
- 	/* automatic mode */
--	if (is_zero_ether_addr(bssid) || is_broadcast_ether_addr(bssid))
-+	if (eth_addr_zero(bssid) || eth_addr_broadcast(bssid))
- 		bssid = NULL;
+ 	if (is_ap)
+ 		sta_id = IL_AP_ID;
+-	else if (is_broadcast_ether_addr(addr))
++	else if (eth_addr_broadcast(addr))
+ 		sta_id = il->hw_params.bcast_id;
+ 	else
+ 		for (i = IL_STA_ID; i < il->hw_params.max_stations; i++) {
+diff --git a/drivers/net/wireless/iwlwifi/dvm/sta.c b/drivers/net/wireless/iwlwifi/dvm/sta.c
+index cd9b6de..a220343 100644
+--- a/drivers/net/wireless/iwlwifi/dvm/sta.c
++++ b/drivers/net/wireless/iwlwifi/dvm/sta.c
+@@ -303,7 +303,7 @@ u8 iwl_prep_station(struct iwl_priv *priv, struct iwl_rxon_context *ctx,
  
- 	cfg80211_lock_rdev(rdev);
+ 	if (is_ap)
+ 		sta_id = ctx->ap_sta_id;
+-	else if (is_broadcast_ether_addr(addr))
++	else if (eth_addr_broadcast(addr))
+ 		sta_id = ctx->bcast_sta_id;
+ 	else
+ 		for (i = IWL_STA_ID; i < IWLAGN_STATION_COUNT; i++) {
+diff --git a/drivers/net/wireless/libertas_tf/main.c b/drivers/net/wireless/libertas_tf/main.c
+index 7001856..e48e573 100644
+--- a/drivers/net/wireless/libertas_tf/main.c
++++ b/drivers/net/wireless/libertas_tf/main.c
+@@ -513,7 +513,7 @@ static void lbtf_op_bss_info_changed(struct ieee80211_hw *hw,
+ 	}
+ 
+ 	if (changes & BSS_CHANGED_BSSID) {
+-		bool activate = !is_zero_ether_addr(bss_conf->bssid);
++		bool activate = !eth_addr_zero(bss_conf->bssid);
+ 		lbtf_set_bssid(priv, activate, bss_conf->bssid);
+ 	}
+ 
+diff --git a/drivers/net/wireless/mwifiex/join.c b/drivers/net/wireless/mwifiex/join.c
+index 7b0858a..7778521 100644
+--- a/drivers/net/wireless/mwifiex/join.c
++++ b/drivers/net/wireless/mwifiex/join.c
+@@ -1352,7 +1352,7 @@ static int mwifiex_deauthenticate_infra(struct mwifiex_private *priv, u8 *mac)
+ 	u8 mac_address[ETH_ALEN];
+ 	int ret;
+ 
+-	if (!mac || is_zero_ether_addr(mac))
++	if (!mac || eth_addr_zero(mac))
+ 		memcpy(mac_address,
+ 		       priv->curr_bss_params.bss_descriptor.mac_address,
+ 		       ETH_ALEN);
+diff --git a/drivers/net/wireless/mwifiex/scan.c b/drivers/net/wireless/mwifiex/scan.c
+index 00b658d..e02a56b 100644
+--- a/drivers/net/wireless/mwifiex/scan.c
++++ b/drivers/net/wireless/mwifiex/scan.c
+@@ -838,7 +838,7 @@ mwifiex_config_scan(struct mwifiex_private *priv,
+ 		 *  or BSSID filter applied to the scan results in the firmware.
+ 		 */
+ 		if ((i && ssid_filter) ||
+-		    !is_zero_ether_addr(scan_cfg_out->specific_bssid))
++		    !eth_addr_zero(scan_cfg_out->specific_bssid))
+ 			*filtered_scan = true;
+ 	} else {
+ 		scan_cfg_out->bss_mode = (u8) adapter->scan_mode;
+diff --git a/drivers/net/wireless/mwifiex/sta_cmd.c b/drivers/net/wireless/mwifiex/sta_cmd.c
+index 5d87195..3f4073b 100644
+--- a/drivers/net/wireless/mwifiex/sta_cmd.c
++++ b/drivers/net/wireless/mwifiex/sta_cmd.c
+@@ -592,7 +592,7 @@ mwifiex_cmd_802_11_key_material(struct mwifiex_private *priv,
+ 			/* set 0 when re-key */
+ 			key_material->key_param_set.key[1] = 0;
+ 
+-		if (!is_broadcast_ether_addr(enc_key->mac_addr)) {
++		if (!eth_addr_broadcast(enc_key->mac_addr)) {
+ 			/* WAPI pairwise key: unicast */
+ 			key_material->key_param_set.key_info |=
+ 				cpu_to_le16(KEY_UNICAST);
+diff --git a/drivers/net/wireless/mwifiex/sta_cmdresp.c b/drivers/net/wireless/mwifiex/sta_cmdresp.c
+index 09e6a26..685d78e 100644
+--- a/drivers/net/wireless/mwifiex/sta_cmdresp.c
++++ b/drivers/net/wireless/mwifiex/sta_cmdresp.c
+@@ -778,7 +778,7 @@ static int mwifiex_ret_ibss_coalescing_status(struct mwifiex_private *priv,
+ 		"info: new BSSID %pM\n", ibss_coal_resp->bssid);
+ 
+ 	/* If rsp has NULL BSSID, Just return..... No Action */
+-	if (is_zero_ether_addr(ibss_coal_resp->bssid)) {
++	if (eth_addr_zero(ibss_coal_resp->bssid)) {
+ 		dev_warn(priv->adapter->dev, "new BSSID is NULL\n");
+ 		return 0;
+ 	}
+diff --git a/drivers/net/wireless/mwifiex/uap_txrx.c b/drivers/net/wireless/mwifiex/uap_txrx.c
+index 0966ac2..d71f2d6 100644
+--- a/drivers/net/wireless/mwifiex/uap_txrx.c
++++ b/drivers/net/wireless/mwifiex/uap_txrx.c
+@@ -134,7 +134,7 @@ int mwifiex_handle_uap_rx_forward(struct mwifiex_private *priv,
+ 
+ 	memcpy(ra, rx_pkt_hdr->eth803_hdr.h_dest, ETH_ALEN);
+ 
+-	if (is_multicast_ether_addr(ra)) {
++	if (eth_addr_multicast(ra)) {
+ 		skb_uap = skb_copy(skb, GFP_ATOMIC);
+ 		mwifiex_uap_queue_bridged_pkt(priv, skb_uap);
+ 	} else {
+diff --git a/drivers/net/wireless/mwl8k.c b/drivers/net/wireless/mwl8k.c
+index 5099e53..499c702 100644
+--- a/drivers/net/wireless/mwl8k.c
++++ b/drivers/net/wireless/mwl8k.c
+@@ -1886,7 +1886,7 @@ mwl8k_txq_xmit(struct ieee80211_hw *hw,
+ 		qos |= MWL8K_QOS_QLEN_UNSPEC | MWL8K_QOS_EOSP;
+ 	} else if (ieee80211_is_data(wh->frame_control)) {
+ 		txdatarate = 1;
+-		if (is_multicast_ether_addr(wh->addr1))
++		if (eth_addr_multicast(wh->addr1))
+ 			txstatus |= MWL8K_TXD_STATUS_MULTICAST_TX;
+ 
+ 		qos &= ~MWL8K_QOS_ACK_POLICY_MASK;
+diff --git a/drivers/net/wireless/orinoco/wext.c b/drivers/net/wireless/orinoco/wext.c
+index 3b5508f..b5f3c6b 100644
+--- a/drivers/net/wireless/orinoco/wext.c
++++ b/drivers/net/wireless/orinoco/wext.c
+@@ -165,8 +165,8 @@ static int orinoco_ioctl_setwap(struct net_device *dev,
+ 		return -EBUSY;
+ 
+ 	/* Enable automatic roaming - no sanity checks are needed */
+-	if (is_zero_ether_addr(ap_addr->sa_data) ||
+-	    is_broadcast_ether_addr(ap_addr->sa_data)) {
++	if (eth_addr_zero(ap_addr->sa_data) ||
++	    eth_addr_broadcast(ap_addr->sa_data)) {
+ 		priv->bssid_fixed = 0;
+ 		memset(priv->desired_bssid, 0, ETH_ALEN);
+ 
+diff --git a/drivers/net/wireless/p54/eeprom.c b/drivers/net/wireless/p54/eeprom.c
+index 1ef1bfe..d3bb493 100644
+--- a/drivers/net/wireless/p54/eeprom.c
++++ b/drivers/net/wireless/p54/eeprom.c
+@@ -912,7 +912,7 @@ good_eeprom:
+ 	if ((synth & PDR_SYNTH_TX_DIV_MASK) == PDR_SYNTH_TX_DIV_SUPPORTED)
+ 		priv->tx_diversity_mask = 3;
+ 
+-	if (!is_valid_ether_addr(dev->wiphy->perm_addr)) {
++	if (!eth_addr_valid(dev->wiphy->perm_addr)) {
+ 		u8 perm_addr[ETH_ALEN];
+ 
+ 		wiphy_warn(dev->wiphy,
+diff --git a/drivers/net/wireless/rndis_wlan.c b/drivers/net/wireless/rndis_wlan.c
+index bd1f0cb..32f9488 100644
+--- a/drivers/net/wireless/rndis_wlan.c
++++ b/drivers/net/wireless/rndis_wlan.c
+@@ -1060,7 +1060,7 @@ static bool is_associated(struct usbnet *usbdev)
+ 
+ 	ret = get_bssid(usbdev, bssid);
+ 
+-	return (ret == 0 && !is_zero_ether_addr(bssid));
++	return (ret == 0 && !eth_addr_zero(bssid));
+ }
+ 
+ static int disassociate(struct usbnet *usbdev, bool reset_ssid)
+@@ -1425,8 +1425,8 @@ static int add_wpa_key(struct usbnet *usbdev, const u8 *key, int key_len,
+ 		}
+ 	}
+ 
+-	is_addr_ok = addr && !is_zero_ether_addr(addr) &&
+-					!is_broadcast_ether_addr(addr);
++	is_addr_ok = addr && !eth_addr_zero(addr) &&
++					!eth_addr_broadcast(addr);
+ 	if ((flags & NDIS_80211_ADDKEY_PAIRWISE_KEY) && !is_addr_ok) {
+ 		netdev_dbg(usbdev->net, "%s(): pairwise but bssid invalid (%pM)\n",
+ 			   __func__, addr);
+@@ -1551,7 +1551,7 @@ static int remove_key(struct usbnet *usbdev, u8 index, const u8 *bssid)
+ 		remove_key.index = cpu_to_le32(index);
+ 		if (bssid) {
+ 			/* pairwise key */
+-			if (!is_broadcast_ether_addr(bssid))
++			if (!eth_addr_broadcast(bssid))
+ 				remove_key.index |=
+ 					NDIS_80211_ADDKEY_PAIRWISE_KEY;
+ 			memcpy(remove_key.bssid, bssid,
+@@ -2232,8 +2232,8 @@ static int rndis_connect(struct wiphy *wiphy, struct net_device *dev,
+ 		}
+ 	}
+ 
+-	if (sme->bssid && !is_zero_ether_addr(sme->bssid) &&
+-				!is_broadcast_ether_addr(sme->bssid)) {
++	if (sme->bssid && !eth_addr_zero(sme->bssid) &&
++				!eth_addr_broadcast(sme->bssid)) {
+ 		ret = set_bssid(usbdev, sme->bssid);
+ 		if (ret < 0) {
+ 			netdev_dbg(usbdev->net, "connect: set_bssid failed, %d\n",
+@@ -2346,8 +2346,8 @@ static int rndis_join_ibss(struct wiphy *wiphy, struct net_device *dev,
+ 		}
+ 	}
+ 
+-	if (params->bssid && !is_zero_ether_addr(params->bssid) &&
+-				!is_broadcast_ether_addr(params->bssid)) {
++	if (params->bssid && !eth_addr_zero(params->bssid) &&
++				!eth_addr_broadcast(params->bssid)) {
+ 		ret = set_bssid(usbdev, params->bssid);
+ 		if (ret < 0) {
+ 			netdev_dbg(usbdev->net, "join_ibss: set_bssid failed, %d\n",
+@@ -2816,7 +2816,7 @@ static void rndis_wlan_do_link_up_work(struct usbnet *usbdev)
+ 	match_bss = false;
+ 	rndis_check_bssid_list(usbdev, bssid, &match_bss);
+ 
+-	if (!is_zero_ether_addr(bssid) && !match_bss) {
++	if (!eth_addr_zero(bssid) && !match_bss) {
+ 		/* Couldn't get bss from device, we need to manually craft bss
+ 		 * for cfg80211.
+ 		 */
+diff --git a/drivers/net/wireless/rt2x00/rt2400pci.c b/drivers/net/wireless/rt2x00/rt2400pci.c
+index e3a2d90..f8883b2 100644
+--- a/drivers/net/wireless/rt2x00/rt2400pci.c
++++ b/drivers/net/wireless/rt2x00/rt2400pci.c
+@@ -1454,7 +1454,7 @@ static int rt2400pci_validate_eeprom(struct rt2x00_dev *rt2x00dev)
+ 	 * Start validation of the data that has been read.
+ 	 */
+ 	mac = rt2x00_eeprom_addr(rt2x00dev, EEPROM_MAC_ADDR_0);
+-	if (!is_valid_ether_addr(mac)) {
++	if (!eth_addr_valid(mac)) {
+ 		eth_random_addr(mac);
+ 		EEPROM(rt2x00dev, "MAC: %pM\n", mac);
+ 	}
+diff --git a/drivers/net/wireless/rt2x00/rt2500pci.c b/drivers/net/wireless/rt2x00/rt2500pci.c
+index 479d756..0bd01cc 100644
+--- a/drivers/net/wireless/rt2x00/rt2500pci.c
++++ b/drivers/net/wireless/rt2x00/rt2500pci.c
+@@ -1584,7 +1584,7 @@ static int rt2500pci_validate_eeprom(struct rt2x00_dev *rt2x00dev)
+ 	 * Start validation of the data that has been read.
+ 	 */
+ 	mac = rt2x00_eeprom_addr(rt2x00dev, EEPROM_MAC_ADDR_0);
+-	if (!is_valid_ether_addr(mac)) {
++	if (!eth_addr_valid(mac)) {
+ 		eth_random_addr(mac);
+ 		EEPROM(rt2x00dev, "MAC: %pM\n", mac);
+ 	}
+diff --git a/drivers/net/wireless/rt2x00/rt2500usb.c b/drivers/net/wireless/rt2x00/rt2500usb.c
+index a12e84f..e069656 100644
+--- a/drivers/net/wireless/rt2x00/rt2500usb.c
++++ b/drivers/net/wireless/rt2x00/rt2500usb.c
+@@ -1351,7 +1351,7 @@ static int rt2500usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
+ 	 * Start validation of the data that has been read.
+ 	 */
+ 	mac = rt2x00_eeprom_addr(rt2x00dev, EEPROM_MAC_ADDR_0);
+-	if (!is_valid_ether_addr(mac)) {
++	if (!eth_addr_valid(mac)) {
+ 		eth_random_addr(mac);
+ 		EEPROM(rt2x00dev, "MAC: %pM\n", mac);
+ 	}
+diff --git a/drivers/net/wireless/rt2x00/rt2800lib.c b/drivers/net/wireless/rt2x00/rt2800lib.c
+index 01dc889..7fb9a24 100644
+--- a/drivers/net/wireless/rt2x00/rt2800lib.c
++++ b/drivers/net/wireless/rt2x00/rt2800lib.c
+@@ -1165,7 +1165,7 @@ static inline int rt2800_find_wcid(struct rt2x00_dev *rt2x00dev)
+ 		offset = MAC_WCID_ENTRY(idx);
+ 		rt2800_register_multiread(rt2x00dev, offset, &wcid_entry,
+ 					  sizeof(wcid_entry));
+-		if (is_broadcast_ether_addr(wcid_entry.mac))
++		if (eth_addr_broadcast(wcid_entry.mac))
+ 			return idx;
+ 	}
+ 
+@@ -1351,7 +1351,7 @@ void rt2800_config_intf(struct rt2x00_dev *rt2x00dev, struct rt2x00_intf *intf,
+ 			update_bssid = true;
+ 		}
+ 
+-		if (!is_zero_ether_addr((const u8 *)conf->mac)) {
++		if (!eth_addr_zero((const u8 *)conf->mac)) {
+ 			reg = le32_to_cpu(conf->mac[1]);
+ 			rt2x00_set_field32(&reg, MAC_ADDR_DW1_UNICAST_TO_ME_MASK, 0xff);
+ 			conf->mac[1] = cpu_to_le32(reg);
+@@ -1362,7 +1362,7 @@ void rt2800_config_intf(struct rt2x00_dev *rt2x00dev, struct rt2x00_intf *intf,
+ 	}
+ 
+ 	if ((flags & CONFIG_UPDATE_BSSID) || update_bssid) {
+-		if (!is_zero_ether_addr((const u8 *)conf->bssid)) {
++		if (!eth_addr_zero((const u8 *)conf->bssid)) {
+ 			reg = le32_to_cpu(conf->bssid[1]);
+ 			rt2x00_set_field32(&reg, MAC_BSSID_DW1_BSS_ID_MASK, 3);
+ 			rt2x00_set_field32(&reg, MAC_BSSID_DW1_BSS_BCN_NUM, 7);
+@@ -4591,7 +4591,7 @@ static int rt2800_validate_eeprom(struct rt2x00_dev *rt2x00dev)
+ 	 * Start validation of the data that has been read.
+ 	 */
+ 	mac = rt2x00_eeprom_addr(rt2x00dev, EEPROM_MAC_ADDR_0);
+-	if (!is_valid_ether_addr(mac)) {
++	if (!eth_addr_valid(mac)) {
+ 		eth_random_addr(mac);
+ 		EEPROM(rt2x00dev, "MAC: %pM\n", mac);
+ 	}
+diff --git a/drivers/net/wireless/rt2x00/rt61pci.c b/drivers/net/wireless/rt2x00/rt61pci.c
+index d6582a2..0a886b0 100644
+--- a/drivers/net/wireless/rt2x00/rt61pci.c
++++ b/drivers/net/wireless/rt2x00/rt61pci.c
+@@ -2413,7 +2413,7 @@ static int rt61pci_validate_eeprom(struct rt2x00_dev *rt2x00dev)
+ 	 * Start validation of the data that has been read.
+ 	 */
+ 	mac = rt2x00_eeprom_addr(rt2x00dev, EEPROM_MAC_ADDR_0);
+-	if (!is_valid_ether_addr(mac)) {
++	if (!eth_addr_valid(mac)) {
+ 		eth_random_addr(mac);
+ 		EEPROM(rt2x00dev, "MAC: %pM\n", mac);
+ 	}
+diff --git a/drivers/net/wireless/rt2x00/rt73usb.c b/drivers/net/wireless/rt2x00/rt73usb.c
+index e5eb43b..e0812ca 100644
+--- a/drivers/net/wireless/rt2x00/rt73usb.c
++++ b/drivers/net/wireless/rt2x00/rt73usb.c
+@@ -1769,7 +1769,7 @@ static int rt73usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
+ 	 * Start validation of the data that has been read.
+ 	 */
+ 	mac = rt2x00_eeprom_addr(rt2x00dev, EEPROM_MAC_ADDR_0);
+-	if (!is_valid_ether_addr(mac)) {
++	if (!eth_addr_valid(mac)) {
+ 		eth_random_addr(mac);
+ 		EEPROM(rt2x00dev, "MAC: %pM\n", mac);
+ 	}
+diff --git a/drivers/net/wireless/rtl818x/rtl8180/dev.c b/drivers/net/wireless/rtl818x/rtl8180/dev.c
+index 021d83e..d3d267c 100644
+--- a/drivers/net/wireless/rtl818x/rtl8180/dev.c
++++ b/drivers/net/wireless/rtl818x/rtl8180/dev.c
+@@ -795,7 +795,7 @@ static void rtl8180_bss_info_changed(struct ieee80211_hw *dev,
+ 			rtl818x_iowrite8(priv, &priv->map->BSSID[i],
+ 					 info->bssid[i]);
+ 
+-		if (is_valid_ether_addr(info->bssid)) {
++		if (eth_addr_valid(info->bssid)) {
+ 			if (vif->type == NL80211_IFTYPE_ADHOC)
+ 				reg = RTL818X_MSR_ADHOC;
+ 			else
+@@ -1077,7 +1077,7 @@ static int __devinit rtl8180_probe(struct pci_dev *pdev,
+ 	}
+ 
+ 	eeprom_93cx6_multiread(&eeprom, 0x7, (__le16 *)mac_addr, 3);
+-	if (!is_valid_ether_addr(mac_addr)) {
++	if (!eth_addr_valid(mac_addr)) {
+ 		printk(KERN_WARNING "%s (rtl8180): Invalid hwaddr! Using"
+ 		       " randomly generated MAC addr\n", pci_name(pdev));
+ 		eth_random_addr(mac_addr);
+diff --git a/drivers/net/wireless/rtl818x/rtl8187/dev.c b/drivers/net/wireless/rtl818x/rtl8187/dev.c
+index 7811b63..c424c1c 100644
+--- a/drivers/net/wireless/rtl818x/rtl8187/dev.c
++++ b/drivers/net/wireless/rtl818x/rtl8187/dev.c
+@@ -1260,7 +1260,7 @@ static void rtl8187_bss_info_changed(struct ieee80211_hw *dev,
+ 		else
+ 			reg = 0;
+ 
+-		if (is_valid_ether_addr(info->bssid)) {
++		if (eth_addr_valid(info->bssid)) {
+ 			if (vif->type == NL80211_IFTYPE_ADHOC)
+ 				reg |= RTL818X_MSR_ADHOC;
+ 			else
+@@ -1485,7 +1485,7 @@ static int __devinit rtl8187_probe(struct usb_interface *intf,
+ 
+ 	eeprom_93cx6_multiread(&eeprom, RTL8187_EEPROM_MAC_ADDR,
+ 			       (__le16 __force *)mac_addr, 3);
+-	if (!is_valid_ether_addr(mac_addr)) {
++	if (!eth_addr_valid(mac_addr)) {
+ 		printk(KERN_WARNING "rtl8187: Invalid hwaddr! Using randomly "
+ 		       "generated MAC address\n");
+ 		eth_random_addr(mac_addr);
+diff --git a/drivers/net/wireless/rtlwifi/base.c b/drivers/net/wireless/rtlwifi/base.c
+index 59381fe..1d82a3b 100644
+--- a/drivers/net/wireless/rtlwifi/base.c
++++ b/drivers/net/wireless/rtlwifi/base.c
+@@ -339,7 +339,7 @@ static void _rtl_init_mac80211(struct ieee80211_hw *hw)
+ 	hw->sta_data_size = sizeof(struct rtl_sta_info);
+ 
+ 	/* <6> mac address */
+-	if (is_valid_ether_addr(rtlefuse->dev_addr)) {
++	if (eth_addr_valid(rtlefuse->dev_addr)) {
+ 		SET_IEEE80211_PERM_ADDR(hw, rtlefuse->dev_addr);
+ 	} else {
+ 		u8 rtlmac1[] = { 0x00, 0xe0, 0x4c, 0x81, 0x92, 0x00 };
+@@ -881,9 +881,9 @@ void rtl_get_tcb_desc(struct ieee80211_hw *hw,
+ 			}
+ 		}
+ 
+-		if (is_multicast_ether_addr(ieee80211_get_DA(hdr)))
++		if (eth_addr_multicast(ieee80211_get_DA(hdr)))
+ 			tcb_desc->multicast = 1;
+-		else if (is_broadcast_ether_addr(ieee80211_get_DA(hdr)))
++		else if (eth_addr_broadcast(ieee80211_get_DA(hdr)))
+ 			tcb_desc->broadcast = 1;
+ 
+ 		_rtl_txrate_selectmode(hw, sta, tcb_desc);
+diff --git a/drivers/net/wireless/rtlwifi/cam.c b/drivers/net/wireless/rtlwifi/cam.c
+index 5b4b4d4..c539ac9 100644
+--- a/drivers/net/wireless/rtlwifi/cam.c
++++ b/drivers/net/wireless/rtlwifi/cam.c
+@@ -328,7 +328,7 @@ void rtl_cam_del_entry(struct ieee80211_hw *hw, u8 *sta_addr)
+ 		RT_TRACE(rtlpriv, COMP_SEC, DBG_EMERG, "sta_addr is NULL\n");
+ 	}
+ 
+-	if (is_zero_ether_addr(sta_addr)) {
++	if (eth_addr_zero(sta_addr)) {
+ 		RT_TRACE(rtlpriv, COMP_SEC, DBG_EMERG,
+ 			 "sta_addr is %pM\n", sta_addr);
+ 		return;
+diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
+index abc306b..4227c7f 100644
+--- a/drivers/net/wireless/rtlwifi/pci.c
++++ b/drivers/net/wireless/rtlwifi/pci.c
+@@ -619,9 +619,9 @@ static void _rtl_receive_one(struct ieee80211_hw *hw, struct sk_buff *skb,
+ 
+ 	memcpy(IEEE80211_SKB_RXCB(skb), &rx_status, sizeof(rx_status));
+ 
+-	if (is_broadcast_ether_addr(hdr->addr1)) {
++	if (eth_addr_broadcast(hdr->addr1)) {
+ 		;/*TODO*/
+-	} else if (is_multicast_ether_addr(hdr->addr1)) {
++	} else if (eth_addr_multicast(hdr->addr1)) {
+ 		;/*TODO*/
+ 	} else {
+ 		unicast = true;
+@@ -1370,9 +1370,9 @@ static int rtl_pci_tx(struct ieee80211_hw *hw,
+ 
+ 	rtl_action_proc(hw, skb, true);
+ 
+-	if (is_multicast_ether_addr(pda_addr))
++	if (eth_addr_multicast(pda_addr))
+ 		rtlpriv->stats.txbytesmulticast += skb->len;
+-	else if (is_broadcast_ether_addr(pda_addr))
++	else if (eth_addr_broadcast(pda_addr))
+ 		rtlpriv->stats.txbytesbroadcast += skb->len;
+ 	else
+ 		rtlpriv->stats.txbytesunicast += skb->len;
+diff --git a/drivers/net/wireless/rtlwifi/rc.c b/drivers/net/wireless/rtlwifi/rc.c
+index d5cbf01..b43dd4f 100644
+--- a/drivers/net/wireless/rtlwifi/rc.c
++++ b/drivers/net/wireless/rtlwifi/rc.c
+@@ -193,8 +193,8 @@ static void rtl_tx_status(void *ppriv,
+ 	if (rtl_is_special_data(mac->hw, skb, true))
+ 		return;
+ 
+-	if (is_multicast_ether_addr(ieee80211_get_DA(hdr))
+-	    || is_broadcast_ether_addr(ieee80211_get_DA(hdr)))
++	if (eth_addr_multicast(ieee80211_get_DA(hdr))
++	    || eth_addr_broadcast(ieee80211_get_DA(hdr)))
+ 		return;
+ 
+ 	if (sta) {
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c b/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
+index 390d6d4..a080ce7 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
+@@ -759,8 +759,8 @@ void rtl92ce_tx_fill_desc(struct ieee80211_hw *hw,
+ 
+ 	SET_TX_DESC_MORE_FRAG(pdesc, (lastseg ? 0 : 1));
+ 
+-	if (is_multicast_ether_addr(ieee80211_get_DA(hdr)) ||
+-	    is_broadcast_ether_addr(ieee80211_get_DA(hdr))) {
++	if (eth_addr_multicast(ieee80211_get_DA(hdr)) ||
++	    eth_addr_broadcast(ieee80211_get_DA(hdr))) {
+ 		SET_TX_DESC_BMC(pdesc, 1);
+ 	}
+ 
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/trx.c b/drivers/net/wireless/rtlwifi/rtl8192cu/trx.c
+index 6e66f04..cb3a4e8 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192cu/trx.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192cu/trx.c
+@@ -616,8 +616,8 @@ void rtl92cu_tx_fill_desc(struct ieee80211_hw *hw,
+ 	}
+ 	if (ieee80211_has_morefrags(fc))
+ 		SET_TX_DESC_MORE_FRAG(txdesc, 1);
+-	if (is_multicast_ether_addr(ieee80211_get_DA(hdr)) ||
+-	    is_broadcast_ether_addr(ieee80211_get_DA(hdr)))
++	if (eth_addr_multicast(ieee80211_get_DA(hdr)) ||
++	    eth_addr_broadcast(ieee80211_get_DA(hdr)))
+ 		SET_TX_DESC_BMC(txdesc, 1);
+ 	_rtl_fill_usb_tx_desc(txdesc);
+ 	_rtl_tx_desc_checksum(txdesc);
+diff --git a/drivers/net/wireless/rtlwifi/usb.c b/drivers/net/wireless/rtlwifi/usb.c
+index 030beb4..b843b5b 100644
+--- a/drivers/net/wireless/rtlwifi/usb.c
++++ b/drivers/net/wireless/rtlwifi/usb.c
+@@ -452,9 +452,9 @@ static void _rtl_usb_rx_process_agg(struct ieee80211_hw *hw,
+ 	if (!stats.crc) {
+ 		memcpy(IEEE80211_SKB_RXCB(skb), &rx_status, sizeof(rx_status));
+ 
+-		if (is_broadcast_ether_addr(hdr->addr1)) {
++		if (eth_addr_broadcast(hdr->addr1)) {
+ 			/*TODO*/;
+-		} else if (is_multicast_ether_addr(hdr->addr1)) {
++		} else if (eth_addr_multicast(hdr->addr1)) {
+ 			/*TODO*/
+ 		} else {
+ 			unicast = true;
+@@ -495,9 +495,9 @@ static void _rtl_usb_rx_process_noagg(struct ieee80211_hw *hw,
+ 	if (!stats.crc) {
+ 		memcpy(IEEE80211_SKB_RXCB(skb), &rx_status, sizeof(rx_status));
+ 
+-		if (is_broadcast_ether_addr(hdr->addr1)) {
++		if (eth_addr_broadcast(hdr->addr1)) {
+ 			/*TODO*/;
+-		} else if (is_multicast_ether_addr(hdr->addr1)) {
++		} else if (eth_addr_multicast(hdr->addr1)) {
+ 			/*TODO*/
+ 		} else {
+ 			unicast = true;
+@@ -879,9 +879,9 @@ static void _rtl_usb_tx_preprocess(struct ieee80211_hw *hw,
+ 	}
+ 
+ 	rtl_action_proc(hw, skb, true);
+-	if (is_multicast_ether_addr(pda_addr))
++	if (eth_addr_multicast(pda_addr))
+ 		rtlpriv->stats.txbytesmulticast += skb->len;
+-	else if (is_broadcast_ether_addr(pda_addr))
++	else if (eth_addr_broadcast(pda_addr))
+ 		rtlpriv->stats.txbytesbroadcast += skb->len;
+ 	else
+ 		rtlpriv->stats.txbytesunicast += skb->len;
+diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wireless/ti/wl1251/main.c
+index 441cbcc..822d1f2 100644
+--- a/drivers/net/wireless/ti/wl1251/main.c
++++ b/drivers/net/wireless/ti/wl1251/main.c
+@@ -338,7 +338,7 @@ static int wl1251_join(struct wl1251 *wl, u8 bss_type, u8 channel,
+ 	 * Join command applies filters, and if we are not associated,
+ 	 * BSSID filter must be disabled for association to work.
+ 	 */
+-	if (is_zero_ether_addr(wl->bssid))
++	if (eth_addr_zero(wl->bssid))
+ 		wl->rx_config &= ~CFG_BSSID_FILTER_EN;
+ 
+ 	ret = wl1251_cmd_join(wl, bss_type, channel, beacon_interval,
+@@ -703,7 +703,7 @@ static void wl1251_op_configure_filter(struct ieee80211_hw *hw,
+ 	}
+ 	if (*total & FIF_CONTROL)
+ 		wl->rx_filter |= CFG_RX_CTL_EN;
+-	if (*total & FIF_OTHER_BSS || is_zero_ether_addr(wl->bssid))
++	if (*total & FIF_OTHER_BSS || eth_addr_zero(wl->bssid))
+ 		wl->rx_config &= ~CFG_BSSID_FILTER_EN;
+ 	if (*total & FIF_PROBE_REQ)
+ 		wl->rx_filter |= CFG_RX_PREQ_EN;
+@@ -734,7 +734,7 @@ static int wl1251_set_key_type(struct wl1251 *wl,
+ 	switch (mac80211_key->cipher) {
+ 	case WLAN_CIPHER_SUITE_WEP40:
+ 	case WLAN_CIPHER_SUITE_WEP104:
+-		if (is_broadcast_ether_addr(addr))
++		if (eth_addr_broadcast(addr))
+ 			key->key_type = KEY_WEP_DEFAULT;
+ 		else
+ 			key->key_type = KEY_WEP_ADDR;
+@@ -742,7 +742,7 @@ static int wl1251_set_key_type(struct wl1251 *wl,
+ 		mac80211_key->hw_key_idx = mac80211_key->keyidx;
+ 		break;
+ 	case WLAN_CIPHER_SUITE_TKIP:
+-		if (is_broadcast_ether_addr(addr))
++		if (eth_addr_broadcast(addr))
+ 			key->key_type = KEY_TKIP_MIC_GROUP;
+ 		else
+ 			key->key_type = KEY_TKIP_MIC_PAIRWISE;
+@@ -750,7 +750,7 @@ static int wl1251_set_key_type(struct wl1251 *wl,
+ 		mac80211_key->hw_key_idx = mac80211_key->keyidx;
+ 		break;
+ 	case WLAN_CIPHER_SUITE_CCMP:
+-		if (is_broadcast_ether_addr(addr))
++		if (eth_addr_broadcast(addr))
+ 			key->key_type = KEY_AES_GROUP;
+ 		else
+ 			key->key_type = KEY_AES_PAIRWISE;
+@@ -793,7 +793,7 @@ static int wl1251_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+ 		     key->cipher, key->keyidx, key->keylen, key->flags);
+ 	wl1251_dump(DEBUG_CRYPT, "KEY: ", key->key, key->keylen);
+ 
+-	if (is_zero_ether_addr(addr)) {
++	if (eth_addr_zero(addr)) {
+ 		/* We dont support TX only encryption */
+ 		ret = -EOPNOTSUPP;
+ 		goto out;
+diff --git a/drivers/net/wireless/ti/wlcore/cmd.c b/drivers/net/wireless/ti/wlcore/cmd.c
+index eaef3f4..3e40415 100644
+--- a/drivers/net/wireless/ti/wlcore/cmd.c
++++ b/drivers/net/wireless/ti/wlcore/cmd.c
+@@ -1268,7 +1268,7 @@ int wl1271_cmd_set_sta_key(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+ 
+ 	if (key_type == KEY_WEP)
+ 		cmd->lid_key_type = WEP_DEFAULT_LID_TYPE;
+-	else if (is_broadcast_ether_addr(addr))
++	else if (eth_addr_broadcast(addr))
+ 		cmd->lid_key_type = BROADCAST_LID_TYPE;
+ 	else
+ 		cmd->lid_key_type = UNICAST_LID_TYPE;
+diff --git a/drivers/net/wireless/ti/wlcore/main.c b/drivers/net/wireless/ti/wlcore/main.c
+index 25530c8..d421844 100644
+--- a/drivers/net/wireless/ti/wlcore/main.c
++++ b/drivers/net/wireless/ti/wlcore/main.c
+@@ -3020,7 +3020,7 @@ static int wl1271_set_key(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+ 
+ 		addr = sta ? sta->addr : bcast_addr;
+ 
+-		if (is_zero_ether_addr(addr)) {
++		if (eth_addr_zero(addr)) {
+ 			/* We dont support TX only encryption */
+ 			return -EOPNOTSUPP;
+ 		}
+@@ -3029,7 +3029,7 @@ static int wl1271_set_key(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+ 		   will be cleared automatically on next CMD_JOIN. Ignore the
+ 		   request silently, as we dont want the mac80211 to emit
+ 		   an error message. */
+-		if (action == KEY_REMOVE && !is_broadcast_ether_addr(addr))
++		if (action == KEY_REMOVE && !eth_addr_broadcast(addr))
+ 			return 0;
+ 
+ 		/* don't remove key if hlid was already deleted */
+@@ -3871,7 +3871,7 @@ static void wl1271_bss_info_changed_sta(struct wl1271 *wl,
+ 	}
+ 
+ 	if (changed & BSS_CHANGED_BSSID)
+-		if (!is_zero_ether_addr(bss_conf->bssid)) {
++		if (!eth_addr_zero(bss_conf->bssid)) {
+ 			ret = wl12xx_cmd_build_null_data(wl, wlvif);
+ 			if (ret < 0)
+ 				goto out;
+diff --git a/drivers/net/wireless/ti/wlcore/tx.c b/drivers/net/wireless/ti/wlcore/tx.c
+index a90d3cd..03e966e 100644
+--- a/drivers/net/wireless/ti/wlcore/tx.c
++++ b/drivers/net/wireless/ti/wlcore/tx.c
+@@ -145,7 +145,7 @@ static u8 wl12xx_tx_get_hlid_ap(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+ 			return wl->system_hlid;
+ 
+ 		hdr = (struct ieee80211_hdr *)skb->data;
+-		if (is_multicast_ether_addr(ieee80211_get_DA(hdr)))
++		if (eth_addr_multicast(ieee80211_get_DA(hdr)))
+ 			return wlvif->ap.bcast_hlid;
+ 		else
+ 			return wlvif->ap.global_hlid;
+diff --git a/drivers/net/wireless/wl3501_cs.c b/drivers/net/wireless/wl3501_cs.c
+index 730186d..804a15a 100644
+--- a/drivers/net/wireless/wl3501_cs.c
++++ b/drivers/net/wireless/wl3501_cs.c
+@@ -1525,7 +1525,7 @@ static int wl3501_set_wap(struct net_device *dev, struct iw_request_info *info,
+ 	/* FIXME: we support other ARPHRDs...*/
+ 	if (wrqu->ap_addr.sa_family != ARPHRD_ETHER)
+ 		goto out;
+-	if (is_broadcast_ether_addr(wrqu->ap_addr.sa_data)) {
++	if (eth_addr_broadcast(wrqu->ap_addr.sa_data)) {
+ 		/* FIXME: rescan? */
+ 	} else
+ 		memcpy(this->bssid, wrqu->ap_addr.sa_data, ETH_ALEN);
+diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
+index 114364b..ce32bb5 100644
+--- a/drivers/net/wireless/zd1211rw/zd_mac.c
++++ b/drivers/net/wireless/zd1211rw/zd_mac.c
+@@ -1335,7 +1335,7 @@ static void zd_op_bss_info_changed(struct ieee80211_hw *hw,
+ 					       mac->type);
+ 		}
+ 	} else
+-		associated = is_valid_ether_addr(bss_conf->bssid);
++		associated = eth_addr_valid(bss_conf->bssid);
+ 
+ 	spin_lock_irq(&mac->lock);
+ 	mac->associated = associated;
 -- 
 1.7.8.111.gad25c.dirty
