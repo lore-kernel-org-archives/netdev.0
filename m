@@ -1,57 +1,207 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/13] ixgbe: add WOL support for new subdevice id
-Date: Fri, 19 Oct 2012 23:26:00 -0700
-Message-ID: <1350714367-24208-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/13] ixgbe: Fix possible memory leak in ixgbe_set_ringparam
+Date: Fri, 19 Oct 2012 23:26:07 -0700
+Message-ID: <1350714367-24208-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:22515 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:2073 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753019Ab2JTG0j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Oct 2012 02:26:39 -0400
+	id S1753389Ab2JTG0l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Oct 2012 02:26:41 -0400
 In-Reply-To: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch adds a subdevice id for new 82599 device. The define is needed
-to allow enabling WOL support.
+We were not correctly freeing the temporary rings on error in
+ixgbe_set_ring_param.  In order to correct this I am unwinding a number of
+changes that were made in order to get things back to the original working
+form with modification for the current ring layouts.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+This approach has multiple advantages including a smaller memory footprint,
+and the fact that the interface is stopped while we are allocating the rings
+meaning that there is less potential for some sort of memory corruption on the
+ring.
+
+The only disadvantage I see with this approach is that on a Rx allocation
+failure we will report an error and only update the Tx rings.  However the
+adapter should be fully functional in this state and the likelihood of such
+an error is very low.  In addition it is not unreasonable to expect the
+user to need to recheck the ring configuration should they experience an
+error setting the ring sizes.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h | 1 +
- 2 files changed, 2 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 102 +++++++++++------------
+ 1 file changed, 50 insertions(+), 52 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 35be7d3..e417394 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7080,6 +7080,7 @@ int ixgbe_wol_supported(struct ixgbe_adapter *adapter, u16 device_id,
- 				break;
- 		case IXGBE_SUBDEV_ID_82599_SFP:
- 		case IXGBE_SUBDEV_ID_82599_RNDC:
-+		case IXGBE_SUBDEV_ID_82599_ECNA_DP:
- 			is_wol_supported = 1;
- 			break;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 56b20d1..872c337 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -887,24 +887,23 @@ static int ixgbe_set_ringparam(struct net_device *netdev,
+                                struct ethtool_ringparam *ring)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+-	struct ixgbe_ring *temp_tx_ring, *temp_rx_ring;
++	struct ixgbe_ring *temp_ring;
+ 	int i, err = 0;
+ 	u32 new_rx_count, new_tx_count;
+-	bool need_update = false;
+ 
+ 	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
+ 		return -EINVAL;
+ 
+-	new_rx_count = max_t(u32, ring->rx_pending, IXGBE_MIN_RXD);
+-	new_rx_count = min_t(u32, new_rx_count, IXGBE_MAX_RXD);
+-	new_rx_count = ALIGN(new_rx_count, IXGBE_REQ_RX_DESCRIPTOR_MULTIPLE);
+-
+-	new_tx_count = max_t(u32, ring->tx_pending, IXGBE_MIN_TXD);
+-	new_tx_count = min_t(u32, new_tx_count, IXGBE_MAX_TXD);
++	new_tx_count = clamp_t(u32, ring->tx_pending,
++			       IXGBE_MIN_TXD, IXGBE_MAX_TXD);
+ 	new_tx_count = ALIGN(new_tx_count, IXGBE_REQ_TX_DESCRIPTOR_MULTIPLE);
+ 
+-	if ((new_tx_count == adapter->tx_ring[0]->count) &&
+-	    (new_rx_count == adapter->rx_ring[0]->count)) {
++	new_rx_count = clamp_t(u32, ring->rx_pending,
++			       IXGBE_MIN_RXD, IXGBE_MAX_RXD);
++	new_rx_count = ALIGN(new_rx_count, IXGBE_REQ_RX_DESCRIPTOR_MULTIPLE);
++
++	if ((new_tx_count == adapter->tx_ring_count) &&
++	    (new_rx_count == adapter->rx_ring_count)) {
+ 		/* nothing to do */
+ 		return 0;
+ 	}
+@@ -922,81 +921,80 @@ static int ixgbe_set_ringparam(struct net_device *netdev,
+ 		goto clear_reset;
+ 	}
+ 
+-	temp_tx_ring = vmalloc(adapter->num_tx_queues * sizeof(struct ixgbe_ring));
+-	if (!temp_tx_ring) {
++	/* allocate temporary buffer to store rings in */
++	i = max_t(int, adapter->num_tx_queues, adapter->num_rx_queues);
++	temp_ring = vmalloc(i * sizeof(struct ixgbe_ring));
++
++	if (!temp_ring) {
+ 		err = -ENOMEM;
+ 		goto clear_reset;
+ 	}
+ 
++	ixgbe_down(adapter);
++
++	/*
++	 * Setup new Tx resources and free the old Tx resources in that order.
++	 * We can then assign the new resources to the rings via a memcpy.
++	 * The advantage to this approach is that we are guaranteed to still
++	 * have resources even in the case of an allocation failure.
++	 */
+ 	if (new_tx_count != adapter->tx_ring_count) {
+ 		for (i = 0; i < adapter->num_tx_queues; i++) {
+-			memcpy(&temp_tx_ring[i], adapter->tx_ring[i],
++			memcpy(&temp_ring[i], adapter->tx_ring[i],
+ 			       sizeof(struct ixgbe_ring));
+-			temp_tx_ring[i].count = new_tx_count;
+-			err = ixgbe_setup_tx_resources(&temp_tx_ring[i]);
++
++			temp_ring[i].count = new_tx_count;
++			err = ixgbe_setup_tx_resources(&temp_ring[i]);
+ 			if (err) {
+ 				while (i) {
+ 					i--;
+-					ixgbe_free_tx_resources(&temp_tx_ring[i]);
++					ixgbe_free_tx_resources(&temp_ring[i]);
+ 				}
+-				goto clear_reset;
++				goto err_setup;
+ 			}
  		}
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 0722f33..21915e2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -56,6 +56,7 @@
- #define IXGBE_SUBDEV_ID_82599_SFP        0x11A9
- #define IXGBE_SUBDEV_ID_82599_RNDC       0x1F72
- #define IXGBE_SUBDEV_ID_82599_560FLR     0x17D0
-+#define IXGBE_SUBDEV_ID_82599_ECNA_DP    0x0470
- #define IXGBE_DEV_ID_82599_SFP_EM        0x1507
- #define IXGBE_DEV_ID_82599_SFP_SF2       0x154D
- #define IXGBE_DEV_ID_82599EN_SFP         0x1557
+-		need_update = true;
+-	}
+ 
+-	temp_rx_ring = vmalloc(adapter->num_rx_queues * sizeof(struct ixgbe_ring));
+-	if (!temp_rx_ring) {
+-		err = -ENOMEM;
+-		goto err_setup;
++		for (i = 0; i < adapter->num_tx_queues; i++) {
++			ixgbe_free_tx_resources(adapter->tx_ring[i]);
++
++			memcpy(adapter->tx_ring[i], &temp_ring[i],
++			       sizeof(struct ixgbe_ring));
++		}
++
++		adapter->tx_ring_count = new_tx_count;
+ 	}
+ 
++	/* Repeat the process for the Rx rings if needed */
+ 	if (new_rx_count != adapter->rx_ring_count) {
+ 		for (i = 0; i < adapter->num_rx_queues; i++) {
+-			memcpy(&temp_rx_ring[i], adapter->rx_ring[i],
++			memcpy(&temp_ring[i], adapter->rx_ring[i],
+ 			       sizeof(struct ixgbe_ring));
+-			temp_rx_ring[i].count = new_rx_count;
+-			err = ixgbe_setup_rx_resources(&temp_rx_ring[i]);
++
++			temp_ring[i].count = new_rx_count;
++			err = ixgbe_setup_rx_resources(&temp_ring[i]);
+ 			if (err) {
+ 				while (i) {
+ 					i--;
+-					ixgbe_free_rx_resources(&temp_rx_ring[i]);
++					ixgbe_free_rx_resources(&temp_ring[i]);
+ 				}
+ 				goto err_setup;
+ 			}
++
+ 		}
+-		need_update = true;
+-	}
+ 
+-	/* if rings need to be updated, here's the place to do it in one shot */
+-	if (need_update) {
+-		ixgbe_down(adapter);
++		for (i = 0; i < adapter->num_rx_queues; i++) {
++			ixgbe_free_rx_resources(adapter->rx_ring[i]);
+ 
+-		/* tx */
+-		if (new_tx_count != adapter->tx_ring_count) {
+-			for (i = 0; i < adapter->num_tx_queues; i++) {
+-				ixgbe_free_tx_resources(adapter->tx_ring[i]);
+-				memcpy(adapter->tx_ring[i], &temp_tx_ring[i],
+-				       sizeof(struct ixgbe_ring));
+-			}
+-			adapter->tx_ring_count = new_tx_count;
++			memcpy(adapter->rx_ring[i], &temp_ring[i],
++			       sizeof(struct ixgbe_ring));
+ 		}
+ 
+-		/* rx */
+-		if (new_rx_count != adapter->rx_ring_count) {
+-			for (i = 0; i < adapter->num_rx_queues; i++) {
+-				ixgbe_free_rx_resources(adapter->rx_ring[i]);
+-				memcpy(adapter->rx_ring[i], &temp_rx_ring[i],
+-				       sizeof(struct ixgbe_ring));
+-			}
+-			adapter->rx_ring_count = new_rx_count;
+-		}
+-		ixgbe_up(adapter);
++		adapter->rx_ring_count = new_rx_count;
+ 	}
+ 
+-	vfree(temp_rx_ring);
+ err_setup:
+-	vfree(temp_tx_ring);
++	ixgbe_up(adapter);
++	vfree(temp_ring);
+ clear_reset:
+ 	clear_bit(__IXGBE_RESETTING, &adapter->state);
+ 	return err;
 -- 
 1.7.11.7
