@@ -1,77 +1,135 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next 01/13] ixgbe: Add support for IPv6 and UDP to ixgbe_get_headlen
-Date: Sat, 20 Oct 2012 13:39:22 -0700
-Message-ID: <50830BFA.5070409@gmail.com>
-References: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>  <1350714367-24208-2-git-send-email-jeffrey.t.kirsher@intel.com> <1350720070.13333.359.camel@edumazet-glaptop>
+From: Mike Kazantsev <mk.fraggod@gmail.com>
+Subject: Re: PROBLEM: Memory leak (at least with SLUB) from "secpath_dup"
+ (xfrm) in 3.5+ kernels
+Date: Sun, 21 Oct 2012 04:45:40 +0600
+Message-ID: <20121021044540.12e8f4b7@sacrilege>
+References: <20121019205055.2b258d09@sacrilege>
+	<20121019233632.26cf96d8@sacrilege>
+	<CAHC9VhQ+gkAaRmwDWqzQd1U-hwH__5yxrxWa5_=koz_XTSXpjQ@mail.gmail.com>
+	<20121020204958.4bc8e293@sacrilege>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:59363 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751887Ab2JTUj2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 16:39:28 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rr4so1173024pbb.19
-        for <netdev@vger.kernel.org>; Sat, 20 Oct 2012 13:39:28 -0700 (PDT)
-In-Reply-To: <1350720070.13333.359.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/ohQ=sCURuH21t1BfZK+M3dd"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org, linux-mm@kvack.org
+To: Paul Moore <paul@paul-moore.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20121020204958.4bc8e293@sacrilege>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 10/20/2012 1:01 AM, Eric Dumazet wrote:
-> On Fri, 2012-10-19 at 23:25 -0700, Jeff Kirsher wrote:
->> From: Alexander Duyck <alexander.h.duyck@intel.com>
->>
->> This change adds support for IPv6 and UDP to ixgbe_get_headlen. The
->> advantage to this is that we can now handle ipv4/UDP, ipv6/TCP, and
->> ipv6/UDP with a single memcpy instead of having to do them in multiple
->> pskb_may_pull calls.
->>
->> A quick bit of testing shows that we increase throughput for a single
->> session of netperf from 8800Mpbs to about 9300Mpbs in the case of ipv6/TCP.
->> As such overall ipv6 performance should improve with this change.
->>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->> Tested-by: Stephen Ko  <stephen.s.ko@intel.com>
->> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> ---
->>   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 15 ++++++++++++++-
->>   1 file changed, 14 insertions(+), 1 deletion(-)
-> Thats pretty interesting.
->
-> Why this work is not done generically, so that all drivers can have
-> benefit of it ?
->
-> Even a driver not using fragments could have benefit, because we could
-> prefetch() so that GRO stack is faster (no stall to get the last 2 bytes
-> of a TCP header when timestamps are used)
->
-> Thanks
+--Sig_/ohQ=sCURuH21t1BfZK+M3dd
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-The ixgbe_get_headlen function originally was written to handle the case 
-where we were doing the hardware LRO/RSC feature but we weren't setting 
-gso_size.  We were using it to get the size of the header so we could 
-determine the average payload size of the frame.  When we switched over 
-to page based receive the function came along with it and had actually 
-prevented a performance regression for IPv4/TCP which this patch is 
-fixing for the other supported protocols.  The main idea of this code is 
-now to emulate what our hardware was doing in determining the length of 
-the header when we had header-data split enabled.  I hadn't really 
-thought of any way it could be used in a generic sense.  The function is 
-essentially is built around several assumptions that only apply to the 
-igb/ixgbe case such as the fact that the entire block being linear and 
-the limitation of the protocols so that they match up with what we used 
-to do for header-data split.
+On Sat, 20 Oct 2012 20:49:58 +0600
+Mike Kazantsev <mk.fraggod@gmail.com> wrote:
 
-That being said, if there is a way for you to use it in the generic case 
-feel free to copy the ixgbe version, rename it, and export it for use.  
-The key bit for me is that I just need to be able to get the header 
-length before calling eth_type_trans as I only want to do one memcpy for 
-the entire header.
+> On Sat, 20 Oct 2012 08:42:33 -0400
+> Paul Moore <paul@paul-moore.com> wrote:
+>=20
+> > Thanks for the problem report.  I'm not going to be in a position to st=
+art
+> > looking into this until late Sunday, but hopefully it will be a quick f=
+ix.
+> >=20
+> > Two quick questions (my apologies, I'm not able to dig through your logs
+> > right now): do you see this leak on kernels < 3.5.0, and are you using =
+any
+> > labeled IPsec connections?
+> >=20
+>=20
+> As I understand, labelled connections are only used in SELinux
+> and SMACK LSM, which are not enabled (in Kconfig, i.e. not built) in any
+> of the kernels I use.
+>=20
+> The only LSM I have enabled (and actually use on 2/4 of these machines)
+> is AppArmor, and though I think it doesn't attach any labels to network
+> connections yet (there's a "Wishlist" bug at
+> https://bugs.launchpad.net/ubuntu/+source/apparmor/+bug/796588, but I
+> can't seem to find an existing implementation).
+>=20
+> I believe it has started with 3.5.0, according to all available logs I
+> have. I'm afraid laziness and other tasks have prevented me from
+> looking into and reporting the issue back then, but memory graph trends
+> start at the exact time of reboot into 3.5.0 kernels, and before that,
+> there're no such trends for slab memory usage.
+>=20
+> I've been able to ignore and work around the problem for months now, so
+> I don't think there's any rush at all ;)
+>=20
+> But that said, currently I've started git bisect process between v3.5
+> and v3.4 tags, so hopefully I'll get good-enough results of it before
+> you'll get to it (probably in a few hours to a few days).
+>=20
+> Also, I've found that switching to "slab" allocator from "slub" doesn't
+> help the problem at all, so I guess something doesn't get freed in the
+> code indeed, though I hasn't been able to find anything relevant in the
+> logs for the sources where secpath_put and secpath_dup are used, and
+> decided to try bisect.
+>=20
 
-Thanks,
+Sorry for yet another mail on the weekend, but I've finished the bisect
+and here is the result:
 
-Alex
+a1c7fff7e18f59e684e07b0f9a770561cd39f395 is the first bad commit
+commit a1c7fff7e18f59e684e07b0f9a770561cd39f395
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Thu May 17 07:34:16 2012 +0000
+
+    net: netdev_alloc_skb() use build_skb()
+
+    netdev_alloc_skb() is used by networks driver in their RX path to
+    allocate an skb to receive an incoming frame.
+
+    With recent skb->head_frag infrastructure, it makes sense to change
+    netdev_alloc_skb() to use build_skb() and a frag allocator.
+
+    This permits a zero copy splice(socket->pipe), and better GRO or TCP
+    coalescing.
+
+    Signed-off-by: Eric Dumazet <edumazet@google.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+:040000 040000 17938b1b46bc38aa126cc23b7a7647259297657d 1e29cf65869391eb135=
+52c51e0cf288fc7085fec M      net
+
+No skips, all "good" / "bad" decisions were very unambiguous and easy
+to make - secpath_cache slabs either stayed at always-constant 20K
+cumulative size (~5 of them) and were reported as 10-15% full in "good"
+case, or were 99% full and eating memory at hudreds KiB/s (during same
+rsync transfer) in "bad" case.
+
+Reverting that commit in 3.6.2 kernel looks like a bad idea and doesn't
+seem possible to do cleanly.
+Being not a C coder and having only faint idea about how things should
+be done with regards to socket buffers, I can't seem to find anything
+to tweak based on that commit either.
+
+kmemleak mechanism seem to provide stack traces and interesting calls
+for debugging of whatever is allocating the non-freed objects, so guess
+I'll see if I can get more definitive (to my ignorant eye) "look here"
+hint from it, and might drop one more mail with data from there.
+
+
+--=20
+Mike Kazantsev // fraggod.net
+
+--Sig_/ohQ=sCURuH21t1BfZK+M3dd
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.19 (GNU/Linux)
+
+iEYEARECAAYFAlCDKZcACgkQASbOZpzyXnHunACgm5y+2YW7MO6qBLq82GYcmNK5
+pkoAn2A/Hi0c9v+hQqJ0/5w5IPKLg8Oi
+=2tyr
+-----END PGP SIGNATURE-----
+
+--Sig_/ohQ=sCURuH21t1BfZK+M3dd--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
