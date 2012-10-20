@@ -1,32 +1,66 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH] tcp: add SYN/data info to TCP_INFO
-Date: Fri, 19 Oct 2012 22:11:03 -0400
-Message-ID: <CADVnQy=hhh8LsqX-P1YUP0+qTGLJ7uvx3MOsYPRTVF6GifjQ3w@mail.gmail.com>
-References: <1350695684-26962-1-git-send-email-ycheng@google.com>
+From: Bing Zhao <bzhao@marvell.com>
+Subject: RE: [PATCH net-next 04/21] wireless: Convert is_<foo>_ether_addr
+ uses to eth_addr_<foo>
+Date: Fri, 19 Oct 2012 19:30:06 -0700
+Message-ID: <477F20668A386D41ADCC57781B1F7043083B8EC57E@SC-VEXCH1.marvell.com>
+References: <cover.1350618006.git.joe@perches.com>
+ <bb2235c257e347354d94478bd1be35b89bf90186.1350618009.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jerry Chu <hkchu@google.com>, Netdev <netdev@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:56146 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759449Ab2JTCLE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 22:11:04 -0400
-Received: by mail-ie0-f174.google.com with SMTP id k13so1554360iea.19
-        for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 19:11:04 -0700 (PDT)
-In-Reply-To: <1350695684-26962-1-git-send-email-ycheng@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Brett Rudley <brudley@broadcom.com>,
+	Roland Vossen <rvossen@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Kan Yan <kanyan@broadcom.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	Luciano Coelho <coelho@ti.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ath9k-devel@lists.ath9k.org" <ath9k-devel@lists.ath9k.org>,
+	"b43-dev@lists.infradead.org" <b43-dev@lists.infradead.org>,
+	"brcm80211-dev-list@broadcom.com" <brcm80211-dev-list@broadcom.com>,
+	"users@rt2x00.serialmonkey.com" <users@rt2x00.serialmonkey.com>
+To: Joe Perches <joe@perches.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Kalle Valo <kvalo@qca.qualcomm.com>,
+	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
+	Jouni Malinen <jouni@qca.qualcomm.com>,
+	Vasanthakumar Thiagarajan <vthiagar@qca.qualcomm.com>,
+	Senthil Balasubramanian <senthilb@qca.qualcomm.com>,
+	Stefano Brivio <stefano.brivio@polimi.it>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Stanislav Yakovlev <stas.yakovlev@gmail.com>,
+	Stanislaw Gruszka <sgruszka@redhat.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Christian Lamparter <chunkeey@googlemail.com>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Ivo van Doorn <IvDoorn@gmail.com>,
+	Gertjan van Wingerde <gwingerde@gmail.com>,
+	Helmut Schaa <helmut.schaa@googlemail.com>,
+	Herton Ronaldo Krzesinski <herton@canonical.com>,
+	Hin-Tak Leung <htl10@users.sourceforge.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	A
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <bb2235c257e347354d94478bd1be35b89bf90186.1350618009.git.joe@perches.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 19, 2012 at 9:14 PM, Yuchung Cheng <ycheng@google.com> wrote:
-> Add a bit TCPI_OPT_SYN_DATA (32) to the socket option TCP_INFO:tcpi_options.
-> It's set if the data in SYN (sent or received) is acked by SYN-ACK. Server or
-> client application can use this information to check Fast Open success rate.
->
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Hi Joe,
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+> Subject: [PATCH net-next 04/21] wireless: Convert is_<foo>_ether_addr uses to eth_addr_<foo>
+> 
+> Convert the old ether_addr tests to eth_addr_<foo>.
+> Adds api consistency.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-neal
+Acked-by: Bing Zhao <bzhao@marvell.com> [mwifiex]
+
+Thanks,
+Bing
