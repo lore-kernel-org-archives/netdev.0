@@ -1,46 +1,51 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: Re: [PATCH 00/12] at91_ether cleanup
-Date: Sat, 20 Oct 2012 14:40:00 +0200
-Message-ID: <CAGhQ9Vz9q_r_qUuaSnjEn+zkDWgvW4aOBNiLXF8RfLA0ytrOPQ@mail.gmail.com>
-References: <1350594079-4337-1-git-send-email-manabian@gmail.com>
-	<20121019.134832.1221504804550166119.davem@davemloft.net>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: PROBLEM: Memory leak (at least with SLUB) from "secpath_dup"
+ (xfrm) in 3.5+ kernels
+Date: Sat, 20 Oct 2012 08:42:33 -0400
+Message-ID: <CAHC9VhQ+gkAaRmwDWqzQd1U-hwH__5yxrxWa5_=koz_XTSXpjQ@mail.gmail.com>
+References: <20121019205055.2b258d09@sacrilege>
+	<20121019233632.26cf96d8@sacrilege>
 Mime-Version: 1.0
+Content-Type: multipart/alternative; boundary=047d7bdc04fa47e61d04cc7cf468
+Cc: netdev@vger.kernel.org, linux-mm@kvack.org
+To: Mike Kazantsev <mk.fraggod@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20121019233632.26cf96d8@sacrilege>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
+
+--047d7bdc04fa47e61d04cc7cf468
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:44617 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932168Ab2JTMkC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 08:40:02 -0400
-Received: by mail-la0-f46.google.com with SMTP id h6so804345lag.19
-        for <netdev@vger.kernel.org>; Sat, 20 Oct 2012 05:40:00 -0700 (PDT)
-In-Reply-To: <20121019.134832.1221504804550166119.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 19, 2012 at 7:48 PM, David Miller <davem@davemloft.net> wrote:
-> From: Joachim Eastwood <manabian@gmail.com>
-> Date: Thu, 18 Oct 2012 23:01:05 +0200
->
->> This patch series prepares the old at91_ether driver for code
->> sharing with the macb driver. The hardware is similar except for DMA
->> TX/RX, so its not quite clear if it is practical to support both in
->> one driver. But stuff like MDIO and statistics should be possible to
->> share.
->
-> All applied, thanks.
->
-> Can you get rid of that HAVE_NET_MACB thing?  It's completely
-> pointless.  This is a platform driver for crying out loud,
-> therefore it can successfully build on any architecture.  And
-> we want this exposed for build testing as far as we can.
+Thanks for the problem report.  I'm not going to be in a position to start
+looking into this until late Sunday, but hopefully it will be a quick fix.
 
-I'll post a patch series soon which will make all cadence Ethernet
-drivers buildable on any architecture.
-For macb it will remove the pointless HAVE_NET_MACB and for at91_ether
-it will remove the mach include by shuffling some quirk code in a
-machine board setup.
+Two quick questions (my apologies, I'm not able to dig through your logs
+right now): do you see this leak on kernels < 3.5.0, and are you using any
+labeled IPsec connections?
 
-regards
-Joachim Eastwood
+--
+paul moore
+www.paul-moore.com
+
+--047d7bdc04fa47e61d04cc7cf468
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+<p dir=3D"ltr">Thanks for the problem report.=A0 I&#39;m not going to be in=
+ a position to start looking into this until late Sunday, but hopefully it =
+will be a quick fix.</p>
+<p dir=3D"ltr">Two quick questions (my apologies, I&#39;m not able to dig t=
+hrough your logs right now): do you see this leak on kernels &lt; 3.5.0, an=
+d are you using any labeled IPsec connections?</p>
+<p dir=3D"ltr">--<br>
+paul moore<br>
+<a href=3D"http://www.paul-moore.com">www.paul-moore.com</a></p>
+
+--047d7bdc04fa47e61d04cc7cf468--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
