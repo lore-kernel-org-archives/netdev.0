@@ -1,80 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/13] ixgbe: Enable support for VF API version 1.1 in the PF.
-Date: Fri, 19 Oct 2012 23:25:58 -0700
-Message-ID: <1350714367-24208-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/13] ixgbe: add WOL support for new subdevice id
+Date: Fri, 19 Oct 2012 23:26:00 -0700
+Message-ID: <1350714367-24208-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:22515 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753006Ab2JTG0i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Oct 2012 02:26:38 -0400
+	id S1753019Ab2JTG0j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Oct 2012 02:26:39 -0400
 In-Reply-To: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This change switches on the last few bits for us enabling version 1.1 VF
-support in the PF.
+This patch adds a subdevice id for new 82599 device. The define is needed
+to allow enabling WOL support.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Tested-by: Robert Garrett <RobertX.Garrett@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 29 +++++++++++++++++++-------
- 1 file changed, 21 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h | 1 +
+ 2 files changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 8bf467b..96876b7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -371,14 +371,26 @@ static s32 ixgbe_set_vf_lpe(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
- 					     IXGBE_FCOE_JUMBO_FRAME_SIZE);
- 
- #endif /* CONFIG_FCOE */
--		/*
--		 * If the PF or VF are running w/ jumbo frames enabled we
--		 * need to shut down the VF Rx path as we cannot support
--		 * jumbo frames on legacy VFs
--		 */
--		if ((pf_max_frame > ETH_FRAME_LEN) ||
--		    (max_frame > (ETH_FRAME_LEN + ETH_FCS_LEN)))
--			err = -EINVAL;
-+		switch (adapter->vfinfo[vf].vf_api) {
-+		case ixgbe_mbox_api_11:
-+			/*
-+			 * Version 1.1 supports jumbo frames on VFs if PF has
-+			 * jumbo frames enabled which means legacy VFs are
-+			 * disabled
-+			 */
-+			if (pf_max_frame > ETH_FRAME_LEN)
-+				break;
-+		default:
-+			/*
-+			 * If the PF or VF are running w/ jumbo frames enabled
-+			 * we need to shut down the VF Rx path as we cannot
-+			 * support jumbo frames on legacy VFs
-+			 */
-+			if ((pf_max_frame > ETH_FRAME_LEN) ||
-+			    (max_frame > (ETH_FRAME_LEN + ETH_FCS_LEN)))
-+				err = -EINVAL;
-+			break;
-+		}
- 
- 		/* determine VF receive enable location */
- 		vf_shift = vf % 32;
-@@ -740,6 +752,7 @@ static int ixgbe_negotiate_vf_api(struct ixgbe_adapter *adapter,
- 
- 	switch (api) {
- 	case ixgbe_mbox_api_10:
-+	case ixgbe_mbox_api_11:
- 		adapter->vfinfo[vf].vf_api = api;
- 		return 0;
- 	default:
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 35be7d3..e417394 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7080,6 +7080,7 @@ int ixgbe_wol_supported(struct ixgbe_adapter *adapter, u16 device_id,
+ 				break;
+ 		case IXGBE_SUBDEV_ID_82599_SFP:
+ 		case IXGBE_SUBDEV_ID_82599_RNDC:
++		case IXGBE_SUBDEV_ID_82599_ECNA_DP:
+ 			is_wol_supported = 1;
+ 			break;
+ 		}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 0722f33..21915e2 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -56,6 +56,7 @@
+ #define IXGBE_SUBDEV_ID_82599_SFP        0x11A9
+ #define IXGBE_SUBDEV_ID_82599_RNDC       0x1F72
+ #define IXGBE_SUBDEV_ID_82599_560FLR     0x17D0
++#define IXGBE_SUBDEV_ID_82599_ECNA_DP    0x0470
+ #define IXGBE_DEV_ID_82599_SFP_EM        0x1507
+ #define IXGBE_DEV_ID_82599_SFP_SF2       0x154D
+ #define IXGBE_DEV_ID_82599EN_SFP         0x1557
 -- 
 1.7.11.7
