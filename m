@@ -1,119 +1,61 @@
 From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 07/14] be2net: Fix ethtool get_settings output for VF
-Date: Sat, 20 Oct 2012 21:33:04 +0530
-Message-ID: <9a832229-828d-4800-baf1-5f518e3f3bbe@CMEXHTCAS1.ad.emulex.com>
+Subject: [PATCH net-next 08/14] be2net: Fix issues in error recovery due to wrong queue state
+Date: Sat, 20 Oct 2012 21:33:25 +0530
+Message-ID: <e7aff796-eb02-4248-a238-c32547afce25@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:22353 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752149Ab2JTQEP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 12:04:15 -0400
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:40024 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752058Ab2JTQEe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 12:04:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Return default values for fields for which VFs dont have privilege to get the
-required information from FW.
+During recovery from a FW error, destroy queue operation may fail.
+Queue should be marked as destroyed so that recovery code can recreate
+the queue. Also fix queue created state not getting checked at one instance.
 
 Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_ethtool.c |   73 ++++++++++++++----------
- 1 files changed, 42 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index 2496123..00454a1 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -528,6 +528,10 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 	u8 link_status;
- 	u16 link_speed = 0;
- 	int status;
-+	u32 auto_speeds;
-+	u32 fixed_speeds;
-+	u32 dac_cable_len;
-+	u16 interface_type;
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 9d602f4..15202d0 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -681,6 +681,9 @@ static struct be_mcc_wrb *wrb_from_mccq(struct be_adapter *adapter)
+ 	struct be_queue_info *mccq = &adapter->mcc_obj.q;
+ 	struct be_mcc_wrb *wrb;
  
- 	if (adapter->phy.link_speed < 0) {
- 		status = be_cmd_link_status_query(adapter, &link_speed,
-@@ -537,39 +541,46 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 		ethtool_cmd_speed_set(ecmd, link_speed);
++	if (!mccq->created)
++		return NULL;
++
+ 	if (atomic_read(&mccq->used) >= mccq->len) {
+ 		dev_err(&adapter->pdev->dev, "Out of MCCQ wrbs\n");
+ 		return NULL;
+@@ -1235,8 +1238,7 @@ int be_cmd_q_destroy(struct be_adapter *adapter, struct be_queue_info *q,
+ 	req->id = cpu_to_le16(q->id);
  
- 		status = be_cmd_get_phy_info(adapter);
--		if (status)
--			return status;
--
--		ecmd->supported =
--			convert_to_et_setting(adapter->phy.interface_type,
--					adapter->phy.auto_speeds_supported |
--					adapter->phy.fixed_speeds_supported);
--		ecmd->advertising =
--			convert_to_et_setting(adapter->phy.interface_type,
--					adapter->phy.auto_speeds_supported);
--
--		ecmd->port = be_get_port_type(adapter->phy.interface_type,
--					      adapter->phy.dac_cable_len);
--
--		if (adapter->phy.auto_speeds_supported) {
--			ecmd->supported |= SUPPORTED_Autoneg;
--			ecmd->autoneg = AUTONEG_ENABLE;
--			ecmd->advertising |= ADVERTISED_Autoneg;
--		}
-+		if (!status) {
-+			interface_type = adapter->phy.interface_type;
-+			auto_speeds = adapter->phy.auto_speeds_supported;
-+			fixed_speeds = adapter->phy.fixed_speeds_supported;
-+			dac_cable_len = adapter->phy.dac_cable_len;
-+
-+			ecmd->supported =
-+				convert_to_et_setting(interface_type,
-+						      auto_speeds |
-+						      fixed_speeds);
-+			ecmd->advertising =
-+				convert_to_et_setting(interface_type,
-+						      auto_speeds);
-+
-+			ecmd->port = be_get_port_type(interface_type,
-+						      dac_cable_len);
-+
-+			if (adapter->phy.auto_speeds_supported) {
-+				ecmd->supported |= SUPPORTED_Autoneg;
-+				ecmd->autoneg = AUTONEG_ENABLE;
-+				ecmd->advertising |= ADVERTISED_Autoneg;
-+			}
+ 	status = be_mbox_notify_wait(adapter);
+-	if (!status)
+-		q->created = false;
++	q->created = false;
  
--		if (be_pause_supported(adapter)) {
- 			ecmd->supported |= SUPPORTED_Pause;
--			ecmd->advertising |= ADVERTISED_Pause;
--		}
--
--		switch (adapter->phy.interface_type) {
--		case PHY_TYPE_KR_10GB:
--		case PHY_TYPE_KX4_10GB:
--			ecmd->transceiver = XCVR_INTERNAL;
--			break;
--		default:
--			ecmd->transceiver = XCVR_EXTERNAL;
--			break;
-+			if (be_pause_supported(adapter))
-+				ecmd->advertising |= ADVERTISED_Pause;
-+
-+			switch (adapter->phy.interface_type) {
-+			case PHY_TYPE_KR_10GB:
-+			case PHY_TYPE_KX4_10GB:
-+				ecmd->transceiver = XCVR_INTERNAL;
-+				break;
-+			default:
-+				ecmd->transceiver = XCVR_EXTERNAL;
-+				break;
-+			}
-+		} else {
-+			ecmd->port = PORT_OTHER;
-+			ecmd->autoneg = AUTONEG_DISABLE;
-+			ecmd->transceiver = XCVR_DUMMY1;
- 		}
+ 	mutex_unlock(&adapter->mbox_lock);
+ 	return status;
+@@ -1263,8 +1265,7 @@ int be_cmd_rxq_destroy(struct be_adapter *adapter, struct be_queue_info *q)
+ 	req->id = cpu_to_le16(q->id);
  
- 		/* Save for future use */
+ 	status = be_mcc_notify_wait(adapter);
+-	if (!status)
+-		q->created = false;
++	q->created = false;
+ 
+ err:
+ 	spin_unlock_bh(&adapter->mcc_lock);
 -- 
 1.6.0.2
