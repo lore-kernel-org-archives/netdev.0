@@ -1,123 +1,72 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/13] ixgbe: Add support for GET_QUEUES message to get DCB configuration
-Date: Fri, 19 Oct 2012 23:25:57 -0700
-Message-ID: <1350714367-24208-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Subject: Re: [PATCH] e1000: fix concurrent accesses to PHY from watchdog and
+ ethtool
+Date: Fri, 19 Oct 2012 23:47:34 -0700
+Message-ID: <1350715654.2213.22.camel@jtkirshe-mobl>
+References: <1350650688-29293-1-git-send-email-ffainelli@freebox.fr>
+Reply-To: jeffrey.t.kirsher@intel.com
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-g57rM53tz/OuSg4SV/TC"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Maxime Bizon <mbizon@freebox.fr>
+To: Florian Fainelli <ffainelli@freebox.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:18923 "EHLO mga03.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:63063 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752929Ab2JTG0i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Oct 2012 02:26:38 -0400
-In-Reply-To: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1752308Ab2JTGrh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Oct 2012 02:47:37 -0400
+In-Reply-To: <1350650688-29293-1-git-send-email-ffainelli@freebox.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch addresses several issues in regards to the combination of DCB
-and SR-IOV. Specifically it allows us to send information to the VF on
-which queues it should be using.
+--=-g57rM53tz/OuSg4SV/TC
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   | 10 ++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 42 ++++++++++++++++++++++++++
- 2 files changed, 52 insertions(+)
+On Fri, 2012-10-19 at 14:44 +0200, Florian Fainelli wrote:
+> From: Maxime Bizon <mbizon@freebox.fr>
+>=20
+> The e1000 driver currently does not protect concurrent accesses to the
+> PHY
+> from both the ethtool callbacks, and from the e1000_watchdog function.
+> This
+> patchs adds a new spinlock which is used by e1000_{read,write}_phy_reg
+> in
+> order to serialize concurrent accesses to the PHY.
+>=20
+> Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
+> Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
+> ---
+>  drivers/net/ethernet/intel/e1000/e1000_hw.c |   17 +++++++++++++++--
+>  1 file changed, 15 insertions(+), 2 deletions(-)=20
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-index d4c842e..42dd65e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-@@ -71,6 +71,7 @@
- enum ixgbe_pfvf_api_rev {
- 	ixgbe_mbox_api_10,	/* API version 1.0, linux/freebsd VF driver */
- 	ixgbe_mbox_api_20,	/* API version 2.0, solaris Phase1 VF driver */
-+	ixgbe_mbox_api_11,	/* API version 1.1, linux/freebsd VF driver */
- 	/* This value should always be last */
- 	ixgbe_mbox_api_unknown,	/* indicates that API version is not known */
- };
-@@ -86,6 +87,15 @@ enum ixgbe_pfvf_api_rev {
- #define IXGBE_VF_SET_MACVLAN	0x06 /* VF requests PF for unicast filter */
- #define IXGBE_VF_API_NEGOTIATE	0x08 /* negotiate API version */
- 
-+/* mailbox API, version 1.1 VF requests */
-+#define IXGBE_VF_GET_QUEUES	0x09 /* get queue configuration */
-+
-+/* GET_QUEUES return data indices within the mailbox */
-+#define IXGBE_VF_TX_QUEUES	1	/* number of Tx queues supported */
-+#define IXGBE_VF_RX_QUEUES	2	/* number of Rx queues supported */
-+#define IXGBE_VF_TRANS_VLAN	3	/* Indication of port vlan */
-+#define IXGBE_VF_DEF_QUEUE	4	/* Default queue offset */
-+
- /* length of permanent address message returned from PF */
- #define IXGBE_VF_PERMADDR_MSG_LEN 4
- /* word in permanent address message with the current multicast type */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index b330a1c..8bf467b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -751,6 +751,45 @@ static int ixgbe_negotiate_vf_api(struct ixgbe_adapter *adapter,
- 	return -1;
- }
- 
-+static int ixgbe_get_vf_queues(struct ixgbe_adapter *adapter,
-+			       u32 *msgbuf, u32 vf)
-+{
-+	struct net_device *dev = adapter->netdev;
-+	struct ixgbe_ring_feature *vmdq = &adapter->ring_feature[RING_F_VMDQ];
-+	unsigned int default_tc = 0;
-+	u8 num_tcs = netdev_get_num_tc(dev);
-+
-+	/* verify the PF is supporting the correct APIs */
-+	switch (adapter->vfinfo[vf].vf_api) {
-+	case ixgbe_mbox_api_20:
-+	case ixgbe_mbox_api_11:
-+		break;
-+	default:
-+		return -1;
-+	}
-+
-+	/* only allow 1 Tx queue for bandwidth limiting */
-+	msgbuf[IXGBE_VF_TX_QUEUES] = __ALIGN_MASK(1, ~vmdq->mask);
-+	msgbuf[IXGBE_VF_RX_QUEUES] = __ALIGN_MASK(1, ~vmdq->mask);
-+
-+	/* if TCs > 1 determine which TC belongs to default user priority */
-+	if (num_tcs > 1)
-+		default_tc = netdev_get_prio_tc_map(dev, adapter->default_up);
-+
-+	/* notify VF of need for VLAN tag stripping, and correct queue */
-+	if (num_tcs)
-+		msgbuf[IXGBE_VF_TRANS_VLAN] = num_tcs;
-+	else if (adapter->vfinfo[vf].pf_vlan || adapter->vfinfo[vf].pf_qos)
-+		msgbuf[IXGBE_VF_TRANS_VLAN] = 1;
-+	else
-+		msgbuf[IXGBE_VF_TRANS_VLAN] = 0;
-+
-+	/* notify VF of default queue */
-+	msgbuf[IXGBE_VF_DEF_QUEUE] = default_tc;
-+
-+	return 0;
-+}
-+
- static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- {
- 	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
-@@ -804,6 +843,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- 	case IXGBE_VF_API_NEGOTIATE:
- 		retval = ixgbe_negotiate_vf_api(adapter, msgbuf, vf);
- 		break;
-+	case IXGBE_VF_GET_QUEUES:
-+		retval = ixgbe_get_vf_queues(adapter, msgbuf, vf);
-+		break;
- 	default:
- 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
- 		retval = IXGBE_ERR_MBX;
--- 
-1.7.11.7
+It does not appear I have responded yet, so...
+
+I have added this patch to my queue, thanks!
+
+--=-g57rM53tz/OuSg4SV/TC
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAABCgAGBQJQgkkGAAoJEOVv75VaS+3OHf4QAIWwxBK7RvN3e4u3ury2zooo
+8M4oLTXMfJq47O5eiFTOnAweYyll68KI4zeGoizGaTNt7kQsFIhdMoE2bUzDgzN+
+RR6mCRe/dJI+0uVFhBUm+i2+0riISayKoYEDumUyUWV1DTw6tn8e2NJjPNxkXjYT
+CGX7kRr0IzepDujJqplLeCIps/LCf/TxGbHcvuMFgl3VOSFMv9fQlDM6E/ogK92q
+IwfM7In8byuxoMeDxxjyqY9gqG4DTZ+5z021uULbiNv68yJjjXgomGFU1VfLhbz8
+ruxCUnpVZiXszW1uO8+5H6XPJlxrT5pNZ+QWYkafa1vjANb1If3tUMJBbIP0So0n
+cOvUWSvpV5TziTShsiZwE7mGEhC6jOmvOnlS1/JDDyZvTTUyNBZ0ikoA7/qg/D37
+2XwibVJHQi4mTuuouQ3ThF/Ux4ckeJ7UDZtEG0Qkc02txYdKfIhMEpbFeH27o7qf
+fHcZa+qRGcWesqWo0SoFfyCpIh1CmFRw+IaPwlsrknOoPdvcUqf4cJAgvH+AACK4
+db5BGED+DPvq9h5IXRG4SNYgiSOv3B4ntF2TivQknHI+kJ/qBpFG0Oxup6FSBU63
+yH6pEZUQ3DbVzeKnZkwBMow4UwF1VQc77zC80unIPbd/17qc2qZFkT0IbP11FUjL
+Aidx9TEdUP6tXMOFrMie
+=3zWn
+-----END PGP SIGNATURE-----
+
+--=-g57rM53tz/OuSg4SV/TC--
