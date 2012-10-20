@@ -1,48 +1,84 @@
-From: Serge Hallyn <serge.hallyn@canonical.com>
-Subject: Re: [PATCH 1/1] [PATCH net-next] net:dev: remove double indentical
- assignment in dev_change_net_namespace().
-Date: Fri, 19 Oct 2012 19:07:56 -0500
-Message-ID: <20121020000756.GA29345@sergelap>
-References: <1350644970-2877-1-git-send-email-ramirose@gmail.com>
+From: Vimal <j.vimal@gmail.com>
+Subject: Re: [PATCH] htb: improved accuracy at high rates
+Date: Fri, 19 Oct 2012 17:51:24 -0700
+Message-ID: <CAK3Ji116nZ79csrq9GJ7C5e3zLPJina1r2+VasdVRsdY7n+3ww@mail.gmail.com>
+References: <1350685582-65334-1-git-send-email-j.vimal@gmail.com> <5081E7A8.2080009@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Rami Rosen <ramirose@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:35276 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754972Ab2JTAID (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 20:08:03 -0400
-Content-Disposition: inline
-In-Reply-To: <1350644970-2877-1-git-send-email-ramirose@gmail.com>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:45105 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755233Ab2JTAvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 20:51:45 -0400
+Received: by mail-vc0-f174.google.com with SMTP id fk26so1135104vcb.19
+        for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 17:51:44 -0700 (PDT)
+In-Reply-To: <5081E7A8.2080009@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Rami Rosen (ramirose@gmail.com):
-> This patch removes double assignment of err to -EINVAL in dev_change_net_namespace().
-> 
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+On 19 October 2012 16:52, Rick Jones <rick.jones2@hp.com> wrote:
+>
+> First some netperf/operational kinds of questions:
+>
+> Did it really take 20 concurrent netperf UDP_STREAM tests to get to those
+> rates?  And why UDP_STREAM rather than TCP_STREAM?
 
-Yup, sure is a duplicate assignment...
+Nope, even 1 netperf was sufficient.  Before I couldn't get TCP_STREAM
+to send small byte packets, but I checked my script now and I forgot
+to enable TCP_NODELAY + send buffer size (-s $size).
 
-Acked-by: Serge E. Hallyn <serge.hallyn@ubuntu.com>
+With one tcp sender I am unable to reach the 1Gb/s limit (only
+~100Mb/s) even with a lot of CPU to spare, which indicates that the
+test is limited by e2e latency.  With 10 connections, I could get only
+800Mb/s, and with 20 connections it went to 1160Mb/s, which violates
+the 1Gb/s limit set.
 
-> ---
->  net/core/dev.c | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 09cb3f6..b4978e2 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -6264,7 +6264,6 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
->  		goto out;
->  
->  	/* Ensure the device has been registrered */
-> -	err = -EINVAL;
->  	if (dev->reg_state != NETREG_REGISTERED)
->  		goto out;
->  
-> -- 
-> 1.7.11.4
-> 
+> I couldn't recall if GSO did anything for UDP, so did some quick and dirty
+> tests flipping GSO on and off on a 3.2.0 kernel, and the service demands
+> didn't seem to change.  So, with 8000 bytes of user payload did HTB actually
+> see 8000ish byte packets, or did it actually see a series of <= MTU sized IP
+> datagram fragments?  Or did the NIC being used have UFO enabled?
+>
+
+UFO was enabled.  Now, I verified that the throughput was about the
+same even with TCP, with TSO and by forcing send/recv buffer sizes to
+8kB.
+
+> Which reported throughput was used from the UDP_STREAM tests - send side or
+> receive side?
+
+Send side.
+
+>
+> Is there much/any change in service demand on a netperf test?  That is what
+> is the service demand of a mumble_STREAM test running through the old HTB
+> versus the new HTB?  And/or the performance of a TCP_RR test (both
+> transactions per second and service demand per transaction) before vs after.
+>
+
+At 1Gb/s with just one TCP_STREAM:
+With old HTB:
+Sdem local: 0.548us/KB, Sdem remote: 1.426us/KB.
+
+With new HTB:
+Sdem local: 0.598us/KB, Sdem remote: 1.089us/KB.
+
+TCP_RR: 1b req/response consumed very little bandwidth (~12Mb/s)
+old HTB at 1Gb/s
+Sdem local: 14.738us/trans, Sdem remote: 11.485us/Tran, latency: 41.622us/Tran.
+
+new HTB at 1Gb/s
+Sdem local: 14.505us/trans, Sdem remote: 11.440us/Tran, latency: 41.709us/Tran.
+
+With multiple tests, these values are fairly stable. :)
+
+thanks,
+> happy benchmarking,
+>
+> rick jones
+
+-- 
+Vimal
