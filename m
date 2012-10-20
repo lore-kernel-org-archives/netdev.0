@@ -1,207 +1,369 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/13] ixgbe: Fix possible memory leak in ixgbe_set_ringparam
-Date: Fri, 19 Oct 2012 23:26:07 -0700
-Message-ID: <1350714367-24208-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/13] ixgbe: Add support for pipeline reset
+Date: Fri, 19 Oct 2012 23:26:06 -0700
+Message-ID: <1350714367-24208-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:2073 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:22515 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753389Ab2JTG0l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753351Ab2JTG0l (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 20 Oct 2012 02:26:41 -0400
 In-Reply-To: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-We were not correctly freeing the temporary rings on error in
-ixgbe_set_ring_param.  In order to correct this I am unwinding a number of
-changes that were made in order to get things back to the original working
-form with modification for the current ring layouts.
+Calling the ixgbe_reset_pipeline_82599 function will ensure a full pipeline
+reset on all 82599 devices.  This is necessary to avoid possible link issues.
+Since this patch accomplishes this by modifying AUTOC.LMS we need to wrap
+all AUTOC writes when LESM is enabled.
 
-This approach has multiple advantages including a smaller memory footprint,
-and the fact that the interface is stopped while we are allocating the rings
-meaning that there is less potential for some sort of memory corruption on the
-ring.
-
-The only disadvantage I see with this approach is that on a Rx allocation
-failure we will report an error and only update the Tx rings.  However the
-adapter should be fully functional in this state and the likelihood of such
-an error is very low.  In addition it is not unreasonable to expect the
-user to need to recheck the ring configuration should they experience an
-error setting the ring sizes.
-
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 102 +++++++++++------------
- 1 file changed, 50 insertions(+), 52 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h        |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  | 105 ++++++++++++++++++------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  70 +++++++++++++++-
+ 3 files changed, 149 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 56b20d1..872c337 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -887,24 +887,23 @@ static int ixgbe_set_ringparam(struct net_device *netdev,
-                                struct ethtool_ringparam *ring)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index c64a777..a17116b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -693,6 +693,7 @@ extern s32 ixgbe_fdir_erase_perfect_filter_82599(struct ixgbe_hw *hw,
+ 						 u16 soft_id);
+ extern void ixgbe_atr_compute_perfect_hash_82599(union ixgbe_atr_input *input,
+ 						 union ixgbe_atr_input *mask);
++extern bool ixgbe_verify_lesm_fw_enabled_82599(struct ixgbe_hw *hw);
+ extern void ixgbe_set_rx_mode(struct net_device *netdev);
+ #ifdef CONFIG_IXGBE_DCB
+ extern void ixgbe_set_rx_drop_en(struct ixgbe_adapter *adapter);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index b527813..3e49fcb 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -62,7 +62,6 @@ static s32 ixgbe_setup_copper_link_82599(struct ixgbe_hw *hw,
+                                          bool autoneg,
+                                          bool autoneg_wait_to_complete);
+ static s32 ixgbe_verify_fw_version_82599(struct ixgbe_hw *hw);
+-static bool ixgbe_verify_lesm_fw_enabled_82599(struct ixgbe_hw *hw);
+ 
+ static void ixgbe_init_mac_link_ops_82599(struct ixgbe_hw *hw)
  {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
--	struct ixgbe_ring *temp_tx_ring, *temp_rx_ring;
-+	struct ixgbe_ring *temp_ring;
- 	int i, err = 0;
- 	u32 new_rx_count, new_tx_count;
--	bool need_update = false;
+@@ -99,9 +98,8 @@ static void ixgbe_init_mac_link_ops_82599(struct ixgbe_hw *hw)
+ static s32 ixgbe_setup_sfp_modules_82599(struct ixgbe_hw *hw)
+ {
+ 	s32 ret_val = 0;
+-	u32 reg_anlp1 = 0;
+-	u32 i = 0;
+ 	u16 list_offset, data_offset, data_value;
++	bool got_lock = false;
  
- 	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
- 		return -EINVAL;
+ 	if (hw->phy.sfp_type != ixgbe_sfp_type_unknown) {
+ 		ixgbe_init_mac_link_ops_82599(hw);
+@@ -137,28 +135,37 @@ static s32 ixgbe_setup_sfp_modules_82599(struct ixgbe_hw *hw)
+ 		usleep_range(hw->eeprom.semaphore_delay * 1000,
+ 			     hw->eeprom.semaphore_delay * 2000);
  
--	new_rx_count = max_t(u32, ring->rx_pending, IXGBE_MIN_RXD);
--	new_rx_count = min_t(u32, new_rx_count, IXGBE_MAX_RXD);
--	new_rx_count = ALIGN(new_rx_count, IXGBE_REQ_RX_DESCRIPTOR_MULTIPLE);
--
--	new_tx_count = max_t(u32, ring->tx_pending, IXGBE_MIN_TXD);
--	new_tx_count = min_t(u32, new_tx_count, IXGBE_MAX_TXD);
-+	new_tx_count = clamp_t(u32, ring->tx_pending,
-+			       IXGBE_MIN_TXD, IXGBE_MAX_TXD);
- 	new_tx_count = ALIGN(new_tx_count, IXGBE_REQ_TX_DESCRIPTOR_MULTIPLE);
- 
--	if ((new_tx_count == adapter->tx_ring[0]->count) &&
--	    (new_rx_count == adapter->rx_ring[0]->count)) {
-+	new_rx_count = clamp_t(u32, ring->rx_pending,
-+			       IXGBE_MIN_RXD, IXGBE_MAX_RXD);
-+	new_rx_count = ALIGN(new_rx_count, IXGBE_REQ_RX_DESCRIPTOR_MULTIPLE);
++		/* Need SW/FW semaphore around AUTOC writes if LESM on,
++		 * likewise reset_pipeline requires lock as it also writes
++		 * AUTOC.
++		 */
++		if (ixgbe_verify_lesm_fw_enabled_82599(hw)) {
++			ret_val = hw->mac.ops.acquire_swfw_sync(hw,
++							IXGBE_GSSR_MAC_CSR_SM);
++			if (ret_val)
++				goto setup_sfp_out;
 +
-+	if ((new_tx_count == adapter->tx_ring_count) &&
-+	    (new_rx_count == adapter->rx_ring_count)) {
- 		/* nothing to do */
- 		return 0;
- 	}
-@@ -922,81 +921,80 @@ static int ixgbe_set_ringparam(struct net_device *netdev,
- 		goto clear_reset;
- 	}
- 
--	temp_tx_ring = vmalloc(adapter->num_tx_queues * sizeof(struct ixgbe_ring));
--	if (!temp_tx_ring) {
-+	/* allocate temporary buffer to store rings in */
-+	i = max_t(int, adapter->num_tx_queues, adapter->num_rx_queues);
-+	temp_ring = vmalloc(i * sizeof(struct ixgbe_ring));
-+
-+	if (!temp_ring) {
- 		err = -ENOMEM;
- 		goto clear_reset;
- 	}
- 
-+	ixgbe_down(adapter);
-+
-+	/*
-+	 * Setup new Tx resources and free the old Tx resources in that order.
-+	 * We can then assign the new resources to the rings via a memcpy.
-+	 * The advantage to this approach is that we are guaranteed to still
-+	 * have resources even in the case of an allocation failure.
-+	 */
- 	if (new_tx_count != adapter->tx_ring_count) {
- 		for (i = 0; i < adapter->num_tx_queues; i++) {
--			memcpy(&temp_tx_ring[i], adapter->tx_ring[i],
-+			memcpy(&temp_ring[i], adapter->tx_ring[i],
- 			       sizeof(struct ixgbe_ring));
--			temp_tx_ring[i].count = new_tx_count;
--			err = ixgbe_setup_tx_resources(&temp_tx_ring[i]);
-+
-+			temp_ring[i].count = new_tx_count;
-+			err = ixgbe_setup_tx_resources(&temp_ring[i]);
- 			if (err) {
- 				while (i) {
- 					i--;
--					ixgbe_free_tx_resources(&temp_tx_ring[i]);
-+					ixgbe_free_tx_resources(&temp_ring[i]);
- 				}
--				goto clear_reset;
-+				goto err_setup;
- 			}
- 		}
--		need_update = true;
--	}
- 
--	temp_rx_ring = vmalloc(adapter->num_rx_queues * sizeof(struct ixgbe_ring));
--	if (!temp_rx_ring) {
--		err = -ENOMEM;
--		goto err_setup;
-+		for (i = 0; i < adapter->num_tx_queues; i++) {
-+			ixgbe_free_tx_resources(adapter->tx_ring[i]);
-+
-+			memcpy(adapter->tx_ring[i], &temp_ring[i],
-+			       sizeof(struct ixgbe_ring));
++			got_lock = true;
 +		}
 +
-+		adapter->tx_ring_count = new_tx_count;
+ 		/* Now restart DSP by setting Restart_AN and clearing LMS */
+ 		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, ((IXGBE_READ_REG(hw,
+ 		                IXGBE_AUTOC) & ~IXGBE_AUTOC_LMS_MASK) |
+ 		                IXGBE_AUTOC_AN_RESTART));
+ 
+-		/* Wait for AN to leave state 0 */
+-		for (i = 0; i < 10; i++) {
+-			usleep_range(4000, 8000);
+-			reg_anlp1 = IXGBE_READ_REG(hw, IXGBE_ANLP1);
+-			if (reg_anlp1 & IXGBE_ANLP1_AN_STATE_MASK)
+-				break;
++		ret_val = ixgbe_reset_pipeline_82599(hw);
++
++		if (got_lock) {
++			hw->mac.ops.release_swfw_sync(hw,
++						      IXGBE_GSSR_MAC_CSR_SM);
++			got_lock = false;
+ 		}
+-		if (!(reg_anlp1 & IXGBE_ANLP1_AN_STATE_MASK)) {
+-			hw_dbg(hw, "sfp module setup not complete\n");
++
++		if (ret_val) {
++			hw_dbg(hw, " sfp module setup not complete\n");
+ 			ret_val = IXGBE_ERR_SFP_SETUP_NOT_COMPLETE;
+ 			goto setup_sfp_out;
+ 		}
+-
+-		/* Restart DSP by setting Restart_AN and return to SFI mode */
+-		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, (IXGBE_READ_REG(hw,
+-		                IXGBE_AUTOC) | IXGBE_AUTOC_LMS_10G_SERIAL |
+-		                IXGBE_AUTOC_AN_RESTART));
  	}
  
-+	/* Repeat the process for the Rx rings if needed */
- 	if (new_rx_count != adapter->rx_ring_count) {
- 		for (i = 0; i < adapter->num_rx_queues; i++) {
--			memcpy(&temp_rx_ring[i], adapter->rx_ring[i],
-+			memcpy(&temp_ring[i], adapter->rx_ring[i],
- 			       sizeof(struct ixgbe_ring));
--			temp_rx_ring[i].count = new_rx_count;
--			err = ixgbe_setup_rx_resources(&temp_rx_ring[i]);
+ setup_sfp_out:
+@@ -394,14 +401,26 @@ static s32 ixgbe_start_mac_link_82599(struct ixgbe_hw *hw,
+ 	u32 links_reg;
+ 	u32 i;
+ 	s32 status = 0;
++	bool got_lock = false;
 +
-+			temp_ring[i].count = new_rx_count;
-+			err = ixgbe_setup_rx_resources(&temp_ring[i]);
- 			if (err) {
- 				while (i) {
- 					i--;
--					ixgbe_free_rx_resources(&temp_rx_ring[i]);
-+					ixgbe_free_rx_resources(&temp_ring[i]);
- 				}
- 				goto err_setup;
- 			}
++	if (ixgbe_verify_lesm_fw_enabled_82599(hw)) {
++		status = hw->mac.ops.acquire_swfw_sync(hw,
++						IXGBE_GSSR_MAC_CSR_SM);
++		if (status)
++			goto out;
 +
- 		}
--		need_update = true;
--	}
++		got_lock = true;
++	}
  
--	/* if rings need to be updated, here's the place to do it in one shot */
--	if (need_update) {
--		ixgbe_down(adapter);
-+		for (i = 0; i < adapter->num_rx_queues; i++) {
-+			ixgbe_free_rx_resources(adapter->rx_ring[i]);
+ 	/* Restart link */
+-	autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
+-	autoc_reg |= IXGBE_AUTOC_AN_RESTART;
+-	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg);
++	ixgbe_reset_pipeline_82599(hw);
++
++	if (got_lock)
++		hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_MAC_CSR_SM);
  
--		/* tx */
--		if (new_tx_count != adapter->tx_ring_count) {
--			for (i = 0; i < adapter->num_tx_queues; i++) {
--				ixgbe_free_tx_resources(adapter->tx_ring[i]);
--				memcpy(adapter->tx_ring[i], &temp_tx_ring[i],
--				       sizeof(struct ixgbe_ring));
--			}
--			adapter->tx_ring_count = new_tx_count;
-+			memcpy(adapter->rx_ring[i], &temp_ring[i],
-+			       sizeof(struct ixgbe_ring));
- 		}
+ 	/* Only poll for autoneg to complete if specified to do so */
+ 	if (autoneg_wait_to_complete) {
++		autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
+ 		if ((autoc_reg & IXGBE_AUTOC_LMS_MASK) ==
+ 		     IXGBE_AUTOC_LMS_KX4_KX_KR ||
+ 		    (autoc_reg & IXGBE_AUTOC_LMS_MASK) ==
+@@ -425,6 +444,7 @@ static s32 ixgbe_start_mac_link_82599(struct ixgbe_hw *hw,
+ 	/* Add delay to filter out noises during initial link setup */
+ 	msleep(50);
  
--		/* rx */
--		if (new_rx_count != adapter->rx_ring_count) {
--			for (i = 0; i < adapter->num_rx_queues; i++) {
--				ixgbe_free_rx_resources(adapter->rx_ring[i]);
--				memcpy(adapter->rx_ring[i], &temp_rx_ring[i],
--				       sizeof(struct ixgbe_ring));
--			}
--			adapter->rx_ring_count = new_rx_count;
--		}
--		ixgbe_up(adapter);
-+		adapter->rx_ring_count = new_rx_count;
++out:
+ 	return status;
+ }
+ 
+@@ -779,6 +799,7 @@ static s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
+ 	u32 links_reg;
+ 	u32 i;
+ 	ixgbe_link_speed link_capabilities = IXGBE_LINK_SPEED_UNKNOWN;
++	bool got_lock = false;
+ 
+ 	/* Check to see if speed passed in is supported. */
+ 	status = hw->mac.ops.get_link_capabilities(hw, &link_capabilities,
+@@ -836,9 +857,26 @@ static s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
  	}
  
--	vfree(temp_rx_ring);
- err_setup:
--	vfree(temp_tx_ring);
-+	ixgbe_up(adapter);
-+	vfree(temp_ring);
- clear_reset:
- 	clear_bit(__IXGBE_RESETTING, &adapter->state);
- 	return err;
+ 	if (autoc != start_autoc) {
++		/* Need SW/FW semaphore around AUTOC writes if LESM is on,
++		 * likewise reset_pipeline requires us to hold this lock as
++		 * it also writes to AUTOC.
++		 */
++		if (ixgbe_verify_lesm_fw_enabled_82599(hw)) {
++			status = hw->mac.ops.acquire_swfw_sync(hw,
++							IXGBE_GSSR_MAC_CSR_SM);
++			if (status != 0)
++				goto out;
++
++			got_lock = true;
++		}
++
+ 		/* Restart link */
+-		autoc |= IXGBE_AUTOC_AN_RESTART;
+ 		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc);
++		ixgbe_reset_pipeline_82599(hw);
++
++		if (got_lock)
++			hw->mac.ops.release_swfw_sync(hw,
++						      IXGBE_GSSR_MAC_CSR_SM);
+ 
+ 		/* Only poll for autoneg to complete if specified to do so */
+ 		if (autoneg_wait_to_complete) {
+@@ -994,9 +1032,28 @@ mac_reset_top:
+ 		hw->mac.orig_autoc2 = autoc2;
+ 		hw->mac.orig_link_settings_stored = true;
+ 	} else {
+-		if (autoc != hw->mac.orig_autoc)
+-			IXGBE_WRITE_REG(hw, IXGBE_AUTOC, (hw->mac.orig_autoc |
+-			                IXGBE_AUTOC_AN_RESTART));
++		if (autoc != hw->mac.orig_autoc) {
++			/* Need SW/FW semaphore around AUTOC writes if LESM is
++			 * on, likewise reset_pipeline requires us to hold
++			 * this lock as it also writes to AUTOC.
++			 */
++			bool got_lock = false;
++			if (ixgbe_verify_lesm_fw_enabled_82599(hw)) {
++				status = hw->mac.ops.acquire_swfw_sync(hw,
++							IXGBE_GSSR_MAC_CSR_SM);
++				if (status)
++					goto reset_hw_out;
++
++				got_lock = true;
++			}
++
++			IXGBE_WRITE_REG(hw, IXGBE_AUTOC, hw->mac.orig_autoc);
++			ixgbe_reset_pipeline_82599(hw);
++
++			if (got_lock)
++				hw->mac.ops.release_swfw_sync(hw,
++							IXGBE_GSSR_MAC_CSR_SM);
++		}
+ 
+ 		if ((autoc2 & IXGBE_AUTOC2_UPPER_MASK) !=
+ 		    (hw->mac.orig_autoc2 & IXGBE_AUTOC2_UPPER_MASK)) {
+@@ -1983,7 +2040,7 @@ fw_version_out:
+  *  Returns true if the LESM FW module is present and enabled. Otherwise
+  *  returns false. Smart Speed must be disabled if LESM FW module is enabled.
+  **/
+-static bool ixgbe_verify_lesm_fw_enabled_82599(struct ixgbe_hw *hw)
++bool ixgbe_verify_lesm_fw_enabled_82599(struct ixgbe_hw *hw)
+ {
+ 	bool lesm_enabled = false;
+ 	u16 fw_offset, fw_lesm_param_offset, fw_lesm_state;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index a2a9bcc..8f285ed 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -90,6 +90,7 @@ static s32 ixgbe_setup_fc(struct ixgbe_hw *hw)
+ 	s32 ret_val = 0;
+ 	u32 reg = 0, reg_bp = 0;
+ 	u16 reg_cu = 0;
++	bool got_lock = false;
+ 
+ 	/*
+ 	 * Validate the requested mode.  Strict IEEE mode does not allow
+@@ -210,8 +211,29 @@ static s32 ixgbe_setup_fc(struct ixgbe_hw *hw)
+ 	 *
+ 	 */
+ 	if (hw->phy.media_type == ixgbe_media_type_backplane) {
+-		reg_bp |= IXGBE_AUTOC_AN_RESTART;
++		/* Need the SW/FW semaphore around AUTOC writes if 82599 and
++		 * LESM is on, likewise reset_pipeline requries the lock as
++		 * it also writes AUTOC.
++		 */
++		if ((hw->mac.type == ixgbe_mac_82599EB) &&
++		    ixgbe_verify_lesm_fw_enabled_82599(hw)) {
++			ret_val = hw->mac.ops.acquire_swfw_sync(hw,
++							IXGBE_GSSR_MAC_CSR_SM);
++			if (ret_val)
++				goto out;
++
++			got_lock = true;
++		}
++
+ 		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, reg_bp);
++
++		if (hw->mac.type == ixgbe_mac_82599EB)
++			ixgbe_reset_pipeline_82599(hw);
++
++		if (got_lock)
++			hw->mac.ops.release_swfw_sync(hw,
++						      IXGBE_GSSR_MAC_CSR_SM);
++
+ 	} else if ((hw->phy.media_type == ixgbe_media_type_copper) &&
+ 		    (ixgbe_device_supports_autoneg_fc(hw) == 0)) {
+ 		hw->phy.ops.write_reg(hw, MDIO_AN_ADVERTISE,
+@@ -2616,6 +2638,7 @@ s32 ixgbe_blink_led_start_generic(struct ixgbe_hw *hw, u32 index)
+ 	bool link_up = false;
+ 	u32 autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
+ 	u32 led_reg = IXGBE_READ_REG(hw, IXGBE_LEDCTL);
++	s32 ret_val = 0;
+ 
+ 	/*
+ 	 * Link must be up to auto-blink the LEDs;
+@@ -2624,10 +2647,28 @@ s32 ixgbe_blink_led_start_generic(struct ixgbe_hw *hw, u32 index)
+ 	hw->mac.ops.check_link(hw, &speed, &link_up, false);
+ 
+ 	if (!link_up) {
++		/* Need the SW/FW semaphore around AUTOC writes if 82599 and
++		 * LESM is on.
++		 */
++		bool got_lock = false;
++
++		if ((hw->mac.type == ixgbe_mac_82599EB) &&
++		    ixgbe_verify_lesm_fw_enabled_82599(hw)) {
++			ret_val = hw->mac.ops.acquire_swfw_sync(hw,
++							IXGBE_GSSR_MAC_CSR_SM);
++			if (ret_val)
++				goto out;
++
++			got_lock = true;
++		}
+ 		autoc_reg |= IXGBE_AUTOC_AN_RESTART;
+ 		autoc_reg |= IXGBE_AUTOC_FLU;
+ 		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg);
+ 		IXGBE_WRITE_FLUSH(hw);
++
++		if (got_lock)
++			hw->mac.ops.release_swfw_sync(hw,
++						      IXGBE_GSSR_MAC_CSR_SM);
+ 		usleep_range(10000, 20000);
+ 	}
+ 
+@@ -2636,7 +2677,8 @@ s32 ixgbe_blink_led_start_generic(struct ixgbe_hw *hw, u32 index)
+ 	IXGBE_WRITE_REG(hw, IXGBE_LEDCTL, led_reg);
+ 	IXGBE_WRITE_FLUSH(hw);
+ 
+-	return 0;
++out:
++	return ret_val;
+ }
+ 
+ /**
+@@ -2648,18 +2690,40 @@ s32 ixgbe_blink_led_stop_generic(struct ixgbe_hw *hw, u32 index)
+ {
+ 	u32 autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
+ 	u32 led_reg = IXGBE_READ_REG(hw, IXGBE_LEDCTL);
++	s32 ret_val = 0;
++	bool got_lock = false;
++
++	/* Need the SW/FW semaphore around AUTOC writes if 82599 and
++	 * LESM is on.
++	 */
++	if ((hw->mac.type == ixgbe_mac_82599EB) &&
++	    ixgbe_verify_lesm_fw_enabled_82599(hw)) {
++		ret_val = hw->mac.ops.acquire_swfw_sync(hw,
++						IXGBE_GSSR_MAC_CSR_SM);
++		if (ret_val)
++			goto out;
++
++		got_lock = true;
++	}
+ 
+ 	autoc_reg &= ~IXGBE_AUTOC_FLU;
+ 	autoc_reg |= IXGBE_AUTOC_AN_RESTART;
+ 	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg);
+ 
++	if (hw->mac.type == ixgbe_mac_82599EB)
++		ixgbe_reset_pipeline_82599(hw);
++
++	if (got_lock)
++		hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_MAC_CSR_SM);
++
+ 	led_reg &= ~IXGBE_LED_MODE_MASK(index);
+ 	led_reg &= ~IXGBE_LED_BLINK(index);
+ 	led_reg |= IXGBE_LED_LINK_ACTIVE << IXGBE_LED_MODE_SHIFT(index);
+ 	IXGBE_WRITE_REG(hw, IXGBE_LEDCTL, led_reg);
+ 	IXGBE_WRITE_FLUSH(hw);
+ 
+-	return 0;
++out:
++	return ret_val;
+ }
+ 
+ /**
 -- 
 1.7.11.7
