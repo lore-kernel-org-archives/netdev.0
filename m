@@ -1,184 +1,111 @@
 From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 02/14] be2net: Fix setting QoS for VF for Lancer
-Date: Sat, 20 Oct 2012 21:31:53 +0530
-Message-ID: <fed65e64-1fc8-47a1-ae3b-625f514a5da5@CMEXHTCAS2.ad.emulex.com>
+Subject: [PATCH net-next 03/14] be2net: Fix change MAC operation for VF for Lancer
+Date: Sat, 20 Oct 2012 21:32:13 +0530
+Message-ID: <708dbd00-9aed-4ec9-b75c-d4e21e5d4146@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:40002 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752164Ab2JTQDE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 12:03:04 -0400
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:22339 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752191Ab2JTQDU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 12:03:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use Lancer specific command to set QoS for VF.
+For changing MAC of VF from PF, delete MAC operation needs to be done before
+assigning new MAC. Also in ndo_set_mac_address operation avoid delete MAC if
+it has been already deleted by PF.
 
 Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |    1 +
- drivers/net/ethernet/emulex/benet/be_cmds.c |   58 +++++++++++++++++++++++++++
- drivers/net/ethernet/emulex/benet/be_cmds.h |   23 +++++++++++
- drivers/net/ethernet/emulex/benet/be_main.c |    5 ++-
- 4 files changed, 86 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |   52 +++++++++++++++++++++-----
+ 1 files changed, 42 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index dc6ec6b..3b8ef4b 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -444,6 +444,7 @@ struct be_adapter {
- 	u16 max_vlans;
- 	u16 max_event_queues;
- 	u32 if_cap_flags;
-+	u8 pf_number;
- };
- 
- #define be_physfn(adapter)		(!adapter->virtfn)
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 094b5f3..3980b58 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -2862,6 +2862,7 @@ int be_cmd_get_func_config(struct be_adapter *adapter)
- 			goto err;
- 		}
- 
-+		adapter->pf_number = desc->pf_num;
- 		adapter->max_pmac_cnt = le16_to_cpu(desc->unicast_mac_count);
- 		adapter->max_vlans = le16_to_cpu(desc->vlan_count);
- 		adapter->max_mcast_mac = le16_to_cpu(desc->mcast_mac_count);
-@@ -2936,6 +2937,63 @@ err:
- 	return status;
- }
- 
-+/* Uses sync mcc */
-+int be_cmd_set_profile_config(struct be_adapter *adapter, u32 bps,
-+			      u8 domain)
-+{
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_set_profile_config *req;
-+	int status;
-+
-+	spin_lock_bh(&adapter->mcc_lock);
-+
-+	wrb = wrb_from_mccq(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
-+
-+	req = embedded_payload(wrb);
-+
-+	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
-+			       OPCODE_COMMON_SET_PROFILE_CONFIG, sizeof(*req),
-+			       wrb, NULL);
-+
-+	req->hdr.domain = domain;
-+	req->desc_count = cpu_to_le32(1);
-+
-+	req->nic_desc.desc_type = NIC_RESOURCE_DESC_TYPE_ID;
-+	req->nic_desc.desc_len = RESOURCE_DESC_SIZE;
-+	req->nic_desc.flags = (1 << QUN) | (1 << IMM) | (1 << NOSV);
-+	req->nic_desc.pf_num = adapter->pf_number;
-+	req->nic_desc.vf_num = domain;
-+
-+	/* Mark fields invalid */
-+	req->nic_desc.unicast_mac_count = 0xFFFF;
-+	req->nic_desc.mcc_count = 0xFFFF;
-+	req->nic_desc.vlan_count = 0xFFFF;
-+	req->nic_desc.mcast_mac_count = 0xFFFF;
-+	req->nic_desc.txq_count = 0xFFFF;
-+	req->nic_desc.rq_count = 0xFFFF;
-+	req->nic_desc.rssq_count = 0xFFFF;
-+	req->nic_desc.lro_count = 0xFFFF;
-+	req->nic_desc.cq_count = 0xFFFF;
-+	req->nic_desc.toe_conn_count = 0xFFFF;
-+	req->nic_desc.eq_count = 0xFFFF;
-+	req->nic_desc.link_param = 0xFF;
-+	req->nic_desc.bw_min = 0xFFFFFFFF;
-+	req->nic_desc.acpi_params = 0xFF;
-+	req->nic_desc.wol_param = 0x0F;
-+
-+	/* Change BW */
-+	req->nic_desc.bw_min = cpu_to_le32(bps);
-+	req->nic_desc.bw_max = cpu_to_le32(bps);
-+	status = be_mcc_notify_wait(adapter);
-+err:
-+	spin_unlock_bh(&adapter->mcc_lock);
-+	return status;
-+}
-+
- int be_roce_mcc_cmd(void *netdev_handle, void *wrb_payload,
- 			int wrb_payload_size, u16 *cmd_status, u16 *ext_status)
- {
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index c2bf4df..ad16d31 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -198,6 +198,7 @@ struct be_mcc_mailbox {
- #define OPCODE_COMMON_GET_HSW_CONFIG			152
- #define OPCODE_COMMON_GET_FUNC_CONFIG			160
- #define OPCODE_COMMON_GET_PROFILE_CONFIG		164
-+#define OPCODE_COMMON_SET_PROFILE_CONFIG		165
- #define OPCODE_COMMON_SET_HSW_CONFIG			153
- #define OPCODE_COMMON_READ_OBJECT			171
- #define OPCODE_COMMON_WRITE_OBJECT			172
-@@ -1689,6 +1690,14 @@ struct be_cmd_req_set_ext_fat_caps {
- #define RESOURCE_DESC_SIZE			72
- #define NIC_RESOURCE_DESC_TYPE_ID		0x41
- #define MAX_RESOURCE_DESC			4
-+
-+/* QOS unit number */
-+#define QUN					4
-+/* Immediate */
-+#define IMM					6
-+/* No save */
-+#define NOSV					7
-+
- struct be_nic_resource_desc {
- 	u8 desc_type;
- 	u8 desc_len;
-@@ -1746,6 +1755,17 @@ struct be_cmd_resp_get_profile_config {
- 	u8 func_param[MAX_RESOURCE_DESC * RESOURCE_DESC_SIZE];
- };
- 
-+struct be_cmd_req_set_profile_config {
-+	struct be_cmd_req_hdr hdr;
-+	u32 rsvd;
-+	u32 desc_count;
-+	struct be_nic_resource_desc nic_desc;
-+};
-+
-+struct be_cmd_resp_set_profile_config {
-+	struct be_cmd_req_hdr hdr;
-+};
-+
- extern int be_pci_fnum_get(struct be_adapter *adapter);
- extern int be_fw_wait_ready(struct be_adapter *adapter);
- extern int be_cmd_mac_addr_query(struct be_adapter *adapter, u8 *mac_addr,
-@@ -1863,3 +1883,6 @@ extern int be_cmd_query_port_name(struct be_adapter *adapter, u8 *port_name);
- extern int be_cmd_get_func_config(struct be_adapter *adapter);
- extern int be_cmd_get_profile_config(struct be_adapter *adapter, u32 *cap_flags,
- 				     u8 domain);
-+
-+extern int be_cmd_set_profile_config(struct be_adapter *adapter, u32 bps,
-+				     u8 domain);
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 9b734a0..0b49201 100644
+index 0b49201..41f935a 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1062,7 +1062,10 @@ static int be_set_vf_tx_rate(struct net_device *netdev,
- 		return -EINVAL;
- 	}
+@@ -237,23 +237,46 @@ static int be_mac_addr_set(struct net_device *netdev, void *p)
+ 	int status = 0;
+ 	u8 current_mac[ETH_ALEN];
+ 	u32 pmac_id = adapter->pmac_id[0];
++	bool active_mac = true;
  
--	status = be_cmd_set_qos(adapter, rate / 10, vf + 1);
-+	if (lancer_chip(adapter))
-+		status = be_cmd_set_profile_config(adapter, rate / 10, vf + 1);
-+	else
-+		status = be_cmd_set_qos(adapter, rate / 10, vf + 1);
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
  
+-	status = be_cmd_mac_addr_query(adapter, current_mac, false,
+-				       adapter->if_handle, 0);
++	/* For BE VF, MAC address is already activated by PF.
++	 * Hence only operation left is updating netdev->devaddr.
++	 * Update it if user is passing the same MAC which was used
++	 * during configuring VF MAC from PF(Hypervisor).
++	 */
++	if (!lancer_chip(adapter) && !be_physfn(adapter)) {
++		status = be_cmd_mac_addr_query(adapter, current_mac,
++					       false, adapter->if_handle, 0);
++		if (!status && !memcmp(current_mac, addr->sa_data, ETH_ALEN))
++			goto done;
++		else
++			goto err;
++	}
++
++	if (!memcmp(addr->sa_data, netdev->dev_addr, ETH_ALEN))
++		goto done;
++
++	/* For Lancer check if any MAC is active.
++	 * If active, get its mac id.
++	 */
++	if (lancer_chip(adapter) && !be_physfn(adapter))
++		be_cmd_get_mac_from_list(adapter, current_mac, &active_mac,
++					 &pmac_id, 0);
++
++	status = be_cmd_pmac_add(adapter, (u8 *)addr->sa_data,
++				 adapter->if_handle,
++				 &adapter->pmac_id[0], 0);
++
  	if (status)
- 		dev_err(&adapter->pdev->dev,
+ 		goto err;
+ 
+-	if (memcmp(addr->sa_data, current_mac, ETH_ALEN)) {
+-		status = be_cmd_pmac_add(adapter, (u8 *)addr->sa_data,
+-				adapter->if_handle, &adapter->pmac_id[0], 0);
+-		if (status)
+-			goto err;
+-
+-		be_cmd_pmac_del(adapter, adapter->if_handle, pmac_id, 0);
+-	}
++	if (active_mac)
++		be_cmd_pmac_del(adapter, adapter->if_handle,
++				pmac_id, 0);
++done:
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+ 	return 0;
+ err:
+@@ -962,6 +985,9 @@ static int be_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 	struct be_vf_cfg *vf_cfg = &adapter->vf_cfg[vf];
+ 	int status;
++	bool active_mac = false;
++	u32 pmac_id;
++	u8 old_mac[ETH_ALEN];
+ 
+ 	if (!sriov_enabled(adapter))
+ 		return -EPERM;
+@@ -970,6 +996,12 @@ static int be_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
+ 		return -EINVAL;
+ 
+ 	if (lancer_chip(adapter)) {
++		status = be_cmd_get_mac_from_list(adapter, old_mac, &active_mac,
++						  &pmac_id, vf + 1);
++		if (!status && active_mac)
++			be_cmd_pmac_del(adapter, vf_cfg->if_handle,
++					pmac_id, vf + 1);
++
+ 		status = be_cmd_set_mac_list(adapter,  mac, 1, vf + 1);
+ 	} else {
+ 		status = be_cmd_pmac_del(adapter, vf_cfg->if_handle,
 -- 
 1.6.0.2
