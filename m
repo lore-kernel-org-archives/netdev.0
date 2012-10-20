@@ -1,101 +1,123 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/13] ixgbe: Add function ixgbe_reset_pipeline_82599
-Date: Fri, 19 Oct 2012 23:26:05 -0700
-Message-ID: <1350714367-24208-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/13] ixgbe: Add support for GET_QUEUES message to get DCB configuration
+Date: Fri, 19 Oct 2012 23:25:57 -0700
+Message-ID: <1350714367-24208-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:2073 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:18923 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753311Ab2JTG0k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Oct 2012 02:26:40 -0400
+	id S1752929Ab2JTG0i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Oct 2012 02:26:38 -0400
 In-Reply-To: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch adds a function that forces a full pipeline reset.  This
-function will be used in following patches to completely reset the PHY
-during resets.
+This patch addresses several issues in regards to the combination of DCB
+and SR-IOV. Specifically it allows us to send information to the VF on
+which queues it should be using.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  | 44 +++++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |  1 +
- 2 files changed, 45 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   | 10 ++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 42 ++++++++++++++++++++++++++
+ 2 files changed, 52 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index 1077cb2..b527813 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -2080,6 +2080,50 @@ static s32 ixgbe_read_eeprom_82599(struct ixgbe_hw *hw,
- 	return ret_val;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+index d4c842e..42dd65e 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+@@ -71,6 +71,7 @@
+ enum ixgbe_pfvf_api_rev {
+ 	ixgbe_mbox_api_10,	/* API version 1.0, linux/freebsd VF driver */
+ 	ixgbe_mbox_api_20,	/* API version 2.0, solaris Phase1 VF driver */
++	ixgbe_mbox_api_11,	/* API version 1.1, linux/freebsd VF driver */
+ 	/* This value should always be last */
+ 	ixgbe_mbox_api_unknown,	/* indicates that API version is not known */
+ };
+@@ -86,6 +87,15 @@ enum ixgbe_pfvf_api_rev {
+ #define IXGBE_VF_SET_MACVLAN	0x06 /* VF requests PF for unicast filter */
+ #define IXGBE_VF_API_NEGOTIATE	0x08 /* negotiate API version */
+ 
++/* mailbox API, version 1.1 VF requests */
++#define IXGBE_VF_GET_QUEUES	0x09 /* get queue configuration */
++
++/* GET_QUEUES return data indices within the mailbox */
++#define IXGBE_VF_TX_QUEUES	1	/* number of Tx queues supported */
++#define IXGBE_VF_RX_QUEUES	2	/* number of Rx queues supported */
++#define IXGBE_VF_TRANS_VLAN	3	/* Indication of port vlan */
++#define IXGBE_VF_DEF_QUEUE	4	/* Default queue offset */
++
+ /* length of permanent address message returned from PF */
+ #define IXGBE_VF_PERMADDR_MSG_LEN 4
+ /* word in permanent address message with the current multicast type */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index b330a1c..8bf467b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -751,6 +751,45 @@ static int ixgbe_negotiate_vf_api(struct ixgbe_adapter *adapter,
+ 	return -1;
  }
  
-+/**
-+ * ixgbe_reset_pipeline_82599 - perform pipeline reset
-+ *
-+ * @hw: pointer to hardware structure
-+ *
-+ * Reset pipeline by asserting Restart_AN together with LMS change to ensure
-+ * full pipeline reset.  Note - We must hold the SW/FW semaphore before writing
-+ * to AUTOC, so this function assumes the semaphore is held.
-+ **/
-+s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw *hw)
++static int ixgbe_get_vf_queues(struct ixgbe_adapter *adapter,
++			       u32 *msgbuf, u32 vf)
 +{
-+	s32 i, autoc_reg, ret_val;
-+	s32 anlp1_reg = 0;
++	struct net_device *dev = adapter->netdev;
++	struct ixgbe_ring_feature *vmdq = &adapter->ring_feature[RING_F_VMDQ];
++	unsigned int default_tc = 0;
++	u8 num_tcs = netdev_get_num_tc(dev);
 +
-+	autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
-+	autoc_reg |= IXGBE_AUTOC_AN_RESTART;
-+
-+	/* Write AUTOC register with toggled LMS[2] bit and Restart_AN */
-+	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg ^ IXGBE_AUTOC_LMS_1G_AN);
-+
-+	/* Wait for AN to leave state 0 */
-+	for (i = 0; i < 10; i++) {
-+		usleep_range(4000, 8000);
-+		anlp1_reg = IXGBE_READ_REG(hw, IXGBE_ANLP1);
-+		if (anlp1_reg & IXGBE_ANLP1_AN_STATE_MASK)
-+			break;
++	/* verify the PF is supporting the correct APIs */
++	switch (adapter->vfinfo[vf].vf_api) {
++	case ixgbe_mbox_api_20:
++	case ixgbe_mbox_api_11:
++		break;
++	default:
++		return -1;
 +	}
 +
-+	if (!(anlp1_reg & IXGBE_ANLP1_AN_STATE_MASK)) {
-+		hw_dbg(hw, "auto negotiation not completed\n");
-+		ret_val = IXGBE_ERR_RESET_FAILED;
-+		goto reset_pipeline_out;
-+	}
++	/* only allow 1 Tx queue for bandwidth limiting */
++	msgbuf[IXGBE_VF_TX_QUEUES] = __ALIGN_MASK(1, ~vmdq->mask);
++	msgbuf[IXGBE_VF_RX_QUEUES] = __ALIGN_MASK(1, ~vmdq->mask);
 +
-+	ret_val = 0;
++	/* if TCs > 1 determine which TC belongs to default user priority */
++	if (num_tcs > 1)
++		default_tc = netdev_get_prio_tc_map(dev, adapter->default_up);
 +
-+reset_pipeline_out:
-+	/* Write AUTOC register with original LMS field and Restart_AN */
-+	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg);
-+	IXGBE_WRITE_FLUSH(hw);
++	/* notify VF of need for VLAN tag stripping, and correct queue */
++	if (num_tcs)
++		msgbuf[IXGBE_VF_TRANS_VLAN] = num_tcs;
++	else if (adapter->vfinfo[vf].pf_vlan || adapter->vfinfo[vf].pf_qos)
++		msgbuf[IXGBE_VF_TRANS_VLAN] = 1;
++	else
++		msgbuf[IXGBE_VF_TRANS_VLAN] = 0;
 +
-+	return ret_val;
++	/* notify VF of default queue */
++	msgbuf[IXGBE_VF_DEF_QUEUE] = default_tc;
++
++	return 0;
 +}
 +
- static struct ixgbe_mac_operations mac_ops_82599 = {
- 	.init_hw                = &ixgbe_init_hw_generic,
- 	.reset_hw               = &ixgbe_reset_hw_82599,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index d813d11..587db47 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -107,6 +107,7 @@ void ixgbe_clear_tx_pending(struct ixgbe_hw *hw);
- 
- void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw, int num_pb,
- 			     u32 headroom, int strategy);
-+s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw *hw);
- 
- #define IXGBE_I2C_THERMAL_SENSOR_ADDR	0xF8
- #define IXGBE_EMC_INTERNAL_DATA		0x00
+ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ {
+ 	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
+@@ -804,6 +843,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ 	case IXGBE_VF_API_NEGOTIATE:
+ 		retval = ixgbe_negotiate_vf_api(adapter, msgbuf, vf);
+ 		break;
++	case IXGBE_VF_GET_QUEUES:
++		retval = ixgbe_get_vf_queues(adapter, msgbuf, vf);
++		break;
+ 	default:
+ 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
+ 		retval = IXGBE_ERR_MBX;
 -- 
 1.7.11.7
