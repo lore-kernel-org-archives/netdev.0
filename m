@@ -1,67 +1,45 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/13][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 19 Oct 2012 23:25:54 -0700
-Message-ID: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 08/13] ixgbe: using is_zero_ether_addr() to simplify the code
+Date: Fri, 19 Oct 2012 23:26:02 -0700
+Message-ID: <1350714367-24208-9-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:53579 "EHLO mga03.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:35225 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752598Ab2JTG0R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Oct 2012 02:26:17 -0400
+	id S1752598Ab2JTG02 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Oct 2012 02:26:28 -0400
+In-Reply-To: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe only.
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-The following are changes since commit 72ec301a27badb11635b08dc845101815abcf4a7:
-  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+Using is_zero_ether_addr() to simplify the code.
 
-Alexander Duyck (7):
-  ixgbe: Add support for IPv6 and UDP to ixgbe_get_headlen
-  ixgbe: Add support for tracking the default user priority to SR-IOV
-  ixgbe: Add support for GET_QUEUES message to get DCB configuration
-  ixgbe: Enable support for VF API version 1.1 in the PF.
-  ixgbevf: Add VF DCB + SR-IOV support
-  ixgbe: Drop unnecessary addition from ixgbe_set_rx_buffer_len
-  ixgbe: Fix possible memory leak in ixgbe_set_ringparam
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-Don Skidmore (2):
-  ixgbe: Add function ixgbe_reset_pipeline_82599
-  ixgbe: Add support for pipeline reset
-
-Emil Tantilov (1):
-  ixgbe: add WOL support for new subdevice id
-
-Jacob Keller (1):
-  ixgbe: (PTP) refactor init, cyclecounter and reset
-
-Tushar Dave (1):
-  ixgbe: Correcting small packet padding
-
-Wei Yongjun (1):
-  ixgbe: using is_zero_ether_addr() to simplify the code
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h          |   7 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c    | 149 ++++++++++++++++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c   |  73 +++++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h   |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c  | 102 +++++++-------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  66 +++++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |  10 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c      | 109 +++++++--------
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    | 124 +++++++++++++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |   1 +
- drivers/net/ethernet/intel/ixgbevf/defines.h      |   7 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   4 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 159 +++++++++++++++++++++-
- drivers/net/ethernet/intel/ixgbevf/mbx.h          |  10 ++
- drivers/net/ethernet/intel/ixgbevf/vf.c           |  58 ++++++++
- drivers/net/ethernet/intel/ixgbevf/vf.h           |   2 +
- 16 files changed, 688 insertions(+), 194 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index dbf37e4..a2a9bcc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -1778,8 +1778,7 @@ s32 ixgbe_validate_mac_addr(u8 *mac_addr)
+ 	else if (IXGBE_IS_BROADCAST(mac_addr))
+ 		status = IXGBE_ERR_INVALID_MAC_ADDR;
+ 	/* Reject the zero address */
+-	else if (mac_addr[0] == 0 && mac_addr[1] == 0 && mac_addr[2] == 0 &&
+-	         mac_addr[3] == 0 && mac_addr[4] == 0 && mac_addr[5] == 0)
++	else if (is_zero_ether_addr(mac_addr))
+ 		status = IXGBE_ERR_INVALID_MAC_ADDR;
+ 
+ 	return status;
 -- 
 1.7.11.7
