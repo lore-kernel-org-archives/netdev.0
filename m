@@ -1,81 +1,32 @@
-From: Sony Chacko <sony.chacko@qlogic.com>
-Subject: RE: [PATCH V2 15/20] qlcnic: 83xx adpater flash interface routines
-Date: Fri, 19 Oct 2012 18:17:06 -0700
-Message-ID: <A26832265F3C994CBA2F7DA55BFAE70E74A0AEA6C0@AVEXMB2.qlogic.org>
-References: <1350635858-27549-1-git-send-email-sony.chacko@qlogic.com>
- <1350635858-27549-16-git-send-email-sony.chacko@qlogic.com>
- <CANK3SE1csTcxXYZLWRa7aqRCbvvJN3cKk=iuFYPd+GMKA6auQQ@mail.gmail.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH] tcp: add SYN/data info to TCP_INFO
+Date: Fri, 19 Oct 2012 22:11:03 -0400
+Message-ID: <CADVnQy=hhh8LsqX-P1YUP0+qTGLJ7uvx3MOsYPRTVF6GifjQ3w@mail.gmail.com>
+References: <1350695684-26962-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Dept-NX Linux NIC Driver
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: Mark Einon <mark.einon@gmail.com>
+	Eric Dumazet <edumazet@google.com>,
+	Jerry Chu <hkchu@google.com>, Netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe004.messaging.microsoft.com ([216.32.181.184]:57716
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759439Ab2JTBRc convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2012 21:17:32 -0400
-In-Reply-To: <CANK3SE1csTcxXYZLWRa7aqRCbvvJN3cKk=iuFYPd+GMKA6auQQ@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:56146 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759449Ab2JTCLE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2012 22:11:04 -0400
+Received: by mail-ie0-f174.google.com with SMTP id k13so1554360iea.19
+        for <netdev@vger.kernel.org>; Fri, 19 Oct 2012 19:11:04 -0700 (PDT)
+In-Reply-To: <1350695684-26962-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- From: Mark Einon [mailto:mark.einon@gmail.com]
-> Sent: Friday, October 19, 2012 3:22 PM
-> To: Sony Chacko
-> Cc: David Miller; netdev; Dept-NX Linux NIC Driver
-> Subject: Re: [PATCH V2 15/20] qlcnic: 83xx adpater flash interface routines
-> 
-> On 19 October 2012 09:37, Sony Chacko <sony.chacko@qlogic.com> wrote:
-> >
-> > +static int qlcnic_83xx_enable_flash_write_op(struct qlcnic_adapter
-> > +*adapter) {
-> > +       int ret;
-> > +       u32 cmd;
-> > +       cmd = adapter->ahw->fdt.write_statusreg_cmd;
-> > +       qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_ADDR,
-> > +                                    (QLC_83XX_FLASH_FDT_WRITE_DEF_SIG | cmd));
-> > +       qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_WRDATA,
-> > +                                    adapter->ahw->fdt.write_enable_bits);
-> > +       qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_CONTROL,
-> > +                                    QLC_83XX_FLASH_SECOND_ERASE_MS_VAL);
-> > +       ret = qlcnic_83xx_poll_flash_status_reg(adapter);
-> > +       if (ret)
-> > +               return -EIO;
-> > +
-> > +       return 0;
-> > +}
-> > +
-> > +static int qlcnic_83xx_disable_flash_write_op(struct qlcnic_adapter
-> > +*adapter) {
-> > +       int ret;
-> > +
-> > +       qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_ADDR,
-> > +                                    (QLC_83XX_FLASH_FDT_WRITE_DEF_SIG |
-> > +                                    adapter->ahw->fdt.write_statusreg_cmd));
-> > +       qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_WRDATA,
-> > +                                    adapter->ahw->fdt.write_enable_bits);
-> > +       qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_CONTROL,
-> > +                                    QLC_83XX_FLASH_SECOND_ERASE_MS_VAL);
-> > +       ret = qlcnic_83xx_poll_flash_status_reg(adapter);
-> > +       if (ret)
-> > +               return -EIO;
-> > +
-> > +       return 0;
-> > +}
-> 
-> The functions qlcnic_83xx_disable_flash_write_op() and
-> qlcnic_83xx_enable_flash_write_op() above do exactly the same thing.
-> 
-> This could be a bug, or at the very least one function will do.
-> 
-> Cheers,
-> 
-> Mark
+On Fri, Oct 19, 2012 at 9:14 PM, Yuchung Cheng <ycheng@google.com> wrote:
+> Add a bit TCPI_OPT_SYN_DATA (32) to the socket option TCP_INFO:tcpi_options.
+> It's set if the data in SYN (sent or received) is acked by SYN-ACK. Server or
+> client application can use this information to check Fast Open success rate.
+>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
 
-Thanks for the review, it is a bug. We will fix it in the next version of the patch series.
-Sony
+Acked-by: Neal Cardwell <ncardwell@google.com>
+
+neal
