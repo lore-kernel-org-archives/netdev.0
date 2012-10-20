@@ -1,111 +1,111 @@
 From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 03/14] be2net: Fix change MAC operation for VF for Lancer
-Date: Sat, 20 Oct 2012 21:32:13 +0530
-Message-ID: <708dbd00-9aed-4ec9-b75c-d4e21e5d4146@CMEXHTCAS1.ad.emulex.com>
+Subject: [PATCH net-next 04/14] be2net: Wait till resources are available for VF in error recovery
+Date: Sat, 20 Oct 2012 21:32:27 +0530
+Message-ID: <cecef26e-3836-4c6c-bd1b-d742d2ae9a87@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:22339 "EHLO
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:22343 "EHLO
 	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752191Ab2JTQDU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 12:03:20 -0400
+	with ESMTP id S1752374Ab2JTQDe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 12:03:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For changing MAC of VF from PF, delete MAC operation needs to be done before
-assigning new MAC. Also in ndo_set_mac_address operation avoid delete MAC if
-it has been already deleted by PF.
+After FW error, driver should wait for NO_RESOURCE error to disappear before
+proceeding with recovery.
 
 Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |   52 +++++++++++++++++++++-----
- 1 files changed, 42 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   31 +++++++++++++++++++++++++++
+ drivers/net/ethernet/emulex/benet/be_hw.h   |    3 ++
+ drivers/net/ethernet/emulex/benet/be_main.c |    5 ++-
+ 3 files changed, 37 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 3980b58..9a12c4b 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -452,10 +452,33 @@ int lancer_wait_ready(struct be_adapter *adapter)
+ 	return status;
+ }
+ 
++static bool lancer_provisioning_error(struct be_adapter *adapter)
++{
++	u32 sliport_status = 0, sliport_err1 = 0, sliport_err2 = 0;
++	sliport_status = ioread32(adapter->db + SLIPORT_STATUS_OFFSET);
++	if (sliport_status & SLIPORT_STATUS_ERR_MASK) {
++		sliport_err1 = ioread32(adapter->db +
++					SLIPORT_ERROR1_OFFSET);
++		sliport_err2 = ioread32(adapter->db +
++					SLIPORT_ERROR2_OFFSET);
++
++		if (sliport_err1 == SLIPORT_ERROR_NO_RESOURCE1 &&
++		    sliport_err2 == SLIPORT_ERROR_NO_RESOURCE2)
++			return true;
++	}
++	return false;
++}
++
+ int lancer_test_and_set_rdy_state(struct be_adapter *adapter)
+ {
+ 	int status;
+ 	u32 sliport_status, err, reset_needed;
++	bool resource_error;
++
++	resource_error = lancer_provisioning_error(adapter);
++	if (resource_error)
++		return -1;
++
+ 	status = lancer_wait_ready(adapter);
+ 	if (!status) {
+ 		sliport_status = ioread32(adapter->db + SLIPORT_STATUS_OFFSET);
+@@ -477,6 +500,14 @@ int lancer_test_and_set_rdy_state(struct be_adapter *adapter)
+ 			status = -1;
+ 		}
+ 	}
++	/* Stop error recovery if error is not recoverable.
++	 * No resource error is temporary errors and will go away
++	 * when PF provisions resources.
++	 */
++	resource_error = lancer_provisioning_error(adapter);
++	if (status == -1 && !resource_error)
++		adapter->eeh_error = true;
++
+ 	return status;
+ }
+ 
+diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
+index b755f70..4ccbc36 100644
+--- a/drivers/net/ethernet/emulex/benet/be_hw.h
++++ b/drivers/net/ethernet/emulex/benet/be_hw.h
+@@ -59,6 +59,9 @@
+ #define PHYSDEV_CONTROL_FW_RESET_MASK	0x00000002
+ #define PHYSDEV_CONTROL_INP_MASK	0x40000000
+ 
++#define SLIPORT_ERROR_NO_RESOURCE1	0x2
++#define SLIPORT_ERROR_NO_RESOURCE2	0x9
++
+ /********* Memory BAR register ************/
+ #define PCICFG_MEMBAR_CTRL_INT_CTRL_OFFSET 	0xfc
+ /* Host Interrupt Enable, if set interrupts are enabled although "PCI Interrupt
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 0b49201..41f935a 100644
+index 41f935a..7a483fd 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -237,23 +237,46 @@ static int be_mac_addr_set(struct net_device *netdev, void *p)
- 	int status = 0;
- 	u8 current_mac[ETH_ALEN];
- 	u32 pmac_id = adapter->pmac_id[0];
-+	bool active_mac = true;
- 
- 	if (!is_valid_ether_addr(addr->sa_data))
- 		return -EADDRNOTAVAIL;
- 
--	status = be_cmd_mac_addr_query(adapter, current_mac, false,
--				       adapter->if_handle, 0);
-+	/* For BE VF, MAC address is already activated by PF.
-+	 * Hence only operation left is updating netdev->devaddr.
-+	 * Update it if user is passing the same MAC which was used
-+	 * during configuring VF MAC from PF(Hypervisor).
-+	 */
-+	if (!lancer_chip(adapter) && !be_physfn(adapter)) {
-+		status = be_cmd_mac_addr_query(adapter, current_mac,
-+					       false, adapter->if_handle, 0);
-+		if (!status && !memcmp(current_mac, addr->sa_data, ETH_ALEN))
-+			goto done;
-+		else
-+			goto err;
-+	}
-+
-+	if (!memcmp(addr->sa_data, netdev->dev_addr, ETH_ALEN))
-+		goto done;
-+
-+	/* For Lancer check if any MAC is active.
-+	 * If active, get its mac id.
-+	 */
-+	if (lancer_chip(adapter) && !be_physfn(adapter))
-+		be_cmd_get_mac_from_list(adapter, current_mac, &active_mac,
-+					 &pmac_id, 0);
-+
-+	status = be_cmd_pmac_add(adapter, (u8 *)addr->sa_data,
-+				 adapter->if_handle,
-+				 &adapter->pmac_id[0], 0);
-+
- 	if (status)
- 		goto err;
- 
--	if (memcmp(addr->sa_data, current_mac, ETH_ALEN)) {
--		status = be_cmd_pmac_add(adapter, (u8 *)addr->sa_data,
--				adapter->if_handle, &adapter->pmac_id[0], 0);
--		if (status)
--			goto err;
--
--		be_cmd_pmac_del(adapter, adapter->if_handle, pmac_id, 0);
--	}
-+	if (active_mac)
-+		be_cmd_pmac_del(adapter, adapter->if_handle,
-+				pmac_id, 0);
-+done:
- 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+@@ -3837,8 +3837,9 @@ static int lancer_recover_func(struct be_adapter *adapter)
+ 		"Adapter SLIPORT recovery succeeded\n");
  	return 0;
  err:
-@@ -962,6 +985,9 @@ static int be_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 	struct be_vf_cfg *vf_cfg = &adapter->vf_cfg[vf];
- 	int status;
-+	bool active_mac = false;
-+	u32 pmac_id;
-+	u8 old_mac[ETH_ALEN];
+-	dev_err(&adapter->pdev->dev,
+-		"Adapter SLIPORT recovery failed\n");
++	if (adapter->eeh_error)
++		dev_err(&adapter->pdev->dev,
++			"Adapter SLIPORT recovery failed\n");
  
- 	if (!sriov_enabled(adapter))
- 		return -EPERM;
-@@ -970,6 +996,12 @@ static int be_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
- 		return -EINVAL;
- 
- 	if (lancer_chip(adapter)) {
-+		status = be_cmd_get_mac_from_list(adapter, old_mac, &active_mac,
-+						  &pmac_id, vf + 1);
-+		if (!status && active_mac)
-+			be_cmd_pmac_del(adapter, vf_cfg->if_handle,
-+					pmac_id, vf + 1);
-+
- 		status = be_cmd_set_mac_list(adapter,  mac, 1, vf + 1);
- 	} else {
- 		status = be_cmd_pmac_del(adapter, vf_cfg->if_handle,
+ 	return status;
+ }
 -- 
 1.6.0.2
