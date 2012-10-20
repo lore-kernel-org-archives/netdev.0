@@ -1,44 +1,78 @@
-From: Vimal <j.vimal@gmail.com>
-Subject: Re: [PATCH] htb: improved accuracy at high rates
-Date: Sat, 20 Oct 2012 09:41:35 -0700
-Message-ID: <CAK3Ji110q2UDbwzYpcSaBW7AQ3t=Ts+v+bo8-n3VhzV7NBmTQw@mail.gmail.com>
-References: <1350685582-65334-1-git-send-email-j.vimal@gmail.com>
- <5081E7A8.2080009@hp.com> <1350717994.13333.298.camel@edumazet-glaptop>
+From: pchavent <Paul.Chavent@onera.fr>
+Subject: Re: [PATCH net-next] packet mmap : allow the user to choose tx data
+ offset.
+Date: Sat, 20 Oct 2012 19:13:02 +0200
+Message-ID: <535a652cffb4d52cbae20e06a95d724d@sybille.onecert.fr>
+References: <1350631302-16280-1-git-send-email-paul.chavent@onera.fr>
+ <CAD6jFURov5oB+ck33JzCYQoBo9mYsEM9c0rHz9gmcgdMKgmwCg@mail.gmail.com>
+ <50815908.1050308@onera.fr>
+ <CAD6jFURS6FXvZJttxEn-qPP5=sWCOHSx=BeSgiJM+ZemAkuKdQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Rick Jones <rick.jones2@hp.com>, davem@davemloft.net,
-	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Daniel Borkmann <danborkmann@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:65448 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751912Ab2JTQl4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 12:41:56 -0400
-Received: by mail-vc0-f174.google.com with SMTP id fk26so1562395vcb.19
-        for <netdev@vger.kernel.org>; Sat, 20 Oct 2012 09:41:55 -0700 (PDT)
-In-Reply-To: <1350717994.13333.298.camel@edumazet-glaptop>
+Received: from briaree.onecert.fr ([134.212.190.4]:57178 "EHLO
+	briaree.onecert.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756065Ab2JTRN2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 13:13:28 -0400
+In-Reply-To: <CAD6jFURS6FXvZJttxEn-qPP5=sWCOHSx=BeSgiJM+ZemAkuKdQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20 October 2012 00:26, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> UFO is quite a virtual feature for the moment ;)
->
-> To my knowledge only one driver uses it (neterion/s2io.c)
->
-> So most probably HTB sees the fragments built by the stack before
-> queueing packets to the qdisc layer.
->
-> tcpdump can be used to check this.
+Hi Daniel
 
+>>>> +                       switch (po->tp_version) {
+>>>> +                       case TPACKET_V2:
+>>>> +                               off = ph.h2->tp_mac;
+>>>> +                               break;
+>>>> +                       default:
+>>>> +                               off = ph.h1->tp_mac;
+>>>
+>>>
+>>> TPACKET_V1 as default is wrong since there's also TPACKET_V3. What
+>>> about TPACKET_V3 in general in your patch? You simply ignore it.
+>>
+>>
+>> I have reproduced the pattern found some lines above (1868-1875)
+>>
+>> switch (po->tp_version) {
+>> case TPACKET_V2:
+>>         tp_len = ph.h2->tp_len;
+>>         break;
+>> default:
+>>         tp_len = ph.h1->tp_len;
+>>         break;
+>> }
+>>
+>> Do you suggest me to add a case TPACKET_V3 and get tp_len from 
+>> ph.h3->tp_len
+>> ?
+>
+> If I'm not mistaken, with your current patch you can do the
+> setsockopt(2) call on a tpacket v3 socket and then default to a
+> tpacket v1 in your switch statement. This doesn't seem right. Thus,
+> this should better be fixed in whatever way.
 
-Ah you're right.  When I checked tcpdump output earlier, I checked the
-IP length which was 8000 bytes, so I presumed UFO was on.  When I
-looked carefully again, the bytes on the wire were MTU sized.
+It seems that "Opening a Tx-ring is NOT supported in TPACKET_V3" (see 
+comment in packet_set_ring). So no one could be able to use the TX_OFF 
+feature with a TPACKET_V3.
 
-Thanks for the suggestions!  I just sent the next version of the patch
-against net-next, and provided a simpler example that illustrates the
-inaccuracy.
+The tpacket_snd function call some subroutines that call WARN and BUG 
+(like in __packet_set_status),
+and other ones that simply ignore the tpacket v3 case (like in 
+tpacket_fill_skb).
 
--- 
-Vimal
+What do you suggest ?
+
+I add a case that call WARN and BUG like in {__packet_set_status, 
+__packet_get_status, packet_increment_rx_head} where we get tp_len in 
+the tpacket_fill_skb function ?
+
+Or i let the code as is ?
+
+Regards.
+
+Paul.
