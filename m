@@ -1,45 +1,80 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/13] ixgbe: using is_zero_ether_addr() to simplify the code
-Date: Fri, 19 Oct 2012 23:26:02 -0700
-Message-ID: <1350714367-24208-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/13] ixgbe: Enable support for VF API version 1.1 in the PF.
+Date: Fri, 19 Oct 2012 23:25:58 -0700
+Message-ID: <1350714367-24208-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:35225 "EHLO mga14.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:22515 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752598Ab2JTG02 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Oct 2012 02:26:28 -0400
+	id S1753006Ab2JTG0i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Oct 2012 02:26:38 -0400
 In-Reply-To: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Using is_zero_ether_addr() to simplify the code.
+This change switches on the last few bits for us enabling version 1.1 VF
+support in the PF.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Tested-by: Robert Garrett <RobertX.Garrett@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 29 +++++++++++++++++++-------
+ 1 file changed, 21 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index dbf37e4..a2a9bcc 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -1778,8 +1778,7 @@ s32 ixgbe_validate_mac_addr(u8 *mac_addr)
- 	else if (IXGBE_IS_BROADCAST(mac_addr))
- 		status = IXGBE_ERR_INVALID_MAC_ADDR;
- 	/* Reject the zero address */
--	else if (mac_addr[0] == 0 && mac_addr[1] == 0 && mac_addr[2] == 0 &&
--	         mac_addr[3] == 0 && mac_addr[4] == 0 && mac_addr[5] == 0)
-+	else if (is_zero_ether_addr(mac_addr))
- 		status = IXGBE_ERR_INVALID_MAC_ADDR;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 8bf467b..96876b7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -371,14 +371,26 @@ static s32 ixgbe_set_vf_lpe(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
+ 					     IXGBE_FCOE_JUMBO_FRAME_SIZE);
  
- 	return status;
+ #endif /* CONFIG_FCOE */
+-		/*
+-		 * If the PF or VF are running w/ jumbo frames enabled we
+-		 * need to shut down the VF Rx path as we cannot support
+-		 * jumbo frames on legacy VFs
+-		 */
+-		if ((pf_max_frame > ETH_FRAME_LEN) ||
+-		    (max_frame > (ETH_FRAME_LEN + ETH_FCS_LEN)))
+-			err = -EINVAL;
++		switch (adapter->vfinfo[vf].vf_api) {
++		case ixgbe_mbox_api_11:
++			/*
++			 * Version 1.1 supports jumbo frames on VFs if PF has
++			 * jumbo frames enabled which means legacy VFs are
++			 * disabled
++			 */
++			if (pf_max_frame > ETH_FRAME_LEN)
++				break;
++		default:
++			/*
++			 * If the PF or VF are running w/ jumbo frames enabled
++			 * we need to shut down the VF Rx path as we cannot
++			 * support jumbo frames on legacy VFs
++			 */
++			if ((pf_max_frame > ETH_FRAME_LEN) ||
++			    (max_frame > (ETH_FRAME_LEN + ETH_FCS_LEN)))
++				err = -EINVAL;
++			break;
++		}
+ 
+ 		/* determine VF receive enable location */
+ 		vf_shift = vf % 32;
+@@ -740,6 +752,7 @@ static int ixgbe_negotiate_vf_api(struct ixgbe_adapter *adapter,
+ 
+ 	switch (api) {
+ 	case ixgbe_mbox_api_10:
++	case ixgbe_mbox_api_11:
+ 		adapter->vfinfo[vf].vf_api = api;
+ 		return 0;
+ 	default:
 -- 
 1.7.11.7
