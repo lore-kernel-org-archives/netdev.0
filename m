@@ -1,188 +1,64 @@
 From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 01/14] be2net: Fix driver load failure for different FW configs in Lancer
-Date: Sat, 20 Oct 2012 21:31:41 +0530
-Message-ID: <5ef28b35-236e-400a-99fc-dea7a8781ddb@CMEXHTCAS1.ad.emulex.com>
+Subject: [PATCH net-next 02/14] be2net: Fix setting QoS for VF for Lancer
+Date: Sat, 20 Oct 2012 21:31:53 +0530
+Message-ID: <fed65e64-1fc8-47a1-ae3b-625f514a5da5@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:39997 "EHLO
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:40002 "EHLO
 	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752538Ab2JTQCu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 12:02:50 -0400
+	with ESMTP id S1752164Ab2JTQDE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 12:03:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Driver assumes FW resource counts and capabilities while creating queues and
-using functionality like RSS. This causes driver load to fail in FW configs
-where resources and capabilities are reduced. Fix this by querying FW
-configuration during probe and using resources and capabilities accordingly.
+Use Lancer specific command to set QoS for VF.
 
 Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |   10 ++-
- drivers/net/ethernet/emulex/benet/be_cmds.c |  150 ++++++++++++++++++++++-
- drivers/net/ethernet/emulex/benet/be_cmds.h |   66 ++++++++++-
- drivers/net/ethernet/emulex/benet/be_main.c |  177 +++++++++++++++++++-------
- 4 files changed, 349 insertions(+), 54 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h      |    1 +
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   58 +++++++++++++++++++++++++++
+ drivers/net/ethernet/emulex/benet/be_cmds.h |   23 +++++++++++
+ drivers/net/ethernet/emulex/benet/be_main.c |    5 ++-
+ 4 files changed, 86 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index cf4c05b..dc6ec6b 100644
+index dc6ec6b..3b8ef4b 100644
 --- a/drivers/net/ethernet/emulex/benet/be.h
 +++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -378,7 +378,6 @@ struct be_adapter {
- 	struct be_drv_stats drv_stats;
- 
- 	u16 vlans_added;
--	u16 max_vlans;	/* Number of vlans supported */
- 	u8 vlan_tag[VLAN_N_VID];
- 	u8 vlan_prio_bmap;	/* Available Priority BitMap */
- 	u16 recommended_prio;	/* Recommended Priority */
-@@ -434,10 +433,17 @@ struct be_adapter {
- 	struct phy_info phy;
- 	u8 wol_cap;
- 	bool wol;
--	u32 max_pmac_cnt;	/* Max secondary UC MACs programmable */
- 	u32 uc_macs;		/* Count of secondary UC MAC programmed */
- 	u32 msg_enable;
- 	int be_get_temp_freq;
-+	u16 max_mcast_mac;
-+	u16 max_tx_queues;
-+	u16 max_rss_queues;
-+	u16 max_rx_queues;
-+	u16 max_pmac_cnt;
-+	u16 max_vlans;
-+	u16 max_event_queues;
-+	u32 if_cap_flags;
+@@ -444,6 +444,7 @@ struct be_adapter {
+ 	u16 max_vlans;
+ 	u16 max_event_queues;
+ 	u32 if_cap_flags;
++	u8 pf_number;
  };
  
  #define be_physfn(adapter)		(!adapter->virtfn)
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index af60bb2..094b5f3 100644
+index 094b5f3..3980b58 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.c
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -1658,9 +1658,9 @@ int be_cmd_rx_filter(struct be_adapter *adapter, u32 flags, u32 value)
- 		/* Reset mcast promisc mode if already set by setting mask
- 		 * and not setting flags field
- 		 */
--		if (!lancer_chip(adapter) || be_physfn(adapter))
--			req->if_flags_mask |=
--				cpu_to_le32(BE_IF_FLAGS_MCAST_PROMISCUOUS);
-+		req->if_flags_mask |=
-+			cpu_to_le32(BE_IF_FLAGS_MCAST_PROMISCUOUS &
-+				    adapter->if_cap_flags);
+@@ -2862,6 +2862,7 @@ int be_cmd_get_func_config(struct be_adapter *adapter)
+ 			goto err;
+ 		}
  
- 		req->mcast_num = cpu_to_le32(netdev_mc_count(adapter->netdev));
- 		netdev_for_each_mc_addr(ha, adapter->netdev)
-@@ -2792,6 +2792,150 @@ err:
++		adapter->pf_number = desc->pf_num;
+ 		adapter->max_pmac_cnt = le16_to_cpu(desc->unicast_mac_count);
+ 		adapter->max_vlans = le16_to_cpu(desc->vlan_count);
+ 		adapter->max_mcast_mac = le16_to_cpu(desc->mcast_mac_count);
+@@ -2936,6 +2937,63 @@ err:
  	return status;
  }
  
-+static struct be_nic_resource_desc *be_get_nic_desc(u8 *buf, u32 desc_count,
-+						    u32 max_buf_size)
-+{
-+	struct be_nic_resource_desc *desc = (struct be_nic_resource_desc *)buf;
-+	int i;
-+
-+	for (i = 0; i < desc_count; i++) {
-+		desc->desc_len = RESOURCE_DESC_SIZE;
-+		if (((void *)desc + desc->desc_len) >
-+		    (void *)(buf + max_buf_size)) {
-+			desc = NULL;
-+			break;
-+		}
-+
-+		if (desc->desc_type == NIC_RESOURCE_DESC_TYPE_ID)
-+			break;
-+
-+		desc = (void *)desc + desc->desc_len;
-+	}
-+
-+	if (!desc || i == MAX_RESOURCE_DESC)
-+		return NULL;
-+
-+	return desc;
-+}
-+
-+/* Uses Mbox */
-+int be_cmd_get_func_config(struct be_adapter *adapter)
-+{
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_get_func_config *req;
-+	int status;
-+	struct be_dma_mem cmd;
-+
-+	memset(&cmd, 0, sizeof(struct be_dma_mem));
-+	cmd.size = sizeof(struct be_cmd_resp_get_func_config);
-+	cmd.va = pci_alloc_consistent(adapter->pdev, cmd.size,
-+				      &cmd.dma);
-+	if (!cmd.va) {
-+		dev_err(&adapter->pdev->dev, "Memory alloc failure\n");
-+		return -ENOMEM;
-+	}
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
-+
-+	wrb = wrb_from_mbox(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
-+
-+	req = cmd.va;
-+
-+	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
-+			       OPCODE_COMMON_GET_FUNC_CONFIG,
-+			       cmd.size, wrb, &cmd);
-+
-+	status = be_mbox_notify_wait(adapter);
-+	if (!status) {
-+		struct be_cmd_resp_get_func_config *resp = cmd.va;
-+		u32 desc_count = le32_to_cpu(resp->desc_count);
-+		struct be_nic_resource_desc *desc;
-+
-+		desc = be_get_nic_desc(resp->func_param, desc_count,
-+				       sizeof(resp->func_param));
-+		if (!desc) {
-+			status = -EINVAL;
-+			goto err;
-+		}
-+
-+		adapter->max_pmac_cnt = le16_to_cpu(desc->unicast_mac_count);
-+		adapter->max_vlans = le16_to_cpu(desc->vlan_count);
-+		adapter->max_mcast_mac = le16_to_cpu(desc->mcast_mac_count);
-+		adapter->max_tx_queues = le16_to_cpu(desc->txq_count);
-+		adapter->max_rss_queues = le16_to_cpu(desc->rssq_count);
-+		adapter->max_rx_queues = le16_to_cpu(desc->rq_count);
-+
-+		adapter->max_event_queues = le16_to_cpu(desc->eq_count);
-+		adapter->if_cap_flags = le32_to_cpu(desc->cap_flags);
-+	}
-+err:
-+	mutex_unlock(&adapter->mbox_lock);
-+	pci_free_consistent(adapter->pdev, cmd.size,
-+			    cmd.va, cmd.dma);
-+	return status;
-+}
-+
-+ /* Uses sync mcc */
-+int be_cmd_get_profile_config(struct be_adapter *adapter, u32 *cap_flags,
++/* Uses sync mcc */
++int be_cmd_set_profile_config(struct be_adapter *adapter, u32 bps,
 +			      u8 domain)
 +{
 +	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_get_profile_config *req;
++	struct be_cmd_req_set_profile_config *req;
 +	int status;
-+	struct be_dma_mem cmd;
-+
-+	memset(&cmd, 0, sizeof(struct be_dma_mem));
-+	cmd.size = sizeof(struct be_cmd_resp_get_profile_config);
-+	cmd.va = pci_alloc_consistent(adapter->pdev, cmd.size,
-+				      &cmd.dma);
-+	if (!cmd.va) {
-+		dev_err(&adapter->pdev->dev, "Memory alloc failure\n");
-+		return -ENOMEM;
-+	}
 +
 +	spin_lock_bh(&adapter->mcc_lock);
 +
@@ -192,34 +68,44 @@ index af60bb2..094b5f3 100644
 +		goto err;
 +	}
 +
-+	req = cmd.va;
++	req = embedded_payload(wrb);
 +
 +	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
-+			       OPCODE_COMMON_GET_PROFILE_CONFIG,
-+			       cmd.size, wrb, &cmd);
++			       OPCODE_COMMON_SET_PROFILE_CONFIG, sizeof(*req),
++			       wrb, NULL);
 +
-+	req->type = ACTIVE_PROFILE_TYPE;
 +	req->hdr.domain = domain;
++	req->desc_count = cpu_to_le32(1);
 +
++	req->nic_desc.desc_type = NIC_RESOURCE_DESC_TYPE_ID;
++	req->nic_desc.desc_len = RESOURCE_DESC_SIZE;
++	req->nic_desc.flags = (1 << QUN) | (1 << IMM) | (1 << NOSV);
++	req->nic_desc.pf_num = adapter->pf_number;
++	req->nic_desc.vf_num = domain;
++
++	/* Mark fields invalid */
++	req->nic_desc.unicast_mac_count = 0xFFFF;
++	req->nic_desc.mcc_count = 0xFFFF;
++	req->nic_desc.vlan_count = 0xFFFF;
++	req->nic_desc.mcast_mac_count = 0xFFFF;
++	req->nic_desc.txq_count = 0xFFFF;
++	req->nic_desc.rq_count = 0xFFFF;
++	req->nic_desc.rssq_count = 0xFFFF;
++	req->nic_desc.lro_count = 0xFFFF;
++	req->nic_desc.cq_count = 0xFFFF;
++	req->nic_desc.toe_conn_count = 0xFFFF;
++	req->nic_desc.eq_count = 0xFFFF;
++	req->nic_desc.link_param = 0xFF;
++	req->nic_desc.bw_min = 0xFFFFFFFF;
++	req->nic_desc.acpi_params = 0xFF;
++	req->nic_desc.wol_param = 0x0F;
++
++	/* Change BW */
++	req->nic_desc.bw_min = cpu_to_le32(bps);
++	req->nic_desc.bw_max = cpu_to_le32(bps);
 +	status = be_mcc_notify_wait(adapter);
-+	if (!status) {
-+		struct be_cmd_resp_get_profile_config *resp = cmd.va;
-+		u32 desc_count = le32_to_cpu(resp->desc_count);
-+		struct be_nic_resource_desc *desc;
-+
-+		desc = be_get_nic_desc(resp->func_param, desc_count,
-+				       sizeof(resp->func_param));
-+
-+		if (!desc) {
-+			status = -EINVAL;
-+			goto err;
-+		}
-+		*cap_flags = le32_to_cpu(desc->cap_flags);
-+	}
 +err:
 +	spin_unlock_bh(&adapter->mcc_lock);
-+	pci_free_consistent(adapter->pdev, cmd.size,
-+			    cmd.va, cmd.dma);
 +	return status;
 +}
 +
@@ -227,386 +113,72 @@ index af60bb2..094b5f3 100644
  			int wrb_payload_size, u16 *cmd_status, u16 *ext_status)
  {
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 0936e21..c2bf4df 100644
+index c2bf4df..ad16d31 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.h
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -196,6 +196,8 @@ struct be_mcc_mailbox {
- #define OPCODE_COMMON_GET_MAC_LIST			147
- #define OPCODE_COMMON_SET_MAC_LIST			148
+@@ -198,6 +198,7 @@ struct be_mcc_mailbox {
  #define OPCODE_COMMON_GET_HSW_CONFIG			152
-+#define OPCODE_COMMON_GET_FUNC_CONFIG			160
-+#define OPCODE_COMMON_GET_PROFILE_CONFIG		164
+ #define OPCODE_COMMON_GET_FUNC_CONFIG			160
+ #define OPCODE_COMMON_GET_PROFILE_CONFIG		164
++#define OPCODE_COMMON_SET_PROFILE_CONFIG		165
  #define OPCODE_COMMON_SET_HSW_CONFIG			153
  #define OPCODE_COMMON_READ_OBJECT			171
  #define OPCODE_COMMON_WRITE_OBJECT			172
-@@ -1684,6 +1686,66 @@ struct be_cmd_req_set_ext_fat_caps {
- 	struct be_fat_conf_params set_params;
+@@ -1689,6 +1690,14 @@ struct be_cmd_req_set_ext_fat_caps {
+ #define RESOURCE_DESC_SIZE			72
+ #define NIC_RESOURCE_DESC_TYPE_ID		0x41
+ #define MAX_RESOURCE_DESC			4
++
++/* QOS unit number */
++#define QUN					4
++/* Immediate */
++#define IMM					6
++/* No save */
++#define NOSV					7
++
+ struct be_nic_resource_desc {
+ 	u8 desc_type;
+ 	u8 desc_len;
+@@ -1746,6 +1755,17 @@ struct be_cmd_resp_get_profile_config {
+ 	u8 func_param[MAX_RESOURCE_DESC * RESOURCE_DESC_SIZE];
  };
  
-+#define RESOURCE_DESC_SIZE			72
-+#define NIC_RESOURCE_DESC_TYPE_ID		0x41
-+#define MAX_RESOURCE_DESC			4
-+struct be_nic_resource_desc {
-+	u8 desc_type;
-+	u8 desc_len;
-+	u8 rsvd1;
-+	u8 flags;
-+	u8 vf_num;
-+	u8 rsvd2;
-+	u8 pf_num;
-+	u8 rsvd3;
-+	u16 unicast_mac_count;
-+	u8 rsvd4[6];
-+	u16 mcc_count;
-+	u16 vlan_count;
-+	u16 mcast_mac_count;
-+	u16 txq_count;
-+	u16 rq_count;
-+	u16 rssq_count;
-+	u16 lro_count;
-+	u16 cq_count;
-+	u16 toe_conn_count;
-+	u16 eq_count;
-+	u32 rsvd5;
-+	u32 cap_flags;
-+	u8 link_param;
-+	u8 rsvd6[3];
-+	u32 bw_min;
-+	u32 bw_max;
-+	u8 acpi_params;
-+	u8 wol_param;
-+	u16 rsvd7;
-+	u32 rsvd8[3];
-+};
-+
-+struct be_cmd_req_get_func_config {
++struct be_cmd_req_set_profile_config {
 +	struct be_cmd_req_hdr hdr;
-+};
-+
-+struct be_cmd_resp_get_func_config {
-+	struct be_cmd_req_hdr hdr;
++	u32 rsvd;
 +	u32 desc_count;
-+	u8 func_param[MAX_RESOURCE_DESC * RESOURCE_DESC_SIZE];
++	struct be_nic_resource_desc nic_desc;
 +};
 +
-+#define ACTIVE_PROFILE_TYPE			0x2
-+struct be_cmd_req_get_profile_config {
++struct be_cmd_resp_set_profile_config {
 +	struct be_cmd_req_hdr hdr;
-+	u8 rsvd;
-+	u8 type;
-+	u16 rsvd1;
-+};
-+
-+struct be_cmd_resp_get_profile_config {
-+	struct be_cmd_req_hdr hdr;
-+	u32 desc_count;
-+	u8 func_param[MAX_RESOURCE_DESC * RESOURCE_DESC_SIZE];
 +};
 +
  extern int be_pci_fnum_get(struct be_adapter *adapter);
  extern int be_fw_wait_ready(struct be_adapter *adapter);
  extern int be_cmd_mac_addr_query(struct be_adapter *adapter, u8 *mac_addr,
-@@ -1798,4 +1860,6 @@ extern int be_cmd_set_ext_fat_capabilites(struct be_adapter *adapter,
- extern int lancer_wait_ready(struct be_adapter *adapter);
- extern int lancer_test_and_set_rdy_state(struct be_adapter *adapter);
- extern int be_cmd_query_port_name(struct be_adapter *adapter, u8 *port_name);
--
-+extern int be_cmd_get_func_config(struct be_adapter *adapter);
-+extern int be_cmd_get_profile_config(struct be_adapter *adapter, u32 *cap_flags,
+@@ -1863,3 +1883,6 @@ extern int be_cmd_query_port_name(struct be_adapter *adapter, u8 *port_name);
+ extern int be_cmd_get_func_config(struct be_adapter *adapter);
+ extern int be_cmd_get_profile_config(struct be_adapter *adapter, u32 *cap_flags,
+ 				     u8 domain);
++
++extern int be_cmd_set_profile_config(struct be_adapter *adapter, u32 bps,
 +				     u8 domain);
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index d1b6cc5..9b734a0 100644
+index 9b734a0..0b49201 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -917,7 +917,7 @@ static void be_set_rx_mode(struct net_device *netdev)
- 
- 	/* Enable multicast promisc if num configured exceeds what we support */
- 	if (netdev->flags & IFF_ALLMULTI ||
--			netdev_mc_count(netdev) > BE_MAX_MC) {
-+	    netdev_mc_count(netdev) > adapter->max_mcast_mac) {
- 		be_cmd_rx_filter(adapter, IFF_ALLMULTI, ON);
- 		goto done;
+@@ -1062,7 +1062,10 @@ static int be_set_vf_tx_rate(struct net_device *netdev,
+ 		return -EINVAL;
  	}
-@@ -1837,12 +1837,13 @@ static void be_tx_queues_destroy(struct be_adapter *adapter)
  
- static int be_num_txqs_want(struct be_adapter *adapter)
- {
--	if (sriov_want(adapter) || be_is_mc(adapter) ||
--	    lancer_chip(adapter) || !be_physfn(adapter) ||
-+	if ((!lancer_chip(adapter) && sriov_want(adapter)) ||
-+	    be_is_mc(adapter) ||
-+	    (!lancer_chip(adapter) && !be_physfn(adapter)) ||
- 	    adapter->generation == BE_GEN2)
- 		return 1;
- 	else
--		return MAX_TX_QS;
-+		return adapter->max_tx_queues;
- }
+-	status = be_cmd_set_qos(adapter, rate / 10, vf + 1);
++	if (lancer_chip(adapter))
++		status = be_cmd_set_profile_config(adapter, rate / 10, vf + 1);
++	else
++		status = be_cmd_set_qos(adapter, rate / 10, vf + 1);
  
- static int be_tx_cqs_create(struct be_adapter *adapter)
-@@ -2177,9 +2178,11 @@ static void be_msix_disable(struct be_adapter *adapter)
- static uint be_num_rss_want(struct be_adapter *adapter)
- {
- 	u32 num = 0;
-+
- 	if ((adapter->function_caps & BE_FUNCTION_CAPS_RSS) &&
--	     !sriov_want(adapter) && be_physfn(adapter)) {
--		num = (adapter->be3_native) ? BE3_MAX_RSS_QS : BE2_MAX_RSS_QS;
-+	    (lancer_chip(adapter) ||
-+	     (!sriov_want(adapter) && be_physfn(adapter)))) {
-+		num = adapter->max_rss_queues;
- 		num = min_t(u32, num, (u32)netif_get_num_default_rss_queues());
- 	}
- 	return num;
-@@ -2579,10 +2582,30 @@ static int be_clear(struct be_adapter *adapter)
- 	be_tx_queues_destroy(adapter);
- 	be_evt_queues_destroy(adapter);
- 
-+	kfree(adapter->pmac_id);
-+	adapter->pmac_id = NULL;
-+
- 	be_msix_disable(adapter);
- 	return 0;
- }
- 
-+static void be_get_vf_if_cap_flags(struct be_adapter *adapter,
-+				   u32 *cap_flags, u8 domain)
-+{
-+	bool profile_present = false;
-+	int status;
-+
-+	if (lancer_chip(adapter)) {
-+		status = be_cmd_get_profile_config(adapter, cap_flags, domain);
-+		if (!status)
-+			profile_present = true;
-+	}
-+
-+	if (!profile_present)
-+		*cap_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST |
-+			     BE_IF_FLAGS_MULTICAST;
-+}
-+
- static int be_vf_setup_init(struct be_adapter *adapter)
- {
- 	struct be_vf_cfg *vf_cfg;
-@@ -2634,9 +2657,13 @@ static int be_vf_setup(struct be_adapter *adapter)
  	if (status)
- 		goto err;
- 
--	cap_flags = en_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST |
--				BE_IF_FLAGS_MULTICAST;
- 	for_all_vfs(adapter, vf_cfg, vf) {
-+		be_get_vf_if_cap_flags(adapter, &cap_flags, vf + 1);
-+
-+		en_flags = cap_flags & (BE_IF_FLAGS_UNTAGGED |
-+					BE_IF_FLAGS_BROADCAST |
-+					BE_IF_FLAGS_MULTICAST);
-+
- 		status = be_cmd_if_create(adapter, cap_flags, en_flags,
- 					  &vf_cfg->if_handle, vf + 1);
- 		if (status)
-@@ -2712,12 +2739,93 @@ static int be_get_mac_addr(struct be_adapter *adapter, u8 *mac, u32 if_handle,
- 	return status;
- }
- 
-+static void be_get_resources(struct be_adapter *adapter)
-+{
-+	int status;
-+	bool profile_present = false;
-+
-+	if (lancer_chip(adapter)) {
-+		status = be_cmd_get_func_config(adapter);
-+
-+		if (!status)
-+			profile_present = true;
-+	}
-+
-+	if (profile_present) {
-+		/* Sanity fixes for Lancer */
-+		adapter->max_pmac_cnt = min_t(u16, adapter->max_pmac_cnt,
-+					      BE_UC_PMAC_COUNT);
-+		adapter->max_vlans = min_t(u16, adapter->max_vlans,
-+					   BE_NUM_VLANS_SUPPORTED);
-+		adapter->max_mcast_mac = min_t(u16, adapter->max_mcast_mac,
-+					       BE_MAX_MC);
-+		adapter->max_tx_queues = min_t(u16, adapter->max_tx_queues,
-+					       MAX_TX_QS);
-+		adapter->max_rss_queues = min_t(u16, adapter->max_rss_queues,
-+						BE3_MAX_RSS_QS);
-+		adapter->max_event_queues = min_t(u16,
-+						  adapter->max_event_queues,
-+						  BE3_MAX_RSS_QS);
-+
-+		if (adapter->max_rss_queues &&
-+		    adapter->max_rss_queues == adapter->max_rx_queues)
-+			adapter->max_rss_queues -= 1;
-+
-+		if (adapter->max_event_queues < adapter->max_rss_queues)
-+			adapter->max_rss_queues = adapter->max_event_queues;
-+
-+	} else {
-+		if (be_physfn(adapter))
-+			adapter->max_pmac_cnt = BE_UC_PMAC_COUNT;
-+		else
-+			adapter->max_pmac_cnt = BE_VF_UC_PMAC_COUNT;
-+
-+		if (adapter->function_mode & FLEX10_MODE)
-+			adapter->max_vlans = BE_NUM_VLANS_SUPPORTED/8;
-+		else
-+			adapter->max_vlans = BE_NUM_VLANS_SUPPORTED;
-+
-+		adapter->max_mcast_mac = BE_MAX_MC;
-+		adapter->max_tx_queues = MAX_TX_QS;
-+		adapter->max_rss_queues = (adapter->be3_native) ?
-+					   BE3_MAX_RSS_QS : BE2_MAX_RSS_QS;
-+		adapter->max_event_queues = BE3_MAX_RSS_QS;
-+
-+		adapter->if_cap_flags = BE_IF_FLAGS_UNTAGGED |
-+					BE_IF_FLAGS_BROADCAST |
-+					BE_IF_FLAGS_MULTICAST |
-+					BE_IF_FLAGS_PASS_L3L4_ERRORS |
-+					BE_IF_FLAGS_MCAST_PROMISCUOUS |
-+					BE_IF_FLAGS_VLAN_PROMISCUOUS |
-+					BE_IF_FLAGS_PROMISCUOUS;
-+
-+		if (adapter->function_caps & BE_FUNCTION_CAPS_RSS)
-+			adapter->if_cap_flags |= BE_IF_FLAGS_RSS;
-+	}
-+}
-+
- /* Routine to query per function resource limits */
- static int be_get_config(struct be_adapter *adapter)
- {
--	int pos;
-+	int pos, status;
- 	u16 dev_num_vfs;
- 
-+	status = be_cmd_query_fw_cfg(adapter, &adapter->port_num,
-+				     &adapter->function_mode,
-+				     &adapter->function_caps);
-+	if (status)
-+		goto err;
-+
-+	be_get_resources(adapter);
-+
-+	/* primary mac needs 1 pmac entry */
-+	adapter->pmac_id = kcalloc(adapter->max_pmac_cnt + 1,
-+				   sizeof(u32), GFP_KERNEL);
-+	if (!adapter->pmac_id) {
-+		status = -ENOMEM;
-+		goto err;
-+	}
-+
- 	pos = pci_find_ext_capability(adapter->pdev, PCI_EXT_CAP_ID_SRIOV);
- 	if (pos) {
- 		pci_read_config_word(adapter->pdev, pos + PCI_SRIOV_TOTAL_VF,
-@@ -2726,13 +2834,14 @@ static int be_get_config(struct be_adapter *adapter)
- 			dev_num_vfs = min_t(u16, dev_num_vfs, MAX_VFS);
- 		adapter->dev_num_vfs = dev_num_vfs;
- 	}
--	return 0;
-+err:
-+	return status;
- }
- 
- static int be_setup(struct be_adapter *adapter)
- {
- 	struct device *dev = &adapter->pdev->dev;
--	u32 cap_flags, en_flags;
-+	u32 en_flags;
- 	u32 tx_fc, rx_fc;
- 	int status;
- 	u8 mac[ETH_ALEN];
-@@ -2740,9 +2849,12 @@ static int be_setup(struct be_adapter *adapter)
- 
- 	be_setup_init(adapter);
- 
--	be_get_config(adapter);
-+	if (!lancer_chip(adapter))
-+		be_cmd_req_native_mode(adapter);
- 
--	be_cmd_req_native_mode(adapter);
-+	status = be_get_config(adapter);
-+	if (status)
-+		goto err;
- 
- 	be_msix_enable(adapter);
- 
-@@ -2764,22 +2876,13 @@ static int be_setup(struct be_adapter *adapter)
- 
- 	en_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST |
- 			BE_IF_FLAGS_MULTICAST | BE_IF_FLAGS_PASS_L3L4_ERRORS;
--	cap_flags = en_flags | BE_IF_FLAGS_MCAST_PROMISCUOUS |
--			BE_IF_FLAGS_VLAN_PROMISCUOUS | BE_IF_FLAGS_PROMISCUOUS;
- 
--	if (adapter->function_caps & BE_FUNCTION_CAPS_RSS) {
--		cap_flags |= BE_IF_FLAGS_RSS;
-+	if (adapter->function_caps & BE_FUNCTION_CAPS_RSS)
- 		en_flags |= BE_IF_FLAGS_RSS;
--	}
- 
--	if (lancer_chip(adapter) && !be_physfn(adapter)) {
--		en_flags = BE_IF_FLAGS_UNTAGGED |
--			    BE_IF_FLAGS_BROADCAST |
--			    BE_IF_FLAGS_MULTICAST;
--		cap_flags = en_flags;
--	}
-+	en_flags = en_flags & adapter->if_cap_flags;
- 
--	status = be_cmd_if_create(adapter, cap_flags, en_flags,
-+	status = be_cmd_if_create(adapter, adapter->if_cap_flags, en_flags,
- 				  &adapter->if_handle, 0);
- 	if (status != 0)
- 		goto err;
-@@ -3437,7 +3540,6 @@ static void be_ctrl_cleanup(struct be_adapter *adapter)
- 	if (mem->va)
- 		dma_free_coherent(&adapter->pdev->dev, mem->size, mem->va,
- 				  mem->dma);
--	kfree(adapter->pmac_id);
- }
- 
- static int be_ctrl_init(struct be_adapter *adapter)
-@@ -3473,13 +3575,6 @@ static int be_ctrl_init(struct be_adapter *adapter)
- 		goto free_mbox;
- 	}
- 	memset(rx_filter->va, 0, rx_filter->size);
--
--	/* primary mac needs 1 pmac entry */
--	adapter->pmac_id = kcalloc(adapter->max_pmac_cnt + 1,
--				   sizeof(*adapter->pmac_id), GFP_KERNEL);
--	if (!adapter->pmac_id)
--		return -ENOMEM;
--
- 	mutex_init(&adapter->mbox_lock);
- 	spin_lock_init(&adapter->mcc_lock);
- 	spin_lock_init(&adapter->mcc_cq_lock);
-@@ -3598,26 +3693,12 @@ u32 be_get_fw_log_level(struct be_adapter *adapter)
- err:
- 	return level;
- }
-+
- static int be_get_initial_config(struct be_adapter *adapter)
- {
- 	int status;
- 	u32 level;
- 
--	status = be_cmd_query_fw_cfg(adapter, &adapter->port_num,
--			&adapter->function_mode, &adapter->function_caps);
--	if (status)
--		return status;
--
--	if (adapter->function_mode & FLEX10_MODE)
--		adapter->max_vlans = BE_NUM_VLANS_SUPPORTED/8;
--	else
--		adapter->max_vlans = BE_NUM_VLANS_SUPPORTED;
--
--	if (be_physfn(adapter))
--		adapter->max_pmac_cnt = BE_UC_PMAC_COUNT;
--	else
--		adapter->max_pmac_cnt = BE_VF_UC_PMAC_COUNT;
--
- 	status = be_cmd_get_cntl_attributes(adapter);
- 	if (status)
- 		return status;
+ 		dev_err(&adapter->pdev->dev,
 -- 
 1.6.0.2
