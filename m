@@ -1,61 +1,47 @@
 From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 08/14] be2net: Fix issues in error recovery due to wrong queue state
-Date: Sat, 20 Oct 2012 21:33:25 +0530
-Message-ID: <e7aff796-eb02-4248-a238-c32547afce25@CMEXHTCAS2.ad.emulex.com>
+Subject: [PATCH net-next 09/14] be2net: Fix unnecessary delay in PCI EEH
+Date: Sat, 20 Oct 2012 21:33:37 +0530
+Message-ID: <6ec19d49-d421-4b32-8ae9-127488429f65@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:40024 "EHLO
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:40025 "EHLO
 	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752058Ab2JTQEe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 12:04:34 -0400
+	with ESMTP id S1752235Ab2JTQEp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 12:04:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During recovery from a FW error, destroy queue operation may fail.
-Queue should be marked as destroyed so that recovery code can recreate
-the queue. Also fix queue created state not getting checked at one instance.
+During PCI EEH, driver waits for all functions in the card.
+Wait is needed only once per card. Fix is to wait only for the
+first PCI function.
 
 Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 9d602f4..15202d0 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -681,6 +681,9 @@ static struct be_mcc_wrb *wrb_from_mccq(struct be_adapter *adapter)
- 	struct be_queue_info *mccq = &adapter->mcc_obj.q;
- 	struct be_mcc_wrb *wrb;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index cca8645..410834d 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -4201,9 +4201,13 @@ static pci_ers_result_t be_eeh_err_detected(struct pci_dev *pdev,
  
-+	if (!mccq->created)
-+		return NULL;
+ 	/* The error could cause the FW to trigger a flash debug dump.
+ 	 * Resetting the card while flash dump is in progress
+-	 * can cause it not to recover; wait for it to finish
++	 * can cause it not to recover; wait for it to finish.
++	 * Wait only for first function as it is needed only once per
++	 * adapter.
+ 	 */
+-	ssleep(30);
++	if (pdev->devfn == 0)
++		ssleep(30);
 +
- 	if (atomic_read(&mccq->used) >= mccq->len) {
- 		dev_err(&adapter->pdev->dev, "Out of MCCQ wrbs\n");
- 		return NULL;
-@@ -1235,8 +1238,7 @@ int be_cmd_q_destroy(struct be_adapter *adapter, struct be_queue_info *q,
- 	req->id = cpu_to_le16(q->id);
+ 	return PCI_ERS_RESULT_NEED_RESET;
+ }
  
- 	status = be_mbox_notify_wait(adapter);
--	if (!status)
--		q->created = false;
-+	q->created = false;
- 
- 	mutex_unlock(&adapter->mbox_lock);
- 	return status;
-@@ -1263,8 +1265,7 @@ int be_cmd_rxq_destroy(struct be_adapter *adapter, struct be_queue_info *q)
- 	req->id = cpu_to_le16(q->id);
- 
- 	status = be_mcc_notify_wait(adapter);
--	if (!status)
--		q->created = false;
-+	q->created = false;
- 
- err:
- 	spin_unlock_bh(&adapter->mcc_lock);
 -- 
 1.6.0.2
