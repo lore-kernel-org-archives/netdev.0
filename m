@@ -1,352 +1,119 @@
 From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 06/14] be2net: Fix error messages while driver load for VFs
-Date: Sat, 20 Oct 2012 21:32:52 +0530
-Message-ID: <196cc2b8-8e3f-408b-9070-3857589c4059@CMEXHTCAS2.ad.emulex.com>
+Subject: [PATCH net-next 07/14] be2net: Fix ethtool get_settings output for VF
+Date: Sat, 20 Oct 2012 21:33:04 +0530
+Message-ID: <9a832229-828d-4800-baf1-5f518e3f3bbe@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:22348 "EHLO
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:22353 "EHLO
 	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752161Ab2JTQD7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 12:03:59 -0400
+	with ESMTP id S1752149Ab2JTQEP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 12:04:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VF does not have privileges to execute many commands. When VFs try
-to execute those commands there are unnecessary error messages.
-Fix this by executing only those commands for which VF has privilege.
+Return default values for fields for which VFs dont have privilege to get the
+required information from FW.
 
 Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h         |    1 +
- drivers/net/ethernet/emulex/benet/be_cmds.c    |  105 ++++++++++++++++++++++++
- drivers/net/ethernet/emulex/benet/be_cmds.h    |   43 ++++++++++
- drivers/net/ethernet/emulex/benet/be_ethtool.c |    7 ++
- drivers/net/ethernet/emulex/benet/be_main.c    |   19 ++++-
- 5 files changed, 173 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |   73 ++++++++++++++----------
+ 1 files changed, 42 insertions(+), 31 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 3b8ef4b..1a05b79 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -390,6 +390,7 @@ struct be_adapter {
- 
- 	struct delayed_work func_recovery_work;
- 	u32 flags;
-+	u32 cmd_privileges;
- 	/* Ethtool knobs and info */
- 	char fw_ver[FW_VER_LEN];
- 	int if_handle;		/* Used to configure filtering */
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 9a12c4b..9d602f4 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -19,6 +19,55 @@
- #include "be.h"
- #include "be_cmds.h"
- 
-+static struct be_cmd_priv_map cmd_priv_map[] = {
-+	{
-+		OPCODE_ETH_ACPI_WOL_MAGIC_CONFIG,
-+		CMD_SUBSYSTEM_ETH,
-+		BE_PRIV_LNKMGMT | BE_PRIV_VHADM |
-+		BE_PRIV_DEVCFG | BE_PRIV_DEVSEC
-+	},
-+	{
-+		OPCODE_COMMON_GET_FLOW_CONTROL,
-+		CMD_SUBSYSTEM_COMMON,
-+		BE_PRIV_LNKQUERY | BE_PRIV_VHADM |
-+		BE_PRIV_DEVCFG | BE_PRIV_DEVSEC
-+	},
-+	{
-+		OPCODE_COMMON_SET_FLOW_CONTROL,
-+		CMD_SUBSYSTEM_COMMON,
-+		BE_PRIV_LNKMGMT | BE_PRIV_VHADM |
-+		BE_PRIV_DEVCFG | BE_PRIV_DEVSEC
-+	},
-+	{
-+		OPCODE_ETH_GET_PPORT_STATS,
-+		CMD_SUBSYSTEM_ETH,
-+		BE_PRIV_LNKMGMT | BE_PRIV_VHADM |
-+		BE_PRIV_DEVCFG | BE_PRIV_DEVSEC
-+	},
-+	{
-+		OPCODE_COMMON_GET_PHY_DETAILS,
-+		CMD_SUBSYSTEM_COMMON,
-+		BE_PRIV_LNKMGMT | BE_PRIV_VHADM |
-+		BE_PRIV_DEVCFG | BE_PRIV_DEVSEC
-+	}
-+};
-+
-+static bool be_cmd_allowed(struct be_adapter *adapter, u8 opcode,
-+			   u8 subsystem)
-+{
-+	int i;
-+	int num_entries = sizeof(cmd_priv_map)/sizeof(struct be_cmd_priv_map);
-+	u32 cmd_privileges = adapter->cmd_privileges;
-+
-+	for (i = 0; i < num_entries; i++)
-+		if (opcode == cmd_priv_map[i].opcode &&
-+		    subsystem == cmd_priv_map[i].subsystem)
-+			if (!(cmd_privileges & cmd_priv_map[i].priv_mask))
-+				return false;
-+
-+	return true;
-+}
-+
- static inline void *embedded_payload(struct be_mcc_wrb *wrb)
- {
- 	return wrb->payload.embedded_payload;
-@@ -1332,6 +1381,10 @@ int lancer_cmd_get_pport_stats(struct be_adapter *adapter,
- 	struct lancer_cmd_req_pport_stats *req;
- 	int status = 0;
- 
-+	if (!be_cmd_allowed(adapter, OPCODE_ETH_GET_PPORT_STATS,
-+			    CMD_SUBSYSTEM_ETH))
-+		return -EPERM;
-+
- 	spin_lock_bh(&adapter->mcc_lock);
- 
- 	wrb = wrb_from_mccq(adapter);
-@@ -1711,6 +1764,10 @@ int be_cmd_set_flow_control(struct be_adapter *adapter, u32 tx_fc, u32 rx_fc)
- 	struct be_cmd_req_set_flow_control *req;
- 	int status;
- 
-+	if (!be_cmd_allowed(adapter, OPCODE_COMMON_SET_FLOW_CONTROL,
-+			    CMD_SUBSYSTEM_COMMON))
-+		return -EPERM;
-+
- 	spin_lock_bh(&adapter->mcc_lock);
- 
- 	wrb = wrb_from_mccq(adapter);
-@@ -1740,6 +1797,10 @@ int be_cmd_get_flow_control(struct be_adapter *adapter, u32 *tx_fc, u32 *rx_fc)
- 	struct be_cmd_req_get_flow_control *req;
- 	int status;
- 
-+	if (!be_cmd_allowed(adapter, OPCODE_COMMON_GET_FLOW_CONTROL,
-+			    CMD_SUBSYSTEM_COMMON))
-+		return -EPERM;
-+
- 	spin_lock_bh(&adapter->mcc_lock);
- 
- 	wrb = wrb_from_mccq(adapter);
-@@ -2306,6 +2367,10 @@ int be_cmd_get_phy_info(struct be_adapter *adapter)
- 	struct be_dma_mem cmd;
- 	int status;
- 
-+	if (!be_cmd_allowed(adapter, OPCODE_COMMON_GET_PHY_DETAILS,
-+			    CMD_SUBSYSTEM_COMMON))
-+		return -EPERM;
-+
- 	spin_lock_bh(&adapter->mcc_lock);
- 
- 	wrb = wrb_from_mccq(adapter);
-@@ -2465,6 +2530,42 @@ err:
- 	return status;
- }
- 
-+/* Get privilege(s) for a function */
-+int be_cmd_get_fn_privileges(struct be_adapter *adapter, u32 *privilege,
-+			     u32 domain)
-+{
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_get_fn_privileges *req;
-+	int status;
-+
-+	spin_lock_bh(&adapter->mcc_lock);
-+
-+	wrb = wrb_from_mccq(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
-+
-+	req = embedded_payload(wrb);
-+
-+	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
-+			       OPCODE_COMMON_GET_FN_PRIVILEGES, sizeof(*req),
-+			       wrb, NULL);
-+
-+	req->hdr.domain = domain;
-+
-+	status = be_mcc_notify_wait(adapter);
-+	if (!status) {
-+		struct be_cmd_resp_get_fn_privileges *resp =
-+						embedded_payload(wrb);
-+		*privilege = le32_to_cpu(resp->privilege_mask);
-+	}
-+
-+err:
-+	spin_unlock_bh(&adapter->mcc_lock);
-+	return status;
-+}
-+
- /* Uses synchronous MCCQ */
- int be_cmd_get_mac_from_list(struct be_adapter *adapter, u8 *mac,
- 			     bool *pmac_id_active, u32 *pmac_id, u8 domain)
-@@ -2682,6 +2783,10 @@ int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter)
- 	int payload_len = sizeof(*req);
- 	struct be_dma_mem cmd;
- 
-+	if (!be_cmd_allowed(adapter, OPCODE_ETH_ACPI_WOL_MAGIC_CONFIG,
-+			    CMD_SUBSYSTEM_ETH))
-+		return -EPERM;
-+
- 	memset(&cmd, 0, sizeof(struct be_dma_mem));
- 	cmd.size = sizeof(struct be_cmd_resp_acpi_wol_magic_config_v1);
- 	cmd.va = pci_alloc_consistent(adapter->pdev, cmd.size,
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index ad16d31..a438777 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -200,6 +200,7 @@ struct be_mcc_mailbox {
- #define OPCODE_COMMON_GET_PROFILE_CONFIG		164
- #define OPCODE_COMMON_SET_PROFILE_CONFIG		165
- #define OPCODE_COMMON_SET_HSW_CONFIG			153
-+#define OPCODE_COMMON_GET_FN_PRIVILEGES			170
- #define OPCODE_COMMON_READ_OBJECT			171
- #define OPCODE_COMMON_WRITE_OBJECT			172
- 
-@@ -1432,6 +1433,41 @@ struct be_cmd_resp_set_func_cap {
- 	u8 rsvd[212];
- };
- 
-+/*********************** Function Privileges ***********************/
-+enum {
-+	BE_PRIV_DEFAULT = 0x1,
-+	BE_PRIV_LNKQUERY = 0x2,
-+	BE_PRIV_LNKSTATS = 0x4,
-+	BE_PRIV_LNKMGMT = 0x8,
-+	BE_PRIV_LNKDIAG = 0x10,
-+	BE_PRIV_UTILQUERY = 0x20,
-+	BE_PRIV_FILTMGMT = 0x40,
-+	BE_PRIV_IFACEMGMT = 0x80,
-+	BE_PRIV_VHADM = 0x100,
-+	BE_PRIV_DEVCFG = 0x200,
-+	BE_PRIV_DEVSEC = 0x400
-+};
-+#define MAX_PRIVILEGES		(BE_PRIV_VHADM | BE_PRIV_DEVCFG | \
-+				 BE_PRIV_DEVSEC)
-+#define MIN_PRIVILEGES		BE_PRIV_DEFAULT
-+
-+struct be_cmd_priv_map {
-+	u8 opcode;
-+	u8 subsystem;
-+	u32 priv_mask;
-+};
-+
-+struct be_cmd_req_get_fn_privileges {
-+	struct be_cmd_req_hdr hdr;
-+	u32 rsvd;
-+};
-+
-+struct be_cmd_resp_get_fn_privileges {
-+	struct be_cmd_resp_hdr hdr;
-+	u32 privilege_mask;
-+};
-+
-+
- /******************** GET/SET_MACLIST  **************************/
- #define BE_MAX_MAC			64
- struct be_cmd_req_get_mac_list {
-@@ -1766,6 +1802,11 @@ struct be_cmd_resp_set_profile_config {
- 	struct be_cmd_req_hdr hdr;
- };
- 
-+static inline bool check_privilege(struct be_adapter *adapter, u32 flags)
-+{
-+	return flags & adapter->cmd_privileges ? true : false;
-+}
-+
- extern int be_pci_fnum_get(struct be_adapter *adapter);
- extern int be_fw_wait_ready(struct be_adapter *adapter);
- extern int be_cmd_mac_addr_query(struct be_adapter *adapter, u8 *mac_addr,
-@@ -1862,6 +1903,8 @@ extern int be_cmd_get_cntl_attributes(struct be_adapter *adapter);
- extern int be_cmd_req_native_mode(struct be_adapter *adapter);
- extern int be_cmd_get_reg_len(struct be_adapter *adapter, u32 *log_size);
- extern void be_cmd_get_regs(struct be_adapter *adapter, u32 buf_len, void *buf);
-+extern int be_cmd_get_fn_privileges(struct be_adapter *adapter,
-+				    u32 *privilege, u32 domain);
- extern int be_cmd_get_mac_from_list(struct be_adapter *adapter, u8 *mac,
- 				    bool *pmac_id_active, u32 *pmac_id,
- 				    u8 domain);
 diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index 8e6fb0b..2496123 100644
+index 2496123..00454a1 100644
 --- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
 +++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -261,6 +261,9 @@ be_get_reg_len(struct net_device *netdev)
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 	u32 log_size = 0;
+@@ -528,6 +528,10 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 	u8 link_status;
+ 	u16 link_speed = 0;
+ 	int status;
++	u32 auto_speeds;
++	u32 fixed_speeds;
++	u32 dac_cable_len;
++	u16 interface_type;
  
-+	if (!check_privilege(adapter, MAX_PRIVILEGES))
-+		return 0;
+ 	if (adapter->phy.link_speed < 0) {
+ 		status = be_cmd_link_status_query(adapter, &link_speed,
+@@ -537,39 +541,46 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 		ethtool_cmd_speed_set(ecmd, link_speed);
+ 
+ 		status = be_cmd_get_phy_info(adapter);
+-		if (status)
+-			return status;
+-
+-		ecmd->supported =
+-			convert_to_et_setting(adapter->phy.interface_type,
+-					adapter->phy.auto_speeds_supported |
+-					adapter->phy.fixed_speeds_supported);
+-		ecmd->advertising =
+-			convert_to_et_setting(adapter->phy.interface_type,
+-					adapter->phy.auto_speeds_supported);
+-
+-		ecmd->port = be_get_port_type(adapter->phy.interface_type,
+-					      adapter->phy.dac_cable_len);
+-
+-		if (adapter->phy.auto_speeds_supported) {
+-			ecmd->supported |= SUPPORTED_Autoneg;
+-			ecmd->autoneg = AUTONEG_ENABLE;
+-			ecmd->advertising |= ADVERTISED_Autoneg;
+-		}
++		if (!status) {
++			interface_type = adapter->phy.interface_type;
++			auto_speeds = adapter->phy.auto_speeds_supported;
++			fixed_speeds = adapter->phy.fixed_speeds_supported;
++			dac_cable_len = adapter->phy.dac_cable_len;
 +
- 	if (be_physfn(adapter)) {
- 		if (lancer_chip(adapter))
- 			log_size = lancer_cmd_get_file_len(adapter,
-@@ -787,6 +790,10 @@ static int
- be_get_eeprom_len(struct net_device *netdev)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
++			ecmd->supported =
++				convert_to_et_setting(interface_type,
++						      auto_speeds |
++						      fixed_speeds);
++			ecmd->advertising =
++				convert_to_et_setting(interface_type,
++						      auto_speeds);
 +
-+	if (!check_privilege(adapter, MAX_PRIVILEGES))
-+		return 0;
++			ecmd->port = be_get_port_type(interface_type,
++						      dac_cable_len);
 +
- 	if (lancer_chip(adapter)) {
- 		if (be_physfn(adapter))
- 			return lancer_cmd_get_file_len(adapter,
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index fa895bc..cca8645 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2745,6 +2745,11 @@ static void be_setup_init(struct be_adapter *adapter)
- 	adapter->be3_native = false;
- 	adapter->promiscuous = false;
- 	adapter->eq_next_idx = 0;
++			if (adapter->phy.auto_speeds_supported) {
++				ecmd->supported |= SUPPORTED_Autoneg;
++				ecmd->autoneg = AUTONEG_ENABLE;
++				ecmd->advertising |= ADVERTISED_Autoneg;
++			}
+ 
+-		if (be_pause_supported(adapter)) {
+ 			ecmd->supported |= SUPPORTED_Pause;
+-			ecmd->advertising |= ADVERTISED_Pause;
+-		}
+-
+-		switch (adapter->phy.interface_type) {
+-		case PHY_TYPE_KR_10GB:
+-		case PHY_TYPE_KX4_10GB:
+-			ecmd->transceiver = XCVR_INTERNAL;
+-			break;
+-		default:
+-			ecmd->transceiver = XCVR_EXTERNAL;
+-			break;
++			if (be_pause_supported(adapter))
++				ecmd->advertising |= ADVERTISED_Pause;
 +
-+	if (be_physfn(adapter))
-+		adapter->cmd_privileges = MAX_PRIVILEGES;
-+	else
-+		adapter->cmd_privileges = MIN_PRIVILEGES;
- }
++			switch (adapter->phy.interface_type) {
++			case PHY_TYPE_KR_10GB:
++			case PHY_TYPE_KX4_10GB:
++				ecmd->transceiver = XCVR_INTERNAL;
++				break;
++			default:
++				ecmd->transceiver = XCVR_EXTERNAL;
++				break;
++			}
++		} else {
++			ecmd->port = PORT_OTHER;
++			ecmd->autoneg = AUTONEG_DISABLE;
++			ecmd->transceiver = XCVR_DUMMY1;
+ 		}
  
- static int be_get_mac_addr(struct be_adapter *adapter, u8 *mac, u32 if_handle,
-@@ -2917,6 +2922,13 @@ static int be_setup(struct be_adapter *adapter)
- 	if (status)
- 		goto err;
- 
-+	be_cmd_get_fn_privileges(adapter, &adapter->cmd_privileges, 0);
-+	/* In UMC mode FW does not return right privileges.
-+	 * Override with correct privilege equivalent to PF.
-+	 */
-+	if (be_is_mc(adapter))
-+		adapter->cmd_privileges = MAX_PRIVILEGES;
-+
- 	en_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST |
- 			BE_IF_FLAGS_MULTICAST | BE_IF_FLAGS_PASS_L3L4_ERRORS;
- 
-@@ -2973,8 +2985,8 @@ static int be_setup(struct be_adapter *adapter)
- 			dev_warn(dev, "device doesn't support SRIOV\n");
- 	}
- 
--	be_cmd_get_phy_info(adapter);
--	if (be_pause_supported(adapter))
-+	status = be_cmd_get_phy_info(adapter);
-+	if (!status && be_pause_supported(adapter))
- 		adapter->phy.fc_autoneg = 1;
- 
- 	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
-@@ -3711,6 +3723,9 @@ u32 be_get_fw_log_level(struct be_adapter *adapter)
- 	u32 level = 0;
- 	int j;
- 
-+	if (lancer_chip(adapter))
-+		return 0;
-+
- 	memset(&extfat_cmd, 0, sizeof(struct be_dma_mem));
- 	extfat_cmd.size = sizeof(struct be_cmd_resp_get_ext_fat_caps);
- 	extfat_cmd.va = pci_alloc_consistent(adapter->pdev, extfat_cmd.size,
+ 		/* Save for future use */
 -- 
 1.6.0.2
