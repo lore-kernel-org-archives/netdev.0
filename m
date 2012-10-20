@@ -1,85 +1,43 @@
-From: Mike Kazantsev <mk.fraggod@gmail.com>
-Subject: Re: PROBLEM: Memory leak (at least with SLUB) from "secpath_dup"
- (xfrm) in 3.5+ kernels
-Date: Sat, 20 Oct 2012 20:49:58 +0600
-Message-ID: <20121020204958.4bc8e293@sacrilege>
-References: <20121019205055.2b258d09@sacrilege>
-	<20121019233632.26cf96d8@sacrilege>
-	<CAHC9VhQ+gkAaRmwDWqzQd1U-hwH__5yxrxWa5_=koz_XTSXpjQ@mail.gmail.com>
+From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+Subject: [PATCH net-next 00/14] be2net updates
+Date: Sat, 20 Oct 2012 21:31:05 +0530
+Message-ID: <158bb887-7f4c-4d3d-abc3-c5cb50c06edb@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/eS_.8PEyJyRd2zX1TbgKDk5"; protocol="application/pgp-signature"
-Cc: netdev@vger.kernel.org, linux-mm@kvack.org
-To: Paul Moore <paul@paul-moore.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CAHC9VhQ+gkAaRmwDWqzQd1U-hwH__5yxrxWa5_=koz_XTSXpjQ@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:39990 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751883Ab2JTQCO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 12:02:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/eS_.8PEyJyRd2zX1TbgKDk5
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Please apply.
+Thanks,
+Padmanabh
 
-On Sat, 20 Oct 2012 08:42:33 -0400
-Paul Moore <paul@paul-moore.com> wrote:
+Padmanabh Ratnakar (14):
+  be2net: Fix driver load failure for different FW configs in Lancer
+  be2net: Fix setting QoS for VF for Lancer
+  be2net: Fix change MAC operation for VF for Lancer
+  be2net: Wait till resources are available for VF in error recovery
+  be2net: Fix configuring VLAN for VF for Lancer
+  be2net: Fix error messages while driver load for VFs
+  be2net: Fix ethtool get_settings output for VF
+  be2net: Fix issues in error recovery due to wrong queue state
+  be2net: Fix unnecessary delay in PCI EEH
+  be2net: Fix VF driver load on newer Lancer FW
+  be2net: Enabling Wake-on-LAN is not supported in S5 state
+  be2net: Fix FW flashing on Skyhawk-R
+  be2net: Fix skyhawk VF PCI Device ID
+  be2net: Update driver version
 
-> Thanks for the problem report.  I'm not going to be in a position to start
-> looking into this until late Sunday, but hopefully it will be a quick fix.
->=20
-> Two quick questions (my apologies, I'm not able to dig through your logs
-> right now): do you see this leak on kernels < 3.5.0, and are you using any
-> labeled IPsec connections?
->=20
-
-As I understand, labelled connections are only used in SELinux
-and SMACK LSM, which are not enabled (in Kconfig, i.e. not built) in any
-of the kernels I use.
-
-The only LSM I have enabled (and actually use on 2/4 of these machines)
-is AppArmor, and though I think it doesn't attach any labels to network
-connections yet (there's a "Wishlist" bug at
-https://bugs.launchpad.net/ubuntu/+source/apparmor/+bug/796588, but I
-can't seem to find an existing implementation).
-
-I believe it has started with 3.5.0, according to all available logs I
-have. I'm afraid laziness and other tasks have prevented me from
-looking into and reporting the issue back then, but memory graph trends
-start at the exact time of reboot into 3.5.0 kernels, and before that,
-there're no such trends for slab memory usage.
-
-I've been able to ignore and work around the problem for months now, so
-I don't think there's any rush at all ;)
-
-But that said, currently I've started git bisect process between v3.5
-and v3.4 tags, so hopefully I'll get good-enough results of it before
-you'll get to it (probably in a few hours to a few days).
-
-Also, I've found that switching to "slab" allocator from "slub" doesn't
-help the problem at all, so I guess something doesn't get freed in the
-code indeed, though I hasn't been able to find anything relevant in the
-logs for the sources where secpath_put and secpath_dup are used, and
-decided to try bisect.
-
-
---=20
-Mike Kazantsev // fraggod.net
-
---Sig_/eS_.8PEyJyRd2zX1TbgKDk5
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iEYEARECAAYFAlCCuhkACgkQASbOZpzyXnHUJQCg6MAW5gCL0Ewhk0bc1/nOKhMr
-PQYAn0JnR6ta8Ku7OncjUS9lE4l1QR2q
-=5wtI
------END PGP SIGNATURE-----
-
---Sig_/eS_.8PEyJyRd2zX1TbgKDk5--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+ drivers/net/ethernet/emulex/benet/be.h         |   20 +-
+ drivers/net/ethernet/emulex/benet/be_cmds.c    |  385 +++++++++++++++++-
+ drivers/net/ethernet/emulex/benet/be_cmds.h    |  138 ++++++
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |   80 +++--
+ drivers/net/ethernet/emulex/benet/be_hw.h      |    3 +
+ drivers/net/ethernet/emulex/benet/be_main.c    |  533 +++++++++++++++++-------
+ 6 files changed, 971 insertions(+), 188 deletions(-)
