@@ -1,56 +1,135 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH v2 2/3] net/at91_ether: select MACB in Kconfig
-Date: Sun, 21 Oct 2012 23:57:02 +0200
-Message-ID: <1350856623-9819-3-git-send-email-manabian@gmail.com>
-References: <1350856623-9819-1-git-send-email-manabian@gmail.com>
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Joachim Eastwood <manabian@gmail.com>
-To: nicolas.ferre@atmel.com, davem@davemloft.net,
-	hskinnemoen@gmail.com, egtvedt@samfundet.no, plagnioj@jcrosoft.com,
-	bgat@billgatliff.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:53103 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932626Ab2JUV5Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 17:57:25 -0400
-Received: by mail-la0-f46.google.com with SMTP id h6so1238149lag.19
-        for <netdev@vger.kernel.org>; Sun, 21 Oct 2012 14:57:24 -0700 (PDT)
-In-Reply-To: <1350856623-9819-1-git-send-email-manabian@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mike Kazantsev <mk.fraggod@gmail.com>
+Subject: Re: PROBLEM: Memory leak (at least with SLUB) from "secpath_dup"
+ (xfrm) in 3.5+ kernels
+Date: Mon, 22 Oct 2012 04:58:50 +0600
+Message-ID: <20121022045850.788df346@sacrilege>
+References: <20121019205055.2b258d09@sacrilege>
+	<20121019233632.26cf96d8@sacrilege>
+	<CAHC9VhQ+gkAaRmwDWqzQd1U-hwH__5yxrxWa5_=koz_XTSXpjQ@mail.gmail.com>
+	<20121020204958.4bc8e293@sacrilege>
+	<20121021044540.12e8f4b7@sacrilege>
+	<20121021062402.7c4c4cb8@sacrilege>
+	<1350826183.13333.2243.camel@edumazet-glaptop>
+	<20121021195701.7a5872e7@sacrilege>
+	<20121022004332.7e3f3f29@sacrilege>
+	<20121022015134.4de457b9@sacrilege>
+	<1350856053.8609.217.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/KJEwoBm/Z5od+QgN2ZibF=E"; protocol="application/pgp-signature"
+Cc: Paul Moore <paul@paul-moore.com>, netdev@vger.kernel.org,
+ linux-mm@kvack.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1350856053.8609.217.camel@edumazet-glaptop>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Now that HAVE_NET_MACB is gone let's just select MACB to
-satisfy the dependecies in at91_ether.
+--Sig_/KJEwoBm/Z5od+QgN2ZibF=E
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Joachim Eastwood <manabian@gmail.com>
----
- drivers/net/ethernet/cadence/Kconfig  | 2 +-
- drivers/net/ethernet/cadence/Makefile | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+On Sun, 21 Oct 2012 23:47:33 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ethernet/cadence/Kconfig
-index 5d1ea30..f6d0956 100644
---- a/drivers/net/ethernet/cadence/Kconfig
-+++ b/drivers/net/ethernet/cadence/Kconfig
-@@ -23,7 +23,7 @@ config ARM_AT91_ETHER
- 	tristate "AT91RM9200 Ethernet support"
- 	depends on ARM && ARCH_AT91RM9200
- 	select NET_CORE
--	select PHYLIB
-+	select MACB
- 	---help---
- 	  If you wish to compile a kernel for the AT91RM9200 and enable
- 	  ethernet support, then you should always answer Y to this.
-diff --git a/drivers/net/ethernet/cadence/Makefile b/drivers/net/ethernet/cadence/Makefile
-index 798b1e0..9068b83 100644
---- a/drivers/net/ethernet/cadence/Makefile
-+++ b/drivers/net/ethernet/cadence/Makefile
-@@ -2,5 +2,5 @@
- # Makefile for the Atmel network device drivers.
- #
- 
--obj-$(CONFIG_ARM_AT91_ETHER) += at91_ether.o macb.o
-+obj-$(CONFIG_ARM_AT91_ETHER) += at91_ether.o
- obj-$(CONFIG_MACB) += macb.o
--- 
-1.7.12.4
+>=20
+> OK, so  some layer seems to have a bug if the skb->head is exactly
+> allocated, instead of having extra tailroom (because of kmalloc-powerof2
+> alignment)
+>=20
+> Or some layer overwrites past skb->cb[] array
+>=20
+> If you try to move sp field in sk_buff, does it change something ?
+>=20
+...
+>=20
+> Also try to increase tailroom in __netdev_alloc_skb()
+>=20
+
+Applied both patches, but unfortunately, the problem seem to be still
+there.
+
+This time the leaking objects seem to show up as kmalloc-64.
+
+  OBJS ACTIVE  USE OBJ SIZE  SLABS OBJ/SLAB CACHE SIZE NAME                =
+  =20
+266760 265333  99%    0.30K  10260       26     82080K kmemleak_object
+157440 157440 100%    0.06K   2460       64      9840K kmalloc-64
+ 94458  94458 100%    0.10K   2422       39      9688K buffer_head
+ 27573  27573 100%    0.19K   1313       21      5252K dentry
+
+
+kmemleak traces:
+
+unreferenced object 0xffff88002f38ec80 (size 64):
+  comm "softirq", pid 0, jiffies 4294900815 (age 142.346s)
+  hex dump (first 32 bytes):
+    01 00 00 00 01 00 00 00 00 08 03 2e 00 88 ff ff  ................
+    2b 6f a0 ca 28 b2 4a f1 0a 74 33 74 5a 76 18 cb  +o..(.J..t3tZv..
+  backtrace:
+    [<ffffffff814da4e3>] kmemleak_alloc+0x21/0x3e
+    [<ffffffff810dc1f7>] kmem_cache_alloc+0xa5/0xb1
+    [<ffffffff81487bf5>] secpath_dup+0x1b/0x5a
+    [<ffffffff81487df9>] xfrm_input+0x64/0x484
+    [<ffffffff8147eec3>] xfrm4_rcv_encap+0x17/0x19
+    [<ffffffff8147eee4>] xfrm4_rcv+0x1f/0x21
+    [<ffffffff8143b4e4>] ip_local_deliver_finish+0x170/0x22a
+    [<ffffffff8143b6d6>] ip_local_deliver+0x46/0x78
+    [<ffffffff8143b35d>] ip_rcv_finish+0x295/0x2ac
+    [<ffffffff8143b936>] ip_rcv+0x22e/0x288
+    [<ffffffff8140a65d>] __netif_receive_skb+0x5ba/0x65a
+    [<ffffffff8140a898>] netif_receive_skb+0x47/0x78
+    [<ffffffff8140b4c3>] napi_skb_finish+0x21/0x54
+    [<ffffffff8140b5f3>] napi_gro_receive+0xfd/0x10a
+    [<ffffffff81372b47>] rtl8169_poll+0x326/0x4fc
+    [<ffffffff8140ad48>] net_rx_action+0x9f/0x188
+
+unreferenced object 0xffff880029b47580 (size 64):
+  comm "softirq", pid 0, jiffies 4294926900 (age 143.946s)
+  hex dump (first 32 bytes):
+    01 00 00 00 01 00 00 00 00 88 07 2e 00 88 ff ff  ................
+    00 00 00 00 2f 6f 72 67 2f 66 72 65 65 64 65 73  ..../org/freedes
+  backtrace:
+    [<ffffffff814da4e3>] kmemleak_alloc+0x21/0x3e
+    [<ffffffff810dc1f7>] kmem_cache_alloc+0xa5/0xb1
+    [<ffffffff81487bf5>] secpath_dup+0x1b/0x5a
+    [<ffffffff81487df9>] xfrm_input+0x64/0x484
+    [<ffffffff814bbd74>] xfrm6_rcv_spi+0x19/0x1b
+    [<ffffffff814bbd96>] xfrm6_rcv+0x20/0x22
+    [<ffffffff814960c7>] ip6_input_finish+0x203/0x31b
+    [<ffffffff81496546>] ip6_input+0x1e/0x50
+    [<ffffffff81496244>] ip6_rcv_finish+0x65/0x69
+    [<ffffffff814964c7>] ipv6_rcv+0x27f/0x2e0
+    [<ffffffff8140a65d>] __netif_receive_skb+0x5ba/0x65a
+    [<ffffffff8140a898>] netif_receive_skb+0x47/0x78
+    [<ffffffff8140b4c3>] napi_skb_finish+0x21/0x54
+    [<ffffffff8140b5f3>] napi_gro_receive+0xfd/0x10a
+    [<ffffffff81372b47>] rtl8169_poll+0x326/0x4fc
+    [<ffffffff8140ad48>] net_rx_action+0x9f/0x188
+
+I've grepped for "/org/free" specifically and sure enough, same scraps
+of data seem to be in some of the (varied) dumps there.
+
+
+--=20
+Mike Kazantsev // fraggod.net
+
+--Sig_/KJEwoBm/Z5od+QgN2ZibF=E
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.19 (GNU/Linux)
+
+iEYEARECAAYFAlCEfioACgkQASbOZpzyXnEqogCbBQd43a//LI/p2waYJ4GCCUFr
+anAAoLRDzyOqgLtjQgKyrr4O9SMA35PN
+=PXfG
+-----END PGP SIGNATURE-----
+
+--Sig_/KJEwoBm/Z5od+QgN2ZibF=E--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
