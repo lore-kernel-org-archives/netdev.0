@@ -1,7 +1,7 @@
 From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH v2 1/3] net/cadence: get rid of HAVE_NET_MACB
-Date: Sun, 21 Oct 2012 23:57:01 +0200
-Message-ID: <1350856623-9819-2-git-send-email-manabian@gmail.com>
+Subject: [PATCH v2 3/3] net/at91_ether: add pdata flag for reverse Eth addr
+Date: Sun, 21 Oct 2012 23:57:03 +0200
+Message-ID: <1350856623-9819-4-git-send-email-manabian@gmail.com>
 References: <1350856623-9819-1-git-send-email-manabian@gmail.com>
 Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Joachim Eastwood <manabian@gmail.com>
@@ -9,99 +9,88 @@ To: nicolas.ferre@atmel.com, davem@davemloft.net,
 	hskinnemoen@gmail.com, egtvedt@samfundet.no, plagnioj@jcrosoft.com,
 	bgat@billgatliff.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:36864 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932617Ab2JUV5Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 17:57:25 -0400
-Received: by mail-la0-f46.google.com with SMTP id h6so1238166lag.19
-        for <netdev@vger.kernel.org>; Sun, 21 Oct 2012 14:57:23 -0700 (PDT)
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:38184 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932635Ab2JUV51 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 17:57:27 -0400
+Received: by mail-lb0-f174.google.com with SMTP id n3so1288163lbo.19
+        for <netdev@vger.kernel.org>; Sun, 21 Oct 2012 14:57:25 -0700 (PDT)
 In-Reply-To: <1350856623-9819-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-macb is a platform driver and there is nothing that prevents
-this driver from being built on non-ARM/AVR32 platforms.
+This will allow us to remove the last mach include from at91_ether
+and also make it easier to share address setup with macb.
 
 Signed-off-by: Joachim Eastwood <manabian@gmail.com>
 ---
- arch/arm/mach-at91/Kconfig           | 4 ----
- arch/avr32/Kconfig                   | 1 -
- drivers/net/ethernet/cadence/Kconfig | 5 -----
- 3 files changed, 10 deletions(-)
+ arch/arm/mach-at91/board-csb337.c         | 2 ++
+ drivers/net/ethernet/cadence/Kconfig      | 1 -
+ drivers/net/ethernet/cadence/at91_ether.c | 5 ++---
+ include/linux/platform_data/macb.h        | 1 +
+ 4 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/arch/arm/mach-at91/Kconfig b/arch/arm/mach-at91/Kconfig
-index d846b6e..72020fb 100644
---- a/arch/arm/mach-at91/Kconfig
-+++ b/arch/arm/mach-at91/Kconfig
-@@ -45,7 +45,6 @@ config SOC_AT91RM9200
- config SOC_AT91SAM9260
- 	bool "AT91SAM9260, AT91SAM9XE or AT91SAM9G20"
- 	select HAVE_AT91_DBGU0
--	select HAVE_NET_MACB
- 	select SOC_AT91SAM9
- 	help
- 	  Select this if you are using one of Atmel's AT91SAM9260, AT91SAM9XE
-@@ -63,7 +62,6 @@ config SOC_AT91SAM9263
- 	bool "AT91SAM9263"
- 	select HAVE_AT91_DBGU1
- 	select HAVE_FB_ATMEL
--	select HAVE_NET_MACB
- 	select SOC_AT91SAM9
+diff --git a/arch/arm/mach-at91/board-csb337.c b/arch/arm/mach-at91/board-csb337.c
+index 3e37437..aa9b320 100644
+--- a/arch/arm/mach-at91/board-csb337.c
++++ b/arch/arm/mach-at91/board-csb337.c
+@@ -53,6 +53,8 @@ static void __init csb337_init_early(void)
+ static struct macb_platform_data __initdata csb337_eth_data = {
+ 	.phy_irq_pin	= AT91_PIN_PC2,
+ 	.is_rmii	= 0,
++	/* The CSB337 bootloader stores the MAC the wrong-way around */
++	.rev_eth_addr	= 1,
+ };
  
- config SOC_AT91SAM9RL
-@@ -76,7 +74,6 @@ config SOC_AT91SAM9G45
- 	bool "AT91SAM9G45 or AT91SAM9M10 families"
- 	select HAVE_AT91_DBGU1
- 	select HAVE_FB_ATMEL
--	select HAVE_NET_MACB
- 	select SOC_AT91SAM9
- 	help
- 	  Select this if you are using one of Atmel's AT91SAM9G45 family SoC.
-@@ -86,7 +83,6 @@ config SOC_AT91SAM9X5
- 	bool "AT91SAM9x5 family"
- 	select HAVE_AT91_DBGU0
- 	select HAVE_FB_ATMEL
--	select HAVE_NET_MACB
- 	select SOC_AT91SAM9
- 	help
- 	  Select this if you are using one of Atmel's AT91SAM9x5 family SoC.
-diff --git a/arch/avr32/Kconfig b/arch/avr32/Kconfig
-index 06e73bf..09f9fa8 100644
---- a/arch/avr32/Kconfig
-+++ b/arch/avr32/Kconfig
-@@ -80,7 +80,6 @@ config PLATFORM_AT32AP
- 	select ARCH_REQUIRE_GPIOLIB
- 	select GENERIC_ALLOCATOR
- 	select HAVE_FB_ATMEL
--	select HAVE_NET_MACB
- 
- #
- # CPU types
+ static struct at91_usbh_data __initdata csb337_usbh_data = {
 diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ethernet/cadence/Kconfig
-index 57f78abe..5d1ea30 100644
+index f6d0956..40172d1 100644
 --- a/drivers/net/ethernet/cadence/Kconfig
 +++ b/drivers/net/ethernet/cadence/Kconfig
-@@ -2,13 +2,9 @@
- # Atmel device configuration
- #
+@@ -21,7 +21,6 @@ if NET_CADENCE
  
--config HAVE_NET_MACB
--	bool
+ config ARM_AT91_ETHER
+ 	tristate "AT91RM9200 Ethernet support"
+-	depends on ARM && ARCH_AT91RM9200
+ 	select NET_CORE
+ 	select MACB
+ 	---help---
+diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
+index 375d272..b92815a 100644
+--- a/drivers/net/ethernet/cadence/at91_ether.c
++++ b/drivers/net/ethernet/cadence/at91_ether.c
+@@ -32,8 +32,6 @@
+ #include <linux/phy.h>
+ #include <linux/io.h>
+ 
+-#include <asm/mach-types.h>
 -
- config NET_CADENCE
- 	bool "Cadence devices"
- 	default y
--	depends on HAVE_NET_MACB || (ARM && ARCH_AT91RM9200)
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y.
- 	  Make sure you know the name of your card. Read the Ethernet-HOWTO,
-@@ -34,7 +30,6 @@ config ARM_AT91_ETHER
+ #include "macb.h"
  
- config MACB
- 	tristate "Cadence MACB/GEM support"
--	depends on HAVE_NET_MACB
- 	select PHYLIB
- 	---help---
- 	  The Cadence MACB ethernet interface is found on many Atmel AT32 and
+ #define DRV_NAME	"at91_ether"
+@@ -61,9 +59,10 @@
+ 
+ static short __init unpack_mac_address(struct net_device *dev, unsigned int hi, unsigned int lo)
+ {
++	struct macb *lp = netdev_priv(dev);
+ 	char addr[6];
+ 
+-	if (machine_is_csb337()) {
++	if (lp->board_data.rev_eth_addr) {
+ 		addr[5] = (lo & 0xff);			/* The CSB337 bootloader stores the MAC the wrong-way around */
+ 		addr[4] = (lo & 0xff00) >> 8;
+ 		addr[3] = (lo & 0xff0000) >> 16;
+diff --git a/include/linux/platform_data/macb.h b/include/linux/platform_data/macb.h
+index b081c72..044a124 100644
+--- a/include/linux/platform_data/macb.h
++++ b/include/linux/platform_data/macb.h
+@@ -12,6 +12,7 @@ struct macb_platform_data {
+ 	u32		phy_mask;
+ 	int		phy_irq_pin;	/* PHY IRQ */
+ 	u8		is_rmii;	/* using RMII interface? */
++	u8		rev_eth_addr;	/* reverse Ethernet address byte order */
+ };
+ 
+ #endif /* __MACB_PDATA_H__ */
 -- 
 1.7.12.4
