@@ -1,109 +1,49 @@
-From: Mike Kazantsev <mk.fraggod@gmail.com>
-Subject: Re: PROBLEM: Memory leak (at least with SLUB) from "secpath_dup"
- (xfrm) in 3.5+ kernels
-Date: Mon, 22 Oct 2012 01:51:34 +0600
-Message-ID: <20121022015134.4de457b9@sacrilege>
-References: <20121019205055.2b258d09@sacrilege>
-	<20121019233632.26cf96d8@sacrilege>
-	<CAHC9VhQ+gkAaRmwDWqzQd1U-hwH__5yxrxWa5_=koz_XTSXpjQ@mail.gmail.com>
-	<20121020204958.4bc8e293@sacrilege>
-	<20121021044540.12e8f4b7@sacrilege>
-	<20121021062402.7c4c4cb8@sacrilege>
-	<1350826183.13333.2243.camel@edumazet-glaptop>
-	<20121021195701.7a5872e7@sacrilege>
-	<20121022004332.7e3f3f29@sacrilege>
+From: Daniel Mack <zonque@gmail.com>
+Subject: Re: A reliable kernel panic (3.6.2) and system crash when visiting
+ a particular website
+Date: Sun, 21 Oct 2012 21:54:51 +0200
+Message-ID: <5084530B.6030209@gmail.com>
+References: <2104474742.26357.1350734815286.JavaMail.mail@webmail05> <20121020162759.GA12551@liondog.tnic> <966148591.30347.1350754909449.JavaMail.mail@webmail08> <20121020203227.GC555@elf.ucw.cz> <20121020225849.GA8976@liondog.tnic> <1781795634.31179.1350774917965.JavaMail.mail@webmail04> <20121021002424.GA16247@liondog.tnic> <1798605268.19162.1350784641831.JavaMail.mail@webmail17> <20121021110851.GA6504@liondog.tnic> <121566322.100103.1350820776893.JavaMail.mail@webmail20> <20121021170315.GB20642@liondog.tnic> <1906833625.122006.1350848941352.JavaMail.mail@webmail16>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/YkuKUKk50/LcW+kp1e9gUQZ"; protocol="application/pgp-signature"
-Cc: Paul Moore <paul@paul-moore.com>, netdev@vger.kernel.org,
- linux-mm@kvack.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20121022004332.7e3f3f29@sacrilege>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: bp@alien8.de, pavel@ucw.cz, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, security@kernel.org,
+	linux-media@vger.kernel.org, linux-usb@vger.kernel.org,
+	alsa-devel@alsa-project.org, stern@rowland.harvard.edu
+To: "Artem S. Tashkinov" <t.artem@lycos.com>
+Return-path: <linux-media-owner@vger.kernel.org>
+In-Reply-To: <1906833625.122006.1350848941352.JavaMail.mail@webmail16>
+Sender: linux-media-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/YkuKUKk50/LcW+kp1e9gUQZ
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On 21.10.2012 21:49, Artem S. Tashkinov wrote:
+>>
+>> On Oct 21, 2012, Borislav Petkov <bp@alien8.de> wrote: 
+>>
+>> On Sun, Oct 21, 2012 at 11:59:36AM +0000, Artem S. Tashkinov wrote:
+>>> http://imageshack.us/a/img685/9452/panicz.jpg
+>>>
+>>> list_del corruption. prev->next should be ... but was ...
+>>
+>> Btw, this is one of the debug options I told you to enable.
+>>
+>>> I cannot show you more as I have no serial console to use :( and the kernel
+>>> doesn't have enough time to push error messages to rsyslog and fsync
+>>> /var/log/messages
+>>
+>> I already told you how to catch that oops: boot with "pause_on_oops=600"
+>> on the kernel command line and photograph the screen when the first oops
+>> happens. This'll show us where the problem begins.
+> 
+> This option didn't have any effect, or maybe it's because it's such a serious crash
+> the kernel has no time to actually print an ooops/panic message.
+> 
+> dmesg messages up to a crash can be seen here: https://bugzilla.kernel.org/attachment.cgi?id=84221
 
-On Mon, 22 Oct 2012 00:43:32 +0600
-Mike Kazantsev <mk.fraggod@gmail.com> wrote:
-
-> > On Sun, 21 Oct 2012 15:29:43 +0200
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >=20
-> > >=20
-> > > Did you try linux-3.7-rc2 (or linux-3.7-rc1) ?
-> > >=20
->=20
-> I just built "torvalds/linux-2.6" (v3.7-rc2) and rebooted into it,
-> started same rsync-over-net test and got kmalloc-64 leaking (it went up
-> to tens of MiB until I stopped rsync, normally these are fixed at ~500
-> KiB).
->=20
-> Unfortunately, I forgot to add slub_debug option and build kmemleak so
-> wasn't able to look at this case further, and when I rebooted with
-> these enabled/built, it was secpath_cache again.
->=20
-> So previously noted "slabtop showed 'kmalloc-64' being the 99% offender
-> in the past, but with recent kernels (3.6.1), it has changed to
-> 'secpath_cache'" seem to be incorrect, as it seem to depend not on
-> kernel version, but some other factor.
->=20
-> Guess I'll try to reboot a few more times to see if I can catch
-> kmalloc-64 leaking (instead of secpath_cache) again.
->=20
-
-I haven't been able to catch the aforementioned condition, but noticed
-that with v3.7-rc2, "hex dump" part seem to vary in kmemleak
-traces, and contain all sorts of random stuff, for example:
-
-unreferenced object 0xffff88002ae2de00 (size 56):
-  comm "softirq", pid 0, jiffies 4295006317 (age 213.066s)
-  hex dump (first 32 bytes):
-    01 00 00 00 01 00 00 00 20 9f f4 28 00 88 ff ff  ........ ..(....
-    2f 6f 72 67 2f 66 72 65 65 64 65 73 6b 74 6f 70  /org/freedesktop
-  backtrace:
-    [<ffffffff814da4e3>] kmemleak_alloc+0x21/0x3e
-    [<ffffffff810dc1f7>] kmem_cache_alloc+0xa5/0xb1
-    [<ffffffff81487bf1>] secpath_dup+0x1b/0x5a
-    [<ffffffff81487df5>] xfrm_input+0x64/0x484
-    [<ffffffff814bbd70>] xfrm6_rcv_spi+0x19/0x1b
-    [<ffffffff814bbd92>] xfrm6_rcv+0x20/0x22
-    [<ffffffff814960c3>] ip6_input_finish+0x203/0x31b
-    [<ffffffff81496542>] ip6_input+0x1e/0x50
-    [<ffffffff81496240>] ip6_rcv_finish+0x65/0x69
-    [<ffffffff814964c3>] ipv6_rcv+0x27f/0x2e0
-    [<ffffffff8140a659>] __netif_receive_skb+0x5ba/0x65a
-    [<ffffffff8140a894>] netif_receive_skb+0x47/0x78
-    [<ffffffff8140b4bf>] napi_skb_finish+0x21/0x54
-    [<ffffffff8140b5ef>] napi_gro_receive+0xfd/0x10a
-    [<ffffffff81372b47>] rtl8169_poll+0x326/0x4fc
-    [<ffffffff8140ad44>] net_rx_action+0x9f/0x188
-
-Not sure if it's relevant though.
+Nice. Could you do that again with the patch applied I sent yo some
+hours ago?
 
 
---=20
-Mike Kazantsev // fraggod.net
-
---Sig_/YkuKUKk50/LcW+kp1e9gUQZ
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iEYEARECAAYFAlCEUkoACgkQASbOZpzyXnFuowCgquhqHAktCHeCWFtCKS4TR+bW
-oxAAoMtBBa1zPDZmFhNIhpPqJoSbJ6TK
-=KfUX
------END PGP SIGNATURE-----
-
---Sig_/YkuKUKk50/LcW+kp1e9gUQZ--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks,
+Daniel
