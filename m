@@ -1,38 +1,70 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 6/6] drivers: net: ethernet: cpsw: implement
- timestamping capabilities in cpsw
-Date: Sun, 21 Oct 2012 20:11:42 +0200
-Message-ID: <20121021181142.GA29044@netboy.at.omicron.at>
-References: <1350427518-7230-1-git-send-email-mugunthanvnm@ti.com>
- <1350427518-7230-7-git-send-email-mugunthanvnm@ti.com>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: [PATCH 1/5] net/cadence: get rid of HAVE_NET_MACB
+Date: Sun, 21 Oct 2012 20:30:05 +0200
+Message-ID: <20121021183005.GA18964@game.jcrosoft.org>
+References: <1350829392-3812-1-git-send-email-manabian@gmail.com>
+ <1350829392-3812-2-git-send-email-manabian@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:47331 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932387Ab2JUSLw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 14:11:52 -0400
-Received: by mail-wi0-f172.google.com with SMTP id hq12so1766679wib.1
-        for <netdev@vger.kernel.org>; Sun, 21 Oct 2012 11:11:51 -0700 (PDT)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: bgat@billgatliff.com, netdev@vger.kernel.org, nicolas.ferre@atmel.com,
+ hskinnemoen@gmail.com, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org, egtvedt@samfundet.no
+To: Joachim Eastwood <manabian@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <1350427518-7230-7-git-send-email-mugunthanvnm@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1350829392-3812-2-git-send-email-manabian@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 17, 2012 at 04:15:18AM +0530, Mugunthan V N wrote:
-> This patch implements timestamping capabilities in cpsw through IOCTL interface
-> to enable and disable PTP time stamping and adds hardware time stamps to the
-> packet's skb buffer using cpts api
+On 16:23 Sun 21 Oct     , Joachim Eastwood wrote:
+> macb is a platform driver and there is nothing that prevents
+> this driver from being built on non-ARM/AVR32 platforms.
+if you want to drop the HAVE_NET_MACB you need to drop it everywher in one
+patch
 
-Just out of curiosity, I compiled and booted this patch series, but it
-does not work. The CPTS driver fails with
-
-   [ 1.901459] Missing cpts_reg_ofs property in the DT.
-   [ 1.906835] cpsw: platform data missing
-
-so I think you forgot to patch the dts files.
-
-Thanks,
-Richard
+Best Regards,
+J.
+> 
+> Signed-off-by: Joachim Eastwood <manabian@gmail.com>
+> ---
+>  drivers/net/ethernet/cadence/Kconfig | 5 -----
+>  1 file changed, 5 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ethernet/cadence/Kconfig
+> index 57f78abe..5d1ea30 100644
+> --- a/drivers/net/ethernet/cadence/Kconfig
+> +++ b/drivers/net/ethernet/cadence/Kconfig
+> @@ -2,13 +2,9 @@
+>  # Atmel device configuration
+>  #
+>  
+> -config HAVE_NET_MACB
+> -	bool
+> -
+>  config NET_CADENCE
+>  	bool "Cadence devices"
+>  	default y
+> -	depends on HAVE_NET_MACB || (ARM && ARCH_AT91RM9200)
+>  	---help---
+>  	  If you have a network (Ethernet) card belonging to this class, say Y.
+>  	  Make sure you know the name of your card. Read the Ethernet-HOWTO,
+> @@ -34,7 +30,6 @@ config ARM_AT91_ETHER
+>  
+>  config MACB
+>  	tristate "Cadence MACB/GEM support"
+> -	depends on HAVE_NET_MACB
+>  	select PHYLIB
+>  	---help---
+>  	  The Cadence MACB ethernet interface is found on many Atmel AT32 and
+> -- 
+> 1.7.12.4
+> 
