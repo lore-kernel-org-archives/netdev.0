@@ -1,33 +1,35 @@
-From: Vimal <j.vimal@gmail.com>
-Subject: Re: [PATCH net-next V2] htb: improved accuracy at high rates
-Date: Sun, 21 Oct 2012 08:23:59 -0700
-Message-ID: <CAK3Ji113sEz=2PjDpCO+Oi3tttbfzHsrO-RiFt3Gy86sodvbBw@mail.gmail.com>
-References: <1350751116-70056-1-git-send-email-j.vimal@gmail.com>
- <1350817787.13333.1949.camel@edumazet-glaptop> <1350818245.13333.1967.camel@edumazet-glaptop>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: was: Re: A reliable kernel panic (3.6.2) and system crash when
+ visiting a particular website
+Date: Sun, 21 Oct 2012 11:28:29 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1210211126570.14867-100000@netrider.rowland.org>
+References: <5084132B.8080609@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, Jamal Hadi Salim <jhs@mojatatu.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:43356 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932129Ab2JUPYU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 11:24:20 -0400
-Received: by mail-vc0-f174.google.com with SMTP id fk26so2088998vcb.19
-        for <netdev@vger.kernel.org>; Sun, 21 Oct 2012 08:24:19 -0700 (PDT)
-In-Reply-To: <1350818245.13333.1967.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Artem S. Tashkinov" <t.artem@lycos.com>, <bp@alien8.de>,
+	<pavel@ucw.cz>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <security@kernel.org>,
+	<linux-media@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	<alsa-devel@alsa-project.org>
+To: Daniel Mack <zonque@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5084132B.8080609@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 21 October 2012 04:17, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> I meant 'dont lose their time', oh well ;)
->
+On Sun, 21 Oct 2012, Daniel Mack wrote:
 
-I think I just pasted the patch onto net-next.  Fixing both errors,
-and resubmitting.
+> As the usb list is still in Cc: - Artem's lcpci dump shows that his
+> machine features XHCI controllers. Can anyone think of a relation to
+> this problem?
+> 
+> And Artem, is there any way you boot your system on an older machine
+> that only has EHCI ports? Thinking about it, I wonder whether the freeze
+> in VBox and the crashes on native hardware have the same root cause. In
+> that case, would it be possible to share that VBox image?
 
-thanks :-)
--- 
-Vimal
+Don't grasp at straws.  All of the kernel logs Artem has posted show 
+ehci-hcd; none of them show xhci-hcd.  Therefore the xHCI controller is 
+highly unlikely to be involved.
+
+Alan Stern
