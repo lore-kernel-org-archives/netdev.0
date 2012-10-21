@@ -1,49 +1,57 @@
 From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH 0/5] make cadence ethernet drivers build on any architecture
-Date: Sun, 21 Oct 2012 16:23:07 +0200
-Message-ID: <1350829392-3812-1-git-send-email-manabian@gmail.com>
+Subject: [PATCH 1/5] net/cadence: get rid of HAVE_NET_MACB
+Date: Sun, 21 Oct 2012 16:23:08 +0200
+Message-ID: <1350829392-3812-2-git-send-email-manabian@gmail.com>
+References: <1350829392-3812-1-git-send-email-manabian@gmail.com>
 Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Joachim Eastwood <manabian@gmail.com>
 To: nicolas.ferre@atmel.com, davem@davemloft.net,
 	hskinnemoen@gmail.com, egtvedt@samfundet.no, plagnioj@jcrosoft.com,
 	bgat@billgatliff.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:65406 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753665Ab2JUOXe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 10:23:34 -0400
-Received: by mail-lb0-f174.google.com with SMTP id n3so1170561lbo.19
-        for <netdev@vger.kernel.org>; Sun, 21 Oct 2012 07:23:33 -0700 (PDT)
+Received: from mail-la0-f46.google.com ([209.85.215.46]:45876 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753732Ab2JUOXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 10:23:35 -0400
+Received: by mail-la0-f46.google.com with SMTP id h6so1120285lag.19
+        for <netdev@vger.kernel.org>; Sun, 21 Oct 2012 07:23:34 -0700 (PDT)
+In-Reply-To: <1350829392-3812-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series makes the at91_ether and macb driver build-able on any architecture.
+macb is a platform driver and there is nothing that prevents
+this driver from being built on non-ARM/AVR32 platforms.
 
-Patch 1 removes the HAVE_NET_MACB from the cadence Kconfig and this allow macb to be built on any architecture. The macb driver requires no other modifications.
+Signed-off-by: Joachim Eastwood <manabian@gmail.com>
+---
+ drivers/net/ethernet/cadence/Kconfig | 5 -----
+ 1 file changed, 5 deletions(-)
 
-Patch 3 moves a bootloader quirk for CSB337 from at91_ether into CSB337 board setup. This allow us to remove the last mach include and build this driver on any architecture. It also make it easier to share the address setup between at91_ether and macb.
-
-Patch 4-5 removes the now unused HAVE_NET_MACB config symbol from AT91/AVR32 Kconfig.
-
-
-Note that patch 3 is not tested on a real CSB337 board. I only tested it on an other AT91RM9200 board to verify the logic that reverses the address byte order works.
-
-The next series will make the at91_ether driver use address setting and statistics from macb. There is also a clean up of print outs plus some comment/style fixes.
-
-Joachim Eastwood (5):
-  net/cadence: get rid of HAVE_NET_MACB
-  net/at91_ether: select MACB in Kconfig
-  net/at91_ether: move eth addr quirk into csb337 board setup
-  ARM: AT91: Remove HAVE_NET_MACB
-  AVR32: Remove HAVE_NET_MACB
-
- arch/arm/mach-at91/Kconfig                |  4 ----
- arch/arm/mach-at91/board-csb337.c         | 35 +++++++++++++++++++++++++++++++
- arch/avr32/Kconfig                        |  1 -
- drivers/net/ethernet/cadence/Kconfig      |  8 +------
- drivers/net/ethernet/cadence/Makefile     |  2 +-
- drivers/net/ethernet/cadence/at91_ether.c | 26 ++++++-----------------
- 6 files changed, 43 insertions(+), 33 deletions(-)
-
+diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ethernet/cadence/Kconfig
+index 57f78abe..5d1ea30 100644
+--- a/drivers/net/ethernet/cadence/Kconfig
++++ b/drivers/net/ethernet/cadence/Kconfig
+@@ -2,13 +2,9 @@
+ # Atmel device configuration
+ #
+ 
+-config HAVE_NET_MACB
+-	bool
+-
+ config NET_CADENCE
+ 	bool "Cadence devices"
+ 	default y
+-	depends on HAVE_NET_MACB || (ARM && ARCH_AT91RM9200)
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y.
+ 	  Make sure you know the name of your card. Read the Ethernet-HOWTO,
+@@ -34,7 +30,6 @@ config ARM_AT91_ETHER
+ 
+ config MACB
+ 	tristate "Cadence MACB/GEM support"
+-	depends on HAVE_NET_MACB
+ 	select PHYLIB
+ 	---help---
+ 	  The Cadence MACB ethernet interface is found on many Atmel AT32 and
 -- 
 1.7.12.4
