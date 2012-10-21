@@ -1,28 +1,31 @@
-From: "Wong Hui" <wonghui56@hotmail.com>
-Subject: Business Proposal
-Date: Mon, 22 Oct 2012 01:09:02 +0200
-Message-ID: <20121021230846.484BA21E32B6@mail.mitconsult.pl>
-Reply-To: <wong.hui01@postino.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 3.5 bridging regression
+Date: Sun, 21 Oct 2012 19:25:56 -0400 (EDT)
+Message-ID: <20121021.192556.952646404147204428.davem@davemloft.net>
+References: <20121021112727.GF21937@1wt.eu>
+	<1350820413.13333.2042.camel@edumazet-glaptop>
+	<20121021132610.GG21937@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Cc: eric.dumazet@gmail.com, edumazet@google.com, netdev@vger.kernel.org
+To: w@1wt.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mitconsult.net ([78.9.150.49]:41184 "EHLO mail.mitconsult.pl"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S932575Ab2JUXYy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 Oct 2012 19:24:54 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:54556 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932575Ab2JUXZ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 19:25:58 -0400
+In-Reply-To: <20121021132610.GG21937@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please I would like you to keep this proposal as a top secret and delete it if you
-are not interested and get back to me if you are interested for details as regards
-to the transfer of $24,500,000 to you. 
-This money initially belongs to a Libyan client who died in the libya crisis and had no next of kin in his
-account-opening package in my bank here in Hong kong where I am a bank director. 
-In other to achieve this, I shall require your full name, and telephone number to reach you.
-Most importantly, a confirmation of acceptance from you will be needed after which I
-shall furnish you with the full details of this transaction.
-Yours Truly,
-Wong Hui.
+From: Willy Tarreau <w@1wt.eu>
+Date: Sun, 21 Oct 2012 15:26:10 +0200
+
+> David, are you OK with sending this patch for -stable ? It fixes
+> a 3.5 regression causing bridge to panic.
+
+Why do people ask me so many questions they can answer on their
+own?
+
+http://patchwork.ozlabs.org/user/bundle/2566/?state=*
