@@ -1,176 +1,157 @@
-From: Andrew Savchenko <bircoph@gmail.com>
-Subject: Re: [BUG] Kernel recieves DNS reply, but doesn't deliver it to a
- waiting application
-Date: Sun, 21 Oct 2012 03:25:43 +0400
-Message-ID: <20121021032543.09d1844f.bircoph@gmail.com>
-References: <20121003232548.eb6b6b22.bircoph@gmail.com>
-	<20121013163639.87abca00.bircoph@gmail.com>
-	<1350135860.21172.14606.camel@edumazet-glaptop>
-	<20121014031119.a60263d6.bircoph@gmail.com>
+From: Mike Kazantsev <mk.fraggod@gmail.com>
+Subject: Re: PROBLEM: Memory leak (at least with SLUB) from "secpath_dup"
+ (xfrm) in 3.5+ kernels
+Date: Sun, 21 Oct 2012 06:24:02 +0600
+Message-ID: <20121021062402.7c4c4cb8@sacrilege>
+References: <20121019205055.2b258d09@sacrilege>
+	<20121019233632.26cf96d8@sacrilege>
+	<CAHC9VhQ+gkAaRmwDWqzQd1U-hwH__5yxrxWa5_=koz_XTSXpjQ@mail.gmail.com>
+	<20121020204958.4bc8e293@sacrilege>
+	<20121021044540.12e8f4b7@sacrilege>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Sun__21_Oct_2012_03_25_43_+0400_lvVzhk.G22t2JzK="
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:41917 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753480Ab2JTX0L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2012 19:26:11 -0400
-Received: by mail-la0-f46.google.com with SMTP id h6so963432lag.19
-        for <netdev@vger.kernel.org>; Sat, 20 Oct 2012 16:26:09 -0700 (PDT)
-In-Reply-To: <20121014031119.a60263d6.bircoph@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/EUBLhir7Zkto6lgopXsP61Y"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org, linux-mm@kvack.org
+To: Paul Moore <paul@paul-moore.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20121021044540.12e8f4b7@sacrilege>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
---Signature=_Sun__21_Oct_2012_03_25_43_+0400_lvVzhk.G22t2JzK=
+--Sig_/EUBLhir7Zkto6lgopXsP61Y
 Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-Hello,
+On Sun, 21 Oct 2012 04:45:40 +0600
+Mike Kazantsev <mk.fraggod@gmail.com> wrote:
 
-On Sun, 14 Oct 2012 03:11:19 +0400 Andrew Savchenko wrote:
-> On Sat, 13 Oct 2012 15:44:20 +0200 Eric Dumazet wrote:
-> > On Sat, 2012-10-13 at 16:36 +0400, Andrew Savchenko wrote:
-> > > On Wed, 3 Oct 2012 23:25:48 +0400 Andrew Savchenko wrote:
-> > > > I encountered a very weird bug: after a while of uptime kernel stop=
-s to deliver
-> > > > DNS reply to applications. Tcpdump shows that correct reply is reci=
-eved, but=20
-> > > > strace shows inquiring application never recieves it and ends with =
-timeout,
-> > > > epoll_wait() always returns 0:
-> > > > a slice from: $ host kernel.org 8.8.8.8:
-> [...]
-> > > > In a few days I'll try 3.4.12 (I need to rebuild kernel anyway due =
-to unrelated
-> > > > issue) and will report if this bug will occur again. But please not=
-e it may
-> > > > take several weeks to check this.
-> > >=20
-> > > I got this problem again with 3.4.12 kernel. System lasted less than
-> > > a week and reboot was the only option...
-> >=20
-> > You should investigate and check where the incoming packet is lost
-> >=20
-> > Tools :
-> >=20
-> > netstat -s
-> >=20
-> > drop_monitor module and dropwatch command
-> >=20
-> > cat /proc/net/udp
 >=20
-> Thank you for you reply; I updated my kernel to 3.4.14, enabled
-> CONFIG_NET_DROP_MONITOR, and installed dropwatch utility.
+> kmemleak mechanism seem to provide stack traces and interesting calls
+> for debugging of whatever is allocating the non-freed objects, so guess
+> I'll see if I can get more definitive (to my ignorant eye) "look here"
+> hint from it, and might drop one more mail with data from there.
 >=20
-> I will report back when the bug will struck again.
-> This may take a weak or two, however.
 
-This bug is back again on kernel 3.4.14, but this time I was able to
-get debug data and to recover running kernel without reboot.
+kmemleak finds a lot (dozens megabytes of stack traces) of identical
+paths leading to a leaks:
 
-Drowpatch showed that DNS UDP replies are always dropped here:
-1 drops at __udp_queue_rcv_skb+61 (0xffffffff813bd670)
+(for IPv6 packets)
+unreferenced object 0xffff88002fa25b00 (size 56):
+  comm "softirq", pid 0, jiffies 4295009073 (age 295.620s)
+  hex dump (first 32 bytes):
+    01 00 00 00 01 00 00 00 00 fc 6e 30 00 88 ff ff  ..........n0....
+    6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
+  backtrace:
+    [<ffffffff814cfa2b>] kmemleak_alloc+0x21/0x3e
+    [<ffffffff810d9445>] kmem_cache_alloc+0xa5/0xb1
+    [<ffffffff8147dd35>] secpath_dup+0x1b/0x5a
+    [<ffffffff8147df39>] xfrm_input+0x64/0x484
+    [<ffffffff814b1d2c>] xfrm6_rcv_spi+0x19/0x1b
+    [<ffffffff814b1d4e>] xfrm6_rcv+0x20/0x22
+    [<ffffffff8148c19f>] ip6_input_finish+0x203/0x31b
+    [<ffffffff8148c622>] ip6_input+0x1e/0x50
+    [<ffffffff8148c31c>] ip6_rcv_finish+0x65/0x69
+    [<ffffffff8148c5a3>] ipv6_rcv+0x283/0x2e4
+    [<ffffffff813ff8ba>] __netif_receive_skb+0x599/0x64c
+    [<ffffffff813ffb08>] netif_receive_skb+0x47/0x78
+    [<ffffffff81400644>] napi_skb_finish+0x21/0x53
+    [<ffffffff81400778>] napi_gro_receive+0x102/0x10e
+    [<ffffffff8136978b>] rtl8169_poll+0x326/0x4f9
+    [<ffffffff813ffcda>] net_rx_action+0x9f/0x175
 
-Another observations:
-- only UDP replies are lost, TCP works fine;
-- if network load is dropped dramatically (ip_forward disabled, most
-network daemons are stopped) UDP DNS queries work again; but with
-gradual load increase replies became first slow and than cease at all.
-- CPU load is very low (uptime is below 0.05), so this shouldn't be
-an insufficient computing power issue.
+(for IPv4 packets)
+unreferenced object 0xffff88003387e000 (size 56):
+  comm "softirq", pid 0, jiffies 4294915803 (age 563.583s)
+  hex dump (first 32 bytes):
+    01 00 00 00 01 00 00 00 00 48 be 30 00 88 ff ff  .........H.0....
+    6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
+  backtrace:
+    [<ffffffff814cfa2b>] kmemleak_alloc+0x21/0x3e
+    [<ffffffff810d9445>] kmem_cache_alloc+0xa5/0xb1
+    [<ffffffff8147dd35>] secpath_dup+0x1b/0x5a
+    [<ffffffff8147df39>] xfrm_input+0x64/0x484
+    [<ffffffff81474f7b>] xfrm4_rcv_encap+0x17/0x19
+    [<ffffffff81474f9c>] xfrm4_rcv+0x1f/0x21
+    [<ffffffff81430514>] ip_local_deliver_finish+0x170/0x22a
+    [<ffffffff81430706>] ip_local_deliver+0x46/0x78
+    [<ffffffff8143038d>] ip_rcv_finish+0x2bd/0x2d4
+    [<ffffffff81430969>] ip_rcv+0x231/0x28c
+    [<ffffffff813ff8ba>] __netif_receive_skb+0x599/0x64c
+    [<ffffffff813ffb08>] netif_receive_skb+0x47/0x78
+    [<ffffffff81400644>] napi_skb_finish+0x21/0x53
+    [<ffffffff81400778>] napi_gro_receive+0x102/0x10e
+    [<ffffffff8136978b>] rtl8169_poll+0x326/0x4f9
+    [<ffffffff813ffcda>] net_rx_action+0x9f/0x175
 
-I found __udp_queue_rcv_skb function in net/ipv4/udp.c. From the code
-and observations above it follows that this is likely to be a ENOMEM
-condition leading to a packet loss.
+Object at the top and trace seem to be the same (between same
+IP-family) everywhere, just ages and addresses are different.
 
-This is a memory data after bug happened:
-# cat /proc/meminfo
-MemTotal:        1021576 kB
-MemFree:           32056 kB
-Buffers:          105204 kB
-Cached:           646716 kB
-SwapCached:          236 kB
-Active:           205932 kB
-Inactive:         587156 kB
-Active(anon):      20636 kB
-Inactive(anon):    22488 kB
-Active(file):     185296 kB
-Inactive(file):   564668 kB
-Unevictable:        2152 kB
-Mlocked:            2152 kB
-SwapTotal:        995992 kB
-SwapFree:         995020 kB
-Dirty:                 0 kB
-Writeback:             0 kB
-AnonPages:         43120 kB
-Mapped:             7504 kB
-Shmem:               148 kB
-Slab:             176004 kB
-SReclaimable:     118636 kB
-SUnreclaim:        57368 kB
-KernelStack:         688 kB
-PageTables:         2948 kB
-NFS_Unstable:          0 kB
-Bounce:                0 kB
-WritebackTmp:          0 kB
-CommitLimit:     1506780 kB
-Committed_AS:      62708 kB
-VmallocTotal:   34359738367 kB
-VmallocUsed:      262732 kB
-VmallocChunk:   34359474615 kB
-AnonHugePages:         0 kB
-DirectMap4k:       33536 kB
-DirectMap2M:     1013760 kB
+IPv6 usage seem to be one important detail which I failed to mention.
+IPv4 traces seem to be really rare (only several of them), but that
+might be understandable because rsync was ran over IPv6.
 
-# sysctl -a | grep mem
-net.core.optmem_max =3D 20480
-net.core.rmem_default =3D 229376
-net.core.rmem_max =3D 131071
-net.core.wmem_default =3D 229376
-net.core.wmem_max =3D 131071
-net.ipv4.igmp_max_memberships =3D 20
-net.ipv4.tcp_mem =3D 22350        29801   44700
-net.ipv4.tcp_rmem =3D 4096        87380   6291456
-net.ipv4.tcp_wmem =3D 4096        16384   4194304
-net.ipv4.udp_mem =3D 24150        32202   48300
-net.ipv4.udp_rmem_min =3D 4096
-net.ipv4.udp_wmem_min =3D 4096
-vm.lowmem_reserve_ratio =3D 256   256     32
-vm.overcommit_memory =3D 0
+Still wasn't able to figure out what might cause the get's/put's
+disbalance with that commit, but was able to revert it, without
+anything bad happening (so far), using the patch below (in case
+issue might bite someone else before proper fix is found).
 
-Sysctl memory parameters are system defaults, I haven't changed them
-via sysctl or /proc interfaces.
 
-I tried to increase udm_mem values to the following:
-net.ipv4.udp_mem =3D 100000       150000  200000
+--
 
-This solved my issue, at least for a while: DNS queries are working
-fine now.
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 6e04b1f..52a9d40 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -427,26 +427,8 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *=
+dev,
+ 				   unsigned int length, gfp_t gfp_mask)
+ {
+ 	struct sk_buff *skb =3D NULL;
+-	unsigned int fragsz =3D SKB_DATA_ALIGN(length + NET_SKB_PAD) +
+-			      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+-
+-	if (fragsz <=3D PAGE_SIZE && !(gfp_mask & (__GFP_WAIT | GFP_DMA))) {
+-		void *data;
+-
+-		if (sk_memalloc_socks())
+-			gfp_mask |=3D __GFP_MEMALLOC;
+-
+-		data =3D __netdev_alloc_frag(fragsz, gfp_mask);
+-
+-		if (likely(data)) {
+-			skb =3D build_skb(data, fragsz);
+-			if (unlikely(!skb))
+-				put_page(virt_to_head_page(data));
+-		}
+-	} else {
+-		skb =3D __alloc_skb(length + NET_SKB_PAD, gfp_mask,
++	skb =3D __alloc_skb(length + NET_SKB_PAD, gfp_mask,
+ 				  SKB_ALLOC_RX, NUMA_NO_NODE);
+-	}
+ 	if (likely(skb)) {
+ 		skb_reserve(skb, NET_SKB_PAD);
+ 		skb->dev =3D dev;
 
-But I suspect that there is some memory loss in the kernel UDP stack,
-because this issue never happens after reboot and always after about
-a week of network operation. So this memory increase should help only
-for a month or so, if memory loss is linear.
 
-If you need some memory debug information, let me know which one and
-what tools will be needed.
+--=20
+Mike Kazantsev // fraggod.net
 
-Best regards,
-Andrew Savchenko
-
---Signature=_Sun__21_Oct_2012_03_25_43_+0400_lvVzhk.G22t2JzK=
-Content-Type: application/pgp-signature
+--Sig_/EUBLhir7Zkto6lgopXsP61Y
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2.0.19 (GNU/Linux)
 
-iEYEARECAAYFAlCDMwAACgkQ2anJBBcsZw1RnwCeIxuFAKNtLPFtt3kllTL5V75S
-i4EAnjxUASK2oEnSN+0cRQa30oK/r95Q
-=PntF
+iEYEARECAAYFAlCDQKYACgkQASbOZpzyXnFBHwCfVAT7N2AyDnWZQkI3KTohlnb1
+Bb0AoOz8FT7YxN7FXYccXvDdihPWGu1S
+=VVET
 -----END PGP SIGNATURE-----
 
---Signature=_Sun__21_Oct_2012_03_25_43_+0400_lvVzhk.G22t2JzK=--
+--Sig_/EUBLhir7Zkto6lgopXsP61Y--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
