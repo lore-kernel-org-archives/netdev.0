@@ -1,72 +1,78 @@
-From: Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>
-Subject: Re: [PATCH v3 0/7] mv643xx.c: Add basic device tree support.
-Date: Sat, 20 Oct 2012 21:52:34 -0400
-Message-ID: <20121021015234.GE25828@titan.lakedaemon.net>
-References: <1344350092-24050-1-git-send-email-ian.molton@codethink.co.uk>
- <5028D040.60604@codethink.co.uk> <502D201E.9030304@codethink.co.uk>
- <201209101422.13875.arnd@arndb.de>
- <1347343411.2603.42.camel@pasglop>
+From: "Artem S. Tashkinov" <t.artem@lycos.com>
+Subject: Re: Re: Re: Re: A reliable kernel panic (3.6.2) and system crash
+ when visiting a particular website
+Date: Sun, 21 Oct 2012 01:57:21 +0000 (GMT)
+Message-ID: <1798605268.19162.1350784641831.JavaMail.mail@webmail17>
+References: <2104474742.26357.1350734815286.JavaMail.mail@webmail05>
+ <20121020162759.GA12551@liondog.tnic>
+ <966148591.30347.1350754909449.JavaMail.mail@webmail08>
+ <20121020203227.GC555@elf.ucw.cz> <20121020225849.GA8976@liondog.tnic>
+ <1781795634.31179.1350774917965.JavaMail.mail@webmail04>
+ <20121021002424.GA16247@liondog.tnic>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, ben.dooks-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org,
- Ian Molton <ian.molton-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>, dale-1viX+2+OPRFcxvNqPlePQg@public.gmane.org,
- linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1347343411.2603.42.camel@pasglop>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Cc: pavel@ucw.cz, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	security@kernel.org, linux-media@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: bp@alien8.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pong.  ;-)
-
-On Tue, Sep 11, 2012 at 04:03:31PM +1000, Benjamin Herrenschmidt wrote:
-> On Mon, 2012-09-10 at 14:22 +0000, Arnd Bergmann wrote:
-> > Following up on the old discussion, I talked briefly about this
-> > issue with BenH at the kernel summit. The outcome basically is that
-> > it's a bit sad to have incompatible bindings, but it's not the end
-> > of the world,and it's more important to do it right this time.
-> > 
-> > Just make sure that you use different values for the 'compatible'
-> > strings and then do what you need to get the ARM hardware working.
-> > 
-> > Ideally, the new binding should be written in a way that powerpc
-> > machines can use the same one, but the existing ones all use
-> > an version of Open Firmware that is not going to get updated
-> > and it's also not too likely that we are going to see new
-> > powerpc machines based on this chip.
+> On Oct 21, 2012, Borislav Petkov wrote: 
 > 
-> Right, mostly these machines where the Pegasos. Those came with a fairly
-> busted variant of Open Firmware which generated a pretty gross
-> device-tree.
+> On Sat, Oct 20, 2012 at 11:15:17PM +0000, Artem S. Tashkinov wrote:
+> > You don't get me - I have *no* VirtualBox (or any proprietary) modules
+> > running
 > 
-> For some reason, the manufacturer of those things was never willing to
-> fix anything in their firmware (despite the distributor providing
-> patches etc...), seemingly on the assumption that whatever they were
-> doing was perfect and operating system people like us didn't matter one
-> little bit :-)
+> Ok, good. We got that out of the way - I wanted to make sure after you
+> replied with two other possibilities of the system freezing.
 > 
-> So I don't care much about it. It would be nice to keep them working
-> since people in the community still have them but if it goes through
-> some "compat" code that detects old/broken device-trees and eventually
-> disappears when we finally drop support, then so be it.
+> > - but I can reproduce this problem using *the same system running
+> > under* VirtualBox in Windows 7 64.
+> 
+> That's windoze as host and linux as a guest, correct?
 
-Ian,
+Exactly.
 
-What is the status of this work?
+> If so, that's virtualbox's problem, I'd say.
 
-thx,
+I can reproduce it on my host *alone* as I said in the very first message - never
+before I tried to run my Linux in a virtual machine. Please, just forget about
+VirtualBox - it has nothing to do with this problem.
 
-Jason.
+> > It's almost definitely either a USB driver bug or video4linux driver
+> > bug:
+> 
+> And you're assuming that because the freeze happens when using your usb
+> webcam, correct? And not otherwise?
+
+Yes, like I said earlier - only when I try to access its settings using Adobe Flash the
+system crashes/freezes.
+
+> Maybe you can describe in more detail what exactly you're doing so that
+> people could try to reproduce your issue.
+
+I don't think many people have the same webcam so it's going to be a problem. It
+can be reproduced easily - just open Flash "Settings" in Google Chrome 22. The
+crash will occur immediately.
+
+> > I'm CC'ing linux-media and linux-usb mailing lists, the problem is described here:
+> > https://lkml.org/lkml/2012/10/20/35
+> > https://lkml.org/lkml/2012/10/20/148
+> 
+> Yes, good idea. Maybe the folks there have some more ideas how to debug
+> this.
+> 
+> I'm leaving in the rest for reference.
+> 
+> What should be pointed out, though, is that you don't have any more
+> random corruptions causing oopses now that virtualbox is gone. The
+> freeze below is a whole another issue.
+
+The freeze happens on my *host* Linux PC. For an experiment I decided to
+check if I could reproduce the freeze under a virtual machine - it turns out the
+Linux kernel running under it also freezes.
+
+Artem
