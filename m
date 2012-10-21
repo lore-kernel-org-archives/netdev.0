@@ -1,168 +1,81 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCH 3/5] net/at91_ether: move eth addr quirk into csb337
- board setup
-Date: Sun, 21 Oct 2012 20:25:51 +0200
-Message-ID: <20121021182551.GH12801@game.jcrosoft.org>
-References: <1350829392-3812-1-git-send-email-manabian@gmail.com>
- <1350829392-3812-4-git-send-email-manabian@gmail.com>
+From: Mike Kazantsev <mk.fraggod@gmail.com>
+Subject: Re: PROBLEM: Memory leak (at least with SLUB) from "secpath_dup"
+ (xfrm) in 3.5+ kernels
+Date: Mon, 22 Oct 2012 00:43:32 +0600
+Message-ID: <20121022004332.7e3f3f29@sacrilege>
+References: <20121019205055.2b258d09@sacrilege>
+	<20121019233632.26cf96d8@sacrilege>
+	<CAHC9VhQ+gkAaRmwDWqzQd1U-hwH__5yxrxWa5_=koz_XTSXpjQ@mail.gmail.com>
+	<20121020204958.4bc8e293@sacrilege>
+	<20121021044540.12e8f4b7@sacrilege>
+	<20121021062402.7c4c4cb8@sacrilege>
+	<1350826183.13333.2243.camel@edumazet-glaptop>
+	<20121021195701.7a5872e7@sacrilege>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: bgat@billgatliff.com, netdev@vger.kernel.org, nicolas.ferre@atmel.com,
- hskinnemoen@gmail.com, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org, egtvedt@samfundet.no
-To: Joachim Eastwood <manabian@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1350829392-3812-4-git-send-email-manabian@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/H32pOVATOpST__ZRjbR3yuQ"; protocol="application/pgp-signature"
+Cc: Paul Moore <paul@paul-moore.com>, netdev@vger.kernel.org,
+ linux-mm@kvack.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20121021195701.7a5872e7@sacrilege>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 16:23 Sun 21 Oct     , Joachim Eastwood wrote:
-> Move Ethernet address byte order fix for csb337 into it's board
-> setup.
-> 
-> This will allow us to remove the last mach include from at91_ether
-> and also to share the address setup with the macb driver.
-no the at91rm9200 move to DT this is not compatible with it
+--Sig_/H32pOVATOpST__ZRjbR3yuQ
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-you need to pass ths in info via platform_data
+On Sun, 21 Oct 2012 19:57:01 +0600
+Mike Kazantsev <mk.fraggod@gmail.com> wrote:
 
-and do not touch driver code related stuff in boards
+> On Sun, 21 Oct 2012 15:29:43 +0200
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>=20
+> >=20
+> > Did you try linux-3.7-rc2 (or linux-3.7-rc1) ?
+> >=20
+>=20
+> I did not, will do in a few hours, thanks for the pointer.
+>=20
 
-Best Regards,
-J.
-> 
-> Signed-off-by: Joachim Eastwood <manabian@gmail.com>
-> ---
->  arch/arm/mach-at91/board-csb337.c         | 35 +++++++++++++++++++++++++++++++
->  drivers/net/ethernet/cadence/Kconfig      |  1 -
->  drivers/net/ethernet/cadence/at91_ether.c | 26 ++++++-----------------
->  3 files changed, 41 insertions(+), 21 deletions(-)
-> 
-> diff --git a/arch/arm/mach-at91/board-csb337.c b/arch/arm/mach-at91/board-csb337.c
-> index 3e37437..5522132 100644
-> --- a/arch/arm/mach-at91/board-csb337.c
-> +++ b/arch/arm/mach-at91/board-csb337.c
-> @@ -217,6 +217,40 @@ static struct gpio_led csb_leds[] = {
->  	}
->  };
->  
-> +/*
-> + * MicroMonitor (uMon) on the CSB337 store the ethernet address in the
-> + * wrong byte order (and continues to do so, for bug-compatibility).
-> + */
-> +#define MACB_SA1B	0x0098
-> +#define MACB_SA1T	0x009c
-> +static void __init csb337_fix_eth_addr(void)
-> +{
-> +	void __iomem *emac;
-> +	u32 lo, hi, tmp;
-> +	int i;
-> +
-> +	emac = ioremap(AT91RM9200_BASE_EMAC, SZ_16K);
-> +	if (!emac) {
-> +		printk(KERN_ERR "csb337: unable to fixup Ethernet address\n");
-> +		return;
-> +	}
-> +
-> +	/* Fix byte order on all 4 address registers */
-> +	for (i = 0; i < 4; i++) {
-> +		lo = readl(emac + MACB_SA1B + i * 8);
-> +		hi = readl(emac + MACB_SA1T + i * 8);
-> +
-> +		tmp = (lo & 0xff) << 8 | (lo & 0xff00) >> 8;
-> +		writel(tmp, emac + MACB_SA1T + i * 8);
-> +
-> +		tmp = (hi & 0xff) << 8 | (hi & 0xff00) >> 8
-> +			| (lo & 0xff0000) << 8
-> +			| (lo & 0xff000000) >> 8;
-> +		writel(tmp, emac + MACB_SA1B + i * 8);
-> +	}
-> +
-> +	iounmap(emac);
-> +}
->  
->  static void __init csb337_board_init(void)
->  {
-> @@ -225,6 +259,7 @@ static void __init csb337_board_init(void)
->  	at91_register_uart(0, 0, 0);
->  	at91_add_device_serial();
->  	/* Ethernet */
-> +	csb337_fix_eth_addr();
->  	at91_add_device_eth(&csb337_eth_data);
->  	/* USB Host */
->  	at91_add_device_usbh(&csb337_usbh_data);
-> diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ethernet/cadence/Kconfig
-> index f6d0956..40172d1 100644
-> --- a/drivers/net/ethernet/cadence/Kconfig
-> +++ b/drivers/net/ethernet/cadence/Kconfig
-> @@ -21,7 +21,6 @@ if NET_CADENCE
->  
->  config ARM_AT91_ETHER
->  	tristate "AT91RM9200 Ethernet support"
-> -	depends on ARM && ARCH_AT91RM9200
->  	select NET_CORE
->  	select MACB
->  	---help---
-> diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-> index 375d272..5ed1a63 100644
-> --- a/drivers/net/ethernet/cadence/at91_ether.c
-> +++ b/drivers/net/ethernet/cadence/at91_ether.c
-> @@ -32,8 +32,6 @@
->  #include <linux/phy.h>
->  #include <linux/io.h>
->  
-> -#include <asm/mach-types.h>
-> -
->  #include "macb.h"
->  
->  #define DRV_NAME	"at91_ether"
-> @@ -55,30 +53,18 @@
->   *   U-Boot on the AT91RM9200-DK do not do this.
->   *
->   * - Likewise it must store the addresses in the correct byte order.
-> - *   MicroMonitor (uMon) on the CSB337 does this incorrectly (and
-> - *   continues to do so, for bug-compatibility).
->   */
->  
->  static short __init unpack_mac_address(struct net_device *dev, unsigned int hi, unsigned int lo)
->  {
->  	char addr[6];
->  
-> -	if (machine_is_csb337()) {
-> -		addr[5] = (lo & 0xff);			/* The CSB337 bootloader stores the MAC the wrong-way around */
-> -		addr[4] = (lo & 0xff00) >> 8;
-> -		addr[3] = (lo & 0xff0000) >> 16;
-> -		addr[2] = (lo & 0xff000000) >> 24;
-> -		addr[1] = (hi & 0xff);
-> -		addr[0] = (hi & 0xff00) >> 8;
-> -	}
-> -	else {
-> -		addr[0] = (lo & 0xff);
-> -		addr[1] = (lo & 0xff00) >> 8;
-> -		addr[2] = (lo & 0xff0000) >> 16;
-> -		addr[3] = (lo & 0xff000000) >> 24;
-> -		addr[4] = (hi & 0xff);
-> -		addr[5] = (hi & 0xff00) >> 8;
-> -	}
-> +	addr[0] = (lo & 0xff);
-> +	addr[1] = (lo & 0xff00) >> 8;
-> +	addr[2] = (lo & 0xff0000) >> 16;
-> +	addr[3] = (lo & 0xff000000) >> 24;
-> +	addr[4] = (hi & 0xff);
-> +	addr[5] = (hi & 0xff00) >> 8;
->  
->  	if (is_valid_ether_addr(addr)) {
->  		memcpy(dev->dev_addr, &addr, 6);
-> -- 
-> 1.7.12.4
-> 
+I just built "torvalds/linux-2.6" (v3.7-rc2) and rebooted into it,
+started same rsync-over-net test and got kmalloc-64 leaking (it went up
+to tens of MiB until I stopped rsync, normally these are fixed at ~500
+KiB).
+
+Unfortunately, I forgot to add slub_debug option and build kmemleak so
+wasn't able to look at this case further, and when I rebooted with
+these enabled/built, it was secpath_cache again.
+
+So previously noted "slabtop showed 'kmalloc-64' being the 99% offender
+in the past, but with recent kernels (3.6.1), it has changed to
+'secpath_cache'" seem to be incorrect, as it seem to depend not on
+kernel version, but some other factor.
+
+Guess I'll try to reboot a few more times to see if I can catch
+kmalloc-64 leaking (instead of secpath_cache) again.
+
+
+--=20
+Mike Kazantsev // fraggod.net
+
+--Sig_/H32pOVATOpST__ZRjbR3yuQ
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.19 (GNU/Linux)
+
+iEYEARECAAYFAlCEQlcACgkQASbOZpzyXnHh8gCg4l+nCAOyqwG3ew1jufeHSKxd
+BpkAoK0lWwI6K6xgrG03vnJ/9gNammaI
+=Fkg7
+-----END PGP SIGNATURE-----
+
+--Sig_/H32pOVATOpST__ZRjbR3yuQ--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
