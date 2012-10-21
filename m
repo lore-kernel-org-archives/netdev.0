@@ -1,83 +1,137 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.5 bridging regression
-Date: Sun, 21 Oct 2012 13:53:33 +0200
-Message-ID: <1350820413.13333.2042.camel@edumazet-glaptop>
-References: <20121021112727.GF21937@1wt.eu>
+From: Daniel Mack <zonque@gmail.com>
+Subject: Re: A reliable kernel panic (3.6.2) and system crash when visiting
+ a particular website
+Date: Sun, 21 Oct 2012 13:59:14 +0200
+Message-ID: <5083E392.2030609@gmail.com>
+References: <2104474742.26357.1350734815286.JavaMail.mail@webmail05> <20121020162759.GA12551@liondog.tnic> <966148591.30347.1350754909449.JavaMail.mail@webmail08> <20121020203227.GC555@elf.ucw.cz> <20121020225849.GA8976@liondog.tnic> <1781795634.31179.1350774917965.JavaMail.mail@webmail04> <5083CFCD.60303@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:59928 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752728Ab2JULxh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 07:53:37 -0400
-Received: by mail-ea0-f174.google.com with SMTP id c13so534716eaa.19
-        for <netdev@vger.kernel.org>; Sun, 21 Oct 2012 04:53:36 -0700 (PDT)
-In-Reply-To: <20121021112727.GF21937@1wt.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bp@alien8.de, pavel@ucw.cz, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, security@kernel.org,
+	linux-media@vger.kernel.org, linux-usb@vger.kernel.org
+To: "Artem S. Tashkinov" <t.artem@lycos.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5083CFCD.60303@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2012-10-21 at 13:27 +0200, Willy Tarreau wrote:
-> Hi Eric,
+On 21.10.2012 12:34, Daniel Mack wrote:
+> On 21.10.2012 01:15, Artem S. Tashkinov wrote:
+>> You don't get me - I have *no* VirtualBox (or any proprietary) modules running
+>> - but I can reproduce this problem using *the same system running under* VirtualBox
+>> in Windows 7 64.
+>>
+>> It's almost definitely either a USB driver bug or video4linux driver bug:
+>>
+>> I'm CC'ing linux-media and linux-usb mailing lists, the problem is described here:
+>> https://lkml.org/lkml/2012/10/20/35
+>> https://lkml.org/lkml/2012/10/20/148
+>>
+>> Here are  the last lines from my dmesg (with usbmon loaded):
+>>
+>> [  292.164833] hub 1-0:1.0: state 7 ports 8 chg 0000 evt 0002
+>> [  292.168091] ehci_hcd 0000:00:1f.5: GetStatus port:1 status 00100a 0  ACK POWER sig=se0 PEC CSC
+>> [  292.172063] hub 1-0:1.0: port 1, status 0100, change 0003, 12 Mb/s
+>> [  292.174883] usb 1-1: USB disconnect, device number 2
+>> [  292.178045] usb 1-1: unregistering device
+>> [  292.183539] usb 1-1: unregistering interface 1-1:1.0
+>> [  292.197034] usb 1-1: unregistering interface 1-1:1.1
+>> [  292.204317] usb 1-1: unregistering interface 1-1:1.2
+>> [  292.234519] usb 1-1: unregistering interface 1-1:1.3
+>> [  292.236175] usb 1-1: usb_disable_device nuking all URBs
+>> [  292.364429] hub 1-0:1.0: debounce: port 1: total 100ms stable 100ms status 0x100
+>> [  294.364279] hub 1-0:1.0: hub_suspend
+>> [  294.366045] usb usb1: bus auto-suspend, wakeup 1
+>> [  294.367375] ehci_hcd 0000:00:1f.5: suspend root hub
+>> [  296.501084] usb usb1: usb wakeup-resume
+>> [  296.508311] usb usb1: usb auto-resume
+>> [  296.509833] ehci_hcd 0000:00:1f.5: resume root hub
+>> [  296.560149] hub 1-0:1.0: hub_resume
+>> [  296.562240] ehci_hcd 0000:00:1f.5: GetStatus port:1 status 001003 0  ACK POWER sig=se0 CSC CONNECT
+>> [  296.566141] hub 1-0:1.0: port 1: status 0501 change 0001
+>> [  296.670413] hub 1-0:1.0: state 7 ports 8 chg 0002 evt 0000
+>> [  296.673222] hub 1-0:1.0: port 1, status 0501, change 0000, 480 Mb/s
+>> [  297.311720] usb 1-1: new high-speed USB device number 3 using ehci_hcd
+>> [  300.547237] usb 1-1: skipped 1 descriptor after configuration
+>> [  300.549443] usb 1-1: skipped 4 descriptors after interface
+>> [  300.552273] usb 1-1: skipped 2 descriptors after interface
+>> [  300.556499] usb 1-1: skipped 1 descriptor after endpoint
+>> [  300.559392] usb 1-1: skipped 2 descriptors after interface
+>> [  300.560960] usb 1-1: skipped 1 descriptor after endpoint
+>> [  300.562169] usb 1-1: skipped 2 descriptors after interface
+>> [  300.563440] usb 1-1: skipped 1 descriptor after endpoint
+>> [  300.564639] usb 1-1: skipped 2 descriptors after interface
+>> [  300.565828] usb 1-1: skipped 2 descriptors after endpoint
+>> [  300.567084] usb 1-1: skipped 9 descriptors after interface
+>> [  300.569205] usb 1-1: skipped 1 descriptor after endpoint
+>> [  300.570484] usb 1-1: skipped 53 descriptors after interface
+>> [  300.595843] usb 1-1: default language 0x0409
+>> [  300.602503] usb 1-1: USB interface quirks for this device: 2
+>> [  300.605700] usb 1-1: udev 3, busnum 1, minor = 2
+>> [  300.606959] usb 1-1: New USB device found, idVendor=046d, idProduct=081d
+>> [  300.610298] usb 1-1: New USB device strings: Mfr=0, Product=0, SerialNumber=1
+>> [  300.613742] usb 1-1: SerialNumber: 48C5D2B0
+>> [  300.617703] usb 1-1: usb_probe_device
+>> [  300.620594] usb 1-1: configuration #1 chosen from 1 choice
+>> [  300.639218] usb 1-1: adding 1-1:1.0 (config #1, interface 0)
+>> [  300.640736] snd-usb-audio 1-1:1.0: usb_probe_interface
+>> [  300.642307] snd-usb-audio 1-1:1.0: usb_probe_interface - got id
+>> [  301.050296] usb 1-1: adding 1-1:1.1 (config #1, interface 1)
+>> [  301.054897] usb 1-1: adding 1-1:1.2 (config #1, interface 2)
+>> [  301.056934] uvcvideo 1-1:1.2: usb_probe_interface
+>> [  301.058072] uvcvideo 1-1:1.2: usb_probe_interface - got id
+>> [  301.059395] uvcvideo: Found UVC 1.00 device <unnamed> (046d:081d)
+>> [  301.090173] input: UVC Camera (046d:081d) as /devices/pci0000:00/0000:00:1f.5/usb1/1-1/1-1:1.2/input/input7
 > 
-> Since 3.5, I was getting very quick panic when setting up a bridge
-> on my guruplug (dual-gig equipped ARM system). This week-end I could
-> bisect the issue and found that it is this patch which introduced the
-> issue :
+> That seems to be a Logitech model.
 > 
->   a1c7fff7e18f59e684e07b0f9a770561cd39f395  net: netdev_alloc_skb() use build_skb()
-> 
-> I can reliably reproduce the issue by installing my laptop behind this
-> bridge and running "find" on an NFS mount. I don't understand why this
-> patch can cause this, I was thinking that maybe we free the same page
-> twice or something like this but I don't see any such thing there.
-> 
-> I set up the bridge using this script :
-> 
-> 	brctl addbr br0
-> 	brctl addif br0 eth0
-> 	brctl addif br0 eth1
-> 	ip a f dev eth0
-> 	ip a f dev eth1
-> 	ip li set eth0 up
-> 	ip li set eth1 up
-> 	ip li set br0 up
-> 
-> The network driver is mv643xx. I don't know if this is important, but
-> since this issue is still present in 3.6.2 and nobody has yet reported
-> a panic on bridge, I suspect that it may contribute to the issue.
+>> [  301.111289] usb 1-1: adding 1-1:1.3 (config #1, interface 3)
+>> [  301.131207] usb 1-1: link qh16-0001/f48d64c0 start 2 [1/0 us]
+>> [  301.137066] usb 1-1: unlink qh16-0001/f48d64c0 start 2 [1/0 us]
+>> [  301.156451] ehci_hcd 0000:00:1f.5: reused qh f48d64c0 schedule
+>> [  301.158310] usb 1-1: link qh16-0001/f48d64c0 start 2 [1/0 us]
+>> [  301.160238] usb 1-1: unlink qh16-0001/f48d64c0 start 2 [1/0 us]
+>> [  301.196606] set resolution quirk: cval->res = 384
+>> [  371.309569] e1000: eth1 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX
+>> [  390.729568] ehci_hcd 0000:00:1f.5: reused qh f48d64c0 schedule
+>> f5ade900 2296555[  390.730023] usb 1-1: link qh16-0001/f48d64c0 start 2 [1/0 us]
+>> 437 S Ii:1:003:7[  390.736394] usb 1-1: unlink qh16-0001/f48d64c0 start 2 [1/0 us]
+>>  -115:128 16 <
+>> f5ade900 2296566256 C Ii:1:003:7 -2:128 0
+>> [  391.100896] ehci_hcd 0000:00:1f.5: reused qh f48d64c0 schedule
+>> [  391.103188] usb 1-1: link qh16-0001/f48d64c0 start 2 [1/0 us]
+>> f5ade900 2296926929 S Ii:1:003:7[  391.104889] usb 1-1: unlink qh16-0001/f48d64c0 start 2 [1/0 us]
+>>  -115:128 16 <
+>> f5ade900 2296937889 C Ii:1:003:7 -2:128 0
+>> f5272300 2310382508 S Co:1:003:0 s 01 0b 0004 0001 0000 0
+>> f5272300 2310407888 C Co:1:003:0 0 0
+>> f5272300 2310408051 S Co:1:003:0 s 22 01 0100 0086 0003 3 = 80bb00
+>> f5272300 2310412456 C Co:1:003:0 0 3 >
+>> f5272300 2310412521 S Ci:1:003:0 s a2 81 0100 0086 0003 3 <
+>> f5272300 2310415909 C Ci:1:003:0 0 0
+>> f5272300 2310418133 S Zi:1:003:6 -115:8:0 1 -18:0:100 100 <
+>> f5272600 2310418219 S Zi:1:003:6 -115:8:0 1 -18:0:100 100 <
+>> f52720c0 2310418239 S Zi:1:003:6 -115:8:0 1 -18:0:100 100 <
+>> f5272a80 2310418247 S Zi:1:003:6 -115:8:0 1 -18:0:100 100 <
+>> f5272480 2310418256 S Zi:1:003:6 -115:8:0 1 -18:0:100 100 <
+>> f52723c0 2310418264 S Zi:1:003:6 -115:8:0 1 -18:0:100 100 <
+>> f5272d80 2310418272 S Zi:1:003:6 -115:8:0 1 -18:0:100 100 <
+>> f5272b40 2310418280 S Zi:1:003:6 -115:8:0 1 -18:0:100 100 <
 
-Hello Willy
+[...]
 
-This is most probably the needed fix.
+> I tried Chrome 22 on Ubuntu with a cheap Logitech USB webcam (different
+> product ID than yours, though) under 3.6.0 and 3.6.2, and I can't
+> reproduce the issue.
 
-I guess David planned to send it to stable teams if not already done.
+FWIW, I also tried Chrome 22 and Firefox 16 with kernel version 3.5.4
+and 3.6.2 on Fedora 17 and everything worked as expected (with both an
+external and the built-in webcam of a T420). Cheese and arecord also
+work on all kernel versions and distributions I have tested so far.
 
-commit acb600def2110b1310466c0e485c0d26299898ae
-Author: Eric Dumazet <edumazet@google.com>
-Date:   Fri Oct 5 06:23:55 2012 +0000
+So whatever causes your trouble, I assume it's rather specific to your
+machine configuration and setup. More information is needed here.
 
-    net: remove skb recycling
-    
-    Over time, skb recycling infrastructure got litle interest and
-    many bugs. Generic rx path skb allocation is now using page
-    fragments for efficient GRO / TCP coalescing, and recyling
-    a tx skb for rx path is not worth the pain.
-    
-    Last identified bug is that fat skbs can be recycled
-    and it can endup using high order pages after few iterations.
-    
-    With help from Maxime Bizon, who pointed out that commit
-    87151b8689d (net: allow pskb_expand_head() to get maximum tailroom)
-    introduced this regression for recycled skbs.
-    
-    Instead of fixing this bug, lets remove skb recycling.
-    
-    Drivers wanting really hot skbs should use build_skb() anyway,
-    to allocate/populate sk_buff right before netif_receive_skb()
-    
-    Signed-off-by: Eric Dumazet <edumazet@google.com>
-    Cc: Maxime Bizon <mbizon@freebox.fr>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Daniel
