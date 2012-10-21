@@ -1,43 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH for-3.7] vhost: fix mergeable bufs on BE hosts
-Date: Sun, 21 Oct 2012 19:24:02 -0400 (EDT)
-Message-ID: <20121021.192402.1010682456837361393.davem@davemloft.net>
-References: <20121015175534.GA19489@redhat.com>
-	<20121021124901.GA5315@redhat.com>
+From: "Wong Hui" <wonghui56@hotmail.com>
+Subject: Business Proposal
+Date: Mon, 22 Oct 2012 01:09:02 +0200
+Message-ID: <20121021230846.484BA21E32B6@mail.mitconsult.pl>
+Reply-To: <wong.hui01@postino.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+	charset="Windows-1251"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121021124901.GA5315@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mitconsult.net ([78.9.150.49]:41184 "EHLO mail.mitconsult.pl"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S932575Ab2JUXYy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Oct 2012 19:24:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Sun, 21 Oct 2012 14:49:01 +0200
-
-> On Mon, Oct 15, 2012 at 07:55:34PM +0200, Michael S. Tsirkin wrote:
->> We copy head count to a 16 bit field,
->> this works by chance on LE but on BE
->> guest gets 0. Fix it up.
->> 
->> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->> Tested-by: Alexander Graf <agraf@suse.de>
->> Cc: stable@kernel.org
-> 
-> Ping. Dave, could you apply this to -net please?
-
-Pinging me but not cc:'ing me?  That's really strange.
-
-What if I operate by just mass deleting things that I'm
-not explicitly on the To: or CC: when I'm very backlogged?
+Please I would like you to keep this proposal as a top secret and delete it if you
+are not interested and get back to me if you are interested for details as regards
+to the transfer of $24,500,000 to you. 
+This money initially belongs to a Libyan client who died in the libya crisis and had no next of kin in his
+account-opening package in my bank here in Hong kong where I am a bank director. 
+In other to achieve this, I shall require your full name, and telephone number to reach you.
+Most importantly, a confirmation of acceptance from you will be needed after which I
+shall furnish you with the full details of this transaction.
+Yours Truly,
+Wong Hui.
