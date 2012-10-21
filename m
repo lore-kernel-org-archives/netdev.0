@@ -1,58 +1,107 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH 2/5] net/at91_ether: select MACB in Kconfig
-Date: Sun, 21 Oct 2012 16:23:09 +0200
-Message-ID: <1350829392-3812-3-git-send-email-manabian@gmail.com>
-References: <1350829392-3812-1-git-send-email-manabian@gmail.com>
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Joachim Eastwood <manabian@gmail.com>
-To: nicolas.ferre@atmel.com, davem@davemloft.net,
-	hskinnemoen@gmail.com, egtvedt@samfundet.no, plagnioj@jcrosoft.com,
-	bgat@billgatliff.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:46562 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753665Ab2JUOXh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 10:23:37 -0400
-Received: by mail-la0-f46.google.com with SMTP id h6so1120295lag.19
-        for <netdev@vger.kernel.org>; Sun, 21 Oct 2012 07:23:35 -0700 (PDT)
-In-Reply-To: <1350829392-3812-1-git-send-email-manabian@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Artem S. Tashkinov" <t.artem@lycos.com>
+Subject: Re: Re: was: Re: A reliable kernel panic (3.6.2) and system crash
+ when visiting a particular website
+Date: Sun, 21 Oct 2012 14:57:56 +0000 (GMT)
+Message-ID: <901486978.101922.1350831476734.JavaMail.mail@webmail20>
+References: <2104474742.26357.1350734815286.JavaMail.mail@webmail05>
+ <20121020162759.GA12551@liondog.tnic>
+ <966148591.30347.1350754909449.JavaMail.mail@webmail08>
+ <20121020203227.GC555@elf.ucw.cz> <20121020225849.GA8976@liondog.tnic>
+ <1781795634.31179.1350774917965.JavaMail.mail@webmail04>
+ <20121021002424.GA16247@liondog.tnic>
+ <1798605268.19162.1350784641831.JavaMail.mail@webmail17>
+ <20121021110851.GA6504@liondog.tnic>
+ <121566322.100103.1350820776893.JavaMail.mail@webmail20>
+ <5083E4AA.3060807@gmail.com>
+ <317435358.100327.1350822615555.JavaMail.mail@webmail20>
+ <508404F5.2010502@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: bp@alien8.de, pavel@ucw.cz, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, security@kernel.org,
+	linux-media@vger.kernel.org, linux-usb@vger.kernel.org,
+	alsa-devel@alsa-project.org
+To: zonque@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now that HAVE_NET_MACB is gone let's just select MACB to
-satisfy the dependecies in at91_ether.
+> On Oct 21, 2012, Daniel Mack  wrote: 
+> 
+> [Cc: alsa-devel]
+> 
+> On 21.10.2012 14:30, Artem S. Tashkinov wrote:
+> > On Oct 21, 2012, Daniel Mack wrote: 
+> > 
+> >> A hint at least. How did you enable the audio record exactly? Can you
+> >> reproduce this with arecord?
+> >>
+> >> What chipset are you on? Please provide both "lspci -v" and "lsusb -v"
+> >> dumps. As I said, I fail to reproduce that issue on any of my machines.
+> > 
+> > All other applications can read from the USB audio without problems, it's
+> > just something in the way Adobe Flash polls my audio input which causes
+> > a crash.
+> > 
+> > Just video capture (without audio) works just fine in Adobe Flash.
+> 
+> Ok, so that pretty much rules out the host controller. I just wonder why
+> I still don't see it here, and I haven't heard of any such problem from
+> anyone else.
+> 
+> Some more questions:
+> 
+> - Which version of Flash are you running?
 
-PHYLIB will then by selected by MACB.
+Google Chrome has its own version of Adobe Flash:
 
-Signed-off-by: Joachim Eastwood <manabian@gmail.com>
----
- drivers/net/ethernet/cadence/Kconfig  | 2 +-
- drivers/net/ethernet/cadence/Makefile | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+Name:	Shockwave Flash
+Description:	Shockwave Flash 11.4 r31
+Version:	11.4.31.110
 
-diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ethernet/cadence/Kconfig
-index 5d1ea30..f6d0956 100644
---- a/drivers/net/ethernet/cadence/Kconfig
-+++ b/drivers/net/ethernet/cadence/Kconfig
-@@ -23,7 +23,7 @@ config ARM_AT91_ETHER
- 	tristate "AT91RM9200 Ethernet support"
- 	depends on ARM && ARCH_AT91RM9200
- 	select NET_CORE
--	select PHYLIB
-+	select MACB
- 	---help---
- 	  If you wish to compile a kernel for the AT91RM9200 and enable
- 	  ethernet support, then you should always answer Y to this.
-diff --git a/drivers/net/ethernet/cadence/Makefile b/drivers/net/ethernet/cadence/Makefile
-index 798b1e0..9068b83 100644
---- a/drivers/net/ethernet/cadence/Makefile
-+++ b/drivers/net/ethernet/cadence/Makefile
-@@ -2,5 +2,5 @@
- # Makefile for the Atmel network device drivers.
- #
- 
--obj-$(CONFIG_ARM_AT91_ETHER) += at91_ether.o macb.o
-+obj-$(CONFIG_ARM_AT91_ETHER) += at91_ether.o
- obj-$(CONFIG_MACB) += macb.o
--- 
-1.7.12.4
+> - Does this also happen with Firefox?
+
+No, Adobe Flash in Firefox is an older version (Shockwave Flash 11.1 r102), it shows
+just two input devices instead of three which the newer Flash players sees.
+
+* HDA Intel PCH
+* USB Device 0x46d:0x81d
+
+> - Does flash access the device directly or via PulseAudio?
+
+PA is not installed on my computer, so Flash accesses it directly via ALSA calls.
+
+> - Could you please apply the attached patch and see what it spits out to
+> dmesg once Flash opens the device? It returns -EINVAL in the hw_params
+> callback to prevent the actual streaming. On my machine with Flash
+> 11.4.31.110, I get values of 2/44800/1/32768/2048/0, which seems sane.
+> Or does your machine still crash before anything is written to the logs?
+
+I will try it a bit later.
+
+> > Only and only when I choose to use 
+> > 
+> > USB Device 0x46d:0x81d my system crashes in Adobe Flash.
+> >
+> > See the screenshot:
+> > 
+> > https://bugzilla.kernel.org/attachment.cgi?id=84151
+> 
+> When exactly does the crash happen? Right after you selected that entry
+> from the list? There's a little recording level meter in that dialog.
+> Does that show any input from the microphone?
+
+Yes, right after I select it and move the mouse cursor away from this combobox
+so that this selection becomes active.
+
+> > My hardware information can be fetched from here:
+> > 
+> > https://bugzilla.kernel.org/show_bug.cgi?id=49181
+> > 
+> > On a second thought that can be even an ALSA crash or pretty much
+> > anything else.
+> 
+> We'll see. Thanks for your help to sort this out!
+
+Thank you for your assistance!
