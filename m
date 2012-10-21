@@ -1,94 +1,50 @@
-From: Martin Josefsson <gandalf@mjufs.se>
-Subject: Re: [net-next 12/13] ixgbe: Add support for pipeline reset
-Date: Sun, 21 Oct 2012 14:06:29 +0200
-Message-ID: <CAP1qwHgSra4i=+O5JczYxHJLn40sqC4DdYX+_jijXSwTqYeuzg@mail.gmail.com>
-References: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1350714367-24208-13-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Daniel Mack <zonque@gmail.com>
+Subject: Re: A reliable kernel panic (3.6.2) and system crash when visiting
+ a particular website
+Date: Sun, 21 Oct 2012 14:12:24 +0200
+Message-ID: <5083E6A8.3050003@gmail.com>
+References: <2104474742.26357.1350734815286.JavaMail.mail@webmail05> <20121020162759.GA12551@liondog.tnic> <966148591.30347.1350754909449.JavaMail.mail@webmail08> <20121020203227.GC555@elf.ucw.cz> <20121020225849.GA8976@liondog.tnic> <1781795634.31179.1350774917965.JavaMail.mail@webmail04> <20121021002424.GA16247@liondog.tnic> <1798605268.19162.1350784641831.JavaMail.mail@webmail17> <20121021110851.GA6504@liondog.tnic> <121566322.100103.1350820776893.JavaMail.mail@webmail20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, Don Skidmore <donald.c.skidmore@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:43862 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752907Ab2JUMGa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 08:06:30 -0400
-Received: by mail-ie0-f174.google.com with SMTP id k13so2491603iea.19
-        for <netdev@vger.kernel.org>; Sun, 21 Oct 2012 05:06:29 -0700 (PDT)
-In-Reply-To: <1350714367-24208-13-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: bp@alien8.de, pavel@ucw.cz, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, security@kernel.org,
+	linux-media@vger.kernel.org, linux-usb@vger.kernel.org
+To: "Artem S. Tashkinov" <t.artem@lycos.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <121566322.100103.1350820776893.JavaMail.mail@webmail20>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 20, 2012 at 8:26 AM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Don Skidmore <donald.c.skidmore@intel.com>
+On 21.10.2012 13:59, Artem S. Tashkinov wrote:
+> On Oct 21, 2012, Borislav Petkov wrote:
+>>
+>> On Sun, Oct 21, 2012 at 01:57:21AM +0000, Artem S. Tashkinov wrote:
+>>> The freeze happens on my *host* Linux PC. For an experiment I decided
+>>> to check if I could reproduce the freeze under a virtual machine - it
+>>> turns out the Linux kernel running under it also freezes.
+>>
+>> I know that - but a freeze != oops - at least not necessarily. Which
+>> means it could very well be a different issue now that vbox is gone.
+>>
+>> Or, it could be the same issue with different incarnations: with vbox
+>> you get the corruptions and without it, you get the freezes. I'm
+>> assuming you do the same flash player thing in both cases?
+>>
+>> Here's a crazy idea: can you try to reproduce it in KVM?
+> 
+> OK, dismiss VBox altogether - it has a very buggy USB implementation, thus
+> it just hangs when trying to access my webcam.
+> 
+> What I've found out is that my system crashes *only* when I try to enable
+> usb-audio (from the same webcam)
 
-Hi Jeff, Don,
+It would also be interesting to know whether you have problems with
+*only* the video capture, with some tool like "cheese". It might be
+you're hitting a host controller issue here, and then isochronous input
+packets on the video interface would most likely also trigger such am
+effect. Actually, knowing whether that's the case would be crucial for
+further debugging.
 
-> Calling the ixgbe_reset_pipeline_82599 function will ensure a full pipeline
-> reset on all 82599 devices.  This is necessary to avoid possible link issues.
-> Since this patch accomplishes this by modifying AUTOC.LMS we need to wrap
-> all AUTOC writes when LESM is enabled.
 
-The section below doesn't look right.
-Old behaviour gave LMS == 011b (SFI)
-New behaviour gives LMS == 000b (1 GbE link (no backplane auto-negotiation))
-
-LMS is reset to 0 before ixgbe_reset_pipeline_82599() is called.
-Looks like that part of the old code wasn't removed.
-
-> @@ -137,28 +135,37 @@ static s32 ixgbe_setup_sfp_modules_82599(struct ixgbe_hw *hw)
->                 usleep_range(hw->eeprom.semaphore_delay * 1000,
->                              hw->eeprom.semaphore_delay * 2000);
->
-> +               /* Need SW/FW semaphore around AUTOC writes if LESM on,
-> +                * likewise reset_pipeline requires lock as it also writes
-> +                * AUTOC.
-> +                */
-> +               if (ixgbe_verify_lesm_fw_enabled_82599(hw)) {
-> +                       ret_val = hw->mac.ops.acquire_swfw_sync(hw,
-> +                                                       IXGBE_GSSR_MAC_CSR_SM);
-> +                       if (ret_val)
-> +                               goto setup_sfp_out;
-> +
-> +                       got_lock = true;
-> +               }
-> +
->                 /* Now restart DSP by setting Restart_AN and clearing LMS */
->                 IXGBE_WRITE_REG(hw, IXGBE_AUTOC, ((IXGBE_READ_REG(hw,
->                                 IXGBE_AUTOC) & ~IXGBE_AUTOC_LMS_MASK) |
->                                 IXGBE_AUTOC_AN_RESTART));
->
-> -               /* Wait for AN to leave state 0 */
-> -               for (i = 0; i < 10; i++) {
-> -                       usleep_range(4000, 8000);
-> -                       reg_anlp1 = IXGBE_READ_REG(hw, IXGBE_ANLP1);
-> -                       if (reg_anlp1 & IXGBE_ANLP1_AN_STATE_MASK)
-> -                               break;
-> +               ret_val = ixgbe_reset_pipeline_82599(hw);
-> +
-> +               if (got_lock) {
-> +                       hw->mac.ops.release_swfw_sync(hw,
-> +                                                     IXGBE_GSSR_MAC_CSR_SM);
-> +                       got_lock = false;
->                 }
-> -               if (!(reg_anlp1 & IXGBE_ANLP1_AN_STATE_MASK)) {
-> -                       hw_dbg(hw, "sfp module setup not complete\n");
-> +
-> +               if (ret_val) {
-> +                       hw_dbg(hw, " sfp module setup not complete\n");
->                         ret_val = IXGBE_ERR_SFP_SETUP_NOT_COMPLETE;
->                         goto setup_sfp_out;
->                 }
-> -
-> -               /* Restart DSP by setting Restart_AN and return to SFI mode */
-> -               IXGBE_WRITE_REG(hw, IXGBE_AUTOC, (IXGBE_READ_REG(hw,
-> -                               IXGBE_AUTOC) | IXGBE_AUTOC_LMS_10G_SERIAL |
-> -                               IXGBE_AUTOC_AN_RESTART));
->         }
->
->  setup_sfp_out:
-
--- 
-/Martin
+Daniel
