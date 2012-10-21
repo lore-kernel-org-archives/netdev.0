@@ -1,46 +1,143 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: 3.5 bridging regression
-Date: Sun, 21 Oct 2012 15:26:10 +0200
-Message-ID: <20121021132610.GG21937@1wt.eu>
-References: <20121021112727.GF21937@1wt.eu> <1350820413.13333.2042.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: PROBLEM: Memory leak (at least with SLUB) from "secpath_dup"
+ (xfrm) in 3.5+ kernels
+Date: Sun, 21 Oct 2012 15:29:43 +0200
+Message-ID: <1350826183.13333.2243.camel@edumazet-glaptop>
+References: <20121019205055.2b258d09@sacrilege>
+	 <20121019233632.26cf96d8@sacrilege>
+	 <CAHC9VhQ+gkAaRmwDWqzQd1U-hwH__5yxrxWa5_=koz_XTSXpjQ@mail.gmail.com>
+	 <20121020204958.4bc8e293@sacrilege> <20121021044540.12e8f4b7@sacrilege>
+	 <20121021062402.7c4c4cb8@sacrilege>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:33865 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753572Ab2JUN0P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 Oct 2012 09:26:15 -0400
-Content-Disposition: inline
-In-Reply-To: <1350820413.13333.2042.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Paul Moore <paul@paul-moore.com>, netdev@vger.kernel.org,  linux-mm@kvack.org
+To: Mike Kazantsev <mk.fraggod@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20121021062402.7c4c4cb8@sacrilege>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 21, 2012 at 01:53:33PM +0200, Eric Dumazet wrote:
-> Hello Willy
+On Sun, 2012-10-21 at 06:24 +0600, Mike Kazantsev wrote:
+> On Sun, 21 Oct 2012 04:45:40 +0600
+> Mike Kazantsev <mk.fraggod@gmail.com> wrote:
 > 
-> This is most probably the needed fix.
-
-Good catch, as usual ! It works flawlessly here on top of 3.6.2.
-
-> I guess David planned to send it to stable teams if not already done.
-
-Indeed, I've not seen it there yet.
-
-David, are you OK with sending this patch for -stable ? It fixes
-a 3.5 regression causing bridge to panic.
-
-> commit acb600def2110b1310466c0e485c0d26299898ae
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Fri Oct 5 06:23:55 2012 +0000
+> > 
+> > kmemleak mechanism seem to provide stack traces and interesting calls
+> > for debugging of whatever is allocating the non-freed objects, so guess
+> > I'll see if I can get more definitive (to my ignorant eye) "look here"
+> > hint from it, and might drop one more mail with data from there.
+> > 
 > 
->     net: remove skb recycling
->     
->     Over time, skb recycling infrastructure got litle interest and
->     many bugs. Generic rx path skb allocation is now using page
->     fragments for efficient GRO / TCP coalescing, and recyling
->     a tx skb for rx path is not worth the pain.
+> kmemleak finds a lot (dozens megabytes of stack traces) of identical
+> paths leading to a leaks:
+> 
+> (for IPv6 packets)
+> unreferenced object 0xffff88002fa25b00 (size 56):
+>   comm "softirq", pid 0, jiffies 4295009073 (age 295.620s)
+>   hex dump (first 32 bytes):
+>     01 00 00 00 01 00 00 00 00 fc 6e 30 00 88 ff ff  ..........n0....
+>     6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
+>   backtrace:
+>     [<ffffffff814cfa2b>] kmemleak_alloc+0x21/0x3e
+>     [<ffffffff810d9445>] kmem_cache_alloc+0xa5/0xb1
+>     [<ffffffff8147dd35>] secpath_dup+0x1b/0x5a
+>     [<ffffffff8147df39>] xfrm_input+0x64/0x484
+>     [<ffffffff814b1d2c>] xfrm6_rcv_spi+0x19/0x1b
+>     [<ffffffff814b1d4e>] xfrm6_rcv+0x20/0x22
+>     [<ffffffff8148c19f>] ip6_input_finish+0x203/0x31b
+>     [<ffffffff8148c622>] ip6_input+0x1e/0x50
+>     [<ffffffff8148c31c>] ip6_rcv_finish+0x65/0x69
+>     [<ffffffff8148c5a3>] ipv6_rcv+0x283/0x2e4
+>     [<ffffffff813ff8ba>] __netif_receive_skb+0x599/0x64c
+>     [<ffffffff813ffb08>] netif_receive_skb+0x47/0x78
+>     [<ffffffff81400644>] napi_skb_finish+0x21/0x53
+>     [<ffffffff81400778>] napi_gro_receive+0x102/0x10e
+>     [<ffffffff8136978b>] rtl8169_poll+0x326/0x4f9
+>     [<ffffffff813ffcda>] net_rx_action+0x9f/0x175
+> 
+> (for IPv4 packets)
+> unreferenced object 0xffff88003387e000 (size 56):
+>   comm "softirq", pid 0, jiffies 4294915803 (age 563.583s)
+>   hex dump (first 32 bytes):
+>     01 00 00 00 01 00 00 00 00 48 be 30 00 88 ff ff  .........H.0....
+>     6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
+>   backtrace:
+>     [<ffffffff814cfa2b>] kmemleak_alloc+0x21/0x3e
+>     [<ffffffff810d9445>] kmem_cache_alloc+0xa5/0xb1
+>     [<ffffffff8147dd35>] secpath_dup+0x1b/0x5a
+>     [<ffffffff8147df39>] xfrm_input+0x64/0x484
+>     [<ffffffff81474f7b>] xfrm4_rcv_encap+0x17/0x19
+>     [<ffffffff81474f9c>] xfrm4_rcv+0x1f/0x21
+>     [<ffffffff81430514>] ip_local_deliver_finish+0x170/0x22a
+>     [<ffffffff81430706>] ip_local_deliver+0x46/0x78
+>     [<ffffffff8143038d>] ip_rcv_finish+0x2bd/0x2d4
+>     [<ffffffff81430969>] ip_rcv+0x231/0x28c
+>     [<ffffffff813ff8ba>] __netif_receive_skb+0x599/0x64c
+>     [<ffffffff813ffb08>] netif_receive_skb+0x47/0x78
+>     [<ffffffff81400644>] napi_skb_finish+0x21/0x53
+>     [<ffffffff81400778>] napi_gro_receive+0x102/0x10e
+>     [<ffffffff8136978b>] rtl8169_poll+0x326/0x4f9
+>     [<ffffffff813ffcda>] net_rx_action+0x9f/0x175
+> 
+> Object at the top and trace seem to be the same (between same
+> IP-family) everywhere, just ages and addresses are different.
+> 
+> IPv6 usage seem to be one important detail which I failed to mention.
+> IPv4 traces seem to be really rare (only several of them), but that
+> might be understandable because rsync was ran over IPv6.
+> 
+> Still wasn't able to figure out what might cause the get's/put's
+> disbalance with that commit, but was able to revert it, without
+> anything bad happening (so far), using the patch below (in case
+> issue might bite someone else before proper fix is found).
+> 
+> 
+> --
+> 
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 6e04b1f..52a9d40 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -427,26 +427,8 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
+>  				   unsigned int length, gfp_t gfp_mask)
+>  {
+>  	struct sk_buff *skb = NULL;
+> -	unsigned int fragsz = SKB_DATA_ALIGN(length + NET_SKB_PAD) +
+> -			      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+> -
+> -	if (fragsz <= PAGE_SIZE && !(gfp_mask & (__GFP_WAIT | GFP_DMA))) {
+> -		void *data;
+> -
+> -		if (sk_memalloc_socks())
+> -			gfp_mask |= __GFP_MEMALLOC;
+> -
+> -		data = __netdev_alloc_frag(fragsz, gfp_mask);
+> -
+> -		if (likely(data)) {
+> -			skb = build_skb(data, fragsz);
+> -			if (unlikely(!skb))
+> -				put_page(virt_to_head_page(data));
+> -		}
+> -	} else {
+> -		skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask,
+> +	skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask,
+>  				  SKB_ALLOC_RX, NUMA_NO_NODE);
+> -	}
+>  	if (likely(skb)) {
+>  		skb_reserve(skb, NET_SKB_PAD);
+>  		skb->dev = dev;
+> 
+> 
 
-Thanks and have a nice week-end !
-Willy
+
+
+Did you try linux-3.7-rc2 (or linux-3.7-rc1) ?
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
