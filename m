@@ -1,81 +1,66 @@
-From: Mike Kazantsev <mk.fraggod@gmail.com>
-Subject: Re: PROBLEM: Memory leak (at least with SLUB) from "secpath_dup"
- (xfrm) in 3.5+ kernels
-Date: Mon, 22 Oct 2012 00:43:32 +0600
-Message-ID: <20121022004332.7e3f3f29@sacrilege>
-References: <20121019205055.2b258d09@sacrilege>
-	<20121019233632.26cf96d8@sacrilege>
-	<CAHC9VhQ+gkAaRmwDWqzQd1U-hwH__5yxrxWa5_=koz_XTSXpjQ@mail.gmail.com>
-	<20121020204958.4bc8e293@sacrilege>
-	<20121021044540.12e8f4b7@sacrilege>
-	<20121021062402.7c4c4cb8@sacrilege>
-	<1350826183.13333.2243.camel@edumazet-glaptop>
-	<20121021195701.7a5872e7@sacrilege>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 0/6] Add CPTS PTP driver support
+Date: Sun, 21 Oct 2012 20:46:17 +0200
+Message-ID: <20121021184617.GA32627@netboy.at.omicron.at>
+References: <1350427518-7230-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/H32pOVATOpST__ZRjbR3yuQ"; protocol="application/pgp-signature"
-Cc: Paul Moore <paul@paul-moore.com>, netdev@vger.kernel.org,
- linux-mm@kvack.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20121021195701.7a5872e7@sacrilege>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:52310 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932484Ab2JUSq3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 14:46:29 -0400
+Received: by mail-we0-f174.google.com with SMTP id t9so1081030wey.19
+        for <netdev@vger.kernel.org>; Sun, 21 Oct 2012 11:46:27 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1350427518-7230-1-git-send-email-mugunthanvnm@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/H32pOVATOpST__ZRjbR3yuQ
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On Wed, Oct 17, 2012 at 04:15:12AM +0530, Mugunthan V N wrote:
+> This patch series contains driver implementation for TI Common Platform
+> Time Sync (CPTS) driver for PTP packet timestamping.
+> 
+> CPTS is found in following TI SoC.
+> * AM335X - http://www.ti.com/litv/pdf/spruh73c
+> * DM814X - http://www.ti.com/litv/pdf/sprugz8
+> 
+> The Common Platform Time Sync (CPTS) module is used to facilitate host
+> control of time sync operations. It enables compliance with the IEEE 1588-2008
+> standard for a precision clock synchronization protocol
+> 
+> This patch series is tested over vanilla kernel with the below patches
+> http://marc.info/?l=linux-arm-kernel&m=135032863723906&w=2
 
-On Sun, 21 Oct 2012 19:57:01 +0600
-Mike Kazantsev <mk.fraggod@gmail.com> wrote:
+I tried v3.7-rc1 plus those patches, plus this patch series, plus the
+small addition of this ...
 
-> On Sun, 21 Oct 2012 15:29:43 +0200
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->=20
-> >=20
-> > Did you try linux-3.7-rc2 (or linux-3.7-rc1) ?
-> >=20
->=20
-> I did not, will do in a few hours, thanks for the pointer.
->=20
-
-I just built "torvalds/linux-2.6" (v3.7-rc2) and rebooted into it,
-started same rsync-over-net test and got kmalloc-64 leaking (it went up
-to tens of MiB until I stopped rsync, normally these are fixed at ~500
-KiB).
-
-Unfortunately, I forgot to add slub_debug option and build kmemleak so
-wasn't able to look at this case further, and when I rebooted with
-these enabled/built, it was secpath_cache again.
-
-So previously noted "slabtop showed 'kmalloc-64' being the 99% offender
-in the past, but with recent kernels (3.6.1), it has changed to
-'secpath_cache'" seem to be incorrect, as it seem to depend not on
-kernel version, but some other factor.
-
-Guess I'll try to reboot a few more times to see if I can catch
-kmalloc-64 leaking (instead of secpath_cache) again.
+diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
+index f6bea04..e0e152b 100644
+--- a/arch/arm/boot/dts/am33xx.dtsi
++++ b/arch/arm/boot/dts/am33xx.dtsi
+@@ -222,6 +222,7 @@
+ 			ale_entries = <1024>;
+ 			host_port_reg_ofs = <0x108>;
+ 			hw_stats_reg_ofs = <0x900>;
++			cpts_reg_ofs = <0xc00>;
+ 			bd_ram_ofs = <0x2000>;
+ 			bd_ram_size = <0x2000>;
+ 			no_bd_ram = <0>;
 
 
---=20
-Mike Kazantsev // fraggod.net
+... and it doesn't work. 
 
---Sig_/H32pOVATOpST__ZRjbR3yuQ
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
+> Tested both L2 and L4 PTP packet timestamping
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
+Really?
 
-iEYEARECAAYFAlCEQlcACgkQASbOZpzyXnHh8gCg4l+nCAOyqwG3ew1jufeHSKxd
-BpkAoK0lWwI6K6xgrG03vnJ/9gNammaI
-=Fkg7
------END PGP SIGNATURE-----
+With your driver I could not get either L2 or L4 time stamps to
+appear. At this point, my own driver is working a lot better, and so
+this just adds another reason to favor my driver, in addtion to the
+points I mentioned in my other post.
 
---Sig_/H32pOVATOpST__ZRjbR3yuQ--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks,
+Richard
