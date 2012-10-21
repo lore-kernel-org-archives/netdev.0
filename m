@@ -1,45 +1,38 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: Re: [PATCH 3/5] net/at91_ether: move eth addr quirk into csb337 board setup
-Date: Sun, 21 Oct 2012 22:39:48 +0200
-Message-ID: <CAGhQ9VzHAy3vy5-rz5E1UeRx8nrwYtkjWFEBJBt+uL=QL1FUUw@mail.gmail.com>
-References: <1350829392-3812-1-git-send-email-manabian@gmail.com>
-	<1350829392-3812-4-git-send-email-manabian@gmail.com>
-	<20121021182551.GH12801@game.jcrosoft.org>
+From: "Artem S. Tashkinov" <t.artem@lycos.com>
+Subject: Re: Re: A reliable kernel panic (3.6.2) and system crash when
+ visiting a particular website
+Date: Sun, 21 Oct 2012 20:43:15 +0000 (GMT)
+Message-ID: <1651404200.40745.1350852195790.JavaMail.mail@webmail04>
+References: <2104474742.26357.1350734815286.JavaMail.mail@webmail05>
+ <20121020162759.GA12551@liondog.tnic>
+ <966148591.30347.1350754909449.JavaMail.mail@webmail08>
+ <20121020203227.GC555@elf.ucw.cz> <20121020225849.GA8976@liondog.tnic>
+ <1781795634.31179.1350774917965.JavaMail.mail@webmail04>
+ <20121021002424.GA16247@liondog.tnic>
+ <1798605268.19162.1350784641831.JavaMail.mail@webmail17>
+ <20121021110851.GA6504@liondog.tnic>
+ <121566322.100103.1350820776893.JavaMail.mail@webmail20>
+ <20121021170315.GB20642@liondog.tnic>
+ <1906833625.122006.1350848941352.JavaMail.mail@webmail16>
+ <5084530B.6030209@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: nicolas.ferre@atmel.com, davem@davemloft.net,
-	hskinnemoen@gmail.com, egtvedt@samfundet.no, bgat@billgatliff.com,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:43418 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754257Ab2JUUjt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 16:39:49 -0400
-Received: by mail-lb0-f174.google.com with SMTP id n3so1269863lbo.19
-        for <netdev@vger.kernel.org>; Sun, 21 Oct 2012 13:39:48 -0700 (PDT)
-In-Reply-To: <20121021182551.GH12801@game.jcrosoft.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: bp@alien8.de, pavel@ucw.cz, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, security@kernel.org,
+	linux-media@vger.kernel.org, linux-usb@vger.kernel.org,
+	alsa-devel@alsa-project.org, stern@rowland.harvard.edu
+To: zonque@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 21, 2012 at 8:25 PM, Jean-Christophe PLAGNIOL-VILLARD
-<plagnioj@jcrosoft.com> wrote:
-> On 16:23 Sun 21 Oct     , Joachim Eastwood wrote:
->> Move Ethernet address byte order fix for csb337 into it's board
->> setup.
->>
->> This will allow us to remove the last mach include from at91_ether
->> and also to share the address setup with the macb driver.
-> no the at91rm9200 move to DT this is not compatible with it
->
-> you need to pass ths in info via platform_data
->
-> and do not touch driver code related stuff in boards
+> Nice. Could you do that again with the patch applied I sent yo some
+> hours ago?
 
-I know the board code is a bit nasty.
-If it's unacceptable I'll cook up a flag and pass it by platform_data,
-something like "reverse_eth_addr". Still it will only ever be used on
-the csb337 board.
+That patch was of no help - the system has crashed and I couldn't spot relevant
+messages.
 
-regards
-Joachim Eastwood
+I've no idea what it means.
+
+Artem
