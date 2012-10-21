@@ -1,35 +1,45 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: 3.5 bridging regression
-Date: Sun, 21 Oct 2012 17:37:16 +0200
-Message-ID: <20121021153716.GH21937@1wt.eu>
-References: <20121021112727.GF21937@1wt.eu> <1350820413.13333.2042.camel@edumazet-glaptop> <20121021132610.GG21937@1wt.eu> <1350827202.13333.2284.camel@edumazet-glaptop>
+From: Borislav Petkov <bp@alien8.de>
+Subject: Re: Re: Re: Re: Re: A reliable kernel panic (3.6.2) and system crash
+ when visiting a particular website
+Date: Sun, 21 Oct 2012 19:03:15 +0200
+Message-ID: <20121021170315.GB20642@liondog.tnic>
+References: <2104474742.26357.1350734815286.JavaMail.mail@webmail05>
+ <20121020162759.GA12551@liondog.tnic>
+ <966148591.30347.1350754909449.JavaMail.mail@webmail08>
+ <20121020203227.GC555@elf.ucw.cz>
+ <20121020225849.GA8976@liondog.tnic>
+ <1781795634.31179.1350774917965.JavaMail.mail@webmail04>
+ <20121021002424.GA16247@liondog.tnic>
+ <1798605268.19162.1350784641831.JavaMail.mail@webmail17>
+ <20121021110851.GA6504@liondog.tnic>
+ <121566322.100103.1350820776893.JavaMail.mail@webmail20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:33881 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932226Ab2JUPha (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 Oct 2012 11:37:30 -0400
+Content-Type: text/plain; charset=utf-8
+Cc: pavel@ucw.cz, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	security@kernel.org, linux-media@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: "Artem S. Tashkinov" <t.artem@lycos.com>
+Return-path: <linux-media-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1350827202.13333.2284.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <121566322.100103.1350820776893.JavaMail.mail@webmail20>
+Sender: linux-media-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 21, 2012 at 03:46:42PM +0200, Eric Dumazet wrote:
-> Thanks for testing, sorry for adding a bug.
-
-No problem, thanks to you for the quick fix.
-
-> skb_recycle() was losing skb->head_frag status.
+On Sun, Oct 21, 2012 at 11:59:36AM +0000, Artem S. Tashkinov wrote:
+> http://imageshack.us/a/img685/9452/panicz.jpg
 > 
-> (we could have added some logic in skb_is_recycleable(), but this
-> function was becoming really too complex)
+> list_del corruption. prev->next should be ... but was ...
 
-OK. I remember you did this in order to permit zero-copy splice() with
-all network drivers. I'll recheck to see if there is a performance impact
-with the fix.
+Btw, this is one of the debug options I told you to enable.
 
-Cheers,
-Willy
+> I cannot show you more as I have no serial console to use :( and the kernel
+> doesn't have enough time to push error messages to rsyslog and fsync
+> /var/log/messages
+
+I already told you how to catch that oops: boot with "pause_on_oops=600"
+on the kernel command line and photograph the screen when the first oops
+happens. This'll show us where the problem begins.
+
+-- 
+Regards/Gruss,
+    Boris.
