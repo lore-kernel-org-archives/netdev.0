@@ -1,58 +1,46 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: [PATCH] qla3xxx: Ensure request/response queue addr writes to the
- registers
-Date: Mon, 22 Oct 2012 08:40:36 +0800
-Message-ID: <50849604.9050109@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v7 1/1] ipv6: add support of equal cost
+ multipath (ECMP)
+Date: Sun, 21 Oct 2012 20:41:46 -0400 (EDT)
+Message-ID: <20121021.204146.1395047796384194358.davem@davemloft.net>
+References: <1349194467.12401.810.camel@edumazet-glaptop>
+	<1350638006-4213-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1350638006-4213-2-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
-	Greg Marsden <greg.marsden@oracle.com>
-To: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Ron Mercer <ron.mercer@qlogic.com>,
-	Linux Driver <Linux-Driver@qlogic.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, joe@perches.com, bernat@luffy.cx,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54855 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754746Ab2JVAls (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 20:41:48 -0400
+In-Reply-To: <1350638006-4213-2-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Before use the request and response queue addr, make sure it has wrote
-to the registers.
 
-Signed-off-by: Joe Jin <joe.jin@oracle.com>
-Cc: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Cc: Ron Mercer <ron.mercer@qlogic.com>
----
- drivers/net/ethernet/qlogic/qla3xxx.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+Why do you go through all of the effort to create a nice
+abstraction in a header file:
 
-diff --git a/drivers/net/ethernet/qlogic/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
-index df09b1c..6407d0d 100644
---- a/drivers/net/ethernet/qlogic/qla3xxx.c
-+++ b/drivers/net/ethernet/qlogic/qla3xxx.c
-@@ -2525,6 +2525,13 @@ static int ql_alloc_net_req_rsp_queues(struct ql3_adapter *qdev)
- 	qdev->req_q_size =
- 	    (u32) (NUM_REQ_Q_ENTRIES * sizeof(struct ob_mac_iocb_req));
- 
-+	qdev->rsp_q_size = NUM_RSP_Q_ENTRIES * sizeof(struct net_rsp_iocb);
-+
-+	/* The barrier is required to ensure request and response queue
-+	 * addr writes to the registers.
-+	 */
-+	wmb();
-+
- 	qdev->req_q_virt_addr =
- 	    pci_alloc_consistent(qdev->pdev,
- 				 (size_t) qdev->req_q_size,
-@@ -2536,8 +2543,6 @@ static int ql_alloc_net_req_rsp_queues(struct ql3_adapter *qdev)
- 		return -ENOMEM;
- 	}
- 
--	qdev->rsp_q_size = NUM_RSP_Q_ENTRIES * sizeof(struct net_rsp_iocb);
--
- 	qdev->rsp_q_virt_addr =
- 	    pci_alloc_consistent(qdev->pdev,
- 				 (size_t) qdev->rsp_q_size,
--- 
-1.7.11.7
+> +#ifdef CONFIG_IPV6_MULTIPATH
+> +static inline unsigned int
+> +ipv6_multipath_get_nsiblings(const struct rt6_info *rt)
+> +{
+> +	return rt->rt6i_nsiblings;
+> +}
+ ...
+
+Only to screw it up by still plopping ifdef crap into foo.c files?
+
+> +#ifdef CONFIG_IPV6_MULTIPATH
+> +		INIT_LIST_HEAD(&rt->rt6i_siblings);
+> +#endif
+> +		ipv6_multipath_reset_nsiblings(rt);
+
+I really don't want to see these ifdefs.
+
+And if they are unavoidable, remove this configure option
+altogether and make the code unconditionally included.
