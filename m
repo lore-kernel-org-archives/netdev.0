@@ -1,70 +1,98 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PROBLEM: Memory leak (at least with SLUB) from "secpath_dup"
- (xfrm) in 3.5+ kernels
-Date: Mon, 22 Oct 2012 17:28:02 +0200
-Message-ID: <1350919682.8609.877.camel@edumazet-glaptop>
-References: <20121019205055.2b258d09@sacrilege>
-	 <20121019233632.26cf96d8@sacrilege>
-	 <CAHC9VhQ+gkAaRmwDWqzQd1U-hwH__5yxrxWa5_=koz_XTSXpjQ@mail.gmail.com>
-	 <20121020204958.4bc8e293@sacrilege> <20121021044540.12e8f4b7@sacrilege>
-	 <20121021062402.7c4c4cb8@sacrilege>
-	 <1350826183.13333.2243.camel@edumazet-glaptop>
-	 <20121021195701.7a5872e7@sacrilege> <20121022004332.7e3f3f29@sacrilege>
-	 <20121022015134.4de457b9@sacrilege>
-	 <1350856053.8609.217.camel@edumazet-glaptop>
-	 <20121022045850.788df346@sacrilege>
-	 <1350893743.8609.424.camel@edumazet-glaptop>
-	 <20121022180655.50a50401@sacrilege>
-	 <1350918997.8609.858.camel@edumazet-glaptop>
-	 <1350919337.8609.869.camel@edumazet-glaptop>
+From: Daniel Mack <zonque@gmail.com>
+Subject: Re: A reliable kernel panic (3.6.2) and system crash when visiting
+ a particular website
+Date: Mon, 22 Oct 2012 17:30:02 +0200
+Message-ID: <5085667A.70408@gmail.com>
+References: <Pine.LNX.4.44L0.1210221116040.1724-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Paul Moore <paul@paul-moore.com>, netdev@vger.kernel.org,  linux-mm@kvack.org
-To: Mike Kazantsev <mk.fraggod@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1350919337.8609.869.camel@edumazet-glaptop>
-Sender: owner-linux-mm@kvack.org
+Cc: "Artem S. Tashkinov" <t.artem@lycos.com>, bp@alien8.de,
+	pavel@ucw.cz, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	security@kernel.org, linux-media@vger.kernel.org,
+	linux-usb@vger.kernel.org, alsa-devel@alsa-project.org
+To: Alan Stern <stern@rowland.harvard.edu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.44L0.1210221116040.1724-100000@iolanthe.rowland.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-10-22 at 17:22 +0200, Eric Dumazet wrote:
-> On Mon, 2012-10-22 at 17:16 +0200, Eric Dumazet wrote:
+On 22.10.2012 17:17, Alan Stern wrote:
+> On Sun, 21 Oct 2012, Artem S. Tashkinov wrote:
 > 
-> > OK, I believe I found the bug in IPv4 defrag / IPv6 reasm
-> > 
-> > Please test the following patch.
-> > 
-> > Thanks !
+>> dmesg messages up to a crash can be seen here: https://bugzilla.kernel.org/attachment.cgi?id=84221
 > 
-> I'll send a more generic patch in a few minutes, changing
-> kfree_skb_partial() to call skb_release_head_state()
+> The first problem in the log is endpoint list corruption.  Here's a 
+> debugging patch which should provide a little more information.
+
+Maybe add a BUG() after each of these dev_err() so we stop at the first
+occurance and also see where we're coming from?
+
+
+
+
+>  drivers/usb/core/hcd.c |   36 ++++++++++++++++++++++++++++++++++++
+>  1 file changed, 36 insertions(+)
 > 
-
-Here it is :
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 6e04b1f..4007c14 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3379,10 +3379,12 @@ EXPORT_SYMBOL(__skb_warn_lro_forwarding);
- 
- void kfree_skb_partial(struct sk_buff *skb, bool head_stolen)
- {
--	if (head_stolen)
-+	if (head_stolen) {
-+		skb_release_head_state(skb);
- 		kmem_cache_free(skbuff_head_cache, skb);
--	else
-+	} else {
- 		__kfree_skb(skb);
-+	}
- }
- EXPORT_SYMBOL(kfree_skb_partial);
- 
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> Index: usb-3.6/drivers/usb/core/hcd.c
+> ===================================================================
+> --- usb-3.6.orig/drivers/usb/core/hcd.c
+> +++ usb-3.6/drivers/usb/core/hcd.c
+> @@ -1083,6 +1083,8 @@ EXPORT_SYMBOL_GPL(usb_calc_bus_time);
+>  
+>  /*-------------------------------------------------------------------------*/
+>  
+> +static bool list_error;
+> +
+>  /**
+>   * usb_hcd_link_urb_to_ep - add an URB to its endpoint queue
+>   * @hcd: host controller to which @urb was submitted
+> @@ -1126,6 +1128,20 @@ int usb_hcd_link_urb_to_ep(struct usb_hc
+>  	 */
+>  	if (HCD_RH_RUNNING(hcd)) {
+>  		urb->unlinked = 0;
+> +
+> +		{
+> +			struct list_head *cur = &urb->ep->urb_list;
+> +			struct list_head *prev = cur->prev;
+> +
+> +			if (prev->next != cur && !list_error) {
+> +				list_error = true;
+> +				dev_err(&urb->dev->dev,
+> +					"ep %x list add corruption: %p %p %p\n",
+> +					urb->ep->desc.bEndpointAddress,
+> +					cur, prev, prev->next);
+> +			}
+> +		}
+> +
+>  		list_add_tail(&urb->urb_list, &urb->ep->urb_list);
+>  	} else {
+>  		rc = -ESHUTDOWN;
+> @@ -1193,6 +1209,26 @@ void usb_hcd_unlink_urb_from_ep(struct u
+>  {
+>  	/* clear all state linking urb to this dev (and hcd) */
+>  	spin_lock(&hcd_urb_list_lock);
+> +	{
+> +		struct list_head *cur = &urb->urb_list;
+> +		struct list_head *prev = cur->prev;
+> +		struct list_head *next = cur->next;
+> +
+> +		if (prev->next != cur && !list_error) {
+> +			list_error = true;
+> +			dev_err(&urb->dev->dev,
+> +				"ep %x list del corruption prev: %p %p %p\n",
+> +				urb->ep->desc.bEndpointAddress,
+> +				cur, prev, prev->next);
+> +		}
+> +		if (next->prev != cur && !list_error) {
+> +			list_error = true;
+> +			dev_err(&urb->dev->dev,
+> +				"ep %x list del corruption next: %p %p %p\n",
+> +				urb->ep->desc.bEndpointAddress,
+> +				cur, next, next->prev);
+> +		}
+> +	}
+>  	list_del_init(&urb->urb_list);
+>  	spin_unlock(&hcd_urb_list_lock);
+>  }
+> 
