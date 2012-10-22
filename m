@@ -1,48 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: Reject invalid ack_seq to Fast Open sockets
-Date: Mon, 22 Oct 2012 23:59:37 +0200
-Message-ID: <1350943177.8609.1383.camel@edumazet-glaptop>
-References: <1350941196-31224-1-git-send-email-hkchu@google.com>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: listen(2) backlog changes in or around Linux 3.1?
+Date: Mon, 22 Oct 2012 15:11:23 -0700
+Message-ID: <CAGK4HS9N9b64pKobWE=9wM-ZqNL-uJiGoAWNkqu=F=-NgHM=0Q@mail.gmail.com>
+References: <CAJgzZorigejCuFweNrvmkEJts3Um7exh1fYTH=4KrEcB=v=2SA@mail.gmail.com>
+	<507C4401.7050500@oracle.com>
+	<CAJgzZoqhw6HJxa6uRbekLMaVTDVOo92YDtzqHnZoRiQ8tq6G2g@mail.gmail.com>
+	<CAJgzZoq9+KZpQ1tVQJUK++VVk4JfY9u8timaJ5q6wSYoF+_tog@mail.gmail.com>
+	<5080279F.80008@oracle.com>
+	<5080340F.3050207@oracle.com>
+	<CAJgzZooJM7aj=K-idvdbwUOOmtDM6u-=gsVOs2OFZjiZwQP0zw@mail.gmail.com>
+	<CAGK4HS-tOE1uZR2PE+_DShEb3y5ZAn=dtECY1AmmyO2AmTVzTA@mail.gmail.com>
+	<1350629413.2293.157.camel@edumazet-glaptop>
+	<1350634013.2293.262.camel@edumazet-glaptop>
+	<CAGK4HS_9mLzL9ESm=n5hvO0cw1hkHFMCSmBiYTBnqEMqQOvPvQ@mail.gmail.com>
+	<1350642562.2293.411.camel@edumazet-glaptop>
+	<alpine.DEB.2.00.1210221251520.1684@cleese>
+	<1350936519.8609.1239.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, ncardwell@google.com,
-	ycheng@google.com
-To: "H.K. Jerry Chu" <hkchu@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: enh <enh@google.com>,
+	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:53581 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755787Ab2JVV7m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 17:59:42 -0400
-Received: by mail-we0-f174.google.com with SMTP id t9so1701176wey.19
-        for <netdev@vger.kernel.org>; Mon, 22 Oct 2012 14:59:41 -0700 (PDT)
-In-Reply-To: <1350941196-31224-1-git-send-email-hkchu@google.com>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:54030 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756293Ab2JVWLY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 18:11:24 -0400
+Received: by mail-oa0-f46.google.com with SMTP id h16so2978077oag.19
+        for <netdev@vger.kernel.org>; Mon, 22 Oct 2012 15:11:23 -0700 (PDT)
+In-Reply-To: <1350936519.8609.1239.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-10-22 at 14:26 -0700, H.K. Jerry Chu wrote:
-> From: Jerry Chu <hkchu@google.com>
-> 
-> A packet with an invalid ack_seq may cause a TCP Fast Open socket to switch
-> to the unexpected TCP_CLOSING state, triggering a BUG_ON kernel panic.
-> 
-> When a FIN packet with an invalid ack_seq# arrives at a socket in
-> the TCP_FIN_WAIT1 state, rather than discarding the packet, the current
-> code will accept the FIN, causing state transition to TCP_CLOSING.
-> 
-> This may be a small deviation from RFC793, which seems to say that the
-> packet should be dropped. Unfortunately I did not expect this case for
-> Fast Open hence it will trigger a BUG_ON panic.
-> 
-> It turns out there is really nothing bad about a TFO socket going into
-> TCP_CLOSING state so I could just remove the BUG_ON statements. But after
-> some thought I think it's better to treat this case like TCP_SYN_RECV
-> and return a RST to the confused peer who caused the unacceptable ack_seq
-> to be generated in the first place.
-> 
-> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> ---
+>
+> I wonder then if we dont need to retransmit the synack when req moves
+> into accept_queue then ?
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+
+If I understood the code correctly, the socket moves into accept_queue
+only when the
+third ack (with or without data) comes in. So, there should be no need
+to resend syn-ack. The issue is that there is no mechanism to promote
+req sockets which have finished TWHS to accept_queue currently.
+Socket can move into accept_queue only when third ack is processed.
+If we stop resending synacks, then socket will move into accept_queue
+when client sends data.
+
+>
+> Or else how the client can 'knows' it can send data to server ?
+
+>From client's point of view, TWHS is finished.  Client is already in
+established state and
+can even now send data. Currently, such packets with data will be
+dropped if accept_queue is full.
+If accept_queue is not full, socket moves into accept_queue and
+established state and processes the data.
+
+
+I think the only thing my patch does is reorder the tests so that
+needless syn-ack retransmissions are stopped.
+
+>
+> All these facilities sound very complex and not really usable by clients
+> (ie users not willing to wait more than few seconds anyway)
+>
+
+Fair enough. We can drop this if it is not worth the trouble or if I
+have missed any other scenario.
+
+Thanks for your review and time!
+Vijay
