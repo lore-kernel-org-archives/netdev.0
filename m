@@ -1,92 +1,80 @@
-From: Denis Kirjanov <kirjanov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH RESEND net-next] bluetooth: hci_core: Replace list_for_each with list_for_each_entry() helper
-Date: Mon, 22 Oct 2012 17:22:01 +0400
-Message-ID: <1350912121-24171-1-git-send-email-kirjanov@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Denis Kirjanov <kirjanov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: nicolas.dichtel@6wind.com
+Subject: [PATCH net-next v8 0/1] Add support of ECMPv6
+Date: Mon, 22 Oct 2012 15:42:08 +0200
+Message-ID: <1350913329-4044-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <20121021.204146.1395047796384194358.davem@davemloft.net>
+Cc: joe@perches.com, bernat@luffy.cx, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, eric.dumazet@gmail.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:59587 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754173Ab2JVNdx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 09:33:53 -0400
+In-Reply-To: <20121021.204146.1395047796384194358.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Replace list_for_each with list_for_each_entry() helper
+Here is a proposal to add the support of ECMPv6. The previous patch
+from Vincent against iproute2 can be used, but a little other patch is needed
+too, see http://patchwork.ozlabs.org/patch/183277/
+He also starts to write a patch against quagga, to be able to manage ECMPv6
+routes implemented in this patch:
+http://marc.info/?l=quagga-dev&m=135040310117116&w=2
 
-Signed-off-by: Denis Kirjanov <kirjanov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- include/net/bluetooth/hci_core.h |   20 ++++++++------------
- 1 files changed, 8 insertions(+), 12 deletions(-)
+If the kernel patch is approved, I can submit formally the patch for
+iproute2.
 
-diff --git a/include/net/bluetooth/hci_core.h b/include/net/bluetooth/hci_core.h
-index 475b8c0..fcf839f 100644
---- a/include/net/bluetooth/hci_core.h
-+++ b/include/net/bluetooth/hci_core.h
-@@ -852,7 +852,7 @@ struct hci_cb {
- 
- static inline void hci_auth_cfm(struct hci_conn *conn, __u8 status)
- {
--	struct list_head *p;
-+	struct hci_cb *cb;
- 	__u8 encrypt;
- 
- 	hci_proto_auth_cfm(conn, status);
-@@ -863,8 +863,7 @@ static inline void hci_auth_cfm(struct hci_conn *conn, __u8 status)
- 	encrypt = (conn->link_mode & HCI_LM_ENCRYPT) ? 0x01 : 0x00;
- 
- 	read_lock(&hci_cb_list_lock);
--	list_for_each(p, &hci_cb_list) {
--		struct hci_cb *cb = list_entry(p, struct hci_cb, list);
-+	list_for_each_entry(cb, &hci_cb_list, list) {
- 		if (cb->security_cfm)
- 			cb->security_cfm(conn, status, encrypt);
- 	}
-@@ -874,7 +873,7 @@ static inline void hci_auth_cfm(struct hci_conn *conn, __u8 status)
- static inline void hci_encrypt_cfm(struct hci_conn *conn, __u8 status,
- 								__u8 encrypt)
- {
--	struct list_head *p;
-+	struct hci_cb *cb;
- 
- 	if (conn->sec_level == BT_SECURITY_SDP)
- 		conn->sec_level = BT_SECURITY_LOW;
-@@ -885,8 +884,7 @@ static inline void hci_encrypt_cfm(struct hci_conn *conn, __u8 status,
- 	hci_proto_encrypt_cfm(conn, status, encrypt);
- 
- 	read_lock(&hci_cb_list_lock);
--	list_for_each(p, &hci_cb_list) {
--		struct hci_cb *cb = list_entry(p, struct hci_cb, list);
-+	list_for_each_entry(cb, &hci_cb_list, list) {
- 		if (cb->security_cfm)
- 			cb->security_cfm(conn, status, encrypt);
- 	}
-@@ -895,11 +893,10 @@ static inline void hci_encrypt_cfm(struct hci_conn *conn, __u8 status,
- 
- static inline void hci_key_change_cfm(struct hci_conn *conn, __u8 status)
- {
--	struct list_head *p;
-+	struct hci_cb *cb;
- 
- 	read_lock(&hci_cb_list_lock);
--	list_for_each(p, &hci_cb_list) {
--		struct hci_cb *cb = list_entry(p, struct hci_cb, list);
-+	list_for_each_entry(cb, &hci_cb_list, list) {
- 		if (cb->key_change_cfm)
- 			cb->key_change_cfm(conn, status);
- 	}
-@@ -909,11 +906,10 @@ static inline void hci_key_change_cfm(struct hci_conn *conn, __u8 status)
- static inline void hci_role_switch_cfm(struct hci_conn *conn, __u8 status,
- 								__u8 role)
- {
--	struct list_head *p;
-+	struct hci_cb *cb;
- 
- 	read_lock(&hci_cb_list_lock);
--	list_for_each(p, &hci_cb_list) {
--		struct hci_cb *cb = list_entry(p, struct hci_cb, list);
-+	list_for_each_entry(cb, &hci_cb_list, list) {
- 		if (cb->role_switch_cfm)
- 			cb->role_switch_cfm(conn, status, role);
- 	}
--- 
-1.7.1
+Here is an example of a command to add an ECMP route:
+$ ip -6 route add 3ffe:304:124:2306::/64 \
+	nexthop via fe80::230:1bff:feb4:e05c dev eth0 \
+	nexthop via fe80::230:1bff:feb4:dd4f dev eth0
+
+But note that this command is a shortcut and previous patches are not
+mandatory to set ECMP routes. The following commands can be used too:
+$ ip -6 route add 3ffe:304:124:2306::/64 via fe80::230:1bff:feb4:dd4f dev
+eth0
+$ ip -6 route append 3ffe:304:124:2306::/64 via fe80::230:1bff:feb4:e05c dev
+eth0
+
+Here is an example of a dump:
+$ ip -6 route | grep 3ffe:304:124:2306::/64
+3ffe:304:124:2306::/64 via fe80::230:1bff:feb4:dd4f dev eth0  metric 1024
+3ffe:304:124:2306::/64 via fe80::230:1bff:feb4:e05c dev eth0  metric 1024
+
+v8: Remove CONFIG_IPV6_MULTIPATH (keeping this option with only some helpers
+    in header files will be just unreadable).
+    Replace some invisible printk() by BUG_ON(): if counters don't match, list of
+    siblings is broken.
+    Remove rt6_info_hashfn() (useless in the current patch).
+    Remove argument net from rt6_multipath_select(), it was not used.
+
+v7: fix checkpatch.pl warning
+    invert rt6i_nsiblings and rt6i_siblings in struct rt6_info
+
+v6: be more verbose in commitlog
+    add some helpers in ip6_fib.h to avoid to have too many ifdef block in the
+    code
+    invert fc_mp_len and fc_mp in struct fib6_config to avoid a hole on 64bits
+    arch
+
+v5: to minimize the patch and ease its integration, remove roundrobin and random
+    algorithms for route selection. It will be possible to add new algorithms
+    through rt6_info_hashfn() when the basic support of ECMP is integrated.
+
+v4: remove compilation options to choose multipath algorithm for next hop
+    selection. Now the choice can be done at run time via
+    /proc/sys/net/ipv6/route/multipath_algorithm
+
+v3: rebase after updating net-next
+
+v2: rename CONFIG_IPV6_MULTIPATH_ROUTE to CONFIG_IPV6_MULTIPATH_HASH
+    use flowlabel in the hash function
+    add reference to RFC
+    fix a small identation issue
+    remove "If unsure, say N." from the help of CONFIG_IPV6_MULTIPATH
+
+Comments are welcome.
+
+Regards,
+Nicolas
