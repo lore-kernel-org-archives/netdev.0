@@ -1,113 +1,58 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: RFC 5961 5.2 Blind Data Injection Attack
- Mitigation
-Date: Mon, 22 Oct 2012 07:57:11 +0200
-Message-ID: <1350885431.8609.250.camel@edumazet-glaptop>
+Subject: [PATCH net-next] tcp: speedup SIOCINQ ioctl
+Date: Mon, 22 Oct 2012 08:06:56 +0200
+Message-ID: <1350886016.8609.266.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>, Jerry Chu <hkchu@google.com>
+Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:43569 "EHLO
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:58719 "EHLO
 	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753627Ab2JVF5Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 01:57:16 -0400
-Received: by mail-ee0-f46.google.com with SMTP id b15so802751eek.19
-        for <netdev@vger.kernel.org>; Sun, 21 Oct 2012 22:57:14 -0700 (PDT)
+	with ESMTP id S1755146Ab2JVGHA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 02:07:00 -0400
+Received: by mail-ee0-f46.google.com with SMTP id b15so804744eek.19
+        for <netdev@vger.kernel.org>; Sun, 21 Oct 2012 23:06:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-RFC 5961 5.2 [Blind Data Injection Attack].[Mitigation]
-
-  All TCP stacks MAY implement the following mitigation.  TCP stacks
-  that implement this mitigation MUST add an additional input check to
-  any incoming segment.  The ACK value is considered acceptable only if
-  it is in the range of ((SND.UNA - MAX.SND.WND) <= SEG.ACK <=
-  SND.NXT).  All incoming segments whose ACK value doesn't satisfy the
-  above condition MUST be discarded and an ACK sent back.
-
-Move tcp_send_challenge_ack() before tcp_ack() to avoid a forward
-declaration.
+SIOCINQ can use the lock_sock_fast() version to avoid double acquisition
+of socket lock.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Jerry Chu <hkchu@google.com>
 ---
- net/ipv4/tcp_input.c |   43 +++++++++++++++++++++++------------------
- 1 file changed, 25 insertions(+), 18 deletions(-)
+ net/ipv4/tcp.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 432c366..60cf836 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3552,6 +3552,24 @@ static bool tcp_process_frto(struct sock *sk, int flag)
- 	return false;
- }
- 
-+/* RFC 5961 7 [ACK Throttling] */
-+static void tcp_send_challenge_ack(struct sock *sk)
-+{
-+	/* unprotected vars, we dont care of overwrites */
-+	static u32 challenge_timestamp;
-+	static unsigned int challenge_count;
-+	u32 now = jiffies / HZ;
-+
-+	if (now != challenge_timestamp) {
-+		challenge_timestamp = now;
-+		challenge_count = 0;
-+	}
-+	if (++challenge_count <= sysctl_tcp_challenge_ack_limit) {
-+		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPCHALLENGEACK);
-+		tcp_send_ack(sk);
-+	}
-+}
-+
- /* This routine deals with incoming acks, but not outgoing ones. */
- static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index b7c2f43..eace049 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -536,13 +536,14 @@ int tcp_ioctl(struct sock *sk, int cmd, unsigned long arg)
  {
-@@ -3571,8 +3589,14 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	/* If the ack is older than previous acks
- 	 * then we can probably ignore it.
- 	 */
--	if (before(ack, prior_snd_una))
-+	if (before(ack, prior_snd_una)) {
-+		/* RFC 5961 5.2 [Blind Data Injection Attack].[Mitigation] */
-+		if (before(ack, prior_snd_una - tp->max_window)) {
-+			tcp_send_challenge_ack(sk);
-+			return -1;
-+		}
- 		goto old_ack;
-+	}
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	int answ;
++	bool slow;
  
- 	/* If the ack includes data we haven't sent yet, discard
- 	 * this segment (RFC793 Section 3.9).
-@@ -5241,23 +5265,6 @@ out:
- }
- #endif /* CONFIG_NET_DMA */
+ 	switch (cmd) {
+ 	case SIOCINQ:
+ 		if (sk->sk_state == TCP_LISTEN)
+ 			return -EINVAL;
  
--static void tcp_send_challenge_ack(struct sock *sk)
--{
--	/* unprotected vars, we dont care of overwrites */
--	static u32 challenge_timestamp;
--	static unsigned int challenge_count;
--	u32 now = jiffies / HZ;
--
--	if (now != challenge_timestamp) {
--		challenge_timestamp = now;
--		challenge_count = 0;
--	}
--	if (++challenge_count <= sysctl_tcp_challenge_ack_limit) {
--		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPCHALLENGEACK);
--		tcp_send_ack(sk);
--	}
--}
--
- /* Does PAWS and seqno based validation of an incoming segment, flags will
-  * play significant role here.
-  */
+-		lock_sock(sk);
++		slow = lock_sock_fast(sk);
+ 		if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV))
+ 			answ = 0;
+ 		else if (sock_flag(sk, SOCK_URGINLINE) ||
+@@ -557,7 +558,7 @@ int tcp_ioctl(struct sock *sk, int cmd, unsigned long arg)
+ 				answ--;
+ 		} else
+ 			answ = tp->urg_seq - tp->copied_seq;
+-		release_sock(sk);
++		unlock_sock_fast(sk, slow);
+ 		break;
+ 	case SIOCATMARK:
+ 		answ = tp->urg_data && tp->urg_seq == tp->copied_seq;
