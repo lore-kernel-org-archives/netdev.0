@@ -1,83 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PROBLEM: Memory leak (at least with SLUB) from "secpath_dup"
- (xfrm) in 3.5+ kernels
-Date: Mon, 22 Oct 2012 10:15:43 +0200
-Message-ID: <1350893743.8609.424.camel@edumazet-glaptop>
-References: <20121019205055.2b258d09@sacrilege>
-	 <20121019233632.26cf96d8@sacrilege>
-	 <CAHC9VhQ+gkAaRmwDWqzQd1U-hwH__5yxrxWa5_=koz_XTSXpjQ@mail.gmail.com>
-	 <20121020204958.4bc8e293@sacrilege> <20121021044540.12e8f4b7@sacrilege>
-	 <20121021062402.7c4c4cb8@sacrilege>
-	 <1350826183.13333.2243.camel@edumazet-glaptop>
-	 <20121021195701.7a5872e7@sacrilege> <20121022004332.7e3f3f29@sacrilege>
-	 <20121022015134.4de457b9@sacrilege>
-	 <1350856053.8609.217.camel@edumazet-glaptop>
-	 <20121022045850.788df346@sacrilege>
+From: Florian Fainelli <ffainelli@freebox.fr>
+Subject: Re: [PATCH] e1000: fix concurrent accesses to PHY from watchdog and ethtool
+Date: Mon, 22 Oct 2012 10:28:26 +0200
+Message-ID: <2571860.cVpYZJtmi6@flexo>
+References: <1350650688-29293-1-git-send-email-ffainelli@freebox.fr> <1350715654.2213.22.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Paul Moore <paul@paul-moore.com>, netdev@vger.kernel.org,  linux-mm@kvack.org
-To: Mike Kazantsev <mk.fraggod@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20121022045850.788df346@sacrilege>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Maxime Bizon <mbizon@freebox.fr>
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zmc.proxad.net ([212.27.53.206]:35728 "EHLO zmc.proxad.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750848Ab2JVI3p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Oct 2012 04:29:45 -0400
+In-Reply-To: <1350715654.2213.22.camel@jtkirshe-mobl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-10-22 at 04:58 +0600, Mike Kazantsev wrote:
+On Friday 19 October 2012 23:47:34 Jeff Kirsher wrote:
+> On Fri, 2012-10-19 at 14:44 +0200, Florian Fainelli wrote:
+> > From: Maxime Bizon <mbizon@freebox.fr>
+> > 
+> > The e1000 driver currently does not protect concurrent accesses to the
+> > PHY
+> > from both the ethtool callbacks, and from the e1000_watchdog function.
+> > This
+> > patchs adds a new spinlock which is used by e1000_{read,write}_phy_reg
+> > in
+> > order to serialize concurrent accesses to the PHY.
+> > 
+> > Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
+> > Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
+> > ---
+> >  drivers/net/ethernet/intel/e1000/e1000_hw.c |   17 +++++++++++++++--
+> >  1 file changed, 15 insertions(+), 2 deletions(-) 
+> 
+> It does not appear I have responded yet, so...
+> 
+> I have added this patch to my queue, thanks!
 
-> I've grepped for "/org/free" specifically and sure enough, same scraps
-> of data seem to be in some of the (varied) dumps there.
-
-Content is not meaningful, as we dont initialize it.
-So you see previous content.
-
-Could you try the following :
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 09cb3f6..a903cca 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2977,6 +2977,9 @@ int netif_rx(struct sk_buff *skb)
- {
- 	int ret;
- 
-+#ifdef CONFIG_XFRM
-+	WARN_ON_ONCE(skb->sp);
-+#endif
- 	/* if netpoll wants it, pretend we never saw it */
- 	if (netpoll_rx(skb))
- 		return NET_RX_DROP;
-@@ -3388,6 +3391,9 @@ out:
-  */
- int netif_receive_skb(struct sk_buff *skb)
- {
-+#ifdef CONFIG_XFRM
-+	WARN_ON_ONCE(skb->sp);
-+#endif
- 	net_timestamp_check(netdev_tstamp_prequeue, skb);
- 
- 	if (skb_defer_rx_timestamp(skb))
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index ab2bb42..5930e91 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -29,11 +29,10 @@ struct sec_path *secpath_dup(struct sec_path *src)
- {
- 	struct sec_path *sp;
- 
--	sp = kmem_cache_alloc(secpath_cachep, GFP_ATOMIC);
-+	sp = kmem_cache_zalloc(secpath_cachep, GFP_ATOMIC);
- 	if (!sp)
- 		return NULL;
- 
--	sp->len = 0;
- 	if (src) {
- 		int i;
- 
-
-
+Thanks Jeff, I will let you decide whether you think this is relevant for being
+included into -stable releases.
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Florian
