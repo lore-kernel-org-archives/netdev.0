@@ -1,85 +1,69 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH 1/3] pch_gbe: create functions for MAC_RX {en,dis}able
-Date: Mon, 22 Oct 2012 16:43:23 +0200
-Message-ID: <1350917005-26350-2-git-send-email-vfalico@redhat.com>
+Subject: [PATCH 2/3] pch_gbe: don't re-set RX_FIFO_ERR flag in napi_poll
+Date: Mon, 22 Oct 2012 16:43:24 +0200
+Message-ID: <1350917005-26350-3-git-send-email-vfalico@redhat.com>
 References: <1350917005-26350-1-git-send-email-vfalico@redhat.com>
 Cc: davem@davemloft.net, richardcochran@gmail.com,
 	tshimizu818@gmail.com, andy.cress@us.kontron.com,
 	erwan.velu@zodiacaerospace.com, agospoda@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61566 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:45998 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754817Ab2JVOnh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Oct 2012 10:43:37 -0400
+	id S1755081Ab2JVOnj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Oct 2012 10:43:39 -0400
 In-Reply-To: <1350917005-26350-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move MAC_RX-related bits into separate functions.
+If we were in RX_FIFO_ERR state and entered pch_gbe_napi_poll(), we'll
+anyway clean some rx space and thus can continue to receive more packets.
+Currently, we re-set the RX_FIFO_ERR in situations when we've exhausted our
+budget for RX cleaning or cleaned some TX packets. Removing it gives us
++20%-40% speed increase and a lot less of RX_FIFO_ERRors reported.
 
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |   26 +++++++++++++++----
- 1 files changed, 20 insertions(+), 6 deletions(-)
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |   19 ++++++-------------
+ 1 files changed, 6 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index b2a94d0..d5190bf 100644
+index d5190bf..4ffad78 100644
 --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
 +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -420,6 +420,22 @@ static void pch_gbe_mac_reset_rx(struct pch_gbe_hw *hw)
- 	return;
- }
+@@ -2419,7 +2419,6 @@ static int pch_gbe_napi_poll(struct napi_struct *napi, int budget)
+ 	int work_done = 0;
+ 	bool poll_end_flag = false;
+ 	bool cleaned = false;
+-	u32 int_en;
  
-+static void pch_gbe_disable_mac_rx(struct pch_gbe_hw *hw)
-+{
-+	u32 rctl;
-+	/* Disables Receive MAC */
-+	rctl = ioread32(&hw->reg->MAC_RX_EN);
-+	iowrite32((rctl & ~PCH_GBE_MRE_MAC_RX_EN), &hw->reg->MAC_RX_EN);
-+}
+ 	pr_debug("budget : %d\n", budget);
+ 
+@@ -2436,19 +2435,13 @@ static int pch_gbe_napi_poll(struct napi_struct *napi, int budget)
+ 
+ 	if (poll_end_flag) {
+ 		napi_complete(napi);
+-		if (adapter->rx_stop_flag) {
+-			adapter->rx_stop_flag = false;
+-			pch_gbe_start_receive(&adapter->hw);
+-		}
+ 		pch_gbe_irq_enable(adapter);
+-	} else
+-		if (adapter->rx_stop_flag) {
+-			adapter->rx_stop_flag = false;
+-			pch_gbe_start_receive(&adapter->hw);
+-			int_en = ioread32(&adapter->hw.reg->INT_EN);
+-			iowrite32((int_en | PCH_GBE_INT_RX_FIFO_ERR),
+-				&adapter->hw.reg->INT_EN);
+-		}
++	}
 +
-+static void pch_gbe_enable_mac_rx(struct pch_gbe_hw *hw)
-+{
-+	u32 rctl;
-+	/* Enables Receive MAC */
-+	rctl = ioread32(&hw->reg->MAC_RX_EN);
-+	iowrite32((rctl | PCH_GBE_MRE_MAC_RX_EN), &hw->reg->MAC_RX_EN);
-+}
-+
- /**
-  * pch_gbe_mac_init_rx_addrs - Initialize receive address's
-  * @hw:	Pointer to the HW structure
-@@ -913,7 +929,7 @@ static void pch_gbe_setup_rctl(struct pch_gbe_adapter *adapter)
- static void pch_gbe_configure_rx(struct pch_gbe_adapter *adapter)
- {
- 	struct pch_gbe_hw *hw = &adapter->hw;
--	u32 rdba, rdlen, rctl, rxdma;
-+	u32 rdba, rdlen, rxdma;
++	if (adapter->rx_stop_flag) {
++		adapter->rx_stop_flag = false;
++		pch_gbe_start_receive(&adapter->hw);
++	}
  
- 	pr_debug("dma adr = 0x%08llx  size = 0x%08x\n",
- 		 (unsigned long long)adapter->rx_ring->dma,
-@@ -921,9 +937,7 @@ static void pch_gbe_configure_rx(struct pch_gbe_adapter *adapter)
- 
- 	pch_gbe_mac_force_mac_fc(hw);
- 
--	/* Disables Receive MAC */
--	rctl = ioread32(&hw->reg->MAC_RX_EN);
--	iowrite32((rctl & ~PCH_GBE_MRE_MAC_RX_EN), &hw->reg->MAC_RX_EN);
-+	pch_gbe_disable_mac_rx(hw);
- 
- 	/* Disables Receive DMA */
- 	rxdma = ioread32(&hw->reg->DMA_CTRL);
-@@ -1355,8 +1369,8 @@ static void pch_gbe_start_receive(struct pch_gbe_hw *hw)
- 	rxdma = ioread32(&hw->reg->DMA_CTRL);
- 	rxdma |= PCH_GBE_RX_DMA_EN;
- 	iowrite32(rxdma, &hw->reg->DMA_CTRL);
--	/* Enables Receive */
--	iowrite32(PCH_GBE_MRE_MAC_RX_EN, &hw->reg->MAC_RX_EN);
-+
-+	pch_gbe_enable_mac_rx(hw);
- 	return;
- }
- 
+ 	pr_debug("poll_end_flag : %d  work_done : %d  budget : %d\n",
+ 		 poll_end_flag, work_done, budget);
 -- 
 1.7.1
