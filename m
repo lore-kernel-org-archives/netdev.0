@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH v2 net-next 03/13] net: cdc_ncm: adding MBIM support to ncm_setup
-Date: Mon, 22 Oct 2012 22:56:30 +0200
-Message-ID: <1350939400-27209-4-git-send-email-bjorn@mork.no>
+Subject: [PATCH v2 net-next 11/13] net: cdc_ncm: do not bind to NCM compatible MBIM devices
+Date: Mon, 22 Oct 2012 22:56:38 +0200
+Message-ID: <1350939400-27209-12-git-send-email-bjorn@mork.no>
 References: <1350939400-27209-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -13,164 +13,90 @@ Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
 	"Fangxiaozhi (Franko)" <fangxiaozhi@huawei.com>,
 	Dan Williams <dcbw@redhat.com>,
 	Aleksander Morgado <aleksander@lanedo.com>,
-	Greg Suarez <gsuarez@smithmicro.com>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+	Greg Suarez <gsuarez@smithmicro.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:48610 "EHLO canardo.mork.no"
+Received: from canardo.mork.no ([148.122.252.1]:48611 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756277Ab2JVU5Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756390Ab2JVU5Y (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 22 Oct 2012 16:57:24 -0400
 In-Reply-To: <1350939400-27209-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Greg Suarez <gsuarez@smithmicro.com>
+The MBIM specification allows a MBIM device to disguise
+itself as NCM for backwards compatibility, using additional
+altsettings with different subclass (control) or protocol
+(data):
 
-MBIM and NCM are very similar, so we can reuse most of the
-setup and bind logic in cdc_ncm for CDC MBIM devices.  Handle
-a few minor differences in ncm_setup.
+C:* #Ifs=3D 2 Cfg#=3D 1 Atr=3D80 MxPwr=3D100mA
+I:  If#=3D 0 Alt=3D 0 #EPs=3D 1 Cls=3D02(comm.) Sub=3D0d Prot=3D00 Driv=
+er=3Dcdc_mbim
+E:  Ad=3D81(I) Atr=3D03(Int.) MxPS=3D  64 Ivl=3D7ms
+I:* If#=3D 0 Alt=3D 1 #EPs=3D 1 Cls=3D02(comm.) Sub=3D0e Prot=3D00 Driv=
+er=3Dcdc_mbim
+E:  Ad=3D81(I) Atr=3D03(Int.) MxPS=3D  64 Ivl=3D7ms
+I:  If#=3D 1 Alt=3D 0 #EPs=3D 0 Cls=3D0a(data ) Sub=3D00 Prot=3D01 Driv=
+er=3Dcdc_mbim
+I:  If#=3D 1 Alt=3D 1 #EPs=3D 2 Cls=3D0a(data ) Sub=3D00 Prot=3D01 Driv=
+er=3Dcdc_mbim
+E:  Ad=3D81(I) Atr=3D02(Bulk) MxPS=3D  64 Ivl=3D0ms
+E:  Ad=3D02(O) Atr=3D02(Bulk) MxPS=3D  64 Ivl=3D0ms
+I:* If#=3D 1 Alt=3D 2 #EPs=3D 2 Cls=3D0a(data ) Sub=3D00 Prot=3D02 Driv=
+er=3Dcdc_mbim
+E:  Ad=3D81(I) Atr=3D02(Bulk) MxPS=3D  64 Ivl=3D0ms
+E:  Ad=3D02(O) Atr=3D02(Bulk) MxPS=3D  64 Ivl=3D0ms
 
-Signed-off-by: Greg Suarez <gsuarez@smithmicro.com>
+If the MBIM driver is enabled then that should have priority
+for devices providing such a NCM 1.0 backward compatibility
+mode.
+
 Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+Signed-off-by: Greg Suarez <gsuarez@smithmicro.com>
 ---
- drivers/net/usb/cdc_ncm.c |   50 +++++++++++++++++++++++++++++++------=
---------
- 1 file changed, 35 insertions(+), 15 deletions(-)
+ drivers/net/usb/cdc_ncm.c |   27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
 
 diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 32bdf54..77c6728 100644
+index 17b4ba0..0ed03b1 100644
 --- a/drivers/net/usb/cdc_ncm.c
 +++ b/drivers/net/usb/cdc_ncm.c
-@@ -64,6 +64,9 @@
- /* Minimum value for MaxDatagramSize, ch. 6.2.9 */
- #define	CDC_NCM_MIN_DATAGRAM_SIZE		1514	/* bytes */
+@@ -563,6 +563,33 @@ static int cdc_ncm_bind(struct usbnet *dev, struct=
+ usb_interface *intf)
+ {
+ 	int ret;
 =20
-+/* Minimum value for MaxDatagramSize, ch. 8.1.3 */
-+#define CDC_MBIM_MIN_DATAGRAM_SIZE              2048    /* bytes */
++	/* The MBIM spec defines a NCM compatible default altsetting,
++	 * which we may have matched:
++	 *
++	 *  "Functions that implement both NCM 1.0 and MBIM (an
++	 *   =E2=80=9CNCM/MBIM function=E2=80=9D) according to this recommend=
+ation
++	 *   shall provide two alternate settings for the
++	 *   Communication Interface.  Alternate setting 0, and the
++	 *   associated class and endpoint descriptors, shall be
++	 *   constructed according to the rules given for the
++	 *   Communication Interface in section 5 of [USBNCM10].
++	 *   Alternate setting 1, and the associated class and
++	 *   endpoint descriptors, shall be constructed according to
++	 *   the rules given in section 6 (USB Device Model) of this
++	 *   specification."
++	 *
++	 * Do not bind to such interfaces, allowing cdc_mbim to handle
++	 * them
++	 */
++#if IS_ENABLED(CONFIG_USB_NET_CDC_MBIM)
++	if ((intf->num_altsetting =3D=3D 2) &&
++	    !usb_set_interface(dev->udev,
++			       intf->cur_altsetting->desc.bInterfaceNumber,
++			       CDC_NCM_COMM_ALTSETTING_MBIM) &&
++	    cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
++		return -ENODEV;
++#endif
 +
- #define	CDC_NCM_MIN_TX_PKT			512	/* bytes */
+ 	/* NCM data altsetting is always 1 */
+ 	ret =3D cdc_ncm_bind_common(dev, intf, 1);
 =20
- /* Default value for MaxDatagramSize */
-@@ -98,6 +101,7 @@ struct cdc_ncm_ctx {
- 	struct tasklet_struct bh;
-=20
- 	const struct usb_cdc_ncm_desc *func_desc;
-+	const struct usb_cdc_mbim_desc *mbim_desc;
- 	const struct usb_cdc_header_desc *header_desc;
- 	const struct usb_cdc_union_desc *union_desc;
- 	const struct usb_cdc_ether_desc *ether_desc;
-@@ -158,7 +162,10 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
- 	u8 flags;
- 	u8 iface_no;
- 	int err;
-+	int eth_hlen;
- 	u16 ntb_fmt_supported;
-+	u32 min_dgram_size;
-+	u32 min_hdr_size;
-=20
- 	iface_no =3D ctx->control->cur_altsetting->desc.bInterfaceNumber;
-=20
-@@ -184,10 +191,19 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
- 	ctx->tx_max_datagrams =3D le16_to_cpu(ctx->ncm_parm.wNtbOutMaxDatagra=
-ms);
- 	ntb_fmt_supported =3D le16_to_cpu(ctx->ncm_parm.bmNtbFormatsSupported=
-);
-=20
--	if (ctx->func_desc !=3D NULL)
-+	eth_hlen =3D ETH_HLEN;
-+	min_dgram_size =3D CDC_NCM_MIN_DATAGRAM_SIZE;
-+	min_hdr_size =3D CDC_NCM_MIN_HDR_SIZE;
-+	if (ctx->mbim_desc !=3D NULL) {
-+		flags =3D ctx->mbim_desc->bmNetworkCapabilities;
-+		eth_hlen =3D 0;
-+		min_dgram_size =3D CDC_MBIM_MIN_DATAGRAM_SIZE;
-+		min_hdr_size =3D 0;
-+	} else if (ctx->func_desc !=3D NULL) {
- 		flags =3D ctx->func_desc->bmNetworkCapabilities;
--	else
-+	} else {
- 		flags =3D 0;
-+	}
-=20
- 	pr_debug("dwNtbInMaxSize=3D%u dwNtbOutMaxSize=3D%u "
- 		 "wNdpOutPayloadRemainder=3D%u wNdpOutDivisor=3D%u "
-@@ -237,7 +253,7 @@ size_err:
-=20
- 	/* verify maximum size of transmitted NTB in bytes */
- 	if ((ctx->tx_max <
--	    (CDC_NCM_MIN_HDR_SIZE + CDC_NCM_MIN_DATAGRAM_SIZE)) ||
-+	    (min_hdr_size + min_dgram_size)) ||
- 	    (ctx->tx_max > CDC_NCM_NTB_MAX_SIZE_TX)) {
- 		pr_debug("Using default maximum transmit length=3D%d\n",
- 						CDC_NCM_NTB_MAX_SIZE_TX);
-@@ -279,8 +295,8 @@ size_err:
- 	}
-=20
- 	/* adjust TX-remainder according to NCM specification. */
--	ctx->tx_remainder =3D ((ctx->tx_remainder - ETH_HLEN) &
--						(ctx->tx_modulus - 1));
-+	ctx->tx_remainder =3D ((ctx->tx_remainder - eth_hlen) &
-+			     (ctx->tx_modulus - 1));
-=20
- 	/* additional configuration */
-=20
-@@ -307,12 +323,18 @@ size_err:
- 			pr_debug("Setting NTB format to 16-bit failed\n");
- 	}
-=20
--	ctx->max_datagram_size =3D CDC_NCM_MIN_DATAGRAM_SIZE;
-+	ctx->max_datagram_size =3D min_dgram_size;
-=20
- 	/* set Max Datagram Size (MTU) */
- 	if (flags & USB_CDC_NCM_NCAP_MAX_DATAGRAM_SIZE) {
- 		__le16 *max_datagram_size;
--		u16 eth_max_sz =3D le16_to_cpu(ctx->ether_desc->wMaxSegmentSize);
-+		u16 eth_max_sz;
-+		if (ctx->ether_desc !=3D NULL)
-+			eth_max_sz =3D le16_to_cpu(ctx->ether_desc->wMaxSegmentSize);
-+		else if (ctx->mbim_desc !=3D NULL)
-+			eth_max_sz =3D le16_to_cpu(ctx->mbim_desc->wMaxSegmentSize);
-+		else
-+			goto max_dgram_err;
-=20
- 		max_datagram_size =3D kzalloc(sizeof(*max_datagram_size),
- 				GFP_KERNEL);
-@@ -329,7 +351,7 @@ size_err:
- 				2, 1000);
- 		if (err < 0) {
- 			pr_debug("GET_MAX_DATAGRAM_SIZE failed, use size=3D%u\n",
--						CDC_NCM_MIN_DATAGRAM_SIZE);
-+				 min_dgram_size);
- 		} else {
- 			ctx->max_datagram_size =3D
- 				le16_to_cpu(*max_datagram_size);
-@@ -338,12 +360,10 @@ size_err:
- 					ctx->max_datagram_size =3D eth_max_sz;
-=20
- 			if (ctx->max_datagram_size > CDC_NCM_MAX_DATAGRAM_SIZE)
--				ctx->max_datagram_size =3D
--						CDC_NCM_MAX_DATAGRAM_SIZE;
-+				ctx->max_datagram_size =3D CDC_NCM_MAX_DATAGRAM_SIZE;
-=20
--			if (ctx->max_datagram_size < CDC_NCM_MIN_DATAGRAM_SIZE)
--				ctx->max_datagram_size =3D
--					CDC_NCM_MIN_DATAGRAM_SIZE;
-+			if (ctx->max_datagram_size < min_dgram_size)
-+				ctx->max_datagram_size =3D min_dgram_size;
-=20
- 			/* if value changed, update device */
- 			if (ctx->max_datagram_size !=3D
-@@ -364,8 +384,8 @@ size_err:
- 	}
-=20
- max_dgram_err:
--	if (ctx->netdev->mtu !=3D (ctx->max_datagram_size - ETH_HLEN))
--		ctx->netdev->mtu =3D ctx->max_datagram_size - ETH_HLEN;
-+	if (ctx->netdev->mtu !=3D (ctx->max_datagram_size - eth_hlen))
-+		ctx->netdev->mtu =3D ctx->max_datagram_size - eth_hlen;
-=20
- 	return 0;
- }
 --=20
 1.7.10.4
