@@ -1,41 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sockopt: Make SO_BINDTODEVICE readable
-Date: Sun, 21 Oct 2012 20:43:51 -0400 (EDT)
-Message-ID: <20121021.204351.350463326482954461.davem@davemloft.net>
-References: <508123AC.5080208@parallels.com>
+Subject: Re: [PATCH 1/1] [PATCH net-next] net:dev: remove double indentical
+ assignment in dev_change_net_namespace().
+Date: Sun, 21 Oct 2012 20:45:09 -0400 (EDT)
+Message-ID: <20121021.204509.1408772133359245119.davem@davemloft.net>
+References: <1350644970-2877-1-git-send-email-ramirose@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xemul@parallels.com
+Cc: netdev@vger.kernel.org, serge.hallyn@canonical.com
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54870 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54878 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754746Ab2JVAnx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 20:43:53 -0400
-In-Reply-To: <508123AC.5080208@parallels.com>
+	with ESMTP id S932676Ab2JVApL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 20:45:11 -0400
+In-Reply-To: <1350644970-2877-1-git-send-email-ramirose@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@parallels.com>
-Date: Fri, 19 Oct 2012 13:55:56 +0400
+From: Rami Rosen <ramirose@gmail.com>
+Date: Fri, 19 Oct 2012 13:09:30 +0200
 
-> The SO_BINDTODEVICE option is the only SOL_SOCKET one that can be set, but
-> cannot be get via sockopt API. The only way we can find the device id a
-> socket is bound to is via sock-diag interface. But the diag works only on
-> hashed sockets, while the opt in question can be set for yet unhashed one.
+> This patch removes double assignment of err to -EINVAL in dev_change_net_namespace().
 > 
-> That said, in order to know what device a socket is bound to (we do want
-> to know this in checkpoint-restore project) I propose to make this option
-> getsockopt-able and report the respective device index.
-> 
-> Another solution to the problem might be to teach the sock-diag reporting
-> info on unhashed sockets. Should I go this way instead?
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-Applied.  I can't believe we didn't support this when the feature
-was added.
-
-I guess we figured that if the application made this setting, then
-it knows and doesn't need to query it.
+Applied, thanks.
