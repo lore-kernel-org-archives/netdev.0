@@ -1,40 +1,52 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 4/6] ptp: add api to get ptp seq id and event type from
- skb
-Date: Mon, 22 Oct 2012 14:37:09 +0200
-Message-ID: <20121022123709.GB6151@netboy.at.omicron.at>
+From: "N, Mugunthan V" <mugunthanvnm@ti.com>
+Subject: RE: [PATCH 5/6] drivers: net: ethernet: cpts: implement cpts
+ hardware clock
+Date: Mon, 22 Oct 2012 12:38:22 +0000
+Message-ID: <EB1619762EAF8B4E97A227FB77B7E0293E9FD94D@DBDE01.ent.ti.com>
 References: <1350427518-7230-1-git-send-email-mugunthanvnm@ti.com>
- <1350427518-7230-5-git-send-email-mugunthanvnm@ti.com>
- <20121018025508.GD2867@netboy.at.omicron.at>
- <EB1619762EAF8B4E97A227FB77B7E0293E9FD6E6@DBDE01.ent.ti.com>
- <20121022113622.GD2285@netboy.at.omicron.at>
- <EB1619762EAF8B4E97A227FB77B7E0293E9FD904@DBDE01.ent.ti.com>
+ <1350427518-7230-6-git-send-email-mugunthanvnm@ti.com>
+ <20121020134331.GA5444@netboy.at.omicron.at>
+ <EB1619762EAF8B4E97A227FB77B7E0293E9FD709@DBDE01.ent.ti.com>
+ <20121022114435.GF2285@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"davem@davemloft.net" <davem@davemloft.net>
-To: "N, Mugunthan V" <mugunthanvnm@ti.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:51935 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751032Ab2JVMhU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 08:37:20 -0400
-Received: by mail-wg0-f44.google.com with SMTP id dr13so2194524wgb.1
-        for <netdev@vger.kernel.org>; Mon, 22 Oct 2012 05:37:19 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <EB1619762EAF8B4E97A227FB77B7E0293E9FD904@DBDE01.ent.ti.com>
+Received: from bear.ext.ti.com ([192.94.94.41]:34185 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750828Ab2JVMi1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 08:38:27 -0400
+In-Reply-To: <20121022114435.GF2285@netboy.at.omicron.at>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 22, 2012 at 12:32:20PM +0000, N, Mugunthan V wrote:
+> -----Original Message-----
+> From: Richard Cochran [mailto:richardcochran@gmail.com]
+> Sent: Monday, October 22, 2012 5:15 PM
+> To: N, Mugunthan V
+> Cc: netdev@vger.kernel.org; davem@davemloft.net
+> Subject: Re: [PATCH 5/6] drivers: net: ethernet: cpts: implement cpts
+> hardware clock
 > 
-> Ok, will move this code to CPTS driver itself.
+> On Mon, Oct 22, 2012 at 10:55:55AM +0000, N, Mugunthan V wrote:
+> >
+> > The CPTS found in DM81XX and AM335X is of same version, only the CPSW
+> version
+> > is different in both SoCs.
+> 
+> Actually, the CPTS appears to be different between DM81XX and AM335X.
+> 
+> The DM81XX has a CPTS_RFTCLK_SEL which is not found in the AM335X.
+> 
 
-No need to fix this, since, as I already told you, I am going ahead
-with my own CPTS driver.
+CPTS ref clock is not part of CPTS module, its external to CPTS module.
+During IP integration, this ref clock can be connected to any clock
+available. In AM335X this ref clock is tied to 250MHz clock, in DM81XX
+the same is connected to a MUX where the CPTS ref clock can be programmed.
 
-BTW, maybe you could take a closer look at it and see what could be
-improved?
-
-Thanks,
-Richard
+Regards
+Mugunthan V N
