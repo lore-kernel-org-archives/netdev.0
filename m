@@ -1,27 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] unix: Remove unused field from unix_sock
-Date: Sun, 21 Oct 2012 20:37:43 -0400 (EDT)
-Message-ID: <20121021.203743.2025532949963406564.davem@davemloft.net>
-References: <5080F30C.2090206@parallels.com>
+From: Joe Jin <joe.jin@oracle.com>
+Subject: [PATCH] qla3xxx: Ensure request/response queue addr writes to the
+ registers
+Date: Mon, 22 Oct 2012 08:40:36 +0800
+Message-ID: <50849604.9050109@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xemul@parallels.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54824 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753856Ab2JVAhp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 20:37:45 -0400
-In-Reply-To: <5080F30C.2090206@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+	Greg Marsden <greg.marsden@oracle.com>
+To: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	Ron Mercer <ron.mercer@qlogic.com>,
+	Linux Driver <Linux-Driver@qlogic.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@parallels.com>
-Date: Fri, 19 Oct 2012 10:28:28 +0400
+Before use the request and response queue addr, make sure it has wrote
+to the registers.
 
-> The struct sock *other one seem to be unused. Grep and make do not object.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+Signed-off-by: Joe Jin <joe.jin@oracle.com>
+Cc: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Cc: Ron Mercer <ron.mercer@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qla3xxx.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-Applied.
+diff --git a/drivers/net/ethernet/qlogic/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
+index df09b1c..6407d0d 100644
+--- a/drivers/net/ethernet/qlogic/qla3xxx.c
++++ b/drivers/net/ethernet/qlogic/qla3xxx.c
+@@ -2525,6 +2525,13 @@ static int ql_alloc_net_req_rsp_queues(struct ql3_adapter *qdev)
+ 	qdev->req_q_size =
+ 	    (u32) (NUM_REQ_Q_ENTRIES * sizeof(struct ob_mac_iocb_req));
+ 
++	qdev->rsp_q_size = NUM_RSP_Q_ENTRIES * sizeof(struct net_rsp_iocb);
++
++	/* The barrier is required to ensure request and response queue
++	 * addr writes to the registers.
++	 */
++	wmb();
++
+ 	qdev->req_q_virt_addr =
+ 	    pci_alloc_consistent(qdev->pdev,
+ 				 (size_t) qdev->req_q_size,
+@@ -2536,8 +2543,6 @@ static int ql_alloc_net_req_rsp_queues(struct ql3_adapter *qdev)
+ 		return -ENOMEM;
+ 	}
+ 
+-	qdev->rsp_q_size = NUM_RSP_Q_ENTRIES * sizeof(struct net_rsp_iocb);
+-
+ 	qdev->rsp_q_virt_addr =
+ 	    pci_alloc_consistent(qdev->pdev,
+ 				 (size_t) qdev->rsp_q_size,
+-- 
+1.7.11.7
