@@ -1,40 +1,48 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: bnx2x: Added EEE support
-Date: Mon, 22 Oct 2012 15:06:47 +0300
-Message-ID: <20121022120647.GC7380@mwanda>
-References: <20120608130921.GA19268@elgon.mountain>
- <979A8436335E3744ADCD3A9F2A2B68A5027223@SJEXCHMB10.corp.ad.broadcom.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [nf-next PATCH] ipvs: fix build error when CONFIG_IP_VS_IPV6 is
+	disabled
+Date: Mon, 22 Oct 2012 14:17:11 +0200
+Message-ID: <20121022121711.31397.6231.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Yuval Mintz <yuvalmin@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:26444 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752348Ab2JVMHC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 08:07:02 -0400
-Content-Disposition: inline
-In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A5027223@SJEXCHMB10.corp.ad.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, fengguang.wu@intel.com,
+	yuanhan.liu@linux.intel.com, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 10, 2012 at 07:47:13AM +0000, Yuval Mintz wrote:
-> > The patch c8c60d88c59c: "bnx2x: Added EEE support" from Jun 6, 2012,
-> > leads to the following warning:
-> > drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c:10121
-> > bnx2x_848x3_config_init()
-> > 	 error: buffer overflow 'params->req_duplex' 2 <= 4
-> > 
-> 
-> Hi Dan,
-> 
-> You are right - this is indeed an error, although one that shouldn't
-> affect any existing bnx2x chip supporting EEE.
-> 
-> I'll send a patch correcting it soon.
-> 
+From: Yuanhan Liu <yuanhan.liu@linux.intel.com>
 
-What happened with this?
+Fix build error introduced by commit 63dca2c0:
+ "ipvs: Fix faulty IPv6 extension header handling in IPVS"
 
-regards,
-dan carpenter
+The build error only occur, when CONFIG_IP_VS_IPV6 is disabled.
+
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Yuanhan Liu <yuanhan.liu@linux.intel.com>
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+
+ include/net/ip_vs.h |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index a681ad6..d930749 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -212,8 +212,9 @@ ip_vs_fill_iph_addr_only(int af, const struct sk_buff *skb,
+ 			(struct ipv6hdr *)skb_network_header(skb);
+ 		iphdr->saddr.in6 = iph->saddr;
+ 		iphdr->daddr.in6 = iph->daddr;
+-	} else {
++	} else
+ #endif
++	{
+ 		const struct iphdr *iph =
+ 			(struct iphdr *)skb_network_header(skb);
+ 		iphdr->saddr.ip = iph->saddr;
+
