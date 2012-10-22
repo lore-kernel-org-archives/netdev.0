@@ -1,126 +1,85 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next 1/2] r8169: enable ALDPS for power saving
-Date: Mon, 22 Oct 2012 21:27:48 +0200
-Message-ID: <20121022192748.GA16370@electric-eye.fr.zoreil.com>
-References: <1350893153-18320-1-git-send-email-hayeswang@realtek.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: listen(2) backlog changes in or around Linux 3.1?
+Date: Mon, 22 Oct 2012 22:08:39 +0200
+Message-ID: <1350936519.8609.1239.camel@edumazet-glaptop>
+References: <CAJgzZorigejCuFweNrvmkEJts3Um7exh1fYTH=4KrEcB=v=2SA@mail.gmail.com>
+	 <507C4401.7050500@oracle.com>
+	 <CAJgzZoqhw6HJxa6uRbekLMaVTDVOo92YDtzqHnZoRiQ8tq6G2g@mail.gmail.com>
+	 <CAJgzZoq9+KZpQ1tVQJUK++VVk4JfY9u8timaJ5q6wSYoF+_tog@mail.gmail.com>
+	 <5080279F.80008@oracle.com> <5080340F.3050207@oracle.com>
+	 <CAJgzZooJM7aj=K-idvdbwUOOmtDM6u-=gsVOs2OFZjiZwQP0zw@mail.gmail.com>
+	 <CAGK4HS-tOE1uZR2PE+_DShEb3y5ZAn=dtECY1AmmyO2AmTVzTA@mail.gmail.com>
+	 <1350629413.2293.157.camel@edumazet-glaptop>
+	 <1350634013.2293.262.camel@edumazet-glaptop>
+	 <CAGK4HS_9mLzL9ESm=n5hvO0cw1hkHFMCSmBiYTBnqEMqQOvPvQ@mail.gmail.com>
+	 <1350642562.2293.411.camel@edumazet-glaptop>
+	 <alpine.DEB.2.00.1210221251520.1684@cleese>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jean@google.com
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1350893153-18320-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: enh <enh@google.com>,
+	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	netdev@vger.kernel.org
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:65292 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753331Ab2JVUIp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 16:08:45 -0400
+Received: by mail-ea0-f174.google.com with SMTP id c13so951529eaa.19
+        for <netdev@vger.kernel.org>; Mon, 22 Oct 2012 13:08:43 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.00.1210221251520.1684@cleese>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hayes Wang <hayeswang@realtek.com> :
-> Enable ALDPS function to save power when link down. Note that the
-> feature should be set after the other PHY settings. And the firmware
-> is necessary. Don't enable it without loading the firmware.
+On Mon, 2012-10-22 at 13:00 -0700, Vijay Subramanian wrote:
+> >
+> > If we send a SYNACK, then receive the ACK from client, and the acceptq
+> > is full, we should reset the connexion. Right now we have kind of stupid
+> > situation, were we drop the ACK, and leave the REQ in the SYN_RECV
+> > state, so we retransmit SYNACKS.
+> >
 > 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> ---
->  drivers/net/ethernet/realtek/r8169.c | 46 +++++++++++++++++++++++++++++++++++-
->  1 file changed, 45 insertions(+), 1 deletion(-)
 > 
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index e7ff886..ba29e4d 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -687,6 +687,7 @@ enum features {
->  	RTL_FEATURE_WOL		= (1 << 0),
->  	RTL_FEATURE_MSI		= (1 << 1),
->  	RTL_FEATURE_GMII	= (1 << 2),
-> +	RTL_FEATURE_EXTENDED	= (1 << 3),
+> It seems the third ack is remembered in inet_rsk(req)->acked in
+> tcp_check_req(). However, because of the order in which the tests are performed, 
+> server stills retransmits the synack needlessly. Following patch 
+> (for review) prevents this synack retransmission if third ack has been 
+> received.
+> 
+> The request_sock will expire in around 30 seconds and will be dropped if it does
+> not move into accept_queue by then.  Maybe we should also call 
+> req->rsk_ops->send_reset(sk,skb); 
+> when the request_sock expires and is dropped?
+> 
 
-Is there a specific reason why it is not named RTL_FEATURE_ALDPS ?
+Not sure its needed, and we are under stress.
 
-RTL_FEATURE_EXTENDED is anything but enlightning.
+> 
+> net/ipv4/inet_connection_sock.c |    5 ++---
+>   1 files changed, 2 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+> index d34ce29..4e8e52e 100644
+> --- a/net/ipv4/inet_connection_sock.c
+> +++ b/net/ipv4/inet_connection_sock.c
+> @@ -598,9 +598,8 @@ void inet_csk_reqsk_queue_prune(struct sock *parent,
+>                                                 &expire, &resend);
+>                                  req->rsk_ops->syn_ack_timeout(parent, req);
+>                                  if (!expire &&
+> -                                   (!resend ||
+> -                                    !req->rsk_ops->rtx_syn_ack(parent, req, NULL) ||
+> -                                    inet_rsk(req)->acked)) {
+> +                                   (!resend || inet_rsk(req)->acked ||
+> +                                    !req->rsk_ops->rtx_syn_ack(parent, req, NULL))) {
+>                                          unsigned long timeo;
+> 
+>                                          if (req->retrans++ == 0)
 
->  };
->  
->  struct rtl8169_counters {
-> @@ -2394,8 +2395,10 @@ static void rtl_apply_firmware(struct rtl8169_private *tp)
->  	struct rtl_fw *rtl_fw = tp->rtl_fw;
->  
->  	/* TODO: release firmware once rtl_phy_write_fw signals failures. */
-> -	if (!IS_ERR_OR_NULL(rtl_fw))
-> +	if (!IS_ERR_OR_NULL(rtl_fw)) {
->  		rtl_phy_write_fw(tp, rtl_fw);
-> +		tp->features |= RTL_FEATURE_EXTENDED;
-> +	}
+I wonder then if we dont need to retransmit the synack when req moves
+into accept_queue then ?
 
+Or else how the client can 'knows' it can send data to server ?
 
->  }
->  
->  static void rtl_apply_firmware_cond(struct rtl8169_private *tp, u8 reg, u16 val)
-> @@ -3178,6 +3181,12 @@ static void rtl8168e_2_hw_phy_config(struct rtl8169_private *tp)
->  	rtl_w1w0_phy(tp, 0x19, 0x0000, 0x0001);
->  	rtl_w1w0_phy(tp, 0x10, 0x0000, 0x0400);
->  	rtl_writephy(tp, 0x1f, 0x0000);
-> +
-> +	/* ALDPS enable */
-> +	if (tp->features & RTL_FEATURE_EXTENDED) {
-> +		rtl_writephy(tp, 0x1f, 0x0000);
-> +		rtl_w1w0_phy(tp, 0x15, 0x1000, 0x0000);
-> +	}
-
-
-This same code fragment will be repeated 3 extra times. The patch duplicates
-a different fragment 3 times and the driver already repeats the disable
-ALDPS sequence 3 times.
-
-What about some factoring out frenzy ? :o)
-
-[...]
-> @@ -6391,6 +6433,8 @@ static void rtl8169_net_suspend(struct net_device *dev)
->  {
->  	struct rtl8169_private *tp = netdev_priv(dev);
->  
-> +	tp->features &= ~RTL_FEATURE_EXTENDED;
-> +
-
-The commit message does not explain this part.
-
-What are you trying to achieve ?
-
-
-After this patch the driver would look like:
-1. disable ALDPS before setting firmware (unmodified by patch)
-   RTL_GIGA_MAC_VER_29 "RTL8105e"
-   RTL_GIGA_MAC_VER_30 "RTL8105e"
-   RTL_GIGA_MAC_VER_37 "RTL8402"
-   RTL_GIGA_MAC_VER_39 "RTL8106e"
-
-2. apply_firmware (unmodified by patch)
-   RTL_GIGA_MAC_VER_25 "RTL8168d/8111d"
-   RTL_GIGA_MAC_VER_26 "RTL8168d/8111d"
-   RTL_GIGA_MAC_VER_29 "RTL8105e"
-   RTL_GIGA_MAC_VER_30 "RTL8105e"
-   RTL_GIGA_MAC_VER_32 "RTL8168e/8111e"
-   RTL_GIGA_MAC_VER_33 "RTL8168e/8111e"
-   RTL_GIGA_MAC_VER_34 "RTL8168evl/8111evl"
-   RTL_GIGA_MAC_VER_35 "RTL8168f/8111f"
-   RTL_GIGA_MAC_VER_36 "RTL8168f/8111f"
-   RTL_GIGA_MAC_VER_37 "RTL8402"
-   RTL_GIGA_MAC_VER_38 "RTL8411"
-   RTL_GIGA_MAC_VER_39 "RTL8106e"
-   RTL_GIGA_MAC_VER_40 "RTL8168g/8111g"
-
-3. enable ALDPS after firmware
-   RTL_GIGA_MAC_VER_34 "RTL8168evl/8111evl"
-   RTL_GIGA_MAC_VER_35 "RTL8168f/8111f"
-   RTL_GIGA_MAC_VER_36 "RTL8168f/8111f"
-   RTL_GIGA_MAC_VER_37 "RTL8402"
-   RTL_GIGA_MAC_VER_38 "RTL8411"
-   RTL_GIGA_MAC_VER_39 "RTL8106e"
-   RTL_GIGA_MAC_VER_40 "RTL8168g/8111g"
-
-The disable/enable ALDPS code is not trivially balanced.
-
-Do we exactly perform the required ALDPS operations ? Nothing more,
-nothing less ?
-
--- 
-Ueimor
+All these facilities sound very complex and not really usable by clients
+(ie users not willing to wait more than few seconds anyway)
