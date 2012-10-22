@@ -1,23 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] pktgen: Use ipv6_addr_any
-Date: Sun, 21 Oct 2012 20:37:38 -0400 (EDT)
-Message-ID: <20121021.203738.1974644193577737957.davem@davemloft.net>
-References: <408090aa33c0ebcd8d02ce1d14b3dca590fbae62.1350618840.git.joe@perches.com>
+Subject: Re: [PATCH net-next] unix: Remove unused field from unix_sock
+Date: Sun, 21 Oct 2012 20:37:43 -0400 (EDT)
+Message-ID: <20121021.203743.2025532949963406564.davem@davemloft.net>
+References: <5080F30C.2090206@parallels.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <408090aa33c0ebcd8d02ce1d14b3dca590fbae62.1350618840.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: xemul@parallels.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54824 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753856Ab2JVAhp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2012 20:37:45 -0400
+In-Reply-To: <5080F30C.2090206@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Thu, 18 Oct 2012 20:55:31 -0700
+From: Pavel Emelyanov <xemul@parallels.com>
+Date: Fri, 19 Oct 2012 10:28:28 +0400
 
-> Use the standard test for a non-zero ipv6 address.
+> The struct sock *other one seem to be unused. Grep and make do not object.
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
 Applied.
