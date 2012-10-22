@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv4: 16 slots in initial fib_info hash table
-Date: Mon, 22 Oct 2012 15:11:49 -0400 (EDT)
-Message-ID: <20121022.151149.1484294300015203756.davem@davemloft.net>
-References: <1350886329.8609.276.camel@edumazet-glaptop>
+Subject: Re: [PATCH] tcp: add SYN/data info to TCP_INFO
+Date: Mon, 22 Oct 2012 15:16:50 -0400 (EDT)
+Message-ID: <20121022.151650.1900715738708866620.davem@davemloft.net>
+References: <1350695684-26962-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: ncardwell@google.com, edumazet@google.com, hkchu@google.com,
+	netdev@vger.kernel.org
+To: ycheng@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32829 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:32889 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752162Ab2JVTLv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 15:11:51 -0400
-In-Reply-To: <1350886329.8609.276.camel@edumazet-glaptop>
+	with ESMTP id S1751811Ab2JVTQw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 15:16:52 -0400
+In-Reply-To: <1350695684-26962-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 22 Oct 2012 08:12:09 +0200
+From: Yuchung Cheng <ycheng@google.com>
+Date: Fri, 19 Oct 2012 18:14:44 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> Add a bit TCPI_OPT_SYN_DATA (32) to the socket option TCP_INFO:tcpi_options.
+> It's set if the data in SYN (sent or received) is acked by SYN-ACK. Server or
+> client application can use this information to check Fast Open success rate.
 > 
-> A small host typically needs ~10 fib_info structures, so create initial
-> hash table with 16 slots instead of only one. This removes potential
-> false sharing and reallocs/rehashes (1->2->4->8->16)
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
 
-Applied.
+Applied to 'net'
