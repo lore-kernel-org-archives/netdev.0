@@ -1,43 +1,72 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv4: 16 slots in initial fib_info hash table
-Date: Mon, 22 Oct 2012 08:12:09 +0200
-Message-ID: <1350886329.8609.276.camel@edumazet-glaptop>
+Subject: Re: [BUG] Kernel recieves DNS reply, but doesn't deliver it to a
+ waiting application
+Date: Mon, 22 Oct 2012 08:48:09 +0200
+Message-ID: <1350888489.8609.322.camel@edumazet-glaptop>
+References: <20121003232548.eb6b6b22.bircoph@gmail.com>
+	 <20121013163639.87abca00.bircoph@gmail.com>
+	 <1350135860.21172.14606.camel@edumazet-glaptop>
+	 <20121014031119.a60263d6.bircoph@gmail.com>
+	 <20121021032543.09d1844f.bircoph@gmail.com>
+	 <1350823941.13333.2167.camel@edumazet-glaptop>
+	 <20121022073636.98462bc6.bircoph@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Andrew Savchenko <bircoph@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:61686 "EHLO
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:57099 "EHLO
 	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753244Ab2JVGMN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 02:12:13 -0400
-Received: by mail-ea0-f174.google.com with SMTP id c13so686925eaa.19
-        for <netdev@vger.kernel.org>; Sun, 21 Oct 2012 23:12:12 -0700 (PDT)
+	with ESMTP id S932284Ab2JVGsQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 02:48:16 -0400
+Received: by mail-ea0-f174.google.com with SMTP id c13so694983eaa.19
+        for <netdev@vger.kernel.org>; Sun, 21 Oct 2012 23:48:14 -0700 (PDT)
+In-Reply-To: <20121022073636.98462bc6.bircoph@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, 2012-10-22 at 07:36 +0400, Andrew Savchenko wrote:
 
-A small host typically needs ~10 fib_info structures, so create initial
-hash table with 16 slots instead of only one. This removes potential
-false sharing and reallocs/rehashes (1->2->4->8->16)
+> 
+> I'll try 3.7 branch in a week or so. New kernel will require some
+> reconfiguration.
+> 
+> > What NIC are you using ?
+> 
+> This host has four NICs:
+> 2x Realtek Semiconductor Co., Ltd. RTL-8139/8139C/8139C+ (10ec:8139)
+> 2x D-Link System Inc DGE-528T Gigabit Ethernet Adapter (1462:223c)
+> 
+> One D-Link card is operating on 1Gbit/FD with mtu 7000, other cards
+> are used as 100Mbit/FD mtu 1500.
+> 
+> 2 D-Link and 1 Realtek card are forming a bridge and remaining Realtek
+> card is used for an uplink. This host serves as a NAT between
+> the bridge and the uplink (both MASQUERADE and DNAT are used). Also it
+> has several ipsec tunnels for multiple hosts (mostly AH), l2tp tunnel
+> (independent from ipsec) and serves as a multicast router using
+> mrouted. Rather sophisticated ebtables, iptables and ipset setup is
+> used.
+> 
+> Best regards,
+> Andrew Savchenko
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/fib_semantics.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Some driver or protocol stack is messing with skb->truesize, as
+your /proc/net/udp file contains anomalies :
 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 71b125c..4797a80 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -803,7 +803,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
- 		unsigned int bytes;
+$ cat /proc/net/udp
+  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode ref pointer drops
+...
+  323: 074A070A:007B 00000000:0000 07 FFFDF700:00000000 00:00000000 00000000   123        0 254469 2 ffff88003d581880 0
+...
+  323: 00FCA8C0:007B 00000000:0000 07 FFFFF900:00000000 00:00000000 00000000     0        0 5187 2 ffff880039993880 0
+
+Its clearly not possible to get tx_queue = 0xFFFDF700 or 0xFFFFF900
+
+So what drivers handle following IP addresses : 192.168.252.0 , 10.7.74.7  ?
+
+lspci -v
+lsmod
+
  
- 		if (!new_size)
--			new_size = 1;
-+			new_size = 16;
- 		bytes = new_size * sizeof(struct hlist_head *);
- 		new_info_hash = fib_info_hash_alloc(bytes);
- 		new_laddrhash = fib_info_hash_alloc(bytes);
