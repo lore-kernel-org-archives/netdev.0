@@ -1,46 +1,77 @@
-From: "Perla, Sathya" <Sathya.Perla@Emulex.Com>
-Subject: RE: [net-next:master 28/31]
- drivers/net/ethernet/emulex/benet/be_main.c:3116 be_flash() error:
- __builtin_memcpy() 'req->params.data_buf' too small (4 vs 32768)
-Date: Mon, 22 Oct 2012 05:16:04 +0000
-Message-ID: <6809953e-e6b9-474d-8569-799e8468881e@CMEXHTCAS1.ad.emulex.com>
-References: <20121022032027.GA14218@yliu-dev.sh.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "fengguang.wu@intel.com" <fengguang.wu@intel.com>,
-	"Vasundhara, Volam" <Vasundhara.Volam@Emulex.Com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Yuanhan Liu <yuanhan.liu@intel.com>,
-	"Ratnakar, Padmanabh" <Padmanabh.Ratnakar@Emulex.Com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:35518 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753037Ab2JVFQK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 01:16:10 -0400
-In-Reply-To: <20121022032027.GA14218@yliu-dev.sh.intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Doug Goldstein <cardoe@cardoe.com>
+Subject: [PATCH] vlan: set sysfs device_type to 'vlan'
+Date: Mon, 22 Oct 2012 00:53:57 -0500
+Message-ID: <1350885237-12998-1-git-send-email-cardoe@cardoe.com>
+Cc: netdev@vger.kernel.org, systemd-devel@lists.freedesktop.org,
+	linux-kernel@vger.kernel.org, Doug Goldstein <cardoe@cardoe.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
->Behalf Of Yuanhan Liu
->
->Hi Padmanabh,
->
->FYI, there are new smatch warnings show up in
->
->tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
->head:   46baac38ef633b08168d27df7b02eb14578fb760
->commit: 773a2d7c55a3d63207841c824d21920bd3683460 [28/31] be2net: Fix FW
->flashing on Skyhawk-R
->
->+ drivers/net/ethernet/emulex/benet/be_main.c:3116 be_flash() error:
->__builtin_memcpy() 'req->params.data_buf' too small (4 vs 32768)
->
+Sets the sysfs device_type to 'vlan' for udev. This makes it easier for
+applications that query network information via udev to identify vlans
+instead of using strrchr().
 
-Padmanabh is not in today. We'll check this and send a fix asap...
-Thanks!
+Signed-off-by: Doug Goldstein <cardoe@cardoe.com>
+---
 
--Sathya
+Pre-patch output:
+swanson ~ # udevadm info -q all -p /sys/devices/virtual/net/br0.4
+P: /devices/virtual/net/br0.4
+E: UDEV_LOG=3
+E: DEVPATH=/devices/virtual/net/br0.4
+E: INTERFACE=br0.4
+E: IFINDEX=6
+E: SUBSYSTEM=net
+
+Post-patch output:
+swanson ~ # udevadm info -q all -p /sys/devices/virtual/net/br0.4
+P: /devices/virtual/net/br0.4
+E: UDEV_LOG=3
+E: DEVPATH=/devices/virtual/net/br0.4
+E: DEVTYPE=vlan
+E: INTERFACE=br0.4
+E: IFINDEX=12
+E: SUBSYSTEM=net
+
+The intent was to match other virtual network types such as bridges.
+swanson ~ # udevadm info -q all -p /sys/devices/virtual/net/br0
+P: /devices/virtual/net/br0
+E: UDEV_LOG=3
+E: DEVPATH=/devices/virtual/net/br0
+E: DEVTYPE=bridge
+E: INTERFACE=br0
+E: IFINDEX=5
+E: SUBSYSTEM=net
+
+---
+ net/8021q/vlan_dev.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 4024424..78a8744 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -531,6 +531,10 @@ static const struct header_ops vlan_header_ops = {
+ 	.parse	 = eth_header_parse,
+ };
+ 
++static struct device_type vlan_type = {
++	.name	= "vlan",
++};
++
+ static const struct net_device_ops vlan_netdev_ops;
+ 
+ static int vlan_dev_init(struct net_device *dev)
+@@ -579,6 +583,8 @@ static int vlan_dev_init(struct net_device *dev)
+ 
+ 	dev->netdev_ops = &vlan_netdev_ops;
+ 
++	SET_NETDEV_DEVTYPE(dev, &vlan_type);
++
+ 	if (is_vlan_dev(real_dev))
+ 		subclass = 1;
+ 
+-- 
+1.7.8.6
