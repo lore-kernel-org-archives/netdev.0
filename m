@@ -1,54 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix secpath kmemleak
-Date: Mon, 22 Oct 2012 15:17:58 -0400 (EDT)
-Message-ID: <20121022.151758.1535731378259139241.davem@davemloft.net>
-References: <20121022225918.32d86a5f@sacrilege>
-	<1350926647.8609.1006.camel@edumazet-glaptop>
-	<1350932620.8609.1142.camel@edumazet-glaptop>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [RFC PATCH v2 4/6] net/core: apply pm_runtime_set_memalloc_noio
+ on network devices
+Date: Mon, 22 Oct 2012 15:18:29 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1210221516280.1724-100000@iolanthe.rowland.org>
+References: <1350894794-1494-5-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mk.fraggod@gmail.com, paul@paul-moore.com, netdev@vger.kernel.org,
- linux-mm@kvack.org
-To: eric.dumazet@gmail.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
+    Minchan Kim <minchan@kernel.org>,
+    Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+    "Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
+    "David S. Miller" <davem@davemloft.net>,
+    Andrew Morton <akpm@linux-foundation.org>,  <netdev@vger.kernel.org>,
+     <linux-usb@vger.kernel.org>,  <linux-pm@vger.kernel.org>,
+     <linux-mm@kvack.org>, Eric Dumazet <eric.dumazet@gmail.com>,
+    David Decotigny <david.decotigny@google.com>,
+    Tom Herbert <therbert@google.com>, Ingo Molnar <mingo@elte.hu>
+To: Ming Lei <ming.lei@canonical.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1350932620.8609.1142.camel@edumazet-glaptop>
+In-Reply-To: <1350894794-1494-5-git-send-email-ming.lei@canonical.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 22 Oct 2012 21:03:40 +0200
+On Mon, 22 Oct 2012, Ming Lei wrote:
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Mike Kazantsev found 3.5 kernels and beyond were leaking memory,
-> and tracked the faulty commit to a1c7fff7e18f59e (net:
-> netdev_alloc_skb() use build_skb()
-> 
-> While this commit seems fine, it uncovered a bug introduced
-> in commit bad43ca8325 (net: introduce skb_try_coalesce()), in function
-> kfree_skb_partial() :
-> 
-> If head is stolen, we free the sk_buff,
-> without removing references on secpath (skb->sp).
-> 
-> So IPsec + IP defrag/reassembly (using skb coalescing), or
-> TCP coalescing could leak secpath objects.
-> 
-> Fix this bug by calling skb_release_head_state(skb) to properly
-> release all possible references to linked objects.
-> 
-> Reported-by: Mike Kazantsev <mk.fraggod@gmail.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Bisected-by: Mike Kazantsev <mk.fraggod@gmail.com>
-> Tested-by: Mike Kazantsev <mk.fraggod@gmail.com>
+> Deadlock might be caused by allocating memory with GFP_KERNEL in
+> runtime_resume callback of network devices in iSCSI situation, so
+> mark network devices and its ancestor as 'memalloc_noio_resume'
+> with the introduced pm_runtime_set_memalloc_noio().
 
-Applied and queued up for -stable, thanks!
+Is this really needed?  Even with iSCSI, doesn't register_disk() have
+to be called for the underlying block device?  And given your 3/6
+patch, wouldn't that mark the network device?
 
-> It seems TCP stack could immediately release secpath references instead
-> of waiting skb are eaten by consumer, thats will be a followup patch.
-
-Indeed.
+Alan Stern
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
