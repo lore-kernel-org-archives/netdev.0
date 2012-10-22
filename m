@@ -1,51 +1,97 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH net-next] sockopt: Make SO_BINDTODEVICE readable
-Date: Mon, 22 Oct 2012 14:20:36 +0400
-Message-ID: <50851DF4.7050704@parallels.com>
-References: <508123AC.5080208@parallels.com> <20121021.204351.350463326482954461.davem@davemloft.net>
+From: "N, Mugunthan V" <mugunthanvnm@ti.com>
+Subject: RE: [PATCH V2 0/7] support the cpts found on am335x devices
+Date: Mon, 22 Oct 2012 10:39:40 +0000
+Message-ID: <EB1619762EAF8B4E97A227FB77B7E0293E9FD697@DBDE01.ent.ti.com>
+References: <cover.1350329726.git.richardcochran@gmail.com>
+ <EB1619762EAF8B4E97A227FB77B7E0293E9F82F0@DBDE01.ent.ti.com>
+ <20121016171407.GA2176@netboy.at.omicron.at>
+ <EB1619762EAF8B4E97A227FB77B7E0293E9F86E9@DBDE01.ent.ti.com>
+ <20121017182714.GC2412@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	David Miller <davem@davemloft.net>,
+	"Chemparathy, Cyril" <cyril@ti.com>,
+	"Govindarajan, Sriramakrishnan" <srk@ti.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:9042 "EHLO relay.sw.ru"
+Received: from arroyo.ext.ti.com ([192.94.94.40]:54544 "EHLO arroyo.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751952Ab2JVKUp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Oct 2012 06:20:45 -0400
-In-Reply-To: <20121021.204351.350463326482954461.davem@davemloft.net>
+	id S1752112Ab2JVKjw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 06:39:52 -0400
+In-Reply-To: <20121017182714.GC2412@netboy.at.omicron.at>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/22/2012 04:43 AM, David Miller wrote:
-> From: Pavel Emelyanov <xemul@parallels.com>
-> Date: Fri, 19 Oct 2012 13:55:56 +0400
+> -----Original Message-----
+> From: Richard Cochran [mailto:richardcochran@gmail.com]
+> Sent: Wednesday, October 17, 2012 11:57 PM
+> To: N, Mugunthan V
+> Cc: netdev@vger.kernel.org; linux-arm-kernel@lists.infradead.org; David
+> Miller; Chemparathy, Cyril; Govindarajan, Sriramakrishnan
+> Subject: Re: [PATCH V2 0/7] support the cpts found on am335x devices
 > 
->> The SO_BINDTODEVICE option is the only SOL_SOCKET one that can be set, but
->> cannot be get via sockopt API. The only way we can find the device id a
->> socket is bound to is via sock-diag interface. But the diag works only on
->> hashed sockets, while the opt in question can be set for yet unhashed one.
->>
->> That said, in order to know what device a socket is bound to (we do want
->> to know this in checkpoint-restore project) I propose to make this option
->> getsockopt-able and report the respective device index.
->>
->> Another solution to the problem might be to teach the sock-diag reporting
->> info on unhashed sockets. Should I go this way instead?
->>
->> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> On Tue, Oct 16, 2012 at 11:11:29PM +0000, N, Mugunthan V wrote:
+> >
+> > Yes, I do agree that driver handles it. As Half roll over and Full
+> roll
+> > over events are not handled in the driver, I am just curious how will
+> > the misaligned TS would be handled and also in cpts set time, the
+> Lower
+> > 32 bit time is written to CPTS counter
 > 
-> Applied.  I can't believe we didn't support this when the feature
-> was added.
-> 
-> I guess we figured that if the application made this setting, then
-> it knows and doesn't need to query it.
-> .
+> #include <linux/clocksource.h>
 
-AFAIS such decision (application that configures something knows what it is) was
-made for many things. The same is true at least for the SO_ATTACH_FILTER option
-and for the shutdown syscall. Both add something to a socket that cannot be queried
-back. And I'm now thinking which way for getting one would be better.
+I think the timecounter_init initializes only the software. But still I am
+not clear how the time given in cpts_ptp_settime will be projected to
+hardware. Can you correct me if I am wrong.
 
-Thanks,
-Pavel
+> 
+> > Since we poll for the 32bit over flow for every HZ * 8 cycle, won't
+> > there be a system overhead. If the CPTS ref clock is changed
+> according
+> > to the ptp freq adjust api, how will the timecounter take care of
+> change
+> > in frequency
+> 
+> There is nothing to do here. What are you asking?
+
+I think instead of fixing the driver to AM335X, let's make the driver
+generic as the same driver can be used to TI814X, TI813X and other
+upcoming platforms TI811X where the CPTS ref clock can be changed as
+per usage requirement.
+
+> 
+> > The current driver which is in vanilla kernel doesn't use extended
+> slave
+> > address which are conflict between TI814x CPSW IP version and AM335x
+> CPSW
+> > IP version. I have just posted my version of CPTS implementation. May
+> be
+> > we can work together make the driver compatible with both CPSW
+> versions
+> 
+> Okay.
+> 
+> > Since CPSW is a 3port Switch we should not fix time stamping will be
+> enabled
+> > only for slave 0 or passing slave number through DT. Its better if we
+> > can configure both the slaves. This can be tested with EVM-sk which
+> has
+> > both the slave ports pinned out.
+> 
+> I hope that you meant, "better if we can configure _either_ slave."
+> Considering how SO_TIMESTAMPING works, you can't use both at once.
+> 
+
+Since CPSW as a Ethernet switch, the PTP packet can be delivered to
+any downstream port. So if we fix the PTP time stamping to one port
+then the driver won't receive time stamping information when the packet
+is delivered to the other port.
+
+Regards
+Mugunthan V N
