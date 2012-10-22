@@ -1,95 +1,74 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH V2 0/7] support the cpts found on am335x devices
-Date: Mon, 22 Oct 2012 13:02:40 +0200
-Message-ID: <20121022110240.GA2285@netboy.at.omicron.at>
-References: <cover.1350329726.git.richardcochran@gmail.com>
- <EB1619762EAF8B4E97A227FB77B7E0293E9F82F0@DBDE01.ent.ti.com>
- <20121016171407.GA2176@netboy.at.omicron.at>
- <EB1619762EAF8B4E97A227FB77B7E0293E9F86E9@DBDE01.ent.ti.com>
- <20121017182714.GC2412@netboy.at.omicron.at>
- <EB1619762EAF8B4E97A227FB77B7E0293E9FD697@DBDE01.ent.ti.com>
+Subject: Re: [PATCH 1/6] drivers: net: ethernet: cpsw: add support for CPSW
+ register offset changes in different IP version
+Date: Mon, 22 Oct 2012 13:23:34 +0200
+Message-ID: <20121022112334.GB2285@netboy.at.omicron.at>
+References: <1350427518-7230-1-git-send-email-mugunthanvnm@ti.com>
+ <1350427518-7230-2-git-send-email-mugunthanvnm@ti.com>
+ <20121018024523.GA2867@netboy.at.omicron.at>
+ <EB1619762EAF8B4E97A227FB77B7E0293E9FD69E@DBDE01.ent.ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	David Miller <davem@davemloft.net>,
-	"Chemparathy, Cyril" <cyril@ti.com>,
-	"Govindarajan, Sriramakrishnan" <srk@ti.com>
+	"davem@davemloft.net" <davem@davemloft.net>
 To: "N, Mugunthan V" <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:37702 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753117Ab2JVLCw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 07:02:52 -0400
-Received: by mail-ea0-f174.google.com with SMTP id c13so766548eaa.19
-        for <netdev@vger.kernel.org>; Mon, 22 Oct 2012 04:02:51 -0700 (PDT)
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:63351 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751091Ab2JVLXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 07:23:45 -0400
+Received: by mail-wg0-f44.google.com with SMTP id dr13so2146813wgb.1
+        for <netdev@vger.kernel.org>; Mon, 22 Oct 2012 04:23:44 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <EB1619762EAF8B4E97A227FB77B7E0293E9FD697@DBDE01.ent.ti.com>
+In-Reply-To: <EB1619762EAF8B4E97A227FB77B7E0293E9FD69E@DBDE01.ent.ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 22, 2012 at 10:39:40AM +0000, N, Mugunthan V wrote:
+On Mon, Oct 22, 2012 at 10:39:51AM +0000, N, Mugunthan V wrote:
+> > This is wasting memory with unused static stables. There is a better
+> > way to handle this issue.
 > 
-> I think the timecounter_init initializes only the software. But still I am
-> not clear how the time given in cpts_ptp_settime will be projected to
-> hardware. Can you correct me if I am wrong.
+> I have taken the code reference from the following driver.
+> drivers/i2c/busses/i2c-omap.c
 
-Look at the settime function:
+Can't speak for that driver.
 
-+static int cpts_ptp_settime(struct ptp_clock_info *ptp,
-+			    const struct timespec *ts)
-+{
-+	u64 ns;
-+	unsigned long flags;
-+	struct cpts *cpts = container_of(ptp, struct cpts, info);
-+
-+	ns = ts->tv_sec * 1000000000ULL;
-+	ns += ts->tv_nsec;
-+
-+	spin_lock_irqsave(&cpts->lock, flags);
-+	timecounter_init(&cpts->tc, &cpts->cc, ns);
-+	spin_unlock_irqrestore(&cpts->lock, flags);
-+
-+	return 0;
-+}
+BTW the ALE driver is also horribly wasting space with the "struct
+ale_control_info ale_controls[ALE_NUM_CONTROLS]" thing.
+ 
+> Can you refer other better solution to handle this?
 
-Then, look at the implementation of timecounter_init().
+Yes, I can think of two different ways. Maybe you can think of yet
+other ways.
 
-> > > Since we poll for the 32bit over flow for every HZ * 8 cycle, won't
-> > > there be a system overhead. If the CPTS ref clock is changed
-> > according
-> > > to the ptp freq adjust api, how will the timecounter take care of
-> > change
-> > > in frequency
+1. For those few registers that are not aligned the same way but have
+   the same bit layout (and you actually use in the driver), keep a
+   separate pointer in your driver's private struct.
+
+2. Make two different declarations of structs corresponding to two
+   register layouts and use a cast in the access function based on
+   version.
+
+I object to the tables of offsets because these take up twice the
+memory of the registers themselves, even if you don't use all of the
+registers.
+
+> > You didn't provide a way to even use this code, like a dts for a
+> > non-am335x board with the older version.
 > > 
-> > There is nothing to do here. What are you asking?
-> 
-> I think instead of fixing the driver to AM335X, let's make the driver
-> generic as the same driver can be used to TI814X, TI813X and other
-> upcoming platforms TI811X where the CPTS ref clock can be changed as
-> per usage requirement.
-
-Now I see what your are worried about, but it really isn't a big
-problem. The solution in your driver of doing a 64 bit division in the
-hot path is unattractive and unnecessary. We can accomodate variable
-reference clock frequencies using a board specific DT, just as we do
-for gianfar today.
-
-Let's just get the am335x working, shall we? Until we actually have
-the other boards working, all this talk about TI81xx is really just
-talk. I mean, ATM the CPSW does not work on *any* board at all.
-
-> > I hope that you meant, "better if we can configure _either_ slave."
-> > Considering how SO_TIMESTAMPING works, you can't use both at once.
+> > I think it would be better to start off supporting one version and
+> > have that fully working, and then add the older version, but *really*
+> > add it so that it is actually working.
 > > 
 > 
-> Since CPSW as a Ethernet switch, the PTP packet can be delivered to
-> any downstream port. So if we fix the PTP time stamping to one port
-> then the driver won't receive time stamping information when the packet
-> is delivered to the other port.
+> Since version info from hardware registers can be used to differentiate between
+> the CPSW versions so I don't think there is a need to provide the same through DT.
 
-And just how is this supposed to work with SO_TIMESTAMPING?
+I did not say to put the versions into the DT.
+
+What I meant was that there is no need to add code that tests the
+version and acts differently, if there are no users of the special
+cases.
 
 Thanks,
 Richard
