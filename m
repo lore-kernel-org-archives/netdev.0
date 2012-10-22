@@ -1,41 +1,58 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 5/6] drivers: net: ethernet: cpts: implement cpts
- hardware clock
-Date: Mon, 22 Oct 2012 13:46:30 +0200
-Message-ID: <20121022114630.GG2285@netboy.at.omicron.at>
-References: <1350427518-7230-1-git-send-email-mugunthanvnm@ti.com>
- <1350427518-7230-6-git-send-email-mugunthanvnm@ti.com>
- <20121020134331.GA5444@netboy.at.omicron.at>
- <EB1619762EAF8B4E97A227FB77B7E0293E9FD709@DBDE01.ent.ti.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [GIT PULL nf-next] IPVS for 3.7 #2
+Date: Mon, 22 Oct 2012 13:53:50 +0200
+Message-ID: <1350906830.22194.451.camel@localhost>
+References: <1348800904-23902-1-git-send-email-horms@verge.net.au>
+	 <20121022105557.GA16283@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "N, Mugunthan V" <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:56288 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752116Ab2JVLql (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 07:46:41 -0400
-Received: by mail-wg0-f44.google.com with SMTP id dr13so2161949wgb.1
-        for <netdev@vger.kernel.org>; Mon, 22 Oct 2012 04:46:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <EB1619762EAF8B4E97A227FB77B7E0293E9FD709@DBDE01.ent.ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Hans Schillstrom <hans@schillstrom.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20121022105557.GA16283@1984>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 22, 2012 at 10:55:55AM +0000, N, Mugunthan V wrote:
-> > -----Original Message-----
-> > From: Richard Cochran [mailto:richardcochran@gmail.com]
+On Mon, 2012-10-22 at 12:55 +0200, Pablo Neira Ayuso wrote:
+> Hi Simon, Jesper,
+> 
+> On Fri, Sep 28, 2012 at 11:54:57AM +0900, Simon Horman wrote:
+> > Hi Pablo,
+> > 
+> > please consider the following enhancements to IPVS for inclusion in 3.7.
+> > 
+> > ----------------------------------------------------------------
+> > The following changes since commit 82c93fcc2e1737fede2752520f1bf8f4de6304d8:
+> > 
+> >   x86: bpf_jit_comp: add XOR instruction for BPF JIT (2012-09-24 16:54:35 -0400)
+> > 
+> > are available in the git repository at:
+> > 
+> >   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git master
+> 
+> I've pulled this now that net-next is back open.
+> 
+> Please, next time re-submit again if you miss the merge window.
 
-> > - If you can get the patches needed to get the CPSW working merged
-> >   during the present v3.7-rc interval, that would form a basis for
-> >   getting the CPTS into v3.8. I tried to post the patches that I had
-> >   collected, but I failed to get them all accepted. I really don't
-> >   know the issues surrounding those patches at all, and so I would
-> >   appreciate if you would take the lead and get this support merged.
+I did plan to resubmit (incl. with the changes mentioned below)
+But thanks a lot for pulling this.
 
-What do you think about this?
+> BTW, I expect one follow-up patch to move ipv6_find_hdr to
+> net/ipv6/netfilter.c (so you don't need to depend on ip6_tables for
+> just one single function).
+> 
+> Thanks a lot!
 
-Thanks,
-Richard
+Before finishing this email, Yuanhan Liu <yuanhan.liu(at)intel.com>
+kicked by butt, and pointed out a build error, when compiling *without*
+CONFIG_IP_VS_IPV6.  I'm really really really sorry for this, I'll
+quickly submit a patch fixing this!
+
+
+
