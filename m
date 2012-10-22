@@ -1,91 +1,31 @@
-From: Mike Kazantsev <mk.fraggod@gmail.com>
-Subject: Re: PROBLEM: Memory leak (at least with SLUB) from "secpath_dup"
- (xfrm) in 3.5+ kernels
-Date: Mon, 22 Oct 2012 22:59:18 +0600
-Message-ID: <20121022225918.32d86a5f@sacrilege>
-References: <20121019205055.2b258d09@sacrilege>
-	<20121019233632.26cf96d8@sacrilege>
-	<CAHC9VhQ+gkAaRmwDWqzQd1U-hwH__5yxrxWa5_=koz_XTSXpjQ@mail.gmail.com>
-	<20121020204958.4bc8e293@sacrilege>
-	<20121021044540.12e8f4b7@sacrilege>
-	<20121021062402.7c4c4cb8@sacrilege>
-	<1350826183.13333.2243.camel@edumazet-glaptop>
-	<20121021195701.7a5872e7@sacrilege>
-	<20121022004332.7e3f3f29@sacrilege>
-	<20121022015134.4de457b9@sacrilege>
-	<1350856053.8609.217.camel@edumazet-glaptop>
-	<20121022045850.788df346@sacrilege>
-	<1350893743.8609.424.camel@edumazet-glaptop>
-	<20121022180655.50a50401@sacrilege>
-	<1350918997.8609.858.camel@edumazet-glaptop>
-	<1350919337.8609.869.camel@edumazet-glaptop>
-	<1350919682.8609.877.camel@edumazet-glaptop>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH RESEND net-next] bluetooth: hci_core: Replace
+ list_for_each with list_for_each_entry() helper
+Date: Mon, 22 Oct 2012 10:00:43 -0700
+Message-ID: <1350925243.1785.24.camel@aeonflux>
+References: <1350912121-24171-1-git-send-email-kirjanov@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/UxAzq4Uj91O1.bZz7APT8Ss"; protocol="application/pgp-signature"
-Cc: Paul Moore <paul@paul-moore.com>, netdev@vger.kernel.org,
- linux-mm@kvack.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1350919682.8609.877.camel@edumazet-glaptop>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Denis Kirjanov <kirjanov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1350912121-24171-1-git-send-email-kirjanov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/UxAzq4Uj91O1.bZz7APT8Ss
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Hi Denis,
 
-On Mon, 22 Oct 2012 17:28:02 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Replace list_for_each with list_for_each_entry() helper
+> 
+> Signed-off-by: Denis Kirjanov <kirjanov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  include/net/bluetooth/hci_core.h |   20 ++++++++------------
+>  1 files changed, 8 insertions(+), 12 deletions(-)
 
-> On Mon, 2012-10-22 at 17:22 +0200, Eric Dumazet wrote:
-> > On Mon, 2012-10-22 at 17:16 +0200, Eric Dumazet wrote:
-> >=20
-> > > OK, I believe I found the bug in IPv4 defrag / IPv6 reasm
-> > >=20
-> > > Please test the following patch.
-> > >=20
-> > > Thanks !
-> >=20
-> > I'll send a more generic patch in a few minutes, changing
-> > kfree_skb_partial() to call skb_release_head_state()
-> >=20
->=20
-> Here it is :
->=20
-...
+Acked-by: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
 
-Problem is indeed gone in v3.7-rc2 with the proposed generic patch, I
-haven't read the mail in time to test the first one, but I guess it's
-not relevant now that the latter one works.
+Regards
 
-Thank you for taking your time to look into the problem and actually
-fix it.
-
-I'm unclear about policies in place on the matter, but I think this
-patch might be a good candidate to backport into 3.5 and 3.6 kernels,
-because they seem to suffer from the issue as well.
-
-
---=20
-Mike Kazantsev // fraggod.net
-
---Sig_/UxAzq4Uj91O1.bZz7APT8Ss
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iEYEARECAAYFAlCFe2kACgkQASbOZpzyXnFOQwCg24cpgvqGpfLm1OZEJG5EIKyB
-gR8AnA7P4/bCq4VY5mtWZa5grXmKWXhS
-=OqIv
------END PGP SIGNATURE-----
-
---Sig_/UxAzq4Uj91O1.bZz7APT8Ss--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Marcel
