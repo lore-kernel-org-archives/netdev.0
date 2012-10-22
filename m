@@ -1,26 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] phy: add AT803x driver
-Date: Mon, 22 Oct 2012 13:55:42 -0400 (EDT)
-Message-ID: <20121022.135542.1041561524971247911.davem@davemloft.net>
-References: <1350277636-2551-1-git-send-email-ujhelyi.m@gmail.com>
-	<CAJKycQkiUXi2dcUziztHBkEtT6aJ6NnPAVgDw=pYpqJuF_1s9g@mail.gmail.com>
+Subject: Re: [PATCH net-next 1/2] r8169: enable ALDPS for power saving
+Date: Mon, 22 Oct 2012 13:59:09 -0400 (EDT)
+Message-ID: <20121022.135909.1282399641501646286.davem@davemloft.net>
+References: <1350893153-18320-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@zonque.org, rd@radekdostal.com
-To: ujhelyi.m@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60118 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755842Ab2JVRzq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 13:55:46 -0400
-In-Reply-To: <CAJKycQkiUXi2dcUziztHBkEtT6aJ6NnPAVgDw=pYpqJuF_1s9g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jean@google.com
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1350893153-18320-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Matus Ujhelyi <ujhelyi.m@gmail.com>
-Date: Mon, 22 Oct 2012 12:20:26 +0200
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Mon, 22 Oct 2012 16:05:53 +0800
 
-> do you have any feedback on the new version of patch (see below) ?
+> Enable ALDPS function to save power when link down. Note that the
+> feature should be set after the other PHY settings. And the firmware
+> is necessary. Don't enable it without loading the firmware.
+> 
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 
-It's applied to my tree for days, what more do you want?
+If there are two patches in this series, which the Subject line
+implies, where is the second patch?
