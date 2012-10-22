@@ -1,97 +1,94 @@
 From: "N, Mugunthan V" <mugunthanvnm@ti.com>
-Subject: RE: [PATCH V2 0/7] support the cpts found on am335x devices
-Date: Mon, 22 Oct 2012 10:39:40 +0000
-Message-ID: <EB1619762EAF8B4E97A227FB77B7E0293E9FD697@DBDE01.ent.ti.com>
-References: <cover.1350329726.git.richardcochran@gmail.com>
- <EB1619762EAF8B4E97A227FB77B7E0293E9F82F0@DBDE01.ent.ti.com>
- <20121016171407.GA2176@netboy.at.omicron.at>
- <EB1619762EAF8B4E97A227FB77B7E0293E9F86E9@DBDE01.ent.ti.com>
- <20121017182714.GC2412@netboy.at.omicron.at>
+Subject: RE: [PATCH 1/6] drivers: net: ethernet: cpsw: add support for CPSW
+ register offset changes in different IP version
+Date: Mon, 22 Oct 2012 10:39:51 +0000
+Message-ID: <EB1619762EAF8B4E97A227FB77B7E0293E9FD69E@DBDE01.ent.ti.com>
+References: <1350427518-7230-1-git-send-email-mugunthanvnm@ti.com>
+ <1350427518-7230-2-git-send-email-mugunthanvnm@ti.com>
+ <20121018024523.GA2867@netboy.at.omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	David Miller <davem@davemloft.net>,
-	"Chemparathy, Cyril" <cyril@ti.com>,
-	"Govindarajan, Sriramakrishnan" <srk@ti.com>
+	"davem@davemloft.net" <davem@davemloft.net>
 To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:54544 "EHLO arroyo.ext.ti.com"
+Received: from comal.ext.ti.com ([198.47.26.152]:39112 "EHLO comal.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752112Ab2JVKjw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 06:39:52 -0400
-In-Reply-To: <20121017182714.GC2412@netboy.at.omicron.at>
+	id S1751245Ab2JVKjz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 06:39:55 -0400
+In-Reply-To: <20121018024523.GA2867@netboy.at.omicron.at>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 > -----Original Message-----
 > From: Richard Cochran [mailto:richardcochran@gmail.com]
-> Sent: Wednesday, October 17, 2012 11:57 PM
+> Sent: Thursday, October 18, 2012 8:15 AM
 > To: N, Mugunthan V
-> Cc: netdev@vger.kernel.org; linux-arm-kernel@lists.infradead.org; David
-> Miller; Chemparathy, Cyril; Govindarajan, Sriramakrishnan
-> Subject: Re: [PATCH V2 0/7] support the cpts found on am335x devices
+> Cc: netdev@vger.kernel.org; davem@davemloft.net
+> Subject: Re: [PATCH 1/6] drivers: net: ethernet: cpsw: add support for
+> CPSW register offset changes in different IP version
 > 
-> On Tue, Oct 16, 2012 at 11:11:29PM +0000, N, Mugunthan V wrote:
+> On Wed, Oct 17, 2012 at 04:15:13AM +0530, Mugunthan V N wrote:
 > >
-> > Yes, I do agree that driver handles it. As Half roll over and Full
-> roll
-> > over events are not handled in the driver, I am just curious how will
-> > the misaligned TS would be handled and also in cpts set time, the
-> Lower
-> > 32 bit time is written to CPTS counter
-> 
-> #include <linux/clocksource.h>
 
-I think the timecounter_init initializes only the software. But still I am
-not clear how the time given in cpts_ptp_settime will be projected to
-hardware. Can you correct me if I am wrong.
-
+> > +
+> > +static const u32 slave_reg_map_ip_v2[] = {
+> > +	[PORT_CONTROL]	= 0x00,
+> > +	[TS_CONTROL]	= 0x04,
 > 
-> > Since we poll for the 32bit over flow for every HZ * 8 cycle, won't
-> > there be a system overhead. If the CPTS ref clock is changed
-> according
-> > to the ptp freq adjust api, how will the timecounter take care of
-> change
-> > in frequency
-> 
-> There is nothing to do here. What are you asking?
+> You don't make use of this register in your driver, so what is the
+> point?
 
-I think instead of fixing the driver to AM335X, let's make the driver
-generic as the same driver can be used to TI814X, TI813X and other
-upcoming platforms TI811X where the CPTS ref clock can be changed as
-per usage requirement.
+This register is used in next version of CPSW. Since I don't use it in
+current version I will remove the same in next version patch series.
 
 > 
-> > The current driver which is in vanilla kernel doesn't use extended
-> slave
-> > address which are conflict between TI814x CPSW IP version and AM335x
-> CPSW
-> > IP version. I have just posted my version of CPTS implementation. May
-> be
-> > we can work together make the driver compatible with both CPSW
-> versions
+> > +	[MAX_BLKS]	= 0x08,
+> > +	[BLK_CNT]	= 0x0c,
+> > +	[FLOW_THRESH]	= 0x10,
+> > +	[PORT_VLAN]	= 0x14,
+> > +	[TX_PRI_MAP]	= 0x18,
+> > +	[TS_SEQ_MTYPE]	= 0x1c,
+> > +	[SA_LO]		= 0x20,
+> > +	[SA_HI]		= 0x24,
+> > +};
+> > +
 > 
-> Okay.
+> This is wasting memory with unused static stables. There is a better
+> way to handle this issue.
+
+I have taken the code reference from the following driver.
+drivers/i2c/busses/i2c-omap.c
+
+Can you refer other better solution to handle this?
+
 > 
-> > Since CPSW is a 3port Switch we should not fix time stamping will be
-> enabled
-> > only for slave 0 or passing slave number through DT. Its better if we
-> > can configure both the slaves. This can be tested with EVM-sk which
-> has
-> > both the slave ports pinned out.
+> >  static int debug_level;
+> >  module_param(debug_level, int, 0);
+> >  MODULE_PARM_DESC(debug_level, "cpsw debug level (NETIF_MSG bits)");
+
+>  	pm_runtime_get_sync(&priv->pdev->dev);
+> >
+> > -	reg = __raw_readl(&priv->regs->id_ver);
+> > +	reg = readl(&priv->regs->id_ver);
+> > +	priv->cpsw_version = reg;
+> > +	if (reg == CPSW_VERSION_1)
+> > +		priv->slave_reg_ofs = (u32 *)slave_reg_map_ip_v1;
+> > +	else
+> > +		priv->slave_reg_ofs = (u32 *)slave_reg_map_ip_v2;
 > 
-> I hope that you meant, "better if we can configure _either_ slave."
-> Considering how SO_TIMESTAMPING works, you can't use both at once.
+> You didn't provide a way to even use this code, like a dts for a
+> non-am335x board with the older version.
+> 
+> I think it would be better to start off supporting one version and
+> have that fully working, and then add the older version, but *really*
+> add it so that it is actually working.
 > 
 
-Since CPSW as a Ethernet switch, the PTP packet can be delivered to
-any downstream port. So if we fix the PTP time stamping to one port
-then the driver won't receive time stamping information when the packet
-is delivered to the other port.
+Since version info from hardware registers can be used to differentiate between
+the CPSW versions so I don't think there is a need to provide the same through DT.
 
 Regards
 Mugunthan V N
