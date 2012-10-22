@@ -1,114 +1,115 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [net-next 12/13] ixgbe: Add support for pipeline reset
-Date: Mon, 22 Oct 2012 20:45:51 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF222866462F153919@ORSMSX101.amr.corp.intel.com>
-References: <1350714367-24208-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1350714367-24208-13-git-send-email-jeffrey.t.kirsher@intel.com>
- <CAP1qwHgSra4i=+O5JczYxHJLn40sqC4DdYX+_jijXSwTqYeuzg@mail.gmail.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH v2 net-next 01/13] net: cdc_ncm: workaround NTB input size firmware bug
+Date: Mon, 22 Oct 2012 22:56:28 +0200
+Message-ID: <1350939400-27209-2-git-send-email-bjorn@mork.no>
+References: <1350939400-27209-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Martin Josefsson <gandalf@mjufs.se>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:55841 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754195Ab2JVUpx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 16:45:53 -0400
-In-Reply-To: <CAP1qwHgSra4i=+O5JczYxHJLn40sqC4DdYX+_jijXSwTqYeuzg@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Greg Suarez <gpsuarez2512-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Fangxiaozhi (Franko)" <fangxiaozhi-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Aleksander Morgado <aleksander-bhGbAngMcJvQT0dZR+AlfA@public.gmane.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1350939400-27209-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Martin Josefsson
-Sent: Sunday, October 21, 2012 5:06 AM
-To: Kirsher, Jeffrey T
-Cc: davem@davemloft.net; Skidmore, Donald C; netdev@vger.kernel.org; gospo@redhat.com; sassmann@redhat.com
-Subject: Re: [net-next 12/13] ixgbe: Add support for pipeline reset
+Some devices do not support the 8 byte variants of the NTB input
+size control messages despite announcing such support in their
+NCM or MBIM functional descriptor.
 
-On Sat, Oct 20, 2012 at 8:26 AM, Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-> From: Don Skidmore <donald.c.skidmore@intel.com>
+According to the NCM specification, all devices must support the
+4 byte variant regardless of whether or not the flag is set:
 
-Hi Jeff, Don,
+  If bit D5 is set in the bmNetworkCapabilities field of
+  function=E2=80=99s NCM Functional Descriptor, the host may
+  set wLength either to 4 or to 8. If wLength is 4, the
+  function shall assume that wNtbInMaxDatagrams is to be
+  set to zero. If wLength is 8, then the function shall
+  use the provided value as the limit. The function shall
+  return an error response (a STALL PID) if wLength is set
+  to any other value.
 
-> Calling the ixgbe_reset_pipeline_82599 function will ensure a full 
-> pipeline reset on all 82599 devices.  This is necessary to avoid possible link issues.
-> Since this patch accomplishes this by modifying AUTOC.LMS we need to 
-> wrap all AUTOC writes when LESM is enabled.
+We do not set wNtbInMaxDatagrams in any case, so we can just as
+well unconditionally use the 4 byte variant without losing any
+functionality.  This works around the known firmware bug, and
+simplifies the code considerably.
 
-The section below doesn't look right.
-Old behaviour gave LMS == 011b (SFI)
-New behaviour gives LMS == 000b (1 GbE link (no backplane auto-negotiation))
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+ drivers/net/usb/cdc_ncm.c |   46 +++++++++++++------------------------=
+--------
+ 1 file changed, 13 insertions(+), 33 deletions(-)
 
-LMS is reset to 0 before ixgbe_reset_pipeline_82599() is called.
-Looks like that part of the old code wasn't removed.
-
-> @@ -137,28 +135,37 @@ static s32 ixgbe_setup_sfp_modules_82599(struct ixgbe_hw *hw)
->                 usleep_range(hw->eeprom.semaphore_delay * 1000,
->                              hw->eeprom.semaphore_delay * 2000);
->
-> +               /* Need SW/FW semaphore around AUTOC writes if LESM on,
-> +                * likewise reset_pipeline requires lock as it also writes
-> +                * AUTOC.
-> +                */
-> +               if (ixgbe_verify_lesm_fw_enabled_82599(hw)) {
-> +                       ret_val = hw->mac.ops.acquire_swfw_sync(hw,
-> +                                                       IXGBE_GSSR_MAC_CSR_SM);
-> +                       if (ret_val)
-> +                               goto setup_sfp_out;
-> +
-> +                       got_lock = true;
-> +               }
-> +
->                 /* Now restart DSP by setting Restart_AN and clearing LMS */
->                 IXGBE_WRITE_REG(hw, IXGBE_AUTOC, ((IXGBE_READ_REG(hw,
->                                 IXGBE_AUTOC) & ~IXGBE_AUTOC_LMS_MASK) |
->                                 IXGBE_AUTOC_AN_RESTART));
->
-> -               /* Wait for AN to leave state 0 */
-> -               for (i = 0; i < 10; i++) {
-> -                       usleep_range(4000, 8000);
-> -                       reg_anlp1 = IXGBE_READ_REG(hw, IXGBE_ANLP1);
-> -                       if (reg_anlp1 & IXGBE_ANLP1_AN_STATE_MASK)
-> -                               break;
-> +               ret_val = ixgbe_reset_pipeline_82599(hw);
-> +
-> +               if (got_lock) {
-> +                       hw->mac.ops.release_swfw_sync(hw,
-> +                                                     IXGBE_GSSR_MAC_CSR_SM);
-> +                       got_lock = false;
->                 }
-> -               if (!(reg_anlp1 & IXGBE_ANLP1_AN_STATE_MASK)) {
-> -                       hw_dbg(hw, "sfp module setup not complete\n");
-> +
-> +               if (ret_val) {
-> +                       hw_dbg(hw, " sfp module setup not 
-> + complete\n");
->                         ret_val = IXGBE_ERR_SFP_SETUP_NOT_COMPLETE;
->                         goto setup_sfp_out;
->                 }
-> -
-> -               /* Restart DSP by setting Restart_AN and return to SFI mode */
-> -               IXGBE_WRITE_REG(hw, IXGBE_AUTOC, (IXGBE_READ_REG(hw,
-> -                               IXGBE_AUTOC) | IXGBE_AUTOC_LMS_10G_SERIAL |
-> -                               IXGBE_AUTOC_AN_RESTART));
->         }
->
->  setup_sfp_out:
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 4cd582a..32bdf54 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -215,41 +215,21 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
+=20
+ 	/* inform device about NTB input size changes */
+ 	if (ctx->rx_max !=3D le32_to_cpu(ctx->ncm_parm.dwNtbInMaxSize)) {
++		__le32 *dwNtbInMaxSize;
+=20
+-		if (flags & USB_CDC_NCM_NCAP_NTB_INPUT_SIZE) {
+-			struct usb_cdc_ncm_ndp_input_size *ndp_in_sz;
+-
+-			ndp_in_sz =3D kzalloc(sizeof(*ndp_in_sz), GFP_KERNEL);
+-			if (!ndp_in_sz) {
+-				err =3D -ENOMEM;
+-				goto size_err;
+-			}
+-
+-			err =3D usb_control_msg(ctx->udev,
+-					usb_sndctrlpipe(ctx->udev, 0),
+-					USB_CDC_SET_NTB_INPUT_SIZE,
+-					USB_TYPE_CLASS | USB_DIR_OUT
+-					 | USB_RECIP_INTERFACE,
+-					0, iface_no, ndp_in_sz, 8, 1000);
+-			kfree(ndp_in_sz);
+-		} else {
+-			__le32 *dwNtbInMaxSize;
+-			dwNtbInMaxSize =3D kzalloc(sizeof(*dwNtbInMaxSize),
+-					GFP_KERNEL);
+-			if (!dwNtbInMaxSize) {
+-				err =3D -ENOMEM;
+-				goto size_err;
+-			}
+-			*dwNtbInMaxSize =3D cpu_to_le32(ctx->rx_max);
+-
+-			err =3D usb_control_msg(ctx->udev,
+-					usb_sndctrlpipe(ctx->udev, 0),
+-					USB_CDC_SET_NTB_INPUT_SIZE,
+-					USB_TYPE_CLASS | USB_DIR_OUT
+-					 | USB_RECIP_INTERFACE,
+-					0, iface_no, dwNtbInMaxSize, 4, 1000);
+-			kfree(dwNtbInMaxSize);
++		dwNtbInMaxSize =3D kzalloc(sizeof(*dwNtbInMaxSize), GFP_KERNEL);
++		if (!dwNtbInMaxSize) {
++			err =3D -ENOMEM;
++			goto size_err;
+ 		}
++		*dwNtbInMaxSize =3D cpu_to_le32(ctx->rx_max);
++		err =3D usb_control_msg(ctx->udev,
++				      usb_sndctrlpipe(ctx->udev, 0),
++				      USB_CDC_SET_NTB_INPUT_SIZE,
++				      USB_TYPE_CLASS | USB_DIR_OUT
++				      | USB_RECIP_INTERFACE,
++				      0, iface_no, dwNtbInMaxSize, 4, 1000);
++		kfree(dwNtbInMaxSize);
+ size_err:
+ 		if (err < 0)
+ 			pr_debug("Setting NTB Input Size failed\n");
+--=20
+1.7.10.4
 
 --
-/Martin
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-Hi Martin,
-
-Thanks for pointing this problem out and I believe I see what is wrong.  I'll work with Jeff to get a new patch created and tested.
-
-Thanks again,
--Don Skidmore <donald.c.skidmore@intel.com>
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
