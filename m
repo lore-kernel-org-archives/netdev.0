@@ -1,124 +1,238 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH net-next] sockopt: Make SO_BINDTODEVICE readable
-Date: Mon, 22 Oct 2012 17:23:40 -0400
-Message-ID: <5085B95C.3060603@hp.com>
-References: <508123AC.5080208@parallels.com> <50858ABD.2000206@hp.com> <5085AC71.7060904@parallels.com>
+From: Andrew Savchenko <bircoph@gmail.com>
+Subject: Re: [BUG] Kernel recieves DNS reply, but doesn't deliver it to a
+ waiting application
+Date: Tue, 23 Oct 2012 01:27:59 +0400
+Message-ID: <20121023012759.ca7f91d6.bircoph@gmail.com>
+References: <20121003232548.eb6b6b22.bircoph@gmail.com>
+	<20121013163639.87abca00.bircoph@gmail.com>
+	<1350135860.21172.14606.camel@edumazet-glaptop>
+	<20121014031119.a60263d6.bircoph@gmail.com>
+	<20121021032543.09d1844f.bircoph@gmail.com>
+	<1350823941.13333.2167.camel@edumazet-glaptop>
+	<20121022073636.98462bc6.bircoph@gmail.com>
+	<1350888489.8609.322.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Pavel Emelyanov <xemul@parallels.com>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__23_Oct_2012_01_27_59_+0400_5AJCvWI_lCdeMV_A"
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:5821 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750950Ab2JVVXm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 17:23:42 -0400
-In-Reply-To: <5085AC71.7060904@parallels.com>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:60597 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755742Ab2JVV2P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 17:28:15 -0400
+Received: by mail-la0-f46.google.com with SMTP id h6so1921500lag.19
+        for <netdev@vger.kernel.org>; Mon, 22 Oct 2012 14:28:13 -0700 (PDT)
+In-Reply-To: <1350888489.8609.322.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/22/2012 04:28 PM, Pavel Emelyanov wrote:
-> On 10/22/2012 10:04 PM, Brian Haley wrote:
->> On 10/19/2012 05:55 AM, Pavel Emelyanov wrote:
->>> The SO_BINDTODEVICE option is the only SOL_SOCKET one that can be set, but
->>> cannot be get via sockopt API. The only way we can find the device id a
->>> socket is bound to is via sock-diag interface. But the diag works only on
->>> hashed sockets, while the opt in question can be set for yet unhashed one.
->>>
->>> That said, in order to know what device a socket is bound to (we do want
->>> to know this in checkpoint-restore project) I propose to make this option
->>> getsockopt-able and report the respective device index.
->>>
->>> Another solution to the problem might be to teach the sock-diag reporting
->>> info on unhashed sockets. Should I go this way instead?
->>>
->>> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
->>>
->>> ---
->>>
->>> diff --git a/net/core/sock.c b/net/core/sock.c
->>> index 8a146cf..c49412c 100644
->>> --- a/net/core/sock.c
->>> +++ b/net/core/sock.c
->>> @@ -1074,6 +1074,9 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
->>>  	case SO_NOFCS:
->>>  		v.val = sock_flag(sk, SOCK_NOFCS);
->>>  		break;
->>> +	case SO_BINDTODEVICE:
->>> +		v.val = sk->sk_bound_dev_if;
->>> +		break;
->>>  	default:
->>>  		return -ENOPROTOOPT;
->>>  	}
->>
->> Doesn't this make the set and get non-symmetrical?  For example, setsockopt()
->> would take "eth0", but getsockopt() would return 2.
-> 
-> It will, but since device name and index are two equal device "IDs" I assumed
-> it would be OK.
-> 
-> However, some comments inline.
-> 
->> The following patch would return a string, or -ENODEV if not set.
+--Signature=_Tue__23_Oct_2012_01_27_59_+0400_5AJCvWI_lCdeMV_A
+Content-Type: multipart/mixed;
+ boundary="Multipart=_Tue__23_Oct_2012_01_27_59_+0400_2sQoZvxIdvC358IZ"
 
-Sorry, my description is not quite right, this should return something like this
-to be correct:
 
-  0 on success
-    optlen zero if interface not set
-    optlen > zero if set and optval filled-in
+--Multipart=_Tue__23_Oct_2012_01_27_59_+0400_2sQoZvxIdvC358IZ
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-  -errno on failure
+Hi,
 
->> +static int sock_getbindtodevice(struct sock *sk, char __user *optval,
->> +				int __user *optlen, int len)
->> +{
->> +	int ret = -ENOPROTOOPT;
->> +#ifdef CONFIG_NETDEVICES
->> +	struct net *net = sock_net(sk);
->> +	struct net_device *dev;
->> +	char devname[IFNAMSIZ];
->> +
->> +	ret = 0;
->> +	if (sk->sk_bound_dev_if == 0)
->> +		goto out;
-> 
-> It will return 0 if device is not set, thus making it impossible to detect
-> this situation.
+On Mon, 22 Oct 2012 08:48:09 +0200 Eric Dumazet wrote:
+> On Mon, 2012-10-22 at 07:36 +0400, Andrew Savchenko wrote:
+[...]
+> > This host has four NICs:
+> > 2x Realtek Semiconductor Co., Ltd. RTL-8139/8139C/8139C+ (10ec:8139)
+> > 2x D-Link System Inc DGE-528T Gigabit Ethernet Adapter (1462:223c)
+> >=20
+> > One D-Link card is operating on 1Gbit/FD with mtu 7000, other cards
+> > are used as 100Mbit/FD mtu 1500.
+> >=20
+> > 2 D-Link and 1 Realtek card are forming a bridge and remaining Realtek
+> > card is used for an uplink. This host serves as a NAT between
+> > the bridge and the uplink (both MASQUERADE and DNAT are used). Also it
+> > has several ipsec tunnels for multiple hosts (mostly AH), l2tp tunnel
+> > (independent from ipsec) and serves as a multicast router using
+> > mrouted. Rather sophisticated ebtables, iptables and ipset setup is
+> > used.
+>=20
+> Some driver or protocol stack is messing with skb->truesize, as
+> your /proc/net/udp file contains anomalies :
+>=20
+> $ cat /proc/net/udp
+>   sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrns=
+mt   uid  timeout inode ref pointer drops
+> ...
+>   323: 074A070A:007B 00000000:0000 07 FFFDF700:00000000 00:00000000 00000=
+000   123        0 254469 2 ffff88003d581880 0
+> ...
+>   323: 00FCA8C0:007B 00000000:0000 07 FFFFF900:00000000 00:00000000 00000=
+000     0        0 5187 2 ffff880039993880 0
+>=20
+> Its clearly not possible to get tx_queue =3D 0xFFFDF700 or 0xFFFFF900
+>=20
+> So what drivers handle following IP addresses : 192.168.252.0 , 10.7.74.7=
+  ?
 
-See below.
+192.168.252.0 is handled by eth0 interface running on Realtek
+Semiconductor Co., Ltd. RTL-8139/8139C/8139C+ (10ec:8139) NIC.
+Kernel driver 8139too. This interface handles multiple subnetworks:
 
->> +	ret = -EINVAL;
->> +	if (len < IFNAMSIZ)
->> +		goto out;
->> +	if (len > IFNAMSIZ)
->> +		len = IFNAMSIZ;
->> +
->> +	rcu_read_lock();
->> +	dev = dev_get_by_index_rcu(net, sk->sk_bound_dev_if);
->> +	if (dev)
->> +		strcpy(dev->name, devname);
->> +	rcu_read_unlock();
->> +	ret = -ENODEV;
->> +	if (!dev)
->> +		goto out;
->> +
->> +	ret = -EFAULT;
->> +	if (copy_to_user(optval, devname, len))
->> +		goto out;
->> +
->> +	if (put_user(len, optlen))
->> +		goto out;
-> 
-> What's the point in reporting IFNAMSIZ to the userspace always, taking
-> into account that this constant is exported there anyway?
+# ip addr show eth0
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state =
+UNKNOWN qlen 1000=20
+link/ether 00:80:48:30:ca:f3 brd ff:ff:ff:ff:ff:ff
+inet 10.51.15.126/25 brd 10.51.15.127 scope global eth0
+inet 192.168.252.0/31 scope global eth0
 
-I should have put an RFC on the patch :)
+10.7.74.7 is an l2tp connection handled by ppp over l2tp:
+CONFIG_PPPOL2TP=3Dy
+It is running on top of eth0 described above.
 
-In the case that there is no interface, the length returned would be zero,
-indicating nothing was there.
+# ip addr show ppp0
+65: ppp0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1400 qdisc pfifo_fa=
+st state UNKNOWN qlen 3
+link/ppp=20
+inet 10.7.74.7 peer 10.7.2.18/32 scope global ppp0
 
-I can post another version.
+I don't know why both interfaces have unknown state: they are up and
+running.
 
--Brian
+> lspci -v
+
+Attached.
+
+> lsmod
+
+lsmod returns nothing: I compiled everything needed for daily use
+into the kernel.
+
+Best regards,
+Andrew Savchenko
+
+--Multipart=_Tue__23_Oct_2012_01_27_59_+0400_2sQoZvxIdvC358IZ
+Content-Type: application/octet-stream;
+ name="lspci-v"
+Content-Disposition: attachment;
+ filename="lspci-v"
+Content-Transfer-Encoding: base64
+
+MDA6MDAuMCBIb3N0IGJyaWRnZTogSW50ZWwgQ29ycG9yYXRpb24gODI5MTVHL1AvR1YvR0wvUEwv
+OTEwR0wgTWVtb3J5IENvbnRyb2xsZXIgSHViIChyZXYgMGUpCglTdWJzeXN0ZW06IE1pY3JvLVN0
+YXIgSW50ZXJuYXRpb25hbCBDby4sIEx0ZC4gRGV2aWNlIDcyMjMKCUZsYWdzOiBidXMgbWFzdGVy
+LCBmYXN0IGRldnNlbCwgbGF0ZW5jeSAwCglDYXBhYmlsaXRpZXM6IFtlMF0gVmVuZG9yIFNwZWNp
+ZmljIEluZm9ybWF0aW9uOiBMZW49MDkgPD8+CgowMDowMi4wIFZHQSBjb21wYXRpYmxlIGNvbnRy
+b2xsZXI6IEludGVsIENvcnBvcmF0aW9uIDgyOTE1Ry9HVi85MTBHTCBJbnRlZ3JhdGVkIEdyYXBo
+aWNzIENvbnRyb2xsZXIgKHJldiAwZSkgKHByb2ctaWYgMDAgW1ZHQSBjb250cm9sbGVyXSkKCVN1
+YnN5c3RlbTogTWljcm8tU3RhciBJbnRlcm5hdGlvbmFsIENvLiwgTHRkLiBEZXZpY2UgNzIyMwoJ
+RmxhZ3M6IGJ1cyBtYXN0ZXIsIGZhc3QgZGV2c2VsLCBsYXRlbmN5IDAsIElSUSAxMAoJTWVtb3J5
+IGF0IGZiZTgwMDAwICgzMi1iaXQsIG5vbi1wcmVmZXRjaGFibGUpIFtzaXplPTUxMktdCglJL08g
+cG9ydHMgYXQgY2MwMCBbc2l6ZT04XQoJTWVtb3J5IGF0IGQwMDAwMDAwICgzMi1iaXQsIHByZWZl
+dGNoYWJsZSkgW3NpemU9MjU2TV0KCU1lbW9yeSBhdCBmYmU0MDAwMCAoMzItYml0LCBub24tcHJl
+ZmV0Y2hhYmxlKSBbc2l6ZT0yNTZLXQoJRXhwYW5zaW9uIFJPTSBhdCA8dW5hc3NpZ25lZD4gW2Rp
+c2FibGVkXQoJQ2FwYWJpbGl0aWVzOiBbZDBdIFBvd2VyIE1hbmFnZW1lbnQgdmVyc2lvbiAyCgow
+MDoxZC4wIFVTQiBjb250cm9sbGVyOiBJbnRlbCBDb3Jwb3JhdGlvbiA4MjgwMUZCL0ZCTS9GUi9G
+Vy9GUlcgKElDSDYgRmFtaWx5KSBVU0IgVUhDSSAjMSAocmV2IDA0KSAocHJvZy1pZiAwMCBbVUhD
+SV0pCglTdWJzeXN0ZW06IE1pY3JvLVN0YXIgSW50ZXJuYXRpb25hbCBDby4sIEx0ZC4gRGV2aWNl
+IDcyMjMKCUZsYWdzOiBidXMgbWFzdGVyLCBtZWRpdW0gZGV2c2VsLCBsYXRlbmN5IDAsIElSUSAy
+MwoJSS9PIHBvcnRzIGF0IGM4ODAgW3NpemU9MzJdCglLZXJuZWwgZHJpdmVyIGluIHVzZTogdWhj
+aV9oY2QKCjAwOjFkLjEgVVNCIGNvbnRyb2xsZXI6IEludGVsIENvcnBvcmF0aW9uIDgyODAxRkIv
+RkJNL0ZSL0ZXL0ZSVyAoSUNINiBGYW1pbHkpIFVTQiBVSENJICMyIChyZXYgMDQpIChwcm9nLWlm
+IDAwIFtVSENJXSkKCVN1YnN5c3RlbTogTWljcm8tU3RhciBJbnRlcm5hdGlvbmFsIENvLiwgTHRk
+LiBEZXZpY2UgNzIyMwoJRmxhZ3M6IGJ1cyBtYXN0ZXIsIG1lZGl1bSBkZXZzZWwsIGxhdGVuY3kg
+MCwgSVJRIDE5CglJL08gcG9ydHMgYXQgYzgwMCBbc2l6ZT0zMl0KCUtlcm5lbCBkcml2ZXIgaW4g
+dXNlOiB1aGNpX2hjZAoKMDA6MWQuMiBVU0IgY29udHJvbGxlcjogSW50ZWwgQ29ycG9yYXRpb24g
+ODI4MDFGQi9GQk0vRlIvRlcvRlJXIChJQ0g2IEZhbWlseSkgVVNCIFVIQ0kgIzMgKHJldiAwNCkg
+KHByb2ctaWYgMDAgW1VIQ0ldKQoJU3Vic3lzdGVtOiBNaWNyby1TdGFyIEludGVybmF0aW9uYWwg
+Q28uLCBMdGQuIERldmljZSA3MjIzCglGbGFnczogYnVzIG1hc3RlciwgbWVkaXVtIGRldnNlbCwg
+bGF0ZW5jeSAwLCBJUlEgMTgKCUkvTyBwb3J0cyBhdCBjNDgwIFtzaXplPTMyXQoJS2VybmVsIGRy
+aXZlciBpbiB1c2U6IHVoY2lfaGNkCgowMDoxZC4zIFVTQiBjb250cm9sbGVyOiBJbnRlbCBDb3Jw
+b3JhdGlvbiA4MjgwMUZCL0ZCTS9GUi9GVy9GUlcgKElDSDYgRmFtaWx5KSBVU0IgVUhDSSAjNCAo
+cmV2IDA0KSAocHJvZy1pZiAwMCBbVUhDSV0pCglTdWJzeXN0ZW06IE1pY3JvLVN0YXIgSW50ZXJu
+YXRpb25hbCBDby4sIEx0ZC4gRGV2aWNlIDcyMjMKCUZsYWdzOiBidXMgbWFzdGVyLCBtZWRpdW0g
+ZGV2c2VsLCBsYXRlbmN5IDAsIElSUSAxNgoJSS9PIHBvcnRzIGF0IGM0MDAgW3NpemU9MzJdCglL
+ZXJuZWwgZHJpdmVyIGluIHVzZTogdWhjaV9oY2QKCjAwOjFkLjcgVVNCIGNvbnRyb2xsZXI6IElu
+dGVsIENvcnBvcmF0aW9uIDgyODAxRkIvRkJNL0ZSL0ZXL0ZSVyAoSUNINiBGYW1pbHkpIFVTQjIg
+RUhDSSBDb250cm9sbGVyIChyZXYgMDQpIChwcm9nLWlmIDIwIFtFSENJXSkKCVN1YnN5c3RlbTog
+TWljcm8tU3RhciBJbnRlcm5hdGlvbmFsIENvLiwgTHRkLiBEZXZpY2UgNzIyMwoJRmxhZ3M6IGJ1
+cyBtYXN0ZXIsIG1lZGl1bSBkZXZzZWwsIGxhdGVuY3kgMCwgSVJRIDIzCglNZW1vcnkgYXQgZmJl
+M2JjMDAgKDMyLWJpdCwgbm9uLXByZWZldGNoYWJsZSkgW3NpemU9MUtdCglDYXBhYmlsaXRpZXM6
+IFs1MF0gUG93ZXIgTWFuYWdlbWVudCB2ZXJzaW9uIDIKCUNhcGFiaWxpdGllczogWzU4XSBEZWJ1
+ZyBwb3J0OiBCQVI9MSBvZmZzZXQ9MDBhMAoJS2VybmVsIGRyaXZlciBpbiB1c2U6IGVoY2lfaGNk
+CgowMDoxZS4wIFBDSSBicmlkZ2U6IEludGVsIENvcnBvcmF0aW9uIDgyODAxIFBDSSBCcmlkZ2Ug
+KHJldiBkNCkgKHByb2ctaWYgMDEgW1N1YnRyYWN0aXZlIGRlY29kZV0pCglGbGFnczogYnVzIG1h
+c3RlciwgZmFzdCBkZXZzZWwsIGxhdGVuY3kgMAoJQnVzOiBwcmltYXJ5PTAwLCBzZWNvbmRhcnk9
+MDIsIHN1Ym9yZGluYXRlPTAyLCBzZWMtbGF0ZW5jeT02NAoJSS9PIGJlaGluZCBicmlkZ2U6IDAw
+MDBkMDAwLTAwMDBlZmZmCglNZW1vcnkgYmVoaW5kIGJyaWRnZTogZmJmMDAwMDAtZmJmZmZmZmYK
+CUNhcGFiaWxpdGllczogWzUwXSBTdWJzeXN0ZW06IE1pY3JvLVN0YXIgSW50ZXJuYXRpb25hbCBD
+by4sIEx0ZC4gRGV2aWNlIDcyMjMKCjAwOjFmLjAgSVNBIGJyaWRnZTogSW50ZWwgQ29ycG9yYXRp
+b24gODI4MDFGQi9GUiAoSUNINi9JQ0g2UikgTFBDIEludGVyZmFjZSBCcmlkZ2UgKHJldiAwNCkK
+CVN1YnN5c3RlbTogTWljcm8tU3RhciBJbnRlcm5hdGlvbmFsIENvLiwgTHRkLiBEZXZpY2UgNzIy
+MwoJRmxhZ3M6IGJ1cyBtYXN0ZXIsIG1lZGl1bSBkZXZzZWwsIGxhdGVuY3kgMAoKMDA6MWYuMSBJ
+REUgaW50ZXJmYWNlOiBJbnRlbCBDb3Jwb3JhdGlvbiA4MjgwMUZCL0ZCTS9GUi9GVy9GUlcgKElD
+SDYgRmFtaWx5KSBJREUgQ29udHJvbGxlciAocmV2IDA0KSAocHJvZy1pZiA4YSBbTWFzdGVyIFNl
+Y1AgUHJpUF0pCglTdWJzeXN0ZW06IE1pY3JvLVN0YXIgSW50ZXJuYXRpb25hbCBDby4sIEx0ZC4g
+RGV2aWNlIDcyMjMKCUZsYWdzOiBidXMgbWFzdGVyLCBtZWRpdW0gZGV2c2VsLCBsYXRlbmN5IDAs
+IElSUSAxOAoJSS9PIHBvcnRzIGF0IDAxZjAgW3NpemU9OF0KCUkvTyBwb3J0cyBhdCAwM2Y0CglJ
+L08gcG9ydHMgYXQgMDE3MCBbc2l6ZT04XQoJSS9PIHBvcnRzIGF0IDAzNzQKCUkvTyBwb3J0cyBh
+dCBmZmEwIFtzaXplPTE2XQoJS2VybmVsIGRyaXZlciBpbiB1c2U6IGF0YV9waWl4CgowMDoxZi4y
+IElERSBpbnRlcmZhY2U6IEludGVsIENvcnBvcmF0aW9uIDgyODAxRkIvRlcgKElDSDYvSUNINlcp
+IFNBVEEgQ29udHJvbGxlciAocmV2IDA0KSAocHJvZy1pZiA4ZiBbTWFzdGVyIFNlY1AgU2VjTyBQ
+cmlQIFByaU9dKQoJU3Vic3lzdGVtOiBNaWNyby1TdGFyIEludGVybmF0aW9uYWwgQ28uLCBMdGQu
+IERldmljZSA3MjIzCglGbGFnczogYnVzIG1hc3RlciwgNjZNSHosIG1lZGl1bSBkZXZzZWwsIGxh
+dGVuY3kgMCwgSVJRIDE5CglJL08gcG9ydHMgYXQgYzA4MCBbc2l6ZT04XQoJSS9PIHBvcnRzIGF0
+IGMwMDAgW3NpemU9NF0KCUkvTyBwb3J0cyBhdCBiYzAwIFtzaXplPThdCglJL08gcG9ydHMgYXQg
+Yjg4MCBbc2l6ZT00XQoJSS9PIHBvcnRzIGF0IGI4MDAgW3NpemU9MTZdCglDYXBhYmlsaXRpZXM6
+IFs3MF0gUG93ZXIgTWFuYWdlbWVudCB2ZXJzaW9uIDIKCUtlcm5lbCBkcml2ZXIgaW4gdXNlOiBh
+dGFfcGlpeAoKMDA6MWYuMyBTTUJ1czogSW50ZWwgQ29ycG9yYXRpb24gODI4MDFGQi9GQk0vRlIv
+RlcvRlJXIChJQ0g2IEZhbWlseSkgU01CdXMgQ29udHJvbGxlciAocmV2IDA0KQoJU3Vic3lzdGVt
+OiBNaWNyby1TdGFyIEludGVybmF0aW9uYWwgQ28uLCBMdGQuIERldmljZSA3MjIzCglGbGFnczog
+bWVkaXVtIGRldnNlbCwgSVJRIDE5CglJL08gcG9ydHMgYXQgMDQwMCBbc2l6ZT0zMl0KCUtlcm5l
+bCBkcml2ZXIgaW4gdXNlOiBpODAxX3NtYnVzCgowMjowMC4wIEV0aGVybmV0IGNvbnRyb2xsZXI6
+IFJlYWx0ZWsgU2VtaWNvbmR1Y3RvciBDby4sIEx0ZC4gUlRMLTgxMzkvODEzOUMvODEzOUMrIChy
+ZXYgMTApCglTdWJzeXN0ZW06IENvbXBleCBGTjIyLTMoQSkgTGlueFBSTyBFdGhlcm5ldCBBZGFw
+dGVyCglGbGFnczogYnVzIG1hc3RlciwgbWVkaXVtIGRldnNlbCwgbGF0ZW5jeSAxMjgsIElSUSAx
+NgoJSS9PIHBvcnRzIGF0IGU4MDAgW3NpemU9MjU2XQoJTWVtb3J5IGF0IGZiZmZmYzAwICgzMi1i
+aXQsIG5vbi1wcmVmZXRjaGFibGUpIFtzaXplPTI1Nl0KCUV4cGFuc2lvbiBST00gYXQgZmJmZTAw
+MDAgW2Rpc2FibGVkXSBbc2l6ZT02NEtdCglDYXBhYmlsaXRpZXM6IFs1MF0gUG93ZXIgTWFuYWdl
+bWVudCB2ZXJzaW9uIDIKCUtlcm5lbCBkcml2ZXIgaW4gdXNlOiA4MTM5dG9vCgowMjowMS4wIEV0
+aGVybmV0IGNvbnRyb2xsZXI6IEQtTGluayBTeXN0ZW0gSW5jIERHRS01MjhUIEdpZ2FiaXQgRXRo
+ZXJuZXQgQWRhcHRlciAocmV2IDEwKQoJU3Vic3lzdGVtOiBELUxpbmsgU3lzdGVtIEluYyBER0Ut
+NTI4VCBHaWdhYml0IEV0aGVybmV0IEFkYXB0ZXIKCUZsYWdzOiBidXMgbWFzdGVyLCA2Nk1Ieiwg
+bWVkaXVtIGRldnNlbCwgbGF0ZW5jeSA2NCwgSVJRIDE3CglJL08gcG9ydHMgYXQgZTQwMCBbc2l6
+ZT0yNTZdCglNZW1vcnkgYXQgZmJmZmY4MDAgKDMyLWJpdCwgbm9uLXByZWZldGNoYWJsZSkgW3Np
+emU9MjU2XQoJRXhwYW5zaW9uIFJPTSBhdCBmYmZjMDAwMCBbZGlzYWJsZWRdIFtzaXplPTEyOEtd
+CglDYXBhYmlsaXRpZXM6IFtkY10gUG93ZXIgTWFuYWdlbWVudCB2ZXJzaW9uIDIKCUtlcm5lbCBk
+cml2ZXIgaW4gdXNlOiByODE2OQoKMDI6MDIuMCBFdGhlcm5ldCBjb250cm9sbGVyOiBELUxpbmsg
+U3lzdGVtIEluYyBER0UtNTI4VCBHaWdhYml0IEV0aGVybmV0IEFkYXB0ZXIgKHJldiAxMCkKCVN1
+YnN5c3RlbTogRC1MaW5rIFN5c3RlbSBJbmMgREdFLTUyOFQgR2lnYWJpdCBFdGhlcm5ldCBBZGFw
+dGVyCglGbGFnczogYnVzIG1hc3RlciwgNjZNSHosIG1lZGl1bSBkZXZzZWwsIGxhdGVuY3kgNjQs
+IElSUSAxOAoJSS9PIHBvcnRzIGF0IGUwMDAgW3NpemU9MjU2XQoJTWVtb3J5IGF0IGZiZmZmNDAw
+ICgzMi1iaXQsIG5vbi1wcmVmZXRjaGFibGUpIFtzaXplPTI1Nl0KCUV4cGFuc2lvbiBST00gYXQg
+ZmJmYTAwMDAgW2Rpc2FibGVkXSBbc2l6ZT0xMjhLXQoJQ2FwYWJpbGl0aWVzOiBbZGNdIFBvd2Vy
+IE1hbmFnZW1lbnQgdmVyc2lvbiAyCglLZXJuZWwgZHJpdmVyIGluIHVzZTogcjgxNjkKCjAyOjA2
+LjAgRXRoZXJuZXQgY29udHJvbGxlcjogUmVhbHRlayBTZW1pY29uZHVjdG9yIENvLiwgTHRkLiBS
+VEwtODEzOS84MTM5Qy84MTM5QysgKHJldiAxMCkKCVN1YnN5c3RlbTogTWljcm8tU3RhciBJbnRl
+cm5hdGlvbmFsIENvLiwgTHRkLiBEZXZpY2UgMjIzYwoJRmxhZ3M6IGJ1cyBtYXN0ZXIsIG1lZGl1
+bSBkZXZzZWwsIGxhdGVuY3kgNjQsIElSUSAyMAoJSS9PIHBvcnRzIGF0IGQ4MDAgW3NpemU9MjU2
+XQoJTWVtb3J5IGF0IGZiZmZmMDAwICgzMi1iaXQsIG5vbi1wcmVmZXRjaGFibGUpIFtzaXplPTI1
+Nl0KCUV4cGFuc2lvbiBST00gYXQgZmJmOTAwMDAgW2Rpc2FibGVkXSBbc2l6ZT02NEtdCglDYXBh
+YmlsaXRpZXM6IFs1MF0gUG93ZXIgTWFuYWdlbWVudCB2ZXJzaW9uIDIKCUtlcm5lbCBkcml2ZXIg
+aW4gdXNlOiA4MTM5dG9vCgo=
+
+--Multipart=_Tue__23_Oct_2012_01_27_59_+0400_2sQoZvxIdvC358IZ--
+
+--Signature=_Tue__23_Oct_2012_01_27_59_+0400_5AJCvWI_lCdeMV_A
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.19 (GNU/Linux)
+
+iEYEARECAAYFAlCFumgACgkQ2anJBBcsZw2fTQCgoCSP8+gsmOZiCMO+KJ9Y4fLt
+dkEAoJGWK/lLWLWaibozilURxCQtzeya
+=VHNQ
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__23_Oct_2012_01_27_59_+0400_5AJCvWI_lCdeMV_A--
