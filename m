@@ -1,107 +1,88 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH v3 2/4] net/cadence: get rid of HAVE_NET_MACB
-Date: Mon, 22 Oct 2012 20:45:32 +0200
-Message-ID: <1350931534-8416-3-git-send-email-manabian@gmail.com>
-References: <1350931534-8416-1-git-send-email-manabian@gmail.com>
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Joachim Eastwood <manabian@gmail.com>
-To: nicolas.ferre@atmel.com, davem@davemloft.net,
-	hskinnemoen@gmail.com, egtvedt@samfundet.no, plagnioj@jcrosoft.com,
-	bgat@billgatliff.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:40597 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756054Ab2JVSrT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 14:47:19 -0400
-Received: by mail-lb0-f174.google.com with SMTP id n3so1873929lbo.19
-        for <netdev@vger.kernel.org>; Mon, 22 Oct 2012 11:47:18 -0700 (PDT)
-In-Reply-To: <1350931534-8416-1-git-send-email-manabian@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: fix secpath kmemleak
+Date: Mon, 22 Oct 2012 21:03:40 +0200
+Message-ID: <1350932620.8609.1142.camel@edumazet-glaptop>
+References: <20121019205055.2b258d09@sacrilege>
+	 <20121019233632.26cf96d8@sacrilege>
+	 <CAHC9VhQ+gkAaRmwDWqzQd1U-hwH__5yxrxWa5_=koz_XTSXpjQ@mail.gmail.com>
+	 <20121020204958.4bc8e293@sacrilege> <20121021044540.12e8f4b7@sacrilege>
+	 <20121021062402.7c4c4cb8@sacrilege>
+	 <1350826183.13333.2243.camel@edumazet-glaptop>
+	 <20121021195701.7a5872e7@sacrilege> <20121022004332.7e3f3f29@sacrilege>
+	 <20121022015134.4de457b9@sacrilege>
+	 <1350856053.8609.217.camel@edumazet-glaptop>
+	 <20121022045850.788df346@sacrilege>
+	 <1350893743.8609.424.camel@edumazet-glaptop>
+	 <20121022180655.50a50401@sacrilege>
+	 <1350918997.8609.858.camel@edumazet-glaptop>
+	 <1350919337.8609.869.camel@edumazet-glaptop>
+	 <1350919682.8609.877.camel@edumazet-glaptop>
+	 <20121022225918.32d86a5f@sacrilege>
+	 <1350926647.8609.1006.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Paul Moore <paul@paul-moore.com>, netdev@vger.kernel.org,  linux-mm@kvack.org
+To: Mike Kazantsev <mk.fraggod@gmail.com>, David Miller <davem@davemloft.net>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1350926647.8609.1006.camel@edumazet-glaptop>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-macb is a platform driver and there is nothing that prevents
-this driver from being built on non-ARM/AVR32 platforms.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Joachim Eastwood <manabian@gmail.com>
+Mike Kazantsev found 3.5 kernels and beyond were leaking memory,
+and tracked the faulty commit to a1c7fff7e18f59e (net:
+netdev_alloc_skb() use build_skb()
+
+While this commit seems fine, it uncovered a bug introduced
+in commit bad43ca8325 (net: introduce skb_try_coalesce()), in function
+kfree_skb_partial() :
+
+If head is stolen, we free the sk_buff,
+without removing references on secpath (skb->sp).
+
+So IPsec + IP defrag/reassembly (using skb coalescing), or
+TCP coalescing could leak secpath objects.
+
+Fix this bug by calling skb_release_head_state(skb) to properly
+release all possible references to linked objects.
+
+Reported-by: Mike Kazantsev <mk.fraggod@gmail.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Bisected-by: Mike Kazantsev <mk.fraggod@gmail.com>
+Tested-by: Mike Kazantsev <mk.fraggod@gmail.com>
 ---
- arch/arm/mach-at91/Kconfig           | 4 ----
- arch/avr32/Kconfig                   | 1 -
- drivers/net/ethernet/cadence/Kconfig | 5 -----
- 3 files changed, 10 deletions(-)
+It seems TCP stack could immediately release secpath references instead
+of waiting skb are eaten by consumer, thats will be a followup patch.
 
-diff --git a/arch/arm/mach-at91/Kconfig b/arch/arm/mach-at91/Kconfig
-index d846b6e..72020fb 100644
---- a/arch/arm/mach-at91/Kconfig
-+++ b/arch/arm/mach-at91/Kconfig
-@@ -45,7 +45,6 @@ config SOC_AT91RM9200
- config SOC_AT91SAM9260
- 	bool "AT91SAM9260, AT91SAM9XE or AT91SAM9G20"
- 	select HAVE_AT91_DBGU0
--	select HAVE_NET_MACB
- 	select SOC_AT91SAM9
- 	help
- 	  Select this if you are using one of Atmel's AT91SAM9260, AT91SAM9XE
-@@ -63,7 +62,6 @@ config SOC_AT91SAM9263
- 	bool "AT91SAM9263"
- 	select HAVE_AT91_DBGU1
- 	select HAVE_FB_ATMEL
--	select HAVE_NET_MACB
- 	select SOC_AT91SAM9
+ net/core/skbuff.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 6e04b1f..4007c14 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3379,10 +3379,12 @@ EXPORT_SYMBOL(__skb_warn_lro_forwarding);
  
- config SOC_AT91SAM9RL
-@@ -76,7 +74,6 @@ config SOC_AT91SAM9G45
- 	bool "AT91SAM9G45 or AT91SAM9M10 families"
- 	select HAVE_AT91_DBGU1
- 	select HAVE_FB_ATMEL
--	select HAVE_NET_MACB
- 	select SOC_AT91SAM9
- 	help
- 	  Select this if you are using one of Atmel's AT91SAM9G45 family SoC.
-@@ -86,7 +83,6 @@ config SOC_AT91SAM9X5
- 	bool "AT91SAM9x5 family"
- 	select HAVE_AT91_DBGU0
- 	select HAVE_FB_ATMEL
--	select HAVE_NET_MACB
- 	select SOC_AT91SAM9
- 	help
- 	  Select this if you are using one of Atmel's AT91SAM9x5 family SoC.
-diff --git a/arch/avr32/Kconfig b/arch/avr32/Kconfig
-index 06e73bf..09f9fa8 100644
---- a/arch/avr32/Kconfig
-+++ b/arch/avr32/Kconfig
-@@ -80,7 +80,6 @@ config PLATFORM_AT32AP
- 	select ARCH_REQUIRE_GPIOLIB
- 	select GENERIC_ALLOCATOR
- 	select HAVE_FB_ATMEL
--	select HAVE_NET_MACB
+ void kfree_skb_partial(struct sk_buff *skb, bool head_stolen)
+ {
+-	if (head_stolen)
++	if (head_stolen) {
++		skb_release_head_state(skb);
+ 		kmem_cache_free(skbuff_head_cache, skb);
+-	else
++	} else {
+ 		__kfree_skb(skb);
++	}
+ }
+ EXPORT_SYMBOL(kfree_skb_partial);
  
- #
- # CPU types
-diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ethernet/cadence/Kconfig
-index 57f78abe..5d1ea30 100644
---- a/drivers/net/ethernet/cadence/Kconfig
-+++ b/drivers/net/ethernet/cadence/Kconfig
-@@ -2,13 +2,9 @@
- # Atmel device configuration
- #
- 
--config HAVE_NET_MACB
--	bool
--
- config NET_CADENCE
- 	bool "Cadence devices"
- 	default y
--	depends on HAVE_NET_MACB || (ARM && ARCH_AT91RM9200)
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y.
- 	  Make sure you know the name of your card. Read the Ethernet-HOWTO,
-@@ -34,7 +30,6 @@ config ARM_AT91_ETHER
- 
- config MACB
- 	tristate "Cadence MACB/GEM support"
--	depends on HAVE_NET_MACB
- 	select PHYLIB
- 	---help---
- 	  The Cadence MACB ethernet interface is found on many Atmel AT32 and
--- 
-1.7.12.4
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
