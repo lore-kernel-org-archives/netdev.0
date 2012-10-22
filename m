@@ -1,152 +1,176 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH v2 net-next 04/13] net: cdc_ncm: refactor bind preparing for MBIM support
-Date: Mon, 22 Oct 2012 22:56:31 +0200
-Message-ID: <1350939400-27209-5-git-send-email-bjorn@mork.no>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH v2 net-next 03/13] net: cdc_ncm: adding MBIM support to ncm_setup
+Date: Mon, 22 Oct 2012 22:56:30 +0200
+Message-ID: <1350939400-27209-4-git-send-email-bjorn@mork.no>
 References: <1350939400-27209-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Greg Suarez <gpsuarez2512-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Fangxiaozhi (Franko)" <fangxiaozhi-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Aleksander Morgado <aleksander-bhGbAngMcJvQT0dZR+AlfA@public.gmane.org>,
-	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1350939400-27209-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Alexey Orishko <alexey.orishko@gmail.com>,
+	Greg Suarez <gpsuarez2512@gmail.com>,
+	"Fangxiaozhi (Franko)" <fangxiaozhi@huawei.com>,
+	Dan Williams <dcbw@redhat.com>,
+	Aleksander Morgado <aleksander@lanedo.com>,
+	Greg Suarez <gsuarez@smithmicro.com>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:48610 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756277Ab2JVU5Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Oct 2012 16:57:24 -0400
+In-Reply-To: <1350939400-27209-1-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>
+=46rom: Greg Suarez <gsuarez@smithmicro.com>
 
-NCM and MBIM can share most of the bind function.  Split
-out the shareable part and add MBIM functional descriptor
-parsing.
+MBIM and NCM are very similar, so we can reuse most of the
+setup and bind logic in cdc_ncm for CDC MBIM devices.  Handle
+a few minor differences in ncm_setup.
 
-Signed-off-by: Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Signed-off-by: Greg Suarez <gsuarez@smithmicro.com>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 ---
- drivers/net/usb/cdc_ncm.c |   47 +++++++++++++++++++++++++++++++------=
+ drivers/net/usb/cdc_ncm.c |   50 +++++++++++++++++++++++++++++++------=
 --------
- 1 file changed, 33 insertions(+), 14 deletions(-)
+ 1 file changed, 35 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 77c6728..643e643 100644
+index 32bdf54..77c6728 100644
 --- a/drivers/net/usb/cdc_ncm.c
 +++ b/drivers/net/usb/cdc_ncm.c
-@@ -451,7 +451,7 @@ static const struct ethtool_ops cdc_ncm_ethtool_ops=
- =3D {
- 	.nway_reset =3D usbnet_nway_reset,
- };
+@@ -64,6 +64,9 @@
+ /* Minimum value for MaxDatagramSize, ch. 6.2.9 */
+ #define	CDC_NCM_MIN_DATAGRAM_SIZE		1514	/* bytes */
 =20
--static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf=
-)
-+static int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interfac=
-e *intf, u8 data_altsetting)
- {
- 	struct cdc_ncm_ctx *ctx;
- 	struct usb_driver *driver;
-@@ -525,6 +525,13 @@ static int cdc_ncm_bind(struct usbnet *dev, struct=
- usb_interface *intf)
- 			ctx->func_desc =3D (const struct usb_cdc_ncm_desc *)buf;
- 			break;
-=20
-+		case USB_CDC_MBIM_TYPE:
-+			if (buf[0] < sizeof(*(ctx->mbim_desc)))
-+				break;
++/* Minimum value for MaxDatagramSize, ch. 8.1.3 */
++#define CDC_MBIM_MIN_DATAGRAM_SIZE              2048    /* bytes */
 +
-+			ctx->mbim_desc =3D (const struct usb_cdc_mbim_desc *)buf;
-+			break;
-+
- 		default:
- 			break;
- 		}
-@@ -537,7 +544,7 @@ advance:
+ #define	CDC_NCM_MIN_TX_PKT			512	/* bytes */
 =20
- 	/* check if we got everything */
- 	if ((ctx->control =3D=3D NULL) || (ctx->data =3D=3D NULL) ||
--	    (ctx->ether_desc =3D=3D NULL) || (ctx->control !=3D intf))
-+	    ((!ctx->mbim_desc) && ((ctx->ether_desc =3D=3D NULL) || (ctx->con=
-trol !=3D intf))))
- 		goto error;
+ /* Default value for MaxDatagramSize */
+@@ -98,6 +101,7 @@ struct cdc_ncm_ctx {
+ 	struct tasklet_struct bh;
 =20
- 	/* claim interfaces, if any */
-@@ -557,7 +564,7 @@ advance:
- 		goto error2;
+ 	const struct usb_cdc_ncm_desc *func_desc;
++	const struct usb_cdc_mbim_desc *mbim_desc;
+ 	const struct usb_cdc_header_desc *header_desc;
+ 	const struct usb_cdc_union_desc *union_desc;
+ 	const struct usb_cdc_ether_desc *ether_desc;
+@@ -158,7 +162,10 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
+ 	u8 flags;
+ 	u8 iface_no;
+ 	int err;
++	int eth_hlen;
+ 	u16 ntb_fmt_supported;
++	u32 min_dgram_size;
++	u32 min_hdr_size;
 =20
- 	/* configure data interface */
--	temp =3D usb_set_interface(dev->udev, iface_no, 1);
-+	temp =3D usb_set_interface(dev->udev, iface_no, data_altsetting);
- 	if (temp)
- 		goto error2;
+ 	iface_no =3D ctx->control->cur_altsetting->desc.bInterfaceNumber;
 =20
-@@ -574,11 +581,13 @@ advance:
- 	usb_set_intfdata(ctx->control, dev);
- 	usb_set_intfdata(ctx->intf, dev);
+@@ -184,10 +191,19 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
+ 	ctx->tx_max_datagrams =3D le16_to_cpu(ctx->ncm_parm.wNtbOutMaxDatagra=
+ms);
+ 	ntb_fmt_supported =3D le16_to_cpu(ctx->ncm_parm.bmNtbFormatsSupported=
+);
 =20
--	temp =3D usbnet_get_ethernet_addr(dev, ctx->ether_desc->iMACAddress);
--	if (temp)
--		goto error2;
-+	if (ctx->ether_desc) {
-+		temp =3D usbnet_get_ethernet_addr(dev, ctx->ether_desc->iMACAddress)=
-;
-+		if (temp)
-+			goto error2;
-+		dev_info(&dev->udev->dev, "MAC-Address: %pM\n", dev->net->dev_addr);
+-	if (ctx->func_desc !=3D NULL)
++	eth_hlen =3D ETH_HLEN;
++	min_dgram_size =3D CDC_NCM_MIN_DATAGRAM_SIZE;
++	min_hdr_size =3D CDC_NCM_MIN_HDR_SIZE;
++	if (ctx->mbim_desc !=3D NULL) {
++		flags =3D ctx->mbim_desc->bmNetworkCapabilities;
++		eth_hlen =3D 0;
++		min_dgram_size =3D CDC_MBIM_MIN_DATAGRAM_SIZE;
++		min_hdr_size =3D 0;
++	} else if (ctx->func_desc !=3D NULL) {
+ 		flags =3D ctx->func_desc->bmNetworkCapabilities;
+-	else
++	} else {
+ 		flags =3D 0;
 +	}
 =20
--	dev_info(&dev->udev->dev, "MAC-Address: %pM\n", dev->net->dev_addr);
+ 	pr_debug("dwNtbInMaxSize=3D%u dwNtbOutMaxSize=3D%u "
+ 		 "wNdpOutPayloadRemainder=3D%u wNdpOutDivisor=3D%u "
+@@ -237,7 +253,7 @@ size_err:
 =20
- 	dev->in =3D usb_rcvbulkpipe(dev->udev,
- 		ctx->in_ep->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
-@@ -587,13 +596,6 @@ advance:
- 	dev->status =3D ctx->status_ep;
- 	dev->rx_urb_size =3D ctx->rx_max;
+ 	/* verify maximum size of transmitted NTB in bytes */
+ 	if ((ctx->tx_max <
+-	    (CDC_NCM_MIN_HDR_SIZE + CDC_NCM_MIN_DATAGRAM_SIZE)) ||
++	    (min_hdr_size + min_dgram_size)) ||
+ 	    (ctx->tx_max > CDC_NCM_NTB_MAX_SIZE_TX)) {
+ 		pr_debug("Using default maximum transmit length=3D%d\n",
+ 						CDC_NCM_NTB_MAX_SIZE_TX);
+@@ -279,8 +295,8 @@ size_err:
+ 	}
 =20
--	/*
--	 * We should get an event when network connection is "connected" or
--	 * "disconnected". Set network connection in "disconnected" state
--	 * (carrier is OFF) during attach, so the IP network stack does not
--	 * start IPv6 negotiation and more.
--	 */
--	netif_carrier_off(dev->net);
- 	ctx->tx_speed =3D ctx->rx_speed =3D 0;
+ 	/* adjust TX-remainder according to NCM specification. */
+-	ctx->tx_remainder =3D ((ctx->tx_remainder - ETH_HLEN) &
+-						(ctx->tx_modulus - 1));
++	ctx->tx_remainder =3D ((ctx->tx_remainder - eth_hlen) &
++			     (ctx->tx_modulus - 1));
+=20
+ 	/* additional configuration */
+=20
+@@ -307,12 +323,18 @@ size_err:
+ 			pr_debug("Setting NTB format to 16-bit failed\n");
+ 	}
+=20
+-	ctx->max_datagram_size =3D CDC_NCM_MIN_DATAGRAM_SIZE;
++	ctx->max_datagram_size =3D min_dgram_size;
+=20
+ 	/* set Max Datagram Size (MTU) */
+ 	if (flags & USB_CDC_NCM_NCAP_MAX_DATAGRAM_SIZE) {
+ 		__le16 *max_datagram_size;
+-		u16 eth_max_sz =3D le16_to_cpu(ctx->ether_desc->wMaxSegmentSize);
++		u16 eth_max_sz;
++		if (ctx->ether_desc !=3D NULL)
++			eth_max_sz =3D le16_to_cpu(ctx->ether_desc->wMaxSegmentSize);
++		else if (ctx->mbim_desc !=3D NULL)
++			eth_max_sz =3D le16_to_cpu(ctx->mbim_desc->wMaxSegmentSize);
++		else
++			goto max_dgram_err;
+=20
+ 		max_datagram_size =3D kzalloc(sizeof(*max_datagram_size),
+ 				GFP_KERNEL);
+@@ -329,7 +351,7 @@ size_err:
+ 				2, 1000);
+ 		if (err < 0) {
+ 			pr_debug("GET_MAX_DATAGRAM_SIZE failed, use size=3D%u\n",
+-						CDC_NCM_MIN_DATAGRAM_SIZE);
++				 min_dgram_size);
+ 		} else {
+ 			ctx->max_datagram_size =3D
+ 				le16_to_cpu(*max_datagram_size);
+@@ -338,12 +360,10 @@ size_err:
+ 					ctx->max_datagram_size =3D eth_max_sz;
+=20
+ 			if (ctx->max_datagram_size > CDC_NCM_MAX_DATAGRAM_SIZE)
+-				ctx->max_datagram_size =3D
+-						CDC_NCM_MAX_DATAGRAM_SIZE;
++				ctx->max_datagram_size =3D CDC_NCM_MAX_DATAGRAM_SIZE;
+=20
+-			if (ctx->max_datagram_size < CDC_NCM_MIN_DATAGRAM_SIZE)
+-				ctx->max_datagram_size =3D
+-					CDC_NCM_MIN_DATAGRAM_SIZE;
++			if (ctx->max_datagram_size < min_dgram_size)
++				ctx->max_datagram_size =3D min_dgram_size;
+=20
+ 			/* if value changed, update device */
+ 			if (ctx->max_datagram_size !=3D
+@@ -364,8 +384,8 @@ size_err:
+ 	}
+=20
+ max_dgram_err:
+-	if (ctx->netdev->mtu !=3D (ctx->max_datagram_size - ETH_HLEN))
+-		ctx->netdev->mtu =3D ctx->max_datagram_size - ETH_HLEN;
++	if (ctx->netdev->mtu !=3D (ctx->max_datagram_size - eth_hlen))
++		ctx->netdev->mtu =3D ctx->max_datagram_size - eth_hlen;
+=20
  	return 0;
-=20
-@@ -639,6 +641,23 @@ static void cdc_ncm_unbind(struct usbnet *dev, str=
-uct usb_interface *intf)
- 	cdc_ncm_free(ctx);
  }
-=20
-+static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf=
-)
-+{
-+	int ret;
-+
-+	/* NCM data altsetting is always 1 */
-+	ret =3D cdc_ncm_bind_common(dev, intf, 1);
-+
-+	/*
-+	 * We should get an event when network connection is "connected" or
-+	 * "disconnected". Set network connection in "disconnected" state
-+	 * (carrier is OFF) during attach, so the IP network stack does not
-+	 * start IPv6 negotiation and more.
-+	 */
-+	netif_carrier_off(dev->net);
-+	return ret;
-+}
-+
- static void cdc_ncm_zero_fill(u8 *ptr, u32 first, u32 end, u32 max)
- {
- 	if (first >=3D max)
 --=20
 1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
