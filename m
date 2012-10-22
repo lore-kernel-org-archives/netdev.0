@@ -1,72 +1,73 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: RE: [PATCH] qla3xxx: Ensure request/response queue addr writes to
- the registers
-Date: Mon, 22 Oct 2012 10:17:14 -0700
-Message-ID: <5E4F49720D0BAD499EE1F01232234BA87744C0B09B@AVEXMB1.qlogic.org>
-References: <50849604.9050109@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Greg Marsden <greg.marsden@oracle.com>
-To: Joe Jin <joe.jin@oracle.com>, Ron Mercer <ron.mercer@qlogic.com>,
-	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
+From: Krzysztof Mazur <krzysiek@podlesie.net>
+Subject: [PATCH v2 2/3] pppoatm: fix race condition with destroying of vcc
+Date: Mon, 22 Oct 2012 19:14:50 +0200
+Message-ID: <1350926091-12642-2-git-send-email-krzysiek@podlesie.net>
+References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
+Cc: dwmw2@infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Krzysztof Mazur <krzysiek@podlesie.net>
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50849604.9050109@oracle.com>
-Content-Language: en-US
+In-Reply-To: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The pppoatm_send() calls vcc->send() and now also checks for
+some vcc flags that indicate destroyed vcc without proper locking.
 
+The vcc_sendmsg() uses lock_sock(sk). This lock is used by
+vcc_release(), so vcc_destroy_socket() will not be called between
+check and during ->send(). The vcc_release_async() sets ATM_VF_CLOSE,
+but it should be safe to call ->send() after it, because
+vcc->dev->ops->close() is not called.
 
->From: Joe Jin [mailto:joe.jin@oracle.com] 
->Sent: Sunday, October 21, 2012 5:41 PM
->To: Jitendra Kalsaria; Ron Mercer; Dept-Eng Linux Driver; David Miller; Andrew Morton
->Cc: netdev; linux-kernel; Greg Marsden
->Subject: [PATCH] qla3xxx: Ensure request/response queue addr writes to the registers
->
->Before use the request and response queue addr, make sure it has wrote
->to the registers.
->
->Signed-off-by: Joe Jin <joe.jin@oracle.com>
->Cc: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
->Cc: Ron Mercer <ron.mercer@qlogic.com>
->---
-> drivers/net/ethernet/qlogic/qla3xxx.c | 9 +++++++--
-> 1 file changed, 7 insertions(+), 2 deletions(-)
->
->diff --git a/drivers/net/ethernet/qlogic/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
->index df09b1c..6407d0d 100644
->--- a/drivers/net/ethernet/qlogic/qla3xxx.c
->+++ b/drivers/net/ethernet/qlogic/qla3xxx.c
->@@ -2525,6 +2525,13 @@ static int ql_alloc_net_req_rsp_queues(struct ql3_adapter *qdev)
-> 	qdev->req_q_size =
-> 	    (u32) (NUM_REQ_Q_ENTRIES * sizeof(struct ob_mac_iocb_req));
-> 
->+	qdev->rsp_q_size = NUM_RSP_Q_ENTRIES * sizeof(struct net_rsp_iocb);
->+
->+	/* The barrier is required to ensure request and response queue
->+	 * addr writes to the registers.
->+	 */
->+	wmb();
->+
-> 	qdev->req_q_virt_addr =
-> 	    pci_alloc_consistent(qdev->pdev,
-> 				 (size_t) qdev->req_q_size,
->@@ -2536,8 +2543,6 @@ static int ql_alloc_net_req_rsp_queues(struct ql3_adapter *qdev)
-> 		return -ENOMEM;
-> 	}
-> 
->-	qdev->rsp_q_size = NUM_RSP_Q_ENTRIES * sizeof(struct net_rsp_iocb);
->-
-> 	qdev->rsp_q_virt_addr =
-> 	    pci_alloc_consistent(qdev->pdev,
-> 				 (size_t) qdev->rsp_q_size,
+The pppoatm_send() is called with BH disabled, so bh_lock_sock()
+should be used instead of lock_sock().
 
-Acked-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Signed-off-by: Krzysztof Mazur <krzysiek@podlesie.net>
+Cc: David Woodhouse <dwmw2@infradead.org>
+---
+ net/atm/pppoatm.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
+diff --git a/net/atm/pppoatm.c b/net/atm/pppoatm.c
+index 0dcb5dc..e3b2d69 100644
+--- a/net/atm/pppoatm.c
++++ b/net/atm/pppoatm.c
+@@ -270,6 +270,7 @@ static int pppoatm_send(struct ppp_channel *chan, struct sk_buff *skb)
+ {
+ 	struct pppoatm_vcc *pvcc = chan_to_pvcc(chan);
+ 	struct atm_vcc *vcc;
++	int ret;
+ 
+ 	ATM_SKB(skb)->vcc = pvcc->atmvcc;
+ 	pr_debug("(skb=0x%p, vcc=0x%p)\n", skb, pvcc->atmvcc);
+@@ -304,17 +305,24 @@ static int pppoatm_send(struct ppp_channel *chan, struct sk_buff *skb)
+ 	}
+ 
+ 	vcc = ATM_SKB(skb)->vcc;
++	bh_lock_sock(sk_atm(vcc));
++	if (sock_owned_by_user(sk_atm(vcc)))
++		goto nospace_unlock_sock;
+ 	if (test_bit(ATM_VF_RELEASED, &vcc->flags)
+ 			|| test_bit(ATM_VF_CLOSE, &vcc->flags)
+ 			|| !test_bit(ATM_VF_READY, &vcc->flags))
+-		goto nospace;
++		goto nospace_unlock_sock;
+ 
+ 	atomic_add(skb->truesize, &sk_atm(ATM_SKB(skb)->vcc)->sk_wmem_alloc);
+ 	ATM_SKB(skb)->atm_options = ATM_SKB(skb)->vcc->atm_options;
+ 	pr_debug("atm_skb(%p)->vcc(%p)->dev(%p)\n",
+ 		 skb, ATM_SKB(skb)->vcc, ATM_SKB(skb)->vcc->dev);
+-	return ATM_SKB(skb)->vcc->send(ATM_SKB(skb)->vcc, skb)
++	ret = ATM_SKB(skb)->vcc->send(ATM_SKB(skb)->vcc, skb)
+ 	    ? DROP_PACKET : 1;
++	bh_unlock_sock(sk_atm(vcc));
++	return ret;
++nospace_unlock_sock:
++	bh_unlock_sock(sk_atm(vcc));
+ nospace:
+ 	/*
+ 	 * We don't have space to send this SKB now, but we might have
 -- 
-1.7.11.7
+1.8.0.2.g35080e9
