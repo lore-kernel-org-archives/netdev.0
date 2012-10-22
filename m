@@ -1,46 +1,71 @@
-From: Florian Fainelli <ffainelli@freebox.fr>
-Subject: Re: [PATCH] e1000: fix concurrent accesses to PHY from watchdog and ethtool
-Date: Mon, 22 Oct 2012 10:28:26 +0200
-Message-ID: <2571860.cVpYZJtmi6@flexo>
-References: <1350650688-29293-1-git-send-email-ffainelli@freebox.fr> <1350715654.2213.22.camel@jtkirshe-mobl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Maxime Bizon <mbizon@freebox.fr>
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zmc.proxad.net ([212.27.53.206]:35728 "EHLO zmc.proxad.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750848Ab2JVI3p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Oct 2012 04:29:45 -0400
-In-Reply-To: <1350715654.2213.22.camel@jtkirshe-mobl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [RFC PATCH v2 0/6] solve deadlock caused by memory allocation with I/O
+Date: Mon, 22 Oct 2012 16:33:08 +0800
+Message-ID: <1350894794-1494-1-git-send-email-ming.lei@canonical.com>
+Cc: Alan Stern <stern@rowland.harvard.edu>,
+	Oliver Neukum <oneukum@suse.de>,
+	Minchan Kim <minchan@kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-pm@vger.kernel.org, linux-mm@kvack.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-pm-owner@vger.kernel.org>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Friday 19 October 2012 23:47:34 Jeff Kirsher wrote:
-> On Fri, 2012-10-19 at 14:44 +0200, Florian Fainelli wrote:
-> > From: Maxime Bizon <mbizon@freebox.fr>
-> > 
-> > The e1000 driver currently does not protect concurrent accesses to the
-> > PHY
-> > from both the ethtool callbacks, and from the e1000_watchdog function.
-> > This
-> > patchs adds a new spinlock which is used by e1000_{read,write}_phy_reg
-> > in
-> > order to serialize concurrent accesses to the PHY.
-> > 
-> > Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
-> > Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
-> > ---
-> >  drivers/net/ethernet/intel/e1000/e1000_hw.c |   17 +++++++++++++++--
-> >  1 file changed, 15 insertions(+), 2 deletions(-) 
-> 
-> It does not appear I have responded yet, so...
-> 
-> I have added this patch to my queue, thanks!
+Hi,
 
-Thanks Jeff, I will let you decide whether you think this is relevant for being
-included into -stable releases.
+This patchset try to solve one deadlock problem which might be caused
+by memory allocation with block I/O during runtime resume and block device
+error handling path. Traditionly, the problem is addressed by passing
+GFP_NOIO statically to mm, but that is not a effective solution, see
+detailed description in patch 1's commit log.
+
+This patch set introduces one process flag and trys to fix one deadlock
+problem on block device/network device during runtime resume or usb bus reset.
+
+The 1st one is the change on include/sched.h and mm.
+
+The 2nd patch introduces the flag of memalloc_noio_resume on 'dev_pm_info',
+and pm_runtime_set_memalloc_noio(), so that PM Core can teach mm to not
+allocate mm with GFP_IOFS during the runtime_resume callback only on
+device with the flag set.
+
+The following 2 patches apply the introduced pm_runtime_set_memalloc_noio()
+to mark all devices as memalloc_noio_resume in the path from the block or
+network device to the root device in device tree.
+
+The last 2 patches are applied again PM and USB subsystem to demonstrate
+how to use the introduced mechanism to fix the deadlock problem.
+
+V2:
+	- remove changes on 'may_writepage' and 'may_swap'(1/6)
+	- unset GFP_IOFS in try_to_free_pages() path(1/6)
+	- introduce pm_runtime_set_memalloc_noio()
+	- only apply the meachnism on block/network device and its ancestors
+	for runtime resume context
+V1:
+        - take Minchan's change to avoid the check in alloc_page hot path
+        - change the helpers' style into save/restore as suggested by Alan
+        - memory allocation with no io in usb bus reset path for all devices
+        as suggested by Greg and Oliver
+
+ block/genhd.c                |    8 +++++
+ drivers/base/power/runtime.c |   69 +++++++++++++++++++++++++++++++++++++++++-
+ drivers/usb/core/hub.c       |   11 +++++++
+ include/linux/pm.h           |    1 +
+ include/linux/pm_runtime.h   |    3 ++
+ include/linux/sched.h        |   10 ++++++
+ mm/page_alloc.c              |   10 +++++-
+ mm/vmscan.c                  |   12 ++++++++
+ net/core/net-sysfs.c         |    5 +++
+ 9 files changed, 127 insertions(+), 2 deletions(-)
+
+
+Thanks,
 --
-Florian
+Ming Lei
+
