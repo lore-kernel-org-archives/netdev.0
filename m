@@ -1,51 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/2] packet: clean up error variable
- assignments
-Date: Tue, 23 Oct 2012 19:05:52 +0200
-Message-ID: <1351011952.8609.2334.camel@edumazet-glaptop>
-References: <20121023115629.GA8664@thinkbox>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v1 00/11] usbnet: usb_control_msg cleanup
+Date: Tue, 23 Oct 2012 13:05:59 -0400 (EDT)
+Message-ID: <20121023.130559.477102863250187178.davem@davemloft.net>
+References: <1349959169-9432-1-git-send-email-ming.lei@canonical.com>
+	<5690496.KbQ6sjjSnW@linux-lqwf.site>
+	<CACVXFVMDWbqOONcQvs6XARecUW=A-RnQb4QuX0CBr7zf+cNtTA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Daniel Borkmann <dxchgb@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:56131 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932821Ab2JWRF5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 13:05:57 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so1701076bkc.19
-        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 10:05:56 -0700 (PDT)
-In-Reply-To: <20121023115629.GA8664@thinkbox>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, oneukum-l3A5Bk7waGM@public.gmane.org
+To: ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CACVXFVMDWbqOONcQvs6XARecUW=A-RnQb4QuX0CBr7zf+cNtTA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-10-23 at 13:56 +0200, Daniel Borkmann wrote:
-> This patch performs clean-ups of packet's err variables where appropriate.
-> In particular, errnos are *only* assigned in error cases, which saves
-> useless instructions in non-error cases and makes the code more readable
-> in terms of which error type belongs to which evaluated error condition.
-> Also, in some cases an errno was set, but not used until the next assignment.
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Date: Tue, 23 Oct 2012 17:19:29 +0800
 
-I see no value in this patch.
+> On Mon, Oct 15, 2012 at 2:30 PM, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> wrote:
+>>>
+>>> v1:
+>>>       - drop previous patch 12, and let net/core handle
+>>>       runtime PM in ioctl path
+>>
+>> Acked-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+> 
+> David, could you queue the patchset on net-next since my some usbnet
+> runtime PM patches depend on it?
 
-Setting err before a test is a common way to handle error cases and
-generates smaller code in linux kernel.
-
-Better live with it than trying to change it ?
-
-err = -ENOMEM;
-match = kzalloc(xxxx);
-if (!match)
-	goto error;
-
-
-is smaller (source code & generated code) than :
-
-match = kzalloc(xxxx);
-if (!match) {
-	err = -ENOMEM;
-	goto error;
-}
-
-An immediate load is basically free, but code size matters.
+Please repost it to netdev.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
