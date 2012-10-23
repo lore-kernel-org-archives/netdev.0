@@ -1,40 +1,75 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: Bug#690845: ethtool: incorrect WoL detection on Broadcom NX
- II rev < 12
-Date: Mon, 22 Oct 2012 15:54:19 -0700
-Message-ID: <1350946459.8764.145.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <20121018134717.9579.22997.reportbug@palomino.museglobal.com>
- <1350570748.26833.102.camel@deadeye.wl.decadent.org.uk>
- <CAG2Wgfee=qsiUhAk5reYTypcOZL0kM5A58J+LjB1wuQ_k9FrfA@mail.gmail.com>
- <1350610209.22276.6.camel@deadeye.wl.decadent.org.uk>
- <1350675530.8764.131.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <CAG2Wgfdn52R2FYh77-2ZHCFVwe8d0MOv_4but6aOsU50jF-+Lg@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [nf-next PATCH v2] ipvs: fix build errors related to config
+ option combinations
+Date: Tue, 23 Oct 2012 09:33:15 +0900
+Message-ID: <20121023003314.GC5015@verge.net.au>
+References: <20121022192245.12620.84466.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
-Content-Transfer-Encoding: 7bit
-Cc: 690845@bugs.debian.org, netdev <netdev@vger.kernel.org>
-To: "Teodor MICU" <mteodor@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3413 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932215Ab2JVWyd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Oct 2012 18:54:33 -0400
-In-Reply-To: <CAG2Wgfdn52R2FYh77-2ZHCFVwe8d0MOv_4but6aOsU50jF-+Lg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, fengguang.wu@intel.com,
+	yuanhan.liu@linux.intel.com, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20121022192245.12620.84466.stgit@dragon>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-10-22 at 10:52 +0300, Teodor MICU wrote:
-> 08:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708
-> Gigabit Ethernet (rev 11)
+On Mon, Oct 22, 2012 at 09:22:45PM +0200, Jesper Dangaard Brouer wrote:
+> Fix two build error introduced by commit 63dca2c0:
+>  "ipvs: Fix faulty IPv6 extension header handling in IPVS"
+> 
+> First build error was fairly trivial and can occur, when
+> CONFIG_IP_VS_IPV6 is disabled.
+> 
+> The second build error was tricky, and can occur when deselecting
+> both all Netfilter and IPVS, but selecting CONFIG_IPV6.  This is
+> caused by "kernel/sysctl_binary.c" including "net/ip_vs.h", which
+> includes "linux/netfilter_ipv6/ip6_tables.h" causing include
+> of "include/linux/netfilter/x_tables.h" which then cannot find
+> the typedef nf_hookfn.
+> 
+> Fix this by only including "linux/netfilter_ipv6/ip6_tables.h" in
+> case of CONFIG_IP_VS_IPV6 as its already used to guard the usage
+> of ipv6_find_hdr().
 
-It is 5708 B1, and due to some hardware limitations, ethtool initiated
-WoL is not supported.  Here's the code fragment in bnx2.c:
+Thanks, I have verified both of these fixes and I will send a pull
+request ASAP.
 
-	if ((CHIP_ID(bp) == CHIP_ID_5708_A0) ||
-	    (CHIP_ID(bp) == CHIP_ID_5708_B0) ||
-	    (CHIP_ID(bp) == CHIP_ID_5708_B1) ||
-	    !(REG_RD(bp, BNX2_PCI_CONFIG_3) & BNX2_PCI_CONFIG_3_VAUX_PRESET)) {
-		bp->flags |= BNX2_FLAG_NO_WOL;
-		bp->wol = 0;
-	}
+I do wonder how we might get earlier test coverage of these kinds of problems.
+
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Reported-by: Yuanhan Liu <yuanhan.liu@linux.intel.com>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> ---
+> 
+>  include/net/ip_vs.h |    5 +++--
+>  1 files changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+> index a681ad6..68c69d5 100644
+> --- a/include/net/ip_vs.h
+> +++ b/include/net/ip_vs.h
+> @@ -22,7 +22,7 @@
+>  #include <linux/ip.h>
+>  #include <linux/ipv6.h>			/* for struct ipv6hdr */
+>  #include <net/ipv6.h>
+> -#if IS_ENABLED(CONFIG_IPV6)
+> +#if IS_ENABLED(CONFIG_IP_VS_IPV6)
+>  #include <linux/netfilter_ipv6/ip6_tables.h>
+>  #endif
+>  #if IS_ENABLED(CONFIG_NF_CONNTRACK)
+> @@ -212,8 +212,9 @@ ip_vs_fill_iph_addr_only(int af, const struct sk_buff *skb,
+>  			(struct ipv6hdr *)skb_network_header(skb);
+>  		iphdr->saddr.in6 = iph->saddr;
+>  		iphdr->daddr.in6 = iph->daddr;
+> -	} else {
+> +	} else
+>  #endif
+> +	{
+>  		const struct iphdr *iph =
+>  			(struct iphdr *)skb_network_header(skb);
+>  		iphdr->saddr.ip = iph->saddr;
+> 
