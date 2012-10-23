@@ -1,45 +1,36 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/12] ixgbe: Correcting small packet padding
-Date: Mon, 22 Oct 2012 21:26:22 -0700
-Message-ID: <1350966385-19020-10-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next 08/12] ixgbe: using is_zero_ether_addr() to simplify
+ the code
+Date: Mon, 22 Oct 2012 21:45:18 -0700
+Message-ID: <1350967518.7502.32.camel@joe-AO722>
 References: <1350966385-19020-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Tushar Dave <tushar.n.dave@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+	 <1350966385-19020-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:52514 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752196Ab2JWEgd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 00:36:33 -0400
-In-Reply-To: <1350966385-19020-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:34921 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750885Ab2JWEpT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2012 00:45:19 -0400
+In-Reply-To: <1350966385-19020-9-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tushar Dave <tushar.n.dave@intel.com>
+On Mon, 2012-10-22 at 21:26 -0700, Jeff Kirsher wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Using is_zero_ether_addr() to simplify the code.
+[]
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+[]
+> @@ -1778,8 +1778,7 @@ s32 ixgbe_validate_mac_addr(u8 *mac_addr)
+[]
+> -	else if (mac_addr[0] == 0 && mac_addr[1] == 0 && mac_addr[2] == 0 &&
+> -	         mac_addr[3] == 0 && mac_addr[4] == 0 && mac_addr[5] == 0)
+> +	else if (is_zero_ether_addr(mac_addr))
 
-Driver pad skb up to 17 bytes because of the HW requirement. However, that code
-implementation mess up the skb tail pointer after padding. This patch sets
-skb->tail correctly.
-
-Signed-off-by: Tushar Dave <tushar.n.dave@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 46bf0fd..c1ce6e9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -6538,6 +6538,7 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
- 		if (skb_pad(skb, 17 - skb->len))
- 			return NETDEV_TX_OK;
- 		skb->len = 17;
-+		skb_set_tail_pointer(skb, 17);
- 	}
- 
- 	tx_ring = adapter->tx_ring[skb->queue_mapping];
--- 
-1.7.11.7
+This means the more comprehensive simplifying patch
+I submitted doesn't apply.  Easy to fix up though.
