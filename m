@@ -1,180 +1,124 @@
-From: Serge Hallyn <serge.hallyn@canonical.com>
-Subject: Re: [PATCH v6 03/10] ipc: segment key change helper introduced
-Date: Tue, 23 Oct 2012 11:19:58 -0500
-Message-ID: <20121023161958.GB9755@sergelap>
-References: <20121015155800.28348.23561.stgit@localhost.localdomain>
- <20121015155951.28348.65427.stgit@localhost.localdomain>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH 1/3] sk: Introduce the shutdown user-to-mask routine
+Date: Tue, 23 Oct 2012 20:22:50 +0400
+Message-ID: <5086C45A.4030703@parallels.com>
+References: <5086C36B.6060508@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, catalin.marinas@arm.com,
-	will.deacon@arm.com, dhowells@redhat.com, manfred@colorfullife.com,
-	hughd@google.com, jmorris@namei.org, mtk.manpages@gmail.com,
-	kosaki.motohiro@jp.fujitsu.com, paulmck@linux.vnet.ibm.com,
-	sds@tycho.nsa.gov, devel@openvz.org, a.p.zijlstra@chello.nl,
-	cmetcalf@tilera.com, linux-driver@qlogic.com,
-	ron.mercer@qlogic.com, viro@zeniv.linux.org.uk,
-	eparis@parisplace.org, tglx@linutronix.de,
-	jitendra.kalsaria@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org, ebiederm@xmission.com,
-	casey@schaufler-ca.com
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20121015155951.28348.65427.stgit@localhost.localdomain>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:20804 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754531Ab2JWQWy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2012 12:22:54 -0400
+In-Reply-To: <5086C36B.6060508@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Stanislav Kinsbursky (skinsbursky@parallels.com):
-> This patch introduces existent segment key changing infrastructure.
-> New function ipc_update_key() can be used change segment key, cuid, cgid
-> values. It checks for that new key is not used (except IPC_PRIVATE) prior to
-> set it on existent.
-> To make this possible, added copying of this fields from user-space in
-> __get_compat_ipc_perm() and __get_compat_ipc64_perm() functions. Also segment
-> search by key and lock were splitted into different functions, because
-> ipc_update_key() doesn't need to lock the segment during check that new key is
-> not used.
-> 
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+The sys_shutdown "how" argument is converted into kernel-side mask
+with a trick -- the "how++" does proper bits conversion. And since
+this is a trick, it's commented in the respective places.
 
-Acked-by: Serge E. Hallyn <serge.hallyn@ubuntu.com>
+When there will be sk_shutdown reporting mechanism it will be natural
+to report not the kernel-side mask, but the values known by userspace
+(this "how" thing), i.e. we'll have to do the reciprocal trick.
 
-> ---
->  ipc/compat.c |    6 ++++++
->  ipc/util.c   |   51 ++++++++++++++++++++++++++++++++++++++++++++++++---
->  ipc/util.h   |    2 ++
->  3 files changed, 56 insertions(+), 3 deletions(-)
-> 
-> diff --git a/ipc/compat.c b/ipc/compat.c
-> index ad9518e..af30d13 100644
-> --- a/ipc/compat.c
-> +++ b/ipc/compat.c
-> @@ -144,6 +144,9 @@ static inline int __get_compat_ipc64_perm(struct ipc64_perm *p64,
->  	err  = __get_user(p64->uid, &up64->uid);
->  	err |= __get_user(p64->gid, &up64->gid);
->  	err |= __get_user(p64->mode, &up64->mode);
-> +	err |= __get_user(p64->cuid, &up64->cuid);
-> +	err |= __get_user(p64->cgid, &up64->cgid);
-> +	err |= __get_user(p64->key, &up64->key);
->  	return err;
->  }
->  
-> @@ -155,6 +158,9 @@ static inline int __get_compat_ipc_perm(struct ipc64_perm *p,
->  	err  = __get_user(p->uid, &up->uid);
->  	err |= __get_user(p->gid, &up->gid);
->  	err |= __get_user(p->mode, &up->mode);
-> +	err |= __get_user(p->cuid, &up->cuid);
-> +	err |= __get_user(p->cgid, &up->cgid);
-> +	err |= __get_user(p->key, &up->key);
->  	return err;
->  }
->  
-> diff --git a/ipc/util.c b/ipc/util.c
-> index 503946e..faae296 100644
-> --- a/ipc/util.c
-> +++ b/ipc/util.c
-> @@ -173,7 +173,7 @@ void __init ipc_init_proc_interface(const char *path, const char *header,
->   *	@key: The key to find
->   *	
->   *	Requires ipc_ids.rw_mutex locked.
-> - *	Returns the LOCKED pointer to the ipc structure if found or NULL
-> + *	Returns the UNLOCKED pointer to the ipc structure if found or NULL
->   *	if not.
->   *	If key is found ipc points to the owning ipc structure
->   */
-> @@ -195,7 +195,6 @@ static struct kern_ipc_perm *ipc_findkey(struct ipc_ids *ids, key_t key)
->  			continue;
->  		}
->  
-> -		ipc_lock_by_ptr(ipc);
->  		return ipc;
->  	}
->  
-> @@ -203,6 +202,27 @@ static struct kern_ipc_perm *ipc_findkey(struct ipc_ids *ids, key_t key)
->  }
->  
->  /**
-> + *	ipc_findkey_locked	-	find and lock a key in an ipc identifier set
-> + *	@ids: Identifier set
-> + *	@key: The key to find
-> + *
-> + *	Requires ipc_ids.rw_mutex locked.
-> + *	Returns the LOCKED pointer to the ipc structure if found or NULL
-> + *	if not.
-> + *	If key is found ipc points to the owning ipc structure
-> + */
-> +
-> +static struct kern_ipc_perm *ipc_findkey_locked(struct ipc_ids *ids, key_t key)
-> +{
-> +	struct kern_ipc_perm *ipc;
-> +
-> +	ipc = ipc_findkey(ids, key);
-> +	if (ipc)
-> +		ipc_lock_by_ptr(ipc);
-> +	return ipc;
-> +}
-> +
-> +/**
->   *	ipc_get_maxid 	-	get the last assigned id
->   *	@ids: IPC identifier set
->   *
-> @@ -388,7 +408,7 @@ retry:
->  	 * a new entry + read locks are not "upgradable"
->  	 */
->  	down_write(&ids->rw_mutex);
-> -	ipcp = ipc_findkey(ids, params->key);
-> +	ipcp = ipc_findkey_locked(ids, params->key);
->  	if (ipcp == NULL) {
->  		/* key not used */
->  		if (!(flg & IPC_CREAT))
-> @@ -755,6 +775,31 @@ int ipcget(struct ipc_namespace *ns, struct ipc_ids *ids,
->  }
->  
->  /**
-> + * ipc_update_key - update the key of an IPC.
-> + * @in:  the permission given as input.
-> + * @out: the permission of the ipc to set.
-> + *
-> + * Common routine called by sys_shmctl(), sys_semctl(). sys_msgctl().
-> + */
-> +int ipc_update_key(struct ipc_ids *ids, struct ipc64_perm *in,
-> +		    struct kern_ipc_perm *out)
-> +{
-> +
-> +	if (in->key && out->key != in->key) {
-> +		/*
-> +		 * Check for existent segment with the same key.
-> +		 * Note: ipc_ids.rw_mutex is taken for write already.
-> +		 */
-> +		if (ipc_findkey(ids, in->key))
-> +			return -EEXIST;
-> +	}
-> +	out->cuid = in->cuid;
-> +	out->cgid = in->cgid;
-> +	out->key = in->key;
-> +	return 0;
-> +}
-> +
-> +/**
->   * ipc_update_perm - update the permissions of an IPC.
->   * @in:  the permission given as input.
->   * @out: the permission of the ipc to set.
-> diff --git a/ipc/util.h b/ipc/util.h
-> index 3a9e558..271bded 100644
-> --- a/ipc/util.h
-> +++ b/ipc/util.h
-> @@ -126,6 +126,8 @@ struct kern_ipc_perm *ipc_lock(struct ipc_ids *, int);
->  
->  void kernel_to_ipc64_perm(struct kern_ipc_perm *in, struct ipc64_perm *out);
->  void ipc64_perm_to_ipc_perm(struct ipc64_perm *in, struct ipc_perm *out);
-> +int ipc_update_key(struct ipc_ids *ids, struct ipc64_perm *in,
-> +		   struct kern_ipc_perm *out);
->  int ipc_update_perm(struct ipc64_perm *in, struct kern_ipc_perm *out);
->  struct kern_ipc_perm *ipcctl_pre_down(struct ipc_namespace *ns,
->  				      struct ipc_ids *ids, int id, int cmd,
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I propose to encapsulate both tricks in helpers, here's the user to
+kernel one.
+
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+---
+ include/net/sock.h |   18 ++++++++++++++++++
+ net/ipv4/af_inet.c |    7 +++----
+ net/iucv/af_iucv.c |    5 ++---
+ net/unix/af_unix.c |    9 ++-------
+ 4 files changed, 25 insertions(+), 14 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index c945fba..c42c115 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1265,6 +1265,24 @@ void sk_prot_clear_portaddr_nulls(struct sock *sk, int size);
+ #define RCV_SHUTDOWN	1
+ #define SEND_SHUTDOWN	2
+ 
++static inline int shutdown_u2mask(int uhow)
++{
++	/*
++	 * map
++	 * 	SHUT_RD -> RCV_SHUTDOWN
++	 * 	SHUT_WR -> SEND_SHUTDOWN
++	 * 	SHUT_RDWR -> SHUTDOWN_MASK
++	 *
++	 * or report 0 on error
++	 */
++
++	uhow++;
++	if (uhow & ~SHUTDOWN_MASK)
++		uhow = 0;
++
++	return uhow;
++}
++
+ #define SOCK_SNDBUF_LOCK	1
+ #define SOCK_RCVBUF_LOCK	2
+ #define SOCK_BINDADDR_LOCK	4
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 766c596..3b3940c 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -825,10 +825,9 @@ int inet_shutdown(struct socket *sock, int how)
+ 	/* This should really check to make sure
+ 	 * the socket is a TCP socket. (WHY AC...)
+ 	 */
+-	how++; /* maps 0->1 has the advantage of making bit 1 rcvs and
+-		       1->2 bit 2 snds.
+-		       2->3 */
+-	if ((how & ~SHUTDOWN_MASK) || !how)	/* MAXINT->0 */
++
++	how = shutdown_u2mask(how);
++	if (!how)
+ 		return -EINVAL;
+ 
+ 	lock_sock(sk);
+diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
+index cd6f7a9..308024c 100644
+--- a/net/iucv/af_iucv.c
++++ b/net/iucv/af_iucv.c
+@@ -1497,9 +1497,8 @@ static int iucv_sock_shutdown(struct socket *sock, int how)
+ 	struct iucv_message txmsg;
+ 	int err = 0;
+ 
+-	how++;
+-
+-	if ((how & ~SHUTDOWN_MASK) || !how)
++	how = shutdown_u2mask(how);
++	if (!how)
+ 		return -EINVAL;
+ 
+ 	lock_sock(sk);
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 5b5c876..14543f2 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2057,14 +2057,9 @@ static int unix_shutdown(struct socket *sock, int mode)
+ 	struct sock *sk = sock->sk;
+ 	struct sock *other;
+ 
+-	if (mode < SHUT_RD || mode > SHUT_RDWR)
++	mode = shutdown_u2mask(mode);
++	if (!mode)
+ 		return -EINVAL;
+-	/* This maps:
+-	 * SHUT_RD   (0) -> RCV_SHUTDOWN  (1)
+-	 * SHUT_WR   (1) -> SEND_SHUTDOWN (2)
+-	 * SHUT_RDWR (2) -> SHUTDOWN_MASK (3)
+-	 */
+-	++mode;
+ 
+ 	unix_state_lock(sk);
+ 	sk->sk_shutdown |= mode;
+-- 
+1.7.6.5
