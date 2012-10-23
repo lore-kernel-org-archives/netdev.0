@@ -1,106 +1,63 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 5/8] ixgbevf: make netif_napi_add and netif_napi_del symmetric
-Date: Tue, 23 Oct 2012 03:24:44 -0700
-Message-ID: <1350987887-16161-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 6/8] ixgbevf: Check for error on dma_map_single call
+Date: Tue, 23 Oct 2012 03:24:45 -0700
+Message-ID: <1350987887-16161-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1350987887-16161-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:10577 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:28521 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752560Ab2JWKYx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 06:24:53 -0400
+	id S1755991Ab2JWKYy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2012 06:24:54 -0400
 In-Reply-To: <1350987887-16161-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-ixgbevf_alloc_q_vectors() calls netif_napi_add for each qvector
-where qvectors is determined by the number of msix vectors. This
-makes perfect sense.
+Ignoring the return value from a call to the kernel dma_map API functions
+can cause data corruption and system instability.  Check the return value
+and take appropriate action.
 
-However on cleanup when ixgbevf_free_q_vectors() is called and
-for each qvector we should call netif_napi_del there is some
-extra logic to add a dependency on RX queues. This patch makes
-the add/del operations symmetric by removing the RX queues
-dependency.
-
-Without this if  free_netdev() is called we see the general
-protection fault below in netif_napi_del when list_del_init()
-is called.
-
-# addr2line -e ./vmlinux ffffffff8140810c
-net-next/include/linux/list.h:88
-
-general protection fault: 0000 [#1] SMP
-Modules linked in: bonding ixgbevf ixgbe(-) mdio libfc scsi_transport_fc scsi_tgt 8021q garp stp llc cpufreq_ondemand acpi_cpufreq freq_table mperf ipv6 uinput coretemp lpc_ich i2c_i801 shpchp hwmon i2c_core serio_raw crc32c_intel mfd_core joydev pcspkr microcode ioatdma igb dca pata_acpi ata_generic usb_storage pata_jmicron [last unloaded: bonding]
-CPU 10
-Pid: 4174, comm: rmmod Tainted: G        W    3.6.0-rc3jk-net-next+ #104 Supermicro X8DTN/X8DTN
-RIP: 0010:[<ffffffff8140810c>]  [<ffffffff8140810c>] netif_napi_del+0x24/0x87
-RSP: 0018:ffff88027f5e9b48  EFLAGS: 00010293
-RAX: ffff8806224b4768 RBX: ffff8806224b46e8 RCX: 6b6b6b6b6b6b6b6b
-RDX: 6b6b6b6b6b6b6b6b RSI: ffffffff810bf6c5 RDI: ffff8806224b46e8
-RBP: ffff88027f5e9b58 R08: ffff88033200b180 R09: ffff88027f5e98a8
-R10: ffff88033320b000 R11: ffff88027f5e9ae8 R12: 6b6b6b6b6b6b6aeb
-R13: ffff8806221d11c0 R14: 0000000000000000 R15: ffff88027f5e9cf8
-FS:  00007f5e58b9b700(0000) GS:ffff880333200000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 00000000010ef2b8 CR3: 0000000281fff000 CR4: 00000000000007e0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process rmmod (pid: 4174, threadinfo ffff88027f5e8000, task ffff88032f888000)
-Stack:
- ffff8806221d1160 6b6b6b6b6b6b6aeb ffff88027f5e9b88 ffffffff81408e46
- ffff8806221d1160 ffff8806221d1160 ffff8806221d1ae0 ffff8806221d5668
- ffff88027f5e9bb8 ffffffffa009153c ffffffffa0092a30 ffff8806221d5700
-Call Trace:
- [<ffffffff81408e46>] free_netdev+0x64/0xd7
- [<ffffffffa009153c>] ixgbevf_remove+0xa6/0xbc [ixgbevf]
- [<ffffffff8127a7a1>] pci_device_remove+0x2d/0x51
- [<ffffffff8131f503>] __device_release_driver+0x6c/0xc2
- [<ffffffff8131f640>] device_release_driver+0x25/0x32
- [<ffffffff8131e821>] bus_remove_device+0x148/0x15d
- [<ffffffff8131cb6b>] device_del+0x130/0x1a4
- [<ffffffff8131cc2a>] device_unregister+0x4b/0x57
- [<ffffffff81275c27>] pci_stop_bus_device+0x63/0x85
- [...]
-
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Acked-by: Greg Rose <gregory.v.rose@intel.com>
-Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 33444b5..537ed19 100644
+index 537ed19..805e02c 100644
 --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
 +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1912,18 +1912,13 @@ err_out:
-  **/
- static void ixgbevf_free_q_vectors(struct ixgbevf_adapter *adapter)
- {
--	int q_idx, num_q_vectors;
--	int napi_vectors;
--
--	num_q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
--	napi_vectors = adapter->num_rx_queues;
-+	int q_idx, num_q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
+@@ -359,6 +359,12 @@ static void ixgbevf_alloc_rx_buffers(struct ixgbevf_adapter *adapter,
+ 			bi->dma = dma_map_single(&pdev->dev, skb->data,
+ 						 rx_ring->rx_buf_len,
+ 						 DMA_FROM_DEVICE);
++			if (dma_mapping_error(&pdev->dev, bi->dma)) {
++				dev_kfree_skb(skb);
++				bi->skb = NULL;
++				dev_err(&pdev->dev, "RX DMA map failed\n");
++				break;
++			}
+ 		}
+ 		rx_desc->read.pkt_addr = cpu_to_le64(bi->dma);
  
- 	for (q_idx = 0; q_idx < num_q_vectors; q_idx++) {
- 		struct ixgbevf_q_vector *q_vector = adapter->q_vector[q_idx];
+@@ -2817,10 +2823,10 @@ static int ixgbevf_tx_map(struct ixgbevf_ring *tx_ring,
+ 			tx_buffer_info->dma =
+ 				skb_frag_dma_map(tx_ring->dev, frag,
+ 						 offset, size, DMA_TO_DEVICE);
+-			tx_buffer_info->mapped_as_page = true;
+ 			if (dma_mapping_error(tx_ring->dev,
+ 					      tx_buffer_info->dma))
+ 				goto dma_error;
++			tx_buffer_info->mapped_as_page = true;
+ 			tx_buffer_info->next_to_watch = i;
  
- 		adapter->q_vector[q_idx] = NULL;
--		if (q_idx < napi_vectors)
--			netif_napi_del(&q_vector->napi);
-+		netif_napi_del(&q_vector->napi);
- 		kfree(q_vector);
- 	}
- }
+ 			len -= size;
 -- 
 1.7.11.7
