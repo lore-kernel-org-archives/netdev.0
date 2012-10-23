@@ -1,57 +1,43 @@
-From: Tony Cheneau <tony.cheneau@amnesiak.org>
-Subject: Re: [PATCH net-next 01/15] 6lowpan: =?UTF-8?Q?lowpan=5Fis=5Fiid?=  =?UTF-8?Q?=5F=31=36=5Fbit=5Fcompressable=28=29=20does=20not=20detect=20co?=  =?UTF-8?Q?mpressable=20address=20correctly?=
-Date: Tue, 23 Oct 2012 16:57:28 +0200
-Message-ID: <0772aae75fdc88ed964d964e46f2cef0@amnesiak.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 06/15] 6lowpan: fix first fragment (FRAG1)
+ handling
+Date: Tue, 23 Oct 2012 17:03:30 +0200
+Message-ID: <1351004610.8609.2068.camel@edumazet-glaptop>
 References: <1350965397-12384-1-git-send-email-tony.cheneau@amnesiak.org>
- <1350965397-12384-2-git-send-email-tony.cheneau@amnesiak.org>
- <20121023.024945.1428104116658345802.davem@davemloft.net>
+	 <1350965397-12384-7-git-send-email-tony.cheneau@amnesiak.org>
+	 <5086450A.9050506@computer.org>
+	 <1bf85bdd4343fe738d15ee74a65578d5@amnesiak.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>,
-	<linux-zigbee-devel@lists.sourceforge.net>, <alan@signal11.us>,
-	<alex.bluesman.smirnov@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jan Ceuleers <jan.ceuleers@computer.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net,
+	Alan Ott <alan@signal11.us>,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+To: Tony Cheneau <tony.cheneau@amnesiak.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.amnesiak.org ([95.130.11.136]:54915 "EHLO amnesiak.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757095Ab2JWO6Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 10:58:24 -0400
-In-Reply-To: <20121023.024945.1428104116658345802.davem@davemloft.net>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:56828 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932291Ab2JWPDe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 11:03:34 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so1627636bkc.19
+        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 08:03:33 -0700 (PDT)
+In-Reply-To: <1bf85bdd4343fe738d15ee74a65578d5@amnesiak.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+On Tue, 2012-10-23 at 16:50 +0200, Tony Cheneau wrote:
 
-Le 23.10.2012 08:49, David Miller a =C3=A9crit=C2=A0:
-[...]
->
-> It's really demoralizing to sit down to read a large 15 entry
-> patch series and this is the first thing I see:
->
->>  /*
->> - * check whether we can compress the IID to 16 bits,
->> - * it's possible for unicast adresses with first 49 bits are zero=20
->> only.
->> - */
->> +* check whether we can compress the IID to 16 bits,
->> +* it's possible for unicast adresses with first 49 bits are zero=20
->> only.
->> +*/
->
-> Don't break the comment indentation, it was perfectly fine.
->
-> I'm not reviewing the rest of the series, you'll need to repost
-> the entire thing after you fix this.
->
-> And if you're smart you'll make sure there aren't similar coding
-> style issues in the rest of your patches, else it's going to take
-> a long time to merge this crap into the tree.
+> >
+> > +	hlen = (type == LOWPAN_DISPATCH_FRAG1 ? LOWPAN_FRAG1_HEAD_SIZE :
+> > +		LOWPAN_FRAGN_HEAD_SIZE);
+> >
+> > So the L for LOWPAN_FRAGN_HEAD_SIZE should be underneath the t for 
+> > type.
+> Will do as well.
 
-Sorry about that, I failed to catch that mistake of mine (and several=20
-other ones that Jan spotted). I'll rework my patchset and resubmit.=20
-Thank you for pointing out this issue.
+By the way parens are not needed, or better like that :
 
-Regards,
-Tony
+	hlen = (type == LOWPAN_DISPATCH_FRAG1) ?
+			LOWPAN_FRAG1_HEAD_SIZE : LOWPAN_FRAGN_HEAD_SIZE;
