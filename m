@@ -1,41 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] pch_gbe: fix CRC errors and improve speed
-Date: Tue, 23 Oct 2012 02:31:47 -0400 (EDT)
-Message-ID: <20121023.023147.1311051232873090162.davem@davemloft.net>
-References: <1350917005-26350-1-git-send-email-vfalico@redhat.com>
+Subject: Re: [PATCH] Make hmac algorithm selection for cookie generation
+ dynamic
+Date: Tue, 23 Oct 2012 02:32:54 -0400 (EDT)
+Message-ID: <20121023.023254.1960160564751660622.davem@davemloft.net>
+References: <1350661926-8312-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, richardcochran@gmail.com,
-	tshimizu818@gmail.com, andy.cress@us.kontron.com,
-	erwan.velu@zodiacaerospace.com, agospoda@redhat.com
-To: vfalico@redhat.com
+Cc: linux-sctp@vger.kernel.org, vyasevich@gmail.com,
+	netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37299 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37306 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753452Ab2JWGbt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 02:31:49 -0400
-In-Reply-To: <1350917005-26350-1-git-send-email-vfalico@redhat.com>
+	with ESMTP id S1753452Ab2JWGc4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 02:32:56 -0400
+In-Reply-To: <1350661926-8312-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Mon, 22 Oct 2012 16:43:22 +0200
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Fri, 19 Oct 2012 11:52:06 -0400
 
-> This patch series tries to get rid of CRC errors and other instability
-> caused by wrong RX_FIFO overrun processing. It also cleans the code a bit.
+> Currently sctp allows for the optional use of md5 of sha1 hmac algorithms to
+> generate cookie values when establishing new connections via two build time
+> config options.  Theres no real reason to make this a static selection.  We can
+> add a sysctl that allows for the dynamic selection of these algorithms at run
+> time, with the default value determined by the corresponding crypto library
+> config options.  It saves us two needless configuration settings and enables the
+> freedom for administrators to select which algorithm a particular system uses.
+> This comes in handy when, for example running a system in FIPS mode, where use
+> of md5 is disallowed, but SHA1 is permitted.
 > 
-> Now (without the patch applied) on high number of incoming packets and/or
-> stressed system pch_gbe driver reports CRC errors and huge numbers of
-> RX_FIFO_ERR (overruns). It also sometimes just freezes (caused by not
-> waiting enough on DMA_RX to stop before issuing a reset on MAC_RX logic).
+> Note: This new sysctl has no corresponding socket option to select the cookie
+> hmac algorithm.  I chose not to implement that intentionally, as RFC 6458
+> contains no option for this value, and I opted not to pollute the socket option
+> namespace.
 > 
-> This patchset removes the unneeded (as per datasheet) MAC_RX reset and
-> corrects the processing of RX_FIFO_ERR in pch_gbe_napi_poll().
-> 
-> With the patchset applied there are no more CRC errors, sane number of
-> RX_FIFO_ERR and improved speed/stability. The patchset was tested on
-> Informix SYS940X and Kontron Tunnel Creek EG20T on 1gbps direct-connected
-> link and different rx/tx descriptors count.
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-All applied to 'net', thanks.
+Neil, please use appropriate subject prefixes in your patch
+submissions.  In this case "sctp: " would have been appropriate.
+
+Vlad, this patch looks fine to me, but I'd like you to review
+it too before I apply it.
+
+Thanks.
