@@ -1,44 +1,101 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: Bug#690845: ethtool: incorrect WoL detection on Broadcom NX
- II rev < 12
-Date: Mon, 22 Oct 2012 19:18:07 -0700
-Message-ID: <1350958687.8764.170.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <20121018134717.9579.22997.reportbug@palomino.museglobal.com>
- <1350570748.26833.102.camel@deadeye.wl.decadent.org.uk>
- <CAG2Wgfee=qsiUhAk5reYTypcOZL0kM5A58J+LjB1wuQ_k9FrfA@mail.gmail.com>
- <1350610209.22276.6.camel@deadeye.wl.decadent.org.uk>
- <1350675530.8764.131.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <CAG2Wgfdn52R2FYh77-2ZHCFVwe8d0MOv_4but6aOsU50jF-+Lg@mail.gmail.com>
- <1350946459.8764.145.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <1350956707.5283.48.camel@deadeye.wl.decadent.org.uk>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next 1/2] r8169: enable ALDPS for power saving
+Date: Tue, 23 Oct 2012 10:24:39 +0800
+Message-ID: <D81B36B929404E28AE7007B7E21B9D46@realtek.com.tw>
+References: <1350893153-18320-1-git-send-email-hayeswang@realtek.com> <20121022192748.GA16370@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: 690845@bugs.debian.org, "Teodor MICU" <mteodor@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: "Ben Hutchings" <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2257 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932498Ab2JWCSQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Oct 2012 22:18:16 -0400
-In-Reply-To: <1350956707.5283.48.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121022192748.GA16370@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-10-23 at 02:45 +0100, Ben Hutchings wrote: 
-> Well we knew that much!  Is the problem that the system firmware 'owns'
-> the WoL control registers so the host can't safely change them?  Is it
-> possible to *read* the WoL configuration, if not to change it? 
+ Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Tuesday, October 23, 2012 3:28 AM
+> To: Hayeswang
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; 
+> jean@google.com
+> Subject: Re: [PATCH net-next 1/2] r8169: enable ALDPS for power saving
+> 
+[...]
+> > @@ -687,6 +687,7 @@ enum features {
+> >  	RTL_FEATURE_WOL		= (1 << 0),
+> >  	RTL_FEATURE_MSI		= (1 << 1),
+> >  	RTL_FEATURE_GMII	= (1 << 2),
+> > +	RTL_FEATURE_EXTENDED	= (1 << 3),
+> 
+> Is there a specific reason why it is not named RTL_FEATURE_ALDPS ?
+> 
+> RTL_FEATURE_EXTENDED is anything but enlightning.
+> 
 
-It's a hardware problem and I don't understand all the details.  There
-is an internal PCIX to PCIE bridge on this chip and it gates the NIC's
-PME event.  During S5 reset, the bridge gets reset by the BIOS and the
-WoL setting done by the driver will no longer work.  Newer chip revs
-have fixed the problem in hardware.
+The flag is determined if the firmware is loaded. It doesn't mean to enable
+ALDPS. Besides ALDPS, the firmware includes the other features about power
+saving, performance, hw behavior, and so on. Thus, I think it  is the extended
+feature. Any suggestion?
 
-The driver reads the pre-boot WoL setting from NVRAM and it becomes the
-ethtool WoL default setting.  Apparently, it is also not working in this
-case.  I know that it doesn't work on some LOM designs as the setting is
-actually in BIOS NVRAM as opposed to NIC NVRAM.
+[...]
+> > @@ -6391,6 +6433,8 @@ static void 
+> rtl8169_net_suspend(struct net_device *dev)
+> >  {
+> >  	struct rtl8169_private *tp = netdev_priv(dev);
+> >  
+> > +	tp->features &= ~RTL_FEATURE_EXTENDED;
+> > +
+> 
+> The commit message does not explain this part.
+> 
+> What are you trying to achieve ?
+
+I don't sure if the firmware code still exists and works after hibernation. I
+clear the flag for safe. It would be set again after loading firmware. It is
+used to make sure to enable ALDPS with firmware.
+
+> 
+> After this patch the driver would look like:
+> 1. disable ALDPS before setting firmware (unmodified by patch)
+>    RTL_GIGA_MAC_VER_29 "RTL8105e"
+>    RTL_GIGA_MAC_VER_30 "RTL8105e"
+>    RTL_GIGA_MAC_VER_37 "RTL8402"
+>    RTL_GIGA_MAC_VER_39 "RTL8106e"
+> 
+> 2. apply_firmware (unmodified by patch)
+>    RTL_GIGA_MAC_VER_25 "RTL8168d/8111d"
+>    RTL_GIGA_MAC_VER_26 "RTL8168d/8111d"
+>    RTL_GIGA_MAC_VER_29 "RTL8105e"
+>    RTL_GIGA_MAC_VER_30 "RTL8105e"
+>    RTL_GIGA_MAC_VER_32 "RTL8168e/8111e"
+>    RTL_GIGA_MAC_VER_33 "RTL8168e/8111e"
+>    RTL_GIGA_MAC_VER_34 "RTL8168evl/8111evl"
+>    RTL_GIGA_MAC_VER_35 "RTL8168f/8111f"
+>    RTL_GIGA_MAC_VER_36 "RTL8168f/8111f"
+>    RTL_GIGA_MAC_VER_37 "RTL8402"
+>    RTL_GIGA_MAC_VER_38 "RTL8411"
+>    RTL_GIGA_MAC_VER_39 "RTL8106e"
+>    RTL_GIGA_MAC_VER_40 "RTL8168g/8111g"
+> 
+> 3. enable ALDPS after firmware
+>    RTL_GIGA_MAC_VER_34 "RTL8168evl/8111evl"
+>    RTL_GIGA_MAC_VER_35 "RTL8168f/8111f"
+>    RTL_GIGA_MAC_VER_36 "RTL8168f/8111f"
+>    RTL_GIGA_MAC_VER_37 "RTL8402"
+>    RTL_GIGA_MAC_VER_38 "RTL8411"
+>    RTL_GIGA_MAC_VER_39 "RTL8106e"
+>    RTL_GIGA_MAC_VER_40 "RTL8168g/8111g"
+> 
+> The disable/enable ALDPS code is not trivially balanced.
+> 
+> Do we exactly perform the required ALDPS operations ? Nothing more,
+> nothing less ?
+> 
+
+Because the different design between the giga nic and 10/100M nic, the behavior
+would be different. For example, you couldn't disable the ALDPS of the giga nic
+directly just like the 10/100M (8136 series) one. The giga nic would disable
+ALDPS automatically when loading firmware, but the 8136 series wouldn't.
+
+Best Regards,
+Hayes
