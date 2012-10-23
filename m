@@ -1,38 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vlan: set sysfs device_type to 'vlan'
-Date: Tue, 23 Oct 2012 02:36:47 -0400 (EDT)
-Message-ID: <20121023.023647.2164665243829038911.davem@davemloft.net>
-References: <1350885237-12998-1-git-send-email-cardoe@cardoe.com>
+Subject: Re: [PATCH net-next v8 1/1] ipv6: add support of equal cost
+ multipath (ECMP)
+Date: Tue, 23 Oct 2012 02:39:10 -0400 (EDT)
+Message-ID: <20121023.023910.80461258323920266.davem@davemloft.net>
+References: <20121021.204146.1395047796384194358.davem@davemloft.net>
+	<1350913329-4044-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1350913329-4044-2-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	systemd-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org
-To: cardoe@cardoe.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1350885237-12998-1-git-send-email-cardoe@cardoe.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: joe@perches.com, bernat@luffy.cx, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, eric.dumazet@gmail.com
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37356 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751724Ab2JWGjO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 02:39:14 -0400
+In-Reply-To: <1350913329-4044-2-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Doug Goldstein <cardoe@cardoe.com>
-Date: Mon, 22 Oct 2012 00:53:57 -0500
+From: nicolas.dichtel@6wind.com
+Date: Mon, 22 Oct 2012 15:42:09 +0200
 
-> Sets the sysfs device_type to 'vlan' for udev. This makes it easier for
-> applications that query network information via udev to identify vlans
-> instead of using strrchr().
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 > 
-> Signed-off-by: Doug Goldstein <cardoe@cardoe.com>
+> Each nexthop is added like a single route in the routing table. All routes
+> that have the same metric/weight and destination but not the same gateway
+> are considering as ECMP routes. They are linked together, through a list called
+> rt6i_siblings.
+> 
+> ECMP routes can be added in one shot, with RTA_MULTIPATH attribute or one after
+> the other (in both case, the flag NLM_F_EXCL should not be set).
+> 
+> The patch is based on a previous work from
+> Luc Saillard <luc.saillard@6wind.com>.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-You're extremely misguided.  This change, in fact, makes it ten times
-harder for such applications to query such devices.
-
-Because now the application has to decide whether it wants to support
-EVERY EXISTING SYSTEM OUT THERE or not.  Hundreds of millions of Linux
-systems do not provide this attribute.
-
-Applications have to handle the case of not having the 'vlan' device
-type available attribute essentially forever.
-
-So providing it in new kernels provides zero value whatsoever.
-
-I'm not applying this patch, sorry.
+Applied, thanks.
